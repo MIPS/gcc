@@ -2115,6 +2115,13 @@ build_post_landing_pads (void)
       switch (region->type)
 	{
 	case ERT_TRY:
+
+	  /* It is possible that TRY region is kept alive only because some of
+	     contained catch region still have RESX instruction but they are
+	     reached via their copies.  In this case we need to do nothing.  */
+	  if (!region->u.eh_try.eh_catch->label)
+	    break;
+
 	  /* ??? Collect the set of all non-overlapping catch handlers
 	       all the way up the chain until blocked by a cleanup.  */
 	  /* ??? Outer try regions can share landing pads with inner
@@ -2174,6 +2181,9 @@ build_post_landing_pads (void)
 	  break;
 
 	case ERT_ALLOWED_EXCEPTIONS:
+
+	  if (!region->label)
+	    break;
 	  region->post_landing_pad = gen_label_rtx ();
 
 	  start_sequence ();
