@@ -1420,9 +1420,13 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
     case POSTDECREMENT_EXPR:
     case POSTINCREMENT_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
     case MULT_EXPR:
+    case MULTNV_EXPR:
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -1483,6 +1487,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
     CASE_CONVERT:
     case NON_LVALUE_EXPR:
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case ADDR_EXPR:
