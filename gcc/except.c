@@ -2316,6 +2316,9 @@ dw2_build_landing_pads (void)
 	  && region->type != ERT_ALLOWED_EXCEPTIONS)
 	continue;
 
+      if (!region->post_landing_pad)
+	continue;
+
       start_sequence ();
 
       region->landing_pad = gen_label_rtx ();
