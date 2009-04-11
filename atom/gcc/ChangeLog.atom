@@ -1,5 +1,12 @@
 2009-04-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_dep_by_shift_count): Renamed to ...
+	(ix86_dep_by_shift_count_body): This.  Properly handle PARALLEL
+	patterns.
+	(ix86_dep_by_shift_count): New.
+
+2009-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (distance_non_agu_define): Call
 	extract_insn_cached only once.
 

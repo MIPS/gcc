@@ -13225,30 +13225,28 @@ ix86_lea_for_add_ok (enum rtx_code code ATTRIBUTE_UNUSED,
     }
 }
 
-/* Return true if destination reg of SET_INSN is shift count of
-   USE_INSN.  */
+/* Return true if destination reg of SET_BODY is shift count of
+   USE_BODY.  */
 
-bool
-ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn)
+static bool
+ix86_dep_by_shift_count_body (const_rtx set_body, const_rtx use_body)
 {
-  rtx set_pattern = PATTERN (set_insn);
   rtx set_dest;
   rtx shift_rtx;
-  rtx use_pattern;
+  int i;
 
-  /* Retrieve destination of set_insn */
-  switch (GET_CODE (set_pattern))
+  /* Retrieve destination of set_body.  */
+  switch (GET_CODE (set_body))
     {
     case SET:
-      set_dest = SET_DEST (set_pattern);
+      set_dest = SET_DEST (set_body);
       break;
     case PARALLEL:
-      set_pattern = XVECEXP (set_pattern, 0, 0);
-      if (GET_CODE (set_pattern ) == SET)
-	{
-	  set_dest = SET_DEST (set_pattern);
-	  break;
-	}
+      for (i = XVECLEN (set_body, 0) - 1; i >= 0; i--)
+	if (ix86_dep_by_shift_count_body (XVECEXP (set_body, 0, i),
+					  use_body))
+	  return true;
+      return false;
     default:
       set_dest = NULL;
       break;
@@ -13256,20 +13254,18 @@ ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn)
   if (!set_dest || !REG_P (set_dest))
     return false;
 
-  /* Retrieve shift count of use_insn */
-  use_pattern = PATTERN (use_insn);
-  switch (GET_CODE (use_pattern))
+  /* Retrieve shift count of use_body.  */
+  switch (GET_CODE (use_body))
     {
     case SET:
-      shift_rtx = XEXP (use_pattern, 1);
+      shift_rtx = XEXP (use_body, 1);
       break;
     case PARALLEL:
-      set_pattern = XVECEXP (use_pattern, 0, 0);
-      if (GET_CODE (set_pattern) == SET)
-	{
-	  shift_rtx = XEXP (set_pattern, 1);
-	  break;
-	}
+      for (i = XVECLEN (use_body, 0) - 1; i >= 0; i--)
+	if (ix86_dep_by_shift_count_body (set_body,
+					  XVECEXP (use_body, 0, i)))
+	  return true;
+      return false;
     default:
       shift_rtx = NULL;
       break;
@@ -13292,6 +13288,16 @@ ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn)
     }
 
   return false;
+}
+
+/* Return true if destination reg of SET_INSN is shift count of
+   USE_INSN.  */
+
+bool
+ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn)
+{
+  return ix86_dep_by_shift_count_body (PATTERN (set_insn),
+				       PATTERN (use_insn));
 }
 
 /* Return TRUE or FALSE depending on whether the unary operator meets the
