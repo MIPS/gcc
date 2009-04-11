@@ -3418,6 +3418,14 @@ expand_omp_taskreg (struct omp_region *region)
       /* Declare local variables needed in CHILD_CFUN.  */
       block = DECL_INITIAL (child_fn);
       BLOCK_VARS (block) = list2chain (child_cfun->local_decls);
+      /* The gimplifier could record temporaries in parallel/task block
+	 rather than in containing function's local_decls chain,
+	 which would mean cgraph missed finalizing them.  Do it now.  */
+      for (t = BLOCK_VARS (block); t; t = TREE_CHAIN (t))
+	if (TREE_CODE (t) == VAR_DECL
+	    && TREE_STATIC (t)
+	    && !DECL_EXTERNAL (t))
+	  varpool_finalize_decl (t);
       DECL_SAVED_TREE (child_fn) = NULL;
       gimple_set_body (child_fn, bb_seq (single_succ (entry_bb)));
       TREE_USED (block) = 1;
@@ -5462,7 +5470,7 @@ struct gimple_opt_pass pass_expand_omp =
   0,					/* static_pass_number */
   0,					/* tv_id */
   PROP_gimple_any,			/* properties_required */
-  PROP_gimple_lomp,			/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func			/* todo_flags_finish */
@@ -6583,6 +6591,11 @@ execute_lower_omp (void)
 {
   gimple_seq body;
 
+  /* This pass always runs, to provide PROP_gimple_lomp.
+     But there is nothing to do unless -fopenmp is given.  */
+  if (flag_openmp == 0)
+    return 0;
+
   all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
 				 delete_omp_context);
 
@@ -6610,18 +6623,12 @@ execute_lower_omp (void)
   return 0;
 }
 
-static bool
-gate_lower_omp (void)
-{
-  return flag_openmp != 0;
-}
-
 struct gimple_opt_pass pass_lower_omp = 
 {
  {
   GIMPLE_PASS,
   "omplower",				/* name */
-  gate_lower_omp,			/* gate */
+  NULL,					/* gate */
   execute_lower_omp,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */

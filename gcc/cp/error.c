@@ -73,11 +73,13 @@ static void dump_global_iord (tree);
 static void dump_parameters (tree, int);
 static void dump_exception_spec (tree, int);
 static void dump_template_argument (tree, int);
-static void dump_template_argument_list (tree, int);
+static void dump_template_argument_list (tree, tree, int);
 static void dump_template_parameter (tree, int);
 static void dump_template_bindings (tree, tree, VEC(tree,gc) *);
 static void dump_scope (tree, int);
 static void dump_template_parms (tree, int, int);
+
+static int count_non_default_template_args (tree, tree);
 
 static const char *function_category (tree);
 static void maybe_print_instantiation_context (diagnostic_context *);
@@ -140,7 +142,7 @@ static void
 dump_template_argument (tree arg, int flags)
 {
   if (ARGUMENT_PACK_P (arg))
-    dump_template_argument_list (ARGUMENT_PACK_ARGS (arg), flags);
+    dump_template_argument_list (ARGUMENT_PACK_ARGS (arg), NULL_TREE, flags);
   else if (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL)
     dump_type (arg, flags & ~TFF_CLASS_KEY_OR_ENUM);
   else
@@ -152,17 +154,49 @@ dump_template_argument (tree arg, int flags)
     }
 }
 
+/* Count the number of template arguments ARGS whose value does not
+   match the (optional) default template parameter in PARAMS  */
+
+static int
+count_non_default_template_args (tree args, tree params)
+{
+  int n = TREE_VEC_LENGTH (args);
+  int last;
+
+  if (params == NULL_TREE || !flag_pretty_templates)
+    return n;
+
+  for (last = n - 1; last >= 0; --last)
+    {
+      tree param = TREE_VEC_ELT (params, last);
+      tree def = TREE_PURPOSE (param);
+
+      if (!def)
+        break;
+      if (uses_template_parms (def))
+	{
+	  ++processing_template_decl;
+	  def = tsubst_copy_and_build (def, args, tf_none, NULL_TREE, false, true);
+	  --processing_template_decl;
+	}
+      if (!cp_tree_equal (TREE_VEC_ELT (args, last), def))
+        break;
+    }
+
+  return last + 1;
+}
+
 /* Dump a template-argument-list ARGS (always a TREE_VEC) under control
    of FLAGS.  */
 
 static void
-dump_template_argument_list (tree args, int flags)
+dump_template_argument_list (tree args, tree parms, int flags)
 {
-  int n = TREE_VEC_LENGTH (args);
+  int n = count_non_default_template_args (args, parms);
   int need_comma = 0;
   int i;
 
-  for (i = 0; i< n; ++i)
+  for (i = 0; i < n; ++i)
     {
       tree arg = TREE_VEC_ELT (args, i);
 
@@ -240,18 +274,19 @@ dump_template_bindings (tree parms, tree args, VEC(tree,gc)* typenames)
       int lvl = TMPL_PARMS_DEPTH (parms);
       int arg_idx = 0;
       int i;
+      tree lvl_args = NULL_TREE;
+
+      /* Don't crash if we had an invalid argument list.  */
+      if (TMPL_ARGS_DEPTH (args) >= lvl)
+	lvl_args = TMPL_ARGS_LEVEL (args, lvl);
 
       for (i = 0; i < TREE_VEC_LENGTH (p); ++i)
 	{
 	  tree arg = NULL_TREE;
 
 	  /* Don't crash if we had an invalid argument list.  */
-	  if (TMPL_ARGS_DEPTH (args) >= lvl)
-	    {
-	      tree lvl_args = TMPL_ARGS_LEVEL (args, lvl);
-	      if (NUM_TMPL_ARGS (lvl_args) > arg_idx)
-		arg = TREE_VEC_ELT (lvl_args, arg_idx);
-	    }
+	  if (lvl_args && NUM_TMPL_ARGS (lvl_args) > arg_idx)
+	    arg = TREE_VEC_ELT (lvl_args, arg_idx);
 
 	  if (need_comma)
 	    pp_separate_with_comma (cxx_pp);
@@ -275,11 +310,15 @@ dump_template_bindings (tree parms, tree args, VEC(tree,gc)* typenames)
     {
       if (need_comma)
 	pp_separate_with_comma (cxx_pp);
-      dump_type (t, 0);
+      dump_type (t, TFF_PLAIN_IDENTIFIER);
       pp_cxx_whitespace (cxx_pp);
       pp_equal (cxx_pp);
       pp_cxx_whitespace (cxx_pp);
-      dump_type (tsubst (t, args, tf_none, NULL_TREE), 0);
+      t = tsubst (t, args, tf_none, NULL_TREE);
+      /* Strip typedefs.  We can't just use TFF_CHASE_TYPEDEF because
+	 pp_simple_type_specifier doesn't know about it.  */
+      t = canonical_type_variant (t);
+      dump_type (t, TFF_PLAIN_IDENTIFIER);
     }
 }
 
@@ -361,7 +400,7 @@ dump_type (tree t, int flags)
 	pp_cxx_cv_qualifier_seq (cxx_pp, t);
 	pp_cxx_tree_identifier (cxx_pp, TYPE_IDENTIFIER (t));
 	pp_cxx_begin_template_argument_list (cxx_pp);
-	dump_template_argument_list (args, flags);
+	dump_template_argument_list (args, NULL_TREE, flags);
 	pp_cxx_end_template_argument_list (cxx_pp);
       }
       break;
@@ -390,6 +429,12 @@ dump_type (tree t, int flags)
       break;
     }
     case TYPENAME_TYPE:
+      if (! (flags & TFF_CHASE_TYPEDEF)
+	  && DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
+	{
+	  dump_decl (TYPE_NAME (t), TFF_PLAIN_IDENTIFIER);
+	  break;
+	}
       pp_cxx_cv_qualifier_seq (cxx_pp, t);
       pp_cxx_identifier (cxx_pp,
 			 TYPENAME_IS_ENUM_P (t) ? "enum"
@@ -492,14 +537,22 @@ dump_aggr_type (tree t, int flags)
   if (flags & TFF_CLASS_KEY_OR_ENUM)
     pp_cxx_identifier (cxx_pp, variety);
 
-  if (flags & TFF_CHASE_TYPEDEF)
-    t = TYPE_MAIN_VARIANT (t);
-
   name = TYPE_NAME (t);
 
   if (name)
     {
       typdef = !DECL_ARTIFICIAL (name);
+
+      if (typdef
+	  && ((flags & TFF_CHASE_TYPEDEF)
+	      || (!flag_pretty_templates && DECL_LANG_SPECIFIC (name)
+		  && DECL_TEMPLATE_INFO (name))))
+	{
+	  t = TYPE_MAIN_VARIANT (t);
+	  name = TYPE_NAME (t);
+	  typdef = 0;
+	}
+
       tmplate = !typdef && TREE_CODE (t) != ENUMERAL_TYPE
 		&& TYPE_LANG_SPECIFIC (t) && CLASSTYPE_TEMPLATE_INFO (t)
 		&& (TREE_CODE (CLASSTYPE_TI_TEMPLATE (t)) != TEMPLATE_DECL
@@ -949,7 +1002,7 @@ dump_decl (tree t, int flags)
 	dump_decl (name, flags);
 	pp_cxx_begin_template_argument_list (cxx_pp);
 	if (TREE_OPERAND (t, 1))
-	  dump_template_argument_list (TREE_OPERAND (t, 1), flags);
+	  dump_template_argument_list (TREE_OPERAND (t, 1), NULL_TREE, flags);
 	pp_cxx_end_template_argument_list (cxx_pp);
       }
       break;
@@ -1089,7 +1142,7 @@ dump_template_decl (tree t, int flags)
 }
 
 /* find_typenames looks through the type of the function template T
-   and returns a VEC containing any TYPENAME_TYPEs it finds.  */
+   and returns a VEC containing any typedefs or TYPENAME_TYPEs it finds.  */
 
 struct find_typenames_t
 {
@@ -1098,26 +1151,27 @@ struct find_typenames_t
 };
 
 static tree
-find_typenames_r (tree *tp, int *walk_subtrees, void *data)
+find_typenames_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
 {
   struct find_typenames_t *d = (struct find_typenames_t *)data;
+  tree mv = NULL_TREE;
 
-  if (TREE_CODE (*tp) == TYPENAME_TYPE)
-    {
-      /* Discard any cv-qualifiers.  */
-      tree mv = TYPE_MAIN_VARIANT (*tp);
-      if (mv == *tp || !pointer_set_insert (d->p_set, mv))
-	VEC_safe_push (tree, gc, d->typenames, mv);
-      *walk_subtrees = 0;
-    }
+  if (TYPE_P (*tp) && is_typedef_decl (TYPE_NAME (*tp)))
+    /* Add the type of the typedef without any additional cv-quals.  */
+    mv = TREE_TYPE (TYPE_NAME (*tp));
+  else if (TREE_CODE (*tp) == TYPENAME_TYPE)
+    /* Add the typename without any cv-qualifiers.  */
+    mv = TYPE_MAIN_VARIANT (*tp);
+
+  if (mv && (mv == *tp || !pointer_set_insert (d->p_set, mv)))
+    VEC_safe_push (tree, gc, d->typenames, mv);
+
   /* Search into class template arguments, which cp_walk_subtrees
      doesn't do.  */
-  else if (CLASS_TYPE_P (*tp) && CLASSTYPE_TEMPLATE_INFO (*tp))
-    {
-      cp_walk_tree (&CLASSTYPE_TI_ARGS (*tp), find_typenames_r,
-		    data, d->p_set);
-      *walk_subtrees = 0;
-    }
+  if (CLASS_TYPE_P (*tp) && CLASSTYPE_TEMPLATE_INFO (*tp))
+    cp_walk_tree (&CLASSTYPE_TI_ARGS (*tp), find_typenames_r,
+		  data, d->p_set);
+
   return NULL_TREE;
 }
 
@@ -1160,7 +1214,8 @@ dump_function_decl (tree t, int flags)
   exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (t));
 
   /* Pretty print template instantiations only.  */
-  if (DECL_USE_TEMPLATE (t) && DECL_TEMPLATE_INFO (t))
+  if (DECL_USE_TEMPLATE (t) && DECL_TEMPLATE_INFO (t)
+      && flag_pretty_templates)
     {
       tree tmpl;
 
@@ -1378,11 +1433,15 @@ dump_template_parms (tree info, int primary, int flags)
   if (args && !primary)
     {
       int len, ix;
+      /* We don't know the parms for a friend template specialization.  */
+      tree params = (TREE_CODE (TI_TEMPLATE (info)) == TEMPLATE_DECL
+		     ? DECL_INNERMOST_TEMPLATE_PARMS (TI_TEMPLATE (info))
+		     : NULL_TREE);
 
       if (TMPL_ARGS_HAVE_MULTIPLE_LEVELS (args))
 	args = TREE_VEC_ELT (args, TREE_VEC_LENGTH (args) - 1);
 
-      len = TREE_VEC_LENGTH (args);
+      len = count_non_default_template_args (args, params);
 
       for (ix = 0; ix != len; ix++)
 	{

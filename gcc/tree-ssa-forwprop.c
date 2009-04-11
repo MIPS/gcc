@@ -675,7 +675,8 @@ forward_propagate_addr_into_variable_array_index (tree offset,
 					       tunit)) != NULL_TREE)
        {
 	 gimple offset_def2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (offset_def));
-	 if (gimple_assign_rhs_code (offset_def2) == MULTNV_EXPR
+	 if (is_gimple_assign (offset_def2)
+	     && gimple_assign_rhs_code (offset_def2) == MULTNV_EXPR
 	     && TREE_CODE (gimple_assign_rhs2 (offset_def2)) == INTEGER_CST
 	     && tree_int_cst_equal (gimple_assign_rhs2 (offset_def2), tunit))
 	   {
@@ -1260,6 +1261,15 @@ tree_ssa_forward_propagate_single_use_vars (void)
 		      gsi_remove (&gsi, true);
 		    }
 		  else
+		    gsi_next (&gsi);
+		}
+	      else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
+		       && is_gimple_min_invariant (rhs))
+		{
+		  /* Make sure to fold &a[0] + off_1 here.  */
+		  fold_stmt_inplace (stmt);
+		  update_stmt (stmt);
+		  if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
 		    gsi_next (&gsi);
 		}
 	      else if ((gimple_assign_rhs_code (stmt) == BIT_NOT_EXPR
