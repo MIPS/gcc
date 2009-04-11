@@ -571,9 +571,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
-#if 0
 	  NEXT_PASS (pass_early_ipa_sra);
-#endif
 	  NEXT_PASS (pass_tail_recursion);
 	  NEXT_PASS (pass_convert_switch);
           NEXT_PASS (pass_cleanup_eh);
