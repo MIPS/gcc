@@ -36,6 +36,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch8;  use Sem_Ch8;
@@ -9148,10 +9149,11 @@ package body Exp_Dist is
                                    (RTE (RE_Release_Buffer), Loc),
                                Parameter_Associations =>
                                  New_List (New_Occurrence_Of (Strm, Loc))),
+
                              Make_Simple_Return_Statement (Loc,
                                Expression => New_Occurrence_Of (Res, Loc))))));
-                  else
 
+                  else
                      --  declare
                      --     Res : T;
                      --  begin
@@ -9179,16 +9181,17 @@ package body Exp_Dist is
                                    Prefix         =>
                                      New_Occurrence_Of (Strm, Loc),
                                    Attribute_Name => Name_Access),
-                                New_Occurrence_Of (Res, Loc))),
+                                 New_Occurrence_Of (Res, Loc))),
+
                              Make_Procedure_Call_Statement (Loc,
                                Name                   =>
                                  New_Occurrence_Of
                                    (RTE (RE_Release_Buffer), Loc),
                                Parameter_Associations =>
                                  New_List (New_Occurrence_Of (Strm, Loc))),
+
                              Make_Simple_Return_Statement (Loc,
                                Expression => New_Occurrence_Of (Res, Loc))))));
-
                   end if;
                end;
             end if;
@@ -9592,7 +9595,7 @@ package body Exp_Dist is
                                  return Nod;
                               end Make_Discriminant_Reference;
 
-                           --  Start processing for Variant_Part
+                           --  Start of processing for Variant_Part
 
                            begin
                               Append_To (Stmts,

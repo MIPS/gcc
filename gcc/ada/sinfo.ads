@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1137,7 +1135,8 @@ package Sinfo is
    --    This flag is set in the N_With_Clause node that is implicitly
    --    generated for runtime units that are loaded by the expander, and also
    --    for package System, if it is loaded implicitly by a use of the
-   --    'Address or 'Tag attribute.
+   --    'Address or 'Tag attribute. ???There are other implicit with clauses
+   --    as well.
 
    --  Includes_Infinities (Flag11-Sem)
    --    This flag is present in N_Range nodes. It is set for the range of
@@ -2885,6 +2884,7 @@ package Sinfo is
       --  N_Access_Function_Definition
       --  Sloc points to ACCESS
       --  Null_Exclusion_Present (Flag11)
+      --  Null_Exclusion_In_Return_Present (Flag14)
       --  Protected_Present (Flag6)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Result_Definition (Node4) result subtype (subtype mark or access def)
@@ -3727,6 +3727,13 @@ package Sinfo is
       --  Do_Storage_Check (Flag17-Sem)
       --  Is_Dynamic_Coextension (Flag18-Sem)
       --  plus fields for expression
+
+      --  Note: like all nodes, the N_Allocator has the Comes_From_Source flag.
+      --  This flag has a special function in conjunction with the restriction
+      --  No_Implicit_Heap_Allocations, which will be triggered if this flag
+      --  is not set. This means that if a source allocator is replaced with
+      --  a constructed allocator, the Comes_From_Source flag should be copied
+      --  to the newly created allocator.
 
       ---------------------------------
       -- 5.1  Sequence Of Statements --
@@ -8090,6 +8097,9 @@ package Sinfo is
    function Null_Exclusion_Present
      (N : Node_Id) return Boolean;    -- Flag11
 
+   function Null_Exclusion_In_Return_Present
+     (N : Node_Id) return Boolean;    -- Flag14
+
    function Null_Record_Present
      (N : Node_Id) return Boolean;    -- Flag17
 
@@ -8971,6 +8981,9 @@ package Sinfo is
 
    procedure Set_Null_Exclusion_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag11
+
+   procedure Set_Null_Exclusion_In_Return_Present
+     (N : Node_Id; Val : Boolean := True);    -- Flag14
 
    procedure Set_Null_Record_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag17
@@ -11064,6 +11077,7 @@ package Sinfo is
    pragma Inline (No_Truncation);
    pragma Inline (Null_Present);
    pragma Inline (Null_Exclusion_Present);
+   pragma Inline (Null_Exclusion_In_Return_Present);
    pragma Inline (Null_Record_Present);
    pragma Inline (Object_Definition);
    pragma Inline (Original_Discriminant);
@@ -11355,6 +11369,7 @@ package Sinfo is
    pragma Inline (Set_No_Truncation);
    pragma Inline (Set_Null_Present);
    pragma Inline (Set_Null_Exclusion_Present);
+   pragma Inline (Set_Null_Exclusion_In_Return_Present);
    pragma Inline (Set_Null_Record_Present);
    pragma Inline (Set_Object_Definition);
    pragma Inline (Set_Original_Discriminant);

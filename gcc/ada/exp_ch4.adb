@@ -3,7 +3,7 @@
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
 --                              E X P _ C H 4                               --
---                                                               g           --
+--                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
 --          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
@@ -50,6 +50,7 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch8;  use Sem_Ch8;
@@ -656,6 +657,11 @@ package body Exp_Ch4 is
                      Make_Allocator (Loc,
                        New_Reference_To (Etype (Exp), Loc)));
 
+               --  Copy the Comes_From_Source flag for the allocator we just
+               --  built, since logically this allocator is a replacement of
+               --  the original allocator node. This is for proper handling of
+               --  restriction No_Implicit_Heap_Allocations.
+
                Set_Comes_From_Source
                  (Expression (Tmp_Node), Comes_From_Source (N));
 
@@ -671,6 +677,7 @@ package body Exp_Ch4 is
                end if;
 
                Convert_Aggr_In_Allocator (N, Tmp_Node, Exp);
+
             else
                Node := Relocate_Node (N);
                Set_Analyzed (Node);
@@ -725,6 +732,11 @@ package body Exp_Ch4 is
                       Expression          =>
                         Make_Allocator (Loc,
                           New_Reference_To (Etype (Exp), Loc)));
+
+                  --  Copy the Comes_From_Source flag for the allocator we just
+                  --  built, since logically this allocator is a replacement of
+                  --  the original allocator node. This is for proper handling
+                  --  of restriction No_Implicit_Heap_Allocations.
 
                   Set_Comes_From_Source
                     (Expression (Tmp_Node), Comes_From_Source (N));
@@ -927,6 +939,11 @@ package body Exp_Ch4 is
              Object_Definition   => New_Reference_To (PtrT, Loc),
              Expression          => Make_Allocator (Loc,
                  New_Reference_To (Etype (Exp), Loc)));
+
+         --  Copy the Comes_From_Source flag for the allocator we just built,
+         --  since logically this allocator is a replacement of the original
+         --  allocator node. This is for proper handling of restriction
+         --  No_Implicit_Heap_Allocations.
 
          Set_Comes_From_Source
            (Expression (Tmp_Node), Comes_From_Source (N));
@@ -2337,6 +2354,16 @@ package body Exp_Ch4 is
       if Is_Enumeration_Type (Ityp) then
          Artyp := Standard_Integer;
 
+      --  If index type is Positive, we use the standard unsigned type, to give
+      --  more room on the top of the range, obviating the need for an overflow
+      --  check when creating the upper bound. This is needed to avoid junk
+      --  overflow checks in the common case of String types.
+
+      --  ??? Disabled for now
+
+      --  elsif Istyp = Standard_Positive then
+      --     Artyp := Standard_Unsigned;
+
       --  For modular types, we use a 32-bit modular type for types whose size
       --  is in the range 1-31 bits. For 32-bit unsigned types, we use the
       --  identity type, and for larger unsigned types we use 64-bits.
@@ -2417,7 +2444,7 @@ package body Exp_Ch4 is
                  Make_Op_Add (Loc,
                    Left_Opnd  =>
                      New_Copy_Tree (String_Literal_Low_Bound (Opnd_Typ)),
-                   Right_Opnd => Make_Artyp_Literal (1));
+                   Right_Opnd => Make_Integer_Literal (Loc, 1));
             end if;
 
             --  Skip null string literal
@@ -2729,9 +2756,14 @@ package body Exp_Ch4 is
                 Left_Opnd  => New_Copy (Aggr_Length (NN)),
                 Right_Opnd => Make_Artyp_Literal (1))));
 
-      --  Now force overflow checking on High_Bound
+      --  Note that calculation of the high bound may cause overflow in some
+      --  very weird cases, so in the general case we need an overflow check
+      --  on the high bound. We can avoid this for the common case of string
+      --  types since we chose a wider range for the arithmetic type.
 
-      Activate_Overflow_Check (High_Bound);
+      if Istyp /= Standard_Positive then
+         Activate_Overflow_Check (High_Bound);
+      end if;
 
       --  Handle the exceptional case where the result is null, in which case
       --  case the bounds come from the last operand (so that we get the proper
@@ -4169,7 +4201,7 @@ package body Exp_Ch4 is
                            Make_Integer_Literal (Loc, Dim)));
                   end Construct_Attribute_Reference;
 
-               --  Start processing for Check_Subscripts
+               --  Start of processing for Check_Subscripts
 
                begin
                   for J in 1 .. Number_Dimensions (Typ) loop
@@ -4767,7 +4799,7 @@ package body Exp_Ch4 is
 
          --  Check for 64-bit division available, or long shifts if the divisor
          --  is a small power of 2 (since such divides will be converted into
-         --  long shifts.
+         --  long shifts).
 
          if Esize (Ltyp) > 32
            and then not Support_64_Bit_Divides_On_Target
@@ -5683,7 +5715,7 @@ package body Exp_Ch4 is
 
       --  Otherwise we have to introduce conversions (conversions are also
       --  required in the universal cases, since the runtime routine is
-      --  typed using one of the standard types.
+      --  typed using one of the standard types).
 
       else
          Rewrite (N,

@@ -49,6 +49,7 @@ with Opt;      use Opt;
 with Output;   use Output;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch4;  use Sem_Ch4;
@@ -187,11 +188,11 @@ package body Sem_Ch6 is
      (N       : Node_Id;
       Spec_Id : Entity_Id;
       Body_Id : Entity_Id);
-   --  Called from Analyze_Body to deal with scanning post conditions for the
-   --  body and assembling and inserting the _postconditions procedure. N is
-   --  the node for the subprogram body and Body_Id/Spec_Id are the entities
-   --  for the body and separate spec (if there is no separate spec, Spec_Id
-   --  is Empty).
+   --  Called from Analyze[_Generic]_Subprogram_Body to deal with scanning post
+   --  conditions for the body and assembling and inserting the _postconditions
+   --  procedure. N is the node for the subprogram body and Body_Id/Spec_Id are
+   --  the entities for the body and separate spec (if there is no separate
+   --  spec, Spec_Id is Empty).
 
    procedure Set_Formal_Validity (Formal_Id : Entity_Id);
    --  Formal_Id is an formal parameter entity. This procedure deals with
@@ -269,9 +270,10 @@ package body Sem_Ch6 is
          Push_Scope (Stm_Entity);
       end if;
 
-      --  Check that pragma No_Return is obeyed
+      --  Check that pragma No_Return is obeyed. Don't complain about the
+      --  implicitly-generated return that is placed at the end.
 
-      if No_Return (Scope_Id) then
+      if No_Return (Scope_Id) and then Comes_From_Source (N) then
          Error_Msg_N ("RETURN statement not allowed (No_Return)", N);
       end if;
 
@@ -1280,12 +1282,38 @@ package body Sem_Ch6 is
             Set_Is_Local_Anonymous_Access (Typ);
             Set_Etype (Designator, Typ);
 
+            --  Ada 2005 (AI-231): Ensure proper usage of null exclusion
+
+            Null_Exclusion_Static_Checks (N);
+
          --  Subtype_Mark case
 
          else
             Find_Type (Result_Definition (N));
             Typ := Entity (Result_Definition (N));
             Set_Etype (Designator, Typ);
+
+            --  Ada 2005 (AI-231): Ensure proper usage of null exclusion
+
+            Null_Exclusion_Static_Checks (N);
+
+            --  If a null exclusion is imposed on the result type, then create
+            --  a null-excluding itype (an access subtype) and use it as the
+            --  function's Etype. Note that the null exclusion checks are done
+            --  right before this, because they don't get applied to types that
+            --  do not come from source.
+
+            if Is_Access_Type (Typ)
+              and then Null_Exclusion_Present (N)
+            then
+               Set_Etype  (Designator,
+                 Create_Null_Excluding_Itype
+                   (T           => Typ,
+                    Related_Nod => N,
+                    Scope_Id    => Scope (Current_Scope)));
+            else
+               Set_Etype (Designator, Typ);
+            end if;
 
             if Ekind (Typ) = E_Incomplete_Type
               and then Is_Value_Type (Typ)
@@ -1301,10 +1329,6 @@ package body Sem_Ch6 is
                  ("invalid use of incomplete type", Result_Definition (N));
             end if;
          end if;
-
-         --  Ada 2005 (AI-231): Ensure proper usage of null exclusion
-
-         Null_Exclusion_Static_Checks (N);
 
       --  Case where result definition does indicate an error
 
@@ -1357,7 +1381,7 @@ package body Sem_Ch6 is
       --  the case where there is no separate spec.
 
       procedure Check_Anonymous_Return;
-      --  (Ada 2005): if a function returns an access type that denotes a task,
+      --  Ada 2005: if a function returns an access type that denotes a task,
       --  or a type that contains tasks, we must create a master entity for
       --  the anonymous type, which typically will be used in an allocator
       --  in the body of the function.
@@ -1868,9 +1892,11 @@ package body Sem_Ch6 is
 
       Check_Inline_Pragma (Spec_Id);
 
-      --  Case of fully private operation in the body of the protected type.
-      --  We must create a declaration for the subprogram, in order to attach
-      --  the protected subprogram that will be used in internal calls.
+      --  Deal with special case of a fully private operation in the body of
+      --  the protected type. We must create a declaration for the subprogram,
+      --  in order to attach the protected subprogram that will be used in
+      --  internal calls. We exclude compiler generated bodies from the
+      --  expander since the issue does not arise for those cases.
 
       if No (Spec_Id)
         and then Comes_From_Source (N)
@@ -1931,8 +1957,11 @@ package body Sem_Ch6 is
             Set_Has_Completion (Spec_Id);
             Set_Convention (Spec_Id, Convention_Protected);
          end;
+      end if;
 
-      elsif Present (Spec_Id) then
+      --  If a separate spec is present, then deal with freezing issues
+
+      if Present (Spec_Id) then
          Spec_Decl := Unit_Declaration_Node (Spec_Id);
          Verify_Overriding_Indicator;
 
@@ -1958,6 +1987,8 @@ package body Sem_Ch6 is
             Insert_Actions (N, Freeze_Entity (Spec_Id, Loc));
          end if;
       end if;
+
+      --  Mark presence of postcondition proc in current scope
 
       if Chars (Body_Id) = Name_uPostconditions then
          Set_Has_Postconditions (Current_Scope);
@@ -2722,8 +2753,18 @@ package body Sem_Ch6 is
 
          End_Scope;
 
+      --  The subprogram scope is pushed and popped around the processing of
+      --  the return type for consistency with call above to Process_Formals
+      --  (which itself can call Analyze_Return_Type), and to ensure that any
+      --  itype created for the return type will be associated with the proper
+      --  scope.
+
       elsif Nkind (N) = N_Function_Specification then
+         Push_Scope (Designator);
+
          Analyze_Return_Type (N);
+
+         End_Scope;
       end if;
 
       if Nkind (N) = N_Function_Specification then
@@ -4007,6 +4048,20 @@ package body Sem_Ch6 is
          else
             Analyze (Discriminant_Type (New_Discr));
             New_Discr_Type := Etype (Discriminant_Type (New_Discr));
+
+            --  Ada 2005: if the discriminant definition carries a null
+            --  exclusion, create an itype to check properly for consistency
+            --  with partial declaration.
+
+            if Is_Access_Type (New_Discr_Type)
+                 and then Null_Exclusion_Present (New_Discr)
+            then
+               New_Discr_Type :=
+                 Create_Null_Excluding_Itype
+                   (T           => New_Discr_Type,
+                    Related_Nod => New_Discr,
+                    Scope_Id    => Current_Scope);
+            end if;
          end if;
 
          if not Conforming_Types
@@ -7963,12 +8018,12 @@ package body Sem_Ch6 is
 
                Next (Prag);
 
-               --  Not a pragma, if comes from source, then end scan
+            --  Not a pragma, if comes from source, then end scan
 
             elsif Comes_From_Source (Prag) then
                exit;
 
-               --  Skip stuff not coming from source
+            --  Skip stuff not coming from source
 
             else
                Next (Prag);
@@ -8003,7 +8058,7 @@ package body Sem_Ch6 is
       end if;
 
       --  If we had any postconditions and expansion is enabled, build
-      --  the Postconditions procedure.
+      --  the _Postconditions procedure.
 
       if Present (Plist)
         and then Expander_Active
@@ -8021,20 +8076,31 @@ package body Sem_Ch6 is
             Parms := No_List;
          end if;
 
-         Prepend_To (Declarations (N),
-           Make_Subprogram_Body (Loc,
-             Specification =>
-               Make_Procedure_Specification (Loc,
-                 Defining_Unit_Name =>
+         declare
+            Post_Proc : constant Entity_Id :=
                    Make_Defining_Identifier (Loc,
-                     Chars => Name_uPostconditions),
-                 Parameter_Specifications => Parms),
+                     Chars => Name_uPostconditions);
+            --  The entity for the _Postconditions procedure
+         begin
+            Prepend_To (Declarations (N),
+              Make_Subprogram_Body (Loc,
+                Specification =>
+                  Make_Procedure_Specification (Loc,
+                    Defining_Unit_Name => Post_Proc,
+                    Parameter_Specifications => Parms),
 
-             Declarations => Empty_List,
+                Declarations => Empty_List,
 
-             Handled_Statement_Sequence =>
-               Make_Handled_Sequence_Of_Statements (Loc,
-                 Statements => Plist)));
+                Handled_Statement_Sequence =>
+                  Make_Handled_Sequence_Of_Statements (Loc,
+                    Statements => Plist)));
+
+            --  If this is a procedure, set the Postcondition_Proc attribute
+
+            if Etype (Subp) = Standard_Void_Type then
+               Set_Postcondition_Proc (Spec_Id, Post_Proc);
+            end if;
+         end;
 
          if Present (Spec_Id) then
             Set_Has_Postconditions (Spec_Id);

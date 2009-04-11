@@ -46,6 +46,7 @@ with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sdefault; use Sdefault;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
@@ -3826,7 +3827,7 @@ package body Sem_Attr is
             end if;
 
          --  Body case, where we must be inside a generated _Postcondition
-         --  procedure, and the prefix must be on the scope stack,  or else
+         --  procedure, and the prefix must be on the scope stack, or else
          --  the attribute use is definitely misplaced. The condition itself
          --  may have generated transient scopes, and is not necessarily the
          --  current one.
