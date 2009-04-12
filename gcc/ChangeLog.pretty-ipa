@@ -1,3 +1,8 @@
+2009-04-10  Richard Guenther  <rguenther@suse.cz>
+
+	* tree-ssa-structalias.c (get_constraint_for_component_ref): Handle
+	VIEW_CONVERT_EXPR.
+
 2009-04-10  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa-dce.c (+mark_stmt_if_obviously_necessary): Add BB argument;
