@@ -1,5 +1,11 @@
 2009-04-10  Jan Hubicka  <jh@suse.cz>
 
+	* tree-ssa-dce.c (+mark_stmt_if_obviously_necessary): Add BB argument;
+	Do not mark EXC_PTR_EXPR/FILTER_EXPR as needed if they are not; Update
+	calls.
+
+2009-04-10  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from mainline.
 
 2009-04-10  Jan Hubicka  <jh@suse.cz>

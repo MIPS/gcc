@@ -267,7 +267,7 @@ mark_operand_necessary (tree op)
    necessary.  */
 
 static void
-mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
+mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive, basic_block bb)
 {
   tree lhs = NULL_TREE;
   /* With non-call exceptions, we have to assume that all statements could
@@ -319,9 +319,36 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
       /* These values are mildly magic bits of the EH runtime.  We can't
 	 see the entire lifetime of these values until landing pads are
 	 generated.  */
-      if (TREE_CODE (lhs) == EXC_PTR_EXPR
-	  || TREE_CODE (lhs) == FILTER_EXPR)
+      if ((TREE_CODE (lhs) == EXC_PTR_EXPR
+	  || TREE_CODE (lhs) == FILTER_EXPR))
 	{
+          tree rhs = gimple_assign_rhs1 (stmt);
+
+	  /* We still can remove no-op moves.  */
+	  if (TREE_CODE (rhs) == TREE_CODE (lhs))
+	    return;
+
+	  /* FLITER_EXPR/EXC_PTR_EXPR are silently modified over EH
+	     edges by EH delivery runtime.  We don't model this, but if
+	     we know there is no exception in between code saving
+	     FILTER_EXPR and code.  
+	     
+	     We essentailly look for:
+  		save_filt.2924 = [filter_expr] <<<filter object>>>;
+		save_eptr.2923 = [exc_ptr_expr] <<<exception object>>>;
+		<some code>
+		<<<exception object>>> = save_eptr.2923;
+		<<<filter object>>> = save_filt.2924;
+	     within single basic block.
+
+	     Since we are in SSA form, we know that the load must appear
+	     in BB before set or there would be PHI at beggining of BB.  */
+	  if (TREE_CODE (rhs) == SSA_NAME
+	      && gimple_bb (SSA_NAME_DEF_STMT (rhs)) == bb
+	      && gimple_code (SSA_NAME_DEF_STMT (rhs)) == GIMPLE_ASSIGN
+	      && TREE_CODE (gimple_assign_rhs1 (SSA_NAME_DEF_STMT (rhs)))
+	         == TREE_CODE (lhs))
+	    return;
 	  mark_stmt_necessary (stmt, true);
 	  return;
 	}
@@ -423,7 +450,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
 	{
 	  stmt = gsi_stmt (gsi);
 	  gimple_set_plf (stmt, STMT_NECESSARY, false);
-	  mark_stmt_if_obviously_necessary (stmt, el != NULL);
+	  mark_stmt_if_obviously_necessary (stmt, el != NULL, bb);
 	}
     }
 
