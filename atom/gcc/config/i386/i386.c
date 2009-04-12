@@ -13235,26 +13235,25 @@ ix86_dep_by_shift_count_body (const_rtx set_body, const_rtx use_body)
   rtx shift_rtx;
   int i;
 
-  /* Retrieve destination of set_body.  */
+  /* Retrieve destination of SET_BODY.  */
   switch (GET_CODE (set_body))
     {
     case SET:
       set_dest = SET_DEST (set_body);
+      if (!set_dest || !REG_P (set_dest))
+	return false;
       break;
     case PARALLEL:
       for (i = XVECLEN (set_body, 0) - 1; i >= 0; i--)
 	if (ix86_dep_by_shift_count_body (XVECEXP (set_body, 0, i),
 					  use_body))
 	  return true;
-      return false;
     default:
-      set_dest = NULL;
+      return false;
       break;
     }
-  if (!set_dest || !REG_P (set_dest))
-    return false;
 
-  /* Retrieve shift count of use_body.  */
+  /* Retrieve shift count of USE_BODY.  */
   switch (GET_CODE (use_body))
     {
     case SET:
@@ -13265,9 +13264,8 @@ ix86_dep_by_shift_count_body (const_rtx set_body, const_rtx use_body)
 	if (ix86_dep_by_shift_count_body (set_body,
 					  XVECEXP (use_body, 0, i)))
 	  return true;
-      return false;
     default:
-      shift_rtx = NULL;
+      return false;
       break;
     }
 
@@ -13279,9 +13277,8 @@ ix86_dep_by_shift_count_body (const_rtx set_body, const_rtx use_body)
 	  || GET_CODE (shift_rtx) == ROTATERT))
     {
       rtx shift_count = XEXP (shift_rtx, 1);
-      gcc_assert (shift_count);
 
-      /* Return true if shift count is dest of set_insn */
+      /* Return true if shift count is dest of SET_BODY.  */
       if (REG_P (shift_count)
 	  && true_regnum (set_dest) == true_regnum (shift_count))
 	return true;
