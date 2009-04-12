@@ -548,6 +548,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_all_early_optimizations);
 	{
 	  struct opt_pass **p = &pass_all_early_optimizations.pass.sub;
+	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
 	  NEXT_PASS (pass_remove_cgraph_callee_edges);
