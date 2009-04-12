@@ -1,6 +1,6 @@
 2009-04-12  H.J. Lu  <hongjiu.lu@intel.com>
 
-	* config/i386/i386.c ((ix86_dep_by_shift_count_body): Updated.
+	* config/i386/i386.c (ix86_dep_by_shift_count_body): Updated.
 
 2009-04-11  H.J. Lu  <hongjiu.lu@intel.com>
 
