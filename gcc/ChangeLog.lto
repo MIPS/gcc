@@ -1,8 +1,15 @@
 2009-04-08  Diego Novillo  <dnovillo@google.com>
 
+	Mainline merge @146001.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-04-08  Diego Novillo  <dnovillo@google.com>
+
 	Mainline merge @145637.
 
-	* configure.ac (acx_pkgversion): Update revision merge string.
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
 	* configure: Regenerate.
 
 2009-04-08  Diego Novillo  <dnovillo@google.com>
@@ -78,7 +85,7 @@
 
 	Mainline merge @145453.
 
-	* configure.ac (acx_pkgversion): update revision merge string.
+	* configure.ac (ACX_PKGVERSION): update revision merge string.
 	* configure: regenerate.
 
 2009-04-03  Rafael Avila de Espindola  <espindola@google.com>

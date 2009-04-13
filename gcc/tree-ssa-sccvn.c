@@ -257,9 +257,10 @@ vn_get_expr_for (tree name)
   switch (TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)))
     {
     case tcc_reference:
-      if (gimple_assign_rhs_code (def_stmt) == VIEW_CONVERT_EXPR
-	  || gimple_assign_rhs_code (def_stmt) == REALPART_EXPR
-	  || gimple_assign_rhs_code (def_stmt) == IMAGPART_EXPR)
+      if ((gimple_assign_rhs_code (def_stmt) == VIEW_CONVERT_EXPR
+	   || gimple_assign_rhs_code (def_stmt) == REALPART_EXPR
+	   || gimple_assign_rhs_code (def_stmt) == IMAGPART_EXPR)
+	  && TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME)
 	expr = fold_build1 (gimple_assign_rhs_code (def_stmt),
 			    gimple_expr_type (def_stmt),
 			    TREE_OPERAND (gimple_assign_rhs1 (def_stmt), 0));
@@ -833,7 +834,10 @@ valueize_refs (VEC (vn_reference_op_s, heap) *orig)
 	  if (i > 0 && TREE_CODE (vro->op0) == ADDR_EXPR
 	      && VEC_index (vn_reference_op_s,
 			    orig, i - 1)->opcode == INDIRECT_REF)
-	    vn_reference_fold_indirect (&orig, &i);
+	    {
+	      vn_reference_fold_indirect (&orig, &i);
+	      continue;
+	    }
 	}
       if (vro->op1 && TREE_CODE (vro->op1) == SSA_NAME)
 	vro->op1 = SSA_VAL (vro->op1);
