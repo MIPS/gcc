@@ -1,3 +1,136 @@
+2009-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport more power7 development changes
+	* config/rs6000/e300c2c3.md: Backport from 4.5 development
+	version.
+	* config/rs6000/vector.md: Ditto.
+	* config/rs6000/xfpu.md: Ditto.
+	* config/rs6000/vsx.md: Ditto.
+	* config/rs6000/e500mc.md: Ditto.
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Ditto.
+	
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Backport
+	from 4.5 development version.
+	(altivec_overloaded_builtins): Ditto.
+	(rs6000_builtin_type_compatible): Ditto.
+
+	* config/rs6000/rs6000.c (altivec_expand_lv_builtin): Backport
+	from 4.5 development version.
+	(vsx_expand_builtin): Ditto.
+	(get_vec_cmp_insn): Ditto.
+	(get_vsel_insn): Ditto.
+	(rs6000_emit_vector_select): Ditto.
+	(rs6000_init_hard_regno_mode_ok): Ditto.
+	(rs6000_builtin_mask_for_load): Ditto.
+	(rs6000_builtin_conversion): Ditto.
+	(rs6000_builtin_mul_widen_even): Ditto.
+	(rs6000_builtin_mul_widen_odd): Ditto.
+	(rs6000_expand_vector_init): Ditto.
+	(rs6000_expand_vector_set): Ditto.
+	(rs6000_expand_vector_extract): Ditto.
+	(rs6000_conditional_register_usage): Ditto.
+	(rs6000_emit_move): Ditto.
+	(USE_ALTIVEC_FOR_ARG_P): Ditto.
+	(function_arg_boundary): Ditto.
+	(function_arg_advance): Ditto.
+	(bdesc_3arg): Ditto.
+	(bdesc_2arg): Ditto.
+	(bdesc_abs): Ditto.
+	(bdesc_1arg): Ditto.
+	(altivec_epxand_ld_builtin): Ditto.
+	(altivec_expand_st_builtin): Ditto.
+	(altivec_expand_builtin): Ditto.
+	(rs6000_expand_builtin): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(rs6000_emit_vector_compare_vsx): Ditto.
+	(rs6000_emit_vector_compare_altivec): Ditto.
+	(rs6000_emit_vector_compare): Ditto.
+	(rs6000_emit_vector_cond_expr): Ditto.
+	(rs6000_emit_minmax): Ditto.
+
+	* config/rs6000/altivec.md (UNSPEC_*): Backport from 4.5
+	development version.
+	(altivec_lvx_<mode>): Ditto.
+	(altivec_stv_<mode>): Ditto.
+	(mov<mode>): Ditto.
+	(mov<mode>_internal): Ditto.
+	(altivec_mov<mode>): Ditto.
+	(gpr register move splits): Ditto.
+	(addv4sf3): Ditto.
+	(altivec_addv4sf3): Ditto.
+	(subv4sf3): Ditto.
+	(altivec_subv4sf3): Ditto.
+	(altivec_vcmp*): Ditto.
+	(mulv4sf3): Ditto.
+	(altivec_mulv4sf3): Ditto.
+	(mulv8hi3): Ditto.
+	(altivec_vnmsubfp): Ditto.
+	(smaxv4sf3): Ditto.
+	(altivec_smaxv4sf3): Ditto.
+	(sminv4sf3): Ditto.
+	(altivec_sminv4sf3): Ditto.
+	(altivec_vmrghsf): Ditto.
+	(altivec_vmrglw): Ditto.
+	(altivec_vmrglsf): Ditto.
+	(altivec_vmrglw): Ditto.
+	(and<mode>3): Ditto.
+	(altivec_and<mode>3): Ditto.
+	(ior<mode>3): Ditto.
+	(altivec_ior<mode>3): Ditto.
+	(xor<mode>3): Ditto.
+	(altivec_xor<mode>3): Ditto.
+	(one_cmpl<mode>2): Ditto.
+	(altivec_one_cmpl<mode>2): Ditto.
+	(altivec_nor<mode>3): Ditto.
+	(andc<mode>3): Ditto.
+	(altivec_andc<mode>3): Ditto.
+	(altivec_vsl<VI_char>): Ditto.
+	(ashl<mode>3): Ditto.
+	(ftruncv4sf2): Ditto.
+	(vcond*): Ditto.
+	(altivec_vsel*): Ditto.
+	(vec_init*): Ditto.
+	(vec_set*): Ditto.
+	(vec_extract*): Ditto.
+	(absv4sf2): Ditto.
+	(altivec_absv4sf2): Ditto.
+	(negv4sf2): Ditto.
+	(altivec_negv4sf2): Ditto.
+	(altivec_lv*): Ditto.
+	(altivec_stv*): Ditto.
+	(vec_interleave_highv4sf): Ditto.
+	(vec_interleave_lowv4sf): Ditto.
+	
+	* config/rs6000/rs6000.md (top level): Include e300c2c3.md,
+	e500md.md, vector.md, and vsx.md.
+
+	* config.in (CHAR_BIT): Backport from 4.5 development version.
+	(GETGROUPS_T): Ditto.
+	(HAVE_ALPHASORT): Ditto.
+	(HAVE_AS_TLS_MARKERS): Ditto.
+	(HAVE_DLFCN_H): Ditto.
+	(HAVE_GAS_CFI_DIRECTIVE): Ditto.
+	(HAVE_GAS_CFI_PERSONALITY_DIRECTIVE): Ditto.
+	(HAVE_GAS_LCOMM_WITH_ALGINMENT): Ditto.
+	(HAVE_GETIPINFO): Ditto.
+	(HAVE_SCANDIR): Ditto.
+	(LT_OBJDIR): Ditto.
+
+	* doc/invoke.texi (-mgen-cell-microcode): Backport from 4.5
+	development version.
+	(-mwarn-cell-microcode): Ditto.
+	(-mvsx): Ditto.
+	(-msingle-float): Ditto.
+	(-mdouble-float): Ditto.
+	(-msimple-fpu): Ditto.
+	(-mfpu): Ditto.
+	(-mxlinx-fpu): Ditto.
+	(-mmulhw): Ditto.
+	(-mdlmzb): Ditto.
+	(-mavoid-indexed-addresses): Ditto.
+	(-msdata-data): Ditto.
+	(-mtls-markers): Ditto.
+
 2009-04-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport more power7 development changes
