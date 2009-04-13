@@ -570,6 +570,9 @@ init_optimization_passes (void)
 	     Do copyrename first.  */
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_copy_prop);
+          NEXT_PASS (pass_build_alias);
+          NEXT_PASS (pass_fre);
+          NEXT_PASS (pass_dse);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_early_ipa_sra);
