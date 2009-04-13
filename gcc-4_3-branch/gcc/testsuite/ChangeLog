@@ -1,3 +1,33 @@
+2009-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-builtin-1.c: New file, backported from
+	4.5 development branch for VSX tests.
+	* gcc.target/powerpc/vsx-builtin-2.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-1.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-2.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-3.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-4.c: Ditto.
+	* gcc.target/powerpc/pr39457.c: Ditto.
+
+	* gcc.dg/vmx/vmx.exp (DEFAULT_VMXCFLAGS): Backport from 4.5
+	development branch, turn off -mvsx for VMX tests.
+
+	* lib/target-supports.exp (check_vsx_hw_available): Backport from
+	4.5 development branch, enable testing VSX/cell on appropriate
+	machines.
+	(check_effective_target_cell_hw): Ditto.
+	(check_effective_target_powerpc64): Ditto.
+	(check_effective_target_llp64): Ditto.
+	(check_effective_target_powerpc_vsx_ok): Ditto.
+	(check_effective_target_powerpc_ppu_ok): Ditto.
+	(check_effective_target_powerpc_spe_nocache): Ditto.
+	(check_effective_target_powerpc_405_nocache): Ditto.
+	(check_effective_target_vect_pack_trunc): Ditto.
+	(check_effective_target_vect_unpack): Ditto.
+	(check_effective_target_vect_short_mult): Ditto.
+	(check_effective_target_vect_extract): Ditto.
+	(check_effective_target_vect_interleave): Ditto.
+
 2009-2-23  Pat Haugen  <pthaugen@us.ibm.com>
 
 	Backport:
