@@ -569,6 +569,7 @@ init_optimization_passes (void)
 	     copyprop would kill a$a_9 instead of D.1599_3 degrading debug info.
 	     Do copyrename first.  */
 	  NEXT_PASS (pass_rename_ssa_copies);
+          NEXT_PASS (pass_complete_unrolli);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
