@@ -1,3 +1,101 @@
+2009-04-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-04-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39740
+	* gcc.target/alpha/pr39740.c: New test.
+
+2009-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39480
+	* g++.dg/init/copy7.C: New.
+
+	PR c++/39750
+	* g++.dg/template/crash90.C: New.
+
+2009-04-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39742
+	* g++.dg/overload/extern-C-2.C: New.
+
+2009-04-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39713
+	* g++.dg/torture/pr39713.C: New testcase.
+
+2009-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/28301
+	* g++.dg/cpp0x/enum2.C: Updated.
+	* g++.dg/debug/pr22514.C: Likewise.
+	* g++.dg/parse/enum2.C: Likewise.
+	* g++.dg/parse/enum3.C: Likewise.
+	* g++.dg/template/crash79.C: Likewise.
+	* g++.old-deja/g++.jason/cond.C: Likewise.
+
+	* g++.dg/template/pr28301.C: New.
+
+2009-04-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* objc/execute/forward-1.x: Fix x86_64 entry typos.
+
+2009-04-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/35621
+	* gcc.target/i386/avx-vpabsb-1.c: Add -fno-strict-aliasing.
+	* gcc.target/i386/avx-vpabsb-1.c: Likewise.
+	* gcc.target/i386/avx-vpabsd-1.c: Likewise.
+	* gcc.target/i386/avx-vpabsw-1.c: Likewise.
+	* gcc.target/i386/avx-vpalignr-1.c: Likewise.
+	* gcc.target/i386/avx-vphaddd-1.c: Likewise.
+	* gcc.target/i386/avx-vphaddsw-1.c: Likewise.
+	* gcc.target/i386/avx-vphaddw-1.c: Likewise.
+	* gcc.target/i386/avx-vphsubd-1.c: Likewise.
+	* gcc.target/i386/avx-vphsubsw-1.c: Likewise.
+	* gcc.target/i386/avx-vphsubw-1.c: Likewise.
+	* gcc.target/i386/avx-vpmaddubsw-1.c: Likewise.
+	* gcc.target/i386/avx-vpmulhrsw-1.c: Likewise.
+	* gcc.target/i386/avx-vpshufb-1.c: Likewise.
+	* gcc.target/i386/avx-vpsignb-1.c: Likewise.
+	* gcc.target/i386/avx-vpsignd-1.c: Likewise.
+	* gcc.target/i386/avx-vpsignw-1.c: Likewise.
+
+2009-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/lookup/using2.C: Change copyright header to refer to version
+	3 of the GNU General Public License and to point readers at the
+	COPYING3 file and the FSF's license web page.
+	* gcc.dg/fixed-point/fixed-point.exp: Likewise.
+	* gcc.dg/struct/struct-reorg.exp: Likewise.
+	* gcc.target/spu/tag_manager.c: Likewise.
+
+2009-04-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-09  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39613
+	* gcc.dg/case-const-1.c: New.
+
+	PR c/39614:
+	* gcc.c-torture/compile/pr39614-1.c: New.
+
+	PR c/39673:
+	* gcc.c-torture/compile/pr39673-1.c: New.
+	* gcc.c-torture/compile/pr39673-2.c: Likewise.
+
+2009-04-09  Janis Johnson  <janis187@us.ibm.com>
+
+	PR libobjc/36610
+	* objc/execute/forward-1.x: New.
+
 2009-04-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/debug/dwarf2/static-data-member1.C: New test.
