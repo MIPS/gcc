@@ -219,7 +219,7 @@ struct gimple_opt_pass pass_cleanup_cfg_post_optimizing =
 /* Pass: do the actions required to finish with tree-ssa optimization
    passes.  */
 
-static unsigned int
+unsigned int
 execute_free_datastructures (void)
 {
   free_dominance_info (CDI_DOMINATORS);
@@ -228,6 +228,10 @@ execute_free_datastructures (void)
   /* Remove the ssa structures.  */
   if (cfun->gimple_df)
     delete_tree_ssa ();
+
+  /* And get rid of annotations we no longer need.  */
+  delete_tree_cfg_annotations ();
+
   return 0;
 }
 
@@ -254,9 +258,6 @@ struct gimple_opt_pass pass_free_datastructures =
 static unsigned int
 execute_free_cfg_annotations (void)
 {
-  /* And get rid of annotations we no longer need.  */
-  delete_tree_cfg_annotations ();
-
   return 0;
 }
 

@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "df.h"
 #include "diagnostic.h"
+#include "ssaexpand.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -7244,8 +7245,21 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       }
 
     case SSA_NAME:
-      return expand_expr_real_1 (SSA_NAME_VAR (exp), target, tmode, modifier,
-				 NULL);
+      /* ??? ivopts calls expander, without any preparation from
+         out-of-ssa.  So fake instructions as if this was an access to the
+	 base variable.  This unnecessarily allocates a pseudo, see how we can
+	 reuse it, if partition base vars have it set already.  */
+      if (!currently_expanding_to_rtl)
+	return expand_expr_real_1 (SSA_NAME_VAR (exp), target, tmode, modifier, NULL);
+      {
+	gimple g = get_gimple_for_ssa_name (exp);
+	if (g)
+	  return expand_expr_real_1 (gimple_assign_rhs_to_tree (g), target,
+				     tmode, modifier, NULL);
+      }
+      decl_rtl = get_rtx_for_ssa_name (exp);
+      exp = SSA_NAME_VAR (exp);
+      goto expand_decl_rtl;
 
     case PARM_DECL:
     case VAR_DECL:
@@ -7271,6 +7285,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case FUNCTION_DECL:
     case RESULT_DECL:
       decl_rtl = DECL_RTL (exp);
+    expand_decl_rtl:
       gcc_assert (decl_rtl);
       decl_rtl = copy_rtx (decl_rtl);
 

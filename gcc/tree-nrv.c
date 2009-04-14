@@ -56,6 +56,7 @@ struct nrv_data
   /* This is the function's RESULT_DECL.  We will replace all occurrences
      of VAR with RESULT_DECL when we apply this optimization.  */
   tree result;
+  int modified;
 };
 
 static tree finalize_nrv_r (tree *, int *, void *);
@@ -83,7 +84,7 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
 
   /* Otherwise replace all occurrences of VAR with RESULT.  */
   else if (*tp == dp->var)
-    *tp = dp->result;
+    *tp = dp->result, dp->modified = 1;
 
   /* Keep iterating.  */
   return NULL_TREE;
@@ -110,6 +111,7 @@ tree_nrv (void)
   basic_block bb;
   gimple_stmt_iterator gsi;
   struct nrv_data data;
+  int any_modified = 0;
 
   /* If this function does not return an aggregate type in memory, then
      there is nothing to do.  */
@@ -235,7 +237,10 @@ tree_nrv (void)
 	      struct walk_stmt_info wi;
 	      memset (&wi, 0, sizeof (wi));
 	      wi.info = &data;
+	      data.modified = 0;
 	      walk_gimple_op (stmt, finalize_nrv_r, &wi);
+	      if (data.modified)
+		update_stmt (stmt), any_modified = 1;
 	      gsi_next (&gsi);
 	    }
 	}
@@ -243,6 +248,11 @@ tree_nrv (void)
 
   /* FOUND is no longer used.  Ensure it gets removed.  */
   var_ann (found)->used = 0;
+  if (any_modified)
+    {
+      mark_sym_for_renaming (gimple_vop (cfun));
+      return TODO_update_ssa;
+    }
   return 0;
 }
 
@@ -263,7 +273,7 @@ struct gimple_opt_pass pass_nrv =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_NRV,				/* tv_id */
-  PROP_cfg,				/* properties_required */
+  PROP_ssa | PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

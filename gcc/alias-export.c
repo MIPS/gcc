@@ -47,130 +47,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 
-/* Map of stmt->vector of {stmts, exprs} substituted in it.  */
-static struct pointer_map_t *substituted_in_stmts = NULL;
-
-/* The struct saved in the above map.  */
-typedef struct
-{
-  gimple stmt;
-  tree var;
-  tree expr;
-} stmt_tree_pair;
-DEF_VEC_O (stmt_tree_pair);
-DEF_VEC_ALLOC_O (stmt_tree_pair,heap);
-
-/* Map of (stmt, pointer) -> points-to set.  Used only for expand.  */
-static htab_t pta_sets;
-
 /* The final orig_expr -> pt set map used in RTL.  */
 static struct pointer_map_t *exprs_to_ptas = NULL;
 
 /* The map of decls to stack partitions.  */
 static struct pointer_map_t *decls_to_stack = NULL;
-
-/* The data for the hashtable.  */
-typedef struct
-{
-  gimple stmt;
-  tree pointer;
-  tree ssaname;
-  struct ptr_info_def *ppid;
-} pta_sets_key;
-
-/* A hash function for the above table.  */
-static hashval_t
-pta_sets_hash (const void *p)
-{
-  const pta_sets_key *data = (const pta_sets_key *) p;
-
-  return iterative_hash_gimple (data->stmt, 
-                                htab_hash_pointer (data->pointer));
-}
-
-/* An equality function for the above table.  */
-static int
-pta_sets_eq (const void *p, const void *q)
-{
-  const pta_sets_key *data1 = (const pta_sets_key *) p;
-  const pta_sets_key *data2 = (const pta_sets_key *) q;
-
-  return data1->stmt == data2->stmt && data1->pointer == data2->pointer;
-}
-
-/* Record the substitution happened in INTO_STMT with EXPR of STMT instead of VAR.  */
-void
-record_stmt_substitution (gimple into_stmt, gimple stmt, tree var, tree expr)
-{
-  VEC (stmt_tree_pair, heap) **ppv, *pv;
-  stmt_tree_pair pair;
-
-  if (!substituted_in_stmts)
-    substituted_in_stmts = pointer_map_create ();
-  ppv = (VEC (stmt_tree_pair, heap) **) pointer_map_contains (substituted_in_stmts, into_stmt);
-  if (ppv == NULL)
-    {
-      ppv = (VEC (stmt_tree_pair, heap) **) pointer_map_insert (substituted_in_stmts, into_stmt);
-      pv = NULL;
-    }
-  else
-    pv = *ppv;
-  pair.stmt = stmt;
-  pair.expr = expr;
-  pair.var = var;
-  VEC_safe_push (stmt_tree_pair, heap, pv, &pair);
-  *ppv = pv;
-
-  /* Record the information for original pointer.  */
-  record_stmt_pta_info (into_stmt, var, var);
-}
-
-/* Record the pta set for pointer VAR possibly substituted to NEW_VAR.  */
-void
-record_stmt_pta_info (gimple stmt, tree var, tree new_var)
-{
-  pta_sets_key key, **slot;
-  
-  if (TREE_CODE (var) != SSA_NAME
-      || SSA_NAME_PTR_INFO (var) == NULL)
-    return;
-  if (!pta_sets)
-    pta_sets = htab_create (128, pta_sets_hash, pta_sets_eq, NULL);
-
-  key.stmt = stmt;
-  key.pointer = new_var ? new_var : var;
-  slot = (pta_sets_key **) htab_find_slot (pta_sets, &key, INSERT);
-  gcc_assert (*slot == NULL
-              || (*slot)->ssaname == var);
-
-  *slot = XNEW (pta_sets_key);
-  (*slot)->stmt = key.stmt;
-  (*slot)->pointer = key.pointer;
-  (*slot)->ssaname = var;
-  if (SSA_NAME_PTR_INFO (var))
-    {
-      (*slot)->ppid = XNEW (struct ptr_info_def);
-      *(*slot)->ppid = *SSA_NAME_PTR_INFO (var);
-      if (SSA_NAME_PTR_INFO (var)->pt.vars)
-        {
-          (*slot)->ppid->pt.vars = BITMAP_ALLOC (NULL);
-          bitmap_copy ((*slot)->ppid->pt.vars, SSA_NAME_PTR_INFO (var)->pt.vars);
-        }
-    }
-  else
-    (*slot)->ppid = NULL;
-}
-
-static gimple currently_expanding_stmt = NULL;
-static tree currently_expanding_tree = NULL;
-
-/* Set the above variable to reflect the stuff we're expanding.  */
-void
-set_current_expand_info (gimple stmt, tree stmt_tree)
-{
-  currently_expanding_stmt = stmt;
-  currently_expanding_tree = stmt_tree;
-}
 
 /* Return the pointer on which REF access is based, or NULL, 
    if there's no such thing.  */
@@ -191,148 +72,17 @@ get_pointer_from_ref (tree ref)
   return NULL;
 }
 
-
-/* Starting at STMT, find the original statement and pointer that 
-   has info for POINTER, and save this in KEY.  Return true on success.  */
-static bool
-find_original_stmt_and_pointer (gimple stmt, tree pointer, pta_sets_key *pkey)
-{
-  VEC (stmt_tree_pair, heap) **ppv;
-  stmt_tree_pair *pstp;
-  unsigned i;
-
-  /* If nothing to substitute, just check current stmt.  */
-  if (! substituted_in_stmts
-      || ! (ppv = ((VEC (stmt_tree_pair, heap) **) 
-                   pointer_map_contains (substituted_in_stmts, stmt))))
-    {
-      if (! find_pos_in_stmt (stmt, pointer))
-        return false;
-  
-      pkey->stmt = stmt;
-      pkey->pointer = pointer;
-      return true;
-    }
-  
-  /* Check whether the pointer is a subtree of substituted expr.  */
-  for (i = 0; VEC_iterate (stmt_tree_pair, *ppv, i, pstp); i++)
-    if (debug_find_tree (pstp->expr, pointer))
-      {
-        if (pstp->expr == pointer)
-          {
-            /* We have recorded the info for the original pointer of _this_ 
-               stmt then.  */
-            pkey->pointer = pstp->var;
-            pkey->stmt = stmt;
-
-            return true;
-          }
-        else
-          {
-            /* We need to search further.  In this case, we do assert that 
-               we've succeeded.  */
-            bool res;
-
-            res = find_original_stmt_and_pointer (pstp->stmt, pointer, pkey);
-            gcc_assert (res);
-
-            return true;
-          }
-      }
-
-  /* There was substitutions, but we're not part of them.  */
-  if (! find_pos_in_stmt (stmt, pointer))
-    return false;
-
-  pkey->stmt = stmt;
-  pkey->pointer = pointer;
-  
-  return true;
-}
-
-/* The callback for the below.  */
-static tree
-rewrite_expr_callback (tree *tp, int *walk_subtree, void *data)
-{
-  pta_sets_key *pkey = (pta_sets_key *) data, *slot;
-
-  /* Don't rewrite the tree root.  */
-  if (*tp != pkey->ssaname
-      && SSA_VAR_P (*tp))
-    {
-      /* The stmt is already set.  */
-      pkey->pointer = *tp;
-      slot = (pta_sets_key *) htab_find (pta_sets, pkey);
-      if (slot)
-        *tp = slot->ssaname;
-      *walk_subtree = 0;
-    }
-  return NULL;
-}
-
-/* Rewrite all vars in expr back to their respective ssa-names.  */
-static void
-rewrite_expr_to_ssanames (tree expr, gimple stmt)
-{
-  pta_sets_key key;
-
-  key.stmt = stmt;
-  /* Just use this for passing expr to callback.  */
-  key.ssaname = expr;
-  walk_tree_without_duplicates (&expr, rewrite_expr_callback, &key);
-}
-
-/* The callback for the below.  */
-static int
-rewrite_mem_callback (rtx *xp, void *data)
-{
-  rtx x = *xp;
-
-  if (!x
-      || GET_CODE (x) != MEM)
-    return 0;
-  if (MEM_ORIG_EXPR (x) == NULL)
-    return -1;
-  rewrite_expr_to_ssanames (MEM_ORIG_EXPR (x), (gimple) data);
-  return -1;
-}
-    
-/* Rewrite all MEM_ORIG_EXPRs with ssanames.  */
-void
-rewrite_mem_exprs (gimple stmt, rtx last)
-{
-  rtx insn;
-
-  if (!last || 1)
-    return;
-  for (insn = NEXT_INSN (last); insn; insn = NEXT_INSN (insn)) 
-    if (INSN_P (insn))
-      for_each_rtx (&PATTERN (insn), rewrite_mem_callback, stmt);
-}
-
 /* Find the points-to set for ORIG_EXPR.  */
 static struct ptr_info_def *
 find_pta_info (tree orig_expr)
 {
-  pta_sets_key key, *slot;
   tree pointer;
 
-  /* No use searching if either htab of pta-infos is not present
-     or orig_expr doesn't have a pointer.  */
-  if (! pta_sets)
-    return NULL;
   pointer = get_pointer_from_ref (orig_expr);
-  if (! pointer)
+  if (! pointer
+      || TREE_CODE (pointer) != SSA_NAME)
     return NULL;
-  
-  /* Likewise if we can't figure out what pointer this came from.  */
-  if (! find_original_stmt_and_pointer (currently_expanding_stmt, pointer, &key))
-    return NULL;
-
-  slot = (pta_sets_key *) htab_find (pta_sets, &key);
-  if (slot)
-    return slot->ppid;
-  return NULL;
+  return SSA_NAME_PTR_INFO (pointer);
 }
 
 /* Record the final points-to set and returns orig expr.  */
@@ -437,18 +187,6 @@ export_refs_may_alias_p (tree ref1, tree ref2)
   pid1 = get_exported_ptr_info (ref1);
   pid2 = get_exported_ptr_info (ref2);
   return refs_may_alias_p_1 (ref1, ref2, pid1, pid2, &gimple_df_escaped);
-}
-
-/* Remove all temporary data, save the main hashtab.  */
-void
-release_temporary_export_maps (void)
-{
-  if (substituted_in_stmts)
-    pointer_map_destroy (substituted_in_stmts);
-  if (pta_sets)
-    htab_delete (pta_sets);
-  pta_sets = NULL;
-  substituted_in_stmts = NULL;
 }
 
 static bool

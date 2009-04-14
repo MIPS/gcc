@@ -818,7 +818,9 @@ delete_tree_ssa (void)
 	  SSA_NAME_IMM_USE_NODE (var).prev = &(SSA_NAME_IMM_USE_NODE (var));
 	  SSA_NAME_IMM_USE_NODE (var).next = &(SSA_NAME_IMM_USE_NODE (var));
 	}
-      release_ssa_name (var);
+      if (! var || TREE_CODE (var) != SSA_NAME
+          || ! flag_alias_export || ! flag_ddg_export)
+        release_ssa_name (var);
     }
 
   /* FIXME.  This may not be necessary.  We will release all this
@@ -846,7 +848,8 @@ delete_tree_ssa (void)
 
 	  gimple_set_modified (stmt, true);
 	}
-      set_phi_nodes (bb, NULL);
+      if (!(bb->flags & BB_RTL))
+	set_phi_nodes (bb, NULL);
     }
 
   /* Remove annotations from every referenced local variable.  */

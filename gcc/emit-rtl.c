@@ -1038,7 +1038,7 @@ set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
 /* Set the REG_ATTRS for registers in value X, given that X represents
    decl T.  */
 
-static void
+void
 set_reg_attrs_for_decl_rtl (tree t, rtx x)
 {
   if (GET_CODE (x) == SUBREG)

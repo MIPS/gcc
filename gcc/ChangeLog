@@ -1,4 +1,21 @@
 2009-04-14  Andrey Belevantsev  <abel@ispras.ru>
+
+	Apply expand from SSA patch.
+
+	* alias-export.c (substituted_in_stmts, stmt_tree_pair, pta_sets,
+	pta_sets_key, pta_sets_hash, pta_sets_eq, record_stmt_substitution,
+	record_stmt_pta_info, currently_expanding_stmt, 
+	currently_expanding_tree, find_original_stmt_and_pointer): Remove.
+	Remove all uses.
+	(rewrite_expr_callback, rewrite_expr_to_ssanames, 
+	rewrite_mem_callback, rewrite_mem_exprs): Likewise.
+	(release_temporary_export_maps, set_current_expand_info): Likewise.
+	(find_pta_info): Just take it from SSA_NAME_PTR_INFO.
+	* alias-export.h (record_stmt_substitution, record_stmt_pta_info,
+	rewrite_mem_exprs, set_current_expand_info, 
+	release_temporary_export_maps): Remove prototypes.
+
+2009-04-14  Andrey Belevantsev  <abel@ispras.ru>
 	Merge with trunk rev. 146020.
 
 2009-04-13  Michael Eager <eager@eagercon.com>

@@ -22,15 +22,10 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree-ssa-alias.h"
 
-extern void record_stmt_substitution (gimple, gimple, tree, tree);
-extern void record_stmt_pta_info (gimple, tree, tree);
 extern tree unshare_and_record_pta_info (tree);
 extern void record_escaped_solution (struct pt_solution *);
 extern void record_stack_var_partition_for (tree, tree);
 extern void record_addressable_bases (tree);
-extern void rewrite_mem_exprs (gimple, rtx);
-extern void set_current_expand_info (gimple, tree);
-extern void release_temporary_export_maps (void);
 extern struct ptr_info_def * get_exported_ptr_info (tree);
 
 extern bool alias_export_may_alias_p (tree, tree, const_rtx, const_rtx);
