@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debuglocus.h"
 #include "hashtab.h"
 #include "input.h"
+#include "flags.h"
 
 
 /* This file contains data and functions required to implement debuglocus 
@@ -73,6 +74,9 @@ static GTY(()) debuglocus_table_t *debugtable = NULL;
 void
 create_debuglocus_table (void)
 {
+  if (debug_info_level < DINFO_LEVEL_NORMAL)
+    return;
+
   if (debugtable == NULL)
     debugtable = init_debuglocus_table ();
 }
@@ -139,7 +143,9 @@ new_debuglocus_entry (debuglocus_table_t *tab)
 {
   int i;
   debuglocus_p dlocus;
-  gcc_assert (tab != NULL);
+
+  if (tab == NULL)
+    return NULL;
 
   i = tab->size++;
   
@@ -303,6 +309,9 @@ debuglocus_p
 create_debuglocus_for_decl (tree var)
 {
   debuglocus_p ptr = create_debuglocus_entry ();
+
+  if (!ptr)
+    return NULL;
   ptr->decl = var;
   return ptr;
 }
@@ -313,6 +322,9 @@ source_location
 create_debuglocus_for_decl_and_locus (tree var, source_location locus)
 {
   debuglocus_p ptr = create_debuglocus_for_decl (var);
+
+  if (!ptr)
+    return locus;
   ptr->locus = locus;
   return debuglocus_from_pointer (ptr);
 }
@@ -322,7 +334,12 @@ create_debuglocus_for_decl_and_locus (tree var, source_location locus)
 void
 replace_gimple_locus_with_debuglocus (gimple stmt, debuglocus_p dlocus)
 {
-  source_location locus = gimple_location (stmt);
+  source_location locus;
+
+  if (dlocus == NULL)
+    return;
+
+  locus = gimple_location (stmt);
 
   /* Conflicting locus's shouldn't occurr.  */
   gcc_assert (dlocus->locus == UNKNOWN_LOCATION || 
@@ -709,7 +726,10 @@ debuglocus_bitmap_verify (FILE *f, bitmap before, bitmap after,
   bool first = true;
   debuglocus_table_t *tab = current_debuglocus_table ();
 
-  if (tab && flags & TDF_DETAILS)
+  if (!tab)
+    return;
+
+  if (flags & TDF_DETAILS)
     dump_debuglocus_table (f, tab);
 
   /* Dump new debuglocus entries generated in this pass.  */

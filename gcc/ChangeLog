@@ -1,3 +1,12 @@
+2009-04-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* debuglocus.c (create_debuglocus_table): Only create table when
+	debugging.
+	(new_debuglocus_entry): Handle empty table.
+	(create_debuglocus_for_decl_and_locus): Same.
+	(debuglocus_bitmap_verify): Same.
+	* Makefile.in (debuglocus.o): Depend on FLAGS_H.
+
 2009-04-09  Aldy Hernandez  <aldyh@redhat.com>
 
 	* debuglocus.c: Move DEBUGLOCUS_VEC_SIZE to debuglocus.h.
