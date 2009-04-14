@@ -1,3 +1,10 @@
+2009-04-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (distance_non_agu_define): Support
+	SUBREG.  Use DF instead of reg_set_p.
+	(reg_mentioned_by_mem_p): Removed.
+	(distance_agu_use): Updated.  Use DF instead of reg_set_p.
+
 2009-04-14  Joey Ye  <joey.ye@intel.com>
 
 	* config/i386/i386.c (distance_non_agu_define): Implement with DF.

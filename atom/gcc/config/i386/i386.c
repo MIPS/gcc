@@ -13014,19 +13014,37 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
 
 #define LEA_SEARCH_THRESHOLD 12
 
-/* Reach non-agu definition of op1 and op2 in insn's basic block. 
-   Search backward until 1. passed LEA_SEARCH_THRESHOLD instructions, 
-   or 2. reach BB boundary, or reach agu definition. 
-   Returns the distance between the non-agu definition point and insn.
+/* Search backward for non-agu definition of register OP1 or register
+   OP2 in INSN's basic block until 
+   1. Pass LEA_SEARCH_THRESHOLD instructions, or
+   2. Reach BB boundary, or reach agu definition.
+   Returns the distance between the non-agu definition point and INSN.
    If no definition point, returns -1.  */
 
 static int
 distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 {
-  rtx reg_op1 = REG_P (op1) ? op1 : NULL;
-  rtx reg_op2 = REG_P (op2) ? op2 : NULL;
+  unsigned int regno1, regno2;
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
+  df_ref *def_rec;
+  enum attr_type insn_type;
+
+  if (REG_P (op1))
+    regno1 = REGNO (op1);
+  else if (GET_CODE (op1) == SUBREG && REG_P (SUBREG_REG (op1)))
+    regno1 = REGNO (SUBREG_REG (op1));
+  else
+    regno1 = ~0;
+  if (REG_P (op2))
+    regno2 = REGNO (op2);
+  else if (GET_CODE (op2) == SUBREG && REG_P (SUBREG_REG (op2)))
+    regno2 = REGNO (SUBREG_REG (op2));
+  else
+    regno2 = ~0;
+
+  if (regno1 == (unsigned int) ~0 && regno2 == (unsigned int) ~0)
+    return -1;
 
   if (insn != BB_HEAD (bb))
     {
@@ -13035,15 +13053,14 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 	{
 	  if (INSN_P (prev))
 	    {
-              df_ref *def_rec;
 	      distance++;
               for (def_rec = DF_INSN_DEFS (prev); *def_rec; def_rec++)
                 if (DF_REF_TYPE (*def_rec) == DF_REF_REG_DEF
-                    && (REGNO (op1) == DF_REF_REGNO (*def_rec)
-                        || REGNO (op2) == DF_REF_REGNO (*def_rec))
-                    && !DF_REF_IS_ARTIFICIAL (*def_rec))
+                    && !DF_REF_IS_ARTIFICIAL (*def_rec)
+                    && (regno1 == DF_REF_REGNO (*def_rec)
+			|| regno2 == DF_REF_REGNO (*def_rec)))
 		  {
-		    enum attr_type insn_type = get_attr_type (prev);
+		    insn_type = get_attr_type (prev);
 		    if (insn_type != TYPE_LEA)
 		      goto done;
 		  }
@@ -13077,13 +13094,16 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 	      if (INSN_P (prev))
 		{
 		  distance++;
-		  if ((reg_op1 && reg_set_p (reg_op1, prev))
-		      || (reg_op2 && reg_set_p (reg_op2, prev)))
-		    {
-		      enum attr_type insn_type = get_attr_type (prev);
-		      if (insn_type != TYPE_LEA)
-			goto done;
-		    }
+		  for (def_rec = DF_INSN_DEFS (prev); *def_rec; def_rec++)
+		    if (DF_REF_TYPE (*def_rec) == DF_REF_REG_DEF
+			&& !DF_REF_IS_ARTIFICIAL (*def_rec)
+			&& (regno1 == DF_REF_REGNO (*def_rec)
+			    || regno2 == DF_REF_REGNO (*def_rec)))
+		      {
+			insn_type = get_attr_type (prev);
+			if (insn_type != TYPE_LEA)
+			  goto done;
+		      }
 		}
 	      prev = PREV_INSN (prev);
 	    }
@@ -13098,43 +13118,45 @@ done:
   return distance;
 }
 
-/* Return true if REG is used in an address of a MEM operand in INSN.
-   This function can only be called when DF is accurate.  */
+/* Return the distance between INSN and the next insn that uses 
+   register OP0 in memory address.  Return -1 if no such a use is
+   found within LEA_SEARCH_THRESHOLD or OP0 is set.  */
 
-static bool
-reg_mentioned_by_mem_p (const_rtx reg, const_rtx in)
-{
-  df_ref *use_rec;
-  for (use_rec = DF_INSN_USES (in); *use_rec; use_rec++)
-    if ((DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_LOAD
-	 || DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_STORE)
-	&& REGNO (reg) == DF_REF_REGNO (*use_rec))
-      return true;
-  return false;
-}
-
-/* Return the distance between this insn and the next insn that uses 
-   result of this insn as memory address. 
-   Return -1 if not found such a use within LEA_SEARCH_THRESHOLD. */
 static int
 distance_agu_use (rtx op0, rtx insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
+  df_ref *def_rec;
+  df_ref *use_rec;
 
-  if (insn != BB_END(bb))
+  if (insn != BB_END (bb))
     {
       rtx next = NEXT_INSN (insn);
-
       while (next && distance < LEA_SEARCH_THRESHOLD)
 	{
 	  if (INSN_P (next))
 	    {
 	      distance++;
-	      if (reg_mentioned_by_mem_p (op0, next))
-		return distance;
-	      if (reg_set_p (op0, next))
-		return -1;
+
+	      for (use_rec = DF_INSN_USES (next); *use_rec; use_rec++)
+		if ((DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_LOAD
+		     || DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_STORE)
+		    && REGNO (op0) == DF_REF_REGNO (*use_rec))
+		  {
+		    /* Return DISTANCE if OP0 is used in memory
+		       address in NEXT.  */
+		    return distance;
+		  }
+
+	      for (def_rec = DF_INSN_DEFS (next); *def_rec; def_rec++)
+		if (DF_REF_TYPE (*def_rec) == DF_REF_REG_DEF
+		    && !DF_REF_IS_ARTIFICIAL (*def_rec)
+		    && REGNO (op0) == DF_REF_REGNO (*def_rec))
+		  {
+		    /* Return -1 if OP0 is set in NEXT.  */
+		    return -1;
+		  }
 	    }
 	  if (next == BB_END (bb))
 	    break;
@@ -13158,17 +13180,33 @@ distance_agu_use (rtx op0, rtx insn)
       if (simple_loop)
 	{
 	  rtx next = BB_HEAD (bb);
-	  while (next && distance < LEA_SEARCH_THRESHOLD)
+	  while (next
+		 && next != insn
+		 && distance < LEA_SEARCH_THRESHOLD)
 	    {
-	      if (next == insn)
-		break;
 	      if (INSN_P (next))
 		{
 		  distance++;
-		  if (reg_mentioned_by_mem_p (op0, next))
-		    return distance;
-		  if (reg_set_p (op0, next))
-		    return -1;
+
+		  for (use_rec = DF_INSN_USES (next); *use_rec; use_rec++)
+		    if ((DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_LOAD
+			 || DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_STORE)
+			&& REGNO (op0) == DF_REF_REGNO (*use_rec))
+		      {
+			/* Return DISTANCE if OP0 is used in memory
+			   address in NEXT.  */
+			return distance;
+		      }
+
+		  for (def_rec = DF_INSN_DEFS (next); *def_rec; def_rec++)
+		    if (DF_REF_TYPE (*def_rec) == DF_REF_REG_DEF
+			&& !DF_REF_IS_ARTIFICIAL (*def_rec)
+			&& REGNO (op0) == DF_REF_REGNO (*def_rec))
+		      {
+			/* Return -1 if OP0 is set in NEXT.  */
+			return -1;
+		      }
+
 		}
 	      next = NEXT_INSN (next);
 	    }
