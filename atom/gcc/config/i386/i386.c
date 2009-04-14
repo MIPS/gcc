@@ -13035,14 +13035,18 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 	{
 	  if (INSN_P (prev))
 	    {
+              df_ref *def_rec;
 	      distance++;
-	      if ((reg_op1 && reg_set_p (reg_op1, prev))
-		  || (reg_op2 && reg_set_p (reg_op2, prev)))
-		{
-		  enum attr_type insn_type = get_attr_type (prev);
-		  if (insn_type != TYPE_LEA)
-		    goto done;
-		}
+              for (def_rec = DF_INSN_DEFS (prev); *def_rec; def_rec++)
+                if (DF_REF_TYPE (*def_rec) == DF_REF_REG_DEF
+                    && (REGNO (op1) == DF_REF_REGNO (*def_rec)
+                        || REGNO (op2) == DF_REF_REGNO (*def_rec))
+                    && !DF_REF_IS_ARTIFICIAL (*def_rec))
+		  {
+		    enum attr_type insn_type = get_attr_type (prev);
+		    if (insn_type != TYPE_LEA)
+		      goto done;
+		  }
 	    }
 	  if (prev == BB_HEAD (bb))
 	    break;

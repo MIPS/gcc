@@ -1,3 +1,7 @@
+2009-04-14  Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.c (distance_non_agu_define): Implement with DF.
+
 2009-04-12  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_dep_by_shift_count_body): Updated.
