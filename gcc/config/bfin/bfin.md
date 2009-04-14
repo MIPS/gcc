@@ -2367,7 +2367,7 @@
 
 (define_expand "cbranchsi4"
   [(set (pc)
-        (if_then_else (match_operator:BI 0 "ordered_comparison_operator"
+        (if_then_else (match_operator 0 "ordered_comparison_operator"
                        [(match_operand:SI 1 "register_operand" "")
                         (match_operand:SI 2 "reg_or_const_int_operand" "")])
                    (label_ref (match_operand 3 "" ""))
@@ -2442,11 +2442,11 @@
        (ne:SI (match_dup 4) (const_int 0)))]
   ""
 {
+  /* It could be expanded as a movbisi instruction, but the portable
+     alternative produces better code.  */
   if (GET_CODE (operands[1]) == NE)
-    {
-      emit_insn (gen_movbisi (operands[0], operands[2]));
-      DONE;
-    }
+    FAIL;
+
   operands[4] = bfin_cc_rtx;
 })
 
@@ -2502,13 +2502,16 @@
   "CC = %1;"
   [(set_attr "length" "2")])
 
-(define_insn "movbisi"
+(define_insn_and_split "movbisi"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(ne:SI (match_operand:BI 1 "register_operand" "C")
 	       (const_int 0)))]
   ""
-  "%0 = CC;"
-  [(set_attr "length" "2")])
+  "#"
+  ""
+  [(set (match_operand:SI 0 "register_operand" "")
+	(zero_extend:SI (match_operand:BI 1 "register_operand" "")))]
+  "")
 
 (define_insn "notbi"
   [(set (match_operand:BI 0 "register_operand" "=C")

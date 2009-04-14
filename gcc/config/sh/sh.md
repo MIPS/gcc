@@ -646,12 +646,12 @@
 		      (label_ref (match_operand 3 "" ""))
 		      (pc)))
    (clobber (reg:SI T_REG))]
-  "TARGET_CBRANCHDI4 || TARGET_SH1 || TARGET_SHMEDIA"
-  "if (TARGET_CBRANCHDI4)
-     expand_cbranchsi4 (operands, CODE_FOR_nothing, -1);
-   else if (TARGET_SHMEDIA)
+  ""
+  "if (TARGET_SHMEDIA)
       emit_jump_insn (gen_cbranchint4_media (operands[0], operands[1],
 					     operands[2], operands[3]));
+   else if (TARGET_CBRANCHDI4)
+     expand_cbranchsi4 (operands, CODE_FOR_nothing, -1);
    else
      sh_emit_compare_and_branch (operands, SImode);
    DONE;")
@@ -708,7 +708,20 @@
 {
   enum rtx_code comparison;
 
-  if (TARGET_CBRANCHDI4)
+  if (TARGET_SHMEDIA)
+    {
+      emit_jump_insn (gen_cbranchint4_media (operands[0], operands[1],
+					     operands[2], operands[3]));
+      DONE;
+    }
+
+  else if (!TARGET_CBRANCHDI4)
+    {
+      sh_emit_compare_and_branch (operands, DImode);
+      DONE;
+    }
+
+  else
     {
       if (TARGET_EXPAND_CBRANCHDI4)
         {
@@ -721,15 +734,6 @@
           = gen_rtx_fmt_ee (VOIDmode, comparison, operands[1], operands[2]);
        operands[4] = gen_rtx_SCRATCH (SImode);
     }
-   else
-     {
-       if (TARGET_SHMEDIA)
-         emit_jump_insn (gen_cbranchint4_media (operands[0], operands[1],
-					        operands[2], operands[3]));
-       else
-         sh_emit_compare_and_branch (operands, DImode);
-       DONE;
-     }
 }")
 
 (define_insn_and_split "cbranchdi4_i"
@@ -9197,7 +9201,7 @@ mov.l\\t1f,r0\\n\\
 (define_expand "cstoresi4"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(match_operator:SI 1 "comparison_operator"
-	 [(match_operand:SI 2 "arith_operand" "")
+	 [(match_operand:SI 2 "cmpsi_operand" "")
 	  (match_operand:SI 3 "arith_operand" "")]))]
   "TARGET_SH1 || TARGET_SHMEDIA"
   "if (TARGET_SHMEDIA)
@@ -9207,7 +9211,7 @@ mov.l\\t1f,r0\\n\\
       DONE;
     }
 
-   if ((GET_CODE (operands[1]) == EQ || GET_CODE (operands[0]) == NE)
+   if ((GET_CODE (operands[1]) == EQ || GET_CODE (operands[1]) == NE)
        && sh_expand_t_scc (operands))
      DONE;
 
@@ -9231,7 +9235,7 @@ mov.l\\t1f,r0\\n\\
       DONE;
     }
 
-   if ((GET_CODE (operands[1]) == EQ || GET_CODE (operands[0]) == NE)
+   if ((GET_CODE (operands[1]) == EQ || GET_CODE (operands[1]) == NE)
        && sh_expand_t_scc (operands))
      DONE;
 

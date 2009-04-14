@@ -1,3 +1,28 @@
+2009-04-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/avr/avr.md: Fix tst -> sbrc/sbrs peephole2.
+	* config/bfin/bfin.md (cbranchsi4): Remove BImode from operand 0.
+	(cstorebi4): Do not expand NE.
+	(movbisi): This insn is duplicate, split it to zero_extend.
+	* config/mmix/mmix.md (movdfcc): Do not handle LE and GE.
+	* config/cris/cris.c (cris_normal_notice_update_cc): Handle btstq
+	on one bit.
+	* config/crx/crx.md (cc_reg_operand): New.
+	(any_cond): Delete.
+	(cbranchcc4): New.
+	(cbranch<mode>4): Use ordered_comparison_operator.
+	* config/h8300/h8300.md: Avoid matching test instructions in mov+cmp->cmp
+	peephole.
+	* config/m32c/cond.md (movqicc_eq_<mode>): Undo change.
+	(movhicc_eq_<mode>): Undo change.
+	* config/m32c/m32c.md (eqne_cond): Undo.
+	* config/m68hc11/m68hc11 (m68hc11_notice_update_cc): Look into
+	a compare with 0.
+	* config/sh/sh.c (sh_emit_cheap_store_flag): Add break.
+	* config/sh/sh.md (cbranchsi4, cbranchdi4): Place SHmedia case first.
+	(cstoresi4): Use cmpsi_operand to allow set from T.
+	(cstoresi4, cstoredi4): Fix pasto.
+
 2009-04-10  Paolo Bonzini  <bonzini@gnu.org>
 
 	* optabs.c (emit_conditional_move, emit_conditional_add): Pass

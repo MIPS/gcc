@@ -2479,7 +2479,8 @@
 
 ;; Convert sign tests to bit 7/15/31 tests that match the above insns.
 (define_peephole2
-  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+  [(set (cc0) (compare (match_operand:QI 0 "register_operand" "")
+		       (const_int 0)))
    (set (pc) (if_then_else (ge (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2493,7 +2494,8 @@
   "")
 
 (define_peephole2
-  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+  [(set (cc0) (compare (match_operand:QI 0 "register_operand" "")
+		       (const_int 0)))
    (set (pc) (if_then_else (lt (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2507,7 +2509,9 @@
   "")
 
 (define_peephole2
-  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
+  [(parallel [(set (cc0) (compare (match_operand:HI 0 "register_operand" "")
+			 	  (const_int 0)))
+	      (clobber (match_operand:HI 2 ""))])
    (set (pc) (if_then_else (ge (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2519,7 +2523,9 @@
   "")
 
 (define_peephole2
-  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
+  [(parallel [(set (cc0) (compare (match_operand:HI 0 "register_operand" "")
+			 	  (const_int 0)))
+	      (clobber (match_operand:HI 2 ""))])
    (set (pc) (if_then_else (lt (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2531,7 +2537,9 @@
   "")
 
 (define_peephole2
-  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
+  [(parallel [(set (cc0) (compare (match_operand:SI 0 "register_operand" "")
+			 	  (const_int 0)))
+	      (clobber (match_operand:SI 2 ""))])
    (set (pc) (if_then_else (ge (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2543,7 +2551,9 @@
   "operands[2] = GEN_INT (-2147483647 - 1);")
 
 (define_peephole2
-  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
+  [(parallel [(set (cc0) (compare (match_operand:SI 0 "register_operand" "")
+			 	  (const_int 0)))
+	      (clobber (match_operand:SI 2 ""))])
    (set (pc) (if_then_else (lt (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]

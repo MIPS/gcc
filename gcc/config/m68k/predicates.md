@@ -198,6 +198,11 @@
   (and (match_code "mem")
        (match_test "GET_CODE (XEXP (op, 0)) == PRE_DEC")))
 
+;; A zero constant.
+(define_predicate "const0_operand"
+  (and (match_code "const_int,const_double,const_vector")
+       (match_test "op == CONST0_RTX (mode)")))
+
 ;; A one constant (operand for conditional_trap).
 (define_predicate "const1_operand"
   (and (match_code "const_int")

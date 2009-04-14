@@ -1757,6 +1757,7 @@ sh_emit_cheap_store_flag (enum machine_mode mode, enum rtx_code code,
       tmp = gen_rtx_fmt_ee (code, SImode, op0, op1);
       emit_insn (gen_cstore4_media (target, tmp, op0, op1));
       code = NE;
+      break;
 
     case NE:
     case GE:
@@ -1767,6 +1768,7 @@ sh_emit_cheap_store_flag (enum machine_mode mode, enum rtx_code code,
       tmp = gen_rtx_fmt_ee (reverse_condition (code), mode, op0, op1);
       emit_insn (gen_cstore4_media (target, tmp, op0, op1));
       code = EQ;
+      break;
 
     case UNEQ:
     case UNGE:

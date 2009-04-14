@@ -1438,7 +1438,9 @@ cris_normal_notice_update_cc (rtx exp, rtx insn)
 	  else
 	    cc_status.value1 = SET_SRC (exp);
 
-	  if (GET_CODE (cc_status.value1) == ZERO_EXTRACT)
+          /* Handle flags for the special btstq on one bit.  */
+	  if (GET_CODE (cc_status.value1) == ZERO_EXTRACT
+	      && XEXP (cc_status.value1, 1) == const1_rtx)
 	    {
 	      if (CONST_INT_P (XEXP (cc_status.value1, 0)))
 		/* Using cmpq.  */

@@ -710,6 +710,9 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   "
 {
   enum rtx_code code = GET_CODE (operands[1]);
+  if (code == LE || code == GE)
+    FAIL;
+
   operands[4] = mmix_gen_compare_reg (code, XEXP (operands[1], 0),
 				      XEXP (operands[1], 1));
   operands[5] = gen_rtx_COMPARE (GET_MODE (operands[4]),
@@ -729,6 +732,9 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   "
 {
   enum rtx_code code = GET_CODE (operands[1]);
+  if (code == LE || code == GE)
+    FAIL;
+
   operands[4] = mmix_gen_compare_reg (code, XEXP (operands[1], 0),
 				      XEXP (operands[1], 1));
   operands[5] = gen_rtx_COMPARE (GET_MODE (operands[4]),

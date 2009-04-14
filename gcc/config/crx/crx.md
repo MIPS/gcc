@@ -63,6 +63,10 @@
   (ior (match_code "symbol_ref")
        (match_operand 0 "register_operand")))
 
+(define_predicate "cc_reg_operand"
+  (and (match_code "reg")
+       (match_test "REGNO (op) == CC_REGNUM")))
+
 (define_predicate "nosp_reg_operand"
   (and (match_operand 0 "register_operand")
        (match_test "REGNO (op) != SP_REGNUM")))
@@ -106,8 +110,6 @@
 
 (define_code_iterator mima_oprnd [smax umax smin umin])
 (define_code_attr mimaIsa [(smax "maxs") (umax "maxu") (smin "mins") (umin "minu")])
-
-(define_code_iterator any_cond [eq ne gt gtu lt ltu ge geu le leu])
 
 ;;  Addition Instructions
 
@@ -522,9 +524,21 @@
 
 ;;  Compare and Branch Instructions
 
+(define_insn "cbranchcc4"
+  [(set (pc)
+       (if_then_else (match_operator 0 "ordered_comparison_operator"
+		       [(match_operand:CC 1 "cc_reg_operand" "r")
+			(match_operand 2 "cst4_operand" "L")])
+                     (label_ref (match_operand 3 ""))
+                     (pc)))]
+  ""
+  "b%d0\t%l3"
+  [(set_attr "length" "6")]
+)
+
 (define_insn "cbranch<mode>4"
   [(set (pc)
-	(if_then_else (match_operator 0 "comparison_operator"
+	(if_then_else (match_operator 0 "ordered_comparison_operator"
 			[(match_operand:CRXIM 1 "register_operand" "r")
 			 (match_operand:CRXIM 2 "reg_or_cst4_operand" "rL")])
 		      (label_ref (match_operand 3 "" ""))

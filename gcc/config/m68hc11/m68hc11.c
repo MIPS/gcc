@@ -3881,7 +3881,11 @@ m68hc11_notice_update_cc (rtx exp, rtx insn ATTRIBUTE_UNUSED)
 	{
 	  cc_status.flags = 0;
 	  cc_status.value1 = XEXP (exp, 0);
-	  cc_status.value2 = XEXP (exp, 1);
+	  if (GET_CODE (XEXP (exp, 1)) == COMPARE
+	      && XEXP (XEXP (exp, 1), 1) == CONST0_RTX (GET_MODE (XEXP (XEXP (exp, 1), 0))))
+	    cc_status.value2 = XEXP (XEXP (exp, 1), 0);
+	  else
+	    cc_status.value2 = XEXP (exp, 1);
 	}
       else
 	{
