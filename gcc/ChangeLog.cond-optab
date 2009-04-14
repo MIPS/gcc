@@ -1,5 +1,9 @@
 2009-04-14  Paolo Bonzini  <bonzini@gnu.org>
 
+        * config/m68k/constraints.md (H): New.
+        
+2009-04-14  Paolo Bonzini  <bonzini@gnu.org>
+
 	* config/avr/avr.md: Fix tst -> sbrc/sbrs peephole2.
 	* config/bfin/bfin.md (cbranchsi4): Remove BImode from operand 0.
 	(cstorebi4): Do not expand NE.
@@ -22,6 +26,12 @@
 	* config/sh/sh.md (cbranchsi4, cbranchdi4): Place SHmedia case first.
 	(cstoresi4): Use cmpsi_operand to allow set from T.
 	(cstoresi4, cstoredi4): Fix pasto.
+
+        * config/m68k/m68k.md (tst<FP>_68881, tst<FP>_cf): Use const0_operand.
+        * config/m68k/predicates.md (const0_operand): New.
+
+        * final.c (final_scan_insn): Look into compare with 0, but also check
+        if cc_status.value is the full compare.
 
 2009-04-10  Paolo Bonzini  <bonzini@gnu.org>
 
