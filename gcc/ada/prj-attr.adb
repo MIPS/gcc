@@ -68,6 +68,7 @@ package body Prj.Attr is
    --  General
 
    "SVRname#" &
+   "SVRproject_dir#" &
    "lVmain#" &
    "LVlanguages#" &
    "SVmain_language#" &
@@ -243,6 +244,12 @@ package body Prj.Attr is
    "LVexecutable_switch#" &
    "SVlib_dir_switch#" &
    "SVlib_name_switch#" &
+
+   --  Configuration - Response files
+
+   "SVmax_command_line_length#" &
+   "SVresponse_file_format#" &
+   "LVresponse_file_switches#" &
 
    --  package Cross_Reference
 

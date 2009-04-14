@@ -814,7 +814,6 @@ do {									\
 #define CANONICALIZE_COMPARISON(CODE, OP0, OP1) \
   s390_canonicalize_comparison (&(CODE), &(OP0), &(OP1))
 
-
 /* Relative costs of operations.  */
 
 /* On s390, copy between fprs and gprs is expensive.  */

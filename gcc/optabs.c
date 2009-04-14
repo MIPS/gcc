@@ -7006,9 +7006,9 @@ expand_bool_compare_and_swap (rtx mem, rtx old_val, rtx new_val, rtx target)
 
   emit_insn (seq);
   if (cc_reg)
-    return emit_store_flag (target, EQ, cc_reg, const0_rtx, VOIDmode, 0, 1);
+    return emit_store_flag_force (target, EQ, cc_reg, const0_rtx, VOIDmode, 0, 1);
   else
-    return emit_store_flag (target, EQ, subtarget, old_val, VOIDmode, 1, 1);
+    return emit_store_flag_force (target, EQ, subtarget, old_val, VOIDmode, 1, 1);
 }
 
 /* This is a helper function for the other atomic operations.  This function

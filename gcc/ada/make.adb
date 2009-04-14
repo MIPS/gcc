@@ -4112,10 +4112,10 @@ package body Make is
 
             --  Never display -gnatea nor -gnatez
 
-            if Args (J).all /= "-gnatea" and then
-              Args (J).all /= "-gnatez"
+            if Args (J).all /= "-gnatea"
+                 and then
+               Args (J).all /= "-gnatez"
             then
-
                --  Do not display the mapping file argument automatically
                --  created when using a project file.
 
@@ -5396,10 +5396,7 @@ package body Make is
                --  JVM machine since ".class" files are generated instead.
 
                Check_Object_Consistency := False;
-
-               Gcc := new String'("jgnat");
-               Gnatbind := new String'("jgnatbind");
-               Gnatlink := new String'("jgnatlink");
+               Gcc := new String'("jvm-gnatcompile");
 
             when Targparm.CLI_Target =>
                Gcc := new String'("dotnet-gnatcompile");
@@ -6451,9 +6448,17 @@ package body Make is
                      then
                         Skip := True;
 
+                     --  Here we capture and duplicate the linker argument. We
+                     --  need to do the duplication since the arguments will
+                     --  get normalized. Not doing so will result in calling
+                     --  normalized two times for the same set of arguments if
+                     --  gnatmake is passed multiple mains. This can result in
+                     --  the wrong argument being passed to the linker.
+
                      else
                         Last_Arg := Last_Arg + 1;
-                        Args (Last_Arg) := Linker_Switches.Table (J);
+                        Args (Last_Arg) :=
+                          new String'(Linker_Switches.Table (J).all);
                      end if;
                   end loop;
 

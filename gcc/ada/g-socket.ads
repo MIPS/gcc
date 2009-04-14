@@ -379,25 +379,37 @@ package GNAT.Sockets is
    --  including through this renaming.
 
    procedure Initialize;
+   pragma Obsolescent
+     (Entity  => Initialize,
+      Message => "explicit initialization is no longer required");
    --  Initialize must be called before using any other socket routines.
    --  Note that this operation is a no-op on UNIX platforms, but applications
    --  should make sure to call it if portability is expected: some platforms
    --  (such as Windows) require initialization before any socket operation.
+   --  This is now a no-op (initialization and finalization are done
+   --  automatically).
 
    procedure Initialize (Process_Blocking_IO : Boolean);
    pragma Obsolescent
      (Entity  => Initialize,
-      Message => "passing a parameter to Initialize is not supported anymore");
+      Message => "passing a parameter to Initialize is no longer supported");
    --  Previous versions of GNAT.Sockets used to require the user to indicate
    --  whether socket I/O was process- or thread-blocking on the platform.
    --  This property is now determined automatically when the run-time library
    --  is built. The old version of Initialize, taking a parameter, is kept
    --  for compatibility reasons, but this interface is obsolete (and if the
    --  value given is wrong, an exception will be raised at run time).
+   --  This is now a no-op (initialization and finalization are done
+   --  automatically).
 
    procedure Finalize;
+   pragma Obsolescent
+     (Entity  => Finalize,
+      Message => "explicit finalization is no longer required");
    --  After Finalize is called it is not possible to use any routines
    --  exported in by this package. This procedure is idempotent.
+   --  This is now a no-op (initialization and finalization are done
+   --  automatically).
 
    type Socket_Type is private;
    --  Sockets are used to implement a reliable bi-directional point-to-point,
@@ -1083,7 +1095,10 @@ private
 
    type Fd_Set is
      new System.Storage_Elements.Storage_Array (1 .. SOSC.SIZEOF_fd_set);
-   for Fd_Set'Alignment use Interfaces.C.int'Alignment;
+   for Fd_Set'Alignment use Interfaces.C.long'Alignment;
+   --  Set conservative alignment so that our Fd_Sets are always adequately
+   --  aligned for the underlying data type (which is implementation defined
+   --  and may be an array of C long integers).
 
    type Fd_Set_Access is access all Fd_Set;
    pragma Convention (C, Fd_Set_Access);
