@@ -1,3 +1,102 @@
+2009-04-13  Michael Eager <eager@eagercon.com>
+
+	* config/rs6000/rs6000-c.c: generate defines if rs6000_xilinx_fpu:
+	_XFPU, _XFPU_SP_LITE, _XFPU_SP_FULL, _XFPU_DP_LITE, _XFPU_DP_FULL
+	* config/rs6000/xilinx.h: New.  Spec for powerpc-xilinx-eabi
+	* config.gcc (powerpc-xilinx-eabi): add xilinx.h to tm_file, 
+	remove duplicate config
+
+2009-04-13  Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
+
+	* ipa-inline.c (cgraph_decide_inlining_of_small_function): Dump
+	file_name:line_number type locator of the call site.
+	
+2009-04-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c: Put blank after comma.
+	(automaton_decls): New.
+	(struct unit_usage): Add comments to member next.
+	(store_alt_unit_usage): Keep the list ordered.
+	(unit_present_on_list_p, equal_alternatives_p): New.
+	(check_regexp_units_distribution): Check units distribution
+	correctness correctly.
+	(main): Don't write automata if error is found.  Return correct
+	exit code.
+	
+	* config/m68k/cf.md (cfv4_ds): Remove.
+	(cfv4_pOEP1, cfv4_sOEP1, cfv4_pOEP2,cfv4_sOEP2, cfv4_pOEP3,
+	cfv4_sOEP3): Assign to cfv4_oep instead of cfv4_ds.
+
+	* config/rs6000/power4.md (lsuq_power4, iq_power4, fpq_power4,
+	power4-load-ext, power4-store, power4-store-update,
+	power4-fpstore, power4-fpstore-update, power4-two, power4-three,
+	power4-insert, power4-compare, power4-lmul-cmp, power4-imul-cmp,
+	power4-lmul, , power4-imul, power4-imul3, power4-sdiv,
+	power4-sqrt, power4-isync): Modify reservation to make correct
+	unit distribution to automata.
+
+	* config/rs6000/power5.md (iq_power5, fpq_power5, power5-store,
+	power5-store-update, power5-two, power5-three, power5-lmul,
+	power5-imul, power5-imul3, power5-sdiv, power5-sqrt): Ditto.
+	
+2009-04-13  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* except.c (pass_set_nothrow_function_flags): Set name and add
+	TODO_dump_func.
+	(set_nothrow_function_flags): Mention in the dump file when
+	changing a function to nothrow.
+
+2009-04-13  Ozkan Sezer  <sezeroz@gmail.com>
+
+	PR/39066
+	* gbl-ctors.h (DO_GLOBAL_CTORS_BODY): Use __SIZE_TYPE__
+	instead of unsigned long.
+
+2009-04-13  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.c (return_used_this_function): Remove.
+	(arm_output_function_prologue): Remove use of
+	return_used_this_function.
+	(output_return_instruction): Replace use of
+	return_used_this_function
+	by cfun->machine->return_used_this_function.
+	(arm_output_epilogue): Likewise.
+	(arm_output_function_epilogue): Likewise.
+	(thumb_unexpanded_epilogue): Likewise.
+	* config/arm/arm.h (struct machine_function):
+	New member return_used_this_function.
+
+2009-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* doc/install.texi: Correct description of default directory for
+	--with-gxx-include-dir.
+
+2009-04-12 Eric Botcazou <ebotcazou@adacore.com>
+
+	* fold-const.c (build_range_check): Properly deal with enumeral and
+	boolean base types.
+
+2009-04-12  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* doc/invoke.texi (max_gcse_passes): Remove documentation.
+	* params.def (PARAM_MAX_GCSE_PASSES): Remove.
+	* params.h (MAX_GCSE_PASSES): Remove.
+	* gcse.c (gcse_main): Run CPROP1, PRE or HOIST, and CPROP2
+	in sequence.  Remove ability to run multiple passes.
+	(bypass_jumps): Report run as third CPROP pass.
+
+2009-04-12  Adam Nemet  <anemet@caviumnetworks.com>
+
+	PR middle-end/39651
+	* except.c (can_throw_external): Look at each insn in a SEQUENCE
+	when deciding whether the whole SEQUENCE can throw.
+
+2009-04-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39740
+	* config/alpha/predicates.md (local_symbolic_operand): Return 1 for
+	offseted label references.
+
 2009-04-11  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa-pre.c (eliminate): Fix call of update_stmt.

@@ -1,3 +1,39 @@
+2009-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39480
+	* g++.dg/init/copy7.C: New.
+
+2009-04-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/39733
+	* gcc.misc-tests/options.exp (check_for_options): Renamed to ...
+	(check_for_all_options): This.
+
+2009-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39750
+	* g++.dg/template/crash90.C: New.
+
+2009-04-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39742
+	* g++.dg/overload/extern-C-2.C: New.
+
+2009-04-12  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/31869
+	* gcc.dg/cpp/strify5.c: New test.
+
+2009-04-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/enum1.adb: New test.
+	* gnat.dg/enum1_pkg.ads: New helper.
+
+2009-04-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39740
+	* gcc.target/alpha/pr39740.c: New test.
+
 2009-04-11  Daniel Kraft  <d@domob.eu>
 
 	PR fortran/37746
