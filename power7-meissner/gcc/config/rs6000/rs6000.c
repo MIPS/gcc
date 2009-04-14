@@ -12574,6 +12574,11 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   enum reg_class rclass;
   rtx addr;
   rtx and_op2 = NULL_RTX;
+  rtx addr_op1;
+  rtx addr_op2;
+  rtx scratch_or_premodify = scratch;
+  rtx and_rtx;
+  rtx cc_clobber;
 
   if (TARGET_DEBUG_ADDR)
     {
@@ -12595,7 +12600,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 
   switch (rclass)
     {
-      /* Move reg+reg addresses into a scratch register for GPRs.  */
+      /* GPRs can handle reg + small constant, all other addresses need to use
+	 the scratch register.  */
     case GENERAL_REGS:
     case BASE_REGS:
       if (GET_CODE (addr) == AND)
@@ -12603,70 +12609,152 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	  and_op2 = XEXP (addr, 1);
 	  addr = XEXP (addr, 0);
 	}
+
+      if (GET_CODE (addr) == PRE_MODIFY)
+	{
+	  scratch_or_premodify = XEXP (addr, 0);
+	  gcc_assert (REG_P (scratch_or_premodify));
+	  gcc_assert (GET_CODE (XEXP (addr, 1)) == PLUS);
+	  addr = XEXP (addr, 1);
+	}
+
       if (GET_CODE (addr) == PLUS
 	  && (!rs6000_legitimate_offset_address_p (TImode, addr, true)
 	      || and_op2 != NULL_RTX))
 	{
-	  if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == CONST
-	      || GET_CODE (addr) == CONST_INT)
-	    rs6000_emit_move (scratch, addr, GET_MODE (addr));
-	  else
-	    emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
-	  addr = scratch;
+	  addr_op1 = XEXP (addr, 0);
+	  addr_op2 = XEXP (addr, 1);
+	  gcc_assert (legitimate_indirect_address_p (addr_op1, true));
+
+	  if (!REG_P (addr_op2)
+	      && (GET_CODE (addr_op2) != CONST_INT
+		  || !satisfies_constraint_I (addr_op2)))
+	    {
+	      rs6000_emit_move (scratch, addr_op2, Pmode);
+	      addr_op2 = scratch;
+	    }
+
+	  emit_insn (gen_rtx_SET (VOIDmode,
+				  scratch_or_premodify,
+				  gen_rtx_PLUS (Pmode,
+						addr_op1,
+						addr_op2)));
+
+	  addr = scratch_or_premodify;
+	  scratch_or_premodify = scratch;
 	}
-      else if (GET_CODE (addr) == PRE_MODIFY
-	       && REG_P (XEXP (addr, 0))
-	       && GET_CODE (XEXP (addr, 1)) == PLUS)
+      else if (!legitimate_indirect_address_p (addr, true)
+	       && !rs6000_legitimate_offset_address_p (TImode, addr, true))
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, XEXP (addr, 0), XEXP (addr, 1)));
-	  addr = XEXP (addr, 0);
+	  rs6000_emit_move (scratch_or_premodify, addr, Pmode);
+	  addr = scratch_or_premodify;
+	  scratch_or_premodify = scratch;
 	}
       break;
+
+      /* Float/Altivec registers can only handle reg+reg addressing.  Move
+	 other addresses into a scratch register.  */
+    case FLOAT_REGS:
+    case VSX_REGS:
+    case ALTIVEC_REGS:
 
       /* With float regs, we need to handle the AND ourselves, since we can't
 	 use the Altivec instruction with an implicit AND -16.  Allow scalar
 	 loads to float registers to use reg+offset even if VSX.  */
-    case FLOAT_REGS:
-    case VSX_REGS:
-      if (GET_CODE (addr) == AND)
+      if (GET_CODE (addr) == AND
+	  && (rclass != ALTIVEC_REGS || GET_MODE_SIZE (mode) != 16))
 	{
 	  and_op2 = XEXP (addr, 1);
 	  addr = XEXP (addr, 0);
 	}
-      /* fall through */
 
-      /* Move reg+offset addresses into a scratch register.  */
-    case ALTIVEC_REGS:
-      if (!legitimate_indirect_address_p (addr, true)
-	  && !legitimate_indexed_address_p (addr, true)
-	  && (GET_CODE (addr) != PRE_MODIFY
-	      || !legitimate_indexed_address_p (XEXP (addr, 1), true))
-	  && (rclass != FLOAT_REGS
-	      || GET_MODE_SIZE (mode) != 8
+      /* If we aren't using a VSX load, save the PRE_MODIFY register and use it
+	 as the address later.  */
+      if (GET_CODE (addr) == PRE_MODIFY
+	  && (!VECTOR_MEM_VSX_P (mode)
 	      || and_op2 != NULL_RTX
-	      || !rs6000_legitimate_offset_address_p (mode, addr, true)))
+	      || !legitimate_indexed_address_p (XEXP (addr, 1), true)))
 	{
-	  if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == CONST
-	      || GET_CODE (addr) == CONST_INT)
-	    rs6000_emit_move (scratch, addr, GET_MODE (addr));
-	  else
-	    emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
-	  addr = scratch;
+	  scratch_or_premodify = XEXP (addr, 0);
+	  gcc_assert (legitimate_indirect_address_p (scratch_or_premodify,
+						     true));
+	  gcc_assert (GET_CODE (XEXP (addr, 1)) == PLUS);
+	  addr = XEXP (addr, 1);
 	}
+
+      if (legitimate_indirect_address_p (addr, true)	/* reg */
+	  || legitimate_indexed_address_p (addr, true)	/* reg+reg */
+	  || GET_CODE (addr) == PRE_MODIFY		/* VSX pre-modify */
+	  || GET_CODE (addr) == AND			/* Altivec memory */
+	  || (rclass == FLOAT_REGS			/* legacy float mem */
+	      && GET_MODE_SIZE (mode) == 8
+	      && and_op2 == NULL_RTX
+	      && scratch_or_premodify == scratch
+	      && rs6000_legitimate_offset_address_p (mode, addr, true)))
+	;
+
+      else if (GET_CODE (addr) == PLUS)
+	{
+	  addr_op1 = XEXP (addr, 0);
+	  addr_op2 = XEXP (addr, 1);
+	  gcc_assert (REG_P (addr_op1));
+
+	  rs6000_emit_move (scratch, addr_op2, Pmode);
+	  emit_insn (gen_rtx_SET (VOIDmode,
+				  scratch_or_premodify,
+				  gen_rtx_PLUS (Pmode,
+						addr_op1,
+						scratch)));
+	  addr = scratch_or_premodify;
+	  scratch_or_premodify = scratch;
+	}
+
+      else if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == CONST
+	       || GET_CODE (addr) == CONST_INT)
+	{
+	  rs6000_emit_move (scratch_or_premodify, addr, Pmode);
+	  addr = scratch_or_premodify;
+	  scratch_or_premodify = scratch;
+	}
+
+      else
+	gcc_unreachable ();
+
       break;
 
     default:
       gcc_unreachable ();
     }
 
-  /* If the original address involved an AND -16 that is part of the Altivec
-     addresses, recreate the and now.  */
+  /* If the original address involved a pre-modify that we couldn't use the VSX
+     memory instruction with update, and we haven't taken care of already,
+     store the address in the pre-modify register and use that as the
+     address.  */
+  if (scratch_or_premodify != scratch && scratch_or_premodify != addr)
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, scratch_or_premodify, addr));
+      addr = scratch_or_premodify;
+    }
+
+  /* If the original address involved an AND -16 and we couldn't use an ALTIVEC
+     memory instruction, recreate the AND now, including the clobber which is
+     generated by the general ANDSI3/ANDDI3 patterns for the
+     andi. instruction.  */
   if (and_op2 != NULL_RTX)
     {
-      rtx and_rtx = gen_rtx_SET (VOIDmode,
-				 scratch,
-				 gen_rtx_AND (Pmode, addr, and_op2));
-      rtx cc_clobber = gen_rtx_CLOBBER (CCmode, gen_rtx_SCRATCH (CCmode));
+      if (! legitimate_indirect_address_p (addr, true))
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	  addr = scratch;
+	}
+
+      and_rtx = gen_rtx_SET (VOIDmode,
+			     scratch,
+			     gen_rtx_AND (Pmode,
+					  addr,
+					  and_op2));
+
+      cc_clobber = gen_rtx_CLOBBER (CCmode, gen_rtx_SCRATCH (CCmode));
       emit_insn (gen_rtx_PARALLEL (VOIDmode,
 				   gen_rtvec (2, and_rtx, cc_clobber)));
       addr = scratch;

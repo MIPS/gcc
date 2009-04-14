@@ -1,3 +1,14 @@
+2009-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_inner): Handle
+	more possible combinations of addresses.
+
+	* config/rs6000/vector.md (vec_reload_and_plus_<mptrsize>): Allow
+	register+small constant in addition to register+register, and
+	restrict the insn to only match during reload and afterwards.
+	(vec_reload_and_reg_<mptrsize>): Allow for and of register
+	indirect to not generate insn not found message.
+
 2009-04-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (-mvsx-vector-memory): Make debug switches
