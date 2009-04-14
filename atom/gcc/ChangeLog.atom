@@ -1,5 +1,12 @@
 2009-04-14  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (distance_non_agu_define): Assume that op1
+	is register and op1 is non-subreg.
+	(ix86_lea_for_add_ok): Assert operands[1] is register and
+	operands[2] isn't subreg.
+
+2009-04-14  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (distance_non_agu_define): Support
 	SUBREG.  Use DF instead of reg_set_p.
 	(reg_mentioned_by_mem_p): Removed.

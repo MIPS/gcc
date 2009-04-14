@@ -13014,37 +13014,23 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
 
 #define LEA_SEARCH_THRESHOLD 12
 
-/* Search backward for non-agu definition of register OP1 or register
+/* Search backward for non-agu definition of register OP1 or non-subreg
    OP2 in INSN's basic block until 
    1. Pass LEA_SEARCH_THRESHOLD instructions, or
-   2. Reach BB boundary, or reach agu definition.
+   2. Reach BB boundary, or
+   3. Reach agu definition.
    Returns the distance between the non-agu definition point and INSN.
    If no definition point, returns -1.  */
 
 static int
 distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 {
-  unsigned int regno1, regno2;
+  unsigned int regno1 = REGNO (op1);
+  unsigned int regno2 = REG_P (op2) ? REGNO (op2) : (unsigned int) -1;
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
   df_ref *def_rec;
   enum attr_type insn_type;
-
-  if (REG_P (op1))
-    regno1 = REGNO (op1);
-  else if (GET_CODE (op1) == SUBREG && REG_P (SUBREG_REG (op1)))
-    regno1 = REGNO (SUBREG_REG (op1));
-  else
-    regno1 = ~0;
-  if (REG_P (op2))
-    regno2 = REGNO (op2);
-  else if (GET_CODE (op2) == SUBREG && REG_P (SUBREG_REG (op2)))
-    regno2 = REGNO (SUBREG_REG (op2));
-  else
-    regno2 = ~0;
-
-  if (regno1 == (unsigned int) ~0 && regno2 == (unsigned int) ~0)
-    return -1;
 
   if (insn != BB_HEAD (bb))
     {
@@ -13233,8 +13219,9 @@ bool
 ix86_lea_for_add_ok (enum rtx_code code ATTRIBUTE_UNUSED,
                      rtx insn, rtx operands[])
 {
-  gcc_assert (REG_P (operands[0]));
-  gcc_assert (operands[1] && operands[2]);
+  gcc_assert (REG_P (operands[0])
+	      && REG_P (operands[1])
+	      && GET_CODE (operands[2]) != SUBREG);
 
   if (!TARGET_OPT_AGU || optimize_function_for_size_p (cfun))
     {
