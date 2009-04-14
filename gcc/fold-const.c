@@ -141,6 +141,7 @@ static bool reorder_operands_p (const_tree, const_tree);
 static tree fold_negate_const (tree, tree);
 static tree fold_not_const (tree, tree);
 static tree fold_relational_const (enum tree_code, tree, tree, tree);
+static tree fold_convert_const (enum tree_code, tree, tree);
 
 
 /* We know that A1 + B1 = SUM1, using 2's complement arithmetic and ignoring
@@ -1998,6 +1999,50 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
 	return build_complex (type, real, imag);
     }
 
+  if (TREE_CODE (arg1) == VECTOR_CST)
+    {
+      tree type = TREE_TYPE(arg1);
+      int count = TYPE_VECTOR_SUBPARTS (type), i;
+      tree elements1, elements2, list = NULL_TREE;
+      
+      if(TREE_CODE(arg2) != VECTOR_CST)
+        return NULL_TREE;
+        
+      elements1 = TREE_VECTOR_CST_ELTS (arg1);
+      elements2 = TREE_VECTOR_CST_ELTS (arg2);
+
+      for (i = 0; i < count; i++)
+	{
+          tree elem1, elem2, elem;
+          
+          /* The trailing elements can be empty and should be treated as 0 */
+          if(!elements1)
+            elem1 = fold_convert_const (NOP_EXPR, TREE_TYPE (type), integer_zero_node);
+          else
+            {
+              elem1 = TREE_VALUE(elements1);
+              elements1 = TREE_CHAIN (elements1);
+            }  
+            
+          if(!elements2)
+            elem2 = fold_convert_const (NOP_EXPR, TREE_TYPE (type), integer_zero_node);
+          else
+            {
+              elem2 = TREE_VALUE(elements2);
+              elements2 = TREE_CHAIN (elements2);
+            }
+              
+          elem = const_binop (code, elem1, elem2, notrunc);
+          
+          /* It is possible that const_binop cannot handle the given
+            code and return NULL_TREE */
+          if(elem == NULL_TREE)
+            return NULL_TREE;
+          
+          list = tree_cons (NULL_TREE, elem, list);
+	}
+      return build_vector(type, nreverse(list));  
+    }
   return NULL_TREE;
 }
 
@@ -4626,8 +4671,8 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh,
 static tree
 build_range_check (tree type, tree exp, int in_p, tree low, tree high)
 {
-  tree etype = TREE_TYPE (exp);
-  tree value;
+  tree etype = TREE_TYPE (exp), value;
+  enum tree_code code;
 
 #ifdef HAVE_canonicalize_funcptr_for_compare
   /* Disable this optimization for function pointer expressions
@@ -4711,20 +4756,25 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
 
   /* Optimize (c>=low) && (c<=high) into (c-low>=0) && (c-low<=high-low).
      This requires wrap-around arithmetics for the type of the expression.  */
-  switch (TREE_CODE (etype))
+  code = TREE_CODE (etype);
+  switch (code)
     {
     case INTEGER_TYPE:
+    case ENUMERAL_TYPE:
+    case BOOLEAN_TYPE:
       /* There is no requirement that LOW be within the range of ETYPE
 	 if the latter is a subtype.  It must, however, be within the base
 	 type of ETYPE.  So be sure we do the subtraction in that type.  */
-      if (TREE_TYPE (etype))
-	etype = TREE_TYPE (etype);
-      break;
+      if (code == INTEGER_TYPE && TREE_TYPE (etype))
+	{
+	  etype = TREE_TYPE (etype);
+	  /* But not in an enumeral or boolean type though.  */
+	  code = TREE_CODE (etype);
+	}
 
-    case ENUMERAL_TYPE:
-    case BOOLEAN_TYPE:
-      etype = lang_hooks.types.type_for_size (TYPE_PRECISION (etype),
-					      TYPE_UNSIGNED (etype));
+      if (code != INTEGER_TYPE)
+	etype = lang_hooks.types.type_for_size (TYPE_PRECISION (etype),
+						TYPE_UNSIGNED (etype));
       break;
 
     default:
@@ -14972,9 +15022,13 @@ tree_single_nonzero_warnv_p (tree t, bool *strict_overflow_p)
 	if (!base)
 	  return false;
 
-	/* Weak declarations may link to NULL.  */
-	if (VAR_OR_FUNCTION_DECL_P (base))
-	  return !DECL_WEAK (base);
+	/* Weak declarations may link to NULL.  Other things may also be NULL
+	   so protect with -fdelete-null-pointer-checks; but not variables
+	   allocated on the stack.  */
+	if (DECL_P (base)
+	    && (flag_delete_null_pointer_checks
+		|| (TREE_CODE (base) == VAR_DECL && !TREE_STATIC (base))))
+	  return !VAR_OR_FUNCTION_DECL_P (base) || !DECL_WEAK (base);
 
 	/* Constants are never weak.  */
 	if (CONSTANT_CLASS_P (base))

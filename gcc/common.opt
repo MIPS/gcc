@@ -436,7 +436,7 @@ Common Report Var(flag_delayed_branch) Optimization
 Attempt to fill delay slots of branch instructions
 
 fdelete-null-pointer-checks
-Common Report Var(flag_delete_null_pointer_checks) Optimization
+Common Report Var(flag_delete_null_pointer_checks) Init(1) Optimization
 Delete useless null pointer checks
 
 fdiagnostics-show-location=
@@ -492,7 +492,7 @@ Common Report Var(flag_expensive_optimizations) Optimization
 Perform a number of minor, expensive optimizations
 
 falias-export
-Common Report Var(flag_alias_export) Optimization Init(2)
+Common Report Var(flag_alias_export) Optimization Init(1)
 Save alias information on Tree-SSA to be used on RTL
 
 falias-export-check
@@ -500,7 +500,7 @@ Common Report Var(flag_alias_export_check) Optimization
 Regularly check integrity and consistency of saved alias information
 
 fddg-export
-Common Report Var(flag_ddg_export) Optimization Init(2)
+Common Report Var(flag_ddg_export) Optimization Init(1)
 Save alias information on Tree-SSA to be used on RTL
 
 fexcess-precision=

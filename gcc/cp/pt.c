@@ -6325,6 +6325,7 @@ uses_template_parms (tree t)
 	   || TREE_CODE (t) == BASELINK
 	   || TREE_CODE (t) == IDENTIFIER_NODE
 	   || TREE_CODE (t) == TRAIT_EXPR
+	   || TREE_CODE (t) == CONSTRUCTOR
 	   || CONSTANT_CLASS_P (t))
     dependent_p = (type_dependent_expression_p (t)
 		   || value_dependent_expression_p (t));
@@ -12679,6 +12680,7 @@ resolve_overloaded_unification (tree tparms,
 {
   tree tempargs = copy_node (targs);
   int good = 0;
+  tree goodfn = NULL_TREE;
   bool addr_p;
 
   if (TREE_CODE (arg) == ADDR_EXPR)
@@ -12724,8 +12726,13 @@ resolve_overloaded_unification (tree tparms,
 	  if (subargs)
 	    {
 	      elem = tsubst (TREE_TYPE (fn), subargs, tf_none, NULL_TREE);
-	      good += try_one_overload (tparms, targs, tempargs, parm,
-					elem, strict, sub_strict, addr_p);
+	      if (try_one_overload (tparms, targs, tempargs, parm,
+				    elem, strict, sub_strict, addr_p)
+		  && (!goodfn || !decls_match (goodfn, elem)))
+		{
+		  goodfn = elem;
+		  ++good;
+		}
 	    }
 	  --processing_template_decl;
 	}
@@ -12738,9 +12745,14 @@ resolve_overloaded_unification (tree tparms,
     return false;
   else
     for (; arg; arg = OVL_NEXT (arg))
-      good += try_one_overload (tparms, targs, tempargs, parm,
-				TREE_TYPE (OVL_CURRENT (arg)),
-				strict, sub_strict, addr_p);
+      if (try_one_overload (tparms, targs, tempargs, parm,
+			    TREE_TYPE (OVL_CURRENT (arg)),
+			    strict, sub_strict, addr_p)
+	  && (!goodfn || !decls_match (goodfn, OVL_CURRENT (arg))))
+	{
+	  goodfn = OVL_CURRENT (arg);
+	  ++good;
+	}
 
   /* [temp.deduct.type] A template-argument can be deduced from a pointer
      to function or pointer to member function argument if the set of

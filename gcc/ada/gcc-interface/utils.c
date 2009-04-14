@@ -48,6 +48,7 @@
 #include "tree-dump.h"
 #include "pointer-set.h"
 #include "langhooks.h"
+#include "rtl.h"
 
 #include "ada.h"
 #include "types.h"
@@ -1630,6 +1631,11 @@ process_attributes (tree decl, struct attrib *attr_list)
       case ATTR_LINK_DESTRUCTOR:
 	DECL_STATIC_DESTRUCTOR (decl) = 1;
 	TREE_USED (decl) = 1;
+	break;
+
+      case ATTR_THREAD_LOCAL_STORAGE:
+	DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+	DECL_COMMON (decl) = 0;
 	break;
       }
 }

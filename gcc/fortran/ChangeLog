@@ -1,3 +1,87 @@
+2009-04-11  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/37746
+	* gfortran.h (struct gfc_charlen): New field `passed_length' to store
+	the actual passed string length for dummy arguments.
+	* trans-decl.c (gfc_create_string_length): Formatting fixes and added
+	assertion, moved a local variable into the innermost block it is needed.
+	(create_function_arglist): Removed TODO about the check being
+	implemented and initialize cl->passed_length here.
+	(add_argument_checking): New method.
+	(gfc_generate_function_code): Call the argument checking method.
+
+2009-04-11  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39692
+	* symbol.c (check_conflict): Reject procedure pointers for -std=f95.
+
+2009-04-11  Daniel Franke  <franke.daniel@gmail.com>
+
+	* resolve.c (resolve_global_procedure): Enable whole-file checking for
+	procedures that are declared later in the file.
+	
+2009-04-10  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/39701
+	* trans.c (gfc_allocate_with_status): Fix type mismatches
+	on "pstat == 0".
+
+2009-04-10  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/38709
+	* expr.c (find_array_section): Leave early on zero-sized arrays.
+
+2009-04-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/36704
+	* decl.c (add_hidden_procptr_result): New function for handling
+	procedure pointer return values by adding a hidden result variable.
+	(variable_decl,match_procedure_decl,gfc_match_function_decl,
+	gfc_match_subroutine,gfc_match_end,attr_decl1): Handle procedure pointer
+	return values.
+	* parse.c (parse_interface): Add EXTERNAL attribute only after
+	FUNCTION/SUBROUTINE declaration is complete.
+	* primary.c (replace_hidden_procptr_result): New function for replacing
+	function symbol by hidden result variable.
+	(gfc_match_rvalue,match_variable): Replace symbol by hidden result
+	variable.
+	* resolve.c (resolve_contained_fntype,resolve_function,resolve_variable,
+	resolve_symbol): Allow for procedure pointer function results.
+	(resolve_fl_procedure): Conflict detection moved here from
+	'check_conflict'.
+	* symbol.c (gfc_check_function_type): Allow for procedure pointer
+	function results.
+	(check_conflict): Move some conflict detection to resolution stage.
+	* trans-types.c (gfc_sym_type,gfc_get_function_type): Handle hidden
+	result variables.
+
+2009-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-types.c (gfc_init_types): Ensure gfc_integer_types doesn't
+	contain TYPE_STRING_FLAG types.
+
+2009-04-08  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/39670
+	* invoke.texi (fdollar-ok): Fix typo.
+	
+2009-04-08  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/39670
+	* invoke.texi (fdollar-ok): Clarify limitations.
+
+2009-04-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38863
+	* trans-array.c (gfc_trans_deferred_array): Return if this
+	is a result variable.
+
+2009-04-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/38152
+	* trans-decl.c (gfc_get_symbol_decl): Correctly set decl location for
+	procedure pointer decls.
+
 2009-04-07  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/38290
