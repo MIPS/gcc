@@ -3337,6 +3337,18 @@ package body Sem_Ch3 is
             Error_Msg_NE ("parent type& of limited extension must be limited",
               N, Parent_Type);
          end if;
+
+      --  A consequence of 3.9.4 (6/2) and 7.3 (2.2/2) is that a private
+      --  extension with a synchronized parent must be explicitly declared
+      --  synchronized, because the full view will be a synchronized type.
+
+      elsif Is_Interface (Parent_Type)
+        and then Is_Synchronized_Interface (Parent_Type)
+        and then not Synchronized_Present (N)
+      then
+         Error_Msg_NE
+           ("private extension of& must be explicitly synchronized",
+             N, Parent_Type);
       end if;
    end Analyze_Private_Extension_Declaration;
 
@@ -4002,7 +4014,17 @@ package body Sem_Ch3 is
             Set_First_Subtype_Link (Freeze_Node (B), T);
          end if;
 
-         if not From_With_Type (T) then
+         --  A type that is imported through a limited_with clause cannot
+         --  generate any code, and thus need not be frozen. However, an
+         --  access type with an imported designated type needs a finalization
+         --  list, which may be referenced in some other package that has
+         --  non-limited visibility on the designated type. Thus we must
+         --  create the finalization list at the point the access type is
+         --  frozen, to prevent unsatisfied references at link time.
+
+         if not From_With_Type (T)
+           or else Is_Access_Type (T)
+         then
             Set_Has_Delayed_Freeze (T);
          end if;
       end;
@@ -8712,6 +8734,7 @@ package body Sem_Ch3 is
                 or else Protected_Present (Iface_Def)
                 or else Synchronized_Present (Iface_Def))
               and then Nkind (N) /= N_Private_Extension_Declaration
+              and then not Error_Posted (N)
             then
                Error_Msg_NE
                  ("progenitor& must be limited interface",
@@ -12605,19 +12628,21 @@ package body Sem_Ch3 is
                   null;
 
                elsif Protected_Present (Iface_Def) then
-                  Error_Msg_N
-                    ("(Ada 2005) limited interface cannot "
-                     & "inherit from protected interface", Indic);
+                  Error_Msg_NE
+                    ("descendant of& must be declared"
+                       & " as a protected interface",
+                         N, Parent_Type);
 
                elsif Synchronized_Present (Iface_Def) then
-                  Error_Msg_N
-                    ("(Ada 2005) limited interface cannot "
-                     & "inherit from synchronized interface", Indic);
+                  Error_Msg_NE
+                    ("descendant of& must be declared"
+                       & " as a synchronized interface",
+                         N, Parent_Type);
 
                elsif Task_Present (Iface_Def) then
-                  Error_Msg_N
-                    ("(Ada 2005) limited interface cannot "
-                     & "inherit from task interface", Indic);
+                  Error_Msg_NE
+                    ("descendant of& must be declared as a task interface",
+                       N, Parent_Type);
 
                else
                   Error_Msg_N
@@ -12636,20 +12661,21 @@ package body Sem_Ch3 is
                   null;
 
                elsif Protected_Present (Iface_Def) then
-                  Error_Msg_N
-                    ("(Ada 2005) non-limited interface cannot "
-                     & "inherit from protected interface", Indic);
+                  Error_Msg_NE
+                    ("descendant of& must be declared"
+                       & " as a protected interface",
+                         N, Parent_Type);
 
                elsif Synchronized_Present (Iface_Def) then
-                  Error_Msg_N
-                    ("(Ada 2005) non-limited interface cannot "
-                     & "inherit from synchronized interface", Indic);
+                  Error_Msg_NE
+                    ("descendant of& must be declared"
+                       & " as a synchronized interface",
+                         N, Parent_Type);
 
                elsif Task_Present (Iface_Def) then
-                  Error_Msg_N
-                    ("(Ada 2005) non-limited interface cannot "
-                     & "inherit from task interface", Indic);
-
+                  Error_Msg_NE
+                    ("descendant of& must be declared as a task interface",
+                       N, Parent_Type);
                else
                   null;
                end if;

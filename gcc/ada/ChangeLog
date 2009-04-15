@@ -1,3 +1,146 @@
+2009-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch4.adb: improve error message on exponentiation.
+
+2009-04-15  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* a-calend.adb: Move constant Epoch_Offset from package
+	Conversion_Operations to top level.
+	(Delay_Operations.To_Duration): Define a constant which represents
+	"end of time" and use it as a guard against very distant delay dates.
+	Protect the code against overflow when performing the origin shift to
+	Unix time.
+
+2009-04-15  Robert Dewar  <dewar@adacore.com>
+
+	* sem_prag.adb: Minor reformatting.
+
+	* sem_type.adb: Minor reformatting
+
+2009-04-15  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch6.adb (Analyze_Abstract_Subprogram_Declaration): Add missing
+	support to check eliminated subprograms.
+
+	* sem_elim.ads (Eliminate_Error_Msg): Update documentation.
+
+	* sem_elim.adb (Set_Eliminated): Add support for elimination of
+	dispatching subprograms.
+
+	* exp_disp.adb (Make_DT): Minor code cleanup when freezing primitive
+	operations. Initialize with "null" the slots of eliminated dispaching
+	primitives.
+	(Write_DT): Add output for eliminated primitives.
+
+	* sem_disp.adb (Check_Dispatching_Call): Check eliminated primitives.
+
+2009-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch8.adb (Use_One_Type): If both clauses appear on the same unit,
+	the second is redundant, regardless of scopes.
+
+2009-04-15  Vincent Celier  <celier@adacore.com>
+
+	* prj-nmsc.adb (Get_Directories): Check for sources before checking
+	the object directory as when there are no sources, they may not be any
+	object directory.
+
+	* make.adb (Gnatmake): Do not attempt to get the path name of the exec
+	directory, when there are no exec directory.
+
+2009-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_type.adb (Remove_Conversions): In order to resolve spurious
+	ambiguities, refine removal of universal interpretations from complex
+	expressions with literal arguments, when some numeric operators have
+	been declared abstract.
+
+2009-04-15  Ed Falis  <falis@adacore.com>
+
+	* init.c: Map SIGSEGV to Storage_Error for all targets for uniformity
+	and backward compatibility for targets using probing for stack overflow
+
+2009-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma, case 'Obsolescent): Pragma is legal
+	after any declaration, including renaming declarations.
+
+2009-04-15  Arnaud Charlet  <charlet@adacore.com>
+
+	* gcc-interface/Make-lang.in: Update dependencies.
+
+	* gcc-interface/Makefile.in: Fix VxWorks target pairs.
+
+2009-04-15  Javier Miranda  <miranda@adacore.com>
+
+	* exp_ch4.adb (Expand_N_Allocator): Code cleanup.
+
+	* sem_ch6.adb (Check_Anonymous_Return): Add missing support for
+	functions returning anonymous access to class-wide limited types. Mark
+	also the containing scope as a task master.
+
+	* sem_ch8.adb (Restore_Scope_Stack): Add missing management for
+	limited-withed packages. Required to restore their visibility after
+	processing packages associated with implicit with-clauses.
+
+	* exp_ch3.adb (Build_Class_Wide_Master): Avoid marking masters
+	associated with return statements because this work is now done by
+	Check_Anonymous_Return.
+	(Build_Master): Code cleanup.
+
+2009-04-15  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_warn.ads: Minor reformatting
+
+2009-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb: better error message for illegal interfaces
+
+	* sem_ch6.adb (Possible_Freeze): Delay freezing a subprogram if a
+	formal is an incomplete type from a limited_with clause.
+
+2009-04-15  Vincent Celier  <celier@adacore.com>
+
+	* prj-nmsc.adb (Locate_Directory): New Boolean parameter
+	Externally_Built indicating if the project is externally built. If it
+	is, and --subdirs is specified, but the subdir does not exist, look
+	for the specified directory, without the subdir.
+
+2009-04-15  Gary Dismukes  <dismukes@adacore.com>
+
+	* a-tasatt.adb: Fix typo, plus minor reformatting
+
+	* sem_ch3.ads: Add missing hyphen ("class wide" => "class-wide").
+
+	* sem_ch10.adb: Add missing hyphen ("use visible" => "use-visible").
+
+2009-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Analyze_Private_Extension_Declaration): Verify that a
+	private extension whose parent is a synchronized interface carries an
+	explicit synchronized keyword.
+
+2009-04-15  Thomas Quinot  <quinot@adacore.com>
+
+	* exp_smem.adb (Make_Shared_Var_Procs): For a protected type,
+	instantiate generic shared object package with the corresponding
+	record type.
+
+2009-04-15  Arnaud Charlet  <charlet@adacore.com>
+
+	* system-linux-sparc.ads: Remove obsolete entries.
+
+2009-04-15  Thomas Quinot  <quinot@adacore.com>
+
+	* s-tasuti.ads: Add ??? comment
+
+2009-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Analyze_Type_Declaration): Create freeze node for access
+	type even if the designated type comes from a limited_with clause, to
+	ensure that the symbol for the finalization list of the access type is
+	created.
+
 2009-04-10  Robert Dewar  <dewar@adacore.com>
 
 	* sem_warn.ads, sem_warn.adb (Check_Low_Bound_Tested): Catch more cases

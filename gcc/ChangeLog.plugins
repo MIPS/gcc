@@ -1,3 +1,10 @@
+2009-04-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	Merge with mainline @146095.
+
+	* configure.ac (ACX_PKGVERSION): Update.
+	* configure: Regenerate.
+
 2009-04-14  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline @146060.

@@ -196,8 +196,8 @@ package body Sem_Ch6 is
 
    procedure Set_Formal_Validity (Formal_Id : Entity_Id);
    --  Formal_Id is an formal parameter entity. This procedure deals with
-   --  setting the proper validity status for this entity, which depends
-   --  on the kind of parameter and the validity checking mode.
+   --  setting the proper validity status for this entity, which depends on
+   --  the kind of parameter and the validity checking mode.
 
    ------------------------------
    -- Analyze_Return_Statement --
@@ -367,6 +367,7 @@ package body Sem_Ch6 is
       end if;
 
       Generate_Reference_To_Formals (Designator);
+      Check_Eliminated (Designator);
    end Analyze_Abstract_Subprogram_Declaration;
 
    ----------------------------------------
@@ -1426,6 +1427,7 @@ package body Sem_Ch6 is
 
       procedure Check_Anonymous_Return is
          Decl : Node_Id;
+         Par  : Node_Id;
          Scop : Entity_Id;
 
       begin
@@ -1437,7 +1439,12 @@ package body Sem_Ch6 is
 
          if Ekind (Scop) = E_Function
            and then Ekind (Etype (Scop)) = E_Anonymous_Access_Type
-           and then Has_Task (Designated_Type (Etype (Scop)))
+           and then not Is_Thunk (Scop)
+           and then (Has_Task (Designated_Type (Etype (Scop)))
+                      or else
+                       (Is_Class_Wide_Type (Designated_Type (Etype (Scop)))
+                          and then
+                        Is_Limited_Record (Designated_Type (Etype (Scop)))))
            and then Expander_Active
          then
             Decl :=
@@ -1459,6 +1466,25 @@ package body Sem_Ch6 is
 
             Set_Master_Id (Etype (Scop), Defining_Identifier (Decl));
             Set_Has_Master_Entity (Scop);
+
+            --  Now mark the containing scope as a task master
+
+            Par := N;
+            while Nkind (Par) /= N_Compilation_Unit loop
+               Par := Parent (Par);
+               pragma Assert (Present (Par));
+
+               --  If we fall off the top, we are at the outer level, and
+               --  the environment task is our effective master, so nothing
+               --  to mark.
+
+               if Nkind_In
+                   (Par, N_Task_Body, N_Block_Statement, N_Subprogram_Body)
+               then
+                  Set_Is_Task_Master (Par, True);
+                  exit;
+               end if;
+            end loop;
          end if;
       end Check_Anonymous_Return;
 
@@ -3928,7 +3954,9 @@ package body Sem_Ch6 is
       procedure Possible_Freeze (T : Entity_Id);
       --  T is the type of either a formal parameter or of the return type.
       --  If T is not yet frozen and needs a delayed freeze, then the
-      --  subprogram itself must be delayed.
+      --  subprogram itself must be delayed. If T is the limited view of
+      --  of an incomplete type the subprogram must be frozen as well,
+      --  because T may depend on local types that have not been frozen yet.
 
       ---------------------
       -- Possible_Freeze --
@@ -3944,6 +3972,11 @@ package body Sem_Ch6 is
          elsif Is_Access_Type (T)
            and then Has_Delayed_Freeze (Designated_Type (T))
            and then not Is_Frozen (Designated_Type (T))
+         then
+            Set_Has_Delayed_Freeze (Designator);
+
+         elsif Ekind (T) = E_Incomplete_Type
+           and then From_With_Type (T)
          then
             Set_Has_Delayed_Freeze (Designator);
          end if;
