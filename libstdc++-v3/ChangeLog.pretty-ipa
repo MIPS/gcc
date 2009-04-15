@@ -1,0 +1,8 @@
+2009-04-16  Jan Hubicka  <jh@suse.cz>
+
+	* tree.cc (_Rb_tree_increment, _Rb_tree_decrement,
+	_Rb_tree_rebalance_for_erase, _Rb_tree_black_count): Mark nothrow.
+	(_Rb_tree_rotate_left, _Rb_tree_rotate_right): Mark static.
+	* stl_tree.h (_Rb_tree_increment, _Rb_tree_decrement,
+	_Rb_tree_insert_and_rebalance, _Rb_tree_rebalance_for_erase,
+	_Rb_tree_black_count): Mark nothrow.
