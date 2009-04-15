@@ -405,38 +405,6 @@ no)
 esac
 
 
-AC_ARG_ENABLE(plugin,
-[  --enable-plugin         enable plugin support],
-ENABLE_PLUGIN=$enableval,
-ENABLE_PLUGIN=yes)
-
-pluginlibs=
-if test "${ENABLE_PLUGIN}" = "yes"; then
-  # Check for ELF target.
-  is_elf=no
-  case "${target}" in
-    *-*-elf* | *-*-sysv4* | *-*-unixware* | *-*-eabi* | hppa*64*-*-hpux* \
-    | *-*-linux* | frv-*-uclinux* | *-*-irix5* | *-*-irix6* \
-    | *-*-netbsd* | *-*-openbsd* | *-*-freebsd* | *-*-solaris2*)
-      case "${target}" in
-        *-*-linux*aout* | *-*-linux*oldld*)
-          ;;
-        *)
-          is_elf=yes
-          ;;
-      esac
-  esac
-
-  # Currently plugins are only supported in ELF.
-  if test "$is_elf" = "yes"; then
-    pluginlibs="-rdynamic -ldl"
-  fi
-fi
-
-# Flag needed for plugin support
-AC_SUBST(pluginlibs)
-
-
 # Disable libmudflap on some systems.
 if test x$enable_libmudflap = x ; then
     case "${target}" in
