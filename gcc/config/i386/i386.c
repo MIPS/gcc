@@ -14606,14 +14606,11 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
     emit_label (label);
 }
 
-int
+void
 ix86_expand_setcc (enum rtx_code code, rtx dest)
 {
   rtx ret, tmp, tmpreg, equiv;
   rtx second_test, bypass_test;
-
-  if (GET_MODE (ix86_compare_op0) == (TARGET_64BIT ? TImode : DImode))
-    return 0; /* FAIL */
 
   gcc_assert (GET_MODE (dest) == QImode);
 
@@ -14653,8 +14650,6 @@ ix86_expand_setcc (enum rtx_code code, rtx dest)
 				       ix86_compare_op0, ix86_compare_op1);
       set_unique_reg_note (get_last_insn (), REG_EQUAL, equiv);
     }
-
-  return 1; /* DONE */
 }
 
 /* Expand comparison setting or clearing carry flag.  Return true when

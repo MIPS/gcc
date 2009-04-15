@@ -1,3 +1,10 @@
+2009-04-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/i386/i386.md (cstoreti4): Delete.
+	(cstoredi4): Limit to TARGET_64BIT.
+	* config/i386/i386.c (ix86_expand_setcc): Return void.
+	* config/i386/i386-protos.h (ix86_expand_setcc): Return void.
+
 2009-04-15  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* config/s390/s390.md (condtrap): Make the cc reg a variable in
