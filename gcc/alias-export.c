@@ -53,6 +53,18 @@ static struct pointer_map_t *exprs_to_ptas = NULL;
 /* The map of decls to stack partitions.  */
 static struct pointer_map_t *decls_to_stack = NULL;
 
+/* The map of decl uids to decl pointers.  This is needed because points-to sets
+   have only decl uids.  */
+static struct pointer_map_t *uids_to_decls = NULL;
+
+/* The map of partition representative decls to bitmaps that are
+   unified points-to sets for pointer decls.  */
+static struct pointer_map_t *part_repr_to_pta = NULL;
+
+/* The map of partition representative decls to bitmaps that have
+   set bits corresponding to decl uids of a partition.  */
+static struct pointer_map_t *part_repr_to_part = NULL;
+
 /* Return the pointer on which REF access is based, or NULL, 
    if there's no such thing.  */
 static tree
@@ -72,17 +84,45 @@ get_pointer_from_ref (tree ref)
   return NULL;
 }
 
-/* Find the points-to set for ORIG_EXPR.  */
-static struct ptr_info_def *
-find_pta_info (tree orig_expr)
+/* Change points-to set for POINTER in PID so that it would
+   have all conflicting stack vars.  */
+static void
+mark_conflict_stack_vars (tree pointer ATTRIBUTE_UNUSED, struct ptr_info_def *pid)
 {
-  tree pointer;
+  bitmap_iterator bi;
+  unsigned i;
+  bitmap temp;
+  tree *pdecl;
 
-  pointer = get_pointer_from_ref (orig_expr);
-  if (! pointer
-      || TREE_CODE (pointer) != SSA_NAME)
-    return NULL;
-  return SSA_NAME_PTR_INFO (pointer);
+  if (!decls_to_stack)
+    return;
+
+  /* If pointer points to one of partition vars, make it point to all 
+     of them.  */
+  if (pid->pt.vars)
+    {
+      temp = BITMAP_ALLOC (NULL);
+      EXECUTE_IF_SET_IN_BITMAP (pid->pt.vars, 0, i, bi)
+        if ((pdecl = (tree *) pointer_map_contains (uids_to_decls,
+                                                    (void *) (size_t) i)))
+          {
+            pdecl = (tree *) pointer_map_contains (decls_to_stack, *pdecl);
+            gcc_assert (pdecl);
+            bitmap_ior_into (temp, 
+                             *((bitmap *) pointer_map_contains (part_repr_to_part, 
+                                                                *pdecl)));
+          }
+      bitmap_ior_into (pid->pt.vars, temp);
+      BITMAP_FREE (temp);
+    }
+
+  /* If pointer got paritioned itself, make its points-to set a union
+     of all the partition vars' points-to sets.  */
+  if ((pdecl = (tree *) pointer_map_contains (decls_to_stack, pointer)))
+    {
+      temp = *((bitmap *) pointer_map_contains (part_repr_to_pta, *pdecl));
+      bitmap_ior_into (pid->pt.vars, temp);
+    }
 }
 
 /* Record the final points-to set and returns orig expr.  */
@@ -90,20 +130,24 @@ tree
 unshare_and_record_pta_info (tree orig_expr)
 {
   struct ptr_info_def **ppid, *pid;
-  tree old_expr = orig_expr;
+  tree pointer, old_expr;
 
   /* No point saving anything for calls.  */
   if (TREE_CODE (orig_expr) == CALL_EXPR)
     return NULL;
-    
-  pid = find_pta_info (orig_expr);
-  orig_expr = unshare_expr (orig_expr);
 
+  old_expr = orig_expr;
+  orig_expr = unshare_expr (orig_expr);
   if (flag_ddg_export)
     replace_var_in_datarefs (old_expr, orig_expr);
   
-  if (!pid)
+  pointer = get_pointer_from_ref (orig_expr);
+  if (! pointer
+      || TREE_CODE (pointer) != SSA_NAME
+      || (pid = SSA_NAME_PTR_INFO (pointer)) == NULL)
     return orig_expr;
+  
+  mark_conflict_stack_vars (pointer, pid);
 
   if (!exprs_to_ptas)
     exprs_to_ptas = pointer_map_create ();
@@ -113,13 +157,81 @@ unshare_and_record_pta_info (tree orig_expr)
   return orig_expr;
 }
 
-/* Save stack partitions.  */
-void
-record_stack_var_partition_for (tree decl, tree part_decl)
+/* Record the uid mapping for DECL.  */
+static void
+map_uid_to_decl (tree decl)
+{
+  if (DECL_P (decl))
+    {
+      if (!uids_to_decls)
+        uids_to_decls = pointer_map_create ();
+      *((tree *) pointer_map_insert (uids_to_decls,
+                                     (void *) (size_t) DECL_UID (decl))) = decl;
+    }
+}
+
+/* Record the DECL mapping to its PART_DECL representative.  */
+static void
+map_decl_to_representative (tree decl, tree part_decl)
 {
   if (!decls_to_stack)
     decls_to_stack = pointer_map_create ();
   *((tree *) pointer_map_insert (decls_to_stack, decl)) = part_decl;
+}
+
+/* Create a bitmap in PMAP associated with DECL and return it.  */
+static bitmap
+map_decl_to_bitmap (struct pointer_map_t **pmap, tree decl)
+{
+  bitmap temp = NULL, *ptemp;
+
+  if (!*pmap)
+    *pmap = pointer_map_create ();
+  ptemp = (bitmap *) pointer_map_contains (*pmap, decl);
+  if (ptemp)
+    {
+      temp = *ptemp;
+      gcc_assert (temp);
+    }
+  else
+    {
+      temp = BITMAP_ALLOC (NULL);
+      *((bitmap *) pointer_map_insert (*pmap, decl)) = temp;
+    }
+
+  return temp;
+}
+
+/* Save stack partitions.  DECL has PART_DECL as a representative.  
+   Also, create pta bitmaps so that alias analysis is not confused later.  */
+void
+record_stack_var_partition_for (tree decl, tree part_decl)
+{
+  bitmap temp;
+  
+  /* First, record that decl has part_decl as a representative, and their uids.  */
+  map_decl_to_representative (decl, part_decl);
+  map_uid_to_decl (decl);
+  map_uid_to_decl (part_decl);
+
+  /* Second, create a bitmap that represents all partition.  */
+  temp = map_decl_to_bitmap (&part_repr_to_part, part_decl);
+  if (DECL_P (part_decl))
+    bitmap_set_bit (temp, DECL_UID (part_decl));
+  if (DECL_P (decl))
+    bitmap_set_bit (temp, DECL_UID (decl));
+
+  /* Third, when decl is a pointer, we need to do the same 
+     for points-to sets.  */
+  if (TREE_CODE (decl) == SSA_NAME
+      && SSA_NAME_PTR_INFO (decl))
+    {
+      temp = map_decl_to_bitmap (&part_repr_to_pta, part_decl);
+      if (TREE_CODE (part_decl) == SSA_NAME
+          && SSA_NAME_PTR_INFO (part_decl))
+        bitmap_ior_into (temp, SSA_NAME_PTR_INFO (part_decl)->pt.vars);
+      bitmap_ior_into (temp, SSA_NAME_PTR_INFO (decl)->pt.vars);
+    }
 }
 
 /* Return the ptr-info-def structure for given expression.  */
@@ -460,6 +572,16 @@ handle_free_aliases (void)
     {
       pointer_map_destroy (decls_to_stack);
       decls_to_stack = NULL;
+    }
+  if (part_repr_to_pta)
+    {
+      pointer_map_destroy (part_repr_to_pta);
+      part_repr_to_pta = NULL;
+    }
+  if (part_repr_to_part)
+    {
+      pointer_map_destroy (part_repr_to_part);
+      part_repr_to_part = NULL;
     }
   if (gimple_df_escaped.vars)
     {

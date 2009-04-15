@@ -2264,7 +2264,6 @@ true_dependence (const_rtx mem, enum machine_mode mem_mode, const_rtx x,
 {
   rtx x_addr, mem_addr;
   rtx base;
-  int memret;
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
@@ -2311,12 +2310,11 @@ true_dependence (const_rtx mem, enum machine_mode mem_mode, const_rtx x,
   x_addr = canon_rtx (x_addr);
   mem_addr = canon_rtx (mem_addr);
 
-  if (! (memret = memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
-                                      SIZE_FOR_MODE (x), x_addr, 0)))
+  if (! memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
+                            SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
-  if (memret != 2 
-      && ! query_alias_export_info (x, mem, 1))
+  if (! query_alias_export_info (x, mem, 1))
     return 0;
 
   if (aliases_everything_p (x))
@@ -2347,7 +2345,6 @@ canon_true_dependence (const_rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 		       const_rtx x, bool (*varies) (const_rtx, bool))
 {
   rtx x_addr;
-  int memret;
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
@@ -2382,12 +2379,11 @@ canon_true_dependence (const_rtx mem, enum machine_mode mem_mode, rtx mem_addr,
     return 0;
 
   x_addr = canon_rtx (x_addr);
-  if (! (memret = memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
-                                      SIZE_FOR_MODE (x), x_addr, 0)))
+  if (! memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
+                            SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
-  if (memret != 2
-      && ! query_alias_export_info (x, mem, 1))
+  if (! query_alias_export_info (x, mem, 1))
     return 0;
 
   if (aliases_everything_p (x))
@@ -2416,7 +2412,6 @@ write_dependence_p (const_rtx mem, const_rtx x, int writep)
   rtx x_addr, mem_addr;
   const_rtx fixed_scalar;
   rtx base;
-  int memret;
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
@@ -2462,12 +2457,11 @@ write_dependence_p (const_rtx mem, const_rtx x, int writep)
   x_addr = canon_rtx (x_addr);
   mem_addr = canon_rtx (mem_addr);
 
-  if (! (memret = memrefs_conflict_p (SIZE_FOR_MODE (mem), mem_addr,
-                                      SIZE_FOR_MODE (x), x_addr, 0)))
+  if (! memrefs_conflict_p (SIZE_FOR_MODE (mem), mem_addr,
+                            SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
-  if (memret != 2
-      && ! query_alias_export_info (x, mem, 1))
+  if (! query_alias_export_info (x, mem, 1))
     return 0;
 
   fixed_scalar

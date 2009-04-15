@@ -1,3 +1,19 @@
+2009-04-15  Andrey Belevantsev  <abel@ispras.ru>
+
+	* alias.c (true_dependence): Do not use the result
+	of memrefs_conflict_p call for judging whether to call the oracle.
+	(canon_true_dependence, write_dependence_p): Likewise.
+	* alias-export.c (uids_to_decls, part_repr_to_part, 
+	part_repr_to_pta): New pointer maps.
+	(handle_free_aliases): Free them.
+	(mark_conflict_stack_vars): New.
+	(find_pta_info): Remove and inline in ...
+	(unshare_and_record_pta_info): ... here.  Call mark_conflict_stack_vars
+	when recording points-to solution.
+	(map_uid_to_decl, map_decl_to_representative,
+	map_decl_to_bitmap): New.
+	(record_stack_var_partition_for): Use them.
+
 2009-04-14  Andrey Belevantsev  <abel@ispras.ru>
 
 	Apply expand from SSA patch.
