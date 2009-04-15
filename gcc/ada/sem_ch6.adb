@@ -196,8 +196,8 @@ package body Sem_Ch6 is
 
    procedure Set_Formal_Validity (Formal_Id : Entity_Id);
    --  Formal_Id is an formal parameter entity. This procedure deals with
-   --  setting the proper validity status for this entity, which depends
-   --  on the kind of parameter and the validity checking mode.
+   --  setting the proper validity status for this entity, which depends on
+   --  the kind of parameter and the validity checking mode.
 
    ------------------------------
    -- Analyze_Return_Statement --
@@ -367,6 +367,7 @@ package body Sem_Ch6 is
       end if;
 
       Generate_Reference_To_Formals (Designator);
+      Check_Eliminated (Designator);
    end Analyze_Abstract_Subprogram_Declaration;
 
    ----------------------------------------
@@ -1325,8 +1326,8 @@ package body Sem_Ch6 is
                          and then
                            Ekind (Root_Type (Typ)) = E_Incomplete_Type)
             then
-               Error_Msg_N
-                 ("invalid use of incomplete type", Result_Definition (N));
+               Error_Msg_NE
+                 ("invalid use of incomplete type&", Designator, Typ);
             end if;
          end if;
 
@@ -1426,6 +1427,7 @@ package body Sem_Ch6 is
 
       procedure Check_Anonymous_Return is
          Decl : Node_Id;
+         Par  : Node_Id;
          Scop : Entity_Id;
 
       begin
@@ -1437,7 +1439,12 @@ package body Sem_Ch6 is
 
          if Ekind (Scop) = E_Function
            and then Ekind (Etype (Scop)) = E_Anonymous_Access_Type
-           and then Has_Task (Designated_Type (Etype (Scop)))
+           and then not Is_Thunk (Scop)
+           and then (Has_Task (Designated_Type (Etype (Scop)))
+                      or else
+                       (Is_Class_Wide_Type (Designated_Type (Etype (Scop)))
+                          and then
+                        Is_Limited_Record (Designated_Type (Etype (Scop)))))
            and then Expander_Active
          then
             Decl :=
@@ -1459,6 +1466,25 @@ package body Sem_Ch6 is
 
             Set_Master_Id (Etype (Scop), Defining_Identifier (Decl));
             Set_Has_Master_Entity (Scop);
+
+            --  Now mark the containing scope as a task master
+
+            Par := N;
+            while Nkind (Par) /= N_Compilation_Unit loop
+               Par := Parent (Par);
+               pragma Assert (Present (Par));
+
+               --  If we fall off the top, we are at the outer level, and
+               --  the environment task is our effective master, so nothing
+               --  to mark.
+
+               if Nkind_In
+                   (Par, N_Task_Body, N_Block_Statement, N_Subprogram_Body)
+               then
+                  Set_Is_Task_Master (Par, True);
+                  exit;
+               end if;
+            end loop;
          end if;
       end Check_Anonymous_Return;
 
@@ -3928,7 +3954,9 @@ package body Sem_Ch6 is
       procedure Possible_Freeze (T : Entity_Id);
       --  T is the type of either a formal parameter or of the return type.
       --  If T is not yet frozen and needs a delayed freeze, then the
-      --  subprogram itself must be delayed.
+      --  subprogram itself must be delayed. If T is the limited view of an
+      --  incomplete type the subprogram must be frozen as well, because
+      --  T may depend on local types that have not been frozen yet.
 
       ---------------------
       -- Possible_Freeze --
@@ -3936,9 +3964,7 @@ package body Sem_Ch6 is
 
       procedure Possible_Freeze (T : Entity_Id) is
       begin
-         if Has_Delayed_Freeze (T)
-           and then not Is_Frozen (T)
-         then
+         if Has_Delayed_Freeze (T) and then not Is_Frozen (T) then
             Set_Has_Delayed_Freeze (Designator);
 
          elsif Is_Access_Type (T)
@@ -3946,7 +3972,11 @@ package body Sem_Ch6 is
            and then not Is_Frozen (Designated_Type (T))
          then
             Set_Has_Delayed_Freeze (Designator);
+
+         elsif Ekind (T) = E_Incomplete_Type and then From_With_Type (T) then
+            Set_Has_Delayed_Freeze (Designator);
          end if;
+
       end Possible_Freeze;
 
    --  Start of processing for Check_Delayed_Subprogram
@@ -7686,15 +7716,13 @@ package body Sem_Ch6 is
                elsif not Nkind_In (Parent (T), N_Access_Function_Definition,
                                                N_Access_Procedure_Definition)
                then
-                  Error_Msg_N ("invalid use of incomplete type", Param_Spec);
+                  Error_Msg_NE
+                    ("invalid use of incomplete type&",
+                       Param_Spec, Formal_Type);
 
-               --  An incomplete type that is not tagged is allowed in an
-               --  access-to-subprogram type only if it is a local declaration
-               --  with a forthcoming completion (3.10.1 (9.2/2)).
-
-               elsif Scope (Formal_Type) /= Scope (Current_Scope) then
-                  Error_Msg_N
-                    ("invalid use of limited view of type", Param_Spec);
+                  --  Further checks on the legality of incomplete types
+                  --  in formal parts must be delayed until the freeze point
+                  --  of the enclosing subprogram or access to subprogram.
                end if;
 
             elsif Ekind (Formal_Type) = E_Void then

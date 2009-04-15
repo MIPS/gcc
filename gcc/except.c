@@ -3475,7 +3475,16 @@ can_throw_external (const_rtx insn)
 
   if (NONJUMP_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == SEQUENCE)
-    insn = XVECEXP (PATTERN (insn), 0, 0);
+    {
+      rtx seq = PATTERN (insn);
+      int i, n = XVECLEN (seq, 0);
+
+      for (i = 0; i < n; i++)
+	if (can_throw_external (XVECEXP (seq, 0, i)))
+	  return true;
+
+      return false;
+    }
 
   note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
   if (!note)
@@ -3546,7 +3555,8 @@ set_nothrow_function_flags (void)
 	  }
       }
   if (crtl->nothrow
-      && (cgraph_function_body_availability (cgraph_node (current_function_decl))
+      && (cgraph_function_body_availability (cgraph_node
+					     (current_function_decl))
           >= AVAIL_AVAILABLE))
     {
       struct cgraph_node *node = cgraph_node (current_function_decl);
@@ -3554,6 +3564,9 @@ set_nothrow_function_flags (void)
       for (e = node->callers; e; e = e->next_caller)
         e->can_throw_external = false;
       TREE_NOTHROW (current_function_decl) = 1;
+      if (dump_file)
+	fprintf (dump_file, "Marking function nothrow: %s\n\n",
+		 current_function_name ());
     }
   return 0;
 }
@@ -3562,7 +3575,7 @@ struct rtl_opt_pass pass_set_nothrow_function_flags =
 {
  {
   RTL_PASS,
-  NULL,                                 /* name */
+  "nothrow",                            /* name */
   NULL,                                 /* gate */
   set_nothrow_function_flags,           /* execute */
   NULL,                                 /* sub */
@@ -3573,7 +3586,7 @@ struct rtl_opt_pass pass_set_nothrow_function_flags =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
  }
 };
 

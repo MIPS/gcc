@@ -1,5 +1,9 @@
 2009-04-10  Jan Hubicka  <jh@suse.cz>
 
+	* Merge from mainline.
+
+2009-04-10  Jan Hubicka  <jh@suse.cz>
+
 	* cgraph.c (cgraph_make_edge, dump_cgraph_node, cgraph_set_call_stmt):
 	Set nothrow flag.
 	* cgraph.h (struct function): Reduce loop_nest to 30 bits; add

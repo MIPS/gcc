@@ -2935,6 +2935,12 @@ package body Exp_Ch4 is
       --  constrain. Such occurrences can be rewritten as aliased objects
       --  and their unrestricted access used instead of the coextension.
 
+      function Size_In_Storage_Elements (E : Entity_Id) return Node_Id;
+      --  Given a constrained array type E, returns a node representing the
+      --  code to compute the size in storage elements for the given type.
+      --  This is done without using the attribute (which malfunctins for
+      --  large sizes ???)
+
       ---------------------------------------
       -- Complete_Coextension_Finalization --
       ---------------------------------------
@@ -3031,8 +3037,10 @@ package body Exp_Ch4 is
 
                      --  Retrieve the declaration of the body
 
-                     Decl := Parent (Parent (
-                               Corresponding_Body (Parent (Parent (S)))));
+                     Decl :=
+                       Parent
+                         (Parent
+                            (Corresponding_Body (Parent (Parent (S)))));
                      exit;
                   end if;
 
@@ -3161,6 +3169,61 @@ package body Exp_Ch4 is
          Analyze_And_Resolve (N, PtrT);
       end Rewrite_Coextension;
 
+      ------------------------------
+      -- Size_In_Storage_Elements --
+      ------------------------------
+
+      function Size_In_Storage_Elements (E : Entity_Id) return Node_Id is
+      begin
+         --  Logically this just returns E'Max_Size_In_Storage_Elements.
+         --  However, the reason for the existence of this function is
+         --  to construct a test for sizes too large, which means near the
+         --  32-bit limit on a 32-bit machine, and precisely the trouble
+         --  is that we get overflows when sizes are greater than 2**31.
+
+         --  So what we end up doing for array types is to use the expression:
+
+         --    number-of-elements * component_type'Max_Size_In_Storage_Elements
+
+         --  which avoids this problem. All this is a big bogus, but it does
+         --  mean we catch common cases of trying to allocate arrays that
+         --  are too large, and which in the absence of a check results in
+         --  undetected chaos ???
+
+         declare
+            Len : Node_Id;
+            Res : Node_Id;
+
+         begin
+            for J in 1 .. Number_Dimensions (E) loop
+               Len :=
+                 Make_Attribute_Reference (Loc,
+                   Prefix         => New_Occurrence_Of (E, Loc),
+                   Attribute_Name => Name_Length,
+                   Expressions    => New_List (
+                     Make_Integer_Literal (Loc, J)));
+
+               if J = 1 then
+                  Res := Len;
+
+               else
+                  Res :=
+                    Make_Op_Multiply (Loc,
+                      Left_Opnd  => Res,
+                      Right_Opnd => Len);
+               end if;
+            end loop;
+
+            return
+              Make_Op_Multiply (Loc,
+                Left_Opnd  => Len,
+                Right_Opnd =>
+                  Make_Attribute_Reference (Loc,
+                    Prefix => New_Occurrence_Of (Component_Type (E), Loc),
+                    Attribute_Name => Name_Max_Size_In_Storage_Elements));
+         end;
+      end Size_In_Storage_Elements;
+
    --  Start of processing for Expand_N_Allocator
 
    begin
@@ -3270,6 +3333,43 @@ package body Exp_Ch4 is
 
       if Is_Coextension_Root (N) then
          Complete_Coextension_Finalization;
+      end if;
+
+      --  Check for size too large, we do this because the back end misses
+      --  proper checks here and can generate rubbish allocation calls when
+      --  we are near the limit. We only do this for the 32-bit address case
+      --  since that is from a practical point of view where we see a problem.
+
+      if System_Address_Size = 32
+        and then not Storage_Checks_Suppressed (PtrT)
+        and then not Storage_Checks_Suppressed (Dtyp)
+        and then not Storage_Checks_Suppressed (Etyp)
+      then
+         --  The check we want to generate should look like
+
+         --  if Etyp'Max_Size_In_Storage_Elements > 3.5 gigabytes then
+         --    raise Storage_Error;
+         --  end if;
+
+         --  where 3.5 gigabytes is a constant large enough to accomodate any
+         --  reasonable request for. But we can't do it this way because at
+         --  least at the moment we don't compute this attribute right, and
+         --  can silently give wrong results when the result gets large. Since
+         --  this is all about large results, that's bad, so instead we only
+         --  applly the check for constrained arrays, and manually compute the
+         --  value of the attribute ???
+
+         if Is_Array_Type (Etyp) and then Is_Constrained (Etyp) then
+            Insert_Action (N,
+              Make_Raise_Storage_Error (Loc,
+                Condition =>
+                  Make_Op_Gt (Loc,
+                    Left_Opnd  => Size_In_Storage_Elements (Etyp),
+                    Right_Opnd =>
+                      Make_Integer_Literal (Loc,
+                        Intval => Uint_7 * (Uint_2 ** 29))),
+                Reason    => SE_Object_Too_Large));
+         end if;
       end if;
 
       --  Handle case of qualified expression (other than optimization above)
@@ -3609,11 +3709,7 @@ package body Exp_Ch4 is
                      --  on the global final list which is singly-linked.
                      --  Work needed for access discriminants in Ada 2005 ???
 
-                     if Ekind (PtrT) = E_Anonymous_Access_Type
-                       and then
-                         Nkind (Associated_Node_For_Itype (PtrT))
-                     not in N_Subprogram_Specification
-                     then
+                     if Ekind (PtrT) = E_Anonymous_Access_Type then
                         Attach_Level := Uint_1;
                      else
                         Attach_Level := Uint_2;
