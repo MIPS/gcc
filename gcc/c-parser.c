@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "target.h"
 #include "cgraph.h"
+#include "plugin.h"
 
 
 /* Initialization routine for this file.  */
@@ -1552,6 +1553,7 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	  attrs_ok = true;
 	  seen_type = true;
 	  t = c_parser_struct_or_union_specifier (parser);
+          invoke_plugin_callbacks (PLUGIN_FINISH_TYPE, t.spec);
 	  declspecs_add_type (specs, t);
 	  break;
 	case RID_TYPEOF:
