@@ -484,9 +484,9 @@ package body Prj.Nmsc is
    --  Locate a directory. Name is the directory name. Parent is the root
    --  directory, if Name a relative path name. Dir is set to the canonical
    --  case path name of the directory, and Display is the directory path name
-   --  for display purposes. If the directory does not exist and Project_Setup
+   --  for display purposes. If the directory does not exist and Setup_Projects
    --  is True and Create is a non null string, an attempt is made to create
-   --  the directory. If the directory does not exist and Project_Setup is
+   --  the directory. If the directory does not exist and Setup_Projects is
    --  false, then Dir and Display are set to No_Name.
    --
    --  Current_Dir should represent the current directory, and is passed for
@@ -1839,6 +1839,57 @@ package body Prj.Nmsc is
 
                   elsif Attribute.Name = Name_Map_File_Option then
                      Data.Config.Map_File_Option := Attribute.Value.Value;
+
+                  elsif Attribute.Name = Name_Max_Command_Line_Length then
+                     begin
+                        Data.Config.Max_Command_Line_Length :=
+                          Natural'Value (Get_Name_String
+                                         (Attribute.Value.Value));
+
+                     exception
+                        when Constraint_Error =>
+                           Error_Msg
+                             (Project,
+                              In_Tree,
+                              "value must be positive or equal to 0",
+                              Attribute.Value.Location);
+                     end;
+
+                  elsif Attribute.Name = Name_Response_File_Format then
+                     declare
+                        Name  : Name_Id;
+
+                     begin
+                        Get_Name_String (Attribute.Value.Value);
+                        To_Lower (Name_Buffer (1 .. Name_Len));
+                        Name := Name_Find;
+
+                        if Name = Name_None then
+                           Data.Config.Resp_File_Format := None;
+
+                        elsif Name = Name_Gnu then
+                           Data.Config.Resp_File_Format := GNU;
+
+                        elsif Name = Name_Object_List then
+                           Data.Config.Resp_File_Format := Object_List;
+
+                        elsif Name = Name_Option_List then
+                           Data.Config.Resp_File_Format := Option_List;
+
+                        else
+                           Error_Msg
+                             (Project,
+                              In_Tree,
+                              "illegal response file format",
+                              Attribute.Value.Location);
+                        end if;
+                     end;
+
+                  elsif Attribute.Name = Name_Response_File_Switches then
+                     Put (Into_List =>
+                            Data.Config.Resp_File_Options,
+                          From_List => Attribute.Value.Values,
+                          In_Tree   => In_Tree);
                   end if;
                end if;
 
@@ -3280,7 +3331,7 @@ package body Prj.Nmsc is
             --  value in the language config.
 
             declare
-               Dot_Repl        : constant  Variable_Value :=
+               Dot_Repl        : constant Variable_Value :=
                                    Util.Value_Of
                                      (Name_Dot_Replacement,
                                       Naming.Decl.Attributes, In_Tree);
@@ -3291,17 +3342,21 @@ package body Prj.Nmsc is
                                    (Name_Casing,
                                     Naming.Decl.Attributes,
                                     In_Tree);
-               Casing          : Casing_Type;
-               Casing_Defined  : Boolean := False;
+
+               Casing : Casing_Type := All_Lower_Case;
+               --  Casing type (junk initialization to stop bad gcc warning)
+
+               Casing_Defined : Boolean := False;
 
                Sep_Suffix : constant Variable_Value :=
                               Prj.Util.Value_Of
                                 (Variable_Name => Name_Separate_Suffix,
                                  In_Variables  => Naming.Decl.Attributes,
                                  In_Tree       => In_Tree);
-               Separate_Suffix : File_Name_Type := No_File;
 
-               Lang_Id : Language_Index;
+               Separate_Suffix : File_Name_Type := No_File;
+               Lang_Id         : Language_Index;
+
             begin
                --  Check attribute Dot_Replacement
 
@@ -3871,10 +3926,19 @@ package body Prj.Nmsc is
 
             when Library =>
                if not Data.Library then
-                  Error_Msg
-                    (Project, In_Tree,
-                     "not a library project",
-                     Data.Location);
+                  if Data.Library_Dir = No_Path_Information then
+                     Error_Msg
+                       (Project, In_Tree,
+                        "\attribute Library_Dir not declared",
+                        Data.Location);
+                  end if;
+
+                  if Data.Library_Name = No_Name then
+                     Error_Msg
+                       (Project, In_Tree,
+                        "\attribute Library_Name not declared",
+                        Data.Location);
+                  end if;
                end if;
 
             when others =>
@@ -6779,38 +6843,42 @@ package body Prj.Nmsc is
             end;
          end if;
 
-         --  Check if the casing is right
+         --  Check if the file casing is right
 
          declare
             Src      : String := File (First .. Last);
             Src_Last : Positive := Last;
 
          begin
-            case Naming.Casing is
-               when All_Lower_Case =>
-                  Fixed.Translate
-                    (Source  => Src,
-                     Mapping => Lower_Case_Map);
+            --  If casing is significant, deal with upper/lower case translate
 
-               when All_Upper_Case =>
-                  Fixed.Translate
-                    (Source  => Src,
-                     Mapping => Upper_Case_Map);
+            if File_Names_Case_Sensitive then
+               case Naming.Casing is
+                  when All_Lower_Case =>
+                     Fixed.Translate
+                       (Source  => Src,
+                        Mapping => Lower_Case_Map);
 
-               when Mixed_Case | Unknown =>
-                  null;
-            end case;
+                  when All_Upper_Case =>
+                     Fixed.Translate
+                       (Source  => Src,
+                        Mapping => Upper_Case_Map);
 
-            if Src /= File (First .. Last) then
-               if Current_Verbosity = High then
-                  Write_Line ("   Not a valid file name (casing).");
+                  when Mixed_Case | Unknown =>
+                     null;
+               end case;
+
+               if Src /= File (First .. Last) then
+                  if Current_Verbosity = High then
+                     Write_Line ("   Not a valid file name (casing).");
+                  end if;
+
+                  Unit_Name := No_Name;
+                  return;
                end if;
-
-               Unit_Name := No_Name;
-               return;
             end if;
 
-            --  We put the name in lower case
+            --  Put the name in lower case
 
             Fixed.Translate
               (Source  => Src,

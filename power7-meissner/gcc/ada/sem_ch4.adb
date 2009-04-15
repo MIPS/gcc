@@ -42,6 +42,7 @@ with Output;   use Output;
 with Restrict; use Restrict;
 with Rident;   use Rident;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch6;  use Sem_Ch6;
@@ -2661,8 +2662,7 @@ package body Sem_Ch4 is
                      Set_Etype (Nam, It.Typ);
 
                   else
-
-                     --  Nnamed access type in the context of a renaming
+                     --  Named access type in the context of a renaming
                      --  declaration with an access definition. Remove
                      --  inapplicable candidate.
 
@@ -4395,7 +4395,7 @@ package body Sem_Ch4 is
          end if;
       end Check_Right_Argument;
 
-   --  Start processing for Find_Arithmetic_Types
+   --  Start of processing for Find_Arithmetic_Types
 
    begin
       if not Is_Overloaded (L) then
@@ -4576,7 +4576,7 @@ package body Sem_Ch4 is
          end if;
       end Try_One_Interp;
 
-   --  Start processing for Find_Comparison_Types
+   --  Start of processing for Find_Comparison_Types
 
    begin
       --  If left operand is aggregate, the right operand has to

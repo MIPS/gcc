@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "dbgcnt.h"
 #include "debug.h"
+#include "plugin.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -894,7 +895,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_regmove = opt2;
   flag_strict_aliasing = opt2;
   flag_strict_overflow = opt2;
-  flag_delete_null_pointer_checks = opt2;
   flag_reorder_blocks = opt2;
   flag_reorder_functions = opt2;
   flag_tree_vrp = opt2;
@@ -1765,6 +1765,22 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fpeel_loops:
       flag_peel_loops_set = true;
+      break;
+
+    case OPT_fplugin_:
+#ifdef ENABLE_PLUGIN
+      add_new_plugin (arg);
+#else
+      error ("Plugin support is disabled.  Configure with --enable-plugin.");
+#endif
+      break;
+
+    case OPT_fplugin_arg_:
+#ifdef ENABLE_PLUGIN
+      parse_plugin_arg_opt (arg);
+#else
+      error ("Plugin support is disabled.  Configure with --enable-plugin.");
+#endif
       break;
 
     case OPT_fprofile_arcs:

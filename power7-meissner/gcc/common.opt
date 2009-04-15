@@ -436,7 +436,7 @@ Common Report Var(flag_delayed_branch) Optimization
 Attempt to fill delay slots of branch instructions
 
 fdelete-null-pointer-checks
-Common Report Var(flag_delete_null_pointer_checks) Optimization
+Common Report Var(flag_delete_null_pointer_checks) Init(1) Optimization
 Delete useless null pointer checks
 
 fdiagnostics-show-location=
@@ -853,6 +853,14 @@ Generate position-independent code if possible (small mode)
 fpie
 Common Report Var(flag_pie,1) VarExists
 Generate position-independent code for executables if possible (small mode)
+
+fplugin=
+Common Joined RejectNegative
+Specify a plugin to load
+
+fplugin-arg-
+Common Joined RejectNegative
+-fplugin-arg-<name>-<key>[=<value>] Specify argument <key>=<value> for plugin <name>
 
 fpredictive-commoning
 Common Report Var(flag_predictive_commoning) Optimization
