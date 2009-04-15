@@ -1,3 +1,10 @@
+2009-04-15  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md (condtrap): Make the cc reg a variable in
+	order to pass a different cc mode.
+	(ctrap<mode>4 FP and GPR): Use the additional gen_condtrap
+	parameter.
+
 2009-04-15  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Merge trunk up to revision 146079.
