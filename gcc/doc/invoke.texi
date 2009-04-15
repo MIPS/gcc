@@ -163,7 +163,7 @@ in the following sections.
 @xref{Overall Options,,Options Controlling the Kind of Output}.
 @gccoptlist{-c  -S  -E  -o @var{file}  -combine  -pipe  -pass-exit-codes  @gol
 -x @var{language}  -v  -###  --help@r{[}=@var{class}@r{[},@dots{}@r{]]}  --target-help  @gol
---version -wrapper@@@var{file}}
+--version -wrapper@@@var{file} -fplugin=@var{file} -fplugin-arg-@var{name}=@var{arg}}
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
@@ -188,6 +188,7 @@ in the following sections.
 -fno-implement-inlines  -fms-extensions @gol
 -fno-nonansi-builtins  -fno-operator-names @gol
 -fno-optional-diags  -fpermissive @gol
+-fno-pretty-templates @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-depth-@var{n} @gol
 -fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
 -fno-default-inline  -fvisibility-inlines-hidden @gol
@@ -315,7 +316,7 @@ Objective-C and Objective-C++ Dialects}.
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
 -print-sysroot -print-sysroot-headers-suffix @gol
--save-temps  -time}
+-save-temps -save-temps=cwd -save-temps=obj -time}
 
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
@@ -356,7 +357,7 @@ Objective-C and Objective-C++ Dialects}.
 -freciprocal-math -fregmove -frename-registers -freorder-blocks @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
--frounding-math -frtl-abstract-sequences -fsched2-use-superblocks @gol
+-frounding-math -fsched2-use-superblocks @gol
 -fsched2-use-traces -fsched-spec-load -fsched-spec-load-dangerous @gol
 -fsched-stalled-insns-dep[=@var{n}] -fsched-stalled-insns[=@var{n}] @gol
 -fschedule-insns -fschedule-insns2 -fsection-anchors -fsee @gol
@@ -457,7 +458,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu}  -msize  -minit-stack=@var{n}  -mno-interrupts @gol
--mcall-prologues  -mno-tablejump  -mtiny-stack  -mint8}
+-mcall-prologues  -mtiny-stack  -mint8}
 
 @emph{Blackfin Options}
 @gccoptlist{-mcpu=@var{cpu}@r{[}-@var{sirevision}@r{]} @gol
@@ -1297,6 +1298,19 @@ gcc -c t.c -wrapper gdb,--args
 This will invoke all subprograms of gcc under "gdb --args",
 thus cc1 invocation will be "gdb --args cc1 ...".
 
+@item -fplugin=@var{name}.so
+Load the plugin code in file @var{name}.so, assumed to be a
+shared object to be dlopen'd by the compiler.  The base name of
+the shared object file is used to identify the plugin for the
+purposes of argument parsing (See
+@option{-fplugin-arg-@var{name}-@var{key}=@var{value}} below).
+Each plugin should define the callback functions specified in the
+Plugins API.
+
+@item -fplugin-arg-@var{name}-@var{key}=@var{value}
+Define an argument called @var{key} with a value of @var{value}
+for the plugin called @var{name}.
+
 @include @value{srcdir}/../libiberty/at-file.texi
 @end table
 
@@ -1833,6 +1847,19 @@ a name having multiple meanings within a class.
 Downgrade some diagnostics about nonconformant code from errors to
 warnings.  Thus, using @option{-fpermissive} will allow some
 nonconforming code to compile.
+
+@item -fno-pretty-templates
+@opindex fno-pretty-templates
+When an error message refers to a specialization of a function
+template, the compiler will normally print the signature of the
+template followed by the template arguments and any typedefs or
+typenames in the signature (e.g. @code{void f(T) [with T = int]}
+rather than @code{void f(int)}) so that it's clear which template is
+involved.  When an error message refers to a specialization of a class
+template, the compiler will omit any template arguments which match
+the default template arguments for that template.  If either of these
+behaviors make it harder to understand the error message rather than
+easier, using @option{-fno-pretty-templates} will disable them.
 
 @item -frepo
 @opindex frepo
@@ -5168,6 +5195,7 @@ And for @var{n} over four, @option{-fsched-verbose} also includes
 dependence info.
 
 @item -save-temps
+@itemx -save-temps=cwd
 @opindex save-temps
 Store the usual ``temporary'' intermediate files permanently; place them
 in the current directory and name them based on the source file.  Thus,
@@ -5181,6 +5209,39 @@ When used in combination with the @option{-x} command line option,
 input source file with the same extension as an intermediate file.
 The corresponding intermediate file may be obtained by renaming the
 source file before using @option{-save-temps}.
+
+If you invoke GCC in parallel, compiling several different source
+files that share a common base name in different subdirectories or the
+same source file compiled for multiple output destinations, it is
+likely that the different parallel compilers will interfere with each
+other, and overwrite the temporary files.  For instance:
+
+@smallexample
+gcc -save-temps -o outdir1/foo.o indir1/foo.c&
+gcc -save-temps -o outdir2/foo.o indir2/foo.c&
+@end smallexample
+
+may result in @file{foo.i} and @file{foo.o} being written to
+simultaneously by both compilers.
+
+@item -save-temps=obj
+@opindex save-temps=obj
+Store the usual ``temporary'' intermediate files permanently.  If the
+@option{-o} option is used, the temporary files are based on the
+object file.  If the @option{-o} option is not used, the
+@option{-save-temps=obj} switch behaves like @option{-save-temps}.
+
+For example:
+
+@smallexample
+gcc -save-temps=obj -c foo.c
+gcc -save-temps=obj -c bar.c -o dir/xbar.o
+gcc -save-temps=obj foobar.c -o dir2/yfoobar
+@end smallexample
+
+would create @file{foo.i}, @file{foo.s}, @file{dir/xbar.i},
+@file{dir/xbar.s}, @file{dir2/yfoobar.i}, @file{dir2/yfoobar.s}, and
+@file{dir2/yfoobar.o}.
 
 @item -time
 @opindex time
@@ -5324,7 +5385,13 @@ the compiler to use information gained from all of the files when compiling
 each of them.
 
 Not all optimizations are controlled directly by a flag.  Only
-optimizations that have a flag are listed.
+optimizations that have a flag are listed in this section.
+
+Depending on the target and how GCC was configured, a slightly different 
+set of optimizations may be enabled at each @option{-O} level than 
+those listed here.  You can invoke GCC with @samp{-Q --help=optimizers} 
+to find out the exact set of optimizations that are enabled at each level.
+@xref{Overall Options}, for examples.
 
 @table @gcctabopt
 @item -O
@@ -5834,17 +5901,22 @@ Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fdelete-null-pointer-checks
 @opindex fdelete-null-pointer-checks
-Use global dataflow analysis to identify and eliminate useless checks
-for null pointers.  The compiler assumes that dereferencing a null
-pointer would have halted the program.  If a pointer is checked after
-it has already been dereferenced, it cannot be null.
+Assume that programs cannot safely dereference null pointers, and that
+no code or data element resides there.  This enables simple constant
+folding optimizations at all optimization levels.  In addition, other
+optimization passes in GCC use this flag to control global dataflow
+analyses that eliminate useless checks for null pointers; these assume
+that if a pointer is checked after it has already been dereferenced,
+it cannot be null.
 
-In some environments, this assumption is not true, and programs can
-safely dereference null pointers.  Use
-@option{-fno-delete-null-pointer-checks} to disable this optimization
+Note however that in some environments this assumption is not true.
+Use @option{-fno-delete-null-pointer-checks} to disable this optimization
 for programs which depend on that behavior.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+Some targets, especially embedded ones, disable this option at all levels.
+Otherwise it is enabled at all levels: @option{-O0}, @option{-O1},
+@option{-O2}, @option{-O3}, @option{-Os}.  Passes that use the information
+are enabled independently at different optimization levels.
 
 @item -fexpensive-optimizations
 @opindex fexpensive-optimizations
@@ -6954,14 +7026,6 @@ Future versions of GCC may provide finer control of this setting
 using C99's @code{FENV_ACCESS} pragma.  This command line option
 will be used to specify the default state for @code{FENV_ACCESS}.
 
-@item -frtl-abstract-sequences
-@opindex frtl-abstract-sequences
-It is a size optimization method. This option is to find identical
-sequences of code, which can be turned into pseudo-procedures  and
-then  replace  all  occurrences with  calls to  the  newly created
-subroutine. It is kind of an opposite of @option{-finline-functions}.
-This optimization runs at RTL level.
-
 @item -fsignaling-nans
 @opindex fsignaling-nans
 Compile code assuming that IEEE signaling NaNs may generate user-visible
@@ -7279,9 +7343,6 @@ order to perform the global common subexpression elimination
 optimization.  If more memory than specified is required, the
 optimization will not be done.
 
-@item max-gcse-passes
-The maximum number of passes of GCSE to run.  The default is 1.
-
 @item max-pending-list-length
 The maximum number of pending dependencies scheduling will allow
 before flushing the current state and starting over.  Large functions
@@ -7557,32 +7618,6 @@ Maximum number of basic blocks on path that cse considers.  The default is 10.
 
 @item max-cse-insns
 The maximum instructions CSE process before flushing. The default is 1000.
-
-@item max-aliased-vops
-
-Maximum number of virtual operands per function allowed to represent
-aliases before triggering the alias partitioning heuristic.  Alias
-partitioning reduces compile times and memory consumption needed for
-aliasing at the expense of precision loss in alias information.  The
-default value for this parameter is 100 for -O1, 500 for -O2 and 1000
-for -O3.
-
-Notice that if a function contains more memory statements than the
-value of this parameter, it is not really possible to achieve this
-reduction.  In this case, the compiler will use the number of memory
-statements as the value for @option{max-aliased-vops}.
-
-@item avg-aliased-vops
-
-Average number of virtual operands per statement allowed to represent
-aliases before triggering the alias partitioning heuristic.  This
-works in conjunction with @option{max-aliased-vops}.  If a function
-contains more than @option{max-aliased-vops} virtual operators, then
-memory symbols will be grouped into memory partitions until either the
-total number of virtual operators is below @option{max-aliased-vops}
-or the average number of virtual operators per memory statement is
-below @option{avg-aliased-vops}.  The default value for this parameter
-is 1 for -O1 and -O2, and 3 for -O3.
 
 @item ggc-min-expand
 
@@ -9223,7 +9258,10 @@ Generate code for the Thumb instruction set.  The default is to
 use the 32-bit ARM instruction set.
 This option automatically enables either 16-bit Thumb-1 or
 mixed 16/32-bit Thumb-2 instructions based on the @option{-mcpu=@var{name}}
-and @option{-march=@var{name}} options.
+and @option{-march=@var{name}} options. This option is not passed to the 
+assembler. If you want to force assembler files to be interpreted as Thumb code,
+either add a @samp{.thumb} directive to the source or pass the @option{-mthumb} 
+option directly to the assembler by prefixing it with @option{-Wa}.
 
 @item -mtpcs-frame
 @opindex mtpcs-frame
@@ -9317,10 +9355,6 @@ Code size will be smaller.
 @opindex mcall-prologues
 Functions prologues/epilogues expanded as call to appropriate
 subroutines.  Code size will be smaller.
-
-@item -mno-tablejump
-@opindex mno-tablejump
-Do not generate tablejump insns which sometimes increase code size.
 
 @item -mtiny-stack
 @opindex mtiny-stack
@@ -10982,6 +11016,9 @@ Improved version of Intel Pentium4 CPU with 64-bit extensions, MMX, SSE,
 SSE2 and SSE3 instruction set support.
 @item core2
 Intel Core2 CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3 and SSSE3
+instruction set support.
+@item atom
+Intel Atom CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3 and SSSE3
 instruction set support.
 @item k6
 AMD K6 CPU with MMX instruction set support.

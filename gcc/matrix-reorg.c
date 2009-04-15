@@ -1865,8 +1865,9 @@ transform_access_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 		    tmp = create_tmp_var (TREE_TYPE (lhs), "new");
 		    add_referenced_var (tmp);
 		    rhs = gimple_assign_rhs1 (acc_info->stmt);
-		    new_stmt = gimple_build_assign (tmp,
-						    TREE_OPERAND (rhs, 0));
+		    rhs = fold_convert (TREE_TYPE (tmp),
+					TREE_OPERAND (rhs, 0));
+		    new_stmt = gimple_build_assign (tmp, rhs);
 		    tmp = make_ssa_name (tmp, new_stmt);
 		    gimple_assign_set_lhs (new_stmt, tmp);
 		    gsi = gsi_for_stmt (acc_info->stmt);
@@ -2421,7 +2422,7 @@ struct simple_ipa_opt_pass pass_ipa_matrix_reorg =
   0,				/* static_pass_number */
   0,				/* tv_id */
   0,				/* properties_required */
-  PROP_trees,			/* properties_provided */
+  0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
   TODO_dump_cgraph | TODO_dump_func	/* todo_flags_finish */

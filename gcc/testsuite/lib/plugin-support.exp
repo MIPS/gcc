@@ -62,7 +62,7 @@ proc plugin-get-options { src } {
 proc plugin-test-execute { plugin_src plugin_tests } {
     global srcdir objdir
     global verbose
-    global HOSTCC HOSTCFLAGS
+    global GMPINC
 
     set basename [file tail $plugin_src]
     set base [file rootname $basename]
@@ -70,10 +70,7 @@ proc plugin-test-execute { plugin_src plugin_tests } {
 
     verbose "Test the plugin $basename" 1
 
-    #
     # Build the plugin itself
-    #
-
     set extra_flags [plugin-get-options $plugin_src]
 
     # Note that the plugin test support currently only works when the GCC
@@ -85,30 +82,21 @@ proc plugin-test-execute { plugin_src plugin_tests } {
     set gcc_objdir "$objdir/../../.."
     set includes "-I. -I${srcdir} -I${gcc_srcdir}/gcc -I${gcc_objdir}/gcc \
                   -I${gcc_srcdir}/include -I${gcc_srcdir}/libcpp/include \
-                  -I${gcc_objdir}/gmp"
+                  -I$GMPINC"
 
-    set optstr "$includes $extra_flags -DIN_GCC -shared -fPIC"
-    set compline "$optstr $plugin_src -o $plugin_lib"
+    set optstr "$includes $extra_flags -DIN_GCC -fPIC -shared"
 
-    set status [remote_exec build "$HOSTCC $HOSTCFLAGS $compline"]
-    set status [lindex $status 0]
-
-    if { $status != 0 } {
+    set status [target_compile "$optstr $plugin_src" "$plugin_lib" executable ""]
+    if { "$status" != "" } {
  	unresolved "$basename compilation, $optstr"
  	return
     }
 
-    #
     # Compile the input source files with the plugin
-    #
-
     global default_flags
     set plugin_enabling_flags "-fplugin=./$plugin_lib"
     dg-runtest $plugin_tests $plugin_enabling_flags $default_flags
 
-    #
     # Clean up
-    #
-
     remote_file build delete $plugin_lib
 }

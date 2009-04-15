@@ -778,8 +778,6 @@ void
 decode_options (unsigned int argc, const char **argv)
 {
   static bool first_time_p = true;
-  static int initial_max_aliased_vops;
-  static int initial_avg_aliased_vops;
   static int initial_min_crossjump_insns;
   static int initial_max_fields_for_field_sensitive;
   static int initial_loop_invariant_max_bbs_in_loop;
@@ -799,8 +797,6 @@ decode_options (unsigned int argc, const char **argv)
       lang_hooks.initialize_diagnostics (global_dc);
 
       /* Save initial values of parameters we reset.  */
-      initial_max_aliased_vops = MAX_ALIASED_VOPS;
-      initial_avg_aliased_vops = AVG_ALIASED_VOPS;
       initial_min_crossjump_insns
 	= compiler_params[PARAM_MIN_CROSSJUMP_INSNS].value;
       initial_max_fields_for_field_sensitive
@@ -899,7 +895,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_regmove = opt2;
   flag_strict_aliasing = opt2;
   flag_strict_overflow = opt2;
-  flag_delete_null_pointer_checks = opt2;
   flag_reorder_blocks = opt2;
   flag_reorder_functions = opt2;
   flag_tree_vrp = opt2;
@@ -907,11 +902,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_tree_pre = opt2;
   flag_tree_switch_conversion = 1;
   flag_ipa_cp = opt2;
-
-  /* Allow more virtual operators to increase alias precision.  */
-
-  set_param_value ("max-aliased-vops",
-		   (opt2) ? 500 : initial_max_aliased_vops);
 
   /* Track fields in field-sensitive alias analysis.  */
   set_param_value ("max-fields-for-field-sensitive",
@@ -931,13 +921,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_ipa_cp_clone = opt3;
   if (flag_ipa_cp_clone)
     flag_ipa_cp = 1;
-
-  /* Allow even more virtual operators.  Max-aliased-vops was set above for
-     -O2, so don't reset it unless we are at -O3.  */
-  if (opt3)
-    set_param_value ("max-aliased-vops", 1000);
-
-  set_param_value ("avg-aliased-vops", (opt3) ? 3 : initial_avg_aliased_vops);
 
   /* Just -O1/-O0 optimizations.  */
   opt1_max = (optimize <= 1);
@@ -1785,11 +1768,19 @@ common_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_fplugin_:
+#ifdef ENABLE_PLUGIN
       add_new_plugin (arg);
+#else
+      error ("Plugin support is disabled.  Configure with --enable-plugin.");
+#endif
       break;
 
     case OPT_fplugin_arg_:
+#ifdef ENABLE_PLUGIN
       parse_plugin_arg_opt (arg);
+#else
+      error ("Plugin support is disabled.  Configure with --enable-plugin.");
+#endif
       break;
 
     case OPT_fprofile_arcs:

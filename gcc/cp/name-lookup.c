@@ -778,12 +778,18 @@ pushdecl_maybe_friend (tree x, bool is_friend)
       if ((TREE_CODE (x) == FUNCTION_DECL)
 	  && DECL_EXTERN_C_P (x)
           /* We should ignore declarations happening in system headers.  */
+	  && !DECL_ARTIFICIAL (x)
 	  && !DECL_IN_SYSTEM_HEADER (x))
 	{
 	  cxx_binding *function_binding =
 	      lookup_extern_c_fun_binding_in_all_ns (x);
-	  if (function_binding
-              && !DECL_IN_SYSTEM_HEADER (function_binding->value))
+	  tree previous = (function_binding
+			   ? function_binding->value
+			   : NULL_TREE);
+	  if (previous
+	      && !DECL_ARTIFICIAL (previous)
+              && !DECL_IN_SYSTEM_HEADER (previous)
+	      && DECL_CONTEXT (previous) != DECL_CONTEXT (x))
 	    {
 	      tree previous = function_binding->value;
 
@@ -809,6 +815,14 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 		      pedwarn (input_location, 0, "due to different exception specifications");
 		      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 		    }
+		}
+	      else
+		{
+		  pedwarn (input_location, 0,
+			   "declaration of %q#D with C language linkage", x);
+		  pedwarn (input_location, 0,
+			   "conflicts with previous declaration %q+#D",
+			   previous);
 		}
 	    }
 	}
@@ -848,28 +862,20 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 
       /* If declaring a type as a typedef, copy the type (unless we're
 	 at line 0), and install this TYPE_DECL as the new type's typedef
-	 name.  See the extensive comment in ../c-decl.c (pushdecl).  */
+	 name.  See the extensive comment of set_underlying_type ().  */
       if (TREE_CODE (x) == TYPE_DECL)
 	{
 	  tree type = TREE_TYPE (x);
-	  if (DECL_IS_BUILTIN (x))
-	    {
-	      if (TYPE_NAME (type) == 0)
-		TYPE_NAME (type) = x;
-	    }
-	  else if (type != error_mark_node && TYPE_NAME (type) != x
-		   /* We don't want to copy the type when all we're
-		      doing is making a TYPE_DECL for the purposes of
-		      inlining.  */
-		   && (!TYPE_NAME (type)
-		       || TYPE_NAME (type) != DECL_ABSTRACT_ORIGIN (x)))
-	    {
-	      DECL_ORIGINAL_TYPE (x) = type;
-	      type = build_variant_type_copy (type);
-	      TYPE_STUB_DECL (type) = TYPE_STUB_DECL (DECL_ORIGINAL_TYPE (x));
-	      TYPE_NAME (type) = x;
-	      TREE_TYPE (x) = type;
-	    }
+
+	  if (DECL_IS_BUILTIN (x)
+	      || (TREE_TYPE (x) != error_mark_node
+		  && TYPE_NAME (type) != x
+		  /* We don't want to copy the type when all we're
+		     doing is making a TYPE_DECL for the purposes of
+		     inlining.  */
+		  && (!TYPE_NAME (type)
+		      || TYPE_NAME (type) != DECL_ABSTRACT_ORIGIN (x))))
+	    set_underlying_type (x);
 
 	  if (type != error_mark_node
 	      && TYPE_NAME (type)
@@ -1002,13 +1008,18 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	      && TREE_PUBLIC (x))
 	    TREE_PUBLIC (name) = 1;
 
+	  /* Don't complain about the parms we push and then pop
+	     while tentatively parsing a function declarator.  */
+	  if (TREE_CODE (x) == PARM_DECL && DECL_CONTEXT (x) == NULL_TREE)
+	    /* Ignore.  */;
+
 	  /* Warn if shadowing an argument at the top level of the body.  */
-	  if (oldlocal != NULL_TREE && !DECL_EXTERNAL (x)
-	      /* Inline decls shadow nothing.  */
-	      && !DECL_FROM_INLINE (x)
-	      && TREE_CODE (oldlocal) == PARM_DECL
-	      /* Don't check the `this' parameter.  */
-	      && !DECL_ARTIFICIAL (oldlocal))
+	  else if (oldlocal != NULL_TREE && !DECL_EXTERNAL (x)
+		   /* Inline decls shadow nothing.  */
+		   && !DECL_FROM_INLINE (x)
+		   && TREE_CODE (oldlocal) == PARM_DECL
+		   /* Don't check the `this' parameter.  */
+		   && !DECL_ARTIFICIAL (oldlocal))
 	    {
 	      bool err = false;
 
@@ -1032,10 +1043,7 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 		    }
 		}
 
-	      if (warn_shadow && !err
-		  /* Don't complain about the parms we push and then pop
-		     while tentatively parsing a function declarator.  */
-		  && !(TREE_CODE (x) == PARM_DECL && DECL_CONTEXT (x) == NULL_TREE))
+	      if (warn_shadow && !err)
 		{
 		  warning (OPT_Wshadow, "declaration of %q#D shadows a parameter", x);
 		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldlocal);
@@ -3601,10 +3609,9 @@ merge_functions (tree s1, tree s2)
 	  /* If the function from S2 is already in S1, there is no
 	     need to add it again.  For `extern "C"' functions, we
 	     might have two FUNCTION_DECLs for the same function, in
-	     different namespaces; again, we only need one of them.  */
-	  if (fn1 == fn2
-	      || (DECL_EXTERN_C_P (fn1) && DECL_EXTERN_C_P (fn2)
-		  && DECL_NAME (fn1) == DECL_NAME (fn2)))
+	     different namespaces, but let's leave them in in case
+	     they have different default arguments.  */
+	  if (fn1 == fn2)
 	    break;
 	}
 

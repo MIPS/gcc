@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-mudflap.h"
 #include "tree-pass.h"
 #include "gimple.h"
+#include "tree-ssa-alias.h"
 #include "plugin.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
@@ -968,6 +969,7 @@ compile_file (void)
   init_final (main_input_filename);
   coverage_init (aux_base_name);
   statistics_init ();
+  initialize_plugins ();
 
   timevar_push (TV_PARSE);
 
@@ -2173,6 +2175,8 @@ dump_memory_report (bool final)
   dump_bitmap_statistics ();
   dump_vec_loc_statistics ();
   dump_ggc_loc_statistics (final);
+  dump_alias_stats (stderr);
+  dump_pta_stats (stderr);
 }
 
 /* Clean up: close opened files, etc.  */
@@ -2242,7 +2246,7 @@ do_compile (void)
 
       finalize ();
 
-      /* Invoke registered plugin callbacks if any.  */
+      /* Invoke registered plugin callbacks.  */
       invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
     }
 
@@ -2290,6 +2294,7 @@ toplev_main (unsigned int argc, const char **argv)
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
 
   finalize_plugins ();
+
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);
 

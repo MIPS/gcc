@@ -1,3 +1,9 @@
+2009-04-14  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/plugin/plugin.exp: Check for ENABLE_PLUGIN.
+	* g++.dg/plugin/plugin.exp: Likewise.
+	* g++.dg/plugin/dumb_plugin.c: Register PLUGIN_FINISH_TYPE.
+
 2009-04-02  Le-Chun Wu  <lcwu@google.com>
 
 	* lib/plugin-support.exp (plugin-test-execute): Add '-fPIC' flag in

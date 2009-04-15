@@ -22,20 +22,15 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "gcc-plugin.h"
 
-/* Called when -fplugin=/path/to/NAME.so option is parsed.  */
-extern void add_new_plugin (const char* plugin_name);
-/* Parse the -fplugin-arg-<name>-<key>[=<value>] option.  */
-extern void parse_plugin_arg_opt (const char *arg);
-/* Invoke all plug-in callbacks registered with the specified event.  */
-extern void invoke_plugin_callbacks (enum plugin_event event, void *gcc_data);
-/* Main plugin initialization function.  */
+extern void add_new_plugin (const char *);
+extern void parse_plugin_arg_opt (const char *);
+extern void invoke_plugin_callbacks (enum plugin_event, void *);
 extern void initialize_plugins (void);
-/* Print the version of each plugin. */
+extern bool plugins_active_p (void);
+extern void dump_active_plugins (FILE *);
+extern void debug_active_plugins (void);
 extern void print_plugins_versions (FILE *file, const char *indent);
-/* Print help for each plugin. */
 extern void print_plugins_help (FILE *file, const char *indent);
-/* Free memory allocated by the plugin system. */
 extern void finalize_plugins (void);
-
 
 #endif /* PLUGIN_H */

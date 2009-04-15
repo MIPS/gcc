@@ -1,3 +1,58 @@
+2009-04-14  Diego Novillo  <dnovillo@google.com>
+
+	Merge with mainline @146060.
+
+	* configure.ac (ACX_PKGVERSION): Update.
+	* configure: Regenerate.
+
+2009-04-14  Diego Novillo  <dnovillo@google.com>
+
+	* gcc-plugin.h (enum plugin_event)<PLUGIN_FINISH_TYPE>: Rename
+	from PLUGIN_FINISH_STRUCT.
+	(plugin_event_name): Declare.
+	* plugin.c: Only include dlfcn.h if ENABLE_PLUGIN is set.
+	Do not include errors.h.
+	Include timevar.h.
+	Do not prefix strings in calls to error() with G_.
+	(plugin_event_name): Define.
+	(str_plugin_init_func_name): Only declare if ENABLE_PLUGIN is
+	set.
+	(invoke_plugin_callbacks): Call timevar_push/timevar_pop.
+	(try_init_one_plugin, init_one_plugin): Protect with
+	ENABLE_PLUGIN macro.
+	(initialize_plugins): Call timevar_push/timevar_pop.
+	(plugins_active_p): New.
+	(dump_active_plugins): New.
+	(debug_active_plugins): New.
+	* plugin.h: Tidy declarations.
+	(plugins_active_p): Declare.
+	(dump_active_plugins): Declare.
+	(debug_active_plugins): Declare.
+
+2009-04-14  Diego Novillo  <dnovillo@google.com>
+
+	* gcc-plugin.h (enum plugin_event)<PLUGIN_FINISH_TYPE>: Rename
+	from PLUGIN_FINISH_STRUCT.
+	(plugin_event_name): Declare.
+	* plugin.c: Only include dlfcn.h if ENABLE_PLUGIN is set.
+	Do not include errors.h.
+	Include timevar.h.
+	Do not prefix strings in calls to error() with G_.
+	(plugin_event_name): Define.
+	(str_plugin_init_func_name): Only declare if ENABLE_PLUGIN is
+	set.
+	(invoke_plugin_callbacks): Call timevar_push/timevar_pop.
+	(try_init_one_plugin, init_one_plugin): Protect with
+	ENABLE_PLUGIN macro.
+	(initialize_plugins): Call timevar_push/timevar_pop.
+	(plugins_active_p): New.
+	(dump_active_plugins): New.
+	(debug_active_plugins): New.
+	* plugin.h: Tidy declarations.
+	(plugins_active_p): Declare.
+	(dump_active_plugins): Declare.
+	(debug_active_plugins): Declare.
+
 2009-04-09  Rafael Avila de Espindola  <espindola@google.com>
 
 	* common.opt (fhelp): Add Var(help_flag).

@@ -5212,6 +5212,8 @@ fix_range (const char *const_str)
 static bool
 ia64_handle_option (size_t code, const char *arg, int value)
 {
+  static bool warned_itanium1_deprecated;
+
   switch (code)
     {
     case OPT_mfixed_range_:
@@ -5245,6 +5247,16 @@ ia64_handle_option (size_t code, const char *arg, int value)
 	  if (!strcmp (arg, processor_alias_table[i].name))
 	    {
 	      ia64_tune = processor_alias_table[i].processor;
+	      if (ia64_tune == PROCESSOR_ITANIUM
+		  && ! warned_itanium1_deprecated)
+		{
+		  inform (0,
+			  "value %<%s%> for -mtune= switch is deprecated",
+			  arg);
+		  inform (0, "GCC 4.4 is the last release with "
+			  "Itanium1 tuning support");
+		  warned_itanium1_deprecated = true;
+		}
 	      break;
 	    }
 	if (i == pta_size)
@@ -9759,7 +9771,8 @@ enum ia64_builtins
   IA64_BUILTIN_COPYSIGNQ,
   IA64_BUILTIN_FABSQ,
   IA64_BUILTIN_FLUSHRS,
-  IA64_BUILTIN_INFQ
+  IA64_BUILTIN_INFQ,
+  IA64_BUILTIN_HUGE_VALQ
 };
 
 void
@@ -9794,6 +9807,10 @@ ia64_init_builtins (void)
       ftype = build_function_type (float128_type, void_list_node);
       add_builtin_function ("__builtin_infq", ftype,
 			    IA64_BUILTIN_INFQ, BUILT_IN_MD,
+			    NULL, NULL_TREE);
+
+      add_builtin_function ("__builtin_huge_valq", ftype,
+			    IA64_BUILTIN_HUGE_VALQ, BUILT_IN_MD,
 			    NULL, NULL_TREE);
 
       ftype = build_function_type_list (float128_type,
@@ -9870,6 +9887,7 @@ ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       return const0_rtx;
 
     case IA64_BUILTIN_INFQ:
+    case IA64_BUILTIN_HUGE_VALQ:
       {
 	REAL_VALUE_TYPE inf;
 	rtx tmp;

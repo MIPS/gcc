@@ -123,7 +123,7 @@ plugin_init (const char *plugin_name, int argc, struct plugin_argument *argv)
 
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-  register_callback (plugin_name, PLUGIN_FINISH_STRUCT, handle_struct, NULL);
+  register_callback (plugin_name, PLUGIN_FINISH_TYPE, handle_struct, NULL);
 
   register_callback (plugin_name, PLUGIN_CXX_CP_PRE_GENERICIZE,
                      handle_pre_generic, NULL);

@@ -900,10 +900,12 @@ cgraph_decide_inlining_of_small_functions (void)
 		   cgraph_node_name (edge->callee),
 		   edge->callee->global.insns);
 	  fprintf (dump_file, 
-		   " to be inlined into %s\n"
+		   " to be inlined into %s in %s:%i\n"
 		   " Estimated growth after inlined into all callees is %+i insns.\n"
 		   " Estimated badness is %i, frequency %.2f.\n",
 		   cgraph_node_name (edge->caller),
+		   gimple_filename ((const_gimple) edge->call_stmt),
+		   gimple_lineno ((const_gimple) edge->call_stmt),
 		   cgraph_estimate_growth (edge->callee),
 		   cgraph_edge_badness (edge),
 		   edge->frequency / (double)CGRAPH_FREQ_BASE);
@@ -1561,7 +1563,7 @@ struct gimple_opt_pass pass_early_inline =
   0,					/* static_pass_number */
   TV_INLINE_HEURISTICS,			/* tv_id */
   0,	                                /* properties_required */
-  PROP_cfg,				/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func    			/* todo_flags_finish */
@@ -1591,7 +1593,7 @@ struct simple_ipa_opt_pass pass_ipa_early_inline =
   0,					/* static_pass_number */
   TV_INLINE_HEURISTICS,			/* tv_id */
   0,	                                /* properties_required */
-  PROP_cfg,				/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_cgraph 		        /* todo_flags_finish */
@@ -1653,7 +1655,7 @@ struct gimple_opt_pass pass_inline_parameters =
   0,					/* static_pass_number */
   TV_INLINE_HEURISTICS,			/* tv_id */
   0,	                                /* properties_required */
-  PROP_cfg,				/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0					/* todo_flags_finish */
@@ -1772,7 +1774,7 @@ struct ipa_opt_pass pass_ipa_inline =
   0,					/* static_pass_number */
   TV_INLINE_HEURISTICS,			/* tv_id */
   0,	                                /* properties_required */
-  PROP_cfg,				/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_remove_functions,		/* todo_flags_finish */
   TODO_dump_cgraph | TODO_dump_func

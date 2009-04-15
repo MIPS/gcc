@@ -1553,8 +1553,7 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	  attrs_ok = true;
 	  seen_type = true;
 	  t = c_parser_struct_or_union_specifier (parser);
-          /* Invoke registered plugin callbacks if any.  */
-          invoke_plugin_callbacks (PLUGIN_FINISH_STRUCT, t.spec);
+          invoke_plugin_callbacks (PLUGIN_FINISH_TYPE, t.spec);
 	  declspecs_add_type (specs, t);
 	  break;
 	case RID_TYPEOF:
@@ -4196,6 +4195,12 @@ c_parser_asm_statement (c_parser *parser)
       return NULL_TREE;
     }
   str = c_parser_asm_string_literal (parser);
+  if (str == NULL_TREE)
+    {
+      parser->lex_untranslated_string = false;
+      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
+      return NULL_TREE;
+    }
   if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
     {
       simple = true;
@@ -5400,7 +5405,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  {
 	    tree c;
 
-	    c = fold (e1.value);
+	    c = e1.value;
 	    if (TREE_CODE (c) != INTEGER_CST
 		|| !INTEGRAL_TYPE_P (TREE_TYPE (c)))
 	      error_at (loc,

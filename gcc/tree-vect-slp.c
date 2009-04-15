@@ -466,6 +466,22 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
  
                     return false;
                   }
+
+                /* Check that the size of interleaved loads group is not
+                   greater than the SLP group size.  */
+                if (DR_GROUP_SIZE (vinfo_for_stmt (stmt))
+                    > ncopies * group_size)
+                  {
+                    if (vect_print_dump_info (REPORT_SLP))
+                      {
+                        fprintf (vect_dump, "Build SLP failed: the number of "
+                                            "interleaved loads is greater than"
+                                            " the SLP group size ");
+                        print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
+                      }
+
+                    return false;
+                  }
  
                 first_load = DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt));
  
@@ -1291,8 +1307,6 @@ vect_create_mask_and_perm (gimple stmt, gimple next_scalar_stmt,
   stmt_vec_info next_stmt_info;
   int i, group_size, stride, dr_chain_size;
   tree first_vec, second_vec, data_ref;
-  tree sym;
-  ssa_op_iter iter;
   VEC (tree, heap) *params = NULL;
 
   /* Create a vector mask.  */
@@ -1330,12 +1344,6 @@ vect_create_mask_and_perm (gimple stmt, gimple next_scalar_stmt,
       data_ref = make_ssa_name (perm_dest, perm_stmt);
       gimple_call_set_lhs (perm_stmt, data_ref);
       vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      FOR_EACH_SSA_TREE_OPERAND (sym, perm_stmt, iter, SSA_OP_ALL_VIRTUALS)
-        {
-          if (TREE_CODE (sym) == SSA_NAME)
-            sym = SSA_NAME_VAR (sym);
-          mark_sym_for_renaming (sym);
-        }
 
       /* Store the vector statement in NODE.  */ 
       VEC_replace (gimple, SLP_TREE_VEC_STMTS (node), 

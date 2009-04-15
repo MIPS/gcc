@@ -63,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks-def.h"
 #include "pointer-set.h"
 #include "gimple.h"
+#include "plugin.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -1853,12 +1854,15 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       /* Also preserve various other info from the definition.  */
       if (!new_is_definition)
 	{
+	  tree t;
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 	  DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
 	  DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
 	  gimple_set_body (newdecl, gimple_body (olddecl));
-	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
+	  DECL_ARGUMENTS (newdecl) = copy_list (DECL_ARGUMENTS (olddecl));
+	  for (t = DECL_ARGUMENTS (newdecl); t ; t = TREE_CHAIN (t))
+	    DECL_CONTEXT (t) = newdecl;
 
 	  /* See if we've got a function to instantiate from.  */
 	  if (DECL_SAVED_TREE (olddecl))
@@ -1880,6 +1884,9 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   {
     unsigned olddecl_uid = DECL_UID (olddecl);
     tree olddecl_context = DECL_CONTEXT (olddecl);
+    tree olddecl_arguments = NULL;
+    if (TREE_CODE (olddecl) == FUNCTION_DECL)
+      olddecl_arguments = DECL_ARGUMENTS (olddecl);
 
     memcpy ((char *) olddecl + sizeof (struct tree_common),
 	    (char *) newdecl + sizeof (struct tree_common),
@@ -1910,6 +1917,8 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       }
     DECL_UID (olddecl) = olddecl_uid;
     DECL_CONTEXT (olddecl) = olddecl_context;
+    if (TREE_CODE (olddecl) == FUNCTION_DECL)
+      DECL_ARGUMENTS (olddecl) = olddecl_arguments;
   }
 
   /* If OLDDECL had its DECL_RTL instantiated, re-invoke make_decl_rtl
@@ -2000,67 +2009,6 @@ warn_if_shadowing (tree new_decl)
 
 	break;
       }
-}
-
-
-/* Subroutine of pushdecl.
-
-   X is a TYPE_DECL for a typedef statement.  Create a brand new
-   ..._TYPE node (which will be just a variant of the existing
-   ..._TYPE node with identical properties) and then install X
-   as the TYPE_NAME of this brand new (duplicate) ..._TYPE node.
-
-   The whole point here is to end up with a situation where each
-   and every ..._TYPE node the compiler creates will be uniquely
-   associated with AT MOST one node representing a typedef name.
-   This way, even though the compiler substitutes corresponding
-   ..._TYPE nodes for TYPE_DECL (i.e. "typedef name") nodes very
-   early on, later parts of the compiler can always do the reverse
-   translation and get back the corresponding typedef name.  For
-   example, given:
-
-	typedef struct S MY_TYPE;
-	MY_TYPE object;
-
-   Later parts of the compiler might only know that `object' was of
-   type `struct S' if it were not for code just below.  With this
-   code however, later parts of the compiler see something like:
-
-	struct S' == struct S
-	typedef struct S' MY_TYPE;
-	struct S' object;
-
-    And they can then deduce (from the node for type struct S') that
-    the original object declaration was:
-
-		MY_TYPE object;
-
-    Being able to do this is important for proper support of protoize,
-    and also for generating precise symbolic debugging information
-    which takes full account of the programmer's (typedef) vocabulary.
-
-    Obviously, we don't want to generate a duplicate ..._TYPE node if
-    the TYPE_DECL node that we are now processing really represents a
-    standard built-in type.  */
-
-static void
-clone_underlying_type (tree x)
-{
-  if (DECL_IS_BUILTIN (x))
-    {
-      if (TYPE_NAME (TREE_TYPE (x)) == 0)
-	TYPE_NAME (TREE_TYPE (x)) = x;
-    }
-  else if (TREE_TYPE (x) != error_mark_node
-	   && DECL_ORIGINAL_TYPE (x) == NULL_TREE)
-    {
-      tree tt = TREE_TYPE (x);
-      DECL_ORIGINAL_TYPE (x) = tt;
-      tt = build_variant_type_copy (tt);
-      TYPE_NAME (tt) = x;
-      TREE_USED (tt) = TREE_USED (x);
-      TREE_TYPE (x) = tt;
-    }
 }
 
 /* Record a decl-node X as belonging to the current lexical scope.
@@ -2288,7 +2236,7 @@ pushdecl (tree x)
 
  skip_external_and_shadow_checks:
   if (TREE_CODE (x) == TYPE_DECL)
-    clone_underlying_type (x);
+    set_underlying_type (x);
 
   bind (name, x, scope, /*invisible=*/false, nested, locus);
 
@@ -4408,7 +4356,17 @@ grokdeclarator (const struct c_declarator *declarator,
 		       not an integer constant expression.  */
 		    if (!size_int_const)
 		      {
-			this_size_varies = size_varies = 1;
+			/* If this is a file scope declaration of an
+			   ordinary identifier, this is invalid code;
+			   diagnosing it here and not subsequently
+			   treating the type as variable-length avoids
+			   more confusing diagnostics later.  */
+			if ((decl_context == NORMAL || decl_context == FIELD)
+			    && current_scope == file_scope)
+			  pedwarn (input_location, 0,
+				   "variably modified %qs at file scope", name);
+			else
+			  this_size_varies = size_varies = 1;
 			warn_variable_length_array (orig_name, size);
 		      }
 		  }

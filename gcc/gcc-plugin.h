@@ -20,10 +20,11 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_PLUGIN_H
 #define GCC_PLUGIN_H
 
+/* Event names.  Keep in sync with plugin_event_name[].  */
 enum plugin_event
 {
   PLUGIN_PASS_MANAGER_SETUP,    /* To hook into pass manager.  */
-  PLUGIN_FINISH_STRUCT,         /* After finishing parsing a struct/class.  */
+  PLUGIN_FINISH_TYPE,           /* After finishing parsing a type.  */
   PLUGIN_FINISH_UNIT,           /* Useful for summary processing.  */
   PLUGIN_CXX_CP_PRE_GENERICIZE, /* Allows to see low level AST in C++ FE.  */
   PLUGIN_FINISH,                /* Called before GCC exits.  */
@@ -31,6 +32,8 @@ enum plugin_event
   PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
                                    array.  */
 };
+
+extern const char *plugin_event_name[];
 
 struct plugin_argument
 {

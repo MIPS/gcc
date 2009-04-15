@@ -3,7 +3,7 @@
    marshalling to implement data sharing and copying clauses.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3123,6 +3123,7 @@ remove_exit_barrier (struct omp_region *region)
   edge_iterator ei;
   edge e;
   gimple stmt;
+  int any_addressable_vars = -1;
 
   exit_bb = region->exit;
 
@@ -3148,8 +3149,52 @@ remove_exit_barrier (struct omp_region *region)
       if (gsi_end_p (gsi))
 	continue;
       stmt = gsi_stmt (gsi);
-      if (gimple_code (stmt) == GIMPLE_OMP_RETURN)
-	gimple_omp_return_set_nowait (stmt);
+      if (gimple_code (stmt) == GIMPLE_OMP_RETURN
+	  && !gimple_omp_return_nowait_p (stmt))
+	{
+	  /* OpenMP 3.0 tasks unfortunately prevent this optimization
+	     in many cases.  If there could be tasks queued, the barrier
+	     might be needed to let the tasks run before some local
+	     variable of the parallel that the task uses as shared
+	     runs out of scope.  The task can be spawned either
+	     from within current function (this would be easy to check)
+	     or from some function it calls and gets passed an address
+	     of such a variable.  */
+	  if (any_addressable_vars < 0)
+	    {
+	      gimple parallel_stmt = last_stmt (region->entry);
+	      tree child_fun = gimple_omp_parallel_child_fn (parallel_stmt);
+	      tree local_decls = DECL_STRUCT_FUNCTION (child_fun)->local_decls;
+	      tree block;
+
+	      any_addressable_vars = 0;
+	      for (; local_decls; local_decls = TREE_CHAIN (local_decls))
+		if (TREE_ADDRESSABLE (TREE_VALUE (local_decls)))
+		  {
+		    any_addressable_vars = 1;
+		    break;
+		  }
+	      for (block = gimple_block (stmt);
+		   !any_addressable_vars
+		   && block
+		   && TREE_CODE (block) == BLOCK;
+		   block = BLOCK_SUPERCONTEXT (block))
+		{
+		  for (local_decls = BLOCK_VARS (block);
+		       local_decls;
+		       local_decls = TREE_CHAIN (local_decls))
+		    if (TREE_ADDRESSABLE (local_decls))
+		      {
+			any_addressable_vars = 1;
+			break;
+		      }
+		  if (block == gimple_block (parallel_stmt))
+		    break;
+		}
+	    }
+	  if (!any_addressable_vars)
+	    gimple_omp_return_set_nowait (stmt);
+	}
     }
 }
 
@@ -3367,6 +3412,14 @@ expand_omp_taskreg (struct omp_region *region)
       /* Declare local variables needed in CHILD_CFUN.  */
       block = DECL_INITIAL (child_fn);
       BLOCK_VARS (block) = list2chain (child_cfun->local_decls);
+      /* The gimplifier could record temporaries in parallel/task block
+	 rather than in containing function's local_decls chain,
+	 which would mean cgraph missed finalizing them.  Do it now.  */
+      for (t = BLOCK_VARS (block); t; t = TREE_CHAIN (t))
+	if (TREE_CODE (t) == VAR_DECL
+	    && TREE_STATIC (t)
+	    && !DECL_EXTERNAL (t))
+	  varpool_finalize_decl (t);
       DECL_SAVED_TREE (child_fn) = NULL;
       gimple_set_body (child_fn, bb_seq (single_succ (entry_bb)));
       TREE_USED (block) = 1;
@@ -3450,6 +3503,8 @@ expand_omp_taskreg (struct omp_region *region)
 	  if (changed)
 	    cleanup_tree_cfg ();
 	}
+      if (gimple_in_ssa_p (cfun))
+	update_ssa (TODO_update_ssa);
       current_function_decl = save_current;
       pop_cfun ();
     }
@@ -5019,7 +5074,8 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   /* Build the compare&swap statement.  */
   new_storedi = build_call_expr (cmpxchg, 3, iaddr, loadedi, storedi);
   new_storedi = force_gimple_operand_gsi (&si,
-					  fold_convert (itype, new_storedi),
+					  fold_convert (TREE_TYPE (loadedi),
+							new_storedi),
 					  true, NULL_TREE,
 					  true, GSI_SAME_STMT);
 
@@ -5027,7 +5083,7 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
     old_vali = loadedi;
   else
     {
-      old_vali = create_tmp_var (itype, NULL);
+      old_vali = create_tmp_var (TREE_TYPE (loadedi), NULL);
       if (gimple_in_ssa_p (cfun))
 	add_referenced_var (old_vali);
       stmt = gimple_build_assign (old_vali, loadedi);
@@ -5409,7 +5465,7 @@ struct gimple_opt_pass pass_expand_omp =
   0,					/* static_pass_number */
   0,					/* tv_id */
   PROP_gimple_any,			/* properties_required */
-  PROP_gimple_lomp,			/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func			/* todo_flags_finish */
@@ -6530,6 +6586,11 @@ execute_lower_omp (void)
 {
   gimple_seq body;
 
+  /* This pass always runs, to provide PROP_gimple_lomp.
+     But there is nothing to do unless -fopenmp is given.  */
+  if (flag_openmp == 0)
+    return 0;
+
   all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
 				 delete_omp_context);
 
@@ -6557,18 +6618,12 @@ execute_lower_omp (void)
   return 0;
 }
 
-static bool
-gate_lower_omp (void)
-{
-  return flag_openmp != 0;
-}
-
 struct gimple_opt_pass pass_lower_omp = 
 {
  {
   GIMPLE_PASS,
   "omplower",				/* name */
-  gate_lower_omp,			/* gate */
+  NULL,					/* gate */
   execute_lower_omp,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */

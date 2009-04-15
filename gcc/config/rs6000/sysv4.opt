@@ -74,7 +74,7 @@ Target RejectNegative
 no description yet
 
 mprototype
-Target Var(TARGET_PROTOTYPE)
+Target Var(target_prototype)
 Assume all variable arg functions are prototyped
 
 ;; FIXME: Does nothing.
@@ -98,7 +98,7 @@ Use alternate register names
 ;; driver passes all -m* options through.
 msdata
 Target
-no description yet
+Use default method for sdata handling
 
 msim
 Target RejectNegative

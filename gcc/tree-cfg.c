@@ -2879,7 +2879,9 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	     x = TREE_OPERAND (x, 0))
 	  ;
 
-	if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+	if (!(TREE_CODE (x) == VAR_DECL
+	      || TREE_CODE (x) == PARM_DECL
+	      || TREE_CODE (x) == RESULT_DECL))
 	  return NULL;
 	if (!TREE_ADDRESSABLE (x))
 	  {
@@ -3409,23 +3411,23 @@ verify_gimple_assign_unary (gimple stmt)
         return false;
       }
 
-    case TRUTH_NOT_EXPR:
-      {
-      }
+    case VEC_UNPACK_HI_EXPR:
+    case VEC_UNPACK_LO_EXPR:
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
+    case REDUC_PLUS_EXPR:
+    case VEC_UNPACK_FLOAT_HI_EXPR:
+    case VEC_UNPACK_FLOAT_LO_EXPR:
+      /* FIXME.  */
+      return false;
 
+    case TRUTH_NOT_EXPR:
     case NEGATE_EXPR:
     case ABS_EXPR:
     case BIT_NOT_EXPR:
     case PAREN_EXPR:
     case NON_LVALUE_EXPR:
     case CONJ_EXPR:
-    case REDUC_MAX_EXPR:
-    case REDUC_MIN_EXPR:
-    case REDUC_PLUS_EXPR:
-    case VEC_UNPACK_HI_EXPR:
-    case VEC_UNPACK_LO_EXPR:
-    case VEC_UNPACK_FLOAT_HI_EXPR:
-    case VEC_UNPACK_FLOAT_LO_EXPR:
       break;
 
     default:
@@ -3496,17 +3498,21 @@ verify_gimple_assign_binary (gimple stmt)
 
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
-      if (FIXED_POINT_TYPE_P (rhs1_type)
-	  && INTEGRAL_TYPE_P (rhs2_type)
-	  && useless_type_conversion_p (lhs_type, rhs1_type))
-	return false;
-      /* Fall through.  */
-
     case LROTATE_EXPR:
     case RROTATE_EXPR:
       {
-	if (!INTEGRAL_TYPE_P (rhs1_type)
-	    || !INTEGRAL_TYPE_P (rhs2_type)
+	/* Shifts and rotates are ok on integral types, fixed point
+	   types and integer vector types.  */
+	if ((!INTEGRAL_TYPE_P (rhs1_type)
+	     && !FIXED_POINT_TYPE_P (rhs1_type)
+	     && !(TREE_CODE (rhs1_type) == VECTOR_TYPE
+		  && TREE_CODE (TREE_TYPE (rhs1_type)) == INTEGER_TYPE))
+	    || (!INTEGRAL_TYPE_P (rhs2_type)
+		/* Vector shifts of vectors are also ok.  */
+		&& !(TREE_CODE (rhs1_type) == VECTOR_TYPE
+		     && TREE_CODE (TREE_TYPE (rhs1_type)) == INTEGER_TYPE
+		     && TREE_CODE (rhs2_type) == VECTOR_TYPE
+		     && TREE_CODE (TREE_TYPE (rhs2_type)) == INTEGER_TYPE))
 	    || !useless_type_conversion_p (lhs_type, rhs1_type))
 	  {
 	    error ("type mismatch in shift expression");
@@ -3612,6 +3618,20 @@ verify_gimple_assign_binary (gimple stmt)
 	break;
       }
 
+    case WIDEN_SUM_EXPR:
+    case WIDEN_MULT_EXPR:
+    case VEC_WIDEN_MULT_HI_EXPR:
+    case VEC_WIDEN_MULT_LO_EXPR:
+    case VEC_PACK_TRUNC_EXPR:
+    case VEC_PACK_SAT_EXPR:
+    case VEC_PACK_FIX_TRUNC_EXPR:
+    case VEC_EXTRACT_EVEN_EXPR:
+    case VEC_EXTRACT_ODD_EXPR:
+    case VEC_INTERLEAVE_HIGH_EXPR:
+    case VEC_INTERLEAVE_LOW_EXPR:
+      /* FIXME.  */
+      return false;
+
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
@@ -3628,17 +3648,6 @@ verify_gimple_assign_binary (gimple stmt)
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case WIDEN_SUM_EXPR:
-    case WIDEN_MULT_EXPR:
-    case VEC_WIDEN_MULT_HI_EXPR:
-    case VEC_WIDEN_MULT_LO_EXPR:
-    case VEC_PACK_TRUNC_EXPR:
-    case VEC_PACK_SAT_EXPR:
-    case VEC_PACK_FIX_TRUNC_EXPR:
-    case VEC_EXTRACT_EVEN_EXPR:
-    case VEC_EXTRACT_ODD_EXPR:
-    case VEC_INTERLEAVE_HIGH_EXPR:
-    case VEC_INTERLEAVE_LOW_EXPR:
       /* Continue with generic binary expression handling.  */
       break;
 
@@ -3695,11 +3704,8 @@ verify_gimple_assign_single (gimple stmt)
 	    return true;
 	  }
 
-	if (!one_pointer_to_useless_type_conversion_p (lhs_type, TREE_TYPE (op))
-	    /* FIXME: a longstanding wart, &a == &a[0].  */
-	    && (TREE_CODE (TREE_TYPE (op)) != ARRAY_TYPE
-		|| !one_pointer_to_useless_type_conversion_p (lhs_type,
-		      TREE_TYPE (TREE_TYPE (op)))))
+	if (!one_pointer_to_useless_type_conversion_p (lhs_type,
+						       TREE_TYPE (op)))
 	  {
 	    error ("type mismatch in address expression");
 	    debug_generic_stmt (lhs_type);
@@ -3906,7 +3912,7 @@ verify_gimple_phi (gimple stmt)
 	}
       if (!useless_type_conversion_p (type, TREE_TYPE (arg)))
 	{
-	  error ("Incompatible types in PHI argument");
+	  error ("Incompatible types in PHI argument %u", i);
 	  debug_generic_stmt (type);
 	  debug_generic_stmt (TREE_TYPE (arg));
 	  return true;
@@ -4969,7 +4975,6 @@ gimple_duplicate_bb (basic_block bb)
 	 operands.  */
       copy = gimple_copy (stmt);
       gsi_insert_after (&gsi_tgt, copy, GSI_NEW_STMT);
-      copy_virtual_operands (copy, stmt);
       region = lookup_stmt_eh_region (stmt);
       if (region >= 0)
 	add_stmt_to_eh_region (copy, region);
@@ -5141,7 +5146,7 @@ gimple_duplicate_sese_region (edge entry, edge exit,
       free_region_copy = true;
     }
 
-  gcc_assert (!need_ssa_update_p ());
+  gcc_assert (!need_ssa_update_p (cfun));
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
@@ -5300,7 +5305,7 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
       free_region_copy = true;
     }
 
-  gcc_assert (!need_ssa_update_p ());
+  gcc_assert (!need_ssa_update_p (cfun));
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
@@ -5627,19 +5632,6 @@ mark_virtual_ops_in_bb (basic_block bb)
     mark_virtual_ops_for_renaming (gsi_stmt (gsi));
 }
 
-/* Marks virtual operands of all statements in basic blocks BBS for
-   renaming.  */
-
-static void
-mark_virtual_ops_in_region (VEC (basic_block,heap) *bbs)
-{
-  basic_block bb;
-  unsigned i;
-
-  for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
-    mark_virtual_ops_in_bb (bb);
-}
-
 /* Move basic block BB from function CFUN to function DEST_FN.  The
    block is moved out of the original linked list and placed after
    block AFTER in the new list.  Also, the block is removed from the
@@ -5746,7 +5738,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  old_len = VEC_length (basic_block, cfg->x_label_to_block_map);
 	  if (old_len <= (unsigned) uid)
 	    {
-	      new_len = 3 * uid / 2;
+	      new_len = 3 * uid / 2 + 1;
 	      VEC_safe_grow_cleared (basic_block, gc,
 				     cfg->x_label_to_block_map, new_len);
 	    }
@@ -6007,11 +5999,6 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
     }
 
   pop_cfun ();
-
-  /* The ssa form for virtual operands in the source function will have to
-     be repaired.  We do not care for the real operands -- the sese region
-     must be closed with respect to those.  */
-  mark_virtual_ops_in_region (bbs);
 
   /* Move blocks from BBS into DEST_CFUN.  */
   gcc_assert (VEC_length (basic_block, bbs) >= 2);

@@ -780,7 +780,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([plugins merged with rev 145344])
+ACX_PKGVERSION([plugins merged with rev 146060])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -2756,7 +2756,7 @@ fi
 AC_MSG_CHECKING(linker -Bstatic/-Bdynamic option)
 gcc_cv_ld_static_dynamic=no
 if test $in_tree_ld = yes ; then
-  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 10; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 10 -o "$gcc_cv_gld_major_version" -gt 2; then
     gcc_cv_ld_static_dynamic=yes
   fi
 elif test x$gcc_cv_ld != x; then
@@ -3911,6 +3911,7 @@ AC_SUBST(tm_p_include_list)
 AC_SUBST(xm_file_list)
 AC_SUBST(xm_include_list)
 AC_SUBST(xm_defines)
+AC_SUBST(use_gcc_stdint)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(fortran_target_objs)
@@ -3948,7 +3949,73 @@ if test "x${CLOOGLIBS}" != "x" ; then
    AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
 fi
 
-AC_ARG_VAR(PLUGINLIBS,[Libs and linker option needed for plugin support])
+# Check for plugin support
+AC_ARG_ENABLE(plugin,
+[  --enable-plugin         enable plugin support],
+enable_plugin=$enableval,
+enable_plugin=yes; default_plugin=yes)
+
+pluginlibs=
+if test x"$enable_plugin" = x"yes"; then
+  # Check that the host supports -rdynamic and -ldl
+  have_rdynamic=no
+  have_dl=no
+  saved_LDFLAGS="$LDFLAGS"
+  saved_LIBS="$LIBS"
+  LIBS=
+
+  # Check -rdynamic
+  LDFLAGS="$LDFLAGS -rdynamic"
+  AC_MSG_CHECKING([for -rdynamic])
+  AC_TRY_LINK([],[return 0;],
+    [AC_MSG_RESULT([yes]); have_rdynamic=yes],
+    [AC_MSG_RESULT([no])])
+  if test x"$have_rdynamic" = x"yes" ; then
+    pluginlibs="-rdynamic"
+  fi
+
+  # Check -ldl
+  LDFLAGS="$LDFLAGS -ldl"
+  AC_MSG_CHECKING([for -ldl])
+  AC_TRY_LINK(
+    [#include <dlfcn.h>],
+    [volatile int f = 0; if (f) dlopen ("dummy", 0);],
+    [AC_MSG_RESULT([yes]); have_dl=yes],
+    [AC_MSG_RESULT([no])])
+  if test x"$have_dl" = x"yes"; then
+    pluginlibs="$pluginlibs -ldl"
+  fi
+
+  # Check that we can build shared objects with -fPIC -shared
+  LDFLAGS="$LDFLAGS -fPIC -shared"
+  AC_MSG_CHECKING([for -fPIC -shared])
+  AC_TRY_LINK(
+    [extern int X;],[return X == 0;],
+    [AC_MSG_RESULT([yes]); have_pic_shared=yes],
+    [AC_MSG_RESULT([no]); have_pic_shared=no])
+  if test x"$have_pic_shared" != x"yes"; then
+    pluginlibs=
+    enable_plugin=no
+  fi
+
+  # If plugin support had been requested but not available, fail.
+  if test x"$enable_plugin" = x"no" ; then
+    if test x"$default_plugin" != x"yes"; then
+      AC_MSG_ERROR([
+Building GCC with plugin support requires a host that supports
+-fPIC, -shared, -ldl and -rdynamic.])
+    fi
+  fi
+
+  LDFLAGS="$saved_LDFLAGS"
+  LIBS="$saved_LIBS"
+fi
+
+AC_SUBST(pluginlibs)
+AC_SUBST(enable_plugin)
+if test x"$enable_plugin" = x"yes"; then
+  AC_DEFINE(ENABLE_PLUGIN, 1, [Define to enable plugin support.])
+fi
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

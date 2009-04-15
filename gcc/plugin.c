@@ -18,21 +18,38 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* This file contains the support for GCC plugin mechanism based on the
-   APIs described in the following wiki page:
+   APIs described in doc/plugin.texi.  */
 
-   http://gcc.gnu.org/wiki/GCC_PluginAPI  */
-
-#include <dlfcn.h>
-#include <string.h>
 #include "config.h"
 #include "system.h"
+
+/* If plugin support is not enabled, do not try to execute any code
+   that may reference libdl.  The generic code is still compiled in to
+   avoid including to many conditional compilation paths in the rest
+   of the compiler.  */
+#ifdef ENABLE_PLUGIN
+#include <dlfcn.h>
+#endif
+
 #include "coretypes.h"
-#include "errors.h"
 #include "toplev.h"
 #include "tree.h"
 #include "tree-pass.h"
 #include "intl.h"
 #include "plugin.h"
+#include "timevar.h"
+
+/* Event names as strings.  Keep in sync with enum plugin_event.  */
+const char *plugin_event_name[] =
+{
+  "PLUGIN_PASS_MANAGER_SETUP",
+  "PLUGIN_FINISH_TYPE",
+  "PLUGIN_FINISH_UNIT",
+  "PLUGIN_CXX_CP_PRE_GENERICIZE",
+  "PLUGIN_FINISH",
+  "PLUGIN_INFO",
+  "PLUGIN_EVENT_LAST"
+};
 
 /* Object that keeps track of the plugin name and its arguments
    when parsing the command-line options -fplugin=/path/to/NAME.so and
@@ -78,10 +95,11 @@ struct pass_list_node
 static struct pass_list_node *added_pass_nodes = NULL;
 static struct pass_list_node *prev_added_pass_node;
 
+#ifdef ENABLE_PLUGIN
 /* Each plugin should define an initialization function with exactly
    this name.  */
 static const char *str_plugin_init_func_name = "plugin_init";
-
+#endif
 
 /* Helper function for the hash table that compares the base_name of the
    existing entry (S1) with the given string (S2).  */
@@ -92,6 +110,7 @@ htab_str_eq (const void *s1, const void *s2)
   const struct plugin_name_args *plugin = (const struct plugin_name_args *) s1;
   return !strcmp (plugin->base_name, (const char *) s2);
 }
+
 
 /* Given a plugin's full-path name FULL_NAME, e.g. /pass/to/NAME.so,
    return NAME.  */
@@ -107,6 +126,7 @@ get_plugin_base_name (const char *full_name)
 
   return base_name;
 }
+
 
 /* Create a plugin_name_args object for the give plugin and insert it to
    the hash table. This function is called when -fplugin=/path/to/NAME.so
@@ -134,7 +154,7 @@ add_new_plugin (const char* plugin_name)
     {
       plugin = (struct plugin_name_args *) *slot;
       if (strcmp (plugin->full_name, plugin_name))
-        error (G_("Plugin %s was specified with different paths:\n%s\n%s"),
+        error ("Plugin %s was specified with different paths:\n%s\n%s",
                plugin->base_name, plugin->full_name, plugin_name);
       return;
     }
@@ -145,6 +165,7 @@ add_new_plugin (const char* plugin_name)
 
   *slot = plugin;
 }
+
 
 /* Parse the -fplugin-arg-<name>-<key>[=<value>] option and create a
    'plugin_argument' object for the parsed key-value pair. ARG is
@@ -179,8 +200,8 @@ parse_plugin_arg_opt (const char *arg)
         {
           if (key_parsed)
             {
-              error (G_("Malformed option -fplugin-arg-%s"
-                        " (multiple '=' signs)"), arg);
+              error ("Malformed option -fplugin-arg-%s (multiple '=' signs)",
+		     arg);
               return;
             }
           key_len = len;
@@ -195,7 +216,7 @@ parse_plugin_arg_opt (const char *arg)
 
   if (!key_start)
     {
-      error (G_("Malformed option -fplugin-arg-%s (missing -<key>[=<value>])"),
+      error ("Malformed option -fplugin-arg-%s (missing -<key>[=<value>])",
              arg);
       return;
     }
@@ -257,12 +278,13 @@ parse_plugin_arg_opt (const char *arg)
       plugin->argv[plugin->argc - 1].value = value;
     }
   else
-    error (G_("Plugin %s should be specified before -fplugin-arg-%s"
-              " in the command line"), name, arg);
+    error ("Plugin %s should be specified before -fplugin-arg-%s "
+           "in the command line", name, arg);
 
   /* We don't need the plugin's name anymore. Just release it.  */
   XDELETEVEC (name);
 }
+
 
 /* Insert the plugin pass at the proper position. Return true if the pass 
    is successfully added.
@@ -337,7 +359,7 @@ position_pass (struct plugin_pass *plugin_pass_info,
                 pass = new_pass;
                 break;
               default:
-                error (G_("Invalid pass positioning operation"));
+                error ("Invalid pass positioning operation");
                 return false;
             }
 
@@ -364,6 +386,7 @@ position_pass (struct plugin_pass *plugin_pass_info,
   return success;
 }
 
+
 /* Hook into the pass lists (trees) a new pass registered by a plugin.
 
    PLUGIN_NAME - display name for the plugin
@@ -376,15 +399,15 @@ register_pass (const char *plugin_name, struct plugin_pass *pass_info)
 {
   if (!pass_info->pass)
     {
-      error (G_("No pass specified when registering a new pass in plugin %s"),
+      error ("No pass specified when registering a new pass in plugin %s",
              plugin_name);
       return;
     }
 
   if (!pass_info->reference_pass_name)
     {
-      error (G_("No reference pass specified for positioning the pass"
-                " from plugin %s"), plugin_name);
+      error ("No reference pass specified for positioning the pass "
+             " from plugin %s", plugin_name);
       return;
     }
 
@@ -393,8 +416,8 @@ register_pass (const char *plugin_name, struct plugin_pass *pass_info)
   if (!position_pass (pass_info, &all_lowering_passes)
       && !position_pass (pass_info, &all_ipa_passes)
       && !position_pass (pass_info, &all_passes))
-    error (G_("Failed to position pass %s registered by plugin %s."
-              " Cannot find the (specified instance of) reference pass %s"),
+    error ("Failed to position pass %s registered by plugin %s. "
+           "Cannot find the (specified instance of) reference pass %s",
            pass_info->pass->name, plugin_name, pass_info->reference_pass_name);
   else
     {
@@ -429,6 +452,7 @@ register_pass (const char *plugin_name, struct plugin_pass *pass_info)
     }
 }
 
+
 /* Register additional plugin information. */
 
 static void
@@ -462,7 +486,7 @@ register_callback (const char *plugin_name,
       case PLUGIN_INFO:
 	register_plugin_info (plugin_name, (struct plugin_info *) user_data);
 	break;
-      case PLUGIN_FINISH_STRUCT:
+      case PLUGIN_FINISH_TYPE:
       case PLUGIN_FINISH_UNIT:
       case PLUGIN_CXX_CP_PRE_GENERICIZE:
       case PLUGIN_FINISH:
@@ -470,8 +494,8 @@ register_callback (const char *plugin_name,
           struct callback_info *new_callback;
           if (!callback)
             {
-              error (G_("Plugin %s registered a null callback function"),
-                     plugin_name);
+              error ("Plugin %s registered a null callback function "
+		     "for event %s", plugin_name, plugin_event_name[event]);
               return;
             }
           new_callback = XNEW (struct callback_info);
@@ -484,10 +508,11 @@ register_callback (const char *plugin_name,
         break;
       case PLUGIN_EVENT_LAST:
       default:
-        error (G_("Unkown callback event registered by plugin %s"),
+        error ("Unkown callback event registered by plugin %s",
                plugin_name);
     }
 }
+
 
 /* Called from inside GCC.  Invoke all plug-in callbacks registered with
    the specified event.
@@ -498,9 +523,11 @@ register_callback (const char *plugin_name,
 void
 invoke_plugin_callbacks (enum plugin_event event, void *gcc_data)
 {
+  timevar_push (TV_PLUGIN_RUN);
+
   switch (event)
     {
-      case PLUGIN_FINISH_STRUCT:
+      case PLUGIN_FINISH_TYPE:
       case PLUGIN_FINISH_UNIT:
       case PLUGIN_CXX_CP_PRE_GENERICIZE:
       case PLUGIN_FINISH:
@@ -512,13 +539,17 @@ invoke_plugin_callbacks (enum plugin_event event, void *gcc_data)
             (*callback->func) (gcc_data, callback->user_data);
         }
         break;
+
       case PLUGIN_PASS_MANAGER_SETUP:
       case PLUGIN_EVENT_LAST:
       default:
         gcc_assert (false);
     }
+
+  timevar_pop (TV_PLUGIN_RUN);
 }
 
+#ifdef ENABLE_PLUGIN
 /* We need a union to cast dlsym return value to a function pointer
    as ISO C forbids assignment between function pointer and 'void *'.
    Use explicit union instead of __extension__(<union_cast>) for
@@ -538,8 +569,8 @@ try_init_one_plugin (struct plugin_name_args *plugin)
   dl_handle = dlopen (plugin->full_name, RTLD_NOW);
   if (!dl_handle)
     {
-      error (G_("Cannot load plugin %s\n%s"), plugin->full_name, dlerror ());
-      return 0;
+      error ("Cannot load plugin %s\n%s", plugin->full_name, dlerror ());
+      return false;
     }
 
   /* Clear any existing error.  */
@@ -551,20 +582,21 @@ try_init_one_plugin (struct plugin_name_args *plugin)
 
   if ((err = dlerror ()) != NULL)
     {
-      error (G_("Cannot find %s in plugin %s\n%s"), str_plugin_init_func_name,
+      error ("Cannot find %s in plugin %s\n%s", str_plugin_init_func_name,
              plugin->full_name, err);
-      return 0;
+      return false;
     }
 
   /* Call the plugin-provided initialization routine with the arguments.  */
   if ((*plugin_init) (plugin->base_name, plugin->argc, plugin->argv))
     {
-      error (G_("Fail to initialize plugin %s"), plugin->full_name);
-      return 0;
+      error ("Fail to initialize plugin %s", plugin->full_name);
+      return false;
     }
 
-  return 1;
+  return true;
 }
+
 
 /* Routine to dlopen and initialize one plugin. This function is passed to
    (and called by) the hash table traverse routine. Return 1 for the
@@ -587,7 +619,9 @@ init_one_plugin (void **slot, void * ARG_UNUSED (info))
   return 1;
 }
 
-/* Main plugin initialization function. Called from compiler_file() in
+#endif	/* ENABLE_PLUGIN  */
+
+/* Main plugin initialization function.  Called from compile_file() in
    toplev.c.  */
 
 void
@@ -596,9 +630,15 @@ initialize_plugins (void)
   /* If no plugin was specified in the command-line, simply return.  */
   if (!plugin_name_args_tab)
     return;
+
+  timevar_push (TV_PLUGIN_INIT);
  
+#ifdef ENABLE_PLUGIN
   /* Traverse and initialize each plugin specified in the command-line.  */
   htab_traverse_noresize (plugin_name_args_tab, init_one_plugin, NULL);
+#endif
+
+  timevar_pop (TV_PLUGIN_INIT);
 }
 
 /* Release memory used by one plugin. */
@@ -708,4 +748,55 @@ print_plugins_help (FILE *file, const char *indent)
 
   fprintf (file, "%sHelp for the loaded plugins:\n", indent);
   htab_traverse_noresize (plugin_name_args_tab, print_help_one_plugin, &opt);
+}
+
+
+/* Return true if plugins have been loaded.  */
+
+bool
+plugins_active_p (void)
+{
+  enum plugin_event event;
+
+  for (event = PLUGIN_PASS_MANAGER_SETUP; event < PLUGIN_EVENT_LAST; event++)
+    if (plugin_callbacks[event])
+      return true;
+
+  return false;
+}
+
+
+/* Dump to FILE the names and associated events for all the active
+   plugins.  */
+
+void
+dump_active_plugins (FILE *file)
+{
+  enum plugin_event event;
+
+  if (!plugins_active_p ())
+    return;
+
+  fprintf (stderr, "Event\t\tPlugins\n");
+  for (event = PLUGIN_PASS_MANAGER_SETUP; event < PLUGIN_EVENT_LAST; event++)
+    if (plugin_callbacks[event])
+      {
+	struct callback_info *ci;
+
+	fprintf (file, "%s\t", plugin_event_name[event]);
+
+	for (ci = plugin_callbacks[event]; ci; ci = ci->next)
+	  fprintf (file, "%s ", ci->plugin_name);
+
+	fprintf (file, "\n");
+      }
+}
+
+
+/* Dump active plugins to stderr.  */
+
+void
+debug_active_plugins (void)
+{
+  dump_active_plugins (stderr);
 }
