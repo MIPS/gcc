@@ -1,3 +1,11 @@
+2009-04-16  Andrey Belevantsev  <abel@ispras.ru>
+
+	* alias-export.c (uids_to_decls): Remove. Remove all uses.
+	(map_uid_to_decl): Likewise.
+	(record_stack_var_partition_for): Adjust comment.
+	(mark_conflict_stack_vars): Use referenced_var.
+
+
 2009-04-15  Andrey Belevantsev  <abel@ispras.ru>
 
 	* alias.c (true_dependence): Do not use the result

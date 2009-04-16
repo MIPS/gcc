@@ -53,10 +53,6 @@ static struct pointer_map_t *exprs_to_ptas = NULL;
 /* The map of decls to stack partitions.  */
 static struct pointer_map_t *decls_to_stack = NULL;
 
-/* The map of decl uids to decl pointers.  This is needed because points-to sets
-   have only decl uids.  */
-static struct pointer_map_t *uids_to_decls = NULL;
-
 /* The map of partition representative decls to bitmaps that are
    unified points-to sets for pointer decls.  */
 static struct pointer_map_t *part_repr_to_pta = NULL;
@@ -103,15 +99,11 @@ mark_conflict_stack_vars (tree pointer ATTRIBUTE_UNUSED, struct ptr_info_def *pi
     {
       temp = BITMAP_ALLOC (NULL);
       EXECUTE_IF_SET_IN_BITMAP (pid->pt.vars, 0, i, bi)
-        if ((pdecl = (tree *) pointer_map_contains (uids_to_decls,
-                                                    (void *) (size_t) i)))
-          {
-            pdecl = (tree *) pointer_map_contains (decls_to_stack, *pdecl);
-            gcc_assert (pdecl);
-            bitmap_ior_into (temp, 
-                             *((bitmap *) pointer_map_contains (part_repr_to_part, 
-                                                                *pdecl)));
-          }
+        if ((pdecl = (tree *) pointer_map_contains (decls_to_stack,
+                                                    referenced_var (i))))
+          bitmap_ior_into (temp, 
+                           *((bitmap *) pointer_map_contains (part_repr_to_part, 
+                                                              *pdecl)));
       bitmap_ior_into (pid->pt.vars, temp);
       BITMAP_FREE (temp);
     }
@@ -157,19 +149,6 @@ unshare_and_record_pta_info (tree orig_expr)
   return orig_expr;
 }
 
-/* Record the uid mapping for DECL.  */
-static void
-map_uid_to_decl (tree decl)
-{
-  if (DECL_P (decl))
-    {
-      if (!uids_to_decls)
-        uids_to_decls = pointer_map_create ();
-      *((tree *) pointer_map_insert (uids_to_decls,
-                                     (void *) (size_t) DECL_UID (decl))) = decl;
-    }
-}
-
 /* Record the DECL mapping to its PART_DECL representative.  */
 static void
 map_decl_to_representative (tree decl, tree part_decl)
@@ -209,10 +188,8 @@ record_stack_var_partition_for (tree decl, tree part_decl)
 {
   bitmap temp;
   
-  /* First, record that decl has part_decl as a representative, and their uids.  */
+  /* First, record that decl has part_decl as a representative.  */
   map_decl_to_representative (decl, part_decl);
-  map_uid_to_decl (decl);
-  map_uid_to_decl (part_decl);
 
   /* Second, create a bitmap that represents all partition.  */
   temp = map_decl_to_bitmap (&part_repr_to_part, part_decl);
