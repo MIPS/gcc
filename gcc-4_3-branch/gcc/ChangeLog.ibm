@@ -1,0 +1,610 @@
+2009-04-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* Changelog.power7: Copy of the Changelog from the 4.5 development
+	branch.
+
+	* config/rs6000/rs6000-protos.h (rs6000_has_indirect_jump_p): New
+	declaration.
+	(rs6000_set_indirect_jump): Ditto.
+
+	* config/rs6000/rs6000.c (struct machine_function): Add
+	indirect_jump_p field.
+	(rs6000_override_options): Wrap warning messages in N_().  If
+	-mvsx was implicitly set, don't give a warning for -msoft-float,
+	just silently turn off vsx.
+	(rs6000_secondary_reload_inner): Handle more possible combinations
+	of addresses.  Don't use strict register checking, since pseudos
+	may still be present.
+	(register_move_cost): If -mdebug=cost, print out cost information.
+	(rs6000_memory_move_cost): Ditto.
+	(rs6000_has_indirect_jump_p): New function, return true if
+	current function has an indirect jump.
+	(rs6000_set_indirect_jump): New function, note that an indirect
+	jump has been generated.
+
+	* config/rs6000/rs6000.md (indirect_jump): Note that we've
+	generated an indirect jump.
+	(tablejump): Ditto.
+	(doloop_end): Do not generate decrement ctr and branch
+	instructions if an indirect jump has been generated.
+
+	* config/rs6000/vector.md (vec_reload_and_plus_<mptrsize>): Allow
+	register+small constant in addition to register+register, and
+	restrict the insn to only match during reload and afterwards.
+	(vec_reload_and_reg_<mptrsize>): Allow for and of register
+	indirect to not generate insn not found message.
+
+2009-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR driver/39293
+	* gcc.c (save_temps_flag): Add support for -save-temps=obj.
+	(cpp_options): Ditto.
+	(default_compilers): Ditto.
+	(display_help): Ditto.
+	(process_command): Ditto.
+	(do_spec_1): Ditto.
+	(set_input): Use lbasename instead of duplicate code.
+	(save_temps_prefix): New static for -save-temps=obj.
+	(save_temps_length): Ditto.
+	
+	* doc/invoke.texi (-save-temps=obj): Document new variant to
+	-save-temps switch.
+
+2009-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport more power7 development changes
+	* config/rs6000/e300c2c3.md: Backport from 4.5 development
+	version.
+	* config/rs6000/vector.md: Ditto.
+	* config/rs6000/xfpu.md: Ditto.
+	* config/rs6000/vsx.md: Ditto.
+	* config/rs6000/e500mc.md: Ditto.
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Ditto.
+	
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Backport
+	from 4.5 development version.
+	(altivec_overloaded_builtins): Ditto.
+	(rs6000_builtin_type_compatible): Ditto.
+
+	* config/rs6000/rs6000.c (altivec_expand_lv_builtin): Backport
+	from 4.5 development version.
+	(vsx_expand_builtin): Ditto.
+	(get_vec_cmp_insn): Ditto.
+	(get_vsel_insn): Ditto.
+	(rs6000_emit_vector_select): Ditto.
+	(rs6000_init_hard_regno_mode_ok): Ditto.
+	(rs6000_builtin_mask_for_load): Ditto.
+	(rs6000_builtin_conversion): Ditto.
+	(rs6000_builtin_mul_widen_even): Ditto.
+	(rs6000_builtin_mul_widen_odd): Ditto.
+	(rs6000_expand_vector_init): Ditto.
+	(rs6000_expand_vector_set): Ditto.
+	(rs6000_expand_vector_extract): Ditto.
+	(rs6000_conditional_register_usage): Ditto.
+	(rs6000_emit_move): Ditto.
+	(USE_ALTIVEC_FOR_ARG_P): Ditto.
+	(function_arg_boundary): Ditto.
+	(function_arg_advance): Ditto.
+	(bdesc_3arg): Ditto.
+	(bdesc_2arg): Ditto.
+	(bdesc_abs): Ditto.
+	(bdesc_1arg): Ditto.
+	(altivec_epxand_ld_builtin): Ditto.
+	(altivec_expand_st_builtin): Ditto.
+	(altivec_expand_builtin): Ditto.
+	(rs6000_expand_builtin): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(rs6000_emit_vector_compare_vsx): Ditto.
+	(rs6000_emit_vector_compare_altivec): Ditto.
+	(rs6000_emit_vector_compare): Ditto.
+	(rs6000_emit_vector_cond_expr): Ditto.
+	(rs6000_emit_minmax): Ditto.
+
+	* config/rs6000/altivec.md (UNSPEC_*): Backport from 4.5
+	development version.
+	(altivec_lvx_<mode>): Ditto.
+	(altivec_stv_<mode>): Ditto.
+	(mov<mode>): Ditto.
+	(mov<mode>_internal): Ditto.
+	(altivec_mov<mode>): Ditto.
+	(gpr register move splits): Ditto.
+	(addv4sf3): Ditto.
+	(altivec_addv4sf3): Ditto.
+	(subv4sf3): Ditto.
+	(altivec_subv4sf3): Ditto.
+	(altivec_vcmp*): Ditto.
+	(mulv4sf3): Ditto.
+	(altivec_mulv4sf3): Ditto.
+	(mulv8hi3): Ditto.
+	(altivec_vnmsubfp): Ditto.
+	(smaxv4sf3): Ditto.
+	(altivec_smaxv4sf3): Ditto.
+	(sminv4sf3): Ditto.
+	(altivec_sminv4sf3): Ditto.
+	(altivec_vmrghsf): Ditto.
+	(altivec_vmrglw): Ditto.
+	(altivec_vmrglsf): Ditto.
+	(altivec_vmrglw): Ditto.
+	(and<mode>3): Ditto.
+	(altivec_and<mode>3): Ditto.
+	(ior<mode>3): Ditto.
+	(altivec_ior<mode>3): Ditto.
+	(xor<mode>3): Ditto.
+	(altivec_xor<mode>3): Ditto.
+	(one_cmpl<mode>2): Ditto.
+	(altivec_one_cmpl<mode>2): Ditto.
+	(altivec_nor<mode>3): Ditto.
+	(andc<mode>3): Ditto.
+	(altivec_andc<mode>3): Ditto.
+	(altivec_vsl<VI_char>): Ditto.
+	(ashl<mode>3): Ditto.
+	(ftruncv4sf2): Ditto.
+	(vcond*): Ditto.
+	(altivec_vsel*): Ditto.
+	(vec_init*): Ditto.
+	(vec_set*): Ditto.
+	(vec_extract*): Ditto.
+	(absv4sf2): Ditto.
+	(altivec_absv4sf2): Ditto.
+	(negv4sf2): Ditto.
+	(altivec_negv4sf2): Ditto.
+	(altivec_lv*): Ditto.
+	(altivec_stv*): Ditto.
+	(vec_interleave_highv4sf): Ditto.
+	(vec_interleave_lowv4sf): Ditto.
+	
+	* config/rs6000/rs6000.md (top level): Include e300c2c3.md,
+	e500md.md, vector.md, and vsx.md.
+
+	* config.in (CHAR_BIT): Backport from 4.5 development version.
+	(GETGROUPS_T): Ditto.
+	(HAVE_ALPHASORT): Ditto.
+	(HAVE_AS_TLS_MARKERS): Ditto.
+	(HAVE_DLFCN_H): Ditto.
+	(HAVE_GAS_CFI_DIRECTIVE): Ditto.
+	(HAVE_GAS_CFI_PERSONALITY_DIRECTIVE): Ditto.
+	(HAVE_GAS_LCOMM_WITH_ALGINMENT): Ditto.
+	(HAVE_GETIPINFO): Ditto.
+	(HAVE_SCANDIR): Ditto.
+	(LT_OBJDIR): Ditto.
+
+	* doc/invoke.texi (-mgen-cell-microcode): Backport from 4.5
+	development version.
+	(-mwarn-cell-microcode): Ditto.
+	(-mvsx): Ditto.
+	(-msingle-float): Ditto.
+	(-mdouble-float): Ditto.
+	(-msimple-fpu): Ditto.
+	(-mfpu): Ditto.
+	(-mxlinx-fpu): Ditto.
+	(-mmulhw): Ditto.
+	(-mdlmzb): Ditto.
+	(-mavoid-indexed-addresses): Ditto.
+	(-msdata-data): Ditto.
+	(-mtls-markers): Ditto.
+
+2009-04-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport more power7 development changes
+	* config/rs6000/aix53.h (ASM_CPU_SPEC): Backport from 4.5
+	development version.
+
+	* config/rs6000/spe.md (spe_fixuns_truncdfsi2): Backport from 4.5
+	development version.
+	(floating comparison ops): Ditto.
+	(save_gprregs_spe): Ditto.
+	(restore_gprregs_spe): Ditto.
+	(return_and_restore_gprregs_spe): Ditto.
+
+	* config/rs6000/constraints.md (w* constraints): Add new VSX
+	constraints, wd, wf, ws, wa, wZ.
+	(j constraint): Add constraint for vector of all 0's.
+
+	* config/rs6000/predicates.md (vsx_register_operand): New insns
+	from 4.5 development.
+	(vfloat_operand): Ditto.
+	(vint_operand): Ditto.
+	(vlogical_operand): Ditto.
+	(cc_reg_no_micro_cr0_operand): Ditto.
+	(word_offset_memref_operand): Ditto.
+	(altivec_indexed_or_indirect_operand): Ditto.
+	(vec_init_operand): Ditto.
+	(easy_fp_constant): Add E500 single/double float support, and
+	using xxlxor to clear register under VSX.
+	(indexed_or_indirect_operand): Add VSX support.
+	(save_word_operation): Backport from development branch.
+
+	* config/rs6000/linux64.opt (-mprofile-kernel): Change to be a
+	variable, not a bit mask.
+
+	* config/rs6000/sysv4.opt (-mbit-align): Change to be a variable,
+	not a bit mask.
+	(-mbit-word): Ditto.
+	(-mregnames): Ditto.
+	(-mprototype): Change variable name to be upper case.
+	(-mwindiss): Deleted in 4.5.
+	(-msdata): Update documentation.
+
+	* config/rs6000/rs6000-protos.h (rs6000_preferred_reload_class):
+	Backport from 4.5 development version.
+	(rs6000_secondary_memory_needed): Ditto.
+	(rs6000_cannot_change_mode_class): Ditto.
+	(rs6000_secondary_reload_inner): Ditto.
+	(rs6000_output_addr_const_extra): Ditto.
+	(rs6000_find_base_term): Ditto.
+	(rs6000_hard_regno_nregs): Ditto.
+	(rs6000_xcoff_strip_dollar): Ditto.
+	(rs6000_final_prescan_insn): Ditto.
+
+	* config/rs6000/aix.h (LIBSTDCXX_STATIC): Backport from 4.5
+	development version.
+	(ADJUST_FIELD_ALIGN): Ditto.
+	(GP_SAVE_INLINE): Ditto.
+
+	* config/rs6000/rs6000.opt (-mpopcntd): Backport from 4.5
+	development sources.
+	(-mvsx*): Ditto.
+	(-mpower7-adjust-cost): Ditto.
+	(-mdisallow-float-in-lr-ctr): Ditto.
+	(-mupdate): Ditto.
+	(-mavoid-indexed-addresses): Ditto.
+	(-mtls-markers): Ditto.
+	(-misel): Ditto.
+	(-mspe): Ditto.
+	(-mgen-cell-microcode): Ditto.
+	(-mwarn-cell-microcode): Ditto.
+	(-msingle-float): Ditto.
+	(-mdouble-float): Ditto.
+	(-msimple-fpu): Ditto.
+	(-mfpu=*): Ditto.
+	(-mxlinx-fpu): Ditto.
+
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Use
+	SET_PROFILE_KERNEL to turn off -mprofile-kernel.
+
+	* config/rs6000/darwin.h (GP_SAVE_INLINE): Backport from 4.5.
+
+	* config/rs6000/rs6000.c (rs6000_cell_microcode): Backport from
+	4.5 development version.
+	(rs6000_spe): Ditto.
+	(rs6000_debug_reg): Ditto.
+	(rs6000_debug_addr): Ditto.
+	(rs6000_debug_cost): Ditto.
+	(rs6000_class_max_nregs): Ditto.
+	(rs6000_hard_regno_nregs): Ditto.
+	(rs6000_regno_regclass): Ditto.
+	(rs6000_vector_reload): Ditto.
+	(rs6000_explicit_options): Ditto.
+	(rs6000_vector_unit): Ditto.
+	(rs6000_vector_mem): Ditto.
+	(rs6000_vector_reg_class): Ditto.
+	(rs6000_vector_align): Ditto.
+	(rs6000_vsx_reg_class): Ditto.
+	(ppce300c2c3_cost): Ditto.
+	(ppce500mc_cost): Ditto.
+	(power7_cost): Ditto.
+	(spe_synthesize_frame_size): Ditto.
+	(rs6000_emit_allocate_stack): Ditto.
+	(constant_popl_expr_1): Ditto.
+	(no_global_regs_above): Ditto.
+	(rs6000_savres_routine_sym): Ditto.
+	(rs6000_emit_stack_reset): Ditto.
+	(rs6000_make_savres_rtx): Ditto.
+	(rs6000_savres_strategy): Ditto.
+	(rs6000_restore_saved_cr): Ditto.
+	(rs6000_debug_rtx_costs): Ditto.
+	(rs6000_debug_address_cost): Ditto.
+	(rs6000_debug_adjust_cost): Ditto.
+	(rs6000_secondary_reload): Ditto.
+	(rs6000_secondary_reload_inner): Ditto.
+	(SET_PROFILE_KERNEL): Ditto.
+	(TARGET_SECONDARY_RELOAD): Ditto.
+	(rs6000_hard_regno_nregs_internal): Ditto.
+	(rs6000_hard_regno_mode_ok): Ditto.
+	(rs6000_debug_reg_print): Ditto.
+	(rs6000_debug_vector_unit): Ditto.
+	(rs6000_init_hard_regno_mode_ok): Ditto.
+	(rs6000_override_options): Ditto.
+	(optimization_options): Ditto.
+	(rs6000_parse_fpu_option): Ditto.
+	(rs6000_handle_option): Ditto.
+	(rs6000_file_start): Ditto.
+	(output_vec_const_move): Ditto.
+	(paired_expand_vector_init): Ditto.
+	(rs6000_expand_vector_init): Ditto.
+	(invalid_e500_subreg): Ditto.
+	(constant_pool_expr_1): Ditto.
+	(constant_pool_expr): Ditto.
+	(toc_relative_expr_p): Ditto.
+	(legitimate_constant_pool_address_p): Ditto.
+	(rs6000_legitimate_offset_address_p): Ditto.
+	(avoiding_indexed_address_p): Ditto.
+	(rs6000_legitimize_address): Ditto.
+	(rs6000_legitimize_tls_address): Ditto.
+	(rs6000_tls_symbol_ref_1): Ditto.
+	(rs6000_legitimize_reload_address): Ditto.
+	(rs6000_legitimate_address): Ditto.
+	(rs6000_mode_dependent_address): Ditto.
+	(rs6000_find_base_term): Ditto.
+	(rs6000_hard_regno_nregs): Ditto.
+	(rs6000_conditional_register_usage): Ditto.
+	(rs6000_emit_move): Ditto.
+	(function_arg_advance): Ditto.
+	(spe_build_register_parallel): Ditto.
+	(rs6000_spe_function_arg): Ditto.
+	(function_arg): Ditto.
+	(setup_incoming_varargs): Ditto.
+	(rs6000_va_start): Ditto.
+	(rs6000_gimplify_va_arg): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(altivec_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(rs6000_secondary_memory_needed_rtx): Ditto.
+	(rs6000_check_sdmode): Ditto.
+	(rs6000_reload_register_type): Ditto.
+	(rs6000_preferred_reload_class): Ditto.
+	(rs6000_secondary_memory_needed): Ditto.
+	(rs6000_secondary_reload_class): Ditto.
+	(rs6000_cannot_change_mode_class): Ditto.
+	(print_operand): Ditto.
+	(print_operand_address): Ditto.
+	(rs6000_output_addr_const_extra): Ditto.
+	(rs6000_generate_compare): Ditto.
+	(rs6000_emit_cmove): Ditto.
+	(rs6000_split_multireg_move): Ditto.
+	(emit_frame_save): Ditto.
+	(FIRST_SAVRES_REGISTER): Ditto.
+	(LAST_SAVRES_REGISTER): Ditto.
+	(N_SAVRES_REGISTERS): Ditto.
+	(rs6000_emit_prologue): Ditto.
+	(ALWAYS_RESTORE_ALTIVEC_BEFORE_POP): Ditto.
+	(rs6000_emit_epilogue): Ditto.
+	(rs6000_output_mi_thunk): Ditto.
+	(rs6000_xcoff_strip_dollar): Ditto.
+	(rs6000_output_symbol_ref): Ditto.
+	(output_toc): Ditto.
+	(output_profile_hook): Ditto.
+	(rs6000_adjust_cost): Ditto.
+	(rs6000_sched_reorder2): Ditto.
+	(redefine_groups): Ditto.
+	(pad_groups): Ditto.
+	(rs6000_handle_altivec_attribute): Ditto.
+	(rs6000_elf_encode_section_info): Ditto.
+	(compare_section_name): Ditto.
+	(machopic_output_stub): Ditto.
+	(rs6000_register_move_cost): Ditto.
+	(rs6000_memory_move_cost): Ditto.
+	(rs600_emit_popcount): Ditto.
+	(rs6000_libcall_value): Ditto.
+	(rs6000_is_opaque_type): Ditto.
+	(rs6000_vector_mode_support_p): Ditto.
+	(rs6000_final_prescan_insn): Ditto.
+
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Backport from 4.5
+	development version.
+	(EXTRA_SPECS): Ditto.
+	(ASM_CPU_NATIVE_SPEC): Ditto.
+	(TARGET_TLS_MARKERS): Ditto.
+	(processor_type): Ditto.
+	(TARGET_*_FLOAT): Ditto.
+	(TARGET_*_FPU): Ditto.
+	(fpu_type_t): Ditto.
+	(fpu_type): Ditto.
+	(rs6000_debug_reg): Ditto.
+	(rs6000_debug_addr): Ditto.
+	(rs6000_debug_cost): Ditto.
+	(TARGET_DEBUG_REG): Ditto.
+	(TARGET_DEBUG_ADDR): Ditto.
+	(TARGET_DEBUG_COST): Ditto.
+	(rs6000_xilinx_fpu): Ditto.
+	(rs6000_vector): Ditto.
+	(VECTOR_UNIT_*): Ditto.
+	(VECTOR_MEM_*): Ditto.
+	(VECTOR_ALIGN): Ditto.
+	(TARGET_ISEL): Ditto.
+	(TARGET_ISEL64): Ditto.
+	(UNITS_PER_VSX_WORD): Ditto.
+	(STACK_BOUNDARY): Ditto.
+	(LOCAL_ALIGNMENT): Ditto.
+	(MEMBER_TYPE_FORCES_BLK): Ditto.
+	(CONSTANT_ALIGNMENT): Ditto.
+	(LOCAL_ALIGNMENT): Ditto.
+	(SLOW_UNALIGNED_ACCESS): Ditto.
+	(VSX_REGNO_P): Ditto.
+	(VFLOAT_REGNO_P): Ditto.
+	(VINT_REGNO_P): Ditto.
+	(VLOGICAL_REGNO_P): Ditto.
+	(HARD_REGNO_NREGS): Ditto.
+	(VSX_VECTOR_MODE): Ditto.
+	(VSX_VECTOR_MOVE_MODE): Ditto.
+	(VSX_SCALAR_MODE): Ditto.
+	(VSX_MODE): Ditto.
+	(VSX_MOVE_MOVE): Ditto.
+	(ALTIVEC_VECTOR_MODE): Ditto.
+	(UNITS_PER_SIMD_WORD): Ditto.
+	(MODES_TIEABLE_P): Ditto.
+	(enum reg_class): Ditto.
+	(REG_CLASS_NAMES): Ditto.
+	(REG_CLASS_CONTENTS): Ditto.
+	(IRA_COVER_CLASSES): Ditto.
+	(REGNO_REG_CLASS): Ditto.
+	(rs6000_vector_reg_class): Ditto.
+	(rs6000_vsx_reg_class): Ditto.
+	(VSX_REG_CLASS): Ditto.
+	(PREFERRED_RELOAD_CLASS): Ditto.
+	(SECONDARY_MEMORY_NEEDED): Ditto.
+	(CLASS_MAX_NREGS): Ditto.
+	(CANNOT_CHANGE_MODE_CLASS): Ditto.
+	(STARTING_FRAME_OFFSET): Ditto.
+	(STACK_DYNAMIC_OFFSET): Ditto.
+	(FIND_BASE_TERM): Ditto.
+	(FINAL_PRESCAN_INSN): Ditto.
+	(ADDITIONAL_REGISTER_NAMES): Ditto.
+	(OUTPUT_ADDR_CONST_EXTRA): Ditto.
+	(enum rs6000_builtins): Ditto.
+	(enum rs6000_builtin_type_index): Ditto.
+	(V2DI_type_node): Ditto.
+	(V2DF_type_mdoe): Ditto.
+	(intDI_type_internal_node): Ditto.
+	(uintDI_type_internal_node): Ditto.
+
+	* config/rs6000/aix61.h (ASM_CPU_SPEC): Backport from 4.5
+	development version.
+
+	* config/rs6000/rs6000.md (UNSPEC_TOCREL): Ditto.
+	(UNSPEC_MACHOPIC_OFFSET): Ditto.
+	(fp_type attribute): Ditto.
+	(cpu attribute): Ditto.
+	(cell_micro): Ditto.
+	(FP iterator): Ditto.
+	(sel attribute): Ditto.
+	(ptrsize attribute): Ditto.
+	(tptrsize attribute): Ditto.
+	(mptrsize attribute): Ditto.
+	(zero extend/set CR and split): Ditto.
+	(sign extend/set CR and split): Ditto.
+	(logical operator/set CR and split): Ditto.
+	(sign extend insns): Ditto.
+	(andsi3*): Ditto.
+	(anddi3*): Ditto.
+	(rotate*): Ditto.
+	(all floating point operations): Ditto.
+	(movsicc): Ditto.
+	(mov<mode>cc): Ditto.
+	(isel_signed): Ditto.
+	(isel_signed_<mode>): Ditto.
+	(isel_unsigned): Ditto.
+	(isel_unsigned_<mode>): Ditto.
+	(smindi3): Ditto.
+	(smaxdi3): Ditto.
+	(umindi3): Ditto.
+	(umaxdi3): Ditto.
+	(movsi_got): Ditto.
+	(movdf_hardfloat32): Ditto.
+	(movdf_hardfloat64_mfpgpr): Ditto.
+	(movdf_hardfloat64): Ditto.
+	(stmsi*): Ditto.
+	(mov*_<mode>_update): Ditto.
+	(mov*_<mode>_update_stack): Ditto.
+	(tls_gd_*): Ditto.
+	(TLSmode): Ditto.
+	(tls_*): Ditto.
+	(allocate_stack): Ditto.
+	(builtin_setjmp_receiver): Ditto.
+	(call_indirect*): Ditto.
+	(call_value_indirect*): Ditto.
+	(save_gpregs_<mode>): Ditto.
+	(save_fpregs_<mode>): Ditto.
+	(restore_gpregs_<mode>): Ditto.
+	(restore_fpregs_<mode>): Ditto.
+
+	* config/rs6000/sysv4.h (TARGET_PROTOTYPE): Backport from 4.5
+	development.
+	(SUBTARGET_OVERRIDE_OPTIONS): Ditto.
+	(FP_SAVE_INLINE): Ditto.
+	(GP_SAVE_INLINE): Ditto.
+	(SAVE_FP_SUFFIX): Ditto.
+	(RESTORE_FP_SUFFIX): Ditto.
+	(LINK_START_SPEC): Ditto.
+	(LINK_OS_SPEC): Ditto.
+	(DRIVER_SELF_SPECS): Ditto.
+	(CPP_SPEC): Ditto.
+	(ENDFILE_SPEC): Ditto.
+	(CRTSAVRES_DEFAULT_SPEC): Ditto.
+	(LIB_WINDISS_SPEC): Ditto.
+	(CPP_OS_WINDISS_SPEC): Ditto.
+	(STARTFILE_WINDISS_SPEC): Ditto.
+	(ENDFILE_WINDDISS_SPEC): Ditto.
+	(LINK_START_WINDISS_SPEC): Ditto.
+	(LINK_OS_WINDISS_SPEC): Ditto.
+	(SUBTARGET_EXTRA_SPECS): Ditto.
+
+2009-02-24  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/aix53.h (ASM_CPU_SPEC): Add Power7 entry.
+	* config/rs6000/aix61.h (ASM_CPU_SPEC): Likewise.
+
+2009-02-23  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Initial Power7 checkin made up of the following from our internal
+	power7 development tree:
+
+	2009-02-15  Pat Haugen  <pthaugen@us.ibm.com>
+		    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (-mpopcntd, -mno-popcntd): Document new switch.
+	* configure.ac (powerpc*-*-*): Test for the assembler having the
+	popcntd instruction.
+	* configure: Regenerate.
+	* config.in (HAVE_AS_POPCNTD): Add default value for configure
+	test.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	_ARCH_PWR7 if the popcntd instruction is available.
+	* config/rs6000/rs6000.opt (-mpopcntd): New switch to
+	enable/disable the use of the popcntd and popcntw instructions.
+	(-mfused-madd, -mno-fused-madd): Move to being a separate variable
+	because we are out of mask bits.
+	* config/rs6000/rs6000.c
+	(insn_must_be_first_in_group): Add Power7 support.
+	(insn_must_be_last_in_group): Ditto.
+	(rs6000_emit_popcount): Add support for using the popcntw and
+	popcntd instructions.
+	* config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Switch to using
+	popcntd as the test for a power7 assembler instead of vector
+	scalar instructions.
+	* (TARGET_POPCNTD): If assembler does not support the popcntd
+	instruction, disable using it.
+	* config/rs6000/rs6000.md
+	(andi./andis./nor. patterns): Change insn type to fast_compare.
+	(popcntwsi2): Add popcntw support.
+	(popcntddi2): Add popcntd support.
+
+	[gcc/testsuite patches]
+	* gcc.target/powerpc/popcount-2.c: New file for power7 support.
+	* gcc.target/powerpc/popcount-3.c: Ditto.
+
+	2008-08-22  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport missing portions from FSF mainline:
+	2008-08-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/invoke.texi: Add cpu_type power7.
+	* config.in (HAVE_AS_VSX): New.
+	* configure.ac (HAVE_AS_VSX): Check for assembler support of the
+	VSX instructions.
+	* configure: Regenerate.
+	* config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Define based on
+	HAVE_AS_VSX.
+
+	2008-08-22  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/power7.md: Add power7 machine description.
+	* config/rs6000/rs6000.c: (power7_cost): Define.
+	(rs6000_override_options): Add power7 support.
+	(rs6000_issue_rate): Likewise.
+	* config/rs6000/rs6000.h: (processor_type): Add power7 entry.
+	* config/rs6000/rs6000.md: (define_attr "cpu"):  Add power7.
+
+	2008-04-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/power7.md: New file.
+	* config/rs6000/rs6000.md: Include it.
+
+	2008-04-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from FSF mainline:
+	2008-02-26  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.h (ASM_CPU_POWER5_SPEC): Define.
+	(ASM_CPU_POWER6_SPEC): Likewise.
+	(ASM_CPU_SPEC): Pass %(asm_cpu_power5) for -mcpu=power5.
+	Likewise, pass %(asm_cpu_power6) for -mcpu=power6.
+	(EXTRA_SPECS): Add asm_cpu_power5, asm_cpu_power6 spec strings.
+
+	* config.gcc: Handle --with-cpu=power7.
+	* config/rs6000/rs6000.c: Add power7 entry.
+	* config/rs6000/rs6000.h: Handle -mcpu=power7.
+	(ASM_CPU_POWER7_SPEC): Define.
+	(ASM_CPU_SPEC): Pass %(asm_cpu_power7) for -mcpu=power7.
+	(EXTRA_SPECS): Add asm_cpu_power7 string.
+
