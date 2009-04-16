@@ -1183,32 +1183,24 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
       pp_character (buffer, '(');
       pp_decimal_int (buffer, gimple_phi_arg_edge (phi, i)->src->index);
       pp_character (buffer, ')');
-      if (((flags & TDF_LINENO)
-	   || (flags & TDF_DEBUGLOCUS))
-	  && gimple_phi_arg_has_location (phi, i))
+      if (gimple_phi_arg_has_location (phi, i))
         {
 	  expanded_location xloc;
-
 	  xloc = expand_location (gimple_phi_arg_location (phi, i));
-	  pp_character (buffer, '[');
-	  if (xloc.file)
-	    {
-	      pp_string (buffer, xloc.file);
-	      pp_string (buffer, " : ");
-	    }
-	  pp_decimal_int (buffer, xloc.line);
-	  if ((flags & TDF_DEBUGLOCUS) && xloc.debuglocus != DEBUGLOCUS_NONE)
-	    {
-	      tree decl;
-	      debuglocus_iterator iter;
 
-	      FOR_EACH_DEBUGLOCUS_VAR (xloc.debuglocus, decl, iter)
-	        {
-		  pp_character (buffer, '*');
-		  dump_generic_node (buffer, decl, 0, 0, false);
-	        }
+	  if (flags & TDF_LINENO)
+	    {
+	      pp_character (buffer, '[');
+	      if (xloc.file)
+		{
+		  pp_string (buffer, xloc.file);
+		  pp_string (buffer, " : ");
+		}
+	      pp_decimal_int (buffer, xloc.line);
+	      pp_string (buffer, "] ");
 	    }
-	  pp_string (buffer, "] ");
+	  if ((flags & TDF_DEBUGLOCUS) && xloc.debuglocus != DEBUGLOCUS_NONE)
+	    pretty_print_debuglocus (buffer, xloc.debuglocus, flags);
 	}
       if (i < gimple_phi_num_args (phi) - 1)
 	pp_string (buffer, ", ");
@@ -1499,30 +1491,22 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (flags & TDF_STMTADDR)
     pp_printf (buffer, "<&%p> ", (void *) gs);
 
-  if (((flags & TDF_LINENO)
-       || (flags & TDF_DEBUGLOCUS))
-      && gimple_has_location (gs))
+  if (gimple_has_location (gs))
     {
       expanded_location xloc = expand_location (gimple_location (gs));
-      pp_character (buffer, '[');
-      if (xloc.file)
+      if (flags & TDF_LINENO)
 	{
-	  pp_string (buffer, xloc.file);
-	  pp_string (buffer, " : ");
-	}
-      pp_decimal_int (buffer, xloc.line);
-      if ((flags & TDF_DEBUGLOCUS) && xloc.debuglocus != DEBUGLOCUS_NONE)
-	{
-	  tree decl;
-	  debuglocus_iterator iter;
-
-	  FOR_EACH_DEBUGLOCUS_VAR (xloc.debuglocus, decl, iter)
+	  pp_character (buffer, '[');
+	  if (xloc.file)
 	    {
-	      pp_character (buffer, '*');
-	      dump_generic_node (buffer, decl, 0, 0, false);
+	      pp_string (buffer, xloc.file);
+	      pp_string (buffer, " : ");
 	    }
+	  pp_decimal_int (buffer, xloc.line);
+	  pp_string (buffer, "] ");
 	}
-      pp_string (buffer, "] ");
+      if ((flags & TDF_DEBUGLOCUS) && xloc.debuglocus != DEBUGLOCUS_NONE)
+        pretty_print_debuglocus (buffer, xloc.debuglocus, flags);
     }
 
   if ((flags & (TDF_VOPS|TDF_MEMSYMS))
@@ -1858,9 +1842,7 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
     {
       INDENT (indent);
 
-      if (((flags & TDF_LINENO) || (flags & TDF_DEBUGLOCUS))
-	  && e->goto_locus != UNKNOWN_LOCATION
-	  )
+      if ((flags & TDF_LINENO) && e->goto_locus != UNKNOWN_LOCATION)
 	{
 	  expanded_location goto_xloc;
 	  goto_xloc = expand_location (e->goto_locus);
@@ -1871,18 +1853,6 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 	      pp_string (buffer, " : ");
 	    }
 	  pp_decimal_int (buffer, goto_xloc.line);
-	  if ((flags & TDF_DEBUGLOCUS)
-	      && goto_xloc.debuglocus != DEBUGLOCUS_NONE)
-	    {
-	      tree decl;
-	      debuglocus_iterator iter;
-
-	      FOR_EACH_DEBUGLOCUS_VAR (goto_xloc.debuglocus, decl, iter)
-		{
-		  pp_character (buffer, '*');
-		  dump_generic_node (buffer, decl, 0, 0, false);
-		}
-	    }
 	  pp_string (buffer, "] ");
 	}
 

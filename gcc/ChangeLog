@@ -1,3 +1,37 @@
+2009-04-15  Andrew MacLeod  <amacleod@redhat.com>
+
+	* debuglocus.c (new_debuglocus_entry): Initialize new fields.
+	(create_duplicate_debuglocus): Don't use order field.
+	(create_debuglocus_for_decl): Set original_locus field.
+	(find_debuglocus, find_and_detach_debuglocus,
+	find_and_detach_or_create_debuglocus): Remove.
+	(replace_locus_with_debuglocus): New. Factored code.
+	(set_debuglocus_expr): New. Set expression field.
+	(orphan_debuglocus): New. Relocate from a deleted statement.
+	(replace_gimple_locus_with_debuglocus): Factor out some code.
+	(replace_phiarg_locus_with_debuglocus): New. Set debuglocus in phiarg.
+	(pretty_print_debuglocus): New. Print debuglocus to a buffer.
+	(dump_debuglocus): New. Print out a debuglocus for a listing.
+	(dump_debuglocus_entry): Adjust table entry formatting and fields.
+	(dump_debuglocus_table): Print only entries referred to in function.
+	(debuglocus_bitmap_populate_helper): Handle lists.
+	(debuglocus_bitmap_populate): Also process orphans.
+	(debuglocus_bitmap_verify): Add bitmaps to table dump.
+	* debuglocus.h (struct debuglocus_entry_d): Remove order field, add
+	expression and original_locus.
+	(locus_from_debuglocus): Return original locus field.
+	* tree-pretty-print.c (dump_generic_node): Call pretty print routine.
+	* diagnostic.h: Add function prototypes.
+	* gimple-pretty-print.c (dump_gimple_phi, dump_gimple_stmt): Call
+	print routine.
+	(dump_implicit_edges): Don't bother printing debuglocus on edges.
+	* function.h (struct function): Add orphaned debuglocus field.
+	* print-rtl.c (print_rtx): Call dump routine.
+	* print-tree.c (print_node): Call dump routine.
+	* tree-outof-ssa.c (insert_copy_on_edge): Add any debuglocuses
+	attached to PHI nodes to copied generated.
+	* passes.c (execute_function_todo): Print orphaned entries.
+
 2009-04-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* debuglocus.c (create_debuglocus_table): Only create table when

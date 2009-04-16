@@ -233,4 +233,8 @@ extern void print_gimple_stmt (FILE *, gimple, int, int);
 extern void print_gimple_expr (FILE *, gimple, int, int);
 extern void dump_gimple_stmt (pretty_printer *, gimple, int, int);
 
+/* In debuglocus.c  */
+extern void pretty_print_debuglocus (pretty_printer *, source_location, int);
+void dump_debuglocus (FILE *, source_location, int);
+
 #endif /* ! GCC_DIAGNOSTIC_H */

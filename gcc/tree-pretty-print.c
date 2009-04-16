@@ -446,28 +446,22 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
   if (is_stmt && (flags & TDF_STMTADDR))
     pp_printf (buffer, "<&%p> ", (void *)node);
 
-  if ((flags & TDF_LINENO) && EXPR_HAS_LOCATION (node))
+  if (EXPR_HAS_LOCATION (node))
     {
       expanded_location xloc = expand_location (EXPR_LOCATION (node));
-      pp_character (buffer, '[');
-      if (xloc.file)
+      if (flags & TDF_LINENO)
 	{
-	  pp_string (buffer, xloc.file);
-	  pp_string (buffer, " : ");
-	}
-      pp_decimal_int (buffer, xloc.line);
-      if (xloc.debuglocus != DEBUGLOCUS_NONE)
-	{
-	  tree decl;
-	  debuglocus_iterator iter;
-
-	  FOR_EACH_DEBUGLOCUS_VAR (xloc.debuglocus, decl, iter)
+	  pp_character (buffer, '[');
+	  if (xloc.file)
 	    {
-	      pp_character (buffer, '*');
-	      dump_generic_node (buffer, decl, 0, 0, false);
+	      pp_string (buffer, xloc.file);
+	      pp_string (buffer, " : ");
 	    }
+	  pp_decimal_int (buffer, xloc.line);
+	  pp_string (buffer, "] ");
 	}
-      pp_string (buffer, "] ");
+      if ((flags & TDF_DEBUGLOCUS) && xloc.debuglocus != DEBUGLOCUS_NONE)
+        pretty_print_debuglocus (buffer, xloc.debuglocus, flags);
     }
 
   switch (TREE_CODE (node))

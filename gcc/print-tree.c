@@ -456,17 +456,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       xloc = expand_location (DECL_SOURCE_LOCATION (node));
       fprintf (file, " file %s line %d col %d", xloc.file, xloc.line,
 	       xloc.column);
-      if (xloc.debuglocus != DEBUGLOCUS_NONE)
-	{
-	  tree decl;
-	  debuglocus_iterator iter;
-
-	  FOR_EACH_DEBUGLOCUS_VAR (xloc.debuglocus, decl, iter)
-	    {
-	      fprintf (file , "*");
-	      print_generic_expr (file, decl, 0);
-	    }
-	}
+      dump_debuglocus (file, xloc.debuglocus, /*flags*/0);
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{	  

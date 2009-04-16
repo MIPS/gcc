@@ -969,6 +969,14 @@ execute_function_todo (void *data)
 	      && (dump_flags & TDF_GRAPH))
 	    print_rtl_graph_with_bb (dump_file_name, get_insns ());
 	}
+      if ((dump_flags & TDF_DEBUGLOCUS) && cfun->orphaned_debuglocus)
+        {
+	  fprintf (dump_file, "\n Orphaned debuglocus entries:\n");
+	  fprintf (dump_file, "-----------------------------\n");
+	  dump_debuglocus (dump_file, cfun->orphaned_debuglocus, 
+			   TDF_DETAILS|TDF_LINENO);
+	  fprintf (dump_file, "-----------------------------\n");
+	}
 
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */

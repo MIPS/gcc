@@ -40,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
-#include "debuglocus.h"
+#include "diagnostic.h"
 #endif
 
 static FILE *outfile;
@@ -397,17 +397,11 @@ print_rtx (const_rtx in_rtx)
 		when there is no location information available.  */
 	    if (INSN_LOCATOR (in_rtx) && insn_file (in_rtx))
 	      {
-		tree decl;
-		debuglocus_iterator iter;
 		location_t locus = locator_location (INSN_LOCATOR (in_rtx));
 
 		fprintf (outfile, " %s:%i", insn_file (in_rtx), 
 					    insn_line (in_rtx));
-		FOR_EACH_DEBUGLOCUS_VAR (locus, decl, iter)
-		  {
-		    fprintf (outfile, "*");
-		    print_decl_name (outfile, decl);
-		  }
+		dump_debuglocus (outfile, locus, /*flags*/0);
 	      }
 #endif
 	  }

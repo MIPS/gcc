@@ -527,6 +527,9 @@ struct function GTY(())
   /* Line number of the end of the function.  */
   location_t function_end_locus;
 
+  /* List of debuglocus's whose statements have been removed.  */
+  location_t orphaned_debuglocus;
+
   /* Properties used by the pass manager.  */
   unsigned int curr_properties;
   unsigned int last_verified;

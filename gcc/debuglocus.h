@@ -24,13 +24,45 @@ along with GCC; see the file COPYING3.  If not see
 /* No entry. Used for terminating lists and returning no matches.  */
 #define DEBUGLOCUS_NONE			0
 
+/* This is an entry in the debuglocus table.
+   DECL indicates the user variable that the entry is for. 
+   LOCUS is the location the debug value is associated with.
+   ORIGINAL_LOCUS is the location the current statement.
+   if EXPRESSION is NULL, then it defaults to the value of the 
+   expression/statement on which the debuglocus it attached, otherwise it is
+   defined by the espression.  Initially this is just CONST or DECL.
+   PREV and NEXT are links within the table for chaining entries.  */
+
 struct debuglocus_entry_d GTY(()) {
-  tree decl;			/* debug decl  */
-  int order;			/* Ordering for emission sorting.  */
-  source_location locus;	/* locus of statement.  */
-  int prev;			/* prev link for multiple entries on a stmt.  */
-  int next;			/* next link for multiple entries on a stmt.  */
+  tree decl;			  /* Debug decl  */
+  source_location locus;	  /* Locus of statement.  */
+  source_location original_locus; /* Original locus of current statement.  */
+  tree expression;                /* Optional expression node.  */
+  int prev;			  /* Prev link for multiple entries.  */
+  int next;			  /* Next link for multiple entries.  */
 };
+
+
+/* There are 2 source location fields associated with a debuglocus.
+   LOCUS is the source_location for the statement with which the debug
+   entry belong. Initially ORIGINAL_LOCUS is this same value. 
+   They can diverge when a statement is deleted which has a debuglocus, and 
+   that debuglocus is moved to another statement which has a different source 
+   location, but NOT a debuglocus of it's own.   ie
+     [ a.c : 8 ]  t_4 = foo ()
+     <...>
+     [ a.c : 44, a ]  a_8 = t_4
+    if coalescing removes the second statement, the debuglocus will be attached
+    to the first statement.  When moved, ORIG_LOCUS will be set to the 
+    [ a.c : 8 ] location, and LOCUS will still have [ a.c : 44, a].  This means
+    the call to foo can still have it's correct location entry, and the correct
+    location for the debug assignemnt to 'a' is also still available.
+
+    NOte that when debuglocus's are chained together, the ORIGINAL_LOCUS field
+    for everything except the initial one in the list is ignored. Only the
+    initial debuglocus is considered to contain a LOCUS for a statement.  */
+
+
 
 typedef struct debuglocus_entry_d debuglocus;
 typedef struct debuglocus_entry_d *debuglocus_p;
@@ -73,13 +105,15 @@ bool decl_needs_debuglocus_p (tree);
 debuglocus_p create_debuglocus_for_decl (tree);
 source_location create_debuglocus_for_decl_and_locus (tree, source_location);
 void replace_gimple_locus_with_debuglocus (gimple, debuglocus_p);
+void replace_phiarg_locus_with_debuglocus (gimple, int, debuglocus_p);
 void merge_debuglocus (debuglocus_p, debuglocus_p);
-debuglocus_p find_debuglocus (gimple, tree, source_location);
-debuglocus_p find_and_detach_debuglocus (gimple, tree, source_location);
-source_location find_and_detach_or_create_debuglocus (gimple, tree, source_location);
 bitmap current_debuglocus_bitmap (void);
 void debuglocus_bitmap_populate (bitmap, FILE *, bool);
 void debuglocus_bitmap_verify (FILE *, bitmap, bitmap, unsigned int);
+void set_debuglocus_expr(source_location, tree);
+void orphan_debuglocus (gimple);
+
+
 
 /* Iterate over the different debuglocus's in a single list. No iterations are 
    performed if their locus is just a regular source location.  
@@ -148,7 +182,7 @@ locus_from_debuglocus (source_location dlocus)
   if (is_debuglocus (dlocus))
     {
       debuglocus_p ptr = get_debuglocus (dlocus);
-      return ptr->locus;
+      return ptr->original_locus;
     }
   else
     return dlocus;

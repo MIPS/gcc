@@ -160,12 +160,23 @@ insert_copy_on_edge (edge e, tree dest, tree src, phi_arg_ptr phi_arg)
   if (phi_arg)
     {
       use_operand_p use_p = &(phi_arg->imm_use);
-      tree decl = gimple_phi_original_decl (USE_STMT (use_p));
+      gimple phi_stmt = USE_STMT (use_p);
+      tree decl = gimple_phi_original_decl (phi_stmt);
 
       locus = phi_arg->locus;
       /* Create a debuglocus if one is needed and there isn't one.  */
       if (!is_debuglocus (locus) && decl_needs_debuglocus_p (decl))
 	locus = create_debuglocus_for_decl_and_locus (decl, locus);
+
+      /* If the PHI is placeholding any debuglocus's, add them to the copy.  */
+      if (is_debuglocus (gimple_location (phi_stmt)))
+        {
+	  source_location copy = copy_debuglocus (gimple_location (phi_stmt));
+	  if (is_debuglocus (locus))
+	    merge_debuglocus (get_debuglocus (locus), get_debuglocus (copy));
+	  else
+	    locus = copy;  
+	}
     }
   gimple_set_location (copy, locus);
 

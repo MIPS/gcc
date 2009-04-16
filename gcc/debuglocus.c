@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "input.h"
 #include "flags.h"
+#include "pretty-print.h"
 
 
 /* This file contains data and functions required to implement debuglocus 
@@ -161,8 +162,9 @@ new_debuglocus_entry (debuglocus_table_t *tab)
 
   /* Initialize the entry.  */
   dlocus->locus = UNKNOWN_LOCATION;
+  dlocus->original_locus = UNKNOWN_LOCATION;
   dlocus->decl = NULL_TREE;
-  dlocus->order = i;		    /* Initially the issuing index.  */
+  dlocus->expression = NULL_TREE;
   dlocus->prev = dlocus->next = i;  /* Initialize the circular linked list.  */
   return dlocus;
 }
@@ -175,63 +177,6 @@ create_debuglocus_entry (void)
 {
   return new_debuglocus_entry (current_debuglocus_table ());
 }
-
-
-/* Copy the debuglocus LOCUS. This requires duplicating the debuglocus, as well
-   as any chain of debuglocus's attached to it.  */
-source_location
-create_duplicate_debuglocus (source_location locus)
-{
-  int root_i, new_i, src_i, dest_i, prev_dest_i;
-  debuglocus_p root_p, new_p, src_p, dest_p, prev_dest_p;
-
-  gcc_assert (is_debuglocus (locus));
-
-  root_i = DEBUGLOCUS_INDEX (locus);   /* Root is the locus being copied.  */
-  root_p = get_debuglocus_entry (current_debuglocus_table (), root_i);
-
-  new_p = create_debuglocus_entry ();  /* New is the copy of root.  */
-  /* The order field starts as the index of the new debuglocus.  */
-  new_i = new_p->order;
-
-  /* Copy the fields from the root node.  */
-  new_p->decl = root_p->decl;
-  new_p->locus = root_p->locus;
-  new_p->order = root_p->order;
-
-  prev_dest_p = new_p;  /* prev_dest is used for updating the links.  */
-  prev_dest_i = new_i;
-
-  /* Now duplicate and link in any other locus's which are linked to root.  */
-  for (src_i = root_p->next; src_i != root_i; src_i = src_p->next)
-   {
-     /* Src is the node being copied. Dest is the new node.  */
-     src_p = get_debuglocus_entry (current_debuglocus_table (), src_i);  
-     dest_p = create_debuglocus_entry (); 
-     dest_i = dest_p->order;
-
-     /* Initialize links  */
-     prev_dest_p->next = dest_i;
-     dest_p->prev = prev_dest_i;
-
-     /* copy node values.  */
-     dest_p->decl = src_p->decl;
-     dest_p->locus = src_p->locus;
-     dest_p->order = src_p->order;
-
-     /* Now dest is the previous node in the new list.  */
-     prev_dest_i = dest_i;
-     prev_dest_p = dest_p;
-   }
-
-   /* Update the final link.  */
-   new_p->prev = prev_dest_i;
-   prev_dest_p->next = new_i;
-
-  /* Return the debuglocus for the new copy.  */
-  return new_i | DEBUGLOCUS_BIT;
-}
-
 
 /* Decide whether VAR should have a debuglocus emitted.  */
 bool
@@ -304,6 +249,65 @@ debuglocus_from_pointer (debuglocus_p dlocus)
 }
 
 
+/* Copy the debuglocus LOCUS. This requires duplicating the debuglocus, as well
+   as any chain of debuglocus's attached to it.  */
+source_location
+create_duplicate_debuglocus (source_location locus)
+{
+  int root_i, new_i, src_i, dest_i, prev_dest_i;
+  debuglocus_p root_p, new_p, src_p, dest_p, prev_dest_p;
+
+  gcc_assert (is_debuglocus (locus));
+
+  root_i = DEBUGLOCUS_INDEX (locus);   /* Root is the locus being copied.  */
+  root_p = get_debuglocus_entry (current_debuglocus_table (), root_i);
+
+  new_p = create_debuglocus_entry ();  /* New will be the copy of root.  */
+  new_i = debuglocus_index_from_pointer (new_p);
+
+  /* Copy the fields from the root node.  */
+  new_p->decl = root_p->decl;
+  new_p->locus = root_p->locus;
+  new_p->original_locus = root_p->original_locus;
+  new_p->expression = root_p->expression;
+
+  prev_dest_p = new_p;  /* prev_dest is used for updating the links.  */
+  prev_dest_i = new_i;
+
+  /* Now duplicate and link in any other locus's which are linked to root.  */
+  for (src_i = root_p->next; src_i != root_i; src_i = src_p->next)
+   {
+     /* Src is the node being copied. Dest is the new node.  */
+     src_p = get_debuglocus_entry (current_debuglocus_table (), src_i);  
+     dest_p = create_debuglocus_entry (); 
+     dest_i = debuglocus_index_from_pointer (dest_p);
+
+     /* Initialize links  */
+     prev_dest_p->next = dest_i;
+     dest_p->prev = prev_dest_i;
+
+     /* copy node values.  */
+     dest_p->decl = src_p->decl;
+     dest_p->locus = src_p->locus;
+     dest_p->original_locus = src_p->original_locus;
+     dest_p->expression = dest_p->expression;
+
+     /* Now dest is the previous node in the new list.  */
+     prev_dest_i = dest_i;
+     prev_dest_p = dest_p;
+   }
+
+   /* Update the final link.  */
+   new_p->prev = prev_dest_i;
+   prev_dest_p->next = new_i;
+
+  /* Return the debuglocus for the new copy.  */
+  return new_i | DEBUGLOCUS_BIT;
+}
+
+
+
+
 /* Create and return a new debuglocus entry for a decl VAR.  */
 debuglocus_p 
 create_debuglocus_for_decl (tree var)
@@ -326,7 +330,71 @@ create_debuglocus_for_decl_and_locus (tree var, source_location locus)
   if (!ptr)
     return locus;
   ptr->locus = locus;
+  ptr->original_locus = locus;
   return debuglocus_from_pointer (ptr);
+}
+
+
+/* Replace the locus in STMT with the debuglocus entry DLOCUS.  */
+static inline source_location
+replace_locus_with_debuglocus (source_location locus, debuglocus_p dlocus)
+{
+  /* Return the original locus if debuglocus is disabled.  */
+  if (dlocus == NULL)
+    return locus;
+
+  if (dlocus->locus == UNKNOWN_LOCATION)
+    dlocus->locus = dlocus->original_locus = locus_from_debuglocus (locus);
+
+  /* If stmt already has a debuglocus, then merge this one.  */
+  if (is_debuglocus (locus))
+    {
+      debuglocus_p curr = get_debuglocus (locus);
+      merge_debuglocus (curr, dlocus);
+    } 
+  else
+    {
+      dlocus->original_locus = locus;
+      locus = debuglocus_from_pointer (dlocus);
+    }
+  return locus;
+}
+
+
+/* Set the expression field of LOCUS to EXPR.  */
+void
+set_debuglocus_expr (source_location locus, tree expr)
+{
+  debuglocus_p dl;
+  gcc_assert (is_debuglocus (locus));
+
+  dl = get_debuglocus (locus);
+  dl->expression = expr;
+}
+
+
+/* Detach a debuglocus from statement SRC that is about to be deleted.  Attach 
+   it to the orphaned list.  */
+void
+orphan_debuglocus (gimple src)
+{
+  source_location locus, homeless;
+  debuglocus_p dl;
+
+  locus = gimple_location (src);
+  gcc_assert (is_debuglocus (locus));
+
+  dl = get_debuglocus (locus);
+
+  /* Clear statement of debuglocus so it isn't copied again.  */
+  gimple_set_location (src, locus_from_debuglocus (locus));
+
+  /* Add to cfun's orphaned list.  */
+  homeless = cfun->orphaned_debuglocus;
+  if (homeless)
+    merge_debuglocus (get_debuglocus (cfun->orphaned_debuglocus), dl);
+  else
+    cfun->orphaned_debuglocus = locus;
 }
 
 
@@ -334,33 +402,27 @@ create_debuglocus_for_decl_and_locus (tree var, source_location locus)
 void
 replace_gimple_locus_with_debuglocus (gimple stmt, debuglocus_p dlocus)
 {
-  source_location locus;
+  source_location new_locus;
+  source_location locus = gimple_location (stmt);
 
-  if (dlocus == NULL)
-    return;
+  new_locus = replace_locus_with_debuglocus (locus, dlocus);
 
-  locus = gimple_location (stmt);
+  if (locus != new_locus)
+    gimple_set_location (stmt, new_locus);
+}
 
-  /* Conflicting locus's shouldn't occurr.  */
-  gcc_assert (dlocus->locus == UNKNOWN_LOCATION || 
-	      locus == UNKNOWN_LOCATION  || 
-	      locus == dlocus->locus);
 
-  if (locus != dlocus->locus)
-    {
-      if (dlocus->locus == UNKNOWN_LOCATION)
-        dlocus->locus = locus;
-    }
- 
-  /* If stmt already has a debuglocus, then merge this one.  Typically this
-     happens when there are multiple results, as in an ASM */
-  if (is_debuglocus (locus))
-    {
-      debuglocus_p curr = get_debuglocus (locus);
-      merge_debuglocus (curr, dlocus);
-    } 
-  else
-    gimple_set_location (stmt, debuglocus_from_pointer (dlocus));
+/* Replace the locus in phi_arg PHI[INDEX] with the debuglocus entry DLOCUS.  */
+void
+replace_phiarg_locus_with_debuglocus (gimple phi, int i, debuglocus_p dl)
+{
+  source_location new_locus;
+  source_location locus = gimple_phi_arg_location (phi, i);
+
+  new_locus = replace_locus_with_debuglocus (locus, dl);
+
+  if (locus != new_locus)
+    gimple_phi_arg_set_location (phi, i, debuglocus_from_pointer (dl));
 }
 
 
@@ -386,84 +448,6 @@ merge_debuglocus (debuglocus_p to, debuglocus_p from)
   tmp = to->prev;
   to->prev= from->prev;
   from->prev = tmp;
-}
-
-
-debuglocus_p
-find_debuglocus (gimple stmt, tree decl, source_location locus)
-{
-  source_location dlocus = gimple_location (stmt);
-  debuglocus_iterator iter;
-  debuglocus_p ptr;
-
-  if (!is_debuglocus (dlocus))
-    return NULL;
-  
-  /* Find a matching entry.  */
-  FOR_EACH_DEBUGLOCUS (dlocus, ptr, iter)
-    if (ptr->decl == decl && ptr->locus == locus)
-      break;
-
-  return ptr;
-}
-
-
-/* Examine the debuglocus list on STMT, looking for an entry for DECL with
-   location LOCUS.  If found, delink it from the list and return a pointer.
-   Otherwise return NULL.  */
-debuglocus_p 
-find_and_detach_debuglocus (gimple stmt, tree decl, source_location locus)
-{
-  debuglocus_p ptr = find_debuglocus (stmt, decl, locus);
-
-  /* If an entry is found, remove it from the list and return it.  */
-  if (ptr)
-    {
-      int self = debuglocus_index_from_pointer (ptr);
-      debuglocus_p prev, next;
-      debuglocus_table_t * tab;
-
-      /* If this is the original debuglocus on the stmt, leave it since the
-         stmt is presumably still live and will need it.  */
-      if (gimple_location (stmt) == (DEBUGLOCUS_BIT | self))
-        return NULL;
-
-      /* Make sure this isnt the only object in the list.  */
-      gcc_assert (ptr->next != self || ptr->prev != self);
-      gcc_assert (ptr->next != ptr->prev);
-
-      /* Update the links for the list and the entry.  */
-      tab = current_debuglocus_table ();
-      prev = get_debuglocus_entry (tab, ptr->prev);
-      next = get_debuglocus_entry (tab, ptr->next);
-      prev->next = ptr->next;
-      next->prev = ptr->prev;
-      ptr->next = ptr->prev = self;
-    }
-
-  return ptr;
-}
-
-
-/* Examine the debuglocus list on STMT, looking for an entry for DECL with
-   location DLOCUS.  If found, delink it from the list and return a pointer.
-   Otherwise create a new debuglocus for the source location DLOCUS and
-   return it.  */
-source_location
-find_and_detach_or_create_debuglocus (gimple stmt, tree decl, 
-				      source_location dlocus)
-{
-  debuglocus_p ptr = find_and_detach_debuglocus (stmt, decl, dlocus);
-  source_location locus = locus_from_debuglocus (dlocus);
-  if (!ptr)
-    {
-      ptr = create_debuglocus_for_decl (decl);
-      ptr->locus = locus;
-    }
-
-  gcc_assert (ptr != NULL);
-
-  return debuglocus_from_pointer (ptr);
 }
 
 
@@ -536,6 +520,144 @@ debuglocus_var_iter_next (debuglocus_iterator * iter)
   return NULL;
 }
 
+
+void
+pretty_print_debuglocus (pretty_printer *buffer, source_location dlocus, 
+			 int flags)
+{
+  debuglocus_p ptr;
+  debuglocus_iterator iter;
+
+  if (!is_debuglocus (dlocus))
+    return;
+  
+  FOR_EACH_DEBUGLOCUS (dlocus, ptr, iter)
+    {
+      pp_character (buffer, '*');
+      pp_character (buffer, '[');
+      dump_generic_node (buffer, ptr->decl, 0, 0, false);
+      if (ptr->expression)
+	{
+	  pp_character (buffer, '=');
+	  dump_generic_node (buffer, ptr->expression, 0, 0, false);
+	}
+      if (flags && TDF_DETAILS)
+        {
+	  pp_character (buffer, '(');
+	  pp_decimal_int (buffer, debuglocus_index_from_pointer (ptr));
+	  pp_character (buffer, ')');
+	}
+    }
+  pp_character (buffer, ']');
+  pp_character (buffer, ' ');
+}
+
+
+void
+dump_debuglocus (FILE *dump_file, source_location dlocus, int flags)
+{
+  debuglocus_p ptr;
+  debuglocus_iterator iter;
+
+  if (!is_debuglocus (dlocus))
+    return;
+  
+  FOR_EACH_DEBUGLOCUS (dlocus, ptr, iter)
+    {
+      fprintf (dump_file, "[");
+      if (flags && TDF_DETAILS)
+	fprintf (dump_file, "(%d)", debuglocus_index_from_pointer (ptr));
+
+      if (flags && TDF_LINENO)
+        {
+	  expanded_location xloc = expand_location (ptr->locus);
+	  fprintf (dump_file, " [%s:%d:%d] ",
+		   xloc.file, xloc.line, xloc.column);
+	}
+
+      fprintf (dump_file, "*");
+      print_generic_expr (dump_file, ptr->decl, TDF_SLIM);
+      if (ptr->expression)
+	{
+	  fprintf (dump_file, "=");
+	  print_generic_expr (dump_file, ptr->expression, TDF_SLIM);
+	}
+
+      fprintf (dump_file, "] ");
+      if (flags && TDF_LINENO|TDF_DETAILS)
+	fprintf (dump_file, "\n");
+    }
+}
+
+
+/* Dump the contents of debuglocus entry DL.
+   F is the dumpfile.  DL is the debuglocus entry.
+   INDEX is the debuglocus index for the entry.  */
+static void
+dump_debuglocus_entry (FILE *f, debuglocus_p dl, unsigned int index)
+{
+  expanded_location xloc = expand_location (dl->locus);
+
+  fprintf (f, "#%5u ", index);
+  fputs ("[ ", f);
+  print_generic_expr (f, dl->decl, /*flags=*/0);
+  if (dl->expression)
+    {
+      fputs ("=", f);
+      print_generic_expr (f, dl->expression, TDF_SLIM);
+    }
+  fputs (" ]", f);
+  fprintf (f, " locus=%u [%s:%d:%d]",
+	   (unsigned int) dl->locus, xloc.file, xloc.line, xloc.column);
+  if (dl->locus != dl->original_locus)
+    {
+      xloc = expand_location (dl->original_locus);
+      fprintf (f, " original=%u [%s:%d:%d]", (unsigned int) dl->original_locus,
+	       xloc.file, xloc.line, xloc.column);
+    }
+  if (dl->prev != dl->next || dl->prev != (int)index)
+    fprintf (f, " prev=%d next=%d", dl->prev, dl->next);
+  fputs ("\n", f);
+}
+
+
+/* Dump the entire contents of the debuglocus table.
+   F is the dumpfile.  TAB is the table.  */
+static void
+dump_debuglocus_table (FILE *f, debuglocus_table_t *tab, bitmap before,
+		       bitmap after)
+{
+  unsigned int i;
+  debuglocus_p d;
+
+  if (!tab || tab->size <= 1)
+    return;
+
+  fputs ("\ndebuglocus table contents after pass executed\n", f);
+  fputs ("-----------------------------------------------\n", f);
+  fprintf (f, "number of elements=%d\n", tab->size);
+  for (i = 1; i < tab->size; ++i)
+    {
+      bool show = false;
+
+      /* Show an entry if its in either bitmap, or there is no bitmaps.  */
+      if (before && bitmap_bit_p (before, i))
+        show = true;
+      if (after && bitmap_bit_p (after, i))
+        show = true;
+      if (!after && !before)
+        show = true;
+
+      if (show)
+        {
+	  d = get_debuglocus_entry (tab, i);
+	  dump_debuglocus_entry (f, d, i);
+	}
+    }
+  fputs ("-------------------------\n", f);
+}
+
+
 /* Debuglocus verification routines.  */
 
 
@@ -561,13 +683,15 @@ struct dlb_info
    BEFORE_PASS_P is true if this is the bitmap before the pass ran,
    or false if the bitmap is for after the pass completed.  */
 static void
-debuglocus_bitmap_populate_helper (bitmap b, location_t locus,
+debuglocus_bitmap_populate_helper (bitmap b, source_location locus,
 				   FILE *dumpfile, bool before_pass_p)
 {
-  if (is_debuglocus (locus))
-    {
-      unsigned int i = DEBUGLOCUS_INDEX (locus);
+  debuglocus_p ptr;
+  debuglocus_iterator iter;
 
+  FOR_EACH_DEBUGLOCUS (locus, ptr, iter)
+    {
+      int i = debuglocus_index_from_pointer (ptr);
       if (bitmap_bit_p (b, i))
 	fprintf (dumpfile, "Duplicated debuglocus %s this pass: %u\n",
 		 before_pass_p ? "before" : "after", i);
@@ -663,51 +787,14 @@ debuglocus_bitmap_populate (bitmap b, FILE *dumpfile, bool before_pass_p)
 		       &wi);
     }
 
+  /* Now populated the orphaned entires.  */
+  debuglocus_bitmap_populate_helper (b, cfun->orphaned_debuglocus, dumpfile, 
+				     before_pass_p);
+
   /* If the pass has already run, update the global debugloc
      bitmap.  */
   if (before_pass_p == false)
     bitmap_ior_into (&global_dl_bitmap, b);
-}
-
-/* Dump the contents of debuglocus entry DL.
-   F is the dumpfile.  DL is the debuglocus entry.
-   INDEX is the debuglocus index for the entry.  */
-static void
-dump_debuglocus_entry (FILE *f, debuglocus_p dl, unsigned int index)
-{
-  expanded_location xloc = expand_location (dl->locus);
-
-  fprintf (f, "index #%u\n", index);
-  fputs   ("decl  = [", f);
-  print_generic_decl (f, dl->decl, /*flags=*/0);
-  fputs ("]\n", f);
-  fprintf (f, "order = %d\n", dl->order);
-  fprintf (f, "locus = %u {file='%s', line=%d, col=%d}\n",
-	   (unsigned int) dl->locus, xloc.file, xloc.line, xloc.column);
-  fprintf (f, "prev  = %d\n", dl->prev);
-  fprintf (f, "next  = %d\n", dl->next);
-}
-
-/* Dump the entire contents of the debuglocus table.
-   F is the dumpfile.  TAB is the table.  */
-static void
-dump_debuglocus_table (FILE *f, debuglocus_table_t *tab)
-{
-  unsigned int i;
-  debuglocus_p d;
-
-  if (!tab || tab->size <= 1)
-    return;
-
-  fputs ("\ndebuglocus table contents after pass executed\n", f);
-  fputs ("-----------------------------------------------\n", f);
-  fprintf (f, "number of elements=%d\n", tab->size);
-  for (i = 1; i < tab->size; ++i)
-    {
-      d = get_debuglocus_entry (tab, i);
-      dump_debuglocus_entry (f, d, i);
-    }
-  fputs ("-------------------------\n", f);
 }
 
 /* Verify the debuglocus entries created by the current pass.
@@ -730,7 +817,7 @@ debuglocus_bitmap_verify (FILE *f, bitmap before, bitmap after,
     return;
 
   if (flags & TDF_DETAILS)
-    dump_debuglocus_table (f, tab);
+    dump_debuglocus_table (f, tab, before, after);
 
   /* Dump new debuglocus entries generated in this pass.  */
   comma = "";
@@ -776,7 +863,7 @@ debuglocus_bitmap_verify (FILE *f, bitmap before, bitmap after,
 	 pass.  */
       for (i = 1; i < tab->size; ++i)
 	if (!bitmap_bit_p (&global_dl_bitmap, i))
-	  fprintf (f, "debuglocus: orphaned debuglocus entry: %u\n", i);
+	  fprintf (f, "debuglocus entry not in global list: %u\n", i);
     }
 }
 
