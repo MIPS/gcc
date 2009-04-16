@@ -116,8 +116,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   }
 
   static void 
-  _Rb_tree_rotate_left(_Rb_tree_node_base* const __x, 
-		       _Rb_tree_node_base*& __root)
+  local_Rb_tree_rotate_left(_Rb_tree_node_base* const __x, 
+		             _Rb_tree_node_base*& __root)
   {
     _Rb_tree_node_base* const __y = __x->_M_right;
 
@@ -136,9 +136,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __x->_M_parent = __y;
   }
 
+  /* Static keyword was missing on _Rb_tree_rotate_left.
+     Export the symbol for backward compatibility until
+     next ABI change.  */
+  void 
+  _Rb_tree_rotate_left(_Rb_tree_node_base* const __x, 
+		       _Rb_tree_node_base*& __root)
+  {
+    local_Rb_tree_rotate_left (__x, __root);
+  }
+
   static void 
-  _Rb_tree_rotate_right(_Rb_tree_node_base* const __x, 
-			_Rb_tree_node_base*& __root)
+  local_Rb_tree_rotate_right(_Rb_tree_node_base* const __x, 
+			     _Rb_tree_node_base*& __root)
   {
     _Rb_tree_node_base* const __y = __x->_M_left;
 
@@ -155,6 +165,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __x->_M_parent->_M_left = __y;
     __y->_M_right = __x;
     __x->_M_parent = __y;
+  }
+
+  /* Static keyword was missing on _Rb_tree_rotate_right
+     Export the symbol for backward compatibility until
+     next ABI change.  */
+  void 
+  _Rb_tree_rotate_right(_Rb_tree_node_base* const __x, 
+			_Rb_tree_node_base*& __root)
+  {
+    local_Rb_tree_rotate_right (__x, __root);
   }
 
   void 
@@ -215,11 +235,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		if (__x == __x->_M_parent->_M_right) 
 		  {
 		    __x = __x->_M_parent;
-		    _Rb_tree_rotate_left(__x, __root);
+		    local_Rb_tree_rotate_left(__x, __root);
 		  }
 		__x->_M_parent->_M_color = _S_black;
 		__xpp->_M_color = _S_red;
-		_Rb_tree_rotate_right(__xpp, __root);
+		local_Rb_tree_rotate_right(__xpp, __root);
 	      }
 	  }
 	else 
@@ -237,11 +257,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		if (__x == __x->_M_parent->_M_left) 
 		  {
 		    __x = __x->_M_parent;
-		    _Rb_tree_rotate_right(__x, __root);
+		    local_Rb_tree_rotate_right(__x, __root);
 		  }
 		__x->_M_parent->_M_color = _S_black;
 		__xpp->_M_color = _S_red;
-		_Rb_tree_rotate_left(__xpp, __root);
+		local_Rb_tree_rotate_left(__xpp, __root);
 	      }
 	  }
       }
@@ -337,7 +357,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		{
 		  __w->_M_color = _S_black;
 		  __x_parent->_M_color = _S_red;
-		  _Rb_tree_rotate_left(__x_parent, __root);
+		  local_Rb_tree_rotate_left(__x_parent, __root);
 		  __w = __x_parent->_M_right;
 		}
 	      if ((__w->_M_left == 0 || 
@@ -356,14 +376,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		    {
 		      __w->_M_left->_M_color = _S_black;
 		      __w->_M_color = _S_red;
-		      _Rb_tree_rotate_right(__w, __root);
+		      local_Rb_tree_rotate_right(__w, __root);
 		      __w = __x_parent->_M_right;
 		    }
 		  __w->_M_color = __x_parent->_M_color;
 		  __x_parent->_M_color = _S_black;
 		  if (__w->_M_right) 
 		    __w->_M_right->_M_color = _S_black;
-		  _Rb_tree_rotate_left(__x_parent, __root);
+		  local_Rb_tree_rotate_left(__x_parent, __root);
 		  break;
 		}
 	    } 
@@ -375,7 +395,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		{
 		  __w->_M_color = _S_black;
 		  __x_parent->_M_color = _S_red;
-		  _Rb_tree_rotate_right(__x_parent, __root);
+		  local_Rb_tree_rotate_right(__x_parent, __root);
 		  __w = __x_parent->_M_left;
 		}
 	      if ((__w->_M_right == 0 || 
@@ -393,14 +413,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		    {
 		      __w->_M_right->_M_color = _S_black;
 		      __w->_M_color = _S_red;
-		      _Rb_tree_rotate_left(__w, __root);
+		      local_Rb_tree_rotate_left(__w, __root);
 		      __w = __x_parent->_M_left;
 		    }
 		  __w->_M_color = __x_parent->_M_color;
 		  __x_parent->_M_color = _S_black;
 		  if (__w->_M_left) 
 		    __w->_M_left->_M_color = _S_black;
-		  _Rb_tree_rotate_right(__x_parent, __root);
+		  local_Rb_tree_rotate_right(__x_parent, __root);
 		  break;
 		}
 	    }

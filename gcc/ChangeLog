@@ -1,3 +1,137 @@
+2009-04-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	* common.opt (fversion): New.
+	* gcc.c (print_version): New.
+	(process_command): Don't print the version. Just set print_version.
+	(main): Print version. Call subprocesses if print_version and
+	verbose_flag are set.
+	* opts.c (common_handle_option): Handle OPT_fversion.
+
+2009-04-16  Richard Guenther  <rguenther@suse.de>
+	Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39698
+	* tree-vect-loop.c (get_initial_def_for_reduction): Use the
+	type of the reduction variable.  Only generate the def if
+	it is needed.
+
+	* omp-low.c (expand_omp_for_generic): When converting to a pointer
+	make sure to first convert to an integer of the same precision.
+	* tree-vect-loop-manip.c (vect_update_ivs_after_vectorizer): Retain
+	the type of the evolution correctly in computing the new
+	induction variable base.
+
+2009-04-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39625
+	* tree-cfg.c (make_blocks): Split statements with to-be
+	abnormal SSA names on the lhs.
+
+2009-04-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* c-common.c (vector_targets_convertible_p, vector_types_convertible_p):
+	Use TYPE_VECTOR_OPAQUE instead of targetm.vector_opaque_p.
+	* c-typeck.c (really_start_incremental_init): Likewise.
+	* target-def.h (TARGET_VECTOR_OPAQUE_P): Remove.
+	(TARGET_INITIALIZER): Remove it.
+	* target.h (struct target): Remove vector_opaque_p.
+	* tree.c (build_opaque_vector_type): New.
+	* tree.h (TYPE_VECTOR_OPAQUE): New.
+	(build_opaque_vector_type): Declare.
+	* doc/tm.texi (TARGET_VECTOR_OPAQUE_P): Remove.
+	* config/rs6000/rs6000.c (build_opaque_vector_type,
+	rs6000_is_vector_type, TARGET_VECTOR_OPAQUE_P): Remove.
+	(rs6000_init_builtins): Use build_opaque_vector_type for
+	opaque_V4SI_type_node.
+
+2009-04-15  Catherine Moore  <clm@codesourcery.com>
+
+        * debug.h (set_name):  Declare.
+        * dwarf2out.c (dwarf2out_set_name): Declare.
+        (dwarf2_debug_hooks): Add set_name.
+        (find_AT_string): New.
+        (add_AT_string): Call find_AT_string.
+        (dwarf2out_set_name): New.
+        * cp/decl.c (grokdeclarator): Call set_name.
+        * vmsdbgout.c (vmsdbg_debug_hooks): Add set_name_debug_nothing.
+        * debug.c (do_nothing_debug_hooks):  Likewise.
+        * dbxout.c (dbx_debug_hooks): Likewise.
+        * sdbout.c (sdb_debug_hooks): Likewise.
+
+2009-04-15  Michael Eager <eager@eagercon.com>
+
+	* config/rs6000/rs6000.c: rs6000_function_value: set function return
+	reg for single-precision FPU
+	* config/rs6000/rs6000.md: (movsi_internal1): only for !TARGET_SINGLE_FPU
+	(movsi_internal1_single): New: add pattern to move SI values to/from
+	single-precision FP regs.
+
+2009-04-15  Richard Guenther  <rguenther@suse.de>
+
+	* omp-low.c (lower_rec_input_clauses): Build correct address
+	expressions.
+	(expand_omp_for_generic): Fix multiplication type.
+	* tree-loop-distribution.c (build_size_arg): Build a
+	size_t argument.
+	(generate_memset_zero): Fix types.
+	* tree-profile.c (prepare_instrumented_value): Correctly
+	widen a pointer.
+
+2009-04-15  Ian Lance Taylor  <iant@google.com>
+
+	* c.opt (Wenum-compare): Enable for C and Objc.  Initialize to -1.
+	* c-opts.c (c_common_handle_option): For C, set warn_enum_compare
+	for -Wall and for -Wc++-compat.
+	(c_common_post_options): For C++, set warn_enum_compare if not
+	already set.
+	* c-tree.h (struct c_expr): Add field original_type.
+	(build_external_ref): Update declaration.
+	* c-parser.c (c_parser_braced_init): Set original_type.
+	(c_parser_initelt): Likewise.
+	(c_parser_expr_no_commas): Likewise.
+	(c_parser_conditional_expression): Likewise.
+	(c_parser_cast_expression): Likewise.
+	(c_parser_unary_expression): Likewise.  Pull setting of
+	original_code to top of function.
+	(c_parser_sizeof_expression): Set original_type.
+	(c_parser_alignof_expression): Likewise.
+	(c_parser_postfix_expression): Likewise.  Pull setting of
+	original_code to top of function.
+	(c_parser_postfix_expression_after_paren_type): Set
+	original_type.
+	(c_parser_postfix_expression_after_primary): Likewise.
+	(c_parser_expression): Likewise.
+	* c-typeck.c (build_external_ref): Add type parameter.  Change all
+	callers.
+	(c_expr_sizeof_expr): Set original_type field.
+	(parser_build_unary_op): Likewise.
+	(parser_build_binary_op): Likewise.  Optionally warn about
+	comparisons of enums of different types.
+	(digest_init): Set original_type field.
+	(really_start_incremental_init): Likewise.
+	(push_init_level, pop_init_level): Likewise.
+	* doc/invoke.texi (Warning Options): -Wenum-compare now
+	supported in C.
+
+2009-04-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (eliminate): When replacing a PHI node carry
+	out a necessary conversion.
+	* tree-ssa-sccvn.c (run_scc_vn): Also assign value-ids to
+	names we didn't value number.
+	* tree-mudflap.c (mf_build_check_statement_for): Use correct types.
+
+2009-04-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39764
+	* tree-ssa-ccp.c (get_value): Canonicalize value with
+	canonicalize_float_value.
+
+2009-04-15  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.def (va_start, va_end, va_copy): Fix my previous commit.
+	Wrong version of patch.
+
 2009-04-15  Jan Hubicka  <jh@suse.cz>
 
 	* builtins.def (va_start, va_end, va_copy): Mark nothrow.

@@ -164,8 +164,11 @@ package System.CRTL is
    procedure rewind (stream : FILEs);
    pragma Import (C, rewind, "rewind");
 
-   procedure rmdir (dir_name : String);
-   pragma Import (C, rmdir, "rmdir");
+   function rmdir (dir_name : String) return int;
+   pragma Import (C, rmdir, "__gnat_rmdir");
+
+   function chdir (dir_name : String) return int;
+   pragma Import (C, chdir, "__gnat_chdir");
 
    function setvbuf
      (stream : FILEs;
@@ -185,7 +188,7 @@ package System.CRTL is
    pragma Import (C, ungetc, "ungetc");
 
    function unlink (filename : chars) return int;
-   pragma Import (C, unlink, "unlink");
+   pragma Import (C, unlink, "__gnat_unlink");
 
    function open (filename : chars; oflag : int) return int;
    pragma Import (C, open, "open");

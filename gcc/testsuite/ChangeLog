@@ -1,3 +1,17 @@
+2009-04-15  Le-Chun Wu  <lcwu@google.com>
+
+	PR c++/39551
+	* g++.dg/warn/Wunused-13.C: New testcase.
+
+2009-04-15  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wenum-compare-1.c: New testcase.
+
+2009-04-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39764
+	* g++.dg/torture/pr39764.C: New testcase.
+
 2009-04-15  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/ext/altivec-17.C: New.

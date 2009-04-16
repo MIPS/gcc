@@ -8461,8 +8461,17 @@ package body Exp_Dist is
             else
                declare
                   Decl : Entity_Id;
+                  Typ  : Entity_Id := U_Type;
+
                begin
-                  Build_From_Any_Function (Loc, U_Type, Decl, Fnam);
+                  --  For the subtype representing a generic actual type, go
+                  --  to the base type.
+
+                  if Is_Generic_Actual_Type (Typ) then
+                     Typ := Base_Type (Typ);
+                  end if;
+
+                  Build_From_Any_Function (Loc, Typ, Decl, Fnam);
                   Append_To (Decls, Decl);
                end;
             end if;
@@ -8528,7 +8537,7 @@ package body Exp_Dist is
                     Parameter_Type => New_Occurrence_Of (RTE (RE_Any), Loc))),
                 Result_Definition => New_Occurrence_Of (Typ, Loc));
 
-            --  The following  is taken care of by Exp_Dist.Add_RACW_From_Any
+            --  The RACW case is taken care of by Exp_Dist.Add_RACW_From_Any
 
             pragma Assert
               (not (Is_Remote_Access_To_Class_Wide_Type (Typ)));
@@ -8565,11 +8574,10 @@ package body Exp_Dist is
                   Append_To (Stms,
                     Make_Simple_Return_Statement (Loc,
                       Expression =>
-                        OK_Convert_To (Typ,
-                          Build_From_Any_Call
-                            (Etype (Typ),
-                             New_Occurrence_Of (Any_Parameter, Loc),
-                             Decls))));
+                        Build_From_Any_Call
+                          (Etype (Typ),
+                           New_Occurrence_Of (Any_Parameter, Loc),
+                           Decls)));
 
                else
                   declare
