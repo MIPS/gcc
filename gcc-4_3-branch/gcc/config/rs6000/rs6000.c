@@ -130,6 +130,8 @@ typedef struct machine_function GTY(())
      64-bits wide and is allocated early enough so that the offset
      does not overflow the 16-bit load/store offset field.  */
   rtx sdmode_stack_slot;
+  /* Whether an indirect jump or table jump was generated.  */
+  bool indirect_jump_p;
 } machine_function;
 
 /* Target cpu type */
@@ -2116,23 +2118,29 @@ rs6000_override_options (const char *default_cpu)
       const char *msg = NULL;
       if (!TARGET_HARD_FLOAT || !TARGET_FPRS
 	  || !TARGET_SINGLE_FLOAT || !TARGET_DOUBLE_FLOAT)
-	msg = "-mvsx requires hardware floating point";
+	{
+	  if (target_flags_explicit & MASK_VSX)
+	    msg = N_("-mvsx requires hardware floating point");
+	  else
+	    target_flags &= ~ MASK_VSX;
+	}
       else if (TARGET_PAIRED_FLOAT)
-	msg = "-mvsx and -mpaired are incompatible";
+	msg = N_("-mvsx and -mpaired are incompatible");
       /* The hardware will allow VSX and little endian, but until we make sure
 	 things like vector select, etc. work don't allow VSX on little endian
 	 systems at this point.  */
       else if (!BYTES_BIG_ENDIAN)
-	msg = "-mvsx used with little endian code";
+	msg = N_("-mvsx used with little endian code");
       else if (TARGET_AVOID_XFORM > 0)
-	msg = "-mvsx needs indexed addressing";
+	msg = N_("-mvsx needs indexed addressing");
 
       if (msg)
 	{
 	  warning (0, msg);
-	  target_flags &= MASK_VSX;
+	  target_flags &= ~ MASK_VSX;
 	}
-      else if (!TARGET_ALTIVEC && (target_flags_explicit & MASK_ALTIVEC) == 0)
+      else if (TARGET_VSX && !TARGET_ALTIVEC
+	       && (target_flags_explicit & MASK_ALTIVEC) == 0)
 	target_flags |= MASK_ALTIVEC;
     }
 
@@ -12520,6 +12528,11 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   enum reg_class rclass;
   rtx addr;
   rtx and_op2 = NULL_RTX;
+  rtx addr_op1;
+  rtx addr_op2;
+  rtx scratch_or_premodify = scratch;
+  rtx and_rtx;
+  rtx cc_clobber;
 
   if (TARGET_DEBUG_ADDR)
     {
@@ -12541,7 +12554,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 
   switch (rclass)
     {
-      /* Move reg+reg addresses into a scratch register for GPRs.  */
+      /* GPRs can handle reg + small constant, all other addresses need to use
+	 the scratch register.  */
     case GENERAL_REGS:
     case BASE_REGS:
       if (GET_CODE (addr) == AND)
@@ -12549,70 +12563,152 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	  and_op2 = XEXP (addr, 1);
 	  addr = XEXP (addr, 0);
 	}
+
+      if (GET_CODE (addr) == PRE_MODIFY)
+	{
+	  scratch_or_premodify = XEXP (addr, 0);
+	  gcc_assert (REG_P (scratch_or_premodify));
+	  gcc_assert (GET_CODE (XEXP (addr, 1)) == PLUS);
+	  addr = XEXP (addr, 1);
+	}
+
       if (GET_CODE (addr) == PLUS
-	  && (!rs6000_legitimate_offset_address_p (TImode, addr, true)
+	  && (!rs6000_legitimate_offset_address_p (TImode, addr, false)
 	      || and_op2 != NULL_RTX))
 	{
-	  if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == CONST
-	      || GET_CODE (addr) == CONST_INT)
-	    rs6000_emit_move (scratch, addr, GET_MODE (addr));
-	  else
-	    emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
-	  addr = scratch;
+	  addr_op1 = XEXP (addr, 0);
+	  addr_op2 = XEXP (addr, 1);
+	  gcc_assert (legitimate_indirect_address_p (addr_op1, false));
+
+	  if (!REG_P (addr_op2)
+	      && (GET_CODE (addr_op2) != CONST_INT
+		  || !satisfies_constraint_I (addr_op2)))
+	    {
+	      rs6000_emit_move (scratch, addr_op2, Pmode);
+	      addr_op2 = scratch;
+	    }
+
+	  emit_insn (gen_rtx_SET (VOIDmode,
+				  scratch_or_premodify,
+				  gen_rtx_PLUS (Pmode,
+						addr_op1,
+						addr_op2)));
+
+	  addr = scratch_or_premodify;
+	  scratch_or_premodify = scratch;
 	}
-      else if (GET_CODE (addr) == PRE_MODIFY
-	       && REG_P (XEXP (addr, 0))
-	       && GET_CODE (XEXP (addr, 1)) == PLUS)
+      else if (!legitimate_indirect_address_p (addr, false)
+	       && !rs6000_legitimate_offset_address_p (TImode, addr, false))
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, XEXP (addr, 0), XEXP (addr, 1)));
-	  addr = XEXP (addr, 0);
+	  rs6000_emit_move (scratch_or_premodify, addr, Pmode);
+	  addr = scratch_or_premodify;
+	  scratch_or_premodify = scratch;
 	}
       break;
+
+      /* Float/Altivec registers can only handle reg+reg addressing.  Move
+	 other addresses into a scratch register.  */
+    case FLOAT_REGS:
+    case VSX_REGS:
+    case ALTIVEC_REGS:
 
       /* With float regs, we need to handle the AND ourselves, since we can't
 	 use the Altivec instruction with an implicit AND -16.  Allow scalar
 	 loads to float registers to use reg+offset even if VSX.  */
-    case FLOAT_REGS:
-    case VSX_REGS:
-      if (GET_CODE (addr) == AND)
+      if (GET_CODE (addr) == AND
+	  && (rclass != ALTIVEC_REGS || GET_MODE_SIZE (mode) != 16))
 	{
 	  and_op2 = XEXP (addr, 1);
 	  addr = XEXP (addr, 0);
 	}
-      /* fall through */
 
-      /* Move reg+offset addresses into a scratch register.  */
-    case ALTIVEC_REGS:
-      if (!legitimate_indirect_address_p (addr, true)
-	  && !legitimate_indexed_address_p (addr, true)
-	  && (GET_CODE (addr) != PRE_MODIFY
-	      || !legitimate_indexed_address_p (XEXP (addr, 1), true))
-	  && (rclass != FLOAT_REGS
-	      || GET_MODE_SIZE (mode) != 8
+      /* If we aren't using a VSX load, save the PRE_MODIFY register and use it
+	 as the address later.  */
+      if (GET_CODE (addr) == PRE_MODIFY
+	  && (!VECTOR_MEM_VSX_P (mode)
 	      || and_op2 != NULL_RTX
-	      || !rs6000_legitimate_offset_address_p (mode, addr, true)))
+	      || !legitimate_indexed_address_p (XEXP (addr, 1), false)))
 	{
-	  if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == CONST
-	      || GET_CODE (addr) == CONST_INT)
-	    rs6000_emit_move (scratch, addr, GET_MODE (addr));
-	  else
-	    emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
-	  addr = scratch;
+	  scratch_or_premodify = XEXP (addr, 0);
+	  gcc_assert (legitimate_indirect_address_p (scratch_or_premodify,
+						     false));
+	  gcc_assert (GET_CODE (XEXP (addr, 1)) == PLUS);
+	  addr = XEXP (addr, 1);
 	}
+
+      if (legitimate_indirect_address_p (addr, false)	/* reg */
+	  || legitimate_indexed_address_p (addr, false)	/* reg+reg */
+	  || GET_CODE (addr) == PRE_MODIFY		/* VSX pre-modify */
+	  || GET_CODE (addr) == AND			/* Altivec memory */
+	  || (rclass == FLOAT_REGS			/* legacy float mem */
+	      && GET_MODE_SIZE (mode) == 8
+	      && and_op2 == NULL_RTX
+	      && scratch_or_premodify == scratch
+	      && rs6000_legitimate_offset_address_p (mode, addr, false)))
+	;
+
+      else if (GET_CODE (addr) == PLUS)
+	{
+	  addr_op1 = XEXP (addr, 0);
+	  addr_op2 = XEXP (addr, 1);
+	  gcc_assert (REG_P (addr_op1));
+
+	  rs6000_emit_move (scratch, addr_op2, Pmode);
+	  emit_insn (gen_rtx_SET (VOIDmode,
+				  scratch_or_premodify,
+				  gen_rtx_PLUS (Pmode,
+						addr_op1,
+						scratch)));
+	  addr = scratch_or_premodify;
+	  scratch_or_premodify = scratch;
+	}
+
+      else if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == CONST
+	       || GET_CODE (addr) == CONST_INT || REG_P (addr))
+	{
+	  rs6000_emit_move (scratch_or_premodify, addr, Pmode);
+	  addr = scratch_or_premodify;
+	  scratch_or_premodify = scratch;
+	}
+
+      else
+	gcc_unreachable ();
+
       break;
 
     default:
       gcc_unreachable ();
     }
 
-  /* If the original address involved an AND -16 that is part of the Altivec
-     addresses, recreate the and now.  */
+  /* If the original address involved a pre-modify that we couldn't use the VSX
+     memory instruction with update, and we haven't taken care of already,
+     store the address in the pre-modify register and use that as the
+     address.  */
+  if (scratch_or_premodify != scratch && scratch_or_premodify != addr)
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, scratch_or_premodify, addr));
+      addr = scratch_or_premodify;
+    }
+
+  /* If the original address involved an AND -16 and we couldn't use an ALTIVEC
+     memory instruction, recreate the AND now, including the clobber which is
+     generated by the general ANDSI3/ANDDI3 patterns for the
+     andi. instruction.  */
   if (and_op2 != NULL_RTX)
     {
-      rtx and_rtx = gen_rtx_SET (VOIDmode,
-				 scratch,
-				 gen_rtx_AND (Pmode, addr, and_op2));
-      rtx cc_clobber = gen_rtx_CLOBBER (CCmode, gen_rtx_SCRATCH (CCmode));
+      if (! legitimate_indirect_address_p (addr, false))
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	  addr = scratch;
+	}
+
+      and_rtx = gen_rtx_SET (VOIDmode,
+			     scratch,
+			     gen_rtx_AND (Pmode,
+					  addr,
+					  and_op2));
+
+      cc_clobber = gen_rtx_CLOBBER (CCmode, gen_rtx_SCRATCH (CCmode));
       emit_insn (gen_rtx_PARALLEL (VOIDmode,
 				   gen_rtvec (2, and_rtx, cc_clobber)));
       addr = scratch;
@@ -23442,6 +23538,8 @@ int
 rs6000_register_move_cost (enum machine_mode mode,
 			   enum reg_class from, enum reg_class to)
 {
+  int ret;
+
   /*  Moves from/to GENERAL_REGS.  */
   if (reg_classes_intersect_p (to, GENERAL_REGS)
       || reg_classes_intersect_p (from, GENERAL_REGS))
@@ -23450,39 +23548,47 @@ rs6000_register_move_cost (enum machine_mode mode,
 	from = to;
 
       if (from == FLOAT_REGS || from == ALTIVEC_REGS || from == VSX_REGS)
-	return (rs6000_memory_move_cost (mode, from, 0)
-		+ rs6000_memory_move_cost (mode, GENERAL_REGS, 0));
+	ret = (rs6000_memory_move_cost (mode, from, 0)
+	       + rs6000_memory_move_cost (mode, GENERAL_REGS, 0));
 
       /* It's more expensive to move CR_REGS than CR0_REGS because of the
 	 shift.  */
       else if (from == CR_REGS)
-	return 4;
+	ret = 4;
 
       /* Power6 has slower LR/CTR moves so make them more expensive than
 	 memory in order to bias spills to memory .*/
       else if (rs6000_cpu == PROCESSOR_POWER6
 	       && reg_classes_intersect_p (from, LINK_OR_CTR_REGS))
-        return 6 * hard_regno_nregs[0][mode];
+        ret = 6 * hard_regno_nregs[0][mode];
 
       else
 	/* A move will cost one instruction per GPR moved.  */
-	return 2 * hard_regno_nregs[0][mode];
+	ret = 2 * hard_regno_nregs[0][mode];
     }
 
   /* If we have VSX, we can easily move between FPR or Altivec registers.  */
-  else if (TARGET_VSX
-	   && ((from == VSX_REGS || from == FLOAT_REGS || from == ALTIVEC_REGS)
-	       || (to == VSX_REGS || to == FLOAT_REGS || to == ALTIVEC_REGS)))
-    return 2;
+  else if (VECTOR_UNIT_VSX_P (mode)
+	   && reg_classes_intersect_p (to, VSX_REGS)
+	   && reg_classes_intersect_p (from, VSX_REGS))
+    ret = 2 * hard_regno_nregs[32][mode];
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))
-    return (mode == TFmode || mode == TDmode) ? 4 : 2;
+    ret = (mode == TFmode || mode == TDmode) ? 4 : 2;
 
   /* Everything else has to go through GENERAL_REGS.  */
   else
-    return (rs6000_register_move_cost (mode, GENERAL_REGS, to)
-	    + rs6000_register_move_cost (mode, from, GENERAL_REGS));
+    ret = (rs6000_register_move_cost (mode, GENERAL_REGS, to)
+	   + rs6000_register_move_cost (mode, from, GENERAL_REGS));
+
+  if (TARGET_DEBUG_COST)
+    fprintf (stderr,
+	     "rs6000_register_move_cost:, ret=%d, mode=%s, from=%s, to=%s\n",
+	     ret, GET_MODE_NAME (mode), reg_class_names[from],
+	     reg_class_names[to]);
+
+  return ret;
 }
 
 /* A C expressions returning the cost of moving data of MODE from a register to
@@ -23492,14 +23598,23 @@ int
 rs6000_memory_move_cost (enum machine_mode mode, enum reg_class rclass,
 			 int in ATTRIBUTE_UNUSED)
 {
+  int ret;
+
   if (reg_classes_intersect_p (rclass, GENERAL_REGS))
-    return 4 * hard_regno_nregs[0][mode];
+    ret = 4 * hard_regno_nregs[0][mode];
   else if (reg_classes_intersect_p (rclass, FLOAT_REGS))
-    return 4 * hard_regno_nregs[32][mode];
+    ret = 4 * hard_regno_nregs[32][mode];
   else if (reg_classes_intersect_p (rclass, ALTIVEC_REGS))
-    return 4 * hard_regno_nregs[FIRST_ALTIVEC_REGNO][mode];
+    ret = 4 * hard_regno_nregs[FIRST_ALTIVEC_REGNO][mode];
   else
-    return 4 + rs6000_register_move_cost (mode, rclass, GENERAL_REGS);
+    ret = 4 + rs6000_register_move_cost (mode, rclass, GENERAL_REGS);
+
+  if (TARGET_DEBUG_COST)
+    fprintf (stderr,
+	     "rs6000_memory_move_cost: ret=%d, mode=%s, rclass=%s, in=%d\n",
+	     ret, GET_MODE_NAME (mode), reg_class_names[rclass], in);
+
+  return ret;
 }
 
 /* Returns a code for a target-specific builtin that implements
@@ -24204,6 +24319,26 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 		 "emitting conditional microcode insn %s\t[%s] #%d",
 		 temp, insn_data[INSN_CODE (insn)].name, INSN_UID (insn));
     }
+}
+
+/* Return true if the function has an indirect jump or a table jump.  The compiler
+   prefers the ctr register for such jumps, which interferes with using the decrement
+   ctr register and branch.  */
+
+bool
+rs6000_has_indirect_jump_p (void)
+{
+  gcc_assert (cfun && cfun->machine);
+  return cfun->machine->indirect_jump_p;
+}
+
+/* Remember when we've generated an indirect jump.  */
+
+void
+rs6000_set_indirect_jump (void)
+{
+  gcc_assert (cfun && cfun->machine);
+  cfun->machine->indirect_jump_p = true;
 }
 
 #include "gt-rs6000.h"

@@ -1,3 +1,52 @@
+2009-04-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_has_indirect_jump_p): New
+	declaration.
+	(rs6000_set_indirect_jump): Ditto.
+
+	* config/rs6000/rs6000.c (struct machine_function): Add
+	indirect_jump_p field.
+	(rs6000_override_options): Wrap warning messages in N_().  If
+	-mvsx was implicitly set, don't give a warning for -msoft-float,
+	just silently turn off vsx.
+	(rs6000_secondary_reload_inner): Handle more possible combinations
+	of addresses.  Don't use strict register checking, since pseudos
+	may still be present.
+	(register_move_cost): If -mdebug=cost, print out cost information.
+	(rs6000_memory_move_cost): Ditto.
+	(rs6000_has_indirect_jump_p): New function, return true if
+	current function has an indirect jump.
+	(rs6000_set_indirect_jump): New function, note that an indirect
+	jump has been generated.
+
+	* config/rs6000/rs6000.md (indirect_jump): Note that we've
+	generated an indirect jump.
+	(tablejump): Ditto.
+	(doloop_end): Do not generate decrement ctr and branch
+	instructions if an indirect jump has been generated.
+
+	* config/rs6000/vector.md (vec_reload_and_plus_<mptrsize>): Allow
+	register+small constant in addition to register+register, and
+	restrict the insn to only match during reload and afterwards.
+	(vec_reload_and_reg_<mptrsize>): Allow for and of register
+	indirect to not generate insn not found message.
+
+2009-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR driver/39293
+	* gcc.c (save_temps_flag): Add support for -save-temps=obj.
+	(cpp_options): Ditto.
+	(default_compilers): Ditto.
+	(display_help): Ditto.
+	(process_command): Ditto.
+	(do_spec_1): Ditto.
+	(set_input): Use lbasename instead of duplicate code.
+	(save_temps_prefix): New static for -save-temps=obj.
+	(save_temps_length): Ditto.
+	
+	* doc/invoke.texi (-save-temps=obj): Document new variant to
+	-save-temps switch.
+
 2009-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport more power7 development changes

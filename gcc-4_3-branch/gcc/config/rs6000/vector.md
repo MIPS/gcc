@@ -129,14 +129,15 @@
 })
 
 ;; Reload sometimes tries to move the address to a GPR, and can generate
-;; invalid RTL for addresses involving AND -16.
+;; invalid RTL for addresses involving AND -16.  Allow addresses involving
+;; reg+reg, reg+small constant, or just reg, all wrapped in an AND -16.
 
 (define_insn_and_split "*vec_reload_and_plus_<mptrsize>"
   [(set (match_operand:P 0 "gpc_reg_operand" "=b")
 	(and:P (plus:P (match_operand:P 1 "gpc_reg_operand" "r")
-		       (match_operand:P 2 "gpc_reg_operand" "r"))
+		       (match_operand:P 2 "reg_or_cint_operand" "rI"))
 	       (const_int -16)))]
-  "TARGET_ALTIVEC || TARGET_VSX"
+  "(TARGET_ALTIVEC || TARGET_VSX) && (reload_in_progress || reload_completed)"
   "#"
   "&& reload_completed"
   [(set (match_dup 0)
@@ -144,6 +145,21 @@
 		(match_dup 2)))
    (parallel [(set (match_dup 0)
 		   (and:P (match_dup 0)
+			  (const_int -16)))
+	      (clobber:CC (scratch:CC))])])
+
+;; The normal ANDSI3/ANDDI3 won't match if reload decides to move an AND -16
+;; address to a register because there is no clobber of a (scratch), so we add
+;; it here.
+(define_insn_and_split "*vec_reload_and_reg_<mptrsize>"
+  [(set (match_operand:P 0 "gpc_reg_operand" "=b")
+	(and:P (match_operand:P 1 "gpc_reg_operand" "r")
+	       (const_int -16)))]
+  "(TARGET_ALTIVEC || TARGET_VSX) && (reload_in_progress || reload_completed)"
+  "#"
+  "&& reload_completed"
+  [(parallel [(set (match_dup 0)
+		   (and:P (match_dup 1)
 			  (const_int -16)))
 	      (clobber:CC (scratch:CC))])])
 
