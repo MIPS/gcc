@@ -694,6 +694,41 @@ __gnat_os_filename (char *filename, char *w_filename ATTRIBUTE_UNUSED,
 #endif
 }
 
+/* Delete a file.  */
+
+int
+__gnat_unlink (char *path)
+{
+#if defined (__MINGW32__) && ! defined (__vxworks) && ! defined (CROSS_COMPILE)
+  {
+    TCHAR wpath[GNAT_MAX_PATH_LEN];
+
+    S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
+    return _tunlink (wpath);
+  }
+#else
+  return unlink (path);
+#endif
+}
+
+/* Rename a file.  */
+
+int
+__gnat_rename (char *from, char *to)
+{
+#if defined (__MINGW32__) && ! defined (__vxworks) && ! defined (CROSS_COMPILE)
+  {
+    TCHAR wfrom[GNAT_MAX_PATH_LEN], wto[GNAT_MAX_PATH_LEN];
+
+    S2WSU (wfrom, from, GNAT_MAX_PATH_LEN);
+    S2WSU (wto, to, GNAT_MAX_PATH_LEN);
+    return _trename (wfrom, wto);
+  }
+#else
+  return rename (from, to);
+#endif
+}
+
 FILE *
 __gnat_fopen (char *path, char *mode, int encoding ATTRIBUTE_UNUSED)
 {
@@ -3345,4 +3380,14 @@ __gnat_pthread_setaffinity_np (pthread_t th ATTRIBUTE_UNUSED,
   return 0;
 }
 #endif
+#endif
+
+#if defined (linux)
+/* There is no function in the glibc to retrieve the LWP of the current
+   thread. We need to do a system call in order to retrieve this
+   information. */
+#include <sys/syscall.h>
+void *__gnat_lwp_self (void) {
+   return (void *) syscall (__NR_gettid);
+}
 #endif

@@ -544,6 +544,7 @@ extern void ipa_write_summaries (void);
 extern void ipa_write_summaries_of_cgraph_node_set (
 	      struct cgraph_node_set_def *);
 extern void ipa_read_summaries (void);
+extern void register_one_dump_file (struct opt_pass *);
 extern bool function_called_by_processed_nodes_p (void);
 
 /* Set to true if the pass is called the first time during compilation of the

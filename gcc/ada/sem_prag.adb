@@ -9226,9 +9226,10 @@ package body Sem_Prag is
             --  Cases where we must follow a declaration
 
             else
-               if Nkind (Decl) not in N_Declaration
+               if         Nkind (Decl) not in N_Declaration
                  and then Nkind (Decl) not in N_Later_Decl_Item
                  and then Nkind (Decl) not in N_Generic_Declaration
+                 and then Nkind (Decl) not in N_Renaming_Declaration
                then
                   Error_Pragma
                     ("pragma% misplaced, "

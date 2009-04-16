@@ -3795,9 +3795,19 @@ package body Exp_Ch6 is
             --  its value is captured in a renaming declaration. Otherwise
             --  declare a local constant initialized with the actual.
 
+            --  We also  use a renaming declaration for expressions of an
+            --  array type that is not bit-packed, both for efficiency reasons
+            --  and to respect the semantics of the call: in most cases the
+            --  original call will pass the parameter by reference, and thus
+            --  the inlined code will have the same semantics.
+
             if Ekind (F) = E_In_Parameter
               and then not Is_Limited_Type (Etype (A))
               and then not Is_Tagged_Type  (Etype (A))
+              and then
+               (not Is_Array_Type (Etype (A))
+                 or else not Is_Object_Reference (A)
+                 or else Is_Bit_Packed_Array (Etype (A)))
             then
                Decl :=
                  Make_Object_Declaration (Loc,
@@ -4911,9 +4921,8 @@ package body Exp_Ch6 is
                      Register_Predefined_DT_Entry (Subp);
                   end if;
 
-                  Register_Primitive (Loc,
-                    Prim    => Subp,
-                    Ins_Nod => N);
+                  Insert_Actions_After (N,
+                    Register_Primitive (Loc, Prim => Subp));
                end if;
             end if;
          end;
