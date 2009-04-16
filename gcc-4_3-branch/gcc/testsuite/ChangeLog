@@ -1,3 +1,144 @@
+2009-04-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-04-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39740
+	* gcc.target/alpha/pr39740.c: New test.
+
+2009-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39480
+	* g++.dg/init/copy7.C: New.
+
+2009-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/28301
+	* g++.dg/debug/pr22514.C: Updated.
+	* g++.dg/parse/enum2.C: Likewise.
+	* g++.dg/parse/enum3.C: Likewise.
+
+	* g++.dg/template/pr28301.C: New.
+
+2009-04-08  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/39637
+	* g++.dg/cpp0x/variadic-crash2.C: New test.
+
+2009-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35146
+	* g++.dg/template/fnspec1.C: New.
+
+2009-04-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/39528
+	* gfortran.dg/read_repeat.f90: New test.
+
+2009-04-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39519
+	* gfortran.dg/alloc_comp_assign_9.f90: New test.
+
+2009-04-02  David Ayers  <ayers@fsfe.org>
+
+	PR objc/18456
+	* objc.dg/bad-receiver-type-2.m: New test contributed by
+	Alexander Mamberg.
+
+2009-04-02  David Ayers  <ayers@fsfe.org>
+
+	PR objc/27377
+	* objc.dg/conditional-1.m: New tests.
+	
+2009-04-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20090401-1.c: New test.
+
+2009-03-26  Ben Elliston  <bje@au.ibm.com>
+
+	Backport from mainline:
+	2009-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39175
+	* gcc.dg/visibility-20.c: New test.
+	* g++.dg/ext/visibility/visibility-11.C: New test.
+
+2009-03-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-03-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39482
+	* gcc.target/i386/pr39482.c: New test.
+
+2009-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39425
+	* g++.dg/template/pr39425.C: New.
+
+	* g++.dg/template/spec33.C: Updated.
+
+2009-03-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-03-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/39451
+	* gcc.dg/asm-b.c: Use "Q" constraint on %b1/%h1 and "R"
+	constraint on (%2).
+
+2009-03-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* g++.old-deja/g++.jason/thunk2.C: Skip on SPU.
+
+2009-03-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39295
+	* gfortran.dg/interface_25.f90: New test.
+	* gfortran.dg/interface_26.f90: New test.
+
+2009-03-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39292
+	* gfortran.dg/initialization_22.f90: New test.
+
+2009-02-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/39058
+	* gcc.target/i386/pr39058.c: New test.
+
+2009-02-25  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline:
+	2008-10-29  Joseph Myers  <joseph@codesourcery.com>
+
+	PR middle-end/36578
+	* gcc.dg/dfp/convert-bfp-13.c, gcc.dg/dfp/convert-bfp-14.c,
+	gcc.dg/dfp/convert-dfp-fold-2.c, gcc.target/i386/pr36578-1.c,
+	gcc.target/i386/pr36578-2.c: New tests.
+
+2009-02-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-02-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/39241
+	* gcc.dg/torture/pr39241.c: New.
+
+2009-02-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.c-torture/execute/pr39228.x: New.
+
 2009-02-20  Steve Ellcey  <sje@cup.hp.com>
 
 	PR target/38056

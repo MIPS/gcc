@@ -2589,6 +2589,8 @@ cp_parser_skip_to_end_of_block_or_statement (cp_parser* parser)
 	  /* Stop if this is an unnested '}', or closes the outermost
 	     nesting level.  */
 	  nesting_depth--;
+	  if (nesting_depth < 0)
+	    return;
 	  if (!nesting_depth)
 	    nesting_depth = -1;
 	  break;
@@ -4608,8 +4610,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    if (args)
 		      {
 			koenig_p = true;
-			postfix_expression
-			  = perform_koenig_lookup (postfix_expression, args);
+			if (!any_type_dependent_arguments_p (args))
+			  postfix_expression
+			    = perform_koenig_lookup (postfix_expression, args);
 		      }
 		    else
 		      postfix_expression
@@ -4631,8 +4634,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    if (!DECL_FUNCTION_MEMBER_P (fn))
 		      {
 			koenig_p = true;
-			postfix_expression
-			  = perform_koenig_lookup (postfix_expression, args);
+			if (!any_type_dependent_arguments_p (args))
+			  postfix_expression
+			    = perform_koenig_lookup (postfix_expression, args);
 		      }
 		  }
 	      }
@@ -10497,7 +10501,6 @@ cp_parser_explicit_specialization (cp_parser* parser)
   if (!begin_specialization ())
     {
       end_specialization ();
-      cp_parser_skip_to_end_of_block_or_statement (parser);
       return;
     }
 
@@ -11489,6 +11492,11 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
     }
   else
     value = NULL_TREE;
+
+  /* If we are processing a template, make sure the initializer of the
+     enumerator doesn't contain any bare template parameter pack.  */
+  if (check_for_bare_parameter_packs (value))
+    value = error_mark_node;
 
   /* Create the enumerator.  */
   build_enumerator (identifier, value, type);
