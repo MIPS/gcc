@@ -969,7 +969,6 @@ compile_file (void)
   init_final (main_input_filename);
   coverage_init (aux_base_name);
   statistics_init ();
-  initialize_plugins ();
 
   timevar_push (TV_PARSE);
 
@@ -2294,7 +2293,6 @@ toplev_main (unsigned int argc, const char **argv)
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
 
   finalize_plugins ();
-
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);
 

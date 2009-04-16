@@ -1,3 +1,8 @@
+2009-04-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	* toplev.c (compile_file): Remove call to initialize_plugins.
+	(toplev_main): Remove an empty line.
+
 2009-04-14  Rafael Avila de Espindola  <espindola@google.com>
 
 	Merge with mainline @146095.
