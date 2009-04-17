@@ -102,6 +102,11 @@ int reload_completed;
 /* Nonzero after thread_prologue_and_epilogue_insns has run.  */
 int epilogue_completed;
 
+#ifdef SPLIT_BEFORE_CSE2
+/* Nonzero after split0 pass has run.  */
+int split0_completed;
+#endif
+
 /* Initialize data used by the function `recog'.
    This must be called once in the compilation of a function
    before any insn recognition may be done in the function.  */
@@ -3577,4 +3582,40 @@ struct tree_opt_pass pass_split_for_shorten_branches =
   0                                     /* letter */
 };
 
+static bool
+gate_handle_split_before_cse2 (void)
+{
+#ifdef SPLIT_BEFORE_CSE2
+  return SPLIT_BEFORE_CSE2;
+#else
+  return 0;
+#endif
+}
+
+static unsigned int
+rest_of_handle_split_before_cse2 (void)
+{
+#ifdef SPLIT_BEFORE_CSE2
+  split_all_insns_noflow ();
+  split0_completed = 1;
+#endif
+  return 0;
+}
+
+struct tree_opt_pass pass_split_before_cse2 =
+{
+  "split0",                             /* name */
+  gate_handle_split_before_cse2,        /* gate */
+  rest_of_handle_split_before_cse2,     /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
 

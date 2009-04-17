@@ -52,8 +52,6 @@
 	* ../patches/patch-095-ibm304071-z10-6
 	* ../patches/patch-096-pr36745.diff
 	* ../patches/patch-097-pr36822.diff
-
-	Patches not yet installed:
 	* ../patches/patch-099-ibm-vector-keyword-1
 	* ../patches/patch-100-ibm-vector-keyword-2
 	* ../patches/patch-101-ibm-vector-keyword-3
@@ -61,6 +59,8 @@
 	* ../patches/patch-103-ibm304134-power7-1
 	* ../patches/patch-104-ibm-cell-split
 	* ../patches/patch-105-ibm-cell-split-fixes
+
+	Patches not yet installed:
 	* ../patches/patch-119-nvl426087.patch
 	* ../patches/patch-120-ibm304071-z10-8
 	* ../patches/patch-122-nvl436041.patch

@@ -4242,6 +4242,9 @@ rest_of_clean_state (void)
 #ifdef STACK_REGS
   regstack_completed = 0;
 #endif
+#ifdef SPLIT_BEFORE_CSE2
+  split0_completed = 0;
+#endif
 
   /* Clear out the insn_length contents now that they are no
      longer valid.  */

@@ -10383,3 +10383,21 @@ to the functions in @file{libgcc} that provide low-level support for
 call stack unwinding.  It is used in declarations in @file{unwind-generic.h}
 and the associated definitions of those functions.
 @end defmac
+
+@defmac SPLIT_BEFORE_CSE2
+This macro determines whether to use an additional split pass before the
+second CSE pass.  @code{split0_completed} will be set after this pass is
+completed.
+
+For example, the Cell SPU target uses this for better optimization of
+the multiple instructions required to do simple loads and stores.  The
+optimizations before this pass work better on simple memory
+instructions, and the optimizations right after this pass (e.g., CSE and
+combine) are be able to optimize the split instructions.
+@end defmac
+
+@defmac ADDRESSES_NEVER_TRAP
+Define this macro if memory accesses will never cause a trap.
+This is the case for example on the Cell SPU processor.
+@end defmac
+

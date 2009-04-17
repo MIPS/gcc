@@ -265,6 +265,10 @@ rtx_varies_p (const_rtx x, bool for_alias)
 static int
 rtx_addr_can_trap_p_1 (const_rtx x, enum machine_mode mode, bool unaligned_mems)
 {
+#ifdef ADDRESSES_NEVER_TRAP
+  /* On some processors, like the SPU, memory accesses never trap.  */
+  return 0;
+#else
   enum rtx_code code = GET_CODE (x);
 
   switch (code)
@@ -344,6 +348,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, enum machine_mode mode, bool unaligned_mems)
 
   /* If it isn't one of the case above, it can cause a trap.  */
   return 1;
+#endif
 }
 
 /* Return nonzero if the use of X as an address in a MEM can cause a trap.  */

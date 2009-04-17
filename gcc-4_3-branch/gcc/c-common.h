@@ -180,6 +180,8 @@ enum c_tree_index
     CTI_MAX
 };
 
+#define C_CPP_HASHNODE(id) \
+  (&(((struct c_common_identifier *) (id))->node))
 #define C_RID_CODE(id)	(((struct c_common_identifier *) (id))->node.rid_code)
 
 /* Identifier part common to the C front ends.  Inherits from

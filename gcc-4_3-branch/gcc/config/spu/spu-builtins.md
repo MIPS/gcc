@@ -23,9 +23,8 @@
 
 (define_expand "spu_lqd"
   [(set (match_operand:TI 0 "spu_reg_operand" "")
-        (mem:TI (and:SI (plus:SI (match_operand:SI 1 "spu_reg_operand" "")
-				 (match_operand:SI 2 "spu_nonmem_operand" ""))
-		        (const_int -16))))]
+        (mem:TI (plus:SI (match_operand:SI 1 "spu_reg_operand" "")
+			 (match_operand:SI 2 "spu_nonmem_operand" ""))))]
   ""
   {
     if (GET_CODE (operands[2]) == CONST_INT
@@ -42,16 +41,14 @@
 
 (define_expand "spu_lqx"
   [(set (match_operand:TI 0 "spu_reg_operand" "")
-        (mem:TI (and:SI (plus:SI (match_operand:SI 1 "spu_reg_operand" "")
-                                 (match_operand:SI 2 "spu_reg_operand" ""))
-                        (const_int -16))))]
+        (mem:TI (plus:SI (match_operand:SI 1 "spu_reg_operand" "")
+			 (match_operand:SI 2 "spu_reg_operand" ""))))]
   ""
   "")
 
 (define_expand "spu_lqa"
   [(set (match_operand:TI 0 "spu_reg_operand" "")
-        (mem:TI (and:SI (match_operand:SI 1 "immediate_operand" "")
-                        (const_int -16))))]
+        (mem:TI (match_operand:SI 1 "immediate_operand" "")))]
   ""
   {
     if (GET_CODE (operands[1]) == CONST_INT
@@ -61,15 +58,13 @@
 
 (define_expand "spu_lqr"
   [(set (match_operand:TI 0 "spu_reg_operand" "")
-	(mem:TI (and:SI (match_operand:SI 1 "address_operand" "")
-			(const_int -16))))]
+	(mem:TI (match_operand:SI 1 "address_operand" "")))]
   ""
   "")
 
 (define_expand "spu_stqd"
-  [(set (mem:TI (and:SI (plus:SI (match_operand:SI 1 "spu_reg_operand" "")
-				 (match_operand:SI 2 "spu_nonmem_operand" ""))
-		        (const_int -16)))
+  [(set (mem:TI (plus:SI (match_operand:SI 1 "spu_reg_operand" "")
+			 (match_operand:SI 2 "spu_nonmem_operand" "")))
         (match_operand:TI 0 "spu_reg_operand" "r,r"))]
   ""
   {
@@ -86,16 +81,14 @@
   })
 
 (define_expand "spu_stqx"
-  [(set (mem:TI (and:SI (plus:SI (match_operand:SI 1 "spu_reg_operand" "")
-				 (match_operand:SI 2 "spu_reg_operand" ""))
-		        (const_int -16)))
+  [(set (mem:TI (plus:SI (match_operand:SI 1 "spu_reg_operand" "")
+			 (match_operand:SI 2 "spu_reg_operand" "")))
         (match_operand:TI 0 "spu_reg_operand" "r"))]
   ""
   "")
 
 (define_expand "spu_stqa"
-  [(set (mem:TI (and:SI (match_operand:SI 1 "immediate_operand" "")
-			(const_int -16)))
+  [(set (mem:TI (match_operand:SI 1 "immediate_operand" ""))
         (match_operand:TI 0 "spu_reg_operand" "r"))]
   ""
   {
@@ -105,8 +98,7 @@
   })
 
 (define_expand "spu_stqr"
-    [(set (mem:TI (and:SI (match_operand:SI 1 "address_operand" "")
-			  (const_int -16)))
+    [(set (mem:TI (match_operand:SI 1 "address_operand" ""))
 	  (match_operand:TI 0 "spu_reg_operand" ""))]
   ""
   "")
