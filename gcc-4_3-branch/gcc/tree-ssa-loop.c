@@ -213,13 +213,16 @@ struct tree_opt_pass pass_predcom =
 static unsigned int
 tree_vectorize (void)
 {
+  if (number_of_loops () <= 1)
+    return 0;
+
   return vectorize_loops ();
 }
 
 static bool
 gate_tree_vectorize (void)
 {
-  return flag_tree_vectorize && number_of_loops () > 1;
+  return flag_tree_vectorize;
 }
 
 struct tree_opt_pass pass_vectorize =
@@ -442,7 +445,7 @@ tree_complete_unroll (void)
 
   return tree_unroll_loops_completely (flag_unroll_loops
 				       || flag_peel_loops
-				       || optimize >= 3);
+				       || optimize >= 3, true);
 }
 
 static bool
@@ -456,6 +459,51 @@ struct tree_opt_pass pass_complete_unroll =
   "cunroll",				/* name */
   gate_tree_complete_unroll,		/* gate */
   tree_complete_unroll,		       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_COMPLETE_UNROLL,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_loops
+    | TODO_ggc_collect,			/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Complete unrolling of inner loops.  */
+
+static unsigned int
+tree_complete_unroll_inner (void)
+{
+  unsigned ret = 0;
+
+  loop_optimizer_init (LOOPS_NORMAL
+		       | LOOPS_HAVE_RECORDED_EXITS);
+  if (number_of_loops () > 1)
+    {
+      scev_initialize ();
+      ret = tree_unroll_loops_completely (optimize >= 3, false);
+      free_numbers_of_iterations_estimates ();
+      scev_finalize ();
+    }
+  loop_optimizer_finalize ();
+
+  return ret;
+}
+
+static bool
+gate_tree_complete_unroll_inner (void)
+{
+  return optimize >= 2;
+}
+
+struct tree_opt_pass pass_complete_unrolli =
+{
+  "cunrolli",				/* name */
+  gate_tree_complete_unroll_inner,	/* gate */
+  tree_complete_unroll_inner,	       	/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

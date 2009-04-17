@@ -8744,7 +8744,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (modifier == EXPAND_STACK_PARM)
 	target = 0;
       temp = expand_unop (mode,
-      			  optab_for_tree_code (NEGATE_EXPR, type),
+      			  optab_for_tree_code (NEGATE_EXPR, type,
+					       optab_default),
 			  op0, target, 0);
       gcc_assert (temp);
       return REDUCE_BIT_FIELD (temp);
@@ -8783,7 +8784,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       /* First try to do it with a special MIN or MAX instruction.
 	 If that does not win, use a conditional jump to select the proper
 	 value.  */
-      this_optab = optab_for_tree_code (code, type);
+      this_optab = optab_for_tree_code (code, type, optab_default);
       temp = expand_binop (mode, this_optab, op0, op1, target, unsignedp,
 			   OPTAB_WIDEN);
       if (temp != 0)
@@ -9263,7 +9264,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
         tree oprnd2 = TREE_OPERAND (exp, 2);
         rtx op2;
 
-        this_optab = optab_for_tree_code (code, type);
+        this_optab = optab_for_tree_code (code, type, optab_default);
         expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, EXPAND_NORMAL);
         op2 = expand_normal (oprnd2);
         temp = expand_ternary_op (mode, this_optab, op0, op1, op2,
@@ -9302,7 +9303,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case REDUC_PLUS_EXPR:
       {
         op0 = expand_normal (TREE_OPERAND (exp, 0));
-        this_optab = optab_for_tree_code (code, type);
+        this_optab = optab_for_tree_code (code, type, optab_default);
         temp = expand_unop (mode, this_optab, op0, target, unsignedp);
         gcc_assert (temp);
         return temp;
@@ -9313,7 +9314,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       {
         expand_operands (TREE_OPERAND (exp, 0),  TREE_OPERAND (exp, 1),
                          NULL_RTX, &op0, &op1, 0);
-        this_optab = optab_for_tree_code (code, type);
+        this_optab = optab_for_tree_code (code, type, optab_default);
         temp = expand_binop (mode, this_optab, op0, op1, target, unsignedp,
                              OPTAB_WIDEN);
         gcc_assert (temp);
@@ -9325,7 +9326,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       {
         expand_operands (TREE_OPERAND (exp, 0),  TREE_OPERAND (exp, 1),
                          NULL_RTX, &op0, &op1, 0);
-        this_optab = optab_for_tree_code (code, type);
+        this_optab = optab_for_tree_code (code, type, optab_default);
         temp = expand_binop (mode, this_optab, op0, op1, target, unsignedp,
                              OPTAB_WIDEN);
         gcc_assert (temp);
@@ -9343,7 +9344,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VEC_UNPACK_LO_EXPR:
       {
 	op0 = expand_normal (TREE_OPERAND (exp, 0));
-	this_optab = optab_for_tree_code (code, type);
+	this_optab = optab_for_tree_code (code, type, optab_default);
 	temp = expand_widen_pattern_expr (exp, op0, NULL_RTX, NULL_RTX,
 					  target, unsignedp);
 	gcc_assert (temp);
@@ -9356,7 +9357,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	op0 = expand_normal (TREE_OPERAND (exp, 0));
 	/* The signedness is determined from input operand.  */
 	this_optab = optab_for_tree_code (code,
-					  TREE_TYPE (TREE_OPERAND (exp, 0)));
+					  TREE_TYPE (TREE_OPERAND (exp, 0)),
+					  optab_default);
 	temp = expand_widen_pattern_expr
 	  (exp, op0, NULL_RTX, NULL_RTX,
 	   target, TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
@@ -9403,7 +9405,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
   expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
 		   subtarget, &op0, &op1, 0);
  binop2:
-  this_optab = optab_for_tree_code (code, type);
+  this_optab = optab_for_tree_code (code, type, optab_default);
  binop3:
   if (modifier == EXPAND_STACK_PARM)
     target = 0;

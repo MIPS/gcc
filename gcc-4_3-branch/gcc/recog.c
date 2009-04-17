@@ -60,6 +60,14 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 #endif
 
+#ifndef HAVE_ATTR_enabled
+static inline bool
+get_attr_enabled (rtx insn ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+#endif
+
 static void validate_replace_rtx_1 (rtx *, rtx, rtx, rtx);
 static void validate_replace_src_1 (rtx *, void *);
 static rtx split_insn (rtx);
@@ -1593,7 +1601,7 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 	    result = 1;
 	  break;
 
-	case 'm':
+	case TARGET_MEM_CONSTRAINT:
 	case 'V': /* non-offsettable */
 	  if (memory_operand (op, VOIDmode))
 	    result = 1;
@@ -1727,15 +1735,13 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 		result = 1;
 	    }
 #ifdef EXTRA_CONSTRAINT_STR
+	  else if (EXTRA_MEMORY_CONSTRAINT (c, constraint))
+	    /* Every memory operand can be reloaded to fit.  */
+	    result = result || memory_operand (op, VOIDmode);
+	  else if (EXTRA_ADDRESS_CONSTRAINT (c, constraint))
+	    /* Every address operand can be reloaded to fit.  */
+	    result = result || address_operand (op, VOIDmode);
 	  else if (EXTRA_CONSTRAINT_STR (op, c, constraint))
-	    result = 1;
-	  else if (EXTRA_MEMORY_CONSTRAINT (c, constraint)
-		   /* Every memory operand can be reloaded to fit.  */
-		   && memory_operand (op, VOIDmode))
-	    result = 1;
-	  else if (EXTRA_ADDRESS_CONSTRAINT (c, constraint)
-		   /* Every address operand can be reloaded to fit.  */
-		   && address_operand (op, VOIDmode))
 	    result = 1;
 #endif
 	  break;
@@ -1970,11 +1976,9 @@ extract_insn (rtx insn)
   int noperands;
   rtx body = PATTERN (insn);
 
-  recog_data.insn = NULL;
   recog_data.n_operands = 0;
   recog_data.n_alternatives = 0;
   recog_data.n_dups = 0;
-  which_alternative = -1;
 
   switch (GET_CODE (body))
     {
@@ -2054,6 +2058,22 @@ extract_insn (rtx insn)
 	 : OP_IN);
 
   gcc_assert (recog_data.n_alternatives <= MAX_RECOG_ALTERNATIVES);
+
+  if (INSN_CODE (insn) < 0)
+    for (i = 0; i < recog_data.n_alternatives; i++)
+      recog_data.alternative_enabled_p[i] = true;
+  else
+    {
+      recog_data.insn = insn;
+      for (i = 0; i < recog_data.n_alternatives; i++)
+	{
+	  which_alternative = i;
+	  recog_data.alternative_enabled_p[i] = get_attr_enabled (insn);
+	}
+    }
+
+  recog_data.insn = NULL;
+  which_alternative = -1;
 }
 
 /* After calling extract_insn, you can use this function to extract some
@@ -2082,6 +2102,12 @@ preprocess_constraints (void)
 	  op_alt[j].constraint = p;
 	  op_alt[j].matches = -1;
 	  op_alt[j].matched = -1;
+
+	  if (!recog_data.alternative_enabled_p[j])
+	    {
+	      p = skip_alternative (p);
+	      continue;
+	    }
 
 	  if (*p == '\0' || *p == ',')
 	    {
@@ -2132,7 +2158,7 @@ preprocess_constraints (void)
 		  }
 		  continue;
 
-		case 'm':
+		case TARGET_MEM_CONSTRAINT:
 		  op_alt[j].memory_ok = 1;
 		  break;
 		case '<':
@@ -2251,6 +2277,17 @@ constrain_operands (int strict)
       int opno;
       int lose = 0;
       funny_match_index = 0;
+
+      if (!recog_data.alternative_enabled_p[which_alternative])
+	{
+	  int i;
+
+	  for (i = 0; i < recog_data.n_operands; i++)
+	    constraints[i] = skip_alternative (constraints[i]);
+
+	  which_alternative++;
+	  continue;
+	}
 
       for (opno = 0; opno < recog_data.n_operands; opno++)
 	{
@@ -2405,7 +2442,7 @@ constrain_operands (int strict)
 		win = 1;
 		break;
 
-	      case 'm':
+	      case TARGET_MEM_CONSTRAINT:
 		/* Memory operands must be valid, to the extent
 		   required by STRICT.  */
 		if (MEM_P (op))
