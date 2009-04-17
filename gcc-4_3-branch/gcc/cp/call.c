@@ -3963,7 +3963,8 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 		  && (TYPE_MAIN_VARIANT (TREE_TYPE (arg1))
 		      != TYPE_MAIN_VARIANT (TREE_TYPE (arg2))))
 		{
-		  warning (0, "comparison between %q#T and %q#T",
+		  warning (OPT_Wenum_compare,
+			   "comparison between %q#T and %q#T",
 			   TREE_TYPE (arg1), TREE_TYPE (arg2));
 		}
 	      break;

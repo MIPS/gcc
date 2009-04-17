@@ -1110,7 +1110,7 @@ estimated_stack_frame_size (void)
 static void
 expand_used_vars (void)
 {
-  tree t, outer_block = DECL_INITIAL (current_function_decl);
+  tree t, next, outer_block = DECL_INITIAL (current_function_decl);
 
   /* Compute the phase of the stack frame for this function.  */
   {
@@ -1123,10 +1123,14 @@ expand_used_vars (void)
 
   /* At this point all variables on the unexpanded_var_list with TREE_USED
      set are not associated with any block scope.  Lay them out.  */
-  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+  t = cfun->unexpanded_var_list;
+  cfun->unexpanded_var_list = NULL_TREE;
+  for (; t; t = next)
     {
       tree var = TREE_VALUE (t);
       bool expand_now = false;
+
+      next = TREE_CHAIN (t);
 
       /* We didn't set a block for static or extern because it's hard
 	 to tell the difference between a global variable (re)declared
@@ -1154,9 +1158,25 @@ expand_used_vars (void)
       TREE_USED (var) = 1;
 
       if (expand_now)
-	expand_one_var (var, true, true);
+	{
+	  expand_one_var (var, true, true);
+	  if (DECL_ARTIFICIAL (var) && !DECL_IGNORED_P (var))
+	    {
+	      rtx rtl = DECL_RTL_IF_SET (var);
+
+	      /* Keep artificial non-ignored vars in cfun->unexpanded_var_list
+		 chain until instantiate_decls.  */
+	      if (rtl && (MEM_P (rtl) || GET_CODE (rtl) == CONCAT))
+		{
+		  TREE_CHAIN (t) = cfun->unexpanded_var_list;
+		  cfun->unexpanded_var_list = t;
+		  continue;
+		}
+	    }
+	}
+
+      ggc_free (t);
     }
-  cfun->unexpanded_var_list = NULL_TREE;
 
   /* At this point, all variables within the block tree with TREE_USED
      set are actually used by the optimized function.  Lay them out.  */

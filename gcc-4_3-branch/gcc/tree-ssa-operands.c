@@ -103,7 +103,6 @@ static struct
   unsigned int static_readonly_clobbers_avoided;
 } clobber_stats;
 
-
 /* Flags to describe operand properties in helpers.  */
 
 /* By default, operands are loaded.  */
@@ -125,6 +124,9 @@ static struct
    explicit assignments in the form of GIMPLE_MODIFY_STMT from
    clobbering sites like function calls or ASM_EXPRs.  */
 #define opf_implicit	(1 << 2)
+
+/* Hack to mark all SSA_NAME uses in asms as abnormal.  */
+#define opf_mark_abnormal (1 << 4)
 
 /* Array for building all the def operands.  */
 static VEC(tree,heap) *build_defs;
@@ -1602,6 +1604,10 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 	append_def (var_p);
       else
 	append_use (var_p);
+
+      if (flags & opf_mark_abnormal
+	  && TREE_CODE (var) == SSA_NAME)
+	SSA_NAME_OCCURS_IN_ABNORMAL_PHI (var) = true;
     }
   else
     add_virtual_operand (var, s_ann, flags, NULL_TREE, 0, -1, false);
@@ -1956,7 +1962,7 @@ get_asm_expr_operands (tree stmt)
   int i, noutputs;
   const char **oconstraints;
   const char *constraint;
-  bool allows_mem, allows_reg, is_inout;
+  bool allows_mem, allows_reg, is_inout, memory_p;
   tree link;
 
   s_ann = stmt_ann (stmt);
@@ -1986,26 +1992,8 @@ get_asm_expr_operands (tree stmt)
       get_expr_operands (stmt, &TREE_VALUE (link), opf_def);
     }
 
-  /* Gather all input operands.  */
-  for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
-    {
-      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
-      parse_input_constraint (&constraint, 0, 0, noutputs, 0, oconstraints,
-	                      &allows_mem, &allows_reg);
-
-      /* Memory operands are addressable.  Note that STMT needs the
-	 address of this operand.  */
-      if (!allows_reg && allows_mem)
-	{
-	  tree t = get_base_address (TREE_VALUE (link));
-	  if (t && DECL_P (t) && s_ann)
-	    add_to_addressable_set (t, &s_ann->addresses_taken);
-	}
-
-      get_expr_operands (stmt, &TREE_VALUE (link), 0);
-    }
-
   /* Clobber all memory and addressable symbols for asm ("" : : : "memory");  */
+  memory_p = false;
   for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
     if (strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory") == 0)
       {
@@ -2013,6 +2001,11 @@ get_asm_expr_operands (tree stmt)
 	bitmap_iterator bi;
 
 	s_ann->references_memory = true;
+	if (TREE_READONLY (stmt))
+	  {
+	    memory_p = true;
+	    break;
+	  }
 
 	EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
 	  {
@@ -2037,6 +2030,58 @@ get_asm_expr_operands (tree stmt)
 	  }
 	break;
       }
+
+  /* Gather all input operands.  */
+  for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+    {
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      parse_input_constraint (&constraint, 0, 0, noutputs, 0, oconstraints,
+			      &allows_mem, &allows_reg);
+
+      /* Memory operands are addressable.  Note that STMT needs the
+	 address of this operand.  */
+      if (!allows_reg && allows_mem)
+	{
+	  tree t = get_base_address (TREE_VALUE (link));
+	  if (t && DECL_P (t) && s_ann)
+	    add_to_addressable_set (t, &s_ann->addresses_taken);
+	}
+
+      get_expr_operands (stmt, &TREE_VALUE (link), opf_mark_abnormal);
+
+      /* Read-only memory.  Copied from get_indirect_ref_operands.  */
+      if (memory_p
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (link)))
+	  && SSA_VAR_P (TREE_VALUE (link)))
+	{
+	  tree ptr = TREE_VALUE (link);
+	  int flags = 0;
+	  struct ptr_info_def *pi = NULL;
+
+	  /* If PTR has flow-sensitive points-to information, use it.  */
+	  if (TREE_CODE (ptr) == SSA_NAME
+	      && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
+	      && pi->name_mem_tag)
+	    {
+	      /* PTR has its own memory tag.  Use it.  */
+	      add_virtual_operand (pi->name_mem_tag, s_ann, flags,
+				   NULL_TREE, 0, -1, false);
+	    }
+	  else
+	    {
+	      /* If PTR is not an SSA_NAME or it doesn't have a name
+		 tag, use its type memory tag.  */
+	      var_ann_t v_ann;
+
+	      if (TREE_CODE (ptr) == SSA_NAME)
+		ptr = SSA_NAME_VAR (ptr);
+	      v_ann = var_ann (ptr);
+	      if (v_ann->symbol_mem_tag)
+		add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
+				     NULL_TREE, 0, -1, false);
+	    }
+	}
+    }
 }
 
 

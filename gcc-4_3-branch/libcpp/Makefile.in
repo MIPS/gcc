@@ -47,6 +47,7 @@ LDFLAGS = @LDFLAGS@
 LIBICONV = @LIBICONV@
 LIBINTL = @LIBINTL@
 PACKAGE = @PACKAGE@
+PACKAGE_SUFFIX = -4.3
 RANLIB = @RANLIB@
 SHELL = @SHELL@
 USED_CATALOGS = @USED_CATALOGS@
@@ -66,6 +67,7 @@ depcomp = $(SHELL) $(srcdir)/../depcomp
 
 INCLUDES = -I$(srcdir) -I. -I$(srcdir)/../include @INCINTL@ \
 	-I$(srcdir)/include
+CPPFLAGS += -DPACKAGE_SUFFIX=\"$(strip $(PACKAGE_SUFFIX))\"
 
 ALL_CFLAGS = $(CFLAGS) $(WARN_CFLAGS) $(INCLUDES) $(CPPFLAGS)
 
@@ -156,8 +158,8 @@ install-strip install: all installdirs
 	  else continue; \
 	  fi; \
 	  dir=$(localedir)/$$lang/LC_MESSAGES; \
-	  echo $(INSTALL_DATA) $$cat $(DESTDIR)$$dir/$(PACKAGE).mo; \
-	  $(INSTALL_DATA) $$cat $(DESTDIR)$$dir/$(PACKAGE).mo; \
+	  echo $(INSTALL_DATA) $$cat $(DESTDIR)$$dir/$(PACKAGE)$(PACKAGE_SUFFIX).mo; \
+	  $(INSTALL_DATA) $$cat $(DESTDIR)$$dir/$(PACKAGE)$(PACKAGE_SUFFIX).mo; \
 	done
 
 mostlyclean:

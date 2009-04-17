@@ -284,7 +284,7 @@ clear_expression_ids (void)
   VEC_free (vuse_vec, heap, expression_vuses);
 }
 
-static bool in_fre = false;
+bool in_fre = false;
 
 /* An unordered bitmap set.  One bitmap tracks values, the other,
    expressions.  */
@@ -3244,11 +3244,16 @@ get_sccvn_value (tree name)
       bool is_invariant = is_gimple_min_invariant (val);
       tree valvh = !is_invariant ? get_value_handle (val) : NULL_TREE;
 
+      /* In the case SCCVN has created a dummy SSA_NAME to value
+	 number a simplified expression, just create a value handle
+	 for it.  */
+      if (!valvh && !is_invariant && VN_INFO (val)->needs_insertion)
+	valvh = vn_lookup_or_add (VN_INFO (val)->expr);
       /* We may end up with situations where SCCVN has chosen a
 	 representative for the equivalence set that we have not
 	 visited yet.  In this case, just create the value handle for
 	 it.  */
-      if (!valvh && !is_invariant)
+      else if (!valvh && !is_invariant)
 	{
 	  tree defstmt = SSA_NAME_DEF_STMT (val);
 
@@ -3263,7 +3268,9 @@ get_sccvn_value (tree name)
 		!ZERO_SSA_OPERANDS (defstmt2, SSA_OP_ALL_VIRTUALS))
 	      gcc_assert (defstmt);
 	  }
-	  valvh = vn_lookup_or_add_with_stmt (val, defstmt);
+	  /* We lookup with the LHS, so do not use vn_lookup_or_add_with_stmt
+	     here, as that will result in useless reference lookups.  */
+	  valvh = vn_lookup_or_add (val);
 	}
 
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3595,6 +3602,54 @@ compute_avail (void)
   free (worklist);
 }
 
+/* Substitutes leaders for all operands in EXPR supposed to replace
+   the rhs of STMT in basic-block BB.
+   Returns an available expression if that succeeds, NULL_TREE otherwise.  */
+
+static tree
+substitute_leaders_in_expr (basic_block bb, tree stmt, tree expr)
+{
+  switch (TREE_CODE_CLASS (TREE_CODE (expr)))
+    {
+    case tcc_reference:
+      if (TREE_CODE (expr) != VIEW_CONVERT_EXPR
+	  && TREE_CODE (expr) != REALPART_EXPR
+	  && TREE_CODE (expr) != IMAGPART_EXPR)
+	return NULL_TREE;
+
+      /* Fallthrough.  */
+    case tcc_unary:
+      if (is_gimple_min_invariant (TREE_OPERAND (expr, 0)))
+	return expr;
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == SSA_NAME)
+        {
+	  tree def_stmt;
+	  tree tmp = get_value_handle (TREE_OPERAND (expr, 0));
+	  tmp = bitmap_find_leader (AVAIL_OUT (bb), tmp);
+	  if (!tmp)
+	    return NULL_TREE;
+	  /* tmp can still be unavailable if it is defined in the same
+	     basic-block, but after stmt.  libgomp.fortran/retval1.f90:f5  */
+	  def_stmt = SSA_NAME_DEF_STMT (tmp);
+	  if (def_stmt
+	      && TREE_CODE (def_stmt) != PHI_NODE
+	      && bb_for_stmt (def_stmt) == bb)
+	    {
+	      block_stmt_iterator bsi = bsi_start (bb);
+	      while (bsi_stmt (bsi) != def_stmt)
+		{
+		  if (bsi_stmt (bsi) == stmt)
+		    return NULL_TREE;
+		  bsi_next (&bsi);
+		}
+	    }
+	  return build1 (TREE_CODE (expr), TREE_TYPE (expr), tmp);
+	}
+
+    default:;
+    }
+  return NULL_TREE;
+}
 
 /* Eliminate fully redundant computations.  */
 
@@ -3626,6 +3681,22 @@ eliminate (void)
 
 	      sprime = bitmap_find_leader (AVAIL_OUT (b),
 					   get_value_handle (lhs));
+
+	      /* If we didn't find a leader but have an expression
+		 we can insert, use that as replacement.  */
+	      if (sprime
+		  && sprime == lhs
+		  && VN_INFO (lhs)->valnum != VN_TOP
+		  /* Instead of VN_TOP we also can end up with a
+		     constant value.  g++.dg/opt/reload1.C  */
+		  && TREE_CODE (VN_INFO (lhs)->valnum) == SSA_NAME
+		  && VN_INFO (VN_INFO (lhs)->valnum)->needs_insertion)
+		{
+		  tree tmp = VN_INFO (VN_INFO (lhs)->valnum)->expr;
+		  tmp = substitute_leaders_in_expr (b, stmt, tmp);
+		  if (tmp)
+		    sprime = tmp;
+		}
 
 	      if (sprime
 		  && sprime != lhs

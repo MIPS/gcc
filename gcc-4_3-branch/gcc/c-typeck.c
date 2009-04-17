@@ -2457,6 +2457,18 @@ build_function_call (tree function, tree params)
   if (nargs < 0)
     return error_mark_node;
 
+  /* If we cannot check function arguments because a prototype is
+     missing for the callee, warn here.  */
+  if (warn_unprototyped_calls
+      && nargs > 0 && !TYPE_ARG_TYPES (fntype)
+      && fundecl && !DECL_BUILT_IN (fundecl) && !C_DECL_IMPLICIT (fundecl)
+      && !DECL_ARGUMENTS (fundecl))
+    {
+      warning (OPT_Wunprototyped_calls,
+	       "call to function %qD without a real prototype", fundecl);
+      inform ("%J%qD was declared here", fundecl, fundecl);
+    }
+
   /* Check that the arguments to the function are valid.  */
 
   check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,

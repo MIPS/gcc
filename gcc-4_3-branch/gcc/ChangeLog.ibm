@@ -17,6 +17,90 @@
 	* ../patches/patch-024-tls-no-direct.diff
 	* ../patches/patch-025-pr27880.diff
 	* ../patches/patch-028-pr33763.diff
+	* ../patches/patch-030-Wunprototyped-calls.diff
+	* ../patches/patch-041-fpreserve-function-arguments43.patch
+	* ../patches/patch-042-pr27975.diff
+	* ../patches/patch-043-build-id.diff
+	* ../patches/patch-045-nvl423594.patch
+	* ../patches/patch-046-pr32277.diff
+	* ../patches/patch-050-gcc43-c++-builtin-redecl.patch
+	* ../patches/patch-051-gcc41-ia64-stack-protector.patch
+	* ../patches/patch-053-gcc43-libgomp-omp_h-multilib.patch
+	* ../patches/patch-054-gcc43-pr34037.patch
+	* ../patches/patch-056-gcc43-pr36741-revert.patch
+	* ../patches/patch-057-gcc41-ppc32-retaddr.patch
+	* ../patches/patch-058-gcc43-pr37189.patch
+	* ../patches/patch-059-gcc43-x86_64-va_start.patch
+	* ../patches/patch-060-gcc43-textdomain.patch
+	* ../patches/patch-061-gcc43-rename-info-files.patch
+	* ../patches/patch-070-pr34043-1.diff
+	* ../patches/patch-071-pr34043-2.diff
+	* ../patches/patch-072-pr34043-3.diff
+	* ../patches/patch-073-pr34043-4.diff
+	* ../patches/patch-074-pr34043-5.diff
+
+	Patches not yet installed:
+	* ../patches/patch-076-amd-SSE5-shift-ppc-2.diff
+	* ../patches/patch-077-amd-SSE5-shift.diff
+	* ../patches/patch-078-amd-cunroll-1.diff
+	* ../patches/patch-079-amd-cunroll-2.diff
+	* ../patches/patch-080-intel303993-aes.diff
+	* ../patches/patch-081-amd-cvect-1.diff
+	* ../patches/patch-082-amd-cvect-2.diff
+	* ../patches/patch-090-ibm304071-z10-1
+	* ../patches/patch-091-ibm304071-z10-2
+	* ../patches/patch-092-ibm304071-z10-3
+	* ../patches/patch-093-ibm304071-z10-4
+	* ../patches/patch-094-ibm304071-z10-5
+	* ../patches/patch-095-ibm304071-z10-6
+	* ../patches/patch-096-pr36745.diff
+	* ../patches/patch-097-pr36822.diff
+	* ../patches/patch-099-ibm-vector-keyword-1
+	* ../patches/patch-100-ibm-vector-keyword-2
+	* ../patches/patch-101-ibm-vector-keyword-3
+	* ../patches/patch-102-ibm304071-z10-7
+	* ../patches/patch-103-ibm304134-power7-1
+	* ../patches/patch-104-ibm-cell-split
+	* ../patches/patch-105-ibm-cell-split-fixes
+	* ../patches/patch-119-nvl426087.patch
+	* ../patches/patch-120-ibm304071-z10-8
+	* ../patches/patch-122-nvl436041.patch
+	* ../patches/patch-123-gcc43-no-unwind-tables.diff
+	* ../patches/patch-124-nvl441016.patch
+	* ../patches/patch-126-nvl447669.diff
+	* ../patches/patch-130-sap303956-utf16-1.diff
+	* ../patches/patch-131-sap303956-utf16-2.diff
+	* ../patches/patch-132-sap303956-utf16-3.diff
+	* ../patches/patch-133-sap303956-utf16-4.diff
+	* ../patches/patch-134-sap303956-utf16-mangling.diff
+
+	Patches that opensuse installs, but not installed in this tree for
+	a variety of reasons, including the patch is already installed on
+	the upstream branch, the patch is obsoleted by recent powerpc
+	work, or it is for the opensuse specific environment:
+	* ../patches/unused-001-gcc-dir-version.patch
+	* ../patches/unused-002-gcc-sles-version.patch
+	* ../patches/unused-006-suse-record-gcc-opts.diff
+	* ../patches/unused-031-pr27799.diff
+	* ../patches/unused-040-pr36765.diff
+	* ../patches/unused-047-pr36438.diff
+	* ../patches/unused-048-pr37868.diff
+	* ../patches/unused-049-pr38051.diff
+	* ../patches/unused-052-gcc43-java-debug-iface-type.patch
+	* ../patches/unused-055-gcc41-java-slow_pthread_self.patch
+	* ../patches/unused-075-amd-SSE5-shift-ppc-1.diff
+	* ../patches/unused-106-nvl425806.patch
+	* ../patches/unused-109-nvl425783.patch
+	* ../patches/unused-110-nvl425784.patch
+	* ../patches/unused-111-nvl425788.patch
+	* ../patches/unused-112-nvl425789.patch
+	* ../patches/unused-114-nvl425791.patch
+	* ../patches/unused-115-nvl425794.patch
+	* ../patches/unused-116-nvl425798-1.patch
+	* ../patches/unused-117-nvl425798-2.patch
+	* ../patches/unused-118-nvl425799.patch
+	* ../patches/unused-121-nvl434500.patch
+	* ../patches/unused-125-common-sysroot-gcc.diff
 
 2009-04-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

@@ -1837,6 +1837,15 @@ init_spec (void)
   obstack_grow0 (&obstack, link_spec, strlen (link_spec));
   link_spec = XOBFINISH (&obstack, const char *);
 #endif
+#ifdef USE_BUILD_ID
+  /* Prepend "--build-id" to whatever link_spec we had before.  */
+  {
+    static const char tf[] = "%{!r:--build-id} ";
+    obstack_grow (&obstack, tf, sizeof(tf) - 1);
+    obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+    link_spec = XOBFINISH (&obstack, const char *);
+  }
+#endif
 
   specs = sl;
 }

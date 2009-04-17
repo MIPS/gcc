@@ -419,9 +419,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	warn_uninitialized = (value ? 2 : 0);
 
       if (!c_dialect_cxx ())
-	/* We set this to 2 here, but 1 in -Wmain, so -ffreestanding
-	   can turn it off only if it's not explicit.  */
-	warn_main = value * 2;
+	{
+	  /* We set this to 2 here, but 1 in -Wmain, so -ffreestanding
+	     can turn it off only if it's not explicit.  */
+	  warn_main = value * 2;
+	  warn_unprototyped_calls = 1;
+	}
       else
 	{
 	  /* C++-specific warnings.  */

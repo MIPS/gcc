@@ -1711,7 +1711,14 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
 	 and it is a pain to update that information.
 	 Exception: if source is a constant, moving it later can't hurt.
 	 Accept that as a special case.  */
-      || (DF_INSN_LUID (insn) < last_call_luid && ! CONSTANT_P (src)))
+      || (DF_INSN_LUID (insn) < last_call_luid && ! CONSTANT_P (src))
+      || (flag_preserve_function_arguments
+	  && REG_P (dest)
+	  && REG_P (src)
+	  && GET_CODE (PATTERN (i3)) == PARALLEL
+	  && GET_CODE (XVECEXP (PATTERN (i3), 0, 0)) == ASM_OPERANDS
+	  && REG_USERVAR_P (dest)
+	  && REG_EXPR (dest) != REG_EXPR (src)))
     return 0;
 
   /* DEST must either be a REG or CC0.  */

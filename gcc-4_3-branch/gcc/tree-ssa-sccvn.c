@@ -103,6 +103,8 @@ along with GCC; see the file COPYING3.  If not see
    structure copies.
 */
 
+extern bool in_fre;
+
 /* The set of hashtables and alloc_pool's for their items.  */
 
 typedef struct vn_tables_s
@@ -538,9 +540,23 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	  temp.op1 = TREE_OPERAND (ref, 2);
 	  break;
 	case COMPONENT_REF:
-	  /* Record field as operand.  */
-	  temp.op0 = TREE_OPERAND (ref, 1);
-	  temp.op1 = TREE_OPERAND (ref, 2);
+	  /* If this is a reference to a union member, record the union
+	     member size as operand.  */
+	  if (in_fre
+	      && TREE_CODE (DECL_CONTEXT (TREE_OPERAND (ref, 1))) == UNION_TYPE
+	      && integer_zerop (DECL_FIELD_OFFSET (TREE_OPERAND (ref, 1)))
+	      && integer_zerop (DECL_FIELD_BIT_OFFSET (TREE_OPERAND (ref, 1)))
+	      && !TREE_OPERAND (ref, 2))
+	    {
+	      temp.type = NULL_TREE;
+	      temp.op0 = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (ref, 1)));
+	    }
+	  else
+	    {
+	      /* Record field as operand.  */
+	      temp.op0 = TREE_OPERAND (ref, 1);
+	      temp.op1 = TREE_OPERAND (ref, 2);
+	    }
 	  break;
 	case ARRAY_RANGE_REF:
 	case ARRAY_REF:
@@ -1109,6 +1125,9 @@ defs_to_varying (tree stmt)
   return changed;
 }
 
+static tree
+try_to_simplify (tree stmt, tree rhs);
+
 /* Visit a copy between LHS and RHS, return true if the value number
    changed.  */
 
@@ -1181,8 +1200,53 @@ visit_reference_op_load (tree lhs, tree op, tree stmt)
   bool changed = false;
   tree result = vn_reference_lookup (op, shared_vuses_from_stmt (stmt));
 
-  if (result)
+  /* We handle type-punning through unions by value-numbering based
+     on offset and size of the access.  Be prepared to handle a
+     type-mismatch here via creating a VIEW_CONVERT_EXPR.
+     Do this only after the iteration converged as introducing new
+     SSA_NAMEs will let it never finish otherwise.  */
+  if (result
+      && (useless_type_conversion_p (TREE_TYPE (result), TREE_TYPE (op))
+	  || current_info == valid_info))
     {
+      if (!useless_type_conversion_p (TREE_TYPE (result), TREE_TYPE (op)))
+	{
+	  tree val = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (op),
+				  result);
+	  /* Make sure to simplify with earlier conversions as otherwise
+	     our dummy SSA_NAMEs start to leak all over.  */
+	  if (TREE_CODE (val) == VIEW_CONVERT_EXPR)
+	    {
+	      tree tem = try_to_simplify (stmt, val);
+	      if (tem)
+		val = tem;
+	    }
+	  result = val;
+	  if (result != lhs
+	      && !is_gimple_min_invariant (val)
+	      && TREE_CODE (val) != SSA_NAME)
+	    /* Finally do a lookup to not create redundant conversions.  */
+	    result = vn_unary_op_lookup (val);
+	  if (!result)
+	    {
+	      /* Create a new temporary SSA_NAME to attach the
+		 conversion expression to.  */
+	      result = make_ssa_name (SSA_NAME_VAR (lhs), NULL_TREE);
+	      VN_INFO_GET (result)->valnum = result;
+	      VN_INFO (result)->expr = val;
+	      VN_INFO (result)->needs_insertion = true;
+	      /* And insert the conversion so we can find it later.  */
+	      vn_unary_op_insert (val, result);
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "Inserting name ");
+		  print_generic_expr (dump_file, result, 0);
+		  fprintf (dump_file, " for expression ");
+		  print_generic_expr (dump_file, val, 0);
+		  fprintf (dump_file, "\n");
+		}
+	    }
+	}
       changed = set_ssa_val_to (lhs, result);
     }
   else
@@ -1227,6 +1291,8 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
     {
       if (TREE_CODE (result) == SSA_NAME)
 	result = SSA_VAL (result);
+      if (TREE_CODE (op) == SSA_NAME)
+	op = SSA_VAL (op);
       resultsame = expressions_equal_p (result, op);
     }
 
@@ -1253,7 +1319,10 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
 	  changed |= set_ssa_val_to (vdef, vdef);
 	}
 
-      vn_reference_insert (lhs, op, vdefs);
+      /* Do not insert structure copies into the tables.  */
+      if (is_gimple_min_invariant (op)
+	  || is_gimple_reg (op))
+        vn_reference_insert (lhs, op, vdefs);
     }
   else
     {
@@ -1491,13 +1560,15 @@ simplify_unary_expression (tree rhs)
   else if (TREE_CODE (rhs) == NOP_EXPR
 	   || TREE_CODE (rhs) == CONVERT_EXPR
 	   || TREE_CODE (rhs) == REALPART_EXPR
-	   || TREE_CODE (rhs) == IMAGPART_EXPR)
+	   || TREE_CODE (rhs) == IMAGPART_EXPR
+	   || TREE_CODE (rhs) == VIEW_CONVERT_EXPR)
     {
       /* We want to do tree-combining on conversion-like expressions.
          Make sure we feed only SSA_NAMEs or constants to fold though.  */
       tree tem = valueize_expr (VN_INFO (op0)->expr);
       if (UNARY_CLASS_P (tem)
 	  || BINARY_CLASS_P (tem)
+	  || TREE_CODE (tem) == VIEW_CONVERT_EXPR
 	  || TREE_CODE (tem) == SSA_NAME
 	  || is_gimple_min_invariant (tem))
 	op0 = tem;
@@ -1523,13 +1594,10 @@ simplify_unary_expression (tree rhs)
 static tree
 try_to_simplify (tree stmt, tree rhs)
 {
+  /* For stores we can end up simplifying a SSA_NAME rhs.  Just return
+     in this case, there is no point in doing extra work.  */
   if (TREE_CODE (rhs) == SSA_NAME)
-    {
-      if (is_gimple_min_invariant (SSA_VAL (rhs)))
-	return SSA_VAL (rhs);
-      else if (VN_INFO (rhs)->has_constants)
-	return VN_INFO (rhs)->expr;
-    }
+    return rhs;
   else
     {
       switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
@@ -1546,15 +1614,14 @@ try_to_simplify (tree stmt, tree rhs)
 
 	    /* Fallthrough. */
 	case tcc_reference:
-	  {
-	    tree result = vn_reference_lookup (rhs,
-					       shared_vuses_from_stmt (stmt));
-	    if (result)
-	      return result;
-	  }
-	  /* Fallthrough for some codes.  */
+	  /* Do not do full-blown reference lookup here.
+	     ???  But like for tcc_declaration, we should simplify
+		  from constant initializers.  */
+
+	  /* Fallthrough for some codes that can operate on registers.  */
 	  if (!(TREE_CODE (rhs) == REALPART_EXPR
-	        || TREE_CODE (rhs) == IMAGPART_EXPR))
+	        || TREE_CODE (rhs) == IMAGPART_EXPR
+		|| TREE_CODE (rhs) == VIEW_CONVERT_EXPR))
 	    break;
 	  /* We could do a little more with unary ops, if they expand
 	     into binary ops, but it's debatable whether it is worth it. */
@@ -2137,6 +2204,9 @@ free_scc_vn (void)
 	  if (SSA_NAME_VALUE (name) &&
 	      TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
 	    SSA_NAME_VALUE (name) = NULL;
+	  if (name
+	      && VN_INFO (name)->needs_insertion)
+	    release_ssa_name (name);
 	}
     }
 

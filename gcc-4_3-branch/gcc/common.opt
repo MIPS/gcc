@@ -705,6 +705,10 @@ fdse
 Common Var(flag_dse) Init(1) Optimization
 Use the RTL dead store elimination pass
 
+fpreserve-function-arguments
+Common Report Var(flag_preserve_function_arguments)
+Preserve function argument values for debugging
+
 freschedule-modulo-scheduled-loops
 Common Report Var(flag_resched_modulo_sched) Optimization
 Enable/Disable the traditional scheduling in loops that already passed modulo scheduling

@@ -6,7 +6,7 @@
 #define C(x)	__attribute__((cleanup(x)))
 
 static int f1(void *x U) { return 0; }
-static void f2() { }
+static void f2() { }	/* { dg-message "declared here" "" } */
 static void f3(void) { }
 static void f4(void *x U) { }
 static void f5(int *x U) { }
@@ -18,7 +18,7 @@ static void f9(int x U) { }
 void test(void)
 {
   int o1 C(f1);
-  int o2 C(f2);
+  int o2 C(f2);		/* { dg-warning "without a real prototype" } */
   int o3 C(f3);		/* { dg-error "too many arguments" } */
   int o4 C(f4);
   int o5 C(f5);

@@ -338,6 +338,34 @@ num_changes_pending (void)
   return num_changes;
 }
 
+/* If we want to preserve arguments to inlined functions we need
+   to preserve some asm operands.  We know we changed OLD into NEW
+   in an asm instruction.  Return 1 if this wasn't okay, 0 otherwise.  */
+static int
+invalid_asm_change (rtx old, rtx new)
+{
+  tree e1, e2;
+  /* It is invalid to change a REG which had an associated decl expression,
+     with something which has a different expression.  It's okay, though,
+     to change a REG with no expression to some other.  */
+  if (GET_CODE (old) == SUBREG)
+    old = SUBREG_REG (old);
+  if (GET_CODE (new) == SUBREG)
+    new = SUBREG_REG (new);
+  /* If we replaced something else than a REG or MEM, it's okay.  */
+  if (!REG_P (old) && !MEM_P (old))
+    return 0;
+  /* If we replaced a REG or MEM with something else, we are going
+     to loose that information.  */
+  if (!REG_P (new) && !MEM_P (new))
+    return 1;
+  e1 = REG_P (old) ? REG_EXPR (old) : MEM_EXPR (old);
+  if (!e1)
+    return 0;
+  e2 = REG_P (new) ? REG_EXPR (new) : MEM_EXPR (new);
+  return e1 != e2;
+}
+
 /* Tentatively apply the changes numbered NUM and up.
    Return 1 if all changes are valid, zero otherwise.  */
 
@@ -370,6 +398,10 @@ verify_changes (int num)
 	  if (! memory_address_p (GET_MODE (object), XEXP (object, 0)))
 	    break;
 	}
+      else if (flag_preserve_function_arguments
+	       && asm_noperands (PATTERN (object)) >= 0
+	       && invalid_asm_change (changes[i].old, *changes[i].loc))
+	break;
       else if (insn_invalid_p (object))
 	{
 	  rtx pat = PATTERN (object);

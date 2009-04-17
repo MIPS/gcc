@@ -119,6 +119,7 @@ extern void gimplify_body (tree *, tree, bool);
 extern void push_gimplify_context (void);
 extern void pop_gimplify_context (tree);
 extern void gimplify_and_add (tree, tree *);
+extern void force_gimplify_and_add (tree, tree *);
 
 /* Miscellaneous helpers.  */
 extern void gimple_add_tmp_var (tree);

@@ -260,7 +260,7 @@ extern int errno;
 #endif
 
 #ifndef _
-# define _(msgid) dgettext (PACKAGE, msgid)
+# define _(msgid) dgettext (PACKAGE PACKAGE_SUFFIX, msgid)
 #endif
 
 #ifndef N_

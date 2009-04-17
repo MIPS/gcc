@@ -6376,6 +6376,18 @@ gimplify_type_sizes (tree type, tree *list_p)
       /* These types may not have declarations, so handle them here.  */
       gimplify_type_sizes (TREE_TYPE (type), list_p);
       gimplify_type_sizes (TYPE_DOMAIN (type), list_p);
+      /* When not optimizing, ensure VLA bounds aren't removed.  */
+      if (!optimize
+	  && TYPE_DOMAIN (type)
+	  && INTEGRAL_TYPE_P (TYPE_DOMAIN (type)))
+	{
+	  t = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
+	  if (t && TREE_CODE (t) == VAR_DECL && DECL_ARTIFICIAL (t))
+	    DECL_IGNORED_P (t) = 0;
+	  t = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+	  if (t && TREE_CODE (t) == VAR_DECL && DECL_ARTIFICIAL (t))
+	    DECL_IGNORED_P (t) = 0;
+	}
       break;
 
     case RECORD_TYPE:
@@ -6478,6 +6490,7 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
 {
   location_t saved_location = input_location;
   tree body, parm_stmts;
+  bool empty_p;
 
   timevar_push (TV_TREE_GIMPLIFY);
 
@@ -6521,12 +6534,65 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
       body = b;
     }
 
+  empty_p = STATEMENT_LIST_HEAD (BIND_EXPR_BODY (body)) == NULL;
+
   /* If we had callee-copies statements, insert them at the beginning
      of the function.  */
   if (parm_stmts)
     {
       append_to_statement_list_force (BIND_EXPR_BODY (body), &parm_stmts);
       BIND_EXPR_BODY (body) = parm_stmts;
+    }
+
+  /* If we want to forcibly preserve function argument values, do so here.  */
+  if (flag_preserve_function_arguments
+      && !empty_p)
+    {
+      char s[1024] = "# ";
+      tree asmt, parm, inputs = NULL_TREE, stmts = NULL_TREE;
+      bool mem_p = false;
+      int i = 0;
+
+      sprintf (s + strlen(s), "%s ", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+      for (parm = DECL_ARGUMENTS (fndecl); parm ; parm = TREE_CHAIN (parm))
+	{
+	  tree pt = parm;
+	  tree type = TREE_TYPE (parm);
+	  /* Maybe build a fancy memory operand here.  For now just use
+	     a pointer input and let the operand scanner deal with the rest.  */
+	  if (TYPE_MODE (type) == BLKmode)
+	    {
+	      pt = build_fold_addr_expr (parm);
+	      type = TREE_TYPE (pt);
+	    }
+	  if (POINTER_TYPE_P (type))
+	    mem_p = true;
+	  sprintf (s + strlen(s), "%%%i ", i++);
+	  inputs = tree_cons (tree_cons (NULL_TREE, build_string (1, "g"),
+					 NULL_TREE), pt, inputs);
+	}
+
+      if (i != 0)
+	{
+	  /* While on the tree level we can do w/o explicit "memory"
+	     clobbering because we tweak the operand scanner, on RTL level
+	     we need it.  */
+	  tree clobbers = NULL_TREE;
+	  if (mem_p)
+	    clobbers = tree_cons (NULL_TREE, build_string (6, "memory"),
+				  NULL_TREE);
+	  asmt = build4 (ASM_EXPR, void_type_node,
+			 build_string (strlen (s), s),
+			 NULL_TREE,  /* no outputs */
+			 inputs, clobbers);
+	  ASM_VOLATILE_P (asmt) = 1;
+	  TREE_READONLY (asmt) = 1;
+	  gimplify_and_add (asmt, &stmts);
+
+	  append_to_statement_list_force (BIND_EXPR_BODY (body), &stmts);
+	  BIND_EXPR_BODY (body) = stmts;
+	}
     }
 
   /* Unshare again, in case gimplification was sloppy.  */
@@ -6695,6 +6761,22 @@ force_gimple_operand_bsi (block_stmt_iterator *bsi, tree expr,
     }
 
   return expr;
+}
+
+void
+force_gimplify_and_add (tree stmt, tree *list)
+{
+  tree t;
+  push_gimplify_context ();
+  gimplify_ctxp->into_ssa = gimple_in_ssa_p (cfun);
+  gimplify_ctxp->allow_rhs_cond_expr = true;
+  gimplify_and_add (stmt, list);
+  if (gimple_referenced_vars (cfun))
+    {
+      for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
+	add_referenced_var (t);
+    }
+  pop_gimplify_context (NULL);
 }
 
 #include "gt-gimplify.h"
