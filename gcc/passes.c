@@ -1308,6 +1308,9 @@ execute_one_pass (struct opt_pass *pass)
       debuglocus_bitmap_verify (dump_file,
 				&debuglocus_before, &debuglocus_after,
 				dump_flags);
+
+      bitmap_clear (&debuglocus_before);
+      bitmap_clear (&debuglocus_after);
     }
 
   do_per_function (update_properties_after_pass, pass);

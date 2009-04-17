@@ -1,3 +1,10 @@
+2009-04-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* debuglocus.c (destroy_debuglocus_table): Clear bitmap.
+	(debuglocus_bitmap_populate): Only initialize global bitmap once.
+	Add GTY marker to global_dl_bitmap.
+	* passes.c (execute_one_pass): Clear before and after bitmaps.
+
 2009-04-15  Andrew MacLeod  <amacleod@redhat.com>
 
 	* debuglocus.c (new_debuglocus_entry): Initialize new fields.

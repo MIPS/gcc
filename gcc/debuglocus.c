@@ -71,6 +71,9 @@ init_debuglocus_table (void)
 
 static GTY(()) debuglocus_table_t *debugtable = NULL;
 
+/* Debuglocus bitmap for entire translation unit.  */
+static GTY(()) bitmap_head global_dl_bitmap;
+
 /* Create the current debuglocus table.  */
 void
 create_debuglocus_table (void)
@@ -100,6 +103,8 @@ destroy_debuglocus_table (void)
       ggc_free (debugtable);
     }
   debugtable = NULL;
+
+  bitmap_clear (&global_dl_bitmap);
 }
 
 
@@ -661,9 +666,6 @@ dump_debuglocus_table (FILE *f, debuglocus_table_t *tab, bitmap before,
 /* Debuglocus verification routines.  */
 
 
-/* Debuglocus bitmap for entire translation unit.  */
-bitmap_head global_dl_bitmap;
-
 /* Callback WI info for the walkers.  */
 struct dlb_info
 {
@@ -741,6 +743,7 @@ debuglocus_bitmap_populate (bitmap b, FILE *dumpfile, bool before_pass_p)
   tree func;
   struct walk_stmt_info wi;
   struct dlb_info dlb;
+  static bool global_bitmap_initialized = false;
 
   bitmap_initialize (b, NULL);
 
@@ -759,8 +762,11 @@ debuglocus_bitmap_populate (bitmap b, FILE *dumpfile, bool before_pass_p)
   if (DECL_SAVED_TREE (func) != NULL)
     return;
 
-  if (bitmap_empty_p (&global_dl_bitmap))
-    bitmap_initialize (&global_dl_bitmap, NULL);
+  if (!global_bitmap_initialized)
+    {
+      global_bitmap_initialized = true;
+      bitmap_initialize (&global_dl_bitmap, NULL);
+    }
 
   /* If the CFG has been built, traverse the CFG.  */
   if (cfun->cfg && basic_block_info)
