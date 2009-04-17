@@ -3,6 +3,21 @@
 	* DEV-PHASE: Set to IBM Advanced-Toolchain, prerelease.
 	* REVISION: Set to [merged from gcc-4_3-branch, svn 146202].
 
+	Apply the patches from the opensuse toolchain
+	cross-ppc64-gcc-icecream-backend-4.3.3_20081022-9.3:
+	* ../patches/patch-003-gcc-noalias-warn.diff
+	* ../patches/patch-004-gcc-add-defaultsspec.diff
+	* ../patches/patch-005-boehm-gc-strict-aliasing.patch
+	* ../patches/patch-007-acats-timeout.patch
+	* ../patches/patch-010-program-transform-name.diff
+	* ../patches/patch-011-program-transform-name-tools.diff
+	* ../patches/patch-012-gcc4-ppc64-m32-m64-multilib-only.patch
+	* ../patches/patch-022-libjava-no-static.diff
+	* ../patches/patch-023-libjava-no-multilib.diff
+	* ../patches/patch-024-tls-no-direct.diff
+	* ../patches/patch-025-pr27880.diff
+	* ../patches/patch-028-pr33763.diff
+
 2009-04-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* Changelog.power7: Copy of the Changelog from the 4.5 development

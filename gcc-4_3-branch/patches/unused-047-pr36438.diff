@@ -1,0 +1,46 @@
+2008-06-06 Uros Bizjak <ubizjak@gmail.com>
+
+	PR rtl-optimization/36438
+	* cse.c (fold_rtx) [ASHIFT, LSHIFTRT, ASHIFTRT]: Break out early
+	for vector shifts with constant scalar shift operands.
+ 
+Index: gcc/testsuite/gcc.target/i386/pr36438.c
+===================================================================
+--- gcc/testsuite/gcc.target/i386/pr36438.c	(revision 0)
++++ gcc/testsuite/gcc.target/i386/pr36438.c	(revision 136486)
+@@ -0,0 +1,19 @@
++/* { dg-do compile } */
++/* { dg-options "-O2 -mmmx" } */
++
++#include <mmintrin.h>
++
++extern __m64 SetS16 (unsigned short, unsigned short,
++		     unsigned short, unsigned short);
++
++void foo(__m64* dest)
++{
++  __m64 mask = SetS16 (0x00FF, 0xFF00, 0x0000, 0x00FF);
++
++  mask = _mm_slli_si64(mask, 8);
++  mask = _mm_slli_si64(mask, 8);
++
++  *dest = mask;
++
++  _mm_empty ();
++}
+Index: gcc/cse.c
+===================================================================
+--- gcc/cse.c	(revision 136485)
++++ gcc/cse.c	(revision 136486)
+@@ -3489,6 +3489,11 @@ fold_rtx (rtx x, rtx insn)
+ 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)))
+ 		break;
+ 
++	      /* ??? Vector mode shifts by scalar
++		 shift operand are not supported yet.  */
++	      if (is_shift && VECTOR_MODE_P (mode))
++                break;
++
+ 	      if (is_shift
+ 		  && (INTVAL (inner_const) >= GET_MODE_BITSIZE (mode)
+ 		      || INTVAL (inner_const) < 0))

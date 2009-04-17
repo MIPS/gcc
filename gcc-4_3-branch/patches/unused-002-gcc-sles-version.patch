@@ -1,0 +1,35 @@
+Index: gcc/Makefile.in
+===================================================================
+*** gcc/Makefile.in	2008-09-01 15:17:38.000000000 +0200
+--- gcc/Makefile.in	2008-09-01 15:19:49.000000000 +0200
+*************** gcc-options.o: options.c $(CONFIG_H) $(S
+*** 1919,1932 ****
+  dumpvers: dumpvers.c
+  
+  ifdef REVISION_s
+! version.o: version.c version.h $(REVISION) $(DATESTAMP) $(FULLVER) $(DEVPHASE)
+  else
+! version.o: version.c version.h $(DATESTAMP) $(FULLVER) $(DEVPHASE)
+  endif
+  	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+! 	-DBASEVER=$(FULLVER_s) -DDATESTAMP=$(DATESTAMP_s) \
+  	-DREVISION=$(REVISION_s) \
+! 	-DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
+  	-DBUGURL=$(BUGURL_s) -c $(srcdir)/version.c $(OUTPUT_OPTION)
+  
+  gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+--- 1919,1932 ----
+  dumpvers: dumpvers.c
+  
+  ifdef REVISION_s
+! version.o: version.c version.h $(REVISION) $(DATESTAMP) $(FULLVER) $(DEVPHASE)
+  else
+! version.o: version.c version.h $(DATESTAMP) $(FULLVER) $(DEVPHASE)
+  endif
+  	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+! 	-DBASEVER=$(FULLVER_s) -DDATESTAMP="" \
+  	-DREVISION=$(REVISION_s) \
+! 	-DDEVPHASE="" -DPKGVERSION=$(PKGVERSION_s) \
+  	-DBUGURL=$(BUGURL_s) -c $(srcdir)/version.c $(OUTPUT_OPTION)
+  
+  gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \

@@ -1,0 +1,379 @@
+2008-02-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34043
+	PR tree-optimization/33989
+	* tree-ssa-pre.c (get_sccvn_value): Build a value handle for
+	to be inserted expressions.
+	(substitute_leaders_in_expr): New function.
+	(eliminate): If we do not have a fully redundant leader but
+	can insert an alternate simplified expression, do so with all
+	operands replaced with their leader.
+	* tree-ssa-sccvn.h (struct vn_ssa_aux): Add needs_insertion flag.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Value-number
+	union member access based on its size, not type and member.
+	(visit_reference_op_load): For a weak match from union type
+	punning create a fake SSA_NAME to attach a value-number for
+	the result VIEW_CONVERTed to the correct type.
+	(free_scc_vn): Release fake SSA_NAMEs again.
+
+	* gcc.dg/tree-ssa/ssa-fre-7.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-fre-8.c: Likewise.
+
+Index: gcc-4.3.2-20080715/gcc/tree-ssa-pre.c
+===================================================================
+*** gcc-4.3.2-20080715.orig/gcc/tree-ssa-pre.c	2008-07-15 15:13:10.000000000 +0200
+--- gcc-4.3.2-20080715/gcc/tree-ssa-pre.c	2008-07-15 15:14:23.000000000 +0200
+*************** clear_expression_ids (void)
+*** 284,290 ****
+    VEC_free (vuse_vec, heap, expression_vuses);
+  }
+  
+! static bool in_fre = false;
+  
+  /* An unordered bitmap set.  One bitmap tracks values, the other,
+     expressions.  */
+--- 284,290 ----
+    VEC_free (vuse_vec, heap, expression_vuses);
+  }
+  
+! bool in_fre = false;
+  
+  /* An unordered bitmap set.  One bitmap tracks values, the other,
+     expressions.  */
+*************** get_sccvn_value (tree name)
+*** 3244,3254 ****
+        bool is_invariant = is_gimple_min_invariant (val);
+        tree valvh = !is_invariant ? get_value_handle (val) : NULL_TREE;
+  
+        /* We may end up with situations where SCCVN has chosen a
+  	 representative for the equivalence set that we have not
+  	 visited yet.  In this case, just create the value handle for
+  	 it.  */
+!       if (!valvh && !is_invariant)
+  	{
+  	  tree defstmt = SSA_NAME_DEF_STMT (val);
+  
+--- 3244,3259 ----
+        bool is_invariant = is_gimple_min_invariant (val);
+        tree valvh = !is_invariant ? get_value_handle (val) : NULL_TREE;
+  
++       /* In the case SCCVN has created a dummy SSA_NAME to value
++ 	 number a simplified expression, just create a value handle
++ 	 for it.  */
++       if (!valvh && !is_invariant && VN_INFO (val)->needs_insertion)
++ 	valvh = vn_lookup_or_add (VN_INFO (val)->expr);
+        /* We may end up with situations where SCCVN has chosen a
+  	 representative for the equivalence set that we have not
+  	 visited yet.  In this case, just create the value handle for
+  	 it.  */
+!       else if (!valvh && !is_invariant)
+  	{
+  	  tree defstmt = SSA_NAME_DEF_STMT (val);
+  
+*************** compute_avail (void)
+*** 3597,3602 ****
+--- 3602,3655 ----
+    free (worklist);
+  }
+  
++ /* Substitutes leaders for all operands in EXPR supposed to replace
++    the rhs of STMT in basic-block BB.
++    Returns an available expression if that succeeds, NULL_TREE otherwise.  */
++ 
++ static tree
++ substitute_leaders_in_expr (basic_block bb, tree stmt, tree expr)
++ {
++   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
++     {
++     case tcc_reference:
++       if (TREE_CODE (expr) != VIEW_CONVERT_EXPR
++ 	  && TREE_CODE (expr) != REALPART_EXPR
++ 	  && TREE_CODE (expr) != IMAGPART_EXPR)
++ 	return NULL_TREE;
++ 
++       /* Fallthrough.  */
++     case tcc_unary:
++       if (is_gimple_min_invariant (TREE_OPERAND (expr, 0)))
++ 	return expr;
++       if (TREE_CODE (TREE_OPERAND (expr, 0)) == SSA_NAME)
++         {
++ 	  tree def_stmt;
++ 	  tree tmp = get_value_handle (TREE_OPERAND (expr, 0));
++ 	  tmp = bitmap_find_leader (AVAIL_OUT (bb), tmp);
++ 	  if (!tmp)
++ 	    return NULL_TREE;
++ 	  /* tmp can still be unavailable if it is defined in the same
++ 	     basic-block, but after stmt.  libgomp.fortran/retval1.f90:f5  */
++ 	  def_stmt = SSA_NAME_DEF_STMT (tmp);
++ 	  if (def_stmt
++ 	      && TREE_CODE (def_stmt) != PHI_NODE
++ 	      && bb_for_stmt (def_stmt) == bb)
++ 	    {
++ 	      block_stmt_iterator bsi = bsi_start (bb);
++ 	      while (bsi_stmt (bsi) != def_stmt)
++ 		{
++ 		  if (bsi_stmt (bsi) == stmt)
++ 		    return NULL_TREE;
++ 		  bsi_next (&bsi);
++ 		}
++ 	    }
++ 	  return build1 (TREE_CODE (expr), TREE_TYPE (expr), tmp);
++ 	}
++ 
++     default:;
++     }
++   return NULL_TREE;
++ }
+  
+  /* Eliminate fully redundant computations.  */
+  
+*************** eliminate (void)
+*** 3629,3634 ****
+--- 3682,3703 ----
+  	      sprime = bitmap_find_leader (AVAIL_OUT (b),
+  					   get_value_handle (lhs));
+  
++ 	      /* If we didn't find a leader but have an expression
++ 		 we can insert, use that as replacement.  */
++ 	      if (sprime
++ 		  && sprime == lhs
++ 		  && VN_INFO (lhs)->valnum != VN_TOP
++ 		  /* Instead of VN_TOP we also can end up with a
++ 		     constant value.  g++.dg/opt/reload1.C  */
++ 		  && TREE_CODE (VN_INFO (lhs)->valnum) == SSA_NAME
++ 		  && VN_INFO (VN_INFO (lhs)->valnum)->needs_insertion)
++ 		{
++ 		  tree tmp = VN_INFO (VN_INFO (lhs)->valnum)->expr;
++ 		  tmp = substitute_leaders_in_expr (b, stmt, tmp);
++ 		  if (tmp)
++ 		    sprime = tmp;
++ 		}
++ 
+  	      if (sprime
+  		  && sprime != lhs
+  		  && (TREE_CODE (*rhs_p) != SSA_NAME
+Index: gcc-4.3.2-20080715/gcc/tree-ssa-sccvn.c
+===================================================================
+*** gcc-4.3.2-20080715.orig/gcc/tree-ssa-sccvn.c	2008-07-15 15:13:10.000000000 +0200
+--- gcc-4.3.2-20080715/gcc/tree-ssa-sccvn.c	2008-07-15 15:17:01.000000000 +0200
+*************** along with GCC; see the file COPYING3.
+*** 103,108 ****
+--- 103,110 ----
+     structure copies.
+  */
+  
++ extern bool in_fre;
++ 
+  /* The set of hashtables and alloc_pool's for their items.  */
+  
+  typedef struct vn_tables_s
+*************** copy_reference_ops_from_ref (tree ref, V
+*** 538,546 ****
+  	  temp.op1 = TREE_OPERAND (ref, 2);
+  	  break;
+  	case COMPONENT_REF:
+! 	  /* Record field as operand.  */
+! 	  temp.op0 = TREE_OPERAND (ref, 1);
+! 	  temp.op1 = TREE_OPERAND (ref, 2);
+  	  break;
+  	case ARRAY_RANGE_REF:
+  	case ARRAY_REF:
+--- 540,562 ----
+  	  temp.op1 = TREE_OPERAND (ref, 2);
+  	  break;
+  	case COMPONENT_REF:
+! 	  /* If this is a reference to a union member, record the union
+! 	     member size as operand.  */
+! 	  if (in_fre
+! 	      && TREE_CODE (DECL_CONTEXT (TREE_OPERAND (ref, 1))) == UNION_TYPE
+! 	      && integer_zerop (DECL_FIELD_OFFSET (TREE_OPERAND (ref, 1)))
+! 	      && integer_zerop (DECL_FIELD_BIT_OFFSET (TREE_OPERAND (ref, 1)))
+! 	      && !TREE_OPERAND (ref, 2))
+! 	    {
+! 	      temp.type = NULL_TREE;
+! 	      temp.op0 = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (ref, 1)));
+! 	    }
+! 	  else
+! 	    {
+! 	      /* Record field as operand.  */
+! 	      temp.op0 = TREE_OPERAND (ref, 1);
+! 	      temp.op1 = TREE_OPERAND (ref, 2);
+! 	    }
+  	  break;
+  	case ARRAY_RANGE_REF:
+  	case ARRAY_REF:
+*************** defs_to_varying (tree stmt)
+*** 1109,1114 ****
+--- 1125,1133 ----
+    return changed;
+  }
+  
++ static tree
++ try_to_simplify (tree stmt, tree rhs);
++ 
+  /* Visit a copy between LHS and RHS, return true if the value number
+     changed.  */
+  
+*************** visit_reference_op_load (tree lhs, tree
+*** 1181,1188 ****
+    bool changed = false;
+    tree result = vn_reference_lookup (op, shared_vuses_from_stmt (stmt));
+  
+!   if (result)
+!     {
+        changed = set_ssa_val_to (lhs, result);
+      }
+    else
+--- 1200,1252 ----
+    bool changed = false;
+    tree result = vn_reference_lookup (op, shared_vuses_from_stmt (stmt));
+  
+!   /* We handle type-punning through unions by value-numbering based
+!      on offset and size of the access.  Be prepared to handle a
+!      type-mismatch here via creating a VIEW_CONVERT_EXPR.
+!      Do this only after the iteration converged as introducing new
+!      SSA_NAMEs will let it never finish otherwise.  */
+!   if (result
+!       && (useless_type_conversion_p (TREE_TYPE (result), TREE_TYPE (op))
+! 	  || current_info == valid_info))
+!     {
+!       if (!useless_type_conversion_p (TREE_TYPE (result), TREE_TYPE (op)))
+! 	{
+! 	  tree val = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (op),
+! 				  result);
+! 	  /* Make sure to simplify with earlier conversions as otherwise
+! 	     our dummy SSA_NAMEs start to leak all over.  */
+! 	  if (TREE_CODE (val) == VIEW_CONVERT_EXPR)
+! 	    {
+! 	      tree tem = try_to_simplify (stmt, val);
+! 	      if (tem)
+! 		val = tem;
+! 	    }
+! 	  result = val;
+! 	  if (result != lhs
+! 	      && !is_gimple_min_invariant (val)
+! 	      && TREE_CODE (val) != SSA_NAME)
+! 	    /* Finally do a lookup to not create redundant conversions.  */
+! 	    result = vn_unary_op_lookup (val);
+! 	  if (!result)
+! 	    {
+! 	      /* Create a new temporary SSA_NAME to attach the
+! 		 conversion expression to.  */
+! 	      result = make_ssa_name (SSA_NAME_VAR (lhs), NULL_TREE);
+! 	      VN_INFO_GET (result)->valnum = result;
+! 	      VN_INFO (result)->expr = val;
+! 	      VN_INFO (result)->needs_insertion = true;
+! 	      /* And insert the conversion so we can find it later.  */
+! 	      vn_unary_op_insert (val, result);
+! 	      if (dump_file && (dump_flags & TDF_DETAILS))
+! 		{
+! 		  fprintf (dump_file, "Inserting name ");
+! 		  print_generic_expr (dump_file, result, 0);
+! 		  fprintf (dump_file, " for expression ");
+! 		  print_generic_expr (dump_file, val, 0);
+! 		  fprintf (dump_file, "\n");
+! 		}
+! 	    }
+! 	}
+        changed = set_ssa_val_to (lhs, result);
+      }
+    else
+*************** free_scc_vn (void)
+*** 2140,2145 ****
+--- 2204,2212 ----
+  	  if (SSA_NAME_VALUE (name) &&
+  	      TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
+  	    SSA_NAME_VALUE (name) = NULL;
++ 	  if (name
++ 	      && VN_INFO (name)->needs_insertion)
++ 	    release_ssa_name (name);
+  	}
+      }
+  
+Index: gcc-4.3.2-20080715/gcc/tree-ssa-sccvn.h
+===================================================================
+*** gcc-4.3.2-20080715.orig/gcc/tree-ssa-sccvn.h	2008-02-19 10:55:59.000000000 +0100
+--- gcc-4.3.2-20080715/gcc/tree-ssa-sccvn.h	2008-07-15 15:14:23.000000000 +0200
+*************** typedef struct vn_ssa_aux
+*** 44,49 ****
+--- 44,53 ----
+       once.  It cannot be used to avoid visitation for SSA_NAME's
+       involved in non-singleton SCC's.  */
+    unsigned use_processed : 1;
++ 
++   /* True, if this SSA_NAME doesn't have a defining statement.
++      Insertion of such with expr or replacement with expr is necessary.  */
++   unsigned needs_insertion : 1;
+  } *vn_ssa_aux_t;
+  
+  /* Return the value numbering info for an SSA_NAME.  */
+Index: gcc-4.3.2-20080715/gcc/testsuite/gcc.dg/tree-ssa/ssa-fre-7.c
+===================================================================
+*** /dev/null	1970-01-01 00:00:00.000000000 +0000
+--- gcc-4.3.2-20080715/gcc/testsuite/gcc.dg/tree-ssa/ssa-fre-7.c	2008-07-15 15:14:23.000000000 +0200
+***************
+*** 0 ****
+--- 1,30 ----
++ /* { dg-do compile } */
++ /* { dg-options "-O -fdump-tree-fre-details -fdump-tree-optimized" } */
++ 
++ struct X {
++   int i;
++   union {
++     int j;
++     int k;
++     float f;
++   } u;
++ };
++ 
++ int foo(int j)
++ {
++   struct X a;
++ 
++   a.u.j = j;
++   a.u.f = a.u.f;
++   a.u.f = a.u.f;
++   a.u.j = a.u.j;
++   a.u.f = a.u.f;
++   return a.u.k;
++ }
++ 
++ /* { dg-final { scan-tree-dump "Replaced a.u.f with VIEW_CONVERT_EXPR" "fre" } } */
++ /* { dg-final { scan-tree-dump "Replaced a.u.j with j" "fre" } } */
++ /* { dg-final { scan-tree-dump "Replaced a.u.k with j" "fre" } } */
++ /* { dg-final { scan-tree-dump "return j" "optimized" } } */
++ /* { dg-final { cleanup-tree-dump "fre" } } */
++ /* { dg-final { cleanup-tree-dump "optimized" } } */
+Index: gcc-4.3.2-20080715/gcc/testsuite/gcc.dg/tree-ssa/ssa-fre-8.c
+===================================================================
+*** /dev/null	1970-01-01 00:00:00.000000000 +0000
+--- gcc-4.3.2-20080715/gcc/testsuite/gcc.dg/tree-ssa/ssa-fre-8.c	2008-07-15 15:14:23.000000000 +0200
+***************
+*** 0 ****
+--- 1,26 ----
++ /* { dg-do compile } */
++ /* { dg-options "-O -fdump-tree-fre-details" } */
++ 
++ union U {
++   int i;
++   float f;
++ };
++ int foo(int i, int b)
++ {
++   union U u;
++   if (b)
++     {
++       i = i << 2;
++       u.i = i;
++       return u.f;
++     }
++   else
++     {
++       i = i << 2;
++       u.i = i;
++       return u.f;
++     }
++ }
++ 
++ /* { dg-final { scan-tree-dump-times "Replaced u.f with VIEW_CONVERT_EXPR" 2 "fre" } } */
++ /* { dg-final { cleanup-tree-dump "fre" } } */

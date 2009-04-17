@@ -1,0 +1,118 @@
+2008-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/34037
+	* gimplify.c (gimplify_type_sizes): When not optimizing, ensure
+	TYPE_MIN_VALUE and TYPE_MAX_VALUE is not is not DECL_IGNORED_P
+	VAR_DECL.
+	* cfgexpand.c (expand_used_vars): Keep DECL_ARTIFICIAL
+	!DECL_IGNORED_P vars in unexpanded_var_list list for instantiate_decls,
+	ggc_free other TREE_LIST nodes from that chain.
+	* function.c (instantiate_decls): Instantiate also DECL_RTL
+	of vars in cfun->unexpanded_var_list, free that list afterwards.
+
+--- gcc/gimplify.c.jj	2008-09-10 20:50:11.000000000 +0200
++++ gcc/gimplify.c	2008-09-11 13:54:22.000000000 +0200
+@@ -7105,6 +7105,18 @@ gimplify_type_sizes (tree type, gimple_s
+       /* These types may not have declarations, so handle them here.  */
+       gimplify_type_sizes (TREE_TYPE (type), list_p);
+       gimplify_type_sizes (TYPE_DOMAIN (type), list_p);
++      /* When not optimizing, ensure VLA bounds aren't removed.  */
++      if (!optimize
++	  && TYPE_DOMAIN (type)
++	  && INTEGRAL_TYPE_P (TYPE_DOMAIN (type)))
++	{
++	  t = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
++	  if (t && TREE_CODE (t) == VAR_DECL && DECL_ARTIFICIAL (t))
++	    DECL_IGNORED_P (t) = 0;
++	  t = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
++	  if (t && TREE_CODE (t) == VAR_DECL && DECL_ARTIFICIAL (t))
++	    DECL_IGNORED_P (t) = 0;
++	}
+       break;
+ 
+     case RECORD_TYPE:
+--- gcc/cfgexpand.c.jj	2008-09-09 16:08:04.000000000 +0200
++++ gcc/cfgexpand.c	2008-09-11 15:01:00.000000000 +0200
+@@ -1440,7 +1440,7 @@ estimated_stack_frame_size (void)
+ static void
+ expand_used_vars (void)
+ {
+-  tree t, outer_block = DECL_INITIAL (current_function_decl);
++  tree t, next, outer_block = DECL_INITIAL (current_function_decl);
+ 
+   /* Compute the phase of the stack frame for this function.  */
+   {
+@@ -1453,11 +1453,15 @@ expand_used_vars (void)
+ 
+   /* At this point all variables on the unexpanded_var_list with TREE_USED
+      set are not associated with any block scope.  Lay them out.  */
+-  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
++  t = cfun->unexpanded_var_list;
++  cfun->unexpanded_var_list = NULL_TREE;
++  for (; t; t = next)
+     {
+       tree var = TREE_VALUE (t);
+       bool expand_now = false;
+ 
++      next = TREE_CHAIN (t);
++
+       /* We didn't set a block for static or extern because it's hard
+ 	 to tell the difference between a global variable (re)declared
+ 	 in a local scope, and one that's really declared there to
+@@ -1484,9 +1488,25 @@ expand_used_vars (void)
+       TREE_USED (var) = 1;
+ 
+       if (expand_now)
+-	expand_one_var (var, true, true);
++	{
++	  expand_one_var (var, true, true);
++	  if (DECL_ARTIFICIAL (var) && !DECL_IGNORED_P (var))
++	    {
++	      rtx rtl = DECL_RTL_IF_SET (var);
++
++	      /* Keep artificial non-ignored vars in cfun->unexpanded_var_list
++		 chain until instantiate_decls.  */
++	      if (rtl && (MEM_P (rtl) || GET_CODE (rtl) == CONCAT))
++		{
++		  TREE_CHAIN (t) = cfun->unexpanded_var_list;
++		  cfun->unexpanded_var_list = t;
++		  continue;
++		}
++	    }
++	}
++
++      ggc_free (t);
+     }
+-  cfun->unexpanded_var_list = NULL_TREE;
+ 
+   /* At this point, all variables within the block tree with TREE_USED
+      set are actually used by the optimized function.  Lay them out.  */
+--- gcc/function.c.jj	2008-09-09 21:13:24.000000000 +0200
++++ gcc/function.c	2008-09-11 14:56:47.000000000 +0200
+@@ -1645,7 +1645,7 @@ instantiate_decls_1 (tree let)
+ static void
+ instantiate_decls (tree fndecl)
+ {
+-  tree decl;
++  tree decl, t, next;
+ 
+   /* Process all parameters of the function.  */
+   for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
+@@ -1661,6 +1661,17 @@ instantiate_decls (tree fndecl)
+ 
+   /* Now process all variables defined in the function or its subblocks.  */
+   instantiate_decls_1 (DECL_INITIAL (fndecl));
++
++  t = cfun->unexpanded_var_list;
++  cfun->unexpanded_var_list = NULL_TREE;
++  for (; t; t = next)
++    {
++      next = TREE_CHAIN (t);
++      decl = TREE_VALUE (t);
++      if (DECL_RTL_SET_P (decl))
++	instantiate_decl_rtl (DECL_RTL (decl));
++      ggc_free (t);
++    }
+ }
+ 
+ /* Pass through the INSNS of function FNDECL and convert virtual register

@@ -1,0 +1,49 @@
+2008-09-11  Janis Johnson  <janis187@us.ibm.com>
+
+        * ginclude/float.h (DEC_EVAL_METHOD): Correct the macro name.
+
+2008-09-11  Janis Johnson  <janis187@us.ibm.com>
+
+        * gcc.dg/dfp/dec-eval-method-2.c: New test.
+
+Index: gcc/ginclude/float.h
+===================================================================
+--- gcc/ginclude/float.h	(revision 140300)
++++ gcc/ginclude/float.h	(revision 140301)
+@@ -233,8 +233,8 @@
+ 	 2  evaluate all operations and constants to the range and
+ 	    precision of the _Decimal128 type.  */
+ 
+-#undef DECFLT_EVAL_METHOD
+-#define DECFLT_EVAL_METHOD	__DECFLT_EVAL_METHOD__
++#undef DEC_EVAL_METHOD
++#define DEC_EVAL_METHOD	__DEC_EVAL_METHOD__
+ 
+ #endif /* __STDC_WANT_DEC_FP__ */
+ 
+Index: gcc/testsuite/gcc.dg/dfp/dec-eval-method-2.c
+===================================================================
+--- gcc/testsuite/gcc.dg/dfp/dec-eval-method-2.c	(revision 0)
++++ gcc/testsuite/gcc.dg/dfp/dec-eval-method-2.c	(revision 140301)
+@@ -0,0 +1,20 @@
++/* { dg-do compile } */
++/* { dg-options "-std=gnu99 -D__STDC_WANT_DEC_FP__" } */
++                                                                                
++/* N1107 4: Characteristics of decimal floating types <float.h>.
++   C99 5.2.4.2.2a[2] (New).
++
++   Verify that DEC_EVAL_METHOD is defined by float.h.
++   DEC_EVAL_METHOD in <float.h>.  */
++
++#ifdef DEC_EVAL_METHOD
++#error DEC_EVAL_METHOD is defined before float.h is included
++#endif
++
++#include <float.h>
++
++#ifndef DEC_EVAL_METHOD
++#error DEC_EVAL_METHOD is not defined after float.h is included
++#endif
++
++int i;
+

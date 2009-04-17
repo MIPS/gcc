@@ -1,0 +1,37 @@
+2008-03-07  Peter Bergner  <bergner@vnet.ibm.com>
+
+        PR target/35373
+        * config/rs6000/rs6000.c (rs6000_legitimize_address): Don't generate
+        reg+const addressing for Altivec modes.  Don't generate reg+reg
+        addressing for TFmode or TDmode quantities.
+
+
+Index: gcc/config/rs6000/rs6000.c
+===================================================================
+--- gcc/config/rs6000/rs6000.c	(revision 140242)
++++ gcc/config/rs6000/rs6000.c	(working copy)
+@@ -3582,6 +3582,7 @@ rs6000_legitimize_address (rtx x, rtx ol
+       && GET_CODE (XEXP (x, 1)) == CONST_INT
+       && (unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1)) + 0x8000) >= 0x10000
+       && !(SPE_VECTOR_MODE (mode)
++	   || ALTIVEC_VECTOR_MODE (mode)
+ 	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
+ 				      || mode == DImode))))
+     {
+@@ -3599,11 +3600,12 @@ rs6000_legitimize_address (rtx x, rtx ol
+ 	   && GET_MODE_NUNITS (mode) == 1
+ 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
+ 	       || TARGET_POWERPC64
+-	       || (((mode != DImode && mode != DFmode && mode != DDmode)
+-		    || TARGET_E500_DOUBLE)
+-		   && mode != TFmode && mode != TDmode))
++	       || ((mode != DImode && mode != DFmode && mode != DDmode)
++		   || TARGET_E500_DOUBLE))
+ 	   && (TARGET_POWERPC64 || mode != DImode)
+-	   && mode != TImode)
++	   && mode != TImode
++	   && mode != TFmode
++	   && mode != TDmode)
+     {
+       return gen_rtx_PLUS (Pmode, XEXP (x, 0),
+ 			   force_reg (Pmode, force_operand (XEXP (x, 1), 0)));

@@ -1,0 +1,153 @@
+From gcc-patches-return-222581-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org Thu Jul 17 13:26:59 2008
+Return-Path: <gcc-patches-return-222581-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org>
+Delivered-To: listarch-gcc-patches at gcc dot gnu dot org
+Received: (qmail 6018 invoked by alias); 17 Jul 2008 13:26:59 -0000
+Received: (qmail 6009 invoked by uid 22791); 17 Jul 2008 13:26:58 -0000
+X-Spam-Check-By: sourceware.org
+Received: from mtagate2.de.ibm.com (HELO mtagate2.de.ibm.com) (195.212.29.151)     by sourceware.org (qpsmtpd/0.31) with ESMTP; Thu, 17 Jul 2008 13:26:36 +0000
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49]) 	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id m6HDQDBh031310 	for <gcc-patches@gcc.gnu.org>; Thu, 17 Jul 2008 13:26:13 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228]) 	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6HDQCxe1204464 	for <gcc-patches@gcc.gnu.org>; Thu, 17 Jul 2008 15:26:12 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6HDQCvp021794 	for <gcc-patches@gcc.gnu.org>; Thu, 17 Jul 2008 15:26:12 +0200
+Received: from lc4eb0107015440.ibm.com (dyn-9-152-216-65.boeblingen.de.ibm.com [9.152.216.65]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with SMTP id m6HDQB7A021766 	for <gcc-patches@gcc.gnu.org>; Thu, 17 Jul 2008 15:26:11 +0200
+Received: by lc4eb0107015440.ibm.com (sSMTP sendmail emulation); Thu, 17 Jul 2008 15:26:11 +0200
+From: "Andreas Krebbel" <Andreas dot Krebbel at de dot ibm dot com>
+Date: Thu, 17 Jul 2008 15:26:11 +0200
+To: gcc-patches at gcc dot gnu dot org
+Subject: [PATCH] PR36822 recog: Reorder extra memory constraint checks for inline assemblies
+Message-ID: <20080717132611.GA27503@homer.boeblingen.de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+User-Agent: Mutt/1.4.2.2i
+Mailing-List: contact gcc-patches-help at gcc dot gnu dot org; run by ezmlm
+Precedence: bulk
+List-Id: <gcc-patches.gcc.gnu.org>
+List-Archive: <http://gcc.gnu.org/ml/gcc-patches/>
+List-Post: <mailto:gcc-patches at gcc dot gnu dot org>
+List-Help: <mailto:gcc-patches-help at gcc dot gnu dot org>
+Sender: gcc-patches-owner at gcc dot gnu dot org
+Delivered-To: mailing list gcc-patches at gcc dot gnu dot org
+
+Hello,
+
+in order to get the best out of reload a back end might want to define
+the most generic extra memory constraint to actually accept more than
+the addresses accepted by GO_IF_LEGITIMATE_ADDRESS and the 'm'
+constraint.
+
+The reason for this is the way reload performs modifications in the
+RTL stream.  It first just records the changes for an insn in
+separated data structures without actually changing the INSN.  After a
+reload for a part of an address has been pushed. An extra memory
+constraints still might get evaluated for the original address (which
+has already been fixed at this point).  Unfortunately the fix is not
+visible to the back end (without using find_replacement hacks).  So
+e.g. the 'R' constraint on S/390 basically accepts everything wrapped
+into a MEM rtx although the documentation says that it only accepts
+base+index+12bit displacement.  Performance measurements have proven
+that a stricter check here has a negative impact which is caused by
+worse exploitation of the address formats.
+
+This usually doesn't hurt since reload fixes all addresses not passing
+GO_IF_LEGITIMATE_ADDRESS before looking at any constraints.
+
+While recognizing "normal" INSN patterns the predicate would make sure
+that adresses do at least pass GO_IF_LEGITIMATE_ADDRESS.  But this
+does not happen for inline assemblies.  If a back end defines an extra
+memory constraint more general than GO_IF_LEGITIMATE_ADDRESS
+optimizers like combine feel free to build arbitrarily complex MEM
+RTXs into asm parameters which even reload is not able to fix.  In
+order to prevent this recog should make sure that when matching an
+extra memory constraint for an inline assembly that the parameter at
+least passes the most generic checks for memory and address operands.
+This somewhat limits the creativity of combine in those cases.
+
+The attached patch just changes the order of the existing checks in
+asm_operand_ok in order to make sure that we don't accept arbitrary
+RTXs just because the back end says its ok for a certain extra memory
+constraint.  For extra memory constraint we only have to make sure
+that the address can be handled by reload.  Everything that passes
+memory_operand or address_operand should be ok then.
+
+Boostrapped on x86_64, s390 and s390x. This fixes the included
+testcase on s390x.
+
+OK for mainline?
+
+Bye,
+
+-Andreas-
+
+
+2008-07-17  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/36822
+	* recog.c (asm_operand_ok): Change the order of the extra
+	memory constraint checks.
+
+2008-07-17  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/36822
+	* gcc.target/s390/pr36822.c: New testcase.
+
+Index: gcc/recog.c
+===================================================================
+*** gcc/recog.c.orig	2008-07-16 16:55:35.000000000 +0200
+--- gcc/recog.c	2008-07-17 08:20:58.000000000 +0200
+*************** asm_operand_ok (rtx op, const char *cons
+*** 1686,1701 ****
+  		result = 1;
+  	    }
+  #ifdef EXTRA_CONSTRAINT_STR
+  	  else if (EXTRA_CONSTRAINT_STR (op, c, constraint))
+  	    result = 1;
+- 	  else if (EXTRA_MEMORY_CONSTRAINT (c, constraint)
+- 		   /* Every memory operand can be reloaded to fit.  */
+- 		   && memory_operand (op, VOIDmode))
+- 	    result = 1;
+- 	  else if (EXTRA_ADDRESS_CONSTRAINT (c, constraint)
+- 		   /* Every address operand can be reloaded to fit.  */
+- 		   && address_operand (op, VOIDmode))
+- 	    result = 1;
+  #endif
+  	  break;
+  	}
+--- 1686,1699 ----
+  		result = 1;
+  	    }
+  #ifdef EXTRA_CONSTRAINT_STR
++ 	  else if (EXTRA_MEMORY_CONSTRAINT (c, constraint))
++ 	    /* Every memory operand can be reloaded to fit.  */
++ 	    result = result || memory_operand (op, VOIDmode);
++ 	  else if (EXTRA_ADDRESS_CONSTRAINT (c, constraint))
++ 	    /* Every address operand can be reloaded to fit.  */
++ 	    result = result || address_operand (op, VOIDmode);
+  	  else if (EXTRA_CONSTRAINT_STR (op, c, constraint))
+  	    result = 1;
+  #endif
+  	  break;
+  	}
+Index: gcc/testsuite/gcc.target/s390/pr36822.c
+===================================================================
+*** /dev/null	1970-01-01 00:00:00.000000000 +0000
+--- gcc/testsuite/gcc.target/s390/pr36822.c	2008-07-17 08:20:58.000000000 +0200
+***************
+*** 0 ****
+--- 1,16 ----
++ /* This used to ICE on s390 due to bug in the definition of the 'R'
++    constraint which replaced the 'm' constraint (together with 'T')
++    while adding z10 support.  */
++ 
++ /* { dg-do compile } */
++ /* { dg-options "-O" } */
++ 
++ int boo()
++ {
++   struct {
++     unsigned char pad[4096];
++     unsigned long long bar;
++   } *foo;
++   asm volatile( "" : "=m" (*(unsigned long long*)(foo->bar))
++ 		: "a" (&foo->bar));
++ }
+

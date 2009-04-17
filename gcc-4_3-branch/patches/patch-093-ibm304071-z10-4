@@ -1,0 +1,1078 @@
+From gcc-patches-return-218930-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org Tue May 27 12:04:31 2008
+Return-Path: <gcc-patches-return-218930-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org>
+Delivered-To: listarch-gcc-patches at gcc dot gnu dot org
+Received: (qmail 23793 invoked by alias); 27 May 2008 12:04:15 -0000
+Received: (qmail 23727 invoked by uid 22791); 27 May 2008 12:03:57 -0000
+X-Spam-Check-By: sourceware.org
+Received: from mtagate2.de.ibm.com (HELO mtagate2.de.ibm.com) (195.212.29.151)     by sourceware.org (qpsmtpd/0.31) with ESMTP; Tue, 27 May 2008 12:03:32 +0000
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49]) 	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id m4RC3RIr271346 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 12:03:27 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228]) 	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m4RC3R292666750 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 14:03:27 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m4RC3Rpg023560 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 14:03:27 +0200
+Received: from lc4eb0107015440.ibm.com (dyn-9-152-216-52.boeblingen.de.ibm.com [9.152.216.52]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with SMTP id m4RC3QwE023540 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 14:03:26 +0200
+Received: by lc4eb0107015440.ibm.com (sSMTP sendmail emulation); Tue, 27 May 2008 14:03:30 +0200
+From: "Andreas Krebbel" <Andreas dot Krebbel at de dot ibm dot com>
+Date: Tue, 27 May 2008 14:03:30 +0200
+To: gcc-patches at gcc dot gnu dot org
+Subject: [Committed] S/390: Replace 'm' with 'RT' constraints
+Message-ID: <20080527120330.GD18965@homer.boeblingen.de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+User-Agent: Mutt/1.4.2.2i
+Mailing-List: contact gcc-patches-help at gcc dot gnu dot org; run by ezmlm
+Precedence: bulk
+List-Id: <gcc-patches.gcc.gnu.org>
+List-Archive: <http://gcc.gnu.org/ml/gcc-patches/>
+List-Post: <mailto:gcc-patches at gcc dot gnu dot org>
+List-Help: <mailto:gcc-patches-help at gcc dot gnu dot org>
+Sender: gcc-patches-owner at gcc dot gnu dot org
+Delivered-To: mailing list gcc-patches at gcc dot gnu dot org
+
+This is a mechanical patch.  Applied to mainline.
+
+Bye,
+
+-Andreas-
+
+2008-05-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md: Replace all occurences of the 'm'
+	constraint with 'RT'.
+
+
+Index: gcc/config/s390/s390.md
+===================================================================
+*** gcc/config/s390/s390.md.orig	2008-05-27 08:49:17.000000000 +0200
+--- gcc/config/s390/s390.md	2008-05-27 08:49:36.000000000 +0200
+***************
+*** 551,557 ****
+  ; ltr, lt, ltgr, ltg
+  (define_insn "*tst<mode>_extimm"
+    [(set (reg CC_REGNUM)
+!         (compare (match_operand:GPR 0 "nonimmediate_operand" "d,m")
+                   (match_operand:GPR 1 "const0_operand" "")))
+     (set (match_operand:GPR 2 "register_operand" "=d,d")
+          (match_dup 0))]
+--- 551,557 ----
+  ; ltr, lt, ltgr, ltg
+  (define_insn "*tst<mode>_extimm"
+    [(set (reg CC_REGNUM)
+!         (compare (match_operand:GPR 0 "nonimmediate_operand" "d,RT")
+                   (match_operand:GPR 1 "const0_operand" "")))
+     (set (match_operand:GPR 2 "register_operand" "=d,d")
+          (match_dup 0))]
+***************
+*** 564,570 ****
+  ; ltr, lt, ltgr, ltg
+  (define_insn "*tst<mode>_cconly_extimm"
+    [(set (reg CC_REGNUM)
+!         (compare (match_operand:GPR 0 "nonimmediate_operand" "d,m")
+                   (match_operand:GPR 1 "const0_operand" "")))
+     (clobber (match_scratch:GPR 2 "=X,d"))]
+    "s390_match_ccmode(insn, CCSmode) && TARGET_EXTIMM"
+--- 564,570 ----
+  ; ltr, lt, ltgr, ltg
+  (define_insn "*tst<mode>_cconly_extimm"
+    [(set (reg CC_REGNUM)
+!         (compare (match_operand:GPR 0 "nonimmediate_operand" "d,RT")
+                   (match_operand:GPR 1 "const0_operand" "")))
+     (clobber (match_scratch:GPR 2 "=X,d"))]
+    "s390_match_ccmode(insn, CCSmode) && TARGET_EXTIMM"
+***************
+*** 693,699 ****
+  (define_insn "*cmpdi_cct"
+    [(set (reg CC_REGNUM)
+          (compare (match_operand:DI 0 "nonimmediate_operand" "%d,d,d,d,Q")
+!                  (match_operand:DI 1 "general_operand" "d,K,Os,m,BQ")))]
+    "s390_match_ccmode (insn, CCTmode) && TARGET_64BIT"
+    "@
+     cgr\t%0,%1
+--- 693,699 ----
+  (define_insn "*cmpdi_cct"
+    [(set (reg CC_REGNUM)
+          (compare (match_operand:DI 0 "nonimmediate_operand" "%d,d,d,d,Q")
+!                  (match_operand:DI 1 "general_operand" "d,K,Os,RT,BQ")))]
+    "s390_match_ccmode (insn, CCTmode) && TARGET_64BIT"
+    "@
+     cgr\t%0,%1
+***************
+*** 722,728 ****
+  
+  (define_insn "*cmpdi_ccs_sign"
+    [(set (reg CC_REGNUM)
+!         (compare (sign_extend:DI (match_operand:SI 1 "nonimmediate_operand" "d,m"))
+                   (match_operand:DI 0 "register_operand" "d,d")))]
+    "s390_match_ccmode(insn, CCSRmode) && TARGET_64BIT"
+    "@
+--- 722,728 ----
+  
+  (define_insn "*cmpdi_ccs_sign"
+    [(set (reg CC_REGNUM)
+!         (compare (sign_extend:DI (match_operand:SI 1 "nonimmediate_operand" "d,RT"))
+                   (match_operand:DI 0 "register_operand" "d,d")))]
+    "s390_match_ccmode(insn, CCSRmode) && TARGET_64BIT"
+    "@
+***************
+*** 759,765 ****
+  
+  (define_insn "*cmpdi_ccu_zero"
+    [(set (reg CC_REGNUM)
+!         (compare (zero_extend:DI (match_operand:SI 1 "nonimmediate_operand" "d,m"))
+                   (match_operand:DI 0 "register_operand" "d,d")))]
+    "s390_match_ccmode (insn, CCURmode) && TARGET_64BIT"
+    "@
+--- 759,765 ----
+  
+  (define_insn "*cmpdi_ccu_zero"
+    [(set (reg CC_REGNUM)
+!         (compare (zero_extend:DI (match_operand:SI 1 "nonimmediate_operand" "d,RT"))
+                   (match_operand:DI 0 "register_operand" "d,d")))]
+    "s390_match_ccmode (insn, CCURmode) && TARGET_64BIT"
+    "@
+***************
+*** 770,776 ****
+  (define_insn "*cmpdi_ccu"
+    [(set (reg CC_REGNUM)
+          (compare (match_operand:DI 0 "nonimmediate_operand" "d,d,d,Q,BQ")
+!                  (match_operand:DI 1 "general_operand" "d,Op,m,BQ,Q")))]
+    "s390_match_ccmode (insn, CCUmode) && TARGET_64BIT"
+    "@
+     clgr\t%0,%1
+--- 770,776 ----
+  (define_insn "*cmpdi_ccu"
+    [(set (reg CC_REGNUM)
+          (compare (match_operand:DI 0 "nonimmediate_operand" "d,d,d,Q,BQ")
+!                  (match_operand:DI 1 "general_operand" "d,Op,RT,BQ,Q")))]
+    "s390_match_ccmode (insn, CCUmode) && TARGET_64BIT"
+    "@
+     clgr\t%0,%1
+***************
+*** 891,897 ****
+  
+  (define_insn "movti"
+    [(set (match_operand:TI 0 "nonimmediate_operand" "=d,QS,d,o,Q")
+!         (match_operand:TI 1 "general_operand" "QS,d,dPm,d,Q"))]
+    "TARGET_64BIT"
+    "@
+     lmg\t%0,%N0,%S1
+--- 891,897 ----
+  
+  (define_insn "movti"
+    [(set (match_operand:TI 0 "nonimmediate_operand" "=d,QS,d,o,Q")
+!         (match_operand:TI 1 "general_operand" "QS,d,dPRT,d,Q"))]
+    "TARGET_64BIT"
+    "@
+     lmg\t%0,%N0,%S1
+***************
+*** 1017,1025 ****
+  (define_insn "*movdi_64"
+    [(set (match_operand:DI 0 "nonimmediate_operand"
+                              "=d,d,d,d,d,d,d,d,f,d,d,d,d,
+!                              m,!*f,!*f,!*f,!R,!T,d,t,Q,t,?Q")
+          (match_operand:DI 1 "general_operand"
+!                             "K,N0HD0,N1HD0,N2HD0,N3HD0,Os,N0SD0,N1SD0,d,f,L,d,m,
+                               d,*f,R,T,*f,*f,t,d,t,Q,?Q"))]
+    "TARGET_64BIT"
+    "@
+--- 1017,1025 ----
+  (define_insn "*movdi_64"
+    [(set (match_operand:DI 0 "nonimmediate_operand"
+                              "=d,d,d,d,d,d,d,d,f,d,d,d,d,
+!                              RT,!*f,!*f,!*f,!R,!T,d,t,Q,t,?Q")
+          (match_operand:DI 1 "general_operand"
+!                             "K,N0HD0,N1HD0,N2HD0,N3HD0,Os,N0SD0,N1SD0,d,f,L,d,RT,
+                               d,*f,R,T,*f,*f,t,d,t,Q,?Q"))]
+    "TARGET_64BIT"
+    "@
+***************
+*** 1089,1095 ****
+  
+  (define_insn "*movdi_31"
+    [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,Q,S,d,o,!*f,!*f,!*f,!R,!T,Q")
+!         (match_operand:DI 1 "general_operand" "Q,S,d,d,dPm,d,*f,R,T,*f,*f,Q"))]
+    "!TARGET_64BIT"
+    "@
+     lm\t%0,%N0,%S1
+--- 1089,1095 ----
+  
+  (define_insn "*movdi_31"
+    [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,Q,S,d,o,!*f,!*f,!*f,!R,!T,Q")
+!         (match_operand:DI 1 "general_operand" "Q,S,d,d,dPRT,d,*f,R,T,*f,*f,Q"))]
+    "!TARGET_64BIT"
+    "@
+     lm\t%0,%N0,%S1
+***************
+*** 1505,1511 ****
+  
+  (define_insn "*mov<mode>_64"
+    [(set (match_operand:TD_TF 0 "nonimmediate_operand" "=f,f,f,o, d,QS, d,o,Q")
+!         (match_operand:TD_TF 1 "general_operand"      " G,f,o,f,QS, d,dm,d,Q"))]
+    "TARGET_64BIT"
+    "@
+     lzxr\t%0
+--- 1505,1511 ----
+  
+  (define_insn "*mov<mode>_64"
+    [(set (match_operand:TD_TF 0 "nonimmediate_operand" "=f,f,f,o, d,QS, d,o,Q")
+!         (match_operand:TD_TF 1 "general_operand"      " G,f,o,f,QS, d,dRT,d,Q"))]
+    "TARGET_64BIT"
+    "@
+     lzxr\t%0
+***************
+*** 1622,1630 ****
+  
+  (define_insn "*mov<mode>_64dfp"
+    [(set (match_operand:DD_DF 0 "nonimmediate_operand"
+! 			       "=f,f,f,d,f,f,R,T,d,d,m,?Q")
+          (match_operand:DD_DF 1 "general_operand"
+! 			       "G,f,d,f,R,T,f,f,d,m,d,?Q"))]
+    "TARGET_64BIT && TARGET_DFP"
+    "@
+     lzdr\t%0
+--- 1622,1630 ----
+  
+  (define_insn "*mov<mode>_64dfp"
+    [(set (match_operand:DD_DF 0 "nonimmediate_operand"
+! 			       "=f,f,f,d,f,f,R,T,d,d,RT,?Q")
+          (match_operand:DD_DF 1 "general_operand"
+! 			       "G,f,d,f,R,T,f,f,d,RT,d,?Q"))]
+    "TARGET_64BIT && TARGET_DFP"
+    "@
+     lzdr\t%0
+***************
+*** 1644,1651 ****
+                       fstoredf,fstoredf,lr,load,store,*")])
+  
+  (define_insn "*mov<mode>_64"
+!   [(set (match_operand:DD_DF 0 "nonimmediate_operand" "=f,f,f,f,R,T,d,d,m,?Q")
+!         (match_operand:DD_DF 1 "general_operand"       "G,f,R,T,f,f,d,m,d,?Q"))]
+    "TARGET_64BIT"
+    "@
+     lzdr\t%0
+--- 1644,1651 ----
+                       fstoredf,fstoredf,lr,load,store,*")])
+  
+  (define_insn "*mov<mode>_64"
+!   [(set (match_operand:DD_DF 0 "nonimmediate_operand" "=f,f,f,f,R,T,d, d,RT,?Q")
+!         (match_operand:DD_DF 1 "general_operand"       "G,f,R,T,f,f,d,RT, d,?Q"))]
+    "TARGET_64BIT"
+    "@
+     lzdr\t%0
+***************
+*** 1664,1672 ****
+  
+  (define_insn "*mov<mode>_31"
+    [(set (match_operand:DD_DF 0 "nonimmediate_operand"
+!                                "=f,f,f,f,R,T,d,d,Q,S,  d,o,Q")
+          (match_operand:DD_DF 1 "general_operand"
+!                                " G,f,R,T,f,f,Q,S,d,d,dPm,d,Q"))]
+    "!TARGET_64BIT"
+    "@
+     lzdr\t%0
+--- 1664,1672 ----
+  
+  (define_insn "*mov<mode>_31"
+    [(set (match_operand:DD_DF 0 "nonimmediate_operand"
+!                                "=f,f,f,f,R,T,d,d,Q,S,   d,o,Q")
+          (match_operand:DD_DF 1 "general_operand"
+!                                " G,f,R,T,f,f,Q,S,d,d,dPRT,d,Q"))]
+    "!TARGET_64BIT"
+    "@
+     lzdr\t%0
+***************
+*** 2868,2874 ****
+  
+  (define_insn "*extendsidi2"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (sign_extend:DI (match_operand:SI 1 "nonimmediate_operand" "d,m")))]
+    "TARGET_64BIT"
+    "@
+     lgfr\t%0,%1
+--- 2868,2874 ----
+  
+  (define_insn "*extendsidi2"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (sign_extend:DI (match_operand:SI 1 "nonimmediate_operand" "d,RT")))]
+    "TARGET_64BIT"
+    "@
+     lgfr\t%0,%1
+***************
+*** 2909,2915 ****
+  
+  (define_insn "*extendhidi2_extimm"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (sign_extend:DI (match_operand:HI 1 "nonimmediate_operand" "d,m")))]
+    "TARGET_64BIT && TARGET_EXTIMM"
+    "@
+     lghr\t%0,%1
+--- 2909,2915 ----
+  
+  (define_insn "*extendhidi2_extimm"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (sign_extend:DI (match_operand:HI 1 "nonimmediate_operand" "d,RT")))]
+    "TARGET_64BIT && TARGET_EXTIMM"
+    "@
+     lghr\t%0,%1
+***************
+*** 2918,2924 ****
+  
+  (define_insn "*extendhidi2"
+    [(set (match_operand:DI 0 "register_operand" "=d")
+!         (sign_extend:DI (match_operand:HI 1 "memory_operand" "m")))]
+    "TARGET_64BIT"
+    "lgh\t%0,%1"
+    [(set_attr "op_type" "RXY")])
+--- 2918,2924 ----
+  
+  (define_insn "*extendhidi2"
+    [(set (match_operand:DI 0 "register_operand" "=d")
+!         (sign_extend:DI (match_operand:HI 1 "memory_operand" "RT")))]
+    "TARGET_64BIT"
+    "lgh\t%0,%1"
+    [(set_attr "op_type" "RXY")])
+***************
+*** 2953,2959 ****
+  ; lbr, lgbr, lb, lgb
+  (define_insn "*extendqi<mode>2_extimm"
+    [(set (match_operand:GPR 0 "register_operand" "=d,d")
+!         (sign_extend:GPR (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
+    "TARGET_EXTIMM"
+    "@
+     l<g>br\t%0,%1
+--- 2953,2959 ----
+  ; lbr, lgbr, lb, lgb
+  (define_insn "*extendqi<mode>2_extimm"
+    [(set (match_operand:GPR 0 "register_operand" "=d,d")
+!         (sign_extend:GPR (match_operand:QI 1 "nonimmediate_operand" "d,RT")))]
+    "TARGET_EXTIMM"
+    "@
+     l<g>br\t%0,%1
+***************
+*** 2963,2969 ****
+  ; lb, lgb
+  (define_insn "*extendqi<mode>2"
+    [(set (match_operand:GPR 0 "register_operand" "=d")
+!         (sign_extend:GPR (match_operand:QI 1 "memory_operand" "m")))]
+    "!TARGET_EXTIMM && TARGET_LONG_DISPLACEMENT"
+    "l<g>b\t%0,%1"
+    [(set_attr "op_type" "RXY")])
+--- 2963,2969 ----
+  ; lb, lgb
+  (define_insn "*extendqi<mode>2"
+    [(set (match_operand:GPR 0 "register_operand" "=d")
+!         (sign_extend:GPR (match_operand:QI 1 "memory_operand" "RT")))]
+    "!TARGET_EXTIMM && TARGET_LONG_DISPLACEMENT"
+    "l<g>b\t%0,%1"
+    [(set_attr "op_type" "RXY")])
+***************
+*** 3008,3014 ****
+  
+  (define_insn "*zero_extendsidi2"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (zero_extend:DI (match_operand:SI 1 "nonimmediate_operand" "d,m")))]
+    "TARGET_64BIT"
+    "@
+     llgfr\t%0,%1
+--- 3008,3014 ----
+  
+  (define_insn "*zero_extendsidi2"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (zero_extend:DI (match_operand:SI 1 "nonimmediate_operand" "d,RT")))]
+    "TARGET_64BIT"
+    "@
+     llgfr\t%0,%1
+***************
+*** 3021,3027 ****
+  
+  (define_insn "*llgt_sidi"
+    [(set (match_operand:DI 0 "register_operand" "=d")
+!         (and:DI (subreg:DI (match_operand:SI 1 "memory_operand" "m") 0)
+  		(const_int 2147483647)))]
+    "TARGET_64BIT"
+    "llgt\t%0,%1"
+--- 3021,3027 ----
+  
+  (define_insn "*llgt_sidi"
+    [(set (match_operand:DI 0 "register_operand" "=d")
+!         (and:DI (subreg:DI (match_operand:SI 1 "memory_operand" "RT") 0)
+  		(const_int 2147483647)))]
+    "TARGET_64BIT"
+    "llgt\t%0,%1"
+***************
+*** 3029,3035 ****
+  
+  (define_insn_and_split "*llgt_sidi_split"
+    [(set (match_operand:DI 0 "register_operand" "=d")
+!         (and:DI (subreg:DI (match_operand:SI 1 "memory_operand" "m") 0)
+  		(const_int 2147483647)))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+--- 3029,3035 ----
+  
+  (define_insn_and_split "*llgt_sidi_split"
+    [(set (match_operand:DI 0 "register_operand" "=d")
+!         (and:DI (subreg:DI (match_operand:SI 1 "memory_operand" "RT") 0)
+  		(const_int 2147483647)))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+***************
+*** 3042,3048 ****
+  
+  (define_insn "*llgt_sisi"
+    [(set (match_operand:SI 0 "register_operand" "=d,d")
+!         (and:SI (match_operand:SI 1 "nonimmediate_operand" "d,m")
+  		(const_int 2147483647)))]
+    "TARGET_ZARCH"
+    "@
+--- 3042,3048 ----
+  
+  (define_insn "*llgt_sisi"
+    [(set (match_operand:SI 0 "register_operand" "=d,d")
+!         (and:SI (match_operand:SI 1 "nonimmediate_operand" "d,RT")
+  		(const_int 2147483647)))]
+    "TARGET_ZARCH"
+    "@
+***************
+*** 3115,3121 ****
+  ; llhr, llcr, llghr, llgcr, llh, llc, llgh, llgc
+  (define_insn "*zero_extend<HQI:mode><GPR:mode>2_extimm"
+    [(set (match_operand:GPR 0 "register_operand" "=d,d")
+!         (zero_extend:GPR (match_operand:HQI 1 "nonimmediate_operand" "d,m")))]
+    "TARGET_EXTIMM"
+    "@
+     ll<g><hc>r\t%0,%1
+--- 3115,3121 ----
+  ; llhr, llcr, llghr, llgcr, llh, llc, llgh, llgc
+  (define_insn "*zero_extend<HQI:mode><GPR:mode>2_extimm"
+    [(set (match_operand:GPR 0 "register_operand" "=d,d")
+!         (zero_extend:GPR (match_operand:HQI 1 "nonimmediate_operand" "d,RT")))]
+    "TARGET_EXTIMM"
+    "@
+     ll<g><hc>r\t%0,%1
+***************
+*** 3125,3131 ****
+  ; llgh, llgc
+  (define_insn "*zero_extend<HQI:mode><GPR:mode>2"
+    [(set (match_operand:GPR 0 "register_operand" "=d")
+!         (zero_extend:GPR (match_operand:HQI 1 "memory_operand" "m")))]
+    "TARGET_ZARCH && !TARGET_EXTIMM"
+    "llg<hc>\t%0,%1"
+    [(set_attr "op_type" "RXY")])
+--- 3125,3131 ----
+  ; llgh, llgc
+  (define_insn "*zero_extend<HQI:mode><GPR:mode>2"
+    [(set (match_operand:GPR 0 "register_operand" "=d")
+!         (zero_extend:GPR (match_operand:HQI 1 "memory_operand" "RT")))]
+    "TARGET_ZARCH && !TARGET_EXTIMM"
+    "llg<hc>\t%0,%1"
+    [(set_attr "op_type" "RXY")])
+***************
+*** 3145,3151 ****
+  
+  (define_insn_and_split "*zero_extendqisi2_31"
+    [(set (match_operand:SI 0 "register_operand" "=&d")
+!         (zero_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
+    "!TARGET_ZARCH"
+    "#"
+    "&& reload_completed"
+--- 3145,3151 ----
+  
+  (define_insn_and_split "*zero_extendqisi2_31"
+    [(set (match_operand:SI 0 "register_operand" "=&d")
+!         (zero_extend:SI (match_operand:QI 1 "memory_operand" "RT")))]
+    "!TARGET_ZARCH"
+    "#"
+    "&& reload_completed"
+***************
+*** 3169,3182 ****
+  
+  (define_insn "*zero_extendqihi2_64"
+    [(set (match_operand:HI 0 "register_operand" "=d")
+!         (zero_extend:HI (match_operand:QI 1 "memory_operand" "m")))]
+    "TARGET_ZARCH && !TARGET_EXTIMM"
+    "llgc\t%0,%1"
+    [(set_attr "op_type" "RXY")])
+  
+  (define_insn_and_split "*zero_extendqihi2_31"
+    [(set (match_operand:HI 0 "register_operand" "=&d")
+!         (zero_extend:HI (match_operand:QI 1 "memory_operand" "m")))]
+    "!TARGET_ZARCH"
+    "#"
+    "&& reload_completed"
+--- 3169,3182 ----
+  
+  (define_insn "*zero_extendqihi2_64"
+    [(set (match_operand:HI 0 "register_operand" "=d")
+!         (zero_extend:HI (match_operand:QI 1 "memory_operand" "RT")))]
+    "TARGET_ZARCH && !TARGET_EXTIMM"
+    "llgc\t%0,%1"
+    [(set_attr "op_type" "RXY")])
+  
+  (define_insn_and_split "*zero_extendqihi2_31"
+    [(set (match_operand:HI 0 "register_operand" "=&d")
+!         (zero_extend:HI (match_operand:QI 1 "memory_operand" "RT")))]
+    "!TARGET_ZARCH"
+    "#"
+    "&& reload_completed"
+***************
+*** 3633,3639 ****
+  
+  (define_insn "*adddi3_sign"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (plus:DI (sign_extend:DI (match_operand:SI 2 "general_operand" "d,m"))
+                   (match_operand:DI 1 "register_operand" "0,0")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+--- 3633,3639 ----
+  
+  (define_insn "*adddi3_sign"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (plus:DI (sign_extend:DI (match_operand:SI 2 "general_operand" "d,RT"))
+                   (match_operand:DI 1 "register_operand" "0,0")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+***************
+*** 3644,3650 ****
+  
+  (define_insn "*adddi3_zero_cc"
+    [(set (reg CC_REGNUM)
+!         (compare (plus:DI (zero_extend:DI (match_operand:SI 2 "general_operand" "d,m"))
+                            (match_operand:DI 1 "register_operand" "0,0"))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+--- 3644,3650 ----
+  
+  (define_insn "*adddi3_zero_cc"
+    [(set (reg CC_REGNUM)
+!         (compare (plus:DI (zero_extend:DI (match_operand:SI 2 "general_operand" "d,RT"))
+                            (match_operand:DI 1 "register_operand" "0,0"))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+***************
+*** 3657,3663 ****
+  
+  (define_insn "*adddi3_zero_cconly"
+    [(set (reg CC_REGNUM)
+!         (compare (plus:DI (zero_extend:DI (match_operand:SI 2 "general_operand" "d,m"))
+                            (match_operand:DI 1 "register_operand" "0,0"))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+--- 3657,3663 ----
+  
+  (define_insn "*adddi3_zero_cconly"
+    [(set (reg CC_REGNUM)
+!         (compare (plus:DI (zero_extend:DI (match_operand:SI 2 "general_operand" "d,RT"))
+                            (match_operand:DI 1 "register_operand" "0,0"))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+***************
+*** 3669,3675 ****
+  
+  (define_insn "*adddi3_zero"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (plus:DI (zero_extend:DI (match_operand:SI 2 "general_operand" "d,m"))
+                   (match_operand:DI 1 "register_operand" "0,0")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+--- 3669,3675 ----
+  
+  (define_insn "*adddi3_zero"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (plus:DI (zero_extend:DI (match_operand:SI 2 "general_operand" "d,RT"))
+                   (match_operand:DI 1 "register_operand" "0,0")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+***************
+*** 3997,4003 ****
+  (define_insn "*subdi3_sign"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+          (minus:DI (match_operand:DI 1 "register_operand" "0,0")
+!                   (sign_extend:DI (match_operand:SI 2 "general_operand" "d,m"))))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+    "@
+--- 3997,4003 ----
+  (define_insn "*subdi3_sign"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+          (minus:DI (match_operand:DI 1 "register_operand" "0,0")
+!                   (sign_extend:DI (match_operand:SI 2 "general_operand" "d,RT"))))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+    "@
+***************
+*** 4008,4014 ****
+  (define_insn "*subdi3_zero_cc"
+    [(set (reg CC_REGNUM)
+          (compare (minus:DI (match_operand:DI 1 "register_operand" "0,0")
+!                            (zero_extend:DI (match_operand:SI 2 "general_operand" "d,m")))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+          (minus:DI (match_dup 1) (zero_extend:DI (match_dup 2))))]
+--- 4008,4014 ----
+  (define_insn "*subdi3_zero_cc"
+    [(set (reg CC_REGNUM)
+          (compare (minus:DI (match_operand:DI 1 "register_operand" "0,0")
+!                            (zero_extend:DI (match_operand:SI 2 "general_operand" "d,RT")))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+          (minus:DI (match_dup 1) (zero_extend:DI (match_dup 2))))]
+***************
+*** 4021,4027 ****
+  (define_insn "*subdi3_zero_cconly"
+    [(set (reg CC_REGNUM)
+          (compare (minus:DI (match_operand:DI 1 "register_operand" "0,0")
+!                            (zero_extend:DI (match_operand:SI 2 "general_operand" "d,m")))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+    "s390_match_ccmode (insn, CCLmode) && TARGET_64BIT"
+--- 4021,4027 ----
+  (define_insn "*subdi3_zero_cconly"
+    [(set (reg CC_REGNUM)
+          (compare (minus:DI (match_operand:DI 1 "register_operand" "0,0")
+!                            (zero_extend:DI (match_operand:SI 2 "general_operand" "d,RT")))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+    "s390_match_ccmode (insn, CCLmode) && TARGET_64BIT"
+***************
+*** 4033,4039 ****
+  (define_insn "*subdi3_zero"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+          (minus:DI (match_operand:DI 1 "register_operand" "0,0")
+!                   (zero_extend:DI (match_operand:SI 2 "general_operand" "d,m"))))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+    "@
+--- 4033,4039 ----
+  (define_insn "*subdi3_zero"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+          (minus:DI (match_operand:DI 1 "register_operand" "0,0")
+!                   (zero_extend:DI (match_operand:SI 2 "general_operand" "d,RT"))))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT"
+    "@
+***************
+*** 4289,4295 ****
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,m"))
+            (match_dup 1)))
+     (set (match_operand:GPR 0 "register_operand" "=d,d")
+          (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+--- 4289,4295 ----
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,RT"))
+            (match_dup 1)))
+     (set (match_operand:GPR 0 "register_operand" "=d,d")
+          (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+***************
+*** 4305,4311 ****
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,m"))
+            (match_dup 1)))
+     (clobber (match_scratch:GPR 0 "=d,d"))]
+    "s390_match_ccmode (insn, CCL1mode) && TARGET_CPU_ZARCH"
+--- 4305,4311 ----
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,RT"))
+            (match_dup 1)))
+     (clobber (match_scratch:GPR 0 "=d,d"))]
+    "s390_match_ccmode (insn, CCL1mode) && TARGET_CPU_ZARCH"
+***************
+*** 4322,4328 ****
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,m"))
+            (match_dup 2)))
+     (set (match_operand:GPR 0 "register_operand" "=d,d")
+          (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+--- 4322,4328 ----
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,RT"))
+            (match_dup 2)))
+     (set (match_operand:GPR 0 "register_operand" "=d,d")
+          (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+***************
+*** 4338,4344 ****
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,m"))
+            (match_dup 2)))
+     (clobber (match_scratch:GPR 0 "=d,d"))]
+    "s390_match_ccmode (insn, CCL1mode) && TARGET_CPU_ZARCH"
+--- 4338,4344 ----
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,RT"))
+            (match_dup 2)))
+     (clobber (match_scratch:GPR 0 "=d,d"))]
+    "s390_match_ccmode (insn, CCL1mode) && TARGET_CPU_ZARCH"
+***************
+*** 4353,4359 ****
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,m"))
+            (const_int 0)))
+     (set (match_operand:GPR 0 "register_operand" "=d,d")
+          (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+--- 4353,4359 ----
+          (compare
+            (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                                (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                     (match_operand:GPR 2 "general_operand" "d,RT"))
+            (const_int 0)))
+     (set (match_operand:GPR 0 "register_operand" "=d,d")
+          (plus:GPR (plus:GPR (match_dup 3) (match_dup 1)) (match_dup 2)))]
+***************
+*** 4368,4374 ****
+    [(set (match_operand:GPR 0 "register_operand" "=d,d")
+          (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                              (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                   (match_operand:GPR 2 "general_operand" "d,m")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_CPU_ZARCH"
+    "@
+--- 4368,4374 ----
+    [(set (match_operand:GPR 0 "register_operand" "=d,d")
+          (plus:GPR (plus:GPR (match_operand:GPR 3 "s390_alc_comparison" "")
+                              (match_operand:GPR 1 "nonimmediate_operand" "%0,0"))
+!                   (match_operand:GPR 2 "general_operand" "d,RT")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_CPU_ZARCH"
+    "@
+***************
+*** 4381,4387 ****
+    [(set (reg CC_REGNUM)
+          (compare
+            (minus:GPR (minus:GPR (match_operand:GPR 1 "nonimmediate_operand" "0,0")
+!                                 (match_operand:GPR 2 "general_operand" "d,m"))
+                       (match_operand:GPR 3 "s390_slb_comparison" ""))
+            (const_int 0)))
+     (set (match_operand:GPR 0 "register_operand" "=d,d")
+--- 4381,4387 ----
+    [(set (reg CC_REGNUM)
+          (compare
+            (minus:GPR (minus:GPR (match_operand:GPR 1 "nonimmediate_operand" "0,0")
+!                                 (match_operand:GPR 2 "general_operand" "d,RT"))
+                       (match_operand:GPR 3 "s390_slb_comparison" ""))
+            (const_int 0)))
+     (set (match_operand:GPR 0 "register_operand" "=d,d")
+***************
+*** 4396,4402 ****
+  (define_insn "*sub<mode>3_slb"
+    [(set (match_operand:GPR 0 "register_operand" "=d,d")
+          (minus:GPR (minus:GPR (match_operand:GPR 1 "nonimmediate_operand" "0,0")
+!                               (match_operand:GPR 2 "general_operand" "d,m"))
+                     (match_operand:GPR 3 "s390_slb_comparison" "")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_CPU_ZARCH"
+--- 4396,4402 ----
+  (define_insn "*sub<mode>3_slb"
+    [(set (match_operand:GPR 0 "register_operand" "=d,d")
+          (minus:GPR (minus:GPR (match_operand:GPR 1 "nonimmediate_operand" "0,0")
+!                               (match_operand:GPR 2 "general_operand" "d,RT"))
+                     (match_operand:GPR 3 "s390_slb_comparison" "")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_CPU_ZARCH"
+***************
+*** 4499,4505 ****
+  
+  (define_insn "*muldi3_sign"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (mult:DI (sign_extend:DI (match_operand:SI 2 "nonimmediate_operand" "d,m"))
+                   (match_operand:DI 1 "register_operand" "0,0")))]
+    "TARGET_64BIT"
+    "@
+--- 4499,4505 ----
+  
+  (define_insn "*muldi3_sign"
+    [(set (match_operand:DI 0 "register_operand" "=d,d")
+!         (mult:DI (sign_extend:DI (match_operand:SI 2 "nonimmediate_operand" "d,RT"))
+                   (match_operand:DI 1 "register_operand" "0,0")))]
+    "TARGET_64BIT"
+    "@
+***************
+*** 4511,4517 ****
+  (define_insn "muldi3"
+    [(set (match_operand:DI 0 "register_operand" "=d,d,d")
+          (mult:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0,0")
+!                  (match_operand:DI 2 "general_operand" "d,K,m")))]
+    "TARGET_64BIT"
+    "@
+     msgr\t%0,%2
+--- 4511,4517 ----
+  (define_insn "muldi3"
+    [(set (match_operand:DI 0 "register_operand" "=d,d,d")
+          (mult:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0,0")
+!                  (match_operand:DI 2 "general_operand" "d,K,RT")))]
+    "TARGET_64BIT"
+    "@
+     msgr\t%0,%2
+***************
+*** 4572,4578 ****
+          (mult:DI (zero_extend:DI
+  	           (match_operand:SI 1 "register_operand" "%0,0"))
+                   (zero_extend:DI
+! 	           (match_operand:SI 2 "nonimmediate_operand" "d,m"))))]
+    "!TARGET_64BIT && TARGET_CPU_ZARCH"
+    "@
+     mlr\t%0,%2
+--- 4572,4578 ----
+          (mult:DI (zero_extend:DI
+  	           (match_operand:SI 1 "register_operand" "%0,0"))
+                   (zero_extend:DI
+! 	           (match_operand:SI 2 "nonimmediate_operand" "d,RT"))))]
+    "!TARGET_64BIT && TARGET_CPU_ZARCH"
+    "@
+     mlr\t%0,%2
+***************
+*** 4662,4668 ****
+            (ashift:TI
+              (zero_extend:TI
+                (mod:DI (match_operand:DI 1 "register_operand" "0,0")
+!                       (match_operand:DI 2 "general_operand" "d,m")))
+              (const_int 64))
+            (zero_extend:TI (div:DI (match_dup 1) (match_dup 2)))))]
+    "TARGET_64BIT"
+--- 4662,4668 ----
+            (ashift:TI
+              (zero_extend:TI
+                (mod:DI (match_operand:DI 1 "register_operand" "0,0")
+!                       (match_operand:DI 2 "general_operand" "d,RT")))
+              (const_int 64))
+            (zero_extend:TI (div:DI (match_dup 1) (match_dup 2)))))]
+    "TARGET_64BIT"
+***************
+*** 4679,4685 ****
+              (zero_extend:TI
+                (mod:DI (match_operand:DI 1 "register_operand" "0,0")
+                        (sign_extend:DI
+!                         (match_operand:SI 2 "nonimmediate_operand" "d,m"))))
+              (const_int 64))
+            (zero_extend:TI
+              (div:DI (match_dup 1) (sign_extend:DI (match_dup 2))))))]
+--- 4679,4685 ----
+              (zero_extend:TI
+                (mod:DI (match_operand:DI 1 "register_operand" "0,0")
+                        (sign_extend:DI
+!                         (match_operand:SI 2 "nonimmediate_operand" "d,RT"))))
+              (const_int 64))
+            (zero_extend:TI
+              (div:DI (match_dup 1) (sign_extend:DI (match_dup 2))))))]
+***************
+*** 4738,4744 ****
+                (truncate:DI
+                  (umod:TI (match_operand:TI 1 "register_operand" "0,0")
+                           (zero_extend:TI
+!                            (match_operand:DI 2 "nonimmediate_operand" "d,m")))))
+              (const_int 64))
+            (zero_extend:TI
+              (truncate:DI
+--- 4738,4744 ----
+                (truncate:DI
+                  (umod:TI (match_operand:TI 1 "register_operand" "0,0")
+                           (zero_extend:TI
+!                            (match_operand:DI 2 "nonimmediate_operand" "d,RT")))))
+              (const_int 64))
+            (zero_extend:TI
+              (truncate:DI
+***************
+*** 4856,4862 ****
+                (truncate:SI
+                  (umod:DI (match_operand:DI 1 "register_operand" "0,0")
+                           (zero_extend:DI
+!                            (match_operand:SI 2 "nonimmediate_operand" "d,m")))))
+              (const_int 32))
+            (zero_extend:DI
+              (truncate:SI
+--- 4856,4862 ----
+                (truncate:SI
+                  (umod:DI (match_operand:DI 1 "register_operand" "0,0")
+                           (zero_extend:DI
+!                            (match_operand:SI 2 "nonimmediate_operand" "d,RT")))))
+              (const_int 32))
+            (zero_extend:DI
+              (truncate:SI
+***************
+*** 5076,5082 ****
+  (define_insn "*anddi3_cc"
+    [(set (reg CC_REGNUM)
+          (compare (and:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,m"))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+          (and:DI (match_dup 1) (match_dup 2)))]
+--- 5076,5082 ----
+  (define_insn "*anddi3_cc"
+    [(set (reg CC_REGNUM)
+          (compare (and:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,RT"))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+          (and:DI (match_dup 1) (match_dup 2)))]
+***************
+*** 5089,5095 ****
+  (define_insn "*anddi3_cconly"
+    [(set (reg CC_REGNUM)
+          (compare (and:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,m"))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+    "s390_match_ccmode(insn, CCTmode) && TARGET_64BIT
+--- 5089,5095 ----
+  (define_insn "*anddi3_cconly"
+    [(set (reg CC_REGNUM)
+          (compare (and:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,RT"))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+    "s390_match_ccmode(insn, CCTmode) && TARGET_64BIT
+***************
+*** 5105,5111 ****
+          (and:DI (match_operand:DI 1 "nonimmediate_operand"
+                                      "%d,o,0,0,0,0,0,0,0,0,0,0")
+                  (match_operand:DI 2 "general_operand"
+!                                     "M,M,N0HDF,N1HDF,N2HDF,N3HDF,N0SDF,N1SDF,d,m,NxQDF,Q")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT && s390_logical_operator_ok_p (operands)"
+    "@
+--- 5105,5111 ----
+          (and:DI (match_operand:DI 1 "nonimmediate_operand"
+                                      "%d,o,0,0,0,0,0,0,0,0,0,0")
+                  (match_operand:DI 2 "general_operand"
+!                                     "M,M,N0HDF,N1HDF,N2HDF,N3HDF,N0SDF,N1SDF,d,RT,NxQDF,Q")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT && s390_logical_operator_ok_p (operands)"
+    "@
+***************
+*** 5361,5367 ****
+  (define_insn "*iordi3_cc"
+    [(set (reg CC_REGNUM)
+          (compare (ior:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,m"))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+          (ior:DI (match_dup 1) (match_dup 2)))]
+--- 5361,5367 ----
+  (define_insn "*iordi3_cc"
+    [(set (reg CC_REGNUM)
+          (compare (ior:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,RT"))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+          (ior:DI (match_dup 1) (match_dup 2)))]
+***************
+*** 5374,5380 ****
+  (define_insn "*iordi3_cconly"
+    [(set (reg CC_REGNUM)
+          (compare (ior:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,m"))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+    "s390_match_ccmode(insn, CCTmode) && TARGET_64BIT"
+--- 5374,5380 ----
+  (define_insn "*iordi3_cconly"
+    [(set (reg CC_REGNUM)
+          (compare (ior:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,RT"))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+    "s390_match_ccmode(insn, CCTmode) && TARGET_64BIT"
+***************
+*** 5387,5393 ****
+    [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,d,d,d,d,d,AQ,Q")
+          (ior:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0,0,0,0,0,0,0,0,0")
+                  (match_operand:DI 2 "general_operand"
+!                                     "N0HD0,N1HD0,N2HD0,N3HD0,N0SD0,N1SD0,d,m,NxQD0,Q")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT && s390_logical_operator_ok_p (operands)"
+    "@
+--- 5387,5393 ----
+    [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,d,d,d,d,d,AQ,Q")
+          (ior:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0,0,0,0,0,0,0,0,0")
+                  (match_operand:DI 2 "general_operand"
+!                                     "N0HD0,N1HD0,N2HD0,N3HD0,N0SD0,N1SD0,d,RT,NxQD0,Q")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT && s390_logical_operator_ok_p (operands)"
+    "@
+***************
+*** 5634,5640 ****
+  (define_insn "*xordi3_cc"
+    [(set (reg CC_REGNUM)
+          (compare (xor:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,m"))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+          (xor:DI (match_dup 1) (match_dup 2)))]
+--- 5634,5640 ----
+  (define_insn "*xordi3_cc"
+    [(set (reg CC_REGNUM)
+          (compare (xor:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,RT"))
+                   (const_int 0)))
+     (set (match_operand:DI 0 "register_operand" "=d,d")
+          (xor:DI (match_dup 1) (match_dup 2)))]
+***************
+*** 5647,5653 ****
+  (define_insn "*xordi3_cconly"
+    [(set (reg CC_REGNUM)
+          (compare (xor:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,m"))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+    "s390_match_ccmode(insn, CCTmode) && TARGET_64BIT"
+--- 5647,5653 ----
+  (define_insn "*xordi3_cconly"
+    [(set (reg CC_REGNUM)
+          (compare (xor:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0")
+!                          (match_operand:DI 2 "general_operand" "d,RT"))
+                   (const_int 0)))
+     (clobber (match_scratch:DI 0 "=d,d"))]
+    "s390_match_ccmode(insn, CCTmode) && TARGET_64BIT"
+***************
+*** 5659,5665 ****
+  (define_insn "*xordi3"
+    [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,d,AQ,Q")
+          (xor:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0,0,0,0,0")
+!                 (match_operand:DI 2 "general_operand" "N0SD0,N1SD0,d,m,NxQD0,Q")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT && s390_logical_operator_ok_p (operands)"
+    "@
+--- 5659,5665 ----
+  (define_insn "*xordi3"
+    [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,d,AQ,Q")
+          (xor:DI (match_operand:DI 1 "nonimmediate_operand" "%0,0,0,0,0,0")
+!                 (match_operand:DI 2 "general_operand" "N0SD0,N1SD0,d,RT,NxQD0,Q")))
+     (clobber (reg:CC CC_REGNUM))]
+    "TARGET_64BIT && s390_logical_operator_ok_p (operands)"
+    "@
+***************
+*** 7327,7333 ****
+  
+  (define_insn "*tls_load_64"
+    [(set (match_operand:DI 0 "register_operand" "=d")
+!         (unspec:DI [(match_operand:DI 1 "memory_operand" "m")
+                      (match_operand:DI 2 "" "")]
+  		   UNSPEC_TLS_LOAD))]
+    "TARGET_64BIT"
+--- 7327,7333 ----
+  
+  (define_insn "*tls_load_64"
+    [(set (match_operand:DI 0 "register_operand" "=d")
+!         (unspec:DI [(match_operand:DI 1 "memory_operand" "RT")
+                      (match_operand:DI 2 "" "")]
+  		   UNSPEC_TLS_LOAD))]
+    "TARGET_64BIT"
+

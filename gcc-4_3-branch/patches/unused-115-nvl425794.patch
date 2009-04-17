@@ -1,0 +1,63 @@
+2008-06-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+       * config/rs6000/rs6000.md: Change all string instruction's clobber to
+       be early clobbers.
+
+Index: gcc/config/rs6000/rs6000.md
+===================================================================
+--- gcc.orig/config/rs6000/rs6000.md	2008-09-10 16:22:31.000000000 -0300
++++ gcc/config/rs6000/rs6000.md	2008-09-10 16:57:37.000000000 -0300
+@@ -9668,7 +9668,7 @@
+ 	(mem:BLK (match_operand:SI 1 "gpc_reg_operand" "b")))
+    (use (match_operand:SI 2 "immediate_operand" "i"))
+    (use (match_operand:SI 3 "immediate_operand" "i"))
+-   (clobber (match_operand:SI 4 "gpc_reg_operand" "=r"))
++   (clobber (match_operand:SI 4 "gpc_reg_operand" "=&r"))
+    (clobber (reg:SI  6))
+    (clobber (reg:SI  7))
+    (clobber (reg:SI  8))
+@@ -9692,7 +9692,7 @@
+ 	(mem:BLK (match_operand:P 1 "gpc_reg_operand" "b")))
+    (use (match_operand:SI 2 "immediate_operand" "i"))
+    (use (match_operand:SI 3 "immediate_operand" "i"))
+-   (clobber (match_operand:SI 4 "gpc_reg_operand" "=r"))
++   (clobber (match_operand:SI 4 "gpc_reg_operand" "=&r"))
+    (clobber (reg:SI  6))
+    (clobber (reg:SI  7))
+    (clobber (reg:SI  8))
+@@ -9734,7 +9734,7 @@
+ 	(mem:BLK (match_operand:SI 1 "gpc_reg_operand" "b")))
+    (use (match_operand:SI 2 "immediate_operand" "i"))
+    (use (match_operand:SI 3 "immediate_operand" "i"))
+-   (clobber (match_operand:SI 4 "gpc_reg_operand" "=r"))
++   (clobber (match_operand:SI 4 "gpc_reg_operand" "=&r"))
+    (clobber (reg:SI  6))
+    (clobber (reg:SI  7))
+    (clobber (reg:SI  8))
+@@ -9755,7 +9755,7 @@
+ 	(mem:BLK (match_operand:P 1 "gpc_reg_operand" "b")))
+    (use (match_operand:SI 2 "immediate_operand" "i"))
+    (use (match_operand:SI 3 "immediate_operand" "i"))
+-   (clobber (match_operand:SI 4 "gpc_reg_operand" "=r"))
++   (clobber (match_operand:SI 4 "gpc_reg_operand" "=&r"))
+    (clobber (reg:SI  6))
+    (clobber (reg:SI  7))
+    (clobber (reg:SI  8))
+@@ -9792,7 +9792,7 @@
+ 	(mem:BLK (match_operand:SI 1 "gpc_reg_operand" "b")))
+    (use (match_operand:SI 2 "immediate_operand" "i"))
+    (use (match_operand:SI 3 "immediate_operand" "i"))
+-   (clobber (match_operand:SI 4 "gpc_reg_operand" "=r"))
++   (clobber (match_operand:SI 4 "gpc_reg_operand" "=&r"))
+    (clobber (reg:SI 6))
+    (clobber (reg:SI 7))
+    (clobber (reg:SI 8))
+@@ -9811,7 +9811,7 @@
+ 	(mem:BLK (match_operand:P 1 "gpc_reg_operand" "b")))
+    (use (match_operand:SI 2 "immediate_operand" "i"))
+    (use (match_operand:SI 3 "immediate_operand" "i"))
+-   (clobber (match_operand:SI 4 "gpc_reg_operand" "=r"))
++   (clobber (match_operand:SI 4 "gpc_reg_operand" "=&r"))
+    (clobber (reg:SI 6))
+    (clobber (reg:SI 7))
+    (clobber (reg:SI 8))

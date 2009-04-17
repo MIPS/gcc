@@ -1,0 +1,416 @@
+From gcc-patches-return-218929-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org Tue May 27 12:02:57 2008
+Return-Path: <gcc-patches-return-218929-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org>
+Delivered-To: listarch-gcc-patches at gcc dot gnu dot org
+Received: (qmail 22506 invoked by alias); 27 May 2008 12:02:57 -0000
+Received: (qmail 22491 invoked by uid 22791); 27 May 2008 12:02:51 -0000
+X-Spam-Check-By: sourceware.org
+Received: from mtagate8.de.ibm.com (HELO mtagate8.de.ibm.com) (195.212.29.157)     by sourceware.org (qpsmtpd/0.31) with ESMTP; Tue, 27 May 2008 12:02:25 +0000
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49]) 	by mtagate8.de.ibm.com (8.13.8/8.13.8) with ESMTP id m4RC1vlb685348 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 12:01:57 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228]) 	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m4RC1vvA3752188 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 14:01:57 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m4RC1viq021264 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 14:01:57 +0200
+Received: from lc4eb0107015440.ibm.com (dyn-9-152-216-52.boeblingen.de.ibm.com [9.152.216.52]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with SMTP id m4RC1uCO021230 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 14:01:56 +0200
+Received: by lc4eb0107015440.ibm.com (sSMTP sendmail emulation); Tue, 27 May 2008 14:02:00 +0200
+From: "Andreas Krebbel" <Andreas dot Krebbel at de dot ibm dot com>
+Date: Tue, 27 May 2008 14:02:00 +0200
+To: gcc-patches at gcc dot gnu dot org
+Subject: [Committed] Introduce TARGET_MEM_CONSTRAINT macro
+Message-ID: <20080527120200.GC18965@homer.boeblingen.de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+User-Agent: Mutt/1.4.2.2i
+Mailing-List: contact gcc-patches-help at gcc dot gnu dot org; run by ezmlm
+Precedence: bulk
+List-Id: <gcc-patches.gcc.gnu.org>
+List-Archive: <http://gcc.gnu.org/ml/gcc-patches/>
+List-Post: <mailto:gcc-patches at gcc dot gnu dot org>
+List-Help: <mailto:gcc-patches-help at gcc dot gnu dot org>
+Sender: gcc-patches-owner at gcc dot gnu dot org
+Delivered-To: mailing list gcc-patches at gcc dot gnu dot org
+
+Applied to mainline.
+Approved with: http://gcc.gnu.org/ml/gcc-patches/2008-04/msg00639.html
+
+Bye,
+
+-Andreas-
+
+2008-05-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* defaults.h (TARGET_MEM_CONSTRAINT): New target macro added.
+	* postreload.c (reload_cse_simplify_operands): Replace 'm'
+	constraint with TARGET_MEM_CONSTRAINT.
+	* recog.c (asm_operand_ok, preprocess_constraints,
+	constrain_operands): Likewise.
+	* regclass.c (record_reg_classes): Likewise.
+	* reload.c (find_reloads, alternative_allows_const_pool_ref):
+	Likewise.
+	* reload1.c (maybe_fix_stack_asms): Likewise.
+	* stmt.c (parse_output_constraint, parse_input_constraint):
+	Likewise.
+	* recog.h: Adjust comment.
+	* genpreds.c (generic_constraint_letters): Remove 'm' constraint.
+	* genoutput.c (note_constraint): Don't emit error for 'm'
+	constraint.
+	* doc/md.texi: Add a note to description of 'm' constraint.
+	* doc/tm.texi: Document the new TARGET_MEM_CONSTRAINT macro.
+
+
+Index: gcc/defaults.h
+===================================================================
+*** gcc/defaults.h.orig	2008-05-27 08:40:45.000000000 +0200
+--- gcc/defaults.h	2008-05-27 08:45:44.000000000 +0200
+*************** along with GCC; see the file COPYING3.  
+*** 902,907 ****
+--- 902,911 ----
+  #define LEGITIMATE_PIC_OPERAND_P(X) 1
+  #endif
+  
++ #ifndef TARGET_MEM_CONSTRAINT
++ #define TARGET_MEM_CONSTRAINT 'm'
++ #endif
++ 
+  #ifndef REVERSIBLE_CC_MODE
+  #define REVERSIBLE_CC_MODE(MODE) 0
+  #endif
+Index: gcc/postreload.c
+===================================================================
+*** gcc/postreload.c.orig	2008-05-15 10:28:00.000000000 +0200
+--- gcc/postreload.c	2008-05-27 08:45:44.000000000 +0200
+*************** reload_cse_simplify_operands (rtx insn, 
+*** 542,553 ****
+  		case '*':  case '%':
+  		case '0':  case '1':  case '2':  case '3':  case '4':
+  		case '5':  case '6':  case '7':  case '8':  case '9':
+! 		case 'm':  case '<':  case '>':  case 'V':  case 'o':
+  		case 'E':  case 'F':  case 'G':  case 'H':
+  		case 's':  case 'i':  case 'n':
+  		case 'I':  case 'J':  case 'K':  case 'L':
+  		case 'M':  case 'N':  case 'O':  case 'P':
+! 		case 'p': case 'X':
+  		  /* These don't say anything we care about.  */
+  		  break;
+  
+--- 542,553 ----
+  		case '*':  case '%':
+  		case '0':  case '1':  case '2':  case '3':  case '4':
+  		case '5':  case '6':  case '7':  case '8':  case '9':
+! 		case '<':  case '>':  case 'V':  case 'o':
+  		case 'E':  case 'F':  case 'G':  case 'H':
+  		case 's':  case 'i':  case 'n':
+  		case 'I':  case 'J':  case 'K':  case 'L':
+  		case 'M':  case 'N':  case 'O':  case 'P':
+! 		case 'p':  case 'X':  case TARGET_MEM_CONSTRAINT:
+  		  /* These don't say anything we care about.  */
+  		  break;
+  
+Index: gcc/recog.c
+===================================================================
+*** gcc/recog.c.orig	2008-05-27 08:40:45.000000000 +0200
+--- gcc/recog.c	2008-05-27 08:45:44.000000000 +0200
+*************** asm_operand_ok (rtx op, const char *cons
+*** 1543,1549 ****
+  	    result = 1;
+  	  break;
+  
+! 	case 'm':
+  	case 'V': /* non-offsettable */
+  	  if (memory_operand (op, VOIDmode))
+  	    result = 1;
+--- 1543,1549 ----
+  	    result = 1;
+  	  break;
+  
+! 	case TARGET_MEM_CONSTRAINT:
+  	case 'V': /* non-offsettable */
+  	  if (memory_operand (op, VOIDmode))
+  	    result = 1;
+*************** preprocess_constraints (void)
+*** 2082,2088 ****
+  		  }
+  		  continue;
+  
+! 		case 'm':
+  		  op_alt[j].memory_ok = 1;
+  		  break;
+  		case '<':
+--- 2082,2088 ----
+  		  }
+  		  continue;
+  
+! 		case TARGET_MEM_CONSTRAINT:
+  		  op_alt[j].memory_ok = 1;
+  		  break;
+  		case '<':
+*************** constrain_operands (int strict)
+*** 2355,2361 ****
+  		win = 1;
+  		break;
+  
+! 	      case 'm':
+  		/* Memory operands must be valid, to the extent
+  		   required by STRICT.  */
+  		if (MEM_P (op))
+--- 2355,2361 ----
+  		win = 1;
+  		break;
+  
+! 	      case TARGET_MEM_CONSTRAINT:
+  		/* Memory operands must be valid, to the extent
+  		   required by STRICT.  */
+  		if (MEM_P (op))
+Index: gcc/regclass.c
+===================================================================
+*** gcc/regclass.c.orig	2008-05-15 10:28:00.000000000 +0200
+--- gcc/regclass.c	2008-05-27 08:45:44.000000000 +0200
+*************** record_reg_classes (int n_alts, int n_op
+*** 1701,1707 ****
+  		    [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
+  		  break;
+  
+! 		case 'm':  case 'o':  case 'V':
+  		  /* It doesn't seem worth distinguishing between offsettable
+  		     and non-offsettable addresses here.  */
+  		  allows_mem[i] = 1;
+--- 1701,1707 ----
+  		    [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
+  		  break;
+  
+! 		case TARGET_MEM_CONSTRAINT:  case 'o':  case 'V':
+  		  /* It doesn't seem worth distinguishing between offsettable
+  		     and non-offsettable addresses here.  */
+  		  allows_mem[i] = 1;
+Index: gcc/reload.c
+===================================================================
+*** gcc/reload.c.orig	2008-05-15 10:28:00.000000000 +0200
+--- gcc/reload.c	2008-05-27 08:45:44.000000000 +0200
+*************** find_reloads (rtx insn, int replace, int
+*** 3182,3188 ****
+  		badop = 0;
+  		break;
+  
+! 	      case 'm':
+  		if (force_reload)
+  		  break;
+  		if (MEM_P (operand)
+--- 3182,3188 ----
+  		badop = 0;
+  		break;
+  
+! 	      case TARGET_MEM_CONSTRAINT:
+  		if (force_reload)
+  		  break;
+  		if (MEM_P (operand)
+*************** alternative_allows_const_pool_ref (rtx m
+*** 4522,4528 ****
+        while (*constraint++ != ',');
+        altnum--;
+      }
+!   /* Scan the requested alternative for 'm' or 'o'.
+       If one of them is present, this alternative accepts the result of
+       passing a constant-pool reference through find_reloads_toplev.
+  
+--- 4522,4528 ----
+        while (*constraint++ != ',');
+        altnum--;
+      }
+!   /* Scan the requested alternative for TARGET_MEM_CONSTRAINT or 'o'.
+       If one of them is present, this alternative accepts the result of
+       passing a constant-pool reference through find_reloads_toplev.
+  
+*************** alternative_allows_const_pool_ref (rtx m
+*** 4533,4539 ****
+    for (; (c = *constraint) && c != ',' && c != '#';
+         constraint += CONSTRAINT_LEN (c, constraint))
+      {
+!       if (c == 'm' || c == 'o')
+  	return true;
+  #ifdef EXTRA_CONSTRAINT_STR
+        if (EXTRA_MEMORY_CONSTRAINT (c, constraint)
+--- 4533,4539 ----
+    for (; (c = *constraint) && c != ',' && c != '#';
+         constraint += CONSTRAINT_LEN (c, constraint))
+      {
+!       if (c == TARGET_MEM_CONSTRAINT || c == 'o')
+  	return true;
+  #ifdef EXTRA_CONSTRAINT_STR
+        if (EXTRA_MEMORY_CONSTRAINT (c, constraint)
+Index: gcc/reload1.c
+===================================================================
+*** gcc/reload1.c.orig	2008-05-15 10:28:00.000000000 +0200
+--- gcc/reload1.c	2008-05-27 08:45:44.000000000 +0200
+*************** maybe_fix_stack_asms (void)
+*** 1454,1464 ****
+  	      switch (c)
+  		{
+  		case '=': case '+': case '*': case '%': case '?': case '!':
+! 		case '0': case '1': case '2': case '3': case '4': case 'm':
+! 		case '<': case '>': case 'V': case 'o': case '&': case 'E':
+! 		case 'F': case 's': case 'i': case 'n': case 'X': case 'I':
+! 		case 'J': case 'K': case 'L': case 'M': case 'N': case 'O':
+! 		case 'P':
+  		  break;
+  
+  		case 'p':
+--- 1454,1464 ----
+  	      switch (c)
+  		{
+  		case '=': case '+': case '*': case '%': case '?': case '!':
+! 		case '0': case '1': case '2': case '3': case '4': case '<':
+! 		case '>': case 'V': case 'o': case '&': case 'E': case 'F':
+! 		case 's': case 'i': case 'n': case 'X': case 'I': case 'J':
+! 		case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
+! 		case TARGET_MEM_CONSTRAINT:
+  		  break;
+  
+  		case 'p':
+Index: gcc/stmt.c
+===================================================================
+*** gcc/stmt.c.orig	2008-05-15 10:28:00.000000000 +0200
+--- gcc/stmt.c	2008-05-27 08:45:44.000000000 +0200
+*************** parse_output_constraint (const char **co
+*** 363,369 ****
+  	  }
+  	break;
+  
+!       case 'V':  case 'm':  case 'o':
+  	*allows_mem = true;
+  	break;
+  
+--- 363,369 ----
+  	  }
+  	break;
+  
+!       case 'V':  case TARGET_MEM_CONSTRAINT:  case 'o':
+  	*allows_mem = true;
+  	break;
+  
+*************** parse_input_constraint (const char **con
+*** 462,468 ****
+  	  }
+  	break;
+  
+!       case 'V':  case 'm':  case 'o':
+  	*allows_mem = true;
+  	break;
+  
+--- 462,468 ----
+  	  }
+  	break;
+  
+!       case 'V':  case TARGET_MEM_CONSTRAINT:  case 'o':
+  	*allows_mem = true;
+  	break;
+  
+Index: gcc/recog.h
+===================================================================
+*** gcc/recog.h.orig	2008-05-15 10:28:00.000000000 +0200
+--- gcc/recog.h	2008-05-27 08:45:44.000000000 +0200
+*************** struct operand_alternative
+*** 50,56 ****
+  
+    /* Nonzero if '&' was found in the constraint string.  */
+    unsigned int earlyclobber:1;
+!   /* Nonzero if 'm' was found in the constraint string.  */
+    unsigned int memory_ok:1;
+    /* Nonzero if 'o' was found in the constraint string.  */
+    unsigned int offmem_ok:1;
+--- 50,57 ----
+  
+    /* Nonzero if '&' was found in the constraint string.  */
+    unsigned int earlyclobber:1;
+!   /* Nonzero if TARGET_MEM_CONSTRAINT was found in the constraint
+!      string.  */
+    unsigned int memory_ok:1;
+    /* Nonzero if 'o' was found in the constraint string.  */
+    unsigned int offmem_ok:1;
+Index: gcc/genpreds.c
+===================================================================
+*** gcc/genpreds.c.orig	2008-05-15 10:28:00.000000000 +0200
+--- gcc/genpreds.c	2008-05-27 08:45:44.000000000 +0200
+*************** static struct constraint_data **last_con
+*** 690,697 ****
+    for (iter_ = first_constraint; iter_; iter_ = iter_->next_textual)
+  
+  /* These letters, and all names beginning with them, are reserved for
+!    generic constraints.  */
+! static const char generic_constraint_letters[] = "EFVXgimnoprs";
+  
+  /* Machine-independent code expects that constraints with these
+     (initial) letters will allow only (a subset of all) CONST_INTs.  */
+--- 690,700 ----
+    for (iter_ = first_constraint; iter_; iter_ = iter_->next_textual)
+  
+  /* These letters, and all names beginning with them, are reserved for
+!    generic constraints.
+!    The 'm' constraint is not mentioned here since that constraint
+!    letter can be overridden by the back end by defining the
+!    TARGET_MEM_CONSTRAINT macro.  */
+! static const char generic_constraint_letters[] = "EFVXginoprs";
+  
+  /* Machine-independent code expects that constraints with these
+     (initial) letters will allow only (a subset of all) CONST_INTs.  */
+Index: gcc/genoutput.c
+===================================================================
+*** gcc/genoutput.c.orig	2008-05-15 10:28:00.000000000 +0200
+--- gcc/genoutput.c	2008-05-27 08:45:44.000000000 +0200
+*************** note_constraint (rtx exp, int lineno)
+*** 1122,1128 ****
+    unsigned int namelen = strlen (name);
+    struct constraint_data **iter, **slot, *new;
+  
+!   if (strchr (indep_constraints, name[0]))
+      {
+        if (name[1] == '\0')
+  	message_with_line (lineno, "constraint letter '%s' cannot be "
+--- 1122,1131 ----
+    unsigned int namelen = strlen (name);
+    struct constraint_data **iter, **slot, *new;
+  
+!   /* The 'm' constraint is special here since that constraint letter
+!      can be overridden by the back end by defining the
+!      TARGET_MEM_CONSTRAINT macro.  */
+!   if (strchr (indep_constraints, name[0]) && name[0] != 'm')
+      {
+        if (name[1] == '\0')
+  	message_with_line (lineno, "constraint letter '%s' cannot be "
+Index: gcc/doc/md.texi
+===================================================================
+*** gcc/doc/md.texi.orig	2008-05-15 10:22:48.000000000 +0200
+--- gcc/doc/md.texi	2008-05-27 08:45:44.000000000 +0200
+*************** number of constraints and modifiers.
+*** 1085,1090 ****
+--- 1085,1092 ----
+  @item @samp{m}
+  A memory operand is allowed, with any kind of address that the machine
+  supports in general.
++ Note that the letter used for the general memory constraint can be
++ re-defined by a back end using the @code{TARGET_MEM_CONSTRAINT} macro.
+  
+  @cindex offsettable address
+  @cindex @samp{o} in constraint
+Index: gcc/doc/tm.texi
+===================================================================
+*** gcc/doc/tm.texi.orig	2008-05-27 08:40:32.000000000 +0200
+--- gcc/doc/tm.texi	2008-05-27 08:45:44.000000000 +0200
+*************** into the @code{symbol_ref}, and then che
+*** 5315,5320 ****
+--- 5315,5331 ----
+  Format}.
+  @end defmac
+  
++ @defmac TARGET_MEM_CONSTRAINT
++ A single character to be used instead of the default @code{'m'}
++ character for general memory addresses.  This defines the constraint
++ letter which matches the memory addresses accepted by
++ @code{GO_IF_LEGITIMATE_ADDRESS_P}.  Define this macro if you want to
++ support new address formats in your back end without changing the
++ semantics of the @code{'m'} constraint.  This is necessary in order to
++ preserve functionality of inline assembly constructs using the
++ @code{'m'} constraint.
++ @end defmac
++ 
+  @defmac FIND_BASE_TERM (@var{x})
+  A C expression to determine the base term of address @var{x}.
+  This macro is used in only one place: `find_base_term' in alias.c.
+

@@ -1,0 +1,133 @@
+Index: gcc/Makefile.in
+===================================================================
+*** gcc/Makefile.in	(revision 130135)
+--- gcc/Makefile.in	(working copy)
+*************** GTM_H     = tm.h      $(tm_file_list)
+*** 726,737 ****
+  TM_H      = $(GTM_H) insn-constants.h insn-flags.h options.h
+  
+  # Variables for version information.
+! BASEVER     := $(srcdir)/BASE-VER  # 4.x.y
+  DEVPHASE    := $(srcdir)/DEV-PHASE # experimental, prerelease, ""
+  DATESTAMP   := $(srcdir)/DATESTAMP # YYYYMMDD or empty
+  REVISION    := $(srcdir)/REVISION  # [BRANCH revision XXXXXX]
+  
+  BASEVER_c   := $(shell cat $(BASEVER))
+  DEVPHASE_c  := $(shell cat $(DEVPHASE))
+  DATESTAMP_c := $(shell cat $(DATESTAMP))
+  
+--- 726,739 ----
+  TM_H      = $(GTM_H) insn-constants.h insn-flags.h options.h
+  
+  # Variables for version information.
+! BASEVER     := $(srcdir)/BASE-VER  # 4.x
+! FULLVER     := $(srcdir)/FULL-VER  # 4.x.y
+  DEVPHASE    := $(srcdir)/DEV-PHASE # experimental, prerelease, ""
+  DATESTAMP   := $(srcdir)/DATESTAMP # YYYYMMDD or empty
+  REVISION    := $(srcdir)/REVISION  # [BRANCH revision XXXXXX]
+  
+  BASEVER_c   := $(shell cat $(BASEVER))
++ FULLVER_c   := $(shell cat $(FULLVER))
+  DEVPHASE_c  := $(shell cat $(DEVPHASE))
+  DATESTAMP_c := $(shell cat $(DATESTAMP))
+  
+*************** version     := $(BASEVER_c)
+*** 749,754 ****
+--- 751,757 ----
+  # (i.e. if DEVPHASE_c is empty).  The space immediately after the
+  # comma in the $(if ...) constructs is significant - do not remove it.
+  BASEVER_s   := "\"$(BASEVER_c)\""
++ FULLVER_s   := "\"$(FULLVER_c)\""
+  DEVPHASE_s  := "\"$(if $(DEVPHASE_c), ($(DEVPHASE_c)))\""
+  DATESTAMP_s := "\"$(if $(DEVPHASE_c), $(DATESTAMP_c))\""
+  PKGVERSION_s:= "\"@PKGVERSION@\""
+*************** gcc-options.o: options.c $(CONFIG_H) $(S
+*** 1912,1923 ****
+  dumpvers: dumpvers.c
+  
+  ifdef REVISION_s
+! version.o: version.c version.h $(REVISION) $(DATESTAMP) $(BASEVER) $(DEVPHASE)
+  else
+! version.o: version.c version.h $(DATESTAMP) $(BASEVER) $(DEVPHASE)
+  endif
+  	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+! 	-DBASEVER=$(BASEVER_s) -DDATESTAMP=$(DATESTAMP_s) \
+  	-DREVISION=$(REVISION_s) \
+  	-DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
+  	-DBUGURL=$(BUGURL_s) -c $(srcdir)/version.c $(OUTPUT_OPTION)
+--- 1915,1926 ----
+  dumpvers: dumpvers.c
+  
+  ifdef REVISION_s
+! version.o: version.c version.h $(REVISION) $(DATESTAMP) $(FULLVER) $(DEVPHASE)
+  else
+! version.o: version.c version.h $(DATESTAMP) $(FULLVER) $(DEVPHASE)
+  endif
+  	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+! 	-DBASEVER=$(FULLVER_s) -DDATESTAMP=$(DATESTAMP_s) \
+  	-DREVISION=$(REVISION_s) \
+  	-DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
+  	-DBUGURL=$(BUGURL_s) -c $(srcdir)/version.c $(OUTPUT_OPTION)
+Index: libjava/Makefile.am
+===================================================================
+*** libjava/Makefile.am	(revision 130144)
+--- libjava/Makefile.am	(working copy)
+*************** endif BUILD_ECJ1
+*** 473,479 ****
+  install-data-local:
+  	$(PRE_INSTALL)
+  ## Install the .pc file.
+! 	@pc_version=`echo $(GCJVERSION) | sed -e 's/[.][^.]*$$//'`; \
+  	file="libgcj-$${pc_version}.pc"; \
+  	$(mkinstalldirs) $(DESTDIR)$(pkgconfigdir); \
+  	echo "  $(INSTALL_DATA) libgcj.pc $(DESTDIR)$(pkgconfigdir)/$$file"; \
+--- 473,479 ----
+  install-data-local:
+  	$(PRE_INSTALL)
+  ## Install the .pc file.
+! 	@pc_version=`echo $(GCJVERSION)`; \
+  	file="libgcj-$${pc_version}.pc"; \
+  	$(mkinstalldirs) $(DESTDIR)$(pkgconfigdir); \
+  	echo "  $(INSTALL_DATA) libgcj.pc $(DESTDIR)$(pkgconfigdir)/$$file"; \
+Index: libjava/Makefile.in
+===================================================================
+*** libjava/Makefile.in	(revision 130144)
+--- libjava/Makefile.in	(working copy)
+*************** install-exec-hook: install-toolexeclibLT
+*** 11878,11884 ****
+  
+  install-data-local:
+  	$(PRE_INSTALL)
+! 	@pc_version=`echo $(GCJVERSION) | sed -e 's/[.][^.]*$$//'`; \
+  	file="libgcj-$${pc_version}.pc"; \
+  	$(mkinstalldirs) $(DESTDIR)$(pkgconfigdir); \
+  	echo "  $(INSTALL_DATA) libgcj.pc $(DESTDIR)$(pkgconfigdir)/$$file"; \
+--- 11878,11884 ----
+  
+  install-data-local:
+  	$(PRE_INSTALL)
+! 	@pc_version=`echo $(GCJVERSION)`; \
+  	file="libgcj-$${pc_version}.pc"; \
+  	$(mkinstalldirs) $(DESTDIR)$(pkgconfigdir); \
+  	echo "  $(INSTALL_DATA) libgcj.pc $(DESTDIR)$(pkgconfigdir)/$$file"; \
+Index: libjava/testsuite/lib/libjava.exp
+===================================================================
+*** libjava/testsuite/lib/libjava.exp	(revision 131902)
+--- libjava/testsuite/lib/libjava.exp	(working copy)
+*************** proc libjava_init { args } {
+*** 168,174 ****
+  
+      set text [eval exec "$GCJ_UNDER_TEST -B$specdir -v 2>@ stdout"]
+      regexp " version \[^\n\r\]*" $text version
+!     set libjava_version [lindex $version 1]
+  
+      verbose "version: $libjava_version"
+  
+--- 168,174 ----
+  
+      set text [eval exec "$GCJ_UNDER_TEST -B$specdir -v 2>@ stdout"]
+      regexp " version \[^\n\r\]*" $text version
+!     set libjava_version 4.3
+  
+      verbose "version: $libjava_version"
+  

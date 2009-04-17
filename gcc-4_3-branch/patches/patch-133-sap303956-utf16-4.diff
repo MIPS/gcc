@@ -1,0 +1,204 @@
+This is r137970.
+
+gcc/testsuite/
+2008-07-18  Kris Van Hees  <kris.van.hees@oracle.com>
+
+	* g++.dg/ext/utf-array.C: Fix broken merge/checkin.
+	* g++.dg/ext/utf-array-short-wchar.C: Idem
+	* gcc.dg/utf-array.c: Idem
+	* gcc.dg/utf-array-short-wchar.c: Idem
+
+Index: gcc/testsuite/gcc.dg/utf-array.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf-array.c	(revision 137969)
+--- gcc/testsuite/gcc.dg/utf-array.c	(revision 137970)
+*************** const wchar_t	sw_0[]	= "ab";		/* { dg-er
+*** 39,82 ****
+  const wchar_t	sw_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+  const wchar_t	sw_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+  const wchar_t	sw_3[]	= L"ab";
+- /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
+- /* Expected errors for char16_t/char32_t string literals. */
+- /* { dg-do compile } */
+- /* { dg-options "-std=gnu99" } */
+- 
+- #include <wchar.h>
+- 
+- typedef short unsigned int	char16_t;
+- typedef unsigned int		char32_t;
+- 
+- const char	s_0[]	= "ab";
+- const char	s_1[]	= u"ab";	/* { dg-error "from wide string" } */
+- const char	s_2[]	= U"ab";	/* { dg-error "from wide string" } */
+- const char	s_3[]	= L"ab";	/* { dg-error "from wide string" } */
+- 
+- const char16_t	s16_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const char16_t	s16_1[]	= u"ab";
+- const char16_t	s16_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+- const char16_t	s16_3[]	= L"ab";	/* { dg-error "from incompatible" } */
+- 
+- const char16_t	s16_4[0] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_5[1] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_6[2] = u"ab";
+- const char16_t	s16_7[3] = u"ab";
+- const char16_t	s16_8[4] = u"ab";
+- 
+- const char32_t	s32_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const char32_t	s32_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+- const char32_t	s32_2[]	= U"ab";
+- const char32_t	s32_3[]	= L"ab";	/* { dg-error "from incompatible" } */
+- 
+- const char16_t	s32_4[0] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_5[1] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_6[2] = u"ab";
+- const char16_t	s32_7[3] = u"ab";
+- const char16_t	s32_8[4] = u"ab";
+- 
+- const wchar_t	sw_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const wchar_t	sw_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+- const wchar_t	sw_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+- const wchar_t	sw_3[]	= L"ab";
+--- 39,41 ----
+Index: gcc/testsuite/gcc.dg/utf-array-short-wchar.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf-array-short-wchar.c	(revision 137969)
+--- gcc/testsuite/gcc.dg/utf-array-short-wchar.c	(revision 137970)
+*************** const wchar_t	sw_0[]	= "ab";		/* { dg-er
+*** 39,82 ****
+  const wchar_t	sw_1[]	= u"ab";
+  const wchar_t	sw_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+  const wchar_t	sw_3[]	= L"ab";
+- /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
+- /* Expected errors for char16_t/char32_t string literals. */
+- /* { dg-do compile } */
+- /* { dg-options "-std=gnu99 -fshort-wchar" } */
+- 
+- #include <wchar.h>
+- 
+- typedef short unsigned int	char16_t;
+- typedef unsigned int		char32_t;
+- 
+- const char	s_0[]	= "ab";
+- const char	s_1[]	= u"ab";	/* { dg-error "from wide string" } */
+- const char	s_2[]	= U"ab";	/* { dg-error "from wide string" } */
+- const char	s_3[]	= L"ab";	/* { dg-error "from wide string" } */
+- 
+- const char16_t	s16_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const char16_t	s16_1[]	= u"ab";
+- const char16_t	s16_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+- const char16_t	s16_3[]	= L"ab";
+- 
+- const char16_t	s16_4[0] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_5[1] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_6[2] = u"ab";
+- const char16_t	s16_7[3] = u"ab";
+- const char16_t	s16_8[4] = u"ab";
+- 
+- const char32_t	s32_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const char32_t	s32_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+- const char32_t	s32_2[]	= U"ab";
+- const char32_t	s32_3[]	= L"ab";	/* { dg-error "from incompatible" } */
+- 
+- const char16_t	s32_4[0] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_5[1] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_6[2] = u"ab";
+- const char16_t	s32_7[3] = u"ab";
+- const char16_t	s32_8[4] = u"ab";
+- 
+- const wchar_t	sw_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const wchar_t	sw_1[]	= u"ab";
+- const wchar_t	sw_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+- const wchar_t	sw_3[]	= L"ab";
+--- 39,41 ----
+Index: gcc/testsuite/g++.dg/ext/utf-array.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-array.C	(revision 137969)
+--- gcc/testsuite/g++.dg/ext/utf-array.C	(revision 137970)
+*************** const wchar_t	sw_0[]	= "ab";		/* { dg-er
+*** 34,72 ****
+  const wchar_t	sw_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+  const wchar_t	sw_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+  const wchar_t	sw_3[]	= L"ab";
+- /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
+- /* Expected errors for char16_t/char32_t string literals. */
+- /* { dg-do compile } */
+- /* { dg-options "-std=c++0x" } */
+- 
+- const char	s_0[]	= "ab";
+- const char	s_1[]	= u"ab";	/* { dg-error "from wide string" } */
+- const char	s_2[]	= U"ab";	/* { dg-error "from wide string" } */
+- const char	s_3[]	= L"ab";	/* { dg-error "from wide string" } */
+- 
+- const char16_t	s16_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const char16_t	s16_1[]	= u"ab";
+- const char16_t	s16_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+- const char16_t	s16_3[]	= L"ab";	/* { dg-error "from incompatible" } */
+- 
+- const char16_t	s16_4[0] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_5[1] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_6[2] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_7[3] = u"ab";
+- const char16_t	s16_8[4] = u"ab";
+- 
+- const char32_t	s32_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const char32_t	s32_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+- const char32_t	s32_2[]	= U"ab";
+- const char32_t	s32_3[]	= L"ab";	/* { dg-error "from incompatible" } */
+- 
+- const char16_t	s32_4[0] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_5[1] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_6[2] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_7[3] = u"ab";
+- const char16_t	s32_8[4] = u"ab";
+- 
+- const wchar_t	sw_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const wchar_t	sw_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+- const wchar_t	sw_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+- const wchar_t	sw_3[]	= L"ab";
+--- 34,36 ----
+Index: gcc/testsuite/g++.dg/ext/utf-array-short-wchar.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-array-short-wchar.C	(revision 137969)
+--- gcc/testsuite/g++.dg/ext/utf-array-short-wchar.C	(revision 137970)
+*************** const wchar_t	sw_0[]	= "ab";		/* { dg-er
+*** 34,72 ****
+  const wchar_t	sw_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+  const wchar_t	sw_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+  const wchar_t	sw_3[]	= L"ab";
+- /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
+- /* Expected errors for char16_t/char32_t string literals. */
+- /* { dg-do compile } */
+- /* { dg-options "-std=c++0x -fshort-wchar" } */
+- 
+- const char	s_0[]	= "ab";
+- const char	s_1[]	= u"ab";	/* { dg-error "from wide string" } */
+- const char	s_2[]	= U"ab";	/* { dg-error "from wide string" } */
+- const char	s_3[]	= L"ab";	/* { dg-error "from wide string" } */
+- 
+- const char16_t	s16_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const char16_t	s16_1[]	= u"ab";
+- const char16_t	s16_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+- const char16_t	s16_3[]	= L"ab";	/* { dg-error "from incompatible" } */
+- 
+- const char16_t	s16_4[0] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_5[1] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_6[2] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s16_7[3] = u"ab";
+- const char16_t	s16_8[4] = u"ab";
+- 
+- const char32_t	s32_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const char32_t	s32_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+- const char32_t	s32_2[]	= U"ab";
+- const char32_t	s32_3[]	= L"ab";	/* { dg-error "from incompatible" } */
+- 
+- const char16_t	s32_4[0] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_5[1] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_6[2] = u"ab";	/* { dg-warning "chars is too long" } */
+- const char16_t	s32_7[3] = u"ab";
+- const char16_t	s32_8[4] = u"ab";
+- 
+- const wchar_t	sw_0[]	= "ab";		/* { dg-error "from non-wide" } */
+- const wchar_t	sw_1[]	= u"ab";	/* { dg-error "from incompatible" } */
+- const wchar_t	sw_2[]	= U"ab";	/* { dg-error "from incompatible" } */
+- const wchar_t	sw_3[]	= L"ab";
+--- 34,36 ----

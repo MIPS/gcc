@@ -105,7 +105,7 @@ package Osint is
    --  Put simple name of current program being run (excluding the directory
    --  path) in Name_Buffer, with the length in Name_Len.
 
-   function Program_Name (Nam : String) return String_Access;
+   function Program_Name (Nam : String; Prog : String) return String_Access;
    --  In the native compilation case, Create a string containing Nam. In the
    --  cross compilation case, looks at the prefix of the current program being
    --  run and prepend it to Nam. For instance if the program being run is

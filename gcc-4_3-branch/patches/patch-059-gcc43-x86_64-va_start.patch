@@ -1,0 +1,355 @@
+2008-09-02  H.J. Lu  <hongjiu.lu@intel.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (X86_64_VARARGS_SIZE): Removed.
+	(setup_incoming_varargs_64): Set/check ix86_varargs_gpr_size and
+	ix86_varargs_fpr_size.  Use ix86_varargs_gpr_size instead of
+	REGPARM_MAX.  Don't set ix86_save_varrargs_registers.
+	(ix86_va_start): Check ix86_varargs_gpr_size and
+	ix86_varargs_fpr_size instead of cfun->va_list_gpr_size and
+	cfun->va_list_fpr_size, respectively.  Subtract 8*REGPARM_MAX
+	from frame pointer if ix86_varargs_gpr_size == 0.
+	(ix86_compute_frame_layout): Updated.
+	* config/i386/i386.h (ix86_save_varrargs_registers): Removed.
+	(ix86_varargs_gpr_size): Define.
+	(ix86_varargs_fpr_size): Likewise.
+	(machine_function): Remove save_varrargs_registers.
+	Add varargs_gpr_size and varargs_fpr_size.
+
+	* gcc.target/i386/amd64-abi-3.c: New test.
+	* gcc.target/i386/amd64-abi-4.c: Likewise.
+	* gcc.target/i386/amd64-abi-5.c: Likewise.
+	* gcc.target/i386/amd64-abi-6.c: Likewise.
+
+--- gcc/config/i386/i386.h	(revision 139909)
++++ gcc/config/i386/i386.h	(revision 139910)
+@@ -2440,7 +2440,8 @@ struct machine_function GTY(())
+   struct stack_local_entry *stack_locals;
+   const char *some_ld_name;
+   rtx force_align_arg_pointer;
+-  int save_varrargs_registers;
++  int varargs_gpr_size;
++  int varargs_fpr_size;
+   int accesses_prev_frame;
+   int optimize_mode_switching[MAX_386_ENTITIES];
+   int needs_cld;
+@@ -2463,7 +2464,8 @@ struct machine_function GTY(())
+ };
+ 
+ #define ix86_stack_locals (cfun->machine->stack_locals)
+-#define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
++#define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
++#define ix86_varargs_fpr_size (cfun->machine->varargs_fpr_size)
+ #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
+ #define ix86_current_function_needs_cld (cfun->machine->needs_cld)
+ #define ix86_tls_descriptor_calls_expanded_in_cfun \
+--- gcc/config/i386/i386.c	(revision 139909)
++++ gcc/config/i386/i386.c	(revision 139910)
+@@ -1616,9 +1616,6 @@ rtx ix86_compare_op0 = NULL_RTX;
+ rtx ix86_compare_op1 = NULL_RTX;
+ rtx ix86_compare_emitted = NULL_RTX;
+ 
+-/* Size of the register save area.  */
+-#define X86_64_VARARGS_SIZE (REGPARM_MAX * UNITS_PER_WORD + SSE_REGPARM_MAX * 16)
+-
+ /* Define the structure for the machine field in struct function.  */
+ 
+ struct stack_local_entry GTY(())
+@@ -4976,11 +4973,22 @@ setup_incoming_varargs_64 (CUMULATIVE_AR
+   alias_set_type set;
+   int i;
+ 
+-  if (! cfun->va_list_gpr_size && ! cfun->va_list_fpr_size)
++  /* GPR size of varargs save area.  */
++  if (cfun->va_list_gpr_size)
++    ix86_varargs_gpr_size = REGPARM_MAX * UNITS_PER_WORD;
++  else
++    ix86_varargs_gpr_size = 0;
++
++  /* FPR size of varargs save area.  We don't need it if we don't pass
++     anything in SSE registers.  */
++  if (cum->sse_nregs && cfun->va_list_fpr_size)
++    ix86_varargs_fpr_size = SSE_REGPARM_MAX * 16;
++  else
++    ix86_varargs_fpr_size = 0;
++
++  if (! ix86_varargs_gpr_size && ! ix86_varargs_fpr_size)
+     return;
+ 
+-  /* Indicate to allocate space on the stack for varargs save area.  */
+-  ix86_save_varrargs_registers = 1;
+   /* We need 16-byte stack alignment to save SSE registers.  If user
+      asked for lower preferred_stack_boundary, lets just hope that he knows
+      what he is doing and won't varargs SSE values.
+@@ -5006,7 +5014,7 @@ setup_incoming_varargs_64 (CUMULATIVE_AR
+ 					x86_64_int_parameter_registers[i]));
+     }
+ 
+-  if (cum->sse_nregs && cfun->va_list_fpr_size)
++  if (ix86_varargs_fpr_size)
+     {
+       /* Now emit code to save SSE registers.  The AX parameter contains number
+ 	 of SSE parameter registers used to call this function.  We use
+@@ -5041,7 +5049,7 @@ setup_incoming_varargs_64 (CUMULATIVE_AR
+       tmp_reg = gen_reg_rtx (Pmode);
+       emit_insn (gen_rtx_SET (VOIDmode, tmp_reg,
+ 			      plus_constant (save_area,
+-					     8 * REGPARM_MAX + 127)));
++					     ix86_varargs_gpr_size + 127)));
+       mem = gen_rtx_MEM (BLKmode, plus_constant (tmp_reg, -127));
+       MEM_NOTRAP_P (mem) = 1;
+       set_mem_alias_set (mem, set);
+@@ -5145,7 +5153,7 @@ ix86_va_start (tree valist, rtx nextarg)
+       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+     }
+ 
+-  if (cfun->va_list_fpr_size)
++  if (TARGET_SSE && cfun->va_list_fpr_size)
+     {
+       type = TREE_TYPE (fpr);
+       t = build2 (GIMPLE_MODIFY_STMT, type, fpr,
+@@ -5164,12 +5172,15 @@ ix86_va_start (tree valist, rtx nextarg)
+   TREE_SIDE_EFFECTS (t) = 1;
+   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+ 
+-  if (cfun->va_list_gpr_size || cfun->va_list_fpr_size)
++  if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
+     {
+       /* Find the register save area.
+ 	 Prologue of the function save it right above stack frame.  */
+       type = TREE_TYPE (sav);
+       t = make_tree (type, frame_pointer_rtx);
++      if (!ix86_varargs_gpr_size)
++	t = build2 (POINTER_PLUS_EXPR, type, t,
++		    size_int (-8 * REGPARM_MAX));
+       t = build2 (GIMPLE_MODIFY_STMT, type, sav, t);
+       TREE_SIDE_EFFECTS (t) = 1;
+       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+@@ -6079,13 +6090,8 @@ ix86_compute_frame_layout (struct ix86_f
+   offset += frame->nregs * UNITS_PER_WORD;
+ 
+   /* Va-arg area */
+-  if (ix86_save_varrargs_registers)
+-    {
+-      offset += X86_64_VARARGS_SIZE;
+-      frame->va_arg_size = X86_64_VARARGS_SIZE;
+-    }
+-  else
+-    frame->va_arg_size = 0;
++  frame->va_arg_size = ix86_varargs_gpr_size + ix86_varargs_fpr_size;
++  offset += frame->va_arg_size;
+ 
+   /* Align start of frame for local function.  */
+   frame->padding1 = ((offset + stack_alignment_needed - 1)
+--- gcc/testsuite/gcc.target/i386/amd64-abi-3.c	(revision 0)
++++ gcc/testsuite/gcc.target/i386/amd64-abi-3.c	(revision 139910)
+@@ -0,0 +1,18 @@
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -mno-sse" } */
++/* { dg-final { scan-assembler "subq\[\\t \]*\\\$88,\[\\t \]*%rsp" } } */
++/* { dg-final { scan-assembler-not "subq\[\\t \]*\\\$216,\[\\t \]*%rsp" } } */
++
++#include <stdarg.h>
++
++void foo (va_list va_arglist);
++
++void
++test (int a1, ...)
++{
++  va_list va_arglist;
++  va_start (va_arglist, a1);
++  foo (va_arglist);
++  va_end (va_arglist);
++}
+--- gcc/testsuite/gcc.target/i386/amd64-abi-5.c	(revision 0)
++++ gcc/testsuite/gcc.target/i386/amd64-abi-5.c	(revision 139910)
+@@ -0,0 +1,64 @@
++/* { dg-do run } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2" } */
++
++#include <stdarg.h>
++#include <assert.h>
++
++int n1 = 30;
++double n2 = 324;
++double n3 = 39494.94;
++double n4 = 407;
++double n5 = 32.304;
++double n6 = 394.14;
++double n7 = 4.07;
++double n8 = 32.4;
++double n9 = 314.194;
++double n10 = 0.1407;
++
++int e1;
++double e2;
++double e3;
++double e4;
++double e5;
++double e6;
++double e7;
++double e8;
++double e9;
++double e10;
++
++static void
++__attribute__((noinline))
++test (int a1, ...)
++{
++  e1 = a1;
++  va_list va_arglist;
++  va_start (va_arglist, a1);
++  e2 = va_arg (va_arglist, double);
++  e3 = va_arg (va_arglist, double);
++  e4 = va_arg (va_arglist, double);
++  e5 = va_arg (va_arglist, double);
++  e6 = va_arg (va_arglist, double);
++  e7 = va_arg (va_arglist, double);
++  e8 = va_arg (va_arglist, double);
++  e9 = va_arg (va_arglist, double);
++  e10 = va_arg (va_arglist, double);
++  va_end (va_arglist);
++}
++
++int
++main ()
++{
++  test (n1, n2, n3, n4, n5, n6, n7, n8, n9, n10);
++  assert (n1 == e1);
++  assert (n2 == e2);
++  assert (n3 == e3);
++  assert (n4 == e4);
++  assert (n5 == e5);
++  assert (n6 == e6);
++  assert (n7 == e7);
++  assert (n8 == e8);
++  assert (n9 == e9);
++  assert (n10 == e10);
++  return 0;
++}
+--- gcc/testsuite/gcc.target/i386/amd64-abi-4.c	(revision 0)
++++ gcc/testsuite/gcc.target/i386/amd64-abi-4.c	(revision 139910)
+@@ -0,0 +1,47 @@
++/* { dg-do run } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -mno-sse" } */
++
++#include <stdarg.h>
++#include <assert.h>
++
++int n1 = 30;
++int n2 = 324;
++void *n3 = (void *) &n2;
++int n4 = 407;
++
++int e1;
++int e2;
++void *e3;
++int e4;
++
++static void
++__attribute__((noinline))
++foo (va_list va_arglist)
++{
++  e2 = va_arg (va_arglist, int);
++  e3 = va_arg (va_arglist, void *);
++  e4 = va_arg (va_arglist, int);
++}
++
++static void
++__attribute__((noinline))
++test (int a1, ...)
++{
++  e1 = a1;
++  va_list va_arglist;
++  va_start (va_arglist, a1);
++  foo (va_arglist);
++  va_end (va_arglist);
++}
++
++int
++main ()
++{
++  test (n1, n2, n3, n4);
++  assert (n1 == e1);
++  assert (n2 == e2);
++  assert (n3 == e3);
++  assert (n4 == e4);
++  return 0;
++}
+--- gcc/testsuite/gcc.target/i386/amd64-abi-6.c	(revision 0)
++++ gcc/testsuite/gcc.target/i386/amd64-abi-6.c	(revision 139910)
+@@ -0,0 +1,71 @@
++/* { dg-do run } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2" } */
++
++#include <stdarg.h>
++#include <assert.h>
++
++int n1 = 30;
++double n2 = 324;
++double n3 = 39494.94;
++double n4 = 407;
++double n5 = 32.304;
++double n6 = 394.14;
++double n7 = 4.07;
++double n8 = 32.4;
++double n9 = 314.194;
++double n10 = 0.1407;
++
++int e1;
++double e2;
++double e3;
++double e4;
++double e5;
++double e6;
++double e7;
++double e8;
++double e9;
++double e10;
++
++static void
++__attribute__((noinline))
++foo (va_list va_arglist)
++{
++  e2 = va_arg (va_arglist, double);
++  e3 = va_arg (va_arglist, double);
++  e4 = va_arg (va_arglist, double);
++  e5 = va_arg (va_arglist, double);
++  e6 = va_arg (va_arglist, double);
++  e7 = va_arg (va_arglist, double);
++  e8 = va_arg (va_arglist, double);
++  e9 = va_arg (va_arglist, double);
++  e10 = va_arg (va_arglist, double);
++}
++
++static void
++__attribute__((noinline))
++test (int a1, ...)
++{
++  va_list va_arglist;
++  e1 = a1;
++  va_start (va_arglist, a1);
++  foo (va_arglist);
++  va_end (va_arglist);
++}
++
++int
++main ()
++{
++  test (n1, n2, n3, n4, n5, n6, n7, n8, n9, n10);
++  assert (n1 == e1);
++  assert (n2 == e2);
++  assert (n3 == e3);
++  assert (n4 == e4);
++  assert (n5 == e5);
++  assert (n6 == e6);
++  assert (n7 == e7);
++  assert (n8 == e8);
++  assert (n9 == e9);
++  assert (n10 == e10);
++  return 0;
++}

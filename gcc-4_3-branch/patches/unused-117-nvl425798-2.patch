@@ -1,0 +1,22 @@
+2008-06-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+       * config/rs6000/rs6000.c (rs6000_emit_epilogue): Set
+       use_backchain_to_restore_sp to true
+       if the offset of the link register save area would go over the 32k - 1
+       offset limit of the load
+       instructions.
+
+Index: gcc/config/rs6000/rs6000.c
+===================================================================
+--- gcc.orig/config/rs6000/rs6000.c	2008-09-10 17:35:02.000000000 -0300
++++ gcc/config/rs6000/rs6000.c	2008-09-10 17:35:43.000000000 -0300
+@@ -16295,6 +16295,9 @@
+      frame pointer for alloca, but the generic parts of the compiler
+      give us one anyway.  */
+   use_backchain_to_restore_sp = (info->total_size > 32767
++				 || info->total_size
++				     + (info->lr_save_p ? info->lr_save_offset : 0)
++				       > 32767
+ 				 || (cfun->calls_alloca
+ 				     && !frame_pointer_needed));
+   using_mtcr_multiple = (rs6000_cpu == PROCESSOR_PPC601

@@ -1,0 +1,54 @@
+2008-02-22  Nathan Froyd  <froydnj@codesourcery.com>
+
+        * config/rs6000/rs6000.c (rs6000_legitimize_address): Check to
+        ensure that we can address an entire entity > 8 bytes.  Don't
+        generate reg+reg addressing for such data.
+
+
+Index: gcc/config/rs6000/rs6000.c
+===================================================================
+--- gcc/config/rs6000/rs6000.c	(revision 140242)
++++ gcc/config/rs6000/rs6000.c	(working copy)
+@@ -3630,19 +3630,29 @@ rs6000_legitimize_address (rtx x, rtx ol
+       /* We accept [reg + reg] and [reg + OFFSET].  */
+ 
+       if (GET_CODE (x) == PLUS)
+-	{
+-	  rtx op1 = XEXP (x, 0);
+-	  rtx op2 = XEXP (x, 1);
+-
+-	  op1 = force_reg (Pmode, op1);
+-
+-	  if (GET_CODE (op2) != REG
+-	      && (GET_CODE (op2) != CONST_INT
+-		  || !SPE_CONST_OFFSET_OK (INTVAL (op2))))
+-	    op2 = force_reg (Pmode, op2);
+-
+-	  return gen_rtx_PLUS (Pmode, op1, op2);
+-	}
++       {
++         rtx op1 = XEXP (x, 0);
++         rtx op2 = XEXP (x, 1);
++         rtx y;
++
++         op1 = force_reg (Pmode, op1);
++
++         if (GET_CODE (op2) != REG
++             && (GET_CODE (op2) != CONST_INT
++                 || !SPE_CONST_OFFSET_OK (INTVAL (op2))
++                 || (GET_MODE_SIZE (mode) > 8
++                     && !SPE_CONST_OFFSET_OK (INTVAL (op2) + 8))))
++           op2 = force_reg (Pmode, op2);
++
++         /* We can't always do [reg + reg] for these, because [reg +
++            reg + offset] is not a legitimate addressing mode.  */
++         y = gen_rtx_PLUS (Pmode, op1, op2);
++
++         if (GET_MODE_SIZE (mode) > 8 && REG_P (op2))
++           return force_reg (Pmode, y);
++         else
++           return y;
++       }
+ 
+       return force_reg (Pmode, x);
+     }

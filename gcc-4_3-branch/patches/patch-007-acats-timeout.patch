@@ -1,0 +1,24 @@
+Index: gcc/testsuite/ada/acats/run_all.sh
+===================================================================
+RCS file: /cvs/gcc/gcc/gcc/testsuite/ada/acats/run_all.sh,v
+retrieving revision 1.18
+diff -u -a -p -u -p -a -r1.18 gcc/testsuite/ada/acats/run_all.sh
+--- gcc/testsuite/ada/acats/run_all.sh	26 Apr 2004 21:15:54 -0000	1.18
++++ gcc/testsuite/ada/acats/run_all.sh	17 Feb 2005 14:24:49 -0000
+@@ -11,9 +11,16 @@
+ 
+ gccflags="-O2"
+ gnatflags="-gnatws"
++timeout=120
+ 
+ target_run () {
++  sh -c "(sleep $timeout; kill \$\$) &
++x=\$!
+ $*
++s=\$?
++kill \$x
++exit \$s
++"
+ }
+ 
+ # End of customization section.

@@ -1,0 +1,30 @@
+Index: gcc/gcc.c
+===================================================================
+--- gcc/gcc.c.orig
++++ gcc/gcc.c
+@@ -1826,6 +1826,15 @@ init_spec (void)
+   obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+   link_spec = XOBFINISH (&obstack, const char *);
+ #endif
++#ifdef USE_BUILD_ID
++  /* Prepend "--build-id" to whatever link_spec we had before.  */
++  {
++    static const char tf[] = "%{!r:--build-id} ";
++    obstack_grow (&obstack, tf, sizeof(tf) - 1);
++    obstack_grow0 (&obstack, link_spec, strlen (link_spec));
++    link_spec = XOBFINISH (&obstack, const char *);
++  }
++#endif
+ 
+   specs = sl;
+ }
+Index: gcc/config/elfos.h
+===================================================================
+--- gcc/config/elfos.h.orig
++++ gcc/config/elfos.h
+@@ -513,3 +513,5 @@ along with GCC; see the file COPYING3.
+ #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
+   default_elf_asm_output_external (FILE, DECL, NAME)
+ #endif
++
++#define USE_BUILD_ID

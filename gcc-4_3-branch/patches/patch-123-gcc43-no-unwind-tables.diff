@@ -1,0 +1,12 @@
+Index: gcc/Makefile.in
+===================================================================
+--- gcc/Makefile.in.orig
++++ gcc/Makefile.in
+@@ -576,6 +576,7 @@ TARGET_LIBGCC2_CFLAGS =
+ CRTSTUFF_CFLAGS = -O2 $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
+   -finhibit-size-directive -fno-inline-functions -fno-exceptions \
+   -fno-zero-initialized-in-bss -fno-toplevel-reorder -fno-tree-vectorize \
++  -fno-unwind-tables -fno-asynchronous-unwind-tables \
+   $(INHIBIT_LIBC_CFLAGS)
+ 
+ # Additional sources to handle exceptions; overridden by targets as needed.

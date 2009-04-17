@@ -1,0 +1,211 @@
+2008-07-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/36745
+	* config/s390/s390.c: (s390_secondary_reload): Add a secondary
+	reload for symbol refs moved to r0 with -fPIC.
+	(legitimize_pic_address): Use the target register as temporary
+	reg if possible.
+	(emit_symbolic_move): Adjust comment.
+	* config/s390/s390.md (reloadsi_PIC_addr, reloaddi_PIC_addr):
+	New expanders.
+
+Index: gcc/testsuite/g++.dg/torture/pr36745.C
+===================================================================
+--- gcc/testsuite/g++.dg/torture/pr36745.C	(revision 0)
++++ gcc/testsuite/g++.dg/torture/pr36745.C	(revision 137777)
+@@ -0,0 +1,119 @@
++/* { dg-do compile } */
++/* { dg-options "-O2 -fPIC" } */
++/* { dg-require-effective-target fpic } */
++typedef long unsigned int size_t;
++class QBasicAtomicInt
++{
++public:
++  int _q_value;
++  inline bool operator== (int value) const
++  {
++  }
++  bool ref ();
++  bool deref ();
++};
++inline bool
++QBasicAtomicInt::ref ()
++{
++  __asm__ ("": "=m" (_q_value): :);
++  return true;
++}
++
++namespace std
++{
++  using::size_t;
++}
++extern "C++"
++{
++  inline void *operator new (std::size_t, void *__p)
++  {
++    return __p;
++  }
++}
++struct QMapData
++{
++  QBasicAtomicInt ref;
++  static QMapData shared_null;
++};
++template < class Key, class T > class QMap
++{
++  QMapData *d;
++public: inline QMap ():d (&QMapData::shared_null)
++  {
++  }
++  inline ~ QMap ()
++  {
++    if (!d->ref.deref ())
++      freeData (d);
++  }
++  void freeData (QMapData * d);
++};
++struct QVectorData
++{
++  static QVectorData shared_null;
++};
++template < typename T > struct QVectorTypedData
++{
++  QBasicAtomicInt ref;
++};
++template < typename T > class QVector
++{
++  union
++  {
++    QVectorData *p;
++    QVectorTypedData < T > *d;
++  };
++public: inline QVector ():p (&QVectorData::shared_null)
++  {
++    d->ref.ref ();
++  }
++  inline void detach ()
++  {
++    if (d->ref == 1)
++      detach_helper ();
++  }
++  inline T *data ()
++  {
++    detach ();
++  }
++  T & operator[](int i);
++  void detach_helper ();
++  void realloc ();
++};
++template < typename T > void QVector < T >::detach_helper ()
++{
++  realloc ();
++}
++
++template < typename T > inline T & QVector < T >::operator[](int i)
++{
++  return data ()[i];
++}
++template < typename T > void QVector < T >::realloc ()
++{
++  T *j, *i;
++  i->~T ();
++  while (j-- == i)
++    new (j) T;
++}
++
++void
++mergeInto (QVector < int >*a)
++{
++};
++struct QRegExpAutomatonState
++{
++  QVector < int >outs;
++  QMap < int, int >reenter;
++  QMap < int, int >anchors;
++};
++class QRegExpEngine
++{
++  void addCatTransitions ();
++  QVector < QRegExpAutomatonState > s;
++};
++void
++QRegExpEngine::addCatTransitions ()
++{
++  mergeInto (&s[2].outs);
++}
+Index: gcc/config/s390/s390.c
+===================================================================
+--- gcc/config/s390/s390.c	(revision 137776)
++++ gcc/config/s390/s390.c	(revision 137777)
+@@ -3026,6 +3026,14 @@ s390_secondary_reload (bool in_p, rtx x,
+ 	}
+     }
+ 
++  /* A scratch address register is needed when a symbolic constant is
++     copied to r0 compiling with -fPIC.  In other cases the target
++     register might be used as temporary (see legitimize_pic_address).  */
++  if (in_p && SYMBOLIC_CONST (x) && flag_pic == 2 && class != ADDR_REGS)
++    sri->icode = (TARGET_64BIT ?
++		  CODE_FOR_reloaddi_PIC_addr :
++		  CODE_FOR_reloadsi_PIC_addr);
++
+   /* Either scratch or no register needed.  */
+   return NO_REGS;
+ }
+@@ -3272,7 +3280,10 @@ legitimize_pic_address (rtx orig, rtx re
+           /* If the GOT offset might be >= 4k, we determine the position
+              of the GOT entry via a PC-relative LARL (@GOTENT).  */
+ 
+-          rtx temp = gen_reg_rtx (Pmode);
++          rtx temp = reg ? reg : gen_reg_rtx (Pmode);
++
++	  gcc_assert (REGNO (temp) >= FIRST_PSEUDO_REGISTER
++		      || REGNO_REG_CLASS (REGNO (temp)) == ADDR_REGS);
+ 
+           new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTENT);
+           new = gen_rtx_CONST (Pmode, new);
+@@ -3287,7 +3298,10 @@ legitimize_pic_address (rtx orig, rtx re
+           /* If the GOT offset might be >= 4k, we have to load it
+              from the literal pool (@GOT).  */
+ 
+-          rtx temp = gen_reg_rtx (Pmode);
++          rtx temp = reg ? reg : gen_reg_rtx (Pmode);
++
++	  gcc_assert (REGNO (temp) >= FIRST_PSEUDO_REGISTER
++		      || REGNO_REG_CLASS (REGNO (temp)) == ADDR_REGS);
+ 
+ 	  if (reload_in_progress || reload_completed)
+ 	    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
+@@ -3707,7 +3721,10 @@ legitimize_tls_address (rtx addr, rtx re
+   return new;
+ }
+ 
+-/* Emit insns to move operands[1] into operands[0].  */
++/* Emit insns making the address in operands[1] valid for a standard
++   move to operands[0].  operands[1] is replaced by an address which
++   should be used instead of the former RTX to emit the move
++   pattern.  */
+ 
+ void
+ emit_symbolic_move (rtx *operands)
+Index: gcc/config/s390/s390.md
+===================================================================
+--- gcc/config/s390/s390.md	(revision 137776)
++++ gcc/config/s390/s390.md	(revision 137777)
+@@ -1175,6 +1175,16 @@ (define_expand "reload<mode>_nonoffmem_o
+   DONE;
+ })
+ 
++(define_expand "reload<mode>_PIC_addr"
++  [(parallel [(match_operand   0 "register_operand" "=d")
++	      (match_operand   1 "larl_operand"     "")
++	      (match_operand:P 2 "register_operand" "=a")])]
++  ""
++{
++  rtx new = legitimize_pic_address (operands[1], operands[2]);
++  emit_move_insn (operands[0], new);
++})
++
+ ;
+ ; movdi instruction pattern(s).
+ ;

@@ -1,0 +1,107 @@
+2008-03-09  Ira Rosen  <irar@il.ibm.com>
+
+	* config/rs6000/rs6000.c (builtin_description): Rename vector
+	left shift operations.
+	* config/rs6000/altivec.md (UNSPEC_VSL): Remove.
+	(altivec_vsl<VI_char>): Rename to ...
+	(ashl<mode>3): ... new name.
+	(mulv4sf3, mulv4si3, negv4sf2): Replace gen_altivec_vslw with
+	gen_ashlv4si3.
+	(absv4sf2): Convert to use ashift:V4SI instead of UNSPEC_VSL.
+
+Index: gcc/config/rs6000/rs6000.c
+===================================================================
+--- gcc/config/rs6000/rs6000.c	(revision 133050)
++++ gcc/config/rs6000/rs6000.c	(revision 133051)
+@@ -7090,9 +7090,9 @@ static struct builtin_description bdesc_
+   { MASK_ALTIVEC, CODE_FOR_altivec_vrlb, "__builtin_altivec_vrlb", ALTIVEC_BUILTIN_VRLB },
+   { MASK_ALTIVEC, CODE_FOR_altivec_vrlh, "__builtin_altivec_vrlh", ALTIVEC_BUILTIN_VRLH },
+   { MASK_ALTIVEC, CODE_FOR_altivec_vrlw, "__builtin_altivec_vrlw", ALTIVEC_BUILTIN_VRLW },
+-  { MASK_ALTIVEC, CODE_FOR_altivec_vslb, "__builtin_altivec_vslb", ALTIVEC_BUILTIN_VSLB },
+-  { MASK_ALTIVEC, CODE_FOR_altivec_vslh, "__builtin_altivec_vslh", ALTIVEC_BUILTIN_VSLH },
+-  { MASK_ALTIVEC, CODE_FOR_altivec_vslw, "__builtin_altivec_vslw", ALTIVEC_BUILTIN_VSLW },
++  { MASK_ALTIVEC, CODE_FOR_ashlv16qi3, "__builtin_altivec_vslb", ALTIVEC_BUILTIN_VSLB },
++  { MASK_ALTIVEC, CODE_FOR_ashlv8hi3, "__builtin_altivec_vslh", ALTIVEC_BUILTIN_VSLH },
++  { MASK_ALTIVEC, CODE_FOR_ashlv4si3, "__builtin_altivec_vslw", ALTIVEC_BUILTIN_VSLW },
+   { MASK_ALTIVEC, CODE_FOR_altivec_vsl, "__builtin_altivec_vsl", ALTIVEC_BUILTIN_VSL },
+   { MASK_ALTIVEC, CODE_FOR_altivec_vslo, "__builtin_altivec_vslo", ALTIVEC_BUILTIN_VSLO },
+   { MASK_ALTIVEC, CODE_FOR_altivec_vspltb, "__builtin_altivec_vspltb", ALTIVEC_BUILTIN_VSPLTB },
+Index: gcc/config/rs6000/altivec.md
+===================================================================
+--- gcc/config/rs6000/altivec.md	(revision 133050)
++++ gcc/config/rs6000/altivec.md	(revision 133051)
+@@ -64,7 +64,6 @@ (define_constants
+    (UNSPEC_VPKUWUS      102)
+    (UNSPEC_VPKSWUS      103)
+    (UNSPEC_VRL          104)
+-   (UNSPEC_VSL          107)
+    (UNSPEC_VSLV4SI      110)
+    (UNSPEC_VSLO         111)
+    (UNSPEC_VSR          118)
+@@ -576,7 +575,7 @@ (define_expand "mulv4sf3"
+   /* Generate [-0.0, -0.0, -0.0, -0.0].  */
+   neg0 = gen_reg_rtx (V4SImode);
+   emit_insn (gen_altivec_vspltisw (neg0, constm1_rtx));
+-  emit_insn (gen_altivec_vslw (neg0, neg0, neg0));
++  emit_insn (gen_ashlv4si3 (neg0, neg0, neg0));
+ 
+   /* Use the multiply-add.  */
+   emit_insn (gen_altivec_vmaddfp (operands[0], operands[1], operands[2],
+@@ -635,7 +634,7 @@ (define_expand "mulv4si3"
+    high_product = gen_reg_rtx (V4SImode);
+    emit_insn (gen_altivec_vmsumuhm (high_product, one, small_swap, zero));
+  
+-   emit_insn (gen_altivec_vslw (high_product, high_product, sixteen));
++   emit_insn (gen_ashlv4si3 (high_product, high_product, sixteen));
+  
+    emit_insn (gen_addv4si3 (operands[0], high_product, low_product));
+    
+@@ -1221,15 +1220,6 @@ (define_insn "altivec_vrl<VI_char>"
+   "vrl<VI_char> %0,%1,%2"
+   [(set_attr "type" "vecsimple")])
+ 
+-(define_insn "altivec_vsl<VI_char>"
+-  [(set (match_operand:VI 0 "register_operand" "=v")
+-        (unspec:VI [(match_operand:VI 1 "register_operand" "v")
+-                    (match_operand:VI 2 "register_operand" "v")]
+-		   UNSPEC_VSL))]
+-  "TARGET_ALTIVEC"
+-  "vsl<VI_char> %0,%1,%2"
+-  [(set_attr "type" "vecsimple")])
+-
+ (define_insn "altivec_vsl"
+   [(set (match_operand:V4SI 0 "register_operand" "=v")
+         (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
+@@ -1248,6 +1238,14 @@ (define_insn "altivec_vslo"
+   "vslo %0,%1,%2"
+   [(set_attr "type" "vecperm")])
+ 
++(define_insn "ashl<mode>3"
++  [(set (match_operand:VI 0 "register_operand" "=v")
++        (ashift:VI (match_operand:VI 1 "register_operand" "v")
++                   (match_operand:VI 2 "register_operand" "v") ))]
++  "TARGET_ALTIVEC"
++  "vsl<VI_char> %0,%1,%2"
++  [(set_attr "type" "vecsimple")])
++
+ (define_insn "lshr<mode>3"
+   [(set (match_operand:VI 0 "register_operand" "=v")
+         (lshiftrt:VI (match_operand:VI 1 "register_operand" "v")
+@@ -2039,7 +2037,7 @@ (define_expand "absv4sf2"
+   [(set (match_dup 2)
+ 	(vec_duplicate:V4SI (const_int -1)))
+    (set (match_dup 3)
+-        (unspec:V4SI [(match_dup 2) (match_dup 2)] UNSPEC_VSL))
++        (ashift:V4SI (match_dup 2) (match_dup 2)))
+    (set (match_operand:V4SF 0 "register_operand" "=v")
+         (and:V4SF (not:V4SF (subreg:V4SF (match_dup 3) 0))
+                   (match_operand:V4SF 1 "register_operand" "v")))]
+@@ -2642,7 +2640,7 @@ (define_expand "negv4sf2"
+   /* Generate [-0.0, -0.0, -0.0, -0.0].  */
+   neg0 = gen_reg_rtx (V4SImode);
+   emit_insn (gen_altivec_vspltisw (neg0, constm1_rtx));
+-  emit_insn (gen_altivec_vslw (neg0, neg0, neg0));
++  emit_insn (gen_ashlv4si3 (neg0, neg0, neg0));
+ 
+   /* XOR */
+   emit_insn (gen_xorv4sf3 (operands[0],

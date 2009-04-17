@@ -1,0 +1,26 @@
+2008-10-13  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/32277
+	* libgcov.c (__gcov_indirect_call_profiler): Check
+	TARGET_VTABLE_USES_DESCRIPTORS.
+
+
+Index: gcc/libgcov.c
+===================================================================
+--- gcc/libgcov.c	(revision 141083)
++++ gcc/libgcov.c	(working copy)
+@@ -777,7 +777,12 @@ void
+ __gcov_indirect_call_profiler (gcov_type* counter, gcov_type value, 
+ 			       void* cur_func, void* callee_func)
+ {
+-  if (cur_func == callee_func)
++  /* If the C++ virtual tables contain function descriptors then one
++     function may have multiple descriptors and we need to dereference
++     the descriptors to see if they point to the same function.  */
++  if (cur_func == callee_func
++      || (TARGET_VTABLE_USES_DESCRIPTORS && callee_func
++	  && *(void **) cur_func == *(void **) callee_func))
+     __gcov_one_value_profiler_body (counter, value);
+ }
+ #endif
+

@@ -1,0 +1,1885 @@
+
+ChangeLog:
+
+2008-10-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Handle ALTIVEC_BUILTIN_VEC_SPLATS, ALTIVEC_BUILTIN_VEC_PROMOTE,
+	ALTIVEC_BUILTIN_VEC_EXTRACT, and ALTIVEC_BUILTIN_VEC_INSERT specially,
+	they translate to non builtins.
+	* config/rs6000/rs6000.c (altivec_init_builtins): Add new variable
+	opaque_ftype_opaque.  Define builtins __builtin_vec_splats,
+	__builtin_vec_promote, __builtin_vec_extract, and
+	__builtin_vec_insert.
+	* config/rs6000/rs6000.h (enum rs6000_builtins): Add
+	ALTIVEC_BUILTIN_VEC_EXTRACT, ALTIVEC_BUILTIN_VEC_PROMOTE,
+	ALTIVEC_BUILTIN_VEC_INSERT, and ALTIVEC_BUILTIN_VEC_SPLATS.
+	* config/rs6000/altivec.h (vec_extract): Define
+	(vec_insert): Define.
+	(vec_splats): Define.
+	(vec_promote): Define.
+
+2008-10-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+            Yukishige Shibata  <shibata@rd.scei.sony.co.jp>
+            Trevor Smigiel  <Trevor_Smigiel@playstation.sony.com>
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add Cell
+	Altivec intrinsics.
+	* config/rs6000/rs6000.c (altivec_expand_lv_builtin): Delete
+	prototype.  Add new parameter, blk.
+	Use BLKmode for the MEM if blk is true.
+	(altivec_expand_builtin): Handle ALTIVEC_BUILTIN_STVLX,
+	ALTIVEC_BUILTIN_STVLXL, ALTIVEC_BUILTIN_STVRX, and
+	ALTIVEC_BUILTIN_STVRXL.
+	Update usage of altivec_expand_lv_builtin.
+	Handle ALTIVEC_BUILTIN_LVLX, ALTIVEC_BUILTIN_LVLXL,
+	ALTIVEC_BUILTIN_LVRX, and ALTIVEC_BUILTIN_LVRXL.
+	(altivec_init_builtins): If compiling for the Cell, also define the
+	cell VMX builtins.
+	* config/rs6000/rs6000.h (rs6000_builtins): Define
+	ALTIVEC_BUILTIN_LVLX, ALTIVEC_BUILTIN_LVLXL, ALTIVEC_BUILTIN_LVRX,
+	ALTIVEC_BUILTIN_LVRXL, ALTIVEC_BUILTIN_STVLX, ALTIVEC_BUILTIN_STVLXL,
+	ALTIVEC_BUILTIN_STVRX, ALTIVEC_BUILTIN_STVRXL,
+	ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_VEC_LVLXL,
+	ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_VEC_LVRXL,
+	ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_VEC_STVLXL,
+	ALTIVEC_BUILTIN_VEC_STVRX, and ALTIVEC_BUILTIN_VEC_STVRXL.
+	* config/rs6000/altivec.md (define_constants): Define UNSPEC_LVLX,
+	UNSPEC_LVLXL, UNSPEC_LVRX, UNSPEC_LVRXL, UNSPEC_STVLX, UNSPEC_STVLXL,
+	UNSPEC_STVRX, and UNSPEC_STVRXL.
+	(altivec_lvlx): New pattern.
+	(altivec_lvlxl): New pattern.
+	(altivec_lvrx): New pattern.
+	(altivec_lvrxl): New pattern.
+	(altivec_stvlx): New pattern.
+	(altivec_stvlxl): New pattern.
+	(altivec_stvrx): New pattern.
+	(altivec_stvrxl): New pattern.
+	* config/rs6000/altivec.h (vec_lvlx): Define if PPU is defined.
+	(vec_lvlxl): Likewise.
+	(vec_lvrx): Define if PPU is defined.
+	(vec_lvrxl): Likewise.
+	(vec_stvlx): Define if PPU is defined.
+	(vec_stvlxl): Likewise.
+	(vec_stvrx): Define if PPU is defined.
+	(vec_stvrxl): Likewise.
+
+
+cp/ChangeLog:
+
+2008-10-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree.c (lvalue_p_1): COMPOUND_LITERAL_EXPR is also an lvalue.
+
+
+testsuite/ChangeLog:
+
+2008-10-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.target/powerpc/altivec-cell-1.c: New test.
+	* gcc.target/powerpc/altivec-cell-2.c: New test.
+	* gcc.target/powerpc/altivec-cell-3.c: New test.
+	* gcc.target/powerpc/altivec-cell-4.c: New test.
+	* gcc.target/powerpc/altivec-cell-5.c: New test.
+	* g++.dg/ext/altivec-cell-1.C: New test.
+	* g++.dg/ext/altivec-cell-2.C: New test.
+	* g++.dg/ext/altivec-cell-3.C: New test.
+	* g++.dg/ext/altivec-cell-4.C: New test.
+	* g++.dg/ext/altivec-cell-5.C: New test.
+
+2008-10-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.target/powerpc/altivec_check.h (altivec_cell_check): New function.
+	* gcc.target/powerpc/altivec-cell-6.c: New test.
+	* gcc.target/powerpc/altivec-cell-7.c: New test.
+	* gcc.target/powerpc/altivec-cell-8.c: New test.
+
+
+Index: gcc/testsuite/gcc.target/powerpc/altivec_check.h
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec_check.h	(revision 140819)
+--- gcc/testsuite/gcc.target/powerpc/altivec_check.h	(revision 140821)
+*************** void altivec_check(void) {
+*** 22,24 ****
+--- 22,38 ----
+  #endif
+    signal (SIGILL, SIG_DFL);
+  }
++ 
++ void altivec_cell_check (void)
++ {
++   /* Exit on systems without the Cell Altivec instructions.  */
++   signal (SIGILL, sig_ill_handler);
++ #ifdef __MACH__
++   asm volatile ("vor v0,v0,v0");
++   asm volatile ("lvlx v0,r0,r0");
++ #else
++   asm volatile ("vor 0,0,0");
++   asm volatile ("lvlx 0,0,0");
++ #endif
++   signal (SIGILL, SIG_DFL);
++ }
+Index: gcc/testsuite/gcc.target/powerpc/altivec-cell-1.c
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec-cell-1.c	(revision 0)
+--- gcc/testsuite/gcc.target/powerpc/altivec-cell-1.c	(revision 140821)
+***************
+*** 0 ****
+--- 1,34 ----
++ /* { dg-do compile { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ 
++ /* Basic test for the new VMX intrinsics.  */
++ #include <altivec.h>
++ 
++ int f(vector int a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ short f1(vector short a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ vector short f2(vector short a, int b)
++ {
++   return vec_insert (b, a, b);
++ }
++ vector float f3(vector float a, int b)
++ {
++   return vec_insert (b, a, b);
++ }
++ 
++ float g(void);
++ 
++ vector float f4(float b, int t)
++ {
++   return vec_promote (g(), t);
++ }
++ vector float f5(float b)
++ {
++   return vec_splats (g());
++ }
+Index: gcc/testsuite/gcc.target/powerpc/altivec-cell-5.c
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec-cell-5.c	(revision 0)
+--- gcc/testsuite/gcc.target/powerpc/altivec-cell-5.c	(revision 140821)
+***************
+*** 0 ****
+--- 1,25 ----
++ /* { dg-do compile { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ 
++ /* Basic test for the new VMX intrinsics and error messages.  */
++ #include <altivec.h>
++ 
++ int main(int argc, char **argv)
++ {
++ vector float t;
++     vec_promote();                      /* { dg-error "vec_promote only accepts 2" } */
++     vec_promote(1.0f);                  /* { dg-error "vec_promote only accepts 2" } */
++     vec_promote(1.0f, 2, 3);            /* { dg-error "vec_promote only accepts 2" } */
++     vec_extract ();                     /* { dg-error "vec_extract only accepts 2" } */
++     vec_extract (t);                    /* { dg-error "vec_extract only accepts 2" } */
++     vec_extract (t, 2);
++     vec_extract (t, 2, 5, 6);           /* { dg-error "vec_extract only accepts 2" } */
++     vec_splats ();                      /* { dg-error "vec_splats only accepts 1" } */
++     vec_splats (t, 3);                  /* { dg-error "vec_splats only accepts 1" } */
++     vec_insert ();                      /* { dg-error "vec_insert only accepts 3" } */
++     vec_insert (t);                     /* { dg-error "vec_insert only accepts 3" } */
++     vec_insert (t, 3);                  /* { dg-error "vec_insert only accepts 3" } */
++     vec_insert (t, 3, 2, 4, 6, 6);      /* { dg-error "vec_insert only accepts 3" } */
++     return 0;
++ }  
+Index: gcc/testsuite/gcc.target/powerpc/altivec-cell-2.c
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec-cell-2.c	(revision 0)
+--- gcc/testsuite/gcc.target/powerpc/altivec-cell-2.c	(revision 140821)
+***************
+*** 0 ****
+--- 1,142 ----
++ /* { dg-do run { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ /* Test the vec_extract VMX intrinsics.  */
++ #include <altivec.h>
++ #include "altivec_check.h"
++ 
++ extern void abort (void);
++ 
++ vector int a = {0, 1, 2, 3};
++ vector short b = {0, 1, 2, 3, 4, 5, 6, 7};
++ 
++ int f(vector int a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ 
++ int f0 (vector int a)
++ {
++   return vec_extract (a, 0);
++ }
++ int f1 (vector int a)
++ {
++   return vec_extract (a, 1);
++ }
++ int f2 (vector int a)
++ {
++   return vec_extract (a, 2);
++ }
++ int f3 (vector int a)
++ {
++   return vec_extract (a, 3);
++ }
++ int f4 (vector int a)
++ {
++   return vec_extract (a, 4);
++ }
++ 
++ int g(vector short a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ 
++ int g0 (vector short a)
++ {
++   return vec_extract (a, 0);
++ }
++ int g1 (vector short a)
++ {
++   return vec_extract (a, 1);
++ }
++ int g2 (vector short a)
++ {
++   return vec_extract (a, 2);
++ }
++ int g3 (vector short a)
++ {
++   return vec_extract (a, 3);
++ }
++ 
++ int g4 (vector short a)
++ { 
++   return vec_extract (a, 4);
++ }
++ int g5 (vector short a)
++ { 
++   return vec_extract (a, 5);
++ }
++ int g6 (vector short a)
++ { 
++   return vec_extract (a, 6);
++ }
++ int g7 (vector short a)
++ { 
++   return vec_extract (a, 7);
++ }
++ int g8 (vector short a)
++ { 
++   return vec_extract (a, 8);
++ }
++ int main1(void) __attribute__((noinline));
++ int main1(void)
++ { 
++   int i;
++   /* Check vec_extract with a non constant element numbering */
++   for(i=0;i<10;i++)
++     { 
++       if (f(a, i) != (i&0x3))
++         abort ();
++     }
++   
++   /* Check vec_extract with a constant element numbering */
++   if (f0(a) != 0)
++     abort ();
++   if (f1(a) != 1)
++     abort ();
++   if (f2(a) != 2)
++     abort ();
++   if (f3(a) != 3)
++     abort ();
++   /* Check that vec_extract works with a constant element higher than
++      the number of elements.  */
++   if (f4(a) != 0)
++     abort ();
++ 
++   /* Check vec_extract with a non constant element numbering */
++   for(i=0;i<10;i++)
++     {
++       if (g(b, i) != (i&0x7))
++         abort ();
++     }
++   
++   /* Check vec_extract with a constant element numbering */
++   if (g0(b) != 0)
++     abort ();
++   if (g1(b) != 1)
++     abort ();
++   if (g2(b) != 2)
++     abort ();
++   if (g3(b) != 3)
++     abort ();
++   if (g4(b) != 4)
++     abort ();
++   if (g5(b) != 5)
++     abort ();
++   if (g6(b) != 6)
++     abort ();
++   if (g7(b) != 7)
++     abort ();
++   /* Check that vec_extract works with a constant element higher than
++      the number of elements.  */
++   if (g8(b) != 0)
++     abort ();
++   
++   return 0;
++ }
++ 
++ int main(void)
++ { 
++   altivec_check();  /* Exits if AltiVec not supported */
++   return main1 ();
++ }
+Index: gcc/testsuite/gcc.target/powerpc/altivec-cell-6.c
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec-cell-6.c	(revision 0)
+--- gcc/testsuite/gcc.target/powerpc/altivec-cell-6.c	(revision 140821)
+***************
+*** 0 ****
+--- 1,12 ----
++ /* { dg-do compile  } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-O2 -maltivec -mabi=altivec -mcpu=cell" } */
++ #include <altivec.h>
++ 
++ /* This used to ICE with reloading of a constant address. */
++ 
++ vector float f(void)
++ {
++   vector float * a = (void*)16;
++   return vec_lvlx (0, a);
++ } 
+Index: gcc/testsuite/gcc.target/powerpc/altivec-cell-3.c
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec-cell-3.c	(revision 0)
+--- gcc/testsuite/gcc.target/powerpc/altivec-cell-3.c	(revision 140821)
+***************
+*** 0 ****
+--- 1,38 ----
++ /* { dg-do run { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ /* Test the vec_splats and vec_promote VMX intrinsics.  */
++ #include <altivec.h>
++ #include "altivec_check.h"
++     
++ extern void abort (void);
++         
++ vector int a = {0, 0, 0, 0};
++ int main1(int t) __attribute__((noinline));
++ int main1(int t)
++ { 
++   int i;
++   vector int b = vec_splats(0);
++   if (__builtin_memcmp (&a, &b, sizeof(vector int)))
++     abort ();
++   
++   b = vec_splats(t);
++   if (__builtin_memcmp (&a, &b, sizeof(vector int)))
++     abort ();
++   
++   b = vec_promote(0, 1);
++   if (vec_extract (b, 1) != 0)
++     abort ();
++   
++   b = vec_promote(t, t);
++   if (vec_extract (b, t) != 0)
++     abort ();
++   
++   return 0;
++ } 
++     
++ int main(void)
++ { 
++   altivec_check();  /* Exits if AltiVec not supported */
++   return main1 (0);
++ }
+Index: gcc/testsuite/gcc.target/powerpc/altivec-cell-7.c
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec-cell-7.c	(revision 0)
+--- gcc/testsuite/gcc.target/powerpc/altivec-cell-7.c	(revision 140821)
+***************
+*** 0 ****
+--- 1,28 ----
++ /* { dg-do compile  } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-O2 -maltivec -mabi=altivec -mcpu=cell" } */
++ /* { dg-final { scan-assembler-times "vor" 2 } } */
++ #include <altivec.h>
++ 
++ /* Make sure that lvlx and lvrx are not combined into one insn and
++    we still get a vor. */
++ 
++ vector unsigned char
++ lvx_float (long off, float *p)
++ {
++     vector unsigned char l, r;
++ 
++     l = (vector unsigned char) vec_lvlx (off, p);
++     r = (vector unsigned char) vec_lvrx (off, p);
++     return vec_or(l, r);
++ }
++ 
++ vector unsigned char
++ lvxl_float (long off, float *p)
++ {
++     vector unsigned char l, r;
++ 
++     l = (vector unsigned char) vec_lvlxl (off, p);
++     r = (vector unsigned char) vec_lvrxl (off, p);
++     return vec_or(l, r);
++ }
+Index: gcc/testsuite/gcc.target/powerpc/altivec-cell-4.c
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec-cell-4.c	(revision 0)
+--- gcc/testsuite/gcc.target/powerpc/altivec-cell-4.c	(revision 140821)
+***************
+*** 0 ****
+--- 1,43 ----
++ /* { dg-do run { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ 
++ /* Test the vec_splats and vec_promote VMX intrinsics.  */
++ #include <altivec.h>
++ #include "altivec_check.h"
++     
++ extern void abort (void);
++         
++ vector int a[] = {{0, 0, 0, 0}, {1,0,0,0}, {1,2,0,0},{1,2,3,0},{1,2,3,4},{5,2,3,4},{5,6,3,4}};
++ vector int c = {0,6,3,4};
++ vector int d = {0,0,3,4};
++ int main1(int t) __attribute__((noinline));
++ int main1(int t)
++ { 
++   int i;
++   vector int b = vec_splats(0);
++   for(i = 0;i<sizeof(a)/sizeof(a[0])-1;i++)
++     { 
++ 	if (__builtin_memcmp (&b, &a[i], sizeof(vector int)))
++           abort ();
++         b = vec_insert(i+1, b, i);
++     } 
++   if (__builtin_memcmp (&b, &a[i], sizeof(vector int)))
++     abort ();
++   
++   b = vec_insert(0, b, 0);
++   if (__builtin_memcmp (&b, &c, sizeof(vector int)))
++     abort ();
++   
++   b = vec_insert(0, b, 1);
++   if (__builtin_memcmp (&b, &d, sizeof(vector int)))
++     abort ();
++   
++   return 0;
++ } 
++   
++ int main(void)
++ {
++   altivec_check();  /* Exits if AltiVec not supported */
++   return main1 (0);
++ }
+Index: gcc/testsuite/gcc.target/powerpc/altivec-cell-8.c
+===================================================================
+*** gcc/testsuite/gcc.target/powerpc/altivec-cell-8.c	(revision 0)
+--- gcc/testsuite/gcc.target/powerpc/altivec-cell-8.c	(revision 140821)
+***************
+*** 0 ****
+--- 1,56 ----
++ /* { dg-do run } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-O2 -maltivec -mabi=altivec -mcpu=cell" } */
++ #include <altivec.h>
++ #include <string.h>
++ #include "altivec_check.h"
++ 
++ typedef short int sint16;
++ typedef signed char int8;
++ 
++ int main1(void) __attribute__((noinline));
++ int main1(void)
++ {
++     sint16 test_vector[4] = { 1678, -2356, 19246, -17892 };
++     int8 test_dst[128] __attribute__(( aligned( 16 )));
++     float test_out[4] __attribute__(( aligned( 16 )));
++     int p;
++ 
++     for( p = 0; p < 24; ++p )
++     {
++         memset( test_dst, 0, 128 );
++         memcpy( &test_dst[p], test_vector, 8 );
++         {
++             vector float VR, VL, V;
++    /* load the righthand section of the misaligned vector */
++             VR = (vector float) vec_lvrx( 8, &test_dst[p] );
++             VL = (vector float) vec_lvlx( 0, &test_dst[p] );
++    /* Vector Shift Left Double by Octet Immediate, move the right hand section into the bytes */
++             VR = vec_vsldoi( VR, VR, 2 << 2 ); 
++    /* or those two together */
++             V = vec_vor( VL, VR );
++    /* sign extend */
++             V = (vector float) vec_vupkhsh((vector bool short)V );
++    /* fixed to float by S16_SHIFT_BITS bits */
++             V = (vector float) vec_vcfsx ((vector signed int)V, 5 ); 
++ 
++             vec_stvx( V, 0, &test_out[0] );
++             if (test_out[0] != 52.437500)
++                 abort ();
++             if (test_out[1] != -73.625000)
++                 abort ();
++             if (test_out[2] != 601.437500)
++                 abort ();
++             if (test_out[3] != -559.125000)
++                 abort ();
++         }
++     }
++ return 0;
++ }
++ 
++ 
++ int main(void)
++ {
++   altivec_cell_check ();
++   return main1();
++ }
+Index: gcc/testsuite/g++.dg/ext/altivec-cell-1.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/altivec-cell-1.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/altivec-cell-1.C	(revision 140821)
+***************
+*** 0 ****
+--- 1,94 ----
++ /* { dg-do compile { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ 
++ /* Basic test for the new VMX intrinsics.  */
++ #include <altivec.h>
++ 
++ int f(vector int a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ short f1(vector short a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ vector short f2(vector short a, int b)
++ {
++   return vec_insert (b, a, b);
++ }
++ vector float f3(vector float a, int b)
++ {
++   return vec_insert (b, a, b);
++ }
++ 
++ float g(void);
++ 
++ vector float f4(float b, int t)
++ {
++   return vec_promote (g(), t);
++ }
++ vector float f5(float b)
++ {
++   return vec_splats (g());
++ }
++ 
++ 
++ 
++ 
++ template <int> 
++ int tf(vector int a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ template <int> 
++ short tf1(vector short a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ template <int> 
++ vector short tf2(vector short a, int b)
++ {
++   return vec_insert (b, a, b);
++ }
++ template <int> 
++ vector float tf3(vector float a, int b)
++ {
++   return vec_insert (b, a, b);
++ }
++ 
++ template <int> 
++ vector float tf4(float b, int t)
++ {
++   return vec_promote (g(), t);
++ }
++ template <int> 
++ vector float tf5(float b)
++ {
++   return vec_splats (g());
++ }
++ 
++ int t(vector int a, int b)
++ {
++   return tf<1>(a, b);
++ }
++ short t1(vector short a, int b)
++ {
++   return tf1<1>(a, b);
++ }
++ vector short t2(vector short a, int b)
++ {
++   return tf2<1>(a, b);
++ }
++ vector float t3(vector float a, int b)
++ {
++   return tf3<1>(a, b);
++ }
++ vector float t4(float b, int t)
++ {
++   return tf4<1>(b, t);
++ }
++ vector float t5(float b)
++ {
++   return tf5<1>(b);
++ }
+Index: gcc/testsuite/g++.dg/ext/altivec-cell-2.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/altivec-cell-2.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/altivec-cell-2.C	(revision 140821)
+***************
+*** 0 ****
+--- 1,142 ----
++ /* { dg-do run { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ /* Test the vec_extract VMX intrinsics.  */
++ #include <altivec.h>
++ #include "altivec_check.h"
++ 
++ extern "C" void abort (void);
++ 
++ vector int a = {0, 1, 2, 3};
++ vector short b = {0, 1, 2, 3, 4, 5, 6, 7};
++ 
++ int f(vector int a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ 
++ int f0 (vector int a)
++ {
++   return vec_extract (a, 0);
++ }
++ int f1 (vector int a)
++ {
++   return vec_extract (a, 1);
++ }
++ int f2 (vector int a)
++ {
++   return vec_extract (a, 2);
++ }
++ int f3 (vector int a)
++ {
++   return vec_extract (a, 3);
++ }
++ int f4 (vector int a)
++ {
++   return vec_extract (a, 4);
++ }
++ 
++ int g(vector short a, int b)
++ {
++   return vec_extract (a, b);
++ }
++ 
++ int g0 (vector short a)
++ {
++   return vec_extract (a, 0);
++ }
++ int g1 (vector short a)
++ {
++   return vec_extract (a, 1);
++ }
++ int g2 (vector short a)
++ {
++   return vec_extract (a, 2);
++ }
++ int g3 (vector short a)
++ {
++   return vec_extract (a, 3);
++ }
++ 
++ int g4 (vector short a)
++ { 
++   return vec_extract (a, 4);
++ }
++ int g5 (vector short a)
++ { 
++   return vec_extract (a, 5);
++ }
++ int g6 (vector short a)
++ { 
++   return vec_extract (a, 6);
++ }
++ int g7 (vector short a)
++ { 
++   return vec_extract (a, 7);
++ }
++ int g8 (vector short a)
++ { 
++   return vec_extract (a, 8);
++ }
++ int main1(void) __attribute__((noinline));
++ int main1(void)
++ { 
++   int i;
++   /* Check vec_extract with a non constant element numbering */
++   for(i=0;i<10;i++)
++     { 
++       if (f(a, i) != (i&0x3))
++         abort ();
++     }
++   
++   /* Check vec_extract with a constant element numbering */
++   if (f0(a) != 0)
++     abort ();
++   if (f1(a) != 1)
++     abort ();
++   if (f2(a) != 2)
++     abort ();
++   if (f3(a) != 3)
++     abort ();
++   /* Check that vec_extract works with a constant element higher than
++      the number of elements.  */
++   if (f4(a) != 0)
++     abort ();
++ 
++   /* Check vec_extract with a non constant element numbering */
++   for(i=0;i<10;i++)
++     {
++       if (g(b, i) != (i&0x7))
++         abort ();
++     }
++   
++   /* Check vec_extract with a constant element numbering */
++   if (g0(b) != 0)
++     abort ();
++   if (g1(b) != 1)
++     abort ();
++   if (g2(b) != 2)
++     abort ();
++   if (g3(b) != 3)
++     abort ();
++   if (g4(b) != 4)
++     abort ();
++   if (g5(b) != 5)
++     abort ();
++   if (g6(b) != 6)
++     abort ();
++   if (g7(b) != 7)
++     abort ();
++   /* Check that vec_extract works with a constant element higher than
++      the number of elements.  */
++   if (g8(b) != 0)
++     abort ();
++   
++   return 0;
++ }
++ 
++ int main(void)
++ { 
++   altivec_check();  /* Exits if AltiVec not supported */
++   return main1 ();
++ }
+Index: gcc/testsuite/g++.dg/ext/altivec-cell-3.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/altivec-cell-3.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/altivec-cell-3.C	(revision 140821)
+***************
+*** 0 ****
+--- 1,38 ----
++ /* { dg-do run { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ /* Test the vec_splats and vec_promote VMX intrinsics.  */
++ #include <altivec.h>
++ #include "altivec_check.h"
++     
++ extern "C" void abort (void);
++         
++ vector int a = {0, 0, 0, 0};
++ int main1(int t) __attribute__((noinline));
++ int main1(int t)
++ { 
++   int i;
++   vector int b = vec_splats(0);
++   if (__builtin_memcmp (&a, &b, sizeof(vector int)))
++     abort ();
++   
++   b = vec_splats(t);
++   if (__builtin_memcmp (&a, &b, sizeof(vector int)))
++     abort ();
++   
++   b = vec_promote(0, 1);
++   if (vec_extract (b, 1) != 0)
++     abort ();
++   
++   b = vec_promote(t, t);
++   if (vec_extract (b, t) != 0)
++     abort ();
++   
++   return 0;
++ } 
++     
++ int main(void)
++ { 
++   altivec_check();  /* Exits if AltiVec not supported */
++   return main1 (0);
++ }
+Index: gcc/testsuite/g++.dg/ext/altivec-cell-4.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/altivec-cell-4.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/altivec-cell-4.C	(revision 140821)
+***************
+*** 0 ****
+--- 1,43 ----
++ /* { dg-do run { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ 
++ /* Test the vec_splats and vec_promote VMX intrinsics.  */
++ #include <altivec.h>
++ #include "altivec_check.h"
++     
++ extern "C" void abort (void);
++         
++ vector int a[] = {{0, 0, 0, 0}, {1,0,0,0}, {1,2,0,0},{1,2,3,0},{1,2,3,4},{5,2,3,4},{5,6,3,4}};
++ vector int c = {0,6,3,4};
++ vector int d = {0,0,3,4};
++ int main1(int t) __attribute__((noinline));
++ int main1(int t)
++ { 
++   int i;
++   vector int b = vec_splats(0);
++   for(i = 0;i<sizeof(a)/sizeof(a[0])-1;i++)
++     { 
++         if (__builtin_memcmp (&b, &a[i], sizeof(vector int)))
++           abort ();
++         b = vec_insert(i+1, b, i);
++     } 
++   if (__builtin_memcmp (&b, &a[i], sizeof(vector int)))
++     abort ();
++   
++   b = vec_insert(0, b, 0);
++   if (__builtin_memcmp (&b, &c, sizeof(vector int)))
++     abort ();
++   
++   b = vec_insert(0, b, 1);
++   if (__builtin_memcmp (&b, &d, sizeof(vector int)))
++     abort ();
++   
++   return 0;
++ } 
++   
++ int main(void)
++ {
++   altivec_check();  /* Exits if AltiVec not supported */
++   return main1 (0);
++ }
+Index: gcc/testsuite/g++.dg/ext/altivec-cell-5.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/altivec-cell-5.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/altivec-cell-5.C	(revision 140821)
+***************
+*** 0 ****
+--- 1,25 ----
++ /* { dg-do compile { target powerpc*-*-* } } */
++ /* { dg-require-effective-target powerpc_altivec_ok } */
++ /* { dg-options "-maltivec" } */
++ 
++ /* Basic test for the new VMX intrinsics and error messages.  */
++ #include <altivec.h>
++ 
++ int main(int argc, char **argv)
++ {
++ vector float t;
++     vec_promote();                      /* { dg-error "vec_promote only accepts 2" } */
++     vec_promote(1.0f);                  /* { dg-error "vec_promote only accepts 2" } */
++     vec_promote(1.0f, 2, 3);            /* { dg-error "vec_promote only accepts 2" } */
++     vec_extract ();                     /* { dg-error "vec_extract only accepts 2" } */
++     vec_extract (t);                    /* { dg-error "vec_extract only accepts 2" } */
++     vec_extract (t, 2);
++     vec_extract (t, 2, 5, 6);           /* { dg-error "vec_extract only accepts 2" } */
++     vec_splats ();                      /* { dg-error "vec_splats only accepts 1" } */
++     vec_splats (t, 3);                  /* { dg-error "vec_splats only accepts 1" } */
++     vec_insert ();                      /* { dg-error "vec_insert only accepts 3" } */
++     vec_insert (t);                     /* { dg-error "vec_insert only accepts 3" } */
++     vec_insert (t, 3);                  /* { dg-error "vec_insert only accepts 3" } */
++     vec_insert (t, 3, 2, 4, 6, 6);      /* { dg-error "vec_insert only accepts 3" } */
++     return 0;
++ }  
+Index: gcc/cp/tree.c
+===================================================================
+*** gcc/cp/tree.c	(revision 140819)
+--- gcc/cp/tree.c	(revision 140821)
+*************** lvalue_p_1 (const_tree ref,
+*** 129,134 ****
+--- 129,135 ----
+        return op1_lvalue_kind;
+  
+      case STRING_CST:
++     case COMPOUND_LITERAL_EXPR:
+        return clk_ordinary;
+  
+      case CONST_DECL:
+Index: gcc/config/rs6000/rs6000-c.c
+===================================================================
+*** gcc/config/rs6000/rs6000-c.c	(revision 140819)
+--- gcc/config/rs6000/rs6000-c.c	(revision 140821)
+*************** const struct altivec_builtin_types altiv
+*** 996,1001 ****
+--- 996,1145 ----
+      RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_long, 0 },
+    { ALTIVEC_BUILTIN_VEC_LVSR, ALTIVEC_BUILTIN_LVSR,
+      RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_float, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_float, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_bool_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_INTSI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTSI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_bool_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_INTHI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTHI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_LVLX,
++     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTQI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_float, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_bool_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_INTSI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTSI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_bool_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_INTHI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTHI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVLXL, ALTIVEC_BUILTIN_LVLXL,
++     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTQI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_float, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_bool_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_INTSI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTSI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_bool_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_INTHI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTHI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_LVRX,
++     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTQI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_float, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_bool_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_INTSI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V4SI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTSI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_bool_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_INTHI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V8HI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTHI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V16QI, 0 },
++   { ALTIVEC_BUILTIN_VEC_LVRXL, ALTIVEC_BUILTIN_LVRXL,
++     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTQI, 0 },
+    { ALTIVEC_BUILTIN_VEC_MAX, ALTIVEC_BUILTIN_VMAXUB,
+      RS6000_BTI_unsigned_V16QI, RS6000_BTI_bool_V16QI, RS6000_BTI_unsigned_V16QI, 0 },
+    { ALTIVEC_BUILTIN_VEC_MAX, ALTIVEC_BUILTIN_VMAXUB,
+*************** const struct altivec_builtin_types altiv
+*** 2432,2437 ****
+--- 2576,2725 ----
+      RS6000_BTI_void, RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI },
+    { ALTIVEC_BUILTIN_VEC_STL, ALTIVEC_BUILTIN_STVXL,
+      RS6000_BTI_void, RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_float },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_bool_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_INTSI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTSI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_bool_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_INTHI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTHI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_STVLX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTQI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_float },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_bool_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_INTSI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTSI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_bool_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_INTHI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTHI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVLXL, ALTIVEC_BUILTIN_STVLXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTQI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_float },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_bool_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_INTSI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTSI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_bool_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_INTHI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTHI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVRX, ALTIVEC_BUILTIN_STVRX,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTQI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_float },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_bool_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_INTSI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V4SI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTSI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_bool_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_pixel_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_pixel_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_INTHI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V8HI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTHI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_bool_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_INTQI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_unsigned_V16QI },
++   { ALTIVEC_BUILTIN_VEC_STVRXL, ALTIVEC_BUILTIN_STVRXL,
++     RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, ~RS6000_BTI_UINTQI },
+  
+    /* Predicates.  */
+    { ALTIVEC_BUILTIN_VCMPGT_P, ALTIVEC_BUILTIN_VCMPGTUB_P,
+*************** altivec_resolve_overloaded_builtin (tree
+*** 2685,2690 ****
+--- 2973,3170 ----
+        || fcode > ALTIVEC_BUILTIN_OVERLOADED_LAST)
+      return NULL_TREE;
+  
++   /* For now treat vec_splats and vec_promote as the same.  */
++   if (fcode == ALTIVEC_BUILTIN_VEC_SPLATS
++       || fcode == ALTIVEC_BUILTIN_VEC_PROMOTE)
++     {
++       tree type, arg;
++       int size;
++       int i;
++       bool unsigned_p;
++       VEC(constructor_elt,gc) *vec;
++       const char *name = fcode == ALTIVEC_BUILTIN_VEC_SPLATS ? "vec_splats": "vec_promote";
++ 
++       if (!arglist)
++ 	{
++ 	  error ("%s only accepts %d arguments", name, (fcode == ALTIVEC_BUILTIN_VEC_PROMOTE)+1 );
++ 	  return error_mark_node;
++ 	}
++       if (fcode == ALTIVEC_BUILTIN_VEC_SPLATS && TREE_CHAIN (arglist))
++ 	{
++ 	  error ("%s only accepts 1 argument", name);
++ 	  return error_mark_node;
++ 	}
++       if (fcode == ALTIVEC_BUILTIN_VEC_PROMOTE && !TREE_CHAIN (arglist))
++ 	{
++ 	  error ("%s only accepts 2 arguments", name);
++ 	  return error_mark_node;
++ 	}
++       /* Ignore promote's element argument.  */
++       if (fcode == ALTIVEC_BUILTIN_VEC_PROMOTE
++ 	  && TREE_CHAIN (TREE_CHAIN (arglist)))
++ 	{
++ 	  error ("%s only accepts 2 arguments", name);
++ 	  return error_mark_node;
++ 	}
++       if (fcode == ALTIVEC_BUILTIN_VEC_PROMOTE
++ 	  && !INTEGRAL_TYPE_P (TREE_TYPE (TREE_VALUE (TREE_CHAIN (arglist)))))
++ 	goto bad;
++ 
++       arg = TREE_VALUE (arglist);
++       type = TREE_TYPE (arg);
++       if (!SCALAR_FLOAT_TYPE_P (type)
++ 	  && !INTEGRAL_TYPE_P (type))
++ 	goto bad;
++       unsigned_p = TYPE_UNSIGNED (type);
++       if (type == long_long_unsigned_type_node
++           || type == long_long_integer_type_node)
++ 	goto bad;
++       switch (TYPE_MODE (type))
++ 	{
++ 	  case SImode:
++ 	    type = (unsigned_p ? unsigned_V4SI_type_node : V4SI_type_node);
++ 	    size = 4;
++ 	    break;
++ 	  case HImode:
++ 	    type = (unsigned_p ? unsigned_V8HI_type_node : V8HI_type_node);
++ 	    size = 8;
++ 	    break;
++ 	  case QImode:
++ 	    type = (unsigned_p ? unsigned_V16QI_type_node : V16QI_type_node);
++ 	    size = 16;
++ 	    break;
++ 	  case SFmode: type = V4SF_type_node; size = 4; break;
++ 	  default:
++ 	    goto bad;
++ 	}
++       arg = save_expr (fold_convert (TREE_TYPE (type), arg));
++       vec = VEC_alloc (constructor_elt, gc, size);
++       for(i = 0; i < size; i++)
++ 	{
++ 	  constructor_elt *elt;
++ 
++ 	  elt = VEC_quick_push (constructor_elt, vec, NULL);
++ 	  elt->index = NULL_TREE;
++ 	  elt->value = arg;
++ 	}
++ 	return build_constructor (type, vec);
++     }
++ 
++   /* For now use pointer tricks to do the extaction.  */
++   if (fcode == ALTIVEC_BUILTIN_VEC_EXTRACT)
++     {
++       tree arg1;
++       tree arg1_type;
++       tree arg2;
++       tree arg1_inner_type;
++       tree decl, stmt;
++       tree innerptrtype;
++ 
++       /* No second argument. */
++       if (!arglist || !TREE_CHAIN (arglist)
++ 	  || TREE_CHAIN (TREE_CHAIN (arglist)))
++ 	{
++ 	  error ("vec_extract only accepts 2 arguments");
++ 	  return error_mark_node;
++ 	}
++ 
++       arg2 = TREE_VALUE (TREE_CHAIN (arglist));
++       arg1 = TREE_VALUE (arglist);
++       arg1_type = TREE_TYPE (arg1);
++ 
++       if (TREE_CODE (arg1_type) != VECTOR_TYPE)
++ 	goto bad; 
++       if (!INTEGRAL_TYPE_P (TREE_TYPE (arg2)))
++ 	goto bad; 
++       /* Build *(((arg1_inner_type*)&(vector type){arg1})+arg2). */
++       arg1_inner_type = TREE_TYPE (arg1_type);
++       arg2 = build_binary_op (BIT_AND_EXPR, arg2,
++ 			      build_int_cst (TREE_TYPE (arg2),
++ 					     TYPE_VECTOR_SUBPARTS (arg1_type)
++ 					     - 1), 0);
++       decl = build_decl (VAR_DECL, NULL_TREE, arg1_type);
++       DECL_EXTERNAL (decl) = 0;
++       TREE_PUBLIC (decl) = 0;
++       DECL_CONTEXT (decl) = current_function_decl;
++       TREE_USED (decl) = 1;
++       TREE_TYPE (decl) = arg1_type;
++       TREE_READONLY (decl) = TYPE_READONLY (arg1_type);
++       DECL_INITIAL (decl) = arg1;
++       stmt = build1 (DECL_EXPR, arg1_type, decl);
++       TREE_ADDRESSABLE (decl) = 1;
++       SET_EXPR_LOCATION (stmt, input_location);
++       stmt = build1 (COMPOUND_LITERAL_EXPR, arg1_type, stmt);
++ 
++       innerptrtype = build_pointer_type (arg1_inner_type);
++ 
++       stmt = build_unary_op (ADDR_EXPR, stmt, 0);
++       stmt = convert (innerptrtype, stmt);
++       stmt = build_binary_op (PLUS_EXPR, stmt, arg2, 1);
++       stmt = build_indirect_ref (stmt, NULL);
++ 
++       return stmt;
++     }
++ 
++   /* For now use pointer tricks to do the insertation.  */
++   if (fcode == ALTIVEC_BUILTIN_VEC_INSERT)
++     {
++       tree arg0;
++       tree arg1;
++       tree arg2;
++       tree arg1_type;
++       tree arg1_inner_type;
++       tree decl, stmt;
++       tree innerptrtype;
++       
++       /* No second or third arguments. */
++       if (!arglist || !TREE_CHAIN (arglist)
++ 	  || !TREE_CHAIN (TREE_CHAIN (arglist))
++ 	  || TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arglist))))
++ 	{
++ 	  error ("vec_insert only accepts 3 arguments");
++ 	  return error_mark_node;
++ 	}
++ 
++       arg0 = TREE_VALUE (arglist);
++       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
++       arg1_type = TREE_TYPE (arg1);
++       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
++ 
++       if (TREE_CODE (arg1_type) != VECTOR_TYPE)
++ 	goto bad; 
++       if (!INTEGRAL_TYPE_P (TREE_TYPE (arg2)))
++ 	goto bad; 
++       /* Build *(((arg1_inner_type*)&(vector type){arg1})+arg2) = arg0. */
++       arg1_inner_type = TREE_TYPE (arg1_type);
++       arg2 = build_binary_op (BIT_AND_EXPR, arg2,
++ 			      build_int_cst (TREE_TYPE (arg2),
++ 					     TYPE_VECTOR_SUBPARTS (arg1_type)
++ 					     - 1), 0);
++       decl = build_decl (VAR_DECL, NULL_TREE, arg1_type);
++       DECL_EXTERNAL (decl) = 0;
++       TREE_PUBLIC (decl) = 0;
++       DECL_CONTEXT (decl) = current_function_decl;
++       TREE_USED (decl) = 1;
++       TREE_TYPE (decl) = arg1_type;
++       TREE_READONLY (decl) = TYPE_READONLY (arg1_type);
++       DECL_INITIAL (decl) = arg1;
++       stmt = build1 (DECL_EXPR, arg1_type, decl);
++       TREE_ADDRESSABLE (decl) = 1;
++       SET_EXPR_LOCATION (stmt, input_location);
++       stmt = build1 (COMPOUND_LITERAL_EXPR, arg1_type, stmt);
++ 
++       innerptrtype = build_pointer_type (arg1_inner_type);
++ 
++       stmt = build_unary_op (ADDR_EXPR, stmt, 0);
++       stmt = convert (innerptrtype, stmt);
++       stmt = build_binary_op (PLUS_EXPR, stmt, arg2, 1);
++       stmt = build_indirect_ref (stmt, NULL);
++       stmt = build2 (MODIFY_EXPR, TREE_TYPE (stmt), stmt,
++ 		     convert (TREE_TYPE (stmt), arg0));
++       stmt = build2 (COMPOUND_EXPR, arg1_type, stmt, decl);
++       return stmt;
++     }
++ 
+    for (n = 0;
+         !VOID_TYPE_P (TREE_VALUE (fnargs)) && arglist;
+         fnargs = TREE_CHAIN (fnargs), arglist = TREE_CHAIN (arglist), n++)
+Index: gcc/config/rs6000/rs6000.c
+===================================================================
+*** gcc/config/rs6000/rs6000.c	(revision 140819)
+--- gcc/config/rs6000/rs6000.c	(revision 140821)
+*************** static rtx altivec_expand_dst_builtin (t
+*** 905,911 ****
+  static rtx altivec_expand_abs_builtin (enum insn_code, tree, rtx);
+  static rtx altivec_expand_predicate_builtin (enum insn_code,
+  					     const char *, tree, rtx);
+- static rtx altivec_expand_lv_builtin (enum insn_code, tree, rtx);
+  static rtx altivec_expand_stv_builtin (enum insn_code, tree);
+  static rtx altivec_expand_vec_init_builtin (tree, tree, rtx);
+  static rtx altivec_expand_vec_set_builtin (tree);
+--- 905,910 ----
+*************** paired_expand_lv_builtin (enum insn_code
+*** 8065,8071 ****
+  }
+  
+  static rtx
+! altivec_expand_lv_builtin (enum insn_code icode, tree exp, rtx target)
+  {
+    rtx pat, addr;
+    tree arg0 = CALL_EXPR_ARG (exp, 0);
+--- 8064,8070 ----
+  }
+  
+  static rtx
+! altivec_expand_lv_builtin (enum insn_code icode, tree exp, rtx target, bool blk)
+  {
+    rtx pat, addr;
+    tree arg0 = CALL_EXPR_ARG (exp, 0);
+*************** altivec_expand_lv_builtin (enum insn_cod
+*** 8093,8104 ****
+  
+    if (op0 == const0_rtx)
+      {
+!       addr = gen_rtx_MEM (tmode, op1);
+      }
+    else
+      {
+        op0 = copy_to_mode_reg (mode0, op0);
+!       addr = gen_rtx_MEM (tmode, gen_rtx_PLUS (Pmode, op0, op1));
+      }
+  
+    pat = GEN_FCN (icode) (target, addr);
+--- 8092,8103 ----
+  
+    if (op0 == const0_rtx)
+      {
+!       addr = gen_rtx_MEM (blk ? BLKmode : tmode, op1);
+      }
+    else
+      {
+        op0 = copy_to_mode_reg (mode0, op0);
+!       addr = gen_rtx_MEM (blk ? BLKmode : tmode, gen_rtx_PLUS (Pmode, op0, op1));
+      }
+  
+    pat = GEN_FCN (icode) (target, addr);
+*************** altivec_expand_builtin (tree exp, rtx ta
+*** 8605,8610 ****
+--- 8604,8618 ----
+      case ALTIVEC_BUILTIN_STVXL:
+        return altivec_expand_stv_builtin (CODE_FOR_altivec_stvxl, exp);
+  
++     case ALTIVEC_BUILTIN_STVLX:
++       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvlx, exp);
++     case ALTIVEC_BUILTIN_STVLXL:
++       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvlxl, exp);
++     case ALTIVEC_BUILTIN_STVRX:
++       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvrx, exp);
++     case ALTIVEC_BUILTIN_STVRXL:
++       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvrxl, exp);
++ 
+      case ALTIVEC_BUILTIN_MFVSCR:
+        icode = CODE_FOR_altivec_mfvscr;
+        tmode = insn_data[icode].operand[0].mode;
+*************** altivec_expand_builtin (tree exp, rtx ta
+*** 8707,8731 ****
+      {
+      case ALTIVEC_BUILTIN_LVSL:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvsl,
+! 					exp, target);
+      case ALTIVEC_BUILTIN_LVSR:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvsr,
+! 					exp, target);
+      case ALTIVEC_BUILTIN_LVEBX:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvebx,
+! 					exp, target);
+      case ALTIVEC_BUILTIN_LVEHX:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvehx,
+! 					exp, target);
+      case ALTIVEC_BUILTIN_LVEWX:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvewx,
+! 					exp, target);
+      case ALTIVEC_BUILTIN_LVXL:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvxl,
+! 					exp, target);
+      case ALTIVEC_BUILTIN_LVX:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx,
+! 					exp, target);
+      default:
+        break;
+        /* Fall through.  */
+--- 8715,8751 ----
+      {
+      case ALTIVEC_BUILTIN_LVSL:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvsl,
+! 					exp, target, false);
+      case ALTIVEC_BUILTIN_LVSR:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvsr,
+! 					exp, target, false);
+      case ALTIVEC_BUILTIN_LVEBX:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvebx,
+! 					exp, target, false);
+      case ALTIVEC_BUILTIN_LVEHX:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvehx,
+! 					exp, target, false);
+      case ALTIVEC_BUILTIN_LVEWX:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvewx,
+! 					exp, target, false);
+      case ALTIVEC_BUILTIN_LVXL:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvxl,
+! 					exp, target, false);
+      case ALTIVEC_BUILTIN_LVX:
+        return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx,
+! 					exp, target, false);
+!     case ALTIVEC_BUILTIN_LVLX:
+!       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvlx,
+! 					exp, target, true);
+!     case ALTIVEC_BUILTIN_LVLXL:
+!       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvlxl,
+! 					exp, target, true);
+!     case ALTIVEC_BUILTIN_LVRX:
+!       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvrx,
+! 					exp, target, true);
+!     case ALTIVEC_BUILTIN_LVRXL:
+!       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvrxl,
+! 					exp, target, true);
+      default:
+        break;
+        /* Fall through.  */
+*************** altivec_init_builtins (void)
+*** 9764,9770 ****
+    tree int_ftype_opaque
+      = build_function_type_list (integer_type_node,
+  				opaque_V4SI_type_node, NULL_TREE);
+! 
+    tree opaque_ftype_opaque_int
+      = build_function_type_list (opaque_V4SI_type_node,
+  				opaque_V4SI_type_node, integer_type_node, NULL_TREE);
+--- 9784,9792 ----
+    tree int_ftype_opaque
+      = build_function_type_list (integer_type_node,
+  				opaque_V4SI_type_node, NULL_TREE);
+!   tree opaque_ftype_opaque
+!     = build_function_type (integer_type_node,
+! 				NULL_TREE);
+    tree opaque_ftype_opaque_int
+      = build_function_type_list (opaque_V4SI_type_node,
+  				opaque_V4SI_type_node, integer_type_node, NULL_TREE);
+*************** altivec_init_builtins (void)
+*** 9910,9919 ****
+--- 9932,9967 ----
+    def_builtin (MASK_ALTIVEC, "__builtin_vec_stvebx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEBX);
+    def_builtin (MASK_ALTIVEC, "__builtin_vec_stvehx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEHX);
+  
++   if (rs6000_cpu == PROCESSOR_CELL)
++     {
++       def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
++       def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvlxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLXL);
++       def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvrx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVRX);
++       def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvrxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVRXL);
++ 
++       def_builtin (MASK_ALTIVEC, "__builtin_vec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVLX);
++       def_builtin (MASK_ALTIVEC, "__builtin_vec_lvlxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVLXL);
++       def_builtin (MASK_ALTIVEC, "__builtin_vec_lvrx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVRX);
++       def_builtin (MASK_ALTIVEC, "__builtin_vec_lvrxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVRXL);
++ 
++       def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvlx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVLX);
++       def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvlxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVLXL);
++       def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVRX);
++       def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVRXL);
++ 
++       def_builtin (MASK_ALTIVEC, "__builtin_vec_stvlx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVLX);
++       def_builtin (MASK_ALTIVEC, "__builtin_vec_stvlxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVLXL);
++       def_builtin (MASK_ALTIVEC, "__builtin_vec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRX);
++       def_builtin (MASK_ALTIVEC, "__builtin_vec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRXL);
++     }
+    def_builtin (MASK_ALTIVEC, "__builtin_vec_step", int_ftype_opaque, ALTIVEC_BUILTIN_VEC_STEP);
++   def_builtin (MASK_ALTIVEC, "__builtin_vec_splats", opaque_ftype_opaque, ALTIVEC_BUILTIN_VEC_SPLATS);
++   def_builtin (MASK_ALTIVEC, "__builtin_vec_promote", opaque_ftype_opaque, ALTIVEC_BUILTIN_VEC_PROMOTE);
+  
+    def_builtin (MASK_ALTIVEC, "__builtin_vec_sld", opaque_ftype_opaque_opaque_int, ALTIVEC_BUILTIN_VEC_SLD);
+    def_builtin (MASK_ALTIVEC, "__builtin_vec_splat", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_SPLAT);
++   def_builtin (MASK_ALTIVEC, "__builtin_vec_extract", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_EXTRACT);
++   def_builtin (MASK_ALTIVEC, "__builtin_vec_insert", opaque_ftype_opaque_opaque_int, ALTIVEC_BUILTIN_VEC_INSERT);
+    def_builtin (MASK_ALTIVEC, "__builtin_vec_vspltw", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTW);
+    def_builtin (MASK_ALTIVEC, "__builtin_vec_vsplth", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTH);
+    def_builtin (MASK_ALTIVEC, "__builtin_vec_vspltb", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTB);
+Index: gcc/config/rs6000/rs6000.h
+===================================================================
+*** gcc/config/rs6000/rs6000.h	(revision 140819)
+--- gcc/config/rs6000/rs6000.h	(revision 140821)
+*************** enum rs6000_builtins
+*** 2543,2552 ****
+--- 2543,2560 ----
+    ALTIVEC_BUILTIN_LVXL,
+    ALTIVEC_BUILTIN_LVX,
+    ALTIVEC_BUILTIN_STVX,
++   ALTIVEC_BUILTIN_LVLX,
++   ALTIVEC_BUILTIN_LVLXL,
++   ALTIVEC_BUILTIN_LVRX,
++   ALTIVEC_BUILTIN_LVRXL,
+    ALTIVEC_BUILTIN_STVEBX,
+    ALTIVEC_BUILTIN_STVEHX,
+    ALTIVEC_BUILTIN_STVEWX,
+    ALTIVEC_BUILTIN_STVXL,
++   ALTIVEC_BUILTIN_STVLX,
++   ALTIVEC_BUILTIN_STVLXL,
++   ALTIVEC_BUILTIN_STVRX,
++   ALTIVEC_BUILTIN_STVRXL,
+    ALTIVEC_BUILTIN_VCMPBFP_P,
+    ALTIVEC_BUILTIN_VCMPEQFP_P,
+    ALTIVEC_BUILTIN_VCMPEQUB_P,
+*************** enum rs6000_builtins
+*** 2595,2600 ****
+--- 2603,2609 ----
+    ALTIVEC_BUILTIN_VEC_AND,
+    ALTIVEC_BUILTIN_VEC_ANDC,
+    ALTIVEC_BUILTIN_VEC_AVG,
++   ALTIVEC_BUILTIN_VEC_EXTRACT,
+    ALTIVEC_BUILTIN_VEC_CEIL,
+    ALTIVEC_BUILTIN_VEC_CMPB,
+    ALTIVEC_BUILTIN_VEC_CMPEQ,
+*************** enum rs6000_builtins
+*** 2621,2626 ****
+--- 2630,2639 ----
+    ALTIVEC_BUILTIN_VEC_LVEBX,
+    ALTIVEC_BUILTIN_VEC_LVEHX,
+    ALTIVEC_BUILTIN_VEC_LVEWX,
++   ALTIVEC_BUILTIN_VEC_LVLX,
++   ALTIVEC_BUILTIN_VEC_LVLXL,
++   ALTIVEC_BUILTIN_VEC_LVRX,
++   ALTIVEC_BUILTIN_VEC_LVRXL,
+    ALTIVEC_BUILTIN_VEC_LVSL,
+    ALTIVEC_BUILTIN_VEC_LVSR,
+    ALTIVEC_BUILTIN_VEC_MADD,
+*************** enum rs6000_builtins
+*** 2680,2685 ****
+--- 2693,2702 ----
+    ALTIVEC_BUILTIN_VEC_STVEBX,
+    ALTIVEC_BUILTIN_VEC_STVEHX,
+    ALTIVEC_BUILTIN_VEC_STVEWX,
++   ALTIVEC_BUILTIN_VEC_STVLX,
++   ALTIVEC_BUILTIN_VEC_STVLXL,
++   ALTIVEC_BUILTIN_VEC_STVRX,
++   ALTIVEC_BUILTIN_VEC_STVRXL,
+    ALTIVEC_BUILTIN_VEC_SUB,
+    ALTIVEC_BUILTIN_VEC_SUBC,
+    ALTIVEC_BUILTIN_VEC_SUBS,
+*************** enum rs6000_builtins
+*** 2796,2802 ****
+    ALTIVEC_BUILTIN_VEC_VUPKLSH,
+    ALTIVEC_BUILTIN_VEC_XOR,
+    ALTIVEC_BUILTIN_VEC_STEP,
+!   ALTIVEC_BUILTIN_OVERLOADED_LAST = ALTIVEC_BUILTIN_VEC_STEP,
+  
+    /* SPE builtins.  */
+    SPE_BUILTIN_EVADDW,
+--- 2813,2822 ----
+    ALTIVEC_BUILTIN_VEC_VUPKLSH,
+    ALTIVEC_BUILTIN_VEC_XOR,
+    ALTIVEC_BUILTIN_VEC_STEP,
+!   ALTIVEC_BUILTIN_VEC_PROMOTE,
+!   ALTIVEC_BUILTIN_VEC_INSERT,
+!   ALTIVEC_BUILTIN_VEC_SPLATS,
+!   ALTIVEC_BUILTIN_OVERLOADED_LAST = ALTIVEC_BUILTIN_VEC_SPLATS,
+  
+    /* SPE builtins.  */
+    SPE_BUILTIN_EVADDW,
+
+Index: gcc/config/rs6000/altivec.h
+===================================================================
+*** gcc/config/rs6000/altivec.h	(revision 140819)
+--- gcc/config/rs6000/altivec.h	(revision 140821)
+***************
+*** 205,210 ****
+--- 205,217 ----
+  #define vec_lvebx __builtin_vec_lvebx
+  #define vec_lvehx __builtin_vec_lvehx
+  #define vec_lvewx __builtin_vec_lvewx
++ /* Cell only intrinsics.  */
++ #ifdef __PPU__
++ #define vec_lvlx __builtin_vec_lvlx
++ #define vec_lvlxl __builtin_vec_lvlxl
++ #define vec_lvrx __builtin_vec_lvrx
++ #define vec_lvrxl __builtin_vec_lvrxl
++ #endif
+  #define vec_lvsl __builtin_vec_lvsl
+  #define vec_lvsr __builtin_vec_lvsr
+  #define vec_max __builtin_vec_max
+***************
+*** 239,244 ****
+--- 246,258 ----
+  #define vec_stvebx __builtin_vec_stvebx
+  #define vec_stvehx __builtin_vec_stvehx
+  #define vec_stvewx __builtin_vec_stvewx
++ /* Cell only intrinsics.  */
++ #ifdef __PPU__
++ #define vec_stvlx __builtin_vec_stvlx
++ #define vec_stvlxl __builtin_vec_stvlxl
++ #define vec_stvrx __builtin_vec_stvrx
++ #define vec_stvrxl __builtin_vec_stvrxl
++ #endif
+  #define vec_sub __builtin_vec_sub
+  #define vec_subs __builtin_vec_subs
+  #define vec_sum __builtin_vec_sum
+***************
+*** 290,295 ****
+--- 304,314 ----
+  #define vec_vsubuws __builtin_vec_vsubuws
+  #define vec_xor __builtin_vec_xor
+  
++ #define vec_extract __builtin_vec_extract
++ #define vec_insert __builtin_vec_insert
++ #define vec_splats __builtin_vec_splats
++ #define vec_promote __builtin_vec_promote
++ 
+  /* Predicates.
+     For C++, we use templates in order to allow non-parenthesized arguments.
+     For C, instead, we use macros since non-parenthesized arguments were
+
+diff -urNp gcc.orig/config/rs6000/altivec.md gcc/config/rs6000/altivec.md
+--- gcc.orig/config/rs6000/altivec.md	2008-10-08 18:22:03.000000000 +0200
++++ gcc/config/rs6000/altivec.md	2008-10-08 20:28:51.000000000 +0200
+@@ -130,6 +130,14 @@
+    (UNSPEC_INTERLO_V8HI 233)
+    (UNSPEC_INTERLO_V16QI 234)
+    (UNSPEC_INTERLO_V4SF 235)
++   (UNSPEC_LVLX         236)
++   (UNSPEC_LVLXL        237)
++   (UNSPEC_LVRX         238)
++   (UNSPEC_LVRXL        239)
++   (UNSPEC_STVLX        240)
++   (UNSPEC_STVLXL       241)
++   (UNSPEC_STVRX        242)
++   (UNSPEC_STVRXL       243)
+    (UNSPEC_VMULWHUB     308)
+    (UNSPEC_VMULWLUB     309)
+    (UNSPEC_VMULWHSB     310)
+@@ -2655,6 +2663,76 @@
+   DONE;
+ }")
+ 
++;; Vector SIMD PEM v2.06c defines LVLX, LVLXL, LVRX, LVRXL,
++;; STVLX, STVLXL, STVVRX, STVRXL are available only on Cell.
++(define_insn "altivec_lvlx"
++  [(set (match_operand:V16QI 0 "register_operand" "=v")
++        (unspec:V16QI [(match_operand 1 "memory_operand" "Z")] 
++		      UNSPEC_LVLX))]
++  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
++  "lvlx %0,%y1"
++  [(set_attr "type" "vecload")])
++
++(define_insn "altivec_lvlxl"
++  [(set (match_operand:V16QI 0 "register_operand" "=v")
++        (unspec:V16QI [(match_operand 1 "memory_operand" "Z")] 
++		      UNSPEC_LVLXL))]
++  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
++  "lvlxl %0,%y1"
++  [(set_attr "type" "vecload")])
++
++(define_insn "altivec_lvrx"
++  [(set (match_operand:V16QI 0 "register_operand" "=v")
++        (unspec:V16QI [(match_operand 1 "memory_operand" "Z")] 
++		      UNSPEC_LVRX))]
++  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
++  "lvrx %0,%y1"
++  [(set_attr "type" "vecload")])
++
++(define_insn "altivec_lvrxl"
++  [(set (match_operand:V16QI 0 "register_operand" "=v")
++        (unspec:V16QI [(match_operand 1 "memory_operand" "Z")] 
++		      UNSPEC_LVRXL))]
++  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
++  "lvrxl %0,%y1"
++  [(set_attr "type" "vecload")])
++
++(define_insn "altivec_stvlx"
++  [(parallel
++    [(set (match_operand:V4SI 0 "memory_operand" "=Z")
++	  (match_operand:V4SI 1 "register_operand" "v"))
++     (unspec [(const_int 0)] UNSPEC_STVLX)])]
++  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
++  "stvlx %1,%y0"
++  [(set_attr "type" "vecstore")])
++
++(define_insn "altivec_stvlxl"
++  [(parallel
++    [(set (match_operand:V4SI 0 "memory_operand" "=Z")
++	  (match_operand:V4SI 1 "register_operand" "v"))
++     (unspec [(const_int 0)] UNSPEC_STVLXL)])]
++  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
++  "stvlxl %1,%y0"
++  [(set_attr "type" "vecstore")])
++
++(define_insn "altivec_stvrx"
++  [(parallel
++    [(set (match_operand:V4SI 0 "memory_operand" "=Z")
++	  (match_operand:V4SI 1 "register_operand" "v"))
++     (unspec [(const_int 0)] UNSPEC_STVRX)])]
++  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
++  "stvrx %1,%y0"
++  [(set_attr "type" "vecstore")])
++
++(define_insn "altivec_stvrxl"
++  [(parallel
++    [(set (match_operand:V4SI 0 "memory_operand" "=Z")
++	  (match_operand:V4SI 1 "register_operand" "v"))
++     (unspec [(const_int 0)] UNSPEC_STVRXL)])]
++  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
++  "stvrxl %1,%y0"
++  [(set_attr "type" "vecstore")])
++
+ (define_expand "vec_extract_evenv4si"
+  [(set (match_operand:V4SI 0 "register_operand" "")
+         (unspec:V8HI [(match_operand:V4SI 1 "register_operand" "")
+

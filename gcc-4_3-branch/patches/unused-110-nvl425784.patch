@@ -1,0 +1,23 @@
+2008-02-23  David Edelsohn  <edelsohn@gnu.org>
+
+        * config/rs6000/rs6000.h (CONSTANT_ALIGNMENT): Use STRICT_ALIGNMENT
+        instead of TARGET_STRICT_ALIGN.
+
+2008-02-22  Nathan Froyd  <froydnj@codesourcery.com>
+
+        * config/rs6000/rs6000.h (CONSTANT_ALIGNMENT): Don't overalign
+        strings when optimizing for size, unless the target cares about
+        alignment.
+
+Index: gcc/config/rs6000/rs6000.h
+===================================================================
+--- gcc/config/rs6000/rs6000.h	(revision 140242)
++++ gcc/config/rs6000/rs6000.h	(working copy)
+@@ -596,6 +596,7 @@ extern enum rs6000_nop_insertion rs6000_
+    Make vector constants quadword aligned.  */
+ #define CONSTANT_ALIGNMENT(EXP, ALIGN)                           \
+   (TREE_CODE (EXP) == STRING_CST	                         \
++   && (STRICT_ALIGNMENT || !optimize_size)                       \
+    && (ALIGN) < BITS_PER_WORD                                    \
+    ? BITS_PER_WORD                                               \
+    : (ALIGN))

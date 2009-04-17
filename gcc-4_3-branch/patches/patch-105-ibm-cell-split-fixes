@@ -1,0 +1,125 @@
+
+ChangeLog:
+
+	* config/spu/spu.h (ADDRESSES_NEVER_TRAP): Define.
+	* rtlanal.c (rtx_addr_can_trap_p_1): Respect ADDRESSES_NEVER_TRAP macro.
+	* doc/tm.texi (ADDRESSES_NEVER_TRAP): Document.
+
+	* config/spu/spu.c (spu_split_load): Trust MEM_ALIGN.  When not
+	optimizing, do not split load unless necessary.
+
+	* config/spu/spu.md ("_abs<mode>2"): Do not split in split0 pass.
+
+
+diff -crNp -x .svn gcc-4_3-orig/gcc/config/spu/spu.c gcc-4_3/gcc/config/spu/spu.c
+*** gcc-4_3-orig/gcc/config/spu/spu.c	2008-09-10 22:09:24.000000000 +0200
+--- gcc-4_3/gcc/config/spu/spu.c	2008-09-11 00:40:35.000000000 +0200
+*************** spu_split_load (rtx * ops)
+*** 3596,3602 ****
+  
+    rot = 0;
+    rot_amt = 0;
+!   if (GET_CODE (addr) == PLUS)
+      {
+        /* 8 cases:
+           aligned reg   + aligned reg     => lqx
+--- 3596,3605 ----
+  
+    rot = 0;
+    rot_amt = 0;
+! 
+!   if (MEM_ALIGN (ops[1]) >= 128)
+!     /* Address is already aligned; simply perform a TImode load.  */;
+!   else if (GET_CODE (addr) == PLUS)
+      {
+        /* 8 cases:
+           aligned reg   + aligned reg     => lqx
+*************** spu_split_load (rtx * ops)
+*** 3707,3712 ****
+--- 3710,3723 ----
+        rot_amt = 0;
+      }
+  
++   /* If the source is properly aligned, we don't need to split this insn into
++      a TImode load plus a _spu_convert.  However, we want to perform the split
++      anyway when optimizing to make the MEMs look the same as those used for
++      stores so they are more easily merged.  When *not* optimizing, that will
++      not happen anyway, so we prefer to avoid generating the _spu_convert.  */
++   if (!rot && !rot_amt && !optimize)
++     return 0;
++ 
+    load = gen_reg_rtx (TImode);
+  
+    mem = change_address (ops[1], TImode, copy_rtx (addr));
+diff -crNp -x .svn gcc-4_3-orig/gcc/config/spu/spu.h gcc-4_3/gcc/config/spu/spu.h
+*** gcc-4_3-orig/gcc/config/spu/spu.h	2008-09-10 22:09:24.000000000 +0200
+--- gcc-4_3/gcc/config/spu/spu.h	2008-09-10 21:19:30.000000000 +0200
+*************** extern GTY(()) rtx spu_compare_op1;
+*** 640,642 ****
+--- 640,644 ----
+  
+  #define SPLIT_BEFORE_CSE2 1
+  
++ #define ADDRESSES_NEVER_TRAP 1
++ 
+diff -crNp -x .svn gcc-4_3-orig/gcc/config/spu/spu.md gcc-4_3/gcc/config/spu/spu.md
+*** gcc-4_3-orig/gcc/config/spu/spu.md	2008-09-10 22:09:32.000000000 +0200
+--- gcc-4_3/gcc/config/spu/spu.md	2008-09-10 20:09:59.000000000 +0200
+***************
+*** 1246,1252 ****
+     (use (match_operand:<F2I> 2 "spu_reg_operand" "r"))]
+    ""
+    "#"
+!   ""
+    [(set (match_dup:<F2I> 3)
+  	(and:<F2I> (match_dup:<F2I> 4)
+  		   (match_dup:<F2I> 2)))]
+--- 1246,1252 ----
+     (use (match_operand:<F2I> 2 "spu_reg_operand" "r"))]
+    ""
+    "#"
+!   "split0_completed"
+    [(set (match_dup:<F2I> 3)
+  	(and:<F2I> (match_dup:<F2I> 4)
+  		   (match_dup:<F2I> 2)))]
+diff -crNp -x .svn gcc-4_3-orig/gcc/doc/tm.texi gcc-4_3/gcc/doc/tm.texi
+*** gcc-4_3-orig/gcc/doc/tm.texi	2008-09-10 22:09:25.000000000 +0200
+--- gcc-4_3/gcc/doc/tm.texi	2008-09-10 21:43:46.000000000 +0200
+*************** optimizations before this pass work bett
+*** 10384,10386 ****
+--- 10384,10392 ----
+  instructions, and the optimizations right after this pass (e.g., CSE and
+  combine) are be able to optimize the split instructions.
+  @end defmac
++ 
++ @defmac ADDRESSES_NEVER_TRAP
++ Define this macro if memory accesses will never cause a trap.
++ This is the case for example on the Cell SPU processor.
++ @end defmac
++ 
+diff -crNp -x .svn gcc-4_3-orig/gcc/rtlanal.c gcc-4_3/gcc/rtlanal.c
+*** gcc-4_3-orig/gcc/rtlanal.c	2008-03-05 19:44:55.000000000 +0100
+--- gcc-4_3/gcc/rtlanal.c	2008-09-10 21:18:53.000000000 +0200
+*************** rtx_varies_p (const_rtx x, bool for_alia
+*** 265,270 ****
+--- 265,274 ----
+  static int
+  rtx_addr_can_trap_p_1 (const_rtx x, enum machine_mode mode, bool unaligned_mems)
+  {
++ #ifdef ADDRESSES_NEVER_TRAP
++   /* On some processors, like the SPU, memory accesses never trap.  */
++   return 0;
++ #else
+    enum rtx_code code = GET_CODE (x);
+  
+    switch (code)
+*************** rtx_addr_can_trap_p_1 (const_rtx x, enum
+*** 344,349 ****
+--- 348,354 ----
+  
+    /* If it isn't one of the case above, it can cause a trap.  */
+    return 1;
++ #endif
+  }
+  
+  /* Return nonzero if the use of X as an address in a MEM can cause a trap.  */

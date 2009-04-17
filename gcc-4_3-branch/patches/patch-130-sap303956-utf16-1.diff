@@ -1,0 +1,3300 @@
+This is r134438.
+
+gcc/
+2008-04-18  Kris Van Hees <kris.van.hees@oracle.com>
+	  
+	* c-common.c (CHAR16_TYPE, CHAR32_TYPE): New macros.
+	(fname_as_string): Match updated cpp_interpret_string prototype.
+	(fix_string_type): Support char16_t* and char32_t*.
+	(c_common_nodes_and_builtins): Add char16_t and char32_t (and
+	derivative) nodes.  Register as builtin if C++0x.
+	(c_parse_error): Support CPP_CHAR{16,32}.
+	* c-common.h (RID_CHAR16, RID_CHAR32): New elements. 
+	(enum c_tree_index) <CTI_CHAR16_TYPE, CTI_SIGNED_CHAR16_TYPE,
+	CTI_UNSIGNED_CHAR16_TYPE, CTI_CHAR32_TYPE, CTI_SIGNED_CHAR32_TYPE,
+	CTI_UNSIGNED_CHAR32_TYPE, CTI_CHAR16_ARRAY_TYPE,
+	CTI_CHAR32_ARRAY_TYPE>: New elements.
+	(char16_type_node, signed_char16_type_node, unsigned_char16_type_node,
+	char32_type_node, signed_char32_type_node, char16_array_type_node,
+	char32_array_type_node): New defines.
+	* c-lex.c (cb_ident): Match updated cpp_interpret_string prototype.
+	(c_lex_with_flags): Support CPP_CHAR{16,32} and CPP_STRING{16,32}.
+	(lex_string): Support CPP_STRING{16,32}, match updated
+	cpp_interpret_string and cpp_interpret_string_notranslate prototypes.
+	(lex_charconst): Support CPP_CHAR{16,32}.
+	* c-parser.c (c_parser_postfix_expression): Support CPP_CHAR{16,32}
+	and CPP_STRING{16,32}.
+
+gcc/testsuite
+2008-04-18  Kris Van Hees <kris.van.hees@oracle.com>
+
+	Tests for char16_t and char32_t support.
+	* g++.dg/ext/utf-cvt.C: New
+	* g++.dg/ext/utf-cxx0x.C: New
+	* g++.dg/ext/utf-cxx98.C: New
+	* g++.dg/ext/utf-dflt.C: New
+	* g++.dg/ext/utf-gnuxx0x.C: New
+	* g++.dg/ext/utf-gnuxx98.C: New
+	* g++.dg/ext/utf-mangle.C: New
+	* g++.dg/ext/utf-typedef-cxx0x.C: New
+	* g++.dg/ext/utf-typedef-cxx98.C: New
+	* g++.dg/ext/utf-typespec.C: New
+	* g++.dg/ext/utf16-1.C: New
+	* g++.dg/ext/utf16-2.C: New
+	* g++.dg/ext/utf16-3.C: New
+	* g++.dg/ext/utf16-4.C: New
+	* g++.dg/ext/utf32-1.C: New
+	* g++.dg/ext/utf32-2.C: New
+	* g++.dg/ext/utf32-3.C: New
+	* g++.dg/ext/utf32-4.C: New
+	* gcc.dg/utf-cvt.c: New
+	* gcc.dg/utf-dflt.c: New
+	* gcc.dg/utf16-1.c: New
+	* gcc.dg/utf16-2.c: New
+	* gcc.dg/utf16-3.c: New
+	* gcc.dg/utf16-4.c: New
+	* gcc.dg/utf32-1.c: New
+	* gcc.dg/utf32-2.c: New
+	* gcc.dg/utf32-3.c: New
+	* gcc.dg/utf32-4.c: New
+
+gcc/cp
+2008-04-18  Kris Van Hees <kris.van.hees@oracle.com>
+
+	* cvt.c (type_promotes_to): Support char16_t and char32_t.
+	* decl.c (grokdeclarator): Disallow signed/unsigned/short/long on
+	char16_t and char32_t.
+	* lex.c (reswords): Add char16_t and char32_t (for c++0x).
+	* mangle.c (write_builtin_type): Mangle char16_t/char32_t as vendor
+	extended builtin type "u8char{16,32}_t".
+	* parser.c (cp_lexer_next_token_is_decl_specifier_keyword): Support
+	RID_CHAR{16,32}.
+	(cp_lexer_print_token): Support CPP_STRING{16,32}.
+	(cp_parser_is_string_literal): Idem.
+	(cp_parser_string_literal): Idem.
+	(cp_parser_primary_expression): Support CPP_CHAR{16,32} and
+	CPP_STRING{16,32}.
+	(cp_parser_simple_type_specifier): Support RID_CHAR{16,32}. 
+	* tree.c (char_type_p): Support char16_t and char32_t as char types.
+	* typeck.c (string_conv_p): Support char16_t and char32_t.
+
+libiberty/
+2008-04-18  Kris Van Hees <kris.van.hees@oracle.com>
+
+	* testsuite/demangle-expected: Added tests for char16_t and char32_t.
+
+libcpp/
+2008-04-18  Kris Van Hees <kris.van.hees@oracle.com>
+
+	* include/cpp-id-data.h (UC): Was U, conflicts with U"..." literal.
+	* include/cpplib.h (CHAR16, CHAR32, STRING16, STRING32): New tokens.
+	(struct cpp_options): Added uliterals.
+	(cpp_interpret_string): Update prototype.
+	(cpp_interpret_string_notranslate): Idem.
+	* charset.c (init_iconv_desc): New width member in cset_converter.
+	(cpp_init_iconv): Add support for char{16,32}_cset_desc.
+	(convert_ucn): Idem.
+	(emit_numeric_escape): Idem.
+	(convert_hex): Idem.
+	(convert_oct): Idem.
+	(convert_escape): Idem.
+	(converter_for_type): New function.
+	(cpp_interpret_string): Use converter_for_type, support u and U prefix.
+	(cpp_interpret_string_notranslate): Match changed prototype.
+	(wide_str_to_charconst): Use converter_for_type.
+	(cpp_interpret_charconst): Add support for CPP_CHAR{16,32}.
+	* directives.c (linemarker_dir): Macro U changed to UC.
+	(parse_include): Idem.
+	(register_pragma_1): Idem.
+	(restore_registered_pragmas): Idem.
+	(get__Pragma_string): Support CPP_STRING{16,32}.
+	* expr.c (eval_token): Support CPP_CHAR{16,32}.
+	* init.c (struct lang_flags): Added uliterals.
+	(lang_defaults): Idem.
+	* internal.h (struct cset_converter) <width>: New field.
+	(struct cpp_reader) <char16_cset_desc>: Idem.
+	(struct cpp_reader) <char32_cset_desc>: Idem.
+	* lex.c (digraph_spellings): Macro U changed to UC.
+	(OP, TK): Idem.
+	(lex_string): Add support for u'...', U'...', u"..." and U"...".
+	(_cpp_lex_direct): Idem.
+	* macro.c (_cpp_builtin_macro_text): Macro U changed to UC.
+	(stringify_arg): Support CPP_CHAR{16,32} and CPP_STRING{16,32}.
+
+Index: gcc/c-lex.c
+===================================================================
+*** gcc/c-lex.c	(revision 134437)
+--- gcc/c-lex.c	(revision 134438)
+*************** cb_ident (cpp_reader * ARG_UNUSED (pfile
+*** 174,180 ****
+      {
+        /* Convert escapes in the string.  */
+        cpp_string cstr = { 0, 0 };
+!       if (cpp_interpret_string (pfile, str, 1, &cstr, false))
+  	{
+  	  ASM_OUTPUT_IDENT (asm_out_file, (const char *) cstr.text);
+  	  free (CONST_CAST (unsigned char *, cstr.text));
+--- 174,180 ----
+      {
+        /* Convert escapes in the string.  */
+        cpp_string cstr = { 0, 0 };
+!       if (cpp_interpret_string (pfile, str, 1, &cstr, CPP_STRING))
+  	{
+  	  ASM_OUTPUT_IDENT (asm_out_file, (const char *) cstr.text);
+  	  free (CONST_CAST (unsigned char *, cstr.text));
+*************** c_lex_with_flags (tree *value, location_
+*** 361,366 ****
+--- 361,368 ----
+  
+  	    case CPP_STRING:
+  	    case CPP_WSTRING:
++ 	    case CPP_STRING16:
++ 	    case CPP_STRING32:
+  	      type = lex_string (tok, value, true, true);
+  	      break;
+  
+*************** c_lex_with_flags (tree *value, location_
+*** 410,420 ****
+--- 412,426 ----
+  
+      case CPP_CHAR:
+      case CPP_WCHAR:
++     case CPP_CHAR16:
++     case CPP_CHAR32:
+        *value = lex_charconst (tok);
+        break;
+  
+      case CPP_STRING:
+      case CPP_WSTRING:
++     case CPP_STRING16:
++     case CPP_STRING32:
+        if ((lex_flags & C_LEX_RAW_STRINGS) == 0)
+  	{
+  	  type = lex_string (tok, value, false,
+*************** interpret_fixed (const cpp_token *token,
+*** 822,833 ****
+    return value;
+  }
+  
+! /* Convert a series of STRING and/or WSTRING tokens into a tree,
+!    performing string constant concatenation.  TOK is the first of
+!    these.  VALP is the location to write the string into.  OBJC_STRING
+!    indicates whether an '@' token preceded the incoming token.
+     Returns the CPP token type of the result (CPP_STRING, CPP_WSTRING,
+!    or CPP_OBJC_STRING).
+  
+     This is unfortunately more work than it should be.  If any of the
+     strings in the series has an L prefix, the result is a wide string
+--- 828,839 ----
+    return value;
+  }
+  
+! /* Convert a series of STRING, WSTRING, STRING16 and/or STRING32 tokens
+!    into a tree, performing string constant concatenation.  TOK is the
+!    first of these.  VALP is the location to write the string into.
+!    OBJC_STRING indicates whether an '@' token preceded the incoming token.
+     Returns the CPP token type of the result (CPP_STRING, CPP_WSTRING,
+!    CPP_STRING32, CPP_STRING16, or CPP_OBJC_STRING).
+  
+     This is unfortunately more work than it should be.  If any of the
+     strings in the series has an L prefix, the result is a wide string
+*************** static enum cpp_ttype
+*** 842,860 ****
+  lex_string (const cpp_token *tok, tree *valp, bool objc_string, bool translate)
+  {
+    tree value;
+-   bool wide = false;
+    size_t concats = 0;
+    struct obstack str_ob;
+    cpp_string istr;
+  
+    /* Try to avoid the overhead of creating and destroying an obstack
+       for the common case of just one string.  */
+    cpp_string str = tok->val.str;
+    cpp_string *strs = &str;
+  
+-   if (tok->type == CPP_WSTRING)
+-     wide = true;
+- 
+   retry:
+    tok = cpp_get_token (parse_in);
+    switch (tok->type)
+--- 848,863 ----
+  lex_string (const cpp_token *tok, tree *valp, bool objc_string, bool translate)
+  {
+    tree value;
+    size_t concats = 0;
+    struct obstack str_ob;
+    cpp_string istr;
++   enum cpp_ttype type = tok->type;
+  
+    /* Try to avoid the overhead of creating and destroying an obstack
+       for the common case of just one string.  */
+    cpp_string str = tok->val.str;
+    cpp_string *strs = &str;
+  
+   retry:
+    tok = cpp_get_token (parse_in);
+    switch (tok->type)
+*************** lex_string (const cpp_token *tok, tree *
+*** 873,880 ****
+        break;
+  
+      case CPP_WSTRING:
+!       wide = true;
+!       /* FALLTHROUGH */
+  
+      case CPP_STRING:
+        if (!concats)
+--- 876,890 ----
+        break;
+  
+      case CPP_WSTRING:
+!     case CPP_STRING16:
+!     case CPP_STRING32:
+!       if (type != tok->type)
+! 	{
+! 	  if (type == CPP_STRING)
+! 	    type = tok->type;
+! 	  else
+! 	    error ("unsupported non-standard concatenation of string literals");
+! 	}
+  
+      case CPP_STRING:
+        if (!concats)
+*************** lex_string (const cpp_token *tok, tree *
+*** 899,905 ****
+  
+    if ((translate
+         ? cpp_interpret_string : cpp_interpret_string_notranslate)
+!       (parse_in, strs, concats + 1, &istr, wide))
+      {
+        value = build_string (istr.len, (const char *) istr.text);
+        free (CONST_CAST (unsigned char *, istr.text));
+--- 909,915 ----
+  
+    if ((translate
+         ? cpp_interpret_string : cpp_interpret_string_notranslate)
+!       (parse_in, strs, concats + 1, &istr, type))
+      {
+        value = build_string (istr.len, (const char *) istr.text);
+        free (CONST_CAST (unsigned char *, istr.text));
+*************** lex_string (const cpp_token *tok, tree *
+*** 909,930 ****
+        /* Callers cannot generally handle error_mark_node in this context,
+  	 so return the empty string instead.  cpp_interpret_string has
+  	 issued an error.  */
+!       if (wide)
+! 	value = build_string (TYPE_PRECISION (wchar_type_node)
+! 			      / TYPE_PRECISION (char_type_node),
+! 			      "\0\0\0");  /* widest supported wchar_t
+! 					     is 32 bits */
+!       else
+! 	value = build_string (1, "");
+      }
+  
+!   TREE_TYPE (value) = wide ? wchar_array_type_node : char_array_type_node;
+    *valp = fix_string_type (value);
+  
+    if (concats)
+      obstack_free (&str_ob, 0);
+  
+!   return objc_string ? CPP_OBJC_STRING : wide ? CPP_WSTRING : CPP_STRING;
+  }
+  
+  /* Converts a (possibly wide) character constant token into a tree.  */
+--- 919,970 ----
+        /* Callers cannot generally handle error_mark_node in this context,
+  	 so return the empty string instead.  cpp_interpret_string has
+  	 issued an error.  */
+!       switch (type)
+! 	{
+! 	default:
+! 	case CPP_STRING:
+! 	  value = build_string (1, "");
+! 	  break;
+! 	case CPP_STRING16:
+! 	  value = build_string (TYPE_PRECISION (char16_type_node)
+! 				/ TYPE_PRECISION (char_type_node),
+! 				"\0");  /* char16_t is 16 bits */
+! 	  break;
+! 	case CPP_STRING32:
+! 	  value = build_string (TYPE_PRECISION (char32_type_node)
+! 				/ TYPE_PRECISION (char_type_node),
+! 				"\0\0\0");  /* char32_t is 32 bits */
+! 	  break;
+! 	case CPP_WSTRING:
+! 	  value = build_string (TYPE_PRECISION (wchar_type_node)
+! 				/ TYPE_PRECISION (char_type_node),
+! 				"\0\0\0");  /* widest supported wchar_t
+! 					       is 32 bits */
+! 	  break;
+!         }
+      }
+  
+!   switch (type)
+!     {
+!     default:
+!     case CPP_STRING:
+!       TREE_TYPE (value) = char_array_type_node;
+!       break;
+!     case CPP_STRING16:
+!       TREE_TYPE (value) = char16_array_type_node;
+!       break;
+!     case CPP_STRING32:
+!       TREE_TYPE (value) = char32_array_type_node;
+!       break;
+!     case CPP_WSTRING:
+!       TREE_TYPE (value) = wchar_array_type_node;
+!     }
+    *valp = fix_string_type (value);
+  
+    if (concats)
+      obstack_free (&str_ob, 0);
+  
+!   return objc_string ? CPP_OBJC_STRING : type;
+  }
+  
+  /* Converts a (possibly wide) character constant token into a tree.  */
+*************** lex_charconst (const cpp_token *token)
+*** 941,946 ****
+--- 981,990 ----
+  
+    if (token->type == CPP_WCHAR)
+      type = wchar_type_node;
++   else if (token->type == CPP_CHAR32)
++     type = char32_type_node;
++   else if (token->type == CPP_CHAR16)
++     type = char16_type_node;
+    /* In C, a character constant has type 'int'.
+       In C++ 'char', but multi-char charconsts have type 'int'.  */
+    else if (!c_dialect_cxx () || chars_seen > 1)
+Index: gcc/testsuite/gcc.dg/utf32-2.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf32-2.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf32-2.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,31 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the support for char32_t* string constants. */
++ /* { dg-do run } */
++ /* { dg-options "-std=gnu99 -Wall -Werror" } */
++ 
++ typedef unsigned int char32_t;
++ 
++ extern void abort (void);
++ 
++ char32_t	*s0 = U"ab";
++ char32_t	*s1 = U"a\u0024";
++ char32_t	*s2 = U"a\u2029";
++ char32_t	*s3 = U"a\U00064321";
++ 
++ #define A	0x00000061
++ #define B	0x00000062
++ #define D	0x00000024
++ #define X	0x00002029
++ #define Y	0x00064321
++ 
++ int main ()
++ {
++     if (s0[0] != A || s0[1] != B || s0[2] != 0x00000000)
++ 	abort ();
++     if (s1[0] != A || s1[1] != D || s0[2] != 0x00000000)
++ 	abort ();
++     if (s2[0] != A || s2[1] != X || s0[2] != 0x00000000)
++ 	abort ();
++     if (s3[0] != A || s3[1] != Y || s3[2] != 0x00000000)
++ 	abort ();
++ }
+Index: gcc/testsuite/gcc.dg/utf32-4.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf32-4.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf32-4.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,20 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Expected errors for char32_t character constants. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=gnu99" } */
++ 
++ typedef unsigned int char32_t;
++ 
++ char32_t	c0 = U'';		/* { dg-error "empty character" } */
++ char32_t	c1 = U'ab';		/* { dg-warning "constant too long" } */
++ char32_t	c2 = U'\U00064321';
++ 
++ char32_t	c3 = 'a';
++ char32_t	c4 = u'a';
++ char32_t	c5 = u'\u2029';
++ char32_t	c6 = u'\U00064321';	/* { dg-warning "constant too long" } */
++ char32_t	c7 = L'a';
++ char32_t	c8 = L'\u2029';
++ char32_t	c9 = L'\U00064321';
++ 
++ int main () {}
+Index: gcc/testsuite/gcc.dg/utf16-2.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf16-2.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf16-2.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,32 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the support for char16_t* string literals. */
++ /* { dg-do run } */
++ /* { dg-options "-std=gnu99 -Wall -Werror" } */
++ 
++ typedef short unsigned int char16_t;
++ 
++ extern void abort (void);
++ 
++ char16_t	*s0 = u"ab";
++ char16_t	*s1 = u"a\u0024";
++ char16_t	*s2 = u"a\u2029";
++ char16_t	*s3 = u"a\U00064321";
++ 
++ #define A	0x0061
++ #define B	0x0062
++ #define D	0x0024
++ #define X	0x2029
++ #define Y1	0xD950
++ #define Y2	0xDF21
++ 
++ int main ()
++ {
++     if (s0[0] != A || s0[1] != B || s0[2] != 0x0000)
++ 	abort ();
++     if (s1[0] != A || s1[1] != D || s0[2] != 0x0000)
++ 	abort ();
++     if (s2[0] != A || s2[1] != X || s0[2] != 0x0000)
++ 	abort ();
++     if (s3[0] != A || s3[1] != Y1 || s3[2] != Y2 || s3[3] != 0x0000)
++ 	abort ();
++ }
+Index: gcc/testsuite/gcc.dg/utf16-4.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf16-4.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf16-4.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,20 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Expected errors for char16_t character constants. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=gnu99" } */
++ 
++ typedef short unsigned int char16_t;
++ 
++ char16_t	c0 = u'';		/* { dg-error "empty character" } */
++ char16_t	c1 = u'ab';		/* { dg-warning "constant too long" } */
++ char16_t	c2 = u'\U00064321';	/* { dg-warning "constant too long" } */
++ 
++ char16_t	c3 = 'a';
++ char16_t	c4 = U'a';
++ char16_t	c5 = U'\u2029';
++ char16_t	c6 = U'\U00064321';	/* { dg-warning "implicitly truncated" } */
++ char16_t	c7 = L'a';
++ char16_t	c8 = L'\u2029';
++ char16_t	c9 = L'\U00064321';	/* { dg-warning "implicitly truncated" } */
++ 
++ int main () {}
+Index: gcc/testsuite/gcc.dg/utf-badconcat.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf-badconcat.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf-badconcat.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,22 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test unsupported concatenation of char16_t/char32_t* string literals. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=gnu99" } */
++ 
++ void	*s0	= u"a"  "b";
++ void	*s1	=  "a" u"b";
++ void	*s2	= u"a" U"b";	/* { dg-error "non-standard concatenation" } */
++ void	*s3	= U"a" u"b";	/* { dg-error "non-standard concatenation" } */
++ void	*s4	= u"a" L"b";	/* { dg-error "non-standard concatenation" } */
++ void	*s5	= L"a" u"b";	/* { dg-error "non-standard concatenation" } */
++ void	*s6	= u"a" u"b";
++ void	*s7	= U"a"  "b";
++ void	*s8	=  "a" U"b";
++ void	*s9	= U"a" L"b";	/* { dg-error "non-standard concatenation" } */
++ void	*sa	= L"a" U"b";	/* { dg-error "non-standard concatenation" } */
++ void	*sb	= U"a" U"b";
++ void	*sc	= L"a"  "b";
++ void	*sd	=  "a" L"b";
++ void	*se	= L"a" L"b";
++ 
++ int main () {}
+Index: gcc/testsuite/gcc.dg/utf32-1.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf32-1.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf32-1.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,44 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the support for char32_t character constants. */
++ /* { dg-do run } */
++ /* { dg-options "-std=gnu99 -Wall -Werror" } */
++ 
++ typedef unsigned int char32_t;
++ 
++ extern void abort (void);
++ 
++ char32_t	c0 = U'a';
++ char32_t	c1 = U'\0';
++ char32_t	c2 = U'\u0024';
++ char32_t	c3 = U'\u2029';
++ char32_t	c4 = U'\U00064321';
++ 
++ #define A	0x00000061
++ #define D	0x00000024
++ #define X	0x00002029
++ #define Y	0x00064321
++ 
++ int main ()
++ {
++     if (sizeof (U'a') != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (U'\0') != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (U'\u0024') != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (U'\u2029') != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (U'\U00064321') != sizeof (char32_t))
++ 	abort ();
++ 
++     if (c0 != A)
++ 	abort ();
++     if (c1 != 0x0000)
++ 	abort ();
++     if (c2 != D)
++ 	abort ();
++     if (c3 != X)
++ 	abort ();
++     if (c4 != Y)
++ 	abort ();
++ }
+Index: gcc/testsuite/gcc.dg/utf32-3.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf32-3.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf32-3.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,48 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test concatenation of char32_t* string literals. */
++ /* { dg-do run } */
++ /* { dg-options "-std=gnu99 -Wall -Werror" } */
++ 
++ typedef unsigned int char32_t;
++ 
++ extern void abort (void);
++ 
++ char32_t	*s0 = U"a" U"b";
++ 
++ char32_t	*s1 = U"a" "b";
++ char32_t	*s2 = "a" U"b";
++ char32_t	*s3 = U"a" "\u2029";
++ char32_t	*s4 = "\u2029" U"b";
++ char32_t	*s5 = U"a" "\U00064321";
++ char32_t	*s6 = "\U00064321" U"b";
++ 
++ #define A	0x00000061
++ #define B	0x00000062
++ #define X	0x00002029
++ #define Y	0x00064321
++ 
++ int main ()
++ {
++     if (sizeof ((U"a" U"b")[0]) != sizeof (char32_t))
++ 	abort ();
++     if (sizeof ((U"a"  "b")[0]) != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (( "a" U"b")[0]) != sizeof (char32_t))
++ 	abort ();
++ 
++     if (s0[0] != A || s0[1] != B || s0[2] != 0x00000000)
++ 	abort ();
++ 
++     if (s1[0] != A || s1[1] != B || s1[2] != 0x00000000)
++ 	abort ();
++     if (s2[0] != A || s2[1] != B || s2[2] != 0x00000000)
++ 	abort ();
++     if (s3[0] != A || s3[1] != X || s3[2] != 0x00000000)
++ 	abort ();
++     if (s4[0] != X || s4[1] != B || s4[2] != 0x00000000)
++ 	abort ();
++     if (s5[0] != A || s5[1] != Y || s5[2] != 0x00000000)
++ 	abort ();
++     if (s6[0] != Y || s6[1] != B || s6[2] != 0x00000000)
++ 	abort ();
++ }
+Index: gcc/testsuite/gcc.dg/utf16-1.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf16-1.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf16-1.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,67 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the support for char16_t character constants. */
++ /* { dg-do run } */
++ /* { dg-options "-std=gnu99 -Wall -Werror" } */
++ 
++ typedef short unsigned int char16_t;
++ 
++ extern void abort (void);
++ 
++ char16_t	c0 = u'a';
++ char16_t	c1 = u'\0';
++ char16_t	c2 = u'\u0024';
++ char16_t	c3 = u'\u2029';
++ char16_t	c4 = u'\u8010';
++ 
++ char16_t	c5 = 'a';
++ char16_t	c6 = U'a';
++ char16_t	c7 = U'\u2029';
++ char16_t	c8 = U'\u8010';
++ char16_t	c9 = L'a';
++ char16_t	ca = L'\u2029';
++ char16_t	cb = L'\u8010';
++ 
++ #define A	0x0061
++ #define D	0x0024
++ #define X	0x2029
++ #define Y	0x8010
++ 
++ int main ()
++ {
++     if (sizeof (u'a') != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (u'\0') != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (u'\u0024') != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (u'\u2029') != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (u'\u8010') != sizeof (char16_t))
++ 	abort ();
++ 
++     if (c0 != A)
++ 	abort ();
++     if (c1 != 0x0000)
++ 	abort ();
++     if (c2 != D)
++ 	abort ();
++     if (c3 != X)
++ 	abort ();
++     if (c4 != Y)
++ 	abort ();
++ 
++     if (c5 != A)
++ 	abort ();
++     if (c6 != A)
++ 	abort ();
++     if (c7 != X)
++ 	abort ();
++     if (c8 != Y)
++ 	abort ();
++     if (c9 != A)
++ 	abort ();
++     if (ca != X)
++ 	abort ();
++     if (cb != Y)
++ 	abort ();
++ }
+Index: gcc/testsuite/gcc.dg/utf16-3.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf16-3.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf16-3.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,49 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test concatenation of char16_t* string literals. */
++ /* { dg-do run } */
++ /* { dg-options "-std=gnu99 -Wall -Werror" } */
++ 
++ typedef short unsigned int char16_t;
++ 
++ extern void abort (void);
++ 
++ char16_t	*s0 = u"a" u"b";
++ 
++ char16_t	*s1 = u"a" "b";
++ char16_t	*s2 = "a" u"b";
++ char16_t	*s3 = u"a" "\u2029";
++ char16_t	*s4 = "\u2029" u"b";
++ char16_t	*s5 = u"a" "\U00064321";
++ char16_t	*s6 = "\U00064321" u"b";
++ 
++ #define A	0x0061
++ #define B	0x0062
++ #define X	0x2029
++ #define Y1	0xD950
++ #define Y2	0xDF21
++ 
++ int main ()
++ {
++     if (sizeof ((u"a" u"b")[0]) != sizeof (char16_t))
++ 	abort ();
++     if (sizeof ((u"a"  "b")[0]) != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (( "a" u"b")[0]) != sizeof (char16_t))
++ 	abort ();
++ 
++     if (s0[0] != A || s0[1] != B || s0[2] != 0x0000)
++ 	abort ();
++ 
++     if (s1[0] != A || s1[1] != B || s1[2] != 0x0000)
++ 	abort ();
++     if (s2[0] != A || s2[1] != B || s2[2] != 0x0000)
++ 	abort ();
++     if (s3[0] != A || s3[1] != X || s3[2] != 0x0000)
++ 	abort ();
++     if (s4[0] != X || s4[1] != B || s4[2] != 0x0000)
++ 	abort ();
++     if (s5[0] != A || s5[1] != Y1 || s5[2] != Y2 || s5[3] != 0x0000)
++ 	abort ();
++     if (s6[0] != Y1 || s6[1] != Y2 || s6[2] != B || s6[3] != 0x0000)
++ 	abort ();
++ }
+Index: gcc/testsuite/gcc.dg/utf-cvt.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf-cvt.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf-cvt.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,49 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the char16_t and char32_t promotion rules. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=gnu99 -Wall -Wconversion -Wsign-conversion" } */
++ 
++ typedef unsigned short	char16_t;
++ typedef unsigned int	char32_t;
++ 
++ extern void f_c (char);
++ extern void fsc (signed char);
++ extern void fuc (unsigned char);
++ extern void f_s (short);
++ extern void fss (signed short);
++ extern void fus (unsigned short);
++ extern void f_i (int);
++ extern void fsi (signed int);
++ extern void fui (unsigned int);
++ extern void f_l (long);
++ extern void fsl (signed long);
++ extern void ful (unsigned long);
++ 
++ void m (char16_t c0, char32_t c1)
++ {
++     f_c (c0);				/* { dg-warning "alter its value" } */
++     fsc (c0);				/* { dg-warning "alter its value" } */
++     fuc (c0);				/* { dg-warning "alter its value" } */
++     f_s (c0);				/* { dg-warning "change the sign" } */
++     fss (c0);				/* { dg-warning "change the sign" } */
++     fus (c0);
++     f_i (c0);
++     fsi (c0);
++     fui (c0);
++     f_l (c0);
++     fsl (c0);
++     ful (c0);
++ 
++     f_c (c1);				/* { dg-warning "alter its value" } */
++     fsc (c1);				/* { dg-warning "alter its value" } */
++     fuc (c1);				/* { dg-warning "alter its value" } */
++     f_s (c1);				/* { dg-warning "alter its value" } */
++     fss (c1);				/* { dg-warning "alter its value" } */
++     fus (c1);				/* { dg-warning "alter its value" } */
++     f_i (c1);				/* { dg-warning "change the sign" } */
++     fsi (c1);				/* { dg-warning "change the sign" } */
++     fui (c1);
++     f_l (c1);				/* { dg-warning "change the sign" } */
++     fsl (c1);				/* { dg-warning "change the sign" } */
++     ful (c1);
++ }
+Index: gcc/testsuite/gcc.dg/utf-dflt.c
+===================================================================
+*** gcc/testsuite/gcc.dg/utf-dflt.c	(revision 0)
+--- gcc/testsuite/gcc.dg/utf-dflt.c	(revision 134438)
+***************
+*** 0 ****
+--- 1,25 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* If not gnu99, the u and U prefixes should be parsed as separate tokens. */
++ /* { dg-do compile } */
++ /* { dg-options "" } */
++ 
++ const unsigned short	c0	= u'a';		/* { dg-error "undeclared" } */
++ 		/* { dg-error "expected ',' or ';'" "" { target *-*-* } 6 } */
++ const unsigned long	c1	= U'a';		/* { dg-error "undeclared" } */
++ 		/* { dg-error "expected ',' or ';'" "" { target *-*-* } 8 } */
++ 
++ #define u	1 +
++ #define U	2 +
++ 
++ const unsigned short	c2	= u'a';
++ const unsigned long	c3	= U'a';
++ 
++ #undef u
++ #undef U
++ #define u	"a"
++ #define U	"b"
++ 
++ const void		*s0	= u"a";
++ const void		*s1	= U"a";
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf16-1.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf16-1.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf16-1.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,65 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the support for char16_t character constants. */
++ /* { dg-do run } */
++ /* { dg-options "-std=c++0x -Wall -Werror" } */
++ 
++ extern "C" void abort (void);
++ 
++ const static char16_t	c0 = u'a';
++ const static char16_t	c1 = u'\0';
++ const static char16_t	c2 = u'\u0024';
++ const static char16_t	c3 = u'\u2029';
++ const static char16_t	c4 = u'\u8010';
++ 
++ const static char16_t	c5 = 'a';
++ const static char16_t	c6 = U'a';
++ const static char16_t	c7 = U'\u2029';
++ const static char16_t	c8 = U'\u8010';
++ const static char16_t	c9 = L'a';
++ const static char16_t	ca = L'\u2029';
++ const static char16_t	cb = L'\u8010';
++ 
++ #define A	0x0061
++ #define D	0x0024
++ #define X	0x2029
++ #define Y	0x8010
++ 
++ int main ()
++ {
++     if (sizeof (u'a') != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (u'\0') != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (u'\u0024') != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (u'\u2029') != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (u'\u8010') != sizeof (char16_t))
++ 	abort ();
++ 
++     if (c0 != A)
++ 	abort ();
++     if (c1 != 0x0000)
++ 	abort ();
++     if (c2 != D)
++ 	abort ();
++     if (c3 != X)
++ 	abort ();
++     if (c4 != Y)
++ 	abort ();
++ 
++     if (c5 != A)
++ 	abort ();
++     if (c6 != A)
++ 	abort ();
++     if (c7 != X)
++ 	abort ();
++     if (c8 != Y)
++ 	abort ();
++     if (c9 != A)
++ 	abort ();
++     if (ca != X)
++ 	abort ();
++     if (cb != Y)
++ 	abort ();
++ }
+Index: gcc/testsuite/g++.dg/ext/utf32-4.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf32-4.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf32-4.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,18 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Expected errors for char32_t character constants. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++0x" } */
++ 
++ const static char32_t	c0 = U'';		/* { dg-error "empty character" } */
++ const static char32_t	c1 = U'ab';		/* { dg-warning "constant too long" } */
++ const static char32_t	c2 = U'\U00064321';
++ 
++ const static char32_t	c3 = 'a';
++ const static char32_t	c4 = u'a';
++ const static char32_t	c5 = u'\u2029';
++ const static char32_t	c6 = u'\U00064321';	/* { dg-warning "constant too long" } */
++ const static char32_t	c7 = L'a';
++ const static char32_t	c8 = L'\u2029';
++ const static char32_t	c9 = L'\U00064321';
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf-cxx98.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-cxx98.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-cxx98.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,29 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Expected errors for char16_t/char32_t in c++98. */
++ /* Ensure u and U prefixes are parsed as separate tokens in c++98. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++98" } */
++ 
++ const static char16_t	c0	= 'a';	/* { dg-error "not name a type" } */
++ const static char32_t	c1	= 'a';	/* { dg-error "not name a type" } */
++ 
++ const unsigned short	c2	= u'a';	/* { dg-error "not declared" } */
++ 	/* { dg-error "expected ',' or ';'" "" { target *-*-* } 10 } */
++ const unsigned long	c3	= U'a';	/* { dg-error "not declared" } */
++ 	/* { dg-error "expected ',' or ';'" "" { target *-*-* } 12 } */
++ 
++ #define u	1 +
++ #define U	2 +
++ 
++ const unsigned short	c5	= u'a';
++ const unsigned long	c6	= U'a';
++ 
++ #undef u
++ #undef U
++ #define u	"a"
++ #define U	"b"
++ 
++ const void		*s0	= u"a";
++ const void		*s1	= U"a";
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf16-2.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf16-2.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf16-2.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,30 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the support for char16_t* string literals. */
++ /* { dg-do run } */
++ /* { dg-options "-std=c++0x -Wall -Werror" } */
++ 
++ extern "C" void abort (void);
++ 
++ const static char16_t	*s0 = u"ab";
++ const static char16_t	*s1 = u"a\u0024";
++ const static char16_t	*s2 = u"a\u2029";
++ const static char16_t	*s3 = u"a\U00064321";
++ 
++ #define A	0x0061
++ #define B	0x0062
++ #define D	0x0024
++ #define X	0x2029
++ #define Y1	0xD950
++ #define Y2	0xDF21
++ 
++ int main ()
++ {
++     if (s0[0] != A || s0[1] != B || s0[2] != 0x0000)
++ 	abort ();
++     if (s1[0] != A || s1[1] != D || s0[2] != 0x0000)
++ 	abort ();
++     if (s2[0] != A || s2[1] != X || s0[2] != 0x0000)
++ 	abort ();
++     if (s3[0] != A || s3[1] != Y1 || s3[2] != Y2 || s3[3] != 0x0000)
++ 	abort ();
++ }
+Index: gcc/testsuite/g++.dg/ext/utf16-3.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf16-3.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf16-3.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,47 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test concatenation of char16_t* string literals. */
++ /* { dg-do run } */
++ /* { dg-options "-std=c++0x -Wall -Werror" } */
++ 
++ extern "C" void abort (void);
++ 
++ const static char16_t	*s0 = u"a" u"b";
++ 
++ const static char16_t	*s1 = u"a" "b";
++ const static char16_t	*s2 = "a" u"b";
++ const static char16_t	*s3 = u"a" "\u2029";
++ const static char16_t	*s4 = "\u2029" u"b";
++ const static char16_t	*s5 = u"a" "\U00064321";
++ const static char16_t	*s6 = "\U00064321" u"b";
++ 
++ #define A	0x0061
++ #define B	0x0062
++ #define X	0x2029
++ #define Y1	0xD950
++ #define Y2	0xDF21
++ 
++ int main ()
++ {
++     if (sizeof ((u"a" u"b")[0]) != sizeof (char16_t))
++ 	abort ();
++     if (sizeof ((u"a"  "b")[0]) != sizeof (char16_t))
++ 	abort ();
++     if (sizeof (( "a" u"b")[0]) != sizeof (char16_t))
++ 	abort ();
++ 
++     if (s0[0] != A || s0[1] != B || s0[2] != 0x0000)
++ 	abort ();
++ 
++     if (s1[0] != A || s1[1] != B || s1[2] != 0x0000)
++ 	abort ();
++     if (s2[0] != A || s2[1] != B || s2[2] != 0x0000)
++ 	abort ();
++     if (s3[0] != A || s3[1] != X || s3[2] != 0x0000)
++ 	abort ();
++     if (s4[0] != X || s4[1] != B || s4[2] != 0x0000)
++ 	abort ();
++     if (s5[0] != A || s5[1] != Y1 || s5[2] != Y2 || s5[3] != 0x0000)
++ 	abort ();
++     if (s6[0] != Y1 || s6[1] != Y2 || s6[2] != B || s6[3] != 0x0000)
++ 	abort ();
++ }
+Index: gcc/testsuite/g++.dg/ext/utf-badconcat.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-badconcat.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-badconcat.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,22 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test unsupported concatenation of char16_t/char32_t* string literals. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++0x" } */
++ 
++ const void *s0	= u"a"  "b";
++ const void *s1	=  "a" u"b";
++ const void *s2	= u"a" U"b";	/* { dg-error "non-standard concatenation" } */
++ const void *s3	= U"a" u"b";	/* { dg-error "non-standard concatenation" } */
++ const void *s4	= u"a" L"b";	/* { dg-error "non-standard concatenation" } */
++ const void *s5	= L"a" u"b";	/* { dg-error "non-standard concatenation" } */
++ const void *s6	= u"a" u"b";
++ const void *s7	= U"a"  "b";
++ const void *s8	=  "a" U"b";
++ const void *s9	= U"a" L"b";	/* { dg-error "non-standard concatenation" } */
++ const void *sa	= L"a" U"b";	/* { dg-error "non-standard concatenation" } */
++ const void *sb	= U"a" U"b";
++ const void *sc	= L"a"  "b";
++ const void *sd	=  "a" L"b";
++ const void *se	= L"a" L"b";
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf-typedef-cxx0x.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-typedef-cxx0x.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-typedef-cxx0x.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,7 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Ensure that a typedef to char16_t/char32_t issues a warning in c++0x. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++0x" } */
++ 
++ typedef short unsigned int	char16_t; /* { dg-warning "redeclaration" } */
++ typedef unsigned int		char32_t; /* { dg-warning "redeclaration" } */
+Index: gcc/testsuite/g++.dg/ext/utf16-4.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf16-4.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf16-4.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,18 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Expected errors for char16_t character constants. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++0x" } */
++ 
++ const static char16_t	c0 = u'';		/* { dg-error "empty character" } */
++ const static char16_t	c1 = u'ab';		/* { dg-warning "constant too long" } */
++ const static char16_t	c2 = u'\U00064321';	/* { dg-warning "constant too long" } */
++ 
++ const static char16_t	c3 = 'a';
++ const static char16_t	c4 = U'a';
++ const static char16_t	c5 = U'\u2029';
++ const static char16_t	c6 = U'\U00064321';	/* { dg-warning "implicitly truncated" } */
++ const static char16_t	c7 = L'a';
++ const static char16_t	c8 = L'\u2029';
++ const static char16_t	c9 = L'\U00064321';	/* { dg-warning "implicitly truncated" } */
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf-gnuxx98.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-gnuxx98.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-gnuxx98.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,29 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Expected errors for char16_t/char32_t in gnu++98. */
++ /* Ensure u and U prefixes are parsed as separate tokens in gnu++98. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=gnu++98" } */
++ 
++ const static char16_t	c0	= 'a';	/* { dg-error "not name a type" } */
++ const static char32_t	c1	= 'a';	/* { dg-error "not name a type" } */
++ 
++ const unsigned short	c2	= u'a';	/* { dg-error "not declared" } */
++ 	/* { dg-error "expected ',' or ';'" "" { target *-*-* } 10 } */
++ const unsigned long	c3	= U'a';	/* { dg-error "not declared" } */
++ 	/* { dg-error "expected ',' or ';'" "" { target *-*-* } 12 } */
++ 
++ #define u	1 +
++ #define U	2 +
++ 
++ const unsigned short	c5	= u'a';
++ const unsigned long	c6	= U'a';
++ 
++ #undef u
++ #undef U
++ #define u	"a"
++ #define U	"b"
++ 
++ const void		*s0	= u"a";
++ const void		*s1	= U"a";
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf-cvt.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-cvt.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-cvt.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,46 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the char16_t and char32_t promotion rules. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++0x -Wall -Wconversion -Wsign-conversion -Wsign-promo" } */
++ 
++ extern void f_c (char);
++ extern void fsc (signed char);
++ extern void fuc (unsigned char);
++ extern void f_s (short);
++ extern void fss (signed short);
++ extern void fus (unsigned short);
++ extern void f_i (int);
++ extern void fsi (signed int);
++ extern void fui (unsigned int);
++ extern void f_l (long);
++ extern void fsl (signed long);
++ extern void ful (unsigned long);
++ 
++ void m(char16_t c0, char32_t c1)
++ {
++     f_c (c0);			/* { dg-warning "alter its value" } */
++     fsc (c0);			/* { dg-warning "alter its value" } */
++     fuc (c0);			/* { dg-warning "alter its value" } */
++     f_s (c0);			/* { dg-warning "change the sign" } */
++     fss (c0);			/* { dg-warning "change the sign" } */
++     fus (c0);
++     f_i (c0);
++     fsi (c0);
++     fui (c0);
++     f_l (c0);
++     fsl (c0);
++     ful (c0);
++ 
++     f_c (c1);			/* { dg-warning "alter its value" } */
++     fsc (c1);			/* { dg-warning "alter its value" } */
++     fuc (c1);			/* { dg-warning "alter its value" } */
++     f_s (c1);			/* { dg-warning "alter its value" } */
++     fss (c1);			/* { dg-warning "alter its value" } */
++     fus (c1);			/* { dg-warning "alter its value" } */
++     f_i (c1);			/* { dg-warning "change the sign" } */
++     fsi (c1);			/* { dg-warning "change the sign" } */
++     fui (c1);
++     f_l (c1);			/* { dg-warning "change the sign" } */
++     fsl (c1);			/* { dg-warning "change the sign" } */
++     ful (c1);
++ }
+Index: gcc/testsuite/g++.dg/ext/utf-dflt.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-dflt.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-dflt.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,29 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Expected errors for char16_t/char32_t in default std. */
++ /* Ensure u and U prefixes are parsed as separate tokens in default std. */
++ /* { dg-do compile } */
++ /* { dg-options "" } */
++ 
++ const static char16_t	c0	= 'a';	/* { dg-error "not name a type" } */
++ const static char32_t	c1	= 'a';	/* { dg-error "not name a type" } */
++ 
++ const unsigned short	c2	= u'a';	/* { dg-error "not declared" } */
++ 	/* { dg-error "expected ',' or ';'" "" { target *-*-* } 10 } */
++ const unsigned long	c3	= U'a';	/* { dg-error "not declared" } */
++ 	/* { dg-error "expected ',' or ';'" "" { target *-*-* } 12 } */
++ 
++ #define u	1 +
++ #define U	2 +
++ 
++ const unsigned short	c4	= u'a';
++ const unsigned long	c5	= U'a';
++ 
++ #undef u
++ #undef U
++ #define u	"a"
++ #define U	"b"
++ 
++ const void		*s0	= u"a";
++ const void		*s1	= U"a";
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf-cxx0x.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-cxx0x.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-cxx0x.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,14 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test parsing of u and U prefixes when also used as macros. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++0x" } */
++ 
++ #define u	L
++ #define U	L
++ 
++ const unsigned short	c2	= u'a';
++ const unsigned long	c3	= U'a';
++ const void		*s0	= u"a";
++ const void		*s1	= U"a";
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf32-1.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf32-1.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf32-1.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,42 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the support for char32_t character constants. */
++ /* { dg-do run } */
++ /* { dg-options "-std=c++0x -Wall -Werror" } */
++ 
++ extern "C" void abort (void);
++ 
++ const static char32_t	c0 = U'a';
++ const static char32_t	c1 = U'\0';
++ const static char32_t	c2 = U'\u0024';
++ const static char32_t	c3 = U'\u2029';
++ const static char32_t	c4 = U'\U00064321';
++ 
++ #define A	0x00000061
++ #define D	0x00000024
++ #define X	0x00002029
++ #define Y	0x00064321
++ 
++ int main ()
++ {
++     if (sizeof (U'a') != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (U'\0') != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (U'\u0024') != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (U'\u2029') != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (U'\U00064321') != sizeof (char32_t))
++ 	abort ();
++ 
++     if (c0 != A)
++ 	abort ();
++     if (c1 != 0x0000)
++ 	abort ();
++     if (c2 != D)
++ 	abort ();
++     if (c3 != X)
++ 	abort ();
++     if (c4 != Y)
++ 	abort ();
++ }
+Index: gcc/testsuite/g++.dg/ext/utf-typespec.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-typespec.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-typespec.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,25 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Ensure that type specifiers are not allowed for char16_t/char32_t. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++0x" } */
++ 
++ signed char16_t		c0;		/* { dg-error "signed" } */
++ signed char32_t		c1;		/* { dg-error "signed" } */
++ unsigned char16_t	c2;		/* { dg-error "unsigned" } */
++ unsigned char32_t	c3;		/* { dg-error "unsigned" } */
++ 
++ short char16_t		c4;		/* { dg-error "short" } */
++ long char16_t		c5;		/* { dg-error "long" } */
++ short char32_t		c6;		/* { dg-error "short" } */
++ long char32_t		c7;		/* { dg-error "long" } */
++ 
++ signed short char16_t	c8;		/* { dg-error "signed" } */
++ signed short char32_t	c9;		/* { dg-error "signed" } */
++ signed long char16_t	ca;		/* { dg-error "signed" } */
++ signed long char32_t	cb;		/* { dg-error "signed" } */
++ unsigned short char16_t	cc;		/* { dg-error "unsigned" } */
++ unsigned short char32_t	cd;		/* { dg-error "unsigned" } */
++ unsigned long char16_t	ce;		/* { dg-error "unsigned" } */
++ unsigned long char32_t	cf;		/* { dg-error "unsigned" } */
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf32-2.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf32-2.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf32-2.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,29 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test the support for char32_t* string constants. */
++ /* { dg-do run } */
++ /* { dg-options "-std=c++0x -Wall -Werror" } */
++ 
++ extern "C" void abort (void);
++ 
++ const static char32_t	*s0 = U"ab";
++ const static char32_t	*s1 = U"a\u0024";
++ const static char32_t	*s2 = U"a\u2029";
++ const static char32_t	*s3 = U"a\U00064321";
++ 
++ #define A	0x00000061
++ #define B	0x00000062
++ #define D	0x00000024
++ #define X	0x00002029
++ #define Y	0x00064321
++ 
++ int main ()
++ {
++     if (s0[0] != A || s0[1] != B || s0[2] != 0x00000000)
++ 	abort ();
++     if (s1[0] != A || s1[1] != D || s0[2] != 0x00000000)
++ 	abort ();
++     if (s2[0] != A || s2[1] != X || s0[2] != 0x00000000)
++ 	abort ();
++     if (s3[0] != A || s3[1] != Y || s3[2] != 0x00000000)
++ 	abort ();
++ }
+Index: gcc/testsuite/g++.dg/ext/utf-gnuxx0x.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-gnuxx0x.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-gnuxx0x.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,14 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test parsing of u and U prefixes when also used as macros. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=gnu++0x" } */
++ 
++ #define u	L
++ #define U	L
++ 
++ const unsigned short	c2	= u'a';
++ const unsigned long	c3	= U'a';
++ const void		*s0	= u"a";
++ const void		*s1	= U"a";
++ 
++ int main () {}
+Index: gcc/testsuite/g++.dg/ext/utf32-3.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf32-3.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf32-3.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,46 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Test concatenation of char32_t* string literals. */
++ /* { dg-do run } */
++ /* { dg-options "-std=c++0x -Wall -Werror" } */
++ 
++ extern "C" void abort (void);
++ 
++ const static char32_t	*s0 = U"a" U"b";
++ 
++ const static char32_t	*s1 = U"a" "b";
++ const static char32_t	*s2 = "a" U"b";
++ const static char32_t	*s3 = U"a" "\u2029";
++ const static char32_t	*s4 = "\u2029" U"b";
++ const static char32_t	*s5 = U"a" "\U00064321";
++ const static char32_t	*s6 = "\U00064321" U"b";
++ 
++ #define A	0x00000061
++ #define B	0x00000062
++ #define X	0x00002029
++ #define Y	0x00064321
++ 
++ int main ()
++ {
++     if (sizeof ((U"a" U"b")[0]) != sizeof (char32_t))
++ 	abort ();
++     if (sizeof ((U"a"  "b")[0]) != sizeof (char32_t))
++ 	abort ();
++     if (sizeof (( "a" U"b")[0]) != sizeof (char32_t))
++ 	abort ();
++ 
++     if (s0[0] != A || s0[1] != B || s0[2] != 0x00000000)
++ 	abort ();
++ 
++     if (s1[0] != A || s1[1] != B || s1[2] != 0x00000000)
++ 	abort ();
++     if (s2[0] != A || s2[1] != B || s2[2] != 0x00000000)
++ 	abort ();
++     if (s3[0] != A || s3[1] != X || s3[2] != 0x00000000)
++ 	abort ();
++     if (s4[0] != X || s4[1] != B || s4[2] != 0x00000000)
++ 	abort ();
++     if (s5[0] != A || s5[1] != Y || s5[2] != 0x00000000)
++ 	abort ();
++     if (s6[0] != Y || s6[1] != B || s6[2] != 0x00000000)
++ 	abort ();
++ }
+Index: gcc/testsuite/g++.dg/ext/utf-typedef-cxx98.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-typedef-cxx98.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-typedef-cxx98.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,7 ----
++ /* Contributed by Kris Van Hees <kris.van.hees@oracle.com> */
++ /* Ensure that a typedef to char16_t/char32_t is fine in c++98. */
++ /* { dg-do compile } */
++ /* { dg-options "-std=c++98" } */
++ 
++ typedef short unsigned int	char16_t;
++ typedef unsigned int		char32_t;
+Index: gcc/testsuite/g++.dg/ext/utf-mangle.C
+===================================================================
+*** gcc/testsuite/g++.dg/ext/utf-mangle.C	(revision 0)
+--- gcc/testsuite/g++.dg/ext/utf-mangle.C	(revision 134438)
+***************
+*** 0 ****
+--- 1,14 ----
++ // Contributed by Kris Van Hees <kris.van.hees@oracle.com>
++ // Test the support for char16_t character constants.
++ // { dg-do compile }
++ // { dg-options "-std=c++0x" }
++ 
++ void f0 (char16_t c) {}
++ void f1 (char32_t c) {}
++ void f2 (char16_t *s) {}
++ void f3 (char32_t *s) {}
++ 
++ // { dg-final { scan-assembler "_Z2f0u8char16_t:" } }
++ // { dg-final { scan-assembler "_Z2f1u8char32_t:" } }
++ // { dg-final { scan-assembler "_Z2f2Pu8char16_t:" } }
++ // { dg-final { scan-assembler "_Z2f3Pu8char32_t:" } }
+Index: gcc/cp/typeck.c
+===================================================================
+*** gcc/cp/typeck.c	(revision 134437)
+--- gcc/cp/typeck.c	(revision 134438)
+*************** string_conv_p (const_tree totype, const_
+*** 1722,1733 ****
+  
+    t = TREE_TYPE (totype);
+    if (!same_type_p (t, char_type_node)
+        && !same_type_p (t, wchar_type_node))
+      return 0;
+  
+    if (TREE_CODE (exp) == STRING_CST)
+      {
+!       /* Make sure that we don't try to convert between char and wchar_t.  */
+        if (!same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (exp))), t))
+  	return 0;
+      }
+--- 1722,1735 ----
+  
+    t = TREE_TYPE (totype);
+    if (!same_type_p (t, char_type_node)
++       && !same_type_p (t, char16_type_node)
++       && !same_type_p (t, char32_type_node)
+        && !same_type_p (t, wchar_type_node))
+      return 0;
+  
+    if (TREE_CODE (exp) == STRING_CST)
+      {
+!       /* Make sure that we don't try to convert between char and wide chars.  */
+        if (!same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (exp))), t))
+  	return 0;
+      }
+Index: gcc/cp/decl.c
+===================================================================
+*** gcc/cp/decl.c	(revision 134437)
+--- gcc/cp/decl.c	(revision 134438)
+*************** grokdeclarator (const cp_declarator *dec
+*** 7732,7737 ****
+--- 7732,7744 ----
+  	error ("%<long%> or %<short%> specified with char for %qs", name);
+        else if (long_p && short_p)
+  	error ("%<long%> and %<short%> specified together for %qs", name);
++       else if (type == char16_type_node || type == char32_type_node)
++ 	{
++ 	  if (signed_p || unsigned_p)
++ 	    error ("%<signed%> or %<unsigned%> invalid for %qs", name);
++ 	  else if (short_p || long_p)
++ 	    error ("%<short%> or %<long%> invalid for %qs", name);
++ 	}
+        else
+  	{
+  	  ok = 1;
+Index: gcc/cp/cvt.c
+===================================================================
+*** gcc/cp/cvt.c	(revision 134437)
+--- gcc/cp/cvt.c	(revision 134438)
+*************** type_promotes_to (tree type)
+*** 1219,1224 ****
+--- 1219,1226 ----
+    /* Normally convert enums to int, but convert wide enums to something
+       wider.  */
+    else if (TREE_CODE (type) == ENUMERAL_TYPE
++ 	   || type == char16_type_node
++ 	   || type == char32_type_node
+  	   || type == wchar_type_node)
+      {
+        int precision = MAX (TYPE_PRECISION (type),
+Index: gcc/cp/tree.c
+===================================================================
+*** gcc/cp/tree.c	(revision 134437)
+--- gcc/cp/tree.c	(revision 134438)
+*************** char_type_p (tree type)
+*** 2474,2479 ****
+--- 2474,2481 ----
+    return (same_type_p (type, char_type_node)
+  	  || same_type_p (type, unsigned_char_type_node)
+  	  || same_type_p (type, signed_char_type_node)
++ 	  || same_type_p (type, char16_type_node)
++ 	  || same_type_p (type, char32_type_node)
+  	  || same_type_p (type, wchar_type_node));
+  }
+  
+Index: gcc/cp/mangle.c
+===================================================================
+*** gcc/cp/mangle.c	(revision 134437)
+--- gcc/cp/mangle.c	(revision 134438)
+*************** write_builtin_type (tree type)
+*** 1782,1791 ****
+        break;
+  
+      case INTEGER_TYPE:
+!       /* TYPE may still be wchar_t, since that isn't in
+! 	 integer_type_nodes.  */
+        if (type == wchar_type_node)
+  	write_char ('w');
+        else if (TYPE_FOR_JAVA (type))
+  	write_java_integer_type_codes (type);
+        else
+--- 1782,1795 ----
+        break;
+  
+      case INTEGER_TYPE:
+!       /* TYPE may still be wchar_t, char16_t, or char32_t, since that
+! 	 isn't in integer_type_nodes.  */
+        if (type == wchar_type_node)
+  	write_char ('w');
++       else if (type == char16_type_node)
++ 	write_string ("u8char16_t");
++       else if (type == char32_type_node)
++ 	write_string ("u8char32_t");
+        else if (TYPE_FOR_JAVA (type))
+  	write_java_integer_type_codes (type);
+        else
+Index: gcc/cp/lex.c
+===================================================================
+*** gcc/cp/lex.c	(revision 134437)
+--- gcc/cp/lex.c	(revision 134438)
+*************** static const struct resword reswords[] =
+*** 241,246 ****
+--- 241,248 ----
+    { "case",		RID_CASE,	0 },
+    { "catch",		RID_CATCH,	0 },
+    { "char",		RID_CHAR,	0 },
++   { "char16_t",		RID_CHAR16,	D_CXX0X },
++   { "char32_t",		RID_CHAR32,	D_CXX0X },
+    { "class",		RID_CLASS,	0 },
+    { "const",		RID_CONST,	0 },
+    { "const_cast",	RID_CONSTCAST,	0 },
+Index: gcc/cp/parser.c
+===================================================================
+*** gcc/cp/parser.c	(revision 134437)
+--- gcc/cp/parser.c	(revision 134438)
+*************** cp_lexer_next_token_is_decl_specifier_ke
+*** 556,561 ****
+--- 556,563 ----
+      case RID_TYPENAME:
+        /* Simple type specifiers.  */
+      case RID_CHAR:
++     case RID_CHAR16:
++     case RID_CHAR32:
+      case RID_WCHAR:
+      case RID_BOOL:
+      case RID_SHORT:
+*************** cp_lexer_print_token (FILE * stream, cp_
+*** 789,794 ****
+--- 791,798 ----
+        break;
+  
+      case CPP_STRING:
++     case CPP_STRING16:
++     case CPP_STRING32:
+      case CPP_WSTRING:
+        fprintf (stream, " \"%s\"", TREE_STRING_POINTER (token->u.value));
+        break;
+*************** cp_parser_parsing_tentatively (cp_parser
+*** 2033,2039 ****
+  static bool
+  cp_parser_is_string_literal (cp_token* token)
+  {
+!   return (token->type == CPP_STRING || token->type == CPP_WSTRING);
+  }
+  
+  /* Returns nonzero if TOKEN is the indicated KEYWORD.  */
+--- 2037,2046 ----
+  static bool
+  cp_parser_is_string_literal (cp_token* token)
+  {
+!   return (token->type == CPP_STRING ||
+! 	  token->type == CPP_STRING16 ||
+! 	  token->type == CPP_STRING32 ||
+! 	  token->type == CPP_WSTRING);
+  }
+  
+  /* Returns nonzero if TOKEN is the indicated KEYWORD.  */
+*************** static tree
+*** 2867,2877 ****
+  cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
+  {
+    tree value;
+-   bool wide = false;
+    size_t count;
+    struct obstack str_ob;
+    cpp_string str, istr, *strs;
+    cp_token *tok;
+  
+    tok = cp_lexer_peek_token (parser->lexer);
+    if (!cp_parser_is_string_literal (tok))
+--- 2874,2884 ----
+  cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
+  {
+    tree value;
+    size_t count;
+    struct obstack str_ob;
+    cpp_string str, istr, *strs;
+    cp_token *tok;
++   enum cpp_ttype type;
+  
+    tok = cp_lexer_peek_token (parser->lexer);
+    if (!cp_parser_is_string_literal (tok))
+*************** cp_parser_string_literal (cp_parser *par
+*** 2880,2885 ****
+--- 2887,2894 ----
+        return error_mark_node;
+      }
+  
++   type = tok->type;
++ 
+    /* Try to avoid the overhead of creating and destroying an obstack
+       for the common case of just one string.  */
+    if (!cp_parser_is_string_literal
+*************** cp_parser_string_literal (cp_parser *par
+*** 2890,2897 ****
+        str.text = (const unsigned char *)TREE_STRING_POINTER (tok->u.value);
+        str.len = TREE_STRING_LENGTH (tok->u.value);
+        count = 1;
+-       if (tok->type == CPP_WSTRING)
+- 	wide = true;
+  
+        strs = &str;
+      }
+--- 2899,2904 ----
+*************** cp_parser_string_literal (cp_parser *par
+*** 2906,2913 ****
+  	  count++;
+  	  str.text = (const unsigned char *)TREE_STRING_POINTER (tok->u.value);
+  	  str.len = TREE_STRING_LENGTH (tok->u.value);
+! 	  if (tok->type == CPP_WSTRING)
+! 	    wide = true;
+  
+  	  obstack_grow (&str_ob, &str, sizeof (cpp_string));
+  
+--- 2913,2926 ----
+  	  count++;
+  	  str.text = (const unsigned char *)TREE_STRING_POINTER (tok->u.value);
+  	  str.len = TREE_STRING_LENGTH (tok->u.value);
+! 
+! 	  if (type != tok->type)
+! 	    {
+! 	      if (type == CPP_STRING)
+! 		type = tok->type;
+! 	      else if (tok->type != CPP_STRING)
+! 		error ("unsupported non-standard concatenation of string literals");
+! 	    }
+  
+  	  obstack_grow (&str_ob, &str, sizeof (cpp_string));
+  
+*************** cp_parser_string_literal (cp_parser *par
+*** 2918,2936 ****
+        strs = (cpp_string *) obstack_finish (&str_ob);
+      }
+  
+!   if (wide && !wide_ok)
+      {
+        cp_parser_error (parser, "a wide string is invalid in this context");
+!       wide = false;
+      }
+  
+    if ((translate ? cpp_interpret_string : cpp_interpret_string_notranslate)
+!       (parse_in, strs, count, &istr, wide))
+      {
+        value = build_string (istr.len, (const char *)istr.text);
+        free (CONST_CAST (unsigned char *, istr.text));
+  
+!       TREE_TYPE (value) = wide ? wchar_array_type_node : char_array_type_node;
+        value = fix_string_type (value);
+      }
+    else
+--- 2931,2965 ----
+        strs = (cpp_string *) obstack_finish (&str_ob);
+      }
+  
+!   if (type != CPP_STRING && !wide_ok)
+      {
+        cp_parser_error (parser, "a wide string is invalid in this context");
+!       type = CPP_STRING;
+      }
+  
+    if ((translate ? cpp_interpret_string : cpp_interpret_string_notranslate)
+!       (parse_in, strs, count, &istr, type))
+      {
+        value = build_string (istr.len, (const char *)istr.text);
+        free (CONST_CAST (unsigned char *, istr.text));
+  
+!       switch (type)
+! 	{
+! 	default:
+! 	case CPP_STRING:
+! 	  TREE_TYPE (value) = char_array_type_node;
+! 	  break;
+! 	case CPP_STRING16:
+! 	  TREE_TYPE (value) = char16_array_type_node;
+! 	  break;
+! 	case CPP_STRING32:
+! 	  TREE_TYPE (value) = char32_array_type_node;
+! 	  break;
+! 	case CPP_WSTRING:
+! 	  TREE_TYPE (value) = wchar_array_type_node;
+! 	  break;
+! 	}
+! 
+        value = fix_string_type (value);
+      }
+    else
+*************** cp_parser_primary_expression (cp_parser
+*** 3085,3090 ****
+--- 3114,3121 ----
+  	   string-literal
+  	   boolean-literal  */
+      case CPP_CHAR:
++     case CPP_CHAR16:
++     case CPP_CHAR32:
+      case CPP_WCHAR:
+      case CPP_NUMBER:
+        token = cp_lexer_consume_token (parser->lexer);
+*************** cp_parser_primary_expression (cp_parser
+*** 3136,3141 ****
+--- 3167,3174 ----
+        return token->u.value;
+  
+      case CPP_STRING:
++     case CPP_STRING16:
++     case CPP_STRING32:
+      case CPP_WSTRING:
+        /* ??? Should wide strings be allowed when parser->translate_strings_p
+  	 is false (i.e. in attributes)?  If not, we can kill the third
+*************** cp_parser_type_specifier (cp_parser* par
+*** 10762,10767 ****
+--- 10795,10802 ----
+     simple-type-specifier:
+       auto
+       decltype ( expression )   
++      char16_t
++      char32_t
+  
+     GNU Extension:
+  
+*************** cp_parser_simple_type_specifier (cp_pars
+*** 10791,10796 ****
+--- 10826,10837 ----
+  	decl_specs->explicit_char_p = true;
+        type = char_type_node;
+        break;
++     case RID_CHAR16:
++       type = char16_type_node;
++       break;
++     case RID_CHAR32:
++       type = char32_type_node;
++       break;
+      case RID_WCHAR:
+        type = wchar_type_node;
+        break;
+*************** cp_parser_set_decl_spec_type (cp_decl_sp
+*** 17754,17766 ****
+  {
+    decl_specs->any_specifiers_p = true;
+  
+!   /* If the user tries to redeclare bool or wchar_t (with, for
+!      example, in "typedef int wchar_t;") we remember that this is what
+!      happened.  In system headers, we ignore these declarations so
+!      that G++ can work with system headers that are not C++-safe.  */
+    if (decl_specs->specs[(int) ds_typedef]
+        && !user_defined_p
+        && (type_spec == boolean_type_node
+  	  || type_spec == wchar_type_node)
+        && (decl_specs->type
+  	  || decl_specs->specs[(int) ds_long]
+--- 17795,17810 ----
+  {
+    decl_specs->any_specifiers_p = true;
+  
+!   /* If the user tries to redeclare bool, char16_t, char32_t, or wchar_t
+!      (with, for example, in "typedef int wchar_t;") we remember that
+!      this is what happened.  In system headers, we ignore these
+!      declarations so that G++ can work with system headers that are not
+!      C++-safe.  */
+    if (decl_specs->specs[(int) ds_typedef]
+        && !user_defined_p
+        && (type_spec == boolean_type_node
++ 	  || type_spec == char16_type_node
++ 	  || type_spec == char32_type_node
+  	  || type_spec == wchar_type_node)
+        && (decl_specs->type
+  	  || decl_specs->specs[(int) ds_long]
+Index: gcc/c-common.c
+===================================================================
+*** gcc/c-common.c	(revision 134437)
+--- gcc/c-common.c	(revision 134438)
+*************** cpp_reader *parse_in;		/* Declared in c-
+*** 66,71 ****
+--- 66,79 ----
+  #define PID_TYPE "int"
+  #endif
+  
++ #ifndef CHAR16_TYPE
++ #define CHAR16_TYPE "short unsigned int"
++ #endif
++ 
++ #ifndef CHAR32_TYPE
++ #define CHAR32_TYPE "unsigned int"
++ #endif
++ 
+  #ifndef WCHAR_TYPE
+  #define WCHAR_TYPE "int"
+  #endif
+*************** cpp_reader *parse_in;		/* Declared in c-
+*** 123,128 ****
+--- 131,139 ----
+  	tree signed_wchar_type_node;
+  	tree unsigned_wchar_type_node;
+  
++ 	tree char16_type_node;
++ 	tree char32_type_node;
++ 
+  	tree float_type_node;
+  	tree double_type_node;
+  	tree long_double_type_node;
+*************** cpp_reader *parse_in;		/* Declared in c-
+*** 174,179 ****
+--- 185,200 ----
+  
+  	tree wchar_array_type_node;
+  
++    Type `char16_t[SOMENUMBER]' or something like it.
++    Used when a UTF-16 string literal is created.
++ 
++ 	tree char16_array_type_node;
++ 
++    Type `char32_t[SOMENUMBER]' or something like it.
++    Used when a UTF-32 string literal is created.
++ 
++ 	tree char32_array_type_node;
++ 
+     Type `int ()' -- used for implicit declaration of functions.
+  
+  	tree default_function_type;
+*************** fname_as_string (int pretty_p)
+*** 777,783 ****
+    strname.text = (unsigned char *) namep;
+    strname.len = len - 1;
+  
+!   if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
+      {
+        XDELETEVEC (namep);
+        return (const char *) cstr.text;
+--- 798,804 ----
+    strname.text = (unsigned char *) namep;
+    strname.len = len - 1;
+  
+!   if (cpp_interpret_string (parse_in, &strname, 1, &cstr, CPP_STRING))
+      {
+        XDELETEVEC (namep);
+        return (const char *) cstr.text;
+*************** fname_decl (unsigned int rid, tree id)
+*** 857,870 ****
+  tree
+  fix_string_type (tree value)
+  {
+-   const int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
+-   const int wide_flag = TREE_TYPE (value) == wchar_array_type_node;
+    int length = TREE_STRING_LENGTH (value);
+    int nchars;
+    tree e_type, i_type, a_type;
+  
+    /* Compute the number of elements, for the array type.  */
+!   nchars = wide_flag ? length / wchar_bytes : length;
+  
+    /* C89 2.2.4.1, C99 5.2.4.1 (Translation limits).  The analogous
+       limit in C++98 Annex B is very large (65536) and is not normative,
+--- 878,908 ----
+  tree
+  fix_string_type (tree value)
+  {
+    int length = TREE_STRING_LENGTH (value);
+    int nchars;
+    tree e_type, i_type, a_type;
+  
+    /* Compute the number of elements, for the array type.  */
+!   if (TREE_TYPE (value) == char_array_type_node || !TREE_TYPE (value))
+!     {
+!       nchars = length;
+!       e_type = char_type_node;
+!     }
+!   else if (TREE_TYPE (value) == char16_array_type_node)
+!     {
+!       nchars = length / (TYPE_PRECISION (char16_type_node) / BITS_PER_UNIT);
+!       e_type = char16_type_node;
+!     }
+!   else if (TREE_TYPE (value) == char32_array_type_node)
+!     {
+!       nchars = length / (TYPE_PRECISION (char32_type_node) / BITS_PER_UNIT);
+!       e_type = char32_type_node;
+!     }
+!   else
+!     {
+!       nchars = length / (TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT);
+!       e_type = wchar_type_node;
+!     }
+  
+    /* C89 2.2.4.1, C99 5.2.4.1 (Translation limits).  The analogous
+       limit in C++98 Annex B is very large (65536) and is not normative,
+*************** fix_string_type (tree value)
+*** 899,905 ****
+       construct the matching unqualified array type first.  The C front
+       end does not require this, but it does no harm, so we do it
+       unconditionally.  */
+-   e_type = wide_flag ? wchar_type_node : char_type_node;
+    i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1));
+    a_type = build_array_type (e_type, i_type);
+    if (c_dialect_cxx() || warn_write_strings)
+--- 937,942 ----
+*************** c_define_builtins (tree va_list_ref_type
+*** 3629,3634 ****
+--- 3666,3673 ----
+  void
+  c_common_nodes_and_builtins (void)
+  {
++   int char16_type_size;
++   int char32_type_size;
+    int wchar_type_size;
+    tree array_domain_type;
+    tree va_list_ref_type_node;
+*************** c_common_nodes_and_builtins (void)
+*** 3878,3883 ****
+--- 3917,3954 ----
+    wchar_array_type_node
+      = build_array_type (wchar_type_node, array_domain_type);
+  
++   /* Define 'char16_t'.  */
++   char16_type_node = get_identifier (CHAR16_TYPE);
++   char16_type_node = TREE_TYPE (identifier_global_value (char16_type_node));
++   char16_type_size = TYPE_PRECISION (char16_type_node);
++   if (c_dialect_cxx ())
++     {
++       char16_type_node = make_unsigned_type (char16_type_size);
++ 
++       if (cxx_dialect == cxx0x)
++ 	record_builtin_type (RID_CHAR16, "char16_t", char16_type_node);
++     }
++ 
++   /* This is for UTF-16 string constants.  */
++   char16_array_type_node
++     = build_array_type (char16_type_node, array_domain_type);
++ 
++   /* Define 'char32_t'.  */
++   char32_type_node = get_identifier (CHAR32_TYPE);
++   char32_type_node = TREE_TYPE (identifier_global_value (char32_type_node));
++   char32_type_size = TYPE_PRECISION (char32_type_node);
++   if (c_dialect_cxx ())
++     {
++       char32_type_node = make_unsigned_type (char32_type_size);
++ 
++       if (cxx_dialect == cxx0x)
++ 	record_builtin_type (RID_CHAR32, "char32_t", char32_type_node);
++     }
++ 
++   /* This is for UTF-32 string constants.  */
++   char32_array_type_node
++     = build_array_type (char32_type_node, array_domain_type);
++ 
+    wint_type_node =
+      TREE_TYPE (identifier_global_value (get_identifier (WINT_TYPE)));
+  
+*************** c_parse_error (const char *gmsgid, enum
+*** 6662,6681 ****
+  
+    if (token == CPP_EOF)
+      message = catenate_messages (gmsgid, " at end of input");
+!   else if (token == CPP_CHAR || token == CPP_WCHAR)
+      {
+        unsigned int val = TREE_INT_CST_LOW (value);
+!       const char *const ell = (token == CPP_CHAR) ? "" : "L";
+        if (val <= UCHAR_MAX && ISGRAPH (val))
+  	message = catenate_messages (gmsgid, " before %s'%c'");
+        else
+  	message = catenate_messages (gmsgid, " before %s'\\x%x'");
+  
+!       error (message, ell, val);
+        free (message);
+        message = NULL;
+      }
+!   else if (token == CPP_STRING || token == CPP_WSTRING)
+      message = catenate_messages (gmsgid, " before string constant");
+    else if (token == CPP_NUMBER)
+      message = catenate_messages (gmsgid, " before numeric constant");
+--- 6733,6771 ----
+  
+    if (token == CPP_EOF)
+      message = catenate_messages (gmsgid, " at end of input");
+!   else if (token == CPP_CHAR || token == CPP_WCHAR || token == CPP_CHAR16
+! 	   || token == CPP_CHAR32)
+      {
+        unsigned int val = TREE_INT_CST_LOW (value);
+!       const char *prefix;
+! 
+!       switch (token)
+! 	{
+! 	default:
+! 	  prefix = "";
+! 	  break;
+! 	case CPP_WCHAR:
+! 	  prefix = "L";
+! 	  break;
+! 	case CPP_CHAR16:
+! 	  prefix = "u";
+! 	  break;
+! 	case CPP_CHAR32:
+! 	  prefix = "U";
+! 	  break;
+!         }
+! 
+        if (val <= UCHAR_MAX && ISGRAPH (val))
+  	message = catenate_messages (gmsgid, " before %s'%c'");
+        else
+  	message = catenate_messages (gmsgid, " before %s'\\x%x'");
+  
+!       error (message, prefix, val);
+        free (message);
+        message = NULL;
+      }
+!   else if (token == CPP_STRING || token == CPP_WSTRING || token == CPP_STRING16
+! 	   || token == CPP_STRING32)
+      message = catenate_messages (gmsgid, " before string constant");
+    else if (token == CPP_NUMBER)
+      message = catenate_messages (gmsgid, " before numeric constant");
+Index: gcc/c-common.h
+===================================================================
+*** gcc/c-common.h	(revision 134437)
+--- gcc/c-common.h	(revision 134438)
+*************** enum rid
+*** 85,91 ****
+    RID_NEW,      RID_OFFSETOF, RID_OPERATOR,
+    RID_THIS,     RID_THROW,    RID_TRUE,
+    RID_TRY,      RID_TYPENAME, RID_TYPEID,
+!   RID_USING,
+  
+    /* casts */
+    RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
+--- 85,91 ----
+    RID_NEW,      RID_OFFSETOF, RID_OPERATOR,
+    RID_THIS,     RID_THROW,    RID_TRUE,
+    RID_TRY,      RID_TYPENAME, RID_TYPEID,
+!   RID_USING,    RID_CHAR16,   RID_CHAR32,
+  
+    /* casts */
+    RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
+*************** extern GTY ((length ("(int) RID_MAX")))
+*** 143,148 ****
+--- 143,150 ----
+  
+  enum c_tree_index
+  {
++     CTI_CHAR16_TYPE,
++     CTI_CHAR32_TYPE,
+      CTI_WCHAR_TYPE,
+      CTI_SIGNED_WCHAR_TYPE,
+      CTI_UNSIGNED_WCHAR_TYPE,
+*************** enum c_tree_index
+*** 155,160 ****
+--- 157,164 ----
+      CTI_WIDEST_UINT_LIT_TYPE,
+  
+      CTI_CHAR_ARRAY_TYPE,
++     CTI_CHAR16_ARRAY_TYPE,
++     CTI_CHAR32_ARRAY_TYPE,
+      CTI_WCHAR_ARRAY_TYPE,
+      CTI_INT_ARRAY_TYPE,
+      CTI_STRING_TYPE,
+*************** struct c_common_identifier GTY(())
+*** 190,195 ****
+--- 194,201 ----
+    struct cpp_hashnode node;
+  };
+  
++ #define char16_type_node		c_global_trees[CTI_CHAR16_TYPE]
++ #define char32_type_node		c_global_trees[CTI_CHAR32_TYPE]
+  #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]
+  #define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
+  #define unsigned_wchar_type_node	c_global_trees[CTI_UNSIGNED_WCHAR_TYPE]
+*************** struct c_common_identifier GTY(())
+*** 206,211 ****
+--- 212,219 ----
+  #define truthvalue_false_node		c_global_trees[CTI_TRUTHVALUE_FALSE]
+  
+  #define char_array_type_node		c_global_trees[CTI_CHAR_ARRAY_TYPE]
++ #define char16_array_type_node		c_global_trees[CTI_CHAR16_ARRAY_TYPE]
++ #define char32_array_type_node		c_global_trees[CTI_CHAR32_ARRAY_TYPE]
+  #define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
+  #define int_array_type_node		c_global_trees[CTI_INT_ARRAY_TYPE]
+  #define string_type_node		c_global_trees[CTI_STRING_TYPE]
+Index: gcc/c-parser.c
+===================================================================
+*** gcc/c-parser.c	(revision 134437)
+--- gcc/c-parser.c	(revision 134438)
+*************** c_parser_postfix_expression (c_parser *p
+*** 5163,5174 ****
+--- 5163,5178 ----
+      {
+      case CPP_NUMBER:
+      case CPP_CHAR:
++     case CPP_CHAR16:
++     case CPP_CHAR32:
+      case CPP_WCHAR:
+        expr.value = c_parser_peek_token (parser)->value;
+        expr.original_code = ERROR_MARK;
+        c_parser_consume_token (parser);
+        break;
+      case CPP_STRING:
++     case CPP_STRING16:
++     case CPP_STRING32:
+      case CPP_WSTRING:
+        expr.value = c_parser_peek_token (parser)->value;
+        expr.original_code = STRING_CST;
+Index: libiberty/testsuite/demangle-expected
+===================================================================
+*** libiberty/testsuite/demangle-expected	(revision 134437)
+--- libiberty/testsuite/demangle-expected	(revision 134438)
+*************** foo(char)
+*** 3399,3404 ****
+--- 3399,3424 ----
+  foo
+  #
+  --format=gnu-v3 --no-params
++ _Z2f0u8char16_t
++ f0(char16_t)
++ f0
++ #
++ --format=gnu-v3 --no-params
++ _Z2f0Pu8char16_t
++ f0(char16_t*)
++ f0
++ #
++ --format=gnu-v3 --no-params
++ _Z2f0u8char32_t
++ f0(char32_t)
++ f0
++ #
++ --format=gnu-v3 --no-params
++ _Z2f0Pu8char32_t
++ f0(char32_t*)
++ f0
++ #
++ --format=gnu-v3 --no-params
+  2CBIL_Z3foocEE
+  CB<foo(char)>
+  CB<foo(char)>
+Index: libcpp/directives.c
+===================================================================
+*** libcpp/directives.c	(revision 134437)
+--- libcpp/directives.c	(revision 134438)
+*************** DIRECTIVE_TABLE
+*** 188,194 ****
+     did use this notation in its preprocessed output.  */
+  static const directive linemarker_dir =
+  {
+!   do_linemarker, U"#", 1, KANDR, IN_I
+  };
+  
+  #define SEEN_EOL() (pfile->cur_token[-1].type == CPP_EOF)
+--- 188,194 ----
+     did use this notation in its preprocessed output.  */
+  static const directive linemarker_dir =
+  {
+!   do_linemarker, UC"#", 1, KANDR, IN_I
+  };
+  
+  #define SEEN_EOL() (pfile->cur_token[-1].type == CPP_EOF)
+*************** parse_include (cpp_reader *pfile, int *p
+*** 697,703 ****
+        const unsigned char *dir;
+  
+        if (pfile->directive == &dtable[T_PRAGMA])
+! 	dir = U"pragma dependency";
+        else
+  	dir = pfile->directive->name;
+        cpp_error (pfile, CPP_DL_ERROR, "#%s expects \"FILENAME\" or <FILENAME>",
+--- 697,703 ----
+        const unsigned char *dir;
+  
+        if (pfile->directive == &dtable[T_PRAGMA])
+! 	dir = UC"pragma dependency";
+        else
+  	dir = pfile->directive->name;
+        cpp_error (pfile, CPP_DL_ERROR, "#%s expects \"FILENAME\" or <FILENAME>",
+*************** register_pragma_1 (cpp_reader *pfile, co
+*** 1085,1091 ****
+  
+    if (space)
+      {
+!       node = cpp_lookup (pfile, U space, strlen (space));
+        entry = lookup_pragma_entry (*chain, node);
+        if (!entry)
+  	{
+--- 1085,1091 ----
+  
+    if (space)
+      {
+!       node = cpp_lookup (pfile, UC space, strlen (space));
+        entry = lookup_pragma_entry (*chain, node);
+        if (!entry)
+  	{
+*************** register_pragma_1 (cpp_reader *pfile, co
+*** 1114,1120 ****
+      }
+  
+    /* Check for duplicates.  */
+!   node = cpp_lookup (pfile, U name, strlen (name));
+    entry = lookup_pragma_entry (*chain, node);
+    if (entry == NULL)
+      {
+--- 1114,1120 ----
+      }
+  
+    /* Check for duplicates.  */
+!   node = cpp_lookup (pfile, UC name, strlen (name));
+    entry = lookup_pragma_entry (*chain, node);
+    if (entry == NULL)
+      {
+*************** restore_registered_pragmas (cpp_reader *
+*** 1262,1268 ****
+      {
+        if (pe->is_nspace)
+  	sd = restore_registered_pragmas (pfile, pe->u.space, sd);
+!       pe->pragma = cpp_lookup (pfile, U *sd, strlen (*sd));
+        free (*sd);
+        sd++;
+      }
+--- 1262,1268 ----
+      {
+        if (pe->is_nspace)
+  	sd = restore_registered_pragmas (pfile, pe->u.space, sd);
+!       pe->pragma = cpp_lookup (pfile, UC *sd, strlen (*sd));
+        free (*sd);
+        sd++;
+      }
+*************** get__Pragma_string (cpp_reader *pfile)
+*** 1491,1497 ****
+    string = get_token_no_padding (pfile);
+    if (string->type == CPP_EOF)
+      _cpp_backup_tokens (pfile, 1);
+!   if (string->type != CPP_STRING && string->type != CPP_WSTRING)
+      return NULL;
+  
+    paren = get_token_no_padding (pfile);
+--- 1491,1498 ----
+    string = get_token_no_padding (pfile);
+    if (string->type == CPP_EOF)
+      _cpp_backup_tokens (pfile, 1);
+!   if (string->type != CPP_STRING && string->type != CPP_WSTRING
+!       && string->type != CPP_STRING32 && string->type != CPP_STRING16)
+      return NULL;
+  
+    paren = get_token_no_padding (pfile);
+Index: libcpp/macro.c
+===================================================================
+*** libcpp/macro.c	(revision 134437)
+--- libcpp/macro.c	(revision 134438)
+*************** _cpp_builtin_macro_text (cpp_reader *pfi
+*** 158,164 ****
+  		  {
+  		    cpp_errno (pfile, CPP_DL_WARNING,
+  			"could not determine file timestamp");
+! 		    pbuffer->timestamp = U"\"??? ??? ?? ??:??:?? ????\"";
+  		  }
+  	      }
+  	  }
+--- 158,164 ----
+  		  {
+  		    cpp_errno (pfile, CPP_DL_WARNING,
+  			"could not determine file timestamp");
+! 		    pbuffer->timestamp = UC"\"??? ??? ?? ??:??:?? ????\"";
+  		  }
+  	      }
+  	  }
+*************** _cpp_builtin_macro_text (cpp_reader *pfi
+*** 256,263 ****
+  	      cpp_errno (pfile, CPP_DL_WARNING,
+  			 "could not determine date and time");
+  		
+! 	      pfile->date = U"\"??? ?? ????\"";
+! 	      pfile->time = U"\"??:??:??\"";
+  	    }
+  	}
+  
+--- 256,263 ----
+  	      cpp_errno (pfile, CPP_DL_WARNING,
+  			 "could not determine date and time");
+  		
+! 	      pfile->date = UC"\"??? ?? ????\"";
+! 	      pfile->time = UC"\"??:??:??\"";
+  	    }
+  	}
+  
+*************** stringify_arg (cpp_reader *pfile, macro_
+*** 375,382 ****
+  	  continue;
+  	}
+  
+!       escape_it = (token->type == CPP_STRING || token->type == CPP_WSTRING
+! 		   || token->type == CPP_CHAR || token->type == CPP_WCHAR);
+  
+        /* Room for each char being written in octal, initial space and
+  	 final quote and NUL.  */
+--- 375,384 ----
+  	  continue;
+  	}
+  
+!       escape_it = (token->type == CPP_STRING || token->type == CPP_CHAR
+! 		   || token->type == CPP_WSTRING || token->type == CPP_STRING
+! 		   || token->type == CPP_STRING32 || token->type == CPP_CHAR32
+! 		   || token->type == CPP_STRING16 || token->type == CPP_CHAR16);
+  
+        /* Room for each char being written in octal, initial space and
+  	 final quote and NUL.  */
+Index: libcpp/include/cpplib.h
+===================================================================
+*** libcpp/include/cpplib.h	(revision 134437)
+--- libcpp/include/cpplib.h	(revision 134438)
+*************** struct _cpp_file;
+*** 123,132 ****
+--- 123,136 ----
+  									\
+    TK(CHAR,		LITERAL) /* 'char' */				\
+    TK(WCHAR,		LITERAL) /* L'char' */				\
++   TK(CHAR16,		LITERAL) /* u'char' */				\
++   TK(CHAR32,		LITERAL) /* U'char' */				\
+    TK(OTHER,		LITERAL) /* stray punctuation */		\
+  									\
+    TK(STRING,		LITERAL) /* "string" */				\
+    TK(WSTRING,		LITERAL) /* L"string" */			\
++   TK(STRING16,		LITERAL) /* u"string" */			\
++   TK(STRING32,		LITERAL) /* U"string" */			\
+    TK(OBJC_STRING,	LITERAL) /* @"string" - Objective-C */		\
+    TK(HEADER_NAME,	LITERAL) /* <stdio.h> in #include */		\
+  									\
+*************** struct cpp_options
+*** 291,296 ****
+--- 295,303 ----
+    /* Nonzero means to allow hexadecimal floats and LL suffixes.  */
+    unsigned char extended_numbers;
+  
++   /* Nonzero means process u/U prefix literals (UTF-16/32).  */
++   unsigned char uliterals;
++ 
+    /* Nonzero means print names of header files (-H).  */
+    unsigned char print_include_names;
+  
+*************** extern cppchar_t cpp_interpret_charconst
+*** 712,721 ****
+  /* Evaluate a vector of CPP_STRING or CPP_WSTRING tokens.  */
+  extern bool cpp_interpret_string (cpp_reader *,
+  				  const cpp_string *, size_t,
+! 				  cpp_string *, bool);
+  extern bool cpp_interpret_string_notranslate (cpp_reader *,
+  					      const cpp_string *, size_t,
+! 					      cpp_string *, bool);
+  
+  /* Convert a host character constant to the execution character set.  */
+  extern cppchar_t cpp_host_to_exec_charset (cpp_reader *, cppchar_t);
+--- 719,728 ----
+  /* Evaluate a vector of CPP_STRING or CPP_WSTRING tokens.  */
+  extern bool cpp_interpret_string (cpp_reader *,
+  				  const cpp_string *, size_t,
+! 				  cpp_string *, enum cpp_ttype);
+  extern bool cpp_interpret_string_notranslate (cpp_reader *,
+  					      const cpp_string *, size_t,
+! 					      cpp_string *, enum cpp_ttype);
+  
+  /* Convert a host character constant to the execution character set.  */
+  extern cppchar_t cpp_host_to_exec_charset (cpp_reader *, cppchar_t);
+Index: libcpp/include/cpp-id-data.h
+===================================================================
+*** libcpp/include/cpp-id-data.h	(revision 134437)
+--- libcpp/include/cpp-id-data.h	(revision 134438)
+*************** Foundation, 51 Franklin Street, Fifth Fl
+*** 22,28 ****
+  typedef unsigned char uchar;
+  #endif
+  
+! #define U (const unsigned char *)  /* Intended use: U"string" */
+  
+  /* Chained list of answers to an assertion.  */
+  struct answer GTY(())
+--- 22,28 ----
+  typedef unsigned char uchar;
+  #endif
+  
+! #define UC (const unsigned char *)  /* Intended use: UC"string" */
+  
+  /* Chained list of answers to an assertion.  */
+  struct answer GTY(())
+Index: libcpp/init.c
+===================================================================
+*** libcpp/init.c	(revision 134437)
+--- libcpp/init.c	(revision 134438)
+*************** struct lang_flags
+*** 76,95 ****
+    char std;
+    char cplusplus_comments;
+    char digraphs;
+  };
+  
+  static const struct lang_flags lang_defaults[] =
+! { /*              c99 c++ xnum xid std  //   digr  */
+!   /* GNUC89   */  { 0,  0,  1,   0,  0,   1,   1     },
+!   /* GNUC99   */  { 1,  0,  1,   0,  0,   1,   1     },
+!   /* STDC89   */  { 0,  0,  0,   0,  1,   0,   0     },
+!   /* STDC94   */  { 0,  0,  0,   0,  1,   0,   1     },
+!   /* STDC99   */  { 1,  0,  1,   0,  1,   1,   1     },
+!   /* GNUCXX   */  { 0,  1,  1,   0,  0,   1,   1     },
+!   /* CXX98    */  { 0,  1,  1,   0,  1,   1,   1     },
+!   /* GNUCXX0X */  { 1,  1,  1,   0,  0,   1,   1     },
+!   /* CXX0X    */  { 1,  1,  1,   0,  1,   1,   1     },
+!   /* ASM      */  { 0,  0,  1,   0,  0,   1,   0     }
+    /* xid should be 1 for GNUC99, STDC99, GNUCXX, CXX98, GNUCXX0X, and
+       CXX0X when no longer experimental (when all uses of identifiers
+       in the compiler have been audited for correct handling of
+--- 76,96 ----
+    char std;
+    char cplusplus_comments;
+    char digraphs;
++   char uliterals;
+  };
+  
+  static const struct lang_flags lang_defaults[] =
+! { /*              c99 c++ xnum xid std  //   digr ulit */
+!   /* GNUC89   */  { 0,  0,  1,   0,  0,   1,   1,   0 },
+!   /* GNUC99   */  { 1,  0,  1,   0,  0,   1,   1,   1 },
+!   /* STDC89   */  { 0,  0,  0,   0,  1,   0,   0,   0 },
+!   /* STDC94   */  { 0,  0,  0,   0,  1,   0,   1,   0 },
+!   /* STDC99   */  { 1,  0,  1,   0,  1,   1,   1,   0 },
+!   /* GNUCXX   */  { 0,  1,  1,   0,  0,   1,   1,   0 },
+!   /* CXX98    */  { 0,  1,  1,   0,  1,   1,   1,   0 },
+!   /* GNUCXX0X */  { 1,  1,  1,   0,  0,   1,   1,   1 },
+!   /* CXX0X    */  { 1,  1,  1,   0,  1,   1,   1,   1 },
+!   /* ASM      */  { 0,  0,  1,   0,  0,   1,   0,   0 }
+    /* xid should be 1 for GNUC99, STDC99, GNUCXX, CXX98, GNUCXX0X, and
+       CXX0X when no longer experimental (when all uses of identifiers
+       in the compiler have been audited for correct handling of
+*************** cpp_set_lang (cpp_reader *pfile, enum c_
+*** 112,117 ****
+--- 113,119 ----
+    CPP_OPTION (pfile, trigraphs)			 = l->std;
+    CPP_OPTION (pfile, cplusplus_comments)	 = l->cplusplus_comments;
+    CPP_OPTION (pfile, digraphs)			 = l->digraphs;
++   CPP_OPTION (pfile, uliterals)			 = l->uliterals;
+  }
+  
+  /* Initialize library global state.  */
+Index: libcpp/expr.c
+===================================================================
+*** libcpp/expr.c	(revision 134437)
+--- libcpp/expr.c	(revision 134438)
+*************** eval_token (cpp_reader *pfile, const cpp
+*** 705,710 ****
+--- 705,712 ----
+  
+      case CPP_WCHAR:
+      case CPP_CHAR:
++     case CPP_CHAR16:
++     case CPP_CHAR32:
+        {
+  	cppchar_t cc = cpp_interpret_charconst (pfile, token,
+  						&temp, &unsignedp);
+*************** _cpp_parse_expr (cpp_reader *pfile)
+*** 863,868 ****
+--- 865,872 ----
+  	case CPP_NUMBER:
+  	case CPP_CHAR:
+  	case CPP_WCHAR:
++ 	case CPP_CHAR16:
++ 	case CPP_CHAR32:
+  	case CPP_NAME:
+  	case CPP_HASH:
+  	  if (!want_value)
+Index: libcpp/internal.h
+===================================================================
+*** libcpp/internal.h	(revision 134437)
+--- libcpp/internal.h	(revision 134438)
+*************** struct cset_converter
+*** 48,53 ****
+--- 48,54 ----
+  {
+    convert_f func;
+    iconv_t cd;
++   int width;
+  };
+  
+  #define BITS_PER_CPPCHAR_T (CHAR_BIT * sizeof (cppchar_t))
+*************** struct cpp_reader
+*** 399,404 ****
+--- 400,413 ----
+    struct cset_converter narrow_cset_desc;
+  
+    /* Descriptor for converting from the source character set to the
++      UTF-16 execution character set.  */
++   struct cset_converter char16_cset_desc;
++ 
++   /* Descriptor for converting from the source character set to the
++      UTF-32 execution character set.  */
++   struct cset_converter char32_cset_desc;
++ 
++   /* Descriptor for converting from the source character set to the
+       wide execution character set.  */
+    struct cset_converter wide_cset_desc;
+  
+Index: libcpp/lex.c
+===================================================================
+*** libcpp/lex.c	(revision 134437)
+--- libcpp/lex.c	(revision 134438)
+*************** struct token_spelling
+*** 39,48 ****
+  };
+  
+  static const unsigned char *const digraph_spellings[] =
+! { U"%:", U"%:%:", U"<:", U":>", U"<%", U"%>" };
+  
+! #define OP(e, s) { SPELL_OPERATOR, U s  },
+! #define TK(e, s) { SPELL_ ## s,    U #e },
+  static const struct token_spelling token_spellings[N_TTYPES] = { TTYPE_TABLE };
+  #undef OP
+  #undef TK
+--- 39,48 ----
+  };
+  
+  static const unsigned char *const digraph_spellings[] =
+! { UC"%:", UC"%:%:", UC"<:", UC":>", UC"<%", UC"%>" };
+  
+! #define OP(e, s) { SPELL_OPERATOR, UC s  },
+! #define TK(e, s) { SPELL_ ## s,    UC #e },
+  static const struct token_spelling token_spellings[N_TTYPES] = { TTYPE_TABLE };
+  #undef OP
+  #undef TK
+*************** create_literal (cpp_reader *pfile, cpp_t
+*** 611,618 ****
+  
+  /* Lexes a string, character constant, or angle-bracketed header file
+     name.  The stored string contains the spelling, including opening
+!    quote and leading any leading 'L'.  It returns the type of the
+!    literal, or CPP_OTHER if it was not properly terminated.
+  
+     The spelling is NUL-terminated, but it is not guaranteed that this
+     is the first NUL since embedded NULs are preserved.  */
+--- 611,618 ----
+  
+  /* Lexes a string, character constant, or angle-bracketed header file
+     name.  The stored string contains the spelling, including opening
+!    quote and leading any leading 'L', 'u' or 'U'.  It returns the type
+!    of the literal, or CPP_OTHER if it was not properly terminated.
+  
+     The spelling is NUL-terminated, but it is not guaranteed that this
+     is the first NUL since embedded NULs are preserved.  */
+*************** lex_string (cpp_reader *pfile, cpp_token
+*** 626,637 ****
+  
+    cur = base;
+    terminator = *cur++;
+!   if (terminator == 'L')
+      terminator = *cur++;
+    if (terminator == '\"')
+!     type = *base == 'L' ? CPP_WSTRING: CPP_STRING;
+    else if (terminator == '\'')
+!     type = *base == 'L' ? CPP_WCHAR: CPP_CHAR;
+    else
+      terminator = '>', type = CPP_HEADER_NAME;
+  
+--- 626,641 ----
+  
+    cur = base;
+    terminator = *cur++;
+!   if (terminator == 'L' || terminator == 'u' || terminator == 'U')
+      terminator = *cur++;
+    if (terminator == '\"')
+!     type = (*base == 'L' ? CPP_WSTRING :
+! 	    *base == 'U' ? CPP_STRING32 :
+! 	    *base == 'u' ? CPP_STRING16 : CPP_STRING);
+    else if (terminator == '\'')
+!     type = (*base == 'L' ? CPP_WCHAR :
+! 	    *base == 'U' ? CPP_CHAR32 :
+! 	    *base == 'u' ? CPP_CHAR16 : CPP_CHAR);
+    else
+      terminator = '>', type = CPP_HEADER_NAME;
+  
+*************** _cpp_lex_direct (cpp_reader *pfile)
+*** 965,975 ****
+        }
+  
+      case 'L':
+!       /* 'L' may introduce wide characters or strings.  */
+!       if (*buffer->cur == '\'' || *buffer->cur == '"')
+  	{
+! 	  lex_string (pfile, result, buffer->cur - 1);
+! 	  break;
+  	}
+        /* Fall through.  */
+  
+--- 969,984 ----
+        }
+  
+      case 'L':
+!     case 'u':
+!     case 'U':
+!       /* 'L', 'u' or 'U' may introduce wide characters or strings.  */
+!       if (c == 'L' || CPP_OPTION (pfile, uliterals))
+  	{
+! 	  if (*buffer->cur == '\'' || *buffer->cur == '"')
+! 	    {
+! 	      lex_string (pfile, result, buffer->cur - 1);
+! 	      break;
+! 	    }
+  	}
+        /* Fall through.  */
+  
+*************** _cpp_lex_direct (cpp_reader *pfile)
+*** 977,988 ****
+      case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+      case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
+      case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
+!     case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+      case 'y': case 'z':
+      case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+      case 'G': case 'H': case 'I': case 'J': case 'K':
+      case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
+!     case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+      case 'Y': case 'Z':
+        result->type = CPP_NAME;
+        {
+--- 986,997 ----
+      case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+      case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
+      case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
+!     case 's': case 't':           case 'v': case 'w': case 'x':
+      case 'y': case 'z':
+      case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+      case 'G': case 'H': case 'I': case 'J': case 'K':
+      case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
+!     case 'S': case 'T':           case 'V': case 'W': case 'X':
+      case 'Y': case 'Z':
+        result->type = CPP_NAME;
+        {
+Index: libcpp/charset.c
+===================================================================
+*** libcpp/charset.c	(revision 134437)
+--- libcpp/charset.c	(revision 134438)
+*************** init_iconv_desc (cpp_reader *pfile, cons
+*** 642,647 ****
+--- 642,648 ----
+      {
+        ret.func = convert_no_conversion;
+        ret.cd = (iconv_t) -1;
++       ret.width = -1;
+        return ret;
+      }
+  
+*************** init_iconv_desc (cpp_reader *pfile, cons
+*** 655,660 ****
+--- 656,662 ----
+        {
+  	ret.func = conversion_tab[i].func;
+  	ret.cd = conversion_tab[i].fake_cd;
++ 	ret.width = -1;
+  	return ret;
+        }
+  
+*************** init_iconv_desc (cpp_reader *pfile, cons
+*** 663,668 ****
+--- 665,671 ----
+      {
+        ret.func = convert_using_iconv;
+        ret.cd = iconv_open (to, from);
++       ret.width = -1;
+  
+        if (ret.cd == (iconv_t) -1)
+  	{
+*************** init_iconv_desc (cpp_reader *pfile, cons
+*** 683,688 ****
+--- 686,692 ----
+  		 from, to);
+        ret.func = convert_no_conversion;
+        ret.cd = (iconv_t) -1;
++       ret.width = -1;
+      }
+    return ret;
+  }
+*************** cpp_init_iconv (cpp_reader *pfile)
+*** 716,722 ****
+--- 720,736 ----
+      wcset = default_wcset;
+  
+    pfile->narrow_cset_desc = init_iconv_desc (pfile, ncset, SOURCE_CHARSET);
++   pfile->narrow_cset_desc.width = CPP_OPTION (pfile, char_precision);
++   pfile->char16_cset_desc = init_iconv_desc (pfile,
++ 					     be ? "UTF-16BE" : "UTF-16LE",
++ 					     SOURCE_CHARSET);
++   pfile->char16_cset_desc.width = 16;
++   pfile->char32_cset_desc = init_iconv_desc (pfile,
++ 					     be ? "UTF-32BE" : "UTF-32LE",
++ 					     SOURCE_CHARSET);
++   pfile->char32_cset_desc.width = 32;
+    pfile->wide_cset_desc = init_iconv_desc (pfile, wcset, SOURCE_CHARSET);
++   pfile->wide_cset_desc.width = CPP_OPTION (pfile, wchar_precision);
+  }
+  
+  /* Destroy iconv(3) descriptors set up by cpp_init_iconv, if necessary.  */
+*************** _cpp_valid_ucn (cpp_reader *pfile, const
+*** 1051,1065 ****
+     An advanced pointer is returned.  Issues all relevant diagnostics.  */
+  static const uchar *
+  convert_ucn (cpp_reader *pfile, const uchar *from, const uchar *limit,
+! 	     struct _cpp_strbuf *tbuf, bool wide)
+  {
+    cppchar_t ucn;
+    uchar buf[6];
+    uchar *bufp = buf;
+    size_t bytesleft = 6;
+    int rval;
+-   struct cset_converter cvt
+-     = wide ? pfile->wide_cset_desc : pfile->narrow_cset_desc;
+    struct normalize_state nst = INITIAL_NORMALIZE_STATE;
+  
+    from++;  /* Skip u/U.  */
+--- 1065,1077 ----
+     An advanced pointer is returned.  Issues all relevant diagnostics.  */
+  static const uchar *
+  convert_ucn (cpp_reader *pfile, const uchar *from, const uchar *limit,
+! 	     struct _cpp_strbuf *tbuf, struct cset_converter cvt)
+  {
+    cppchar_t ucn;
+    uchar buf[6];
+    uchar *bufp = buf;
+    size_t bytesleft = 6;
+    int rval;
+    struct normalize_state nst = INITIAL_NORMALIZE_STATE;
+  
+    from++;  /* Skip u/U.  */
+*************** convert_ucn (cpp_reader *pfile, const uc
+*** 1086,1099 ****
+     function issues no diagnostics and never fails.  */
+  static void
+  emit_numeric_escape (cpp_reader *pfile, cppchar_t n,
+! 		     struct _cpp_strbuf *tbuf, bool wide)
+  {
+!   if (wide)
+      {
+        /* We have to render this into the target byte order, which may not
+  	 be our byte order.  */
+        bool bigend = CPP_OPTION (pfile, bytes_big_endian);
+-       size_t width = CPP_OPTION (pfile, wchar_precision);
+        size_t cwidth = CPP_OPTION (pfile, char_precision);
+        size_t cmask = width_to_mask (cwidth);
+        size_t nbwc = width / cwidth;
+--- 1098,1112 ----
+     function issues no diagnostics and never fails.  */
+  static void
+  emit_numeric_escape (cpp_reader *pfile, cppchar_t n,
+! 		     struct _cpp_strbuf *tbuf, struct cset_converter cvt)
+  {
+!   size_t width = cvt.width;
+! 
+!   if (width != CPP_OPTION (pfile, char_precision))
+      {
+        /* We have to render this into the target byte order, which may not
+  	 be our byte order.  */
+        bool bigend = CPP_OPTION (pfile, bytes_big_endian);
+        size_t cwidth = CPP_OPTION (pfile, char_precision);
+        size_t cmask = width_to_mask (cwidth);
+        size_t nbwc = width / cwidth;
+*************** emit_numeric_escape (cpp_reader *pfile,
+*** 1136,1147 ****
+     number.  You can, e.g. generate surrogate pairs this way.  */
+  static const uchar *
+  convert_hex (cpp_reader *pfile, const uchar *from, const uchar *limit,
+! 	     struct _cpp_strbuf *tbuf, bool wide)
+  {
+    cppchar_t c, n = 0, overflow = 0;
+    int digits_found = 0;
+!   size_t width = (wide ? CPP_OPTION (pfile, wchar_precision)
+! 		  : CPP_OPTION (pfile, char_precision));
+    size_t mask = width_to_mask (width);
+  
+    if (CPP_WTRADITIONAL (pfile))
+--- 1149,1159 ----
+     number.  You can, e.g. generate surrogate pairs this way.  */
+  static const uchar *
+  convert_hex (cpp_reader *pfile, const uchar *from, const uchar *limit,
+! 	     struct _cpp_strbuf *tbuf, struct cset_converter cvt)
+  {
+    cppchar_t c, n = 0, overflow = 0;
+    int digits_found = 0;
+!   size_t width = cvt.width;
+    size_t mask = width_to_mask (width);
+  
+    if (CPP_WTRADITIONAL (pfile))
+*************** convert_hex (cpp_reader *pfile, const uc
+*** 1174,1180 ****
+        n &= mask;
+      }
+  
+!   emit_numeric_escape (pfile, n, tbuf, wide);
+  
+    return from;
+  }
+--- 1186,1192 ----
+        n &= mask;
+      }
+  
+!   emit_numeric_escape (pfile, n, tbuf, cvt);
+  
+    return from;
+  }
+*************** convert_hex (cpp_reader *pfile, const uc
+*** 1187,1198 ****
+     number.  */
+  static const uchar *
+  convert_oct (cpp_reader *pfile, const uchar *from, const uchar *limit,
+! 	     struct _cpp_strbuf *tbuf, bool wide)
+  {
+    size_t count = 0;
+    cppchar_t c, n = 0;
+!   size_t width = (wide ? CPP_OPTION (pfile, wchar_precision)
+! 		  : CPP_OPTION (pfile, char_precision));
+    size_t mask = width_to_mask (width);
+    bool overflow = false;
+  
+--- 1199,1209 ----
+     number.  */
+  static const uchar *
+  convert_oct (cpp_reader *pfile, const uchar *from, const uchar *limit,
+! 	     struct _cpp_strbuf *tbuf, struct cset_converter cvt)
+  {
+    size_t count = 0;
+    cppchar_t c, n = 0;
+!   size_t width = cvt.width;
+    size_t mask = width_to_mask (width);
+    bool overflow = false;
+  
+*************** convert_oct (cpp_reader *pfile, const uc
+*** 1213,1219 ****
+        n &= mask;
+      }
+  
+!   emit_numeric_escape (pfile, n, tbuf, wide);
+  
+    return from;
+  }
+--- 1224,1230 ----
+        n &= mask;
+      }
+  
+!   emit_numeric_escape (pfile, n, tbuf, cvt);
+  
+    return from;
+  }
+*************** convert_oct (cpp_reader *pfile, const uc
+*** 1224,1230 ****
+     pointer.  Handles all relevant diagnostics.  */
+  static const uchar *
+  convert_escape (cpp_reader *pfile, const uchar *from, const uchar *limit,
+! 		struct _cpp_strbuf *tbuf, bool wide)
+  {
+    /* Values of \a \b \e \f \n \r \t \v respectively.  */
+  #if HOST_CHARSET == HOST_CHARSET_ASCII
+--- 1235,1241 ----
+     pointer.  Handles all relevant diagnostics.  */
+  static const uchar *
+  convert_escape (cpp_reader *pfile, const uchar *from, const uchar *limit,
+! 		struct _cpp_strbuf *tbuf, struct cset_converter cvt)
+  {
+    /* Values of \a \b \e \f \n \r \t \v respectively.  */
+  #if HOST_CHARSET == HOST_CHARSET_ASCII
+*************** convert_escape (cpp_reader *pfile, const
+*** 1236,1258 ****
+  #endif
+  
+    uchar c;
+-   struct cset_converter cvt
+-     = wide ? pfile->wide_cset_desc : pfile->narrow_cset_desc;
+  
+    c = *from;
+    switch (c)
+      {
+        /* UCNs, hex escapes, and octal escapes are processed separately.  */
+      case 'u': case 'U':
+!       return convert_ucn (pfile, from, limit, tbuf, wide);
+  
+      case 'x':
+!       return convert_hex (pfile, from, limit, tbuf, wide);
+        break;
+  
+      case '0':  case '1':  case '2':  case '3':
+      case '4':  case '5':  case '6':  case '7':
+!       return convert_oct (pfile, from, limit, tbuf, wide);
+  
+        /* Various letter escapes.  Get the appropriate host-charset
+  	 value into C.  */
+--- 1247,1267 ----
+  #endif
+  
+    uchar c;
+  
+    c = *from;
+    switch (c)
+      {
+        /* UCNs, hex escapes, and octal escapes are processed separately.  */
+      case 'u': case 'U':
+!       return convert_ucn (pfile, from, limit, tbuf, cvt);
+  
+      case 'x':
+!       return convert_hex (pfile, from, limit, tbuf, cvt);
+        break;
+  
+      case '0':  case '1':  case '2':  case '3':
+      case '4':  case '5':  case '6':  case '7':
+!       return convert_oct (pfile, from, limit, tbuf, cvt);
+  
+        /* Various letter escapes.  Get the appropriate host-charset
+  	 value into C.  */
+*************** convert_escape (cpp_reader *pfile, const
+*** 1312,1317 ****
+--- 1321,1347 ----
+    return from + 1;
+  }
+  
++ /* TYPE is a token type.  The return value is the conversion needed to
++    convert from source to execution character set for the given type. */
++ static struct cset_converter
++ converter_for_type (cpp_reader *pfile, enum cpp_ttype type)
++ {
++   switch (type)
++     {
++     default:
++ 	return pfile->narrow_cset_desc;
++     case CPP_CHAR16:
++     case CPP_STRING16:
++ 	return pfile->char16_cset_desc;
++     case CPP_CHAR32:
++     case CPP_STRING32:
++ 	return pfile->char32_cset_desc;
++     case CPP_WCHAR:
++     case CPP_WSTRING:
++ 	return pfile->wide_cset_desc;
++     }
++ }
++ 
+  /* FROM is an array of cpp_string structures of length COUNT.  These
+     are to be converted from the source to the execution character set,
+     escape sequences translated, and finally all are to be
+*************** convert_escape (cpp_reader *pfile, const
+*** 1320,1332 ****
+     false for failure.  */
+  bool
+  cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
+! 		      cpp_string *to, bool wide)
+  {
+    struct _cpp_strbuf tbuf;
+    const uchar *p, *base, *limit;
+    size_t i;
+!   struct cset_converter cvt
+!     = wide ? pfile->wide_cset_desc : pfile->narrow_cset_desc;
+  
+    tbuf.asize = MAX (OUTBUF_BLOCK_SIZE, from->len);
+    tbuf.text = XNEWVEC (uchar, tbuf.asize);
+--- 1350,1361 ----
+     false for failure.  */
+  bool
+  cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
+! 		      cpp_string *to,  enum cpp_ttype type)
+  {
+    struct _cpp_strbuf tbuf;
+    const uchar *p, *base, *limit;
+    size_t i;
+!   struct cset_converter cvt = converter_for_type (pfile, type);
+  
+    tbuf.asize = MAX (OUTBUF_BLOCK_SIZE, from->len);
+    tbuf.text = XNEWVEC (uchar, tbuf.asize);
+*************** cpp_interpret_string (cpp_reader *pfile,
+*** 1335,1341 ****
+    for (i = 0; i < count; i++)
+      {
+        p = from[i].text;
+!       if (*p == 'L') p++;
+        p++; /* Skip leading quote.  */
+        limit = from[i].text + from[i].len - 1; /* Skip trailing quote.  */
+  
+--- 1364,1370 ----
+    for (i = 0; i < count; i++)
+      {
+        p = from[i].text;
+!       if (*p == 'L' || *p == 'u' || *p == 'U') p++;
+        p++; /* Skip leading quote.  */
+        limit = from[i].text + from[i].len - 1; /* Skip trailing quote.  */
+  
+*************** cpp_interpret_string (cpp_reader *pfile,
+*** 1354,1365 ****
+  	  if (p == limit)
+  	    break;
+  
+! 	  p = convert_escape (pfile, p + 1, limit, &tbuf, wide);
+  	}
+      }
+    /* NUL-terminate the 'to' buffer and translate it to a cpp_string
+       structure.  */
+!   emit_numeric_escape (pfile, 0, &tbuf, wide);
+    tbuf.text = XRESIZEVEC (uchar, tbuf.text, tbuf.len);
+    to->text = tbuf.text;
+    to->len = tbuf.len;
+--- 1383,1394 ----
+  	  if (p == limit)
+  	    break;
+  
+! 	  p = convert_escape (pfile, p + 1, limit, &tbuf, cvt);
+  	}
+      }
+    /* NUL-terminate the 'to' buffer and translate it to a cpp_string
+       structure.  */
+!   emit_numeric_escape (pfile, 0, &tbuf, cvt);
+    tbuf.text = XRESIZEVEC (uchar, tbuf.text, tbuf.len);
+    to->text = tbuf.text;
+    to->len = tbuf.len;
+*************** cpp_interpret_string (cpp_reader *pfile,
+*** 1375,1381 ****
+     in a string, but do not perform character set conversion.  */
+  bool
+  cpp_interpret_string_notranslate (cpp_reader *pfile, const cpp_string *from,
+! 				  size_t count,	cpp_string *to, bool wide)
+  {
+    struct cset_converter save_narrow_cset_desc = pfile->narrow_cset_desc;
+    bool retval;
+--- 1404,1411 ----
+     in a string, but do not perform character set conversion.  */
+  bool
+  cpp_interpret_string_notranslate (cpp_reader *pfile, const cpp_string *from,
+! 				  size_t count,	cpp_string *to,
+! 				  enum cpp_ttype type ATTRIBUTE_UNUSED)
+  {
+    struct cset_converter save_narrow_cset_desc = pfile->narrow_cset_desc;
+    bool retval;
+*************** cpp_interpret_string_notranslate (cpp_re
+*** 1383,1389 ****
+    pfile->narrow_cset_desc.func = convert_no_conversion;
+    pfile->narrow_cset_desc.cd = (iconv_t) -1;
+  
+!   retval = cpp_interpret_string (pfile, from, count, to, wide);
+  
+    pfile->narrow_cset_desc = save_narrow_cset_desc;
+    return retval;
+--- 1413,1419 ----
+    pfile->narrow_cset_desc.func = convert_no_conversion;
+    pfile->narrow_cset_desc.cd = (iconv_t) -1;
+  
+!   retval = cpp_interpret_string (pfile, from, count, to, CPP_STRING);
+  
+    pfile->narrow_cset_desc = save_narrow_cset_desc;
+    return retval;
+*************** narrow_str_to_charconst (cpp_reader *pfi
+*** 1462,1474 ****
+  /* Subroutine of cpp_interpret_charconst which performs the conversion
+     to a number, for wide strings.  STR is the string structure returned
+     by cpp_interpret_string.  PCHARS_SEEN and UNSIGNEDP are as for
+!    cpp_interpret_charconst.  */
+  static cppchar_t
+  wide_str_to_charconst (cpp_reader *pfile, cpp_string str,
+! 		       unsigned int *pchars_seen, int *unsignedp)
+  {
+    bool bigend = CPP_OPTION (pfile, bytes_big_endian);
+!   size_t width = CPP_OPTION (pfile, wchar_precision);
+    size_t cwidth = CPP_OPTION (pfile, char_precision);
+    size_t mask = width_to_mask (width);
+    size_t cmask = width_to_mask (cwidth);
+--- 1492,1505 ----
+  /* Subroutine of cpp_interpret_charconst which performs the conversion
+     to a number, for wide strings.  STR is the string structure returned
+     by cpp_interpret_string.  PCHARS_SEEN and UNSIGNEDP are as for
+!    cpp_interpret_charconst.  TYPE is the token type.  */
+  static cppchar_t
+  wide_str_to_charconst (cpp_reader *pfile, cpp_string str,
+! 		       unsigned int *pchars_seen, int *unsignedp,
+! 		       enum cpp_ttype type)
+  {
+    bool bigend = CPP_OPTION (pfile, bytes_big_endian);
+!   size_t width = converter_for_type (pfile, type).width;
+    size_t cwidth = CPP_OPTION (pfile, char_precision);
+    size_t mask = width_to_mask (width);
+    size_t cmask = width_to_mask (cwidth);
+*************** wide_str_to_charconst (cpp_reader *pfile
+*** 1490,1496 ****
+    /* Wide character constants have type wchar_t, and a single
+       character exactly fills a wchar_t, so a multi-character wide
+       character constant is guaranteed to overflow.  */
+!   if (off > 0)
+      cpp_error (pfile, CPP_DL_WARNING,
+  	       "character constant too long for its type");
+  
+--- 1521,1527 ----
+    /* Wide character constants have type wchar_t, and a single
+       character exactly fills a wchar_t, so a multi-character wide
+       character constant is guaranteed to overflow.  */
+!   if (str.len > nbwc * 2)
+      cpp_error (pfile, CPP_DL_WARNING,
+  	       "character constant too long for its type");
+  
+*************** wide_str_to_charconst (cpp_reader *pfile
+*** 1498,1510 ****
+       sign- or zero-extend to the full width of cppchar_t.  */
+    if (width < BITS_PER_CPPCHAR_T)
+      {
+!       if (CPP_OPTION (pfile, unsigned_wchar) || !(result & (1 << (width - 1))))
+  	result &= mask;
+        else
+  	result |= ~mask;
+      }
+  
+!   *unsignedp = CPP_OPTION (pfile, unsigned_wchar);
+    *pchars_seen = 1;
+    return result;
+  }
+--- 1529,1548 ----
+       sign- or zero-extend to the full width of cppchar_t.  */
+    if (width < BITS_PER_CPPCHAR_T)
+      {
+!       if (type == CPP_CHAR16 || type == CPP_CHAR32
+! 	  || CPP_OPTION (pfile, unsigned_wchar)
+! 	  || !(result & (1 << (width - 1))))
+  	result &= mask;
+        else
+  	result |= ~mask;
+      }
+  
+!   if (type == CPP_CHAR16 || type == CPP_CHAR32
+!       || CPP_OPTION (pfile, unsigned_wchar))
+!     *unsignedp = 1;
+!   else
+!     *unsignedp = 0;
+! 
+    *pchars_seen = 1;
+    return result;
+  }
+*************** cpp_interpret_charconst (cpp_reader *pfi
+*** 1518,1537 ****
+  			 unsigned int *pchars_seen, int *unsignedp)
+  {
+    cpp_string str = { 0, 0 };
+!   bool wide = (token->type == CPP_WCHAR);
+    cppchar_t result;
+  
+!   /* an empty constant will appear as L'' or '' */
+    if (token->val.str.len == (size_t) (2 + wide))
+      {
+        cpp_error (pfile, CPP_DL_ERROR, "empty character constant");
+        return 0;
+      }
+!   else if (!cpp_interpret_string (pfile, &token->val.str, 1, &str, wide))
+      return 0;
+  
+    if (wide)
+!     result = wide_str_to_charconst (pfile, str, pchars_seen, unsignedp);
+    else
+      result = narrow_str_to_charconst (pfile, str, pchars_seen, unsignedp);
+  
+--- 1556,1576 ----
+  			 unsigned int *pchars_seen, int *unsignedp)
+  {
+    cpp_string str = { 0, 0 };
+!   bool wide = (token->type != CPP_CHAR);
+    cppchar_t result;
+  
+!   /* an empty constant will appear as L'', u'', U'' or '' */
+    if (token->val.str.len == (size_t) (2 + wide))
+      {
+        cpp_error (pfile, CPP_DL_ERROR, "empty character constant");
+        return 0;
+      }
+!   else if (!cpp_interpret_string (pfile, &token->val.str, 1, &str, token->type))
+      return 0;
+  
+    if (wide)
+!     result = wide_str_to_charconst (pfile, str, pchars_seen, unsignedp,
+! 				    token->type);
+    else
+      result = narrow_str_to_charconst (pfile, str, pchars_seen, unsignedp);
+  

@@ -1,0 +1,43 @@
+2008-04-12  Andrew Pinski  <pinskia@gmail.com>
+
+       * config/rs6000/rs6000.c (compute_save_world_info): Set lr_save_p if
+       we are going to "save the world".
+
+
+Index: gcc/testsuite/gcc.target/powerpc/darwin-save-world-1.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/powerpc/darwin-save-world-1.c	2008-09-10 17:37:44.000000000 -0300
+@@ -0,0 +1,18 @@
++/* { dg-do run { target powerpc*-*-* } } */
++/* { dg-require-effective-target powerpc_altivec_ok } */
++/* { dg-options "-maltivec" } */
++
++/* With altivec turned on, Darwin wants to save the world but we did not mark lr as being saved any more
++   as saving the lr is not needed for saving altivec registers.  */
++
++int main (void)
++{
++  __label__ l1;
++  void __attribute__((used)) q(void)
++  {
++    goto l1;
++  }
++
++  l1:;
++  return 0;
++}
+Index: gcc/config/rs6000/rs6000.c
+===================================================================
+--- gcc.orig/config/rs6000/rs6000.c	2008-09-10 17:37:37.000000000 -0300
++++ gcc/config/rs6000/rs6000.c	2008-09-10 17:37:44.000000000 -0300
+@@ -14212,6 +14212,9 @@
+ 	 will attempt to save it. */
+       info_ptr->vrsave_size  = 4;
+ 
++      /* If we are going to save the world, we need to save the link register too.  */
++      info_ptr->lr_save_p = 1;
++
+       /* "Save" the VRsave register too if we're saving the world.  */
+       if (info_ptr->vrsave_mask == 0)
+ 	info_ptr->vrsave_mask = compute_vrsave_mask ();

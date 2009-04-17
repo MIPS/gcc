@@ -1,0 +1,374 @@
+Index: gcc/recog.c
+===================================================================
+*** gcc/recog.c	(revision 139857)
+--- gcc/recog.c	(working copy)
+*************** num_changes_pending (void)
+*** 341,346 ****
+--- 341,374 ----
+    return num_changes;
+  }
+  
++ /* If we want to preserve arguments to inlined functions we need
++    to preserve some asm operands.  We know we changed OLD into NEW
++    in an asm instruction.  Return 1 if this wasn't okay, 0 otherwise.  */
++ static int
++ invalid_asm_change (rtx old, rtx new)
++ {
++   tree e1, e2;
++   /* It is invalid to change a REG which had an associated decl expression,
++      with something which has a different expression.  It's okay, though,
++      to change a REG with no expression to some other.  */
++   if (GET_CODE (old) == SUBREG)
++     old = SUBREG_REG (old);
++   if (GET_CODE (new) == SUBREG)
++     new = SUBREG_REG (new);
++   /* If we replaced something else than a REG or MEM, it's okay.  */
++   if (!REG_P (old) && !MEM_P (old))
++     return 0;
++   /* If we replaced a REG or MEM with something else, we are going
++      to loose that information.  */
++   if (!REG_P (new) && !MEM_P (new))
++     return 1;
++   e1 = REG_P (old) ? REG_EXPR (old) : MEM_EXPR (old);
++   if (!e1)
++     return 0;
++   e2 = REG_P (new) ? REG_EXPR (new) : MEM_EXPR (new);
++   return e1 != e2;
++ }
++ 
+  /* Tentatively apply the changes numbered NUM and up.
+     Return 1 if all changes are valid, zero otherwise.  */
+  
+*************** verify_changes (int num)
+*** 373,378 ****
+--- 401,410 ----
+  	  if (! memory_address_p (GET_MODE (object), XEXP (object, 0)))
+  	    break;
+  	}
++       else if (flag_preserve_function_arguments
++ 	       && asm_noperands (PATTERN (object)) >= 0
++ 	       && invalid_asm_change (changes[i].old, *changes[i].loc))
++ 	break;
+        else if (insn_invalid_p (object))
+  	{
+  	  rtx pat = PATTERN (object);
+Index: gcc/gimplify.c
+===================================================================
+*** gcc/gimplify.c	(revision 139857)
+--- gcc/gimplify.c	(working copy)
+*************** gimplify_body (tree *body_p, tree fndecl
+*** 6476,6481 ****
+--- 6476,6482 ----
+  {
+    location_t saved_location = input_location;
+    tree body, parm_stmts;
++   bool empty_p;
+  
+    timevar_push (TV_TREE_GIMPLIFY);
+  
+*************** gimplify_body (tree *body_p, tree fndecl
+*** 6519,6524 ****
+--- 6520,6527 ----
+        body = b;
+      }
+  
++   empty_p = STATEMENT_LIST_HEAD (BIND_EXPR_BODY (body)) == NULL;
++ 
+    /* If we had callee-copies statements, insert them at the beginning
+       of the function.  */
+    if (parm_stmts)
+*************** gimplify_body (tree *body_p, tree fndecl
+*** 6527,6532 ****
+--- 6530,6586 ----
+        BIND_EXPR_BODY (body) = parm_stmts;
+      }
+  
++   /* If we want to forcibly preserve function argument values, do so here.  */
++   if (flag_preserve_function_arguments
++       && !empty_p)
++     {
++       char s[1024] = "# ";
++       tree asmt, parm, inputs = NULL_TREE, stmts = NULL_TREE;
++       bool mem_p = false;
++       int i = 0;
++ 
++       sprintf (s + strlen(s), "%s ", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
++ 
++       for (parm = DECL_ARGUMENTS (fndecl); parm ; parm = TREE_CHAIN (parm))
++ 	{
++ 	  tree pt = parm;
++ 	  tree type = TREE_TYPE (parm);
++ 	  /* Maybe build a fancy memory operand here.  For now just use
++ 	     a pointer input and let the operand scanner deal with the rest.  */
++ 	  if (TYPE_MODE (type) == BLKmode)
++ 	    {
++ 	      pt = build_fold_addr_expr (parm);
++ 	      type = TREE_TYPE (pt);
++ 	    }
++ 	  if (POINTER_TYPE_P (type))
++ 	    mem_p = true;
++ 	  sprintf (s + strlen(s), "%%%i ", i++);
++ 	  inputs = tree_cons (tree_cons (NULL_TREE, build_string (1, "g"),
++ 					 NULL_TREE), pt, inputs);
++ 	}
++ 
++       if (i != 0)
++ 	{
++ 	  /* While on the tree level we can do w/o explicit "memory"
++ 	     clobbering because we tweak the operand scanner, on RTL level
++ 	     we need it.  */
++ 	  tree clobbers = NULL_TREE;
++ 	  if (mem_p)
++ 	    clobbers = tree_cons (NULL_TREE, build_string (6, "memory"),
++ 				  NULL_TREE);
++ 	  asmt = build4 (ASM_EXPR, void_type_node,
++ 			 build_string (strlen (s), s),
++ 			 NULL_TREE,  /* no outputs */
++ 			 inputs, clobbers);
++ 	  ASM_VOLATILE_P (asmt) = 1;
++ 	  TREE_READONLY (asmt) = 1;
++ 	  gimplify_and_add (asmt, &stmts);
++ 
++ 	  append_to_statement_list_force (BIND_EXPR_BODY (body), &stmts);
++ 	  BIND_EXPR_BODY (body) = stmts;
++ 	}
++     }
++ 
+    /* Unshare again, in case gimplification was sloppy.  */
+    unshare_all_trees (body);
+  
+Index: gcc/common.opt
+===================================================================
+*** gcc/common.opt	(revision 139857)
+--- gcc/common.opt	(working copy)
+*************** fdse
+*** 705,710 ****
+--- 705,714 ----
+  Common Var(flag_dse) Init(1) Optimization
+  Use the RTL dead store elimination pass
+  
++ fpreserve-function-arguments
++ Common Report Var(flag_preserve_function_arguments)
++ Preserve function argument values for debugging
++ 
+  freschedule-modulo-scheduled-loops
+  Common Report Var(flag_resched_modulo_sched) Optimization
+  Enable/Disable the traditional scheduling in loops that already passed modulo scheduling
+Index: gcc/tree-inline.c
+===================================================================
+*** gcc/tree-inline.c	(revision 139857)
+--- gcc/tree-inline.c	(working copy)
+*************** setup_one_parameter (copy_body_data *id,
+*** 1552,1558 ****
+    if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
+        && (TREE_CODE (rhs) == SSA_NAME
+  	  || is_gimple_min_invariant (rhs))
+!       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
+      {
+        insert_decl_map (id, def, rhs);
+        return;
+--- 1552,1559 ----
+    if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
+        && (TREE_CODE (rhs) == SSA_NAME
+  	  || is_gimple_min_invariant (rhs))
+!       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
+!       && !flag_preserve_function_arguments)
+      {
+        insert_decl_map (id, def, rhs);
+        return;
+Index: gcc/combine.c
+===================================================================
+*** gcc/combine.c	(revision 139857)
+--- gcc/combine.c	(working copy)
+*************** can_combine_p (rtx insn, rtx i3, rtx pre
+*** 1711,1717 ****
+  	 and it is a pain to update that information.
+  	 Exception: if source is a constant, moving it later can't hurt.
+  	 Accept that as a special case.  */
+!       || (DF_INSN_LUID (insn) < last_call_luid && ! CONSTANT_P (src)))
+      return 0;
+  
+    /* DEST must either be a REG or CC0.  */
+--- 1711,1724 ----
+  	 and it is a pain to update that information.
+  	 Exception: if source is a constant, moving it later can't hurt.
+  	 Accept that as a special case.  */
+!       || (DF_INSN_LUID (insn) < last_call_luid && ! CONSTANT_P (src))
+!       || (flag_preserve_function_arguments
+! 	  && REG_P (dest)
+! 	  && REG_P (src)
+! 	  && GET_CODE (PATTERN (i3)) == PARALLEL
+! 	  && GET_CODE (XVECEXP (PATTERN (i3), 0, 0)) == ASM_OPERANDS
+! 	  && REG_USERVAR_P (dest)
+! 	  && REG_EXPR (dest) != REG_EXPR (src)))
+      return 0;
+  
+    /* DEST must either be a REG or CC0.  */
+Index: gcc/tree-ssa-operands.c
+===================================================================
+*** gcc/tree-ssa-operands.c	(revision 139857)
+--- gcc/tree-ssa-operands.c	(working copy)
+*************** static struct
+*** 103,109 ****
+    unsigned int static_readonly_clobbers_avoided;
+  } clobber_stats;
+  
+- 
+  /* Flags to describe operand properties in helpers.  */
+  
+  /* By default, operands are loaded.  */
+--- 103,108 ----
+*************** static struct
+*** 126,131 ****
+--- 125,133 ----
+     clobbering sites like function calls or ASM_EXPRs.  */
+  #define opf_implicit	(1 << 2)
+  
++ /* Hack to mark all SSA_NAME uses in asms as abnormal.  */
++ #define opf_mark_abnormal (1 << 4)
++ 
+  /* Array for building all the def operands.  */
+  static VEC(tree,heap) *build_defs;
+  
+*************** add_stmt_operand (tree *var_p, stmt_ann_
+*** 1601,1606 ****
+--- 1603,1612 ----
+  	append_def (var_p);
+        else
+  	append_use (var_p);
++ 
++       if (flags & opf_mark_abnormal
++ 	  && TREE_CODE (var) == SSA_NAME)
++ 	SSA_NAME_OCCURS_IN_ABNORMAL_PHI (var) = true;
+      }
+    else
+      add_virtual_operand (var, s_ann, flags, NULL_TREE, 0, -1, false);
+*************** get_asm_expr_operands (tree stmt)
+*** 1955,1961 ****
+    int i, noutputs;
+    const char **oconstraints;
+    const char *constraint;
+!   bool allows_mem, allows_reg, is_inout;
+    tree link;
+  
+    s_ann = stmt_ann (stmt);
+--- 1961,1967 ----
+    int i, noutputs;
+    const char **oconstraints;
+    const char *constraint;
+!   bool allows_mem, allows_reg, is_inout, memory_p;
+    tree link;
+  
+    s_ann = stmt_ann (stmt);
+*************** get_asm_expr_operands (tree stmt)
+*** 1985,2010 ****
+        get_expr_operands (stmt, &TREE_VALUE (link), opf_def);
+      }
+  
+-   /* Gather all input operands.  */
+-   for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+-     {
+-       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+-       parse_input_constraint (&constraint, 0, 0, noutputs, 0, oconstraints,
+- 	                      &allows_mem, &allows_reg);
+- 
+-       /* Memory operands are addressable.  Note that STMT needs the
+- 	 address of this operand.  */
+-       if (!allows_reg && allows_mem)
+- 	{
+- 	  tree t = get_base_address (TREE_VALUE (link));
+- 	  if (t && DECL_P (t) && s_ann)
+- 	    add_to_addressable_set (t, &s_ann->addresses_taken);
+- 	}
+- 
+-       get_expr_operands (stmt, &TREE_VALUE (link), 0);
+-     }
+- 
+    /* Clobber all memory and addressable symbols for asm ("" : : : "memory");  */
+    for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
+      if (strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory") == 0)
+        {
+--- 1991,1998 ----
+        get_expr_operands (stmt, &TREE_VALUE (link), opf_def);
+      }
+  
+    /* Clobber all memory and addressable symbols for asm ("" : : : "memory");  */
++   memory_p = false;
+    for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
+      if (strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory") == 0)
+        {
+*************** get_asm_expr_operands (tree stmt)
+*** 2012,2017 ****
+--- 2000,2010 ----
+  	bitmap_iterator bi;
+  
+  	s_ann->references_memory = true;
++ 	if (TREE_READONLY (stmt))
++ 	  {
++ 	    memory_p = true;
++ 	    break;
++ 	  }
+  
+  	EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
+  	  {
+*************** get_asm_expr_operands (tree stmt)
+*** 2036,2041 ****
+--- 2029,2086 ----
+  	  }
+  	break;
+        }
++ 
++   /* Gather all input operands.  */
++   for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
++     {
++       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
++       parse_input_constraint (&constraint, 0, 0, noutputs, 0, oconstraints,
++ 			      &allows_mem, &allows_reg);
++ 
++       /* Memory operands are addressable.  Note that STMT needs the
++ 	 address of this operand.  */
++       if (!allows_reg && allows_mem)
++ 	{
++ 	  tree t = get_base_address (TREE_VALUE (link));
++ 	  if (t && DECL_P (t) && s_ann)
++ 	    add_to_addressable_set (t, &s_ann->addresses_taken);
++ 	}
++ 
++       get_expr_operands (stmt, &TREE_VALUE (link), opf_mark_abnormal);
++ 
++       /* Read-only memory.  Copied from get_indirect_ref_operands.  */
++       if (memory_p
++ 	  && POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (link)))
++ 	  && SSA_VAR_P (TREE_VALUE (link)))
++ 	{
++ 	  tree ptr = TREE_VALUE (link);
++ 	  int flags = 0;
++ 	  struct ptr_info_def *pi = NULL;
++ 
++ 	  /* If PTR has flow-sensitive points-to information, use it.  */
++ 	  if (TREE_CODE (ptr) == SSA_NAME
++ 	      && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
++ 	      && pi->name_mem_tag)
++ 	    {
++ 	      /* PTR has its own memory tag.  Use it.  */
++ 	      add_virtual_operand (pi->name_mem_tag, s_ann, flags,
++ 				   NULL_TREE, 0, -1, false);
++ 	    }
++ 	  else
++ 	    {
++ 	      /* If PTR is not an SSA_NAME or it doesn't have a name
++ 		 tag, use its type memory tag.  */
++ 	      var_ann_t v_ann;
++ 
++ 	      if (TREE_CODE (ptr) == SSA_NAME)
++ 		ptr = SSA_NAME_VAR (ptr);
++ 	      v_ann = var_ann (ptr);
++ 	      if (v_ann->symbol_mem_tag)
++ 		add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
++ 				     NULL_TREE, 0, -1, false);
++ 	    }
++ 	}
++     }
+  }
+  
+  

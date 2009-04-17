@@ -2668,6 +2668,12 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   if (!cgraph_inline_p (cg_edge, &reason))
     {
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn))
+	  /* For extern inline functions that get redefined we always
+	     silently ignored alway_inline flag.  Better behaviour would
+	     be to be able to keep both bodies and use extern inline body
+	     for inlining, but we can't do that because frontends overwrite
+	     the body.  */
+	  && !cg_edge->callee->local.redefined_extern_inline
 	  /* Avoid warnings during early inline pass. */
 	  && (!flag_unit_at_a_time || cgraph_global_info_ready))
 	{

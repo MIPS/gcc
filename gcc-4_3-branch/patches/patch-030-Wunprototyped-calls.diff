@@ -1,0 +1,108 @@
+Index: gcc/c.opt
+===================================================================
+*** gcc/c.opt	(revision 131759)
+--- gcc/c.opt	(working copy)
+*************** Wunknown-pragmas
+*** 457,462 ****
+--- 457,466 ----
+  C ObjC C++ ObjC++ Warning
+  Warn about unrecognized pragmas
+  
++ Wunprototyped-calls
++ C Var(warn_unprototyped_calls) Warning
++ Warn about calls to unprototyped functions with at least one argument
++ 
+  Wunused-macros
+  C ObjC C++ ObjC++ Warning
+  Warn about macros defined in the main file that are not used
+Index: gcc/c-opts.c
+===================================================================
+*** gcc/c-opts.c	(revision 131759)
+--- gcc/c-opts.c	(working copy)
+*************** c_common_handle_option (size_t scode, co
+*** 419,427 ****
+  	warn_uninitialized = (value ? 2 : 0);
+  
+        if (!c_dialect_cxx ())
+! 	/* We set this to 2 here, but 1 in -Wmain, so -ffreestanding
+! 	   can turn it off only if it's not explicit.  */
+! 	warn_main = value * 2;
+        else
+  	{
+  	  /* C++-specific warnings.  */
+--- 419,430 ----
+  	warn_uninitialized = (value ? 2 : 0);
+  
+        if (!c_dialect_cxx ())
+! 	{
+! 	  /* We set this to 2 here, but 1 in -Wmain, so -ffreestanding
+! 	     can turn it off only if it's not explicit.  */
+! 	  warn_main = value * 2;
+! 	  warn_unprototyped_calls = 1;
+! 	}
+        else
+  	{
+  	  /* C++-specific warnings.  */
+Index: gcc/testsuite/gcc.dg/cleanup-1.c
+===================================================================
+*** gcc/testsuite/gcc.dg/cleanup-1.c	(revision 131821)
+--- gcc/testsuite/gcc.dg/cleanup-1.c	(working copy)
+***************
+*** 6,12 ****
+  #define C(x)	__attribute__((cleanup(x)))
+  
+  static int f1(void *x U) { return 0; }
+! static void f2() { }
+  static void f3(void) { }
+  static void f4(void *x U) { }
+  static void f5(int *x U) { }
+--- 6,12 ----
+  #define C(x)	__attribute__((cleanup(x)))
+  
+  static int f1(void *x U) { return 0; }
+! static void f2() { }	/* { dg-message "declared here" "" } */
+  static void f3(void) { }
+  static void f4(void *x U) { }
+  static void f5(int *x U) { }
+*************** static void f9(int x U) { }
+*** 18,24 ****
+  void test(void)
+  {
+    int o1 C(f1);
+!   int o2 C(f2);
+    int o3 C(f3);		/* { dg-error "too many arguments" } */
+    int o4 C(f4);
+    int o5 C(f5);
+--- 18,24 ----
+  void test(void)
+  {
+    int o1 C(f1);
+!   int o2 C(f2);		/* { dg-warning "without a real prototype" } */
+    int o3 C(f3);		/* { dg-error "too many arguments" } */
+    int o4 C(f4);
+    int o5 C(f5);
+Index: gcc/c-typeck.c
+===================================================================
+*** gcc/c-typeck.c	(revision 133807)
+--- gcc/c-typeck.c	(working copy)
+*************** build_function_call (tree function, tree
+*** 2444,2449 ****
+--- 2444,2461 ----
+    if (nargs < 0)
+      return error_mark_node;
+  
++   /* If we cannot check function arguments because a prototype is
++      missing for the callee, warn here.  */
++   if (warn_unprototyped_calls
++       && nargs > 0 && !TYPE_ARG_TYPES (fntype)
++       && fundecl && !DECL_BUILT_IN (fundecl) && !C_DECL_IMPLICIT (fundecl)
++       && !DECL_ARGUMENTS (fundecl))
++     {
++       warning (OPT_Wunprototyped_calls,
++ 	       "call to function %qD without a real prototype", fundecl);
++       inform ("%J%qD was declared here", fundecl, fundecl);
++     }
++ 
+    /* Check that the arguments to the function are valid.  */
+  
+    check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,

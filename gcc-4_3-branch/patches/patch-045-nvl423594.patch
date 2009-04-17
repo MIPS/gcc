@@ -1,0 +1,63 @@
+--- /space/rguenther/src/svn/gcc-4_3-branch/gcc/tree-gimple.h	2008-02-19 10:55:59.000000000 +0100
++++ gcc/tree-gimple.h	2008-09-15 12:10:46.000000000 +0200
+@@ -119,6 +119,7 @@
+ extern void push_gimplify_context (void);
+ extern void pop_gimplify_context (tree);
+ extern void gimplify_and_add (tree, tree *);
++extern void force_gimplify_and_add (tree, tree *);
+ 
+ /* Miscellaneous helpers.  */
+ extern void gimple_add_tmp_var (tree);
+--- /space/rguenther/src/svn/gcc-4_3-branch/gcc/gimplify.c	2008-09-04 16:09:13.000000000 +0200
++++ gcc/gimplify.c	2008-09-15 12:58:13.000000000 +0200
+@@ -6695,4 +6749,20 @@
+   return expr;
+ }
+ 
++void
++force_gimplify_and_add (tree stmt, tree *list)
++{
++  tree t;
++  push_gimplify_context ();
++  gimplify_ctxp->into_ssa = gimple_in_ssa_p (cfun);
++  gimplify_ctxp->allow_rhs_cond_expr = true;
++  gimplify_and_add (stmt, list);
++  if (gimple_referenced_vars (cfun))
++    {
++      for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
++	add_referenced_var (t);
++    }
++  pop_gimplify_context (NULL);
++}
++
+ #include "gt-gimplify.h"
+--- /space/rguenther/src/svn/gcc-4_3-branch/gcc/tree-sra.c	2008-02-19 10:56:00.000000000 +0100
++++ gcc/tree-sra.c	2008-09-15 12:10:55.000000000 +0200
+@@ -2186,7 +2186,7 @@
+ 	    stmt = build_gimple_modify_stmt (stmp,
+ 					     fold_build1 (VIEW_CONVERT_EXPR,
+ 							  stype, var));
+-	  append_to_statement_list (stmt, &list);
++	  force_gimplify_and_add (stmt, &list);
+ 	  var = stmp;
+ 	}
+ 
+--- /dev/null	2008-06-06 22:36:48.000000000 +0200
++++ gcc/testsuite/gcc.c-torture/compile/nvl423594.c	2008-09-15 13:05:25.000000000 +0200
+@@ -0,0 +1,16 @@
++void Deactivate(void);
++typedef struct {
++    char ctype;
++    char action;
++    short options;
++} pwdStatus_t;
++void getCredentials(char *buffer)
++{
++    pwdStatus_t SessionSt;
++    int pst = 0;
++    __builtin_memset(&SessionSt,0,sizeof(SessionSt));
++    __builtin_memcpy(&pst,buffer,sizeof(pwdStatus_t));
++    __builtin_memcpy(&SessionSt, &pst, sizeof(pwdStatus_t));
++    Deactivate();
++}
++

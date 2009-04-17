@@ -6,7 +6,8 @@
 SHLIB_LC = -lunwind -lc
 LIB2ADDEH = $(srcdir)/unwind-sjlj.c $(srcdir)/unwind-c.c \
   $(srcdir)/unwind-compat.c $(srcdir)/unwind-dw2-fde-compat.c
-LIB2ADDEHSTATIC = $(srcdir)/unwind-sjlj.c $(srcdir)/unwind-c.c
+LIB2ADDEHSTATIC = $(srcdir)/unwind-sjlj.c $(srcdir)/unwind-c.c \
+  $(srcdir)/unwind-compat.c
 
 T_CFLAGS += -DUSE_LIBUNWIND_EXCEPTIONS
 TARGET_LIBGCC2_CFLAGS += -DUSE_GAS_SYMVER

@@ -772,7 +772,7 @@ procedure GNATCmd is
       Name : Path_Name_Type;
       --  Path of the file FD
 
-      GN_Name : constant String := Program_Name ("gnatmake").all;
+      GN_Name : constant String := Program_Name ("gnatmake", "gnat").all;
       --  Name for gnatmake
 
       GN_Path : constant String_Access := Locate_Exec_On_Path (GN_Name);
@@ -1532,7 +1532,7 @@ begin
 
    declare
       Program : constant String :=
-                  Program_Name (Command_List (The_Command).Unixcmd.all).all;
+        Program_Name (Command_List (The_Command).Unixcmd.all, "gnat").all;
 
       Exec_Path : String_Access;
 

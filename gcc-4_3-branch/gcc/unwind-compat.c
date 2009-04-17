@@ -35,6 +35,7 @@
 #include "unwind-dw2-fde.h"
 #include "unwind-compat.h"
 
+#ifdef SHARED
 extern _Unwind_Reason_Code __libunwind_Unwind_Backtrace
   (_Unwind_Trace_Fn, void *);
 
@@ -136,13 +137,6 @@ _Unwind_GetIP (struct _Unwind_Context *context)
 }
 symver (_Unwind_GetIP, GCC_3.0);
 
-_Unwind_Ptr
-_Unwind_GetIPInfo (struct _Unwind_Context *context, int *ip_before_insn)
-{
-  *ip_before_insn = 0;
-  return __libunwind_Unwind_GetIP (context);
-}
-
 extern void *__libunwind_Unwind_GetLanguageSpecificData
   (struct _Unwind_Context *);
 
@@ -212,4 +206,14 @@ _Unwind_SetIP (struct _Unwind_Context *context, _Unwind_Ptr val)
   return __libunwind_Unwind_SetIP (context, val);
 }
 symver (_Unwind_SetIP, GCC_3.0);
+#endif /* SHARED */
+
+extern _Unwind_Ptr __libunwind_Unwind_GetIP (struct _Unwind_Context *);
+
+_Unwind_Ptr
+_Unwind_GetIPInfo (struct _Unwind_Context *context, int *ip_before_insn)
+{
+  *ip_before_insn = 0;
+  return __libunwind_Unwind_GetIP (context);
+}
 #endif

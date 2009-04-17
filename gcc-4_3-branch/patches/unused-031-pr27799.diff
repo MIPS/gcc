@@ -1,0 +1,383 @@
+2008-04-17  Richard Guenther  <rguenther@suse.de>
+
+	* alias.c (alias_set_subset_of): Correctly handle asking
+	if zero is a subset of an alias set with zero child.
+	* tree-ssa-alias.c (have_common_aliases_p): Simplify logic.
+	(compute_flow_insensitive_aliasing): Correctly walk all
+	pointers.  Do not unnecessarily union sets.
+
+Index: gcc/alias.c
+===================================================================
+*** gcc/alias.c	(revision 134383)
+--- gcc/alias.c	(working copy)
+*************** alias_set_subset_of (alias_set_type set1
+*** 305,312 ****
+    /* Otherwise, check if set1 is a subset of set2.  */
+    ase = get_alias_set_entry (set2);
+    if (ase != 0
+!       && (splay_tree_lookup (ase->children,
+! 			     (splay_tree_key) set1)))
+      return true;
+    return false;
+  }
+--- 305,313 ----
+    /* Otherwise, check if set1 is a subset of set2.  */
+    ase = get_alias_set_entry (set2);
+    if (ase != 0
+!       && ((ase->has_zero_child && set1 == 0)
+! 	  || splay_tree_lookup (ase->children,
+! 			        (splay_tree_key) set1)))
+      return true;
+    return false;
+  }
+Index: gcc/tree-ssa-alias.c
+===================================================================
+*** gcc/tree-ssa-alias.c	(revision 134383)
+--- gcc/tree-ssa-alias.c	(working copy)
+*************** have_common_aliases_p (bitmap tag1aliase
+*** 2390,2398 ****
+    /* This is the old behavior of have_common_aliases_p, which is to
+       return false if both sets are empty, or one set is and the other
+       isn't.  */
+!      if ((tag1aliases == NULL && tag2aliases != NULL)
+!       || (tag2aliases == NULL && tag1aliases != NULL)
+!       || (tag1aliases == NULL && tag2aliases == NULL))
+      return false;
+  
+    return bitmap_intersect_p (tag1aliases, tag2aliases);
+--- 2390,2396 ----
+    /* This is the old behavior of have_common_aliases_p, which is to
+       return false if both sets are empty, or one set is and the other
+       isn't.  */
+!   if (tag1aliases == NULL || tag2aliases == NULL)
+      return false;
+  
+    return bitmap_intersect_p (tag1aliases, tag2aliases);
+*************** compute_flow_insensitive_aliasing (struc
+*** 2490,2501 ****
+        if (PTR_IS_REF_ALL (p_map1->var))
+  	continue;
+  
+!       for (j = i + 1; j < ai->num_pointers; j++)
+  	{
+  	  struct alias_map_d *p_map2 = ai->pointers[j];
+  	  tree tag2 = symbol_mem_tag (p_map2->var);
+  	  bitmap may_aliases2 = may_aliases (tag2);
+  
+  	  if (PTR_IS_REF_ALL (p_map2->var))
+  	    continue;
+  
+--- 2488,2503 ----
+        if (PTR_IS_REF_ALL (p_map1->var))
+  	continue;
+  
+!       for (j = 0; j < ai->num_pointers; j++)
+  	{
+  	  struct alias_map_d *p_map2 = ai->pointers[j];
+  	  tree tag2 = symbol_mem_tag (p_map2->var);
+  	  bitmap may_aliases2 = may_aliases (tag2);
+  
++ 	  /* By convention tags don't alias themselves.  */
++ 	  if (tag1 == tag2)
++ 	    continue;
++ 
+  	  if (PTR_IS_REF_ALL (p_map2->var))
+  	    continue;
+  
+*************** compute_flow_insensitive_aliasing (struc
+*** 2508,2525 ****
+  	  if (have_common_aliases_p (may_aliases1, may_aliases2))
+  	    continue;
+  
+! 	  if (may_aliases2 && !bitmap_empty_p (may_aliases2))
+! 	    {
+! 	      union_alias_set_into (tag1, may_aliases2);
+! 	    }
+! 	  else
+! 	    {
+! 	      /* Since TAG2 does not have any aliases of its own, add
+! 		 TAG2 itself to the alias set of TAG1.  */
+! 	      add_may_alias (tag1, tag2);
+! 	    }
+  	}
+- 
+      }
+    timevar_pop (TV_FLOW_INSENSITIVE);
+  }
+--- 2510,2517 ----
+  	  if (have_common_aliases_p (may_aliases1, may_aliases2))
+  	    continue;
+  
+! 	  add_may_alias (tag1, tag2);
+  	}
+      }
+    timevar_pop (TV_FLOW_INSENSITIVE);
+  }
+
+
+
+2008-04-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27799
+	PR tree-optimization/32921
+	PR tree-optimization/32624
+	* tree-ssa-structalias.c (merge_smts_into): Only merge the
+	SMTs aliases and the tag itself into the solution.
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): Do not
+	merge the points-to solution back into the SMT aliases.
+	(may_alias_p): Use alias_set_subset_of instead of
+	aliases_conflict_p.  A pointer which points to
+	memory with alias set zero may access any variable.
+
+	* gcc.dg/tree-ssa/pr27799.c: New testcase.
+	* gcc.dg/tree-ssa/20030807-7.c: Remove xfail, scan vrp dump.
+
+Index: gcc/tree-ssa-structalias.c
+===================================================================
+*** gcc/tree-ssa-structalias.c.orig	2008-04-18 12:54:26.000000000 +0200
+--- gcc/tree-ssa-structalias.c	2008-04-18 12:54:31.000000000 +0200
+*************** set_used_smts (void)
+*** 4862,4869 ****
+  static void
+  merge_smts_into (tree p, bitmap solution)
+  {
+-   unsigned int i;
+-   bitmap_iterator bi;
+    tree smt;
+    bitmap aliases;
+    tree var = p;
+--- 4862,4867 ----
+*************** merge_smts_into (tree p, bitmap solution
+*** 4874,4893 ****
+    smt = var_ann (var)->symbol_mem_tag;
+    if (smt)
+      {
+!       alias_set_type smtset = get_alias_set (TREE_TYPE (smt));
+! 
+!       /* Need to set the SMT subsets first before this
+! 	 will work properly.  */
+        bitmap_set_bit (solution, DECL_UID (smt));
+-       EXECUTE_IF_SET_IN_BITMAP (used_smts, 0, i, bi)
+- 	{
+- 	  tree newsmt = referenced_var (i);
+- 	  tree newsmttype = TREE_TYPE (newsmt);
+- 
+- 	  if (alias_set_subset_of (get_alias_set (newsmttype),
+- 				   smtset))
+- 	    bitmap_set_bit (solution, i);
+- 	}
+  
+        aliases = MTAG_ALIASES (smt);
+        if (aliases)
+--- 4872,4879 ----
+    smt = var_ann (var)->symbol_mem_tag;
+    if (smt)
+      {
+!       /* The smt itself isn't included in its aliases.  */
+        bitmap_set_bit (solution, DECL_UID (smt));
+  
+        aliases = MTAG_ALIASES (smt);
+        if (aliases)
+Index: gcc/tree-ssa-alias.c
+===================================================================
+*** gcc/tree-ssa-alias.c.orig	2008-04-18 12:54:26.000000000 +0200
+--- gcc/tree-ssa-alias.c	2008-04-21 11:12:13.000000000 +0200
+*************** compute_flow_sensitive_aliasing (struct 
+*** 2354,2360 ****
+    for (i = 0; VEC_iterate (tree, ai->processed_ptrs, i, ptr); i++)
+      {
+        struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+-       tree tag = symbol_mem_tag (SSA_NAME_VAR (ptr));
+  
+        /* Set up aliasing information for PTR's name memory tag (if it has
+  	 one).  Note that only pointers that have been dereferenced will
+--- 2354,2359 ----
+*************** compute_flow_sensitive_aliasing (struct 
+*** 2362,2379 ****
+        if (pi->name_mem_tag && pi->pt_vars)
+  	{
+  	  if (!bitmap_empty_p (pi->pt_vars))
+! 	    {
+! 	      union_alias_set_into (pi->name_mem_tag, pi->pt_vars);
+! 	      union_alias_set_into (tag, pi->pt_vars);
+! 	      bitmap_clear_bit (MTAG_ALIASES (tag), DECL_UID (tag));
+! 	    
+! 	      /* It may be the case that this the tag uid was the only
+! 		 bit we had set in the aliases list, and in this case,
+! 		 we don't want to keep an empty bitmap, as this
+! 		 asserts in tree-ssa-operands.c .  */
+! 	      if (bitmap_empty_p (MTAG_ALIASES (tag)))
+! 		BITMAP_FREE (MTAG_ALIASES (tag));
+! 	    }
+  	}
+      }
+    timevar_pop (TV_FLOW_SENSITIVE);
+--- 2361,2367 ----
+        if (pi->name_mem_tag && pi->pt_vars)
+  	{
+  	  if (!bitmap_empty_p (pi->pt_vars))
+! 	    union_alias_set_into (pi->name_mem_tag, pi->pt_vars);
+  	}
+      }
+    timevar_pop (TV_FLOW_SENSITIVE);
+*************** may_alias_p (tree ptr, alias_set_type me
+*** 2860,2867 ****
+      {
+        alias_stats.tbaa_queries++;
+  
+        /* If the alias sets don't conflict then MEM cannot alias VAR.  */
+!       if (!alias_sets_conflict_p (mem_alias_set, var_alias_set))
+  	{
+  	  alias_stats.alias_noalias++;
+  	  alias_stats.tbaa_resolved++;
+--- 2848,2866 ----
+      {
+        alias_stats.tbaa_queries++;
+  
++       /* If the pointed to memory has alias set zero or the pointer
++ 	 is ref-all, the MEM can alias VAR.  */
++       if (mem_alias_set == 0
++ 	  || PTR_IS_REF_ALL (ptr))
++ 	{
++ 	  alias_stats.alias_mayalias++;
++ 	  alias_stats.tbaa_resolved++;
++ 	  return true;
++ 	}
++ 
+        /* If the alias sets don't conflict then MEM cannot alias VAR.  */
+!       if (mem_alias_set != var_alias_set
+! 	  && !alias_set_subset_of (mem_alias_set, var_alias_set))
+  	{
+  	  alias_stats.alias_noalias++;
+  	  alias_stats.tbaa_resolved++;
+Index: gcc/testsuite/gcc.dg/tree-ssa/20030807-7.c
+===================================================================
+*** gcc/testsuite/gcc.dg/tree-ssa/20030807-7.c.orig	2008-04-18 12:59:20.000000000 +0200
+--- gcc/testsuite/gcc.dg/tree-ssa/20030807-7.c	2008-04-18 12:59:27.000000000 +0200
+***************
+*** 1,5 ****
+  /* { dg-do compile } */
+! /* { dg-options "-O2 -fdump-tree-dom3" } */
+    
+  extern void abort (void);
+  
+--- 1,5 ----
+  /* { dg-do compile } */
+! /* { dg-options "-O2 -fdump-tree-vrp1" } */
+    
+  extern void abort (void);
+  
+*************** simplify_condition (cond_p)
+*** 32,38 ****
+    c_simplify_stmt (&decl);
+  }
+  
+! /* There should be exactly one IF conditional.  TBAA is not able to 
+!    determine that 'decl' and 'cond' can't alias.  */
+! /* { dg-final { scan-tree-dump-times "if " 1 "dom3" { xfail *-*-* } } } */
+! /* { dg-final { cleanup-tree-dump "dom3" } } */
+--- 32,37 ----
+    c_simplify_stmt (&decl);
+  }
+  
+! /* There should be exactly one IF conditional.  */
+! /* { dg-final { scan-tree-dump-times "if " 1 "vrp1" } } */
+! /* { dg-final { cleanup-tree-dump "vrp1" } } */
+Index: gcc/testsuite/gcc.dg/tree-ssa/pr27799.c
+===================================================================
+*** /dev/null	1970-01-01 00:00:00.000000000 +0000
+--- gcc/testsuite/gcc.dg/tree-ssa/pr27799.c	2008-04-18 12:56:00.000000000 +0200
+***************
+*** 0 ****
+--- 1,26 ----
++ /* { dg-do link } */
++ /* { dg-options "-O2" } */
++ 
++ struct X { double m; int x; };
++ struct Y { int y; short d; };
++ struct YY { int y; short d; char c; };
++ 
++ extern void link_error (void);
++ 
++ int foo(struct X *x,  struct Y *y)
++ {
++   x->x =  0;
++   y->y =  1;
++   if (x->x != 0)
++     link_error ();
++ }
++ 
++ int foo_no(struct X *x,  struct YY *y)
++ {
++   x->x =  0;
++   y->y =  1;
++   if (x->x != 0)
++     link_error ();
++ }
++ 
++ int main() {}
+
+
+Fix wrong alias info with missing SFT aliases for SMTs.  bnc#419260
+
+Index: gcc/tree-ssa-alias.c
+===================================================================
+--- gcc/tree-ssa-alias.c.orig	2008-08-21 18:39:07.000000000 +0200
++++ gcc/tree-ssa-alias.c	2008-08-21 18:37:07.000000000 +0200
+@@ -2511,6 +2511,7 @@
+ 	  struct alias_map_d *v_map;
+ 	  var_ann_t v_ann;
+ 	  bool tag_stored_p, var_stored_p;
++	  tree alias_var;
+ 	  
+ 	  v_map = ai->addressable_vars[j];
+ 	  var = v_map->var;
+@@ -2526,8 +2527,12 @@
+ 	                 || is_call_clobbered (var);
+ 	  if (!tag_stored_p && !var_stored_p)
+ 	    continue;
+-	     
+-	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set, false))
++
++	  /* For the may_alias_p query we have to use the parent variable.  */
++	  alias_var = (TREE_CODE (var) == STRUCT_FIELD_TAG
++		       ? SFT_PARENT_VAR (var) : var);
++	  if (may_alias_p (p_map->var, p_map->set,
++			   alias_var, get_alias_set (alias_var), false))
+ 	    {
+ 	      /* We should never have a var with subvars here, because
+ 	         they shouldn't get into the set of addressable vars */
+Index: gcc/testsuite/gcc.c-torture/execute/nov419260.c
+===================================================================
+*** gcc/testsuite/gcc.c-torture/execute/nov419260.c	(revision 0)
+--- gcc/testsuite/gcc.c-torture/execute/nov419260.c	(revision 0)
+***************
+*** 0 ****
+--- 1,27 ----
++ struct seq_elem {
++     struct seq_elem *next;
++     struct seq_elem *prev;
++ };
++ 
++ static struct seq_elem b;
++ void
++ __attribute__((noinline))
++ init (struct seq_elem *a)
++ {
++   b.prev = a;
++   b.next = 0;
++   a->prev = 0;
++   a->next = &b;
++ }
++ 
++ extern void abort (void);
++ int main(void)
++ {
++   struct seq_elem a;
++   init (&a);
++   struct seq_elem *ttt = a.next;
++   ttt->prev->next = ttt->next;
++   if (ttt == a.next)
++     abort ();
++   return 0;
++ }

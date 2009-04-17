@@ -165,6 +165,7 @@ signed_word * log_size_ptr;
     int index;
     struct disappearing_link * new_dl;
     DCL_LOCK_STATE;
+    struct disappearing_link *** dl_head_adr = &dl_head;
     
     if ((word)link & (ALIGNMENT-1))
     	ABORT("Bad arg to GC_general_register_disappearing_link");
@@ -177,7 +178,7 @@ signed_word * log_size_ptr;
 #	ifndef THREADS
 	    DISABLE_SIGNALS();
 #	endif
-    	GC_grow_table((struct hash_chain_entry ***)(&dl_head),
+    	GC_grow_table((struct hash_chain_entry ***)dl_head_adr,
     		      &log_dl_table_size);
 #	ifdef CONDPRINT
 	  if (GC_print_stats) {
@@ -348,6 +349,7 @@ finalization_mark_proc * mp;
     struct finalizable_object *new_fo;
     hdr *hhdr;
     DCL_LOCK_STATE;
+    struct finalizable_object *** fo_head_adr = &fo_head;
 
 #   ifdef THREADS
 	DISABLE_SIGNALS();
@@ -358,7 +360,7 @@ finalization_mark_proc * mp;
 #	ifndef THREADS
     	    DISABLE_SIGNALS();
 #	endif
-    	GC_grow_table((struct hash_chain_entry ***)(&fo_head),
+    	GC_grow_table((struct hash_chain_entry ***)fo_head_adr,
     		      &log_fo_table_size);
 #	ifdef CONDPRINT
 	  if (GC_print_stats) {

@@ -1,0 +1,21 @@
+Index: libjava/configure
+===================================================================
+*** libjava/configure	(revision 139857)
+--- libjava/configure	(working copy)
+*************** if test "${enable_static+set}" = set; th
+*** 5496,5502 ****
+        ;;
+      esac
+  else
+!   enable_static=yes
+  fi;
+  
+  
+--- 5496,5502 ----
+        ;;
+      esac
+  else
+!   enable_static=no
+  fi;
+  
+  

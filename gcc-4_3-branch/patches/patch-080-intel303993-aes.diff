@@ -1,0 +1,1558 @@
+Index: gcc/doc/extend.texi
+===================================================================
+*** gcc/doc/extend.texi	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/doc/extend.texi	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** depending on the size of @code{unsigned
+*** 7956,7961 ****
+--- 7956,7982 ----
+  Generates the @code{popcntq} machine instruction.
+  @end table
+  
++ The following built-in functions are available when @option{-maes} is
++ used.  All of them generate the machine instruction that is part of the
++ name.
++ 
++ @smallexample
++ v2di __builtin_ia32_aesenc128 (v2di, v2di)
++ v2di __builtin_ia32_aesenclast128 (v2di, v2di)
++ v2di __builtin_ia32_aesdec128 (v2di, v2di)
++ v2di __builtin_ia32_aesdeclast128 (v2di, v2di)
++ v2di __builtin_ia32_aeskeygenassist128 (v2di, const int)
++ v2di __builtin_ia32_aesimc128 (v2di)
++ @end smallexample
++ 
++ The following built-in function is available when @option{-mpclmul} is
++ used.
++ 
++ @table @code
++ @item v2di __builtin_ia32_pclmulqdq128 (v2di, v2di, const int)
++ Generates the @code{pclmulqdq} machine instruction.
++ @end table
++ 
+  The following built-in functions are available when @option{-msse4a} is used.
+  All of them generate the machine instruction that is part of the name.
+  
+Index: gcc/doc/invoke.texi
+===================================================================
+*** gcc/doc/invoke.texi	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/doc/invoke.texi	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** Objective-C and Objective-C++ Dialects}.
+*** 551,556 ****
+--- 551,557 ----
+  -mno-wide-multiply  -mrtd  -malign-double @gol
+  -mpreferred-stack-boundary=@var{num} -mcld -mcx16 -msahf -mrecip @gol
+  -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 @gol
++ -maes -mpclmul @gol
+  -msse4a -m3dnow -mpopcnt -mabm -msse5 @gol
+  -mthreads  -mno-align-stringops  -minline-all-stringops @gol
+  -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
+*************** preferred alignment to @option{-mpreferr
+*** 10719,10724 ****
+--- 10720,10729 ----
+  @itemx -mno-sse4.2
+  @item -msse4
+  @itemx -mno-sse4
++ @item -maes
++ @itemx -mno-aes
++ @item -mpclmul
++ @itemx -mno-pclmul
+  @item -msse4a
+  @item -mno-sse4a
+  @item -msse5
+*************** preferred alignment to @option{-mpreferr
+*** 10736,10743 ****
+  @opindex m3dnow
+  @opindex mno-3dnow
+  These switches enable or disable the use of instructions in the MMX,
+! SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4A, SSE5, ABM or 3DNow!@: extended
+! instruction sets.
+  These extensions are also available as built-in functions: see
+  @ref{X86 Built-in Functions}, for details of the functions enabled and
+  disabled by these switches.
+--- 10741,10748 ----
+  @opindex m3dnow
+  @opindex mno-3dnow
+  These switches enable or disable the use of instructions in the MMX,
+! SSE, SSE2, SSE3, SSSE3, SSE4.1, AES, PCLMUL, SSE4A, SSE5, ABM or
+! 3DNow!@: extended instruction sets.
+  These extensions are also available as built-in functions: see
+  @ref{X86 Built-in Functions}, for details of the functions enabled and
+  disabled by these switches.
+Index: gcc/testsuite/gcc.target/i386/sse-14.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/sse-14.c	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/testsuite/gcc.target/i386/sse-14.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 1,14 ****
+  /* { dg-do compile } */
+! /* { dg-options "-O0 -march=k8 -m3dnow -msse4 -msse5" } */
+  
+  /* Test that the intrinsics compile without optimization.  All of them are
+!    defined as inline functions in {,x,e,p,t,s,a,b}mmintrin.h  and mm3dnow.h
+     that reference the proper builtin functions.  Defining away "extern" and
+     "__inline" results in all of them being compiled as proper functions.  */
+  
+  #define extern
+  #define __inline
+  
+  #include <bmmintrin.h>
+  #include <smmintrin.h>
+  #include <mm3dnow.h>
+--- 1,15 ----
+  /* { dg-do compile } */
+! /* { dg-options "-O0 -march=k8 -m3dnow -msse4 -msse5 -maes -mpclmul" } */
+  
+  /* Test that the intrinsics compile without optimization.  All of them are
+!    defined as inline functions in {,x,e,p,t,s,w,a,b}mmintrin.h  and mm3dnow.h
+     that reference the proper builtin functions.  Defining away "extern" and
+     "__inline" results in all of them being compiled as proper functions.  */
+  
+  #define extern
+  #define __inline
+  
++ #include <wmmintrin.h>
+  #include <bmmintrin.h>
+  #include <smmintrin.h>
+  #include <mm3dnow.h>
+***************
+*** 44,49 ****
+--- 45,54 ----
+  test_1x (_mm_extracti_si64, __m128i, __m128i, 1, 1)
+  test_2x (_mm_inserti_si64, __m128i, __m128i, __m128i, 1, 1)
+  
++ /* wmmintrin.h */
++ test_1 (_mm_aeskeygenassist_si128, __m128i, __m128i, 1)
++ test_2 (_mm_clmulepi64_si128, __m128i, __m128i, __m128i, 1)
++ 
+  /* smmintrin.h */
+  test_2 (_mm_blend_epi16, __m128i, __m128i, __m128i, 1)
+  test_2 (_mm_blend_ps, __m128, __m128, __m128, 1)
+Index: gcc/testsuite/gcc.target/i386/i386.exp
+===================================================================
+*** gcc/testsuite/gcc.target/i386/i386.exp	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/testsuite/gcc.target/i386/i386.exp	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** proc check_effective_target_sse4 { } {
+*** 51,56 ****
+--- 51,84 ----
+      } "-O2 -msse4.1" ]
+  }
+  
++ # Return 1 if aes instructions can be compiled.
++ proc check_effective_target_aes { } {
++     return [check_no_compiler_messages aes object {
++ 	typedef long long __m128i __attribute__ ((__vector_size__ (16)));
++ 	typedef long long __v2di __attribute__ ((__vector_size__ (16)));
++ 
++ 	__m128i _mm_aesimc_si128 (__m128i __X)
++ 	{
++ 	    return (__m128i) __builtin_ia32_aesimc128 ((__v2di)__X);
++ 	}
++     } "-O2 -maes" ]
++ }
++ 
++ # Return 1 if pclmul instructions can be compiled.
++ proc check_effective_target_pclmul { } {
++     return [check_no_compiler_messages pclmul object {
++ 	typedef long long __m128i __attribute__ ((__vector_size__ (16)));
++ 	typedef long long __v2di __attribute__ ((__vector_size__ (16)));
++ 
++ 	__m128i pclmulqdq_test (__m128i __X, __m128i __Y)
++ 	{
++ 	    return (__m128i) __builtin_ia32_pclmulqdq128 ((__v2di)__X,
++ 							  (__v2di)__Y,
++ 							  1);
++ 	}
++     } "-O2 -mpclmul" ]
++ }
++ 
+  # Return 1 if sse4a instructions can be compiled.
+  proc check_effective_target_sse4a { } {
+      return [check_no_compiler_messages sse4a object {
+Index: gcc/testsuite/gcc.target/i386/aesdeclast.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/aesdeclast.c	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/aesdeclast.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,69 ----
++ /* { dg-do run } */
++ /* { dg-require-effective-target aes } */
++ /* { dg-options "-O2 -maes" } */
++ 
++ #include <wmmintrin.h>
++ #include <string.h>
++ 
++ #include "aes-check.h"
++ 
++ extern void abort (void);
++ 
++ #define NUM 1024
++ 
++ static __m128i src1[NUM];
++ static __m128i src2[NUM];
++ static __m128i edst[NUM];
++ 
++ static __m128i resdst[NUM];
++ 
++ /* Initialize input/output vectors.  (Currently, there is only one set of
++    input/output vectors).  */
++ 
++ static void
++ init_data (__m128i *s1, __m128i *s2, __m128i *d)
++ {
++   int i;
++ 
++   for (i = 0; i < NUM; i++)
++     {
++       s1[i] = _mm_setr_epi32 (0x5d53475d, 0x63746f72,
++ 			      0x73745665, 0x7b5b5465);
++       s2[i] = _mm_setr_epi32 (0x726f6e5d, 0x5b477565,
++ 			      0x68617929, 0x48692853);
++       d[i] = _mm_setr_epi32 (0x72a593d0, 0xd410637b,
++ 			     0x6b317f95, 0xc5a391ef);
++     }
++ }
++ 
++ static void
++ aes_test (void)
++ {
++   int i;
++ 
++   init_data (src1, src2, edst);
++ 
++   for (i = 0; i < NUM; i += 16)
++     {
++       resdst[i] = _mm_aesdeclast_si128 (src1[i], src2[i]);
++       resdst[i + 1] = _mm_aesdeclast_si128 (src1[i + 1], src2[i + 1]);
++       resdst[i + 2] = _mm_aesdeclast_si128 (src1[i + 2], src2[i + 2]);
++       resdst[i + 3] = _mm_aesdeclast_si128 (src1[i + 3], src2[i + 3]);
++       resdst[i + 4] = _mm_aesdeclast_si128 (src1[i + 4], src2[i + 4]);
++       resdst[i + 5] = _mm_aesdeclast_si128 (src1[i + 5], src2[i + 5]);
++       resdst[i + 6] = _mm_aesdeclast_si128 (src1[i + 6], src2[i + 6]);
++       resdst[i + 7] = _mm_aesdeclast_si128 (src1[i + 7], src2[i + 7]);
++       resdst[i + 8] = _mm_aesdeclast_si128 (src1[i + 8], src2[i + 8]);
++       resdst[i + 9] = _mm_aesdeclast_si128 (src1[i + 9], src2[i + 9]);
++       resdst[i + 10] = _mm_aesdeclast_si128 (src1[i + 10], src2[i + 10]);
++       resdst[i + 11] = _mm_aesdeclast_si128 (src1[i + 11], src2[i + 11]);
++       resdst[i + 12] = _mm_aesdeclast_si128 (src1[i + 12], src2[i + 12]);
++       resdst[i + 13] = _mm_aesdeclast_si128 (src1[i + 13], src2[i + 13]);
++       resdst[i + 14] = _mm_aesdeclast_si128 (src1[i + 14], src2[i + 14]);
++       resdst[i + 15] = _mm_aesdeclast_si128 (src1[i + 15], src2[i + 15]);
++     }
++ 
++   for (i = 0; i < NUM; i++)
++     if (memcmp (edst + i, resdst + i, sizeof (__m128i)))
++       abort ();
++ }
+Index: gcc/testsuite/gcc.target/i386/pclmulqdq.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/pclmulqdq.c	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/pclmulqdq.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,87 ----
++ /* { dg-do run } */
++ /* { dg-require-effective-target pclmul } */
++ /* { dg-options "-O2 -mpclmul" } */
++ 
++ #include <wmmintrin.h>
++ #include <string.h>
++ 
++ #include "pclmul-check.h"
++ 
++ extern void abort (void);
++ 
++ #define NUM 1024
++ 
++ static __m128i s1[NUM];
++ static __m128i s2[NUM];
++ /* We need this array to generate mem form of inst */
++ static __m128i s2m[NUM];
++ 
++ static __m128i e_00[NUM];
++ static __m128i e_01[NUM];
++ static __m128i e_10[NUM];
++ static __m128i e_11[NUM];
++ 
++ static __m128i d_00[NUM];
++ static __m128i d_01[NUM];
++ static __m128i d_10[NUM];
++ static __m128i d_11[NUM];
++ 
++ /* Initialize input/output vectors.  (Currently, there is only one set
++    of input/output vectors).  */
++ static void
++ init_data (__m128i *ls1,   __m128i *ls2, __m128i *le_00, __m128i *le_01,
++ 	   __m128i *le_10, __m128i *le_11)
++ {
++   int i;
++ 
++   for (i = 0; i < NUM; i++)
++     {
++       ls1[i] = _mm_set_epi32 (0x7B5B5465, 0x73745665,
++ 			      0x63746F72, 0x5D53475D);
++       ls2[i] = _mm_set_epi32 (0x48692853, 0x68617929,
++ 			      0x5B477565, 0x726F6E5D);
++       s2m[i] = _mm_set_epi32 (0x48692853, 0x68617929,
++ 			      0x5B477565, 0x726F6E5D);
++       le_00[i] = _mm_set_epi32 (0x1D4D84C8, 0x5C3440C0,
++ 				0x929633D5, 0xD36F0451);
++       le_01[i] = _mm_set_epi32 (0x1A2BF6DB, 0x3A30862F,
++ 				0xBABF262D, 0xF4B7D5C9);
++       le_10[i] = _mm_set_epi32 (0x1BD17C8D, 0x556AB5A1,
++ 				0x7FA540AC, 0x2A281315);
++       le_11[i] = _mm_set_epi32 (0x1D1E1F2C, 0x592E7C45,
++ 				0xD66EE03E, 0x410FD4ED);
++     }
++ }
++ 
++ static void
++ pclmul_test (void)
++ {
++   int i;
++ 
++   init_data (s1, s2, e_00, e_01, e_10, e_11);
++ 
++   for (i = 0; i < NUM; i += 2)
++     {
++       d_00[i] = _mm_clmulepi64_si128 (s1[i], s2m[i], 0x00);
++       d_01[i] = _mm_clmulepi64_si128 (s1[i], s2[i], 0x01);
++       d_10[i] = _mm_clmulepi64_si128 (s1[i], s2[i], 0x10);
++       d_11[i] = _mm_clmulepi64_si128 (s1[i], s2[i], 0x11);
++ 
++       d_11[i + 1] = _mm_clmulepi64_si128 (s1[i + 1], s2[i + 1], 0x11);
++       d_00[i + 1] = _mm_clmulepi64_si128 (s1[i + 1], s2[i + 1], 0x00);
++       d_10[i + 1] = _mm_clmulepi64_si128 (s1[i + 1], s2m[i + 1], 0x10);
++       d_01[i + 1] = _mm_clmulepi64_si128 (s1[i + 1], s2[i + 1], 0x01);
++     }
++ 
++   for (i = 0; i < NUM; i++)
++     {
++       if (memcmp (d_00 + i, e_00 + i, sizeof (__m128i)))
++ 	abort ();
++       if (memcmp (d_01 + i, e_01 + i, sizeof (__m128i)))
++ 	abort ();
++       if (memcmp (d_10 + i, e_10 + i, sizeof (__m128i)))
++ 	abort ();
++       if (memcmp(d_11 + i, e_11 + i, sizeof (__m128i)))
++ 	abort ();
++     }
++ }
+Index: gcc/testsuite/gcc.target/i386/aes-check.h
+===================================================================
+*** gcc/testsuite/gcc.target/i386/aes-check.h	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/aes-check.h	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,30 ----
++ #include <stdio.h>
++ #include <stdlib.h>
++ 
++ #include "cpuid.h"
++ 
++ static void aes_test (void);
++ 
++ int
++ main ()
++ {
++   unsigned int eax, ebx, ecx, edx;
++  
++   if (!__get_cpuid (1, &eax, &ebx, &ecx, &edx))
++     return 0;
++ 
++   /* Run AES test only if host has AES support.  */
++   if (ecx & bit_AES)
++     {
++       aes_test ();
++ #ifdef DEBUG
++     printf ("PASSED\n");
++ #endif
++     }
++ #ifdef DEBUG
++   else
++     printf ("SKIPPED\n");
++ #endif
++ 
++   return 0;
++ }
+Index: gcc/testsuite/gcc.target/i386/pclmul-check.h
+===================================================================
+*** gcc/testsuite/gcc.target/i386/pclmul-check.h	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/pclmul-check.h	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,30 ----
++ #include <stdio.h>
++ #include <stdlib.h>
++ 
++ #include "cpuid.h"
++ 
++ static void pclmul_test (void);
++ 
++ int
++ main ()
++ {
++   unsigned int eax, ebx, ecx, edx;
++  
++   if (!__get_cpuid (1, &eax, &ebx, &ecx, &edx))
++     return 0;
++ 
++   /* Run PCLMULQDQ test only if host has PCLMULQDQ support.  */
++   if (ecx & bit_PCLMUL)
++     {
++       pclmul_test ();
++ #ifdef DEBUG
++       printf ("PASSED\n");
++ #endif
++     }
++ #ifdef DEBUG
++   else
++     printf ("SKIPPED\n");
++ #endif
++ 
++   return 0;
++ }
+Index: gcc/testsuite/gcc.target/i386/aeskeygenassist.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/aeskeygenassist.c	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/aeskeygenassist.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,66 ----
++ /* { dg-do run } */
++ /* { dg-require-effective-target aes } */
++ /* { dg-options "-O2 -maes" } */
++ 
++ #include <wmmintrin.h>
++ #include <string.h>
++ 
++ #include "aes-check.h"
++ 
++ extern void abort (void);
++ 
++ #define NUM 1024
++ #define IMM8 1
++ 
++ static __m128i src1[NUM];
++ static __m128i edst[NUM];
++ 
++ static __m128i resdst[NUM];
++ 
++ /* Initialize input/output vectors.  (Currently, there is only one set
++    of input/output vectors).  */
++ 
++ static void
++ init_data (__m128i *s1, __m128i *d)
++ {
++   int i;
++   for (i = 0; i < NUM; i++)
++     {
++       s1[i] = _mm_setr_epi32 (0x16157e2b, 0xa6d2ae28,
++ 			      0x8815f7ab, 0x3c4fcf09);
++       d[i] = _mm_setr_epi32 (0x24b5e434, 0x3424b5e5,
++ 			     0xeb848a01, 0x01eb848b);
++     }
++ }
++ 
++ static void
++ aes_test (void)
++ {
++   int i;
++ 
++   init_data (src1, edst);
++ 
++   for (i = 0; i < NUM; i += 16)
++     {
++       resdst[i]  = _mm_aeskeygenassist_si128 (src1[i], IMM8);
++       resdst[i + 1] = _mm_aeskeygenassist_si128 (src1[i + 1], IMM8);
++       resdst[i + 2] = _mm_aeskeygenassist_si128 (src1[i + 2], IMM8);
++       resdst[i + 3] = _mm_aeskeygenassist_si128 (src1[i + 3], IMM8);
++       resdst[i + 4] = _mm_aeskeygenassist_si128 (src1[i + 4], IMM8);
++       resdst[i + 5] = _mm_aeskeygenassist_si128 (src1[i + 5], IMM8);
++       resdst[i + 6] = _mm_aeskeygenassist_si128 (src1[i + 6], IMM8);
++       resdst[i + 7] = _mm_aeskeygenassist_si128 (src1[i + 7], IMM8);
++       resdst[i + 8] = _mm_aeskeygenassist_si128 (src1[i + 8], IMM8);
++       resdst[i + 9] = _mm_aeskeygenassist_si128 (src1[i + 9], IMM8);
++       resdst[i + 10] = _mm_aeskeygenassist_si128 (src1[i + 10], IMM8);
++       resdst[i + 11] = _mm_aeskeygenassist_si128 (src1[i + 11], IMM8);
++       resdst[i + 12] = _mm_aeskeygenassist_si128 (src1[i + 12], IMM8);
++       resdst[i + 13] = _mm_aeskeygenassist_si128 (src1[i + 13], IMM8);
++       resdst[i + 14] = _mm_aeskeygenassist_si128 (src1[i + 14], IMM8);
++       resdst[i + 15] = _mm_aeskeygenassist_si128 (src1[i + 15], IMM8);
++     }
++ 
++   for (i = 0; i < NUM; i++)
++     if (memcmp(edst + i, resdst + i, sizeof (__m128i)))
++       abort ();
++ }
+Index: gcc/testsuite/gcc.target/i386/aesenclast.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/aesenclast.c	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/aesenclast.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,68 ----
++ /* { dg-do run } */
++ /* { dg-require-effective-target aes } */
++ /* { dg-options "-O2 -maes" } */
++ 
++ #include <wmmintrin.h>
++ #include <string.h>
++ 
++ #include "aes-check.h"
++ 
++ extern void abort (void);
++ 
++ #define NUM 1024
++ 
++ static __m128i src1[NUM];
++ static __m128i src2[NUM];
++ static __m128i edst[NUM];
++ 
++ static __m128i resdst[NUM];
++ 
++ /* Initialize input/output vectors.  (Currently, there is only one
++    set of input/output vectors).  */
++ 
++ static void
++ init_data (__m128i *s1, __m128i *s2, __m128i *d)
++ {
++   int i;
++   for (i = 0; i < NUM; i++)
++     {
++       s1[i] = _mm_setr_epi32 (0x5d53475d, 0x63746f72,
++ 			      0x73745665, 0x7b5b5465);
++       s2[i] = _mm_setr_epi32 (0x726f6e5d, 0x5b477565,
++ 			      0x68617929, 0x48692853);
++       d[i] = _mm_setr_epi32 (0x53fdc611, 0x177ec425,
++ 			     0x938c5964, 0xc7fb881e);
++     }
++ }
++ 
++ static void
++ aes_test (void)
++ {
++   int i;
++ 
++   init_data (src1, src2, edst);
++ 
++   for (i = 0; i < NUM; i += 16)
++     {
++       resdst[i] = _mm_aesenclast_si128 (src1[i], src2[i]);
++       resdst[i + 1] = _mm_aesenclast_si128 (src1[i + 1], src2[i + 1]);
++       resdst[i + 2] = _mm_aesenclast_si128 (src1[i + 2], src2[i + 2]);
++       resdst[i + 3] = _mm_aesenclast_si128 (src1[i + 3], src2[i + 3]);
++       resdst[i + 4] = _mm_aesenclast_si128 (src1[i + 4], src2[i + 4]);
++       resdst[i + 5] = _mm_aesenclast_si128 (src1[i + 5], src2[i + 5]);
++       resdst[i + 6] = _mm_aesenclast_si128 (src1[i + 6], src2[i + 6]);
++       resdst[i + 7] = _mm_aesenclast_si128 (src1[i + 7], src2[i + 7]);
++       resdst[i + 8] = _mm_aesenclast_si128 (src1[i + 8], src2[i + 8]);
++       resdst[i + 9] = _mm_aesenclast_si128 (src1[i + 9], src2[i + 9]);
++       resdst[i + 10] = _mm_aesenclast_si128 (src1[i + 10], src2[i + 10]);
++       resdst[i + 11] = _mm_aesenclast_si128 (src1[i + 11], src2[i + 11]);
++       resdst[i + 12] = _mm_aesenclast_si128 (src1[i + 12], src2[i + 12]);
++       resdst[i + 13] = _mm_aesenclast_si128 (src1[i + 13], src2[i + 13]);
++       resdst[i + 14] = _mm_aesenclast_si128 (src1[i + 14], src2[i + 14]);
++       resdst[i + 15] = _mm_aesenclast_si128 (src1[i + 15], src2[i + 15]);
++     }
++ 
++   for (i = 0; i < NUM; i++)
++     if (memcmp(edst + i, resdst + i, sizeof (__m128i)))
++       abort ();
++ }
+Index: gcc/testsuite/gcc.target/i386/aesimc.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/aesimc.c	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/aesimc.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,66 ----
++ /* { dg-do run } */
++ /* { dg-require-effective-target aes } */
++ /* { dg-options "-O2 -maes" } */
++ 
++ #include <wmmintrin.h>
++ #include <string.h>
++ 
++ #include "aes-check.h"
++ 
++ extern void abort (void);
++ 
++ #define NUM 1024
++ 
++ static __m128i src1[NUM];
++ static __m128i edst[NUM];
++ 
++ static __m128i resdst[NUM];
++ 
++ /* Initialize input/output vectors.  (Currently, there is only one set
++    of input/output vectors).   */
++ 
++ static void
++ init_data (__m128i *s1, __m128i *d)
++ {
++   int i;
++ 
++   for (i = 0; i < NUM; i++)
++     {
++       s1[i] = _mm_setr_epi32 (0x5d53475d, 0x63746f72,
++ 			      0x73745665, 0x7b5b5465);
++       d[i] = _mm_setr_epi32 (0x81c3b3e5, 0x2b18330a,
++ 			     0x44b109c8, 0x627a6f66);
++     }
++ }
++ 
++ static void
++ aes_test (void)
++ {
++   int i;
++ 
++   init_data (src1, edst);
++ 
++   for (i = 0; i < NUM; i += 16)
++     {
++       resdst[i] = _mm_aesimc_si128 (src1[i]);
++       resdst[i + 1] = _mm_aesimc_si128 (src1[i + 1]);
++       resdst[i + 2] = _mm_aesimc_si128 (src1[i + 2]);
++       resdst[i + 3] = _mm_aesimc_si128 (src1[i + 3]);
++       resdst[i + 4] = _mm_aesimc_si128 (src1[i + 4]);
++       resdst[i + 5] = _mm_aesimc_si128 (src1[i + 5]);
++       resdst[i + 6] = _mm_aesimc_si128 (src1[i + 6]);
++       resdst[i + 7] = _mm_aesimc_si128 (src1[i + 7]);
++       resdst[i + 8] = _mm_aesimc_si128 (src1[i + 8]);
++       resdst[i + 9] = _mm_aesimc_si128 (src1[i + 9]);
++       resdst[i + 10] = _mm_aesimc_si128 (src1[i + 10]);
++       resdst[i + 11] = _mm_aesimc_si128 (src1[i + 11]);
++       resdst[i + 12] = _mm_aesimc_si128 (src1[i + 12]);
++       resdst[i + 13] = _mm_aesimc_si128 (src1[i + 13]);
++       resdst[i + 14] = _mm_aesimc_si128 (src1[i + 14]);
++       resdst[i + 15] = _mm_aesimc_si128 (src1[i + 15]);
++     }
++ 
++   for (i = 0; i < NUM; i++)
++     if (memcmp(edst + i, resdst + i, sizeof (__m128i)))
++       abort ();
++ }
+Index: gcc/testsuite/gcc.target/i386/aesenc.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/aesenc.c	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/aesenc.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,68 ----
++ /* { dg-do run } */
++ /* { dg-require-effective-target aes } */
++ /* { dg-options "-O2 -maes" } */
++ 
++ #include <wmmintrin.h>
++ #include <string.h>
++ 
++ #include "aes-check.h"
++ 
++ extern void abort (void);
++ 
++ #define NUM 1024
++ 
++ static __m128i src1[NUM];
++ static __m128i src2[NUM];
++ static __m128i edst[NUM];
++ 
++ static __m128i resdst[NUM];
++ 
++ /* Initialize input/output vectors.  (Currently, there is only one set
++    of input/output vectors).  */
++ 
++ static void
++ init_data (__m128i *s1, __m128i *s2, __m128i *d)
++ {
++   int i;
++   for (i = 0; i < NUM; i++)
++     {
++       s1[i] = _mm_setr_epi32 (0x5d53475d, 0x63746f72,
++ 			      0x73745665, 0x7b5b5465);
++       s2[i] = _mm_setr_epi32 (0x726f6e5d, 0x5b477565,
++ 			      0x68617929, 0x48692853);
++       d[i] = _mm_setr_epi32 (0xded7e595, 0x8b104b58,
++ 			     0x9fdba3c5, 0xa8311c2f);
++     }
++ }
++ 
++ static void
++ aes_test (void)
++ {
++   int i;
++ 
++   init_data (src1, src2, edst);
++ 
++   for (i = 0; i < NUM; i += 16)
++     {
++       resdst[i] = _mm_aesenc_si128 (src1[i], src2[i]);
++       resdst[i + 1] = _mm_aesenc_si128 (src1[i + 1], src2[i + 1]);
++       resdst[i + 2] = _mm_aesenc_si128 (src1[i + 2], src2[i + 2]);
++       resdst[i + 3] = _mm_aesenc_si128 (src1[i + 3], src2[i + 3]);
++       resdst[i + 4] = _mm_aesenc_si128 (src1[i + 4], src2[i + 4]);
++       resdst[i + 5] = _mm_aesenc_si128 (src1[i + 5], src2[i + 5]);
++       resdst[i + 6] = _mm_aesenc_si128 (src1[i + 6], src2[i + 6]);
++       resdst[i + 7] = _mm_aesenc_si128 (src1[i + 7], src2[i + 7]);
++       resdst[i + 8] = _mm_aesenc_si128 (src1[i + 8], src2[i + 8]);
++       resdst[i + 9] = _mm_aesenc_si128 (src1[i + 9], src2[i + 9]);
++       resdst[i + 10] = _mm_aesenc_si128 (src1[i + 10], src2[i + 10]);
++       resdst[i + 11] = _mm_aesenc_si128 (src1[i + 11], src2[i + 11]);
++       resdst[i + 12] = _mm_aesenc_si128 (src1[i + 12], src2[i + 12]);
++       resdst[i + 13] = _mm_aesenc_si128 (src1[i + 13], src2[i + 13]);
++       resdst[i + 14] = _mm_aesenc_si128 (src1[i + 14], src2[i + 14]);
++       resdst[i + 15] = _mm_aesenc_si128 (src1[i + 15], src2[i + 15]);
++     }
++ 
++   for (i = 0; i < NUM; i++)
++     if (memcmp (edst + i, resdst + i, sizeof (__m128i)))
++       abort ();
++ }
+Index: gcc/testsuite/gcc.target/i386/sse-13.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/sse-13.c	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/testsuite/gcc.target/i386/sse-13.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 1,8 ****
+  /* { dg-do compile } */
+! /* { dg-options "-O2 -march=k8 -m3dnow -msse4 -msse5" } */
+  
+  /* Test that the intrinsics compile with optimization.  All of them are
+!    defined as inline functions in {,x,e,p,t,s,a,b}mmintrin.h and mm3dnow.h
+     that reference the proper builtin functions.  Defining away "extern" and
+     "__inline" results in all of them being compiled as proper functions.  */
+  
+--- 1,8 ----
+  /* { dg-do compile } */
+! /* { dg-options "-O2 -march=k8 -m3dnow -msse4 -msse5 -maes -mpclmul" } */
+  
+  /* Test that the intrinsics compile with optimization.  All of them are
+!    defined as inline functions in {,x,e,p,t,s,w,a,b}mmintrin.h and mm3dnow.h
+     that reference the proper builtin functions.  Defining away "extern" and
+     "__inline" results in all of them being compiled as proper functions.  */
+  
+***************
+*** 15,20 ****
+--- 15,24 ----
+  #define __builtin_ia32_extrqi(X, I, L)  __builtin_ia32_extrqi(X, 1, 1)
+  #define __builtin_ia32_insertqi(X, Y, I, L) __builtin_ia32_insertqi(X, Y, 1, 1)
+  
++ /* wmmintrin.h */
++ #define __builtin_ia32_aeskeygenassist128(X, C) __builtin_ia32_aeskeygenassist128(X, 1)
++ #define __builtin_ia32_pclmulqdq128(X, Y, I) __builtin_ia32_pclmulqdq128(X, Y, 1)
++ 
+  /* smmintrin.h */
+  #define __builtin_ia32_pblendw128(X, Y, M) __builtin_ia32_pblendw128 (X, Y, 1)
+  #define __builtin_ia32_blendps(X, Y, M) __builtin_ia32_blendps(X, Y, 1)
+***************
+*** 92,97 ****
+--- 96,102 ----
+  #define __builtin_ia32_protdi(A, B) __builtin_ia32_protdi(A,1)
+  #define __builtin_ia32_protqi(A, B) __builtin_ia32_protqi(A,1)
+  
++ #include <wmmintrin.h>
+  #include <bmmintrin.h>
+  #include <smmintrin.h>
+  #include <mm3dnow.h>
+Index: gcc/testsuite/gcc.target/i386/aesdec.c
+===================================================================
+*** gcc/testsuite/gcc.target/i386/aesdec.c	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/gcc.target/i386/aesdec.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,67 ----
++ /* { dg-do run } */
++ /* { dg-require-effective-target aes } */
++ /* { dg-options "-O2 -maes" } */
++ 
++ #include <wmmintrin.h>
++ #include <string.h>
++ 
++ #include "aes-check.h"
++ 
++ extern void abort (void);
++ 
++ #define NUM 1024
++ 
++ static __m128i src1[NUM];
++ static __m128i src2[NUM];
++ static __m128i edst[NUM];
++ 
++ static __m128i resdst[NUM];
++ 
++ /* Initialize input/output vectors.  (Currently, there is only one set
++    of input/output vectors).  */
++ static void
++ init_data (__m128i *s1, __m128i *s2, __m128i *d)
++ {
++   int i;
++   for (i = 0; i < NUM; i++)
++     {
++       s1[i] = _mm_setr_epi32 (0x5d53475d, 0x63746f72,
++ 			      0x73745665, 0x7b5b5465);
++       s2[i] = _mm_setr_epi32 (0x726f6e5d, 0x5b477565,
++ 			      0x68617929, 0x48692853);
++       d[i]  = _mm_setr_epi32 (0xb730392a, 0xb58eb95e,
++ 			      0xfaea2787, 0x138ac342);
++     }
++ }
++ 
++ static void
++ aes_test (void)
++ {
++   int i;
++ 
++   init_data (src1, src2, edst);
++ 
++   for (i = 0; i < NUM; i += 16)
++     {
++       resdst[i] = _mm_aesdec_si128 (src1[i], src2[i]);
++       resdst[i + 1] = _mm_aesdec_si128 (src1[i + 1], src2[i + 1]);
++       resdst[i + 2] = _mm_aesdec_si128 (src1[i + 2], src2[i + 2]);
++       resdst[i + 3] = _mm_aesdec_si128 (src1[i + 3], src2[i + 3]);
++       resdst[i + 4] = _mm_aesdec_si128 (src1[i + 4], src2[i + 4]);
++       resdst[i + 5] = _mm_aesdec_si128 (src1[i + 5], src2[i + 5]);
++       resdst[i + 6] = _mm_aesdec_si128 (src1[i + 6], src2[i + 6]);
++       resdst[i + 7] = _mm_aesdec_si128 (src1[i + 7], src2[i + 7]);
++       resdst[i + 8] = _mm_aesdec_si128 (src1[i + 8], src2[i + 8]);
++       resdst[i + 9] = _mm_aesdec_si128 (src1[i + 9], src2[i + 9]);
++       resdst[i + 10] = _mm_aesdec_si128 (src1[i + 10], src2[i + 10]);
++       resdst[i + 11] = _mm_aesdec_si128 (src1[i + 11], src2[i + 11]);
++       resdst[i + 12] = _mm_aesdec_si128 (src1[i + 12], src2[i + 12]);
++       resdst[i + 13] = _mm_aesdec_si128 (src1[i + 13], src2[i + 13]);
++       resdst[i + 14] = _mm_aesdec_si128 (src1[i + 14], src2[i + 14]);
++       resdst[i + 15] = _mm_aesdec_si128 (src1[i + 15], src2[i + 15]);
++     }
++ 
++   for (i = 0; i < NUM; i++)
++     if (memcmp (edst + i, resdst + i, sizeof (__m128i)))
++       abort ();
++ }
+Index: gcc/testsuite/ChangeLog.ix86
+===================================================================
+*** gcc/testsuite/ChangeLog.ix86	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/testsuite/ChangeLog.ix86	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,22 ----
++ 2008-04-08  H.J. Lu  <hongjiu.lu@intel.com>
++ 
++ 	Backport from mainline:
++ 	2008-04-04  H.J. Lu  <hongjiu.lu@intel.com>
++ 
++ 	* g++.dg/other/i386-2.C: Include <wmmintrin.h>.
++ 	* g++.dg/other/i386-3.C: Likewise.
++ 	* gcc.target/i386/sse-13.c: Likewise.
++ 	* gcc.target/i386/sse-14.c: Likewise.
++ 
++ 	* gcc.target/i386/aes-check.h: New.
++ 	* gcc.target/i386/aesdec.c: Likewise.
++ 	* gcc.target/i386/aesdeclast.c: Likewise.
++ 	* gcc.target/i386/aesenc.c: Likewise.
++ 	* gcc.target/i386/aesenclast.c: Likewise.
++ 	* gcc.target/i386/aesimc.c: Likewise.
++ 	* gcc.target/i386/aeskeygenassist.c: Likewise.
++ 	* gcc.target/i386/pclmulqdq.c: Likewise.
++ 	* gcc.target/i386/pclmul-check.h: Likewise.
++ 
++ 	* gcc.target/i386/i386.exp (check_effective_target_aes): New.
++ 	(check_effective_target_pclmul): Likewise.
+Index: gcc/testsuite/g++.dg/other/i386-2.C
+===================================================================
+*** gcc/testsuite/g++.dg/other/i386-2.C	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/testsuite/g++.dg/other/i386-2.C	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 1,8 ****
+! /* Test that {,x,e,p,t,s,a,b}mmintrin.h, mm3dnow.h and mm_malloc.h are
+     usable with -O -pedantic-errors.  */
+  /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
+! /* { dg-options "-O -pedantic-errors -march=k8 -m3dnow -msse4 -msse5" } */
+  
+  #include <bmmintrin.h>
+  #include <smmintrin.h>
+  #include <mm3dnow.h>
+--- 1,9 ----
+! /* Test that {,x,e,p,t,s,w,a,b}mmintrin.h, mm3dnow.h and mm_malloc.h are
+     usable with -O -pedantic-errors.  */
+  /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
+! /* { dg-options "-O -pedantic-errors -march=k8 -m3dnow -msse4 -msse5 -maes -mpclmul" } */
+  
++ #include <wmmintrin.h>
+  #include <bmmintrin.h>
+  #include <smmintrin.h>
+  #include <mm3dnow.h>
+Index: gcc/testsuite/g++.dg/other/i386-3.C
+===================================================================
+*** gcc/testsuite/g++.dg/other/i386-3.C	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/testsuite/g++.dg/other/i386-3.C	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 1,8 ****
+! /* Test that {,x,e,p,t,s,a,b}mmintrin.h, mm3dnow.h and mm_malloc.h are
+     usable with -O -fkeep-inline-functions.  */
+  /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
+! /* { dg-options "-O -fkeep-inline-functions -march=k8 -m3dnow -msse4 -msse5" } */
+  
+  #include <bmmintrin.h>
+  #include <smmintrin.h>
+  #include <mm3dnow.h>
+--- 1,9 ----
+! /* Test that {,x,e,p,t,s,w,a,b}mmintrin.h, mm3dnow.h and mm_malloc.h are
+     usable with -O -fkeep-inline-functions.  */
+  /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
+! /* { dg-options "-O -fkeep-inline-functions -march=k8 -m3dnow -maes -mpclmul -msse4 -msse5" } */
+  
++ #include <wmmintrin.h>
+  #include <bmmintrin.h>
+  #include <smmintrin.h>
+  #include <mm3dnow.h>
+Index: gcc/ChangeLog.ix86
+===================================================================
+*** gcc/ChangeLog.ix86	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/ChangeLog.ix86	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,59 ----
++ 2008-04-08  H.J. Lu  <hongjiu.lu@intel.com>
++ 
++ 	Backport from mainline:
++ 	2008-04-04  H.J. Lu  <hongjiu.lu@intel.com>
++ 
++ 	* config.gcc (extra_headers): Add wmmintrin.h for x86 and x86-64.
++ 
++ 	* config/i386/cpuid.h (bit_AES): New.
++ 	(bit_PCLMUL): Likewise.
++ 
++ 	* config/i386/i386.c (pta_flags): Add PTA_AES and PTA_PCLMUL.
++ 	(override_options): Handle PTA_AES and PTA_PCLMUL.  Enable
++ 	SSE2 if AES or PCLMUL is enabled.
++ 	(ix86_builtins): Add IX86_BUILTIN_AESENC128,
++ 	IX86_BUILTIN_AESENCLAST128, IX86_BUILTIN_AESDEC128,
++ 	IX86_BUILTIN_AESDECLAST128, IX86_BUILTIN_AESIMC128,
++ 	IX86_BUILTIN_AESKEYGENASSIST128 and IX86_BUILTIN_PCLMULQDQ128.
++ 	(bdesc_sse_3arg): Add IX86_BUILTIN_PCLMULQDQ128.
++ 	(bdesc_2arg): Add IX86_BUILTIN_AESENC128,
++ 	IX86_BUILTIN_AESENCLAST128, IX86_BUILTIN_AESDEC128,
++ 	IX86_BUILTIN_AESDECLAST128 and IX86_BUILTIN_AESKEYGENASSIST128.
++ 	(bdesc_1arg): Add IX86_BUILTIN_AESIMC128.
++ 	(ix86_init_mmx_sse_builtins): Define __builtin_ia32_aesenc128,
++ 	__builtin_ia32_aesenclast128, __builtin_ia32_aesdec128,
++ 	__builtin_ia32_aesdeclast128,__builtin_ia32_aesimc128,
++ 	__builtin_ia32_aeskeygenassist128 and
++ 	__builtin_ia32_pclmulqdq128.
++ 	* config/i386/i386.c (ix86_expand_binop_imm_builtin): New.
++ 	(ix86_expand_builtin): Use it for IX86_BUILTIN_PSLLDQI128 and
++ 	IX86_BUILTIN_PSRLDQI128.  Handle IX86_BUILTIN_AESKEYGENASSIST128.
++ 
++ 	* config/i386/i386.h (TARGET_AES): New.
++ 	(TARGET_PCLMUL): Likewise.
++ 	(TARGET_CPU_CPP_BUILTINS): Handle TARGET_AES and TARGET_PCLMUL.
++ 
++ 	* config/i386/i386.md (UNSPEC_AESENC): New.
++ 	(UNSPEC_AESENCLAST): Likewise.
++ 	(UNSPEC_AESDEC): Likewise.
++ 	(UNSPEC_AESDECLAST): Likewise.
++ 	(UNSPEC_AESIMC): Likewise.
++ 	(UNSPEC_AESKEYGENASSIST): Likewise.
++ 	(UNSPEC_PCLMULQDQ): Likewise.
++ 
++ 	* config/i386/i386.opt (maes): New.
++ 	(mpclmul): Likewise.
++ 
++ 	* config/i386/sse.md (aesenc): New pattern.
++ 	(aesenclast): Likewise.
++ 	(aesdec): Likewise.
++ 	(aesdeclast): Likewise.
++ 	(aesimc): Likewise.
++ 	(aeskeygenassist): Likewise.
++ 	(pclmulqdq): Likewise.
++ 
++ 	* config/i386/wmmintrin.h: New.
++ 
++ 	* doc/extend.texi: Document AES and PCLMUL built-in function.
++ 
++ 	* doc/invoke.texi: Document -maes and -mpclmul.
+Index: gcc/config.gcc
+===================================================================
+*** gcc/config.gcc	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/config.gcc	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** i[34567]86-*-*)
+*** 308,320 ****
+  	cpu_type=i386
+  	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
+  		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
+! 		       nmmintrin.h bmmintrin.h mmintrin-common.h"
+  	;;
+  x86_64-*-*)
+  	cpu_type=i386
+  	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
+  		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
+! 		       nmmintrin.h bmmintrin.h mmintrin-common.h"
+  	need_64bit_hwint=yes
+  	;;
+  ia64-*-*)
+--- 308,322 ----
+  	cpu_type=i386
+  	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
+  		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
+! 		       nmmintrin.h bmmintrin.h mmintrin-common.h
+! 		       wmmintrin.h"
+  	;;
+  x86_64-*-*)
+  	cpu_type=i386
+  	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
+  		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
+! 		       nmmintrin.h bmmintrin.h mmintrin-common.h
+! 		       wmmintrin.h"
+  	need_64bit_hwint=yes
+  	;;
+  ia64-*-*)
+Index: gcc/config/i386/i386.h
+===================================================================
+*** gcc/config/i386/i386.h	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/config/i386/i386.h	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** extern int x86_prefetch_sse;
+*** 395,400 ****
+--- 395,402 ----
+  #define TARGET_SAHF		x86_sahf
+  #define TARGET_RECIP		x86_recip
+  #define TARGET_FUSED_MADD	x86_fused_muladd
++ #define TARGET_AES		(TARGET_SSE2 && x86_aes)
++ #define TARGET_PCLMUL		(TARGET_SSE2 && x86_pclmul)
+  
+  #define ASSEMBLER_DIALECT	(ix86_asm_dialect)
+  
+*************** extern const char *host_detect_local_cpu
+*** 683,688 ****
+--- 685,694 ----
+  	builtin_define ("__SSE4_1__");				\
+        if (TARGET_SSE4_2)					\
+  	builtin_define ("__SSE4_2__");				\
++       if (TARGET_AES)						\
++ 	builtin_define ("__AES__");				\
++       if (TARGET_PCLMUL)					\
++ 	builtin_define ("__PCLMUL__");				\
+        if (TARGET_SSE4A)						\
+   	builtin_define ("__SSE4A__");		                \
+        if (TARGET_SSE5)						\
+Index: gcc/config/i386/i386.md
+===================================================================
+*** gcc/config/i386/i386.md	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/config/i386/i386.md	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** (define_constants
+*** 187,192 ****
+--- 187,203 ----
+     (UNSPEC_FRCZ			156)
+     (UNSPEC_CVTPH2PS		157)
+     (UNSPEC_CVTPS2PH		158)
++ 
++    ; For AES support
++    (UNSPEC_AESENC		159)
++    (UNSPEC_AESENCLAST		160)
++    (UNSPEC_AESDEC		161)
++    (UNSPEC_AESDECLAST		162)
++    (UNSPEC_AESIMC		163)
++    (UNSPEC_AESKEYGENASSIST	164)
++ 
++    ; For PCLMUL support
++    (UNSPEC_PCLMUL		165)
+    ])
+  
+  (define_constants
+Index: gcc/config/i386/wmmintrin.h
+===================================================================
+*** gcc/config/i386/wmmintrin.h	(.../gcc-4_3-branch)	(revision 0)
+--- gcc/config/i386/wmmintrin.h	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 0 ****
+--- 1,123 ----
++ /* Copyright (C) 2008 Free Software Foundation, Inc.
++ 
++    This file is part of GCC.
++ 
++    GCC is free software; you can redistribute it and/or modify
++    it under the terms of the GNU General Public License as published by
++    the Free Software Foundation; either version 2, or (at your option)
++    any later version.
++ 
++    GCC is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++ 
++    You should have received a copy of the GNU General Public License
++    along with GCC; see the file COPYING.  If not, write to
++    the Free Software Foundation, 59 Temple Place - Suite 330,
++    Boston, MA 02111-1307, USA.  */
++ 
++ /* As a special exception, if you include this header file into source
++    files compiled by GCC, this header file does not by itself cause
++    the resulting executable to be covered by the GNU General Public
++    License.  This exception does not however invalidate any other
++    reasons why the executable file might be covered by the GNU General
++    Public License.  */
++ 
++ /* Implemented from the specification included in the Intel C++ Compiler
++    User Guide and Reference, version 10.1.  */
++ 
++ #ifndef _WMMINTRIN_H_INCLUDED
++ #define _WMMINTRIN_H_INCLUDED
++ 
++ /* We need definitions from the SSE2 header file.  */
++ #include <emmintrin.h>
++ 
++ #if !defined (__AES__) && !defined (__PCLMUL__)
++ # error "AES/PCLMUL instructions not enabled"
++ #else
++ 
++ /* AES */
++ 
++ #ifdef __AES__
++ /* Performs 1 round of AES decryption of the first m128i using 
++    the second m128i as a round key.  */
++ extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
++ _mm_aesdec_si128 (__m128i __X, __m128i __Y)
++ {
++   return (__m128i) __builtin_ia32_aesdec128 ((__v2di)__X, (__v2di)__Y);
++ }
++ 
++ /* Performs the last round of AES decryption of the first m128i 
++    using the second m128i as a round key.  */
++ extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
++ _mm_aesdeclast_si128 (__m128i __X, __m128i __Y)
++ {
++   return (__m128i) __builtin_ia32_aesdeclast128 ((__v2di)__X,
++ 						 (__v2di)__Y);
++ }
++ 
++ /* Performs 1 round of AES encryption of the first m128i using 
++    the second m128i as a round key.  */
++ extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
++ _mm_aesenc_si128 (__m128i __X, __m128i __Y)
++ {
++   return (__m128i) __builtin_ia32_aesenc128 ((__v2di)__X, (__v2di)__Y);
++ }
++ 
++ /* Performs the last round of AES encryption of the first m128i
++    using the second m128i as a round key.  */
++ extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
++ _mm_aesenclast_si128 (__m128i __X, __m128i __Y)
++ {
++   return (__m128i) __builtin_ia32_aesenclast128 ((__v2di)__X, (__v2di)__Y);
++ }
++ 
++ /* Performs the InverseMixColumn operation on the source m128i 
++    and stores the result into m128i destination.  */
++ extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
++ _mm_aesimc_si128 (__m128i __X)
++ {
++   return (__m128i) __builtin_ia32_aesimc128 ((__v2di)__X);
++ }
++ 
++ /* Generates a m128i round key for the input m128i AES cipher key and
++    byte round constant.  The second parameter must be a compile time
++    constant.  */
++ #ifdef __OPTIMIZE__
++ extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
++ _mm_aeskeygenassist_si128 (__m128i __X, const int __C)
++ {
++   return (__m128i) __builtin_ia32_aeskeygenassist128 ((__v2di)__X, __C);
++ }
++ #else
++ #define _mm_aeskeygenassist_si128(X, C)					\
++   ((__m128i) __builtin_ia32_aeskeygenassist128 ((__v2di)(__m128i)(X),	\
++ 						(int)(C)))
++ #endif
++ #endif  /* __AES__ */
++ 
++ /* PCLMUL */
++ 
++ #ifdef __PCLMUL__
++ /* Performs carry-less integer multiplication of 64-bit halves of
++    128-bit input operands.  The third parameter inducates which 64-bit
++    haves of the input parameters v1 and v2 should be used. It must be
++    a compile time constant.  */
++ #ifdef __OPTIMIZE__
++ extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
++ _mm_clmulepi64_si128 (__m128i __X, __m128i __Y, const int __I)
++ {
++   return (__m128i) __builtin_ia32_pclmulqdq128 ((__v2di)__X,
++ 						(__v2di)__Y, __I);
++ }
++ #else
++ #define _mm_clmulepi64_si128(X, Y, I)					\
++   ((__m128i) __builtin_ia32_pclmulqdq128 ((__v2di)(__m128i)(X),		\
++ 					  (__v2di)(__m128i)(Y), (int)(I)))
++ #endif
++ #endif  /* __PCLMUL__  */
++ 
++ #endif /* __AES__/__PCLMUL__ */
++ 
++ #endif /* _WMMINTRIN_H_INCLUDED */
+Index: gcc/config/i386/cpuid.h
+===================================================================
+*** gcc/config/i386/cpuid.h	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/config/i386/cpuid.h	(.../ix86/gcc-4_3-branch)	(revision 137253)
+***************
+*** 33,43 ****
+--- 33,45 ----
+  
+  /* %ecx */
+  #define bit_SSE3	(1 << 0)
++ #define bit_PCLMUL	(1 << 1)
+  #define bit_SSSE3	(1 << 9)
+  #define bit_CMPXCHG16B	(1 << 13)
+  #define bit_SSE4_1	(1 << 19)
+  #define bit_SSE4_2	(1 << 20)
+  #define bit_POPCNT	(1 << 23)
++ #define bit_AES		(1 << 25)
+  
+  /* %edx */
+  #define bit_CMPXCHG8B	(1 << 8)
+Index: gcc/config/i386/sse.md
+===================================================================
+*** gcc/config/i386/sse.md	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/config/i386/sse.md	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** (define_insn "sse5_pcom_tf<mode>3"
+*** 8684,8686 ****
+--- 8684,8763 ----
+  }
+    [(set_attr "type" "ssecmp")
+     (set_attr "mode" "TI")])
++ 
++ (define_insn "aesenc"
++   [(set (match_operand:V2DI 0 "register_operand" "=x")
++ 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
++ 		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
++ 		      UNSPEC_AESENC))]
++   "TARGET_AES"
++   "aesenc\t{%2, %0|%0, %2}"
++   [(set_attr "type" "sselog1")
++    (set_attr "prefix_extra" "1")
++    (set_attr "mode" "TI")])
++ 
++ (define_insn "aesenclast"
++   [(set (match_operand:V2DI 0 "register_operand" "=x")
++ 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
++ 		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
++ 		      UNSPEC_AESENCLAST))]
++   "TARGET_AES"
++   "aesenclast\t{%2, %0|%0, %2}"
++   [(set_attr "type" "sselog1")
++    (set_attr "prefix_extra" "1")
++    (set_attr "mode" "TI")])
++ 
++ (define_insn "aesdec"
++   [(set (match_operand:V2DI 0 "register_operand" "=x")
++ 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
++ 		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
++ 		      UNSPEC_AESDEC))]
++   "TARGET_AES"
++   "aesdec\t{%2, %0|%0, %2}"
++   [(set_attr "type" "sselog1")
++    (set_attr "prefix_extra" "1")
++    (set_attr "mode" "TI")])
++ 
++ (define_insn "aesdeclast"
++   [(set (match_operand:V2DI 0 "register_operand" "=x")
++ 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
++ 		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
++ 		      UNSPEC_AESDECLAST))]
++   "TARGET_AES"
++   "aesdeclast\t{%2, %0|%0, %2}"
++   [(set_attr "type" "sselog1")
++    (set_attr "prefix_extra" "1")
++    (set_attr "mode" "TI")])
++ 
++ (define_insn "aesimc"
++   [(set (match_operand:V2DI 0 "register_operand" "=x")
++ 	(unspec:V2DI [(match_operand:V2DI 1 "nonimmediate_operand" "xm")]
++ 		      UNSPEC_AESIMC))]
++   "TARGET_AES"
++   "aesimc\t{%1, %0|%0, %1}"
++   [(set_attr "type" "sselog1")
++    (set_attr "prefix_extra" "1")
++    (set_attr "mode" "TI")])
++ 
++ (define_insn "aeskeygenassist"
++   [(set (match_operand:V2DI 0 "register_operand" "=x")
++ 	(unspec:V2DI [(match_operand:V2DI 1 "nonimmediate_operand" "xm")
++ 		      (match_operand:SI 2 "const_0_to_255_operand" "n")]
++ 		     UNSPEC_AESKEYGENASSIST))]
++   "TARGET_AES"
++   "aeskeygenassist\t{%2, %1, %0|%0, %1, %2}"
++   [(set_attr "type" "sselog1")
++    (set_attr "prefix_extra" "1")
++    (set_attr "mode" "TI")])
++ 
++ (define_insn "pclmulqdq"
++   [(set (match_operand:V2DI 0 "register_operand" "=x")
++ 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
++ 		      (match_operand:V2DI 2 "nonimmediate_operand" "xm")
++ 		      (match_operand:SI 3 "const_0_to_255_operand" "n")]
++ 		     UNSPEC_PCLMUL))]
++   "TARGET_PCLMUL"
++   "pclmulqdq\t{%3, %2, %0|%0, %2, %3}"
++   [(set_attr "type" "sselog1")
++    (set_attr "prefix_extra" "1")
++    (set_attr "mode" "TI")])
+Index: gcc/config/i386/i386.opt
+===================================================================
+*** gcc/config/i386/i386.opt	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/config/i386/i386.opt	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** Target Report Var(x86_fused_muladd) Init
+*** 279,281 ****
+--- 279,289 ----
+  Enable automatic generation of fused floating point multiply-add instructions
+  if the ISA supports such instructions.  The -mfused-madd option is on by
+  default.
++ 
++ maes
++ Target Report RejectNegative Var(x86_aes)
++ Support AES built-in functions and code generation
++ 
++ mpclmul
++ Target Report RejectNegative Var(x86_pclmul)
++ Support PCLMUL built-in functions and code generation
+Index: gcc/config/i386/i386.c
+===================================================================
+*** gcc/config/i386/i386.c	(.../gcc-4_3-branch)	(revision 136789)
+--- gcc/config/i386/i386.c	(.../ix86/gcc-4_3-branch)	(revision 137253)
+*************** override_options (void)
+*** 2077,2083 ****
+        PTA_NO_SAHF = 1 << 13,
+        PTA_SSE4_1 = 1 << 14,
+        PTA_SSE4_2 = 1 << 15,
+!       PTA_SSE5 = 1 << 16
+      };
+  
+    static struct pta
+--- 2077,2085 ----
+        PTA_NO_SAHF = 1 << 13,
+        PTA_SSE4_1 = 1 << 14,
+        PTA_SSE4_2 = 1 << 15,
+!       PTA_SSE5 = 1 << 16,
+!       PTA_AES = 1 << 17,
+!       PTA_PCLMUL = 1 << 18
+      };
+  
+    static struct pta
+*************** override_options (void)
+*** 2384,2389 ****
+--- 2386,2395 ----
+  	  x86_prefetch_sse = true;
+  	if (!(TARGET_64BIT && (processor_alias_table[i].flags & PTA_NO_SAHF)))
+  	  x86_sahf = true;
++ 	if (processor_alias_table[i].flags & PTA_AES)
++ 	  x86_aes = true;
++ 	if (processor_alias_table[i].flags & PTA_PCLMUL)
++ 	  x86_pclmul = true;
+  
+  	break;
+        }
+*************** override_options (void)
+*** 2427,2432 ****
+--- 2433,2446 ----
+    if (i == pta_size)
+      error ("bad value (%s) for -mtune= switch", ix86_tune_string);
+  
++   /* Enable SSE2 if AES or PCLMUL is enabled.  */
++   if ((x86_aes || x86_pclmul)
++       && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_SSE2))
++     {
++       ix86_isa_flags |= OPTION_MASK_ISA_SSE2_SET;
++       ix86_isa_flags_explicit |= OPTION_MASK_ISA_SSE2_SET;
++     }
++ 
+    ix86_tune_mask = 1u << ix86_tune;
+    for (i = 0; i < X86_TUNE_LAST; ++i)
+      ix86_tune_features[i] &= ix86_tune_mask;
+*************** enum ix86_builtins
+*** 17541,17546 ****
+--- 17555,17571 ----
+  
+    IX86_BUILTIN_PCMPGTQ,
+  
++   /* AES instructions */
++   IX86_BUILTIN_AESENC128,
++   IX86_BUILTIN_AESENCLAST128,
++   IX86_BUILTIN_AESDEC128,
++   IX86_BUILTIN_AESDECLAST128,
++   IX86_BUILTIN_AESIMC128,
++   IX86_BUILTIN_AESKEYGENASSIST128,
++ 
++   /* PCLMUL instruction */
++   IX86_BUILTIN_PCLMULQDQ128,
++ 
+    /* TFmode support builtins.  */
+    IX86_BUILTIN_INFQ,
+    IX86_BUILTIN_FABSQ,
+*************** static const struct builtin_description
+*** 17896,17901 ****
+--- 17921,17929 ----
+    { OPTION_MASK_ISA_SSE4_1, CODE_FOR_sse4_1_pblendw, "__builtin_ia32_pblendw128", IX86_BUILTIN_PBLENDW128, UNKNOWN, 0 },
+    { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_roundsd, 0, IX86_BUILTIN_ROUNDSD, UNKNOWN, 0 },
+    { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_roundss, 0, IX86_BUILTIN_ROUNDSS, UNKNOWN, 0 },
++ 
++   /* PCLMUL */
++   { OPTION_MASK_ISA_SSE2, CODE_FOR_pclmulqdq, 0, IX86_BUILTIN_PCLMULQDQ128, UNKNOWN, 0 },
+  };
+  
+  static const struct builtin_description bdesc_2arg[] =
+*************** static const struct builtin_description
+*** 18206,18211 ****
+--- 18234,18246 ----
+  
+    /* SSE4.2 */
+    { OPTION_MASK_ISA_SSE4_2, CODE_FOR_sse4_2_gtv2di3, "__builtin_ia32_pcmpgtq", IX86_BUILTIN_PCMPGTQ, UNKNOWN, 0 },
++ 
++   /* AES */
++   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesenc, 0, IX86_BUILTIN_AESENC128, UNKNOWN, 0 },
++   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesenclast, 0, IX86_BUILTIN_AESENCLAST128, UNKNOWN, 0 },
++   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesdec, 0, IX86_BUILTIN_AESDEC128, UNKNOWN, 0 },
++   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesdeclast, 0, IX86_BUILTIN_AESDECLAST128, UNKNOWN, 0 },
++   { OPTION_MASK_ISA_SSE2, CODE_FOR_aeskeygenassist, 0, IX86_BUILTIN_AESKEYGENASSIST128, UNKNOWN, 0 },
+  };
+  
+  static const struct builtin_description bdesc_1arg[] =
+*************** static const struct builtin_description
+*** 18281,18286 ****
+--- 18316,18324 ----
+    /* Fake 1 arg builtins with a constant smaller than 8 bits as the 2nd arg.  */
+    { OPTION_MASK_ISA_SSE4_1, CODE_FOR_sse4_1_roundpd, 0, IX86_BUILTIN_ROUNDPD, UNKNOWN, 0 },
+    { OPTION_MASK_ISA_SSE4_1, CODE_FOR_sse4_1_roundps, 0, IX86_BUILTIN_ROUNDPS, UNKNOWN, 0 },
++ 
++   /* AES */
++   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesimc, 0, IX86_BUILTIN_AESIMC128, UNKNOWN, 0 },
+  };
+  
+  /* SSE5 */
+*************** ix86_init_mmx_sse_builtins (void)
+*** 19514,19519 ****
+--- 19552,19576 ----
+  				    NULL_TREE);
+    def_builtin_const (OPTION_MASK_ISA_SSE4_2 | OPTION_MASK_ISA_64BIT, "__builtin_ia32_crc32di", ftype, IX86_BUILTIN_CRC32DI);
+  
++   /* AES */
++   if (TARGET_AES)
++     {
++       /* Define AES built-in functions only if AES is enabled.  */
++       def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_ia32_aesenc128", v2di_ftype_v2di_v2di, IX86_BUILTIN_AESENC128);
++       def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_ia32_aesenclast128", v2di_ftype_v2di_v2di, IX86_BUILTIN_AESENCLAST128);
++       def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_ia32_aesdec128", v2di_ftype_v2di_v2di, IX86_BUILTIN_AESDEC128);
++       def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_ia32_aesdeclast128", v2di_ftype_v2di_v2di, IX86_BUILTIN_AESDECLAST128);
++       def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_ia32_aesimc128", v2di_ftype_v2di, IX86_BUILTIN_AESIMC128);
++       def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_ia32_aeskeygenassist128", v2di_ftype_v2di_int, IX86_BUILTIN_AESKEYGENASSIST128);
++     }
++ 
++   /* PCLMUL */
++   if (TARGET_PCLMUL)
++     {
++       /* Define PCLMUL built-in function only if PCLMUL is enabled.  */
++       def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_ia32_pclmulqdq128", v2di_ftype_v2di_v2di_int, IX86_BUILTIN_PCLMULQDQ128);
++     }
++ 
+    /* AMDFAM10 SSE4A New built-ins  */
+    def_builtin (OPTION_MASK_ISA_SSE4A, "__builtin_ia32_movntsd", void_ftype_pdouble_v2df, IX86_BUILTIN_MOVNTSD);
+    def_builtin (OPTION_MASK_ISA_SSE4A, "__builtin_ia32_movntss", void_ftype_pfloat_v4sf, IX86_BUILTIN_MOVNTSS);
+*************** ix86_expand_crc32 (enum insn_code icode,
+*** 19789,19794 ****
+--- 19846,19889 ----
+    return target;
+  }
+  
++ /* Subroutine of ix86_expand_builtin to take care of binop insns
++    with an immediate.  */
++ 
++ static rtx
++ ix86_expand_binop_imm_builtin (enum insn_code icode, tree exp,
++ 				rtx target)
++ {
++   rtx pat;
++   tree arg0 = CALL_EXPR_ARG (exp, 0);
++   tree arg1 = CALL_EXPR_ARG (exp, 1);
++   rtx op0 = expand_normal (arg0);
++   rtx op1 = expand_normal (arg1);
++   enum machine_mode tmode = insn_data[icode].operand[0].mode;
++   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
++   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
++ 
++   if (! (*insn_data[icode].operand[1].predicate) (op0, mode1))
++     {
++       op0 = copy_to_reg (op0);
++       op0 = simplify_gen_subreg (mode0, op0, GET_MODE (op0), 0);
++     }
++ 
++   if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
++     {
++       error ("the last operand must be an immediate");
++       return const0_rtx;
++     }
++ 
++   target = gen_reg_rtx (V2DImode);
++   pat = GEN_FCN (icode) (simplify_gen_subreg (tmode, target,
++ 					      V2DImode, 0),
++ 			 op0, op1);
++   if (! pat)
++     return 0;
++   emit_insn (pat);
++   return target;
++ }
++ 
+  /* Subroutine of ix86_expand_builtin to take care of binop insns.  */
+  
+  static rtx
+*************** ix86_expand_builtin (tree exp, rtx targe
+*** 20885,20918 ****
+        return target;
+  
+      case IX86_BUILTIN_PSLLDQI128:
+      case IX86_BUILTIN_PSRLDQI128:
+!       icode = (fcode == IX86_BUILTIN_PSLLDQI128 ? CODE_FOR_sse2_ashlti3
+! 	       : CODE_FOR_sse2_lshrti3);
+!       arg0 = CALL_EXPR_ARG (exp, 0);
+!       arg1 = CALL_EXPR_ARG (exp, 1);
+!       op0 = expand_normal (arg0);
+!       op1 = expand_normal (arg1);
+!       tmode = insn_data[icode].operand[0].mode;
+!       mode1 = insn_data[icode].operand[1].mode;
+!       mode2 = insn_data[icode].operand[2].mode;
+  
+!       if (! (*insn_data[icode].operand[1].predicate) (op0, mode1))
+! 	{
+! 	  op0 = copy_to_reg (op0);
+! 	  op0 = simplify_gen_subreg (mode1, op0, GET_MODE (op0), 0);
+! 	}
+!       if (! (*insn_data[icode].operand[2].predicate) (op1, mode2))
+! 	{
+! 	  error ("shift must be an immediate");
+! 	  return const0_rtx;
+! 	}
+!       target = gen_reg_rtx (V2DImode);
+!       pat = GEN_FCN (icode) (simplify_gen_subreg (tmode, target, V2DImode, 0),
+! 			     op0, op1);
+!       if (! pat)
+! 	return 0;
+!       emit_insn (pat);
+!       return target;
+  
+      case IX86_BUILTIN_FEMMS:
+        emit_insn (gen_mmx_femms ());
+--- 20980,20997 ----
+        return target;
+  
+      case IX86_BUILTIN_PSLLDQI128:
++       return ix86_expand_binop_imm_builtin (CODE_FOR_sse2_ashlti3,
++ 					     exp, target);
++       break;
++ 
+      case IX86_BUILTIN_PSRLDQI128:
+!       return ix86_expand_binop_imm_builtin (CODE_FOR_sse2_lshrti3,
+! 					     exp, target);
+!       break;
+  
+!     case IX86_BUILTIN_AESKEYGENASSIST128:
+!       return ix86_expand_binop_imm_builtin (CODE_FOR_aeskeygenassist,
+! 					     exp, target);
+  
+      case IX86_BUILTIN_FEMMS:
+        emit_insn (gen_mmx_femms ());

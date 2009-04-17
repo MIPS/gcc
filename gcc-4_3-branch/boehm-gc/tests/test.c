@@ -237,10 +237,10 @@ struct GC_ms_entry * fake_gcj_mark_proc(word * addr,
     x = (sexpr)(addr + 1); /* Skip the vtable pointer. */
     mark_stack_ptr = GC_MARK_AND_PUSH(
 			      (GC_PTR)(x -> sexpr_cdr), mark_stack_ptr,
-			      mark_stack_limit, (GC_PTR *)&(x -> sexpr_cdr));
+			      mark_stack_limit, (GC_PTR)&(x -> sexpr_cdr));
     mark_stack_ptr = GC_MARK_AND_PUSH(
 			      (GC_PTR)(x -> sexpr_car), mark_stack_ptr,
-			      mark_stack_limit, (GC_PTR *)&(x -> sexpr_car));
+			      mark_stack_limit, (GC_PTR)&(x -> sexpr_car));
     return(mark_stack_ptr);
 }
 

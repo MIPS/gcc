@@ -1,0 +1,705 @@
+2008-07-14  Ben Elliston  <bje@au.ibm.com>
+
+	* c-common.h (C_CPP_HASHNODE): New macro.
+	* coretypes.h (struct cpp_token): Forward declare.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	the context-sensitive keyword method.
+	* config/rs6000/rs6000-c.c (__vector_keyword, vector_keyword,
+	__pixel_keyword, pixel_keyword, __bool_keyword, bool_keyword,
+	expand_bool_pixel): New.
+	(altivec_categorize_keyword): New function.
+	(init_vector_keywords): New function.
+	(rs6000_macro_to_expand): Likewise.
+	(rs6000_cpu_cpp_builtins): Enable context-sensitive macros if not
+	compiling an ISO C dialect.
+
+2008-07-14  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.target/powerpc/altivec-macros.c: New test.
+	* gcc.target/powerpc/altviec-26.c: Likewise.
+	* gcc.dg/vmx/1b-06.c: Remove bool variable.
+	* gcc.dg/vmx/1b-07.c: Likewise.
+	* gcc.dg/vmx/1b-06-ansi.c: New test for the pre-define method.
+	* gcc.dg/vmx/1b-07-ansi.c: Likewise.
+
+2008-07-14  Ben Elliston  <bje@au.ibm.com>
+
+	* include/cpplib.h (NODE_CONDITIONAL): New.
+	(struct cpp_callbacks): New macro_to_expand field.
+	(struct cpp_hashnode): Adjust size of flags and type fields.
+	(cpp_peek_token): Prototype.
+	* lex.c (cpp_peek_token): New function.
+	(_cpp_temp_token): Protect pre-existing lookaheads.
+	* macro.c (cpp_get_token): Expand any conditional macros.
+	(_cpp_backup_tokens_direct): New.
+	(_cpp_backup_tokens): Call _cpp_backup_tokens_direct.
+	(warn_of_redefinition): Silently allow redefined conditional
+	macros.
+	(_cpp_create_definition): Remove the conditional flag when a user
+	defines one of the conditional macros.
+	* internal.h (_cpp_backup_tokens_direct): New prototype.
+
+
+Index: gcc/doc/extend.texi
+===================================================================
+--- gcc/doc/extend.texi.orig	2008-08-05 13:59:49.000000000 +0200
++++ gcc/doc/extend.texi	2008-08-05 14:00:09.000000000 +0200
+@@ -8897,9 +8897,10 @@ always specify the signedness.
+ 
+ @item
+ Compiling with @option{-maltivec} adds keywords @code{__vector},
+-@code{__pixel}, and @code{__bool}.  Macros @option{vector},
+-@code{pixel}, and @code{bool} are defined in @code{<altivec.h>} and can
+-be undefined.
++@code{vector}, @code{__pixel}, @code{pixel}, @code{__bool} and
++@code{bool}.  When compiling ISO C, the context-sensitive substitution
++of the keywords @code{vector}, @code{pixel} and @code{bool} is
++disabled.  To use them, you must include @code{<altivec.h>} instead.
+ 
+ @item
+ GCC allows using a @code{typedef} name as the type specifier for a
+Index: gcc/testsuite/gcc.target/powerpc/altivec-macros.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/powerpc/altivec-macros.c	2008-08-05 14:00:09.000000000 +0200
+@@ -0,0 +1,63 @@
++/* Copyright (C) 2007 Free Software Foundation, Inc.  */
++
++/* { dg-do preprocess } */
++/* { dg-options "-maltivec" } */
++
++/* Conditional macros should not be expanded by pragmas.  */
++#pragma __vector
++_Pragma ("__vector")
++
++/* Redefinition of conditional macros.  */
++/* No warning should be generated.  */
++
++#define __vector __new_vector
++#define __pixel __new_pixel
++#define __bool __new_bool
++#define vector new_vector
++#define pixel new_pixel
++#define bool new_bool
++
++/* Definition of conditional macros.  */
++/* No warning should be generated.  */
++
++#undef __vector
++#define __vector __new_vector
++
++#undef __pixel
++#define __pixel __new_pixel
++
++#undef __bool
++#define __bool __new_bool
++
++#undef vector
++#define vector new_vector
++
++#undef pixel
++#define pixel new_pixel
++
++#undef bool
++#define bool new_bool
++
++/* Re-definition of "unconditional" macros.  */
++/* Warnings should be generated as usual.  */
++
++#define __vector	__newer_vector
++#define __pixel		__newer_pixel
++#define __bool		__newer_bool
++#define vector		newer_vector
++#define pixel		newer_pixel
++#define bool		newer_bool
++
++/* { dg-warning "redefined" "__vector redefined"  { target *-*-* } 44 } */
++/* { dg-warning "redefined" "__pixel redefined"   { target *-*-* } 45 } */
++/* { dg-warning "redefined" "__bool redefined"    { target *-*-* } 46 } */
++/* { dg-warning "redefined" "vector redefined"    { target *-*-* } 47 } */
++/* { dg-warning "redefined" "pixel redefined"     { target *-*-* } 48 } */
++/* { dg-warning "redefined" "bool redefined"      { target *-*-* } 49 } */
++
++/* { dg-warning "previous"  "prev __vector defn"  { target *-*-* } 24 } */
++/* { dg-warning "previous"  "prev __pixel defn"   { target *-*-* } 27 } */
++/* { dg-warning "previous"  "prev __bool defn"    { target *-*-* } 30 } */
++/* { dg-warning "previous"  "prev vector defn"    { target *-*-* } 33 } */
++/* { dg-warning "previous"  "prev pixel defn"     { target *-*-* } 36 } */
++/* { dg-warning "previous"  "prev bool defn"      { target *-*-* } 39 } */
+Index: gcc/testsuite/gcc.target/powerpc/altivec-26.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/powerpc/altivec-26.c	2008-08-05 14:00:09.000000000 +0200
+@@ -0,0 +1,11 @@
++/* { dg-do compile { target powerpc*-*-* } } */
++/* { dg-require-effective-target powerpc_altivec_ok } */
++/* { dg-options "-maltivec" } */
++
++/* A compiler implementing context-sensitive keywords must define this
++   preprocessor macro so that altivec.h does not provide the vector,
++   pixel, etc. macros.  */
++
++#ifndef __APPLE_ALTIVEC__
++#error __APPLE_ALTIVEC__ not pre-defined
++#endif
+Index: gcc/testsuite/gcc.dg/vmx/1b-07-ansi.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.dg/vmx/1b-07-ansi.c	2008-08-05 14:00:09.000000000 +0200
+@@ -0,0 +1,59 @@
++/* { dg-do compile } */
++/* { dg-options "-ansi -maltivec" } */
++
++#include <altivec.h>
++vector char bool _0 ;
++vector bool char _8 ;
++vector char unsigned _56 ;
++vector unsigned char _64 ;
++vector char signed _112 ;
++vector signed char _120 ;
++/* bool is permitted in the predefine method, as it is expanded
++   unconditionally to int.  */
++bool _168 ;
++vector pixel _170 ;
++vector int bool _178 ;
++vector bool int _186 ;
++vector short bool _234 ;
++vector bool short _242 ;
++vector unsigned int _290 ;
++vector int unsigned _298 ;
++vector unsigned short _346 ;
++vector short unsigned _354 ;
++vector signed int _402 ;
++vector int signed _410 ;
++vector signed short _458 ;
++vector short signed _466 ;
++vector int bool _514 ;
++vector int bool _544 ;
++vector int bool _559 ;
++vector bool int _589 ;
++vector int short bool _874 ;
++vector int bool short _889 ;
++vector short int bool _904 ;
++vector short bool int _919 ;
++vector bool int short _934 ;
++vector bool short int _949 ;
++vector unsigned int _1234 ;
++vector int unsigned _1249 ;
++vector unsigned int _1279 ;
++vector int unsigned _1294 ;
++vector unsigned int _1309 ;
++vector int unsigned short _1594 ;
++vector int short unsigned _1609 ;
++vector unsigned int short _1624 ;
++vector unsigned short int _1639 ;
++vector short int unsigned _1654 ;
++vector short unsigned int _1669 ;
++vector signed int _1954 ;
++vector int signed _1969 ;
++vector signed int _1999 ;
++vector int signed _2014 ;
++vector signed int _2029 ;
++vector int signed short _2314 ;
++vector int short signed _2329 ;
++vector signed int short _2344 ;
++vector signed short int _2359 ;
++vector short int signed _2374 ;
++vector short signed int _2389 ;
++vector float _2674 ;
+Index: gcc/testsuite/gcc.dg/vmx/1b-07.c
+===================================================================
+--- gcc/testsuite/gcc.dg/vmx/1b-07.c.orig	2008-02-19 10:53:21.000000000 +0100
++++ gcc/testsuite/gcc.dg/vmx/1b-07.c	2008-08-05 14:00:09.000000000 +0200
+@@ -6,7 +6,6 @@ vector char unsigned _56 ;
+ vector unsigned char _64 ;
+ vector char signed _112 ;
+ vector signed char _120 ;
+-bool _168 ;
+ vector pixel _170 ;
+ vector int bool _178 ;
+ vector bool int _186 ;
+Index: gcc/testsuite/gcc.dg/vmx/1b-06-ansi.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.dg/vmx/1b-06-ansi.c	2008-08-05 14:00:09.000000000 +0200
+@@ -0,0 +1,24 @@
++/* { dg-do compile } */
++/* { dg-options "-ansi -maltivec" } */
++
++#include <altivec.h>
++vector char bool _4 ;
++vector char unsigned _31 ;
++vector char signed _59 ;
++/* bool is permitted in the predefine method, as it is expanded
++   unconditionally to int.  */
++bool _84 ;
++vector pixel _89 ;
++vector int bool _95 ;
++vector short bool _102 ;
++vector unsigned int _122 ;
++vector unsigned short _129 ;
++vector signed int _150 ;
++vector signed short _157 ;
++vector int bool _179 ;
++vector int short bool _186 ;
++vector unsigned int _206 ;
++vector int unsigned short _213 ;
++vector signed int _234 ;
++vector int signed short _241 ;
++vector float _339 ;
+Index: gcc/testsuite/gcc.dg/vmx/1b-06.c
+===================================================================
+--- gcc/testsuite/gcc.dg/vmx/1b-06.c.orig	2008-02-19 10:53:21.000000000 +0100
++++ gcc/testsuite/gcc.dg/vmx/1b-06.c	2008-08-05 14:00:09.000000000 +0200
+@@ -3,7 +3,6 @@
+ vector char bool _4 ;
+ vector char unsigned _31 ;
+ vector char signed _59 ;
+-bool _84 ;
+ vector pixel _89 ;
+ vector int bool _95 ;
+ vector short bool _102 ;
+Index: gcc/coretypes.h
+===================================================================
+--- gcc/coretypes.h.orig	2008-02-19 10:56:00.000000000 +0100
++++ gcc/coretypes.h	2008-08-05 14:00:09.000000000 +0200
+@@ -60,9 +60,11 @@ enum ir_type {
+ 
+ /* Provide forward struct declaration so that we don't have to include
+    all of cpplib.h whenever a random prototype includes a pointer.
+-   Note that the cpp_reader typedef remains part of cpplib.h.  */
++   Note that the cpp_reader and cpp_token typedefs remain part of
++   cpplib.h.  */
+ 
+ struct cpp_reader;
++struct cpp_token;
+ 
+ /* The thread-local storage model associated with a given VAR_DECL
+    or SYMBOL_REF.  This isn't used much, but both trees and RTL refer
+Index: gcc/c-common.h
+===================================================================
+--- gcc/c-common.h.orig	2008-02-19 10:56:00.000000000 +0100
++++ gcc/c-common.h	2008-08-05 14:01:13.000000000 +0200
+@@ -180,6 +180,8 @@ enum c_tree_index
+     CTI_MAX
+ };
+ 
++#define C_CPP_HASHNODE(id) \
++  (&(((struct c_common_identifier *) (id))->node))
+ #define C_RID_CODE(id)	(((struct c_common_identifier *) (id))->node.rid_code)
+ 
+ /* Identifier part common to the C front ends.  Inherits from
+Index: gcc/config/rs6000/rs6000-c.c
+===================================================================
+--- gcc/config/rs6000/rs6000-c.c.orig	2008-02-19 10:55:53.000000000 +0100
++++ gcc/config/rs6000/rs6000-c.c	2008-08-05 14:00:09.000000000 +0200
+@@ -84,6 +84,149 @@ rs6000_pragma_longcall (cpp_reader *pfil
+ #define builtin_define(TXT) cpp_define (pfile, TXT)
+ #define builtin_assert(TXT) cpp_assert (pfile, TXT)
+ 
++/* Keep the AltiVec keywords handy for fast comparisons.  */
++static tree __vector_keyword;
++static tree vector_keyword;
++static tree __pixel_keyword;
++static tree pixel_keyword;
++static tree __bool_keyword;
++static tree bool_keyword;
++
++/* Preserved across calls.  */
++static tree expand_bool_pixel;
++
++static cpp_hashnode *
++altivec_categorize_keyword (const cpp_token *tok)
++{
++  if (tok->type == CPP_NAME)
++    {
++      cpp_hashnode *ident = tok->val.node;
++
++      if (ident == C_CPP_HASHNODE (vector_keyword)
++	  || ident == C_CPP_HASHNODE (__vector_keyword))
++	return C_CPP_HASHNODE (__vector_keyword);
++
++      if (ident == C_CPP_HASHNODE (pixel_keyword)
++	  || ident ==  C_CPP_HASHNODE (__pixel_keyword))
++	return C_CPP_HASHNODE (__pixel_keyword);
++
++      if (ident == C_CPP_HASHNODE (bool_keyword)
++	  || ident == C_CPP_HASHNODE (__bool_keyword))
++	return C_CPP_HASHNODE (__bool_keyword);
++
++      return ident;
++    }
++
++  return 0;
++}
++
++static void
++init_vector_keywords (void)
++{
++  /* Keywords without two leading underscores are context-sensitive,
++     and hence implemented as conditional macros, controlled by the
++     rs6000_macro_to_expand() function below.  */
++
++  __vector_keyword = get_identifier ("__vector");
++  C_CPP_HASHNODE (__vector_keyword)->flags |= NODE_CONDITIONAL;
++
++  __pixel_keyword = get_identifier ("__pixel");
++  C_CPP_HASHNODE (__pixel_keyword)->flags |= NODE_CONDITIONAL;
++
++  __bool_keyword = get_identifier ("__bool");
++  C_CPP_HASHNODE (__bool_keyword)->flags |= NODE_CONDITIONAL;
++
++  vector_keyword = get_identifier ("vector");
++  C_CPP_HASHNODE (vector_keyword)->flags |= NODE_CONDITIONAL;
++
++  pixel_keyword = get_identifier ("pixel");
++  C_CPP_HASHNODE (pixel_keyword)->flags |= NODE_CONDITIONAL;
++
++  bool_keyword = get_identifier ("bool");
++  C_CPP_HASHNODE (bool_keyword)->flags |= NODE_CONDITIONAL;
++}
++
++/* Called to decide whether a conditional macro should be expanded.
++   Since we have exactly one such macro (i.e, 'vector'), we do not
++   need to examine the 'tok' parameter.  */
++
++static cpp_hashnode *
++rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
++{
++  cpp_hashnode *expand_this = tok->val.node;
++  cpp_hashnode *ident;
++
++  ident = altivec_categorize_keyword (tok);
++
++  if (ident == C_CPP_HASHNODE (__vector_keyword))
++    {
++      tok = cpp_peek_token (pfile, 0);
++      ident = altivec_categorize_keyword (tok);
++
++      if (ident ==  C_CPP_HASHNODE (__pixel_keyword))
++	{
++	  expand_this = C_CPP_HASHNODE (__vector_keyword);
++	  expand_bool_pixel = __pixel_keyword;
++	}
++      else if (ident == C_CPP_HASHNODE (__bool_keyword))
++	{
++	  expand_this = C_CPP_HASHNODE (__vector_keyword);
++	  expand_bool_pixel = __bool_keyword;
++	}
++      else if (ident)
++	{
++	  enum rid rid_code = (enum rid)(ident->rid_code);
++	  if (ident->type == NT_MACRO)
++	    {
++	      (void)cpp_get_token (pfile);
++	      tok = cpp_peek_token (pfile, 0);
++	      ident = altivec_categorize_keyword (tok);
++	      if (ident)
++		rid_code = (enum rid)(ident->rid_code);
++	    }
++
++	  if (rid_code == RID_UNSIGNED || rid_code == RID_LONG
++	      || rid_code == RID_SHORT || rid_code == RID_SIGNED
++	      || rid_code == RID_INT || rid_code == RID_CHAR
++	      || rid_code == RID_FLOAT)
++	    {
++	      expand_this = C_CPP_HASHNODE (__vector_keyword);
++	      /* If the next keyword is bool or pixel, it
++		 will need to be expanded as well.  */
++	      tok = cpp_peek_token (pfile, 1);
++	      ident = altivec_categorize_keyword (tok);
++
++	      if (ident ==  C_CPP_HASHNODE (__pixel_keyword))
++		expand_bool_pixel = __pixel_keyword;
++	      else if (ident == C_CPP_HASHNODE (__bool_keyword))
++		expand_bool_pixel = __bool_keyword;
++	      else
++		{
++		  /* Try two tokens down, too.  */
++		  tok = cpp_peek_token (pfile, 2);
++		  ident = altivec_categorize_keyword (tok);
++		  if (ident ==  C_CPP_HASHNODE (__pixel_keyword))
++		    expand_bool_pixel = __pixel_keyword;
++		  else if (ident == C_CPP_HASHNODE (__bool_keyword))
++		    expand_bool_pixel = __bool_keyword;
++		}
++	    }
++	}
++    }
++  else if (expand_bool_pixel && ident == C_CPP_HASHNODE (__pixel_keyword))
++    {
++      expand_this = C_CPP_HASHNODE (__pixel_keyword);
++      expand_bool_pixel = 0;
++    }
++  else if (expand_bool_pixel && ident == C_CPP_HASHNODE (__bool_keyword))
++    {
++      expand_this = C_CPP_HASHNODE (__bool_keyword);
++      expand_bool_pixel = 0;
++    }
++
++  return expand_this;
++}
++
+ void
+ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
+ {
+@@ -120,6 +263,20 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfi
+       builtin_define ("__vector=__attribute__((altivec(vector__)))");
+       builtin_define ("__pixel=__attribute__((altivec(pixel__))) unsigned short");
+       builtin_define ("__bool=__attribute__((altivec(bool__))) unsigned");
++
++      if (!flag_iso)
++	{
++	  /* Define this when supporting context-sensitive keywords.  */
++	  builtin_define ("__APPLE_ALTIVEC__");
++	  
++	  builtin_define ("vector=vector");
++	  builtin_define ("pixel=pixel");
++	  builtin_define ("bool=bool");
++	  init_vector_keywords ();
++
++	  /* Enable context-sensitive macros.  */
++	  cpp_get_callbacks (pfile)->macro_to_expand = rs6000_macro_to_expand;
++	}
+     }
+   if (TARGET_SPE)
+     builtin_define ("__SPE__");
+Index: libcpp/macro.c
+===================================================================
+--- libcpp/macro.c.orig	2008-02-19 10:59:44.000000000 +0100
++++ libcpp/macro.c	2008-08-05 14:00:09.000000000 +0200
+@@ -1224,16 +1224,21 @@ cpp_get_token (cpp_reader *pfile)
+ 
+       if (!(node->flags & NODE_DISABLED))
+ 	{
+-	  int ret;
++	  int ret = 0;
+ 	  /* If not in a macro context, and we're going to start an
+ 	     expansion, record the location.  */
+ 	  if (can_set && !context->macro)
+ 	    pfile->invocation_location = result->src_loc;
+ 	  if (pfile->state.prevent_expansion)
+ 	    break;
+-	  ret = enter_macro_context (pfile, node, result);
+-	  if (ret)
+-	    {
++
++	  /* Conditional macros require that a predicate be evaluated
++	     first.  */
++	  if (((!(node->flags & NODE_CONDITIONAL))
++	       || (pfile->cb.macro_to_expand
++		   && (node = pfile->cb.macro_to_expand (pfile, result))))
++	      && (ret = enter_macro_context (pfile, node, result)))
++ 	    {
+ 	      if (pfile->state.in_directive || ret == 2)
+ 		continue;
+ 	      return padding_token (pfile, result);
+@@ -1311,26 +1316,31 @@ cpp_scan_nooutput (cpp_reader *pfile)
+   pfile->state.prevent_expansion--;
+ }
+ 
++/* Step back one or more tokens obtained from the lexer.  */
++void
++_cpp_backup_tokens_direct (cpp_reader *pfile, unsigned int count)
++{
++  pfile->lookaheads += count;
++  while (count--)
++    {
++      pfile->cur_token--;
++      if (pfile->cur_token == pfile->cur_run->base
++          /* Possible with -fpreprocessed and no leading #line.  */
++          && pfile->cur_run->prev != NULL)
++        {
++          pfile->cur_run = pfile->cur_run->prev;
++          pfile->cur_token = pfile->cur_run->limit;
++        }
++    }
++}
++
+ /* Step back one (or more) tokens.  Can only step back more than 1 if
+    they are from the lexer, and not from macro expansion.  */
+ void
+ _cpp_backup_tokens (cpp_reader *pfile, unsigned int count)
+ {
+   if (pfile->context->prev == NULL)
+-    {
+-      pfile->lookaheads += count;
+-      while (count--)
+-	{
+-	  pfile->cur_token--;
+-	  if (pfile->cur_token == pfile->cur_run->base
+-	      /* Possible with -fpreprocessed and no leading #line.  */
+-	      && pfile->cur_run->prev != NULL)
+-	    {
+-	      pfile->cur_run = pfile->cur_run->prev;
+-	      pfile->cur_token = pfile->cur_run->limit;
+-	    }
+-	}
+-    }
++    _cpp_backup_tokens_direct (pfile, count);
+   else
+     {
+       if (count != 1)
+@@ -1356,6 +1366,11 @@ warn_of_redefinition (cpp_reader *pfile,
+   if (node->flags & NODE_WARN)
+     return true;
+ 
++  /* Redefinitions of conditional (context-sensitive) macros, on
++     the other hand, must be allowed silently.  */
++  if (node->flags & NODE_CONDITIONAL)
++    return false;
++
+   /* Redefinition of a macro is allowed if and only if the old and new
+      definitions are the same.  (6.10.3 paragraph 2).  */
+   macro1 = node->value.macro;
+@@ -1788,6 +1803,10 @@ _cpp_create_definition (cpp_reader *pfil
+       && ustrcmp (NODE_NAME (node), (const uchar *) "__STDC_CONSTANT_MACROS"))
+     node->flags |= NODE_WARN;
+ 
++  /* If user defines one of the conditional macros, remove the
++     conditional flag */
++  node->flags &= ~NODE_CONDITIONAL;
++
+   return ok;
+ }
+ 
+Index: libcpp/include/cpplib.h
+===================================================================
+--- libcpp/include/cpplib.h.orig	2008-02-19 10:59:42.000000000 +0100
++++ libcpp/include/cpplib.h	2008-08-05 14:01:51.000000000 +0200
+@@ -476,6 +476,10 @@ struct cpp_callbacks
+   void (*read_pch) (cpp_reader *, const char *, int, const char *);
+   missing_header_cb missing_header;
+ 
++  /* Context-sensitive macro support.  Returns macro (if any) that should
++     be expanded.  */
++  cpp_hashnode * (*macro_to_expand) (cpp_reader *, const cpp_token *);
++
+   /* Called to emit a diagnostic if client_diagnostic option is true.
+      This callback receives the translated message.  */
+   void (*error) (cpp_reader *, int, const char *, va_list *)
+@@ -537,6 +541,7 @@ extern const char *progname;
+ #define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
+ #define NODE_DISABLED	(1 << 5)	/* A disabled macro.  */
+ #define NODE_MACRO_ARG	(1 << 6)	/* Used during #define processing.  */
++#define NODE_CONDITIONAL (1 << 8)	/* Conditional macro */
+ 
+ /* Different flavors of hash node.  */
+ enum node_type
+@@ -608,8 +613,8 @@ struct cpp_hashnode GTY(())
+ 					   then index into directive table.
+ 					   Otherwise, a NODE_OPERATOR.  */
+   unsigned char rid_code;		/* Rid code - for front ends.  */
+-  ENUM_BITFIELD(node_type) type : 8;	/* CPP node type.  */
+-  unsigned char flags;			/* CPP flags.  */
++  ENUM_BITFIELD(node_type) type : 7;	/* CPP node type.  */
++  unsigned int flags : 9;		/* CPP flags.  */
+ 
+   union _cpp_hashnode_value GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
+ };
+@@ -696,6 +701,7 @@ extern const cpp_token *cpp_get_token_wi
+ extern const unsigned char *cpp_macro_definition (cpp_reader *,
+ 						  const cpp_hashnode *);
+ extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
++extern const cpp_token *cpp_peek_token (cpp_reader *, int);
+ 
+ /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
+ extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
+Index: libcpp/internal.h
+===================================================================
+--- libcpp/internal.h.orig	2008-02-19 10:59:44.000000000 +0100
++++ libcpp/internal.h	2008-08-05 14:00:09.000000000 +0200
+@@ -527,6 +527,7 @@ extern const unsigned char *_cpp_builtin
+ extern int _cpp_warn_if_unused_macro (cpp_reader *, cpp_hashnode *, void *);
+ extern void _cpp_push_token_context (cpp_reader *, cpp_hashnode *,
+ 				     const cpp_token *, unsigned int);
++extern void _cpp_backup_tokens_direct (cpp_reader *, unsigned int);
+ 
+ /* In identifiers.c */
+ extern void _cpp_init_hashtable (cpp_reader *, hash_table *);
+Index: libcpp/lex.c
+===================================================================
+--- libcpp/lex.c.orig	2008-02-19 10:59:44.000000000 +0100
++++ libcpp/lex.c	2008-08-05 14:00:09.000000000 +0200
+@@ -730,6 +730,49 @@ next_tokenrun (tokenrun *run)
+   return run->next;
+ }
+ 
++/* Look ahead in the input stream.  */
++const cpp_token *
++cpp_peek_token (cpp_reader *pfile, int index)
++{
++  cpp_context *context = pfile->context;
++  const cpp_token *peektok;
++  int count;
++
++  /* First, scan through any pending cpp_context objects.  */
++  while (context->prev)
++    {
++      ptrdiff_t sz = (context->direct_p
++                      ? LAST (context).token - FIRST (context).token
++                      : LAST (context).ptoken - FIRST (context).ptoken);
++
++      if (index < (int) sz)
++        return (context->direct_p
++                ? FIRST (context).token + index
++                : *(FIRST (context).ptoken + index));
++
++      index -= (int) sz;
++      context = context->prev;
++    }
++
++  /* We will have to read some new tokens after all (and do so
++     without invalidating preceding tokens).  */
++  count = index;
++  pfile->keep_tokens++;
++
++  do
++    {
++      peektok = _cpp_lex_token (pfile);
++      if (peektok->type == CPP_EOF)
++	return peektok;
++    }
++  while (index--);
++
++  _cpp_backup_tokens_direct (pfile, count + 1);
++  pfile->keep_tokens--;
++
++  return peektok;
++}
++
+ /* Allocate a single token that is invalidated at the same time as the
+    rest of the tokens on the line.  Has its line and col set to the
+    same as the last lexed token, so that diagnostics appear in the
+@@ -738,9 +781,30 @@ cpp_token *
+ _cpp_temp_token (cpp_reader *pfile)
+ {
+   cpp_token *old, *result;
++  ptrdiff_t sz = pfile->cur_run->limit - pfile->cur_token;
++  ptrdiff_t la = (ptrdiff_t) pfile->lookaheads;
+ 
+   old = pfile->cur_token - 1;
+-  if (pfile->cur_token == pfile->cur_run->limit)
++  /* Any pre-existing lookaheads must not be clobbered.  */
++  if (la)
++    {
++      if (sz <= la)
++        {
++          tokenrun *next = next_tokenrun (pfile->cur_run);
++
++          if (sz < la)
++            memmove (next->base + 1, next->base,
++                     (la - sz) * sizeof (cpp_token));
++
++          next->base[0] = pfile->cur_run->limit[-1];
++        }
++
++      if (sz > 1)
++        memmove (pfile->cur_token + 1, pfile->cur_token,
++                 MIN (la, sz - 1) * sizeof (cpp_token));
++    }
++
++  if (!sz && pfile->cur_token == pfile->cur_run->limit)
+     {
+       pfile->cur_run = next_tokenrun (pfile->cur_run);
+       pfile->cur_token = pfile->cur_run->base;

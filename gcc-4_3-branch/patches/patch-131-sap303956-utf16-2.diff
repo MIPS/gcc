@@ -1,0 +1,24 @@
+This is r136714.
+
+libcpp/
+2008-06-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR preprocessor/36479
+	* charset.c (cpp_interpret_string_notranslate): Also set
+	narrow_cset_desc.width.
+
+
+Index: libcpp/charset.c
+===================================================================
+*** libcpp/charset.c	(revision 136713)
+--- libcpp/charset.c	(revision 136714)
+*************** cpp_interpret_string_notranslate (cpp_re
+*** 1412,1417 ****
+--- 1412,1418 ----
+  
+    pfile->narrow_cset_desc.func = convert_no_conversion;
+    pfile->narrow_cset_desc.cd = (iconv_t) -1;
++   pfile->narrow_cset_desc.width = CPP_OPTION (pfile, char_precision);
+  
+    retval = cpp_interpret_string (pfile, from, count, to, CPP_STRING);
+  

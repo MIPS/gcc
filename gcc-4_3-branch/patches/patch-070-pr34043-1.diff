@@ -1,0 +1,73 @@
+2008-02-29  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (get_sccvn_value): Create missing VNs via
+	vn_lookup_or_add.
+	* tree-ssa-sccnv.c (visit_reference_op_store): Use the rhs
+	value for comparing for a store match.
+	(simplify_unary_expression): Do nothing for SSA_NAMEs.
+	(try_to_simplify): Do not do a full-blown reference lookup.
+
+Index: gcc/tree-ssa-sccvn.c
+===================================================================
+--- gcc/tree-ssa-sccvn.c	(revision 132767)
++++ gcc/tree-ssa-sccvn.c	(revision 132768)
+@@ -1231,6 +1231,8 @@ visit_reference_op_store (tree lhs, tree
+     {
+       if (TREE_CODE (result) == SSA_NAME)
+ 	result = SSA_VAL (result);
++      if (TREE_CODE (op) == SSA_NAME)
++	op = SSA_VAL (op);
+       resultsame = expressions_equal_p (result, op);
+     }
+ 
+@@ -1527,13 +1529,10 @@ simplify_unary_expression (tree rhs)
+ static tree
+ try_to_simplify (tree stmt, tree rhs)
+ {
++  /* For stores we can end up simplifying a SSA_NAME rhs.  Just return
++     in this case, there is no point in doing extra work.  */
+   if (TREE_CODE (rhs) == SSA_NAME)
+-    {
+-      if (is_gimple_min_invariant (SSA_VAL (rhs)))
+-	return SSA_VAL (rhs);
+-      else if (VN_INFO (rhs)->has_constants)
+-	return VN_INFO (rhs)->expr;
+-    }
++    return rhs;
+   else
+     {
+       switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
+@@ -1550,13 +1549,11 @@ try_to_simplify (tree stmt, tree rhs)
+ 
+ 	    /* Fallthrough. */
+ 	case tcc_reference:
+-	  {
+-	    tree result = vn_reference_lookup (rhs,
+-					       shared_vuses_from_stmt (stmt));
+-	    if (result)
+-	      return result;
+-	  }
+-	  /* Fallthrough for some codes.  */
++	  /* Do not do full-blown reference lookup here.
++	     ???  But like for tcc_declaration, we should simplify
++		  from constant initializers.  */
++
++	  /* Fallthrough for some codes that can operate on registers.  */
+ 	  if (!(TREE_CODE (rhs) == REALPART_EXPR
+ 	        || TREE_CODE (rhs) == IMAGPART_EXPR))
+ 	    break;
+Index: gcc/tree-ssa-pre.c
+===================================================================
+--- gcc/tree-ssa-pre.c	(revision 132767)
++++ gcc/tree-ssa-pre.c	(revision 132768)
+@@ -3256,7 +3256,9 @@ get_sccvn_value (tree name)
+ 		!ZERO_SSA_OPERANDS (defstmt2, SSA_OP_ALL_VIRTUALS))
+ 	      gcc_assert (defstmt);
+ 	  }
+-	  valvh = vn_lookup_or_add_with_stmt (val, defstmt);
++	  /* We lookup with the LHS, so do not use vn_lookup_or_add_with_stmt
++	     here, as that will result in useless reference lookups.  */
++	  valvh = vn_lookup_or_add (val);
+ 	}
+ 
+       if (dump_file && (dump_flags & TDF_DETAILS))

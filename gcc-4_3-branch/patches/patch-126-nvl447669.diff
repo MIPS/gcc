@@ -1,0 +1,21 @@
+Index: gcc/tree-ssa-sccvn.c
+===================================================================
+--- gcc/tree-ssa-sccvn.c.orig
++++ gcc/tree-ssa-sccvn.c
+@@ -2200,13 +2200,14 @@ free_scc_vn (void)
+       tree name = ssa_name (i);
+       if (name)
+ 	{
+-	  XDELETE (VN_INFO (name));
++	  vn_ssa_aux_t info = VN_INFO (name);
+ 	  if (SSA_NAME_VALUE (name) &&
+ 	      TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
+ 	    SSA_NAME_VALUE (name) = NULL;
+ 	  if (name
+-	      && VN_INFO (name)->needs_insertion)
++	      && info->needs_insertion)
+ 	    release_ssa_name (name);
++	  XDELETE (info);
+ 	}
+     }
+ 

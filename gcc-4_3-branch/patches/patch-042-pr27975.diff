@@ -1,0 +1,121 @@
+2008-05-27  Michael Matz  <matz@suse.de>
+ 
+	PR c++/27975
+	* c.opt (Wenum-compare): New warning option.
+	* doc/invoke.texi  (Warning Options): Document -Wenum-compare.
+
+	cp/
+	* call.c (build_new_op): Make warning conditional on
+	OPT_Wenum_compare.
+
+	* g++.dg/warn/Wenum-compare.C: New testcase.
+	* g++.dg/warn/Wenum-compare-no.C: Ditto.
+
+Index: gcc/doc/invoke.texi
+===================================================================
+*** gcc/doc/invoke.texi.orig	2008-06-25 11:47:35.000000000 +0200
+--- gcc/doc/invoke.texi	2008-09-02 16:58:34.000000000 +0200
+*************** Objective-C and Objective-C++ Dialects}.
+*** 232,238 ****
+  -Wchar-subscripts -Wclobbered  -Wcomment @gol
+  -Wconversion  -Wcoverage-mismatch  -Wno-deprecated-declarations @gol
+  -Wdisabled-optimization  -Wno-div-by-zero  @gol
+! -Wempty-body  -Wno-endif-labels @gol
+  -Werror  -Werror=* @gol
+  -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
+  -Wno-format-extra-args -Wformat-nonliteral @gol
+--- 232,238 ----
+  -Wchar-subscripts -Wclobbered  -Wcomment @gol
+  -Wconversion  -Wcoverage-mismatch  -Wno-deprecated-declarations @gol
+  -Wdisabled-optimization  -Wno-div-by-zero  @gol
+! -Wempty-body  -Wenum-compare  -Wno-endif-labels @gol
+  -Werror  -Werror=* @gol
+  -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
+  -Wno-format-extra-args -Wformat-nonliteral @gol
+*************** while} statement.  Additionally, in C++,
+*** 3625,3630 ****
+--- 3625,3635 ----
+  in a @samp{while} or @samp{for} statement with no whitespacing before
+  the semicolon.  This warning is also enabled by @option{-Wextra}.
+  
++ @item -Wenum-compare @r{(C++ and Objective-C++ only)}
++ @opindex Wenum-compare
++ @opindex Wno-enum-compare
++ Warn about a comparison between values of different enum types.
++ 
+  @item -Wsign-compare
+  @opindex Wsign-compare
+  @opindex Wno-sign-compare
+Index: gcc/testsuite/g++.dg/warn/Wenum-compare-no.C
+===================================================================
+*** /dev/null	1970-01-01 00:00:00.000000000 +0000
+--- gcc/testsuite/g++.dg/warn/Wenum-compare-no.C	2008-09-02 16:57:58.000000000 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ /* Test disabling -Wenum-compare (on by default).  See PR27975.  */
++ /* { dg-do compile } */
++ /* { dg-options "-Wno-enum-compare" } */
++ enum E1 { a };
++ enum E2 { b };
++ 
++ int foo (E1 e1, E2 e2)
++ {
++   return e1 == e2;  /* { dg-bogus "comparison between" } */
++ }
+Index: gcc/testsuite/g++.dg/warn/Wenum-compare.C
+===================================================================
+*** /dev/null	1970-01-01 00:00:00.000000000 +0000
+--- gcc/testsuite/g++.dg/warn/Wenum-compare.C	2008-09-02 16:57:58.000000000 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ /* Test that we get the -Wenum-compare by default.  See PR27975.  */
++ /* { dg-do compile } */
++ /* { dg-options "" } */
++ enum E1 { a };
++ enum E2 { b };
++ 
++ int foo (E1 e1, E2 e2)
++ {
++   return e1 == e2;  /* { dg-warning "comparison between" } */
++ }
+Index: gcc/cp/call.c
+===================================================================
+*** gcc/cp/call.c.orig	2008-07-25 17:49:45.000000000 +0200
+--- gcc/cp/call.c	2008-09-02 16:57:58.000000000 +0200
+*************** build_new_op (enum tree_code code, int f
+*** 3963,3969 ****
+  		  && (TYPE_MAIN_VARIANT (TREE_TYPE (arg1))
+  		      != TYPE_MAIN_VARIANT (TREE_TYPE (arg2))))
+  		{
+! 		  warning (0, "comparison between %q#T and %q#T",
+  			   TREE_TYPE (arg1), TREE_TYPE (arg2));
+  		}
+  	      break;
+--- 3963,3970 ----
+  		  && (TYPE_MAIN_VARIANT (TREE_TYPE (arg1))
+  		      != TYPE_MAIN_VARIANT (TREE_TYPE (arg2))))
+  		{
+! 		  warning (OPT_Wenum_compare,
+! 			   "comparison between %q#T and %q#T",
+  			   TREE_TYPE (arg1), TREE_TYPE (arg2));
+  		}
+  	      break;
+Index: gcc/c.opt
+===================================================================
+*** gcc/c.opt.orig	2008-09-02 16:57:51.000000000 +0200
+--- gcc/c.opt	2008-09-02 16:57:58.000000000 +0200
+*************** Wendif-labels
+*** 199,204 ****
+--- 199,208 ----
+  C ObjC C++ ObjC++ Warning
+  Warn about stray tokens after #elif and #endif
+  
++ Wenum-compare
++ C++ ObjC++ Var(warn_enum_compare) Init(1) Warning
++ Warn about comparison of different enum types
++ 
+  Werror
+  C ObjC C++ ObjC++
+  ; Documented in common.opt

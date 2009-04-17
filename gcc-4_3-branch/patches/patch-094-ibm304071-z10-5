@@ -1,0 +1,286 @@
+From gcc-patches-return-219059-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org Wed May 28 14:16:28 2008
+Return-Path: <gcc-patches-return-219059-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org>
+Delivered-To: listarch-gcc-patches at gcc dot gnu dot org
+Received: (qmail 27737 invoked by alias); 28 May 2008 14:16:27 -0000
+Received: (qmail 27665 invoked by uid 22791); 28 May 2008 14:16:15 -0000
+X-Spam-Check-By: sourceware.org
+Received: from mtagate2.de.ibm.com (HELO mtagate2.de.ibm.com) (195.212.29.151)     by sourceware.org (qpsmtpd/0.31) with ESMTP; Wed, 28 May 2008 14:15:07 +0000
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49]) 	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id m4SEF1md282554 	for <gcc-patches@gcc.gnu.org>; Wed, 28 May 2008 14:15:02 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228]) 	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m4SEExhJ2310294 	for <gcc-patches@gcc.gnu.org>; Wed, 28 May 2008 16:15:00 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m4SEExN9029763 	for <gcc-patches@gcc.gnu.org>; Wed, 28 May 2008 16:14:59 +0200
+Received: from lc4eb0107015440.ibm.com (dyn-9-152-216-52.boeblingen.de.ibm.com [9.152.216.52]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with SMTP id m4SEEwGe029645 	for <gcc-patches@gcc.gnu.org>; Wed, 28 May 2008 16:14:58 +0200
+Received: by lc4eb0107015440.ibm.com (sSMTP sendmail emulation); Wed, 28 May 2008 16:14:55 +0200
+From: "Andreas Krebbel" <Andreas dot Krebbel at de dot ibm dot com>
+Date: Wed, 28 May 2008 16:14:55 +0200
+To: gcc-patches at gcc dot gnu dot org
+Subject: [Committed] S/390: Add the -march=z10/-mtune=z10 options for the new System z10 Enterprise Class Mainframe
+Message-ID: <20080528141455.GA17975@homer.boeblingen.de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+User-Agent: Mutt/1.4.2.2i
+Mailing-List: contact gcc-patches-help at gcc dot gnu dot org; run by ezmlm
+Precedence: bulk
+List-Id: <gcc-patches.gcc.gnu.org>
+List-Archive: <http://gcc.gnu.org/ml/gcc-patches/>
+List-Post: <mailto:gcc-patches at gcc dot gnu dot org>
+List-Help: <mailto:gcc-patches-help at gcc dot gnu dot org>
+Sender: gcc-patches-owner at gcc dot gnu dot org
+Delivered-To: mailing list gcc-patches at gcc dot gnu dot org
+
+Committed to mainline.
+
+Bye,
+
+-Andreas-
+
+2008-05-28  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (z10_cost): New cost function for z10.
+	(s390_handle_arch_option, override_options): Support
+	-march=z10 switch.
+	(s390_issue_rate): Adjust issue rate for z10.
+	* config/s390/s390.h (processor_type): Add PROCESSOR_2097_Z10.
+	(processor_flags): Add PF_Z10.
+	(TARGET_CPU_Z10, TARGET_Z10): New macro definitions.
+	* config/s390/s390.md (cpu, cpu_facility attributes): Add z10.
+	* gcc/config.gcc: Add z10.
+
+Index: gcc/config/s390/s390.c
+===================================================================
+*** gcc/config/s390/s390.c.orig	2008-05-15 10:27:36.000000000 +0200
+--- gcc/config/s390/s390.c	2008-05-27 08:49:56.000000000 +0200
+*************** struct processor_costs z9_109_cost = 
+*** 188,193 ****
+--- 188,225 ----
+    COSTS_N_INSNS (24),    /* DSGR */
+  };
+  
++ static const
++ struct processor_costs z10_cost =
++ {
++   COSTS_N_INSNS (4),     /* M     */
++   COSTS_N_INSNS (2),     /* MGHI  */
++   COSTS_N_INSNS (2),     /* MH    */
++   COSTS_N_INSNS (2),     /* MHI   */
++   COSTS_N_INSNS (4),     /* ML    */
++   COSTS_N_INSNS (4),     /* MR    */
++   COSTS_N_INSNS (5),     /* MS    */
++   COSTS_N_INSNS (6),     /* MSG   */
++   COSTS_N_INSNS (4),     /* MSGF  */
++   COSTS_N_INSNS (4),     /* MSGFR */
++   COSTS_N_INSNS (4),     /* MSGR  */
++   COSTS_N_INSNS (4),     /* MSR   */
++   COSTS_N_INSNS (1),     /* multiplication in DFmode */
++   COSTS_N_INSNS (28),    /* MXBR */
++   COSTS_N_INSNS (130),   /* SQXBR */
++   COSTS_N_INSNS (66),    /* SQDBR */
++   COSTS_N_INSNS (38),    /* SQEBR */
++   COSTS_N_INSNS (1),     /* MADBR */
++   COSTS_N_INSNS (1),     /* MAEBR */
++   COSTS_N_INSNS (60),    /* DXBR */
++   COSTS_N_INSNS (40),    /* DDBR */
++   COSTS_N_INSNS (26),    /* DEBR */
++   COSTS_N_INSNS (30),    /* DLGR */
++   COSTS_N_INSNS (23),    /* DLR */
++   COSTS_N_INSNS (23),    /* DR */
++   COSTS_N_INSNS (24),    /* DSGFR */
++   COSTS_N_INSNS (24),    /* DSGR */
++ };
++ 
+  extern int reload_completed;
+  
+  /* Save information from a "cmpxx" operation until the branch or scc is
+*************** s390_handle_arch_option (const char *arg
+*** 1365,1370 ****
+--- 1397,1404 ----
+                                         | PF_LONG_DISPLACEMENT | PF_EXTIMM},
+        {"z9-ec", PROCESSOR_2094_Z9_109, PF_IEEE_FLOAT | PF_ZARCH
+                               | PF_LONG_DISPLACEMENT | PF_EXTIMM | PF_DFP },
++       {"z10", PROCESSOR_2097_Z10, PF_IEEE_FLOAT | PF_ZARCH
++                              | PF_LONG_DISPLACEMENT | PF_EXTIMM | PF_DFP | PF_Z10},
+      };
+    size_t i;
+  
+*************** override_options (void)
+*** 1472,1484 ****
+      }
+  
+    /* Set processor cost function.  */
+!   if (s390_tune == PROCESSOR_2094_Z9_109)
+!     s390_cost = &z9_109_cost;
+!   else if (s390_tune == PROCESSOR_2084_Z990)
+!     s390_cost = &z990_cost;
+!   else
+!     s390_cost = &z900_cost;
+!   
+    if (TARGET_BACKCHAIN && TARGET_PACKED_STACK && TARGET_HARD_FLOAT)
+      error ("-mbackchain -mpacked-stack -mhard-float are not supported "
+  	   "in combination");
+--- 1506,1526 ----
+      }
+  
+    /* Set processor cost function.  */
+!   switch (s390_tune)
+!     {
+!     case PROCESSOR_2084_Z990:
+!       s390_cost = &z990_cost;
+!       break;
+!     case PROCESSOR_2094_Z9_109:
+!       s390_cost = &z9_109_cost;
+!       break;
+!     case PROCESSOR_2097_Z10:
+!       s390_cost = &z10_cost;
+!       break;
+!     default:
+!       s390_cost = &z900_cost;
+!     }
+! 
+    if (TARGET_BACKCHAIN && TARGET_PACKED_STACK && TARGET_HARD_FLOAT)
+      error ("-mbackchain -mpacked-stack -mhard-float are not supported "
+  	   "in combination");
+*************** s390_adjust_priority (rtx insn ATTRIBUTE
+*** 4930,4939 ****
+  static int
+  s390_issue_rate (void)
+  {
+!   if (s390_tune == PROCESSOR_2084_Z990
+!       || s390_tune == PROCESSOR_2094_Z9_109)
+!     return 3;
+!   return 1;
+  }
+  
+  static int
+--- 4972,4987 ----
+  static int
+  s390_issue_rate (void)
+  {
+!   switch (s390_tune)
+!     {
+!     case PROCESSOR_2084_Z990:
+!     case PROCESSOR_2094_Z9_109:
+!       return 3;
+!     case PROCESSOR_2097_Z10:
+!       return 2;
+!     default:
+!       return 1;
+!     }
+  }
+  
+  static int
+Index: gcc/config/s390/s390.h
+===================================================================
+*** gcc/config/s390/s390.h.orig	2008-05-15 10:27:36.000000000 +0200
+--- gcc/config/s390/s390.h	2008-05-27 08:49:56.000000000 +0200
+*************** enum processor_type
+*** 40,45 ****
+--- 40,46 ----
+    PROCESSOR_2064_Z900,
+    PROCESSOR_2084_Z990,
+    PROCESSOR_2094_Z9_109,
++   PROCESSOR_2097_Z10,
+    PROCESSOR_max
+  };
+  
+*************** enum processor_flags
+*** 51,57 ****
+    PF_ZARCH = 2,
+    PF_LONG_DISPLACEMENT = 4,
+    PF_EXTIMM = 8,
+!   PF_DFP = 16
+  };
+  
+  extern enum processor_type s390_tune;
+--- 52,59 ----
+    PF_ZARCH = 2,
+    PF_LONG_DISPLACEMENT = 4,
+    PF_EXTIMM = 8,
+!   PF_DFP = 16,
+!   PF_Z10 = 32
+  };
+  
+  extern enum processor_type s390_tune;
+*************** extern enum processor_flags s390_arch_fl
+*** 70,75 ****
+--- 72,79 ----
+   	(s390_arch_flags & PF_EXTIMM)
+  #define TARGET_CPU_DFP \
+   	(s390_arch_flags & PF_DFP)
++ #define TARGET_CPU_Z10 \
++  	(s390_arch_flags & PF_Z10)
+  
+  #define TARGET_LONG_DISPLACEMENT \
+         (TARGET_ZARCH && TARGET_CPU_LONG_DISPLACEMENT)
+*************** extern enum processor_flags s390_arch_fl
+*** 77,82 ****
+--- 81,88 ----
+         (TARGET_ZARCH && TARGET_CPU_EXTIMM)
+  #define TARGET_DFP \
+         (TARGET_ZARCH && TARGET_CPU_DFP)
++ #define TARGET_Z10 \
++        (TARGET_ZARCH && TARGET_CPU_Z10)
+  
+  /* Run-time target specification.  */
+  
+Index: gcc/config/s390/s390.md
+===================================================================
+*** gcc/config/s390/s390.md.orig	2008-05-27 08:49:36.000000000 +0200
+--- gcc/config/s390/s390.md	2008-05-27 08:49:56.000000000 +0200
+***************
+*** 228,237 ****
+  ;; distinguish between g5 and g6, but there are differences between the two
+  ;; CPUs could in theory be modeled.
+  
+! (define_attr "cpu" "g5,g6,z900,z990,z9_109"
+    (const (symbol_ref "s390_tune")))
+  
+! (define_attr "cpu_facility" "standard,ieee,zarch,longdisp,extimm,dfp"
+    (const_string "standard"))
+  
+  (define_attr "enabled" ""
+--- 228,237 ----
+  ;; distinguish between g5 and g6, but there are differences between the two
+  ;; CPUs could in theory be modeled.
+  
+! (define_attr "cpu" "g5,g6,z900,z990,z9_109,z10"
+    (const (symbol_ref "s390_tune")))
+  
+! (define_attr "cpu_facility" "standard,ieee,zarch,longdisp,extimm,dfp,z10"
+    (const_string "standard"))
+  
+  (define_attr "enabled" ""
+***************
+*** 256,261 ****
+--- 256,265 ----
+  
+           (and (eq_attr "cpu_facility" "dfp")
+  	      (ne (symbol_ref "TARGET_DFP") (const_int 0)))
++ 	 (const_int 1)
++ 
++          (and (eq_attr "cpu_facility" "z10")
++               (ne (symbol_ref "TARGET_Z10") (const_int 0)))
+  	 (const_int 1)]
+  	(const_int 0)))
+  
+Index: gcc/config.gcc
+===================================================================
+*** gcc/config.gcc.orig	2008-05-27 08:40:46.000000000 +0200
+--- gcc/config.gcc	2008-05-27 08:49:56.000000000 +0200
+*************** case "${target}" in
+*** 3182,3188 ****
+  		for which in arch tune; do
+  			eval "val=\$with_$which"
+  			case ${val} in
+! 			"" | g5 | g6 | z900 | z990 | z9-109 | z9-ec)
+  				# OK
+  				;;
+  			*)
+--- 3182,3188 ----
+  		for which in arch tune; do
+  			eval "val=\$with_$which"
+  			case ${val} in
+! 			"" | g5 | g6 | z900 | z990 | z9-109 | z9-ec | z10)
+  				# OK
+  				;;
+  			*)
+

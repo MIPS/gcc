@@ -1,0 +1,502 @@
+From gcc-patches-return-218927-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org Tue May 27 11:59:49 2008
+Return-Path: <gcc-patches-return-218927-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org>
+Delivered-To: listarch-gcc-patches at gcc dot gnu dot org
+Received: (qmail 18654 invoked by alias); 27 May 2008 11:59:48 -0000
+Received: (qmail 18265 invoked by uid 22791); 27 May 2008 11:59:44 -0000
+X-Spam-Check-By: sourceware.org
+Received: from mtagate5.de.ibm.com (HELO mtagate5.de.ibm.com) (195.212.29.154)     by sourceware.org (qpsmtpd/0.31) with ESMTP; Tue, 27 May 2008 11:59:20 +0000
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49]) 	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id m4RBwkdi145210 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 11:58:46 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228]) 	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m4RBwksu2298100 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 13:58:46 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m4RBwkc5015955 	for <gcc-patches@gcc.gnu.org>; Tue, 27 May 2008 13:58:46 +0200
+Received: from lc4eb0107015440.ibm.com (dyn-9-152-216-52.boeblingen.de.ibm.com [9.152.216.52]) 	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with SMTP id m4RBwjjh015929; 	Tue, 27 May 2008 13:58:45 +0200
+Received: by lc4eb0107015440.ibm.com (sSMTP sendmail emulation); Tue, 27 May 2008 13:58:49 +0200
+From: "Andreas Krebbel" <Andreas dot Krebbel at de dot ibm dot com>
+Date: Tue, 27 May 2008 13:58:49 +0200
+To: gcc-patches at gcc dot gnu dot org
+Cc: mark at codesourcery dot com, rdsandiford at googlemail dot com, ubizjak at gmail dot com
+Subject: [Committed] Introduce 'enabled' insn attribute
+Message-ID: <20080527115849.GA18965@homer.boeblingen.de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+User-Agent: Mutt/1.4.2.2i
+Mailing-List: contact gcc-patches-help at gcc dot gnu dot org; run by ezmlm
+Precedence: bulk
+List-Id: <gcc-patches.gcc.gnu.org>
+List-Archive: <http://gcc.gnu.org/ml/gcc-patches/>
+List-Post: <mailto:gcc-patches at gcc dot gnu dot org>
+List-Help: <mailto:gcc-patches-help at gcc dot gnu dot org>
+Sender: gcc-patches-owner at gcc dot gnu dot org
+Delivered-To: mailing list gcc-patches at gcc dot gnu dot org
+
+Applied to mainline with the requested changes.
+
+Thanks to Mark, Richard S. and Uros for your support and reviews!
+
+Bye,
+
+-Andreas-
+
+
+2008-05-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* reload.c: (find_reloads): Skip alternatives according to the
+	"enabled" attribute. Constify the constraint variable.
+	* recog.c (get_attr_enabled): Add default implementation.
+	(extract_insn): Set the alternative_enabled_p array
+	in the recog_data struct.
+	(preprocess_constraints, constrain_operands): Skip
+	alternatives according to the "enabled" attribute
+	* recog.h (struct recog_data): New field alternative_enabled_p.
+	(skip_alternative): New inline function.
+	* regclass.c: (record_operand_costs): Check the "enabled"
+	attribute.
+	(record_reg_classes): Skip alternative according to the
+	"enabled" attribute.
+
+	* doc/md.texi: Add documention for the "enabled" attribute.
+
+
+Index: gcc/reload.c
+===================================================================
+*** gcc/reload.c.orig	2008-05-27 08:45:44.000000000 +0200
+--- gcc/reload.c	2008-05-27 08:46:11.000000000 +0200
+*************** find_reloads (rtx insn, int replace, int
+*** 2523,2529 ****
+    int noperands;
+    /* These start out as the constraints for the insn
+       and they are chewed up as we consider alternatives.  */
+!   char *constraints[MAX_RECOG_OPERANDS];
+    /* These are the preferred classes for an operand, or NO_REGS if it isn't
+       a register.  */
+    enum reg_class preferred_class[MAX_RECOG_OPERANDS];
+--- 2523,2529 ----
+    int noperands;
+    /* These start out as the constraints for the insn
+       and they are chewed up as we consider alternatives.  */
+!   const char *constraints[MAX_RECOG_OPERANDS];
+    /* These are the preferred classes for an operand, or NO_REGS if it isn't
+       a register.  */
+    enum reg_class preferred_class[MAX_RECOG_OPERANDS];
+*************** find_reloads (rtx insn, int replace, int
+*** 2630,2636 ****
+  
+    memcpy (operand_mode, recog_data.operand_mode,
+  	  noperands * sizeof (enum machine_mode));
+!   memcpy (constraints, recog_data.constraints, noperands * sizeof (char *));
+  
+    commutative = -1;
+  
+--- 2630,2637 ----
+  
+    memcpy (operand_mode, recog_data.operand_mode,
+  	  noperands * sizeof (enum machine_mode));
+!   memcpy (constraints, recog_data.constraints,
+! 	  noperands * sizeof (const char *));
+  
+    commutative = -1;
+  
+*************** find_reloads (rtx insn, int replace, int
+*** 2641,2648 ****
+  
+    for (i = 0; i < noperands; i++)
+      {
+!       char *p;
+        int c;
+  
+        substed_operand[i] = recog_data.operand[i];
+        p = constraints[i];
+--- 2642,2650 ----
+  
+    for (i = 0; i < noperands; i++)
+      {
+!       const char *p;
+        int c;
++       char *end;
+  
+        substed_operand[i] = recog_data.operand[i];
+        p = constraints[i];
+*************** find_reloads (rtx insn, int replace, int
+*** 2686,2692 ****
+  	    case '0': case '1': case '2': case '3': case '4':
+  	    case '5': case '6': case '7': case '8': case '9':
+  	      {
+! 		c = strtoul (p - 1, &p, 10);
+  
+  		operands_match[c][i]
+  		  = operands_match_p (recog_data.operand[c],
+--- 2688,2695 ----
+  	    case '0': case '1': case '2': case '3': case '4':
+  	    case '5': case '6': case '7': case '8': case '9':
+  	      {
+! 		c = strtoul (p - 1, &end, 10);
+! 		p = end;
+  
+  		operands_match[c][i]
+  		  = operands_match_p (recog_data.operand[c],
+*************** find_reloads (rtx insn, int replace, int
+*** 2914,2924 ****
+  	 a bad register class to only count 1/3 as much.  */
+        int reject = 0;
+  
+        this_earlyclobber = 0;
+  
+        for (i = 0; i < noperands; i++)
+  	{
+! 	  char *p = constraints[i];
+  	  char *end;
+  	  int len;
+  	  int win = 0;
+--- 2917,2937 ----
+  	 a bad register class to only count 1/3 as much.  */
+        int reject = 0;
+  
++       if (!recog_data.alternative_enabled_p[this_alternative_number])
++ 	{
++ 	  int i;
++ 
++ 	  for (i = 0; i < recog_data.n_operands; i++)
++ 	    constraints[i] = skip_alternative (constraints[i]);
++ 
++ 	  continue;
++ 	}
++ 
+        this_earlyclobber = 0;
+  
+        for (i = 0; i < noperands; i++)
+  	{
+! 	  const char *p = constraints[i];
+  	  char *end;
+  	  int len;
+  	  int win = 0;
+*************** find_reloads (rtx insn, int replace, int
+*** 3717,3723 ****
+  	  address_reloaded[commutative + 1] = t;
+  
+  	  memcpy (constraints, recog_data.constraints,
+! 		  noperands * sizeof (char *));
+  	  goto try_swapped;
+  	}
+        else
+--- 3730,3736 ----
+  	  address_reloaded[commutative + 1] = t;
+  
+  	  memcpy (constraints, recog_data.constraints,
+! 		  noperands * sizeof (const char *));
+  	  goto try_swapped;
+  	}
+        else
+Index: gcc/recog.c
+===================================================================
+*** gcc/recog.c.orig	2008-05-27 08:45:44.000000000 +0200
+--- gcc/recog.c	2008-05-27 08:46:11.000000000 +0200
+*************** along with GCC; see the file COPYING3.  
+*** 60,65 ****
+--- 60,73 ----
+  #endif
+  #endif
+  
++ #ifndef HAVE_ATTR_enabled
++ static inline bool
++ get_attr_enabled (rtx insn ATTRIBUTE_UNUSED)
++ {
++   return true;
++ }
++ #endif
++ 
+  static void validate_replace_rtx_1 (rtx *, rtx, rtx, rtx);
+  static void validate_replace_src_1 (rtx *, void *);
+  static rtx split_insn (rtx);
+*************** extract_insn (rtx insn)
+*** 1920,1930 ****
+    int noperands;
+    rtx body = PATTERN (insn);
+  
+-   recog_data.insn = NULL;
+    recog_data.n_operands = 0;
+    recog_data.n_alternatives = 0;
+    recog_data.n_dups = 0;
+-   which_alternative = -1;
+  
+    switch (GET_CODE (body))
+      {
+--- 1928,1936 ----
+*************** extract_insn (rtx insn)
+*** 2004,2009 ****
+--- 2010,2031 ----
+  	 : OP_IN);
+  
+    gcc_assert (recog_data.n_alternatives <= MAX_RECOG_ALTERNATIVES);
++ 
++   if (INSN_CODE (insn) < 0)
++     for (i = 0; i < recog_data.n_alternatives; i++)
++       recog_data.alternative_enabled_p[i] = true;
++   else
++     {
++       recog_data.insn = insn;
++       for (i = 0; i < recog_data.n_alternatives; i++)
++ 	{
++ 	  which_alternative = i;
++ 	  recog_data.alternative_enabled_p[i] = get_attr_enabled (insn);
++ 	}
++     }
++ 
++   recog_data.insn = NULL;
++   which_alternative = -1;
+  }
+  
+  /* After calling extract_insn, you can use this function to extract some
+*************** preprocess_constraints (void)
+*** 2033,2038 ****
+--- 2055,2066 ----
+  	  op_alt[j].matches = -1;
+  	  op_alt[j].matched = -1;
+  
++ 	  if (!recog_data.alternative_enabled_p[j])
++ 	    {
++ 	      p = skip_alternative (p);
++ 	      continue;
++ 	    }
++ 
+  	  if (*p == '\0' || *p == ',')
+  	    {
+  	      op_alt[j].anything_ok = 1;
+*************** constrain_operands (int strict)
+*** 2202,2207 ****
+--- 2230,2246 ----
+        int lose = 0;
+        funny_match_index = 0;
+  
++       if (!recog_data.alternative_enabled_p[which_alternative])
++ 	{
++ 	  int i;
++ 
++ 	  for (i = 0; i < recog_data.n_operands; i++)
++ 	    constraints[i] = skip_alternative (constraints[i]);
++ 
++ 	  which_alternative++;
++ 	  continue;
++ 	}
++ 
+        for (opno = 0; opno < recog_data.n_operands; opno++)
+  	{
+  	  rtx op = recog_data.operand[opno];
+Index: gcc/recog.h
+===================================================================
+*** gcc/recog.h.orig	2008-05-27 08:45:44.000000000 +0200
+--- gcc/recog.h	2008-05-27 08:46:11.000000000 +0200
+*************** recog_memoized (rtx insn)
+*** 143,148 ****
+--- 143,161 ----
+  }
+  #endif
+  
++ /* Skip chars until the next ',' or the end of the string.  This is
++    useful to skip alternatives in a constraint string.  */
++ static inline const char *
++ skip_alternative (const char *p)
++ {
++   const char *r = p;
++   while (*r != '\0' && *r != ',')
++     r++;
++   if (*r == ',')
++     r++;
++   return r;
++ }
++ 
+  /* Nonzero means volatile operands are recognized.  */
+  extern int volatile_ok;
+  
+*************** struct recog_data
+*** 202,207 ****
+--- 215,226 ----
+    /* The number of alternatives in the constraints for the insn.  */
+    char n_alternatives;
+  
++   /* Specifies whether an insn alternative is enabled using the
++      `enabled' attribute in the insn pattern definition.  For back
++      ends not using the `enabled' attribute the array fields are
++      always set to `true' in expand_insn.  */
++   bool alternative_enabled_p [MAX_RECOG_ALTERNATIVES];
++ 
+    /* In case we are caching, hold insn data was generated for.  */
+    rtx insn;
+  };
+Index: gcc/regclass.c
+===================================================================
+*** gcc/regclass.c.orig	2008-05-27 08:45:44.000000000 +0200
+--- gcc/regclass.c	2008-05-27 08:46:11.000000000 +0200
+*************** record_operand_costs (rtx insn, struct c
+*** 1143,1150 ****
+  	record_address_regs (GET_MODE (recog_data.operand[i]),
+  			     XEXP (recog_data.operand[i], 0),
+  			     0, MEM, SCRATCH, frequency * 2);
+!       else if (constraints[i][0] == 'p'
+! 	       || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0], constraints[i]))
+  	record_address_regs (VOIDmode, recog_data.operand[i], 0, ADDRESS,
+  			     SCRATCH, frequency * 2);
+      }
+--- 1143,1151 ----
+  	record_address_regs (GET_MODE (recog_data.operand[i]),
+  			     XEXP (recog_data.operand[i], 0),
+  			     0, MEM, SCRATCH, frequency * 2);
+!       else if (recog_data.alternative_enabled_p[0]
+! 	       && (constraints[i][0] == 'p'
+! 		   || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0], constraints[i])))
+  	record_address_regs (VOIDmode, recog_data.operand[i], 0, ADDRESS,
+  			     SCRATCH, frequency * 2);
+      }
+*************** record_reg_classes (int n_alts, int n_op
+*** 1932,1937 ****
+--- 1933,1941 ----
+        if (alt_fail)
+  	continue;
+  
++       if (!recog_data.alternative_enabled_p[alt])
++ 	continue;
++ 
+        /* Finally, update the costs with the information we've calculated
+  	 about this alternative.  */
+  
+Index: gcc/doc/md.texi
+===================================================================
+*** gcc/doc/md.texi.orig	2008-05-27 08:45:44.000000000 +0200
+--- gcc/doc/md.texi	2008-05-27 08:46:11.000000000 +0200
+*************** have.  Constraints can also require two 
+*** 1050,1055 ****
+--- 1050,1056 ----
+  * Multi-Alternative::   When an insn has two alternative constraint-patterns.
+  * Class Preferences::   Constraints guide which hard register to put things in.
+  * Modifiers::           More precise control over effects of constraints.
++ * Disable Insn Alternatives:: Disable insn alternatives using the @code{enabled} attribute.
+  * Machine Constraints:: Existing constraints for some particular machines.
+  * Define Constraints::  How to define machine-specific constraints.
+  * C Constraint Interface:: How to test constraints from C code.
+*************** Unsigned constant valid for BccUI instru
+*** 3089,3094 ****
+--- 3090,3188 ----
+  @end table
+  
+  @ifset INTERNALS
++ @node Disable Insn Alternatives
++ @subsection Disable insn alternatives using the @code{enabled} attribute
++ @cindex enabled
++ 
++ The @code{enabled} insn attribute may be used to disable certain insn
++ alternatives for machine-specific reasons.  This is useful when adding
++ new instructions to an existing pattern which are only available for
++ certain cpu architecture levels as specified with the @code{-march=}
++ option.
++ 
++ If an insn alternative is disabled, then it will never be used.  The
++ compiler treats the constraints for the disabled alternative as
++ unsatisfiable.
++ 
++ In order to make use of the @code{enabled} attribute a back end has to add
++ in the machine description files:
++ 
++ @enumerate
++ @item
++ A definition of the @code{enabled} insn attribute.  The attribute is
++ defined as usual using the @code{define_attr} command.  This
++ definition should be based on other insn attributes and/or target flags.
++ The @code{enabled} attribute is a numeric attribute and should evaluate to
++ @code{(const_int 1)} for an enabled alternative and to
++ @code{(const_int 0)} otherwise.
++ @item
++ A definition of another insn attribute used to describe for what
++ reason an insn alternative might be available or
++ not.  E.g. @code{cpu_facility} as in the example below.
++ @item
++ An assignement for the second attribute to each insn definition
++ combining instructions which are not all available under the same
++ circumstances.  (Note: It obviously only makes sense for definitions
++ with more than one alternative.  Otherwise the insn pattern should be
++ disabled or enabled using the insn condition.)
++ @end enumerate
++ 
++ E.g. the following two patterns could easily be merged using the @code{enabled}
++ attribute:
++ 
++ @smallexample
++ 
++ (define_insn "*movdi_old"
++   [(set (match_operand:DI 0 "register_operand" "=d")
++         (match_operand:DI 1 "register_operand" " d"))]
++   "!TARGET_NEW"
++   "lgr %0,%1")
++ 
++ (define_insn "*movdi_new"
++   [(set (match_operand:DI 0 "register_operand" "=d,f,d")
++         (match_operand:DI 1 "register_operand" " d,d,f"))]
++   "TARGET_NEW"
++   "@@
++    lgr  %0,%1
++    ldgr %0,%1
++    lgdr %0,%1")
++ 
++ @end smallexample
++ 
++ to:
++ 
++ @smallexample
++ 
++ (define_insn "*movdi_combined"
++   [(set (match_operand:DI 0 "register_operand" "=d,f,d")
++         (match_operand:DI 1 "register_operand" " d,d,f"))]
++   ""
++   "@@
++    lgr  %0,%1
++    ldgr %0,%1
++    lgdr %0,%1"
++   [(set_attr "cpu_facility" "*,new,new")])
++ 
++ @end smallexample
++ 
++ with the @code{enabled} attribute defined like this:
++ 
++ @smallexample
++ 
++ (define_attr "cpu_facility" "standard,new" (const_string "standard"))
++ 
++ (define_attr "enabled" ""
++   (cond [(eq_attr "cpu_facility" "standard") (const_int 1)
++          (and (eq_attr "cpu_facility" "new")
++               (ne (symbol_ref "TARGET_NEW") (const_int 0)))
++          (const_int 1)]
++         (const_int 0)))
++ 
++ @end smallexample
++ 
++ @end ifset
++ 
++ @ifset INTERNALS
+  @node Define Constraints
+  @subsection Defining Machine-Specific Constraints
+  @cindex defining constraints
+*************** If the attribute takes numeric values, n
+*** 6521,6526 ****
+--- 6615,6636 ----
+  defined and the function to obtain the attribute's value will return
+  @code{int}.
+  
++ There are attributes which are tied to a specific meaning.  These
++ attributes are not free to use for other purposes:
++ 
++ @table @code
++ @item length
++ The @code{length} attribute is used to calculate the length of emitted
++ code chunks.  This is especially important when verifying branch
++ distances. @xref{Insn Lengths}.
++ 
++ @item enabled
++ The @code{enabled} attribute can be defined to prevent certain
++ alternatives of an insn definition from being used during code
++ generation. @xref{Disable Insn Alternatives}.
++ 
++ @end table
++ 
+  @end ifset
+  @ifset INTERNALS
+  @node Expressions
+

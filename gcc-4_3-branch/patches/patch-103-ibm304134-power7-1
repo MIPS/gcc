@@ -1,0 +1,257 @@
+2008-08-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+        * doc/invoke.texi: Add cpu_type power7.
+        * config.in (HAVE_AS_VSX): New.
+        * config.gcc: Add cpu_type power7.
+        * configure.ac (HAVE_AS_VSX): Check for assembler support of the
+        VSX instructions.
+        * configure: Regenerate.
+        * config/rs6000/rs6000.c (rs6000_override_options): Alias power7 to
+        power5.
+        * config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Define.
+        (ASM_CPU_SPEC): Pass %(asm_cpu_power7) for -mcpu=power7.
+        (EXTRA_SPECS): Add asm_cpu_power7 spec string.
+
+2008-07-16  David Edelsohn  <edelsohn@gnu.org>
+
+        * config/rs6000/rs6000.c (processor_target_table): Remove duplicate
+        MASK_POWERPC64 for power4 in previous commit.
+
+2008-07-16  David Edelsohn  <edelsohn@gnu.org>
+
+        * config/rs6000/rs6000.c (processor_target_table): Add
+        MASK_PPC_GPOPT for power4, power5, power5+, power6, and power6x.
+
+2008-02-26  Ben Elliston  <bje@au.ibm.com>
+
+        * config/rs6000/rs6000.h (ASM_CPU_POWER5_SPEC): Define.
+        (ASM_CPU_POWER6_SPEC): Likewise.
+        (ASM_CPU_SPEC): Pass %(asm_cpu_power5) for -mcpu=power5.
+        Likewise, pass %(asm_cpu_power6) for -mcpu=power6.
+        (EXTRA_SPECS): Add asm_cpu_power5, asm_cpu_power6 spec strings.
+
+
+Index: gcc/doc/invoke.texi
+===================================================================
+--- gcc/doc/invoke.texi	(revision 139880)
++++ gcc/doc/invoke.texi	(working copy)
+@@ -12945,7 +12945,8 @@ Supported values for @var{cpu_type} are 
+ @samp{860}, @samp{970}, @samp{8540}, @samp{ec603e}, @samp{G3},
+ @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
+ @samp{power4}, @samp{power5}, @samp{power5+}, @samp{power6},
+-@samp{power6x}, @samp{common}, @samp{powerpc}, @samp{powerpc64},
++@samp{power6x}, @samp{power7},
++@samp{common}, @samp{powerpc}, @samp{powerpc64},
+ @samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64}.
+ 
+ @option{-mcpu=common} selects a completely generic processor.  Code
+Index: gcc/configure
+===================================================================
+--- gcc/configure	(revision 139880)
++++ gcc/configure	(working copy)
+@@ -21881,6 +21881,52 @@ _ACEOF
+ 
+ fi
+ 
++    case $target in
++      *-*-aix*) conftest_s='	.machine "pwr7"
++	.csect .text[PR]
++	lxvd2x 1,2,3';;
++      *) conftest_s='	.machine power7
++	.text
++	lxvd2x 1,2,3';;
++    esac
++
++    echo "$as_me:$LINENO: checking assembler for vector-scalar support" >&5
++echo $ECHO_N "checking assembler for vector-scalar support... $ECHO_C" >&6
++if test "${gcc_cv_as_powerpc_vsx+set}" = set; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++  gcc_cv_as_powerpc_vsx=no
++    if test $in_tree_gas = yes; then
++    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
++  then gcc_cv_as_powerpc_vsx=yes
++fi
++  elif test x$gcc_cv_as != x; then
++    echo "$conftest_s" > conftest.s
++    if { ac_try='$gcc_cv_as -a32 -o conftest.o conftest.s >&5'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }
++    then
++	gcc_cv_as_powerpc_vsx=yes
++    else
++      echo "configure: failed program was" >&5
++      cat conftest.s >&5
++    fi
++    rm -f conftest.o conftest.s
++  fi
++fi
++echo "$as_me:$LINENO: result: $gcc_cv_as_powerpc_vsx" >&5
++echo "${ECHO_T}$gcc_cv_as_powerpc_vsx" >&6
++if test $gcc_cv_as_powerpc_vsx = yes; then
++
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_AS_VSX 1
++_ACEOF
++
++fi
++
+     echo "$as_me:$LINENO: checking assembler for .gnu_attribute support" >&5
+ echo $ECHO_N "checking assembler for .gnu_attribute support... $ECHO_C" >&6
+ if test "${gcc_cv_as_powerpc_gnu_attribute+set}" = set; then
+Index: gcc/config.in
+===================================================================
+--- gcc/config.in	(revision 139880)
++++ gcc/config.in	(working copy)
+@@ -375,6 +375,10 @@
+ #undef HAVE_AS_TLS
+ #endif
+ 
++/* Define if your assembler supports VSX instructions. */
++#ifndef USED_FOR_TARGET
++#undef HAVE_AS_VSX
++#endif
+ 
+ /* Define to 1 if you have the `atoll' function. */
+ #ifndef USED_FOR_TARGET
+Index: gcc/configure.ac
+===================================================================
+--- gcc/configure.ac	(revision 139880)
++++ gcc/configure.ac	(working copy)
+@@ -3013,6 +3013,21 @@ LCF0:
+       [AC_DEFINE(HAVE_AS_DFP, 1,
+ 	  [Define if your assembler supports DFP instructions.])])
+ 
++    case $target in
++      *-*-aix*) conftest_s='	.machine "pwr7"
++	.csect .text[[PR]]
++	lxvd2x 1,2,3';;
++      *) conftest_s='	.machine power7
++	.text
++	lxvd2x 1,2,3';;
++    esac
++
++    gcc_GAS_CHECK_FEATURE([vector-scalar support],
++      gcc_cv_as_powerpc_vsx, [9,99,0], -a32,
++      [$conftest_s],,
++      [AC_DEFINE(HAVE_AS_VSX, 1,
++	  [Define if your assembler supports VSX instructions.])])
++
+     gcc_GAS_CHECK_FEATURE([.gnu_attribute support],
+       gcc_cv_as_powerpc_gnu_attribute, [2,18,0],,
+       [.gnu_attribute 4,1],,
+Index: gcc/config.gcc
+===================================================================
+--- gcc/config.gcc	(revision 139880)
++++ gcc/config.gcc	(working copy)
+@@ -343,7 +343,7 @@ powerpc*-*-*)
+ 	extra_headers="ppc-asm.h altivec.h spe.h ppu_intrinsics.h paired.h spu2vmx.h vec_types.h si2vmx.h"
+ 	need_64bit_hwint=yes
+ 	case x$with_cpu in
+-	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[3456]|xpower6x|xrs64a|xcell)
++	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[34567]|xpower6x|xrs64a|xcell)
+ 		cpu_is_64bit=yes
+ 		;;
+ 	esac
+@@ -3133,7 +3133,7 @@ case "${target}" in
+ 				eval "with_$which=405"
+ 				;;
+ 			"" | common \
+-			| power | power[23456] | power6x | powerpc | powerpc64 \
++			| power | power[234567] | power6x | powerpc | powerpc64 \
+ 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
+ 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 505 \
+ 			| 601 | 602 | 603 | 603e | ec603e | 604 \
+Index: gcc/config/rs6000/rs6000.c
+===================================================================
+--- gcc/config/rs6000/rs6000.c	(revision 139880)
++++ gcc/config/rs6000/rs6000.c	(working copy)
+@@ -1437,19 +1437,23 @@ rs6000_override_options (const char *def
+ 	 {"power3", PROCESSOR_PPC630,
+ 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+ 	 {"power4", PROCESSOR_POWER4,
+-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POWERPC64},
++	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
++	  | MASK_MFCRF},
+ 	 {"power5", PROCESSOR_POWER5,
+-	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GFXOPT
++	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+ 	  | MASK_MFCRF | MASK_POPCNTB},
+ 	 {"power5+", PROCESSOR_POWER5,
+-	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GFXOPT
++	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+ 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
+  	 {"power6", PROCESSOR_POWER6,
+-	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_MFCRF | MASK_POPCNTB
+-	  | MASK_FPRND | MASK_CMPB | MASK_DFP },
++	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
++	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP},
+ 	 {"power6x", PROCESSOR_POWER6,
+-	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_MFCRF | MASK_POPCNTB
+-	  | MASK_FPRND | MASK_CMPB | MASK_MFPGPR | MASK_DFP },
++	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
++	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_MFPGPR},
++	 {"power7", PROCESSOR_POWER5,
++	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
++	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP},
+ 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
+ 	 {"powerpc64", PROCESSOR_POWERPC64,
+ 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+Index: gcc/config/rs6000/rs6000.h
+===================================================================
+--- gcc/config/rs6000/rs6000.h	(revision 139880)
++++ gcc/config/rs6000/rs6000.h	(working copy)
+@@ -60,6 +60,24 @@
+ #define TARGET_PAIRED_FLOAT 0
+ #endif
+ 
++#ifdef HAVE_AS_POPCNTB
++#define ASM_CPU_POWER5_SPEC "-mpower5"
++#else
++#define ASM_CPU_POWER5_SPEC "-mpower4"
++#endif
++
++#ifdef HAVE_AS_DFP
++#define ASM_CPU_POWER6_SPEC "-mpower6 -maltivec"
++#else
++#define ASM_CPU_POWER6_SPEC "-mpower4 -maltivec"
++#endif
++
++#ifdef HAVE_AS_VSX
++#define ASM_CPU_POWER7_SPEC "-mpower7"
++#else
++#define ASM_CPU_POWER7_SPEC "-mpower4 -maltivec"
++#endif
++
+ /* Common ASM definitions used by ASM_SPEC among the various targets
+    for handling -mcpu=xxx switches.  */
+ #define ASM_CPU_SPEC \
+@@ -76,10 +94,11 @@
+ %{mcpu=power2: -mpwrx} \
+ %{mcpu=power3: -mppc64} \
+ %{mcpu=power4: -mpower4} \
+-%{mcpu=power5: -mpower4} \
+-%{mcpu=power5+: -mpower4} \
+-%{mcpu=power6: -mpower4 -maltivec} \
+-%{mcpu=power6x: -mpower4 -maltivec} \
++%{mcpu=power5: %(asm_cpu_power5)} \
++%{mcpu=power5+: %(asm_cpu_power5)} \
++%{mcpu=power6: %(asm_cpu_power6) -maltivec} \
++%{mcpu=power6x: %(asm_cpu_power6) -maltivec} \
++%{mcpu=power7: %(asm_cpu_power7)} \
+ %{mcpu=powerpc: -mppc} \
+ %{mcpu=rios: -mpwr} \
+ %{mcpu=rios1: -mpwr} \
+@@ -141,6 +160,9 @@
+   { "asm_cpu",			ASM_CPU_SPEC },				\
+   { "asm_default",		ASM_DEFAULT_SPEC },			\
+   { "cc1_cpu",			CC1_CPU_SPEC },				\
++  { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
++  { "asm_cpu_power6",		ASM_CPU_POWER6_SPEC },			\
++  { "asm_cpu_power7",		ASM_CPU_POWER7_SPEC },			\
+   SUBTARGET_EXTRA_SPECS
+ 
+ /* -mcpu=native handling only makes sense with compiler running on

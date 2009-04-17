@@ -1,0 +1,168 @@
+2005-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/ia64.h (FRAME_GROWS_DOWNWARD): Define to 1 if
+	-fstack-protect.
+	* config/ia64/ia64.c (ia64_compute_frame_size): Make sure
+	size is a multiple of 16 if FRAME_GROWS_DOWNWARD.
+	(ia64_initial_elimination_offset): Support FRAME_GROWS_DOWNWARD
+	layout.
+	* config/ia64/linux.h (TARGET_LIBC_PROVIDES_SSP): Define.
+	* config/ia64/ia64.md (stack_protect_set, stack_protect_test): New
+	expanders.
+
+Index: gcc/config/ia64/linux.h
+===================================================================
+*** gcc/config/ia64/linux.h.orig	2006-12-12 16:47:58.000000000 +0100
+--- gcc/config/ia64/linux.h	2007-11-03 22:03:55.000000000 +0100
+*************** do {						\
+*** 59,61 ****
+--- 59,66 ----
+  #define LINK_EH_SPEC ""
+  
+  #define MD_UNWIND_SUPPORT "config/ia64/linux-unwind.h"
++ 
++ #ifdef TARGET_LIBC_PROVIDES_SSP
++ /* IA-64 glibc provides __stack_chk_guard in [r13-8].  */
++ #define TARGET_THREAD_SSP_OFFSET	-8
++ #endif
+Index: gcc/config/ia64/ia64.c
+===================================================================
+*** gcc/config/ia64/ia64.c.orig	2007-10-31 17:24:41.000000000 +0100
+--- gcc/config/ia64/ia64.c	2007-11-03 22:03:55.000000000 +0100
+*************** ia64_compute_frame_size (HOST_WIDE_INT s
+*** 2578,2583 ****
+--- 2578,2586 ----
+    else
+      pretend_args_size = current_function_pretend_args_size;
+  
++   if (FRAME_GROWS_DOWNWARD)
++     size = IA64_STACK_ALIGN (size);
++ 
+    total_size = (spill_size + extra_spill_size + size + pretend_args_size
+  		+ current_function_outgoing_args_size);
+    total_size = IA64_STACK_ALIGN (total_size);
+*************** ia64_compute_frame_size (HOST_WIDE_INT s
+*** 2602,2633 ****
+  HOST_WIDE_INT
+  ia64_initial_elimination_offset (int from, int to)
+  {
+!   HOST_WIDE_INT offset;
+  
+!   ia64_compute_frame_size (get_frame_size ());
+    switch (from)
+      {
+      case FRAME_POINTER_REGNUM:
+!       switch (to)
+! 	{
+! 	case HARD_FRAME_POINTER_REGNUM:
+! 	  if (current_function_is_leaf)
+! 	    offset = -current_frame_info.total_size;
+! 	  else
+! 	    offset = -(current_frame_info.total_size
+! 		       - current_function_outgoing_args_size - 16);
+! 	  break;
+! 
+! 	case STACK_POINTER_REGNUM:
+! 	  if (current_function_is_leaf)
+! 	    offset = 0;
+! 	  else
+! 	    offset = 16 + current_function_outgoing_args_size;
+! 	  break;
+! 
+! 	default:
+! 	  gcc_unreachable ();
+! 	}
+        break;
+  
+      case ARG_POINTER_REGNUM:
+--- 2605,2623 ----
+  HOST_WIDE_INT
+  ia64_initial_elimination_offset (int from, int to)
+  {
+!   HOST_WIDE_INT offset, size = get_frame_size ();
+  
+!   ia64_compute_frame_size (size);
+    switch (from)
+      {
+      case FRAME_POINTER_REGNUM:
+!       offset = FRAME_GROWS_DOWNWARD ? IA64_STACK_ALIGN (size) : 0;
+!       if (!current_function_is_leaf)
+! 	offset += 16 + current_function_outgoing_args_size;
+!       if (to == HARD_FRAME_POINTER_REGNUM)
+! 	offset -= current_frame_info.total_size;
+!       else
+! 	gcc_assert (to == STACK_POINTER_REGNUM);
+        break;
+  
+      case ARG_POINTER_REGNUM:
+Index: gcc/config/ia64/ia64.md
+===================================================================
+*** gcc/config/ia64/ia64.md.orig	2007-10-29 14:34:08.000000000 +0100
+--- gcc/config/ia64/ia64.md	2007-11-03 22:03:55.000000000 +0100
+***************
+*** 6416,6421 ****
+--- 6416,6458 ----
+   "mov %0 = ip"
+    [(set_attr "itanium_class" "frbr")])
+  
++ ;;
++ ;; Stack guard expanders
++ 
++ (define_expand "stack_protect_set"
++   [(set (match_operand 0 "memory_operand" "")
++         (match_operand 1 "memory_operand" ""))]
++   ""
++ {
++ #ifdef TARGET_THREAD_SSP_OFFSET
++   rtx thread_pointer_rtx = gen_rtx_REG (Pmode, 13);
++   rtx canary = gen_rtx_MEM (Pmode, gen_rtx_PLUS (Pmode, thread_pointer_rtx,
++ 					GEN_INT (TARGET_THREAD_SSP_OFFSET)));
++   MEM_VOLATILE_P (canary) = MEM_VOLATILE_P (operands[1]);
++   operands[1] = canary;
++ #endif
++   emit_move_insn (operands[0], operands[1]);
++   DONE;
++ })
++ 
++ (define_expand "stack_protect_test"
++   [(match_operand 0 "memory_operand" "")
++    (match_operand 1 "memory_operand" "")
++    (match_operand 2 "" "")]
++   ""
++ {
++ #ifdef TARGET_THREAD_SSP_OFFSET
++   rtx thread_pointer_rtx = gen_rtx_REG (Pmode, 13);
++   rtx canary = gen_rtx_MEM (Pmode, gen_rtx_PLUS (Pmode, thread_pointer_rtx,
++ 					GEN_INT (TARGET_THREAD_SSP_OFFSET)));
++   MEM_VOLATILE_P (canary) = MEM_VOLATILE_P (operands[1]);
++   operands[1] = canary;
++ #endif
++   emit_cmp_and_jump_insns (operands[0], operands[1], EQ, NULL_RTX,
++ 			   ptr_mode, 1, operands[2]);
++   DONE;
++ })
++ 
+  ;; Vector operations
+  (include "vect.md")
+  ;; Atomic operations
+Index: gcc/config/ia64/ia64.h
+===================================================================
+*** gcc/config/ia64/ia64.h.orig	2007-10-29 14:34:08.000000000 +0100
+--- gcc/config/ia64/ia64.h	2007-11-03 22:03:55.000000000 +0100
+*************** enum reg_class
+*** 902,908 ****
+  
+  /* Define this macro to nonzero if the addresses of local variable slots
+     are at negative offsets from the frame pointer.  */
+! #define FRAME_GROWS_DOWNWARD 0
+  
+  /* Offset from the frame pointer to the first local variable slot to
+     be allocated.  */
+--- 902,908 ----
+  
+  /* Define this macro to nonzero if the addresses of local variable slots
+     are at negative offsets from the frame pointer.  */
+! #define FRAME_GROWS_DOWNWARD (flag_stack_protect != 0)
+  
+  /* Offset from the frame pointer to the first local variable slot to
+     be allocated.  */

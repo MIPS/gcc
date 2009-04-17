@@ -1,0 +1,51 @@
+Index: gcc/gcc.c
+===================================================================
+--- gcc/gcc.c	(revision 141741)
++++ gcc/gcc.c	(working copy)
+@@ -364,6 +364,7 @@ static const char *if_exists_else_spec_f
+ static const char *replace_outfile_spec_function (int, const char **);
+ static const char *version_compare_spec_function (int, const char **);
+ static const char *include_spec_function (int, const char **);
++static const char *include_noerr_spec_function (int, const char **);
+ static const char *print_asm_header_spec_function (int, const char **);
+ 
+ /* The Specs Language
+@@ -1634,6 +1635,7 @@ static const struct spec_function static
+   { "replace-outfile",		replace_outfile_spec_function },
+   { "version-compare",		version_compare_spec_function },
+   { "include",			include_spec_function },
++  { "include_noerr",            include_noerr_spec_function },
+   { "print-asm-header",		print_asm_header_spec_function },
+ #ifdef EXTRA_SPEC_FUNCTIONS
+   EXTRA_SPEC_FUNCTIONS
+@@ -6273,6 +6275,8 @@ main (int argc, char **argv)
+   if (access (specs_file, R_OK) == 0)
+     read_specs (specs_file, TRUE);
+ 
++  do_self_spec ("%:include_noerr(defaults.spec)%(default_spec)");
++
+   /* Process any configure-time defaults specified for the command line
+      options, via OPTION_DEFAULT_SPECS.  */
+   for (i = 0; i < ARRAY_SIZE (option_default_specs); i++)
+@@ -7954,6 +7958,21 @@ include_spec_function (int argc, const c
+ 
+   return NULL;
+ }
++
++static const char *
++include_noerr_spec_function (int argc, const char **argv)
++{
++  char *file;
++
++  if (argc != 1)
++    abort ();
++
++  file = find_a_file (&startfile_prefixes, argv[0], R_OK, 0);
++  if (file)
++    read_specs (file, FALSE);
++
++  return NULL;
++}
+ 
+ /* %:print-asm-header spec function.  Print a banner to say that the
+    following output is from the assembler.  */

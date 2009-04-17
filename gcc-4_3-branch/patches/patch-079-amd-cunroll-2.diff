@@ -1,0 +1,59 @@
+2008-04-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36078
+	* tree-ssa-loop-ivcanon.c (tree_unroll_loops_completely):
+	Update virtual SSA form after cleaning up the CFG.
+
+	* gfortran.fortran-torture/compile/pr36078.f90: New testcase.
+
+Index: gcc/testsuite/gfortran.fortran-torture/compile/pr36078.f90
+===================================================================
+*** gcc/testsuite/gfortran.fortran-torture/compile/pr36078.f90	(revision 0)
+--- gcc/testsuite/gfortran.fortran-torture/compile/pr36078.f90	(revision 0)
+***************
+*** 0 ****
+--- 1,22 ----
++    subroutine foo(func,p,eval)
++       real(kind=kind(1.0d0)), dimension(3,0:4,0:4,0:4) :: p
++       logical(kind=kind(.true.)), dimension(5,5,5) :: eval
++       interface
++          subroutine func(values,pt)
++             real(kind=kind(1.0d0)), dimension(:), intent(out) :: values
++             real(kind=kind(1.0d0)), dimension(:,:), intent(in) :: pt
++          end subroutine
++       end interface
++       real(kind=kind(1.0d0)), dimension(125,3) :: pt
++       integer(kind=kind(1)) :: n_pt
++ 
++       n_pt = 1
++       pt(1:n_pt,:) = &
++          reshape( &
++             pack( &
++                transpose(reshape(p,(/3,125/))), &
++                spread(reshape(eval,(/125/)),dim=2,ncopies=3)), &
++             (/n_pt,3/))
++ 
++    end subroutine
++    end 
+Index: gcc/tree-ssa-loop-ivcanon.c
+===================================================================
+*** gcc/tree-ssa-loop-ivcanon.c	(revision 134791)
+--- gcc/tree-ssa-loop-ivcanon.c	(working copy)
+*************** tree_unroll_loops_completely (bool may_i
+*** 366,372 ****
+  	  /* This will take care of removing completely unrolled loops
+  	     from the loop structures so we can continue unrolling now
+  	     innermost loops.  */
+! 	  cleanup_tree_cfg ();
+  
+  	  /* Clean up the information about numbers of iterations, since
+  	     complete unrolling might have invalidated it.  */
+--- 366,373 ----
+  	  /* This will take care of removing completely unrolled loops
+  	     from the loop structures so we can continue unrolling now
+  	     innermost loops.  */
+! 	  if (cleanup_tree_cfg ())
+! 	    update_ssa (TODO_update_ssa_only_virtuals);
+  
+  	  /* Clean up the information about numbers of iterations, since
+  	     complete unrolling might have invalidated it.  */

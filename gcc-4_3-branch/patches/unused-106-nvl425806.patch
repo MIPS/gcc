@@ -1,0 +1,22 @@
+2008-04-22  Pat Haugen  <pthaugen@us.ibm.com>
+
+       * config/rs6000/rs6000.c (rs6000_register_move_cost): Increase cost
+       of LR/CTR moves for Power6.
+
+Index: gcc/config/rs6000/rs6000.c
+===================================================================
+--- gcc.orig/config/rs6000/rs6000.c	2008-09-10 17:37:30.000000000 -0300
++++ gcc/config/rs6000/rs6000.c	2008-09-10 17:37:37.000000000 -0300
+@@ -21387,6 +21387,12 @@
+       else if (from == CR_REGS)
+ 	return 4;
+ 
++      /* Power6 has slower LR/CTR moves so make them more expensive than
++	 memory in order to bias spills to memory .*/
++      else if (rs6000_cpu == PROCESSOR_POWER6
++	       && reg_classes_intersect_p (from, LINK_OR_CTR_REGS))
++        return 6 * hard_regno_nregs[0][mode];
++
+       else
+ 	/* A move will cost one instruction per GPR moved.  */
+ 	return 2 * hard_regno_nregs[0][mode];

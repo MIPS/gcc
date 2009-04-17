@@ -1,0 +1,2149 @@
+2008-07-14  Hans-Peter Nilsson  <hp@axis.com>
+	    Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
+
+	* optabs.h (optab_index): Add OTI_vashl, OTI_vlshr, OTI_vashr,
+	OTI_vrotl, OTI_vrotr to support vector/vector shifts.
+	(vashl_optab): New optab for vector/vector shifts.
+	(vashr_optab): Ditto.
+	(vlshr_optab): Ditto.
+	(vrotl_optab): Ditto.
+	(vrotr_optab): Ditto.
+	(optab_subtype): New enum for optab_for_tree_code call.
+	(optab_for_tree_code): Add enum optab_subtype argument.
+
+	* optabs.c (optab_for_tree_code): Take an additional argument to
+	distinguish between a vector shift by a scalar and vector shift by
+	a vector.  Make lshr/ashr/ashl/rotl/rotr optabs just vector
+	shifted by a scalar.  Use vlshr/vashr/vashl/vrotl/vrotr for the
+	vector shift by a vector.
+	(expand_widen_pattern_expr): Pass additional argument to
+	optab_for_tree_code.
+
+	* genopinit.c (optabs): Add vashr_optab, vashl_optab, vlshr_optab,
+	vrotl_optab, vrotr_optab.
+
+	* expr.c (expand_expr_real_1): Update calls to
+	optab_for_tree_code to distinguish between vector shifted by a
+	scalar and vector shifted by a vector.
+	* tree-vectorizer.c (supportable_widening_operation): Ditto.
+	(supportable_narrowing_operation): Ditto.
+	* tree-vect-analyze.c (vect_build_slp_tree): Ditto.
+	* tree-vect-patterns.c (vect_pattern_recog_1): Ditto.
+	* tree-vect-transform.c (vect_model_reduction_cost): Ditto.
+	(vect_create_epilog_for_reduction): Ditto.
+	(vectorizable_reduction): Ditto.
+	(vectorizable_operation): Ditto.
+	(vect_strided_store_supported): Ditto.
+	(vect_strided_load_supported): Ditto.
+	* tree-vect-generic.c (expand_vector_operations_1): Ditto.
+	* expmed.c (expand_shift): Ditto.
+
+	* doc/md.texi (ashl@var{m}3): Document that operand 2 is always a
+	scalar type.
+	(ashr@var{m}3): Ditto.
+	(vashl@var{m}3): Document new vector/vector shift standard name.
+	(vashr@var{m}3): Ditto.
+	(vlshr@var{m}3): Ditto.
+	(vrotl@var{m}3): Ditto.
+	(vrotr@var{m}3): Ditto.
+
+	* config/i386/i386.md (PPERM_SRC): Move PPERM masks here from
+	i386.c.
+	(PPERM_INVERT): Ditto.
+	(PPERM_REVERSE): Ditto.
+	(PPERM_REV_INV): Ditto.
+	(PPERM_ZERO): Ditto.
+	(PPERM_ONES): Ditto.
+	(PPERM_SIGN): Ditto.
+	(PPERM_INV_SIGN): Ditto.
+	(PPERM_SRC1): Ditto.
+	(PPERM_SRC2): Ditto.
+
+	* config/i386/sse.md (mulv2di3): Add SSE5 support.
+	(sse5_pmacsdql_mem): New SSE5 define_and_split that temporarily
+	allows a memory operand to be the value being added, and split it
+	to improve vectorization.
+	(sse5_pmacsdqh_mem): Ditto.
+	(sse5_mulv2div2di3_low): SSE5 32-bit multiply and extend function.
+	(sse5_mulv2div2di3_high): Ditto.
+	(vec_pack_trunc_v8hi): Add SSE5 pperm support.
+	(vec_pack_trunc_v4si): Ditto.
+	(vec_pack_trunc_v2di): Ditto.
+	(sse5_pcmov_<mode>): Remove code that tried to use use
+	andps/andnps instead of pcmov.
+	(vec_widen_smult_hi_v4si): If we have SSE5, use the pmacsdql and
+	pmacsdqh instructions.
+	(vec_widen_smult_lo_v4si): Ditto.
+
+	* config/i386/i386.c (PPERM_SRC): Move PPERM masks to i386.md.
+	(PPERM_INVERT): Ditto.
+	(PPERM_REVERSE): Ditto.
+	(PPERM_REV_INV): Ditto.
+	(PPERM_ZERO): Ditto.
+	(PPERM_ONES): Ditto.
+	(PPERM_SIGN): Ditto.
+	(PPERM_INV_SIGN): Ditto.
+	(PPERM_SRC1): Ditto.
+	(PPERM_SRC2): Ditto.
+	(ix86_expand_sse_movcc): Move the SSE5 test after the if
+	true/false tests.
+	(ix86_expand_int_vcond): If SSE5 generate all possible integer
+	comparisons.
+	(ix86_sse5_valid_op_p): Allow num_memory to be negative, which
+	says ignore whether the last reference is a memory operand.
+
+Index: gcc/doc/md.texi
+===================================================================
+--- gcc/doc/md.texi.orig	2008-07-15 14:58:04.000000000 +0200
++++ gcc/doc/md.texi	2008-07-21 15:37:21.000000000 +0200
+@@ -3852,7 +3852,7 @@ operand 0 and operand 1; operand 2's mod
+ instruction pattern, and the compiler will convert the operand to that
+ mode before generating the instruction.  The meaning of out-of-range shift
+ counts can optionally be specified by @code{TARGET_SHIFT_TRUNCATION_MASK}.
+-@xref{TARGET_SHIFT_TRUNCATION_MASK}.
++@xref{TARGET_SHIFT_TRUNCATION_MASK}.  Operand 2 is always a scalar type.
+ 
+ @cindex @code{ashr@var{m}3} instruction pattern
+ @cindex @code{lshr@var{m}3} instruction pattern
+@@ -3860,7 +3860,16 @@ counts can optionally be specified by @c
+ @cindex @code{rotr@var{m}3} instruction pattern
+ @item @samp{ashr@var{m}3}, @samp{lshr@var{m}3}, @samp{rotl@var{m}3}, @samp{rotr@var{m}3}
+ Other shift and rotate instructions, analogous to the
+-@code{ashl@var{m}3} instructions.
++@code{ashl@var{m}3} instructions.  Operand 2 is always a scalar type.
++
++@cindex @code{vashl@var{m}3} instruction pattern
++@cindex @code{vashr@var{m}3} instruction pattern
++@cindex @code{vlshr@var{m}3} instruction pattern
++@cindex @code{vrotl@var{m}3} instruction pattern
++@cindex @code{vrotr@var{m}3} instruction pattern
++@item @samp{vashl@var{m}3}, @samp{vashr@var{m}3}, @samp{vlshr@var{m}3}, @samp{vrotl@var{m}3}, @samp{vrotr@var{m}3}
++Vector shift and rotate instructions that take vectors as operand 2
++instead of a scalar type.
+ 
+ @cindex @code{neg@var{m}2} instruction pattern
+ @cindex @code{ssneg@var{m}2} instruction pattern
+Index: gcc/optabs.c
+===================================================================
+--- gcc/optabs.c.orig	2008-02-19 10:55:59.000000000 +0100
++++ gcc/optabs.c	2008-07-21 15:37:21.000000000 +0200
+@@ -334,13 +334,13 @@ widen_operand (rtx op, enum machine_mode
+   return result;
+ }
+ 
+-/* Return the optab used for computing the operation given by
+-   the tree code, CODE.  This function is not always usable (for
+-   example, it cannot give complete results for multiplication
+-   or division) but probably ought to be relied on more widely
+-   throughout the expander.  */
++/* Return the optab used for computing the operation given by the tree code,
++   CODE and the tree EXP.  This function is not always usable (for example, it
++   cannot give complete results for multiplication or division) but probably
++   ought to be relied on more widely throughout the expander.  */
+ optab
+-optab_for_tree_code (enum tree_code code, const_tree type)
++optab_for_tree_code (enum tree_code code, const_tree type,
++		     enum optab_subtype subtype)
+ {
+   bool trapv;
+   switch (code)
+@@ -374,17 +374,45 @@ optab_for_tree_code (enum tree_code code
+       return TYPE_UNSIGNED (type) ? udiv_optab : sdiv_optab;
+ 
+     case LSHIFT_EXPR:
++      if (VECTOR_MODE_P (TYPE_MODE (type)))
++	{
++	  if (subtype == optab_vector)
++	    return TYPE_SATURATING (type) ? NULL : vashl_optab;
++
++	  gcc_assert (subtype == optab_scalar);
++	}
+       if (TYPE_SATURATING(type))
+ 	return TYPE_UNSIGNED(type) ? usashl_optab : ssashl_optab;
+       return ashl_optab;
+ 
+     case RSHIFT_EXPR:
++      if (VECTOR_MODE_P (TYPE_MODE (type)))
++	{
++	  if (subtype == optab_vector)
++	    return TYPE_UNSIGNED (type) ? vlshr_optab : vashr_optab;
++
++	  gcc_assert (subtype == optab_scalar);
++	}
+       return TYPE_UNSIGNED (type) ? lshr_optab : ashr_optab;
+ 
+     case LROTATE_EXPR:
++      if (VECTOR_MODE_P (TYPE_MODE (type)))
++	{
++	  if (subtype == optab_vector)
++	    return vrotl_optab;
++
++	  gcc_assert (subtype == optab_scalar);
++	}
+       return rotl_optab;
+ 
+     case RROTATE_EXPR:
++      if (VECTOR_MODE_P (TYPE_MODE (type)))
++	{
++	  if (subtype == optab_vector)
++	    return vrotr_optab;
++
++	  gcc_assert (subtype == optab_scalar);
++	}
+       return rotr_optab;
+ 
+     case MAX_EXPR:
+@@ -540,7 +568,7 @@ expand_widen_pattern_expr (tree exp, rtx
+   oprnd0 = TREE_OPERAND (exp, 0);
+   tmode0 = TYPE_MODE (TREE_TYPE (oprnd0));
+   widen_pattern_optab =
+-        optab_for_tree_code (TREE_CODE (exp), TREE_TYPE (oprnd0));
++    optab_for_tree_code (TREE_CODE (exp), TREE_TYPE (oprnd0), optab_default);
+   icode = (int) optab_handler (widen_pattern_optab, tmode0)->insn_code;
+   gcc_assert (icode != CODE_FOR_nothing);
+   xmode0 = insn_data[icode].operand[1].mode;
+Index: gcc/optabs.h
+===================================================================
+--- gcc/optabs.h.orig	2008-02-19 10:55:59.000000000 +0100
++++ gcc/optabs.h	2008-07-21 15:37:21.000000000 +0200
+@@ -167,6 +167,18 @@ enum optab_index
+   OTI_rotl,
+   /* Rotate right */
+   OTI_rotr,
++
++  /* Arithmetic shift left of vector by vector */
++  OTI_vashl,
++  /* Logical shift right of vector by vector */
++  OTI_vlshr,
++  /* Arithmetic shift right of vector by vector */
++  OTI_vashr,
++  /* Rotate left of vector by vector */
++  OTI_vrotl,
++  /* Rotate right of vector by vector */
++  OTI_vrotr,
++
+   /* Signed and floating-point minimum value */
+   OTI_smin,
+   /* Signed and floating-point maximum value */
+@@ -412,6 +424,11 @@ extern struct optab optab_table[OTI_MAX]
+ #define ashr_optab (&optab_table[OTI_ashr])
+ #define rotl_optab (&optab_table[OTI_rotl])
+ #define rotr_optab (&optab_table[OTI_rotr])
++#define vashl_optab (&optab_table[OTI_vashl])
++#define vlshr_optab (&optab_table[OTI_vlshr])
++#define vashr_optab (&optab_table[OTI_vashr])
++#define vrotl_optab (&optab_table[OTI_vrotl])
++#define vrotr_optab (&optab_table[OTI_vrotr])
+ #define smin_optab (&optab_table[OTI_smin])
+ #define smax_optab (&optab_table[OTI_smax])
+ #define umin_optab (&optab_table[OTI_umin])
+@@ -718,6 +735,21 @@ extern rtx emit_no_conflict_block (rtx,
+ extern void emit_cmp_insn (rtx, rtx, enum rtx_code, rtx, enum machine_mode,
+ 			   int);
+ 
++/* An extra flag to control optab_for_tree_code's behavior.  This is needed to
++   distinguish between machines with a vector shift that takes a scalar for the
++   shift amount vs. machines that take a vector for the shift amount.  */
++enum optab_subtype
++{
++  optab_default,
++  optab_scalar,
++  optab_vector
++};
++
++/* Return the optab used for computing the given operation on the type given by
++   the second argument.  The third argument distinguishes between the types of
++   vector shifts and rotates */
++extern optab optab_for_tree_code (enum tree_code, const_tree, enum optab_subtype);
++
+ /* The various uses that a comparison can have; used by can_compare_p:
+    jumps, conditional moves, store flag operations.  */
+ enum can_compare_purpose
+@@ -727,10 +759,6 @@ enum can_compare_purpose
+   ccp_store_flag
+ };
+ 
+-/* Return the optab used for computing the given operation on the type
+-   given by the second argument.  */
+-extern optab optab_for_tree_code (enum tree_code, const_tree);
+-
+ /* Nonzero if a compare of mode MODE can be done straightforwardly
+    (without splitting it into pieces).  */
+ extern int can_compare_p (enum rtx_code, enum machine_mode,
+Index: gcc/genopinit.c
+===================================================================
+--- gcc/genopinit.c.orig	2008-02-19 10:55:59.000000000 +0100
++++ gcc/genopinit.c	2008-07-21 15:37:21.000000000 +0200
+@@ -130,6 +130,11 @@ static const char * const optabs[] =
+   "optab_handler (lshr_optab, $A)->insn_code = CODE_FOR_$(lshr$a3$)",
+   "optab_handler (rotl_optab, $A)->insn_code = CODE_FOR_$(rotl$a3$)",
+   "optab_handler (rotr_optab, $A)->insn_code = CODE_FOR_$(rotr$a3$)",
++  "optab_handler (vashr_optab, $A)->insn_code = CODE_FOR_$(vashr$a3$)",
++  "optab_handler (vlshr_optab, $A)->insn_code = CODE_FOR_$(vlshr$a3$)",
++  "optab_handler (vashl_optab, $A)->insn_code = CODE_FOR_$(vashl$a3$)",
++  "optab_handler (vrotl_optab, $A)->insn_code = CODE_FOR_$(vrotl$a3$)",
++  "optab_handler (vrotr_optab, $A)->insn_code = CODE_FOR_$(vrotr$a3$)",
+   "optab_handler (smin_optab, $A)->insn_code = CODE_FOR_$(smin$a3$)",
+   "optab_handler (smax_optab, $A)->insn_code = CODE_FOR_$(smax$a3$)",
+   "optab_handler (umin_optab, $A)->insn_code = CODE_FOR_$(umin$I$a3$)",
+Index: gcc/testsuite/gcc.target/i386/sse5-shift1-vector.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/i386/sse5-shift1-vector.c	2008-07-21 15:37:21.000000000 +0200
+@@ -0,0 +1,35 @@
++/* Test that the compiler properly optimizes vector shift instructions into
++   psha/pshl on SSE5 systems.  */
++
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -msse5 -ftree-vectorize" } */
++
++extern void exit (int);
++
++typedef long __m128i  __attribute__ ((__vector_size__ (16), __may_alias__));
++
++#define SIZE 10240
++
++union {
++  __m128i i_align;
++  int i32[SIZE];
++  unsigned u32[SIZE];
++} a, b, c;
++
++void
++left_shift32 (void)
++{
++  int i;
++
++  for (i = 0; i < SIZE; i++)
++    a.i32[i] = b.i32[i] << c.i32[i];
++}
++
++int main ()
++{
++  left_shfit32 ();
++  exit (0);
++}
++
++/* { dg-final { scan-assembler "pshad" } } */
+Index: gcc/testsuite/gcc.target/i386/sse5-rotate1-vector.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/i386/sse5-rotate1-vector.c	2008-07-21 15:37:21.000000000 +0200
+@@ -0,0 +1,35 @@
++/* Test that the compiler properly optimizes vector rotate instructions vector
++   into prot on SSE5 systems.  */
++
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -msse5 -ftree-vectorize" } */
++
++extern void exit (int);
++
++typedef long __m128i  __attribute__ ((__vector_size__ (16), __may_alias__));
++
++#define SIZE 10240
++
++union {
++  __m128i i_align;
++  unsigned u32[SIZE];
++} a, b, c;
++
++void
++left_rotate32 (void)
++{
++  int i;
++
++  for (i = 0; i < SIZE; i++)
++    a.u32[i] = (b.u32[i] << ((sizeof (int) * 8) - 4)) | (b.u32[i] >> 4);
++}
++
++int
++main ()
++{
++  left_rotate32 ();
++  exit (0);
++}
++
++/* { dg-final { scan-assembler "protd" } } */
+Index: gcc/testsuite/gcc.target/i386/sse5-shift2-vector.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/i386/sse5-shift2-vector.c	2008-07-21 15:37:21.000000000 +0200
+@@ -0,0 +1,35 @@
++/* Test that the compiler properly optimizes vector shift instructions into
++   psha/pshl on SSE5 systems.  */
++
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -msse5 -ftree-vectorize" } */
++
++extern void exit (int);
++
++typedef long __m128i  __attribute__ ((__vector_size__ (16), __may_alias__));
++
++#define SIZE 10240
++
++union {
++  __m128i i_align;
++  int i32[SIZE];
++  unsigned u32[SIZE];
++} a, b, c;
++
++void
++right_sign_shift32 (void)
++{
++  int i;
++
++  for (i = 0; i < SIZE; i++)
++    a.i32[i] = b.i32[i] >> c.i32[i];
++}
++
++int main ()
++{
++  right_sign_shfit32 ();
++  exit (0);
++}
++
++/* { dg-final { scan-assembler "pshad" } } */
+Index: gcc/testsuite/gcc.target/i386/sse5-rotate2-vector.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/i386/sse5-rotate2-vector.c	2008-07-21 15:37:21.000000000 +0200
+@@ -0,0 +1,35 @@
++/* Test that the compiler properly optimizes vector rotate instructions vector
++   into prot on SSE5 systems.  */
++
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -msse5 -ftree-vectorize" } */
++
++extern void exit (int);
++
++typedef long __m128i  __attribute__ ((__vector_size__ (16), __may_alias__));
++
++#define SIZE 10240
++
++union {
++  __m128i i_align;
++  unsigned u32[SIZE];
++} a, b, c;
++
++void
++right_rotate32_b (void)
++{
++  int i;
++
++  for (i = 0; i < SIZE; i++)
++    a.u32[i] = (b.u32[i] >> ((sizeof (int) * 8) - 4)) | (b.u32[i] << 4);
++}
++
++int
++main ()
++{
++  right_rotate ();
++  exit (0);
++}
++
++/* { dg-final { scan-assembler "prot" } } */
+Index: gcc/testsuite/gcc.target/i386/sse5-shift3-vector.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/i386/sse5-shift3-vector.c	2008-07-21 15:37:21.000000000 +0200
+@@ -0,0 +1,35 @@
++/* Test that the compiler properly optimizes vector shift instructions into
++   psha/pshl on SSE5 systems.  */
++
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -msse5 -ftree-vectorize" } */
++
++extern void exit (int);
++
++typedef long __m128i  __attribute__ ((__vector_size__ (16), __may_alias__));
++
++#define SIZE 10240
++
++union {
++  __m128i i_align;
++  int i32[SIZE];
++  unsigned u32[SIZE];
++} a, b, c;
++
++void
++right_uns_shift32 (void)
++{
++  int i;
++
++  for (i = 0; i < SIZE; i++)
++    a.u32[i] = b.u32[i] >> c.i32[i];
++}
++
++int main ()
++{
++  right_uns_shfit32 ();
++  exit (0);
++}
++
++/* { dg-final { scan-assembler "pshld" } } */
+Index: gcc/testsuite/gcc.target/i386/sse5-imul64-vector.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/i386/sse5-imul64-vector.c	2008-07-21 15:37:21.000000000 +0200
+@@ -0,0 +1,36 @@
++/* Test that the compiler properly optimizes floating point multiply and add
++   instructions vector into pmacsdd/etc. on SSE5 systems.  */
++
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -msse5 -ftree-vectorize" } */
++
++extern void exit (int);
++
++typedef long __m128i  __attribute__ ((__vector_size__ (16), __may_alias__));
++
++#define SIZE 10240
++
++union {
++  __m128i i_align;
++  long i64[SIZE];
++} a, b, c, d;
++
++void
++imul64 (void)
++{
++  int i;
++
++  for (i = 0; i < SIZE; i++)
++    a.i64[i] = b.i64[i] * c.i64[i];
++}
++
++int main ()
++{
++  imul64 ();
++  exit (0);
++}
++
++/* { dg-final { scan-assembler "pmacsdd" } } */
++/* { dg-final { scan-assembler "phadddq" } } */
++/* { dg-final { scan-assembler "pmacsdql" } } */
+Index: gcc/testsuite/gcc.target/i386/sse5-imul32widen-vector.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/i386/sse5-imul32widen-vector.c	2008-07-21 15:37:21.000000000 +0200
+@@ -0,0 +1,36 @@
++/* Test that the compiler properly optimizes floating point multiply and add
++   instructions vector into pmacsdd/etc. on SSE5 systems.  */
++
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -msse5 -ftree-vectorize" } */
++
++extern void exit (int);
++
++typedef long __m128i  __attribute__ ((__vector_size__ (16), __may_alias__));
++
++#define SIZE 10240
++
++union {
++  __m128i i_align;
++  int i32[SIZE];
++  long i64[SIZE];
++} a, b, c, d;
++
++void
++imul32_to_64 (void)
++{
++  int i;
++
++  for (i = 0; i < SIZE; i++)
++    a.i64[i] = ((long)b.i32[i]) * ((long)c.i32[i]);
++}
++
++int main ()
++{
++  imul32_to_64 ();
++  exit (0);
++}
++
++/* { dg-final { scan-assembler "pmacsdql" } } */
++/* { dg-final { scan-assembler "pmacsdqh" } } */
+Index: gcc/testsuite/gcc.target/i386/sse5-rotate3-vector.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gcc/testsuite/gcc.target/i386/sse5-rotate3-vector.c	2008-07-21 15:37:21.000000000 +0200
+@@ -0,0 +1,34 @@
++/* Test that the compiler properly optimizes vector rotate instructions vector
++   into prot on SSE5 systems.  */
++
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-options "-O2 -msse5 -ftree-vectorize" } */
++
++extern void exit (int);
++
++typedef long __m128i  __attribute__ ((__vector_size__ (16), __may_alias__));
++
++#define SIZE 10240
++
++union {
++  __m128i i_align;
++  unsigned u32[SIZE];
++} a, b, c;
++
++void
++vector_rotate32 (void)
++{
++  int i;
++
++  for (i = 0; i < SIZE; i++)
++    a.u32[i] = (b.u32[i] >> ((sizeof (int) * 8) - c.u32[i])) | (b.u32[i] << c.u32[i]);
++}
++
++int main ()
++{
++  vector_rotate32 ();
++  exit (0);
++}
++
++/* { dg-final { scan-assembler "protd" } } */
+Index: gcc/expr.c
+===================================================================
+--- gcc/expr.c.orig	2008-04-20 23:49:40.000000000 +0200
++++ gcc/expr.c	2008-07-21 15:37:21.000000000 +0200
+@@ -8723,7 +8723,8 @@ expand_expr_real_1 (tree exp, rtx target
+       if (modifier == EXPAND_STACK_PARM)
+ 	target = 0;
+       temp = expand_unop (mode,
+-      			  optab_for_tree_code (NEGATE_EXPR, type),
++      			  optab_for_tree_code (NEGATE_EXPR, type,
++					       optab_default),
+ 			  op0, target, 0);
+       gcc_assert (temp);
+       return REDUCE_BIT_FIELD (temp);
+@@ -8762,7 +8763,7 @@ expand_expr_real_1 (tree exp, rtx target
+       /* First try to do it with a special MIN or MAX instruction.
+ 	 If that does not win, use a conditional jump to select the proper
+ 	 value.  */
+-      this_optab = optab_for_tree_code (code, type);
++      this_optab = optab_for_tree_code (code, type, optab_default);
+       temp = expand_binop (mode, this_optab, op0, op1, target, unsignedp,
+ 			   OPTAB_WIDEN);
+       if (temp != 0)
+@@ -9241,7 +9242,7 @@ expand_expr_real_1 (tree exp, rtx target
+         tree oprnd2 = TREE_OPERAND (exp, 2);
+         rtx op2;
+ 
+-        this_optab = optab_for_tree_code (code, type);
++        this_optab = optab_for_tree_code (code, type, optab_default);
+         expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, EXPAND_NORMAL);
+         op2 = expand_normal (oprnd2);
+         temp = expand_ternary_op (mode, this_optab, op0, op1, op2,
+@@ -9280,7 +9281,7 @@ expand_expr_real_1 (tree exp, rtx target
+     case REDUC_PLUS_EXPR:
+       {
+         op0 = expand_normal (TREE_OPERAND (exp, 0));
+-        this_optab = optab_for_tree_code (code, type);
++        this_optab = optab_for_tree_code (code, type, optab_default);
+         temp = expand_unop (mode, this_optab, op0, target, unsignedp);
+         gcc_assert (temp);
+         return temp;
+@@ -9291,7 +9292,7 @@ expand_expr_real_1 (tree exp, rtx target
+       {
+         expand_operands (TREE_OPERAND (exp, 0),  TREE_OPERAND (exp, 1),
+                          NULL_RTX, &op0, &op1, 0);
+-        this_optab = optab_for_tree_code (code, type);
++        this_optab = optab_for_tree_code (code, type, optab_default);
+         temp = expand_binop (mode, this_optab, op0, op1, target, unsignedp,
+                              OPTAB_WIDEN);
+         gcc_assert (temp);
+@@ -9303,7 +9304,7 @@ expand_expr_real_1 (tree exp, rtx target
+       {
+         expand_operands (TREE_OPERAND (exp, 0),  TREE_OPERAND (exp, 1),
+                          NULL_RTX, &op0, &op1, 0);
+-        this_optab = optab_for_tree_code (code, type);
++        this_optab = optab_for_tree_code (code, type, optab_default);
+         temp = expand_binop (mode, this_optab, op0, op1, target, unsignedp,
+                              OPTAB_WIDEN);
+         gcc_assert (temp);
+@@ -9321,7 +9322,7 @@ expand_expr_real_1 (tree exp, rtx target
+     case VEC_UNPACK_LO_EXPR:
+       {
+ 	op0 = expand_normal (TREE_OPERAND (exp, 0));
+-	this_optab = optab_for_tree_code (code, type);
++	this_optab = optab_for_tree_code (code, type, optab_default);
+ 	temp = expand_widen_pattern_expr (exp, op0, NULL_RTX, NULL_RTX,
+ 					  target, unsignedp);
+ 	gcc_assert (temp);
+@@ -9334,7 +9335,8 @@ expand_expr_real_1 (tree exp, rtx target
+ 	op0 = expand_normal (TREE_OPERAND (exp, 0));
+ 	/* The signedness is determined from input operand.  */
+ 	this_optab = optab_for_tree_code (code,
+-					  TREE_TYPE (TREE_OPERAND (exp, 0)));
++					  TREE_TYPE (TREE_OPERAND (exp, 0)),
++					  optab_default);
+ 	temp = expand_widen_pattern_expr
+ 	  (exp, op0, NULL_RTX, NULL_RTX,
+ 	   target, TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
+@@ -9381,7 +9383,7 @@ expand_expr_real_1 (tree exp, rtx target
+   expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+ 		   subtarget, &op0, &op1, 0);
+  binop2:
+-  this_optab = optab_for_tree_code (code, type);
++  this_optab = optab_for_tree_code (code, type, optab_default);
+  binop3:
+   if (modifier == EXPAND_STACK_PARM)
+     target = 0;
+Index: gcc/tree-vectorizer.c
+===================================================================
+--- gcc/tree-vectorizer.c.orig	2008-02-19 10:56:00.000000000 +0100
++++ gcc/tree-vectorizer.c	2008-07-21 15:37:21.000000000 +0200
+@@ -2212,13 +2212,13 @@ supportable_widening_operation (enum tre
+   if (code == FIX_TRUNC_EXPR)
+     {
+       /* The signedness is determined from output operand.  */
+-      optab1 = optab_for_tree_code (c1, type);
+-      optab2 = optab_for_tree_code (c2, type);
++      optab1 = optab_for_tree_code (c1, type, optab_default);
++      optab2 = optab_for_tree_code (c2, type, optab_default);
+     }
+   else
+     {
+-      optab1 = optab_for_tree_code (c1, vectype);
+-      optab2 = optab_for_tree_code (c2, vectype);
++      optab1 = optab_for_tree_code (c1, vectype, optab_default);
++      optab2 = optab_for_tree_code (c2, vectype, optab_default);
+     }
+ 
+   if (!optab1 || !optab2)
+@@ -2287,9 +2287,9 @@ supportable_narrowing_operation (enum tr
+ 
+   if (code == FIX_TRUNC_EXPR)
+     /* The signedness is determined from output operand.  */
+-    optab1 = optab_for_tree_code (c1, type);
++    optab1 = optab_for_tree_code (c1, type, optab_default);
+   else
+-    optab1 = optab_for_tree_code (c1, vectype);
++    optab1 = optab_for_tree_code (c1, vectype, optab_default);
+ 
+   if (!optab1)
+     return false;
+Index: gcc/tree-vect-analyze.c
+===================================================================
+--- gcc/tree-vect-analyze.c.orig	2008-05-15 11:28:14.000000000 +0200
++++ gcc/tree-vect-analyze.c	2008-07-21 15:37:21.000000000 +0200
+@@ -2728,29 +2728,44 @@ vect_build_slp_tree (loop_vec_info loop_
+ 
+ 	  /* Shift arguments should be equal in all the packed stmts for a 
+ 	     vector shift with scalar shift operand.  */
+-	  if (TREE_CODE (rhs) == LSHIFT_EXPR || TREE_CODE (rhs) == RSHIFT_EXPR)
++	  if (TREE_CODE (rhs) == LSHIFT_EXPR || TREE_CODE (rhs) == RSHIFT_EXPR
++	      || TREE_CODE (rhs) == LROTATE_EXPR
++	      || TREE_CODE (rhs) == RROTATE_EXPR)
+ 	    {
+ 	      vec_mode = TYPE_MODE (vectype);
+-	      optab = optab_for_tree_code (TREE_CODE (rhs), vectype);
+-	      if (!optab)
+-		{
+-		  if (vect_print_dump_info (REPORT_SLP))
+-		    fprintf (vect_dump, "Build SLP failed: no optab.");
+-		  return false;
+-		}
+-	      icode = (int) optab->handlers[(int) vec_mode].insn_code;
+-	      if (icode == CODE_FOR_nothing)
+-		{
+-		  if (vect_print_dump_info (REPORT_SLP))
+-		    fprintf (vect_dump,
+-			     "Build SLP failed: op not supported by target.");
+-		  return false;
+-		}
+-	      optab_op2_mode = insn_data[icode].operand[2].mode;
+-	      if (!VECTOR_MODE_P (optab_op2_mode))
++
++	      /* First see if we have a vector/vector shift.  */
++	      optab = optab_for_tree_code (TREE_CODE (rhs), vectype,
++					   optab_vector);
++
++	      if (!optab
++		  || (optab->handlers[(int) vec_mode].insn_code
++		      == CODE_FOR_nothing))
+ 		{
+-		  need_same_oprnds = true;
+-		  first_op1 = TREE_OPERAND (rhs, 1);
++		  /* No vector/vector shift, try for a vector/scalar shift.  */
++		  optab = optab_for_tree_code (TREE_CODE (rhs), vectype,
++					       optab_scalar);
++
++		  if (!optab)
++		    {
++		      if (vect_print_dump_info (REPORT_SLP))
++			fprintf (vect_dump, "Build SLP failed: no optab.");
++		      return false;
++		    }
++		  icode = (int) optab->handlers[(int) vec_mode].insn_code;
++		  if (icode == CODE_FOR_nothing)
++		    {
++		      if (vect_print_dump_info (REPORT_SLP))
++			fprintf (vect_dump,
++				 "Build SLP failed: op not supported by target.");
++		      return false;
++		    }
++		  optab_op2_mode = insn_data[icode].operand[2].mode;
++		  if (!VECTOR_MODE_P (optab_op2_mode))
++		    {
++		      need_same_oprnds = true;
++		      first_op1 = TREE_OPERAND (rhs, 1);
++		    }
+ 		}
+ 	    }
+ 	}
+Index: gcc/expmed.c
+===================================================================
+--- gcc/expmed.c.orig	2008-04-20 23:49:40.000000000 +0200
++++ gcc/expmed.c	2008-07-21 15:37:21.000000000 +0200
+@@ -2136,14 +2136,32 @@ expand_shift (enum tree_code code, enum
+   rtx op1, temp = 0;
+   int left = (code == LSHIFT_EXPR || code == LROTATE_EXPR);
+   int rotate = (code == LROTATE_EXPR || code == RROTATE_EXPR);
++  optab lshift_optab = ashl_optab;
++  optab rshift_arith_optab = ashr_optab;
++  optab rshift_uns_optab = lshr_optab;
++  optab lrotate_optab = rotl_optab;
++  optab rrotate_optab = rotr_optab;
++  enum machine_mode op1_mode;
+   int try;
+ 
++  op1 = expand_normal (amount);
++  op1_mode = GET_MODE (op1);
++
++  /* Determine whether the shift/rotate amount is a vector, or scalar.  If the
++     shift amount is a vector, use the vector/vector shift patterns.  */
++  if (VECTOR_MODE_P (mode) && VECTOR_MODE_P (op1_mode))
++    {
++      lshift_optab = vashl_optab;
++      rshift_arith_optab = vashr_optab;
++      rshift_uns_optab = vlshr_optab;
++      lrotate_optab = vrotl_optab;
++      rrotate_optab = vrotr_optab;
++    }
++
+   /* Previously detected shift-counts computed by NEGATE_EXPR
+      and shifted in the other direction; but that does not work
+      on all machines.  */
+ 
+-  op1 = expand_normal (amount);
+-
+   if (SHIFT_COUNT_TRUNCATED)
+     {
+       if (GET_CODE (op1) == CONST_INT
+@@ -2233,12 +2251,12 @@ expand_shift (enum tree_code code, enum
+ 	    }
+ 
+ 	  temp = expand_binop (mode,
+-			       left ? rotl_optab : rotr_optab,
++			       left ? lrotate_optab : rrotate_optab,
+ 			       shifted, op1, target, unsignedp, methods);
+ 	}
+       else if (unsignedp)
+ 	temp = expand_binop (mode,
+-			     left ? ashl_optab : lshr_optab,
++			     left ? lshift_optab : rshift_uns_optab,
+ 			     shifted, op1, target, unsignedp, methods);
+ 
+       /* Do arithmetic shifts.
+@@ -2257,7 +2275,7 @@ expand_shift (enum tree_code code, enum
+ 	  /* Arithmetic shift */
+ 
+ 	  temp = expand_binop (mode,
+-			       left ? ashl_optab : ashr_optab,
++			       left ? lshift_optab : rshift_arith_optab,
+ 			       shifted, op1, target, unsignedp, methods1);
+ 	}
+ 
+Index: gcc/tree-vect-patterns.c
+===================================================================
+--- gcc/tree-vect-patterns.c.orig	2008-02-19 10:56:00.000000000 +0100
++++ gcc/tree-vect-patterns.c	2008-07-21 15:37:21.000000000 +0200
+@@ -685,7 +685,8 @@ vect_pattern_recog_1 (
+       if (!pattern_vectype)
+         return;
+ 
+-      optab = optab_for_tree_code (TREE_CODE (pattern_expr), pattern_vectype);
++      optab = optab_for_tree_code (TREE_CODE (pattern_expr), pattern_vectype,
++				   optab_default);
+       vec_mode = TYPE_MODE (pattern_vectype);
+       if (!optab
+           || (icode = optab_handler (optab, vec_mode)->insn_code) ==
+Index: gcc/tree-vect-transform.c
+===================================================================
+--- gcc/tree-vect-transform.c.orig	2008-07-03 13:57:47.000000000 +0200
++++ gcc/tree-vect-transform.c	2008-07-21 15:37:21.000000000 +0200
+@@ -502,7 +502,7 @@ vect_model_reduction_cost (stmt_vec_info
+ 	  int element_bitsize = tree_low_cst (bitsize, 1);
+ 	  int nelements = vec_size_in_bits / element_bitsize;
+ 
+-	  optab = optab_for_tree_code (code, vectype);
++	  optab = optab_for_tree_code (code, vectype, optab_default);
+ 
+ 	  /* We have a whole vector shift available.  */
+ 	  if (VECTOR_MODE_P (mode)
+@@ -2461,7 +2461,7 @@ vect_create_epilog_for_reduction (tree v
+ 	have_whole_vector_shift = false;
+       else
+ 	{
+-	  optab optab = optab_for_tree_code (code, vectype);
++	  optab optab = optab_for_tree_code (code, vectype, optab_default);
+ 	  if (optab_handler (optab, mode)->insn_code == CODE_FOR_nothing)
+ 	    have_whole_vector_shift = false;
+ 	}
+@@ -2824,7 +2824,7 @@ vectorizable_reduction (tree stmt, block
+   /* 4. Supportable by target?  */
+ 
+   /* 4.1. check support for the operation in the loop  */
+-  optab = optab_for_tree_code (code, vectype);
++  optab = optab_for_tree_code (code, vectype, optab_default);
+   if (!optab)
+     {
+       if (vect_print_dump_info (REPORT_DETAILS))
+@@ -2915,7 +2915,7 @@ vectorizable_reduction (tree stmt, block
+ 
+   if (!reduction_code_for_scalar_code (orig_code, &epilog_reduc_code))
+     return false;
+-  reduc_optab = optab_for_tree_code (epilog_reduc_code, vectype);
++  reduc_optab = optab_for_tree_code (epilog_reduc_code, vectype, optab_default);
+   if (!reduc_optab)
+     {
+       if (vect_print_dump_info (REPORT_DETAILS))
+@@ -3855,6 +3855,7 @@ vectorizable_operation (tree stmt, block
+   VEC(tree,heap) *vec_oprnds0 = NULL, *vec_oprnds1 = NULL;
+   tree vop0, vop1;
+   unsigned int k;
++  bool shift_p = false;
+   bool scalar_shift_arg = false;
+ 
+   /* FORNOW: SLP with multiple types is not supported. The SLP analysis verifies
+@@ -3899,8 +3900,6 @@ vectorizable_operation (tree stmt, block
+   if (code == POINTER_PLUS_EXPR)
+     code = PLUS_EXPR;
+ 
+-  optab = optab_for_tree_code (code, vectype);
+-
+   /* Support only unary or binary operations.  */
+   op_type = TREE_OPERAND_LENGTH (operation);
+   if (op_type != unary_op && op_type != binary_op)
+@@ -3929,6 +3928,56 @@ vectorizable_operation (tree stmt, block
+ 	}
+     }
+ 
++  /* If this is a shift/rotate, determine whether the shift amount is a vector,
++     or scalar.  If the shift/rotate amount is a vector, use the vector/vector
++     shift optabs.  */
++  if (code == LSHIFT_EXPR || code == RSHIFT_EXPR || code == LROTATE_EXPR
++      || code == RROTATE_EXPR)
++    {
++      shift_p = true;
++
++      /* vector shifted by vector */
++      if (dt[1] == vect_loop_def)
++	{
++	  optab = optab_for_tree_code (code, vectype, optab_vector);
++	  if (vect_print_dump_info (REPORT_DETAILS))
++	    fprintf (vect_dump, "vector/vector shift/rotate found.");
++	}
++
++      /* See if the machine has a vector shifted by scalar insn and if not
++	 then see if it has a vector shifted by vector insn */
++      else if (dt[1] == vect_constant_def || dt[1] == vect_invariant_def)
++	{
++	  optab = optab_for_tree_code (code, vectype, optab_scalar);
++	  if (optab
++	      && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
++		  != CODE_FOR_nothing))
++	    {
++	      scalar_shift_arg = true;
++	      if (vect_print_dump_info (REPORT_DETAILS))
++		fprintf (vect_dump, "vector/scalar shift/rotate found.");
++	    }
++	  else
++	    {
++	      optab = optab_for_tree_code (code, vectype, optab_vector);
++	      if (vect_print_dump_info (REPORT_DETAILS)
++		  && optab
++		  && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
++		      != CODE_FOR_nothing))
++		fprintf (vect_dump, "vector/vector shift/rotate found.");
++	    }
++	}
++
++      else
++	{
++	  if (vect_print_dump_info (REPORT_DETAILS))
++	    fprintf (vect_dump, "operand mode requires invariant argument.");
++	  return false;
++	}
++    }
++  else
++    optab = optab_for_tree_code (code, vectype, optab_default);
++
+   /* Supportable by target?  */
+   if (!optab)
+     {
+@@ -3963,29 +4012,6 @@ vectorizable_operation (tree stmt, block
+       return false;
+     }
+ 
+-  if (code == LSHIFT_EXPR || code == RSHIFT_EXPR)
+-    {
+-      /* FORNOW: not yet supported.  */
+-      if (!VECTOR_MODE_P (vec_mode))
+-	return false;
+-
+-      /* Invariant argument is needed for a vector shift
+-	 by a scalar shift operand.  */
+-      optab_op2_mode = insn_data[icode].operand[2].mode;
+-      if (!VECTOR_MODE_P (optab_op2_mode))
+-	{
+-	  if (dt[1] != vect_constant_def && dt[1] != vect_invariant_def)
+-	    {
+-	      if (vect_print_dump_info (REPORT_DETAILS))
+-	        fprintf (vect_dump, "operand mode requires invariant"
+-                                    " argument.");
+-	      return false;
+-	    }
+-
+-          scalar_shift_arg = true;
+-        }
+-    }
+-
+   if (!vec_stmt) /* transformation not required.  */
+     {
+       STMT_VINFO_TYPE (stmt_info) = op_vec_info_type;
+@@ -4078,8 +4104,7 @@ vectorizable_operation (tree stmt, block
+       /* Handle uses.  */
+       if (j == 0)
+ 	{
+-	  if (op_type == binary_op
+-	      && (code == LSHIFT_EXPR || code == RSHIFT_EXPR))
++	  if (op_type == binary_op && scalar_shift_arg)
+ 	    {
+ 	      /* Vector shl and shr insn patterns can be defined with scalar 
+ 		 operand 2 (shift operand). In this case, use constant or loop 
+@@ -4498,9 +4523,9 @@ vect_strided_store_supported (tree vecty
+       
+   /* Check that the operation is supported.  */
+   interleave_high_optab = optab_for_tree_code (VEC_INTERLEAVE_HIGH_EXPR, 
+-					       vectype);
++					       vectype, optab_default);
+   interleave_low_optab = optab_for_tree_code (VEC_INTERLEAVE_LOW_EXPR, 
+-					      vectype);
++					      vectype, optab_default);
+   if (!interleave_high_optab || !interleave_low_optab)
+     {
+       if (vect_print_dump_info (REPORT_DETAILS))
+@@ -5258,7 +5283,8 @@ vect_strided_load_supported (tree vectyp
+ 
+   mode = (int) TYPE_MODE (vectype);
+ 
+-  perm_even_optab = optab_for_tree_code (VEC_EXTRACT_EVEN_EXPR, vectype);
++  perm_even_optab = optab_for_tree_code (VEC_EXTRACT_EVEN_EXPR, vectype,
++					 optab_default);
+   if (!perm_even_optab)
+     {
+       if (vect_print_dump_info (REPORT_DETAILS))
+@@ -5273,7 +5299,8 @@ vect_strided_load_supported (tree vectyp
+       return false;
+     }
+ 
+-  perm_odd_optab = optab_for_tree_code (VEC_EXTRACT_ODD_EXPR, vectype);
++  perm_odd_optab = optab_for_tree_code (VEC_EXTRACT_ODD_EXPR, vectype,
++					optab_default);
+   if (!perm_odd_optab)
+     {
+       if (vect_print_dump_info (REPORT_DETAILS))
+Index: gcc/tree-vect-generic.c
+===================================================================
+--- gcc/tree-vect-generic.c.orig	2008-02-19 10:56:00.000000000 +0100
++++ gcc/tree-vect-generic.c	2008-07-21 15:37:21.000000000 +0200
+@@ -437,7 +437,28 @@ expand_vector_operations_1 (block_stmt_i
+       || code == VEC_UNPACK_FLOAT_LO_EXPR)
+     type = TREE_TYPE (TREE_OPERAND (rhs, 0));
+ 
+-  op = optab_for_tree_code (code, type);
++  /* Choose between vector shift/rotate by vector and vector shift/rotate by
++     scalar */
++  if (code == LSHIFT_EXPR || code == RSHIFT_EXPR || code == LROTATE_EXPR
++      || code == RROTATE_EXPR)
++    {
++      /* If the 2nd argument is vector, we need a vector/vector shift */
++      if (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (TREE_OPERAND (rhs, 1)))))
++	op = optab_for_tree_code (code, type, optab_vector);
++
++      else
++	{
++	  /* Try for a vector/scalar shift, and if we don't have one, see if we
++	     have a vector/vector shift */
++	  op = optab_for_tree_code (code, type, optab_scalar);
++	  if (!op
++	      || (op->handlers[(int) TYPE_MODE (type)].insn_code
++		  == CODE_FOR_nothing))
++	    op = optab_for_tree_code (code, type, optab_vector);
++	}
++    }
++  else
++    op = optab_for_tree_code (code, type, optab_default);
+ 
+   /* For widening/narrowing vector operations, the relevant type is of the 
+      arguments, not the widened result.  VEC_UNPACK_FLOAT_*_EXPR is
+@@ -458,7 +479,7 @@ expand_vector_operations_1 (block_stmt_i
+   if (op == NULL
+       && code == NEGATE_EXPR
+       && INTEGRAL_TYPE_P (TREE_TYPE (type)))
+-    op = optab_for_tree_code (MINUS_EXPR, type);
++    op = optab_for_tree_code (MINUS_EXPR, type, optab_default);
+ 
+   /* For very wide vectors, try using a smaller vector mode.  */
+   compute_type = type;
+Index: gcc/config/i386/i386.md
+===================================================================
+--- gcc/config/i386/i386.md.orig	2008-06-25 11:47:39.000000000 +0200
++++ gcc/config/i386/i386.md	2008-07-21 15:39:38.000000000 +0200
+@@ -182,8 +182,6 @@
+    (UNSPEC_SSE5_UNSIGNED_CMP	151)
+    (UNSPEC_SSE5_TRUEFALSE	152)
+    (UNSPEC_SSE5_PERMUTE		153)
+-   (UNSPEC_SSE5_ASHIFT		154)
+-   (UNSPEC_SSE5_LSHIFT		155)
+    (UNSPEC_FRCZ			156)
+    (UNSPEC_CVTPH2PS		157)
+    (UNSPEC_CVTPS2PH		158)
+@@ -218,6 +216,20 @@
+    (COM_TRUE_P			5)
+   ])
+ 
++;; Constants used in the SSE5 pperm instruction
++(define_constants
++  [(PPERM_SRC			0x00)	/* copy source */
++   (PPERM_INVERT		0x20)	/* invert source */
++   (PPERM_REVERSE		0x40)	/* bit reverse source */
++   (PPERM_REV_INV		0x60)	/* bit reverse & invert src */
++   (PPERM_ZERO			0x80)	/* all 0's */
++   (PPERM_ONES			0xa0)	/* all 1's */
++   (PPERM_SIGN			0xc0)	/* propagate sign bit */
++   (PPERM_INV_SIGN		0xe0)	/* invert & propagate sign */
++   (PPERM_SRC1			0x00)	/* use first source byte */
++   (PPERM_SRC2			0x10)	/* use second source byte */
++   ])
++
+ ;; Registers by name.
+ (define_constants
+   [(AX_REG			 0)
+Index: gcc/config/i386/sse.md
+===================================================================
+--- gcc/config/i386/sse.md.orig	2008-05-20 12:13:47.000000000 +0200
++++ gcc/config/i386/sse.md	2008-07-21 15:37:22.000000000 +0200
+@@ -48,7 +48,14 @@
+ (define_mode_attr sserotatemax [(V16QI "7") (V8HI "15") (V4SI "31") (V2DI "63")])
+ 
+ ;; Mapping of vector modes back to the scalar modes
+-(define_mode_attr ssescalarmode [(V4SF "SF") (V2DF "DF")])
++(define_mode_attr ssescalarmode [(V4SF "SF") (V2DF "DF")
++				 (V16QI "QI") (V8HI "HI")
++				 (V4SI "SI") (V2DI "DI")])
++
++;; Number of scalar elements in each vector type
++(define_mode_attr ssescalarnum [(V4SF "4") (V2DF "2")
++				(V16QI "16") (V8HI "8")
++				(V4SI "4") (V2DI "2")])
+ 
+ ;; Patterns whose name begins with "sse{,2,3}_" are invoked by intrinsics.
+ 
+@@ -3713,7 +3720,7 @@
+ ;; We don't have a straight 32-bit parallel multiply on SSE5, so fake it with a
+ ;; multiply/add.  In general, we expect the define_split to occur before
+ ;; register allocation, so we have to handle the corner case where the target
+-;; is used as the base or index register in operands 1/2.
++;; is the same as one of the inputs.
+ (define_insn_and_split "*sse5_mulv4si3"
+   [(set (match_operand:V4SI 0 "register_operand" "=&x")
+ 	(mult:V4SI (match_operand:V4SI 1 "register_operand" "%x")
+@@ -3801,6 +3808,42 @@
+   rtx t1, t2, t3, t4, t5, t6, thirtytwo;
+   rtx op0, op1, op2;
+ 
++  if (TARGET_SSE5)
++    {
++      /* op1: A,B,C,D, op2: E,F,G,H */
++      op0 = operands[0];
++      op1 = gen_lowpart (V4SImode, operands[1]);
++      op2 = gen_lowpart (V4SImode, operands[2]);
++      t1 = gen_reg_rtx (V4SImode);
++      t2 = gen_reg_rtx (V4SImode);
++      t3 = gen_reg_rtx (V4SImode);
++      t4 = gen_reg_rtx (V2DImode);
++      t5 = gen_reg_rtx (V2DImode);
++
++      /* t1: B,A,D,C */
++      emit_insn (gen_sse2_pshufd_1 (t1, op1,
++				    GEN_INT (1),
++				    GEN_INT (0),
++				    GEN_INT (3),
++				    GEN_INT (2)));
++
++      /* t2: 0 */
++      emit_move_insn (t2, CONST0_RTX (V4SImode));
++
++      /* t3: (B*E),(A*F),(D*G),(C*H) */
++      emit_insn (gen_sse5_pmacsdd (t3, t1, op2, t2));
++
++      /* t4: (B*E)+(A*F), (D*G)+(C*H) */
++      emit_insn (gen_sse5_phadddq (t4, t3));
++
++      /* t5: ((B*E)+(A*F))<<32, ((D*G)+(C*H))<<32 */
++      emit_insn (gen_ashlv2di3 (t5, t4, GEN_INT (32)));
++
++      /* op0: (((B*E)+(A*F))<<32)+(B*F), (((D*G)+(C*H))<<32)+(D*H) */
++      emit_insn (gen_sse5_pmacsdql (op0, op1, op2, t5));
++      DONE;
++    }
++
+   op0 = operands[0];
+   op1 = operands[1];
+   op2 = operands[2];
+@@ -3916,6 +3959,57 @@
+   DONE;
+ })
+ 
++(define_expand "vec_widen_smult_hi_v4si"
++  [(match_operand:V2DI 0 "register_operand" "")
++   (match_operand:V4SI 1 "register_operand" "")
++   (match_operand:V4SI 2 "register_operand" "")]
++  "TARGET_SSE5"
++{
++  rtx t1, t2;
++
++  t1 = gen_reg_rtx (V4SImode);
++  t2 = gen_reg_rtx (V4SImode);
++
++  emit_insn (gen_sse2_pshufd_1 (t1, operands[1],
++				GEN_INT (0),
++				GEN_INT (2),
++				GEN_INT (1),
++				GEN_INT (3)));
++  emit_insn (gen_sse2_pshufd_1 (t2, operands[2],
++				GEN_INT (0),
++				GEN_INT (2),
++				GEN_INT (1),
++				GEN_INT (3)));
++  emit_insn (gen_sse5_mulv2div2di3_high (operands[0], t1, t2));
++  DONE;
++})
++
++(define_expand "vec_widen_smult_lo_v4si"
++  [(match_operand:V2DI 0 "register_operand" "")
++   (match_operand:V4SI 1 "register_operand" "")
++   (match_operand:V4SI 2 "register_operand" "")]
++  "TARGET_SSE5"
++{
++  rtx t1, t2;
++
++  t1 = gen_reg_rtx (V4SImode);
++  t2 = gen_reg_rtx (V4SImode);
++
++  emit_insn (gen_sse2_pshufd_1 (t1, operands[1],
++				GEN_INT (0),
++				GEN_INT (2),
++				GEN_INT (1),
++				GEN_INT (3)));
++  emit_insn (gen_sse2_pshufd_1 (t2, operands[2],
++				GEN_INT (0),
++				GEN_INT (2),
++				GEN_INT (1),
++				GEN_INT (3)));
++  emit_insn (gen_sse5_mulv2div2di3_low (operands[0], t1, t2));
++  DONE;
++  DONE;
++})
++
+ (define_expand "vec_widen_umult_hi_v4si"
+   [(match_operand:V2DI 0 "register_operand" "")
+    (match_operand:V4SI 1 "register_operand" "")
+@@ -4580,6 +4674,12 @@
+ {
+   rtx op1, op2, h1, l1, h2, l2, h3, l3;
+ 
++  if (TARGET_SSE5)
++    {
++      ix86_expand_sse5_pack (operands);
++      DONE;	
++    }	
++ 
+   op1 = gen_lowpart (V16QImode, operands[1]);
+   op2 = gen_lowpart (V16QImode, operands[2]);
+   h1 = gen_reg_rtx (V16QImode);
+@@ -4615,6 +4715,12 @@
+ {
+   rtx op1, op2, h1, l1, h2, l2;
+ 
++  if (TARGET_SSE5)
++    {
++      ix86_expand_sse5_pack (operands);
++      DONE;	
++    }	
++ 
+   op1 = gen_lowpart (V8HImode, operands[1]);
+   op2 = gen_lowpart (V8HImode, operands[2]);
+   h1 = gen_reg_rtx (V8HImode);
+@@ -4644,6 +4750,12 @@
+ {
+   rtx op1, op2, h1, l1;
+ 
++  if (TARGET_SSE5)
++    {
++      ix86_expand_sse5_pack (operands);
++      DONE;	
++    }	
++ 
+   op1 = gen_lowpart (V4SImode, operands[1]);
+   op2 = gen_lowpart (V4SImode, operands[2]);
+   h1 = gen_reg_rtx (V4SImode);
+@@ -7685,6 +7797,87 @@
+   [(set_attr "type" "ssemuladd")
+    (set_attr "mode" "TI")])
+ 
++(define_insn_and_split "*sse5_pmacsdql_mem"
++  [(set (match_operand:V2DI 0 "register_operand" "=&x,&x,&x")
++	(plus:V2DI
++	 (mult:V2DI
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_operand:V4SI 1 "nonimmediate_operand" "x,x,m")
++	    (parallel [(const_int 1)
++		       (const_int 3)])))
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_operand:V4SI 2 "nonimmediate_operand" "x,m,x")
++	    (parallel [(const_int 1)
++		       (const_int 3)]))))
++	 (match_operand:V2DI 3 "memory_operand" "m,m,m")))]
++  "TARGET_SSE5 && ix86_sse5_valid_op_p (operands, insn, 4, false, -1)"
++  "#"
++  "&& (reload_completed
++       || (!reg_mentioned_p (operands[0], operands[1])
++	   && !reg_mentioned_p (operands[0], operands[2])))"
++  [(set (match_dup 0)
++	(match_dup 3))
++   (set (match_dup 0)
++	(plus:V2DI
++	 (mult:V2DI
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_dup 1)
++	    (parallel [(const_int 1)
++		       (const_int 3)])))
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_dup 2)
++	    (parallel [(const_int 1)
++		       (const_int 3)]))))
++	 (match_dup 0)))])
++
++;; We don't have a straight 32-bit parallel multiply and extend on SSE5, so
++;; fake it with a multiply/add.  In general, we expect the define_split to
++;; occur before register allocation, so we have to handle the corner case where
++;; the target is the same as operands 1/2
++(define_insn_and_split "sse5_mulv2div2di3_low"
++  [(set (match_operand:V2DI 0 "register_operand" "=&x")
++	(mult:V2DI
++	  (sign_extend:V2DI
++	    (vec_select:V2SI
++	      (match_operand:V4SI 1 "nonimmediate_operand" "%x")
++	      (parallel [(const_int 1)
++			 (const_int 3)])))
++	  (sign_extend:V2DI
++	    (vec_select:V2SI
++	      (match_operand:V4SI 2 "nonimmediate_operand" "xm")
++	      (parallel [(const_int 1)
++			 (const_int 3)])))))]
++  "TARGET_SSE5"
++  "#"
++  "&& (reload_completed
++       || (!reg_mentioned_p (operands[0], operands[1])
++	   && !reg_mentioned_p (operands[0], operands[2])))"
++  [(set (match_dup 0)
++	(match_dup 3))
++   (set (match_dup 0)
++	(plus:V2DI
++	 (mult:V2DI
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_dup 1)
++	    (parallel [(const_int 1)
++		       (const_int 3)])))
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_dup 2)
++	    (parallel [(const_int 1)
++		       (const_int 3)]))))
++	 (match_dup 0)))]
++{
++  operands[3] = CONST0_RTX (V2DImode);
++}
++  [(set_attr "type" "ssemuladd")
++   (set_attr "mode" "TI")])
++
+ (define_insn "sse5_pmacsdqh"
+   [(set (match_operand:V2DI 0 "register_operand" "=x,x,x")
+ 	(plus:V2DI
+@@ -7708,6 +7901,87 @@
+   [(set_attr "type" "ssemuladd")
+    (set_attr "mode" "TI")])
+ 
++(define_insn_and_split "*sse5_pmacsdqh_mem"
++  [(set (match_operand:V2DI 0 "register_operand" "=&x,&x,&x")
++	(plus:V2DI
++	 (mult:V2DI
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_operand:V4SI 1 "nonimmediate_operand" "x,x,m")
++	    (parallel [(const_int 0)
++		       (const_int 2)])))
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_operand:V4SI 2 "nonimmediate_operand" "x,m,x")
++	    (parallel [(const_int 0)
++		       (const_int 2)]))))
++	 (match_operand:V2DI 3 "memory_operand" "m,m,m")))]
++  "TARGET_SSE5 && ix86_sse5_valid_op_p (operands, insn, 4, false, -1)"
++  "#"
++  "&& (reload_completed
++       || (!reg_mentioned_p (operands[0], operands[1])
++	   && !reg_mentioned_p (operands[0], operands[2])))"
++  [(set (match_dup 0)
++	(match_dup 3))
++   (set (match_dup 0)
++	(plus:V2DI
++	 (mult:V2DI
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_dup 1)
++	    (parallel [(const_int 0)
++		       (const_int 2)])))
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_dup 2)
++	    (parallel [(const_int 0)
++		       (const_int 2)]))))
++	 (match_dup 0)))])
++
++;; We don't have a straight 32-bit parallel multiply and extend on SSE5, so
++;; fake it with a multiply/add.  In general, we expect the define_split to
++;; occur before register allocation, so we have to handle the corner case where
++;; the target is the same as either operands[1] or operands[2]
++(define_insn_and_split "sse5_mulv2div2di3_high"
++  [(set (match_operand:V2DI 0 "register_operand" "=&x")
++	(mult:V2DI
++	  (sign_extend:V2DI
++	    (vec_select:V2SI
++	      (match_operand:V4SI 1 "nonimmediate_operand" "%x")
++	      (parallel [(const_int 0)
++			 (const_int 2)])))
++	  (sign_extend:V2DI
++	    (vec_select:V2SI
++	      (match_operand:V4SI 2 "nonimmediate_operand" "xm")
++	      (parallel [(const_int 0)
++			 (const_int 2)])))))]
++  "TARGET_SSE5"
++  "#"
++  "&& (reload_completed
++       || (!reg_mentioned_p (operands[0], operands[1])
++	   && !reg_mentioned_p (operands[0], operands[2])))"
++  [(set (match_dup 0)
++	(match_dup 3))
++   (set (match_dup 0)
++	(plus:V2DI
++	 (mult:V2DI
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_dup 1)
++	    (parallel [(const_int 0)
++		       (const_int 2)])))
++	  (sign_extend:V2DI
++	   (vec_select:V2SI
++	    (match_dup 2)
++	    (parallel [(const_int 0)
++		       (const_int 2)]))))
++	 (match_dup 0)))]
++{
++  operands[3] = CONST0_RTX (V2DImode);
++}
++  [(set_attr "type" "ssemuladd")
++   (set_attr "mode" "TI")])
++
+ ;; SSE5 parallel integer multiply/add instructions for the intrinisics
+ (define_insn "sse5_pmacsswd"
+   [(set (match_operand:V4SI 0 "register_operand" "=x,x,x")
+@@ -7851,19 +8125,17 @@
+ 
+ ;; SSE5 parallel XMM conditional moves
+ (define_insn "sse5_pcmov_<mode>"
+-  [(set (match_operand:SSEMODE 0 "register_operand" "=x,x,x,x,x,x")
++  [(set (match_operand:SSEMODE 0 "register_operand" "=x,x,x,x")
+ 	(if_then_else:SSEMODE
+-	  (match_operand:SSEMODE 3 "nonimmediate_operand" "0,0,xm,x,0,0")
+-	  (match_operand:SSEMODE 1 "vector_move_operand" "x,xm,0,0,C,x")
+-	  (match_operand:SSEMODE 2 "vector_move_operand" "xm,x,x,xm,x,C")))]
++	  (match_operand:SSEMODE 3 "nonimmediate_operand" "0,0,xm,x")
++	  (match_operand:SSEMODE 1 "vector_move_operand" "x,xm,0,0")
++	  (match_operand:SSEMODE 2 "vector_move_operand" "xm,x,x,xm")))]
+   "TARGET_SSE5 && ix86_sse5_valid_op_p (operands, insn, 4, true, 1)"
+   "@
+    pcmov\t{%3, %2, %1, %0|%0, %1, %2, %3}
+    pcmov\t{%3, %2, %1, %0|%0, %1, %2, %3}
+    pcmov\t{%3, %2, %1, %0|%0, %1, %2, %3}
+-   pcmov\t{%3, %2, %1, %0|%0, %1, %2, %3}
+-   andps\t{%2, %0|%0, %2}
+-   andnps\t{%1, %0|%0, %1}"
++   pcmov\t{%3, %2, %1, %0|%0, %1, %2, %3}"
+   [(set_attr "type" "sse4arg")])
+ 
+ ;; SSE5 horizontal add/subtract instructions
+@@ -8461,7 +8733,71 @@
+    (set_attr "mode" "<MODE>")])
+ 
+ ;; SSE5 packed rotate instructions
+-(define_insn "rotl<mode>3"
++(define_expand "rotl<mode>3"
++  [(set (match_operand:SSEMODE1248 0 "register_operand" "")
++	(rotate:SSEMODE1248
++	 (match_operand:SSEMODE1248 1 "nonimmediate_operand" "")
++	 (match_operand:SI 2 "general_operand")))]
++  "TARGET_SSE5"
++{
++  /* If we were given a scalar, convert it to parallel */
++  if (! const_0_to_<sserotatemax>_operand (operands[2], SImode))
++    {
++      rtvec vs = rtvec_alloc (<ssescalarnum>);
++      rtx par = gen_rtx_PARALLEL (<MODE>mode, vs);
++      rtx reg = gen_reg_rtx (<MODE>mode);
++      rtx op2 = operands[2];
++      int i;
++
++      if (GET_MODE (op2) != <ssescalarmode>mode)
++        {
++	  op2 = gen_reg_rtx (<ssescalarmode>mode);
++	  convert_move (op2, operands[2], false);
++	}
++
++      for (i = 0; i < <ssescalarnum>; i++)
++	RTVEC_ELT (vs, i) = op2;
++
++      emit_insn (gen_vec_init<mode> (reg, par));
++      emit_insn (gen_sse5_vrotl<mode>3 (operands[0], operands[1], reg));
++      DONE;
++    }
++})
++
++(define_expand "rotr<mode>3"
++  [(set (match_operand:SSEMODE1248 0 "register_operand" "")
++	(rotatert:SSEMODE1248
++	 (match_operand:SSEMODE1248 1 "nonimmediate_operand" "")
++	 (match_operand:SI 2 "general_operand")))]
++  "TARGET_SSE5"
++{
++  /* If we were given a scalar, convert it to parallel */
++  if (! const_0_to_<sserotatemax>_operand (operands[2], SImode))
++    {
++      rtvec vs = rtvec_alloc (<ssescalarnum>);
++      rtx par = gen_rtx_PARALLEL (<MODE>mode, vs);
++      rtx neg = gen_reg_rtx (<MODE>mode);
++      rtx reg = gen_reg_rtx (<MODE>mode);
++      rtx op2 = operands[2];
++      int i;
++
++      if (GET_MODE (op2) != <ssescalarmode>mode)
++        {
++	  op2 = gen_reg_rtx (<ssescalarmode>mode);
++	  convert_move (op2, operands[2], false);
++	}
++
++      for (i = 0; i < <ssescalarnum>; i++)
++	RTVEC_ELT (vs, i) = op2;
++
++      emit_insn (gen_vec_init<mode> (reg, par));
++      emit_insn (gen_neg<mode>2 (neg, reg));
++      emit_insn (gen_sse5_vrotl<mode>3 (operands[0], operands[1], neg));
++      DONE;
++    }
++})
++
++(define_insn "sse5_rotl<mode>3"
+   [(set (match_operand:SSEMODE1248 0 "register_operand" "=x")
+ 	(rotate:SSEMODE1248
+ 	 (match_operand:SSEMODE1248 1 "nonimmediate_operand" "xm")
+@@ -8471,26 +8807,106 @@
+   [(set_attr "type" "sseishft")
+    (set_attr "mode" "TI")])
+ 
+-(define_insn "sse5_rotl<mode>3"
++(define_insn "sse5_rotr<mode>3"
++  [(set (match_operand:SSEMODE1248 0 "register_operand" "=x")
++	(rotatert:SSEMODE1248
++	 (match_operand:SSEMODE1248 1 "nonimmediate_operand" "xm")
++	 (match_operand:SI 2 "const_0_to_<sserotatemax>_operand" "n")))]
++  "TARGET_SSE5"
++{
++  operands[3] = GEN_INT ((<ssescalarnum> * 8) - INTVAL (operands[2]));
++  return \"prot<ssevecsize>\t{%3, %1, %0|%0, %1, %3}\";
++}
++  [(set_attr "type" "sseishft")
++   (set_attr "mode" "TI")])
++
++(define_expand "vrotr<mode>3"
++  [(match_operand:SSEMODE1248 0 "register_operand" "")
++   (match_operand:SSEMODE1248 1 "register_operand" "")
++   (match_operand:SSEMODE1248 2 "register_operand" "")]
++  "TARGET_SSE5"
++{
++  rtx reg = gen_reg_rtx (<MODE>mode);
++  emit_insn (gen_neg<mode>2 (reg, operands[2]));
++  emit_insn (gen_sse5_vrotl<mode>3 (operands[0], operands[1], reg));
++  DONE;
++})
++
++(define_expand "vrotl<mode>3"
++  [(match_operand:SSEMODE1248 0 "register_operand" "")
++   (match_operand:SSEMODE1248 1 "register_operand" "")
++   (match_operand:SSEMODE1248 2 "register_operand" "")]
++  "TARGET_SSE5"
++{
++  emit_insn (gen_sse5_vrotl<mode>3 (operands[0], operands[1], operands[2]));
++  DONE;
++})
++
++(define_insn "sse5_vrotl<mode>3"
+   [(set (match_operand:SSEMODE1248 0 "register_operand" "=x,x")
+-	(rotate:SSEMODE1248
+-	 (match_operand:SSEMODE1248 1 "nonimmediate_operand" "x,xm")
+-	 (match_operand:SSEMODE1248 2 "nonimmediate_operand" "xm,x")))]
++	(if_then_else:SSEMODE1248
++	 (ge:SSEMODE1248
++	  (match_operand:SSEMODE1248 2 "nonimmediate_operand" "xm,x")
++	  (const_int 0))
++	 (rotate:SSEMODE1248
++	  (match_operand:SSEMODE1248 1 "nonimmediate_operand" "x,xm")
++	  (match_dup 2))
++	 (rotatert:SSEMODE1248
++	  (match_dup 1)
++	  (neg:SSEMODE1248 (match_dup 2)))))]
+   "TARGET_SSE5 && ix86_sse5_valid_op_p (operands, insn, 3, true, 1)"
+   "prot<ssevecsize>\t{%2, %1, %0|%0, %1, %2}"
+   [(set_attr "type" "sseishft")
+    (set_attr "mode" "TI")])
+ 
+-;; SSE5 packed shift instructions.  Note negative values for the shift amount
+-;; convert this into a right shift instead of left shift.  For now, model this
+-;; with an UNSPEC instead of using ashift/lshift since the rest of the x86 does
+-;; not have the concept of negating the shift amount.  Also, there is no LSHIFT
++;; SSE5 packed shift instructions.
++;; FIXME: add V2DI back in
++(define_expand "vlshr<mode>3"
++  [(match_operand:SSEMODE124 0 "register_operand" "")
++   (match_operand:SSEMODE124 1 "register_operand" "")
++   (match_operand:SSEMODE124 2 "register_operand" "")]
++  "TARGET_SSE5"
++{
++  rtx neg = gen_reg_rtx (<MODE>mode);
++  emit_insn (gen_neg<mode>2 (neg, operands[2]));
++  emit_insn (gen_sse5_lshl<mode>3 (operands[0], operands[1], neg));
++  DONE;
++})
++
++(define_expand "vashr<mode>3"
++  [(match_operand:SSEMODE124 0 "register_operand" "")
++   (match_operand:SSEMODE124 1 "register_operand" "")
++   (match_operand:SSEMODE124 2 "register_operand" "")]
++  "TARGET_SSE5"
++{
++  rtx neg = gen_reg_rtx (<MODE>mode);
++  emit_insn (gen_neg<mode>2 (neg, operands[2]));
++  emit_insn (gen_sse5_ashl<mode>3 (operands[0], operands[1], neg));
++  DONE;
++})
++
++(define_expand "vashl<mode>3"
++  [(match_operand:SSEMODE124 0 "register_operand" "")
++   (match_operand:SSEMODE124 1 "register_operand" "")
++   (match_operand:SSEMODE124 2 "register_operand" "")]
++  "TARGET_SSE5"
++{
++  emit_insn (gen_sse5_ashl<mode>3 (operands[0], operands[1], operands[2]));
++  DONE;
++})
++
+ (define_insn "sse5_ashl<mode>3"
+   [(set (match_operand:SSEMODE1248 0 "register_operand" "=x,x")
+-	(unspec:SSEMODE1248
+-	 [(match_operand:SSEMODE1248 1 "nonimmediate_operand" "x,xm")
+-	  (match_operand:SSEMODE1248 2 "nonimmediate_operand" "xm,x")]
+-	 UNSPEC_SSE5_ASHIFT))]
++	(if_then_else:SSEMODE1248
++	 (ge:SSEMODE1248
++	  (match_operand:SSEMODE1248 2 "nonimmediate_operand" "xm,x")
++	  (const_int 0))
++	 (ashift:SSEMODE1248
++	  (match_operand:SSEMODE1248 1 "nonimmediate_operand" "x,xm")
++	  (match_dup 2))
++	 (ashiftrt:SSEMODE1248
++	  (match_dup 1)
++	  (neg:SSEMODE1248 (match_dup 2)))))]
+   "TARGET_SSE5 && ix86_sse5_valid_op_p (operands, insn, 3, true, 1)"
+   "psha<ssevecsize>\t{%2, %1, %0|%0, %1, %2}"
+   [(set_attr "type" "sseishft")
+@@ -8498,15 +8914,122 @@
+ 
+ (define_insn "sse5_lshl<mode>3"
+   [(set (match_operand:SSEMODE1248 0 "register_operand" "=x,x")
+-	(unspec:SSEMODE1248
+-	 [(match_operand:SSEMODE1248 1 "nonimmediate_operand" "x,xm")
+-	  (match_operand:SSEMODE1248 2 "nonimmediate_operand" "xm,x")]
+-	 UNSPEC_SSE5_LSHIFT))]
++	(if_then_else:SSEMODE1248
++	 (ge:SSEMODE1248
++	  (match_operand:SSEMODE1248 2 "nonimmediate_operand" "xm,x")
++	  (const_int 0))
++	 (ashift:SSEMODE1248
++	  (match_operand:SSEMODE1248 1 "nonimmediate_operand" "x,xm")
++	  (match_dup 2))
++	 (lshiftrt:SSEMODE1248
++	  (match_dup 1)
++	  (neg:SSEMODE1248 (match_dup 2)))))]
+   "TARGET_SSE5 && ix86_sse5_valid_op_p (operands, insn, 3, true, 1)"
+   "pshl<ssevecsize>\t{%2, %1, %0|%0, %1, %2}"
+   [(set_attr "type" "sseishft")
+    (set_attr "mode" "TI")])
+ 
++;; SSE2 doesn't have some shift varients, so define versions for SSE5
++(define_expand "ashlv16qi3"
++  [(match_operand:V16QI 0 "register_operand" "")
++   (match_operand:V16QI 1 "register_operand" "")
++   (match_operand:SI 2 "nonmemory_operand" "")]
++  "TARGET_SSE5"
++{
++  rtvec vs = rtvec_alloc (16);
++  rtx par = gen_rtx_PARALLEL (V16QImode, vs);
++  rtx reg = gen_reg_rtx (V16QImode);
++  int i;
++  for (i = 0; i < 16; i++)
++    RTVEC_ELT (vs, i) = operands[2];
++
++  emit_insn (gen_vec_initv16qi (reg, par));
++  emit_insn (gen_sse5_ashlv16qi3 (operands[0], operands[1], reg));
++  DONE;
++})
++
++(define_expand "lshlv16qi3"
++  [(match_operand:V16QI 0 "register_operand" "")
++   (match_operand:V16QI 1 "register_operand" "")
++   (match_operand:SI 2 "nonmemory_operand" "")]
++  "TARGET_SSE5"
++{
++  rtvec vs = rtvec_alloc (16);
++  rtx par = gen_rtx_PARALLEL (V16QImode, vs);
++  rtx reg = gen_reg_rtx (V16QImode);
++  int i;
++  for (i = 0; i < 16; i++)
++    RTVEC_ELT (vs, i) = operands[2];
++
++  emit_insn (gen_vec_initv16qi (reg, par));
++  emit_insn (gen_sse5_lshlv16qi3 (operands[0], operands[1], reg));
++  DONE;
++})
++
++(define_expand "ashrv16qi3"
++  [(match_operand:V16QI 0 "register_operand" "")
++   (match_operand:V16QI 1 "register_operand" "")
++   (match_operand:SI 2 "nonmemory_operand" "")]
++  "TARGET_SSE5"
++{
++  rtvec vs = rtvec_alloc (16);
++  rtx par = gen_rtx_PARALLEL (V16QImode, vs);
++  rtx reg = gen_reg_rtx (V16QImode);
++  int i;
++  rtx ele = ((GET_CODE (operands[2]) == CONST_INT)
++	     ? GEN_INT (- INTVAL (operands[2]))
++	     : operands[2]);
++
++  for (i = 0; i < 16; i++)
++    RTVEC_ELT (vs, i) = ele;
++
++  emit_insn (gen_vec_initv16qi (reg, par));
++
++  if (GET_CODE (operands[2]) != CONST_INT)
++    {
++      rtx neg = gen_reg_rtx (V16QImode);
++      emit_insn (gen_negv16qi2 (neg, reg));
++      emit_insn (gen_sse5_ashlv16qi3 (operands[0], operands[1], neg));
++    }
++  else
++    emit_insn (gen_sse5_ashlv16qi3 (operands[0], operands[1], reg));
++
++  DONE;
++})
++
++(define_expand "ashrv2di3"
++  [(match_operand:V2DI 0 "register_operand" "")
++   (match_operand:V2DI 1 "register_operand" "")
++   (match_operand:DI 2 "nonmemory_operand" "")]
++  "TARGET_SSE5"
++{
++  rtvec vs = rtvec_alloc (2);
++  rtx par = gen_rtx_PARALLEL (V2DImode, vs);
++  rtx reg = gen_reg_rtx (V2DImode);
++  rtx ele;
++
++  if (GET_CODE (operands[2]) == CONST_INT)
++    ele = GEN_INT (- INTVAL (operands[2]));
++  else if (GET_MODE (operands[2]) != DImode)
++    {
++      rtx move = gen_reg_rtx (DImode);
++      ele = gen_reg_rtx (DImode);
++      convert_move (move, operands[2], false);
++      emit_insn (gen_negdi2 (ele, move));
++    }
++  else
++    {
++      ele = gen_reg_rtx (DImode);
++      emit_insn (gen_negdi2 (ele, operands[2]));
++    }
++
++  RTVEC_ELT (vs, 0) = ele;
++  RTVEC_ELT (vs, 1) = ele;
++  emit_insn (gen_vec_initv2di (reg, par));
++  emit_insn (gen_sse5_ashlv2di3 (operands[0], operands[1], reg));
++  DONE;
++})
++
+ ;; SSE5 FRCZ support
+ ;; parallel insns
+ (define_insn "sse5_frcz<mode>2"
+Index: gcc/config/i386/i386.c
+===================================================================
+--- gcc/config/i386/i386.c.orig	2008-05-23 10:35:03.000000000 +0200
++++ gcc/config/i386/i386.c	2008-07-21 15:37:22.000000000 +0200
+@@ -13167,15 +13167,7 @@ ix86_expand_sse_movcc (rtx dest, rtx cmp
+   enum machine_mode mode = GET_MODE (dest);
+   rtx t2, t3, x;
+ 
+-  if (TARGET_SSE5)
+-    {
+-      rtx pcmov = gen_rtx_SET (mode, dest,
+-			       gen_rtx_IF_THEN_ELSE (mode, cmp,
+-						     op_true,
+-						     op_false));
+-      emit_insn (pcmov);
+-    }
+-  else if (op_false == CONST0_RTX (mode))
++  if (op_false == CONST0_RTX (mode))
+     {
+       op_true = force_reg (mode, op_true);
+       x = gen_rtx_AND (mode, cmp, op_true);
+@@ -13188,6 +13180,14 @@ ix86_expand_sse_movcc (rtx dest, rtx cmp
+       x = gen_rtx_AND (mode, x, op_false);
+       emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+     }
++  else if (TARGET_SSE5)
++    {
++      rtx pcmov = gen_rtx_SET (mode, dest,
++			       gen_rtx_IF_THEN_ELSE (mode, cmp,
++						     op_true,
++						     op_false));
++      emit_insn (pcmov);
++    }
+   else
+     {
+       op_true = force_reg (mode, op_true);
+@@ -13333,115 +13333,119 @@ ix86_expand_int_vcond (rtx operands[])
+   cop0 = operands[4];
+   cop1 = operands[5];
+ 
+-  /* Canonicalize the comparison to EQ, GT, GTU.  */
+-  switch (code)
+-    {
+-    case EQ:
+-    case GT:
+-    case GTU:
+-      break;
+-
+-    case NE:
+-    case LE:
+-    case LEU:
+-      code = reverse_condition (code);
+-      negate = true;
+-      break;
+-
+-    case GE:
+-    case GEU:
+-      code = reverse_condition (code);
+-      negate = true;
+-      /* FALLTHRU */
+-
+-    case LT:
+-    case LTU:
+-      code = swap_condition (code);
+-      x = cop0, cop0 = cop1, cop1 = x;
+-      break;
+-
+-    default:
+-      gcc_unreachable ();
+-    }
+-
+-  /* Only SSE4.1/SSE4.2 supports V2DImode.  */
+-  if (mode == V2DImode)
++  /* SSE5 supports all of the comparisons on all vector int types.  */
++  if (!TARGET_SSE5)
+     {
++      /* Canonicalize the comparison to EQ, GT, GTU.  */
+       switch (code)
+ 	{
+ 	case EQ:
+-	  /* SSE4.1 supports EQ.  */
+-	  if (!TARGET_SSE4_1)
+-	    return false;
+-	  break;
+-
+ 	case GT:
+ 	case GTU:
+-	  /* SSE4.2 supports GT/GTU.  */
+-	  if (!TARGET_SSE4_2)
+-	    return false;
++	  break;
++
++	case NE:
++	case LE:
++	case LEU:
++	  code = reverse_condition (code);
++	  negate = true;
++	  break;
++
++	case GE:
++	case GEU:
++	  code = reverse_condition (code);
++	  negate = true;
++	  /* FALLTHRU */
++
++	case LT:
++	case LTU:
++	  code = swap_condition (code);
++	  x = cop0, cop0 = cop1, cop1 = x;
+ 	  break;
+ 
+ 	default:
+ 	  gcc_unreachable ();
+ 	}
+-    }
+ 
+-  /* Unsigned parallel compare is not supported by the hardware.  Play some
+-     tricks to turn this into a signed comparison against 0.  */
+-  if (code == GTU)
+-    {
+-      cop0 = force_reg (mode, cop0);
++      /* Only SSE4.1/SSE4.2 supports V2DImode.  */
++      if (mode == V2DImode)
++	{
++	  switch (code)
++	    {
++	    case EQ:
++	      /* SSE4.1 supports EQ.  */
++	      if (!TARGET_SSE4_1)
++		return false;
++	      break;
+ 
+-      switch (mode)
++	    case GT:
++	    case GTU:
++	      /* SSE4.2 supports GT/GTU.  */
++	      if (!TARGET_SSE4_2)
++		return false;
++	      break;
++
++	    default:
++	      gcc_unreachable ();
++	    }
++	}
++
++      /* Unsigned parallel compare is not supported by the hardware.  Play some
++	 tricks to turn this into a signed comparison against 0.  */
++      if (code == GTU)
+ 	{
+-	case V4SImode:
+-	case V2DImode:
+-	  {
+-	    rtx t1, t2, mask;
++	  cop0 = force_reg (mode, cop0);
+ 
+-	    /* Perform a parallel modulo subtraction.  */
+-	    t1 = gen_reg_rtx (mode);
+-	    emit_insn ((mode == V4SImode
+-			? gen_subv4si3
+-			: gen_subv2di3) (t1, cop0, cop1));
+-
+-	    /* Extract the original sign bit of op0.  */
+-	    mask = ix86_build_signbit_mask (GET_MODE_INNER (mode),
+-					    true, false);
+-	    t2 = gen_reg_rtx (mode);
+-	    emit_insn ((mode == V4SImode
+-			? gen_andv4si3
+-			: gen_andv2di3) (t2, cop0, mask));
+-
+-	    /* XOR it back into the result of the subtraction.  This results
+-	       in the sign bit set iff we saw unsigned underflow.  */
+-	    x = gen_reg_rtx (mode);
+-	    emit_insn ((mode == V4SImode
+-			? gen_xorv4si3
+-			: gen_xorv2di3) (x, t1, t2));
++	  switch (mode)
++	    {
++	    case V4SImode:
++	    case V2DImode:
++	      {
++		rtx t1, t2, mask;
+ 
+-	    code = GT;
+-	  }
+-	  break;
++		/* Perform a parallel modulo subtraction.  */
++		t1 = gen_reg_rtx (mode);
++		emit_insn ((mode == V4SImode
++			    ? gen_subv4si3
++			    : gen_subv2di3) (t1, cop0, cop1));
++
++		/* Extract the original sign bit of op0.  */
++		mask = ix86_build_signbit_mask (GET_MODE_INNER (mode),
++						true, false);
++		t2 = gen_reg_rtx (mode);
++		emit_insn ((mode == V4SImode
++			    ? gen_andv4si3
++			    : gen_andv2di3) (t2, cop0, mask));
++
++		/* XOR it back into the result of the subtraction.  This results
++		   in the sign bit set iff we saw unsigned underflow.  */
++		x = gen_reg_rtx (mode);
++		emit_insn ((mode == V4SImode
++			    ? gen_xorv4si3
++			    : gen_xorv2di3) (x, t1, t2));
+ 
+-	case V16QImode:
+-	case V8HImode:
+-	  /* Perform a parallel unsigned saturating subtraction.  */
+-	  x = gen_reg_rtx (mode);
+-	  emit_insn (gen_rtx_SET (VOIDmode, x,
+-				  gen_rtx_US_MINUS (mode, cop0, cop1)));
++		code = GT;
++	      }
++	      break;
+ 
+-	  code = EQ;
+-	  negate = !negate;
+-	  break;
++	    case V16QImode:
++	    case V8HImode:
++	      /* Perform a parallel unsigned saturating subtraction.  */
++	      x = gen_reg_rtx (mode);
++	      emit_insn (gen_rtx_SET (VOIDmode, x,
++				      gen_rtx_US_MINUS (mode, cop0, cop1)));
+ 
+-	default:
+-	  gcc_unreachable ();
+-	}
++	      code = EQ;
++	      negate = !negate;
++	      break;
++
++	    default:
++	      gcc_unreachable ();
++	    }
+ 
+-      cop0 = x;
+-      cop1 = CONST0_RTX (mode);
++	  cop0 = x;
++	  cop1 = CONST0_RTX (mode);
++	}
+     }
+ 
+   x = ix86_expand_sse_cmp (operands[0], code, cop0, cop1,
+@@ -13548,19 +13552,7 @@ ix86_expand_sse4_unpack (rtx operands[2]
+ }
+ 
+ /* This function performs the same task as ix86_expand_sse_unpack,
+-   but with amdfam15 instructions.  */
+-
+-#define PPERM_SRC	0x00		/* copy source */
+-#define PPERM_INVERT	0x20		/* invert source */
+-#define PPERM_REVERSE	0x40		/* bit reverse source */
+-#define PPERM_REV_INV	0x60		/* bit reverse & invert src */
+-#define PPERM_ZERO	0x80		/* all 0's */
+-#define PPERM_ONES	0xa0		/* all 1's */
+-#define PPERM_SIGN	0xc0		/* propagate sign bit */
+-#define PPERM_INV_SIGN	0xe0		/* invert & propagate sign */
+-
+-#define PPERM_SRC1	0x00		/* use first source byte */
+-#define PPERM_SRC2	0x10		/* use second source byte */
++   but with sse5 instructions.  */
+ 
+ void
+ ix86_expand_sse5_unpack (rtx operands[2], bool unsigned_p, bool high_p)
+@@ -18374,14 +18366,14 @@ static const struct builtin_description
+   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_pmacsdqh,          "__builtin_ia32_pmacsdqh",   IX86_BUILTIN_PMACSDQH,   0,            (int)MULTI_ARG_3_SI_DI },
+   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_pmadcsswd,         "__builtin_ia32_pmadcsswd",  IX86_BUILTIN_PMADCSSWD,  0,            (int)MULTI_ARG_3_HI_SI },
+   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_pmadcswd,          "__builtin_ia32_pmadcswd",   IX86_BUILTIN_PMADCSWD,   0,            (int)MULTI_ARG_3_HI_SI },
+-  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_rotlv2di3,         "__builtin_ia32_protq",      IX86_BUILTIN_PROTQ,      0,            (int)MULTI_ARG_2_DI },
+-  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_rotlv4si3,         "__builtin_ia32_protd",      IX86_BUILTIN_PROTD,      0,            (int)MULTI_ARG_2_SI },
+-  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_rotlv8hi3,         "__builtin_ia32_protw",      IX86_BUILTIN_PROTW,      0,            (int)MULTI_ARG_2_HI },
+-  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_rotlv16qi3,        "__builtin_ia32_protb",      IX86_BUILTIN_PROTB,      0,            (int)MULTI_ARG_2_QI },
+-  { OPTION_MASK_ISA_SSE5, CODE_FOR_rotlv2di3,              "__builtin_ia32_protqi",     IX86_BUILTIN_PROTQ_IMM,  0,            (int)MULTI_ARG_2_DI_IMM },
+-  { OPTION_MASK_ISA_SSE5, CODE_FOR_rotlv4si3,              "__builtin_ia32_protdi",     IX86_BUILTIN_PROTD_IMM,  0,            (int)MULTI_ARG_2_SI_IMM },
+-  { OPTION_MASK_ISA_SSE5, CODE_FOR_rotlv8hi3,              "__builtin_ia32_protwi",     IX86_BUILTIN_PROTW_IMM,  0,            (int)MULTI_ARG_2_HI_IMM },
+-  { OPTION_MASK_ISA_SSE5, CODE_FOR_rotlv16qi3,             "__builtin_ia32_protbi",     IX86_BUILTIN_PROTB_IMM,  0,            (int)MULTI_ARG_2_QI_IMM },
++  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_vrotlv2di3,        "__builtin_ia32_protq",      IX86_BUILTIN_PROTQ,      0,            (int)MULTI_ARG_2_DI },
++  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_vrotlv4si3,        "__builtin_ia32_protd",      IX86_BUILTIN_PROTD,      0,            (int)MULTI_ARG_2_SI },
++  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_vrotlv8hi3,        "__builtin_ia32_protw",      IX86_BUILTIN_PROTW,      0,            (int)MULTI_ARG_2_HI },
++  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_vrotlv16qi3,       "__builtin_ia32_protb",      IX86_BUILTIN_PROTB,      0,            (int)MULTI_ARG_2_QI },
++  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_rotlv2di3,         "__builtin_ia32_protqi",     IX86_BUILTIN_PROTQ_IMM,  0,            (int)MULTI_ARG_2_DI_IMM },
++  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_rotlv4si3,         "__builtin_ia32_protdi",     IX86_BUILTIN_PROTD_IMM,  0,            (int)MULTI_ARG_2_SI_IMM },
++  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_rotlv8hi3,         "__builtin_ia32_protwi",     IX86_BUILTIN_PROTW_IMM,  0,            (int)MULTI_ARG_2_HI_IMM },
++  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_rotlv16qi3,        "__builtin_ia32_protbi",     IX86_BUILTIN_PROTB_IMM,  0,            (int)MULTI_ARG_2_QI_IMM },
+   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_ashlv2di3,         "__builtin_ia32_pshaq",      IX86_BUILTIN_PSHAQ,      0,            (int)MULTI_ARG_2_DI },
+   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_ashlv4si3,         "__builtin_ia32_pshad",      IX86_BUILTIN_PSHAD,      0,            (int)MULTI_ARG_2_SI },
+   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_ashlv8hi3,         "__builtin_ia32_pshaw",      IX86_BUILTIN_PSHAW,      0,            (int)MULTI_ARG_2_HI },
+@@ -25009,8 +25001,10 @@ ix86_expand_round (rtx operand0, rtx ope
+    NUM is the number of operands.
+    USES_OC0 is true if the instruction uses OC0 and provides 4 variants.
+    NUM_MEMORY is the maximum number of memory operands to accept.  */
++
+ bool
+-ix86_sse5_valid_op_p (rtx operands[], rtx insn, int num, bool uses_oc0, int num_memory)
++ix86_sse5_valid_op_p (rtx operands[], rtx insn ATTRIBUTE_UNUSED, int num,
++		      bool uses_oc0, int num_memory)
+ {
+   int mem_mask;
+   int mem_count;
+@@ -25044,6 +25038,18 @@ ix86_sse5_valid_op_p (rtx operands[], rt
+ 	}
+     }
+ 
++  /* Special case pmacsdq{l,h} where we allow the 3rd argument to be
++     a memory operation.  */
++  if (num_memory < 0)
++    {
++      num_memory = -num_memory;
++      if ((mem_mask & (1 << (num-1))) != 0)
++	{
++	  mem_mask &= ~(1 << (num-1));
++	  mem_count--;
++	}
++    }
++
+   /* If there were no memory operations, allow the insn */
+   if (mem_mask == 0)
+     return true;
+

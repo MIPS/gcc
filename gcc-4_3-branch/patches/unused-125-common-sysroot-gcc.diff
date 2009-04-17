@@ -1,0 +1,49 @@
+
+ChangeLog:
+
+	* config/spu/spu-elf.h (STANDARD_STARTFILE_PREFIX_2): Disable default.
+	(STANDARD_INCLUDE_DIR): Redefine to "/include".
+	(LOCAL_INCLUDE_DIR): Undefine.
+	* config/spu/t-spu-elf (NATIVE_SYSTEM_HEADER_DIR): Define.
+
+
+diff -urNp gcc-4.3.2/gcc/config/spu-orig/spu-elf.h gcc-4.3.2/gcc/config/spu/spu-elf.h
+--- gcc-4.3.2/gcc/config/spu-orig/spu-elf.h	2008-11-05 22:04:23.000000000 +0100
++++ gcc-4.3.2/gcc/config/spu/spu-elf.h	2008-11-05 22:07:19.000000000 +0100
+@@ -24,6 +24,23 @@
+             asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
+ 
+ 
++/* The following macros define "native" directory locations; on the SPU,
++   these are used only when building the compiler with --with-sysroot.
++   This can be used to build a pair of PPU and SPU cross-compilers with
++   a common sysroot; the SPU compiler will search for its files in
++   ${sysroot}/include and ${sysroot}/lib.  */
++
++/* STANDARD_STARTFILE_PREFIX_1 is "/lib", which we keep.
++   STANDARD_STARTFILE_PREFIX_2 is "/usr/lib" -- we remove this.  */
++#undef STANDARD_STARTFILE_PREFIX_2
++#define STANDARD_STARTFILE_PREFIX_2 ""
++
++/* Use "/include" instead of "/usr/include".  */
++#undef STANDARD_INCLUDE_DIR
++#define STANDARD_INCLUDE_DIR "/include"
++
++/* We do not provide any "/usr/local/include" directory on SPU.  */
++#undef LOCAL_INCLUDE_DIR
+ 
+ /* Provide a STARTFILE_SPEC appropriate for GNU/Linux.  Here we add
+    the GNU/Linux magical crtbegin.o file (see crtstuff.c) which
+diff -urNp gcc-4.3.2/gcc/config/spu-orig/t-spu-elf gcc-4.3.2/gcc/config/spu/t-spu-elf
+--- gcc-4.3.2/gcc/config/spu-orig/t-spu-elf	2008-11-05 22:04:23.000000000 +0100
++++ gcc-4.3.2/gcc/config/spu/t-spu-elf	2008-11-05 21:17:29.000000000 +0100
+@@ -14,6 +14,9 @@
+ #  along with GCC; see the file COPYING3.  If not see
+ #  <http://www.gnu.org/licenses/>.
+ 
++# Define system directory to match STANDARD_INCLUDE_DIR in spu-elf.h,
++# allowing combined SPU/PPU sysroot builds.
++NATIVE_SYSTEM_HEADER_DIR = /include
+ 
+ # Suppress building libgcc1.a
+ LIBGCC1 =

@@ -1,0 +1,20 @@
+Index: gcc/config/rs6000/t-linux64
+===================================================================
+--- gcc/config/rs6000/t-linux64.orig	2007-10-02 15:05:30.000000000 +0200
++++ gcc/config/rs6000/t-linux64	2007-10-02 15:17:55.000000000 +0200
+@@ -14,11 +14,11 @@ TARGET_LIBGCC2_CFLAGS += -mno-minimal-to
+ # it doesn't tell anything about the 32bit libraries on those systems.  Set
+ # MULTILIB_OSDIRNAMES according to what is found on the target.
+ 
+-MULTILIB_OPTIONS        = m64/m32 msoft-float
+-MULTILIB_DIRNAMES       = 64 32 nof
++MULTILIB_OPTIONS        = m64/m32
++MULTILIB_DIRNAMES       = 64 32
+ MULTILIB_EXTRA_OPTS     = fPIC mstrict-align
+-MULTILIB_EXCEPTIONS     = m64/msoft-float
+-MULTILIB_EXCLUSIONS     = m64/!m32/msoft-float
++MULTILIB_EXCEPTIONS     =
++MULTILIB_EXCLUSIONS     =
+ MULTILIB_OSDIRNAMES	= ../lib64 $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib) nof
+ MULTILIB_MATCHES        = $(MULTILIB_MATCHES_FLOAT)
+ 

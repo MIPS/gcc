@@ -1,0 +1,184 @@
+2008-07-24  Ben Elliston  <bje@au.ibm.com>
+
+	* config/spu/spu-c.c (__vector_keyword): New variable.
+	(vector_keyword): Likewise.
+	(spu_categorize_keyword): New function.
+	(spu_macro_to_expand): Likewise.
+	(spu_cpu_cpp_builtins): Enable context-sensitive macros if not
+	compiling an ISO C dialect.
+
+2008-07-24  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.target/spu/vector.c: New test.
+	* gcc.target/spu/vector-ansi.c: Likewise.
+
+ 
+Index: gcc/testsuite/gcc.target/spu/vector.c
+===================================================================
+--- gcc/testsuite/gcc.target/spu/vector.c	(revision 0)
++++ gcc/testsuite/gcc.target/spu/vector.c	(revision 138106)
+@@ -0,0 +1,32 @@
++/* { dg-do compile } */
++/* { dg-options "" } */
++
++#ifndef __VECTOR_KEYWORD_SUPPORTED__
++#error __VECTOR_KEYWORD_SUPPORTED__ is not defined
++#endif
++
++/* __vector is expanded unconditionally.  */
++__vector int vi;
++__vector unsigned char vuc;
++__vector signed char vsc;
++__vector unsigned short vus;
++__vector signed short vss;
++__vector unsigned int vui;
++__vector signed int vsi;
++__vector unsigned long long ull;
++__vector signed long long sll;
++__vector float vf;
++__vector double vd;
++
++/* vector is expanded conditionally, based on the context.  */
++vector int vi;
++vector unsigned char vuc;
++vector signed char vsc;
++vector unsigned short vus;
++vector signed short vss;
++vector unsigned int vui;
++vector signed int vsi;
++vector unsigned long long ull;
++vector signed long long sll;
++vector float vf;
++vector double vd;
+Index: gcc/testsuite/gcc.target/spu/vector-ansi.c
+===================================================================
+--- gcc/testsuite/gcc.target/spu/vector-ansi.c	(revision 0)
++++ gcc/testsuite/gcc.target/spu/vector-ansi.c	(revision 138106)
+@@ -0,0 +1,35 @@
++/* { dg-do compile } */
++/* { dg-options "-ansi" } */
++
++/* This is done by spu_internals.h, but we not include it here to keep
++   down the dependencies.  */
++
++#ifndef __VECTOR_KEYWORD_SUPPORTED__
++#define vector __vector
++#endif
++
++/* __vector is expanded unconditionally by the preprocessor.  */
++__vector int vi;
++__vector unsigned char vuc;
++__vector signed char vsc;
++__vector unsigned short vus;
++__vector signed short vss;
++__vector unsigned int vui;
++__vector signed int vsi;
++__vector unsigned long long ull;
++__vector signed long long sll;
++__vector float vf;
++__vector double vd;
++
++/* vector is expanded by the define above, regardless of context.  */
++vector int vi;
++vector unsigned char vuc;
++vector signed char vsc;
++vector unsigned short vus;
++vector signed short vss;
++vector unsigned int vui;
++vector signed int vsi;
++vector unsigned long long ull;
++vector signed long long sll;
++vector float vf;
++vector double vd;
+Index: gcc/config/spu/spu-c.c
+===================================================================
+--- gcc/config/spu/spu-c.c	(revision 138105)
++++ gcc/config/spu/spu-c.c	(revision 138106)
+@@ -35,6 +35,64 @@
+ #include "spu-builtins.h"
+ 
+ 
++/* Keep the vector keywords handy for fast comparisons.  */
++static GTY(()) tree __vector_keyword;
++static GTY(()) tree vector_keyword;
++
++static cpp_hashnode *
++spu_categorize_keyword (const cpp_token *tok)
++{
++  if (tok->type == CPP_NAME)
++    {
++      cpp_hashnode *ident = tok->val.node;
++
++      if (ident == C_CPP_HASHNODE (vector_keyword)
++	  || ident == C_CPP_HASHNODE (__vector_keyword))
++	return C_CPP_HASHNODE (__vector_keyword);
++      else
++	return ident;
++    }
++  return 0;
++}
++
++/* Called to decide whether a conditional macro should be expanded.
++   Since we have exactly one such macro (i.e, 'vector'), we do not
++   need to examine the 'tok' parameter.  */
++
++static cpp_hashnode *
++spu_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
++{
++  cpp_hashnode *expand_this = tok->val.node;
++  cpp_hashnode *ident;
++
++  ident = spu_categorize_keyword (tok);
++  if (ident == C_CPP_HASHNODE (__vector_keyword))
++    {
++      tok = cpp_peek_token (pfile, 0);
++      ident = spu_categorize_keyword (tok);
++
++      if (ident)
++	{
++	  enum rid rid_code = (enum rid)(ident->rid_code);
++	  if (ident->type == NT_MACRO)
++	    {
++	      (void) cpp_get_token (pfile);
++	      tok = cpp_peek_token (pfile, 0);
++	      ident = spu_categorize_keyword (tok);
++	      if (ident)
++		rid_code = (enum rid)(ident->rid_code);
++	    }
++	  
++	  if (rid_code == RID_UNSIGNED || rid_code == RID_LONG
++	      || rid_code == RID_SHORT || rid_code == RID_SIGNED
++	      || rid_code == RID_INT || rid_code == RID_CHAR
++	      || rid_code == RID_FLOAT || rid_code == RID_DOUBLE)
++	    expand_this = C_CPP_HASHNODE (__vector_keyword);
++	}
++    }
++  return expand_this;
++}
++
+ /* target hook for resolve_overloaded_builtin(). Returns a function call
+    RTX if we can resolve the overloaded builtin */
+ tree
+@@ -140,6 +198,22 @@ spu_cpu_cpp_builtins (struct cpp_reader
+   if (spu_arch == PROCESSOR_CELLEDP)
+     builtin_define_std ("__SPU_EDP__");
+   builtin_define_std ("__vector=__attribute__((__spu_vector__))");
++
++  if (!flag_iso)
++    {
++      /* Define this when supporting context-sensitive keywords.  */
++      cpp_define (pfile, "__VECTOR_KEYWORD_SUPPORTED__");
++      cpp_define (pfile, "vector=vector");
++
++      /* Initialize vector keywords.  */
++      __vector_keyword = get_identifier ("__vector");
++      C_CPP_HASHNODE (__vector_keyword)->flags |= NODE_CONDITIONAL;
++      vector_keyword = get_identifier ("vector");
++      C_CPP_HASHNODE (vector_keyword)->flags |= NODE_CONDITIONAL;
++
++      /* Enable context-sensitive macros.  */
++      cpp_get_callbacks (pfile)->macro_to_expand = spu_macro_to_expand;
++    }
+ }
+ 
+ void
