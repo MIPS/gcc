@@ -3397,6 +3397,10 @@ f
 _Z3fooc
 foo(char)
 foo
+# new (2008) built in types test
+--format=gnu-v3
+_Z1fDsDi
+f(char16_t, char32_t)
 #
 --format=gnu-v3 --no-params
 2CBIL_Z3foocEE

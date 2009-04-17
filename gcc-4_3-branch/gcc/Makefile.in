@@ -307,6 +307,7 @@ USER_H = $(srcdir)/ginclude/float.h \
 	 $(srcdir)/ginclude/stddef.h \
 	 $(srcdir)/ginclude/varargs.h \
 	 $(srcdir)/ginclude/stdfix.h \
+	 $(srcdir)/ginclude/uchar.h \
 	 $(EXTRA_HEADERS)
 
 UNWIND_H = $(srcdir)/unwind-generic.h
