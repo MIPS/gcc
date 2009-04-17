@@ -1,3 +1,8 @@
+2009-04-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* DEV-PHASE: Set to IBM Advanced-Toolchain, prerelease.
+	* REVISION: Set to [merged from gcc-4_3-branch, svn 146202].
+
 2009-04-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* Changelog.power7: Copy of the Changelog from the 4.5 development
