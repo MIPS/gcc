@@ -53,7 +53,7 @@
 #include "tsystem.h"
 #include <sys/stat.h>
 
-/* We don't have libiberty, so us malloc.  */
+/* We don't have libiberty, so use malloc.  */
 #define xmalloc(S) malloc (S)
 #else
 #include "config.h"
@@ -1964,7 +1964,6 @@ __gnat_init_float (void)
    checking is not used.  */
 void (*__gnat_set_stack_limit_hook)(void) = (void (*)(void))0;
 
-
 /******************/
 /* NetBSD Section */
 /******************/
@@ -2145,7 +2144,7 @@ __gnat_error_handler (int sig, siginfo_t * si, void * uc)
     {
     case SIGSEGV:
     case SIGBUS:
-      if (__gnat_is_stack_guard ((mach_vm_address_t)si->si_addr))
+      if (__gnat_is_stack_guard ((unsigned long)si->si_addr))
 	{
 	  exception = &storage_error;
 	  msg = "stack overflow";

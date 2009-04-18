@@ -1414,6 +1414,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   resdecl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (resdecl) = 1;
   DECL_RESULT (decl) = resdecl;
+  DECL_CONTEXT (resdecl) = decl;
 
   allocate_struct_function (decl, false);
 

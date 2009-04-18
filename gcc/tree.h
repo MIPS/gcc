@@ -4277,7 +4277,6 @@ extern tree convert (tree, tree);
 extern unsigned int expr_align (const_tree);
 extern tree expr_first (tree);
 extern tree expr_last (tree);
-extern tree expr_only (tree);
 extern tree size_in_bytes (const_tree);
 extern HOST_WIDE_INT int_size_in_bytes (const_tree);
 extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
@@ -4672,7 +4671,6 @@ extern tree create_artificial_label (void);
 extern const char *get_name (tree);
 extern bool stdarg_p (tree);
 extern bool prototype_p (tree);
-extern int function_args_count (tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 
 /* In gimplify.c */
@@ -5217,7 +5215,6 @@ extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
 
 /* In tree-vrp.c */
-extern bool ssa_name_nonzero_p (const_tree);
 extern bool ssa_name_nonnegative_p (const_tree);
 
 /* In tree-object-size.c.  */

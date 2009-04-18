@@ -441,6 +441,8 @@ package Prj is
       --  Value may be Canonical (Unix style) or Host (host syntax, for example
       --  on VMS for DEC C).
 
+      Object_File_Suffix : Name_Id := No_Name;
+
       Compilation_PIC_Option : Name_List_Index := No_Name_List;
       --  The option(s) to compile a source in Position Independent Code for
       --  shared libraries. Specified in the configuration. When not specified,
@@ -557,6 +559,7 @@ package Prj is
                            Compiler_Driver_Path         => null,
                            Compiler_Required_Switches   => No_Name_List,
                            Path_Syntax                  => Canonical,
+                           Object_File_Suffix           => No_Name,
                            Compilation_PIC_Option       => No_Name_List,
                            Object_Generated             => True,
                            Objects_Linked               => True,
@@ -994,6 +997,9 @@ package Prj is
    --  The format of the different response files
 
    type Project_Configuration is record
+      Target                        : Name_Id         := No_Name;
+      --  The target of the configuration, when specified
+
       Run_Path_Option               : Name_List_Index := No_Name_List;
       --  The option to use when linking to specify the path where to look for
       --  libraries.
@@ -1103,7 +1109,8 @@ package Prj is
    end record;
 
    Default_Project_Config : constant Project_Configuration :=
-                              (Run_Path_Option               => No_Name_List,
+                              (Target                        => No_Name,
+                               Run_Path_Option               => No_Name_List,
                                Executable_Suffix             => No_Name,
                                Linker                        => No_Path,
                                Map_File_Option               => No_Name,
@@ -1564,7 +1571,8 @@ package Prj is
    --  Replace the extension of File with With_Suffix
 
    function Object_Name
-     (Source_File_Name : File_Name_Type) return File_Name_Type;
+     (Source_File_Name   : File_Name_Type;
+      Object_File_Suffix : Name_Id := No_Name) return File_Name_Type;
    --  Returns the object file name corresponding to a source file name
 
    function Dependency_Name
