@@ -1644,32 +1644,6 @@ redirect_eh_edge_to_label (edge e, tree new_dest_label, bool is_resx,
   return r;
 }
 
-/* Return true if REGION_A is outer to REGION_B in IFUN.  */
-
-bool
-eh_region_outer_p (struct function *ifun, int region_a, int region_b)
-{
-  struct eh_region *rp_a, *rp_b;
-
-  gcc_assert (ifun->eh->last_region_number > 0);
-  gcc_assert (ifun->eh->region_tree);
-
-  rp_a = VEC_index (eh_region, ifun->eh->region_array, region_a);
-  rp_b = VEC_index (eh_region, ifun->eh->region_array, region_b);
-  gcc_assert (rp_a != NULL);
-  gcc_assert (rp_b != NULL);
-
-  do
-    {
-      if (rp_a == rp_b)
-	return true;
-      rp_b = rp_b->outer;
-    }
-  while (rp_b);
-
-  return false;
-}
-
 /* Return region number of region that is outer to both if REGION_A and
    REGION_B in IFUN.  */
 
