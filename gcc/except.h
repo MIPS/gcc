@@ -34,6 +34,9 @@ struct eh_region GTY(())
   struct eh_region *inner;
   struct eh_region *next_peer;
 
+  /* List of regions sharing label.  */
+  struct eh_region *next_region_sharing_label;
+
   /* An identifier for this region.  */
   int region_number;
 
