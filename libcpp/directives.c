@@ -724,7 +724,7 @@ parse_include (cpp_reader *pfile, int *pangle_brackets,
       /* This pragma allows extra tokens after the file name.  */
     }
   else if (buf == NULL || CPP_OPTION (pfile, discard_comments))
-    check_eol (pfile, false);
+    check_eol (pfile, true);
   else
     {
       /* If we are not discarding comments, then gather them while
@@ -924,7 +924,7 @@ do_line (cpp_reader *pfile)
     }
 
   skip_rest_of_line (pfile);
-  _cpp_do_file_change (pfile, LC_RENAME, new_file, new_lineno,
+  _cpp_do_file_change (pfile, LC_RENAME_VERBATIM, new_file, new_lineno,
 		       map_sysp);
 }
 
@@ -940,7 +940,7 @@ do_linemarker (cpp_reader *pfile)
   const char *new_file = map->to_file;
   linenum_type new_lineno;
   unsigned int new_sysp = map->sysp;
-  enum lc_reason reason = LC_RENAME;
+  enum lc_reason reason = LC_RENAME_VERBATIM;
   int flag;
   bool wrapped;
 
