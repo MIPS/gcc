@@ -1,3 +1,22 @@
+2009-04-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lib/gnat.exp (local_find_gnatmake): Pass --LINK to gnatlink.
+	Do not pass -B$root after -margs.
+
+2009-04-19  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/32061
+	PR c++/36954
+	* gcc.dg/pr32061.c: New.
+	* gcc.dg/Wlogical-op-1.c: Update.
+	* g++.dg/warn/Wlogical-op-1.C: Update.
+	* g++.dg/warn/pr36954.C: New.
+
+2009-04-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/27676
+	* gcc.dg/lvalue-5.c: New test.
+
 2009-04-18  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/22367
