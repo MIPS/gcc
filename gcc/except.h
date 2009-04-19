@@ -163,7 +163,7 @@ extern void init_eh_for_function (void);
 
 extern rtx reachable_handlers (rtx);
 void remove_eh_region (int);
-void remove_eh_region_and_replace (int, int);
+void remove_eh_region_and_replace_by_outer_of (int, int);
 
 extern void convert_from_eh_region_ranges (void);
 extern unsigned int convert_to_eh_region_ranges (void);

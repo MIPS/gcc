@@ -2793,6 +2793,7 @@ tree_empty_eh_handler_p (basic_block bb)
   edge e;
   use_operand_p imm_use;
   gimple use_stmt;
+  bool found = false;
 
   gsi = gsi_last_bb (bb);
 
@@ -2863,26 +2864,17 @@ tree_empty_eh_handler_p (basic_block bb)
       if (gsi_end_p (gsi))
 	return 0;
     }
+  if (gimple_code (gsi_stmt (gsi)) != GIMPLE_LABEL)
+    return 0;
 
-  /* Splitting critical edges might create handler with non-EH predecestors.
-     Do not care about it: if we end up putting nothing on those critical
-     edges, the handlers will be merged again.  If not, we will end up with
-     extra EH landing pad doing nothing.  Not terribly bad given the fact
-     that outer block of that EH landing pad is anyway reachable from
-     the split critical edge with non-trivial cleanup.  */
+  /* Be sure that there is at least on EH region reaching the block directly.
+     After EH edge redirection, it is possible that block is reached by one handler
+     but resumed by different.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
-    if (!(e->flags & EDGE_EH))
-      return 0;
-
-  while (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
-    {
-      if (gimple_label_label (gsi_stmt (gsi))
-      	  == get_eh_region_no_tree_label (region))
-        return region;
-      gsi_prev (&gsi);
-      if (gsi_end_p (gsi))
-	return 0;
-    }
+    if ((e->flags & EDGE_EH))
+      found = true;
+  if (found)
+    return region;
   return 0;
 }
 
@@ -3080,6 +3072,7 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 {
   int region;
   gimple_stmt_iterator si;
+  edge_iterator ei;
 
   /* When handler of EH region winds up to be empty, we can safely
      remove it.  This leads to inner EH regions to be redirected
@@ -3089,7 +3082,7 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
       && all_phis_safe_to_merge (bb))
     {
       edge e;
-      bool found = false;
+      bool found = false, removed_some = false, has_non_eh_preds = false;
       gimple_stmt_iterator gsi;
 
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -3106,7 +3099,8 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 		  found = true;
 		else
 		  {
-		     remove_eh_region_and_replace (r, region);
+		     removed_some = true;
+		     remove_eh_region_and_replace_by_outer_of (r, region);
 		     if (dump_file)
 		       fprintf (dump_file, "Empty EH handler %i removed and "
 		       		"replaced by %i\n", r, region);
@@ -3116,13 +3110,31 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 	  }
 	else
 	  break;
-      gcc_assert (found);
-      remove_eh_region (region);
+      gcc_assert (found || removed_some);
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	if (!(e->flags & EDGE_EH))
+	  has_non_eh_preds = false;
 
-      while ((e = ei_safe_edge (ei_start (bb->preds))))
+      /* When block is empty EH cleanup, but it is reachable via non-EH code too,
+         we can not remove the region it is resumed via, because doing so will
+	 lead to redirection of its RESX edges.
+
+	 This case will be handled later after edge forwarding if the EH cleanup
+	 is really dead.  */
+
+      if (found && !has_non_eh_preds)
+        remove_eh_region (region);
+      else if (!removed_some)
+        return false;
+
+      for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
 	{
 	  basic_block src = e->src;
-	  gcc_assert (e->flags & EDGE_EH);
+	  if (!(e->flags & EDGE_EH))
+	    {
+	      ei_next (&ei);
+	      continue;
+	    }
 	  if (stmt_can_throw_internal (last_stmt (src)))
 	    update_eh_edges (last_stmt (src), bb, e);
 	  remove_edge (e);
@@ -3175,7 +3187,8 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 		}
 	    }
 	}
-      delete_basic_block (bb);
+      if (!ei_safe_edge (ei_start (bb->preds)))
+        delete_basic_block (bb);
       return true;
     }
   return false;

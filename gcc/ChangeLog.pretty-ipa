@@ -1,5 +1,16 @@
 2009-04-18  Jan Hubicka  <jh@suse.cz>
 
+	* tree-eh.c (tree_empty_eh_handler_p): Allow EH handlers with non-EH edges
+	(cleanup_empty_eh): Delete EH handlers based on the labels, not RESX.
+	Delete the handler block only if all control flow was eliminated.
+	* except.c (remove_eh_region_and_replace_by_outer_of): Use outer region;
+	rename from ....
+	(remove_eh_region_and_replace): This one.
+	* except.h (remove_eh_region_and_replace_by_outer_of): New.
+	(remove_eh_region_and_replace): Remove.
+
+2009-04-18  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from mainline.
 
 2009-04-16  Jan Hubicka  <jh@suse.cz>

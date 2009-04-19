@@ -2866,13 +2866,13 @@ remove_eh_region (int r)
    and replace in by R2.  */
 
 void
-remove_eh_region_and_replace (int r, int r2)
+remove_eh_region_and_replace_by_outer_of (int r, int r2)
 {
   struct eh_region *region, *region2;
 
   region = VEC_index (eh_region, cfun->eh->region_array, r);
   region2 = VEC_index (eh_region, cfun->eh->region_array, r2);
-  remove_eh_handler_and_replace (region, region2, true);
+  remove_eh_handler_and_replace (region, region2->outer, true);
 }
 
 /* Invokes CALLBACK for every exception handler label.  Only used by old
