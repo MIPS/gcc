@@ -1,5 +1,12 @@
 2009-04-19  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (distance_non_agu_define): Use register
+	numbers as parameters.  Update comments.
+	(distance_agu_use): Use register number parameter.
+	(ix86_lea_for_add_ok): Updated.
+
+2009-04-19  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (distance_non_agu_define): Use
 	INVALID_REGNUM for invalid register number.
 

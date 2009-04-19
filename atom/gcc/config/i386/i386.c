@@ -13014,8 +13014,8 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
 
 #define LEA_SEARCH_THRESHOLD 12
 
-/* Search backward for non-agu definition of register OP1 or non-subreg
-   OP2 in INSN's basic block until 
+/* Search backward for non-agu definition of register number REGNO1
+   or register number REGNO2 in INSN's basic block until 
    1. Pass LEA_SEARCH_THRESHOLD instructions, or
    2. Reach BB boundary, or
    3. Reach agu definition.
@@ -13023,10 +13023,9 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
    If no definition point, returns -1.  */
 
 static int
-distance_non_agu_define (rtx op1, rtx op2, rtx insn)
+distance_non_agu_define (unsigned int regno1, unsigned int regno2,
+			 rtx insn)
 {
-  unsigned int regno1 = REGNO (op1);
-  unsigned int regno2 = REG_P (op2) ? REGNO (op2) : INVALID_REGNUM;
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
   df_ref *def_rec;
@@ -13099,17 +13098,19 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
   distance = -1;
 
 done:
-  /* Restore recog_data which may be modified by get_attr_type.  */
+  /* get_attr_type may modify recog data.  We want to make sure
+     that recog data is valid for instruction, INSN, on which
+     distance_non_agu_define is called.  INSN is unchanged here.  */
   extract_insn_cached (insn);
   return distance;
 }
 
 /* Return the distance between INSN and the next insn that uses 
-   register OP0 in memory address.  Return -1 if no such a use is
-   found within LEA_SEARCH_THRESHOLD or OP0 is set.  */
+   register number REGNO0 in memory address.  Return -1 if no such
+   a use is found within LEA_SEARCH_THRESHOLD or REGNO0 is set.  */
 
 static int
-distance_agu_use (rtx op0, rtx insn)
+distance_agu_use (unsigned int regno0, rtx insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
@@ -13128,7 +13129,7 @@ distance_agu_use (rtx op0, rtx insn)
 	      for (use_rec = DF_INSN_USES (next); *use_rec; use_rec++)
 		if ((DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_LOAD
 		     || DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_STORE)
-		    && REGNO (op0) == DF_REF_REGNO (*use_rec))
+		    && regno0 == DF_REF_REGNO (*use_rec))
 		  {
 		    /* Return DISTANCE if OP0 is used in memory
 		       address in NEXT.  */
@@ -13138,7 +13139,7 @@ distance_agu_use (rtx op0, rtx insn)
 	      for (def_rec = DF_INSN_DEFS (next); *def_rec; def_rec++)
 		if (DF_REF_TYPE (*def_rec) == DF_REF_REG_DEF
 		    && !DF_REF_IS_ARTIFICIAL (*def_rec)
-		    && REGNO (op0) == DF_REF_REGNO (*def_rec))
+		    && regno0 == DF_REF_REGNO (*def_rec))
 		  {
 		    /* Return -1 if OP0 is set in NEXT.  */
 		    return -1;
@@ -13177,7 +13178,7 @@ distance_agu_use (rtx op0, rtx insn)
 		  for (use_rec = DF_INSN_USES (next); *use_rec; use_rec++)
 		    if ((DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_LOAD
 			 || DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_STORE)
-			&& REGNO (op0) == DF_REF_REGNO (*use_rec))
+			&& regno0 == DF_REF_REGNO (*use_rec))
 		      {
 			/* Return DISTANCE if OP0 is used in memory
 			   address in NEXT.  */
@@ -13187,7 +13188,7 @@ distance_agu_use (rtx op0, rtx insn)
 		  for (def_rec = DF_INSN_DEFS (next); *def_rec; def_rec++)
 		    if (DF_REF_TYPE (*def_rec) == DF_REF_REG_DEF
 			&& !DF_REF_IS_ARTIFICIAL (*def_rec)
-			&& REGNO (op0) == DF_REF_REGNO (*def_rec))
+			&& regno0 == DF_REF_REGNO (*def_rec))
 		      {
 			/* Return -1 if OP0 is set in NEXT.  */
 			return -1;
@@ -13219,33 +13220,28 @@ bool
 ix86_lea_for_add_ok (enum rtx_code code ATTRIBUTE_UNUSED,
                      rtx insn, rtx operands[])
 {
-  gcc_assert (REG_P (operands[0])
-	      && REG_P (operands[1])
-	      && GET_CODE (operands[2]) != SUBREG);
+  unsigned int regno0 = true_regnum (operands[0]);
+  unsigned int regno1 = true_regnum (operands[1]);
+  unsigned int regno2;
 
   if (!TARGET_OPT_AGU || optimize_function_for_size_p (cfun))
-    {
-      if (true_regnum (operands[0]) != true_regnum (operands[1]))
-        return true;
-      else
-        return false;
-    }
+    return regno0 != regno1;
+
+  regno2 = true_regnum (operands[2]);
 
   /* If a = b + c, (a!=b && a!=c), must use lea form. */
-  if (true_regnum (operands[0]) != true_regnum (operands[1])
-      && true_regnum (operands[0]) != true_regnum (operands[2]))
+  if (regno0 != regno1 && regno0 != regno2)
     return true;
   else    
     {
       int dist_define, dist_use;
-      dist_define = distance_non_agu_define (operands[1],
-					     operands[2], insn);
+      dist_define = distance_non_agu_define (regno1, regno2, insn);
       if (dist_define <= 0)
         return true;
 
       /* If this insn has both backward non-agu dependence and forward
          agu dependence, the one with short distance take effect. */
-      dist_use = distance_agu_use (operands[0], insn);
+      dist_use = distance_agu_use (regno0, insn);
       if (dist_use <= 0
 	  || (dist_define + IX86_LEA_PRIORITY) < dist_use)
         return false;
