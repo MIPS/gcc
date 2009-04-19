@@ -13026,7 +13026,7 @@ static int
 distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 {
   unsigned int regno1 = REGNO (op1);
-  unsigned int regno2 = REG_P (op2) ? REGNO (op2) : (unsigned int) -1;
+  unsigned int regno2 = REG_P (op2) ? REGNO (op2) : INVALID_REGNUM;
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
   df_ref *def_rec;
