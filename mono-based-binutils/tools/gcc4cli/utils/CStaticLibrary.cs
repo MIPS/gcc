@@ -70,20 +70,20 @@ namespace gcc4cli.util {
             }
         }
 
-        protected void ReloadMaps (bool warn)
+        void ReloadMaps (bool warn)
         {
             ClearMaps ();
             LoadMaps (warn);
         }
 
-        protected void ClearMaps ()
+        void ClearMaps ()
         {
             ClearTables ();
             types.Clear ();
             symbols.Clear ();
         }
 
-        protected void UpdateMaps (CObject obj, bool warn)
+        void UpdateMaps (CObject obj, bool warn)
         {
             string name = obj.Name;
             foreach (string tname in obj.DefinedTypes ()) {
@@ -102,7 +102,7 @@ namespace gcc4cli.util {
             }
         }
 
-        protected void LoadMaps (bool warn)
+        void LoadMaps (bool warn)
         {
             foreach (CObject obj in objects.Values) {
                 UpdateMaps (obj, warn);
