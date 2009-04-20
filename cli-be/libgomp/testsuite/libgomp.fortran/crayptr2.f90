@@ -1,5 +1,6 @@
 ! { dg-do run }
 ! { dg-options "-fopenmp -fcray-pointer" }
+! { dg-options "-fopenmp -fcray-pointer -static-libgcc" { target *-*-darwin* } }
 
   use omp_lib
   integer :: a, b, c, d, p

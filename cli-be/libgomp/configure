@@ -1003,8 +1003,6 @@ Optional Features:
   --enable-version-specific-runtime-libs
                           Specify that runtime libraries should be installed
                           in a compiler-specific directory [default=no]
-  --enable-linux-futex    Use the Linux futex system call
-                          [default=default]
   --enable-generated-files-in-srcdir
                           put copies of generated files in source dir intended
                           for creating source tarballs for users without
@@ -1021,6 +1019,8 @@ Optional Features:
   --disable-libtool-lock  avoid locking (might break parallel builds)
   --enable-maintainer-mode  enable make rules and dependencies not useful
 			  (and sometimes confusing) to the casual installer
+  --enable-linux-futex    use the Linux futex system call
+                          [default=default]
   --enable-tls            Use thread-local storage [default=yes]
   --enable-symvers=STYLE  enables symbol versioning of the shared library
                           [default=yes]
@@ -1517,26 +1517,6 @@ fi;
 
 echo "$as_me:$LINENO: result: $enable_version_specific_runtime_libs" >&5
 echo "${ECHO_T}$enable_version_specific_runtime_libs" >&6
-
-echo "$as_me:$LINENO: checking for --enable-linux-futex" >&5
-echo $ECHO_N "checking for --enable-linux-futex... $ECHO_C" >&6
- # Check whether --enable-linux-futex or --disable-linux-futex was given.
-if test "${enable_linux_futex+set}" = set; then
-  enableval="$enable_linux_futex"
-
-      case "$enableval" in
-       yes|no|default) ;;
-       *) { { echo "$as_me:$LINENO: error: Unknown argument to enable/disable linux-futex" >&5
-echo "$as_me: error: Unknown argument to enable/disable linux-futex" >&2;}
-   { (exit 1); exit 1; }; } ;;
-                          esac
-
-else
-  enable_linux_futex=default
-fi;
-
-echo "$as_me:$LINENO: result: $enable_linux_futex" >&5
-echo "${ECHO_T}$enable_linux_futex" >&6
 
 # We would like our source tree to be readonly. However when releases or
 # pre-releases are generated, the flex/bison generated files as well as the
@@ -3679,7 +3659,7 @@ else
 
                     case $ac_prog_version in
                       '')  gcc_cv_prog_makeinfo_modern=no;;
-                      4.[4-9]*)  gcc_cv_prog_makeinfo_modern=yes;;
+                      4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*)  gcc_cv_prog_makeinfo_modern=yes;;
                       *)   gcc_cv_prog_makeinfo_modern=no;;
                     esac
 
@@ -4512,7 +4492,7 @@ lt_cv_deplibs_check_method='unknown'
 # whether `pass_all' will *always* work, you probably want this one.
 
 case $host_os in
-aix4* | aix5*)
+aix[4-9]*)
   lt_cv_deplibs_check_method=pass_all
   ;;
 
@@ -7031,7 +7011,7 @@ echo $ECHO_N "checking whether the $compiler linker ($LD) supports shared librar
 
     # See if GNU ld supports shared libraries.
     case $host_os in
-    aix3* | aix4* | aix5*)
+    aix[3-9]*)
       # On AIX/PPC, the GNU linker is very broken
       if test "$host_cpu" != ia64; then
 	ld_shlibs=no
@@ -7265,7 +7245,7 @@ _LT_EOF
       fi
       ;;
 
-    aix4* | aix5*)
+    aix[4-9]*)
       if test "$host_cpu" = ia64; then
 	# On IA64, the linker does run time linking by default, so we don't
 	# have to do anything special.
@@ -7285,7 +7265,7 @@ _LT_EOF
 	# Test if we are trying to use run time linking or normal
 	# AIX style linking. If -brtl is somewhere in LDFLAGS, we
 	# need to do runtime linking.
-	case $host_os in aix4.[23]|aix4.[23].*|aix5*)
+	case $host_os in aix4.[23]|aix4.[23].*|aix[5-9]*)
 	  for ld_flag in $LDFLAGS; do
 	  if (test $ld_flag = "-brtl" || test $ld_flag = "-Wl,-brtl"); then
 	    aix_use_runtimelinking=yes
@@ -8345,7 +8325,7 @@ aix3*)
   soname_spec='${libname}${release}${shared_ext}$major'
   ;;
 
-aix4* | aix5*)
+aix[4-9]*)
   version_type=linux
   need_lib_prefix=no
   need_version=no
@@ -9963,7 +9943,7 @@ echo $ECHO_N "checking whether to build shared libraries... $ECHO_C" >&6
     fi
     ;;
 
-  aix4* | aix5*)
+  aix[4-9]*)
     if test "$host_cpu" != ia64 && test "$aix_use_runtimelinking" = no ; then
       test "$enable_shared" = yes && enable_static=no
     fi
@@ -10639,7 +10619,7 @@ echo $ECHO_N "checking whether to build shared libraries... $ECHO_C" >&6
           postinstall_cmds='$RANLIB $lib'
         fi
         ;;
-      aix4* | aix5*)
+      aix[4-9]*)
 	if test "$host_cpu" != ia64 && test "$aix_use_runtimelinking" = no ; then
 	  test "$enable_shared" = yes && enable_static=no
 	fi
@@ -11383,7 +11363,7 @@ echo $ECHO_N "checking whether the $compiler linker ($LD) supports shared librar
 
     # See if GNU ld supports shared libraries.
     case $host_os in
-    aix3* | aix4* | aix5*)
+    aix[3-9]*)
       # On AIX/PPC, the GNU linker is very broken
       if test "$host_cpu" != ia64; then
 	ld_shlibs_FC=no
@@ -11617,7 +11597,7 @@ _LT_EOF
       fi
       ;;
 
-    aix4* | aix5*)
+    aix[4-9]*)
       if test "$host_cpu" = ia64; then
 	# On IA64, the linker does run time linking by default, so we don't
 	# have to do anything special.
@@ -11637,7 +11617,7 @@ _LT_EOF
 	# Test if we are trying to use run time linking or normal
 	# AIX style linking. If -brtl is somewhere in LDFLAGS, we
 	# need to do runtime linking.
-	case $host_os in aix4.[23]|aix4.[23].*|aix5*)
+	case $host_os in aix4.[23]|aix4.[23].*|aix[5-9]*)
 	  for ld_flag in $LDFLAGS; do
 	  if (test $ld_flag = "-brtl" || test $ld_flag = "-Wl,-brtl"); then
 	    aix_use_runtimelinking=yes
@@ -12524,7 +12504,7 @@ aix3*)
   soname_spec='${libname}${release}${shared_ext}$major'
   ;;
 
-aix4* | aix5*)
+aix[4-9]*)
   version_type=linux
   need_lib_prefix=no
   need_version=no
@@ -16661,6 +16641,24 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
     ;;
+esac
+
+ # Check whether --enable-linux-futex or --disable-linux-futex was given.
+if test "${enable_linux_futex+set}" = set; then
+  enableval="$enable_linux_futex"
+
+      case "$enableval" in
+       yes|no|default) ;;
+       *) { { echo "$as_me:$LINENO: error: Unknown argument to enable/disable linux-futex" >&5
+echo "$as_me: error: Unknown argument to enable/disable linux-futex" >&2;}
+   { (exit 1); exit 1; }; } ;;
+                          esac
+
+else
+  enable_linux_futex=default
+fi;
+
+case "$target" in
   *-linux*)
     case "$enable_linux_futex" in
       default)
@@ -16709,7 +16707,9 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  cat >conftest.$ac_ext <<_ACEOF
+  save_LIBS="$LIBS"
+	   LIBS="-lpthread $LIBS"
+	   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -16757,7 +16757,7 @@ sed 's/^/| /' conftest.$ac_ext >&5
 
 if test x$cross_compiling = xno; then
 	       if getconf GNU_LIBPTHREAD_VERSION 2>/dev/null \
-		  | LC_ALL=C grep -i NPTL > /dev/null 2>/dev/null; then
+		  | LC_ALL=C grep -i NPTL > /dev/null 2>/dev/null; then :; else
 		 { echo "$as_me:$LINENO: WARNING: The kernel might not support futex or gettid syscalls.
 If so, please configure with --disable-linux-futex" >&5
 echo "$as_me: WARNING: The kernel might not support futex or gettid syscalls.
@@ -16768,6 +16768,7 @@ If so, please configure with --disable-linux-futex" >&2;}
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
+	   LIBS="$save_LIBS"
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
@@ -16776,7 +16777,7 @@ fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
 	;;
-      yes)
+        yes)
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -16829,7 +16830,14 @@ rm -f conftest.err conftest.$ac_objext \
 	;;
     esac
     ;;
+  *)
+    enable_linux_futex=no
+    ;;
 esac
+if test x$enable_linux_futex = xyes; then
+  :
+fi
+
 
 # Check for pthread_{,attr_}[sg]etaffinity_np.
 cat >conftest.$ac_ext <<_ACEOF
@@ -16990,7 +16998,7 @@ fi;
 
   echo "$as_me:$LINENO: checking whether the target supports thread-local storage" >&5
 echo $ECHO_N "checking whether the target supports thread-local storage... $ECHO_C" >&6
-if test "${have_tls+set}" = set; then
+if test "${gcc_cv_have_tls+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
@@ -17020,12 +17028,12 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
@@ -17094,14 +17102,14 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: program exited with status $ac_status" >&5
 echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -17109,12 +17117,12 @@ else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_tls=yes
+gcc_cv_have_tls=yes
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
       LDFLAGS="$chktls_save_LDFLAGS"
-      if test $have_tls = yes; then
+      if test $gcc_cv_have_tls = yes; then
 						chktls_save_CFLAGS="$CFLAGS"
 	thread_CFLAGS=failed
 	for flag in '' '-pthread' '-lpthread'; do
@@ -17222,14 +17230,14 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: program exited with status $ac_status" >&5
 echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -17242,14 +17250,14 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
 fi
-echo "$as_me:$LINENO: result: $have_tls" >&5
-echo "${ECHO_T}$have_tls" >&6
-  if test "$enable_tls $have_tls" = "yes yes"; then
+echo "$as_me:$LINENO: result: $gcc_cv_have_tls" >&5
+echo "${ECHO_T}$gcc_cv_have_tls" >&6
+  if test "$enable_tls $gcc_cv_have_tls" = "yes yes"; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_TLS 1
