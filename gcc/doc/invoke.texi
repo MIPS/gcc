@@ -2758,6 +2758,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Warray-bounds @r{(only with} @option{-O2}@r{)}  @gol
 -Wc++0x-compat  @gol
 -Wchar-subscripts  @gol
+-Wenum-compare @r{(in C/Objc; this is on by default in C++)} @gol
 -Wimplicit-int  @gol
 -Wimplicit-function-declaration  @gol
 -Wcomment  @gol
@@ -2803,6 +2804,7 @@ name is still supported, but the newer name is more descriptive.)
 @gccoptlist{-Wclobbered  @gol
 -Wempty-body  @gol
 -Wignored-qualifiers @gol
+-Wlogical-op @gol
 -Wmissing-field-initializers  @gol
 -Wmissing-parameter-type @r{(C only)}  @gol
 -Wold-style-declaration @r{(C only)}  @gol
@@ -3743,11 +3745,12 @@ integers are disabled by default in C++ unless
 Warn if an empty body occurs in an @samp{if}, @samp{else} or @samp{do
 while} statement.  This warning is also enabled by @option{-Wextra}.
 
-@item -Wenum-compare @r{(C++ and Objective-C++ only)}
+@item -Wenum-compare
 @opindex Wenum-compare
 @opindex Wno-enum-compare
-Warn about a comparison between values of different enum types. This
-warning is enabled by default.
+Warn about a comparison between values of different enum types. In C++
+this warning is enabled by default.  In C this warning is enabled by
+@option{-Wall}.
 
 @item -Wsign-compare
 @opindex Wsign-compare
@@ -3788,7 +3791,8 @@ programmer intended to use @code{strcmp}.  This warning is enabled by
 @opindex Wno-logical-op
 Warn about suspicious uses of logical operators in expressions.
 This includes using logical operators in contexts where a
-bit-wise operator is likely to be expected.
+bit-wise operator is likely to be expected.  This warning is enabled by
+@option{-Wextra}.
 
 @item -Waggregate-return
 @opindex Waggregate-return
@@ -15566,14 +15570,14 @@ This option is available for Cygwin and MinGW targets.  It
 specifies that a console application is to be generated, by
 instructing the linker to set the PE header subsystem type
 required for console applications.
-This is the default behaviour for Cygwin and MinGW targets.
+This is the default behavior for Cygwin and MinGW targets.
 
 @item -mcygwin
 @opindex mcygwin
 This option is available for Cygwin targets.  It specifies that
 the Cygwin internal interface is to be used for predefined
 preprocessor macros, C runtime libraries and related linker
-paths and options.  For Cygwin targets this is the default behaviour.
+paths and options.  For Cygwin targets this is the default behavior.
 This option is deprecated and will be removed in a future release.
 
 @item -mno-cygwin

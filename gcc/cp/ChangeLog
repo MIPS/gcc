@@ -1,3 +1,33 @@
+2009-04-19  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/32061
+	PR c++/36954
+	* call.c (build_new_op): Save the original codes of operands
+	before folding.
+
+2009-04-18  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cp-tree.h: Remove the prototype for insert_block.
+	* decl.c (insert_block): Remove.
+
+2009-04-16  Ian Lance Taylor  <iant@google.com>
+
+	* cp-tree.h (enum tsubst_flags): Rename from enum tsubst_flags_t.
+	(tsubst_flags_t): Change typedef from enum type to int.
+
+2009-04-16  Le-Chun Wu  <lcwu@google.com>
+
+	* decl.c (check_initializer): Use TYPE_VECTOR_OPAQUE
+	instead of targetm.vector_opaque_p.
+
+2009-04-15  Le-Chun Wu  <lcwu@google.com>
+
+	PR c++/39551
+	* call.c (build_over_call): Set TREE_NO_WARNING on the
+	compiler-generated INDIRECT_REF expression.
+	* cvt.c (convert_to_void): Emit warning when stripping off
+	INDIRECT_REF.
+
 2009-04-14  Diego Novillo  <dnovillo@google.com>
 
 	* parser.c (cp_parser_type_specifier_seq): Move call to

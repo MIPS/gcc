@@ -3566,7 +3566,7 @@ typedef enum linkage_kind {
 } linkage_kind;
 
 /* Bitmask flags to control type substitution.  */
-typedef enum tsubst_flags_t {
+enum tsubst_flags {
   tf_none = 0,			 /* nothing special */
   tf_error = 1 << 0,		 /* give error messages  */
   tf_warning = 1 << 1,	 	 /* give warnings too  */
@@ -3585,7 +3585,11 @@ typedef enum tsubst_flags_t {
 				    when issuing other errors.   */
   /* Convenient substitution flags combinations.  */
   tf_warning_or_error = tf_warning | tf_error
-} tsubst_flags_t;
+};
+
+/* This type is used for parameters and variables which hold
+   combinations of the flags in enum tsubst_flags.  */
+typedef int tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy.  */
 typedef enum base_access {
@@ -4303,7 +4307,6 @@ extern void adjust_clone_args			(tree);
 
 /* decl.c */
 extern tree poplevel				(int, int, int);
-extern void insert_block			(tree);
 extern tree pushdecl				(tree);
 extern tree pushdecl_maybe_friend		(tree, bool);
 extern void cxx_init_decl_processing		(void);

@@ -107,6 +107,7 @@ static void set_nonincremental_init (void);
 static void set_nonincremental_init_from_string (tree);
 static tree find_init_member (tree);
 static void readonly_error (tree, enum lvalue_use);
+static void readonly_warning (tree, enum lvalue_use);
 static int lvalue_or_else (const_tree, enum lvalue_use);
 static int lvalue_p (const_tree);
 static void record_maybe_used_decl (tree);
@@ -2202,9 +2203,12 @@ build_array_ref (tree array, tree index, location_t loc)
 
 /* Build an external reference to identifier ID.  FUN indicates
    whether this will be used for a function call.  LOC is the source
-   location of the identifier.  */
+   location of the identifier.  This sets *TYPE to the type of the
+   identifier, which is not the same as the type of the returned value
+   for CONST_DECLs defined as enum constants.  If the type of the
+   identifier is not available, *TYPE is set to NULL.  */
 tree
-build_external_ref (tree id, int fun, location_t loc)
+build_external_ref (tree id, int fun, location_t loc, tree *type)
 {
   tree ref;
   tree decl = lookup_name (id);
@@ -2213,8 +2217,12 @@ build_external_ref (tree id, int fun, location_t loc)
      whatever lookup_name() found.  */
   decl = objc_lookup_ivar (decl, id);
 
+  *type = NULL;
   if (decl && decl != error_mark_node)
-    ref = decl;
+    {
+      ref = decl;
+      *type = TREE_TYPE (ref);
+    }
   else if (fun)
     /* Implicit function declaration.  */
     ref = implicitly_declare (id);
@@ -2346,6 +2354,7 @@ c_expr_sizeof_expr (struct c_expr expr)
     {
       ret.value = error_mark_node;
       ret.original_code = ERROR_MARK;
+      ret.original_type = NULL;
       pop_maybe_used (false);
     }
   else
@@ -2355,6 +2364,7 @@ c_expr_sizeof_expr (struct c_expr expr)
 				       &expr_const_operands);
       ret.value = c_sizeof (TREE_TYPE (folded_expr));
       ret.original_code = ERROR_MARK;
+      ret.original_type = NULL;
       if (c_vla_type_p (TREE_TYPE (folded_expr)))
 	{
 	  /* sizeof is evaluated when given a vla (C99 6.5.3.4p2).  */
@@ -2380,6 +2390,7 @@ c_expr_sizeof_type (struct c_type_name *t)
   type = groktypename (t, &type_expr, &type_expr_const);
   ret.value = c_sizeof (type);
   ret.original_code = ERROR_MARK;
+  ret.original_type = NULL;
   if (type_expr && c_vla_type_p (type))
     {
       ret.value = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (ret.value),
@@ -2488,7 +2499,12 @@ build_function_call (tree function, tree params)
 	trap = build2 (COMPOUND_EXPR, void_type_node, argarray[i], trap);
 
       if (VOID_TYPE_P (return_type))
-	return trap;
+	{
+	  if (TYPE_QUALS (return_type) != TYPE_UNQUALIFIED)
+	    pedwarn (input_location, 0,
+		     "function with qualified void return type called");
+	  return trap;
+	}
       else
 	{
 	  tree rhs;
@@ -2500,7 +2516,8 @@ build_function_call (tree function, tree params)
 	  else
 	    rhs = fold_convert (return_type, integer_zero_node);
 
-	  return build2 (COMPOUND_EXPR, return_type, trap, rhs);
+	  return require_complete_type (build2 (COMPOUND_EXPR, return_type,
+						trap, rhs));
 	}
     }
 
@@ -2533,7 +2550,12 @@ build_function_call (tree function, tree params)
 			       function, nargs, argarray);
 
   if (VOID_TYPE_P (TREE_TYPE (result)))
-    return result;
+    {
+      if (TYPE_QUALS (TREE_TYPE (result)) != TYPE_UNQUALIFIED)
+	pedwarn (input_location, 0,
+		 "function with qualified void return type called");
+      return result;
+    }
   return require_complete_type (result);
 }
 
@@ -2856,7 +2878,8 @@ parser_build_unary_op (enum tree_code code, struct c_expr arg, location_t loc)
 
   result.value = build_unary_op (loc, code, arg.value, 0);
   result.original_code = code;
-  
+  result.original_type = NULL;
+
   if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
     overflow_warning (result.value);
 
@@ -2879,10 +2902,17 @@ parser_build_binary_op (location_t location, enum tree_code code,
 
   enum tree_code code1 = arg1.original_code;
   enum tree_code code2 = arg2.original_code;
+  tree type1 = (arg1.original_type
+                ? arg1.original_type
+                : TREE_TYPE (arg1.value));
+  tree type2 = (arg2.original_type
+                ? arg2.original_type
+                : TREE_TYPE (arg2.value));
 
   result.value = build_binary_op (location, code,
 				  arg1.value, arg2.value, 1);
   result.original_code = code;
+  result.original_type = NULL;
 
   if (TREE_CODE (result.value) == ERROR_MARK)
     return result;
@@ -2895,8 +2925,9 @@ parser_build_binary_op (location_t location, enum tree_code code,
   if (warn_parentheses)
     warn_about_parentheses (code, code1, arg1.value, code2, arg2.value);
 
-  if (TREE_CODE_CLASS (code1) != tcc_comparison)
-    warn_logical_operator (code, arg1.value, arg2.value);
+  if (warn_logical_op)
+    warn_logical_operator (input_location, code,
+			   code1, arg1.value, code2, arg2.value);
 
   /* Warn about comparisons against string literals, with the exception
      of testing for equality or inequality of a string literal with NULL.  */
@@ -2914,6 +2945,16 @@ parser_build_binary_op (location_t location, enum tree_code code,
       && !TREE_OVERFLOW_P (arg1.value) 
       && !TREE_OVERFLOW_P (arg2.value))
     overflow_warning (result.value);
+
+  /* Warn about comparisons of different enum types.  */
+  if (warn_enum_compare
+      && TREE_CODE_CLASS (code) == tcc_comparison
+      && TREE_CODE (type1) == ENUMERAL_TYPE
+      && TREE_CODE (type2) == ENUMERAL_TYPE
+      && TYPE_MAIN_VARIANT (type1) != TYPE_MAIN_VARIANT (type2))
+    warning_at (location, OPT_Wenum_compare,
+		"comparison between %qT and %qT",
+		type1, type2);
 
   return result;
 }
@@ -3284,7 +3325,7 @@ build_unary_op (location_t location,
 	  }
 
 	/* Report a read-only lvalue.  */
-	if (TREE_READONLY (arg))
+	if (TYPE_READONLY (argtype))
 	  {
 	    readonly_error (arg,
 			    ((code == PREINCREMENT_EXPR
@@ -3292,6 +3333,11 @@ build_unary_op (location_t location,
 			     ? lv_increment : lv_decrement));
 	    return error_mark_node;
 	  }
+	else if (TREE_READONLY (arg))
+	  readonly_warning (arg,
+			    ((code == PREINCREMENT_EXPR
+			      || code == POSTINCREMENT_EXPR)
+			     ? lv_increment : lv_decrement));
 
 	if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
 	  val = boolean_increment (code, arg);
@@ -3306,6 +3352,15 @@ build_unary_op (location_t location,
 
     case ADDR_EXPR:
       /* Note that this operation never does default_conversion.  */
+
+      /* The operand of unary '&' must be an lvalue (which excludes
+	 expressions of type void), or, in C99, the result of a [] or
+	 unary '*' operator.  */
+      if (VOID_TYPE_P (TREE_TYPE (arg))
+	  && TYPE_QUALS (TREE_TYPE (arg)) == TYPE_UNQUALIFIED
+	  && (TREE_CODE (arg) != INDIRECT_REF
+	      || !flag_isoc99))
+	pedwarn (location, 0, "taking address of expression of type %<void%>");
 
       /* Let &* cancel out to simplify resulting code.  */
       if (TREE_CODE (arg) == INDIRECT_REF)
@@ -3490,6 +3545,29 @@ readonly_error (tree arg, enum lvalue_use use)
 			 G_("decrement of read-only location %qE"),
 			 G_("read-only location %qE used as %<asm%> output")),
 	   arg);
+}
+
+/* Give a warning for storing in something that is read-only in GCC
+   terms but not const in ISO C terms.  */
+
+static void
+readonly_warning (tree arg, enum lvalue_use use)
+{
+  switch (use)
+    {
+    case lv_assign:
+      warning (0, "assignment of read-only location %qE", arg);
+      break;
+    case lv_increment:
+      warning (0, "increment of read-only location %qE", arg);
+      break;
+    case lv_decrement:
+      warning (0, "decrement of read-only location %qE", arg);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  return;
 }
 
 
@@ -4244,7 +4322,7 @@ build_modify_expr (location_t location,
 
   /* Give an error for storing in something that is 'const'.  */
 
-  if (TREE_READONLY (lhs) || TYPE_READONLY (lhstype)
+  if (TYPE_READONLY (lhstype)
       || ((TREE_CODE (lhstype) == RECORD_TYPE
 	   || TREE_CODE (lhstype) == UNION_TYPE)
 	  && C_TYPE_FIELDS_READONLY (lhstype)))
@@ -4252,6 +4330,8 @@ build_modify_expr (location_t location,
       readonly_error (lhs, lv_assign);
       return error_mark_node;
     }
+  else if (TREE_READONLY (lhs))
+    readonly_warning (lhs, lv_assign);
 
   /* If storing into a structure or union member,
      it has probably been given type `int'.
@@ -5171,7 +5251,12 @@ digest_init (tree type, tree init, bool null_pointer_constant,
 	  tree typ2 = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)));
 	  expr.value = inside_init;
 	  expr.original_code = (strict_string ? STRING_CST : ERROR_MARK);
+	  expr.original_type = NULL;
 	  maybe_warn_string_init (type, expr);
+
+	  if (TYPE_DOMAIN (type) && !TYPE_MAX_VALUE (TYPE_DOMAIN (type)))
+	    pedwarn_init (input_location, OPT_pedantic,
+			  "initialization of a flexible array member");
 
 	  if (comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
 			 TYPE_MAIN_VARIANT (type)))
@@ -5671,7 +5756,8 @@ really_start_incremental_init (tree type)
   if (type == 0)
     type = TREE_TYPE (constructor_decl);
 
-  if (targetm.vector_opaque_p (type))
+  if (TREE_CODE (type) == VECTOR_TYPE
+      && TYPE_VECTOR_OPAQUE (type))
     error ("opaque vector types cannot be initialized");
 
   p->type = constructor_type;
@@ -5690,6 +5776,7 @@ really_start_incremental_init (tree type)
   p->depth = constructor_depth;
   p->replacement_value.value = 0;
   p->replacement_value.original_code = ERROR_MARK;
+  p->replacement_value.original_type = NULL;
   p->implicit = 0;
   p->range_stack = 0;
   p->outer = 0;
@@ -5833,6 +5920,7 @@ push_init_level (int implicit)
   p->depth = constructor_depth;
   p->replacement_value.value = 0;
   p->replacement_value.original_code = ERROR_MARK;
+  p->replacement_value.original_type = NULL;
   p->implicit = implicit;
   p->outer = 0;
   p->incremental = constructor_incremental;
@@ -5989,6 +6077,7 @@ pop_init_level (int implicit)
   struct c_expr ret;
   ret.value = 0;
   ret.original_code = ERROR_MARK;
+  ret.original_type = NULL;
 
   if (implicit == 0)
     {

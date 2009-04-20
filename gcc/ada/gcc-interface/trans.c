@@ -544,21 +544,6 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
     = build_qualified_type (TREE_TYPE (raise_nodefer_decl),
 			    TYPE_QUAL_VOLATILE);
 
-  long_long_float_type
-    = gnat_to_gnu_entity (Base_Type (standard_long_long_float), NULL_TREE, 0);
-
-  if (TREE_CODE (TREE_TYPE (long_long_float_type)) == INTEGER_TYPE)
-    {
-      /* In this case, the builtin floating point types are VAX float,
-	 so make up a type for use.  */
-      longest_float_type_node = make_node (REAL_TYPE);
-      TYPE_PRECISION (longest_float_type_node) = LONG_DOUBLE_TYPE_SIZE;
-      layout_type (longest_float_type_node);
-      record_builtin_type ("longest float type", longest_float_type_node);
-    }
-  else
-    longest_float_type_node = TREE_TYPE (long_long_float_type);
-
   /* Build the special descriptor type and its null node if needed.  */
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     {
@@ -577,9 +562,25 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
 	  null_list = tree_cons (field, null_node, null_list);
 	}
 
-      finish_record_type (fdesc_type_node, nreverse (field_list), 0, false);
+      finish_record_type (fdesc_type_node, nreverse (field_list), 0, true);
+      record_builtin_type ("descriptor", fdesc_type_node);
       null_fdesc_node = gnat_build_constructor (fdesc_type_node, null_list);
     }
+
+  long_long_float_type
+    = gnat_to_gnu_entity (Base_Type (standard_long_long_float), NULL_TREE, 0);
+
+  if (TREE_CODE (TREE_TYPE (long_long_float_type)) == INTEGER_TYPE)
+    {
+      /* In this case, the builtin floating point types are VAX float,
+	 so make up a type for use.  */
+      longest_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (longest_float_type_node) = LONG_DOUBLE_TYPE_SIZE;
+      layout_type (longest_float_type_node);
+      record_builtin_type ("longest float type", longest_float_type_node);
+    }
+  else
+    longest_float_type_node = TREE_TYPE (long_long_float_type);
 
   /* Dummy objects to materialize "others" and "all others" in the exception
      tables.  These are exported by a-exexpr.adb, so see this unit for the
@@ -2510,12 +2511,19 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 			     gnat_formal);
 	    }
 
-	  /* Remove any unpadding from the object and reset the copy.  */
-	  if (TREE_CODE (gnu_name) == COMPONENT_REF
-	      && ((TREE_CODE (TREE_TYPE (TREE_OPERAND (gnu_name, 0)))
-		   == RECORD_TYPE)
-		  && (TYPE_IS_PADDING_P
-		      (TREE_TYPE (TREE_OPERAND (gnu_name, 0))))))
+	  /* If the actual type of the object is already the nominal type,
+	     we have nothing to do, except if the size is self-referential
+	     in which case we'll remove the unpadding below.  */
+	  if (TREE_TYPE (gnu_name) == gnu_name_type
+	      && !CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_name_type)))
+	    ;
+
+	  /* Otherwise remove unpadding from the object and reset the copy.  */
+	  else if (TREE_CODE (gnu_name) == COMPONENT_REF
+		   && ((TREE_CODE (TREE_TYPE (TREE_OPERAND (gnu_name, 0)))
+			== RECORD_TYPE)
+			&& (TYPE_IS_PADDING_P
+			    (TREE_TYPE (TREE_OPERAND (gnu_name, 0))))))
 	    gnu_name = gnu_copy = TREE_OPERAND (gnu_name, 0);
 
 	  /* Otherwise convert to the nominal type of the object if it's
@@ -2528,7 +2536,7 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 	  else if (TREE_CODE (gnu_name_type) == RECORD_TYPE
 		   && (TYPE_JUSTIFIED_MODULAR_P (gnu_name_type)
 		       || smaller_packable_type_p (TREE_TYPE (gnu_name),
-						 gnu_name_type)))
+						   gnu_name_type)))
 	    gnu_name = convert (gnu_name_type, gnu_name);
 
 	  /* Make a SAVE_EXPR to both properly account for potential side
@@ -6316,7 +6324,7 @@ build_binary_op_trapv (enum tree_code code, tree gnu_type, tree left,
       int needed_precision = precision * 2;
 
       if (code == MULT_EXPR && precision == 64)
-	{ 
+	{
 	  tree int_64 = gnat_type_for_size (64, 0);
 
 	  return convert (gnu_type, build_call_2_expr (mulv64_decl,
@@ -6325,7 +6333,7 @@ build_binary_op_trapv (enum tree_code code, tree gnu_type, tree left,
 	}
 
       else if (needed_precision <= BITS_PER_WORD
-	       || (code == MULT_EXPR 
+	       || (code == MULT_EXPR
 		   && needed_precision <= LONG_LONG_TYPE_SIZE))
 	{
 	  tree wide_type = gnat_type_for_size (needed_precision, 0);

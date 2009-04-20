@@ -603,6 +603,9 @@ package GNAT.Sockets is
    --  brackets and a string describing the error code.
 
    --  The name of the enumeration constant documents the error condition
+   --  Note that on some platforms, a single error value is used for both
+   --  EWOULDBLOCK and EAGAIN. Both errors are therefore always reported as
+   --  Resource_Temporarily_Unavailable.
 
    type Error_Type is
      (Success,
@@ -644,6 +647,7 @@ package GNAT.Sockets is
       Connection_Timed_Out,
       Too_Many_References,
       Resource_Temporarily_Unavailable,
+      Broken_Pipe,
       Unknown_Host,
       Host_Name_Lookup_Failure,
       Non_Recoverable_Error,
@@ -917,8 +921,21 @@ package GNAT.Sockets is
      (Socket : Socket_Type;
       Item   : Ada.Streams.Stream_Element_Array;
       Last   : out Ada.Streams.Stream_Element_Offset;
+      To     : access Sock_Addr_Type;
       Flags  : Request_Flag_Type := No_Request_Flag);
-   --  Transmit a message to another socket. Note that Last is set to
+   pragma Inline (Send_Socket);
+   --  Transmit a message over a socket. For a datagram socket, the address is
+   --  given by To.all. For a stream socket, To must be null. Flags
+   --  allows to control the transmission. Raises Socket_Error on error.
+   --  Note: this subprogram is inlined because it is also used to implement
+   --  the two variants below.
+
+   procedure Send_Socket
+     (Socket : Socket_Type;
+      Item   : Ada.Streams.Stream_Element_Array;
+      Last   : out Ada.Streams.Stream_Element_Offset;
+      Flags  : Request_Flag_Type := No_Request_Flag);
+   --  Transmit a message over a socket. Note that Last is set to
    --  Item'First-1 when socket has been closed by peer. This is not
    --  considered an error and no exception is raised. Flags allows to control
    --  the transmission. Raises Socket_Error on any other error condition.
@@ -929,8 +946,9 @@ package GNAT.Sockets is
       Last   : out Ada.Streams.Stream_Element_Offset;
       To     : Sock_Addr_Type;
       Flags  : Request_Flag_Type := No_Request_Flag);
-   --  Transmit a message to another socket. The address is given by To. Flags
-   --  allows to control the transmission. Raises Socket_Error on error.
+   --  Transmit a message over a datagram socket. The destination address is
+   --  To. Flags allows to control the transmission. Raises Socket_Error on
+   --  error.
 
    procedure Send_Vector
      (Socket : Socket_Type;
