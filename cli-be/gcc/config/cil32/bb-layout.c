@@ -96,10 +96,10 @@ compute_layout (basic_block bb, basic_block* bb_order, int* num_so_far,
       /* In case the second edge is heavier than the first one, we invert the
          scanning order. */
       if (e1->probability < e2->probability)
-        {
-          edge_pos = 1;  /* start from second edge */
-          edge_dir = -1; /* and go backwards */
-        }
+	{
+	  edge_pos = 1;  /* start from second edge */
+	  edge_dir = -1; /* and go backwards */
+	}
     }
 
   for(i = 0;  i < num_edges; ++i)
@@ -111,28 +111,32 @@ compute_layout (basic_block bb, basic_block* bb_order, int* num_so_far,
 
       edge_pos += edge_dir;
       if ((succ == EXIT_BLOCK_PTR) ||   /* Skip EXIT block */
-          (e->flags & EDGE_DFS_BACK) || /* Skip back edges */
-          (visited (succ)))             /* Already visited */
-        continue;
+	  (e->flags & EDGE_DFS_BACK) || /* Skip back edges */
+	  (visited (succ)))             /* Already visited */
+	{
+	  continue;
+	}
 
       /* Check if successor has all its predecessors visited, not considering
          backedges. */
       all_visited = true;
-      for (pred_it = ei_start (succ->preds);
-           ei_cond (pred_it, &pred_edge);
-           ei_next (&pred_it))
-        {
-          if (pred_edge->flags & EDGE_DFS_BACK)
-            continue;
 
-          if ((visited (pred_edge->src)) == 0)
-            {
-              all_visited = false;
-              break;
-            }
-        }
+      for (pred_it = ei_start (succ->preds);
+	   ei_cond (pred_it, &pred_edge);
+	   ei_next (&pred_it))
+	{
+	  if (pred_edge->flags & EDGE_DFS_BACK)
+	    continue;
+
+	  if ((visited (pred_edge->src)) == 0)
+	    {
+	      all_visited = false;
+	      break;
+	    }
+	}
+
       if (all_visited)
-        compute_layout (succ, bb_order, num_so_far, changed);
+	compute_layout (succ, bb_order, num_so_far, changed);
     }
 }
 
@@ -156,11 +160,13 @@ bblayout (void)
     {
       bb_order[0]->prev_bb = NULL;
       bb_order[0]->next_bb = bb_order[1];
+
       for(i=1; i < bb_num-1; ++i)
-        {
-          bb_order[i]->prev_bb = bb_order[i-1];
-          bb_order[i]->next_bb = bb_order[i+1];
-        }
+	{
+	  bb_order[i]->prev_bb = bb_order[i-1];
+	  bb_order[i]->next_bb = bb_order[i+1];
+	}
+
       bb_order[bb_num-1]->prev_bb = bb_order[bb_num-2];
       bb_order[bb_num-1]->next_bb = NULL;
     }

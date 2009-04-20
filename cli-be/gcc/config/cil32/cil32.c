@@ -136,7 +136,7 @@ cil_override_options (void)
 static hashval_t
 cil_basic_block_hash (const void *ptr)
 {
-  cil_basic_block cbb = (cil_basic_block) ptr;
+  const_cil_basic_block cbb = (const_cil_basic_block) ptr;
 
   return (hashval_t) ((long) cbb->bb >> 3);
 }
@@ -146,8 +146,8 @@ cil_basic_block_hash (const void *ptr)
 static int
 cil_basic_block_eq (const void *ptr1, const void *ptr2)
 {
-  cil_basic_block cbb1 = (cil_basic_block) ptr1;
-  cil_basic_block cbb2 = (cil_basic_block) ptr2;
+  const_cil_basic_block cbb1 = (const_cil_basic_block) ptr1;
+  const_cil_basic_block cbb2 = (const_cil_basic_block) ptr2;
 
   return cbb1->bb == cbb2->bb;
 }

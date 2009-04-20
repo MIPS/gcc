@@ -61,8 +61,8 @@ extern HOST_WIDE_INT cil_switch_case_high (const_cil_stmt, size_t);
 static inline enum cil_opcode cil_opcode (const_cil_stmt);
 static inline basic_block cil_bb (const_cil_stmt);
 static inline void cil_set_bb (cil_stmt, basic_block);
-static inline source_locus cil_locus (const_cil_stmt);
-static inline void cil_set_locus (cil_stmt, source_locus);
+static inline location_t cil_locus (const_cil_stmt);
+static inline void cil_set_locus (cil_stmt, location_t);
 static inline tree cil_var (const_cil_stmt);
 static inline tree cil_type (const_cil_stmt);
 static inline tree cil_field (const_cil_stmt);
@@ -99,8 +99,6 @@ extern bool cil_cond_branch_p (const_cil_stmt);
 extern bool cil_ldind_p (const_cil_stmt);
 extern bool cil_stind_p (const_cil_stmt);
 extern bool cil_push_p (const_cil_stmt);
-
-extern enum cil_arg_type opcode_arg_type (enum cil_opcode);
 
 /******************************************************************************
  * CIL sequence interface                                                     *

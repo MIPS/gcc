@@ -142,7 +142,7 @@ cil_record_builtin_type (tree type)
 /* Returns true if TYPE is a builtin type of the CIL back end.  */
 
 bool
-cil_builtin_type_p (tree type)
+cil_builtin_type_p (const_tree type)
 {
   void **slot;
 
@@ -192,6 +192,11 @@ cil_build_builtin_va_list (void)
 
   return cil32_va_list_type;
 }
+
+/* Build the internal representation of the complex types.
+
+   Each complex type will has a corresponding value type in the gcc4net
+   assembly.  */
 
 static void
 cil_build_complex_types (void)
@@ -285,11 +290,18 @@ cil_build_complex_types (void)
     }
 }
 
+/* Given the complex type TYPE return the corresponding real or imaginary part
+ * field.  */
+
 tree
 cil_get_builtin_complex_real_fld (tree type)
 {
-  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (type), 1);
+  unsigned HOST_WIDE_INT size;
   bool unsignedp;
+
+  gcc_assert (TREE_CODE (type) == COMPLEX_TYPE);
+  type = TREE_TYPE (type);
+  size = tree_low_cst(TYPE_SIZE (type), 1);
 
   if (INTEGRAL_TYPE_P (type))
     {
@@ -341,8 +353,12 @@ cil_get_builtin_complex_real_fld (tree type)
 tree
 cil_get_builtin_complex_imag_fld (tree type)
 {
-  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (type), 1);
+  unsigned HOST_WIDE_INT size;
   bool unsignedp;
+
+  gcc_assert (TREE_CODE (type) == COMPLEX_TYPE);
+  type = TREE_TYPE (type);
+  size = tree_low_cst(TYPE_SIZE (type), 1);
 
   if (INTEGRAL_TYPE_P (type))
     {

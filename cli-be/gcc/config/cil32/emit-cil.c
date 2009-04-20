@@ -93,13 +93,13 @@ static unsigned int compute_max_stack ( void );
 static void decode_function_attrs (tree, struct fnct_attr *);
 static void emit_enum_decl (FILE *, tree);
 static void emit_array_decl (FILE *, tree);
-static void emit_incomplete_decl (FILE *, tree);
+static void emit_incomplete_decl (FILE *, const_tree);
 static void emit_struct_union_decl (FILE *, tree);
 static void emit_valuetype_decl (FILE *, tree);
 static void dump_decl_name (FILE *, tree);
 static void dump_string_name (FILE *, tree);
 static void dump_label_name (FILE *, tree);
-static void dump_valuetype_name (FILE *, tree);
+static void dump_valuetype_name (FILE *, const_tree);
 static void dump_fun_type (FILE *, tree, tree, const char *, bool);
 static void dump_vector_type (FILE *, tree, bool);
 static void dump_complex_type (FILE *, tree, bool);
@@ -336,7 +336,7 @@ dump_label_name (FILE *file, tree node)
    the types emitted as CIL valuetypes.  */
 
 static void
-dump_valuetype_name (FILE *file, tree t)
+dump_valuetype_name (FILE *file, const_tree t)
 {
   tree name = TYPE_NAME (t);
   const char *str;
@@ -393,7 +393,7 @@ dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
   tree last_arg_type = NULL;
   bool varargs = false;
 
-  gcc_assert (! (fun && name));
+  gcc_assert (!(fun && name));
 
   if (ref)
     mark_referenced_type (fun_type);
@@ -612,7 +612,7 @@ emit_array_decl (FILE *file, tree t)
 }
 
 static void
-emit_incomplete_decl (FILE *file, tree t)
+emit_incomplete_decl (FILE *file, const_tree t)
 {
   if (t == NULL_TREE || t == error_mark_node)
     return;
@@ -851,8 +851,8 @@ dump_string_type (FILE *file, tree node)
   tree max;
 
   gcc_assert(TREE_CODE (node) == ARRAY_TYPE
-             && TYPE_DOMAIN (node)
-             && ! ARRAY_TYPE_VARLENGTH (node));
+	     && TYPE_DOMAIN (node)
+	     && !ARRAY_TYPE_VARLENGTH (node));
 
   domain = TYPE_DOMAIN (node);
   min = TYPE_MIN_VALUE (domain);
@@ -1026,9 +1026,9 @@ emit_referenced_strings (void)
 }
 
 static bool
-emit_incomplete_type (void *elem, void *data)
+emit_incomplete_type (const void *elem, void *data)
 {
-  tree type = (tree) elem;
+  const_tree type = (const_tree) elem;
   tree type_name = TYPE_NAME (type);
   struct pointer_set_t *emitted_types = data;
 
@@ -1137,29 +1137,29 @@ emit_referenced_pinvokes (void)
 static void
 emit_prefixes (FILE *file, const_cil_stmt stmt)
 {
-    enum cil_opcode opcode = cil_opcode (stmt);
+  enum cil_opcode opcode = cil_opcode (stmt);
 
-    if ((opcode == CIL_CALL) || (opcode == CIL_CALLI))
+  if ((opcode == CIL_CALL) || (opcode == CIL_CALLI))
     {
-        if (cil_prefix_tail (stmt))
-            fprintf (file, "\n\ttail.");
+      if (cil_prefix_tail (stmt))
+	fprintf (file, "\n\ttail.");
     }
-    else if ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
-            || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
-            || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
-            || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD))
+  else if ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
+	   || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
+	   || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
+	   || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD))
     {
-        if (cil_prefix_unaligned (stmt) != 0)
-            fprintf (file, "\n\tunaligned. %d", cil_prefix_unaligned (stmt));
+      if (cil_prefix_unaligned (stmt) != 0)
+	fprintf (file, "\n\tunaligned. %d", cil_prefix_unaligned (stmt));
     }
-    else if ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
-            || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
-            || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
-            || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD)
-            || (opcode == CIL_LDSFLD) || (opcode == CIL_STSFLD))
+  else if ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
+	   || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
+	   || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
+	   || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD)
+	   || (opcode == CIL_LDSFLD) || (opcode == CIL_STSFLD))
     {
-        if (cil_prefix_volatile (stmt))
-            fprintf (file, "\n\tvolatile.");
+      if (cil_prefix_volatile (stmt))
+	fprintf (file, "\n\tvolatile.");
     }
 }
 
@@ -1332,7 +1332,7 @@ emit_switch (FILE *file, const_cil_stmt stmt)
       hi = cil_switch_case_high (stmt, i);
 
       for (j = lo; j <= hi; j++)
-        labels[j - offset] = cil_switch_case_label (stmt, i);
+	labels[j - offset] = cil_switch_case_label (stmt, i);
     }
 
   /* Fill the empty slots in the array with the default case label. */
@@ -1445,7 +1445,7 @@ emit_builtin_call (FILE *file, const_cil_stmt call)
 
 	default:
 	  /* Go Ahead as a normal function call */
-          return false;
+	  return false;
 	}
     }
 
@@ -2255,10 +2255,10 @@ emit_local_vars (FILE *file)
       VEC_pop (var_uses_s, locals);
 
       if (DECL_NAME (var) != NULL_TREE)
-        rename_var (var, DECL_FROM_INLINE (var) ? "?in" : "?", i);
+	rename_var (var, DECL_FROM_INLINE (var) ? "?in" : "?", i);
 
       if (i != 0)
-        fprintf (file, ", ");
+	fprintf (file, ", ");
 
       dump_type (file, promote_local_var_type (var), true, false);
       fprintf (file, " ");
@@ -2302,7 +2302,7 @@ emit_function_header (FILE *file)
 	   varargs ? "vararg " : "");
   dump_type (file, TREE_TYPE (TREE_TYPE (current_function_decl)), true, false);
   fprintf (file, " '%s' (",
-           lang_hooks.decl_printable_name (current_function_decl, 1));
+	   lang_hooks.decl_printable_name (current_function_decl, 1));
 
   args = DECL_ARGUMENTS (current_function_decl);
 
@@ -2325,7 +2325,7 @@ emit_function_header (FILE *file)
 	      dump_type (file, promote_type_for_vararg (DECL_ARG_TYPE (args)),
 			 true, true);
 	    }
-        }
+	}
       else
 	dump_type (file, DECL_ARG_TYPE (args), true, true);
 
@@ -2526,7 +2526,7 @@ emit_vcg_init (void)
 {
   if (TARGET_EMIT_VCG)
     fputs ("graph: {\n"
-           "display_edge_labels: yes\n", stdout);
+	   "display_edge_labels: yes\n", stdout);
 }
 
 void

@@ -33,6 +33,7 @@ Erven Rohou             <erven.rohou@st.com>
 #define CIL_TYPES_H
 
 #include "coretypes.h"
+#include "line-map.h"
 
 /******************************************************************************
  * Misc types                                                                 *
@@ -50,6 +51,7 @@ struct str_ref_d GTY(())
 };
 
 typedef struct str_ref_d *str_ref;
+typedef const struct str_ref_d *const_str_ref;
 
 /* Mapping for label's whose addresses have been taken.  */
 
@@ -63,6 +65,7 @@ struct label_addr_d GTY(())
 };
 
 typedef struct label_addr_d *label_addr;
+typedef const struct label_addr_d *const_label_addr;
 
 /******************************************************************************
  * CIL statements                                                             *
@@ -191,6 +194,8 @@ enum cil_arg_type
   CIL_NONE /* No argument */
 };
 
+extern enum cil_arg_type opcode_arg_type (enum cil_opcode);
+
 /* Represents the information provided by a CALL_EXPR when converted to a CIL
    CALL or CALLI instruction. The FTYPE fields points to the called function
    type, the FDECL field to the function declaration (or NULL_TREE for a CALLI),
@@ -267,7 +272,7 @@ struct cil_stmt_d GTY (())
   struct basic_block_def *bb;
 
   /* Original location in the source.  */
-  struct location_s *locus;
+  source_location locus;
 };
 
 typedef struct cil_stmt_d *cil_stmt;
@@ -319,6 +324,7 @@ struct cil_basic_block_d GTY (())
 };
 
 typedef struct cil_basic_block_d *cil_basic_block;
+typedef const struct cil_basic_block_d *const_cil_basic_block;
 
 /******************************************************************************
  * Per-function target specific global data                                   *

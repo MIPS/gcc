@@ -44,16 +44,16 @@ Erven Rohou             <erven.rohou@st.com>
  ******************************************************************************/
 
 /* Nonzero for a type which is at file scope.  */
-#define TYPE_FILE_SCOPE_P(EXP)                                  \
-  (! TYPE_CONTEXT (EXP)                                         \
+#define TYPE_FILE_SCOPE_P(EXP) \
+  (!TYPE_CONTEXT (EXP) \
    || TREE_CODE (TYPE_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
 /* Nonzero for a zero-length array type */
-#define ARRAY_TYPE_ZEROLENGTH(EXP)                              \
-  (TYPE_SIZE (EXP) == NULL_TREE)
+#define ARRAY_TYPE_ZEROLENGTH(EXP) \
+  ((TYPE_SIZE (EXP) == NULL_TREE) || integer_zerop (TYPE_SIZE (EXP)))
 
 /* Nonzero for a variable-length array type */
-#define ARRAY_TYPE_VARLENGTH(EXP)                               \
+#define ARRAY_TYPE_VARLENGTH(EXP) \
   (TYPE_SIZE (EXP) != NULL_TREE && TREE_CODE (TYPE_SIZE (EXP)) != INTEGER_CST)
 
 /* Length of compacted identifiers (in characters) */

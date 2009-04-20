@@ -167,17 +167,17 @@ branch_probability_emit_and_reset (FILE *file)
 
   /* Emit */
   fprintf (file,
-           "\n\t.custom instance void class [gcc4net]gcc4net."
-           "JitCompilationHints.BranchProbabilitiesAttribute::.ctor("
-           "unsigned int8[]) =  (01 00 %02x %02x %02x %02x",
-           length & 0xff,
-           (length >> 8) & 0xff,
-           (length >> 16) & 0xff,
-           (length >> 24) & 0xff);
+	   "\n\t.custom instance void class [gcc4net]gcc4net."
+	   "JitCompilationHints.BranchProbabilitiesAttribute::.ctor("
+	   "unsigned int8[]) =  (01 00 %02x %02x %02x %02x",
+	   length & 0xff,
+	   (length >> 8) & 0xff,
+	   (length >> 16) & 0xff,
+	   (length >> 24) & 0xff);
+
   for (n = branch_prob_list_head; n; n = n->next)
-    {
-      fprintf (file, " %02x", n->branch_prob * 256 / REG_BR_PROB_BASE);
-    }
+    fprintf (file, " %02x", n->branch_prob * 256 / REG_BR_PROB_BASE);
+
   fputs (" 00 00 ) ", file);
 
   /* Free the list */
@@ -203,10 +203,10 @@ dump_compressed_int (FILE *file, unsigned int val)
     fprintf (file, "%02x %02x ", (val >> 8) | 0x80, val & 0xff);
   else
     fprintf (file, "%02x %02x %02x %02x ",
-             (val >> 24) | 0xa0,
-             (val & 0xffffff) >> 16,
-             (val & 0xffff) >> 8,
-             val & 0xff);
+	     (val >> 24) | 0xa0,
+	     (val & 0xffffff) >> 16,
+	     (val & 0xffff) >> 8,
+	     val & 0xff);
 }
 
 static void
@@ -244,31 +244,33 @@ basic_block_frequency_emit (FILE *file)
      The count is initialized with the number of GIMPLE blocks
      minus the entry and the exit. Then, the number is:
      -) incremented in case of basic blocks ending with a
-        COND_EXPR statement in which the ELSE clause is not
-        a fall-through; as a matter of fact, in this case a
-        single GIMPLE basic block is emitted as two basic blocks.
+	COND_EXPR statement in which the ELSE clause is not
+	a fall-through; as a matter of fact, in this case a
+	single GIMPLE basic block is emitted as two basic blocks.
      -) decremented in case of an empty basic block; as a matter
-        of fact, in this case no basic block is emitted for
-        a GIMPLE basic block.   */
+	of fact, in this case no basic block is emitted for
+	a GIMPLE basic block.   */
 
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator last_bsi = bsi_last (bb);
 
       if (bsi_end_p (last_bsi))
-        --emitted_bbs;
+	--emitted_bbs;
       else
-        {
-          tree last = bsi_stmt (last_bsi);
+	{
+	  tree last = bsi_stmt (last_bsi);
 
-          if (TREE_CODE (last) == COND_EXPR) {
-              edge true_edge;
-              edge false_edge;
-              extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
-              if (false_edge->dest != bb->next_bb)
-                ++emitted_bbs;
-          }
-        }
+	  if (TREE_CODE (last) == COND_EXPR)
+	    {
+	      edge true_edge;
+	      edge false_edge;
+	      extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+
+	      if (false_edge->dest != bb->next_bb)
+		++emitted_bbs;
+	    }
+	}
     }
 
   /* Allocate memory for basic block frequencies bit stream */
@@ -277,14 +279,14 @@ basic_block_frequency_emit (FILE *file)
 
   /* Emit number of basic blocks */
   fprintf (file,
-           "\n\t.custom instance void class "
-           "[gcc4net]gcc4net.JitCompilationHints."
-           "BasicBlockFrequenciesAttribute::.ctor(unsigned int8[]) = "
-           "(01 00 %02x %02x %02x %02x ",
-           emitted_bbs & 0xff,
-           (emitted_bbs >> 8) & 0xff,
-           (emitted_bbs >> 16) & 0xff,
-           (emitted_bbs >> 24) & 0xff);
+	   "\n\t.custom instance void class "
+	   "[gcc4net]gcc4net.JitCompilationHints."
+	   "BasicBlockFrequenciesAttribute::.ctor(unsigned int8[]) = "
+	   "(01 00 %02x %02x %02x %02x ",
+	   emitted_bbs & 0xff,
+	   (emitted_bbs >> 8) & 0xff,
+	   (emitted_bbs >> 16) & 0xff,
+	   (emitted_bbs >> 24) & 0xff);
 
   /* Emit frequency for each basic block.
      Beware that some GIMPLE blocks are emitted as two blocks!   */
@@ -302,36 +304,36 @@ basic_block_frequency_emit (FILE *file)
       freq_class = (bb->frequency * 15 * 256 / BB_FREQ_MAX) / 256;
       gcc_assert (freq_class >= 0 && freq_class < 16);
       bit_stream_emitter_push_bits (&bse,
-                                    coding[freq_class].num_bits,
-                                    coding[freq_class].code);
+				    coding[freq_class].num_bits,
+				    coding[freq_class].code);
 
       if (TREE_CODE (bsi_stmt (last_bsi)) == COND_EXPR)
-        {
-          edge true_edge;
-          edge false_edge;
-          basic_block dest_bb;
+	{
+	  edge true_edge;
+	  edge false_edge;
+	  basic_block dest_bb;
 
-          extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
-          dest_bb = false_edge->dest;
+	  extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+	  dest_bb = false_edge->dest;
 
-          if (dest_bb != bb->next_bb)
-            {
-              edge split_edge = find_edge (bb, dest_bb);
-              int new_bb_frequency;
+	  if (dest_bb != bb->next_bb)
+	    {
+	      edge split_edge = find_edge (bb, dest_bb);
+	      int new_bb_frequency;
 
-              gcc_assert (split_edge);
-              new_bb_frequency =
-                (bb->frequency * split_edge->probability) / REG_BR_PROB_BASE;
-              fprintf (file, "%02x ",
-                       new_bb_frequency * 100 / BB_FREQ_MAX);
+	      gcc_assert (split_edge);
+	      new_bb_frequency =
+		(bb->frequency * split_edge->probability) / REG_BR_PROB_BASE;
+	      fprintf (file, "%02x ",
+		       new_bb_frequency * 100 / BB_FREQ_MAX);
 
-              freq_class = (new_bb_frequency * 15 * 256 / BB_FREQ_MAX) / 256;
-              gcc_assert (freq_class >= 0 && freq_class < 16);
-              bit_stream_emitter_push_bits (&bse,
-                                            coding[freq_class].num_bits,
-                                            coding[freq_class].code);
-            }
-        }
+	      freq_class = (new_bb_frequency * 15 * 256 / BB_FREQ_MAX) / 256;
+	      gcc_assert (freq_class >= 0 && freq_class < 16);
+	      bit_stream_emitter_push_bits (&bse,
+					    coding[freq_class].num_bits,
+					    coding[freq_class].code);
+	    }
+	}
     }
 
   bit_stream_emitter_pad_byte (&bse);
@@ -340,12 +342,14 @@ basic_block_frequency_emit (FILE *file)
   fputs ("00 00 ) ", file);
 
   fputs ("\n\t.custom instance void class "
-         "[gcc4net]gcc4net.JitCompilationHints."
-         "JITMethodAttribute::.ctor(unsigned int8*, unsigned int8 *) = (01 00 ",
+	 "[gcc4net]gcc4net.JitCompilationHints."
+	 "JITMethodAttribute::.ctor(unsigned int8*, unsigned int8 *) = (01 00 ",
          file);
   dump_compressed_int (file, emitted_bbs);
+
   for (tmp_ptr = start_bb_freq_coded; tmp_ptr < bb_freq_coded; ++tmp_ptr)
     fprintf (file, "%02x ", *tmp_ptr);
+
   fputs ("00 00/*,*/ 01 00 ", file);
 
   /* Free memory for basic block frequencies bit stream */
@@ -354,6 +358,7 @@ basic_block_frequency_emit (FILE *file)
 
   /* Calculate the length of the branch probability list */
   branch_prob_list_length = 0;
+
   for (n = branch_prob_list_head; n; n = n->next)
     ++branch_prob_list_length;
 
@@ -365,12 +370,13 @@ basic_block_frequency_emit (FILE *file)
   for (n = branch_prob_list_head; n; n = n->next)
     {
       int prob_class =
-        ((n->branch_prob * 256 - REG_BR_PROB_BASE * 256 / 16)
-         * 7 / REG_BR_PROB_BASE) / 256;
+	((n->branch_prob * 256 - REG_BR_PROB_BASE * 256 / 16)
+	 * 7 / REG_BR_PROB_BASE) / 256;
 
       gcc_assert (prob_class >= -1 && prob_class <= 7);
+
       if (prob_class < 0)
-        prob_class = 0;
+	prob_class = 0;
 
       bit_stream_emitter_push_bits (&bse, 3, prob_class);
     }

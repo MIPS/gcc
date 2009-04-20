@@ -38,11 +38,11 @@
 )
 
 
-(define_mode_macro ALLMODES [SI HI QI DI SF DF])
-(define_mode_macro ALLEVALMODES [SI DI SF DF])
-(define_mode_macro ALLINTEVALMODES [SI DI])
+(define_mode_iterator ALLMODES [SI HI QI DI SF DF])
+(define_mode_iterator ALLEVALMODES [SI DI SF DF])
+(define_mode_iterator ALLINTEVALMODES [SI DI])
 
-(define_mode_macro VECMODES [V8QI V4HI V2SI V4QI V2HI])
+(define_mode_iterator VECMODES [V8QI V4HI V2SI V4QI V2HI])
 
 
 ;; Jump and branch insns.

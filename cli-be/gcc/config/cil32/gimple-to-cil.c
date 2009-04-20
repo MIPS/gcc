@@ -69,6 +69,7 @@ static void gen_ldind (cil_stmt_iterator *, tree, bool);
 static void gen_stind (cil_stmt_iterator *, tree, bool);
 static void gen_bit_field_modify_expr (cil_stmt_iterator *, tree, tree);
 static void gen_target_mem_ref_modify_expr (cil_stmt_iterator *, tree, tree);
+static void gen_bitfield_ref_modify_expr (cil_stmt_iterator *, tree, tree);
 static void gen_vector_bitfield_ref_modify_expr (cil_stmt_iterator *,
 						 tree, tree);
 static void gen_modify_expr (cil_stmt_iterator *, tree, tree);
@@ -93,7 +94,7 @@ static void gen_vector_bitfield_ref (cil_stmt_iterator *, tree);
 static void gen_bit_field_ref (cil_stmt_iterator *, tree);
 static void gen_truth_expr (cil_stmt_iterator *, tree);
 static void gen_target_mem_ref (cil_stmt_iterator *, tree);
-static void gen_view_convert_expr (cil_stmt_iterator *, tree);
+static void gen_vector_view_convert_expr (cil_stmt_iterator *, tree, tree);
 static void gen_complex_part_expr (cil_stmt_iterator *, tree);
 static void gen_complex (cil_stmt_iterator *, tree, tree, tree);
 static enum cil_opcode conv_opcode_from_type (tree);
@@ -215,25 +216,48 @@ gen_addr_expr (cil_stmt_iterator *csi, tree node)
 
     case VIEW_CONVERT_EXPR:
       gen_addr_expr (csi, GENERIC_TREE_OPERAND (node, 0));
+      csi_insert_after (csi, cil_build_stmt (CIL_CONV_I), CSI_CONTINUE_LINKING);
       break;
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      gen_addr_expr (csi, GENERIC_TREE_OPERAND (node, 0));
+      {
+	tree obj = GENERIC_TREE_OPERAND (node, 0);
+	tree type = TREE_TYPE (obj);
 
-      if (TREE_CODE (node) == IMAGPART_EXPR)
-	{
-	  gen_integer_cst (csi,
-			   fold_convert (intSI_type_node,
-					 TYPE_SIZE_UNIT (TREE_TYPE (node))));
-	  stmt = cil_build_stmt (CIL_ADD);
-	  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
-	}
+	gen_addr_expr (csi, obj);
 
+	if (TREE_CODE (node) == REALPART_EXPR)
+	  {
+	    stmt = cil_build_stmt_arg (CIL_LDFLDA,
+				       cil_get_builtin_complex_real_fld (type));
+	  }
+	else
+	  {
+	    stmt = cil_build_stmt_arg (CIL_LDFLDA,
+				       cil_get_builtin_complex_imag_fld (type));
+	  }
+
+	csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+      }
       break;
 
     default:
-      gcc_unreachable ();
+      {
+	/* A generic expression, we first evaluate it, then store it inside a
+	   temporary and finally get the address of said temporary.  */
+	tree tmp_var;
+
+	tmp_var = create_tmp_var (TREE_TYPE (node), "addr_expr");
+	gimple_to_cil_node (csi, node);
+	stmt = cil_build_stmt_arg (CIL_STLOC, tmp_var);
+	csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	stmt = cil_build_stmt_arg (CIL_LDLOCA, tmp_var);
+	csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	stmt = cil_build_stmt (CIL_CONV_I);
+	csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	break;
+      }
     }
 }
 
@@ -554,6 +578,49 @@ gen_target_mem_ref_modify_expr (cil_stmt_iterator *csi, tree lhs, tree rhs)
   gen_stind (csi, type, TREE_THIS_VOLATILE (lhs));
 }
 
+/* Generates a MODIFY_EXPR using a BIT_FIELD_REF scalar access as its LHS
+   operand.  */
+
+static void
+gen_bitfield_ref_modify_expr (cil_stmt_iterator *csi, tree lhs, tree rhs)
+{
+  HOST_WIDE_INT bit_size = 0;
+  HOST_WIDE_INT bit_pos = 0;
+  tree offset = NULL_TREE;
+  enum machine_mode mode;
+  int unsignedp = 0;
+  int volatilep = 0;
+  cil_stmt stmt;
+  tree ref;
+
+  /* Get the object base address and emit it.  */
+  ref = get_inner_reference (lhs, &bit_size, &bit_pos, &offset, &mode,
+			     &unsignedp, &volatilep, false);
+  gen_addr_expr (csi, ref);
+  csi_insert_after (csi, cil_build_stmt (CIL_CONV_I), CSI_CONTINUE_LINKING);
+
+  /* Calculate the container address if needed.  */
+  if (bit_pos / BITS_PER_UNIT != 0)
+    {
+      gen_integer_cst (csi,
+		       build_int_cst (intSI_type_node,
+				      bit_pos / BITS_PER_UNIT));
+      stmt = cil_build_stmt (CIL_ADD);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+    }
+
+  if (offset != NULL_TREE)
+    {
+      gimple_to_cil_node (csi, offset);
+      stmt = cil_build_stmt (CIL_ADD);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+    }
+
+  /* Put the new value on the stack and store the field.  */
+  gimple_to_cil_node (csi, rhs);
+  gen_scalar_stind (csi, TREE_TYPE (rhs), volatilep);
+}
+
 /* Generates a MODIFY_EXPR using a BIT_FIELD_REF scalar-element vector access
    as its LHS operand.  */
 
@@ -641,8 +708,8 @@ gen_modify_expr (cil_stmt_iterator *csi, tree lhs, tree rhs)
 
     case COMPONENT_REF:
       {
-	tree obj = TREE_OPERAND (lhs, 0);
-	tree fld = TREE_OPERAND (lhs, 1);
+	tree obj = GENERIC_TREE_OPERAND (lhs, 0);
+	tree fld = GENERIC_TREE_OPERAND (lhs, 1);
 
 	mark_referenced_type (TYPE_MAIN_VARIANT (TREE_TYPE (obj)));
 
@@ -670,17 +737,7 @@ gen_modify_expr (cil_stmt_iterator *csi, tree lhs, tree rhs)
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      gen_addr_expr (csi, GENERIC_TREE_OPERAND (lhs, 0));
-
-      if (TREE_CODE (lhs) == IMAGPART_EXPR)
-	{
-	  gen_integer_cst (csi,
-			   fold_convert (intSI_type_node,
-					 TYPE_SIZE_UNIT (TREE_TYPE (lhs))));
-	  stmt = cil_build_stmt (CIL_ADD);
-	  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
-	}
-
+      gen_addr_expr (csi, lhs);
       gimple_to_cil_node (csi, rhs);
       gen_scalar_stind (csi, TREE_TYPE (lhs), TREE_THIS_VOLATILE (lhs));
       break;
@@ -689,7 +746,7 @@ gen_modify_expr (cil_stmt_iterator *csi, tree lhs, tree rhs)
       if (TREE_CODE (TREE_TYPE (GENERIC_TREE_OPERAND (lhs, 0))) == VECTOR_TYPE)
 	gen_vector_bitfield_ref_modify_expr (csi, lhs, rhs);
       else
-	gcc_unreachable ();
+	gen_bitfield_ref_modify_expr (csi, lhs, rhs);
 
       break;
 
@@ -754,8 +811,8 @@ gen_cond_expr (cil_stmt_iterator *csi, tree node)
     }
   else
     {
-      lhs = TREE_OPERAND (cond, 0);
-      rhs = TREE_OPERAND (cond, 1);
+      lhs = GENERIC_TREE_OPERAND (cond, 0);
+      rhs = GENERIC_TREE_OPERAND (cond, 1);
       type = TREE_TYPE (lhs);
 
       switch (TREE_CODE (cond))
@@ -1846,7 +1903,7 @@ gen_minmax_expr (cil_stmt_iterator *csi, tree node)
   bool unsignedp;
   enum cil32_builtin builtin = 0;
 
-  gimple_to_cil_node (csi, TREE_OPERAND (node, 0));
+  gimple_to_cil_node (csi, GENERIC_TREE_OPERAND (node, 0));
 
   if (POINTER_TYPE_P (type))
     {
@@ -1854,7 +1911,7 @@ gen_minmax_expr (cil_stmt_iterator *csi, tree node)
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
     }
 
-  gimple_to_cil_node (csi, TREE_OPERAND (node, 1));
+  gimple_to_cil_node (csi, GENERIC_TREE_OPERAND (node, 1));
 
   if (POINTER_TYPE_P (type))
     {
@@ -1915,7 +1972,7 @@ gen_abs_expr (cil_stmt_iterator *csi, tree node)
 
   gcc_assert (!TARGET_EXPAND_ABS);
 
-  gimple_to_cil_node (csi, TREE_OPERAND (node, 0));
+  gimple_to_cil_node (csi, GENERIC_TREE_OPERAND (node, 0));
 
   if (INTEGRAL_TYPE_P (type))
     {
@@ -2006,6 +2063,7 @@ gen_bit_field_comp_ref (cil_stmt_iterator *csi, tree node)
   /* Get the object base address and emit it.  */
   ref = get_inner_reference (node, &bit_size, &bit_pos, &offset, &mode,
 			     &unsignedp, &volatilep, false);
+
   gen_addr_expr (csi, ref);
   csi_insert_after (csi, cil_build_stmt (CIL_CONV_I), CSI_CONTINUE_LINKING);
 
@@ -2086,8 +2144,8 @@ gen_bit_field_comp_ref (cil_stmt_iterator *csi, tree node)
 static void
 gen_comp_ref (cil_stmt_iterator *csi, tree node)
 {
-  tree obj = TREE_OPERAND (node, 0);
-  tree fld = TREE_OPERAND (node, 1);
+  tree obj = GENERIC_TREE_OPERAND (node, 0);
+  tree fld = GENERIC_TREE_OPERAND (node, 1);
   cil_stmt stmt;
 
   gcc_assert (TREE_CODE (fld) == FIELD_DECL);
@@ -2217,8 +2275,8 @@ gen_bit_field_ref (cil_stmt_iterator *csi, tree node)
 static void
 gen_truth_expr (cil_stmt_iterator *csi, tree node)
 {
-  tree op0 = TREE_OPERAND (node, 0);
-  tree op1 = TREE_OPERAND (node, 1);
+  tree op0 = GENERIC_TREE_OPERAND (node, 0);
+  tree op1 = GENERIC_TREE_OPERAND (node, 1);
   cil_stmt stmt;
 
   gimple_to_cil_node (csi, op0);
@@ -2283,16 +2341,15 @@ gen_target_mem_ref (cil_stmt_iterator *csi, tree node)
   gen_ldind (csi, type, TREE_THIS_VOLATILE (node));
 }
 
-/* Generates CIL code for a VIEW_CONVERT_EXPR held in the tree NODE.  The
-   generated statements are appended to the current function's CIL code using
-   the CSI iterator.  */
+/* Generates CIL code for a VIEW_CONVERT_EXPR working on the operand held by
+   NODE to the destination type DEST_TYPE with either the type of NODE or
+   DEST_TYPE or both being vector types.  The generated statements are appended
+   to the current function's CIL code using the CSI iterator.  */
 
 static void
-gen_view_convert_expr (cil_stmt_iterator *csi, tree node)
+gen_vector_view_convert_expr (cil_stmt_iterator *csi, tree dest_type, tree node)
 {
-  tree op0 = TREE_OPERAND (node, 0);
-  tree dest_type = TREE_TYPE (node);
-  tree src_type = TREE_TYPE (op0);
+  tree src_type = TREE_TYPE (node);
   tree elem_type;
   unsigned HOST_WIDE_INT dest_size = tree_low_cst (TYPE_SIZE (dest_type), 1);
   unsigned HOST_WIDE_INT src_size = tree_low_cst (TYPE_SIZE (src_type), 1);
@@ -2301,7 +2358,7 @@ gen_view_convert_expr (cil_stmt_iterator *csi, tree node)
   enum cil32_builtin builtin = CIL32_MAX_BUILT_IN; /* Placeholder */
   cil_stmt stmt;
 
-  gimple_to_cil_node (csi, op0);
+  gimple_to_cil_node (csi, node);
 
   if (TREE_CODE (src_type) == VECTOR_TYPE)
     {
@@ -2346,7 +2403,7 @@ gen_view_convert_expr (cil_stmt_iterator *csi, tree node)
 	    }
 	}
     }
-  else if (TREE_CODE (dest_type) == VECTOR_TYPE)
+  else
     {
       /* Convert something to a vector type */
       elem_type = TREE_TYPE (dest_type);
@@ -2390,7 +2447,7 @@ gen_complex_part_expr (cil_stmt_iterator *csi, tree node)
 {
   cil_stmt stmt;
   tree op0 = GENERIC_TREE_OPERAND (node, 0);
-  tree type = TREE_TYPE (node);
+  tree type = TREE_TYPE (op0);
 
   if (TREE_CODE (op0) == COMPLEX_EXPR)
     {
@@ -2656,12 +2713,12 @@ gen_rotate (cil_stmt_iterator *csi, tree node)
 
   /* Rotation is replaced by shifts on unsigned values:
      generate the unsigned version of first operand type.  */
-  op0 = TREE_OPERAND (node, 0);
+  op0 = GENERIC_TREE_OPERAND (node, 0);
   uns_type = unsigned_type_for (TREE_TYPE (op0));
   op0 = fold_convert (uns_type, op0);
 
   /* Convert the second operand to 32-bit.  */
-  op1 = fold_convert (intSI_type_node, TREE_OPERAND (node, 1));
+  op1 = fold_convert (intSI_type_node, GENERIC_TREE_OPERAND (node, 1));
 
   /* Build first shift.  */
   t1 = fold_build2 (left ? LSHIFT_EXPR : RSHIFT_EXPR, uns_type, op0, op1);
@@ -2843,8 +2900,8 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
     case MINUS_EXPR:
     case RDIV_EXPR:
     case LSHIFT_EXPR:
-      op0 = TREE_OPERAND (node, 0);
-      op1 = TREE_OPERAND (node, 1);
+      op0 = GENERIC_TREE_OPERAND (node, 0);
+      op1 = GENERIC_TREE_OPERAND (node, 1);
 
       gimple_to_cil_node (csi, op0);
 
@@ -2876,8 +2933,8 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
-      op0 = TREE_OPERAND (node, 0);
-      op1 = TREE_OPERAND (node, 1);
+      op0 = GENERIC_TREE_OPERAND (node, 0);
+      op1 = GENERIC_TREE_OPERAND (node, 1);
 
       gimple_to_cil_node (csi, op0);
       gimple_to_cil_node (csi, op1);
@@ -2924,8 +2981,8 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
     case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
     case RSHIFT_EXPR:
-      op0 = TREE_OPERAND (node, 0);
-      op1 = TREE_OPERAND (node, 1);
+      op0 = GENERIC_TREE_OPERAND (node, 0);
+      op1 = GENERIC_TREE_OPERAND (node, 1);
       uns = TYPE_UNSIGNED (TREE_TYPE (node));
 
       gimple_to_cil_node (csi, op0);
@@ -2963,8 +3020,8 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       {
 	bool is_signed0, is_signed1;
 
-	op0 = TREE_OPERAND (node, 0);
-	op1 = TREE_OPERAND (node, 1);
+	op0 = GENERIC_TREE_OPERAND (node, 0);
+	op1 = GENERIC_TREE_OPERAND (node, 1);
 
 	gimple_to_cil_node (csi, op0);
 	gimple_to_cil_node (csi, op1);
@@ -2990,7 +3047,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 
     case NEGATE_EXPR:
     case BIT_NOT_EXPR:
-      gimple_to_cil_node (csi, TREE_OPERAND (node, 0));
+      gimple_to_cil_node (csi, GENERIC_TREE_OPERAND (node, 0));
 
       if (POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 0))))
 	{
@@ -3049,7 +3106,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       break;
 
     case RETURN_EXPR:
-      op0 = TREE_OPERAND (node, 0);
+      op0 = GENERIC_TREE_OPERAND (node, 0);
 
       if (op0 != NULL_TREE)
 	{
@@ -3127,7 +3184,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       break;
 
     case ADDR_EXPR:
-      gen_addr_expr (csi, TREE_OPERAND (node, 0));
+      gen_addr_expr (csi, GENERIC_TREE_OPERAND (node, 0));
       break;
 
     case COMPONENT_REF:
@@ -3135,7 +3192,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       break;
 
     case TRUTH_NOT_EXPR:
-      gimple_to_cil_node (csi, TREE_OPERAND (node, 0));
+      gimple_to_cil_node (csi, GENERIC_TREE_OPERAND (node, 0));
       gen_integer_cst (csi, integer_zero_node);
       stmt = cil_build_stmt (CIL_CEQ);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
@@ -3148,7 +3205,32 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       break;
 
     case VIEW_CONVERT_EXPR:
-      gen_view_convert_expr (csi, node);
+      {
+	/* VIEW_CONVERT_EXPRs may be redundant, check the type of the innermost
+	   object and emit code only if it differs from the topmost conversion.
+	 */
+	tree op0 = GENERIC_TREE_OPERAND (node, 0);
+	tree dest_type = TREE_TYPE (node);
+	tree src_type;
+
+	while (TREE_CODE (op0) == VIEW_CONVERT_EXPR)
+	  op0 = GENERIC_TREE_OPERAND (op0, 0);
+
+	src_type = TREE_TYPE (op0);
+
+	if (src_type == dest_type)
+	  gimple_to_cil_node (csi, op0);
+	else if ((TREE_CODE (src_type) == VECTOR_TYPE)
+		 || (TREE_CODE (dest_type) == VECTOR_TYPE))
+	  {
+	    gen_vector_view_convert_expr (csi, dest_type, op0);
+	  }
+	else
+	  {
+	    gen_addr_expr (csi, node);
+	    gen_ldind (csi, dest_type, TREE_THIS_VOLATILE (node));
+	  }
+      }
       break;
 
     case REALPART_EXPR:
@@ -3333,7 +3415,7 @@ gimple_to_cil (void)
 	    }
 
 	  for (; !csi_end_p (prev_csi); csi_next (&prev_csi))
-	    cil_set_locus (csi_stmt (prev_csi), EXPR_LOCUS (node));
+	    cil_set_locus (csi_stmt (prev_csi), EXPR_LOCATION (node));
 	}
 
       if ((!node || (TREE_CODE (node) != COND_EXPR)) && single_succ_p (bb))
@@ -3349,7 +3431,8 @@ gimple_to_cil (void)
 	      tree label = tree_block_label (succ);
 
 	      stmt = cil_build_stmt_arg (CIL_BR, label);
-	      cil_set_locus (stmt, node ? EXPR_LOCUS (node) : NULL);
+	      cil_set_locus (stmt,
+			     node ? EXPR_LOCATION (node) : UNKNOWN_LOCATION);
 	      csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
             }
         }

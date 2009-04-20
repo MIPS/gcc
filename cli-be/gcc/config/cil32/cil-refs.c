@@ -221,7 +221,7 @@ restartswitch:
       break;
 
     case ARRAY_TYPE:
-      if (TYPE_DOMAIN (type) && ! ARRAY_TYPE_VARLENGTH (type))
+      if (TYPE_DOMAIN (type) && !ARRAY_TYPE_VARLENGTH (type))
 	{
 	  tree domain = TYPE_DOMAIN (type);
 	  tree min = TYPE_MIN_VALUE (domain);
@@ -413,7 +413,7 @@ make_valuetype_identifier (tree t)
     }
   else if (TREE_CODE (t) == ARRAY_TYPE)
     {
-      gcc_assert (TYPE_DOMAIN (t) && ! ARRAY_TYPE_VARLENGTH (t));
+      gcc_assert (TYPE_DOMAIN (t) && !ARRAY_TYPE_VARLENGTH (t));
       tmp_name = append_string (tmp_name, "array?",
 				&tmp_name_len, &tmp_name_max_len);
       tmp_name = append_coded_type (tmp_name, t,
@@ -472,7 +472,7 @@ make_valuetype_identifier (tree t)
 static hashval_t
 ref_type_hash (const void *ptr)
 {
-  const tree type = (tree) ptr;
+  const_tree type = (const_tree) ptr;
   return (hashval_t) TYPE_UID (type);
 }
 
@@ -481,8 +481,8 @@ ref_type_hash (const void *ptr)
 static int
 ref_type_eq (const void *ptr1, const void *ptr2)
 {
-  const tree type1 = (tree) ptr1;
-  const tree type2 = (tree) ptr2;
+  const_tree type1 = (const_tree) ptr1;
+  const_tree type2 = (const_tree) ptr2;
 
   return TYPE_UID (type1) == TYPE_UID (type2);
 }
@@ -519,7 +519,7 @@ mark_referenced_type (tree t)
     /* Incomplete and variable-length arrays are pointers and
        they must be dealt with as such.   */
     case ARRAY_TYPE:
-      if (! TYPE_DOMAIN (t) || ARRAY_TYPE_VARLENGTH (t))
+      if (!TYPE_DOMAIN (t) || ARRAY_TYPE_VARLENGTH (t))
 	break;
 
     case ENUMERAL_TYPE:
@@ -655,7 +655,7 @@ promote_type_for_vararg (tree type)
     /* Incomplete and variable-length arrays are pointers and
        they must be dealt with as such.   */
     case ARRAY_TYPE:
-      if (! TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
+      if (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
 	goto pointer;
 
     case RECORD_TYPE:
@@ -732,7 +732,7 @@ cil_pointer_type_p (tree type)
 {
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      if (! TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
+      if (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
 	return true;
     }
   else if (POINTER_TYPE_P (type))
@@ -767,7 +767,7 @@ get_integer_type (unsigned int size, bool unsignedp)
 static hashval_t
 str_ref_hash (const void *ptr)
 {
-  str_ref ref = (str_ref) ptr;
+  const_str_ref ref = (const_str_ref) ptr;
   const char *str = TREE_STRING_POINTER (ref->cst);
   hashval_t hash = 0;
   size_t len = TREE_STRING_LENGTH (ref->cst);
@@ -792,8 +792,8 @@ str_ref_hash (const void *ptr)
 static int
 str_ref_eq (const void *ptr1, const void *ptr2)
 {
-  const char *str1 = TREE_STRING_POINTER (((str_ref) ptr1)->cst);
-  const char *str2 = TREE_STRING_POINTER (((str_ref) ptr2)->cst);
+  const char *str1 = TREE_STRING_POINTER (((const_str_ref) ptr1)->cst);
+  const char *str2 = TREE_STRING_POINTER (((const_str_ref) ptr2)->cst);
 
   return str1 == str2;
 }
@@ -859,7 +859,7 @@ referenced_strings_htab ( void )
 static hashval_t
 pinvoke_hash (const void *ptr)
 {
-  const tree func = (tree) ptr;
+  const_tree func = (const_tree) ptr;
   return (hashval_t) DECL_UID (func);
 }
 
@@ -868,8 +868,8 @@ pinvoke_hash (const void *ptr)
 static int
 pinvoke_eq (const void *ptr1, const void *ptr2)
 {
-  const tree func1 = (tree) ptr1;
-  const tree func2 = (tree) ptr2;
+  const_tree func1 = (const_tree) ptr1;
+  const_tree func2 = (const_tree) ptr2;
 
   return DECL_UID (func1) == DECL_UID (func2);
 }
@@ -909,7 +909,7 @@ pinvokes_htab ( void )
 static hashval_t
 label_addr_hash (const void *ptr)
 {
-  const label_addr addr = (const label_addr) ptr;
+  const_label_addr addr = (const_label_addr) ptr;
   return (hashval_t) LABEL_DECL_UID (addr->label);
 }
 
@@ -918,8 +918,8 @@ label_addr_hash (const void *ptr)
 static int
 label_addr_eq (const void *ptr1, const void *ptr2)
 {
-  const label_addr addr1 = (const label_addr) ptr1;
-  const label_addr addr2 = (const label_addr) ptr2;
+  const_label_addr addr1 = (const_label_addr) ptr1;
+  const_label_addr addr2 = (const_label_addr) ptr2;
 
   return LABEL_DECL_UID (addr1->label) == LABEL_DECL_UID (addr2->label);
 }
@@ -1037,7 +1037,7 @@ create_init_method (void)
       /* Allocate memory for the function structure.  The call to
 	 allocate_struct_function clobbers CFUN, so we need to restore
 	 it afterward.  */
-      allocate_struct_function (fun_decl);
+      allocate_struct_function (fun_decl, false);
 
       TREE_STATIC (fun_decl) = 1;
       TREE_USED (fun_decl) = 1;
@@ -1067,7 +1067,7 @@ create_init_method (void)
       tree_rest_of_compilation (fun_decl);
 
       /* Restore the current function */
-      cfun = current_cfun;
+      set_cfun (current_cfun);
   }
 }
 
@@ -1280,7 +1280,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 		    tree cont_type;
 		    tree shift_cst;
 		    tree tmp;
-		  
+
 		    get_inner_reference (ltarget, &bit_size, &bit_pos,
 					 &tmp, &mode, &unsignedp,
 					 &volatilep, false);
@@ -1308,7 +1308,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 						 / BITS_PER_UNIT);
 			    offset = tree_low_cst (tmp, 1);
 			  }
-		    
+
 			shift_cst = build_int_cst (intSI_type_node, cont_off);
 			tmp = fold_binary_to_constant (LSHIFT_EXPR, cont_type,
 						       fold_convert (cont_type,
@@ -1326,14 +1326,14 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 			    *((unsigned char *) le_image + offset) |= b0;
 			    *((unsigned char *) be_image + offset) |= b0;
 			    break;
-		      
+
 			  case 16:
 			    *((unsigned char *) le_image + offset + 0) |= b0;
 			    *((unsigned char *) le_image + offset + 1) |= b1;
 			    *((unsigned char *) be_image + offset + 0) |= b1;
 			    *((unsigned char *) be_image + offset + 1) |= b0;
 			    break;
-		      
+
 			  case 32:
 			    *((unsigned char *) le_image + offset + 0) |= b0;
 			    *((unsigned char *) le_image + offset + 1) |= b1;
@@ -1344,7 +1344,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 			    *((unsigned char *) be_image + offset + 2) |= b1;
 			    *((unsigned char *) be_image + offset + 3) |= b0;
 			    break;
-		      
+
 		          default:
 			    gcc_unreachable ();
 		          }

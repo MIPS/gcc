@@ -59,7 +59,7 @@ struct eqv_label_entry_t
 /* Label manipulation functions */
 static bool is_eqv_label (tree, tree);
 static void group_labels (tree);
-static bool eqv_label_dispose (void *, void **, void *data);
+static bool eqv_label_dispose (const void *, void **, void *data);
 
 /* Switch-conversion functions */
 static void merge_cases_into_ranges (tree);
@@ -169,7 +169,7 @@ group_labels (tree func)
 /* Used in pointer_map_traverse () to free eqv_label_t entries */
 
 static bool
-eqv_label_dispose (void *key ATTRIBUTE_UNUSED, void **value,
+eqv_label_dispose (const void *key ATTRIBUTE_UNUSED, void **value,
 		   void *data ATTRIBUTE_UNUSED)
 {
   XDELETE (*value);
@@ -253,7 +253,7 @@ merge_cases_into_ranges (tree switch_stmt)
      length of the vector.  */
   for (i = 0, j = 0; i < new_size; i++)
     {
-      while (! TREE_VEC_ELT (labels, j))
+      while (!TREE_VEC_ELT (labels, j))
 	j++;
 
       TREE_VEC_ELT (labels, i) = TREE_VEC_ELT (labels, j++);
