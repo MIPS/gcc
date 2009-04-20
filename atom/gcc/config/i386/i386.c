@@ -13099,7 +13099,7 @@ distance_non_agu_define (unsigned int regno1, unsigned int regno2,
 
 done:
   /* get_attr_type may modify recog data.  We want to make sure
-     that recog data is valid for instruction, INSN, on which
+     that recog data is valid for instruction INSN, on which
      distance_non_agu_define is called.  INSN is unchanged here.  */
   extract_insn_cached (insn);
   return distance;
