@@ -45,6 +45,7 @@ import java.awt.Font;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.KeyboardFocusManager;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.ComponentEvent;
@@ -392,10 +393,42 @@ public class GtkWindowPeer extends GtkContainerPeer
                           clickCount, popupTrigger);
   }
 
+  public Point getLocationOnScreen()
+  {
+    int point[] = new int[2];
+    gtkWindowGetLocationOnScreen(point);
+    return new Point(point[0], point[1]);
+  }
+
   // We override this to keep it in sync with our internal
   // representation.
   public Rectangle getBounds()
   {
     return new Rectangle(x, y, width, height);
+  }
+
+  public void updateIconImages()
+  {
+    // TODO: Implement properly.
+  }
+
+  public void updateMinimumSize()
+  {
+    // TODO: Implement properly.
+  }
+
+  public void setModalBlocked(java.awt.Dialog d, boolean b)
+  {
+    // TODO: Implement properly.
+  }
+
+  public void updateFocusableWindowState()
+  {
+    // TODO: Implement properly.
+  }
+
+  public void setAlwaysOnTop(boolean b)
+  {
+    // TODO: Implement properly.
   }
 }

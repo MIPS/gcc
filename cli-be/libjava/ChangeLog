@@ -1,3 +1,401 @@
+2008-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR libgcj/33085
+	* configure: Regenerate.
+
+2008-02-15  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR testsuite/35208
+	* testsuite/libjava.jvmti/interp/natgetstacktrace.cc
+	(Java_getstacktrace_natRunner): Increase the usleep time to a value
+	which prevents OS-X to get into a deadlock.
+
+2008-02-06  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR libgcj/30071
+	* Makefile.am (install-exec-hook): Add install-binPROGRAMS.
+	* Makefile.in: Regenerate.
+
+2008-01-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* shlibpath.m4: Add AIX 6 support.
+	* configure: Regenerate.
+
+2008-01-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/33887
+	* link.cc (_Jv_Linker::prepare_constant_time_tables):
+	has_interfaces is boolean, treat it as such.
+
+2008-01-04  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/34444
+	* java/lang/natClass.cc (Class::getEnclosingClass): Call
+	getDeclaringClass().
+
+2007-12-22  David Daney  <ddaney@avtrex.com>
+
+	* scripts/makemake.tcl (emit_bc_rule): Use $(LIBGCJ_BC_FLAGS)
+	instead of -findirect-dispatch -fno-indirect-classes.
+	* configure.ac (libgcj-bc): New AC_ARG_ENABLE.
+	(SUPPRESS_LIBGCJ_BC): New AM_CONDITIONAL.
+	* Makefile.am (LIBGCJ_BC_FLAGS): New variable.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Same.
+	* testsuite/Makefile.in: Same.
+	* configure: Same.
+	* gcj/Makefile.in: Same.
+	* sources.am: Same.
+	
+2007-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/Makefile.am (compile-tests): Build
+	libjava.jvmti/interp/*.h with -jni rather than -cni.
+	* testsuite/Makefile.in: Rebuilt.
+
+2007-12-08  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* configure.host: Add bits for i?86-*-darwin9 and x86_64-*-darwin9.
+	* configure.ac: Add darwin-signal.h to x86_64-*-darwin9 and
+	i?86-*darwin9.
+	* configure.in: Regenerate.
+	* darwin.cc: Add definitions for Darwin specific functions for 64-bit.
+	(darwin_java_register_dyld_add_image_hook): Use this specific
+	functions.
+	* Makefile.am (gij_LDFLAGS): Add extra_gij_ldflags for Darwin9.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Likewise.
+	* gcj/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+	* testsuite/lib/libjava.exp (libjava_arguments): Add allow_stack_execute
+	for *-*-darwin9*.
+
+2007-12-06  David Daney  <ddaney@avtrex.com>
+
+	* interpret.cc: Replace ffi_raw with INTERP_FFI_RAW_TYPE throughout.
+	(ncode_closure, ffi_closure_fun): Define versions for
+	non-FFI_NATIVE_RAW_API case.
+	* include/java-interp.h (INTERP_FFI_RAW_TYPE): Define and use to
+	replace	ffi_raw throughout.
+	* jni.cc, interpret-run.cc: Replace ffi_raw with INTERP_FFI_RAW_TYPE
+	throughout.
+
+2007-12-06  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_get_cxxflags_invocation): Make
+	the testsuite multilib aware for Darwin.
+
+2007-12-05  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.h: Regenerate.
+	* gnu/java/awt/peer/gtk/GtkWindowPeer.h: Likewise.
+	* java/awt/Component.h: Likewise.
+	* java/awt/Container.h: Likewise.
+
+2007-11-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac: Don't run config-ml.in directly.
+	(multilib_arg): New.
+	* configure: Regenerated.
+
+2007-10-22  David Daney  <ddaney@avtrex.com>
+
+	* include/jvm.h (_Jv_SetGCFreeSpaceDivisor): Declare new function.
+	* boehm.cc (_Jv_SetGCFreeSpaceDivisor): Define it.
+
+2007-10-18  David Daney  <ddaney@avtrex.com>
+
+	* classpath/lib/gnu/java/locale/LocaleData.class: Regenerate
+	* classpath/lib/gnu/javax/sound/sampled/gstreamer: Add generated
+	files.
+	* gnu/javax/sound/sampled/gstreamer: Add generated files.
+	
+2007-10-15  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* configure: Regenerate following changes to ../config/tls.m4.
+
+2007-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* defineclass.cc (MAJOR_1_6): New define.
+	(MINOR_1_6): Likewise.
+	(_Jv_ClassReader::parse): Handle 1.6 bytecode.
+
+2007-09-12  David Daney  <ddaney@avtrex.com>
+
+	* configure.host: Enable interpreter for mips64.  Enable hash
+	synchronization for all mips*-*-linux* targets.
+	* sysdep/mips/locks.h (compare_and_swap, compare_and_swap_release) Use
+	__sync_bool_compare_and_swap instead of in-line asm.
+	(release_set, read_barrier, write_barrier): Use __sync_synchronize
+	instead of in-line asm.
+
+2007-09-09  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR libgcj/33326
+	* testsuite/lib/libjava.exp (libjava_arguments): Append the test spec
+	only for linux targets.
+
+2007-09-09  Andrew Haley  <aph@redhat.com>
+
+	* interpret-run.cc (invokevirtual_resolved): Nullcheck object on
+	TOS.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.lang/StackTrace2.jar: Rebuilt.
+	* testsuite/libjava.lang/StackTrace2.java (checkLine): Print file
+	name.
+
+2007-09-06  Roman Zippel  <zippel@linux-m68k.org>
+
+	* sysdep/m68k/locks.h: New file.
+	* configure.host: Set sysdeps_dir and libgcj_interpreter for m68k.
+	* configure.ac: Set SIGNAL_HANDLER for m68*-*-linux*.
+	* configure: Regenerate.
+
+2007-09-05  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+
+	* configure.host(gnu*): Set use_libgcj_bc to yes.
+
+2007-09-04  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Do not pass --with-native-libdir to classpath.
+	* configure: Regenerate.
+
+2007-09-04  Matthias Klose  <doko@ubuntu.com>
+
+	PR libgcj/33278
+	* configure.ac: Robustify extraction of gcj version.
+	* configure: Regenerate.
+
+2007-09-04  Andrew Haley  <aph@redhat.com>
+
+	PR java/27908
+	* testsuite/libjava.lang/PR27908.java
+	({run1,run2,run3}.isRunning): New Method.
+	(main): Fix race condition.
+
+2007-08-29  Andrew Haley  <aph@redhat.com>
+
+	* gnu/classpath/natVMStackWalker.cc (VMStackWalker::getCallingClass):
+	Make sure we're not sibcalled.
+	(GET_CALLING_CLASS): Define for ARM EABI.
+
+2007-08-22  Andrew Haley  <aph@redhat.com>
+
+	* configure.host (BACKTRACESPEC): Add arm*-linux*.
+
+2007-08-22  Andrew Haley  <aph@redhat.com>
+
+	* configure.ac (LIBSTDCXXSPEC): New.
+	* configure.host: Add arm*-linux* to pthread test.
+	* configure.ac (LIBGCJTESTSPEC): Add path to libstdc++ for ARM
+	EABI.
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Use
+	-fexceptions for ARM EABI.
+	* testsuite/lib/libjava.exp (libjava_arguments): Add libgcj-test.spec.
+	(libjava_invoke): Log the invocation.
+
+2007-08-15  Andrew Haley  <aph@redhat.com>
+
+	* configure.ac (extra_ldflags): Define.
+	* Makefile.am: Use extra_ldflags for all executables.
+
+2007-08-14  Andrew Haley  <aph@redhat.com>
+
+	* sysdep/arm/backtrace.h: Remove stubs for _Unwind_GetIPInfo,
+	_Unwind_GetRegionStart, and _Unwind_Backtrace.
+
+2007-07-27  Andrew Haley  <aph@redhat.com>
+
+	* gnu/classpath/natVMStackWalker.cc (GET_CALLING_CLASS): Stub for
+	ARM EABI.
+	* exception.cc (get_exception_header_from_ue): New.
+	(get_ttype_entry): ARM EABI version.
+	(PERSONALITY_FUNCTION): Add ARM EABI code.
+	* sysdep/arm/backtrace.h: New file.
+	* stacktrace.cc (_URC_NORMAL_STOP): New.
+	* configure.ac (extra_ldflags_libjava): Add libsupc++.la for ARM
+	EABI.
+	* configure.host (BACKTRACESPEC): Add arm/backtrace.h.
+
+2007-08-31  Matthias Klose  <doko@ubuntu.com>
+
+	* classpath/lib/java/util/EnumSet*.class: Regenerate
+
+2007-08-30  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* gij.cc (version): Update Copyright year.
+
+2007-08-16  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+
+	* configure.host (gnu*): Set use_libgcj_bc to yes.
+
+2007-08-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (internalGetFields): Use LinkedHashSet.
+	* classpath/lib/java/lang/Class.class: Rebuilt.
+
+2007-08-15  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+
+	* java/lang/natPosixProcess.cc (sigchld_handler) [!SA_SIGINFO]: Remove
+	'si' and 'third' parameters.  Disable calling
+	pmi->old_sigaction.sa_sigaction.
+	(java::lang::PosixProcess*ProcessManager::init) [!SA_SIGINFO]: Set
+	sa.sa_handler instead of sa.sa_sigaction, don't set SA_SIGINFO flag.
+
+2007-08-09  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/lib/libjava.exp (libjava_invoke): Log the invocation.
+
+2007-08-08  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+
+	* java/net/natVMInetAddressPosix.cc
+	(java::net::VMInetAddress::getLocalHostname) [!MAXHOSTNAMELEN]:
+	Allocate buffer dynamically.
+
+2007-08-04  Alfred M. Szmidt  <ams@gnu.org>
+
+	* java/io/natFilePosix.cc (init_native) [!MAXPATHLEN]: Define to 0.
+	* java/io/File.java (createTempFile): Don't truncate if the system
+	doesn't have a limit on the length of a file name.
+	* classpath/lib/java/io/File.class: Regenerate.
+
+2007-08-04  Matthias Klose  <doko@ubuntu.com>
+
+	Import GNU Classpath (libgcj-import-20070727).
+
+	* Regenerate class and header files.
+	* Regenerate auto* files.
+
+	* include/jvm.h:
+	* jni-libjvm.cc (Jv_JNI_InvokeFunctions): Rename type.
+	* jni.cc (_Jv_JNIFunctions, _Jv_JNI_InvokeFunctions): Likewise.
+	* jni.cc (_Jv_JNI_CallAnyMethodA, _Jv_JNI_CallAnyVoidMethodA,
+	_Jv_JNI_CallMethodA, _Jv_JNI_CallVoidMethodA,
+	_Jv_JNI_CallStaticMethodA, _Jv_JNI_CallStaticVoidMethodA,
+	_Jv_JNI_NewObjectA, _Jv_JNI_SetPrimitiveArrayRegion): Constify
+	jvalue parameter.
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Likewise.
+
+	* java/lang/VMFloat.java (toString, parseFloat): New.
+
+	* gnu/awt/xlib/XToolkit.java (setAlwaysOnTop, isModalityTypeSupported,
+	isModalExclusionTypeSupported): New (stub only).
+	* gnu/awt/xlib/XCanvasPeer.java (requestFocus): Likewise.
+	* gnu/awt/xlib/XFramePeer.java (updateMinimumSize, updateIconImages,
+	updateFocusableWindowState, setModalBlocked, getBoundsPrivate,
+	setAlwaysOnTop): Likewise.
+	* gnu/awt/xlib/XFontPeer.java (canDisplay): Update signature.
+
+	* scripts/makemake.tcl: Ignore gnu/javax/sound/sampled/gstreamer,
+	ignore javax.sound.sampled.spi.MixerProvider, ignore .in files.
+
+	* HACKING: Mention --enable-gstreamer-peer, removal of generated files.
+
+2007-07-31  David Daney  <ddaney@avtrex.com>
+
+	* HACKING: Document regenerating configure and aclocal.m4.
+
+2007-07-31  David Daney  <ddaney@avtrex.com>
+
+	* configure.ac (INTERPRETER): New AM_CONDITIONAL.
+	* scripts/makemake.tcl (package_map): Mark jdwp and jvmti packages
+	as being for interpreter only.  Place interpreter related files in
+	'if INTERPRETER' block.
+	(interpreter_package_files): New list.
+	(interpreter_header_vars): Ditto.
+	(emit_package_rule_to_list): Renamed from emit_package_rule with
+	new target list parameter.
+	(emit_package_rule): Rewritten to call emit_package_rule_to_list.
+	(emit_interpreter_rule): New function.
+	(emit_source_var): Place interpreter related files in
+	interpreter_header_vars.
+	* Makefile.am (ACLOCAL_AMFLAGS): Add -I libltdl.
+	(libgcj_interpret_source_files): New variable.
+	(libgcj_la_SOURCES): Move jvmti.cc and  interpret.cc to
+	libgcj_interpret_source_files and include
+	libgcj_interpret_source_files.
+	(nat_jdwp_source_files): New variable.
+	(nat_jvmti_source_files): Ditto.
+	(nat_source_files): Move jdwp and jvmti related files to
+	nat_jdwp_source_files and nat_jvmti_source_files and include
+	nat_jdwp_source_files and nat_jvmti_source_files.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Ditto.
+	* testsuite/Makefile.in: Ditto.
+	* gcj/Makefile.in: Ditto.
+	* sources.am: Ditto.
+	* configure: Ditto.
+	* include/config.h.in: Ditto.
+	* interpret.cc: Remove #ifdef INTERPRETER block.
+	* stacktrace.cc (UnwindTraceFn): Do not handle proxy frames if
+	interpreter disabled.
+	* include/java-interp.h (_Jv_FrameType): Move outside of
+	#ifdef INTERPRETER block.
+	* include/execution.h (_Jv_IndirectCompiledEngine::do_get_closure_list,
+	_Jv_InterpreterEngine, _Jv_soleInterpreterEngine): Place in
+	#ifdef INTERPRETER block.
+	* jni.cc (jvmti.h, jvmti-int.h):  Only include if INTERPRETER is
+	defined.
+	(_Jv_JNI_PopSystemFrame, _Jv_JNI_GetEnv): Only do jvmti processing
+	if INTERPRETER is defined.
+	* prims.cc (jvmti.h, jvmti-int.h, Jdwp.h, VMVirtualMachine.h):  Only
+	include if INTERPRETER is defined.
+	(defaultJdwpOptions, jdwpOptions, jvmti_agent_onload_func,
+	jvmti_agent_onunload_func, jvmti_agentonload, jvmti_agentonunload,
+	jvmti_agent_opts, load_jvmti_agent): Only define if INTERPRETER is
+	defined.
+	(parse_x_arg): Only process 'runjdwp:' if INTERPRETER is defined.
+	(parse_init_args): Only process jvmti related options if
+	INTERPRETER is defined.
+	(_Jv_CreateJavaVM): Only call _Jv_JVMTI_Init if INTERPRETER is
+	defined.
+	(_Jv_RunMain): Only do jvmti and jdwp processing if INTERPRETER is
+	defined.
+	* link.cc (jvmti.h, jvmti-int.h):  Only include if INTERPRETER is
+	defined.
+	(_Jv_ThrowNoClassDefFoundError, _Jv_Linker::create_error_method):
+	Define if if INTERPRETER is not defined.
+	(_Jv_Linker::wait_for_state): Only do jvmti proccessing if
+	INTERPRETER is defined.
+	* boehm.cc (closure_list_pointer, finalize_closure_list,
+	_Jv_ClosureListFinalizer): Only define if INTERPRETER is
+	defined.
+	* java/lang/natThread.cc (jvmti.h, jvmti-int.h):  Only include if
+	INTERPRETER is defined.
+	(finish_, _Jv_NotifyThreadStart): Only do jvmti proccessing if
+	INTERPRETER is defined.
+	* java/lang/Class.h (_Jv_InterpreterEngine): Move declaration
+	and friend declaration inside #ifdef INTERPRETER block.
+	* java/lang/natClass.cc (_Jv_ClosureList::releaseClosures,
+	_Jv_ClosureList::registerClosure, _Jv_GetInterpClassSourceFile):
+	Only define if INTERPRETER is defined.
+	* java/lang/reflect/natVMProxy.cc (UnsupportedOperationException.h):
+	Include.
+	(generateProxyClass): Throw UnsupportedOperationException unless
+	INTERPRETER is defined.
+
+2007-07-29  Matthias Klose  <doko@ubuntu.com>
+
+	* HACKING: Document regenerating configure.
+
+2007-07-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/32929
+	* aclocal.m4: Regenerated.
+	* configure: Likewise.
+
+2007-07-28  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Encode the libgcj soversion in dbexecdir,
+	pass --with-native-libdir to classpath configure.
+	* configure: Regenerate.
+
+2007-07-28  Matthias Klose  <doko@ubuntu.com>
+
+	* classpath/jvmti.h: Remove.
+
 2007-07-27  Tom Tromey  <tromey@redhat.com>
 
 	* Rebuild .class files with new ecj.

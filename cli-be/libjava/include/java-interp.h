@@ -15,6 +15,13 @@ details.  */
 #include <java-cpool.h>
 #include <gnu/gcj/runtime/NameFinder.h>
 
+enum _Jv_FrameType
+{
+  frame_native,
+  frame_interpreter,
+  frame_proxy
+};
+
 #ifdef INTERPRETER
 
 #pragma interface
@@ -215,18 +222,26 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   void *ncode (jclass);
   void compile (const void * const *);
 
-  static void run_normal (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_synch_object (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_class (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_synch_class (ffi_cif*, void*, ffi_raw*, void*);
-  
-  static void run_normal_debug (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_synch_object_debug (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_class_debug (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_synch_class_debug (ffi_cif*, void*, ffi_raw*, void*);
+#if FFI_NATIVE_RAW_API
+#  define INTERP_FFI_RAW_TYPE ffi_raw
+#else
+#  define INTERP_FFI_RAW_TYPE ffi_java_raw
+#endif
 
-  static void run (void *, ffi_raw *, _Jv_InterpMethod *);
-  static void run_debug (void *, ffi_raw *, _Jv_InterpMethod *);
+  static void run_normal (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_synch_object (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_class (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_synch_class (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  
+  static void run_normal_debug (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_synch_object_debug (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*,
+				      void*);
+  static void run_class_debug (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_synch_class_debug (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*,
+				     void*);
+
+  static void run (void *, INTERP_FFI_RAW_TYPE *, _Jv_InterpMethod *);
+  static void run_debug (void *, INTERP_FFI_RAW_TYPE *, _Jv_InterpMethod *);
   
 
   
@@ -354,7 +369,7 @@ class _Jv_JNIMethod : public _Jv_MethodBase
   ffi_type **jni_arg_types;
 
   // This function is used when making a JNI call from the interpreter.
-  static void call (ffi_cif *, void *, ffi_raw *, void *);
+  static void call (ffi_cif *, void *, INTERP_FFI_RAW_TYPE *, void *);
 
   void *ncode (jclass);
 
@@ -371,13 +386,6 @@ public:
   {
     function = f;
   }
-};
-
-enum _Jv_FrameType
-{
-  frame_native,
-  frame_interpreter,
-  frame_proxy
 };
 
 //  The composite call stack as represented by a linked list of frames

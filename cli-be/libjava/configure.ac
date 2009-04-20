@@ -514,6 +514,15 @@ AC_ARG_WITH(java-home,
 AM_CONDITIONAL(JAVA_HOME_SET, test ! -z "$JAVA_HOME")
 AC_SUBST(JAVA_HOME)
 
+suppress_libgcj_bc=no
+AC_ARG_ENABLE(libgcj-bc,
+  AS_HELP_STRING([--enable-libgcj-bc],
+                 [enable(default) or disable BC ABI for portions of libgcj]),
+  [if test "$enable_libgcj_bc" = "no"; then
+     suppress_libgcj_bc=yes
+   fi])
+AM_CONDITIONAL(SUPPRESS_LIBGCJ_BC, test "$suppress_libgcj_bc" = "yes")
+
 # What is the native OS API for MinGW?
 AC_ARG_WITH(win32-nlsapi,
   AS_HELP_STRING([--with-win32-nlsapi=ansi or unicows or unicode],
@@ -564,6 +573,7 @@ if test "$libgcj_interpreter" = yes; then
 fi
 INTERPRETER="$libgcj_interpreter"
 AC_SUBST(INTERPRETER)
+AM_CONDITIONAL(INTERPRETER, test "$libgcj_interpreter" = yes)
 
 AC_MSG_CHECKING([for exception model to use])
 AC_LANG_PUSH(C++)
@@ -763,9 +773,6 @@ case "${host}" in
 esac
 AC_SUBST(SYSTEMSPEC)
 
-LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -rpath `${PWDCMD-pwd}`/.libs"
-AC_SUBST(LIBGCJTESTSPEC)
-
 AC_ARG_WITH(system-zlib,
   AS_HELP_STRING([--with-system-zlib],
                  [use installed libz]))
@@ -779,6 +786,9 @@ AC_PATH_XTRA
 # FIXME: this should be _libs on some hosts.
 libsubdir=.libs
 
+LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -rpath `${PWDCMD-pwd}`/.libs"
+
+LIBSTDCXXSPEC=
 # extra LD Flags which are required for targets
 case "${host}" in
 *-*-darwin[[0-7]].*)
@@ -787,8 +797,24 @@ case "${host}" in
     # on Darwin -single_module speeds up loading of the dynamic libraries.
     extra_ldflags_libjava=-Wl,-single_module
     ;;
+*-*-darwin[[9]]*)
+    extra_gij_ldflags=-Wl,-allow_stack_execute
+    ;;
+arm*linux*eabi)
+    # Some of the ARM unwinder code is actually in libstdc++.  We
+    # could in principle replicate it in libgcj, but it's better to
+    # have a dependency on libstdc++.
+    extra_ldflags='-L$(here)/../libstdc++-v3/src/.libs -lstdc++'
+    LIBSTDCXXSPEC=-lstdc++
+    LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -L`${PWDCMD-pwd}`/../libstdc++-v3/src/.libs -rpath `${PWDCMD-pwd}`/.libs:`${PWDCMD-pwd}`/../libstdc++-v3/src/.libs -lstdc++"
+    ;;
 esac
 AC_SUBST(extra_ldflags_libjava)
+AC_SUBST(extra_gij_ldflags)
+AC_SUBST(extra_ldflags)
+AC_SUBST(LIBSTDCXXSPEC)
+
+AC_SUBST(LIBGCJTESTSPEC)
 
 # Allow the GC to be disabled.  Can be useful when debugging.
 AC_MSG_CHECKING([for garbage collector to use])
@@ -1367,24 +1393,26 @@ AC_SUBST(toolexecdir)
 AC_SUBST(toolexecmainlibdir)
 AC_SUBST(toolexeclibdir)
 
-# Determine where the standard .db file and GNU Classpath JNI
-# libraries are found.
-multi_os_directory=`$CC -print-multi-os-directory`
-case $multi_os_directory in
-  .)
-   dbexecdir='$(libdir)/gcj-$(gcc_version)' # Avoid /.
-   ;;
-  *)
-   dbexecdir='$(libdir)/'$multi_os_directory'/gcj-$(gcc_version)'
-   ;;
-esac
-AC_SUBST(dbexecdir)
-
-# Determine gcj version number.
-gcjversion=`$GCJ -v 2>&1 | sed -n 's/^.*version \([[^ ]]*\).*$/\1/p'`
+# Determine gcj and libgcj version number.
+gcjversion=`cat "$srcdir/../gcc/BASE-VER"`
+libgcj_soversion=`awk -F: '/^[[^#]].*:/ { print $1 }' $srcdir/libtool-version`
 GCJVERSION=$gcjversion
 AC_SUBST(GCJVERSION)
 AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
+
+# Determine where the standard .db file and GNU Classpath JNI
+# libraries are found.
+gcjsubdir=gcj-$gcjversion-$libgcj_soversion
+multi_os_directory=`$CC -print-multi-os-directory`
+case $multi_os_directory in
+  .)
+   dbexecdir='$(libdir)/'$gcjsubdir # Avoid /.
+   ;;
+  *)
+   dbexecdir='$(libdir)/'$multi_os_directory/$gcjsubdir
+   ;;
+esac
+AC_SUBST(dbexecdir)
 
 AC_DEFINE(JV_VERSION, "1.5.0", [Compatibility version string])
 AC_DEFINE(JV_API_VERSION, "1.5", [API compatibility version string])
@@ -1528,7 +1556,10 @@ case "${host}" in
  mips*-*-linux*)
     SIGNAL_HANDLER=include/mips-signal.h
     ;;
- powerpc*-*-darwin*)
+ m68*-*-linux*)
+    SIGNAL_HANDLER=include/dwarf2-signal.h
+    ;;
+ powerpc*-*-darwin* | i?86-*-darwin9* | x86_64-*-darwin9*)
     SIGNAL_HANDLER=include/darwin-signal.h
     ;;
  *)
@@ -1604,33 +1635,11 @@ include/Makefile
 testsuite/Makefile
 ])
 
+if test ${multilib} = yes; then
+  multilib_arg="--enable-multilib"
+else
+  multilib_arg=
+fi
+
 AC_CONFIG_FILES([scripts/jar], [chmod +x scripts/jar])
-
-AC_CONFIG_COMMANDS([default],
-[# Only add multilib support code if we just rebuilt top-level Makefile.
-case " $CONFIG_FILES " in
- *" Makefile "*)
-   LD="${ORIGINAL_LD_FOR_MULTILIBS}"
-   ac_file=Makefile . ${multi_basedir}/./libjava/../config-ml.in
-   ;;
-esac
-for ac_multi_file in $CONFIG_FILES; do
-  case $ac_multi_file in
-  */Makefile)
-    grep "^MULTI[[^ ]]* =" Makefile >> "$ac_multi_file" ;;
-  esac
-done
-],
-srcdir=${srcdir}
-host=${host}
-target=${target}
-with_multisubdir=${with_multisubdir}
-ac_configure_args="${multilib_arg} ${ac_configure_args}"
-CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
-multi_basedir=${multi_basedir}
-CC="${CC}"
-CXX="${CXX}"
-ORIGINAL_LD_FOR_MULTILIBS="${ORIGINAL_LD_FOR_MULTILIBS}"
-)
-
 AC_OUTPUT

@@ -39,7 +39,9 @@ target_triplet = @target@
 subdir = testsuite
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/libltdl/acinclude.m4 \
+	$(top_srcdir)/../config/acx.m4 \
+	$(top_srcdir)/../config/confsubdir.m4 \
 	$(top_srcdir)/../config/depstand.m4 \
 	$(top_srcdir)/../config/enable.m4 \
 	$(top_srcdir)/../config/gxx-include-dir.m4 \
@@ -54,10 +56,11 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
 	$(top_srcdir)/../config/tls.m4 \
 	$(top_srcdir)/../config/unwind_ipinfo.m4 \
-	$(top_srcdir)/../libtool.m4 $(top_srcdir)/../ltoptions.m4 \
-	$(top_srcdir)/../ltsugar.m4 $(top_srcdir)/../ltversion.m4 \
-	$(top_srcdir)/mingwld.m4 $(top_srcdir)/pkg.m4 \
-	$(top_srcdir)/shlibpath.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/../libtool.m4 $(top_srcdir)/../ltgcc.m4 \
+	$(top_srcdir)/../ltoptions.m4 $(top_srcdir)/../ltsugar.m4 \
+	$(top_srcdir)/../ltversion.m4 $(top_srcdir)/mingwld.m4 \
+	$(top_srcdir)/pkg.m4 $(top_srcdir)/shlibpath.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 CONFIG_HEADER = $(top_builddir)/include/config.h \
@@ -138,6 +141,8 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INTERPRETER = @INTERPRETER@
+INTERPRETER_FALSE = @INTERPRETER_FALSE@
+INTERPRETER_TRUE = @INTERPRETER_TRUE@
 JAR = @JAR@
 JAVA_HOME = @JAVA_HOME@
 JAVA_HOME_SET_FALSE = @JAVA_HOME_SET_FALSE@
@@ -165,6 +170,7 @@ LIBICONV = @LIBICONV@
 LIBLTDL = @LIBLTDL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
+LIBSTDCXXSPEC = @LIBSTDCXXSPEC@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 LTLIBICONV = @LTLIBICONV@
@@ -194,6 +200,8 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+SUPPRESS_LIBGCJ_BC_FALSE = @SUPPRESS_LIBGCJ_BC_FALSE@
+SUPPRESS_LIBGCJ_BC_TRUE = @SUPPRESS_LIBGCJ_BC_TRUE@
 SYSDEP_SOURCES = @SYSDEP_SOURCES@
 SYSTEMSPEC = @SYSTEMSPEC@
 SYS_ZLIBS = @SYS_ZLIBS@
@@ -272,6 +280,8 @@ build_vendor = @build_vendor@
 datadir = @datadir@
 dbexecdir = @dbexecdir@
 exec_prefix = @exec_prefix@
+extra_gij_ldflags = @extra_gij_ldflags@
+extra_ldflags = @extra_ldflags@
 extra_ldflags_libjava = @extra_ldflags_libjava@
 gxx_include_dir = @gxx_include_dir@
 here = @here@
@@ -548,7 +558,7 @@ compile-tests:
 @JAVA_MAINTAINER_MODE_TRUE@	      testdep="libjava.loader/MyLoader.java";; \
 @JAVA_MAINTAINER_MODE_TRUE@	    libjava.jni/register2.java) \
 @JAVA_MAINTAINER_MODE_TRUE@	      ;; \
-@JAVA_MAINTAINER_MODE_TRUE@	    libjava.jni/*.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.jni/*.java|libjava.jvmti/interp/*.java) \
 @JAVA_MAINTAINER_MODE_TRUE@	      genheader=-jni;; \
 @JAVA_MAINTAINER_MODE_TRUE@	    libjava.jvmti/*.java|libjava.cni/*.java) \
 @JAVA_MAINTAINER_MODE_TRUE@	      genheader=-cni;; \

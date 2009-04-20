@@ -563,6 +563,7 @@ details.  */
 	  }
 	else
 	  {
+	    NULLCHECK (sp[0].o);
 	    jobject rcv = sp[0].o;
 	    _Jv_VTable *table = *(_Jv_VTable**) rcv;
 	    fun = (void (*)()) table->get_method (rmeth->method->index);
@@ -575,7 +576,7 @@ details.  */
       {
 	/* here goes the magic again... */
 	ffi_cif *cif = &rmeth->cif;
-	ffi_raw *raw = (ffi_raw*) sp;
+	INTERP_FFI_RAW_TYPE *raw = (INTERP_FFI_RAW_TYPE *) sp;
 
 	_Jv_value rvalue;
 
