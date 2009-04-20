@@ -1,9 +1,9 @@
 /* Definitions of builtin functions for the Synergistic Processing Unit (SPU).  */
-/* Copyright (C) 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option) 
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -12,9 +12,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this file; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 
 /* The first argument to these macros is the return type of the builtin,
@@ -236,8 +235,8 @@ DEF_BUILTIN (SI_FROM_PTR,    CODE_FOR_spu_convert,   "si_from_ptr",    B_INSN,  
 
 /* definitions to support generic builtin functions: */
 
-DEF_BUILTIN (SPU_CONVTS,     CODE_FOR_spu_cflts,      "spu_convts",     B_INSN,     _A3(SPU_BTI_V4SI,     SPU_BTI_V4SF,   SPU_BTI_INTSI))
-DEF_BUILTIN (SPU_CONVTU,     CODE_FOR_spu_cfltu,      "spu_convtu",     B_INSN,     _A3(SPU_BTI_UV4SI,    SPU_BTI_V4SF,   SPU_BTI_INTSI))
+DEF_BUILTIN (SPU_CONVTS,     CODE_FOR_spu_cflts,      "spu_convts",     B_INSN,     _A3(SPU_BTI_V4SI,     SPU_BTI_V4SF,   SPU_BTI_U7))
+DEF_BUILTIN (SPU_CONVTU,     CODE_FOR_spu_cfltu,      "spu_convtu",     B_INSN,     _A3(SPU_BTI_UV4SI,    SPU_BTI_V4SF,   SPU_BTI_U7))
 DEF_BUILTIN (SPU_ROUNDTF,    CODE_FOR_spu_frds,       "spu_roundtf",    B_INSN,     _A2(SPU_BTI_V4SF,     SPU_BTI_V2DF))
 DEF_BUILTIN (SPU_MULH,       CODE_FOR_spu_mpyh,       "spu_mulh",       B_INSN,     _A3(SPU_BTI_V4SI,     SPU_BTI_V8HI,   SPU_BTI_V8HI))
 DEF_BUILTIN (SPU_MULSR,      CODE_FOR_spu_mpys,       "spu_mulsr",      B_INSN,     _A3(SPU_BTI_V4SI,     SPU_BTI_V8HI,   SPU_BTI_V8HI))
@@ -258,8 +257,8 @@ DEF_BUILTIN (SPU_TESTSV,     CODE_FOR_dftsv,          "spu_testsv",     B_INSN, 
 /* definitions to support overloaded generic builtin functions:  */
 
 DEF_BUILTIN (SPU_CONVTF,           CODE_FOR_nothing,       "spu_convtf",           B_OVERLOAD, _A1(SPU_BTI_VOID))
-DEF_BUILTIN (SPU_CONVTF_0,         CODE_FOR_spu_cuflt,     "spu_convtf_0",         B_INTERNAL, _A3(SPU_BTI_V4SF,   SPU_BTI_UV4SI,  SPU_BTI_UINTSI))
-DEF_BUILTIN (SPU_CONVTF_1,         CODE_FOR_spu_csflt,     "spu_convtf_1",         B_INTERNAL, _A3(SPU_BTI_V4SF,   SPU_BTI_V4SI,   SPU_BTI_UINTSI))
+DEF_BUILTIN (SPU_CONVTF_0,         CODE_FOR_spu_cuflt,     "spu_convtf_0",         B_INTERNAL, _A3(SPU_BTI_V4SF,   SPU_BTI_UV4SI,  SPU_BTI_U7))
+DEF_BUILTIN (SPU_CONVTF_1,         CODE_FOR_spu_csflt,     "spu_convtf_1",         B_INTERNAL, _A3(SPU_BTI_V4SF,   SPU_BTI_V4SI,   SPU_BTI_U7))
 DEF_BUILTIN (SPU_EXTEND,           CODE_FOR_nothing,       "spu_extend",           B_OVERLOAD, _A1(SPU_BTI_VOID))
 DEF_BUILTIN (SPU_EXTEND_0,         CODE_FOR_spu_xsbh,      "spu_extend_0",         B_INTERNAL, _A2(SPU_BTI_V8HI,   SPU_BTI_V16QI))
 DEF_BUILTIN (SPU_EXTEND_1,         CODE_FOR_spu_xshw,      "spu_extend_1",         B_INTERNAL, _A2(SPU_BTI_V4SI,   SPU_BTI_V8HI))

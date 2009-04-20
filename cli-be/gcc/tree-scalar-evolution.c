@@ -353,7 +353,7 @@ find_var_scev_info (tree var)
    LOOP_NB.  */
 
 bool 
-chrec_contains_symbols_defined_in_loop (tree chrec, unsigned loop_nb)
+chrec_contains_symbols_defined_in_loop (const_tree chrec, unsigned loop_nb)
 {
   int i, n;
 
@@ -600,6 +600,7 @@ get_scalar_evolution (tree scalar)
       break;
 
     case REAL_CST:
+    case FIXED_CST:
     case INTEGER_CST:
       res = scalar;
       break;
@@ -897,7 +898,7 @@ set_nb_iterations_in_loop (struct loop *loop,
    EXPR.  */
 
 static bool
-analyzable_condition (tree expr)
+analyzable_condition (const_tree expr)
 {
   tree condition;
   
@@ -931,7 +932,7 @@ analyzable_condition (tree expr)
    analyze, then give up.  */
 
 tree 
-get_loop_exit_condition (struct loop *loop)
+get_loop_exit_condition (const struct loop *loop)
 {
   tree res = NULL_TREE;
   edge exit_edge = single_exit (loop);
@@ -1200,9 +1201,9 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
 /* Checks whether the I-th argument of a PHI comes from a backedge.  */
 
 static bool
-backedge_phi_arg_p (tree phi, int i)
+backedge_phi_arg_p (const_tree phi, int i)
 {
-  edge e = PHI_ARG_EDGE (phi, i);
+  const_edge e = PHI_ARG_EDGE (phi, i);
 
   /* We would in fact like to test EDGE_DFS_BACK here, but we do not care
      about updating it anywhere, and this should work as well most of the
@@ -2375,7 +2376,7 @@ number_of_iterations_for_all_loops (VEC(tree,heap) **exit_conditions)
       fprintf (dump_file, "-----------------------------------------\n");
       fprintf (dump_file, ")\n\n");
       
-      print_loop_ir (dump_file);
+      print_loops (dump_file, 3);
     }
 }
 
@@ -2607,6 +2608,16 @@ scev_initialize (void)
     }
 }
 
+/* Clean the scalar evolution analysis cache, but preserve the cached
+   numbers of iterations for the loops.  */
+
+void
+scev_reset_except_niters (void)
+{
+  if (scalar_evolution_info)
+    htab_empty (scalar_evolution_info);
+}
+
 /* Cleans up the information cached by the scalar evolutions analysis.  */
 
 void
@@ -2618,7 +2629,8 @@ scev_reset (void)
   if (!scalar_evolution_info || !current_loops)
     return;
 
-  htab_empty (scalar_evolution_info);
+  scev_reset_except_niters ();
+
   FOR_EACH_LOOP (li, loop, 0)
     {
       loop->nb_iterations = NULL_TREE;

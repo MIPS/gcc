@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "options.h"
 #include "mkdeps.h"
 #include "target.h"
+#include "tm_p.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -217,7 +218,7 @@ c_common_init_options (unsigned int argc, const char **argv)
     }
 
   parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
-				ident_hash, &line_table);
+				ident_hash, line_table);
 
   cpp_opts = cpp_get_options (parse_in);
   cpp_opts->dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
@@ -399,12 +400,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_parentheses = value;
       warn_return_type = value;
       warn_sequence_point = value;	/* Was C only.  */
-      if (c_dialect_cxx ())
-	warn_sign_compare = value;
       warn_switch = value;
-      set_Wstrict_aliasing (value);
+      if (warn_strict_aliasing == -1)
+	set_Wstrict_aliasing (value);
       warn_address = value;
-      warn_strict_overflow = value;
+      if (warn_strict_overflow == -1)
+	warn_strict_overflow = value;
       warn_array_bounds = value;
 
       /* Only warn about unknown pragmas that are not in system
@@ -424,17 +425,14 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       else
 	{
 	  /* C++-specific warnings.  */
+          warn_sign_compare = value;
 	  warn_reorder = value;
-	  warn_nontemplate_friend = value;
           warn_cxx0x_compat = value;
-          if (value > 0)
-            warn_write_strings = true;
 	}
 
       cpp_opts->warn_trigraphs = value;
       cpp_opts->warn_comments = value;
       cpp_opts->warn_num_sign_change = value;
-      cpp_opts->warn_multichar = value;	/* Was C++ only.  */
 
       if (warn_pointer_sign == -1)
 	warn_pointer_sign = 1;
@@ -616,6 +614,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	result = 0;
       else
 	disable_builtin_function (arg);
+      break;
+
+    case OPT_fdirectives_only:
+      cpp_opts->directives_only = value;
       break;
 
     case OPT_fdollars_in_identifiers:
@@ -1064,7 +1066,7 @@ c_common_post_options (const char **pfilename)
   /* -Wextra implies -Wtype-limits, -Wclobbered, 
      -Wempty-body, -Wsign-compare, 
      -Wmissing-field-initializers, -Wmissing-parameter-type
-     -Wold-style-declaration, and -Woverride-init, 
+     -Wold-style-declaration, -Woverride-init and -Wignored-qualifiers
      but not if explicitly overridden.  */
   if (warn_type_limits == -1)
     warn_type_limits = extra_warnings;
@@ -1082,11 +1084,18 @@ c_common_post_options (const char **pfilename)
     warn_old_style_declaration = extra_warnings;
   if (warn_override_init == -1)
     warn_override_init = extra_warnings;
+  if (warn_ignored_qualifiers == -1)
+    warn_ignored_qualifiers = extra_warnings;
 
   /* -Wpointer_sign is disabled by default, but it is enabled if any
      of -Wall or -pedantic are given.  */
   if (warn_pointer_sign == -1)
     warn_pointer_sign = 0;
+
+  if (warn_strict_aliasing == -1)
+    warn_strict_aliasing = 0;
+  if (warn_strict_overflow == -1)
+    warn_strict_overflow = 0;
 
   /* -Woverlength-strings is off by default, but is enabled by -pedantic.
      It is never enabled in C++, as the minimum limit is not normative
@@ -1100,7 +1109,14 @@ c_common_post_options (const char **pfilename)
       if (!flag_permissive)
 	{
 	  flag_pedantic_errors = 1;
-	  cpp_opts->pedantic_errors = 1;
+	  /* FIXME: For consistency pedantic_errors should have the
+	     same value in the front-end and in CPP. However, this
+	     will break existing applications. The right fix is
+	     disentagle flag_permissive from flag_pedantic_errors,
+	     create a new diagnostic function permerror that is
+	     controlled by flag_permissive and convert most C++
+	     pedwarns to this new function.
+	  cpp_opts->pedantic_errors = 1;  */
 	}
       if (!flag_no_inline)
 	{
@@ -1281,6 +1297,7 @@ c_common_parse_file (int set_yydebug)
       if (++i >= num_in_fnames)
 	break;
       cpp_undef_all (parse_in);
+      cpp_clear_file_cache (parse_in);
       this_input_filename
 	= cpp_read_main_file (parse_in, in_fnames[i]);
       /* If an input file is missing, abandon further compilation.
@@ -1406,6 +1423,11 @@ sanitize_cpp_opts (void)
   if (flag_dump_macros == 'M')
     flag_no_output = 1;
 
+  /* By default, -fdirectives-only implies -dD.  This allows subsequent phases
+     to perform proper macro expansion.  */
+  if (cpp_opts->directives_only && !cpp_opts->preprocessed && !flag_dump_macros)
+    flag_dump_macros = 'D';
+
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
   /* Also, flag_no_output implies flag_no_line_commands, always.  */
@@ -1423,7 +1445,11 @@ sanitize_cpp_opts (void)
   /* We want -Wno-long-long to override -pedantic -std=non-c99
      and/or -Wtraditional, whatever the ordering.  */
   cpp_opts->warn_long_long
-    = warn_long_long && ((!flag_isoc99 && pedantic) || warn_traditional);
+    = warn_long_long && ((pedantic
+			  && (c_dialect_cxx ()
+			      ? cxx_dialect == cxx98
+			      : !flag_isoc99))
+                         || warn_traditional);
 
   /* Similarly with -Wno-variadic-macros.  No check for c99 here, since
      this also turns off warnings about GCCs extension.  */
@@ -1436,6 +1462,14 @@ sanitize_cpp_opts (void)
      actually output the current directory?  */
   if (flag_working_directory == -1)
     flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
+
+  if (cpp_opts->directives_only)
+    {
+      if (warn_unused_macros)
+	error ("-fdirectives-only is incompatible with -Wunused_macros");
+      if (cpp_opts->traditional)
+	error ("-fdirectives-only is incompatible with -traditional");
+    }
 }
 
 /* Add include path with a prefix at the front of its name.  */
@@ -1467,7 +1501,7 @@ finish_options (void)
       size_t i;
 
       cb_file_change (parse_in,
-		      linemap_add (&line_table, LC_RENAME, 0,
+		      linemap_add (line_table, LC_RENAME, 0,
 				   _("<built-in>"), 0));
 
       cpp_init_builtins (parse_in, flag_hosted);
@@ -1485,7 +1519,7 @@ finish_options (void)
       cpp_opts->warn_dollars = (cpp_opts->pedantic && !cpp_opts->c99);
 
       cb_file_change (parse_in,
-		      linemap_add (&line_table, LC_RENAME, 0,
+		      linemap_add (line_table, LC_RENAME, 0,
 				   _("<command-line>"), 0));
 
       for (i = 0; i < deferred_count; i++)
@@ -1519,6 +1553,8 @@ finish_options (void)
 	    }
 	}
     }
+  else if (cpp_opts->directives_only)
+    cpp_init_special_builtins (parse_in);
 
   include_cursor = 0;
   push_command_line_include ();
@@ -1548,7 +1584,7 @@ push_command_line_include (void)
 
       /* Set this here so the client can change the option if it wishes,
 	 and after stacking the main file so we don't trace the main file.  */
-      line_table.trace_includes = cpp_opts->print_include_names;
+      line_table->trace_includes = cpp_opts->print_include_names;
     }
 }
 

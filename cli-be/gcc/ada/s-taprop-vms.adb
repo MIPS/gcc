@@ -54,6 +54,9 @@ with System.Soft_Links;
 --  used for Get_Exc_Stack_Addr
 --           Abort_Defer/Undefer
 
+with System.Aux_DEC;
+--  used for Short_Address
+
 with Ada.Unchecked_Conversion;
 with Ada.Unchecked_Deallocation;
 
@@ -147,10 +150,12 @@ package body System.Task_Primitives.Operations is
    --  Replace System.Soft_Links.Get_Exc_Stack_Addr_NT
 
    procedure Timer_Sleep_AST (ID : Address);
+   pragma Convention (C, Timer_Sleep_AST);
    --  Signal the condition variable when AST fires
 
    procedure Timer_Sleep_AST (ID : Address) is
-      Result  : Interfaces.C.int;
+      Result : Interfaces.C.int;
+      pragma Warnings (Off, Result);
       Self_ID : constant Task_Id := To_Task_Id (ID);
    begin
       Self_ID.Common.LL.AST_Pending := False;
@@ -821,7 +826,7 @@ package body System.Task_Primitives.Operations is
       Result     : Interfaces.C.int;
 
       function Thread_Body_Access is new
-        Ada.Unchecked_Conversion (System.Address, Thread_Body);
+        Ada.Unchecked_Conversion (System.Aux_DEC.Short_Address, Thread_Body);
 
    begin
       --  Since the initial signal mask of a thread is inherited from the
@@ -1208,6 +1213,35 @@ package body System.Task_Primitives.Operations is
    begin
       return False;
    end Resume_Task;
+
+   --------------------
+   -- Stop_All_Tasks --
+   --------------------
+
+   procedure Stop_All_Tasks is
+   begin
+      null;
+   end Stop_All_Tasks;
+
+   ---------------
+   -- Stop_Task --
+   ---------------
+
+   function Stop_Task (T : ST.Task_Id) return Boolean is
+      pragma Unreferenced (T);
+   begin
+      return False;
+   end Stop_Task;
+
+   -------------------
+   -- Continue_Task --
+   -------------------
+
+   function Continue_Task (T : ST.Task_Id) return Boolean is
+      pragma Unreferenced (T);
+   begin
+      return False;
+   end Continue_Task;
 
    ----------------
    -- Initialize --

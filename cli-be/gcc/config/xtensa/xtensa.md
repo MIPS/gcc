@@ -7,7 +7,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 (define_constants [
@@ -36,11 +35,12 @@
   (UNSPECV_MEMW		3)
   (UNSPECV_S32RI	4)
   (UNSPECV_S32C1I	5)
+  (UNSPECV_EH_RETURN	6)
 ])
 
-;; This code macro allows signed and unsigned widening multiplications
+;; This code iterator allows signed and unsigned widening multiplications
 ;; to use the same template.
-(define_code_macro any_extend [sign_extend zero_extend])
+(define_code_iterator any_extend [sign_extend zero_extend])
 
 ;; <u> expands to an empty string when doing a signed operation and
 ;; "u" when doing an unsigned operation.
@@ -49,38 +49,38 @@
 ;; <su> is like <u>, but the signed form expands to "s" rather than "".
 (define_code_attr su [(sign_extend "s") (zero_extend "u")])
 
-;; This code macro allows four integer min/max operations to be
+;; This code iterator allows four integer min/max operations to be
 ;; generated from one template.
-(define_code_macro any_minmax [smin umin smax umax])
+(define_code_iterator any_minmax [smin umin smax umax])
 
 ;; <minmax> expands to the opcode name for any_minmax operations.
 (define_code_attr minmax [(smin "min") (umin "minu")
 			  (smax "max") (umax "maxu")])
 
-;; This code macro allows all branch instructions to be generated from
+;; This code iterator allows all branch instructions to be generated from
 ;; a single define_expand template.
-(define_code_macro any_cond [eq ne gt ge lt le gtu geu ltu leu])
+(define_code_iterator any_cond [eq ne gt ge lt le gtu geu ltu leu])
 
-;; This code macro is for setting a register from a comparison.
-(define_code_macro any_scc [eq ne gt ge lt le])
+;; This code iterator is for setting a register from a comparison.
+(define_code_iterator any_scc [eq ne gt ge lt le])
 
-;; This code macro is for floating-point comparisons.
-(define_code_macro any_scc_sf [eq lt le])
+;; This code iterator is for floating-point comparisons.
+(define_code_iterator any_scc_sf [eq lt le])
 
-;; These macros allow to combine most atomic operations.
-(define_code_macro ATOMIC [and ior xor plus minus mult])
+;; This iterator and attribute allow to combine most atomic operations.
+(define_code_iterator ATOMIC [and ior xor plus minus mult])
 (define_code_attr atomic [(and "and") (ior "ior") (xor "xor") 
 			  (plus "add") (minus "sub") (mult "nand")])
 
-;; These mode macros allow the HI and QI patterns to be defined from
+;; This mode iterator allows the HI and QI patterns to be defined from
 ;; the same template.
-(define_mode_macro HQI [HI QI])
+(define_mode_iterator HQI [HI QI])
 
 
 ;; Attributes.
 
 (define_attr "type"
-  "unknown,jump,call,load,store,move,arith,multi,nop,farith,fmadd,fdiv,fsqrt,fconv,fload,fstore,mul16,mul32,div32,mac16,rsr,wsr"
+  "unknown,jump,call,load,store,move,arith,multi,nop,farith,fmadd,fdiv,fsqrt,fconv,fload,fstore,mul16,mul32,div32,mac16,rsr,wsr,entry"
   (const_string "unknown"))
 
 (define_attr "mode"
@@ -1542,12 +1542,11 @@
 
 (define_insn "entry"
   [(set (reg:SI A1_REG)
-	(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "i")
-			     (match_operand:SI 1 "const_int_operand" "i")]
+	(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "i")]
 			    UNSPECV_ENTRY))]
   ""
-  "entry\tsp, %1"
-  [(set_attr "type"	"move")
+  "entry\tsp, %0"
+  [(set_attr "type"	"entry")
    (set_attr "mode"	"SI")
    (set_attr "length"	"3")])
 
@@ -1602,6 +1601,26 @@
   DONE;
 })
 
+;; Stuff an address into the return address register along with the window
+;; size in the high bits.  Because we don't have the window size of the
+;; previous frame, assume the function called out with a CALL8 since that
+;; is what compilers always use.  Note: __builtin_frob_return_addr has
+;; already been applied to the handler, but the generic version doesn't
+;; allow us to frob it quite enough, so we just frob here.
+
+(define_insn_and_split "eh_return"
+  [(set (reg:SI A0_REG)
+	(unspec_volatile:SI [(match_operand:SI 0 "register_operand" "r")]
+			    UNSPECV_EH_RETURN))
+   (clobber (match_scratch:SI 1 "=r"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup 1) (ashift:SI (match_dup 0) (const_int 2)))
+   (set (match_dup 1) (plus:SI (match_dup 1) (const_int 2)))
+   (set (reg:SI A0_REG) (rotatert:SI (match_dup 1) (const_int 2)))]
+  "")
+
 ;; Setting up a frame pointer is tricky for Xtensa because GCC doesn't
 ;; know if a frame pointer is required until the reload pass, and
 ;; because there may be an incoming argument value in the hard frame
@@ -1646,21 +1665,6 @@
   [(set_attr "type"	"nop")
    (set_attr "mode"	"none")
    (set_attr "length"	"0")])
-
-;; The fix_return_addr pattern sets the high 2 bits of an address in a
-;; register to match the high bits of the current PC.
-(define_insn "fix_return_addr"
-  [(set (match_operand:SI 0 "register_operand" "=a")
-	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
-		   UNSPEC_RET_ADDR))
-   (clobber (match_scratch:SI 2 "=r"))
-   (clobber (match_scratch:SI 3 "=r"))]
-  ""
-  "mov\t%2, a0\;call0\t0f\;.align\t4\;0:\;mov\t%3, a0\;mov\ta0, %2\;\
-srli\t%3, %3, 30\;slli\t%0, %1, 2\;ssai\t2\;src\t%0, %3, %0"
-  [(set_attr "type"	"multi")
-   (set_attr "mode"	"SI")
-   (set_attr "length"	"24")])
 
 
 ;; Instructions for the Xtensa "boolean" option.

@@ -1,3 +1,95 @@
+2008-01-26  David Daney  <ddaney@avtrex.com>
+
+	* cp-demangle.c (d_dump): Handle DEMANGLE_COMPONENT_JAVA_RESOURCE,
+	DEMANGLE_COMPONENT_COMPOUND_NAME, and
+	DEMANGLE_COMPONENT_CHARACTER cases.
+	(d_make_comp): Handle DEMANGLE_COMPONENT_COMPOUND_NAME and
+	DEMANGLE_COMPONENT_JAVA_RESOURCE cases.
+	(d_make_character): New function.
+	(d_java_resource): Same.
+	(d_special_name): Handle "Gr" case.
+	(d_print_comp): Handle DEMANGLE_COMPONENT_JAVA_RESOURCE,
+	DEMANGLE_COMPONENT_COMPOUND_NAME, and
+	DEMANGLE_COMPONENT_CHARACTER cases.
+	* testsuite/demangle-expected: Add test for java resource name
+	mangling.
+
+2008-01-23  Thiago Jung Bauermann  <bauerman@br.ibm.com>
+
+	* cplus-dem.c (demangle_function_name): Changed to return value
+	indicating if a name was correctly demangled.
+	(iterate_demangle_function): Use demangle_function_name return
+	value.
+
+2008-01-19  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR other/33768
+	* splay-tree.c (rotate_left): Fix minor typo in comment.
+	(rotate_right): Likewise.
+
+2007-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* floatformat.c (floatformat_ibm_long_double_is_valid): Fix
+	compiler warnings.
+	(floatformat_ibm_long_double): Use
+	floatformat_ibm_long_double_is_valid.
+
+2007-11-07  Joseph Myers  <joseph@codesourcery.com>
+	    Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* floatformat.c (mant_bits_set): New.
+	(floatformat_to_double): Use it.  Note no special handling of
+	split formats.
+	(floatformat_from_double): Note no special handing of split
+	formats.
+	(floatformat_ibm_long_double_is_valid,
+	floatformat_ibm_long_double): New.
+	(floatformat_ieee_single_big, floatformat_ieee_single_little,
+	floatformat_ieee_double_big, floatformat_ieee_double_little,
+	floatformat_ieee_double_littlebyte_bigword, floatformat_vax_f,
+	floatformat_vax_d, floatformat_vax_g, floatformat_i387_ext,
+	floatformat_m68881_ext, floatformat_i960_ext,
+	floatformat_m88110_ext, floatformat_m88110_harris_ext,
+	floatformat_arm_ext_big, floatformat_arm_ext_littlebyte_bigword,
+	floatformat_ia64_spill_big, floatformat_ia64_spill_little,
+	floatformat_ia64_quad_big, floatformat_ia64_quad_little): Update
+	for addition of split_half field.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* pexecute.txh (pex_free): Document process killing.
+
+2007-08-31  Douglas Gregor  <doug.gregor@gmail.com>
+	
+	* cp-demangle.c (d_dump): Handle
+	DEMANGLE_COMPONENT_RVALUE_REFERENCE. 
+	(d_make_comp): Ditto.
+	(cplus_demangle_type): Ditto.
+	(d_print_comp): Ditto.
+	(d_print_mod): Ditto.
+	(d_print_function_type): Ditto.
+
+2007-08-24  Kai Tietz  <kai.tietz@onevision.com>
+
+	* pex-common.h: (pex_funcs): Retyped wait and exec_child to pid_t.
+	* pex-djgpp.c: Likewise.
+	* pex-msdos.c: Likewise.
+	* pex-unix.c: Likewise.
+	* pex-win32.c: Likewise.
+
+2007-08-17  Michael Snyder  <msnyder@access-company.com>
+
+	* make-relative-prefix.c (make_relative_prefix_1): Resource leaks.
+
+2007-08-03  Michael Snyder  <msnyder@access-company.com>
+
+	* make-relative-prefix.c (make_relative_prefix_1): Fix resource
+	leak.
+
+2007-07-31  Michael Snyder  <msnyder@access-company.com>
+
+	* cp-demangle.c (d_print_comp): Guard against null.
+
 2007-07-25  Ben Elliston  <bje@au.ibm.com>
 
 	* Makefile.in (CFILES): Remove ternary.c.

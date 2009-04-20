@@ -71,8 +71,7 @@ package System is
    --  literals with this type (use To_Address to convert integer literals).
    --
    --  Conversion to and from Short_Address is however freely permitted, and
-   --  is indeed the reason that Address is declared as an integer type. See
-   --
+   --  is indeed the reason that Address is declared as an integer type.
 
    Storage_Unit : constant := 8;
    Word_Size    : constant := 64;
@@ -151,11 +150,13 @@ private
    Signed_Zeros              : constant Boolean := True;
    Stack_Check_Default       : constant Boolean := True;
    Stack_Check_Probes        : constant Boolean := True;
+   Stack_Check_Limits        : constant Boolean := False;
    Support_64_Bit_Divides    : constant Boolean := True;
    Support_Aggregates        : constant Boolean := True;
    Support_Composite_Assign  : constant Boolean := True;
    Support_Composite_Compare : constant Boolean := True;
    Support_Long_Shifts       : constant Boolean := True;
+   Always_Compatible_Rep     : constant Boolean := True;
    Suppress_Standard_Library : constant Boolean := False;
    Use_Ada_Main_Program_Name : constant Boolean := False;
    ZCX_By_Default            : constant Boolean := True;

@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -51,8 +50,7 @@ with Tbuild;   use Tbuild;
 ---------
 
 function Par
-  (Configuration_Pragmas : Boolean;
-   From_Limited_With     : Boolean := False) return List_Id
+  (Configuration_Pragmas : Boolean) return List_Id
 is
    Num_Library_Units : Natural := 0;
    --  Count number of units parsed (relevant only in syntax check only mode,
@@ -532,7 +530,10 @@ is
    -------------
 
    package Ch2 is
-      function P_Pragma                               return Node_Id;
+      function P_Pragma (Skipping : Boolean := False) return Node_Id;
+      --  Scan out a pragma. If Skipping is True, then the caller is skipping
+      --  the pragma in the context of illegal placement (this is used to avoid
+      --  some junk cascaded messages).
 
       function P_Identifier (C : Id_Check := None) return Node_Id;
       --  Scans out an identifier. The parameter C determines the treatment
@@ -967,7 +968,7 @@ is
       procedure T_When;
       procedure T_With;
 
-      --  Procedures have names of the form TF_xxx, where Tok_xxx is a token
+      --  Procedures having names of the form TF_xxx, where Tok_xxx is a token
       --  name check that the current token matches the required token, and
       --  if so, scan past it. If not, an error message is issued indicating
       --  that the required token is not present (xxx expected).
@@ -989,6 +990,13 @@ is
       procedure TF_Semicolon;
       procedure TF_Then;
       procedure TF_Use;
+
+      --  Procedures with names of the form U_xxx, where Tok_xxx is a token
+      --  name, are just like the corresponding T_xxx procedures except that
+      --  an error message, if given, is unconditional.
+
+      procedure U_Left_Paren;
+      procedure U_Right_Paren;
    end Tchk;
 
    --------------
@@ -1042,6 +1050,10 @@ is
       --  it is returned unchanged. Otherwise an error message is issued
       --  and Error is returned.
 
+      procedure Check_No_Right_Paren;
+      --  Called to check that the current token is not a right paren. If it
+      --  is, then an error is given, and the right parenthesis is scanned out.
+
       function Comma_Present return Boolean;
       --  Used in comma delimited lists to determine if a comma is present, or
       --  can reasonably be assumed to have been present (an error message is
@@ -1083,15 +1095,15 @@ is
       --  conditions are met, an error message is issued, and the merge is
       --  carried out, modifying the Chars field of Prev.
 
+      function Next_Token_Is (Tok : Token_Type) return Boolean;
+      --  Looks at token after current one and returns True if the token type
+      --  matches Tok. The scan is unconditionally restored on return.
+
       procedure No_Constraint;
       --  Called in a place where no constraint is allowed, but one might
       --  appear due to a common error (e.g. after the type mark in a procedure
       --  parameter. If a constraint is present, an error message is posted,
       --  and the constraint is scanned and discarded.
-
-      function No_Right_Paren (Expr : Node_Id) return Node_Id;
-      --  Function to check for no right paren at end of expression, returns
-      --  its argument if no right paren, else flags paren and returns Error.
 
       procedure Push_Scope_Stack;
       pragma Inline (Push_Scope_Stack);
@@ -1244,7 +1256,7 @@ begin
 
                   --  Give error if bad pragma
 
-                  if Chars (P_Node) > Last_Configuration_Pragma_Name
+                  if not Is_Configuration_Pragma_Name (Chars (P_Node))
                     and then Chars (P_Node) /= Name_Source_Reference
                   then
                      if Is_Pragma_Name (Chars (P_Node)) then

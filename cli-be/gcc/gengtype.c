@@ -1543,6 +1543,10 @@ open_base_files (void)
     gtype_desc_c = create_file ("GCC", "gtype-desc.c");
     for (ifp = ifiles; *ifp; ifp++)
       oprintf (gtype_desc_c, "#include \"%s\"\n", *ifp);
+
+    /* Make sure we handle "cfun" specially.  */
+    oprintf (gtype_desc_c, "\n/* See definition in function.h.  */\n");
+    oprintf (gtype_desc_c, "#undef cfun\n");
   }
 }
 
@@ -3533,6 +3537,7 @@ main (int argc, char **argv)
   pos.line = __LINE__ + 1;
   do_scalar_typedef ("CUMULATIVE_ARGS", &pos); pos.line++;
   do_scalar_typedef ("REAL_VALUE_TYPE", &pos); pos.line++;
+  do_scalar_typedef ("FIXED_VALUE_TYPE", &pos); pos.line++;
   do_scalar_typedef ("double_int", &pos); pos.line++;
   do_scalar_typedef ("uint8", &pos); pos.line++;
   do_scalar_typedef ("jword", &pos); pos.line++;

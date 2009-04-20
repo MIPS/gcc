@@ -6,7 +6,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #define TARGET_OBJECT_FORMAT OBJECT_XCOFF
 
@@ -60,6 +59,10 @@
    log base 2 of the alignment in bytes; 12 = 4096 bytes = 32768 bits.  */
 
 #define MAX_OFILE_ALIGNMENT 32768
+
+/* Default alignment factor for csect directives, chosen to honor
+   BIGGEST_ALIGNMENT.  */
+#define XCOFF_CSECT_DEFAULT_ALIGNMENT_STR "4"
 
 /* Return nonzero if this entry is to be written into the constant
    pool in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF
@@ -278,9 +281,10 @@
 /* Output before instructions.  */
 #define TEXT_SECTION_ASM_OP "\t.csect .text[PR]"
 
-/* Output before writable data.
-   Align entire section to BIGGEST_ALIGNMENT.  */
-#define DATA_SECTION_ASM_OP "\t.csect .data[RW],3"
+/* Output before writable data.  */
+#define DATA_SECTION_ASM_OP \
+  "\t.csect .data[RW]," XCOFF_CSECT_DEFAULT_ALIGNMENT_STR
+
 
 /* Define to prevent DWARF2 unwind info in the data section rather
    than in the .eh_frame section.  We do this because the AIX linker

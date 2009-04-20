@@ -596,6 +596,9 @@ d_dump (struct demangle_component *dc, int indent)
     case DEMANGLE_COMPONENT_REFERENCE:
       printf ("reference\n");
       break;
+    case DEMANGLE_COMPONENT_RVALUE_REFERENCE:
+      printf ("rvalue reference\n");
+      break;
     case DEMANGLE_COMPONENT_COMPLEX:
       printf ("complex\n");
       break;
@@ -647,6 +650,15 @@ d_dump (struct demangle_component *dc, int indent)
     case DEMANGLE_COMPONENT_LITERAL_NEG:
       printf ("negative literal\n");
       break;
+    case DEMANGLE_COMPONENT_JAVA_RESOURCE:
+      printf ("java resource\n");
+      break;
+    case DEMANGLE_COMPONENT_COMPOUND_NAME:
+      printf ("compound name\n");
+      break;
+    case DEMANGLE_COMPONENT_CHARACTER:
+      printf ("character '%c'\n",  dc->u.s_character.character);
+      return;
     }
 
   d_dump (d_left (dc), indent + 2);
@@ -766,6 +778,7 @@ d_make_comp (struct d_info *di, enum demangle_component_type type,
     case DEMANGLE_COMPONENT_TRINARY_ARG2:
     case DEMANGLE_COMPONENT_LITERAL:
     case DEMANGLE_COMPONENT_LITERAL_NEG:
+    case DEMANGLE_COMPONENT_COMPOUND_NAME:
       if (left == NULL || right == NULL)
 	return NULL;
       break;
@@ -785,12 +798,14 @@ d_make_comp (struct d_info *di, enum demangle_component_type type,
     case DEMANGLE_COMPONENT_HIDDEN_ALIAS:
     case DEMANGLE_COMPONENT_POINTER:
     case DEMANGLE_COMPONENT_REFERENCE:
+    case DEMANGLE_COMPONENT_RVALUE_REFERENCE:
     case DEMANGLE_COMPONENT_COMPLEX:
     case DEMANGLE_COMPONENT_IMAGINARY:
     case DEMANGLE_COMPONENT_VENDOR_TYPE:
     case DEMANGLE_COMPONENT_ARGLIST:
     case DEMANGLE_COMPONENT_TEMPLATE_ARGLIST:
     case DEMANGLE_COMPONENT_CAST:
+    case DEMANGLE_COMPONENT_JAVA_RESOURCE:
       if (left == NULL)
 	return NULL;
       break;
@@ -1497,6 +1512,102 @@ d_operator_name (struct d_info *di)
     }
 }
 
+static struct demangle_component *
+d_make_character (struct d_info *di, int c)
+{
+  struct demangle_component *p;
+  p = d_make_empty (di);
+  if (p != NULL)
+    {
+      p->type = DEMANGLE_COMPONENT_CHARACTER;
+      p->u.s_character.character = c;
+    }
+  return p;
+}
+
+static struct demangle_component *
+d_java_resource (struct d_info *di)
+{
+  struct demangle_component *p = NULL;
+  struct demangle_component *next = NULL;
+  long len, i;
+  char c;
+  const char *str;
+
+  len = d_number (di);
+  if (len <= 1)
+    return NULL;
+
+  /* Eat the leading '_'.  */
+  if (d_next_char (di) != '_')
+    return NULL;
+  len--;
+
+  str = d_str (di);
+  i = 0;
+
+  while (len > 0)
+    {
+      c = str[i];
+      if (!c)
+	return NULL;
+
+      /* Each chunk is either a '$' escape...  */
+      if (c == '$')
+	{
+	  i++;
+	  switch (str[i++])
+	    {
+	    case 'S':
+	      c = '/';
+	      break;
+	    case '_':
+	      c = '.';
+	      break;
+	    case '$':
+	      c = '$';
+	      break;
+	    default:
+	      return NULL;
+	    }
+	  next = d_make_character (di, c);
+	  d_advance (di, i);
+	  str = d_str (di);
+	  len -= i;
+	  i = 0;
+	  if (next == NULL)
+	    return NULL;
+	}
+      /* ... or a sequence of characters.  */
+      else
+	{
+	  while (i < len && str[i] && str[i] != '$')
+	    i++;
+
+	  next = d_make_name (di, str, i);
+	  d_advance (di, i);
+	  str = d_str (di);
+	  len -= i;
+	  i = 0;
+	  if (next == NULL)
+	    return NULL;
+	}
+
+      if (p == NULL)
+	p = next;
+      else
+	{
+	  p = d_make_comp (di, DEMANGLE_COMPONENT_COMPOUND_NAME, p, next);
+	  if (p == NULL)
+	    return NULL;
+	}
+    }
+
+  p = d_make_comp (di, DEMANGLE_COMPONENT_JAVA_RESOURCE, p, NULL);
+
+  return p;
+}
+
 /* <special-name> ::= TV <type>
                   ::= TT <type>
                   ::= TI <type>
@@ -1510,6 +1621,7 @@ d_operator_name (struct d_info *di)
                   ::= TJ <type>
                   ::= GR <name>
 		  ::= GA <encoding>
+		  ::= Gr <resource name>
 */
 
 static struct demangle_component *
@@ -1600,6 +1712,9 @@ d_special_name (struct d_info *di)
 	case 'A':
 	  return d_make_comp (di, DEMANGLE_COMPONENT_HIDDEN_ALIAS,
 			      d_encoding (di, 0), NULL);
+
+	case 'r':
+	  return d_java_resource (di);
 
 	default:
 	  return NULL;
@@ -1726,6 +1841,7 @@ d_ctor_dtor_name (struct d_info *di)
           ::= <CV-qualifiers> <type>
           ::= P <type>
           ::= R <type>
+          ::= O <type> (C++0x)
           ::= C <type>
           ::= G <type>
           ::= U <source-name> <type>
@@ -1892,6 +2008,12 @@ cplus_demangle_type (struct d_info *di)
       }
       break;
 
+    case 'O':
+      d_advance (di, 1);
+      ret = d_make_comp (di, DEMANGLE_COMPONENT_RVALUE_REFERENCE,
+                         cplus_demangle_type (di), NULL);
+      break;
+
     case 'P':
       d_advance (di, 1);
       ret = d_make_comp (di, DEMANGLE_COMPONENT_POINTER,
@@ -1901,7 +2023,7 @@ cplus_demangle_type (struct d_info *di)
     case 'R':
       d_advance (di, 1);
       ret = d_make_comp (di, DEMANGLE_COMPONENT_REFERENCE,
-			 cplus_demangle_type (di), NULL);
+                         cplus_demangle_type (di), NULL);
       break;
 
     case 'C':
@@ -2912,6 +3034,12 @@ d_print_comp (struct d_print_info *dpi,
 	    typed_name = d_left (typed_name);
 	  }
 
+	if (typed_name == NULL)
+	  {
+	    d_print_error (dpi);
+	    return;
+	  }
+
 	/* If typed_name is a template, then it applies to the
 	   function type as well.  */
 	if (typed_name->type == DEMANGLE_COMPONENT_TEMPLATE)
@@ -3178,6 +3306,7 @@ d_print_comp (struct d_print_info *dpi,
     case DEMANGLE_COMPONENT_VENDOR_TYPE_QUAL:
     case DEMANGLE_COMPONENT_POINTER:
     case DEMANGLE_COMPONENT_REFERENCE:
+    case DEMANGLE_COMPONENT_RVALUE_REFERENCE:
     case DEMANGLE_COMPONENT_COMPLEX:
     case DEMANGLE_COMPONENT_IMAGINARY:
       {
@@ -3534,6 +3663,20 @@ d_print_comp (struct d_print_info *dpi,
       }
       return;
 
+    case DEMANGLE_COMPONENT_JAVA_RESOURCE:
+      d_append_string (dpi, "java resource ");
+      d_print_comp (dpi, d_left (dc));
+      return;
+
+    case DEMANGLE_COMPONENT_COMPOUND_NAME:
+      d_print_comp (dpi, d_left (dc));
+      d_print_comp (dpi, d_right (dc));
+      return;
+
+    case DEMANGLE_COMPONENT_CHARACTER:
+      d_append_char (dpi, dc->u.s_character.character);
+      return;
+
     default:
       d_print_error (dpi);
       return;
@@ -3702,6 +3845,9 @@ d_print_mod (struct d_print_info *dpi,
     case DEMANGLE_COMPONENT_REFERENCE:
       d_append_char (dpi, '&');
       return;
+    case DEMANGLE_COMPONENT_RVALUE_REFERENCE:
+      d_append_string (dpi, "&&");
+      return;
     case DEMANGLE_COMPONENT_COMPLEX:
       d_append_string (dpi, "complex ");
       return;
@@ -3751,6 +3897,7 @@ d_print_function_type (struct d_print_info *dpi,
 	{
 	case DEMANGLE_COMPONENT_POINTER:
 	case DEMANGLE_COMPONENT_REFERENCE:
+	case DEMANGLE_COMPONENT_RVALUE_REFERENCE:
 	  need_paren = 1;
 	  break;
 	case DEMANGLE_COMPONENT_RESTRICT:

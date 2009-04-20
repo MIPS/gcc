@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "real.h"
+#include "fixed-value.h"
 #include "ggc.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
@@ -58,7 +59,7 @@ debug_tree (tree node)
 
 /* Print PREFIX and ADDR to FILE.  */
 void
-dump_addr (FILE *file, const char *prefix, void *addr)
+dump_addr (FILE *file, const char *prefix, const void *addr)
 {
   if (flag_dump_noaddr || flag_dump_unnumbered)
     fprintf (file, "%s#", prefix);
@@ -69,7 +70,7 @@ dump_addr (FILE *file, const char *prefix, void *addr)
 /* Print a node in brief fashion, with just the code, address and name.  */
 
 void
-print_node_brief (FILE *file, const char *prefix, tree node, int indent)
+print_node_brief (FILE *file, const char *prefix, const_tree node, int indent)
 {
   enum tree_code_class class;
 
@@ -91,7 +92,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
       else if (TREE_CODE (node) == LABEL_DECL
 	       && LABEL_DECL_UID (node) != -1)
-	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+	fprintf (file, " L.%d", (int) LABEL_DECL_UID (node));
       else
 	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
 		 DECL_UID (node));
@@ -146,6 +147,18 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 	  real_to_decimal (string, &d, sizeof (string), 0, 1);
 	  fprintf (file, " %s", string);
 	}
+    }
+  if (TREE_CODE (node) == FIXED_CST)
+    {
+      FIXED_VALUE_TYPE f;
+      char string[60];
+
+      if (TREE_OVERFLOW (node))
+	fprintf (file, " overflow");
+
+      f = TREE_FIXED_CST (node);
+      fixed_to_decimal (string, &f, sizeof (string));
+      fprintf (file, " %s", string);
     }
 
   fprintf (file, ">");
@@ -237,7 +250,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
       else if (TREE_CODE (node) == LABEL_DECL
 	       && LABEL_DECL_UID (node) != -1)
-	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+	fprintf (file, " L.%d", (int) LABEL_DECL_UID (node));
       else
 	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
 		 DECL_UID (node));
@@ -430,6 +443,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       xloc = expand_location (DECL_SOURCE_LOCATION (node));
       fprintf (file, " file %s line %d", xloc.file, xloc.line);
+#ifdef USE_MAPPED_LOCATION
+      fprintf (file, " col %d", xloc.column);
+#endif
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{	  
@@ -460,7 +476,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  
 	  if (DECL_POINTER_ALIAS_SET_KNOWN_P (node))
 	    fprintf (file, " alias set " HOST_WIDE_INT_PRINT_DEC,
-		     DECL_POINTER_ALIAS_SET (node));
+		     (HOST_WIDE_INT) DECL_POINTER_ALIAS_SET (node));
 	}
       if (TREE_CODE (node) == FIELD_DECL)
 	{
@@ -601,7 +617,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       fprintf (file, " align %d symtab %d alias set " HOST_WIDE_INT_PRINT_DEC,
 	       TYPE_ALIGN (node), TYPE_SYMTAB_ADDRESS (node),
-	       TYPE_ALIAS_SET (node));
+	       (HOST_WIDE_INT) TYPE_ALIAS_SET (node));
 
       if (TYPE_STRUCTURAL_EQUALITY_P (node))
 	fprintf (file, " structural equality");
@@ -610,7 +626,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       
       print_node (file, "attributes", TYPE_ATTRIBUTES (node), indent + 4);
 
-      if (INTEGRAL_TYPE_P (node) || TREE_CODE (node) == REAL_TYPE)
+      if (INTEGRAL_TYPE_P (node) || TREE_CODE (node) == REAL_TYPE
+	  || TREE_CODE (node) == FIXED_POINT_TYPE)
 	{
 	  fprintf (file, " precision %d", TYPE_PRECISION (node));
 	  print_node_brief (file, "min", TYPE_MIN_VALUE (node), indent + 4);
@@ -755,6 +772,20 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  }
 	  break;
 
+	case FIXED_CST:
+	  {
+	    FIXED_VALUE_TYPE f;
+	    char string[64];
+
+	    if (TREE_OVERFLOW (node))
+	      fprintf (file, " overflow");
+
+	    f = TREE_FIXED_CST (node);
+	    fixed_to_decimal (string, &f, sizeof (string));
+	    fprintf (file, " %s", string);
+	  }
+	  break;
+
 	case VECTOR_CST:
 	  {
 	    tree vals = TREE_VECTOR_CST_ELTS (node);
@@ -818,6 +849,21 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		indent_to (file, indent + 4);
 		print_node_brief (file, temp, TREE_VEC_ELT (node, i), 0);
 	      }
+	  break;
+
+	case CONSTRUCTOR:
+	  {
+	    unsigned HOST_WIDE_INT cnt;
+	    tree index, value;
+	    len = VEC_length (constructor_elt, CONSTRUCTOR_ELTS (node));
+	    fprintf (file, " lngt %d", len);
+	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (node),
+				      cnt, index, value)
+	      {
+		print_node (file, "idx", index, indent + 4);
+		print_node (file, "val", value, indent + 4);
+	      }
+	  }
 	  break;
 
     	case STATEMENT_LIST:
@@ -904,6 +950,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       expanded_location xloc = expand_location (EXPR_LOCATION (node));
       indent_to (file, indent+4);
       fprintf (file, "%s:%d", xloc.file, xloc.line);
+#ifdef USE_MAPPED_LOCATION
+      fprintf (file, ":%d", xloc.column);
+#endif
     }
 
   fprintf (file, ">");

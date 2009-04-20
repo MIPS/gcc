@@ -1,13 +1,13 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007  Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Process declarations and symbol lookup for C++ front end.
@@ -541,8 +540,8 @@ check_java_method (tree method)
    TEMPLATE_DECL, it can be NULL since the parameters can be extracted
    from the declaration. If the function is not a function template, it
    must be NULL.
-   It returns the original declaration for the function, or NULL_TREE
-   if no declaration was found (and an error was emitted).  */
+   It returns the original declaration for the function, NULL_TREE if
+   no declaration was found, error_mark_node if an error was emitted.  */
 
 tree
 check_classfn (tree ctype, tree function, tree template_parms)
@@ -678,16 +677,9 @@ check_classfn (tree ctype, tree function, tree template_parms)
     error ("no %q#D member function declared in class %qT",
 	   function, ctype);
 
-  /* If we did not find the method in the class, add it to avoid
-     spurious errors (unless the CTYPE is not yet defined, in which
-     case we'll only confuse ourselves when the function is declared
-     properly within the class.  */
-  if (COMPLETE_TYPE_P (ctype))
-    add_method (ctype, function, NULL_TREE);
-  
   if (pushed_scope)
     pop_scope (pushed_scope);
-  return NULL_TREE;
+  return error_mark_node;
 }
 
 /* DECL is a function with vague linkage.  Remember it so that at the
@@ -808,16 +800,7 @@ grokfield (const cp_declarator *declarator,
 	value = push_template_decl (value);
 
       if (attrlist)
-	{
-	  /* Avoid storing attributes in template parameters:
-	     tsubst is not ready to handle them.  */
-	  tree type = TREE_TYPE (value);
-	  if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
-	      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
-	    sorry ("applying attributes to template parameters is not implemented");
-	  else
-	    cplus_decl_attributes (&value, attrlist, 0);
-	}
+	cplus_decl_attributes (&value, attrlist, 0);
 
       return value;
     }
@@ -993,12 +976,169 @@ grokbitfield (const cp_declarator *declarator,
 }
 
 
+/* Returns true iff ATTR is an attribute which needs to be applied at
+   instantiation time rather than template definition time.  */
+
+static bool
+is_late_template_attribute (tree attr, tree decl)
+{
+  tree name = TREE_PURPOSE (attr);
+  tree args = TREE_VALUE (attr);
+  const struct attribute_spec *spec = lookup_attribute_spec (name);
+  tree arg;
+
+  if (!spec)
+    /* Unknown attribute.  */
+    return false;
+
+  /* Attribute vector_size handling wants to dive into the back end array
+     building code, which breaks during template processing.  */
+  if (is_attribute_p ("vector_size", name)
+      /* Attribute weak handling wants to write out assembly right away.  */
+      || is_attribute_p ("weak", name))
+    return true;
+
+  /* If any of the arguments are dependent expressions, we can't evaluate
+     the attribute until instantiation time.  */
+  for (arg = args; arg; arg = TREE_CHAIN (arg))
+    {
+      tree t = TREE_VALUE (arg);
+      if (value_dependent_expression_p (t)
+	  || type_dependent_expression_p (t))
+	return true;
+    }
+
+  if (TREE_CODE (decl) == TYPE_DECL
+      || TYPE_P (decl)
+      || spec->type_required)
+    {
+      tree type = TYPE_P (decl) ? decl : TREE_TYPE (decl);
+
+      /* We can't apply any attributes to a completely unknown type until
+	 instantiation time.  */
+      enum tree_code code = TREE_CODE (type);
+      if (code == TEMPLATE_TYPE_PARM
+	  || code == BOUND_TEMPLATE_TEMPLATE_PARM
+	  || code == TYPENAME_TYPE)
+	return true;
+      /* Also defer most attributes on dependent types.  This is not
+	 necessary in all cases, but is the better default.  */
+      else if (dependent_type_p (type)
+	       /* But attribute visibility specifically works on
+		  templates.  */
+	       && !is_attribute_p ("visibility", name))
+	return true;
+      else
+	return false;
+    }
+  else
+    return false;
+}
+
+/* ATTR_P is a list of attributes.  Remove any attributes which need to be
+   applied at instantiation time and return them.  If IS_DEPENDENT is true,
+   the declaration itself is dependent, so all attributes should be applied
+   at instantiation time.  */
+
+static tree
+splice_template_attributes (tree *attr_p, tree decl)
+{
+  tree *p = attr_p;
+  tree late_attrs = NULL_TREE;
+  tree *q = &late_attrs;
+
+  if (!p)
+    return NULL_TREE;
+
+  for (; *p; )
+    {
+      if (is_late_template_attribute (*p, decl))
+	{
+	  ATTR_IS_DEPENDENT (*p) = 1;
+	  *q = *p;
+	  *p = TREE_CHAIN (*p);
+	  q = &TREE_CHAIN (*q);
+	  *q = NULL_TREE;
+	}
+      else
+	p = &TREE_CHAIN (*p);
+    }
+
+  return late_attrs;
+}
+
+/* Remove any late attributes from the list in ATTR_P and attach them to
+   DECL_P.  */
+
+static void
+save_template_attributes (tree *attr_p, tree *decl_p)
+{
+  tree late_attrs = splice_template_attributes (attr_p, *decl_p);
+  tree *q;
+  tree old_attrs = NULL_TREE;
+
+  if (!late_attrs)
+    return;
+
+  /* Give this type a name so we know to look it up again at instantiation
+     time.  */
+  if (TREE_CODE (*decl_p) == TYPE_DECL
+      && DECL_ORIGINAL_TYPE (*decl_p) == NULL_TREE)
+    {
+      tree oldt = TREE_TYPE (*decl_p);
+      tree newt = build_variant_type_copy (oldt);
+      DECL_ORIGINAL_TYPE (*decl_p) = oldt;
+      TREE_TYPE (*decl_p) = newt;
+      TYPE_NAME (newt) = *decl_p;
+      TREE_USED (newt) = TREE_USED (*decl_p);
+    }
+
+  if (DECL_P (*decl_p))
+    q = &DECL_ATTRIBUTES (*decl_p);
+  else
+    q = &TYPE_ATTRIBUTES (*decl_p);
+
+  old_attrs = *q;
+
+  /* Place the late attributes at the beginning of the attribute
+     list.  */
+  TREE_CHAIN (tree_last (late_attrs)) = *q;
+  *q = late_attrs;
+
+  if (!DECL_P (*decl_p) && *decl_p == TYPE_MAIN_VARIANT (*decl_p))
+    {
+      /* We've added new attributes directly to the main variant, so
+	 now we need to update all of the other variants to include
+	 these new attributes.  */
+      tree variant;
+      for (variant = TYPE_NEXT_VARIANT (*decl_p); variant;
+	   variant = TYPE_NEXT_VARIANT (variant))
+	{
+	  gcc_assert (TYPE_ATTRIBUTES (variant) == old_attrs);
+	  TYPE_ATTRIBUTES (variant) = TYPE_ATTRIBUTES (*decl_p);
+	}
+    }
+}
+
+/* Like decl_attributes, but handle C++ complexity.  */
+
 void
 cplus_decl_attributes (tree *decl, tree attributes, int flags)
 {
   if (*decl == NULL_TREE || *decl == void_type_node
-      || *decl == error_mark_node)
+      || *decl == error_mark_node
+      || attributes == NULL_TREE)
     return;
+
+  if (processing_template_decl)
+    {
+      if (check_for_bare_parameter_packs (attributes))
+	return;
+
+      save_template_attributes (&attributes, decl);
+      if (attributes == NULL_TREE)
+	return;
+    }
 
   if (TREE_CODE (*decl) == TEMPLATE_DECL)
     decl = &DECL_TEMPLATE_RESULT (*decl);
@@ -1154,15 +1294,33 @@ coerce_new_type (tree type)
       error ("%<operator new%> must return type %qT", ptr_type_node);
     }
 
-  if (!args || args == void_list_node
-      || !same_type_p (TREE_VALUE (args), size_type_node))
+  if (args && args != void_list_node)
     {
-      e = 2;
-      if (args && args != void_list_node)
-	args = TREE_CHAIN (args);
-      pedwarn ("%<operator new%> takes type %<size_t%> (%qT) "
-	       "as first parameter", size_type_node);
+      if (TREE_PURPOSE (args))
+	{
+	  /* [basic.stc.dynamic.allocation]
+	     
+	     The first parameter shall not have an associated default
+	     argument.  */
+	  error ("the first parameter of %<operator new%> cannot "
+		 "have a default argument");
+	  /* Throw away the default argument.  */
+	  TREE_PURPOSE (args) = NULL_TREE;
+	}
+
+      if (!same_type_p (TREE_VALUE (args), size_type_node))
+	{
+	  e = 2;
+	  args = TREE_CHAIN (args);
+	}
     }
+  else
+    e = 2;
+
+  if (e == 2)
+    pedwarn ("%<operator new%> takes type %<size_t%> (%qT) "
+	     "as first parameter", size_type_node);
+
   switch (e)
   {
     case 2:
@@ -1217,6 +1375,9 @@ coerce_delete_type (tree type)
   return type;
 }
 
+/* DECL is a VAR_DECL for a vtable: walk through the entries in the vtable
+   and mark them as needed.  */
+
 static void
 mark_vtable_entries (tree decl)
 {
@@ -1569,7 +1730,7 @@ static int
 type_visibility (tree type)
 {
   int vis = VISIBILITY_DEFAULT;
-  walk_tree_without_duplicates (&type, min_vis_r, &vis);
+  cp_walk_tree_without_duplicates (&type, min_vis_r, &vis);
   return vis;
 }
 
@@ -1586,6 +1747,7 @@ constrain_visibility (tree decl, int visibility)
       if (!DECL_EXTERN_C_P (decl))
 	{
 	  TREE_PUBLIC (decl) = 0;
+	  DECL_ONE_ONLY (decl) = 0;
 	  DECL_INTERFACE_KNOWN (decl) = 1;
 	  if (DECL_LANG_SPECIFIC (decl))
 	    DECL_NOT_REALLY_EXTERN (decl) = 1;
@@ -1862,8 +2024,7 @@ constrain_class_visibility (tree type)
 
 	if (subvis == VISIBILITY_ANON)
 	  {
-	    if (strcmp (main_input_filename,
-	                DECL_SOURCE_FILE (TYPE_MAIN_DECL (ftype))))
+	    if (!in_main_input_context ())
 	      warning (0, "\
 %qT has a field %qD whose type uses the anonymous namespace",
 		       type, t);
@@ -1883,8 +2044,7 @@ constrain_class_visibility (tree type)
 
       if (subvis == VISIBILITY_ANON)
         {
-	  if (strcmp (main_input_filename,
-	              DECL_SOURCE_FILE (TYPE_MAIN_DECL (TREE_TYPE (t)))))
+	  if (!in_main_input_context())
 	    warning (0, "\
 %qT has a base %qT whose type uses the anonymous namespace",
 		     type, TREE_TYPE (t));
@@ -2113,7 +2273,8 @@ import_export_decl (tree decl)
     {
       /* DECL is an implicit instantiation of a function or static
 	 data member.  */
-      if (flag_implicit_templates
+      if ((flag_implicit_templates
+	   && !flag_use_repository)
 	  || (flag_implicit_inline_templates
 	      && TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_DECLARED_INLINE_P (decl)))
@@ -2225,6 +2386,8 @@ get_guard (tree decl)
       DECL_ONE_ONLY (guard) = DECL_ONE_ONLY (decl);
       if (TREE_PUBLIC (decl))
 	DECL_WEAK (guard) = DECL_WEAK (decl);
+      DECL_VISIBILITY (guard) = DECL_VISIBILITY (decl);
+      DECL_VISIBILITY_SPECIFIED (guard) = DECL_VISIBILITY_SPECIFIED (decl);
 
       DECL_ARTIFICIAL (guard) = 1;
       DECL_IGNORED_P (guard) = 1;
@@ -2908,8 +3071,7 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
    Here we must deal with member pointers.  */
 
 tree
-cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-			    tree from ATTRIBUTE_UNUSED)
+cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
 
@@ -3241,7 +3403,9 @@ cp_write_global_declarations (void)
       /* Static data members are just like namespace-scope globals.  */
       for (i = 0; VEC_iterate (tree, pending_statics, i, decl); ++i)
 	{
-	  if (var_finalized_p (decl) || DECL_REALLY_EXTERN (decl))
+	  if (var_finalized_p (decl) || DECL_REALLY_EXTERN (decl)
+	      /* Don't write it out if we haven't seen a definition.  */
+	      || DECL_IN_AGGR_P (decl))
 	    continue;
 	  import_export_decl (decl);
 	  /* If this static data member is needed, provide it to the
@@ -3381,9 +3545,9 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 	 parameter.  That must be done before the FN is transformed
 	 because we depend on the form of FN.  */
       args = build_non_dependent_args (args);
+      object = build_non_dependent_expr (object);
       if (TREE_CODE (fn) == DOTSTAR_EXPR)
 	object = build_unary_op (ADDR_EXPR, object, 0);
-      object = build_non_dependent_expr (object);
       args = tree_cons (NULL_TREE, object, args);
       /* Now that the arguments are done, transform FN.  */
       fn = build_non_dependent_expr (fn);

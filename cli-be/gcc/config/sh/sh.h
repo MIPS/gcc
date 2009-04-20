@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_SH_H
 #define GCC_SH_H
@@ -1366,7 +1365,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
 #define SHMEDIA_REGS_STACK_ADJUST() \
-  (TARGET_SHCOMPACT && current_function_has_nonlocal_label \
+  (TARGET_SHCOMPACT && current_function_saves_all_registers \
    ? (8 * (/* r28-r35 */ 8 + /* r44-r59 */ 16 + /* tr5-tr7 */ 3) \
       + (TARGET_FPU_ANY ? 4 * (/* fr36 - fr63 */ 28) : 0)) \
    : 0)
@@ -2077,10 +2076,6 @@ struct sh_args {
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
 
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  sh_va_start (valist, nextarg)
-
 /* Call the function profiler with a given profile label.
    We use two .aligns, so as to make sure that both the .long is aligned
    on a 4 byte boundary, and that the .long is a fixed distance (2 bytes)
@@ -2184,6 +2179,8 @@ struct sh_args {
 #define STORE_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
    < (TARGET_SMALLCODE ? 2 : ((ALIGN >= 32) ? 16 : 2)))
+
+#define SET_BY_PIECES_P(SIZE, ALIGN) STORE_BY_PIECES_P(SIZE, ALIGN)
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -2972,16 +2969,18 @@ struct sh_args {
    ? (TARGET_SH5 ? 18 : 17) \
    : (REGNO) == PR_MEDIA_REG \
    ? (TARGET_SH5 ? 18 : (unsigned) -1) \
-   : (REGNO) == T_REG \
-   ? (TARGET_SH5 ? 242 : 18) \
    : (REGNO) == GBR_REG \
-   ? (TARGET_SH5 ? 238 : 19) \
+   ? (TARGET_SH5 ? 238 : 18) \
    : (REGNO) == MACH_REG \
    ? (TARGET_SH5 ? 239 : 20) \
    : (REGNO) == MACL_REG \
    ? (TARGET_SH5 ? 240 : 21) \
+   : (REGNO) == T_REG \
+   ? (TARGET_SH5 ? 242 : 22) \
    : (REGNO) == FPUL_REG \
    ? (TARGET_SH5 ? 244 : 23) \
+   : (REGNO) == FPSCR_REG \
+   ? (TARGET_SH5 ? 243 : 24) \
    : (unsigned) -1)
 
 /* This is how to output a reference to a symbol_ref.  On SH5,

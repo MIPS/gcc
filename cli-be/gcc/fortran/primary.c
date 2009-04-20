@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -350,9 +349,9 @@ match_boz_constant (gfc_expr **result)
   if (delim != '\'' && delim != '\"')
     goto backup;
 
-  if (x_hex && pedantic
+  if (x_hex
       && (gfc_notify_std (GFC_STD_GNU, "Extension: Hexadecimal "
-			  "constant at %C uses non-standard syntax.")
+			  "constant at %C uses non-standard syntax")
 	  == FAILURE))
       return MATCH_ERROR;
 
@@ -389,8 +388,11 @@ match_boz_constant (gfc_expr **result)
 	default:
 	  goto backup;
 	}
-	gfc_notify_std (GFC_STD_GNU, "Extension: BOZ constant "
-			"at %C uses non-standard postfix syntax.");
+
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: BOZ constant "
+			  "at %C uses non-standard postfix syntax")
+	  == FAILURE)
+	return MATCH_ERROR;
     }
 
   gfc_current_locus = old_loc;
@@ -413,12 +415,21 @@ match_boz_constant (gfc_expr **result)
   kind = gfc_max_integer_kind;
   e = gfc_convert_integer (buffer, kind, radix, &gfc_current_locus);
 
+  /* Mark as boz variable.  */
+  e->is_boz = 1;
+
   if (gfc_range_check (e) != ARITH_OK)
     {
       gfc_error ("Integer too big for integer kind %i at %C", kind);
       gfc_free_expr (e);
       return MATCH_ERROR;
     }
+
+  if (!gfc_in_match_data ()
+      && (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: BOZ used outside a DATA "
+			  "statement at %C")
+	  == FAILURE))
+      return MATCH_ERROR;
 
   *result = e;
   return MATCH_YES;
@@ -430,7 +441,7 @@ backup:
 
 
 /* Match a real constant of some sort.  Allow a signed constant if signflag
-   is nonzero.  Allow integer constants if allow_int is true.  */
+   is nonzero.  */
 
 static match
 match_real_constant (gfc_expr **result, int signflag)
@@ -978,21 +989,50 @@ no_match:
 }
 
 
+/* Match a .true. or .false.  Returns 1 if a .true. was found,
+   0 if a .false. was found, and -1 otherwise.  */
+static int
+match_logical_constant_string (void)
+{
+  locus orig_loc = gfc_current_locus;
+
+  gfc_gobble_whitespace ();
+  if (gfc_next_char () == '.')
+    {
+      int ch = gfc_next_char();
+      if (ch == 'f')
+	{
+	  if (gfc_next_char () == 'a'
+	      && gfc_next_char () == 'l'
+	      && gfc_next_char () == 's'
+	      && gfc_next_char () == 'e'
+	      && gfc_next_char () == '.')
+	    /* Matched ".false.".  */
+	    return 0;
+	}
+      else if (ch == 't')
+	{
+	  if (gfc_next_char () == 'r'
+	      && gfc_next_char () == 'u'
+	      && gfc_next_char () == 'e'
+	      && gfc_next_char () == '.')
+	    /* Matched ".true.".  */
+	    return 1;
+	}
+    }
+  gfc_current_locus = orig_loc;
+  return -1;
+}
+
 /* Match a .true. or .false.  */
 
 static match
 match_logical_constant (gfc_expr **result)
 {
-  static mstring logical_ops[] = {
-    minit (".false.", 0),
-    minit (".true.", 1),
-    minit (NULL, -1)
-  };
-
   gfc_expr *e;
   int i, kind;
 
-  i = gfc_match_strings (logical_ops);
+  i = match_logical_constant_string ();
   if (i == -1)
     return MATCH_NO;
 
@@ -1636,9 +1676,11 @@ match_varspec (gfc_expr *primary, int equiv_flag)
   gfc_component *component;
   gfc_symbol *sym = primary->symtree->n.sym;
   match m;
+  bool unknown;
 
   tail = NULL;
 
+  gfc_gobble_whitespace ();
   if ((equiv_flag && gfc_peek_char () == '(') || sym->attr.dimension)
     {
       /* In EQUIVALENCE, we don't know yet whether we are seeing
@@ -1652,6 +1694,7 @@ match_varspec (gfc_expr *primary, int equiv_flag)
       if (m != MATCH_YES)
 	return m;
 
+      gfc_gobble_whitespace ();
       if (equiv_flag && gfc_peek_char () == '(')
 	{
 	  tail = extend_ref (primary, tail);
@@ -1711,12 +1754,14 @@ match_varspec (gfc_expr *primary, int equiv_flag)
     }
 
 check_substring:
+  unknown = false;
   if (primary->ts.type == BT_UNKNOWN)
     {
       if (gfc_get_default_type (sym, sym->ns)->type == BT_CHARACTER)
        {
 	 gfc_set_default_type (sym, 0, sym->ns);
 	 primary->ts = sym->ts;
+	 unknown = true;
        }
     }
 
@@ -1739,6 +1784,8 @@ check_substring:
 	  break;
 
 	case MATCH_NO:
+	  if (unknown)
+	    gfc_clear_ts (&primary->ts);
 	  break;
 
 	case MATCH_ERROR:
@@ -1951,7 +1998,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
   if (gfc_match_char (')') != MATCH_YES)
     goto syntax;
 
-  if (comp->next != NULL)
+  if (comp && comp->next != NULL)
     {
       gfc_error ("Too few components in structure constructor at %C");
       goto cleanup;
@@ -2018,6 +2065,7 @@ gfc_match_rvalue (gfc_expr **result)
   int i;
   gfc_typespec *ts;
   bool implicit_char;
+  gfc_ref *ref;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
@@ -2115,6 +2163,32 @@ gfc_match_rvalue (gfc_expr **result)
 
       e->symtree = symtree;
       m = match_varspec (e, 0);
+
+      if (sym->ts.is_c_interop || sym->ts.is_iso_c)
+	break;
+
+      /* Variable array references to derived type parameters cause
+	 all sorts of headaches in simplification. Treating such
+	 expressions as variable works just fine for all array
+	 references.  */
+      if (sym->value && sym->ts.type == BT_DERIVED && e->ref)
+	{
+	  for (ref = e->ref; ref; ref = ref->next)
+	    if (ref->type == REF_ARRAY)
+	      break;
+
+	  if (ref == NULL || ref->u.ar.type == AR_FULL)
+	    break;
+
+	  ref = e->ref;
+	  e->ref = NULL;
+	  gfc_free_expr (e);
+	  e = gfc_get_expr ();
+	  e->expr_type = EXPR_VARIABLE;
+	  e->symtree = symtree;
+	  e->ref = ref;
+	}
+
       break;
 
     case FL_DERIVED:
@@ -2452,12 +2526,30 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
       break;
 
     case FL_UNKNOWN:
-      if (sym->attr.access == ACCESS_PUBLIC
-	  || sym->attr.access == ACCESS_PRIVATE)
-	break;
-      if (gfc_add_flavor (&sym->attr, FL_VARIABLE,
-			  sym->name, NULL) == FAILURE)
-	return MATCH_ERROR;
+      {
+	sym_flavor flavor = FL_UNKNOWN;
+
+	gfc_gobble_whitespace ();
+
+	if (sym->attr.external || sym->attr.procedure
+	    || sym->attr.function || sym->attr.subroutine)
+	  flavor = FL_PROCEDURE;
+
+	/* If it is not a procedure, is not typed and is host associated,
+	   we cannot give it a flavor yet.  */
+	else if (sym->ns == gfc_current_ns->parent
+		   && sym->ts.type == BT_UNKNOWN)
+	  break;
+
+	/* These are definitive indicators that this is a variable.  */
+	else if (gfc_peek_char () != '(' || sym->ts.type != BT_UNKNOWN
+		 || sym->attr.pointer || sym->as != NULL)
+	  flavor = FL_VARIABLE;
+
+	if (flavor != FL_UNKNOWN
+	    && gfc_add_flavor (&sym->attr, flavor, sym->name, NULL) == FAILURE)
+	  return MATCH_ERROR;
+      }
       break;
 
     case FL_PARAMETER:
@@ -2470,8 +2562,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
 
     case FL_PROCEDURE:
       /* Check for a nonrecursive function result */
-      if (sym->attr.function && (sym->result == sym || sym->attr.entry)
-	  && !sym->attr.external)
+      if (sym->attr.function && sym->result == sym && !sym->attr.external)
 	{
 	  /* If a function result is a derived type, then the derived
 	     type may still have to be resolved.  */
@@ -2485,7 +2576,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
       /* Fall through to error */
 
     default:
-      gfc_error ("Expected VARIABLE at %C");
+      gfc_error ("'%s' at %C is not a variable", sym->name);
       return MATCH_ERROR;
     }
 

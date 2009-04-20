@@ -1,5 +1,5 @@
 /* Name mangling for the 3.0 C++ ABI.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Written by Alex Samuel <samuel@codesourcery.com>
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but
@@ -15,10 +15,9 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file implements mangling of C++ names according to the IA64
    C++ ABI specification.  A mangled name encodes a function or
@@ -1647,8 +1646,9 @@ write_type (tree type)
 
 	    case REFERENCE_TYPE:
 	      if (TYPE_REF_IS_RVALUE (type))
-        	write_char('R');
-	      write_char ('R');
+        	write_char('O');
+              else
+                write_char ('R');
 	      write_type (TREE_TYPE (type));
 	      break;
 
@@ -1686,6 +1686,10 @@ write_type (tree type)
               write_expression (DECLTYPE_TYPE_EXPR (type));
               write_char ('E');
               break;
+
+	    case TYPEOF_TYPE:
+	      sorry ("mangling typeof, use decltype instead");
+	      break;
 
 	    default:
 	      gcc_unreachable ();
@@ -1764,6 +1768,9 @@ write_CV_qualifiers_for_type (const tree type)
 static void
 write_builtin_type (tree type)
 {
+  if (TYPE_CANONICAL (type))
+    type = TYPE_CANONICAL (type);
+
   switch (TREE_CODE (type))
     {
     case VOID_TYPE:

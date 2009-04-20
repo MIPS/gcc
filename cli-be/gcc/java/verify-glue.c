@@ -1,11 +1,11 @@
 /* Glue to interface gcj with bytecode verifier.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -394,37 +393,41 @@ vfy_get_primitive_type (int type)
 void
 vfy_note_stack_depth (vfy_method *method, int pc, int depth)
 {
-  tree label = lookup_label (pc);
-  LABEL_TYPE_STATE (label) = make_tree_vec (method->max_locals + depth);
+  tree val = make_tree_vec (method->max_locals + depth);
+  VEC_replace (tree, type_states, pc, val);
+  /* Called for side effects.  */
+  lookup_label (pc);
 }
 
 void
 vfy_note_stack_type (vfy_method *method, int pc, int slot, vfy_jclass type)
 {
-  tree label, vec;
+  tree vec;
   
   slot += method->max_locals;
 
   if (type == object_type_node)
     type = object_ptr_type_node;
 
-  label = lookup_label (pc);
-  vec = LABEL_TYPE_STATE (label);
+  vec = VEC_index (tree, type_states, pc);
   TREE_VEC_ELT (vec, slot) = type;
+  /* Called for side effects.  */
+  lookup_label (pc);
 }
 
 void
 vfy_note_local_type (vfy_method *method ATTRIBUTE_UNUSED, int pc, int slot,
 		     vfy_jclass type)
 {
-  tree label, vec;
+  tree vec;
   
   if (type == object_type_node)
     type = object_ptr_type_node;
 
-  label = lookup_label (pc);
-  vec = LABEL_TYPE_STATE (label);
+  vec = VEC_index (tree, type_states, pc);
   TREE_VEC_ELT (vec, slot) = type;
+  /* Called for side effects.  */
+  lookup_label (pc);
 }
 
 void

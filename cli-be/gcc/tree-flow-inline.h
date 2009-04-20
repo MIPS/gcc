@@ -151,13 +151,8 @@ next_htab_element (htab_iterator *hti)
 static inline tree
 first_referenced_var (referenced_var_iterator *iter)
 {
-  struct int_tree_map *itm;
-  itm = (struct int_tree_map *) first_htab_element (&iter->hti,
-                                                    gimple_referenced_vars
-						    (cfun));
-  if (!itm) 
-    return NULL;
-  return itm->to;
+  return (tree) first_htab_element (&iter->hti,
+				    gimple_referenced_vars (cfun));
 }
 
 /* Return true if we have hit the end of the referenced variables ITER is
@@ -175,11 +170,7 @@ end_referenced_vars_p (const referenced_var_iterator *iter)
 static inline tree
 next_referenced_var (referenced_var_iterator *iter)
 {
-  struct int_tree_map *itm;
-  itm = (struct int_tree_map *) next_htab_element (&iter->hti);
-  if (!itm) 
-    return NULL;
-  return itm->to;
+  return (tree) next_htab_element (&iter->hti);
 } 
 
 /* Fill up VEC with the variables in the referenced vars hashtable.  */
@@ -199,23 +190,28 @@ fill_referenced_var_vec (VEC (tree, heap) **vec)
 static inline var_ann_t
 var_ann (const_tree t)
 {
-  gcc_assert (t);
-  gcc_assert (DECL_P (t));
-  gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
-  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+  var_ann_t ann;
+
+  if (!MTAG_P (t)
+      && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
       struct static_var_ann_d *sann
         = ((struct static_var_ann_d *)
 	   htab_find_with_hash (gimple_var_anns (cfun), t, DECL_UID (t)));
       if (!sann)
 	return NULL;
-      gcc_assert (sann->ann.common.type == VAR_ANN);
-      return &sann->ann;
+      ann = &sann->ann;
     }
-  gcc_assert (!t->base.ann
-	      || t->base.ann->common.type == VAR_ANN);
+  else
+    {
+      if (!t->base.ann)
+	return NULL;
+      ann = (var_ann_t) t->base.ann;
+    }
 
-  return (var_ann_t) t->base.ann;
+  gcc_assert (ann->common.type == VAR_ANN);
+
+  return ann;
 }
 
 /* Return the variable annotation for T, which must be a _DECL node.
@@ -313,7 +309,7 @@ may_aliases (const_tree var)
 /* Return the line number for EXPR, or return -1 if we have no line
    number information for it.  */
 static inline int
-get_lineno (tree expr)
+get_lineno (const_tree expr)
 {
   if (expr == NULL_TREE)
     return -1;
@@ -325,24 +321,6 @@ get_lineno (tree expr)
     return -1;
 
   return EXPR_LINENO (expr);
-}
-
-/* Return the file name for EXPR, or return "???" if we have no
-   filename information.  */
-static inline const char *
-get_filename (tree expr)
-{
-  const char *filename;
-  if (expr == NULL_TREE)
-    return "???";
-
-  if (TREE_CODE (expr) == COMPOUND_EXPR)
-    expr = TREE_OPERAND (expr, 0);
-
-  if (EXPR_HAS_LOCATION (expr) && (filename = EXPR_FILENAME (expr)))
-    return filename;
-  else
-    return "???";
 }
 
 /* Return true if T is a noreturn call.  */
@@ -524,8 +502,8 @@ next_readonly_imm_use (imm_use_iterator *imm)
   use_operand_p old = imm->imm_use;
 
 #ifdef ENABLE_CHECKING
-  /* If this assertion fails, it indicates the 'next' pointer has changed 
-     since we the last bump.  This indicates that the list is being modified
+  /* If this assertion fails, it indicates the 'next' pointer has changed
+     since the last bump.  This indicates that the list is being modified
      via stmt changes, or SET_USE, or somesuch thing, and you need to be
      using the SAFE version of the iterator.  */
   gcc_assert (imm->iter_node.next == old->next);
@@ -629,7 +607,7 @@ addresses_taken (tree stmt)
 /* Return the PHI nodes for basic block BB, or NULL if there are no
    PHI nodes.  */
 static inline tree
-phi_nodes (basic_block bb)
+phi_nodes (const_basic_block bb)
 {
   gcc_assert (!(bb->flags & BB_RTL));
   if (!bb->il.tree)
@@ -699,31 +677,6 @@ set_is_used (tree var)
   ann->used = 1;
 }
 
-/* Return true if T is an executable statement.  */
-static inline bool
-is_exec_stmt (const_tree t)
-{
-  return (t && !IS_EMPTY_STMT (t) && t != error_mark_node);
-}
-
-
-/* Return true if this stmt can be the target of a control transfer stmt such
-   as a goto.  */
-static inline bool
-is_label_stmt (const_tree t)
-{
-  if (t)
-    switch (TREE_CODE (t))
-      {
-	case LABEL_DECL:
-	case LABEL_EXPR:
-	case CASE_LABEL_EXPR:
-	  return true;
-	default:
-	  return false;
-      }
-  return false;
-}
 
 /* Return true if T (assumed to be a DECL) is a global variable.  */
 
@@ -756,7 +709,7 @@ phi_ssa_name_p (const_tree t)
 /* Returns the list of statements in BB.  */
 
 static inline tree
-bb_stmt_list (basic_block bb)
+bb_stmt_list (const_basic_block bb)
 {
   gcc_assert (!(bb->flags & BB_RTL));
   return bb->il.tree->stmt_list;
@@ -1548,7 +1501,6 @@ next_imm_use_stmt (imm_use_iterator *imm)
 
   link_use_stmts_after (imm->imm_use, imm);
   return USE_STMT (imm->imm_use);
-
 }
 
 /* This routine will return the first use on the stmt IMM currently refers
@@ -1662,14 +1614,88 @@ get_subvars_for_var (tree var)
 static inline tree
 get_subvar_at (tree var, unsigned HOST_WIDE_INT offset)
 {
-  subvar_t sv;
+  subvar_t sv = get_subvars_for_var (var);
+  int low, high;
 
-  for (sv = get_subvars_for_var (var); sv; sv = sv->next)
-    if (SFT_OFFSET (sv->var) == offset)
-      return sv->var;
+  low = 0;
+  high = VEC_length (tree, sv) - 1;
+  while (low <= high)
+    {
+      int mid = (low + high) / 2;
+      tree subvar = VEC_index (tree, sv, mid);
+      if (SFT_OFFSET (subvar) == offset)
+	return subvar;
+      else if (SFT_OFFSET (subvar) < offset)
+	low = mid + 1;
+      else
+	high = mid - 1;
+    }
 
   return NULL_TREE;
 }
+
+
+/* Return the first subvariable in SV that overlaps [offset, offset + size[.
+   NULL_TREE is returned, if there is no overlapping subvariable, else *I
+   is set to the index in the SV vector of the first overlap.  */
+
+static inline tree
+get_first_overlapping_subvar (subvar_t sv, unsigned HOST_WIDE_INT offset,
+			      unsigned HOST_WIDE_INT size, unsigned int *i)
+{
+  int low = 0;
+  int high = VEC_length (tree, sv) - 1;
+  int mid;
+  tree subvar;
+
+  if (low > high)
+    return NULL_TREE;
+
+  /* Binary search for offset.  */
+  do
+    {
+      mid = (low + high) / 2;
+      subvar = VEC_index (tree, sv, mid);
+      if (SFT_OFFSET (subvar) == offset)
+	{
+	  *i = mid;
+	  return subvar;
+	}
+      else if (SFT_OFFSET (subvar) < offset)
+	low = mid + 1;
+      else
+	high = mid - 1;
+    }
+  while (low <= high);
+
+  /* As we didn't find a subvar with offset, adjust to return the
+     first overlapping one.  */
+  if (SFT_OFFSET (subvar) < offset
+      && SFT_OFFSET (subvar) + SFT_SIZE (subvar) <= offset)
+    {
+      mid += 1;
+      if ((unsigned)mid >= VEC_length (tree, sv))
+	return NULL_TREE;
+      subvar = VEC_index (tree, sv, mid);
+    }
+  else if (SFT_OFFSET (subvar) > offset
+	   && size <= SFT_OFFSET (subvar) - offset)
+    {
+      mid -= 1;
+      if (mid < 0)
+	return NULL_TREE;
+      subvar = VEC_index (tree, sv, mid);
+    }
+
+  if (overlap_subvar (offset, size, subvar, NULL))
+    {
+      *i = mid;
+      return subvar;
+    }
+
+  return NULL_TREE;
+}
+
 
 /* Return true if V is a tree that we can have subvars for.
    Normally, this is any aggregate type.  Also complex

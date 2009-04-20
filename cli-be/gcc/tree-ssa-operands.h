@@ -206,10 +206,12 @@ extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
 extern void free_ssa_operands (stmt_operands_p);
 extern void update_stmt_operands (tree);
+extern void free_stmt_operands (tree);
 extern bool verify_imm_links (FILE *f, tree var);
 
 extern void copy_virtual_operands (tree, tree);
-extern void create_ssa_artificial_load_stmt (tree, tree);
+extern int operand_build_cmp (const void *, const void *);
+extern void create_ssa_artificial_load_stmt (tree, tree, bool);
 
 extern void dump_immediate_uses (FILE *file);
 extern void dump_immediate_uses_for (FILE *file, tree var);

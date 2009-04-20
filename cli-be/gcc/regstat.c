@@ -180,6 +180,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 	  EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
 	    {
 	      REG_N_CALLS_CROSSED (regno)++;
+	      REG_FREQ_CALLS_CROSSED (regno) += REG_FREQ_FROM_BB (bb);
 	      if (can_throw)
 		REG_N_THROWING_CALLS_CROSSED (regno)++;
 	      
@@ -395,7 +396,7 @@ regstat_get_setjmp_crosses (void)
    Process REG_N_CALLS_CROSSED.  
 
    This is used by sched_deps.  A good implementation of sched-deps
-   would really process the blocks directly rather than going thur
+   would really process the blocks directly rather than going through
    lists of insns.  If it did this, it could use the exact regs that
    cross an individual call rather than using this info that merges
    the info for all calls.
@@ -445,7 +446,10 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
 	{
 	  bitmap_iterator bi;
 	  EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
-	    REG_N_CALLS_CROSSED (regno)++;
+	    {
+	      REG_N_CALLS_CROSSED (regno)++;
+	      REG_FREQ_CALLS_CROSSED (regno) += REG_FREQ_FROM_BB (bb);
+	    }
 	}
 	  
       /* All of the defs except the return value are some sort of

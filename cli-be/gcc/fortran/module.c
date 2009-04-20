@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* The syntax of gfortran modules resembles that of lisp lists, ie a
    sequence of atoms, which can be left or right parenthesis, names,
@@ -137,7 +136,7 @@ typedef struct pointer_info
       enum
       { UNUSED, NEEDED, USED }
       state;
-      int ns, referenced;
+      int ns, referenced, renamed;
       module_locus where;
       fixup_t *stfixup;
       gfc_symtree *symtree;
@@ -613,6 +612,9 @@ gfc_match_use (void)
 		 == FAILURE))
 	    goto cleanup;
 
+	  if (type == INTERFACE_USER_OP)
+	    new->operator = INTRINSIC_USER;
+
 	  if (only_flag)
 	    {
 	      if (m != MATCH_YES)
@@ -656,6 +658,9 @@ gfc_match_use (void)
 	case INTERFACE_INTRINSIC_OP:
 	  new->operator = operator;
 	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
 
       if (gfc_match_eos () == MATCH_YES)
@@ -678,10 +683,12 @@ cleanup:
 /* Given a name and a number, inst, return the inst name
    under which to load this symbol. Returns NULL if this
    symbol shouldn't be loaded. If inst is zero, returns
-   the number of instances of this name.  */
+   the number of instances of this name. If interface is
+   true, a user-defined operator is sought, otherwise only
+   non-operators are sought.  */
 
 static const char *
-find_use_name_n (const char *name, int *inst)
+find_use_name_n (const char *name, int *inst, bool interface)
 {
   gfc_use_rename *u;
   int i;
@@ -689,7 +696,9 @@ find_use_name_n (const char *name, int *inst)
   i = 0;
   for (u = gfc_rename_list; u; u = u->next)
     {
-      if (strcmp (u->use_name, name) != 0)
+      if (strcmp (u->use_name, name) != 0
+	  || (u->operator == INTRINSIC_USER && !interface)
+	  || (u->operator != INTRINSIC_USER &&  interface))
 	continue;
       if (++i == *inst)
 	break;
@@ -714,21 +723,21 @@ find_use_name_n (const char *name, int *inst)
    Returns NULL if this symbol shouldn't be loaded.  */
 
 static const char *
-find_use_name (const char *name)
+find_use_name (const char *name, bool interface)
 {
   int i = 1;
-  return find_use_name_n (name, &i);
+  return find_use_name_n (name, &i, interface);
 }
 
 
 /* Given a real name, return the number of use names associated with it.  */
 
 static int
-number_use_names (const char *name)
+number_use_names (const char *name, bool interface)
 {
   int i = 0;
   const char *c;
-  c = find_use_name_n (name, &i);
+  c = find_use_name_n (name, &i, interface);
   return i;
 }
 
@@ -1107,7 +1116,7 @@ parse_atom (void)
     {
       c = module_char ();
     }
-  while (c == ' ' || c == '\n');
+  while (c == ' ' || c == '\r' || c == '\n');
 
   switch (c)
     {
@@ -1382,7 +1391,8 @@ write_atom (atom_type atom, const void *v)
    written.  */
 
 static void mio_expr (gfc_expr **);
-static void mio_symbol_ref (gfc_symbol **);
+pointer_info *mio_symbol_ref (gfc_symbol **);
+pointer_info *mio_interface_rest (gfc_interface **);
 static void mio_symtree_ref (gfc_symtree **);
 
 /* Read or write an enumerated value.  On writing, we return the input
@@ -1512,8 +1522,8 @@ typedef enum
   AB_IN_NAMELIST, AB_IN_COMMON, AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE,
   AB_ELEMENTAL, AB_PURE, AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT,
   AB_CRAY_POINTER, AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP,
-  AB_VALUE, AB_VOLATILE, AB_PROTECTED, AB_IS_BIND_C, AB_IS_C_INTEROP,
-  AB_IS_ISO_C
+  AB_POINTER_COMP, AB_PRIVATE_COMP, AB_VALUE, AB_VOLATILE, AB_PROTECTED,
+  AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C, AB_ABSTRACT, AB_ZERO_COMP
 }
 ab_attribute;
 
@@ -1548,7 +1558,11 @@ static const mstring attr_bits[] =
     minit ("IS_ISO_C", AB_IS_ISO_C),
     minit ("VALUE", AB_VALUE),
     minit ("ALLOC_COMP", AB_ALLOC_COMP),
+    minit ("POINTER_COMP", AB_POINTER_COMP),
+    minit ("PRIVATE_COMP", AB_PRIVATE_COMP),
+    minit ("ZERO_COMP", AB_ZERO_COMP),
     minit ("PROTECTED", AB_PROTECTED),
+    minit ("ABSTRACT", AB_ABSTRACT),
     minit (NULL, -1)
 };
 
@@ -1631,6 +1645,8 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_SUBROUTINE, attr_bits);
       if (attr->generic)
 	MIO_NAME (ab_attribute) (AB_GENERIC, attr_bits);
+      if (attr->abstract)
+	MIO_NAME (ab_attribute) (AB_ABSTRACT, attr_bits);
 
       if (attr->sequence)
 	MIO_NAME (ab_attribute) (AB_SEQUENCE, attr_bits);
@@ -1654,6 +1670,12 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME(ab_attribute) (AB_IS_ISO_C, attr_bits);
       if (attr->alloc_comp)
 	MIO_NAME (ab_attribute) (AB_ALLOC_COMP, attr_bits);
+      if (attr->pointer_comp)
+	MIO_NAME (ab_attribute) (AB_POINTER_COMP, attr_bits);
+      if (attr->private_comp)
+	MIO_NAME (ab_attribute) (AB_PRIVATE_COMP, attr_bits);
+      if (attr->zero_comp)
+	MIO_NAME (ab_attribute) (AB_ZERO_COMP, attr_bits);
 
       mio_rparen ();
 
@@ -1727,6 +1749,9 @@ mio_symbol_attribute (symbol_attribute *attr)
 	    case AB_GENERIC:
 	      attr->generic = 1;
 	      break;
+	    case AB_ABSTRACT:
+	      attr->abstract = 1;
+	      break;
 	    case AB_SEQUENCE:
 	      attr->sequence = 1;
 	      break;
@@ -1759,6 +1784,15 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_ALLOC_COMP:
 	      attr->alloc_comp = 1;
+	      break;
+	    case AB_POINTER_COMP:
+	      attr->pointer_comp = 1;
+	      break;
+	    case AB_PRIVATE_COMP:
+	      attr->private_comp = 1;
+	      break;
+	    case AB_ZERO_COMP:
+	      attr->zero_comp = 1;
 	      break;
 	    }
 	}
@@ -1808,20 +1842,6 @@ mio_charlen (gfc_charlen **clp)
     }
 
   mio_rparen ();
-}
-
-
-/* Return a symtree node with a name that is guaranteed to be unique
-   within the namespace and corresponds to an illegal fortran name.  */
-
-static gfc_symtree *
-get_unique_symtree (gfc_namespace *ns)
-{
-  char name[GFC_MAX_SYMBOL_LEN + 1];
-  static int serial = 0;
-
-  sprintf (name, "@%d", serial++);
-  return gfc_new_symtree (&ns->sym_root, name);
 }
 
 
@@ -2234,7 +2254,7 @@ mio_formal_arglist (gfc_symbol *sym)
 
 /* Save or restore a reference to a symbol node.  */
 
-void
+pointer_info *
 mio_symbol_ref (gfc_symbol **symp)
 {
   pointer_info *p;
@@ -2253,6 +2273,7 @@ mio_symbol_ref (gfc_symbol **symp)
       if (p->u.rsym.state == UNUSED)
 	p->u.rsym.state = NEEDED;
     }
+  return p;
 }
 
 
@@ -2276,7 +2297,7 @@ mio_symtree_ref (gfc_symtree **stp)
       if (in_load_equiv && p->u.rsym.symtree == NULL)
 	{
 	  /* Since this is not used, it must have a unique name.  */
-	  p->u.rsym.symtree = get_unique_symtree (gfc_current_ns);
+	  p->u.rsym.symtree = gfc_get_unique_symtree (gfc_current_ns);
 
 	  /* Make the symbol.  */
 	  if (p->u.rsym.sym == NULL)
@@ -2514,6 +2535,14 @@ mio_gmp_real (mpfr_t *real)
   else
     {
       p = mpfr_get_str (NULL, &exponent, 16, 0, *real, GFC_RND_MODE);
+
+      if (mpfr_nan_p (*real) || mpfr_inf_p (*real))
+	{
+	  write_atom (ATOM_STRING, p);
+	  gfc_free (p);
+	  return;
+	}
+
       atom_string = gfc_getmem (strlen (p) + 20);
 
       sprintf (atom_string, "0.%s@%ld", p, exponent);
@@ -2606,17 +2635,17 @@ static const mstring intrinsics[] =
     minit ("OR", INTRINSIC_OR),
     minit ("EQV", INTRINSIC_EQV),
     minit ("NEQV", INTRINSIC_NEQV),
-    minit ("==", INTRINSIC_EQ),
+    minit ("EQ_SIGN", INTRINSIC_EQ),
     minit ("EQ", INTRINSIC_EQ_OS),
-    minit ("/=", INTRINSIC_NE),
+    minit ("NE_SIGN", INTRINSIC_NE),
     minit ("NE", INTRINSIC_NE_OS),
-    minit (">", INTRINSIC_GT),
+    minit ("GT_SIGN", INTRINSIC_GT),
     minit ("GT", INTRINSIC_GT_OS),
-    minit (">=", INTRINSIC_GE),
+    minit ("GE_SIGN", INTRINSIC_GE),
     minit ("GE", INTRINSIC_GE_OS),
-    minit ("<", INTRINSIC_LT),
+    minit ("LT_SIGN", INTRINSIC_LT),
     minit ("LT", INTRINSIC_LT_OS),
-    minit ("<=", INTRINSIC_LE),
+    minit ("LE_SIGN", INTRINSIC_LE),
     minit ("LE", INTRINSIC_LE_OS),
     minit ("NOT", INTRINSIC_NOT),
     minit ("PARENTHESES", INTRINSIC_PARENTHESES),
@@ -2798,7 +2827,7 @@ mio_expr (gfc_expr **ep)
 
     case EXPR_SUBSTRING:
       e->value.character.string
-	= (char *) mio_allocated_string (e->value.character.string);
+	= CONST_CAST (char *, mio_allocated_string (e->value.character.string));
       mio_ref_list (&e->ref);
       break;
 
@@ -2833,7 +2862,7 @@ mio_expr (gfc_expr **ep)
 	case BT_CHARACTER:
 	  mio_integer (&e->value.character.length);
 	  e->value.character.string
-	    = (char *) mio_allocated_string (e->value.character.string);
+	    = CONST_CAST (char *, mio_allocated_string (e->value.character.string));
 	  break;
 
 	default:
@@ -2872,7 +2901,7 @@ mio_namelist (gfc_symbol *sym)
 	 conditionally?  */
       if (sym->attr.flavor == FL_NAMELIST)
 	{
-	  check_name = find_use_name (sym->name);
+	  check_name = find_use_name (sym->name, false);
 	  if (check_name && strcmp (check_name, sym->name) != 0)
 	    gfc_error ("Namelist %s cannot be renamed by USE "
 		       "association to %s", sym->name, check_name);
@@ -2903,10 +2932,11 @@ mio_namelist (gfc_symbol *sym)
    interfaces.  Checking for duplicate and ambiguous interfaces has to
    be done later when all symbols have been loaded.  */
 
-static void
+pointer_info *
 mio_interface_rest (gfc_interface **ip)
 {
   gfc_interface *tail, *p;
+  pointer_info *pi = NULL;
 
   if (iomode == IO_OUTPUT)
     {
@@ -2932,7 +2962,7 @@ mio_interface_rest (gfc_interface **ip)
 
 	  p = gfc_get_interface ();
 	  p->where = gfc_current_locus;
-	  mio_symbol_ref (&p->sym);
+	  pi = mio_symbol_ref (&p->sym);
 
 	  if (tail == NULL)
 	    *ip = p;
@@ -2944,6 +2974,7 @@ mio_interface_rest (gfc_interface **ip)
     }
 
   mio_rparen ();
+  return pi;
 }
 
 
@@ -3081,6 +3112,64 @@ mio_symbol (gfc_symbol *sym)
 
 /************************* Top level subroutines *************************/
 
+/* Given a root symtree node and a symbol, try to find a symtree that
+   references the symbol that is not a unique name.  */
+
+static gfc_symtree *
+find_symtree_for_symbol (gfc_symtree *st, gfc_symbol *sym)
+{
+  gfc_symtree *s = NULL;
+
+  if (st == NULL)
+    return s;
+
+  s = find_symtree_for_symbol (st->right, sym);
+  if (s != NULL)
+    return s;
+  s = find_symtree_for_symbol (st->left, sym);
+  if (s != NULL)
+    return s;
+
+  if (st->n.sym == sym && !check_unique_name (st->name))
+    return st;
+
+  return s;
+}
+
+
+/* A recursive function to look for a speficic symbol by name and by
+   module.  Whilst several symtrees might point to one symbol, its
+   is sufficient for the purposes here than one exist.  Note that
+   generic interfaces are distinguished.  */
+static gfc_symtree *
+find_symbol (gfc_symtree *st, const char *name,
+	     const char *module, int generic)
+{
+  int c;
+  gfc_symtree *retval;
+
+  if (st == NULL || st->n.sym == NULL)
+    return NULL;
+
+  c = strcmp (name, st->n.sym->name);
+  if (c == 0 && st->n.sym->module
+	     && strcmp (module, st->n.sym->module) == 0
+	     && !check_unique_name (st->name))
+    {
+      if ((!generic && !st->n.sym->attr.generic)
+	     || (generic && st->n.sym->attr.generic))
+	return st;
+    }
+
+  retval = find_symbol (st->left, name, module, generic);
+
+  if (retval == NULL)
+    retval = find_symbol (st->right, name, module, generic);
+
+  return retval;
+}
+
+
 /* Skip a list between balanced left and right parens.  */
 
 static void
@@ -3123,6 +3212,8 @@ load_operator_interfaces (void)
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_user_op *uop;
+  pointer_info *pi = NULL;
+  int n, i;
 
   mio_lparen ();
 
@@ -3133,16 +3224,34 @@ load_operator_interfaces (void)
       mio_internal_string (name);
       mio_internal_string (module);
 
-      /* Decide if we need to load this one or not.  */
-      p = find_use_name (name);
-      if (p == NULL)
+      n = number_use_names (name, true);
+      n = n ? n : 1;
+
+      for (i = 1; i <= n; i++)
 	{
-	  while (parse_atom () != ATOM_RPAREN);
-	}
-      else
-	{
-	  uop = gfc_get_uop (p);
-	  mio_interface_rest (&uop->operator);
+	  /* Decide if we need to load this one or not.  */
+	  p = find_use_name_n (name, &i, true);
+
+	  if (p == NULL)
+	    {
+	      while (parse_atom () != ATOM_RPAREN);
+	      continue;
+	    }
+
+	  if (i == 1)
+	    {
+	      uop = gfc_get_uop (p);
+	      pi = mio_interface_rest (&uop->operator);
+	    }
+	  else
+	    {
+	      if (gfc_find_uop (p, NULL))
+		continue;
+	      uop = gfc_get_uop (p);
+	      uop->operator = gfc_get_interface ();
+	      uop->operator->where = gfc_current_locus;
+	      add_fixup (pi->integer, &uop->operator->sym);
+	    }
 	}
     }
 
@@ -3160,7 +3269,7 @@ load_generic_interfaces (void)
   char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   gfc_interface *generic = NULL;
-  int n, i;
+  int n, i, renamed;
 
   mio_lparen ();
 
@@ -3171,46 +3280,94 @@ load_generic_interfaces (void)
       mio_internal_string (name);
       mio_internal_string (module);
 
-      n = number_use_names (name);
+      n = number_use_names (name, false);
+      renamed = n ? 1 : 0;
       n = n ? n : 1;
 
       for (i = 1; i <= n; i++)
 	{
+	  gfc_symtree *st;
 	  /* Decide if we need to load this one or not.  */
-	  p = find_use_name_n (name, &i);
+	  p = find_use_name_n (name, &i, false);
 
-	  if (p == NULL || gfc_find_symbol (p, NULL, 0, &sym))
+	  st = find_symbol (gfc_current_ns->sym_root,
+			    name, module_name, 1);
+
+	  if (!p || gfc_find_symbol (p, NULL, 0, &sym))
 	    {
-	      while (parse_atom () != ATOM_RPAREN);
-		continue;
+	      /* Skip the specific names for these cases.  */
+	      while (i == 1 && parse_atom () != ATOM_RPAREN);
+
+	      continue;
 	    }
 
-	  if (sym == NULL)
-	    {
-	      gfc_get_symbol (p, NULL, &sym);
+	  /* If the symbol exists already and is being USEd without being
+	     in an ONLY clause, do not load a new symtree(11.3.2).  */
+	  if (!only_flag && st)
+	    sym = st->n.sym;
 
-	      sym->attr.flavor = FL_PROCEDURE;
-	      sym->attr.generic = 1;
-	      sym->attr.use_assoc = 1;
+	  if (!sym)
+	    {
+	      /* Make the symbol inaccessible if it has been added by a USE
+		 statement without an ONLY(11.3.2).  */
+	      if (st && only_flag
+		     && !st->n.sym->attr.use_only
+		     && !st->n.sym->attr.use_rename
+		     && strcmp (st->n.sym->module, module_name) == 0)
+		{
+		  sym = st->n.sym;
+		  gfc_delete_symtree (&gfc_current_ns->sym_root, name);
+		  st = gfc_get_unique_symtree (gfc_current_ns);
+		  st->n.sym = sym;
+		  sym = NULL;
+		}
+	      else if (st)
+		{
+		  sym = st->n.sym;
+		  if (strcmp (st->name, p) != 0)
+		    {
+	              st = gfc_new_symtree (&gfc_current_ns->sym_root, p);
+		      st->n.sym = sym;
+		      sym->refs++;
+		    }
+		}
+
+	      /* Since we haven't found a valid generic interface, we had
+		 better make one.  */
+	      if (!sym)
+		{
+		  gfc_get_symbol (p, NULL, &sym);
+		  sym->name = gfc_get_string (name);
+		  sym->module = gfc_get_string (module_name);
+		  sym->attr.flavor = FL_PROCEDURE;
+		  sym->attr.generic = 1;
+		  sym->attr.use_assoc = 1;
+		}
 	    }
 	  else
 	    {
 	      /* Unless sym is a generic interface, this reference
 		 is ambiguous.  */
-	      gfc_symtree *st;
-	      p = p ? p : name;
-	      st = gfc_find_symtree (gfc_current_ns->sym_root, p);
-	      if (!sym->attr.generic
-		  && sym->module != NULL
-		  && strcmp(module, sym->module) != 0)
+	      if (st == NULL)
+	        st = gfc_find_symtree (gfc_current_ns->sym_root, p);
+
+	      sym = st->n.sym;
+
+	      if (st && !sym->attr.generic
+		     && sym->module
+		     && strcmp(module, sym->module))
 		st->ambiguous = 1;
 	    }
+
+	  sym->attr.use_only = only_flag;
+	  sym->attr.use_rename = renamed;
+
 	  if (i == 1)
 	    {
 	      mio_interface_rest (&sym->generic);
 	      generic = sym->generic;
 	    }
-	  else
+	  else if (!sym->generic)
 	    {
 	      sym->generic = generic;
 	      sym->attr.generic_copy = 1;
@@ -3374,8 +3531,15 @@ load_needed (pointer_info *p)
 	  associate_integer_pointer (q, ns);
 	}
 
+      /* Use the module sym as 'proc_name' so that gfc_get_symbol_decl
+	 doesn't go pear-shaped if the symbol is used.  */
+      if (!ns->proc_name)
+	gfc_find_symbol (p->u.rsym.module, gfc_current_ns,
+				 1, &ns->proc_name);
+
       sym = gfc_new_symbol (p->u.rsym.true_name, ns);
       sym->module = gfc_get_string (p->u.rsym.module);
+      strcpy (sym->binding_label, p->u.rsym.binding_label);
 
       associate_integer_pointer (p, sym);
     }
@@ -3384,6 +3548,8 @@ load_needed (pointer_info *p)
   sym->attr.use_assoc = 1;
   if (only_flag)
     sym->attr.use_only = 1;
+  if (p->u.rsym.renamed)
+    sym->attr.use_rename = 1;
 
   return 1;
 }
@@ -3407,7 +3573,7 @@ read_cleanup (pointer_info *p)
     {
       /* Add hidden symbols to the symtree.  */
       q = get_integer (p->u.rsym.ns);
-      st = get_unique_symtree ((gfc_namespace *) q->u.pointer);
+      st = gfc_get_unique_symtree ((gfc_namespace *) q->u.pointer);
 
       st->n.sym = p->u.rsym.sym;
       st->n.sym->refs++;
@@ -3421,31 +3587,6 @@ read_cleanup (pointer_info *p)
   /* Free unused symbols.  */
   if (p->type == P_SYMBOL && p->u.rsym.state == UNUSED)
     gfc_free_symbol (p->u.rsym.sym);
-}
-
-
-/* Given a root symtree node and a symbol, try to find a symtree that
-   references the symbol that is not a unique name.  */
-
-static gfc_symtree *
-find_symtree_for_symbol (gfc_symtree *st, gfc_symbol *sym)
-{
-  gfc_symtree *s = NULL;
-
-  if (st == NULL)
-    return s;
-
-  s = find_symtree_for_symbol (st->right, sym);
-  if (s != NULL)
-    return s;
-  s = find_symtree_for_symbol (st->left, sym);
-  if (s != NULL)
-    return s;
-
-  if (st->n.sym == sym && !check_unique_name (st->name))
-    return st;
-
-  return s;
 }
 
 
@@ -3551,14 +3692,16 @@ read_module (void)
 
       /* See how many use names there are.  If none, go through the start
 	 of the loop at least once.  */
-      nuse = number_use_names (name);
+      nuse = number_use_names (name, false);
+      info->u.rsym.renamed = nuse ? 1 : 0;
+
       if (nuse == 0)
 	nuse = 1;
 
       for (j = 1; j <= nuse; j++)
 	{
 	  /* Get the jth local name for this symbol.  */
-	  p = find_use_name_n (name, &j);
+	  p = find_use_name_n (name, &j, false);
 
 	  if (p == NULL && strcmp (name, module_name) == 0)
 	    p = name;
@@ -3573,6 +3716,16 @@ read_module (void)
 	      continue;
 	    }
 
+	  /* If a symbol of the same name and module exists already,
+	     this symbol, which is not in an ONLY clause, must not be
+	     added to the namespace(11.3.2).  Note that find_symbol
+	     only returns the first occurrence that it finds.  */
+	  if (!only_flag && !info->u.rsym.renamed
+		&& strcmp (name, module_name) != 0
+		&& find_symbol (gfc_current_ns->sym_root, name,
+				module_name, 0))
+	    continue;
+
 	  st = gfc_find_symtree (gfc_current_ns->sym_root, p);
 
 	  if (st != NULL)
@@ -3584,12 +3737,23 @@ read_module (void)
 	    }
 	  else
 	    {
+	      st = gfc_find_symtree (gfc_current_ns->sym_root, name);
+
+	      /* Delete the symtree if the symbol has been added by a USE
+		 statement without an ONLY(11.3.2). Remember that the rsym
+		 will be the same as the symbol found in the symtree, for
+		 this case.*/
+	      if (st && (only_flag || info->u.rsym.renamed)
+		     && !st->n.sym->attr.use_only
+		     && !st->n.sym->attr.use_rename
+		     && info->u.rsym.sym == st->n.sym)
+		gfc_delete_symtree (&gfc_current_ns->sym_root, name);
+
 	      /* Create a symtree node in the current namespace for this
 		 symbol.  */
 	      st = check_unique_name (p)
-		   ? get_unique_symtree (gfc_current_ns)
+		   ? gfc_get_unique_symtree (gfc_current_ns)
 		   : gfc_new_symtree (&gfc_current_ns->sym_root, p);
-
 	      st->ambiguous = ambiguous;
 
 	      sym = info->u.rsym.sym;
@@ -3610,6 +3774,9 @@ read_module (void)
 
 	      st->n.sym = sym;
 	      st->n.sym->refs++;
+
+	      if (strcmp (name, p) != 0)
+		sym->attr.use_rename = 1;
 
 	      /* Store the symtree pointing to this symbol.  */
 	      info->u.rsym.symtree = st;
@@ -3717,55 +3884,126 @@ gfc_check_access (gfc_access specific_access, gfc_access default_access)
   if (specific_access == ACCESS_PRIVATE)
     return FALSE;
 
-  return default_access != ACCESS_PRIVATE;
+  if (gfc_option.flag_module_private)
+    return default_access == ACCESS_PUBLIC;
+  else
+    return default_access != ACCESS_PRIVATE;
 }
 
 
-/* Write a common block to the module.  */
+/* A structure to remember which commons we've already written.  */
+
+struct written_common
+{
+  BBT_HEADER(written_common);
+  const char *name, *label;
+};
+
+static struct written_common *written_commons = NULL;
+
+/* Comparison function used for balancing the binary tree.  */
+
+static int
+compare_written_commons (void *a1, void *b1)
+{
+  const char *aname = ((struct written_common *) a1)->name;
+  const char *alabel = ((struct written_common *) a1)->label;
+  const char *bname = ((struct written_common *) b1)->name;
+  const char *blabel = ((struct written_common *) b1)->label;
+  int c = strcmp (aname, bname);
+
+  return (c != 0 ? c : strcmp (alabel, blabel));
+}
+
+/* Free a list of written commons.  */
 
 static void
-write_common (gfc_symtree *st)
+free_written_common (struct written_common *w)
+{
+  if (!w)
+    return;
+
+  if (w->left)
+    free_written_common (w->left);
+  if (w->right)
+    free_written_common (w->right);
+
+  gfc_free (w);
+}
+
+/* Write a common block to the module -- recursive helper function.  */
+
+static void
+write_common_0 (gfc_symtree *st)
 {
   gfc_common_head *p;
   const char * name;
   int flags;
   const char *label;
+  struct written_common *w;
+  bool write_me = true;
 	      
   if (st == NULL)
     return;
 
-  write_common (st->left);
-  write_common (st->right);
+  write_common_0 (st->left);
 
-  mio_lparen ();
-
-  /* Write the unmangled name.  */
+  /* We will write out the binding label, or the name if no label given.  */
   name = st->n.common->name;
-
-  mio_pool_string (&name);
-
   p = st->n.common;
-  mio_symbol_ref (&p->head);
-  flags = p->saved ? 1 : 0;
-  if (p->threadprivate) flags |= 2;
-  mio_integer (&flags);
+  label = p->is_bind_c ? p->binding_label : p->name;
 
-  /* Write out whether the common block is bind(c) or not.  */
-  mio_integer (&(p->is_bind_c));
+  /* Check if we've already output this common.  */
+  w = written_commons;
+  while (w)
+    {
+      int c = strcmp (name, w->name);
+      c = (c != 0 ? c : strcmp (label, w->label));
+      if (c == 0)
+	write_me = false;
 
-  /* Write out the binding label, or the com name if no label given.  */
-  if (p->is_bind_c)
-    {
-      label = p->binding_label;
-      mio_pool_string (&label);
-    }
-  else
-    {
-      label = p->name;
-      mio_pool_string (&label);
+      w = (c < 0) ? w->left : w->right;
     }
 
-  mio_rparen ();
+  if (write_me)
+    {
+      /* Write the common to the module.  */
+      mio_lparen ();
+      mio_pool_string (&name);
+
+      mio_symbol_ref (&p->head);
+      flags = p->saved ? 1 : 0;
+      if (p->threadprivate)
+	flags |= 2;
+      mio_integer (&flags);
+
+      /* Write out whether the common block is bind(c) or not.  */
+      mio_integer (&(p->is_bind_c));
+
+      mio_pool_string (&label);
+      mio_rparen ();
+
+      /* Record that we have written this common.  */
+      w = gfc_getmem (sizeof (struct written_common));
+      w->name = p->name;
+      w->label = label;
+      gfc_insert_bbt (&written_commons, w, compare_written_commons);
+    }
+
+  write_common_0 (st->right);
+}
+
+
+/* Write a common, by initializing the list of written commons, calling
+   the recursive function write_common_0() and cleaning up afterwards.  */
+
+static void
+write_common (gfc_symtree *st)
+{
+  written_commons = NULL;
+  write_common_0 (st);
+  free_written_common (written_commons);
+  written_commons = NULL;
 }
 
 
@@ -3834,7 +4072,7 @@ write_equiv (void)
 static void
 write_symbol (int n, gfc_symbol *sym)
 {
-   const char *label;
+  const char *label;
 
   if (sym->attr.flavor == FL_UNKNOWN || sym->attr.flavor == FL_LABEL)
     gfc_internal_error ("write_symbol(): bad module symbol '%s'", sym->name);
@@ -3867,12 +4105,12 @@ write_symbol0 (gfc_symtree *st)
 {
   gfc_symbol *sym;
   pointer_info *p;
+  bool dont_write = false;
 
   if (st == NULL)
     return;
 
   write_symbol0 (st->left);
-  write_symbol0 (st->right);
 
   sym = st->n.sym;
   if (sym->module == NULL)
@@ -3880,20 +4118,25 @@ write_symbol0 (gfc_symtree *st)
 
   if (sym->attr.flavor == FL_PROCEDURE && sym->attr.generic
       && !sym->attr.subroutine && !sym->attr.function)
-    return;
+    dont_write = true;
 
   if (!gfc_check_access (sym->attr.access, sym->ns->default_access))
-    return;
+    dont_write = true;
 
-  p = get_pointer (sym);
-  if (p->type == P_UNKNOWN)
-    p->type = P_SYMBOL;
+  if (!dont_write)
+    {
+      p = get_pointer (sym);
+      if (p->type == P_UNKNOWN)
+	p->type = P_SYMBOL;
 
-  if (p->u.wsym.state == WRITTEN)
-    return;
+      if (p->u.wsym.state != WRITTEN)
+	{
+	  write_symbol (p->integer, sym);
+	  p->u.wsym.state = WRITTEN;
+	}
+    }
 
-  write_symbol (p->integer, sym);
-  p->u.wsym.state = WRITTEN;
+  write_symbol0 (st->right);
 }
 
 
@@ -3907,22 +4150,22 @@ write_symbol0 (gfc_symtree *st)
 static int
 write_symbol1 (pointer_info *p)
 {
+  int result;
 
-  if (p == NULL)
+  if (!p)
     return 0;
 
-  if (write_symbol1 (p->left))
-    return 1;
-  if (write_symbol1 (p->right))
-    return 1;
+  result = write_symbol1 (p->left);
 
-  if (p->type != P_SYMBOL || p->u.wsym.state != NEEDS_WRITE)
-    return 0;
+  if (!(p->type != P_SYMBOL || p->u.wsym.state != NEEDS_WRITE))
+    {
+      p->u.wsym.state = WRITTEN;
+      write_symbol (p->integer, p->u.wsym.sym);
+      result = 1;
+    }
 
-  p->u.wsym.state = WRITTEN;
-  write_symbol (p->integer, p->u.wsym.sym);
-
-  return 1;
+  result |= write_symbol1 (p->right);
+  return result;
 }
 
 
@@ -3942,13 +4185,22 @@ write_operator (gfc_user_op *uop)
 }
 
 
-/* Write generic interfaces associated with a symbol.  */
+/* Write generic interfaces from the namespace sym_root.  */
 
 static void
-write_generic (gfc_symbol *sym)
+write_generic (gfc_symtree *st)
 {
-  const char *p;
-  int nuse, j;
+  gfc_symbol *sym;
+
+  if (st == NULL)
+    return;
+
+  write_generic (st->left);
+  write_generic (st->right);
+
+  sym = st->n.sym;
+  if (!sym || check_unique_name (st->name))
+    return;
 
   if (sym->generic == NULL
       || !gfc_check_access (sym->attr.access, sym->ns->default_access))
@@ -3957,21 +4209,7 @@ write_generic (gfc_symbol *sym)
   if (sym->module == NULL)
     sym->module = gfc_get_string (module_name);
 
-  /* See how many use names there are.  If none, use the symbol name.  */
-  nuse = number_use_names (sym->name);
-  if (nuse == 0)
-    {
-      mio_symbol_interface (&sym->name, &sym->module, &sym->generic);
-      return;
-    }
-
-  for (j = 1; j <= nuse; j++)
-    {
-      /* Get the jth local name for this symbol.  */
-      p = find_use_name_n (sym->name, &j);
-
-      mio_symbol_interface (&p, &sym->module, &sym->generic);
-    }
+  mio_symbol_interface (&st->name, &sym->module, &sym->generic);
 }
 
 
@@ -4029,7 +4267,7 @@ write_module (void)
   write_char ('\n');
 
   mio_lparen ();
-  gfc_traverse_ns (gfc_current_ns, write_generic);
+  write_generic (gfc_current_ns->sym_root);
   mio_rparen ();
   write_char ('\n');
   write_char ('\n');
@@ -4057,7 +4295,8 @@ write_module (void)
   mio_lparen ();
 
   write_symbol0 (gfc_current_ns->sym_root);
-  while (write_symbol1 (pi_root));
+  while (write_symbol1 (pi_root))
+    /* Nothing.  */;
 
   mio_rparen ();
 

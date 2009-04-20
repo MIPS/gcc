@@ -1,5 +1,5 @@
 ;; Constraints definitions belonging to the gcc backend for IBM S/390.
-;; Copyright (C) 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 ;; Written by Wolfgang Gellerich, using code and information found in
 ;; files s390.md, s390.h, and s390.c.
 ;;
@@ -7,7 +7,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify it under
 ;; the terms of the GNU General Public License as published by the Free
-;; Software Foundation; either version 2, or (at your option) any later
+;; Software Foundation; either version 3, or (at your option) any later
 ;; version.
 ;;
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@
 ;; for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 ;;
@@ -50,7 +49,7 @@
 ;;    O -- Multiple letter constraint followed by 1 parameter.
 ;;         s:  Signed extended immediate value (-2G .. 2G-1).
 ;;         p:  Positive extended immediate value (0 .. 4G-1).
-;;         n:  Negative extended immediate value (-4G .. -1).
+;;         n:  Negative extended immediate value (-4G+1 .. -1).
 ;;         These constraints do not accept any operand if the machine does
 ;;         not provide the extended-immediate facility.
 ;;    P -- Any integer constant that can be loaded without literal pool.
@@ -338,7 +337,7 @@
 
 (define_constraint "On"
   "@internal
-   Negative extended immediate value (-4G .. -1).
+   Negative extended immediate value (-4G+1 .. -1).
    This constraint will only match if the machine provides
    the extended-immediate facility."
   (and (match_code "const_int")

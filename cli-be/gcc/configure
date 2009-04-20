@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_libsubdir build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP loose_warn cxx_compat_warn strict_warn warn_cflags nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_decimal_float enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep datarootdir docdir htmldir SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file extra_opt_files USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS DATADIRNAME INSTOBJEXT GENCAT CATOBJEXT host_cc_for_libada CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 gcc_cv_as ORIGINAL_AS_FOR_TARGET gcc_cv_ld ORIGINAL_LD_FOR_TARGET gcc_cv_nm ORIGINAL_NM_FOR_TARGET gcc_cv_objdump libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_compilers all_gtfiles all_lang_makefrags all_lang_makefiles all_languages all_selected_languages build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_libsubdir build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP loose_warn cxx_compat_warn strict_warn warn_cflags nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_decimal_float enable_fixed_point enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep PKGVERSION REPORT_BUGS_TO REPORT_BUGS_TEXI datarootdir docdir htmldir SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file extra_opt_files USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS DATADIRNAME INSTOBJEXT GENCAT CATOBJEXT host_cc_for_libada CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 gcc_cv_as ORIGINAL_AS_FOR_TARGET gcc_cv_ld ORIGINAL_LD_FOR_TARGET gcc_cv_nm ORIGINAL_NM_FOR_TARGET gcc_cv_objdump libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_compilers all_gtfiles all_lang_makefrags all_lang_makefiles all_languages all_selected_languages build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -883,6 +883,7 @@ Optional Features:
 			enable decimal float extension to C.  Selecting 'bid'
 			or 'dpd' choses which decimal floating point format
 			to use
+  --enable-fixed-point    enable fixed-point arithmetic extension to C
   --enable-threads        enable thread usage for target GCC
   --enable-threads=LIB    use LIB thread package for target GCC
   --enable-tls            enable or disable generation of tls code
@@ -931,6 +932,8 @@ Optional Packages:
   --with-build-sysroot=sysroot
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
+  --with-pkgversion=PKG   Use PKG in the version string in place of "GCC"
+  --with-bugurl=URL       Direct users to URL to report a bug
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
   --without-libiconv-prefix     don't search for libiconv in includedir and libdir
@@ -1833,6 +1836,13 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 fi
+
+gnu_as=`if test x"$gas_flag" = x"yes"; then echo 1; else echo 0; fi`
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_GNU_AS $gnu_as
+_ACEOF
+
 
 echo "$as_me:$LINENO: checking whether a default assembler was specified" >&5
 echo $ECHO_N "checking whether a default assembler was specified... $ECHO_C" >&6
@@ -6425,7 +6435,7 @@ for check in release $ac_checking_flags
 do
 	case $check in
 	# these set all the flags to specific states
-	yes)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking=1 ;
+	yes)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking=1 ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
@@ -6890,7 +6900,7 @@ if test "${enable_mapped_location+set}" = set; then
   enableval="$enable_mapped_location"
 
 else
-  enable_mapped_location=no
+  enable_mapped_location=yes
 fi;
 
 if test "$enable_mapped_location" = yes ; then
@@ -7036,6 +7046,44 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
+# Enable C extension for fixed-point arithmetic.
+# Check whether --enable-fixed-point or --disable-fixed-point was given.
+if test "${enable_fixed_point+set}" = set; then
+  enableval="$enable_fixed_point"
+
+
+else
+
+  case $target in
+    mips*-*-*)
+      case $host in
+        mips*-sgi-irix*)
+	  { echo "$as_me:$LINENO: WARNING: fixed-point support is not available for IRIX" >&5
+echo "$as_me: WARNING: fixed-point support is not available for IRIX" >&2;}
+	  enable_fixed_point=no
+	  ;;
+	*)
+	  enable_fixed_point=yes
+	  ;;
+      esac
+      ;;
+    *)
+      { echo "$as_me:$LINENO: WARNING: fixed-point is not supported for this target" >&5
+echo "$as_me: WARNING: fixed-point is not supported for this target" >&2;}
+      enable_fixed_point=no
+      ;;
+  esac
+
+fi;
+
+
+fixedpoint=`if test $enable_fixed_point = yes; then echo 1; else echo 0; fi`
+
+cat >>confdefs.h <<_ACEOF
+#define ENABLE_FIXED_POINT $fixedpoint
+_ACEOF
+
+
 # Enable threads
 # Pass with no value to take the default
 # Pass with a value to specify a thread package
@@ -7170,6 +7218,56 @@ esac
 else
   onestep=""
 fi;
+
+
+
+
+# Check whether --with-pkgversion or --without-pkgversion was given.
+if test "${with_pkgversion+set}" = set; then
+  withval="$with_pkgversion"
+  case "$withval" in
+      yes) { { echo "$as_me:$LINENO: error: package version not specified" >&5
+echo "$as_me: error: package version not specified" >&2;}
+   { (exit 1); exit 1; }; } ;;
+      no)  PKGVERSION= ;;
+      *)   PKGVERSION="($withval) " ;;
+     esac
+else
+  PKGVERSION="(GCC) "
+
+fi;
+
+
+
+
+# Check whether --with-bugurl or --without-bugurl was given.
+if test "${with_bugurl+set}" = set; then
+  withval="$with_bugurl"
+  case "$withval" in
+      yes) { { echo "$as_me:$LINENO: error: bug URL not specified" >&5
+echo "$as_me: error: bug URL not specified" >&2;}
+   { (exit 1); exit 1; }; } ;;
+      no)  BUGURL=
+	   ;;
+      *)   BUGURL="$withval"
+	   ;;
+     esac
+else
+  BUGURL="http://gcc.gnu.org/bugs.html"
+
+fi;
+  case ${BUGURL} in
+  "")
+    REPORT_BUGS_TO=
+    REPORT_BUGS_TEXI=
+    ;;
+  *)
+    REPORT_BUGS_TO="<$BUGURL>"
+    REPORT_BUGS_TEXI=@uref{`echo "$BUGURL" | sed 's/@/@@/g'`}
+    ;;
+  esac;
+
+
 
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -7630,7 +7728,7 @@ else
 
                     case $ac_prog_version in
                       '')  gcc_cv_prog_makeinfo_modern=no;;
-                      4.[4-9]*)  gcc_cv_prog_makeinfo_modern=yes;;
+                      4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*)  gcc_cv_prog_makeinfo_modern=yes;;
                       *)   gcc_cv_prog_makeinfo_modern=no;;
                     esac
 
@@ -12356,7 +12454,7 @@ case ${enable_threads} in
     target_thread_file='single'
     ;;
   aix | dce | gnat | irix | posix | posix95 | rtems | \
-  single | solaris | vxworks | win32 )
+  single | solaris | vxworks | win32 | mipssde)
     target_thread_file=${enable_threads}
     ;;
   *)
@@ -13958,13 +14056,7 @@ else
   ld_ver=`$gcc_cv_ld --version 2>/dev/null | sed 1q`
   if echo "$ld_ver" | grep GNU > /dev/null; then
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
     ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
     ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
     ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
@@ -14046,9 +14138,10 @@ L2:' > conftest.s
   # arbitrary sections are supported and try the test.
   as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
   if echo "$as_ver" | grep GNU > /dev/null; then
-    as_ver=`echo $as_ver | sed -e 's/GNU assembler \([0-9.][0-9.]*\).*/\1/'`
-    as_major=`echo $as_ver | sed 's/\..*//'`
-    as_minor=`echo $as_ver | sed 's/[^.]*\.\([0-9]*\).*/\1/'`
+    as_vers=`echo $as_ver | sed -n \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
+    as_major=`expr "$as_vers" : '\([0-9]*\)'`
+    as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
     if test $as_major -eq 2 && test $as_minor -lt 11
     then :
     else gcc_cv_as_leb128=yes
@@ -16172,6 +16265,43 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 fi
+
+ echo "$as_me:$LINENO: checking assembler for --debug-prefix-map option" >&5
+echo $ECHO_N "checking assembler for --debug-prefix-map option... $ECHO_C" >&6
+if test "${gcc_cv_as_debug_prefix_map_flag+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_debug_prefix_map_flag=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 18 \) \* 1000 + 0`
+  then gcc_cv_as_debug_prefix_map_flag=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo "$insn" > conftest.s
+    if { ac_try='$gcc_cv_as --debug-prefix-map /a=/b -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_debug_prefix_map_flag=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_debug_prefix_map_flag" >&5
+echo "${ECHO_T}$gcc_cv_as_debug_prefix_map_flag" >&6
+if test $gcc_cv_as_debug_prefix_map_flag = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_DEBUG_PREFIX_MAP 1
+_ACEOF
+
+fi
 fi
 
 echo "$as_me:$LINENO: checking assembler for tolerance to line number 0" >&5
@@ -16557,8 +16687,14 @@ else
 	     && $EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+([1-9][0-9]|[4-9])' \
 	     $glibc_header_dir/features.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
+	elif $EGREP '^[ 	]*#[ 	]*define[ 	]+__UCLIBC__[ 	]+1' \
+	     $glibc_header_dir/features.h > /dev/null && \
+	     test -f $glibc_header_dir/bits/uClibc_config.h && \
+	     $EGREP '^[ 	]*#[ 	]*define[ 	]+__UCLIBC_HAS_SSP__[ 	]+1' \
+	     $glibc_header_dir/bits/uClibc_config.h > /dev/null; then
+	  gcc_cv_libc_provides_ssp=yes
 	fi
-        fi
+      fi
 	;;
        *-*-darwin*)
 	 echo "$as_me:$LINENO: checking for __stack_chk_fail" >&5
@@ -17743,11 +17879,15 @@ s,@valgrind_command@,$valgrind_command,;t t
 s,@coverage_flags@,$coverage_flags,;t t
 s,@enable_multilib@,$enable_multilib,;t t
 s,@enable_decimal_float@,$enable_decimal_float,;t t
+s,@enable_fixed_point@,$enable_fixed_point,;t t
 s,@enable_shared@,$enable_shared,;t t
 s,@TARGET_SYSTEM_ROOT@,$TARGET_SYSTEM_ROOT,;t t
 s,@TARGET_SYSTEM_ROOT_DEFINE@,$TARGET_SYSTEM_ROOT_DEFINE,;t t
 s,@CROSS_SYSTEM_HEADER_DIR@,$CROSS_SYSTEM_HEADER_DIR,;t t
 s,@onestep@,$onestep,;t t
+s,@PKGVERSION@,$PKGVERSION,;t t
+s,@REPORT_BUGS_TO@,$REPORT_BUGS_TO,;t t
+s,@REPORT_BUGS_TEXI@,$REPORT_BUGS_TEXI,;t t
 s,@datarootdir@,$datarootdir,;t t
 s,@docdir@,$docdir,;t t
 s,@htmldir@,$htmldir,;t t

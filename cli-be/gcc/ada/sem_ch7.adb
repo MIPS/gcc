@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -593,9 +592,9 @@ package body Sem_Ch7 is
                   --  the flag for outer level entities that are not
                   --  imported/exported, and which have no interface name.
 
-                  elsif K = N_Object_Declaration
-                    or else K = N_Exception_Declaration
-                    or else K = N_Subprogram_Declaration
+                  elsif Nkind_In (K, N_Object_Declaration,
+                                     N_Exception_Declaration,
+                                     N_Subprogram_Declaration)
                   then
                      E := Defining_Entity (D);
 
@@ -809,7 +808,7 @@ package body Sem_Ch7 is
 
          E := FE;
          while Present (E) and then E /= Id loop
-            if Ekind (E) = E_Variable then
+            if Is_Assignable (E) then
                Set_Never_Set_In_Source (E, False);
                Set_Is_True_Constant    (E, False);
                Set_Current_Value       (E, Empty);
@@ -845,8 +844,8 @@ package body Sem_Ch7 is
          then
             Generate_Reference (Id, Scope (Id), 'k', False);
 
-         elsif Nkind (Unit (Cunit (Main_Unit))) /= N_Subprogram_Body
-           and then Nkind (Unit (Cunit (Main_Unit))) /= N_Subunit
+         elsif not Nkind_In (Unit (Cunit (Main_Unit)), N_Subprogram_Body,
+                                                       N_Subunit)
          then
             --  If current unit is an ancestor of main unit, generate
             --  a reference to its own parent.
@@ -910,16 +909,16 @@ package body Sem_Ch7 is
             --  with a known_discriminant_part whose full view is an
             --  Unchecked_Union.
 
-            if (Nkind (Decl) = N_Incomplete_Type_Declaration
-                  or else
-                Nkind (Decl) = N_Private_Type_Declaration)
+            if Nkind_In (Decl, N_Incomplete_Type_Declaration,
+                               N_Private_Type_Declaration)
               and then Has_Discriminants (Defining_Identifier (Decl))
               and then Present (Full_View (Defining_Identifier (Decl)))
-              and then Is_Unchecked_Union
-                (Full_View (Defining_Identifier (Decl)))
+              and then
+                Is_Unchecked_Union (Full_View (Defining_Identifier (Decl)))
             then
-               Error_Msg_N ("completion of discriminated partial view" &
-                 " cannot be an Unchecked_Union",
+               Error_Msg_N
+                 ("completion of discriminated partial view "
+                  & "cannot be an Unchecked_Union",
                  Full_View (Defining_Identifier (Decl)));
             end if;
 
@@ -943,8 +942,8 @@ package body Sem_Ch7 is
          while Present (Gen_Par) and then Is_Child_Unit (Gen_Par) loop
             Inst_Node := Get_Package_Instantiation_Node (Inst_Par);
 
-            if (Nkind (Inst_Node) = N_Package_Instantiation
-                  or else Nkind (Inst_Node) = N_Formal_Package_Declaration)
+            if Nkind_In (Inst_Node, N_Package_Instantiation,
+                                    N_Formal_Package_Declaration)
               and then Nkind (Name (Inst_Node)) = N_Expanded_Name
             then
                Inst_Par := Entity (Prefix (Name (Inst_Node)));
@@ -1100,7 +1099,10 @@ package body Sem_Ch7 is
 
          --  The current compilation unit may include private with_clauses,
          --  which are visible in the private part of the current nested
-         --  package, and have to be installed now.
+         --  package, and have to be installed now. This is not done for
+         --  nested instantiations, where the private with_clauses of the
+         --  enclosing unit have no effect once the instantiation info is
+         --  established and we start analyzing the package declaration.
 
          declare
             Comp_Unit : constant Entity_Id := Cunit_Entity (Current_Sem_Unit);
@@ -1108,6 +1110,7 @@ package body Sem_Ch7 is
             if (Ekind (Comp_Unit) = E_Package
                  or else Ekind (Comp_Unit) = E_Generic_Package)
               and then not In_Private_Part (Comp_Unit)
+              and then not In_Instance
             then
                Install_Private_With_Clauses (Comp_Unit);
                Private_With_Clauses_Installed := True;
@@ -1165,13 +1168,25 @@ package body Sem_Ch7 is
          Set_First_Private_Entity (Id, Next_Entity (L));
       end if;
 
-      --  Check rule of 3.6(11), which in general requires waiting till all
-      --  full types have been seen.
-
       E := First_Entity (Id);
       while Present (E) loop
+
+         --  Check rule of 3.6(11), which in general requires waiting till all
+         --  full types have been seen.
+
          if Ekind (E) = E_Record_Type or else Ekind (E) = E_Array_Type then
             Check_Aliased_Component_Types (E);
+         end if;
+
+         --  Check preelaborable initialization for full type completing a
+         --  private type for which pragma Preelaborable_Initialization given.
+
+         if Is_Type (E)
+           and then Must_Have_Preelab_Init (E)
+           and then not Has_Preelaborable_Initialization (E)
+         then
+            Error_Msg_N
+              ("full view of & does not have preelaborable initialization", E);
          end if;
 
          Next_Entity (E);
@@ -2021,8 +2036,24 @@ package body Sem_Ch7 is
                            Type_In_Use
                              (Etype (Next_Formal (First_Formal (Id))))));
          else
-            Set_Is_Potentially_Use_Visible (Id,
-              In_Use (P) and not Is_Hidden (Id));
+            if In_Use (P) and then not Is_Hidden (Id) then
+
+               --  A child unit of a use-visible package remains use-visible
+               --  only if it is itself a visible child unit. Otherwise it
+               --  would remain visible in other contexts where P is use-
+               --  visible, because once compiled it stays in the entity list
+               --  of its parent unit.
+
+               if Is_Child_Unit (Id) then
+                  Set_Is_Potentially_Use_Visible (Id,
+                    Is_Visible_Child_Unit (Id));
+               else
+                  Set_Is_Potentially_Use_Visible (Id);
+               end if;
+
+            else
+               Set_Is_Potentially_Use_Visible (Id, False);
+            end if;
          end if;
 
          --  Local entities are not immediately visible outside of the package
@@ -2088,7 +2119,7 @@ package body Sem_Ch7 is
 
             else
                Error_Msg_N
-                  ("missing full declaration for deferred constant ('R'M 7.4)",
+                  ("missing full declaration for deferred constant (RM 7.4)",
                      Id);
 
                if Is_Limited_Type (Etype (Id)) then

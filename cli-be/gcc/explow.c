@@ -431,18 +431,21 @@ memory_address (enum machine_mode mode, rtx x)
 
       /* At this point, any valid address is accepted.  */
       if (memory_address_p (mode, x))
-	goto win;
+	goto done;
 
       /* If it was valid before but breaking out memory refs invalidated it,
 	 use it the old way.  */
       if (memory_address_p (mode, oldx))
-	goto win2;
+	{
+	  x = oldx;
+	  goto done;
+	}
 
       /* Perform machine-dependent transformations on X
 	 in certain cases.  This is not necessary since the code
 	 below can handle all possible cases, but machine-dependent
 	 transformations can make better code.  */
-      LEGITIMIZE_ADDRESS (x, oldx, mode, win);
+      LEGITIMIZE_ADDRESS (x, oldx, mode, done);
 
       /* PLUS and MULT can appear in special ways
 	 as the result of attempts to make an address usable for indexing.
@@ -482,17 +485,6 @@ memory_address (enum machine_mode mode, rtx x)
 	 the register is a valid address.  */
       else
 	x = force_reg (Pmode, x);
-
-      goto done;
-
-    win2:
-      x = oldx;
-    win:
-      if (flag_force_addr && ! cse_not_expected && !REG_P (x))
-	{
-	  x = force_operand (x, NULL_RTX);
-	  x = force_reg (Pmode, x);
-	}
     }
 
  done:
@@ -515,20 +507,6 @@ memory_address (enum machine_mode mode, rtx x)
   return x;
 }
 
-/* Like `memory_address' but pretend `flag_force_addr' is 0.  */
-
-rtx
-memory_address_noforce (enum machine_mode mode, rtx x)
-{
-  int ambient_force_addr = flag_force_addr;
-  rtx val;
-
-  flag_force_addr = 0;
-  val = memory_address (mode, x);
-  flag_force_addr = ambient_force_addr;
-  return val;
-}
-
 /* Convert a mem ref into one with a valid memory address.
    Pass through anything else unchanged.  */
 
@@ -538,8 +516,7 @@ validize_mem (rtx ref)
   if (!MEM_P (ref))
     return ref;
   ref = use_anchored_address (ref);
-  if (! (flag_force_addr && CONSTANT_ADDRESS_P (XEXP (ref, 0)))
-      && memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
     return ref;
 
   /* Don't alter REF itself, since that is probably a stack slot.  */
@@ -778,10 +755,10 @@ copy_to_suggested_reg (rtx x, rtx target, enum machine_mode mode)
 #endif
 
 enum machine_mode
-promote_mode (tree type, enum machine_mode mode, int *punsignedp,
+promote_mode (const_tree type, enum machine_mode mode, int *punsignedp,
 	      int for_call ATTRIBUTE_UNUSED)
 {
-  enum tree_code code = TREE_CODE (type);
+  const enum tree_code code = TREE_CODE (type);
   int unsignedp = *punsignedp;
 
 #ifndef PROMOTE_MODE
@@ -793,7 +770,7 @@ promote_mode (tree type, enum machine_mode mode, int *punsignedp,
     {
 #ifdef PROMOTE_FUNCTION_MODE
     case INTEGER_TYPE:   case ENUMERAL_TYPE:   case BOOLEAN_TYPE:
-    case REAL_TYPE:      case OFFSET_TYPE:
+    case REAL_TYPE:      case OFFSET_TYPE:     case FIXED_POINT_TYPE:
 #ifdef PROMOTE_MODE
       if (for_call)
 	{
@@ -1476,7 +1453,7 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
    and 0 otherwise.  */
 
 rtx
-hard_function_value (tree valtype, tree func, tree fntype,
+hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 		     int outgoing ATTRIBUTE_UNUSED)
 {
   rtx val;

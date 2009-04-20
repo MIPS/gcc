@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -366,7 +365,7 @@ set_source_filename (JCF *jcf, int index)
       
   sfname = find_sourcefile (sfname);
 #ifdef USE_MAPPED_LOCATION
-  line_table.maps[line_table.used-1].to_file = sfname;
+  line_table->maps[line_table->used-1].to_file = sfname;
 #else
   input_filename = sfname;
   DECL_SOURCE_LOCATION (TYPE_NAME (current_class)) = input_location;
@@ -1210,8 +1209,8 @@ give_name_to_class (JCF *jcf, int i)
       {
       tree source_name = identifier_subst (class_name, "", '.', '/', ".java");
       const char *sfname = IDENTIFIER_POINTER (source_name);
-      linemap_add (&line_table, LC_ENTER, false, sfname, 0);
-      input_location = linemap_line_start (&line_table, 0, 1);
+      linemap_add (line_table, LC_ENTER, false, sfname, 0);
+      input_location = linemap_line_start (line_table, 0, 1);
       file_start_location = input_location;
       DECL_SOURCE_LOCATION (TYPE_NAME (this_class)) = input_location;
       if (main_input_filename == NULL && jcf == main_jcf)
@@ -1302,7 +1301,7 @@ read_class (tree name)
       if (path_name == 0)
 	return 0;
       else
-	free((char *) path_name);
+	free(CONST_CAST (char *, path_name));
     }
 
   current_jcf = jcf;
@@ -1365,11 +1364,6 @@ load_class (tree class_or_name, int verbose)
 	= ((TYPE_JCF (type) && JCF_SEEN_IN_ZIP (TYPE_JCF (type)))
 	   || CLASS_FROM_CURRENTLY_COMPILED_P (type));
     }
-
-  /* If the class is from source code, then it must already be loaded.  */
-  class_decl = IDENTIFIER_CLASS_VALUE (name);
-  if (class_decl && CLASS_FROM_SOURCE_P (TREE_TYPE (class_decl)))
-    return;
 
   saved = name;
   
@@ -1503,7 +1497,7 @@ jcf_parse (JCF* jcf)
     annotation_write_byte (JV_DONE_ATTR);
 
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
+  linemap_add (line_table, LC_LEAVE, false, NULL, 0);
 #endif
 
   /* The fields of class_type_node are already in correct order. */
@@ -1538,8 +1532,8 @@ duplicate_class_warning (const char *filename)
 {
   location_t warn_loc;
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_RENAME, 0, filename, 0);
-  warn_loc = linemap_line_start (&line_table, 0, 1);
+  linemap_add (line_table, LC_RENAME, 0, filename, 0);
+  warn_loc = linemap_line_start (line_table, 0, 1);
 #else
   warn_loc.file = filename;
   warn_loc.line = 0;
@@ -1592,8 +1586,17 @@ parse_class_file (void)
   java_layout_seen_class_methods ();
 
   input_location = DECL_SOURCE_LOCATION (TYPE_NAME (current_class));
+#ifdef USE_MAPPED_LOCATION
+  {
+    /* Re-enter the current file.  */
+    expanded_location loc = expand_location (input_location);
+    linemap_add (line_table, LC_ENTER, 0, loc.file, loc.line);
+  }
+#endif
   file_start_location = input_location;
   (*debug_hooks->start_source_file) (input_line, input_filename);
+
+  java_mark_class_local (current_class);
 
   gen_indirect_dispatch_tables (current_class);
 
@@ -1656,7 +1659,7 @@ parse_class_file (void)
 	    }
 #ifdef USE_MAPPED_LOCATION
 	  if (min_line != 0)
-	    input_location = linemap_line_start (&line_table, min_line, 1);
+	    input_location = linemap_line_start (line_table, min_line, 1);
 #else
 	  if (min_line != 0)
 	    input_line = min_line;
@@ -1784,7 +1787,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       file_list = list;
     }
   else
-    list = (char *) main_input_filename;
+    list = CONST_CAST (char *, main_input_filename);
 
   while (list)
     {
@@ -1932,8 +1935,8 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  main_jcf->read_state = finput;
 	  main_jcf->filbuf = jcf_filbuf_from_stdio;
 #ifdef USE_MAPPED_LOCATION
-	  linemap_add (&line_table, LC_ENTER, false, filename, 0);
-	  input_location = linemap_line_start (&line_table, 0, 1);
+	  linemap_add (line_table, LC_ENTER, false, filename, 0);
+	  input_location = linemap_line_start (line_table, 0, 1);
 #endif
 	  if (open_in_zip (main_jcf, filename, NULL, 0) <  0)
 	    fatal_error ("bad zip/jar file %s", filename);
@@ -1941,9 +1944,13 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  /* Register all the classes defined there.  */
 	  process_zip_dir (main_jcf->read_state);
 #ifdef USE_MAPPED_LOCATION
-	  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
+	  linemap_add (line_table, LC_LEAVE, false, NULL, 0);
 #endif
 	  parse_zip_file_entries ();
+	}
+      else if (magic == (JCF_u4) ZIPEMPTYMAGIC)
+	{
+	  /* Ignore an empty input jar.  */
 	}
       else
 	{
@@ -1956,17 +1963,10 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  java_parser_context_restore_global ();
 	  java_pop_parser_context (1);
 #ifdef USE_MAPPED_LOCATION
-	  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
+	  linemap_add (line_table, LC_LEAVE, false, NULL, 0);
 #endif
 #endif
 	}
-    }
-
-  /* Do this before lowering any code.  */
-  for (node = current_file_list; node; node = TREE_CHAIN (node))
-    {
-      if (CLASS_FILE_P (node))
-	java_mark_class_local (TREE_TYPE (node));
     }
 
   for (node = current_file_list; node; node = TREE_CHAIN (node))
@@ -2075,6 +2075,7 @@ parse_zip_file_entries (void)
 	case 1:
 	  {
 	    char *class_name = compute_class_name (zdir);
+	    int previous_alias_set = -1;
 	    class = lookup_class (get_identifier (class_name));
 	    FREE (class_name);
 	    current_jcf = TYPE_JCF (class);
@@ -2085,17 +2086,25 @@ parse_zip_file_entries (void)
 	    gcc_assert (! TYPE_DUMMY (class));
 
 	    /* This is for a corner case where we have a superclass
-	       but no superclass fields.  
+	       but no superclass fields.
 
 	       This can happen if we earlier failed to lay out this
 	       class because its superclass was still in the process
 	       of being laid out; this occurs when we have recursive
-	       class dependencies via inner classes.  Setting
-	       TYPE_SIZE to null here causes CLASS_LOADED_P to return
-	       false, so layout_class() will be called again.  */
+	       class dependencies via inner classes.  We must record
+	       the previous alias set and restore it after laying out
+	       the class.
+
+	       FIXME: this really is a kludge.  We should figure out a
+	       way to lay out the class properly before this
+	       happens.  */
 	    if (TYPE_SIZE (class) && CLASSTYPE_SUPER (class)
 		&& integer_zerop (TYPE_SIZE (class)))
-	      TYPE_SIZE (class) = NULL_TREE;
+	      {
+		TYPE_SIZE (class) = NULL_TREE;
+		previous_alias_set = TYPE_ALIAS_SET (class);
+		TYPE_ALIAS_SET (class) = -1;
+	      }
 
 	    if (! CLASS_LOADED_P (class))
 	      {
@@ -2107,6 +2116,9 @@ parse_zip_file_entries (void)
 		layout_class (current_class);
 		load_inner_classes (current_class);
 	      }
+
+	    if (previous_alias_set != -1)
+	      TYPE_ALIAS_SET (class) = previous_alias_set;
 
 	    if (TYPE_SIZE (current_class) != error_mark_node)
 	      {

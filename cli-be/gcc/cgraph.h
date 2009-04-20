@@ -1,5 +1,6 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -288,7 +289,9 @@ extern GTY(()) int cgraph_order;
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
+void debug_cgraph (void);
 void dump_cgraph_node (FILE *, struct cgraph_node *);
+void debug_cgraph_node (struct cgraph_node *);
 void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
 void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
@@ -301,6 +304,7 @@ struct cgraph_node *cgraph_node (tree);
 struct cgraph_node *cgraph_node_for_asm (tree asmname);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree);
 void cgraph_set_call_stmt (struct cgraph_edge *, tree);
+void cgraph_update_edges_for_call_stmt (tree, tree, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
@@ -343,6 +347,9 @@ void cgraph_analyze_function (struct cgraph_node *);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 void record_references_in_initializer (tree);
 bool cgraph_process_new_functions (void);
+
+/* In cgraphbuild.c  */
+unsigned int rebuild_cgraph_edges (void);
 
 /* In ipa.c  */
 bool cgraph_remove_unreachable_nodes (bool, FILE *);

@@ -107,7 +107,7 @@ bool first_function_block_is_cold;
 /* We give all constants their own alias set.  Perhaps redundant with
    MEM_READONLY_P, but pre-dates it.  */
 
-static HOST_WIDE_INT const_alias_set;
+static alias_set_type const_alias_set;
 
 static const char *strip_reg_name (const char *);
 static int contains_pointers_p (tree);
@@ -1056,7 +1056,7 @@ decode_reg_name (const char *asmspec)
 /* Return true if DECL's initializer is suitable for a BSS section.  */
 
 static bool
-bss_initializer_p (tree decl)
+bss_initializer_p (const_tree decl)
 {
   return (DECL_INITIAL (decl) == NULL
 	  || DECL_INITIAL (decl) == error_mark_node
@@ -2575,11 +2575,17 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
       enum machine_mode omode, imode;
       unsigned int subalign;
       unsigned int subsize, i;
+      unsigned char mclass;
 
       subsize = size > UNITS_PER_WORD? UNITS_PER_WORD : 1;
       subalign = MIN (align, subsize * BITS_PER_UNIT);
-      omode = mode_for_size (subsize * BITS_PER_UNIT, MODE_INT, 0);
-      imode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+      if (GET_CODE (x) == CONST_FIXED)
+	mclass = GET_MODE_CLASS (GET_MODE (x));
+      else
+	mclass = MODE_INT;
+
+      omode = mode_for_size (subsize * BITS_PER_UNIT, mclass, 0);
+      imode = mode_for_size (size * BITS_PER_UNIT, mclass, 0);
 
       for (i = 0; i < size; i += subsize)
 	{
@@ -2691,6 +2697,7 @@ decode_addr_const (tree exp, struct addr_const *value)
       break;
 
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case CONSTRUCTOR:
@@ -2761,6 +2768,9 @@ const_hash_1 (const tree exp)
 
     case REAL_CST:
       return real_hash (TREE_REAL_CST_PTR (exp));
+
+    case FIXED_CST:
+      return fixed_hash (TREE_FIXED_CST_PTR (exp));
 
     case STRING_CST:
       p = TREE_STRING_POINTER (exp);
@@ -2880,6 +2890,13 @@ compare_constant (const tree t1, const tree t2)
 
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
 
+    case FIXED_CST:
+      /* Fixed constants are the same only if the same width of type.  */
+      if (TYPE_PRECISION (TREE_TYPE (t1)) != TYPE_PRECISION (TREE_TYPE (t2)))
+	return 0;
+
+      return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1), TREE_FIXED_CST (t2));
+
     case STRING_CST:
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
@@ -2973,15 +2990,7 @@ compare_constant (const tree t1, const tree t2)
       return compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
     default:
-      {
-	tree nt1, nt2;
-	nt1 = lang_hooks.expand_constant (t1);
-	nt2 = lang_hooks.expand_constant (t2);
-	if (nt1 != t1 || nt2 != t2)
-	  return compare_constant (nt1, nt2);
-	else
-	  return 0;
-      }
+      return 0;
     }
 
   gcc_unreachable ();
@@ -3006,6 +3015,7 @@ copy_constant (tree exp)
 
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
       return copy_node (exp);
 
@@ -3048,12 +3058,7 @@ copy_constant (tree exp)
       }
 
     default:
-      {
-	tree t = lang_hooks.expand_constant (exp);
-
-	gcc_assert (t != exp);
-	return copy_constant (t);
-      }
+      gcc_unreachable ();
     }
 }
 
@@ -3400,6 +3405,10 @@ const_rtx_hash_1 (rtx *xp, void *data)
 	h ^= real_hash (CONST_DOUBLE_REAL_VALUE (x));
       break;
 
+    case CONST_FIXED:
+      h ^= fixed_hash (CONST_FIXED_VALUE (x));
+      break;
+
     case CONST_VECTOR:
       {
 	int i;
@@ -3641,11 +3650,19 @@ output_constant_pool_2 (enum machine_mode mode, rtx x, unsigned int align)
 
     case MODE_INT:
     case MODE_PARTIAL_INT:
+    case MODE_FRACT:
+    case MODE_UFRACT:
+    case MODE_ACCUM:
+    case MODE_UACCUM:
       assemble_integer (x, GET_MODE_SIZE (mode), align, 1);
       break;
 
     case MODE_VECTOR_FLOAT:
     case MODE_VECTOR_INT:
+    case MODE_VECTOR_FRACT:
+    case MODE_VECTOR_UFRACT:
+    case MODE_VECTOR_ACCUM:
+    case MODE_VECTOR_UACCUM:
       {
 	int i, units;
         enum machine_mode submode = GET_MODE_INNER (mode);
@@ -3885,10 +3902,6 @@ compute_reloc_for_constant (tree exp)
   int reloc = 0, reloc2;
   tree tem;
 
-  /* Give the front-end a chance to convert VALUE to something that
-     looks more like a constant to the back-end.  */
-  exp = lang_hooks.expand_constant (exp);
-
   switch (TREE_CODE (exp))
     {
     case ADDR_EXPR:
@@ -3953,10 +3966,6 @@ output_addressed_constants (tree exp)
 {
   tree tem;
 
-  /* Give the front-end a chance to convert VALUE to something that
-     looks more like a constant to the back-end.  */
-  exp = lang_hooks.expand_constant (exp);
-
   switch (TREE_CODE (exp))
     {
     case ADDR_EXPR:
@@ -4009,7 +4018,7 @@ output_addressed_constants (tree exp)
    evaluate the property while walking a constructor for other purposes.  */
 
 bool
-constructor_static_from_elts_p (tree ctor)
+constructor_static_from_elts_p (const_tree ctor)
 {
   return (TREE_CONSTANT (ctor)
 	  && (TREE_CODE (TREE_TYPE (ctor)) == UNION_TYPE
@@ -4030,10 +4039,6 @@ constructor_static_from_elts_p (tree ctor)
 tree
 initializer_constant_valid_p (tree value, tree endtype)
 {
-  /* Give the front-end a chance to convert VALUE to something that
-     looks more like a constant to the back-end.  */
-  value = lang_hooks.expand_constant (value);
-
   switch (TREE_CODE (value))
     {
     case CONSTRUCTOR:
@@ -4063,6 +4068,7 @@ initializer_constant_valid_p (tree value, tree endtype)
     case INTEGER_CST:
     case VECTOR_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
       return null_pointer_node;
@@ -4164,7 +4170,7 @@ initializer_constant_valid_p (tree value, tree endtype)
 						      endtype);
 	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
 						      endtype);
-	  /* If either term is absolute, use the other terms relocation.  */
+	  /* If either term is absolute, use the other term's relocation.  */
 	  if (valid0 == null_pointer_node)
 	    return valid1;
 	  if (valid1 == null_pointer_node)
@@ -4291,11 +4297,6 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
   enum tree_code code;
   unsigned HOST_WIDE_INT thissize;
 
-  /* Some front-ends use constants other than the standard language-independent
-     varieties, but which may still be output directly.  Give the front-end a
-     chance to convert EXP to a language-independent representation.  */
-  exp = lang_hooks.expand_constant (exp);
-
   if (size == 0 || flag_syntax_only)
     return;
 
@@ -4352,9 +4353,6 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
   code = TREE_CODE (TREE_TYPE (exp));
   thissize = int_size_in_bytes (TREE_TYPE (exp));
 
-  /* Give the front end another chance to expand constants.  */
-  exp = lang_hooks.expand_constant (exp);
-
   /* Allow a constructor with no elements for any data type.
      This means to fill the space with zeros.  */
   if (TREE_CODE (exp) == CONSTRUCTOR
@@ -4386,10 +4384,11 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
     case OFFSET_TYPE:
+    case FIXED_POINT_TYPE:
       if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
 					   EXPAND_INITIALIZER),
 			      MIN (size, thissize), align, 0))
-	error ("initializer for integer value is too complicated");
+	error ("initializer for integer/fixed-point value is too complicated");
       break;
 
     case REAL_TYPE:
@@ -4863,7 +4862,7 @@ merge_weak (tree newdecl, tree olddecl)
       /* NEWDECL is weak, but OLDDECL is not.  */
 
       /* If we already output the OLDDECL, we're in trouble; we can't
-	 go back and make it weak.  This error cannot caught in
+	 go back and make it weak.  This error cannot be caught in
 	 declare_weak because the NEWDECL and OLDDECL was not yet
 	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
       if (TREE_ASM_WRITTEN (olddecl))
@@ -4981,7 +4980,7 @@ weak_finish (void)
       else if (! TREE_SYMBOL_REFERENCED (target))
 	{
 	  /* Use ASM_WEAKEN_LABEL only if ASM_WEAKEN_DECL is not
-	     defined, otherwise we and weak_finish_1 would use a
+	     defined, otherwise we and weak_finish_1 would use
 	     different macros.  */
 # if defined ASM_WEAKEN_LABEL && ! defined ASM_WEAKEN_DECL
 	  ASM_WEAKEN_LABEL (asm_out_file, IDENTIFIER_POINTER (target));
@@ -5349,7 +5348,7 @@ assemble_alias (tree decl, tree target)
     varpool_node (decl)->alias = true;
 
   /* If the target has already been emitted, we don't have to queue the
-     alias.  This saves a tad o memory.  */
+     alias.  This saves a tad of memory.  */
   target_decl = find_decl_and_mark_needed (decl, target);
   if (target_decl && TREE_ASM_WRITTEN (target_decl))
     do_assemble_alias (decl, target);
@@ -5517,7 +5516,7 @@ init_varasm_once (void)
 }
 
 enum tls_model
-decl_default_tls_model (tree decl)
+decl_default_tls_model (const_tree decl)
 {
   enum tls_model kind;
   bool is_local;
@@ -5757,7 +5756,7 @@ default_select_section (tree decl, int reloc,
 }
 
 enum section_category
-categorize_decl_for_section (tree decl, int reloc)
+categorize_decl_for_section (const_tree decl, int reloc)
 {
   enum section_category ret;
 
@@ -5839,7 +5838,7 @@ categorize_decl_for_section (tree decl, int reloc)
 }
 
 bool
-decl_readonly_section (tree decl, int reloc)
+decl_readonly_section (const_tree decl, int reloc)
 {
   switch (categorize_decl_for_section (decl, reloc))
     {
@@ -6127,7 +6126,7 @@ default_asm_output_anchor (rtx symbol)
 /* The default implementation of TARGET_USE_ANCHORS_FOR_SYMBOL_P.  */
 
 bool
-default_use_anchors_for_symbol_p (rtx symbol)
+default_use_anchors_for_symbol_p (const_rtx symbol)
 {
   section *sect;
   tree decl;
@@ -6166,13 +6165,13 @@ default_use_anchors_for_symbol_p (rtx symbol)
    wrt cross-module name binding.  */
 
 bool
-default_binds_local_p (tree exp)
+default_binds_local_p (const_tree exp)
 {
   return default_binds_local_p_1 (exp, flag_shlib);
 }
 
 bool
-default_binds_local_p_1 (tree exp, int shlib)
+default_binds_local_p_1 (const_tree exp, int shlib)
 {
   bool local_p;
 
@@ -6203,9 +6202,10 @@ default_binds_local_p_1 (tree exp, int shlib)
   else if (DECL_WEAK (exp))
     local_p = false;
   /* If PIC, then assume that any global name can be overridden by
-     symbols resolved from other modules.  */
+     symbols resolved from other modules, unless we are compiling with
+     -fwhole-program, which assumes that names are local.  */
   else if (shlib)
-    local_p = false;
+    local_p = flag_whole_program;
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */
   else if (DECL_COMMON (exp)

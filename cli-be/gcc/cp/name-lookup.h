@@ -1,12 +1,12 @@
 /* Declarations for C++ name lookup routines.
-   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007  Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_CP_NAME_LOOKUP_H
 #define GCC_CP_NAME_LOOKUP_H
@@ -191,9 +190,6 @@ struct cp_binding_level GTY(())
     /* An array of static functions and variables (for namespaces only) */
     VEC(tree,gc) *static_decls;
 
-    /* A chain of VTABLE_DECL nodes.  */
-    tree vtables;
-
     /* A list of USING_DECL nodes.  */
     tree usings;
 
@@ -259,11 +255,7 @@ struct cp_binding_level GTY(())
     unsigned more_cleanups_ok : 1;
     unsigned have_cleanups : 1;
 
-    /* Nonzero if this level has associated visibility which we should pop
-       when leaving the scope. */
-    unsigned has_visibility : 1;
-
-    /* 23 bits left to fill a 32-bit word.  */
+    /* 24 bits left to fill a 32-bit word.  */
   };
 
 /* The binding level currently in effect.  */
@@ -311,10 +303,10 @@ extern void pop_inner_scope (tree, tree);
 extern void push_binding_level (struct cp_binding_level *);
 
 extern void push_namespace (tree);
-extern void push_namespace_with_attribs (tree, tree);
 extern void pop_namespace (void);
 extern void push_nested_namespace (tree);
 extern void pop_nested_namespace (tree);
+extern bool handle_namespace_attrs (tree, tree);
 extern void pushlevel_class (void);
 extern void poplevel_class (void);
 extern tree pushdecl_with_scope (tree, cxx_scope *, bool);
@@ -327,6 +319,7 @@ extern bool hidden_name_p (tree);
 extern tree remove_hidden_names (tree);
 extern tree lookup_qualified_name (tree, tree, bool, bool);
 extern tree lookup_name_nonclass (tree);
+extern tree lookup_name_innermost_nonclass_level (tree);
 extern tree lookup_function_nonclass (tree, tree, bool);
 extern void push_local_binding (tree, tree, int);
 extern bool pushdecl_class_level (tree);

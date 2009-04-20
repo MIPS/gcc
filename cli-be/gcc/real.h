@@ -1,6 +1,6 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -21,8 +21,10 @@
 #ifndef GCC_REAL_H
 #define GCC_REAL_H
 
+#ifndef GENERATOR_FILE
 #include <gmp.h>
 #include <mpfr.h>
+#endif
 #include "machmode.h"
 
 /* An expanded form of the represented number.  */
@@ -248,7 +250,7 @@ extern bool real_nan (REAL_VALUE_TYPE *, const char *, int, enum machine_mode);
 
 extern void real_maxval (REAL_VALUE_TYPE *, int, enum machine_mode);
 
-extern void real_2expN (REAL_VALUE_TYPE *, int);
+extern void real_2expN (REAL_VALUE_TYPE *, int, enum machine_mode);
 
 extern unsigned int real_hash (const REAL_VALUE_TYPE *);
 
@@ -271,8 +273,6 @@ extern const struct real_format mips_quad_format;
 extern const struct real_format vax_f_format;
 extern const struct real_format vax_d_format;
 extern const struct real_format vax_g_format;
-extern const struct real_format c4x_single_format;
-extern const struct real_format c4x_extended_format;
 extern const struct real_format real_internal_format;
 extern const struct real_format decimal_single_format;
 extern const struct real_format decimal_double_format;
@@ -428,11 +428,13 @@ extern void real_round (REAL_VALUE_TYPE *, enum machine_mode,
 /* Set the sign of R to the sign of X.  */
 extern void real_copysign (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 
+#ifndef GENERATOR_FILE
 /* Convert between MPFR and REAL_VALUE_TYPE.  The caller is
    responsible for initializing and clearing the MPFR parameter.  */
 
 extern void real_from_mpfr (REAL_VALUE_TYPE *, mpfr_srcptr, tree, mp_rnd_t);
 extern void mpfr_from_real (mpfr_ptr, const REAL_VALUE_TYPE *, mp_rnd_t);
+#endif
 
 /* Check whether the real constant value given is an integer.  */
 extern bool real_isinteger (const REAL_VALUE_TYPE *c, enum machine_mode mode);

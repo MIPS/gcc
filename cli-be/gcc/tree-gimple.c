@@ -61,12 +61,14 @@ is_gimple_formal_tmp_rhs (tree t)
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
+    case COND_EXPR:
     case ADDR_EXPR:
     case CALL_EXPR:
     case CONSTRUCTOR:
     case COMPLEX_EXPR:
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
@@ -178,6 +180,7 @@ is_gimple_min_invariant (const_tree t)
 
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
@@ -200,7 +203,7 @@ is_gimple_min_invariant (const_tree t)
 bool
 is_gimple_stmt (tree t)
 {
-  enum tree_code code = TREE_CODE (t);
+  const enum tree_code code = TREE_CODE (t);
 
   switch (code)
     {
@@ -230,6 +233,7 @@ is_gimple_stmt (tree t)
     case OMP_PARALLEL:
     case OMP_FOR:
     case OMP_SECTIONS:
+    case OMP_SECTIONS_SWITCH:
     case OMP_SECTION:
     case OMP_SINGLE:
     case OMP_MASTER:
@@ -237,6 +241,8 @@ is_gimple_stmt (tree t)
     case OMP_CRITICAL:
     case OMP_RETURN:
     case OMP_CONTINUE:
+    case OMP_ATOMIC_LOAD:
+    case OMP_ATOMIC_STORE:
       /* These are always void.  */
       return true;
 
@@ -279,7 +285,13 @@ is_gimple_id (tree t)
 bool
 is_gimple_reg_type (tree type)
 {
-  return !AGGREGATE_TYPE_P (type);
+  /* In addition to aggregate types, we also exclude complex types if not
+     optimizing because they can be subject to partial stores in GNU C by
+     means of the __real__ and __imag__ operators and we cannot promote
+     them to total stores (see gimplify_modify_expr_complex_part).  */
+  return !(AGGREGATE_TYPE_P (type)
+	   || (TREE_CODE (type) == COMPLEX_TYPE && !optimize));
+
 }
 
 /* Return true if T is a non-aggregate register variable.  */
@@ -322,8 +334,8 @@ is_gimple_reg (tree t)
   if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
     return false;
 
-  /* Complex values must have been put into ssa form.  That is, no 
-     assignments to the individual components.  */
+  /* Complex and vector values must have been put into SSA-like form.
+     That is, no assignments to the individual components.  */
   if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
       || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
     return DECL_GIMPLE_REG_P (t);
@@ -517,4 +529,48 @@ recalculate_side_effects (tree t)
       /* Can never be used with non-expressions.  */
       gcc_unreachable ();
    }
+}
+
+/* Canonicalize a tree T for use in a COND_EXPR as conditional.  Returns
+   a canonicalized tree that is valid for a COND_EXPR or NULL_TREE, if
+   we failed to create one.  */
+
+tree
+canonicalize_cond_expr_cond (tree t)
+{
+  /* For (bool)x use x != 0.  */
+  if (TREE_CODE (t) == NOP_EXPR
+      && TREE_TYPE (t) == boolean_type_node)
+    {
+      tree top0 = TREE_OPERAND (t, 0);
+      t = build2 (NE_EXPR, TREE_TYPE (t),
+		  top0, build_int_cst (TREE_TYPE (top0), 0));
+    }
+  /* For !x use x == 0.  */
+  else if (TREE_CODE (t) == TRUTH_NOT_EXPR)
+    {
+      tree top0 = TREE_OPERAND (t, 0);
+      t = build2 (EQ_EXPR, TREE_TYPE (t),
+		  top0, build_int_cst (TREE_TYPE (top0), 0));
+    }
+  /* For cmp ? 1 : 0 use cmp.  */
+  else if (TREE_CODE (t) == COND_EXPR
+	   && COMPARISON_CLASS_P (TREE_OPERAND (t, 0))
+	   && integer_onep (TREE_OPERAND (t, 1))
+	   && integer_zerop (TREE_OPERAND (t, 2)))
+    {
+      tree top0 = TREE_OPERAND (t, 0);
+      t = build2 (TREE_CODE (top0), TREE_TYPE (t),
+		  TREE_OPERAND (top0, 0), TREE_OPERAND (top0, 1));
+    }
+
+  /* A valid conditional for a COND_EXPR is either a gimple value
+     or a comparison with two gimple value operands.  */
+  if (is_gimple_val (t)
+      || (COMPARISON_CLASS_P (t)
+	  && is_gimple_val (TREE_OPERAND (t, 0))
+	  && is_gimple_val (TREE_OPERAND (t, 1))))
+    return t;
+
+  return NULL_TREE;
 }

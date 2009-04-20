@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -251,6 +250,21 @@ gfc_resolve_array_spec (gfc_array_spec *as, int check_constant)
       e = as->upper[i];
       if (resolve_array_bound (e, check_constant) == FAILURE)
 	return FAILURE;
+
+      if ((as->lower[i] == NULL) || (as->upper[i] == NULL))
+	continue;
+
+      /* If the size is negative in this dimension, set it to zero.  */
+      if (as->lower[i]->expr_type == EXPR_CONSTANT
+	    && as->upper[i]->expr_type == EXPR_CONSTANT
+	    && mpz_cmp (as->upper[i]->value.integer,
+			as->lower[i]->value.integer) < 0)
+	{
+	  gfc_free_expr (as->upper[i]);
+	  as->upper[i] = gfc_copy_expr (as->lower[i]);
+	  mpz_sub_ui (as->upper[i]->value.integer,
+		      as->upper[i]->value.integer, 1);
+	}
     }
 
   return SUCCESS;
@@ -319,15 +333,6 @@ match_array_element_spec (gfc_array_spec *as)
   if (m == MATCH_NO)
     return AS_ASSUMED_SHAPE;
 
-  /* If the size is negative in this dimension, set it to zero.  */
-  if ((*lower)->expr_type == EXPR_CONSTANT
-      && (*upper)->expr_type == EXPR_CONSTANT
-      && mpz_cmp ((*upper)->value.integer, (*lower)->value.integer) < 0)
-    {
-      gfc_free_expr (*upper);
-      *upper = gfc_copy_expr (*lower);
-      mpz_sub_ui ((*upper)->value.integer, (*upper)->value.integer, 1);
-    }
   return AS_EXPLICIT;
 }
 
@@ -1282,6 +1287,7 @@ expand_iterator (gfc_constructor *c)
 
   mpz_init (trip);
   mpz_init (frame.value);
+  frame.prev = NULL;
 
   start = gfc_copy_expr (c->iterator->start);
   if (gfc_simplify_expr (start, 1) == FAILURE)

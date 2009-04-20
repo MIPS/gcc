@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+   2007 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef _S390_H
 #define _S390_H
@@ -104,7 +103,7 @@ extern enum processor_flags s390_arch_flags;
   while (0)
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH)
+#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH | MASK_HARD_DFP)
 #else
 #define TARGET_DEFAULT             0
 #endif
@@ -143,22 +142,29 @@ extern enum processor_flags s390_arch_flags;
 #define CAN_DEBUG_WITHOUT_FP
 
 /* Constants needed to control the TEST DATA CLASS (TDC) instruction.  */
-#define S390_TDC_POSITIVE_ZERO                (1 << 11)
-#define S390_TDC_NEGATIVE_ZERO                (1 << 10)
-#define S390_TDC_POSITIVE_NORMALIZED_NUMBER   (1 << 9)
-#define S390_TDC_NEGATIVE_NORMALIZED_NUMBER   (1 << 8)
-#define S390_TDC_POSITIVE_DENORMALIZED_NUMBER (1 << 7)
-#define S390_TDC_NEGATIVE_DENORMALIZED_NUMBER (1 << 6)
-#define S390_TDC_POSITIVE_INFINITY            (1 << 5)
-#define S390_TDC_NEGATIVE_INFINITY            (1 << 4)
-#define S390_TDC_POSITIVE_QUIET_NAN           (1 << 3)
-#define S390_TDC_NEGATIVE_QUIET_NAN           (1 << 2)
-#define S390_TDC_POSITIVE_SIGNALING_NAN       (1 << 1)
-#define S390_TDC_NEGATIVE_SIGNALING_NAN       (1 << 0)
+#define S390_TDC_POSITIVE_ZERO                     (1 << 11)
+#define S390_TDC_NEGATIVE_ZERO                     (1 << 10)
+#define S390_TDC_POSITIVE_NORMALIZED_BFP_NUMBER    (1 << 9)
+#define S390_TDC_NEGATIVE_NORMALIZED_BFP_NUMBER    (1 << 8)
+#define S390_TDC_POSITIVE_DENORMALIZED_BFP_NUMBER  (1 << 7)
+#define S390_TDC_NEGATIVE_DENORMALIZED_BFP_NUMBER  (1 << 6)
+#define S390_TDC_POSITIVE_INFINITY                 (1 << 5)
+#define S390_TDC_NEGATIVE_INFINITY                 (1 << 4)
+#define S390_TDC_POSITIVE_QUIET_NAN                (1 << 3)
+#define S390_TDC_NEGATIVE_QUIET_NAN                (1 << 2)
+#define S390_TDC_POSITIVE_SIGNALING_NAN            (1 << 1)
+#define S390_TDC_NEGATIVE_SIGNALING_NAN            (1 << 0)
 
+/* The following values are different for DFP.  */
+#define S390_TDC_POSITIVE_DENORMALIZED_DFP_NUMBER (1 << 9)
+#define S390_TDC_NEGATIVE_DENORMALIZED_DFP_NUMBER (1 << 8)
+#define S390_TDC_POSITIVE_NORMALIZED_DFP_NUMBER   (1 << 7)
+#define S390_TDC_NEGATIVE_NORMALIZED_DFP_NUMBER   (1 << 6)
+
+/* For signbit, the BFP-DFP-difference makes no difference. */ 
 #define S390_TDC_SIGNBIT_SET (S390_TDC_NEGATIVE_ZERO \
-                          | S390_TDC_NEGATIVE_NORMALIZED_NUMBER \
-                          | S390_TDC_NEGATIVE_DENORMALIZED_NUMBER\
+                          | S390_TDC_NEGATIVE_NORMALIZED_BFP_NUMBER \
+                          | S390_TDC_NEGATIVE_DENORMALIZED_BFP_NUMBER\
                           | S390_TDC_NEGATIVE_INFINITY \
                           | S390_TDC_NEGATIVE_QUIET_NAN \
 			  | S390_TDC_NEGATIVE_SIGNALING_NAN )
@@ -630,10 +636,11 @@ CUMULATIVE_ARGS;
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)   \
   s390_function_arg (&CUM, MODE, TYPE, NAMED)
 
-/* Arguments can be placed in general registers 2 to 6,
-   or in floating point registers 0 and 2.  */
+/* Arguments can be placed in general registers 2 to 6, or in floating
+   point registers 0 and 2 for 31 bit and fprs 0, 2, 4 and 6 for 64
+   bit.  */
 #define FUNCTION_ARG_REGNO_P(N) (((N) >=2 && (N) <7) || \
-                                 (N) == 16 || (N) == 17)
+  (N) == 16 || (N) == 17 || (TARGET_64BIT && ((N) == 18 || (N) == 19)))
 
 
 /* Scalar return values.  */
@@ -661,11 +668,6 @@ CUMULATIVE_ARGS;
 
 #define PROFILE_BEFORE_PROLOGUE 1
 
-
-/* Implementing the varargs macros.  */
-
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  s390_va_start (valist, nextarg)
 
 /* Trampolines for nested functions.  */
 
@@ -804,12 +806,25 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1, *s390_compare_emitte
     || (TARGET_64BIT && (SIZE) == 8) )
 
 /* This macro is used to determine whether store_by_pieces should be
-   called to "memset" storage with byte values other than zero, or
-   to "memcpy" storage when the source is a constant string.  */
+   called to "memcpy" storage when the source is a constant string.  */
 #define STORE_BY_PIECES_P(SIZE, ALIGN) MOVE_BY_PIECES_P (SIZE, ALIGN)
+
+/* Likewise to decide whether to "memset" storage with byte values
+   other than zero.  */
+#define SET_BY_PIECES_P(SIZE, ALIGN) STORE_BY_PIECES_P (SIZE, ALIGN)
 
 /* Don't perform CSE on function addresses.  */
 #define NO_FUNCTION_CSE
+
+/* This value is used in tree-sra to decide whether it might benefical
+   to split a struct move into several word-size moves.  For S/390
+   only small values make sense here since struct moves are relatively
+   cheap thanks to mvc so the small default value choosen for archs
+   with memmove patterns should be ok.  But this value is multiplied
+   in tree-sra with UNITS_PER_WORD to make a decision so we adjust it
+   here to compensate for that factor since mvc costs exactly the same
+   on 31 and 64 bit.  */
+#define MOVE_RATIO (TARGET_64BIT? 2 : 4)
 
 
 /* Sections.  */

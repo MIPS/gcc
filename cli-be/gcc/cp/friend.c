@@ -1,12 +1,12 @@
 /* Help friends in C++.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2007  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -469,7 +468,7 @@ do_friend (tree ctype, tree declarator, tree decl,
 	 the process of being defined.  */
       if (class_template_depth
 	  || COMPLETE_TYPE_P (ctype)
-	  || TYPE_BEING_DEFINED (ctype))
+	  || (CLASS_TYPE_P (ctype) && TYPE_BEING_DEFINED (ctype)))
 	{
 	  if (DECL_TEMPLATE_INFO (decl))
 	    /* DECL is a template specialization.  No need to
@@ -527,11 +526,25 @@ do_friend (tree ctype, tree declarator, tree decl,
 	       is instantiated.  */
 	    decl = push_template_decl_real (decl, /*is_friend=*/true);
 	  else if (current_function_decl)
-	    /* This must be a local class, so pushdecl will be ok, and
-	       insert an unqualified friend into the local scope
-	       (rather than the containing namespace scope, which the
-	       next choice will do).  */
-	    decl = pushdecl_maybe_friend (decl, /*is_friend=*/true);
+	    {
+	      /* This must be a local class.  11.5p11:
+
+		 If a friend declaration appears in a local class (9.8) and
+		 the name specified is an unqualified name, a prior
+		 declaration is looked up without considering scopes that
+		 are outside the innermost enclosing non-class scope. For a
+		 friend function declaration, if there is no prior
+		 declaration, the program is ill-formed.  */
+	      tree t = lookup_name_innermost_nonclass_level (DECL_NAME (decl));
+	      if (t)
+		decl = pushdecl_maybe_friend (decl, /*is_friend=*/true);
+	      else
+		{
+		  error ("friend declaration %qD in local class without "
+			 "prior declaration", decl);
+		  return error_mark_node;
+		}
+	    }
 	  else
 	    {
 	      /* We can't use pushdecl, as we might be in a template

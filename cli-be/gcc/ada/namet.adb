@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,7 +32,7 @@
 ------------------------------------------------------------------------------
 
 --  WARNING: There is a C version of this package. Any changes to this
---  source file must be properly reflected in the C header file a-namet.h
+--  source file must be properly reflected in the C header file namet.h
 --  which is created manually from namet.ads and namet.adb.
 
 with Debug;    use Debug;
@@ -149,7 +149,7 @@ package body Namet is
 
             else
                Write_Str ("Hash_Table (");
-               Write_Int (Int (J));
+               Write_Int (J);
                Write_Str (") has ");
 
                declare
@@ -444,7 +444,7 @@ package body Namet is
 
                   --  Search the map. Note that this loop must terminate, if
                   --  not we have some kind of internal error, and a constraint
-                  --  constraint error may be raised.
+                  --  error may be raised.
 
                   J := Map'First;
                   loop

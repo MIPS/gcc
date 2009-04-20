@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "langhooks.h"
 #include "cfgloop.h"
+#include "params.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-sccvn.h"
 
@@ -90,7 +91,7 @@ along with GCC; see the file COPYING3.  If not see
    In order to value number memory, we assign value numbers to vuses.
    This enables us to note that, for example, stores to the same
    address of the same value from the same starting memory states are
-   equivalent.  
+   equivalent.
    TODO:
 
    1. We can iterate only the changing portions of the SCC's, but
@@ -124,10 +125,10 @@ typedef struct vn_tables_s
 typedef struct vn_binary_op_s
 {
   enum tree_code opcode;
+  hashval_t hashcode;
   tree type;
   tree op0;
   tree op1;
-  hashval_t hashcode;
   tree result;
 } *vn_binary_op_t;
 typedef const struct vn_binary_op_s *const_vn_binary_op_t;
@@ -139,9 +140,9 @@ typedef const struct vn_binary_op_s *const_vn_binary_op_t;
 typedef struct vn_unary_op_s
 {
   enum tree_code opcode;
+  hashval_t hashcode;
   tree type;
   tree op0;
-  hashval_t hashcode;
   tree result;
 } *vn_unary_op_t;
 typedef const struct vn_unary_op_s *const_vn_unary_op_t;
@@ -264,7 +265,7 @@ VN_INFO_SET (tree name, vn_ssa_aux_t value)
 }
 
 /* Get the value numbering info for a given SSA name, creating it if
-   it does not exist.  */ 
+   it does not exist.  */
 
 vn_ssa_aux_t
 VN_INFO_GET (tree name)
@@ -278,6 +279,24 @@ VN_INFO_GET (tree name)
   return newinfo;
 }
 
+
+/* Free a phi operation structure VP.  */
+
+static void
+free_phi (void *vp)
+{
+  vn_phi_t phi = vp;
+  VEC_free (tree, heap, phi->phiargs);
+}
+
+/* Free a reference operation structure VP.  */
+
+static void
+free_reference (void *vp)
+{
+  vn_reference_t vr = vp;
+  VEC_free (vn_reference_op_s, heap, vr->operands);
+}
 
 /* Compare two reference operands P1 and P2 for equality.  return true if
    they are equal, and false otherwise.  */
@@ -367,7 +386,7 @@ vn_reference_eq (const void *p1, const void *p2)
       if (VEC_index (tree, vr2->vuses, i) != v)
 	return false;
     }
-  
+
   for (i = 0; VEC_iterate (vn_reference_op_s, vr1->operands, i, vro); i++)
     {
       if (!vn_reference_op_eq (VEC_index (vn_reference_op_s, vr2->operands, i),
@@ -388,11 +407,11 @@ vuses_to_vec (tree stmt, VEC (tree, gc) **result)
   if (!stmt)
     return;
 
-  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VIRTUAL_USES)
-    VEC_safe_push (tree, gc, *result, vuse);
+  VEC_reserve_exact (tree, gc, *result,
+		     num_ssa_operands (stmt, SSA_OP_VIRTUAL_USES));
 
-  if (VEC_length (tree, *result) > 1)
-    sort_vuses (*result);
+  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VIRTUAL_USES)
+    VEC_quick_push (tree, *result, vuse);
 }
 
 
@@ -420,11 +439,10 @@ vdefs_to_vec (tree stmt, VEC (tree, gc) **result)
   if (!stmt)
     return;
 
-  FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-    VEC_safe_push (tree, gc, *result, vdef);
+  *result = VEC_alloc (tree, gc, num_ssa_operands (stmt, SSA_OP_VIRTUAL_DEFS));
 
-  if (VEC_length (tree, *result) > 1)
-    sort_vuses (*result);
+  FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, iter, SSA_OP_VIRTUAL_DEFS)
+    VEC_quick_push (tree, *result, vdef);
 }
 
 /* Copy the names of vdef results in STMT into a vector, and return
@@ -534,6 +552,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	case COMPLEX_CST:
 	case VECTOR_CST:
 	case REAL_CST:
+	case CONSTRUCTOR:
 	case VALUE_HANDLE:
 	case VAR_DECL:
 	case PARM_DECL:
@@ -554,7 +573,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	  break;
 	default:
 	  gcc_unreachable ();
-	  
+
 	}
       VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
 
@@ -655,6 +674,9 @@ vn_reference_lookup (tree op, VEC (tree, gc) *vuses)
   vr1.hashcode = vn_reference_compute_hash (&vr1);
   slot = htab_find_slot_with_hash (current_info->references, &vr1, vr1.hashcode,
 				   NO_INSERT);
+  if (!slot && current_info == optimistic_info)
+    slot = htab_find_slot_with_hash (valid_info->references, &vr1, vr1.hashcode,
+				     NO_INSERT);
   if (!slot)
     return NULL_TREE;
 
@@ -688,6 +710,9 @@ vn_reference_insert (tree op, tree result, VEC (tree, gc) *vuses)
      the other lookup functions, you cannot gcc_assert (!*slot)
      here.  */
 
+  /* But free the old slot in case of a collision.  */
+  if (*slot)
+    free_reference (*slot);
 
   *slot = vr1;
 }
@@ -742,6 +767,9 @@ vn_unary_op_lookup (tree op)
   vuo1.hashcode = vn_unary_op_compute_hash (&vuo1);
   slot = htab_find_slot_with_hash (current_info->unary, &vuo1, vuo1.hashcode,
 				   NO_INSERT);
+  if (!slot && current_info == optimistic_info)
+    slot = htab_find_slot_with_hash (valid_info->unary, &vuo1, vuo1.hashcode,
+				     NO_INSERT);
   if (!slot)
     return NULL_TREE;
   return ((vn_unary_op_t)*slot)->result;
@@ -834,6 +862,9 @@ vn_binary_op_lookup (tree op)
   vbo1.hashcode = vn_binary_op_compute_hash (&vbo1);
   slot = htab_find_slot_with_hash (current_info->binary, &vbo1, vbo1.hashcode,
 				   NO_INSERT);
+  if (!slot && current_info == optimistic_info)
+    slot = htab_find_slot_with_hash (valid_info->binary, &vbo1, vbo1.hashcode,
+				     NO_INSERT);
   if (!slot)
     return NULL_TREE;
   return ((vn_binary_op_t)*slot)->result;
@@ -960,6 +991,9 @@ vn_phi_lookup (tree phi)
   vp1.hashcode = vn_phi_compute_hash (&vp1);
   slot = htab_find_slot_with_hash (current_info->phis, &vp1, vp1.hashcode,
 				   NO_INSERT);
+  if (!slot && current_info == optimistic_info)
+    slot = htab_find_slot_with_hash (valid_info->phis, &vp1, vp1.hashcode,
+				     NO_INSERT);
   if (!slot)
     return NULL_TREE;
   return ((vn_phi_t)*slot)->result;
@@ -1022,6 +1056,11 @@ set_ssa_val_to (tree from, tree to)
 {
   tree currval;
 
+  if (from != to
+      && TREE_CODE (to) == SSA_NAME
+      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (to))
+    to = from;
+
   /* The only thing we allow as value numbers are VN_TOP, ssa_names
      and invariants.  So assert that here.  */
   gcc_assert (to != NULL_TREE
@@ -1078,7 +1117,7 @@ visit_copy (tree lhs, tree rhs)
   /* Follow chains of copies to their destination.  */
   while (SSA_VAL (rhs) != rhs && TREE_CODE (SSA_VAL (rhs)) == SSA_NAME)
     rhs = SSA_VAL (rhs);
-  
+
   /* The copy may have a more interesting constant filled expression
      (we don't, since we know our RHS is just an SSA name).  */
   VN_INFO (lhs)->has_constants = VN_INFO (rhs)->has_constants;
@@ -1259,6 +1298,11 @@ visit_phi (tree phi)
   bool allsame = true;
   int i;
 
+  /* TODO: We could check for this in init_sccvn, and replace this
+     with a gcc_assert.  */
+  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
+    return set_ssa_val_to (PHI_RESULT (phi), PHI_RESULT (phi));
+
   /* See if all non-TOP arguments have the same value.  TOP is
      equivalent to everything, so we can ignore it.  */
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
@@ -1297,10 +1341,10 @@ visit_phi (tree phi)
 	  VN_INFO (PHI_RESULT (phi))->has_constants = false;
 	  VN_INFO (PHI_RESULT (phi))->expr = sameval;
 	}
-      
+
       if (TREE_CODE (sameval) == SSA_NAME)
 	return visit_copy (PHI_RESULT (phi), sameval);
-      
+
       return set_ssa_val_to (PHI_RESULT (phi), sameval);
     }
 
@@ -1380,7 +1424,7 @@ valueize_expr (tree expr)
    simplified. */
 
 static tree
-simplify_binary_expression (tree rhs)
+simplify_binary_expression (tree stmt, tree rhs)
 {
   tree result = NULL_TREE;
   tree op0 = TREE_OPERAND (rhs, 0);
@@ -1406,7 +1450,17 @@ simplify_binary_expression (tree rhs)
 	op1 = SSA_VAL (op1);
     }
 
+  /* Avoid folding if nothing changed.  */
+  if (op0 == TREE_OPERAND (rhs, 0)
+      && op1 == TREE_OPERAND (rhs, 1))
+    return NULL_TREE;
+
+  fold_defer_overflow_warnings ();
+
   result = fold_binary (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
+
+  fold_undefer_overflow_warnings (result && valid_gimple_expression_p (result),
+				  stmt, 0);
 
   /* Make sure result is not a complex expression consisting
      of operators of operators (IE (a + b) + (a + c))
@@ -1416,6 +1470,50 @@ simplify_binary_expression (tree rhs)
     return result;
 
   return NULL_TREE;
+}
+
+/* Simplify the unary expression RHS, and return the result if
+   simplified. */
+
+static tree
+simplify_unary_expression (tree rhs)
+{
+  tree result = NULL_TREE;
+  tree op0 = TREE_OPERAND (rhs, 0);
+
+  if (TREE_CODE (op0) != SSA_NAME)
+    return NULL_TREE;
+
+  if (VN_INFO (op0)->has_constants)
+    op0 = valueize_expr (VN_INFO (op0)->expr);
+  else if (TREE_CODE (rhs) == NOP_EXPR
+	   || TREE_CODE (rhs) == CONVERT_EXPR
+	   || TREE_CODE (rhs) == REALPART_EXPR
+	   || TREE_CODE (rhs) == IMAGPART_EXPR)
+    {
+      /* We want to do tree-combining on conversion-like expressions.
+         Make sure we feed only SSA_NAMEs or constants to fold though.  */
+      tree tem = valueize_expr (VN_INFO (op0)->expr);
+      if (UNARY_CLASS_P (tem)
+	  || BINARY_CLASS_P (tem)
+	  || TREE_CODE (tem) == SSA_NAME
+	  || is_gimple_min_invariant (tem))
+	op0 = tem;
+    }
+
+  /* Avoid folding if nothing changed, but remember the expression.  */
+  if (op0 == TREE_OPERAND (rhs, 0))
+    return rhs;
+
+  result = fold_unary (TREE_CODE (rhs), TREE_TYPE (rhs), op0);
+  if (result)
+    {
+      STRIP_USELESS_TYPE_CONVERSION (result);
+      if (valid_gimple_expression_p (result))
+        return result;
+    }
+
+  return rhs;
 }
 
 /* Try to simplify RHS using equivalences and constant folding.  */
@@ -1452,25 +1550,18 @@ try_to_simplify (tree stmt, tree rhs)
 	    if (result)
 	      return result;
 	  }
-	  break;
+	  /* Fallthrough for some codes.  */
+	  if (!(TREE_CODE (rhs) == REALPART_EXPR
+	        || TREE_CODE (rhs) == IMAGPART_EXPR))
+	    break;
 	  /* We could do a little more with unary ops, if they expand
 	     into binary ops, but it's debatable whether it is worth it. */
 	case tcc_unary:
-	  {
-	    tree result = NULL_TREE;
-	    tree op0 = TREE_OPERAND (rhs, 0);
-	    if (TREE_CODE (op0) == SSA_NAME && VN_INFO (op0)->has_constants)
-	      op0 = VN_INFO (op0)->expr;
-	    else if (TREE_CODE (op0) == SSA_NAME && SSA_VAL (op0) != op0)
-	      op0 = SSA_VAL (op0);
-	    result = fold_unary (TREE_CODE (rhs), TREE_TYPE (rhs), op0);
-	    if (result)
-	      return result;
-	  }
+	  return simplify_unary_expression (rhs);
 	  break;
 	case tcc_comparison:
 	case tcc_binary:
-	  return simplify_binary_expression (rhs);
+	  return simplify_binary_expression (stmt, rhs);
 	  break;
 	default:
 	  break;
@@ -1519,7 +1610,8 @@ visit_use (tree use)
 	  changed = visit_phi (stmt);
 	}
       else if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
-	       || (ann && ann->has_volatile_ops))
+	       || (ann && ann->has_volatile_ops)
+	       || tree_could_throw_p (stmt))
 	{
 	  changed = defs_to_varying (stmt);
 	}
@@ -1596,7 +1688,7 @@ visit_use (tree use)
 		 have been value numbering optimistically, and
 		 iterating. They may become non-constant in this case,
 		 even if they were optimistically constant. */
-		 
+
 	      VN_INFO (lhs)->has_constants = false;
 	      VN_INFO (lhs)->expr = lhs;
 	    }
@@ -1725,7 +1817,7 @@ process_scc (VEC (tree, heap) *scc)
   if (VEC_length (tree, scc) == 1)
     {
       tree use = VEC_index (tree, scc, 0);
-      if (!VN_INFO (use)->use_processed) 
+      if (!VN_INFO (use)->use_processed)
 	visit_use (use);
     }
   else
@@ -1742,6 +1834,14 @@ process_scc (VEC (tree, heap) *scc)
 	{
 	  changed = false;
 	  iterations++;
+	  htab_empty (optimistic_info->unary);
+	  htab_empty (optimistic_info->binary);
+	  htab_empty (optimistic_info->phis);
+	  htab_empty (optimistic_info->references);
+	  empty_alloc_pool (optimistic_info->unary_op_pool);
+	  empty_alloc_pool (optimistic_info->binary_op_pool);
+	  empty_alloc_pool (optimistic_info->phis_pool);
+	  empty_alloc_pool (optimistic_info->references_pool);
 	  for (i = 0; VEC_iterate (tree, scc, i, var); i++)
 	    changed |= visit_use (var);
 	}
@@ -1760,9 +1860,11 @@ process_scc (VEC (tree, heap) *scc)
 /* Depth first search on NAME to discover and process SCC's in the SSA
    graph.
    Execution of this algorithm relies on the fact that the SCC's are
-   popped off the stack in topological order.  */
+   popped off the stack in topological order.
+   Returns true if successful, false if we stopped processing SCC's due
+   to ressource constraints.  */
 
-static void
+static bool
 DFS (tree name)
 {
   ssa_op_iter iter;
@@ -1793,7 +1895,8 @@ DFS (tree name)
 
 	  if (! (VN_INFO (use)->visited))
 	    {
-	      DFS (use);
+	      if (!DFS (use))
+		return false;
 	      VN_INFO (name)->low = MIN (VN_INFO (name)->low,
 					 VN_INFO (use)->low);
 	    }
@@ -1822,6 +1925,17 @@ DFS (tree name)
 	  VEC_safe_push (tree, heap, scc, x);
 	} while (x != name);
 
+      /* Bail out of SCCVN in case a SCC turns out to be incredibly large.  */
+      if (VEC_length (tree, scc)
+	    > (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "WARNING: Giving up with SCCVN due to "
+		     "SCC size %u exceeding %u\n", VEC_length (tree, scc),
+		     (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE));
+	  return false;
+	}
+
       if (VEC_length (tree, scc) > 1)
 	sort_scc (scc);
 
@@ -1832,23 +1946,8 @@ DFS (tree name)
 
       VEC_free (tree, heap, scc);
     }
-}
 
-static void
-free_phi (void *vp)
-{
-  vn_phi_t phi = vp;
-  VEC_free (tree, heap, phi->phiargs);
-}
-
-
-/* Free a reference operation structure VP.  */
-
-static void
-free_reference (void *vp)
-{
-  vn_reference_t vr = vp;
-  VEC_free (vn_reference_op_s, heap, vr->operands);
+  return true;
 }
 
 /* Allocate a value number table.  */
@@ -1983,7 +2082,7 @@ free_scc_vn (void)
 	    SSA_NAME_VALUE (name) = NULL;
 	}
     }
-      
+
   VEC_free (vn_ssa_aux_t, heap, vn_ssa_aux_table);
   VEC_free (tree, heap, sccstack);
   free_vn_table (valid_info);
@@ -1997,7 +2096,10 @@ free_scc_vn (void)
     }
 }
 
-void
+/* Do SCCVN.  Returns true if it finished, false if we bailed out
+   due to ressource constraints.  */
+
+bool
 run_scc_vn (void)
 {
   size_t i;
@@ -2023,7 +2125,11 @@ run_scc_vn (void)
       if (name
 	  && VN_INFO (name)->visited == false
 	  && !has_zero_uses (name))
-	DFS (name);
+	if (!DFS (name))
+	  {
+	    free_scc_vn ();
+	    return false;
+	  }
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2046,4 +2152,6 @@ run_scc_vn (void)
 	    }
 	}
     }
+
+  return true;
 }

@@ -126,6 +126,10 @@ struct qty
 
   int n_calls_crossed;
 
+  /* Number of times a reg tied to given qty lives across a CALL_INSN.  */
+
+  int freq_calls_crossed;
+
   /* Number of times a reg tied to given qty lives across a CALL_INSN
      that might throw.  */
 
@@ -287,7 +291,7 @@ static struct equivalence *reg_equiv;
 static int recorded_label_ref;
 
 static void alloc_qty (int, enum machine_mode, int, int);
-static void validate_equiv_mem_from_store (rtx, rtx, void *);
+static void validate_equiv_mem_from_store (rtx, const_rtx, void *);
 static int validate_equiv_mem (rtx, rtx, rtx);
 static int equiv_init_varies_p (rtx);
 static int equiv_init_movable_p (rtx, int);
@@ -295,7 +299,7 @@ static int contains_replace_regs (rtx);
 static int memref_referenced_p (rtx, rtx);
 static int memref_used_between_p (rtx, rtx, rtx);
 static void update_equiv_regs (void);
-static void no_equiv (rtx, rtx, void *);
+static void no_equiv (rtx, const_rtx, void *);
 static void block_alloc (int);
 static int qty_sugg_compare (int, int);
 static int qty_sugg_compare_1 (const void *, const void *);
@@ -304,7 +308,7 @@ static int qty_compare_1 (const void *, const void *);
 static int combine_regs (rtx, rtx, int, int, rtx, int);
 static int reg_meets_class_p (int, enum reg_class);
 static void update_qty_class (int, int);
-static void reg_is_set (rtx, rtx, void *);
+static void reg_is_set (rtx, const_rtx, void *);
 static void reg_is_born (rtx, int);
 static void wipe_dead_reg (rtx, int);
 static int find_free_reg (enum reg_class, enum machine_mode, int, int, int,
@@ -332,6 +336,7 @@ alloc_qty (int regno, enum machine_mode mode, int size, int birth)
   qty[qtyno].mode = mode;
   qty[qtyno].birth = birth;
   qty[qtyno].n_calls_crossed = REG_N_CALLS_CROSSED (regno);
+  qty[qtyno].freq_calls_crossed = REG_FREQ_CALLS_CROSSED (regno);
   qty[qtyno].n_throwing_calls_crossed = REG_N_THROWING_CALLS_CROSSED (regno);
   qty[qtyno].min_class = reg_preferred_class (regno);
   qty[qtyno].alternate_class = reg_alternate_class (regno);
@@ -460,7 +465,7 @@ static int equiv_mem_modified;
    Called via note_stores.  */
 
 static void
-validate_equiv_mem_from_store (rtx dest, rtx set ATTRIBUTE_UNUSED,
+validate_equiv_mem_from_store (rtx dest, const_rtx set ATTRIBUTE_UNUSED,
 			       void *data ATTRIBUTE_UNUSED)
 {
   if ((REG_P (dest)
@@ -538,6 +543,7 @@ equiv_init_varies_p (rtx x)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -655,6 +661,7 @@ contains_replace_regs (rtx x)
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:
@@ -703,6 +710,7 @@ memref_referenced_p (rtx memref, rtx x)
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:
@@ -1190,6 +1198,7 @@ update_equiv_regs (void)
 
 		      REG_BASIC_BLOCK (regno) = bb->index;
 		      REG_N_CALLS_CROSSED (regno) = 0;
+		      REG_FREQ_CALLS_CROSSED (regno) = 0;
 		      REG_N_THROWING_CALLS_CROSSED (regno) = 0;
 		      REG_LIVE_LENGTH (regno) = 2;
 
@@ -1208,13 +1217,9 @@ update_equiv_regs (void)
   if (!bitmap_empty_p (cleared_regs))
     FOR_EACH_BB (bb)
       {
-	bitmap_and_compl_into (DF_RA_LIVE_IN (bb), cleared_regs);
-	if (DF_RA_LIVE_TOP (bb))
-	  bitmap_and_compl_into (DF_RA_LIVE_TOP (bb), cleared_regs);
-	bitmap_and_compl_into (DF_RA_LIVE_OUT (bb), cleared_regs);
+	bitmap_and_compl_into (DF_LIVE_IN (bb), cleared_regs);
+	bitmap_and_compl_into (DF_LIVE_OUT (bb), cleared_regs);
 	bitmap_and_compl_into (DF_LR_IN (bb), cleared_regs);
-	if (DF_LR_TOP (bb))
-	  bitmap_and_compl_into (DF_LR_TOP (bb), cleared_regs);
 	bitmap_and_compl_into (DF_LR_OUT (bb), cleared_regs);
       }
 
@@ -1235,7 +1240,7 @@ update_equiv_regs (void)
    assignment - a SET, CLOBBER or REG_INC note.  It is currently not used,
    but needs to be there because this function is called from note_stores.  */
 static void
-no_equiv (rtx reg, rtx store ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
+no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
 {
   int regno;
   rtx list;
@@ -1274,6 +1279,7 @@ block_alloc (int b)
   int max_uid = get_max_uid ();
   int *qty_order;
   int no_conflict_combined_regno = -1;
+  struct df_ref ** def_rec;
 
   /* Count the instructions in the basic block.  */
 
@@ -1296,7 +1302,19 @@ block_alloc (int b)
 
   /* Initialize table of hardware registers currently live.  */
 
-  REG_SET_TO_HARD_REG_SET (regs_live, DF_LR_TOP (BASIC_BLOCK (b)));
+  REG_SET_TO_HARD_REG_SET (regs_live, DF_LR_IN (BASIC_BLOCK (b)));
+
+  /* This is conservative, as this would include registers that are
+     artificial-def'ed-but-not-used.  However, artificial-defs are
+     rare, and such uninitialized use is rarer still, and the chance
+     of this having any performance impact is even less, while the
+     benefit is not having to compute and keep the TOP set around.  */
+  for (def_rec = df_get_artificial_defs (b); *def_rec; def_rec++)
+    {
+      int regno = DF_REF_REGNO (*def_rec);
+      if (regno < FIRST_PSEUDO_REGISTER)
+	SET_HARD_REG_BIT (regs_live, regno);
+    }
 
   /* This loop scans the instructions of the basic block
      and assigns quantities to registers.
@@ -2014,6 +2032,7 @@ combine_regs (rtx usedreg, rtx setreg, int may_save_copy, int insn_number,
 
       /* Update info about quantity SQTY.  */
       qty[sqty].n_calls_crossed += REG_N_CALLS_CROSSED (sreg);
+      qty[sqty].freq_calls_crossed += REG_FREQ_CALLS_CROSSED (sreg);
       qty[sqty].n_throwing_calls_crossed
 	+= REG_N_THROWING_CALLS_CROSSED (sreg);
       qty[sqty].n_refs += REG_N_REFS (sreg);
@@ -2071,7 +2090,7 @@ update_qty_class (int qtyno, int reg)
    carry info from `block_alloc'.  */
 
 static void
-reg_is_set (rtx reg, rtx setter, void *data ATTRIBUTE_UNUSED)
+reg_is_set (rtx reg, const_rtx setter, void *data ATTRIBUTE_UNUSED)
 {
   /* Note that note_stores will only pass us a SUBREG if it is a SUBREG of
      a hard register.  These may actually not exist any more.  */
@@ -2326,8 +2345,9 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
       && ! just_try_suggested
       && qty[qtyno].n_calls_crossed != 0
       && qty[qtyno].n_throwing_calls_crossed == 0
-      && CALLER_SAVE_PROFITABLE (qty[qtyno].n_refs,
-				 qty[qtyno].n_calls_crossed))
+      && CALLER_SAVE_PROFITABLE (optimize_size ? qty[qtyno].n_refs : qty[qtyno].freq,
+				 optimize_size ? qty[qtyno].n_calls_crossed
+				 : qty[qtyno].freq_calls_crossed))
     {
       i = find_free_reg (class, mode, qtyno, 1, 0, born_index, dead_index);
       if (i >= 0)
@@ -2499,6 +2519,49 @@ dump_local_alloc (FILE *file)
       fprintf (file, ";; Register %d in %d.\n", i, reg_renumber[i]);
 }
 
+#ifdef STACK_REGS
+static void
+find_stack_regs (void)
+{
+  bitmap stack_regs = BITMAP_ALLOC (NULL);
+  int i;
+  HARD_REG_SET stack_hard_regs, used;
+  basic_block bb;
+  
+  /* Any register that MAY be allocated to a register stack (like the
+     387) is treated poorly.  Each such register is marked as being
+     live everywhere.  This keeps the register allocator and the
+     subsequent passes from doing anything useful with these values.
+
+     FIXME: This seems like an incredibly poor idea.  */
+
+  CLEAR_HARD_REG_SET (stack_hard_regs);
+  for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
+    SET_HARD_REG_BIT (stack_hard_regs, i);
+
+  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+    {
+      COPY_HARD_REG_SET (used, reg_class_contents[reg_preferred_class (i)]);
+      IOR_HARD_REG_SET (used, reg_class_contents[reg_alternate_class (i)]);
+      AND_HARD_REG_SET (used, stack_hard_regs);
+      if (!hard_reg_set_empty_p (used))
+	bitmap_set_bit (stack_regs, i);
+    }
+
+  if (dump_file)
+    bitmap_print (dump_file, stack_regs, "stack regs:", "\n");
+
+  FOR_EACH_BB (bb)
+    {
+      bitmap_ior_into (DF_LIVE_IN (bb), stack_regs);
+      bitmap_and_into (DF_LIVE_IN (bb), DF_LR_IN (bb));
+      bitmap_ior_into (DF_LIVE_OUT (bb), stack_regs);
+      bitmap_and_into (DF_LIVE_OUT (bb), DF_LR_OUT (bb));
+    }
+  BITMAP_FREE (stack_regs);
+}
+#endif
+
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
 static unsigned int
@@ -2509,22 +2572,21 @@ rest_of_handle_local_alloc (void)
 
   df_note_add_problem ();
 
-  if (optimize > 1)
-    df_remove_problem (df_live);
-  /* Create a new version of df that has the special version of UR if
-     we are doing optimization.  */
-  if (optimize)
-    df_urec_add_problem ();
+  if (optimize == 1)
+    {
+      df_live_add_problem ();
+      df_live_set_all_dirty ();
+    }
+#ifdef ENABLE_CHECKING
+  df->changeable_flags |= DF_VERIFY_SCHEDULED;
+#endif
   df_analyze ();
+#ifdef STACK_REGS
+  if (optimize)
+    find_stack_regs ();
+#endif
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
-
-  /* There is just too much going on in the register allocators to
-     keep things up to date.  At the end we have to rescan anyway
-     because things change when the reload_completed flag is set.  
-     So we just turn off scanning and we will rescan by hand.  */
-  df_set_flags (DF_NO_INSN_RESCAN);
-
 
   /* If we are not optimizing, then this is the only place before
      register allocation where dataflow is done.  And that is needed

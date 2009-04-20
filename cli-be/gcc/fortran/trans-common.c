@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */     
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */     
 
 /* The core algorithm is based on Andy Vaught's g95 tree.  Also the
    way to build UNION_TYPE is borrowed from Richard Henderson.
@@ -107,12 +106,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "trans-types.h"
 #include "trans-const.h"
 #include "target-memory.h"
-
-
-/* TODO: This is defined in match.h, and probably shouldn't be here also,
-   but we need it for now at least and don't want to include the whole
-   match.h.  */
-gfc_common_head *gfc_get_common (const char *, int);
 
 
 /* Holds a single variable in an equivalence set.  */
@@ -325,6 +318,15 @@ build_field (segment_info *h, tree union_type, record_layout_info rli)
       GFC_DECL_ASSIGN_ADDR (field) = pushdecl_top_level (addr);
     }
 
+  /* If this field is volatile, mark it.  */
+  if (h->sym->attr.volatile_)
+    {
+      tree new;
+      TREE_THIS_VOLATILE (field) = 1;
+      new = build_qualified_type (TREE_TYPE (field), TYPE_QUAL_VOLATILE);
+      TREE_TYPE (field) = new;
+    }
+
   h->field = field;
 }
 
@@ -414,7 +416,20 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
       SET_DECL_ASSEMBLER_NAME (decl, gfc_sym_mangled_common_id (com));
       TREE_PUBLIC (decl) = 1;
       TREE_STATIC (decl) = 1;
-      DECL_ALIGN (decl) = BIGGEST_ALIGNMENT;
+      if (!com->is_bind_c)
+	DECL_ALIGN (decl) = BIGGEST_ALIGNMENT;
+      else
+        {
+	  /* Do not set the alignment for bind(c) common blocks to
+	     BIGGEST_ALIGNMENT because that won't match what C does.  Also,
+	     for common blocks with one element, the alignment must be
+	     that of the field within the common block in order to match
+	     what C will do.  */
+	  tree field = NULL_TREE;
+	  field = TYPE_FIELDS (TREE_TYPE (decl));
+	  if (TREE_CHAIN (field) == NULL_TREE)
+	    DECL_ALIGN (decl) = TYPE_ALIGN (TREE_TYPE (field));
+	}
       DECL_USER_ALIGN (decl) = 0;
       GFC_DECL_COMMON_OR_EQUIV (decl) = 1;
 

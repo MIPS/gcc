@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -125,9 +124,10 @@ static void pa_asm_out_destructor (rtx, int);
 #endif
 static void pa_init_builtins (void);
 static rtx hppa_builtin_saveregs (void);
+static void hppa_va_start (tree, rtx);
 static tree hppa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool pa_scalar_mode_supported_p (enum machine_mode);
-static bool pa_commutative_p (rtx x, int outer_code);
+static bool pa_commutative_p (const_rtx x, int outer_code);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_level (void) ATTRIBUTE_UNUSED;
@@ -149,7 +149,7 @@ static void pa_hpux_init_libfuncs (void);
 #endif
 static rtx pa_struct_value_rtx (tree, int);
 static bool pa_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				  tree, bool);
+				  const_tree, bool);
 static int pa_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				 tree, bool);
 static struct machine_function * pa_init_machine_status (void);
@@ -286,9 +286,9 @@ static size_t n_deferred_plabels = 0;
 #endif
 
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX pa_struct_value_rtx
@@ -305,6 +305,8 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS hppa_builtin_saveregs
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START hppa_va_start
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR hppa_gimplify_va_arg_expr
 
@@ -666,6 +668,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
   /* Labels need special handling.  */
   if (pic_label_operand (orig, mode))
     {
+      rtx insn;
+
       /* We do not want to go through the movXX expanders here since that
 	 would create recursion.
 
@@ -676,7 +680,24 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	 So instead we just emit the raw set, which avoids the movXX
 	 expanders completely.  */
       mark_reg_pointer (reg, BITS_PER_UNIT);
-      emit_insn (gen_rtx_SET (VOIDmode, reg, orig));
+      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, orig));
+
+      /* Put a REG_EQUAL note on this insn, so that it can be optimized.  */
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig, REG_NOTES (insn));
+
+      /* During and after reload, we need to generate a REG_LABEL_OPERAND note
+	 and update LABEL_NUSES because this is not done automatically.  */
+      if (reload_in_progress || reload_completed)
+	{
+	  /* Extract LABEL_REF.  */
+	  if (GET_CODE (orig) == CONST)
+	    orig = XEXP (XEXP (orig, 0), 0);
+	  /* Extract CODE_LABEL.  */
+	  orig = XEXP (orig, 0);
+	  REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, orig,
+						REG_NOTES (insn));
+	  LABEL_NUSES (orig)++;
+	}
       current_function_uses_pic_offset_table = 1;
       return reg;
     }
@@ -692,15 +713,37 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       tmp_reg = ((reload_in_progress || reload_completed)
 		 ? reg : gen_reg_rtx (Pmode));
 
-      emit_move_insn (tmp_reg,
-		      gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
-				    gen_rtx_HIGH (word_mode, orig)));
-      pic_ref
-	= gen_const_mem (Pmode,
-		         gen_rtx_LO_SUM (Pmode, tmp_reg,
-				         gen_rtx_UNSPEC (Pmode,
+      if (function_label_operand (orig, mode))
+	{
+	  /* Force function label into memory.  */
+	  orig = XEXP (force_const_mem (mode, orig), 0);
+	  /* Load plabel address from DLT.  */
+	  emit_move_insn (tmp_reg,
+			  gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
+					gen_rtx_HIGH (word_mode, orig)));
+	  pic_ref
+	    = gen_const_mem (Pmode,
+			     gen_rtx_LO_SUM (Pmode, tmp_reg,
+					     gen_rtx_UNSPEC (Pmode,
 						         gen_rtvec (1, orig),
 						         UNSPEC_DLTIND14R)));
+	  emit_move_insn (reg, pic_ref);
+	  /* Now load address of function descriptor.  */
+	  pic_ref = gen_rtx_MEM (Pmode, reg);
+	}
+      else
+	{
+	  /* Load symbol reference from DLT.  */
+	  emit_move_insn (tmp_reg,
+			  gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
+					gen_rtx_HIGH (word_mode, orig)));
+	  pic_ref
+	    = gen_const_mem (Pmode,
+			     gen_rtx_LO_SUM (Pmode, tmp_reg,
+					     gen_rtx_UNSPEC (Pmode,
+						         gen_rtvec (1, orig),
+						         UNSPEC_DLTIND14R)));
+	}
 
       current_function_uses_pic_offset_table = 1;
       mark_reg_pointer (reg, BITS_PER_UNIT);
@@ -924,7 +967,7 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       int mask;
 
       mask = (GET_MODE_CLASS (mode) == MODE_FLOAT
-	      ? (TARGET_PA_20 ? 0x3fff : 0x1f) : 0x3fff);
+	      ? (INT14_OK_STRICT ? 0x3fff : 0x1f) : 0x3fff);
 
       /* Choose which way to round the offset.  Round up if we
 	 are >= halfway to the next boundary.  */
@@ -5685,12 +5728,49 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
   if (regno >= FIRST_PSEUDO_REGISTER || GET_CODE (x) == SUBREG)
     regno = true_regnum (x);
 
-  /* Handle out of range displacement for integer mode loads/stores of
-     FP registers.  */
-  if (((regno >= FIRST_PSEUDO_REGISTER || regno == -1)
-       && GET_MODE_CLASS (mode) == MODE_INT
-       && FP_REG_CLASS_P (class))
-      || (class == SHIFT_REGS && (regno <= 0 || regno >= 32)))
+  /* In order to allow 14-bit displacements in integer loads and stores,
+     we need to prevent reload from generating out of range integer mode
+     loads and stores to the floating point registers.  Previously, we
+     used to call for a secondary reload and have emit_move_sequence()
+     fix the instruction sequence.  However, reload occasionally wouldn't
+     generate the reload and we would end up with an invalid REG+D memory
+     address.  So, now we use an intermediate general register for most
+     memory loads and stores.  */
+  if ((regno >= FIRST_PSEUDO_REGISTER || regno == -1)
+      && GET_MODE_CLASS (mode) == MODE_INT
+      && FP_REG_CLASS_P (class))
+    {
+      /* Reload passes (mem:SI (reg/f:DI 30 %r30) when it wants to check
+	 the secondary reload needed for a pseudo.  It never passes a
+	 REG+D address.  */
+      if (GET_CODE (x) == MEM)
+	{
+	  x = XEXP (x, 0);
+
+	  /* We don't need an intermediate for indexed and LO_SUM DLT
+	     memory addresses.  When INT14_OK_STRICT is true, it might
+	     appear that we could directly allow register indirect
+	     memory addresses.  However, this doesn't work because we
+	     don't support SUBREGs in floating-point register copies
+	     and reload doesn't tell us when it's going to use a SUBREG.  */
+	  if (IS_INDEX_ADDR_P (x)
+	      || IS_LO_SUM_DLT_ADDR_P (x))
+	    return NO_REGS;
+
+	  /* Otherwise, we need an intermediate general register.  */
+	  return GENERAL_REGS;
+	}
+
+      /* Request a secondary reload with a general scratch register
+	 for everthing else.  ??? Could symbolic operands be handled
+	 directly when generating non-pic PA 2.0 code?  */
+      sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
+      return NO_REGS;
+    }
+
+  /* We need a secondary register (GPR) for copies between the SAR
+     and anything other than a general register.  */
+  if (class == SHIFT_REGS && (regno <= 0 || regno >= 32))
     {
       sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
       return NO_REGS;
@@ -5699,16 +5779,15 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
   /* A SAR<->FP register copy requires a secondary register (GPR) as
      well as secondary memory.  */
   if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER
-      && ((REGNO_REG_CLASS (regno) == SHIFT_REGS && FP_REG_CLASS_P (class))
-	  || (class == SHIFT_REGS
-	      && FP_REG_CLASS_P (REGNO_REG_CLASS (regno)))))
+      && (REGNO_REG_CLASS (regno) == SHIFT_REGS
+      && FP_REG_CLASS_P (class)))
     {
       sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
       return NO_REGS;
     }
 
   /* Secondary reloads of symbolic operands require %r1 as a scratch
-     register when we're generating PIC code and the operand isn't
+     register when we're generating PIC code and when the operand isn't
      readonly.  */
   if (GET_CODE (x) == HIGH)
     x = XEXP (x, 0);
@@ -5790,7 +5869,7 @@ pa_eh_return_handler_rtx (void)
 
 static bool
 pa_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
-		      enum machine_mode mode, tree type,
+		      enum machine_mode mode, const_tree type,
 		      bool named ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT size;
@@ -5807,7 +5886,7 @@ pa_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 }
 
 enum direction
-function_arg_padding (enum machine_mode mode, tree type)
+function_arg_padding (enum machine_mode mode, const_tree type)
 {
   if (mode == BLKmode
       || (TARGET_64BIT && type && AGGREGATE_TYPE_P (type)))
@@ -5914,7 +5993,7 @@ hppa_builtin_saveregs (void)
 				    offset, 0, 0, OPTAB_LIB_WIDEN));
 }
 
-void
+static void
 hppa_va_start (tree valist, rtx nextarg)
 {
   nextarg = expand_builtin_saveregs ();
@@ -7796,6 +7875,12 @@ hppa_encode_label (rtx sym)
 static void
 pa_encode_section_info (tree decl, rtx rtl, int first)
 {
+  int old_referenced = 0;
+
+  if (!first && MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)
+    old_referenced
+      = SYMBOL_REF_FLAGS (XEXP (rtl, 0)) & SYMBOL_FLAG_REFERENCED;
+
   default_encode_section_info (decl, rtl, first);
 
   if (first && TEXT_SPACE_P (decl))
@@ -7804,6 +7889,8 @@ pa_encode_section_info (tree decl, rtx rtl, int first)
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	hppa_encode_label (XEXP (rtl, 0));
     }
+  else if (old_referenced)
+    SYMBOL_REF_FLAGS (XEXP (rtl, 0)) |= old_referenced;
 }
 
 /* This is sort of inverse to pa_encode_section_info.  */
@@ -8136,7 +8223,7 @@ pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
    space register selection rules for memory addresses.  Therefore, we
    don't consider a + b == b + a, as this might be inside a MEM.  */
 static bool
-pa_commutative_p (rtx x, int outer_code)
+pa_commutative_p (const_rtx x, int outer_code)
 {
   return (COMMUTATIVE_P (x)
 	  && (TARGET_NO_SPACE_REGS
@@ -9033,7 +9120,7 @@ insn_refs_are_delayed (rtx insn)
    to match the HP Compiler ABI.  */
 
 rtx
-function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode valmode;
 
@@ -9076,7 +9163,7 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     }
 
   if ((INTEGRAL_TYPE_P (valtype)
-       && TYPE_PRECISION (valtype) < BITS_PER_WORD)
+       && GET_MODE_BITSIZE (TYPE_MODE (valtype)) < BITS_PER_WORD)
       || POINTER_TYPE_P (valtype))
     valmode = word_mode;
   else
@@ -9493,7 +9580,7 @@ pa_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 bool
-pa_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+pa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   /* SOM ABI says that objects larger than 64 bits are returned in memory.
      PA64 ABI says that objects larger than 128 bits are returned in memory.
@@ -9567,5 +9654,63 @@ pa_hpux_file_end (void)
   VEC_free (extern_symbol, gc, extern_symbols);
 }
 #endif
+
+/* Return true if a change from mode FROM to mode TO for a register
+   in register class CLASS is invalid.  */
+
+bool
+pa_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
+			     enum reg_class class)
+{
+  if (from == to)
+    return false;
+
+  /* Reject changes to/from complex and vector modes.  */
+  if (COMPLEX_MODE_P (from) || VECTOR_MODE_P (from)
+      || COMPLEX_MODE_P (to) || VECTOR_MODE_P (to))
+    return true;
+      
+  if (GET_MODE_SIZE (from) == GET_MODE_SIZE (to))
+    return false;
+
+  /* There is no way to load QImode or HImode values directly from
+     memory.  SImode loads to the FP registers are not zero extended.
+     On the 64-bit target, this conflicts with the definition of
+     LOAD_EXTEND_OP.  Thus, we can't allow changing between modes
+     with different sizes in the floating-point registers.  */
+  if (MAYBE_FP_REG_CLASS_P (class))
+    return true;
+
+  /* HARD_REGNO_MODE_OK places modes with sizes larger than a word
+     in specific sets of registers.  Thus, we cannot allow changing
+     to a larger mode when it's larger than a word.  */
+  if (GET_MODE_SIZE (to) > UNITS_PER_WORD
+      && GET_MODE_SIZE (to) > GET_MODE_SIZE (from))
+    return true;
+
+  return false;
+}
+
+/* Returns TRUE if it is a good idea to tie two pseudo registers
+   when one has mode MODE1 and one has mode MODE2.
+   If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
+   for any hard reg, then this must be FALSE for correct output.
+   
+   We should return FALSE for QImode and HImode because these modes
+   are not ok in the floating-point registers.  However, this prevents
+   tieing these modes to SImode and DImode in the general registers.
+   So, this isn't a good idea.  We rely on HARD_REGNO_MODE_OK and
+   CANNOT_CHANGE_MODE_CLASS to prevent these modes from being used
+   in the floating-point registers.  */
+
+bool
+pa_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
+{
+  /* Don't tie modes in different classes.  */
+  if (GET_MODE_CLASS (mode1) != GET_MODE_CLASS (mode2))
+    return false;
+
+  return true;
+}
 
 #include "gt-pa.h"

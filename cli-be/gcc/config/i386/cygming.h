@@ -1,14 +1,14 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2007
+   2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #define DBX_DEBUGGING_INFO 1
 #define SDB_DEBUGGING_INFO 1
@@ -184,8 +183,6 @@ do {									\
    Note that we can be called twice on the same decl.  */
 
 #define SUBTARGET_ENCODE_SECTION_INFO  i386_pe_encode_section_info
-#undef  TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING  i386_pe_strip_name_encoding_full
 
 /* Output a common block.  */
 #undef ASM_OUTPUT_ALIGNED_DECL_COMMON
@@ -198,6 +195,17 @@ do {									\
 do {							\
   i386_pe_maybe_record_exported_symbol (DECL, NAME, 1);	\
   ASM_OUTPUT_LABEL ((STREAM), (NAME));			\
+} while (0)
+
+/* Output a reference to a label. Fastcall function symbols
+   keep their '@' prefix, while other symbols are prefixed
+   with USER_LABEL_PREFIX.  */
+#undef ASM_OUTPUT_LABELREF
+#define  ASM_OUTPUT_LABELREF(STREAM, NAME)	\
+do {						\
+  if ((NAME)[0] != FASTCALL_PREFIX)		\
+    fputs (USER_LABEL_PREFIX, (STREAM));	\
+  fputs ((NAME), (STREAM));			\
 } while (0)
 
 
@@ -280,11 +288,9 @@ do {							\
 #define ASM_COMMENT_START " #"
 
 #ifndef DWARF2_UNWIND_INFO
-/* 64-bit target uses DWARF2 unwind by default. If 32-bit target
-   configured with --disable-sjlj-exceptions, use DWARF2, else default
-   to SJLJ.  */
-#if TARGET_64BIT_DEFAULT \
-    || (defined (CONFIG_SJLJ_EXCEPTIONS) && !CONFIG_SJLJ_EXCEPTIONS)
+/* If configured with --disable-sjlj-exceptions, use DWARF2, else
+   default to SJLJ.  */
+#if  (defined (CONFIG_SJLJ_EXCEPTIONS) && !CONFIG_SJLJ_EXCEPTIONS)
 #define DWARF2_UNWIND_INFO 1
 #else
 #define DWARF2_UNWIND_INFO 0
@@ -335,9 +341,13 @@ do {							\
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (8192 * 8)
 
-/* Native complier aligns internal doubles in structures on dword boundaries.  */
+/* BIGGEST_FIELD_ALIGNMENT macro is used directly by libobjc, There, we
+   align internal doubles in structures on dword boundaries. Otherwise,
+   support vector modes using ADJUST_FIELD_ALIGN, defined in i386.h.  */
+#ifdef IN_TARGET_LIBS
 #undef	BIGGEST_FIELD_ALIGNMENT
 #define BIGGEST_FIELD_ALIGNMENT 64
+#endif
 
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #undef PCC_BITFIELD_TYPE_MATTERS

@@ -1,12 +1,13 @@
 /* Definitions for C++ name lookup routines.
-   Copyright (C) 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -43,7 +43,6 @@ struct scope_binding {
 
 static cxx_scope *innermost_nonclass_level (void);
 static cxx_binding *binding_for_name (cxx_scope *, tree);
-static tree lookup_name_innermost_nonclass_level (tree);
 static tree push_overloaded_decl (tree, int, bool);
 static bool lookup_using_namespace (tree, struct scope_binding *, tree,
 				    tree, int);
@@ -536,16 +535,15 @@ supplement_binding (cxx_binding *binding, tree decl)
 static void
 add_decl_to_level (tree decl, cxx_scope *b)
 {
+  /* We used to record virtual tables as if they were ordinary
+     variables, but no longer do so.  */
+  gcc_assert (!(TREE_CODE (decl) == VAR_DECL && DECL_VIRTUAL_P (decl)));
+
   if (TREE_CODE (decl) == NAMESPACE_DECL
       && !DECL_NAMESPACE_ALIAS (decl))
     {
       TREE_CHAIN (decl) = b->namespaces;
       b->namespaces = decl;
-    }
-  else if (TREE_CODE (decl) == VAR_DECL && DECL_VIRTUAL_P (decl))
-    {
-      TREE_CHAIN (decl) = b->vtables;
-      b->vtables = decl;
     }
   else
     {
@@ -1365,11 +1363,6 @@ leave_scope (void)
       is_class_level = 0;
     }
 
-#ifdef HANDLE_PRAGMA_VISIBILITY
-  if (scope->has_visibility)
-    pop_visibility ();
-#endif
-
   /* Move one nesting level up.  */
   current_binding_level = scope->level_chain;
 
@@ -1736,12 +1729,15 @@ constructor_name (tree type)
   return name;
 }
 
-/* Returns TRUE if NAME is the name for the constructor for TYPE.  */
+/* Returns TRUE if NAME is the name for the constructor for TYPE,
+   which must be a class type.  */
 
 bool
 constructor_name_p (tree name, tree type)
 {
   tree ctor_name;
+
+  gcc_assert (IS_AGGR_TYPE (type));
 
   if (!name)
     return false;
@@ -2099,6 +2095,20 @@ do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
       return;
     }
 
+  /* Shift the old and new bindings around so we're comparing class and
+     enumeration names to each other.  */
+  if (oldval && DECL_IMPLICIT_TYPEDEF_P (oldval))
+    {
+      oldtype = oldval;
+      oldval = NULL_TREE;
+    }
+
+  if (decls.value && DECL_IMPLICIT_TYPEDEF_P (decls.value))
+    {
+      decls.type = decls.value;
+      decls.value = NULL_TREE;
+    }
+
   /* It is impossible to overload a built-in function; any explicit
      declaration eliminates the built-in declaration.  So, if OLDVAL
      is a built-in, then we can just pretend it isn't there.  */
@@ -2108,95 +2118,110 @@ do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
       && !DECL_HIDDEN_FRIEND_P (oldval))
     oldval = NULL_TREE;
 
-  /* Check for using functions.  */
-  if (decls.value && is_overloaded_fn (decls.value))
+  if (decls.value)
     {
-      tree tmp, tmp1;
-
-      if (oldval && !is_overloaded_fn (oldval))
+      /* Check for using functions.  */
+      if (is_overloaded_fn (decls.value))
 	{
-	  if (!DECL_IMPLICIT_TYPEDEF_P (oldval))
-	    error ("%qD is already declared in this scope", name);
-	  oldval = NULL_TREE;
-	}
+	  tree tmp, tmp1;
 
-      *newval = oldval;
-      for (tmp = decls.value; tmp; tmp = OVL_NEXT (tmp))
-	{
-	  tree new_fn = OVL_CURRENT (tmp);
-
-	  /* [namespace.udecl]
-
-	     If a function declaration in namespace scope or block
-	     scope has the same name and the same parameter types as a
-	     function introduced by a using declaration the program is
-	     ill-formed.  */
-	  for (tmp1 = oldval; tmp1; tmp1 = OVL_NEXT (tmp1))
+	  if (oldval && !is_overloaded_fn (oldval))
 	    {
-	      tree old_fn = OVL_CURRENT (tmp1);
+	      error ("%qD is already declared in this scope", name);
+	      oldval = NULL_TREE;
+	    }
 
-	      if (new_fn == old_fn)
-		/* The function already exists in the current namespace.  */
-		break;
-	      else if (OVL_USED (tmp1))
-		continue; /* this is a using decl */
-	      else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (new_fn)),
-				  TYPE_ARG_TYPES (TREE_TYPE (old_fn))))
+	  *newval = oldval;
+	  for (tmp = decls.value; tmp; tmp = OVL_NEXT (tmp))
+	    {
+	      tree new_fn = OVL_CURRENT (tmp);
+
+	      /* [namespace.udecl]
+
+		 If a function declaration in namespace scope or block
+		 scope has the same name and the same parameter types as a
+		 function introduced by a using declaration the program is
+		 ill-formed.  */
+	      for (tmp1 = oldval; tmp1; tmp1 = OVL_NEXT (tmp1))
 		{
-		  gcc_assert (!DECL_ANTICIPATED (old_fn)
-			      || DECL_HIDDEN_FRIEND_P (old_fn));
+		  tree old_fn = OVL_CURRENT (tmp1);
 
-		  /* There was already a non-using declaration in
-		     this scope with the same parameter types. If both
-		     are the same extern "C" functions, that's ok.  */
-		  if (decls_match (new_fn, old_fn))
+		  if (new_fn == old_fn)
+		    /* The function already exists in the current namespace.  */
 		    break;
-		  else
+		  else if (OVL_USED (tmp1))
+		    continue; /* this is a using decl */
+		  else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (new_fn)),
+				      TYPE_ARG_TYPES (TREE_TYPE (old_fn))))
 		    {
-		      error ("%qD is already declared in this scope", name);
-		      break;
+		      gcc_assert (!DECL_ANTICIPATED (old_fn)
+				  || DECL_HIDDEN_FRIEND_P (old_fn));
+
+		      /* There was already a non-using declaration in
+			 this scope with the same parameter types. If both
+			 are the same extern "C" functions, that's ok.  */
+		      if (decls_match (new_fn, old_fn))
+			break;
+		      else
+			{
+			  error ("%qD is already declared in this scope", name);
+			  break;
+			}
 		    }
 		}
-	    }
 
-	  /* If we broke out of the loop, there's no reason to add
-	     this function to the using declarations for this
-	     scope.  */
-	  if (tmp1)
-	    continue;
+	      /* If we broke out of the loop, there's no reason to add
+		 this function to the using declarations for this
+		 scope.  */
+	      if (tmp1)
+		continue;
 
-	  /* If we are adding to an existing OVERLOAD, then we no
-	     longer know the type of the set of functions.  */
-	  if (*newval && TREE_CODE (*newval) == OVERLOAD)
-	    TREE_TYPE (*newval) = unknown_type_node;
-	  /* Add this new function to the set.  */
-	  *newval = build_overload (OVL_CURRENT (tmp), *newval);
-	  /* If there is only one function, then we use its type.  (A
-	     using-declaration naming a single function can be used in
-	     contexts where overload resolution cannot be
-	     performed.)  */
-	  if (TREE_CODE (*newval) != OVERLOAD)
-	    {
-	      *newval = ovl_cons (*newval, NULL_TREE);
-	      TREE_TYPE (*newval) = TREE_TYPE (OVL_CURRENT (tmp));
+	      /* If we are adding to an existing OVERLOAD, then we no
+		 longer know the type of the set of functions.  */
+	      if (*newval && TREE_CODE (*newval) == OVERLOAD)
+		TREE_TYPE (*newval) = unknown_type_node;
+	      /* Add this new function to the set.  */
+	      *newval = build_overload (OVL_CURRENT (tmp), *newval);
+	      /* If there is only one function, then we use its type.  (A
+		 using-declaration naming a single function can be used in
+		 contexts where overload resolution cannot be
+		 performed.)  */
+	      if (TREE_CODE (*newval) != OVERLOAD)
+		{
+		  *newval = ovl_cons (*newval, NULL_TREE);
+		  TREE_TYPE (*newval) = TREE_TYPE (OVL_CURRENT (tmp));
+		}
+	      OVL_USED (*newval) = 1;
 	    }
-	  OVL_USED (*newval) = 1;
+	}
+      else
+	{
+	  *newval = decls.value;
+	  if (oldval && !decls_match (*newval, oldval))
+	    error ("%qD is already declared in this scope", name);
 	}
     }
   else
+    *newval = oldval;
+
+  if (decls.type && TREE_CODE (decls.type) == TREE_LIST)
     {
-      *newval = decls.value;
-      if (oldval && !decls_match (*newval, oldval))
+      error ("reference to %qD is ambiguous", name);
+      print_candidates (decls.type);
+    }
+  else
+    {
+      *newtype = decls.type;
+      if (oldtype && *newtype && !decls_match (oldtype, *newtype))
 	error ("%qD is already declared in this scope", name);
     }
 
-  *newtype = decls.type;
-  if (oldtype && *newtype && !same_type_p (oldtype, *newtype))
-    {
-      error ("using declaration %qD introduced ambiguous type %qT",
-	     name, oldtype);
-      return;
-    }
+    /* If *newval is empty, shift any class or enumeration name down.  */
+    if (!*newval)
+      {
+	*newval = *newtype;
+	*newtype = NULL_TREE;
+      }
 }
 
 /* Process a using-declaration at function scope.  */
@@ -2801,7 +2826,7 @@ do_class_using_decl (tree scope, tree name)
       error ("%<%T::%D%> names destructor", scope, name);
       return NULL_TREE;
     }
-  if (constructor_name_p (name, scope))
+  if (IS_AGGR_TYPE (scope) && constructor_name_p (name, scope))
     {
       error ("%<%T::%D%> names constructor", scope, name);
       return NULL_TREE;
@@ -2941,7 +2966,7 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
 
   /* See whether this has been declared in the namespace.  */
   old = lookup_qualified_name (scope, DECL_NAME (decl), false, true);
-  if (!old)
+  if (old == error_mark_node)
     /* No old declaration at all.  */
     goto complain;
   if (!is_overloaded_fn (decl))
@@ -2999,20 +3024,59 @@ current_decl_namespace (void)
   return result;
 }
 
+/* Process any ATTRIBUTES on a namespace definition.  Currently only
+   attribute visibility is meaningful, which is a property of the syntactic
+   block rather than the namespace as a whole, so we don't touch the
+   NAMESPACE_DECL at all.  Returns true if attribute visibility is seen.  */
+
+bool
+handle_namespace_attrs (tree ns, tree attributes)
+{
+  tree d;
+  bool saw_vis = false;
+
+  for (d = attributes; d; d = TREE_CHAIN (d))
+    {
+      tree name = TREE_PURPOSE (d);
+      tree args = TREE_VALUE (d);
+
+#ifdef HANDLE_PRAGMA_VISIBILITY
+      if (is_attribute_p ("visibility", name))
+	{
+	  tree x = args ? TREE_VALUE (args) : NULL_TREE;
+	  if (x == NULL_TREE || TREE_CODE (x) != STRING_CST || TREE_CHAIN (args))
+	    {
+	      warning (OPT_Wattributes,
+		       "%qD attribute requires a single NTBS argument",
+		       name);
+	      continue;
+	    }
+
+	  if (!TREE_PUBLIC (ns))
+	    warning (OPT_Wattributes,
+		     "%qD attribute is meaningless since members of the "
+		     "anonymous namespace get local symbols", name);
+
+	  push_visibility (TREE_STRING_POINTER (x));
+	  saw_vis = true;
+	}
+      else
+#endif
+	{
+	  warning (OPT_Wattributes, "%qD attribute directive ignored",
+		   name);
+	  continue;
+	}
+    }
+
+  return saw_vis;
+}
+  
 /* Push into the scope of the NAME namespace.  If NAME is NULL_TREE, then we
    select a name that is unique to this compilation unit.  */
 
 void
 push_namespace (tree name)
-{
-  push_namespace_with_attribs (name, NULL_TREE);
-}
-
-/* Same, but specify attributes to apply to the namespace.  The attributes
-   only apply to the current namespace-body, not to any later extensions. */
-
-void
-push_namespace_with_attribs (tree name, tree attributes)
 {
   tree d = NULL_TREE;
   int need_new = 1;
@@ -3078,38 +3142,6 @@ push_namespace_with_attribs (tree name, tree attributes)
     do_using_directive (d);
   /* Enter the name space.  */
   current_namespace = d;
-
-#ifdef HANDLE_PRAGMA_VISIBILITY
-  /* Clear has_visibility in case a previous namespace-definition had a
-     visibility attribute and this one doesn't.  */
-  current_binding_level->has_visibility = 0;
-  for (d = attributes; d; d = TREE_CHAIN (d))
-    {
-      tree name = TREE_PURPOSE (d);
-      tree args = TREE_VALUE (d);
-      tree x;
-
-      if (! is_attribute_p ("visibility", name))
-	{
-	  warning (OPT_Wattributes, "%qs attribute directive ignored",
-		   IDENTIFIER_POINTER (name));
-	  continue;
-	}
-
-      x = args ? TREE_VALUE (args) : NULL_TREE;
-      if (x == NULL_TREE || TREE_CODE (x) != STRING_CST || TREE_CHAIN (args))
-	{
-	  warning (OPT_Wattributes, "%qs attribute requires a single NTBS argument",
-		   IDENTIFIER_POINTER (name));
-	  continue;
-	}
-
-      current_binding_level->has_visibility = 1;
-      push_visibility (TREE_STRING_POINTER (x));
-      goto found;
-    }
- found:
-#endif
 
   timevar_pop (TV_NAME_LOOKUP);
 }
@@ -3491,8 +3523,7 @@ merge_functions (tree s1, tree s2)
    XXX I don't want to repeat the entire duplicate_decls here */
 
 static void
-ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
-		int flags)
+ambiguous_decl (struct scope_binding *old, cxx_binding *new, int flags)
 {
   tree val, type;
   gcc_assert (old != NULL);
@@ -3564,12 +3595,9 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
     old->type = type;
   else if (type && old->type != type)
     {
-      if (flags & LOOKUP_COMPLAIN)
-	{
-	  error ("%qD denotes an ambiguous type",name);
-	  error ("%J  first type here", TYPE_MAIN_DECL (old->type));
-	  error ("%J  other type here", TYPE_MAIN_DECL (type));
-	}
+      old->type = tree_cons (NULL_TREE, old->type,
+			     build_tree_list (NULL_TREE, type));
+      TREE_TYPE (old->type) = error_mark_node;
     }
 }
 
@@ -3680,7 +3708,7 @@ unqualified_namespace_lookup (tree name, int flags)
 	 cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (scope), name);
 
       if (b)
-	ambiguous_decl (name, &binding, b, flags);
+	ambiguous_decl (&binding, b, flags);
 
       /* Add all _DECLs seen through local using-directives.  */
       for (level = current_binding_level;
@@ -3768,7 +3796,7 @@ lookup_using_namespace (tree name, struct scope_binding *val,
 	  cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (used), name);
 	/* Resolve ambiguities.  */
 	if (val1)
-	  ambiguous_decl (name, val, val1, flags);
+	  ambiguous_decl (val, val1, flags);
       }
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val->value != error_mark_node);
 }
@@ -3797,7 +3825,7 @@ qualified_lookup_using_namespace (tree name, tree scope,
 	cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (scope), name);
       seen = tree_cons (scope, NULL_TREE, seen);
       if (binding)
-	ambiguous_decl (name, result, binding, flags);
+	ambiguous_decl (result, binding, flags);
 
       /* Consider strong using directives always, and non-strong ones
 	 if we haven't found a binding yet.  ??? Shouldn't we consider
@@ -3990,8 +4018,49 @@ lookup_name_real (tree name, int prefer_type, int nonclass, bool block_p,
 
 	if (binding)
 	  {
-	    /* Only namespace-scope bindings can be hidden.  */
-	    gcc_assert (!hidden_name_p (binding));
+	    if (hidden_name_p (binding))
+	      {
+		/* A non namespace-scope binding can only be hidden if
+		   we are in a local class, due to friend declarations.
+		   In particular, consider:
+
+		   void f() {
+		     struct A {
+		       friend struct B;
+		       void g() { B* b; } // error: B is hidden
+		     }
+		     struct B {};
+		   }
+
+		   The standard says that "B" is a local class in "f"
+		   (but not nested within "A") -- but that name lookup
+		   for "B" does not find this declaration until it is
+		   declared directly with "f".
+
+		   In particular:
+
+		   [class.friend]
+
+		   If a friend declaration appears in a local class and
+		   the name specified is an unqualified name, a prior
+		   declaration is looked up without considering scopes
+		   that are outside the innermost enclosing non-class
+		   scope. For a friend class declaration, if there is no
+		   prior declaration, the class that is specified 
+		   belongs to the innermost enclosing non-class scope,
+		   but if it is subsequently referenced, its name is not
+		   found by name lookup until a matching declaration is
+		   provided in the innermost enclosing nonclass scope.
+		*/
+		gcc_assert (current_class_type &&
+			    LOCAL_CLASS_P (current_class_type));
+
+		/* This binding comes from a friend declaration in the local
+		   class. The standard (11.4.8) states that the lookup can
+		   only succeed if there is a non-hidden declaration in the
+		   current scope, which is not the case here.  */
+		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
+	      }
 	    val = binding;
 	    break;
 	  }
@@ -4132,7 +4201,7 @@ lookup_type_scope (tree name, tag_scope scope)
 /* Similar to `lookup_name' but look only in the innermost non-class
    binding level.  */
 
-static tree
+tree
 lookup_name_innermost_nonclass_level (tree name)
 {
   struct cp_binding_level *b;
@@ -4410,6 +4479,17 @@ arg_assoc_template_arg (struct arg_lookup *k, tree arg)
       else
 	return arg_assoc_class (k, ctx);
     }
+  /* It's an argument pack; handle it recursively.  */
+  else if (ARGUMENT_PACK_P (arg))
+    {
+      tree args = ARGUMENT_PACK_ARGS (arg);
+      int i, len = TREE_VEC_LENGTH (args);
+      for (i = 0; i < len; ++i) 
+	if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, i)))
+	  return true;
+
+      return false;
+    }
   /* It's not a template template argument, but it is a type template
      argument.  */
   else if (TYPE_P (arg))
@@ -4545,15 +4625,6 @@ arg_assoc_type (struct arg_lookup *k, tree type)
       return false;
     case TYPE_PACK_EXPANSION:
       return arg_assoc_type (k, PACK_EXPANSION_PATTERN (type));
-    case TYPE_ARGUMENT_PACK:
-      {
-        tree args = ARGUMENT_PACK_ARGS (type);
-        int i, len = TREE_VEC_LENGTH (args);
-        for (i = 0; i < len; i++)
-          if (arg_assoc_type (k, TREE_VEC_ELT (args, i)))
-            return true;
-      }
-      break;
 
     default:
       gcc_unreachable ();
@@ -4879,9 +4950,6 @@ pushtag (tree name, tree type, tag_scope scope)
       if (decl == error_mark_node)
 	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
 
-      if (! in_class)
-	set_identifier_type_value_with_scope (name, tdef, b);
-
       if (b->kind == sk_class)
 	{
 	  if (!PROCESSING_REAL_TEMPLATE_DECL_P ())
@@ -4899,6 +4967,9 @@ pushtag (tree name, tree type, tag_scope scope)
 	  if (decl == error_mark_node)
 	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
 	}
+
+      if (! in_class)
+	set_identifier_type_value_with_scope (name, tdef, b);
 
       TYPE_CONTEXT (type) = DECL_CONTEXT (decl);
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2005-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2005-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+pragma Warnings (Off);
+pragma Compiler_Unit;
+pragma Warnings (On);
+
 package body System.WCh_Con is
 
    ----------------------------
@@ -50,15 +54,35 @@ package body System.WCh_Con is
 
    function Get_WC_Encoding_Method (S : String) return WC_Encoding_Method is
    begin
-      if    S = "hex"       then return WCEM_Hex;
-      elsif S = "upper"     then return WCEM_Upper;
-      elsif S = "shift_jis" then return WCEM_Shift_JIS;
-      elsif S = "euc"       then return WCEM_EUC;
-      elsif S = "utf8"      then return WCEM_UTF8;
-      elsif S = "brackets"  then return WCEM_Brackets;
+      if    S = "hex"       then
+         return WCEM_Hex;
+      elsif S = "upper"     then
+         return WCEM_Upper;
+      elsif S = "shift_jis" then
+         return WCEM_Shift_JIS;
+      elsif S = "euc"       then
+         return WCEM_EUC;
+      elsif S = "utf8"      then
+         return WCEM_UTF8;
+      elsif S = "brackets"  then
+         return WCEM_Brackets;
       else
          raise Constraint_Error;
       end if;
    end Get_WC_Encoding_Method;
+
+   --------------------------
+   -- Is_Start_Of_Encoding --
+   --------------------------
+
+   function Is_Start_Of_Encoding
+     (C  : Character;
+      EM : WC_Encoding_Method) return Boolean
+   is
+   begin
+      return (EM in WC_Upper_Half_Encoding_Method
+               and then Character'Pos (C) >= 16#80#)
+        or else (EM in WC_ESC_Encoding_Method and then C = ASCII.ESC);
+   end Is_Start_Of_Encoding;
 
 end System.WCh_Con;

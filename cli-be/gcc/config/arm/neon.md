@@ -1,12 +1,12 @@
 ;; ARM NEON coprocessor Machine Description
-;; Copyright (C) 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful, but
@@ -15,9 +15,8 @@
 ;; General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Constants for unspecs.
 (define_constants
@@ -163,97 +162,97 @@
    (UNSPEC_VZIP2		204)])
 
 ;; Double-width vector modes.
-(define_mode_macro VD [V8QI V4HI V2SI V2SF])
+(define_mode_iterator VD [V8QI V4HI V2SI V2SF])
 
 ;; Double-width vector modes plus 64-bit elements.
-(define_mode_macro VDX [V8QI V4HI V2SI V2SF DI])
+(define_mode_iterator VDX [V8QI V4HI V2SI V2SF DI])
 
 ;; Same, without floating-point elements.
-(define_mode_macro VDI [V8QI V4HI V2SI])
+(define_mode_iterator VDI [V8QI V4HI V2SI])
 
 ;; Quad-width vector modes.
-(define_mode_macro VQ [V16QI V8HI V4SI V4SF])
+(define_mode_iterator VQ [V16QI V8HI V4SI V4SF])
 
 ;; Quad-width vector modes plus 64-bit elements.
-(define_mode_macro VQX [V16QI V8HI V4SI V4SF V2DI])
+(define_mode_iterator VQX [V16QI V8HI V4SI V4SF V2DI])
 
 ;; Same, without floating-point elements.
-(define_mode_macro VQI [V16QI V8HI V4SI])
+(define_mode_iterator VQI [V16QI V8HI V4SI])
 
 ;; Same, with TImode added, for moves.
-(define_mode_macro VQXMOV [V16QI V8HI V4SI V4SF V2DI TI])
+(define_mode_iterator VQXMOV [V16QI V8HI V4SI V4SF V2DI TI])
 
 ;; Opaque structure types wider than TImode.
-(define_mode_macro VSTRUCT [EI OI CI XI])
+(define_mode_iterator VSTRUCT [EI OI CI XI])
 
 ;; Number of instructions needed to load/store struct elements. FIXME!
 (define_mode_attr V_slen [(EI "2") (OI "2") (CI "3") (XI "4")])
 
 ;; Opaque structure types used in table lookups (except vtbl1/vtbx1).
-(define_mode_macro VTAB [TI EI OI])
+(define_mode_iterator VTAB [TI EI OI])
 
 ;; vtbl<n> suffix for above modes.
 (define_mode_attr VTAB_n [(TI "2") (EI "3") (OI "4")])
 
 ;; Widenable modes.
-(define_mode_macro VW [V8QI V4HI V2SI])
+(define_mode_iterator VW [V8QI V4HI V2SI])
 
 ;; Narrowable modes.
-(define_mode_macro VN [V8HI V4SI V2DI])
+(define_mode_iterator VN [V8HI V4SI V2DI])
 
 ;; All supported vector modes (except singleton DImode).
-(define_mode_macro VDQ [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF V2DI])
+(define_mode_iterator VDQ [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF V2DI])
 
 ;; All supported vector modes (except those with 64-bit integer elements).
-(define_mode_macro VDQW [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF])
+(define_mode_iterator VDQW [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF])
 
 ;; Supported integer vector modes (not 64 bit elements).
-(define_mode_macro VDQIW [V8QI V16QI V4HI V8HI V2SI V4SI])
+(define_mode_iterator VDQIW [V8QI V16QI V4HI V8HI V2SI V4SI])
 
 ;; Supported integer vector modes (not singleton DI)
-(define_mode_macro VDQI [V8QI V16QI V4HI V8HI V2SI V4SI V2DI])
+(define_mode_iterator VDQI [V8QI V16QI V4HI V8HI V2SI V4SI V2DI])
 
 ;; Vector modes, including 64-bit integer elements.
-(define_mode_macro VDQX [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF DI V2DI])
+(define_mode_iterator VDQX [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF DI V2DI])
 
 ;; Vector modes including 64-bit integer elements, but no floats.
-(define_mode_macro VDQIX [V8QI V16QI V4HI V8HI V2SI V4SI DI V2DI])
+(define_mode_iterator VDQIX [V8QI V16QI V4HI V8HI V2SI V4SI DI V2DI])
 
 ;; Vector modes for float->int conversions.
-(define_mode_macro VCVTF [V2SF V4SF])
+(define_mode_iterator VCVTF [V2SF V4SF])
 
 ;; Vector modes form int->float conversions.
-(define_mode_macro VCVTI [V2SI V4SI])
+(define_mode_iterator VCVTI [V2SI V4SI])
 
 ;; Vector modes for doubleword multiply-accumulate, etc. insns.
-(define_mode_macro VMD [V4HI V2SI V2SF])
+(define_mode_iterator VMD [V4HI V2SI V2SF])
 
 ;; Vector modes for quadword multiply-accumulate, etc. insns.
-(define_mode_macro VMQ [V8HI V4SI V4SF])
+(define_mode_iterator VMQ [V8HI V4SI V4SF])
 
 ;; Above modes combined.
-(define_mode_macro VMDQ [V4HI V2SI V2SF V8HI V4SI V4SF])
+(define_mode_iterator VMDQ [V4HI V2SI V2SF V8HI V4SI V4SF])
 
 ;; As VMD, but integer modes only.
-(define_mode_macro VMDI [V4HI V2SI])
+(define_mode_iterator VMDI [V4HI V2SI])
 
 ;; As VMQ, but integer modes only.
-(define_mode_macro VMQI [V8HI V4SI])
+(define_mode_iterator VMQI [V8HI V4SI])
 
 ;; Above modes combined.
-(define_mode_macro VMDQI [V4HI V2SI V8HI V4SI])
+(define_mode_iterator VMDQI [V4HI V2SI V8HI V4SI])
 
 ;; Modes with 8-bit and 16-bit elements.
-(define_mode_macro VX [V8QI V4HI V16QI V8HI])
+(define_mode_iterator VX [V8QI V4HI V16QI V8HI])
 
 ;; Modes with 8-bit elements.
-(define_mode_macro VE [V8QI V16QI])
+(define_mode_iterator VE [V8QI V16QI])
 
 ;; Modes with 64-bit elements only.
-(define_mode_macro V64 [DI V2DI])
+(define_mode_iterator V64 [DI V2DI])
 
 ;; Modes with 32-bit elements only.
-(define_mode_macro V32 [V2SI V2SF V4SI V4SF])
+(define_mode_iterator V32 [V2SI V2SF V4SI V4SF])
 
 ;; (Opposite) mode to convert to/from for above conversions.
 (define_mode_attr V_CVTTO [(V2SI "V2SF") (V2SF "V2SI")
@@ -265,6 +264,14 @@
                           (V2SI "SI") (V4SI "SI")
                           (V2SF "SF") (V4SF "SF")
                           (DI "DI")   (V2DI "DI")])
+
+;; Element modes for vector extraction, padded up to register size.
+
+(define_mode_attr V_ext [(V8QI "SI") (V16QI "SI")
+			 (V4HI "SI") (V8HI "SI")
+			 (V2SI "SI") (V4SI "SI")
+			 (V2SF "SF") (V4SF "SF")
+			 (DI "DI") (V2DI "DI")])
 
 ;; Mode of pair of elements for each vector mode, to define transfer
 ;; size for structure lane/dup loads and stores.
@@ -387,10 +394,10 @@
                           (DI   "ti") (V2DI  "oi")])
 
 ;; Operations on two halves of a quadword vector.
-(define_code_macro vqh_ops [plus smin smax umin umax])
+(define_code_iterator vqh_ops [plus smin smax umin umax])
 
 ;; Same, without unsigned variants (for use with *SFmode pattern).
-(define_code_macro vqhs_ops [plus smin smax])
+(define_code_iterator vqhs_ops [plus smin smax])
 
 ;; Assembler mnemonics for above codes.
 (define_code_attr VQH_mnem [(plus "vadd") (smin "vmin") (smax "vmax")
@@ -719,33 +726,35 @@
   neon_disambiguate_copy (operands, dest, src, 4);
 })
 
-(define_insn "vec_set<mode>"
-  [(set (match_operand:VD 0 "s_register_operand" "+w")
+(define_insn "vec_set<mode>_internal"
+  [(set (match_operand:VD 0 "s_register_operand" "=w")
         (vec_merge:VD
-          (match_operand:VD 3 "s_register_operand" "0")
           (vec_duplicate:VD
             (match_operand:<V_elem> 1 "s_register_operand" "r"))
-          (ashift:SI (const_int 1)
-                     (match_operand:SI 2 "immediate_operand" "i"))))]
-  "TARGET_NEON"
-  "vmov%?.<V_uf_sclr>\t%P0[%c2], %1"
-  [(set_attr "predicable" "yes")
-   (set_attr "neon_type" "neon_mcr")]
-)
-
-(define_insn "vec_set<mode>"
-  [(set (match_operand:VQ 0 "s_register_operand" "+w")
-        (vec_merge:VQ
-          (match_operand:VQ 3 "s_register_operand" "0")
-          (vec_duplicate:VQ
-            (match_operand:<V_elem> 1 "s_register_operand" "r"))
-          (ashift:SI (const_int 1)
-		     (match_operand:SI 2 "immediate_operand" "i"))))]
+          (match_operand:VD 3 "s_register_operand" "0")
+          (match_operand:SI 2 "immediate_operand" "i")))]
   "TARGET_NEON"
 {
+  operands[2] = GEN_INT (ffs ((int) INTVAL (operands[2]) - 1));
+  
+  return "vmov%?.<V_uf_sclr>\t%P0[%c2], %1";
+}
+  [(set_attr "predicable" "yes")
+   (set_attr "neon_type" "neon_mcr")])
+
+(define_insn "vec_set<mode>_internal"
+  [(set (match_operand:VQ 0 "s_register_operand" "=w")
+        (vec_merge:VQ
+          (vec_duplicate:VQ
+            (match_operand:<V_elem> 1 "s_register_operand" "r"))
+          (match_operand:VQ 3 "s_register_operand" "0")
+          (match_operand:SI 2 "immediate_operand" "i")))]
+  "TARGET_NEON"
+{
+  HOST_WIDE_INT elem = ffs ((int) INTVAL (operands[2])) - 1;
   int half_elts = GET_MODE_NUNITS (<MODE>mode) / 2;
-  int elt = INTVAL (operands[2]) % half_elts;
-  int hi = (INTVAL (operands[2]) / half_elts) * 2;
+  int elt = elem % half_elts;
+  int hi = (elem / half_elts) * 2;
   int regno = REGNO (operands[0]);
 
   operands[0] = gen_rtx_REG (<V_HALF>mode, regno + hi);
@@ -757,17 +766,17 @@
    (set_attr "neon_type" "neon_mcr")]
 )
 
-(define_insn "vec_setv2di"
-  [(set (match_operand:V2DI 0 "s_register_operand" "+w")
+(define_insn "vec_setv2di_internal"
+  [(set (match_operand:V2DI 0 "s_register_operand" "=w")
         (vec_merge:V2DI
-          (match_operand:V2DI 3 "s_register_operand" "0")
           (vec_duplicate:V2DI
             (match_operand:DI 1 "s_register_operand" "r"))
-          (ashift:SI (const_int 1)
-		     (match_operand:SI 2 "immediate_operand" "i"))))]
+          (match_operand:V2DI 3 "s_register_operand" "0")
+          (match_operand:SI 2 "immediate_operand" "i")))]
   "TARGET_NEON"
 {
-  int regno = REGNO (operands[0]) + INTVAL (operands[2]);
+  HOST_WIDE_INT elem = ffs ((int) INTVAL (operands[2])) - 1;
+  int regno = REGNO (operands[0]) + 2 * elem;
 
   operands[0] = gen_rtx_REG (DImode, regno);
 
@@ -776,6 +785,18 @@
   [(set_attr "predicable" "yes")
    (set_attr "neon_type" "neon_mcr_2_mcrr")]
 )
+
+(define_expand "vec_set<mode>"
+  [(match_operand:VDQ 0 "s_register_operand" "")
+   (match_operand:<V_elem> 1 "s_register_operand" "")
+   (match_operand:SI 2 "immediate_operand" "")]
+  "TARGET_NEON"
+{
+  HOST_WIDE_INT elem = (HOST_WIDE_INT) 1 << INTVAL (operands[2]);
+  emit_insn (gen_vec_set<mode>_internal (operands[0], operands[1],
+					 GEN_INT (elem), operands[0]));
+  DONE;
+})
 
 (define_insn "vec_extract<mode>"
   [(set (match_operand:<V_elem> 0 "s_register_operand" "=r")
@@ -2385,27 +2406,107 @@
   DONE;
 })
 
-;; FIXME: 32-bit element sizes are a bit funky (should be output as .32 not
-;; .u32), but the assembler should cope with that.
+(define_insn "neon_vget_lane<mode>_sext_internal"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(sign_extend:SI
+	  (vec_select:<V_elem>
+	    (match_operand:VD 1 "s_register_operand" "w")
+	    (parallel [(match_operand:SI 2 "immediate_operand" "i")]))))]
+  "TARGET_NEON"
+  "vmov%?.s<V_sz_elem>\t%0, %P1[%c2]"
+  [(set_attr "predicable" "yes")
+   (set_attr "neon_type" "neon_bp_simple")]
+)
 
-(define_insn "neon_vget_lane<mode>"
-  [(set (match_operand:<V_elem> 0 "s_register_operand" "=r")
-	(unspec:<V_elem> [(match_operand:VD 1 "s_register_operand" "w")
-			  (match_operand:SI 2 "immediate_operand" "i")
-                          (match_operand:SI 3 "immediate_operand" "i")]
-                         UNSPEC_VGET_LANE))]
+(define_insn "neon_vget_lane<mode>_zext_internal"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(zero_extend:SI
+	  (vec_select:<V_elem>
+	    (match_operand:VD 1 "s_register_operand" "w")
+	    (parallel [(match_operand:SI 2 "immediate_operand" "i")]))))]
+  "TARGET_NEON"
+  "vmov%?.u<V_sz_elem>\t%0, %P1[%c2]"
+  [(set_attr "predicable" "yes")
+   (set_attr "neon_type" "neon_bp_simple")]
+)
+
+(define_insn "neon_vget_lane<mode>_sext_internal"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(sign_extend:SI
+	  (vec_select:<V_elem>
+	    (match_operand:VQ 1 "s_register_operand" "w")
+	    (parallel [(match_operand:SI 2 "immediate_operand" "i")]))))]
   "TARGET_NEON"
 {
-  neon_lane_bounds (operands[2], 0, GET_MODE_NUNITS (<MODE>mode));
-  return "vmov%?.%t3%#<V_sz_elem>\t%0, %P1[%c2]";
+  rtx ops[3];
+  int regno = REGNO (operands[1]);
+  unsigned int halfelts = GET_MODE_NUNITS (<MODE>mode) / 2;
+  unsigned int elt = INTVAL (operands[2]);
+
+  ops[0] = operands[0];
+  ops[1] = gen_rtx_REG (<V_HALF>mode, regno + 2 * (elt / halfelts));
+  ops[2] = GEN_INT (elt % halfelts);
+  output_asm_insn ("vmov%?.s<V_sz_elem>\t%0, %P1[%c2]", ops);
+
+  return "";
 }
   [(set_attr "predicable" "yes")
    (set_attr "neon_type" "neon_bp_simple")]
 )
 
-; Operand 2 (lane number) is ignored because we can only extract the zeroth lane
-; with this insn. Operand 3 (info word) is ignored because it does nothing
-; useful with 64-bit elements.
+(define_insn "neon_vget_lane<mode>_zext_internal"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(zero_extend:SI
+	  (vec_select:<V_elem>
+	    (match_operand:VQ 1 "s_register_operand" "w")
+	    (parallel [(match_operand:SI 2 "immediate_operand" "i")]))))]
+  "TARGET_NEON"
+{
+  rtx ops[3];
+  int regno = REGNO (operands[1]);
+  unsigned int halfelts = GET_MODE_NUNITS (<MODE>mode) / 2;
+  unsigned int elt = INTVAL (operands[2]);
+
+  ops[0] = operands[0];
+  ops[1] = gen_rtx_REG (<V_HALF>mode, regno + 2 * (elt / halfelts));
+  ops[2] = GEN_INT (elt % halfelts);
+  output_asm_insn ("vmov%?.u<V_sz_elem>\t%0, %P1[%c2]", ops);
+
+  return "";
+}
+  [(set_attr "predicable" "yes")
+   (set_attr "neon_type" "neon_bp_simple")]
+)
+
+(define_expand "neon_vget_lane<mode>"
+  [(match_operand:<V_ext> 0 "s_register_operand" "")
+   (match_operand:VDQW 1 "s_register_operand" "")
+   (match_operand:SI 2 "immediate_operand" "")
+   (match_operand:SI 3 "immediate_operand" "")]
+  "TARGET_NEON"
+{
+  HOST_WIDE_INT magic = INTVAL (operands[3]);
+  rtx insn;
+
+  neon_lane_bounds (operands[2], 0, GET_MODE_NUNITS (<MODE>mode));
+
+  if ((magic & 3) == 3 || GET_MODE_BITSIZE (GET_MODE_INNER (<MODE>mode)) == 32)
+    insn = gen_vec_extract<mode> (operands[0], operands[1], operands[2]);
+  else
+    {
+      if ((magic & 1) != 0)
+	insn = gen_neon_vget_lane<mode>_sext_internal (operands[0], operands[1],
+						       operands[2]);
+      else
+	insn = gen_neon_vget_lane<mode>_zext_internal (operands[0], operands[1],
+						       operands[2]);
+    }
+  emit_insn (insn);
+  DONE;
+})
+
+; Operand 3 (info word) is ignored because it does nothing useful with 64-bit
+; elements.
 
 (define_insn "neon_vget_lanedi"
   [(set (match_operand:DI 0 "s_register_operand" "=r")
@@ -2417,33 +2518,6 @@
 {
   neon_lane_bounds (operands[2], 0, 1);
   return "vmov%?\t%Q0, %R0, %P1  @ di";
-}
-  [(set_attr "predicable" "yes")
-   (set_attr "neon_type" "neon_bp_simple")]
-)
-
-(define_insn "neon_vget_lane<mode>"
-  [(set (match_operand:<V_elem> 0 "s_register_operand" "=r")
-       (unspec:<V_elem> [(match_operand:VQ 1 "s_register_operand" "w")
-                         (match_operand:SI 2 "immediate_operand" "i")
-                         (match_operand:SI 3 "immediate_operand" "i")]
-                        UNSPEC_VGET_LANE))]
-  "TARGET_NEON"
-{
-  rtx ops[4];
-  int regno = REGNO (operands[1]);
-  unsigned int halfelts = GET_MODE_NUNITS (<MODE>mode) / 2;
-  unsigned int elt = INTVAL (operands[2]);
-
-  neon_lane_bounds (operands[2], 0, halfelts * 2);
-
-  ops[0] = operands[0];
-  ops[1] = gen_rtx_REG (<V_HALF>mode, regno + 2 * (elt / halfelts));
-  ops[2] = GEN_INT (elt % halfelts);
-  ops[3] = operands[3];
-  output_asm_insn ("vmov%?.%t3%#<V_sz_elem>\t%0, %P1[%c2]", ops);
-
-  return "";
 }
   [(set_attr "predicable" "yes")
    (set_attr "neon_type" "neon_bp_simple")]

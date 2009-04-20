@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,14 +16,16 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GFC_TARGET_MEMORY_H
 #define GFC_TARGET_MEMORY_H
 
 #include "gfortran.h"
+
+/* Convert a BOZ to REAL or COMPLEX.  */
+bool gfc_convert_boz (gfc_expr *, gfc_typespec *);
 
 /* Return the size of an expression in its target representation.  */
 size_t gfc_target_expr_size (gfc_expr *);

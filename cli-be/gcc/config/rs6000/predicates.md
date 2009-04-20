@@ -5,7 +5,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Return 1 for anything except PARALLEL.
 (define_predicate "any_operand"
@@ -276,6 +275,11 @@
 (define_predicate "easy_vector_constant"
   (match_code "const_vector")
 {
+  /* As the paired vectors are actually FPRs it seems that there is
+     no easy way to load a CONST_VECTOR without using memory.  */
+  if (TARGET_PAIRED_FLOAT)
+    return false;
+
   if (ALTIVEC_VECTOR_MODE (mode))
     {
       if (zero_constant (op, mode))
@@ -350,10 +354,10 @@
 
 ;; Return 1 if the operand is an offsettable memory operand.
 (define_predicate "offsettable_mem_operand"
-  (and (match_code "mem")
-       (match_test "offsettable_address_p (reload_completed
-					   || reload_in_progress,
-					   mode, XEXP (op, 0))")))
+  (and (match_operand 0 "memory_operand")
+       (match_test "GET_CODE (XEXP (op, 0)) != PRE_INC
+		    && GET_CODE (XEXP (op, 0)) != PRE_DEC
+		    && GET_CODE (XEXP (op, 0)) != PRE_MODIFY")))
 
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"

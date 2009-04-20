@@ -938,7 +938,7 @@ determine_seq_blocks (void)
 /* Builds a symbol_ref for LABEL.  */
 
 static rtx
-gen_symbol_ref_rtx_for_label (rtx label)
+gen_symbol_ref_rtx_for_label (const_rtx label)
 {
   char name[20];
   rtx sym;
@@ -1428,7 +1428,7 @@ struct tree_opt_pass pass_rtl_seqabstr = {
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'Q'                                   /* letter */

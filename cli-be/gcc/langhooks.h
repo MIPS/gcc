@@ -24,23 +24,23 @@ along with GCC; see the file COPYING3.  If not see
 /* This file should be #include-d after tree.h.  */
 
 struct diagnostic_context;
+struct diagnostic_info;
 
 struct gimplify_omp_ctx;
 
+struct array_descr_info;
+
 /* A print hook for print_tree ().  */
 typedef void (*lang_print_tree_hook) (FILE *, tree, int indent);
+
+enum classify_record
+  { RECORD_IS_STRUCT, RECORD_IS_CLASS, RECORD_IS_INTERFACE };
 
 /* The following hooks are documented in langhooks.c.  Must not be
    NULL.  */
 
 struct lang_hooks_for_tree_inlining
 {
-  tree (*walk_subtrees) (tree *, int *,
-			 tree (*) (tree *, int *, void *),
-			 void *, struct pointer_set_t*);
-  int (*cannot_inline_tree_fn) (tree *);
-  int (*disregard_inline_limits) (tree);
-  int (*auto_var_in_fn_p) (tree, tree);
   bool (*var_mod_type_p) (tree, tree);
 };
 
@@ -48,10 +48,10 @@ struct lang_hooks_for_callgraph
 {
   /* The node passed is a language-specific tree node.  If its contents
      are relevant to use of other declarations, mark them.  */
-  tree (*analyze_expr) (tree *, int *, tree);
+  tree (*analyze_expr) (tree *, int *);
 
-  /* Produce RTL for function passed as argument.  */
-  void (*expand_function) (tree);
+  /* Emit thunks associated to function.  */
+  void (*emit_associated_thunks) (tree);
 };
 
 /* Lang hooks for management of language-specific data or status
@@ -83,7 +83,7 @@ struct lang_hooks_for_tree_dump
   bool (*dump_tree) (void *, tree);
 
   /* Determine type qualifiers in a language-specific way.  */
-  int (*type_quals) (tree);
+  int (*type_quals) (const_tree);
 };
 
 /* Hooks related to types.  */
@@ -93,6 +93,11 @@ struct lang_hooks_for_types
   /* Return a new type (with the indicated CODE), doing whatever
      language-specific processing is required.  */
   tree (*make_type) (enum tree_code);
+
+  /* Return what kind of RECORD_TYPE this is, mainly for purposes of
+     debug information.  If not defined, record types are assumed to
+     be structures.  */
+  enum classify_record (*classify_record) (tree);
 
   /* Given MODE and UNSIGNEDP, return a suitable type-tree with that
      mode.  */
@@ -104,7 +109,7 @@ struct lang_hooks_for_types
 
   /* True if the type is an instantiation of a generic type,
      e.g. C++ template implicit specializations.  */
-  bool (*generic_p) (tree);
+  bool (*generic_p) (const_tree);
 
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
@@ -125,15 +130,25 @@ struct lang_hooks_for_types
      invalid use of an incomplete type.  VALUE is the expression that
      was used (or 0 if that isn't known) and TYPE is the type that was
      invalid.  */
-  void (*incomplete_type_error) (tree value, tree type);
+  void (*incomplete_type_error) (const_tree value, const_tree type);
 
   /* Called from assign_temp to return the maximum size, if there is one,
      for a type.  */
-  tree (*max_size) (tree);
+  tree (*max_size) (const_tree);
 
   /* Register language specific type size variables as potentially OpenMP
      firstprivate variables.  */
   void (*omp_firstprivatize_type_sizes) (struct gimplify_omp_ctx *, tree);
+
+  /* Return TRUE if TYPE1 and TYPE2 are identical for type hashing purposes.
+     Called only after doing all language independent checks.
+     At present, this function is only called when both TYPE1 and TYPE2 are
+     FUNCTION_TYPEs.  */
+  bool (*type_hash_eq) (const_tree, const_tree);
+
+  /* Return TRUE if TYPE uses a hidden descriptor and fills in information
+     for the debugger about the array bounds, strides, etc.  */
+  bool (*get_array_descr_info) (const_tree, struct array_descr_info *);
 
   /* Nonzero if types that are identical are to be hashed so that only
      one copy is kept.  If a language requires unique types for each
@@ -165,14 +180,14 @@ struct lang_hooks_for_decls
 
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
-  bool (*warn_unused_global) (tree);
+  bool (*warn_unused_global) (const_tree);
 
   /* Obtain a list of globals and do final output on them at end
      of compilation */
   void (*final_write_globals) (void);
 
   /* True if this decl may be called via a sibcall.  */
-  bool (*ok_for_sibcall) (tree);
+  bool (*ok_for_sibcall) (const_tree);
 
   /* Return the COMDAT group into which this DECL should be placed.
      It is known that the DECL belongs in *some* COMDAT group when
@@ -185,7 +200,7 @@ struct lang_hooks_for_decls
 
   /* True if OpenMP should privatize what this DECL points to rather
      than the DECL itself.  */
-  bool (*omp_privatize_by_reference) (tree);
+  bool (*omp_privatize_by_reference) (const_tree);
 
   /* Return sharing kind if OpenMP sharing attribute of DECL is
      predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
@@ -284,12 +299,7 @@ struct lang_hooks
 
   /* Called to obtain the alias set to be used for an expression or type.
      Returns -1 if the language does nothing special for it.  */
-  HOST_WIDE_INT (*get_alias_set) (tree);
-
-  /* Called with an expression that is to be processed as a constant.
-     Returns either the same expression or a language-independent
-     constant equivalent to its input.  */
-  tree (*expand_constant) (tree);
+  alias_set_type (*get_alias_set) (tree);
 
   /* Called by expand_expr for language-specific tree codes.
      Fourth argument is actually an enum expand_modifier.  */
@@ -364,16 +374,17 @@ struct lang_hooks
   int (*types_compatible_p) (tree x, tree y);
 
   /* Given a CALL_EXPR, return a function decl that is its target.  */
-  tree (*lang_get_callee_fndecl) (tree);
+  tree (*lang_get_callee_fndecl) (const_tree);
 
   /* Called by report_error_function to print out function name.  */
-  void (*print_error_function) (struct diagnostic_context *, const char *);
+  void (*print_error_function) (struct diagnostic_context *, const char *,
+				struct diagnostic_info *);
 
   /* Called from expr_size to calculate the size of the value of an
      expression in a language-dependent way.  Returns a tree for the size
      in bytes.  A frontend can call lhd_expr_size to get the default
      semantics in cases that it doesn't want to handle specially.  */
-  tree (*expr_size) (tree);
+  tree (*expr_size) (const_tree);
 
   /* Convert a character from the host's to the target's character
      set.  The character should be in what C calls the "basic source

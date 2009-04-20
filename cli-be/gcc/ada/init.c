@@ -101,6 +101,7 @@ int   __gl_exception_tracebacks          = 0;
 int   __gl_zero_cost_exceptions          = 0;
 int   __gl_detect_blocking               = 0;
 int   __gl_default_stack_size            = -1;
+int   __gl_leap_seconds_support          = 0;
 
 /* Indication of whether synchronous signal handler has already been
    installed by a previous call to adainit */
@@ -182,47 +183,6 @@ __gnat_set_globals ()
 }
 
 #endif
-
-/* Notes on the Zero Cost Exceptions scheme and its impact on the signal
-   handlers implemented below :
-
-   What we call Zero Cost Exceptions is implemented using the GCC eh
-   circuitry, even if the underlying implementation is setjmp/longjmp
-   based. In any case ...
-
-   The GCC unwinder expects to be dealing with call return addresses, since
-   this is the "nominal" case of what we retrieve while unwinding a regular
-   call chain. To evaluate if a handler applies at some point in this chain,
-   the propagation engine needs to determine what region the corresponding
-   call instruction pertains to. The return address may not be attached to the
-   same region as the call, so the unwinder unconditionally subtracts "some"
-   amount to the return addresses it gets to search the region tables. The
-   exact amount is computed to ensure that the resulting address is inside the
-   call instruction, and is thus target dependent (think about delay slots for
-   instance).
-
-   When we raise an exception from a signal handler, e.g. to transform a
-   SIGSEGV into Storage_Error, things need to appear as if the signal handler
-   had been "called" by the instruction which triggered the signal, so that
-   exception handlers that apply there are considered. What the unwinder will
-   retrieve as the return address from the signal handler is what it will find
-   as the faulting instruction address in the corresponding signal context
-   pushed by the kernel. Leaving this address untouched may loose, because if
-   the triggering instruction happens to be the very first of a region, the
-   later adjustments performed by the unwinder would yield an address outside
-   that region. We need to compensate for those adjustments at some point,
-   which we used to do in the GCC unwinding fallback macro.
-
-   The thread at http://gcc.gnu.org/ml/gcc-patches/2004-05/msg00343.html
-   describes a couple of issues with the fallback based compensation approach.
-   First, on some targets the adjustment to apply depends on the triggering
-   signal, which is not easily accessible from the macro.  Besides, other
-   languages, e.g. Java, deal with this by performing the adjustment in the
-   signal handler before the raise, so fallback adjustments just break those
-   front-ends.
-
-   We now follow the Java way for most targets, via adjust_context_for_raise
-   below.  */
 
 /***************/
 /* AIX Section */
@@ -347,13 +307,41 @@ extern char *__gnat_get_code_loc (struct sigcontext *);
 extern void __gnat_set_code_loc (struct sigcontext *, char *);
 extern size_t __gnat_machine_state_length (void);
 
+/* __gnat_adjust_context_for_raise - see comments along with the default
+   version later in this file.  */
+
+#define HAVE_GNAT_ADJUST_CONTEXT_FOR_RAISE
+
+void
+__gnat_adjust_context_for_raise (int signo, void *context)
+{
+  struct sigcontext * sigcontext = (struct sigcontext *) context;
+
+  /* The fallback code fetches the faulting insn address from sc_pc, so
+     adjust that when need be.  For SIGFPE, the required adjustment depends
+     on the trap shadow situation (see man ieee).  */
+  if (signo == SIGFPE)
+    {
+      /* ??? We never adjust here, considering that sc_pc always
+	 designates the instruction following the one which trapped.
+	 This is not necessarily true but corresponds to what we have
+	 always observed.  */
+    }
+  else
+    sigcontext->sc_pc ++;
+}
+
 static void
 __gnat_error_handler
-  (int sig, siginfo_t *sip, struct sigcontext *context ATTRIBUTE_UNUSED)
+  (int sig, siginfo_t *sip, struct sigcontext *context)
 {
   struct Exception_Data *exception;
   static int recurse = 0;
   const char *msg;
+
+  /* Adjusting is required for every fault context, so adjust for this one
+     now, before we possibly trigger a recursive fault below.  */
+  __gnat_adjust_context_for_raise (sig, context);
 
   /* If this was an explicit signal from a "kill", just resignal it.  */
   if (SI_FROMUSER (sip))
@@ -456,7 +444,6 @@ __gnat_set_code_loc (struct sigcontext *context, char *pc)
 {
   context->sc_pc = (long) pc;
 }
-
 
 size_t
 __gnat_machine_state_length (void)
@@ -750,73 +737,6 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
-/*******************/
-/* Interix Section */
-/*******************/
-
-#elif defined (__INTERIX)
-
-#include <signal.h>
-
-static void __gnat_error_handler (int);
-
-static void
-__gnat_error_handler (int sig)
-{
-  struct Exception_Data *exception;
-  const char *msg;
-
-  switch (sig)
-    {
-    case SIGSEGV:
-      exception = &storage_error;
-      msg = "stack overflow or erroneous memory access";
-      break;
-
-    case SIGBUS:
-      exception = &constraint_error;
-      msg = "SIGBUS";
-      break;
-
-    case SIGFPE:
-      exception = &constraint_error;
-      msg = "SIGFPE";
-      break;
-
-    default:
-      exception = &program_error;
-      msg = "unhandled signal";
-    }
-
-  Raise_From_Signal_Handler (exception, msg);
-}
-
-void
-__gnat_install_handler (void)
-{
-  struct sigaction act;
-
-  /* Set up signal handler to map synchronous signals to appropriate
-     exceptions.  Make sure that the handler isn't interrupted by another
-     signal that might cause a scheduling event! */
-
-  act.sa_handler = __gnat_error_handler;
-  act.sa_flags = 0;
-  sigemptyset (&act.sa_mask);
-
-  /* Handlers for signals besides SIGSEGV cause c974013 to hang */
-/*  sigaction (SIGILL,  &act, NULL); */
-/*  sigaction (SIGABRT, &act, NULL); */
-/*  sigaction (SIGFPE,  &act, NULL); */
-/*  sigaction (SIGBUS,  &act, NULL); */
-
-  /* Do not install handlers if interrupt state is "System" */
-  if (__gnat_get_interrupt_state (SIGSEGV) != 's')
-    sigaction (SIGSEGV, &act, NULL);
-
-  __gnat_handler_installed = 1;
-}
-
 /****************/
 /* IRIX Section */
 /****************/
@@ -973,15 +893,51 @@ __gnat_install_handler (void)
 
 #include <signal.h>
 #include <siginfo.h>
+#include <sys/ucontext.h>
+#include <sys/regset.h>
 
-static void __gnat_error_handler (int, siginfo_t *);
+/* The code below is common to sparc and x86.  Beware of the delay slot
+   differences for signal context adjustments.  */
+
+#if defined (__sparc)
+#define RETURN_ADDR_OFFSET 8
+#else
+#define RETURN_ADDR_OFFSET 0
+#endif
+
+/* Likewise regarding how the "instruction pointer" register slot can
+   be identified in signal machine contexts.  We have either "REG_PC"
+   or "PC" at hand, depending on the target CPU and solaris version.  */
+
+#if !defined (REG_PC)
+#define REG_PC PC
+#endif
+
+static void __gnat_error_handler (int, siginfo_t *, ucontext_t *);
+
+/* __gnat_adjust_context_for_raise - see comments along with the default
+   version later in this file.  */
+
+#define HAVE_GNAT_ADJUST_CONTEXT_FOR_RAISE
+
+void
+__gnat_adjust_context_for_raise (int signo ATTRIBUTE_UNUSED,
+				 void * ucontext)
+{
+  mcontext_t *mcontext = & ((ucontext_t *)ucontext)->uc_mcontext;
+  mcontext->gregs[REG_PC] += (1 - RETURN_ADDR_OFFSET);
+}
 
 static void
-__gnat_error_handler (int sig, siginfo_t *sip)
+__gnat_error_handler (int sig, siginfo_t *sip, ucontext_t *uctx)
 {
   struct Exception_Data *exception;
   static int recurse = 0;
   const char *msg;
+
+  /* Adjusting is required for every fault context, so adjust for this one
+     now, before we possibly trigger a recursive fault below.  */
+  __gnat_adjust_context_for_raise (sig, (void *)uctx);
 
   /* If this was an explicit signal from a "kill", just resignal it.  */
   if (SI_FROMUSER (sip))
@@ -1424,21 +1380,22 @@ __gnat_handle_vms_condition (int *sigargs, void *mechargs)
 	    exception = &storage_error;
 	    msg = "stack overflow (or erroneous memory access)";
 	  }
+	__gnat_adjust_context_for_raise (0, (void *)mechargs);
 	break;
 
       case SS$_STKOVF:
 	exception = &storage_error;
 	msg = "stack overflow";
+	__gnat_adjust_context_for_raise (0, (void *)mechargs);
 	break;
 
       case SS$_HPARITH:
 #ifndef IN_RTS
 	return SS$_RESIGNAL; /* toplev.c handles for compiler */
 #else
-	{
-	  exception = &constraint_error;
-	  msg = "arithmetic error";
-	}
+	exception = &constraint_error;
+	msg = "arithmetic error";
+	__gnat_adjust_context_for_raise (0, (void *)mechargs);
 #endif
 	break;
 
@@ -1465,7 +1422,8 @@ __gnat_handle_vms_condition (int *sigargs, void *mechargs)
 		   cond_except_table [i].cond &&
 		   !LIB$MATCH_COND (&sigargs [1], &cond_except_table [i].cond);
 		   i++);
-	      exception =(struct Exception_Data *) cond_except_table [i].except;
+	      exception = (struct Exception_Data *)
+		cond_except_table [i].except;
 
 	      if (!exception)
 		/* User programs expect Non_Ada_Error to be raised, reference
@@ -1485,8 +1443,7 @@ __gnat_handle_vms_condition (int *sigargs, void *mechargs)
 	break;
       }
 
- __gnat_adjust_context_for_raise (0, (void *)mechargs);
- Raise_From_Signal_Handler (exception, msg);
+  Raise_From_Signal_Handler (exception, msg);
 }
 
 long
@@ -1756,14 +1713,29 @@ __gnat_map_signal (int sig)
       msg = "SIGBUS: possible stack overflow";
       break;
 #else
+#ifdef __RTP__
+    /* In RTP mode a SIGSEGV is most likely due to a stack overflow,
+       since stack checking uses the probing mechanism.  */
     case SIGILL:
       exception = &constraint_error;
       msg = "SIGILL";
       break;
     case SIGSEGV:
+      exception = &storage_error;
+      msg = "SIGSEGV: possible stack overflow";
+      break;
+#else
+    /* In kernel mode a SIGILL is most likely due to a stack overflow,
+       since stack checking uses the stack limit mechanism.  */
+    case SIGILL:
+      exception = &storage_error;
+      msg = "SIGILL: possible stack overflow";
+      break;
+    case SIGSEGV:
       exception = &program_error;
       msg = "SIGSEGV";
       break;
+#endif
     case SIGBUS:
       exception = &program_error;
       msg = "SIGBUS";
@@ -1859,11 +1831,82 @@ __gnat_init_float (void)
 #endif
 }
 
+/* This subprogram is called by System.Task_Primitives.Operations.Enter_Task
+   (if not null) when a new task is created.  It is initialized by
+   System.Stack_Checking.Operations.Initialize_Stack_Limit.
+   The use of a hook avoids to drag stack checking subprograms if stack
+   checking is not used.  */
+void (*__gnat_set_stack_limit_hook)(void) = (void (*)(void))0;
+
+
 /******************/
 /* NetBSD Section */
 /******************/
 
 #elif defined(__NetBSD__)
+
+#include <signal.h>
+#include <unistd.h>
+
+static void
+__gnat_error_handler (int sig)
+{
+  struct Exception_Data *exception;
+  const char *msg;
+
+  switch(sig)
+  {
+    case SIGFPE:
+      exception = &constraint_error;
+      msg = "SIGFPE";
+      break;
+    case SIGILL:
+      exception = &constraint_error;
+      msg = "SIGILL";
+      break;
+    case SIGSEGV:
+      exception = &storage_error;
+      msg = "stack overflow or erroneous memory access";
+      break;
+    case SIGBUS:
+      exception = &constraint_error;
+      msg = "SIGBUS";
+      break;
+    default:
+      exception = &program_error;
+      msg = "unhandled signal";
+    }
+
+    Raise_From_Signal_Handler(exception, msg);
+}
+
+void
+__gnat_install_handler(void)
+{
+  struct sigaction act;
+
+  act.sa_handler = __gnat_error_handler;
+  act.sa_flags = SA_NODEFER | SA_RESTART;
+  sigemptyset (&act.sa_mask);
+
+  /* Do not install handlers if interrupt state is "System" */
+  if (__gnat_get_interrupt_state (SIGFPE) != 's')
+    sigaction (SIGFPE,  &act, NULL);
+  if (__gnat_get_interrupt_state (SIGILL) != 's')
+    sigaction (SIGILL,  &act, NULL);
+  if (__gnat_get_interrupt_state (SIGSEGV) != 's')
+    sigaction (SIGSEGV, &act, NULL);
+  if (__gnat_get_interrupt_state (SIGBUS) != 's')
+    sigaction (SIGBUS,  &act, NULL);
+
+  __gnat_handler_installed = 1;
+}
+
+/*******************/
+/* OpenBSD Section */
+/*******************/
+
+#elif defined(__OpenBSD__)
 
 #include <signal.h>
 #include <unistd.h>
@@ -1947,7 +1990,8 @@ __gnat_install_handler (void)
    WIN32 and could be used under OS/2 */
 
 #if defined (_WIN32) || defined (__INTERIX) || defined (__EMX__) \
-  || defined (__Lynx__) || defined(__NetBSD__) || defined(__FreeBSD__)
+  || defined (__Lynx__) || defined(__NetBSD__) || defined(__FreeBSD__) \
+  || defined (__OpenBSD__)
 
 #define HAVE_GNAT_INIT_FLOAT
 
@@ -1982,34 +2026,57 @@ __gnat_init_float (void)
 
 /* All targets without a specific version will use an empty one */
 
-/* UCONTEXT is a pointer to a context structure received by a signal handler
-   about to propagate an exception. Adjust it to compensate the fact that the
-   generic unwinder thinks the corresponding PC is a call return address.  */
+/* Given UCONTEXT a pointer to a context structure received by a signal
+   handler for SIGNO, perform the necessary adjustments to let the handler
+   raise an exception.  Calls to this routine are not conditioned by the
+   propagation scheme in use.  */
 
 void
 __gnat_adjust_context_for_raise (int signo ATTRIBUTE_UNUSED,
 				 void *ucontext ATTRIBUTE_UNUSED)
 {
-  /* The point is that the interrupted context PC typically is the address
-     that we should search an EH region for, which is different from the call
-     return address case. The target independent part of the GCC unwinder
-     don't differentiate the two situations, so we compensate here for the
-     adjustments it will blindly make.
+  /* Adjustments are currently required for the GCC ZCX propagation scheme
+     only.  These adjustments (described below) are harmless for the other
+     schemes, so may be applied unconditionally.  */
+
+  /* Adjustments required for a GCC ZCX propagation scheme:
+     ------------------------------------------------------
+
+     The GCC unwinder expects to be dealing with call return addresses, since
+     this is the "nominal" case of what we retrieve while unwinding a regular
+     call chain.
+
+     To evaluate if a handler applies at some point identified by a return
+     address, the propagation engine needs to determine what region the
+     corresponding call instruction pertains to.  Because the return address
+     may not be attached to the same region as the call, the unwinder always
+     subtracts "some" amount from a return address to search the region
+     tables, amount chosen to ensure that the resulting address is inside the
+     call instruction.
+
+     When we raise an exception from a signal handler, e.g. to transform a
+     SIGSEGV into Storage_Error, things need to appear as if the signal
+     handler had been "called" by the instruction which triggered the signal,
+     so that exception handlers that apply there are considered.  What the
+     unwinder will retrieve as the return address from the signal handler is
+     what it will find as the faulting instruction address in the signal
+     context pushed by the kernel.  Leaving this address untouched looses, if
+     the triggering instruction happens to be the very first of a region, as
+     the later adjustments performed by the unwinder would yield an address
+     outside that region.  We need to compensate for the unwinder adjustments
+     at some point, and this is what this routine is expected to do.
 
      signo is passed because on some targets for some signals the PC in
      context points to the instruction after the faulting one, in which case
-     the unwinder adjustment is still desired.  */
+     the unwinder adjustment is still desired.
 
-  /* On a number of targets, we have arranged for the adjustment to be
-     performed by the MD_FALLBACK_FRAME_STATE circuitry, so we don't provide a
-     specific instance of this routine.  The MD_FALLBACK doesn't have access
-     to the signal number, though, so the compensation is systematic there and
-     might be wrong in some cases.  */
-
-  /* Having the compensation wrong leads to potential failures.  A very
-     typical case is what happens when there is no compensation and a signal
-     triggers for the first instruction in a region : the unwinder adjustment
-     has it search in the wrong EH region.  */
+     We used to perform the compensation in the GCC unwinding fallback macro.
+     The thread at http://gcc.gnu.org/ml/gcc-patches/2004-05/msg00343.html
+     describes a couple of issues with this approach.  First, on some targets
+     the adjustment to apply depends on the triggering signal, which is not
+     easily accessible from the macro.  Besides, other languages, e.g. Java,
+     deal with this by performing the adjustment in the signal handler before
+     the raise, so fallback adjustments just break those front-ends.  */
 }
 
 #endif

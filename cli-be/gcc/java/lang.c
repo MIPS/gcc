@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -55,16 +54,17 @@ static bool java_post_options (const char **);
 static int java_handle_option (size_t scode, const char *arg, int value);
 static void put_decl_string (const char *, int);
 static void put_decl_node (tree);
-static void java_print_error_function (diagnostic_context *, const char *);
-static tree java_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
-					      void *, struct pointer_set_t *);
+static void java_print_error_function (diagnostic_context *, const char *,
+				       diagnostic_info *);
 static int merge_init_test_initialization (void * *, void *);
 static int inline_init_test_initialization (void * *, void *);
 static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
-static bool java_decl_ok_for_sibcall (tree);
-static tree java_get_callee_fndecl (tree);
+static bool java_decl_ok_for_sibcall (const_tree);
+static tree java_get_callee_fndecl (const_tree);
 static void java_clear_binding_stack (void);
+
+static enum classify_record java_classify_record (tree type);
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
@@ -182,6 +182,8 @@ struct language_function GTY(())
 #define LANG_HOOKS_TYPE_FOR_MODE java_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE java_type_for_size
+#undef LANG_HOOKS_CLASSIFY_RECORD
+#define LANG_HOOKS_CLASSIFY_RECORD java_classify_record
 
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN java_dump_tree
@@ -189,17 +191,11 @@ struct language_function GTY(())
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR java_gimplify_expr
 
-#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
-#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES java_tree_inlining_walk_subtrees
-
 #undef LANG_HOOKS_DECL_OK_FOR_SIBCALL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL java_decl_ok_for_sibcall
 
 #undef LANG_HOOKS_GET_CALLEE_FNDECL
 #define LANG_HOOKS_GET_CALLEE_FNDECL java_get_callee_fndecl
-
-#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
-#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION java_expand_body
 
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK java_clear_binding_stack
@@ -498,7 +494,8 @@ static GTY(()) tree last_error_function_context;
 static GTY(()) tree last_error_function;
 static void
 java_print_error_function (diagnostic_context *context ATTRIBUTE_UNUSED,
-			   const char *file)
+			   const char *file,
+			   diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
   /* Don't print error messages with bogus function prototypes.  */
   if (inhibit_error_function_printing)
@@ -659,8 +656,8 @@ java_post_options (const char **pfilename)
 	}
     }
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, filename, 0);
-  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
+  linemap_add (line_table, LC_ENTER, false, filename, 0);
+  linemap_add (line_table, LC_RENAME, false, "<built-in>", 0);
 #endif
 
   /* Initialize the compiler back end.  */
@@ -687,45 +684,6 @@ decl_constant_value (tree decl)
       && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR)
     return DECL_INITIAL (decl);
   return decl;
-}
-
-/* Walk the language specific tree nodes during inlining.  */
-
-static tree
-java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
-				  int *subtrees ATTRIBUTE_UNUSED,
-				  walk_tree_fn func ATTRIBUTE_UNUSED,
-				  void *data ATTRIBUTE_UNUSED,
-				  struct pointer_set_t *pset ATTRIBUTE_UNUSED)
-{
-  enum tree_code code;
-  tree result;
-
-#define WALK_SUBTREE(NODE)				\
-  do							\
-    {							\
-      result = walk_tree (&(NODE), func, data, pset);	\
-      if (result)					\
-	return result;					\
-    }							\
-  while (0)
-
-  tree t = *tp;
-  if (!t)
-    return NULL_TREE;
-
-  code = TREE_CODE (t);
-  switch (code)
-    {
-    case BLOCK:
-      WALK_SUBTREE (BLOCK_EXPR_BODY (t));
-      return NULL_TREE;
-
-    default:
-      return NULL_TREE;
-    }
-
-  #undef WALK_SUBTREE
 }
 
 /* Every call to a static constructor has an associated boolean
@@ -884,8 +842,6 @@ java_dump_tree (void *dump_info, tree t)
 	dump_string (di, "extern");
       else
 	dump_string (di, "static");
-      if (DECL_LANG_SPECIFIC (t))
-	dump_child ("body", DECL_FUNCTION_BODY (t));
       if (DECL_LANG_SPECIFIC (t) && !dump_flag (di, TDF_SLIM, t))
 	dump_child ("inline body", DECL_SAVED_TREE (t));
       return true;
@@ -939,7 +895,7 @@ java_dump_tree (void *dump_info, tree t)
    SecurityManager.getClassContext().  */
 
 static bool
-java_decl_ok_for_sibcall (tree decl)
+java_decl_ok_for_sibcall (const_tree decl)
 {
   return (decl != NULL && DECL_CONTEXT (decl) == output_class
 	  && DECL_INLINE (decl));
@@ -951,7 +907,7 @@ java_decl_ok_for_sibcall (tree decl)
    will replace the indirection with a direct call, which undoes the
    purpose of the atable indirection.  */
 static tree
-java_get_callee_fndecl (tree call_expr)
+java_get_callee_fndecl (const_tree call_expr)
 {
   tree method, table, element, atable_methods;
 
@@ -1001,6 +957,20 @@ java_clear_binding_stack (void)
 {
   while (!global_bindings_p ())
     poplevel (0, 0, 0);
+}
+
+static enum classify_record
+java_classify_record (tree type)
+{
+  if (! CLASS_P (type))
+    return RECORD_IS_STRUCT;
+
+  /* ??? GDB does not support DW_TAG_interface_type as of December,
+     2007.  Re-enable this at a later time.  */
+  if (0 && CLASS_INTERFACE (TYPE_NAME (type)))
+    return RECORD_IS_INTERFACE;
+
+  return RECORD_IS_CLASS;
 }
 
 #include "gt-java-lang.h"

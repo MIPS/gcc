@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -19,9 +19,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -223,6 +222,30 @@ struct processor_costs niagara_costs = {
   0, /* shift penalty */
 };
 
+static const
+struct processor_costs niagara2_costs = {
+  COSTS_N_INSNS (3), /* int load */
+  COSTS_N_INSNS (3), /* int signed load */
+  COSTS_N_INSNS (3), /* int zeroed load */
+  COSTS_N_INSNS (3), /* float load */
+  COSTS_N_INSNS (6), /* fmov, fneg, fabs */
+  COSTS_N_INSNS (6), /* fadd, fsub */
+  COSTS_N_INSNS (6), /* fcmp */
+  COSTS_N_INSNS (6), /* fmov, fmovr */
+  COSTS_N_INSNS (6), /* fmul */
+  COSTS_N_INSNS (19), /* fdivs */
+  COSTS_N_INSNS (33), /* fdivd */
+  COSTS_N_INSNS (19), /* fsqrts */
+  COSTS_N_INSNS (33), /* fsqrtd */
+  COSTS_N_INSNS (5), /* imul */
+  COSTS_N_INSNS (5), /* imulX */
+  0, /* imul bit factor */
+  COSTS_N_INSNS (31), /* idiv, average of 12 - 41 cycle range */
+  COSTS_N_INSNS (31), /* idivX, average of 12 - 41 cycle range */
+  COSTS_N_INSNS (1), /* movcc/movr */
+  0, /* shift penalty */
+};
+
 const struct processor_costs *sparc_costs = &cypress_costs;
 
 #ifdef HAVE_AS_RELAX_OPTION
@@ -252,10 +275,10 @@ static HOST_WIDE_INT actual_fsize;
 static int num_gfregs;
 
 /* The alias set for prologue/epilogue register save/restore.  */
-static GTY(()) int sparc_sr_alias_set;
+static GTY(()) alias_set_type sparc_sr_alias_set;
 
 /* The alias set for the structure return value.  */
-static GTY(()) int struct_value_alias_set;
+static GTY(()) alias_set_type struct_value_alias_set;
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -373,8 +396,8 @@ static int sparc_vis_mul8x16 (int, int);
 static tree sparc_handle_vis_mul8x16 (int, tree, tree, tree);
 static void sparc_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				   HOST_WIDE_INT, tree);
-static bool sparc_can_output_mi_thunk (tree, HOST_WIDE_INT,
-				       HOST_WIDE_INT, tree);
+static bool sparc_can_output_mi_thunk (const_tree, HOST_WIDE_INT,
+				       HOST_WIDE_INT, const_tree);
 static struct machine_function * sparc_init_machine_status (void);
 static bool sparc_cannot_force_const_mem (rtx);
 static rtx sparc_tls_get_addr (void);
@@ -382,21 +405,22 @@ static rtx sparc_tls_got (void);
 static const char *get_some_local_dynamic_name (void);
 static int get_some_local_dynamic_name_1 (rtx *, void *);
 static bool sparc_rtx_costs (rtx, int, int, int *);
-static bool sparc_promote_prototypes (tree);
+static bool sparc_promote_prototypes (const_tree);
 static rtx sparc_struct_value_rtx (tree, int);
-static bool sparc_return_in_memory (tree, tree);
+static bool sparc_return_in_memory (const_tree, const_tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
+static void sparc_va_start (tree, rtx);
 static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool sparc_vector_mode_supported_p (enum machine_mode);
 static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
-				     enum machine_mode, tree, bool);
+				     enum machine_mode, const_tree, bool);
 static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree, bool);
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-static const char *sparc_mangle_type (tree);
+static const char *sparc_mangle_type (const_tree);
 #endif
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
@@ -495,13 +519,13 @@ static bool fpu_option_set = false;
    no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
    test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 
 /* This is only needed for TARGET_ARCH64, but since PROMOTE_FUNCTION_MODE is a
    no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
    test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES sparc_promote_prototypes
@@ -522,6 +546,8 @@ static bool fpu_option_set = false;
 #undef TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING sparc_strict_argument_naming
 
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START sparc_va_start
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR sparc_gimplify_va_arg
 
@@ -624,6 +650,7 @@ sparc_override_options (void)
     { TARGET_CPU_ultrasparc, "ultrasparc" },
     { TARGET_CPU_ultrasparc3, "ultrasparc3" },
     { TARGET_CPU_niagara, "niagara" },
+    { TARGET_CPU_niagara2, "niagara2" },
     { 0, 0 }
   };
   const struct cpu_default *def;
@@ -661,6 +688,7 @@ sparc_override_options (void)
     { "ultrasparc3", PROCESSOR_ULTRASPARC3, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
     /* UltraSPARC T1 */
     { "niagara", PROCESSOR_NIAGARA, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
+    { "niagara2", PROCESSOR_NIAGARA, MASK_ISA, MASK_V9},
     { 0, 0, 0, 0 }
   };
   const struct cpu_table *cpu;
@@ -771,7 +799,8 @@ sparc_override_options (void)
   if (align_functions == 0
       && (sparc_cpu == PROCESSOR_ULTRASPARC
 	  || sparc_cpu == PROCESSOR_ULTRASPARC3
-	  || sparc_cpu == PROCESSOR_NIAGARA))
+	  || sparc_cpu == PROCESSOR_NIAGARA
+	  || sparc_cpu == PROCESSOR_NIAGARA2))
     align_functions = 32;
 
   /* Validate PCC_STRUCT_RETURN.  */
@@ -823,6 +852,9 @@ sparc_override_options (void)
     case PROCESSOR_NIAGARA:
       sparc_costs = &niagara_costs;
       break;
+    case PROCESSOR_NIAGARA2:
+      sparc_costs = &niagara2_costs;
+      break;
     };
 
 #ifdef TARGET_DEFAULT_LONG_DOUBLE_128
@@ -833,7 +865,8 @@ sparc_override_options (void)
   if (!PARAM_SET_P (PARAM_SIMULTANEOUS_PREFETCHES))
     set_param_value ("simultaneous-prefetches",
 		     ((sparc_cpu == PROCESSOR_ULTRASPARC
-		       || sparc_cpu == PROCESSOR_NIAGARA)
+		       || sparc_cpu == PROCESSOR_NIAGARA
+		       || sparc_cpu == PROCESSOR_NIAGARA2)
 		      ? 2
 		      : (sparc_cpu == PROCESSOR_ULTRASPARC3
 			 ? 8 : 3)));
@@ -841,7 +874,8 @@ sparc_override_options (void)
     set_param_value ("l1-cache-line-size", 
 		     ((sparc_cpu == PROCESSOR_ULTRASPARC
 		       || sparc_cpu == PROCESSOR_ULTRASPARC3
-		       || sparc_cpu == PROCESSOR_NIAGARA)
+		       || sparc_cpu == PROCESSOR_NIAGARA
+		       || sparc_cpu == PROCESSOR_NIAGARA2)
 		      ? 64 : 32));
 }
 
@@ -4470,7 +4504,7 @@ init_cumulative_args (struct sparc_args *cum, tree fntype,
    When a prototype says `char' or `short', really pass an `int'.  */
 
 static bool
-sparc_promote_prototypes (tree fntype ATTRIBUTE_UNUSED)
+sparc_promote_prototypes (const_tree fntype ATTRIBUTE_UNUSED)
 {
   return TARGET_ARCH32 ? true : false;
 }
@@ -4682,17 +4716,17 @@ struct function_arg_record_value_parms
 static void function_arg_record_value_3
  (HOST_WIDE_INT, struct function_arg_record_value_parms *);
 static void function_arg_record_value_2
- (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
+ (const_tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static void function_arg_record_value_1
- (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
-static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
+ (const_tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
+static rtx function_arg_record_value (const_tree, enum machine_mode, int, int, int);
 static rtx function_arg_union_value (int, enum machine_mode, int, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
 
 static void
-function_arg_record_value_1 (tree type, HOST_WIDE_INT startbitpos,
+function_arg_record_value_1 (const_tree type, HOST_WIDE_INT startbitpos,
 			     struct function_arg_record_value_parms *parms,
 			     bool packed_p)
 {
@@ -4848,7 +4882,7 @@ function_arg_record_value_3 (HOST_WIDE_INT bitpos,
    to make that happen.  */
 
 static void
-function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
+function_arg_record_value_2 (const_tree type, HOST_WIDE_INT startbitpos,
 			     struct function_arg_record_value_parms *parms,
 			     bool packed_p)
 {
@@ -4955,7 +4989,7 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
    REGBASE is the regno of the base register for the parameter array.  */
    
 static rtx
-function_arg_record_value (tree type, enum machine_mode mode,
+function_arg_record_value (const_tree type, enum machine_mode mode,
 			   int slotno, int named, int regbase)
 {
   HOST_WIDE_INT typesize = int_size_in_bytes (type);
@@ -5328,7 +5362,7 @@ sparc_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 static bool
 sparc_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-			 enum machine_mode mode, tree type,
+			 enum machine_mode mode, const_tree type,
 			 bool named ATTRIBUTE_UNUSED)
 {
   if (TARGET_ARCH32)
@@ -5425,7 +5459,7 @@ function_arg_advance (struct sparc_args *cum, enum machine_mode mode,
    argument slot.  */
 
 enum direction
-function_arg_padding (enum machine_mode mode, tree type)
+function_arg_padding (enum machine_mode mode, const_tree type)
 {
   if (TARGET_ARCH64 && type != 0 && AGGREGATE_TYPE_P (type))
     return upward;
@@ -5438,7 +5472,7 @@ function_arg_padding (enum machine_mode mode, tree type)
    Specify whether to return the return value in memory.  */
 
 static bool
-sparc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+sparc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   if (TARGET_ARCH32)
     /* Original SPARC 32-bit ABI says that structures and unions,
@@ -5546,7 +5580,7 @@ sparc_struct_value_rtx (tree fndecl, int incoming)
    except that up to 32 bytes may be returned in registers.  */
 
 rtx
-function_value (tree type, enum machine_mode mode, int incoming_p)
+function_value (const_tree type, enum machine_mode mode, int incoming_p)
 {
   /* Beware that the two values are swapped here wrt function_arg.  */
   int regbase = (incoming_p
@@ -5665,7 +5699,7 @@ sparc_builtin_saveregs (void)
 
 /* Implement `va_start' for stdarg.  */
 
-void
+static void
 sparc_va_start (tree valist, rtx nextarg)
 {
   nextarg = expand_builtin_saveregs ();
@@ -7237,7 +7271,8 @@ sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
   if (sparc_cpu != PROCESSOR_ULTRASPARC
       && sparc_cpu != PROCESSOR_ULTRASPARC3
-      && sparc_cpu != PROCESSOR_NIAGARA)
+      && sparc_cpu != PROCESSOR_NIAGARA
+      && sparc_cpu != PROCESSOR_NIAGARA2)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
 
@@ -7280,7 +7315,8 @@ sparc64_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 
   if (sparc_cpu != PROCESSOR_ULTRASPARC
       && sparc_cpu != PROCESSOR_ULTRASPARC3
-      && sparc_cpu != PROCESSOR_NIAGARA)
+      && sparc_cpu != PROCESSOR_NIAGARA
+      && sparc_cpu != PROCESSOR_NIAGARA2)
     emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
 
   /* Call __enable_execute_stack after writing onto the stack to make sure
@@ -7460,7 +7496,8 @@ sparc_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 static int
 sparc_use_sched_lookahead (void)
 {
-  if (sparc_cpu == PROCESSOR_NIAGARA)
+  if (sparc_cpu == PROCESSOR_NIAGARA
+      || sparc_cpu == PROCESSOR_NIAGARA2)
     return 0;
   if (sparc_cpu == PROCESSOR_ULTRASPARC
       || sparc_cpu == PROCESSOR_ULTRASPARC3)
@@ -7478,6 +7515,7 @@ sparc_issue_rate (void)
   switch (sparc_cpu)
     {
     case PROCESSOR_NIAGARA:
+    case PROCESSOR_NIAGARA2:
     default:
       return 1;
     case PROCESSOR_V9:
@@ -8789,10 +8827,10 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
    assembler code for the thunk function specified by the arguments
    it is passed, and false otherwise.  */
 static bool
-sparc_can_output_mi_thunk (tree thunk_fndecl ATTRIBUTE_UNUSED,
+sparc_can_output_mi_thunk (const_tree thunk_fndecl ATTRIBUTE_UNUSED,
 			   HOST_WIDE_INT delta ATTRIBUTE_UNUSED,
 			   HOST_WIDE_INT vcall_offset,
-			   tree function ATTRIBUTE_UNUSED)
+			   const_tree function ATTRIBUTE_UNUSED)
 {
   /* Bound the loop used in the default method above.  */
   return (vcall_offset >= -32768 || ! fixed_regs[5]);
@@ -8891,7 +8929,7 @@ sparc_file_end (void)
 /* Implement TARGET_MANGLE_TYPE.  */
 
 static const char *
-sparc_mangle_type (tree type)
+sparc_mangle_type (const_tree type)
 {
   if (!TARGET_64BIT
       && TYPE_MAIN_VARIANT (type) == long_double_type_node

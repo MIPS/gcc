@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -36,6 +35,7 @@ with Exp_Ch9;  use Exp_Ch9;
 with Exp_Ch11; use Exp_Ch11;
 with Exp_Dbug; use Exp_Dbug;
 with Exp_Dist; use Exp_Dist;
+with Exp_Disp; use Exp_Disp;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
@@ -310,7 +310,7 @@ package body Exp_Ch7 is
    --  Here is a simple example of the expansion of a controlled block :
 
    --    declare
-   --       X : Controlled ;
+   --       X : Controlled;
    --       Y : Controlled := Init;
    --
    --       type R is record
@@ -369,10 +369,10 @@ package body Exp_Ch7 is
    --    end;
 
    function Global_Flist_Ref (Flist_Ref : Node_Id) return Boolean;
-   --  Return True if Flist_Ref refers to a global final list, either
-   --  the object GLobal_Final_List which is used to attach standalone
-   --  objects, or any of the list controllers associated with library
-   --  level access to controlled objects
+   --  Return True if Flist_Ref refers to a global final list, either the
+   --  object Global_Final_List which is used to attach standalone objects,
+   --  or any of the list controllers associated with library-level access
+   --  to controlled objects.
 
    procedure Clean_Simple_Protected_Objects (N : Node_Id);
    --  Protected objects without entries are not controlled types, and the
@@ -990,9 +990,7 @@ package body Exp_Ch7 is
 
       Ftyp := Etype (Fent);
 
-      if Nkind (Arg) = N_Type_Conversion
-        or else Nkind (Arg) = N_Unchecked_Type_Conversion
-      then
+      if Nkind_In (Arg, N_Type_Conversion, N_Unchecked_Type_Conversion) then
          Atyp := Entity (Subtype_Mark (Arg));
       else
          Atyp := Etype (Arg);
@@ -1015,8 +1013,7 @@ package body Exp_Ch7 is
       --  Make_Init_Call, set the target type to the type of the formal
       --  directly, to avoid spurious typing problems.
 
-      elsif (Nkind (Arg) = N_Unchecked_Type_Conversion
-              or else Nkind (Arg) = N_Type_Conversion)
+      elsif Nkind_In (Arg, N_Unchecked_Type_Conversion, N_Type_Conversion)
         and then not Is_Class_Wide_Type (Atyp)
       then
          Set_Subtype_Mark (Arg, New_Occurrence_Of (Ftyp, Sloc (Arg)));
@@ -1415,12 +1412,12 @@ package body Exp_Ch7 is
    --  Start of processing for Expand_Ctrl_Function_Call
 
    begin
-      --  Optimization, if the returned value (which is on the sec-stack)
-      --  is returned again, no need to copy/readjust/finalize, we can just
-      --  pass the value thru (see Expand_N_Return_Statement), and thus no
+      --  Optimization, if the returned value (which is on the sec-stack) is
+      --  returned again, no need to copy/readjust/finalize, we can just pass
+      --  the value thru (see Expand_N_Simple_Return_Statement), and thus no
       --  attachment is needed
 
-      if Nkind (Parent (N)) = N_Return_Statement then
+      if Nkind (Parent (N)) = N_Simple_Return_Statement then
          return;
       end if;
 
@@ -1579,6 +1576,13 @@ package body Exp_Ch7 is
 
       if Ekind (Ent) = E_Package then
          Push_Scope (Corresponding_Spec (N));
+
+         --  Build dispatch tables of library level tagged types
+
+         if Is_Library_Level_Entity (Ent) then
+            Build_Static_Dispatch_Tables (N);
+         end if;
+
          Build_Task_Activation_Call (N);
          Pop_Scope;
       end if;
@@ -1595,23 +1599,21 @@ package body Exp_Ch7 is
    -- Expand_N_Package_Declaration --
    ----------------------------------
 
-   --  Add call to Activate_Tasks if there are tasks declared and the
-   --  package has no body. Note that in Ada83,  this may result in
-   --  premature activation of some tasks, given that we cannot tell
-   --  whether a body will eventually appear.
+   --  Add call to Activate_Tasks if there are tasks declared and the package
+   --  has no body. Note that in Ada83, this may result in premature activation
+   --  of some tasks, given that we cannot tell whether a body will eventually
+   --  appear.
 
    procedure Expand_N_Package_Declaration (N : Node_Id) is
-      Spec    : constant Node_Id := Specification (N);
+      Spec    : constant Node_Id   := Specification (N);
+      Id      : constant Entity_Id := Defining_Entity (N);
       Decls   : List_Id;
-
-      No_Body : Boolean;
+      No_Body : Boolean := False;
       --  True in the case of a package declaration that is a compilation unit
       --  and for which no associated body will be compiled in
       --  this compilation.
+
    begin
-
-      No_Body := False;
-
       --  Case of a package declaration other than a compilation unit
 
       if Nkind (Parent (N)) /= N_Compilation_Unit then
@@ -1620,7 +1622,7 @@ package body Exp_Ch7 is
       --  Case of a compilation unit that does not require a body
 
       elsif not Body_Required (Parent (N))
-        and then not Unit_Requires_Body (Defining_Entity (N))
+        and then not Unit_Requires_Body (Id)
       then
          No_Body := True;
 
@@ -1631,7 +1633,7 @@ package body Exp_Ch7 is
       --  spec).
 
       elsif Parent (N) = Cunit (Main_Unit)
-        and then Is_Remote_Call_Interface (Defining_Entity (N))
+        and then Is_Remote_Call_Interface (Id)
         and then Distribution_Stub_Mode = Generate_Caller_Stub_Body
       then
          No_Body := True;
@@ -1642,9 +1644,9 @@ package body Exp_Ch7 is
       --  have a specific separate compilation unit for that).
 
       if No_Body then
-         Push_Scope (Defining_Entity (N));
+         Push_Scope (Id);
 
-         if Has_RACW (Defining_Entity (N)) then
+         if Has_RACW (Id) then
 
             --  Generate RACW subprogram bodies
 
@@ -1659,7 +1661,7 @@ package body Exp_Ch7 is
                Set_Visible_Declarations (Spec, Decls);
             end if;
 
-            Append_RACW_Bodies (Decls, Defining_Entity (N));
+            Append_RACW_Bodies (Decls, Id);
             Analyze_List (Decls);
          end if;
 
@@ -1671,6 +1673,15 @@ package body Exp_Ch7 is
          end if;
 
          Pop_Scope;
+      end if;
+
+      --  Build dispatch tables of library level tagged types
+
+      if Is_Compilation_Unit (Id)
+        or else (Is_Generic_Instance (Id)
+                   and then Is_Library_Level_Entity (Id))
+      then
+         Build_Static_Dispatch_Tables (N);
       end if;
 
       --  Note: it is not necessary to worry about generating a subprogram
@@ -1698,7 +1709,7 @@ package body Exp_Ch7 is
 
    begin
       --  Case of an internal component. The Final list is the record
-      --  controller of the enclosing record
+      --  controller of the enclosing record.
 
       if Present (Ref) then
          R := Ref;
@@ -1741,7 +1752,9 @@ package body Exp_Ch7 is
       --  context is a declaration or an assignment.
 
       elsif Is_Access_Type (E)
-        and then Ekind (E) /= E_Anonymous_Access_Type
+        and then (Ekind (E) /= E_Anonymous_Access_Type
+                    or else
+                  Present (Associated_Final_Chain (E)))
       then
          if not From_With_Type (E) then
             return
@@ -1775,15 +1788,15 @@ package body Exp_Ch7 is
             return New_Reference_To (RTE (RE_Global_Final_List), Sloc (E));
          else
             if No (Finalization_Chain_Entity (S)) then
-
-               Id := Make_Defining_Identifier (Sloc (S),
-                 New_Internal_Name ('F'));
+               Id :=
+                 Make_Defining_Identifier (Sloc (S),
+                   Chars => New_Internal_Name ('F'));
                Set_Finalization_Chain_Entity (S, Id);
 
                --  Set momentarily some semantics attributes to allow normal
                --  analysis of expansions containing references to this chain.
                --  Will be fully decorated during the expansion of the scope
-               --  itself
+               --  itself.
 
                Set_Ekind (Id, E_Variable);
                Set_Etype (Id, RTE (RE_Finalizable_Ptr));
@@ -1813,7 +1826,7 @@ package body Exp_Ch7 is
 
             --  Simple statement can be wrapped
 
-            when N_Pragma               =>
+            when N_Pragma =>
                return The_Parent;
 
             --  Usually assignments are good candidate for wrapping
@@ -1835,12 +1848,9 @@ package body Exp_Ch7 is
             when N_Entry_Call_Statement     |
                  N_Procedure_Call_Statement =>
                if Nkind (Parent (The_Parent)) = N_Entry_Call_Alternative
-                 and then
-                   (Nkind (Parent (Parent (The_Parent)))
-                     = N_Timed_Entry_Call
-                   or else
-                     Nkind (Parent (Parent (The_Parent)))
-                       = N_Conditional_Entry_Call)
+                 and then Nkind_In (Parent (Parent (The_Parent)),
+                                    N_Timed_Entry_Call,
+                                    N_Conditional_Entry_Call)
                then
                   return Parent (Parent (The_Parent));
                else
@@ -1876,7 +1886,7 @@ package body Exp_Ch7 is
                  N_Terminate_Alternative            =>
                return P;
 
-            when N_Attribute_Reference              =>
+            when N_Attribute_Reference =>
 
                if Is_Procedure_Attribute_Name
                     (Attribute_Name (The_Parent))
@@ -1888,7 +1898,7 @@ package body Exp_Ch7 is
             --  expression in a raise_with_expression uses the secondary
             --  stack, for example.
 
-            when N_Raise_Statement  =>
+            when N_Raise_Statement =>
                return The_Parent;
 
             --  If the expression is within the iteration scheme of a loop,
@@ -1909,7 +1919,7 @@ package body Exp_Ch7 is
             --  The return statement is not to be wrapped when the function
             --  itself needs wrapping at the outer-level
 
-            when N_Return_Statement            =>
+            when N_Simple_Return_Statement =>
                declare
                   Applies_To : constant Entity_Id :=
                                  Return_Applies_To
@@ -3139,7 +3149,7 @@ package body Exp_Ch7 is
       if VM_Target = No_VM
         and then Uses_Sec_Stack (Current_Scope)
         and then No (Flist)
-        and then Nkind (Action) /= N_Return_Statement
+        and then Nkind (Action) /= N_Simple_Return_Statement
         and then Nkind (Par) /= N_Exception_Handler
       then
 
@@ -3377,19 +3387,35 @@ package body Exp_Ch7 is
          --  exit but it doesn't matter. It cannot be done when the
          --  call initializes a renaming object though because in this
          --  case, the object becomes a pointer to the temporary and thus
-         --  increases its life span.
+         --  increases its life span. Ditto if this is a renaming of a
+         --  component of an expression (such as a function call). .
+         --  Note that there is a problem if an actual in the call needs
+         --  finalization, because in that case the call itself is the master,
+         --  and the actual should be finalized on return from the call ???
 
          if Nkind (N) = N_Object_Renaming_Declaration
            and then Controlled_Type (Etype (Defining_Identifier (N)))
          then
             null;
 
+         elsif Nkind (N) = N_Object_Renaming_Declaration
+           and then
+             Nkind_In (Renamed_Object (Defining_Identifier (N)),
+                       N_Selected_Component,
+                       N_Indexed_Component)
+           and then
+             Controlled_Type
+               (Etype (Prefix (Renamed_Object (Defining_Identifier (N)))))
+         then
+            null;
+
          else
             Nodes :=
-              Make_Final_Call (
-                   Ref         => New_Reference_To (LC, Loc),
-                   Typ         => Etype (LC),
-                   With_Detach => New_Reference_To (Standard_False, Loc));
+              Make_Final_Call
+                (Ref         => New_Reference_To (LC, Loc),
+                 Typ         => Etype (LC),
+                 With_Detach => New_Reference_To (Standard_False, Loc));
+
             if Present (Next_N) then
                Insert_List_Before_And_Analyze (Next_N, Nodes);
             else

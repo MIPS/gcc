@@ -1,12 +1,12 @@
 /* Definitions of target machine for GCC for Motorola 680x0/ColdFire.
    Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* We need to have MOTOROLA always defined (either 0 or 1) because we use
    if-statements and ?: on it.  This way we have compile-time error checking
@@ -107,6 +106,10 @@ Boston, MA 02110-1301, USA.  */
 	  builtin_define_std ("mc68332");				\
 	  builtin_define_std ("mcpu32");				\
 	  builtin_define_std ("mc68020");				\
+	  break;							\
+									\
+	case ucfv1:							\
+	  builtin_define ("__mcfv1__");					\
 	  break;							\
 									\
 	case ucfv2:							\
@@ -261,6 +264,7 @@ Boston, MA 02110-1301, USA.  */
 #define TUNE_68060	(m68k_tune == u68060 || m68k_tune == u68020_60)
 #define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
 #define TUNE_CPU32	(m68k_tune == ucpu32)
+#define TUNE_CFV1       (m68k_tune == ucfv1)
 #define TUNE_CFV2	(m68k_tune == ucfv2)
 
 #define OVERRIDE_OPTIONS   override_options()
@@ -306,11 +310,13 @@ Boston, MA 02110-1301, USA.  */
 /* No data type wants to be aligned rounder than this.
    Most published ABIs say that ints should be aligned on 16-bit
    boundaries, but CPUs with 32-bit busses get better performance
-   aligned on 32-bit boundaries.  ColdFires without a misalignment
-   module require 32-bit alignment.  */
+   aligned on 32-bit boundaries.  */
 #define BIGGEST_ALIGNMENT (TARGET_ALIGN_INT ? 32 : 16)
 
 #define STRICT_ALIGNMENT (TARGET_STRICT_ALIGNMENT)
+#define M68K_HONOR_TARGET_STRICT_ALIGNMENT 1
+
+#define DWARF_CIE_DATA_ALIGNMENT -2
 
 #define INT_TYPE_SIZE (TARGET_SHORT ? 16 : 32)
 
@@ -751,9 +757,7 @@ __transfer_from_trampoline ()					\
     }									\
   while (0)
 
-/* Don't call memory_address_noforce for the address to fetch
-   the switch offset.  This address is ok as it stands,
-   but memory_address_noforce would alter it.  */
+/* This address is OK as it stands.  */
 #define PIC_CASE_VECTOR_ADDRESS(index) index
 
 /* For the 68000, we handle X+REG by loading X into a register R and
@@ -1085,6 +1089,7 @@ enum uarch_type
   u68040,
   u68060,
   ucpu32,
+  ucfv1,
   ucfv2,
   ucfv3,
   ucfv4,
@@ -1126,3 +1131,21 @@ extern enum fpu_type m68k_fpu;
 extern unsigned int m68k_cpu_flags;
 extern const char *m68k_symbolic_call;
 extern const char *m68k_symbolic_jump;
+
+enum M68K_SYMBOLIC_CALL { M68K_SYMBOLIC_CALL_NONE, M68K_SYMBOLIC_CALL_JSR,
+			  M68K_SYMBOLIC_CALL_BSR_C, M68K_SYMBOLIC_CALL_BSR_P };
+
+extern enum M68K_SYMBOLIC_CALL m68k_symbolic_call_var;
+
+/* ??? HOST_WIDE_INT is not being defined for auto-generated files.
+   Workaround that.  */
+#ifdef HOST_WIDE_INT
+typedef enum { MOVL, SWAP, NEGW, NOTW, NOTB, MOVQ, MVS, MVZ }
+  M68K_CONST_METHOD;
+
+extern M68K_CONST_METHOD m68k_const_method (HOST_WIDE_INT);
+#endif
+
+extern void m68k_emit_move_double (rtx [2]);
+
+#define CPU_UNITS_QUERY 1

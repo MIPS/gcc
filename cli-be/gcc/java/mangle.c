@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA. 
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>. 
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -795,6 +794,59 @@ compression_table_add (tree type)
       compression_table = new;
     }
   TREE_VEC_ELT (compression_table, compression_next++) = type;
+}
+
+/* Mangle an embedded resource file name.  "_ZGr" is the prefix.  A
+   '_' is prepended to the name so that names starting with a digit
+   can be demangled.  The length and then the resulting name itself
+   are appended while escaping '$', '.', and '/' to: "$$", "$_", and
+   "$S".  */
+
+tree
+java_mangle_resource_name (const char *name)
+{
+  int len = strlen (name);
+  char *buf = (char *) alloca (2 * len + 1);
+  char *pos;
+  const unsigned char *w1 = (const unsigned char *) name;
+  const unsigned char *w2;
+  const unsigned char *limit = w1 + len;
+
+  pos = buf;
+
+  init_mangling ();
+  MANGLE_RAW_STRING ("Gr");
+
+  *pos++ = '_';
+  while (w1 < limit)
+    {
+      int ch;
+      w2 = w1;
+      ch = UTF8_GET (w1, limit);
+      gcc_assert (ch > 0);
+      switch (ch)
+	{
+	case '$':
+	  *pos++ = '$';
+	  *pos++ = '$';
+	  break;
+	case '.':
+	  *pos++ = '$';
+	  *pos++ = '_';
+	  break;
+	case '/':
+	  *pos++ = '$';
+	  *pos++ = 'S';
+	  break;
+	default:
+	  memcpy (pos, w2, w1 - w2);
+	  pos += w1 - w2;
+	  break;
+	}
+    }
+  append_gpp_mangled_name (buf, pos - buf);
+
+  return finish_mangling ();
 }
 
 /* Mangling initialization routine.  */

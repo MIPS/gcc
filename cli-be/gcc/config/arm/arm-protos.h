@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_ARM_PROTOS_H
 #define GCC_ARM_PROTOS_H
@@ -44,7 +43,7 @@ extern void arm_output_fn_unwind (FILE *, bool);
   
 
 #ifdef TREE_CODE
-extern int arm_return_in_memory (tree);
+extern int arm_return_in_memory (const_tree);
 #endif
 #ifdef RTX_CODE
 extern bool arm_vector_mode_supported_p (enum machine_mode);
@@ -157,19 +156,12 @@ extern bool arm_output_addr_const_extra (FILE *, rtx);
 #if defined TREE_CODE
 extern rtx arm_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void arm_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
-extern bool arm_pad_arg_upward (enum machine_mode, tree);
+extern bool arm_pad_arg_upward (enum machine_mode, const_tree);
 extern bool arm_pad_reg_upward (enum machine_mode, tree, int);
 extern bool arm_needs_doubleword_align (enum machine_mode, tree);
-extern rtx arm_function_value(tree, tree);
+extern rtx arm_function_value(const_tree, const_tree);
 #endif
 extern int arm_apply_result_size (void);
-
-#if defined AOF_ASSEMBLER
-extern rtx aof_pic_entry (rtx);
-extern void aof_add_import (const char *);
-extern void aof_delete_import (const char *);
-extern void zero_init_section (void);
-#endif /* AOF_ASSEMBLER */
 
 #endif /* RTX_CODE */
 
@@ -215,6 +207,8 @@ extern void arm_pr_long_calls (struct cpp_reader *);
 extern void arm_pr_no_long_calls (struct cpp_reader *);
 extern void arm_pr_long_calls_off (struct cpp_reader *);
 
-extern const char *arm_mangle_type (tree);
+extern void arm_lang_object_attributes_init(void);
+
+extern const char *arm_mangle_type (const_tree);
 
 #endif /* ! GCC_ARM_PROTOS_H */

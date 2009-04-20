@@ -7,7 +7,7 @@
 --                                   S p e c                                --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---             Copyright (C) 1995-2007, Free Software Foundation, Inc.      --
+--          Copyright (C) 1995-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -235,7 +235,7 @@ package System.OS_Interface is
 
    function To_Target_Priority
      (Prio : System.Any_Priority) return Interfaces.C.int;
-   --  Maps System.Any_Priority to a POSIX priority.
+   --  Maps System.Any_Priority to a POSIX priority
 
    -------------
    -- Process --
@@ -267,6 +267,7 @@ package System.OS_Interface is
 
    type Thread_Body is access
      function (arg : System.Address) return System.Address;
+   pragma Convention (C, Thread_Body);
 
    function Thread_Body_Access is new
      Ada.Unchecked_Conversion (System.Address, Thread_Body);
@@ -572,8 +573,8 @@ package System.OS_Interface is
    function pthread_getspecific (key : pthread_key_t) return System.Address;
    pragma Import (C, pthread_getspecific, "pthread_getspecific");
 
-   type destructor_pointer is access
-      procedure (arg : System.Address);
+   type destructor_pointer is access procedure (arg : System.Address);
+   pragma Convention (C, destructor_pointer);
 
    function pthread_key_create
      (key        : access pthread_key_t;

@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Actually this is just a collection of routines that used to be
@@ -291,6 +290,28 @@ gfc_show_constructor (gfc_constructor *c)
 }
 
 
+static void
+show_char_const (const char *c, int length)
+{
+  int i;
+
+  gfc_status_char ('\'');
+  for (i = 0; i < length; i++)
+    {
+      if (c[i] == '\'')
+	gfc_status ("''");
+      else if (ISPRINT (c[i]))
+	gfc_status_char (c[i]);
+      else
+	{
+	  gfc_status ("' // ACHAR(");
+	  printf ("%d", c[i]);
+	  gfc_status (") // '");
+	}
+    }
+  gfc_status_char ('\'');
+}
+
 /* Show an expression.  */
 
 void
@@ -308,16 +329,7 @@ gfc_show_expr (gfc_expr *p)
   switch (p->expr_type)
     {
     case EXPR_SUBSTRING:
-      c = p->value.character.string;
-
-      for (i = 0; i < p->value.character.length; i++, c++)
-	{
-	  if (*c == '\'')
-	    gfc_status ("''");
-	  else
-	    gfc_status ("%c", *c);
-	}
-
+      show_char_const (p->value.character.string, p->value.character.length);
       gfc_show_ref (p->ref);
       break;
 
@@ -363,20 +375,8 @@ gfc_show_expr (gfc_expr *p)
 	  break;
 
 	case BT_CHARACTER:
-	  c = p->value.character.string;
-
-	  gfc_status_char ('\'');
-
-	  for (i = 0; i < p->value.character.length; i++, c++)
-	    {
-	      if (*c == '\'')
-		gfc_status ("''");
-	      else
-		gfc_status_char (*c);
-	    }
-
-	  gfc_status_char ('\'');
-
+	  show_char_const (p->value.character.string, 
+			   p->value.character.length);
 	  break;
 
 	case BT_COMPLEX:
@@ -540,6 +540,15 @@ gfc_show_expr (gfc_expr *p)
     }
 }
 
+/* Show an expression for diagnostic purposes. */
+void
+gfc_show_expr_n (const char * msg, gfc_expr *e)
+{
+  if (msg)
+    gfc_status (msg);
+  gfc_show_expr (e);
+  gfc_status_char ('\n');
+}
 
 /* Show symbol attributes.  The flavor and intent are followed by
    whatever single bit attributes are present.  */
@@ -582,6 +591,8 @@ gfc_show_attr (symbol_attribute *attr)
     gfc_status (" RESULT");
   if (attr->entry)
     gfc_status (" ENTRY");
+  if (attr->is_bind_c)
+    gfc_status (" BIND(C)");
 
   if (attr->data)
     gfc_status (" DATA");
@@ -592,6 +603,8 @@ gfc_show_attr (symbol_attribute *attr)
   if (attr->in_common)
     gfc_status (" IN-COMMON");
 
+  if (attr->abstract)
+    gfc_status (" ABSTRACT INTERFACE");
   if (attr->function)
     gfc_status (" FUNCTION");
   if (attr->subroutine)
@@ -714,6 +727,17 @@ gfc_show_symbol (gfc_symbol *sym)
       gfc_show_namespace (sym->formal_ns);
     }
 
+  gfc_status_char ('\n');
+}
+
+
+/* Show a symbol for diagnostic purposes. */
+void
+gfc_show_symbol_n (const char * msg, gfc_symbol *sym)
+{
+  if (msg)
+    gfc_status (msg);
+  gfc_show_symbol (sym);
   gfc_status_char ('\n');
 }
 
@@ -1085,6 +1109,7 @@ gfc_show_code_node (int level, gfc_code *c)
       break;
 
     case EXEC_CALL:
+    case EXEC_ASSIGN_CALL:
       if (c->resolved_sym)
 	gfc_status ("CALL %s ", c->resolved_sym->name);
       else if (c->symtree)

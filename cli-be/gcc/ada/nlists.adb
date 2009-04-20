@@ -279,22 +279,6 @@ package body Nlists is
       Append (Node, To);
    end Append_To;
 
-   -----------------
-   -- Delete_List --
-   -----------------
-
-   procedure Delete_List (L : List_Id) is
-      N : Node_Id;
-
-   begin
-      while Is_Non_Empty_List (L) loop
-         N := Remove_Head (L);
-         Delete_Tree (N);
-      end loop;
-
-      --  Should recycle list header???
-   end Delete_List;
-
    -----------
    -- First --
    -----------
@@ -304,7 +288,7 @@ package body Nlists is
       if List = No_List then
          return Empty;
       else
-         pragma Assert (List in First_List_Id .. Lists.Last);
+         pragma Assert (List <= Lists.Last);
          return Lists.Table (List).First;
       end if;
    end First;
@@ -315,7 +299,6 @@ package body Nlists is
 
    function First_Non_Pragma (List : List_Id) return Node_Id is
       N : constant Node_Id := First (List);
-
    begin
       if Nkind (N) /= N_Pragma
            and then
@@ -630,7 +613,7 @@ package body Nlists is
 
    function Last (List : List_Id) return Node_Id is
    begin
-      pragma Assert (List in First_List_Id .. Lists.Last);
+      pragma Assert (List <= Lists.Last);
       return Lists.Table (List).Last;
    end Last;
 
@@ -649,7 +632,6 @@ package body Nlists is
 
    function Last_Non_Pragma (List : List_Id) return Node_Id is
       N : constant Node_Id := Last (List);
-
    begin
       if Nkind (N) /= N_Pragma then
          return N;
@@ -1028,7 +1010,7 @@ package body Nlists is
 
    function Parent (List : List_Id) return Node_Id is
    begin
-      pragma Assert (List in First_List_Id .. Lists.Last);
+      pragma Assert (List <= Lists.Last);
       return Lists.Table (List).Parent;
    end Parent;
 
@@ -1355,7 +1337,7 @@ package body Nlists is
 
    procedure Set_Parent (List : List_Id; Node : Node_Id) is
    begin
-      pragma Assert (List in First_List_Id .. Lists.Last);
+      pragma Assert (List <= Lists.Last);
       Lists.Table (List).Parent := Node;
    end Set_Parent;
 

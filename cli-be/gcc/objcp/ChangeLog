@@ -1,3 +1,22 @@
+2008-02-07  Andreas Tobler  <andreast-list@fgznet.ch>
+            Douglas Gregor  <doug.gregor@gmail.com>
+ 
+	PR bootstrap/35115
+	* objcp-decl.c (objcp_comptypes): Call cp_comptypes, not comptypes.
+
+2008-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR other/35107
+	* Make-lang.in (cc1objplus-dummy, cc1objplus): Add $(GMPLIBS).
+
+2007-08-02  Nick Clifton  <nickc@redhat.com>
+
+	* Make-lang.in: Change copyright header to refer to version 3 of
+	the GNU General Public License and to point readers at the
+	COPYING3 file and the FSF's license web page.
+	* lang-specs.h, objcp-decl.c, objcp-decl.h, config-lang.in,
+	objcp-lang.c: Likewise.
+
 2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* Make-lang.in: Add dummy lang.install-pdf target.

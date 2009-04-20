@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -39,7 +38,7 @@ package Sem_Ch6 is
    procedure Analyze_Operator_Symbol                 (N : Node_Id);
    procedure Analyze_Parameter_Association           (N : Node_Id);
    procedure Analyze_Procedure_Call                  (N : Node_Id);
-   procedure Analyze_Return_Statement                (N : Node_Id);
+   procedure Analyze_Simple_Return_Statement         (N : Node_Id);
    procedure Analyze_Subprogram_Declaration          (N : Node_Id);
    procedure Analyze_Subprogram_Body                 (N : Node_Id);
 
@@ -176,6 +175,16 @@ package Sem_Ch6 is
    --  analyze default expressions if any. The implicit types created for
    --  access parameter are attached to the Related_Nod which comes from the
    --  context.
+
+   procedure Reference_Body_Formals (Spec : Entity_Id; Bod : Entity_Id);
+   --  If there is a separate spec for a subprogram or generic subprogram, the
+   --  formals of the body are treated as references to the corresponding
+   --  formals of the spec. This reference does not count as an actual use of
+   --  the formal, in order to diagnose formals that are unused in the body.
+   --  This procedure is also used in renaming_as_body declarations, where
+   --  the formals of the specification must be treated as body formals that
+   --  correspond to the previous subprogram declaration, and not as new
+   --  entities with their defining entry in the cross-reference information.
 
    procedure Set_Actual_Subtypes (N : Node_Id; Subp : Entity_Id);
    --  If the formals of a subprogram are unconstrained, build a subtype

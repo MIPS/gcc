@@ -1,12 +1,12 @@
 /* Output routines for GCC for CRX.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /*****************************************************************************/
 /* HEADER INCLUDES							     */
@@ -136,7 +135,7 @@ rtx crx_compare_op1 = NULL_RTX;
 static bool crx_fixed_condition_code_regs (unsigned int *, unsigned int *);
 static rtx crx_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 				 int incoming ATTRIBUTE_UNUSED);
-static bool crx_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED);
+static bool crx_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED);
 static int crx_address_cost (rtx);
 
 /*****************************************************************************/
@@ -205,7 +204,7 @@ crx_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 /* Implements hook TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-crx_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+crx_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   if (TYPE_MODE (type) == BLKmode)
     {

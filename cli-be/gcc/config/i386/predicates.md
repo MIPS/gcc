@@ -1,11 +1,11 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Return nonzero if OP is either a i387 or SSE fp register.
 (define_predicate "any_fp_register_operand"
@@ -601,6 +600,11 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 15)")))
 
+;; Match 0 to 31.
+(define_predicate "const_0_to_31_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 31)")))
+
 ;; Match 0 to 63.
 (define_predicate "const_0_to_63_operand"
   (and (match_code "const_int")
@@ -880,7 +884,8 @@
   switch (code)
     {
     case LTU: case GTU: case LEU: case GEU:
-      if (inmode == CCmode || inmode == CCFPmode || inmode == CCFPUmode)
+      if (inmode == CCmode || inmode == CCFPmode || inmode == CCFPUmode
+	  || inmode == CCCmode)
 	return 1;
       return 0;
     case ORDERED: case UNORDERED:
@@ -902,6 +907,18 @@
 
 (define_special_predicate "sse_comparison_operator"
   (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered"))
+
+;; Return 1 if OP is a comparison operator that can be issued by sse predicate
+;; generation instructions
+(define_predicate "sse5_comparison_float_operator"
+  (and (match_test "TARGET_SSE5")
+       (match_code "ne,eq,ge,gt,le,lt,unordered,ordered,uneq,unge,ungt,unle,unlt,ltgt")))
+
+(define_predicate "ix86_comparison_int_operator"
+  (match_code "ne,eq,ge,gt,le,lt"))
+
+(define_predicate "ix86_comparison_uns_operator"
+  (match_code "ne,eq,geu,gtu,leu,ltu"))
 
 ;; Return 1 if OP is a valid comparison operator in valid mode.
 (define_predicate "ix86_comparison_operator"
@@ -925,7 +942,11 @@
 	  || inmode == CCGOCmode || inmode == CCNOmode)
 	return 1;
       return 0;
-    case LTU: case GTU: case LEU: case ORDERED: case UNORDERED: case GEU:
+    case LTU: case GTU: case LEU: case GEU:
+      if (inmode == CCmode || inmode == CCCmode)
+	return 1;
+      return 0;
+    case ORDERED: case UNORDERED:
       if (inmode == CCmode)
 	return 1;
       return 0;
@@ -940,7 +961,7 @@
 
 ;; Return 1 if OP is a valid comparison operator testing carry flag to be set.
 (define_predicate "ix86_carry_flag_operator"
-  (match_code "ltu,lt,unlt,gt,ungt,le,unle,ge,unge,ltgt,uneq")
+  (match_code "ltu,lt,unlt,gtu,gt,ungt,le,unle,ge,unge,ltgt,uneq")
 {
   enum machine_mode inmode = GET_MODE (XEXP (op, 0));
   enum rtx_code code = GET_CODE (op);
@@ -958,6 +979,8 @@
 	return 0;
       code = ix86_fp_compare_code_to_integer (code);
     }
+  else if (inmode == CCCmode)
+   return code == LTU || code == GTU;
   else if (inmode != CCmode)
     return 0;
 

@@ -36,19 +36,18 @@ struct df_problem;
 struct df_link;
 
 /* Data flow problems.  All problems must have a unique id here.  */ 
+
 /* Scanning is not really a dataflow problem, but it is useful to have
    the basic block functions in the vector so that things get done in
-   a uniform manner.  The first four problems are always defined.  The
-   last 5 are optional and can be added or deleted at any time.  */
+   a uniform manner.  The last four problems can be added or deleted
+   at any time are always defined (though LIVE is always there at -O2
+   or higher); the others are always there.  */
 #define DF_SCAN  0 
 #define DF_LR    1      /* Live Registers backward. */
 #define DF_LIVE  2      /* Live Registers & Uninitialized Registers */
-
-#define DF_RU    3      /* Reaching Uses. */
-#define DF_RD    4      /* Reaching Defs. */
-#define DF_UREC  5      /* Uninitialized Registers with Early Clobber. */
-#define DF_CHAIN 6      /* Def-Use and/or Use-Def Chains. */
-#define DF_NOTE  7      /* REG_DEF and REG_UNUSED notes. */
+#define DF_RD    3      /* Reaching Defs. */
+#define DF_CHAIN 4      /* Def-Use and/or Use-Def Chains. */
+#define DF_NOTE  5      /* REG_DEF and REG_UNUSED notes. */
 
 #define DF_LAST_PROBLEM_PLUS1 (DF_NOTE + 1)
 
@@ -71,10 +70,9 @@ enum df_ref_type {DF_REF_REG_DEF, DF_REF_REG_USE, DF_REF_REG_MEM_LOAD,
 
 enum df_ref_flags
   {
-    /* Read-modify-write refs generate both a use and a def and
-       these are marked with this flag to show that they are not
-       independent.  */
-    DF_REF_READ_WRITE = 1 << 0,
+    /* This flag is set if this ref occurs inside of a conditional
+       execution instruction.  */
+    DF_REF_CONDITIONAL = 1 << 0,
 
     /* If this flag is set for an artificial use or def, that ref
        logically happens at the top of the block.  If it is not set
@@ -86,14 +84,26 @@ enum df_ref_flags
        note.  */
     DF_REF_IN_NOTE = 1 << 2,
 
+    /* This bit is true if this ref can make regs_ever_live true for
+       this regno.  */
+    DF_HARD_REG_LIVE = 1 << 3,
+
+
+    /* This flag is set if this ref is a partial use or def of the
+       associated register.  */
+    DF_REF_PARTIAL = 1 << 4,
+    
+    /* Read-modify-write refs generate both a use and a def and
+       these are marked with this flag to show that they are not
+       independent.  */
+    DF_REF_READ_WRITE = 1 << 5,
+
     /* This flag is set if this ref, generally a def, may clobber the
        referenced register.  This is generally only set for hard
        registers that cross a call site.  With better information
        about calls, some of these could be changed in the future to
        DF_REF_MUST_CLOBBER.  */
-    DF_REF_MAY_CLOBBER = 1 << 3,
-
-
+    DF_REF_MAY_CLOBBER = 1 << 6,
 
     /* This flag is set if this ref, generally a def, is a real
        clobber. This is not currently set for registers live across a
@@ -104,34 +114,31 @@ enum df_ref_flags
        clobber is to a subreg.  So in order to tell if the clobber
        wipes out the entire register, it is necessary to also check
        the DF_REF_PARTIAL flag.  */
-    DF_REF_MUST_CLOBBER = 1 << 4,
-
-    /* This bit is true if this ref is part of a multiword hardreg.  */
-    DF_REF_MW_HARDREG = 1 << 5,
-
-    /* This flag is set if this ref is a partial use or def of the
-       associated register.  */
-    DF_REF_PARTIAL = 1 << 6,
-    
-    /* This flag is set if this ref occurs inside of a conditional
-       execution instruction.  */
-    DF_REF_CONDITIONAL = 1 << 7,
-
+    DF_REF_MUST_CLOBBER = 1 << 7,
 
 
     /* This flag is set if this ref is inside a pre/post modify.  */
     DF_REF_PRE_POST_MODIFY = 1 << 8,
 
+    /* This flag is set if the ref contains a ZERO_EXTRACT or SIGN_EXTRACT.  */
+    DF_REF_EXTRACT = 1 << 9,
+
+    /* This flag is set if the ref contains a STRICT_LOWER_PART.  */
+    DF_REF_STRICT_LOWER_PART = 1 << 10,
+
+    /* This flag is set if the ref contains a SUBREG.  */
+    DF_REF_SUBREG = 1 << 11,
+
+
+    /* This bit is true if this ref is part of a multiword hardreg.  */
+    DF_REF_MW_HARDREG = 1 << 12,
+
     /* This flag is set if this ref is a usage of the stack pointer by
        a function call.  */
-    DF_REF_CALL_STACK_USAGE = 1 << 9,
+    DF_REF_CALL_STACK_USAGE = 1 << 13,
 
     /* This flag is used for verification of existing refs. */
-    DF_REF_REG_MARKER = 1 << 10,
-
-    /* This bit is true if this ref can make regs_ever_live true for
-       this regno.  */
-    DF_HARD_REG_LIVE = 1 << 11
+    DF_REF_REG_MARKER = 1 << 14
   };
 
 /* The possible ordering of refs within the df_ref_info.  */
@@ -311,7 +318,7 @@ struct dataflow
 struct df_mw_hardreg
 {
   rtx mw_reg;                   /* The multiword hardreg.  */ 
-  /* These two bitfields are intentially oversized, in the hope that
+  /* These two bitfields are intentionally oversized, in the hope that
      accesses to 16-bit fields will usually be quicker.  */
   ENUM_BITFIELD(df_ref_type) type : 16;
 				/* Used to see if the ref is read or write.  */
@@ -360,7 +367,7 @@ struct df_ref
   unsigned int ref_order;
 
   unsigned int regno;		/* The register number referenced.  */
-  /* These two bitfields are intentially oversized, in the hope that
+  /* These two bitfields are intentionally oversized, in the hope that
      accesses to 16-bit fields will usually be quicker.  */
   ENUM_BITFIELD(df_ref_type) type : 16;
 				/* Type of ref.  */
@@ -395,20 +402,23 @@ enum df_changeable_flags
 {
   /* Scanning flags.  */
   /* Flag to control the running of dce as a side effect of building LR.  */
-  DF_LR_RUN_DCE           =  1, /* Run DCE.  */
-  DF_NO_HARD_REGS         =  2, /* Skip hard registers in RD and CHAIN Building.  */
-  DF_EQ_NOTES             =  4, /* Build chains with uses present in EQUIV/EQUAL notes. */
-  DF_NO_REGS_EVER_LIVE    =  8, /* Do not compute the regs_ever_live.  */
+  DF_LR_RUN_DCE           = 1 << 0, /* Run DCE.  */
+  DF_NO_HARD_REGS         = 1 << 1, /* Skip hard registers in RD and CHAIN Building.  */
+
+  DF_EQ_NOTES             = 1 << 2, /* Build chains with uses present in EQUIV/EQUAL notes. */
+  DF_NO_REGS_EVER_LIVE    = 1 << 3, /* Do not compute the regs_ever_live.  */
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return immediately.  This is used by passes that know how to update
   the scanning them selves.  */
-  DF_NO_INSN_RESCAN       = 16,
+  DF_NO_INSN_RESCAN       = 1 << 4,
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return after marking the insn for later processing.  This allows all
   rescans to be batched.  */
-  DF_DEFER_INSN_RESCAN    = 32
+  DF_DEFER_INSN_RESCAN    = 1 << 5,
+
+  DF_VERIFY_SCHEDULED     = 1 << 6
 };
 
 /* Two of these structures are inline in df, one for the uses and one
@@ -541,10 +551,8 @@ struct df
 };
 
 #define DF_SCAN_BB_INFO(BB) (df_scan_get_bb_info((BB)->index))
-#define DF_RU_BB_INFO(BB) (df_ru_get_bb_info((BB)->index))
 #define DF_RD_BB_INFO(BB) (df_rd_get_bb_info((BB)->index))
 #define DF_LR_BB_INFO(BB) (df_lr_get_bb_info((BB)->index))
-#define DF_UREC_BB_INFO(BB) (df_urec_get_bb_info((BB)->index))
 #define DF_LIVE_BB_INFO(BB) (df_live_get_bb_info((BB)->index))
 
 /* Most transformations that wish to use live register analysis will
@@ -552,17 +560,10 @@ struct df
 #define DF_LIVE_IN(BB) (DF_LIVE_BB_INFO(BB)->in) 
 #define DF_LIVE_OUT(BB) (DF_LIVE_BB_INFO(BB)->out) 
 
-
-/* Live in for register allocation also takes into account several other factors.  */
-#define DF_RA_LIVE_IN(BB) (DF_UREC_BB_INFO(BB)->in) 
-#define DF_RA_LIVE_TOP(BB) (DF_UREC_BB_INFO(BB)->top) 
-#define DF_RA_LIVE_OUT(BB) (DF_UREC_BB_INFO(BB)->out) 
-
-/* These macros are currently used by only reg-stack since it is not
-   tolerant of uninitialized variables.  This intolerance should be
-   fixed because it causes other problems.  */ 
+/* These macros are used by passes that are not tolerant of
+   uninitialized variables.  This intolerance should eventually
+   be fixed.  */
 #define DF_LR_IN(BB) (DF_LR_BB_INFO(BB)->in) 
-#define DF_LR_TOP(BB) (DF_LR_BB_INFO(BB)->top) 
 #define DF_LR_OUT(BB) (DF_LR_BB_INFO(BB)->out) 
 
 /* Macros to access the elements within the ref structure.  */
@@ -685,45 +686,30 @@ extern bitmap df_invalidated_by_call;
 /* One of these structures is allocated for every basic block.  */
 struct df_scan_bb_info
 {
-  /* Defs at the start of a basic block that is the target of an
-     exception edge.  */
+  /* The entry block has many artificial defs and these are at the
+     bottom of the block.
+
+     Blocks that are targets of exception edges may have some
+     artificial defs.  These are logically located at the top of the
+     block.
+
+     Blocks that are the targets of non-local goto's have the hard
+     frame pointer defined at the top of the block.  */
   struct df_ref **artificial_defs;
 
-  /* Uses of hard registers that are live at every block.  */
+  /* Blocks that are targets of exception edges may have some
+     artificial uses.  These are logically at the top of the block.
+
+     Most blocks have artificial uses at the bottom of the block.  */
   struct df_ref **artificial_uses;
 };
 
 
-/* Reaching uses.  All bitmaps are indexed by the id field of the ref
-   except sparse_kill (see below).  */
-struct df_ru_bb_info 
-{
-  /* Local sets to describe the basic blocks.  */
-  /* The kill set is the set of uses that are killed in this block.
-     However, if the number of uses for this register is greater than
-     DF_SPARSE_THRESHOLD, the sparse_kill is used instead. In
-     sparse_kill, each register gets a slot and a 1 in this bitvector
-     means that all of the uses of that register are killed.  This is
-     a very useful efficiency hack in that it keeps from having push
-     around big groups of 1s.  This is implemented by the
-     bitmap_clear_range call.  */
-
-  bitmap kill;
-  bitmap sparse_kill;
-  bitmap gen;   /* The set of uses generated in this block.  */
-
-  /* The results of the dataflow problem.  */
-  bitmap in;    /* At the top of the block.  */
-  bitmap out;   /* At the bottom of the block.  */
-};
-
-
 /* Reaching definitions.  All bitmaps are indexed by the id field of
-   the ref except sparse_kill (see above).  */
+   the ref except sparse_kill which is indexed by regno.  */
 struct df_rd_bb_info 
 {
-  /* Local sets to describe the basic blocks.  See the note in the RU
-     datastructures for kill and sparse_kill.  */
+  /* Local sets to describe the basic blocks.   */
   bitmap kill;  
   bitmap sparse_kill;
   bitmap gen;   /* The set of defs generated in this block.  */
@@ -734,23 +720,8 @@ struct df_rd_bb_info
 };
 
 
-/* Live registers.  All bitmaps are referenced by the register number.  
-
-   df_lr_bb_info:IN is the "in" set of the traditional dataflow sense
-   which is the confluence of out sets of all predecessor blocks.
-   The difference between IN and TOP is 
-   due to the artificial defs and uses at the top (DF_REF_TOP)
-   (e.g. exception handling dispatch block, which can have
-   a few registers defined by the runtime) - which is NOT included
-   in the "in" set before this function but is included after.  
-   For the initial live set of forward scanning, TOP should be used
-   instead of IN - otherwise, artificial defs won't be in IN set
-   causing the bad transformation. TOP set can not simply be
-   the union of IN set and artificial defs at the top, 
-   because artificial defs might not be used at all,
-   in which case those defs are not live at any point
-   (except as a dangling def) - hence TOP has to be calculated
-   during the LR problem computation and stored in df_lr_bb_info.  */
+/* Live registers, a backwards dataflow problem.  All bitmaps are
+   referenced by the register number.  */
 
 struct df_lr_bb_info 
 {
@@ -758,12 +729,9 @@ struct df_lr_bb_info
   bitmap def;   /* The set of registers set in this block 
                    - except artificial defs at the top.  */
   bitmap use;   /* The set of registers used in this block.  */
-  bitmap adef;  /* The artificial defs at top. */
-  bitmap ause;  /* The artificial uses at top. */
 
   /* The results of the dataflow problem.  */
   bitmap in;    /* Just before the block itself. */
-  bitmap top;   /* Just before the first insn in the block. */
   bitmap out;   /* At the bottom of the block.  */
 };
 
@@ -785,33 +753,14 @@ struct df_live_bb_info
 };
 
 
-/* Uninitialized registers.  All bitmaps are referenced by the register number.  */
-struct df_urec_bb_info 
-{
-  /* Local sets to describe the basic blocks.  */
-  bitmap earlyclobber;  /* The set of registers that are referenced
-			   with an early clobber mode.  */
-  /* Kill and gen are defined as in the UR problem.  */
-  bitmap kill;
-  bitmap gen;
-
-  /* The results of the dataflow problem.  */
-  bitmap in;    /* Just before the block.  */
-  bitmap top;   /* Just before the first insn in the block. */
-  bitmap out;   /* At the bottom of the block.  */
-};
-
-
 /* This is used for debugging and for the dumpers to find the latest
    instance so that the df info can be added to the dumps.  This
    should not be used by regular code.  */ 
 extern struct df *df;
 #define df_scan  (df->problems_by_index[DF_SCAN])
-#define df_ru    (df->problems_by_index[DF_RU])
 #define df_rd    (df->problems_by_index[DF_RD])
 #define df_lr    (df->problems_by_index[DF_LR])
 #define df_live  (df->problems_by_index[DF_LIVE])
-#define df_urec  (df->problems_by_index[DF_UREC])
 #define df_chain (df->problems_by_index[DF_CHAIN])
 #define df_note  (df->problems_by_index[DF_NOTE])
 
@@ -834,7 +783,7 @@ extern enum df_changeable_flags df_set_flags (enum df_changeable_flags);
 extern enum df_changeable_flags df_clear_flags (enum df_changeable_flags);
 extern void df_set_blocks (bitmap);
 extern void df_remove_problem (struct dataflow *);
-extern void df_finish_pass (void);
+extern void df_finish_pass (bool);
 extern void df_analyze_problem (struct dataflow *, bitmap, int *, int);
 extern void df_analyze (void);
 extern int df_get_n_blocks (enum df_flow_dir);
@@ -861,6 +810,7 @@ extern bool df_reg_used (rtx, rtx);
 extern void df_worklist_dataflow (struct dataflow *,bitmap, int *, int);
 extern void df_print_regset (FILE *file, bitmap r);
 extern void df_dump (FILE *);
+extern void df_dump_region (FILE *);
 extern void df_dump_start (FILE *);
 extern void df_dump_top (basic_block, FILE *);
 extern void df_dump_bottom (basic_block, FILE *);
@@ -885,18 +835,15 @@ extern void df_chain_unlink (struct df_ref *);
 extern void df_chain_copy (struct df_ref *, struct df_link *);
 extern bitmap df_get_live_in (basic_block);
 extern bitmap df_get_live_out (basic_block);
-extern bitmap df_get_live_top (basic_block);
 extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);
-extern void df_ru_add_problem (void);
 extern void df_rd_add_problem (void);
 extern void df_lr_add_problem (void);
 extern void df_lr_verify_transfer_functions (void);
 extern void df_live_verify_transfer_functions (void);
 extern void df_live_add_problem (void);
 extern void df_live_set_all_dirty (void);
-extern void df_urec_add_problem (void);
 extern void df_chain_add_problem (enum df_chain_flags);
 extern void df_note_add_problem (void);
 extern void df_simulate_find_defs (rtx, bitmap);
@@ -923,7 +870,6 @@ extern void df_bb_refs_record (int, bool);
 extern bool df_insn_rescan (rtx);
 extern void df_insn_rescan_all (void);
 extern void df_process_deferred_rescans (void);
-extern bool df_has_eh_preds (basic_block);
 extern void df_recompute_luids (basic_block);
 extern void df_insn_change_bb (rtx);
 extern void df_maybe_reorganize_use_refs (enum df_ref_order);
@@ -954,15 +900,6 @@ df_scan_get_bb_info (unsigned int index)
     return NULL;
 }
 
-static inline struct df_ru_bb_info *
-df_ru_get_bb_info (unsigned int index)
-{
-  if (index < df_ru->block_info_size)
-    return (struct df_ru_bb_info *) df_ru->block_info[index];
-  else
-    return NULL;
-}
-
 static inline struct df_rd_bb_info *
 df_rd_get_bb_info (unsigned int index)
 {
@@ -989,16 +926,6 @@ df_live_get_bb_info (unsigned int index)
   else
     return NULL;
 }
-
-static inline struct df_urec_bb_info *
-df_urec_get_bb_info (unsigned int index)
-{
-  if (index < df_urec->block_info_size)
-    return (struct df_urec_bb_info *) df_urec->block_info[index];
-  else
-    return NULL;
-}
-
 
 /* Get the artificial defs for a basic block.  */
 

@@ -78,7 +78,7 @@ static HARD_REG_SET current_live_regs;
 
 static HARD_REG_SET pending_dead_regs;
 
-static void update_live_status (rtx, rtx, void *);
+static void update_live_status (rtx, const_rtx, void *);
 static int find_basic_block (rtx, int);
 static rtx next_insn_no_annul (rtx);
 static rtx find_dead_or_set_registers (rtx, struct resources*,
@@ -89,7 +89,7 @@ static rtx find_dead_or_set_registers (rtx, struct resources*,
    It deadens any CLOBBERed registers and livens any SET registers.  */
 
 static void
-update_live_status (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
+update_live_status (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
 {
   int first_regno, last_regno;
   int i;
@@ -222,6 +222,7 @@ mark_referenced_resources (rtx x, struct resources *res,
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case SYMBOL_REF:
@@ -638,6 +639,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
     case USE:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case LABEL_REF:
     case SYMBOL_REF:
@@ -661,9 +663,8 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 	  rtx link;
 
 	  res->cc = res->memory = 1;
-	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-	    if (call_used_regs[r] || global_regs[r])
-	      SET_HARD_REG_BIT (res->regs, r);
+
+	  IOR_HARD_REG_SET (res->regs, regs_invalidated_by_call);
 
 	  for (link = CALL_INSN_FUNCTION_USAGE (x);
 	       link; link = XEXP (link, 1))
@@ -823,7 +824,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 /* Return TRUE if INSN is a return, possibly with a filled delay slot.  */
 
 static bool
-return_insn_p (rtx insn)
+return_insn_p (const_rtx insn)
 {
   if (JUMP_P (insn) && GET_CODE (PATTERN (insn)) == RETURN)
     return true;
@@ -956,22 +957,14 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
      TARGET.  Otherwise, we must assume everything is live.  */
   if (b != -1)
     {
-      regset regs_live = df_get_live_in (BASIC_BLOCK (b));
+      regset regs_live = DF_LR_IN (BASIC_BLOCK (b));
       rtx start_insn, stop_insn;
-      reg_set_iterator rsi;
 
       /* Compute hard regs live at start of block -- this is the real hard regs
 	 marked live, plus live pseudo regs that have been renumbered to
 	 hard regs.  */
 
       REG_SET_TO_HARD_REG_SET (current_live_regs, regs_live);
-
-      EXECUTE_IF_SET_IN_REG_SET (regs_live, FIRST_PSEUDO_REGISTER, i, rsi)
-	{
-	  if (reg_renumber[i] >= 0)
-	    add_to_hard_reg_set (&current_live_regs, PSEUDO_REGNO_MODE (i),
-				reg_renumber[i]);
-	}
 
       /* Get starting and ending insn, handling the case where each might
 	 be a SEQUENCE.  */

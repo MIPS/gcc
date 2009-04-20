@@ -48,7 +48,7 @@ with System; use System;
 
 package body GNAT.Sockets is
 
-   use type C.int, System.Address;
+   use type C.int;
 
    Finalized   : Boolean := False;
    Initialized : Boolean := False;
@@ -573,6 +573,8 @@ package body GNAT.Sockets is
      (Socket : Socket_Type;
       Server : in out Sock_Addr_Type)
    is
+      pragma Warnings (Off, Server);
+
       Res : C.int;
       Sin : aliased Sockaddr_In;
       Len : constant C.int := Sin'Size / 8;
@@ -978,7 +980,7 @@ package body GNAT.Sockets is
           (C.int (Socket),
            Levels (Level),
            Options (Name),
-           Add, Len'Unchecked_Access);
+           Add, Len'Access);
 
       if Res = Failure then
          Raise_Socket_Error (Socket_Errno);
@@ -1376,6 +1378,8 @@ package body GNAT.Sockets is
       Item   : out Ada.Streams.Stream_Element_Array;
       Last   : out Ada.Streams.Stream_Element_Offset)
    is
+      pragma Warnings (Off, Stream);
+
       First : Ada.Streams.Stream_Element_Offset          := Item'First;
       Index : Ada.Streams.Stream_Element_Offset          := First - 1;
       Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
@@ -1404,8 +1408,6 @@ package body GNAT.Sockets is
       Last   : out Ada.Streams.Stream_Element_Offset;
       Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      use type Ada.Streams.Stream_Element_Offset;
-
       Res : C.int;
 
    begin
@@ -1430,8 +1432,6 @@ package body GNAT.Sockets is
       From   : out Sock_Addr_Type;
       Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      use type Ada.Streams.Stream_Element_Offset;
-
       Res : C.int;
       Sin : aliased Sockaddr_In;
       Len : aliased C.int := Sin'Size / 8;
@@ -1444,7 +1444,7 @@ package body GNAT.Sockets is
            Item'Length,
            To_Int (Flags),
            Sin'Unchecked_Access,
-           Len'Unchecked_Access);
+           Len'Access);
 
       if Res = Failure then
          Raise_Socket_Error (Socket_Errno);
@@ -1604,8 +1604,6 @@ package body GNAT.Sockets is
       Last   : out Ada.Streams.Stream_Element_Offset;
       Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      use type Ada.Streams.Stream_Element_Offset;
-
       Res : C.int;
 
    begin
@@ -1634,8 +1632,6 @@ package body GNAT.Sockets is
       To     : Sock_Addr_Type;
       Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      use type Ada.Streams.Stream_Element_Offset;
-
       Res : C.int;
       Sin : aliased Sockaddr_In;
       Len : constant C.int := Sin'Size / 8;
@@ -2119,6 +2115,8 @@ package body GNAT.Sockets is
      (Stream : in out Datagram_Socket_Stream_Type;
       Item   : Ada.Streams.Stream_Element_Array)
    is
+      pragma Warnings (Off, Stream);
+
       First : Ada.Streams.Stream_Element_Offset          := Item'First;
       Index : Ada.Streams.Stream_Element_Offset          := First - 1;
       Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
@@ -2152,6 +2150,8 @@ package body GNAT.Sockets is
      (Stream : in out Stream_Socket_Stream_Type;
       Item   : Ada.Streams.Stream_Element_Array)
    is
+      pragma Warnings (Off, Stream);
+
       First : Ada.Streams.Stream_Element_Offset          := Item'First;
       Index : Ada.Streams.Stream_Element_Offset          := First - 1;
       Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;

@@ -818,11 +818,15 @@ analyze_matrix_allocation_site (struct matrix_info *mi, tree stmt,
 		  return;
 		}
 	    }
-	  /* This is a call to malloc.  Check to see if this is the first
-	     call in this indirection level; if so, mark it; if not, mark
-	     as escaping.  */
+	  /* This is a call to malloc of level 'level'.  
+	     mi->max_malloced_level-1 == level  means that we've 
+	     seen a malloc statement of level 'level' before.  
+	     If the statement is not the same one that we've 
+	     seen before, then there's another malloc statement 
+	     for the same level, which means that we need to mark 
+	     it escaping.  */
 	  if (mi->malloc_for_level
-	      && mi->malloc_for_level[level]
+	      && mi->max_malloced_level-1 == level
 	      && mi->malloc_for_level[level] != stmt)
 	    {
 	      mark_min_matrix_escape_level (mi, level, stmt);
@@ -2041,7 +2045,7 @@ transform_allocation_sites (void **slot, void *data ATTRIBUTE_UNUSED)
   /* To be able to produce gimple temporaries.  */
   oldfn = current_function_decl;
   current_function_decl = mi->allocation_function_decl;
-  cfun = DECL_STRUCT_FUNCTION (mi->allocation_function_decl);
+  push_cfun (DECL_STRUCT_FUNCTION (mi->allocation_function_decl));
 
   /* Set the dimension sizes as follows:
      DIM_SIZE[i] = DIM_SIZE[n] * ... * DIM_SIZE[i]
@@ -2165,13 +2169,13 @@ transform_allocation_sites (void **slot, void *data ATTRIBUTE_UNUSED)
       gcc_assert (e);
       cgraph_remove_edge (e);
       current_function_decl = mi->free_stmts[i].func;
-      cfun = DECL_STRUCT_FUNCTION (mi->free_stmts[i].func);
+      set_cfun (DECL_STRUCT_FUNCTION (mi->free_stmts[i].func));
       bsi = bsi_for_stmt (mi->free_stmts[i].stmt);
       bsi_remove (&bsi, true);
     }
   /* Return to the previous situation.  */
   current_function_decl = oldfn;
-  cfun = oldfn ? DECL_STRUCT_FUNCTION (oldfn) : NULL;
+  pop_cfun ();
   return 1;
 
 }
@@ -2300,7 +2304,7 @@ matrix_reorg (void)
   htab_traverse (matrices_to_reorg, dump_matrix_reorg_analysis, NULL);
 
   current_function_decl = NULL;
-  cfun = NULL;
+  set_cfun (NULL);
   matrices_to_reorg = NULL;
   return 0;
 }
@@ -2310,7 +2314,7 @@ matrix_reorg (void)
 static bool
 gate_matrix_reorg (void)
 {
-  return flag_ipa_matrix_reorg /*&& flag_whole_program */ ;
+  return flag_ipa_matrix_reorg && flag_whole_program;
 }
 
 struct tree_opt_pass pass_ipa_matrix_reorg = {

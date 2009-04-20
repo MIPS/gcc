@@ -86,7 +86,7 @@ static int n_regs_saved;
 static HARD_REG_SET referenced_regs;
 
 
-static void mark_set_regs (rtx, rtx, void *);
+static void mark_set_regs (rtx, const_rtx, void *);
 static void mark_referenced_regs (rtx);
 static int insert_save (struct insn_chain *, int, int, HARD_REG_SET *,
 			enum machine_mode *);
@@ -94,7 +94,7 @@ static int insert_restore (struct insn_chain *, int, int, int,
 			   enum machine_mode *);
 static struct insn_chain *insert_one_insn (struct insn_chain *, int, int,
 					   rtx);
-static void add_stored_regs (rtx, rtx, void *);
+static void add_stored_regs (rtx, const_rtx, void *);
 
 static GTY(()) rtx savepat;
 static GTY(()) rtx restpat;
@@ -113,6 +113,7 @@ reg_save_code (int reg, enum machine_mode mode)
   if (!HARD_REGNO_MODE_OK (reg, mode))
      {
        cached_reg_save_code[reg][mode] = -1;
+       cached_reg_restore_code[reg][mode] = -1;
        return -1;
      }
 
@@ -124,6 +125,7 @@ reg_save_code (int reg, enum machine_mode mode)
 
   /* Force re-recognition of the modified insns.  */
   INSN_CODE (saveinsn) = -1;
+  INSN_CODE (restinsn) = -1;
 
   cached_reg_save_code[reg][mode] = recog_memoized (saveinsn);
   cached_reg_restore_code[reg][mode] = recog_memoized (restinsn);
@@ -511,7 +513,7 @@ save_call_clobbered_regs (void)
    been assigned hard regs have had their register number changed already,
    so we can ignore pseudos.  */
 static void
-mark_set_regs (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data)
+mark_set_regs (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
   int regno, endregno, i;
   HARD_REG_SET *this_insn_sets = data;
@@ -542,7 +544,7 @@ mark_set_regs (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data)
    been assigned hard regs have had their register number changed already,
    so we can ignore pseudos.  */
 static void
-add_stored_regs (rtx reg, rtx setter, void *data)
+add_stored_regs (rtx reg, const_rtx setter, void *data)
 {
   int regno, endregno, i;
   enum machine_mode mode = GET_MODE (reg);
@@ -848,6 +850,38 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
 		SET_REGNO_REG_SET (&new->live_throughout, regno + i);
 	    }
 	}
+
+      /* If CHAIN->INSN is a call, then the registers which contain
+	 the arguments to the function are live in the new insn.  */
+      if (CALL_P (chain->insn))
+	{
+	  for (link = CALL_INSN_FUNCTION_USAGE (chain->insn);
+	       link != NULL_RTX;
+	       link = XEXP (link, 1))
+	    {
+	      rtx arg = XEXP (link, 0);
+
+	      if (GET_CODE (arg) == USE)
+		{
+		  rtx reg = XEXP (arg, 0);
+
+		  if (REG_P (reg))
+		    {
+		      int i, regno = REGNO (reg);
+
+		      /* Registers in CALL_INSN_FUNCTION_USAGE are always
+			 hard registers.  */
+		      gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+
+		      for (i = hard_regno_nregs[regno][GET_MODE (reg)] - 1;
+			   i >= 0; i--)
+			SET_REGNO_REG_SET (&new->live_throughout, regno + i);
+		    }
+		}
+	    }
+	  
+	}
+
       CLEAR_REG_SET (&new->dead_or_set);
       if (chain->insn == BB_HEAD (BASIC_BLOCK (chain->block)))
 	BB_HEAD (BASIC_BLOCK (chain->block)) = new->insn;

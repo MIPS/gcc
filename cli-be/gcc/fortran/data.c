@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor,Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Notes for DATA statement implementation:
@@ -36,6 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor,Boston, MA
 
 #include "config.h"
 #include "gfortran.h"
+#include "data.h"
 
 static void formalize_init_expr (gfc_expr *);
 
@@ -310,6 +310,29 @@ gfc_assign_data_value (gfc_expr *lvalue, gfc_expr *rvalue, mpz_t index)
 	    get_array_index (&ref->u.ar, &offset);
 	  else
 	    mpz_set (offset, index);
+
+	  /* Check the bounds.  */
+	  if (mpz_cmp_si (offset, 0) < 0)
+	    {
+	      gfc_error ("Data element below array lower bound at %L",
+			 &lvalue->where);
+	      return FAILURE;
+	    }
+	  else
+	    {
+	      mpz_t size;
+	      if (spec_size (ref->u.ar.as, &size) == SUCCESS)
+		{
+		  if (mpz_cmp (offset, size) >= 0)
+		  {
+		    mpz_clear (size);
+		    gfc_error ("Data element above array upper bound at %L",
+			       &lvalue->where);
+		    return FAILURE;
+		  }
+		  mpz_clear (size);
+		}
+	    }
 
 	  /* Splay tree containing offset and gfc_constructor.  */
 	  spt = expr->con_by_offset;
@@ -688,7 +711,7 @@ formalize_structure_cons (gfc_expr *expr)
   c = expr->value.constructor;
 
   /* Constructor is already formalized.  */
-  if (c->n.component == NULL)
+  if (!c || c->n.component == NULL)
     return;
 
   head = tail = NULL;

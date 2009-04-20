@@ -1,6 +1,7 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+; Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -18,7 +19,7 @@
 ; along with GCC; see the file COPYING3.  If not see
 ; <http://www.gnu.org/licenses/>.
 
-; See the GCC internals manual for a description of this file's format.
+; See the GCC internals manual (options.texi) for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -154,7 +155,7 @@ Common Warning
 Warn about code which might break strict aliasing rules
 
 Wstrict-aliasing=
-Common Joined UInteger Warning
+Common Joined UInteger Var(warn_strict_aliasing) Init(-1) Warning
 Warn about code which might break strict aliasing rules
 
 Wstrict-overflow
@@ -162,7 +163,7 @@ Common Warning
 Warn about optimizations that assume that signed overflow is undefined
 
 Wstrict-overflow=
-Common Joined UInteger Warning
+Common Joined UInteger Var(warn_strict_overflow) Init(-1) Warning
 Warn about optimizations that assume that signed overflow is undefined
 
 Wswitch
@@ -250,6 +251,8 @@ Common Separate
 ;    versions of G++.
 ;
 ; 1: The version of the ABI first used in G++ 3.2.
+;
+; 2: The version of the ABI first used in G++ 3.4.
 ;
 ; Additional positive integers will be assigned as new versions of
 ; the ABI become the default version of the ABI.
@@ -399,6 +402,10 @@ fdbg-cnt=
 Common RejectNegative Joined
 -fdbg-cnt=<counter>:<limit>[,<counter>:<limit>,...]    Set the debug counter limit.   
 
+fdebug-prefix-map=
+Common Joined RejectNegative
+Map one directory name to another in debug information
+
 ; Nonzero for -fdefer-pop: don't pop args after each function call
 ; instead save them up to pop many calls' args with one insns.
 fdefer-pop
@@ -450,7 +457,7 @@ Common Report Var(flag_eliminate_unused_debug_types) Init(1)
 Perform unused type elimination in debug info
 
 femit-class-debug-always
-Common Report Var(flag_emit_class_debug_always) Init(1)
+Common Report Var(flag_emit_class_debug_always) Init(0)
 Do not suppress C++ class debug information.
 
 fexceptions
@@ -476,11 +483,9 @@ ffloat-store
 Common Report Var(flag_float_store) Optimization
 Don't allocate floats and doubles in extended-precision registers
 
-; Nonzero for -fforce-addr: load memory address into a register before
-; reference to memory.  This makes better cse but slower compilation.
 fforce-addr
-Common Report Var(flag_force_addr) Optimization
-Copy memory address constants into registers before use
+Common
+Does nothing.  Preserved for backward compatibility.
 
 fforward-propagate
 Common Report Var(flag_forward_propagate) Optimization
@@ -556,6 +561,10 @@ finline
 Common Report Var(flag_no_inline,0) Init(2)
 Pay attention to the \"inline\" keyword
 
+finline-small-functions
+Common Report Var(flag_inline_small_functions) Optimization
+Integrate simple functions into their callers when code size is known to not growth
+
 finline-functions
 Common Report Var(flag_inline_functions) Optimization
 Integrate simple functions into their callers
@@ -574,6 +583,14 @@ Common RejectNegative Joined UInteger
 finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
 Instrument function entry and exit with profiling calls
+
+finstrument-functions-exclude-function-list=
+Common RejectNegative Joined
+-finstrument-functions-exclude-function-list=name,...  Do not instrument listed functions
+
+finstrument-functions-exclude-file-list=
+Common RejectNegative Joined
+-finstrument-functions-exclude-file-list=filename,...  Do not instrument functions listed in files
 
 fipa-cp
 Common Report Var(flag_ipa_cp) Optimization
@@ -598,6 +615,11 @@ Type based escape and alias analysis
 fipa-matrix-reorg
 Common Report Var(flag_ipa_matrix_reorg) Optimization
 Perform matrix layout flattening and transposing based
+on profiling information.
+
+fipa-struct-reorg
+Common Report Var(flag_ipa_struct_reorg)
+Perform structure layout optimizations based
 on profiling information.
 
 fivopts
@@ -643,6 +665,10 @@ fmerge-constants
 Common Report Var(flag_merge_constants,1) VarExists Optimization
 Attempt to merge identical constants across compilation units
 
+fmerge-debug-strings
+Common Report Var(flag_merge_debug_strings) Init(1)
+Attempt to merge identical debug strings across compilation units
+
 fmessage-length=
 Common RejectNegative Joined UInteger
 -fmessage-length=<number>	Limit diagnostics to <number> characters per line.  0 suppresses line-wrapping
@@ -650,6 +676,10 @@ Common RejectNegative Joined UInteger
 fmodulo-sched
 Common Report Var(flag_modulo_sched) Optimization
 Perform SMS based modulo scheduling before the first scheduling pass
+
+fmodulo-sched-allow-regmoves
+Common Report Var(flag_modulo_sched_allow_regmoves)
+Perform SMS based modulo scheduling with register moves allowed
 
 fmove-loop-invariants
 Common Report Var(flag_move_loop_invariants) Init(1) Optimization
@@ -686,6 +716,10 @@ Support synchronous non-call exceptions
 fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames
+
+fopenmp-ssa
+Common Report Var(flag_openmp_ssa)
+Expand OpenMP operations on SSA form
 
 foptimize-register-move
 Common Report Var(flag_regmove) Optimization
@@ -895,8 +929,8 @@ Common Report Var(flag_see) Init(0)
 Eliminate redundant sign extensions using LCM.
 
 fshow-column
-Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
-Show column numbers in diagnostics, when available.  Default on
+Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(0)
+Show column numbers in diagnostics, when available.  Default off
 
 fsignaling-nans
 Common Report Var(flag_signaling_nans) Optimization
@@ -1023,8 +1057,12 @@ Common Report Var(flag_tree_copy_prop) Optimization
 Enable copy propagation on trees
 
 ftree-store-copy-prop
-Common Report Var(flag_tree_store_copy_prop) Optimization
-Enable copy propagation for stores and loads
+Common
+Does nothing.  Preserved for backward compatibility.
+
+ftree-cselim
+Common Report Var(flag_tree_cselim) Init(2) Optimization
+Transform condition stores into unconditional ones
 
 ftree-dce
 Common Report Var(flag_tree_dce) Optimization
@@ -1057,6 +1095,10 @@ Create canonical induction variables in loops
 ftree-loop-optimize
 Common Report Var(flag_tree_loop_optimize) Init(1) Optimization
 Enable loop optimizations on tree level
+
+ftree-parallelize-loops=
+Common Report Joined UInteger Var(flag_tree_parallelize_loops) Init(1)
+Enable automatic parallelization of loops
 
 ftree-pre
 Common Report Var(flag_tree_pre) Optimization
@@ -1108,6 +1150,15 @@ Perform loop unrolling for all loops
 funsafe-loop-optimizations
 Common Report Var(flag_unsafe_loop_optimizations) Optimization
 Allow loop optimizations to assume that the loops behave in normal way
+
+fassociative-math
+Common Report Var(flag_associative_math)
+Allow optimization for floating-point arithmetic which may change the
+result of the operation due to rounding.
+
+freciprocal-math
+Common Report Var(flag_reciprocal_math)
+Same as -fassociative-math for expressions which include division.
 
 ; Nonzero means that unsafe floating-point math optimizations are allowed
 ; for the sake of speed.  IEEE compliance is not guaranteed, and operations
@@ -1251,5 +1302,13 @@ Display the compiler's version
 w
 Common Var(inhibit_warnings)
 Suppress warnings
+
+shared
+Common RejectNegative Negative(pie)
+Create a shared library
+
+pie
+Common RejectNegative Negative(shared)
+Create a position independent executable
 
 ; This comment is to ensure we retain the blank line above.

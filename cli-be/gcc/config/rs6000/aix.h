@@ -1,13 +1,13 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Yes!  We are AIX!  */
 #define DEFAULT_ABI ABI_AIX
@@ -37,11 +36,6 @@
 #undef  STACK_BOUNDARY
 #define STACK_BOUNDARY 128
 
-/* AIX does not support Altivec.  */
-#undef  TARGET_ALTIVEC
-#define TARGET_ALTIVEC 0
-#undef  TARGET_ALTIVEC_ABI
-#define TARGET_ALTIVEC_ABI 0
 #undef  TARGET_IEEEQUAD
 #define TARGET_IEEEQUAD 0
 
@@ -109,6 +103,8 @@
 
 #define CPP_SPEC "%{posix: -D_POSIX_SOURCE}\
    %{ansi: -D_ANSI_C_SOURCE}"
+
+#define CC1_SPEC "%(cc1_cpu)"
 
 #undef ASM_DEFAULT_SPEC
 #define ASM_DEFAULT_SPEC ""

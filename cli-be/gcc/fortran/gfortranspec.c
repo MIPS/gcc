@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GNU CC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GNU CC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file is copied more or less verbatim from g77.  */
 /* This file contains a filter for the main `gcc' driver, which is
@@ -303,7 +302,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   g77_xargc = argc;
   g77_xargv = argv;
   g77_newargc = 0;
-  g77_newargv = (const char **) argv;
+  g77_newargv = CONST_CAST2 (const char **, const char *const *, argv);
 
   /* First pass through arglist.
 
@@ -376,7 +375,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	  break;
 
 	case OPTION_version:
-	  printf ("GNU Fortran (GCC) %s\n", version_string);
+	  printf ("GNU Fortran %s%s\n", pkgversion_string, version_string);
 	  printf ("Copyright %s 2007 Free Software Foundation, Inc.\n\n",
 		  _("(C)"));
 	  printf (_("GNU Fortran comes with NO WARRANTY, to the extent permitted by law.\n\

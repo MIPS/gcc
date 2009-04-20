@@ -22,9 +22,10 @@ along with GCC; see the file COPYING3.  If not see
    doloop optimization and branch prediction.  The iv information is computed
    on demand.
 
-   Induction variable is analyzed by walking the use-def chains.  When a biv
-   is found, it is cached in the bivs hash table.  When register is proved
-   to be a giv, its description is stored to DF_REF_DATA of the def reference.
+   Induction variables are analyzed by walking the use-def chains.  When
+   a basic induction variable (biv) is found, it is cached in the bivs
+   hash table.  When register is proved to be a biv, its description
+   is stored to DF_REF_DATA of the def reference.
 
    The analysis works always with one loop -- you must call
    iv_analysis_loop_init (loop) for it.  All the other functions then work with
@@ -280,7 +281,7 @@ iv_analysis_loop_init (struct loop *loop)
   df_set_blocks (blocks);
   df_analyze ();
   if (dump_file)
-    df_dump (dump_file);
+    df_dump_region (dump_file);
 
   check_iv_ref_table_size ();
   BITMAP_FREE (blocks);
@@ -301,7 +302,8 @@ latch_dominating_def (rtx reg, struct df_ref **def)
 
   for (adef = DF_REG_DEF_CHAIN (regno); adef; adef = adef->next_reg)
     {
-      if (!bitmap_bit_p (bb_info->out, DF_REF_ID (adef)))
+      if (!bitmap_bit_p (df->blocks_to_analyze, DF_REF_BB (adef)->index)
+	  || !bitmap_bit_p (bb_info->out, DF_REF_ID (adef)))
 	continue;
 
       /* More than one reaching definition.  */
@@ -1266,7 +1268,7 @@ iv_analysis_done (void)
     {
       clear_iv_info ();
       clean_slate = true;
-      df_finish_pass ();
+      df_finish_pass (true);
       htab_delete (bivs);
       free (iv_ref_table);
       iv_ref_table = NULL;
@@ -1308,7 +1310,7 @@ altered_reg_used (rtx *reg, void *alt)
 /* Marks registers altered by EXPR in set ALT.  */
 
 static void
-mark_altered (rtx expr, rtx by ATTRIBUTE_UNUSED, void *alt)
+mark_altered (rtx expr, const_rtx by ATTRIBUTE_UNUSED, void *alt)
 {
   if (GET_CODE (expr) == SUBREG)
     expr = SUBREG_REG (expr);

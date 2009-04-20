@@ -614,7 +614,18 @@ package body System.Tasking.Stages is
            (Storage_Error'Identity, "Failed to initialize task");
       end if;
 
-      T.Master_of_Task := Master;
+      if Master = Foreign_Task_Level + 2 then
+
+         --  This should not happen, except when a foreign task creates non
+         --  library-level Ada tasks. In this case, we pretend the master is
+         --  a regular library level task, otherwise the run-time will get
+         --  confused when waiting for these tasks to terminate.
+
+         T.Master_of_Task := Library_Task_Level;
+      else
+         T.Master_of_Task := Master;
+      end if;
+
       T.Master_Within := T.Master_of_Task + 1;
 
       for L in T.Entry_Calls'Range loop
@@ -749,7 +760,9 @@ package body System.Tasking.Stages is
 
    procedure Finalize_Global_Tasks is
       Self_ID : constant Task_Id := STPO.Self;
+
       Ignore  : Boolean;
+      pragma Unreferenced (Ignore);
 
    begin
       if Self_ID.Deferral_Level = 0 then
@@ -770,7 +783,7 @@ package body System.Tasking.Stages is
       pragma Assert (Self_ID = Environment_Task);
 
       --  Set Environment_Task'Callable to false to notify library-level tasks
-      --  that it is waiting for them (cf 5619-003).
+      --  that it is waiting for them.
 
       Self_ID.Callable := False;
 
@@ -798,8 +811,8 @@ package body System.Tasking.Stages is
          exit when Utilities.Independent_Task_Count = 0;
 
          --  We used to yield here, but this did not take into account
-         --  low priority tasks that would cause dead lock in some cases.
-         --  See 8126-020.
+         --  low priority tasks that would cause dead lock in some cases
+         --  (true FIFO scheduling).
 
          Timed_Sleep
            (Self_ID, 0.01, System.OS_Primitives.Relative,
@@ -943,7 +956,6 @@ package body System.Tasking.Stages is
    --  an at-end handler that the compiler generates.
 
    procedure Task_Wrapper (Self_ID : Task_Id) is
-      use type System.Parameters.Size_Type;
       use type SSE.Storage_Offset;
       use System.Standard_Library;
       use System.Stack_Usage;
@@ -958,16 +970,22 @@ package body System.Tasking.Stages is
       Secondary_Stack : aliased SSE.Storage_Array (1 .. Secondary_Stack_Size);
 
       pragma Warnings (Off);
+      --  Why are warnings being turned off here???
+
       Secondary_Stack_Address : System.Address := Secondary_Stack'Address;
 
-      Small_Overflow_Guard    : constant := 4 * 1024;
-      Big_Overflow_Guard      : constant := 16 * 1024;
-      Small_Stack_Limit       : constant := 64 * 1024;
-      --  ??? These three values are experimental, and seems to work on most
-      --  platforms. They still need to be analyzed further.
+      Small_Overflow_Guard : constant := 12 * 1024;
+      --  Note: this used to be 4K, but was changed to 12K, since smaller
+      --  values resulted in segmentation faults from dynamic stack analysis.
 
-      Size :
-        Natural := Natural (Self_ID.Common.Compiler_Data.Pri_Stack_Info.Size);
+      Big_Overflow_Guard   : constant := 16 * 1024;
+      Small_Stack_Limit    : constant := 64 * 1024;
+      --  ??? These three values are experimental, and seems to work on most
+      --  platforms. They still need to be analyzed further. They also need
+      --  documentation, what are they???
+
+      Size : Natural :=
+               Natural (Self_ID.Common.Compiler_Data.Pri_Stack_Info.Size);
 
       Overflow_Guard : Natural;
       --  Size of the overflow guard, used by dynamic stack usage analysis
@@ -975,7 +993,7 @@ package body System.Tasking.Stages is
       pragma Warnings (On);
       --  Address of secondary stack. In the fixed secondary stack case, this
       --  value is not modified, causing a warning, hence the bracketing with
-      --  Warnings (Off/On).
+      --  Warnings (Off/On). But why is so much *more* bracketed ???
 
       SEH_Table : aliased SSE.Storage_Array (1 .. 8);
       --  Structured Exception Registration table (2 words)
@@ -1145,8 +1163,7 @@ package body System.Tasking.Stages is
                Cause := Abnormal;
             end if;
          when others =>
-            --  ??? Using an E : others here causes CD2C11A  to fail on
-            --      DEC Unix, see 7925-005.
+            --  ??? Using an E : others here causes CD2C11A to fail on Tru64.
 
             Initialization.Defer_Abort_Nestable (Self_ID);
 
@@ -1253,7 +1270,7 @@ package body System.Tasking.Stages is
       --  Since GCC cannot allocate stack chunks efficiently without reordering
       --  some of the allocations, we have to handle this unexpected situation
       --  here. We should normally never have to call Vulnerable_Complete_Task
-      --  here. See 6602-003 for more details.
+      --  here.
 
       if Self_ID.Common.Activator /= null then
          Vulnerable_Complete_Task (Self_ID);
@@ -1270,7 +1287,7 @@ package body System.Tasking.Stages is
       --  Check if the current task is an independent task If so, decrement
       --  the Independent_Task_Count value.
 
-      if Master_of_Task = 2 then
+      if Master_of_Task = Independent_Task_Level then
          if Single_Lock then
             Utilities.Independent_Task_Count :=
               Utilities.Independent_Task_Count - 1;
@@ -1766,7 +1783,7 @@ package body System.Tasking.Stages is
 
          if (T.Common.Parent /= null
               and then T.Common.Parent.Common.Parent /= null)
-           or else T.Master_of_Task > 3
+           or else T.Master_of_Task > Library_Task_Level
          then
             Initialization.Task_Lock (Self_ID);
 

@@ -314,8 +314,22 @@ add_coalesce (coalesce_list_p cl, int p1, int p2,
 static int 
 compare_pairs (const void *p1, const void *p2)
 {
-  return (*(const_coalesce_pair_p const*)p1)->cost
-    - (*(const_coalesce_pair_p const*)p2)->cost;
+  const_coalesce_pair_p const * pp1 = p1;
+  const_coalesce_pair_p const * pp2 = p2;
+  int result;
+
+  result = (* pp2)->cost - (* pp1)->cost;
+  /* Since qsort does not guarantee stability we use the elements
+     as a secondary key.  This provides us with independence from
+     the host's implementation of the sorting algorithm.  */
+  if (result == 0)
+    {
+      result = (* pp2)->first_element - (* pp1)->first_element;
+      if (result == 0)
+	result = (* pp2)->second_element - (* pp1)->second_element;
+    }
+
+  return result;
 }
 
 
@@ -586,6 +600,24 @@ ssa_conflicts_merge (ssa_conflicts_p ptr, unsigned x, unsigned y)
       ptr->conflicts[x] = ptr->conflicts[y];
       ptr->conflicts[y] = NULL;
     }
+}
+
+
+/* Dump a conflicts graph.  */
+
+static void
+ssa_conflicts_dump (FILE *file, ssa_conflicts_p ptr)
+{
+  unsigned x;
+
+  fprintf (file, "\nConflict graph:\n");
+
+  for (x = 0; x < ptr->size; x++)
+    if (ptr->conflicts[x])
+      {
+	fprintf (dump_file, "%d: ", x);
+	dump_bitmap (file, ptr->conflicts[x]);
+      }
 }
 
 
@@ -1302,6 +1334,8 @@ coalesce_ssa_name (void)
   /* Build a conflict graph.  */
   graph = build_ssa_conflict_graph (liveinfo);
   delete_tree_live_info (liveinfo);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    ssa_conflicts_dump (dump_file, graph);
 
   sort_coalesce_list (cl);
 

@@ -1,13 +1,14 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file contains the functions for converting C++ expressions
@@ -38,7 +38,7 @@ Boston, MA 02110-1301, USA.  */
 #include "decl.h"
 #include "target.h"
 
-static tree cp_convert_to_pointer (tree, tree, bool);
+static tree cp_convert_to_pointer (tree, tree);
 static tree convert_to_pointer_force (tree, tree);
 static tree build_type_conversion (tree, tree);
 static tree build_up_reference (tree, tree, int, tree);
@@ -71,12 +71,10 @@ static void warn_ref_binding (tree, tree, tree);
      else if dealing with method pointers, delegate
      else convert blindly
    else if converting class, pass off to build_type_conversion
-   else try C-style pointer conversion.  If FORCE is true then allow
-   conversions via virtual bases (these are permitted by reinterpret_cast,
-   but not static_cast).  */
+   else try C-style pointer conversion.  */
 
 static tree
-cp_convert_to_pointer (tree type, tree expr, bool force)
+cp_convert_to_pointer (tree type, tree expr)
 {
   tree intype = TREE_TYPE (expr);
   enum tree_code form;
@@ -174,61 +172,17 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 
       return build_nop (type, expr);
     }
-  else if (TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
-    {
-      tree b1;
-      tree b2;
-      tree binfo;
-      enum tree_code code = PLUS_EXPR;
-      base_kind bk;
-
-      b1 = TYPE_PTRMEM_CLASS_TYPE (type);
-      b2 = TYPE_PTRMEM_CLASS_TYPE (intype);
-      binfo = lookup_base (b1, b2, ba_check, &bk);
-      if (!binfo)
-	{
-	  binfo = lookup_base (b2, b1, ba_check, &bk);
-	  code = MINUS_EXPR;
-	}
-      if (binfo == error_mark_node)
-	return error_mark_node;
-
-      if (bk == bk_via_virtual)
-	{
-	  if (force)
-	    warning (0, "pointer to member cast from %qT to %qT is via"
-		     " virtual base", intype, type);
-	  else
-	    {
-	      error ("pointer to member cast from %qT to %qT is"
-		     " via virtual base", intype, type);
-	      return error_mark_node;
-	    }
-	  /* This is a reinterpret cast, whose result is unspecified.
-	     We choose to do nothing.  */
-	  return build1 (NOP_EXPR, type, expr);
-	}
-
-      if (TREE_CODE (expr) == PTRMEM_CST)
-	expr = cplus_expand_constant (expr);
-
-      if (binfo && !integer_zerop (BINFO_OFFSET (binfo)))
-	expr = size_binop (code,
-			   build_nop (sizetype, expr),
-			   BINFO_OFFSET (binfo));
-      return build_nop (type, expr);
-    }
-  else if (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype))
-    return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0,
-			     /*c_cast_p=*/false);
+  else if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
+	   || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
+    return convert_ptrmem (type, expr, /*allow_inverse_p=*/false,
+			   /*c_cast_p=*/false);
   else if (TYPE_PTRMEMFUNC_P (intype))
     {
       if (!warn_pmf2ptr)
 	{
 	  if (TREE_CODE (expr) == PTRMEM_CST)
 	    return cp_convert_to_pointer (type,
-					  PTRMEM_CST_MEMBER (expr),
-					  force);
+					  PTRMEM_CST_MEMBER (expr));
 	  else if (TREE_CODE (expr) == OFFSET_REF)
 	    {
 	      tree object = TREE_OPERAND (expr, 0);
@@ -333,7 +287,7 @@ convert_to_pointer_force (tree type, tree expr)
 	}
     }
 
-  return cp_convert_to_pointer (type, expr, true);
+  return cp_convert_to_pointer (type, expr);
 }
 
 /* We are passing something to a function which requires a reference.
@@ -511,8 +465,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
       /* B* bp; A& ar = (A&)bp; is valid, but it's probably not what they
 	 meant.  */
       if (TREE_CODE (intype) == POINTER_TYPE
-	  && (comptypes (TREE_TYPE (intype), type,
-			 COMPARE_BASE | COMPARE_DERIVED)))
+	  && (cp_comptypes (TREE_TYPE (intype), type,
+                            COMPARE_BASE | COMPARE_DERIVED)))
 	warning (0, "casting %qT to %qT does not dereference pointer",
 		 intype, reftype);
 
@@ -642,19 +596,15 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 
   e = integral_constant_value (e);
 
-  if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP)
-      /* Some internal structures (vtable_entry_type, sigtbl_ptr_type)
-	 don't go through finish_struct, so they don't have the synthesized
-	 constructors.  So don't force a temporary.  */
-      && TYPE_HAS_CONSTRUCTOR (type))
+  if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP))
     /* We need a new temporary; don't take this shortcut.  */;
-  else if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (e)))
+  else if (same_type_ignoring_top_level_qualifiers_p (type, TREE_TYPE (e)))
     {
       if (same_type_p (type, TREE_TYPE (e)))
 	/* The call to fold will not always remove the NOP_EXPR as
 	   might be expected, since if one of the types is a typedef;
 	   the comparison in fold is just equality of pointers, not a
-	   call to comptypes.  We don't call fold in this case because
+	   call to cp_comptypes.  We don't call fold in this case because
 	   that can result in infinite recursion; fold will call
 	   convert, which will call ocp_convert, etc.  */
 	return e;
@@ -665,10 +615,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
       else if (TREE_CODE (e) == TARGET_EXPR)
 	{
 	  /* Don't build a NOP_EXPR of class type.  Instead, change the
-	     type of the temporary.  Only allow this for cv-qual changes,
-	     though.  */
-	  gcc_assert (same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (e)),
-				   TYPE_MAIN_VARIANT (type)));
+	     type of the temporary.  */
 	  TREE_TYPE (e) = TREE_TYPE (TARGET_EXPR_SLOT (e)) = type;
 	  return e;
 	}
@@ -720,7 +667,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
       return fold_if_not_in_template (convert_to_integer (type, e));
     }
   if (POINTER_TYPE_P (type) || TYPE_PTR_TO_MEMBER_P (type))
-    return fold_if_not_in_template (cp_convert_to_pointer (type, e, false));
+    return fold_if_not_in_template (cp_convert_to_pointer (type, e));
   if (code == VECTOR_TYPE)
     {
       tree in_vtype = TREE_TYPE (e);

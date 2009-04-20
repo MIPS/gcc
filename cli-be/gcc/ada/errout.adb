@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -873,8 +872,7 @@ package body Errout is
       Errors.Table (Cur_Msg).Warn     := Is_Warning_Msg;
       Errors.Table (Cur_Msg).Style    := Is_Style_Msg;
       Errors.Table (Cur_Msg).Serious  := Is_Serious_Error;
-      Errors.Table (Cur_Msg).Uncond   := Is_Unconditional_Msg
-                                           or Is_Warning_Msg;
+      Errors.Table (Cur_Msg).Uncond   := Is_Unconditional_Msg;
       Errors.Table (Cur_Msg).Msg_Cont := Continuation;
       Errors.Table (Cur_Msg).Deleted  := False;
 
@@ -971,9 +969,9 @@ package body Errout is
                          or
                        Errors.Table (Prev_Msg).Style)
                  or else
-                       (Errors.Table (Cur_Msg).Warn
+                      (Errors.Table (Cur_Msg).Warn
                          or
-                        Errors.Table (Cur_Msg).Style)
+                       Errors.Table (Cur_Msg).Style)
                then
                   --  All tests passed, delete the message by simply returning
                   --  without any further processing.
@@ -1178,7 +1176,7 @@ package body Errout is
    -- Finalize --
    --------------
 
-   procedure Finalize is
+   procedure Finalize (Last_Call : Boolean) is
       Cur : Error_Msg_Id;
       Nxt : Error_Msg_Id;
       F   : Error_Msg_Id;
@@ -1218,18 +1216,14 @@ package body Errout is
          Cur := Errors.Table (Cur).Next;
       end loop;
 
-      --  Remaining processing should only be done once in the case where
-      --  Finalize has been called more than once.
+      Finalize_Called := True;
 
-      if Finalize_Called then
-         return;
-      else
-         Finalize_Called := True;
+      --  Check consistency of specific warnings (may add warnings). We only
+      --  do this on the last call, after all possible warnings are posted.
+
+      if Last_Call then
+         Validate_Specific_Warnings (Error_Msg'Access);
       end if;
-
-      --  Check consistency of specific warnings (may add warnings)
-
-      Validate_Specific_Warnings (Error_Msg'Access);
    end Finalize;
 
    ----------------
@@ -1241,15 +1235,12 @@ package body Errout is
       Sfile    : constant Source_File_Index := Get_Source_File_Index (L);
       Earliest : Node_Id;
       Eloc     : Source_Ptr;
-      Discard  : Traverse_Result;
-
-      pragma Warnings (Off, Discard);
 
       function Test_Earlier (N : Node_Id) return Traverse_Result;
       --  Function applied to every node in the construct
 
-      function Search_Tree_First is new Traverse_Func (Test_Earlier);
-      --  Create traversal function
+      procedure Search_Tree_First is new Traverse_Proc (Test_Earlier);
+      --  Create traversal procedure
 
       ------------------
       -- Test_Earlier --
@@ -1279,7 +1270,7 @@ package body Errout is
    begin
       Earliest := Original_Node (C);
       Eloc := Sloc (Earliest);
-      Discard := Search_Tree_First (Original_Node (C));
+      Search_Tree_First (Original_Node (C));
       return Earliest;
    end First_Node;
 
@@ -1789,6 +1780,9 @@ package body Errout is
       Line_Number_Output : Boolean := False;
       --  Set True once line number is output
 
+      Empty_Line : Boolean := True;
+      --  Set False if line includes at least one character
+
    begin
       if Sfile /= Current_Error_Source_File then
          Write_Str ("==============Error messages for ");
@@ -1876,11 +1870,19 @@ package body Errout is
             end if;
          end if;
 
+         Empty_Line := False;
          S := S + 1;
       end loop;
 
+      --  If we have output a source line, then add the line terminator, with
+      --  training spaces preserved (so we output the line exactly as input).
+
       if Line_Number_Output then
-         Write_Eol;
+         if Empty_Line then
+            Write_Eol;
+         else
+            Write_Eol_Keep_Blanks;
+         end if;
       end if;
    end Output_Source_Line;
 
@@ -1893,8 +1895,7 @@ package body Errout is
       function Check_For_Warning (N : Node_Id) return Traverse_Result;
       --  This function checks one node for a possible warning message
 
-      function Check_All_Warnings is new
-        Traverse_Func (Check_For_Warning);
+      function Check_All_Warnings is new Traverse_Func (Check_For_Warning);
       --  This defines the traversal operation
 
       -----------------------
@@ -1916,11 +1917,26 @@ package body Errout is
          function To_Be_Removed (E : Error_Msg_Id) return Boolean is
          begin
             if E /= No_Error_Msg
-              and then Errors.Table (E).Optr = Loc
-              and then (Errors.Table (E).Warn or Errors.Table (E).Style)
+
+               --  Don't remove if location does not match
+
+               and then Errors.Table (E).Optr = Loc
+
+               --  Don't remove if not warning message. Note that we do not
+               --  remove style messages here. They are warning messages but
+               --  not ones we want removed in this context.
+
+               and then Errors.Table (E).Warn
+
+               --  Don't remove unconditional messages
+
+               and then not Errors.Table (E).Uncond
             then
                Warnings_Detected := Warnings_Detected - 1;
                return True;
+
+            --  No removal required
+
             else
                return False;
             end if;
@@ -1963,7 +1979,7 @@ package body Errout is
             --  to the tree is harmless.
 
             declare
-               Status : Traverse_Result;
+               Status : Traverse_Final_Result;
 
             begin
                if Is_List_Member (N) then
@@ -1987,7 +2003,7 @@ package body Errout is
    begin
       if Warnings_Detected /= 0 then
          declare
-            Discard : Traverse_Result;
+            Discard : Traverse_Final_Result;
             pragma Warnings (Off, Discard);
 
          begin
