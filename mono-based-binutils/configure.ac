@@ -34,5 +34,5 @@ AC_ARG_WITH(mcs,
 	    MCS=$withval)
 AC_CHECK_PROG(MCS, mcs, mcs, mcs-not-found)
 
-AC_CONFIG_FILES([Makefile scripts/Makefile tools/Makefile])
+AC_CONFIG_FILES([Makefile scripts/Makefile tools/Makefile doc/Makefile])
 AC_OUTPUT

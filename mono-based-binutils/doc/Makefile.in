@@ -13,7 +13,6 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
-
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
@@ -33,7 +32,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-subdir = scripts
+subdir = doc
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -41,10 +40,6 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_CLEAN_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(cil32bindir)"
-binSCRIPT_INSTALL = $(INSTALL_SCRIPT)
-cil32binSCRIPT_INSTALL = $(INSTALL_SCRIPT)
-SCRIPTS = $(bin_SCRIPTS) $(cil32bin_SCRIPTS)
 SOURCES =
 DIST_SOURCES =
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -92,7 +87,7 @@ abs_top_srcdir = @abs_top_srcdir@
 am__leading_dot = @am__leading_dot@
 am__tar = @am__tar@
 am__untar = @am__untar@
-bindir = $(prefix)/bin
+bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
 build_cpu = @build_cpu@
@@ -110,11 +105,11 @@ host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
 htmldir = @htmldir@
-includedir = $(prefix)/include
+includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
 lbindir = @lbindir@
-libdir = $(prefix)/lib
+libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
@@ -137,26 +132,6 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-CIL_TOOLS = \
-        ar \
-        as \
-        ld \
-        nm \
-        objcopy \
-        objdump \
-        ranlib \
-        size \
-        strip
-
-CIL_VM = \
-	ilrun \
-	mono
-
-EXTRA_DIST = ${CIL_TOOLS:%=%.in} ${CIL_VM}
-CLEANFILES = ${CIL_TOOLS} ${CIL_TOOLS:%=cil32-%} ${CIL_VM:%=cil32-%} sedscript cil32sedscript
-cil32bindir = $(prefix)/cil32/bin
-bin_SCRIPTS = ${CIL_TOOLS:%=cil32-%} ${CIL_VM:%=cil32-%}
-cil32bin_SCRIPTS = ${CIL_TOOLS} 
 all: all-am
 
 .SUFFIXES:
@@ -169,9 +144,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  scripts/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  doc/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  scripts/Makefile
+	  $(AUTOMAKE) --foreign  doc/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -224,7 +199,8 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(SCRIPTS)
+all-am: Makefile
+installdirs:
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -242,7 +218,6 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -268,11 +243,11 @@ info: info-am
 
 info-am:
 
-install-data-am: install-cil32binSCRIPTS
+install-data-am:
 
 install-dvi: install-dvi-am
 
-install-exec-am: install-binSCRIPTS
+install-exec-am:
 
 install-html: install-html-am
 
@@ -302,77 +277,24 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binSCRIPTS uninstall-cil32binSCRIPTS
+uninstall-am:
 
 .MAKE: install-am install-strip
 
 .PHONY: all all-am check check-am clean clean-generic distclean \
 	distclean-generic distdir dvi dvi-am html html-am info info-am \
-	install install-am install-binSCRIPTS install-cil32binSCRIPTS \
-	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
-	pdf-am ps ps-am uninstall uninstall-am uninstall-binSCRIPTS \
-	uninstall-cil32binSCRIPTS
+	install install-am install-data install-data-am install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic pdf pdf-am ps ps-am uninstall uninstall-am
 
 
-sedscript:
-	echo 's?@CILRUN@?$(MONO)?'  >  $@
-	echo 's?@DPREFIX@?../..?'   >> $@
-	echo 's?@ILASM@?$(CIL_AS)?' >> $@
-
-cil32sedscript:
-	echo 's?@CILRUN@?$(MONO)?'  >  $@
-	echo 's?@DPREFIX@?..?'      >> $@
-	echo 's?@ILASM@?$(CIL_AS)?' >> $@
-
-%: %.in sedscript
-	cat $< | sed -f sedscript > $@
-
-cil32-%: %.in cil32sedscript
-	cat $< | sed -f cil32sedscript > $@
-
-cil32-%: %
-	cat $< | sed 's?@CILRUN@?$(MONO)?' > $@
-
-installdirs:
-	@$(mkinstalldirs) $(DESTDIR)$(bindir)
-	@$(mkinstalldirs) $(DESTDIR)$(includedir)
-	@$(mkinstalldirs) $(DESTDIR)$(libdir)
-	@$(mkinstalldirs) $(DESTDIR)$(cil32bindir);
-	@rm -f $(DESTDIR)$(prefix)/cil32/include; (cd $(DESTDIR)$(prefix)/cil32 && $(LN_S) ../include include)
-	@rm -f $(DESTDIR)$(prefix)/cil32/lib;     (cd $(DESTDIR)$(prefix)/cil32 && $(LN_S) ../lib lib)
-
-install-binSCRIPTS: $(bin_SCRIPTS) installdirs
-	@list='$(bin_SCRIPTS)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    echo " $(binSCRIPT_INSTALL) '$$p' '$(DESTDIR)$(bindir)/$$p'"; \
-	    $(binSCRIPT_INSTALL) "$$p" "$(DESTDIR)$(bindir)/$$p"; \
-	  else :; fi; \
-	done
-
-uninstall-binSCRIPTS:
-	@list='$(bin_SCRIPTS)'; for p in $$list; do \
-	  echo " rm -f '$(DESTDIR)$(bindir)/$$p'"; \
-	  rm -f "$(DESTDIR)$(bindir)/$$p"; \
-	done
-
-install-cil32binSCRIPTS: $(cil32bin_SCRIPTS) installdirs
-	@list='$(cil32bin_SCRIPTS)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    echo " $(cil32binSCRIPT_INSTALL) '$$p' '$(DESTDIR)$(cil32bindir)/$$p'"; \
-	    $(cil32binSCRIPT_INSTALL) "$$p" "$(DESTDIR)$(cil32bindir)/$$p"; \
-	  else :; fi; \
-	done
-
-uninstall-cil32binSCRIPTS:
-	@list='$(cil32bin_SCRIPTS)'; for p in $$list; do \
-	  echo " rm -f '$(DESTDIR)$(cil32bindir)/$$p'"; \
-	  rm -f "$(DESTDIR)$(cil32bindir)/$$p"; \
-	done
+all-doc:
+	DOCDIR=${builddir} SRCDIR=${top_srcdir} PERL_PATH=perl doxygen ${srcdir}/Doxyfile.Mono.Cecil.in
+	DOCDIR=${builddir} SRCDIR=${top_srcdir} PERL_PATH=perl doxygen ${srcdir}/Doxyfile.gcc4cli.in
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
