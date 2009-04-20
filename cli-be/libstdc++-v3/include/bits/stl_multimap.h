@@ -1,6 +1,6 @@
 // Multimap implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -64,7 +64,7 @@
 
 #include <bits/concept_check.h>
 
-_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
   /**
    *  @brief A standard container made up of (key,value) pairs, which can be
@@ -81,11 +81,9 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
    *
    *  Multimaps support bidirectional iterators.
    *
-   *  @if maint
    *  The private tree data is declared exactly the same way for map and
    *  multimap; the distinction is made entirely in how the tree functions are
    *  called (*_unique versus *_equal, same as the standard).
-   *  @endif
   */
   template <typename _Key, typename _Tp,
 	    typename _Compare = std::less<_Key>,
@@ -124,13 +122,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       };
 
     private:
-      /// @if maint  This turns a red-black tree into a [multi]map.  @endif
+      /// This turns a red-black tree into a [multi]map.
       typedef typename _Alloc::template rebind<value_type>::other 
         _Pair_alloc_type;
 
       typedef _Rb_tree<key_type, value_type, _Select1st<value_type>,
 		       key_compare, _Pair_alloc_type> _Rep_type;
-      /// @if maint  The actual tree structure.  @endif
+      /// The actual tree structure.
       _Rep_type _M_t;
 
     public:
@@ -153,11 +151,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  @brief  Default constructor creates no elements.
        */
       multimap()
-      : _M_t(_Compare(), allocator_type()) { }
+      : _M_t() { }
 
-      // for some reason this was made a separate function
       /**
-       *  @brief  Default constructor creates no elements.
+       *  @brief  Creates a %multimap with no elements.
+       *  @param  comp  A comparison object.
+       *  @param  a  An allocator object.
        */
       explicit
       multimap(const _Compare& __comp,
@@ -168,11 +167,23 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  @brief  %Multimap copy constructor.
        *  @param  x  A %multimap of identical element and allocator types.
        *
-       *  The newly-created %multimap uses a copy of the allocation object used
-       *  by @a x.
+       *  The newly-created %multimap uses a copy of the allocation object
+       *  used by @a x.
        */
       multimap(const multimap& __x)
       : _M_t(__x._M_t) { }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  %Multimap move constructor.
+       *  @param   x  A %multimap of identical element and allocator types.
+       *
+       *  The newly-created %multimap contains the exact contents of @a x.
+       *  The contents of @a x are a valid, but unspecified %multimap.
+       */
+      multimap(multimap&& __x)
+      : _M_t(std::forward<_Rep_type>(__x._M_t)) { }
+#endif
 
       /**
        *  @brief  Builds a %multimap from a range.
@@ -183,10 +194,10 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  [first,last).  This is linear in N if the range is already sorted,
        *  and NlogN otherwise (where N is distance(first,last)).
        */
-      template <typename _InputIterator>
+      template<typename _InputIterator>
         multimap(_InputIterator __first, _InputIterator __last)
-	: _M_t(_Compare(), allocator_type())
-        { _M_t._M_insert_equal(__first, __last); }
+	: _M_t()
+        { _M_t._M_insert_unique(__first, __last); }
 
       /**
        *  @brief  Builds a %multimap from a range.
@@ -199,7 +210,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  [first,last).  This is linear in N if the range is already sorted,
        *  and NlogN otherwise (where N is distance(first,last)).
        */
-      template <typename _InputIterator>
+      template<typename _InputIterator>
         multimap(_InputIterator __first, _InputIterator __last,
 		 const _Compare& __comp,
 		 const allocator_type& __a = allocator_type())
@@ -212,7 +223,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       /**
        *  The dtor only erases the elements, and note that if the elements
        *  themselves are pointers, the pointed-to memory is not touched in any
-       *  way.  Managing the pointer is the user's responsibilty.
+       *  way.  Managing the pointer is the user's responsibility.
        */
 
       /**
@@ -228,6 +239,24 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	_M_t = __x._M_t;
 	return *this;
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  %Multimap move assignment operator.
+       *  @param  x  A %multimap of identical element and allocator types.
+       *
+       *  The contents of @a x are moved into this multimap (without copying).
+       *  @a x is a valid, but unspecified multimap.
+       */
+      multimap&
+      operator=(multimap&& __x)
+      {
+	// NB: DR 675.
+	this->clear();
+	this->swap(__x); 
+	return *this;
+      }
+#endif
 
       /// Get a copy of the memory allocation object.
       allocator_type
@@ -307,6 +336,44 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       rend() const
       { return _M_t.rend(); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  Returns a read-only (constant) iterator that points to the first pair
+       *  in the %multimap.  Iteration is done in ascending order according to
+       *  the keys.
+       */
+      const_iterator
+      cbegin() const
+      { return _M_t.begin(); }
+
+      /**
+       *  Returns a read-only (constant) iterator that points one past the last
+       *  pair in the %multimap.  Iteration is done in ascending order according
+       *  to the keys.
+       */
+      const_iterator
+      cend() const
+      { return _M_t.end(); }
+
+      /**
+       *  Returns a read-only (constant) reverse iterator that points to the
+       *  last pair in the %multimap.  Iteration is done in descending order
+       *  according to the keys.
+       */
+      const_reverse_iterator
+      crbegin() const
+      { return _M_t.rbegin(); }
+
+      /**
+       *  Returns a read-only (constant) reverse iterator that points to one
+       *  before the first pair in the %multimap.  Iteration is done in
+       *  descending order according to the keys.
+       */
+      const_reverse_iterator
+      crend() const
+      { return _M_t.rend(); }
+#endif
+
       // capacity
       /** Returns true if the %multimap is empty.  */
       bool
@@ -365,14 +432,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       { return _M_t._M_insert_equal_(__position, __x); }
 
       /**
-       *  @brief A template function that attemps to insert a range of elements.
+       *  @brief A template function that attempts to insert a range of elements.
        *  @param  first  Iterator pointing to the start of the range to be
        *                 inserted.
        *  @param  last  Iterator pointing to the end of the range.
        *
        *  Complexity similar to that of the range constructor.
        */
-      template <typename _InputIterator>
+      template<typename _InputIterator>
         void
         insert(_InputIterator __first, _InputIterator __last)
         { _M_t._M_insert_equal(__first, __last); }
@@ -385,7 +452,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  from a %multimap.  Note that this function only erases the element,
        *  and that if the element is itself a pointer, the pointed-to memory is
        *  not touched in any way.  Managing the pointer is the user's
-       *  responsibilty.
+       *  responsibility.
        */
       void
       erase(iterator __position)
@@ -400,7 +467,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  %multimap.
        *  Note that this function only erases the element, and that if
        *  the element is itself a pointer, the pointed-to memory is not touched
-       *  in any way.  Managing the pointer is the user's responsibilty.
+       *  in any way.  Managing the pointer is the user's responsibility.
        */
       size_type
       erase(const key_type& __x)
@@ -415,7 +482,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  This function erases a sequence of elements from a %multimap.
        *  Note that this function only erases the elements, and that if
        *  the elements themselves are pointers, the pointed-to memory is not
-       *  touched in any way.  Managing the pointer is the user's responsibilty.
+       *  touched in any way.  Managing the pointer is the user's responsibility.
        */
       void
       erase(iterator __first, iterator __last)
@@ -433,14 +500,18 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  std::swap(m1,m2) will feed to this function.
        */
       void
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      swap(multimap&& __x)
+#else
       swap(multimap& __x)
+#endif
       { _M_t.swap(__x._M_t); }
 
       /**
        *  Erases all elements in a %multimap.  Note that this function only
        *  erases the elements, and that if the elements themselves are pointers,
        *  the pointed-to memory is not touched in any way.  Managing the pointer
-       *  is the user's responsibilty.
+       *  is the user's responsibility.
        */
       void
       clear()
@@ -587,15 +658,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       equal_range(const key_type& __x) const
       { return _M_t.equal_range(__x); }
 
-      template <typename _K1, typename _T1, typename _C1, typename _A1>
+      template<typename _K1, typename _T1, typename _C1, typename _A1>
         friend bool
-        operator== (const multimap<_K1, _T1, _C1, _A1>&,
-		    const multimap<_K1, _T1, _C1, _A1>&);
-
-      template <typename _K1, typename _T1, typename _C1, typename _A1>
-        friend bool
-        operator< (const multimap<_K1, _T1, _C1, _A1>&,
+        operator==(const multimap<_K1, _T1, _C1, _A1>&,
 		   const multimap<_K1, _T1, _C1, _A1>&);
+
+      template<typename _K1, typename _T1, typename _C1, typename _A1>
+        friend bool
+        operator<(const multimap<_K1, _T1, _C1, _A1>&,
+		  const multimap<_K1, _T1, _C1, _A1>&);
   };
 
   /**
@@ -608,7 +679,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
    *  multimaps.  Multimaps are considered equivalent if their sizes are equal,
    *  and if corresponding elements compare equal.
   */
-  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
     inline bool
     operator==(const multimap<_Key, _Tp, _Compare, _Alloc>& __x,
                const multimap<_Key, _Tp, _Compare, _Alloc>& __y)
@@ -625,46 +696,60 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
    *
    *  See std::lexicographical_compare() for how the determination is made.
   */
-  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
     inline bool
     operator<(const multimap<_Key, _Tp, _Compare, _Alloc>& __x,
               const multimap<_Key, _Tp, _Compare, _Alloc>& __y)
     { return __x._M_t < __y._M_t; }
 
   /// Based on operator==
-  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
     inline bool
     operator!=(const multimap<_Key, _Tp, _Compare, _Alloc>& __x,
                const multimap<_Key, _Tp, _Compare, _Alloc>& __y)
     { return !(__x == __y); }
 
   /// Based on operator<
-  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
     inline bool
     operator>(const multimap<_Key, _Tp, _Compare, _Alloc>& __x,
               const multimap<_Key, _Tp, _Compare, _Alloc>& __y)
     { return __y < __x; }
 
   /// Based on operator<
-  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
     inline bool
     operator<=(const multimap<_Key, _Tp, _Compare, _Alloc>& __x,
                const multimap<_Key, _Tp, _Compare, _Alloc>& __y)
     { return !(__y < __x); }
 
   /// Based on operator<
-  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
     inline bool
     operator>=(const multimap<_Key, _Tp, _Compare, _Alloc>& __x,
                const multimap<_Key, _Tp, _Compare, _Alloc>& __y)
     { return !(__x < __y); }
 
   /// See std::multimap::swap().
-  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
     inline void
     swap(multimap<_Key, _Tp, _Compare, _Alloc>& __x,
          multimap<_Key, _Tp, _Compare, _Alloc>& __y)
     { __x.swap(__y); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+    inline void
+    swap(multimap<_Key, _Tp, _Compare, _Alloc>&& __x,
+         multimap<_Key, _Tp, _Compare, _Alloc>& __y)
+    { __x.swap(__y); }
+
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+    inline void
+    swap(multimap<_Key, _Tp, _Compare, _Alloc>& __x,
+         multimap<_Key, _Tp, _Compare, _Alloc>&& __y)
+    { __x.swap(__y); }
+#endif
 
 _GLIBCXX_END_NESTED_NAMESPACE
 

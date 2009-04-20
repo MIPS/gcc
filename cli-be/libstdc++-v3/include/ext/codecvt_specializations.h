@@ -47,7 +47,7 @@
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
-  /// @brief  Extension to use icov for dealing with character encodings.
+  /// @brief  Extension to use iconv for dealing with character encodings.
   // This includes conversions and comparisons between various character
   // sets.  This object encapsulates data that may need to be shared between
   // char_traits, codecvt and ctype.
@@ -101,7 +101,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     // typedef STATE_T state_type
     // requires: state_type shall meet the requirements of
     // CopyConstructible types (20.1.3)
-    // NB: This does not preseve the actual state of the conversion
+    // NB: This does not preserve the actual state of the conversion
     // descriptor member, but it does duplicate the encoding
     // information.
     encoding_state(const encoding_state& __obj) : _M_in_desc(0), _M_out_desc(0)
@@ -121,7 +121,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     bool
     good() const throw()
     { 
-      const descriptor_type __err = reinterpret_cast<iconv_t>(-1);
+      const descriptor_type __err = (iconv_t)(-1);
       bool __test = _M_in_desc && _M_in_desc != __err; 
       __test &=  _M_out_desc && _M_out_desc != __err;
       return __test;
@@ -159,7 +159,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     void
     init()
     {
-      const descriptor_type __err = reinterpret_cast<iconv_t>(-1);
+      const descriptor_type __err = (iconv_t)(-1);
       const bool __have_encodings = _M_int_enc.size() && _M_ext_enc.size();
       if (!_M_in_desc && __have_encodings)
 	{
@@ -192,7 +192,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     void
     destroy() throw()
     {
-      const descriptor_type __err = reinterpret_cast<iconv_t>(-1);
+      const descriptor_type __err = (iconv_t)(-1);
       if (_M_in_desc && _M_in_desc != __err) 
 	{
 	  iconv_close(_M_in_desc);

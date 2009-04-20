@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -66,8 +66,7 @@
 #include <ext/pb_ds/assoc_container.hpp>
 
 using namespace std;
-using namespace pb_ds;
-using namespace pb_ds;
+using namespace __gnu_pbds;
 
 // A priority queue of integers, which supports fast pushes,
 // duplicated-int avoidance, and arbitrary-int erases.
@@ -81,7 +80,7 @@ public:
   push(const int& r_str);
 
   // Returns a const reference to the largest int in the container.
-  const int
+  int
   top() const
   {
     assert(!empty());
@@ -107,7 +106,7 @@ public:
 
 private:
   // A priority queue of strings.
-  typedef pb_ds::priority_queue< int> pq_t;
+  typedef __gnu_pbds::priority_queue< int> pq_t;
 
   // A hash-table mapping strings to point_iterators inside the
   // priority queue.

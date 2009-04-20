@@ -27,7 +27,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file functional_hash.h
+/** @file bits/functional_hash.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
@@ -58,6 +58,16 @@
 #  undef _GLIBCXX_BEGIN_NAMESPACE_TR1
 #  undef _GLIBCXX_INCLUDE_AS_CXX0X
 #endif
+
+
+namespace std
+{
+  struct error_code;
+
+  template<>
+    size_t
+    hash<error_code>::operator()(error_code) const;
+}
 
 #endif // _FUNCTIONAL_HASH_H
 
