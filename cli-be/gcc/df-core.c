@@ -71,7 +71,7 @@ USAGE:
 
 Here is an example of using the dataflow routines.
 
-      df_[ru,rd,urec,ri,chain]_add_problem (flags);
+      df_[chain,live,note,rd]_add_problem (flags);
 
       df_set_blocks (blocks);
 
@@ -79,9 +79,9 @@ Here is an example of using the dataflow routines.
 
       df_dump (stderr);
 
-      df_finish_pass ();
+      df_finish_pass (false);
 
-DF_[ru,rd,urec,ri,chain]_ADD_PROBLEM adds a problem, defined by an
+DF_[chain,live,note,rd]_ADD_PROBLEM adds a problem, defined by an
 instance to struct df_problem, to the set of problems solved in this
 instance of df.  All calls to add a problem for a given instance of df
 must occur before the first call to DF_ANALYZE.
@@ -144,7 +144,7 @@ There are four ways of doing the incremental scanning:
    For most modern rtl passes, this is certainly the easiest way to
    manage rescanning the insns.  This technique also has the advantage
    that the scanning information is always correct and can be relied
-   apon even after changes have been made to the instructions.  This
+   upon even after changes have been made to the instructions.  This
    technique is contra indicated in several cases:
 
    a) If def-use chains OR use-def chains (but not both) are built,
@@ -399,6 +399,7 @@ are write-only operations.
 #include "timevar.h"
 #include "df.h"
 #include "tree-pass.h"
+#include "params.h"
 
 static void *df_get_bb_info (struct dataflow *, unsigned int);
 static void df_set_bb_info (struct dataflow *, unsigned int, void *);
@@ -628,12 +629,12 @@ df_remove_problem (struct dataflow *dflow)
 }
 
 
-/* Remove all of the problems that are not permanent.  Scanning, lr,
-   ur and live are permanent, the rest are removable.  Also clear all
-   of the changeable_flags.  */
+/* Remove all of the problems that are not permanent.  Scanning, LR
+   and (at -O2 or higher) LIVE are permanent, the rest are removable.
+   Also clear all of the changeable_flags.  */
 
 void
-df_finish_pass (void)
+df_finish_pass (bool verify ATTRIBUTE_UNUSED)
 {
   int i;
   int removed = 0;
@@ -693,6 +694,11 @@ df_finish_pass (void)
 #ifdef DF_DEBUG_CFG
   df_set_clean_cfg ();
 #endif
+#endif
+
+#ifdef ENABLE_CHECKING
+  if (verify)
+    df->changeable_flags |= DF_VERIFY_SCHEDULED;
 #endif
 }
 
@@ -926,6 +932,105 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
 }
 
 
+
+/* This will free "pending". */
+static void 
+df_worklist_dataflow_overeager (struct dataflow *dataflow,
+				bitmap pending,
+                                sbitmap considered,
+                                int *blocks_in_postorder,
+				unsigned *bbindex_to_postorder)
+{
+  enum df_flow_dir dir = dataflow->problem->dir;
+  int count = 0;
+
+  while (!bitmap_empty_p (pending))
+    {
+      unsigned bb_index;
+      int index;
+      count++;
+
+      index = bitmap_first_set_bit (pending);
+      bitmap_clear_bit (pending, index);
+
+      bb_index = blocks_in_postorder[index];
+
+      if (dir == DF_FORWARD)
+	df_worklist_propagate_forward (dataflow, bb_index,
+				       bbindex_to_postorder,
+				       pending, considered);
+      else 
+	df_worklist_propagate_backward (dataflow, bb_index,
+					bbindex_to_postorder,
+					pending, considered);
+    }
+
+  BITMAP_FREE (pending);
+
+  /* Dump statistics. */
+  if (dump_file)
+    fprintf (dump_file, "df_worklist_dataflow_overeager:"
+	     "n_basic_blocks %d n_edges %d"
+	     " count %d (%5.2g)\n",
+	     n_basic_blocks, n_edges,
+	     count, count / (float)n_basic_blocks);
+}
+
+static void 
+df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
+			  	  bitmap pending,
+                                  sbitmap considered,
+                                  int *blocks_in_postorder,
+				  unsigned *bbindex_to_postorder)
+{
+  enum df_flow_dir dir = dataflow->problem->dir;
+  int dcount = 0;
+  bitmap worklist = BITMAP_ALLOC (&df_bitmap_obstack);
+
+  /* Double-queueing. Worklist is for the current iteration,
+     and pending is for the next. */
+  while (!bitmap_empty_p (pending))
+    {
+      /* Swap pending and worklist. */
+      bitmap temp = worklist;
+      worklist = pending;
+      pending = temp;
+
+      do
+	{
+	  int index;
+	  unsigned bb_index;
+	  dcount++;
+
+	  index = bitmap_first_set_bit (worklist);
+	  bitmap_clear_bit (worklist, index);
+
+	  bb_index = blocks_in_postorder[index];
+
+	  if (dir == DF_FORWARD)
+	    df_worklist_propagate_forward (dataflow, bb_index,
+					   bbindex_to_postorder,
+					   pending, considered);
+	  else 
+	    df_worklist_propagate_backward (dataflow, bb_index,
+					    bbindex_to_postorder,
+					    pending, considered);
+	}
+      while (!bitmap_empty_p (worklist));
+    }
+
+  BITMAP_FREE (worklist);
+  BITMAP_FREE (pending);
+
+  /* Dump statistics. */
+  if (dump_file)
+    fprintf (dump_file, "df_worklist_dataflow_doublequeue:"
+	     "n_basic_blocks %d n_edges %d"
+	     " count %d (%5.2g)\n",
+	     n_basic_blocks, n_edges,
+	     dcount, dcount / (float)n_basic_blocks);
+}
+
 /* Worklist-based dataflow solver. It uses sbitmap as a worklist,
    with "n"-th bit representing the n-th block in the reverse-postorder order. 
    This is so-called over-eager algorithm where it propagates
@@ -937,7 +1042,14 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
    iterative algorithm by some margin overall.  
    Note that this is slightly different from the traditional textbook worklist solver,
    in that the worklist is effectively sorted by the reverse postorder.
-   For CFGs with no nested loops, this is optimal.  */
+   For CFGs with no nested loops, this is optimal. 
+   
+   The overeager algorithm while works well for typical inputs,
+   it could degenerate into excessive iterations given CFGs with high loop nests
+   and unstructured loops. To cap the excessive iteration on such case,
+   we switch to double-queueing when the original algorithm seems to 
+   get into such.
+   */
 
 void 
 df_worklist_dataflow (struct dataflow *dataflow,
@@ -978,29 +1090,31 @@ df_worklist_dataflow (struct dataflow *dataflow,
       bitmap_set_bit (pending, i);
     }
 
+  /* Initialize the problem. */
   if (dataflow->problem->init_fun)
     dataflow->problem->init_fun (blocks_to_consider);
 
-  while (!bitmap_empty_p (pending))
+  /* Solve it. Determine the solving algorithm
+     based on a simple heuristic. */
+  if (n_edges > PARAM_VALUE (PARAM_DF_DOUBLE_QUEUE_THRESHOLD_FACTOR)
+      * n_basic_blocks)
     {
-      unsigned bb_index;
-
-      index = bitmap_first_set_bit (pending);
-      bitmap_clear_bit (pending, index);
-
-      bb_index = blocks_in_postorder[index];
-
-      if (dir == DF_FORWARD)
-        df_worklist_propagate_forward (dataflow, bb_index,
-                                       bbindex_to_postorder,
-                                       pending, considered);
-      else 
-        df_worklist_propagate_backward (dataflow, bb_index,
-                                        bbindex_to_postorder,
-                                        pending, considered);
+      /* High average connectivity, meaning dense graph
+         with more likely deep nested loops
+	 or unstructured loops. */
+      df_worklist_dataflow_doublequeue (dataflow, pending, considered,
+					blocks_in_postorder,
+					bbindex_to_postorder);
+    }
+  else 
+    {
+      /* Most inputs fall into this case
+        with relatively flat or structured CFG. */
+      df_worklist_dataflow_overeager (dataflow, pending, considered,
+				      blocks_in_postorder,
+				      bbindex_to_postorder);
     }
 
-  BITMAP_FREE (pending);
   sbitmap_free (considered);
   free (bbindex_to_postorder);
 }
@@ -1100,9 +1214,10 @@ df_analyze (void)
   if (dump_file)
     fprintf (dump_file, "df_analyze called\n");
 
-#ifdef ENABLE_DF_CHECKING
-  df_verify ();
-#endif 
+#ifndef ENABLE_DF_CHECKING
+  if (df->changeable_flags & DF_VERIFY_SCHEDULED)
+#endif
+    df_verify ();
 
   for (i = 0; i < df->n_blocks; i++)
     bitmap_set_bit (current_all_blocks, df->postorder[i]);
@@ -1509,9 +1624,11 @@ void
 df_verify (void)
 {
   df_scan_verify ();
+#ifdef ENABLE_DF_CHECKING
   df_lr_verify_transfer_functions ();
   if (df_live)
     df_live_verify_transfer_functions ();
+#endif
 }
 
 #ifdef DF_DEBUG_CFG
@@ -1753,6 +1870,7 @@ df_print_regset (FILE *file, bitmap r)
 
 
 /* Dump dataflow info.  */
+
 void
 df_dump (FILE *file)
 {
@@ -1767,6 +1885,34 @@ df_dump (FILE *file)
     }
 
   fprintf (file, "\n");
+}
+
+
+/* Dump dataflow info for df->blocks_to_analyze.  */
+
+void
+df_dump_region (FILE *file)
+{
+  if (df->blocks_to_analyze)
+    {
+      bitmap_iterator bi;
+      unsigned int bb_index;
+
+      fprintf (file, "\n\nstarting region dump\n");
+      df_dump_start (file);
+      
+      EXECUTE_IF_SET_IN_BITMAP (df->blocks_to_analyze, 0, bb_index, bi) 
+	{
+	  basic_block bb = BASIC_BLOCK (bb_index);
+	  
+	  df_print_bb_index (bb, file);
+	  df_dump_top (bb, file);
+	  df_dump_bottom (bb, file);
+	}
+      fprintf (file, "\n");
+    }
+  else 
+    df_dump (file);
 }
 
 
