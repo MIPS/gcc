@@ -1,3 +1,159 @@
+2008-01-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/34692
+	* macro.c (collect_args): Add pragma_buff argument.  Push
+	CPP_PRAGMA ... CPP_PRAGMA_EOL tokens to *pragma_buff, rather
+	than into arguments.  Reset prevent_expansion and parsing_args
+	state at CPP_PRAGMA_EOL/CPP_EOF.
+	(funlike_invocation_p): Add pragma_buff argument, pass it through
+	to collect_args.
+	(enter_macro_context): Add result argument.  Adjust
+	funlike_invocation_p caller.  Emit all deferred pragma tokens
+	gathered during collect_args before the expansion, add a padding
+	token.  Return 2 instead of 1 if any pragma tokens were prepended.
+	(cpp_get_token): If enter_macro_context returns 2, don't return
+	a padding token, instead cycle to grab CPP_PRAGMA token.
+	* directives.c (_cpp_handle_directive): If was_parsing_args
+	in deferred pragma, leave parsing_args and prevent_expansion as is.
+
+2008-01-22  Tom Tromey  <tromey@redhat.com>
+
+	PR c++/34859
+	* macro.c (_cpp_create_definition): Handle __STDC_LIMIT_MACROS and
+	__STDC_CONSTANT_MACROS.
+
+2008-01-07  Fred Fish  <fnf@specifix.com>
+
+	PR preprocessor/30363
+	* traditional.c (replace_args_and_push): Add local variable
+	cxtquote, calculate the replacement text size assuming a 
+	worst case of every input character quoted with backslash,
+	and properly handle output quoting of quote characters in
+	actual arguments used in function-like macros.
+
+2008-01-03  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/34602
+	* directives.c (do_line): Don't try to spell EOF token.
+	(do_linemarker): Add comment.
+
+2007-12-11  DJ Delorie  <dj@redhat.com>
+
+	* charset.c (convert_using_iconv): Close out any shift states,
+	returning to the initial state.
+
+2007-12-06  Tom Tromey  <tromey@redhat.com>
+
+	PR c/29172
+	* internal.h (struct cpp_reader) <file_hash_entries>: Changed
+	type.
+	<file_hash_entries_allocated, file_hash_entries_used>: Removed.
+	* files.c (FILE_HASH_POOL_SIZE): New macro.
+	(struct file_hash_entry_pool): New.
+	(destroy_all_cpp_files): New function.
+	(allocate_file_hash_entries): Allocate a file_hash_entry_pool.
+	(new_file_hash_entry): Update.
+	(free_file_hash_entries): New function.
+	(_cpp_cleanup_files): Call free_file_hash_entries and
+	destroy_all_cpp_files.
+	(cpp_clear_file_cache): New function.
+	* include/cpplib.h (cpp_clear_file_cache): Declare.
+
+2007-12-03  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/34288
+	* configure.ac, config.in: Rebuilt.
+	* configure.ac: Check for ssize_t.
+
+2007-11-30  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/32868
+	* macro.c (_cpp_create_definition): Special case
+	__STDC_FORMAT_MACROS.
+
+2007-11-16  Michael Matz  <matz@suse.de>
+
+	* files.c (search_path_head): Fix check for absolute paths.
+
+2007-11-11  Tom Tromey  <tromey@redhat.com>
+
+	PR c++/17557
+	* include/cpplib.h (cpp_included_before): Declare.
+	* files.c (struct file_hash_entry) <location>: New field.
+	(_cpp_find_file): Initialize new field.
+	(make_cpp_dir): Likewise.
+	(cpp_included_before): New function.
+
+2007-11-01  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/30805
+	* macro.c (paste_tokens): Handle padding token.
+	(paste_tokens): Don't abort unless padding has PASTE_LEFT flag.
+
+2007-10-31  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/30786
+	* macro.c (builtin_macro): Return result of _cpp_do__Pragma.
+	* directives.c (_cpp_do__Pragma): Return error status.
+	* internal.h (_cpp_do__Pragma): Update.
+	* directives.c (get__Pragma_string): Back up if EOF seen.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* internal.h (struct cpp_reader) <invocation_location>: New
+	field.
+	(struct cpp_reader) <set_invocation_location>: Likewise.
+	* init.c (cpp_set_line_map): New function.
+	* line-map.c (linemap_add): Use linemap's allocator.
+	* include/line-map.h (GTY): Define.
+	(line_map_realloc): New typedef.
+	(struct line_map): Mark with GTY.
+	(struct line_maps): Likewise.
+	(struct line_maps) <maps>: Likewise.
+	(struct line_maps) <reallocator>: New field.
+	* include/symtab.h (GTY): Conditionally define.
+	* include/cpplib.h (cpp_set_line_map): Declare.
+	(cpp_get_token_with_location): Declare.
+	* macro.c (cpp_get_token): Set invocation_location on the reader.
+	(cpp_get_token_with_location): New function.
+
+2007-08-30  Chao-ying Fu  <fu@mips.com>
+
+	* expr.c (interpret_float_suffix): Support hr, r, lr, llr, uhr, ur,
+	ulr, ullr, hk, k, lk, llk, uhk, uk, ulk, ullk.
+	(cpp_classify_number): Support decimal fixed-point constants without
+	exponents.
+	Warn about fixed-point constants when -pedantic.
+	* include/cpplib.h (CPP_N_SMALL, CPP_N_MEDIUM, CPP_N_LARGE): Change
+	comments to support fixed-point values.
+	(CPP_N_FRACT, CPP_N_ACCUM): Define.
+
+2007-08-18  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/32974
+	* directives.c (parse_include): Don't check for EOL when
+	processing #pragma dependency.
+
+2007-07-30  Ollie Wild  <aaw@google.com>
+
+	* directives-only.c: New file.
+	* internal.h (struct _cpp_dir_only_callbacks): New.
+	(_cpp_preprocess_dir_only): New function.
+	* directives.c (_cpp_handle_directive): Check directives_only before
+	disabling execution of indented directives.
+	* files.c (_cpp_stack_file): Add directives_only check.
+	* include/cpplib.h (struct cpp_options): Add directives_only.
+	(cpp_init_special_builtins): New function.
+	* init.c (cpp_init_special_builtins): New function.
+	(cpp_init_builtins): Move builtin_array initialization to
+	cpp_init_special_builtins.
+	(post_options): Check directives_only before setting
+	pfile->state.prevent_expansion = 1.
+	* macro.c (_cpp_builtin_macro_text): Print an error if __COUNTER__
+	is expanded inside a directive while -fdirectives-only is enabled.
+	* Makefile.in (libcpp_a_OBJS): Add directives-only.o.
+	(libcpp_a_SOURCES): Add directives-only.c.
+
 2007-07-04  Uros Bizjak  <ubizjak@gmail.com>
 
 	* traditional.c (_cpp_scan_out_logical_line): Initialize
@@ -89,7 +245,7 @@
 
 2007-05-02  Tom Tromey  <tromey@redhat.com>
 
-	PR preprocessor/28709:
+	PR preprocessor/28709
 	* macro.c (paste_tokens): Remove PASTE_LEFT from the old lhs.
 
 2007-03-30  Michael Meissner  <michael.meissner@amd.com>
@@ -109,13 +265,13 @@
 
 2007-01-30  Tom Tromey  <tromey@redhat.com>
 
-	PR preprocessor/30468:
+	PR preprocessor/30468
 	* mkdeps.c (apply_vpath): Strip successive '/'s if we stripped
 	'./'.
 
 2007-01-30  Tom Tromey  <tromey@redhat.com>
 
-	PR preprocessor/29966:
+	PR preprocessor/29966
 	* macro.c (lex_expansion_token): Save and restore cpp_reader's
 	cur_token.
 	(_cpp_create_definition): Don't restore cur_token here.
@@ -127,7 +283,7 @@
 
 2007-01-12  Tom Tromey  <tromey@redhat.com>
 
-	PR preprocessor/28227:
+	PR preprocessor/28227
 	* directives.c (lex_macro_node): Added 'is_def_or_undef'
 	argument.
 	(do_define): Update.
@@ -145,7 +301,7 @@
 
 2007-01-04  Tom Tromey  <tromey@redhat.com>
 
-	PR preprocessor/28165:
+	PR preprocessor/28165
 	* internal.h (cpp_in_primary_file): New function.
 	* directives.c (do_include_next): Use cpp_in_primary_file.
 	(do_pragma_once): Likewise.
@@ -164,7 +320,7 @@
 
 2006-12-28  Tom Tromey  <tromey@redhat.com>
 
-	PR preprocessor/30001:
+	PR preprocessor/30001
 	* charset.c (_cpp_convert_input): Check that to.len is greater
 	than zero.
 

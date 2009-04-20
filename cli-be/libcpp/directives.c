@@ -1,7 +1,7 @@
 /* CPP Library. (Directive handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2007 Free Software Foundation, Inc.
+   2007, 2008 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -424,8 +424,13 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
 	 does not cause '#define foo bar' to get executed when
 	 compiled with -save-temps, we recognize directives in
 	 -fpreprocessed mode only if the # is in column 1.  macro.c
-	 puts a space in front of any '#' at the start of a macro.  */
+	 puts a space in front of any '#' at the start of a macro.
+	 
+	 We exclude the -fdirectives-only case because macro expansion
+	 has not been performed yet, and block comments can cause spaces
+	 to preceed the directive.  */
       if (CPP_OPTION (pfile, preprocessed)
+	  && !CPP_OPTION (pfile, directives_only)
 	  && (indented || !(dir->flags & IN_I)))
 	{
 	  skip = 0;
@@ -470,7 +475,7 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
     _cpp_backup_tokens (pfile, 1);
 
   end_directive (pfile, skip);
-  if (was_parsing_args)
+  if (was_parsing_args && !pfile->state.in_deferred_pragma)
     {
       /* Restore state when within macro args.  */
       pfile->state.parsing_args = 2;
@@ -693,7 +698,11 @@ parse_include (cpp_reader *pfile, int *pangle_brackets,
       return NULL;
     }
 
-  if (buf == NULL || CPP_OPTION (pfile, discard_comments))
+  if (pfile->directive == &dtable[T_PRAGMA])
+    {
+      /* This pragma allows extra tokens after the file name.  */
+    }
+  else if (buf == NULL || CPP_OPTION (pfile, discard_comments))
     check_eol (pfile);
   else
     {
@@ -855,9 +864,12 @@ do_line (cpp_reader *pfile)
       || strtoul_for_line (token->val.str.text, token->val.str.len,
 			   &new_lineno))
     {
-      cpp_error (pfile, CPP_DL_ERROR,
-		 "\"%s\" after #line is not a positive integer",
-		 cpp_token_as_text (pfile, token));
+      if (token->type == CPP_EOF)
+	cpp_error (pfile, CPP_DL_ERROR, "unexpected end of file after #line");
+      else
+	cpp_error (pfile, CPP_DL_ERROR,
+		   "\"%s\" after #line is not a positive integer",
+		   cpp_token_as_text (pfile, token));
       return;
     }
 
@@ -911,6 +923,8 @@ do_linemarker (cpp_reader *pfile)
       || strtoul_for_line (token->val.str.text, token->val.str.len,
 			   &new_lineno))
     {
+      /* Unlike #line, there does not seem to be a way to get an EOF
+	 here.  So, it should be safe to always spell the token.  */
       cpp_error (pfile, CPP_DL_ERROR,
 		 "\"%s\" after # is not a positive integer",
 		 cpp_token_as_text (pfile, token));
@@ -1458,15 +1472,24 @@ static const cpp_token *
 get__Pragma_string (cpp_reader *pfile)
 {
   const cpp_token *string;
+  const cpp_token *paren;
 
-  if (get_token_no_padding (pfile)->type != CPP_OPEN_PAREN)
+  paren = get_token_no_padding (pfile);
+  if (paren->type == CPP_EOF)
+    _cpp_backup_tokens (pfile, 1);
+  if (paren->type != CPP_OPEN_PAREN)
     return NULL;
 
   string = get_token_no_padding (pfile);
+  if (string->type == CPP_EOF)
+    _cpp_backup_tokens (pfile, 1);
   if (string->type != CPP_STRING && string->type != CPP_WSTRING)
     return NULL;
 
-  if (get_token_no_padding (pfile)->type != CPP_CLOSE_PAREN)
+  paren = get_token_no_padding (pfile);
+  if (paren->type == CPP_EOF)
+    _cpp_backup_tokens (pfile, 1);
+  if (paren->type != CPP_CLOSE_PAREN)
     return NULL;
 
   return string;
@@ -1586,18 +1609,21 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in)
   _cpp_push_token_context (pfile, NULL, toks, count);
 }
 
-/* Handle the _Pragma operator.  */
-void
+/* Handle the _Pragma operator.  Return 0 on error, 1 if ok.  */
+int
 _cpp_do__Pragma (cpp_reader *pfile)
 {
   const cpp_token *string = get__Pragma_string (pfile);
   pfile->directive_result.type = CPP_PADDING;
 
   if (string)
-    destringize_and_run (pfile, &string->val.str);
-  else
-    cpp_error (pfile, CPP_DL_ERROR,
-	       "_Pragma takes a parenthesized string literal");
+    {
+      destringize_and_run (pfile, &string->val.str);
+      return 1;
+    }
+  cpp_error (pfile, CPP_DL_ERROR,
+	     "_Pragma takes a parenthesized string literal");
+  return 0;
 }
 
 /* Handle #ifdef.  */
