@@ -1,8 +1,8 @@
-#   Copyright (C) 2000, 2002, 2003, 2005 Free Software Foundation, Inc.
+#   Copyright (C) 2000, 2002, 2003, 2005, 2007 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 # 
 # This program is distributed in the hope that it will be useful,
@@ -11,13 +11,20 @@
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 # Various utilities for scanning dump output, used by gcc-dg.exp and
 # g++-dg.exp.
 #
 # This is largely borrowed from scanasm.exp.
+
+# Extract the constant part of the dump file suffix from the regexp.
+# Argument 0 is the regular expression.
+proc dump-suffix { arg } {
+    set idx [expr [string last "." $arg] + 1]
+    return [string range $arg $idx end]
+}
 
 # Utility for scanning compiler result, invoked via dg-final.
 # Call pass if pattern is present, otherwise fail.
@@ -49,10 +56,11 @@ proc scan-dump { args } {
     set text [read $fd]
     close $fd
 
+    set suf [dump-suffix [lindex $args 2]]
     if [regexp -- [lindex $args 1] $text] {
-	pass "$testcase scan-[lindex $args 0]-dump [lindex $args 1]"
+	pass "$testcase scan-[lindex $args 0]-dump $suf \"[lindex $args 1]\""
     } else {
-	fail "$testcase scan-[lindex $args 0]-dump [lindex $args 1]"
+	fail "$testcase scan-[lindex $args 0]-dump $suf \"[lindex $args 1]\""
     }
 }
 
@@ -85,10 +93,11 @@ proc scan-dump-times { args } {
     set text [read $fd]
     close $fd
 
+    set suf [dump-suffix [lindex $args 3]]
     if { [llength [regexp -inline -all -- [lindex $args 1] $text]] == [lindex $args 2]} {
-        pass "$testcase scan-[lindex $args 0]-dump-times [lindex $args 1] [lindex $args 2]"
+        pass "$testcase scan-[lindex $args 0]-dump-times $suf \"[lindex $args 1]\" [lindex $args 2]"
     } else {
-        fail "$testcase scan-[lindex $args 0]-dump-times [lindex $args 1] [lindex $args 2]"
+        fail "$testcase scan-[lindex $args 0]-dump-times $suf \"[lindex $args 1]\" [lindex $args 2]"
     }
 }
 
@@ -120,10 +129,11 @@ proc scan-dump-not { args } {
     set text [read $fd]
     close $fd
 
+    set suf [dump-suffix [lindex $args 2]]
     if ![regexp -- [lindex $args 1] $text] {
-	pass "$testcase scan-[lindex $args 0]-dump-not [lindex $args 1]"
+	pass "$testcase scan-[lindex $args 0]-dump-not $suf \"[lindex $args 1]\""
     } else {
-	fail "$testcase scan-[lindex $args 0]-dump-not [lindex $args 1]"
+	fail "$testcase scan-[lindex $args 0]-dump-not $suf \"[lindex $args 1]\""
     }
 }
 
@@ -165,10 +175,11 @@ proc scan-dump-dem { args } {
     set text [read $fd]
     close $fd
 
+    set suf [dump-suffix [lindex $args 2]]
     if [regexp -- [lindex $args 1] $text] {
-	pass "$testcase scan-[lindex $args 0]-dump-dem [lindex $args 1]"
+	pass "$testcase scan-[lindex $args 0]-dump-dem $suf \"[lindex $args 1]\""
     } else {
-	fail "$testcase scan-[lindex $args 0]-dump-dem [lindex $args 1]"
+	fail "$testcase scan-[lindex $args 0]-dump-dem $suf \"[lindex $args 1]\""
     }
 }
 
@@ -209,9 +220,10 @@ proc scan-dump-dem-not { args } {
     set text [read $fd]
     close $fd
 
+    set suf [dump-suffix [lindex $args 2]]
     if ![regexp -- [lindex $args 1] $text] {
-	pass "$testcase scan-[lindex $args 0]-dump-dem-not [lindex $args 1]"
+	pass "$testcase scan-[lindex $args 0]-dump-dem-not $suf \"[lindex $args 1]\""
     } else {
-	fail "$testcase scan-[lindex $args 0]-dump-dem-not [lindex $args 1]"
+	fail "$testcase scan-[lindex $args 0]-dump-dem-not $suf \"[lindex $args 1]\""
     }
 }
