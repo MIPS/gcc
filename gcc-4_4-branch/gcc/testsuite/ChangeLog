@@ -1,3 +1,32 @@
+2009-04-20  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39675
+	* gcc.dg/vect/O3-pr39675-1.c: New test.
+
+2009-04-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lib/gnat.exp (local_find_gnatmake): Pass --LINK to gnatlink.
+	Do not pass -B$root after -margs.
+
+2009-04-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-18  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39804
+	* gcc.target/i386/pr39804.c: New testcase.
+
+2009-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/i386/pr39496.c: Compile with -mtune=i686.
+	* g++.dg/other/pr39496.C: Likewise.
+
+2009-04-15  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	PR tree-optimization/39764
+	* g++.dg/torture/pr39764.C: New testcase.
+
 2009-04-14  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
