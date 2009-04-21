@@ -993,9 +993,9 @@ package body Sem_Ch3 is
    is
 
       procedure Check_For_Premature_Usage (Def : Node_Id);
-      --  Check that type T_Name is not used, directly or recursively,
-      --  as a parameter or a return type in Def. Def is either a subtype,
-      --  an access_definition, or an access_to_subprogram_definition.
+      --  Check that type T_Name is not used, directly or recursively, as a
+      --  parameter or a return type in Def. Def is either a subtype, an
+      --  access_definition, or an access_to_subprogram_definition.
 
       -------------------------------
       -- Check_For_Premature_Usage --
@@ -1135,7 +1135,27 @@ package body Sem_Ch3 is
                       (T           => Typ,
                        Related_Nod => T_Def,
                        Scope_Id    => Current_Scope));
+
                else
+                  if From_With_Type (Typ) then
+                     Error_Msg_NE
+                      ("illegal use of incomplete type&",
+                         Result_Definition (T_Def), Typ);
+
+                  elsif Ekind (Current_Scope) = E_Package
+                    and then In_Private_Part (Current_Scope)
+                  then
+                     if Ekind (Typ) = E_Incomplete_Type then
+                        Append_Elmt (Desig_Type, Private_Dependents (Typ));
+
+                     elsif Is_Class_Wide_Type (Typ)
+                       and then Ekind (Etype (Typ)) = E_Incomplete_Type
+                     then
+                        Append_Elmt
+                          (Desig_Type, Private_Dependents (Etype (Typ)));
+                     end if;
+                  end if;
+
                   Set_Etype (Desig_Type, Typ);
                end if;
             end;
@@ -3330,7 +3350,7 @@ package body Sem_Ch3 is
       --  extension with a synchronized parent must be explicitly declared
       --  synchronized, because the full view will be a synchronized type.
       --  This must be checked before the check for limited types below,
-      --  to ensure that types declared limited are not allowed extend
+      --  to ensure that types declared limited are not allowed to extend
       --  synchronized interfaces.
 
       elsif Is_Interface (Parent_Type)
@@ -3586,11 +3606,13 @@ package body Sem_Ch3 is
 
                --  A Pure library_item must not contain the declaration of a
                --  named access type, except within a subprogram, generic
-               --  subprogram, task unit, or protected unit (RM 10.2.1(16)).
+               --  subprogram, task unit, or protected unit, or if it has
+               --  a specified Storage_Size of zero (RM05-10.2.1(15.4-15.5)).
 
                if Comes_From_Source (Id)
                  and then In_Pure_Unit
                  and then not In_Subprogram_Task_Protected_Unit
+                 and then not No_Pool_Assigned (Id)
                then
                   Error_Msg_N
                     ("named access types not allowed in pure unit", N);
@@ -4012,27 +4034,28 @@ package body Sem_Ch3 is
          --  subtype. Freeze_Entity will use this preallocated freeze node when
          --  it freezes the entity.
 
-         if B /= T then
+         --  This does not apply if the base type is a generic type, whose
+         --  declaration is independent of the current derived definition.
+
+         if B /= T and then not Is_Generic_Type (B) then
             Ensure_Freeze_Node (B);
             Set_First_Subtype_Link (Freeze_Node (B), T);
          end if;
 
          --  A type that is imported through a limited_with clause cannot
-         --  generate any code, and thus need not be frozen. However, an
-         --  access type with an imported designated type needs a finalization
-         --  list, which may be referenced in some other package that has
-         --  non-limited visibility on the designated type. Thus we must
-         --  create the finalization list at the point the access type is
-         --  frozen, to prevent unsatisfied references at link time.
+         --  generate any code, and thus need not be frozen. However, an access
+         --  type with an imported designated type needs a finalization list,
+         --  which may be referenced in some other package that has non-limited
+         --  visibility on the designated type. Thus we must create the
+         --  finalization list at the point the access type is frozen, to
+         --  prevent unsatisfied references at link time.
 
-         if not From_With_Type (T)
-           or else Is_Access_Type (T)
-         then
+         if not From_With_Type (T) or else Is_Access_Type (T) then
             Set_Has_Delayed_Freeze (T);
          end if;
       end;
 
-      --  Case of T is the full declaration of some private type which has
+      --  Case where T is the full declaration of some private type which has
       --  been swapped in Defining_Identifier (N).
 
       if T /= Def_Id and then Is_Private_Type (Def_Id) then
@@ -4074,7 +4097,7 @@ package body Sem_Ch3 is
          Generate_Definition (Def_Id);
       end if;
 
-      if Chars (Scope (Def_Id)) =  Name_System
+      if Chars (Scope (Def_Id)) = Name_System
         and then Chars (Def_Id) = Name_Address
         and then Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (N)))
       then
@@ -5033,22 +5056,35 @@ package body Sem_Ch3 is
             Hi : Node_Id;
 
          begin
-            Lo :=
-               Make_Attribute_Reference (Loc,
-                 Attribute_Name => Name_First,
-                 Prefix => New_Reference_To (Derived_Type, Loc));
-            Set_Etype (Lo, Derived_Type);
+            if Nkind (Indic) /= N_Subtype_Indication then
+               Lo :=
+                  Make_Attribute_Reference (Loc,
+                    Attribute_Name => Name_First,
+                    Prefix         => New_Reference_To (Derived_Type, Loc));
+               Set_Etype (Lo, Derived_Type);
 
-            Hi :=
-               Make_Attribute_Reference (Loc,
-                 Attribute_Name => Name_Last,
-                 Prefix => New_Reference_To (Derived_Type, Loc));
-            Set_Etype (Hi, Derived_Type);
+               Hi :=
+                  Make_Attribute_Reference (Loc,
+                    Attribute_Name => Name_Last,
+                    Prefix         => New_Reference_To (Derived_Type, Loc));
+               Set_Etype (Hi, Derived_Type);
 
-            Set_Scalar_Range (Derived_Type,
-               Make_Range (Loc,
-                 Low_Bound => Lo,
-                 High_Bound => Hi));
+               Set_Scalar_Range (Derived_Type,
+                  Make_Range (Loc,
+                    Low_Bound  => Lo,
+                    High_Bound => Hi));
+            else
+
+               --   Analyze subtype indication and verify compatibility
+               --   with parent type.
+
+               if Base_Type (Process_Subtype (Indic, N)) /=
+                  Base_Type (Parent_Type)
+               then
+                  Error_Msg_N
+                    ("illegal constraint for formal discrete type", N);
+               end if;
+            end if;
          end;
 
       else
@@ -5440,6 +5476,7 @@ package body Sem_Ch3 is
       Is_Completion : Boolean;
       Derive_Subps  : Boolean := True)
    is
+      Loc         : constant Source_Ptr := Sloc (N);
       Der_Base    : Entity_Id;
       Discr       : Entity_Id;
       Full_Decl   : Node_Id := Empty;
@@ -5482,8 +5519,107 @@ package body Sem_Ch3 is
 
    begin
       if Is_Tagged_Type (Parent_Type) then
-         Build_Derived_Record_Type
-           (N, Parent_Type, Derived_Type, Derive_Subps);
+         Full_P := Full_View (Parent_Type);
+
+         --  A type extension of a type with unknown discriminants is an
+         --  indefinite type that the back-end cannot handle directly.
+         --  We treat it as a private type, and build a completion that is
+         --  derived from the full view of the parent, and hopefully has
+         --  known discriminants.
+
+         --  If the full view of the parent type has an underlying record view,
+         --  use it to generate the underlying record view of this derived type
+         --  (required for chains of derivations with unknown discriminants).
+
+         --  Minor optimization: we avoid the generation of useless underlying
+         --  record view entities if the private type declaration has unknown
+         --  discriminants but its corresponding full view has no
+         --  discriminants.
+
+         if Has_Unknown_Discriminants (Parent_Type)
+           and then Present (Full_P)
+           and then (Has_Discriminants (Full_P)
+                      or else Present (Underlying_Record_View (Full_P)))
+           and then not In_Open_Scopes (Par_Scope)
+           and then Expander_Active
+         then
+            declare
+               Full_Der : constant Entity_Id :=
+                            Make_Defining_Identifier (Loc,
+                              Chars => New_Internal_Name ('T'));
+               New_Ext  : constant Node_Id :=
+                            Copy_Separate_Tree
+                              (Record_Extension_Part (Type_Definition (N)));
+               Decl     : Node_Id;
+
+            begin
+               Build_Derived_Record_Type
+                 (N, Parent_Type, Derived_Type, Derive_Subps);
+
+               --  Build anonymous completion, as a derivation from the full
+               --  view of the parent. This is not a completion in the usual
+               --  sense, because the current type is not private.
+
+               Decl :=
+                 Make_Full_Type_Declaration (Loc,
+                   Defining_Identifier => Full_Der,
+                   Type_Definition     =>
+                     Make_Derived_Type_Definition (Loc,
+                       Subtype_Indication =>
+                         New_Copy_Tree
+                           (Subtype_Indication (Type_Definition (N))),
+                       Record_Extension_Part => New_Ext));
+
+               --  If the parent type has an underlying record view, use it
+               --  here to build the new underlying record view.
+
+               if Present (Underlying_Record_View (Full_P)) then
+                  pragma Assert
+                    (Nkind (Subtype_Indication (Type_Definition (Decl)))
+                       = N_Identifier);
+                  Set_Entity (Subtype_Indication (Type_Definition (Decl)),
+                    Underlying_Record_View (Full_P));
+               end if;
+
+               Install_Private_Declarations (Par_Scope);
+               Install_Visible_Declarations (Par_Scope);
+               Insert_Before (N, Decl);
+
+               --  Mark entity as an underlying record view before analysis,
+               --  to avoid generating the list of its primitive operations
+               --  (which is not really required for this entity) and thus
+               --  prevent spurious errors associated with missing overriding
+               --  of abstract primitives (overridden only for Derived_Type).
+
+               Set_Ekind (Full_Der, E_Record_Type);
+               Set_Is_Underlying_Record_View (Full_Der);
+
+               Analyze (Decl);
+
+               pragma Assert (Has_Discriminants (Full_Der)
+                 and then not Has_Unknown_Discriminants (Full_Der));
+
+               Uninstall_Declarations (Par_Scope);
+
+               --  Freeze the underlying record view, to prevent generation of
+               --  useless dispatching information, which is simply shared with
+               --  the real derived type.
+
+               Set_Is_Frozen (Full_Der);
+
+               --  Set up links between real entity and underlying record view
+
+               Set_Underlying_Record_View (Derived_Type, Base_Type (Full_Der));
+               Set_Underlying_Record_View (Base_Type (Full_Der), Derived_Type);
+            end;
+
+         --  If discriminants are known, build derived record
+
+         else
+            Build_Derived_Record_Type
+              (N, Parent_Type, Derived_Type, Derive_Subps);
+         end if;
+
          return;
 
       elsif Has_Discriminants (Parent_Type) then
@@ -5502,12 +5638,12 @@ package body Sem_Ch3 is
                Insert_After (N, Full_Decl);
 
             else
-               --  If this is a completion, the full view being built is
-               --  itself private. We build a subtype of the parent with
-               --  the same constraints as this full view, to convey to the
-               --  back end the constrained components and the size of this
-               --  subtype. If the parent is constrained, its full view can
-               --  serve as the underlying full view of the derived type.
+               --  If this is a completion, the full view being built is itself
+               --  private. We build a subtype of the parent with the same
+               --  constraints as this full view, to convey to the back end the
+               --  constrained components and the size of this subtype. If the
+               --  parent is constrained, its full view can serve as the
+               --  underlying full view of the derived type.
 
                if No (Discriminant_Specifications (N)) then
                   if Nkind (Subtype_Indication (Type_Definition (N))) =
@@ -5516,14 +5652,14 @@ package body Sem_Ch3 is
                      Build_Underlying_Full_View (N, Derived_Type, Parent_Type);
 
                   elsif Is_Constrained (Full_View (Parent_Type)) then
-                     Set_Underlying_Full_View (Derived_Type,
-                       Full_View (Parent_Type));
+                     Set_Underlying_Full_View
+                       (Derived_Type, Full_View (Parent_Type));
                   end if;
 
                else
                   --  If there are new discriminants, the parent subtype is
                   --  constrained by them, but it is not clear how to build
-                  --  the underlying_full_view in this case ???
+                  --  the Underlying_Full_View in this case???
 
                   null;
                end if;
@@ -5535,9 +5671,7 @@ package body Sem_Ch3 is
          Build_Derived_Record_Type
            (N, Parent_Type, Derived_Type, Derive_Subps);
 
-         if Present (Full_View (Parent_Type))
-           and then not Is_Completion
-         then
+         if Present (Full_View (Parent_Type)) and then not Is_Completion then
             if not In_Open_Scopes (Par_Scope)
               or else not In_Same_Source_Unit (N, Parent_Type)
             then
@@ -5567,8 +5701,8 @@ package body Sem_Ch3 is
                end if;
 
             else
-               --  If full view of parent is tagged, the completion
-               --  inherits the proper primitive operations.
+               --  If full view of parent is tagged, the completion inherits
+               --  the proper primitive operations.
 
                Set_Defining_Identifier (Full_Decl, Full_Der);
                Build_Derived_Record_Type
@@ -5589,13 +5723,12 @@ package body Sem_Ch3 is
             Set_Full_View (Der_Base, Base_Type (Full_Der));
 
             --  Copy the discriminant list from full view to the partial views
-            --  (base type and its subtype). Gigi requires that the partial
-            --  and full views have the same discriminants.
+            --  (base type and its subtype). Gigi requires that the partial and
+            --  full views have the same discriminants.
 
             --  Note that since the partial view is pointing to discriminants
             --  in the full view, their scope will be that of the full view.
-            --  This might cause some front end problems and need
-            --  adjustment???
+            --  This might cause some front end problems and need adjustment???
 
             Discr := First_Discriminant (Base_Type (Full_Der));
             Set_First_Entity (Der_Base, Discr);
@@ -5613,10 +5746,10 @@ package body Sem_Ch3 is
             Set_Stored_Constraint (Full_Der, Stored_Constraint (Derived_Type));
 
          else
-            --  If this is a completion, the derived type stays private
-            --  and there is no need to create a further full view, except
-            --  in the unusual case when the derivation is nested within a
-            --  child unit, see below.
+            --  If this is a completion, the derived type stays private and
+            --  there is no need to create a further full view, except in the
+            --  unusual case when the derivation is nested within a child unit,
+            --  see below.
 
             null;
          end if;
@@ -5634,14 +5767,14 @@ package body Sem_Ch3 is
             return;
          end if;
 
-         --  If full view of parent is a record type, Build full view as
-         --  a derivation from the parent's full view. Partial view remains
-         --  private. For code generation and linking, the full view must
-         --  have the same public status as the partial one. This full view
-         --  is only needed if the parent type is in an enclosing scope, so
-         --  that the full view may actually become visible, e.g. in a child
-         --  unit. This is both more efficient, and avoids order of freezing
-         --  problems with the added entities.
+         --  If full view of parent is a record type, build full view as a
+         --  derivation from the parent's full view. Partial view remains
+         --  private. For code generation and linking, the full view must have
+         --  the same public status as the partial one. This full view is only
+         --  needed if the parent type is in an enclosing scope, so that the
+         --  full view may actually become visible, e.g. in a child unit. This
+         --  is both more efficient, and avoids order of freezing problems with
+         --  the added entities.
 
          if not Is_Private_Type (Full_View (Parent_Type))
            and then (In_Open_Scopes (Scope (Parent_Type)))
@@ -5666,8 +5799,8 @@ package body Sem_Ch3 is
                 Derive_Subps => False);
          end if;
 
-         --  In any case, the primitive operations are inherited from
-         --  the parent type, not from the internal full view.
+         --  In any case, the primitive operations are inherited from the
+         --  parent type, not from the internal full view.
 
          Set_Etype (Base_Type (Derived_Type), Base_Type (Parent_Type));
 
@@ -5689,8 +5822,7 @@ package body Sem_Ch3 is
            and then Present (Full_View (Parent_Type))
            and then not Is_Tagged_Type (Full_View (Parent_Type))
          then
-            Error_Msg_N
-              ("cannot add discriminants to untagged type", N);
+            Error_Msg_N ("cannot add discriminants to untagged type", N);
          end if;
 
          Set_Stored_Constraint (Derived_Type, No_Elist);
@@ -5707,13 +5839,13 @@ package body Sem_Ch3 is
               (Base_Type (Derived_Type), Finalize_Storage_Only (Parent_Type));
          end if;
 
-         --  Construct the implicit full view by deriving from full view of
-         --  the parent type. In order to get proper visibility, we install
-         --  the parent scope and its declarations.
+         --  Construct the implicit full view by deriving from full view of the
+         --  parent type. In order to get proper visibility, we install the
+         --  parent scope and its declarations.
 
-         --  ??? if the parent is untagged private and its completion is
-         --  tagged, this mechanism will not work because we cannot derive
-         --  from the tagged full view unless we have an extension
+         --  ??? If the parent is untagged private and its completion is
+         --  tagged, this mechanism will not work because we cannot derive from
+         --  the tagged full view unless we have an extension.
 
          if Present (Full_View (Parent_Type))
            and then not Is_Tagged_Type (Full_View (Parent_Type))
@@ -5762,7 +5894,7 @@ package body Sem_Ch3 is
             Set_Is_Frozen            (Full_Der, False);
             Set_Freeze_Node          (Full_Der, Empty);
             Set_Depends_On_Private   (Full_Der,
-                                        Has_Private_Component    (Full_Der));
+                                       Has_Private_Component (Full_Der));
             Set_Public_Status        (Full_Der);
          end if;
       end if;
@@ -5786,11 +5918,11 @@ package body Sem_Ch3 is
            and then Scope (Parent_Type) /= Current_Scope
          then
             --  This is the unusual case where a type completed by a private
-            --  derivation occurs within a package nested in a child unit,
-            --  and the parent is declared in an ancestor. In this case, the
-            --  full view of the parent type will become visible in the body
-            --  of the enclosing child, and only then will the current type
-            --  be possibly non-private. We build a underlying full view that
+            --  derivation occurs within a package nested in a child unit, and
+            --  the parent is declared in an ancestor. In this case, the full
+            --  view of the parent type will become visible in the body of
+            --  the enclosing child, and only then will the current type be
+            --  possibly non-private. We build a underlying full view that
             --  will be installed when the enclosing child body is compiled.
 
             Full_Der :=
@@ -6978,7 +7110,13 @@ package body Sem_Ch3 is
             Set_Is_Controlled (Derived_Type, Is_Controlled (Parent_Base));
          end if;
 
-         Make_Class_Wide_Type (Derived_Type);
+         --  Minor optimization: there is no need to generate the class-wide
+         --  entity associated with an underlying record view.
+
+         if not Is_Underlying_Record_View (Derived_Type) then
+            Make_Class_Wide_Type (Derived_Type);
+         end if;
+
          Set_Is_Abstract_Type (Derived_Type, Abstract_Present (Type_Def));
 
          if Has_Discriminants (Derived_Type)
@@ -7173,10 +7311,13 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      --  Update the class_wide type, which shares the now-completed
-      --  entity list with its specific type.
+      --  Update the class-wide type, which shares the now-completed entity
+      --  list with its specific type. In case of underlying record views,
+      --  we do not generate the corresponding class wide entity.
 
-      if Is_Tagged then
+      if Is_Tagged
+        and then not Is_Underlying_Record_View (Derived_Type)
+      then
          Set_First_Entity
            (Class_Wide_Type (Derived_Type), First_Entity (Derived_Type));
          Set_Last_Entity
@@ -7230,10 +7371,11 @@ package body Sem_Ch3 is
       Set_Etype         (Derived_Type,           Parent_Base);
       Set_Has_Task      (Derived_Type, Has_Task (Parent_Base));
 
-      Set_Size_Info     (Derived_Type,                Parent_Type);
-      Set_RM_Size       (Derived_Type, RM_Size       (Parent_Type));
-      Set_Convention    (Derived_Type, Convention    (Parent_Type));
-      Set_Is_Controlled (Derived_Type, Is_Controlled (Parent_Type));
+      Set_Size_Info      (Derived_Type,                 Parent_Type);
+      Set_RM_Size        (Derived_Type, RM_Size        (Parent_Type));
+      Set_Convention     (Derived_Type, Convention     (Parent_Type));
+      Set_Is_Controlled  (Derived_Type, Is_Controlled  (Parent_Type));
+      Set_Is_Tagged_Type (Derived_Type, Is_Tagged_Type (Parent_Type));
 
       --  The derived type inherits the representation clauses of the parent.
       --  However, for a private type that is completed by a derivation, there
@@ -13036,7 +13178,10 @@ package body Sem_Ch3 is
          Error_Msg_N ("null exclusion can only apply to an access type", N);
       end if;
 
-      Build_Derived_Type (N, Parent_Type, T, Is_Completion);
+      --  Avoid deriving parent primitives of underlying record views
+
+      Build_Derived_Type (N, Parent_Type, T, Is_Completion,
+        Derive_Subps => not Is_Underlying_Record_View (T));
 
       --  AI-419: The parent type of an explicitly limited derived type must
       --  be a limited type or a limited interface.
@@ -13389,8 +13534,16 @@ package body Sem_Ch3 is
                   elsif No (Interface_List (N)) then
                      Error_Msg_N
                         ("completion of tagged private type must be tagged",
-                           N);
+                         N);
                   end if;
+
+               elsif Nkind (N) = N_Full_Type_Declaration
+                 and then
+                   Nkind (Type_Definition (N)) = N_Record_Definition
+                 and then Interface_Present (Type_Definition (N))
+               then
+                  Error_Msg_N
+                    ("completion of private type cannot be an interface", N);
                end if;
 
             --  Ada 2005 (AI-251): Private extension declaration of a task
@@ -13502,6 +13655,9 @@ package body Sem_Ch3 is
                   Error_Msg_NE (
                     "full declaration of } must be a record extension",
                     Prev, Id);
+
+                  --  Set some attributes to produce a usable full view
+
                   Set_Is_Tagged_Type (Id);
                   Set_Primitive_Operations (Id, New_Elmt_List);
                end if;
@@ -16848,6 +17004,10 @@ package body Sem_Ch3 is
                  Class_Wide_Kind   |
                  E_Incomplete_Type =>
                Constrain_Discriminated_Type (Def_Id, S, Related_Nod);
+
+               if Ekind (Def_Id) = E_Incomplete_Type then
+                  Set_Private_Dependents (Def_Id, New_Elmt_List);
+               end if;
 
             when Private_Kind =>
                Constrain_Discriminated_Type (Def_Id, S, Related_Nod);

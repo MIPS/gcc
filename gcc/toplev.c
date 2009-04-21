@@ -979,7 +979,6 @@ compile_file (void)
   init_final (main_input_filename);
   coverage_init (aux_base_name);
   statistics_init ();
-  initialize_plugins ();
 
   timevar_push (TV_PARSE);
 
@@ -1177,6 +1176,8 @@ print_version (FILE *file, const char *indent)
 	   file == stderr ? _(fmt4) : fmt4,
 	   indent, *indent != 0 ? " " : "",
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
+
+  print_plugins_versions (file, indent);
 }
 
 #ifdef ASM_COMMENT_START
@@ -2297,6 +2298,14 @@ toplev_main (int argc, char **argv)
 
   init_local_tick ();
 
+  initialize_plugins ();
+
+  if (version_flag)
+    print_version (stderr, "");
+
+  if (help_flag)
+    print_plugins_help (stderr, "");
+
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
     do_compile ();
@@ -2307,6 +2316,7 @@ toplev_main (int argc, char **argv)
   /* Invoke registered plugin callbacks if any.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
 
+  finalize_plugins ();
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);
 

@@ -3004,9 +3004,9 @@ output_type (struct output_block *ob, tree type, enum LTO_tags tag)
       LTO_DEBUG_TOKEN ("values");
       if (TYPE_CACHED_VALUES_P (type))
 	{
-	  gcc_assert (tag != RECORD_TYPE
-		      && tag != UNION_TYPE
-		      && tag != ARRAY_TYPE);
+	  gcc_assert (TREE_CODE (type) != RECORD_TYPE
+		      && TREE_CODE (type) != UNION_TYPE
+		      && TREE_CODE (type) != ARRAY_TYPE);
 	  /* Don't stream the values cache.  We must clear flag
 	     TYPE_CACHED_VALUES_P on input.  We don't do it here
 	     because we don't want to clobber the tree as we write

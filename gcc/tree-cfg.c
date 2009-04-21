@@ -375,7 +375,29 @@ make_blocks (gimple_seq seq)
       /* If STMT is a basic block terminator, set START_NEW_BLOCK for the
 	 next iteration.  */
       if (stmt_ends_bb_p (stmt))
-	start_new_block = true;
+	{
+	  /* If the stmt can make abnormal goto use a new temporary
+	     for the assignment to the LHS.  This makes sure the old value
+	     of the LHS is available on the abnormal edge.  Otherwise
+	     we will end up with overlapping life-ranges for abnormal
+	     SSA names.  */
+	  if (gimple_has_lhs (stmt)
+	      && stmt_can_make_abnormal_goto (stmt)
+	      && is_gimple_reg_type (TREE_TYPE (gimple_get_lhs (stmt))))
+	    {
+	      tree lhs = gimple_get_lhs (stmt);
+	      tree tmp = create_tmp_var (TREE_TYPE (lhs), NULL);
+	      gimple s = gimple_build_assign (lhs, tmp);
+	      gimple_set_location (s, gimple_location (stmt));
+	      gimple_set_block (s, gimple_block (stmt));
+	      gimple_set_lhs (stmt, tmp);
+	      if (TREE_CODE (TREE_TYPE (tmp)) == COMPLEX_TYPE
+		  || TREE_CODE (TREE_TYPE (tmp)) == VECTOR_TYPE)
+		DECL_GIMPLE_REG_P (tmp) = 1;
+	      gsi_insert_after (&i, s, GSI_SAME_STMT);
+	    }
+	  start_new_block = true;
+	}
 
       gsi_next (&i);
       first_stmt_of_seq = false;
@@ -1552,7 +1574,8 @@ remove_useless_stmts_cond (gimple_stmt_iterator *gsi, struct rus_data *data)
   gimple stmt = gsi_stmt (*gsi);
 
   /* The folded result must still be a conditional statement.  */
-  fold_stmt_inplace (stmt);
+  fold_stmt (gsi);
+  gcc_assert (gsi_stmt (*gsi) == stmt);
 
   data->may_branch = true;
 
@@ -2075,7 +2098,7 @@ struct gimple_opt_pass pass_remove_useless_stmts =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_gimple_any,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -3542,8 +3565,52 @@ verify_gimple_assign_binary (gimple stmt)
 	return false;
       }
 
+    case PLUS_EXPR:
+      {
+	/* We use regular PLUS_EXPR for vectors.
+	   ???  This just makes the checker happy and may not be what is
+	   intended.  */
+	if (TREE_CODE (lhs_type) == VECTOR_TYPE
+	    && POINTER_TYPE_P (TREE_TYPE (lhs_type)))
+	  {
+	    if (TREE_CODE (rhs1_type) != VECTOR_TYPE
+		|| TREE_CODE (rhs2_type) != VECTOR_TYPE)
+	      {
+		error ("invalid non-vector operands to vector valued plus");
+		return true;
+	      }
+	    lhs_type = TREE_TYPE (lhs_type);
+	    rhs1_type = TREE_TYPE (rhs1_type);
+	    rhs2_type = TREE_TYPE (rhs2_type);
+	    /* PLUS_EXPR is commutative, so we might end up canonicalizing
+	       the pointer to 2nd place.  */
+	    if (POINTER_TYPE_P (rhs2_type))
+	      {
+		tree tem = rhs1_type;
+		rhs1_type = rhs2_type;
+		rhs2_type = tem;
+	      }
+	    goto do_pointer_plus_expr_check;
+	  }
+      }
+    /* Fallthru.  */
+    case MINUS_EXPR:
+      {
+	if (POINTER_TYPE_P (lhs_type)
+	    || POINTER_TYPE_P (rhs1_type)
+	    || POINTER_TYPE_P (rhs2_type))
+	  {
+	    error ("invalid (pointer) operands to plus/minus");
+	    return true;
+	  }
+
+	/* Continue with generic binary expression handling.  */
+	break;
+      }
+
     case POINTER_PLUS_EXPR:
       {
+do_pointer_plus_expr_check:
 	if (!POINTER_TYPE_P (rhs1_type)
 	    || !useless_type_conversion_p (lhs_type, rhs1_type)
 	    || !useless_type_conversion_p (sizetype, rhs2_type))
@@ -3598,21 +3665,6 @@ verify_gimple_assign_binary (gimple stmt)
       /* Comparisons are also binary, but the result type is not
 	 connected to the operand types.  */
       return verify_gimple_comparison (lhs_type, rhs1, rhs2);
-
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-      {
-	if (POINTER_TYPE_P (lhs_type)
-	    || POINTER_TYPE_P (rhs1_type)
-	    || POINTER_TYPE_P (rhs2_type))
-	  {
-	    error ("invalid (pointer) operands to plus/minus");
-	    return true;
-	  }
-
-	/* Continue with generic binary expression handling.  */
-	break;
-      }
 
     case WIDEN_SUM_EXPR:
     case WIDEN_MULT_EXPR:
@@ -4100,7 +4152,10 @@ verify_stmt (gimple_stmt_iterator *gsi)
      to match.  */
   if (lookup_stmt_eh_region (stmt) >= 0)
     {
-      if (!stmt_could_throw_p (stmt))
+      /* During IPA passes, ipa-pure-const sets nothrow flags on calls
+         and they are updated on statements only after fixup_cfg
+	 is executed at beggining of expansion stage.  */
+      if (!stmt_could_throw_p (stmt) && cgraph_state != CGRAPH_STATE_IPA_SSA)
 	{
 	  error ("statement marked for throw, but doesn%'t");
 	  goto fail;
@@ -7113,7 +7168,7 @@ struct gimple_opt_pass pass_warn_function_return =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -7147,7 +7202,7 @@ struct gimple_opt_pass pass_warn_function_noreturn =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

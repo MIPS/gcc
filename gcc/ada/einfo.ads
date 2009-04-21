@@ -2633,6 +2633,13 @@ package Einfo is
 --       Present in all entities. Set only in record types to which the
 --       pragma Unchecked_Union has been validly applied.
 
+--    Is_Underlying_Record_View (Flag246) [base type only]
+--       Present in all entities. Set only in record types that represent the
+--       underlying record view. This view is built for derivations of types
+--       with unknown discriminants; it is a record with the same structure
+--       as its corresponding record type, but whose parent is the full view
+--       of the parent in the original type extension.
+
 --    Is_Unsigned_Type (Flag144)
 --       Present in all types, but can be set only for discrete and fixed-point
 --       type and subtype entities. This flag is only valid if the entity is
@@ -3557,6 +3564,16 @@ package Einfo is
 --       or as a subtype declaration where the base type is private and has a
 --       private completion. If Td is already constrained, then its full view
 --       can serve directly as the full view of T.
+
+--    Underlying_Record_View (Node24)
+--       Present in record types. Set for record types that are extensions of
+--       types with unknown discriminants, and also set for internally built
+--       underlying record views to reference its original record type. Record
+--       types that are extensions of types with unknown discriminants do not
+--       have a completion, but they cannot be used without having some
+--       discriminated view at hand. This view is a record type with the same
+--       structure, whose parent type is the full view of the parent in the
+--       original type extension.
 
 --    Underlying_Type (synthesized)
 --       Applies to all entities. This is the identity function except in the
@@ -5246,6 +5263,7 @@ package Einfo is
    --    Discriminant_Constraint             (Elist21)
    --    Corresponding_Remote_Type           (Node22)
    --    Stored_Constraint                   (Elist23)
+   --    Underlying_Record_View              (Node24)   (base type only)
    --    Interfaces                          (Elist25)
    --    Component_Alignment                 (special)  (base type only)
    --    C_Pass_By_Copy                      (Flag125)  (base type only)
@@ -5881,6 +5899,7 @@ package Einfo is
    function Is_Trivial_Subprogram               (Id : E) return B;
    function Is_True_Constant                    (Id : E) return B;
    function Is_Unchecked_Union                  (Id : E) return B;
+   function Is_Underlying_Record_View           (Id : E) return B;
    function Is_Unsigned_Type                    (Id : E) return B;
    function Is_VMS_Exception                    (Id : E) return B;
    function Is_Valued_Procedure                 (Id : E) return B;
@@ -5983,6 +6002,7 @@ package Einfo is
    function Task_Body_Procedure                 (Id : E) return N;
    function Treat_As_Volatile                   (Id : E) return B;
    function Underlying_Full_View                (Id : E) return E;
+   function Underlying_Record_View              (Id : E) return E;
    function Universal_Aliasing                  (Id : E) return B;
    function Unset_Reference                     (Id : E) return N;
    function Used_As_Generic_Actual              (Id : E) return B;
@@ -6432,6 +6452,7 @@ package Einfo is
    procedure Set_Is_Trivial_Subprogram           (Id : E; V : B := True);
    procedure Set_Is_True_Constant                (Id : E; V : B := True);
    procedure Set_Is_Unchecked_Union              (Id : E; V : B := True);
+   procedure Set_Is_Underlying_Record_View       (Id : E; V : B := True);
    procedure Set_Is_Unsigned_Type                (Id : E; V : B := True);
    procedure Set_Is_VMS_Exception                (Id : E; V : B := True);
    procedure Set_Is_Valued_Procedure             (Id : E; V : B := True);
@@ -6534,6 +6555,7 @@ package Einfo is
    procedure Set_Task_Body_Procedure             (Id : E; V : N);
    procedure Set_Treat_As_Volatile               (Id : E; V : B := True);
    procedure Set_Underlying_Full_View            (Id : E; V : E);
+   procedure Set_Underlying_Record_View          (Id : E; V : E);
    procedure Set_Universal_Aliasing              (Id : E; V : B := True);
    procedure Set_Unset_Reference                 (Id : E; V : N);
    procedure Set_Used_As_Generic_Actual          (Id : E; V : B := True);
@@ -7122,6 +7144,7 @@ package Einfo is
    pragma Inline (Is_Trivial_Subprogram);
    pragma Inline (Is_Type);
    pragma Inline (Is_Unchecked_Union);
+   pragma Inline (Is_Underlying_Record_View);
    pragma Inline (Is_Unsigned_Type);
    pragma Inline (Is_VMS_Exception);
    pragma Inline (Is_Valued_Procedure);
@@ -7226,6 +7249,7 @@ package Einfo is
    pragma Inline (Task_Body_Procedure);
    pragma Inline (Treat_As_Volatile);
    pragma Inline (Underlying_Full_View);
+   pragma Inline (Underlying_Record_View);
    pragma Inline (Universal_Aliasing);
    pragma Inline (Unset_Reference);
    pragma Inline (Used_As_Generic_Actual);
@@ -7509,6 +7533,7 @@ package Einfo is
    pragma Inline (Set_Is_Trivial_Subprogram);
    pragma Inline (Set_Is_True_Constant);
    pragma Inline (Set_Is_Unchecked_Union);
+   pragma Inline (Set_Is_Underlying_Record_View);
    pragma Inline (Set_Is_Unsigned_Type);
    pragma Inline (Set_Is_VMS_Exception);
    pragma Inline (Set_Is_Valued_Procedure);
@@ -7610,6 +7635,7 @@ package Einfo is
    pragma Inline (Set_Task_Body_Procedure);
    pragma Inline (Set_Treat_As_Volatile);
    pragma Inline (Set_Underlying_Full_View);
+   pragma Inline (Set_Underlying_Record_View);
    pragma Inline (Set_Universal_Aliasing);
    pragma Inline (Set_Unset_Reference);
    pragma Inline (Set_Used_As_Generic_Actual);

@@ -985,7 +985,7 @@ cgraph_finalize_compilation_unit (void)
   cgraph_analyze_functions ();
   timevar_pop (TV_CGRAPH);
 }
- 
+
 
 /* Figure out what functions we want to assemble.  */
 
@@ -1246,13 +1246,21 @@ ipa_passes (void)
   bitmap_obstack_initialize (NULL);
   execute_ipa_pass_list (all_small_ipa_passes);
 
-  /* This pass removes bodies of extern inline functions that we never
+  /* If pass_all_early_optimizations was not scheduled, the state of
+     the cgraph will not be properly updated.  Update it now.  */
+  if (cgraph_state < CGRAPH_STATE_IPA_SSA)
+    cgraph_state = CGRAPH_STATE_IPA_SSA;
+
+  /* Remove the bodies of extern inline functions that we never
      inlined.  */
   cgraph_remove_unreachable_nodes (false, dump_file);
 
   if (!in_lto_p)
     {
+      /* Generate coverage variables and constructors.  */
       coverage_finish ();
+
+      /* Process new functions added.  */
       set_cfun (NULL);
       current_function_decl = NULL;
       cgraph_process_new_functions ();

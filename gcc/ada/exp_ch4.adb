@@ -25,6 +25,7 @@
 
 with Atree;    use Atree;
 with Checks;   use Checks;
+with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
@@ -976,15 +977,14 @@ package body Exp_Ch4 is
             Rewrite (Exp, New_Copy (Expression (Exp)));
          end if;
       else
-         --  First check against the type of the qualified expression
-         --
-         --  NOTE: The commented call should be correct, but for some reason
-         --  causes the compiler to bomb (sigsegv) on ACVC test c34007g, so for
-         --  now we just perform the old (incorrect) test against the
-         --  designated subtype with no sliding in the else part of the if
-         --  statement below. ???
-         --
-         --  Apply_Constraint_Check (Exp, T, No_Sliding => True);
+         --  If we have:
+         --    type A is access T1;
+         --    X : A := new T2'(...);
+         --  T1 and T2 can be different subtypes, and we might need to check
+         --  both constraints. First check against the type of the qualified
+         --  expression.
+
+         Apply_Constraint_Check (Exp, T, No_Sliding => True);
 
          --  A check is also needed in cases where the designated subtype is
          --  constrained and differs from the subtype given in the qualified
@@ -996,14 +996,6 @@ package body Exp_Ch4 is
          then
             Apply_Constraint_Check
               (Exp, DesigT, No_Sliding => False);
-
-         --  The nonsliding check should really be performed (unconditionally)
-         --  against the subtype of the qualified expression, but that causes a
-         --  problem with c34007g (see above), so for now we retain this.
-
-         else
-            Apply_Constraint_Check
-              (Exp, DesigT, No_Sliding => True);
          end if;
 
          --  For an access to unconstrained packed array, GIGI needs to see an
@@ -2247,6 +2239,14 @@ package body Exp_Ch4 is
       Result : Node_Id;
       --  Result of the concatenation (of type Ityp)
 
+      Actions : constant List_Id := New_List;
+      --  Collect actions to be inserted if Save_Space is False
+
+      Save_Space : Boolean;
+      pragma Warnings (Off, Save_Space);
+      --  Set to True if we are saving generated code space by calling routines
+      --  in packages System.Concat_n.
+
       Known_Non_Null_Operand_Seen : Boolean;
       --  Set True during generation of the assignements of operands into
       --  result once an operand known to be non-null has been seen.
@@ -2560,7 +2560,7 @@ package body Exp_Ch4 is
                  Make_Defining_Identifier (Loc,
                    Chars => New_Internal_Name ('L'));
 
-               Insert_Action (Cnode,
+               Append_To (Actions,
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Var_Length (NN),
                    Constant_Present    => True,
@@ -2572,9 +2572,7 @@ package body Exp_Ch4 is
                      Make_Attribute_Reference (Loc,
                        Prefix         =>
                          Duplicate_Subexpr (Opnd, Name_Req => True),
-                       Attribute_Name => Name_Length)),
-
-                 Suppress => All_Checks);
+                       Attribute_Name => Name_Length)));
             end if;
          end if;
 
@@ -2603,8 +2601,8 @@ package body Exp_Ch4 is
               Make_Integer_Literal (Loc,
                 Intval => Fixed_Length (NN) + Intval (Aggr_Length (NN - 1)));
 
-            --  All other cases, construct an addition node for the length and
-            --  create an entity initialized to this length.
+         --  All other cases, construct an addition node for the length and
+         --  create an entity initialized to this length.
 
          else
             Ent :=
@@ -2617,7 +2615,7 @@ package body Exp_Ch4 is
                Clen := New_Reference_To (Var_Length (NN), Loc);
             end if;
 
-            Insert_Action (Cnode,
+            Append_To (Actions,
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Ent,
                 Constant_Present    => True,
@@ -2628,9 +2626,7 @@ package body Exp_Ch4 is
                 Expression          =>
                   Make_Op_Add (Loc,
                     Left_Opnd  => New_Copy (Aggr_Length (NN - 1)),
-                    Right_Opnd => Clen)),
-
-              Suppress => All_Checks);
+                    Right_Opnd => Clen)));
 
             Aggr_Length (NN) := Make_Identifier (Loc, Chars => Chars (Ent));
          end if;
@@ -2732,13 +2728,12 @@ package body Exp_Ch4 is
             Ent :=
               Make_Defining_Identifier (Loc, Chars => New_Internal_Name ('L'));
 
-            Insert_Action (Cnode,
+            Append_To (Actions,
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Ent,
                 Constant_Present    => True,
                 Object_Definition   => New_Occurrence_Of (Ityp, Loc),
-                Expression          => Get_Known_Bound (1)),
-              Suppress => All_Checks);
+                Expression          => Get_Known_Bound (1)));
 
             Low_Bound := New_Reference_To (Ent, Loc);
          end;
@@ -2757,9 +2752,10 @@ package body Exp_Ch4 is
                 Right_Opnd => Make_Artyp_Literal (1))));
 
       --  Note that calculation of the high bound may cause overflow in some
-      --  very weird cases, so in the general case we need an overflow check
-      --  on the high bound. We can avoid this for the common case of string
-      --  types since we chose a wider range for the arithmetic type.
+      --  very weird cases, so in the general case we need an overflow check on
+      --  the high bound. We can avoid this for the common case of string types
+      --  and other types whose index is Positive, since we chose a wider range
+      --  for the arithmetic type.
 
       if Istyp /= Standard_Positive then
          Activate_Overflow_Check (High_Bound);
@@ -2779,6 +2775,10 @@ package body Exp_Ch4 is
                Last_Opnd_High_Bound,
                High_Bound));
       end if;
+
+      --  Here is where we insert the saved up actions
+
+      Insert_Actions (Cnode, Actions, Suppress => All_Checks);
 
       --  Now we construct an array object with appropriate bounds
 
@@ -2812,6 +2812,80 @@ package body Exp_Ch4 is
       end if;
 
       --  Now we will generate the assignments to do the actual concatenation
+
+      --  There is one case in which we will not do this, namely when all the
+      --  following conditions are met:
+
+      --    The result type is Standard.String
+
+      --    There are nine or fewer retained (non-null) operands
+
+      --    The optimization level is -O0
+
+      --    The corresponding System.Concat_n.Str_Concat_n routine is
+      --    available in the run time.
+
+      --    The debug flag gnatd.c is not set
+
+      --  If all these conditions are met then we generate a call to the
+      --  relevant concatenation routine. The purpose of this is to avoid
+      --  undesirable code bloat at -O0.
+
+      if Atyp = Standard_String
+        and then NN in 2 .. 9
+        and then (Opt.Optimization_Level = 0 or else Debug_Flag_Dot_CC)
+        and then not Debug_Flag_Dot_C
+      then
+         declare
+            RR : constant array (Nat range 2 .. 9) of RE_Id :=
+                   (RE_Str_Concat_2,
+                    RE_Str_Concat_3,
+                    RE_Str_Concat_4,
+                    RE_Str_Concat_5,
+                    RE_Str_Concat_6,
+                    RE_Str_Concat_7,
+                    RE_Str_Concat_8,
+                    RE_Str_Concat_9);
+
+         begin
+            if RTE_Available (RR (NN)) then
+               declare
+                  Opnds : constant List_Id :=
+                            New_List (New_Occurrence_Of (Ent, Loc));
+
+               begin
+                  for J in 1 .. NN loop
+                     if Is_List_Member (Operands (J)) then
+                        Remove (Operands (J));
+                     end if;
+
+                     if Base_Type (Etype (Operands (J))) = Ctyp then
+                        Append_To (Opnds,
+                          Make_Aggregate (Loc,
+                            Component_Associations => New_List (
+                              Make_Component_Association (Loc,
+                                Choices => New_List (
+                                  Make_Integer_Literal (Loc, 1)),
+                                Expression => Operands (J)))));
+
+                     else
+                        Append_To (Opnds, Operands (J));
+                     end if;
+                  end loop;
+
+                  Insert_Action (Cnode,
+                    Make_Procedure_Call_Statement (Loc,
+                      Name => New_Reference_To (RTE (RR (NN)), Loc),
+                      Parameter_Associations => Opnds));
+
+                  Result := New_Reference_To (Ent, Loc);
+                  goto Done;
+               end;
+            end if;
+         end;
+      end if;
+
+      --  Not special case so generate the assignments
 
       Known_Non_Null_Operand_Seen := False;
 
@@ -2938,7 +3012,7 @@ package body Exp_Ch4 is
       function Size_In_Storage_Elements (E : Entity_Id) return Node_Id;
       --  Given a constrained array type E, returns a node representing the
       --  code to compute the size in storage elements for the given type.
-      --  This is done without using the attribute (which malfunctins for
+      --  This is done without using the attribute (which malfunctions for
       --  large sizes ???)
 
       ---------------------------------------
@@ -3356,7 +3430,7 @@ package body Exp_Ch4 is
          --  least at the moment we don't compute this attribute right, and
          --  can silently give wrong results when the result gets large. Since
          --  this is all about large results, that's bad, so instead we only
-         --  applly the check for constrained arrays, and manually compute the
+         --  apply the check for constrained arrays, and manually compute the
          --  value of the attribute ???
 
          if Is_Array_Type (Etyp) and then Is_Constrained (Etyp) then
@@ -3373,8 +3447,13 @@ package body Exp_Ch4 is
       end if;
 
       --  Handle case of qualified expression (other than optimization above)
+      --  First apply constraint checks, because the bounds or discriminants
+      --  in the aggregate might not match the subtype mark in the allocator.
 
       if Nkind (Expression (N)) = N_Qualified_Expression then
+         Apply_Constraint_Check
+           (Expression (Expression (N)), Etype (Expression (N)));
+
          Expand_Allocator_Expression (N);
          return;
       end if;

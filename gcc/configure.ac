@@ -781,7 +781,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([lto merged with rev 146125])
+ACX_PKGVERSION([lto merged with rev 146424])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -810,6 +810,11 @@ esac],
 AC_SUBST(datarootdir)
 AC_SUBST(docdir)
 AC_SUBST(htmldir)
+
+AC_ARG_WITH(multilib-list,
+[  --with-multilib-list    Select multilibs (SH only)],
+:,
+with_multilib_list=default)
 
 # -------------------------
 # Checks for other programs
@@ -3883,6 +3888,9 @@ AC_SUBST(check_languages)
 AC_SUBST(cpp_install_dir)
 AC_SUBST(xmake_file)
 AC_SUBST(tmake_file)
+AC_SUBST(TM_ENDIAN_CONFIG)
+AC_SUBST(TM_MULTILIB_CONFIG)
+AC_SUBST(TM_MULTILIB_EXCEPTIONS_CONFIG)
 AC_SUBST(extra_gcc_objs)
 AC_SUBST(extra_headers_list)
 AC_SUBST(extra_objs)

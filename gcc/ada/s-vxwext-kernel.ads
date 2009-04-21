@@ -45,10 +45,10 @@ package System.VxWorks.Ext is
    type Interrupt_Vector is new System.Address;
 
    function Int_Lock return int;
-   pragma Inline (Int_Lock);
+   pragma Convention (C, Int_Lock);
 
    function Int_Unlock return int;
-   pragma Inline (Int_Unlock);
+   pragma Convention (C, Int_Unlock);
 
    function Interrupt_Connect
      (Vector    : Interrupt_Vector;
@@ -74,5 +74,11 @@ package System.VxWorks.Ext is
 
    function Set_Time_Slice (ticks : int) return int;
    pragma Import (C, Set_Time_Slice, "kernelTimeSlice");
+
+   type UINT64 is mod 2 ** Long_Long_Integer'Size;
+
+   function tickGet return UINT64;
+   --  Needed for ravenscar-cert
+   pragma Import (C, tickGet, "tick64Get");
 
 end System.VxWorks.Ext;

@@ -783,18 +783,6 @@ poplevel (int keep, int reverse, int functionbody)
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, block);
 }
 
-/* Insert BLOCK at the end of the list of subblocks of the
-   current binding level.  This is used when a BIND_EXPR is expanded,
-   to handle the BLOCK node inside the BIND_EXPR.  */
-
-void
-insert_block (tree block)
-{
-  TREE_USED (block) = 1;
-  current_binding_level->blocks
-    = chainon (current_binding_level->blocks, block);
-}
-
 /* Walk all the namespaces contained NAMESPACE, including NAMESPACE
    itself, calling F for each.  The DATA is passed to F as well.  */
 
@@ -5159,7 +5147,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 		       decl);
 	      init = build_tree_list (NULL_TREE, init);
 	    }
-	  else if ((*targetm.vector_opaque_p) (type))
+	  else if (TREE_CODE (type) == VECTOR_TYPE && TYPE_VECTOR_OPAQUE (type))
 	    {
 	      error ("opaque vector types cannot be initialized");
 	      init = error_mark_node;
@@ -8830,8 +8818,13 @@ grokdeclarator (const cp_declarator *declarator,
 
 	  /* Replace the anonymous name with the real name everywhere.  */
 	  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-	    if (ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))
-	      TYPE_NAME (t) = decl;
+	    {
+	      if (ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))
+		{
+		  debug_hooks->set_name (t, decl);
+		  TYPE_NAME (t) = decl;
+		}
+  	    }
 
 	  if (TYPE_LANG_SPECIFIC (type))
 	    TYPE_WAS_ANONYMOUS (type) = 1;

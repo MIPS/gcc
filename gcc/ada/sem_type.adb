@@ -312,8 +312,7 @@ package body Sem_Type is
          end loop;
 
          All_Interp.Table (All_Interp.Last) := (Name, Typ, Abstr_Op);
-         All_Interp.Increment_Last;
-         All_Interp.Table (All_Interp.Last) := No_Interp;
+         All_Interp.Append (No_Interp);
       end Add_Entry;
 
       ----------------------------
@@ -634,8 +633,7 @@ package body Sem_Type is
                      then
                         All_Interp.Table (All_Interp.Last) :=
                           (H, Etype (H), Empty);
-                        All_Interp.Increment_Last;
-                        All_Interp.Table (All_Interp.Last) := No_Interp;
+                        All_Interp.Append (No_Interp);
                         goto Next_Homograph;
 
                      elsif Scope (H) /= Standard_Standard then
@@ -747,6 +745,18 @@ package body Sem_Type is
       else
          BT1 := Base_Type (T1);
          BT2 := Base_Type (T2);
+
+         --  Handle underlying view of records with unknown discriminants
+         --  using the original entity that motivated the construction of
+         --  this underlying record view (see Build_Derived_Private_Type).
+
+         if Is_Underlying_Record_View (BT1) then
+            BT1 := Underlying_Record_View (BT1);
+         end if;
+
+         if Is_Underlying_Record_View (BT2) then
+            BT2 := Underlying_Record_View (BT2);
+         end if;
       end if;
 
       --  Simplest case: same types are compatible, and types that have the
@@ -885,7 +895,7 @@ package body Sem_Type is
       then
          return True;
 
-      --  An aggregate is compatible with an array or record type.
+      --  An aggregate is compatible with an array or record type
 
       elsif T2 = Any_Composite
         and then Ekind (T1) in E_Array_Type .. E_Record_Subtype
@@ -1669,6 +1679,39 @@ package body Sem_Type is
 
       elsif Nkind (N) = N_Range then
          return It1;
+
+      --  Implement AI05-105: A renaming declaration with an access
+      --  definition must resolve to an anonymous access type. This
+      --  is a resolution rule and can be used to disambiguate.
+
+      elsif Nkind (Parent (N)) = N_Object_Renaming_Declaration
+        and then Present (Access_Definition (Parent (N)))
+      then
+         if Ekind (It1.Typ) = E_Anonymous_Access_Type
+              or else
+            Ekind (It1.Typ) = E_Anonymous_Access_Subprogram_Type
+         then
+            if Ekind (It2.Typ) = Ekind (It1.Typ) then
+
+               --  True ambiguity
+
+               return No_Interp;
+
+            else
+               return It1;
+            end if;
+
+         elsif Ekind (It2.Typ) = E_Anonymous_Access_Type
+                 or else
+               Ekind (It2.Typ) = E_Anonymous_Access_Subprogram_Type
+         then
+            return It2;
+
+         --  No legal interpretation
+
+         else
+            return No_Interp;
+         end if;
 
       --  If two user defined-subprograms are visible, it is a true ambiguity,
       --  unless one of them is an entry and the context is a conditional or
@@ -2488,20 +2531,37 @@ package body Sem_Type is
    -----------------
 
    function Is_Ancestor (T1, T2 : Entity_Id) return Boolean is
+      BT1 : Entity_Id;
+      BT2 : Entity_Id;
       Par : Entity_Id;
 
    begin
-      if Base_Type (T1) = Base_Type (T2) then
+      BT1 := Base_Type (T1);
+      BT2 := Base_Type (T2);
+
+      --  Handle underlying view of records with unknown discriminants
+      --  using the original entity that motivated the construction of
+      --  this underlying record view (see Build_Derived_Private_Type).
+
+      if Is_Underlying_Record_View (BT1) then
+         BT1 := Underlying_Record_View (BT1);
+      end if;
+
+      if Is_Underlying_Record_View (BT2) then
+         BT2 := Underlying_Record_View (BT2);
+      end if;
+
+      if BT1 = BT2 then
          return True;
 
       elsif Is_Private_Type (T1)
         and then Present (Full_View (T1))
-        and then Base_Type (T2) = Base_Type (Full_View (T1))
+        and then BT2 = Base_Type (Full_View (T1))
       then
          return True;
 
       else
-         Par := Etype (T2);
+         Par := Etype (BT2);
 
          loop
             --  If there was a error on the type declaration, do not recurse
@@ -2509,7 +2569,7 @@ package body Sem_Type is
             if Error_Posted (Par) then
                return False;
 
-            elsif Base_Type (T1) = Base_Type (Par)
+            elsif BT1 = Base_Type (Par)
               or else (Is_Private_Type (T1)
                          and then Present (Full_View (T1))
                          and then Base_Type (Par) = Base_Type (Full_View (T1)))
@@ -2518,7 +2578,7 @@ package body Sem_Type is
 
             elsif Is_Private_Type (Par)
               and then Present (Full_View (Par))
-              and then Full_View (Par) = Base_Type (T1)
+              and then Full_View (Par) = BT1
             then
                return True;
 
@@ -2625,8 +2685,7 @@ package body Sem_Type is
       Map_Ptr : Int;
 
    begin
-      All_Interp.Increment_Last;
-      All_Interp.Table (All_Interp.Last) := No_Interp;
+      All_Interp.Append (No_Interp);
 
       Map_Ptr := Headers (Hash (N));
 

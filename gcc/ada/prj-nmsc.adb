@@ -646,7 +646,8 @@ package body Prj.Nmsc is
       Src_Data.Naming_Exception    := Naming_Exception;
 
       if Src_Data.Compiled and then Src_Data.Object_Exists then
-         Src_Data.Object   := Object_Name (File_Name);
+         Src_Data.Object   :=
+           Object_Name (File_Name, Config.Object_File_Suffix);
          Src_Data.Dep_Name :=
            Dependency_Name (File_Name, Src_Data.Dependency);
          Src_Data.Switches := Switches_Name (File_Name);
@@ -1541,6 +1542,19 @@ package body Prj.Nmsc is
                                     Element.Value.Location);
                            end;
 
+                        when Name_Object_File_Suffix =>
+                           if Get_Name_String (Element.Value.Value) = "" then
+                              Error_Msg
+                                (Project, In_Tree,
+                                 "object file suffix cannot be empty",
+                                 Element.Value.Location);
+
+                           else
+                              In_Tree.Languages_Data.Table
+                                (Lang_Index).Config.Object_File_Suffix :=
+                                Element.Value.Value;
+                           end if;
+
                         when Name_Pic_Option =>
 
                            --  Attribute Compiler_Pic_Option (<language>)
@@ -1828,6 +1842,15 @@ package body Prj.Nmsc is
                      Data.Config.Linker :=
                        Path_Name_Type (Attribute.Value.Value);
 
+                     --  Linker'Driver is also used to link shared libraries
+                     --  if the obsolescent attribute Library_GCC has not been
+                     --  specified.
+
+                     if Data.Config.Shared_Lib_Driver = No_File then
+                        Data.Config.Shared_Lib_Driver :=
+                          File_Name_Type (Attribute.Value.Value);
+                     end if;
+
                   elsif Attribute.Name = Name_Required_Switches then
 
                      --  Attribute Required_Switches: the minimum
@@ -1963,7 +1986,13 @@ package body Prj.Nmsc is
               In_Tree.Variable_Elements.Table (Attribute_Id);
 
             if not Attribute.Value.Default then
-               if Attribute.Name = Name_Library_Builder then
+               if Attribute.Name = Name_Target then
+
+                  --  Attribute Target: the target specified
+
+                  Data.Config.Target := Attribute.Value.Value;
+
+               elsif Attribute.Name = Name_Library_Builder then
 
                   --  Attribute Library_Builder: the application to invoke
                   --  to build libraries.
@@ -2047,6 +2076,12 @@ package body Prj.Nmsc is
                elsif Attribute.Name = Name_Library_GCC then
                   Data.Config.Shared_Lib_Driver :=
                     File_Name_Type (Attribute.Value.Value);
+                  Error_Msg
+                    (Project,
+                     In_Tree,
+                     "?Library_'G'C'C is an obsolescent attribute, " &
+                     "use Linker''Driver instead",
+                     Attribute.Value.Location);
 
                elsif Attribute.Name = Name_Archive_Suffix then
                   Data.Config.Archive_Suffix :=
@@ -2288,6 +2323,14 @@ package body Prj.Nmsc is
 
                         In_Tree.Languages_Data.Table
                           (Lang_Index).Config.Runtime_Library_Dir :=
+                          Element.Value.Value;
+
+                     when Name_Runtime_Source_Dir =>
+
+                        --  Attribute Runtime_Library_Dir (<language>)
+
+                        In_Tree.Languages_Data.Table
+                          (Lang_Index).Config.Runtime_Source_Dir :=
                           Element.Value.Value;
 
                      when Name_Object_Generated =>
@@ -2615,7 +2658,7 @@ package body Prj.Nmsc is
                                 (Src_Data.Other_Part).In_Interfaces := True;
                               In_Tree.Sources.Table
                                 (Src_Data.Other_Part).Declared_In_Interfaces :=
-                                True;
+                                  True;
                            end if;
 
                            if Current_Verbosity = High then
@@ -2646,8 +2689,8 @@ package body Prj.Nmsc is
                Error_Msg
                  (Project,
                   In_Tree,
-                  "{ cannot be an interface of project %% " &
-                  "as it is not one of its sources",
+                  "{ cannot be an interface of project %% "
+                  & "as it is not one of its sources",
                   Element.Location);
             end if;
 
@@ -3585,6 +3628,10 @@ package body Prj.Nmsc is
                        Prj.Util.Value_Of
                          (Snames.Name_Library_Ali_Dir, Attributes, In_Tree);
 
+      Lib_GCC      : constant Prj.Variable_Value :=
+                       Prj.Util.Value_Of
+                         (Snames.Name_Library_GCC, Attributes, In_Tree);
+
       The_Lib_Kind : constant Prj.Variable_Value :=
                        Prj.Util.Value_Of
                          (Snames.Name_Library_Kind, Attributes, In_Tree);
@@ -4177,15 +4224,55 @@ package body Prj.Nmsc is
                      Write_Line (Kind_Name);
                   end if;
 
-                  if Data.Library_Kind /= Static and then
-                    Support_For_Libraries = Prj.Static_Only
-                  then
-                     Error_Msg
-                       (Project, In_Tree,
-                        "only static libraries are supported " &
-                        "on this platform",
-                        The_Lib_Kind.Location);
-                     Data.Library := False;
+                  if Data.Library_Kind /= Static then
+                     if Support_For_Libraries = Prj.Static_Only then
+                        Error_Msg
+                          (Project, In_Tree,
+                           "only static libraries are supported " &
+                           "on this platform",
+                           The_Lib_Kind.Location);
+                        Data.Library := False;
+
+                     else
+                        --  Check if (obsolescent) attribute Library_GCC or
+                        --  Linker'Driver is declared.
+
+                        if Lib_GCC.Value /= Empty_String then
+                           Error_Msg
+                             (Project,
+                              In_Tree,
+                              "?Library_'G'C'C is an obsolescent attribute, " &
+                              "use Linker''Driver instead",
+                              Lib_GCC.Location);
+                           Data.Config.Shared_Lib_Driver :=
+                             File_Name_Type (Lib_GCC.Value);
+
+                        else
+                           declare
+                              Linker : constant Package_Id :=
+                                         Value_Of
+                                           (Name_Linker,
+                                            Data.Decl.Packages,
+                                            In_Tree);
+                              Driver : constant Variable_Value :=
+                                         Value_Of
+                                           (Name                    => No_Name,
+                                            Attribute_Or_Array_Name =>
+                                              Name_Driver,
+                                            In_Package              => Linker,
+                                            In_Tree                 =>
+                                              In_Tree);
+
+                           begin
+                              if Driver /= Nil_Variable_Value
+                                 and then Driver.Value /= Empty_String
+                              then
+                                 Data.Config.Shared_Lib_Driver :=
+                                   File_Name_Type (Driver.Value);
+                              end if;
+                           end;
+                        end if;
+                     end if;
                   end if;
                end;
             end if;
@@ -5790,6 +5877,10 @@ package body Prj.Nmsc is
 
       Last_Source_Dir : String_List_Id  := Nil_String;
 
+      Languages : constant Variable_Value :=
+                      Prj.Util.Value_Of
+                        (Name_Languages, Data.Decl.Attributes, In_Tree);
+
       procedure Find_Source_Dirs
         (From     : File_Name_Type;
          Location : Source_Ptr;
@@ -6209,153 +6300,24 @@ package body Prj.Nmsc is
          Write_Line ("Starting to look for directories");
       end if;
 
-      --  We set the object directory to its default. It may be set to nil, if
-      --  there is no sources in the project.
+      --  Set the object directory to its default which may be nil, if there
+      --  is no sources in the project.
 
-      Data.Object_Directory := Data.Directory;
-
-      --  Look for the source directories
-
-      if Current_Verbosity = High then
-         Write_Line ("Starting to look for source directories");
-      end if;
-
-      pragma Assert (Source_Dirs.Kind = List, "Source_Dirs is not a list");
-
-      if (not Source_Files.Default) and then
-        Source_Files.Values = Nil_String
+      if (((not Source_Files.Default)
+           and then Source_Files.Values = Nil_String)
+          or else
+          ((not Source_Dirs.Default) and then Source_Dirs.Values = Nil_String)
+           or else
+          ((not Languages.Default) and then Languages.Values = Nil_String))
+        and then Data.Extends = No_Project
       then
-         Data.Source_Dirs := Nil_String;
-
-         if Data.Qualifier = Standard then
-            Error_Msg
-              (Project,
-               In_Tree,
-               "a standard project cannot have no sources",
-               Source_Files.Location);
-         end if;
-
-         if Data.Extends = No_Project
-           and then Data.Object_Directory = Data.Directory
-         then
-            Data.Object_Directory := No_Path_Information;
-         end if;
-
-      elsif Source_Dirs.Default then
-
-         --  No Source_Dirs specified: the single source directory is the one
-         --  containing the project file
-
-         String_Element_Table.Increment_Last
-           (In_Tree.String_Elements);
-         Data.Source_Dirs := String_Element_Table.Last
-           (In_Tree.String_Elements);
-         In_Tree.String_Elements.Table (Data.Source_Dirs) :=
-           (Value         => Name_Id (Data.Directory.Name),
-            Display_Value => Name_Id (Data.Directory.Display_Name),
-            Location      => No_Location,
-            Flag          => False,
-            Next          => Nil_String,
-            Index         => 0);
-
-         if Current_Verbosity = High then
-            Write_Line ("Single source directory:");
-            Write_Str ("    """);
-            Write_Str (Get_Name_String (Data.Directory.Display_Name));
-            Write_Line ("""");
-         end if;
-
-      elsif Source_Dirs.Values = Nil_String then
-         if Data.Qualifier = Standard then
-            Error_Msg
-              (Project,
-               In_Tree,
-               "a standard project cannot have no source directories",
-               Source_Dirs.Location);
-         end if;
-
-         --  If Source_Dirs is an empty string list, this means that this
-         --  project contains no source. For projects that don't extend other
-         --  projects, this also means that there is no need for an object
-         --  directory, if not specified.
-
-         if Data.Extends = No_Project
-           and then  Data.Object_Directory = Data.Directory
-         then
-            Data.Object_Directory := No_Path_Information;
-         end if;
-
-         Data.Source_Dirs := Nil_String;
+         Data.Object_Directory := No_Path_Information;
 
       else
-         declare
-            Source_Dir : String_List_Id;
-            Element    : String_Element;
-
-         begin
-            --  Process the source directories for each element of the list
-
-            Source_Dir := Source_Dirs.Values;
-            while Source_Dir /= Nil_String loop
-               Element := In_Tree.String_Elements.Table (Source_Dir);
-               Find_Source_Dirs
-                 (File_Name_Type (Element.Value), Element.Location);
-               Source_Dir := Element.Next;
-            end loop;
-         end;
+         Data.Object_Directory := Data.Directory;
       end if;
-
-      if not Excluded_Source_Dirs.Default
-        and then Excluded_Source_Dirs.Values /= Nil_String
-      then
-         declare
-            Source_Dir : String_List_Id;
-            Element    : String_Element;
-
-         begin
-            --  Process the source directories for each element of the list
-
-            Source_Dir := Excluded_Source_Dirs.Values;
-            while Source_Dir /= Nil_String loop
-               Element := In_Tree.String_Elements.Table (Source_Dir);
-               Find_Source_Dirs
-                 (File_Name_Type (Element.Value),
-                  Element.Location,
-                  Removed => True);
-               Source_Dir := Element.Next;
-            end loop;
-         end;
-      end if;
-
-      if Current_Verbosity = High then
-         Write_Line ("Putting source directories in canonical cases");
-      end if;
-
-      declare
-         Current : String_List_Id := Data.Source_Dirs;
-         Element : String_Element;
-
-      begin
-         while Current /= Nil_String loop
-            Element := In_Tree.String_Elements.Table (Current);
-            if Element.Value /= No_Name then
-               if not Osint.File_Names_Case_Sensitive then
-                  Get_Name_String (Element.Value);
-                  Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
-                  Element.Value := Name_Find;
-               end if;
-
-               In_Tree.String_Elements.Table (Current) := Element;
-            end if;
-
-            Current := Element.Next;
-         end loop;
-      end;
 
       --  Check the object directory
-
-      pragma Assert (Object_Dir.Kind = Single,
-                     "Object_Dir is not a single string");
 
       if Object_Dir.Value /= Empty_String then
          Get_Name_String (Object_Dir.Value);
@@ -6444,9 +6406,6 @@ package body Prj.Nmsc is
 
       --  Check the exec directory
 
-      pragma Assert (Exec_Dir.Kind = Single,
-                     "Exec_Dir is not a single string");
-
       --  We set the object directory to its default
 
       Data.Exec_Directory   := Data.Object_Directory;
@@ -6494,6 +6453,127 @@ package body Prj.Nmsc is
             Write_Line ("""");
          end if;
       end if;
+
+      --  Look for the source directories
+
+      if Current_Verbosity = High then
+         Write_Line ("Starting to look for source directories");
+      end if;
+
+      pragma Assert (Source_Dirs.Kind = List, "Source_Dirs is not a list");
+
+      if (not Source_Files.Default) and then
+        Source_Files.Values = Nil_String
+      then
+         Data.Source_Dirs := Nil_String;
+
+         if Data.Qualifier = Standard then
+            Error_Msg
+              (Project,
+               In_Tree,
+               "a standard project cannot have no sources",
+               Source_Files.Location);
+         end if;
+
+      elsif Source_Dirs.Default then
+
+         --  No Source_Dirs specified: the single source directory is the one
+         --  containing the project file
+
+         String_Element_Table.Increment_Last
+           (In_Tree.String_Elements);
+         Data.Source_Dirs := String_Element_Table.Last
+           (In_Tree.String_Elements);
+         In_Tree.String_Elements.Table (Data.Source_Dirs) :=
+           (Value         => Name_Id (Data.Directory.Name),
+            Display_Value => Name_Id (Data.Directory.Display_Name),
+            Location      => No_Location,
+            Flag          => False,
+            Next          => Nil_String,
+            Index         => 0);
+
+         if Current_Verbosity = High then
+            Write_Line ("Single source directory:");
+            Write_Str ("    """);
+            Write_Str (Get_Name_String (Data.Directory.Display_Name));
+            Write_Line ("""");
+         end if;
+
+      elsif Source_Dirs.Values = Nil_String then
+         if Data.Qualifier = Standard then
+            Error_Msg
+              (Project,
+               In_Tree,
+               "a standard project cannot have no source directories",
+               Source_Dirs.Location);
+         end if;
+
+         Data.Source_Dirs := Nil_String;
+
+      else
+         declare
+            Source_Dir : String_List_Id;
+            Element    : String_Element;
+
+         begin
+            --  Process the source directories for each element of the list
+
+            Source_Dir := Source_Dirs.Values;
+            while Source_Dir /= Nil_String loop
+               Element := In_Tree.String_Elements.Table (Source_Dir);
+               Find_Source_Dirs
+                 (File_Name_Type (Element.Value), Element.Location);
+               Source_Dir := Element.Next;
+            end loop;
+         end;
+      end if;
+
+      if not Excluded_Source_Dirs.Default
+        and then Excluded_Source_Dirs.Values /= Nil_String
+      then
+         declare
+            Source_Dir : String_List_Id;
+            Element    : String_Element;
+
+         begin
+            --  Process the source directories for each element of the list
+
+            Source_Dir := Excluded_Source_Dirs.Values;
+            while Source_Dir /= Nil_String loop
+               Element := In_Tree.String_Elements.Table (Source_Dir);
+               Find_Source_Dirs
+                 (File_Name_Type (Element.Value),
+                  Element.Location,
+                  Removed => True);
+               Source_Dir := Element.Next;
+            end loop;
+         end;
+      end if;
+
+      if Current_Verbosity = High then
+         Write_Line ("Putting source directories in canonical cases");
+      end if;
+
+      declare
+         Current : String_List_Id := Data.Source_Dirs;
+         Element : String_Element;
+
+      begin
+         while Current /= Nil_String loop
+            Element := In_Tree.String_Elements.Table (Current);
+            if Element.Value /= No_Name then
+               if not Osint.File_Names_Case_Sensitive then
+                  Get_Name_String (Element.Value);
+                  Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
+                  Element.Value := Name_Find;
+               end if;
+
+               In_Tree.String_Elements.Table (Current) := Element;
+            end if;
+
+            Current := Element.Next;
+         end loop;
+      end;
    end Get_Directories;
 
    ---------------
@@ -7724,7 +7804,7 @@ package body Prj.Nmsc is
       Config         : Language_Config;
       Lang           : Name_List_Index := Data.Languages;
       Header_File    : Boolean := False;
-      First_Language : Language_Index;
+      First_Language : Language_Index := No_Language_Index;
       OK             : Boolean;
 
       Last_Spec : Natural;
@@ -7732,8 +7812,15 @@ package body Prj.Nmsc is
       Last_Sep  : Natural;
 
    begin
-      Unit := No_Name;
-      Alternate_Languages := No_Alternate_Language;
+      --  Default values
+
+      Alternate_Languages   := No_Alternate_Language;
+      Language              := No_Language_Index;
+      Language_Name         := No_Name;
+      Display_Language_Name := No_Name;
+      Unit                  := No_Name;
+      Lang_Kind             := File_Based;
+      Kind                  := Spec;
 
       while Lang /= No_Name_List loop
          Language_Name := In_Tree.Name_Lists.Table (Lang).Name;
@@ -8827,8 +8914,13 @@ package body Prj.Nmsc is
       if Result = null then
          return "";
       else
-         Canonical_Case_File_Name (Result.all);
-         return Result.all;
+         declare
+            R : String := Result.all;
+         begin
+            Free (Result);
+            Canonical_Case_File_Name (R);
+            return R;
+         end;
       end if;
    end Path_Name_Of;
 

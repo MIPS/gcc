@@ -245,11 +245,13 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_call
      per function call.  The range is 0 to CGRAPH_FREQ_MAX.  */
   int frequency;
   /* Depth of loop nest, 1 means no loop nest.  */
-  unsigned int loop_nest : 31;
+  unsigned int loop_nest : 30;
   /* Whether this edge describes a call that was originally indirect.  */
   unsigned int indirect_call : 1;
   /* True if the corresponding CALL stmt cannot be inlined.  */
   unsigned int call_stmt_cannot_inline_p : 1;
+  /* Can this call throw externally?  */
+  unsigned int can_throw_external : 1;
   /* Unique id of the edge.  */
   int uid;
 };
@@ -408,69 +410,6 @@ bool cgraph_is_clone_node (struct cgraph_node *);
 void cgraph_add_new_function (tree, bool);
 const char* cgraph_inline_failed_string (cgraph_inline_failed_t);
 
-cgraph_node_set cgraph_node_set_new (void);
-cgraph_node_set_iterator cgraph_node_set_find (cgraph_node_set set,
-					       struct cgraph_node *node);
-void cgraph_node_set_add (cgraph_node_set, struct cgraph_node *);
-void cgraph_node_set_remove (cgraph_node_set, struct cgraph_node *);
-void dump_cgraph_node_set (FILE *f, cgraph_node_set);
-void debug_cgraph_node_set (cgraph_node_set);
-const char *cgraph_inline_failed_string (cgraph_inline_failed_t);
-
-/* Return true if iterator CSI points to nothing. */
-
-static inline bool
-csi_end_p (cgraph_node_set_iterator csi)
-{
-  return csi.index >= VEC_length (cgraph_node_ptr, csi.set->nodes);
-}
-
-/* Advance iterator CSI. */
-
-static inline void
-csi_next (cgraph_node_set_iterator *csi)
-{
-  csi->index++;
-}
-
-/* Return the node pointed to by CSI. */
-
-static inline struct cgraph_node *
-csi_node (cgraph_node_set_iterator csi)
-{
-  return VEC_index (cgraph_node_ptr, csi.set->nodes, csi.index);
-}
-
-/* Return an iterator to the first node in SET. */
-
-static inline cgraph_node_set_iterator
-csi_start (cgraph_node_set set)
-{
-  cgraph_node_set_iterator csi;
-
-  csi.set = set;
-  csi.index = 0;
-  return csi;
-}
-
-/* Return true if SET contains NODE. */
-
-static inline bool
-cgraph_node_in_set_p (struct cgraph_node *node, cgraph_node_set set)
-{
-  cgraph_node_set_iterator csi;
-  csi = cgraph_node_set_find (set, node);
-  return !csi_end_p (csi);
-}
-
-/* Return number of nodes in SET. */
-
-static inline size_t
-cgraph_node_set_size (cgraph_node_set set)
-{
-  return htab_elements (set->hashtab);
-}
-
 /* In cgraphunit.c  */
 void cgraph_finalize_function (tree, bool);
 void cgraph_mark_if_needed (tree);
@@ -528,11 +467,19 @@ int compute_call_stmt_bb_frequency (basic_block bb);
 /* In ipa.c  */
 bool cgraph_remove_unreachable_nodes (bool, FILE *);
 int cgraph_postorder (struct cgraph_node **);
+cgraph_node_set cgraph_node_set_new (void);
+cgraph_node_set_iterator cgraph_node_set_find (cgraph_node_set,
+					       struct cgraph_node *);
+void cgraph_node_set_add (cgraph_node_set, struct cgraph_node *);
+void cgraph_node_set_remove (cgraph_node_set, struct cgraph_node *);
+void dump_cgraph_node_set (FILE *, cgraph_node_set);
+void debug_cgraph_node_set (cgraph_node_set);
 
+
+/* In predict.c  */
 bool cgraph_maybe_hot_edge_p (struct cgraph_edge *e);
 
 /* In varpool.c  */
-
 extern GTY(()) struct varpool_node *varpool_nodes_queue;
 extern GTY(()) struct varpool_node *varpool_nodes;
 
@@ -613,5 +560,55 @@ enum LTO_cgraph_tags
 extern const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag];
 
 #define LCC_NOT_FOUND	(-1)
+
+
+/* Return true if iterator CSI points to nothing.  */
+static inline bool
+csi_end_p (cgraph_node_set_iterator csi)
+{
+  return csi.index >= VEC_length (cgraph_node_ptr, csi.set->nodes);
+}
+
+/* Advance iterator CSI.  */
+static inline void
+csi_next (cgraph_node_set_iterator *csi)
+{
+  csi->index++;
+}
+
+/* Return the node pointed to by CSI.  */
+static inline struct cgraph_node *
+csi_node (cgraph_node_set_iterator csi)
+{
+  return VEC_index (cgraph_node_ptr, csi.set->nodes, csi.index);
+}
+
+/* Return an iterator to the first node in SET.  */
+static inline cgraph_node_set_iterator
+csi_start (cgraph_node_set set)
+{
+  cgraph_node_set_iterator csi;
+
+  csi.set = set;
+  csi.index = 0;
+  return csi;
+}
+
+/* Return true if SET contains NODE.  */
+static inline bool
+cgraph_node_in_set_p (struct cgraph_node *node, cgraph_node_set set)
+{
+  cgraph_node_set_iterator csi;
+  csi = cgraph_node_set_find (set, node);
+  return !csi_end_p (csi);
+}
+
+/* Return number of nodes in SET.  */
+static inline size_t
+cgraph_node_set_size (cgraph_node_set set)
+{
+  return htab_elements (set->hashtab);
+}
+
 
 #endif  /* GCC_CGRAPH_H  */

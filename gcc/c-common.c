@@ -1712,38 +1712,43 @@ overflow_warning (tree value)
     }
 }
 
-
-/* Warn about use of a logical || / && operator being used in a
-   context where it is likely that the bitwise equivalent was intended
-   by the programmer. CODE is the TREE_CODE of the operator, ARG1
-   and ARG2 the arguments.  */
+/* Warn about uses of logical || / && operator in a context where it
+   is likely that the bitwise equivalent was intended by the
+   programmer.  We have seen an expression in which CODE is a binary
+   operator used to combine expressions OP_LEFT and OP_RIGHT, which
+   before folding had CODE_LEFT and CODE_RIGHT.  */
 
 void
-warn_logical_operator (enum tree_code code, tree arg1, tree
-    arg2)
+warn_logical_operator (location_t location, enum tree_code code,
+		       enum tree_code code_left, tree op_left, 
+		       enum tree_code ARG_UNUSED (code_right), tree op_right)
 {
-  switch (code)
+  if (code != TRUTH_ANDIF_EXPR
+      && code != TRUTH_AND_EXPR
+      && code != TRUTH_ORIF_EXPR
+      && code != TRUTH_OR_EXPR)
+    return;
+
+  /* Warn if &&/|| are being used in a context where it is
+     likely that the bitwise equivalent was intended by the
+     programmer. That is, an expression such as op && MASK
+     where op should not be any boolean expression, nor a
+     constant, and mask seems to be a non-boolean integer constant.  */
+  if (!truth_value_p (code_left)
+      && INTEGRAL_TYPE_P (TREE_TYPE (op_left))
+      && !CONSTANT_CLASS_P (op_left)
+      && !TREE_NO_WARNING (op_left)
+      && TREE_CODE (op_right) == INTEGER_CST
+      && !integer_zerop (op_right)
+      && !integer_onep (op_right))
     {
-      case TRUTH_ANDIF_EXPR:
-      case TRUTH_ORIF_EXPR:
-      case TRUTH_OR_EXPR:
-      case TRUTH_AND_EXPR:
-	if (!TREE_NO_WARNING (arg1)
-	    && INTEGRAL_TYPE_P (TREE_TYPE (arg1))
-	    && !CONSTANT_CLASS_P (arg1)
-	    && TREE_CODE (arg2) == INTEGER_CST
-	    && !integer_zerop (arg2))
-	  {
-	    warning (OPT_Wlogical_op,
-		     "logical %<%s%> with non-zero constant "
-		     "will always evaluate as true",
-		     ((code == TRUTH_ANDIF_EXPR)
-		      || (code == TRUTH_AND_EXPR)) ? "&&" : "||");
-	    TREE_NO_WARNING (arg1) = true;
-	  }
-	break;
-      default:
-	break;
+      if (code == TRUTH_ORIF_EXPR || code == TRUTH_OR_EXPR)
+	warning_at (location, OPT_Wlogical_op, "logical %<or%>"
+		    " applied to non-boolean constant");
+      else
+	warning_at (location, OPT_Wlogical_op, "logical %<and%>"
+		    " applied to non-boolean constant");
+      TREE_NO_WARNING (op_left) = true;
     }
 }
 
@@ -1882,7 +1887,7 @@ bool
 vector_targets_convertible_p (const_tree t1, const_tree t2)
 {
   if (TREE_CODE (t1) == VECTOR_TYPE && TREE_CODE (t2) == VECTOR_TYPE
-      && (targetm.vector_opaque_p (t1) || targetm.vector_opaque_p (t2))
+      && (TYPE_VECTOR_OPAQUE (t1) || TYPE_VECTOR_OPAQUE (t2))
       && tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2)))
     return true;
 
@@ -1900,7 +1905,7 @@ vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
   static bool emitted_lax_note = false;
   bool convertible_lax;
 
-  if ((targetm.vector_opaque_p (t1) || targetm.vector_opaque_p (t2))
+  if ((TYPE_VECTOR_OPAQUE (t1) || TYPE_VECTOR_OPAQUE (t2))
       && tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2)))
     return true;
 

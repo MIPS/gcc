@@ -164,14 +164,31 @@ package body Exp_Disp is
             --  Handle full type declarations and derivations of library
             --  level tagged types
 
-            elsif (Nkind (D) = N_Full_Type_Declaration
-                     or else Nkind (D) = N_Derived_Type_Definition)
+            elsif Nkind_In (D, N_Full_Type_Declaration,
+                               N_Derived_Type_Definition)
               and then Is_Library_Level_Tagged_Type (Defining_Entity (D))
               and then Ekind (Defining_Entity (D)) /= E_Record_Subtype
               and then not Is_Private_Type (Defining_Entity (D))
             then
-               Insert_List_After_And_Analyze (Last (Target_List),
-                 Make_DT (Defining_Entity (D)));
+               --  We do not generate dispatch tables for the internal types
+               --  created for a type extension with unknown discriminants
+               --  The needed information is shared with the source type,
+               --  See Expand_N_Record_Extension.
+
+               if Is_Underlying_Record_View (Defining_Entity (D))
+                 or else
+                  (not Comes_From_Source (Defining_Entity (D))
+                     and then
+                       Has_Unknown_Discriminants (Etype (Defining_Entity (D)))
+                     and then
+                       not Comes_From_Source
+                             (First_Subtype (Defining_Entity (D))))
+               then
+                  null;
+               else
+                  Insert_List_After_And_Analyze (Last (Target_List),
+                    Make_DT (Defining_Entity (D)));
+               end if;
 
             --  Handle private types of library level tagged types. We must
             --  exchange the private and full-view to ensure the correct
@@ -4734,6 +4751,7 @@ package body Exp_Disp is
            and then not Is_Abstract_Type (Typ)
            and then not Is_Controlled (Typ)
            and then not Restriction_Active (No_Dispatching_Calls)
+           and then not Restriction_Active (No_Select_Statements)
          then
             Append_To (Result,
               Make_Object_Declaration (Loc,
@@ -5145,22 +5163,19 @@ package body Exp_Disp is
                while Present (Prim_Elmt) loop
                   Prim := Node (Prim_Elmt);
 
+                  --  Retrieve the ultimate alias of the primitive for proper
+                  --  handling of renamings and eliminated primitives.
+
+                  E := Ultimate_Alias (Prim);
+
                   if Is_Imported (Prim)
                     or else Present (Interface_Alias (Prim))
                     or else Is_Predefined_Dispatching_Operation (Prim)
-                    or else Is_Eliminated (Prim)
+                    or else Is_Eliminated (E)
                   then
                      null;
 
                   else
-                     --  Traverse the list of aliased entities to handle
-                     --  renamings of predefined primitives.
-
-                     E := Prim;
-                     while Present (Alias (E)) loop
-                        E := Alias (E);
-                     end loop;
-
                      if not Is_Predefined_Dispatching_Operation (E)
                        and then not Is_Abstract_Subprogram (E)
                        and then not Present (Interface_Alias (E))
@@ -5533,13 +5548,16 @@ package body Exp_Disp is
          Append_List_To (Result, Elab_Code);
       end if;
 
-      --  Populate the two auxiliary tables used for dispatching
-      --  asynchronous, conditional and timed selects for synchronized
-      --  types that implement a limited interface.
+      --  Populate the two auxiliary tables used for dispatching asynchronous,
+      --  conditional and timed selects for synchronized types that implement
+      --  a limited interface. Skip this step in Ravenscar profile or when
+      --  general dispatching is forbidden.
 
       if Ada_Version >= Ada_05
         and then Is_Concurrent_Record_Type (Typ)
         and then Has_Interfaces (Typ)
+        and then not Restriction_Active (No_Dispatching_Calls)
+        and then not Restriction_Active (No_Select_Statements)
       then
          Append_List_To (Result,
            Make_Select_Specific_Data_Table (Typ));

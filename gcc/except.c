@@ -1120,32 +1120,6 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
   return eh_offset;
 }
 
-/* Return true if REGION_A is outer to REGION_B in IFUN.  */
-
-bool
-eh_region_outer_p (struct function *ifun, int region_a, int region_b)
-{
-  struct eh_region *rp_a, *rp_b;
-
-  gcc_assert (ifun->eh->last_region_number > 0);
-  gcc_assert (ifun->eh->region_tree);
-
-  rp_a = VEC_index (eh_region, ifun->eh->region_array, region_a);
-  rp_b = VEC_index (eh_region, ifun->eh->region_array, region_b);
-  gcc_assert (rp_a != NULL);
-  gcc_assert (rp_b != NULL);
-
-  do
-    {
-      if (rp_a == rp_b)
-	return true;
-      rp_b = rp_b->outer;
-    }
-  while (rp_b);
-
-  return false;
-}
-
 /* Return region number of region that is outer to both if REGION_A and
    REGION_B in IFUN.  */
 
@@ -2898,6 +2872,10 @@ set_nothrow_function_flags (void)
 					     (current_function_decl))
           >= AVAIL_AVAILABLE))
     {
+      struct cgraph_node *node = cgraph_node (current_function_decl);
+      struct cgraph_edge *e;
+      for (e = node->callers; e; e = e->next_caller)
+        e->can_throw_external = false;
       TREE_NOTHROW (current_function_decl) = 1;
 
       if (dump_file)
@@ -2917,7 +2895,7 @@ struct rtl_opt_pass pass_set_nothrow_function_flags =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3439,7 +3417,7 @@ struct rtl_opt_pass pass_convert_to_eh_region_ranges =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

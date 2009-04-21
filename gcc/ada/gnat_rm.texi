@@ -1041,7 +1041,15 @@ value, and the loop above will be optimized away.
 The use of @code{Assume_No_Invalid_Values (On)} is appropriate if
 you know your code is free of uninitialized variables and other
 possible sources of invalid representations, and may result in
-more efficient code.
+more efficient code. A program that accesses an invalid representation
+with this pragma in effect is erroneous, so no guarantees can be made
+about its behavior.
+
+It is peculiar though permissible to use this pragma in conjunction
+with validity checking (-gnatVa). In such cases, accessing invalid
+values will generally give an exception, though formally the program
+is erroneous so there are no guarantees that this will always be the
+case, and it is recommended that these two options not be used together.
 
 @node Pragma Ast_Entry
 @unnumberedsec Pragma Ast_Entry
@@ -8602,6 +8610,12 @@ This restriction does not forbid dependences on the package
 as long as no actual stream objects are created and no
 stream attributes are used.
 
+Note that the use of restriction allows optimization of tagged types,
+since they do not need to worry about dispatching stream operations.
+To take maximum advantage of this space-saving optimization, any
+unit declaring a tagged type should be compiled with the restriction,
+though this is not required.
+
 @item No_Task_Attributes_Package
 @findex No_Task_Attributes_Package
 This restriction ensures at compile time that there are no implicit or
@@ -10464,7 +10478,7 @@ On a typical 32-bit architecture, the X component will be four bytes, and
 require four-byte alignment, and the Y component will be one byte. In this
 case @code{R'Value_Size} will be 40 (bits) since this is the minimum size
 required to store a value of this type, and for example, it is permissible
-to have a component of type R in an outer record whose component size is
+to have a component of type R in an outer array whose component size is
 specified to be 48 bits. However, @code{R'Object_Size} will be 64 (bits),
 since it must be rounded up so that this value is a multiple of the
 alignment (4 bytes = 32 bits).
@@ -13083,9 +13097,19 @@ string, the filename must be a standard 8bits string.
 @end itemize
 
 In the absence of a @samp{encoding=@var{xxx}} form parameter, the
-value UTF-8 is used. This encoding form parameter is only supported on
-the Windows platform. On the other Operating Systems the runtime is
-supporting UTF-8 natively.
+encoding is controlled by the @samp{GNAT_CODE_PAGE} environment
+variable. And if not set @samp{utf8} is assumed.
+
+@table @samp
+@item CP_ACP
+The current system Windows ANSI code page.
+@item CP_UTF8
+UTF-8 encoding
+@end table
+
+This encoding form parameter is only supported on the Windows
+platform. On the other Operating Systems the run-time is supporting
+UTF-8 natively.
 
 @node Open Modes
 @section Open Modes

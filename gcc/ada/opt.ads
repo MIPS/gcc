@@ -640,9 +640,10 @@ package Opt is
    Inspector_Mode : Boolean renames Debug.Debug_Flag_Dot_II;
    --  GNAT
    --  True if compiling in inspector mode (-gnatd.I switch).
-   --  Only relevant when VM_Target /= None. The compiler will attempt to
-   --  generate code even in case of unsupported construct, so that the byte
-   --  code can be used by static analysis tools.
+   --  Enable inspector mode, in particular SCIL generation.
+   --  When VM_Target /= None, the compiler will also attempt to
+   --  generate code even in case of unsupported construct instead of
+   --  displaying an error.
 
    Invalid_Value_Used : Boolean := False;
    --  GNAT
@@ -908,13 +909,20 @@ package Opt is
    Optimization_Level : Int;
    pragma Import (C, Optimization_Level, "optimize");
    --  Constant reflecting the optimization level (0,1,2,3 for -O0,-O1,-O2,-O3)
+   --  See jmissing.c and aamissing.c for definitions for dotnet/jgnat and
+   --  GNAAMP back ends.
+
+   Optimize_Size : Int;
+   pragma Import (C, Optimize_Size, "optimize_size");
+   --  Constant reflecting setting of -Os (optimize for size). Set to nonzero
+   --  in -Os mode and set to zero otherwise. See jmissing.c and aamissing.c
+   --  for definitions of "optimize_size" for dotnet/jgnat and GNAAMP backends
 
    Output_File_Name_Present : Boolean := False;
    --  GNATBIND, GNAT, GNATMAKE, GPRMAKE
-   --  Set to True when the output C file name is given with option -o
-   --  for GNATBIND, when the object file name is given with option
-   --  -gnatO for GNAT or when the executable is given with option -o
-   --  for GNATMAKE or GPRMAKE.
+   --  Set to True when the output C file name is given with option -o for
+   --  GNATBIND, when the object file name is given with option -gnatO for GNAT
+   --  or when the executable is given with option -o for GNATMAKE or GPRMAKE.
 
    Output_Linker_Option_List : Boolean := False;
    --  GNATBIND
@@ -1052,6 +1060,11 @@ package Opt is
    --  GNAT
    --  Set by -fno-inline. Suppresses all inlining, both front end and back end
    --  regardless of any other switches that are set.
+
+   Suppress_Control_Flow_Optimizations : Boolean := False;
+   --  GNAT
+   --  Set by -fpreserve-control-flow. Suppresses control flow optimizations
+   --  that interfere with coverage analysis based on the object code.
 
    System_Extend_Pragma_Arg : Node_Id := Empty;
    --  GNAT

@@ -1910,10 +1910,6 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     {
       gimple_set_def_ops (stmt, NULL);
       gimple_set_use_ops (stmt, NULL);
-      /* FIXME lto.  We cannot use gimple_set_addresses_taken here
-	 because the previous value for this bitmap is an invalid
-	 pointer.  */
-      stmt->gsops.opbase.addresses_taken = NULL;
     }
 
   if (gimple_has_mem_ops (stmt))
