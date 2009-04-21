@@ -1,4 +1,23 @@
 2009-04-21  Andrey Belevantsev  <abel@ispras.ru
+	* sel-sched.c (advance_one_cycle): Set FENCE_ISSUE_MORE
+	to can_issue_more.
+	(advance_state_on_fence): Likewise.
+	(sel_target_adjust_priority): Print debug output only when
+	sched_verbose >= 4, not 2.
+	(get_expr_cost): Do not issue all unique insns on the next cycle.
+	(fill_insns): Initialize can_issue_more from the value saved
+	with the fence.
+	* sel-sched-ir.c (flist_add): New parameter issue_more.
+	Init FENCE_ISSUE_MORE with it.
+	(merge_fences): Likewise.
+	(init_fences): Update call to flist_add.
+	(add_to_fences, add_clean_fence_to_fences,
+	add_dirty_fence_to_fences): Likewise.
+	(move_fence_to_fences): Update call to merge_fences.
+	* sel-sched-ir.h (struct _fence): New field issue_more.
+	(FENCE_ISSUE_MORE): New accessor macro. 	
+
+2009-04-21  Andrey Belevantsev  <abel@ispras.ru
 	* sel-sched.c (try_replace_dest_reg): When chosen register
 	and original register is the same, do not bail out early, but
 	still check all original insns for validity of replacing destination

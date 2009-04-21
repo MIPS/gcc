@@ -587,6 +587,7 @@ advance_one_cycle (fence_t fence)
   FENCE_ISSUED_INSNS (fence) = 0;
   FENCE_STARTS_CYCLE_P (fence) = 1;
   can_issue_more = issue_rate;
+  FENCE_ISSUE_MORE (fence) = can_issue_more;
 
   for (i = 0; VEC_iterate (rtx, FENCE_EXECUTING_INSNS (fence), i, insn); )
     {
@@ -3235,8 +3236,8 @@ sel_target_adjust_priority (expr_t expr)
 
   gcc_assert (EXPR_PRIORITY_ADJ (expr) >= 0);
 
-  if (sched_verbose >= 2)
-    sel_print ("sel_target_adjust_priority: insn %d,  %d +%d = %d.\n", 
+  if (sched_verbose >= 4)
+    sel_print ("sel_target_adjust_priority: insn %d,  %d+%d = %d.\n", 
 	       INSN_UID (EXPR_INSN_RTX (expr)), EXPR_PRIORITY (expr), 
 	       EXPR_PRIORITY_ADJ (expr), new_priority);
 
@@ -4225,8 +4226,6 @@ get_expr_cost (expr_t expr, fence_t fence)
   if (recog_memoized (insn) < 0)
     {
       if (!FENCE_STARTS_CYCLE_P (fence) 
-          /* FIXME: Is this condition necessary?  */
-          && VINSN_UNIQUE_P (EXPR_VINSN (expr))
 	  && INSN_ASM_P (insn))
 	/* This is asm insn which is tryed to be issued on the
 	   cycle not first.  Issue it on the next cycle.  */
@@ -5039,7 +5038,9 @@ advance_state_on_fence (fence_t fence, insn_t insn)
 
   if (sched_verbose >= 2)
     debug_state (FENCE_STATE (fence));
+
   FENCE_STARTS_CYCLE_P (fence) = 0;
+  FENCE_ISSUE_MORE (fence) = can_issue_more;
   return asm_p;
 }
 
@@ -5092,7 +5093,7 @@ update_fence_and_insn (fence_t fence, insn_t insn, int need_stall)
   /* Print debug information when insn's fields are updated.  */
   if (sched_verbose >= 2)
     {
-      sel_print ("Scheduling insn: ");
+      sel_print ("Scheduling insn (%p): ", (void *) insn);
       dump_insn_1 (insn, 1);
       sel_print ("\n");
     }
@@ -5221,6 +5222,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
   blist_add (&bnds, insn, NULL, FENCE_DC (fence));
   bnds_tailp = &BLIST_NEXT (bnds);
   set_target_context (FENCE_TC (fence));
+  can_issue_more = FENCE_ISSUE_MORE (fence);
   target_bb = INSN_BB (insn);
 
   /* Do while we can add any operation to the current group.  */
