@@ -1,5 +1,5 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -1210,7 +1210,12 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 	    }
 
 	  gcc_assert (begin->rank == 1);
-	  gcc_assert (begin->shape);
+	  /* Zero-sized arrays have no shape and no elements, stop early.  */
+	  if (!begin->shape) 
+	    {
+	      mpz_init_set_ui (nelts, 0);
+	      break;
+	    }
 
 	  vecsub[d] = begin->value.constructor;
 	  mpz_set (ctr[d], vecsub[d]->expr->value.integer);
@@ -1938,16 +1943,6 @@ check_intrinsic_op (gfc_expr *e, gfc_try (*check_function) (gfc_expr *))
       if (!numeric_type (et0 (op1)) || !numeric_type (et0 (op2)))
 	goto not_numeric;
 
-      if (e->value.op.op == INTRINSIC_POWER
-	  && check_function == check_init_expr && et0 (op2) != BT_INTEGER)
-	{
-	  if (gfc_notify_std (GFC_STD_F2003,"Fortran 2003: Noninteger "
-			      "exponent in an initialization "
-			      "expression at %L", &op2->where)
-	      == FAILURE)
-	    return FAILURE;
-	}
-
       break;
 
     case INTRINSIC_CONCAT:
@@ -2424,7 +2419,11 @@ gfc_reduce_init_expr (gfc_expr *expr)
 
 
 /* Match an initialization expression.  We work by first matching an
-   expression, then reducing it to a constant.  */
+   expression, then reducing it to a constant.  The reducing it to 
+   constant part requires a global variable to flag the prohibition
+   of a non-integer exponent in -std=f95 mode.  */
+
+bool init_flag = false;
 
 match
 gfc_match_init_expr (gfc_expr **result)
@@ -2435,18 +2434,25 @@ gfc_match_init_expr (gfc_expr **result)
 
   expr = NULL;
 
+  init_flag = true;
+
   m = gfc_match_expr (&expr);
   if (m != MATCH_YES)
-    return m;
+    {
+      init_flag = false;
+      return m;
+    }
 
   t = gfc_reduce_init_expr (expr);
   if (t != SUCCESS)
     {
       gfc_free_expr (expr);
+      init_flag = false;
       return MATCH_ERROR;
     }
 
   *result = expr;
+  init_flag = false;
 
   return MATCH_YES;
 }
@@ -2912,7 +2918,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 
   if (rvalue->expr_type == EXPR_NULL)
     {  
-      if (lvalue->symtree->n.sym->attr.pointer
+      if (has_pointer && (ref == NULL || ref->next == NULL)
 	  && lvalue->symtree->n.sym->attr.data)
         return SUCCESS;
       else
@@ -3141,7 +3147,6 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 		     "in procedure pointer assignment at %L",
 		     rvalue->symtree->name, &rvalue->where);
 	}
-      /* TODO. See PR 38290.
       if (rvalue->expr_type == EXPR_VARIABLE
 	  && lvalue->symtree->n.sym->attr.if_source != IFSRC_UNKNOWN
 	  && !gfc_compare_interfaces (lvalue->symtree->n.sym,
@@ -3150,7 +3155,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	  gfc_error ("Interfaces don't match "
 		     "in procedure pointer assignment at %L", &rvalue->where);
 	  return FAILURE;
-	}*/
+	}
       return SUCCESS;
     }
 

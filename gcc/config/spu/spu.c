@@ -1,4 +1,4 @@
-/* Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -143,6 +143,7 @@ static bool spu_vector_alignment_reachable (const_tree, bool);
 static tree spu_builtin_vec_perm (tree, tree *);
 static int spu_sms_res_mii (struct ddg *g);
 static void asm_file_start (void);
+static unsigned int spu_section_type_flags (tree, const char *, int);
 
 extern const char *reg_names[];
 rtx spu_compare_op0, spu_compare_op1;
@@ -328,6 +329,9 @@ const struct attribute_spec spu_attribute_table[];
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START asm_file_start
+
+#undef TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS spu_section_type_flags
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -782,7 +786,8 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
   rtx target = operands[0];
   enum machine_mode comp_mode;
   enum machine_mode op_mode;
-  enum spu_comp_code scode, eq_code, ior_code;
+  enum spu_comp_code scode, eq_code;
+  enum insn_code ior_code;
   int index;
   int eq_test = 0;
 
@@ -1874,12 +1879,6 @@ spu_expand_prologue (void)
 	  insn =
 	    frame_emit_add_imm (sp_reg, sp_reg, -total_size, scratch_reg_0);
 	}
-      else if (satisfies_constraint_K (GEN_INT (-total_size)))
-	{
-	  insn = emit_move_insn (scratch_reg_0, sp_reg);
-	  insn =
-	    emit_insn (gen_addsi3 (sp_reg, sp_reg, GEN_INT (-total_size)));
-	}
       else
 	{
 	  insn = emit_move_insn (scratch_reg_0, sp_reg);
@@ -1888,8 +1887,7 @@ spu_expand_prologue (void)
 	}
       RTX_FRAME_RELATED_P (insn) = 1;
       real = gen_addsi3 (sp_reg, sp_reg, GEN_INT (-total_size));
-      REG_NOTES (insn) =
-	gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, real, REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, real);
 
       if (total_size > 2000)
 	{
@@ -1906,9 +1904,7 @@ spu_expand_prologue (void)
 	  insn = frame_emit_add_imm (fp_reg, sp_reg, fp_offset, scratch_reg_0);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  real = gen_addsi3 (fp_reg, sp_reg, GEN_INT (fp_offset));
-	  REG_NOTES (insn) = 
-	    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			       real, REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, real);
           REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = STACK_BOUNDARY;
 	}
     }
@@ -4110,17 +4106,16 @@ spu_expand_mov (rtx * ops, enum machine_mode mode)
   if (GET_CODE (ops[1]) == SUBREG && !valid_subreg (ops[1]))
     {
       rtx from = SUBREG_REG (ops[1]);
-      enum machine_mode imode = GET_MODE (from);
+      enum machine_mode imode = int_mode_for_mode (GET_MODE (from));
 
       gcc_assert (GET_MODE_CLASS (mode) == MODE_INT
 		  && GET_MODE_CLASS (imode) == MODE_INT
 		  && subreg_lowpart_p (ops[1]));
 
       if (GET_MODE_SIZE (imode) < 4)
-	{
-	  from = gen_rtx_SUBREG (SImode, from, 0);
-	  imode = SImode;
-	}
+	imode = SImode;
+      if (imode != GET_MODE (from))
+	from = gen_rtx_SUBREG (imode, from, 0);
 
       if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (imode))
 	{
@@ -4722,9 +4717,8 @@ array_to_constant (enum machine_mode mode, unsigned char arr[16])
     }
   if (mode == DFmode)
     {
-      val = (arr[0] << 24) | (arr[1] << 16) | (arr[2] << 8) | arr[3];
-      val <<= 32;
-      val |= (arr[4] << 24) | (arr[5] << 16) | (arr[6] << 8) | arr[7];
+      for (i = 0, val = 0; i < 8; i++)
+	val = (val << 8) | arr[i];
       return hwint_to_const_double (DFmode, val);
     }
 
@@ -5879,7 +5873,7 @@ spu_check_builtin_parm (struct spu_builtin_description *d, rtx op, int p)
 }
 
 
-static void
+static int
 expand_builtin_args (struct spu_builtin_description *d, tree exp,
 		     rtx target, rtx ops[])
 {
@@ -5891,13 +5885,18 @@ expand_builtin_args (struct spu_builtin_description *d, tree exp,
   if (d->parm[0] != SPU_BTI_VOID)
     ops[i++] = target;
 
-  for (a = 0; i < insn_data[icode].n_operands; i++, a++)
+  for (a = 0; d->parm[a+1] != SPU_BTI_END_OF_PARAMS; i++, a++)
     {
       tree arg = CALL_EXPR_ARG (exp, a);
       if (arg == 0)
 	abort ();
-      ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+      ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, EXPAND_NORMAL);
     }
+
+  /* The insn pattern may have additional operands (SCRATCH).
+     Return the number of actual non-SCRATCH operands.  */
+  gcc_assert (i <= insn_data[icode].n_operands);
+  return i;
 }
 
 static rtx
@@ -5909,10 +5908,11 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
   enum insn_code icode = d->icode;
   enum machine_mode mode, tmode;
   int i, p;
+  int n_operands;
   tree return_type;
 
   /* Set up ops[] with values from arglist. */
-  expand_builtin_args (d, exp, target, ops);
+  n_operands = expand_builtin_args (d, exp, target, ops);
 
   /* Handle the target operand which must be operand 0. */
   i = 0;
@@ -5970,7 +5970,7 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
     return 0;
 
   /* Handle the rest of the operands. */
-  for (p = 1; i < insn_data[icode].n_operands; i++, p++)
+  for (p = 1; i < n_operands; i++, p++)
     {
       if (insn_data[d->icode].operand[i].mode != VOIDmode)
 	mode = insn_data[d->icode].operand[i].mode;
@@ -6010,7 +6010,7 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
 	ops[i] = spu_force_reg (mode, ops[i]);
     }
 
-  switch (insn_data[icode].n_operands)
+  switch (n_operands)
     {
     case 0:
       pat = GEN_FCN (icode) (0);
@@ -6280,3 +6280,12 @@ asm_file_start (void)
   default_file_start ();
 }
 
+/* Implement targetm.section_type_flags.  */
+static unsigned int
+spu_section_type_flags (tree decl, const char *name, int reloc)
+{
+  /* .toe needs to have type @nobits.  */
+  if (strcmp (name, ".toe") == 0)
+    return SECTION_BSS;
+  return default_section_type_flags (decl, name, reloc);
+}

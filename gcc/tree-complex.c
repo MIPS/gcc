@@ -1,5 +1,6 @@
 /* Lower complex number operations to scalar operations.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
    
@@ -745,23 +746,6 @@ update_phi_components (basic_block bb)
     }
 }
 
-/* Mark each virtual op in STMT for ssa update.  */
-
-static void
-update_all_vops (gimple stmt)
-{
-  ssa_op_iter iter;
-  tree sym;
-
-  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_ALL_VIRTUALS)
-    {
-      if (TREE_CODE (sym) == SSA_NAME)
-	sym = SSA_NAME_VAR (sym);
-      mark_sym_for_renaming (sym);
-    }
-}
-
-
 /* Expand a complex move to scalars.  */
 
 static void
@@ -817,7 +801,6 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 	}
       else
 	{
-	  update_all_vops (stmt);
 	  if (gimple_assign_rhs_code (stmt) != COMPLEX_EXPR)
 	    {
 	      r = extract_component (gsi, rhs, 0, true);
@@ -860,7 +843,6 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 	  gimple_return_set_retval (stmt, lhs);
 	}
 
-      update_all_vops (stmt);
       update_stmt (stmt);
     }
 }
@@ -1624,7 +1606,7 @@ struct gimple_opt_pass pass_lower_complex =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,                       		/* properties_destroyed */
@@ -1675,7 +1657,7 @@ struct gimple_opt_pass pass_lower_complex_O0 =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

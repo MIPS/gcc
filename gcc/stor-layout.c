@@ -1,6 +1,6 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -2046,15 +2046,18 @@ initialize_sizetypes (bool signed_p)
 void
 set_sizetype (tree type)
 {
+  tree t;
   int oprecision = TYPE_PRECISION (type);
   /* The *bitsizetype types use a precision that avoids overflows when
      calculating signed sizes / offsets in bits.  However, when
      cross-compiling from a 32 bit to a 64 bit host, we are limited to 64 bit
      precision.  */
-  int precision = MIN (MIN (oprecision + BITS_PER_UNIT_LOG + 1,
-			    MAX_FIXED_MODE_SIZE),
-		       2 * HOST_BITS_PER_WIDE_INT);
-  tree t;
+  int precision
+    = MIN (oprecision + BITS_PER_UNIT_LOG + 1, MAX_FIXED_MODE_SIZE);
+  precision
+    = GET_MODE_PRECISION (smallest_mode_for_size (precision, MODE_INT));
+  if (precision > HOST_BITS_PER_WIDE_INT * 2)
+    precision = HOST_BITS_PER_WIDE_INT * 2;
 
   gcc_assert (TYPE_UNSIGNED (type) == TYPE_UNSIGNED (sizetype));
 
@@ -2070,6 +2073,7 @@ set_sizetype (tree type)
   /* Replace our original stub sizetype.  */
   memcpy (sizetype, t, tree_size (sizetype));
   TYPE_MAIN_VARIANT (sizetype) = sizetype;
+  TYPE_CANONICAL (sizetype) = sizetype;
 
   t = make_node (INTEGER_TYPE);
   TYPE_NAME (t) = get_identifier ("bit_size_type");
@@ -2084,6 +2088,7 @@ set_sizetype (tree type)
   /* Replace our original stub bitsizetype.  */
   memcpy (bitsizetype, t, tree_size (bitsizetype));
   TYPE_MAIN_VARIANT (bitsizetype) = bitsizetype;
+  TYPE_CANONICAL (bitsizetype) = bitsizetype;
 
   if (TYPE_UNSIGNED (type))
     {

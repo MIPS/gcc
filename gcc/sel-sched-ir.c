@@ -5320,6 +5320,27 @@ sel_redirect_edge_and_branch (edge e, basic_block to)
       gcc_assert (loop_latch_edge (current_loop_nest));
     }
 
+  /* In rare situations, the topological relation between the blocks connected
+     by the redirected edge can change.  Update block_to_bb/bb_to_block.  */
+  if (CONTAINING_RGN (e->src->index) == CONTAINING_RGN (to->index)
+      && BLOCK_TO_BB (e->src->index) > BLOCK_TO_BB (to->index))
+    {
+      int i, n, rgn;
+      int *postorder, n_blocks;
+
+      postorder = XALLOCAVEC (int, n_basic_blocks);
+      n_blocks = post_order_compute (postorder, false, false);
+
+      rgn = CONTAINING_RGN (e->src->index);
+      for (n = 0, i = n_blocks - 1; i >= 0; i--)
+        if (CONTAINING_RGN (postorder[i]) == rgn)
+          {
+            BLOCK_TO_BB (postorder[i]) = n;
+            BB_TO_BLOCK (n) = postorder[i];
+            n++;
+          }
+    }
+
   jump = find_new_jump (src, NULL, prev_max_uid);
   if (jump)
     sel_init_new_insn (jump, INSN_INIT_TODO_LUID | INSN_INIT_TODO_SIMPLEJUMP);

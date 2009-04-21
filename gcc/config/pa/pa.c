@@ -1,6 +1,7 @@
 /* Subroutines for insn-output.c for HPPA.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GCC.
@@ -683,7 +684,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       insn = emit_insn (gen_rtx_SET (VOIDmode, reg, orig));
 
       /* Put a REG_EQUAL note on this insn, so that it can be optimized.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig, REG_NOTES (insn));
+      add_reg_note (insn, REG_EQUAL, orig);
 
       /* During and after reload, we need to generate a REG_LABEL_OPERAND note
 	 and update LABEL_NUSES because this is not done automatically.  */
@@ -3394,11 +3395,9 @@ store_reg (int reg, HOST_WIDE_INT disp, int base)
       insn = emit_move_insn (tmpreg, gen_rtx_PLUS (Pmode, tmpreg, basereg));
       if (DO_FRAME_NOTES)
 	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode, tmpreg,
-			     gen_rtx_PLUS (Pmode, basereg, delta)),
-                REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			gen_rtx_SET (VOIDmode, tmpreg,
+				     gen_rtx_PLUS (Pmode, basereg, delta)));
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
       dest = gen_rtx_MEM (word_mode, tmpreg);
@@ -3414,16 +3413,13 @@ store_reg (int reg, HOST_WIDE_INT disp, int base)
       dest = gen_rtx_MEM (word_mode, gen_rtx_LO_SUM (Pmode, tmpreg, delta));
       insn = emit_move_insn (dest, src);
       if (DO_FRAME_NOTES)
-	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode,
-			     gen_rtx_MEM (word_mode,
-					  gen_rtx_PLUS (word_mode, basereg,
-							delta)),
-                             src),
-                REG_NOTES (insn));
-	}
+	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+		      gen_rtx_SET (VOIDmode,
+				   gen_rtx_MEM (word_mode,
+						gen_rtx_PLUS (word_mode,
+							      basereg,
+							      delta)),
+				   src));
     }
 
   if (DO_FRAME_NOTES)
@@ -3483,11 +3479,9 @@ set_reg_plus_d (int reg, int base, HOST_WIDE_INT disp, int note)
       insn = emit_move_insn (gen_rtx_REG (Pmode, reg),
 			     gen_rtx_PLUS (Pmode, tmpreg, basereg));
       if (DO_FRAME_NOTES)
-	REG_NOTES (insn)
-	  = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-	      gen_rtx_SET (VOIDmode, tmpreg,
-			   gen_rtx_PLUS (Pmode, basereg, delta)),
-	      REG_NOTES (insn));
+	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+		      gen_rtx_SET (VOIDmode, tmpreg,
+				   gen_rtx_PLUS (Pmode, basereg, delta)));
     }
   else
     {
@@ -3911,10 +3905,8 @@ hppa_expand_prologue (void)
 		    {
 		      rtx mem = gen_rtx_MEM (DFmode,
 					     plus_constant (base, offset));
-		      REG_NOTES (insn)
-			= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					     gen_rtx_SET (VOIDmode, mem, reg),
-					     REG_NOTES (insn));
+		      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+				    gen_rtx_SET (VOIDmode, mem, reg));
 		    }
 		  else
 		    {
@@ -3931,10 +3923,8 @@ hppa_expand_prologue (void)
 		      RTX_FRAME_RELATED_P (setl) = 1;
 		      RTX_FRAME_RELATED_P (setr) = 1;
 		      vec = gen_rtvec (2, setl, setr);
-		      REG_NOTES (insn)
-			= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					     gen_rtx_SEQUENCE (VOIDmode, vec),
-					     REG_NOTES (insn));
+		      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+				    gen_rtx_SEQUENCE (VOIDmode, vec));
 		    }
 		}
 	      offset += GET_MODE_SIZE (DFmode);
@@ -4352,8 +4342,7 @@ hppa_profile_hook (int label_no)
 
   /* Indicate the _mcount call cannot throw, nor will it execute a
      non-local goto.  */
-  REG_NOTES (call_insn)
-    = gen_rtx_EXPR_LIST (REG_EH_REGION, constm1_rtx, REG_NOTES (call_insn));
+  add_reg_note (call_insn, REG_EH_REGION, constm1_rtx);
 }
 
 /* Fetch the return address for the frame COUNT steps up from

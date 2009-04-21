@@ -1,6 +1,6 @@
 ;;- Machine description for ARM for GNU compiler
 ;;  Copyright 1991, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999, 2000,
-;;  2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+;;  2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 ;;  Free Software Foundation, Inc.
 ;;  Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
 ;;  and Martin Simmons (@harleqn.co.uk).
@@ -605,14 +605,18 @@
   ""
 )
 
+;; The r/r/k alternative is required when reloading the address
+;;  (plus (reg rN) (reg sp)) into (reg rN).  In this case reload will
+;; put the duplicated register first, and not try the commutative version.
 (define_insn_and_split "*arm_addsi3"
-  [(set (match_operand:SI          0 "s_register_operand" "=r, !k,r, !k,r")
-	(plus:SI (match_operand:SI 1 "s_register_operand" "%rk,!k,rk,!k,rk")
-		 (match_operand:SI 2 "reg_or_int_operand" "rI, rI,L, L,?n")))]
+  [(set (match_operand:SI          0 "s_register_operand" "=r, !k, r,r, !k,r")
+	(plus:SI (match_operand:SI 1 "s_register_operand" "%rk,!k, r,rk,!k,rk")
+		 (match_operand:SI 2 "reg_or_int_operand" "rI, rI,!k,L, L,?n")))]
   "TARGET_32BIT"
   "@
    add%?\\t%0, %1, %2
    add%?\\t%0, %1, %2
+   add%?\\t%0, %2, %1
    sub%?\\t%0, %1, #%n2
    sub%?\\t%0, %1, #%n2
    #"
@@ -627,7 +631,7 @@
 		      operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "4,4,4,4,16")
+  [(set_attr "length" "4,4,4,4,4,16")
    (set_attr "predicable" "yes")]
 )
 
@@ -8256,7 +8260,7 @@
 	(if_then_else:SF (match_operand 1 "arm_comparison_operator" "")
 			 (match_operand:SF 2 "s_register_operand" "")
 			 (match_operand:SF 3 "nonmemory_operand" "")))]
-  "TARGET_32BIT"
+  "TARGET_32BIT && TARGET_HARD_FLOAT"
   "
   {
     enum rtx_code code = GET_CODE (operands[1]);

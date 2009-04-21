@@ -2124,6 +2124,8 @@ alpha_split_const_mov (enum machine_mode mode, rtx *operands)
 bool
 alpha_expand_mov (enum machine_mode mode, rtx *operands)
 {
+  rtx tmp;
+
   /* If the output is not a register, the input must be.  */
   if (GET_CODE (operands[0]) == MEM
       && ! reg_or_0_operand (operands[1], mode))
@@ -2132,8 +2134,6 @@ alpha_expand_mov (enum machine_mode mode, rtx *operands)
   /* Allow legitimize_address to perform some simplifications.  */
   if (mode == Pmode && symbolic_operand (operands[1], mode))
     {
-      rtx tmp;
-
       tmp = alpha_legitimize_address (operands[1], operands[0], mode);
       if (tmp)
 	{
@@ -2158,14 +2158,18 @@ alpha_expand_mov (enum machine_mode mode, rtx *operands)
     }
 
   /* Otherwise we've nothing left but to drop the thing to memory.  */
-  operands[1] = force_const_mem (mode, operands[1]);
+  tmp = force_const_mem (mode, operands[1]);
+
+  if (tmp == NULL_RTX)
+    return false;
+
   if (reload_in_progress)
     {
-      emit_move_insn (operands[0], XEXP (operands[1], 0));
-      operands[1] = replace_equiv_address (operands[1], operands[0]);
+      emit_move_insn (operands[0], XEXP (tmp, 0));
+      operands[1] = replace_equiv_address (tmp, operands[0]);
     }
   else
-    operands[1] = validize_mem (operands[1]);
+    operands[1] = validize_mem (tmp);
   return false;
 }
 
@@ -7131,7 +7135,7 @@ alpha_sa_mask (unsigned long *imaskP, unsigned long *fmaskP)
   /* When outputting a thunk, we don't have valid register life info,
      but assemble_start_function wants to output .frame and .mask
      directives.  */
-  if (crtl->is_thunk)
+  if (cfun->is_thunk)
     {
       *imaskP = 0;
       *fmaskP = 0;
@@ -7361,7 +7365,7 @@ alpha_does_function_need_gp (void)
     return 1;
 
   /* The code emitted by alpha_output_mi_thunk_osf uses the gp.  */
-  if (crtl->is_thunk)
+  if (cfun->is_thunk)
     return 1;
 
   /* The nonlocal receiver pattern assumes that the gp is valid for
@@ -7884,7 +7888,7 @@ alpha_start_function (FILE *file, const char *fnname,
 	 Otherwise, do it here.  */
       if (TARGET_ABI_OSF
           && ! alpha_function_needs_gp
-	  && ! crtl->is_thunk)
+	  && ! cfun->is_thunk)
 	{
 	  putc ('$', file);
 	  assemble_name (file, fnname);
@@ -7995,7 +7999,7 @@ alpha_output_function_end_prologue (FILE *file)
     fputs ("\t.prologue 0\n", file);
   else if (!flag_inhibit_size_directive)
     fprintf (file, "\t.prologue %d\n",
-	     alpha_function_needs_gp || crtl->is_thunk);
+	     alpha_function_needs_gp || cfun->is_thunk);
 }
 
 /* Write function epilogue.  */
@@ -8279,7 +8283,7 @@ alpha_end_function (FILE *file, const char *fnname, tree decl ATTRIBUTE_UNUSED)
     output_asm_insn (get_insn_template (CODE_FOR_nop, NULL), NULL);
 
 #if TARGET_ABI_OSF
-  if (crtl->is_thunk)
+  if (cfun->is_thunk)
     free_after_compilation (cfun);
 #endif
 
@@ -8322,7 +8326,7 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   HOST_WIDE_INT hi, lo;
   rtx this_rtx, insn, funexp;
 
-  gcc_assert (crtl->is_thunk);
+  gcc_assert (cfun->is_thunk);
 
   /* We always require a valid GP.  */
   emit_insn (gen_prologue_ldgp ());

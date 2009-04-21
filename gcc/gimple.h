@@ -1,6 +1,6 @@
 /* Gimple IR definitions.
 
-   Copyright 2007, 2008 Free Software Foundation, Inc.
+   Copyright 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -34,6 +34,10 @@ DEF_VEC_P(gimple);
 DEF_VEC_ALLOC_P(gimple,heap);
 DEF_VEC_ALLOC_P(gimple,gc);
 
+typedef gimple *gimple_p;
+DEF_VEC_P(gimple_p);
+DEF_VEC_ALLOC_P(gimple_p,heap);
+
 DEF_VEC_P(gimple_seq);
 DEF_VEC_ALLOC_P(gimple_seq,gc);
 DEF_VEC_ALLOC_P(gimple_seq,heap);
@@ -65,7 +69,7 @@ extern void gimple_check_failed (const_gimple, const char *, int,          \
     const_gimple __gs = (GS);						\
     if (gimple_code (__gs) != (CODE))					\
       gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-	  		   (CODE), 0);					\
+	  		   (CODE), ERROR_MARK);				\
   } while (0)
 #else  /* not ENABLE_GIMPLE_CHECKING  */
 #define GIMPLE_CHECK(GS, CODE)			(void)0
@@ -288,8 +292,8 @@ struct gimple_statement_base GTY(())
   /* Nonzero if this statement contains volatile operands.  */
   unsigned has_volatile_ops 	: 1;
 
-  /* Nonzero if this statement contains memory refernces.  */
-  unsigned references_memory_p 	: 1;
+  /* Padding to get subcode to 16 bit alignment.  */
+  unsigned pad			: 1;
 
   /* The SUBCODE field can be used for tuple-specific flags for tuples
      that do not require subcodes.  Note that SUBCODE should be at
@@ -323,15 +327,10 @@ struct gimple_statement_base GTY(())
 
 struct gimple_statement_with_ops_base GTY(())
 {
-  /* [ WORD  1-4 ]  */
+  /* [ WORD 1-4 ]  */
   struct gimple_statement_base gsbase;
 
-  /* [ WORD 5 ]
-     Symbols whose addresses are taken by this statement (i.e., they
-     appear inside ADDR_EXPR nodes).  */
-  bitmap GTY((skip (""))) addresses_taken;
-
-  /* [ WORD 6-7 ]
+  /* [ WORD 5-6 ]
      SSA operand vectors.  NOTE: It should be possible to
      amalgamate these vectors with the operand vector OP.  However,
      the SSA operand vectors are organized differently and contain
@@ -345,10 +344,10 @@ struct gimple_statement_with_ops_base GTY(())
 
 struct gimple_statement_with_ops GTY(())
 {
-  /* [ WORD 1-7 ]  */
+  /* [ WORD 1-6 ]  */
   struct gimple_statement_with_ops_base opbase;
 
-  /* [ WORD 8 ]
+  /* [ WORD 7 ]
      Operand vector.  NOTE!  This must always be the last field
      of this structure.  In particular, this means that this
      structure cannot be embedded inside another one.  */
@@ -360,18 +359,14 @@ struct gimple_statement_with_ops GTY(())
 
 struct gimple_statement_with_memory_ops_base GTY(())
 {
-  /* [ WORD 1-7 ]  */
+  /* [ WORD 1-6 ]  */
   struct gimple_statement_with_ops_base opbase;
 
-  /* [ WORD 8-9 ]  
-     Vectors for virtual operands.  */
-  struct voptype_d GTY((skip (""))) *vdef_ops;
-  struct voptype_d GTY((skip (""))) *vuse_ops;
-
-  /* [ WORD 9-10 ]
-     Symbols stored/loaded by this statement.  */
-  bitmap GTY((skip (""))) stores;
-  bitmap GTY((skip (""))) loads;
+  /* [ WORD 7-8 ]
+     Virtual operands for this statement.  The GC will pick them
+     up via the ssa_names array.  */
+  tree GTY((skip (""))) vdef;
+  tree GTY((skip (""))) vuse;
 };
 
 
@@ -379,10 +374,10 @@ struct gimple_statement_with_memory_ops_base GTY(())
 
 struct gimple_statement_with_memory_ops GTY(())
 {
-  /* [ WORD 1-10 ]  */
+  /* [ WORD 1-8 ]  */
   struct gimple_statement_with_memory_ops_base membase;
 
-  /* [ WORD 11 ]
+  /* [ WORD 9 ]
      Operand vector.  NOTE!  This must always be the last field
      of this structure.  In particular, this means that this
      structure cannot be embedded inside another one.  */
@@ -545,20 +540,20 @@ struct gimple_statement_wce GTY(())
 
 struct gimple_statement_asm GTY(())
 {
-  /* [ WORD 1-10 ]  */
+  /* [ WORD 1-8 ]  */
   struct gimple_statement_with_memory_ops_base membase;
 
-  /* [ WORD 11 ]
+  /* [ WORD 9 ]
      __asm__ statement.  */
   const char *string;
 
-  /* [ WORD 12 ]
+  /* [ WORD 10 ]
        Number of inputs, outputs and clobbers.  */
   unsigned char ni;
   unsigned char no;
   unsigned short nc;
 
-  /* [ WORD 13 ]
+  /* [ WORD 11 ]
      Operand vector.  NOTE!  This must always be the last field
      of this structure.  In particular, this means that this
      structure cannot be embedded inside another one.  */
@@ -859,10 +854,6 @@ extern bool is_gimple_stmt (tree);
 extern bool is_gimple_reg_type (tree);
 /* Returns true iff T is a scalar register variable.  */
 extern bool is_gimple_reg (tree);
-/* Returns true if T is a GIMPLE temporary variable, false otherwise.  */
-extern bool is_gimple_formal_tmp_var (tree);
-/* Returns true if T is a GIMPLE temporary register variable.  */
-extern bool is_gimple_formal_tmp_reg (tree);
 /* Returns true iff T is any sort of variable.  */
 extern bool is_gimple_variable (tree);
 /* Returns true iff T is any sort of symbol.  */
@@ -894,7 +885,6 @@ extern bool is_gimple_asm_val (tree);
 /* Returns true iff T is a valid rhs for a MODIFY_EXPR where the LHS is a
    GIMPLE temporary, a renamed user variable, or something else,
    respectively.  */
-extern bool is_gimple_formal_tmp_rhs (tree);
 extern bool is_gimple_reg_rhs (tree);
 extern bool is_gimple_mem_rhs (tree);
 
@@ -912,6 +902,16 @@ extern bool is_gimple_call_addr (tree);
 extern tree get_call_expr_in (tree t);
 
 extern void recalculate_side_effects (tree);
+extern void count_uses_and_derefs (tree, gimple, unsigned *, unsigned *,
+				   unsigned *);
+extern bool walk_stmt_load_store_addr_ops (gimple, void *,
+					   bool (*)(gimple, tree, void *),
+					   bool (*)(gimple, tree, void *),
+					   bool (*)(gimple, tree, void *));
+extern bool walk_stmt_load_store_ops (gimple, void *,
+				      bool (*)(gimple, tree, void *),
+				      bool (*)(gimple, tree, void *));
+extern bool gimple_ior_addresses_taken (bitmap, gimple);
 
 /* In gimplify.c  */
 extern tree create_tmp_var_raw (tree, const char *);
@@ -930,7 +930,7 @@ typedef bool (*gimple_predicate)(tree);
 
 
 /* FIXME we should deduce this from the predicate.  */
-typedef enum fallback_t {
+enum fallback {
   fb_none = 0,		/* Do not generate a temporary.  */
 
   fb_rvalue = 1,	/* Generate an rvalue to hold the result of a
@@ -942,7 +942,9 @@ typedef enum fallback_t {
   fb_mayfail = 4,	/* Gimplification may fail.  Error issued
 			   afterwards.  */
   fb_either= fb_rvalue | fb_lvalue
-} fallback_t;
+};
+
+typedef int fallback_t;
 
 enum gimplify_status {
   GS_ERROR	= -2,	/* Something Bad Seen.  */
@@ -1014,9 +1016,6 @@ extern tree gimple_assign_rhs_to_tree (gimple);
 
 /* In builtins.c  */
 extern bool validate_gimple_arglist (const_gimple, ...);
-
-/* In tree-ssa-operands.c  */
-extern void gimple_add_to_addresses_taken (gimple, tree);
 
 /* In tree-ssa.c  */
 extern bool tree_ssa_useless_type_conversion (tree);
@@ -1241,41 +1240,6 @@ gimple_has_mem_ops (const_gimple g)
   return gimple_code (g) >= GIMPLE_ASSIGN && gimple_code (g) <= GIMPLE_RETURN;
 }
 
-/* Return the set of addresses taken by statement G.  */
-
-static inline bitmap
-gimple_addresses_taken (const_gimple g)
-{
-  if (gimple_has_ops (g))
-    return g->gsops.opbase.addresses_taken;
-  else
-    return NULL;
-}
-
-
-/* Return a pointer to the set of addresses taken by statement G.  */
-
-static inline bitmap *
-gimple_addresses_taken_ptr (gimple g)
-{
-  if (gimple_has_ops (g))
-    return &g->gsops.opbase.addresses_taken;
-  else
-    return NULL;
-}
-
-
-/* Set B to be the set of addresses taken by statement G.  The
-   previous set is freed.  */
-
-static inline void
-gimple_set_addresses_taken (gimple g, bitmap b)
-{
-  gcc_assert (gimple_has_ops (g));
-  BITMAP_FREE (g->gsops.opbase.addresses_taken);
-  g->gsops.opbase.addresses_taken = b;
-}
-
 
 /* Return the set of DEF operands for statement G.  */
 
@@ -1319,69 +1283,93 @@ gimple_set_use_ops (gimple g, struct use_optype_d *use)
 }
 
 
-/* Return the set of VUSE operands for statement G.  */
+/* Return the set of VUSE operand for statement G.  */
 
-static inline struct voptype_d *
-gimple_vuse_ops (const_gimple g)
+static inline use_operand_p
+gimple_vuse_op (const_gimple g)
 {
+  struct use_optype_d *ops;
   if (!gimple_has_mem_ops (g))
-    return NULL;
-  return g->gsmem.membase.vuse_ops;
+    return NULL_USE_OPERAND_P;
+  ops = g->gsops.opbase.use_ops;
+  if (ops
+      && USE_OP_PTR (ops)->use == &g->gsmem.membase.vuse)
+    return USE_OP_PTR (ops);
+  return NULL_USE_OPERAND_P;
+}
+
+/* Return the set of VDEF operand for statement G.  */
+
+static inline def_operand_p
+gimple_vdef_op (const_gimple g)
+{
+  struct def_optype_d *ops;
+  if (!gimple_has_mem_ops (g))
+    return NULL_DEF_OPERAND_P;
+  ops = g->gsops.opbase.def_ops;
+  if (ops
+      && DEF_OP_PTR (ops) == &g->gsmem.membase.vdef)
+    return DEF_OP_PTR (ops);
+  return NULL_DEF_OPERAND_P;
 }
 
 
-/* Set OPS to be the set of VUSE operands for statement G.  */
+/* Return the single VUSE operand of the statement G.  */
+
+static inline tree
+gimple_vuse (const_gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL_TREE;
+  return g->gsmem.membase.vuse;
+}
+
+/* Return the single VDEF operand of the statement G.  */
+
+static inline tree
+gimple_vdef (const_gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL_TREE;
+  return g->gsmem.membase.vdef;
+}
+
+/* Return the single VUSE operand of the statement G.  */
+
+static inline tree *
+gimple_vuse_ptr (gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL;
+  return &g->gsmem.membase.vuse;
+}
+
+/* Return the single VDEF operand of the statement G.  */
+
+static inline tree *
+gimple_vdef_ptr (gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL;
+  return &g->gsmem.membase.vdef;
+}
+
+/* Set the single VUSE operand of the statement G.  */
 
 static inline void
-gimple_set_vuse_ops (gimple g, struct voptype_d *ops)
+gimple_set_vuse (gimple g, tree vuse)
 {
   gcc_assert (gimple_has_mem_ops (g));
-  g->gsmem.membase.vuse_ops = ops;
+  g->gsmem.membase.vuse = vuse;
 }
 
-
-/* Return the set of VDEF operands for statement G.  */
-
-static inline struct voptype_d *
-gimple_vdef_ops (const_gimple g)
-{
-  if (!gimple_has_mem_ops (g))
-    return NULL;
-  return g->gsmem.membase.vdef_ops;
-}
-
-
-/* Set OPS to be the set of VDEF operands for statement G.  */
+/* Set the single VDEF operand of the statement G.  */
 
 static inline void
-gimple_set_vdef_ops (gimple g, struct voptype_d *ops)
+gimple_set_vdef (gimple g, tree vdef)
 {
   gcc_assert (gimple_has_mem_ops (g));
-  g->gsmem.membase.vdef_ops = ops;
-}
-
-
-/* Return the set of symbols loaded by statement G.  Each element of the
-   set is the DECL_UID of the corresponding symbol.  */
-
-static inline bitmap
-gimple_loaded_syms (const_gimple g)
-{
-  if (!gimple_has_mem_ops (g))
-    return NULL;
-  return g->gsmem.membase.loads;
-}
-
-
-/* Return the set of symbols stored by statement G.  Each element of
-   the set is the DECL_UID of the corresponding symbol.  */
-
-static inline bitmap
-gimple_stored_syms (const_gimple g)
-{
-  if (!gimple_has_mem_ops (g))
-    return NULL;
-  return g->gsmem.membase.stores;
+  g->gsmem.membase.vdef = vdef;
 }
 
 
@@ -1491,18 +1479,9 @@ gimple_set_has_volatile_ops (gimple stmt, bool volatilep)
 static inline bool
 gimple_references_memory_p (gimple stmt)
 {
-  return gimple_has_mem_ops (stmt) && stmt->gsbase.references_memory_p;
+  return gimple_has_mem_ops (stmt) && gimple_vuse (stmt);
 }
 
-
-/* Set the REFERENCES_MEMORY_P flag for STMT to MEM_P.  */
-
-static inline void
-gimple_set_references_memory (gimple stmt, bool mem_p)
-{
-  if (gimple_has_mem_ops (stmt))
-    stmt->gsbase.references_memory_p = (unsigned) mem_p;
-}
 
 /* Return the subcode for OMP statement S.  */
 

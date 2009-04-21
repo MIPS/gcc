@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
@@ -1610,6 +1610,9 @@ typedef struct machine_function GTY(())
      register.  We can never call via LR or PC.  We can call via SP if a
      trampoline happens to be on the top of the stack.  */
   rtx call_via[14];
+  /* Set to 1 when a return insn is output, this means that the epilogue
+     is not needed.  */
+  int return_used_this_function;
 }
 machine_function;
 
@@ -1912,7 +1915,7 @@ typedef struct
 					      TARGET_32BIT ? 12 : 16)),	\
 		  FNADDR);						\
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),	\
-		     0, VOIDmode, 2, TRAMP, Pmode,			\
+		     LCT_NORMAL, VOIDmode, 2, TRAMP, Pmode,		\
 		     plus_constant (TRAMP, TRAMPOLINE_SIZE), Pmode);	\
 }
 #endif
@@ -2448,7 +2451,7 @@ extern int making_const_table;
         {						\
           if (is_called_in_ARM_mode (DECL)		\
 	      || (TARGET_THUMB1 && !TARGET_THUMB1_ONLY	\
-		  && crtl->is_thunk))	\
+		  && cfun->is_thunk))	\
             fprintf (STREAM, "\t.code 32\n") ;		\
           else if (TARGET_THUMB1)			\
            fprintf (STREAM, "\t.code\t16\n\t.thumb_func\n") ;	\

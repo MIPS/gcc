@@ -1,3 +1,16 @@
+2009-04-21  Andrey Belevantsev  <abel@ispras.ru
+	* sel-sched.c (try_replace_dest_reg): When chosen register
+	and original register is the same, do not bail out early, but
+	still check all original insns for validity of replacing destination
+	register.  Set EXPR_TARGET_AVAILABLE to 1 before leaving function
+	in this case. 
+
+2009-04-21  Andrey Belevantsev  <abel@ispras.ru
+	Merge witrh trunk rev. 146468.
+
+	* sel-sched-ir.c (sel_redirect_edge_and_branch): When topological order
+	has changed, recompute it. 
+
 2009-02-02  Andrey Belevantsev  <abel@ispras.ru>
 
 	Merge with trunk rev. 143865.

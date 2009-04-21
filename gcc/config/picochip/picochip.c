@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on picoChip processors.
-   Copyright (C) 2001,2008   Free Software Foundation, Inc.
+   Copyright (C) 2001,2008, 2009   Free Software Foundation, Inc.
    Contributed by picoChip Designs Ltd. (http://www.picochip.com)
    Maintained by Daniel Towner (daniel.towner@picochip.com) and
    Hariharan Sandanagobalane (hariharan@picochip.com)
@@ -1200,8 +1200,7 @@ picochip_legitimate_address_register (rtx x, unsigned strict)
 /* Determine whether the given constant is in the range required for
    the given base register. */
 static int
-picochip_const_ok_for_base (enum machine_mode mode, int regno, int offset,
-                            int strict)
+picochip_const_ok_for_base (enum machine_mode mode, int regno, int offset)
 {
   HOST_WIDE_INT corrected_offset;
 
@@ -1209,17 +1208,16 @@ picochip_const_ok_for_base (enum machine_mode mode, int regno, int offset,
     {
       if (GET_MODE_SIZE(mode) <= 4)
       {
-         /* We can allow incorrect offsets if strict is 0. If strict is 1,
-            we are in reload and these memory accesses need to be changed. */
-         if (offset % GET_MODE_SIZE (mode) != 0 && strict == 1)
+         /* We used to allow incorrect offsets if strict is 0. But, this would
+            then rely on reload doing the right thing. We have had problems
+            there before, and on > 4.3 compiler, there are no benefits. */
+         if (offset % GET_MODE_SIZE (mode) != 0)
            return 0;
          corrected_offset = offset / GET_MODE_SIZE (mode);
       }
       else
       {
-         /* We can allow incorrect offsets if strict is 0. If strict is 1,
-            we are in reload and these memory accesses need to be changed. */
-         if (offset % 4 != 0 && strict == 1)
+         if (offset % 4 != 0)
            return 0;
          corrected_offset = offset / 4;
       }
@@ -1272,7 +1270,7 @@ picochip_legitimate_address_p (int mode, rtx x, unsigned strict)
 		 picochip_legitimate_address_register (base, strict) &&
 		 CONST_INT == GET_CODE (offset) &&
 		 picochip_const_ok_for_base (mode, REGNO (base),
-					     INTVAL (offset),strict));
+					     INTVAL (offset)));
 	break;
       }
 
@@ -3900,23 +3898,6 @@ picochip_generate_halt (void)
   return const0_rtx;
 }
 
-static rtx
-picochip_generate_profile (tree arglist)
-{
-  tree arg0 = TREE_VALUE (arglist);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-
-  start_sequence();
-  emit_insn (gen_profile (op0));
-
-  rtx insns = get_insns();
-  end_sequence();
-  emit_insn (insns);
-
-  return const0_rtx;
-}
-
-
 /* Initialise the builtin functions.  Start by initialising
    descriptions of different types of functions (e.g., void fn(int),
    int fn(void)), and then use these to define the builtins. */
@@ -3996,14 +3977,6 @@ picochip_init_builtins (void)
 			       NULL_TREE);
   add_builtin_function ("picoSbc", int_ftype_int, PICOCHIP_BUILTIN_SBC,
 			       BUILT_IN_MD, NULL, NULL_TREE);
-
-  /* Initialise the bit reverse function. */
-  add_builtin_function ("__builtin_profile", void_ftype_int,
-			       PICOCHIP_BUILTIN_PROFILE, BUILT_IN_MD, NULL,
-			       NULL_TREE);
-  add_builtin_function ("picoProfile", void_ftype_int,
-			       PICOCHIP_BUILTIN_PROFILE, BUILT_IN_MD, NULL,
-			       NULL_TREE);
 
   /* Initialise the bit reverse function. */
   add_builtin_function ("__builtin_brev", unsigned_ftype_unsigned,
@@ -4136,9 +4109,6 @@ picochip_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case PICOCHIP_BUILTIN_HALT:
       return picochip_generate_halt ();
-
-    case PICOCHIP_BUILTIN_PROFILE:
-      return picochip_generate_profile (arglist);
 
     default:
       gcc_unreachable();

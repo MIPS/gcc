@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.  Selective scheduler and pipeliner.
-   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1641,14 +1641,6 @@ collect_unavailable_regs_from_bnds (expr_t expr, blist_t bnds, regset used_regs,
 static bool
 try_replace_dest_reg (ilist_t orig_insns, rtx best_reg, expr_t expr)
 {
-  if (expr_dest_regno (expr) == REGNO (best_reg))
-    {
-      EXPR_TARGET_AVAILABLE (expr) = 1;
-      return true;
-    }
-
-  gcc_assert (orig_insns);
-
   /* Try whether we'll be able to generate the insn
      'dest := best_reg' at the place of the original operation.  */
   for (; orig_insns; orig_insns = ILIST_NEXT (orig_insns))
@@ -1656,15 +1648,20 @@ try_replace_dest_reg (ilist_t orig_insns, rtx best_reg, expr_t expr)
       insn_t orig_insn = DEF_LIST_DEF (orig_insns)->orig_insn;
 
       gcc_assert (EXPR_SEPARABLE_P (INSN_EXPR (orig_insn)));
-
-      if (!replace_src_with_reg_ok_p (orig_insn, best_reg)
-	  || !replace_dest_with_reg_ok_p (orig_insn, best_reg))
+      
+      if (REGNO (best_reg) != REGNO (INSN_LHS (orig_insn))
+	  && (! replace_src_with_reg_ok_p (orig_insn, best_reg)
+	      || ! replace_dest_with_reg_ok_p (orig_insn, best_reg)))
 	return false;
     }
 
   /* Make sure that EXPR has the right destination
      register.  */
-  replace_dest_with_reg_in_expr (expr, best_reg);
+  if (expr_dest_regno (expr) != REGNO (best_reg))
+    replace_dest_with_reg_in_expr (expr, best_reg);
+  else
+    EXPR_TARGET_AVAILABLE (expr) = 1;
+    
   return true;
 }
 
