@@ -120,6 +120,9 @@ libgomp/Makefile.in: libgomp/Makefile.am libgomp/aclocal.m4
 libgomp/testsuite/Makefile.in: libgomp/Makefile.am libgomp/aclocal.m4
 libgomp/configure: libgomp/configure.ac libgomp/aclocal.m4
 libgomp/config.h.in: libgomp/configure.ac libgomp/aclocal.m4
+libcilsupport/aclocal.m4: libcilsupport/configure.ac
+libcilsupport/Makefile.in: libcilsupport/Makefile.am libcilsupport/aclocal.m4
+libcilsupport/configure: libcilsupport/configure.ac libcilsupport/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def
 configure: configure.ac config/acx.m4

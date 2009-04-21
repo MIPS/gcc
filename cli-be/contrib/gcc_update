@@ -120,6 +120,16 @@ libgomp/Makefile.in: libgomp/Makefile.am libgomp/aclocal.m4
 libgomp/testsuite/Makefile.in: libgomp/Makefile.am libgomp/aclocal.m4
 libgomp/configure: libgomp/configure.ac libgomp/aclocal.m4
 libgomp/config.h.in: libgomp/configure.ac libgomp/aclocal.m4
+libgcc4net/aclocal.m4: libgcc4net/configure.ac
+libgcc4net/Makefile.in: libgcc4net/Makefile.am libgcc4net/aclocal.m4
+libgcc4net/configure: libgcc4net/configure.ac libgcc4net/aclocal.m4
+libstd/aclocal.m4: libstd/configure.ac
+libstd/Makefile.in: libstd/Makefile.am libstd/aclocal.m4
+libstd/configure: libstd/configure.ac libstd/aclocal.m4
+libstd/config.h.in: libstd/configure.ac libstd/aclocal.m4
+libstd/include/Makefile.in: libstd/include/Makefile.am libstd/configure.ac libstd/aclocal.m4
+libstd/src/Makefile.in: libstd/src/Makefile.am libstd/configure.ac libstd/aclocal.m4
+libstd/src_opt/Makefile.in: libstd/src_opt/Makefile.am libstd/configure.ac libstd/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def
 configure: configure.ac config/acx.m4
