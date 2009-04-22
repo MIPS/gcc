@@ -1,3 +1,12 @@
+2009-04-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.4.1.
+	* DEV-PHASE: Set to prerelease.
+
+2009-04-21  Release Manager
+
+	* GCC 4.4.0 released.
+
 2009-04-20  Anatoly Sokolov  <aesok@post.ru>
 
 	* config/avr/avr.md (*rotlsi3_8, *rotlsi3_16, *rotlsi3_24 ): Check
