@@ -1,3 +1,13 @@
+2009-04-22  Andrey Belevantsev  <abel@ispras.ru>
+
+	Apply Jakub's patch for PR39794.
+	* alias-export.c (walk_mems): New.
+	(remove_exported_ddg_data): New.
+	(init_ddg_info): Allow disambiguation using inter loop deps.
+	* alias-export.h (remove_exported_ddg_data): Export.
+	* loop-unroll.c (apply_opt_in_copies): Use it for removing saved
+	ddg information from insns in unrolled loop.
+	
 2009-04-16  Andrey Belevantsev  <abel@ispras.ru>
 
 	* alias-export.c (uids_to_decls): Remove. Remove all uses.

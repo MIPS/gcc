@@ -818,7 +818,7 @@ init_ddg_info (void)
    = htab_create (1, (htab_hash) htab_hash_datarefs_pair,
 		  (htab_eq) htab_eq_datarefs_pair,
 		  (htab_del) htab_del_datarefs_pair);
-  ddg_info->disambiguate_only_intra_loop_deps = true;
+  ddg_info->disambiguate_only_intra_loop_deps = false;
 }
 
 /* Save the data reference DRF in the ddg_info structure.  */
@@ -1025,6 +1025,30 @@ print_ddg_export_stats (void)
   ddg_info->alias_success_new = 0;
   ddg_info->alias_success_no_dep = 0;
   ddg_info->alias_success_nonzero_dist = 0;
+}
+
+/* A callback for for_each_rtx to remove exported data for mems.  */
+static int
+walk_mems (rtx *x, void *data ATTRIBUTE_UNUSED)
+{
+  if (MEM_P (*x) && MEM_ORIG_EXPR (*x) && find_dataref (MEM_ORIG_EXPR (*x)))
+    {
+      tree_dataref td;
+
+      td.ref = MEM_ORIG_EXPR (*x);
+      htab_remove_elt (ddg_info->tree_to_dataref, &td);
+
+      return -1;
+    }
+  return 0;
+}
+
+/* Remove saved dependency data for INSN.  Used when INSN is in the loop that
+   was unrolled.  */
+void
+remove_exported_ddg_data (rtx insn)
+{
+  for_each_rtx (&PATTERN (insn), walk_mems, NULL);
 }
 
 #if 0

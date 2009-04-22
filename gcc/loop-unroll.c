@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "hashtab.h"
 #include "recog.h"    
+#include "alias-export.h"
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -2207,6 +2208,9 @@ apply_opt_in_copies (struct opt_info *opt_info,
                   expand_var_during_unrolling (ves, insn);
                 }
             }
+
+          if (flag_ddg_export)
+            remove_exported_ddg_data (insn);
           orig_insn = NEXT_INSN (orig_insn);
         }
     }
@@ -2245,6 +2249,9 @@ apply_opt_in_copies (struct opt_info *opt_info,
           
           if (!INSN_P (orig_insn))
  	    continue;
+
+          if (flag_ddg_export)
+            remove_exported_ddg_data (orig_insn);
           
           ivts_templ.insn = orig_insn;
           if (opt_info->insns_to_split)

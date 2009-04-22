@@ -33,6 +33,7 @@ extern bool alias_export_test (tree, tree);
 
 extern bool ddg_export_may_alias_p (tree, tree, int);
 extern void replace_var_in_datarefs (tree, tree);
+extern void remove_exported_ddg_data (rtx);
 
 
 #endif /* GCC_ALIAS_EXPORT_H */
