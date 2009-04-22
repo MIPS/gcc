@@ -2070,9 +2070,17 @@ gimple_copy (gimple stmt)
   unsigned num_ops = gimple_num_ops (stmt);
   gimple copy = gimple_alloc (code, num_ops);
   unsigned i;
+  location_t locus = gimple_location (stmt);
 
   /* Shallow copy all the fields from STMT.  */
   memcpy (copy, stmt, gimple_size (code));
+
+  /* Debuglocus's cannot be shared.  */
+  if (is_debuglocus (locus))
+    {
+      locus = create_duplicate_debuglocus (locus);
+      gimple_set_location (copy, locus);
+    }
 
   /* If STMT has sub-statements, deep-copy them as well.  */
   if (gimple_has_substatements (stmt))

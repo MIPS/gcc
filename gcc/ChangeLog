@@ -1,5 +1,9 @@
 2009-04-22  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimple.c (gimple_copy): Unshare the debuglocus.
+
+2009-04-22  Aldy Hernandez  <aldyh@redhat.com>
+
 	* debuglocus.c (init_debuglocus_table): Initialize free_list_idx.
 	(new_debuglocus_entry): Use the free list if available.
 	(debuglocus_free_entry): New.
