@@ -23,8 +23,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef __LIBSTD_STDIO_H
 #define __LIBSTD_STDIO_H
 
-#if !defined __STDIO_H__ && !defined __LIBSTD_CRT_BUILD
-#  error "Never use <bits/libstd_math.h> directly; include <math.h> instead."
+#if !defined(__STDIO_H__) && ! defined(__UNISTD_H) && !defined(__LIBSTD_CRT_BUILD)
+#  error "Never use <bits/libstd_stdio.h> directly; include <stdio.h> or <unistd.h> instead."
 #endif
 
 /* Remember to update values in src/MSCorlibWrapper.cs */
@@ -60,6 +60,12 @@ enum {
 };
 enum {
     __LIBSTD_TMP_MAX = 17576   /* Vary 3 lower cases letters = 26*26*26 */
+};
+
+enum {
+    __LIBSTD_STDIN_FILENO  = 0,
+    __LIBSTD_STDOUT_FILENO = 1,
+    __LIBSTD_STDERR_FILENO = 2
 };
 
 __END_EXTERN_C

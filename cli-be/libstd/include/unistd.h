@@ -31,12 +31,18 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Included for off_t, ssize_t */
 #include <sys/types.h>
 
+#include <bits/libstd_stdio.h>
+
 __BEGIN_EXTERN_C
 
 LIBSTD_LPROTO(int, close, int);
 LIBSTD_LPROTO(ssize_t, read, int, void *, size_t);
 LIBSTD_LPROTO(ssize_t, write, int, const void *, size_t);
 LIBSTD_LPROTO(off_t, lseek, int, off_t, int);
+
+#define STDIN_FILENO  __LIBSTD_STDIN_FILENO
+#define STDOUT_FILENO __LIBSTD_STDOUT_FILENO
+#define STDERR_FILENO __LIBSTD_STDERR_FILENO
 
 LIBSTD_LPROTO(int, isatty, int);
 

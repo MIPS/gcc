@@ -58,9 +58,9 @@ LIBSTD_LPROTO(FILE *, freopen, const char *restrict, const char *restrict, FILE 
 LIBSTD_LPROTO(int, setvbuf, FILE *restrict, char *restrict, int, size_t);
 LIBSTD_LPROTO(void, setbuf, FILE *restrict, char *restrict);
 
-#define stdin  (LIBSTD_LNAME(__io_ftable_get_entry)(0))
-#define stdout (LIBSTD_LNAME(__io_ftable_get_entry)(1))
-#define stderr (LIBSTD_LNAME(__io_ftable_get_entry)(2))
+#define stdin  (LIBSTD_LNAME(__io_ftable_get_entry)(__LIBSTD_STDIN_FILENO))
+#define stdout (LIBSTD_LNAME(__io_ftable_get_entry)(__LIBSTD_STDOUT_FILENO))
+#define stderr (LIBSTD_LNAME(__io_ftable_get_entry)(__LIBSTD_STDERR_FILENO))
 
 
 
