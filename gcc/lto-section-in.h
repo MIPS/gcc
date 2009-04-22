@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_LTO_SECTION_IN_H
 #define GCC_LTO_SECTION_IN_H
 
+#include "target.h"
+#include "cgraph.h"
 #include "lto-header.h"
 
 struct lto_input_block 
@@ -51,10 +53,11 @@ struct lto_tree_ref_table {
   unsigned int size;	/* Size of array. */
 };
 
-/* Structure to hold states of input scope. */
-struct lto_in_decl_state {
+/* Structure to hold states of input scope.  */
+struct lto_in_decl_state
+{
   /* Array of lto_in_decl_buffers to store type and decls streams. */
-  struct lto_tree_ref_table	streams[LTO_N_DECL_STREAMS];
+  struct lto_tree_ref_table streams[LTO_N_DECL_STREAMS];
 
   /* If this in-decl state is associated with a function. FN_DECL
      point to the FUNCTION_DECL. */
@@ -70,20 +73,20 @@ typedef struct lto_in_decl_state *lto_in_decl_state_ptr;
 struct lto_file_decl_data
 {
   /* Decl state currently used. */
-  struct lto_in_decl_state	*current_decl_state;
+  struct lto_in_decl_state *current_decl_state;
 
   /* Decl state corresponding to regions outside of any functions
      in the compilation unit. */
-  struct lto_in_decl_state	*global_decl_state;
+  struct lto_in_decl_state *global_decl_state;
 
   /* Hash table maps lto-related section names to location in file.  */
   htab_t function_decl_states;
 
-  /* The .o file that these offsets relate to.  
-
-  FIXME!!! This will most likely have to be upgraded if the .o files
-  have been archived.  */ 
+  /* The .o file that these offsets relate to.  */
   const char *file_name;
+
+  /* Nonzero if this file should be recompiled with LTRANS.  */
+  unsigned needs_ltrans_p : 1;
 
   /* If the file is open, this is the fd of the mapped section.  This
      is -1 if the file has not yet been opened.  */
@@ -215,5 +218,39 @@ extern struct lto_in_decl_state *
 #ifdef LTO_STREAM_DEBUGGING
 extern void lto_debug_in_fun (struct lto_debug_context *, char);
 #endif
+
+/* In lto-function-out.c  */
+extern void lto_register_decl_definition (tree, struct lto_file_decl_data *);
+
+/* Return true if FILE needs to be compiled with LTRANS.  */
+
+static inline bool
+lto_file_needs_ltrans_p (struct lto_file_decl_data *file)
+{
+  return file->needs_ltrans_p != 0;
+}
+
+/* Mark FILE to be compiled with LTRANS.  */
+
+static inline void
+lto_mark_file_for_ltrans (struct lto_file_decl_data *file)
+{
+  file->needs_ltrans_p = 1;
+}
+
+/* Return true if any files in node set SET need to be compiled
+   with LTRANS.  */
+
+static inline bool
+cgraph_node_set_needs_ltrans_p (cgraph_node_set set)
+{
+  cgraph_node_set_iterator csi;
+
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    if (lto_file_needs_ltrans_p (csi_node (csi)->local.lto_file_data))
+      return true;
+
+  return false;
+}
 
 #endif  /* GCC_LTO_SECTION_IN_H  */

@@ -881,8 +881,8 @@ DBGCNT_H = dbgcnt.h dbgcnt.def
 EBIMAP_H = ebitmap.h sbitmap.h
 LTO_TAGS_H = lto-tags.h tree.h sbitmap.h lto-header.h
 LTO_SECTION_H = lto-section.h lto-header.h
-LTO_SECTION_IN_H = lto-section-in.h lto-header.h
-LTO_SECTION_OUT_H = lto-section-in.h lto-section.h lto-header.h
+LTO_SECTION_IN_H = lto-section-in.h lto-header.h $(TARGET_H) $(CGRAPH_H)
+LTO_SECTION_OUT_H = lto-section-out.h lto-section.h lto-header.h
 LTO_TREE_IN_H = lto-tree-in.h $(LTO_SECTION_IN_H) $(PLUGIN_API_H)
 LTO_OPTS_H = lto-section-in.h lto-opts.h
 TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
@@ -2094,8 +2094,7 @@ lto-function-in.o: lto-function-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h tree-pass.h \
    tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) except.h \
    debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def $(LTO_TREE_IN_H) \
-   lto-tree-tags.def $(LTO_SECTION_IN_H)  output.h dwarf2asm.h dwarf2out.h \
-   libfuncs.h lto-utils.h
+   lto-tree-tags.def $(LTO_SECTION_IN_H)  output.h libfuncs.h lto-utils.h
 lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \

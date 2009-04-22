@@ -457,7 +457,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
    Return the node read or overwriten.  */
  
 static struct cgraph_node *
-input_node (struct lto_file_decl_data* file_data,
+input_node (struct lto_file_decl_data *file_data,
 	    struct lto_input_block *ib,
 	    enum LTO_cgraph_tags tag)
 {
@@ -634,7 +634,7 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
 /* Input a cgraph from IB using the info in FILE_DATA.  */
 
 static void
-input_cgraph_1 (struct lto_file_decl_data* file_data,
+input_cgraph_1 (struct lto_file_decl_data *file_data,
 		struct lto_input_block *ib)
 {
   enum LTO_cgraph_tags tag;
@@ -717,6 +717,10 @@ input_cgraph (void)
       input_cgraph_1 (file_data, ib);
       lto_destroy_simple_input_block (file_data, LTO_section_cgraph, 
 				      ib, data, len);
+      
+      /* Assume that every file read needs to be processed by LTRANS.  */
+      if (flag_wpa)
+	lto_mark_file_for_ltrans (file_data);
     } 
 
   /* Clear out the aux field that was used to store enough state to

@@ -1,3 +1,26 @@
+2009-04-22  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_ssa_names): Do not emit
+	SSA names for memory symbols.
+	(output_tree_with_context): Call decl_function_context to
+	check if EXPR is a global symbol.
+	* lto-function-in.c: Do not include cpplib.h
+	(input_var_decl): Tidy.
+	* lto-cgraph.c (input_node): Tidy.
+	(input_cgraph_1): Tidy.
+	(input_cgraph): Call lto_mark_file_for_ltrans.
+	* lto-section-in.h: Include target.h and cgraph.h.
+	(struct lto_file_decl_data): Tidy.
+	Add field needs_ltrans_p.
+	(lto_file_needs_ltrans_p): New.
+	(lto_mark_file_for_ltrans): New.
+	(cgraph_node_set_needs_ltrans_p): New.
+	* Makefile.in (LTO_SECTION_IN_H): Add dependency on
+	TARGET_H and CGRAPH_H.
+	(LTO_SECTION_OUT_H): Fix incorrect dependencies.
+	(lto-function-in.o): Remove dependency on dwarf2asm.h and
+	dwarf2out.h.
+
 2009-04-20  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @146424.

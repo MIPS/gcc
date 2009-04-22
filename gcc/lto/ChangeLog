@@ -1,3 +1,21 @@
+2009-04-22  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (free_section_data): Tidy.
+	(lto_1_to_1_map): Tidy.
+	(lto_add_all_inlinees): Tidy.
+	(prefix_name_with_star): New.
+	(get_filename_for_set): New.
+	(lto_wpa_write_files): Call cgraph_node_set_needs_ltrans_p
+	to determine what cgraph node sets to write.
+	Call get_filename_for_set to compute temporary file
+	names.
+	(lto_execute_ltrans): Do not execute LTRANS on files with
+	names that start with '*'.
+	Move logic to execute LTRANS together so that LTRANS is
+	invoked only if there are any files to compile.
+	(do_whole_program_analysis): Only remove output files
+	that do not start with '*'.
+
 2009-04-06  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c (lto_post_options): Set flag_excess_precision_cmdline.

@@ -1,4 +1,4 @@
-/* Write the gimple representation of a function and it's local
+/* Write the gimple representation of a function and its local
    variables to a .o file.
 
    Copyright 2006, 2007, 2008 Free Software Foundation, Inc.
@@ -1557,7 +1557,9 @@ output_ssa_names (struct output_block *ob, struct function *fn)
     {
       tree ptr = VEC_index (tree, SSANAMES (fn), i);
 
-      if (ptr == NULL_TREE || SSA_NAME_IN_FREE_LIST (ptr))
+      if (ptr == NULL_TREE
+	  || SSA_NAME_IN_FREE_LIST (ptr)
+	  || !is_gimple_reg (ptr))
 	continue;
 
       output_uleb128 (ob, i);
@@ -3307,7 +3309,7 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
       break;
 
     case VAR_DECL:
-      if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
+      if (decl_function_context (expr) == NULL_TREE)
         output_var_decl (ob, expr);
       else
         /* We should not be seeing local variables here.  */

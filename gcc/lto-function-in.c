@@ -52,7 +52,6 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-in.h"
 #include "lto-tree-in.h"
 #include "lto-utils.h"
-#include "cpplib.h"
 
 tree input_tree (struct lto_input_block *, struct data_in *);
 static tree input_tree_with_context (struct lto_input_block *ib,
@@ -2826,12 +2825,9 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
       SET_DECL_DEBUG_EXPR (decl, debug_expr);
   }
 
-  /* FIXME lto: Adapted from DWARF reader. Probably needs more thought.
-     We are only interested in variables with static storage duration.
-     I expected the test "DECL_FILE_SCOPE_P (decl)" to suffice below, but
-     it does not work.  In particular, the context of a vtable is the
-     class to which it belongs.  */
-  if (!decl_function_context (decl))
+  /* Register symbols with file or global scope to mark what input
+     file has their definition.  */
+  if (decl_function_context (decl) == NULL_TREE)
     {
       /* Variable has file scope, not local. Need to ensure static variables
 	 between different files don't clash unexpectedly.  */

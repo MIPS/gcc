@@ -503,15 +503,16 @@ free_section_data (struct lto_file_decl_data *file_data,
   if (file_data->fd == -1)
     return;
 
-  computed_offset = ((intptr_t)offset) & page_mask;
-  diff = (intptr_t)offset - computed_offset;
+  computed_offset = ((intptr_t) offset) & page_mask;
+  diff = (intptr_t) offset - computed_offset;
   computed_len = len + diff;
 
-  munmap ((void *)computed_offset, computed_len);
+  munmap ((void *) computed_offset, computed_len);
 }
 
 /* Vector of all cgraph node sets. */
-static GTY (()) VEC(cgraph_node_set ,gc) *lto_cgraph_node_sets;
+static GTY (()) VEC(cgraph_node_set, gc) *lto_cgraph_node_sets;
+
 
 /* Group cgrah nodes by input files.  This is used mainly for testing
    right now.  */
@@ -548,7 +549,7 @@ lto_1_to_1_map (void)
 
       slot = pointer_map_contains (pmap, file_data);
       if (slot)
-	  set = (cgraph_node_set) *slot;
+	set = (cgraph_node_set) *slot;
       else
 	{
 	  set = cgraph_node_set_new ();
@@ -556,6 +557,7 @@ lto_1_to_1_map (void)
 	  *slot = set;
 	  VEC_safe_push (cgraph_node_set, gc, lto_cgraph_node_sets, set);
 	}
+
       cgraph_node_set_add (set, node);
     }
 
@@ -570,7 +572,7 @@ finish:
 
 
 /* Add inlined clone NODE and its master clone to SET, if NODE itself has
-   inlined callee, recursively add the callees.  */
+   inlined callees, recursively add the callees.  */
 
 static void
 lto_add_inline_clones (cgraph_node_set set, struct cgraph_node *node,
@@ -594,8 +596,8 @@ lto_add_inline_clones (cgraph_node_set set, struct cgraph_node *node,
 }
 
 /* Compute the transitive closure of inlining of SET based on the
-   information in the callgraph.  Returns a bitmap of decls indexed
-   by UID.  */
+   information in the callgraph.  Returns a bitmap of decls that have
+   been inlined into SET indexed by UID.  */
 
 static bitmap
 lto_add_all_inlinees (cgraph_node_set set)
@@ -644,6 +646,8 @@ lto_add_all_inlinees (cgraph_node_set set)
     }
   while (changed);
 
+  /* Transitively add to SET all the inline clones for every node that
+     has been inlined.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
@@ -789,6 +793,7 @@ lto_scan_statics_in_cgraph_node (struct cgraph_node *node,
   /* Return if the DECL of nodes has been visited before.  */
   if (bitmap_bit_p (context->seen_node_decls, DECL_UID (node->decl)))
     return;
+
   bitmap_set_bit (context->seen_node_decls, DECL_UID (node->decl));
 
   state = lto_get_function_in_decl_state (node->local.lto_file_data,
@@ -834,7 +839,7 @@ lto_promote_cross_file_statics (void)
   cgraph_node_set set;
   cgraph_node_set_iterator csi;
   globalize_context_t context;
-  
+
   memset (&context, 0, sizeof (context));
   context.all_vars = lto_bitmap_alloc ();
   context.all_static_vars = lto_bitmap_alloc ();
@@ -865,7 +870,75 @@ lto_promote_cross_file_statics (void)
   lto_bitmap_free (context.all_static_vars);
 }
 
+
+/* Given a file name FNAME, return a string with FNAME prefixed with '*'.  */
+
+static char *
+prefix_name_with_star (const char *fname)
+{
+  char *star_fname;
+  size_t len;
+  
+  len = strlen (fname) + 1 + 1;
+  star_fname = XNEWVEC (char, len);
+  snprintf (star_fname, len, "*%s", fname);
+
+  return star_fname;
+}
+
+/* Return a file name associated with cgraph node set SET.  This may
+   be a new temporary file name if SET needs to be processed by
+   LTRANS, or the original file name if all the nodes in SET belong to
+   the same input file.  */
+
+static char *
+get_filename_for_set (cgraph_node_set set)
+{
+  char *fname = NULL;
+  static const size_t max_suffix_len = 100;
+
+  if (cgraph_node_set_needs_ltrans_p (set))
+    {
+      /* Create a new temporary file to store SET.  To facilitate
+	 debugging, use file names from SET as part of the new
+	 temporary file name.  */
+      cgraph_node_set_iterator si;
+      struct pointer_set_t *pset = pointer_set_create ();
+      char *suffix = NULL;
+      for (si = csi_start (set); !csi_end_p (si); csi_next (&si))
+	{
+	  struct cgraph_node *n = csi_node (si);
+	  const char *f = lbasename (n->local.lto_file_data->file_name);
+	  if (!pointer_set_insert (pset, n->local.lto_file_data))
+	    suffix = reconcat (suffix, "-", f, suffix, NULL);
+	  if (strlen (suffix) > max_suffix_len)
+	    break;
+	}
+      pointer_set_destroy (pset);
+      suffix = reconcat (suffix, suffix, ".lto.o", NULL);
+      fname = make_cwd_temp_file (suffix);
+      
+      /* If suffix proved to be too long, try something smaller.  */
+      if (fname == NULL)
+	fname = make_cwd_temp_file (".lto.o");
+
+      gcc_assert (fname);
+    }
+  else
+    {
+      /* Since SET does not need to be processed by LTRANS, use
+	 the original file name and mark it with a '*' prefix so that
+	 lto_execute_ltrans knows not to send it to ltrans_driver.  */
+      cgraph_node_set_iterator si = csi_start (set);
+      struct cgraph_node *first = csi_node (si);
+      fname = prefix_name_with_star (first->local.lto_file_data->file_name);
+    }
+
+  return fname;
+}
+
 static lto_file *current_lto_file;
+
 
 /* Write all output files in WPA mode.  Returns a NULL-terminated array of
    output file names.  */
@@ -874,7 +947,7 @@ static char **
 lto_wpa_write_files (void)
 {
   char **output_files;
-  unsigned i, n_sets;
+  unsigned i, n_sets, last_out_file_ix, num_out_files;
   lto_file *file;
   cgraph_node_set set;
   bitmap decls;
@@ -882,7 +955,10 @@ lto_wpa_write_files (void)
 
   timevar_push (TV_WHOPR_WPA);
 
-  /* Include all inlined functions.  */
+  /* Include all inlined functions and determine what sets need to be
+     compiled by LTRANS.  After this loop, only those sets that
+     contain callgraph nodes from more than one file will need to be
+     compiled by LTRANS.  */
   for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
     {
       decls = lto_add_all_inlinees (set);
@@ -899,39 +975,48 @@ lto_wpa_write_files (void)
 
   timevar_push (TV_WHOPR_WPA_IO);
 
-  output_files = XNEWVEC (char *, VEC_length (cgraph_node_set,
-					      lto_cgraph_node_sets) + 1);
+  /* The number of output files depends on the number of input files
+     and how many callgraph node sets we create.  Reserve enough space
+     for the maximum of these two.  */
+  num_out_files = MAX (VEC_length (cgraph_node_set, lto_cgraph_node_sets),
+                       num_in_fnames);
+  output_files = XNEWVEC (char *, num_out_files + 1);
 
   n_sets = VEC_length (cgraph_node_set, lto_cgraph_node_sets);
   for (i = 0; i < n_sets; i++)
     {
-      char *temp_filename = make_cwd_temp_file (".lto.o");
+      char *temp_filename;
 
+      set = VEC_index (cgraph_node_set, lto_cgraph_node_sets, i);
+      temp_filename = get_filename_for_set (set);
       output_files[i] = temp_filename;
 
-      file = lto_elf_file_open (temp_filename, true);
-      if (!file)
-        fatal_error ("lto_elf_file_open() failed");
+      if (cgraph_node_set_needs_ltrans_p (set))
+	{
+	  /* Write all the nodes in SET to TEMP_FILENAME.  */
+	  file = lto_elf_file_open (temp_filename, true);
+	  if (!file)
+	    fatal_error ("lto_elf_file_open() failed");
 
-      lto_set_current_out_file (file);
-      lto_new_extern_inline_states ();
+	  lto_set_current_out_file (file);
+	  lto_new_extern_inline_states ();
 
-      decls = VEC_index (bitmap, inlined_decls, i);
-      lto_force_functions_extern_inline (decls);
+	  decls = VEC_index (bitmap, inlined_decls, i);
+	  lto_force_functions_extern_inline (decls);
 
-      /* Set AUX to 1 in the last LTRANS file.  */
-      set = VEC_index (cgraph_node_set, lto_cgraph_node_sets, i);
-      set->aux = (void*) ((intptr_t) (i == (n_sets - 1)));
-      ipa_write_summaries_of_cgraph_node_set (set);
-      lto_delete_extern_inline_states ();
-      
-      lto_set_current_out_file (NULL);
-      lto_elf_file_close (file);
+	  ipa_write_summaries_of_cgraph_node_set (set);
+	  lto_delete_extern_inline_states ();
+
+	  lto_set_current_out_file (NULL);
+	  lto_elf_file_close (file);
+	}
     }
+
+  last_out_file_ix = n_sets;
 
   lto_stats.num_output_files += n_sets;
 
-  output_files[i] = NULL;
+  output_files[last_out_file_ix] = NULL;
 
   for (i = 0; VEC_iterate (bitmap, inlined_decls, i, decls); i++)
     lto_bitmap_free (decls);
@@ -967,31 +1052,6 @@ lto_execute_ltrans (char *const *files)
 
   timevar_push (TV_WHOPR_WPA_LTRANS_EXEC);
 
-  /* Set the CC environment variable.  */
-  env_val = getenv ("COLLECT_GCC");
-  if (!env_val)
-    fatal_error ("environment variable COLLECT_GCC must be set");
-
-  obstack_init (&env_obstack);
-  obstack_grow (&env_obstack, "CC=", sizeof ("CC=") - 1);
-  obstack_grow (&env_obstack, env_val, strlen (env_val) + 1);
-  putenv (XOBFINISH (&env_obstack, char *));
-
-  /* Set the CFLAGS environment variable.  */
-  env_val = getenv ("COLLECT_GCC_OPTIONS");
-  if (!env_val)
-    fatal_error ("environment variable COLLECT_GCC_OPTIONS must be set");
-
-  obstack_init (&env_obstack);
-  obstack_grow (&env_obstack, "CFLAGS=", sizeof ("CFLAGS=") - 1);
-  obstack_grow (&env_obstack, env_val, strlen (env_val));
-  obstack_grow (&env_obstack, extra_cflags, strlen (extra_cflags) + 1);
-  putenv (XOBFINISH (&env_obstack, char *));
-
-  pex = pex_init (0, "lto1", NULL);
-  if (pex == NULL)
-    fatal_error ("pex_init failed: %s", xstrerror (errno));
-
   /* Initalize the arguments for the LTRANS driver.  */
   for (i = 0; files[i]; ++i);
   argv = XNEWVEC (char *, i + 2);
@@ -1008,47 +1068,99 @@ lto_execute_ltrans (char *const *files)
   *argv_ptr++ = ltrans_driver;
   for (i = 0; files[i]; ++i)
     {
-      *argv_ptr++ = files[i];
+      size_t len;
 
-      /* Replace the .o suffix with a .ltrans.o suffix and write the resulting
-	 name to the LTRANS output list.  */
-      if (ltrans_output_list_stream)
+      /* If the file is prefixed with a '*', it means that we do not
+	 need to re-compile it with LTRANS because it has not been
+	 modified by WPA.  Skip it from the command line to
+	 ltrans-driver, but add it to ltrans_output_list_stream so it
+	 is linked after we are done.  */
+      if (files[i][0] == '*')
 	{
-	  size_t len = strlen (files[i]) - 2;
+	  size_t len = strlen (files[i]) - 1;
+	  if (ltrans_output_list_stream)
+	    if (fwrite (&files[i][1], 1, len, ltrans_output_list_stream) < len
+		|| fwrite ("\n", 1, 1, ltrans_output_list_stream) < 1)
+	      error ("writing to LTRANS output list %s: %m",
+		     ltrans_output_list);
+	}
+      else
+	{
+	  /* Otherwise, add FILES[I] to ltrans-driver's command line
+	     and add the resulting file to LTRANS output list.  */
+	  *argv_ptr++ = files[i];
 
-	  if (fwrite (files[i], 1, len, ltrans_output_list_stream) < len
-	      || fwrite (".ltrans.o\n", 1, 10, ltrans_output_list_stream) < 10)
-	    error ("writing to LTRANS output list %s: %m", ltrans_output_list);
+	  /* Replace the .o suffix with a .ltrans.o suffix and write
+	     the resulting name to the LTRANS output list.  */
+	  if (ltrans_output_list_stream)
+	    {
+	      len = strlen (files[i]) - 2;
+
+	      if (fwrite (files[i], 1, len, ltrans_output_list_stream) < len
+		  || fwrite (".ltrans.o\n", 1, 10, ltrans_output_list_stream)
+		     < 10)
+		error ("writing to LTRANS output list %s: %m",
+		       ltrans_output_list);
+	    }
 	}
     }
+
   *argv_ptr++ = NULL;
 
   /* Close the LTRANS output list.  */
   if (ltrans_output_list_stream && fclose (ltrans_output_list_stream))
     error ("closing LTRANS output list %s: %m", ltrans_output_list);
 
-  /* Execute the LTRANS driver.  */
-  errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0], argv, NULL, NULL,
-		    &err);
-  if (errmsg)
-    fatal_error ("%s: %s", errmsg, xstrerror (err));
-
-  if (!pex_get_status (pex, 1, &status))
-    fatal_error ("can't get program status: %s", xstrerror (errno));
-
-  pex_free (pex);
-
-  if (status)
+  /* If there are any files to compile, execute the LTRANS driver.  */
+  if (argv[1] != NULL)
     {
-      if (WIFSIGNALED (status))
+      /* Set the CC environment variable.  */
+      env_val = getenv ("COLLECT_GCC");
+      if (!env_val)
+	fatal_error ("environment variable COLLECT_GCC must be set");
+
+      obstack_init (&env_obstack);
+      obstack_grow (&env_obstack, "CC=", sizeof ("CC=") - 1);
+      obstack_grow (&env_obstack, env_val, strlen (env_val) + 1);
+      putenv (XOBFINISH (&env_obstack, char *));
+
+      /* Set the CFLAGS environment variable.  */
+      env_val = getenv ("COLLECT_GCC_OPTIONS");
+      if (!env_val)
+	fatal_error ("environment variable COLLECT_GCC_OPTIONS must be set");
+
+      obstack_init (&env_obstack);
+      obstack_grow (&env_obstack, "CFLAGS=", sizeof ("CFLAGS=") - 1);
+      obstack_grow (&env_obstack, env_val, strlen (env_val));
+      obstack_grow (&env_obstack, extra_cflags, strlen (extra_cflags) + 1);
+      putenv (XOBFINISH (&env_obstack, char *));
+
+      pex = pex_init (0, "lto1", NULL);
+      if (pex == NULL)
+	fatal_error ("pex_init failed: %s", xstrerror (errno));
+
+      errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0], argv, NULL, NULL,
+			&err);
+      if (errmsg)
+	fatal_error ("%s: %s", errmsg, xstrerror (err));
+
+      if (!pex_get_status (pex, 1, &status))
+	fatal_error ("can't get program status: %s", xstrerror (errno));
+
+      if (status)
 	{
-	  int sig = WTERMSIG (status);
-	  fatal_error ("%s terminated with signal %d [%s]%s",
-		       argv[0], sig, strsignal (sig),
-		       WCOREDUMP (status) ? ", core dumped" : "");
+	  if (WIFSIGNALED (status))
+	    {
+	      int sig = WTERMSIG (status);
+	      fatal_error ("%s terminated with signal %d [%s]%s",
+			   argv[0], sig, strsignal (sig),
+			   WCOREDUMP (status) ? ", core dumped" : "");
+	    }
+	  else
+	    fatal_error ("%s terminated with status %d", argv[0], status);
 	}
-      else
-	fatal_error ("%s terminated with status %d", argv[0], status);
+
+      pex_free (pex);
     }
 
   timevar_pop (TV_WHOPR_WPA_LTRANS_EXEC);
@@ -1677,9 +1789,12 @@ do_whole_program_analysis (void)
 
   for (i = 0; output_files[i]; ++i)
     {
-      lto_maybe_unlink (output_files[i]);
+      if (output_files[i][0] != '*')
+	lto_maybe_unlink (output_files[i]);
+
       free (output_files[i]);
     }
+
   XDELETEVEC (output_files);
 }
 
