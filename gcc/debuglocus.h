@@ -58,7 +58,7 @@ struct debuglocus_entry_d GTY(()) {
     the call to foo can still have it's correct location entry, and the correct
     location for the debug assignemnt to 'a' is also still available.
 
-    NOte that when debuglocus's are chained together, the ORIGINAL_LOCUS field
+    Note that when debuglocus's are chained together, the ORIGINAL_LOCUS field
     for everything except the initial one in the list is ignored. Only the
     initial debuglocus is considered to contain a LOCUS for a statement.  */
 
@@ -89,6 +89,13 @@ DEF_VEC_ALLOC_P(debuglocus_segment_p, gc);
 struct debuglocus_table_d GTY(()) {
   /* Total number of debuglocus entries.  */
   unsigned int size;
+  /* Index of the first item in the free list.
+
+     The free list is a singly linked list of debuglocus's that have
+     been freed and can thus be recycled.  For each entry, DECL must
+     be NULL.  The items are linked by the NEXT field and the PREV
+     field is ignored.  */
+  int free_list_idx;
   /* Vector of debuglocus segments.  */
   VEC(debuglocus_segment_p, gc) *table;
 };
@@ -99,6 +106,7 @@ typedef struct debuglocus_table_d debuglocus_table_t;
 void create_debuglocus_table(void);
 void destroy_debuglocus_table(void);
 debuglocus_p create_debuglocus_entry (void);
+void debuglocus_free_entry (debuglocus_p);
 debuglocus_p get_debuglocus (source_location locus);
 source_location create_duplicate_debuglocus (source_location locus);
 bool decl_needs_debuglocus_p (tree);
@@ -149,7 +157,7 @@ debuglocus_p debuglocus_iter_next (debuglocus_iterator *);
 tree debuglocus_var_iter_start (debuglocus_iterator *, source_location);
 tree debuglocus_var_iter_next (debuglocus_iterator *);
 
-/* Another iterator, onoly this just returns the DECL in each debuglocus.  */
+/* Another iterator, only this just returns the DECL in each debuglocus.  */
 #define FOR_EACH_DEBUGLOCUS_VAR(LOCUS, VAR, ITER)		\
   for (VAR = debuglocus_var_iter_start (&(ITER), (LOCUS));	\
        (ITER).current_dlocus != NULL;				\

@@ -39,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "pretty-print.h"
 
-
 /* This file contains data and functions required to implement debuglocus 
    support. This is a mechanism for tracking debug information in the compiler
    by replacing the source locus field on some statements with entries into
@@ -50,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #define DEBUGLOCUS_INDEX(LOCUS) ((LOCUS) & ~DEBUGLOCUS_BIT)
 #define DEBUGLOCUS_VEC_MEM	(sizeof (struct debuglocus_segment_d))
 
+static source_location debuglocus_index_from_pointer (debuglocus_p);
 
 /* Create and initialize a new debuglocus table.  */
 static debuglocus_table_t *
@@ -65,6 +65,8 @@ init_debuglocus_table (void)
 
   /* Reserve space number 0 for the NULL entry.  */
   tab->size = 1;
+
+  tab->free_list_idx = 0;
   return tab;
 }
 
@@ -153,14 +155,21 @@ new_debuglocus_entry (debuglocus_table_t *tab)
   if (tab == NULL)
     return NULL;
 
-  i = tab->size++;
-  
-  /* Check if we need to increase the size of the table vector.  */
-  if (i % DEBUGLOCUS_VEC_SIZE == 0)
+  /* Grab the next free item if available.  */
+  i = tab->free_list_idx;
+  if (i)
+    tab->free_list_idx = get_debuglocus_entry (tab, i)->next;
+  else
     {
-      debuglocus_segment_p seg;
-      seg = (debuglocus_segment_p) ggc_alloc_cleared (DEBUGLOCUS_VEC_MEM);
-      VEC_safe_push (debuglocus_segment_p, gc, tab->table, seg);
+      i = tab->size++;
+  
+      /* Check if we need to increase the size of the table vector.  */
+      if (i % DEBUGLOCUS_VEC_SIZE == 0)
+	{
+	  debuglocus_segment_p seg;
+	  seg = (debuglocus_segment_p) ggc_alloc_cleared (DEBUGLOCUS_VEC_MEM);
+	  VEC_safe_push (debuglocus_segment_p, gc, tab->table, seg);
+	}
     }
 
   dlocus = get_debuglocus_entry (tab, i);
@@ -182,6 +191,39 @@ create_debuglocus_entry (void)
 {
   return new_debuglocus_entry (current_debuglocus_table ());
 }
+
+
+/* Mark DLOCUS as freed, and add it to the free list.  */
+void
+debuglocus_free_entry (debuglocus_p dlocus)
+{
+  debuglocus_table_t *tab = current_debuglocus_table ();
+
+  /* Update the circular list.  */
+  if (dlocus->prev)
+    {
+      debuglocus_p prev_p = get_debuglocus_entry (tab, dlocus->prev);
+      prev_p->next = dlocus->next;
+    }
+  if (dlocus->next)
+    {
+      debuglocus_p next_p = get_debuglocus_entry (tab, dlocus->next);
+      next_p->prev = dlocus->prev;
+    }
+
+#ifdef ENABLE_CHECKING
+  memset (dlocus, 0xa5, sizeof (*dlocus));
+#endif
+
+  /* Any entry in the free list must have a NULL decl.  */
+  dlocus->decl = NULL_TREE;
+
+  /* Put it in the free list.  */
+  dlocus->prev = 0;
+  dlocus->next = tab->free_list_idx;
+  tab->free_list_idx = debuglocus_index_from_pointer (dlocus);
+}
+
 
 /* Decide whether VAR should have a debuglocus emitted.  */
 bool
@@ -309,8 +351,6 @@ create_duplicate_debuglocus (source_location locus)
   /* Return the debuglocus for the new copy.  */
   return new_i | DEBUGLOCUS_BIT;
 }
-
-
 
 
 /* Create and return a new debuglocus entry for a decl VAR.  */
@@ -793,7 +833,7 @@ debuglocus_bitmap_populate (bitmap b, FILE *dumpfile, bool before_pass_p)
 		       &wi);
     }
 
-  /* Now populated the orphaned entires.  */
+  /* Now populate the orphaned entires.  */
   debuglocus_bitmap_populate_helper (b, cfun->orphaned_debuglocus, dumpfile, 
 				     before_pass_p);
 
@@ -803,7 +843,8 @@ debuglocus_bitmap_populate (bitmap b, FILE *dumpfile, bool before_pass_p)
     bitmap_ior_into (&global_dl_bitmap, b);
 }
 
-/* Verify the debuglocus entries created by the current pass.
+/* Verify the debuglocus entries created by the current pass, as well
+   as the consistency of the free list.
 
    BEFORE is the debuglocus bitmap before the pass.  AFTER is the
    debuglocus bitmap after the pass.  F is the dumpfile to dump the
@@ -823,7 +864,26 @@ debuglocus_bitmap_verify (FILE *f, bitmap before, bitmap after,
     return;
 
   if (flags & TDF_DETAILS)
-    dump_debuglocus_table (f, tab, before, after);
+    {
+      dump_debuglocus_table (f, tab, before, after);
+
+      /* Verify the sanity of the free list.  */
+      if (tab->free_list_idx != 0)
+	{
+	  debuglocus_p freep = get_debuglocus_entry (tab, tab->free_list_idx);
+	  while (freep)
+	    {
+	      if (freep->decl != NULL_TREE)
+		{
+		  fputs ("debuglocus free list inconsistency\n", f);
+		  break;
+		}
+	      if (!freep->next)
+		break;
+	      freep = get_debuglocus_entry (tab, freep->next);
+	    }
+	}
+    }
 
   /* Dump new debuglocus entries generated in this pass.  */
   comma = "";
