@@ -12253,7 +12253,10 @@ finish_function (int flags)
       && !cp_function_chain->can_throw
       && !flag_non_call_exceptions
       && !DECL_REPLACEABLE_P (fndecl))
-    TREE_NOTHROW (fndecl) = 1;
+    {
+      TREE_NOTHROW (fndecl) = 1;
+      warn_function_nothrow (fndecl);
+    }
 
   /* This must come after expand_function_end because cleanups might
      have declarations (from inline functions) that need to go into

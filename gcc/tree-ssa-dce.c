@@ -454,17 +454,42 @@ find_obviously_necessary_stmts (struct edge_list *el)
 	}
     }
 
+  /* Pure and const functions are finite and thus have no infinite loops in
+     them.  */
+  if ((TREE_READONLY (current_function_decl)
+       || DECL_PURE_P (current_function_decl))
+      && !DECL_LOOPING_CONST_OR_PURE_P (current_function_decl))
+    return;
+
+  /* Prevent the empty possibly infinite loops from being removed.  */
   if (el)
     {
-      /* Prevent the loops from being removed.  We must keep the infinite loops,
-	 and we currently do not have a means to recognize the finite ones.  */
-      FOR_EACH_BB (bb)
-	{
-	  edge_iterator ei;
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (e->flags & EDGE_DFS_BACK)
-	      mark_control_dependent_edges_necessary (e->dest, el);
-	}
+      loop_iterator li;
+      struct loop *loop;
+      scev_initialize ();
+      if (mark_irreducible_loops ())
+	FOR_EACH_BB (bb)
+	  {
+	    edge_iterator ei;
+	    FOR_EACH_EDGE (e, ei, bb->succs)
+	      if ((e->flags & EDGE_DFS_BACK)
+		  && (e->flags & EDGE_IRREDUCIBLE_LOOP))
+		{
+	          if (dump_file)
+	            fprintf (dump_file, "Marking back edge of irreducible loop %i->%i\n",
+		    	     e->src->index, e->dest->index);
+		  mark_control_dependent_edges_necessary (e->dest, el);
+		}
+	  }
+
+      FOR_EACH_LOOP (li, loop, 0)
+	if (!finite_loop_p (loop))
+	  {
+	    if (dump_file)
+	      fprintf (dump_file, "can not prove finiteness of loop %i\n", loop->num);
+	    mark_control_dependent_edges_necessary (loop->latch, el);
+	  }
+      scev_finalize ();
     }
 }
 
@@ -1126,6 +1151,9 @@ perform_tree_ssa_dce (bool aggressive)
   struct edge_list *el = NULL;
   bool something_changed = 0;
 
+  if (aggressive)
+    loop_optimizer_init (LOOPS_HAVE_PREHEADERS);
+
   tree_dce_init (aggressive);
 
   if (aggressive)
@@ -1144,6 +1172,9 @@ perform_tree_ssa_dce (bool aggressive)
     }
 
   find_obviously_necessary_stmts (el);
+
+  if (aggressive)
+    loop_optimizer_finalize ();
 
   longest_chain = 0;
   total_chain = 0;

@@ -210,4 +210,6 @@ extern bool set_src_pwd		       (const char *);
 extern const char *get_random_seed (bool);
 extern const char *set_random_seed (const char *);
 
+extern void warn_function_nothrow (tree);
+
 #endif /* ! GCC_TOPLEV_H */

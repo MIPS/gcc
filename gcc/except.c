@@ -3422,6 +3422,8 @@ set_nothrow_function_flags (void)
 	    return 0;
 	  }
       }
+  if (crtl->nothrow)
+    warn_function_nothrow (current_function_decl);
   if (crtl->nothrow
       && (cgraph_function_body_availability (cgraph_node
 					     (current_function_decl))

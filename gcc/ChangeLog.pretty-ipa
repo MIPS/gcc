@@ -1,5 +1,35 @@
 2009-04-22  Jan Hubicka  <jh@suse.cz>
 
+	* tree-ssa-loop-niter.c (finite_loop_p): New function.
+	* cfgloopanal.c (irred_loop_found): New static var.
+	(check_irred): set it.
+	(mark_irreducible_loops): Return true if found.
+	* toplev.h (warn_function_nothrow): New function.
+	* cp/decl.c (finish_function): Use it.
+	* ipa-pure.const.c: Include toplev.h, flags.h, pointer-set.h, cfgloop.h
+	and tree-scalar-evolution.h
+	(struct funct_state_d): Add looping_in_source.
+	(function_always_visible_to_compiler_p): New predicate.
+	(warn_function_nothrow, warn_function_pure, warn_function_const): New
+	functions.
+	(check_call): More verbose debug output.
+	(analyze_function): Do not bail out for overwrittable functions; try
+	to prove finiteness of the loops; handle looping_in_source.
+	(propagate): Hande looping in source; output warnings.
+	(skip_function_for_local_pure_const): New function.
+	(local_pure_const): Analyze overwrittable function body when asked for warnings;
+	handle looping_in_source.
+	* tree-ssa-loop-ivcanon.c (empty_loop_p): Use finite_loop_p predicate.
+	* except.c (set_nothrow_function_flags): Warn.
+	* common.opt (Wmissing-const, Wmissing-nothrow, Wmissing-pure): New.
+	* tree-ssa-dce.c (find_obviously_necessary_stmts): Try to prove finiteness
+	of loop.
+	(perform_tree_ssa_dce): Initialize loop optimizer if needed.
+	* cfgloop.h (mark_irreducible_loops): Declare.
+	(finite_loop_p): Declare.
+
+2009-04-22  Jan Hubicka  <jh@suse.cz>
+
 	* tree-eh.c (update_eh-edges): Handle removing of edge here.
 	(cleanup_empty_eh): Fix has_non_eh_preds handling.
 
