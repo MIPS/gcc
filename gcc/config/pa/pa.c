@@ -4416,8 +4416,7 @@ return_addr_rtx (int count, rtx frameaddr)
     {
       rtx op0 = gen_rtx_MEM (SImode, plus_constant (ins, i * 4)); 
       rtx op1 = GEN_INT (insns[i]);
-      rtx test = gen_rtx_NE (VOIDmode, op0, op1);
-      emit_jump_insn (gen_cbranchsi4 (test, op0, op1, label));
+      emit_cmp_and_jump_insns (op0, op1, NE, NULL, SImode, 0, label);
     }
 
   /* Here we know that our return address points to an export
