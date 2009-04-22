@@ -163,6 +163,11 @@ struct c_expr
      initializers, or ERROR_MARK for other expressions (including
      parenthesized expressions).  */
   enum tree_code original_code;
+  /* If not NULL, the original type of an expression.  This will
+     differ from the type of the value field for an enum constant.
+     The type of an enum constant is a plain integer type, but this
+     field will be the enum type.  */
+  tree original_type;
 };
 
 /* A kind of type specifier.  Note that this information is currently
@@ -495,7 +500,7 @@ extern void undeclared_variable (tree, location_t);
 extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void c_maybe_initialize_eh (void);
-extern void finish_decl (tree, tree, tree);
+extern void finish_decl (tree, tree, tree, tree);
 extern tree finish_enum (tree, tree, tree);
 extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
@@ -577,7 +582,7 @@ extern struct c_expr default_function_array_conversion (struct c_expr);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
 extern tree build_array_ref (tree, tree, location_t);
-extern tree build_external_ref (tree, int, location_t);
+extern tree build_external_ref (tree, int, location_t, tree *);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);
@@ -590,7 +595,7 @@ extern tree build_conditional_expr (tree, bool, tree, tree);
 extern tree build_compound_expr (tree, tree);
 extern tree c_cast_expr (struct c_type_name *, tree);
 extern tree build_c_cast (tree, tree);
-extern void store_init_value (tree, tree);
+extern void store_init_value (tree, tree, tree);
 extern void error_init (const char *);
 extern void pedwarn_init (location_t, int opt, const char *);
 extern void maybe_warn_string_init (tree, struct c_expr);
@@ -616,7 +621,7 @@ extern tree c_begin_stmt_expr (void);
 extern tree c_finish_stmt_expr (tree);
 extern tree c_process_expr_stmt (tree);
 extern tree c_finish_expr_stmt (tree);
-extern tree c_finish_return (tree);
+extern tree c_finish_return (tree, tree);
 extern tree c_finish_bc_stmt (tree *, bool);
 extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);

@@ -28,6 +28,7 @@ enum plugin_event
   PLUGIN_FINISH_UNIT,           /* Useful for summary processing.  */
   PLUGIN_CXX_CP_PRE_GENERICIZE, /* Allows to see low level AST in C++ FE.  */
   PLUGIN_FINISH,                /* Called before GCC exits.  */
+  PLUGIN_INFO,                  /* Information about the plugin */
   PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
                                    array.  */
 };
@@ -58,22 +59,50 @@ struct plugin_pass
   enum pass_positioning_ops pos_op; /* how to insert the new pass.  */
 };
 
+/* Additional information about the plugin. Used by --help and --version. */
+
+struct plugin_info
+{
+  const char *version;
+  const char *help;
+};
+
+/* Represents the gcc version. Used to avoid using an incompatible plugin. */
+
+struct plugin_gcc_version
+{
+  const char *basever;
+  const char *datestamp;
+  const char *devphase;
+  const char *revision;
+  const char *configuration_arguments;
+};
+
+extern struct plugin_gcc_version plugin_gcc_version;
+
+/* The default version check. Compares every field in VERSION. */
+
+extern bool plugin_default_version_check(struct plugin_gcc_version *version);
+
 /* Function type for the plugin initialization routine. Each plugin module
    should define this as an externally-visible function with name
    "plugin_init."
 
    PLUGIN_NAME - name of the plugin (useful for error reporting)
+   VERSION     - the plugin_gcc_version symbol of the plugin itself.
    ARGC        - the size of the ARGV array
    ARGV        - an array of key-value argument pair
 
    Returns 0 if initialization finishes successfully.  */
 
 typedef int (*plugin_init_func) (const char *plugin_name,
+                                 struct plugin_gcc_version *version,
                                  int argc, struct plugin_argument *argv);
 
 /* Declaration for "plugin_init" function so that it doesn't need to be
    duplicated in every plugin.  */
-extern int plugin_init (const char *, int, struct plugin_argument *);
+extern int plugin_init (const char *, struct plugin_gcc_version *version,
+			int, struct plugin_argument *);
 
 /* Function type for a plugin callback routine.
 

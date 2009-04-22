@@ -10774,7 +10774,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 			  init = t;
 		      }
 
-		    finish_decl (decl, init, NULL_TREE);
+		    finish_decl (decl, init, NULL_TREE, NULL_TREE);
 		  }
 	      }
 	  }
@@ -13131,7 +13131,9 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
                        match.  */
 
                     if (resolve_overloaded_unification
-                        (tparms, targs, parm, arg, strict, sub_strict)
+                        (tparms, targs, parm, arg,
+			 (unification_kind_t) strict,
+			 sub_strict)
                         != 0)
                       return 1;
                     skip_arg_p = true;
@@ -13150,8 +13152,8 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
 
             if (!subr)
               arg_strict |= 
-                maybe_adjust_types_for_deduction (strict, &parm, &arg, 
-						  arg_expr);
+                maybe_adjust_types_for_deduction ((unification_kind_t) strict,
+						  &parm, &arg, arg_expr);
           }
 
         if (!skip_arg_p)
@@ -15575,7 +15577,7 @@ instantiate_decl (tree d, int defer_ok,
 
       /* Enter the scope of D so that access-checking works correctly.  */
       push_nested_class (DECL_CONTEXT (d));
-      finish_decl (d, init, NULL_TREE);
+      finish_decl (d, init, NULL_TREE, NULL_TREE);
       pop_nested_class ();
     }
   else if (TREE_CODE (d) == FUNCTION_DECL)

@@ -553,10 +553,12 @@ struct gcc_target
 			  enum machine_mode mode, int ignore);
 
   /* Select a replacement for a target-specific builtin.  This is done
-     *before* regular type checking, and so allows the target to implement
-     a crude form of function overloading.  The result is a complete
-     expression that implements the operation.  */
-  tree (*resolve_overloaded_builtin) (tree decl, tree params);
+     *before* regular type checking, and so allows the target to
+     implement a crude form of function overloading.  The result is a
+     complete expression that implements the operation.  PARAMS really
+     has type VEC(tree,gc)*, but we don't want to include tree.h
+     here.  */
+  tree (*resolve_overloaded_builtin) (tree decl, void *params);
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
@@ -673,9 +675,6 @@ struct gcc_target
      least some operations are supported; need to check optabs or builtins
      for further details.  */
   bool (* vector_mode_supported_p) (enum machine_mode mode);
-
-  /* True if a vector is opaque.  */
-  bool (* vector_opaque_p) (const_tree);
 
   /* Compute a (partial) cost for rtx X.  Return true if the complete
      cost has been computed, and false if subexpressions should be

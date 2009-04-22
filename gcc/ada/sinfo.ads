@@ -621,10 +621,15 @@ package Sinfo is
    --    A flag present in the N_Assignment_Statement node. It is used only
    --    if the type being assigned is an array type, and is set if analysis
    --    determines that it is definitely safe to do the copy backwards, i.e.
-   --    starting at the highest addressed element. Note that if neither of the
-   --    flags Forwards_OK or Backwards_OK is set, it means that the front end
-   --    could not determine that either direction is definitely safe, and a
-   --    runtime check may be required if the backend cannot figure it out.
+   --    starting at the highest addressed element. This is the case if either
+   --    the operands do not overlap, or they may overlap, but if they do,
+   --    then the left operand is at a higher address than the right operand.
+   --
+   --    Note: If neither of the flags Forwards_OK or Backwards_OK is set, it
+   --    means that the front end could not determine that either direction is
+   --    definitely safe, and a runtime check may be required if the backend
+   --    cannot figure it out. If both flags Forwards_OK and Backwards_OK are
+   --    set, it means that the front end can assure no overlap of operands.
 
    --  Body_To_Inline (Node3-Sem)
    --    present in subprogram declarations. Denotes analyzed but unexpanded
@@ -806,7 +811,7 @@ package Sinfo is
    --    See also the description of Do_Range_Check for this case. The only
    --    attribute references which use this flag are Pred and Succ, where it
    --    means that the result should be checked for going outside the base
-   --    range.
+   --    range. Note that this flag is not set for modular types.
 
    --  Do_Range_Check (Flag9-Sem)
    --    This flag is set on an expression which appears in a context where a
@@ -971,7 +976,7 @@ package Sinfo is
 
    --  Expansion_Delayed (Flag11-Sem)
    --    Set on aggregates and extension aggregates that need a top-down rather
-   --    than bottom up expansion. Typically aggregate expansion happens bottom
+   --    than bottom-up expansion. Typically aggregate expansion happens bottom
    --    up. For nested aggregates the expansion is delayed until the enclosing
    --    aggregate itself is expanded, e.g. in the context of a declaration. To
    --    delay it we set this flag. This is done to avoid creating a temporary
@@ -1023,10 +1028,15 @@ package Sinfo is
    --    A flag present in the N_Assignment_Statement node. It is used only
    --    if the type being assigned is an array type, and is set if analysis
    --    determines that it is definitely safe to do the copy forwards, i.e.
-   --    starting at the lowest addressed element. Note that if neither of the
-   --    flags Forwards_OK or Backwards_OK is set, it means that the front end
-   --    could not determine that either direction is definitely safe, and a
-   --    runtime check is required.
+   --    starting at the lowest addressed element. This is the case if either
+   --    the operands do not overlap, or they may overlap, but if they do,
+   --    then the left operand is at a lower address than the right operand.
+   --
+   --    Note: If neither of the flags Forwards_OK or Backwards_OK is set, it
+   --    means that the front end could not determine that either direction is
+   --    definitely safe, and a runtime check may be required if the backend
+   --    cannot figure it out. If both flags Forwards_OK and Backwards_OK are
+   --    set, it means that the front end can assure no overlap of operands.
 
    --  From_At_End (Flag4-Sem)
    --    This flag is set on an N_Raise_Statement node if it corresponds to
@@ -5309,7 +5319,7 @@ package Sinfo is
       --  There is no explicit node in the tree for a compilation, since in
       --  general the compiler is processing only a single compilation unit
       --  at a time. It is possible to parse multiple units in syntax check
-      --  only mode, but they the trees are discarded in any case.
+      --  only mode, but the trees are discarded in that case.
 
       ------------------------------
       -- 10.1.1  Compilation Unit --
@@ -5379,7 +5389,7 @@ package Sinfo is
 
       --  There is no explicit node in the tree for library item, instead
       --  the declaration or body, and the flag for private if present,
-      --  appear in the N_Compilation_Unit clause.
+      --  appear in the N_Compilation_Unit node.
 
       --------------------------------------
       -- 10.1.1  Library Unit Declaration --
@@ -6552,11 +6562,10 @@ package Sinfo is
       --  in the declarations of the innermost enclosing block as specified
       --  in RM section 5.1 (3).
 
-      --  The Defining_Identifier is the actual identifier for the
-      --  statement identifier. Note that the occurrence of the label
-      --  is a reference, NOT the defining occurrence. The defining
-      --  occurrence occurs at the head of the innermost enclosing
-      --  block, and is represented by this node.
+      --  The Defining_Identifier is the actual identifier for the statement
+      --  identifier. Note that the occurrence of the label is a reference, NOT
+      --  the defining occurrence. The defining occurrence occurs at the head
+      --  of the innermost enclosing block, and is represented by this node.
 
       --  Note: from the grammar, this might better be called an implicit
       --  statement identifier declaration, but the term we choose seems
@@ -6564,11 +6573,10 @@ package Sinfo is
       --  called labels in both cases (i.e. when used in labels, and when
       --  used as the identifiers of blocks and loops).
 
-      --  Note: although this is logically a semantic node, since it does
-      --  not correspond directly to a source syntax construction, these
-      --  nodes are actually created by the parser in a post pass done just
-      --  after parsing is complete, before semantic analysis is started (see
-      --  the Par.Labl subunit in file par-labl.adb).
+      --  Note: although this is logically a semantic node, since it does not
+      --  correspond directly to a source syntax construction, these nodes are
+      --  actually created by the parser in a post pass done just after parsing
+      --  is complete, before semantic analysis is started (see Par.Labl).
 
       --  Sprint syntax: labelname : label;
 
@@ -6584,19 +6592,18 @@ package Sinfo is
       -- Itype_Reference --
       ---------------------
 
-      --  This node is used to create a reference to an Itype. The only
-      --  purpose is to make sure that the Itype is defined if this is the
-      --  first reference.
+      --  This node is used to create a reference to an Itype. The only purpose
+      --  is to make sure the Itype is defined if this is the first reference.
 
       --  A typical use of this node is when an Itype is to be referenced in
-      --  two branches of an if statement. In this case it is important that
-      --  the first use of the Itype not be inside the conditional, since
-      --  then it might not be defined if the wrong branch of the if is
-      --  taken in the case where the definition generates elaboration code.
+      --  two branches of an IF statement. In this case it is important that
+      --  the first use of the Itype not be inside the conditional, since then
+      --  it might not be defined if the other branch of the IF is taken, in
+      --  the case where the definition generates elaboration code.
 
       --  The Itype field points to the referenced Itype
 
-      --  sprint syntax: reference itype-name
+      --  Sprint syntax: reference itype-name
 
       --  N_Itype_Reference
       --  Sloc points to the node generating the reference

@@ -969,7 +969,6 @@ compile_file (void)
   init_final (main_input_filename);
   coverage_init (aux_base_name);
   statistics_init ();
-  initialize_plugins ();
 
   timevar_push (TV_PARSE);
 
@@ -993,11 +992,6 @@ compile_file (void)
 
   varpool_assemble_pending_decls ();
   finish_aliases_2 ();
-
-  /* This must occur after the loop to output deferred functions.
-     Else the coverage initializer would not be emitted if all the
-     functions in this compilation unit were deferred.  */
-  coverage_finish ();
 
   /* Likewise for mudflap static object registrations.  */
   if (flag_mudflap)
@@ -1164,6 +1158,8 @@ print_version (FILE *file, const char *indent)
 	   file == stderr ? _(fmt4) : fmt4,
 	   indent, *indent != 0 ? " " : "",
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
+
+  print_plugins_versions (file, indent);
 }
 
 #ifdef ASM_COMMENT_START
@@ -1507,6 +1503,15 @@ default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
 
   switch (*spec)
     {
+    case 'E':
+      t = va_arg (*text->args_ptr, tree);
+      if (TREE_CODE (t) == IDENTIFIER_NODE)
+	{
+	  pp_string (pp, IDENTIFIER_POINTER (t));
+	  return true;
+	}
+      break;
+
     case 'D':
       t = va_arg (*text->args_ptr, tree);
       if (DECL_DEBUG_EXPR_IS_FROM (t) && DECL_DEBUG_EXPR (t))
@@ -2260,18 +2265,28 @@ do_compile (void)
    It is not safe to call this function more than once.  */
 
 int
-toplev_main (unsigned int argc, const char **argv)
+toplev_main (int argc, char **argv)
 {
-  save_argv = argv;
+  expandargv (&argc, &argv);
+
+  save_argv = (const char **) argv;
 
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */
-  decode_options (argc, argv);
+  decode_options (argc, (const char **) argv);
 
   init_local_tick ();
+
+  initialize_plugins ();
+
+  if (version_flag)
+    print_version (stderr, "");
+
+  if (help_flag)
+    print_plugins_help (stderr, "");
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
@@ -2283,6 +2298,7 @@ toplev_main (unsigned int argc, const char **argv)
   /* Invoke registered plugin callbacks if any.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
 
+  finalize_plugins ();
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);
 

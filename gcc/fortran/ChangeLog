@@ -1,3 +1,57 @@
+2009-04-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* ChangeLog, ChangeLog-2002, ChangeLog-2003, ChangeLog-2004,
+	ChangeLog-2005, ChangeLog-2006, ChangeLog-2007, ChangeLog-2008,
+	ChangeLog.ptr, config-lang.in, ioparm.def, mathbuiltins.def: Add
+	copyright and license notices.
+	* ChangeLog, ChangeLog-2005, ChangeLog-2006, ChangeLog-2007,
+	ChangeLog-2008: Correct dates.
+
+2009-04-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39811
+	* scanner.c (load_line): Fix bogus "&" compile-time diagnostic.
+
+2009-04-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39800
+	* resolve.c (is_sym_host_assoc): New function.
+	(resolve_fl_derived): Call it when checking PRIVATE components
+	of PUBLIC derived types.  Change gfc_error to a gfc_notify_std
+	with std=f2003.
+	(resolve_fl_namelist): Call it twice to check for host
+	association.
+
+2009-04-20  Ian Lance Taylor  <iant@google.com>
+
+	* module.c (import_iso_c_binding_module): Add casts to enum type.
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax): Change op to enum
+	tree_code.
+	(gfc_conv_intrinsic_anyall): Likewise.
+	(gfc_conv_intrinsic_arith): Likewise.
+	(gfc_conv_intrinsic_minmaxloc): Likewise.
+	(gfc_conv_intrinsic_minmaxval): Likewise.
+	(gfc_conv_intrinsic_bitop): Likewise.
+	(gfc_conv_intrinsic_singlebitop): Likewise.
+	(gfc_conv_intrinsic_strcmp): Likewise.
+
+2009-04-20  Vasilis Liaskovitis  <vliaskov@gmail.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/35423
+	* trans.h (OMPWS_WORKSHARE_FLAG, OMPWS_CURR_SINGLEUNIT,
+	OMPWS_SCALARIZER_WS, OMPWS_NOWAIT): Define.
+	(ompws_flags): New extern decl.
+	* trans-array.c (gfc_trans_scalarized_loop_end): Build OMP_FOR
+	for the outer dimension if ompws_flags allow it.
+	* trans.c (gfc_generate_code): Clear ompws_flags.
+	* trans-expr.c (gfc_trans_assignment_1): Allow worksharing
+	array assignments inside of !$omp workshare.
+	* trans-stmt.c (gfc_trans_where_3): Similarly for where statements
+	and constructs.
+	* trans-openmp.c (ompws_flags): New variable.
+	(gfc_trans_omp_workshare): Rewritten.
+
 2009-04-11  Daniel Kraft  <d@domob.eu>
 
 	PR fortran/37746
@@ -267,7 +321,7 @@
 	* gfc-internals.texi (Type-bound procedures): Document a little bit
 	about internal handling of DEFERRED bindings.
 
-2008-03-29  Tobias Schlüter  <tobi@gcc.gnu.org>
+2009-03-29  Tobias Schlüter  <tobi@gcc.gnu.org>
 
 	PR fortran/38507
 	* gfortran.h (gfc_st_label): Fix comment.
@@ -632,3 +686,10 @@
 	association, use symtree rather than symbol.  For everything
 	except generic subroutines, substitute the symtree in the call
 	rather than the symbol.
+
+
+Copyright (C) 2009 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

@@ -3866,12 +3866,13 @@ new_reg_loc_descr (unsigned int reg,  unsigned HOST_WIDE_INT offset)
   if (offset)
     {
       if (reg <= 31)
-	return new_loc_descr (DW_OP_breg0 + reg, offset, 0);
+	return new_loc_descr ((enum dwarf_location_atom) (DW_OP_breg0 + reg),
+			      offset, 0);
       else
 	return new_loc_descr (DW_OP_bregx, reg, offset);
     }
   else if (reg <= 31)
-    return new_loc_descr (DW_OP_reg0 + reg, 0, 0);
+    return new_loc_descr ((enum dwarf_location_atom) (DW_OP_reg0 + reg), 0, 0);
   else
    return new_loc_descr (DW_OP_regx, reg, 0);
 }
@@ -4549,6 +4550,7 @@ static void dwarf2out_imported_module_or_decl_1 (tree, tree, tree,
 static void dwarf2out_abstract_function (tree);
 static void dwarf2out_var_location (rtx);
 static void dwarf2out_begin_function (tree);
+static void dwarf2out_set_name (tree, tree);
 
 /* The debug hooks structure.  */
 
@@ -4582,6 +4584,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   debug_nothing_int,		/* handle_pch */
   dwarf2out_var_location,
   dwarf2out_switch_text_section,
+  dwarf2out_set_name,
   1                             /* start_end_main_source_file */
 };
 #endif
@@ -5929,12 +5932,9 @@ debug_str_eq (const void *x1, const void *x2)
 		 (const char *)x2) == 0;
 }
 
-/* Add a string attribute value to a DIE.  */
-
-static inline void
-add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
+static struct indirect_string_node *
+find_AT_string (const char *str)
 {
-  dw_attr_node attr;
   struct indirect_string_node *node;
   void **slot;
 
@@ -5955,6 +5955,18 @@ add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
     node = (struct indirect_string_node *) *slot;
 
   node->refcount++;
+  return node;
+}
+
+/* Add a string attribute value to a DIE.  */
+
+static inline void
+add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
+{
+  dw_attr_node attr;
+  struct indirect_string_node *node;
+
+  node = find_AT_string (str);
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_str;
@@ -9855,7 +9867,8 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 
   regno = dbx_reg_number (reg);
   if (regno <= 31)
-    result = new_loc_descr (DW_OP_breg0 + regno, offset, 0);
+    result = new_loc_descr ((enum dwarf_location_atom) (DW_OP_breg0 + regno),
+			    offset, 0);
   else
     result = new_loc_descr (DW_OP_bregx, regno, offset);
 
@@ -10383,8 +10396,8 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       if (DECL_THREAD_LOCAL_P (loc))
 	{
 	  rtx rtl;
-	  unsigned first_op;
-	  unsigned second_op;
+	  enum dwarf_location_atom first_op;
+	  enum dwarf_location_atom second_op;
 
 	  if (targetm.have_tls)
 	    {
@@ -10398,7 +10411,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	     	  module.  */
 	      if (DECL_EXTERNAL (loc) && !targetm.binds_local_p (loc))
 		return 0;
-	      first_op = INTERNAL_DW_OP_tls_addr;
+	      first_op = (enum dwarf_location_atom) INTERNAL_DW_OP_tls_addr;
 	      second_op = DW_OP_GNU_push_tls_address;
 	    }
 	  else
@@ -10889,21 +10902,22 @@ field_byte_offset (const_tree decl)
       unsigned HOST_WIDE_INT type_size_in_bits;
 
       type = field_type (decl);
+      type_size_in_bits = simple_type_size_in_bits (type);
+      type_align_in_bits = simple_type_align_in_bits (type);
+
       field_size_tree = DECL_SIZE (decl);
 
       /* The size could be unspecified if there was an error, or for
          a flexible array member.  */
-      if (! field_size_tree)
+      if (!field_size_tree)
         field_size_tree = bitsize_zero_node;
 
-      /* If we don't know the size of the field, pretend it's a full word.  */
+      /* If the size of the field is not constant, use the type size.  */
       if (host_integerp (field_size_tree, 1))
         field_size_in_bits = tree_low_cst (field_size_tree, 1);
       else
-        field_size_in_bits = BITS_PER_WORD;
+        field_size_in_bits = type_size_in_bits;
 
-      type_size_in_bits = simple_type_size_in_bits (type);
-      type_align_in_bits = simple_type_align_in_bits (type);
       decl_align_in_bits = simple_decl_align_in_bits (decl);
 
       /* The GCC front-end doesn't make any attempt to keep track of the
@@ -15763,6 +15777,31 @@ maybe_emit_file (struct dwarf_file_data * fd)
   return fd->emitted_number;
 }
 
+/* Replace DW_AT_name for the decl with name.  */
+ 
+static void
+dwarf2out_set_name (tree decl, tree name)
+{
+  dw_die_ref die;
+  dw_attr_ref attr;
+
+  die = TYPE_SYMTAB_DIE (decl);
+  if (!die)
+    return;
+
+  attr = get_AT (die, DW_AT_name);
+  if (attr)
+    {
+      struct indirect_string_node *node;
+
+      node = find_AT_string (dwarf2_name (name, 0));
+      /* replace the string.  */
+      attr->dw_attr_val.v.val_str = node;
+    }
+
+  else
+    add_name_attribute (die, dwarf2_name (name, 0));
+}
 /* Called by the final INSN scan whenever we see a var location.  We
    use it to drop labels in the right places, and throw the location in
    our lookup table.  */

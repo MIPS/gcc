@@ -415,7 +415,7 @@ extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl (tree);
-extern tree build_modify_expr (location_t, tree, enum tree_code, tree);
+extern tree build_modify_expr (location_t, tree, enum tree_code, tree, tree);
 extern tree build_indirect_ref (location_t, tree, const char *);
 
 extern int c_expand_decl (tree);
@@ -801,7 +801,8 @@ extern bool strict_aliasing_warning (tree, tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
-extern void warn_logical_operator (enum tree_code, tree, tree);
+extern void warn_logical_operator (location_t, enum tree_code,
+				   enum tree_code, tree, enum tree_code, tree);
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
@@ -921,7 +922,9 @@ extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
 
 extern tree build_function_call (tree, tree);
 
-extern tree resolve_overloaded_builtin (tree, tree);
+extern tree build_function_call_vec (tree, VEC(tree,gc) *, VEC(tree,gc) *);
+
+extern tree resolve_overloaded_builtin (tree, VEC(tree,gc) *);
 
 extern tree finish_label_address_expr (tree, location_t);
 
@@ -929,6 +932,7 @@ extern tree finish_label_address_expr (tree, location_t);
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
 extern tree lookup_name (tree);
+extern bool lvalue_p (const_tree);
 
 extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);

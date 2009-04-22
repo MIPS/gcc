@@ -515,18 +515,17 @@ gnat_init_decl_processing (void)
   build_common_tree_nodes (true, true);
 
   /* In Ada, we use a signed type for SIZETYPE.  Use the signed type
-     corresponding to the size of Pmode.  In most cases when ptr_mode and
-     Pmode differ, C will use the width of ptr_mode as sizetype.  But we get
-     far better code using the width of Pmode.  Make this here since we need
-     this before we can expand the GNAT types.  */
-  size_type_node = gnat_type_for_size (GET_MODE_BITSIZE (Pmode), 0);
+     corresponding to the width of Pmode.  In most cases when ptr_mode
+     and Pmode differ, C will use the width of ptr_mode for SIZETYPE.
+     But we get far better code using the width of Pmode.  */
+  size_type_node = gnat_type_for_mode (Pmode, 0);
   set_sizetype (size_type_node);
 
   /* In Ada, we use an unsigned 8-bit type for the default boolean type.  */
   boolean_type_node = make_node (BOOLEAN_TYPE);
   TYPE_PRECISION (boolean_type_node) = 1;
   fixup_unsigned_type (boolean_type_node);
-  TYPE_RM_SIZE_NUM (boolean_type_node) = bitsize_int (1);
+  TYPE_RM_SIZE (boolean_type_node) = bitsize_int (1);
 
   build_common_tree_nodes_2 (0);
 
@@ -803,22 +802,20 @@ rest_of_record_type_compilation (tree record_type)
       tree new_record_type
 	= make_node (TREE_CODE (record_type) == QUAL_UNION_TYPE
 		     ? UNION_TYPE : TREE_CODE (record_type));
-      tree orig_name = TYPE_NAME (record_type);
-      tree orig_id
-	= (TREE_CODE (orig_name) == TYPE_DECL ? DECL_NAME (orig_name)
-	   : orig_name);
-      tree new_id
-	= concat_id_with_name (orig_id,
-			       TREE_CODE (record_type) == QUAL_UNION_TYPE
-			       ? "XVU" : "XVE");
+      tree orig_name = TYPE_NAME (record_type), new_name;
       tree last_pos = bitsize_zero_node;
-      tree old_field;
-      tree prev_old_field = 0;
+      tree old_field, prev_old_field = NULL_TREE;
 
-      TYPE_NAME (new_record_type) = new_id;
+      if (TREE_CODE (orig_name) == TYPE_DECL)
+	orig_name = DECL_NAME (orig_name);
+
+      new_name
+	= concat_name (orig_name, TREE_CODE (record_type) == QUAL_UNION_TYPE
+				  ? "XVU" : "XVE");
+      TYPE_NAME (new_record_type) = new_name;
       TYPE_ALIGN (new_record_type) = BIGGEST_ALIGNMENT;
       TYPE_STUB_DECL (new_record_type)
-	= create_type_stub_decl (new_id, new_record_type);
+	= create_type_stub_decl (new_name, new_record_type);
       DECL_IGNORED_P (TYPE_STUB_DECL (new_record_type))
 	= DECL_IGNORED_P (TYPE_STUB_DECL (record_type));
       TYPE_SIZE (new_record_type) = size_int (TYPE_ALIGN (record_type));
@@ -938,7 +935,7 @@ rest_of_record_type_compilation (tree record_type)
 	      else
 		strcpy (suffix, "XVL");
 
-	      field_name = concat_id_with_name (field_name, suffix);
+	      field_name = concat_name (field_name, suffix);
 	    }
 
 	  new_field = create_field_decl (field_name, field_type,
@@ -1244,15 +1241,19 @@ create_type_decl (tree type_name, tree type, struct attrib *attr_list,
     TYPE_STUB_DECL (type) = type_decl;
 
   /* Pass the type declaration to the debug back-end unless this is an
-     UNCONSTRAINED_ARRAY_TYPE that the back-end does not support, an
-     ENUMERAL_TYPE or RECORD_TYPE which are handled separately, or a
-     type for which debugging information was not requested.  */
+     UNCONSTRAINED_ARRAY_TYPE that the back-end does not support, or a
+     type for which debugging information was not requested, or else an
+     ENUMERAL_TYPE or RECORD_TYPE (except for fat pointers) which are
+     handled separately.  And do not pass dummy types either.  */
   if (code == UNCONSTRAINED_ARRAY_TYPE || !debug_info_p)
     DECL_IGNORED_P (type_decl) = 1;
   else if (code != ENUMERAL_TYPE
 	   && (code != RECORD_TYPE || TYPE_IS_FAT_POINTER_P (type))
 	   && !((code == POINTER_TYPE || code == REFERENCE_TYPE)
-		&& TYPE_IS_DUMMY_P (TREE_TYPE (type))))
+		&& TYPE_IS_DUMMY_P (TREE_TYPE (type)))
+	   && !(code == RECORD_TYPE
+		&& TYPE_IS_DUMMY_P
+		   (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (type))))))
     rest_of_type_decl_compilation (type_decl);
 
   return type_decl;
@@ -1396,7 +1397,7 @@ aggregate_type_contains_array_p (tree type)
     }
 }
 
-/* Returns a FIELD_DECL node. FIELD_NAME the field name, FIELD_TYPE is its
+/* Return a FIELD_DECL node.  FIELD_NAME the field name, FIELD_TYPE is its
    type, and RECORD_TYPE is the type of the parent.  PACKED is nonzero if
    this field is in a record type with a "pragma pack".  If SIZE is nonzero
    it is the specified size for this field.  If POS is nonzero, it is the bit
@@ -1471,10 +1472,13 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
       DECL_BIT_FIELD (field_decl) = 1;
       DECL_SIZE (field_decl) = size;
       if (!packed && !pos)
-	DECL_ALIGN (field_decl)
-	  = (TYPE_ALIGN (record_type) != 0
-	     ? MIN (TYPE_ALIGN (record_type), TYPE_ALIGN (field_type))
-	     : TYPE_ALIGN (field_type));
+	{
+	  if (TYPE_ALIGN (record_type) != 0
+	      && TYPE_ALIGN (record_type) < TYPE_ALIGN (field_type))
+	    DECL_ALIGN (field_decl) = TYPE_ALIGN (record_type);
+	  else
+	    DECL_ALIGN (field_decl) = TYPE_ALIGN (field_type);
+	}
     }
 
   DECL_PACKED (field_decl) = pos ? DECL_BIT_FIELD (field_decl) : packed;
@@ -1521,8 +1525,6 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
       pos_from_bit (&DECL_FIELD_OFFSET (field_decl),
 		    &DECL_FIELD_BIT_OFFSET (field_decl),
 		    DECL_OFFSET_ALIGN (field_decl), pos);
-
-      DECL_HAS_REP_P (field_decl) = 1;
     }
 
   /* In addition to what our caller says, claim the field is addressable if we
@@ -1541,22 +1543,19 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
   return field_decl;
 }
 
-/* Returns a PARM_DECL node. PARAM_NAME is the name of the parameter,
-   PARAM_TYPE is its type.  READONLY is true if the parameter is
-   readonly (either an In parameter or an address of a pass-by-ref
-   parameter). */
+/* Return a PARM_DECL node.  PARAM_NAME is the name of the parameter and
+   PARAM_TYPE is its type.  READONLY is true if the parameter is readonly
+   (either an In parameter or an address of a pass-by-ref parameter).  */
 
 tree
 create_param_decl (tree param_name, tree param_type, bool readonly)
 {
   tree param_decl = build_decl (PARM_DECL, param_name, param_type);
 
-  /* Honor targetm.calls.promote_prototypes(), as not doing so can
-     lead to various ABI violations.  */
-  if (targetm.calls.promote_prototypes (param_type)
-      && (TREE_CODE (param_type) == INTEGER_TYPE
-	  || TREE_CODE (param_type) == ENUMERAL_TYPE
-	  || TREE_CODE (param_type) == BOOLEAN_TYPE)
+  /* Honor TARGET_PROMOTE_PROTOTYPES like the C compiler, as not doing so
+     can lead to various ABI violations.  */
+  if (targetm.calls.promote_prototypes (NULL_TREE)
+      && INTEGRAL_TYPE_P (param_type)
       && TYPE_PRECISION (param_type) < TYPE_PRECISION (integer_type_node))
     {
       /* We have to be careful about biased types here.  Make a subtype
@@ -1640,7 +1639,7 @@ process_attributes (tree decl, struct attrib *attr_list)
       }
 }
 
-/* Record a global renaming pointer.  */
+/* Record DECL as a global renaming pointer.  */
 
 void
 record_global_renaming_pointer (tree decl)
@@ -2228,7 +2227,7 @@ gnat_types_compatible_p (tree t1, tree t2)
       && TREE_TYPE (t1) == TREE_TYPE (t2)
       && (TYPE_DOMAIN (t1) == TYPE_DOMAIN (t2)
 	  || (TYPE_DOMAIN (t1)
-	      && TYPE_DOMAIN (t2)      
+	      && TYPE_DOMAIN (t2)
 	      && tree_int_cst_equal (TYPE_MIN_VALUE (TYPE_DOMAIN (t1)),
 				     TYPE_MIN_VALUE (TYPE_DOMAIN (t2)))
 	      && tree_int_cst_equal (TYPE_MAX_VALUE (TYPE_DOMAIN (t1)),
@@ -3606,10 +3605,7 @@ update_pointer_to (tree old_type, tree new_type)
 			bounds_field, NULL_TREE);
 
       /* Create the new array for the new PLACEHOLDER_EXPR and make pointers
-	 to the dummy array point to it.
-
-	 ??? This is now the only use of substitute_in_type, which is a very
-	 "heavy" routine to do this, it should be replaced at some point.  */
+	 to the dummy array point to it.  */
       update_pointer_to
 	(TREE_TYPE (TREE_TYPE (array_field)),
 	 substitute_in_type (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (new_ptr))),
@@ -4527,7 +4523,7 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
   return expr;
 }
 
-/* Return the appropriate GCC tree code for the specified GNAT type,
+/* Return the appropriate GCC tree code for the specified GNAT_TYPE,
    the latter being a record type as predicated by Is_Record_Type.  */
 
 enum tree_code
@@ -5177,10 +5173,10 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
 			       bool * ARG_UNUSED (no_add_attrs))
 {
   tree params;
-  
+
   /* Ensure we have a function type.  */
   gcc_assert (TREE_CODE (*node) == FUNCTION_TYPE);
-  
+
   params = TYPE_ARG_TYPES (*node);
   while (params && ! VOID_TYPE_P (TREE_VALUE (params)))
     params = TREE_CHAIN (params);

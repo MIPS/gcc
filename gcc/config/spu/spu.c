@@ -784,7 +784,8 @@ spu_emit_branch_or_set (int is_set, rtx cmp, rtx operands[])
   rtx comp_rtx, eq_rtx;
   enum machine_mode comp_mode;
   enum machine_mode op_mode;
-  enum spu_comp_code scode, eq_code, ior_code;
+  enum spu_comp_code scode, eq_code;
+  enum insn_code ior_code;
   enum rtx_code code = GET_CODE (cmp);
   rtx op0 = XEXP (cmp, 0);
   rtx op1 = XEXP (cmp, 1);
@@ -1887,8 +1888,7 @@ spu_expand_prologue (void)
 	}
       RTX_FRAME_RELATED_P (insn) = 1;
       real = gen_addsi3 (sp_reg, sp_reg, GEN_INT (-total_size));
-      REG_NOTES (insn) =
-	gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, real, REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, real);
 
       if (total_size > 2000)
 	{
@@ -1905,9 +1905,7 @@ spu_expand_prologue (void)
 	  insn = frame_emit_add_imm (fp_reg, sp_reg, fp_offset, scratch_reg_0);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  real = gen_addsi3 (fp_reg, sp_reg, GEN_INT (fp_offset));
-	  REG_NOTES (insn) = 
-	    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			       real, REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, real);
           REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = STACK_BOUNDARY;
 	}
     }
@@ -5893,7 +5891,7 @@ expand_builtin_args (struct spu_builtin_description *d, tree exp,
       tree arg = CALL_EXPR_ARG (exp, a);
       if (arg == 0)
 	abort ();
-      ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+      ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, EXPAND_NORMAL);
     }
 
   /* The insn pattern may have additional operands (SCRATCH).
@@ -6292,4 +6290,3 @@ spu_section_type_flags (tree decl, const char *name, int reloc)
     return SECTION_BSS;
   return default_section_type_flags (decl, name, reloc);
 }
-

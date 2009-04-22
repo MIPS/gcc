@@ -774,6 +774,8 @@ package body Sem_Ch10 is
             Version_Update (N, Lib_Unit);
          end if;
 
+         --  If this is a child unit, generate references to the parents
+
          if Nkind (Defining_Unit_Name (Specification (Unit_Node))) =
                                              N_Defining_Program_Unit_Name
          then
@@ -783,8 +785,8 @@ package body Sem_Ch10 is
          end if;
       end if;
 
-      --  If it is a child unit, the parent must be elaborated first
-      --  and we update version, since we are dependent on our parent.
+      --  If it is a child unit, the parent must be elaborated first and we
+      --  update version, since we are dependent on our parent.
 
       if Is_Child_Spec (Unit_Node) then
 
@@ -1276,9 +1278,16 @@ package body Sem_Ch10 is
          then
             --  Skip analyzing with clause if no unit, nothing to do (this
             --  happens for a with that references a non-existent unit)
+            --  Skip as well if this is a with_clause for the main unit, which
+            --  happens if a subunit has a useless with_clause on its parent.
 
             if Present (Library_Unit (Item)) then
-               Analyze (Item);
+               if Library_Unit (Item) /= Cunit (Current_Sem_Unit) then
+                  Analyze (Item);
+
+               else
+                  Set_Entity (Name (Item), Cunit_Entity (Current_Sem_Unit));
+               end if;
             end if;
 
             if not Implicit_With (Item) then
@@ -1292,7 +1301,7 @@ package body Sem_Ch10 is
          --  the implicit with's on parent units.
 
          --  Skip use clauses at this stage, since we don't want to do any
-         --  installing of potentially use visible entities until we
+         --  installing of potentially use-visible entities until we
          --  actually install the complete context (in Install_Context).
          --  Otherwise things can get installed in the wrong context.
 
@@ -2405,6 +2414,8 @@ package body Sem_Ch10 is
       Set_Entity_With_Style_Check (Name (N), E_Name);
       Generate_Reference (E_Name, Name (N), 'w', Set_Ref => False);
 
+      --  Generate references and check No_Dependence restriction for parents
+
       if Is_Child_Unit (E_Name) then
          Pref     := Prefix (Name (N));
          Par_Name := Scope (E_Name);
@@ -2413,6 +2424,7 @@ package body Sem_Ch10 is
             Set_Entity_With_Style_Check (Pref, Par_Name);
 
             Generate_Reference (Par_Name, Pref);
+            Check_Restriction_No_Dependence (Pref, N);
             Pref := Prefix (Pref);
 
             --  If E_Name is the dummy entity for a nonexistent unit, its scope
@@ -3106,7 +3118,7 @@ package body Sem_Ch10 is
 
       if Is_Child_Spec (Lib_Unit) then
 
-         --  The unit also has implicit withs on its own parents
+         --  The unit also has implicit with_clauses on its own parents
 
          if No (Context_Items (N)) then
             Set_Context_Items (N, New_List);

@@ -2167,10 +2167,9 @@ cp_parser_check_decl_spec (cp_decl_specifier_seq *decl_specs,
 	{
 	  if (count > 2)
 	    error ("%H%<long long long%> is too long for GCC", &location);
-	  else if (pedantic && !in_system_header && warn_long_long
-                   && cxx_dialect == cxx98)
-	    pedwarn (location, OPT_Wlong_long, 
-		     "ISO C++ 1998 does not support %<long long%>");
+	  else 
+	    pedwarn_cxx98 (location, OPT_Wlong_long, 
+			   "ISO C++ 1998 does not support %<long long%>");
 	}
       else if (count > 1)
 	{
@@ -21043,7 +21042,7 @@ static void
 cp_parser_omp_flush (cp_parser *parser, cp_token *pragma_tok)
 {
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
-    (void) cp_parser_omp_var_list (parser, 0, NULL);
+    (void) cp_parser_omp_var_list (parser, OMP_CLAUSE_ERROR, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
   finish_omp_flush ();
@@ -21884,7 +21883,7 @@ cp_parser_omp_threadprivate (cp_parser *parser, cp_token *pragma_tok)
 {
   tree vars;
 
-  vars = cp_parser_omp_var_list (parser, 0, NULL);
+  vars = cp_parser_omp_var_list (parser, OMP_CLAUSE_ERROR, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
   finish_omp_threadprivate (vars);

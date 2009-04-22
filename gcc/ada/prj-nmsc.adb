@@ -472,15 +472,16 @@ package body Prj.Nmsc is
    --  body suffix or a separate suffix.
 
    procedure Locate_Directory
-     (Project  : Project_Id;
-      In_Tree  : Project_Tree_Ref;
-      Name     : File_Name_Type;
-      Parent   : Path_Name_Type;
-      Dir      : out Path_Name_Type;
-      Display  : out Path_Name_Type;
-      Create   : String := "";
-      Current_Dir : String;
-      Location : Source_Ptr := No_Location);
+     (Project          : Project_Id;
+      In_Tree          : Project_Tree_Ref;
+      Name             : File_Name_Type;
+      Parent           : Path_Name_Type;
+      Dir              : out Path_Name_Type;
+      Display          : out Path_Name_Type;
+      Create           : String := "";
+      Current_Dir      : String;
+      Location         : Source_Ptr := No_Location;
+      Externally_Built : Boolean := False);
    --  Locate a directory. Name is the directory name. Parent is the root
    --  directory, if Name a relative path name. Dir is set to the canonical
    --  case path name of the directory, and Display is the directory path name
@@ -645,7 +646,8 @@ package body Prj.Nmsc is
       Src_Data.Naming_Exception    := Naming_Exception;
 
       if Src_Data.Compiled and then Src_Data.Object_Exists then
-         Src_Data.Object   := Object_Name (File_Name);
+         Src_Data.Object   :=
+           Object_Name (File_Name, Config.Object_File_Suffix);
          Src_Data.Dep_Name :=
            Dependency_Name (File_Name, Src_Data.Dependency);
          Src_Data.Switches := Switches_Name (File_Name);
@@ -745,8 +747,8 @@ package body Prj.Nmsc is
       if Data.Qualifier = Dry and then Data.Source_Dirs /= Nil_String then
          Error_Msg
            (Project, In_Tree,
-            "an abstract project need to have no language, no sources or no " &
-            "source directories",
+            "an abstract project needs to have no language, no sources " &
+            "or no source directories",
             Data.Location);
       end if;
 
@@ -1540,6 +1542,19 @@ package body Prj.Nmsc is
                                     Element.Value.Location);
                            end;
 
+                        when Name_Object_File_Suffix =>
+                           if Get_Name_String (Element.Value.Value) = "" then
+                              Error_Msg
+                                (Project, In_Tree,
+                                 "object file suffix cannot be empty",
+                                 Element.Value.Location);
+
+                           else
+                              In_Tree.Languages_Data.Table
+                                (Lang_Index).Config.Object_File_Suffix :=
+                                Element.Value.Value;
+                           end if;
+
                         when Name_Pic_Option =>
 
                            --  Attribute Compiler_Pic_Option (<language>)
@@ -1827,6 +1842,15 @@ package body Prj.Nmsc is
                      Data.Config.Linker :=
                        Path_Name_Type (Attribute.Value.Value);
 
+                     --  Linker'Driver is also used to link shared libraries
+                     --  if the obsolescent attribute Library_GCC has not been
+                     --  specified.
+
+                     if Data.Config.Shared_Lib_Driver = No_File then
+                        Data.Config.Shared_Lib_Driver :=
+                          File_Name_Type (Attribute.Value.Value);
+                     end if;
+
                   elsif Attribute.Name = Name_Required_Switches then
 
                      --  Attribute Required_Switches: the minimum
@@ -1962,7 +1986,13 @@ package body Prj.Nmsc is
               In_Tree.Variable_Elements.Table (Attribute_Id);
 
             if not Attribute.Value.Default then
-               if Attribute.Name = Name_Library_Builder then
+               if Attribute.Name = Name_Target then
+
+                  --  Attribute Target: the target specified
+
+                  Data.Config.Target := Attribute.Value.Value;
+
+               elsif Attribute.Name = Name_Library_Builder then
 
                   --  Attribute Library_Builder: the application to invoke
                   --  to build libraries.
@@ -2046,6 +2076,12 @@ package body Prj.Nmsc is
                elsif Attribute.Name = Name_Library_GCC then
                   Data.Config.Shared_Lib_Driver :=
                     File_Name_Type (Attribute.Value.Value);
+                  Error_Msg
+                    (Project,
+                     In_Tree,
+                     "?Library_'G'C'C is an obsolescent attribute, " &
+                     "use Linker''Driver instead",
+                     Attribute.Value.Location);
 
                elsif Attribute.Name = Name_Archive_Suffix then
                   Data.Config.Archive_Suffix :=
@@ -2287,6 +2323,14 @@ package body Prj.Nmsc is
 
                         In_Tree.Languages_Data.Table
                           (Lang_Index).Config.Runtime_Library_Dir :=
+                          Element.Value.Value;
+
+                     when Name_Runtime_Source_Dir =>
+
+                        --  Attribute Runtime_Library_Dir (<language>)
+
+                        In_Tree.Languages_Data.Table
+                          (Lang_Index).Config.Runtime_Source_Dir :=
                           Element.Value.Value;
 
                      when Name_Object_Generated =>
@@ -2614,7 +2658,7 @@ package body Prj.Nmsc is
                                 (Src_Data.Other_Part).In_Interfaces := True;
                               In_Tree.Sources.Table
                                 (Src_Data.Other_Part).Declared_In_Interfaces :=
-                                True;
+                                  True;
                            end if;
 
                            if Current_Verbosity = High then
@@ -2645,8 +2689,8 @@ package body Prj.Nmsc is
                Error_Msg
                  (Project,
                   In_Tree,
-                  "{ cannot be an interface of project %% " &
-                  "as it is not one of its sources",
+                  "{ cannot be an interface of project %% "
+                  & "as it is not one of its sources",
                   Element.Location);
             end if;
 
@@ -3584,6 +3628,10 @@ package body Prj.Nmsc is
                        Prj.Util.Value_Of
                          (Snames.Name_Library_Ali_Dir, Attributes, In_Tree);
 
+      Lib_GCC      : constant Prj.Variable_Value :=
+                       Prj.Util.Value_Of
+                         (Snames.Name_Library_GCC, Attributes, In_Tree);
+
       The_Lib_Kind : constant Prj.Variable_Value :=
                        Prj.Util.Value_Of
                          (Snames.Name_Library_Kind, Attributes, In_Tree);
@@ -3772,9 +3820,10 @@ package body Prj.Nmsc is
                   Data.Directory.Display_Name,
                   Data.Library_Dir.Name,
                   Data.Library_Dir.Display_Name,
-                  Create      => "library",
-                  Current_Dir => Current_Dir,
-                  Location    => Lib_Dir.Location);
+                  Create           => "library",
+                  Current_Dir      => Current_Dir,
+                  Location         => Lib_Dir.Location,
+                  Externally_Built => Data.Externally_Built);
             end if;
 
             if Data.Library_Dir = No_Path_Information then
@@ -3979,9 +4028,10 @@ package body Prj.Nmsc is
                   Data.Directory.Display_Name,
                   Data.Library_ALI_Dir.Name,
                   Data.Library_ALI_Dir.Display_Name,
-                  Create   => "library ALI",
-                  Current_Dir => Current_Dir,
-                  Location => Lib_ALI_Dir.Location);
+                  Create           => "library ALI",
+                  Current_Dir      => Current_Dir,
+                  Location         => Lib_ALI_Dir.Location,
+                  Externally_Built => Data.Externally_Built);
 
                if Data.Library_ALI_Dir = No_Path_Information then
 
@@ -4174,15 +4224,55 @@ package body Prj.Nmsc is
                      Write_Line (Kind_Name);
                   end if;
 
-                  if Data.Library_Kind /= Static and then
-                    Support_For_Libraries = Prj.Static_Only
-                  then
-                     Error_Msg
-                       (Project, In_Tree,
-                        "only static libraries are supported " &
-                        "on this platform",
-                        The_Lib_Kind.Location);
-                     Data.Library := False;
+                  if Data.Library_Kind /= Static then
+                     if Support_For_Libraries = Prj.Static_Only then
+                        Error_Msg
+                          (Project, In_Tree,
+                           "only static libraries are supported " &
+                           "on this platform",
+                           The_Lib_Kind.Location);
+                        Data.Library := False;
+
+                     else
+                        --  Check if (obsolescent) attribute Library_GCC or
+                        --  Linker'Driver is declared.
+
+                        if Lib_GCC.Value /= Empty_String then
+                           Error_Msg
+                             (Project,
+                              In_Tree,
+                              "?Library_'G'C'C is an obsolescent attribute, " &
+                              "use Linker''Driver instead",
+                              Lib_GCC.Location);
+                           Data.Config.Shared_Lib_Driver :=
+                             File_Name_Type (Lib_GCC.Value);
+
+                        else
+                           declare
+                              Linker : constant Package_Id :=
+                                         Value_Of
+                                           (Name_Linker,
+                                            Data.Decl.Packages,
+                                            In_Tree);
+                              Driver : constant Variable_Value :=
+                                         Value_Of
+                                           (Name                    => No_Name,
+                                            Attribute_Or_Array_Name =>
+                                              Name_Driver,
+                                            In_Package              => Linker,
+                                            In_Tree                 =>
+                                              In_Tree);
+
+                           begin
+                              if Driver /= Nil_Variable_Value
+                                 and then Driver.Value /= Empty_String
+                              then
+                                 Data.Config.Shared_Lib_Driver :=
+                                   File_Name_Type (Driver.Value);
+                              end if;
+                           end;
+                        end if;
+                     end if;
                   end if;
                end;
             end if;
@@ -5105,9 +5195,10 @@ package body Prj.Nmsc is
                   Data.Directory.Display_Name,
                   Data.Library_Src_Dir.Name,
                   Data.Library_Src_Dir.Display_Name,
-                  Create => "library source copy",
-                  Current_Dir => Current_Dir,
-                  Location => Lib_Src_Dir.Location);
+                  Create           => "library source copy",
+                  Current_Dir      => Current_Dir,
+                  Location         => Lib_Src_Dir.Location,
+                  Externally_Built => Data.Externally_Built);
 
                --  If directory does not exist, report an error
 
@@ -5343,7 +5434,7 @@ package body Prj.Nmsc is
             then
                Error_Msg
                  (Project, In_Tree,
-                  "a reference symbol file need to be defined",
+                  "a reference symbol file needs to be defined",
                   Lib_Symbol_Policy.Location);
             end if;
 
@@ -5786,6 +5877,10 @@ package body Prj.Nmsc is
 
       Last_Source_Dir : String_List_Id  := Nil_String;
 
+      Languages : constant Variable_Value :=
+                      Prj.Util.Value_Of
+                        (Name_Languages, Data.Decl.Attributes, In_Tree);
+
       procedure Find_Source_Dirs
         (From     : File_Name_Type;
          Location : Source_Ptr;
@@ -6205,14 +6300,24 @@ package body Prj.Nmsc is
          Write_Line ("Starting to look for directories");
       end if;
 
+      --  Set the object directory to its default which may be nil, if there
+      --  is no sources in the project.
+
+      if (((not Source_Files.Default)
+           and then Source_Files.Values = Nil_String)
+          or else
+          ((not Source_Dirs.Default) and then Source_Dirs.Values = Nil_String)
+           or else
+          ((not Languages.Default) and then Languages.Values = Nil_String))
+        and then Data.Extends = No_Project
+      then
+         Data.Object_Directory := No_Path_Information;
+
+      else
+         Data.Object_Directory := Data.Directory;
+      end if;
+
       --  Check the object directory
-
-      pragma Assert (Object_Dir.Kind = Single,
-                     "Object_Dir is not a single string");
-
-      --  We set the object directory to its default
-
-      Data.Object_Directory := Data.Directory;
 
       if Object_Dir.Value /= Empty_String then
          Get_Name_String (Object_Dir.Value);
@@ -6233,9 +6338,10 @@ package body Prj.Nmsc is
                Data.Directory.Display_Name,
                Data.Object_Directory.Name,
                Data.Object_Directory.Display_Name,
-               Create   => "object",
-               Location => Object_Dir.Location,
-               Current_Dir => Current_Dir);
+               Create           => "object",
+               Location         => Object_Dir.Location,
+               Current_Dir      => Current_Dir,
+               Externally_Built => Data.Externally_Built);
 
             if Data.Object_Directory = No_Path_Information then
 
@@ -6270,7 +6376,9 @@ package body Prj.Nmsc is
             end if;
          end if;
 
-      elsif Subdirs /= null then
+      elsif Data.Object_Directory /= No_Path_Information and then
+        Subdirs /= null
+      then
          Name_Len := 1;
          Name_Buffer (1) := '.';
          Locate_Directory
@@ -6280,9 +6388,10 @@ package body Prj.Nmsc is
             Data.Directory.Display_Name,
             Data.Object_Directory.Name,
             Data.Object_Directory.Display_Name,
-            Create      => "object",
-            Location    => Object_Dir.Location,
-            Current_Dir => Current_Dir);
+            Create           => "object",
+            Location         => Object_Dir.Location,
+            Current_Dir      => Current_Dir,
+            Externally_Built => Data.Externally_Built);
       end if;
 
       if Current_Verbosity = High then
@@ -6296,9 +6405,6 @@ package body Prj.Nmsc is
       end if;
 
       --  Check the exec directory
-
-      pragma Assert (Exec_Dir.Kind = Single,
-                     "Exec_Dir is not a single string");
 
       --  We set the object directory to its default
 
@@ -6323,9 +6429,10 @@ package body Prj.Nmsc is
                Data.Directory.Display_Name,
                Data.Exec_Directory.Name,
                Data.Exec_Directory.Display_Name,
-               Create   => "exec",
-               Location => Exec_Dir.Location,
-               Current_Dir => Current_Dir);
+               Create           => "exec",
+               Location         => Exec_Dir.Location,
+               Current_Dir      => Current_Dir,
+               Externally_Built => Data.Externally_Built);
 
             if Data.Exec_Directory = No_Path_Information then
                Err_Vars.Error_Msg_File_1 := File_Name_Type (Exec_Dir.Value);
@@ -6368,12 +6475,6 @@ package body Prj.Nmsc is
                Source_Files.Location);
          end if;
 
-         if Data.Extends = No_Project
-           and then Data.Object_Directory = Data.Directory
-         then
-            Data.Object_Directory := No_Path_Information;
-         end if;
-
       elsif Source_Dirs.Default then
 
          --  No Source_Dirs specified: the single source directory is the one
@@ -6405,17 +6506,6 @@ package body Prj.Nmsc is
                In_Tree,
                "a standard project cannot have no source directories",
                Source_Dirs.Location);
-         end if;
-
-         --  If Source_Dirs is an empty string list, this means that this
-         --  project contains no source. For projects that don't extend other
-         --  projects, this also means that there is no need for an object
-         --  directory, if not specified.
-
-         if Data.Extends = No_Project
-           and then  Data.Object_Directory = Data.Directory
-         then
-            Data.Object_Directory := No_Path_Information;
          end if;
 
          Data.Source_Dirs := Nil_String;
@@ -6484,7 +6574,6 @@ package body Prj.Nmsc is
             Current := Element.Next;
          end loop;
       end;
-
    end Get_Directories;
 
    ---------------
@@ -6989,15 +7078,16 @@ package body Prj.Nmsc is
    ----------------------
 
    procedure Locate_Directory
-     (Project     : Project_Id;
-      In_Tree     : Project_Tree_Ref;
-      Name        : File_Name_Type;
-      Parent      : Path_Name_Type;
-      Dir         : out Path_Name_Type;
-      Display     : out Path_Name_Type;
-      Create      : String := "";
-      Current_Dir : String;
-      Location    : Source_Ptr := No_Location)
+     (Project          : Project_Id;
+      In_Tree          : Project_Tree_Ref;
+      Name             : File_Name_Type;
+      Parent           : Path_Name_Type;
+      Dir              : out Path_Name_Type;
+      Display          : out Path_Name_Type;
+      Create           : String := "";
+      Current_Dir      : String;
+      Location         : Source_Ptr := No_Location;
+      Externally_Built : Boolean := False)
    is
       The_Parent      : constant String :=
                           Get_Name_String (Parent) & Directory_Separator;
@@ -7056,38 +7146,58 @@ package body Prj.Nmsc is
       end if;
 
       declare
-         Full_Path_Name : constant String := Get_Name_String (Full_Name);
+         Full_Path_Name : String_Access :=
+                            new String'(Get_Name_String (Full_Name));
 
       begin
          if (Setup_Projects or else Subdirs /= null)
            and then Create'Length > 0
-           and then not Is_Directory (Full_Path_Name)
          then
-            begin
-               Create_Path (Full_Path_Name);
+            if not Is_Directory (Full_Path_Name.all) then
+               --  If project is externally built, do not create a subdir,
+               --  use the specified directory, without the subdir.
 
-               if not Quiet_Output then
-                  Write_Str (Create);
-                  Write_Str (" directory """);
-                  Write_Str (Full_Path_Name);
-                  Write_Line (""" created");
+               if Externally_Built then
+                  if Is_Absolute_Path (Get_Name_String (Name)) then
+                     Get_Name_String (Name);
+
+                  else
+                     Name_Len := 0;
+                     Add_Str_To_Name_Buffer
+                       (The_Parent (The_Parent'First .. The_Parent_Last));
+                     Add_Str_To_Name_Buffer (Get_Name_String (Name));
+                  end if;
+
+                  Full_Path_Name := new String'(Name_Buffer (1 .. Name_Len));
+
+               else
+                  begin
+                     Create_Path (Full_Path_Name.all);
+
+                     if not Quiet_Output then
+                        Write_Str (Create);
+                        Write_Str (" directory """);
+                        Write_Str (Full_Path_Name.all);
+                        Write_Line (""" created");
+                     end if;
+
+                  exception
+                     when Use_Error =>
+                        Error_Msg
+                          (Project, In_Tree,
+                           "could not create " & Create &
+                           " directory " & Full_Path_Name.all,
+                           Location);
+                  end;
                end if;
-
-            exception
-               when Use_Error =>
-                  Error_Msg
-                    (Project, In_Tree,
-                     "could not create " & Create &
-                     " directory " & Full_Path_Name,
-                     Location);
-            end;
+            end if;
          end if;
 
-         if Is_Directory (Full_Path_Name) then
+         if Is_Directory (Full_Path_Name.all) then
             declare
                Normed : constant String :=
                           Normalize_Pathname
-                            (Full_Path_Name,
+                            (Full_Path_Name.all,
                              Directory      => Current_Dir,
                              Resolve_Links  => False,
                              Case_Sensitive => True);
@@ -7110,6 +7220,8 @@ package body Prj.Nmsc is
                Dir := Name_Find;
             end;
          end if;
+
+         Free (Full_Path_Name);
       end;
    end Locate_Directory;
 
@@ -7692,7 +7804,7 @@ package body Prj.Nmsc is
       Config         : Language_Config;
       Lang           : Name_List_Index := Data.Languages;
       Header_File    : Boolean := False;
-      First_Language : Language_Index;
+      First_Language : Language_Index := No_Language_Index;
       OK             : Boolean;
 
       Last_Spec : Natural;
@@ -7700,8 +7812,15 @@ package body Prj.Nmsc is
       Last_Sep  : Natural;
 
    begin
-      Unit := No_Name;
-      Alternate_Languages := No_Alternate_Language;
+      --  Default values
+
+      Alternate_Languages   := No_Alternate_Language;
+      Language              := No_Language_Index;
+      Language_Name         := No_Name;
+      Display_Language_Name := No_Name;
+      Unit                  := No_Name;
+      Lang_Kind             := File_Based;
+      Kind                  := Spec;
 
       while Lang /= No_Name_List loop
          Language_Name := In_Tree.Name_Lists.Table (Lang).Name;
@@ -8795,8 +8914,13 @@ package body Prj.Nmsc is
       if Result = null then
          return "";
       else
-         Canonical_Case_File_Name (Result.all);
-         return Result.all;
+         declare
+            R : String := Result.all;
+         begin
+            Free (Result);
+            Canonical_Case_File_Name (R);
+            return R;
+         end;
       end if;
    end Path_Name_Of;
 

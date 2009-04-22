@@ -107,7 +107,7 @@
 ;; enumeration in alpha.h.
 
 (define_attr "tune" "ev4,ev5,ev6"
-  (const (symbol_ref "alpha_tune")))
+  (const (symbol_ref "((enum attr_tune) alpha_tune)")))
 
 ;; Define an insn type attribute.  This is used in function unit delay
 ;; computations, among other purposes.  For the most part, we use the names
@@ -2155,7 +2155,7 @@
 		   	   (match_operand:DI 2 "mul8_operand" "I"))
 		(match_operand:DI 3 "immediate_operand" "i")))]
   "HOST_BITS_PER_WIDE_INT == 64
-   && GET_CODE (operands[3]) == CONST_INT
+   && CONST_INT_P (operands[3])
    && (((unsigned HOST_WIDE_INT) 0xff << INTVAL (operands[2])
         == (unsigned HOST_WIDE_INT) INTVAL (operands[3]))
        || ((unsigned HOST_WIDE_INT) 0xffff << INTVAL (operands[2])
@@ -4096,11 +4096,11 @@
      register since that is more likely to match (and to produce better code
      if both would).  */
 
-  if (code == EQ && GET_CODE (operands[3]) == CONST_INT
+  if (code == EQ && CONST_INT_P (operands[3])
       && rtx_equal_p (operands[4], operands[3]))
     operands[4] = operands[2];
 
-  else if (code == NE && GET_CODE (operands[3]) == CONST_INT
+  else if (code == NE && CONST_INT_P (operands[3])
 	   && rtx_equal_p (operands[5], operands[3]))
     operands[5] = operands[2];
 
@@ -4108,7 +4108,7 @@
       || (extended_count (operands[2], DImode, unsignedp) >= 1
 	  && extended_count (operands[3], DImode, unsignedp) >= 1))
     {
-      if (GET_CODE (operands[3]) == CONST_INT)
+      if (CONST_INT_P (operands[3]))
 	operands[7] = gen_rtx_PLUS (DImode, operands[2],
 				    GEN_INT (- INTVAL (operands[3])));
       else
@@ -4155,7 +4155,7 @@
 	     && extended_count (operands[3], DImode, unsignedp) >= 1)))
     FAIL;
 
-  if (GET_CODE (operands[3]) == CONST_INT)
+  if (CONST_INT_P (operands[3]))
     tem = gen_rtx_PLUS (SImode, operands[2],
 			GEN_INT (- INTVAL (operands[3])));
   else
@@ -4394,7 +4394,7 @@
 	      (unspec [(reg:DI 29)] UNSPEC_SIBCALL)])]
   "TARGET_ABI_OSF"
 {
-  gcc_assert (GET_CODE (operands[0]) == MEM);
+  gcc_assert (MEM_P (operands[0]));
   operands[0] = XEXP (operands[0], 0);
 })
 
@@ -4405,7 +4405,7 @@
 	      (clobber (reg:DI 26))])]
   ""
 {
-  gcc_assert (GET_CODE (operands[0]) == MEM);
+  gcc_assert (MEM_P (operands[0]));
 
   operands[0] = XEXP (operands[0], 0);
   if (! call_operand (operands[0], Pmode))
@@ -4418,10 +4418,10 @@
 	      (clobber (reg:DI 26))])]
   ""
 {
-  gcc_assert (GET_CODE (operands[0]) == MEM);
+  gcc_assert (MEM_P (operands[0]));
 
   operands[0] = XEXP (operands[0], 0);
-  if (GET_CODE (operands[0]) != SYMBOL_REF && GET_CODE (operands[0]) != REG)
+  if (GET_CODE (operands[0]) != SYMBOL_REF && !REG_P (operands[0]))
     operands[0] = force_reg (DImode, operands[0]);
 })
 
@@ -4436,13 +4436,13 @@
 	       (clobber (reg:DI 26))])]
    ""
 {
-  gcc_assert (GET_CODE (operands[0]) == MEM);
+  gcc_assert (MEM_P (operands[0]));
 
   /* Always load the address of the called function into a register;
      load the CIW in $25.  */
 
   operands[0] = XEXP (operands[0], 0);
-  if (GET_CODE (operands[0]) != REG)
+  if (!REG_P (operands[0]))
     operands[0] = force_reg (DImode, operands[0]);
 
   emit_move_insn (gen_rtx_REG (DImode, 25), operands[1]);
@@ -4462,7 +4462,7 @@
 	      (clobber (reg:DI 27))])]
   ""
 {
-  gcc_assert (GET_CODE (operands[0]) == MEM);
+  gcc_assert (MEM_P (operands[0]));
 
   operands[0] = XEXP (operands[0], 0);
 
@@ -4515,7 +4515,7 @@
 	      (unspec [(reg:DI 29)] UNSPEC_SIBCALL)])]
   "TARGET_ABI_OSF"
 {
-  gcc_assert (GET_CODE (operands[1]) == MEM);
+  gcc_assert (MEM_P (operands[1]));
   operands[1] = XEXP (operands[1], 0);
 })
 
@@ -4527,7 +4527,7 @@
 	      (clobber (reg:DI 26))])]
   ""
 {
-  gcc_assert (GET_CODE (operands[1]) == MEM);
+  gcc_assert (MEM_P (operands[1]));
 
   operands[1] = XEXP (operands[1], 0);
   if (! call_operand (operands[1], Pmode))
@@ -4541,10 +4541,10 @@
 	      (clobber (reg:DI 26))])]
   ""
 {
-  gcc_assert (GET_CODE (operands[1]) == MEM);
+  gcc_assert (MEM_P (operands[1]));
 
   operands[1] = XEXP (operands[1], 0);
-  if (GET_CODE (operands[1]) != SYMBOL_REF && GET_CODE (operands[1]) != REG)
+  if (GET_CODE (operands[1]) != SYMBOL_REF && !REG_P (operands[1]))
     operands[1] = force_reg (DImode, operands[1]);
 })
 
@@ -4558,7 +4558,7 @@
 	      (clobber (reg:DI 27))])]
   ""
 {
-  gcc_assert (GET_CODE (operands[1]) == MEM);
+  gcc_assert (MEM_P (operands[1]));
 
   operands[1] = XEXP (operands[1], 0);
 
@@ -4589,10 +4589,10 @@
 	      (clobber (reg:DI 26))])]
   ""
 {
-  gcc_assert (GET_CODE (operands[1]) == MEM);
+  gcc_assert (MEM_P (operands[1]));
 
   operands[1] = XEXP (operands[1], 0);
-  if (GET_CODE (operands[1]) != REG)
+  if (!REG_P (operands[1]))
     operands[1] = force_reg (DImode, operands[1]);
 
   emit_move_insn (gen_rtx_REG (DImode, 25), operands[2]);
@@ -5090,7 +5090,7 @@
 	(match_operand:SF 1 "general_operand" ""))]
   ""
 {
-  if (GET_CODE (operands[0]) == MEM
+  if (MEM_P (operands[0])
       && ! reg_or_0_operand (operands[1], SFmode))
     operands[1] = force_reg (SFmode, operands[1]);
 })
@@ -5100,7 +5100,7 @@
 	(match_operand:DF 1 "general_operand" ""))]
   ""
 {
-  if (GET_CODE (operands[0]) == MEM
+  if (MEM_P (operands[0])
       && ! reg_or_0_operand (operands[1], DFmode))
     operands[1] = force_reg (DFmode, operands[1]);
 })
@@ -5110,7 +5110,7 @@
 	(match_operand:TF 1 "general_operand" ""))]
   ""
 {
-  if (GET_CODE (operands[0]) == MEM
+  if (MEM_P (operands[0])
       && ! reg_or_0_operand (operands[1], TFmode))
     operands[1] = force_reg (TFmode, operands[1]);
 })
@@ -5593,7 +5593,7 @@
         (match_operand:TI 1 "general_operand" ""))]
   ""
 {
-  if (GET_CODE (operands[0]) == MEM
+  if (MEM_P (operands[0])
       && ! reg_or_0_operand (operands[1], TImode))
     operands[1] = force_reg (TImode, operands[1]);
 
@@ -5602,7 +5602,7 @@
   /* We must put 64-bit constants in memory.  We could keep the
      32-bit constants in TImode and rely on the splitter, but
      this doesn't seem to be worth the pain.  */
-  else if (GET_CODE (operands[1]) == CONST_INT
+  else if (CONST_INT_P (operands[1])
 	   || GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       rtx in[2], out[2], target;
@@ -5627,7 +5627,7 @@
 	  emit_insn (gen_movdi (out[1], in[1]));
 	}
 
-      if (GET_CODE (operands[0]) != REG)
+      if (!REG_P (operands[0]))
 	target = gen_reg_rtx (TImode);
       else
 	target = operands[0];
@@ -6051,7 +6051,7 @@
       rtx scratch3 = scratch1;
       rtx seq;
 
-      if (GET_CODE (addr) == REG)
+      if (REG_P (addr))
 	scratch1 = addr;
 
       seq = gen_unaligned_store<reloadmode> (addr, operands[1], scratch1,
@@ -6327,7 +6327,7 @@
 
   /* From mips.md: extract_bit_field doesn't verify that our source
      matches the predicate, so we force it to be a MEM here.  */
-  if (GET_CODE (operands[1]) != MEM)
+  if (!MEM_P (operands[1]))
     FAIL;
 
   /* The bit number is relative to the mode of operand 1 which is
@@ -6363,7 +6363,7 @@
 	  && INTVAL (operands[2]) != 64))
     FAIL;
 
-  if (GET_CODE (operands[1]) == MEM)
+  if (MEM_P (operands[1]))
     {
       int ofs;
 
@@ -6408,7 +6408,7 @@
 
   /* From mips.md: store_bit_field doesn't verify that our source
      matches the predicate, so we force it to be a MEM here.  */
-  if (GET_CODE (operands[0]) != MEM)
+  if (!MEM_P (operands[0]))
     FAIL;
 
   /* The bit number is relative to the mode of operand 1 which is
@@ -6589,7 +6589,7 @@
 	(match_dup 2))]
   ""
 {
-  if (GET_CODE (operands[1]) == CONST_INT
+  if (CONST_INT_P (operands[1])
       && INTVAL (operands[1]) < 32768)
     {
       if (INTVAL (operands[1]) >= 4096)
@@ -6622,7 +6622,7 @@
 			     force_reg (Pmode, operands[1])));
       emit_insn (gen_adddi3 (tmp, stack_pointer_rtx, GEN_INT (-4096)));
 
-      if (GET_CODE (operands[1]) != CONST_INT)
+      if (!CONST_INT_P (operands[1]))
 	{
 	  out_label = gen_label_rtx ();
 	  test = gen_rtx_GEU (VOIDmode, want, tmp);
@@ -7380,7 +7380,7 @@
 		(match_operand:DI 1 "reg_or_cint_operand" "")))]
   ""
 {
-  if (GET_CODE (operands[2]) == CONST_INT)
+  if (CONST_INT_P (operands[2]))
     {
       rtx mask = alpha_expand_zap_mask (INTVAL (operands[2]));
 
@@ -7428,7 +7428,7 @@
   [(const_int 0)]
 {
   rtx mask = alpha_expand_zap_mask (INTVAL (operands[2]));
-  if (HOST_BITS_PER_WIDE_INT >= 64 || GET_CODE (mask) == CONST_INT)
+  if (HOST_BITS_PER_WIDE_INT >= 64 || CONST_INT_P (mask))
     operands[1] = gen_int_mode (INTVAL (operands[1]) & INTVAL (mask), DImode);
   else
     {
@@ -7473,7 +7473,7 @@
 		(match_operand:DI 1 "reg_or_cint_operand" "")))]
   ""
 {
-  if (GET_CODE (operands[2]) == CONST_INT)
+  if (CONST_INT_P (operands[2]))
     {
       rtx mask = alpha_expand_zap_mask (~ INTVAL (operands[2]));
 

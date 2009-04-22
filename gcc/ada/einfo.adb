@@ -206,6 +206,7 @@ package body Einfo is
    --    Stored_Constraint               Elist23
 
    --    Spec_PPC_List                   Node24
+   --    Underlying_Record_View          Node24
 
    --    Interface_Alias                 Node25
    --    Interfaces                      Elist25
@@ -505,8 +506,8 @@ package body Einfo is
    --    Overlays_Constant               Flag243
    --    Is_RACW_Stub_Type               Flag244
    --    Is_Private_Primitive            Flag245
+   --    Is_Underlying_Record_View       Flag246
 
-   --    (unused)                        Flag246
    --    (unused)                        Flag247
 
    -----------------------
@@ -2065,6 +2066,11 @@ package body Einfo is
       return Flag117 (Implementation_Base_Type (Id));
    end Is_Unchecked_Union;
 
+   function Is_Underlying_Record_View (Id : E) return B is
+   begin
+      return Flag246 (Id);
+   end Is_Underlying_Record_View;
+
    function Is_Unsigned_Type (Id : E) return B is
    begin
       pragma Assert (Is_Type (Id));
@@ -2671,6 +2677,11 @@ package body Einfo is
       pragma Assert (Ekind (Id) in Private_Kind);
       return Node19 (Id);
    end Underlying_Full_View;
+
+   function Underlying_Record_View (Id : E) return E is
+   begin
+      return Node24 (Id);
+   end Underlying_Record_View;
 
    function Universal_Aliasing (Id : E) return B is
    begin
@@ -4536,6 +4547,12 @@ package body Einfo is
       Set_Flag117 (Id, V);
    end Set_Is_Unchecked_Union;
 
+   procedure Set_Is_Underlying_Record_View (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Record_Type);
+      Set_Flag246 (Id, V);
+   end Set_Is_Underlying_Record_View;
+
    procedure Set_Is_Unsigned_Type (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Discrete_Or_Fixed_Point_Type (Id));
@@ -5151,6 +5168,12 @@ package body Einfo is
       pragma Assert (Ekind (Id) in Private_Kind);
       Set_Node19 (Id, V);
    end Set_Underlying_Full_View;
+
+   procedure Set_Underlying_Record_View (Id : E; V : E) is
+   begin
+      pragma Assert (Ekind (Id) = E_Record_Type);
+      Set_Node24 (Id, V);
+   end Set_Underlying_Record_View;
 
    procedure Set_Universal_Aliasing (Id : E; V : B := True) is
    begin
@@ -6960,6 +6983,7 @@ package body Einfo is
       W ("Is_Trivial_Subprogram",           Flag235 (Id));
       W ("Is_True_Constant",                Flag163 (Id));
       W ("Is_Unchecked_Union",              Flag117 (Id));
+      W ("Is_Underlying_Record_View",       Flag246 (Id));
       W ("Is_Unsigned_Type",                Flag144 (Id));
       W ("Is_VMS_Exception",                Flag133 (Id));
       W ("Is_Valued_Procedure",             Flag127 (Id));
@@ -7908,6 +7932,9 @@ package body Einfo is
       case Ekind (Id) is
          when Subprogram_Kind                              =>
             Write_Str ("Spec_PPC_List");
+
+         when E_Record_Type                                =>
+            Write_Str ("Underlying record view");
 
          when others                                       =>
             Write_Str ("???");

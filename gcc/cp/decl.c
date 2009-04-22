@@ -783,18 +783,6 @@ poplevel (int keep, int reverse, int functionbody)
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, block);
 }
 
-/* Insert BLOCK at the end of the list of subblocks of the
-   current binding level.  This is used when a BIND_EXPR is expanded,
-   to handle the BLOCK node inside the BIND_EXPR.  */
-
-void
-insert_block (tree block)
-{
-  TREE_USED (block) = 1;
-  current_binding_level->blocks
-    = chainon (current_binding_level->blocks, block);
-}
-
 /* Walk all the namespaces contained NAMESPACE, including NAMESPACE
    itself, calling F for each.  The DATA is passed to F as well.  */
 
@@ -5157,7 +5145,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 		       decl);
 	      init = build_tree_list (NULL_TREE, init);
 	    }
-	  else if ((*targetm.vector_opaque_p) (type))
+	  else if (TREE_CODE (type) == VECTOR_TYPE && TYPE_VECTOR_OPAQUE (type))
 	    {
 	      error ("opaque vector types cannot be initialized");
 	      init = error_mark_node;
@@ -5880,7 +5868,8 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 /* This is here for a midend callback from c-common.c.  */
 
 void
-finish_decl (tree decl, tree init, tree asmspec_tree)
+finish_decl (tree decl, tree init, tree origtype ATTRIBUTE_UNUSED,
+	     tree asmspec_tree)
 {
   cp_finish_decl (decl, init, /*init_const_expr_p=*/false, asmspec_tree, 0);
 }
@@ -5907,7 +5896,7 @@ declare_global_var (tree name, tree type)
      library), then it is possible that our declaration will be merged
      with theirs by pushdecl.  */
   decl = pushdecl (decl);
-  finish_decl (decl, NULL_TREE, NULL_TREE);
+  finish_decl (decl, NULL_TREE, NULL_TREE, NULL_TREE);
   pop_from_top_level ();
 
   return decl;
@@ -8828,8 +8817,13 @@ grokdeclarator (const cp_declarator *declarator,
 
 	  /* Replace the anonymous name with the real name everywhere.  */
 	  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-	    if (ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))
-	      TYPE_NAME (t) = decl;
+	    {
+	      if (ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))
+		{
+		  debug_hooks->set_name (t, decl);
+		  TYPE_NAME (t) = decl;
+		}
+  	    }
 
 	  if (TYPE_LANG_SPECIFIC (type))
 	    TYPE_WAS_ANONYMOUS (type) = 1;
@@ -12487,7 +12481,7 @@ start_method (cp_decl_specifier_seq *declspecs,
 	}
     }
 
-  finish_decl (fndecl, NULL_TREE, NULL_TREE);
+  finish_decl (fndecl, NULL_TREE, NULL_TREE, NULL_TREE);
 
   /* Make a place for the parms.  */
   begin_scope (sk_function_parms, fndecl);

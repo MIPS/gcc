@@ -1,3 +1,310 @@
+2009-04-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35711
+	* g++.dg/warn/pr35711.C: New.
+	* g++.dg/conversion/ptrmem2.C: Update.
+
+2009-04-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* ChangeLog, ChangeLog-1993-2007, ChangeLog-2008, ChangeLog.ptr,
+	ChangeLog.tree-ssa, README, README.QMTEST, README.compat,
+	README.gcc, g++.dg/README, g++.dg/compat/break/README,
+	g++.dg/gomp/gomp.exp, g++.old-deja/g++.brendan/README,
+	g++.old-deja/g++.oliva/ChangeLog, g++.old-deja/g++.robertl/README,
+	gcc.c-torture/ChangeLog.0,
+	gcc.c-torture/execute/builtins/builtins.exp, gcc.dg/README,
+	gcc.dg/gomp/gomp.exp, gcc.target/frv/frv.exp,
+	gcc.target/i386/math-torture/math-torture.exp,
+	gcc.target/mips/inter/mips16-inter.exp,
+	gcc.target/mips/mips-nonpic/README,
+	gcc.target/x86_64/abi/README.gcc,
+	gcc.target/xstormy16/xstormy16.exp, gcc.test-framework/README,
+	gfortran.dg/g77/README, gfortran.dg/gomp/gomp.exp,
+	gfortran.fortran-torture/ChangeLog.g95: Add copyright and license
+	notices.
+	* ChangeLog-1993-2007, ChangeLog: Correct dates.
+
+2009-04-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/debug/dwarf2/short-circuit.c: New test.
+
+2009-04-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39829
+	* gcc.dg/torture/pr39829.c: New testcase.
+
+2009-04-21  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/tree-ssa/cswtch-2.c: New test.
+
+2009-04-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 16202
+	* gcc.dg/sequence-pt-1.c: Remove XFAILs.
+	* gcc.dg/sequence-pt-2.c: New.
+	* gcc.dg/sequence-pt-3.c: New.
+	* g++.dg/warn/sequence-pt-1.C: Remove XFAILs.
+	* g++.dg/warn/sequence-pt-2.c: New.
+	* g++.dg/warn/sequence-pt-3.c: New.
+
+2009-04-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/torture/pr39678.c (struct X): Make c field signed char.
+
+2009-04-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/import1.ad[sb]: New test.
+
+2009-04-20  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* objc/execute/exceptions/handler-1.m: For the NeXT runtime, just
+	return 0.
+
+2009-04-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39811
+	* gfortran.dg/continuation_11.f90: New test.
+
+2009-04-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/13358
+	* gcc.dg/wtr-int-type-1.c: Use two dg-warning to match two
+	messages. Test for "long long" in system headers.
+	* gcc.dg/c99-longlong-2.c: New.
+	* g++.dg/warn/pr13358.C: New.
+	* g++.dg/warn/pr13358-2.C: New.
+	* g++.dg/warn/pr13358-3.C: New.
+	* g++.dg/warn/pr13358-4.C: New.
+
+2009-04-20  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.dg/framework-2.c: Fix up for non existent includes
+	being fatal errors now.
+
+2009-04-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39800
+	* gfortran.dg/private_type_13.f90: New test.
+	* gfortran.dg/private_type_2.f90: Add option -std=f95.
+
+2009-04-20  Le-Chun Wu  <lcwu@google.com>
+
+	PR c++/39803
+	* g++.dg/warn/Wunused-14.C: New test.
+
+2009-04-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/small_alignment.ads: New test.
+
+2009-04-20  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wcxx-compat-3.c: New testcase.
+
+2009-04-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack13.ad[sb]: New test.
+	* gnat.dg/pack13_pkg.ads: New helper.
+
+2009-04-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr11.ad[sb]: New test.
+	* gnat.dg/discr11_pkg.ads: New helper.
+
+2009-04-20  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39675
+	* gcc.dg/vect/O3-pr39675-2.c: New test.
+
+2009-04-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/rep_clause3.adb: New test.
+
+2009-04-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/37481
+	* gcc.dg/c99-flex-array-7.c: New test.
+
+2009-04-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/19771
+	* gcc.c-torture/execute/vla-dealloc-1.c: New test.
+
+2009-04-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/38243
+	* gcc.dg/c99-restrict-3.c: New test.
+
+2009-04-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/20078
+	* gcc.dg/cpp/paste16.c, gcc.dg/cpp/redef4.c: New tests.
+
+2009-04-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lib/gnat.exp (local_find_gnatmake): Pass --LINK to gnatlink.
+	Do not pass -B$root after -margs.
+
+2009-04-19  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/32061
+	PR c++/36954
+	* gcc.dg/pr32061.c: New.
+	* gcc.dg/Wlogical-op-1.c: Update.
+	* g++.dg/warn/Wlogical-op-1.C: Update.
+	* g++.dg/warn/pr36954.C: New.
+
+2009-04-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/27676
+	* gcc.dg/lvalue-5.c: New test.
+
+2009-04-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/22367
+	* gcc.dg/lvalue-6.c, gcc.dg/lvalue-7.c: New tests.
+
+2009-04-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cpp/include5.c: New test.
+
+2009-04-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35210
+	* gcc.dg/call-diag-2.c: New test.
+
+2009-04-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/39646
+	* gcc.dg/cpp/line8.c: New test.
+
+2009-04-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/39647
+	* gcc.dg/cpp/line7.c: New test.
+
+2009-04-18  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39804
+	* gcc.target/i386/pr39804.c: New testcase.
+
+2009-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/i386/pr39496.c: Compile with -mtune=i686.
+	* g++.dg/other/pr39496.C: Likewise.
+
+2009-04-18  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR middle-end/36902
+	* gcc.dg/pr36902.c: New.
+
+2009-04-17  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.c-torture/execute/builtins/strlen-3.c: Fix ODR
+	violation for variable 'inside_main'.
+
+2009-04-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gfortran.fortran-torture/execute/getarg_1.x: New file.
+
+2009-04-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gfortran.dg/vect/pr39318.f90: Guard with "target fopenmp".
+
+2009-04-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gfortran.dg/chmod_1.f90: Disable on spu-*-* targets.
+	* gfortran.dg/chmod_2.f90: Likewise.
+	* gfortran.dg/chmod_3.f90: Likewise.
+	* gfortran.dg/open_errors.f90: Likewise.
+	* gfortran.dg/stat_1.f90: Likewise.
+	* gfortran.dg/stat_2.f90: Likewise.
+
+2009-04-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gfortran.fortran-torture/execute/nan_inf_fmt.x: Skip on spu-*-*.
+	* gfortran.fortran-torture/execute/intrinsic_nearest.x: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_set_exponent.x: Likewise.
+	* gfortran.dg/nearest_1.f90: Likewise.
+	* gfortran.dg/nearest_3.f90: Likewise.
+	* gfortran.dg/isnan_1.f90: Likewise.
+	* gfortran.dg/isnan_2.f90: Likewise.
+	* gfortran.dg/nan_1.f90: Likewise.
+	* gfortran.dg/nan_2.f90: Likewise.
+	* gfortran.dg/nan_3.f90: Likewise.
+	* gfortran.dg/nan_4.f90: Likewise.
+	* gfortran.dg/module_nan.f90: Likewise.
+	* gfortran.dg/int_conv_2.f90: Likewise.
+	* gfortran.dg/init_flag_3.f90: Likewise.
+	* gfortran.dg/namelist_42.f90: Likewise.
+	* gfortran.dg/namelist_43.f90: Likewise.
+	* gfortran.dg/real_const_3.f90: Likewise.
+	* gfortran.dg/transfer_simplify_1.f90: Likewise.
+
+	* gfortran.dg/default_format_1.f90: XFAIL on spu-*-*.
+	* gfortran.dg/default_format_denormal_1.f90: XFAIL on spu-*-*.
+	* gfortran.dg/scalar_mask_2.f90: XFAIL on spu-*-*.
+	* gfortran.dg/integer_exponentiation_3.F90: XFAIL on spu-*-*.
+	* gfortran.dg/integer_exponentiation_5.F90: XFAIL on spu-*-*.
+
+	* gfortran.dg/elemental_subroutine_1.f90: Relax "epsilon" check.
+	* gfortran.dg/gamma_5.f90: Likewise.
+
+2009-04-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* lib/gcc-dg.exp (gcc-dg-prune): Make linker message check
+	less strict so it also works with auto-overlay support.
+	* lib/gcc-defs.exp (${tool}_check_unsupported_p): Add check
+	for "exceeds local store" linker errors on the SPU.
+
+	* lib/gfortran.exp: Include target-supports.exp.
+	(gfortran_init): On SPU targets where automatic overlay support
+	is available, use it to build all Fortran test cases.
+
+	* gfortran.dg/pr20257.f90: Skip on spu-*-* targets.
+
+2009-04-17  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.dg/ref_type.ads, gnat.dg/ref_type.adb: Fix test after proper
+	rule enforced by gnat on taft types.
+
+2009-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/39792
+	* g++.dg/ext/complit11.C: Add empty dg-options.
+
+2009-04-16  Andrew Pinski  <pinskia@gmail.com>
+
+	PR c++/17570
+	* g++.dg/template/defarg11.C: New test.
+
+2009-04-16  Andrew Pinski  <pinskia@gmail.com>
+
+	PR c++/28766
+	* g++.dg/ext/complit11.C: New testcase.
+
+2009-04-15  Le-Chun Wu  <lcwu@google.com>
+
+	PR c++/39551
+	* g++.dg/warn/Wunused-13.C: New testcase.
+
+2009-04-15  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wenum-compare-1.c: New testcase.
+
+2009-04-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39764
+	* g++.dg/torture/pr39764.C: New testcase.
+
+2009-04-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/ext/altivec-17.C: New.
+
+2009-04-15  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.dg/sync1.ads: Fix error now flagged by gnat.
+	* gnat.dg/specs/limited1.ads: Ditto.
+
 2009-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR testsuite/39769
@@ -801,7 +1108,7 @@
 	* gfortran.dg/typebound_proc_11.f03: New test.
 	* gfortran.dg/abstract_type_5.f03: New test.
 
-2008-03-29  Tobias Schlüter  <tobi@gcc.gnu.org>
+2009-03-29  Tobias Schlüter  <tobi@gcc.gnu.org>
 
 	PR fortran/38507
 	* gfortran.dg/do_4.f: New.
@@ -1260,7 +1567,7 @@
 	PR libobjc/27466
 	* objc/execute/exceptions/handler-1.m. New test.
 
-2008-03-12  Jakub Jelinek  <jakub@redhat.com>
+2009-03-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/39431
 	* gcc.target/i386/pr39431.c: New test.
@@ -2014,7 +2321,7 @@
 
 2009-02-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
-	PR C++/36607
+	PR c++/36607
 	* g++.dg/expr/cast10.C: New test.
 
 2009-02-03  Joseph Myers  <joseph@codesourcery.com>
@@ -2457,7 +2764,7 @@
 
 2009-01-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
-	PR C++/29388
+	PR c++/29388
 	* g++.dg/template/error37.C: New testcase.
 
 2009-01-15  Jason Merrill  <jason@redhat.com>
@@ -3089,3 +3396,10 @@
 
 	PR c/36489
 	* gcc.dg/pr36489.c: New test.
+
+
+Copyright (C) 2009 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

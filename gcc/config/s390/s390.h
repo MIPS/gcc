@@ -60,6 +60,10 @@ enum processor_flags
 extern enum processor_type s390_tune;
 extern enum processor_flags s390_tune_flags;
 
+/* This is necessary to avoid a warning about comparing different enum
+   types.  */
+#define s390_tune_attr ((enum attr_cpu)s390_tune)
+
 extern enum processor_type s390_arch;
 extern enum processor_flags s390_arch_flags;
 
@@ -743,9 +747,6 @@ the 'm' constraint when accepting new address formats in
 legitimate_address_p.  The constraint letter defined here must not be
 used in insn definitions or inline assemblies.  */
 #define TARGET_MEM_CONSTRAINT 'e'
-
-/* S/390 has no mode dependent addresses.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression that is a
    valid memory address for an instruction.

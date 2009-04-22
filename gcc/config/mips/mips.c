@@ -1091,13 +1091,7 @@ static const struct mips_rtx_cost_data mips_rtx_cost_data[PROCESSOR_MAX] = {
     DEFAULT_COSTS
   },
   { /* XLR */
-    /* Need to replace first five with the costs of calling the appropriate 
-       libgcc routine.  */
-    COSTS_N_INSNS (256),          /* fp_add */
-    COSTS_N_INSNS (256),          /* fp_mult_sf */
-    COSTS_N_INSNS (256),          /* fp_mult_df */
-    COSTS_N_INSNS (256),          /* fp_div_sf */
-    COSTS_N_INSNS (256),          /* fp_div_df */
+    SOFT_FP_COSTS,
     COSTS_N_INSNS (8),            /* int_mult_si */
     COSTS_N_INSNS (8),            /* int_mult_di */
     COSTS_N_INSNS (72),           /* int_div_si */
@@ -3315,7 +3309,7 @@ mips_binary_cost (rtx x, int single_cost, int double_cost)
   else
     cost = single_cost;
   return (cost
-	  + rtx_cost (XEXP (x, 0), 0, !optimize_size)
+	  + rtx_cost (XEXP (x, 0), SET, !optimize_size)
 	  + rtx_cost (XEXP (x, 1), GET_CODE (x), !optimize_size));
 }
 
@@ -3534,7 +3528,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  && UINTVAL (XEXP (x, 1)) == 0xffffffff)
 	{
 	  *total = (mips_zero_extend_cost (mode, XEXP (x, 0))
-		    + rtx_cost (XEXP (x, 0), 0, speed));
+		    + rtx_cost (XEXP (x, 0), SET, speed));
 	  return true;
 	}
       /* Fall through.  */
@@ -3566,7 +3560,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
     case LO_SUM:
       /* Low-part immediates need an extended MIPS16 instruction.  */
       *total = (COSTS_N_INSNS (TARGET_MIPS16 ? 2 : 1)
-		+ rtx_cost (XEXP (x, 0), 0, speed));
+		+ rtx_cost (XEXP (x, 0), SET, speed));
       return true;
 
     case LT:
@@ -3606,17 +3600,17 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  if (GET_CODE (op0) == MULT && GET_CODE (XEXP (op0, 0)) == NEG)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (XEXP (XEXP (op0, 0), 0), 0, speed)
-			+ rtx_cost (XEXP (op0, 1), 0, speed)
-			+ rtx_cost (op1, 0, speed));
+			+ rtx_cost (XEXP (XEXP (op0, 0), 0), SET, speed)
+			+ rtx_cost (XEXP (op0, 1), SET, speed)
+			+ rtx_cost (op1, SET, speed));
 	      return true;
 	    }
 	  if (GET_CODE (op1) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (op0, 0, speed)
-			+ rtx_cost (XEXP (op1, 0), 0, speed)
-			+ rtx_cost (XEXP (op1, 1), 0, speed));
+			+ rtx_cost (op0, SET, speed)
+			+ rtx_cost (XEXP (op1, 0), SET, speed)
+			+ rtx_cost (XEXP (op1, 1), SET, speed));
 	      return true;
 	    }
 	}
@@ -3657,9 +3651,9 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	      && GET_CODE (XEXP (op, 0)) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (XEXP (XEXP (op, 0), 0), 0, speed)
-			+ rtx_cost (XEXP (XEXP (op, 0), 1), 0, speed)
-			+ rtx_cost (XEXP (op, 1), 0, speed));
+			+ rtx_cost (XEXP (XEXP (op, 0), 0), SET, speed)
+			+ rtx_cost (XEXP (XEXP (op, 0), 1), SET, speed)
+			+ rtx_cost (XEXP (op, 1), SET, speed));
 	      return true;
 	    }
 	}
@@ -3697,9 +3691,10 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  if (outer_code == SQRT || GET_CODE (XEXP (x, 1)) == SQRT)
 	    /* An rsqrt<mode>a or rsqrt<mode>b pattern.  Count the
 	       division as being free.  */
-	    *total = rtx_cost (XEXP (x, 1), 0, speed);
+	    *total = rtx_cost (XEXP (x, 1), SET, speed);
 	  else
-	    *total = mips_fp_div_cost (mode) + rtx_cost (XEXP (x, 1), 0, speed);
+	    *total = (mips_fp_div_cost (mode)
+		      + rtx_cost (XEXP (x, 1), SET, speed));
 	  return true;
 	}
       /* Fall through.  */
@@ -3727,7 +3722,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	      && CONST_INT_P (XEXP (x, 1))
 	      && exact_log2 (INTVAL (XEXP (x, 1))) >= 0)
 	    {
-	      *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), 0, speed);
+	      *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), SET, speed);
 	      return true;
 	    }
 	  *total = COSTS_N_INSNS (mips_idiv_insns ());
@@ -14471,8 +14466,8 @@ mips_override_options (void)
   /* Set up mips_hard_regno_mode_ok.  */
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
     for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-      mips_hard_regno_mode_ok[(int)mode][regno]
-	= mips_hard_regno_mode_ok_p (regno, mode);
+      mips_hard_regno_mode_ok[mode][regno]
+	= mips_hard_regno_mode_ok_p (regno, (enum machine_mode) mode);
 
   /* Function to allocate machine-dependent function status.  */
   init_machine_status = &mips_init_machine_status;
@@ -14725,7 +14720,7 @@ mips_final_prescan_insn (rtx insn, rtx *opvec, int noperands)
 
 /* Implement TARGET_ASM_FINAL_POSTSCAN_INSN.  */
 
-void
+static void
 mips_final_postscan_insn (FILE *file, rtx insn, rtx *opvec, int noperands)
 {
   int i;

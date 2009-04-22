@@ -1,3 +1,7 @@
+2009-04-22  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Merge trunk up to revision 146553.
+
 2009-04-15  Paolo Bonzini  <bonzini@gnu.org>
 
 	* config/i386/i386.md (cstoreti4): Delete.

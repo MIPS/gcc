@@ -3566,7 +3566,7 @@ typedef enum linkage_kind {
 } linkage_kind;
 
 /* Bitmask flags to control type substitution.  */
-typedef enum tsubst_flags_t {
+enum tsubst_flags {
   tf_none = 0,			 /* nothing special */
   tf_error = 1 << 0,		 /* give error messages  */
   tf_warning = 1 << 1,	 	 /* give warnings too  */
@@ -3585,10 +3585,14 @@ typedef enum tsubst_flags_t {
 				    when issuing other errors.   */
   /* Convenient substitution flags combinations.  */
   tf_warning_or_error = tf_warning | tf_error
-} tsubst_flags_t;
+};
+
+/* This type is used for parameters and variables which hold
+   combinations of the flags in enum tsubst_flags.  */
+typedef int tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy.  */
-typedef enum base_access {
+enum base_access {
   ba_any = 0,  /* Do not check access, allow an ambiguous base,
 		      prefer a non-virtual base */
   ba_unique = 1 << 0,  /* Must be a unique base.  */
@@ -3596,7 +3600,11 @@ typedef enum base_access {
   ba_check = ba_unique | ba_check_bit,
   ba_ignore_scope = 1 << 2, /* Ignore access allowed by local scope.  */
   ba_quiet = 1 << 3     /* Do not issue error messages.  */
-} base_access;
+};
+
+/* This type is used for parameters and variables which hold
+   combinations of the flags in enum base_access.  */
+typedef int base_access;
 
 /* The various kinds of access check during parsing.  */
 typedef enum deferring_kind {
@@ -4303,7 +4311,6 @@ extern void adjust_clone_args			(tree);
 
 /* decl.c */
 extern tree poplevel				(int, int, int);
-extern void insert_block			(tree);
 extern tree pushdecl				(tree);
 extern tree pushdecl_maybe_friend		(tree, bool);
 extern void cxx_init_decl_processing		(void);
@@ -4339,7 +4346,7 @@ extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, 
 extern void start_decl_1			(tree, bool);
 extern bool check_array_initializer		(tree, tree, tree);
 extern void cp_finish_decl			(tree, tree, bool, tree, int);
-extern void finish_decl				(tree, tree, tree);
+extern void finish_decl				(tree, tree, tree, tree);
 extern int cp_complete_array_type		(tree *, tree, bool);
 extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type			(tree, tree);
@@ -4455,6 +4462,7 @@ extern const char *class_key_or_enum_as_string	(tree);
 extern void print_instantiation_context		(void);
 extern void maybe_warn_variadic_templates       (void);
 extern void maybe_warn_cpp0x			(const char *);
+extern bool pedwarn_cxx98                       (location_t, int, const char *, ...) ATTRIBUTE_GCC_CXXDIAG(3,4);
 
 /* in except.c */
 extern void init_exception_processing		(void);
@@ -5006,7 +5014,6 @@ extern tree convert_member_func_to_ptr		(tree, tree);
 extern tree convert_ptrmem			(tree, tree, bool, bool);
 extern int lvalue_or_else			(tree, enum lvalue_use,
                                                  tsubst_flags_t);
-extern int lvalue_p				(tree);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);
