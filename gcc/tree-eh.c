@@ -3044,7 +3044,7 @@ update_eh_edges (gimple stmt, basic_block bb_to_remove, edge edge_to_remove)
   /* And remove edges we didn't marked. */
   for (ei = ei_start (info.bb->succs); (e = ei_safe_edge (ei)); )
     {
-      if ((e->flags & EDGE_EH) && !e->aux && e != edge_to_remove)
+      if ((e->flags & EDGE_EH) && !e->aux)
 	{
 	  dominance_info_invalidated = true;
 	  remove_edge (e);
@@ -3111,9 +3111,9 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 	else
 	  break;
       gcc_assert (found || removed_some);
-      FOR_EACH_EDGE (e, ei, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	if (!(e->flags & EDGE_EH))
-	  has_non_eh_preds = false;
+	  has_non_eh_preds = true;
 
       /* When block is empty EH cleanup, but it is reachable via non-EH code too,
          we can not remove the region it is resumed via, because doing so will
@@ -3137,7 +3137,8 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 	    }
 	  if (stmt_can_throw_internal (last_stmt (src)))
 	    update_eh_edges (last_stmt (src), bb, e);
-	  remove_edge (e);
+	  else
+	    remove_edge (e);
 	}
 
       /* Verify that we eliminated all uses of PHI we are going to remove.

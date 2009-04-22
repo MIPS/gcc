@@ -1,3 +1,8 @@
+2009-04-22  Jan Hubicka  <jh@suse.cz>
+
+	* tree-eh.c (update_eh-edges): Handle removing of edge here.
+	(cleanup_empty_eh): Fix has_non_eh_preds handling.
+
 2009-04-18  Jan Hubicka  <jh@suse.cz>
 
 	* tree-eh.c (tree_empty_eh_handler_p): Allow EH handlers with non-EH edges
