@@ -914,6 +914,11 @@ static rtx rs6000_expand_binop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_ternop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void altivec_init_builtins (void);
+static unsigned builtin_hash_function (const void *);
+static int builtin_hash_eq (const void *, const void *);
+static tree builtin_function_type (enum machine_mode, enum machine_mode,
+				   enum machine_mode, enum machine_mode,
+				   const char *name);
 static void rs6000_common_init_builtins (void);
 static void rs6000_init_libfuncs (void);
 
@@ -1030,6 +1035,16 @@ struct toc_hash_struct GTY(())
 };
 
 static GTY ((param_is (struct toc_hash_struct))) htab_t toc_hash_table;
+
+/* Hash table to keep track of the argument types for builtin functions.  */
+
+struct builtin_hash_struct GTY(())
+{
+  tree type;
+  enum machine_mode mode[4];	/* return value + 3 arguments */
+};
+
+static GTY ((param_is (struct builtin_hash_struct))) htab_t builtin_hash_table;
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -1356,7 +1371,7 @@ rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
   unsigned HOST_WIDE_INT reg_size;
 
   if (FP_REGNO_P (regno))
-    reg_size = (VECTOR_UNIT_VSX_P (mode)
+    reg_size = (VECTOR_MEM_VSX_P (mode)
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -1438,7 +1453,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 
   /* AltiVec only in AldyVec registers.  */
   if (ALTIVEC_REGNO_P (regno))
-    return VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode);
+    return VECTOR_MEM_ALTIVEC_OR_VSX_P (mode);
 
   /* ...but GPRs can hold SIMD data on the SPE in one register.  */
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
@@ -1599,10 +1614,8 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_vector_reload[m][1] = CODE_FOR_nothing;
     }
 
-  /* TODO, add TI/V2DI mode for moving data if Altivec or VSX.  */
-
   /* V2DF mode, VSX only.  */
-  if (float_p && TARGET_VSX && TARGET_VSX_VECTOR_DOUBLE)
+  if (float_p && TARGET_VSX)
     {
       rs6000_vector_unit[V2DFmode] = VECTOR_VSX;
       rs6000_vector_mem[V2DFmode] = VECTOR_VSX;
@@ -1610,17 +1623,11 @@ rs6000_init_hard_regno_mode_ok (void)
     }
 
   /* V4SF mode, either VSX or Altivec.  */
-  if (float_p && TARGET_VSX && TARGET_VSX_VECTOR_FLOAT)
+  if (float_p && TARGET_VSX)
     {
       rs6000_vector_unit[V4SFmode] = VECTOR_VSX;
-      if (TARGET_VSX_VECTOR_MEMORY || !TARGET_ALTIVEC)
-	{
-	  rs6000_vector_align[V4SFmode] = 32;
-	  rs6000_vector_mem[V4SFmode] = VECTOR_VSX;
-	} else {
-	  rs6000_vector_align[V4SFmode] = 128;
-	  rs6000_vector_mem[V4SFmode] = VECTOR_ALTIVEC;
-      }
+      rs6000_vector_align[V4SFmode] = 32;
+      rs6000_vector_mem[V4SFmode] = VECTOR_VSX;
     }
   else if (float_p && TARGET_ALTIVEC)
     {
@@ -1641,7 +1648,7 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_vector_reg_class[V8HImode] = ALTIVEC_REGS;
       rs6000_vector_reg_class[V4SImode] = ALTIVEC_REGS;
 
-      if (TARGET_VSX && TARGET_VSX_VECTOR_MEMORY)
+      if (TARGET_VSX)
 	{
 	  rs6000_vector_mem[V4SImode] = VECTOR_VSX;
 	  rs6000_vector_mem[V8HImode] = VECTOR_VSX;
@@ -1661,6 +1668,23 @@ rs6000_init_hard_regno_mode_ok (void)
 	}
     }
 
+  /* V2DImode, prefer vsx over altivec, since the main use will be for
+     vectorized floating point conversions.  */
+  if (float_p && TARGET_VSX)
+    {
+      rs6000_vector_mem[V2DImode] = VECTOR_VSX;
+      rs6000_vector_unit[V2DImode] = VECTOR_NONE;
+      rs6000_vector_reg_class[V2DImode] = vsx_rc;
+      rs6000_vector_align[V2DImode] = 64;
+    }
+  else if (TARGET_ALTIVEC)
+    {
+      rs6000_vector_mem[V2DImode] = VECTOR_ALTIVEC;
+      rs6000_vector_unit[V2DImode] = VECTOR_NONE;
+      rs6000_vector_reg_class[V2DImode] = ALTIVEC_REGS;
+      rs6000_vector_align[V2DImode] = 128;
+    }
+
   /* DFmode, see if we want to use the VSX unit.  */
   if (float_p && TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
     {
@@ -1670,16 +1694,30 @@ rs6000_init_hard_regno_mode_ok (void)
 	= (TARGET_VSX_SCALAR_MEMORY ? VECTOR_VSX : VECTOR_NONE);
     }
 
-  /* TODO, add SPE and paired floating point vector support.  */
+  /* TImode.  Until this is debugged, only add it under switch control.  */
+  if (TARGET_ALLOW_TIMODE)
+    {
+      if (float_p && TARGET_VSX)
+	{
+	  rs6000_vector_mem[TImode] = VECTOR_VSX;
+	  rs6000_vector_unit[TImode] = VECTOR_NONE;
+	  rs6000_vector_reg_class[TImode] = vsx_rc;
+	  rs6000_vector_align[TImode] = 64;
+	}
+      else if (TARGET_ALTIVEC)
+	{
+	  rs6000_vector_mem[TImode] = VECTOR_ALTIVEC;
+	  rs6000_vector_unit[TImode] = VECTOR_NONE;
+	  rs6000_vector_reg_class[TImode] = ALTIVEC_REGS;
+	  rs6000_vector_align[TImode] = 128;
+	}
+    }
+
+  /* TODO add SPE and paired floating point vector support.  */
 
   /* Set the VSX register classes.  */
-
-  /* For V4SF, prefer the Altivec registers, because there are a few operations
-     that want to use Altivec operations instead of VSX.  */
   rs6000_vector_reg_class[V4SFmode]
-    = ((VECTOR_UNIT_VSX_P (V4SFmode)
-	&& VECTOR_MEM_VSX_P (V4SFmode)
-	&& !TARGET_V4SF_ALTIVEC_REGS)
+    = ((VECTOR_UNIT_VSX_P (V4SFmode) && VECTOR_MEM_VSX_P (V4SFmode))
        ? vsx_rc
        : (VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)
 	  ? ALTIVEC_REGS
@@ -1698,7 +1736,7 @@ rs6000_init_hard_regno_mode_ok (void)
   rs6000_vsx_reg_class = (float_p && TARGET_VSX) ? vsx_rc : NO_REGS;
 
   /* Set up the reload helper functions.  */
-  if (TARGET_RELOAD_FUNCTIONS && (TARGET_VSX || TARGET_ALTIVEC))
+  if (TARGET_VSX || TARGET_ALTIVEC)
     {
       if (TARGET_64BIT)
 	{
@@ -1714,6 +1752,11 @@ rs6000_init_hard_regno_mode_ok (void)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_di_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_di_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_di_load;
+	  if (TARGET_ALLOW_TIMODE)
+	    {
+	      rs6000_vector_reload[TImode][0] = CODE_FOR_reload_ti_di_store;
+	      rs6000_vector_reload[TImode][1] = CODE_FOR_reload_ti_di_load;
+	    }
 	}
       else
 	{
@@ -1729,6 +1772,11 @@ rs6000_init_hard_regno_mode_ok (void)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_si_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_si_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_si_load;
+	  if (TARGET_ALLOW_TIMODE)
+	    {
+	      rs6000_vector_reload[TImode][0] = CODE_FOR_reload_ti_si_store;
+	      rs6000_vector_reload[TImode][1] = CODE_FOR_reload_ti_si_load;
+	    }
 	}
     }
 
@@ -2573,8 +2621,8 @@ rs6000_builtin_conversion (enum tree_code code, tree type)
 	    return NULL_TREE;
 
 	  return TYPE_UNSIGNED (type)
-	    ? rs6000_builtin_decls[VSX_BUILTIN_XVCVUXDSP]
-	    : rs6000_builtin_decls[VSX_BUILTIN_XVCVSXDSP];
+	    ? rs6000_builtin_decls[VSX_BUILTIN_XVCVUXDDP]
+	    : rs6000_builtin_decls[VSX_BUILTIN_XVCVSXDDP];
 
 	case V4SImode:
 	  if (VECTOR_UNIT_NONE_P (V4SImode) || VECTOR_UNIT_NONE_P (V4SFmode))
@@ -2668,6 +2716,48 @@ rs6000_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_pac
       /* Assuming that all other types are naturally aligned. CHECKME!  */
       return true;
     }
+}
+
+/* Implement targetm.vectorize.builtin_vec_perm.  */
+tree
+rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
+{
+  tree d;
+
+  *mask_element_type = unsigned_char_type_node;
+
+  switch (TYPE_MODE (type))
+    {
+    case V16QImode:
+      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI];
+      break;
+
+    case V8HImode:
+      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI];
+      break;
+
+    case V4SImode:
+      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI];
+      break;
+
+    case V4SFmode:
+      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SF];
+      break;
+
+    case V2DFmode:
+      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DF];
+      break;
+
+    case V2DImode:
+      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI];
+      break;
+
+    default:
+      return NULL_TREE;
+    }
+
+  gcc_assert (d);
+  return d;
 }
 
 /* Handle generic options of the form -mfoo=yes/no.
@@ -3735,15 +3825,28 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	}
     }
 
-  if (mode == V2DFmode)
+  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
     {
-      gcc_assert (TARGET_VSX);
-      if (all_same)
-	emit_insn (gen_vsx_splatv2df (target, XVECEXP (vals, 0, 0)));
+      rtx (*splat) (rtx, rtx);
+      rtx (*concat) (rtx, rtx, rtx);
+
+      if (mode == V2DFmode)
+	{
+	  splat = gen_vsx_splatv2df;
+	  concat = gen_vsx_concat_v2df;
+	}
       else
-	emit_insn (gen_vsx_concat_v2df (target,
-					copy_to_reg (XVECEXP (vals, 0, 0)),
-					copy_to_reg (XVECEXP (vals, 0, 1))));
+	{
+	  splat = gen_vsx_splatv2di;
+	  concat = gen_vsx_concat_v2di;
+	}
+
+      if (all_same)
+	emit_insn (splat (target, XVECEXP (vals, 0, 0)));
+      else
+	emit_insn (concat (target,
+			   copy_to_reg (XVECEXP (vals, 0, 0)),
+			   copy_to_reg (XVECEXP (vals, 0, 1))));
       return;
     }
 
@@ -3812,6 +3915,12 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
       emit_insn (gen_vsx_set_v2df (target, val, target, GEN_INT (elt)));
       return;
     }
+  else if (mode == V2DImode)
+    {
+      gcc_assert (TARGET_VSX);
+      emit_insn (gen_vsx_set_v2di (target, val, target, GEN_INT (elt)));
+      return;
+    }
 
   /* Load single variable value.  */
   mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode), 0);
@@ -3854,6 +3963,12 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
     {
       gcc_assert (TARGET_VSX);
       emit_insn (gen_vsx_extract_v2df (target, vec, GEN_INT (elt)));
+      return;
+    }
+  else if (mode == V2DImode)
+    {
+      gcc_assert (TARGET_VSX);
+      emit_insn (gen_vsx_extract_v2di (target, vec, GEN_INT (elt)));
       return;
     }
 
@@ -4273,9 +4388,7 @@ avoiding_indexed_address_p (enum machine_mode mode)
 {
   /* Avoid indexed addressing for modes that have non-indexed
      load/store instruction forms.  */
-  return (TARGET_AVOID_XFORM
-	  && (!TARGET_ALTIVEC || !ALTIVEC_VECTOR_MODE (mode))
-	  && (!TARGET_VSX || !VSX_VECTOR_MODE (mode)));
+  return (TARGET_AVOID_XFORM && VECTOR_MEM_NONE_P (mode));
 }
 
 inline bool
@@ -4377,6 +4490,16 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	ret = rs6000_legitimize_tls_address (x, model);
     }
 
+  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
+    {
+      /* Make sure both operands are registers.  */
+      if (GET_CODE (x) == PLUS)
+	ret = gen_rtx_PLUS (Pmode,
+			    force_reg (Pmode, XEXP (x, 0)),
+			    force_reg (Pmode, XEXP (x, 1)));
+      else
+	ret = force_reg (Pmode, x);
+    }
   else if (GET_CODE (x) == PLUS
 	   && GET_CODE (XEXP (x, 0)) == REG
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT
@@ -4386,8 +4509,6 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 		 && (mode == DImode || mode == TImode)
 		 && (INTVAL (XEXP (x, 1)) & 3) != 0)
 		|| (TARGET_SPE && SPE_VECTOR_MODE (mode))
-		|| (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))
-		|| (TARGET_VSX && VSX_VECTOR_MODE (mode))
 		|| (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
 					   || mode == DImode || mode == DDmode
 					   || mode == TDmode))))
@@ -4416,15 +4537,6 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     {
       ret = gen_rtx_PLUS (Pmode, XEXP (x, 0),
 			  force_reg (Pmode, force_operand (XEXP (x, 1), 0)));
-    }
-  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
-    {
-      /* Make sure both operands are registers.  */
-      if (GET_CODE (x) == PLUS)
-	ret = gen_rtx_PLUS (Pmode, force_reg (Pmode, XEXP (x, 0)),
-			    force_reg (Pmode, XEXP (x, 1)));
-      else
-	ret = force_reg (Pmode, x);
     }
   else if ((TARGET_SPE && SPE_VECTOR_MODE (mode))
 	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
@@ -5063,7 +5175,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
     ret = 1;
   else if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict))
     ret = 1;
-  else if (mode != TImode
+  else if ((mode != TImode || !VECTOR_MEM_NONE_P (TImode))
 	   && mode != TFmode
 	   && mode != TDmode
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
@@ -5903,7 +6015,13 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
     case TImode:
       if (VECTOR_MEM_ALTIVEC_OR_VSX_P (TImode))
-	break;
+	{
+	  if (CONSTANT_P (operands[1])
+	      && !easy_vector_constant (operands[1], mode))
+	    operands[1] = force_const_mem (mode, operands[1]);
+
+	  break;
+	}
 
       rs6000_eliminate_indexed_memrefs (operands);
 
@@ -7824,7 +7942,8 @@ def_builtin (int mask, const char *name, tree type, int code)
   if ((mask & target_flags) || TARGET_PAIRED_FLOAT)
     {
       if (rs6000_builtin_decls[code])
-	abort ();
+	fatal_error ("internal error: builtin function to %s already processed.",
+		     name);
 
       rs6000_builtin_decls[code] =
         add_builtin_function (name, type, code, BUILT_IN_MD,
@@ -8463,6 +8582,31 @@ static struct builtin_description bdesc_1arg[] =
   { MASK_VSX, CODE_FOR_vsx_tsqrtv4sf2, "__builtin_vsx_xvtsqrtsp", VSX_BUILTIN_XVTSQRTSP },
   { MASK_VSX, CODE_FOR_vsx_frev4sf2, "__builtin_vsx_xvresp", VSX_BUILTIN_XVRESP },
 
+  { MASK_VSX, CODE_FOR_vsx_xscvdpsp, "__builtin_vsx_xscvdpsp", VSX_BUILTIN_XSCVDPSP },
+  { MASK_VSX, CODE_FOR_vsx_xscvdpsp, "__builtin_vsx_xscvspdp", VSX_BUILTIN_XSCVSPDP },
+  { MASK_VSX, CODE_FOR_vsx_xvcvdpsp, "__builtin_vsx_xvcvdpsp", VSX_BUILTIN_XVCVDPSP },
+  { MASK_VSX, CODE_FOR_vsx_xvcvspdp, "__builtin_vsx_xvcvspdp", VSX_BUILTIN_XVCVSPDP },
+
+  { MASK_VSX, CODE_FOR_vsx_fix_truncv2dfv2di2, "__builtin_vsx_xvcvdpsxds", VSX_BUILTIN_XVCVDPSXDS },
+  { MASK_VSX, CODE_FOR_vsx_fixuns_truncv2dfv2di2, "__builtin_vsx_xvcvdpuxds", VSX_BUILTIN_XVCVDPUXDS },
+  { MASK_VSX, CODE_FOR_vsx_floatv2div2df2, "__builtin_vsx_xvcvsxddp", VSX_BUILTIN_XVCVSXDDP },
+  { MASK_VSX, CODE_FOR_vsx_floatunsv2div2df2, "__builtin_vsx_xvcvuxddp", VSX_BUILTIN_XVCVUXDDP },
+
+  { MASK_VSX, CODE_FOR_vsx_fix_truncv4sfv4si2, "__builtin_vsx_xvcvspsxws", VSX_BUILTIN_XVCVSPSXWS },
+  { MASK_VSX, CODE_FOR_vsx_fixuns_truncv4sfv4si2, "__builtin_vsx_xvcvspuxws", VSX_BUILTIN_XVCVSPUXWS },
+  { MASK_VSX, CODE_FOR_vsx_floatv4siv4sf2, "__builtin_vsx_xvcvsxwsp", VSX_BUILTIN_XVCVSXWSP },
+  { MASK_VSX, CODE_FOR_vsx_floatunsv4siv4sf2, "__builtin_vsx_xvcvuxwsp", VSX_BUILTIN_XVCVUXWSP },
+
+  { MASK_VSX, CODE_FOR_vsx_xvcvdpsxws, "__builtin_vsx_xvcvdpsxws", VSX_BUILTIN_XVCVDPSXWS },
+  { MASK_VSX, CODE_FOR_vsx_xvcvdpuxws, "__builtin_vsx_xvcvdpuxws", VSX_BUILTIN_XVCVDPUXWS },
+  { MASK_VSX, CODE_FOR_vsx_xvcvsxwdp, "__builtin_vsx_xvcvsxwdp", VSX_BUILTIN_XVCVSXWDP },
+  { MASK_VSX, CODE_FOR_vsx_xvcvuxwdp, "__builtin_vsx_xvcvuxwdp", VSX_BUILTIN_XVCVUXWDP },
+
+  { MASK_VSX, CODE_FOR_vsx_xvcvspsxds, "__builtin_vsx_xvcvspsxds", VSX_BUILTIN_XVCVSPSXDS },
+  { MASK_VSX, CODE_FOR_vsx_xvcvspuxds, "__builtin_vsx_xvcvspuxds", VSX_BUILTIN_XVCVSPUXDS },
+  { MASK_VSX, CODE_FOR_vsx_xvcvsxdsp, "__builtin_vsx_xvcvsxdsp", VSX_BUILTIN_XVCVSXDSP },
+  { MASK_VSX, CODE_FOR_vsx_xvcvuxdsp, "__builtin_vsx_xvcvuxdsp", VSX_BUILTIN_XVCVUXDSP },
+
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_abs", ALTIVEC_BUILTIN_VEC_ABS },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_abss", ALTIVEC_BUILTIN_VEC_ABSS },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_ceil", ALTIVEC_BUILTIN_VEC_CEIL },
@@ -8487,15 +8631,6 @@ static struct builtin_description bdesc_1arg[] =
   { MASK_ALTIVEC|MASK_VSX, CODE_FOR_unsigned_floatv4siv4sf2, "__builtin_vec_uns_float_sisf", VECTOR_BUILTIN_UNSFLOAT_V4SI_V4SF },
   { MASK_ALTIVEC|MASK_VSX, CODE_FOR_fix_truncv4sfv4si2, "__builtin_vec_fix_sfsi", VECTOR_BUILTIN_FIX_V4SF_V4SI },
   { MASK_ALTIVEC|MASK_VSX, CODE_FOR_fixuns_truncv4sfv4si2, "__builtin_vec_fixuns_sfsi", VECTOR_BUILTIN_FIXUNS_V4SF_V4SI },
-
-  { MASK_VSX, CODE_FOR_floatv2div2df2, "__builtin_vsx_xvcvsxddp", VSX_BUILTIN_XVCVSXDDP },
-  { MASK_VSX, CODE_FOR_unsigned_floatv2div2df2, "__builtin_vsx_xvcvuxddp", VSX_BUILTIN_XVCVUXDDP },
-  { MASK_VSX, CODE_FOR_fix_truncv2dfv2di2, "__builtin_vsx_xvdpsxds", VSX_BUILTIN_XVCVDPSXDS },
-  { MASK_VSX, CODE_FOR_fixuns_truncv2dfv2di2, "__builtin_vsx_xvdpuxds", VSX_BUILTIN_XVCVDPUXDS },
-  { MASK_VSX, CODE_FOR_floatv4siv4sf2, "__builtin_vsx_xvcvsxwsp", VSX_BUILTIN_XVCVSXDSP },
-  { MASK_VSX, CODE_FOR_unsigned_floatv4siv4sf2, "__builtin_vsx_xvcvuxwsp", VSX_BUILTIN_XVCVUXWSP },
-  { MASK_VSX, CODE_FOR_fix_truncv4sfv4si2, "__builtin_vsx_xvspsxws", VSX_BUILTIN_XVCVSPSXWS },
-  { MASK_VSX, CODE_FOR_fixuns_truncv4sfv4si2, "__builtin_vsx_xvspuxws", VSX_BUILTIN_XVCVSPUXWS },
 
   /* The SPE unary builtins must start with SPE_BUILTIN_EVABS and
      end with SPE_BUILTIN_EVSUBFUSIAAW.  */
@@ -10937,592 +11072,296 @@ altivec_init_builtins (void)
 	       ALTIVEC_BUILTIN_VEC_EXT_V4SF);
 }
 
+/* Hash function for builtin functions with up to 3 arguments and a return
+   type.  */
+static unsigned
+builtin_hash_function (const void *hash_entry)
+{
+  unsigned ret = 0;
+  int i;
+  const struct builtin_hash_struct *bh =
+    (const struct builtin_hash_struct *) hash_entry;
+
+  for (i = 0; i < 4; i++)
+    ret = (ret * (unsigned)MAX_MACHINE_MODE) + ((unsigned)bh->mode[i]);
+
+  return ret;
+}
+
+/* Compare builtin hash entries H1 and H2 for equivalence.  */
+static int
+builtin_hash_eq (const void *h1, const void *h2)
+{
+  const struct builtin_hash_struct *p1 = (const struct builtin_hash_struct *) h1;
+  const struct builtin_hash_struct *p2 = (const struct builtin_hash_struct *) h2;
+
+  return ((p1->mode[0] == p2->mode[0])
+	  && (p1->mode[1] == p2->mode[1])
+	  && (p1->mode[2] == p2->mode[2])
+	  && (p1->mode[3] == p2->mode[3]));
+}
+
+/* Map selected modes to types for builtins.  */
+static tree builtin_mode_to_type[MAX_MACHINE_MODE];
+
+/* Map types for builtin functions with an explicit return type and up to 3
+   arguments.  Functions with fewer than 3 arguments use VOIDmode as the type
+   of the argument.  */
+static tree
+builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
+		       enum machine_mode mode_arg1, enum machine_mode mode_arg2,
+		       const char *name)
+{
+  struct builtin_hash_struct h;
+  struct builtin_hash_struct *h2;
+  void **found;
+  int num_args = 3;
+  int i;
+
+  /* Create builtin_hash_table.  */
+  if (builtin_hash_table == NULL)
+    builtin_hash_table = htab_create_ggc (1500, builtin_hash_function,
+					  builtin_hash_eq, NULL);
+
+  h.type = NULL_TREE;
+  h.mode[0] = mode_ret;
+  h.mode[1] = mode_arg0;
+  h.mode[2] = mode_arg1;
+  h.mode[3] = mode_arg2;
+
+  /* Figure out how many args are present.  */
+  while (num_args > 0 && h.mode[num_args] == VOIDmode)
+    num_args--;
+
+  if (num_args == 0)
+    fatal_error ("internal error: builtin function %s had no type", name);
+
+  if (!builtin_mode_to_type[h.mode[0]])
+    fatal_error ("internal error: builtin function %s had an unexpected "
+		 "return type %s", name, GET_MODE_NAME (h.mode[0]));
+
+  for (i = 0; i < num_args; i++)
+    if (!builtin_mode_to_type[h.mode[i+1]])
+      fatal_error ("internal error: builtin function %s, argument %d "
+		   "had unexpected argument type %s", name, i,
+		   GET_MODE_NAME (h.mode[i+1]));
+
+  found = htab_find_slot (builtin_hash_table, &h, 1);
+  if (*found == NULL)
+    {
+      h2 = GGC_NEW (struct builtin_hash_struct);
+      *h2 = h;
+      *found = (void *)h2;
+
+      switch (num_args)
+	{
+	case 1:
+	  h2->type = build_function_type_list (builtin_mode_to_type[mode_ret],
+					       builtin_mode_to_type[mode_arg0],
+					       NULL_TREE);
+	  break;
+
+	case 2:
+	  h2->type = build_function_type_list (builtin_mode_to_type[mode_ret],
+					       builtin_mode_to_type[mode_arg0],
+					       builtin_mode_to_type[mode_arg1],
+					       NULL_TREE);
+	  break;
+
+	case 3:
+	  h2->type = build_function_type_list (builtin_mode_to_type[mode_ret],
+					       builtin_mode_to_type[mode_arg0],
+					       builtin_mode_to_type[mode_arg1],
+					       builtin_mode_to_type[mode_arg2],
+					       NULL_TREE);
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  return ((struct builtin_hash_struct *)(*found))->type;
+}
+
 static void
 rs6000_common_init_builtins (void)
 {
   const struct builtin_description *d;
   size_t i;
 
-  tree v2sf_ftype_v2sf_v2sf_v2sf
-    = build_function_type_list (V2SF_type_node,
-                                V2SF_type_node, V2SF_type_node,
-                                V2SF_type_node, NULL_TREE);
+  tree opaque_ftype_opaque = NULL_TREE;
+  tree opaque_ftype_opaque_opaque = NULL_TREE;
+  tree opaque_ftype_opaque_opaque_opaque = NULL_TREE;
+  tree v2si_ftype_qi = NULL_TREE;
+  tree v2si_ftype_v2si_qi = NULL_TREE;
+  tree v2si_ftype_int_qi = NULL_TREE;
 
-  tree v4sf_ftype_v4sf_v4sf_v16qi
-    = build_function_type_list (V4SF_type_node,
-				V4SF_type_node, V4SF_type_node,
-				V16QI_type_node, NULL_TREE);
-  tree v4si_ftype_v4si_v4si_v16qi
-    = build_function_type_list (V4SI_type_node,
-				V4SI_type_node, V4SI_type_node,
-				V16QI_type_node, NULL_TREE);
-  tree v8hi_ftype_v8hi_v8hi_v16qi
-    = build_function_type_list (V8HI_type_node,
-				V8HI_type_node, V8HI_type_node,
-				V16QI_type_node, NULL_TREE);
-  tree v16qi_ftype_v16qi_v16qi_v16qi
-    = build_function_type_list (V16QI_type_node,
-				V16QI_type_node, V16QI_type_node,
-				V16QI_type_node, NULL_TREE);
-  tree v4si_ftype_int
-    = build_function_type_list (V4SI_type_node, integer_type_node, NULL_TREE);
-  tree v8hi_ftype_int
-    = build_function_type_list (V8HI_type_node, integer_type_node, NULL_TREE);
-  tree v16qi_ftype_int
-    = build_function_type_list (V16QI_type_node, integer_type_node, NULL_TREE);
-  tree v8hi_ftype_v16qi
-    = build_function_type_list (V8HI_type_node, V16QI_type_node, NULL_TREE);
-  tree v4sf_ftype_v4sf
-    = build_function_type_list (V4SF_type_node, V4SF_type_node, NULL_TREE);
+  /* Initialize the tables for the unary, binary, and ternary ops.  */
+  builtin_mode_to_type[QImode] = integer_type_node;
+  builtin_mode_to_type[HImode] = integer_type_node;
+  builtin_mode_to_type[SImode] = intSI_type_node;
+  builtin_mode_to_type[DImode] = intDI_type_node;
+  builtin_mode_to_type[SFmode] = float_type_node;
+  builtin_mode_to_type[DFmode] = double_type_node;
+  builtin_mode_to_type[V2SImode] = V2SI_type_node;
+  builtin_mode_to_type[V2SFmode] = V2SF_type_node;
+  builtin_mode_to_type[V2DImode] = V2DI_type_node;
+  builtin_mode_to_type[V2DFmode] = V2DF_type_node;
+  builtin_mode_to_type[V4HImode] = V4HI_type_node;
+  builtin_mode_to_type[V4SImode] = V4SI_type_node;
+  builtin_mode_to_type[V4SFmode] = V4SF_type_node;
+  builtin_mode_to_type[V8HImode] = V8HI_type_node;
+  builtin_mode_to_type[V16QImode] = V16QI_type_node;
 
-  tree v2si_ftype_v2si_v2si
-    = build_function_type_list (opaque_V2SI_type_node,
-				opaque_V2SI_type_node,
-				opaque_V2SI_type_node, NULL_TREE);
+  if (!TARGET_PAIRED_FLOAT)
+    {
+      builtin_mode_to_type[V2SImode] = opaque_V2SI_type_node;
+      builtin_mode_to_type[V2SFmode] = opaque_V2SF_type_node;
+    }
 
-  tree v2sf_ftype_v2sf_v2sf_spe
-    = build_function_type_list (opaque_V2SF_type_node,
-				opaque_V2SF_type_node,
-				opaque_V2SF_type_node, NULL_TREE);
-
-  tree v2sf_ftype_v2sf_v2sf
-    = build_function_type_list (V2SF_type_node,
-                                V2SF_type_node,
-                                V2SF_type_node, NULL_TREE);
-
-
-  tree v2si_ftype_int_int
-    = build_function_type_list (opaque_V2SI_type_node,
-				integer_type_node, integer_type_node,
-				NULL_TREE);
-
-  tree opaque_ftype_opaque
-    = build_function_type_list (opaque_V4SI_type_node,
-				opaque_V4SI_type_node, NULL_TREE);
-
-  tree v2si_ftype_v2si
-    = build_function_type_list (opaque_V2SI_type_node,
-				opaque_V2SI_type_node, NULL_TREE);
-
-  tree v2sf_ftype_v2sf_spe
-    = build_function_type_list (opaque_V2SF_type_node,
-				opaque_V2SF_type_node, NULL_TREE);
-
-  tree v2sf_ftype_v2sf
-    = build_function_type_list (V2SF_type_node,
-                                V2SF_type_node, NULL_TREE);
-
-  tree v2sf_ftype_v2si
-    = build_function_type_list (opaque_V2SF_type_node,
-				opaque_V2SI_type_node, NULL_TREE);
-
-  tree v2si_ftype_v2sf
-    = build_function_type_list (opaque_V2SI_type_node,
-				opaque_V2SF_type_node, NULL_TREE);
-
-  tree v2si_ftype_v2si_char
-    = build_function_type_list (opaque_V2SI_type_node,
-				opaque_V2SI_type_node,
-				char_type_node, NULL_TREE);
-
-  tree v2si_ftype_int_char
-    = build_function_type_list (opaque_V2SI_type_node,
-				integer_type_node, char_type_node, NULL_TREE);
-
-  tree v2si_ftype_char
-    = build_function_type_list (opaque_V2SI_type_node,
-				char_type_node, NULL_TREE);
-
-  tree int_ftype_int_int
-    = build_function_type_list (integer_type_node,
-				integer_type_node, integer_type_node,
-				NULL_TREE);
-
-  tree opaque_ftype_opaque_opaque
-    = build_function_type_list (opaque_V4SI_type_node,
-                                opaque_V4SI_type_node, opaque_V4SI_type_node, NULL_TREE);
-  tree v4si_ftype_v4si_v4si
-    = build_function_type_list (V4SI_type_node,
-				V4SI_type_node, V4SI_type_node, NULL_TREE);
-  tree v4sf_ftype_v4si_int
-    = build_function_type_list (V4SF_type_node,
-				V4SI_type_node, integer_type_node, NULL_TREE);
-  tree v4si_ftype_v4sf_int
-    = build_function_type_list (V4SI_type_node,
-				V4SF_type_node, integer_type_node, NULL_TREE);
-  tree v4si_ftype_v4si_int
-    = build_function_type_list (V4SI_type_node,
-				V4SI_type_node, integer_type_node, NULL_TREE);
-  tree v8hi_ftype_v8hi_int
-    = build_function_type_list (V8HI_type_node,
-				V8HI_type_node, integer_type_node, NULL_TREE);
-  tree v16qi_ftype_v16qi_int
-    = build_function_type_list (V16QI_type_node,
-				V16QI_type_node, integer_type_node, NULL_TREE);
-  tree v16qi_ftype_v16qi_v16qi_int
-    = build_function_type_list (V16QI_type_node,
-				V16QI_type_node, V16QI_type_node,
-				integer_type_node, NULL_TREE);
-  tree v8hi_ftype_v8hi_v8hi_int
-    = build_function_type_list (V8HI_type_node,
-				V8HI_type_node, V8HI_type_node,
-				integer_type_node, NULL_TREE);
-  tree v4si_ftype_v4si_v4si_int
-    = build_function_type_list (V4SI_type_node,
-				V4SI_type_node, V4SI_type_node,
-				integer_type_node, NULL_TREE);
-  tree v4sf_ftype_v4sf_v4sf_int
-    = build_function_type_list (V4SF_type_node,
-				V4SF_type_node, V4SF_type_node,
-				integer_type_node, NULL_TREE);
-  tree v4sf_ftype_v4sf_v4sf
-    = build_function_type_list (V4SF_type_node,
-				V4SF_type_node, V4SF_type_node, NULL_TREE);
-  tree opaque_ftype_opaque_opaque_opaque
-    = build_function_type_list (opaque_V4SI_type_node,
-                                opaque_V4SI_type_node, opaque_V4SI_type_node,
-                                opaque_V4SI_type_node, NULL_TREE);
-  tree v4sf_ftype_v4sf_v4sf_v4si
-    = build_function_type_list (V4SF_type_node,
-				V4SF_type_node, V4SF_type_node,
-				V4SI_type_node, NULL_TREE);
-  tree v4sf_ftype_v4sf_v4sf_v4sf
-    = build_function_type_list (V4SF_type_node,
-				V4SF_type_node, V4SF_type_node,
-				V4SF_type_node, NULL_TREE);
-  tree v4si_ftype_v4si_v4si_v4si
-    = build_function_type_list (V4SI_type_node,
-				V4SI_type_node, V4SI_type_node,
-				V4SI_type_node, NULL_TREE);
-  tree v8hi_ftype_v8hi_v8hi
-    = build_function_type_list (V8HI_type_node,
-				V8HI_type_node, V8HI_type_node, NULL_TREE);
-  tree v8hi_ftype_v8hi_v8hi_v8hi
-    = build_function_type_list (V8HI_type_node,
-				V8HI_type_node, V8HI_type_node,
-				V8HI_type_node, NULL_TREE);
-  tree v4si_ftype_v8hi_v8hi_v4si
-    = build_function_type_list (V4SI_type_node,
-				V8HI_type_node, V8HI_type_node,
-				V4SI_type_node, NULL_TREE);
-  tree v4si_ftype_v16qi_v16qi_v4si
-    = build_function_type_list (V4SI_type_node,
-				V16QI_type_node, V16QI_type_node,
-				V4SI_type_node, NULL_TREE);
-  tree v16qi_ftype_v16qi_v16qi
-    = build_function_type_list (V16QI_type_node,
-				V16QI_type_node, V16QI_type_node, NULL_TREE);
-  tree v4si_ftype_v4sf_v4sf
-    = build_function_type_list (V4SI_type_node,
-				V4SF_type_node, V4SF_type_node, NULL_TREE);
-  tree v8hi_ftype_v16qi_v16qi
-    = build_function_type_list (V8HI_type_node,
-				V16QI_type_node, V16QI_type_node, NULL_TREE);
-  tree v4si_ftype_v8hi_v8hi
-    = build_function_type_list (V4SI_type_node,
-				V8HI_type_node, V8HI_type_node, NULL_TREE);
-  tree v8hi_ftype_v4si_v4si
-    = build_function_type_list (V8HI_type_node,
-				V4SI_type_node, V4SI_type_node, NULL_TREE);
-  tree v16qi_ftype_v8hi_v8hi
-    = build_function_type_list (V16QI_type_node,
-				V8HI_type_node, V8HI_type_node, NULL_TREE);
-  tree v4si_ftype_v16qi_v4si
-    = build_function_type_list (V4SI_type_node,
-				V16QI_type_node, V4SI_type_node, NULL_TREE);
-  tree v4si_ftype_v16qi_v16qi
-    = build_function_type_list (V4SI_type_node,
-				V16QI_type_node, V16QI_type_node, NULL_TREE);
-  tree v4si_ftype_v8hi_v4si
-    = build_function_type_list (V4SI_type_node,
-				V8HI_type_node, V4SI_type_node, NULL_TREE);
-  tree v4si_ftype_v8hi
-    = build_function_type_list (V4SI_type_node, V8HI_type_node, NULL_TREE);
-  tree int_ftype_v4si_v4si
-    = build_function_type_list (integer_type_node,
-				V4SI_type_node, V4SI_type_node, NULL_TREE);
-  tree int_ftype_v4sf_v4sf
-    = build_function_type_list (integer_type_node,
-				V4SF_type_node, V4SF_type_node, NULL_TREE);
-  tree int_ftype_v16qi_v16qi
-    = build_function_type_list (integer_type_node,
-				V16QI_type_node, V16QI_type_node, NULL_TREE);
-  tree int_ftype_v8hi_v8hi
-    = build_function_type_list (integer_type_node,
-				V8HI_type_node, V8HI_type_node, NULL_TREE);
-  tree v2di_ftype_v2df
-    = build_function_type_list (V2DI_type_node,
-				V2DF_type_node, NULL_TREE);
-  tree v2df_ftype_v2df
-    = build_function_type_list (V2DF_type_node,
-				V2DF_type_node, NULL_TREE);
-  tree v2df_ftype_v2di
-    = build_function_type_list (V2DF_type_node,
-				V2DI_type_node, NULL_TREE);
-  tree v2df_ftype_v2df_v2df
-    = build_function_type_list (V2DF_type_node,
-				V2DF_type_node, V2DF_type_node, NULL_TREE);
-  tree v2df_ftype_v2df_v2df_v2df
-    = build_function_type_list (V2DF_type_node,
-				V2DF_type_node, V2DF_type_node,
-				V2DF_type_node, NULL_TREE);
-  tree v2di_ftype_v2di_v2di_v2di
-    = build_function_type_list (V2DI_type_node,
-				V2DI_type_node, V2DI_type_node,
-				V2DI_type_node, NULL_TREE);
-  tree v2df_ftype_v2df_v2df_v16qi
-    = build_function_type_list (V2DF_type_node,
-				V2DF_type_node, V2DF_type_node,
-				V16QI_type_node, NULL_TREE);
-  tree v2di_ftype_v2di_v2di_v16qi
-    = build_function_type_list (V2DI_type_node,
-				V2DI_type_node, V2DI_type_node,
-				V16QI_type_node, NULL_TREE);
-  tree v4sf_ftype_v4si
-    = build_function_type_list (V4SF_type_node, V4SI_type_node, NULL_TREE);
-  tree v4si_ftype_v4sf
-    = build_function_type_list (V4SI_type_node, V4SF_type_node, NULL_TREE);
-
-  /* Add the simple ternary operators.  */
+  /* Add the ternary operators.  */
   d = bdesc_3arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_3arg); i++, d++)
     {
-      enum machine_mode mode0, mode1, mode2, mode3;
       tree type;
-      bool is_overloaded = d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-			   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST;
+      int mask = d->mask;
 
-      if (is_overloaded)
+      if ((mask != 0 && (mask & target_flags) == 0)
+	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
+	continue;
+
+      if (d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+	  && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
 	{
-          mode0 = VOIDmode;
-          mode1 = VOIDmode;
-          mode2 = VOIDmode;
-          mode3 = VOIDmode;
+	  if (! (type = opaque_ftype_opaque_opaque_opaque))
+	    type = opaque_ftype_opaque_opaque_opaque
+	      = build_function_type_list (opaque_V4SI_type_node,
+					  opaque_V4SI_type_node,
+					  opaque_V4SI_type_node,
+					  opaque_V4SI_type_node,
+					  NULL_TREE);
 	}
       else
 	{
-          if (d->name == 0 || d->icode == CODE_FOR_nothing)
+	  enum insn_code icode = d->icode;
+          if (d->name == 0 || icode == CODE_FOR_nothing)
 	    continue;
 
-          mode0 = insn_data[d->icode].operand[0].mode;
-          mode1 = insn_data[d->icode].operand[1].mode;
-          mode2 = insn_data[d->icode].operand[2].mode;
-          mode3 = insn_data[d->icode].operand[3].mode;
+	  type = builtin_function_type (insn_data[icode].operand[0].mode,
+					insn_data[icode].operand[1].mode,
+					insn_data[icode].operand[2].mode,
+					insn_data[icode].operand[3].mode,
+					d->name);
 	}
-
-      /* When all four are of the same mode.  */
-      if (mode0 == mode1 && mode1 == mode2 && mode2 == mode3)
-	{
-	  switch (mode0)
-	    {
-	    case VOIDmode:
-	      type = opaque_ftype_opaque_opaque_opaque;
-	      break;
-	    case V2DImode:
-	      type = v2di_ftype_v2di_v2di_v2di;
-	      break;
-	    case V2DFmode:
-	      type = v2df_ftype_v2df_v2df_v2df;
-	      break;
-	    case V4SImode:
-	      type = v4si_ftype_v4si_v4si_v4si;
-	      break;
-	    case V4SFmode:
-	      type = v4sf_ftype_v4sf_v4sf_v4sf;
-	      break;
-	    case V8HImode:
-	      type = v8hi_ftype_v8hi_v8hi_v8hi;
-	      break;
-	    case V16QImode:
-	      type = v16qi_ftype_v16qi_v16qi_v16qi;
-	      break;
-            case V2SFmode:
-                type = v2sf_ftype_v2sf_v2sf_v2sf;
-              break;
-	    default:
-	      gcc_unreachable ();
-	    }
-	}
-      else if (mode0 == mode1 && mode1 == mode2 && mode3 == V16QImode)
-	{
-	  switch (mode0)
-	    {
-	    case V2DImode:
-	      type = v2di_ftype_v2di_v2di_v16qi;
-	      break;
-	    case V2DFmode:
-	      type = v2df_ftype_v2df_v2df_v16qi;
-	      break;
-	    case V4SImode:
-	      type = v4si_ftype_v4si_v4si_v16qi;
-	      break;
-	    case V4SFmode:
-	      type = v4sf_ftype_v4sf_v4sf_v16qi;
-	      break;
-	    case V8HImode:
-	      type = v8hi_ftype_v8hi_v8hi_v16qi;
-	      break;
-	    case V16QImode:
-	      type = v16qi_ftype_v16qi_v16qi_v16qi;
-	      break;
-	    default:
-	      gcc_unreachable ();
-	    }
-	}
-      else if (mode0 == V4SImode && mode1 == V16QImode && mode2 == V16QImode
-	       && mode3 == V4SImode)
-	type = v4si_ftype_v16qi_v16qi_v4si;
-      else if (mode0 == V4SImode && mode1 == V8HImode && mode2 == V8HImode
-	       && mode3 == V4SImode)
-	type = v4si_ftype_v8hi_v8hi_v4si;
-      else if (mode0 == V4SFmode && mode1 == V4SFmode && mode2 == V4SFmode
-	       && mode3 == V4SImode)
-	type = v4sf_ftype_v4sf_v4sf_v4si;
-
-      /* vchar, vchar, vchar, 4-bit literal.  */
-      else if (mode0 == V16QImode && mode1 == mode0 && mode2 == mode0
-	       && mode3 == QImode)
-	type = v16qi_ftype_v16qi_v16qi_int;
-
-      /* vshort, vshort, vshort, 4-bit literal.  */
-      else if (mode0 == V8HImode && mode1 == mode0 && mode2 == mode0
-	       && mode3 == QImode)
-	type = v8hi_ftype_v8hi_v8hi_int;
-
-      /* vint, vint, vint, 4-bit literal.  */
-      else if (mode0 == V4SImode && mode1 == mode0 && mode2 == mode0
-	       && mode3 == QImode)
-	type = v4si_ftype_v4si_v4si_int;
-
-      /* vfloat, vfloat, vfloat, 4-bit literal.  */
-      else if (mode0 == V4SFmode && mode1 == mode0 && mode2 == mode0
-	       && mode3 == QImode)
-	type = v4sf_ftype_v4sf_v4sf_int;
-
-      else
-	gcc_unreachable ();
 
       def_builtin (d->mask, d->name, type, d->code);
     }
 
-  /* Add the simple binary operators.  */
+  /* Add the binary operators.  */
   d = (struct builtin_description *) bdesc_2arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     {
       enum machine_mode mode0, mode1, mode2;
       tree type;
-      bool is_overloaded = d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-			   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST;
+      int mask = d->mask;
 
-      if (is_overloaded)
+      if ((mask != 0 && (mask & target_flags) == 0)
+	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
+	continue;
+
+      if (d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+	  && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
 	{
-	  mode0 = VOIDmode;
-	  mode1 = VOIDmode;
-	  mode2 = VOIDmode;
+	  if (! (type = opaque_ftype_opaque_opaque))
+	    type = opaque_ftype_opaque_opaque
+	      = build_function_type_list (opaque_V4SI_type_node,
+					  opaque_V4SI_type_node,
+					  opaque_V4SI_type_node,
+					  NULL_TREE);
 	}
       else
 	{
-          if (d->name == 0 || d->icode == CODE_FOR_nothing)
+	  enum insn_code icode = d->icode;
+          if (d->name == 0 || icode == CODE_FOR_nothing)
 	    continue;
 
-          mode0 = insn_data[d->icode].operand[0].mode;
-          mode1 = insn_data[d->icode].operand[1].mode;
-          mode2 = insn_data[d->icode].operand[2].mode;
-	}
+          mode0 = insn_data[icode].operand[0].mode;
+          mode1 = insn_data[icode].operand[1].mode;
+          mode2 = insn_data[icode].operand[2].mode;
 
-      /* When all three operands are of the same mode.  */
-      if (mode0 == mode1 && mode1 == mode2)
-	{
-	  switch (mode0)
+	  if (mode0 == V2SImode && mode1 == V2SImode && mode2 == QImode)
 	    {
-	    case VOIDmode:
-	      type = opaque_ftype_opaque_opaque;
-	      break;
-	    case V2DFmode:
-	      type = v2df_ftype_v2df_v2df;
-	      break;
-	    case V4SFmode:
-	      type = v4sf_ftype_v4sf_v4sf;
-	      break;
-	    case V4SImode:
-	      type = v4si_ftype_v4si_v4si;
-	      break;
-	    case V16QImode:
-	      type = v16qi_ftype_v16qi_v16qi;
-	      break;
-	    case V8HImode:
-	      type = v8hi_ftype_v8hi_v8hi;
-	      break;
-	    case V2SImode:
-	      type = v2si_ftype_v2si_v2si;
-	      break;
-            case V2SFmode:
-              if (TARGET_PAIRED_FLOAT)
-                type = v2sf_ftype_v2sf_v2sf;
-              else
-                type = v2sf_ftype_v2sf_v2sf_spe;
-	      break;
-	    case SImode:
-	      type = int_ftype_int_int;
-	      break;
-	    default:
-	      gcc_unreachable ();
+	      if (! (type = v2si_ftype_v2si_qi))
+		type = v2si_ftype_v2si_qi
+		  = build_function_type_list (opaque_V2SI_type_node,
+					      opaque_V2SI_type_node,
+					      char_type_node,
+					      NULL_TREE);
 	    }
-	}
 
-      /* A few other combos we really don't want to do manually.  */
-
-      /* vint, vfloat, vfloat.  */
-      else if (mode0 == V4SImode && mode1 == V4SFmode && mode2 == V4SFmode)
-	type = v4si_ftype_v4sf_v4sf;
-
-      /* vshort, vchar, vchar.  */
-      else if (mode0 == V8HImode && mode1 == V16QImode && mode2 == V16QImode)
-	type = v8hi_ftype_v16qi_v16qi;
-
-      /* vint, vshort, vshort.  */
-      else if (mode0 == V4SImode && mode1 == V8HImode && mode2 == V8HImode)
-	type = v4si_ftype_v8hi_v8hi;
-
-      /* vshort, vint, vint.  */
-      else if (mode0 == V8HImode && mode1 == V4SImode && mode2 == V4SImode)
-	type = v8hi_ftype_v4si_v4si;
-
-      /* vchar, vshort, vshort.  */
-      else if (mode0 == V16QImode && mode1 == V8HImode && mode2 == V8HImode)
-	type = v16qi_ftype_v8hi_v8hi;
-
-      /* vint, vchar, vint.  */
-      else if (mode0 == V4SImode && mode1 == V16QImode && mode2 == V4SImode)
-	type = v4si_ftype_v16qi_v4si;
-
-      /* vint, vchar, vchar.  */
-      else if (mode0 == V4SImode && mode1 == V16QImode && mode2 == V16QImode)
-	type = v4si_ftype_v16qi_v16qi;
-
-      /* vint, vshort, vint.  */
-      else if (mode0 == V4SImode && mode1 == V8HImode && mode2 == V4SImode)
-	type = v4si_ftype_v8hi_v4si;
-
-      /* vint, vint, 5-bit literal.  */
-      else if (mode0 == V4SImode && mode1 == V4SImode && mode2 == QImode)
-	type = v4si_ftype_v4si_int;
-
-      /* vshort, vshort, 5-bit literal.  */
-      else if (mode0 == V8HImode && mode1 == V8HImode && mode2 == QImode)
-	type = v8hi_ftype_v8hi_int;
-
-      /* vchar, vchar, 5-bit literal.  */
-      else if (mode0 == V16QImode && mode1 == V16QImode && mode2 == QImode)
-	type = v16qi_ftype_v16qi_int;
-
-      /* vfloat, vint, 5-bit literal.  */
-      else if (mode0 == V4SFmode && mode1 == V4SImode && mode2 == QImode)
-	type = v4sf_ftype_v4si_int;
-
-      /* vint, vfloat, 5-bit literal.  */
-      else if (mode0 == V4SImode && mode1 == V4SFmode && mode2 == QImode)
-	type = v4si_ftype_v4sf_int;
-
-      else if (mode0 == V2SImode && mode1 == SImode && mode2 == SImode)
-	type = v2si_ftype_int_int;
-
-      else if (mode0 == V2SImode && mode1 == V2SImode && mode2 == QImode)
-	type = v2si_ftype_v2si_char;
-
-      else if (mode0 == V2SImode && mode1 == SImode && mode2 == QImode)
-	type = v2si_ftype_int_char;
-
-      else
-	{
-	  /* int, x, x.  */
-	  gcc_assert (mode0 == SImode);
-	  switch (mode1)
+	  else if (mode0 == V2SImode && GET_MODE_CLASS (mode1) == MODE_INT
+		   && mode2 == QImode)
 	    {
-	    case V4SImode:
-	      type = int_ftype_v4si_v4si;
-	      break;
-	    case V4SFmode:
-	      type = int_ftype_v4sf_v4sf;
-	      break;
-	    case V16QImode:
-	      type = int_ftype_v16qi_v16qi;
-	      break;
-	    case V8HImode:
-	      type = int_ftype_v8hi_v8hi;
-	      break;
-	    default:
-	      gcc_unreachable ();
+	      if (! (type = v2si_ftype_int_qi))
+		type = v2si_ftype_int_qi
+		  = build_function_type_list (opaque_V2SI_type_node,
+					      integer_type_node,
+					      char_type_node,
+					      NULL_TREE);
 	    }
+
+	  else
+	    type = builtin_function_type (mode0, mode1, mode2, VOIDmode,
+					  d->name);
 	}
 
       def_builtin (d->mask, d->name, type, d->code);
     }
 
-  /* Add the simple unary operators.  */
+  /* Add the unary operators.  */
   d = (struct builtin_description *) bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     {
       enum machine_mode mode0, mode1;
       tree type;
-      bool is_overloaded = d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-			   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST;
+      int mask = d->mask;
 
-      if (is_overloaded)
-        {
-          mode0 = VOIDmode;
-          mode1 = VOIDmode;
-        }
+      if ((mask != 0 && (mask & target_flags) == 0)
+	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
+	continue;
+
+      if (d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+	  && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+	{
+	  if (! (type = opaque_ftype_opaque))
+	    type = opaque_ftype_opaque
+	      = build_function_type_list (opaque_V4SI_type_node,
+					  opaque_V4SI_type_node,
+					  NULL_TREE);
+	}
       else
         {
-          if (d->name == 0 || d->icode == CODE_FOR_nothing)
+	  enum insn_code icode = d->icode;
+          if (d->name == 0 || icode == CODE_FOR_nothing)
 	    continue;
 
-          mode0 = insn_data[d->icode].operand[0].mode;
-          mode1 = insn_data[d->icode].operand[1].mode;
-        }
+          mode0 = insn_data[icode].operand[0].mode;
+          mode1 = insn_data[icode].operand[1].mode;
 
-      if (mode0 == V4SImode && mode1 == QImode)
-	type = v4si_ftype_int;
-      else if (mode0 == V8HImode && mode1 == QImode)
-	type = v8hi_ftype_int;
-      else if (mode0 == V16QImode && mode1 == QImode)
-	type = v16qi_ftype_int;
-      else if (mode0 == VOIDmode && mode1 == VOIDmode)
-	type = opaque_ftype_opaque;
-      else if (mode0 == V2DFmode && mode1 == V2DFmode)
-	type = v2df_ftype_v2df;
-      else if (mode0 == V4SFmode && mode1 == V4SFmode)
-	type = v4sf_ftype_v4sf;
-      else if (mode0 == V8HImode && mode1 == V16QImode)
-	type = v8hi_ftype_v16qi;
-      else if (mode0 == V4SImode && mode1 == V8HImode)
-	type = v4si_ftype_v8hi;
-      else if (mode0 == V2SImode && mode1 == V2SImode)
-	type = v2si_ftype_v2si;
-      else if (mode0 == V2SFmode && mode1 == V2SFmode)
-        {
-          if (TARGET_PAIRED_FLOAT)
-            type = v2sf_ftype_v2sf;
-          else
-            type = v2sf_ftype_v2sf_spe;
-        }
-      else if (mode0 == V2SFmode && mode1 == V2SImode)
-	type = v2sf_ftype_v2si;
-      else if (mode0 == V2SImode && mode1 == V2SFmode)
-	type = v2si_ftype_v2sf;
-      else if (mode0 == V2SImode && mode1 == QImode)
-	type = v2si_ftype_char;
-      else if (mode0 == V4SImode && mode1 == V4SFmode)
-	type = v4si_ftype_v4sf;
-      else if (mode0 == V4SFmode && mode1 == V4SImode)
-	type = v4sf_ftype_v4si;
-      else if (mode0 == V2DImode && mode1 == V2DFmode)
-	type = v2di_ftype_v2df;
-      else if (mode0 == V2DFmode && mode1 == V2DImode)
-	type = v2df_ftype_v2di;
-      else
-	gcc_unreachable ();
+	  if (mode0 == V2SImode && mode1 == QImode)
+	    {
+	      if (! (type = v2si_ftype_qi))
+		type = v2si_ftype_qi
+		  = build_function_type_list (opaque_V2SI_type_node,
+					      char_type_node,
+					      NULL_TREE);
+	    }
+
+	  else
+	    type = builtin_function_type (mode0, mode1, VOIDmode, VOIDmode,
+					  d->name);
+	}
 
       def_builtin (d->mask, d->name, type, d->code);
     }
@@ -12805,13 +12644,15 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   enum machine_mode mode = GET_MODE (x);
   enum reg_class ret;
 
-  if (TARGET_VSX && VSX_VECTOR_MODE (mode) && x == CONST0_RTX (mode)
-      && VSX_REG_CLASS_P (rclass))
+  if (TARGET_VSX
+      && (VSX_VECTOR_MODE (mode) || mode == TImode)
+      && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
     ret = rclass;
 
-  else if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode)
-	   && rclass == ALTIVEC_REGS && easy_vector_constant (x, mode))
-    ret = rclass;
+  else if (TARGET_ALTIVEC && (ALTIVEC_VECTOR_MODE (mode) || mode == TImode)
+	   && (rclass == ALTIVEC_REGS || rclass == VSX_REGS)
+	   && easy_vector_constant (x, mode))
+    ret = ALTIVEC_REGS;
 
   else if (CONSTANT_P (x) && reg_classes_intersect_p (rclass, FLOAT_REGS))
     ret = NO_REGS;
@@ -13030,8 +12871,10 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
 		       || (((to) == TDmode) + ((from) == TDmode)) == 1
 		       || (((to) == DImode) + ((from) == DImode)) == 1))
 		  || (TARGET_VSX
-		      && (VSX_VECTOR_MODE (from) + VSX_VECTOR_MODE (to)) == 1)
+		      && (VSX_MOVE_MODE (from) + VSX_MOVE_MODE (to)) == 1
+		      && VSX_REG_CLASS_P (rclass))
 		  || (TARGET_ALTIVEC
+		      && rclass == ALTIVEC_REGS
 		      && (ALTIVEC_VECTOR_MODE (from)
 			  + ALTIVEC_VECTOR_MODE (to)) == 1)
 		  || (TARGET_SPE
@@ -14909,7 +14752,7 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   if (!mask)
     return 0;
 
-  if ((TARGET_VSX && VSX_VECTOR_MOVE_MODE (dest_mode))
+  if ((TARGET_VSX && VSX_MOVE_MODE (dest_mode))
       || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (dest_mode)))
     {
       rtx cond2 = gen_rtx_fmt_ee (NE, VOIDmode, mask, const0_rtx);
@@ -21945,7 +21788,8 @@ rs6000_handle_altivec_attribute (tree *node,
   mode = TYPE_MODE (type);
 
   /* Check for invalid AltiVec type qualifiers.  */
-  if (type == long_unsigned_type_node || type == long_integer_type_node)
+  if ((type == long_unsigned_type_node || type == long_integer_type_node)
+      && !TARGET_VSX)
     {
     if (TARGET_64BIT)
       error ("use of %<long%> in AltiVec types is invalid for 64-bit code");
@@ -21983,6 +21827,7 @@ rs6000_handle_altivec_attribute (tree *node,
 	  break;
 	case SFmode: result = V4SF_type_node; break;
 	case DFmode: result = V2DF_type_node; break;
+	case DImode: result = V2DI_type_node; break;
 	  /* If the user says 'vector int bool', we may be handed the 'bool'
 	     attribute _before_ the 'vector' attribute, and so select the
 	     proper type in the 'b' case below.  */

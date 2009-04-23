@@ -1028,14 +1028,6 @@ extern int rs6000_vector_align[];
 	 ((MODE) == V4SFmode		\
 	  || (MODE) == V2DFmode)	\
 
-#define VSX_VECTOR_MOVE_MODE(MODE)	\
-	 ((MODE) == V16QImode		\
-	  || (MODE) == V8HImode		\
-	  || (MODE) == V4SImode		\
-	  || (MODE) == V2DImode		\
-	  || (MODE) == V4SFmode		\
-	  || (MODE) == V2DFmode)	\
-
 #define VSX_SCALAR_MODE(MODE)		\
 	((MODE) == DFmode)
 
@@ -1044,12 +1036,9 @@ extern int rs6000_vector_align[];
 	 || VSX_SCALAR_MODE (MODE))
 
 #define VSX_MOVE_MODE(MODE)		\
-	(VSX_VECTOR_MOVE_MODE (MODE)	\
-	 || VSX_SCALAR_MODE(MODE)	\
-	 || (MODE) == V16QImode		\
-	 || (MODE) == V8HImode		\
-	 || (MODE) == V4SImode		\
-	 || (MODE) == V2DImode		\
+	(VSX_VECTOR_MODE (MODE)		\
+	 || VSX_SCALAR_MODE (MODE)	\
+	 || ALTIVEC_VECTOR_MODE (MODE)	\
 	 || (MODE) == TImode)
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
@@ -1299,12 +1288,24 @@ enum reg_class
    purpose.  Any move between two registers of a cover class should be
    cheaper than load or store of the registers.  The macro value is
    array of register classes with LIM_REG_CLASSES used as the end
-   marker.  */
+   marker.
 
-#define IRA_COVER_CLASSES						     \
+   We need two IRA_COVER_CLASSES, one for pre-VSX, and the other for VSX to
+   account for the Altivec and Floating registers being subsets of the VSX
+   register set.  */
+
+#define IRA_COVER_CLASSES_PRE_VSX					     \
 {									     \
-  GENERAL_REGS, SPECIAL_REGS, FLOAT_REGS, ALTIVEC_REGS,			     \
-  /*VRSAVE_REGS,*/ VSCR_REGS, SPE_ACC_REGS, SPEFSCR_REGS,		     \
+  GENERAL_REGS, SPECIAL_REGS, FLOAT_REGS, ALTIVEC_REGS, /* VSX_REGS, */	     \
+  /* VRSAVE_REGS,*/ VSCR_REGS, SPE_ACC_REGS, SPEFSCR_REGS,		     \
+  /* MQ_REGS, LINK_REGS, CTR_REGS, */					     \
+  CR_REGS, XER_REGS, LIM_REG_CLASSES					     \
+}
+
+#define IRA_COVER_CLASSES_VSX						     \
+{									     \
+  GENERAL_REGS, SPECIAL_REGS, /* FLOAT_REGS, ALTIVEC_REGS, */ VSX_REGS,	     \
+  /* VRSAVE_REGS,*/ VSCR_REGS, SPE_ACC_REGS, SPEFSCR_REGS,		     \
   /* MQ_REGS, LINK_REGS, CTR_REGS, */					     \
   CR_REGS, XER_REGS, LIM_REG_CLASSES					     \
 }

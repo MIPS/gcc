@@ -119,18 +119,6 @@ mvsx
 Target Report Mask(VSX)
 Use vector/scalar (VSX) instructions
 
-mvsx-vector-memory
-Target Undocumented Report Var(TARGET_VSX_VECTOR_MEMORY) Init(-1)
-; If -mvsx, use VSX vector load/store instructions instead of Altivec instructions
-
-mvsx-vector-float
-Target Undocumented Report Var(TARGET_VSX_VECTOR_FLOAT) Init(-1)
-; If -mvsx, use VSX arithmetic instructions for float vectors (on by default)
-
-mvsx-vector-double
-Target Undocumented Report Var(TARGET_VSX_VECTOR_DOUBLE) Init(-1)
-; If -mvsx, use VSX arithmetic instructions for double vectors (on by default)
-
 mvsx-scalar-double
 Target Undocumented Report Var(TARGET_VSX_SCALAR_DOUBLE) Init(-1)
 ; If -mvsx, use VSX arithmetic instructions for scalar double (on by default)
@@ -139,17 +127,13 @@ mvsx-scalar-memory
 Target Undocumented Report Var(TARGET_VSX_SCALAR_MEMORY)
 ; If -mvsx, use VSX scalar memory reference instructions for scalar double (off by default)
 
-mvsx-v4sf-altivec-regs
-Target Undocumented Report Var(TARGET_V4SF_ALTIVEC_REGS) Init(-1)
-; If -mvsx, prefer V4SF types to use Altivec regs and not the floating registers
-
-mreload-functions
-Target Undocumented Report Var(TARGET_RELOAD_FUNCTIONS) Init(-1)
-; If -mvsx or -maltivec, enable reload functions
-
 mpower7-adjust-cost
 Target Undocumented Var(TARGET_POWER7_ADJUST_COST)
 ; Add extra cost for setting CR registers before a branch like is done for Power5
+
+mallow-timode
+Target Undocumented Var(TARGET_ALLOW_TIMODE)
+; Allow VSX/Altivec to target loading TImode variables.
 
 mdisallow-float-in-lr-ctr
 Target Undocumented Var(TARGET_DISALLOW_FLOAT_IN_LR_CTR) Init(-1)

@@ -1,3 +1,107 @@
+2009-04-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_E): New iterator to add V2DImode.
+	(vec_init<mode>): Use VEC_E instead of VEC_C iterator, to add
+	V2DImode support.
+	(vec_set<mode>): Ditto.
+	(vec_extract<mode>): Ditto.
+
+	* config/rs6000/predicates.md (easy_vector_constant): Add support
+	for setting TImode to 0.
+
+	* config/rs6000/rs6000.opt (-mvsx-vector-memory): Delete old debug
+	switch that is no longer used.
+	(-mvsx-vector-float): Ditto.
+	(-mvsx-vector-double): Ditto.
+	(-mvsx-v4sf-altivec-regs): Ditto.
+	(-mreload-functions): Ditto.
+	(-mallow-timode): New debug switch.
+
+	* config/rs6000/rs6000.c (rs6000_ira_cover_classes): New target
+	hook for IRA cover classes, to know that under VSX the float and
+	altivec registers are part of the same register class, but before
+	they weren't.
+	(TARGET_IRA_COVER_CLASSES): Set ira cover classes target hookd.
+	(rs6000_hard_regno_nregs): Key off of whether VSX/Altivec memory
+	instructions are supported, and not whether the vector unit has
+	arithmetic support to enable V2DI/TI mode.
+	(rs6000_hard_regno_mode_ok): Ditto.
+	(rs6000_init_hard_regno_mode_ok): Add V2DImode, TImode support.
+	Drop several of the debug switches.
+	(rs6000_emit_move): Force TImode constants to memory if we have
+	either Altivec or VSX.
+	(rs6000_builtin_conversion): Use correct insns for V2DI<->V2DF
+	conversions.
+	(rs6000_expand_vector_init): Add V2DI support.
+	(rs6000_expand_vector_set): Ditto.
+	(avoiding_indexed_address_p): Simplify tests to say if the mode
+	uses VSX/Altivec memory instructions we can't eliminate reg+reg
+	addressing.
+	(rs6000_legitimize_address): Move VSX/Altivec REG+REG support
+	before the large integer support.
+	(rs6000_legitimate_address): Add support for TImode in VSX/Altivec
+	registers.
+	(rs6000_emit_move): Ditto.
+	(def_builtin): Change internal error message to provide more
+	information.
+	(bdesc_2arg): Add conversion builtins.
+	(builtin_hash_function): New function for hashing all of the types
+	for builtin functions.
+	(builtin_hash_eq): Ditto.
+	(builtin_function_type): Ditto.
+	(builtin_mode_to_type): New static for builtin argument hashing.
+	(builtin_hash_table): Ditto.
+	(rs6000_common_init_builtins): Rewrite so that types for builtin
+	functions are only created when we need them, and use a hash table
+	to store all of the different argument combinations that are
+	created.  Add support for VSX conversion builtins.
+	(rs6000_preferred_reload_class): Add TImode support.
+	(reg_classes_cannot_change_mode_class): Be stricter about VSX and
+	Altivec vector types.
+	(rs6000_emit_vector_cond_expr): Use VSX_MOVE_MODE, not
+	VSX_VECTOR_MOVE_MODE.
+	(rs6000_handle_altivec_attribute): Allow __vector long on VSX.
+
+	* config/rs6000/vsx.md (VSX_D): New iterator for vectors with
+	64-bit elements.
+	(VSX_M): New iterator for 128 bit types for moves, except for
+	TImode.
+	(VSm, VSs, VSr): Add TImode.
+	(VSr4, VSr5): New mode attributes for float<->double conversion.
+	(VSX_SPDP): New iterator for float<->double conversion.
+	(VS_spdp_*): New mode attributes for float<->double conversion.
+	(UNSPEC_VSX_*): Rename unspec constants to remove XV from the
+	names.  Change all users.
+	(vsx_mov<mode>): Drop TImode support here.
+	(vsx_movti): New TImode support, allow GPRs, but favor VSX
+	registers.
+	(vsx_<VS_spdp_insn>): New support for float<->double conversions.
+	(vsx_xvcvdpsp): Delete, move into vsx_<VS_spdp_insn>.
+	(vsx_xvcvspdp): Ditto.
+	(vsx_xvcvuxdsp): New conversion insn.
+	(vsx_xvcvspsxds): Ditto.
+	(vsx_xvcvspuxds): Ditto.
+	(vsx_concat_<mode>): Generalize V2DF permute/splat operations to
+	include V2DI.
+	(vsx_set_<mode>): Ditto.
+	(vsx_extract_<mode>): Ditto.
+	(vsx_xxpermdi_<mode>): Ditto.
+	(vsx_splat<mode>): Ditto.
+
+	* config/rs6000/rs6000.h (VSX_VECTOR_MOVE_MODE): Delete.
+	(VSX_MOVE_MODE): Add TImode.
+	(IRA_COVER_CLASSES): Delete.
+	(IRA_COVER_CLASSES_PRE_VSX): New cover classes for machines
+	without VSX where float and altivec are different registers.
+	(IRA_COVER_CLASS_VSX): New cover classes for machines with VSX
+	where float and altivec are part of the same register class.
+
+	* config/rs6000/altivec.md (VM2): New iterator for 128-bit types,
+	except TImode.
+	(altivec_mov<mode>): Drop movti mode here.
+	(altivec_movti): Add movti insn, and allow GPRs, but favor altivec
+	registers.
+
 2009-04-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h (rs6000_has_indirect_jump_p): New

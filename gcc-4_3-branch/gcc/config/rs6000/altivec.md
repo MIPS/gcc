@@ -166,15 +166,43 @@
 ;; otherwise handled by altivec (v2df, v2di, ti)
 (define_mode_iterator VM [V4SI V8HI V16QI V4SF V2DF V2DI TI])
 
+;; Like VM, except don't do TImode
+(define_mode_iterator VM2 [V4SI V8HI V16QI V4SF V2DF V2DI])
+
 (define_mode_attr VI_char [(V4SI "w") (V8HI "h") (V16QI "b")])
 
 ;; Vector move instructions.
 (define_insn "*altivec_mov<mode>"
-  [(set (match_operand:V 0 "nonimmediate_operand" "=Z,v,v,*o,*r,*r,v,v")
-	(match_operand:V 1 "input_operand" "v,Z,v,r,o,r,j,W"))]
+  [(set (match_operand:VM2 0 "nonimmediate_operand" "=Z,v,v,*o,*r,*r,v,v")
+	(match_operand:VM2 1 "input_operand" "v,Z,v,r,o,r,j,W"))]
   "VECTOR_MEM_ALTIVEC_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
+{
+  switch (which_alternative)
+    {
+    case 0: return "stvx %1,%y0";
+    case 1: return "lvx %0,%y1";
+    case 2: return "vor %0,%1,%1";
+    case 3: return "#";
+    case 4: return "#";
+    case 5: return "#";
+    case 6: return "vxor %0,%0,%0";
+    case 7: return output_vec_const_move (operands);
+    default: gcc_unreachable ();
+    }
+}
+  [(set_attr "type" "vecstore,vecload,vecsimple,store,load,*,vecsimple,*")])
+
+;; Unlike other altivec moves, allow the GPRs, since a normal use of TImode
+;; is for unions.  However for plain data movement, slightly favor the vector
+;; loads
+(define_insn "*altivec_movti"
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,v,v,?o,?r,?r,v,v")
+	(match_operand:TI 1 "input_operand" "v,Z,v,r,o,r,j,W"))]
+  "VECTOR_MEM_ALTIVEC_P (TImode)
+   && (register_operand (operands[0], TImode) 
+       || register_operand (operands[1], TImode))"
 {
   switch (which_alternative)
     {
