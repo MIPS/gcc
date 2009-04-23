@@ -39,6 +39,9 @@
 ;; Vector comparison modes
 (define_mode_iterator VEC_C [V16QI V8HI V4SI V4SF V2DF])
 
+;; Vector init/extract modes
+(define_mode_iterator VEC_E [V16QI V8HI V4SI V2DI V4SF V2DF])
+
 ;; Vector reload iterator
 (define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF DF TI])
 
@@ -475,19 +478,23 @@
 
 ;; Vector initialization, set, extract
 (define_expand "vec_init<mode>"
-  [(match_operand:VEC_C 0 "vlogical_operand" "")
-   (match_operand:VEC_C 1 "vec_init_operand" "")]
-  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  [(match_operand:VEC_E 0 "vlogical_operand" "")
+   (match_operand:VEC_E 1 "vec_init_operand" "")]
+  "(<MODE>mode == V2DImode
+    ? VECTOR_MEM_VSX_P (V2DImode)
+    : VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode))"
 {
   rs6000_expand_vector_init (operands[0], operands[1]);
   DONE;
 })
 
 (define_expand "vec_set<mode>"
-  [(match_operand:VEC_C 0 "vlogical_operand" "")
+  [(match_operand:VEC_E 0 "vlogical_operand" "")
    (match_operand:<VEC_base> 1 "register_operand" "")
    (match_operand 2 "const_int_operand" "")]
-  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "(<MODE>mode == V2DImode
+    ? VECTOR_MEM_VSX_P (V2DImode)
+    : VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode))"
 {
   rs6000_expand_vector_set (operands[0], operands[1], INTVAL (operands[2]));
   DONE;
@@ -495,9 +502,11 @@
 
 (define_expand "vec_extract<mode>"
   [(match_operand:<VEC_base> 0 "register_operand" "")
-   (match_operand:VEC_C 1 "vlogical_operand" "")
+   (match_operand:VEC_E 1 "vlogical_operand" "")
    (match_operand 2 "const_int_operand" "")]
-  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "(<MODE>mode == V2DImode
+    ? VECTOR_MEM_VSX_P (V2DImode)
+    : VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode))"
 {
   rs6000_expand_vector_extract (operands[0], operands[1],
 				INTVAL (operands[2]));
