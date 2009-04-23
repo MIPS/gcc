@@ -119,6 +119,7 @@ cil_init_machine_status (void)
 
   machine->label_id = 0;
   machine->label_addrs = NULL_TREE;
+  machine->locals_init = false;
   machine->bb_seqs = htab_create_ggc (32, cil_basic_block_hash,
 				      cil_basic_block_eq, NULL);
 

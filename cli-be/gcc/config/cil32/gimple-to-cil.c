@@ -3134,6 +3134,10 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 
 	  stmt = cil_build_stmt_arg (CIL_LDLOC, res_var);
 	  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+
+	  /* Flag the function so that the emission phase will emit an 'init'
+	     directive in the local variables declaration.  */
+	  cfun->machine->locals_init = true;
         }
 
       stmt = cil_build_stmt (CIL_RET);
@@ -3456,6 +3460,11 @@ gimple_to_cil (void)
 
 	      stmt = cil_build_stmt (CIL_RET);
 	      csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
+
+	      /* Flag the function so that the emission phase will emit an
+	         'init' directive in the local variables declaration.  */
+	      cfun->machine->locals_init = true;
+
 	      /* FIXME: Is this really needed? */
 	      make_single_succ_edge (bb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
 	    }

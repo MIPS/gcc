@@ -2247,7 +2247,10 @@ emit_local_vars (FILE *file)
 
   /* Emit the local variables starting from the most used ones.  */
 
-  fprintf (file, "\n\t.locals (");
+  if (cfun->machine->locals_init)
+    fprintf (file, "\n\t.locals init (");
+  else
+    fprintf (file, "\n\t.locals (");
 
   for (i = 0; i < locals_n; i++)
     {

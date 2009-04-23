@@ -337,6 +337,7 @@ struct machine_function GTY(())
 {
   unsigned int label_id;
   tree label_addrs;
+  bool locals_init;
 
   /* Hash table used for mapping CIL sequences to GCC's basic blocks.  */
   struct htab * GTY ((param_is (struct cil_basic_block_d))) bb_seqs;
