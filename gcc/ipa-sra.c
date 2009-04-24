@@ -152,6 +152,7 @@ enum sra_mode {SRA_MODE_EARLY_IPA,
    the moment.  */
 static enum sra_mode sra_mode;
 
+struct assign_link;
 
 /* ACCESS represents each access to an aggregate variable (base or component).
    It can also represent a group of accesses that refer to the same fragment of
@@ -186,12 +187,22 @@ struct access
   /* Next group representative for this aggregate. */
   struct access *next_grp;
 
+  /* Pointer to the group representative.  Pointer to itself if the struct is
+     the representative.  */
+  struct access *group_representative;
+
   /* If this access has any children (in terms of the definition above), this
      points to the first one.  */
   struct access *first_child;
 
   /* Pointer to the next sibling in the access tree as described above.  */
   struct access *next_sibling;
+
+  /* Pointers to the first and last element in the linked list of assign
+     links.  */
+  struct assign_link *first_link, *last_link;
+  /* Pointer to the next access in the work queue.  */
+  struct access *next_queued;
 
   /* Replacement variable for this access "region."  Never to be accessed
      directly, always only by the means of get_access_replacement() and only
@@ -209,6 +220,8 @@ struct access
      always performed when the function is run? */
   unsigned always_safe : 1;
 
+  /* Is this acess currently in the work queue?  */
+  unsigned grp_queued : 1;
   /* Does this group contain a write access?  This flag is propagated down the
      access tree.  */
   unsigned grp_write : 1;
@@ -249,6 +262,19 @@ DEF_VEC_ALLOC_P (access_p, heap);
 
 /* Alloc pool for allocating access structures.  */
 static alloc_pool access_pool;
+
+/* A structure linking lhs and rhs accesses from an aggregate assignment.  They
+   are then used to propagate subaccesses from rhs to lhs as long as they don't
+   conflict with what is already there.  */
+struct assign_link
+{
+  struct access *lacc, *racc;
+  struct assign_link *next;
+};
+
+/* Alloc pool for allocating assign link structures.  */
+static alloc_pool link_pool;
+
 /* Base (tree) -> Vector (VEC(access_p,heap) *) map.  */
 static struct pointer_map_t *base_access_vec;
 
@@ -278,6 +304,10 @@ static bool encountered_external_throw;
 
 /* Representative of no accesses at all. */
 static struct access no_accesses_representant;
+
+/* Head of a linked list of accesses that need to have its subaccesses
+   propagated to their assignment counterparts. */
+static struct access *work_queue_head;
 
 /* Predicate to test the special value.  */
 
@@ -351,6 +381,20 @@ find_access_in_subtree (struct access *access, HOST_WIDE_INT offset,
   return access;
 }
 
+/* Return the first group representative for DECL or NULL if none exists.  */
+
+static struct access *
+get_first_repr_for_decl (tree base)
+{
+  VEC (access_p, heap) *access_vec;
+
+  access_vec = get_base_access_vector (base);
+  if (!access_vec)
+    return NULL;
+
+  return VEC_index (access_p, access_vec, 0);
+}
+
 /* Find an access representative for the variable BASE and given OFFSET and
    SIZE.  Requires that access trees have already been built.  Return NULL if
    it cannot be found.  */
@@ -359,20 +403,89 @@ static struct access *
 get_var_base_offset_size_access (tree base, HOST_WIDE_INT offset,
 				 HOST_WIDE_INT size)
 {
-  VEC (access_p, heap) *access_vec;
   struct access *access;
 
-  access_vec = get_base_access_vector (base);
-  if (!access_vec)
-    return false;
-
-  access = VEC_index (access_p, access_vec, 0);
+  access = get_first_repr_for_decl (base);
   while (access && (access->offset + access->size <= offset))
     access = access->next_grp;
   if (!access)
     return NULL;
 
   return find_access_in_subtree (access, offset, size);
+}
+
+/* Add LINK to the linked list of assign links of RACC.  */
+static void
+add_link_to_rhs (struct access *racc, struct assign_link *link)
+{
+  gcc_assert (link->racc == racc);
+
+  if (!racc->first_link)
+    {
+      gcc_assert (!racc->last_link);
+      racc->first_link = link;
+    }
+  else
+    racc->last_link->next = link;
+
+  racc->last_link = link;
+  link->next = NULL;
+}
+
+/* Move all link structures in their linked list in OLD_RACC to the linked list
+   in NEW_RACC.  */
+static void
+relink_to_new_repr (struct access *new_racc, struct access *old_racc)
+{
+  if (!old_racc->first_link)
+    {
+      gcc_assert (!old_racc->last_link);
+      return;
+    }
+
+  if (new_racc->first_link)
+    {
+      gcc_assert (!new_racc->last_link->next);
+      gcc_assert (!old_racc->last_link || !old_racc->last_link->next);
+
+      new_racc->last_link->next = old_racc->first_link;
+      new_racc->last_link = old_racc->last_link;
+    }
+  else
+    {
+      gcc_assert (!new_racc->last_link);
+
+      new_racc->first_link = old_racc->first_link;
+      new_racc->last_link = old_racc->last_link;
+    }
+  old_racc->first_link = old_racc->last_link = NULL;
+}
+
+/* Add ACCESS to the work queue (which is actually a stack).  */
+
+static void
+add_access_to_work_queue (struct access *access)
+{
+  if (!access->grp_queued)
+    {
+      gcc_assert (!access->next_queued);
+      access->next_queued = work_queue_head;
+      access->grp_queued = 1;
+      work_queue_head = access;
+    }
+}
+
+/* Pop an acess from the work queue, and return it, assuming there is one.  */
+
+static struct access *
+pop_access_from_work_queue (void)
+{
+  struct access *access = work_queue_head;
+
+  work_queue_head = access->next_queued;
+  access->next_queued = NULL;
+  access->grp_queued = 0;
+  return access;
 }
 
 /* Mark all representatives (pointed to by REPRESENTATIVES and those accessible
@@ -706,6 +819,7 @@ sra_initialize (void)
   candidate_bitmap = BITMAP_ALLOC (NULL);
   gcc_obstack_init (&name_obstack);
   access_pool = create_alloc_pool ("SRA accesses", sizeof (struct access), 16);
+  link_pool = create_alloc_pool ("SRA links", sizeof (struct assign_link), 16);
   base_access_vec = pointer_map_create ();
   encountered_va_start = false;
   encountered_external_throw = false;
@@ -732,6 +846,7 @@ sra_deinitialize (void)
 {
   BITMAP_FREE (candidate_bitmap);
   free_alloc_pool (access_pool);
+  free_alloc_pool (link_pool);
   obstack_free (&name_obstack, NULL);
 
   pointer_map_traverse (base_access_vec, delete_base_accesses, NULL);
@@ -1027,13 +1142,12 @@ disqualify_direct_ptr_params (tree op)
 }
 
 /* Scan expression EXPR and create access structures for all accesses to
-   candidates for scalarization.  Return true if any access has been
-   inserted.  */
+   candidates for scalarization.  Return the created access or NULL if none is
+   created.  */
 
-static bool
-build_access_from_expr (tree *expr_ptr,
-			gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED, bool write,
-			void *data ATTRIBUTE_UNUSED)
+static struct access *
+build_access_from_expr_1 (tree *expr_ptr,
+			gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED, bool write)
 {
   struct access *ret = NULL;
   tree expr = *expr_ptr;
@@ -1047,7 +1161,7 @@ build_access_from_expr (tree *expr_ptr,
 	expr = TREE_OPERAND (expr, 0);
 
       if (disqualify_direct_ptr_params (expr))
-	return false;
+	return NULL;
       bit_ref = false;
     }
   else
@@ -1103,7 +1217,19 @@ build_access_from_expr (tree *expr_ptr,
   if (write && bit_ref && ret)
     ret->grp_bfr_lhs = 1;
 
-  return ret != NULL;
+  return ret;
+}
+
+/* Scan expression EXPR and create access structures for all accesses to
+   candidates for scalarization.  Return true if any access has been
+   inserted.  */
+
+static bool
+build_access_from_expr (tree *expr_ptr,
+			gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED, bool write,
+			void *data ATTRIBUTE_UNUSED)
+{
+  return build_access_from_expr_1 (expr_ptr, gsi, write) != NULL;
 }
 
 /* Disqualify LHS and RHS for scalarization if STMT must end its basic block in
@@ -1141,11 +1267,11 @@ enum scan_assign_result {SRA_SA_NONE,       /* nothing done for the stmt */
 static enum scan_assign_result
 build_accesses_from_assign (gimple *stmt_ptr,
 			    gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED,
-			    void *data)
+			    void *data ATTRIBUTE_UNUSED)
 {
   gimple stmt = *stmt_ptr;
   tree *lhs_ptr, *rhs_ptr;
-  bool any;
+  struct access *lacc, *racc;
 
   if (sra_mode == SRA_MODE_EARLY_IPA
       && TREE_CODE (gimple_assign_rhs1 (stmt)) == CONSTRUCTOR)
@@ -1168,15 +1294,32 @@ build_accesses_from_assign (gimple *stmt_ptr,
   lhs_ptr = gimple_assign_lhs_ptr (stmt);
   rhs_ptr = gimple_assign_rhs1_ptr (stmt);
 
-  if (!disqualify_ops_if_throwing_stmt (stmt, lhs_ptr, rhs_ptr))
-    {
-      any = build_access_from_expr (rhs_ptr, gsi, false, data);
-      any |= build_access_from_expr (lhs_ptr, gsi, true, data);
-    }
-  else
-    any = false;
+  if (disqualify_ops_if_throwing_stmt (stmt, lhs_ptr, rhs_ptr))
+    return SRA_SA_NONE;
 
-  return any ? SRA_SA_PROCESSED : SRA_SA_NONE;
+  racc = build_access_from_expr_1 (rhs_ptr, gsi, false);
+  lacc = build_access_from_expr_1 (lhs_ptr, gsi, true);
+
+  if (lacc && racc
+      && !lacc->grp_unscalarizable_region
+      && !racc->grp_unscalarizable_region
+      && (sra_mode == SRA_MODE_EARLY_INTRA || sra_mode == SRA_MODE_INTRA)
+      && AGGREGATE_TYPE_P (TREE_TYPE (*lhs_ptr))
+      && useless_type_conversion_p (lacc->type, racc->type))
+    {
+      struct assign_link *link;
+
+      gcc_assert (lacc->size == racc->size);
+      link = (struct assign_link *) pool_alloc (link_pool);
+      memset (link, 0, sizeof (struct assign_link));
+
+      link->lacc = lacc;
+      link->racc = racc;
+
+      add_link_to_rhs (racc, link);
+    }
+
+  return (lacc || racc) ? SRA_SA_PROCESSED : SRA_SA_NONE;
 }
 
 /* If ANALYSIS_STAGE is true disqualify all parameters that have their address
@@ -2558,32 +2701,35 @@ sort_and_splice_var_accesses (tree var)
 	  grp_read |= !ac2->write;
 	  grp_bfr_lhs |= ac2->grp_bfr_lhs;
 	  unscalarizable_region |= ac2->grp_unscalarizable_region;
+	  relink_to_new_repr (access, ac2);
 
 	  /* If one of the equivalent accesses is scalar, use it as a
 	     representative (this happens when when there is for example on a
 	     single scalar field in a structure).  */
 	  if (!first_scalar && is_sra_scalar_type (ac2->type))
 	    {
+	      struct access tmp_acc;
 	      first_scalar = true;
-	      if (i == 0)
-		{
-		  /* We must make sure that the first access in the vector is
-		     the first representative.  */
-		  VEC_replace (access_p, access_vec, 0, ac2);
-		  VEC_replace (access_p, access_vec, j, access);
-		}
-	      access = ac2;
+
+	      memcpy (&tmp_acc, ac2, sizeof (struct access));
+	      memcpy (ac2, access,  sizeof (struct access));
+	      memcpy (access, &tmp_acc, sizeof (struct access));
 	    }
+	  ac2->group_representative = access;
 	  j++;
 	}
 
       i = j;
 
+      access->group_representative = access;
       access->grp_write = modification;
       access->grp_read = grp_read;
       access->grp_maybe_modified = modification;
       access->grp_bfr_lhs = grp_bfr_lhs;
       access->grp_unscalarizable_region = unscalarizable_region;
+      if (access->first_link)
+	add_access_to_work_queue (access);
+
       *prev_acc_ptr = access;
       prev_acc_ptr = &access->next_grp;
     }
@@ -2657,18 +2803,54 @@ get_access_replacement (struct access *access)
 }
 
 /* Build a subtree of accesses rooted in *ACCESS, and move the pointer in the
-   linked list along the way together with deciding whether a scalar
-   replacements should be created for *ACCESS.  Stop when *ACCESS is NULL or
-   the access pointed to it is not "within" the root.  Only allow replacements
-   when ALLOW_REPLACEMENTS is true.  Mark all visited nodes as grp_read if
-   MARK_READ is true, mark all of them as grp_write if MARK_WRITE is true.
-   Return true iff any replacements are to be created.  */
+   linked list along the way.  Stop when *ACCESS is NULL or the access pointed
+   to it is not "within" the root.  */
 
-static bool
-build_access_tree_1 (struct access **access, bool allow_replacements,
-		     bool mark_read, bool mark_write)
+static void
+build_access_tree_1 (struct access **access)
 {
   struct access *root = *access, *last_child = NULL;
+  HOST_WIDE_INT limit = root->offset + root->size;
+
+  *access = (*access)->next_grp;
+  while  (*access && (*access)->offset + (*access)->size <= limit)
+    {
+      if (!last_child)
+	root->first_child = *access;
+      else
+	last_child->next_sibling = *access;
+      last_child = *access;
+
+      build_access_tree_1 (access);
+    }
+}
+
+/* Build a tree of access representatives, ACCESS is the pointer to the first
+   one, others are linked in a list by the next_grp field.  Decide about scalar
+   replacements on the way, return true iff any are to be created.  */
+
+static void
+build_access_trees (struct access *access)
+{
+  while (access)
+    {
+      struct access *root = access;
+
+      build_access_tree_1 (&access);
+      root->next_grp = access;
+    }
+}
+
+/* Analyze the subtree of accesses rooted in ROOT, scheduling replacements when
+   both seemeing beneficial and when ALLOW_REPLACEMENTS allows it.  Also set
+   all sorts of access flags appropriately along the way, notably always ser
+   grp_read when MARK_READ is true and grp_write when MARK_WRITE is true.  */
+
+static bool
+analyze_access_tree_1 (struct access *root, bool allow_replacements,
+		       bool mark_read, bool mark_write)
+{
+  struct access *child;
   HOST_WIDE_INT limit = root->offset + root->size;
   HOST_WIDE_INT covered_to = root->offset;
   bool scalar = is_sra_scalar_type (root->type);
@@ -2687,29 +2869,19 @@ build_access_tree_1 (struct access **access, bool allow_replacements,
   if (root->grp_unscalarizable_region)
     allow_replacements = false;
 
-  *access = (*access)->next_grp;
-  while  (*access && (*access)->offset + (*access)->size <= limit)
+  for (child = root->first_child; child; child = child->next_sibling)
     {
-      bool subres;
-
-      if (!hole && (*access)->offset < covered_to)
+      if (!hole && child->offset < covered_to)
 	hole = true;
       else
-	covered_to += (*access)->size;
+	covered_to += child->size;
 
-      if (!last_child)
-	root->first_child = *access;
-      else
-	last_child->next_sibling = *access;
-      last_child = *access;
+      sth_created |= analyze_access_tree_1 (child,
+					    allow_replacements && !scalar,
+					    mark_read, mark_write);
 
-      subres = build_access_tree_1 (access, allow_replacements && !scalar,
-				    mark_read, mark_write);
-      if (subres)
-	sth_created = true;
-
-      root->grp_unscalarized_data |= last_child->grp_unscalarized_data;
-      hole |= !last_child->grp_covered;
+      root->grp_unscalarized_data |= child->grp_unscalarized_data;
+      hole |= !child->grp_covered;
     }
 
   if (allow_replacements && scalar && !root->first_child)
@@ -2742,25 +2914,159 @@ build_access_tree_1 (struct access **access, bool allow_replacements,
   return false;
 }
 
-/* Build a tree of access representatives, ACCESS is the pointer to the first
-   one, others are linked in a list by the next_grp field.  Decide about scalar
-   replacements on the way, return true iff any are to be created.  */
-
+/* Analyze all access trees linked by next_grp by the means of
+   analyze_access_tree_1.  */
 static bool
-build_access_tree (struct access *access)
+analyze_access_trees (struct access *access)
 {
   bool ret = false;
 
   while (access)
     {
-      struct access *root = access;
-
-      ret |= (build_access_tree_1 (&access, true, false, false));
-      root->next_grp = access;
+      if (analyze_access_tree_1 (access, true, false, false))
+	ret = true;
+      access = access->next_grp;
     }
 
   return ret;
 }
+
+/* Return true iff a potential new childof LACC at offset OFFSET and with size
+   SIZE would conflict with an already existing one.  If exactly such a child
+   already exists in LACC, store a pointer to it in EXACT_MATCH.  */
+static bool
+child_would_conflict_in_lacc (struct access *lacc, HOST_WIDE_INT norm_offset,
+			      HOST_WIDE_INT size, struct access **exact_match)
+{
+  struct access *child;
+
+  for (child = lacc->first_child; child; child = child->next_sibling)
+    {
+      if (child->offset == norm_offset && child->size == size)
+	{
+	  *exact_match = child;
+	  return true;
+	}
+
+      if (child->offset < norm_offset + size
+	  && child->offset + child->size > norm_offset)
+	return true;
+    }
+
+  return false;
+}
+
+/* Create a new child access of PARENT, with all properties just like MODEL
+   except for its offset and with its grp_write false and grp_read true.
+   Return the new access. Note that this access is created long after all
+   splicing and sorting, it's not located in any access vector and is
+   automatically a representative of its group.  */
+
+static struct access *
+create_artificial_child_access (struct access *parent, struct access *model,
+				HOST_WIDE_INT new_offset)
+{
+  struct access *access;
+  struct access **child;
+  tree t, expr = unshare_expr (model->expr);
+
+  gcc_assert (!model->grp_unscalarizable_region);
+  gcc_assert (handled_component_p (expr));
+  t = expr;
+  while (handled_component_p (TREE_OPERAND (t, 0)))
+    t = TREE_OPERAND (t, 0);
+  gcc_assert (TREE_OPERAND (t, 0) == model->base);
+  TREE_OPERAND (t, 0) = parent->base;
+
+  access = (struct access *) pool_alloc (access_pool);
+
+  memset (access, 0, sizeof (struct access));
+  access->base = parent->base;
+  access->offset = new_offset;
+  access->size = model->size;
+  access->expr = expr;
+  access->type = model->type;
+  access->grp_write = false;
+  access->grp_read = true;
+
+  child = &parent->first_child;
+  while (*child && (*child)->offset < new_offset)
+    child = &(*child)->next_sibling;
+
+  access->next_sibling = *child;
+  *child = access;
+
+  return access;
+}
+
+
+/* Propagate all subaccesses of RACC accross an assignment link to LACC. Return
+   true if any new subaccess was created.  */
+
+static bool
+propagate_subacesses_accross_link (struct access *lacc, struct access *racc)
+{
+  struct access *rchild;
+  HOST_WIDE_INT norm_delta = lacc->offset - racc->offset;
+  bool ret = false;
+
+  if (is_sra_scalar_type (lacc->type) && lacc->grp_unscalarizable_region)
+    return false;
+
+  gcc_assert (lacc->size == racc->size);
+
+  for (rchild = racc->first_child; rchild; rchild = rchild->next_sibling)
+    {
+      struct access *new_acc = NULL;
+      HOST_WIDE_INT norm_offset = rchild->offset + norm_delta;
+
+      if (rchild->grp_unscalarizable_region)
+	continue;
+
+      if (child_would_conflict_in_lacc (lacc, norm_offset, rchild->size,
+					&new_acc))
+	{
+	  if (new_acc && rchild->first_child)
+	    ret |= propagate_subacesses_accross_link (new_acc, rchild);
+	  continue;
+	}
+
+      new_acc = create_artificial_child_access (lacc, rchild, norm_offset);
+      if (racc->first_child)
+	propagate_subacesses_accross_link (new_acc, rchild);
+
+      ret = true;
+    }
+
+  return ret;
+}
+
+/* Propagate all subaccesses accross assignment links.  */
+
+static void
+propagate_all_subaccesses (void)
+{
+  while (work_queue_head)
+    {
+      struct access *racc = pop_access_from_work_queue ();
+      struct assign_link *link;
+
+      gcc_assert (racc->first_link);
+
+      for (link = racc->first_link; link; link = link->next)
+	{
+	  struct access *lacc = link->lacc;
+
+	  if (!bitmap_bit_p (candidate_bitmap, DECL_UID (lacc->base)))
+	    continue;
+	  lacc = lacc->group_representative;
+	  if (propagate_subacesses_accross_link (lacc, racc)
+	      && lacc->first_link)
+	    add_access_to_work_queue (lacc);
+	}
+    }
+}
+
 
 /* Dump a subtree rooted in ACCESS, indent by LEVEL.  */
 
@@ -2782,7 +3088,6 @@ dump_access_tree_1 (struct access *access, int level)
       access = access->next_sibling;
     }
   while (access);
-
 }
 
 /* Dump all access trees for a variable, given the pointer to the first root in
@@ -2793,43 +3098,6 @@ dump_access_tree (struct access *access)
 {
   for (; access; access = access->next_grp)
     dump_access_tree_1 (access, 0);
-}
-
-/* Traverse all accesses based on variable var that have been collected during
-   the (intraprocedural) analysis stage, see whether they preclude the variable
-   from scalarization because of overlaps, if it is OK, identify
-   representatives and build a tree out of them, deciding what should be
-   scalarized on the way.  Return true iff any scalar replacements are to be
-   created.  */
-
-static bool
-analyze_variable_accesses (tree var)
-{
-  struct access *access;
-
-  access = sort_and_splice_var_accesses (var);
-  if (!access)
-    {
-      disqualify_candidate (var, "No or inhibitingly overlapping accesses.");
-      return false;
-    }
-
-  if (!build_access_tree (access))
-    {
-      disqualify_candidate (var, "No scalar replacements to be created.");
-      return false;
-    }
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nAccess trees for ");
-      print_generic_expr (dump_file, var, 0);
-      fprintf (dump_file, " (UID: %u): \n", DECL_UID (var));
-      dump_access_tree (access);
-      fprintf (dump_file, "\n");
-    }
-
-  return true;
 }
 
 /* Go through all accesses collected throughout the (intraprocedural) analysis
@@ -2845,11 +3113,40 @@ analyze_all_variable_accesses (void)
   bool res = false;
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      if (bitmap_bit_p (candidate_bitmap, DECL_UID (var))
-	  && analyze_variable_accesses (var))
-	res = true;
-    }
+    if (bitmap_bit_p (candidate_bitmap, DECL_UID (var)))
+      {
+	struct access *access;
+
+	access = sort_and_splice_var_accesses (var);
+	if (access)
+	  build_access_trees (access);
+	else
+	  disqualify_candidate (var,
+				"No or inhibitingly overlapping accesses.");
+      }
+
+  propagate_all_subaccesses ();
+
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    if (bitmap_bit_p (candidate_bitmap, DECL_UID (var)))
+      {
+	struct access *access = get_first_repr_for_decl (var);
+
+	if (analyze_access_trees (access))
+	  {
+	    res = true;
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "\nAccess trees for ");
+		print_generic_expr (dump_file, var, 0);
+		fprintf (dump_file, " (UID: %u): \n", DECL_UID (var));
+		dump_access_tree (access);
+		fprintf (dump_file, "\n");
+	      }
+	  }
+	else
+	  disqualify_candidate (var, "No scalar replacements to be created.");
+      }
 
   return res;
 }

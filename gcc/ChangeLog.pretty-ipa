@@ -1,3 +1,38 @@
+2009-04-24  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c (struct assign_link): New structure.
+	(struct access): New fields group_representative, first_link,
+	last_link, next_queued and grp_queued.
+	(link_pool): New global variable.
+	(work_queue_head): New global variable.
+	(get_first_repr_for_decl): New function.
+	(get_var_base_offset_size_access): Use get_first_repr_for_decl.
+	(add_link_to_rhs): New function.
+	(relink_to_new_repr): New function.
+	(add_access_to_work_queue): New function.
+	(pop_access_from_work_queue): New function.
+	(sra_initialize): Create link_pool alloc pool.
+	(sra_deinitialize): Free link_pool alloc pool.
+	(build_access_from_expr_1): New function.
+	(build_access_from_expr): Just call build_access_from_expr_1 and
+	convert to boolean.
+	(build_accesses_from_assign): Call build_access_from_expr_1 and create
+	an assign link for rhs access if appropriate.
+	(sort_and_splice_var_accesses): Call relink_to_new_repr to move all
+	links to representatives.  Use memcpy to switch representatives when a
+	scalar one is discovered.  If there are any links, add representative
+	to workqueue.
+	(build_access_tree_1): Just build the tree, don't mess with flags.
+	(build_access_trees): Do not return any value.
+	(analyze_access_tree_1): New function.
+	(analyze_access_trees): New function.
+	(child_would_conflict_in_lacc): New function.
+	(create_artificial_child_access): New function.
+	(propagate_subacesses_accross_link): New function.
+	(propagate_all_subaccesses): New function.
+	(analyze_all_variable_accesses): Build all access trees first, then
+	propagate accross links and analyze afterwards.
+
 2009-04-22  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa-loop-niter.c (finite_loop_p): New function.
