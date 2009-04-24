@@ -3006,9 +3006,12 @@ make_eh_edge_and_update_phi (struct eh_region *region, void *data)
 
 /* Make EH edges corresponding to STMT while updating PHI nodes after removal
    empty cleanup BB_TO_REMOVE joined to BB containing STMT
-   by EDGE_TO_REMOVE.  */
+   by EDGE_TO_REMOVE.
 
-static void
+   Return if EDGE_TO_REMOVE was really removed.  It might stay reachable when
+   not all EH regions are cleaned up.  */
+
+static bool
 update_eh_edges (gimple stmt, basic_block bb_to_remove, edge edge_to_remove)
 {
   int region_nr;
@@ -3018,6 +3021,7 @@ update_eh_edges (gimple stmt, basic_block bb_to_remove, edge edge_to_remove)
   edge_iterator ei;
   edge e;
   int probability_sum = 0;
+  bool removed = false;
 
   info.bb_to_remove = bb_to_remove;
   info.bb = gimple_bb (stmt);
@@ -3031,8 +3035,6 @@ update_eh_edges (gimple stmt, basic_block bb_to_remove, edge edge_to_remove)
   else
     {
       region_nr = lookup_stmt_eh_region (stmt);
-      if (region_nr < 0)
-	return;
       is_resx = false;
       inlinable = inlinable_call_p (stmt);
     }
@@ -3047,6 +3049,8 @@ update_eh_edges (gimple stmt, basic_block bb_to_remove, edge edge_to_remove)
       if ((e->flags & EDGE_EH) && !e->aux)
 	{
 	  dominance_info_invalidated = true;
+	  if (e == edge_to_remove)
+	    removed = true;
 	  remove_edge (e);
 	}
       else
@@ -3062,6 +3066,7 @@ update_eh_edges (gimple stmt, basic_block bb_to_remove, edge edge_to_remove)
      we get fewer consistency errors in the dumps.  */
   if (is_resx && EDGE_COUNT (info.bb->succs) && !probability_sum)
     EDGE_SUCC (info.bb, 0)->probability = REG_BR_PROB_BASE;
+  return removed;
 }
 
 /* Look for basic blocks containing empty exception handler and remove them.
@@ -3136,7 +3141,10 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 	      continue;
 	    }
 	  if (stmt_can_throw_internal (last_stmt (src)))
-	    update_eh_edges (last_stmt (src), bb, e);
+	    {
+	      if (!update_eh_edges (last_stmt (src), bb, e))
+	        ei_next (&ei);
+	    }
 	  else
 	    remove_edge (e);
 	}

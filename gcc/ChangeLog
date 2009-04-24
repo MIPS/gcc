@@ -1,5 +1,10 @@
 2009-04-24  Jan Hubicka  <jh@suse.cz>
 
+	* tree-eh.c (update_eh_edges): Return true if edge was removed.
+	(cleanup_empty_eh): Avoid infinite cycle when edge was not removed.
+
+2009-04-24  Jan Hubicka  <jh@suse.cz>
+
 	* tree-ssa-dce.c (bb_contains_live_stmts): New static var.
 	(mark_stmt_necessary, mark_operand_necessary,
 	mark_control_dependent_edges_necessary): Set it.
