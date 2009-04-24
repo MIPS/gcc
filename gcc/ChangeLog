@@ -1,3 +1,17 @@
+2009-04-24  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-dce.c (bb_contains_live_stmts): New static var.
+	(mark_stmt_necessary, mark_operand_necessary,
+	mark_control_dependent_edges_necessary): Set it.
+	(mark_virtual_phi_result_for_renaming): New function.
+	(get_live_post_dom): New function.
+	(forward_edge_to_pdom): New function.
+	(remove_dead_stmt): Fix edge forwarding.
+	(eliminate_unnecessary_stmts): If CFG was altered, remove unreachable
+	blocks and mark possible uses of virtual operands leaking to live
+	code for renaming.
+	(tree_dce_init, tree_dce_done): Handle bb_contains_live_stmts bitmap.
+
 2009-04-19  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (cgraph_create_edge, cgraph_set_call_stmt): Set proper cfun.
