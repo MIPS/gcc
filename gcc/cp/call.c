@@ -4072,8 +4072,20 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	default:
 	  if ((flags & LOOKUP_COMPLAIN) && (complain & tf_error))
 	    {
-	      op_error (code, code2, arg1, arg2, arg3, "no match");
-	      print_z_candidates (candidates);
+		/* If one of the arguments of the operator represents
+		   an invalid use of member function pointer, try to report
+		   a meaningful error ...  */
+		if (invalid_nonstatic_memfn_p (arg1, tf_error)
+		    || invalid_nonstatic_memfn_p (arg2, tf_error)
+		    || invalid_nonstatic_memfn_p (arg3, tf_error))
+		  /* We displayed the error message.  */;
+		else
+		  {
+		    /* ... Otherwise, report the more generic
+		       "no matching operator found" error */
+		    op_error (code, code2, arg1, arg2, arg3, "no match");
+		    print_z_candidates (candidates);
+		  }
 	    }
 	  result = error_mark_node;
 	  break;
@@ -4472,7 +4484,7 @@ build_temp (tree expr, tree type, int flags,
   else if (errorcount > savee)
     *diagnostic_kind = DK_ERROR;
   else
-    *diagnostic_kind = 0;
+    *diagnostic_kind = DK_UNSPECIFIED;
   return expr;
 }
 

@@ -1069,16 +1069,14 @@ package body Exp_Aggr is
          --  default initialized components (otherwise Expr_Q is not present).
 
          if Present (Expr_Q)
-           and then (Nkind (Expr_Q) = N_Aggregate
-                     or else Nkind (Expr_Q) = N_Extension_Aggregate)
+           and then Nkind_In (Expr_Q, N_Aggregate, N_Extension_Aggregate)
          then
-            --  At this stage the Expression may not have been
-            --  analyzed yet because the array aggregate code has not
-            --  been updated to use the Expansion_Delayed flag and
-            --  avoid analysis altogether to solve the same problem
-            --  (see Resolve_Aggr_Expr). So let us do the analysis of
-            --  non-array aggregates now in order to get the value of
-            --  Expansion_Delayed flag for the inner aggregate ???
+            --  At this stage the Expression may not have been analyzed yet
+            --  because the array aggregate code has not been updated to use
+            --  the Expansion_Delayed flag and avoid analysis altogether to
+            --  solve the same problem (see Resolve_Aggr_Expr). So let us do
+            --  the analysis of non-array aggregates now in order to get the
+            --  value of Expansion_Delayed flag for the inner aggregate ???
 
             if Present (Comp_Type) and then not Is_Array_Type (Comp_Type) then
                Analyze_And_Resolve (Expr_Q, Comp_Type);
@@ -1871,7 +1869,9 @@ package body Exp_Aggr is
 
          Parent_Typ := Etype (Current_Typ);
          while Current_Typ /= Parent_Typ loop
-            if Has_Discriminants (Parent_Typ) then
+            if Has_Discriminants (Parent_Typ)
+              and then not Has_Unknown_Discriminants (Parent_Typ)
+            then
                Parent_Disc := First_Discriminant (Parent_Typ);
 
                --  We either get the association from the subtype indication
@@ -2439,12 +2439,8 @@ package body Exp_Aggr is
       --  to the actual type of the aggregate, so that the proper components
       --  are visible. We know already that the types are compatible.
 
-      --  There should also be a comment here explaining why the conversion
-      --  is needed in the case of interfaces.???
-
       if Present (Etype (Lhs))
-        and then (Is_Interface (Etype (Lhs))
-                   or else Is_Class_Wide_Type (Etype (Lhs)))
+        and then Is_Class_Wide_Type (Etype (Lhs))
       then
          Target := Unchecked_Convert_To (Typ, Lhs);
       else
@@ -2555,12 +2551,8 @@ package body Exp_Aggr is
             --  of one such.
 
             elsif Is_Limited_Type (Etype (A))
-              and then Nkind (Unqualify (A)) /= N_Function_Call --  aggregate?
-              and then
-                (Nkind (Unqualify (A)) /= N_Unchecked_Type_Conversion
-                   or else
-                 Nkind (Expression (Unqualify (A))) /= N_Function_Call)
-              and then Nkind (Unqualify (A)) /= N_Explicit_Dereference
+              and then Nkind_In (Unqualify (A), N_Aggregate,
+                                                N_Extension_Aggregate)
             then
                Ancestor_Is_Expression := True;
 
@@ -2595,8 +2587,8 @@ package body Exp_Aggr is
                --  If the ancestor part is an aggregate, force its full
                --  expansion, which was delayed.
 
-               if Nkind (Unqualify (A)) = N_Aggregate
-                 or else Nkind (Unqualify (A)) = N_Extension_Aggregate
+               if Nkind_In (Unqualify (A), N_Aggregate,
+                                           N_Extension_Aggregate)
                then
                   Set_Analyzed (A, False);
                   Set_Analyzed (Expression (A), False);
@@ -3501,7 +3493,7 @@ package body Exp_Aggr is
            (Is_Inherently_Limited_Type (Typ)
              and then
                (Nkind (Parent (Parent_Node)) = N_Extended_Return_Statement
-                  or else Nkind (Parent_Node) = N_Simple_Return_Statement))
+                 or else Nkind (Parent_Node) = N_Simple_Return_Statement))
       then
          Set_Expansion_Delayed (N);
          return;
@@ -3697,7 +3689,7 @@ package body Exp_Aggr is
                   if Nkind (Elmt) = N_Aggregate
                     and then Present (Next_Index (Ix))
                     and then
-                         not Flatten (Elmt, Next_Index (Ix), Next_Index (Ixb))
+                      not Flatten (Elmt, Next_Index (Ix), Next_Index (Ixb))
                   then
                      return False;
                   end if;
@@ -5028,8 +5020,8 @@ package body Exp_Aggr is
       else
          Maybe_In_Place_OK :=
           (Nkind (Parent (N)) = N_Assignment_Statement
-             and then Comes_From_Source (N)
-             and then In_Place_Assign_OK)
+            and then Comes_From_Source (N)
+            and then In_Place_Assign_OK)
 
           or else
             (Nkind (Parent (Parent (N))) = N_Allocator
@@ -5395,8 +5387,8 @@ package body Exp_Aggr is
       --  an atomic move for it.
 
       if Is_Atomic (Typ)
-        and then (Nkind (Parent (N)) = N_Object_Declaration
-                    or else Nkind (Parent (N)) = N_Assignment_Statement)
+        and then Nkind_In (Parent (N), N_Object_Declaration,
+                                       N_Assignment_Statement)
         and then Comes_From_Source (Parent (N))
       then
          Expand_Atomic_Aggregate (N, Typ);
@@ -5783,8 +5775,7 @@ package body Exp_Aggr is
       C     : Node_Id;
       Expr  : Node_Id;
    begin
-      pragma Assert (Nkind (N) = N_Aggregate
-         or else Nkind (N) = N_Extension_Aggregate);
+      pragma Assert (Nkind_In (N, N_Aggregate, N_Extension_Aggregate));
 
       if No (Comps) then
          return False;
@@ -5812,8 +5803,8 @@ package body Exp_Aggr is
          Expr := Expression (C);
 
          if Present (Expr)
-           and then (Nkind (Expr) = N_Aggregate
-                     or else Nkind (Expr) = N_Extension_Aggregate)
+           and then
+             Nkind_In (Expr, N_Aggregate, N_Extension_Aggregate)
            and then Has_Default_Init_Comps (Expr)
          then
             return True;
@@ -6429,8 +6420,8 @@ package body Exp_Aggr is
                return False;
 
             else
-               --  The aggregate is static if all components are literals, or
-               --  else all its components are static aggregates for the
+               --  The aggregate is static if all components are literals,
+               --  or else all its components are static aggregates for the
                --  component type. We also limit the size of a static aggregate
                --  to prevent runaway static expressions.
 

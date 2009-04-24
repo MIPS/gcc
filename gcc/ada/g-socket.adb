@@ -1274,36 +1274,33 @@ package body GNAT.Sockets is
    ---------------
 
    function Inet_Addr (Image : String) return Inet_Addr_Type is
+      use Interfaces.C;
       use Interfaces.C.Strings;
 
-      Img    : chars_ptr;
+      Img    : aliased char_array := To_C (Image);
+      Cp     : constant chars_ptr := To_Chars_Ptr (Img'Unchecked_Access);
+      Addr   : aliased C.int;
       Res    : C.int;
       Result : Inet_Addr_Type;
 
    begin
-      --  Special case for the all-ones broadcast address: this address has the
-      --  same in_addr_t value as Failure, and thus cannot be properly returned
-      --  by inet_addr(3).
-
-      if Image = "255.255.255.255" then
-         return Broadcast_Inet_Addr;
-
       --  Special case for an empty Image as on some platforms (e.g. Windows)
       --  calling Inet_Addr("") will not return an error.
 
-      elsif Image = "" then
+      if Image = "" then
          Raise_Socket_Error (SOSC.EINVAL);
       end if;
 
-      Img := New_String (Image);
-      Res := C_Inet_Addr (Img);
-      Free (Img);
+      Res := Inet_Pton (SOSC.AF_INET, Cp, Addr'Address);
 
-      if Res = Failure then
+      if Res < 0 then
+         Raise_Socket_Error (Socket_Errno);
+
+      elsif Res = 0 then
          Raise_Socket_Error (SOSC.EINVAL);
       end if;
 
-      To_Inet_Addr (To_In_Addr (Res), Result);
+      To_Inet_Addr (To_In_Addr (Addr), Result);
       return Result;
    end Inet_Addr;
 
@@ -1681,6 +1678,18 @@ package body GNAT.Sockets is
          end case;
       end if;
 
+      --  Special case: EAGAIN may be the same value as EWOULDBLOCK, so we
+      --  can't include it in the case statement below.
+
+      pragma Warnings (Off);
+      --  Condition "EAGAIN /= EWOULDBLOCK" is known at compile time
+
+      if EAGAIN /= EWOULDBLOCK and then Error_Value = EAGAIN then
+         return Resource_Temporarily_Unavailable;
+      end if;
+
+      pragma Warnings (On);
+
       case Error_Value is
          when ENOERROR        => return Success;
          when EACCES          => return Permission_Denied;
@@ -1716,6 +1725,7 @@ package body GNAT.Sockets is
          when ENOTSOCK        => return Socket_Operation_On_Non_Socket;
          when EOPNOTSUPP      => return Operation_Not_Supported;
          when EPFNOSUPPORT    => return Protocol_Family_Not_Supported;
+         when EPIPE           => return Broken_Pipe;
          when EPROTONOSUPPORT => return Protocol_Not_Supported;
          when EPROTOTYPE      => return Protocol_Wrong_Type_For_Socket;
          when ESHUTDOWN       => return
@@ -1724,10 +1734,9 @@ package body GNAT.Sockets is
          when ETIMEDOUT       => return Connection_Timed_Out;
          when ETOOMANYREFS    => return Too_Many_References;
          when EWOULDBLOCK     => return Resource_Temporarily_Unavailable;
-         when others          => null;
-      end case;
 
-      return Cannot_Resolve_Error;
+         when others          => return Cannot_Resolve_Error;
+      end case;
    end Resolve_Error;
 
    -----------------------

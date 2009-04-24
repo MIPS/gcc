@@ -33,8 +33,8 @@
 --  package provides a basic tree structure. Sinfo describes how this structure
 --  is used to represent the syntax of an Ada program.
 
---  The grammar in the RM is followed very closely in the tree
---  design, and is repeated as part of this source file.
+--  The grammar in the RM is followed very closely in the tree design, and is
+--  repeated as part of this source file.
 
 --  The tree contains not only the full syntactic representation of the
 --  program, but also the results of semantic analysis. In particular, the
@@ -1287,19 +1287,16 @@ package Sinfo is
    --
    --    In a compilation unit node, the usage depends on the unit type:
    --
-   --     For a subprogram body, Library_Unit points to the compilation unit
-   --     node of the corresponding spec, unless Acts_As_Spec is set, in which
-   --     case it points to itself.
+   --     For a library unit body, Library_Unit points to the compilation unit
+   --     node of the corresponding spec, unless it's a subprogram body with
+   --     Acts_As_Spec set, in which case it points to itself.
    --
-   --     For a package body, Library_Unit points to the compilation unit of
-   --     the corresponding package spec.
-   --
-   --     For a subprogram spec to which pragma Inline applies, Library_Unit
-   --     points to the compilation unit node of the corresponding body, if
-   --     inlining is active.
-   --
-   --     For a generic declaration, Library_Unit points to the compilation
-   --     unit node of the corresponding generic body.
+   --     For a spec, Library_Unit points to the compilation unit node of the
+   --     corresponding body, if present. The body will be present if the spec
+   --     is or contains generics that we needed to instantiate. Similarly, the
+   --     body will be present if we needed it for inlining purposes. Thus, if
+   --     we have a spec/body pair, both of which are present, they point to
+   --     each other via Library_Unit.
    --
    --     For a subunit, Library_Unit points to the compilation unit node of
    --     the parent body.
@@ -2155,11 +2152,8 @@ package Sinfo is
       --  Note: the back end places some restrictions on the form of the
       --  Expression field. If the object being declared is Atomic, then
       --  the Expression may not have the form of an aggregate (since this
-      --  might cause the back end to generate separate assignments). It
-      --  also cannot be a reference to an object marked as a true constant
-      --  (Is_True_Constant flag set), where the object is itself initialized
-      --  with an aggregate. If necessary the front end must generate an
-      --  extra temporary (with Is_True_Constant set False), and initialize
+      --  might cause the back end to generate separate assignments). In this
+      --  case the front end must generate an extra temporary and initialize
       --  this temporary as required (the temporary itself is not atomic).
 
       --  Note: there is not node kind for object definition. Instead, the
@@ -3851,11 +3845,8 @@ package Sinfo is
       --  Note: the back end places some restrictions on the form of the
       --  Expression field. If the object being assigned to is Atomic, then
       --  the Expression may not have the form of an aggregate (since this
-      --  might cause the back end to generate separate assignments). It
-      --  also cannot be a reference to an object marked as a true constant
-      --  (Is_True_Constant flag set), where the object is itself initialized
-      --  with an aggregate. If necessary the front end must generate an
-      --  extra temporary (with Is_True_Constant set False), and initialize
+      --  might cause the back end to generate separate assignments). In this
+      --  case the front end must generate an extra temporary and initialize
       --  this temporary as required (the temporary itself is not atomic).
 
       -----------------------
@@ -5319,7 +5310,7 @@ package Sinfo is
       --  There is no explicit node in the tree for a compilation, since in
       --  general the compiler is processing only a single compilation unit
       --  at a time. It is possible to parse multiple units in syntax check
-      --  only mode, but they the trees are discarded in any case.
+      --  only mode, but the trees are discarded in that case.
 
       ------------------------------
       -- 10.1.1  Compilation Unit --
@@ -5389,7 +5380,7 @@ package Sinfo is
 
       --  There is no explicit node in the tree for library item, instead
       --  the declaration or body, and the flag for private if present,
-      --  appear in the N_Compilation_Unit clause.
+      --  appear in the N_Compilation_Unit node.
 
       --------------------------------------
       -- 10.1.1  Library Unit Declaration --
@@ -6562,11 +6553,10 @@ package Sinfo is
       --  in the declarations of the innermost enclosing block as specified
       --  in RM section 5.1 (3).
 
-      --  The Defining_Identifier is the actual identifier for the
-      --  statement identifier. Note that the occurrence of the label
-      --  is a reference, NOT the defining occurrence. The defining
-      --  occurrence occurs at the head of the innermost enclosing
-      --  block, and is represented by this node.
+      --  The Defining_Identifier is the actual identifier for the statement
+      --  identifier. Note that the occurrence of the label is a reference, NOT
+      --  the defining occurrence. The defining occurrence occurs at the head
+      --  of the innermost enclosing block, and is represented by this node.
 
       --  Note: from the grammar, this might better be called an implicit
       --  statement identifier declaration, but the term we choose seems
@@ -6574,11 +6564,10 @@ package Sinfo is
       --  called labels in both cases (i.e. when used in labels, and when
       --  used as the identifiers of blocks and loops).
 
-      --  Note: although this is logically a semantic node, since it does
-      --  not correspond directly to a source syntax construction, these
-      --  nodes are actually created by the parser in a post pass done just
-      --  after parsing is complete, before semantic analysis is started (see
-      --  the Par.Labl subunit in file par-labl.adb).
+      --  Note: although this is logically a semantic node, since it does not
+      --  correspond directly to a source syntax construction, these nodes are
+      --  actually created by the parser in a post pass done just after parsing
+      --  is complete, before semantic analysis is started (see Par.Labl).
 
       --  Sprint syntax: labelname : label;
 
@@ -6594,19 +6583,18 @@ package Sinfo is
       -- Itype_Reference --
       ---------------------
 
-      --  This node is used to create a reference to an Itype. The only
-      --  purpose is to make sure that the Itype is defined if this is the
-      --  first reference.
+      --  This node is used to create a reference to an Itype. The only purpose
+      --  is to make sure the Itype is defined if this is the first reference.
 
       --  A typical use of this node is when an Itype is to be referenced in
-      --  two branches of an if statement. In this case it is important that
-      --  the first use of the Itype not be inside the conditional, since
-      --  then it might not be defined if the wrong branch of the if is
-      --  taken in the case where the definition generates elaboration code.
+      --  two branches of an IF statement. In this case it is important that
+      --  the first use of the Itype not be inside the conditional, since then
+      --  it might not be defined if the other branch of the IF is taken, in
+      --  the case where the definition generates elaboration code.
 
       --  The Itype field points to the referenced Itype
 
-      --  sprint syntax: reference itype-name
+      --  Sprint syntax: reference itype-name
 
       --  N_Itype_Reference
       --  Sloc points to the node generating the reference

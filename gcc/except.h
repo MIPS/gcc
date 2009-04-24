@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 struct function;
 
 /* Describes one exception region.  */
-struct eh_region GTY(())
+struct GTY(()) eh_region
 {
   /* The immediately surrounding region.  */
   struct eh_region *outer;
@@ -118,7 +118,7 @@ DEF_VEC_ALLOC_P(eh_region, heap);
 
 /* Per-function EH data.  Used to save exception status for each
    function.  */
-struct eh_status GTY(())
+struct GTY(()) eh_status
 {
   /* The tree of all regions for this function.  */
   struct eh_region *region_tree;
@@ -153,10 +153,6 @@ extern bool can_throw_external (const_rtx);
 
 /* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
 extern unsigned int set_nothrow_function_flags (void);
-
-/* After initial rtl generation, call back to finish generating
-   exception support code.  */
-extern void finish_eh_generation (void);
 
 extern void init_eh (void);
 extern void init_eh_for_function (void);
@@ -272,8 +268,7 @@ extern tree (*lang_eh_runtime_type) (tree);
 # define USING_SJLJ_EXCEPTIONS		MUST_USE_SJLJ_EXCEPTIONS
 #endif
 
-struct throw_stmt_node GTY(())
-{
+struct GTY(()) throw_stmt_node {
   gimple stmt;
   int region_nr;
 };

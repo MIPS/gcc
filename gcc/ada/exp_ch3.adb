@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -3892,16 +3892,6 @@ package body Exp_Ch3 is
          Par_Subtype := Process_Subtype (New_Copy_Tree (Indic), Def);
       end if;
 
-      --  If this is an extension of a type with unknown discriminants, use
-      --  full view to provide proper discriminants to gigi.
-
-      if Has_Unknown_Discriminants (Par_Subtype)
-        and then Is_Private_Type (Par_Subtype)
-        and then Present (Full_View (Par_Subtype))
-      then
-         Par_Subtype := Full_View (Par_Subtype);
-      end if;
-
       Set_Parent_Subtype (T, Par_Subtype);
 
       Comp_Decl :=
@@ -4698,6 +4688,40 @@ package body Exp_Ch3 is
                Insert_After_And_Analyze (Init_After, Stat);
             end;
          end if;
+
+         --  Final transformation, if the initializing expression is an entity
+         --  for a variable with OK_To_Rename set, then we transform:
+
+         --     X : typ := expr;
+
+         --  into
+
+         --     X : typ renames expr
+
+         --  provided that X is not aliased. The aliased case has to be
+         --  excluded in general because expr will not be aliased in general.
+
+         if not Aliased_Present (N)
+           and then Is_Entity_Name (Expr_Q)
+           and then Ekind (Entity (Expr_Q)) = E_Variable
+           and then OK_To_Rename (Entity (Expr_Q))
+           and then Is_Entity_Name (Object_Definition (N))
+         then
+            Rewrite (N,
+              Make_Object_Renaming_Declaration (Loc,
+                Defining_Identifier => Defining_Identifier (N),
+                Subtype_Mark        => Object_Definition (N),
+                Name                => Expr_Q));
+
+            --  We do not analyze this renaming declaration, because all its
+            --  components have already been analyzed, and if we were to go
+            --  ahead and analyze it, we would in effect be trying to generate
+            --  another declaration of X, which won't do!
+
+            Set_Renamed_Object (Defining_Identifier (N), Expr_Q);
+            Set_Analyzed (N);
+         end if;
+
       end if;
 
    exception
@@ -7500,14 +7524,15 @@ package body Exp_Ch3 is
      (Tag_Typ   : Entity_Id;
       Decl_List : out List_Id)
    is
-      Loc         : constant Source_Ptr := Sloc (Tag_Typ);
-      Formal      : Entity_Id;
-      Formal_List : List_Id;
-      Parent_Subp : Entity_Id;
-      Prim_Elmt   : Elmt_Id;
-      Proc_Spec   : Node_Id;
-      Proc_Decl   : Node_Id;
-      Subp        : Entity_Id;
+      Loc : constant Source_Ptr := Sloc (Tag_Typ);
+
+      Formal         : Entity_Id;
+      Formal_List    : List_Id;
+      New_Param_Spec : Node_Id;
+      Parent_Subp    : Entity_Id;
+      Prim_Elmt      : Elmt_Id;
+      Proc_Decl      : Node_Id;
+      Subp           : Entity_Id;
 
       function Is_Null_Interface_Primitive (E : Entity_Id) return Boolean;
       --  Returns True if E is a null procedure that is an interface primitive
@@ -7549,33 +7574,52 @@ package body Exp_Ch3 is
                Formal_List := New_List;
 
                while Present (Formal) loop
-                  Append
-                    (Make_Parameter_Specification (Loc,
-                       Defining_Identifier =>
-                         Make_Defining_Identifier (Sloc (Formal),
-                           Chars => Chars (Formal)),
-                       In_Present  => In_Present (Parent (Formal)),
-                       Out_Present => Out_Present (Parent (Formal)),
-                       Null_Exclusion_Present =>
-                         Null_Exclusion_Present (Parent (Formal)),
-                       Parameter_Type =>
-                         New_Occurrence_Of (Etype (Formal), Loc),
-                       Expression =>
-                         New_Copy_Tree (Expression (Parent (Formal)))),
-                     Formal_List);
+
+                  --  Copy the parameter spec including default expressions
+
+                  New_Param_Spec :=
+                    New_Copy_Tree (Parent (Formal), New_Sloc => Loc);
+
+                  --  Generate a new defining identifier for the new formal.
+                  --  required because New_Copy_Tree does not duplicate
+                  --  semantic fields (except itypes).
+
+                  Set_Defining_Identifier (New_Param_Spec,
+                    Make_Defining_Identifier (Sloc (Formal),
+                      Chars => Chars (Formal)));
+
+                  --  For controlling arguments we must change their
+                  --  parameter type to reference the tagged type (instead
+                  --  of the interface type)
+
+                  if Is_Controlling_Formal (Formal) then
+                     if Nkind (Parameter_Type (Parent (Formal)))
+                       = N_Identifier
+                     then
+                        Set_Parameter_Type (New_Param_Spec,
+                          New_Occurrence_Of (Tag_Typ, Loc));
+
+                     else pragma Assert
+                            (Nkind (Parameter_Type (Parent (Formal)))
+                               = N_Access_Definition);
+                        Set_Subtype_Mark (Parameter_Type (New_Param_Spec),
+                          New_Occurrence_Of (Tag_Typ, Loc));
+                     end if;
+                  end if;
+
+                  Append (New_Param_Spec, Formal_List);
 
                   Next_Formal (Formal);
                end loop;
             end if;
 
-            Proc_Spec :=
-              Make_Procedure_Specification (Loc,
-                Defining_Unit_Name =>
-                  Make_Defining_Identifier (Loc, Chars (Subp)),
-                Parameter_Specifications => Formal_List);
-            Set_Null_Present (Proc_Spec);
-
-            Proc_Decl := Make_Subprogram_Declaration (Loc, Proc_Spec);
+            Proc_Decl :=
+              Make_Subprogram_Declaration (Loc,
+                Make_Procedure_Specification (Loc,
+                  Defining_Unit_Name =>
+                    Make_Defining_Identifier (Loc, Chars (Subp)),
+                  Parameter_Specifications => Formal_List,
+                  Null_Present => True));
             Append_To (Decl_List, Proc_Decl);
             Analyze (Proc_Decl);
          end if;
@@ -7818,11 +7862,13 @@ package body Exp_Ch3 is
       --    Disp_Timed_Select
 
       --  These operations cannot be implemented on VM targets, so we simply
-      --  disable their generation in this case. We also disable generation
-      --  of these bodies if No_Dispatching_Calls is active.
+      --  disable their generation in this case. Disable the generation of
+      --  these bodies if No_Dispatching_Calls, Ravenscar or ZFP is active.
 
       if Ada_Version >= Ada_05
         and then VM_Target = No_VM
+        and then not Restriction_Active (No_Dispatching_Calls)
+        and then not Restriction_Active (No_Select_Statements)
         and then RTE_Available (RE_Select_Specific_Data)
       then
          --  These primitives are defined abstract in interface types
@@ -8311,18 +8357,19 @@ package body Exp_Ch3 is
       --  The interface versions will have null bodies
 
       --  These operations cannot be implemented on VM targets, so we simply
-      --  disable their generation in this case. We also disable generation
-      --  of these bodies if No_Dispatching_Calls is active.
+      --  disable their generation in this case. Disable the generation of
+      --  these bodies if No_Dispatching_Calls, Ravenscar or ZFP is active.
 
       if Ada_Version >= Ada_05
         and then VM_Target = No_VM
-        and then not Restriction_Active (No_Dispatching_Calls)
         and then not Is_Interface (Tag_Typ)
         and then
           ((Is_Interface (Etype (Tag_Typ))
               and then Is_Limited_Record (Etype (Tag_Typ)))
            or else (Is_Concurrent_Record_Type (Tag_Typ)
-                     and then Has_Interfaces (Tag_Typ)))
+                      and then Has_Interfaces (Tag_Typ)))
+        and then not Restriction_Active (No_Dispatching_Calls)
+        and then not Restriction_Active (No_Select_Statements)
         and then RTE_Available (RE_Select_Specific_Data)
       then
          Append_To (Res, Make_Disp_Asynchronous_Select_Body (Tag_Typ));

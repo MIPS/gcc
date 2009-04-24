@@ -2345,8 +2345,7 @@ tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(TREE_INLINE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    $(TM_H) coretypes.h
 omega.o : omega.c omega.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   errors.h $(GGC_H) $(TREE_H) $(DIAGNOSTIC_H) varray.h $(TREE_PASS_H) \
-   $(PARAMS_H)
+   $(GGC_H) $(TREE_H) $(DIAGNOSTIC_H) varray.h $(TREE_PASS_H) $(PARAMS_H)
 tree-chrec.o: tree-chrec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(GGC_H) $(TREE_H) $(REAL_H) $(SCEV_H) $(TREE_PASS_H) $(PARAMS_H) \
    $(DIAGNOSTIC_H) $(CFGLOOP_H) $(TREE_FLOW_H)
@@ -2412,7 +2411,7 @@ tree-object-size.o: tree-object-size.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TREE_H) $(TOPLEV_H) $(DIAGNOSTIC_H) $(TREE_FLOW_H) \
    $(TREE_PASS_H) tree-ssa-propagate.h
 gimple.o : gimple.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
-   $(GGC_H) $(GIMPLE_H) $(GIMPLE_H) $(DIAGNOSTIC_H) gt-gimple.h \
+   $(GGC_H) $(GIMPLE_H) $(TOPLEV_H) $(DIAGNOSTIC_H) gt-gimple.h \
    $(TREE_FLOW_H) value-prof.h $(FLAGS_H)
 gimple-pretty-print.o : gimple-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) $(REAL_H) $(HASHTAB_H) $(TREE_FLOW_H) \
@@ -2476,7 +2475,7 @@ passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    gt-passes.h $(DF_H) $(PREDICT_H)
 
 plugin.o : plugin.c $(PLUGIN_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   errors.h $(TOPLEV_H) $(TREE_H) $(TREE_PASS_H) intl.h
+   $(TOPLEV_H) $(TREE_H) $(TREE_PASS_H) intl.h
 
 plugin-version.o : plugin-version.c $(SYSTEM_H) gcc-plugin.h configargs.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
@@ -2616,7 +2615,7 @@ cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(CGRAPH_H) intl.h pointer-set.h $(FUNCTION_H) $(GIMPLE_H) \
    $(TREE_FLOW_H) $(TREE_PASS_H) $(C_COMMON_H) debug.h $(DIAGNOSTIC_H) \
    $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(TIMEVAR_H) $(IPA_PROP_H) \
-   gt-cgraphunit.h tree-iterator.h
+   gt-cgraphunit.h tree-iterator.h $(COVERAGE_H)
 cgraphbuild.o : cgraphbuild.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(CGRAPH_H) intl.h pointer-set.h $(GIMPLE_H) \
    $(TREE_FLOW_H) $(TREE_PASS_H)
@@ -2625,7 +2624,7 @@ varpool.o : varpool.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(GGC_H) $(TIMEVAR_H) debug.h $(TARGET_H) output.h $(GIMPLE_H) \
    $(TREE_FLOW_H) gt-varpool.h
 ipa.o : ipa.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(CGRAPH_H) \
-   $(TREE_PASS_H) $(TIMEVAR_H)
+   $(TREE_PASS_H) $(TIMEVAR_H) $(GGC_H)
 ipa-prop.o : ipa-prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    langhooks.h $(GGC_H) $(TARGET_H) $(CGRAPH_H) $(IPA_PROP_H) $(DIAGNOSTIC_H) \
    $(TREE_FLOW_H) $(TM_H) $(TREE_PASS_H) $(FLAGS_H) $(TREE_H) \
@@ -2930,7 +2929,7 @@ ira-build.o: ira-build.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(PARAMS_H) $(DF_H) sparseset.h $(IRA_INT_H)
 ira-costs.o: ira-costs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) insn-config.h $(RECOG_H) \
-   $(REGS_H) hard-reg-set.h $(FLAGS_H) errors.h \
+   $(REGS_H) hard-reg-set.h $(FLAGS_H) \
    $(EXPR_H) $(BASIC_BLOCK_H) $(TM_P_H) \
    $(IRA_INT_H)
 ira-conflicts.o: ira-conflicts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -3204,7 +3203,7 @@ $(simple_generated_c:insn-%.c=s-%): s-%: build/gen%$(build_exeext) \
 	$(STAMP) s-$*
 
 generated_files = config.h tm.h $(TM_P_H) $(TM_H) multilib.h \
-       $(simple_generated_h) $(simple_generated_c) specs.h \
+       $(simple_generated_h) specs.h \
        tree-check.h genrtl.h insn-modes.h tm-preds.h tm-constrs.h \
        $(ALL_GTFILES_H) gtype-desc.c gtype-desc.h gcov-iov.h
 

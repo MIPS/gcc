@@ -51,6 +51,7 @@ with Sem_Cat;  use Sem_Cat;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Dist; use Sem_Dist;
+with Sem_Elim; use Sem_Elim;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Type; use Sem_Type;
@@ -572,6 +573,10 @@ package body Sem_Attr is
             if Aname = Name_Unchecked_Access then
                Error_Attr ("attribute% cannot be applied to a subprogram", P);
             end if;
+
+            --  Issue an error if the prefix denotes an eliminated subprogram
+
+            Check_For_Eliminated_Subprogram (P, Entity (P));
 
             --  Build the appropriate subprogram type
 
@@ -2076,6 +2081,11 @@ package body Sem_Attr is
                         Error_Msg_N
                          ("cannot take Address of intrinsic subprogram", N);
                      end if;
+
+                  --  Issue an error if prefix denotes an eliminated subprogram
+
+                  else
+                     Check_For_Eliminated_Subprogram (P, Ent);
                   end if;
 
                elsif Is_Object (Ent)
@@ -2516,6 +2526,11 @@ package body Sem_Attr is
          then
             Error_Attr ("invalid prefix for % attribute", P);
             Set_Address_Taken (Entity (P));
+
+         --  Issue an error if the prefix denotes an eliminated subprogram
+
+         else
+            Check_For_Eliminated_Subprogram (P, Entity (P));
          end if;
 
          Set_Etype (N, RTE (RE_Address));
@@ -6138,12 +6153,11 @@ package body Sem_Attr is
          Ind : Node_Id;
 
       begin
-         --  In the case of a generic index type, the bounds may
-         --  appear static but the computation is not meaningful,
-         --  and may generate a spurious warning.
+         --  In the case of a generic index type, the bounds may appear static
+         --  but the computation is not meaningful in this case, and may
+         --  generate a spurious warning.
 
          Ind := First_Index (P_Type);
-
          while Present (Ind) loop
             if Is_Generic_Type (Etype (Ind)) then
                return;
@@ -6154,6 +6168,8 @@ package body Sem_Attr is
 
          Set_Bounds;
 
+         --  For two compile time values, we can compute length
+
          if Compile_Time_Known_Value (Lo_Bound)
            and then Compile_Time_Known_Value (Hi_Bound)
          then
@@ -6161,6 +6177,33 @@ package body Sem_Attr is
               UI_Max (0, 1 + (Expr_Value (Hi_Bound) - Expr_Value (Lo_Bound))),
               True);
          end if;
+
+         --  One more case is where Hi_Bound and Lo_Bound are compile-time
+         --  comparable, and we can figure out the difference between them.
+
+         declare
+            Diff : aliased Uint;
+
+         begin
+            case
+              Compile_Time_Compare
+                (Lo_Bound, Hi_Bound, Diff'Access, Assume_Valid => False)
+            is
+               when EQ =>
+                  Fold_Uint (N, Uint_1, False);
+
+               when GT =>
+                  Fold_Uint (N, Uint_0, False);
+
+               when LT =>
+                  if Diff /= No_Uint then
+                     Fold_Uint (N, Diff + 1, False);
+                  end if;
+
+               when others =>
+                  null;
+            end case;
+         end;
       end Length;
 
       -------------
@@ -6652,6 +6695,8 @@ package body Sem_Attr is
       when Attribute_Range_Length =>
          Set_Bounds;
 
+         --  Can fold if both bounds are compile time known
+
          if Compile_Time_Known_Value (Hi_Bound)
            and then Compile_Time_Known_Value (Lo_Bound)
          then
@@ -6660,6 +6705,33 @@ package body Sem_Attr is
                 (0, Expr_Value (Hi_Bound) - Expr_Value (Lo_Bound) + 1),
                  Static);
          end if;
+
+         --  One more case is where Hi_Bound and Lo_Bound are compile-time
+         --  comparable, and we can figure out the difference between them.
+
+         declare
+            Diff : aliased Uint;
+
+         begin
+            case
+              Compile_Time_Compare
+                (Lo_Bound, Hi_Bound, Diff'Access, Assume_Valid => False)
+            is
+               when EQ =>
+                  Fold_Uint (N, Uint_1, False);
+
+               when GT =>
+                  Fold_Uint (N, Uint_0, False);
+
+               when LT =>
+                  if Diff /= No_Uint then
+                     Fold_Uint (N, Diff + 1, False);
+                  end if;
+
+               when others =>
+                  null;
+            end case;
+         end;
 
       ---------------
       -- Remainder --

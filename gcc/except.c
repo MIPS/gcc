@@ -97,8 +97,7 @@ tree (*lang_eh_runtime_type) (tree);
 
 /* A hash table of label to region number.  */
 
-struct ehl_map_entry GTY(())
-{
+struct GTY(()) ehl_map_entry {
   rtx label;
   struct eh_region *region;
 };
@@ -116,7 +115,7 @@ static int sjlj_fc_lsda_ofs;
 static int sjlj_fc_jbuf_ofs;
 
 
-struct call_site_record GTY(())
+struct GTY(()) call_site_record
 {
   rtx landing_pad;
   int action;
@@ -1731,8 +1730,7 @@ lookup_type_for_runtime (tree type)
 
 /* Represent an entry in @TTypes for either catch actions
    or exception filter actions.  */
-struct ttypes_filter GTY(())
-{
+struct GTY(()) ttypes_filter {
   tree t;
   int filter;
 };
@@ -2505,9 +2503,7 @@ sjlj_emit_function_exit_after (rtx after)
 static void
 sjlj_emit_function_exit (void)
 {
-  rtx seq;
-  edge e;
-  edge_iterator ei;
+  rtx seq, insn;
 
   start_sequence ();
 
@@ -2521,31 +2517,11 @@ sjlj_emit_function_exit (void)
      post-dominates all can_throw_internal instructions.  This is
      the last possible moment.  */
 
-  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
-    if (e->flags & EDGE_FALLTHRU)
-      break;
-  if (e)
-    {
-      rtx insn;
+  insn = crtl->eh.sjlj_exit_after;
+  if (LABEL_P (insn))
+    insn = NEXT_INSN (insn);
 
-      /* Figure out whether the place we are supposed to insert libcall
-         is inside the last basic block or after it.  In the other case
-         we need to emit to edge.  */
-      gcc_assert (e->src->next_bb == EXIT_BLOCK_PTR);
-      for (insn = BB_HEAD (e->src); ; insn = NEXT_INSN (insn))
-	{
-	  if (insn == crtl->eh.sjlj_exit_after)
-	    {
-	      if (LABEL_P (insn))
-		insn = NEXT_INSN (insn);
-	      emit_insn_after (seq, insn);
-	      return;
-	    }
-	  if (insn == BB_END (e->src))
-	    break;
-	}
-      insert_insn_on_edge (seq, e);
-    }
+  emit_insn_after (seq, insn);
 }
 
 static void
@@ -2654,7 +2630,10 @@ sjlj_build_landing_pads (void)
   free (lp_info);
 }
 
-void
+/* After initial rtl generation, call back to finish generating
+   exception support code.  */
+
+static void
 finish_eh_generation (void)
 {
   basic_block bb;
@@ -2663,14 +2642,15 @@ finish_eh_generation (void)
   if (cfun->eh->region_tree == NULL)
     return;
 
-  /* The object here is to provide find_basic_blocks with detailed
-     information (via reachable_handlers) on how exception control
-     flows within the function.  In this first pass, we can include
-     type information garnered from ERT_THROW and ERT_ALLOWED_EXCEPTIONS
-     regions, and hope that it will be useful in deleting unreachable
-     handlers.  Subsequently, we will generate landing pads which will
-     connect many of the handlers, and then type information will not
-     be effective.  Still, this is a win over previous implementations.  */
+  /* The object here is to provide detailed information (via
+     reachable_handlers) on how exception control flows within the
+     function for the CFG construction.  In this first pass, we can
+     include type information garnered from ERT_THROW and
+     ERT_ALLOWED_EXCEPTIONS regions, and hope that it will be useful
+     in deleting unreachable handlers.  Subsequently, we will generate
+     landing pads which will connect many of the handlers, and then
+     type information will not be effective.  Still, this is a win
+     over previous implementations.  */
 
   /* These registers are used by the landing pads.  Make sure they
      have been generated.  */

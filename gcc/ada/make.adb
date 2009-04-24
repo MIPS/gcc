@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,6 +36,7 @@ with Gnatvsn;  use Gnatvsn;
 with Hostparm; use Hostparm;
 with Makeusg;
 with Makeutl;  use Makeutl;
+with MLib;
 with MLib.Prj;
 with MLib.Tgt; use MLib.Tgt;
 with MLib.Utl;
@@ -586,14 +587,8 @@ package body Make is
    procedure Debug_Msg (S : String; N : Unit_Name_Type);
    --  If Debug.Debug_Flag_W is set outputs string S followed by name N
 
-   procedure Recursive_Compute_Depth
-     (Project : Project_Id;
-      Depth   : Natural);
+   procedure Recursive_Compute_Depth (Project : Project_Id);
    --  Compute depth of Project and of the projects it depends on
-
-   procedure Compute_All_Imported_Projects (Project : Project_Id);
-   --  Compute, the list of the projects imported directly or indirectly by
-   --  project Project.
 
    -----------------------
    -- Gnatmake Routines --
@@ -2356,15 +2351,9 @@ package body Make is
                --  We get the project directory for the relative path
                --  switches and arguments.
 
+               Arguments_Project := Ultimate_Extending_Project_Of
+                 (Arguments_Project, Project_Tree);
                Data := Project_Tree.Projects.Table (Arguments_Project);
-
-               --  If the source is in an extended project, we go to
-               --  the ultimate extending project.
-
-               while Data.Extended_By /= No_Project loop
-                  Arguments_Project := Data.Extended_By;
-                  Data := Project_Tree.Projects.Table (Arguments_Project);
-               end loop;
 
                --  If building a dynamic or relocatable library, compile with
                --  PIC option, if it exists.
@@ -2378,13 +2367,6 @@ package body Make is
                         Add_Arguments ((1 => new String'(PIC)));
                      end if;
                   end;
-               end if;
-
-               if Data.Dir_Path = null then
-                  Data.Dir_Path :=
-                    new String'(Get_Name_String (Data.Directory.Display_Name));
-                  Project_Tree.Projects.Table (Arguments_Project) :=
-                    Data;
                end if;
 
                --  We now look for package Compiler and get the switches from
@@ -2436,6 +2418,8 @@ package body Make is
                         declare
                            New_Args : Argument_List (1 .. Number);
                            Last_New : Natural := 0;
+                           Dir_Path : constant String :=
+                             Get_Name_String (Data.Directory.Name);
 
                         begin
                            Current := Switches.Values;
@@ -2451,7 +2435,7 @@ package body Make is
                                    new String'(Name_Buffer (1 .. Name_Len));
                                  Test_If_Relative_Path
                                    (New_Args (Last_New),
-                                    Parent => Data.Dir_Path,
+                                    Parent => Dir_Path,
                                     Including_Non_Switch => False);
                               end if;
 
@@ -2476,11 +2460,13 @@ package body Make is
                         New_Args : Argument_List :=
                                      (1 => new String'
                                             (Name_Buffer (1 .. Name_Len)));
+                        Dir_Path : constant String :=
+                          Get_Name_String (Data.Directory.Name);
 
                      begin
                         Test_If_Relative_Path
                           (New_Args (1),
-                           Parent               => Data.Dir_Path,
+                           Parent               => Dir_Path,
                            Including_Non_Switch => False);
                         Add_Arguments
                           (Configuration_Pragmas_Switch (Arguments_Project) &
@@ -3716,95 +3702,6 @@ package body Make is
       end if;
    end Compile_Sources;
 
-   -----------------------------------
-   -- Compute_All_Imported_Projects --
-   -----------------------------------
-
-   procedure Compute_All_Imported_Projects (Project : Project_Id) is
-      procedure Add_To_List (Prj : Project_Id);
-      --  Add a project to the list All_Imported_Projects of project Project
-
-      procedure Recursive_Add_Imported (Project : Project_Id);
-      --  Recursively add the projects imported by project Project, but not
-      --  those that are extended.
-
-      -----------------
-      -- Add_To_List --
-      -----------------
-
-      procedure Add_To_List (Prj : Project_Id) is
-         Element : constant Project_Element :=
-           (Prj, Project_Tree.Projects.Table (Project).All_Imported_Projects);
-         List : Project_List;
-      begin
-         Project_List_Table.Increment_Last (Project_Tree.Project_Lists);
-         List := Project_List_Table.Last (Project_Tree.Project_Lists);
-         Project_Tree.Project_Lists.Table (List) := Element;
-         Project_Tree.Projects.Table (Project).All_Imported_Projects := List;
-      end Add_To_List;
-
-      ----------------------------
-      -- Recursive_Add_Imported --
-      ----------------------------
-
-      procedure Recursive_Add_Imported (Project : Project_Id) is
-         List    : Project_List;
-         Element : Project_Element;
-         Prj     : Project_Id;
-
-      begin
-         if Project /= No_Project then
-
-            --  For all the imported projects
-
-            List := Project_Tree.Projects.Table (Project).Imported_Projects;
-            while List /= Empty_Project_List loop
-               Element := Project_Tree.Project_Lists.Table (List);
-               Prj := Element.Project;
-
-               --  Get the ultimate extending project
-
-               while
-                 Project_Tree.Projects.Table (Prj).Extended_By /= No_Project
-               loop
-                  Prj := Project_Tree.Projects.Table (Prj).Extended_By;
-               end loop;
-
-               --  If project has not yet been visited, add to list and recurse
-
-               if not Project_Tree.Projects.Table (Prj).Seen then
-                  Project_Tree.Projects.Table (Prj).Seen := True;
-                  Add_To_List (Prj);
-                  Recursive_Add_Imported (Prj);
-               end if;
-
-               List := Element.Next;
-            end loop;
-
-            --  Recurse on projects being imported, if any
-
-            Recursive_Add_Imported
-              (Project_Tree.Projects.Table (Project).Extends);
-         end if;
-      end Recursive_Add_Imported;
-
-   begin
-      --  Reset the Seen flag for all projects
-
-      for Index in 1 .. Project_Table.Last (Project_Tree.Projects) loop
-         Project_Tree.Projects.Table (Index).Seen := False;
-      end loop;
-
-      --  Make sure the list is empty
-
-      Project_Tree.Projects.Table (Project).All_Imported_Projects :=
-        Empty_Project_List;
-
-      --  Add to the list all projects imported directly or indirectly
-
-      Recursive_Add_Imported (Project);
-   end Compute_All_Imported_Projects;
-
    ----------------------------------
    -- Configuration_Pragmas_Switch --
    ----------------------------------
@@ -4321,7 +4218,7 @@ package body Make is
       Current_Main_Index : Int := 0;
       --  If not zero, the index of the current main unit in its source file
 
-      There_Are_Stand_Alone_Libraries : Boolean := False;
+      Stand_Alone_Libraries : Boolean := False;
       --  Set to True when there are Stand-Alone Libraries, so that gnatbind
       --  is invoked with the -F switch to force checking of elaboration flags.
 
@@ -5505,10 +5402,10 @@ package body Make is
          --  project file.
 
          declare
-            Dir_Path : constant String_Access :=
-                         new String'(Get_Name_String
+            Dir_Path : constant String :=
+                         Get_Name_String
                            (Project_Tree.Projects.Table
-                              (Main_Project).Directory.Name));
+                              (Main_Project).Directory.Name);
          begin
             for J in 1 .. Binder_Switches.Last loop
                Test_If_Relative_Path
@@ -5519,7 +5416,7 @@ package body Make is
             for J in 1 .. Saved_Binder_Switches.Last loop
                Test_If_Relative_Path
                  (Saved_Binder_Switches.Table (J),
-                  Parent => Current_Work_Dir, Including_L_Switch => False);
+                  Parent => Current_Work_Dir.all, Including_L_Switch => False);
             end loop;
 
             for J in 1 .. Linker_Switches.Last loop
@@ -5529,7 +5426,8 @@ package body Make is
 
             for J in 1 .. Saved_Linker_Switches.Last loop
                Test_If_Relative_Path
-                 (Saved_Linker_Switches.Table (J), Parent => Current_Work_Dir);
+                 (Saved_Linker_Switches.Table (J),
+                  Parent => Current_Work_Dir.all);
             end loop;
 
             for J in 1 .. Gcc_Switches.Last loop
@@ -5542,7 +5440,7 @@ package body Make is
             for J in 1 .. Saved_Gcc_Switches.Last loop
                Test_If_Relative_Path
                  (Saved_Gcc_Switches.Table (J),
-                  Parent => Current_Work_Dir,
+                  Parent => Current_Work_Dir.all,
                   Including_Non_Switch => False);
             end loop;
          end;
@@ -5867,7 +5765,7 @@ package body Make is
                         if Project_Tree.Projects.Table
                           (Proj1).Standalone_Library
                         then
-                           There_Are_Stand_Alone_Libraries := True;
+                           Stand_Alone_Libraries := True;
                         end if;
 
                         if Project_Tree.Projects.Table (Proj1).Library then
@@ -5899,7 +5797,6 @@ package body Make is
                         then
                            declare
                               List    : Project_List;
-                              Element : Project_Element;
                               Proj2   : Project_Id;
                               Rebuild : Boolean := False;
 
@@ -5910,10 +5807,8 @@ package body Make is
                            begin
                               List := Project_Tree.Projects.Table (Proj1).
                                                       All_Imported_Projects;
-                              while List /= Empty_Project_List loop
-                                 Element :=
-                                   Project_Tree.Project_Lists.Table (List);
-                                 Proj2 := Element.Project;
+                              while List /= null loop
+                                 Proj2 := List.Project;
 
                                  if
                                    Project_Tree.Projects.Table (Proj2).Library
@@ -5930,7 +5825,7 @@ package body Make is
                                     end if;
                                  end if;
 
-                                 List := Element.Next;
+                                 List := List.Next;
                               end loop;
 
                               if Rebuild then
@@ -6203,7 +6098,7 @@ package body Make is
                   Args (J) := Binder_Switches.Table (J);
                end loop;
 
-               if There_Are_Stand_Alone_Libraries then
+               if Stand_Alone_Libraries then
                   Last_Arg := Last_Arg + 1;
                   Args (Last_Arg) := Force_Elab_Flags_String'Access;
                end if;
@@ -6213,7 +6108,7 @@ package body Make is
                   --  Put all the source directories in ADA_INCLUDE_PATH,
                   --  and all the object directories in ADA_OBJECTS_PATH.
 
-                  Prj.Env.Set_Ada_Paths (Main_Project, Project_Tree, False);
+                  Prj.Env.Set_Ada_Paths (Main_Project, Project_Tree, True);
 
                   --  If switch -C was specified, create a binder mapping file
 
@@ -6258,7 +6153,7 @@ package body Make is
                Linker_Switches_Last : constant Integer := Linker_Switches.Last;
                Path_Option          : constant String_Access :=
                                         MLib.Linker_Library_Path_Option;
-               There_Are_Libraries  : Boolean := False;
+               Libraries_Present    : Boolean := False;
                Current              : Natural;
                Proj2                : Project_Id;
                Depth                : Natural;
@@ -6287,7 +6182,7 @@ package body Make is
                         then
                            --  Add this project to table Library_Projs
 
-                           There_Are_Libraries := True;
+                           Libraries_Present := True;
                            Depth := Project_Tree.Projects.Table (Proj1).Depth;
                            Library_Projs.Increment_Last;
                            Current := Library_Projs.Last;
@@ -6346,7 +6241,7 @@ package body Make is
                      end loop;
                   end if;
 
-                  if There_Are_Libraries then
+                  if Libraries_Present then
 
                      --  If Path_Option is not null, create the switch
                      --  ("-Wl,-rpath," or equivalent) with all the non static
@@ -6361,53 +6256,85 @@ package body Make is
                            Current : Natural;
 
                         begin
-                           for Index in
-                             Library_Paths.First .. Library_Paths.Last
-                           loop
-                              --  Add the length of the library dir plus one
-                              --  for the directory separator.
+                           if MLib.Separate_Run_Path_Options then
 
-                              Length :=
-                                Length +
-                                Library_Paths.Table (Index)'Length + 1;
-                           end loop;
+                              --  We are going to create one switch of the form
+                              --  "-Wl,-rpath,dir_N" for each directory to
+                              --  consider.
 
-                           --  Finally, add the length of the standard GNAT
-                           --  library dir.
+                              --  One switch for each library directory
 
-                           Length := Length + MLib.Utl.Lib_Directory'Length;
-                           Option := new String (1 .. Length);
-                           Option (1 .. Path_Option'Length) := Path_Option.all;
-                           Current := Path_Option'Length;
+                              for Index in
+                                Library_Paths.First .. Library_Paths.Last
+                              loop
+                                 Linker_Switches.Increment_Last;
+                                 Linker_Switches.Table
+                                   (Linker_Switches.Last) := new String'
+                                   (Path_Option.all &
+                                    Library_Paths.Table (Index).all);
+                              end loop;
 
-                           --  Put each library dir followed by a dir separator
+                              --  One switch for the standard GNAT library dir
 
-                           for Index in
-                             Library_Paths.First .. Library_Paths.Last
-                           loop
+                              Linker_Switches.Increment_Last;
+                              Linker_Switches.Table
+                                (Linker_Switches.Last) := new String'
+                                (Path_Option.all & MLib.Utl.Lib_Directory);
+
+                           else
+                              --  We are going to create one switch of the form
+                              --  "-Wl,-rpath,dir_1:dir_2:dir_3"
+
+                              for Index in
+                                Library_Paths.First .. Library_Paths.Last
+                              loop
+                                 --  Add the length of the library dir plus one
+                                 --  for the directory separator.
+
+                                 Length :=
+                                   Length +
+                                     Library_Paths.Table (Index)'Length + 1;
+                              end loop;
+
+                              --  Finally, add the length of the standard GNAT
+                              --  library dir.
+
+                              Length := Length + MLib.Utl.Lib_Directory'Length;
+                              Option := new String (1 .. Length);
+                              Option (1 .. Path_Option'Length) :=
+                                Path_Option.all;
+                              Current := Path_Option'Length;
+
+                              --  Put each library dir followed by a dir
+                              --  separator.
+
+                              for Index in
+                                Library_Paths.First .. Library_Paths.Last
+                              loop
+                                 Option
+                                   (Current + 1 ..
+                                      Current +
+                                        Library_Paths.Table (Index)'Length) :=
+                                   Library_Paths.Table (Index).all;
+                                 Current :=
+                                   Current +
+                                     Library_Paths.Table (Index)'Length + 1;
+                                 Option (Current) := Path_Separator;
+                              end loop;
+
+                              --  Finally put the standard GNAT library dir
+
                               Option
                                 (Current + 1 ..
-                                   Current +
-                                   Library_Paths.Table (Index)'Length) :=
-                                Library_Paths.Table (Index).all;
-                              Current :=
-                                Current +
-                                Library_Paths.Table (Index)'Length + 1;
-                              Option (Current) := Path_Separator;
-                           end loop;
+                                   Current + MLib.Utl.Lib_Directory'Length) :=
+                                  MLib.Utl.Lib_Directory;
 
-                           --  Finally put the standard GNAT library dir
+                              --  And add the switch to the linker switches
 
-                           Option
-                             (Current + 1 ..
-                                Current + MLib.Utl.Lib_Directory'Length) :=
-                             MLib.Utl.Lib_Directory;
-
-                           --  And add the switch to the linker switches
-
-                           Linker_Switches.Increment_Last;
-                           Linker_Switches.Table (Linker_Switches.Last) :=
-                             Option;
+                              Linker_Switches.Increment_Last;
+                              Linker_Switches.Table (Linker_Switches.Last) :=
+                                Option;
+                           end if;
                         end;
                      end if;
 
@@ -6643,10 +6570,11 @@ package body Make is
                   --  relative path in the project file.
 
                   declare
-                     Dir_Path : constant String_Access :=
-                       new String'(Get_Name_String
-                                     (Project_Tree.Projects.Table
-                                        (Main_Project).Directory.Name));
+                     Dir_Path : constant String :=
+                                  Get_Name_String
+                                    (Project_Tree.Projects.Table
+                                      (Main_Project).Directory.Name);
+
                   begin
                      for
                        J in Last_Binder_Switch + 1 .. Binder_Switches.Last
@@ -6776,9 +6704,11 @@ package body Make is
 
       if Project /= No_Project then
          Prj.Env.Create_Mapping_File
-           (Project, Project_Tree,
-            The_Mapping_File_Names
-              (Project, Last_Mapping_File_Names (Project)));
+           (Project,
+            In_Tree  => Project_Tree,
+            Language => No_Name,
+            Name     => The_Mapping_File_Names
+                          (Project, Last_Mapping_File_Names (Project)));
 
       --  Otherwise, just create an empty file
 
@@ -7030,16 +6960,7 @@ package body Make is
          Add_Source_Directories (Main_Project, Project_Tree);
          Add_Object_Directories (Main_Project, Project_Tree);
 
-         --  Compute depth of each project
-
-         for Proj in Project_Table.First ..
-                     Project_Table.Last (Project_Tree.Projects)
-         loop
-            Project_Tree.Projects.Table (Proj).Seen := False;
-            Project_Tree.Projects.Table (Proj).Depth := 0;
-         end loop;
-
-         Recursive_Compute_Depth (Main_Project, Depth => 1);
+         Recursive_Compute_Depth (Main_Project);
 
          --  For each project compute the list of the projects it imports
          --  directly or indirectly.
@@ -7047,7 +6968,7 @@ package body Make is
          for Proj in Project_Table.First ..
                      Project_Table.Last (Project_Tree.Projects)
          loop
-            Compute_All_Imported_Projects (Proj);
+            Compute_All_Imported_Projects (Proj, Project_Tree);
          end loop;
 
       else
@@ -7215,8 +7136,7 @@ package body Make is
                Init_Q;
             end if;
 
-            --  And of course, we only insert in the Q if the source is not
-            --  marked.
+            --  And of course, only insert in the Q if the source is not marked
 
             if Sfile /= No_File and then not Is_Marked (Sfile, Index) then
                if Verbose_Mode then
@@ -7332,8 +7252,8 @@ package body Make is
       Full_Lib_File : File_Name_Type) return Boolean
    is
    begin
-      --  There is something to check only when using project files.
-      --  Otherwise, this function returns True (last line of the function).
+      --  There is something to check only when using project files. Otherwise,
+      --  this function returns True (last line of the function).
 
       if Main_Project /= No_Project then
          declare
@@ -7359,9 +7279,9 @@ package body Make is
                Path             => Path_Name);
             Current_Verbosity := Saved_Verbosity;
 
-            --  If this source is in a project, check that the ALI file is
-            --  in its object directory. If it is not, return False, so that
-            --  the ALI file will not be skipped.
+            --  If this source is in a project, check that the ALI file is in
+            --  its object directory. If it is not, return False, so that the
+            --  ALI file will not be skipped.
 
             if Project /= No_Project then
                Data := Project_Tree.Projects.Table (Project);
@@ -7597,51 +7517,62 @@ package body Make is
    -- Recursive_Compute_Depth --
    -----------------------------
 
-   procedure Recursive_Compute_Depth
-     (Project : Project_Id;
-      Depth   : Natural)
-   is
-      List : Project_List;
-      Proj : Project_Id;
+   procedure Recursive_Compute_Depth (Project : Project_Id) is
+      use Project_Boolean_Htable;
+      Seen : Project_Boolean_Htable.Instance := Project_Boolean_Htable.Nil;
+
+      procedure Recurse (Prj : Project_Id; Depth : Natural);
+
+      -------------
+      -- Recurse --
+      -------------
+
+      procedure Recurse (Prj : Project_Id; Depth : Natural) is
+         Data : Project_Data renames Project_Tree.Projects.Table (Prj);
+         List : Project_List;
+         Proj : Project_Id;
+
+      begin
+         if Data.Depth >= Depth
+           or Get (Seen, Prj)
+         then
+            return;
+         end if;
+
+         --  We need a test to avoid infinite recursions with limited withs:
+         --  If we have A -> B -> A, then when set level of A to n, we try and
+         --  set level of B to n+1, and then level of A to n + 2,...
+
+         Set (Seen, Prj, True);
+
+         Data.Depth := Depth;
+
+         --  Visit each imported project
+
+         List := Data.Imported_Projects;
+         while List /= null loop
+            Proj := List.Project;
+            List := List.Next;
+            Recurse (Prj => Proj, Depth => Depth + 1);
+         end loop;
+
+         --  We again allow changing the depth of this project later on if it
+         --  is in fact imported by a lower-level project.
+
+         Set (Seen, Prj, False);
+      end Recurse;
+
+   --  Start of processing for Recursive_Compute_Depth
 
    begin
-      --  Nothing to do if there is no project or if the project has already
-      --  been seen or if the depth is large enough.
-
-      if Project = No_Project
-        or else Project_Tree.Projects.Table (Project).Seen
-        or else Project_Tree.Projects.Table (Project).Depth >= Depth
-      then
-         return;
-      end if;
-
-      Project_Tree.Projects.Table (Project).Depth := Depth;
-
-      --  Mark project as Seen to avoid endless loop caused by limited withs
-
-      Project_Tree.Projects.Table (Project).Seen := True;
-
-      List := Project_Tree.Projects.Table (Project).Imported_Projects;
-
-      --  Visit each imported project
-
-      while List /= Empty_Project_List loop
-         Proj := Project_Tree.Project_Lists.Table (List).Project;
-         List := Project_Tree.Project_Lists.Table (List).Next;
-         Recursive_Compute_Depth
-           (Project => Proj,
-            Depth => Depth + 1);
+      for Proj in Project_Table.First ..
+        Project_Table.Last (Project_Tree.Projects)
+      loop
+         Project_Tree.Projects.Table (Proj).Depth := 0;
       end loop;
 
-      --  Visit a project being extended, if any
-
-      Recursive_Compute_Depth
-        (Project => Project_Tree.Projects.Table (Project).Extends,
-         Depth   => Depth + 1);
-
-      --  Reset the Seen flag, as we leave this project
-
-      Project_Tree.Projects.Table (Project).Seen := False;
+      Recurse (Project, Depth => 1);
+      Reset (Seen);
    end Recursive_Compute_Depth;
 
    -------------------------------
@@ -7660,6 +7591,7 @@ package body Make is
 
    procedure Sigint_Intercepted is
       SIGINT  : constant := 2;
+
    begin
       Set_Standard_Error;
       Write_Line ("*** Interrupted ***");
