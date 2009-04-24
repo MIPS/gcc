@@ -1,3 +1,19 @@
+2009-04-24  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* auto-inc-dec.c (attempt_change): Pass proper type to rtx_cost.
+	* regmove.c (try_auto_increment): Use PUT_REG_NOTE_KIND.
+	* targhooks.h (default_builtin_vectorized_function): Make prototype
+	agree with target.h:struct vectorize:builtin_vectorized_function.
+	(default_builtin_vectorized_conversion): Likewise with respect to
+	builtin_conversion.
+	(default_builtin_reciprocal): Likewise wrt.
+	struct gcc_target:builtin_reciprocal
+	* config/m32r/m32r.h (INITIALIZE_TRAMPOLINE): Use LCT_NORMAL.
+	* config/m32r/m32r.c (df.h): #include.
+	(m32r_attribute_table): Mark forward declaration with extern.
+	(pop): Use alloc_reg_note.
+	(block_move_call): Use LCT_NORMAL.
+
 2009-04-07  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* cp/pt.c (tsubst_decl): Adjust forward declaration.
