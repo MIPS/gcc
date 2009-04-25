@@ -1193,7 +1193,7 @@ function_declarator_p (const cp_declarator *declarator)
 /* Flags that are passed to some parsing functions.  These values can
    be bitwise-ored together.  */
 
-typedef enum cp_parser_flags
+enum cp_parser_flags_enum
 {
   /* No flags.  */
   CP_PARSER_FLAGS_NONE = 0x0,
@@ -1202,7 +1202,11 @@ typedef enum cp_parser_flags
   CP_PARSER_FLAGS_OPTIONAL = 0x1,
   /* When parsing a type-specifier, do not allow user-defined types.  */
   CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES = 0x2
-} cp_parser_flags;
+};
+
+/* This type is used for parameters and variables which hold
+   combinations of the flags in enum cp_parser_flags.  */
+typedef int cp_parser_flags;
 
 /* The different kinds of declarators we want to parse.  */
 
@@ -1672,16 +1676,16 @@ static void cp_parser_block_declaration
 static void cp_parser_simple_declaration
   (cp_parser *, bool);
 static void cp_parser_decl_specifier_seq
-  (cp_parser *, int, cp_decl_specifier_seq *, int *);
+  (cp_parser *, cp_parser_flags, cp_decl_specifier_seq *, int *);
 static tree cp_parser_storage_class_specifier_opt
   (cp_parser *);
 static tree cp_parser_function_specifier_opt
   (cp_parser *, cp_decl_specifier_seq *);
 static tree cp_parser_type_specifier
-  (cp_parser *, int, cp_decl_specifier_seq *, bool,
+  (cp_parser *, cp_parser_flags, cp_decl_specifier_seq *, bool,
    int *, bool *);
 static tree cp_parser_simple_type_specifier
-  (cp_parser *, cp_decl_specifier_seq *, int);
+  (cp_parser *, cp_decl_specifier_seq *, cp_parser_flags);
 static tree cp_parser_type_name
   (cp_parser *);
 static tree cp_parser_nonclass_name 
@@ -8360,7 +8364,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 
 static void
 cp_parser_decl_specifier_seq (cp_parser* parser,
-			      int flags,
+			      cp_parser_flags flags,
 			      cp_decl_specifier_seq *decl_specs,
 			      int* declares_class_or_enum)
 {
@@ -11148,7 +11152,7 @@ cp_parser_type_specifier (cp_parser* parser,
 static tree
 cp_parser_simple_type_specifier (cp_parser* parser,
 				 cp_decl_specifier_seq *decl_specs,
-				 int flags)
+				 cp_parser_flags flags)
 {
   tree type = NULL_TREE;
   cp_token *token;
@@ -13824,7 +13828,7 @@ cp_parser_type_specifier_seq (cp_parser* parser,
 			      cp_decl_specifier_seq *type_specifier_seq)
 {
   bool seen_type_specifier = false;
-  int flags = CP_PARSER_FLAGS_OPTIONAL;
+  cp_parser_flags flags = CP_PARSER_FLAGS_OPTIONAL;
   cp_token *start_token = NULL;
 
   /* Clear the TYPE_SPECIFIER_SEQ.  */

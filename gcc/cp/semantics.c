@@ -1849,7 +1849,7 @@ perform_koenig_lookup (tree fn, tree args)
 
 tree
 finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
-		  int complain)
+		  tsubst_flags_t complain)
 {
   tree result;
   tree orig_fn;

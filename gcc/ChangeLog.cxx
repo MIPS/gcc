@@ -1,3 +1,32 @@
+2009-04-25  Ian Lance Taylor  <iant@google.com>
+
+	* cp/cp-tree.h (enum cp_lvalue_kind_enum): Rename from
+	cp_lvalue_kind.
+	(cp_lvalue_kind): Typedef to int, not enum type.
+	(enum tsubst_flags): Rename from enum tsubst_flags_t.
+	(tsubst_flags_t): Typedef to int, not enum type.
+	(enum base_access_enum): Rename from enum base_access.
+	(base_access): Typedef to int, not enum type.
+	* cp/parser.c (enum cp_parser_flags_enum): Rename from
+	cp_parser_flags.
+	(cp_parser_flags): Typedef to int, not enum type.
+	* cp/call.c:  Revert the 2008-09-10 changes to change
+	tsubst_flags_t, base_access, and cp_lvalue_kind to int.
+	* cp/class.c: Likewise.
+	* cp/cp-lang.c: Likewise.
+	* cp/cp-objcp-common.h: Likewise.
+	* cp/cvt.c: Likewise.
+	* cp/decl.c: Likewise.
+	* cp/init.c: Likewise.
+	* cp/pt.c: Likewise.
+	* cp/rtti.c: Likewise.
+	* cp/search.c: Likewise.
+	* cp/semantics.c: Likewise.
+	* cp/tree.c: Likewise.
+	* cp/typeck.c: Likewise.
+	* cp/typeck2.c: Likewise.
+	* cp/parser.c: Likewise.
+
 2009-03-25  Jerry Quinn  <jlquinn@cerberus.qb5.org>
 
 	* config/i386/i386.c (ix86_function_specific_save): Don't check

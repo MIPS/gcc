@@ -5940,7 +5940,7 @@ pop_lang_context (void)
 static tree
 resolve_address_of_overloaded_function (tree target_type,
 					tree overload,
-					int flags,
+					tsubst_flags_t flags,
 					bool template_only,
 					tree explicit_targs,
 					tree access_path)
@@ -6236,9 +6236,9 @@ resolve_address_of_overloaded_function (tree target_type,
    function, or a pointer to member function.  */
 
 tree
-instantiate_type (tree lhstype, tree rhs, int flags)
+instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 {
-  int flags_in = flags;
+  tsubst_flags_t flags_in = flags;
   tree access_path = NULL_TREE;
 
   flags &= ~tf_ptrmem_ok;

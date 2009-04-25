@@ -44,7 +44,7 @@ static tree build_cplus_array_type_1 (tree, tree);
 static int list_hash_eq (const void *, const void *);
 static hashval_t list_hash_pieces (tree, tree, tree);
 static hashval_t list_hash (const void *);
-static int lvalue_p_1 (tree, int);
+static cp_lvalue_kind lvalue_p_1 (tree, int);
 static tree build_target_expr (tree, tree);
 static tree count_trees_r (tree *, int *, void *);
 static tree verify_stmt_tree_r (tree *, int *, void *);
@@ -58,12 +58,12 @@ static tree handle_init_priority_attribute (tree *, tree, tree, int, bool *);
    Otherwise, returns clk_none.  If TREAT_CLASS_RVALUES_AS_LVALUES is
    nonzero, rvalues of class type are considered lvalues.  */
 
-static int
+static cp_lvalue_kind
 lvalue_p_1 (tree ref,
 	    int treat_class_rvalues_as_lvalues)
 {
-  int op1_lvalue_kind = clk_none;
-  int op2_lvalue_kind = clk_none;
+  cp_lvalue_kind op1_lvalue_kind = clk_none;
+  cp_lvalue_kind op2_lvalue_kind = clk_none;
 
   /* Expressions of reference type are sometimes wrapped in
      INDIRECT_REFs.  INDIRECT_REFs are just internal compiler
@@ -241,7 +241,7 @@ lvalue_p_1 (tree ref,
    [basic.lval].  This function should really be named lvalue_p; it
    computes the C++ definition of lvalue.  */
 
-int
+cp_lvalue_kind
 real_lvalue_p (tree ref)
 {
   return lvalue_p_1 (ref,
@@ -748,7 +748,7 @@ c_build_qualified_type (tree type, int type_quals)
 tree
 cp_build_qualified_type_real (tree type,
 			      int type_quals,
-			      int complain)
+			      tsubst_flags_t complain)
 {
   tree result;
   int bad_quals = TYPE_UNQUALIFIED;

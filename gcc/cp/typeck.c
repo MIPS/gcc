@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 static tree pfn_from_ptrmemfunc (tree);
 static tree delta_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, const char *, tree, int,
-				    int);
+				    tsubst_flags_t);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
 static tree rationalize_conditional_expr (enum tree_code, tree, 
 					  tsubst_flags_t);
@@ -61,7 +61,8 @@ static void casts_away_constness_r (tree *, tree *);
 static bool casts_away_constness (tree, tree);
 static void maybe_warn_about_returning_address_of_local (tree);
 static tree lookup_destructor (tree, tree, tree);
-static int convert_arguments (int, tree *, tree, tree, tree, int, int);
+static int convert_arguments (int, tree *, tree, tree, tree, int,
+                              tsubst_flags_t);
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)
@@ -416,7 +417,7 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
 
 static tree
 composite_pointer_type_r (tree t1, tree t2, const char* location,
-			  int complain)
+			  tsubst_flags_t complain)
 {
   tree pointee1;
   tree pointee2;
@@ -491,7 +492,7 @@ composite_pointer_type_r (tree t1, tree t2, const char* location,
 
 tree
 composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
-			const char* location, int complain)
+			const char* location, tsubst_flags_t complain)
 {
   tree class1;
   tree class2;
@@ -1505,7 +1506,7 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op, bool complain)
    violates these rules.  */
 
 bool
-invalid_nonstatic_memfn_p (const_tree expr, int complain)
+invalid_nonstatic_memfn_p (const_tree expr, tsubst_flags_t complain)
 {
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
     {
@@ -1873,7 +1874,7 @@ lookup_anon_field (tree t, tree type)
 tree
 build_class_member_access_expr (tree object, tree member,
 				tree access_path, bool preserve_reference,
-				int complain)
+				tsubst_flags_t complain)
 {
   tree object_type;
   tree member_scope;
@@ -2221,7 +2222,7 @@ check_template_keyword (tree decl)
 
 tree
 finish_class_member_access_expr (tree object, tree name, bool template_p,
-				 int complain)
+				 tsubst_flags_t complain)
 {
   tree expr;
   tree object_type;
@@ -2429,7 +2430,7 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
 
 tree
 build_x_indirect_ref (tree expr, const char *errorstring, 
-                      int complain)
+                      tsubst_flags_t complain)
 {
   tree orig_expr = expr;
   tree rval;
@@ -2461,7 +2462,8 @@ build_indirect_ref (location_t loc __attribute__ ((__unused__)),
 }
 
 tree
-cp_build_indirect_ref (tree ptr, const char *errorstring, int complain)
+cp_build_indirect_ref (tree ptr, const char *errorstring, 
+                       tsubst_flags_t complain)
 {
   tree pointer, type;
 
@@ -2856,7 +2858,7 @@ build_function_call (tree function, tree params)
 }
 
 tree
-cp_build_function_call (tree function, tree params, int complain)
+cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
 {
   tree fntype, fndecl;
   tree name = NULL_TREE;
@@ -2974,7 +2976,7 @@ cp_build_function_call (tree function, tree params, int complain)
 static int
 convert_arguments (int nargs, tree *argarray,
 		   tree typelist, tree values, tree fndecl, int flags,
-                   int complain)
+                   tsubst_flags_t complain)
 {
   tree typetail, valtail;
   const char *called_thing = 0;
@@ -3155,7 +3157,7 @@ convert_arguments (int nargs, tree *argarray,
 tree
 build_x_binary_op (enum tree_code code, tree arg1, enum tree_code arg1_code,
 		   tree arg2, enum tree_code arg2_code, bool *overloaded_p,
-		   int complain)
+		   tsubst_flags_t complain)
 {
   tree orig_arg1;
   tree orig_arg2;
@@ -3199,7 +3201,7 @@ build_x_binary_op (enum tree_code code, tree arg1, enum tree_code arg1_code,
 /* Build and return an ARRAY_REF expression.  */
 
 tree
-build_x_array_ref (tree arg1, tree arg2, int complain)
+build_x_array_ref (tree arg1, tree arg2, tsubst_flags_t complain)
 {
   tree orig_arg1 = arg1;
   tree orig_arg2 = arg2;
@@ -3255,7 +3257,7 @@ build_binary_op (location_t location, enum tree_code code, tree op0, tree op1,
 tree
 cp_build_binary_op (location_t location,
 		    enum tree_code code, tree orig_op0, tree orig_op1,
-		    int complain)
+		    tsubst_flags_t complain)
 {
   tree op0, op1;
   enum tree_code code0, code1;
@@ -4082,7 +4084,7 @@ pointer_diff (tree op0, tree op1, tree ptrtype)
    and XARG is the operand.  */
 
 tree
-build_x_unary_op (enum tree_code code, tree xarg, int complain)
+build_x_unary_op (enum tree_code code, tree xarg, tsubst_flags_t complain)
 {
   tree orig_expr = xarg;
   tree exp;
@@ -4235,7 +4237,7 @@ build_nop (tree type, tree expr)
 
 tree
 cp_build_unary_op (enum tree_code code, tree xarg, int noconvert, 
-                   int complain)
+                   tsubst_flags_t complain)
 {
   /* No default_conversion here.  It causes trouble for ADDR_EXPR.  */
   tree arg = xarg;
@@ -4899,7 +4901,8 @@ cxx_mark_addressable (tree exp)
 /* Build and return a conditional expression IFEXP ? OP1 : OP2.  */
 
 tree
-build_x_conditional_expr (tree ifexp, tree op1, tree op2, int complain)
+build_x_conditional_expr (tree ifexp, tree op1, tree op2, 
+                          tsubst_flags_t complain)
 {
   tree orig_ifexp = ifexp;
   tree orig_op1 = op1;
@@ -4952,7 +4955,7 @@ tree build_x_compound_expr_from_list (tree list, const char *msg)
 /* Handle overloading of the ',' operator when needed.  */
 
 tree
-build_x_compound_expr (tree op1, tree op2, int complain)
+build_x_compound_expr (tree op1, tree op2, tsubst_flags_t complain)
 {
   tree result;
   tree orig_op1 = op1;
@@ -4989,7 +4992,7 @@ build_compound_expr (tree lhs, tree rhs)
 /* Build a compound expression.  */
 
 tree
-cp_build_compound_expr (tree lhs, tree rhs, int complain)
+cp_build_compound_expr (tree lhs, tree rhs, tsubst_flags_t complain)
 {
   lhs = convert_to_void (lhs, "left-hand operand of comma", complain);
 
@@ -5129,7 +5132,7 @@ ignore_overflows (tree expr, tree orig)
 
 static tree
 build_static_cast_1 (tree type, tree expr, bool c_cast_p,
-		     bool *valid_p, int complain)
+		     bool *valid_p, tsubst_flags_t complain)
 {
   tree intype;
   tree result;
@@ -5330,7 +5333,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 /* Return an expression representing static_cast<TYPE>(EXPR).  */
 
 tree
-build_static_cast (tree type, tree expr, int complain)
+build_static_cast (tree type, tree expr, tsubst_flags_t complain)
 {
   tree result;
   bool valid_p;
@@ -5405,7 +5408,7 @@ convert_member_func_to_ptr (tree type, tree expr)
 
 static tree
 build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
-			  bool *valid_p, int complain)
+			  bool *valid_p, tsubst_flags_t complain)
 {
   tree intype;
 
@@ -5562,7 +5565,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 }
 
 tree
-build_reinterpret_cast (tree type, tree expr, int complain)
+build_reinterpret_cast (tree type, tree expr, tsubst_flags_t complain)
 {
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
@@ -5699,7 +5702,7 @@ build_const_cast_1 (tree dst_type, tree expr, bool complain,
 }
 
 tree
-build_const_cast (tree type, tree expr, int complain)
+build_const_cast (tree type, tree expr, tsubst_flags_t complain)
 {
   if (type == error_mark_node || error_operand_p (expr))
     return error_mark_node;
@@ -5731,7 +5734,7 @@ build_c_cast (tree type, tree expr)
    TYPE of expression EXPR.  */
 
 tree
-cp_build_c_cast (tree type, tree expr, int complain)
+cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
 {
   tree value = expr;
   tree result;
@@ -5852,7 +5855,7 @@ build_modify_expr (location_t location ATTRIBUTE_UNUSED,
 
 tree
 cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
-		      int complain)
+		      tsubst_flags_t complain)
 {
   tree result;
   tree newrhs = rhs;
@@ -6153,7 +6156,7 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 
 tree
 build_x_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
-		     int complain)
+		     tsubst_flags_t complain)
 {
   if (processing_template_decl)
     return build_min_nt (MODOP_EXPR, lhs,
@@ -6516,7 +6519,7 @@ delta_from_ptrmemfunc (tree t)
 static tree
 convert_for_assignment (tree type, tree rhs,
 			const char *errtype, tree fndecl, int parmnum,
-			int complain)
+			tsubst_flags_t complain)
 {
   tree rhstype;
   enum tree_code coder;
@@ -6659,7 +6662,7 @@ convert_for_assignment (tree type, tree rhs,
 tree
 convert_for_initialization (tree exp, tree type, tree rhs, int flags,
 			    const char *errtype, tree fndecl, int parmnum,
-                            int complain)
+                            tsubst_flags_t complain)
 {
   enum tree_code codel = TREE_CODE (type);
   tree rhstype;
@@ -7396,7 +7399,7 @@ non_reference (tree t)
    how the lvalue is being used and so selects the error message.  */
 
 int
-lvalue_or_else (tree ref, enum lvalue_use use, int complain)
+lvalue_or_else (tree ref, enum lvalue_use use, tsubst_flags_t complain)
 {
   int win = lvalue_p (ref);
 
