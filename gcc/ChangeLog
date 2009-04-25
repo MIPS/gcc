@@ -1,3 +1,10 @@
+2009-04-25  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/sh.md (cbranchsi4): Use UNKNOWN as not-defined rtx code.
+	(cbranchdi4): Likewise.
+	* config/sh/sh.c (prepare_cbranch_operands): Likewise.
+	(expand_cbranchdi4): Likewise.
+
 2009-04-24  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	config/sh/t-sh: (gt-sh.h): Remove redundant rule.

@@ -647,7 +647,7 @@
 		      (pc)))
    (clobber (reg:SI T_REG))]
   "TARGET_CBRANCHDI4"
-  "expand_cbranchsi4 (operands, CODE_FOR_nothing, -1); DONE;")
+  "expand_cbranchsi4 (operands, UNKNOWN, -1); DONE;")
 
 ;; -------------------------------------------------------------------------
 ;; SImode unsigned integer comparisons
@@ -720,13 +720,13 @@
 
   if (TARGET_EXPAND_CBRANCHDI4)
     {
-      if (expand_cbranchdi4 (operands, CODE_FOR_nothing))
+      if (expand_cbranchdi4 (operands, UNKNOWN))
 	DONE;
     }
-  comparison = prepare_cbranch_operands (operands, DImode, CODE_FOR_nothing);
+  comparison = prepare_cbranch_operands (operands, DImode, UNKNOWN);
   if (comparison != GET_CODE (operands[0]))
     operands[0]
-      = gen_rtx_fmt_ee (VOIDmode, comparison, operands[1], operands[2]);
+      = gen_rtx_fmt_ee (comparison, VOIDmode, operands[1], operands[2]);
    operands[4] = gen_rtx_SCRATCH (SImode);
 }")
 

@@ -1375,7 +1375,7 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
   rtx op1;
   rtx scratch = NULL_RTX;
 
-  if (comparison == CODE_FOR_nothing)
+  if (comparison == UNKNOWN)
     comparison = GET_CODE (operands[0]);
   else
     scratch = operands[4];
@@ -1515,7 +1515,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   op2h = gen_highpart_mode (SImode, DImode, operands[2]);
   op1l = gen_lowpart (SImode, operands[1]);
   op2l = gen_lowpart (SImode, operands[2]);
-  msw_taken = msw_skip = lsw_taken = CODE_FOR_nothing;
+  msw_taken = msw_skip = lsw_taken = UNKNOWN;
   prob = split_branch_probability;
   rev_prob = REG_BR_PROB_BASE - prob;
   switch (comparison)
@@ -1606,9 +1606,9 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
       break;
     default: return false;
     }
-  num_branches = ((msw_taken != CODE_FOR_nothing)
-		  + (msw_skip != CODE_FOR_nothing)
-		  + (lsw_taken != CODE_FOR_nothing));
+  num_branches = ((msw_taken != UNKNOWN)
+		  + (msw_skip != UNKNOWN)
+		  + (lsw_taken != UNKNOWN));
   if (comparison != EQ && comparison != NE && num_branches > 1)
     {
       if (!CONSTANT_P (operands[2])
@@ -1634,20 +1634,20 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   operands[4] = NULL_RTX;
   if (reload_completed
       && ! arith_reg_or_0_operand (op2h, SImode) && true_regnum (op1h)
-      && (msw_taken != CODE_FOR_nothing || msw_skip != CODE_FOR_nothing))
+      && (msw_taken != UNKNOWN || msw_skip != UNKNOWN))
     {
       emit_move_insn (scratch, operands[2]);
       operands[2] = scratch;
     }
-  if (msw_taken != CODE_FOR_nothing)
+  if (msw_taken != UNKNOWN)
     expand_cbranchsi4 (operands, msw_taken, msw_taken_prob);
-  if (msw_skip != CODE_FOR_nothing)
+  if (msw_skip != UNKNOWN)
     {
       rtx taken_label = operands[3];
 
       /* Operands were possibly modified, but msw_skip doesn't expect this.
 	 Always use the original ones.  */
-      if (msw_taken != CODE_FOR_nothing)
+      if (msw_taken != UNKNOWN)
 	{
 	  operands[1] = op1h;
 	  operands[2] = op2h;
@@ -1659,14 +1659,14 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
     }
   operands[1] = op1l;
   operands[2] = op2l;
-  if (lsw_taken != CODE_FOR_nothing)
+  if (lsw_taken != UNKNOWN)
     {
       if (reload_completed
 	  && ! arith_reg_or_0_operand (op2l, SImode) && true_regnum (op1l))
 	operands[4] = scratch;
       expand_cbranchsi4 (operands, lsw_taken, lsw_taken_prob);
     }
-  if (msw_skip != CODE_FOR_nothing)
+  if (msw_skip != UNKNOWN)
     emit_label (skip_label);
   return true;
 }
