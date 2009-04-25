@@ -1,3 +1,9 @@
+2009-04-25  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/sh.md (push_fpscr, pop_fpscr): Use alloc_reg_note.
+	(movdf_i4+1, reload_outdf__RnFRm+3, reload_outdf__RnFRm+4): Likewise.
+	(reload_outdf__RnFRm+5, fpu_switch+1, fpu_switch+2): Likewise.
+
 2009-04-24  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* auto-inc-dec.c (attempt_change): Pass proper type to rtx_cost.
