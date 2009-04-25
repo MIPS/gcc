@@ -127,7 +127,7 @@ struct GTY(()) cgraph_rtl_info {
 
 /* Represent which DECL tree (or reference to such tree)
    will be replaced by another tree while versioning.  */
-struct ipa_replace_map GTY(())
+struct GTY(()) ipa_replace_map
 {
   /* The tree that will be replaced.  */
   tree old_tree;
@@ -142,7 +142,7 @@ typedef struct ipa_replace_map *ipa_replace_map_p;
 DEF_VEC_P(ipa_replace_map_p);
 DEF_VEC_ALLOC_P(ipa_replace_map_p,gc);
 
-struct cgraph_clone_info GTY(())
+struct GTY(()) cgraph_clone_info
 {
   VEC(ipa_replace_map_p,gc)* tree_map;
   bitmap args_to_skip;

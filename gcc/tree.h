@@ -189,7 +189,7 @@ DEF_VEC_ALLOC_P(tree,heap);
    value originally hold in DECL same vay as in DECL_VALUDE_EXPR.
    It is used by debug info output.  */
 
-typedef struct nonlocalized_var GTY(()) 
+typedef struct GTY(()) nonlocalized_var 
 {
   tree decl;
   tree value;
