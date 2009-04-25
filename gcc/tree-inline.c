@@ -1897,7 +1897,8 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
 	    /* There shouldn't be any PHI nodes in the ENTRY_BLOCK.  */
 	    gcc_assert (!e->dest->aux);
 
-	    gcc_assert ((e->flags & EDGE_EH) || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)));
+	    gcc_assert ((e->flags & EDGE_EH)
+			|| SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)));
 
 	    if (!is_gimple_reg (PHI_RESULT (phi)))
 	      {

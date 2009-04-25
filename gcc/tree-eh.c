@@ -3090,6 +3090,11 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
       bool found = false, removed_some = false, has_non_eh_preds = false;
       gimple_stmt_iterator gsi;
 
+      /* Look for all EH regions sharing label of this block.
+         If they are not same as REGION, remove them and replace them
+	 by outer region of REGION.  Also note if REGION itself is one
+	 of them.  */
+
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         if (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
 	  {
@@ -3106,7 +3111,7 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 		  {
 		     removed_some = true;
 		     remove_eh_region_and_replace_by_outer_of (r, region);
-		     if (dump_file)
+		     if (dump_file && (dump_flags & TDF_DETAILS))
 		       fprintf (dump_file, "Empty EH handler %i removed and "
 		       		"replaced by %i\n", r, region);
 		  }
@@ -3115,13 +3120,14 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 	  }
 	else
 	  break;
+
       gcc_assert (found || removed_some);
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (!(e->flags & EDGE_EH))
 	  has_non_eh_preds = true;
 
       /* When block is empty EH cleanup, but it is reachable via non-EH code too,
-         we can not remove the region it is resumed via, because doing so will
+	 we can not remove the region it is resumed via, because doing so will
 	 lead to redirection of its RESX edges.
 
 	 This case will be handled later after edge forwarding if the EH cleanup

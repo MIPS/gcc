@@ -6998,12 +6998,12 @@ split_critical_edges (void)
         {
 	  if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
 	    split_edge (e);
-	  /* PRE inserts statements to edes and expect that 
-	     since split_critical_edges was done beforehand, commiting edge
+	  /* PRE inserts statements to edges and expects that 
+	     since split_critical_edges was done beforehand, committing edge
 	     insertions will not split more edges.  In addition to critical
-	     edges we must split edges that has mulptiple succestors and
-	     ends by control flow statement, such as RESX. 
-	     Go ahead and split them too.  This match logic in
+	     edges we must split edges that have multiple successors and
+	     end by control flow statements, such as RESX. 
+	     Go ahead and split them too.  This matches the logic in
 	     gimple_find_edge_insert_loc.  */
 	  else if ((!single_pred_p (e->dest)
 	            || phi_nodes (e->dest)

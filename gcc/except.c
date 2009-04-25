@@ -2718,7 +2718,7 @@ remove_eh_handler_and_replace (struct eh_region *region,
       struct eh_region *prev_try = find_prev_try (replace);
       p = region->inner;
       while (p != region)
-        {
+	{
 	  if (p->type == ERT_CLEANUP)
 	    p->u.cleanup.prev_try = prev_try;
           if (p->type != ERT_TRY
