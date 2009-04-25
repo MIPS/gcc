@@ -828,7 +828,7 @@ See i386 and x86-64 Options.
 
 @emph{i386 and x86-64 Windows Options}
 @gccoptlist{-mconsole -mcygwin -mno-cygwin -mdll
--mnop-fun-dllimport -mthread -mwin32 -mwindows}
+-mnop-fun-dllimport -mthread -municode -mwin32 -mwindows}
 
 @emph{Xstormy16 Options}
 @gccoptlist{-msim}
@@ -4147,10 +4147,9 @@ the search path but can't be used.
 @item -Wlong-long
 @opindex Wlong-long
 @opindex Wno-long-long
-Warn if @samp{long long} type is used.  This is default.  To inhibit
-the warning messages, use @option{-Wno-long-long}.  Flags
-@option{-Wlong-long} and @option{-Wno-long-long} are taken into account
-only when @option{-pedantic} flag is used.
+Warn if @samp{long long} type is used.  This is enabled by either
+@option{-pedantic} or @option{-Wtraditional} in ISO C90 and C++98
+modes.  To inhibit the warning messages, use @option{-Wno-long-long}.
 
 @item -Wvariadic-macros
 @opindex Wvariadic-macros
@@ -14295,16 +14294,18 @@ Application Binary Interface, PowerPC processor supplement.  This is the
 default unless you configured GCC using @samp{powerpc-*-eabiaix}.
 
 @item -mcall-sysv-eabi
+@itemx -mcall-eabi
 @opindex mcall-sysv-eabi
+@opindex mcall-eabi
 Specify both @option{-mcall-sysv} and @option{-meabi} options.
 
 @item -mcall-sysv-noeabi
 @opindex mcall-sysv-noeabi
 Specify both @option{-mcall-sysv} and @option{-mno-eabi} options.
 
-@item -mcall-solaris
-@opindex mcall-solaris
-On System V.4 and embedded PowerPC systems compile code for the Solaris
+@item -mcall-aixdesc
+@opindex m
+On System V.4 and embedded PowerPC systems compile code for the AIX
 operating system.
 
 @item -mcall-linux
@@ -14317,10 +14318,20 @@ Linux-based GNU system.
 On System V.4 and embedded PowerPC systems compile code for the
 Hurd-based GNU system.
 
+@item -mcall-freebsd
+@opindex mcall-freebsd
+On System V.4 and embedded PowerPC systems compile code for the
+FreeBSD operating system.
+
 @item -mcall-netbsd
 @opindex mcall-netbsd
 On System V.4 and embedded PowerPC systems compile code for the
 NetBSD operating system.
+
+@item -mcall-openbsd
+@opindex mcall-netbsd
+On System V.4 and embedded PowerPC systems compile code for the
+OpenBSD operating system.
 
 @item -maix-struct-return
 @opindex maix-struct-return
@@ -15675,6 +15686,12 @@ specifies that the dllimport attribute should be ignored.
 @opindex mthread
 This option is available for MinGW targets. It specifies
 that MinGW-specific thread support is to be used.
+
+@item -municode
+@opindex municode
+This option is available for mingw-w64 targets.  It specifies
+that the UNICODE macro is getting pre-defined and that the
+unicode capable runtime startup code is choosen.
 
 @item -mwin32
 @opindex mwin32

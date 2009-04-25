@@ -198,8 +198,7 @@ bool c_override_global_bindings_to_false;
    in all such cases, the binding in the outer scope will have its
    invisible bit true.  */
 
-struct c_binding GTY((chain_next ("%h.prev")))
-{
+struct GTY((chain_next ("%h.prev"))) c_binding {
   tree decl;			/* the decl bound */
   tree type;			/* the type in this scope */
   tree id;			/* the identifier it's bound to */
@@ -236,8 +235,7 @@ struct c_binding GTY((chain_next ("%h.prev")))
    These describe the values of the identifier in the three different
    namespaces defined by the language.  */
 
-struct lang_identifier GTY(())
-{
+struct GTY(()) lang_identifier {
   struct c_common_identifier common_id;
   struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
   struct c_binding *tag_binding;    /* struct/union/enum tags */
@@ -250,10 +248,9 @@ extern char C_SIZEOF_STRUCT_LANG_IDENTIFIER_isnt_accurate
 
 /* The resulting tree type.  */
 
-union lang_tree_node
-  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *) TYPE_NEXT_VARIANT (&%h.generic) : ((union lang_tree_node *) TREE_CHAIN (&%h.generic))")))
-{
+union GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
+       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *) TYPE_NEXT_VARIANT (&%h.generic) : ((union lang_tree_node *) TREE_CHAIN (&%h.generic))")))  lang_tree_node
+ {
   union tree_node GTY ((tag ("0"),
 			desc ("tree_node_structure (&%h)")))
     generic;
@@ -305,8 +302,7 @@ union lang_tree_node
    pop_scope relies on this.  */
 
 
-struct c_scope GTY((chain_next ("%h.outer")))
-{
+struct GTY((chain_next ("%h.outer"))) c_scope {
   /* The scope containing this one.  */
   struct c_scope *outer;
 
@@ -2792,7 +2788,7 @@ c_make_fname_decl (tree id, int type_dep)
 	    /*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
     }
 
-  finish_decl (decl, init, NULL_TREE);
+  finish_decl (decl, init, NULL_TREE, NULL_TREE);
 
   return decl;
 }
@@ -3366,11 +3362,12 @@ c_maybe_initialize_eh (void)
 
 /* Finish processing of a declaration;
    install its initial value.
+   If ORIGTYPE is not NULL_TREE, it is the original type of INIT.
    If the length of an array type is not known before,
    it must be determined now, from the initial value, or it is an error.  */
 
 void
-finish_decl (tree decl, tree init, tree asmspec_tree)
+finish_decl (tree decl, tree init, tree origtype, tree asmspec_tree)
 {
   tree type;
   int was_incomplete = (DECL_SIZE (decl) == 0);
@@ -3392,7 +3389,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     init = 0;
 
   if (init)
-    store_init_value (decl, init);
+    store_init_value (decl, init, origtype);
 
   if (c_dialect_objc () && (TREE_CODE (decl) == VAR_DECL
 			    || TREE_CODE (decl) == FUNCTION_DECL
@@ -3645,11 +3642,14 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  tree cleanup_id = TREE_VALUE (TREE_VALUE (attr));
 	  tree cleanup_decl = lookup_name (cleanup_id);
 	  tree cleanup;
+	  VEC(tree,gc) *vec;
 
 	  /* Build "cleanup(&decl)" for the destructor.  */
 	  cleanup = build_unary_op (input_location, ADDR_EXPR, decl, 0);
-	  cleanup = build_tree_list (NULL_TREE, cleanup);
-	  cleanup = build_function_call (cleanup_decl, cleanup);
+	  vec = VEC_alloc (tree, gc, 1);
+	  VEC_quick_push (tree, vec, cleanup);
+	  cleanup = build_function_call_vec (cleanup_decl, vec, NULL);
+	  VEC_free (tree, gc, vec);
 
 	  /* Don't warn about decl unused; the cleanup uses it.  */
 	  TREE_USED (decl) = 1;
@@ -3689,7 +3689,7 @@ push_parm_decl (const struct c_parm *parm)
 
   decl = pushdecl (decl);
 
-  finish_decl (decl, NULL_TREE, NULL_TREE);
+  finish_decl (decl, NULL_TREE, NULL_TREE, NULL_TREE);
 }
 
 /* Mark all the parameter declarations to date as forward decls.
@@ -3739,7 +3739,7 @@ build_compound_literal (tree type, tree init, bool non_const)
   TREE_USED (decl) = 1;
   TREE_TYPE (decl) = type;
   TREE_READONLY (decl) = TYPE_READONLY (type);
-  store_init_value (decl, init);
+  store_init_value (decl, init, NULL_TREE);
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
     {
@@ -4677,7 +4677,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		tree decl = build_decl (TYPE_DECL, NULL_TREE, type);
 		DECL_ARTIFICIAL (decl) = 1;
 		pushdecl (decl);
-		finish_decl (decl, NULL_TREE, NULL_TREE);
+		finish_decl (decl, NULL_TREE, NULL_TREE, NULL_TREE);
 		TYPE_NAME (type) = decl;
 	      }
 
@@ -5526,7 +5526,7 @@ grokfield (location_t loc,
 			  width ? &width : NULL, decl_attrs, NULL, NULL,
 			  DEPRECATED_NORMAL);
 
-  finish_decl (value, NULL_TREE, NULL_TREE);
+  finish_decl (value, NULL_TREE, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
 
   return value;
@@ -6813,7 +6813,7 @@ finish_function (void)
       && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (fndecl)))
       == integer_type_node && flag_isoc99)
     {
-      tree stmt = c_finish_return (integer_zero_node);
+      tree stmt = c_finish_return (integer_zero_node, NULL_TREE);
       /* Hack.  We don't want the middle-end to warn that this return
 	 is unreachable, so we mark its location as special.  Using
 	 UNKNOWN_LOCATION has the problem that it gets clobbered in
@@ -7304,8 +7304,8 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 			     "declaration specifiers");
 		      break;
 		    }
-		  if (pedantic && !flag_isoc99 && !in_system_header)
-		    pedwarn (input_location, OPT_Wlong_long, "ISO C90 does not support %<long long%>");
+		  pedwarn_c90 (input_location, OPT_Wlong_long, 
+			       "ISO C90 does not support %<long long%>");
 		  specs->long_long_p = 1;
 		  break;
 		}

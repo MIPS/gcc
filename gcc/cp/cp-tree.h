@@ -219,8 +219,7 @@ framework extensions, you must include this file before toplev.h, not after.
 
 /* Language-dependent contents of an identifier.  */
 
-struct lang_identifier GTY(())
-{
+struct GTY(()) lang_identifier {
   struct c_common_identifier c_common;
   cxx_binding *namespace_bindings;
   cxx_binding *bindings;
@@ -238,8 +237,7 @@ struct lang_identifier GTY(())
 #define LANG_IDENTIFIER_CAST(NODE) \
 	((struct lang_identifier*)IDENTIFIER_NODE_CHECK (NODE))
 
-struct template_parm_index_s GTY(())
-{
+struct GTY(()) template_parm_index_s {
   struct tree_common common;
   int index;
   int level;
@@ -248,8 +246,7 @@ struct template_parm_index_s GTY(())
 };
 typedef struct template_parm_index_s template_parm_index;
 
-struct ptrmem_cst GTY(())
-{
+struct GTY(()) ptrmem_cst {
   struct tree_common common;
   /* This isn't used, but the middle-end expects all constants to have
      this field.  */
@@ -332,8 +329,7 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
    is not important for this node.  */
 #define OVL_USED(NODE)		TREE_USED (NODE)
 
-struct tree_overload GTY(())
-{
+struct GTY(()) tree_overload {
   struct tree_common common;
   tree function;
 };
@@ -364,8 +360,7 @@ struct tree_overload GTY(())
 #define BASELINK_QUALIFIED_P(NODE) \
   TREE_LANG_FLAG_0 (BASELINK_CHECK (NODE))
 
-struct tree_baselink GTY(())
-{
+struct GTY(()) tree_baselink {
   struct tree_common common;
   tree binfo;
   tree functions;
@@ -458,8 +453,7 @@ typedef enum cp_id_kind
 #define DEFARG_INSTANTIATIONS(NODE) \
   (((struct tree_default_arg *)DEFAULT_ARG_CHECK (NODE))->instantiations)
 
-struct tree_default_arg GTY (())
-{
+struct GTY (()) tree_default_arg {
   struct tree_common common;
   struct cp_token_cache *tokens;
   VEC(tree,gc) *instantiations;
@@ -480,16 +474,14 @@ struct tree_default_arg GTY (())
 #define STATIC_ASSERT_SOURCE_LOCATION(NODE) \
   (((struct tree_static_assert *)STATIC_ASSERT_CHECK (NODE))->location)
 
-struct tree_static_assert GTY (())
-{
+struct GTY (()) tree_static_assert {
   struct tree_common common;
   tree condition;
   tree message;
   location_t location;
 };
 
-struct tree_argument_pack_select GTY (())
-{
+struct GTY (()) tree_argument_pack_select {
   struct tree_common common;
   tree argument_pack;
   int index;
@@ -529,8 +521,7 @@ typedef enum cp_trait_kind
 #define TRAIT_EXPR_KIND(NODE) \
   (((struct tree_trait_expr *)TRAIT_EXPR_CHECK (NODE))->kind)
 
-struct tree_trait_expr GTY (())
-{
+struct GTY (()) tree_trait_expr {
   struct tree_common common;
   tree type1;
   tree type2;  
@@ -554,9 +545,8 @@ enum cp_tree_node_structure_enum {
 };
 
 /* The resulting tree type.  */
-union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
-       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
-{
+union GTY((desc ("cp_tree_node_structure (&%h)"),
+       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)"))) lang_tree_node {
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;
   struct template_parm_index_s GTY ((tag ("TS_CP_TPI"))) tpi;
@@ -752,8 +742,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 /* Global state.  */
 
-struct saved_scope GTY(())
-{
+struct GTY(()) saved_scope {
   VEC(cxx_saved_binding,gc) *old_bindings;
   tree old_namespace;
   tree decl_ns_list;
@@ -831,8 +820,7 @@ struct saved_scope GTY(())
 
 extern GTY(()) struct saved_scope *scope_chain;
 
-struct cxx_int_tree_map GTY(())
-{
+struct GTY(()) cxx_int_tree_map {
   unsigned int uid;
   tree to;
 };
@@ -842,8 +830,7 @@ extern int cxx_int_tree_map_eq (const void *, const void *);
 
 /* Global state pertinent to the current function.  */
 
-struct language_function GTY(())
-{
+struct GTY(()) language_function {
   struct c_language_function base;
 
   tree x_cdtor_label;
@@ -1066,8 +1053,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define CLASSTYPE_VISIBILITY_SPECIFIED(TYPE)	\
 	DECL_VISIBILITY_SPECIFIED (TYPE_NAME (TYPE))
 
-typedef struct tree_pair_s GTY (())
-{
+typedef struct GTY (()) tree_pair_s {
   tree purpose;
   tree value;
 } tree_pair_s;
@@ -1078,8 +1064,7 @@ DEF_VEC_ALLOC_O (tree_pair_s,gc);
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
    are put in this structure to save space.  */
-struct lang_type_header GTY(())
-{
+struct GTY(()) lang_type_header {
   BOOL_BITFIELD is_lang_type_class : 1;
 
   BOOL_BITFIELD has_type_conversion : 1;
@@ -1105,8 +1090,7 @@ struct lang_type_header GTY(())
    many (i.e., thousands) of classes can easily be generated.
    Therefore, we should endeavor to keep the size of this structure to
    a minimum.  */
-struct lang_type_class GTY(())
-{
+struct GTY(()) lang_type_class {
   struct lang_type_header h;
 
   unsigned char align;
@@ -1181,14 +1165,12 @@ struct lang_type_class GTY(())
   tree objc_info;
 };
 
-struct lang_type_ptrmem GTY(())
-{
+struct GTY(()) lang_type_ptrmem {
   struct lang_type_header h;
   tree record;
 };
 
-struct lang_type GTY(())
-{
+struct GTY(()) lang_type {
   union lang_type_u
   {
     struct lang_type_header GTY((skip (""))) h;
@@ -1598,8 +1580,7 @@ struct lang_type GTY(())
      || TREE_CODE (NODE) == CONST_DECL			\
      || TREE_CODE (NODE) == USING_DECL))
 
-struct lang_decl_flags GTY(())
-{
+struct GTY(()) lang_decl_flags {
   ENUM_BITFIELD(languages) language : 4;
   unsigned global_ctor_p : 1;
   unsigned global_dtor_p : 1;
@@ -1658,8 +1639,7 @@ struct lang_decl_flags GTY(())
 /* sorted_fields is sorted based on a pointer, so we need to be able
    to resort it if pointers get rearranged.  */
 
-struct lang_decl GTY(())
-{
+struct GTY(()) lang_decl {
   struct lang_decl_flags decl_flags;
 
   union lang_decl_u4
@@ -2522,8 +2502,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 /* Abstract iterators for AGGR_INIT_EXPRs.  */
 
 /* Structure containing iterator state.  */
-typedef struct aggr_init_expr_arg_iterator_d GTY (())
-{
+typedef struct GTY (()) aggr_init_expr_arg_iterator_d {
   tree t;	/* the aggr_init_expr */
   int n;	/* argument count */
   int i;	/* next argument index */
@@ -3597,7 +3576,7 @@ enum tsubst_flags {
 typedef int tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy.  */
-typedef enum base_access {
+enum base_access {
   ba_any = 0,  /* Do not check access, allow an ambiguous base,
 		      prefer a non-virtual base */
   ba_unique = 1 << 0,  /* Must be a unique base.  */
@@ -3605,7 +3584,11 @@ typedef enum base_access {
   ba_check = ba_unique | ba_check_bit,
   ba_ignore_scope = 1 << 2, /* Ignore access allowed by local scope.  */
   ba_quiet = 1 << 3     /* Do not issue error messages.  */
-} base_access;
+};
+
+/* This type is used for parameters and variables which hold
+   combinations of the flags in enum base_access.  */
+typedef int base_access;
 
 /* The various kinds of access check during parsing.  */
 typedef enum deferring_kind {
@@ -3971,8 +3954,7 @@ extern void init_reswords (void);
    opname_tab[(int) MINUS_EXPR] == "-".  */
 extern const char **opname_tab, **assignop_tab;
 
-typedef struct operator_name_info_t GTY(())
-{
+typedef struct GTY(()) operator_name_info_t {
   /* The IDENTIFIER_NODE for the operator.  */
   tree identifier;
   /* The name of the operator.  */
@@ -4161,8 +4143,7 @@ struct cp_declarator {
 };
 
 /* A level of template instantiation.  */
-struct tinst_level GTY(())
-{
+struct GTY(()) tinst_level {
   /* The immediately deeper level in the chain.  */
   struct tinst_level *next;
 
@@ -4347,7 +4328,7 @@ extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, 
 extern void start_decl_1			(tree, bool);
 extern bool check_array_initializer		(tree, tree, tree);
 extern void cp_finish_decl			(tree, tree, bool, tree, int);
-extern void finish_decl				(tree, tree, tree);
+extern void finish_decl				(tree, tree, tree, tree);
 extern int cp_complete_array_type		(tree *, tree, bool);
 extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type			(tree, tree);
@@ -4463,6 +4444,7 @@ extern const char *class_key_or_enum_as_string	(tree);
 extern void print_instantiation_context		(void);
 extern void maybe_warn_variadic_templates       (void);
 extern void maybe_warn_cpp0x			(const char *);
+extern bool pedwarn_cxx98                       (location_t, int, const char *, ...) ATTRIBUTE_GCC_CXXDIAG(3,4);
 
 /* in except.c */
 extern void init_exception_processing		(void);
@@ -4694,8 +4676,7 @@ extern int shared_member_p			(tree);
 
 /* The representation of a deferred access check.  */
 
-typedef struct deferred_access_check GTY(())
-{
+typedef struct GTY(()) deferred_access_check {
   /* The base class in which the declaration is referenced. */
   tree binfo;
   /* The declaration whose access must be checked.  */
@@ -5015,7 +4996,6 @@ extern tree convert_member_func_to_ptr		(tree, tree);
 extern tree convert_ptrmem			(tree, tree, bool, bool);
 extern int lvalue_or_else			(tree, enum lvalue_use,
                                                  tsubst_flags_t);
-extern int lvalue_p				(tree);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);

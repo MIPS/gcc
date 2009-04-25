@@ -128,8 +128,7 @@ along with GCC; see the file COPYING3.  If not see
    However, this is no actual entry for alias set zero.  It is an
    error to attempt to explicitly construct a subset of zero.  */
 
-struct alias_set_entry GTY(())
-{
+struct GTY(()) alias_set_entry {
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
   alias_set_type alias_set;
 
@@ -1475,15 +1474,16 @@ find_base_term (rtx x)
 	  return x;
       return 0;
 
+    case LO_SUM:
+      /* The standard form is (lo_sum reg sym) so look only at the
+         second operand.  */
+      return find_base_term (XEXP (x, 1));
+
     case CONST:
       x = XEXP (x, 0);
       if (GET_CODE (x) != PLUS && GET_CODE (x) != MINUS)
 	return 0;
       /* Fall through.  */
-    case LO_SUM:
-      /* The standard form is (lo_sum reg sym) so look only at the
-         second operand.  */
-      return find_base_term (XEXP (x, 1));
     case PLUS:
     case MINUS:
       {

@@ -35,21 +35,21 @@ VEC(tree,gc) *lto_global_var_decls;
 
 /* Base type for resolution map. It maps NODE to resolution.  */
 
-struct lto_symtab_base_def GTY(())
+struct GTY(()) lto_symtab_base_def
 {
   /* Key is either an IDENTIFIER or a DECL.  */
   tree node;
 };
 typedef struct lto_symtab_base_def *lto_symtab_base_t;
 
-struct lto_symtab_identifier_def GTY (())
+struct GTY(()) lto_symtab_identifier_def
 {
   struct lto_symtab_base_def base;
   tree decl;
 };
 typedef struct lto_symtab_identifier_def *lto_symtab_identifier_t;
 
-struct lto_symtab_decl_def GTY (())
+struct GTY(()) lto_symtab_decl_def
 {
   struct lto_symtab_base_def base;
   enum ld_plugin_symbol_resolution resolution;

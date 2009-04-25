@@ -24,22 +24,22 @@ Boston, MA 02110-1301, USA.  */
 
 #include "plugin-api.h"
 
-struct lang_identifier GTY(())
+struct GTY(()) lang_identifier
 {
   struct tree_identifier base;
 };
 
-struct lang_decl GTY(())
+struct GTY(()) lang_decl
 {
   int dummy;  /* Added because ggc does not like empty structs.  */
 };
 
-struct lang_type GTY(())
+struct GTY(()) lang_type
 {
   int dummy;  /* Added because ggc does not like empty structs.  */
 };
 
-struct language_function GTY(())
+struct GTY(()) language_function
 {
   int dummy;  /* Added because ggc does not like empty structs.  */
 };
@@ -48,9 +48,9 @@ enum lto_tree_node_structure_enum {
   TS_LTO_GENERIC
 };
 
-union lang_tree_node GTY(
- (desc ("lto_tree_node_structure (&%h)"),
-  chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+union GTY((desc ("lto_tree_node_structure (&%h)"),
+	  chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+    lang_tree_node
 {
   union tree_node GTY ((tag ("TS_LTO_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;

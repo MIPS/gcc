@@ -2646,7 +2646,7 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
       enum machine_mode omode, imode;
       unsigned int subalign;
       unsigned int subsize, i;
-      unsigned char mclass;
+      enum mode_class mclass;
 
       subsize = size > UNITS_PER_WORD? UNITS_PER_WORD : 1;
       subalign = MIN (align, subsize * BITS_PER_UNIT);
@@ -2722,8 +2722,7 @@ assemble_real (REAL_VALUE_TYPE d, enum machine_mode mode, unsigned int align)
    Store them both in the structure *VALUE.
    EXP must be reducible.  */
 
-struct addr_const GTY(())
-{
+struct GTY(()) addr_const {
   rtx base;
   HOST_WIDE_INT offset;
 };
@@ -2791,8 +2790,7 @@ decode_addr_const (tree exp, struct addr_const *value)
    Each constant in memory thus far output is recorded
    in `const_desc_table'.  */
 
-struct constant_descriptor_tree GTY(())
-{
+struct GTY(()) constant_descriptor_tree {
   /* A MEM for the constant.  */
   rtx rtl;
 
@@ -3377,8 +3375,7 @@ lookup_constant_def (tree exp)
    can use one per-file pool.  Should add a targetm bit to tell the
    difference.  */
 
-struct rtx_constant_pool GTY(())
-{
+struct GTY(()) rtx_constant_pool {
   /* Pointers to first and last constant in pool, as ordered by offset.  */
   struct constant_descriptor_rtx *first;
   struct constant_descriptor_rtx *last;
@@ -3394,8 +3391,7 @@ struct rtx_constant_pool GTY(())
   HOST_WIDE_INT offset;
 };
 
-struct constant_descriptor_rtx GTY((chain_next ("%h.next")))
-{
+struct GTY((chain_next ("%h.next"))) constant_descriptor_rtx {
   struct constant_descriptor_rtx *next;
   rtx mem;
   rtx sym;

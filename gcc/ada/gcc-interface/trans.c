@@ -28,20 +28,15 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "real.h"
 #include "flags.h"
-#include "toplev.h"
-#include "rtl.h"
 #include "expr.h"
 #include "ggc.h"
-#include "cgraph.h"
-#include "function.h"
-#include "except.h"
-#include "debug.h"
 #include "output.h"
 #include "tree-iterator.h"
 #include "gimple.h"
+
 #include "ada.h"
+#include "adadecode.h"
 #include "types.h"
 #include "atree.h"
 #include "elists.h"
@@ -56,9 +51,6 @@
 #include "einfo.h"
 #include "ada-tree.h"
 #include "gigi.h"
-#include "adadecode.h"
-#include "dwarf2.h"
-#include "dwarf2out.h"
 
 /* We should avoid allocating more than ALLOCA_THRESHOLD bytes via alloca,
    for fear of running out of stack space.  If we need more, we use xmalloc
@@ -108,8 +100,7 @@ bool type_annotate_only;
 /* When not optimizing, we cache the 'First, 'Last and 'Length attributes
    of unconstrained array IN parameters to avoid emitting a great deal of
    redundant instructions to recompute them each time.  */
-struct parm_attr GTY (())
-{
+struct GTY (()) parm_attr {
   int id; /* GTY doesn't like Entity_Id.  */
   int dim;
   tree first;
@@ -122,8 +113,7 @@ typedef struct parm_attr *parm_attr;
 DEF_VEC_P(parm_attr);
 DEF_VEC_ALLOC_P(parm_attr,gc);
 
-struct language_function GTY(())
-{
+struct GTY(()) language_function {
   VEC(parm_attr,gc) *parm_attr_cache;
 };
 
@@ -135,7 +125,7 @@ struct language_function GTY(())
    of a IF.  In the case where it represents a lexical scope, we may also
    have a BLOCK node corresponding to it and/or cleanups.  */
 
-struct stmt_group GTY((chain_next ("%h.previous"))) {
+struct GTY((chain_next ("%h.previous"))) stmt_group {
   struct stmt_group *previous;	/* Previous code group.  */
   tree stmt_list;		/* List of statements for this code group.  */
   tree block;			/* BLOCK for this code group, if any.  */
@@ -152,7 +142,7 @@ static GTY((deletable)) struct stmt_group *stmt_group_free_list;
 
    ??? gnat_node should be Node_Id, but gengtype gets confused.  */
 
-struct elab_info GTY((chain_next ("%h.next"))) {
+struct GTY((chain_next ("%h.next"))) elab_info {
   struct elab_info *next;	/* Pointer to next in chain.  */
   tree elab_proc;		/* Elaboration procedure.  */
   int gnat_node;		/* The N_Compilation_Unit.  */
@@ -301,7 +291,6 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
   /* Initialize ourselves.  */
   init_code_table ();
   init_gnat_to_gnu ();
-  gnat_compute_largest_alignment ();
   init_dummy_type ();
 
   /* If we are just annotating types, give VOID_TYPE zero sizes to avoid
@@ -408,7 +397,7 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
   /* Make the types and functions used for exception processing.  */
   jmpbuf_type
     = build_array_type (gnat_type_for_mode (Pmode, 0),
-			build_index_type (build_int_cst (NULL_TREE, 5)));
+			build_index_type (size_int (5)));
   record_builtin_type ("JMPBUF_T", jmpbuf_type);
   jmpbuf_ptr_type = build_pointer_type (jmpbuf_type);
 
@@ -734,6 +723,18 @@ lvalue_required_p (Node_Id gnat_node, tree gnu_type, int aliased)
 		 (Underlying_Type (Etype (Name (gnat_parent))))
 	      || Nkind (Name (gnat_parent)) == N_Identifier);
 
+    case N_Object_Declaration:
+      /* We cannot use a constructor if this is an atomic object because
+	 the actual assignment might end up being done component-wise.  */
+      return Is_Composite_Type (Underlying_Type (Etype (gnat_node)))
+	     && Is_Atomic (Defining_Entity (gnat_parent));
+
+    case N_Assignment_Statement:
+      /* We cannot use a constructor if the LHS is an atomic object because
+	 the actual assignment might end up being done component-wise.  */
+      return Is_Composite_Type (Underlying_Type (Etype (gnat_node)))
+	     && Is_Atomic (Entity (Name (gnat_parent)));
+
     default:
       return 0;
     }
@@ -1058,7 +1059,7 @@ Pragma_to_gnu (Node_Id gnat_node)
   return gnu_result;
 }
 
-/* Subroutine of gnat_to_gnu to translate gnat_node, an N_Attribute,
+/* Subroutine of gnat_to_gnu to translate GNAT_NODE, an N_Attribute node,
    to a GCC tree, which is returned.  GNU_RESULT_TYPE_P is a pointer to
    where we should place the result type.  ATTRIBUTE is the attribute ID.  */
 
@@ -1075,20 +1076,19 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
   /* If the input is a NULL_EXPR, make a new one.  */
   if (TREE_CODE (gnu_prefix) == NULL_EXPR)
     {
-      *gnu_result_type_p = get_unpadded_type (Etype (gnat_node));
-      return build1 (NULL_EXPR, *gnu_result_type_p,
-		     TREE_OPERAND (gnu_prefix, 0));
+      gnu_result_type = get_unpadded_type (Etype (gnat_node));
+      *gnu_result_type_p = gnu_result_type;
+      return build1 (NULL_EXPR, gnu_result_type, TREE_OPERAND (gnu_prefix, 0));
     }
 
   switch (attribute)
     {
     case Attr_Pos:
     case Attr_Val:
-      /* These are just conversions until since representation clauses for
-	 enumerations are handled in the front end.  */
+      /* These are just conversions since representation clauses for
+	 enumeration types are handled in the front-end.  */
       {
 	bool checkp = Do_Range_Check (First (Expressions (gnat_node)));
-
 	gnu_result = gnat_to_gnu (First (Expressions (gnat_node)));
 	gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	gnu_result = convert_with_check (Etype (gnat_node), gnu_result,
@@ -1098,8 +1098,8 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 
     case Attr_Pred:
     case Attr_Succ:
-      /* These just add or subject the constant 1.  Representation clauses for
-	 enumerations are handled in the front-end.  */
+      /* These just add or subtract the constant 1 since representation
+	 clauses for enumeration types are handled in the front-end.  */
       gnu_expr = gnat_to_gnu (First (Expressions (gnat_node)));
       gnu_result_type = get_unpadded_type (Etype (gnat_node));
 
@@ -1117,16 +1117,15 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	}
 
       gnu_result
-	= build_binary_op (attribute == Attr_Pred
-			   ? MINUS_EXPR : PLUS_EXPR,
+	= build_binary_op (attribute == Attr_Pred ? MINUS_EXPR : PLUS_EXPR,
 			   gnu_result_type, gnu_expr,
 			   convert (gnu_result_type, integer_one_node));
       break;
 
     case Attr_Address:
     case Attr_Unrestricted_Access:
-      /* Conversions don't change something's address but can cause us to miss
-	 the COMPONENT_REF case below, so strip them off.  */
+      /* Conversions don't change addresses but can cause us to miss the
+	 COMPONENT_REF case below, so strip them off.  */
       gnu_prefix = remove_conversions (gnu_prefix,
 				       !Must_Be_Byte_Aligned (gnat_node));
 
@@ -1237,9 +1236,9 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 
 	gnu_result_type = get_unpadded_type (Etype (gnat_node));
 
-	/* If this is an unconstrained array, we know the object must have been
-	   allocated with the template in front of the object.  So compute the
-	   template address.*/
+	/* If this is an unconstrained array, we know the object has been
+	   allocated with the template in front of the object.  So compute
+	   the template address.  */
 	if (TYPE_FAT_POINTER_P (TREE_TYPE (gnu_ptr)))
 	  gnu_ptr
 	    = convert (build_pointer_type
@@ -1273,7 +1272,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
     case Attr_Max_Size_In_Storage_Elements:
       gnu_expr = gnu_prefix;
 
-      /* Remove NOPS from gnu_expr and conversions from gnu_prefix.
+      /* Remove NOPs from GNU_EXPR and conversions from GNU_PREFIX.
 	 We only use GNU_EXPR to see if a COMPONENT_REF was involved.  */
       while (TREE_CODE (gnu_expr) == NOP_EXPR)
 	gnu_expr = TREE_OPERAND (gnu_expr, 0);
@@ -1297,7 +1296,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       /* If we're looking for the size of a field, return the field size.
 	 Otherwise, if the prefix is an object, or if 'Object_Size or
 	 'Max_Size_In_Storage_Elements has been specified, the result is the
-	 GCC size of the type.  Otherwise, the result is the RM_Size of the
+	 GCC size of the type.  Otherwise, the result is the RM size of the
 	 type.  */
       if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
 	gnu_result = DECL_SIZE (TREE_OPERAND (gnu_prefix, 1));
@@ -1306,7 +1305,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	       || attribute == Attr_Max_Size_In_Storage_Elements)
 	{
 	  /* If this is a padded type, the GCC size isn't relevant to the
-	     programmer.  Normally, what we want is the RM_Size, which was set
+	     programmer.  Normally, what we want is the RM size, which was set
 	     from the specified size, but if it was not set, we want the size
 	     of the relevant field.  Using the MAX of those two produces the
 	     right result in all case.  Don't use the size of the field if it's
@@ -1351,8 +1350,8 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 
       gcc_assert (gnu_result);
 
-      /* Deal with a self-referential size by returning the maximum size for a
-	 type and by qualifying the size with the object for 'Size of an
+      /* Deal with a self-referential size by returning the maximum size for
+	 a type and by qualifying the size with the object for 'Size of an
 	 object.  */
       if (CONTAINS_PLACEHOLDER_P (gnu_result))
 	{
@@ -1521,7 +1520,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 		   much rarer cases, for extremely large arrays we expect
 		   never to encounter in practice.  In addition, the former
 		   computation required the use of potentially constraining
-		   signed arithmetic while the latter doesn't. Note that the
+		   signed arithmetic while the latter doesn't.  Note that the
 		   comparison must be done in the original index base type,
 		   otherwise the conversion of either bound to gnu_compute_type
 		   may overflow.  */
@@ -1663,8 +1662,8 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	    break;
 		}
 
-	/* If this has a PLACEHOLDER_EXPR, qualify it by the object
-	   we are handling.  */
+	/* If this has a PLACEHOLDER_EXPR, qualify it by the object we are
+	   handling.  */
 	gnu_result = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_result, gnu_prefix);
 	break;
       }
@@ -1714,8 +1713,8 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       break;
 
     case Attr_Null_Parameter:
-      /* This is just a zero cast to the pointer type for
-	 our prefix and dereferenced.  */
+      /* This is just a zero cast to the pointer type for our prefix and
+	 dereferenced.  */
       gnu_result_type = get_unpadded_type (Etype (gnat_node));
       gnu_result
 	= build_unary_op (INDIRECT_REF, NULL_TREE,
@@ -1755,8 +1754,8 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 
     default:
       /* Say we have an unimplemented attribute.  Then set the value to be
-	 returned to be a zero and hope that's something we can convert to the
-	 type of this attribute.  */
+	 returned to be a zero and hope that's something we can convert to
+	 the type of this attribute.  */
       post_error ("unimplemented attribute", gnat_node);
       gnu_result_type = get_unpadded_type (Etype (gnat_node));
       gnu_result = integer_zero_node;
@@ -3362,6 +3361,43 @@ Compilation_Unit_to_gnu (Node_Id gnat_node)
   invalidate_global_renaming_pointers ();
 }
 
+/* Return whether GNAT_NODE, an unchecked type conversion, is on the LHS
+   of an assignment and a no-op as far as gigi is concerned.  */
+
+static bool
+unchecked_conversion_lhs_nop (Node_Id gnat_node)
+{
+  Entity_Id from_type, to_type;
+
+  /* The conversion must be on the LHS of an assignment.  Otherwise, even
+     if the conversion was essentially a no-op, it could de facto ensure
+     type consistency and this should be preserved.  */
+  if (!(Nkind (Parent (gnat_node)) == N_Assignment_Statement
+	&& Name (Parent (gnat_node)) == gnat_node))
+    return false;
+
+  from_type = Etype (Expression (gnat_node));
+
+  /* We're interested in artificial conversions generated by the front-end
+     to make private types explicit, e.g. in Expand_Assign_Array.  */
+  if (!Is_Private_Type (from_type))
+    return false;
+
+  from_type = Underlying_Type (from_type);
+  to_type = Etype (gnat_node);
+
+  /* The direct conversion to the underlying type is a no-op.  */
+  if (to_type == from_type)
+    return true;
+
+  /* For an array type, the conversion to the PAT is a no-op.  */
+  if (Ekind (from_type) == E_Array_Subtype
+      && to_type == Packed_Array_Type (from_type))
+    return true;
+
+  return false;
+}
+
 /* This function is the driver of the GNAT to GCC tree transformation
    process.  It is the entry point of the tree transformer.  GNAT_NODE is the
    root of some GNAT tree.  Return the root of the corresponding GCC tree.
@@ -4040,6 +4076,14 @@ gnat_to_gnu (Node_Id gnat_node)
 
     case N_Unchecked_Type_Conversion:
       gnu_result = gnat_to_gnu (Expression (gnat_node));
+
+      /* Skip further processing if the conversion is deemed a no-op.  */
+      if (unchecked_conversion_lhs_nop (gnat_node))
+	{
+	  gnu_result_type = TREE_TYPE (gnu_result);
+	  break;
+	}
+
       gnu_result_type = get_unpadded_type (Etype (gnat_node));
 
       /* If the result is a pointer type, see if we are improperly
@@ -5258,7 +5302,8 @@ gnat_to_gnu (Node_Id gnat_node)
   if (gnu_result
       && EXPR_P (gnu_result)
       && TREE_CODE (gnu_result) != NOP_EXPR
-      && !REFERENCE_CLASS_P (gnu_result))
+      && !REFERENCE_CLASS_P (gnu_result)
+      && !EXPR_HAS_LOCATION (gnu_result))
     set_expr_location_from_node (gnu_result, gnat_node);
 
   /* If we're supposed to return something of void_type, it means we have
@@ -5266,12 +5311,10 @@ gnat_to_gnu (Node_Id gnat_node)
   if (TREE_CODE (gnu_result_type) == VOID_TYPE)
     return gnu_result;
 
-  /* If the result is a constant that overflows, raise constraint error.  */
-  else if (TREE_CODE (gnu_result) == INTEGER_CST
-      && TREE_OVERFLOW (gnu_result))
+  /* If the result is a constant that overflowed, raise Constraint_Error.  */
+  if (TREE_CODE (gnu_result) == INTEGER_CST && TREE_OVERFLOW (gnu_result))
     {
       post_error ("Constraint_Error will be raised at run-time?", gnat_node);
-
       gnu_result
 	= build1 (NULL_EXPR, gnu_result_type,
 		  build_call_raise (CE_Overflow_Check_Failed, gnat_node,
@@ -5292,7 +5335,8 @@ gnat_to_gnu (Node_Id gnat_node)
        1. If this is the Name of an assignment statement or a parameter of
 	  a procedure call, return the result almost unmodified since the
 	  RHS will have to be converted to our type in that case, unless
-	  the result type has a simpler size.   Similarly, don't convert
+	  the result type has a simpler size.  Likewise if there is just
+	  a no-op unchecked conversion in-between.  Similarly, don't convert
 	  integral types that are the operands of an unchecked conversion
 	  since we need to ignore those conversions (for 'Valid).
 
@@ -5315,6 +5359,8 @@ gnat_to_gnu (Node_Id gnat_node)
   if (Present (Parent (gnat_node))
       && ((Nkind (Parent (gnat_node)) == N_Assignment_Statement
 	   && Name (Parent (gnat_node)) == gnat_node)
+	  || (Nkind (Parent (gnat_node)) == N_Unchecked_Type_Conversion
+	      && unchecked_conversion_lhs_nop (Parent (gnat_node)))
 	  || (Nkind (Parent (gnat_node)) == N_Procedure_Call_Statement
 	      && Name (Parent (gnat_node)) != gnat_node)
 	  || Nkind (Parent (gnat_node)) == N_Parameter_Association

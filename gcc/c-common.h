@@ -229,8 +229,7 @@ enum c_tree_index
 
 /* Identifier part common to the C front ends.  Inherits from
    tree_identifier, despite appearances.  */
-struct c_common_identifier GTY(())
-{
+struct GTY(()) c_common_identifier {
   struct tree_common common;
   struct cpp_hashnode node;
 };
@@ -334,8 +333,7 @@ extern GTY(()) tree c_global_trees[CTI_MAX];
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type, not a
    tree for size reasons.  */
-struct sorted_fields_type GTY(())
-{
+struct GTY(()) sorted_fields_type {
   int len;
   tree GTY((length ("%h.len"))) elts[1];
 };
@@ -362,7 +360,7 @@ extern c_language_kind c_language;
 
 /* Information about a statement tree.  */
 
-struct stmt_tree_s GTY(()) {
+struct GTY(()) stmt_tree_s {
   /* The current statement list being collected.  */
   tree x_cur_stmt_list;
 
@@ -388,7 +386,7 @@ typedef struct stmt_tree_s *stmt_tree;
 /* Global state pertinent to the current function.  Some C dialects
    extend this structure with additional fields.  */
 
-struct c_language_function GTY(()) {
+struct GTY(()) c_language_function {
   /* While we are parsing the function, this contains information
      about the statement-tree that we are building.  */
   struct stmt_tree_s x_stmt_tree;
@@ -415,7 +413,7 @@ extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl (tree);
-extern tree build_modify_expr (location_t, tree, enum tree_code, tree);
+extern tree build_modify_expr (location_t, tree, enum tree_code, tree, tree);
 extern tree build_indirect_ref (location_t, tree, const char *);
 
 extern int c_expand_decl (tree);
@@ -922,7 +920,9 @@ extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
 
 extern tree build_function_call (tree, tree);
 
-extern tree resolve_overloaded_builtin (tree, tree);
+extern tree build_function_call_vec (tree, VEC(tree,gc) *, VEC(tree,gc) *);
+
+extern tree resolve_overloaded_builtin (tree, VEC(tree,gc) *);
 
 extern tree finish_label_address_expr (tree, location_t);
 
@@ -930,6 +930,7 @@ extern tree finish_label_address_expr (tree, location_t);
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
 extern tree lookup_name (tree);
+extern bool lvalue_p (const_tree);
 
 extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
@@ -1026,7 +1027,7 @@ extern void builtin_define_std (const char *macro);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
-extern void c_parse_error (const char *, enum cpp_ttype, tree);
+extern void c_parse_error (const char *, enum cpp_ttype, tree, unsigned char);
 
 /* Objective-C / Objective-C++ entry points.  */
 

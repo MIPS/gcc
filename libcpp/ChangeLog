@@ -1,3 +1,30 @@
+2009-04-21  Taras Glek <tglek@mozilla.com>
+
+	* include/cpp-id-data.h: Update GTY annotations to new syntax.
+	* include/cpplib.h: Likewise.
+	* include/line-map.h: Likewise.
+	* include/symtab.h: Likewise.
+
+2009-04-22  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/14875
+	* lex.c (cpp_type2name): Take a flags parameter. Call
+	cpp_named_operator2name for named operators and cpp_digraph2name
+	for digraphs.
+	(cpp_digraph2name): New.
+	(cpp_spell_token): Use it.
+	(cpp_output_token): Likewise.
+	* include/cpplib.h (cpp_type2name): Update declaration.
+	* init.c (cpp_named_operator2name): New.
+	* internal.h (cpp_named_operator2name): Declare.
+
+2009-04-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/13358
+	* init.c (cpp_create_reader): Wlong_long is disabled by default.
+	* expr.c (cpp_classify_number): Give different messages for C and
+	C++ front-ends.
+
 2009-04-19  Joseph Myers  <joseph@codesourcery.com>
 
 	PR preprocessor/20078

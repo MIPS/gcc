@@ -1,3 +1,86 @@
+2009-04-22  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/39639
+	* parser.c (cp_parser_template_argument_list): Display an error
+	when an ellipsis is not preceded by a parameter pack. Also, warn
+	about variadic templates usage without -std=c++0x.
+
+2009-04-21  Taras Glek <tglek@mozilla.com>
+
+	* cp-tree.h: Update GTY annotations to new syntax.
+	* decl.c: Likewise.
+	* mangle.c: Likewise.
+	* name-lookup.c: Likewise.
+	* name-lookup.h: Likewise.
+	* parser.c: Likewise.
+	* pt.c: Likewise.
+	* rtti.c: Likewise.
+	* semantics.c: Likewise.
+	* typeck2.c: Likewise.
+
+2009-04-22  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/14875
+	* parser.c (cp_parser_error): Pass token->flags to c_parse_error.
+
+2009-04-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35711
+	* typeck.c (check_for_casting_away_constness): We diagnose casting
+	away any qualifiers not just constness.
+	(casts_away_constness): Mention that it handles more than just
+	constness.
+	
+2009-04-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* ChangeLog, ChangeLog-1993, ChangeLog-1994, ChangeLog-1995,
+	ChangeLog-1996, ChangeLog-1997, ChangeLog-1998, ChangeLog-1999,
+	ChangeLog-2000, ChangeLog-2001, ChangeLog-2002, ChangeLog-2003,
+	ChangeLog-2004, ChangeLog-2005, ChangeLog-2006, ChangeLog-2007,
+	ChangeLog-2008, ChangeLog.ptr, ChangeLog.tree-ssa, NEWS,
+	cfns.gperf: Add copyright and license notices.
+	* cfns.h: Regenerate.
+	* ChangeLog, ChangeLog-2004: Correct dates.
+
+2009-04-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 16202
+	* tree.c (lvalue_p_1): Use const_tree.
+	Use CONST_CAST_TREE to avoid warning.
+	(lvalue_p): Returns bool, receives const_tree.
+
+2009-04-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/13358
+	* parser.c (cp_parser_check_decl_spec): Drop redundant flags.
+	* error.c (pedwarn_cxx98): New.
+	* cp-tree.h (pedwarn_cxx98): Declare.
+
+2009-04-20  Le-Chun Wu  <lcwu@google.com>
+
+	PR c++/39803
+	* init.c (build_vec_init): Set TREE_NO_WARNING on the
+	compiler-generated INDIRECT_REF expression.
+
+2009-04-20  Ian Lance Taylor  <iant@google.com>
+
+	* typeck.c (build_function_call_vec): New function.
+	(cp_build_function_call): Only pass first parameter to
+	objc_rewrite_function_call.
+	(build_modify_expr): Add rhs_origtype parameter.  Change all
+	callers.
+	* decl.c (finish_decl): Add origtype parameter.  Change all
+	callers.
+	* semantics.c (finish_call_expr): Pass VEC to
+	resolve_overloaded_builtin.
+
+2009-04-20  Ian Lance Taylor  <iant@google.com>
+
+	* cp-tree.h (base_access): Change typedef to int.
+	* parser.c (cp_parser_omp_flush): Change 0 to OMP_CLAUSE_ERROR.
+	(cp_parser_omp_threadprivate): Likewise.
+	* pt.c (unify_pack_expansion): Add casts to enum type.
+
 2009-04-19  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
 	PR c/32061
@@ -15,7 +98,7 @@
 	* cp-tree.h (enum tsubst_flags): Rename from enum tsubst_flags_t.
 	(tsubst_flags_t): Change typedef from enum type to int.
 
-2009-04-16  Le-Chun Wu  <lcwu@google.com>
+2009-04-16  Paolo Bonzini  <bonzini@gnu.org>
 
 	* decl.c (check_initializer): Use TYPE_VECTOR_OPAQUE
 	instead of targetm.vector_opaque_p.
@@ -68,7 +151,7 @@
 	* parser.c (cp_parser_skip_to_end_of_block_or_statement): Return
 	if we see a close brace without an open brace.
 
-2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+2009-04-10  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* parser.c (cp_parser_class_specifier): Remove the unused
 	has_trailing_semicolon.
@@ -881,3 +964,10 @@
 	PR c++/38684
 	* typeck2.c (digest_init_r): Don't use process_init_constructor
 	for non-aggregate classes.
+
+
+Copyright (C) 2009 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

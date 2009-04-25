@@ -48,8 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 /* A token's value and its associated deferred access checks and
    qualifying scope.  */
 
-struct tree_check GTY(())
-{
+struct GTY(()) tree_check {
   /* The value associated with the token.  */
   tree value;
   /* The checks that have been associated with value.  */
@@ -61,8 +60,7 @@ struct tree_check GTY(())
 
 /* A C++ token.  */
 
-typedef struct cp_token GTY (())
-{
+typedef struct GTY (()) cp_token {
   /* The kind of token.  */
   ENUM_BITFIELD (cpp_ttype) type : 8;
   /* If this token is a keyword, this value indicates which keyword.
@@ -104,8 +102,7 @@ static cp_token eof_token =
    it to the parser.  Tokens are never added to the cp_lexer after
    it is created.  */
 
-typedef struct cp_lexer GTY (())
-{
+typedef struct GTY (()) cp_lexer {
   /* The memory allocated for the buffer.  NULL if this lexer does not
      own the token buffer.  */
   cp_token * GTY ((length ("%h.buffer_length"))) buffer;
@@ -144,8 +141,7 @@ typedef struct cp_lexer GTY (())
    a cp_token_cache, since everything in here is referenced through
    a lexer.  */
 
-typedef struct cp_token_cache GTY(())
-{
+typedef struct GTY(()) cp_token_cache {
   /* The beginning of the token range.  */
   cp_token * GTY((skip)) first;
 
@@ -1282,8 +1278,7 @@ typedef struct cp_parser_expression_stack_entry
   cp_parser_expression_stack[NUM_PREC_VALUES];
 
 /* Context that is saved and restored when parsing tentatively.  */
-typedef struct cp_parser_context GTY (())
-{
+typedef struct GTY (()) cp_parser_context {
   /* If this is a tentative parsing context, the status of the
      tentative parse.  */
   enum cp_parser_status_kind status;
@@ -1389,8 +1384,7 @@ cp_parser_context_new (cp_parser_context* next)
 
 /* The cp_parser structure represents the C++ parser.  */
 
-typedef struct cp_parser GTY(())
-{
+typedef struct GTY(()) cp_parser {
   /* The lexer from which we are obtaining tokens.  */
   cp_lexer *lexer;
 
@@ -2091,7 +2085,7 @@ cp_parser_error (cp_parser* parser, const char* message)
 			CPP_KEYWORD, keywords are treated like
 			identifiers.  */
 		     (token->type == CPP_KEYWORD ? CPP_NAME : token->type),
-		     token->u.value);
+		     token->u.value, token->flags);
     }
 }
 
@@ -2167,10 +2161,9 @@ cp_parser_check_decl_spec (cp_decl_specifier_seq *decl_specs,
 	{
 	  if (count > 2)
 	    error ("%H%<long long long%> is too long for GCC", &location);
-	  else if (pedantic && !in_system_header && warn_long_long
-                   && cxx_dialect == cxx98)
-	    pedwarn (location, OPT_Wlong_long, 
-		     "ISO C++ 1998 does not support %<long long%>");
+	  else 
+	    pedwarn_cxx98 (location, OPT_Wlong_long, 
+			   "ISO C++ 1998 does not support %<long long%>");
 	}
       else if (count > 1)
 	{
@@ -10477,6 +10470,12 @@ cp_parser_template_argument_list (cp_parser* parser)
          argument pack. */
       if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
         {
+	  if (argument == error_mark_node)
+	    {
+	      cp_token *token = cp_lexer_peek_token (parser->lexer);
+	      error ("%Hexpected parameter pack before %<...%>",
+		     &token->location);
+	    }
           /* Consume the `...' token. */
           cp_lexer_consume_token (parser->lexer);
 
@@ -21043,7 +21042,7 @@ static void
 cp_parser_omp_flush (cp_parser *parser, cp_token *pragma_tok)
 {
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
-    (void) cp_parser_omp_var_list (parser, 0, NULL);
+    (void) cp_parser_omp_var_list (parser, OMP_CLAUSE_ERROR, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
   finish_omp_flush ();
@@ -21884,7 +21883,7 @@ cp_parser_omp_threadprivate (cp_parser *parser, cp_token *pragma_tok)
 {
   tree vars;
 
-  vars = cp_parser_omp_var_list (parser, 0, NULL);
+  vars = cp_parser_omp_var_list (parser, OMP_CLAUSE_ERROR, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
   finish_omp_threadprivate (vars);

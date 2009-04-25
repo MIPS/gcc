@@ -71,7 +71,7 @@ Boston, MA 02110-1301, USA.  */
 /* Saved options hold the type of the option (currently CL_TARGET or
    CL_COMMON), and the code, argument, and value.  */
 
-typedef struct GTY(())
+typedef struct GTY(()) opt_d
 {
   unsigned int type;
   size_t code;

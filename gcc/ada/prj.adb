@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -73,14 +73,10 @@ package body Prj is
 
    Std_Naming_Data : constant Naming_Data :=
                        (Dot_Replacement           => Standard_Dot_Replacement,
-                        Dot_Repl_Loc              => No_Location,
                         Casing                    => All_Lower_Case,
                         Spec_Suffix               => No_Array_Element,
-                        Ada_Spec_Suffix_Loc       => No_Location,
                         Body_Suffix               => No_Array_Element,
-                        Ada_Body_Suffix_Loc       => No_Location,
                         Separate_Suffix           => No_File,
-                        Sep_Suffix_Loc            => No_Location,
                         Specs                     => No_Array_Element,
                         Bodies                    => No_Array_Element,
                         Specification_Exceptions  => No_Array_Element,
@@ -91,7 +87,6 @@ package body Prj is
                       Externally_Built               => False,
                       Config                         => Default_Project_Config,
                       Languages                      => No_Name_List,
-                      First_Referred_By              => No_Project,
                       Name                           => No_Name,
                       Display_Name                   => No_Name,
                       Path                           => No_Path_Information,
@@ -118,12 +113,9 @@ package body Prj is
                       First_Source                   => No_Source,
                       Last_Source                    => No_Source,
                       Interfaces_Defined             => False,
-                      Unit_Based_Language_Name       => No_Name,
-                      Unit_Based_Language_Index      => No_Language_Index,
                       Imported_Directories_Switches  => null,
                       Include_Path                   => null,
                       Include_Data_Set               => False,
-                      Include_Language               => No_Language_Index,
                       Source_Dirs                    => Nil_String,
                       Known_Order_Of_Source_Dirs     => True,
                       Object_Directory               => No_Path_Information,

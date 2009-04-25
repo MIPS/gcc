@@ -187,7 +187,7 @@ DEF_VEC_ALLOC_P(tree,heap);
    of an alias.  This requires that the decl have been defined.  Aliases
    that precede their definition have to be queued for later processing.  */
 
-typedef struct alias_pair GTY(())
+typedef struct GTY(()) alias_pair
 {
   tree decl;
   tree target;
@@ -358,8 +358,7 @@ enum omp_clause_code
    fields.  */
 union tree_ann_d;
 
-struct tree_base GTY(())
-{
+struct GTY(()) tree_base {
   ENUM_BITFIELD(tree_code) code : 16;
 
   unsigned side_effects_flag : 1;
@@ -395,8 +394,7 @@ struct tree_base GTY(())
   union tree_ann_d *ann;
 };
 
-struct tree_common GTY(())
-{
+struct GTY(()) tree_common {
   struct tree_base base;
   tree chain;
   tree type;
@@ -1140,7 +1138,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (CASE_LABEL_EXPR_CHECK (NODE)->base.addressable_flag)
 
 #define PREDICT_EXPR_OUTCOME(NODE) \
-  (PREDICT_EXPR_CHECK(NODE)->base.addressable_flag)
+  ((enum prediction) (PREDICT_EXPR_CHECK(NODE)->base.addressable_flag))
+#define SET_PREDICT_EXPR_OUTCOME(NODE, OUTCOME) \
+  (PREDICT_EXPR_CHECK(NODE)->base.addressable_flag = (int) OUTCOME)
 #define PREDICT_EXPR_PREDICTOR(NODE) \
   ((enum br_predictor)tree_low_cst (TREE_OPERAND (PREDICT_EXPR_CHECK (NODE), 0), 0))
 
@@ -1378,8 +1378,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 	== (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (B))	\
        && TREE_INT_CST_LOW (A) < TREE_INT_CST_LOW (B)))
 
-struct tree_int_cst GTY(())
-{
+struct GTY(()) tree_int_cst {
   struct tree_common common;
   double_int int_cst;
 };
@@ -1392,8 +1391,7 @@ struct real_value;
 #define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst_ptr)
 #define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
 
-struct tree_real_cst GTY(())
-{
+struct GTY(()) tree_real_cst {
   struct tree_common common;
   struct real_value * real_cst_ptr;
 };
@@ -1404,8 +1402,7 @@ struct fixed_value;
 #define TREE_FIXED_CST_PTR(NODE) (FIXED_CST_CHECK (NODE)->fixed_cst.fixed_cst_ptr)
 #define TREE_FIXED_CST(NODE) (*TREE_FIXED_CST_PTR (NODE))
 
-struct tree_fixed_cst GTY(())
-{
+struct GTY(()) tree_fixed_cst {
   struct tree_common common;
   struct fixed_value * fixed_cst_ptr;
 };
@@ -1415,8 +1412,7 @@ struct tree_fixed_cst GTY(())
 #define TREE_STRING_POINTER(NODE) \
   ((const char *)(STRING_CST_CHECK (NODE)->string.str))
 
-struct tree_string GTY(())
-{
+struct GTY(()) tree_string {
   struct tree_common common;
   int length;
   char str[1];
@@ -1426,8 +1422,7 @@ struct tree_string GTY(())
 #define TREE_REALPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.real)
 #define TREE_IMAGPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.imag)
 
-struct tree_complex GTY(())
-{
+struct GTY(()) tree_complex {
   struct tree_common common;
   tree real;
   tree imag;
@@ -1436,8 +1431,7 @@ struct tree_complex GTY(())
 /* In a VECTOR_CST node.  */
 #define TREE_VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->vector.elements)
 
-struct tree_vector GTY(())
-{
+struct GTY(()) tree_vector {
   struct tree_common common;
   tree elements;
 };
@@ -1460,8 +1454,7 @@ struct tree_vector GTY(())
   ((tree) ((char *) (NODE) - sizeof (struct tree_common)))
 #define GCC_IDENT_TO_HT_IDENT(NODE) (&((struct tree_identifier *) (NODE))->id)
 
-struct tree_identifier GTY(())
-{
+struct GTY(()) tree_identifier {
   struct tree_common common;
   struct ht_identifier id;
 };
@@ -1470,8 +1463,7 @@ struct tree_identifier GTY(())
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->list.purpose)
 #define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->list.value)
 
-struct tree_list GTY(())
-{
+struct GTY(()) tree_list {
   struct tree_common common;
   tree purpose;
   tree value;
@@ -1484,8 +1476,7 @@ struct tree_list GTY(())
 
 #define TREE_VEC_ELT(NODE,I) TREE_VEC_ELT_CHECK (NODE, I)
 
-struct tree_vec GTY(())
-{
+struct GTY(()) tree_vec {
   struct tree_common common;
   int length;
   tree GTY ((length ("TREE_VEC_LENGTH ((tree)&%h)"))) a[1];
@@ -1530,8 +1521,7 @@ struct tree_vec GTY(())
    element. INDEX can optionally design the position of VALUE: in arrays,
    it is the index where VALUE has to be placed; in structures, it is the
    FIELD_DECL of the member.  */
-typedef struct constructor_elt_d GTY(())
-{
+typedef struct GTY(()) constructor_elt_d {
   tree index;
   tree value;
 } constructor_elt;
@@ -1539,8 +1529,7 @@ typedef struct constructor_elt_d GTY(())
 DEF_VEC_O(constructor_elt);
 DEF_VEC_ALLOC_O(constructor_elt,gc);
 
-struct tree_constructor GTY(())
-{
+struct GTY(()) tree_constructor {
   struct tree_common common;
   VEC(constructor_elt,gc) *elts;
 };
@@ -1834,8 +1823,7 @@ enum omp_clause_default_kind
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->omp_clause.subcode.default_kind)
 
-struct tree_exp GTY(())
-{
+struct GTY(()) tree_exp {
   struct tree_common common;
   location_t locus;
   tree block;
@@ -1893,8 +1881,7 @@ struct ptr_info_def;
 
 /* Immediate use linking structure.  This structure is used for maintaining
    a doubly linked list of uses of an SSA_NAME.  */
-typedef struct ssa_use_operand_d GTY(())
-{
+typedef struct GTY(()) ssa_use_operand_d {
   struct ssa_use_operand_d* GTY((skip(""))) prev;
   struct ssa_use_operand_d* GTY((skip(""))) next;
   /* Immediate uses for a given SSA name are maintained as a cyclic
@@ -1909,8 +1896,7 @@ typedef struct ssa_use_operand_d GTY(())
 /* Return the immediate_use information for an SSA_NAME. */
 #define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
 
-struct tree_ssa_name GTY(())
-{
+struct GTY(()) tree_ssa_name {
   struct tree_common common;
 
   /* _DECL wrapped by this SSA name.  */
@@ -1936,8 +1922,7 @@ struct tree_ssa_name GTY(())
   struct ssa_use_operand_d imm_uses;
 };
 
-struct phi_arg_d GTY(())
-{
+struct GTY(()) phi_arg_d {
   /* imm_use MUST be the first element in struct because we do some
      pointer arithmetic with it.  See phi_arg_index_from_use.  */
   struct ssa_use_operand_d imm_use;
@@ -1957,8 +1942,7 @@ struct phi_arg_d GTY(())
 #define OMP_CLAUSE_OPERAND(NODE, I)				\
 	OMP_CLAUSE_ELT_CHECK (NODE, I)
 
-struct tree_omp_clause GTY(())
-{
+struct GTY(()) tree_omp_clause {
   struct tree_common common;
   enum omp_clause_code code;
   union omp_clause_subcode {
@@ -2027,8 +2011,7 @@ struct varray_head_tag;
 
 #define BLOCK_SOURCE_LOCATION(NODE) (BLOCK_CHECK (NODE)->block.locus)
 
-struct tree_block GTY(())
-{
+struct GTY(()) tree_block {
   struct tree_common common;
 
   unsigned abstract_flag : 1;
@@ -2275,8 +2258,7 @@ extern enum machine_mode vector_type_mode (const_tree);
 
 struct die_struct;
 
-struct tree_type GTY(())
-{
+struct GTY(()) tree_type {
   struct tree_common common;
   tree values;
   tree size;
@@ -2429,8 +2411,7 @@ struct tree_type GTY(())
 #define BINFO_INHERITANCE_CHAIN(NODE) \
 	(TREE_BINFO_CHECK(NODE)->binfo.inheritance)
 
-struct tree_binfo GTY (())
-{
+struct GTY (()) tree_binfo {
   struct tree_common common;
 
   tree offset;
@@ -2503,8 +2484,7 @@ struct function;
     scope".  */
 #define DECL_CONTEXT(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.context)
 #define DECL_FIELD_CONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl_minimal.context)
-struct tree_decl_minimal GTY(())
-{
+struct GTY(()) tree_decl_minimal {
   struct tree_common common;
   location_t locus;
   unsigned int uid;
@@ -2665,8 +2645,7 @@ struct tree_decl_minimal GTY(())
 #define DECL_NO_TBAA_P(DECL) \
   DECL_COMMON_CHECK (DECL)->decl_common.no_tbaa_flag
 
-struct tree_decl_common GTY(())
-{
+struct GTY(()) tree_decl_common {
   struct tree_decl_minimal common;
   tree size;
 
@@ -2768,8 +2747,7 @@ extern void decl_value_expr_insert (tree, tree);
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
 #define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
 
-struct tree_decl_with_rtl GTY(())
-{
+struct GTY(()) tree_decl_with_rtl {
   struct tree_decl_common common;
   rtx rtl;
 };
@@ -2837,8 +2815,7 @@ struct tree_decl_with_rtl GTY(())
 #define DECL_NONADDRESSABLE_P(NODE) \
   (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_3)
 
-struct tree_field_decl GTY(())
-{
+struct GTY(()) tree_field_decl {
   struct tree_decl_common common;
 
   tree offset;
@@ -2859,18 +2836,15 @@ struct tree_field_decl GTY(())
    jumping into such a binding contour has been printed for this label.  */
 #define DECL_ERROR_ISSUED(NODE) (LABEL_DECL_CHECK (NODE)->decl_common.decl_flag_0)
 
-struct tree_label_decl GTY(())
-{
+struct GTY(()) tree_label_decl {
   struct tree_decl_with_rtl common;
 };
 
-struct tree_result_decl GTY(())
-{
+struct GTY(()) tree_result_decl {
   struct tree_decl_with_rtl common;
 };
 
-struct tree_const_decl GTY(())
-{
+struct GTY(()) tree_const_decl {
   struct tree_decl_with_rtl common;
 };
 
@@ -2882,8 +2856,7 @@ struct tree_const_decl GTY(())
    where the data was actually passed.  */
 #define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
 
-struct tree_parm_decl GTY(())
-{
+struct GTY(()) tree_parm_decl {
   struct tree_decl_with_rtl common;
   rtx incoming_rtl;
 };
@@ -3007,8 +2980,7 @@ extern void decl_restrict_base_insert (tree, tree);
    multiple translation units should be merged.  */
 #define DECL_ONE_ONLY(NODE) (DECL_COMDAT_GROUP (NODE) != NULL_TREE)
 
-struct tree_decl_with_vis GTY(())
-{
+struct GTY(()) tree_decl_with_vis {
  struct tree_decl_with_rtl common;
  tree assembler_name;
  tree section_name;
@@ -3112,8 +3084,7 @@ extern void decl_fini_priority_insert (tree, priority_type);
 #define DECL_THREAD_LOCAL_P(NODE) \
   (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model >= TLS_MODEL_REAL)
 
-struct tree_var_decl GTY(())
-{
+struct GTY(()) tree_var_decl {
   struct tree_decl_with_vis common;
 };
 
@@ -3132,9 +3103,8 @@ struct tree_var_decl GTY(())
    C++ also uses this field in namespaces, hence the DECL_NON_COMMON_CHECK.  */
 #define DECL_VINDEX(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.vindex)
 
-struct tree_decl_non_common GTY(())
-
-{
+struct GTY(())
+ tree_decl_non_common {
   struct tree_decl_with_vis common;
   /* C++ uses this in namespaces.  */
   tree saved_tree;
@@ -3269,8 +3239,7 @@ struct tree_decl_non_common GTY(())
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
    which seemed a bit strange.  */
 
-struct tree_function_decl GTY(())
-{
+struct GTY(()) tree_function_decl {
   struct tree_decl_non_common common;
 
   struct function *f;
@@ -3326,8 +3295,7 @@ struct tree_function_decl GTY(())
 #define IMPORTED_DECL_ASSOCIATED_DECL(NODE) \
 (DECL_INITIAL (IMPORTED_DECL_CHECK (NODE)))
 
-struct tree_type_decl GTY(())
-{
+struct GTY(()) tree_type_decl {
   struct tree_decl_non_common common;
 
 };
@@ -3343,17 +3311,15 @@ struct tree_type_decl GTY(())
 #define STATEMENT_LIST_TAIL(NODE) \
   (STATEMENT_LIST_CHECK (NODE)->stmt_list.tail)
 
-struct tree_statement_list_node
-  GTY ((chain_next ("%h.next"), chain_prev ("%h.prev")))
-{
+struct GTY ((chain_next ("%h.next"), chain_prev ("%h.prev"))) tree_statement_list_node
+ {
   struct tree_statement_list_node *prev;
   struct tree_statement_list_node *next;
   tree stmt;
 };
 
-struct tree_statement_list
-  GTY(())
-{
+struct GTY(()) tree_statement_list
+ {
   struct tree_common common;
   struct tree_statement_list_node *head;
   struct tree_statement_list_node *tail;
@@ -3362,8 +3328,7 @@ struct tree_statement_list
 
 /* Optimization options used by a function.  */
 
-struct tree_optimization_option GTY(())
-{
+struct GTY(()) tree_optimization_option {
   struct tree_common common;
 
   /* The optimization options used by the user.  */
@@ -3378,8 +3343,7 @@ extern tree build_optimization_node (void);
 
 /* Target options used by a function.  */
 
-struct tree_target_option GTY(())
-{
+struct GTY(()) tree_target_option {
   struct tree_common common;
 
   /* The optimization options used by the user.  */
@@ -3397,9 +3361,8 @@ extern tree build_target_option_node (void);
    It may be any of the structures declared above
    for various types of node.  */
 
-union tree_node GTY ((ptr_alias (union lang_tree_node),
-		      desc ("tree_node_structure (&%h)")))
-{
+union GTY ((ptr_alias (union lang_tree_node),
+		      desc ("tree_node_structure (&%h)"))) tree_node {
   struct tree_base GTY ((tag ("TS_BASE"))) base;
   struct tree_common GTY ((tag ("TS_COMMON"))) common;
   struct tree_int_cst GTY ((tag ("TS_INT_CST"))) int_cst;
@@ -4533,7 +4496,24 @@ extern tree get_narrower (tree, int *);
 
 /* Return true if T is an expression that get_inner_reference handles.  */
 
-extern int handled_component_p (const_tree);
+static inline bool
+handled_component_p (const_tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case BIT_FIELD_REF:
+    case COMPONENT_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case VIEW_CONVERT_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      return true;
+
+    default:
+      return false;
+    }
+}
 
 /* Given an expression EXP that is a handled_component_p,
    look for the ultimate containing object, which is returned and specify
@@ -5183,8 +5163,7 @@ extern void vect_set_verbosity_level (const char *);
 
 /* In tree.c.  */
 
-struct tree_map_base GTY(())
-{
+struct GTY(()) tree_map_base {
   tree from;
 };
 
@@ -5194,8 +5173,7 @@ extern int tree_map_base_marked_p (const void *);
 
 /* Map from a tree to another tree.  */
 
-struct tree_map GTY(())
-{
+struct GTY(()) tree_map {
   struct tree_map_base base;
   unsigned int hash;
   tree to;
@@ -5207,8 +5185,7 @@ extern unsigned int tree_map_hash (const void *);
 
 /* Map from a tree to an int.  */
 
-struct tree_int_map GTY(())
-{
+struct GTY(()) tree_int_map {
   struct tree_map_base base;
   unsigned int to;
 };
@@ -5219,8 +5196,7 @@ struct tree_int_map GTY(())
 
 /* Map from a tree to initialization/finalization priorities.  */
 
-struct tree_priority_map GTY(())
-{
+struct GTY(()) tree_priority_map {
   struct tree_map_base base;
   priority_type init;
   priority_type fini;
@@ -5266,15 +5242,13 @@ tree_operand_length (const_tree node)
    defined by this point.  */
 
 /* Structure containing iterator state.  */
-typedef struct call_expr_arg_iterator_d GTY (())
-{
+typedef struct GTY (()) call_expr_arg_iterator_d {
   tree t;	/* the call_expr */
   int n;	/* argument count */
   int i;	/* next argument index */
 } call_expr_arg_iterator;
 
-typedef struct const_call_expr_arg_iterator_d GTY (())
-{
+typedef struct GTY (()) const_call_expr_arg_iterator_d {
   const_tree t;	/* the call_expr */
   int n;	/* argument count */
   int i;	/* next argument index */

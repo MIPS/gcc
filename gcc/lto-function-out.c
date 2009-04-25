@@ -1375,7 +1375,7 @@ output_local_var_decl (struct output_block *ob, int index, tree fn)
     }
 
   clear_line_info (ob);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
 
   gcc_assert (DECL_CONTEXT (decl) == fn);
 
@@ -1564,8 +1564,8 @@ output_ssa_names (struct output_block *ob, struct function *fn)
 
       output_uleb128 (ob, i);
       output_expr_operand (ob, SSA_NAME_VAR (ptr));
-      /* Use code 0 to force flags to be output.  */
-      output_tree_flags (ob, 0, ptr, false);
+      /* Use code ERROR_MARK to force flags to be output.  */
+      output_tree_flags (ob, ERROR_MARK, ptr, false);
     }
 
   output_zero (ob);
@@ -2508,7 +2508,7 @@ output_const_decl (struct output_block *ob, tree decl)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_const_decl);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);
 
@@ -2530,7 +2530,7 @@ output_field_decl (struct output_block *ob, tree decl)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_field_decl1);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);
 
@@ -2600,11 +2600,11 @@ output_function_decl (struct output_block *ob, tree decl)
       saved_public = TREE_PUBLIC (decl);
       DECL_EXTERNAL (decl) = true;
       TREE_PUBLIC (decl) = true;
-      output_tree_flags (ob, 0, decl, true);
+      output_tree_flags (ob, ERROR_MARK, decl, true);
       DECL_EXTERNAL (decl) = saved_external;
     }
   else
-    output_tree_flags (ob, 0, decl, true);
+    output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);
 
@@ -2668,7 +2668,7 @@ output_var_decl (struct output_block *ob, tree decl)
   /* tag and flags */
   /* Assume static or external variable.  */
   output_global_record_start (ob, NULL, NULL, LTO_var_decl1);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
 
   /* Additional LTO decl flags. */
   LTO_DEBUG_TOKEN ("lto_decl_flags");
@@ -2739,7 +2739,7 @@ output_parm_decl (struct output_block *ob, tree decl, tree fn)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_parm_decl);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);
 
@@ -2783,7 +2783,7 @@ output_result_decl (struct output_block *ob, tree decl, tree fn)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_result_decl);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);
 
@@ -2818,7 +2818,7 @@ output_type_decl (struct output_block *ob, tree decl)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_type_decl1);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);
 
@@ -2863,7 +2863,7 @@ output_label_decl (struct output_block *ob, tree decl)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_label_decl);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);
 
@@ -2898,7 +2898,7 @@ static void
 output_imported_decl (struct output_block *ob, tree decl)
 {
   output_global_record_start (ob, NULL, NULL, LTO_imported_decl);
-  output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, ERROR_MARK, decl, true);
   global_vector_debug (ob);
   output_tree (ob, IMPORTED_DECL_ASSOCIATED_DECL (decl));
   output_tree (ob, DECL_NAME (decl));
@@ -2914,7 +2914,7 @@ output_binfo (struct output_block *ob, tree binfo)
   size_t num_base_binfos = VEC_length (tree, &binfo->binfo.base_binfos);
 
   output_global_record_start (ob, NULL, NULL, LTO_tree_binfo);
-  output_tree_flags (ob, 0, binfo, false);
+  output_tree_flags (ob, ERROR_MARK, binfo, false);
 
   output_uleb128 (ob, num_base_accesses);
   output_uleb128 (ob, num_base_binfos);
@@ -2948,7 +2948,7 @@ output_type (struct output_block *ob, tree type, enum LTO_tags tag)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, tag);
-  output_tree_flags (ob, 0, type, false);
+  output_tree_flags (ob, ERROR_MARK, type, false);
 
   global_vector_debug (ob);
 
@@ -3091,7 +3091,7 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
 {
   enum tree_code code;
   enum tree_code_class klass;
-  unsigned int tag;
+  enum LTO_tags tag;
   void **slot;
   struct lto_decl_slot d_slot;
 

@@ -1229,7 +1229,8 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
 	TREE_CHAIN (result) = NULL_TREE;
     }
 
-  flags = input_tree_flags (ib, 0, true);
+  flags = input_tree_flags (ib, ERROR_MARK, true);
+
   /* Bug fix for handling debug info previously omitted.
      See comment in output_tree_flags, which failed to emit
      the flags debug info in some cases.  */
@@ -1304,7 +1305,7 @@ input_local_vars (struct lto_input_block *ib, struct data_in *data_in,
 		  struct function *fn, unsigned int count)
 {
   int i;
-  unsigned int tag;
+  enum LTO_tags tag;
 
   data_in->local_decl_indexes = (int *) xcalloc (count, sizeof (int));
   data_in->local_decls = (tree *) xcalloc (count, sizeof (tree*));
@@ -1792,7 +1793,8 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
       name = input_expr_operand (ib, data_in, fn, input_record_start (ib));
       ssa_name = make_ssa_name_fn (fn, name, gimple_build_nop ());
 
-      flags = input_tree_flags (ib, 0, true);
+      flags = input_tree_flags (ib, ERROR_MARK, true);
+
       /* Bug fix for handling debug info previously omitted.
          See comment in output_tree_flags, which failed to emit
          the flags debug info in some cases.  */

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2009, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -28,24 +28,23 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "rtl.h"
 #include "ggc.h"
 #include "flags.h"
 #include "output.h"
 #include "ada.h"
 #include "types.h"
 #include "atree.h"
-#include "stringt.h"
+#include "elists.h"
 #include "namet.h"
+#include "nlists.h"
+#include "snames.h"
+#include "stringt.h"
 #include "uintp.h"
 #include "fe.h"
-#include "elists.h"
-#include "nlists.h"
 #include "sinfo.h"
 #include "einfo.h"
 #include "ada-tree.h"
 #include "gigi.h"
-#include "snames.h"
 
 static tree find_common_type (tree, tree);
 static bool contains_save_expr_p (tree);
@@ -1010,11 +1009,15 @@ build_binary_op (enum tree_code op_code, tree result_type,
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      /* Avoid doing arithmetics in BOOLEAN_TYPE like the other compilers.
-	 Contrary to C, Ada doesn't allow arithmetics in Standard.Boolean
-	 but we can generate addition or subtraction for 'Succ and 'Pred.  */
-      if (operation_type && TREE_CODE (operation_type) == BOOLEAN_TYPE)
-	operation_type = left_base_type = right_base_type = integer_type_node;
+      /* Avoid doing arithmetics in ENUMERAL_TYPE or BOOLEAN_TYPE like the
+	 other compilers.  Contrary to C, Ada doesn't allow arithmetics in
+	 these types but can generate addition/subtraction for Succ/Pred.  */
+      if (operation_type
+	  && (TREE_CODE (operation_type) == ENUMERAL_TYPE
+	      || TREE_CODE (operation_type) == BOOLEAN_TYPE))
+	operation_type = left_base_type = right_base_type
+	  = gnat_type_for_mode (TYPE_MODE (operation_type),
+				TYPE_UNSIGNED (operation_type));
 
       /* ... fall through ... */
 
@@ -1587,15 +1590,14 @@ build_call_raise (int msg, Node_Id gnat_node, char kind)
 			    (Get_Source_File_Index (Sloc (gnat_node))))))
         : ref_filename;
 
-  len = strlen (str) + 1;
+  len = strlen (str);
   filename = build_string (len, str);
   line_number
     = (gnat_node != Empty && Sloc (gnat_node) != No_Location)
       ? Get_Logical_Line_Number (Sloc(gnat_node)) : input_line;
 
   TREE_TYPE (filename)
-    = build_array_type (char_type_node,
-			build_index_type (build_int_cst (NULL_TREE, len)));
+    = build_array_type (char_type_node, build_index_type (size_int (len)));
 
   return
     build_call_2_expr (fndecl,
@@ -1823,9 +1825,8 @@ build_component_ref (tree record_variable, tree component,
   if (ref)
     return ref;
 
-  /* If FIELD was specified, assume this is an invalid user field so
-     raise constraint error.  Otherwise, we can't find the type to return, so
-     abort.  */
+  /* If FIELD was specified, assume this is an invalid user field so raise
+     Constraint_Error.  Otherwise, we have no type to return so abort.  */
   gcc_assert (field);
   return build1 (NULL_EXPR, TREE_TYPE (field),
 		 build_call_raise (CE_Discriminant_Check_Failed, Empty,
@@ -1924,14 +1925,12 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
       /* If the size is a constant, we can put it in the fixed portion of
 	 the stack frame to avoid the need to adjust the stack pointer.  */
 	{
-	  tree gnu_range
-	    = build_range_type (NULL_TREE, size_one_node, gnu_size);
-	  tree gnu_array_type = build_array_type (char_type_node, gnu_range);
+	  tree gnu_index = build_index_2_type (size_one_node, gnu_size);
+	  tree gnu_array_type = build_array_type (char_type_node, gnu_index);
 	  tree gnu_decl
 	    = create_var_decl (get_identifier ("RETVAL"), NULL_TREE,
 			       gnu_array_type, NULL_TREE, false, false, false,
 			       false, NULL, gnat_node);
-
 	  return convert (ptr_void_type_node,
 			  build_unary_op (ADDR_EXPR, NULL_TREE, gnu_decl));
 	}
@@ -2199,7 +2198,7 @@ fill_vms_descriptor (tree expr, Entity_Id gnat_formal, Node_Id gnat_actual)
 	  add_stmt (build3 (COND_EXPR, void_type_node,
 			    build_binary_op (GE_EXPR, long_integer_type_node,
 					     convert (long_integer_type_node,
-						      addr64expr), 
+						      addr64expr),
 					     malloc64low),
 			    build_call_raise (CE_Range_Check_Failed, gnat_actual,
 					      N_Raise_Constraint_Error),

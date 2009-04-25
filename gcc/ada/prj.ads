@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -639,11 +639,9 @@ package Prj is
       Project             : Project_Id            := No_Project;
       --  Project of the source
 
-      Language_Name       : Name_Id               := No_Name;
-      --  Name of the language of the source
-
       Language            : Language_Index        := No_Language_Index;
-      --  Index of the language
+      --  Index of the language. This is an index into
+      --  project_tree.languages_data
 
       Lang_Kind           : Language_Kind         := File_Based;
       --  Kind of the language
@@ -701,7 +699,8 @@ package Prj is
       --  Time stamp of the source file
 
       Object_Project      : Project_Id            := No_Project;
-      --  Project where the object file is
+      --  Project where the object file is. This might be different from
+      --  Project when using extending project files.
 
       Object_Exists       : Boolean               := True;
       --  True if an object file exists
@@ -759,7 +758,6 @@ package Prj is
 
    No_Source_Data : constant Source_Data :=
                       (Project                => No_Project,
-                       Language_Name          => No_Name,
                        Language               => No_Language_Index,
                        Lang_Kind              => File_Based,
                        Compiled               => True,
@@ -869,8 +867,6 @@ package Prj is
       Dot_Replacement : File_Name_Type := No_File;
       --  The string to replace '.' in the source file name (for Ada)
 
-      Dot_Repl_Loc : Source_Ptr := No_Location;
-
       Casing : Casing_Type := All_Lower_Case;
       --  The casing of the source file name (for Ada)
 
@@ -879,28 +875,21 @@ package Prj is
       --  source file name of a spec.
       --  Indexed by the programming language.
 
-      Ada_Spec_Suffix_Loc : Source_Ptr := No_Location;
-
       Body_Suffix : Array_Element_Id := No_Array_Element;
       --  The string to append to the unit name for the
       --  source file name of a body.
       --  Indexed by the programming language.
 
-      Ada_Body_Suffix_Loc : Source_Ptr := No_Location;
-
       Separate_Suffix : File_Name_Type := No_File;
       --  String to append to unit name for source file name of an Ada subunit
 
-      Sep_Suffix_Loc : Source_Ptr := No_Location;
-      --  Position in the project file source where Separate_Suffix is defined
-
       Specs : Array_Element_Id := No_Array_Element;
       --  An associative array mapping individual specs to source file names
-      --  This is specific to Ada.
+      --  This is specific to unit-based languages.
 
       Bodies : Array_Element_Id := No_Array_Element;
       --  An associative array mapping individual bodies to source file names
-      --  This is specific to Ada.
+      --  This is specific to unit-based languages.
 
       Specification_Exceptions : Array_Element_Id := No_Array_Element;
       --  An associative array listing spec file names that do not have the
@@ -1003,6 +992,10 @@ package Prj is
       Run_Path_Option               : Name_List_Index := No_Name_List;
       --  The option to use when linking to specify the path where to look for
       --  libraries.
+
+      Separate_Run_Path_Options     : Boolean := False;
+      --  True if each directory needs to be specified in a separate run path
+      --  option.
 
       Executable_Suffix             : Name_Id         := No_Name;
       --  The suffix of executables, when specified in the configuration or in
@@ -1111,6 +1104,7 @@ package Prj is
    Default_Project_Config : constant Project_Configuration :=
                               (Target                        => No_Name,
                                Run_Path_Option               => No_Name_List,
+                               Separate_Run_Path_Options     => False,
                                Executable_Suffix             => No_Name,
                                Linker                        => No_Path,
                                Map_File_Option               => No_Name,
@@ -1182,25 +1176,16 @@ package Prj is
 
       Languages : Name_List_Index := No_Name_List;
       --  The list of languages of the sources of this project
-
-      Include_Language : Language_Index := No_Language_Index;
+      --  mode: Ada_Only
 
       First_Language_Processing : Language_Index := No_Language_Index;
-      --  First index of the language data in the project
-
-      Unit_Based_Language_Name  : Name_Id := No_Name;
-      Unit_Based_Language_Index : Language_Index := No_Language_Index;
-      --  The name and index, if any, of the unit-based language of some
-      --  sources of the project. There may be only one unit-based language
-      --  in one project.
+      --  First index of the language data in the project.
+      --  This is an index into the project_tree_data.languages_data
+      --  mode: Multi_Language
 
       --------------
       -- Projects --
       --------------
-
-      First_Referred_By : Project_Id := No_Project;
-      --  The project, if any, that was the first to be known as importing or
-      --  extending this project
 
       Mains : String_List_Id := Nil_String;
       --  List of mains specified by attribute Main
