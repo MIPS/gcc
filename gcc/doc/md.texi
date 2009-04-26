@@ -4500,11 +4500,12 @@ operand 0, otherwise (operand 2 + operand 3) is moved.
 
 @cindex @code{cstore@var{mode}4} instruction pattern
 @item @samp{cstore@var{mode}4}
-Store zero or nonzero in operand 0 according to the comparison in operand
-1 is true.  The comparison's operands are in @samp{cstore@var{mode}4}'s
-operands 2 and 3.  You specify the mode that operand 0 must have when you
-write the @code{match_operand} expression.  The compiler automatically
-sees which mode you have used and supplies an operand of that mode.
+Store zero or nonzero in operand 0 according to whether a comparison
+is true.  Operand 1 is a comparison operator.  Operand 2 and operand 3
+are the first and second operand of the comparison, respectively.
+You specify the mode that operand 0 must have when you write the
+@code{match_operand} expression.  The compiler automatically sees which
+mode you have used and supplies an operand of that mode.
 
 The value stored for a true condition must have 1 as its low bit, or
 else must be negative.  Otherwise the instruction is not suitable and
@@ -4989,7 +4990,7 @@ A typical @code{ctrap} pattern looks like
   [(trap_if (match_operator 0 "trap_operator"
              [(match_operand 1 "register_operand")
 	      (match_operand 2 "immediate_operand")])
-            (match_operand 1 "const_int_operand" "i"))]
+            (match_operand 3 "const_int_operand" "i"))]
   ""
   "@dots{}")
 @end smallexample
@@ -5047,13 +5048,14 @@ after the atomic operation.
 For targets where the success or failure of the compare-and-swap
 operation is available via the status flags, it is possible to
 avoid a separate compare operation and issue the subsequent
-setcc or branch immediately after the compare-and-swap.
+branch or store-flag operation immediately after the compare-and-swap.
 To this end, GCC will look for a @code{MODE_CC} set in the
 output of @code{sync_compare_and_swap@var{mode}}; if the machine
 description includes such a set, the target should also define special
 @code{cbranchcc4} and/or @code{cstorecc4} instructions.  GCC will then
-be able to take the destination of the @code{MODE_CC} set and use it as
-the first operand of @code{cbranchcc4}.
+be able to take the destination of the @code{MODE_CC} set and pass it
+to the @code{cbranchcc4} or @code{cstorecc4} pattern as the first
+operand of the comparison (the second will be @code{(const_int 0)}).
 
 @cindex @code{sync_add@var{mode}} instruction pattern
 @cindex @code{sync_sub@var{mode}} instruction pattern
@@ -5277,13 +5279,13 @@ a @code{define_expand}, which expands to all the required insns.
 
 Usually, this would be a comparison insn to set the condition code
 and a separate branch insn testing the condition code and branching
-or not according its value.  However, for many machines, however,
+or not according to its value.  For many machines, however,
 separating compares and branches is limiting, which is why the
 more flexible approach with one @code{define_expand} is used in GCC.
 The machine description becomes clearer for architectures that
 have compare-and-branch instructions but no condition code.  It also
 works better when different sets of comparison operators are supported
-by different kind of conditional branches (e.g. integer vs. floating-point),
+by different kinds of conditional branches (e.g. integer vs. floating-point),
 or by conditional branches with respect to conditional stores.
 
 Two separate insns are always used if the machine description represents
@@ -5291,16 +5293,16 @@ a condition code register using the legacy RTL expression @code{(cc0)},
 and on most machines that use a separate condition code register
 (@pxref{Condition Code}).  For machines that use @code{(cc0)}, in
 fact, the set and use of the condition code must be separate and
-  adjacent@footnote{@code{note} insns can separate them, though.}, thus
+adjacent@footnote{@code{note} insns can separate them, though.}, thus
 allowing flags in @code{cc_status} to be used (@pxref{Condition Code}) and
 so that the comparison and branch insns could be located from each other
 by using the functions @code{prev_cc0_setter} and @code{next_cc0_user}.
 
 Even in this case having a single entry point for conditional branches
-is advantageous, because it handles equally well the case of a single
+is advantageous, because it handles equally well the case where a single
 comparison instruction records the results of both signed and unsigned
 comparison of the given operands (with the branch insns coming in distinct
-signed and unsigned flavors) as in the x86 or SPARC, and the case when
+signed and unsigned flavors) as in the x86 or SPARC, and the case where
 there are distinct signed and unsigned compare instructions and only
 one set of conditional branch instructions as in the PowerPC.
 

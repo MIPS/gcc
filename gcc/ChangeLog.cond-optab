@@ -1,3 +1,8 @@
+2009-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* optabs.c : Change "lib call" to "libcall" throughout.
+	* doc/md.texi: Minor fixes.
+
 2009-04-22  Paolo Bonzini  <bonzini@gnu.org>
 
 	* config/pa/pa.c (return_addr_rtx): Go through expand.

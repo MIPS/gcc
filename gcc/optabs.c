@@ -2275,12 +2275,12 @@ sign_expand_binop (enum machine_mode mode, optab uoptab, optab soptab,
   if (temp || methods == OPTAB_WIDEN)
     return temp;
 
-  /* Use the right width lib call if that exists.  */
+  /* Use the right width libcall if that exists.  */
   temp = expand_binop (mode, direct_optab, op0, op1, target, unsignedp, OPTAB_LIB);
   if (temp || methods == OPTAB_LIB)
     return temp;
 
-  /* Must widen and use a lib call, use either signed or unsigned.  */
+  /* Must widen and use a libcall, use either signed or unsigned.  */
   temp = expand_binop (mode, &wide_soptab, op0, op1, target,
 		       unsignedp, methods);
   if (temp != 0)
@@ -4166,7 +4166,7 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
     {
       rtx result;
 
-      /* Handle a lib call just for the mode we are using.  */
+      /* Handle a libcall just for the mode we are using.  */
       libfunc = optab_libfunc (cmp_optab, mode);
       gcc_assert (libfunc);
 
