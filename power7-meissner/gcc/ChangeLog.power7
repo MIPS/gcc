@@ -1,3 +1,72 @@
+2009-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vector_vsel<mode>): Generate the insns
+	directly instead of calling VSX/Altivec expanders.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Map VSX
+	builtins that are identical to Altivec, to the Altivec vesion.
+	(altivec_overloaded_builtins): Add V2DF/V2DI sel, perm support.
+	(altivec_resolve_overloaded_builtin): Add V2DF/V2DI support.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Rename VSX
+	splat functions.
+	(expand_vector_set): Merge V2DF/V2DI code.
+	(expand_vector_extract): Ditto.
+	(bdesc_3arg): Add more VSX builtins.
+	(bdesc_2arg): Ditto.
+	(bdesc_1arg): Ditto.
+	(rs6000_expand_ternop_builtin): Require xxpermdi 3rd argument to
+	be 2 bit-constant, and V2DF/V2DI set to be a 1 bit-constant.
+	(altivec_expand_builtin): Add support for VSX overloaded builtins.
+	(altivec_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(rs6000_init_builtins): Add V2DI types and vector long support.
+	(rs6000_handle_altivec_attribute): Ditto.
+	(rs6000_mange_type): Ditto.
+
+	* config/rs6000/vsx.md (UNSPEC_*): Add new UNSPEC constants.
+	(vsx_vsel<mode>): Add support for all vector types, including
+	Altivec types.
+	(vsx_ftrunc<mode>2): Emit the correct instruction.
+	(vsx_x<VSv>r<VSs>i): New builtin rounding mode insns.
+	(vsx_x<VSv>r<VSs>ic): Ditto.
+	(vsx_concat_<mode>): Key off of VSX memory instructions being
+	generated instead of the vector arithmetic unit to enable V2DI
+	mode.
+	(vsx_extract_<mode>): Ditto.
+	(vsx_set_<mode>): Rewrite as an unspec.
+	(vsx_xxpermdi2_<mode>): Rename old vsx_xxpermdi_<mode> here.  Key
+	off of VSX memory instructions instead of arithmetic unit.
+	(vsx_xxpermdi_<mode>): New insn for __builtin_vsx_xxpermdi.
+	(vsx_splat_<mode>): Rename from vsx_splat<mode>.
+	(vsx_xxspltw_<mode>): Change from V4SF only to V4SF/V4SI modes.
+	Fix up constraints.  Key off of memory instructions instead of
+	arithmetic instructions to allow use with V4SI.
+	(vsx_xxmrghw_<mode>): Ditto.
+	(vsx_xxmrglw_<mode>): Ditto.
+	(vsx_xxsldwi_<mode>): Implement vector shift double by word
+	immediate.
+
+	* config/rs6000/rs6000.h (VSX_BUILTIN_*): Update for current
+	builtins being generated.
+	(RS6000_BTI_unsigned_V2DI): Add vector long support.
+	(RS6000_BTI_bool_long): Ditto.
+	(RS6000_BTI_bool_V2DI): Ditto.
+	(unsigned_V2DI_type_node): Ditto.
+	(bool_long_type_node): Ditto.
+	(bool_V2DI_type_node): Ditto.
+
+	* config/rs6000/altivec.md (altivec_vsel<mode>): Add '*' since we
+	don't need the generator function now.  Use VSX instruction if
+	-mvsx.
+	(altivec_vmrghw): Use VSX instruction if -mvsx.
+	(altivec_vmrghsf): Ditto.
+	(altivec_vmrglw): Ditto.
+	(altivec_vmrglsf): Ditto.
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document that under VSX, vector double/long are available.
+
 2009-04-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_E): New iterator to add V2DImode.

@@ -7094,7 +7094,7 @@ instructions, but allow the compiler to schedule those calls.
 * MIPS Loongson Built-in Functions::
 * Other MIPS Built-in Functions::
 * picoChip Built-in Functions::
-* PowerPC AltiVec Built-in Functions::
+* PowerPC AltiVec/VSX Built-in Functions::
 * SPARC VIS Built-in Functions::
 * SPU Built-in Functions::
 @end menu
@@ -9571,7 +9571,7 @@ GCC defines the preprocessor macro @code{___GCC_HAVE_BUILTIN_MIPS_CACHE}
 when this function is available.
 @end table
 
-@node PowerPC AltiVec Built-in Functions
+@node PowerPC AltiVec/VSX Built-in Functions
 @subsection PowerPC AltiVec Built-in Functions
 
 GCC provides an interface for the PowerPC family of processors to access
@@ -9596,6 +9596,19 @@ vector signed int
 vector bool int
 vector float
 @end smallexample
+
+If @option{-mvsx} is used the following additional vector types are
+implemented.
+
+@smallexample
+vector unsigned long
+vector signed long
+vector double
+@end smallexample
+
+The long types are only implemented for 64-bit code generation, and
+the long type is only used in the floating point/integer conversion
+instructions.
 
 GCC's implementation of the high-level language interface available from
 C and C++ code differs from Motorola's documentation in several ways.

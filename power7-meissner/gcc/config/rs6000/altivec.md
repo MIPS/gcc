@@ -462,13 +462,13 @@
   "vcmpgefp %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
-(define_insn "altivec_vsel<mode>"
+(define_insn "*altivec_vsel<mode>"
   [(set (match_operand:VM 0 "altivec_register_operand" "=v")
 	(if_then_else:VM (ne (match_operand:VM 1 "altivec_register_operand" "v")
 			     (const_int 0))
 			 (match_operand:VM 2 "altivec_register_operand" "v")
 			 (match_operand:VM 3 "altivec_register_operand" "v")))]
-  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vsel %0,%3,%2,%1"
   [(set_attr "type" "vecperm")])
 
@@ -808,7 +808,7 @@
 						    (const_int 3)
 						    (const_int 1)]))
 		      (const_int 5)))]
-  "TARGET_ALTIVEC"
+  "VECTOR_MEM_ALTIVEC_P (V4SImode)"
   "vmrghw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -825,7 +825,7 @@
                                                     (const_int 3)
                                                     (const_int 1)]))
                       (const_int 5)))]
-  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
+  "VECTOR_MEM_ALTIVEC_P (V4SFmode)"
   "vmrghw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -909,7 +909,7 @@
 				     (const_int 1)
 				     (const_int 3)]))
 	 (const_int 5)))]
-  "TARGET_ALTIVEC"
+  "VECTOR_MEM_ALTIVEC_P (V4SImode)"
   "vmrglw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -927,7 +927,7 @@
 				     (const_int 1)
 				     (const_int 3)]))
 	 (const_int 5)))]
-  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
+  "VECTOR_MEM_ALTIVEC_P (V4SFmode)"
   "vmrglw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 

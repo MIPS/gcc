@@ -350,34 +350,13 @@
 ;; Note the arguments for __builtin_altivec_vsel are op2, op1, mask
 ;; which is in the reverse order that we want
 (define_expand "vector_vsel<mode>"
-  [(match_operand:VEC_F 0 "vlogical_operand" "")
-   (match_operand:VEC_F 1 "vlogical_operand" "")
-   (match_operand:VEC_F 2 "vlogical_operand" "")
-   (match_operand:VEC_F 3 "vlogical_operand" "")]
+  [(set (match_operand:VEC_L 0 "vlogical_operand" "")
+	(if_then_else:VEC_L (ne (match_operand:VEC_L 3 "vlogical_operand" "")
+				(const_int 0))
+			    (match_operand:VEC_L 2 "vlogical_operand" "")
+			    (match_operand:VEC_L 1 "vlogical_operand" "")))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
-  "
-{
-  if (VECTOR_UNIT_VSX_P (<MODE>mode))
-    emit_insn (gen_vsx_vsel<mode> (operands[0], operands[3],
-				   operands[2], operands[1]));
-  else
-    emit_insn (gen_altivec_vsel<mode> (operands[0], operands[3],
-				       operands[2], operands[1]));
-  DONE;
-}")
-
-(define_expand "vector_vsel<mode>"
-  [(match_operand:VEC_I 0 "vlogical_operand" "")
-   (match_operand:VEC_I 1 "vlogical_operand" "")
-   (match_operand:VEC_I 2 "vlogical_operand" "")
-   (match_operand:VEC_I 3 "vlogical_operand" "")]
-  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
-  "
-{
-  emit_insn (gen_altivec_vsel<mode> (operands[0], operands[3],
-				     operands[2], operands[1]));
-  DONE;
-}")
+  "")
 
 
 ;; Vector logical instructions
