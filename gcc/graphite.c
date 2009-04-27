@@ -1058,31 +1058,24 @@ loop_affine_expr (basic_block scop_entry, struct loop *loop, tree expr)
 	  || evolution_function_is_affine_multivariate_p (scev, n));
 }
 
-/* Return false if the tree_code of the operand OP or any of its operands
-   is component_ref.  */
+/* Return true if REF or any of its subtrees contains a
+   component_ref.  */
 
 static bool
-exclude_component_ref (tree op) 
+contains_component_ref_p (tree ref)
 {
-  int i;
-  int len;
+  if (!ref)
+    return false;
 
-  if (op)
+  while (handled_component_p (ref))
     {
-      if (TREE_CODE (op) == COMPONENT_REF)
-	return false;
-      else
-	{
-	  len = TREE_OPERAND_LENGTH (op);	  
-	  for (i = 0; i < len; ++i)
-	    {
-	      if (!exclude_component_ref (TREE_OPERAND (op, i)))
-		return false;
-	    }
-	}
+      if (TREE_CODE (ref) == COMPONENT_REF)
+	return true;
+
+      ref = TREE_OPERAND (ref, 0);
     }
 
-  return true;
+  return false;
 }
 
 /* Return true if the operand OP is simple.  */
@@ -1094,13 +1087,15 @@ is_simple_operand (loop_p loop, gimple stmt, tree op)
   if (DECL_P (op)
       /* or a structure,  */
       || AGGREGATE_TYPE_P (TREE_TYPE (op))
+      /* or a COMPONENT_REF,  */
+      || contains_component_ref_p (op)
       /* or a memory access that cannot be analyzed by the data
 	 reference analysis.  */
       || ((handled_component_p (op) || INDIRECT_REF_P (op))
 	  && !stmt_simple_memref_p (loop, stmt, op)))
     return false;
 
-  return exclude_component_ref (op);
+  return true;
 }
 
 /* Return true only when STMT is simple enough for being handled by
@@ -2364,7 +2359,7 @@ nb_reductions_in_loop (loop_p loop)
 
       scev = analyze_scalar_evolution (loop, PHI_RESULT (phi));
       scev = instantiate_parameters (loop, scev);
-      if (!simple_iv (loop, phi, PHI_RESULT (phi), &iv, true))
+      if (!simple_iv (loop, loop, PHI_RESULT (phi), &iv, true))
 	res++;
     }
 
@@ -4124,7 +4119,7 @@ rename_variables_in_stmt (gimple stmt, htab_t map)
   ssa_op_iter iter;
   use_operand_p use_p;
 
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
     {
       tree use = USE_FROM_PTR (use_p);
       tree new_name = get_new_name_from_old_name (map, use);
@@ -4243,8 +4238,6 @@ expand_scalar_variables_expr (tree type, tree op0, enum tree_code code,
 	    tree new_name = force_gimple_operand_gsi (gsi, expr, true, NULL,
 						      true, GSI_SAME_STMT);
 
-	    set_symbol_mem_tag (SSA_NAME_VAR (new_name),
-				symbol_mem_tag (SSA_NAME_VAR (old_name)));
 	    return fold_build1 (code, type, new_name);
 	  }
 
@@ -4484,7 +4477,7 @@ graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb, htab_t map)
 	 operands.  */
       copy = gimple_copy (stmt);
       gsi_insert_after (&gsi_tgt, copy, GSI_NEW_STMT);
-      mark_symbols_for_renaming (copy);
+      mark_sym_for_renaming (gimple_vop (cfun));
 
       region = lookup_stmt_eh_region (stmt);
       if (region >= 0)
@@ -4493,7 +4486,7 @@ graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb, htab_t map)
 
       /* Create new names for all the definitions created by COPY and
 	 add replacement mappings for each new name.  */
-      FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_DEF)
+      FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_ALL_DEFS)
 	{
 	  tree old_name = DEF_FROM_PTR (def_p);
 	  tree new_name = create_new_def_for (old_name, copy, def_p);
@@ -4713,8 +4706,8 @@ translate_clast (scop_p scop, struct loop *context_loop,
 					       next_e, map);
       htab_delete (map);
       loop_iv_stack_remove_constants (ivstack);
-      update_ssa (TODO_update_ssa);
       recompute_all_dominators ();
+      update_ssa (TODO_update_ssa);
       graphite_verify ();
       return translate_clast (scop, context_loop, stmt->next, next_e, ivstack);
     }

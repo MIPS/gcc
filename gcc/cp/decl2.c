@@ -820,6 +820,9 @@ grokfield (const cp_declarator *declarator,
 	  cplus_decl_attributes (&value, attrlist, attrflags);
 	}
 
+      if (declspecs->specs[(int)ds_typedef])
+	set_underlying_type (value);
+
       return value;
     }
 
@@ -998,7 +1001,7 @@ grokbitfield (const cp_declarator *declarator,
       error ("static member %qD cannot be a bit-field", value);
       return NULL_TREE;
     }
-  finish_decl (value, NULL_TREE, NULL_TREE);
+  finish_decl (value, NULL_TREE, NULL_TREE, NULL_TREE);
 
   if (width != error_mark_node)
     {
@@ -1130,19 +1133,6 @@ save_template_attributes (tree *attr_p, tree *decl_p)
 
   if (!late_attrs)
     return;
-
-  /* Give this type a name so we know to look it up again at instantiation
-     time.  */
-  if (TREE_CODE (*decl_p) == TYPE_DECL
-      && DECL_ORIGINAL_TYPE (*decl_p) == NULL_TREE)
-    {
-      tree oldt = TREE_TYPE (*decl_p);
-      tree newt = build_variant_type_copy (oldt);
-      DECL_ORIGINAL_TYPE (*decl_p) = oldt;
-      TREE_TYPE (*decl_p) = newt;
-      TYPE_NAME (newt) = *decl_p;
-      TREE_USED (newt) = TREE_USED (*decl_p);
-    }
 
   if (DECL_P (*decl_p))
     q = &DECL_ATTRIBUTES (*decl_p);
@@ -1864,7 +1854,7 @@ constrain_visibility (tree decl, int visibility)
   else if (visibility > DECL_VISIBILITY (decl)
 	   && !DECL_VISIBILITY_SPECIFIED (decl))
     {
-      DECL_VISIBILITY (decl) = (symbol_visibility) visibility;
+      DECL_VISIBILITY (decl) = (enum symbol_visibility) visibility;
       return true;
     }
   return false;
@@ -3778,7 +3768,7 @@ possibly_inlined_p (tree decl)
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
   if (DECL_UNINLINABLE (decl))
     return false;
-  if (!optimize)
+  if (!optimize || pragma_java_exceptions)
     return DECL_DECLARED_INLINE_P (decl);
   /* When optimizing, we might inline everything when flatten
      attribute or heuristics inlining for size or autoinlining
@@ -3911,6 +3901,29 @@ mark_used (tree decl)
 		      /*expl_inst_class_mem_p=*/false);
 
   processing_template_decl = saved_processing_template_decl;
+}
+
+/* Given function PARM_DECL PARM, return its index in the function's list
+   of parameters, beginning with 1.  */
+
+int
+parm_index (tree parm)
+{
+  int index;
+  tree arg;
+
+  for (index = 1, arg = DECL_ARGUMENTS (DECL_CONTEXT (parm));
+       arg;
+       ++index, arg = TREE_CHAIN (arg))
+    {
+      if (DECL_NAME (parm) == DECL_NAME (arg))
+	break;
+      if (DECL_ARTIFICIAL (arg))
+	--index;
+    }
+
+  gcc_assert (arg);
+  return index;
 }
 
 #include "gt-cp-decl2.h"

@@ -1,5 +1,5 @@
 /* Fixed-point arithmetic support.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "real.h"
 #include "double-int.h"
 
-struct fixed_value GTY(())
+struct GTY(()) fixed_value
 {
   double_int data;		/* Store data up to 2 wide integers.  */
   enum machine_mode mode;	/* Use machine mode to know IBIT and FBIT.  */

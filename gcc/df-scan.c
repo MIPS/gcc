@@ -1,6 +1,6 @@
 /* Scanning of rtl for dataflow analysis.
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-   2008  Free Software Foundation, Inc.
+   2008, 2009  Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -85,12 +85,12 @@ static HARD_REG_SET elim_reg_set;
 struct df_collection_rec
 {
   df_ref * def_vec;
-  unsigned int next_def;
   df_ref * use_vec;
+  unsigned int next_def;
   unsigned int next_use;
   df_ref * eq_use_vec;
-  unsigned int next_eq_use;
   struct df_mw_hardreg **mw_vec;
+  unsigned int next_eq_use;
   unsigned int next_mw;
 };
 
@@ -100,22 +100,24 @@ static struct df_mw_hardreg * df_null_mw_rec[1];
 static void df_ref_record (enum df_ref_class, struct df_collection_rec *,
 			   rtx, rtx *, 
 			   basic_block, struct df_insn_info *,
-			   enum df_ref_type, int, int, int,
-			   enum machine_mode);
+			   enum df_ref_type, int ref_flags,
+			   int, int, enum machine_mode);
 static void df_def_record_1 (struct df_collection_rec *, rtx,
 			     basic_block, struct df_insn_info *,
-			     int);
+			     int ref_flags);
 static void df_defs_record (struct df_collection_rec *, rtx,
-			    basic_block, struct df_insn_info *, int);
+			    basic_block, struct df_insn_info *,
+			    int ref_flags);
 static void df_uses_record (enum df_ref_class, struct df_collection_rec *,
 			    rtx *, enum df_ref_type,
 			    basic_block, struct df_insn_info *,
-			    int, int, int, enum machine_mode);
+			    int ref_flags, 
+			    int, int, enum machine_mode);
 
 static df_ref df_ref_create_structure (enum df_ref_class, 
 				       struct df_collection_rec *, rtx, rtx *, 
 				       basic_block, struct df_insn_info *,
-				       enum df_ref_type, int,
+				       enum df_ref_type, int ref_flags,
 				       int, int, enum machine_mode);
 
 static void df_insn_refs_collect (struct df_collection_rec*, 
@@ -1256,6 +1258,7 @@ df_insn_rescan (rtx insn)
   bitmap_clear_bit (df->insns_to_notes_rescan, uid);
   if (insn_info)
     {
+      int luid;
       bool the_same = df_insn_refs_verify (&collection_rec, bb, insn, false);
       /* If there's no change, return false. */
       if (the_same)
@@ -1268,9 +1271,12 @@ df_insn_rescan (rtx insn)
       if (dump_file)
 	fprintf (dump_file, "rescanning insn with uid = %d.\n", uid);
 
-      /* There's change - we need to delete the existing info. */
+      /* There's change - we need to delete the existing info.
+	 Since the insn isn't moved, we can salvage its LUID.  */
+      luid = DF_INSN_LUID (insn);
       df_insn_delete (NULL, uid);
       df_insn_create_insn_record (insn);
+      DF_INSN_LUID (insn) = luid;
     }
   else
     {
@@ -2689,8 +2695,8 @@ df_ref_create_structure (enum df_ref_class cl,
 			 rtx reg, rtx *loc, 
 			 basic_block bb, struct df_insn_info *info,
 			 enum df_ref_type ref_type, 
-			 int ref_flags, int width, int offset,
-			 enum machine_mode mode)
+			 int ref_flags,
+			 int width, int offset, enum machine_mode mode)
 {
   df_ref this_ref = NULL;
   int regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
@@ -2787,8 +2793,8 @@ df_ref_record (enum df_ref_class cl,
                rtx reg, rtx *loc, 
 	       basic_block bb, struct df_insn_info *insn_info,
 	       enum df_ref_type ref_type, 
-	       int ref_flags, int width, int offset,
-	       enum machine_mode mode) 
+	       int ref_flags,
+	       int width, int offset, enum machine_mode mode) 
 {
   unsigned int regno;
 
@@ -3007,7 +3013,8 @@ static void
 df_uses_record (enum df_ref_class cl, struct df_collection_rec *collection_rec,
                 rtx *loc, enum df_ref_type ref_type,
 		basic_block bb, struct df_insn_info *insn_info,
-		int flags, int width, int offset, enum machine_mode mode)
+		int flags,
+		int width, int offset, enum machine_mode mode)
 {
   RTX_CODE code;
   rtx x;

@@ -503,8 +503,7 @@ setup_alloc_regs (bool use_hard_frame_p)
 static void
 setup_class_subset_and_memory_move_costs (void)
 {
-  int cl, cl2;
-  int mode;
+  int cl, cl2, mode;
   HARD_REG_SET temp_hard_regset2;
 
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
@@ -729,9 +728,8 @@ int ira_important_class_nums[N_REG_CLASSES];
 static void
 setup_cover_and_important_classes (void)
 {
-  int i, j, n;
+  int i, j, n, cl;
   bool set_p, eq_p;
-  int cl;
   const enum reg_class *cover_classes;
   HARD_REG_SET temp_hard_regset2;
   static enum reg_class classes[LIM_REG_CLASSES + 1];
@@ -756,13 +754,13 @@ setup_cover_and_important_classes (void)
 	{
 	  if (i == NO_REGS)
 	    continue;
-#ifdef CONSTRAINT__LIMIT
+#ifdef CONSTRAINT_NUM_DEFINED_P
 	  for (j = 0; j < CONSTRAINT__LIMIT; j++)
-	    if ((int) regclass_for_constraint (j) == i)
+	    if ((int) regclass_for_constraint ((enum constraint_num) j) == i)
 	      break;
 	  if (j < CONSTRAINT__LIMIT)
 	    {
-	      classes[n++] = i;
+	      classes[n++] = (enum reg_class) i;
 	      continue;
 	    }
 #endif
@@ -795,8 +793,7 @@ setup_cover_and_important_classes (void)
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
       if (! hard_reg_set_empty_p (temp_hard_regset))
-	ira_reg_class_cover[ira_reg_class_cover_size++] =
-	  (enum reg_class) cl;
+	ira_reg_class_cover[ira_reg_class_cover_size++] = (enum reg_class) cl;
     }
   ira_important_classes_num = 0;
   for (cl = 0; cl < N_REG_CLASSES; cl++)
@@ -813,7 +810,7 @@ setup_cover_and_important_classes (void)
 	      COPY_HARD_REG_SET (temp_hard_regset2,
 				 reg_class_contents[ira_reg_class_cover[j]]);
 	      AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
-	      if (cl == ira_reg_class_cover[j])
+	      if ((enum reg_class) cl == ira_reg_class_cover[j])
 		{
 		  eq_p = false;
 		  set_p = true;
@@ -988,8 +985,7 @@ setup_reg_class_relations (void)
 		    break;
 		  if (reg_class_subset_p (ira_reg_class_intersect[cl1][cl2],
 					  (enum reg_class) cl3))
-		    ira_reg_class_intersect[cl1][cl2] =
-		      (enum reg_class) cl3;
+		    ira_reg_class_intersect[cl1][cl2] = (enum reg_class) cl3;
 		}
 	      ira_reg_class_union[cl1][cl2] = reg_class_subunion[cl1][cl2];
 	      continue;
@@ -1140,8 +1136,7 @@ int ira_max_nregs;
 static void
 setup_reg_class_nregs (void)
 {
-  int m;
-  int cl;
+  int cl, m;
 
   ira_max_nregs = -1;
   for (cl = 0; cl < N_REG_CLASSES; cl++)
@@ -1872,21 +1867,21 @@ mark_elimination (int from, int to)
 
 struct equivalence
 {
-  /* Set when an attempt should be made to replace a register
-     with the associated src_p entry.  */
-  char replace;
   /* Set when a REG_EQUIV note is found or created.  Use to
      keep track of what memory accesses might be created later,
      e.g. by reload.  */
   rtx replacement;
   rtx *src_p;
+  /* The list of each instruction which initializes this register.  */
+  rtx init_insns;
   /* Loop depth is used to recognize equivalences which appear
      to be present within the same loop (or in an inner loop).  */
   int loop_depth;
-  /* The list of each instruction which initializes this register.  */
-  rtx init_insns;
   /* Nonzero if this had a preexisting REG_EQUIV note.  */
   int is_arg_equivalence;
+  /* Set when an attempt should be made to replace a register
+     with the associated src_p entry.  */
+  char replace;
 };
 
 /* reg_equiv[N] (where N is a pseudo reg number) is the equivalence
@@ -3328,7 +3323,7 @@ struct rtl_opt_pass pass_ira =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_NONE,				/* tv_id */
+  TV_NONE,	                        /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

@@ -625,7 +625,6 @@ build_vtbl_ref_1 (tree instance, tree idx)
   if (!vtbl)
     vtbl = build_vfield_ref (instance, basetype);
 
-  assemble_external (vtbl);
 
   aref = build_array_ref (vtbl, idx, input_location);
   TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
@@ -775,7 +774,7 @@ get_vtable_decl (tree type, int complete)
   if (complete)
     {
       DECL_EXTERNAL (decl) = 1;
-      finish_decl (decl, NULL_TREE, NULL_TREE);
+      finish_decl (decl, NULL_TREE, NULL_TREE, NULL_TREE);
     }
 
   return decl;
@@ -1439,16 +1438,17 @@ determine_primary_bases (tree t)
       BINFO_VIRTUALS (type_binfo) = BINFO_VIRTUALS (primary);
     }
 }
-
-/* Set memoizing fields and bits of T (and its variants) for later
-   use.  */
 
-static void
-finish_struct_bits (tree t)
+/* Update the variant types of T.  */
+
+void
+fixup_type_variants (tree t)
 {
   tree variants;
 
-  /* Fix up variants (if any).  */
+  if (!t)
+    return;
+
   for (variants = TYPE_NEXT_VARIANT (t);
        variants;
        variants = TYPE_NEXT_VARIANT (variants))
@@ -1472,6 +1472,17 @@ finish_struct_bits (tree t)
       /* All variants of a class have the same attributes.  */
       TYPE_ATTRIBUTES (variants) = TYPE_ATTRIBUTES (t);
     }
+}
+
+
+/* Set memoizing fields and bits of T (and its variants) for later
+   use.  */
+
+static void
+finish_struct_bits (tree t)
+{
+  /* Fix up variants (if any).  */
+  fixup_type_variants (t);
 
   if (BINFO_N_BASE_BINFOS (TYPE_BINFO (t)) && TYPE_POLYMORPHIC_P (t))
     /* For a class w/o baseclasses, 'finish_struct' has set
@@ -5787,6 +5798,9 @@ currently_open_class (tree t)
 {
   int i;
 
+  if (!CLASS_TYPE_P (t))
+    return false;
+
   /* We start looking from 1 because entry 0 is from global scope,
      and has no type.  */
   for (i = current_class_depth; i > 0; --i)
@@ -6149,25 +6163,33 @@ resolve_address_of_overloaded_function (tree target_type,
     }
   else if (TREE_CHAIN (matches))
     {
-      /* There were too many matches.  */
+      /* There were too many matches.  First check if they're all
+	 the same function.  */
+      tree match;
 
-      if (flags & tf_error)
+      fn = TREE_PURPOSE (matches);
+      for (match = TREE_CHAIN (matches); match; match = TREE_CHAIN (match))
+	if (!decls_match (fn, TREE_PURPOSE (matches)))
+	  break;
+
+      if (match)
 	{
-	  tree match;
+	  if (flags & tf_error)
+	    {
+	      error ("converting overloaded function %qD to type %q#T is ambiguous",
+		     DECL_NAME (OVL_FUNCTION (overload)),
+		     target_type);
 
-	  error ("converting overloaded function %qD to type %q#T is ambiguous",
-		    DECL_NAME (OVL_FUNCTION (overload)),
-		    target_type);
+	      /* Since print_candidates expects the functions in the
+		 TREE_VALUE slot, we flip them here.  */
+	      for (match = matches; match; match = TREE_CHAIN (match))
+		TREE_VALUE (match) = TREE_PURPOSE (match);
 
-	  /* Since print_candidates expects the functions in the
-	     TREE_VALUE slot, we flip them here.  */
-	  for (match = matches; match; match = TREE_CHAIN (match))
-	    TREE_VALUE (match) = TREE_PURPOSE (match);
+	      print_candidates (matches);
+	    }
 
-	  print_candidates (matches);
+	  return error_mark_node;
 	}
-
-      return error_mark_node;
     }
 
   /* Good, exactly one match.  Now, convert it to the correct type.  */
@@ -6458,7 +6480,7 @@ is_empty_class (tree type)
   if (type == error_mark_node)
     return 0;
 
-  if (! MAYBE_CLASS_TYPE_P (type))
+  if (! CLASS_TYPE_P (type))
     return 0;
 
   /* In G++ 3.2, whether or not a class was empty was determined by
@@ -6495,6 +6517,37 @@ contains_empty_class_p (tree type)
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     return contains_empty_class_p (TREE_TYPE (type));
+  return false;
+}
+
+/* Returns true if TYPE contains no actual data, just various
+   possible combinations of empty classes.  */
+
+bool
+is_really_empty_class (tree type)
+{
+  if (is_empty_class (type))
+    return true;
+  if (CLASS_TYPE_P (type))
+    {
+      tree field;
+      tree binfo;
+      tree base_binfo;
+      int i;
+
+      for (binfo = TYPE_BINFO (type), i = 0;
+	   BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
+	if (!is_really_empty_class (BINFO_TYPE (base_binfo)))
+	  return false;
+      for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+	if (TREE_CODE (field) == FIELD_DECL
+	    && !DECL_ARTIFICIAL (field)
+	    && !is_really_empty_class (TREE_TYPE (field)))
+	  return false;
+      return true;
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    return is_really_empty_class (TREE_TYPE (type));
   return false;
 }
 

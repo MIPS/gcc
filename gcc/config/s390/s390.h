@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007, 2008 Free Software Foundation, Inc.
+   2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
                   Andreas Krebbel (Andreas.Krebbel@de.ibm.com)
@@ -58,10 +58,14 @@ enum processor_flags
 };
 
 extern enum processor_type s390_tune;
-extern enum processor_flags s390_tune_flags;
+extern int s390_tune_flags;
+
+/* This is necessary to avoid a warning about comparing different enum
+   types.  */
+#define s390_tune_attr ((enum attr_cpu)s390_tune)
 
 extern enum processor_type s390_arch;
-extern enum processor_flags s390_arch_flags;
+extern int s390_arch_flags;
 
 /* These flags indicate that the generated code should run on a cpu
    providing the respective hardware facility regardless of the
@@ -744,9 +748,6 @@ legitimate_address_p.  The constraint letter defined here must not be
 used in insn definitions or inline assemblies.  */
 #define TARGET_MEM_CONSTRAINT 'e'
 
-/* S/390 has no mode dependent addresses.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
-
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression that is a
    valid memory address for an instruction.
    The MODE argument is the machine mode for the MEM expression
@@ -817,7 +818,7 @@ do {									\
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  Note that we can't use "rtx" here
    since it hasn't been defined!  */
-extern struct rtx_def *s390_compare_op0, *s390_compare_op1, *s390_compare_emitted;
+extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 
 
 /* Relative costs of operations.  */

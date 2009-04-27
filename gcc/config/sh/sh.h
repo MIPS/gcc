@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -545,35 +545,35 @@ do {									\
       = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;		\
   if (TARGET_SH2E && !flag_finite_math_only)				\
     target_flags |= MASK_IEEE;						\
-  sh_cpu = CPU_SH1;							\
+  sh_cpu = PROCESSOR_SH1;						\
   assembler_dialect = 0;						\
   if (TARGET_SH2)							\
-    sh_cpu = CPU_SH2;							\
+    sh_cpu = PROCESSOR_SH2;						\
   if (TARGET_SH2E)							\
-    sh_cpu = CPU_SH2E;							\
+    sh_cpu = PROCESSOR_SH2E;						\
   if (TARGET_SH2A)							\
     {									\
-      sh_cpu = CPU_SH2A;						\
+      sh_cpu = PROCESSOR_SH2A;						\
       if (TARGET_SH2A_DOUBLE)						\
         target_flags |= MASK_FMOVD;					\
     }									\
   if (TARGET_SH3)							\
-    sh_cpu = CPU_SH3;							\
+    sh_cpu = PROCESSOR_SH3;						\
   if (TARGET_SH3E)							\
-    sh_cpu = CPU_SH3E;							\
+    sh_cpu = PROCESSOR_SH3E;						\
   if (TARGET_SH4)							\
     {									\
       assembler_dialect = 1;						\
-      sh_cpu = CPU_SH4;							\
+      sh_cpu = PROCESSOR_SH4;						\
     }									\
   if (TARGET_SH4A_ARCH)							\
     {									\
       assembler_dialect = 1;						\
-      sh_cpu = CPU_SH4A;						\
+      sh_cpu = PROCESSOR_SH4A;						\
     }									\
   if (TARGET_SH5)							\
     {									\
-      sh_cpu = CPU_SH5;							\
+      sh_cpu = PROCESSOR_SH5;						\
       target_flags |= MASK_ALIGN_DOUBLE;				\
       if (TARGET_SHMEDIA_FPU)						\
 	target_flags |= MASK_FMOVD;					\
@@ -1743,7 +1743,7 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 		 || TREE_CODE (VALTYPE) == BOOLEAN_TYPE			\
 		 || TREE_CODE (VALTYPE) == REAL_TYPE			\
 		 || TREE_CODE (VALTYPE) == OFFSET_TYPE))		\
-             && sh_promote_prototypes (VALTYPE)				\
+             && sh_promote_prototypes (FUNC)				\
 	    ? (TARGET_SHMEDIA64 ? DImode : SImode) : TYPE_MODE (VALTYPE)), \
 	   BASE_RETURN_VALUE_REG (TYPE_MODE (VALTYPE)))
 
@@ -2592,18 +2592,6 @@ struct sh_args {
       goto WIN;								\
     }									\
 }
-
-/* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.
-
-   ??? Strictly speaking, we should also include all indexed addressing,
-   because the index scale factor is the length of the operand.
-   However, the impact of GO_IF_MODE_DEPENDENT_ADDRESS would be to
-   high if we did that.  So we rely on reload to fix things up.
-
-   Auto-increment addressing is now treated in recog.c.  */
-
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
@@ -2630,7 +2618,7 @@ struct sh_args {
    floating point types equivalent to `float'.  */
 #define DOUBLE_TYPE_SIZE ((TARGET_SH2E && ! TARGET_SH4 && ! TARGET_SH2A_DOUBLE) ? 32 : 64)
 
-#if defined(__SH2E__) || defined(__SH3E__) || defined( __SH4_SINGLE_ONLY__)
+#if defined(__SH2E__) || defined(__SH3E__) || defined( __SH2A_SINGLE_ONLY__) || defined( __SH4_SINGLE_ONLY__)
 #define LIBGCC2_DOUBLE_TYPE_SIZE 32
 #else
 #define LIBGCC2_DOUBLE_TYPE_SIZE 64

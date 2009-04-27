@@ -108,6 +108,12 @@
 #endif
 
 
+/* Define to enable plugin support. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_PLUGIN
+#endif
+
+
 /* Define if you want all operations on RTL (the basic data structure of the
    optimizer and back end) to be checked for dynamic type safety at runtime.
    This is quite expensive. */
@@ -166,13 +172,6 @@
 /* Define to enable detailed memory allocation stats gathering. */
 #ifndef USED_FOR_TARGET
 #undef GATHER_STATISTICS
-#endif
-
-
-/* Define to the type of elements in the array set by `getgroups'. Usually
-   this is either `int' or `gid_t'. */
-#ifndef USED_FOR_TARGET
-#undef GETGROUPS_T
 #endif
 
 
@@ -271,6 +270,18 @@
 /* Define if your assembler supports the ffreep mnemonic. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_FFREEP
+#endif
+
+
+/* Define if your assembler uses fildq and fistq mnemonics. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_FILDQ
+#endif
+
+
+/* Define if your assembler uses filds and fists mnemonics. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_FILDS
 #endif
 
 
@@ -375,6 +386,12 @@
 /* Define if your assembler supports thread-local storage. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_TLS
+#endif
+
+
+/* Define if your assembler supports arg info for __tls_get_addr. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_TLS_MARKERS
 #endif
 
 
@@ -836,12 +853,6 @@
 /* Define 0/1 if your assembler supports .cfi_personality. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GAS_CFI_PERSONALITY_DIRECTIVE
-#endif
-
-
-/* Define if your assembler uses the new HImode fild and fist notation. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_GAS_FILDS_FISTS
 #endif
 
 
@@ -1553,12 +1564,6 @@
 #endif
 
 
-/* Define to `int' if <sys/types.h> doesn't define. */
-#ifndef USED_FOR_TARGET
-#undef gid_t
-#endif
-
-
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
@@ -1580,12 +1585,6 @@
 /* Define to `int' if <sys/types.h> does not define. */
 #ifndef USED_FOR_TARGET
 #undef ssize_t
-#endif
-
-
-/* Define to `int' if <sys/types.h> doesn't define. */
-#ifndef USED_FOR_TARGET
-#undef uid_t
 #endif
 
 

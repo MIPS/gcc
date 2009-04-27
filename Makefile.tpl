@@ -6,11 +6,12 @@ in
 #
 # Makefile for directory with subdirs to build.
 #   Copyright (C) 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-#   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation
+#   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2009
+#   Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 # 
 # This program is distributed in the hope that it will be useful,
@@ -19,8 +20,8 @@ in
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# along with this program; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 #
 
 # First, test for a proper version of make, but only where one is required.
@@ -234,6 +235,7 @@ POSTSTAGE1_HOST_EXPORTS = \
 	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++ \
 	  -L$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs"; \
 	  export CXX_FOR_BUILD; \
+	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind"; export GNATBIND \
 	LDFLAGS="$(BOOT_LDFLAGS)"; export LDFLAGS; \
 	$(RPATH_ENVVAR)=`echo "$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$$(RPATH_ENVVAR)"| sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; \
 	export $(RPATH_ENVVAR);
@@ -531,7 +533,7 @@ X11_FLAGS_TO_PASS = \
 # Flags to pass to stage2 and later makes.
 
 POSTSTAGE1_FLAGS_TO_PASS = \
-	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
+	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" GNATBIND="$${GNATBIND}" \
 	CXX="$${CXX}" CXX_FOR_BUILD="$${CXX_FOR_BUILD}" \
 	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
@@ -1236,19 +1238,15 @@ cross: all-build all-gas all-ld
 @endif gcc-no-bootstrap
 
 @if gcc
-.PHONY: check-gcc-c++
-check-gcc-c++:
-	@if [ -f ./gcc/Makefile ] ; then \
-	  r=`${PWD_COMMAND}`; export r; \
-	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	  $(HOST_EXPORTS) \
-	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
-	else \
-	  true; \
-	fi
-
-.PHONY: check-c++
-check-c++: check-target-libstdc++-v3 check-gcc-c++
+[+ FOR languages +]
+.PHONY: check-gcc-[+language+] check-[+language+]
+check-gcc-[+language+]:
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	(cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) [+gcc-check-target+]);
+check-[+language+]: check-gcc-[+language+][+ IF lib-check-target +] [+ lib-check-target +][+ ENDIF lib-check-target +]
+[+ ENDFOR languages +]
 
 # Install the gcc headers files, but not the fixed include files,
 # which Cygnus is not allowed to distribute.  This rule is very

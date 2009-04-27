@@ -535,9 +535,6 @@ extern const enum reg_class picochip_regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	     \
 if (picochip_symbol_offset(X)) { X = gen_rtx_CONST(MODE, X); }
 
-/* There are no mode dependent addresses.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL) do {} while (0)
-
 /* Nonzero if the constant rtx X is a legitimate general operand.  X
    satisfies CONSTANT_P.  */
 
@@ -736,7 +733,6 @@ enum picochip_builtins
   PICOCHIP_BUILTIN_PUT_ARRAY,
   PICOCHIP_BUILTIN_TESTPORT_ARRAY,
   PICOCHIP_BUILTIN_ASRI,
-  PICOCHIP_BUILTIN_PROFILE,
   PICOCHIP_BUILTIN_HALT
 };
 

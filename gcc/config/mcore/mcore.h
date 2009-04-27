@@ -50,8 +50,6 @@
     }									  \
   while (0)
 
-/* If -m4align is ever re-enabled then add this line to the definition of CPP_SPEC
-   %{!m4align:-D__MCORE_ALIGN_8__} %{m4align:-D__MCORE__ALIGN_4__}.  */
 #undef  CPP_SPEC
 #define CPP_SPEC "%{m210:%{mlittle-endian:%ethe m210 does not have little endian support}}"
 
@@ -67,7 +65,6 @@
 
 #define TARGET_DEFAULT	\
   (MASK_HARDLIT		\
-   | MASK_8ALIGN	\
    | MASK_DIV		\
    | MASK_RELAX_IMM	\
    | MASK_M340		\
@@ -789,10 +786,6 @@ extern const enum reg_class reg_class_from_letter[];
 	GO_IF_LEGITIMATE_INDEX (MODE, REGNO (xop1), xop0, LABEL); \
     }								  \
 }								   
-								   
-/* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */

@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1661,7 +1661,7 @@ check_dependence (rtx *x, void *data)
 {
   struct check_dependence_data *d = (struct check_dependence_data *) data;
   if (*x && MEM_P (*x))
-    return canon_true_dependence (d->exp, d->mode, d->addr, *x,
+    return canon_true_dependence (d->exp, d->mode, d->addr, *x, NULL_RTX,
 		    		  cse_rtx_varies_p);
   else
     return 0;
@@ -3467,6 +3467,7 @@ fold_rtx (rtx x, rtx insn)
 	      int is_shift
 		= (code == ASHIFT || code == ASHIFTRT || code == LSHIFTRT);
 	      rtx y, inner_const, new_const;
+	      rtx canon_const_arg1 = const_arg1;
 	      enum rtx_code associate_code;
 
 	      if (is_shift
@@ -3474,8 +3475,9 @@ fold_rtx (rtx x, rtx insn)
 		      || INTVAL (const_arg1) < 0))
 		{
 		  if (SHIFT_COUNT_TRUNCATED)
-		    const_arg1 = GEN_INT (INTVAL (const_arg1)
-					  & (GET_MODE_BITSIZE (mode) - 1));
+		    canon_const_arg1 = GEN_INT (INTVAL (const_arg1)
+						& (GET_MODE_BITSIZE (mode)
+						   - 1));
 		  else
 		    break;
 		}
@@ -3534,7 +3536,8 @@ fold_rtx (rtx x, rtx insn)
 	      associate_code = (is_shift || code == MINUS ? PLUS : code);
 
 	      new_const = simplify_binary_operation (associate_code, mode,
-						     const_arg1, inner_const);
+						     canon_const_arg1,
+						     inner_const);
 
 	      if (new_const == 0)
 		break;
@@ -4486,7 +4489,8 @@ cse_insn (rtx insn)
 	  enum machine_mode wider_mode;
 
 	  for (wider_mode = GET_MODE_WIDER_MODE (mode);
-	       GET_MODE_BITSIZE (wider_mode) <= BITS_PER_WORD
+	       wider_mode != VOIDmode
+	       && GET_MODE_BITSIZE (wider_mode) <= BITS_PER_WORD
 	       && src_related == 0;
 	       wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	    {
@@ -6986,6 +6990,67 @@ struct rtl_opt_pass pass_cse2 =
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   TV_CSE2,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_df_finish | TODO_verify_rtl_sharing |
+  TODO_dump_func |
+  TODO_ggc_collect |
+  TODO_verify_flow                      /* todo_flags_finish */
+ }
+};
+
+static bool
+gate_handle_cse_after_global_opts (void)
+{
+  return optimize > 0 && flag_rerun_cse_after_global_opts;
+}
+
+/* Run second CSE pass after loop optimizations.  */
+static unsigned int
+rest_of_handle_cse_after_global_opts (void)
+{
+  int save_cfj;
+  int tem;
+
+  /* We only want to do local CSE, so don't follow jumps.  */
+  save_cfj = flag_cse_follow_jumps;
+  flag_cse_follow_jumps = 0;
+
+  rebuild_jump_labels (get_insns ());
+  tem = cse_main (get_insns (), max_reg_num ());
+  purge_all_dead_edges ();
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+
+  cse_not_expected = !flag_rerun_cse_after_loop;
+
+  /* If cse altered any jumps, rerun jump opts to clean things up.  */
+  if (tem == 2)
+    {
+      timevar_push (TV_JUMP);
+      rebuild_jump_labels (get_insns ());
+      cleanup_cfg (0);
+      timevar_pop (TV_JUMP);
+    }
+  else if (tem == 1)
+    cleanup_cfg (0);
+
+  flag_cse_follow_jumps = save_cfj;
+  return 0;
+}
+
+struct rtl_opt_pass pass_cse_after_global_opts =
+{
+ {
+  RTL_PASS,
+  "cse_local",                          /* name */
+  gate_handle_cse_after_global_opts,    /* gate */   
+  rest_of_handle_cse_after_global_opts, /* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_CSE,                               /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

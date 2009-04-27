@@ -223,11 +223,7 @@ DEFPARAM(PARAM_MAX_GCSE_MEMORY,
 	 "max-gcse-memory",
 	 "The maximum amount of memory to be allocated by GCSE",
 	 50 * 1024 * 1024, 0, 0)
-/* The number of repetitions of copy/const prop and PRE to run.  */
-DEFPARAM(PARAM_MAX_GCSE_PASSES,
-	"max-gcse-passes",
-	"The maximum number of passes to make when doing GCSE",
-	1, 1, 0)
+
 /* This is the threshold ratio when to perform partial redundancy
    elimination after reload. We perform partial redundancy elimination
    when the following holds:
@@ -536,16 +532,6 @@ DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
 	 "max-reload-search-insns",
 	 "The maximum number of instructions to search backward when looking for equivalent reload",
 	 100, 0, 0)
-
-DEFPARAM(PARAM_MAX_ALIASED_VOPS,
-         "max-aliased-vops",
-	 "The maximum number of virtual operators that a function is allowed to have before triggering memory partitioning heuristics",
-	 100, 0, 0)
-
-DEFPARAM(PARAM_AVG_ALIASED_VOPS,
-    	 "avg-aliased-vops",
-	 "The average number of virtual operators that memory statements are allowed to have before triggering memory partitioning heuristics",
-	 1, 0, 0)
 
 DEFPARAM(PARAM_MAX_SCHED_REGION_BLOCKS,
 	 "max-sched-region-blocks",

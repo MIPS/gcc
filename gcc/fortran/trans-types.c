@@ -727,6 +727,9 @@ gfc_init_types (void)
   for (index = 0; gfc_integer_kinds[index].kind != 0; ++index)
     {
       type = gfc_build_int_type (&gfc_integer_kinds[index]);
+      /* Ensure integer(kind=1) doesn't have TYPE_STRING_FLAG set.  */
+      if (TYPE_STRING_FLAG (type))
+	type = make_signed_type (gfc_integer_kinds[index].bit_size);
       gfc_integer_types[index] = type;
       snprintf (name_buf, sizeof(name_buf), "integer(kind=%d)",
 		gfc_integer_kinds[index].kind);
@@ -1619,8 +1622,8 @@ gfc_sym_type (gfc_symbol * sym)
   tree type;
   int byref;
 
-  /* Procedure Pointers inside COMMON blocks or as function result.  */
-  if (sym->attr.proc_pointer && (sym->attr.in_common || sym->attr.result))
+  /* Procedure Pointers inside COMMON blocks.  */
+  if (sym->attr.proc_pointer && sym->attr.in_common)
     {
       /* Unset proc_pointer as gfc_get_function_type calls gfc_sym_type.  */
       sym->attr.proc_pointer = 0;
@@ -1638,8 +1641,11 @@ gfc_sym_type (gfc_symbol * sym)
   if (sym->backend_decl && !sym->attr.function)
     return TREE_TYPE (sym->backend_decl);
 
-  if (sym->ts.type == BT_CHARACTER && sym->attr.is_bind_c
-      && (sym->attr.function || sym->attr.result))
+  if (sym->ts.type == BT_CHARACTER
+      && ((sym->attr.function && sym->attr.is_bind_c)
+	  || (sym->attr.result
+	      && sym->ns->proc_name
+	      && sym->ns->proc_name->attr.is_bind_c)))
     type = gfc_character1_type_node;
   else
     type = gfc_typenode_for_spec (&sym->ts);
@@ -1968,7 +1974,11 @@ gfc_return_by_reference (gfc_symbol * sym)
   if (sym->attr.dimension)
     return 1;
 
-  if (sym->ts.type == BT_CHARACTER && !sym->attr.is_bind_c)
+  if (sym->ts.type == BT_CHARACTER
+      && !sym->attr.is_bind_c
+      && (!sym->attr.result
+	  || !sym->ns->proc_name
+	  || !sym->ns->proc_name->attr.is_bind_c))
     return 1;
 
   /* Possibly return complex numbers by reference for g77 compatibility.
@@ -2152,7 +2162,18 @@ gfc_get_function_type (gfc_symbol * sym)
     }
   else if (sym->result && sym->result->attr.proc_pointer)
     /* Procedure pointer return values.  */
-    type = gfc_sym_type (sym->result);
+    {
+      if (sym->result->attr.result && strcmp (sym->name,"ppr@") != 0)
+	{
+	  /* Unset proc_pointer as gfc_get_function_type
+	     is called recursively.  */
+	  sym->result->attr.proc_pointer = 0;
+	  type = build_pointer_type (gfc_get_function_type (sym->result));
+	  sym->result->attr.proc_pointer = 1;
+	}
+      else
+       type = gfc_sym_type (sym->result);
+    }
   else
     type = gfc_sym_type (sym);
 

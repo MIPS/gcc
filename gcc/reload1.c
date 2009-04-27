@@ -4087,26 +4087,17 @@ static void
 fixup_eh_region_note (rtx insn, rtx prev, rtx next)
 {
   rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
-  unsigned int trap_count;
   rtx i;
 
   if (note == NULL)
     return;
 
-  if (may_trap_p (PATTERN (insn)))
-    trap_count = 1;
-  else
-    {
-      remove_note (insn, note);
-      trap_count = 0;
-    }
+  if (! may_trap_p (PATTERN (insn)))
+    remove_note (insn, note);
 
   for (i = NEXT_INSN (prev); i != next; i = NEXT_INSN (i))
     if (INSN_P (i) && i != insn && may_trap_p (PATTERN (i)))
-      {
-	trap_count++;
-	add_reg_note (i, REG_EH_REGION, XEXP (note, 0));
-      }
+      add_reg_note (i, REG_EH_REGION, XEXP (note, 0));
 }
 
 /* Reload pseudo-registers into hard regs around each insn as needed.
@@ -4368,29 +4359,39 @@ reload_as_needed (int live_known)
 		      SET_REGNO_REG_SET (&reg_has_output_reload,
 					 REGNO (XEXP (in_reg, 0)));
 		    }
-		  else if ((code == PRE_INC || code == PRE_DEC
-			    || code == POST_INC || code == POST_DEC))
+		  else if (code == PRE_INC || code == PRE_DEC
+			   || code == POST_INC || code == POST_DEC)
 		    {
-		      int in_hard_regno;
 		      int in_regno = REGNO (XEXP (in_reg, 0));
 
 		      if (reg_last_reload_reg[in_regno] != NULL_RTX)
 			{
+			  int in_hard_regno;
+			  bool forget_p = true;
+
 			  in_hard_regno = REGNO (reg_last_reload_reg[in_regno]);
-			  gcc_assert (TEST_HARD_REG_BIT (reg_reloaded_valid,
-							 in_hard_regno));
-			  for (x = old_prev ? NEXT_INSN (old_prev) : insn;
-			       x != old_next;
-			       x = NEXT_INSN (x))
-			    if (x == reg_reloaded_insn[in_hard_regno])
-			      break;
+			  if (TEST_HARD_REG_BIT (reg_reloaded_valid,
+						 in_hard_regno))
+			    {
+			      for (x = old_prev ? NEXT_INSN (old_prev) : insn;
+				   x != old_next;
+				   x = NEXT_INSN (x))
+				if (x == reg_reloaded_insn[in_hard_regno])
+				  {
+				    forget_p = false;
+				    break;
+				  }
+			    }
 			  /* If for some reasons, we didn't set up
 			     reg_last_reload_reg in this insn,
 			     invalidate inheritance from previous
 			     insns for the incremented/decremented
 			     register.  Such registers will be not in
-			     reg_has_output_reload.  */
-			  if (x == old_next)
+			     reg_has_output_reload.  Invalidate it
+			     also if the corresponding element in
+			     reg_reloaded_insn is also
+			     invalidated.  */
+			  if (forget_p)
 			    forget_old_reloads_1 (XEXP (in_reg, 0),
 						  NULL_RTX, NULL);
 			}
@@ -7094,7 +7095,10 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 		  third_reload_reg = 0;
 		}
 	      else
-		oldequiv = old, real_oldequiv = real_old;
+		{
+		  oldequiv = old;
+		  real_oldequiv = real_old;
+		}
 	    }
 	  else if (sri.icode != CODE_FOR_nothing)
 	    /* We currently lack a way to express this in reloads.  */
@@ -7115,7 +7119,10 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 		      tertiary_icode = (enum insn_code) sri2.icode;
 		    }
 		  else
-		    oldequiv = old, real_oldequiv = real_old;
+		    {
+		      oldequiv = old;
+		      real_oldequiv = real_old;
+		    }
 		}
 	      else if (new_t_class == NO_REGS && sri2.icode != CODE_FOR_nothing)
 		{
@@ -7131,7 +7138,10 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 		      tertiary_icode = (enum insn_code) sri2.icode;
 		    }
 		  else
-		    oldequiv = old, real_oldequiv = real_old;
+		    {
+		      oldequiv = old;
+		      real_oldequiv = real_old;
+		    }
 		}
 	      else if (new_t_class != NO_REGS && sri2.icode == CODE_FOR_nothing)
 		{
@@ -7146,11 +7156,17 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 		      tertiary_icode = (enum insn_code) sri2.icode;
 		    }
 		  else
-		    oldequiv = old, real_oldequiv = real_old;
+		    {
+		      oldequiv = old;
+		      real_oldequiv = real_old;
+		    }
 		}
 	      else
-		/* This could be handled more intelligently too.  */
-		oldequiv = old, real_oldequiv = real_old;
+		{
+		  /* This could be handled more intelligently too.  */
+		  oldequiv = old;
+		  real_oldequiv = real_old;
+		}
 	    }
 	}
 

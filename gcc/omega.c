@@ -5,7 +5,7 @@
    This code has no license restrictions, and is considered public
    domain.
 
-   Changes copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation,
+   Changes copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation,
    Inc.
    Contributed by Sebastian Pop <sebastian.pop@inria.fr>
 
@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "diagnostic.h"

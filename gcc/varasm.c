@@ -869,11 +869,18 @@ default_function_rodata_section (tree decl)
 
       if (DECL_ONE_ONLY (decl) && HAVE_COMDAT_GROUP)
         {
-	  size_t len = strlen (name) + 3;
-	  char* rname = (char *) alloca (len);
+	  const char *dot;
+	  size_t len;
+	  char* rname;
+
+	  dot = strchr (name + 1, '.');
+	  if (!dot)
+	    dot = name;
+	  len = strlen (dot) + 8;
+	  rname = (char *) alloca (len);
 
 	  strcpy (rname, ".rodata");
-	  strcat (rname, name + 5);
+	  strcat (rname, dot);
 	  return get_section (rname, SECTION_LINKONCE, decl);
 	}
       /* For .gnu.linkonce.t.foo we want to use .gnu.linkonce.r.foo.  */
@@ -1677,7 +1684,7 @@ assemble_start_function (tree decl, const char *fnname)
       /* When the function starts with a cold section, we need to explicitly
 	 align the hot section and write out the hot section label.
 	 But if the current function is a thunk, we do not have a CFG.  */
-      if (!crtl->is_thunk
+      if (!cfun->is_thunk
 	  && BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
 	{
 	  switch_to_section (text_section);
@@ -2249,7 +2256,7 @@ incorporeal_function_p (tree decl)
 	return true;
 
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-      if (strncmp (name, "__builtin_", strlen ("__builtin_")) == 0)
+      if (is_builtin_name (name))
 	return true;
     }
   return false;
@@ -2315,12 +2322,14 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
 	 locally emitted, inlined or otherwise not-really-extern, but
 	 for declarations that can be weak, it happens to be
 	 match.  */
-      && !TREE_STATIC (decl))
-    weak_decls = tree_cons (NULL, decl, weak_decls);
+      && !TREE_STATIC (decl)
+      && tree_find_value (weak_decls, decl) == NULL_TREE)
+      weak_decls = tree_cons (NULL, decl, weak_decls);
 
 #ifdef ASM_OUTPUT_EXTERNAL
-  pending_assemble_externals = tree_cons (0, decl,
-					  pending_assemble_externals);
+  if (tree_find_value (pending_assemble_externals, decl) == NULL_TREE)
+    pending_assemble_externals = tree_cons (NULL, decl,
+					    pending_assemble_externals);
 #endif
 }
 
@@ -2704,8 +2713,7 @@ assemble_real (REAL_VALUE_TYPE d, enum machine_mode mode, unsigned int align)
    Store them both in the structure *VALUE.
    EXP must be reducible.  */
 
-struct addr_const GTY(())
-{
+struct GTY(()) addr_const {
   rtx base;
   HOST_WIDE_INT offset;
 };
@@ -2773,8 +2781,7 @@ decode_addr_const (tree exp, struct addr_const *value)
    Each constant in memory thus far output is recorded
    in `const_desc_table'.  */
 
-struct constant_descriptor_tree GTY(())
-{
+struct GTY(()) constant_descriptor_tree {
   /* A MEM for the constant.  */
   rtx rtl;
 
@@ -3359,8 +3366,7 @@ lookup_constant_def (tree exp)
    can use one per-file pool.  Should add a targetm bit to tell the
    difference.  */
 
-struct rtx_constant_pool GTY(())
-{
+struct GTY(()) rtx_constant_pool {
   /* Pointers to first and last constant in pool, as ordered by offset.  */
   struct constant_descriptor_rtx *first;
   struct constant_descriptor_rtx *last;
@@ -3376,8 +3382,7 @@ struct rtx_constant_pool GTY(())
   HOST_WIDE_INT offset;
 };
 
-struct constant_descriptor_rtx GTY((chain_next ("%h.next")))
-{
+struct GTY((chain_next ("%h.next"))) constant_descriptor_rtx {
   struct constant_descriptor_rtx *next;
   rtx mem;
   rtx sym;
@@ -5171,8 +5176,7 @@ globalize_decl (tree decl)
    of an alias.  This requires that the decl have been defined.  Aliases
    that precede their definition have to be queued for later processing.  */
 
-typedef struct alias_pair GTY(())
-{
+typedef struct GTY(()) alias_pair {
   tree decl;
   tree target;
 } alias_pair;

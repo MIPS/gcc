@@ -105,14 +105,6 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
-/* Nonzero if CODE represents a memory tag.  */
-
-#define MTAG_P(CODE) \
-  (TREE_CODE (CODE) == NAME_MEMORY_TAG		\
-   || TREE_CODE (CODE) == SYMBOL_MEMORY_TAG	\
-   || TREE_CODE (CODE) == MEMORY_PARTITION_TAG)
-
-
 /* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
 
 #define VAR_OR_FUNCTION_DECL_P(DECL)\
@@ -350,8 +342,7 @@ enum omp_clause_code
    fields.  */
 union tree_ann_d;
 
-struct tree_base GTY(())
-{
+struct GTY(()) tree_base {
   ENUM_BITFIELD(tree_code) code : 16;
 
   unsigned side_effects_flag : 1;
@@ -387,8 +378,7 @@ struct tree_base GTY(())
   union tree_ann_d *ann;
 };
 
-struct tree_common GTY(())
-{
+struct GTY(()) tree_common {
   struct tree_base base;
   tree chain;
   tree type;
@@ -486,7 +476,7 @@ struct tree_common GTY(())
            CALL_EXPR
 
        DECL_BY_REFERENCE in
-           PARM_DECL, RESULT_DECL
+           PARM_DECL, RESULT_DECL, VAR_DECL (only !TREE_STATIC)
 
        OMP_SECTION_LAST in
            OMP_SECTION
@@ -593,6 +583,9 @@ struct tree_common GTY(())
 
        STMT_IN_SSA_EDGE_WORKLIST in
            all expressions (tree-ssa-propagate.c)
+
+	TYPE_VECTOR_OPAQUE in
+	   VECTOR_TYPE
 
    visited:
 
@@ -933,7 +926,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 #define TYPE_CHECK(T)		TREE_CLASS_CHECK (T, tcc_type)
 #define DECL_MINIMAL_CHECK(T)   CONTAINS_STRUCT_CHECK (T, TS_DECL_MINIMAL)
-#define TREE_MEMORY_TAG_CHECK(T)       CONTAINS_STRUCT_CHECK (T, TS_MEMORY_TAG)
 #define DECL_COMMON_CHECK(T)    CONTAINS_STRUCT_CHECK (T, TS_DECL_COMMON)
 #define DECL_WRTL_CHECK(T)      CONTAINS_STRUCT_CHECK (T, TS_DECL_WRTL)
 #define DECL_WITH_VIS_CHECK(T)  CONTAINS_STRUCT_CHECK (T, TS_DECL_WITH_VIS)
@@ -1130,7 +1122,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (CASE_LABEL_EXPR_CHECK (NODE)->base.addressable_flag)
 
 #define PREDICT_EXPR_OUTCOME(NODE) \
-  ((enum prediction) PREDICT_EXPR_CHECK(NODE)->base.addressable_flag)
+  ((enum prediction) (PREDICT_EXPR_CHECK(NODE)->base.addressable_flag))
 #define SET_PREDICT_EXPR_OUTCOME(NODE, OUTCOME) \
   (PREDICT_EXPR_CHECK(NODE)->base.addressable_flag = (int) OUTCOME)
 #define PREDICT_EXPR_PREDICTOR(NODE) \
@@ -1187,9 +1179,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    there was an overflow in folding.  */
 
 #define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->base.public_flag)
-
-/* ??? This is an obsolete synonym for TREE_OVERFLOW.  */
-#define TREE_CONSTANT_OVERFLOW(NODE) TREE_OVERFLOW(NODE)
 
 /* TREE_OVERFLOW can only be true for EXPR of CONSTANT_CLASS_P.  */
 
@@ -1305,8 +1294,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define CALL_EXPR_RETURN_SLOT_OPT(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.private_flag)
 
-/* In a RESULT_DECL or PARM_DECL, means that it is passed by invisible
-   reference (and the TREE_TYPE is a pointer to the true type).  */
+/* In a RESULT_DECL, PARM_DECL or VAR_DECL without TREE_STATIC, means that it is
+   passed by invisible reference (and the TREE_TYPE is a pointer to the true
+   type).  */
 #define DECL_BY_REFERENCE(NODE) (DECL_COMMON_CHECK (NODE)->base.private_flag)
 
 /* In a CALL_EXPR, means that the call is the jump from a thunk to the
@@ -1373,8 +1363,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 	== (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (B))	\
        && TREE_INT_CST_LOW (A) < TREE_INT_CST_LOW (B)))
 
-struct tree_int_cst GTY(())
-{
+struct GTY(()) tree_int_cst {
   struct tree_common common;
   double_int int_cst;
 };
@@ -1387,8 +1376,7 @@ struct real_value;
 #define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst_ptr)
 #define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
 
-struct tree_real_cst GTY(())
-{
+struct GTY(()) tree_real_cst {
   struct tree_common common;
   struct real_value * real_cst_ptr;
 };
@@ -1399,8 +1387,7 @@ struct fixed_value;
 #define TREE_FIXED_CST_PTR(NODE) (FIXED_CST_CHECK (NODE)->fixed_cst.fixed_cst_ptr)
 #define TREE_FIXED_CST(NODE) (*TREE_FIXED_CST_PTR (NODE))
 
-struct tree_fixed_cst GTY(())
-{
+struct GTY(()) tree_fixed_cst {
   struct tree_common common;
   struct fixed_value * fixed_cst_ptr;
 };
@@ -1410,8 +1397,7 @@ struct tree_fixed_cst GTY(())
 #define TREE_STRING_POINTER(NODE) \
   ((const char *)(STRING_CST_CHECK (NODE)->string.str))
 
-struct tree_string GTY(())
-{
+struct GTY(()) tree_string {
   struct tree_common common;
   int length;
   char str[1];
@@ -1421,8 +1407,7 @@ struct tree_string GTY(())
 #define TREE_REALPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.real)
 #define TREE_IMAGPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.imag)
 
-struct tree_complex GTY(())
-{
+struct GTY(()) tree_complex {
   struct tree_common common;
   tree real;
   tree imag;
@@ -1431,8 +1416,7 @@ struct tree_complex GTY(())
 /* In a VECTOR_CST node.  */
 #define TREE_VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->vector.elements)
 
-struct tree_vector GTY(())
-{
+struct GTY(()) tree_vector {
   struct tree_common common;
   tree elements;
 };
@@ -1455,8 +1439,7 @@ struct tree_vector GTY(())
   ((tree) ((char *) (NODE) - sizeof (struct tree_common)))
 #define GCC_IDENT_TO_HT_IDENT(NODE) (&((struct tree_identifier *) (NODE))->id)
 
-struct tree_identifier GTY(())
-{
+struct GTY(()) tree_identifier {
   struct tree_common common;
   struct ht_identifier id;
 };
@@ -1465,8 +1448,7 @@ struct tree_identifier GTY(())
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->list.purpose)
 #define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->list.value)
 
-struct tree_list GTY(())
-{
+struct GTY(()) tree_list {
   struct tree_common common;
   tree purpose;
   tree value;
@@ -1479,8 +1461,7 @@ struct tree_list GTY(())
 
 #define TREE_VEC_ELT(NODE,I) TREE_VEC_ELT_CHECK (NODE, I)
 
-struct tree_vec GTY(())
-{
+struct GTY(()) tree_vec {
   struct tree_common common;
   int length;
   tree GTY ((length ("TREE_VEC_LENGTH ((tree)&%h)"))) a[1];
@@ -1525,8 +1506,7 @@ struct tree_vec GTY(())
    element. INDEX can optionally design the position of VALUE: in arrays,
    it is the index where VALUE has to be placed; in structures, it is the
    FIELD_DECL of the member.  */
-typedef struct constructor_elt_d GTY(())
-{
+typedef struct GTY(()) constructor_elt_d {
   tree index;
   tree value;
 } constructor_elt;
@@ -1534,8 +1514,7 @@ typedef struct constructor_elt_d GTY(())
 DEF_VEC_O(constructor_elt);
 DEF_VEC_ALLOC_O(constructor_elt,gc);
 
-struct tree_constructor GTY(())
-{
+struct GTY(()) tree_constructor {
   struct tree_common common;
   VEC(constructor_elt,gc) *elts;
 };
@@ -1592,6 +1571,12 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define EXIT_EXPR_COND(NODE)	     TREE_OPERAND (EXIT_EXPR_CHECK (NODE), 0)
 
+/* COMPOUND_LITERAL_EXPR accessors.  */
+#define COMPOUND_LITERAL_EXPR_DECL_EXPR(NODE)		\
+  TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
+#define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
+  DECL_EXPR_DECL (COMPOUND_LITERAL_EXPR_DECL_EXPR (NODE))
+
 /* SWITCH_EXPR accessors. These give access to the condition, body and
    original condition type (before any compiler conversions)
    of the switch statement, respectively.  */
@@ -1612,7 +1597,6 @@ extern void protected_set_expr_location (tree, location_t);
 #define TMR_STEP(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 3))
 #define TMR_OFFSET(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 4))
 #define TMR_ORIGINAL(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 5))
-#define TMR_TAG(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 6))
 
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
@@ -1824,8 +1808,7 @@ enum omp_clause_default_kind
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->omp_clause.subcode.default_kind)
 
-struct tree_exp GTY(())
-{
+struct GTY(()) tree_exp {
   struct tree_common common;
   location_t locus;
   tree block;
@@ -1883,8 +1866,7 @@ struct ptr_info_def;
 
 /* Immediate use linking structure.  This structure is used for maintaining
    a doubly linked list of uses of an SSA_NAME.  */
-typedef struct ssa_use_operand_d GTY(())
-{
+typedef struct GTY(()) ssa_use_operand_d {
   struct ssa_use_operand_d* GTY((skip(""))) prev;
   struct ssa_use_operand_d* GTY((skip(""))) next;
   /* Immediate uses for a given SSA name are maintained as a cyclic
@@ -1899,8 +1881,7 @@ typedef struct ssa_use_operand_d GTY(())
 /* Return the immediate_use information for an SSA_NAME. */
 #define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
 
-struct tree_ssa_name GTY(())
-{
+struct GTY(()) tree_ssa_name {
   struct tree_common common;
 
   /* _DECL wrapped by this SSA name.  */
@@ -1926,8 +1907,7 @@ struct tree_ssa_name GTY(())
   struct ssa_use_operand_d imm_uses;
 };
 
-struct phi_arg_d GTY(())
-{
+struct GTY(()) phi_arg_d {
   /* imm_use MUST be the first element in struct because we do some
      pointer arithmetic with it.  See phi_arg_index_from_use.  */
   struct ssa_use_operand_d imm_use;
@@ -1947,8 +1927,7 @@ struct phi_arg_d GTY(())
 #define OMP_CLAUSE_OPERAND(NODE, I)				\
 	OMP_CLAUSE_ELT_CHECK (NODE, I)
 
-struct tree_omp_clause GTY(())
-{
+struct GTY(()) tree_omp_clause {
   struct tree_common common;
   enum omp_clause_code code;
   union omp_clause_subcode {
@@ -2017,8 +1996,7 @@ struct varray_head_tag;
 
 #define BLOCK_SOURCE_LOCATION(NODE) (BLOCK_CHECK (NODE)->block.locus)
 
-struct tree_block GTY(())
-{
+struct GTY(()) tree_block {
   struct tree_common common;
 
   unsigned abstract_flag : 1;
@@ -2230,6 +2208,11 @@ extern enum machine_mode vector_type_mode (const_tree);
 #define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
   (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.precision = exact_log2 (X))
 
+/* Nonzero in an IDENTIFIER_NODE if the name is a local alias, whose
+   uses are to be substituted for uses of the TREE_CHAINed identifier.  */
+#define TYPE_VECTOR_OPAQUE(NODE) \
+  (VECTOR_TYPE_CHECK (NODE)->base.deprecated_flag)
+
 /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
 #define TYPE_NEEDS_CONSTRUCTING(NODE) \
@@ -2258,8 +2241,7 @@ extern enum machine_mode vector_type_mode (const_tree);
 
 struct die_struct;
 
-struct tree_type GTY(())
-{
+struct GTY(()) tree_type {
   struct tree_common common;
   tree values;
   tree size;
@@ -2288,6 +2270,7 @@ struct tree_type GTY(())
   unsigned user_align : 1;
 
   unsigned int align;
+  alias_set_type alias_set;
   tree pointer_to;
   tree reference_to;
   union tree_type_symtab {
@@ -2304,7 +2287,6 @@ struct tree_type GTY(())
   tree binfo;
   tree context;
   tree canonical;
-  alias_set_type alias_set;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
 };
@@ -2412,8 +2394,7 @@ struct tree_type GTY(())
 #define BINFO_INHERITANCE_CHAIN(NODE) \
 	(TREE_BINFO_CHECK(NODE)->binfo.inheritance)
 
-struct tree_binfo GTY (())
-{
+struct GTY (()) tree_binfo {
   struct tree_common common;
 
   tree offset;
@@ -2437,12 +2418,10 @@ struct tree_binfo GTY (())
 	(TREE_CODE (DECL) == VAR_DECL					\
 	 || TREE_CODE (DECL) == PARM_DECL				\
 	 || TREE_CODE (DECL) == RESULT_DECL				\
-	 || MTAG_P (DECL)						\
 	 || (TREE_CODE (DECL) == SSA_NAME				\
 	     && (TREE_CODE (SSA_NAME_VAR (DECL)) == VAR_DECL		\
 		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL	\
-		 || TREE_CODE (SSA_NAME_VAR (DECL)) == RESULT_DECL	\
-		 || MTAG_P (SSA_NAME_VAR (DECL)))))
+		 || TREE_CODE (SSA_NAME_VAR (DECL)) == RESULT_DECL)))
 
 
 
@@ -2488,57 +2467,13 @@ struct function;
     scope".  */
 #define DECL_CONTEXT(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.context)
 #define DECL_FIELD_CONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl_minimal.context)
-struct tree_decl_minimal GTY(())
-{
+struct GTY(()) tree_decl_minimal {
   struct tree_common common;
   location_t locus;
   unsigned int uid;
   tree name;
   tree context;
 };
-
-/* When computing aliasing information, we represent the memory pointed-to
-   by pointers with artificial variables called "memory tags" (MT).  There
-   are two kinds of tags, namely symbol and name:
-
-   Symbol tags (SMT) are used in flow-insensitive alias analysis, they
-   represent all the pointed-to locations and variables pointed-to by
-   the same pointer symbol.  Usually, this set is computed using
-   type-based analysis (i.e., alias set classes), but this may not
-   always be the case.
-
-   Name tags (NMT) are used in flow-sensitive points-to alias
-   analysis, they represent the variables and memory locations
-   pointed-to by a specific SSA_NAME pointer.
-
-   In general, given a pointer P with a symbol tag SMT, the alias set
-   of SMT should be the union of all the alias sets of the NMTs of
-   every SSA_NAME for P.  */
-struct tree_memory_tag GTY(())
-{
-  struct tree_decl_minimal common;
-
-  bitmap GTY ((skip)) aliases;
-
-  /* True if this tag has global scope.  */
-  unsigned int is_global : 1;
-};
-
-#define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
-#define MTAG_ALIASES(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.aliases)
-
-/* Memory Partition Tags (MPTs) group memory symbols under one
-   common name for the purposes of placing memory PHI nodes.  */
-
-struct tree_memory_partition_tag GTY(())
-{
-  struct tree_memory_tag common;
-  
-  /* Set of symbols grouped under this MPT.  */
-  bitmap symbols;
-};
-
-#define MPT_SYMBOLS(NODE)	(MEMORY_PARTITION_TAG_CHECK (NODE)->mpt.symbols)
 
 
 /* For any sort of a ..._DECL node, this points to the original (abstract)
@@ -2686,8 +2621,7 @@ struct tree_memory_partition_tag GTY(())
 #define DECL_NO_TBAA_P(DECL) \
   DECL_COMMON_CHECK (DECL)->decl_common.no_tbaa_flag
 
-struct tree_decl_common GTY(())
-{
+struct GTY(()) tree_decl_common {
   struct tree_decl_minimal common;
   tree size;
 
@@ -2728,10 +2662,9 @@ struct tree_decl_common GTY(())
   unsigned gimple_reg_flag : 1;
   /* In a DECL with pointer type, set if no TBAA should be done.  */
   unsigned no_tbaa_flag : 1;
-  /* Padding so that 'align' can be on a 32-bit boundary.  */
+  /* Padding so that 'off_align' can be on a 32-bit boundary.  */
   unsigned decl_common_unused : 2;
 
-  unsigned int align : 24;
   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
   unsigned int off_align : 8;
 
@@ -2739,6 +2672,9 @@ struct tree_decl_common GTY(())
   tree initial;
   tree attributes;
   tree abstract_origin;
+
+  /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
+  unsigned int align;
 
   alias_set_type pointer_alias_set;
   /* Points to a structure whose details depend on the language in use.  */
@@ -2787,8 +2723,7 @@ extern void decl_value_expr_insert (tree, tree);
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
 #define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
 
-struct tree_decl_with_rtl GTY(())
-{
+struct GTY(()) tree_decl_with_rtl {
   struct tree_decl_common common;
   rtx rtl;
 };
@@ -2856,8 +2791,7 @@ struct tree_decl_with_rtl GTY(())
 #define DECL_NONADDRESSABLE_P(NODE) \
   (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_3)
 
-struct tree_field_decl GTY(())
-{
+struct GTY(()) tree_field_decl {
   struct tree_decl_common common;
 
   tree offset;
@@ -2878,18 +2812,15 @@ struct tree_field_decl GTY(())
    jumping into such a binding contour has been printed for this label.  */
 #define DECL_ERROR_ISSUED(NODE) (LABEL_DECL_CHECK (NODE)->decl_common.decl_flag_0)
 
-struct tree_label_decl GTY(())
-{
+struct GTY(()) tree_label_decl {
   struct tree_decl_with_rtl common;
 };
 
-struct tree_result_decl GTY(())
-{
+struct GTY(()) tree_result_decl {
   struct tree_decl_with_rtl common;
 };
 
-struct tree_const_decl GTY(())
-{
+struct GTY(()) tree_const_decl {
   struct tree_decl_with_rtl common;
 };
 
@@ -2901,8 +2832,7 @@ struct tree_const_decl GTY(())
    where the data was actually passed.  */
 #define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
 
-struct tree_parm_decl GTY(())
-{
+struct GTY(()) tree_parm_decl {
   struct tree_decl_with_rtl common;
   rtx incoming_rtl;
 };
@@ -2924,11 +2854,6 @@ struct tree_parm_decl GTY(())
 
   /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.weak_flag)
-
-/* Internal to the gimplifier.  Indicates that the value is a formal
-   temporary controlled by the gimplifier.  */
-#define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
-  DECL_WITH_VIS_CHECK (DECL)->decl_with_vis.gimple_formal_temp
 
 /* Used to indicate that the DECL is a dllimport.  */
 #define DECL_DLLIMPORT_P(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.dllimport_flag)
@@ -3029,8 +2954,7 @@ extern void decl_restrict_base_insert (tree, tree);
    multiple translation units should be merged.  */
 #define DECL_ONE_ONLY(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.one_only)
 
-struct tree_decl_with_vis GTY(())
-{
+struct GTY(()) tree_decl_with_vis {
  struct tree_decl_with_rtl common;
  tree assembler_name;
  tree section_name;
@@ -3041,7 +2965,6 @@ struct tree_decl_with_vis GTY(())
  unsigned thread_local:1;
  unsigned common_flag:1;
  unsigned in_text_section : 1;
- unsigned gimple_formal_temp : 1;
  unsigned dllimport_flag : 1;
  unsigned based_on_restrict_p : 1;
  /* Used by C++.  Might become a generic decl flag.  */
@@ -3059,7 +2982,7 @@ struct tree_decl_with_vis GTY(())
 
  /* Belongs to VAR_DECL exclusively.  */
  ENUM_BITFIELD(tls_model) tls_model : 3;
- /* 12 unused bits. */
+ /* 13 unused bits. */
 };
 
 /* In a VAR_DECL that's static,
@@ -3135,8 +3058,7 @@ extern void decl_fini_priority_insert (tree, priority_type);
 #define DECL_THREAD_LOCAL_P(NODE) \
   (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model >= TLS_MODEL_REAL)
 
-struct tree_var_decl GTY(())
-{
+struct GTY(()) tree_var_decl {
   struct tree_decl_with_vis common;
 };
 
@@ -3155,9 +3077,8 @@ struct tree_var_decl GTY(())
    C++ also uses this field in namespaces, hence the DECL_NON_COMMON_CHECK.  */
 #define DECL_VINDEX(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.vindex)
 
-struct tree_decl_non_common GTY(())
-
-{
+struct GTY(())
+ tree_decl_non_common {
   struct tree_decl_with_vis common;
   /* C++ uses this in namespaces.  */
   tree saved_tree;
@@ -3292,8 +3213,7 @@ struct tree_decl_non_common GTY(())
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
    which seemed a bit strange.  */
 
-struct tree_function_decl GTY(())
-{
+struct GTY(()) tree_function_decl {
   struct tree_decl_non_common common;
 
   struct function *f;
@@ -3346,8 +3266,7 @@ struct tree_function_decl GTY(())
 #define IMPORTED_DECL_ASSOCIATED_DECL(NODE) \
 (DECL_INITIAL (IMPORTED_DECL_CHECK (NODE)))
 
-struct tree_type_decl GTY(())
-{
+struct GTY(()) tree_type_decl {
   struct tree_decl_non_common common;
 
 };
@@ -3363,17 +3282,15 @@ struct tree_type_decl GTY(())
 #define STATEMENT_LIST_TAIL(NODE) \
   (STATEMENT_LIST_CHECK (NODE)->stmt_list.tail)
 
-struct tree_statement_list_node
-  GTY ((chain_next ("%h.next"), chain_prev ("%h.prev")))
-{
+struct GTY ((chain_next ("%h.next"), chain_prev ("%h.prev"))) tree_statement_list_node
+ {
   struct tree_statement_list_node *prev;
   struct tree_statement_list_node *next;
   tree stmt;
 };
 
-struct tree_statement_list
-  GTY(())
-{
+struct GTY(()) tree_statement_list
+ {
   struct tree_common common;
   struct tree_statement_list_node *head;
   struct tree_statement_list_node *tail;
@@ -3382,8 +3299,7 @@ struct tree_statement_list
 
 /* Optimization options used by a function.  */
 
-struct tree_optimization_option GTY(())
-{
+struct GTY(()) tree_optimization_option {
   struct tree_common common;
 
   /* The optimization options used by the user.  */
@@ -3398,8 +3314,7 @@ extern tree build_optimization_node (void);
 
 /* Target options used by a function.  */
 
-struct tree_target_option GTY(())
-{
+struct GTY(()) tree_target_option {
   struct tree_common common;
 
   /* The optimization options used by the user.  */
@@ -3417,9 +3332,8 @@ extern tree build_target_option_node (void);
    It may be any of the structures declared above
    for various types of node.  */
 
-union tree_node GTY ((ptr_alias (union lang_tree_node),
-		      desc ("tree_node_structure (&%h)")))
-{
+union GTY ((ptr_alias (union lang_tree_node),
+		      desc ("tree_node_structure (&%h)"))) tree_node {
   struct tree_base GTY ((tag ("TS_BASE"))) base;
   struct tree_common GTY ((tag ("TS_COMMON"))) common;
   struct tree_int_cst GTY ((tag ("TS_INT_CST"))) int_cst;
@@ -3451,9 +3365,7 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_binfo GTY ((tag ("TS_BINFO"))) binfo;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
-  struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
-  struct tree_memory_partition_tag GTY ((tag ("TS_MEMORY_PARTITION_TAG"))) mpt;
   struct tree_optimization_option GTY ((tag ("TS_OPTIMIZATION"))) optimization;
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };
@@ -3945,10 +3857,10 @@ extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
 extern tree build5_stat (enum tree_code, tree, tree, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build5(c,t1,t2,t3,t4,t5,t6) build5_stat (c,t1,t2,t3,t4,t5,t6 MEM_STAT_INFO)
-extern tree build7_stat (enum tree_code, tree, tree, tree, tree, tree,
-			 tree, tree, tree MEM_STAT_DECL);
-#define build7(c,t1,t2,t3,t4,t5,t6,t7,t8) \
-  build7_stat (c,t1,t2,t3,t4,t5,t6,t7,t8 MEM_STAT_INFO)
+extern tree build6_stat (enum tree_code, tree, tree, tree, tree, tree,
+			 tree, tree MEM_STAT_DECL);
+#define build6(c,t1,t2,t3,t4,t5,t6,t7) \
+  build6_stat (c,t1,t2,t3,t4,t5,t6,t7 MEM_STAT_INFO)
 
 extern tree build_int_cst (tree, HOST_WIDE_INT);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
@@ -3998,6 +3910,7 @@ extern tree build_reference_type_for_mode (tree, enum machine_mode, bool);
 extern tree build_reference_type (tree);
 extern tree build_vector_type_for_mode (tree, enum machine_mode);
 extern tree build_vector_type (tree innertype, int nunits);
+extern tree build_opaque_vector_type (tree innertype, int nunits);
 extern tree build_type_no_quals (tree);
 extern tree build_index_type (tree);
 extern tree build_index_2_type (tree, tree);
@@ -4034,6 +3947,7 @@ extern bool tree_expr_nonnegative_p (tree);
 extern bool tree_expr_nonnegative_warnv_p (tree, bool *);
 extern bool may_negate_without_overflow_p (const_tree);
 extern tree strip_array_types (tree);
+extern tree excess_precision_type (tree);
 
 /* Construct various nodes representing fract or accum data types.  */
 
@@ -4311,7 +4225,6 @@ extern tree convert (tree, tree);
 extern unsigned int expr_align (const_tree);
 extern tree expr_first (tree);
 extern tree expr_last (tree);
-extern tree expr_only (tree);
 extern tree size_in_bytes (const_tree);
 extern HOST_WIDE_INT int_size_in_bytes (const_tree);
 extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
@@ -4379,6 +4292,10 @@ extern tree tree_cons_stat (tree, tree, tree MEM_STAT_DECL);
 /* Return the last tree node in a chain.  */
 
 extern tree tree_last (tree);
+
+/* Return the node in a chain whose TREE_VALUE is x, NULL if not found.  */
+
+extern tree tree_find_value (tree, tree);
 
 /* Reverse the order of elements in a chain, and return the new head.  */
 
@@ -4550,7 +4467,24 @@ extern tree get_narrower (tree, int *);
 
 /* Return true if T is an expression that get_inner_reference handles.  */
 
-extern int handled_component_p (const_tree);
+static inline bool
+handled_component_p (const_tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case BIT_FIELD_REF:
+    case COMPONENT_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case VIEW_CONVERT_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      return true;
+
+    default:
+      return false;
+    }
+}
 
 /* Given an expression EXP that is a handled_component_p,
    look for the ultimate containing object, which is returned and specify
@@ -4702,7 +4636,6 @@ extern tree create_artificial_label (void);
 extern const char *get_name (tree);
 extern bool stdarg_p (tree);
 extern bool prototype_p (tree);
-extern int function_args_count (tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 
 /* In gimplify.c */
@@ -4830,6 +4763,7 @@ extern tree build_fold_indirect_ref (tree);
 extern tree fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
+extern tree div_if_zero_remainder (enum tree_code, const_tree, const_tree);
 
 extern bool tree_swap_operands_p (const_tree, const_tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
@@ -4853,6 +4787,8 @@ extern bool tree_call_nonnegative_warnv_p (tree, tree, tree, tree, bool *);
 extern bool tree_expr_nonzero_warnv_p (tree, bool *);
 
 extern bool fold_real_zero_addition_p (const_tree, const_tree, int);
+extern tree combine_comparisons (enum tree_code, enum tree_code,
+				 enum tree_code, tree, tree, tree);
 
 /* Return nonzero if CODE is a tree code that represents a truth value.  */
 static inline bool
@@ -4891,6 +4827,7 @@ extern tree build_string_literal (int, const char *);
 extern bool validate_arglist (const_tree, ...);
 extern rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 extern int get_pointer_alignment (tree, unsigned int);
+extern bool is_builtin_name(const char*);
 extern int get_object_alignment (tree, unsigned int, unsigned int);
 extern tree fold_call_stmt (gimple, bool);
 extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
@@ -5191,19 +5128,18 @@ extern void vect_set_verbosity_level (const char *);
 
 /* In tree.c.  */
 
-struct tree_map_base GTY(())
-{
+struct GTY(()) tree_map_base {
   tree from;
 };
 
 extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
+extern bool list_equal_p (const_tree, const_tree);
 
 /* Map from a tree to another tree.  */
 
-struct tree_map GTY(())
-{
+struct GTY(()) tree_map {
   struct tree_map_base base;
   unsigned int hash;
   tree to;
@@ -5215,8 +5151,7 @@ extern unsigned int tree_map_hash (const void *);
 
 /* Map from a tree to an int.  */
 
-struct tree_int_map GTY(())
-{
+struct GTY(()) tree_int_map {
   struct tree_map_base base;
   unsigned int to;
 };
@@ -5227,8 +5162,7 @@ struct tree_int_map GTY(())
 
 /* Map from a tree to initialization/finalization priorities.  */
 
-struct tree_priority_map GTY(())
-{
+struct GTY(()) tree_priority_map {
   struct tree_map_base base;
   priority_type init;
   priority_type fini;
@@ -5243,7 +5177,6 @@ extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
 
 /* In tree-vrp.c */
-extern bool ssa_name_nonzero_p (const_tree);
 extern bool ssa_name_nonnegative_p (const_tree);
 
 /* In tree-object-size.c.  */
@@ -5275,15 +5208,13 @@ tree_operand_length (const_tree node)
    defined by this point.  */
 
 /* Structure containing iterator state.  */
-typedef struct call_expr_arg_iterator_d GTY (())
-{
+typedef struct GTY (()) call_expr_arg_iterator_d {
   tree t;	/* the call_expr */
   int n;	/* argument count */
   int i;	/* next argument index */
 } call_expr_arg_iterator;
 
-typedef struct const_call_expr_arg_iterator_d GTY (())
-{
+typedef struct GTY (()) const_call_expr_arg_iterator_d {
   const_tree t;	/* the call_expr */
   int n;	/* argument count */
   int i;	/* next argument index */

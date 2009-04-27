@@ -85,6 +85,9 @@ extern void ix86_fixup_binary_operands_no_copy (enum rtx_code,
 extern void ix86_expand_binary_operator (enum rtx_code,
 					 enum machine_mode, rtx[]);
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
+extern bool ix86_lea_for_add_ok (enum rtx_code, rtx, rtx[]);
+extern bool ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn);
+extern bool ix86_agi_dependent (rtx set_insn, rtx use_insn);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
 extern rtx ix86_build_const_vector (enum machine_mode, bool, rtx);
@@ -139,9 +142,8 @@ extern int ix86_function_arg_boundary (enum machine_mode, tree);
 extern bool ix86_sol10_return_in_memory (const_tree,const_tree);
 extern rtx ix86_force_to_memory (enum machine_mode, rtx);
 extern void ix86_free_from_memory (enum machine_mode);
-extern int ix86_cfun_abi (void);
-extern int ix86_function_abi (const_tree);
-extern int ix86_function_type_abi (const_tree);
+extern enum calling_abi ix86_cfun_abi (void);
+extern enum calling_abi ix86_function_type_abi (const_tree);
 extern void ix86_call_abi_override (const_tree);
 extern tree ix86_fn_abi_va_list (tree);
 extern tree ix86_canonical_va_list_type (tree);

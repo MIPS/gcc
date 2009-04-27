@@ -495,8 +495,6 @@ static void
 finalize_var_creation (tree new_decl)
 {
   add_referenced_var (new_decl);  
-  if (is_global_var (new_decl))
-    mark_call_clobbered (new_decl, ESCAPE_UNKNOWN);
   mark_sym_for_renaming (new_decl); 
 }
 
@@ -608,13 +606,17 @@ gen_size (tree num, tree type, tree *res)
   if (exact_log2 (struct_size_int) == -1)
     {
       tree size = build_int_cst (TREE_TYPE (num), struct_size_int);
-      new_stmt = gimple_build_assign_with_ops (MULT_EXPR, *res, num, size);
+      new_stmt = gimple_build_assign (*res, fold_build2 (MULT_EXPR,
+							 TREE_TYPE (num),
+							 num, size));
     }
   else
     {
       tree C = build_int_cst (TREE_TYPE (num), exact_log2 (struct_size_int));
  
-      new_stmt = gimple_build_assign_with_ops (LSHIFT_EXPR, *res, num, C);
+      new_stmt = gimple_build_assign (*res, fold_build2 (LSHIFT_EXPR,
+							 TREE_TYPE (num),
+							 num, C));
     }
 
   finalize_stmt (new_stmt);
@@ -1249,11 +1251,18 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
   gimple new_stmt = gimple_copy (old_stmt);
   unsigned i;
 
+  /* We are really building a new stmt, clear the virtual operands.  */
+  if (gimple_has_mem_ops (new_stmt))
+    {
+      gimple_set_vuse (new_stmt, NULL_TREE);
+      gimple_set_vdef (new_stmt, NULL_TREE);
+    }
+
   for (i = 0; VEC_iterate (tree, acc->vars, i, var); i++)
     {
       tree *pos;
       tree new_var = find_new_var_of_type (var, new_type);
-      tree lhs, rhs;
+      tree lhs, rhs = NULL_TREE;
 
       gcc_assert (new_var);
       finalize_var_creation (new_var);
@@ -1287,6 +1296,8 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
 	    {
 	      pos = find_pos_in_stmt (new_stmt, var);
 	      gcc_assert (pos);
+	      /* ???  This misses adjustments to the type of the
+	         INDIRECT_REF we possibly replace the operand of.  */
 	      *pos = new_var;
 	    }      
 	}

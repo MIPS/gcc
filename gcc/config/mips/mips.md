@@ -67,6 +67,12 @@
    (UNSPEC_SET_GOT_VERSION	46)
    (UNSPEC_UPDATE_GOT_VERSION	47)
    (UNSPEC_COPYGP		48)
+   (UNSPEC_ERET			49)
+   (UNSPEC_DERET		50)
+   (UNSPEC_DI			51)
+   (UNSPEC_EHB			52)
+   (UNSPEC_RDPGPR		53)
+   (UNSPEC_COP0			54)
    
    (UNSPEC_ADDRESS_FIRST	100)
 
@@ -279,10 +285,12 @@
 ;; the target address into a register.
 (define_attr "jal_macro" "no,yes"
   (cond [(eq_attr "jal" "direct")
-	 (symbol_ref "TARGET_CALL_CLOBBERED_GP
-		      || (flag_pic && !TARGET_ABSOLUTE_ABICALLS)")
+	 (symbol_ref "((TARGET_CALL_CLOBBERED_GP
+			|| (flag_pic && !TARGET_ABSOLUTE_ABICALLS))
+		       ? JAL_MACRO_YES : JAL_MACRO_NO)")
 	 (eq_attr "jal" "indirect")
-	 (symbol_ref "TARGET_CALL_CLOBBERED_GP")]
+	 (symbol_ref "(TARGET_CALL_CLOBBERED_GP
+		       ? JAL_MACRO_YES : JAL_MACRO_NO)")]
 	(const_string "no")))
 
 ;; Classification of moves, extensions and truncations.  Most values
@@ -565,7 +573,7 @@
 ;; with the processor_type enumeration in mips.h.
 (define_attr "cpu"
   "r3000,4kc,4kp,5kc,5kf,20kc,24kc,24kf2_1,24kf1_1,74kc,74kf2_1,74kf1_1,74kf3_2,loongson_2e,loongson_2f,m4k,octeon,r3900,r6000,r4000,r4100,r4111,r4120,r4130,r4300,r4600,r4650,r5000,r5400,r5500,r7000,r8000,r9000,r10000,sb1,sb1a,sr71000,xlr"
-  (const (symbol_ref "mips_tune")))
+  (const (symbol_ref "mips_tune_attr")))
 
 ;; The type of hardware hazard associated with this instruction.
 ;; DELAY means that the next instruction cannot read the result
@@ -596,7 +604,8 @@
 
 ;; Is it a single instruction?
 (define_attr "single_insn" "no,yes"
-  (symbol_ref "get_attr_length (insn) == (TARGET_MIPS16 ? 2 : 4)"))
+  (symbol_ref "(get_attr_length (insn) == (TARGET_MIPS16 ? 2 : 4)
+		? SINGLE_INSN_YES : SINGLE_INSN_NO)"))
 
 ;; Can the instruction be put into a delay slot?
 (define_attr "can_delay" "no,yes"
@@ -5678,6 +5687,60 @@
   "%*j\t%0%/"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
+
+;; Exception return.
+(define_insn "mips_eret"
+  [(return)
+   (unspec_volatile [(const_int 0)] UNSPEC_ERET)]
+  ""
+  "eret"
+  [(set_attr "type"	"trap")
+   (set_attr "mode"	"none")])
+
+;; Debug exception return.
+(define_insn "mips_deret"
+  [(return)
+   (unspec_volatile [(const_int 0)] UNSPEC_DERET)]
+  ""
+  "deret"
+  [(set_attr "type"	"trap")
+   (set_attr "mode"	"none")])
+
+;; Disable interrupts.
+(define_insn "mips_di"
+  [(unspec_volatile [(const_int 0)] UNSPEC_DI)]
+  ""
+  "di"
+  [(set_attr "type"	"trap")
+   (set_attr "mode"	"none")])
+
+;; Execution hazard barrier.
+(define_insn "mips_ehb"
+  [(unspec_volatile [(const_int 0)] UNSPEC_EHB)]
+  ""
+  "ehb"
+  [(set_attr "type"	"trap")
+   (set_attr "mode"	"none")])
+
+;; Read GPR from previous shadow register set.
+(define_insn "mips_rdpgpr"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(unspec_volatile:SI [(match_operand:SI 1 "register_operand" "d")]
+			    UNSPEC_RDPGPR))]
+  ""
+  "rdpgpr\t%0,%1"
+  [(set_attr "type"	"move")
+   (set_attr "mode"	"SI")])
+
+;; Move involving COP0 registers.
+(define_insn "cop0_move"
+  [(set (match_operand:SI 0 "register_operand" "=B,d")
+	(unspec_volatile:SI [(match_operand:SI 1 "register_operand" "d,B")]
+			    UNSPEC_COP0))]
+  ""
+{ return mips_output_move (operands[0], operands[1]); }
+  [(set_attr "type"	"mtc,mfc")
+   (set_attr "mode"	"SI")])
 
 ;; This is used in compiling the unwind routines.
 (define_expand "eh_return"

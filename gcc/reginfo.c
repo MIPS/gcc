@@ -592,7 +592,7 @@ init_reg_sets_1 (void)
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	if (!fixed_regs [j] && HARD_REGNO_MODE_OK (j, (enum machine_mode) m))
 	  SET_HARD_REG_BIT (ok_regs, j);
-      
+
       for (i = 0; i < N_REG_CLASSES; i++)
 	if (((unsigned) CLASS_MAX_NREGS ((enum reg_class) i,
 					 (enum machine_mode) m)
@@ -679,7 +679,7 @@ void
 init_fake_stack_mems (void)
 {
   int i;
-  
+
   for (i = 0; i < MAX_MACHINE_MODE; i++)
     top_of_stack[i] = gen_rtx_MEM ((enum machine_mode) i, stack_pointer_rtx);
 }
@@ -878,6 +878,8 @@ globalize_reg (int i)
   SET_HARD_REG_BIT (fixed_reg_set, i);
   SET_HARD_REG_BIT (call_used_reg_set, i);
   SET_HARD_REG_BIT (call_fixed_reg_set, i);
+
+  reinit_regs ();
 }
 
 
@@ -1310,33 +1312,6 @@ init_subregs_of_mode (void)
       find_subregs_of_mode (PATTERN (insn));
 
   return 0;
-}
-
-/* Set bits in *USED which correspond to registers which can't change
-   their mode from FROM to any mode in which REGNO was
-   encountered.  */
-void
-cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
-			     unsigned int regno)
-{
-  struct subregs_of_mode_node dummy, *node;
-  unsigned char mask;
-  unsigned int to, i;
-
-  gcc_assert (subregs_of_mode);
-  dummy.block = regno & -8;
-  node = (struct subregs_of_mode_node *)
-    htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
-  if (node == NULL)
-    return;
-
-  mask = 1 << (regno & 7);
-  for (to = 0; to < NUM_MACHINE_MODES; to++)
-    if (node->modes[to] & mask)
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (!TEST_HARD_REG_BIT (*used, i)
-	    && REG_CANNOT_CHANGE_MODE_P (i, from, (enum machine_mode) to))
-	  SET_HARD_REG_BIT (*used, i);
 }
 
 /* Return 1 if REGNO has had an invalid mode change in CLASS from FROM

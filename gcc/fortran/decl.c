@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -1667,6 +1667,17 @@ variable_decl (int elem)
 	}
     }
 
+  /* Procedure pointer as function result.  */
+  if (gfc_current_state () == COMP_FUNCTION
+      && strcmp ("ppr@", gfc_current_block ()->name) == 0
+      && strcmp (name, gfc_current_block ()->ns->proc_name->name) == 0)
+    strcpy (name, "ppr@");
+
+  if (gfc_current_state () == COMP_FUNCTION
+      && strcmp (name, gfc_current_block ()->name) == 0
+      && gfc_current_block ()->result
+      && strcmp ("ppr@", gfc_current_block ()->result->name) == 0)
+    strcpy (name, "ppr@");
 
   /* OK, we've successfully matched the declaration.  Now put the
      symbol in the current namespace, because it might be used in the
@@ -2730,7 +2741,7 @@ gfc_match_import (void)
 	      goto next_item;
 	    }
 
-	  st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
+	  st = gfc_new_symtree (&gfc_current_ns->sym_root, sym->name);
 	  st->n.sym = sym;
 	  sym->refs++;
 	  sym->attr.imported = 1;
@@ -4069,6 +4080,71 @@ gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result)
 }
 
 
+/* Procedure pointer return value without RESULT statement:
+   Add "hidden" result variable named "ppr@".  */
+
+static gfc_try
+add_hidden_procptr_result (gfc_symbol *sym)
+{
+  bool case1,case2;
+
+  if (gfc_notification_std (GFC_STD_F2003) == ERROR)
+    return FAILURE;
+
+  /* First usage case: PROCEDURE and EXTERNAL statements.  */
+  case1 = gfc_current_state () == COMP_FUNCTION && gfc_current_block ()
+	  && strcmp (gfc_current_block ()->name, sym->name) == 0
+	  && sym->attr.external;
+  /* Second usage case: INTERFACE statements.  */
+  case2 = gfc_current_state () == COMP_INTERFACE && gfc_state_stack->previous
+	  && gfc_state_stack->previous->state == COMP_FUNCTION
+	  && strcmp (gfc_state_stack->previous->sym->name, sym->name) == 0;
+
+  if (case1 || case2)
+    {
+      gfc_symtree *stree;
+      if (case1)
+	gfc_get_sym_tree ("ppr@", gfc_current_ns, &stree);
+      else if (case2)
+	{
+	  gfc_symtree *st2;
+	  gfc_get_sym_tree ("ppr@", gfc_current_ns->parent, &stree);
+	  st2 = gfc_new_symtree (&gfc_current_ns->sym_root, "ppr@");
+	  st2->n.sym = stree->n.sym;
+	}
+      sym->result = stree->n.sym;
+
+      sym->result->attr.proc_pointer = sym->attr.proc_pointer;
+      sym->result->attr.pointer = sym->attr.pointer;
+      sym->result->attr.external = sym->attr.external;
+      sym->result->attr.referenced = sym->attr.referenced;
+      sym->attr.proc_pointer = 0;
+      sym->attr.pointer = 0;
+      sym->attr.external = 0;
+      if (sym->result->attr.external && sym->result->attr.pointer)
+	{
+	  sym->result->attr.pointer = 0;
+	  sym->result->attr.proc_pointer = 1;
+	}
+
+      return gfc_add_result (&sym->result->attr, sym->result->name, NULL);
+    }
+  /* POINTER after PROCEDURE/EXTERNAL/INTERFACE statement.  */
+  else if (sym->attr.function && !sym->attr.external && sym->attr.pointer
+	   && sym->result && sym->result != sym && sym->result->attr.external
+	   && sym == gfc_current_ns->proc_name
+	   && sym == sym->result->ns->proc_name
+	   && strcmp ("ppr@", sym->result->name) == 0)
+    {
+      sym->result->attr.proc_pointer = 1;
+      sym->attr.pointer = 0;
+      return SUCCESS;
+    }
+  else
+    return FAILURE;
+}
+
+
 /* Match a PROCEDURE declaration (R1211).  */
 
 static match
@@ -4201,22 +4277,36 @@ got_ts:
 
       if (gfc_add_external (&sym->attr, NULL) == FAILURE)
 	return MATCH_ERROR;
+
+      if (add_hidden_procptr_result (sym) == SUCCESS)
+	sym = sym->result;
+
       if (gfc_add_proc (&sym->attr, sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;
 
       /* Set interface.  */
       if (proc_if != NULL)
 	{
+          if (sym->ts.type != BT_UNKNOWN)
+	    {
+	      gfc_error ("Procedure '%s' at %L already has basic type of %s",
+			 sym->name, &gfc_current_locus,
+			 gfc_basic_typename (sym->ts.type));
+	      return MATCH_ERROR;
+	    }
 	  sym->ts.interface = proc_if;
 	  sym->attr.untyped = 1;
+	  sym->attr.if_source = IFSRC_IFBODY;
 	}
       else if (current_ts.type != BT_UNKNOWN)
 	{
-	  sym->ts = current_ts;
+	  if (gfc_add_type (sym, &current_ts, &gfc_current_locus) == FAILURE)
+	    return MATCH_ERROR;
 	  sym->ts.interface = gfc_new_symbol ("", gfc_current_ns);
 	  sym->ts.interface->ts = current_ts;
 	  sym->ts.interface->attr.function = 1;
 	  sym->attr.function = sym->ts.interface->attr.function;
+	  sym->attr.if_source = IFSRC_UNKNOWN;
 	}
 
       if (gfc_match (" =>") == MATCH_YES)
@@ -4407,6 +4497,10 @@ gfc_match_function_decl (void)
     }
   if (get_proc_name (name, &sym, false))
     return MATCH_ERROR;
+
+  if (add_hidden_procptr_result (sym) == SUCCESS)
+    sym = sym->result;
+
   gfc_new_block = sym;
 
   m = gfc_match_formal_arglist (sym, 0, 0);
@@ -4530,6 +4624,7 @@ add_global_entry (const char *name, int sub)
       s->type = type;
       s->where = gfc_current_locus;
       s->defined = 1;
+      s->ns = gfc_current_ns;
       return true;
     }
   return false;
@@ -4803,6 +4898,10 @@ gfc_match_subroutine (void)
 
   if (get_proc_name (name, &sym, false))
     return MATCH_ERROR;
+
+  if (add_hidden_procptr_result (sym) == SUCCESS)
+    sym = sym->result;
+
   gfc_new_block = sym;
 
   /* Check what next non-whitespace character is so we can tell if there
@@ -5250,9 +5349,18 @@ gfc_match_end (gfc_statement *st)
   if (block_name == NULL)
     goto syntax;
 
-  if (strcmp (name, block_name) != 0)
+  if (strcmp (name, block_name) != 0 && strcmp (block_name, "ppr@") != 0)
     {
       gfc_error ("Expected label '%s' for %s statement at %C", block_name,
+		 gfc_ascii_statement (*st));
+      goto cleanup;
+    }
+  /* Procedure pointer as function result.  */
+  else if (strcmp (block_name, "ppr@") == 0
+	   && strcmp (name, gfc_current_block ()->ns->proc_name->name) != 0)
+    {
+      gfc_error ("Expected label '%s' for %s statement at %C",
+		 gfc_current_block ()->ns->proc_name->name,
 		 gfc_ascii_statement (*st));
       goto cleanup;
     }
@@ -5365,6 +5473,8 @@ attr_decl1 (void)
       m = MATCH_ERROR;
       goto cleanup;
     }
+
+  add_hidden_procptr_result (sym);
 
   return MATCH_YES;
 
@@ -6732,6 +6842,7 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic)
   ba->pass_arg_num = 0;
   ba->nopass = 0;
   ba->non_overridable = 0;
+  ba->deferred = 0;
 
   /* If we find a comma, we believe there are binding attributes.  */
   if (gfc_match_char (',') == MATCH_NO)
@@ -6813,14 +6924,19 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic)
 	    }
 
 	  /* DEFERRED flag.  */
-	  /* TODO: Handle really once implemented.  */
 	  m = gfc_match (" deferred");
 	  if (m == MATCH_ERROR)
 	    goto error;
 	  if (m == MATCH_YES)
 	    {
-	      gfc_error ("DEFERRED not yet implemented at %C");
-	      goto error;
+	      if (ba->deferred)
+		{
+		  gfc_error ("Duplicate DEFERRED at %C");
+		  goto error;
+		}
+
+	      ba->deferred = 1;
+	      continue;
 	    }
 
 	  /* PASS possibly including argument.  */
@@ -6861,6 +6977,13 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic)
     }
   while (gfc_match_char (',') == MATCH_YES);
 
+  /* NON_OVERRIDABLE and DEFERRED exclude themselves.  */
+  if (ba->non_overridable && ba->deferred)
+    {
+      gfc_error ("NON_OVERRIDABLE and DEFERRED can't both appear at %C");
+      goto error;
+    }
+
   if (ba->access == ACCESS_UNKNOWN)
     ba->access = gfc_typebound_default_access;
 
@@ -6879,7 +7002,7 @@ match_procedure_in_type (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   char target_buf[GFC_MAX_SYMBOL_LEN + 1];
-  char* target;
+  char* target = NULL;
   gfc_typebound_proc* tb;
   bool seen_colons;
   bool seen_attrs;
@@ -6893,11 +7016,25 @@ match_procedure_in_type (void)
   block = gfc_state_stack->previous->sym;
   gcc_assert (block);
 
-  /* TODO: Really implement PROCEDURE(interface).  */
+  /* Try to match PROCEDURE(interface).  */
   if (gfc_match (" (") == MATCH_YES)
     {
-      gfc_error ("PROCEDURE(interface) at %C is not yet implemented");
-      return MATCH_ERROR;
+      m = gfc_match_name (target_buf);
+      if (m == MATCH_ERROR)
+	return m;
+      if (m != MATCH_YES)
+	{
+	  gfc_error ("Interface-name expected after '(' at %C");
+	  return MATCH_ERROR;
+	}
+
+      if (gfc_match (" )") != MATCH_YES)
+	{
+	  gfc_error ("')' expected at %C");
+	  return MATCH_ERROR;
+	}
+
+      target = target_buf;
     }
 
   /* Construct the data structure.  */
@@ -6910,6 +7047,19 @@ match_procedure_in_type (void)
   if (m == MATCH_ERROR)
     return m;
   seen_attrs = (m == MATCH_YES);
+
+  /* Check that attribute DEFERRED is given iff an interface is specified, which
+     means target != NULL.  */
+  if (tb->deferred && !target)
+    {
+      gfc_error ("Interface must be specified for DEFERRED binding at %C");
+      return MATCH_ERROR;
+    }
+  if (target && !tb->deferred)
+    {
+      gfc_error ("PROCEDURE(interface) at %C should be declared DEFERRED");
+      return MATCH_ERROR;
+    }
 
   /* Match the colons.  */
   m = gfc_match (" ::");
@@ -6933,12 +7083,17 @@ match_procedure_in_type (void)
     }
 
   /* Try to match the '=> target', if it's there.  */
-  target = NULL;
   m = gfc_match (" =>");
   if (m == MATCH_ERROR)
     return m;
   if (m == MATCH_YES)
     {
+      if (tb->deferred)
+	{
+	  gfc_error ("'=> target' is invalid for DEFERRED binding at %C");
+	  return MATCH_ERROR;
+	}
+
       if (!seen_colons)
 	{
 	  gfc_error ("'::' needed in PROCEDURE binding with explicit target"
@@ -6975,11 +7130,19 @@ match_procedure_in_type (void)
   ns = block->f2k_derived;
   gcc_assert (ns);
 
+  /* If the binding is DEFERRED, check that the containing type is ABSTRACT.  */
+  if (tb->deferred && !block->attr.abstract)
+    {
+      gfc_error ("Type '%s' containing DEFERRED binding at %C is not ABSTRACT",
+		 block->name);
+      return MATCH_ERROR;
+    }
+
   /* See if we already have a binding with this name in the symtree which would
      be an error.  If a GENERIC already targetted this binding, it may be
      already there but then typebound is still NULL.  */
-  stree = gfc_find_symtree (ns->sym_root, name);
-  if (stree && stree->typebound)
+  stree = gfc_find_symtree (ns->tb_sym_root, name);
+  if (stree && stree->n.tb)
     {
       gfc_error ("There's already a procedure with binding name '%s' for the"
 		 " derived type '%s' at %C", name, block->name);
@@ -6987,12 +7150,17 @@ match_procedure_in_type (void)
     }
 
   /* Insert it and set attributes.  */
-  if (gfc_get_sym_tree (name, ns, &stree))
-    return MATCH_ERROR;
+
+  if (!stree)
+    {
+      stree = gfc_new_symtree (&ns->tb_sym_root, name);
+      gcc_assert (stree);
+    }
+  stree->n.tb = tb;
+
   if (gfc_get_sym_tree (target, gfc_current_ns, &tb->u.specific))
     return MATCH_ERROR;
   gfc_set_sym_referenced (tb->u.specific->n.sym);
-  stree->typebound = tb;
 
   return MATCH_YES;
 }
@@ -7047,10 +7215,13 @@ gfc_match_generic (void)
 
   /* If there's already something with this name, check that it is another
      GENERIC and then extend that rather than build a new node.  */
-  st = gfc_find_symtree (ns->sym_root, name);
+  st = gfc_find_symtree (ns->tb_sym_root, name);
   if (st)
     {
-      if (!st->typebound || !st->typebound->is_generic)
+      gcc_assert (st->n.tb);
+      tb = st->n.tb;
+
+      if (!tb->is_generic)
 	{
 	  gfc_error ("There's already a non-generic procedure with binding name"
 		     " '%s' for the derived type '%s' at %C",
@@ -7058,7 +7229,6 @@ gfc_match_generic (void)
 	  goto error;
 	}
 
-      tb = st->typebound;
       if (tb->access != tbattr.access)
 	{
 	  gfc_error ("Binding at %C must have the same access as already"
@@ -7068,10 +7238,10 @@ gfc_match_generic (void)
     }
   else
     {
-      if (gfc_get_sym_tree (name, ns, &st))
-	return MATCH_ERROR;
+      st = gfc_new_symtree (&ns->tb_sym_root, name);
+      gcc_assert (st);
 
-      st->typebound = tb = gfc_get_typebound_proc ();
+      st->n.tb = tb = gfc_get_typebound_proc ();
       tb->where = gfc_current_locus;
       tb->access = tbattr.access;
       tb->is_generic = 1;
@@ -7093,19 +7263,16 @@ gfc_match_generic (void)
 	  goto error;
 	}
 
-      if (gfc_get_sym_tree (name, ns, &target_st))
-	goto error;
+      target_st = gfc_get_tbp_symtree (&ns->tb_sym_root, name);
 
       /* See if this is a duplicate specification.  */
       for (target = tb->u.generic; target; target = target->next)
 	if (target_st == target->specific_st)
 	  {
 	    gfc_error ("'%s' already defined as specific binding for the"
-		       " generic '%s' at %C", name, st->n.sym->name);
+		       " generic '%s' at %C", name, st->name);
 	    goto error;
 	  }
-
-      gfc_set_sym_referenced (target_st->n.sym);
 
       target = gfc_get_tbp_generic ();
       target->specific_st = target_st;

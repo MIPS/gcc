@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "dbgcnt.h"
 #include "debug.h"
+#include "plugin.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -338,11 +339,7 @@ enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
 struct visibility_flags visibility_options;
 
 /* What to print when a switch has no documentation.  */
-#ifdef ENABLE_CHECKING
 static const char undocumented_msg[] = N_("This switch lacks documentation");
-#else
-static const char undocumented_msg[] = "";
-#endif
 
 /* Used for bookkeeping on whether user set these flags so
    -fprofile-use/-fprofile-generate does not use them.  */
@@ -367,12 +364,6 @@ DEF_VEC_P(const_char_p);
 DEF_VEC_ALLOC_P(const_char_p,heap);
 
 static VEC(const_char_p,heap) *ignored_options;
-
-/* Function calls disallowed under -Wdisallowed-function-list=...  */
-static VEC(char_p,heap) *warning_disallowed_functions;
-
-/* If -Wdisallowed-function-list=...  */
-bool warn_disallowed_functions = false;
 
 /* Input file names.  */
 const char **in_fnames;
@@ -741,30 +732,6 @@ flag_instrument_functions_exclude_p (tree fndecl)
 }
 
 
-/* Return whether this function call is disallowed.  */
-void
-warn_if_disallowed_function_p (const_tree exp)
-{
-  if (TREE_CODE(exp) == CALL_EXPR
-      && VEC_length (char_p, warning_disallowed_functions) > 0)
-    {
-      int i;
-      char *s;
-      const char *fnname =
-          IDENTIFIER_POINTER (DECL_NAME (get_callee_fndecl (exp)));
-      for (i = 0; VEC_iterate (char_p, warning_disallowed_functions, i, s);
-           ++i)
-        {
-          if (strcmp (fnname, s) == 0)
-            {
-              warning (OPT_Wdisallowed_function_list_,
-                       "disallowed call to %qs", fnname);
-              break;
-            }
-        }
-    }
-}
-
 /* Decode and handle the vector of command line options.  LANG_MASK
    contains has a single bit set representing the current
    language.  */
@@ -807,8 +774,6 @@ void
 decode_options (unsigned int argc, const char **argv)
 {
   static bool first_time_p = true;
-  static int initial_max_aliased_vops;
-  static int initial_avg_aliased_vops;
   static int initial_min_crossjump_insns;
   static int initial_max_fields_for_field_sensitive;
   static int initial_loop_invariant_max_bbs_in_loop;
@@ -828,8 +793,6 @@ decode_options (unsigned int argc, const char **argv)
       lang_hooks.initialize_diagnostics (global_dc);
 
       /* Save initial values of parameters we reset.  */
-      initial_max_aliased_vops = MAX_ALIASED_VOPS;
-      initial_avg_aliased_vops = AVG_ALIASED_VOPS;
       initial_min_crossjump_insns
 	= compiler_params[PARAM_MIN_CROSSJUMP_INSNS].value;
       initial_max_fields_for_field_sensitive
@@ -928,7 +891,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_regmove = opt2;
   flag_strict_aliasing = opt2;
   flag_strict_overflow = opt2;
-  flag_delete_null_pointer_checks = opt2;
   flag_reorder_blocks = opt2;
   flag_reorder_functions = opt2;
   flag_tree_vrp = opt2;
@@ -936,11 +898,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_tree_pre = opt2;
   flag_tree_switch_conversion = 1;
   flag_ipa_cp = opt2;
-
-  /* Allow more virtual operators to increase alias precision.  */
-
-  set_param_value ("max-aliased-vops",
-		   (opt2) ? 500 : initial_max_aliased_vops);
 
   /* Track fields in field-sensitive alias analysis.  */
   set_param_value ("max-fields-for-field-sensitive",
@@ -960,13 +917,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_ipa_cp_clone = opt3;
   if (flag_ipa_cp_clone)
     flag_ipa_cp = 1;
-
-  /* Allow even more virtual operators.  Max-aliased-vops was set above for
-     -O2, so don't reset it unless we are at -O3.  */
-  if (opt3)
-    set_param_value ("max-aliased-vops", 1000);
-
-  set_param_value ("avg-aliased-vops", (opt3) ? 3 : initial_avg_aliased_vops);
 
   /* Just -O1/-O0 optimizations.  */
   opt1_max = (optimize <= 1);
@@ -1396,7 +1346,7 @@ print_specific_help (unsigned int include_flags,
 	default:
 	  if (i >= cl_lang_count)
 	    break;
-	  if ((exclude_flags & ((1U << cl_lang_count) - 1)) != 0)
+	  if (exclude_flags & all_langs_mask)
 	    description = _("The following options are specific to just the language ");
 	  else
 	    description = _("The following options are supported by the language ");
@@ -1409,8 +1359,12 @@ print_specific_help (unsigned int include_flags,
     {
       if (any_flags == 0)
 	{
-	  if (include_flags == CL_UNDOCUMENTED)
+	  if (include_flags & CL_UNDOCUMENTED)
 	    description = _("The following options are not documented");
+	  else if (include_flags & CL_SEPARATE)
+	    description = _("The following options take separate arguments");
+	  else if (include_flags & CL_JOINED)
+	    description = _("The following options take joined arguments");
 	  else
 	    {
 	      internal_error ("unrecognized include_flags 0x%x passed to print_specific_help",
@@ -1515,6 +1469,8 @@ common_handle_option (size_t scode, const char *arg, int value,
 	      { "warnings", CL_WARNING },
 	      { "undocumented", CL_UNDOCUMENTED },
 	      { "params", CL_PARAMS },
+	      { "joined", CL_JOINED },
+	      { "separate", CL_SEPARATE },
 	      { "common", CL_COMMON },
 	      { NULL, 0 }
 	    };
@@ -1537,6 +1493,11 @@ common_handle_option (size_t scode, const char *arg, int value,
 	      len = strlen (a);
 	    else
 	      len = comma - a;
+	    if (len == 0)
+	      {
+		a = comma + 1;
+		continue;
+	      }
 
 	    /* Check to see if the string matches an option class name.  */
 	    for (i = 0, specific_flag = 0; specifics[i].string != NULL; i++)
@@ -1545,7 +1506,7 @@ common_handle_option (size_t scode, const char *arg, int value,
 		  specific_flag = specifics[i].flag;
 		  break;
 		}
-	    
+
 	    /* Check to see if the string matches a language name.
 	       Note - we rely upon the alpha-sorted nature of the entries in
 	       the lang_names array, specifically that shorter names appear
@@ -1596,8 +1557,8 @@ common_handle_option (size_t scode, const char *arg, int value,
 	break;
       }
 
+    case OPT_fversion:
     case OPT__version:
-      print_version (stderr, "");
       exit_after_options = true;
       break;
 
@@ -1614,12 +1575,6 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_W:
       /* For backward compatibility, -W is the same as -Wextra.  */
       set_Wextra (value);
-      break;
-
-    case OPT_Wdisallowed_function_list_:
-      warn_disallowed_functions = true;
-      add_comma_separated_to_vector
-	(&warning_disallowed_functions, arg);
       break;
 
     case OPT_Werror_:
@@ -1753,6 +1708,15 @@ common_handle_option (size_t scode, const char *arg, int value,
 	return 0;
       break;
 
+    case OPT_fexcess_precision_:
+      if (!strcmp (arg, "fast"))
+	flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+      else if (!strcmp (arg, "standard"))
+	flag_excess_precision_cmdline = EXCESS_PRECISION_STANDARD;
+      else
+	error ("unknown excess precision style \"%s\"", arg);
+      break;
+
     case OPT_ffast_math:
       set_fast_math_flags (value);
       break;
@@ -1797,6 +1761,22 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fpeel_loops:
       flag_peel_loops_set = true;
+      break;
+
+    case OPT_fplugin_:
+#ifdef ENABLE_PLUGIN
+      add_new_plugin (arg);
+#else
+      error ("Plugin support is disabled.  Configure with --enable-plugin.");
+#endif
+      break;
+
+    case OPT_fplugin_arg_:
+#ifdef ENABLE_PLUGIN
+      parse_plugin_arg_opt (arg);
+#else
+      error ("Plugin support is disabled.  Configure with --enable-plugin.");
+#endif
       break;
 
     case OPT_fprofile_arcs:

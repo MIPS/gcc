@@ -112,8 +112,7 @@ readonly_error (tree arg, const char* string)
 /* Structure that holds information about declarations whose type was
    incomplete and we could not check whether it was abstract or not.  */
 
-struct pending_abstract_type GTY((chain_next ("%h.next")))
-{
+struct GTY((chain_next ("%h.next"))) pending_abstract_type {
   /* Declaration which we are checking for abstractness. It is either
      a DECL node, or an IDENTIFIER_NODE if we do not have a full
      declaration available.  */
@@ -677,18 +676,18 @@ check_narrowing (tree type, tree init)
     {
       if (TYPE_PRECISION (type) < TYPE_PRECISION (ftype))
 	{
-	  ok = false;
 	  if (TREE_CODE (init) == REAL_CST)
 	    {
+	      /* Issue 703: Loss of precision is OK as long as the value is
+		 within the representable range of the new type.  */
+	      REAL_VALUE_TYPE r;
 	      d = TREE_REAL_CST (init);
-	      if (exact_real_truncate (TYPE_MODE (type), &d)
-		  /* FIXME: As a temporary workaround for PR 36963, don't
-		     complain about narrowing from a floating
-		     literal. Hopefully this will be resolved at the
-		     September 2008 C++ meeting. */
-		  || !was_decl)
-		ok = true;
+	      real_convert (&r, TYPE_MODE (type), &d);
+	      if (real_isinf (&r))
+		ok = false;
 	    }
+	  else
+	    ok = false;
 	}
     }
   else if (INTEGRAL_OR_ENUMERATION_TYPE_P (ftype)

@@ -100,7 +100,7 @@ extern int target_memregs;
 
 /* Defining data structures for per-function information */
 
-typedef struct machine_function GTY (())
+typedef struct GTY (()) machine_function
 {
   /* How much we adjust the stack when returning from an exception
      handler.  */
@@ -188,6 +188,9 @@ machine_function;
 
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE (TARGET_A16 ? "int" : "long int")
+
+#undef UINTPTR_TYPE
+#define UINTPTR_TYPE (TARGET_A16 ? "unsigned int" : "long unsigned int")
 
 /* REGISTER USAGE */
 
@@ -591,8 +594,6 @@ typedef struct m32c_cumulative_args
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN) \
 	if (m32c_legitimize_reload_address(&(X),MODE,OPNUM,TYPE,IND_LEVELS)) \
 	  goto WIN;
-
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 #define LEGITIMATE_CONSTANT_P(X) m32c_legitimate_constant_p (X)
 

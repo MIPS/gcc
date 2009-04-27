@@ -625,9 +625,11 @@ extern struct sparc_cpu_select sparc_select[];
 /* The widest floating-point format really supported by the hardware.  */
 #define WIDEST_HARDWARE_FP_SIZE 64
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
+/* Width in bits of a pointer.  This is the size of ptr_mode.  */
 #define POINTER_SIZE (TARGET_PTR64 ? 64 : 32)
+
+/* This is the machine mode used for addresses.  */
+#define Pmode (TARGET_ARCH64 ? DImode : SImode)
 
 /* If we have to extend pointers (only when TARGET_ARCH64 and not
    TARGET_PTR64), we want to do it unsigned.   This macro does nothing
@@ -1558,12 +1560,10 @@ function_arg_padding ((MODE), (TYPE))
  ? 128 : PARM_BOUNDARY)
 
 /* Define the information needed to generate branch and scc insns.  This is
-   stored from the compare operation.  Note that we can't use "rtx" here
-   since it hasn't been defined!  */
+   stored from the compare operation.  */
 
 extern GTY(()) rtx sparc_compare_op0;
 extern GTY(()) rtx sparc_compare_op1;
-extern GTY(()) rtx sparc_compare_emitted;
 
 
 /* Generate the special assembly code needed to tell the assembler whatever
@@ -2027,9 +2027,6 @@ do {                                                                    \
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* Specify the machine mode used for addresses.  */
-#define Pmode (TARGET_ARCH64 ? DImode : SImode)
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,

@@ -321,7 +321,7 @@ df_rd_alloc (bitmap all_blocks)
 static void
 df_rd_bb_local_compute_process_def (struct df_rd_bb_info *bb_info, 
 				    df_ref *def_rec,
-				    enum df_ref_flags top_flag)
+				    int top_flag)
 {
   while (*def_rec)
     {
@@ -2026,7 +2026,7 @@ df_chain_reset (bitmap blocks_to_clear ATTRIBUTE_UNUSED)
 static void
 df_chain_create_bb_process_use (bitmap local_rd,
 				df_ref *use_rec,
-				enum df_ref_flags top_flag)
+				int top_flag)
 {
   bitmap_iterator bi;
   unsigned int def_index;
@@ -3935,5 +3935,3 @@ df_simulate_finalize_forwards (basic_block bb, bitmap live)
 	bitmap_clear_bit (live, DF_REF_REGNO (def));
     }
 }
-
-
