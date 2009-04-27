@@ -77,7 +77,8 @@ struct funct_state_d
   /* See above.  */
   enum pure_const_state_e pure_const_state;
   /* What user set here; we can be always sure about this.  */
-  enum pure_const_state_e state_set_in_source; 
+  enum pure_const_state_e state_previously_known; 
+  bool looping_previously_known; 
   bool looping_in_source; 
 
   /* True if the function could possibly infinite loop.  There are a
@@ -566,7 +567,8 @@ analyze_function (struct cgraph_node *fn, bool ipa)
 
   l = XCNEW (struct funct_state_d);
   l->pure_const_state = IPA_CONST;
-  l->state_set_in_source = IPA_NEITHER;
+  l->state_previously_known = IPA_NEITHER;
+  l->looping_previously_known = true;
   l->looping_in_source = true;
   l->looping = false;
   l->can_throw = false;
@@ -635,17 +637,17 @@ end:
   if (TREE_READONLY (decl))
     {
       l->pure_const_state = IPA_CONST;
-      l->state_set_in_source = IPA_CONST;
+      l->state_previously_known = IPA_CONST;
       if (!DECL_LOOPING_CONST_OR_PURE_P (decl))
-        l->looping = false, l->looping_in_source = false;
+        l->looping = false, l->looping_previously_known = false;
     }
   if (DECL_PURE_P (decl))
     {
       if (l->pure_const_state != IPA_CONST)
         l->pure_const_state = IPA_PURE;
-      l->state_set_in_source = IPA_PURE;
+      l->state_previously_known = IPA_PURE;
       if (!DECL_LOOPING_CONST_OR_PURE_P (decl))
-        l->looping = false, l->looping_in_source = false;
+        l->looping = false, l->looping_previously_known = false;
     }
   if (TREE_NOTHROW (decl))
     l->can_throw = false;
@@ -836,10 +838,10 @@ propagate (void)
 	  enum pure_const_state_e this_state = pure_const_state;
 	  bool this_looping = looping;
 
-	  if (w_l->state_set_in_source != IPA_NEITHER
-	      && this_state > w_l->state_set_in_source)
-            this_state = w_l->state_set_in_source;
-	  if (!w_l->looping_in_source)
+	  if (w_l->state_previously_known != IPA_NEITHER
+	      && this_state > w_l->state_previously_known)
+            this_state = w_l->state_previously_known;
+	  if (!w_l->looping_previously_known)
 	    this_looping = false;
 
 	  /* All nodes within a cycle share the same info.  */

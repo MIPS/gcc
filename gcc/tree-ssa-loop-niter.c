@@ -1953,7 +1953,8 @@ find_loop_niter (struct loop *loop, edge *exit)
   return niter ? niter : chrec_dont_know;
 }
 
-/* Return true if loop is known to be finite.  */
+/* Return true if loop is known to have bounded number of iterations.  */
+
 bool
 finite_loop_p (struct loop *loop)
 {
