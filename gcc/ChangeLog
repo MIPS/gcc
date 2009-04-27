@@ -1,3 +1,7 @@
+2009-04-27  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (remove_eh_handler_and_replace): Update prev_try pointers.
+
 2009-04-27  Richard Guenther  <rguenther@suse.de>
 
 	* tree-cfg.c (remove_useless_stmts): Verify stmts afterwards.
