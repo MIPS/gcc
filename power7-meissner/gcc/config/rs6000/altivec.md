@@ -84,7 +84,7 @@
    (UNSPEC_VUPKLSB      170)
    (UNSPEC_VUPKLPX      171)
    (UNSPEC_VUPKLSH      172)
-   (UNSPEC_PREDICATE    173)
+   ;; 173 deleted
    (UNSPEC_DST          190)
    (UNSPEC_DSTT         191)
    (UNSPEC_DSTST        192)
@@ -1467,50 +1467,92 @@
   "vupklsh %0,%1"
   [(set_attr "type" "vecperm")])
 
-;; AltiVec predicates.
-
-(define_expand "cr6_test_for_zero"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(eq:SI (reg:CC 74)
-	       (const_int 0)))]
-  "TARGET_ALTIVEC"
-  "")	
-
-(define_expand "cr6_test_for_zero_reverse"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(eq:SI (reg:CC 74)
-	       (const_int 0)))
-   (set (match_dup 0) (minus:SI (const_int 1) (match_dup 0)))]
-  "TARGET_ALTIVEC"
-  "")
-
-(define_expand "cr6_test_for_lt"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(lt:SI (reg:CC 74)
-	       (const_int 0)))]
-  "TARGET_ALTIVEC"
-  "")
-
-(define_expand "cr6_test_for_lt_reverse"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(lt:SI (reg:CC 74)
-	       (const_int 0)))
-   (set (match_dup 0) (minus:SI (const_int 1) (match_dup 0)))]
-  "TARGET_ALTIVEC"
-  "")
-
-;; We can get away with generating the opcode on the fly (%3 below)
-;; because all the predicates have the same scheduling parameters.
-
-(define_insn "altivec_predicate_<mode>"
+;; Compare vectors producing a vector result and a predicate, setting CR6 to
+;; indicate a combined status
+(define_insn "*altivec_vcmpequ<VI_char>_p"
   [(set (reg:CC 74)
-	(unspec:CC [(match_operand:V 1 "register_operand" "v")
-		    (match_operand:V 2 "register_operand" "v")
-		    (match_operand 3 "any_operand" "")] UNSPEC_PREDICATE))
-   (clobber (match_scratch:V 0 "=v"))]
-  "TARGET_ALTIVEC"
-  "%3 %0,%1,%2"
-[(set_attr "type" "veccmp")])
+	(unspec:CC [(eq:CC (match_operand:VI 1 "register_operand" "v")
+			   (match_operand:VI 2 "register_operand" "v"))]
+		   UNSPEC_PREDICATE))
+   (set (match_operand:VI 0 "register_operand" "=v")
+	(eq:VI (match_dup 1)
+	       (match_dup 2)))]
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
+  "vcmpequ<VI_char>. %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "*altivec_vcmpgts<VI_char>_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(gt:CC (match_operand:VI 1 "register_operand" "v")
+			   (match_operand:VI 2 "register_operand" "v"))]
+		   UNSPEC_PREDICATE))
+   (set (match_operand:VI 0 "register_operand" "=v")
+	(gt:VI (match_dup 1)
+	       (match_dup 2)))]
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
+  "vcmpgts<VI_char>. %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "*altivec_vcmpgtu<VI_char>_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(gtu:CC (match_operand:VI 1 "register_operand" "v")
+			    (match_operand:VI 2 "register_operand" "v"))]
+		   UNSPEC_PREDICATE))
+   (set (match_operand:VI 0 "register_operand" "=v")
+	(gtu:VI (match_dup 1)
+		(match_dup 2)))]
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
+  "vcmpgtu<VI_char>. %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "*altivec_vcmpeqfp_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(eq:CC (match_operand:V4SF 1 "register_operand" "v")
+			   (match_operand:V4SF 2 "register_operand" "v"))]
+		   UNSPEC_PREDICATE))
+   (set (match_operand:V4SF 0 "register_operand" "=v")
+	(eq:V4SF (match_dup 1)
+		 (match_dup 2)))]
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
+  "vcmpeqfp. %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "*altivec_vcmpgtfp_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(gt:CC (match_operand:V4SF 1 "register_operand" "v")
+			   (match_operand:V4SF 2 "register_operand" "v"))]
+		   UNSPEC_PREDICATE))
+   (set (match_operand:V4SF 0 "register_operand" "=v")
+	(gt:V4SF (match_dup 1)
+		 (match_dup 2)))]
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
+  "vcmpgtfp. %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "*altivec_vcmpgefp_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(ge:CC (match_operand:V4SF 1 "register_operand" "v")
+			   (match_operand:V4SF 2 "register_operand" "v"))]
+		   UNSPEC_PREDICATE))
+   (set (match_operand:V4SF 0 "register_operand" "=v")
+	(ge:V4SF (match_dup 1)
+		 (match_dup 2)))]
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
+  "vcmpgefp. %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "altivec_vcmpbfp_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(match_operand:V4SF 1 "register_operand" "v")
+		    (match_operand:V4SF 2 "register_operand" "v")]
+		   UNSPEC_VCMPBFP))
+   (set (match_operand:V4SF 0 "register_operand" "=v")
+        (unspec:V4SF [(match_dup 1)
+                      (match_dup 2)] 
+                      UNSPEC_VCMPBFP))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
+  "vcmpbfp. %0,%1,%2"
+  [(set_attr "type" "veccmp")])
 
 (define_insn "altivec_mtvscr"
   [(set (reg:SI 110)

@@ -768,6 +768,58 @@
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
+;; Floating point scalar compare
+(define_insn "*vsx_cmpdf_internal1"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y,?y")
+	(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "ws,wa")
+		      (match_operand:DF 2 "gpc_reg_operand" "ws,wa")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
+   && VECTOR_UNIT_VSX_P (DFmode)"
+  "xscmpudp %0,%x1,%x2"
+  [(set_attr "type" "fpcompare")])
+
+;; Compare vectors producing a vector result and a predicate, setting CR6 to
+;; indicate a combined status
+(define_insn "*vsx_eq_<mode>_p"
+  [(set (reg:CC 74)
+	(unspec:CC
+	 [(eq:CC (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,?wa")
+		 (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,?wa"))]
+	 UNSPEC_PREDICATE))
+   (set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(eq:VSX_F (match_dup 1)
+		  (match_dup 2)))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "xvcmpeq<VSs>. %x0,%x1,%x2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "*vsx_gt_<mode>_p"
+  [(set (reg:CC 74)
+	(unspec:CC
+	 [(gt:CC (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,?wa")
+		 (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,?wa"))]
+	 UNSPEC_PREDICATE))
+   (set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(gt:VSX_F (match_dup 1)
+		  (match_dup 2)))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "xvcmpgt<VSs>. %x0,%x1,%x2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "*vsx_ge_<mode>_p"
+  [(set (reg:CC 74)
+	(unspec:CC
+	 [(ge:CC (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,?wa")
+		 (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,?wa"))]
+	 UNSPEC_PREDICATE))
+   (set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(ge:VSX_F (match_dup 1)
+		  (match_dup 2)))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "xvcmpge<VSs>. %x0,%x1,%x2"
+  [(set_attr "type" "veccmp")])
+
+;; Vector select
 (define_insn "*vsx_vsel<mode>"
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
 	(if_then_else:VSX_L (ne (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")

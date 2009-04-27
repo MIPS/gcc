@@ -128,7 +128,7 @@ Target Undocumented Report Var(TARGET_VSX_SCALAR_MEMORY)
 ; If -mvsx, use VSX scalar memory reference instructions for scalar double (off by default)
 
 mpower7-adjust-cost
-Target Undocumented Var(TARGET_POWER7_ADJUST_COST)
+Target Undocumented Var(TARGET_POWER7_ADJUST_COST) Init(-1)
 ; Add extra cost for setting CR registers before a branch like is done for Power5
 
 mallow-timode

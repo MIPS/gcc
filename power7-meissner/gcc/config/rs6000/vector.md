@@ -30,6 +30,9 @@
 ;; Vector float modes
 (define_mode_iterator VEC_F [V4SF V2DF])
 
+;; Vector arithmetic modes
+(define_mode_iterator VEC_A [V16QI V8HI V4SI V4SF V2DF])
+
 ;; Vector logical modes
 (define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF TI])
 
@@ -61,6 +64,11 @@
 (define_mode_attr VEC_INT [(V4SF  "V4SI")
 			   (V2DF  "V2DI")])
 
+;; constants for unspec
+(define_constants
+  [(UNSPEC_PREDICATE	400)])
+
+
 ;; Vector move instructions.
 (define_expand "mov<mode>"
   [(set (match_operand:VEC_M 0 "nonimmediate_operand" "")
@@ -356,6 +364,88 @@
 			    (match_operand:VEC_L 2 "vlogical_operand" "")
 			    (match_operand:VEC_L 1 "vlogical_operand" "")))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+;; Expansions that compare vectors producing a vector result and a predicate,
+;; setting CR6 to indicate a combined status
+(define_expand "vector_eq_<mode>_p"
+  [(parallel
+    [(set (reg:CC 74)
+	  (unspec:CC [(eq:CC (match_operand:VEC_A 1 "vlogical_operand" "")
+			     (match_operand:VEC_A 2 "vlogical_operand" ""))]
+		     UNSPEC_PREDICATE))
+     (set (match_operand:VEC_A 0 "vlogical_operand" "")
+	  (eq:VEC_A (match_dup 1)
+		    (match_dup 2)))])]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+(define_expand "vector_gt_<mode>_p"
+  [(parallel
+    [(set (reg:CC 74)
+	  (unspec:CC [(gt:CC (match_operand:VEC_A 1 "vlogical_operand" "")
+			     (match_operand:VEC_A 2 "vlogical_operand" ""))]
+		     UNSPEC_PREDICATE))
+     (set (match_operand:VEC_A 0 "vlogical_operand" "")
+	  (gt:VEC_A (match_dup 1)
+		    (match_dup 2)))])]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+(define_expand "vector_ge_<mode>_p"
+  [(parallel
+    [(set (reg:CC 74)
+	  (unspec:CC [(ge:CC (match_operand:VEC_F 1 "vfloat_operand" "")
+			     (match_operand:VEC_F 2 "vfloat_operand" ""))]
+		     UNSPEC_PREDICATE))
+     (set (match_operand:VEC_F 0 "vfloat_operand" "")
+	  (ge:VEC_F (match_dup 1)
+		    (match_dup 2)))])]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+(define_expand "vector_gtu_<mode>_p"
+  [(parallel
+    [(set (reg:CC 74)
+	  (unspec:CC [(gtu:CC (match_operand:VEC_I 1 "vint_operand" "")
+			      (match_operand:VEC_I 2 "vint_operand" ""))]
+		     UNSPEC_PREDICATE))
+     (set (match_operand:VEC_I 0 "vlogical_operand" "")
+	  (gtu:VEC_I (match_dup 1)
+		     (match_dup 2)))])]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+;; AltiVec/VSX predicates.
+
+(define_expand "cr6_test_for_zero"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(eq:SI (reg:CC 74)
+	       (const_int 0)))]
+  "TARGET_ALTIVEC || TARGET_VSX"
+  "")	
+
+(define_expand "cr6_test_for_zero_reverse"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(eq:SI (reg:CC 74)
+	       (const_int 0)))
+   (set (match_dup 0) (minus:SI (const_int 1) (match_dup 0)))]
+  "TARGET_ALTIVEC || TARGET_VSX"
+  "")
+
+(define_expand "cr6_test_for_lt"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(lt:SI (reg:CC 74)
+	       (const_int 0)))]
+  "TARGET_ALTIVEC || TARGET_VSX"
+  "")
+
+(define_expand "cr6_test_for_lt_reverse"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(lt:SI (reg:CC 74)
+	       (const_int 0)))
+   (set (match_dup 0) (minus:SI (const_int 1) (match_dup 0)))]
+  "TARGET_ALTIVEC || TARGET_VSX"
   "")
 
 

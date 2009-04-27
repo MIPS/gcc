@@ -2911,6 +2911,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SI, RS6000_BTI_V4SI },
   { ALTIVEC_BUILTIN_VCMPGT_P, ALTIVEC_BUILTIN_VCMPGTFP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SF, RS6000_BTI_V4SF },
+  { ALTIVEC_BUILTIN_VCMPGT_P, VSX_BUILTIN_XVCMPGTDP_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
 
   { ALTIVEC_BUILTIN_VCMPEQ_P, ALTIVEC_BUILTIN_VCMPEQUB_P,
@@ -2959,6 +2961,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI },
   { ALTIVEC_BUILTIN_VCMPEQ_P, ALTIVEC_BUILTIN_VCMPEQFP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SF, RS6000_BTI_V4SF },
+  { ALTIVEC_BUILTIN_VCMPEQ_P, VSX_BUILTIN_XVCMPEQDP_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
 
   /* cmpge is the same as cmpgt for all cases except floating point.
@@ -3002,6 +3006,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SI, RS6000_BTI_V4SI },
   { ALTIVEC_BUILTIN_VCMPGE_P, ALTIVEC_BUILTIN_VCMPGEFP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SF, RS6000_BTI_V4SF },
+  { ALTIVEC_BUILTIN_VCMPGE_P, VSX_BUILTIN_XVCMPGEDP_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
   { 0, 0, 0, 0, 0, 0 }
 };
@@ -3208,7 +3214,8 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
 	return build_constructor (type, vec);
     }
 
-  /* For now use pointer tricks to do the extaction.  */
+  /* For now use pointer tricks to do the extaction, unless we are on VSX
+     extracting a double from a constant offset.  */
   if (fcode == ALTIVEC_BUILTIN_VEC_EXTRACT)
     {
       tree arg1;
@@ -3217,6 +3224,7 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
       tree arg1_inner_type;
       tree decl, stmt;
       tree innerptrtype;
+      enum machine_mode mode;
 
       /* No second argument. */
       if (!arglist || !TREE_CHAIN (arglist)
@@ -3234,6 +3242,25 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
 	goto bad; 
       if (!INTEGRAL_TYPE_P (TREE_TYPE (arg2)))
 	goto bad; 
+
+      /* If we can use the VSX xxpermdi instruction, use that for extract.  */
+      mode = TYPE_MODE (arg1_type);
+      if ((mode == V2DFmode || mode == V2DImode) && VECTOR_UNIT_VSX_P (mode)
+	  && TREE_CODE (arg2) == INTEGER_CST
+	  && TREE_INT_CST_HIGH (arg2) == 0
+	  && (TREE_INT_CST_LOW (arg2) == 0 || TREE_INT_CST_LOW (arg2) == 1))
+	{
+	  tree call = NULL_TREE;
+
+	  if (mode == V2DFmode)
+	    call = rs6000_builtin_decls[VSX_BUILTIN_VEC_EXT_V2DF];
+	  else if (mode == V2DImode)
+	    call = rs6000_builtin_decls[VSX_BUILTIN_VEC_EXT_V2DI];
+
+	  if (call)
+	    return build_call_expr (call, 2, arg1, arg2);
+	}
+
       /* Build *(((arg1_inner_type*)&(vector type){arg1})+arg2). */
       arg1_inner_type = TREE_TYPE (arg1_type);
       arg2 = build_binary_op (input_location, BIT_AND_EXPR, arg2,
@@ -3263,7 +3290,8 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
       return stmt;
     }
 
-  /* For now use pointer tricks to do the insertation.  */
+  /* For now use pointer tricks to do the insertation, unless we are on VSX
+     inserting a double to a constant offset..  */
   if (fcode == ALTIVEC_BUILTIN_VEC_INSERT)
     {
       tree arg0;
@@ -3273,7 +3301,8 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
       tree arg1_inner_type;
       tree decl, stmt;
       tree innerptrtype;
-      
+      enum machine_mode mode;
+
       /* No second or third arguments. */
       if (!arglist || !TREE_CHAIN (arglist)
 	  || !TREE_CHAIN (TREE_CHAIN (arglist))
@@ -3292,6 +3321,27 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
 	goto bad; 
       if (!INTEGRAL_TYPE_P (TREE_TYPE (arg2)))
 	goto bad; 
+
+      /* If we can use the VSX xxpermdi instruction, use that for insert.  */
+      mode = TYPE_MODE (arg1_type);
+      if ((mode == V2DFmode || mode == V2DImode) && VECTOR_UNIT_VSX_P (mode)
+	  && TREE_CODE (arg2) == INTEGER_CST
+	  && TREE_INT_CST_HIGH (arg2) == 0
+	  && (TREE_INT_CST_LOW (arg2) == 0 || TREE_INT_CST_LOW (arg2) == 1))
+	{
+	  tree call = NULL_TREE;
+
+	  if (mode == V2DFmode)
+	    call = rs6000_builtin_decls[VSX_BUILTIN_VEC_SET_V2DF];
+	  else if (mode == V2DImode)
+	    call = rs6000_builtin_decls[VSX_BUILTIN_VEC_SET_V2DI];
+
+	  /* Note, __builtin_vec_insert_<xxx> has vector and scalar types
+	     reversed.  */
+	  if (call)
+	    return build_call_expr (call, 3, arg1, arg0, arg2);
+	}
+
       /* Build *(((arg1_inner_type*)&(vector type){arg1})+arg2) = arg0. */
       arg1_inner_type = TREE_TYPE (arg1_type);
       arg2 = build_binary_op (input_location, BIT_AND_EXPR, arg2,
