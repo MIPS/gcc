@@ -2589,6 +2589,8 @@ cp_parser_skip_to_end_of_block_or_statement (cp_parser* parser)
 	  /* Stop if this is an unnested '}', or closes the outermost
 	     nesting level.  */
 	  nesting_depth--;
+	  if (nesting_depth < 0)
+	    return;
 	  if (!nesting_depth)
 	    nesting_depth = -1;
 	  break;
@@ -4608,8 +4610,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    if (args)
 		      {
 			koenig_p = true;
-			postfix_expression
-			  = perform_koenig_lookup (postfix_expression, args);
+			if (!any_type_dependent_arguments_p (args))
+			  postfix_expression
+			    = perform_koenig_lookup (postfix_expression, args);
 		      }
 		    else
 		      postfix_expression
@@ -4631,8 +4634,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    if (!DECL_FUNCTION_MEMBER_P (fn))
 		      {
 			koenig_p = true;
-			postfix_expression
-			  = perform_koenig_lookup (postfix_expression, args);
+			if (!any_type_dependent_arguments_p (args))
+			  postfix_expression
+			    = perform_koenig_lookup (postfix_expression, args);
 		      }
 		  }
 	      }
@@ -9953,7 +9957,7 @@ cp_parser_template_name (cp_parser* parser,
 	  && !template_keyword_p
 	  && parser->scope && TYPE_P (parser->scope)
 	  && check_dependency_p
-	  && dependent_scope_p (parser->scope)
+	  && dependent_type_p (parser->scope)
 	  /* Do not do this for dtors (or ctors), since they never
 	     need the template keyword before their name.  */
 	  && !constructor_name_p (identifier, parser->scope))
@@ -10091,6 +10095,12 @@ cp_parser_template_argument_list (cp_parser* parser)
          argument pack. */
       if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
         {
+	  if (argument == error_mark_node)
+	    {
+	      cp_token *token = cp_lexer_peek_token (parser->lexer);
+	      error ("%Hexpected parameter pack before %<...%>",
+		     &token->location);
+	    }
           /* Consume the `...' token. */
           cp_lexer_consume_token (parser->lexer);
 
@@ -10497,7 +10507,6 @@ cp_parser_explicit_specialization (cp_parser* parser)
   if (!begin_specialization ())
     {
       end_specialization ();
-      cp_parser_skip_to_end_of_block_or_statement (parser);
       return;
     }
 
@@ -11489,6 +11498,11 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
     }
   else
     value = NULL_TREE;
+
+  /* If we are processing a template, make sure the initializer of the
+     enumerator doesn't contain any bare template parameter pack.  */
+  if (check_for_bare_parameter_packs (value))
+    value = error_mark_node;
 
   /* Create the enumerator.  */
   build_enumerator (identifier, value, type);
@@ -16226,43 +16240,11 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	 cannot look up the name if the scope is not a class type; it
 	 might, for example, be a template type parameter.  */
       dependent_p = (TYPE_P (parser->scope)
-		     && dependent_scope_p (parser->scope));
+		     && !(parser->in_declarator_p
+			  && currently_open_class (parser->scope))
+		     && dependent_type_p (parser->scope));
       if ((check_dependency || !CLASS_TYPE_P (parser->scope))
-	  && dependent_p)
-	/* Defer lookup.  */
-	decl = error_mark_node;
-      else
-	{
-	  tree pushed_scope = NULL_TREE;
-
-	  /* If PARSER->SCOPE is a dependent type, then it must be a
-	     class type, and we must not be checking dependencies;
-	     otherwise, we would have processed this lookup above.  So
-	     that PARSER->SCOPE is not considered a dependent base by
-	     lookup_member, we must enter the scope here.  */
-	  if (dependent_p)
-	    pushed_scope = push_scope (parser->scope);
-	  /* If the PARSER->SCOPE is a template specialization, it
-	     may be instantiated during name lookup.  In that case,
-	     errors may be issued.  Even if we rollback the current
-	     tentative parse, those errors are valid.  */
-	  decl = lookup_qualified_name (parser->scope, name,
-					tag_type != none_type,
-					/*complain=*/true);
-
-	  /* If we have a single function from a using decl, pull it out.  */
-	  if (TREE_CODE (decl) == OVERLOAD
-	      && !really_overloaded_fn (decl))
-	    decl = OVL_FUNCTION (decl);
-
-	  if (pushed_scope)
-	    pop_scope (pushed_scope);
-	}
-
-      /* If the scope is a dependent type and either we deferred lookup or
-	 we did lookup but didn't find the name, rememeber the name.  */
-      if (decl == error_mark_node && TYPE_P (parser->scope)
-	  && dependent_type_p (parser->scope))
+	   && dependent_p)
 	{
 	  if (tag_type)
 	    {
@@ -16286,6 +16268,34 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	    decl = build_qualified_name (/*type=*/NULL_TREE,
 					 parser->scope, name,
 					 is_template);
+	}
+      else
+	{
+	  tree pushed_scope = NULL_TREE;
+
+	  /* If PARSER->SCOPE is a dependent type, then it must be a
+	     class type, and we must not be checking dependencies;
+	     otherwise, we would have processed this lookup above.  So
+	     that PARSER->SCOPE is not considered a dependent base by
+	     lookup_member, we must enter the scope here.  */
+	  if (dependent_p)
+	    pushed_scope = push_scope (parser->scope);
+	  /* If the PARSER->SCOPE is a template specialization, it
+	     may be instantiated during name lookup.  In that case,
+	     errors may be issued.  Even if we rollback the current
+	     tentative parse, those errors are valid.  */
+	  decl = lookup_qualified_name (parser->scope, name,
+					tag_type != none_type,
+					/*complain=*/true);
+
+	  /* If we have a single function from a using decl, pull it out.  */
+	  if (decl
+	      && TREE_CODE (decl) == OVERLOAD
+	      && !really_overloaded_fn (decl))
+	    decl = OVL_FUNCTION (decl);
+
+	  if (pushed_scope)
+	    pop_scope (pushed_scope);
 	}
       parser->qualifying_scope = parser->scope;
       parser->object_scope = NULL_TREE;
