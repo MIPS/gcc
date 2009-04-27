@@ -320,7 +320,7 @@ insn_sets_resource_p (rtx insn, struct resources *res,
   CLEAR_RESOURCE (&insn_sets);
   mark_set_resources (insn, &insn_sets, 0,
 		      (include_delayed_effects
-		       ? MARK_SRC_DEST_CALL : MARK_SRC_DEST);
+		       ? MARK_SRC_DEST_CALL : MARK_SRC_DEST));
   return resource_conflicts_p (&insn_sets, res);
 }
 
