@@ -56,6 +56,10 @@
 	PR middle-end/39829
 	* gcc.dg/torture/pr39829.c: New testcase.
 
+2009-04-21  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/tree-ssa/cswtch-2.c: New test.
+
 2009-04-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:

@@ -459,6 +459,28 @@ build_constructors (gimple swtch)
     }
 }
 
+/* If all values in the constructor vector are the same, return the value.
+   Otherwise return NULL_TREE.  Not supposed to be called for empty
+   vectors.  */
+
+static tree
+constructor_contains_same_values_p (VEC (constructor_elt, gc) *vec)
+{
+  int i, len = VEC_length (constructor_elt, vec);
+  tree prev = NULL_TREE;
+
+  for (i = 0; i < len; i++)
+    {
+      constructor_elt *elt = VEC_index (constructor_elt, vec, i);
+      
+      if (!prev)
+	prev = elt->value;
+      else if (!operand_equal_p (elt->value, prev, OEP_ONLY_CONST))
+	return NULL_TREE;
+    }
+  return prev;
+}
+
 /* Create an appropriate array type and declaration and assemble a static array
    variable.  Also create a load statement that initializes the variable in
    question with a value from the static array.  SWTCH is the switch statement
@@ -472,35 +494,44 @@ static void
 build_one_array (gimple swtch, int num, tree arr_index_type, gimple phi,
 		 tree tidx)
 {
-  tree array_type, ctor, decl, value_type, name, fetch;
+  tree name, cst;
   gimple load;
   gimple_stmt_iterator gsi;
 
   gcc_assert (info.default_values[num]);
-  value_type = TREE_TYPE (info.default_values[num]);
-  array_type = build_array_type (value_type, arr_index_type);
-
-  ctor = build_constructor (array_type, info.constructors[num]);
-  TREE_CONSTANT (ctor) = true;
-
-  decl = build_decl (VAR_DECL, NULL_TREE, array_type);
-  TREE_STATIC (decl) = 1;
-  DECL_INITIAL (decl) = ctor;
-
-  DECL_NAME (decl) = create_tmp_var_name ("CSWTCH");
-  DECL_ARTIFICIAL (decl) = 1;
-  TREE_CONSTANT (decl) = 1;
-  add_referenced_var (decl);
-  varpool_mark_needed_node (varpool_node (decl));
-  varpool_finalize_decl (decl);
-  mark_sym_for_renaming (decl);
 
   name = make_ssa_name (SSA_NAME_VAR (PHI_RESULT (phi)), NULL);
   info.target_inbound_names[num] = name;
 
-  fetch = build4 (ARRAY_REF, value_type, decl, tidx, NULL_TREE,
-		  NULL_TREE);
-  load = gimple_build_assign (name, fetch);
+  cst = constructor_contains_same_values_p (info.constructors[num]);                                                                    
+  if (cst)
+    load = gimple_build_assign (name, cst);
+  else
+    {
+      tree array_type, ctor, decl, value_type, fetch;
+
+      value_type = TREE_TYPE (info.default_values[num]);
+      array_type = build_array_type (value_type, arr_index_type);
+
+      ctor = build_constructor (array_type, info.constructors[num]);
+      TREE_CONSTANT (ctor) = true;
+
+      decl = build_decl (VAR_DECL, NULL_TREE, array_type);
+      TREE_STATIC (decl) = 1;
+      DECL_INITIAL (decl) = ctor;
+
+      DECL_NAME (decl) = create_tmp_var_name ("CSWTCH");
+      DECL_ARTIFICIAL (decl) = 1;
+      TREE_CONSTANT (decl) = 1;
+      add_referenced_var (decl);
+      varpool_mark_needed_node (varpool_node (decl));
+      varpool_finalize_decl (decl);
+      mark_sym_for_renaming (decl);
+
+      fetch = build4 (ARRAY_REF, value_type, decl, tidx, NULL_TREE,
+		      NULL_TREE);
+      load = gimple_build_assign (name, fetch);
+    }
   SSA_NAME_DEF_STMT (name) = load;
 
   gsi = gsi_for_stmt (swtch);

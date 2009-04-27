@@ -17,6 +17,43 @@
 
 2009-04-26  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-nested.c (get_nonlocal_vla_type): If not optimizing, call
+	note_nonlocal_vla_type for nonlocal VLAs.
+	(note_nonlocal_vla_type, note_nonlocal_block_vlas,
+	contains_remapped_vars, remap_vla_decls): New functions.
+	(convert_nonlocal_reference_stmt): If not optimizing, call
+	note_nonlocal_block_vlas on GIMPLE_BIND block vars.
+	(nesting_copy_decl): Return {VAR,PARM,RESULT}_DECL unmodified
+	if it wasn't found in var_map.
+	(finalize_nesting_tree_1): Call remap_vla_decls.  If outermost
+	GIMPLE_BIND doesn't have gimple_bind_block, chain debug_var_chain
+	to BLOCK_VARS (DECL_INITIAL (root->context)) instead of calling
+	declare_vars.
+	* gimplify.c (nonlocal_vlas): New variable.
+	(gimplify_var_or_parm_decl): Add debug VAR_DECLs for non-local
+	referenced VLAs.
+	(gimplify_body): Create and destroy nonlocal_vlas.
+
+	* dwarf2out.c (loc_descr_plus_const): New function.
+	(build_cfa_aligned_loc, tls_mem_loc_descriptor,
+	mem_loc_descriptor, loc_descriptor_from_tree_1,
+	descr_info_loc, gen_variable_die): Use it.
+
+	* tree.h (DECL_BY_REFERENCE): Note that it is also valid for
+	!TREE_STATIC VAR_DECLs.
+	* dwarf2out.c (loc_by_reference, gen_decl_die): Handle
+	DECL_BY_REFERENCE on !TREE_STATIC VAR_DECLs.
+	(gen_variable_die): Likewise.  Don't look at TREE_PRIVATE if
+	DECL_BY_REFERENCE is valid.
+	* dbxout.c (DECL_ACCESSIBILITY_CHAR): Don't look at TREE_PRIVATE
+	for PARM_DECLs, RESULT_DECLs or !TREE_STATIC VAR_DECLs.
+	* tree-nested.c (get_nonlocal_debug_decl, get_local_debug_decl):
+	Copy DECL_BY_REFERENCE.
+	(struct nesting_copy_body_data): New type.
+	(nesting_copy_decl): New function.
+	(finalize_nesting_tree_1): Remap types of debug_var_chain variables,
+	if they have variable length.
+
 	PR inline-asm/39543
 	* fwprop.c (forward_propagate_asm): New function.
 	(forward_propagate_and_simplify): Propagate also into __asm, if it
@@ -118,6 +155,12 @@
 	PR tree-optimization/39824
 	* tree-ssa-ccp.c (fold_const_aggregate_ref): For INDIRECT_REFs
 	make sure the types are compatible.
+
+2009-04-21  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-switch-conversion.c (constructor_contains_same_values_p):
+	New function.
+	(build_one_array): Create assigns of constants if possible.
 
 2009-04-21  Jakub Jelinek  <jakub@redhat.com>
 
