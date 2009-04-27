@@ -310,6 +310,8 @@ int rs6000_vector_align[NUM_MACHINE_MODES];
 /* Describe the register classes used by VSX instructions.  */
 enum reg_class rs6000_vsx_reg_class = NO_REGS;
 
+/* Map selected modes to types for builtins.  */
+static tree builtin_mode_to_type[MAX_MACHINE_MODE];
 
 /* Target cpu costs.  */
 
@@ -946,8 +948,7 @@ static rtx altivec_expand_ld_builtin (tree, rtx, bool *);
 static rtx altivec_expand_st_builtin (tree, rtx, bool *);
 static rtx altivec_expand_dst_builtin (tree, rtx, bool *);
 static rtx altivec_expand_abs_builtin (enum insn_code, tree, rtx);
-static rtx altivec_expand_predicate_builtin (enum insn_code,
-					     const char *, tree, rtx);
+static rtx altivec_expand_predicate_builtin (enum insn_code, tree, rtx);
 static rtx altivec_expand_stv_builtin (enum insn_code, tree);
 static rtx altivec_expand_vec_init_builtin (tree, tree, rtx);
 static rtx altivec_expand_vec_set_builtin (tree);
@@ -3832,12 +3833,12 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
       if (mode == V2DFmode)
 	{
-	  splat = gen_vsx_splatv2df;
+	  splat = gen_vsx_splat_v2df;
 	  concat = gen_vsx_concat_v2df;
 	}
       else
 	{
-	  splat = gen_vsx_splatv2di;
+	  splat = gen_vsx_splat_v2di;
 	  concat = gen_vsx_concat_v2di;
 	}
 
@@ -3909,16 +3910,12 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
   int width = GET_MODE_SIZE (inner_mode);
   int i;
 
-  if (mode == V2DFmode)
+  if (mode == V2DFmode || mode == V2DImode)
     {
+      rtx (*set_func) (rtx, rtx, rtx, rtx)
+	= ((mode == V2DFmode) ? gen_vsx_set_v2df : gen_vsx_set_v2di);
       gcc_assert (TARGET_VSX);
-      emit_insn (gen_vsx_set_v2df (target, val, target, GEN_INT (elt)));
-      return;
-    }
-  else if (mode == V2DImode)
-    {
-      gcc_assert (TARGET_VSX);
-      emit_insn (gen_vsx_set_v2di (target, val, target, GEN_INT (elt)));
+      emit_insn (set_func (target, target, val, GEN_INT (elt)));
       return;
     }
 
@@ -3959,16 +3956,12 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
   enum machine_mode inner_mode = GET_MODE_INNER (mode);
   rtx mem, x;
 
-  if (mode == V2DFmode)
+  if (mode == V2DFmode || mode == V2DImode)
     {
+      rtx (*extract_func) (rtx, rtx, rtx)
+	= ((mode == V2DFmode) ? gen_vsx_extract_v2df : gen_vsx_extract_v2di);
       gcc_assert (TARGET_VSX);
-      emit_insn (gen_vsx_extract_v2df (target, vec, GEN_INT (elt)));
-      return;
-    }
-  else if (mode == V2DImode)
-    {
-      gcc_assert (TARGET_VSX);
-      emit_insn (gen_vsx_extract_v2di (target, vec, GEN_INT (elt)));
+      emit_insn (extract_func (target, vec, GEN_INT (elt)));
       return;
     }
 
@@ -8008,6 +8001,34 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_VSX, CODE_FOR_vsx_fnmaddv4sf4, "__builtin_vsx_xvnmaddsp", VSX_BUILTIN_XVNMADDSP },
   { MASK_VSX, CODE_FOR_vsx_fnmsubv4sf4, "__builtin_vsx_xvnmsubsp", VSX_BUILTIN_XVNMSUBSP },
 
+  { MASK_VSX, CODE_FOR_vector_vselv2di, "__builtin_vsx_xxsel_2di", VSX_BUILTIN_XXSEL_2DI },
+  { MASK_VSX, CODE_FOR_vector_vselv2df, "__builtin_vsx_xxsel_2df", VSX_BUILTIN_XXSEL_2DF },
+  { MASK_VSX, CODE_FOR_vector_vselv4sf, "__builtin_vsx_xxsel_4sf", VSX_BUILTIN_XXSEL_4SF },
+  { MASK_VSX, CODE_FOR_vector_vselv4si, "__builtin_vsx_xxsel_4si", VSX_BUILTIN_XXSEL_4SI },
+  { MASK_VSX, CODE_FOR_vector_vselv8hi, "__builtin_vsx_xxsel_8hi", VSX_BUILTIN_XXSEL_8HI },
+  { MASK_VSX, CODE_FOR_vector_vselv16qi, "__builtin_vsx_xxsel_16qi", VSX_BUILTIN_XXSEL_16QI },
+
+  { MASK_VSX, CODE_FOR_altivec_vperm_v2di, "__builtin_vsx_vperm_2di", VSX_BUILTIN_VPERM_2DI },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v2df, "__builtin_vsx_vperm_2df", VSX_BUILTIN_VPERM_2DF },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v4sf, "__builtin_vsx_vperm_4sf", VSX_BUILTIN_VPERM_4SF },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v4si, "__builtin_vsx_vperm_4si", VSX_BUILTIN_VPERM_4SI },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v8hi, "__builtin_vsx_vperm_8hi", VSX_BUILTIN_VPERM_8HI },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v16qi, "__builtin_vsx_vperm_16qi", VSX_BUILTIN_VPERM_16QI },
+
+  { MASK_VSX, CODE_FOR_vsx_xxpermdi_v2df, "__builtin_vsx_xxpermdi_2df", VSX_BUILTIN_XXPERMDI_2DF },
+  { MASK_VSX, CODE_FOR_vsx_xxpermdi_v2di, "__builtin_vsx_xxpermdi_2di", VSX_BUILTIN_XXPERMDI_2DI },
+  { MASK_VSX, CODE_FOR_nothing, "__builtin_vsx_xxpermdi", VSX_BUILTIN_VEC_XXPERMDI },
+  { MASK_VSX, CODE_FOR_vsx_set_v2df, "__builtin_vsx_set_2df", VSX_BUILTIN_SET_2DF },
+  { MASK_VSX, CODE_FOR_vsx_set_v2di, "__builtin_vsx_set_2di", VSX_BUILTIN_SET_2DI },
+
+  { MASK_VSX, CODE_FOR_vsx_xxsldwi_v2di, "__builtin_vsx_xxsldwi_2di", VSX_BUILTIN_XXSLDWI_2DI },
+  { MASK_VSX, CODE_FOR_vsx_xxsldwi_v2df, "__builtin_vsx_xxsldwi_2df", VSX_BUILTIN_XXSLDWI_2DF },
+  { MASK_VSX, CODE_FOR_vsx_xxsldwi_v4sf, "__builtin_vsx_xxsldwi_4sf", VSX_BUILTIN_XXSLDWI_4SF },
+  { MASK_VSX, CODE_FOR_vsx_xxsldwi_v4si, "__builtin_vsx_xxsldwi_4si", VSX_BUILTIN_XXSLDWI_4SI },
+  { MASK_VSX, CODE_FOR_vsx_xxsldwi_v8hi, "__builtin_vsx_xxsldwi_8hi", VSX_BUILTIN_XXSLDWI_8HI },
+  { MASK_VSX, CODE_FOR_vsx_xxsldwi_v16qi, "__builtin_vsx_xxsldwi_16qi", VSX_BUILTIN_XXSLDWI_16QI },
+  { MASK_VSX, CODE_FOR_nothing, "__builtin_vsx_xxsldwi", VSX_BUILTIN_VEC_XXSLDWI },
+
   { 0, CODE_FOR_paired_msub, "__builtin_paired_msub", PAIRED_BUILTIN_MSUB },
   { 0, CODE_FOR_paired_madd, "__builtin_paired_madd", PAIRED_BUILTIN_MADD },
   { 0, CODE_FOR_paired_madds0, "__builtin_paired_madds0", PAIRED_BUILTIN_MADDS0 },
@@ -8157,6 +8178,9 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_VSX, CODE_FOR_sminv2df3, "__builtin_vsx_xvmindp", VSX_BUILTIN_XVMINDP },
   { MASK_VSX, CODE_FOR_smaxv2df3, "__builtin_vsx_xvmaxdp", VSX_BUILTIN_XVMAXDP },
   { MASK_VSX, CODE_FOR_vsx_tdivv2df3, "__builtin_vsx_xvtdivdp", VSX_BUILTIN_XVTDIVDP },
+  { MASK_VSX, CODE_FOR_vector_eqv2df, "__builtin_vsx_xvcmpeqdp", VSX_BUILTIN_XVCMPEQDP },
+  { MASK_VSX, CODE_FOR_vector_gtv2df, "__builtin_vsx_xvcmpgtdp", VSX_BUILTIN_XVCMPGTDP },
+  { MASK_VSX, CODE_FOR_vector_gev2df, "__builtin_vsx_xvcmpgedp", VSX_BUILTIN_XVCMPGEDP },
 
   { MASK_VSX, CODE_FOR_addv4sf3, "__builtin_vsx_xvaddsp", VSX_BUILTIN_XVADDSP },
   { MASK_VSX, CODE_FOR_subv4sf3, "__builtin_vsx_xvsubsp", VSX_BUILTIN_XVSUBSP },
@@ -8165,6 +8189,21 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_VSX, CODE_FOR_sminv4sf3, "__builtin_vsx_xvminsp", VSX_BUILTIN_XVMINSP },
   { MASK_VSX, CODE_FOR_smaxv4sf3, "__builtin_vsx_xvmaxsp", VSX_BUILTIN_XVMAXSP },
   { MASK_VSX, CODE_FOR_vsx_tdivv4sf3, "__builtin_vsx_xvtdivsp", VSX_BUILTIN_XVTDIVSP },
+  { MASK_VSX, CODE_FOR_vector_eqv4sf, "__builtin_vsx_xvcmpeqsp", VSX_BUILTIN_XVCMPEQSP },
+  { MASK_VSX, CODE_FOR_vector_gtv4sf, "__builtin_vsx_xvcmpgtsp", VSX_BUILTIN_XVCMPGTSP },
+  { MASK_VSX, CODE_FOR_vector_gev4sf, "__builtin_vsx_xvcmpgesp", VSX_BUILTIN_XVCMPGESP },
+
+  { MASK_VSX, CODE_FOR_smindf3, "__builtin_vsx_xsmindp", VSX_BUILTIN_XSMINDP },
+  { MASK_VSX, CODE_FOR_smaxdf3, "__builtin_vsx_xsmaxdp", VSX_BUILTIN_XSMAXDP },
+
+  { MASK_VSX, CODE_FOR_vsx_concat_v2df, "__builtin_vsx_concat_2df", VSX_BUILTIN_CONCAT_2DF },
+  { MASK_VSX, CODE_FOR_vsx_concat_v2di, "__builtin_vsx_concat_2di", VSX_BUILTIN_CONCAT_2DI },
+  { MASK_VSX, CODE_FOR_vsx_splat_v2df, "__builtin_vsx_splat_2df", VSX_BUILTIN_SPLAT_2DF },
+  { MASK_VSX, CODE_FOR_vsx_splat_v2di, "__builtin_vsx_splat_2di", VSX_BUILTIN_SPLAT_2DI },
+  { MASK_VSX, CODE_FOR_vsx_xxmrghw_v4sf, "__builtin_vsx_xxmrghw", VSX_BUILTIN_XXMRGHW_4SF },
+  { MASK_VSX, CODE_FOR_vsx_xxmrghw_v4si, "__builtin_vsx_xxmrghw_4si", VSX_BUILTIN_XXMRGHW_4SI },
+  { MASK_VSX, CODE_FOR_vsx_xxmrglw_v4sf, "__builtin_vsx_xxmrglw", VSX_BUILTIN_XXMRGLW_4SF },
+  { MASK_VSX, CODE_FOR_vsx_xxmrglw_v4si, "__builtin_vsx_xxmrglw_4si", VSX_BUILTIN_XXMRGLW_4SI },
 
   { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_add", ALTIVEC_BUILTIN_VEC_ADD },
   { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vaddfp", ALTIVEC_BUILTIN_VEC_VADDFP },
@@ -8459,30 +8498,58 @@ struct builtin_description_predicates
 {
   const unsigned int mask;
   const enum insn_code icode;
-  const char *opcode;
   const char *const name;
   const enum rs6000_builtins code;
 };
 
 static const struct builtin_description_predicates bdesc_altivec_preds[] =
 {
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v4sf, "*vcmpbfp.", "__builtin_altivec_vcmpbfp_p", ALTIVEC_BUILTIN_VCMPBFP_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v4sf, "*vcmpeqfp.", "__builtin_altivec_vcmpeqfp_p", ALTIVEC_BUILTIN_VCMPEQFP_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v4sf, "*vcmpgefp.", "__builtin_altivec_vcmpgefp_p", ALTIVEC_BUILTIN_VCMPGEFP_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v4sf, "*vcmpgtfp.", "__builtin_altivec_vcmpgtfp_p", ALTIVEC_BUILTIN_VCMPGTFP_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v4si, "*vcmpequw.", "__builtin_altivec_vcmpequw_p", ALTIVEC_BUILTIN_VCMPEQUW_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v4si, "*vcmpgtsw.", "__builtin_altivec_vcmpgtsw_p", ALTIVEC_BUILTIN_VCMPGTSW_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v4si, "*vcmpgtuw.", "__builtin_altivec_vcmpgtuw_p", ALTIVEC_BUILTIN_VCMPGTUW_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v8hi, "*vcmpgtuh.", "__builtin_altivec_vcmpgtuh_p", ALTIVEC_BUILTIN_VCMPGTUH_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v8hi, "*vcmpgtsh.", "__builtin_altivec_vcmpgtsh_p", ALTIVEC_BUILTIN_VCMPGTSH_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v8hi, "*vcmpequh.", "__builtin_altivec_vcmpequh_p", ALTIVEC_BUILTIN_VCMPEQUH_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpequb.", "__builtin_altivec_vcmpequb_p", ALTIVEC_BUILTIN_VCMPEQUB_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpgtsb.", "__builtin_altivec_vcmpgtsb_p", ALTIVEC_BUILTIN_VCMPGTSB_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpgtub.", "__builtin_altivec_vcmpgtub_p", ALTIVEC_BUILTIN_VCMPGTUB_P },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpbfp_p, "__builtin_altivec_vcmpbfp_p",
+    ALTIVEC_BUILTIN_VCMPBFP_P },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_vector_eq_v4sf_p,
+    "__builtin_altivec_vcmpeqfp_p", ALTIVEC_BUILTIN_VCMPEQFP_P },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_vector_ge_v4sf_p,
+    "__builtin_altivec_vcmpgefp_p", ALTIVEC_BUILTIN_VCMPGEFP_P },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_vector_gt_v4sf_p,
+    "__builtin_altivec_vcmpgtfp_p", ALTIVEC_BUILTIN_VCMPGTFP_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_eq_v4si_p, "__builtin_altivec_vcmpequw_p",
+    ALTIVEC_BUILTIN_VCMPEQUW_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_gt_v4si_p, "__builtin_altivec_vcmpgtsw_p",
+    ALTIVEC_BUILTIN_VCMPGTSW_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtu_v4si_p, "__builtin_altivec_vcmpgtuw_p",
+    ALTIVEC_BUILTIN_VCMPGTUW_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_eq_v8hi_p, "__builtin_altivec_vcmpequh_p",
+    ALTIVEC_BUILTIN_VCMPEQUH_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_gt_v8hi_p, "__builtin_altivec_vcmpgtsh_p",
+    ALTIVEC_BUILTIN_VCMPGTSH_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtu_v8hi_p, "__builtin_altivec_vcmpgtuh_p",
+    ALTIVEC_BUILTIN_VCMPGTUH_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_eq_v16qi_p, "__builtin_altivec_vcmpequb_p",
+    ALTIVEC_BUILTIN_VCMPEQUB_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_gt_v16qi_p, "__builtin_altivec_vcmpgtsb_p",
+    ALTIVEC_BUILTIN_VCMPGTSB_P },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtu_v16qi_p, "__builtin_altivec_vcmpgtub_p",
+    ALTIVEC_BUILTIN_VCMPGTUB_P },
 
-  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpeq_p", ALTIVEC_BUILTIN_VCMPEQ_P },
-  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpgt_p", ALTIVEC_BUILTIN_VCMPGT_P },
-  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpge_p", ALTIVEC_BUILTIN_VCMPGE_P }
+  { MASK_VSX, CODE_FOR_vector_eq_v4sf_p, "__builtin_vsx_xvcmpeqsp_p",
+    VSX_BUILTIN_XVCMPEQSP_P },
+  { MASK_VSX, CODE_FOR_vector_ge_v4sf_p, "__builtin_vsx_xvcmpgesp_p",
+    VSX_BUILTIN_XVCMPGESP_P },
+  { MASK_VSX, CODE_FOR_vector_gt_v4sf_p, "__builtin_vsx_xvcmpgtsp_p",
+    VSX_BUILTIN_XVCMPGTSP_P },
+  { MASK_VSX, CODE_FOR_vector_eq_v2df_p, "__builtin_vsx_xvcmpeqdp_p",
+    VSX_BUILTIN_XVCMPEQDP_P },
+  { MASK_VSX, CODE_FOR_vector_ge_v2df_p, "__builtin_vsx_xvcmpgedp_p",
+    VSX_BUILTIN_XVCMPGEDP_P },
+  { MASK_VSX, CODE_FOR_vector_gt_v2df_p, "__builtin_vsx_xvcmpgtdp_p",
+    VSX_BUILTIN_XVCMPGTDP_P },
+
+  { MASK_ALTIVEC|MASK_VSX, 0, "__builtin_vec_vcmpeq_p",
+    ALTIVEC_BUILTIN_VCMPEQ_P },
+  { MASK_ALTIVEC|MASK_VSX, 0, "__builtin_vec_vcmpgt_p",
+    ALTIVEC_BUILTIN_VCMPGT_P },
+  { MASK_ALTIVEC|MASK_VSX, 0, "__builtin_vec_vcmpge_p",
+    ALTIVEC_BUILTIN_VCMPGE_P }
 };
 
 /* SPE predicates.  */
@@ -8601,11 +8668,27 @@ static struct builtin_description bdesc_1arg[] =
   { MASK_VSX, CODE_FOR_vsx_xvcvdpuxws, "__builtin_vsx_xvcvdpuxws", VSX_BUILTIN_XVCVDPUXWS },
   { MASK_VSX, CODE_FOR_vsx_xvcvsxwdp, "__builtin_vsx_xvcvsxwdp", VSX_BUILTIN_XVCVSXWDP },
   { MASK_VSX, CODE_FOR_vsx_xvcvuxwdp, "__builtin_vsx_xvcvuxwdp", VSX_BUILTIN_XVCVUXWDP },
+  { MASK_VSX, CODE_FOR_vsx_xvrdpi, "__builtin_vsx_xvrdpi", VSX_BUILTIN_XVRDPI },
+  { MASK_VSX, CODE_FOR_vsx_xvrdpic, "__builtin_vsx_xvrdpic", VSX_BUILTIN_XVRDPIC },
+  { MASK_VSX, CODE_FOR_vsx_floorv2df2, "__builtin_vsx_xvrdpim", VSX_BUILTIN_XVRDPIM },
+  { MASK_VSX, CODE_FOR_vsx_ceilv2df2, "__builtin_vsx_xvrdpip", VSX_BUILTIN_XVRDPIP },
+  { MASK_VSX, CODE_FOR_vsx_btruncv2df2, "__builtin_vsx_xvrdpiz", VSX_BUILTIN_XVRDPIZ },
 
   { MASK_VSX, CODE_FOR_vsx_xvcvspsxds, "__builtin_vsx_xvcvspsxds", VSX_BUILTIN_XVCVSPSXDS },
   { MASK_VSX, CODE_FOR_vsx_xvcvspuxds, "__builtin_vsx_xvcvspuxds", VSX_BUILTIN_XVCVSPUXDS },
   { MASK_VSX, CODE_FOR_vsx_xvcvsxdsp, "__builtin_vsx_xvcvsxdsp", VSX_BUILTIN_XVCVSXDSP },
   { MASK_VSX, CODE_FOR_vsx_xvcvuxdsp, "__builtin_vsx_xvcvuxdsp", VSX_BUILTIN_XVCVUXDSP },
+  { MASK_VSX, CODE_FOR_vsx_xvrspi, "__builtin_vsx_xvrspi", VSX_BUILTIN_XVRSPI },
+  { MASK_VSX, CODE_FOR_vsx_xvrspic, "__builtin_vsx_xvrspic", VSX_BUILTIN_XVRSPIC },
+  { MASK_VSX, CODE_FOR_vsx_floorv4sf2, "__builtin_vsx_xvrspim", VSX_BUILTIN_XVRSPIM },
+  { MASK_VSX, CODE_FOR_vsx_ceilv4sf2, "__builtin_vsx_xvrspip", VSX_BUILTIN_XVRSPIP },
+  { MASK_VSX, CODE_FOR_vsx_btruncv4sf2, "__builtin_vsx_xvrspiz", VSX_BUILTIN_XVRSPIZ },
+
+  { MASK_VSX, CODE_FOR_vsx_xsrdpi, "__builtin_vsx_xsrdpi", VSX_BUILTIN_XSRDPI },
+  { MASK_VSX, CODE_FOR_vsx_xsrdpic, "__builtin_vsx_xsrdpic", VSX_BUILTIN_XSRDPIC },
+  { MASK_VSX, CODE_FOR_vsx_floordf2, "__builtin_vsx_xsrdpim", VSX_BUILTIN_XSRDPIM },
+  { MASK_VSX, CODE_FOR_vsx_ceildf2, "__builtin_vsx_xsrdpip", VSX_BUILTIN_XSRDPIP },
+  { MASK_VSX, CODE_FOR_vsx_btruncdf2, "__builtin_vsx_xsrdpiz", VSX_BUILTIN_XSRDPIZ },
 
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_abs", ALTIVEC_BUILTIN_VEC_ABS },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_abss", ALTIVEC_BUILTIN_VEC_ABSS },
@@ -8828,8 +8911,7 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
 }
 
 static rtx
-altivec_expand_predicate_builtin (enum insn_code icode, const char *opcode,
-				  tree exp, rtx target)
+altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
 {
   rtx pat, scratch;
   tree cr6_form = CALL_EXPR_ARG (exp, 0);
@@ -8868,8 +8950,7 @@ altivec_expand_predicate_builtin (enum insn_code icode, const char *opcode,
 
   scratch = gen_reg_rtx (mode0);
 
-  pat = GEN_FCN (icode) (scratch, op0, op1,
-			 gen_rtx_SYMBOL_REF (Pmode, opcode));
+  pat = GEN_FCN (icode) (scratch, op0, op1);
   if (! pat)
     return 0;
   emit_insn (pat);
@@ -9136,11 +9217,12 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
       || arg2 == error_mark_node)
     return const0_rtx;
 
-  if (icode == CODE_FOR_altivec_vsldoi_v4sf
-      || icode == CODE_FOR_altivec_vsldoi_v4si
-      || icode == CODE_FOR_altivec_vsldoi_v8hi
-      || icode == CODE_FOR_altivec_vsldoi_v16qi)
+  switch (icode)
     {
+    case CODE_FOR_altivec_vsldoi_v4sf:
+    case CODE_FOR_altivec_vsldoi_v4si:
+    case CODE_FOR_altivec_vsldoi_v8hi:
+    case CODE_FOR_altivec_vsldoi_v16qi:
       /* Only allow 4-bit unsigned literals.  */
       STRIP_NOPS (arg2);
       if (TREE_CODE (arg2) != INTEGER_CST
@@ -9149,6 +9231,40 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
 	  error ("argument 3 must be a 4-bit unsigned literal");
 	  return const0_rtx;
 	}
+      break;
+
+    case CODE_FOR_vsx_xxpermdi_v2df:
+    case CODE_FOR_vsx_xxpermdi_v2di:
+    case CODE_FOR_vsx_xxsldwi_v16qi:
+    case CODE_FOR_vsx_xxsldwi_v8hi:
+    case CODE_FOR_vsx_xxsldwi_v4si:
+    case CODE_FOR_vsx_xxsldwi_v4sf:
+    case CODE_FOR_vsx_xxsldwi_v2di:
+    case CODE_FOR_vsx_xxsldwi_v2df:
+      /* Only allow 2-bit unsigned literals.  */
+      STRIP_NOPS (arg2);
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg2) & ~0x3)
+	{
+	  error ("argument 3 must be a 2-bit unsigned literal");
+	  return const0_rtx;
+	}
+      break;
+
+    case CODE_FOR_vsx_set_v2df:
+    case CODE_FOR_vsx_set_v2di:
+      /* Only allow 1-bit unsigned literals.  */
+      STRIP_NOPS (arg2);
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg2) & ~0x1)
+	{
+	  error ("argument 3 must be a 1-bit unsigned literal");
+	  return const0_rtx;
+	}
+      break;
+
+    default:
+      break;
     }
 
   if (target == 0
@@ -9456,8 +9572,10 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   enum machine_mode tmode, mode0;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
 
-  if (fcode >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-      && fcode <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+  if ((fcode >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+       && fcode <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+      || (fcode >= VSX_BUILTIN_OVERLOADED_FIRST
+	  && fcode <= VSX_BUILTIN_OVERLOADED_LAST))
     {
       *expandedp = true;
       error ("unresolved overload for Altivec builtin %qF", fndecl);
@@ -9565,18 +9683,24 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     case ALTIVEC_BUILTIN_VEC_INIT_V8HI:
     case ALTIVEC_BUILTIN_VEC_INIT_V16QI:
     case ALTIVEC_BUILTIN_VEC_INIT_V4SF:
+    case VSX_BUILTIN_VEC_INIT_V2DF:
+    case VSX_BUILTIN_VEC_INIT_V2DI:
       return altivec_expand_vec_init_builtin (TREE_TYPE (exp), exp, target);
 
     case ALTIVEC_BUILTIN_VEC_SET_V4SI:
     case ALTIVEC_BUILTIN_VEC_SET_V8HI:
     case ALTIVEC_BUILTIN_VEC_SET_V16QI:
     case ALTIVEC_BUILTIN_VEC_SET_V4SF:
+    case VSX_BUILTIN_VEC_SET_V2DF:
+    case VSX_BUILTIN_VEC_SET_V2DI:
       return altivec_expand_vec_set_builtin (exp);
 
     case ALTIVEC_BUILTIN_VEC_EXT_V4SI:
     case ALTIVEC_BUILTIN_VEC_EXT_V8HI:
     case ALTIVEC_BUILTIN_VEC_EXT_V16QI:
     case ALTIVEC_BUILTIN_VEC_EXT_V4SF:
+    case VSX_BUILTIN_VEC_EXT_V2DF:
+    case VSX_BUILTIN_VEC_EXT_V2DI:
       return altivec_expand_vec_ext_builtin (exp, target);
 
     default:
@@ -9594,8 +9718,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   dp = bdesc_altivec_preds;
   for (i = 0; i < ARRAY_SIZE (bdesc_altivec_preds); i++, dp++)
     if (dp->code == fcode)
-      return altivec_expand_predicate_builtin (dp->icode, dp->opcode,
-					       exp, target);
+      return altivec_expand_predicate_builtin (dp->icode, exp, target);
 
   /* LV* are funky.  We initialized them differently.  */
   switch (fcode)
@@ -10109,13 +10232,18 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   bool success;
 
   if (fcode == RS6000_BUILTIN_RECIP)
-      return rs6000_expand_binop_builtin (CODE_FOR_recipdf3, exp, target);    
+      return rs6000_expand_binop_builtin (CODE_FOR_recipdf3, exp, target);
 
   if (fcode == RS6000_BUILTIN_RECIPF)
-      return rs6000_expand_binop_builtin (CODE_FOR_recipsf3, exp, target);    
+      return rs6000_expand_binop_builtin (CODE_FOR_recipsf3, exp, target);
 
   if (fcode == RS6000_BUILTIN_RSQRTF)
-      return rs6000_expand_unop_builtin (CODE_FOR_rsqrtsf2, exp, target);    
+      return rs6000_expand_unop_builtin (CODE_FOR_rsqrtsf2, exp, target);
+
+  if (fcode == POWER7_BUILTIN_BPERMD)
+    return rs6000_expand_binop_builtin (((TARGET_64BIT)
+					 ? CODE_FOR_bpermd_di
+					 : CODE_FOR_bpermd_si), exp, target);
 
   if (fcode == ALTIVEC_BUILTIN_MASK_FOR_LOAD
       || fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)
@@ -10246,6 +10374,7 @@ rs6000_init_builtins (void)
   unsigned_V16QI_type_node = build_vector_type (unsigned_intQI_type_node, 16);
   unsigned_V8HI_type_node = build_vector_type (unsigned_intHI_type_node, 8);
   unsigned_V4SI_type_node = build_vector_type (unsigned_intSI_type_node, 4);
+  unsigned_V2DI_type_node = build_vector_type (unsigned_intDI_type_node, 2);
 
   opaque_V2SF_type_node = build_opaque_vector_type (float_type_node, 2);
   opaque_V2SI_type_node = build_opaque_vector_type (intSI_type_node, 2);
@@ -10259,6 +10388,7 @@ rs6000_init_builtins (void)
   bool_char_type_node = build_distinct_type_copy (unsigned_intQI_type_node);
   bool_short_type_node = build_distinct_type_copy (unsigned_intHI_type_node);
   bool_int_type_node = build_distinct_type_copy (unsigned_intSI_type_node);
+  bool_long_type_node = build_distinct_type_copy (unsigned_intDI_type_node);
   pixel_type_node = build_distinct_type_copy (unsigned_intHI_type_node);
 
   long_integer_type_internal_node = long_integer_type_node;
@@ -10274,6 +10404,24 @@ rs6000_init_builtins (void)
   float_type_internal_node = float_type_node;
   double_type_internal_node = float_type_node;
   void_type_internal_node = void_type_node;
+
+  /* Initialize the modes for builtin_function_type, mapping a machine mode to
+     tree type node.  */
+  builtin_mode_to_type[QImode] = integer_type_node;
+  builtin_mode_to_type[HImode] = integer_type_node;
+  builtin_mode_to_type[SImode] = intSI_type_node;
+  builtin_mode_to_type[DImode] = intDI_type_node;
+  builtin_mode_to_type[SFmode] = float_type_node;
+  builtin_mode_to_type[DFmode] = double_type_node;
+  builtin_mode_to_type[V2SImode] = V2SI_type_node;
+  builtin_mode_to_type[V2SFmode] = V2SF_type_node;
+  builtin_mode_to_type[V2DImode] = V2DI_type_node;
+  builtin_mode_to_type[V2DFmode] = V2DF_type_node;
+  builtin_mode_to_type[V4HImode] = V4HI_type_node;
+  builtin_mode_to_type[V4SImode] = V4SI_type_node;
+  builtin_mode_to_type[V4SFmode] = V4SF_type_node;
+  builtin_mode_to_type[V8HImode] = V8HI_type_node;
+  builtin_mode_to_type[V16QImode] = V16QI_type_node;
 
   (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
 					    get_identifier ("__bool char"),
@@ -10291,6 +10439,7 @@ rs6000_init_builtins (void)
   bool_V16QI_type_node = build_vector_type (bool_char_type_node, 16);
   bool_V8HI_type_node = build_vector_type (bool_short_type_node, 8);
   bool_V4SI_type_node = build_vector_type (bool_int_type_node, 4);
+  bool_V2DI_type_node = build_vector_type (bool_long_type_node, 2);
   pixel_V8HI_type_node = build_vector_type (pixel_type_node, 8);
 
   (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
@@ -10331,9 +10480,17 @@ rs6000_init_builtins (void)
 					    pixel_V8HI_type_node));
 
   if (TARGET_VSX)
-    (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
-					      get_identifier ("__vector double"),
-					      V2DF_type_node));
+    {
+      (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
+						get_identifier ("__vector double"),
+						V2DF_type_node));
+      (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
+						get_identifier ("__vector long"),
+						V2DI_type_node));
+      (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
+						get_identifier ("__vector __bool long"),
+						bool_V2DI_type_node));
+    }
 
   if (TARGET_PAIRED_FLOAT)
     paired_init_builtins ();
@@ -10345,28 +10502,31 @@ rs6000_init_builtins (void)
     rs6000_common_init_builtins ();
   if (TARGET_PPC_GFXOPT)
     {
-      tree ftype = build_function_type_list (float_type_node,
-					     float_type_node,
-					     float_type_node,
-					     NULL_TREE);
+      tree ftype = builtin_function_type (SFmode, SFmode, SFmode, VOIDmode,
+					  "__builtin_recipdivf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
 		   RS6000_BUILTIN_RECIPF);
 
-      ftype = build_function_type_list (float_type_node,
-					float_type_node,
-					NULL_TREE);
+      ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
+				     "__builtin_rsqrtf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
     }
   if (TARGET_POPCNTB)
     {
-      tree ftype = build_function_type_list (double_type_node,
-					     double_type_node,
-					     double_type_node,
-					     NULL_TREE);
+      tree ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
+					  "__builtin_recipdiv");
       def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
 		   RS6000_BUILTIN_RECIP);
 
+    }
+  if (TARGET_POPCNTD)
+    {
+      enum machine_mode mode = (TARGET_64BIT) ? DImode : SImode;
+      tree ftype = builtin_function_type (mode, mode, mode, VOIDmode,
+					  "__builtin_bpermd");
+      def_builtin (MASK_POPCNTD, "__builtin_bpermd", ftype,
+		   POWER7_BUILTIN_BPERMD);
     }
 
 #if TARGET_XCOFF
@@ -10796,6 +10956,10 @@ altivec_init_builtins (void)
     = build_function_type_list (integer_type_node,
 				integer_type_node, V4SF_type_node,
 				V4SF_type_node, NULL_TREE);
+  tree int_ftype_int_v2df_v2df
+    = build_function_type_list (integer_type_node,
+				integer_type_node, V2DF_type_node,
+				V2DF_type_node, NULL_TREE);
   tree v4si_ftype_v4si
     = build_function_type_list (V4SI_type_node, V4SI_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi
@@ -10908,8 +11072,10 @@ altivec_init_builtins (void)
     {
       enum machine_mode mode1;
       tree type;
-      bool is_overloaded = dp->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-			   && dp->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST;
+      bool is_overloaded = ((dp->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+			     && dp->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+			    || (dp->code >= VSX_BUILTIN_OVERLOADED_FIRST
+				&& dp->code <= VSX_BUILTIN_OVERLOADED_LAST));
 
       if (is_overloaded)
 	mode1 = VOIDmode;
@@ -10932,6 +11098,9 @@ altivec_init_builtins (void)
 	  break;
 	case V4SFmode:
 	  type = int_ftype_int_v4sf_v4sf;
+	  break;
+	case V2DFmode:
+	  type = int_ftype_int_v2df_v2df;
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -11025,6 +11194,19 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_vec_init_v4sf", ftype,
 	       ALTIVEC_BUILTIN_VEC_INIT_V4SF);
 
+  if (TARGET_VSX)
+    {
+      ftype = build_function_type_list (V2DF_type_node, double_type_node,
+					double_type_node, NULL_TREE);
+      def_builtin (MASK_VSX, "__builtin_vec_init_v2df", ftype,
+		   VSX_BUILTIN_VEC_INIT_V2DF);
+
+      ftype = build_function_type_list (V2DI_type_node, intDI_type_node,
+					intDI_type_node, NULL_TREE);
+      def_builtin (MASK_VSX, "__builtin_vec_init_v2di", ftype,
+		   VSX_BUILTIN_VEC_INIT_V2DI);
+    }
+
   /* Access to the vec_set patterns.  */
   ftype = build_function_type_list (V4SI_type_node, V4SI_type_node,
 				    intSI_type_node,
@@ -11038,7 +11220,7 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_vec_set_v8hi", ftype,
 	       ALTIVEC_BUILTIN_VEC_SET_V8HI);
 
-  ftype = build_function_type_list (V8HI_type_node, V16QI_type_node,
+  ftype = build_function_type_list (V16QI_type_node, V16QI_type_node,
 				    intQI_type_node,
 				    integer_type_node, NULL_TREE);
   def_builtin (MASK_ALTIVEC, "__builtin_vec_set_v16qi", ftype,
@@ -11047,8 +11229,23 @@ altivec_init_builtins (void)
   ftype = build_function_type_list (V4SF_type_node, V4SF_type_node,
 				    float_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_set_v4sf", ftype,
+  def_builtin (MASK_ALTIVEC|MASK_VSX, "__builtin_vec_set_v4sf", ftype,
 	       ALTIVEC_BUILTIN_VEC_SET_V4SF);
+
+  if (TARGET_VSX)
+    {
+      ftype = build_function_type_list (V2DF_type_node, V2DF_type_node,
+					double_type_node,
+					integer_type_node, NULL_TREE);
+      def_builtin (MASK_VSX, "__builtin_vec_set_v2df", ftype,
+		   VSX_BUILTIN_VEC_SET_V2DF);
+
+      ftype = build_function_type_list (V2DI_type_node, V2DI_type_node,
+					intDI_type_node,
+					integer_type_node, NULL_TREE);
+      def_builtin (MASK_VSX, "__builtin_vec_set_v2di", ftype,
+		   VSX_BUILTIN_VEC_SET_V2DI);
+    }
 
   /* Access to the vec_extract patterns.  */
   ftype = build_function_type_list (intSI_type_node, V4SI_type_node,
@@ -11068,8 +11265,21 @@ altivec_init_builtins (void)
 
   ftype = build_function_type_list (float_type_node, V4SF_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ext_v4sf", ftype,
+  def_builtin (MASK_ALTIVEC|MASK_VSX, "__builtin_vec_ext_v4sf", ftype,
 	       ALTIVEC_BUILTIN_VEC_EXT_V4SF);
+
+  if (TARGET_VSX)
+    {
+      ftype = build_function_type_list (double_type_node, V2DF_type_node,
+					integer_type_node, NULL_TREE);
+      def_builtin (MASK_VSX, "__builtin_vec_ext_v2df", ftype,
+		   VSX_BUILTIN_VEC_EXT_V2DF);
+
+      ftype = build_function_type_list (intDI_type_node, V2DI_type_node,
+					integer_type_node, NULL_TREE);
+      def_builtin (MASK_VSX, "__builtin_vec_ext_v2di", ftype,
+		   VSX_BUILTIN_VEC_EXT_V2DI);
+    }
 }
 
 /* Hash function for builtin functions with up to 3 arguments and a return
@@ -11100,9 +11310,6 @@ builtin_hash_eq (const void *h1, const void *h2)
 	  && (p1->mode[2] == p2->mode[2])
 	  && (p1->mode[3] == p2->mode[3]));
 }
-
-/* Map selected modes to types for builtins.  */
-static tree builtin_mode_to_type[MAX_MACHINE_MODE];
 
 /* Map types for builtin functions with an explicit return type and up to 3
    arguments.  Functions with fewer than 3 arguments use VOIDmode as the type
@@ -11197,23 +11404,6 @@ rs6000_common_init_builtins (void)
   tree v2si_ftype_v2si_qi = NULL_TREE;
   tree v2si_ftype_int_qi = NULL_TREE;
 
-  /* Initialize the tables for the unary, binary, and ternary ops.  */
-  builtin_mode_to_type[QImode] = integer_type_node;
-  builtin_mode_to_type[HImode] = integer_type_node;
-  builtin_mode_to_type[SImode] = intSI_type_node;
-  builtin_mode_to_type[DImode] = intDI_type_node;
-  builtin_mode_to_type[SFmode] = float_type_node;
-  builtin_mode_to_type[DFmode] = double_type_node;
-  builtin_mode_to_type[V2SImode] = V2SI_type_node;
-  builtin_mode_to_type[V2SFmode] = V2SF_type_node;
-  builtin_mode_to_type[V2DImode] = V2DI_type_node;
-  builtin_mode_to_type[V2DFmode] = V2DF_type_node;
-  builtin_mode_to_type[V4HImode] = V4HI_type_node;
-  builtin_mode_to_type[V4SImode] = V4SI_type_node;
-  builtin_mode_to_type[V4SFmode] = V4SF_type_node;
-  builtin_mode_to_type[V8HImode] = V8HI_type_node;
-  builtin_mode_to_type[V16QImode] = V16QI_type_node;
-
   if (!TARGET_PAIRED_FLOAT)
     {
       builtin_mode_to_type[V2SImode] = opaque_V2SI_type_node;
@@ -11231,8 +11421,10 @@ rs6000_common_init_builtins (void)
 	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
 	continue;
 
-      if (d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	  && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
+	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
 	{
 	  if (! (type = opaque_ftype_opaque_opaque_opaque))
 	    type = opaque_ftype_opaque_opaque_opaque
@@ -11270,8 +11462,10 @@ rs6000_common_init_builtins (void)
 	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
 	continue;
 
-      if (d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	  && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
+	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
 	{
 	  if (! (type = opaque_ftype_opaque_opaque))
 	    type = opaque_ftype_opaque_opaque
@@ -11331,8 +11525,10 @@ rs6000_common_init_builtins (void)
 	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
 	continue;
 
-      if (d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	  && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
+	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
 	{
 	  if (! (type = opaque_ftype_opaque))
 	    type = opaque_ftype_opaque
@@ -13184,7 +13380,7 @@ print_operand (FILE *file, rtx x, int code)
     case 'c':
       /* X is a CR register.  Print the number of the GT bit of the CR.  */
       if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%E value");
+	output_operand_lossage ("invalid %%c value");
       else
 	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO) + 1);
       return;
@@ -14610,13 +14806,13 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
   mask = gen_reg_rtx (dmode);
 
   /* Try for VSX before Altivec.  */
-  if (TARGET_VSX && VSX_VECTOR_MODE (dmode))
+  if (VECTOR_UNIT_VSX_P (dmode))
     {
       rtx vsx = rs6000_emit_vector_compare_vsx (rcode, mask, op0, op1);
       if (vsx)
 	return vsx;
     }
-  else if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (dmode))
+  else if (VECTOR_UNIT_ALTIVEC_P (dmode))
     {
       rtx av = rs6000_emit_vector_compare_altivec (rcode, mask, op0, op1);
       if (av)
@@ -14713,13 +14909,13 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	  op1 = tmp;
 	}
 
-      if (TARGET_VSX && VSX_VECTOR_MODE (dmode))
+      if (VECTOR_UNIT_VSX_P (dmode))
 	{
 	  rtx vsx = rs6000_emit_vector_compare_vsx (rcode, mask, op0, op1);
 	  if (vsx)
 	    return vsx;
 	}
-      else if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (dmode))
+      else if (VECTOR_UNIT_ALTIVEC_P (dmode))
 	{
 	  rtx av = rs6000_emit_vector_compare_altivec (rcode, mask, op0, op1);
 	  if (av)
@@ -14742,8 +14938,9 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   enum machine_mode dest_mode = GET_MODE (dest);
   enum rtx_code rcode = GET_CODE (cond);
   rtx mask;
+  rtx cond2;
 
-  if (!TARGET_ALTIVEC && !TARGET_VSX)
+  if (VECTOR_UNIT_NONE_P (dest_mode))
     return 0;
 
   /* Get the vector mask for the given relational operations.  */
@@ -14752,20 +14949,14 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   if (!mask)
     return 0;
 
-  if ((TARGET_VSX && VSX_MOVE_MODE (dest_mode))
-      || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (dest_mode)))
-    {
-      rtx cond2 = gen_rtx_fmt_ee (NE, VOIDmode, mask, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode,
-			      dest,
-			      gen_rtx_IF_THEN_ELSE (dest_mode,
-						    cond2,
-						    op1,
-						    op2)));
-      return 1;
-    }
-
-  return 0;
+  cond2 = gen_rtx_fmt_ee (NE, VOIDmode, mask, const0_rtx);
+  emit_insn (gen_rtx_SET (VOIDmode,
+			  dest,
+			  gen_rtx_IF_THEN_ELSE (dest_mode,
+						cond2,
+						op1,
+						op2)));
+  return 1;
 }
 
 /* Emit a conditional move: move TRUE_COND to DEST if OP of the
@@ -21839,6 +22030,7 @@ rs6000_handle_altivec_attribute (tree *node,
     case 'b':
       switch (mode)
 	{
+	case DImode: case V2DImode: result = bool_V2DI_type_node; break;
 	case SImode: case V4SImode: result = bool_V4SI_type_node; break;
 	case HImode: case V8HImode: result = bool_V8HI_type_node; break;
 	case QImode: case V16QImode: result = bool_V16QI_type_node;
@@ -21883,6 +22075,7 @@ rs6000_mangle_type (const_tree type)
   if (type == bool_short_type_node) return "U6__bools";
   if (type == pixel_type_node) return "u7__pixel";
   if (type == bool_int_type_node) return "U6__booli";
+  if (type == bool_long_type_node) return "U6__booll";
 
   /* Mangle IBM extended float long double as `g' (__float128) on
      powerpc*-linux where long-double-64 previously was the default.  */

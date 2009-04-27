@@ -1,3 +1,150 @@
+2009-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from 04-27 power7-meissner branch (optimization of
+	V2DF/V2DI insert, extract, inits are not done in this merge):
+	* config/rs6000/vector.md (VEC_A): New iterator for the arithmetic
+	types.
+	(UNSPEC_PREDICATE): Move here from altivec.md.
+	(vector_eq_<mode>_p): Rewrite vector compare and set CR6 code,
+	move expanders here from altivec.md, and add VSX support.
+	(vector_gt_<mode>_p): Ditto.
+	(vector_ge_<mode>_p): Ditto.
+	(vector_gtu_<mode>_p): Ditto.
+	(cr6_test_for_zero): Move here from altivec.md.
+	(cr6_test_for_zero_reverse): Ditto.
+	(cr6_test_for_lt): Ditto.
+	(cr6_test_for_lt_reverse): Ditto.
+
+	* config/rs6000/rs6000.opt (-mpower7-adjust-cost): Turn this on by
+	default.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add VSX
+	double builtin support.
+
+	* config/rs6000/rs6000.c (builtin_mode_to_type): Move higher in
+	the source.
+	(altivec_expand_predicate_builtin): Rewrite predicate handling,
+	removing passing a SYMBOL ref to give the instruction being
+	generated.
+	(struct builtin_description_predicates): Ditto.
+	(bdesc_altivec_preds): Ditto.
+	(rs6000_expand_vector_set): For V2DF/V2DI optimization, pass the
+	arguments in the correct order.
+	(altivec_expand_builtin): Add V2DF/V2DI init, set, and extract
+	builtins.  Change call to altivec_expand_predicate_builtin.
+	(rs6000_expand_builtin): Delete some whitespace at the end of
+	lines.  If power7, define the bpermd builtin.
+	(rs6000_init_builtins): Move initialization of
+	builtin_mode_to_type here from rs6000_common_init_builtins.  Use
+	builtin_function_type to build random builtin function types.  Add
+	support for __builtiN_bpermd on power7.
+	(altivec_init_builtins): Add support for V2DF/V2DI init, set, and
+	extract builtins.  Fix a typo in the last change.
+	(rs6000_common_init_builtins): Move initialization of
+	builtin_mode_to_type to rs6000_init_builtins.
+	(print_operand, 'c' case): Fix typo in error message.
+	(rs6000_emit_vector_compare): Use VSX_UNIT_* macros for VSX and
+	Altivec code.
+	(rs6000_emit_vector_cond_expr): Ditto.
+
+	* config/rs6000/vsx.md (vsx_cmpdf_internal1): New insn to use
+	xscmpudp instead of fcmpu.
+	(vsx_eq_<mode>_p): Add VSX compare and predicate instructions.
+	(vsx_gt_<mode>_p): Ditto.
+	(vsx_ge_<mode>_p): Ditto.
+
+	* config/rs6000/rs6000.h (enum rs6000_builtins): Add builtins for
+	compare and set predicates, V2DF/V2DI init, set, and extract, and
+	bpermd instructions.
+
+	* config/rs6000/altivec.md (UNSPEC_PREDICATE): Move to vector.md.
+	(altivec_vcmpequ<VI_char>_p): New insns for altivec vector compare
+	and set predicate instructions.  Move expander to vector.md.
+	(altivec_vcmpgts<VI_char>_p): Ditto.
+	(altivec_vcmpgtu<VI_char>_p): Ditto.
+	(altivec_vcmpeqfp_p): Ditto.
+	(altivec_vcmpgtfp_p): Ditto.
+	(altivec_vcmpgefp_p): Ditto.
+	(altivec_vcmpbfp_p): Ditto.
+	(altivec_predicate_<mode>): Delete, no longer used.
+	(cr6_test_for_zero): Move to vector.md.
+	(cr6_test_for_zero_reverse): Ditto.
+	(cr6_test_for_lt): Ditto.
+	(cr6_test_for_lt_reverse): Ditto.
+
+	* config/rs6000/rs6000.md (UNSPEC_BPERM): New unspec constant.
+	(cmpdf_internal1): Use VSX xscmpudp if -mvsx.
+	(bpermd_<mode>): New insn for power7 bpermd builtin.
+
+2009-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vector_vsel<mode>): Generate the insns
+	directly instead of calling VSX/Altivec expanders.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Map VSX
+	builtins that are identical to Altivec, to the Altivec vesion.
+	(altivec_overloaded_builtins): Add V2DF/V2DI sel, perm support.
+	(altivec_resolve_overloaded_builtin): Add V2DF/V2DI support.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Rename VSX
+	splat functions.
+	(expand_vector_set): Merge V2DF/V2DI code.
+	(expand_vector_extract): Ditto.
+	(bdesc_3arg): Add more VSX builtins.
+	(bdesc_2arg): Ditto.
+	(bdesc_1arg): Ditto.
+	(rs6000_expand_ternop_builtin): Require xxpermdi 3rd argument to
+	be 2 bit-constant, and V2DF/V2DI set to be a 1 bit-constant.
+	(altivec_expand_builtin): Add support for VSX overloaded builtins.
+	(altivec_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(rs6000_init_builtins): Add V2DI types and vector long support.
+	(rs6000_handle_altivec_attribute): Ditto.
+	(rs6000_mange_type): Ditto.
+
+	* config/rs6000/vsx.md (UNSPEC_*): Add new UNSPEC constants.
+	(vsx_vsel<mode>): Add support for all vector types, including
+	Altivec types.
+	(vsx_ftrunc<mode>2): Emit the correct instruction.
+	(vsx_x<VSv>r<VSs>i): New builtin rounding mode insns.
+	(vsx_x<VSv>r<VSs>ic): Ditto.
+	(vsx_concat_<mode>): Key off of VSX memory instructions being
+	generated instead of the vector arithmetic unit to enable V2DI
+	mode.
+	(vsx_extract_<mode>): Ditto.
+	(vsx_set_<mode>): Rewrite as an unspec.
+	(vsx_xxpermdi2_<mode>): Rename old vsx_xxpermdi_<mode> here.  Key
+	off of VSX memory instructions instead of arithmetic unit.
+	(vsx_xxpermdi_<mode>): New insn for __builtin_vsx_xxpermdi.
+	(vsx_splat_<mode>): Rename from vsx_splat<mode>.
+	(vsx_xxspltw_<mode>): Change from V4SF only to V4SF/V4SI modes.
+	Fix up constraints.  Key off of memory instructions instead of
+	arithmetic instructions to allow use with V4SI.
+	(vsx_xxmrghw_<mode>): Ditto.
+	(vsx_xxmrglw_<mode>): Ditto.
+	(vsx_xxsldwi_<mode>): Implement vector shift double by word
+	immediate.
+
+	* config/rs6000/rs6000.h (VSX_BUILTIN_*): Update for current
+	builtins being generated.
+	(RS6000_BTI_unsigned_V2DI): Add vector long support.
+	(RS6000_BTI_bool_long): Ditto.
+	(RS6000_BTI_bool_V2DI): Ditto.
+	(unsigned_V2DI_type_node): Ditto.
+	(bool_long_type_node): Ditto.
+	(bool_V2DI_type_node): Ditto.
+
+	* config/rs6000/altivec.md (altivec_vsel<mode>): Add '*' since we
+	don't need the generator function now.  Use VSX instruction if
+	-mvsx.
+	(altivec_vmrghw): Use VSX instruction if -mvsx.
+	(altivec_vmrghsf): Ditto.
+	(altivec_vmrglw): Ditto.
+	(altivec_vmrglsf): Ditto.
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document that under VSX, vector double/long are available.
+
 2009-04-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to gcc-4_3-branch, svn id 146207.
