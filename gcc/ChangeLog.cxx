@@ -1,3 +1,8 @@
+2009-04-27  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* reorg.c (insn_sets_resource_p): include_delayed_effects is now bool.
+	Pass proper type to mark_set_resources.
+
 2009-04-25  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/sh/sh.md (push_fpscr, pop_fpscr): Use alloc_reg_note.
