@@ -2745,7 +2745,9 @@ tree_remove_unreachable_handlers (void)
 	      SET_BIT (reachable, region);
 	  }
 	if (gimple_code (stmt) == GIMPLE_RESX)
-	  SET_BIT (reachable, gimple_resx_region (stmt));
+	  SET_BIT (reachable,
+	  	   VEC_index (eh_region, cfun->eh->region_array,
+		   	      gimple_resx_region (stmt))->region_number);
 	if ((region = lookup_stmt_eh_region (stmt)) >= 0)
 	  SET_BIT (contains_stmt, region);
       }
@@ -3134,7 +3136,11 @@ cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 	 is really dead.  */
 
       if (found && !has_non_eh_preds)
-        remove_eh_region (region);
+        {
+	   if (dump_file && (dump_flags & TDF_DETAILS))
+	     fprintf (dump_file, "Empty EH handler %i removed.\n", region);
+          remove_eh_region (region);
+	}
       else if (!removed_some)
         return false;
 

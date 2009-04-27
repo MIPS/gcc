@@ -629,27 +629,20 @@ bring_to_root (struct eh_region *r)
   cfun->eh->region_tree = r;
 }
 
-/* Return true if T1 and T2 are equivalent lists.  */
-
-static bool
-list_match (tree t1, tree t2)
-{
-  for (; t1 && t2; t1 = TREE_CHAIN (t1) , t2 = TREE_CHAIN (t2))
-    if (TREE_VALUE (t1) != TREE_VALUE (t2))
-      return false;
-  return !t1 && !t2;
-}
-
 /* Return true if region R2 can be replaced by R1.  */
 
 static bool
 eh_region_replaceable_by_p (const struct eh_region *r1,
 			    const struct eh_region *r2)
 {
+  /* Regions are semantically same if they are of same type,
+     have same label and type.  */
   if (r1->type != r2->type)
     return false;
   if (r1->tree_label != r2->tree_label)
     return false;
+
+  /* Verify that also region type dependent data are the same.  */
   switch (r1->type)
     {
       case ERT_MUST_NOT_THROW:
@@ -670,14 +663,14 @@ eh_region_replaceable_by_p (const struct eh_region *r1,
         }
 	break;
       case ERT_CATCH:
-        if (!list_match (r1->u.eh_catch.type_list, r2->u.eh_catch.type_list))
+        if (!list_equal_p (r1->u.eh_catch.type_list, r2->u.eh_catch.type_list))
 	  return false;
-        if (!list_match (r1->u.eh_catch.filter_list,
-			 r2->u.eh_catch.filter_list))
+        if (!list_equal_p (r1->u.eh_catch.filter_list,
+			   r2->u.eh_catch.filter_list))
 	  return false;
         break;
       case ERT_ALLOWED_EXCEPTIONS:
-        if (!list_match (r1->u.allowed.type_list, r2->u.allowed.type_list))
+        if (!list_equal_p (r1->u.allowed.type_list, r2->u.allowed.type_list))
 	  return false;
 	if (r1->u.allowed.filter != r2->u.allowed.filter)
 	  return false;
@@ -695,7 +688,7 @@ eh_region_replaceable_by_p (const struct eh_region *r1,
   return true;
 }
 
-/* Merge region R2 into R1.  */
+/* Replace region R2 by R1.  */
 
 static void
 replace_region (struct eh_region *r1, struct eh_region *r2)
@@ -721,12 +714,14 @@ replace_region (struct eh_region *r1, struct eh_region *r2)
     }
 }
 
+/* Return hash value of type list T.  */
+
 static hashval_t
 hash_type_list (tree t)
 {
   hashval_t val = 0;
   for (; t; t = TREE_CHAIN (t))
-    val |= TREE_HASH (TREE_VALUE (t));
+    val = iterative_hash_hashval_t (TREE_HASH (TREE_VALUE (t)), val);
   return val;
 }
 
@@ -737,9 +732,9 @@ hash_eh_region (const void *r)
 {
   const struct eh_region *region = (const struct eh_region *)r;
   hashval_t val = region->type;
-  val <<= 20;
+
   if (region->tree_label)
-    val |= LABEL_DECL_UID (region->tree_label);
+    val = iterative_hash_hashval_t (LABEL_DECL_UID (region->tree_label), val);
   switch (region->type)
     {
       case ERT_MUST_NOT_THROW:
@@ -750,24 +745,28 @@ hash_eh_region (const void *r)
 	  struct eh_region *c;
 	  for (c = region->u.eh_try.eh_catch;
 	       c; c = c->u.eh_catch.next_catch)
-	    val |= hash_eh_region (c);
+	    val = iterative_hash_hashval_t (hash_eh_region (c), val);
         }
 	break;
       case ERT_CATCH:
-        val |= hash_type_list (region->u.eh_catch.type_list);
+        val = iterative_hash_hashval_t (hash_type_list
+					  (region->u.eh_catch.type_list), val);
         break;
       case ERT_ALLOWED_EXCEPTIONS:
-        val |= hash_type_list (region->u.allowed.type_list);
-        val |= region->u.allowed.filter;
+        val = iterative_hash_hashval_t
+		(hash_type_list (region->u.allowed.type_list), val);
+        val = iterative_hash_hashval_t (region->u.allowed.filter, val);
 	break;
       case ERT_THROW:
-        val |= TYPE_UID (region->u.eh_throw.type);
+        val |= iterative_hash_hashval_t (TYPE_UID (region->u.eh_throw.type), val);
 	break;
       default:
         gcc_unreachable ();
     }
   return val;
 }
+
+/* Return true if regions R1 and R2 are equal.  */
 
 static int
 eh_regions_equal_p (const void *r1, const void *r2)
@@ -816,10 +815,10 @@ merge_peers (struct eh_region *region)
   else
     region = cfun->eh->region_tree;
 
-  /* There are few regions to inspect;
+  /* There are few regions to inspect:
      N^2 loop matching each region with each region
      will do the job well.  */
-  if (num_regions < 1)
+  if (num_regions < 10)
     {
       for (r1 = region; r1; r1 = r1->next_peer)
 	{
@@ -836,6 +835,7 @@ merge_peers (struct eh_region *region)
 	    }
 	}
     }
+  /* Or use hashtable to avoid N^2 behaviour.  */
   else
     {
       htab_t hash;
@@ -1499,6 +1499,7 @@ copy_eh_region (struct eh_region *old, struct eh_region *new_outer,
 }
 
 /* Callback for forach_reachable_handler that push REGION into single VECtor DATA.  */
+
 static void
 push_reachable_handler (struct eh_region *region, void *data)
 {
@@ -1981,7 +1982,6 @@ build_post_landing_pads (void)
       switch (region->type)
 	{
 	case ERT_TRY:
-
 	  /* It is possible that TRY region is kept alive only because some of
 	     contained catch region still have RESX instruction but they are
 	     reached via their copies.  In this case we need to do nothing.  */
@@ -2047,7 +2047,6 @@ build_post_landing_pads (void)
 	  break;
 
 	case ERT_ALLOWED_EXCEPTIONS:
-
 	  if (!region->label)
 	    break;
 	  region->post_landing_pad = gen_label_rtx ();
