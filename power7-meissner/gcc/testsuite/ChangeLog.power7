@@ -1,3 +1,8 @@
+2009-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-builtin-4.c: New VSX test.
+	* gcc.target/powerpc/vsx-builtin-5.c: Ditto.
+
 2009-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vsx-builtin-3.c: New test for VSX builtins.

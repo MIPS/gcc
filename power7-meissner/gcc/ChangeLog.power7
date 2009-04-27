@@ -1,3 +1,81 @@
+2009-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_A): New iterator for the arithmetic
+	types.
+	(UNSPEC_PREDICATE): Move here from altivec.md.
+	(vector_eq_<mode>_p): Rewrite vector compare and set CR6 code,
+	move expanders here from altivec.md, and add VSX support.
+	(vector_gt_<mode>_p): Ditto.
+	(vector_ge_<mode>_p): Ditto.
+	(vector_gtu_<mode>_p): Ditto.
+	(cr6_test_for_zero): Move here from altivec.md.
+	(cr6_test_for_zero_reverse): Ditto.
+	(cr6_test_for_lt): Ditto.
+	(cr6_test_for_lt_reverse): Ditto.
+
+	* config/rs6000/rs6000.opt (-mpower7-adjust-cost): Turn this on by
+	default.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add VSX
+	double builtin support.
+	(altivec_resolve_overloaded_builtin): Optimize extracts and
+	inserts of vectors with double word items to use VSX xxpermdi.
+
+	* config/rs6000/rs6000.c (builtin_mode_to_type): Move higher in
+	the source.
+	(altivec_expand_predicate_builtin): Rewrite predicate handling,
+	removing passing a SYMBOL ref to give the instruction being
+	generated.
+	(struct builtin_description_predicates): Ditto.
+	(bdesc_altivec_preds): Ditto.
+	(rs6000_expand_vector_set): For V2DF/V2DI optimization, pass the
+	arguments in the correct order.
+	(altivec_expand_builtin): Add V2DF/V2DI init, set, and extract
+	builtins.  Change call to altivec_expand_predicate_builtin.
+	(rs6000_expand_builtin): Delete some whitespace at the end of
+	lines.  If power7, define the bpermd builtin.
+	(rs6000_init_builtins): Move initialization of
+	builtin_mode_to_type here from rs6000_common_init_builtins.  Use
+	builtin_function_type to build random builtin function types.  Add
+	support for __builtiN_bpermd on power7.
+	(altivec_init_builtins): Add support for V2DF/V2DI init, set, and
+	extract builtins.  Fix a typo in the last change.
+	(rs6000_common_init_builtins): Move initialization of
+	builtin_mode_to_type to rs6000_init_builtins.
+	(print_operand, 'c' case): Fix typo in error message.
+	(rs6000_emit_vector_compare): Use VSX_UNIT_* macros for VSX and
+	Altivec code.
+	(rs6000_emit_vector_cond_expr): Ditto.
+
+	* config/rs6000/vsx.md (vsx_cmpdf_internal1): New insn to use
+	xscmpudp instead of fcmpu.
+	(vsx_eq_<mode>_p): Add VSX compare and predicate instructions.
+	(vsx_gt_<mode>_p): Ditto.
+	(vsx_ge_<mode>_p): Ditto.
+
+	* config/rs6000/rs6000.h (enum rs6000_builtins): Add builtins for
+	compare and set predicates, V2DF/V2DI init, set, and extract, and
+	bpermd instructions.
+
+	* config/rs6000/altivec.md (UNSPEC_PREDICATE): Move to vector.md.
+	(altivec_vcmpequ<VI_char>_p): New insns for altivec vector compare
+	and set predicate instructions.  Move expander to vector.md.
+	(altivec_vcmpgts<VI_char>_p): Ditto.
+	(altivec_vcmpgtu<VI_char>_p): Ditto.
+	(altivec_vcmpeqfp_p): Ditto.
+	(altivec_vcmpgtfp_p): Ditto.
+	(altivec_vcmpgefp_p): Ditto.
+	(altivec_vcmpbfp_p): Ditto.
+	(altivec_predicate_<mode>): Delete, no longer used.
+	(cr6_test_for_zero): Move to vector.md.
+	(cr6_test_for_zero_reverse): Ditto.
+	(cr6_test_for_lt): Ditto.
+	(cr6_test_for_lt_reverse): Ditto.
+
+	* config/rs6000/rs6000.md (UNSPEC_BPERM): New unspec constant.
+	(cmpdf_internal1): Use VSX xscmpudp if -mvsx.
+	(bpermd_<mode>): New insn for power7 bpermd builtin.
+
 2009-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (vector_vsel<mode>): Generate the insns
