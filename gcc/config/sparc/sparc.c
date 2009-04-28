@@ -1997,7 +1997,8 @@ select_cc_mode (enum rtx_code op, rtx x, rtx y ATTRIBUTE_UNUSED)
     }
 }
 
-/* Emit the compare insn and return the CC reg for a CODE comparison.  */
+/* Emit the compare insn and return the CC reg for a CODE comparison
+   with operands X and Y.  */
 
 static rtx
 gen_compare_reg_1 (enum rtx_code code, rtx x, rtx y)
@@ -2063,6 +2064,9 @@ gen_compare_reg_1 (enum rtx_code code, rtx x, rtx y)
   return cc_reg;
 }
 
+
+/* Emit the compare insn and return the CC reg for the comparison in CMP.  */
+
 rtx
 gen_compare_reg (rtx cmp)
 {
@@ -2070,10 +2074,9 @@ gen_compare_reg (rtx cmp)
 }
 
 /* This function is used for v9 only.
-   CODE is the code for an Scc's comparison.
    DEST is the target of the Scc insn.
-   X is the value we compare against const0_rtx (which hasn't
-   been generated yet).
+   CODE is the code for an Scc's comparison.
+   X and Y are the values we compare.
 
    This function is needed to turn
 
@@ -2204,7 +2207,7 @@ emit_scc_insn (rtx operands[])
         }
       else if (GET_MODE (x) == DImode)
         {
-          rtx pat = gen_seqdi_special_trunc (operands[0], x, y);
+          rtx pat = gen_seqdi_special (operands[0], x, y);
           emit_insn (pat);
           return true;
         }
@@ -2220,7 +2223,7 @@ emit_scc_insn (rtx operands[])
         }
       else if (GET_MODE (x) == DImode)
         {
-          rtx pat = gen_snedi_special_trunc (operands[0], x, y);
+          rtx pat = gen_snedi_special (operands[0], x, y);
           emit_insn (pat);
           return true;
         }
@@ -2234,9 +2237,9 @@ emit_scc_insn (rtx operands[])
         return true;
     }
 
-    /* We can do LTU and GEU using the addx/subx instructions too.  And
-       for GTU/LEU, if both operands are registers swap them and fall
-       back to the easy case.  */
+  /* We can do LTU and GEU using the addx/subx instructions too.  And
+     for GTU/LEU, if both operands are registers swap them and fall
+     back to the easy case.  */
   if (code == GTU || code == LEU)
     {
       if ((GET_CODE (x) == REG || GET_CODE (x) == SUBREG)

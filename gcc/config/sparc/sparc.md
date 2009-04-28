@@ -447,8 +447,8 @@
    (clobber (match_operand:SI 0 "register_operand"))]
   ""
 {
-  if (GET_CODE (operands[1]) == ZERO_EXTRACT && operands[2] != const0_rtx)
-    operands[1] = force_reg (SImode, operands[1]);
+  if (GET_CODE (operands[2]) == ZERO_EXTRACT && operands[3] != const0_rtx)
+    operands[2] = force_reg (SImode, operands[2]);
   if (emit_scc_insn (operands)) DONE; else FAIL;
 })
 
@@ -459,8 +459,8 @@
    (clobber (match_operand:SI 0 "register_operand"))]
   "TARGET_ARCH64"
 {
-  if (GET_CODE (operands[1]) == ZERO_EXTRACT && operands[2] != const0_rtx)
-    operands[1] = force_reg (DImode, operands[1]);
+  if (GET_CODE (operands[2]) == ZERO_EXTRACT && operands[3] != const0_rtx)
+    operands[2] = force_reg (DImode, operands[2]);
   if (emit_scc_insn (operands)) DONE; else FAIL;
 })
 
@@ -491,8 +491,8 @@
   [(set (match_dup 3)
 	(xor:DI (match_operand:DI 1 "register_operand" "")
 		(match_operand:DI 2 "register_operand" "")))
-   (set (match_operand:DI 0 "register_operand" "")
-	(eq:DI (match_dup 3) (const_int 0)))]
+   (set (match_operand:SI 0 "register_operand" "")
+	(eq:SI (match_dup 3) (const_int 0)))]
   "TARGET_ARCH64"
   { operands[3] = gen_reg_rtx (DImode); })
 
@@ -507,24 +507,6 @@
   { operands[3] = gen_reg_rtx (SImode); })
 
 (define_expand "snedi_special"
-  [(set (match_dup 3)
-	(xor:DI (match_operand:DI 1 "register_operand" "")
-		(match_operand:DI 2 "register_operand" "")))
-   (set (match_operand:DI 0 "register_operand" "")
-	(ne:DI (match_dup 3) (const_int 0)))]
-  "TARGET_ARCH64"
-  { operands[3] = gen_reg_rtx (DImode); })
-
-(define_expand "seqdi_special_trunc"
-  [(set (match_dup 3)
-	(xor:DI (match_operand:DI 1 "register_operand" "")
-		(match_operand:DI 2 "register_operand" "")))
-   (set (match_operand:SI 0 "register_operand" "")
-	(eq:SI (match_dup 3) (const_int 0)))]
-  "TARGET_ARCH64"
-  { operands[3] = gen_reg_rtx (DImode); })
-
-(define_expand "snedi_special_trunc"
   [(set (match_dup 3)
 	(xor:DI (match_operand:DI 1 "register_operand" "")
 		(match_operand:DI 2 "register_operand" "")))
@@ -941,8 +923,8 @@
    (use (match_operand 3 ""))]
   ""
 {
-  if (GET_CODE (operands[0]) == ZERO_EXTRACT && operands[1] != const0_rtx)
-    operands[0] = force_reg (SImode, operands[0]);
+  if (GET_CODE (operands[1]) == ZERO_EXTRACT && operands[2] != const0_rtx)
+    operands[1] = force_reg (SImode, operands[1]);
   emit_conditional_branch_insn (operands);
   DONE;
 })
@@ -954,8 +936,8 @@
    (use (match_operand 3 ""))]
   "TARGET_ARCH64"
 {
-  if (GET_CODE (operands[0]) == ZERO_EXTRACT && operands[1] != const0_rtx)
-    operands[0] = force_reg (DImode, operands[0]);
+  if (GET_CODE (operands[1]) == ZERO_EXTRACT && operands[2] != const0_rtx)
+    operands[1] = force_reg (DImode, operands[1]);
   emit_conditional_branch_insn (operands);
   DONE;
 })

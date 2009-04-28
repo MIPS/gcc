@@ -1,3 +1,15 @@
+2009-04-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/sparc/sparc.c (gen_compare_reg_1): Fix comment.
+	(gen_compare_reg): Add comment.
+	(emit_scc_insn): Fix comment.  Adjust for renamed seqdi_special_trunc
+	and snedi_special_trunc patterns.
+	* config/sparc/sparc.md (cbranch*, cstore*): Fix ZERO_EXTRACT
+	operand numbers.
+ 	(seqdi_special, snedi_special): Use expansion of seqdi_special_trunc
+	and snedi_special_trunc.
+	(seqdi_special_trunc, snedi_special_trunc): Delete.
+
 2009-04-26  Paolo Bonzini  <bonzini@gnu.org>
 
 	* optabs.c : Change "lib call" to "libcall" throughout.
