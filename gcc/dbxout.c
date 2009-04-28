@@ -171,8 +171,7 @@ enum typestatus {TYPE_UNSEEN, TYPE_XREF, TYPE_DEFINED};
    The file_number and type_number elements are used if DBX_USE_BINCL
    is defined.  */
 
-struct typeinfo GTY(())
-{
+struct GTY(()) typeinfo {
   enum typestatus status;
   int file_number;
   int type_number;
@@ -1399,7 +1398,9 @@ dbxout_type_index (tree type)
 /* Used in several places: evaluates to '0' for a private decl,
    '1' for a protected decl, '2' for a public decl.  */
 #define DECL_ACCESSIBILITY_CHAR(DECL) \
-(TREE_PRIVATE (DECL) ? '0' : TREE_PROTECTED (DECL) ? '1' : '2')
+((TREE_CODE (DECL) != PARM_DECL && TREE_CODE (DECL) != RESULT_DECL \
+  && (TREE_CODE (DECL) != VAR_DECL || TREE_STATIC (DECL)) \
+  && TREE_PRIVATE (DECL)) ? '0' : TREE_PROTECTED (DECL) ? '1' : '2')
 
 /* Subroutine of `dbxout_type'.  Output the type fields of TYPE.
    This must be a separate function because anonymous unions require

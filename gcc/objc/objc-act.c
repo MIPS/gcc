@@ -389,8 +389,7 @@ static int flag_typed_selectors;
 /* Store all constructed constant strings in a hash table so that
    they get uniqued properly.  */
 
-struct string_descriptor GTY(())
-{
+struct GTY(()) string_descriptor {
   /* The literal argument .  */
   tree literal;
 
@@ -401,8 +400,7 @@ struct string_descriptor GTY(())
 static GTY((param_is (struct string_descriptor))) htab_t string_htab;
 
 /* Store the EH-volatilized types in a hash table, for easy retrieval.  */
-struct volatilized_type GTY(())
-{
+struct GTY(()) volatilized_type {
   tree type;
 };
 
@@ -3297,8 +3295,7 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
   return result;
 }
 
-struct interface_tuple GTY(())
-{
+struct GTY(()) interface_tuple {
   tree id;
   tree class_name;
 };
@@ -8743,9 +8740,8 @@ get_super_receiver (void)
 
       /* Set receiver to self.  */
       super_expr = objc_build_component_ref (UOBJC_SUPER_decl, self_id);
-      super_expr = build_modify_expr (input_location, 
-				      super_expr, NOP_EXPR, self_decl,
-				      NULL_TREE);
+      super_expr = build_modify_expr (input_location, super_expr, NULL_TREE,
+				      NOP_EXPR, self_decl, NULL_TREE);
       super_expr_list = super_expr;
 
       /* Set class to begin searching.  */
@@ -8757,7 +8753,8 @@ get_super_receiver (void)
 	  /* [_cls, __cls]Super are "pre-built" in
 	     synth_forward_declarations.  */
 
-	  super_expr = build_modify_expr (input_location, super_expr, NOP_EXPR,
+	  super_expr = build_modify_expr (input_location, super_expr,
+					  NULL_TREE, NOP_EXPR,
 					  ((TREE_CODE (objc_method_context)
 					    == INSTANCE_METHOD_DECL)
 					   ? ucls_super_ref
@@ -8810,7 +8807,8 @@ get_super_receiver (void)
 	    }
 
 	  super_expr
-	    = build_modify_expr (input_location, super_expr, NOP_EXPR,
+	    = build_modify_expr (input_location, super_expr, NULL_TREE,
+				 NOP_EXPR,
 				 build_c_cast (TREE_TYPE (super_expr),
 					       super_class),
 				 NULL_TREE);
@@ -9554,9 +9552,9 @@ objc_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
     }
 
 #ifdef OBJCPLUS
-  return cp_gimplify_expr (expr_p, pre_p, post_p);
+  return (enum gimplify_status) cp_gimplify_expr (expr_p, pre_p, post_p);
 #else
-  return c_gimplify_expr (expr_p, pre_p, post_p);
+  return (enum gimplify_status) c_gimplify_expr (expr_p, pre_p, post_p);
 #endif
 }
 

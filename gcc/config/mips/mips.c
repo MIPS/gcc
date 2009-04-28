@@ -241,7 +241,7 @@ static const char *const mips_fp_conditions[] = {
 };
 
 /* Information about a function's frame layout.  */
-struct mips_frame_info GTY(()) {
+struct GTY(())  mips_frame_info {
   /* The size of the frame in bytes.  */
   HOST_WIDE_INT total_size;
 
@@ -292,7 +292,7 @@ struct mips_frame_info GTY(()) {
   HOST_WIDE_INT hard_frame_pointer_offset;
 };
 
-struct machine_function GTY(()) {
+struct GTY(())  machine_function {
   /* The register returned by mips16_gp_pseudo_reg; see there for details.  */
   rtx mips16_gp_pseudo_rtx;
 
@@ -1103,7 +1103,7 @@ static const struct mips_rtx_cost_data mips_rtx_cost_data[PROCESSOR_MAX] = {
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
-struct mflip_mips16_entry GTY (()) {
+struct GTY (())  mflip_mips16_entry {
   const char *name;
   bool mips16_p;
 };
@@ -5540,7 +5540,7 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
 /* Each locally-defined hard-float MIPS16 function has a local symbol
    associated with it.  This hash table maps the function symbol (FUNC)
    to the local symbol (LOCAL). */
-struct mips16_local_alias GTY(()) {
+struct GTY(()) mips16_local_alias {
   rtx func;
   rtx local;
 };
@@ -11642,8 +11642,9 @@ AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
    for instruction CODE_FOR_loongson_<INSN>.  FUNCTION_TYPE is a
    builtin_description field.  */
 #define LOONGSON_BUILTIN_ALIAS(INSN, FN_NAME, FUNCTION_TYPE)		\
-  { CODE_FOR_loongson_ ## INSN, 0, "__builtin_loongson_" #FN_NAME,	\
-    MIPS_BUILTIN_DIRECT, FUNCTION_TYPE, mips_builtin_avail_loongson }
+  { CODE_FOR_loongson_ ## INSN, MIPS_FP_COND_f,				\
+    "__builtin_loongson_" #FN_NAME, MIPS_BUILTIN_DIRECT,		\
+    FUNCTION_TYPE, mips_builtin_avail_loongson }
 
 /* Define a Loongson MIPS_BUILTIN_DIRECT function __builtin_loongson_<INSN>
    for instruction CODE_FOR_loongson_<INSN>.  FUNCTION_TYPE is a

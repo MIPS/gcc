@@ -28,20 +28,15 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "real.h"
 #include "flags.h"
-#include "toplev.h"
-#include "rtl.h"
 #include "expr.h"
 #include "ggc.h"
-#include "cgraph.h"
-#include "function.h"
-#include "except.h"
-#include "debug.h"
 #include "output.h"
 #include "tree-iterator.h"
 #include "gimple.h"
+
 #include "ada.h"
+#include "adadecode.h"
 #include "types.h"
 #include "atree.h"
 #include "elists.h"
@@ -56,9 +51,6 @@
 #include "einfo.h"
 #include "ada-tree.h"
 #include "gigi.h"
-#include "adadecode.h"
-#include "dwarf2.h"
-#include "dwarf2out.h"
 
 /* We should avoid allocating more than ALLOCA_THRESHOLD bytes via alloca,
    for fear of running out of stack space.  If we need more, we use xmalloc
@@ -108,8 +100,7 @@ bool type_annotate_only;
 /* When not optimizing, we cache the 'First, 'Last and 'Length attributes
    of unconstrained array IN parameters to avoid emitting a great deal of
    redundant instructions to recompute them each time.  */
-struct parm_attr GTY (())
-{
+struct GTY (()) parm_attr {
   int id; /* GTY doesn't like Entity_Id.  */
   int dim;
   tree first;
@@ -122,8 +113,7 @@ typedef struct parm_attr *parm_attr;
 DEF_VEC_P(parm_attr);
 DEF_VEC_ALLOC_P(parm_attr,gc);
 
-struct language_function GTY(())
-{
+struct GTY(()) language_function {
   VEC(parm_attr,gc) *parm_attr_cache;
 };
 
@@ -135,7 +125,7 @@ struct language_function GTY(())
    of a IF.  In the case where it represents a lexical scope, we may also
    have a BLOCK node corresponding to it and/or cleanups.  */
 
-struct stmt_group GTY((chain_next ("%h.previous"))) {
+struct GTY((chain_next ("%h.previous"))) stmt_group {
   struct stmt_group *previous;	/* Previous code group.  */
   tree stmt_list;		/* List of statements for this code group.  */
   tree block;			/* BLOCK for this code group, if any.  */
@@ -152,7 +142,7 @@ static GTY((deletable)) struct stmt_group *stmt_group_free_list;
 
    ??? gnat_node should be Node_Id, but gengtype gets confused.  */
 
-struct elab_info GTY((chain_next ("%h.next"))) {
+struct GTY((chain_next ("%h.next"))) elab_info {
   struct elab_info *next;	/* Pointer to next in chain.  */
   tree elab_proc;		/* Elaboration procedure.  */
   int gnat_node;		/* The N_Compilation_Unit.  */
@@ -327,6 +317,10 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
   if (!Stack_Check_Probes_On_Target)
     set_stack_check_libfunc (gen_rtx_SYMBOL_REF (Pmode, "_gnat_stack_check"));
 
+  /* Retrieve alignment settings.  */
+  double_float_alignment = get_target_double_float_alignment ();
+  double_scalar_alignment = get_target_double_scalar_alignment ();
+
   /* Record the builtin types.  Define `integer' and `unsigned char' first so
      that dbx will output them first.  */
   record_builtin_type ("integer", integer_type_node);
@@ -407,7 +401,7 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
   /* Make the types and functions used for exception processing.  */
   jmpbuf_type
     = build_array_type (gnat_type_for_mode (Pmode, 0),
-			build_index_type (build_int_cst (NULL_TREE, 5)));
+			build_index_type (size_int (5)));
   record_builtin_type ("JMPBUF_T", jmpbuf_type);
   jmpbuf_ptr_type = build_pointer_type (jmpbuf_type);
 
@@ -732,6 +726,18 @@ lvalue_required_p (Node_Id gnat_node, tree gnu_type, int aliased)
 	      || Is_Composite_Type
 		 (Underlying_Type (Etype (Name (gnat_parent))))
 	      || Nkind (Name (gnat_parent)) == N_Identifier);
+
+    case N_Object_Declaration:
+      /* We cannot use a constructor if this is an atomic object because
+	 the actual assignment might end up being done component-wise.  */
+      return Is_Composite_Type (Underlying_Type (Etype (gnat_node)))
+	     && Is_Atomic (Defining_Entity (gnat_parent));
+
+    case N_Assignment_Statement:
+      /* We cannot use a constructor if the LHS is an atomic object because
+	 the actual assignment might end up being done component-wise.  */
+      return Is_Composite_Type (Underlying_Type (Etype (gnat_node)))
+	     && Is_Atomic (Entity (Name (gnat_parent)));
 
     default:
       return 0;
@@ -1064,12 +1070,10 @@ Pragma_to_gnu (Node_Id gnat_node)
 static tree
 Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 {
-  tree gnu_result = error_mark_node;
-  tree gnu_result_type;
-  tree gnu_expr;
-  bool prefix_unused = false;
   tree gnu_prefix = gnat_to_gnu (Prefix (gnat_node));
   tree gnu_type = TREE_TYPE (gnu_prefix);
+  tree gnu_expr, gnu_result_type, gnu_result = error_mark_node;
+  bool prefix_unused = false;
 
   /* If the input is a NULL_EXPR, make a new one.  */
   if (TREE_CODE (gnu_prefix) == NULL_EXPR)
@@ -1373,19 +1377,53 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       break;
 
     case Attr_Alignment:
-      if (TREE_CODE (gnu_prefix) == COMPONENT_REF
-	  && (TREE_CODE (TREE_TYPE (TREE_OPERAND (gnu_prefix, 0)))
-	      == RECORD_TYPE)
-	  && (TYPE_IS_PADDING_P (TREE_TYPE (TREE_OPERAND (gnu_prefix, 0)))))
-	gnu_prefix = TREE_OPERAND (gnu_prefix, 0);
+      {
+	unsigned int align;
 
-      gnu_type = TREE_TYPE (gnu_prefix);
-      gnu_result_type = get_unpadded_type (Etype (gnat_node));
-      prefix_unused = true;
+	if (TREE_CODE (gnu_prefix) == COMPONENT_REF
+	    && (TREE_CODE (TREE_TYPE (TREE_OPERAND (gnu_prefix, 0)))
+		== RECORD_TYPE)
+	    && (TYPE_IS_PADDING_P (TREE_TYPE (TREE_OPERAND (gnu_prefix, 0)))))
+	  gnu_prefix = TREE_OPERAND (gnu_prefix, 0);
 
-      gnu_result = size_int ((TREE_CODE (gnu_prefix) == COMPONENT_REF
-			      ? DECL_ALIGN (TREE_OPERAND (gnu_prefix, 1))
-			      : TYPE_ALIGN (gnu_type)) / BITS_PER_UNIT);
+	gnu_type = TREE_TYPE (gnu_prefix);
+	gnu_result_type = get_unpadded_type (Etype (gnat_node));
+	prefix_unused = true;
+
+	if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
+	  align = DECL_ALIGN (TREE_OPERAND (gnu_prefix, 1)) / BITS_PER_UNIT;
+	else
+	  {
+	    Node_Id gnat_prefix = Prefix (gnat_node);
+	    Entity_Id gnat_type = Etype (gnat_prefix);
+	    unsigned int double_align;
+	    bool is_capped_double, align_clause;
+
+	    /* If the default alignment of "double" or larger scalar types is
+	       specifically capped and there is an alignment clause neither
+	       on the type nor on the prefix itself, return the cap.  */
+	    if ((double_align = double_float_alignment) > 0)
+	      is_capped_double
+		= is_double_float_or_array (gnat_type, &align_clause);
+	    else if ((double_align = double_scalar_alignment) > 0)
+	      is_capped_double
+		= is_double_scalar_or_array (gnat_type, &align_clause);
+	    else
+	      is_capped_double = align_clause = false;
+
+	    if (is_capped_double
+		&& Nkind (gnat_prefix) == N_Identifier
+		&& Present (Alignment_Clause (Entity (gnat_prefix))))
+	      align_clause = true;
+
+	    if (is_capped_double && !align_clause)
+	      align = double_align;
+	    else
+	      align = TYPE_ALIGN (gnu_type) / BITS_PER_UNIT;
+	  }
+
+	gnu_result = size_int (align);
+      }
       break;
 
     case Attr_First:
@@ -5309,12 +5347,10 @@ gnat_to_gnu (Node_Id gnat_node)
   if (TREE_CODE (gnu_result_type) == VOID_TYPE)
     return gnu_result;
 
-  /* If the result is a constant that overflows, raise constraint error.  */
-  else if (TREE_CODE (gnu_result) == INTEGER_CST
-      && TREE_OVERFLOW (gnu_result))
+  /* If the result is a constant that overflowed, raise Constraint_Error.  */
+  if (TREE_CODE (gnu_result) == INTEGER_CST && TREE_OVERFLOW (gnu_result))
     {
       post_error ("Constraint_Error will be raised at run-time?", gnat_node);
-
       gnu_result
 	= build1 (NULL_EXPR, gnu_result_type,
 		  build_call_raise (CE_Overflow_Check_Failed, gnat_node,

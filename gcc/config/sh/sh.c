@@ -218,7 +218,7 @@ static int sh_variable_issue (FILE *, int, rtx, int);
 static bool sh_function_ok_for_sibcall (tree, tree);
 
 static bool sh_cannot_modify_jumps_p (void);
-static int sh_target_reg_class (void);
+static enum reg_class sh_target_reg_class (void);
 static bool sh_optimize_target_register_callee_saved (bool);
 static bool sh_ms_bitfield_layout_p (const_tree);
 
@@ -1212,7 +1212,7 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
   if ((mode == SImode || mode == DImode)
       && flag_pic
       && ! ((mode == Pmode || mode == ptr_mode)
-	    && tls_symbolic_operand (operands[1], Pmode) != 0))
+	    && tls_symbolic_operand (operands[1], Pmode) != TLS_MODEL_NONE))
     {
       rtx temp;
       if (SYMBOLIC_CONST_P (operands[1]))
@@ -1284,7 +1284,8 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
       op1 = operands[1];
       if (GET_CODE (op1) == CONST
 	  && GET_CODE (XEXP (op1, 0)) == PLUS
-	  && tls_symbolic_operand (XEXP (XEXP (op1, 0), 0), Pmode))
+	  && (tls_symbolic_operand (XEXP (XEXP (op1, 0), 0), Pmode)
+	      != TLS_MODEL_NONE))
 	{
 	  opc = XEXP (XEXP (op1, 0), 1);
 	  op1 = XEXP (XEXP (op1, 0), 0);
@@ -1292,7 +1293,7 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
       else
 	opc = NULL_RTX;
 
-      if ((tls_kind = tls_symbolic_operand (op1, Pmode)))
+      if ((tls_kind = tls_symbolic_operand (op1, Pmode)) != TLS_MODEL_NONE)
 	{
 	  rtx tga_op1, tga_ret, tmp, tmp2;
 
@@ -5280,7 +5281,7 @@ sh_reorg (void)
 			  /* If we are not optimizing, then there may not be
 			     a note.  */
 			  if (note)
-			    PUT_MODE (note, REG_INC);
+			    PUT_REG_NOTE_KIND (note, REG_INC);
 
 			  *last_float_addr = r0_inc_rtx;
 			}
@@ -6503,7 +6504,7 @@ sh_expand_prologue (void)
       tmp_pnt = schedule.temps;
       for (entry = &schedule.entries[1]; entry->mode != VOIDmode; entry++)
         {
-	  enum machine_mode mode = entry->mode;
+	  enum machine_mode mode = (enum machine_mode) entry->mode;
 	  unsigned int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, pre_dec = NULL_RTX;
 	  rtx orig_reg_rtx;
@@ -6517,32 +6518,27 @@ sh_expand_prologue (void)
 						 stack_pointer_rtx,
 						 GEN_INT (offset)));
 
-	  GO_IF_LEGITIMATE_ADDRESS (mode, XEXP (mem_rtx, 0), try_pre_dec);
+	  if (!memory_address_p (mode, XEXP (mem_rtx, 0)))
+	    {
+	      gcc_assert (r0);
+	      mem_rtx = NULL_RTX;
+	    }
 
-	  gcc_assert (r0);
-	  mem_rtx = NULL_RTX;
+	  if (HAVE_PRE_DECREMENT
+	      && (offset_in_r0 - offset == GET_MODE_SIZE (mode)
+		  || mem_rtx == NULL_RTX
+		  || reg == PR_REG || SPECIAL_REGISTER_P (reg)))
+	    {
+	      pre_dec = gen_frame_mem (mode, gen_rtx_PRE_DEC (Pmode, r0));
 
-	try_pre_dec:
-	  do
-	    if (HAVE_PRE_DECREMENT
-		&& (offset_in_r0 - offset == GET_MODE_SIZE (mode)
-		    || mem_rtx == NULL_RTX
-		    || reg == PR_REG || SPECIAL_REGISTER_P (reg)))
-	      {
-		pre_dec = gen_frame_mem (mode, gen_rtx_PRE_DEC (Pmode, r0));
-
-		GO_IF_LEGITIMATE_ADDRESS (mode, XEXP (pre_dec, 0),
-					  pre_dec_ok);
-
+	      if (!memory_address_p (mode, XEXP (pre_dec, 0)))
 		pre_dec = NULL_RTX;
-
-		break;
-
-	      pre_dec_ok:
-		mem_rtx = NULL_RTX;
-		offset += GET_MODE_SIZE (mode);
-	      }
-	  while (0);
+	      else
+		{
+		  mem_rtx = NULL_RTX;
+		  offset += GET_MODE_SIZE (mode);
+		}
+	    }
 
 	  if (mem_rtx != NULL_RTX)
 	    goto addr_ok;
@@ -6793,7 +6789,7 @@ sh_expand_epilogue (bool sibcall_p)
       tmp_pnt = schedule.temps;
       for (; entry->mode != VOIDmode; entry--)
 	{
-	  enum machine_mode mode = entry->mode;
+	  enum machine_mode mode = (enum machine_mode) entry->mode;
 	  int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, post_inc = NULL_RTX, insn;
 
@@ -6805,31 +6801,22 @@ sh_expand_epilogue (bool sibcall_p)
 						 stack_pointer_rtx,
 						 GEN_INT (offset)));
 
-	  GO_IF_LEGITIMATE_ADDRESS (mode, XEXP (mem_rtx, 0), try_post_inc);
+	  if (!memory_address_p (mode, XEXP (mem_rtx, 0)))
+	    mem_rtx = NULL_RTX;
 
-	  mem_rtx = NULL_RTX;
+	  if (HAVE_POST_INCREMENT
+	      && (offset == offset_in_r0
+		  || (offset + GET_MODE_SIZE (mode) != d + d_rounding
+		      && mem_rtx == NULL_RTX)
+		  || reg == PR_REG || SPECIAL_REGISTER_P (reg)))
+	    {
+	      post_inc = gen_frame_mem (mode, gen_rtx_POST_INC (Pmode, r0));
 
-	try_post_inc:
-	  do
-	    if (HAVE_POST_INCREMENT
-		&& (offset == offset_in_r0
-		    || (offset + GET_MODE_SIZE (mode) != d + d_rounding
-			&& mem_rtx == NULL_RTX)
-		    || reg == PR_REG || SPECIAL_REGISTER_P (reg)))
-	      {
-		post_inc = gen_frame_mem (mode, gen_rtx_POST_INC (Pmode, r0));
-
-		GO_IF_LEGITIMATE_ADDRESS (mode, XEXP (post_inc, 0),
-					  post_inc_ok);
-
+	      if (!memory_address_p (mode, XEXP (post_inc, 0)))
 		post_inc = NULL_RTX;
-
-		break;
-
-	      post_inc_ok:
+	      else
 		mem_rtx = NULL_RTX;
-	      }
-	  while (0);
+	    }
 
 	  if (mem_rtx != NULL_RTX)
 	    goto addr_ok;
@@ -8621,11 +8608,11 @@ tertiary_reload_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 }
 
 /* Return the TLS type for TLS symbols, 0 for otherwise.  */
-int
+enum tls_model
 tls_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
+    return TLS_MODEL_NONE;
   return SYMBOL_REF_TLS_MODEL (op);
 }
 
@@ -8865,7 +8852,7 @@ get_free_reg (HARD_REG_SET regs_live)
 void
 fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 {
-  enum attr_fp_mode fp_mode = mode;
+  enum attr_fp_mode fp_mode = (enum attr_fp_mode) mode;
   enum attr_fp_mode norm_mode = ACTUAL_NORMAL_MODE (FP_MODE);
   rtx addr_reg;
 
@@ -9013,7 +9000,7 @@ rtx
 legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 			rtx reg)
 {
-  if (tls_symbolic_operand (orig, Pmode))
+  if (tls_symbolic_operand (orig, Pmode) != TLS_MODEL_NONE)
     return orig;
 
   if (GET_CODE (orig) == LABEL_REF
@@ -9792,7 +9779,7 @@ sh_cannot_modify_jumps_p (void)
   return (TARGET_SHMEDIA && (reload_in_progress || reload_completed));
 }
 
-static int
+static enum reg_class
 sh_target_reg_class (void)
 {
   return TARGET_SHMEDIA ? TARGET_REGS : NO_REGS;

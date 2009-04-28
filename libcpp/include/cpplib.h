@@ -162,8 +162,7 @@ enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_STDC89, CLK_STDC94, CLK_STDC99,
 	     CLK_GNUCXX, CLK_CXX98, CLK_GNUCXX0X, CLK_CXX0X, CLK_ASM};
 
 /* Payload of a NUMBER, STRING, CHAR or COMMENT token.  */
-struct cpp_string GTY(())
-{
+struct GTY(()) cpp_string {
   unsigned int len;
   const unsigned char *text;
 };
@@ -196,8 +195,7 @@ enum cpp_token_fld_kind {
 
 /* A preprocessing token.  This has been carefully packed and should
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
-struct cpp_token GTY(())
-{
+struct GTY(()) cpp_token {
   source_location src_loc;	/* Location of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned short flags;		/* flags - see above */
@@ -604,8 +602,7 @@ enum {
    ends.  Also used to store CPP identifiers, which are a superset of
    identifiers in the grammatical sense.  */
 
-union _cpp_hashnode_value GTY(())
-{
+union GTY(()) _cpp_hashnode_value {
   /* If a macro.  */
   cpp_macro * GTY((tag ("NTV_MACRO"))) macro;
   /* Answers to an assertion.  */
@@ -616,8 +613,7 @@ union _cpp_hashnode_value GTY(())
   unsigned short GTY ((tag ("NTV_ARGUMENT"))) arg_index;
 };
 
-struct cpp_hashnode GTY(())
-{
+struct GTY(()) cpp_hashnode {
   struct ht_identifier ident;
   unsigned int is_directive : 1;
   unsigned int directive_index : 7;	/* If is_directive,
@@ -841,7 +837,7 @@ extern void cpp_output_line (cpp_reader *, FILE *);
 extern unsigned char *cpp_output_line_to_string (cpp_reader *,
 						 const unsigned char *);
 extern void cpp_output_token (const cpp_token *, FILE *);
-extern const char *cpp_type2name (enum cpp_ttype);
+extern const char *cpp_type2name (enum cpp_ttype, unsigned char flags);
 /* Returns the value of an escape sequence, truncated to the correct
    target precision.  PSTR points to the input pointer, which is just
    after the backslash.  LIMIT is how much text we have.  WIDE is true

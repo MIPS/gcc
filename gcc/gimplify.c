@@ -1851,6 +1851,9 @@ gimplify_conversion (tree *expr_p)
   return GS_OK;
 }
 
+/* Nonlocal VLAs seen in the current function.  */
+static struct pointer_set_t *nonlocal_vlas;
+
 /* Gimplify a VAR_DECL or PARM_DECL.  Returns GS_OK if we expanded a 
    DECL_VALUE_EXPR, and it's worth re-examining things.  */
 
@@ -1881,7 +1884,36 @@ gimplify_var_or_parm_decl (tree *expr_p)
   /* If the decl is an alias for another expression, substitute it now.  */
   if (DECL_HAS_VALUE_EXPR_P (decl))
     {
-      *expr_p = unshare_expr (DECL_VALUE_EXPR (decl));
+      tree value_expr = DECL_VALUE_EXPR (decl);
+
+      /* For referenced nonlocal VLAs add a decl for debugging purposes
+	 to the current function.  */
+      if (TREE_CODE (decl) == VAR_DECL
+	  && TREE_CODE (DECL_SIZE_UNIT (decl)) != INTEGER_CST
+	  && nonlocal_vlas != NULL
+	  && TREE_CODE (value_expr) == INDIRECT_REF
+	  && TREE_CODE (TREE_OPERAND (value_expr, 0)) == VAR_DECL
+	  && decl_function_context (decl) != current_function_decl)
+	{
+	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
+	  while (ctx && ctx->region_type == ORT_WORKSHARE)
+	    ctx = ctx->outer_context;
+	  if (!ctx && !pointer_set_insert (nonlocal_vlas, decl))
+	    {
+	      tree copy = copy_node (decl), block;
+
+	      lang_hooks.dup_lang_specific_decl (copy);
+	      SET_DECL_RTL (copy, NULL_RTX);
+	      TREE_USED (copy) = 1;
+	      block = DECL_INITIAL (current_function_decl);
+	      TREE_CHAIN (copy) = BLOCK_VARS (block);
+	      BLOCK_VARS (block) = copy;
+	      SET_DECL_VALUE_EXPR (copy, unshare_expr (value_expr));
+	      DECL_HAS_VALUE_EXPR_P (copy) = 1;
+	    }
+	}
+
+      *expr_p = unshare_expr (value_expr);
       return GS_OK;
     }
 
@@ -3982,11 +4014,14 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
     switch (TREE_CODE (*from_p))
       {
       case VAR_DECL:
-	/* If we're assigning from a constant constructor, move the
-	   constructor expression to the RHS of the MODIFY_EXPR.  */
+	/* If we're assigning from a read-only variable initialized with
+	   a constructor, do the direct assignment from the constructor,
+	   but only if neither source nor target are volatile since this
+	   latter assignment might end up being done on a per-field basis.  */
 	if (DECL_INITIAL (*from_p)
 	    && TREE_READONLY (*from_p)
 	    && !TREE_THIS_VOLATILE (*from_p)
+	    && !TREE_THIS_VOLATILE (*to_p)
 	    && TREE_CODE (DECL_INITIAL (*from_p)) == CONSTRUCTOR)
 	  {
 	    tree old_from = *from_p;
@@ -5899,7 +5934,8 @@ static enum gimplify_status
 gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 {
   tree for_stmt, decl, var, t;
-  enum gimplify_status ret = GS_OK;
+  enum gimplify_status ret = GS_ALL_DONE;
+  enum gimplify_status tret;
   gimple gfor;
   gimple_seq for_body, for_pre_body;
   int i;
@@ -5949,8 +5985,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       else
 	var = decl;
 
-      ret |= gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
+      tret = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
 			    is_gimple_val, fb_rvalue);
+      ret = MIN (ret, tret);
       if (ret == GS_ERROR)
 	return ret;
 
@@ -5959,8 +5996,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gcc_assert (COMPARISON_CLASS_P (t));
       gcc_assert (TREE_OPERAND (t, 0) == decl);
 
-      ret |= gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
+      tret = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
 			    is_gimple_val, fb_rvalue);
+      ret = MIN (ret, tret);
 
       /* Handle OMP_FOR_INCR.  */
       t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
@@ -6007,8 +6045,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	      gcc_unreachable ();
 	    }
 
-	  ret |= gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
+	  tret = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
 				is_gimple_val, fb_rvalue);
+	  ret = MIN (ret, tret);
 	  break;
 
 	default:
@@ -6393,7 +6432,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	}
 
       /* Do any language-specific gimplification.  */
-      ret = lang_hooks.gimplify_expr (expr_p, pre_p, post_p);
+      ret = ((enum gimplify_status)
+	     lang_hooks.gimplify_expr (expr_p, pre_p, post_p));
       if (ret == GS_OK)
 	{
 	  if (*expr_p == NULL_TREE)
@@ -7144,7 +7184,12 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	/* The postqueue might change the value of the expression between
 	   the initialization and use of the temporary, so we can't use a
 	   formal temp.  FIXME do we care?  */
-	*expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	{
+	  *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	  if (TREE_CODE (TREE_TYPE (*expr_p)) == COMPLEX_TYPE
+	      || TREE_CODE (TREE_TYPE (*expr_p)) == VECTOR_TYPE)
+	    DECL_GIMPLE_REG_P (*expr_p) = 1;
+	}
       else
 	*expr_p = get_formal_tmp_var (*expr_p, pre_p);
     }
@@ -7359,6 +7404,9 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
   unshare_body (body_p, fndecl);
   unvisit_body (body_p, fndecl);
 
+  if (cgraph_node (fndecl)->origin)
+    nonlocal_vlas = pointer_set_create ();
+
   /* Make sure input_location isn't set to something weird.  */
   input_location = DECL_SOURCE_LOCATION (fndecl);
 
@@ -7392,6 +7440,12 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
     {
       gimplify_seq_add_seq (&parm_stmts, gimple_bind_body (outer_bind));
       gimple_bind_set_body (outer_bind, parm_stmts);
+    }
+
+  if (nonlocal_vlas)
+    {
+      pointer_set_destroy (nonlocal_vlas);
+      nonlocal_vlas = NULL;
     }
 
   pop_gimplify_context (outer_bind);

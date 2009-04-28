@@ -1508,7 +1508,7 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op, bool complain)
 bool
 invalid_nonstatic_memfn_p (const_tree expr, tsubst_flags_t complain)
 {
-  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
+  if (expr && DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
     {
       if (complain & tf_error)
         error ("invalid use of non-static member function");
@@ -4054,7 +4054,7 @@ cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      pointer_int_sum() anyway.  */
   complete_type (TREE_TYPE (res_type));
 
-  return pointer_int_sum (input_location, resultcode, ptrop,
+  return pointer_int_sum (resultcode, ptrop,
 			  fold_if_not_in_template (intop));
 }
 
@@ -5870,7 +5870,8 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
 /* For use from the C common bits.  */
 tree
 build_modify_expr (location_t location ATTRIBUTE_UNUSED,
-		   tree lhs, enum tree_code modifycode, tree rhs,
+		   tree lhs, tree lhs_origtype ATTRIBUTE_UNUSED,
+		   enum tree_code modifycode, tree rhs,
 		   tree rhs_origtype ATTRIBUTE_UNUSED)
 {
   return cp_build_modify_expr (lhs, modifycode, rhs, tf_warning_or_error);

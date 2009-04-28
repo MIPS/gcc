@@ -141,7 +141,7 @@ extern tree choices_to_gnu (tree operand, Node_Id choices);
    nothing has changed.  */
 extern tree substitute_in_type (tree t, tree f, tree r);
 
-/* Return the "RM size" of GNU_TYPE.  This is the actual number of bits
+/* Return the RM size of GNU_TYPE.  This is the actual number of bits
    needed to represent the object.  */
 extern tree rm_size (tree gnu_type);
 
@@ -267,6 +267,16 @@ extern int max_gnat_nodes;
 
 /* If nonzero, pretend we are allocating at global level.  */
 extern int force_global;
+
+/* The default alignment of "double" floating-point types, i.e. floating
+   point types whose size is equal to 64 bits, or 0 if this alignment is
+   not specifically capped.  */
+extern int double_float_alignment;
+
+/* The default alignment of "double" or larger scalar types, i.e. scalar
+   types whose size is greater or equal to 64 bits, or 0 if this alignment
+   is not specifically capped.  */
+extern int double_scalar_alignment;
 
 /* Standard data type sizes.  Most of these are not used.  */
 
@@ -542,9 +552,9 @@ extern tree create_subprog_type (tree return_type, tree param_decl_list,
 /* Return a copy of TYPE, but safe to modify in any way.  */
 extern tree copy_type (tree type);
 
-/* Return an INTEGER_TYPE of SIZETYPE with range MIN to MAX and whose
-   TYPE_INDEX_TYPE is INDEX.  GNAT_NODE is used for the position of
-   the decl.  */
+/* Return a subtype of sizetype with range MIN to MAX and whose
+   TYPE_INDEX_TYPE is INDEX.  GNAT_NODE is used for the position
+   of the associated TYPE_DECL.  */
 extern tree create_index_type (tree min, tree max, tree index,
 			       Node_Id gnat_node);
 
@@ -730,6 +740,20 @@ extern tree unchecked_convert (tree type, tree expr, bool notrunc_p);
    the latter being a record type as predicated by Is_Record_Type.  */
 extern enum tree_code tree_code_for_record_type (Entity_Id gnat_type);
 
+/* Return true if GNAT_TYPE is a "double" floating-point type, i.e. whose
+   size is equal to 64 bits, or an array of such a type.  Set ALIGN_CLAUSE
+   according to the presence of an alignment clause on the type or, if it
+   is an array, on the component type.  */
+extern bool is_double_float_or_array (Entity_Id gnat_type,
+				      bool *align_clause);
+
+/* Return true if GNAT_TYPE is a "double" or larger scalar type, i.e. whose
+   size is greater or equal to 64 bits, or an array of such a type.  Set
+   ALIGN_CLAUSE according to the presence of an alignment clause on the
+   type or, if it is an array, on the component type.  */
+extern bool is_double_scalar_or_array (Entity_Id gnat_type,
+				       bool *align_clause);
+
 /* Return true if GNU_TYPE is suitable as the type of a non-aliased
    component of an aggregate type.  */
 extern bool type_for_nonaliased_component_p (tree gnu_type);
@@ -815,9 +839,11 @@ extern tree build_component_ref (tree record_variable, tree component,
    If GNU_OBJ is nonzero, it is an object to deallocate.  Otherwise,
    generate an allocator.
 
-   GNU_SIZE is the size of the object and ALIGN is the alignment.
-   GNAT_PROC, if present is a procedure to call and GNAT_POOL is the
-   storage pool to use.  If not preset, malloc and free will be used.  */
+   GNU_SIZE is the size of the object in bytes and ALIGN is the alignment
+   in bits.  GNAT_PROC, if present, is a procedure to call and GNAT_POOL
+   is the storage pool to use.  If not present, malloc and free are used.
+   GNAT_NODE is used to provide an error location for restriction violation
+   messages.  */
 extern tree build_call_alloc_dealloc (tree gnu_obj, tree gnu_size,
                                       unsigned align, Entity_Id gnat_proc,
 				      Entity_Id gnat_pool, Node_Id gnat_node);
@@ -825,9 +851,10 @@ extern tree build_call_alloc_dealloc (tree gnu_obj, tree gnu_size,
 /* Build a GCC tree to correspond to allocating an object of TYPE whose
    initial value if INIT, if INIT is nonzero.  Convert the expression to
    RESULT_TYPE, which must be some type of pointer.  Return the tree.
+
    GNAT_PROC and GNAT_POOL optionally give the procedure to call and
    the storage pool to use.  GNAT_NODE is used to provide an error
-   location for restriction violations messages.  If IGNORE_INIT_TYPE is
+   location for restriction violation messages.  If IGNORE_INIT_TYPE is
    true, ignore the type of INIT for the purpose of determining the size;
    this will cause the maximum size to be allocated if TYPE is of
    self-referential size.  */
@@ -896,15 +923,17 @@ extern Pos get_target_float_size (void);
 extern Pos get_target_double_size (void);
 extern Pos get_target_long_double_size (void);
 extern Pos get_target_pointer_size (void);
-extern Pos get_target_maximum_alignment (void);
-extern Pos get_target_default_allocator_alignment (void);
 extern Pos get_target_maximum_default_alignment (void);
+extern Pos get_target_default_allocator_alignment (void);
 extern Pos get_target_maximum_allowed_alignment (void);
+extern Pos get_target_maximum_alignment (void);
 extern Nat get_float_words_be (void);
 extern Nat get_words_be (void);
 extern Nat get_bytes_be (void);
 extern Nat get_bits_be (void);
-extern Nat get_strict_alignment (void);
+extern Nat get_target_strict_alignment (void);
+extern Nat get_target_double_float_alignment (void);
+extern Nat get_target_double_scalar_alignment (void);
 
 /* Let code know whether we are targetting VMS without need of
    intrusive preprocessor directives.  */
@@ -918,4 +947,3 @@ extern Nat get_strict_alignment (void);
 #ifndef TARGET_MALLOC64
 #define TARGET_MALLOC64 0
 #endif
-

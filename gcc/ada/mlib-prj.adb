@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2001-2008, AdaCore                     --
+--                     Copyright (C) 2001-2009, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -345,7 +345,7 @@ package body MLib.Prj is
 
       In_Main_Object_Directory : Boolean := True;
 
-      There_Are_Foreign_Sources : Boolean;
+      Foreign_Sources : Boolean;
 
       Rpath : String_Access := null;
       --  Allocated only if Path Option is supported
@@ -679,8 +679,7 @@ package body MLib.Prj is
 
          procedure Process_Project (Project : Project_Id) is
             Data     : Project_Data := In_Tree.Projects.Table (Project);
-            Imported : Project_List := Data.Imported_Projects;
-            Element  : Project_Element;
+            Imported : Project_List;
 
          begin
             --  Nothing to do if process has already been processed
@@ -692,15 +691,13 @@ package body MLib.Prj is
                --  We first process the imported projects to guarantee that
                --  we have a proper reverse order for the libraries.
 
-               while Imported /= Empty_Project_List loop
-                  Element :=
-                    In_Tree.Project_Lists.Table (Imported);
-
-                  if Element.Project /= No_Project then
-                     Process_Project (Element.Project);
+               Imported := Data.Imported_Projects;
+               while Imported /= null loop
+                  if Imported.Project /= No_Project then
+                     Process_Project (Imported.Project);
                   end if;
 
-                  Imported := Element.Next;
+                  Imported := Imported.Next;
                end loop;
 
                --  If it is a library project, add it to Library_Projs
@@ -780,7 +777,6 @@ package body MLib.Prj is
                      end if;
                   end if;
                end if;
-
             end if;
          end Process_Project;
 
@@ -1351,7 +1347,7 @@ package body MLib.Prj is
 
          In_Main_Object_Directory := True;
 
-         There_Are_Foreign_Sources := Data.Other_Sources_Present;
+         Foreign_Sources := Has_Foreign_Sources (Data);
 
          loop
             if Data.Object_Directory /= No_Path_Information then
@@ -1412,7 +1408,7 @@ package body MLib.Prj is
                                     ALI_Path : constant String :=
                                                  Ext_To (C_Object_Path, "ali");
                                     Add_It   : Boolean :=
-                                                 There_Are_Foreign_Sources
+                                                 Foreign_Sources
                                                  or else
                                                    (Last > 5
                                                     and then
@@ -1514,7 +1510,7 @@ package body MLib.Prj is
                                           Check_Libs (ALI_Path, True);
                                        end if;
 
-                                    elsif There_Are_Foreign_Sources then
+                                    elsif Foreign_Sources then
                                        Objects.Append
                                          (new String'(Object_Path));
                                     end if;

@@ -1,3 +1,691 @@
+2009-04-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Array_Subtype>: Put
+	back kludge.
+
+2009-04-24  Robert Dewar  <dewar@adacore.com>
+
+	* mlib-prj.adb, prj-env.adb, prj-nmsc.adb, prj-proc.adb, make.adb,
+	clean.adb: Minor reformatting.
+	Minor code reorganization and message improvement.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, prj.adb, prj.ads, prj-nmsc.adb, prj-nmsc.ads
+	(Alternate_Languages): now implemented as a malloc-ed list rather
+	than through a table.
+
+2009-04-24  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_res.adb (Static_Concatenation): Simplify predicate to make it
+	accurately handle cases such as "lit" & "lit" and
+	"lit" & static_string_constant
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, make.adb, mlib-prj.adb, prj.adb, prj.ads, clean.adb,
+	prj-nmsc.adb, prj-env.adb (Project_List_Table, Project_Element):
+	removed. Lists of projects are now implemented via standard malloc
+	rather than through the table.
+
+2009-04-24  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_ch12.adb: Minor reformatting
+
+	* g-trasym.adb: Minor reformatting
+
+	* exp_ch6.adb: Minor reformatting
+
+2009-04-24  Robert Dewar  <dewar@adacore.com>
+
+	* layout.adb (Layout_Type): For packed array type, copy unset
+	size/alignment fields from the referenced Packed_Array_Type.
+
+2009-04-24  Bob Duff  <duff@adacore.com>
+
+	* lib-load.adb (Make_Instance_Unit): Revert previous change, no
+	longer needed after sem_ch12 changes.
+
+	* sem.adb (Walk_Library_Items): Include with's in some debugging
+	printouts.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj.ads, prj-nmsc.adb (Unit_Project): removed, since in fact we were
+	only ever using the Project field.
+
+2009-04-24  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Build_Instance_Compilation_Unit_Nodes): Do not set
+	Body_Required on the generated compilation node. The new node is linked
+	to its body, but both share the same file, so we do not set this flag
+	on the new unit so as not to create a spurious dependency on a
+	non-existent body in the ali file for the instance.
+
+2009-04-24  Robert Dewar  <dewar@adacore.com>
+
+	* make.adb: Minor reformatting
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj.adb, prj.ads, prj-nmsc.adb (Check_File, Record_Ada_Source,
+	Add_Source): merge some code between those. In particular change where
+	file normalization is done to avoid a few extra calls to
+	Canonicalize_File_Name. This also removes the need for passing
+	Current_Dir in a number of subprograms.
+
+2009-04-24  Bob Duff  <duff@adacore.com>
+
+	* lib-load.adb (Make_Instance_Unit): In the case where In_Main is
+	False, assign the correct unit to the Cunit field of the new table
+	entry. We want the spec unit, not the body unit.
+
+	* rtsfind.adb (Make_Unit_Name, Maybe_Add_With): Simplify calling
+	interface for these.
+	(Maybe_Add_With): Check whether we're trying to a with on the current
+	unit, and avoid creating such directly self-referential with clauses.
+	(Text_IO_Kludge): Add implicit with's for the generic pseudo-children of
+	[[Wide_]Wide_]Text_IO. These are needed for Walk_Library_Items,
+	and matches existing comments in the spec.
+
+	* sem.adb (Walk_Library_Items): Add various special cases to make the
+	assertions pass.
+
+	* sem_ch12.adb (Build_Instance_Compilation_Unit_Nodes): Use Body_Cunit
+	instead of Parent (N), for uniformity.
+
+2009-04-24  Robert Dewar  <dewar@adacore.com>
+
+	* errout.ads: Minor reformatting
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* gnat_ugn.texi (Library Projects): add documentation on gnatmake's
+	behavior when the project includes sources from multiple languages
+
+2009-04-24  Vincent Celier  <celier@adacore.com>
+
+	* prj.adb (Has_Foreign_Sources): Returns True in Ada_Only mode if there
+	is a language other than Ada declared.
+
+	* makeutl.adb (Linker_Options_Switches): Call For_All_Projects with
+	Imported_First set to True.
+
+2009-04-24  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb: additional optimization to inhibit creation of
+	redundant transient scopes.
+
+2009-04-24  Bob Duff  <duff@adacore.com>
+
+	* rtsfind.ads: Minor comment fix
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, prj-nmsc.adb (Find_Ada_Sources,
+	Get_Path_Name_And_Record_Ada_Sources): merged, since these were
+	basically doing the same work (for explicit or implicit sources).
+	(Find_Explicit_Sources): renamed to Find_Sources to better reflect its
+	role. Rewritten to share some code (testing that all explicit sources
+	have been found) between ada_only and multi_language modes.
+
+2009-04-24  Jerome Lambourg  <lambourg@adacore.com>
+
+	* sem_prag.adb (Check_Form_Of_Interface_Name): Allow space in Ext_Name
+	for CLI imported types.
+	(Analyze_Pragma): Allow CIL or Java imported functions returning
+	access-to-subprogram types.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* make.adb, prj.adb, prj.ads, makeutl.adb, makeutl.ads:
+	(Project_Data.Dir_Path): field removed, since it can be computed
+	directly from .Directory, and is needed only once when processing the
+	project is buildgpr.adb or make.adb
+
+2009-04-24  Robert Dewar  <dewar@adacore.com>
+
+	* prj-env.adb, prj-proc.adb, prj.adb, prj.ads,
+	rtsfind.adb: Minor reformatting.
+	Minor code reorganization
+
+2009-04-24  Arnaud Charlet  <charlet@adacore.com>
+
+	* mlib-prj.adb: Use friendlier english identifier.
+
+	* gnatcmd.adb, make.adb: Use better english identifiers.
+
+2009-04-24  Robert Dewar  <dewar@adacore.com>
+
+	* clean.adb: Minor reformatting
+
+2009-04-24  Robert Dewar  <dewar@adacore.com>
+
+	* einfo.adb (OK_To_Rename): New flag
+
+	* einfo.ads (OK_To_Rename): New flag
+
+	* exp_ch3.adb (Expand_N_Object_Declaration): Rewrite as renames if
+	OK_To_Rename set.
+
+	* exp_ch4.adb (Expand_Concatenate): Mark temp variable OK_To_Rename
+
+	* sem_ch7.adb (Uninstall_Declarations): Allow for renames from
+	OK_To_Rename.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, make.adb, mlib-prj.adb, prj.adb, prj.ads, makeutl.adb,
+	clean.adb, prj-nmsc.adb, prj-env.adb, prj-env.ads (Project_Data.Seen):
+	field removed. This is not a property of the
+	project, just a boolean used to traverse the project tree, and storing
+	it in the structure prevents doing multiple traversal in parallel.
+	(Project_Data.Checked): also removed, since it was playing the same role
+	as Seen when we had two nested loops, and this is no longer necessary
+	(For_All_Imported_Projects): removed, since in fact there was already
+	the equivalent in For_Every_Project_Imported. The latter was rewritten
+	to use a local hash table instead of Project_Data.Seen
+	Various loops were rewritten to use For_Every_Project_Imported, thus
+	removing the need for Project_Data.Seen. This avoids a lot of code
+	duplication
+
+2009-04-24  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb (Resolve_Actuals): Do not create blocks around code
+	statements, even though the actual of the call is a concatenation,
+	because the argument is static, and we want to preserve warning
+	messages  about sequences of code statements that are not marked
+	volatile.
+
+	* sem_warn.adb: remove obsolete comment about warning being obsolete
+
+	* s-tasren.adb (Task_Do_Or_Queue): If a timed entry call is being
+	requeued and the delay has expired while within the accept statement
+	that executes the requeue, do not perform the requeue and indicate that
+	the timed call has been aborted.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* mlib-prj.adb, prj.adb, prj.ads, prj-nmsc.adb, prj-env.adb
+	(Has_Ada_Sources, Has_Foreign_Sources): new subprograms
+	(Project_Data.Ada_Sources_Present, Foreign_Sources_Present): removed,
+	since they can be computed from the above.
+
+2009-04-24  Vincent Celier  <celier@adacore.com>
+
+	* gnatcmd.adb: Call Prj.Env.Initialize with the Project_Tree
+
+	* prj-env.adb: Move all global variables to the private part of the
+	project tree data.
+	Access these new components instead of the global variables no longer
+	in existence.
+	(Add_To_Path): New Project_Tree_Ref parameter, to access the new
+	components that were previously global variables.
+
+	* prj-env.ads (Initialize): New Project_Tree_Ref parameter
+	(Set_Mapping_File_Initial_State_To_Empty): New Project_Tree_Ref
+	parameter.
+
+	* prj-nmsc.adb (Compute_Unit_Name): New Project_Tree_Ref parameter to
+	be able to call Set_Mapping_File_Initial_State_To_Empty with it.
+
+	* prj.adb (Initialize): Do not call Prj.Env.Initialize
+	(Reset): Do not call Prj.Env.Initialize. Instead, initialize the new
+	components in the private part of the project tree data.
+
+	* prj.ads (Private_Project_Tree_Data): new components moved from
+	Prj.Env: Current_Source_Path_File, Current_Object_Path_File,
+	Ada_Path_Buffer, Ada_Path_Length, Ada_Prj_Include_File_Set,
+	Ada_Prj_Objects_File_Set, Fill_Mapping_File.
+
+2009-04-24  Vincent Celier  <celier@adacore.com>
+
+	* opt.ads (Unchecked_Shared_Lib_Imports): New Boolean flag.
+
+	* prj-nmsc.adb (Check_Library): No error for imports by shared library
+	projects, when --unchecked-shared-lib-imports is used.
+
+2009-04-24  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch7.adb: Minor reformatting
+
+2009-04-24  Tristan Gingold  <gingold@adacore.com>
+
+	* s-osinte-darwin.adb, s-osinte-darwin.ads: lwp_self now returns the
+	mach thread id.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-env.adb, prj-env.ads (Body_Path_Name_Of, Spec_Path_Name_Of,
+	Path_Name_Of_Library_Unit_Body): rEmove unused subprograms.
+	(For_All_Imported_Projects): new procedure
+	(For_All_Source_Dirs, For_All_Object_Dirs): Rewritten based on the
+	above rather than duplicating code.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, prj.adb, prj.ads, prj-nmsc.adb, prj-env.adb
+	(Source_Id, Source_Data): use a real list to store sources rather than
+	using an external table to store the elements. This makes code more
+	efficient and more readable.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, prj.adb, prj.ads, prj-nmsc.adb, prj-env.adb
+	(Source_Iterator): new type.
+        This removes the need for having the sources on three different
+        lists at the project tree, project and language level. They are now
+        on a single list.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* gnatcmd.adb, prj.adb, prj.ads: Remove unused entities
+
+2009-04-24  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_warn.adb: Add comment on obsolete warning
+
+2009-04-24  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-tassta.adb (Create_Task): Fix violation of locking rule.
+
+2009-04-24  Emmanuel Briot  <briot@adacore.com>
+
+	* prj.adb, prj.ads, prj-nmsc.adb, prj-env.adb (Language_Index): renamed
+	to Language_Ptr to better reflect its new implementation.
+	(Project_Data.First_Languages_Processing): renamed to Languages now
+	that the field with that name is no longer used
+	(Project_Data.Languages): removed, no longer used, and duplicates
+	information already available through First_Language_Processing.
+	(Prj.Language_Index): now an actual pointer, instead of an index into
+	a table. This makes the list somewhat more obvious, but more importantly
+	removes the need to pass a pointer to the project_tree_data in a few
+	places, and makes accessing the attributes of a languages more
+	efficient.
+
+2009-04-24  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+            Thomas Quinot  <quinot@adacore.com>
+
+	* fe.h (Set_Identifier_Casing): Add const to second parameter.
+	* gcc-interface/misc.c (internal_error_function): Make copy of return
+	from pp_formatted_text before assigning BUFFER to it.
+	(gnat_init): Likewise for main_input_filename and gnat_argv.
+	(gnat_printable_name): Remove cast from call to Set_Identifier_Casing.
+
+2009-04-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ttypes.ads (Target_Double_Float_Alignment): New variable.
+	(Target_Double_Scalar_Alignment): Likewise.
+	* get_targ.ads (Get_Strict_Alignment): Adjust external name.
+	(Get_Double_Float_Alignment): New imported function.
+	(Get_Double_Scalar_Alignment): Likewise.
+	* layout.adb (Set_Elem_Alignment): Take into account specific caps for
+	the alignment of "double" floating-point types and "double" or larger
+	scalar types, as parameterized by Target_Double_Float_Alignment and
+	Target_Double_Scalar_Alignment respectively.
+	* gcc-interface/gigi.h (double_float_alignment): Declare.
+	(double_scalar_alignment): Likewise.
+	(is_double_float_or_array): Likewise.
+	(is_double_scalar_or_array): Likewise.
+	(get_target_double_float_alignment): Likewise.
+	(get_target_double_scalar_alignment): Likewise.
+	* gcc-interface/targtyps.c (get_strict_alignment): Rename into...
+	(get_target_strict_alignment): ...this.
+	(get_target_double_float_alignment): New function.
+	(get_target_double_scalar_alignment): Likewise.
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Signed_Integer_Subtype>:
+	Test the presence of an alignment clause for under-aligned integer
+	types.  Take into account specific caps for the alignment of "double"
+	floating-point types and "double" or larger scalar types, as
+	parameterized by Target_Double_Float_Alignment and
+	Target_Double_Scalar_Alignment respectively.
+	(validate_alignment): Likewise.
+	* gcc-interface/trans.c (Attribute_to_gnu) <Attr_Alignment>: Likewise.
+	(gigi): Initialize double_float_alignment and double_scalar_alignment.
+	* gcc-interface/utils.c (double_float_alignment): New global variable.
+	(double_scalar_alignment): Likewise.
+	(is_double_float_or_array): New predicate.
+	(is_double_scalar_or_array): Likewise.
+
+2009-04-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils2.c (build_cond_expr): Move SAVE_EXPR ahead of
+	the conditional expression only if it is common to both arms.
+
+2009-04-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (build_call_alloc_dealloc): Update comment.
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <object>: Pass correct
+	arguments to build_allocator.
+	* gcc-interface/utils2.c (build_call_alloc_dealloc): Update comment.
+	Remove code handling special allocator and assert its uselessness.
+
+2009-04-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Array_Type>: If an
+	alignment is specified, do not promote that of the component type
+	beyond it.
+	<E_Array_Subtype>: Likewise.
+
+2009-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* einfo.ads (Is_True_Constant): Lift restriction on atomic objects.
+	* sinfo.ads (Object Declaration): Likewise.
+	(Assignment Statement): Likewise.
+	* freeze.adb (Expand_Atomic_Aggregate): Remove useless test.
+	Do not force Is_True_Constant to false on the temporary.
+	(Freeze_Entity): Do not force Is_True_Constant to false on names on
+	the RHS of object declarations.
+	* gcc-interface/trans.c (lvalue_required_p) <N_Object_Declaration>:
+	New case.  Return 1 if the object is atomic.
+	<N_Assignment_Statement>: Likewise.
+
+2009-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Modular_Integer_Subtype>
+	For packed array types, make the original array type a parallel type
+	for the modular type and its JM wrapper if the type is bit-packed.
+	<E_Array_Subtype>: Likewise.  Do not generate the special XA parallel
+	record type for packed array types.  Remove kludge.
+
+2009-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (create_index_type): Adjust head comment.
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Signed_Integer_Subtype>:
+	Use front-end predicates to compute signedness and precision.
+	<E_String_Literal_Subtype>: Fold range type.
+	Make sure to set longest_float_type_node to a scalar type.
+	(elaborate_entity): Use consistent Constraint_Error spelling.
+	(substitute_in_type) <INTEGER_TYPE>: Always copy the type.
+	* gcc-interface/misc.c (gnat_print_type) <INTEGER_TYPE>: Use brief
+	output for the modulus, if any.
+	<ENUMERAL_TYPE>: Likewise for the RM size.
+	* gcc-interface/trans.c (gnat_to_gnu): Use consistent Constraint_Error
+	spelling.
+	* gcc-interface/utils.c (finish_record_type): Really test the alignment
+	of BLKmode bit-fields to compute their addressability.
+	(create_index_type): Adjust comments.
+	(create_param_decl): Create the biased subtype manually.
+	* gcc-interface/utils2.c (build_component_ref): Use consistent
+	Constraint_Error spelling.
+
+2009-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/cuintp.c: Clean up include directives.
+	* gcc-interface/targtyps.c: Likewise.
+	* gcc-interface/decl.c: Likewise.
+	* gcc-interface/misc.c: Likewise.
+	* gcc-interface/trans.c: Likewise.
+	* gcc-interface/utils.c: Likewise.
+	* gcc-interface/utils2.c: Likewise.
+	* gcc-interface/Make-lang.in: Adjust dependencies accordingly.
+
+2009-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/ada-tree.h (union lang_tree_node): Use standard idiom.
+	(SET_TYPE_LANG_SPECIFIC): Likewise.  Fix formatting.
+	(SET_DECL_LANG_SPECIFIC): Likewise.
+	Reorder macros.
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Signed_Integer_Subtype>:
+	Update comment about use of build_range_type.
+	<E_Array_Type, E_Array_Subtype>: Use consistent naming convention.
+	<E_Array_Subtype>: Rework comments about TYPE_ACTUAL_BOUNDS and add
+	check for other cases of overloading.
+	* gcc-interface/trans.c (gigi): Use size_int in lieu of build_int_cst.
+	* gcc-interface/utils2.c (build_call_raise): Fix off-by-one error.
+	Use size_int in lieu of build_int_cst.
+	(build_call_alloc_dealloc): Use build_index_2_type in lieu of
+	build_range_type.
+
+2009-04-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils2.c (build_binary_op) <PLUS_EXPR>: If operation's
+	type is an enumeral or a boolean type, change it to an integer type
+	with the same mode and signedness.
+
+2009-04-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (create_var_decl_1): Do not emit debug info
+	for an external constant whose initializer is not absolute.
+
+2009-04-22  Taras Glek  <tglek@mozilla.com>
+
+	* gcc-interface/ada-tree.h: Update GTY annotations to new syntax.
+	* gcc-interface/trans.c: Likewise.
+	* gcc-interface/utils.c: Likewise.
+
+2009-04-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb: Create block around procedure call when actual is a
+	concatenation.
+
+2009-04-22  Thomas Quinot  <quinot@adacore.com>
+
+	* s-soflin.ads: Fix typos
+
+2009-04-22  Vincent Celier  <celier@adacore.com>
+
+	* prj-env.adb: Minor comment change
+
+	* prj-nmsc.adb (Check_Common): Add guard to avoid calling
+	Get_Name_String with No_File.
+
+	* tempdir.adb (Create_Temp_File): Output diagnostic when temp file
+	cannot be created even when not in verbose mode.
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* make.adb, prj-env.adb, prj-env.ads, prj-nmsc.adb, prj.adb,
+	prj.ads (Create_Mapping_File): merge the two versions for Ada_Only and
+	Multi_Language modes, to avoid code duplication.
+	(Project_Data.Include_Language): Removed.
+
+2009-04-22  Vincent Celier  <celier@adacore.com>
+
+	* tempdir.adb (Create_Temp_File): Add a diagnostic in verbose mode when
+	the temporary file cannot be created, indicating the directory when the
+	creation was attempted.
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-env.adb, prj-env.ads (Create_Mapping_File): we need to compare
+	the language names, not their indices.
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* prj.ads, prj-nmsc.adb, prj-env.adb, prj-env.ads
+	(Source_Data.Language_Name): Field removed.
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* prj.adb, prj.ads, prj-nmsc.adb (Project_Data.Unit_Based_Language_*):
+	Two fields removed.
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-nmsc.adb (Check_Naming_Ada_Only): Properly initialize the
+	separate_suffix to the same value as the body_suffix.
+
+2009-04-22  Robert Dewar  <dewar@adacore.com>
+
+	* prj.adb: Minor code reorganization
+	Code clean up.
+
+	* prj-proc.adb: Minor code reorganization, clean up.
+
+	* prj-nmsc.adb: Minor reformatting
+	Minor code reorganization
+
+	* gnat_ugn.texi: Add to doc on strict aliasing
+
+2009-04-22  Pascal Obry  <obry@adacore.com>
+
+	* s-osinte-mingw.ads: Rename Reserved field in CRITICAL_SECTION to
+	SpinCount.
+
+	* s-tasini.adb: Minor reformatting.
+
+	* s-tassta.adb: Minor reformatting.
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, prj-nmsc.adb (Check_Naming_Schemes): split into several
+	smaller subprograms.
+	Renamed to Check_File_Naming_Schemes to avoid confusion with the
+	other Check_Naming_Schemes functions that plays a totally different
+	role.
+	(Check_Unit_Based_Lang, Check_File_Based_Lang): new subprograms,
+	extracted from the above. These were partially rewritten to avoid
+	unnecessary code and temporary variables.
+	(Compute_Unit_Name): new subprogram, merge of Check_Unit_Based_Lang
+	and Get_Unit (which for now still exist since they contain mode-specific
+	code)
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* prj.ads, prj.adb, prj-nmsc.adb, prj-proc.adb (Recursive_Process):
+	Remove duplicated code.
+	(Canonical_Case_File_Name): new subprogram
+	(Check_And_Normalize_Unit_Names): new subprogram
+	(Write_Attr): new subprogram
+	Better sharing of code
+	(Check_Naming_Ada_Only, Check_Naming_Multi_Lang): new subprogram, to
+	split Check_Naming and help find duplicated code
+	(Check_Common): new subprogram, sharing code between ada_only and
+	multi_language mode.
+	(Naming_Data.Dot_Repl_Loc): field removed
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, prj-nmsc.adb (Load_Naming_Exceptions): New subprogram.
+	Minor refactoring to reduce the size of
+	Process_Sources_In_Multi_Language_Mode.
+	Avoid extra copied of Source_Data, which we found in the past could be
+	quite slow.
+	(Mark_Excluded_Sources): new subprogram.
+	(Remove_Locally_Removed_Files_From_Units): merged into the above
+ 	Refactors Process_Sources_In_Multi_Language_Mode to reduce its size,
+ 	and allow better sharing of code between multi_lang and ada_only modes
+	(Project_Extends): removed, since exact duplicate of Prj.Is_Extending
+
+2009-04-22  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, prj.adb, prj.ads (Project_Data.First_Referred_By):
+	Removed, since unused.
+
+2009-04-22  Vincent Celier  <celier@adacore.com>
+
+	* prj-attr.adb: New single project level attribute
+	Separate_Run_Path_Options.
+
+	* prj-nmsc.adb (Process_Project_Level_Simple_Attributes): Process
+	attribute Seperate_Run_Path_Options.
+
+	* prj.ads: (Project_Configuration): New Boolean component
+	Separate_Run_Path_Options, defaulted to False.
+
+	* snames.ads-tmpl: New standard name Seperate_Run_Path_Options
+
+2009-04-22  Robert Dewar  <dewar@adacore.com>
+
+	* sem_type.adb: Minor reformatting
+
+	* mlib.adb: Minor reformatting
+
+	* sem_aggr.adb: Minor reformatting. Defend against junk aggregate from
+	syntax error.
+
+2009-04-22  Nicolas Setton  <setton@adacore.com>
+
+	* link.c: Add flag __gnat_separate_run_path_options.
+
+	* mlib.adb (Separate_Run_Path_Options): New subprogram.
+
+	* mlib.ads (Separate_Run_Path_Options): Declare.
+
+	* gnatcmd.adb (Process_Link): Add support for emitting one "rpath"
+	switch per directory, rather than one "rpath" switch listing all
+	directories.
+
+	* gnatlink.adb (Process_Binder_File): Likewise.
+
+	* make.adb (Gnatmake): Likewise.
+
+2009-04-22  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch6.adb (Make_Build_In_Place_Call_In_Assignment): Code cleanup.
+	Add a call to Move_Final_List when the target of the assignment is a
+	return object that needs finalization and the expression is a
+	controlled build-in-place function.
+
+2009-04-22  Vincent Celier  <celier@adacore.com>
+
+	* make.adb (Gnatmake, Bind_Step): call Set_Ada_Paths with
+	Including_Libraries set to True.
+
+2009-04-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* lib-load.ads, lib-load.adb (Make_Child_Decl_Unit): New subprogram, to
+	create a unit table entry for the subprogram declaration created for a
+	child suprogram body that has no separate specification.
+
+	* sem_ch10.adb (Analyze_Compilation_Unit): For a child unit that is a
+	subprogram body, call Make_Child_Decl_Unit.
+
+	* lib.adb (Get_Cunit_Unit_Number): Verify that an entry not yet in the
+	table can only be the created specification of a child subprogram body
+	that is the main unit, which has not been entered in the table yet.
+
+	* errout.adb  (Output_Messages): Ignore created specification of a
+	child subprogram body to prevent repeated listing of error messages.
+
+	* gnat1drv.adb (gnat1drv): The generated specification for a child
+	subprogram body does not generate code.
+
+2009-04-22  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-bitops.adb, s-bitops.ads (Raise_Error): Do not use Ada 05 syntax,
+	since this unit is now part of bootstrap units, so must use Ada 95
+	syntax only.
+
+2009-04-22  Thomas Quinot  <quinot@adacore.com>
+
+	* a-tasatt.adb: Minor reformatting
+
+2009-04-22  Bob Duff  <duff@adacore.com>
+
+	* s-stalib.ads: Remove "with System;" since we're inside System, so
+	it's unnecessary.
+
+2009-04-22  Vincent Celier  <celier@adacore.com>
+
+	* prj-nmsc.adb (Add_Source): Always put the dependency file name in
+	the source record, as there may be a dependency file even if no object
+	file is created.
+
+2009-04-22  Robert Dewar  <dewar@adacore.com>
+
+	* lib-load.adb: Minor reformatting
+
+	* lib-load.ads: Minor reformatting
+
+	* sinfo.ads: Minor reformatting
+
+2009-04-22  Bob Duff  <duff@adacore.com>
+
+	* exp_pakd.adb: Minor comment fixes.
+
+	* sinfo.ads, par-load.adb, sem_ch10.adb, lib-load.ads, lib-load.adb
+	sem_ch12.adb: Change the meaning of the Library_Unit attribute to
+	include units containing instantiations, as well as units that are
+	generic instantiations.
+
+	* sem.adb: Include dependents and corresponding specs/bodies in the
+	unit walk.
+
+	* gcc-interface/Make-lang.in:
+	sem now depends on s-bitops, because of the packed array of Booleans.
+
 2009-04-22  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/ada-tree.def: Fix formatting nits.

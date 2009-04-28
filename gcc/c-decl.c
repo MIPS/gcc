@@ -198,8 +198,7 @@ bool c_override_global_bindings_to_false;
    in all such cases, the binding in the outer scope will have its
    invisible bit true.  */
 
-struct c_binding GTY((chain_next ("%h.prev")))
-{
+struct GTY((chain_next ("%h.prev"))) c_binding {
   tree decl;			/* the decl bound */
   tree type;			/* the type in this scope */
   tree id;			/* the identifier it's bound to */
@@ -236,8 +235,7 @@ struct c_binding GTY((chain_next ("%h.prev")))
    These describe the values of the identifier in the three different
    namespaces defined by the language.  */
 
-struct lang_identifier GTY(())
-{
+struct GTY(()) lang_identifier {
   struct c_common_identifier common_id;
   struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
   struct c_binding *tag_binding;    /* struct/union/enum tags */
@@ -250,10 +248,9 @@ extern char C_SIZEOF_STRUCT_LANG_IDENTIFIER_isnt_accurate
 
 /* The resulting tree type.  */
 
-union lang_tree_node
-  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *) TYPE_NEXT_VARIANT (&%h.generic) : ((union lang_tree_node *) TREE_CHAIN (&%h.generic))")))
-{
+union GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
+       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *) TYPE_NEXT_VARIANT (&%h.generic) : ((union lang_tree_node *) TREE_CHAIN (&%h.generic))")))  lang_tree_node
+ {
   union tree_node GTY ((tag ("0"),
 			desc ("tree_node_structure (&%h)")))
     generic;
@@ -305,8 +302,7 @@ union lang_tree_node
    pop_scope relies on this.  */
 
 
-struct c_scope GTY((chain_next ("%h.outer")))
-{
+struct GTY((chain_next ("%h.outer"))) c_scope {
   /* The scope containing this one.  */
   struct c_scope *outer;
 
@@ -396,6 +392,32 @@ static GTY((deletable)) struct c_binding *binding_freelist;
     t_->to = f_->from;						\
   t_->to##_last = f_->from##_last;				\
 } while (0)
+
+/* A c_inline_static structure stores details of a static identifier
+   referenced in a definition of a function that may be an inline
+   definition if no subsequent declaration of that function uses
+   "extern" or does not use "inline".  */
+
+struct GTY((chain_next ("%h.next"))) c_inline_static {
+  /* The location for a diagnostic.  */
+  location_t location;
+
+  /* The function that may be an inline definition.  */
+  tree function;
+
+  /* The object or function referenced.  */
+  tree static_decl;
+
+  /* What sort of reference this is.  */
+  enum c_inline_static_type type;
+
+  /* The next such structure or NULL.  */
+  struct c_inline_static *next;
+};
+
+/* List of static identifiers used or referenced in functions that may
+   be inline definitions.  */
+static GTY(()) struct c_inline_static *c_inline_statics;
 
 /* True means unconditionally make a BLOCK for the next scope pushed.  */
 
@@ -559,6 +581,53 @@ c_finish_incomplete_decl (tree decl)
     }
 }
 
+/* Record that inline function FUNC contains a reference (location
+   LOC) to static DECL (file-scope or function-local according to
+   TYPE).  */
+
+void
+record_inline_static (location_t loc, tree func, tree decl,
+		      enum c_inline_static_type type)
+{
+  struct c_inline_static *csi = GGC_NEW (struct c_inline_static);
+  csi->location = loc;
+  csi->function = func;
+  csi->static_decl = decl;
+  csi->type = type;
+  csi->next = c_inline_statics;
+  c_inline_statics = csi;
+}
+
+/* Check for references to static declarations in inline functions at
+   the end of the translation unit and diagnose them if the functions
+   are still inline definitions.  */
+
+static void
+check_inline_statics (void)
+{
+  struct c_inline_static *csi;
+  for (csi = c_inline_statics; csi; csi = csi->next)
+    {
+      if (DECL_EXTERNAL (csi->function))
+	switch (csi->type)
+	  {
+	  case csi_internal:
+	    pedwarn (csi->location, 0,
+		     "%qD is static but used in inline function %qD "
+		     "which is not static", csi->static_decl, csi->function);
+	    break;
+	  case csi_modifiable:
+	    pedwarn (csi->location, 0,
+		     "%q+D is static but declared in inline function %qD "
+		     "which is not static", csi->static_decl, csi->function);
+	    break;
+	  default:
+	    gcc_unreachable ();
+	  }
+    }
+  c_inline_statics = NULL;
+}
+
 /* The Objective-C front-end often needs to determine the current scope.  */
 
 void *
@@ -594,7 +663,9 @@ objc_mark_locals_volatile (void *enclosing_blk)
 int
 global_bindings_p (void)
 {
-  return current_scope == file_scope && !c_override_global_bindings_to_false;
+  return (current_scope == file_scope && !c_override_global_bindings_to_false
+	  ? -1
+	  : 0);
 }
 
 void
@@ -947,6 +1018,8 @@ pop_file_scope (void)
      call may not be necessary as my tests indicate it
      still works without it.  */
   finish_fname_decls ();
+
+  check_inline_statics ();
 
   /* This is the point to write out a PCH if we're doing that.
      In that case we do not want to do anything else.  */
@@ -3328,9 +3401,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
       && !TREE_READONLY (decl)
       && DECL_DECLARED_INLINE_P (current_function_decl)
       && DECL_EXTERNAL (current_function_decl))
-    pedwarn (input_location, 0,
-	     "%q+D is static but declared in inline function %qD "
-	     "which is not static", decl, current_function_decl);
+    record_inline_static (input_location, current_function_decl,
+			  decl, csi_modifiable);
 
   /* Add this decl to the current scope.
      TEM may equal DECL or it may be a previous decl of the same name.  */
@@ -3945,6 +4017,34 @@ warn_variable_length_array (const char *name, tree size)
     }
 }
 
+/* Given a size SIZE that may not be a constant, return a SAVE_EXPR to
+   serve as the actual size-expression for a type or decl.  This is
+   like variable_size in stor-layout.c, but we make global_bindings_p
+   return negative to avoid calls to that function from outside the
+   front end resulting in errors at file scope, then call this version
+   instead from front-end code.  */
+
+static tree
+c_variable_size (tree size)
+{
+  tree save;
+
+  if (TREE_CONSTANT (size))
+    return size;
+
+  size = save_expr (size);
+
+  save = skip_simple_arithmetic (size);
+
+  if (cfun && cfun->dont_save_pending_sizes_p)
+    return size;
+
+  if (!global_bindings_p ())
+    put_pending_size (save);
+
+  return size;
+}
+
 /* Given declspecs and a declarator,
    determine the name and type of the object declared
    and construct a ..._DECL node for it.
@@ -4409,7 +4509,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		       MINUS_EXPR, which allows the -1 to get folded
 		       with the +1 that happens when building TYPE_SIZE.  */
 		    if (size_varies)
-		      size = variable_size (size);
+		      size = c_variable_size (size);
 		    if (this_size_varies && TREE_CODE (size) == INTEGER_CST)
 		      size = build2 (COMPOUND_EXPR, TREE_TYPE (size),
 				     integer_zero_node, size);
@@ -5016,11 +5116,17 @@ grokdeclarator (const struct c_declarator *declarator,
 	  DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
       }
 
-    if (storage_class == csc_extern
+    if ((storage_class == csc_extern
+	 || (storage_class == csc_none
+	     && TREE_CODE (type) == FUNCTION_TYPE
+	     && !funcdef_flag))
 	&& variably_modified_type_p (type, NULL_TREE))
       {
 	/* C99 6.7.5.2p2 */
-	error ("object with variably modified type must have no linkage");
+	if (TREE_CODE (type) == FUNCTION_TYPE)
+	  error ("non-nested function with variably modified type");
+	else
+	  error ("object with variably modified type must have no linkage");
       }
 
     /* Record `register' declaration for warnings on &
@@ -6075,16 +6181,32 @@ build_enumerator (struct c_enum_contents *the_enum, tree name, tree value,
 	 undeclared identifier) - just ignore the value expression.  */
       if (value == error_mark_node)
 	value = 0;
-      else if (!INTEGRAL_TYPE_P (TREE_TYPE (value))
-	       || TREE_CODE (value) != INTEGER_CST)
+      else if (!INTEGRAL_TYPE_P (TREE_TYPE (value)))
 	{
 	  error ("enumerator value for %qE is not an integer constant", name);
 	  value = 0;
 	}
       else
 	{
-	  value = default_conversion (value);
-	  constant_expression_warning (value);
+	  if (TREE_CODE (value) != INTEGER_CST)
+	    {
+	      value = c_fully_fold (value, false, NULL);
+	      if (TREE_CODE (value) == INTEGER_CST)
+		pedwarn (value_loc, OPT_pedantic,
+			 "enumerator value for %qE is not an integer "
+			 "constant expression", name);
+	    }
+	  if (TREE_CODE (value) != INTEGER_CST)
+	    {
+	      error ("enumerator value for %qE is not an integer constant",
+		     name);
+	      value = 0;
+	    }
+	  else
+	    {
+	      value = default_conversion (value);
+	      constant_expression_warning (value);
+	    }
 	}
     }
 

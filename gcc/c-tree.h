@@ -33,8 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Language-specific declaration information.  */
 
-struct lang_decl GTY(())
-{
+struct GTY(()) lang_decl {
   char dummy;
 };
 
@@ -57,8 +56,7 @@ struct lang_decl GTY(())
    and C_RID_YYCODE is the token number wanted by Yacc.  */
 #define C_IS_RESERVED_WORD(ID) TREE_LANG_FLAG_0 (ID)
 
-struct lang_type GTY(())
-{
+struct GTY(()) lang_type {
   /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
   struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s;
   /* In an ENUMERAL_TYPE, the min and max values.  */
@@ -407,8 +405,7 @@ struct c_parm {
    that keep track of the progress of compilation of the current function.
    Used for nested functions.  */
 
-struct language_function GTY(())
-{
+struct GTY(()) language_function {
   struct c_language_function base;
   tree x_break_label;
   tree x_cont_label;
@@ -470,6 +467,18 @@ struct c_enum_contents
   int enum_overflow;
 };
 
+/* A type of reference to a static identifier in an inline
+   function.  */
+enum c_inline_static_type {
+  /* Identifier with internal linkage used in function that may be an
+     inline definition (i.e., file-scope static).  */
+  csi_internal,
+  /* Modifiable object with static storage duration defined in
+     function that may be an inline definition (i.e., local
+     static).  */
+  csi_modifiable
+};
+
 
 /* in c-parser.c */
 extern void c_parse_init (void);
@@ -486,6 +495,8 @@ extern int global_bindings_p (void);
 extern void push_scope (void);
 extern tree pop_scope (void);
 
+extern void record_inline_static (location_t, tree, tree,
+				  enum c_inline_static_type);
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);

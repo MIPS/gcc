@@ -45,8 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* This maps fortran intrinsic math functions to external library or GCC
    builtin functions.  */
-typedef struct gfc_intrinsic_map_t	GTY(())
-{
+typedef struct GTY(()) gfc_intrinsic_map_t {
   /* The explicit enum is required to work around inadequacies in the
      garbage collection/gengtype parsing mechanism.  */
   enum gfc_isym_id id;
@@ -93,9 +92,11 @@ gfc_intrinsic_map_t;
    except for atan2.  */
 #define DEFINE_MATH_BUILTIN(ID, NAME, ARGTYPE) \
   { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, \
-    BUILT_IN_ ## ID ## L, BUILT_IN_ ## ID ## L, 0, 0, 0, 0, true, \
-    false, true, NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, \
-    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
+    BUILT_IN_ ## ID ## L, BUILT_IN_ ## ID ## L, (enum built_in_function) 0, \
+    (enum built_in_function) 0, (enum built_in_function) 0, \
+    (enum built_in_function) 0, true, false, true, NAME, NULL_TREE, \
+    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, \
+    NULL_TREE},
 
 #define DEFINE_MATH_BUILTIN_C(ID, NAME, ARGTYPE) \
   { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, \

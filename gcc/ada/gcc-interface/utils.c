@@ -33,22 +33,21 @@
 #include "tm.h"
 #include "tree.h"
 #include "flags.h"
-#include "defaults.h"
 #include "toplev.h"
+#include "rtl.h"
 #include "output.h"
 #include "ggc.h"
 #include "debug.h"
 #include "convert.h"
 #include "target.h"
 #include "function.h"
+#include "langhooks.h"
+#include "pointer-set.h"
 #include "cgraph.h"
+#include "tree-dump.h"
 #include "tree-inline.h"
 #include "tree-iterator.h"
 #include "gimple.h"
-#include "tree-dump.h"
-#include "pointer-set.h"
-#include "langhooks.h"
-#include "rtl.h"
 
 #include "ada.h"
 #include "types.h"
@@ -74,6 +73,16 @@
 
 /* If nonzero, pretend we are allocating at global level.  */
 int force_global;
+
+/* The default alignment of "double" floating-point types, i.e. floating
+   point types whose size is equal to 64 bits, or 0 if this alignment is
+   not specifically capped.  */
+int double_float_alignment;
+
+/* The default alignment of "double" or larger scalar types, i.e. scalar
+   types whose size is greater or equal to 64 bits, or 0 if this alignment
+   is not specifically capped.  */
+int double_scalar_alignment;
 
 /* Tree nodes for the various types and decls we create.  */
 tree gnat_std_decls[(int) ADT_LAST];
@@ -160,8 +169,7 @@ static GTY(()) tree float_types[NUM_MACHINE_MODES];
 /* For each binding contour we allocate a binding_level structure to indicate
    the binding depth.  */
 
-struct gnat_binding_level GTY((chain_next ("%h.chain")))
-{
+struct GTY((chain_next ("%h.chain"))) gnat_binding_level {
   /* The binding level containing this one (the enclosing binding level). */
   struct gnat_binding_level *chain;
   /* The BLOCK node for this level.  */
@@ -666,12 +674,13 @@ finish_record_type (tree record_type, tree fieldlist, int rep_level,
 	    DECL_BIT_FIELD (field) = 0;
 	}
 
-      /* If we still have DECL_BIT_FIELD set at this point, we know the field
-	 is technically not addressable.  Except that it can actually be
-	 addressed if the field is BLKmode and happens to be properly
-	 aligned.  */
-      DECL_NONADDRESSABLE_P (field)
-	|= DECL_BIT_FIELD (field) && DECL_MODE (field) != BLKmode;
+      /* If we still have DECL_BIT_FIELD set at this point, we know that the
+	 field is technically not addressable.  Except that it can actually
+	 be addressed if it is BLKmode and happens to be properly aligned.  */
+      if (DECL_BIT_FIELD (field)
+	  && !(DECL_MODE (field) == BLKmode
+	       && value_factor_p (pos, BITS_PER_UNIT)))
+	DECL_NONADDRESSABLE_P (field) = 1;
 
       /* A type must be as aligned as its most aligned field that is not
 	 a bit-field.  But this is already enforced by layout_type.  */
@@ -1162,9 +1171,9 @@ copy_type (tree type)
   return new;
 }
 
-/* Return an INTEGER_TYPE of SIZETYPE with range MIN to MAX and whose
-   TYPE_INDEX_TYPE is INDEX.  GNAT_NODE is used for the position of
-   the decl.  */
+/* Return a subtype of sizetype with range MIN to MAX and whose
+   TYPE_INDEX_TYPE is INDEX.  GNAT_NODE is used for the position
+   of the associated TYPE_DECL.  */
 
 tree
 create_index_type (tree min, tree max, tree index, Node_Id gnat_node)
@@ -1172,18 +1181,18 @@ create_index_type (tree min, tree max, tree index, Node_Id gnat_node)
   /* First build a type for the desired range.  */
   tree type = build_index_2_type (min, max);
 
-  /* If this type has the TYPE_INDEX_TYPE we want, return it.  Otherwise, if it
-     doesn't have TYPE_INDEX_TYPE set, set it to INDEX.  If TYPE_INDEX_TYPE
-     is set, but not to INDEX, make a copy of this type with the requested
-     index type.  Note that we have no way of sharing these types, but that's
-     only a small hole.  */
+  /* If this type has the TYPE_INDEX_TYPE we want, return it.  */
   if (TYPE_INDEX_TYPE (type) == index)
     return type;
-  else if (TYPE_INDEX_TYPE (type))
+
+  /* Otherwise, if TYPE_INDEX_TYPE is set, make a copy.  Note that we have
+     no way of sharing these types, but that's only a small hole.  */
+  if (TYPE_INDEX_TYPE (type))
     type = copy_type (type);
 
   SET_TYPE_INDEX_TYPE (type, index);
   create_type_decl (NULL_TREE, type, NULL, true, false, gnat_node);
+
   return type;
 }
 
@@ -1347,6 +1356,15 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
      we allocate automatic storage unless requested not to.  */
   TREE_STATIC (var_decl)
     = !extern_flag && (public_flag || static_flag || global_bindings_p ());
+
+  /* For an external constant whose initializer is not absolute, do not emit
+     debug info.  In DWARF this would mean a global relocation in a read-only
+     section which runs afoul of the PE-COFF runtime relocation mechanism.  */
+  if (extern_flag
+      && constant_p
+      && initializer_constant_valid_p (var_init, TREE_TYPE (var_init))
+	   != null_pointer_node)
+    DECL_IGNORED_P (var_decl) = 1;
 
   if (asm_name && VAR_OR_FUNCTION_DECL_P (var_decl))
     SET_DECL_ASSEMBLER_NAME (var_decl, asm_name);
@@ -1563,12 +1581,17 @@ create_param_decl (tree param_name, tree param_type, bool readonly)
       if (TREE_CODE (param_type) == INTEGER_TYPE
 	  && TYPE_BIASED_REPRESENTATION_P (param_type))
 	{
-	  param_type
-	    = copy_type (build_range_type (integer_type_node,
-					   TYPE_MIN_VALUE (param_type),
-					   TYPE_MAX_VALUE (param_type)));
+	  tree subtype = make_node (INTEGER_TYPE);
+	  TREE_TYPE (subtype) = integer_type_node;
+	  TYPE_BIASED_REPRESENTATION_P (subtype) = 1;
 
-	  TYPE_BIASED_REPRESENTATION_P (param_type) = 1;
+	  TYPE_UNSIGNED (subtype) = 1;
+	  TYPE_PRECISION (subtype) = TYPE_PRECISION (integer_type_node);
+	  TYPE_MIN_VALUE (subtype) = TYPE_MIN_VALUE (param_type);
+	  TYPE_MAX_VALUE (subtype) = TYPE_MAX_VALUE (param_type);
+	  layout_type (subtype);
+
+	  param_type = subtype;
 	}
       else
 	param_type = integer_type_node;
@@ -4549,6 +4572,62 @@ tree_code_for_record_type (Entity_Id gnat_type)
       return RECORD_TYPE;
 
   return UNION_TYPE;
+}
+
+/* Return true if GNAT_TYPE is a "double" floating-point type, i.e. whose
+   size is equal to 64 bits, or an array of such a type.  Set ALIGN_CLAUSE
+   according to the presence of an alignment clause on the type or, if it
+   is an array, on the component type.  */
+
+bool
+is_double_float_or_array (Entity_Id gnat_type, bool *align_clause)
+{
+  gnat_type = Underlying_Type (gnat_type);
+
+  *align_clause = Present (Alignment_Clause (gnat_type));
+
+  if (Is_Array_Type (gnat_type))
+    {
+      gnat_type = Underlying_Type (Component_Type (gnat_type));
+      if (Present (Alignment_Clause (gnat_type)))
+	*align_clause = true;
+    }
+
+  if (!Is_Floating_Point_Type (gnat_type))
+    return false;
+
+  if (UI_To_Int (Esize (gnat_type)) != 64)
+    return false;
+
+  return true;
+}
+
+/* Return true if GNAT_TYPE is a "double" or larger scalar type, i.e. whose
+   size is greater or equal to 64 bits, or an array of such a type.  Set
+   ALIGN_CLAUSE according to the presence of an alignment clause on the
+   type or, if it is an array, on the component type.  */
+
+bool
+is_double_scalar_or_array (Entity_Id gnat_type, bool *align_clause)
+{
+  gnat_type = Underlying_Type (gnat_type);
+
+  *align_clause = Present (Alignment_Clause (gnat_type));
+
+  if (Is_Array_Type (gnat_type))
+    {
+      gnat_type = Underlying_Type (Component_Type (gnat_type));
+      if (Present (Alignment_Clause (gnat_type)))
+	*align_clause = true;
+    }
+
+  if (!Is_Scalar_Type (gnat_type))
+    return false;
+
+  if (UI_To_Int (Esize (gnat_type)) < 64)
+    return false;
+
+  return true;
 }
 
 /* Return true if GNU_TYPE is suitable as the type of a non-aliased

@@ -111,8 +111,7 @@ void debug_optab_libfuncs (void);
 
 /* Info about libfunc.  We use same hashtable for normal optabs and conversion
    optab.  In the first case mode2 is unused.  */
-struct libfunc_entry GTY(())
-{
+struct GTY(()) libfunc_entry {
   size_t optab;
   enum machine_mode mode1, mode2;
   rtx libfunc;
@@ -535,10 +534,10 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
                            int unsignedp)
 {   
   tree oprnd0, oprnd1, oprnd2;
-  enum machine_mode wmode = 0, tmode0, tmode1 = 0;
+  enum machine_mode wmode = VOIDmode, tmode0, tmode1 = VOIDmode;
   optab widen_pattern_optab;
   int icode; 
-  enum machine_mode xmode0, xmode1 = 0, wxmode = 0;
+  enum machine_mode xmode0, xmode1 = VOIDmode, wxmode = VOIDmode;
   rtx temp;
   rtx pat;
   rtx xop0, xop1, wxop;
@@ -802,7 +801,7 @@ expand_vec_shift_expr (tree vec_shift_expr, rtx target)
 	gcc_unreachable ();
     }
 
-  icode = (int) optab_handler (shift_optab, mode)->insn_code;
+  icode = optab_handler (shift_optab, mode)->insn_code;
   gcc_assert (icode != CODE_FOR_nothing);
 
   mode1 = insn_data[icode].operand[1].mode;
@@ -4254,7 +4253,6 @@ emit_cmp_and_jump_insn_1 (rtx test, enum machine_mode mode, rtx label)
 
   gcc_assert (icode != CODE_FOR_nothing);
   gcc_assert (insn_data[icode].operand[0].predicate (test, VOIDmode));
-
   emit_jump_insn (GEN_FCN (icode) (test, XEXP (test, 0), XEXP (test, 1), label));
 }
 

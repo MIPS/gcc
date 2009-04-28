@@ -10128,7 +10128,7 @@ required to dereference it each time through the loop.
 
 This kind of optimization, called strict aliasing analysis, is
 triggered by specifying an optimization level of @option{-O2} or
-higher and allows @code{GNAT} to generate more efficient code
+higher or @option{-Os} and allows @code{GNAT} to generate more efficient code
 when access values are involved.
 
 However, although this optimization is always correct in terms of
@@ -10296,6 +10296,21 @@ use of address clauses for type overlaying, and to allow unchecked
 conversion only for primitive types. This is not really a significant
 restriction since any possible desired effect can be achieved by
 unchecked conversion of access values.
+
+The aliasing analysis done in strict aliasing mode can certainly
+have significant benefits. We have seen cases of large scale
+application code where the time is increased by up to 5% by turning
+this optimization off. If you have code that includes significant
+usage of unchecked conversion, you might want to just stick with
+@option{-O1} and avoid the entire issue. If you get adequate
+performance at this level of optimization level, that's probably
+the safest approach. If tests show that you really need higher
+levels of optimization, then you can experiment with @option{-O2}
+and @option{-O2 -fno-strict-aliasing} to see how much effect this
+has on size and speed of the code. If you really need to use
+@option{-O2} with strict aliasing in effect, then you should
+review any uses of unchecked conversion of access types,
+particularly if you are getting the warnings described above.
 
 @ifset vms
 @node Coverage Analysis
@@ -13660,6 +13675,15 @@ operating system).
    for Spec ("MyPack.MyChild") use "mypack.mychild.spec";
 @end smallexample
 
+When the source file contains several units, you can indicate at what
+position the unit occurs in the file, with the following. The first unit
+in the file has index 1
+
+@smallexample @c projectfile
+  for Body ("top") use "foo.a" at 1;
+  for Body ("foo") use "foo.a" at 2;
+@end smallexample
+
 @item @code{Body}
 
 You can use the associative array attribute @code{Body} to
@@ -13683,7 +13707,20 @@ sensitive or insensitive depending on the operating system).
 
 @noindent
 @emph{Library projects} are projects whose object code is placed in a library.
-(Note that this facility is not yet supported on all platforms)
+(Note that this facility is not yet supported on all platforms).
+
+@code{gnatmake} or @code{gprbuild} will collect all object files into a
+single archive, which might either be a shared or a static library. This
+library can later on be linked with multiple executables, potentially
+reducing their sizes.
+
+If your project file specifies languages other than Ada, but you are still
+using @code{gnatmake} to compile and link, the latter will not try to
+compile your sources other than Ada (you should use @code{gprbuild} if that
+is your intent). However, @code{gnatmake} will automatically link all object
+files found in the object directory, whether or not they were compiled from
+an Ada source file. This specific behavior only applies when multiple
+languages are specified.
 
 To create a library project, you need to define in its project file
 two project-level attributes: @code{Library_Name} and @code{Library_Dir}.

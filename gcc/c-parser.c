@@ -137,8 +137,7 @@ typedef enum c_id_kind {
 
 /* A single C token after string literal concatenation and conversion
    of preprocessing tokens to tokens.  */
-typedef struct c_token GTY (())
-{
+typedef struct GTY (()) c_token {
   /* The kind of token.  */
   ENUM_BITFIELD (cpp_ttype) type : 8;
   /* If this token is a CPP_NAME, this value indicates whether also
@@ -159,8 +158,7 @@ typedef struct c_token GTY (())
 /* A parser structure recording information about the state and
    context of parsing.  Includes lexer information with up to two
    tokens of look-ahead; more are not needed for C.  */
-typedef struct c_parser GTY(())
-{
+typedef struct GTY(()) c_parser {
   /* The look-ahead tokens.  */
   c_token tokens[2];
   /* How many look-ahead tokens are available (0, 1 or 2).  */
@@ -573,7 +571,11 @@ c_parser_error (c_parser *parser, const char *gmsgid)
 		    CPP_KEYWORD, keywords are treated like
 		    identifiers.  */
 		 (token->type == CPP_KEYWORD ? CPP_NAME : token->type),
-		 token->value);
+		 /* ??? The C parser does not save the cpp flags of a
+		    token, we need to pass 0 here and we will not get
+		    the source spelling of some tokens but rather the
+		    canonical spelling.  */
+		 token->value, /*flags=*/0);
 }
 
 /* If the next token is of the indicated TYPE, consume it.  Otherwise,
@@ -4441,8 +4443,8 @@ c_parser_expr_no_commas (c_parser *parser, struct c_expr *after)
   c_parser_consume_token (parser);
   rhs = c_parser_expr_no_commas (parser, NULL);
   rhs = default_function_array_conversion (rhs);
-  ret.value = build_modify_expr (op_location, lhs.value, code, rhs.value,
-				 rhs.original_type);
+  ret.value = build_modify_expr (op_location, lhs.value, lhs.original_type,
+				 code, rhs.value, rhs.original_type);
   if (code == NOP_EXPR)
     ret.original_code = MODIFY_EXPR;
   else
@@ -5782,7 +5784,7 @@ c_parser_expression (c_parser *parser)
       next = default_function_array_conversion (next);
       expr.value = build_compound_expr (expr.value, next.value);
       expr.original_code = COMPOUND_EXPR;
-      expr.original_type = NULL;
+      expr.original_type = next.original_type;
     }
   return expr;
 }
@@ -7821,18 +7823,20 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
       else if (c_parser_next_token_is (parser, CPP_NAME)
 	       && c_parser_peek_2nd_token (parser)->type == CPP_EQ)
 	{
+	  struct c_expr decl_exp;
 	  struct c_expr init_exp;
 	  location_t init_loc;
 
-	  decl = c_parser_postfix_expression (parser).value;
+	  decl_exp = c_parser_postfix_expression (parser);
+	  decl = decl_exp.value;
 
 	  c_parser_require (parser, CPP_EQ, "expected %<=%>");
 	  init_loc = c_parser_peek_token (parser)->location;
 
 	  init_exp = c_parser_expr_no_commas (parser, NULL);
 	  init_exp = default_function_array_conversion (init_exp);
-	  init = build_modify_expr (init_loc,
-				    decl, NOP_EXPR, init_exp.value,
+	  init = build_modify_expr (init_loc, decl, decl_exp.original_type,
+				    NOP_EXPR, init_exp.value,
 				    init_exp.original_type);
 	  init = c_process_expr_stmt (init);
 

@@ -113,7 +113,7 @@ typedef struct rs6000_stack {
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
-typedef struct machine_function GTY(())
+typedef struct GTY(()) machine_function
 {
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
@@ -969,7 +969,7 @@ static enum machine_mode rs6000_eh_return_filter_mode (void);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
-struct toc_hash_struct GTY(())
+struct GTY(()) toc_hash_struct
 {
   /* `key' will satisfy CONSTANT_P; in fact, it will satisfy
      ASM_OUTPUT_SPECIAL_POOL_ENTRY_P.  */
@@ -1766,7 +1766,8 @@ rs6000_override_options (const char *default_cpu)
       else if (! strcmp (rs6000_sched_costly_dep_str, "store_to_load"))
 	rs6000_sched_costly_dep = store_to_load_dep_costly;
       else
-	rs6000_sched_costly_dep = atoi (rs6000_sched_costly_dep_str);
+	rs6000_sched_costly_dep = ((enum rs6000_dependence_cost)
+				   atoi (rs6000_sched_costly_dep_str));
     }
 
   /* Handle -minsert-sched-nops option.  */
@@ -1782,7 +1783,8 @@ rs6000_override_options (const char *default_cpu)
       else if (! strcmp (rs6000_sched_insert_nops_str, "regroup_exact"))
 	rs6000_sched_insert_nops = sched_finish_regroup_exact;
       else
-	rs6000_sched_insert_nops = atoi (rs6000_sched_insert_nops_str);
+	rs6000_sched_insert_nops = ((enum rs6000_nop_insertion)
+				    atoi (rs6000_sched_insert_nops_str));
     }
 
 #ifdef TARGET_REGNAMES
@@ -7684,9 +7686,9 @@ static const struct builtin_description_predicates bdesc_altivec_preds[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpgtsb.", "__builtin_altivec_vcmpgtsb_p", ALTIVEC_BUILTIN_VCMPGTSB_P },
   { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpgtub.", "__builtin_altivec_vcmpgtub_p", ALTIVEC_BUILTIN_VCMPGTUB_P },
 
-  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpeq_p", ALTIVEC_BUILTIN_VCMPEQ_P },
-  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpgt_p", ALTIVEC_BUILTIN_VCMPGT_P },
-  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpge_p", ALTIVEC_BUILTIN_VCMPGE_P }
+  { MASK_ALTIVEC, CODE_FOR_nothing, NULL, "__builtin_vec_vcmpeq_p", ALTIVEC_BUILTIN_VCMPEQ_P },
+  { MASK_ALTIVEC, CODE_FOR_nothing, NULL, "__builtin_vec_vcmpgt_p", ALTIVEC_BUILTIN_VCMPGT_P },
+  { MASK_ALTIVEC, CODE_FOR_nothing, NULL, "__builtin_vec_vcmpge_p", ALTIVEC_BUILTIN_VCMPGE_P }
 };
 
 /* SPE predicates.  */

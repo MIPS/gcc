@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2668,6 +2668,12 @@ package body Sem_Res is
       --  common type. Used to enforce the restrictions on array conversions
       --  of AI95-00246.
 
+      function Static_Concatenation (N : Node_Id) return Boolean;
+      --  Predicate to determine whether an actual that is a concatenation
+      --  will be evaluated statically and does not need a transient scope.
+      --  This must be determined before the actual is resolved and expanded
+      --  because if needed the transient scope must be introduced earlier.
+
       --------------------------
       -- Check_Argument_Order --
       --------------------------
@@ -3014,6 +3020,38 @@ package body Sem_Res is
          return Root_Type (Base_Type (FT1)) = Root_Type (Base_Type (FT2));
       end Same_Ancestor;
 
+      --------------------------
+      -- Static_Concatenation --
+      --------------------------
+
+      function Static_Concatenation (N : Node_Id) return Boolean is
+      begin
+         case Nkind (N) is
+            when N_String_Literal =>
+               return True;
+
+            when N_Op_Concat      =>
+               return Static_Concatenation (Left_Opnd (N))
+                        and then
+                      Static_Concatenation (Right_Opnd (N));
+
+            when others =>
+               if Is_Entity_Name (N) then
+                  declare
+                     Ent : constant Entity_Id := Entity (N);
+                  begin
+                     return Ekind (Ent) = E_Constant
+                              and then Present (Constant_Value (Ent))
+                              and then Is_Static_Expression
+                                         (Constant_Value (Ent));
+                  end;
+
+               else
+                  return False;
+               end if;
+         end case;
+      end Static_Concatenation;
+
    --  Start of processing for Resolve_Actuals
 
    begin
@@ -3169,6 +3207,25 @@ package body Sem_Res is
                 (Is_Controlled (Etype (F)) or else Has_Task (Etype (F)))
             then
                Establish_Transient_Scope (A, False);
+
+            --  A small optimization: if one of the actuals is a concatenation
+            --  create a block around a procedure call to recover stack space.
+            --  This alleviates stack usage when several procedure calls in
+            --  the same statement list use concatenation. We do not perform
+            --  this wrapping for code statements, where the argument is a
+            --  static string, and we want to preserve warnings involving
+            --  sequences of such statements.
+
+            elsif Nkind (A) = N_Op_Concat
+              and then Nkind (N) = N_Procedure_Call_Statement
+              and then Expander_Active
+              and then
+                not (Is_Intrinsic_Subprogram (Nam)
+                      and then Chars (Nam) = Name_Asm)
+              and then not Static_Concatenation (A)
+            then
+               Establish_Transient_Scope (A, False);
+               Resolve (A, Etype (F));
 
             else
                if Nkind (A) = N_Type_Conversion
@@ -8254,7 +8311,7 @@ package body Sem_Res is
 
                if From_With_Type (Opnd) then
                   Error_Msg_Qual_Level := 99;
-                  Error_Msg_NE ("missing with-clause on package &", N,
+                  Error_Msg_NE ("missing WITH clause on package &", N,
                     Cunit_Entity (Get_Source_Unit (Base_Type (Opnd))));
                   Error_Msg_N
                     ("type conversions require visibility of the full view",
@@ -8266,7 +8323,7 @@ package body Sem_Res is
                       and then Present (Non_Limited_View (Etype (Target))))
                then
                   Error_Msg_Qual_Level := 99;
-                  Error_Msg_NE ("missing with-clause on package &", N,
+                  Error_Msg_NE ("missing WITH clause on package &", N,
                     Cunit_Entity (Get_Source_Unit (Base_Type (Target))));
                   Error_Msg_N
                     ("type conversions require visibility of the full view",

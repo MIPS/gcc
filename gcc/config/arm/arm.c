@@ -725,7 +725,7 @@ static const struct fpu_desc all_fpus[] =
 /* Floating point models used by the different hardware.
    See fputype in arm.h.  */
 
-static const enum fputype fp_model_for_fpu[] =
+static const enum arm_fp_model fp_model_for_fpu[] =
 {
   /* No FP hardware.  */
   ARM_FP_MODEL_UNKNOWN,		/* FPUTYPE_NONE  */
@@ -1195,13 +1195,13 @@ arm_override_options (void)
       const struct processors * sel;
       unsigned int        sought;
 
-      selected_cpu = TARGET_CPU_DEFAULT;
+      selected_cpu = (enum processor_type) TARGET_CPU_DEFAULT;
       if (selected_cpu == arm_none)
 	{
 #ifdef SUBTARGET_CPU_DEFAULT
 	  /* Use the subtarget default CPU if none was specified by
 	     configure.  */
-	  selected_cpu = SUBTARGET_CPU_DEFAULT;
+	  selected_cpu = (enum processor_type) SUBTARGET_CPU_DEFAULT;
 #endif
 	  /* Default to ARM6.  */
 	  if (selected_cpu == arm_none)
@@ -5137,9 +5137,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 
       /* A shift as a part of RSB costs no more than RSB itself.  */
       if (GET_CODE (XEXP (x, 0)) == MULT
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 0), 1))
-	       & (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), code, speed);
 	  *total += rtx_cost (XEXP (x, 1), code, speed);
@@ -5147,9 +5145,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	}
 
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 1), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 1), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 1), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 0), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 1), 0), subcode, speed);
@@ -5185,9 +5181,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	 multiplication by a power of two, so that we fall down into
 	 the code below.  */
       if (GET_CODE (XEXP (x, 0)) == MULT
-	  && ! (GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-		&& ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-		     (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0)))
+	  && !power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  /* The cost comes from the cost of the multiply.  */
 	  return false;
@@ -5270,9 +5264,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	}
 
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 1), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
@@ -5329,9 +5321,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	      || subcode == LSHIFTRT
 	      || subcode == ROTATE || subcode == ROTATERT
 	      || (subcode == MULT
-		  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-		  && ((INTVAL (XEXP (XEXP (x, 0), 1)) & 
-		       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0)))
+		  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode)))
 	    {
 	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
 	      /* Register shifts cost an extra cycle.  */
@@ -5439,9 +5429,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	}
 
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 1), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
@@ -5677,6 +5665,16 @@ arm_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	  return false;
 	}
 
+      /* A shift as a part of ADD costs nothing.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total = COSTS_N_INSNS (TARGET_THUMB2 ? 2 : 1);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), code, false);
+	  *total += rtx_cost (XEXP (x, 1), code, false);
+	  return true;
+	}
+
       /* Fall through */
     case AND: case XOR: case IOR:
       if (mode == SImode)
@@ -5770,7 +5768,10 @@ arm_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 
     case CONST_INT:
       if (const_ok_for_arm (INTVAL (x)))
-	*total = COSTS_N_INSNS (outer_code == SET ? 1 : 0);
+	/* A multiplication by a constant requires another instruction
+	   to load the constant to a register.  */
+	*total = COSTS_N_INSNS ((outer_code == SET || outer_code == MULT)
+				? 1 : 0);
       else if (const_ok_for_arm (~INTVAL (x)))
 	*total = COSTS_N_INSNS (outer_code == AND ? 0 : 1);
       else if (const_ok_for_arm (-INTVAL (x)))
@@ -14022,7 +14023,7 @@ static enum arm_cond_code
 get_arm_condition_code (rtx comparison)
 {
   enum machine_mode mode = GET_MODE (XEXP (comparison, 0));
-  int code;
+  enum arm_cond_code code;
   enum rtx_code comp_code = GET_CODE (comparison);
 
   if (GET_MODE_CLASS (mode) != MODE_CC)
@@ -14819,7 +14820,7 @@ static const struct builtin_description bdesc_2arg[] =
 {
 #define IWMMXT_BUILTIN(code, string, builtin) \
   { FL_IWMMXT, CODE_FOR_##code, "__builtin_arm_" string, \
-    ARM_BUILTIN_##builtin, 0, 0 },
+    ARM_BUILTIN_##builtin, UNKNOWN, 0 },
 
   IWMMXT_BUILTIN (addv8qi3, "waddb", WADDB)
   IWMMXT_BUILTIN (addv4hi3, "waddh", WADDH)
@@ -14881,7 +14882,7 @@ static const struct builtin_description bdesc_2arg[] =
   IWMMXT_BUILTIN (iwmmxt_wmaddu, "wmaddu", WMADDU)
 
 #define IWMMXT_BUILTIN2(code, builtin) \
-  { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, 0, 0 },
+  { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, UNKNOWN, 0 },
 
   IWMMXT_BUILTIN2 (iwmmxt_wpackhss, WPACKHSS)
   IWMMXT_BUILTIN2 (iwmmxt_wpackwss, WPACKWSS)
@@ -15278,7 +15279,7 @@ arm_init_tls_builtins (void)
   TREE_READONLY (decl) = 1;
 }
 
-typedef enum {
+enum neon_builtin_type_bits {
   T_V8QI  = 0x0001,
   T_V4HI  = 0x0002,
   T_V2SI  = 0x0004,
@@ -15292,7 +15293,7 @@ typedef enum {
   T_TI	  = 0x0400,
   T_EI	  = 0x0800,
   T_OI	  = 0x1000
-} neon_builtin_type_bits;
+};
 
 #define v8qi_UP  T_V8QI
 #define v4hi_UP  T_V4HI
@@ -15355,7 +15356,7 @@ typedef enum {
 typedef struct {
   const char *name;
   const neon_itype itype;
-  const neon_builtin_type_bits bits;
+  const int bits;
   const enum insn_code codes[T_MAX];
   const unsigned int num_vars;
   unsigned int base_fcode;
@@ -16272,7 +16273,7 @@ arm_expand_neon_args (rtx target, int icode, int have_retval,
 
   for (;;)
     {
-      builtin_arg thisarg = va_arg (ap, int);
+      builtin_arg thisarg = (builtin_arg) va_arg (ap, int);
 
       if (thisarg == NEON_ARG_STOP)
         break;
@@ -19393,7 +19394,7 @@ arm_emit_tls_decoration (FILE *fp, rtx x)
   rtx val;
 
   val = XVECEXP (x, 0, 0);
-  reloc = INTVAL (XVECEXP (x, 0, 1));
+  reloc = (enum tls_reloc) INTVAL (XVECEXP (x, 0, 1));
 
   output_addr_const (fp, val);
 

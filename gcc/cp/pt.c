@@ -54,7 +54,7 @@ typedef int (*tree_fn_t) (tree, void*);
 /* The PENDING_TEMPLATES is a TREE_LIST of templates whose
    instantiations have been deferred, either because their definitions
    were not yet available, or because we were putting off doing the work.  */
-struct pending_template GTY (()) {
+struct GTY (()) pending_template {
   struct pending_template *next;
   struct tinst_level *tinst;
 };
@@ -13579,6 +13579,13 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	 against it unless PARM is also a parameter pack.  */
       if ((template_parameter_pack_p (arg) || PACK_EXPANSION_P (arg))
 	  && !template_parameter_pack_p (parm))
+	return 1;
+
+      /* If the argument deduction results is a METHOD_TYPE,
+         then there is a problem.
+         METHOD_TYPE doesn't map to any real C++ type the result of
+	 the deduction can not be of that type.  */
+      if (TREE_CODE (arg) == METHOD_TYPE)
 	return 1;
 
       TREE_VEC_ELT (INNERMOST_TEMPLATE_ARGS (targs), idx) = arg;

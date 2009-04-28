@@ -243,10 +243,10 @@ struct s390_address
 
 /* Which cpu are we tuning for.  */
 enum processor_type s390_tune = PROCESSOR_max;
-enum processor_flags s390_tune_flags;
+int s390_tune_flags;
 /* Which instruction set architecture to use.  */
 enum processor_type s390_arch;
-enum processor_flags s390_arch_flags;
+int s390_arch_flags;
 
 HOST_WIDE_INT s390_warn_framesize = 0;
 HOST_WIDE_INT s390_stack_size = 0;
@@ -255,7 +255,7 @@ HOST_WIDE_INT s390_stack_guard = 0;
 /* The following structure is embedded in the machine 
    specific part of struct function.  */
 
-struct s390_frame_layout GTY (())
+struct GTY (()) s390_frame_layout
 {
   /* Offset within stack frame.  */
   HOST_WIDE_INT gprs_offset;
@@ -298,7 +298,7 @@ struct s390_frame_layout GTY (())
 
 /* Define the structure for the machine field in struct function.  */
 
-struct machine_function GTY(())
+struct GTY(()) machine_function
 {
   struct s390_frame_layout frame_layout;
 
@@ -1466,13 +1466,13 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 static bool
 s390_handle_arch_option (const char *arg,
 			 enum processor_type *type,
-			 enum processor_flags *flags)
+			 int *flags)
 {
   static struct pta
     {
       const char *const name;		/* processor name or nickname.  */
       const enum processor_type processor;
-      const enum processor_flags flags;
+      const int flags;			/* From enum processor_flags. */
     }
   const processor_alias_table[] =
     {
@@ -8651,12 +8651,12 @@ enum s390_builtin
   S390_BUILTIN_max
 };
 
-static unsigned int const code_for_builtin_64[S390_BUILTIN_max] = {
+static enum insn_code const code_for_builtin_64[S390_BUILTIN_max] = {
   CODE_FOR_get_tp_64,
   CODE_FOR_set_tp_64
 };
 
-static unsigned int const code_for_builtin_31[S390_BUILTIN_max] = {
+static enum insn_code const code_for_builtin_31[S390_BUILTIN_max] = {
   CODE_FOR_get_tp_31,
   CODE_FOR_set_tp_31
 };
@@ -8690,7 +8690,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 {
 #define MAX_ARGS 2
 
-  unsigned int const *code_for_builtin =
+  enum insn_code const *code_for_builtin =
     TARGET_64BIT ? code_for_builtin_64 : code_for_builtin_31;
 
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);

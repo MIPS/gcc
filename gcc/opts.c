@@ -339,11 +339,7 @@ enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
 struct visibility_flags visibility_options;
 
 /* What to print when a switch has no documentation.  */
-#ifdef ENABLE_CHECKING
 static const char undocumented_msg[] = N_("This switch lacks documentation");
-#else
-static const char undocumented_msg[] = "";
-#endif
 
 /* Used for bookkeeping on whether user set these flags so
    -fprofile-use/-fprofile-generate does not use them.  */
@@ -2229,15 +2225,17 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
   if (*arg == '\0')
     {
       if (!debug_info_level)
-	debug_info_level = 2;
+	debug_info_level = DINFO_LEVEL_NORMAL;
     }
   else
     {
-      debug_info_level = integral_argument (arg);
-      if (debug_info_level == (unsigned int) -1)
+      int argval = integral_argument (arg);
+      if (argval == -1)
 	error ("unrecognised debug output level \"%s\"", arg);
-      else if (debug_info_level > 3)
+      else if (argval > 3)
 	error ("debug output level %s is too high", arg);
+      else
+	debug_info_level = (enum debug_info_level) argval;
     }
 }
 

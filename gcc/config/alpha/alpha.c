@@ -1218,7 +1218,7 @@ alpha_legitimize_reload_address (rtx x,
     {
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
 		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		   opnum, type);
+		   opnum, (enum reload_type) type);
       return x;
     }
 
@@ -1249,7 +1249,7 @@ alpha_legitimize_reload_address (rtx x,
 
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
 		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		   opnum, type);
+		   opnum, (enum reload_type) type);
       return x;
     }
 
@@ -1328,8 +1328,11 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total,
       else if (GET_CODE (XEXP (x, 0)) == MULT
 	       && const48_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
 	{
-	  *total = (rtx_cost (XEXP (XEXP (x, 0), 0), outer_code, speed)
-		    + rtx_cost (XEXP (x, 1), outer_code, speed) + COSTS_N_INSNS (1));
+	  *total = (rtx_cost (XEXP (XEXP (x, 0), 0),
+			      (enum rtx_code) outer_code, speed)
+		    + rtx_cost (XEXP (x, 1),
+				(enum rtx_code) outer_code, speed)
+		    + COSTS_N_INSNS (1));
 	  return true;
 	}
       return false;
@@ -2843,7 +2846,7 @@ alpha_split_conditional_move (enum rtx_code code, rtx dest, rtx cond,
 /* Look up the function X_floating library function name for the
    given operation.  */
 
-struct xfloating_op GTY(())
+struct GTY(()) xfloating_op
 {
   const enum rtx_code code;
   const char *const GTY((skip)) osf_func;
@@ -4381,7 +4384,7 @@ emit_unlikely_jump (rtx cond, rtx label)
 
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
   x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
-  REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_BR_PROB, very_unlikely, NULL_RTX);
+  add_reg_note (x, REG_BR_PROB, very_unlikely);
 }
 
 /* A subroutine of the atomic operation splitters.  Emit a load-locked
@@ -4737,7 +4740,7 @@ alpha_multipass_dfa_lookahead (void)
 
 /* Machine-specific function data.  */
 
-struct machine_function GTY(())
+struct GTY(()) machine_function
 {
   /* For unicosmk.  */
   /* List of call information words for calls from this function.  */
@@ -6345,7 +6348,7 @@ enum alpha_builtin
   ALPHA_BUILTIN_max
 };
 
-static unsigned int const code_for_builtin[ALPHA_BUILTIN_max] = {
+static enum insn_code const code_for_builtin[ALPHA_BUILTIN_max] = {
   CODE_FOR_builtin_cmpbge,
   CODE_FOR_builtin_extbl,
   CODE_FOR_builtin_extwl,
@@ -6570,7 +6573,7 @@ alpha_expand_builtin (tree exp, rtx target,
 
       insn_op = &insn_data[icode].operand[arity + nonvoid];
 
-      op[arity] = expand_expr (arg, NULL_RTX, insn_op->mode, 0);
+      op[arity] = expand_expr (arg, NULL_RTX, insn_op->mode, EXPAND_NORMAL);
 
       if (!(*insn_op->predicate) (op[arity], insn_op->mode))
 	op[arity] = copy_to_mode_reg (insn_op->mode, op[arity]);
@@ -7447,10 +7450,8 @@ emit_frame_store_1 (rtx value, rtx base_reg, HOST_WIDE_INT frame_bias,
 	  mem = gen_rtx_MEM (DImode, addr);
 	}
 
-      REG_NOTES (insn)
-	= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			     gen_rtx_SET (VOIDmode, mem, frame_reg),
-			     REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+		    gen_rtx_SET (VOIDmode, mem, frame_reg));
     }
 }
 
@@ -7628,14 +7629,12 @@ alpha_expand_prologue (void)
          possibly intuit through the loop above.  So we invent this
          note it looks at instead.  */
       RTX_FRAME_RELATED_P (seq) = 1;
-      REG_NOTES (seq)
-        = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			     gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-			       gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-					     GEN_INT (TARGET_ABI_UNICOSMK
-						      ? -frame_size + 64
-						      : -frame_size))),
-			     REG_NOTES (seq));
+      add_reg_note (seq, REG_FRAME_RELATED_EXPR,
+		    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+				 gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+					       GEN_INT (TARGET_ABI_UNICOSMK
+							? -frame_size + 64
+							: -frame_size))));
     }
 
   if (!TARGET_ABI_UNICOSMK)
@@ -9478,7 +9477,7 @@ alpha_elf_section_type_flags (tree decl, const char *name, int reloc)
 enum links_kind {KIND_UNUSED, KIND_LOCAL, KIND_EXTERN};
 enum reloc_kind {KIND_LINKAGE, KIND_CODEADDR};
 
-struct alpha_links GTY(())
+struct GTY(()) alpha_links
 {
   int num;
   rtx linkage;
@@ -9486,7 +9485,7 @@ struct alpha_links GTY(())
   enum reloc_kind rkind;
 };
 
-struct alpha_funcs GTY(())
+struct GTY(()) alpha_funcs
 {
   int num;
   splay_tree GTY ((param1_is (char *), param2_is (struct alpha_links *)))

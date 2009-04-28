@@ -1258,6 +1258,7 @@ df_insn_rescan (rtx insn)
   bitmap_clear_bit (df->insns_to_notes_rescan, uid);
   if (insn_info)
     {
+      int luid;
       bool the_same = df_insn_refs_verify (&collection_rec, bb, insn, false);
       /* If there's no change, return false. */
       if (the_same)
@@ -1270,9 +1271,12 @@ df_insn_rescan (rtx insn)
       if (dump_file)
 	fprintf (dump_file, "rescanning insn with uid = %d.\n", uid);
 
-      /* There's change - we need to delete the existing info. */
+      /* There's change - we need to delete the existing info.
+	 Since the insn isn't moved, we can salvage its LUID.  */
+      luid = DF_INSN_LUID (insn);
       df_insn_delete (NULL, uid);
       df_insn_create_insn_record (insn);
+      DF_INSN_LUID (insn) = luid;
     }
   else
     {
@@ -2884,7 +2888,7 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
   rtx dst;
   int offset = -1;
   int width = -1;
-  enum machine_mode mode = 0;
+  enum machine_mode mode = VOIDmode;
   enum df_ref_class cl = DF_REF_REGULAR;
 
  /* We may recursively call ourselves on EXPR_LIST when dealing with PARALLEL
@@ -2978,7 +2982,7 @@ df_defs_record (struct df_collection_rec *collection_rec,
   if (code == SET || code == CLOBBER)
     {
       /* Mark the single def within the pattern.  */
-      enum df_ref_flags clobber_flags = flags;
+      int clobber_flags = flags;
       clobber_flags |= (code == CLOBBER) ? DF_REF_MUST_CLOBBER : 0;
       df_def_record_1 (collection_rec, x, bb, insn_info, clobber_flags);
     }
@@ -3295,7 +3299,7 @@ df_get_conditional_uses (struct df_collection_rec *collection_rec)
         {
 	  int width = -1;
 	  int offset = -1;
-	  enum machine_mode mode = 0;
+	  enum machine_mode mode = VOIDmode;
           df_ref use;
 
 	  if (DF_REF_FLAGS_IS_SET (ref, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))

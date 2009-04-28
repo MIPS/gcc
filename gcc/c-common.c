@@ -3767,8 +3767,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
    of pointer PTROP and integer INTOP.  */
 
 tree
-pointer_int_sum (location_t location, enum tree_code resultcode,
-		 tree ptrop, tree intop)
+pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 {
   tree size_exp, ret;
 
@@ -3777,19 +3776,19 @@ pointer_int_sum (location_t location, enum tree_code resultcode,
 
   if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
     {
-      pedwarn (location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+      pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 	       "pointer of type %<void *%> used in arithmetic");
       size_exp = integer_one_node;
     }
   else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
     {
-      pedwarn (location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+      pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 	       "pointer to a function used in arithmetic");
       size_exp = integer_one_node;
     }
   else if (TREE_CODE (TREE_TYPE (result_type)) == METHOD_TYPE)
     {
-      pedwarn (location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+      pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 	       "pointer to member function used in arithmetic");
       size_exp = integer_one_node;
     }
@@ -3851,31 +3850,6 @@ pointer_int_sum (location_t location, enum tree_code resultcode,
   /* Create the sum or difference.  */
   if (resultcode == MINUS_EXPR)
     intop = fold_build1 (NEGATE_EXPR, sizetype, intop);
-
-  if (TREE_CODE (intop) == INTEGER_CST)
-    {
-      tree offset_node;
-      tree string_cst = string_constant (ptrop, &offset_node);
-
-      if (string_cst != 0 
-	  && !(offset_node && TREE_CODE (offset_node) != INTEGER_CST))
-	{
-	  HOST_WIDE_INT max = TREE_STRING_LENGTH (string_cst);
-	  HOST_WIDE_INT offset;
-	  if (offset_node == 0)
-	    offset = 0;
-	  else if (! host_integerp (offset_node, 0))
-	    offset = -1;
-	  else
-	    offset = tree_low_cst (offset_node, 0);
-
-	  offset = offset + tree_low_cst (intop, 0);
-	  if (offset < 0 || offset > max)
-	    warning_at (location, 0,
-			"offset %<%wd%> outside bounds of constant string",
-			tree_low_cst (intop, 0));
-	}
-    }
 
   ret = fold_build2 (POINTER_PLUS_EXPR, result_type, ptrop, intop);
 
@@ -8167,21 +8141,24 @@ catenate_strings (const char *lhs, const char *rhs_start, int rhs_size)
    TOKEN, which had the associated VALUE.  */
 
 void
-c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
+c_parse_error (const char *gmsgid, enum cpp_ttype token_type, 
+	       tree value, unsigned char token_flags)
 {
 #define catenate_messages(M1, M2) catenate_strings ((M1), (M2), sizeof (M2))
 
   char *message = NULL;
 
-  if (token == CPP_EOF)
+  if (token_type == CPP_EOF)
     message = catenate_messages (gmsgid, " at end of input");
-  else if (token == CPP_CHAR || token == CPP_WCHAR || token == CPP_CHAR16
-	   || token == CPP_CHAR32)
+  else if (token_type == CPP_CHAR 
+	   || token_type == CPP_WCHAR 
+	   || token_type == CPP_CHAR16
+	   || token_type == CPP_CHAR32)
     {
       unsigned int val = TREE_INT_CST_LOW (value);
       const char *prefix;
 
-      switch (token)
+      switch (token_type)
 	{
 	default:
 	  prefix = "";
@@ -8206,26 +8183,28 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
       free (message);
       message = NULL;
     }
-  else if (token == CPP_STRING || token == CPP_WSTRING || token == CPP_STRING16
-	   || token == CPP_STRING32)
+  else if (token_type == CPP_STRING 
+	   || token_type == CPP_WSTRING 
+	   || token_type == CPP_STRING16
+	   || token_type == CPP_STRING32)
     message = catenate_messages (gmsgid, " before string constant");
-  else if (token == CPP_NUMBER)
+  else if (token_type == CPP_NUMBER)
     message = catenate_messages (gmsgid, " before numeric constant");
-  else if (token == CPP_NAME)
+  else if (token_type == CPP_NAME)
     {
       message = catenate_messages (gmsgid, " before %qE");
       error (message, value);
       free (message);
       message = NULL;
     }
-  else if (token == CPP_PRAGMA)
+  else if (token_type == CPP_PRAGMA)
     message = catenate_messages (gmsgid, " before %<#pragma%>");
-  else if (token == CPP_PRAGMA_EOL)
+  else if (token_type == CPP_PRAGMA_EOL)
     message = catenate_messages (gmsgid, " before end of line");
-  else if (token < N_TTYPES)
+  else if (token_type < N_TTYPES)
     {
       message = catenate_messages (gmsgid, " before %qs token");
-      error (message, cpp_type2name (token));
+      error (message, cpp_type2name (token_type, token_flags));
       free (message);
       message = NULL;
     }

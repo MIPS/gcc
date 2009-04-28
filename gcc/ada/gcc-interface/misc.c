@@ -32,30 +32,25 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "real.h"
-#include "rtl.h"
 #include "diagnostic.h"
+#include "target.h"
 #include "expr.h"
 #include "libfuncs.h"
 #include "ggc.h"
 #include "flags.h"
 #include "debug.h"
 #include "cgraph.h"
-#include "tree-inline.h"
-#include "insn-codes.h"
-#include "insn-flags.h"
-#include "insn-config.h"
 #include "optabs.h"
-#include "recog.h"
 #include "toplev.h"
-#include "output.h"
 #include "except.h"
-#include "tm_p.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
-#include "target.h"
+#include "opts.h"
+#include "options.h"
+#include "tree-inline.h"
 
 #include "ada.h"
+#include "adadecode.h"
 #include "types.h"
 #include "atree.h"
 #include "elists.h"
@@ -68,9 +63,6 @@
 #include "einfo.h"
 #include "ada-tree.h"
 #include "gigi.h"
-#include "adadecode.h"
-#include "opts.h"
-#include "options.h"
 
 static bool gnat_init			(void);
 static unsigned int gnat_init_options	(unsigned int, const char **);
@@ -155,7 +147,6 @@ const char **save_argv;
 extern int gnat_argc;
 extern char **gnat_argv;
 
-
 /* Declare functions we use as part of startup.  */
 extern void __gnat_initialize           (void *);
 extern void __gnat_install_SEH_handler  (void *);
@@ -363,7 +354,7 @@ internal_error_function (const char *msgid, va_list *ap)
   pp_format_verbatim (global_dc->printer, &tinfo);
 
   /* Extract a (writable) pointer to the formatted text.  */
-  buffer = (char*) pp_formatted_text (global_dc->printer);
+  buffer = xstrdup (pp_formatted_text (global_dc->printer));
 
   /* Go up to the first newline.  */
   for (p = buffer; *p; p++)
@@ -402,9 +393,12 @@ gnat_init (void)
   gnat_init_decl_processing ();
 
   /* Add the input filename as the last argument.  */
-  gnat_argv[gnat_argc] = (char *) main_input_filename;
-  gnat_argc++;
-  gnat_argv[gnat_argc] = 0;
+  if (main_input_filename)
+    {
+      gnat_argv[gnat_argc] = xstrdup (main_input_filename);
+      gnat_argc++;
+      gnat_argv[gnat_argc] = NULL;
+    }
 
   global_dc->internal_error = &internal_error_function;
 
@@ -505,7 +499,7 @@ gnat_print_type (FILE *file, tree node, int indent)
 
     case INTEGER_TYPE:
       if (TYPE_MODULAR_P (node))
-	print_node (file, "modulus", TYPE_MODULUS (node), indent + 4);
+	print_node_brief (file, "modulus", TYPE_MODULUS (node), indent + 4);
       else if (TYPE_HAS_ACTUAL_BOUNDS_P (node))
 	print_node (file, "actual bounds", TYPE_ACTUAL_BOUNDS (node),
 		    indent + 4);
@@ -518,7 +512,7 @@ gnat_print_type (FILE *file, tree node, int indent)
 
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-      print_node (file, "RM size", TYPE_RM_SIZE (node), indent + 4);
+      print_node_brief (file, "RM size", TYPE_RM_SIZE (node), indent + 4);
       break;
 
     case ARRAY_TYPE:
@@ -555,7 +549,7 @@ gnat_printable_name (tree decl, int verbosity)
 
   if (verbosity == 2 && !DECL_IS_BUILTIN (decl))
     {
-      Set_Identifier_Casing (ada_name, (char *) DECL_SOURCE_FILE (decl));
+      Set_Identifier_Casing (ada_name, DECL_SOURCE_FILE (decl));
       return ggc_strdup (Name_Buffer);
     }
 

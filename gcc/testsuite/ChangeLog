@@ -1,3 +1,378 @@
+2009-04-28  Nathan Froyd  <froydnj@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.target/powerpc/20020118-1.c: Skip on vxworks targets.
+	* gcc.dg/20020103-1.c: Check for __ppc.
+	* gcc.dg/asm-b.c: Check for __ppc.
+	* gcc.dg/20020919-1.c: Check for __ppc.
+	* gcc.dg/20020312-2.c: Likewise.
+	* gcc.dg/trampoline-1.c: Add appropriate NO_TRAMPOLINES #ifndefs.
+	* gcc.dg/torture/asm-subreg-1.c: Skip on sparc vxworks targets.
+	* gcc.dg/attr-weakref-1.c: Skip on selected vxworks targets.
+	* g++.dg/warn/weak1.C: Likewise.
+	* gcc.dg/tree-ssa/20030714-1.c (find_base_value): Declare as
+	static so appropriate optimizations kick in.
+	(find_base_value_wrapper): New function.
+	* g++.dg/eh/simd-5.C: Fix target triplet.
+	* gcc.target/arm/long-calls-1.c: Skip for -mlong-calls.
+
+2009-04-28  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39911
+	* gcc.target/i386/pr39911.c: New test.
+
+2009-04-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39879
+	* gfortran.dg/alloc_comp_assign_10.f90: New test.
+
+2009-04-28  Ben Elliston  <bje@au.ibm.com>
+
+	PR c++/35652
+	Revert:
+
+	2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* gcc.dg/pr35652.C: New.
+	* g++.dg/warn/pr35652.C: New.
+	* gcc.dg/format/plus-1.c: Adjust message.
+
+2009-04-27  DJ Delorie  <dj@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_double64): New.
+	(check_effective_target_double64plus): New.
+	(check_effective_target_large_double): New.
+	* gcc.dg/Wconversion-real-integer.c: Require double64plus.
+	* gcc.dg/div-double-1.c: Likewise.
+	* gcc.dg/Wconversion-real.c: Require large_double.
+	* gcc.dg/cdce1.c: Require large_double instead of checking targets.
+
+	* gcc.c-torture/execute/ieee/unsafe-fp-assoc-1.c: Skip if doubles
+	are too small.
+
+	* gcc.c-torture/execute/ieee/20010226-1.c: Mark all floating point
+	constants as long.
+
+2009-04-27  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wcxx-compat-5.c: New testcase.
+	* gcc.dg/Wcxx-compat-6.c: New testcase.
+
+2009-04-27  Trevor Smigiel <trevor_smigiel@playstation.sony.com>
+
+	Allow non-constant arguments to conversion intrinsics.
+	* gcc.target/spu/intrinsics-3.c: Update tests.
+
+2009-04-27  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39928
+	* gcc.c-torture/compile/pr39928-1.c: New testcase.
+	* gcc.c-torture/compile/pr39928-2.c: Likewise.
+
+2009-04-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39903
+	* gcc.dg/torture/pr39903-1.c: New.
+	* gcc.dg/torture/pr39903-2.c: Likewise.
+
+2009-04-27  Revital Eres  <eres@il.ibm.com>
+
+	* gcc.dg/sms-1.c: Add noinline attribute, create sms dump file
+	and check it.
+	* gcc.dg/sms-2.c: Add dump check.
+	* gcc.dg/sms-3.c: Add noinline attribute, create sms dump file
+	and check it.
+	* gcc.dg/sms-4.c: Likewise.
+	* gcc.dg/sms-5.c: Likewise.
+	* gcc.dg/sms-6.c: Likewise.
+	* gcc.dg/sms-7.c: Likewise.
+	* gcc.dg/sms-antideps.c: Rename to...
+	* gcc.dg/sms-8.c: This and add sms dump file and check it.
+
+2009-04-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt2.adb: New test.
+
+2009-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39875
+	* g++.dg/warn/Wunused-15.C: New test.
+
+2009-04-26  Michael Matz  <matz@suse.de>
+
+	Expand from SSA.
+	* gcc.dg/tree-ssa/20030728-1.c: Use -rtl-expand-details dump and
+	change regexps.
+	* gcc.target/i386/pr37248-1.c: Modified.
+	* gcc.target/i386/pr37248-3.c: Modified.
+	* gcc.target/i386/pr37248-2.c: Modified.
+	* gnat.dg/aliasing1.adb: Modified.
+	* gnat.dg/pack9.adb: Modified.
+	* gnat.dg/aliasing2.adb: Modified.
+	* gcc.dg/strict-overflow-2.c: Modified.
+	* gcc.dg/autopar/reduc-1char.c: Modified.
+	* gcc.dg/autopar/reduc-2char.c: Modified.
+	* gcc.dg/autopar/reduc-1.c: Modified.
+	* gcc.dg/autopar/reduc-2.c: Modified.
+	* gcc.dg/autopar/reduc-3.c: Modified.
+	* gcc.dg/autopar/reduc-6.c: Modified.
+	* gcc.dg/autopar/reduc-7.c: Modified.
+	* gcc.dg/autopar/reduc-8.c: Modified.
+	* gcc.dg/autopar/reduc-9.c: Modified.
+	* gcc.dg/autopar/reduc-1short.c: Modified.
+	* gcc.dg/autopar/reduc-2short.c: Modified.
+	* gcc.dg/autopar/parallelization-1.c: Modified.
+	* gcc.dg/strict-overflow-4.c: Modified.
+	* gcc.dg/strict-overflow-6.c: Modified.
+	* gcc.dg/gomp/combined-1.c: Modified.
+	* gcc.dg/no-strict-overflow-1.c: Modified.
+	* gcc.dg/no-strict-overflow-3.c: Modified.
+	* gcc.dg/no-strict-overflow-5.c: Modified.
+	* gcc.dg/tree-ssa/reassoc-13.c: Modified.
+	* gcc.dg/tree-ssa/pr18134.c: Modified.
+	* gcc.dg/tree-ssa/20030824-1.c: Modified.
+	* gcc.dg/tree-ssa/vector-2.c: Modified.
+	* gcc.dg/tree-ssa/forwprop-9.c: Modified.
+	* gcc.dg/tree-ssa/loop-21.c: Modified.
+	* gcc.dg/tree-ssa/20030824-2.c: Modified.
+	* gcc.dg/tree-ssa/vector-3.c: Modified.
+	* gcc.dg/tree-ssa/asm-3.c: Modified.
+	* gcc.dg/tree-ssa/pr23294.c: Modified.
+	* gcc.dg/tree-ssa/loop-22.c: Modified.
+	* gcc.dg/tree-ssa/loop-15.c: Modified.
+	* gcc.dg/tree-ssa/prefetch-4.c: Modified.
+	* gcc.dg/tree-ssa/pr22051-1.c: Modified.
+	* gcc.dg/tree-ssa/pr20139.c: Modified.
+	* gcc.dg/tree-ssa/scev-cast.c: Modified.
+	* gcc.dg/tree-ssa/pr22051-2.c: Modified.
+	* gcc.dg/tree-ssa/reassoc-1.c: Modified.
+	* gcc.dg/tree-ssa/loop-5.c: Modified.
+	* gcc.dg/tree-ssa/pr19431.c: Modified.
+	* gcc.dg/tree-ssa/pr32044.c: Modified.
+	* gcc.dg/tree-ssa/prefetch-7.c: Modified.
+	* gcc.dg/tree-ssa/loop-19.c: Modified.
+	* gcc.dg/tree-ssa/loop-28.c: Modified.
+	* gcc.dg/tree-ssa/ssa-pre-15.c: Modified.
+	* gcc.dg/tree-ssa/divide-1.c: Modified.
+	* gcc.dg/tree-ssa/inline-1.c: Modified.
+	* gcc.dg/tree-ssa/divide-3.c: Modified.
+	* gcc.dg/tree-ssa/pr30978.c: Modified.
+	* gcc.dg/tree-ssa/alias-6.c: Modified.
+	* gcc.dg/tree-ssa/divide-4.c: Modified.
+	* gcc.dg/tree-ssa/alias-11.c: Modified.
+	* gcc.dg/no-strict-overflow-7.c: Modified.
+	* gcc.dg/strict-overflow-1.c: Modified.
+	* gcc.dg/pr15784-4.c: Modified.
+	* gcc.dg/pr34263.c: Modified.
+	* gcc.dg/strict-overflow-3.c: Modified.
+	* gcc.dg/tree-prof/stringop-1.c: Modified.
+	* gcc.dg/tree-prof/val-prof-1.c: Modified.
+	* gcc.dg/tree-prof/val-prof-2.c: Modified.
+	* gcc.dg/tree-prof/val-prof-3.c: Modified.
+	* gcc.dg/tree-prof/val-prof-4.c: Modified.
+	* gcc.dg/no-strict-overflow-2.c: Modified.
+	* gcc.dg/no-strict-overflow-4.c: Modified.
+	* gcc.dg/no-strict-overflow-6.c: Modified.
+	* g++.dg/tree-ssa/pr27090.C: Modified.
+	* g++.dg/tree-ssa/tmmti-2.C: Modified.
+	* g++.dg/tree-ssa/ptrmemfield.C: Modified.
+	* g++.dg/tree-ssa/pr19807.C: Modified.
+	* g++.dg/opt/pr30965.C: Modified.
+	* g++.dg/init/new17.C: Modified.
+	* gfortran.dg/whole_file_6.f90: Modified.
+	* gfortran.dg/whole_file_5.f90: Modified.
+	* gfortran.dg/reassoc_1.f90: Modified.
+	* gfortran.dg/reassoc_3.f90: Modified.
+
+2009-04-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/39893
+	* gfortran.dg/assumed_charlen_dummy.f90: New Test.
+
+2009-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/39543
+	* gcc.target/i386/pr39543-1.c: New test.
+	* gcc.target/i386/pr39543-2.c: New test.
+	* gcc.target/i386/pr39543-3.c: New test.
+
+	PR c/39889
+	* gcc.dg/Wunused-value-3.c: New test.
+
+2009-04-26  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39581
+	* gcc.dg/c99-const-expr-14.c, gcc.dg/gnu99-const-expr-4.c,
+	gcc.dg/vla-21.c: New tests.
+
+2009-04-26  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39556
+	* gcc.dg/inline-34.c: New test.
+
+2009-04-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/enum-const-1.c, gcc.dg/enum-const-2.c,
+	gcc.dg/enum-const-3.c: New tests.
+	* gcc.dg/gnu89-const-expr-1.c, gcc.dg/gnu99-const-expr-1.c: Use
+	-pedantic-errors.  Update expected diagnostics.
+
+2009-04-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39582
+	* gcc.dg/vla-20.c: New test.
+
+2009-04-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39564
+	* gcc.dg/vla-19.c: New test.
+
+2009-04-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/39559
+	* gcc.dg/c99-intconst-2.c: New test.
+
+2009-04-25  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/tree-ssa/ehcleanup-1.C: Update.
+
+2009-04-25  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39688
+	* gfortran.dg/import7.f90: New.
+
+2009-04-24  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/vrp48.c: Fix.
+
+2008-04-24  Doug Kwan  <dougkwan@google.com>
+
+	* g++.dg/init/copy7.C: Only abort in memcpy if source and
+	destination are the same.
+
+2009-04-24  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/vrp48.c: New testcase.
+
+2009-04-24  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/array-const-1.c, gcc.dg/array-const-2.c,
+	gcc.dg/array-const-3.c: New tests.
+
+2009-04-24  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wcxx-compat-4.c: New testcase.
+
+2009-04-24  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/typebound_generic_1.f03: Change so that no error is
+	expected on already erraneous symbol (renamed to fresh one).
+
+2009-04-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/39867
+	* gcc.dg/pr39867.c: New.
+
+2009-04-24  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39861
+	PR fortran/39864
+	* gfortran.dg/intrinsic_1.f90: New.
+
+2009-04-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/alignment7.adb: New test.
+	* gnat.dg/alignment8.adb: Likewise.
+
+2009-04-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/pr34799.ads: Rename to rep_clause1.ads.
+	* gnat.dg/specs/rep_clause2.ads: New test.
+
+2009-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/39794
+	* gcc.dg/pr39794.c: New test.
+
+2009-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/atomic1.adb: New test.
+	* gnat.dg/atomic1_pkg.ads: New helper.
+
+2009-04-23  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/39623
+	* gcc.dg/vect/no-vfa-vect-57.c: XFAIL when vect_no_align.
+	* gcc.dg/vect/no-vfa-vect-61.c: Ditto.
+	
+2009-04-23  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.dg/format/gcc_diag-1.c (foo): Don't check that %E produces a
+	warning.
+
+2009-04-22  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C/31499
+	* gcc.dg/vector-init-1.c: New testcase.
+	* gcc.dg/vector-init-2.c: New testcase.
+
+2009-04-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/enum2.adb: New test.
+	* gnat.dg/enum2_pkg.ads: New helper.
+
+2009-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39855
+	* gcc.dg/torture/pr39855.c: New test.
+
+2009-04-22  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/39639
+	* g++.dg/cpp0x/pr39639.C: New test.
+
+2009-04-22  Mark Heffernan  <meheff@google.com>
+
+	* gcc.dg/profile-generate-3.c: New test.
+
+2009-04-22  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/tree-ssa/ehcleanup-1.C: New testcase.
+
+2009-04-22  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/39623
+	* gcc.dg/vect/no-vfa-vect-43.c Fix vect_no_align check.
+	
+2009-04-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39824
+	* gcc.c-torture/compile/pr39824.c: New testcase.
+
+2009-04-22  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/14875
+	* g++.dg/parse/parser-pr14875.C: New.
+	* g++.dg/parse/parser-pr14875-2.C: New.
+	* g++.dg/parse/error6.C: Update match string.
+
+2009-04-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39845
+	* gcc.c-torture/compile/pr39845.c: New testcase.
+
+2009-04-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39735
+	* gfortran.dg/assumed_charlen_function_5.f90: Modified.
+	* gfortran.dg/external_initializer.f90: Modified.
+	* gfortran.dg/interface_26.f90: Modified.
+	* gfortran.dg/intrinsic_subroutine.f90: Modified.
+	* gfortran.dg/proc_ptr_3.f90: Modified.
+	* gfortran.dg/proc_ptr_15.f90: New.
+	* gfortran.dg/proc_ptr_result_1.f90: Modified.
+
 2009-04-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	PR c++/35711

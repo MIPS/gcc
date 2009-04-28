@@ -963,7 +963,7 @@ fold_undefer_overflow_warnings (bool issue, const_gimple stmt, int code)
       if (fold_deferred_overflow_warning != NULL
 	  && code != 0
 	  && code < (int) fold_deferred_overflow_code)
-	fold_deferred_overflow_code = code;
+	fold_deferred_overflow_code = (enum warn_strict_overflow_code) code;
       return;
     }
 
@@ -2935,7 +2935,7 @@ combine_comparisons (enum tree_code code, enum tree_code lcode,
   bool honor_nans = HONOR_NANS (TYPE_MODE (TREE_TYPE (ll_arg)));
   enum comparison_code lcompcode = comparison_to_compcode (lcode);
   enum comparison_code rcompcode = comparison_to_compcode (rcode);
-  enum comparison_code compcode;
+  int compcode;
 
   switch (code)
     {
@@ -3001,8 +3001,12 @@ combine_comparisons (enum tree_code code, enum tree_code lcode,
   else if (compcode == COMPCODE_FALSE)
     return constant_boolean_node (false, truth_type);
   else
-    return fold_build2 (compcode_to_comparison (compcode),
-			truth_type, ll_arg, lr_arg);
+    {
+      enum tree_code tcode;
+
+      tcode = compcode_to_comparison ((enum comparison_code) compcode);
+      return fold_build2 (tcode, truth_type, ll_arg, lr_arg);
+    }
 }
 
 /* Return nonzero if two operands (typically of the same tree node)
@@ -5337,31 +5341,34 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
 	break;
 
       case GT_EXPR:
-	/* If C1 is C2 - 1, this is max(A, C2).  */
+	/* If C1 is C2 - 1, this is max(A, C2), but use ARG00's type for
+	   MAX_EXPR, to preserve the signedness of the comparison.  */
 	if (! operand_equal_p (arg2, TYPE_MIN_VALUE (type),
 			       OEP_ONLY_CONST)
 	    && operand_equal_p (arg01,
 				const_binop (MINUS_EXPR, arg2,
 					     build_int_cst (type, 1), 0),
 				OEP_ONLY_CONST))
-	  return pedantic_non_lvalue (fold_build2 (MAX_EXPR,
-						   type,
-						   fold_convert (type, arg1),
-						   arg2));
+	  return pedantic_non_lvalue (fold_convert (type,
+				      fold_build2 (MAX_EXPR, TREE_TYPE (arg00),
+						   arg00,
+						   fold_convert (TREE_TYPE (arg00),
+							         arg2))));
 	break;
 
       case GE_EXPR:
-	/* If C1 is C2 + 1, this is max(A, C2).  */
+	/* If C1 is C2 + 1, this is max(A, C2), with the same care as above.  */
 	if (! operand_equal_p (arg2, TYPE_MAX_VALUE (type),
 			       OEP_ONLY_CONST)
 	    && operand_equal_p (arg01,
 				const_binop (PLUS_EXPR, arg2,
 					     build_int_cst (type, 1), 0),
 				OEP_ONLY_CONST))
-	  return pedantic_non_lvalue (fold_build2 (MAX_EXPR,
-						   type,
-						   fold_convert (type, arg1),
-						   arg2));
+	  return pedantic_non_lvalue (fold_convert (type,
+				      fold_build2 (MAX_EXPR, TREE_TYPE (arg00),
+						   arg00,
+						   fold_convert (TREE_TYPE (arg00),
+							         arg2))));
 	break;
       case NE_EXPR:
 	break;
@@ -11880,7 +11887,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      if (code == LROTATE_EXPR || code == RROTATE_EXPR)
 	        low = low % TYPE_PRECISION (type);
 	      else if (TYPE_UNSIGNED (type) || code == LSHIFT_EXPR)
-	        return build_int_cst (type, 0);
+		return omit_one_operand (type, build_int_cst (type, 0),
+					 TREE_OPERAND (arg0, 0));
 	      else
 		low = TYPE_PRECISION (type) - 1;
 	    }

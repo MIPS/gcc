@@ -1,6 +1,6 @@
 # Top level -*- makefile -*- fragment for GNU Ada (GNAT).
 #   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-#   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+#   2003, 2004, 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -118,7 +118,7 @@ GNAT1_C_OBJS = ada/b_gnat1.o ada/adadecode.o ada/adaint.o ada/cstreams.o \
 
 # Object files from Ada sources that are used by gnat1
 
-GNAT_ADA_OBJS = ada/ada.o ada/a-charac.o ada/a-chlat1.o ada/a-except.o \
+GNAT_ADA_OBJS = ada/s-bitops.o ada/ada.o ada/a-charac.o ada/a-chlat1.o ada/a-except.o \
  ada/a-elchha.o ada/a-ioexce.o \
  ada/s-memory.o ada/s-carun8.o ada/s-casuti.o ada/s-strcom.o ada/s-purexc.o \
  ada/s-htable.o ada/s-traceb.o ada/s-mastop.o ada/ali.o \
@@ -1143,69 +1143,63 @@ ada/raise.o   : ada/raise.c $(CONFIG_H) $(SYSTEM_H) ada/adaint.h ada/raise.h
 	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) \
 		 $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
-# Need to keep the frame pointer in this file to pop the stack properly on
-# some targets.
-ada/tracebak.o  : ada/tracebak.c $(CONFIG_H) $(SYSTEM_H)
+# Need to keep the frame pointer to unwind the stack properly for some targets.
+ada/tracebak.o : ada/tracebak.c $(CONFIG_H) $(SYSTEM_H)
 	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	      -fno-omit-frame-pointer $< $(OUTPUT_OPTION)
 
-ada/cuintp.o : ada/gcc-interface/cuintp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   $(TREE_H) ada/gcc-interface/ada.h ada/types.h ada/uintp.h ada/atree.h ada/stringt.h \
-   ada/elists.h ada/nlists.h ada/fe.h ada/gcc-interface/gigi.h
+ada/cuintp.o : ada/gcc-interface/cuintp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) $(TREE_H) ada/gcc-interface/ada.h ada/types.h ada/uintp.h \
+   ada/atree.h ada/elists.h ada/nlists.h ada/stringt.h ada/fe.h $(ADA_TREE_H) \
+   ada/gcc-interface/gigi.h
 	$(CC) -c $(ALL_CFLAGS) -I.. $(ALL_CPPFLAGS) $< -o $@
 
 ada/decl.o : ada/gcc-interface/decl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) $(TREE_H) $(FLAGS_H) toplev.h convert.h $(TARGET_H) \
-   ada/gcc-interface/ada.h ada/types.h ada/atree.h \
-   ada/nlists.h ada/elists.h ada/uintp.h ada/sinfo.h ada/einfo.h ada/snames.h \
-   ada/namet.h ada/stringt.h ada/repinfo.h ada/fe.h $(ADA_TREE_H) \
-   ada/gcc-interface/gigi.h \
-   $(EXPR_H) gt-ada-decl.h
+   $(TM_H) $(TREE_H) $(FLAGS_H) toplev.h $(TARGET_H) $(EXPR_H) \
+   $(TREE_INLINE_H) ada/gcc-interface/ada.h ada/types.h ada/atree.h \
+   ada/elists.h ada/namet.h ada/nlists.h ada/repinfo.h ada/snames.h \
+   ada/stringt.h ada/uintp.h ada/fe.h ada/sinfo.h ada/einfo.h $(ADA_TREE_H) \
+   ada/gcc-interface/gigi.h gt-ada-decl.h
 	$(CC) -c $(ALL_CFLAGS) -I.. $(ALL_CPPFLAGS) $< -o $@
 
 ada/misc.o : ada/gcc-interface/misc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) $(TREE_H) \
-   $(RTL_H) $(EXPR_H) insn-codes.h insn-flags.h insn-config.h recog.h \
-   $(FLAGS_H) $(DIAGNOSTIC_H) output.h except.h $(TM_P_H) langhooks.h debug.h \
-   $(LANGHOOKS_DEF_H) libfuncs.h $(OPTABS_H) ada/gcc-interface/ada.h \
-   ada/types.h \
-   ada/atree.h ada/nlists.h ada/elists.h ada/sinfo.h ada/einfo.h ada/namet.h \
-   ada/stringt.h ada/uintp.h ada/fe.h $(ADA_TREE_H) ada/gcc-interface/gigi.h \
-   ada/adadecode.h opts.h options.h $(TARGET_H) $(REAL_H)
+   $(TM_H) $(TREE_H) $(DIAGNOSTIC_H) $(TARGET_H) $(EXPR_H) libfuncs.h \
+   $(FLAGS_H) debug.h $(CGRAPH_H) $(OPTABS_H) toplev.h except.h langhooks.h \
+   $(LANGHOOKS_DEF_H) opts.h options.h $(TREE_INLINE_H) \
+   ada/gcc-interface/ada.h ada/adadecode.h ada/types.h ada/atree.h \
+   ada/elists.h ada/namet.h ada/nlists.h ada/stringt.h ada/uintp.h ada/fe.h \
+   ada/sinfo.h ada/einfo.h $(ADA_TREE_H) ada/gcc-interface/gigi.h
 	$(CC) -c $(ALL_CFLAGS) -I.. $(ALL_CPPFLAGS) $< -o $@
 
 ada/targtyps.o : ada/gcc-interface/targtyps.c $(CONFIG_H) $(SYSTEM_H) \
-   coretypes.h $(TM_H) \
-   $(TREE_H) ada/gcc-interface/ada.h ada/types.h ada/atree.h ada/nlists.h \
-   ada/elists.h \
-   ada/uintp.h ada/sinfo.h ada/einfo.h ada/namet.h ada/snames.h ada/stringt.h \
-   ada/urealp.h ada/fe.h $(ADA_TREE_H) ada/gcc-interface/gigi.h
+   coretypes.h $(TM_H) $(TREE_H) ada/gcc-interface/ada.h ada/types.h \
+   ada/atree.h ada/elists.h ada/namet.h ada/nlists.h ada/snames.h \
+   ada/stringt.h ada/uintp.h ada/urealp.h ada/fe.h ada/sinfo.h ada/einfo.h \
+   $(ADA_TREE_H) ada/gcc-interface/gigi.h
 	$(CC) -c $(ALL_CFLAGS) -I.. $(ALL_CPPFLAGS) $< -o $@
 
 ada/trans.o : ada/gcc-interface/trans.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) \
-   $(TREE_H) $(RTL_H) $(EXPR_H) $(FLAGS_H) $(FUNCTION_H) \
-   ada/gcc-interface/ada.h except.h \
-   ada/types.h ada/atree.h ada/nlists.h ada/elists.h ada/uintp.h ada/sinfo.h \
-   ada/einfo.h ada/namet.h ada/snames.h ada/stringt.h ada/urealp.h ada/fe.h \
-   $(ADA_TREE_H) ada/gcc-interface/gigi.h gt-ada-trans.h tree-iterator.h
+   $(TM_H) $(TREE_H) $(FLAGS_H) $(EXPR_H) output.h tree-iterator.h \
+   $(GIMPLE_H) ada/gcc-interface/ada.h ada/adadecode.h ada/types.h \
+   ada/atree.h ada/elists.h ada/namet.h ada/nlists.h ada/snames.h \
+   ada/stringt.h ada/uintp.h ada/urealp.h ada/fe.h ada/sinfo.h ada/einfo.h \
+   $(ADA_TREE_H) ada/gcc-interface/gigi.h gt-ada-trans.h
 	$(CC) -c $(ALL_CFLAGS) -I.. $(ALL_CPPFLAGS) $< -o $@
 
 ada/utils.o : ada/gcc-interface/utils.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) \
-   $(TREE_H) $(FLAGS_H) $(EXPR_H) convert.h defaults.h langhooks.h \
-   ada/gcc-interface/ada.h ada/types.h \
-   ada/atree.h ada/nlists.h ada/elists.h ada/sinfo.h \
-   ada/einfo.h ada/namet.h ada/stringt.h ada/uintp.h ada/fe.h $(ADA_TREE_H) \
-   ada/gcc-interface/gigi.h gt-ada-utils.h \
-   gtype-ada.h $(TARGET_H) tree-iterator.h
+   $(TM_H) $(TREE_H) $(FLAGS_H) toplev.h $(RTL_H) output.h debug.h convert.h \
+   $(TARGET_H) function.h langhooks.h pointer-set.h $(CGRAPH_H) \
+   $(TREE_DUMP_H) $(TREE_INLINE_H) tree-iterator.h $(GIMPLE_H) \
+   ada/gcc-interface/ada.h ada/types.h ada/atree.h ada/elists.h ada/namet.h \
+   ada/nlists.h ada/stringt.h ada/uintp.h ada/fe.h ada/sinfo.h ada/einfo.h \
+   $(ADA_TREE_H) ada/gcc-interface/gigi.h gt-ada-utils.h gtype-ada.h
 	$(CC) -c $(ALL_CFLAGS) -I.. $(ALL_CPPFLAGS) $< -o $@
 
 ada/utils2.o : ada/gcc-interface/utils2.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) $(TREE_H) $(FLAGS_H) ada/gcc-interface/ada.h ada/types.h \
-   ada/atree.h ada/nlists.h ada/elists.h ada/sinfo.h ada/einfo.h ada/namet.h \
-   ada/snames.h ada/stringt.h ada/uintp.h ada/fe.h $(ADA_TREE_H) \
-   ada/gcc-interface/gigi.h
+   $(TM_H) $(TREE_H) $(FLAGS_H) output.h $(TREE_INLINE_H) \
+   ada/gcc-interface/ada.h ada/types.h ada/atree.h ada/elists.h ada/namet.h \
+   ada/nlists.h ada/snames.h ada/stringt.h ada/uintp.h ada/fe.h ada/sinfo.h \
+   ada/einfo.h $(ADA_TREE_H) ada/gcc-interface/gigi.h
 	$(CC) -c $(ALL_CFLAGS) -I.. $(ALL_CPPFLAGS) $< -o $@
 
 #
@@ -2406,15 +2400,15 @@ ada/gnat1drv.o : ada/ada.ads ada/a-except.ads ada/a-unccon.ads \
    ada/sem_type.ads ada/sem_util.ads ada/sinfo.ads ada/sinfo.adb \
    ada/sinput.ads ada/sinput.adb ada/sinput-l.ads ada/snames.ads \
    ada/sprint.ads ada/stand.ads ada/stringt.ads ada/system.ads \
-   ada/s-assert.ads ada/s-exctab.ads ada/s-htable.ads ada/s-imenne.ads \
-   ada/s-memory.ads ada/s-os_lib.ads ada/s-parame.ads ada/s-rident.ads \
-   ada/s-secsta.ads ada/s-soflin.ads ada/s-stache.ads ada/s-stalib.ads \
-   ada/s-stoele.ads ada/s-stoele.adb ada/s-string.ads ada/s-traent.ads \
-   ada/s-unstyp.ads ada/s-wchcon.ads ada/table.ads ada/table.adb \
-   ada/targparm.ads ada/tree_gen.ads ada/tree_io.ads ada/treepr.ads \
-   ada/ttypes.ads ada/types.ads ada/uintp.ads ada/uintp.adb ada/uname.ads \
-   ada/unchconv.ads ada/unchdeal.ads ada/urealp.ads ada/usage.ads \
-   ada/widechar.ads 
+   ada/s-assert.ads ada/s-bitops.ads ada/s-exctab.ads ada/s-htable.ads \
+   ada/s-imenne.ads ada/s-memory.ads ada/s-os_lib.ads ada/s-parame.ads \
+   ada/s-rident.ads ada/s-secsta.ads ada/s-soflin.ads ada/s-stache.ads \
+   ada/s-stalib.ads ada/s-stoele.ads ada/s-stoele.adb ada/s-string.ads \
+   ada/s-traent.ads ada/s-unstyp.ads ada/s-wchcon.ads ada/table.ads \
+   ada/table.adb ada/targparm.ads ada/tree_gen.ads ada/tree_io.ads \
+   ada/treepr.ads ada/ttypes.ads ada/types.ads ada/uintp.ads ada/uintp.adb \
+   ada/uname.ads ada/unchconv.ads ada/unchdeal.ads ada/urealp.ads \
+   ada/usage.ads ada/widechar.ads 
 
 ada/gnatbind.o : ada/ada.ads ada/a-comlin.ads ada/a-clrefi.ads \
    ada/a-except.ads ada/a-unccon.ads ada/a-uncdea.ads ada/ali.ads \
@@ -2870,6 +2864,10 @@ ada/s-assert.o : ada/ada.ads ada/a-except.ads ada/a-unccon.ads \
    ada/s-exctab.adb ada/s-except.ads ada/s-htable.ads ada/s-parame.ads \
    ada/s-soflin.ads ada/s-stache.ads ada/s-stalib.ads ada/s-stoele.ads \
    ada/s-stoele.adb ada/s-traent.ads 
+
+ada/s-bitops.o : ada/ada.ads ada/a-except.ads ada/a-unccon.ads \
+   ada/system.ads ada/s-bitops.ads ada/s-bitops.adb ada/s-parame.ads \
+   ada/s-stalib.ads ada/s-traent.ads ada/s-unstyp.ads 
 
 ada/s-carun8.o : ada/ada.ads ada/a-unccon.ads ada/system.ads \
    ada/s-addope.ads ada/s-addope.adb ada/s-carun8.ads ada/s-carun8.adb 

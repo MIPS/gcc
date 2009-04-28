@@ -84,7 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Per-function machine data.  This is normally an opaque type just
    defined and used in the tm.c file, but we need to see the definition in
    mmix.md too.  */
-struct machine_function GTY(())
+struct GTY(()) machine_function
  {
    int has_landing_pad;
    int highest_saved_stack_register;

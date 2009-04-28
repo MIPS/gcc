@@ -1,5 +1,9 @@
 2009-04-28  Paolo Bonzini  <bonzini@gnu.org>
 
+	* Merge trunk up to revision 146679.
+
+2009-04-28  Paolo Bonzini  <bonzini@gnu.org>
+
 	* config/sparc/sparc.c (gen_compare_reg_1): Fix comment.
 	(gen_compare_reg): Add comment.
 	(emit_scc_insn): Fix comment.  Adjust for renamed seqdi_special_trunc
