@@ -555,6 +555,7 @@ mf_build_check_statement_for (tree base, tree limit,
   t = fold_convert (mf_uintptr_type, unshare_expr (base));
   gimplify_expr (&t, &seq, &seq, is_gimple_reg_rhs, fb_rvalue);
   g = gimple_build_assign (mf_base, t);
+  location = create_duplicate_debuglocus (location);
   gimple_set_location (g, location);
   gimple_seq_add_stmt (&seq, g);
 
@@ -562,6 +563,7 @@ mf_build_check_statement_for (tree base, tree limit,
   t = fold_convert (mf_uintptr_type, unshare_expr (limit));
   gimplify_expr (&t, &seq, &seq, is_gimple_reg_rhs, fb_rvalue);
   g = gimple_build_assign (mf_limit, t);
+  location = create_duplicate_debuglocus (location);
   gimple_set_location (g, location);
   gimple_seq_add_stmt (&seq, g);
 
@@ -579,6 +581,7 @@ mf_build_check_statement_for (tree base, tree limit,
   t = build1 (ADDR_EXPR, mf_cache_structptr_type, t);
   gimplify_expr (&t, &seq, &seq, is_gimple_reg_rhs, fb_rvalue);
   g = gimple_build_assign (mf_elem, t);
+  location = create_duplicate_debuglocus (location);
   gimple_set_location (g, location);
   gimple_seq_add_stmt (&seq, g);
 
@@ -625,6 +628,7 @@ mf_build_check_statement_for (tree base, tree limit,
   gimplify_expr (&t, &seq, &seq, is_gimple_reg_rhs, fb_rvalue);
   cond = create_tmp_var (boolean_type_node, "__mf_unlikely_cond");
   g = gimple_build_assign  (cond, t);
+  location = create_duplicate_debuglocus (location);
   gimple_set_location (g, location);
   gimple_seq_add_stmt (&seq, g);
 
@@ -632,6 +636,7 @@ mf_build_check_statement_for (tree base, tree limit,
      simply build a void COND_EXPR.  We do need labels in both arms though.  */
   g = gimple_build_cond (NE_EXPR, cond, integer_zero_node, NULL_TREE,
 			 NULL_TREE);
+  location = create_duplicate_debuglocus (location);
   gimple_set_location (g, location);
   gimple_seq_add_stmt (&seq, g);
 
@@ -1048,7 +1053,9 @@ mx_register_decls (tree decl, gimple_seq seq, location_t location)
 	  
 
           /* Accumulate the two calls.  */
+	  location = create_duplicate_debuglocus (location);
 	  gimple_set_location (register_fncall, location);
+	  location = create_duplicate_debuglocus (location);
 	  gimple_set_location (unregister_fncall, location);
 
           /* Add the __mf_register call at the current appending point.  */

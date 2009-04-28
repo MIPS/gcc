@@ -297,14 +297,17 @@ debuglocus_from_pointer (debuglocus_p dlocus)
 
 
 /* Copy the debuglocus LOCUS. This requires duplicating the debuglocus, as well
-   as any chain of debuglocus's attached to it.  */
+   as any chain of debuglocus's attached to it.
+
+   If the LOCUS is not a debuglocus, just return the LOCUS.  */
 source_location
 create_duplicate_debuglocus (source_location locus)
 {
   int root_i, new_i, src_i, dest_i, prev_dest_i;
   debuglocus_p root_p, new_p, src_p, dest_p, prev_dest_p;
 
-  gcc_assert (is_debuglocus (locus));
+  if (!is_debuglocus (locus))
+    return locus;
 
   root_i = DEBUGLOCUS_INDEX (locus);   /* Root is the locus being copied.  */
   root_p = get_debuglocus_entry (current_debuglocus_table (), root_i);

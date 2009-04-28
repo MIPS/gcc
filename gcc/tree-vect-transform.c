@@ -2174,6 +2174,7 @@ vect_finish_stmt_generation (gimple stmt, gimple vec_stmt,
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  location_t dlocus;
 
   gcc_assert (gimple_code (stmt) != GIMPLE_LABEL);
 
@@ -2187,7 +2188,8 @@ vect_finish_stmt_generation (gimple stmt, gimple vec_stmt,
       print_gimple_stmt (vect_dump, vec_stmt, 0, TDF_SLIM);
     }
 
-  gimple_set_location (vec_stmt, gimple_location (gsi_stmt (*gsi)));
+  dlocus = create_duplicate_debuglocus (gimple_location (gsi_stmt (*gsi)));
+  gimple_set_location (vec_stmt, dlocus);
 }
 
 
