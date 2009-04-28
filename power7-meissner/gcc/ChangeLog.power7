@@ -1,3 +1,14 @@
+2009-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Sync up to 146911.
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add
+	enum casts to make code type correct for C++.
+	(bdesc_altivec_preds): Use CODE_FOR_nothing instead of 0.
+	(struct builtin_hash_struct): Change to new-style GTY markers.
+	(builtin_hash_table): Ditto.
+	(builtin_function_type): Make call to htab_find_slot be type
+	correct.
+
 2009-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_A): New iterator for the arithmetic
