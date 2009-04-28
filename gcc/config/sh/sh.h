@@ -545,35 +545,35 @@ do {									\
       = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;		\
   if (TARGET_SH2E && !flag_finite_math_only)				\
     target_flags |= MASK_IEEE;						\
-  sh_cpu = CPU_SH1;							\
+  sh_cpu = PROCESSOR_SH1;						\
   assembler_dialect = 0;						\
   if (TARGET_SH2)							\
-    sh_cpu = CPU_SH2;							\
+    sh_cpu = PROCESSOR_SH2;						\
   if (TARGET_SH2E)							\
-    sh_cpu = CPU_SH2E;							\
+    sh_cpu = PROCESSOR_SH2E;						\
   if (TARGET_SH2A)							\
     {									\
-      sh_cpu = CPU_SH2A;						\
+      sh_cpu = PROCESSOR_SH2A;						\
       if (TARGET_SH2A_DOUBLE)						\
         target_flags |= MASK_FMOVD;					\
     }									\
   if (TARGET_SH3)							\
-    sh_cpu = CPU_SH3;							\
+    sh_cpu = PROCESSOR_SH3;						\
   if (TARGET_SH3E)							\
-    sh_cpu = CPU_SH3E;							\
+    sh_cpu = PROCESSOR_SH3E;						\
   if (TARGET_SH4)							\
     {									\
       assembler_dialect = 1;						\
-      sh_cpu = CPU_SH4;							\
+      sh_cpu = PROCESSOR_SH4;						\
     }									\
   if (TARGET_SH4A_ARCH)							\
     {									\
       assembler_dialect = 1;						\
-      sh_cpu = CPU_SH4A;						\
+      sh_cpu = PROCESSOR_SH4A;						\
     }									\
   if (TARGET_SH5)							\
     {									\
-      sh_cpu = CPU_SH5;							\
+      sh_cpu = PROCESSOR_SH5;						\
       target_flags |= MASK_ALIGN_DOUBLE;				\
       if (TARGET_SHMEDIA_FPU)						\
 	target_flags |= MASK_FMOVD;					\
@@ -3144,6 +3144,19 @@ struct sh_args {
 
 extern struct rtx_def *sh_compare_op0;
 extern struct rtx_def *sh_compare_op1;
+
+/* The SH machine description uses "sh_cpu_attr" to find the cpu variant
+   that is being compiled for for use in attributes.  For target compilation
+   performance reasons, this should be a direct variable access.
+   The type of that variable would naturally be enum attr_cpu, alas, that
+   is not possible, because there is no target-controlled headerfile
+   that is guaranteed to be only included after insn-attr.h, hence we
+   can't declare such a variable to be visible inside insn-attrtab.c .
+   If statements expressions were allowed, we could solve this by having
+   an 'extern enum attr_cpu sh_cpu' declaration inside a statement expression
+   to be used inside the sh_attr_cpu definition.
+   But as we have to do without statement expressions, we have to use a
+   different type for the sh_cpu variable.  */
 
 /* Which processor to schedule for.  The elements of the enumeration must
    match exactly the cpu attribute in the sh.md file.  */

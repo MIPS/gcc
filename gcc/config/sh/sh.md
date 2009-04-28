@@ -181,6 +181,7 @@
 
 ;; Target CPU.
 
+; keep this in sync with enum processor_type in sh.h
 (define_attr "cpu"
  "sh1,sh2,sh2e,sh2a,sh3,sh3e,sh4,sh4a,sh5"
   (const (symbol_ref "sh_cpu_attr")))

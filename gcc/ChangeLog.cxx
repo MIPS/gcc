@@ -1,3 +1,11 @@
+2009-04-28  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/sh.h (OVERRIDE_OPTIONS): Use enum processor_type values
+	to assign to sh_cpu.
+
+	* config/sh/sh.md (attribute cpu): Add comment about connection to
+	enum processor_type in sh.h.
+
 2009-04-27  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* reorg.c (insn_sets_resource_p): include_delayed_effects is now bool.
