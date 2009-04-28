@@ -88,26 +88,10 @@ find_referenced_vars (void)
   FOR_EACH_BB (bb)
     {
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
-	{
-	  size_t i;
-	  gimple stmt = gsi_stmt (si);
-	  for (i = 0; i < gimple_num_ops (stmt); i++)
-	    walk_tree (gimple_op_ptr (stmt, i), find_vars_r, NULL, NULL);
-	}
+	find_referenced_vars_in (gsi_stmt (si));
 
       for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
-	{
-	  gimple phi = gsi_stmt (si);
-	  size_t i, len = gimple_phi_num_args (phi);
-
-	  walk_tree (gimple_phi_result_ptr (phi), find_vars_r, NULL, NULL);
-
-	  for (i = 0; i < len; i++)
-	    {
-	      tree arg = gimple_phi_arg_def (phi, i);
-	      walk_tree (&arg, find_vars_r, NULL, NULL);
-	    }
-	}
+	find_referenced_vars_in (gsi_stmt (si));
     }
 
   return 0;
@@ -149,27 +133,6 @@ create_var_ann (tree t)
 
   ann = GGC_CNEW (struct var_ann_d);
   ann->common.type = VAR_ANN;
-  t->base.ann = (tree_ann_t) ann;
-
-  return ann;
-}
-
-/* Create a new annotation for a FUNCTION_DECL node T.  */
-
-function_ann_t
-create_function_ann (tree t)
-{
-  function_ann_t ann;
-
-  gcc_assert (t);
-  gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
-  gcc_assert (!t->base.ann || t->base.ann->common.type == FUNCTION_ANN);
-
-  ann = (function_ann_t) ggc_alloc (sizeof (*ann));
-  memset ((void *) ann, 0, sizeof (*ann));
-
-  ann->common.type = FUNCTION_ANN;
-
   t->base.ann = (tree_ann_t) ann;
 
   return ann;
@@ -497,6 +460,33 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
   return NULL_TREE;
 }
+
+/* Find referenced variables in STMT.  In contrast with
+   find_new_referenced_vars, this function will not mark newly found
+   variables for renaming.  */
+
+void
+find_referenced_vars_in (gimple stmt)
+{
+  size_t i;
+
+  if (gimple_code (stmt) != GIMPLE_PHI)
+    {
+      for (i = 0; i < gimple_num_ops (stmt); i++)
+	walk_tree (gimple_op_ptr (stmt, i), find_vars_r, NULL, NULL);
+    }
+  else
+    {
+      walk_tree (gimple_phi_result_ptr (stmt), find_vars_r, NULL, NULL);
+
+      for (i = 0; i < gimple_phi_num_args (stmt); i++)
+	{
+	  tree arg = gimple_phi_arg_def (stmt, i);
+	  walk_tree (&arg, find_vars_r, NULL, NULL);
+	}
+    }
+}
+
 
 /* Lookup UID in the referenced_vars hashtable and return the associated
    variable.  */

@@ -117,9 +117,6 @@ package GNAT.Sockets.Thin is
       Optval  : System.Address;
       Optlen  : not null access C.int) return C.int;
 
-   function C_Inet_Addr
-     (Cp : C.Strings.chars_ptr) return C.int;
-
    function C_Ioctl
      (S    : C.int;
       Req  : C.int;
@@ -154,12 +151,6 @@ package GNAT.Sockets.Thin is
       Writefds  : access Fd_Set;
       Exceptfds : access Fd_Set;
       Timeout   : Timeval_Access) return C.int;
-
-   function C_Send
-     (S     : C.int;
-      Msg   : System.Address;
-      Len   : C.int;
-      Flags : C.int) return C.int;
 
    function C_Sendto
      (S     : C.int;
@@ -257,7 +248,6 @@ private
    pragma Import (C, C_Getpeername, "getpeername");
    pragma Import (C, C_Getsockname, "getsockname");
    pragma Import (C, C_Getsockopt, "getsockopt");
-   pragma Import (C, C_Inet_Addr, "inet_addr");
    pragma Import (C, C_Listen, "listen");
    pragma Import (C, C_Readv, "readv");
    pragma Import (C, C_Select, "select");

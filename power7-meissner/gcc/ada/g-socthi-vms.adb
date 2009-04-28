@@ -31,7 +31,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  Temporary version for Alpha/VMS
+--  This is the version for OpenVMS
 
 with GNAT.OS_Lib; use GNAT.OS_Lib;
 with GNAT.Task_Lock;
@@ -41,19 +41,18 @@ with Interfaces.C; use Interfaces.C;
 package body GNAT.Sockets.Thin is
 
    Non_Blocking_Sockets : aliased Fd_Set;
-   --  When this package is initialized with Process_Blocking_IO set
-   --  to True, sockets are set in non-blocking mode to avoid blocking
-   --  the whole process when a thread wants to perform a blocking IO
-   --  operation. But the user can also set a socket in non-blocking
-   --  mode by purpose. In order to make a difference between these
-   --  two situations, we track the origin of non-blocking mode in
-   --  Non_Blocking_Sockets. If S is in Non_Blocking_Sockets, it has
-   --  been set in non-blocking mode by the user.
+   --  When this package is initialized with Process_Blocking_IO set to True,
+   --  sockets are set in non-blocking mode to avoid blocking the whole process
+   --  when a thread wants to perform a blocking IO operation. But the user can
+   --  also set a socket in non-blocking mode by purpose. In order to make a
+   --  difference between these two situations, we track the origin of
+   --  non-blocking mode in Non_Blocking_Sockets. If S is in
+   --  Non_Blocking_Sockets, it has been set in non-blocking mode by the user.
 
    Quantum : constant Duration := 0.2;
-   --  When SOSC.Thread_Blocking_IO is False, we set sockets in
-   --  non-blocking mode and we spend a period of time Quantum between
-   --  two attempts on a blocking operation.
+   --  When SOSC.Thread_Blocking_IO is False, we set sockets to non-blocking
+   --  mode and we spend a period of time Quantum between two attempts on a
+   --  blocking operation.
 
    Unknown_System_Error : constant C.Strings.chars_ptr :=
                             C.Strings.New_String ("Unknown system error");
@@ -91,13 +90,6 @@ package body GNAT.Sockets.Thin is
       From    : Sockaddr_In_Access;
       Fromlen : not null access C.int) return C.int;
    pragma Import (C, Syscall_Recvfrom, "recvfrom");
-
-   function Syscall_Send
-     (S     : C.int;
-      Msg   : System.Address;
-      Len   : C.int;
-      Flags : C.int) return C.int;
-   pragma Import (C, Syscall_Send, "send");
 
    function Syscall_Sendto
      (S     : C.int;
@@ -284,31 +276,6 @@ package body GNAT.Sockets.Thin is
 
       return Res;
    end C_Recvfrom;
-
-   ------------
-   -- C_Send --
-   ------------
-
-   function C_Send
-     (S     : C.int;
-      Msg   : System.Address;
-      Len   : C.int;
-      Flags : C.int) return C.int
-   is
-      Res : C.int;
-
-   begin
-      loop
-         Res := Syscall_Send (S, Msg, Len, Flags);
-         exit when SOSC.Thread_Blocking_IO
-           or else Res /= Failure
-           or else Non_Blocking_Socket (S)
-           or else Errno /= SOSC.EWOULDBLOCK;
-         delay Quantum;
-      end loop;
-
-      return Res;
-   end C_Send;
 
    --------------
    -- C_Sendto --
@@ -500,11 +467,13 @@ package body GNAT.Sockets.Thin is
 
    begin
       for J in Iovec'Range loop
-         Res := C_Send
+         Res := C_Sendto
            (Fd,
             Iovec (J).Base.all'Address,
             Interfaces.C.int (Iovec (J).Length),
-            SOSC.MSG_Forced_Flags);
+            SOSC.MSG_Forced_Flags,
+            To    => null,
+            Tolen => 0);
 
          if Res < 0 then
             return Res;

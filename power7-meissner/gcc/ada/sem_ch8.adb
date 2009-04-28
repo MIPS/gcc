@@ -782,25 +782,51 @@ package body Sem_Ch8 is
                Error_Msg_N
                  ("expect anonymous access type in object renaming", N);
             end if;
+
          else
             declare
-               I   : Interp_Index;
-               It  : Interp;
-               Typ : Entity_Id := Empty;
+               I    : Interp_Index;
+               It   : Interp;
+               Typ  : Entity_Id := Empty;
+               Seen : Boolean   := False;
 
             begin
                Get_First_Interp (Nam, I, It);
                while Present (It.Typ) loop
-                  if No (Typ) then
-                     if Ekind (It.Typ) = Ekind (T)
-                       and then Covers (T, It.Typ)
+
+                  --  Renaming is ambiguous if more than one candidate
+                  --  interpretation is type-conformant with the context.
+
+                  if Ekind (It.Typ) = Ekind (T) then
+                     if Ekind (T) = E_Anonymous_Access_Subprogram_Type
+                       and then
+                         Type_Conformant
+                           (Designated_Type (T), Designated_Type (It.Typ))
                      then
+                        if not Seen then
+                           Seen := True;
+                        else
+                           Error_Msg_N
+                             ("ambiguous expression in renaming", Nam);
+                        end if;
+
+                     elsif Ekind (T) = E_Anonymous_Access_Type
+                       and then
+                         Covers (Designated_Type (T), Designated_Type (It.Typ))
+                     then
+                        if not Seen then
+                           Seen := True;
+                        else
+                           Error_Msg_N
+                             ("ambiguous expression in renaming", Nam);
+                        end if;
+                     end if;
+
+                     if Covers (T, It.Typ) then
                         Typ := It.Typ;
                         Set_Etype (Nam, Typ);
                         Set_Is_Overloaded (Nam, False);
                      end if;
-                  else
-                     Error_Msg_N ("ambiguous expression in renaming", N);
                   end if;
 
                   Get_Next_Interp (I, It);
@@ -929,14 +955,21 @@ package body Sem_Ch8 is
                --  declaration occurs within the body of G or within the body
                --  of a generic unit declared within the declarative region
                --  of G, then the declaration of the formal object of G must
-               --  have a null exclusion.
+               --  have a null exclusion or a null-excluding subtype.
 
                if Is_Formal_Object (Nam_Ent)
                  and then In_Generic_Scope (Id)
                then
-                  Error_Msg_N
-                    ("renamed formal does not exclude `NULL` "
-                     & "(RM 8.5.1(4.6/2))", N);
+                  if not Can_Never_Be_Null (Etype (Nam_Ent)) then
+                     Error_Msg_N
+                       ("renamed formal does not exclude `NULL` "
+                        & "(RM 8.5.1(4.6/2))", N);
+
+                  elsif In_Package_Body (Scope (Id)) then
+                     Error_Msg_N
+                       ("formal object does not have a null exclusion"
+                        & "(RM 8.5.1(4.6/2))", N);
+                  end if;
 
                --  Ada 2005 (AI-423): Otherwise, the subtype of the object name
                --  shall exclude null.
@@ -946,12 +979,41 @@ package body Sem_Ch8 is
                     ("renamed object does not exclude `NULL` "
                      & "(RM 8.5.1(4.6/2))", N);
 
-               elsif Can_Never_Be_Null (Etype (Nam_Ent)) then
+               --  An instance is illegal if it contains a renaming that
+               --  excludes null, and the actual does not. The renaming
+               --  declaration has already indicated that the declaration
+               --  of the renamed actual in the instance will raise
+               --  constraint_error.
+
+               elsif Nkind (Parent (Nam_Ent)) = N_Object_Declaration
+                 and then In_Instance
+                 and then Present
+                   (Corresponding_Generic_Association (Parent (Nam_Ent)))
+                 and then Nkind (Expression (Parent (Nam_Ent)))
+                   = N_Raise_Constraint_Error
+               then
+                  Error_Msg_N
+                    ("renamed actual does not exclude `NULL` "
+                     & "(RM 8.5.1(4.6/2))", N);
+
+               --  Finally, if there is a null exclusion, the subtype mark
+               --  must not be null-excluding.
+
+               elsif No (Access_Definition (N))
+                 and then  Can_Never_Be_Null (T)
+               then
                   Error_Msg_NE
-                    ("`NOT NULL` not allowed (type of& already excludes null)",
-                      N, Nam_Ent);
+                    ("`NOT NULL` not allowed (& already excludes null)",
+                      N, T);
 
                end if;
+
+            elsif Can_Never_Be_Null (T)
+              and then not Can_Never_Be_Null (Etype (Nam_Ent))
+            then
+               Error_Msg_N
+                 ("renamed object does not exclude `NULL` "
+                  & "(RM 8.5.1(4.6/2))", N);
 
             elsif Has_Null_Exclusion (N)
               and then No (Access_Definition (N))
@@ -3300,8 +3362,23 @@ package body Sem_Ch8 is
       if Present (Hidden_By_Use_Clause (N)) then
          Elmt := First_Elmt (Hidden_By_Use_Clause (N));
          while Present (Elmt) loop
-            Set_Is_Immediately_Visible (Node (Elmt));
-            Next_Elmt (Elmt);
+            declare
+               E : constant Entity_Id := Node (Elmt);
+
+            begin
+               --  Reset either Use_Visibility or Direct_Visibility, depending
+               --  on how the entity was hidden by the use clause.
+
+               if In_Use (Scope (E))
+                 and then Used_As_Generic_Actual (Scope (E))
+               then
+                  Set_Is_Potentially_Use_Visible (Node (Elmt));
+               else
+                  Set_Is_Immediately_Visible (Node (Elmt));
+               end if;
+
+               Next_Elmt (Elmt);
+            end;
          end loop;
 
          Set_Hidden_By_Use_Clause (N, No_Elist);
@@ -6130,12 +6207,12 @@ package body Sem_Ch8 is
 
       Prev_Use   : Node_Id := Empty;
       Redundant  : Node_Id := Empty;
-      --  The Use_Clause which is actually redundant. In the simplest case
-      --  it is Pack itself, but when we compile a body we install its
-      --  context before that of its spec, in which case it is the use_clause
-      --  in the spec that will appear to be redundant, and we want the
-      --  warning to be placed on the body. Similar complications appear when
-      --  the redundancy is between a child unit and one of its ancestors.
+      --  The Use_Clause which is actually redundant. In the simplest case it
+      --  is Pack itself, but when we compile a body we install its context
+      --  before that of its spec, in which case it is the use_clause in the
+      --  spec that will appear to be redundant, and we want the warning to be
+      --  placed on the body. Similar complications appear when the redundancy
+      --  is between a child unit and one of its ancestors.
 
    begin
       Set_Redundant_Use (Clause, True);
@@ -6149,12 +6226,12 @@ package body Sem_Ch8 is
 
       if not Is_Compilation_Unit (Current_Scope) then
 
-         --  If the use_clause is in an inner scope, it is made redundant
-         --  by some clause in the current context, with one exception:
-         --  If we're compiling a nested package body, and the use_clause
-         --  comes from the corresponding spec, the clause is not necessarily
-         --  fully redundant, so we should not warn.  If a warning was
-         --  warranted, it would have been given when the spec was processed.
+         --  If the use_clause is in an inner scope, it is made redundant by
+         --  some clause in the current context, with one exception: If we're
+         --  compiling a nested package body, and the use_clause comes from the
+         --  corresponding spec, the clause is not necessarily fully redundant,
+         --  so we should not warn. If a warning was warranted, it would have
+         --  been given when the spec was processed.
 
          if Nkind (Parent (Decl)) = N_Package_Specification then
             declare
@@ -6249,12 +6326,12 @@ package body Sem_Ch8 is
       elsif Nkind (Unit (Cunit (Current_Sem_Unit))) = N_Package_Declaration
         and then Present (Parent_Spec (Unit (Cunit (Current_Sem_Unit))))
       then
-         --  Use_clause is in child unit of current unit, and the child
-         --  unit appears in the context of the body of the parent, so it
-         --  has been installed first, even though it is the redundant one.
-         --  Depending on their placement in the context, the visible or the
-         --  private parts of the two units, either might appear as redundant,
-         --  but the message has to be on the current unit.
+         --  Use_clause is in child unit of current unit, and the child unit
+         --  appears in the context of the body of the parent, so it has been
+         --  installed first, even though it is the redundant one. Depending on
+         --  their placement in the context, the visible or the private parts
+         --  of the two units, either might appear as redundant, but the
+         --  message has to be on the current unit.
 
          if Get_Source_Unit (Cur_Use) = Current_Sem_Unit then
             Redundant := Cur_Use;
@@ -6367,9 +6444,9 @@ package body Sem_Ch8 is
       if Ekind (S) = E_Void then
          null;
 
-      --  Set scope depth if not a non-concurrent type, and we have not
-      --  yet set the scope depth. This means that we have the first
-      --  occurrence of the scope, and this is where the depth is set.
+      --  Set scope depth if not a non-concurrent type, and we have not yet set
+      --  the scope depth. This means that we have the first occurrence of the
+      --  scope, and this is where the depth is set.
 
       elsif (not Is_Type (S) or else Is_Concurrent_Type (S))
         and then not Scope_Depth_Set (S)
@@ -6427,9 +6504,9 @@ package body Sem_Ch8 is
          Write_Eol;
       end if;
 
-      --  Deal with copying flags from the previous scope to this one. This
-      --  is not necessary if either scope is standard, or if the new scope
-      --  is a child unit.
+      --  Deal with copying flags from the previous scope to this one. This is
+      --  not necessary if either scope is standard, or if the new scope is a
+      --  child unit.
 
       if S /= Standard_Standard
         and then Scope (S) /= Standard_Standard
@@ -6708,8 +6785,18 @@ package body Sem_Ch8 is
             E := First_Entity (S);
             while Present (E) loop
                if Is_Child_Unit (E) then
-                  Set_Is_Immediately_Visible (E,
-                    Is_Visible_Child_Unit (E) or else In_Open_Scopes (E));
+                  if not From_With_Type (E) then
+                     Set_Is_Immediately_Visible (E,
+                       Is_Visible_Child_Unit (E) or else In_Open_Scopes (E));
+
+                  else
+                     pragma Assert
+                       (Nkind (Parent (E)) = N_Defining_Program_Unit_Name
+                          and then
+                        Nkind (Parent (Parent (E))) = N_Package_Specification);
+                     Set_Is_Immediately_Visible (E,
+                       Limited_View_Installed (Parent (Parent (E))));
+                  end if;
                else
                   Set_Is_Immediately_Visible (E, True);
                end if;
@@ -7007,6 +7094,23 @@ package body Sem_Ch8 is
                          or else Chars (Prev) = Name_Op_Expon)
             then
                goto Next_Usable_Entity;
+
+            --  In an instance, two homonyms may become use_visible through the
+            --  actuals of distinct formal packages. In the generic, only the
+            --  current one would have been visible, so make the other one
+            --  not use_visible.
+
+            elsif Present (Current_Instance)
+              and then Is_Potentially_Use_Visible (Prev)
+              and then not Is_Overloadable (Prev)
+              and then Scope (Id) /= Scope (Prev)
+              and then Used_As_Generic_Actual (Scope (Prev))
+              and then Used_As_Generic_Actual (Scope (Id))
+              and then List_Containing (Current_Use_Clause (Scope (Prev))) /=
+                       List_Containing (Current_Use_Clause (Scope (Id)))
+            then
+               Set_Is_Potentially_Use_Visible (Prev, False);
+               Append_Elmt (Prev, Hidden_By_Use_Clause (N));
             end if;
 
             Prev := Homonym (Prev);
@@ -7115,10 +7219,10 @@ package body Sem_Ch8 is
       elsif In_Open_Scopes (Scope (T)) then
          null;
 
-      --  A limited view cannot appear in a use_type clause. However, an
-      --  access type whose designated type is limited has the flag but
-      --  is not itself a limited view unless we only have a limited view
-      --  of its enclosing package.
+      --  A limited view cannot appear in a use_type clause. However, an access
+      --  type whose designated type is limited has the flag but is not itself
+      --  a limited view unless we only have a limited view of its enclosing
+      --  package.
 
       elsif From_With_Type (T)
         and then From_With_Type (Scope (T))
@@ -7133,6 +7237,14 @@ package body Sem_Ch8 is
 
       elsif not Redundant_Use (Id) then
          Set_In_Use (T);
+
+         --  If T is tagged, primitive operators on class-wide operands
+         --  are also available.
+
+         if Is_Tagged_Type (T) then
+            Set_In_Use (Class_Wide_Type (T));
+         end if;
+
          Set_Current_Use_Clause (T, Parent (Id));
          Op_List := Collect_Primitive_Operations (T);
 
@@ -7163,8 +7275,8 @@ package body Sem_Ch8 is
          --  as use visible. The analysis then reinstalls the spec along with
          --  its context. The use clause P.T is now recognized as redundant,
          --  but in the wrong context. Do not emit a warning in such cases.
-         --  Do not emit a warning either if we are in an instance, there
-         --  is no redundancy between an outer use_clause and one that appears
+         --  Do not emit a warning either if we are in an instance, there is
+         --  no redundancy between an outer use_clause and one that appears
          --  within the generic.
 
         and then not Spec_Reloaded_For_Body
@@ -7210,10 +7322,10 @@ package body Sem_Ch8 is
                --  Start of processing for Use_Clause_Known
 
                begin
-                  --  If both current use type clause and the use type
-                  --  clause for the type are at the compilation unit level,
-                  --  one of the units must be an ancestor of the other, and
-                  --  the warning belongs on the descendant.
+                  --  If both current use type clause and the use type clause
+                  --  for the type are at the compilation unit level, one of
+                  --  the units must be an ancestor of the other, and the
+                  --  warning belongs on the descendant.
 
                   if Nkind (Parent (Clause1)) = N_Compilation_Unit
                        and then
@@ -7230,6 +7342,35 @@ package body Sem_Ch8 is
 
                      Unit1 := Unit (Parent (Clause1));
                      Unit2 := Unit (Parent (Clause2));
+
+                     --  If both clauses are on same unit, or one is the body
+                     --  of the other, or one of them is in a subunit, report
+                     --  redundancy on the later one.
+
+                     if Unit1 = Unit2 then
+                        Error_Msg_Sloc := Sloc (Current_Use_Clause (T));
+                        Error_Msg_NE
+                          ("& is already use-visible through previous "
+                           & "use_type_clause #?", Clause1, T);
+                        return;
+
+                     elsif Nkind (Unit1) = N_Subunit then
+                        Error_Msg_Sloc := Sloc (Current_Use_Clause (T));
+                        Error_Msg_NE
+                          ("& is already use-visible through previous "
+                           & "use_type_clause #?", Clause1, T);
+                        return;
+
+                     elsif Nkind_In (Unit2, N_Package_Body, N_Subprogram_Body)
+                       and then Nkind (Unit1) /= Nkind (Unit2)
+                       and then Nkind (Unit1) /= N_Subunit
+                     then
+                        Error_Msg_Sloc := Sloc (Clause1);
+                        Error_Msg_NE
+                          ("& is already use-visible through previous "
+                           & "use_type_clause #?", Current_Use_Clause (T), T);
+                        return;
+                     end if;
 
                      --  There is a redundant use type clause in a child unit.
                      --  Determine which of the units is more deeply nested.
@@ -7287,7 +7428,7 @@ package body Sem_Ch8 is
                   else
                      Error_Msg_NE
                        ("& is already use-visible through previous "
-                        & "use type clause?", Id, Id);
+                        & "use type clause?", Id, T);
                   end if;
                end Use_Clause_Known;
 
@@ -7297,7 +7438,7 @@ package body Sem_Ch8 is
             else
                Error_Msg_NE
                  ("& is already use-visible through previous "
-                  & "use type clause?", Id, Id);
+                  & "use type clause?", Id, T);
             end if;
 
          --  The package where T is declared is already used
@@ -7306,14 +7447,14 @@ package body Sem_Ch8 is
             Error_Msg_Sloc := Sloc (Current_Use_Clause (Scope (T)));
             Error_Msg_NE
               ("& is already use-visible through package use clause #?",
-               Id, Id);
+               Id, T);
 
          --  The current scope is the package where T is declared
 
          else
             Error_Msg_Node_2 := Scope (T);
             Error_Msg_NE
-              ("& is already use-visible inside package &?", Id, Id);
+              ("& is already use-visible inside package &?", Id, T);
          end if;
       end if;
    end Use_One_Type;

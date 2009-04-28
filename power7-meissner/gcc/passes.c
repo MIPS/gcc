@@ -319,7 +319,7 @@ struct rtl_opt_pass pass_postreload =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   PROP_rtl,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -707,17 +707,13 @@ init_optimization_passes (void)
       NEXT_PASS (pass_local_pure_const);
     }
   NEXT_PASS (pass_cleanup_eh);
-  NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
-  NEXT_PASS (pass_mark_used_blocks);
-  NEXT_PASS (pass_cleanup_cfg_post_optimizing);
-
-  NEXT_PASS (pass_warn_function_noreturn);
-  NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_mudflap_2);
+  NEXT_PASS (pass_cleanup_cfg_post_optimizing);
+  NEXT_PASS (pass_warn_function_noreturn);
 
-  NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
+
   NEXT_PASS (pass_rest_of_compilation);
     {
       struct opt_pass **p = &pass_rest_of_compilation.pass.sub;
@@ -733,7 +729,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_df_initialize_opt);
       NEXT_PASS (pass_cse);
       NEXT_PASS (pass_rtl_fwprop);
-      NEXT_PASS (pass_gcse);
+      NEXT_PASS (pass_rtl_cprop);
+      NEXT_PASS (pass_rtl_pre);
+      NEXT_PASS (pass_rtl_hoist);
+      NEXT_PASS (pass_rtl_cprop);
+      NEXT_PASS (pass_rtl_store_motion);
+      NEXT_PASS (pass_cse_after_global_opts);
       NEXT_PASS (pass_rtl_ifcvt);
       /* Perform loop optimizations.  It might be better to do them a bit
 	 sooner, but we want the profile feedback to work more
@@ -750,7 +751,7 @@ init_optimization_passes (void)
 	  *p = NULL;
 	}
       NEXT_PASS (pass_web);
-      NEXT_PASS (pass_jump_bypass);
+      NEXT_PASS (pass_rtl_cprop);
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_dse1);
       NEXT_PASS (pass_rtl_fwprop_addr);
@@ -1207,14 +1208,14 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   execute_todo (ipa_pass->function_transform_todo_flags_start);
 
   /* If a timevar is present, start it.  */
-  if (pass->tv_id)
+  if (pass->tv_id != TV_NONE)
     timevar_push (pass->tv_id);
 
   /* Do it!  */
   todo_after = ipa_pass->function_transform (node);
 
   /* Stop timevar.  */
-  if (pass->tv_id)
+  if (pass->tv_id != TV_NONE)
     timevar_pop (pass->tv_id);
 
   /* Run post-pass cleanup and verification.  */
@@ -1281,7 +1282,7 @@ execute_one_pass (struct opt_pass *pass)
 #endif
 
   /* If a timevar is present, start it.  */
-  if (pass->tv_id)
+  if (pass->tv_id != TV_NONE)
     timevar_push (pass->tv_id);
 
   /* Do it!  */
@@ -1292,7 +1293,7 @@ execute_one_pass (struct opt_pass *pass)
     }
 
   /* Stop timevar.  */
-  if (pass->tv_id)
+  if (pass->tv_id != TV_NONE)
     timevar_pop (pass->tv_id);
 
   do_per_function (update_properties_after_pass, pass);

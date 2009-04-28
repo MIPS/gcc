@@ -308,6 +308,18 @@ package body Exp_Ch5 is
          --  can be performed directly.
       end if;
 
+      --  If either operand has an address clause clear Backwards_OK and
+      --  Forwards_OK, since we cannot tell if the operands overlap. We
+      --  exclude this treatment when Rhs is an aggregate, since we know
+      --  that overlap can't occur.
+
+      if (Has_Address_Clause (Lhs) and then Nkind (Rhs) /= N_Aggregate)
+        or else Has_Address_Clause (Rhs)
+      then
+         Set_Forwards_OK  (N, False);
+         Set_Backwards_OK (N, False);
+      end if;
+
       --  We certainly must use a loop for change of representation and also
       --  we use the operand of the conversion on the right hand side as the
       --  effective right hand side (the component types must match in this
@@ -634,16 +646,21 @@ package body Exp_Ch5 is
             end if;
          end if;
 
-         --  If after that analysis, Forwards_OK is still True, and
-         --  Loop_Required is False, meaning that we have not discovered some
-         --  non-overlap reason for requiring a loop, then we can still let
-         --  gigi handle it.
+         --  If after that analysis Loop_Required is False, meaning that we
+         --  have not discovered some non-overlap reason for requiring a loop,
+         --  then the outcome depends on the capabilities of the back end.
 
          if not Loop_Required then
 
-            --  Assume gigi can handle it if Forwards_OK is set
+            --  The GCC back end can deal with all cases of overlap by falling
+            --  back to memmove if it cannot use a more efficient approach.
 
-            if Forwards_OK (N) then
+            if VM_Target = No_VM and not AAMP_On_Target then
+               return;
+
+            --  Assume other back ends can handle it if Forwards_OK is set
+
+            elsif Forwards_OK (N) then
                return;
 
             --  If Forwards_OK is not set, the back end will need something
@@ -3259,9 +3276,12 @@ package body Exp_Ch5 is
 
       --     return not (expression);
 
-      --  Only do these optimizations if we are at least at -O1 level
+      --  Only do these optimizations if we are at least at -O1 level and
+      --  do not do them if control flow optimizations are suppressed.
 
-      if Optimization_Level > 0 then
+      if Optimization_Level > 0
+        and then not Opt.Suppress_Control_Flow_Optimizations
+      then
          if Nkind (N) = N_If_Statement
            and then No (Elsif_Parts (N))
            and then Present (Else_Statements (N))

@@ -300,7 +300,7 @@ package body System.Tasking.Stages is
             --  racing ahead.
 
             if Success then
-               C.Common.State := Runnable;
+               C.Common.State := Activating;
                C.Awake_Count := 1;
                C.Alive_Count := 1;
                P.Awake_Count := P.Awake_Count + 1;
@@ -312,6 +312,21 @@ package body System.Tasking.Stages is
                   pragma Assert (Self_ID /= P);
                   P.Common.Wait_Count := P.Common.Wait_Count + 1;
                end if;
+
+               for J in System.Tasking.Debug.Known_Tasks'Range loop
+                  if System.Tasking.Debug.Known_Tasks (J) = null then
+                     System.Tasking.Debug.Known_Tasks (J) := C;
+                     C.Known_Tasks_Index := J;
+                     exit;
+                  end if;
+               end loop;
+
+               if Global_Task_Debug_Event_Set then
+                  Debug.Signal_Debug_Event
+                   (Debug.Debug_Event_Activating, C);
+               end if;
+
+               C.Common.State := Runnable;
 
                Unlock (C);
                Unlock (P);
@@ -500,8 +515,7 @@ package body System.Tasking.Stages is
          raise Program_Error with "potentially blocking operation";
       end if;
 
-      pragma Debug
-        (Debug.Trace (Self_ID, "Create_Task", 'C'));
+      pragma Debug (Debug.Trace (Self_ID, "Create_Task", 'C'));
 
       if Priority = Unspecified_Priority then
          Base_Priority := Self_ID.Common.Base_Priority;
@@ -607,13 +621,17 @@ package body System.Tasking.Stages is
          T.Common.Task_Image_Len := Len;
       end if;
 
+      Unlock (Self_ID);
+      Unlock_RTS;
+
+      --  Note: we should not call 'new' while holding locks since new
+      --  may use locks (e.g. RTS_Lock under Windows) itself and cause a
+      --  deadlock.
+
       if Build_Entry_Names then
          T.Entry_Names :=
            new Entry_Names_Array (1 .. Entry_Index (Num_Entries));
       end if;
-
-      Unlock (Self_ID);
-      Unlock_RTS;
 
       --  Create TSD as early as possible in the creation of a task, since it
       --  may be used by the operation of Ada code within the task.
@@ -923,7 +941,7 @@ package body System.Tasking.Stages is
       Initialization.Undefer_Abort (Self_ID);
    end Move_Activation_Chain;
 
-   --  Compiler interface only. Do not call from within the RTS.
+   --  Compiler interface only. Do not call from within the RTS
 
    --------------------
    -- Set_Entry_Name --
@@ -1096,8 +1114,7 @@ package body System.Tasking.Stages is
       Stack_Guard (Self_ID, True);
 
       --  Initialize low-level TCB components, that cannot be initialized by
-      --  the creator. Enter_Task sets Self_ID.Known_Tasks_Index and also
-      --  Self_ID.LL.Thread
+      --  the creator. Enter_Task sets Self_ID.LL.Thread
 
       Enter_Task (Self_ID);
 
@@ -1128,6 +1145,11 @@ package body System.Tasking.Stages is
          --  proceed successfully.
 
          Self_ID.Deferral_Level := 0;
+      end if;
+
+      if Global_Task_Debug_Event_Set then
+         Debug.Signal_Debug_Event
+          (Debug.Debug_Event_Run, Self_ID);
       end if;
 
       begin
@@ -1168,8 +1190,18 @@ package body System.Tasking.Stages is
 
             if Self_ID.Terminate_Alternative then
                Cause := Normal;
+
+               if Global_Task_Debug_Event_Set then
+                  Debug.Signal_Debug_Event
+                   (Debug.Debug_Event_Terminated, Self_ID);
+               end if;
             else
                Cause := Abnormal;
+
+               if Global_Task_Debug_Event_Set then
+                  Debug.Signal_Debug_Event
+                   (Debug.Debug_Event_Abort_Terminated, Self_ID);
+               end if;
             end if;
          when others =>
             --  ??? Using an E : others here causes CD2C11A to fail on Tru64
@@ -1194,7 +1226,13 @@ package body System.Tasking.Stages is
             --  procedure, as well as the associated Exception_Occurrence.
 
             Cause := Unhandled_Exception;
+
             Save_Occurrence (EO, SSL.Get_Current_Excep.all.all);
+
+            if Global_Task_Debug_Event_Set then
+               Debug.Signal_Debug_Event
+                 (Debug.Debug_Event_Exception_Terminated, Self_ID);
+            end if;
       end;
 
       --  Look for a task termination handler. This code is for all tasks but
@@ -1388,6 +1426,9 @@ package body System.Tasking.Stages is
       --  unwound. The common notification routine has been called at the
       --  raise point already.
 
+      --  Lock to prevent unsynchronized output
+
+      Initialization.Task_Lock (Self_Id);
       To_Stderr ("task ");
 
       if Self_Id.Common.Task_Image_Len /= 0 then
@@ -1400,6 +1441,7 @@ package body System.Tasking.Stages is
       To_Stderr (" terminated by unhandled exception");
       To_Stderr ((1 => ASCII.LF));
       To_Stderr (Tailored_Exception_Information (Excep.all));
+      Initialization.Task_Unlock (Self_Id);
    end Trace_Unhandled_Exception_In_Task;
 
    ------------------------------------

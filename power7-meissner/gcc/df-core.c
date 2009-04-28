@@ -1,6 +1,6 @@
 /* Allocation for dataflow support routines.
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-   2008 Free Software Foundation, Inc.
+   2008, 2009 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -474,10 +474,10 @@ df_add_problem (struct df_problem *problem)
 /* Set the MASK flags in the DFLOW problem.  The old flags are
    returned.  If a flag is not allowed to be changed this will fail if
    checking is enabled.  */
-enum df_changeable_flags
-df_set_flags (enum df_changeable_flags changeable_flags)
+int
+df_set_flags (int changeable_flags)
 {
-  enum df_changeable_flags old_flags = df->changeable_flags;
+  int old_flags = df->changeable_flags;
   df->changeable_flags |= changeable_flags;
   return old_flags;
 }
@@ -486,10 +486,10 @@ df_set_flags (enum df_changeable_flags changeable_flags)
 /* Clear the MASK flags in the DFLOW problem.  The old flags are
    returned.  If a flag is not allowed to be changed this will fail if
    checking is enabled.  */
-enum df_changeable_flags
-df_clear_flags (enum df_changeable_flags changeable_flags)
+int
+df_clear_flags (int changeable_flags)
 {
-  enum df_changeable_flags old_flags = df->changeable_flags;
+  int old_flags = df->changeable_flags;
   df->changeable_flags &= ~changeable_flags;
   return old_flags;
 }
@@ -766,7 +766,7 @@ struct rtl_opt_pass pass_df_initialize_opt =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -793,7 +793,7 @@ struct rtl_opt_pass pass_df_initialize_no_opt =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -842,7 +842,7 @@ struct rtl_opt_pass pass_df_finish =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

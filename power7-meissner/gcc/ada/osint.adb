@@ -300,7 +300,7 @@ package body Osint is
 
          Status : Boolean;
          pragma Warnings (Off, Status);
-         --  For the call to Close
+         --  For the call to Close where status is ignored
 
       begin
          File_FD := Open_Read (Buffer'Address, Binary);
@@ -373,6 +373,9 @@ package body Osint is
          procedure Strncpy (X : Address; Y : Address; Length : Integer);
          pragma Import (C, Strncpy, "strncpy");
 
+         procedure C_Free (Str : Address);
+         pragma Import (C, C_Free, "free");
+
          Result_Ptr    : Address;
          Result_Length : Integer;
          Out_String    : String_Ptr;
@@ -383,6 +386,9 @@ package body Osint is
 
          Out_String := new String (1 .. Result_Length);
          Strncpy (Out_String.all'Address, Result_Ptr, Result_Length);
+
+         C_Free (Result_Ptr);
+
          return Out_String;
       end Get_Libraries_From_Registry;
 
