@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -251,8 +251,8 @@ procedure GNATCmd is
    --  Process GNAT LINK, when there is a project file specified
 
    procedure Set_Library_For
-     (Project             : Project_Id;
-      There_Are_Libraries : in out Boolean);
+     (Project           : Project_Id;
+      Libraries_Present : in out Boolean);
    --  If Project is a library project, add the correct -L and -l switches to
    --  the linker invocation.
 
@@ -927,7 +927,7 @@ procedure GNATCmd is
 
    procedure Process_Link is
       Look_For_Executable : Boolean := True;
-      There_Are_Libraries : Boolean := False;
+      Libraries_Present   : Boolean := False;
       Path_Option         : constant String_Access :=
                               MLib.Linker_Library_Path_Option;
       Prj                 : Project_Id := Project;
@@ -946,12 +946,12 @@ procedure GNATCmd is
       --  Check if there are library project files
 
       if MLib.Tgt.Support_For_Libraries /= None then
-         Set_Libraries (Project, Project_Tree, There_Are_Libraries);
+         Set_Libraries (Project, Project_Tree, Libraries_Present);
       end if;
 
       --  If there are, add the necessary additional switches
 
-      if There_Are_Libraries then
+      if Libraries_Present then
 
          --  Add -L<lib_dir> -lgnarl -lgnat -Wl,-rpath,<lib_dir>
 
@@ -976,54 +976,80 @@ procedure GNATCmd is
                Current : Natural;
 
             begin
-               --  First, compute the exact length for the switch
+               if MLib.Separate_Run_Path_Options then
 
-               for Index in
-                 Library_Paths.First .. Library_Paths.Last
-               loop
-                  --  Add the length of the library dir plus one for the
-                  --  directory separator.
+                  --  We are going to create one switch of the form
+                  --  "-Wl,-rpath,dir_N" for each directory to consider.
 
-                  Length :=
-                    Length +
-                      Library_Paths.Table (Index)'Length + 1;
-               end loop;
+                  --  One switch for each library directory
 
-               --  Finally, add the length of the standard GNAT library dir
+                  for Index in
+                    Library_Paths.First .. Library_Paths.Last
+                  loop
+                     Last_Switches.Increment_Last;
+                     Last_Switches.Table
+                       (Last_Switches.Last) := new String'
+                       (Path_Option.all &
+                        Last_Switches.Table (Index).all);
+                  end loop;
 
-               Length := Length + MLib.Utl.Lib_Directory'Length;
-               Option := new String (1 .. Length);
-               Option (1 .. Path_Option'Length) := Path_Option.all;
-               Current := Path_Option'Length;
+                  --  One switch for the standard GNAT library dir.
 
-               --  Put each library dir followed by a dir separator
+                  Last_Switches.Increment_Last;
+                  Last_Switches.Table
+                    (Last_Switches.Last) := new String'
+                    (Path_Option.all & MLib.Utl.Lib_Directory);
 
-               for Index in
-                 Library_Paths.First .. Library_Paths.Last
-               loop
+               else
+                  --  First, compute the exact length for the switch
+
+                  for Index in
+                    Library_Paths.First .. Library_Paths.Last
+                  loop
+                     --  Add the length of the library dir plus one for the
+                     --  directory separator.
+
+                     Length :=
+                       Length +
+                         Library_Paths.Table (Index)'Length + 1;
+                  end loop;
+
+                  --  Finally, add the length of the standard GNAT library dir
+
+                  Length := Length + MLib.Utl.Lib_Directory'Length;
+                  Option := new String (1 .. Length);
+                  Option (1 .. Path_Option'Length) := Path_Option.all;
+                  Current := Path_Option'Length;
+
+                  --  Put each library dir followed by a dir separator
+
+                  for Index in
+                    Library_Paths.First .. Library_Paths.Last
+                  loop
+                     Option
+                       (Current + 1 ..
+                          Current +
+                            Library_Paths.Table (Index)'Length) :=
+                       Library_Paths.Table (Index).all;
+                     Current :=
+                       Current +
+                         Library_Paths.Table (Index)'Length + 1;
+                     Option (Current) := Path_Separator;
+                  end loop;
+
+                  --  Finally put the standard GNAT library dir
+
                   Option
                     (Current + 1 ..
-                       Current +
-                         Library_Paths.Table (Index)'Length) :=
-                      Library_Paths.Table (Index).all;
-                  Current :=
-                    Current +
-                      Library_Paths.Table (Index)'Length + 1;
-                  Option (Current) := Path_Separator;
-               end loop;
+                       Current + MLib.Utl.Lib_Directory'Length) :=
+                      MLib.Utl.Lib_Directory;
 
-               --  Finally put the standard GNAT library dir
+                  --  And add the switch to the last switches
 
-               Option
-                 (Current + 1 ..
-                    Current + MLib.Utl.Lib_Directory'Length) :=
-                   MLib.Utl.Lib_Directory;
-
-               --  And add the switch to the last switches
-
-               Last_Switches.Increment_Last;
-               Last_Switches.Table (Last_Switches.Last) :=
-                 Option;
+                  Last_Switches.Increment_Last;
+                  Last_Switches.Table (Last_Switches.Last) :=
+                    Option;
+               end if;
             end;
          end if;
       end if;
@@ -1051,11 +1077,10 @@ procedure GNATCmd is
 
          else
             declare
-               Switch         : constant String :=
-                                  Last_Switches.Table (J).all;
-
-               ALI_File       : constant String (1 .. Switch'Length + 4) :=
-                                  Switch & ".ali";
+               Switch    : constant String :=
+                             Last_Switches.Table (J).all;
+               ALI_File  : constant String (1 .. Switch'Length + 4) :=
+                             Switch & ".ali";
 
                Test_Existence : Boolean := False;
 
@@ -1206,8 +1231,8 @@ procedure GNATCmd is
    ---------------------
 
    procedure Set_Library_For
-     (Project             : Project_Id;
-      There_Are_Libraries : in out Boolean)
+     (Project           : Project_Id;
+      Libraries_Present : in out Boolean)
    is
       Path_Option : constant String_Access :=
                       MLib.Linker_Library_Path_Option;
@@ -1216,7 +1241,7 @@ procedure GNATCmd is
       --  Case of library project
 
       if Project_Tree.Projects.Table (Project).Library then
-         There_Are_Libraries := True;
+         Libraries_Present := True;
 
          --  Add the -L switch
 
@@ -2244,7 +2269,7 @@ begin
                --  indicate to gnatstub the name of the body file with
                --  a -o switch.
 
-               if Body_Suffix_Id_Of (Project_Tree, "ada", Data.Naming) /=
+               if Body_Suffix_Id_Of (Project_Tree, Name_Ada, Data.Naming) /=
                     Prj.Default_Ada_Spec_Suffix
                then
                   if File_Index /= 0 then
@@ -2256,7 +2281,7 @@ begin
                      begin
                         Get_Name_String
                           (Spec_Suffix_Id_Of
-                             (Project_Tree, "ada", Data.Naming));
+                             (Project_Tree, Name_Ada, Data.Naming));
 
                         if Spec'Length > Name_Len
                           and then Spec (Last - Name_Len + 1 .. Last) =
@@ -2265,7 +2290,7 @@ begin
                            Last := Last - Name_Len;
                            Get_Name_String
                              (Body_Suffix_Id_Of
-                                (Project_Tree, "ada", Data.Naming));
+                                (Project_Tree, Name_Ada, Data.Naming));
                            Last_Switches.Increment_Last;
                            Last_Switches.Table (Last_Switches.Last) :=
                              new String'("-o");
@@ -2386,7 +2411,7 @@ begin
 
                --  First make sure that the recorded file names are empty
 
-               Prj.Env.Initialize;
+               Prj.Env.Initialize (Project_Tree);
 
                Prj.Env.Set_Ada_Paths
                  (Project, Project_Tree, Including_Libraries => False);

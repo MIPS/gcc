@@ -41,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-inline.h"
 #include "value-prof.h"
-#include "alias-export.h"
 #include "target.h"
 #include "ssaexpand.h"
 
@@ -84,8 +83,22 @@ gimple_assign_rhs_to_tree (gimple stmt)
 static tree
 gimple_cond_pred_to_tree (gimple stmt)
 {
+  /* We're sometimes presented with such code:
+       D.123_1 = x < y;
+       if (D.123_1 != 0)
+         ...
+     This would expand to two comparisons which then later might
+     be cleaned up by combine.  But some pattern matchers like if-conversion
+     work better when there's only one compare, so make up for this
+     here as special exception if TER would have made the same change.  */
+  tree lhs = gimple_cond_lhs (stmt);
+  if (SA.values
+      && TREE_CODE (lhs) == SSA_NAME
+      && bitmap_bit_p (SA.values, SSA_NAME_VERSION (lhs)))
+    lhs = gimple_assign_rhs_to_tree (SSA_NAME_DEF_STMT (lhs));
+
   return build2 (gimple_cond_code (stmt), boolean_type_node,
-		 gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+		 lhs, gimple_cond_rhs (stmt));
 }
 
 /* Helper for gimple_to_tree.  Set EXPR_LOCATION for every expression
@@ -431,6 +444,9 @@ failed:
 
 #define SSAVAR(x) (TREE_CODE (x) == SSA_NAME ? SSA_NAME_VAR (x) : x)
 
+/* Associate declaration T with storage space X.  If T is no
+   SSA name this is exactly SET_DECL_RTL, otherwise make the
+   partition of T associated with X.  */
 static inline void
 set_rtl (tree t, rtx x)
 {
@@ -758,20 +774,16 @@ static void
 union_stack_vars (size_t a, size_t b, HOST_WIDE_INT offset)
 {
   size_t i, last;
-  bool adressable;
 
   /* Update each element of partition B with the given offset,
      and merge them into partition A.  */
-  adressable = false;
   for (last = i = b; i != EOC; last = i, i = stack_vars[i].next)
     {
       stack_vars[i].offset += offset;
       stack_vars[i].representative = a;
-      adressable |= TREE_ADDRESSABLE (stack_vars[i].decl);
     }
   stack_vars[last].next = stack_vars[a].next;
   stack_vars[a].next = b;
-  TREE_ADDRESSABLE (stack_vars[a].decl) |= adressable;
 
   /* Update the required alignment of partition A to account for B.  */
   if (stack_vars[a].alignb < stack_vars[b].alignb)
@@ -899,21 +911,6 @@ dump_stack_var_partition (void)
 	}
     }
 }
-
-/* Save the generated partitions for alias.c, so we can say whether two 
-   vars actually occupy different stack locations.  */
-
-static void
-record_stack_var_partitions (void)
-{
-  size_t i;
-  
-  /* Save all stack_vars partition info in the annotations.  */
-  for (i = 0; i < stack_vars_num; i++)
-    record_stack_var_partition_for (stack_vars[i].decl, 
-                                    stack_vars[stack_vars[i].representative].decl);
-}
-
 
 /* Assign rtl to DECL at frame offset OFFSET.  */
 
@@ -1131,8 +1128,7 @@ static HOST_WIDE_INT
 expand_one_var (tree var, bool toplevel, bool really_expand)
 {
   tree origvar = var;
-  if (TREE_CODE (var) == SSA_NAME)
-    var = SSA_NAME_VAR (var);
+  var = SSAVAR (var);
 
   if (SUPPORTS_STACK_ALIGNMENT
       && TREE_TYPE (var) != error_mark_node
@@ -1534,11 +1530,9 @@ expand_used_vars (void)
     {
       tree var = partition_to_var (SA.map, i);
 
-      if (TREE_CODE (var) == SSA_NAME)
-	var = SSA_NAME_VAR (var);
       gcc_assert (is_gimple_reg (var));
-      if (TREE_CODE (var) == VAR_DECL)
-	expand_one_var (partition_to_var (SA.map, i), true, true);
+      if (TREE_CODE (SSA_NAME_VAR (var)) == VAR_DECL)
+	expand_one_var (var, true, true);
       else
 	{
 	  /* This is a PARM_DECL or RESULT_DECL.  For those partitions that
@@ -1546,27 +1540,9 @@ expand_used_vars (void)
 	     we don't do anything here.  But those which don't contain the
 	     default def (representing a temporary based on the parm/result)
 	     we need to allocate space just like for normal VAR_DECLs.  */
-	  int j = i;
-	  struct partition_elem *start, *elem;
-	  int has_default = 0;
-	  if (SA.map->view_to_partition)
-	    j = SA.map->view_to_partition[j];
-	  j = partition_find (SA.map->var_partition, j);
-	  start = elem = SA.map->var_partition->elements + j;
-	  do
+	  if (!bitmap_bit_p (SA.partition_has_default_def, i))
 	    {
-	      j = elem - SA.map->var_partition->elements;
-	      elem = elem->next;
-	      if (SSA_NAME_IS_DEFAULT_DEF (ssa_name (j)))
-		{
-		  has_default = 1;
-		  break;
-		}
-	    }
-	  while (elem != start);
-	  if (!has_default)
-	    {
-	      expand_one_var (partition_to_var (SA.map, i), true, true);
+	      expand_one_var (var, true, true);
 	      gcc_assert (SA.partition_to_pseudo[i]);
 	    }
 	}
@@ -1592,13 +1568,6 @@ expand_used_vars (void)
 	 begin with.  And it doesn't really matter much, since we're
 	 not giving them stack space.  Expand them now.  */
       else if (TREE_STATIC (var) || DECL_EXTERNAL (var))
-	expand_now = true;
-
-      /* Any variable that could have been hoisted into an SSA_NAME
-	 will have been propagated anywhere the optimizers chose,
-	 i.e. not confined to their original block.  Allocate them
-	 as if they were defined in the outermost scope.  */
-      else if (is_gimple_reg (var))
 	expand_now = true;
 
       /* If the variable is not associated with any block, then it
@@ -1681,9 +1650,6 @@ expand_used_vars (void)
 	}
 
       expand_stack_vars (NULL);
-
-      if (flag_alias_export)
-        record_stack_var_partitions ();
 
       fini_vars_expansion ();
     }
@@ -1801,6 +1767,19 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       true_edge->goto_block = NULL;
       false_edge->flags |= EDGE_FALLTHRU;
       ggc_free (pred);
+      /* Special case: when jumpif decides that the condition is
+         trivial it emits an unconditional jump (and the necessary
+	 barrier).  But we still have two edges, the fallthru one is
+	 wrong.  purge_dead_edges would clean this up later.  Unfortunately
+	 we have to insert insns (and split edges) before
+	 find_many_sub_basic_blocks and hence before purge_dead_edges.
+	 But splitting edges might create new blocks which depend on the
+	 fact that if there are two edges there's no barrier.  So the
+	 barrier would get lost and verify_flow_info would ICE.  Instead
+	 of auditing all edge splitters to care for the barrier (which
+	 normally isn't there in a cleaned CFG), fix it here.  */
+      if (BARRIER_P (get_last_insn ()))
+	remove_edge (false_edge);
       return NULL;
     }
   if (true_edge->dest == bb->next_bb)
@@ -1817,6 +1796,8 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       false_edge->goto_block = NULL;
       true_edge->flags |= EDGE_FALLTHRU;
       ggc_free (pred);
+      if (BARRIER_P (get_last_insn ()))
+	remove_edge (true_edge);
       return NULL;
     }
 
@@ -1849,7 +1830,6 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   if (BARRIER_P (BB_END (new_bb)))
     BB_END (new_bb) = PREV_INSN (BB_END (new_bb));
   update_bb_for_insn (new_bb);
-  gcc_assert ((dest->flags & BB_RTL) || gimple_seq_empty_p (phi_nodes (dest)));
 
   maybe_dump_rtl_for_gimple_stmt (stmt, last2);
 
@@ -1982,7 +1962,6 @@ expand_gimple_basic_block (basic_block bb)
 {
   gimple_stmt_iterator gsi;
   gimple_seq stmts;
-  gimple_seq phis;
   gimple stmt = NULL;
   rtx note, last;
   edge e;
@@ -1998,7 +1977,6 @@ expand_gimple_basic_block (basic_block bb)
      block to be in GIMPLE, instead of RTL.  Therefore, we need to
      access the BB sequence directly.  */
   stmts = bb_seq (bb);
-  phis = phi_nodes (bb);
   bb->il.gimple = NULL;
   rtl_profile_for_bb (bb);
   init_rtl_bb_info (bb);
@@ -2097,10 +2075,11 @@ expand_gimple_basic_block (basic_block bb)
 
 	      if (def_p != NULL)
 		{
-		  /* Mark this stmt for removal if it is the list of replaceable
-		     expressions.  */
+		  /* Ignore this stmt if it is in the list of
+		     replaceable expressions.  */
 		  if (SA.values
-		      && SA.values[SSA_NAME_VERSION (DEF_FROM_PTR (def_p))])
+		      && bitmap_bit_p (SA.values, 
+				       SSA_NAME_VERSION (DEF_FROM_PTR (def_p))))
 		    continue;
 		}
 	      stmt_tree = gimple_to_tree (stmt);
@@ -2186,8 +2165,6 @@ construct_init_block (void)
       first_block = e->dest;
       redirect_edge_succ (e, init_block);
       e = make_edge (init_block, first_block, flags);
-      gcc_assert ((first_block->flags & BB_RTL)
-		  || gimple_seq_empty_p (phi_nodes (first_block)));
     }
   else
     e = make_edge (init_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
@@ -2311,12 +2288,8 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
 	  t = get_base_address (t);
-	  if (t && DECL_P (t)
-              && DECL_MODE (t) != BLKmode)
-            {
-              TREE_ADDRESSABLE (t) = 1;
-              record_addressable_bases (t);
-            }
+	  if (t && DECL_P (t))
+	    TREE_ADDRESSABLE (t) = 1;
 	}
 
       *walk_subtrees = 0;
@@ -2425,9 +2398,6 @@ gimple_expand_cfg (void)
   rewrite_out_of_ssa (&SA);
   SA.partition_to_pseudo = (rtx *)xcalloc (SA.map->num_partitions,
 					   sizeof (rtx));
-  /* XXX remove_unused_locals also removes var annotation which we rely on during
-     phi node elimination for now.  */
-  /*remove_unused_locals ();*/
 
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
@@ -2485,10 +2455,8 @@ gimple_expand_cfg (void)
      partitions.  */
   for (i = 0; i < SA.map->num_partitions; i++)
     {
-      tree var = partition_to_var (SA.map, i);
+      tree var = SSA_NAME_VAR (partition_to_var (SA.map, i));
 
-      if (TREE_CODE (var) == SSA_NAME)
-	var = SSA_NAME_VAR (var);
       if (TREE_CODE (var) != VAR_DECL
 	  && !SA.partition_to_pseudo[i])
 	SA.partition_to_pseudo[i] = DECL_RTL_IF_SET (var);
@@ -2499,10 +2467,11 @@ gimple_expand_cfg (void)
 	 to select one of the potentially many RTLs for one DECL.  Instead
 	 of doing that we simply reset the MEM_EXPR of the RTL in question,
 	 then nobody can get at it and hence nobody can call DECL_RTL on it.  */
-      if (!DECL_RTL_SET_P (var))
-	{
-	  if (MEM_P (SA.partition_to_pseudo[i]))
-	    set_mem_expr (SA.partition_to_pseudo[i], NULL);
+      if (!DECL_RTL_SET_P (var)
+          && MEM_P (SA.partition_to_pseudo[i]))
+        {
+          set_mem_expr (SA.partition_to_pseudo[i], NULL);
+          set_mem_orig_expr (SA.partition_to_pseudo[i], NULL);
 	}
     }
 
@@ -2535,10 +2504,10 @@ gimple_expand_cfg (void)
       gcc_assert (crtl->parm_stack_boundary <= INCOMING_STACK_BOUNDARY);
     }
 
+  expand_phi_nodes (&SA);
+
   /* Register rtl specific functions for cfg.  */
   rtl_register_cfg_hooks ();
-
-  expand_phi_nodes (&SA);
 
   init_block = construct_init_block ();
 
@@ -2563,9 +2532,6 @@ gimple_expand_cfg (void)
   set_curr_insn_block (DECL_INITIAL (current_function_decl));
   insn_locators_finalize ();
 
-  /* We're done expanding trees to RTL.  */
-  currently_expanding_to_rtl = 0;
-
   /* Convert tree EH labels to RTL EH labels and zap the tree EH table.  */
   convert_from_eh_region_ranges ();
   set_eh_throw_stmt_table (cfun, NULL);
@@ -2573,26 +2539,22 @@ gimple_expand_cfg (void)
   rebuild_jump_labels (get_insns ());
   find_exception_handler_labels ();
 
-  currently_expanding_to_rtl = 1;
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
       edge e;
       edge_iterator ei;
-      /* ??? commit_one_edge_insertion might reorder the edges of the
-         current block (when it needs to split an edge), so that we
-	 might miss some edges with instructions on them.  Pff.
-	 (see execute/ashldi-1.c).  */
-      VEC(edge,gc) *edges = VEC_copy (edge,gc,bb->preds);
-
-      for (ei = ei_start (edges); (e = ei_safe_edge (ei)); )
+      for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
-	  ei_next (&ei);
 	  if (e->insns.r)
 	    commit_one_edge_insertion (e);
+	  else
+	    ei_next (&ei);
 	}
-      VEC_free (edge, gc, edges);
     }
+
+  /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
+
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR, next_bb)
     {
       edge e;
@@ -2683,10 +2645,9 @@ struct rtl_opt_pass pass_expand =
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   TV_EXPAND,				/* tv_id */
-  /* ??? If TER is enabled, we actually receive GENERIC.  */
-  PROP_ssa | PROP_gimple_leh | PROP_cfg,           /* properties_required */
+  PROP_ssa | PROP_gimple_leh | PROP_cfg,/* properties_required */
   PROP_rtl,                             /* properties_provided */
-  PROP_ssa | PROP_trees,				/* properties_destroyed */
+  PROP_ssa | PROP_trees,		/* properties_destroyed */
   TODO_verify_ssa | TODO_verify_flow
     | TODO_verify_stmts,		/* todo_flags_start */
   TODO_dump_func

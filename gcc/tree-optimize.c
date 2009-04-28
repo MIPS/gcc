@@ -1,5 +1,5 @@
 /* Top-level control of tree optimizations.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Copyright 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -72,7 +72,7 @@ struct gimple_opt_pass pass_all_optimizations =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -100,7 +100,7 @@ struct simple_ipa_opt_pass pass_early_local_passes =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -141,7 +141,7 @@ struct gimple_opt_pass pass_all_early_optimizations =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -172,7 +172,7 @@ struct gimple_opt_pass pass_cleanup_cfg =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -201,18 +201,19 @@ struct gimple_opt_pass pass_cleanup_cfg_post_optimizing =
 {
  {
   GIMPLE_PASS,
-  "final_cleanup",			/* name */
+  "optimized",			/* name */
   NULL,					/* gate */
   execute_cleanup_cfg_post_optimizing,	/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func			/* todo_flags_finish */
+    | TODO_remove_unused_locals
  }
 };
 
@@ -234,51 +235,6 @@ execute_free_datastructures (void)
 
   return 0;
 }
-
-struct gimple_opt_pass pass_free_datastructures =
-{
- {
-  GIMPLE_PASS,
-  NULL,					/* name */
-  NULL,					/* gate */
-  execute_free_datastructures,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
- }
-};
-/* Pass: free cfg annotations.  */
-
-static unsigned int
-execute_free_cfg_annotations (void)
-{
-  return 0;
-}
-
-struct gimple_opt_pass pass_free_cfg_annotations =
-{
- {
-  GIMPLE_PASS,
-  NULL,					/* name */
-  NULL,					/* gate */
-  execute_free_cfg_annotations,		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
- }
-};
 
 /* Pass: fixup_cfg.  IPA passes, compilation of earlier functions or inlining
    might have changed some properties, such as marked functions nothrow.
@@ -342,7 +298,7 @@ struct gimple_opt_pass pass_fixup_cfg =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -372,7 +328,7 @@ struct gimple_opt_pass pass_init_datastructures =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

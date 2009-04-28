@@ -4,7 +4,7 @@
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -13,8 +13,8 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# along with this program; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 ##############################################################################
 ### WARNING: this file contains embedded tabs.  Do not run untabify on this file.
@@ -644,6 +644,10 @@ case "${target}" in
   frv-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
+  moxie-*-*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof"
+    ;;
   h8300*-*-*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
@@ -1250,6 +1254,7 @@ fi
 if test "x$with_gmp$with_gmp_include$with_gmp_lib" = x && test -d ${srcdir}/gmp; then
   gmplibs='-L$$r/$(HOST_SUBDIR)/gmp/.libs -L$$r/$(HOST_SUBDIR)/gmp/_libs '"$gmplibs"
   gmpinc='-I$$r/$(HOST_SUBDIR)/gmp -I$$s/gmp '"$gmpinc"
+  extra_mpfr_configure_flags='--with-gmp-build=$$r/$(HOST_SUBDIR)/gmp'
   # Do not test the gmp version.  Assume that it is sufficient, since
   # it is in the source tree, and the library has not been built yet
   # but it would be included on the link line in the version check below
@@ -1314,6 +1319,7 @@ fi
 # Flags needed for both GMP and/or MPFR
 AC_SUBST(gmplibs)
 AC_SUBST(gmpinc)
+AC_SUBST(extra_mpfr_configure_flags)
 
 # Allow host libstdc++ to be specified for static linking with PPL.
 AC_ARG_WITH(host-libstdcxx, [  --with-host-libstdcxx=L Use linker arguments L to link with libstdc++

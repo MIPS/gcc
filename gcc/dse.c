@@ -223,7 +223,7 @@ struct store_info
   /* This canonized mem.  */
   rtx mem;
 
-  /* The result of get_addr on mem.  */
+  /* Canonized MEM address for use by canon_true_dependence.  */
   rtx mem_addr;
 
   /* If this is non-zero, it is the alias set of a spill location.  */
@@ -476,8 +476,8 @@ struct group_info
      do read dependency.  */
   rtx base_mem;
   
-  /* Canonized version of base_mem, most likely the same thing.  */
-  rtx canon_base_mem;
+  /* Canonized version of base_mem's address.  */
+  rtx canon_base_addr;
 
   /* These two sets of two bitmaps are used to keep track of how many
      stores are actually referencing that position from this base.  We
@@ -705,7 +705,7 @@ get_group_info (rtx base)
       gi->rtx_base = base;
       gi->id = rtx_group_next_id++;
       gi->base_mem = gen_rtx_MEM (QImode, base);
-      gi->canon_base_mem = canon_rtx (gi->base_mem);
+      gi->canon_base_addr = canon_rtx (base);
       gi->store1_n = BITMAP_ALLOC (NULL);
       gi->store1_p = BITMAP_ALLOC (NULL);
       gi->store2_n = BITMAP_ALLOC (NULL);
@@ -826,7 +826,7 @@ replace_inc_dec (rtx *r, void *d)
     case POST_INC:
       {
 	rtx r1 = XEXP (x, 0);
-	rtx c = gen_int_mode (Pmode, data->size);
+	rtx c = gen_int_mode (data->size, Pmode);
 	emit_insn_before (gen_rtx_SET (Pmode, r1, 
 				       gen_rtx_PLUS (Pmode, r1, c)),
 			  data->insn);
@@ -837,7 +837,7 @@ replace_inc_dec (rtx *r, void *d)
     case POST_DEC:
       {
 	rtx r1 = XEXP (x, 0);
-	rtx c = gen_int_mode (Pmode, -data->size);
+	rtx c = gen_int_mode (-data->size, Pmode);
 	emit_insn_before (gen_rtx_SET (Pmode, r1, 
 				       gen_rtx_PLUS (Pmode, r1, c)),
 			  data->insn);
@@ -1457,18 +1457,21 @@ record_store (rtx body, bb_info_t bb_info)
   last = NULL;
   redundant_reason = NULL;
   mem = canon_rtx (mem);
-  if (spill_alias_set || group_id < 0)
-    {
-      cselib_lookup (XEXP (mem, 0), Pmode, 1);
-      mem_addr = cselib_subst_to_values (XEXP (mem, 0));
-    }
+  /* For alias_set != 0 canon_true_dependence should be never called.  */
+  if (spill_alias_set)
+    mem_addr = NULL_RTX;
   else
     {
-      group_info_t group 
-	= VEC_index (group_info_t, rtx_group_vec, group_id);
-      mem_addr = group->canon_base_mem;
+      if (group_id < 0)
+	mem_addr = base->val_rtx;
+      else
+	{
+	  group_info_t group
+	    = VEC_index (group_info_t, rtx_group_vec, group_id);
+	  mem_addr = group->canon_base_addr;
+	}
       if (offset)
-        mem_addr = gen_rtx_PLUS (GET_MODE (mem_addr), mem_addr, GEN_INT (offset));
+	mem_addr = plus_constant (mem_addr, offset);
     }
 
   while (ptr)
@@ -2072,18 +2075,21 @@ check_mem_read_rtx (rtx *loc, void *data)
   read_info->end = offset + width;
   read_info->next = insn_info->read_rec;
   insn_info->read_rec = read_info;
-  if (spill_alias_set || group_id < 0)
-    {
-      cselib_lookup (XEXP (mem, 0), Pmode, 1);
-      mem_addr = cselib_subst_to_values (XEXP (mem, 0));
-    }
+  /* For alias_set != 0 canon_true_dependence should be never called.  */
+  if (spill_alias_set)
+    mem_addr = NULL_RTX;
   else
     {
-      group_info_t group 
-	= VEC_index (group_info_t, rtx_group_vec, group_id);
-      mem_addr = group->canon_base_mem;
+      if (group_id < 0)
+	mem_addr = base->val_rtx;
+      else
+	{
+	  group_info_t group
+	    = VEC_index (group_info_t, rtx_group_vec, group_id);
+	  mem_addr = group->canon_base_addr;
+	}
       if (offset)
-        mem_addr = gen_rtx_PLUS (GET_MODE (mem_addr), mem_addr, GEN_INT (offset));
+	mem_addr = plus_constant (mem_addr, offset);
     }
 
   /* We ignore the clobbers in store_info.  The is mildly aggressive,
@@ -3093,7 +3099,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
 		  if ((read_info->group_id < 0)
 		      && canon_true_dependence (group->base_mem, 
 						QImode,
-						group->canon_base_mem,
+						group->canon_base_addr,
 						read_info->mem, NULL_RTX,
 						rtx_varies_p))
 		    {

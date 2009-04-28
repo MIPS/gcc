@@ -163,7 +163,7 @@ in the following sections.
 @xref{Overall Options,,Options Controlling the Kind of Output}.
 @gccoptlist{-c  -S  -E  -o @var{file}  -combine  -pipe  -pass-exit-codes  @gol
 -x @var{language}  -v  -###  --help@r{[}=@var{class}@r{[},@dots{}@r{]]}  --target-help  @gol
---version -wrapper@@@var{file}}
+--version -wrapper@@@var{file} -fplugin=@var{file} -fplugin-arg-@var{name}=@var{arg}}
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
@@ -828,7 +828,7 @@ See i386 and x86-64 Options.
 
 @emph{i386 and x86-64 Windows Options}
 @gccoptlist{-mconsole -mcygwin -mno-cygwin -mdll
--mnop-fun-dllimport -mthread -mwin32 -mwindows}
+-mnop-fun-dllimport -mthread -municode -mwin32 -mwindows}
 
 @emph{Xstormy16 Options}
 @gccoptlist{-msim}
@@ -1297,6 +1297,19 @@ gcc -c t.c -wrapper gdb,--args
 
 This will invoke all subprograms of gcc under "gdb --args",
 thus cc1 invocation will be "gdb --args cc1 ...".
+
+@item -fplugin=@var{name}.so
+Load the plugin code in file @var{name}.so, assumed to be a
+shared object to be dlopen'd by the compiler.  The base name of
+the shared object file is used to identify the plugin for the
+purposes of argument parsing (See
+@option{-fplugin-arg-@var{name}-@var{key}=@var{value}} below).
+Each plugin should define the callback functions specified in the
+Plugins API.
+
+@item -fplugin-arg-@var{name}-@var{key}=@var{value}
+Define an argument called @var{key} with a value of @var{value}
+for the plugin called @var{name}.
 
 @include @value{srcdir}/../libiberty/at-file.texi
 @end table
@@ -2745,6 +2758,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Warray-bounds @r{(only with} @option{-O2}@r{)}  @gol
 -Wc++0x-compat  @gol
 -Wchar-subscripts  @gol
+-Wenum-compare @r{(in C/Objc; this is on by default in C++)} @gol
 -Wimplicit-int  @gol
 -Wimplicit-function-declaration  @gol
 -Wcomment  @gol
@@ -2790,6 +2804,7 @@ name is still supported, but the newer name is more descriptive.)
 @gccoptlist{-Wclobbered  @gol
 -Wempty-body  @gol
 -Wignored-qualifiers @gol
+-Wlogical-op @gol
 -Wmissing-field-initializers  @gol
 -Wmissing-parameter-type @r{(C only)}  @gol
 -Wold-style-declaration @r{(C only)}  @gol
@@ -3137,7 +3152,7 @@ Warn whenever a function is defined with a return-type that defaults
 to @code{int}.  Also warn about any @code{return} statement with no
 return-value in a function whose return-type is not @code{void}
 (falling off the end of the function body is considered returning
-without a value), and about a @code{return} statement with a
+without a value), and about a @code{return} statement with an
 expression in a function whose return-type is @code{void}.
 
 For C++, a function without return type always produces a diagnostic
@@ -3730,11 +3745,12 @@ integers are disabled by default in C++ unless
 Warn if an empty body occurs in an @samp{if}, @samp{else} or @samp{do
 while} statement.  This warning is also enabled by @option{-Wextra}.
 
-@item -Wenum-compare @r{(C++ and Objective-C++ only)}
+@item -Wenum-compare
 @opindex Wenum-compare
 @opindex Wno-enum-compare
-Warn about a comparison between values of different enum types. This
-warning is enabled by default.
+Warn about a comparison between values of different enum types. In C++
+this warning is enabled by default.  In C this warning is enabled by
+@option{-Wall}.
 
 @item -Wsign-compare
 @opindex Wsign-compare
@@ -3775,7 +3791,8 @@ programmer intended to use @code{strcmp}.  This warning is enabled by
 @opindex Wno-logical-op
 Warn about suspicious uses of logical operators in expressions.
 This includes using logical operators in contexts where a
-bit-wise operator is likely to be expected.
+bit-wise operator is likely to be expected.  This warning is enabled by
+@option{-Wextra}.
 
 @item -Waggregate-return
 @opindex Waggregate-return
@@ -4130,10 +4147,9 @@ the search path but can't be used.
 @item -Wlong-long
 @opindex Wlong-long
 @opindex Wno-long-long
-Warn if @samp{long long} type is used.  This is default.  To inhibit
-the warning messages, use @option{-Wno-long-long}.  Flags
-@option{-Wlong-long} and @option{-Wno-long-long} are taken into account
-only when @option{-pedantic} flag is used.
+Warn if @samp{long long} type is used.  This is enabled by either
+@option{-pedantic} or @option{-Wtraditional} in ISO C90 and C++98
+modes.  To inhibit the warning messages, use @option{-Wno-long-long}.
 
 @item -Wvariadic-macros
 @opindex Wvariadic-macros
@@ -6195,8 +6211,8 @@ This flag is enabled by default at @option{-O3}.
 @item -fipa-matrix-reorg
 @opindex fipa-matrix-reorg
 Perform matrix flattening and transposing.
-Matrix flattening tries to replace a m-dimensional matrix 
-with its equivalent n-dimensional matrix, where n < m.
+Matrix flattening tries to replace an @math{m}-dimensional matrix
+with its equivalent @math{n}-dimensional matrix, where @math{n < m}.
 This reduces the level of indirection needed for accessing the elements
 of the matrix. The second optimization is matrix transposing that
 attempts to change the order of the matrix's dimensions in order to
@@ -6760,13 +6776,13 @@ Enabled by default with @option{-funroll-loops}.
 
 @item -fwhole-program
 @opindex fwhole-program
-Assume that the current compilation unit represents whole program being
+Assume that the current compilation unit represents the whole program being
 compiled.  All public functions and variables with the exception of @code{main}
 and those merged by attribute @code{externally_visible} become static functions
-and in a affect gets more aggressively optimized by interprocedural optimizers.
-While this option is equivalent to proper use of @code{static} keyword for
-programs consisting of single file, in combination with option
-@option{--combine} this flag can be used to compile most of smaller scale C
+and in effect are optimized more aggressively by interprocedural optimizers.
+While this option is equivalent to proper use of the @code{static} keyword for
+programs consisting of a single file, in combination with option
+@option{--combine} this flag can be used to compile many smaller scale C
 programs since the functions and variables become local for the whole combined
 compilation unit, not for the single source file itself.
 
@@ -9350,7 +9366,7 @@ Change only the low 8 bits of the stack pointer.
 @item -mint8
 @opindex mint8
 Assume int to be 8 bit integer.  This affects the sizes of all types: A
-char will be 1 byte, an int will be 1 byte, an long will be 2 bytes
+char will be 1 byte, an int will be 1 byte, a long will be 2 bytes
 and long long will be 4 bytes.  Please note that this option does not
 comply to the C standards, but it will provide you with smaller code
 size.
@@ -9721,7 +9737,7 @@ that GCC is targetting, like @option{-mcpu} or @option{-march}.  The
 The Darwin tools vary in their behavior when presented with an ISA
 mismatch.  The assembler, @file{as}, will only permit instructions to
 be used that are valid for the subtype of the file it is generating,
-so you cannot put 64-bit instructions in an @samp{ppc750} object file.
+so you cannot put 64-bit instructions in a @samp{ppc750} object file.
 The linker for shared libraries, @file{/usr/bin/libtool}, will fail
 and print an error if asked to create a shared library with a less
 restrictive subtype than its input files (for instance, trying to put
@@ -14207,16 +14223,18 @@ Application Binary Interface, PowerPC processor supplement.  This is the
 default unless you configured GCC using @samp{powerpc-*-eabiaix}.
 
 @item -mcall-sysv-eabi
+@itemx -mcall-eabi
 @opindex mcall-sysv-eabi
+@opindex mcall-eabi
 Specify both @option{-mcall-sysv} and @option{-meabi} options.
 
 @item -mcall-sysv-noeabi
 @opindex mcall-sysv-noeabi
 Specify both @option{-mcall-sysv} and @option{-mno-eabi} options.
 
-@item -mcall-solaris
-@opindex mcall-solaris
-On System V.4 and embedded PowerPC systems compile code for the Solaris
+@item -mcall-aixdesc
+@opindex m
+On System V.4 and embedded PowerPC systems compile code for the AIX
 operating system.
 
 @item -mcall-linux
@@ -14229,10 +14247,20 @@ Linux-based GNU system.
 On System V.4 and embedded PowerPC systems compile code for the
 Hurd-based GNU system.
 
+@item -mcall-freebsd
+@opindex mcall-freebsd
+On System V.4 and embedded PowerPC systems compile code for the
+FreeBSD operating system.
+
 @item -mcall-netbsd
 @opindex mcall-netbsd
 On System V.4 and embedded PowerPC systems compile code for the
 NetBSD operating system.
+
+@item -mcall-openbsd
+@opindex mcall-netbsd
+On System V.4 and embedded PowerPC systems compile code for the
+OpenBSD operating system.
 
 @item -maix-struct-return
 @opindex maix-struct-return
@@ -15553,14 +15581,14 @@ This option is available for Cygwin and MinGW targets.  It
 specifies that a console application is to be generated, by
 instructing the linker to set the PE header subsystem type
 required for console applications.
-This is the default behaviour for Cygwin and MinGW targets.
+This is the default behavior for Cygwin and MinGW targets.
 
 @item -mcygwin
 @opindex mcygwin
 This option is available for Cygwin targets.  It specifies that
 the Cygwin internal interface is to be used for predefined
 preprocessor macros, C runtime libraries and related linker
-paths and options.  For Cygwin targets this is the default behaviour.
+paths and options.  For Cygwin targets this is the default behavior.
 This option is deprecated and will be removed in a future release.
 
 @item -mno-cygwin
@@ -15587,6 +15615,12 @@ specifies that the dllimport attribute should be ignored.
 @opindex mthread
 This option is available for MinGW targets. It specifies
 that MinGW-specific thread support is to be used.
+
+@item -municode
+@opindex municode
+This option is available for mingw-w64 targets.  It specifies
+that the UNICODE macro is getting pre-defined and that the
+unicode capable runtime startup code is choosen.
 
 @item -mwin32
 @opindex mwin32

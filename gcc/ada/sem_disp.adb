@@ -28,6 +28,7 @@ with Debug;    use Debug;
 with Elists;   use Elists;
 with Einfo;    use Einfo;
 with Exp_Disp; use Exp_Disp;
+with Exp_Util; use Exp_Util;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Tss;  use Exp_Tss;
 with Errout;   use Errout;
@@ -41,6 +42,7 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Sem;      use Sem;
 with Sem_Aux;  use Sem_Aux;
+with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Eval; use Sem_Eval;
 with Sem_Type; use Sem_Type;
@@ -705,12 +707,41 @@ package body Sem_Disp is
          return;
 
       --  The subprograms build internally after the freezing point (such as
-      --  the Init procedure) are not primitives
+      --  init procs, interface thunks, type support subprograms, and Offset
+      --  to top functions for accessing interface components in variable
+      --  size tagged types) are not primitives.
 
       elsif Is_Frozen (Tagged_Type)
         and then not Comes_From_Source (Subp)
         and then not Has_Dispatching_Parent
       then
+         --  Complete decoration if internally built subprograms that override
+         --  a dispatching primitive. These entities correspond with the
+         --  following cases:
+
+         --  1. Ada 2005 (AI-391): Wrapper functions built by the expander
+         --     to override functions of nonabstract null extensions. These
+         --     primitives were added to the list of primitives of the tagged
+         --     type by Make_Controlling_Function_Wrappers. However, attribute
+         --     Is_Dispatching_Operation must be set to true.
+
+         --  2. Subprograms associated with stream attributes (built by
+         --     New_Stream_Subprogram)
+
+         if Present (Old_Subp)
+           and then Is_Overriding_Operation (Subp)
+           and then Is_Dispatching_Operation (Old_Subp)
+         then
+            pragma Assert
+             ((Ekind (Subp) = E_Function
+                and then Is_Dispatching_Operation (Old_Subp)
+                and then Is_Null_Extension (Base_Type (Etype (Subp))))
+               or else Get_TSS_Name (Subp) = TSS_Stream_Read
+               or else Get_TSS_Name (Subp) = TSS_Stream_Write);
+
+            Set_Is_Dispatching_Operation (Subp);
+         end if;
+
          return;
 
       --  The operation may be a child unit, whose scope is the defining
@@ -733,12 +764,11 @@ package body Sem_Disp is
             null;
 
          --  If the type is already frozen, the overriding is not allowed
-         --  except when Old_Subp is not a dispatching operation (which
-         --  can occur when Old_Subp was inherited by an untagged type).
-         --  However, a body with no previous spec freezes the type "after"
-         --  its declaration, and therefore is a legal overriding (unless
-         --  the type has already been frozen). Only the first such body
-         --  is legal.
+         --  except when Old_Subp is not a dispatching operation (which can
+         --  occur when Old_Subp was inherited by an untagged type). However,
+         --  a body with no previous spec freezes the type "after" its
+         --  declaration, and therefore is a legal overriding (unless the type
+         --  has already been frozen). Only the first such body is legal.
 
          elsif Present (Old_Subp)
            and then Is_Dispatching_Operation (Old_Subp)
@@ -830,9 +860,9 @@ package body Sem_Disp is
                               end if;
 
                            else
-                              Register_Primitive (Sloc (Subp_Body),
-                                Prim    => Subp,
-                                Ins_Nod => Subp_Body);
+                              Insert_Actions_After (Subp_Body,
+                                Register_Primitive (Sloc (Subp_Body),
+                                Prim    => Subp));
                            end if;
 
                            Generate_Reference (Tagged_Type, Subp, 'p', False);
@@ -904,7 +934,9 @@ package body Sem_Disp is
             --  Ada 2005 (AI-251): In case of late overriding of a primitive
             --  that covers abstract interface subprograms we must register it
             --  in all the secondary dispatch tables associated with abstract
-            --  interfaces.
+            --  interfaces. We do this now only if not building static tables.
+            --  Otherwise the patch code is emitted after those tables are
+            --  built, to prevent access_before_elaboration in gigi.
 
             if Body_Is_Last_Primitive then
                declare
@@ -920,10 +952,10 @@ package body Sem_Disp is
                      if Present (Alias (Prim))
                        and then Present (Interface_Alias (Prim))
                        and then Alias (Prim) = Subp
+                       and then not Building_Static_DT (Tagged_Type)
                      then
-                        Register_Primitive (Sloc (Prim),
-                          Prim    => Prim,
-                          Ins_Nod => Subp_Body);
+                        Insert_Actions_After (Subp_Body,
+                          Register_Primitive (Sloc (Subp_Body), Prim => Prim));
                      end if;
 
                      Next_Elmt (Elmt);
@@ -1363,12 +1395,44 @@ package body Sem_Disp is
    ---------------------------
 
    function Find_Dispatching_Type (Subp : Entity_Id) return Entity_Id is
+      A_Formal  : Entity_Id;
       Formal    : Entity_Id;
       Ctrl_Type : Entity_Id;
 
    begin
       if Present (DTC_Entity (Subp)) then
          return Scope (DTC_Entity (Subp));
+
+      --  For subprograms internally generated by derivations of tagged types
+      --  use the alias subprogram as a reference to locate the dispatching
+      --  type of Subp
+
+      elsif not Comes_From_Source (Subp)
+        and then Present (Alias (Subp))
+        and then Is_Dispatching_Operation (Alias (Subp))
+      then
+         if Ekind (Alias (Subp)) = E_Function
+           and then Has_Controlling_Result (Alias (Subp))
+         then
+            return Check_Controlling_Type (Etype (Subp), Subp);
+
+         else
+            Formal   := First_Formal (Subp);
+            A_Formal := First_Formal (Alias (Subp));
+            while Present (A_Formal) loop
+               if Is_Controlling_Formal (A_Formal) then
+                  return Check_Controlling_Type (Etype (Formal), Subp);
+               end if;
+
+               Next_Formal (Formal);
+               Next_Formal (A_Formal);
+            end loop;
+
+            pragma Assert (False);
+            return Empty;
+         end if;
+
+      --  General case
 
       else
          Formal := First_Formal (Subp);
@@ -1382,14 +1446,10 @@ package body Sem_Disp is
             Next_Formal (Formal);
          end loop;
 
-      --  The subprogram may also be dispatching on result
+         --  The subprogram may also be dispatching on result
 
          if Present (Etype (Subp)) then
-            Ctrl_Type := Check_Controlling_Type (Etype (Subp), Subp);
-
-            if Present (Ctrl_Type) then
-               return Ctrl_Type;
-            end if;
+            return Check_Controlling_Type (Etype (Subp), Subp);
          end if;
       end if;
 

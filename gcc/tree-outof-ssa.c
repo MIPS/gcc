@@ -32,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "toplev.h"
-#include "rtl.h"
 #include "expr.h"
 #include "ssaexpand.h"
 
@@ -86,6 +85,49 @@ typedef struct _elim_graph {
 } *elim_graph;
 
 
+/* For an edge E find out a good source location to associate with
+   instructions inserted on edge E.  If E has an implicit goto set,
+   use its location.  Otherwise search instructions in predecessors
+   of E for a location, and use that one.  That makes sense because
+   we insert on edges for PHI nodes, and effects of PHIs happen on
+   the end of the predecessor conceptually.  */
+
+static void
+set_location_for_edge (edge e)
+{
+  if (e->goto_locus)
+    {
+      set_curr_insn_source_location (e->goto_locus);
+      set_curr_insn_block (e->goto_block);
+    }
+  else
+    {
+      basic_block bb = e->src;
+      gimple_stmt_iterator gsi;
+
+      do
+	{
+	  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
+	    {
+	      gimple stmt = gsi_stmt (gsi);
+	      if (gimple_has_location (stmt) || gimple_block (stmt))
+		{
+		  set_curr_insn_source_location (gimple_location (stmt));
+		  set_curr_insn_block (gimple_block (stmt));
+		  return;
+		}
+	    }
+	  /* Nothing found in this basic block.  Make a half-assed attempt
+	     to continue with another block.  */
+	  if (single_pred_p (bb))
+	    bb = single_pred (bb);
+	  else
+	    bb = e->src;
+	}
+      while (bb != e->src);
+    }
+}
+
 /* Insert a copy instruction from partition SRC to DEST onto edge E.  */
 
 static void
@@ -104,6 +146,8 @@ insert_partition_copy_on_edge (edge e, int dest, int src)
 
   gcc_assert (SA.partition_to_pseudo[dest]);
   gcc_assert (SA.partition_to_pseudo[src]);
+
+  set_location_for_edge (e);
 
   /* Partition copy between same base variables only, so it's the same mode,
      hence we can use emit_move_insn.  */
@@ -134,6 +178,8 @@ insert_value_copy_on_edge (edge e, int dest, tree src)
     }
 
   gcc_assert (SA.partition_to_pseudo[dest]);
+
+  set_location_for_edge (e);
 
   start_sequence ();
   mode = GET_MODE (SA.partition_to_pseudo[dest]);
@@ -166,6 +212,8 @@ insert_rtx_to_part_on_edge (edge e, int dest, rtx src)
     }
 
   gcc_assert (SA.partition_to_pseudo[dest]);
+  set_location_for_edge (e);
+
   start_sequence ();
   gcc_assert (GET_MODE (src) == GET_MODE (SA.partition_to_pseudo[dest]));
   emit_move_insn (SA.partition_to_pseudo[dest], src);
@@ -193,6 +241,8 @@ insert_part_to_rtx_on_edge (edge e, rtx dest, int src)
     }
 
   gcc_assert (SA.partition_to_pseudo[src]);
+  set_location_for_edge (e);
+
   start_sequence ();
   gcc_assert (GET_MODE (dest) == GET_MODE (SA.partition_to_pseudo[src]));
   emit_move_insn (dest, SA.partition_to_pseudo[src]);
@@ -355,7 +405,7 @@ eliminate_name (elim_graph g, int T)
 static void
 eliminate_build (elim_graph g)
 {
-  tree T0, Ti;
+  tree Ti;
   int p0, pi;
   gimple_stmt_iterator gsi;
 
@@ -370,7 +420,6 @@ eliminate_build (elim_graph g)
       if (p0 == NO_PARTITION)
 	continue;
 
-      T0 = partition_to_var (g->map, p0);
       Ti = PHI_ARG_DEF (phi, g->e->dest_idx);
 
       /* If this argument is a constant, or a SSA_NAME which is being
@@ -390,11 +439,8 @@ eliminate_build (elim_graph g)
 	  pi = var_to_partition (g->map, Ti);
 	  if (p0 != pi)
 	    {
-	      /*Ti = var_to_partition_to_var (g->map, Ti);*/
 	      eliminate_name (g, p0);
 	      eliminate_name (g, pi);
-	      /*p0 = var_to_partition (g->map, T0);
-	      pi = var_to_partition (g->map, Ti);*/
 	      elim_graph_add_edge (g, p0, pi);
 	    }
 	}
@@ -448,6 +494,9 @@ elim_backward (elim_graph g, int T)
 	}
     });
 }
+
+/* Allocate a new pseudo register usable for storing values sitting
+   in NAME (a decl or SSA name), i.e. with matching mode and attributes.  */
 
 static rtx
 get_temp_reg (tree name)
@@ -547,65 +596,6 @@ eliminate_phi (edge e, elim_graph g)
 }
 
 
-/* Replace use operand P with whatever variable it has been rewritten to based 
-   on the partitions in MAP.  EXPR is an optional expression vector over SSA 
-   versions which is used to replace P with an expression instead of a variable.
-   If the stmt is changed, return true.  */ 
-
-static inline bool
-replace_use_variable (var_map map, use_operand_p p, gimple *expr)
-{
-  tree new_var;
-  tree var = USE_FROM_PTR (p);
-
-  /* Check if we are replacing this variable with an expression.  */
-  if (expr)
-    {
-      int version = SSA_NAME_VERSION (var);
-      if (expr[version])
-        {
-	  SET_USE (p, gimple_assign_rhs_to_tree (expr[version]));
-	  return true;
-	}
-    }
-
-  new_var = var_to_partition_to_var (map, var);
-  if (new_var)
-    {
-      SET_USE (p, new_var);
-      set_is_used (new_var);
-      return true;
-    }
-  return false;
-}
-
-
-/* Replace def operand DEF_P with whatever variable it has been rewritten to 
-   based on the partitions in MAP.  EXPR is an optional expression vector over
-   SSA versions which is used to replace DEF_P with an expression instead of a 
-   variable.  If the stmt is changed, return true.  */ 
-
-static inline bool
-replace_def_variable (var_map map, def_operand_p def_p, tree *expr)
-{
-  tree new_var;
-  tree var = DEF_FROM_PTR (def_p);
-
-  /* Do nothing if we are replacing this variable with an expression.  */
-  if (expr && expr[SSA_NAME_VERSION (var)])
-    return true;
-
-  new_var = var_to_partition_to_var (map, var);
-  if (new_var)
-    {
-      SET_DEF (def_p, new_var);
-      set_is_used (new_var);
-      return true;
-    }
-  return false;
-}
-
-
 /* Remove each argument from PHI.  If an arg was the last use of an SSA_NAME, 
    check to see if this allows another PHI node to be removed.  */
 
@@ -701,39 +691,6 @@ eliminate_useless_phis (void)
 }
 
 
-static void
-compact_ssa_names (void)
-{
-  unsigned i, j;
-  j = 1;
-  for (i = 1; i < num_ssa_names; i++)
-    {
-      tree name = ssa_name (i);
-      if (!name || !is_gimple_reg (name))
-	{
-	  if (name)
-	    {
-	      release_ssa_name (name);
-	    }
-	  continue;
-	}
-      if (j != i)
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "SSA version %u becomes %u\n",
-		       SSA_NAME_VERSION (name), j);
-	    }
-	  SSA_NAME_VERSION (name) = j;
-	  VEC_replace (tree, SSANAMES (cfun),
-		       SSA_NAME_VERSION (name), name);
-	}
-      j++;
-    }
-  if (j != num_ssa_names)
-    VEC_truncate (tree, SSANAMES (cfun), j);
-}
-
 /* This function will rewrite the current program using the variable mapping
    found in MAP.  If the replacement vector VALUES is provided, any 
    occurrences of partitions with non-null entries in the vector will be 
@@ -741,7 +698,7 @@ compact_ssa_names (void)
    variable.  */
 
 static void
-rewrite_trees (var_map map)
+rewrite_trees (var_map map ATTRIBUTE_UNUSED)
 {
 #ifdef ENABLE_CHECKING
   basic_block bb;
@@ -778,21 +735,53 @@ rewrite_trees (var_map map)
 #endif
 }
 
+/* Given the out-of-ssa info object SA (with prepared partitions)
+   eliminate all phi nodes in all basic blocks.  Afterwards no
+   basic block will have phi nodes anymore and there are possibly
+   some RTL instructions inserted on edges.  */
+
 void
 expand_phi_nodes (struct ssaexpand *sa)
 {
   basic_block bb;
+  elim_graph g = new_elim_graph (sa->map->num_partitions);
+  g->map = sa->map;
+
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR, next_bb)
     if (!gimple_seq_empty_p (phi_nodes (bb)))
       {
 	edge e;
 	edge_iterator ei;
 	FOR_EACH_EDGE (e, ei, bb->preds)
-	  eliminate_phi (e, (elim_graph)sa->elim_graph);
+	  eliminate_phi (e, g);
 	set_phi_nodes (bb, NULL);
+	/* We can't redirect EH edges in RTL land, so we need to do this
+	   here.  Redirection happens only when splitting is necessary,
+	   which it is only for critical edges, normally.  For EH edges
+	   it might also be necessary when the successor has more than
+	   one predecessor.  In that case the edge is either required to
+	   be fallthru (which EH edges aren't), or the predecessor needs
+	   to end with a jump (which again, isn't the case with EH edges).
+	   Hence, split all EH edges on which we inserted instructions
+	   and whose successor has multiple predecessors.  */
+	for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
+	  {
+	    if (e->insns.r && (e->flags & EDGE_EH)
+		&& !single_pred_p (e->dest))
+	      {
+		rtx insns = e->insns.r;
+		basic_block bb;
+		e->insns.r = NULL_RTX;
+		bb = split_edge (e);
+		single_pred_edge (bb)->insns.r = insns;
+	      }
+	    else
+	      ei_next (&ei);
+	  }
       }
-}
 
+  delete_elim_graph (g);
+}
 
 
 /* Remove the ssa-names in the current function and translate them into normal
@@ -802,9 +791,9 @@ expand_phi_nodes (struct ssaexpand *sa)
 static void
 remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 {
-  gimple *values = NULL;
+  bitmap values = NULL;
   var_map map;
-  elim_graph g;
+  unsigned i;
 
   map = coalesce_ssa_name ();
 
@@ -829,10 +818,17 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 
   sa->map = map;
   sa->values = values;
-
-  g = new_elim_graph (map->num_partitions);
-  sa->elim_graph = g;
-  g->map = map;
+  sa->partition_has_default_def = BITMAP_ALLOC (NULL);
+  for (i = 1; i < num_ssa_names; i++)
+    {
+      tree t = ssa_name (i);
+      if (t && SSA_NAME_IS_DEFAULT_DEF (t))
+	{
+	  int p = var_to_partition (map, t);
+	  if (p != NO_PARTITION)
+	    bitmap_set_bit (sa->partition_has_default_def, p);
+	}
+    }
 }
 
 
@@ -922,12 +918,17 @@ insert_backedge_copies (void)
     }
 }
 
+/* Free all memory associated with going out of SSA form.  SA is
+   the outof-SSA info object.  */
+
 void
 finish_out_of_ssa (struct ssaexpand *sa)
 {
-  delete_elim_graph ((elim_graph)sa->elim_graph);
+  free (sa->partition_to_pseudo);
   if (sa->values)
-    free (sa->values);
+    BITMAP_FREE (sa->values);
+  delete_var_map (sa->map);
+  BITMAP_FREE (sa->partition_has_default_def);
   memset (sa, 0, sizeof *sa);
 }
 
@@ -946,8 +947,6 @@ rewrite_out_of_ssa (struct ssaexpand *sa)
      copies into the loop itself.  */
   insert_backedge_copies ();
 
-  if (0)
-  compact_ssa_names ();
 
   /* Eliminate PHIs which are of no use, such as virtual or dead phis.  */
   eliminate_useless_phis ();
@@ -955,7 +954,7 @@ rewrite_out_of_ssa (struct ssaexpand *sa)
   if (dump_file && (dump_flags & TDF_DETAILS))
     gimple_dump_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
-  remove_ssa_form (flag_tree_ter && !flag_mudflap, sa);
+  remove_ssa_form (flag_tree_ter, sa);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     gimple_dump_cfg (dump_file, dump_flags & ~TDF_DETAILS);
