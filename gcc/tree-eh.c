@@ -2033,7 +2033,7 @@ redirect_eh_edge (edge e, basic_block new_bb)
   bool is_resx;
   bool inlinable = false;
   tree label = gimple_block_label (new_bb);
-  struct eh_region *r;
+  struct eh_region_d *r;
 
   if (gimple_code (stmt) == GIMPLE_RESX)
     {
@@ -2965,7 +2965,7 @@ struct update_info
    operands from DATA->bb_to_remove.  */
 
 static void
-make_eh_edge_and_update_phi (struct eh_region *region, void *data)
+make_eh_edge_and_update_phi (struct eh_region_d *region, void *data)
 {
   struct update_info *info = (struct update_info *) data;
   edge e, e2;

@@ -4101,7 +4101,7 @@ grokdeclarator (const struct c_declarator *declarator,
   const char *name, *orig_name;
   bool funcdef_flag = false;
   bool funcdef_syntax = false;
-  int size_varies = 0;
+  bool size_varies = false;
   tree decl_attr = declspecs->decl_attr;
   int array_ptr_quals = TYPE_UNQUALIFIED;
   tree array_ptr_attrs = NULL_TREE;
@@ -4182,7 +4182,7 @@ grokdeclarator (const struct c_declarator *declarator,
       type = integer_type_node;
     }
 
-  size_varies = C_TYPE_VARIABLE_SIZE (type);
+  size_varies = C_TYPE_VARIABLE_SIZE (type) != 0;
 
   /* Diagnose defaulting to "int".  */
 
@@ -4476,7 +4476,7 @@ grokdeclarator (const struct c_declarator *declarator,
 			  pedwarn (input_location, 0,
 				   "variably modified %qs at file scope", name);
 			else
-			  this_size_varies = size_varies = 1;
+			  this_size_varies = size_varies = true;
 			warn_variable_length_array (orig_name, size);
 		      }
 		  }
@@ -4491,7 +4491,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		    /* Make sure the array size remains visibly
 		       nonconstant even if it is (eg) a const variable
 		       with known value.  */
-		    this_size_varies = size_varies = 1;
+		    this_size_varies = size_varies = true;
 		    warn_variable_length_array (orig_name, size);
 		  }
 
@@ -4559,7 +4559,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		     the field variably modified, not through being
 		     something other than a declaration with function
 		     prototype scope.  */
-		  size_varies = 1;
+		  size_varies = true;
 		else
 		  {
 		    const struct c_declarator *t = declarator;
@@ -4583,7 +4583,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		if (array_parm_vla_unspec_p)
 		  {
 		    itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
-		    size_varies = 1;
+		    size_varies = true;
 		  }
 	      }
 	    else if (decl_context == TYPENAME)
@@ -4597,7 +4597,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		       otherwise be modified below.  */
 		    itype = build_range_type (sizetype, size_zero_node,
 					      NULL_TREE);
-		    size_varies = 1;
+		    size_varies = true;
 		  }
 	      }
 
@@ -4681,7 +4681,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	    if (type == error_mark_node)
 	      continue;
 
-	    size_varies = 0;
+	    size_varies = false;
 
 	    /* Warn about some types functions can't return.  */
 	    if (TREE_CODE (type) == FUNCTION_TYPE)
@@ -4750,7 +4750,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		       "ISO C forbids qualified function types");
 	    if (type_quals)
 	      type = c_build_qualified_type (type, type_quals);
-	    size_varies = 0;
+	    size_varies = false;
 
 	    /* When the pointed-to type involves components of variable size,
 	       care must be taken to ensure that the size evaluation code is
@@ -4913,7 +4913,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	      warning (OPT_Wattributes,
 		       "attributes in parameter array declarator ignored");
 
-	    size_varies = 0;
+	    size_varies = false;
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {

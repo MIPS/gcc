@@ -197,8 +197,3 @@ DEFTIMEVAR (TV_PLUGIN_RUN            , "plugin execution")
 
 /* Everything else in rest_of_compilation not included above.  */
 DEFTIMEVAR (TV_REST_OF_COMPILATION   , "rest of compilation")
-
-/* A special value used to indicate that no timevar is specified.
-   This is used by optimization passes.  timevar_push and friends
-   ignore this value.  */
-DEFTIMEVAR (TV_NONE                  , "special ignored value")

@@ -145,8 +145,8 @@ static void sjlj_emit_dispatch_table (rtx, struct sjlj_lp_info *);
 static void sjlj_build_landing_pads (void);
 
 static void remove_eh_handler (struct eh_region_d *);
-static void remove_eh_handler_and_replace (struct eh_region *,
-					   struct eh_region *, bool);
+static void remove_eh_handler_and_replace (struct eh_region_d *,
+					   struct eh_region_d *, bool);
 
 /* The return value of reachable_next_level.  */
 enum reachable_code
@@ -539,9 +539,9 @@ collect_eh_region_array (void)
    a problem.  */
 
 static bool
-can_be_reached_by_runtime (sbitmap contains_stmt, struct eh_region *r)
+can_be_reached_by_runtime (sbitmap contains_stmt, struct eh_region_d *r)
 {
-  struct eh_region *i = r->inner;
+  struct eh_region_d *i = r->inner;
   unsigned n;
   bitmap_iterator bi;
 
@@ -575,7 +575,7 @@ can_be_reached_by_runtime (sbitmap contains_stmt, struct eh_region *r)
 	     firest place.  */
 	  if (found)
 	    {
-	      struct eh_region *i1 = i;
+	      struct eh_region_d *i1 = i;
 	      tree type_thrown = NULL_TREE;
 
 	      if (i1->type == ERT_THROW)
@@ -615,10 +615,10 @@ can_be_reached_by_runtime (sbitmap contains_stmt, struct eh_region *r)
 /* Bring region R to the root of tree.  */
 
 static void
-bring_to_root (struct eh_region *r)
+bring_to_root (struct eh_region_d *r)
 {
-  struct eh_region **pp;
-  struct eh_region *outer = r->outer;
+  struct eh_region_d **pp;
+  struct eh_region_d *outer = r->outer;
   if (!r->outer)
     return;
   for (pp = &outer->inner; *pp != r; pp = &(*pp)->next_peer)
@@ -632,8 +632,8 @@ bring_to_root (struct eh_region *r)
 /* Return true if region R2 can be replaced by R1.  */
 
 static bool
-eh_region_replaceable_by_p (const struct eh_region *r1,
-			    const struct eh_region *r2)
+eh_region_replaceable_by_p (const struct eh_region_d *r1,
+			    const struct eh_region_d *r2)
 {
   /* Regions are semantically same if they are of same type,
      have same label and type.  */
@@ -650,7 +650,7 @@ eh_region_replaceable_by_p (const struct eh_region *r1,
 	break;
       case ERT_TRY:
 	{
-	  struct eh_region *c1, *c2;
+	  struct eh_region_d *c1, *c2;
 	  for (c1 = r1->u.eh_try.eh_catch,
 	       c2 = r2->u.eh_try.eh_catch;
 	       c1 && c2;
@@ -691,10 +691,10 @@ eh_region_replaceable_by_p (const struct eh_region *r1,
 /* Replace region R2 by R1.  */
 
 static void
-replace_region (struct eh_region *r1, struct eh_region *r2)
+replace_region (struct eh_region_d *r1, struct eh_region_d *r2)
 {
-  struct eh_region *next1 = r1->u.eh_try.eh_catch;
-  struct eh_region *next2 = r2->u.eh_try.eh_catch;
+  struct eh_region_d *next1 = r1->u.eh_try.eh_catch;
+  struct eh_region_d *next2 = r2->u.eh_try.eh_catch;
   bool is_try = r1->type == ERT_TRY;
 
   gcc_assert (r1->type != ERT_CATCH);
@@ -730,7 +730,7 @@ hash_type_list (tree t)
 static hashval_t
 hash_eh_region (const void *r)
 {
-  const struct eh_region *region = (const struct eh_region *)r;
+  const struct eh_region_d *region = (const struct eh_region_d *)r;
   hashval_t val = region->type;
 
   if (region->tree_label)
@@ -742,7 +742,7 @@ hash_eh_region (const void *r)
 	break;
       case ERT_TRY:
 	{
-	  struct eh_region *c;
+	  struct eh_region_d *c;
 	  for (c = region->u.eh_try.eh_catch;
 	       c; c = c->u.eh_catch.next_catch)
 	    val = iterative_hash_hashval_t (hash_eh_region (c), val);
@@ -771,8 +771,8 @@ hash_eh_region (const void *r)
 static int
 eh_regions_equal_p (const void *r1, const void *r2)
 {
-  return eh_region_replaceable_by_p ((const struct eh_region *)r1,
-				     (const struct eh_region *)r2);
+  return eh_region_replaceable_by_p ((const struct eh_region_d *)r1,
+				     (const struct eh_region_d *)r2);
 }
 
 /* Walk all peers of REGION and try to merge those regions
@@ -780,9 +780,9 @@ eh_regions_equal_p (const void *r1, const void *r2)
    recursively too.  */
 
 static bool
-merge_peers (struct eh_region *region)
+merge_peers (struct eh_region_d *region)
 {
-  struct eh_region *r1, *r2, *outer = NULL, *next;
+  struct eh_region_d *r1, *r2, *outer = NULL, *next;
   bool merged = false;
   int num_regions = 0;
   if (region)
@@ -852,7 +852,7 @@ merge_peers (struct eh_region *region)
 	  if (!*slot)
 	    *slot = r1;
 	  else
-	    replace_region ((struct eh_region *)*slot, r1);
+	    replace_region ((struct eh_region_d *)*slot, r1);
 	}
       htab_delete (hash);
     }
@@ -869,10 +869,10 @@ void
 remove_unreachable_regions (sbitmap reachable, sbitmap contains_stmt)
 {
   int i;
-  struct eh_region *r;
+  struct eh_region_d *r;
   VEC(eh_region,heap) *must_not_throws = VEC_alloc (eh_region, heap, 16);
-  struct eh_region *local_must_not_throw = NULL;
-  struct eh_region *first_must_not_throw = NULL;
+  struct eh_region_d *local_must_not_throw = NULL;
+  struct eh_region_d *first_must_not_throw = NULL;
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
@@ -1002,7 +1002,7 @@ label_to_region_map (void)
 			 cfun->cfg->last_label_uid + 1);
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
-      struct eh_region *r = VEC_index (eh_region, cfun->eh->region_array, i);
+      struct eh_region_d *r = VEC_index (eh_region, cfun->eh->region_array, i);
       if (r && r->region_number == i
 	  && r->tree_label && LABEL_DECL_UID (r->tree_label) >= 0)
 	{
@@ -1031,7 +1031,7 @@ num_eh_regions (void)
 int
 get_next_region_sharing_label (int region)
 {
-  struct eh_region *r;
+  struct eh_region_d *r;
   if (!region)
     return 0;
   r = VEC_index (eh_region, cfun->eh->region_array, region);
@@ -1186,8 +1186,8 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
 /* Return prev_try pointers catch subregions of R should
    point to.  */
 
-static struct eh_region *
-find_prev_try (struct eh_region * r)
+static struct eh_region_d *
+find_prev_try (struct eh_region_d * r)
 {
   for (; r && r->type != ERT_TRY; r = r->outer)
     if (r->type == ERT_MUST_NOT_THROW
@@ -1377,8 +1377,8 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 /* Return new copy of eh region OLD inside region NEW_OUTER.
    Do not care about updating the tree otherwise.  */
 
-static struct eh_region *
-copy_eh_region_1 (struct eh_region *old, struct eh_region *new_outer)
+static struct eh_region_d *
+copy_eh_region_1 (struct eh_region_d *old, struct eh_region_d *new_outer)
 {
   struct eh_region_d *new_eh = gen_eh_region (old->type, new_outer);
   new_eh->u = old->u;
@@ -1399,11 +1399,11 @@ copy_eh_region_1 (struct eh_region *old, struct eh_region *new_outer)
 
    PREV_TRY_MAP points to outer TRY region if it was copied in trace already.  */
 
-static struct eh_region *
-copy_eh_region (struct eh_region *old, struct eh_region *new_outer,
-		struct eh_region *prev_try_map)
+static struct eh_region_d *
+copy_eh_region (struct eh_region_d *old, struct eh_region_d *new_outer,
+		struct eh_region_d *prev_try_map)
 {
-  struct eh_region *r, *n, *old_try, *new_try, *ret = NULL;
+  struct eh_region_d *r, *n, *old_try, *new_try, *ret = NULL;
   VEC(eh_region,heap) *catch_list = NULL;
 
   if (old->type != ERT_CATCH)
@@ -1463,7 +1463,7 @@ copy_eh_region (struct eh_region *old, struct eh_region *new_outer,
 /* Callback for forach_reachable_handler that push REGION into single VECtor DATA.  */
 
 static void
-push_reachable_handler (struct eh_region *region, void *data)
+push_reachable_handler (struct eh_region_d *region, void *data)
 {
   VEC(eh_region,heap) **trace = (VEC(eh_region,heap) **) data;
   VEC_safe_push (eh_region, heap, *trace, region);
@@ -1473,17 +1473,17 @@ push_reachable_handler (struct eh_region *region, void *data)
    IS_RESX, INLINABLE_CALL and REGION_NMUBER match the parameter of
    foreach_reachable_handler.  */
 
-struct eh_region *
+struct eh_region_d *
 redirect_eh_edge_to_label (edge e, tree new_dest_label, bool is_resx,
 			   bool inlinable_call, int region_number)
 {
-  struct eh_region *outer, *prev_try_map = NULL;
-  struct eh_region *region;
+  struct eh_region_d *outer, *prev_try_map = NULL;
+  struct eh_region_d *region;
   VEC (eh_region, heap) * trace = NULL;
   int i;
   int start_here = -1;
   basic_block old_bb = e->dest;
-  struct eh_region *old, *r = NULL;
+  struct eh_region_d *old, *r = NULL;
   bool update_inplace = true;
   edge_iterator ei;
   edge e2;
@@ -2664,8 +2664,8 @@ finish_eh_generation (void)
    region.*/
 
 static void
-remove_eh_handler_and_replace (struct eh_region *region,
-			       struct eh_region *replace,
+remove_eh_handler_and_replace (struct eh_region_d *region,
+			       struct eh_region_d *replace,
 			       bool update_catch_try)
 {
   struct eh_region_d **pp, **pp_start, *p, *outer, *inner;
@@ -2676,7 +2676,7 @@ remove_eh_handler_and_replace (struct eh_region *region,
   /* When we are moving the region in EH tree, update prev_try pointers.  */
   if (outer != replace && region->inner)
     {
-      struct eh_region *prev_try = find_prev_try (replace);
+      struct eh_region_d *prev_try = find_prev_try (replace);
       p = region->inner;
       while (p != region)
 	{
@@ -2787,7 +2787,7 @@ remove_eh_handler_and_replace (struct eh_region *region,
    etc.  */
 
 static void
-remove_eh_handler (struct eh_region *region)
+remove_eh_handler (struct eh_region_d *region)
 {
   remove_eh_handler_and_replace (region, region->outer, true);
 }
@@ -2809,7 +2809,7 @@ remove_eh_region (int r)
 void
 remove_eh_region_and_replace_by_outer_of (int r, int r2)
 {
-  struct eh_region *region, *region2;
+  struct eh_region_d *region, *region2;
 
   region = VEC_index (eh_region, cfun->eh->region_array, r);
   region2 = VEC_index (eh_region, cfun->eh->region_array, r2);
@@ -2825,7 +2825,7 @@ for_each_eh_label (void (*callback) (rtx))
   int i;
   for (i = 0; i < cfun->eh->last_region_number; i++)
     {
-      struct eh_region *r = VEC_index (eh_region, cfun->eh->region_array, i);
+      struct eh_region_d *r = VEC_index (eh_region, cfun->eh->region_array, i);
       if (r && r->region_number == i && r->label
           && GET_CODE (r->label) == CODE_LABEL)
 	(*callback) (r->label);
@@ -4425,7 +4425,7 @@ dump_eh_tree (FILE * out, struct function *fun)
 
 	case ERT_TRY:
 	  {
-	    struct eh_region *c;
+	    struct eh_region_d *c;
 	    fprintf (out, " catch regions:");
 	    for (c = i->u.eh_try.eh_catch; c; c = c->u.eh_catch.next_catch)
 	      fprintf (out, " %i", c->region_number);
@@ -4500,7 +4500,7 @@ debug_eh_tree (struct function *fn)
 /* Verify EH region invariants.  */
 
 static bool
-verify_eh_region (struct eh_region *region, struct eh_region *prev_try)
+verify_eh_region (struct eh_region_d *region, struct eh_region_d *prev_try)
 {
   bool found = false;
   if (!region)
@@ -4517,7 +4517,7 @@ verify_eh_region (struct eh_region *region, struct eh_region *prev_try)
       break;
     case ERT_TRY:
       {
-	struct eh_region *c, *prev = NULL;
+	struct eh_region_d *c, *prev = NULL;
 	if (region->u.eh_try.eh_catch->u.eh_catch.prev_catch)
 	  {
 	    error ("Try region %i has wrong rh_catch pointer to %i",

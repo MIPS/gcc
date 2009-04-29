@@ -2473,7 +2473,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(CGRAPH_H) $(COVERAGE_H) alloc-pool.h $(GGC_H) $(INTEGRATE_H) \
    opts.h params.def tree-mudflap.h $(REAL_H) $(TREE_PASS_H) $(GIMPLE_H) \
    tree-ssa-alias.h $(PLUGIN_H)
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
 

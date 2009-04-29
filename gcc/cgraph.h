@@ -48,7 +48,7 @@ enum availability
 
 extern const char * const cgraph_availability_names[];
 
-struct inline_summary GTY(())
+struct GTY(()) inline_summary
 {
   /* Estimated stack frame consumption by the function.  */
   HOST_WIDE_INT estimated_self_stack_size;

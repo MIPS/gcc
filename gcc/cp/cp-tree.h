@@ -3575,7 +3575,7 @@ enum tsubst_flags {
 typedef int tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy.  */
-enum base_access {
+enum base_access_enum {
   ba_any = 0,  /* Do not check access, allow an ambiguous base,
 		      prefer a non-virtual base */
   ba_unique = 1 << 0,  /* Must be a unique base.  */

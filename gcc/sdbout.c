@@ -1723,6 +1723,7 @@ const struct gcc_debug_hooks sdb_debug_hooks =
   0,					 /* handle_pch */
   0,					 /* var_location */
   0,					 /* switch_text_section */
+  0,					 /* set_name */
   0                                      /* start_end_main_source_file */
 };
 

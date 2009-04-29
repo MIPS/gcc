@@ -1,4 +1,4 @@
-s/* Dead store elimination
+/* Dead store elimination
    Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 

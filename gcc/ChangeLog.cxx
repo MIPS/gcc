@@ -1,3 +1,33 @@
+2009-04-28  Ian Lance Taylor  <iant@google.com>
+
+	* c-decl.c (grokdeclarator): Change size_varies to bool.  Change
+	1/0 to true/false accordingly.
+	* cgraph.h (struct inline_summary): Fix position of GTY marker.
+	* dwarf2.h (enum dwarf_location_atom): Add
+	INTERNAL_DW_OP_tls_addr.
+	(enum dwarf_type): Remove duplicate DW_ATE_lo_user and
+	DW_ATE_hi_user values accidentally created by mainline merge.
+	* dwarf2out.c (INTERNAL_DW_OP_tls_addr): Don't define.
+	* except.c: Change struct eh_region to struct eh_region_d
+	throughout.
+	* plugin.c (plugins_active_p): Change event to int.
+	(dump_active_plugins): Likewise.
+	* sdbout.c (sdb_debug_hooks) [!SDB_DEBUGGING_INFO version]:
+	Initialize set_name field.
+	* targhooks.c (default_branch_target_register_class): Remove extra
+	version created by mainline merge.
+	* timevar.def (TV_NONE): Remove.
+	* toplev.c (toplev_main): Use CONST_CAST.
+	* tree-eh.c (redirect_eh_edge): Use struct eh_region_d.
+	(make_eh_edge_and_update_phi): Likewise.
+	* tree-ssa-dse.c: Remove extraneous character accidentally
+	inserted during mainline merge.
+	* cp/cp-tre.h (enum base_access_enum): Rename from enum
+	base_access.
+	* java/jcf-parse.c (handle_constant): Change kind to int.  Remove
+	cast.  Pass enum constant to handle_long_constant.
+	* Makefile.in (toplev.o): Use $(CXX) and $(ALL_CXXFLAGS).
+
 2009-04-25  Ian Lance Taylor  <iant@google.com>
 
 	* cp/cp-tree.h (enum cp_lvalue_kind_enum): Rename from
