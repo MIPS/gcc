@@ -219,6 +219,8 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega8hva",   ARCH_AVR4, "__AVR_ATmega8HVA__" },
   { "atmega4hvd",   ARCH_AVR4, "__AVR_ATmega4HVD__" },
   { "atmega8hvd",   ARCH_AVR4, "__AVR_ATmega8HVD__" },
+  { "atmega8c1",    ARCH_AVR4, "__AVR_ATmega8C1__" },
+  { "atmega8m1",    ARCH_AVR4, "__AVR_ATmega8M1__" },
   { "at90pwm1",     ARCH_AVR4, "__AVR_AT90PWM1__" },
   { "at90pwm2",     ARCH_AVR4, "__AVR_AT90PWM2__" },
   { "at90pwm2b",    ARCH_AVR4, "__AVR_AT90PWM2B__" },
@@ -266,6 +268,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90can64",    ARCH_AVR5, "__AVR_AT90CAN64__" },
   { "at90pwm216",   ARCH_AVR5, "__AVR_AT90PWM216__" },
   { "at90pwm316",   ARCH_AVR5, "__AVR_AT90PWM316__" },
+  { "atmega16c1",   ARCH_AVR5, "__AVR_ATmega16C1__" },
   { "atmega32c1",   ARCH_AVR5, "__AVR_ATmega32C1__" },
   { "atmega64c1",   ARCH_AVR5, "__AVR_ATmega64C1__" },
   { "atmega16m1",   ARCH_AVR5, "__AVR_ATmega16M1__" },
@@ -305,7 +308,6 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { NULL,           ARCH_UNKNOWN, NULL }
 };
 
-int avr_case_values_threshold = 30000;
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -384,10 +386,6 @@ avr_override_options (void)
 
   avr_current_arch = &avr_arch_types[t->arch];
   avr_extra_arch_macro = t->macro;
-
-  if (optimize && !TARGET_NO_TABLEJUMP)
-    avr_case_values_threshold = 
-      (!AVR_HAVE_JMP_CALL || TARGET_CALL_PROLOGUES) ? 8 : 17;
 
   tmp_reg_rtx  = gen_rtx_REG (QImode, TMP_REGNO);
   zero_reg_rtx = gen_rtx_REG (QImode, ZERO_REGNO);
@@ -4595,6 +4593,39 @@ avr_assemble_integer (rtx x, unsigned int size, int aligned_p)
   return default_assemble_integer (x, size, aligned_p);
 }
 
+/* Worker function for ASM_DECLARE_FUNCTION_NAME.  */
+
+void
+avr_asm_declare_function_name (FILE *file, const char *name, tree decl)
+{
+
+  /* If the function has the 'signal' or 'interrupt' attribute, test to
+     make sure that the name of the function is "__vector_NN" so as to
+     catch when the user misspells the interrupt vector name.  */
+
+  if (cfun->machine->is_interrupt)
+    {
+      if (strncmp (name, "__vector", strlen ("__vector")) != 0)
+        {
+          warning_at (DECL_SOURCE_LOCATION (decl), 0,
+                      "%qs appears to be a misspelled interrupt handler",
+                      name);
+        }
+    }
+  else if (cfun->machine->is_signal)
+    {
+      if (strncmp (name, "__vector", strlen ("__vector")) != 0)
+        {
+           warning_at (DECL_SOURCE_LOCATION (decl), 0,
+                       "%qs appears to be a misspelled signal handler",
+                       name);
+        }
+    }
+
+  ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+  ASM_OUTPUT_LABEL (file, name);
+}
+
 /* The routine used to output NUL terminated strings.  We use a special
    version of this for most svr4 targets because doing so makes the
    generated assembly code more compact (and thus faster to assemble)
@@ -4778,32 +4809,6 @@ avr_handle_fndecl_attribute (tree *node, tree name,
       warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
-    }
-  else
-    {
-      const char *func_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (*node));
-      const char *attr = IDENTIFIER_POINTER (name);
-
-      /* If the function has the 'signal' or 'interrupt' attribute, test to
-         make sure that the name of the function is "__vector_NN" so as to
-         catch when the user misspells the interrupt vector name.  */
-
-      if (strncmp (attr, "interrupt", strlen ("interrupt")) == 0)
-        {
-          if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
-            {
-              warning (0, "%qs appears to be a misspelled interrupt handler",
-                       func_name);
-            }
-        }
-      else if (strncmp (attr, "signal", strlen ("signal")) == 0)
-        {
-          if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
-            {
-              warning (0, "%qs appears to be a misspelled signal handler",
-                       func_name);
-            }
-        }
     }
 
   return NULL_TREE;
@@ -6102,6 +6107,13 @@ avr_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     }
   else
     return false;
+}
+
+/* Worker function for CASE_VALUES_THRESHOLD.  */
+
+unsigned int avr_case_values_threshold (void)
+{
+  return (!AVR_HAVE_JMP_CALL || TARGET_CALL_PROLOGUES) ? 8 : 17;
 }
 
 #include "gt-avr.h"

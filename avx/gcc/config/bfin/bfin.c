@@ -1,5 +1,5 @@
 /* The Blackfin code generation auxiliary output file.
-   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -58,7 +58,7 @@
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
-struct machine_function GTY(())
+struct GTY(()) machine_function
 {
   /* Set if we are notified by the doloop pass that a hardware loop
      was created.  */
@@ -3554,7 +3554,36 @@ bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 
   return cost;
 }
+
+/* This function acts like NEXT_INSN, but is aware of three-insn bundles and
+   skips all subsequent parallel instructions if INSN is the start of such
+   a group.  */
+static rtx
+find_next_insn_start (rtx insn)
+{
+  if (GET_MODE (insn) == SImode)
+    {
+      while (GET_MODE (insn) != QImode)
+	insn = NEXT_INSN (insn);
+    }
+  return NEXT_INSN (insn);
+}
 
+/* This function acts like PREV_INSN, but is aware of three-insn bundles and
+   skips all subsequent parallel instructions if INSN is the start of such
+   a group.  */
+static rtx
+find_prev_insn_start (rtx insn)
+{
+  insn = PREV_INSN (insn);
+  gcc_assert (GET_MODE (insn) != SImode);
+  if (GET_MODE (insn) == QImode)
+    {
+      while (GET_MODE (PREV_INSN (insn)) == SImode)
+	insn = PREV_INSN (insn);
+    }
+  return insn;
+}
 
 /* Increment the counter for the number of loop instructions in the
    current function.  */
@@ -3581,7 +3610,7 @@ DEF_VEC_ALLOC_P (loop_info,heap);
 
 /* Information about a loop we have found (or are in the process of
    finding).  */
-struct loop_info GTY (())
+struct GTY (()) loop_info
 {
   /* loop number, for dumps */
   int loop_no;
@@ -3825,9 +3854,17 @@ bfin_optimize_loop (loop_info loop)
       /* Make sure the predecessor is before the loop start label, as required by
 	 the LSETUP instruction.  */
       length = 0;
-      for (insn = BB_END (loop->incoming_src);
-	   insn && insn != loop->start_label;
-	   insn = NEXT_INSN (insn))
+      insn = BB_END (loop->incoming_src);
+      /* If we have to insert the LSETUP before a jump, count that jump in the
+	 length.  */
+      if (VEC_length (edge, loop->incoming) > 1
+	  || !(VEC_last (edge, loop->incoming)->flags & EDGE_FALLTHRU))
+	{
+	  gcc_assert (JUMP_P (insn));
+	  insn = PREV_INSN (insn);
+	}
+
+      for (; insn && insn != loop->start_label; insn = NEXT_INSN (insn))
 	length += length_for_loop (insn);
       
       if (!insn)
@@ -3932,16 +3969,16 @@ bfin_optimize_loop (loop_info loop)
      - Returns (RTS, RTN, etc.)  */
 
   bb = loop->tail;
-  last_insn = PREV_INSN (loop->loop_end);
+  last_insn = find_prev_insn_start (loop->loop_end);
 
   while (1)
     {
-      for (; last_insn != PREV_INSN (BB_HEAD (bb));
-	   last_insn = PREV_INSN (last_insn))
+      for (; last_insn != BB_HEAD (bb);
+	   last_insn = find_prev_insn_start (last_insn))
 	if (INSN_P (last_insn))
 	  break;
 
-      if (last_insn != PREV_INSN (BB_HEAD (bb)))
+      if (last_insn != BB_HEAD (bb))
 	break;
 
       if (single_pred_p (bb)
@@ -4332,6 +4369,12 @@ bfin_discover_loop (loop_info loop, basic_block tail_bb, rtx tail_insn)
 		      retry = 1;
 		      break;
 		    }
+		}
+	      if (!retry)
+		{
+		  if (dump_file)
+		    fprintf (dump_file, ";; No forwarder blocks found\n");
+		  loop->bad = 1;
 		}
 	    }
 	}
@@ -4886,20 +4929,6 @@ trapping_loads_p (rtx insn)
     }
   else
     return may_trap_p (SET_SRC (single_set (insn)));
-}
-
-/* This function acts like NEXT_INSN, but is aware of three-insn bundles and
-   skips all subsequent parallel instructions if INSN is the start of such
-   a group.  */
-static rtx
-find_next_insn_start (rtx insn)
-{
-  if (GET_MODE (insn) == SImode)
-    {
-      while (GET_MODE (insn) != QImode)
-	insn = NEXT_INSN (insn);
-    }
-  return NEXT_INSN (insn);
 }
 
 /* Return INSN if it is of TYPE_MCLD.  Alternatively, if INSN is the start of

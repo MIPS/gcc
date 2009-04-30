@@ -186,6 +186,9 @@ static void arm_cxx_determine_class_data_visibility (tree);
 static bool arm_cxx_class_data_always_comdat (void);
 static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
+static tree arm_build_builtin_va_list (void);
+static void arm_expand_builtin_va_start (tree, rtx);
+static tree arm_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static bool arm_handle_option (size_t, const char *, int);
 static void arm_target_help (void);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
@@ -383,6 +386,13 @@ static bool arm_allocate_stack_slots_for_args (void);
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE arm_mangle_type
 
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST arm_build_builtin_va_list
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START arm_expand_builtin_va_start
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR arm_gimplify_va_arg_expr
+
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL arm_output_dwarf_dtprel
@@ -571,10 +581,6 @@ enum machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
 unsigned arm_pic_register = INVALID_REGNUM;
-
-/* Set to 1 when a return insn is output, this means that the epilogue
-   is not needed.  */
-int return_used_this_function;
 
 /* Set to 1 after arm_reorg has started.  Reset to start at the start of
    the next function.  */
@@ -912,6 +918,93 @@ arm_init_libfuncs (void)
   set_optab_libfunc (umod_optab, DImode, NULL);
   set_optab_libfunc (smod_optab, SImode, NULL);
   set_optab_libfunc (umod_optab, SImode, NULL);
+}
+
+/* On AAPCS systems, this is the "struct __va_list".  */
+static GTY(()) tree va_list_type;
+
+/* Return the type to use as __builtin_va_list.  */
+static tree
+arm_build_builtin_va_list (void)
+{
+  tree va_list_name;
+  tree ap_field;
+  
+  if (!TARGET_AAPCS_BASED)
+    return std_build_builtin_va_list ();
+
+  /* AAPCS \S 7.1.4 requires that va_list be a typedef for a type
+     defined as:
+
+       struct __va_list 
+       {
+	 void *__ap;
+       };
+
+     The C Library ABI further reinforces this definition in \S
+     4.1.
+
+     We must follow this definition exactly.  The structure tag
+     name is visible in C++ mangled names, and thus forms a part
+     of the ABI.  The field name may be used by people who
+     #include <stdarg.h>.  */
+  /* Create the type.  */
+  va_list_type = lang_hooks.types.make_type (RECORD_TYPE);
+  /* Give it the required name.  */
+  va_list_name = build_decl (TYPE_DECL,
+			     get_identifier ("__va_list"),
+			     va_list_type);
+  DECL_ARTIFICIAL (va_list_name) = 1;
+  TYPE_NAME (va_list_type) = va_list_name;
+  /* Create the __ap field.  */
+  ap_field = build_decl (FIELD_DECL, 
+			 get_identifier ("__ap"),
+			 ptr_type_node);
+  DECL_ARTIFICIAL (ap_field) = 1;
+  DECL_FIELD_CONTEXT (ap_field) = va_list_type;
+  TYPE_FIELDS (va_list_type) = ap_field;
+  /* Compute its layout.  */
+  layout_type (va_list_type);
+
+  return va_list_type;
+}
+
+/* Return an expression of type "void *" pointing to the next
+   available argument in a variable-argument list.  VALIST is the
+   user-level va_list object, of type __builtin_va_list.  */
+static tree
+arm_extract_valist_ptr (tree valist)
+{
+  if (TREE_TYPE (valist) == error_mark_node)
+    return error_mark_node;
+
+  /* On an AAPCS target, the pointer is stored within "struct
+     va_list".  */
+  if (TARGET_AAPCS_BASED)
+    {
+      tree ap_field = TYPE_FIELDS (TREE_TYPE (valist));
+      valist = build3 (COMPONENT_REF, TREE_TYPE (ap_field), 
+		       valist, ap_field, NULL_TREE);
+    }
+
+  return valist;
+}
+
+/* Implement TARGET_EXPAND_BUILTIN_VA_START.  */
+static void
+arm_expand_builtin_va_start (tree valist, rtx nextarg)
+{
+  valist = arm_extract_valist_ptr (valist);
+  std_expand_builtin_va_start (valist, nextarg);
+}
+
+/* Implement TARGET_GIMPLIFY_VA_ARG_EXPR.  */
+static tree
+arm_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p, 
+			  gimple_seq *post_p)
+{
+  valist = arm_extract_valist_ptr (valist);
+  return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
 }
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -3466,7 +3559,8 @@ require_pic_register (void)
       gcc_assert (can_create_pseudo_p ());
       if (arm_pic_register != INVALID_REGNUM)
 	{
-	  cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
+	  if (!cfun->machine->pic_reg)
+	    cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
 
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
@@ -3478,7 +3572,8 @@ require_pic_register (void)
 	{
 	  rtx seq;
 
-	  cfun->machine->pic_reg = gen_reg_rtx (Pmode);
+	  if (!cfun->machine->pic_reg)
+	    cfun->machine->pic_reg = gen_reg_rtx (Pmode);
 
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
@@ -4689,7 +4784,7 @@ thumb_legitimize_reload_address (rtx *x_p,
 
       x = copy_rtx (x);
       push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
-		   Pmode, VOIDmode, 0, 0, opnum, type);
+		   Pmode, VOIDmode, 0, 0, opnum, (enum reload_type) type);
       return x;
     }
 
@@ -4706,7 +4801,7 @@ thumb_legitimize_reload_address (rtx *x_p,
 
       x = copy_rtx (x);
       push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
-		   Pmode, VOIDmode, 0, 0, opnum, type);
+		   Pmode, VOIDmode, 0, 0, opnum, (enum reload_type) type);
       return x;
     }
 
@@ -5044,10 +5139,17 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	  return true;
 	}
 
+      /* A shift as a part of RSB costs no more than RSB itself.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), code, speed);
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  return true;
+	}
+
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 1), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 1), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 1), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 0), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 1), 0), subcode, speed);
@@ -5083,9 +5185,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	 multiplication by a power of two, so that we fall down into
 	 the code below.  */
       if (GET_CODE (XEXP (x, 0)) == MULT
-	  && ! (GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-		&& ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-		     (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0)))
+	  && !power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  /* The cost comes from the cost of the multiply.  */
 	  return false;
@@ -5168,9 +5268,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	}
 
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 1), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
@@ -5227,9 +5325,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	      || subcode == LSHIFTRT
 	      || subcode == ROTATE || subcode == ROTATERT
 	      || (subcode == MULT
-		  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-		  && ((INTVAL (XEXP (XEXP (x, 0), 1)) & 
-		       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0)))
+		  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode)))
 	    {
 	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
 	      /* Register shifts cost an extra cycle.  */
@@ -5337,9 +5433,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	}
 
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 1), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
@@ -5359,7 +5453,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
       return true;
 
     case ABS:
-      if (GET_MODE_CLASS (mode == MODE_FLOAT))
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	{
 	  if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
 	    {
@@ -5575,6 +5669,16 @@ arm_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	  return false;
 	}
 
+      /* A shift as a part of ADD costs nothing.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total = COSTS_N_INSNS (TARGET_THUMB2 ? 2 : 1);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), code, false);
+	  *total += rtx_cost (XEXP (x, 1), code, false);
+	  return true;
+	}
+
       /* Fall through */
     case AND: case XOR: case IOR:
       if (mode == SImode)
@@ -5668,7 +5772,10 @@ arm_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 
     case CONST_INT:
       if (const_ok_for_arm (INTVAL (x)))
-	*total = COSTS_N_INSNS (outer_code == SET ? 1 : 0);
+	/* A multiplication by a constant requires another instruction
+	   to load the constant to a register.  */
+	*total = COSTS_N_INSNS ((outer_code == SET || outer_code == MULT)
+				? 1 : 0);
       else if (const_ok_for_arm (~INTVAL (x)))
 	*total = COSTS_N_INSNS (outer_code == AND ? 0 : 1);
       else if (const_ok_for_arm (-INTVAL (x)))
@@ -5715,10 +5822,12 @@ arm_rtx_costs (rtx x, int code, int outer_code, int *total,
 	       bool speed)
 {
   if (!speed)
-    return arm_size_rtx_costs (x, code, outer_code, total);
+    return arm_size_rtx_costs (x, (enum rtx_code) code,
+			       (enum rtx_code) outer_code, total);
   else
-    return all_cores[(int)arm_tune].rtx_costs (x, code, outer_code, total,
-					       speed);
+    return all_cores[(int)arm_tune].rtx_costs (x, (enum rtx_code) code,
+					       (enum rtx_code) outer_code,
+					       total, speed);
 }
 
 /* RTX costs for cores with a slow MUL implementation.  Thumb-2 is not
@@ -7302,7 +7411,7 @@ adjacent_mem_locations (rtx a, rtx b)
       /* Don't accept any offset that will require multiple
 	 instructions to handle, since this would cause the
 	 arith_adjacentmem pattern to output an overlong sequence.  */
-      if (!const_ok_for_op (PLUS, val0) || !const_ok_for_op (PLUS, val1))
+      if (!const_ok_for_op (val0, PLUS) || !const_ok_for_op (val1, PLUS))
 	return 0;
 
       /* Don't allow an eliminable register: register elimination can make
@@ -10108,8 +10217,7 @@ vfp_emit_fstmd (int base_reg, int count)
     }
 
   par = emit_insn (par);
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
   RTX_FRAME_RELATED_P (par) = 1;
 
   return count * 8;
@@ -11519,7 +11627,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 
   sprintf (conditional, "%%?%%%c0", reverse ? 'D' : 'd');
 
-  return_used_this_function = 1;
+  cfun->machine->return_used_this_function = 1;
 
   offsets = arm_get_frame_offsets ();
   live_regs_mask = offsets->saved_regs_mask;
@@ -11784,7 +11892,6 @@ arm_output_function_prologue (FILE *f, HOST_WIDE_INT frame_size)
   if (crtl->calls_eh_return)
     asm_fprintf (f, "\t@ Calls __builtin_eh_return.\n");
 
-  return_used_this_function = 0;
 }
 
 const char *
@@ -11805,7 +11912,8 @@ arm_output_epilogue (rtx sibling)
 
   /* If we have already generated the return instruction
      then it is futile to generate anything else.  */
-  if (use_return_insn (FALSE, sibling) && return_used_this_function)
+  if (use_return_insn (FALSE, sibling) && 
+      (cfun->machine->return_used_this_function != 0))
     return "";
 
   func_type = arm_current_func_type ();
@@ -12252,7 +12360,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       /* ??? Probably not safe to set this here, since it assumes that a
 	 function will be emitted as assembly immediately after we generate
 	 RTL for it.  This does not happen for inline functions.  */
-      return_used_this_function = 0;
+      cfun->machine->return_used_this_function = 0;
     }
   else /* TARGET_32BIT */
     {
@@ -12260,7 +12368,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       offsets = arm_get_frame_offsets ();
 
       gcc_assert (!use_return_insn (FALSE, NULL)
-		  || !return_used_this_function
+		  || (cfun->machine->return_used_this_function != 0)
 		  || offsets->saved_regs == offsets->outgoing_args
 		  || frame_pointer_needed);
 
@@ -12392,8 +12500,8 @@ emit_multi_reg_push (unsigned long mask)
   RTX_FRAME_RELATED_P (tmp) = 1;
   XVECEXP (dwarf, 0, 0) = tmp;
 
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
+
   return par;
 }
 
@@ -12459,8 +12567,8 @@ emit_sfm (int base_reg, int count)
   XVECEXP (dwarf, 0, 0) = tmp;
 
   par = emit_insn (par);
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
+
   return par;
 }
 
@@ -12879,8 +12987,7 @@ thumb_set_frame_pointer (arm_stack_offsets *offsets)
       dwarf = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
 			   plus_constant (stack_pointer_rtx, amount));
       RTX_FRAME_RELATED_P (dwarf) = 1;
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-					    REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
     }
 
   RTX_FRAME_RELATED_P (insn) = 1;
@@ -12943,8 +13050,7 @@ arm_expand_prologue (void)
       dwarf = gen_rtx_SET (VOIDmode, r0, dwarf);
       insn = gen_movsi (r0, stack_pointer_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					    dwarf, REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
       emit_insn (insn);
       emit_insn (gen_andsi3 (r1, r0, GEN_INT (~(HOST_WIDE_INT)7)));
       emit_insn (gen_movsi (stack_pointer_rtx, r1));
@@ -13011,8 +13117,7 @@ arm_expand_prologue (void)
 				   plus_constant (stack_pointer_rtx,
 						  -fp_offset));
 	      RTX_FRAME_RELATED_P (insn) = 1;
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-						    dwarf, REG_NOTES (insn));
+	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
 	    }
 	  else
 	    {
@@ -14564,7 +14669,8 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 
 /* For efficiency and historical reasons LO_REGS, HI_REGS and CC_REGS are
    not used in arm mode.  */
-int
+
+enum reg_class
 arm_regno_class (int regno)
 {
   if (TARGET_THUMB1)
@@ -17201,7 +17307,7 @@ thumb_unexpanded_epilogue (void)
   int had_to_push_lr;
   int size;
 
-  if (return_used_this_function)
+  if (cfun->machine->return_used_this_function != 0)
     return "";
 
   if (IS_NAKED (arm_current_func_type ()))
@@ -17525,9 +17631,7 @@ thumb1_expand_prologue (void)
 			       plus_constant (stack_pointer_rtx,
 					      -amount));
 	  RTX_FRAME_RELATED_P (dwarf) = 1;
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				 REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
 	}
     }
 
@@ -19505,6 +19609,21 @@ const char *
 arm_mangle_type (const_tree type)
 {
   arm_mangle_map_entry *pos = arm_mangle_map;
+
+  /* The ARM ABI documents (10th October 2008) say that "__va_list"
+     has to be managled as if it is in the "std" namespace.  */
+  if (TARGET_AAPCS_BASED 
+      && lang_hooks.types_compatible_p (CONST_CAST_TREE (type), va_list_type))
+    {
+      static bool warned;
+      if (!warned && warn_psabi)
+	{
+	  warned = true;
+	  inform (input_location,
+		  "the mangling of %<va_list%> has changed in GCC 4.4");
+	}
+      return "St9__va_list";
+    }
 
   if (TREE_CODE (type) != VECTOR_TYPE)
     return NULL;

@@ -75,8 +75,7 @@ const mstring ifsrc_types[] =
 {
     minit ("UNKNOWN", IFSRC_UNKNOWN),
     minit ("DECL", IFSRC_DECL),
-    minit ("BODY", IFSRC_IFBODY),
-    minit ("USAGE", IFSRC_USAGE)
+    minit ("BODY", IFSRC_IFBODY)
 };
 
 const mstring save_status[] =
@@ -93,6 +92,7 @@ static int next_dummy_order = 1;
 
 
 gfc_namespace *gfc_current_ns;
+gfc_namespace *gfc_global_ns_list;
 
 gfc_gsymbol *gfc_gsym_root = NULL;
 
@@ -319,7 +319,7 @@ gfc_check_function_type (gfc_namespace *ns)
 	      proc->attr.allocatable = proc->result->attr.allocatable;
 	    }
 	}
-      else
+      else if (!proc->result->attr.proc_pointer)
 	{
 	  gfc_error ("Function result '%s' at %L has no IMPLICIT type",
 		     proc->result->name, &proc->result->declared_at);
@@ -452,10 +452,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (entry, intrinsic);
 
   if ((attr->if_source == IFSRC_DECL && !attr->procedure) || attr->contained)
-    {
-      conf (external, subroutine);
-      conf (external, function);
-    }
+    conf (external, subroutine);
+
+  if (attr->proc_pointer && gfc_notify_std (GFC_STD_F2003,
+			    "Fortran 2003: Procedure pointer at %C") == FAILURE)
+    return FAILURE;
 
   conf (allocatable, pointer);
   conf_std (allocatable, dummy, GFC_STD_F2003);
@@ -625,14 +626,13 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       break;
 
     case FL_PROCEDURE:
-      /* Conflicts with INTENT will be checked at resolution stage,
-	 see "resolve_fl_procedure".  */
+      /* Conflicts with INTENT, SAVE and RESULT will be checked
+	 at resolution stage, see "resolve_fl_procedure".  */
 
       if (attr->subroutine)
 	{
 	  conf2 (target);
 	  conf2 (allocatable);
-	  conf2 (result);
 	  conf2 (in_namelist);
 	  conf2 (dimension);
 	  conf2 (function);
@@ -1554,8 +1554,7 @@ gfc_add_type (gfc_symbol *sym, gfc_typespec *ts, locus *where)
   if (sym->ts.type != BT_UNKNOWN)
     {
       const char *msg = "Symbol '%s' at %L already has basic type of %s";
-      if (!(sym->ts.type == ts->type
-	    && (sym->attr.flavor == FL_PROCEDURE || sym->attr.result))
+      if (!(sym->ts.type == ts->type && sym->attr.result)
 	  || gfc_notification_std (GFC_STD_GNU) == ERROR
 	  || pedantic)
 	{
@@ -1567,6 +1566,13 @@ gfc_add_type (gfc_symbol *sym, gfc_typespec *ts, locus *where)
 	return FAILURE;
       if (gfc_option.warn_surprising)
 	gfc_warning (msg, sym->name, where, gfc_basic_typename (sym->ts.type));
+    }
+
+  if (sym->attr.procedure && sym->ts.interface)
+    {
+      gfc_error ("Procedure '%s' at %L may not have basic type of %s", sym->name, where,
+		 gfc_basic_typename (ts->type));
+      return FAILURE;
     }
 
   flavor = sym->attr.flavor;
@@ -2938,7 +2944,7 @@ free_sym_tree (gfc_symtree *sym_tree)
 
 /* Free the derived type list.  */
 
-static void
+void
 gfc_free_dt_list (void)
 {
   gfc_dt_list *dt, *n;
@@ -3761,6 +3767,7 @@ gen_shape_param (gfc_formal_arglist **head,
   add_formal_arg (head, tail, formal_arg, param_sym);
 }
 
+
 /* Add a procedure interface to the given symbol (i.e., store a
    reference to the list of formal arguments).  */
 
@@ -3773,6 +3780,7 @@ add_proc_interface (gfc_symbol *sym, ifsrc source,
   sym->attr.if_source = source;
 }
 
+
 /* Copy the formal args from an existing symbol, src, into a new
    symbol, dest.  New formal args are created, and the description of
    each arg is set according to the existing ones.  This function is
@@ -3781,7 +3789,7 @@ add_proc_interface (gfc_symbol *sym, ifsrc source,
    args based on the args of a given named interface.  */
 
 void
-copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
+gfc_copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
 {
   gfc_formal_arglist *head = NULL;
   gfc_formal_arglist *tail = NULL;
@@ -3805,7 +3813,7 @@ copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
       formal_arg->sym->attr = curr_arg->sym->attr;
       formal_arg->sym->ts = curr_arg->sym->ts;
       formal_arg->sym->as = gfc_copy_array_spec (curr_arg->sym->as);
-      copy_formal_args (formal_arg->sym, curr_arg->sym);
+      gfc_copy_formal_args (formal_arg->sym, curr_arg->sym);
 
       /* If this isn't the first arg, set up the next ptr.  For the
         last arg built, the formal_arg->next will never get set to
@@ -3831,6 +3839,60 @@ copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
   /* Restore the current namespace to what it was on entry.  */
   gfc_current_ns = parent_ns;
 }
+
+
+void
+gfc_copy_formal_args_intr (gfc_symbol *dest, gfc_intrinsic_sym *src)
+{
+  gfc_formal_arglist *head = NULL;
+  gfc_formal_arglist *tail = NULL;
+  gfc_formal_arglist *formal_arg = NULL;
+  gfc_intrinsic_arg *curr_arg = NULL;
+  gfc_formal_arglist *formal_prev = NULL;
+  /* Save current namespace so we can change it for formal args.  */
+  gfc_namespace *parent_ns = gfc_current_ns;
+
+  /* Create a new namespace, which will be the formal ns (namespace
+     of the formal args).  */
+  gfc_current_ns = gfc_get_namespace (parent_ns, 0);
+  gfc_current_ns->proc_name = dest;
+
+  for (curr_arg = src->formal; curr_arg; curr_arg = curr_arg->next)
+    {
+      formal_arg = gfc_get_formal_arglist ();
+      gfc_get_symbol (curr_arg->name, gfc_current_ns, &(formal_arg->sym));
+
+      /* May need to copy more info for the symbol.  */
+      formal_arg->sym->ts = curr_arg->ts;
+      formal_arg->sym->attr.optional = curr_arg->optional;
+      formal_arg->sym->attr.flavor = FL_VARIABLE;
+      formal_arg->sym->attr.dummy = 1;
+
+      /* If this isn't the first arg, set up the next ptr.  For the
+        last arg built, the formal_arg->next will never get set to
+        anything other than NULL.  */
+      if (formal_prev != NULL)
+	formal_prev->next = formal_arg;
+      else
+	formal_arg->next = NULL;
+
+      formal_prev = formal_arg;
+
+      /* Add arg to list of formal args.  */
+      add_formal_arg (&head, &tail, formal_arg, formal_arg->sym);
+    }
+
+  /* Add the interface to the symbol.  */
+  add_proc_interface (dest, IFSRC_DECL, head);
+
+  /* Store the formal namespace information.  */
+  if (dest->formal != NULL)
+    /* The current ns should be that for the dest proc.  */
+    dest->formal_ns = gfc_current_ns;
+  /* Restore the current namespace to what it was on entry.  */
+  gfc_current_ns = parent_ns;
+}
+
 
 /* Builds the parameter list for the iso_c_binding procedure
    c_f_pointer or c_f_procpointer.  The old_sym typically refers to a

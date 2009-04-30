@@ -5,7 +5,7 @@
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -13,19 +13,15 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
+
 
 #include <thread>
 #include <cerrno>
@@ -45,7 +41,7 @@ namespace std
 
       __try
 	{
-	  __local->_M_run();
+	  __t->_M_run();
 	}
       __catch(...)
 	{
@@ -61,16 +57,13 @@ namespace std
   {
     int __e = EINVAL;
 
-    if (_M_data)
-    {
-      void* __r = 0;
-      __e = __gthread_join(_M_data->_M_id._M_thread, &__r);
-    }
+    if (_M_id != id())
+      __e = __gthread_join(_M_id._M_thread, NULL);
 
     if (__e)
       __throw_system_error(__e);
 
-    _M_data.reset();
+    _M_id = id();
   }
 
   void
@@ -78,25 +71,24 @@ namespace std
   {
     int __e = EINVAL;
 
-    if (_M_data)
-      __e = __gthread_detach(_M_data->_M_id._M_thread);
+    if (_M_id != id())
+      __e = __gthread_detach(_M_id._M_thread);
 
     if (__e)
       __throw_system_error(__e);
 
-    _M_data.reset();
+    _M_id = id();
   }
 
   void
-  thread::_M_start_thread()
+  thread::_M_start_thread(__shared_base_type __b)
   {
-    // _M_data->_M_this_ptr = _M_data;
-    _M_data->_M_this_ptr = _M_data;
-    int __e = __gthread_create(&_M_data->_M_id._M_thread,
-			       &execute_native_thread_routine, _M_data.get());
+    __b->_M_this_ptr = __b;
+    int __e = __gthread_create(&_M_id._M_thread,
+			       &execute_native_thread_routine, __b.get());
     if (__e)
     {
-      _M_data->_M_this_ptr.reset();
+      __b->_M_this_ptr.reset();
       __throw_system_error(__e);
     }
   }

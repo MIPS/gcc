@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
@@ -282,7 +282,7 @@ static GTY(()) alias_set_type struct_value_alias_set;
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
-rtx sparc_compare_op0, sparc_compare_op1, sparc_compare_emitted;
+rtx sparc_compare_op0, sparc_compare_op1;
 
 /* Vector to say how input registers are mapped to output registers.
    HARD_FRAME_POINTER_REGNUM cannot be remapped by this function to
@@ -321,7 +321,7 @@ char sparc_leaf_regs[] =
   1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1};
 
-struct machine_function GTY(())
+struct GTY(()) machine_function
 {
   /* Some local-dynamic TLS symbol name.  */
   const char *some_ld_name;
@@ -2006,17 +2006,15 @@ select_cc_mode (enum rtx_code op, rtx x, rtx y ATTRIBUTE_UNUSED)
 rtx
 gen_compare_reg (enum rtx_code code)
 {
-  rtx x = sparc_compare_op0;
-  rtx y = sparc_compare_op1;
-  enum machine_mode mode = SELECT_CC_MODE (code, x, y);
-  rtx cc_reg;
+  enum machine_mode mode;
+  rtx x, y, cc_reg;
 
-  if (sparc_compare_emitted != NULL_RTX)
-    {
-      cc_reg = sparc_compare_emitted;
-      sparc_compare_emitted = NULL_RTX;
-      return cc_reg;
-    }
+  if (GET_MODE_CLASS (GET_MODE (sparc_compare_op0)) == MODE_CC)
+    return sparc_compare_op0;
+
+  x = sparc_compare_op0;
+  y = sparc_compare_op1;
+  mode = SELECT_CC_MODE (code, x, y);
 
   /* ??? We don't have movcc patterns so we cannot generate pseudo regs for the
      fcc regs (cse can't tell they're really call clobbered regs and will
@@ -2198,7 +2196,7 @@ gen_v9_scc (enum rtx_code compare_code, register rtx *operands)
 void
 emit_v9_brxx_insn (enum rtx_code code, rtx op0, rtx label)
 {
-  gcc_assert (sparc_compare_emitted == NULL_RTX);
+  gcc_assert (GET_MODE_CLASS (GET_MODE (sparc_compare_op0)) != MODE_CC);
   emit_jump_insn (gen_rtx_SET (VOIDmode,
 			   pc_rtx,
 			   gen_rtx_IF_THEN_ELSE (VOIDmode,
@@ -4084,10 +4082,8 @@ sparc_expand_prologue (void)
 	  rtx reg = gen_rtx_REG (Pmode, 1);
 	  emit_move_insn (reg, GEN_INT (-actual_fsize));
 	  insn = emit_insn (gen_stack_pointer_inc (reg));
-	  REG_NOTES (insn) =
-	    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			       gen_stack_pointer_inc (GEN_INT (-actual_fsize)),
-			       REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			gen_stack_pointer_inc (GEN_INT (-actual_fsize)));
 	}
 
       RTX_FRAME_RELATED_P (insn) = 1;
@@ -8257,13 +8253,14 @@ sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
 {
   tree arg0, arg1, arg2;
   tree rtype = TREE_TYPE (TREE_TYPE (fndecl));
+  enum insn_code icode = (enum insn_code) DECL_FUNCTION_CODE (fndecl);
 
   if (ignore
-      && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrsi_vis
-      && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrdi_vis)
+      && icode != CODE_FOR_alignaddrsi_vis
+      && icode != CODE_FOR_alignaddrdi_vis)
     return fold_convert (rtype, integer_zero_node);
 
-  switch (DECL_FUNCTION_CODE (fndecl))
+  switch (icode)
     {
     case CODE_FOR_fexpand_vis:
       arg0 = TREE_VALUE (arglist);
@@ -8299,8 +8296,8 @@ sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
 	  tree inner_type = TREE_TYPE (rtype);
 	  tree elts0 = TREE_VECTOR_CST_ELTS (arg0);
 	  tree elts1 = TREE_VECTOR_CST_ELTS (arg1);
-	  tree n_elts = sparc_handle_vis_mul8x16 (DECL_FUNCTION_CODE (fndecl),
-						  inner_type, elts0, elts1);
+	  tree n_elts = sparc_handle_vis_mul8x16 (icode, inner_type, elts0,
+						  elts1);
 
 	  return build_vector (rtype, n_elts);
 	}
@@ -9026,7 +9023,8 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
 
   emit_insn (gen_rtx_SET (VOIDmode, val, resv));
 
-  sparc_compare_emitted = cc;
+  sparc_compare_op0 = cc;
+  sparc_compare_op1 = const0_rtx;
   emit_jump_insn (gen_bne (loop_label));
 
   emit_label (end_label);

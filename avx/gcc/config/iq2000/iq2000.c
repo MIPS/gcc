@@ -1,5 +1,6 @@
 /* Subroutines used for code generation on Vitesse IQ2000 processors
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -88,7 +89,7 @@ struct iq2000_frame_info
   int  num_gp;			/* Number of gp registers saved.  */
 } iq2000_frame_info;
 
-struct machine_function GTY(())
+struct GTY(()) machine_function
 {
   /* Current frame information, calculated by compute_frame_size.  */
   long total_size;		/* # bytes that the entire frame takes up.  */

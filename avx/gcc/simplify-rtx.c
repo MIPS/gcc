@@ -1,6 +1,6 @@
 /* RTL simplification functions for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -3854,6 +3854,20 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
 	    return simplify_gen_relational (new_code, mode, VOIDmode,
 					    XEXP (op0, 0), XEXP (op0, 1));
 	}
+    }
+
+  /* (LTU/GEU (PLUS a C) C), where C is constant, can be simplified to
+     (GEU/LTU a -C).  Likewise for (LTU/GEU (PLUS a C) a).  */
+  if ((code == LTU || code == GEU)
+      && GET_CODE (op0) == PLUS
+      && GET_CODE (XEXP (op0, 1)) == CONST_INT
+      && (rtx_equal_p (op1, XEXP (op0, 0))
+	  || rtx_equal_p (op1, XEXP (op0, 1))))
+    {
+      rtx new_cmp
+	= simplify_gen_unary (NEG, cmp_mode, XEXP (op0, 1), cmp_mode);
+      return simplify_gen_relational ((code == LTU ? GEU : LTU), mode,
+				      cmp_mode, XEXP (op0, 0), new_cmp);
     }
 
   /* Canonicalize (LTU/GEU (PLUS a b) b) as (LTU/GEU (PLUS a b) a).  */

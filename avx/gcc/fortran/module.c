@@ -75,6 +75,10 @@ along with GCC; see the file COPYING3.  If not see
 
 #define MODULE_EXTENSION ".mod"
 
+/* Don't put any single quote (') in MOD_VERSION, 
+   if yout want it to be recognized.  */
+#define MOD_VERSION "0"
+
 
 /* Structure that describes a position within a module file.  */
 
@@ -1696,6 +1700,7 @@ static const mstring binding_overriding[] =
 {
     minit ("OVERRIDABLE", 0),
     minit ("NON_OVERRIDABLE", 1),
+    minit ("DEFERRED", 2),
     minit (NULL, -1)
 };
 static const mstring binding_generic[] =
@@ -3201,6 +3206,7 @@ static void
 mio_typebound_proc (gfc_typebound_proc** proc)
 {
   int flag;
+  int overriding_flag;
 
   if (iomode == IO_INPUT)
     {
@@ -3213,9 +3219,15 @@ mio_typebound_proc (gfc_typebound_proc** proc)
 
   (*proc)->access = MIO_NAME (gfc_access) ((*proc)->access, access_types);
 
+  /* IO the NON_OVERRIDABLE/DEFERRED combination.  */
+  gcc_assert (!((*proc)->deferred && (*proc)->non_overridable));
+  overriding_flag = ((*proc)->deferred << 1) | (*proc)->non_overridable;
+  overriding_flag = mio_name (overriding_flag, binding_overriding);
+  (*proc)->deferred = ((overriding_flag & 2) != 0);
+  (*proc)->non_overridable = ((overriding_flag & 1) != 0);
+  gcc_assert (!((*proc)->deferred && (*proc)->non_overridable));
+
   (*proc)->nopass = mio_name ((*proc)->nopass, binding_passing);
-  (*proc)->non_overridable = mio_name ((*proc)->non_overridable,
-				       binding_overriding);
   (*proc)->is_generic = mio_name ((*proc)->is_generic, binding_generic);
 
   if (iomode == IO_INPUT)
@@ -4735,8 +4747,18 @@ read_md5_from_module_file (const char * filename, unsigned char md5[16])
     return -1;
 
   /* Read two lines.  */
-  if (fgets (buf, sizeof (buf) - 1, file) == NULL
-      || fgets (buf, sizeof (buf) - 1, file) == NULL)
+  if (fgets (buf, sizeof (buf) - 1, file) == NULL)
+    {
+      fclose (file);
+      return -1;
+    }
+
+  /* The file also needs to be overwritten if the version number changed.  */
+  n = strlen ("GFORTRAN module version '" MOD_VERSION "' created");
+  if (strncmp (buf, "GFORTRAN module version '" MOD_VERSION "' created", n) != 0)
+    return -1;
+ 
+  if (fgets (buf, sizeof (buf) - 1, file) == NULL)
     {
       fclose (file);
       return -1;
@@ -4817,8 +4839,8 @@ gfc_dump_module (const char *name, int dump_flag)
 
   *strchr (p, '\n') = '\0';
 
-  fprintf (module_fp, "GFORTRAN module created from %s on %s\nMD5:", 
-	   gfc_source_file, p);
+  fprintf (module_fp, "GFORTRAN module version '%s' created from %s on %s\n"
+	   "MD5:", MOD_VERSION, gfc_source_file, p);
   fgetpos (module_fp, &md5_pos);
   fputs ("00000000000000000000000000000000 -- "
 	"If you edit this, you'll get what you deserve.\n\n", module_fp);
@@ -4972,7 +4994,9 @@ import_iso_c_binding_module (void)
 	      continue;
 	    }
 	  
-	  generate_isocbinding_symbol (iso_c_module_name, i, u->local_name);
+	  generate_isocbinding_symbol (iso_c_module_name,
+				       (iso_c_binding_symbol) i,
+				       u->local_name);
 	}
     }
   else
@@ -4989,7 +5013,9 @@ import_iso_c_binding_module (void)
 		  break;
 		}
 	    }
-	  generate_isocbinding_symbol (iso_c_module_name, i, local_name);
+	  generate_isocbinding_symbol (iso_c_module_name,
+				       (iso_c_binding_symbol) i,
+				       local_name);
 	}
 
       for (u = gfc_rename_list; u; u = u->next)
@@ -5220,12 +5246,27 @@ gfc_use_module (void)
       c = module_char ();
       if (c == EOF)
 	bad_module ("Unexpected end of module");
-      if (start++ < 2)
+      if (start++ < 3)
 	parse_name (c);
       if ((start == 1 && strcmp (atom_name, "GFORTRAN") != 0)
 	  || (start == 2 && strcmp (atom_name, " module") != 0))
 	gfc_fatal_error ("File '%s' opened at %C is not a GFORTRAN module "
 			 "file", filename);
+      if (start == 3)
+	{
+	  if (strcmp (atom_name, " version") != 0
+	      || module_char () != ' '
+	      || parse_atom () != ATOM_STRING)
+	    gfc_fatal_error ("Parse error when checking module version"
+		    	     " for file '%s' opened at %C", filename);
+
+	  if (strcmp (atom_string, MOD_VERSION))
+	    {
+	      gfc_fatal_error ("Wrong module version '%s' (expected '"
+			       MOD_VERSION "') for file '%s' opened"
+			       " at %C", atom_string, filename);
+	    }
+	}
 
       if (c == '\n')
 	line++;

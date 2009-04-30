@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
-   Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+   2009  Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -278,6 +278,8 @@ static void ia64_hpux_init_libfuncs (void)
 static void ia64_sysv4_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 static void ia64_vms_init_libfuncs (void)
+     ATTRIBUTE_UNUSED;
+static void ia64_soft_fp_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 
 static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
@@ -1309,9 +1311,7 @@ ia64_split_tmode_move (rtx operands[])
       && (GET_CODE (XEXP (EXP, 0)) == POST_MODIFY			\
 	  || GET_CODE (XEXP (EXP, 0)) == POST_INC			\
 	  || GET_CODE (XEXP (EXP, 0)) == POST_DEC))			\
-    REG_NOTES (INSN) = gen_rtx_EXPR_LIST (REG_INC,			\
-					  XEXP (XEXP (EXP, 0), 0),	\
-					  REG_NOTES (INSN))
+    add_reg_note (insn, REG_INC, XEXP (XEXP (EXP, 0), 0))
 
   insn = emit_insn (gen_rtx_SET (VOIDmode, out[0], in[0]));
   MAYBE_ADD_REG_INC_NOTE (insn, in[0]);
@@ -1513,7 +1513,7 @@ ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
   /* HPUX TFmode compare requires a library call to _U_Qfcmp, which takes a
      magic number as its third argument, that indicates what to do.
      The return value is an integer to be compared against zero.  */
-  else if (GET_MODE (op0) == TFmode)
+  else if (TARGET_HPUX && GET_MODE (op0) == TFmode)
     {
       enum qfcmp_magic {
 	QCMP_INV = 1,	/* Raise FP_INVALID on SNaN as a side effect.  */
@@ -2768,9 +2768,8 @@ spill_restore_mem (rtx reg, HOST_WIDE_INT cfa_off)
 				   gen_rtx_PLUS (DImode,
 						 spill_fill_data.iter_reg[iter],
 						 disp_rtx));
-	  REG_NOTES (spill_fill_data.prev_insn[iter])
-	    = gen_rtx_EXPR_LIST (REG_INC, spill_fill_data.iter_reg[iter],
-				 REG_NOTES (spill_fill_data.prev_insn[iter]));
+	  add_reg_note (spill_fill_data.prev_insn[iter],
+			REG_INC, spill_fill_data.iter_reg[iter]);
 	}
       else
 	{
@@ -2887,13 +2886,11 @@ do_spill (rtx (*move_fn) (rtx, rtx, rtx), rtx reg, HOST_WIDE_INT cfa_off,
 	  off = current_frame_info.total_size - cfa_off;
 	}
 
-      REG_NOTES (insn)
-	= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode,
-			     gen_rtx_MEM (GET_MODE (reg),
-					  plus_constant (base, off)),
-			     frame_reg),
-		REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+		    gen_rtx_SET (VOIDmode,
+				 gen_rtx_MEM (GET_MODE (reg),
+					      plus_constant (base, off)),
+				 frame_reg));
     }
 }
 
@@ -3093,16 +3090,12 @@ ia64_expand_prologue (void)
 	{
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  if (GET_CODE (offset) != CONST_INT)
-	    {
-	      REG_NOTES (insn)
-		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (VOIDmode,
-				     stack_pointer_rtx,
-				     gen_rtx_PLUS (DImode,
-						   stack_pointer_rtx,
-						   frame_size_rtx)),
-			REG_NOTES (insn));
-	    }
+	    add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			  gen_rtx_SET (VOIDmode,
+				       stack_pointer_rtx,
+				       gen_rtx_PLUS (DImode,
+						     stack_pointer_rtx,
+						     frame_size_rtx)));
 	}
 
       /* ??? At this point we must generate a magic insn that appears to
@@ -3169,10 +3162,8 @@ ia64_expand_prologue (void)
 	  /* ??? Denote pr spill/fill by a DImode move that modifies all
 	     64 hard registers.  */
 	  RTX_FRAME_RELATED_P (insn) = 1;
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (VOIDmode, alt_reg, reg),
-			REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			gen_rtx_SET (VOIDmode, alt_reg, reg));
 
 	  /* Even if we're not going to generate an epilogue, we still
 	     need to save the register so that EH works.  */
@@ -3531,16 +3522,12 @@ ia64_expand_epilogue (int sibcall_p)
 
       RTX_FRAME_RELATED_P (insn) = 1;
       if (GET_CODE (offset) != CONST_INT)
-	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (VOIDmode,
-				     stack_pointer_rtx,
-				     gen_rtx_PLUS (DImode,
-						   stack_pointer_rtx,
-						   frame_size_rtx)),
-			REG_NOTES (insn));
-	}
+	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+		      gen_rtx_SET (VOIDmode,
+				   stack_pointer_rtx,
+				   gen_rtx_PLUS (DImode,
+						 stack_pointer_rtx,
+						 frame_size_rtx)));
     }
 
   if (cfun->machine->ia64_eh_epilogue_bsp)
@@ -4363,8 +4350,9 @@ ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
     return false;
 
   /* We must always return with our current GP.  This means we can
-     only sibcall to functions defined in the current module.  */
-  return decl && (*targetm.binds_local_p) (decl);
+     only sibcall to functions defined in the current module unless
+     TARGET_CONST_GP is set to true.  */
+  return (decl && (*targetm.binds_local_p) (decl)) || TARGET_CONST_GP;
 }
 
 
@@ -5209,6 +5197,8 @@ fix_range (const char *const_str)
 static bool
 ia64_handle_option (size_t code, const char *arg, int value)
 {
+  static bool warned_itanium1_deprecated;
+
   switch (code)
     {
     case OPT_mfixed_range_:
@@ -5242,6 +5232,16 @@ ia64_handle_option (size_t code, const char *arg, int value)
 	  if (!strcmp (arg, processor_alias_table[i].name))
 	    {
 	      ia64_tune = processor_alias_table[i].processor;
+	      if (ia64_tune == PROCESSOR_ITANIUM
+		  && ! warned_itanium1_deprecated)
+		{
+		  inform (0,
+			  "value %<%s%> for -mtune= switch is deprecated",
+			  arg);
+		  inform (0, "GCC 4.4 is the last release with "
+			  "Itanium1 tuning support");
+		  warned_itanium1_deprecated = true;
+		}
 	      break;
 	    }
 	if (i == pta_size)
@@ -7271,6 +7271,8 @@ ia64_set_sched_flags (spec_info_t spec_info)
 	    spec_info->flags |= COUNT_SPEC_IN_CRITICAL_PATH;
 	}
     }
+  else
+    spec_info->mask = 0;
 }
 
 /* If INSN is an appropriate load return its mode.
@@ -7914,7 +7916,7 @@ insert_bundle_state (struct bundle_state *bundle_state)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (bundle_state_table, bundle_state, 1);
+  entry_ptr = htab_find_slot (bundle_state_table, bundle_state, INSERT);
   if (*entry_ptr == NULL)
     {
       bundle_state->next = index_to_bundle_states [bundle_state->insn_num];
@@ -8278,9 +8280,7 @@ ia64_add_bundle_selector_before (int template0, rtx insn)
 	      if (find_reg_note (insn, REG_EH_REGION, NULL_RTX))
 		note = NULL_RTX;
 	      else
-		REG_NOTES (insn)
-		  = gen_rtx_EXPR_LIST (REG_EH_REGION, XEXP (note, 0),
-				       REG_NOTES (insn));
+		add_reg_note (insn, REG_EH_REGION, XEXP (note, 0));
 	    }
 	}
     }
@@ -9751,7 +9751,11 @@ process_for_unwind_directive (FILE *asm_out_file, rtx insn)
 enum ia64_builtins
 {
   IA64_BUILTIN_BSP,
-  IA64_BUILTIN_FLUSHRS
+  IA64_BUILTIN_COPYSIGNQ,
+  IA64_BUILTIN_FABSQ,
+  IA64_BUILTIN_FLUSHRS,
+  IA64_BUILTIN_INFQ,
+  IA64_BUILTIN_HUGE_VALQ
 };
 
 void
@@ -9775,10 +9779,39 @@ ia64_init_builtins (void)
   /* The __float128 type.  */
   if (!TARGET_HPUX)
     {
+      tree ftype, decl;
       tree float128_type = make_node (REAL_TYPE);
+
       TYPE_PRECISION (float128_type) = 128;
       layout_type (float128_type);
       (*lang_hooks.types.register_builtin_type) (float128_type, "__float128");
+
+      /* TFmode support builtins.  */
+      ftype = build_function_type (float128_type, void_list_node);
+      add_builtin_function ("__builtin_infq", ftype,
+			    IA64_BUILTIN_INFQ, BUILT_IN_MD,
+			    NULL, NULL_TREE);
+
+      add_builtin_function ("__builtin_huge_valq", ftype,
+			    IA64_BUILTIN_HUGE_VALQ, BUILT_IN_MD,
+			    NULL, NULL_TREE);
+
+      ftype = build_function_type_list (float128_type,
+					float128_type,
+					NULL_TREE);
+      decl = add_builtin_function ("__builtin_fabsq", ftype,
+				   IA64_BUILTIN_FABSQ, BUILT_IN_MD,
+				   "__fabstf2", NULL_TREE);
+      TREE_READONLY (decl) = 1;
+
+      ftype = build_function_type_list (float128_type,
+					float128_type,
+					float128_type,
+					NULL_TREE);
+      decl = add_builtin_function ("__builtin_copysignq", ftype,
+				   IA64_BUILTIN_COPYSIGNQ, BUILT_IN_MD,
+				   "__copysigntf3", NULL_TREE);
+      TREE_READONLY (decl) = 1;
     }
   else
     /* Under HPUX, this is a synonym for "long double".  */
@@ -9836,8 +9869,30 @@ ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       emit_insn (gen_flushrs ());
       return const0_rtx;
 
+    case IA64_BUILTIN_INFQ:
+    case IA64_BUILTIN_HUGE_VALQ:
+      {
+	REAL_VALUE_TYPE inf;
+	rtx tmp;
+
+	real_inf (&inf);
+	tmp = CONST_DOUBLE_FROM_REAL_VALUE (inf, mode);
+
+	tmp = validize_mem (force_const_mem (mode, tmp));
+
+	if (target == 0)
+	  target = gen_reg_rtx (mode);
+
+	emit_move_insn (target, tmp);
+	return target;
+      }
+
+    case IA64_BUILTIN_FABSQ:
+    case IA64_BUILTIN_COPYSIGNQ:
+      return expand_call (exp, target, ignore);
+
     default:
-      break;
+      gcc_unreachable ();
     }
 
   return NULL_RTX;
@@ -9999,6 +10054,13 @@ ia64_sysv4_init_libfuncs (void)
 
   /* We leave out _U_Qfmin, _U_Qfmax and _U_Qfabs since soft-fp in
      glibc doesn't have them.  */
+}
+
+/* Use soft-fp.  */
+
+static void
+ia64_soft_fp_init_libfuncs (void)
+{
 }
 
 /* For HPUX, it is illegal to have relocations in shared segments.  */
@@ -10250,7 +10312,7 @@ ia64_scalar_mode_supported_p (enum machine_mode mode)
       return true;
 
     case TFmode:
-      return TARGET_HPUX;
+      return true;
 
     default:
       return false;

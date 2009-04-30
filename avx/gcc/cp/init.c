@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -309,24 +309,30 @@ build_value_init (tree type)
 	  /* This is a class that needs constructing, but doesn't have
 	     a user-provided constructor.  So we need to zero-initialize
 	     the object and then call the implicitly defined ctor.
-	     Implement this by sticking the zero-initialization inside
-	     the TARGET_EXPR for the constructor call;
-	     cp_gimplify_init_expr will know how to handle it.  */
-	  tree init = build_zero_init (type, NULL_TREE,
-				       /*static_storage_p=*/false);
+	     This will be handled in simplify_aggr_init_expr.  */
 	  tree ctor = build_special_member_call
 	    (NULL_TREE, complete_ctor_identifier,
 	     NULL_TREE, type, LOOKUP_NORMAL, tf_warning_or_error);
 
-	  ctor = build_cplus_new (type, ctor);
-	  init = build2 (INIT_EXPR, void_type_node,
-			 TARGET_EXPR_SLOT (ctor), init);
-	  init = build2 (COMPOUND_EXPR, void_type_node, init,
-			 TARGET_EXPR_INITIAL (ctor));
-	  TARGET_EXPR_INITIAL (ctor) = init;
+	  ctor = build_aggr_init_expr (type, ctor);
+	  AGGR_INIT_ZERO_FIRST (ctor) = 1;
 	  return ctor;
 	}
-      else if (TREE_CODE (type) != UNION_TYPE)
+    }
+  return build_value_init_noctor (type);
+}
+
+/* Like build_value_init, but don't call the constructor for TYPE.  Used
+   for base initializers.  */
+
+tree
+build_value_init_noctor (tree type)
+{
+  if (CLASS_TYPE_P (type))
+    {
+      gcc_assert (!TYPE_NEEDS_CONSTRUCTING (type));
+	
+      if (TREE_CODE (type) != UNION_TYPE)
 	{
 	  tree field;
 	  VEC(constructor_elt,gc) *v = NULL;
@@ -808,11 +814,6 @@ emit_mem_initializers (tree mem_inits)
 		 "copy constructor",
 		 current_function_decl, BINFO_TYPE (subobject));
 
-      /* If an explicit -- but empty -- initializer list was present,
-	 treat it just like default initialization at this point.  */
-      if (arguments == void_type_node)
-	arguments = NULL_TREE;
-
       /* Initialize the base.  */
       if (BINFO_VIRTUAL_P (subobject))
 	construct_virtual_base (subobject, arguments);
@@ -868,7 +869,6 @@ build_vtbl_address (tree binfo)
   /* Figure out what vtable BINFO's vtable is based on, and mark it as
      used.  */
   vtbl = get_vtbl_decl_for_binfo (binfo_for);
-  assemble_external (vtbl);
   TREE_USED (vtbl) = 1;
 
   /* Now compute the address to use when initializing the vptr.  */
@@ -1393,6 +1393,33 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags,
       return;
     }
 
+  /* If an explicit -- but empty -- initializer list was present,
+     that's value-initialization.  */
+  if (init == void_type_node)
+    {
+      /* If there's a user-provided constructor, we just call that.  */
+      if (type_has_user_provided_constructor (type))
+	/* Fall through.  */;
+      /* If there isn't, but we still need to call the constructor,
+	 zero out the object first.  */
+      else if (TYPE_NEEDS_CONSTRUCTING (type))
+	{
+	  init = build_zero_init (type, NULL_TREE, /*static_storage_p=*/false);
+	  init = build2 (INIT_EXPR, type, exp, init);
+	  finish_expr_stmt (init);
+	  /* And then call the constructor.  */
+	}
+      /* If we don't need to mess with the constructor at all,
+	 then just zero out the object and we're done.  */
+      else
+	{
+	  init = build2 (INIT_EXPR, type, exp, build_value_init_noctor (type));
+	  finish_expr_stmt (init);
+	  return;
+	}
+      init = NULL_TREE;
+    }
+
   /* We know that expand_default_init can handle everything we want
      at this point.  */
   expand_default_init (binfo, true_exp, exp, init, flags, complain);
@@ -1759,23 +1786,14 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
   /* True iff this is a call to "operator new[]" instead of just
      "operator new".  */
   bool array_p = false;
-  /* True iff ARRAY_P is true and the bound of the array type is
-     not necessarily a compile time constant.  For example, VLA_P is
-     true for "new int[f()]".  */
-  bool vla_p = false;
-  /* The type being allocated.  If ARRAY_P is true, this will be an
-     ARRAY_TYPE.  */
-  tree full_type;
-  /* If ARRAY_P is true, the element type of the array.  This is an
-     never ARRAY_TYPE; for something like "new int[3][4]", the
+  /* If ARRAY_P is true, the element type of the array.  This is never
+     an ARRAY_TYPE; for something like "new int[3][4]", the
      ELT_TYPE is "int".  If ARRAY_P is false, this is the same type as
-     FULL_TYPE.  */
+     TYPE.  */
   tree elt_type;
   /* The type of the new-expression.  (This type is always a pointer
      type.)  */
   tree pointer_type;
-  /* A pointer type pointing to the FULL_TYPE.  */
-  tree full_pointer_type;
   tree outer_nelts = NULL_TREE;
   tree alloc_call, alloc_expr;
   /* The address returned by the call to "operator new".  This node is
@@ -1806,35 +1824,15 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
 
   if (nelts)
     {
-      tree index;
-
       outer_nelts = nelts;
       array_p = true;
-
-      /* ??? The middle-end will error on us for building a VLA outside a
-	 function context.  Methinks that's not it's purvey.  So we'll do
-	 our own VLA layout later.  */
-      vla_p = true;
-      index = convert (sizetype, nelts);
-      index = size_binop (MINUS_EXPR, index, size_one_node);
-      index = build_index_type (index);
-      full_type = build_cplus_array_type (type, NULL_TREE);
-      /* We need a copy of the type as build_array_type will return a shared copy
-         of the incomplete array type.  */
-      full_type = build_distinct_type_copy (full_type);
-      TYPE_DOMAIN (full_type) = index;
-      SET_TYPE_STRUCTURAL_EQUALITY (full_type);
     }
-  else
+  else if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      full_type = type;
-      if (TREE_CODE (type) == ARRAY_TYPE)
-	{
-	  array_p = true;
-	  nelts = array_type_nelts_top (type);
-	  outer_nelts = nelts;
-	  type = TREE_TYPE (type);
-	}
+      array_p = true;
+      nelts = array_type_nelts_top (type);
+      outer_nelts = nelts;
+      type = TREE_TYPE (type);
     }
 
   /* If our base type is an array, then make sure we know how many elements
@@ -1869,21 +1867,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
 
   size = size_in_bytes (elt_type);
   if (array_p)
-    {
-      size = size_binop (MULT_EXPR, size, convert (sizetype, nelts));
-      if (vla_p)
-	{
-	  tree n, bitsize;
-
-	  /* Do our own VLA layout.  Setting TYPE_SIZE/_UNIT is
-	     necessary in order for the <INIT_EXPR <*foo> <CONSTRUCTOR
-	     ...>> to be valid.  */
-	  TYPE_SIZE_UNIT (full_type) = size;
-	  n = convert (bitsizetype, nelts);
-	  bitsize = size_binop (MULT_EXPR, TYPE_SIZE (elt_type), n);
-	  TYPE_SIZE (full_type) = bitsize;
-	}
-    }
+    size = size_binop (MULT_EXPR, size, convert (sizetype, nelts));
 
   alloc_fn = NULL_TREE;
 
@@ -2111,8 +2095,9 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
     }
 
   /* Now use a pointer to the type we've actually allocated.  */
-  full_pointer_type = build_pointer_type (full_type);
-  data_addr = fold_convert (full_pointer_type, data_addr);
+  data_addr = fold_convert (pointer_type, data_addr);
+  /* Any further uses of alloc_node will want this type, too.  */
+  alloc_node = fold_convert (pointer_type, alloc_node);
 
   /* Now initialize the allocated object.  Note that we preevaluate the
      initialization expression, apart from the actual constructor call or
@@ -2123,8 +2108,6 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
     {
       bool stable;
       bool explicit_value_init_p = false;
-
-      init_expr = cp_build_indirect_ref (data_addr, NULL, complain);
 
       if (init == void_zero_node)
 	{
@@ -2142,7 +2125,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
                 return error_mark_node;
             }
 	  init_expr
-	    = build_vec_init (init_expr,
+	    = build_vec_init (data_addr,
 			      cp_build_binary_op (input_location,
 						  MINUS_EXPR, outer_nelts,
 						  integer_one_node,
@@ -2159,6 +2142,8 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
 	}
       else
 	{
+	  init_expr = cp_build_indirect_ref (data_addr, NULL, complain);
+
 	  if (TYPE_NEEDS_CONSTRUCTING (type) && !explicit_value_init_p)
 	    {
 	      init_expr = build_special_member_call (init_expr,
@@ -2170,8 +2155,8 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
 	  else if (explicit_value_init_p)
 	    {
 	      /* Something like `new int()'.  */
-	      init_expr = build2 (INIT_EXPR, full_type,
-				  init_expr, build_value_init (full_type));
+	      init_expr = build2 (INIT_EXPR, type,
+				  init_expr, build_value_init (type));
 	    }
 	  else
 	    {
@@ -2212,7 +2197,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
 	     functions that we use for finding allocation functions.  */
 	  cleanup = (build_op_delete_call
 		     (dcode,
-		      fold_convert (full_pointer_type, alloc_node),
+		      alloc_node,
 		      size,
 		      globally_qualified_p,
 		      placement_allocation_fn_p ? alloc_call : NULL_TREE,
@@ -2294,9 +2279,6 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
 
   if (init_preeval_expr)
     rval = build2 (COMPOUND_EXPR, TREE_TYPE (rval), init_preeval_expr, rval);
-
-  /* Convert to the final type.  */
-  rval = build_nop (pointer_type, rval);
 
   /* A new-expression is never an lvalue.  */
   gcc_assert (!lvalue_p (rval));
@@ -2637,9 +2619,10 @@ get_temp_regvar (tree type, tree init)
 /* `build_vec_init' returns tree structure that performs
    initialization of a vector of aggregate types.
 
-   BASE is a reference to the vector, of ARRAY_TYPE.
+   BASE is a reference to the vector, of ARRAY_TYPE, or a pointer
+     to the first element, of POINTER_TYPE.
    MAXINDEX is the maximum index of the array (one less than the
-     number of elements).  It is only used if
+     number of elements).  It is only used if BASE is a pointer or
      TYPE_DOMAIN (TREE_TYPE (BASE)) == NULL_TREE.
 
    INIT is the (possibly NULL) initializer.
@@ -2664,7 +2647,7 @@ build_vec_init (tree base, tree maxindex, tree init,
   tree size;
   tree itype = NULL_TREE;
   tree iterator;
-  /* The type of the array.  */
+  /* The type of BASE.  */
   tree atype = TREE_TYPE (base);
   /* The type of an element in the array.  */
   tree type = TREE_TYPE (atype);
@@ -2680,7 +2663,7 @@ build_vec_init (tree base, tree maxindex, tree init,
   int num_initialized_elts = 0;
   bool is_global;
 
-  if (TYPE_DOMAIN (atype))
+  if (TREE_CODE (atype) == ARRAY_TYPE && TYPE_DOMAIN (atype))
     maxindex = array_type_nelts (atype);
 
   if (maxindex == NULL_TREE || maxindex == error_mark_node)
@@ -2689,7 +2672,7 @@ build_vec_init (tree base, tree maxindex, tree init,
   if (explicit_value_init_p)
     gcc_assert (!init);
 
-  inner_elt_type = strip_array_types (atype);
+  inner_elt_type = strip_array_types (type);
   if (init
       && (from_array == 2
 	  ? (!CLASS_TYPE_P (inner_elt_type)
@@ -2706,15 +2689,20 @@ build_vec_init (tree base, tree maxindex, tree init,
 	 brace-enclosed initializers.  In this case, digest_init and
 	 store_constructor will handle the semantics for us.  */
 
+      gcc_assert (TREE_CODE (atype) == ARRAY_TYPE);
       stmt_expr = build2 (INIT_EXPR, atype, base, init);
       return stmt_expr;
     }
 
   maxindex = cp_convert (ptrdiff_type_node, maxindex);
-  ptype = build_pointer_type (type);
   size = size_in_bytes (type);
-  if (TREE_CODE (TREE_TYPE (base)) == ARRAY_TYPE)
-    base = cp_convert (ptype, decay_conversion (base));
+  if (TREE_CODE (atype) == ARRAY_TYPE)
+    {
+      ptype = build_pointer_type (type);
+      base = cp_convert (ptype, decay_conversion (base));
+    }
+  else
+    ptype = atype;
 
   /* The code we are generating looks like:
      ({
@@ -2926,10 +2914,14 @@ build_vec_init (tree base, tree maxindex, tree init,
 
   stmt_expr = finish_init_stmts (is_global, stmt_expr, compound_stmt);
 
-  /* Now convert make the result have the correct type.  */
-  atype = build_pointer_type (atype);
-  stmt_expr = build1 (NOP_EXPR, atype, stmt_expr);
-  stmt_expr = cp_build_indirect_ref (stmt_expr, NULL, complain);
+  /* Now make the result have the correct type.  */
+  if (TREE_CODE (atype) == ARRAY_TYPE)
+    {
+      atype = build_pointer_type (atype);
+      stmt_expr = build1 (NOP_EXPR, atype, stmt_expr);
+      stmt_expr = cp_build_indirect_ref (stmt_expr, NULL, complain);
+      TREE_NO_WARNING (stmt_expr) = 1;
+    }
 
   current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;
   return stmt_expr;

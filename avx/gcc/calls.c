@@ -2333,6 +2333,37 @@ expand_call (tree exp, rtx target, int ignore)
       || !lang_hooks.decls.ok_for_sibcall (fndecl))
     try_tail_call = 0;
 
+  /* Check if caller and callee disagree in promotion of function
+     return value.  */
+  if (try_tail_call)
+    {
+      enum machine_mode caller_mode, caller_promoted_mode;
+      enum machine_mode callee_mode, callee_promoted_mode;
+      int caller_unsignedp, callee_unsignedp;
+      tree caller_res = DECL_RESULT (current_function_decl);
+
+      caller_unsignedp = TYPE_UNSIGNED (TREE_TYPE (caller_res));
+      caller_mode = caller_promoted_mode = DECL_MODE (caller_res);
+      callee_unsignedp = TYPE_UNSIGNED (TREE_TYPE (funtype));
+      callee_mode = callee_promoted_mode = TYPE_MODE (TREE_TYPE (funtype));
+      if (targetm.calls.promote_function_return (TREE_TYPE (current_function_decl)))
+	caller_promoted_mode
+	  = promote_mode (TREE_TYPE (caller_res), caller_mode,
+			  &caller_unsignedp, 1);
+      if (targetm.calls.promote_function_return (funtype))
+	callee_promoted_mode
+	  = promote_mode (TREE_TYPE (funtype), callee_mode,
+			  &callee_unsignedp, 1);
+      if (caller_mode != VOIDmode
+	  && (caller_promoted_mode != callee_promoted_mode
+	      || ((caller_mode != caller_promoted_mode
+		   || callee_mode != callee_promoted_mode)
+		  && (caller_unsignedp != callee_unsignedp
+		      || GET_MODE_BITSIZE (caller_mode)
+			 < GET_MODE_BITSIZE (callee_mode)))))
+	try_tail_call = 0;
+    }
+
   /* Ensure current function's preferred stack boundary is at least
      what we need.  Stack alignment may also increase preferred stack
      boundary.  */
@@ -3603,6 +3634,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       rtx val = argvec[argnum].value;
       rtx reg = argvec[argnum].reg;
       int partial = argvec[argnum].partial;
+      unsigned int parm_align = argvec[argnum].locate.boundary;
       int lower_bound = 0, upper_bound = 0, i;
 
       if (! (reg != 0 && partial == 0))
@@ -3615,10 +3647,10 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #ifdef ARGS_GROW_DOWNWARD
 	      /* stack_slot is negative, but we want to index stack_usage_map
 		 with positive values.  */
-	      upper_bound = -argvec[argnum].locate.offset.constant + 1;
+	      upper_bound = -argvec[argnum].locate.slot_offset.constant + 1;
 	      lower_bound = upper_bound - argvec[argnum].locate.size.constant;
 #else
-	      lower_bound = argvec[argnum].locate.offset.constant;
+	      lower_bound = argvec[argnum].locate.slot_offset.constant;
 	      upper_bound = lower_bound + argvec[argnum].locate.size.constant;
 #endif
 
@@ -3664,7 +3696,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 		}
 	    }
 
-	  emit_push_insn (val, mode, NULL_TREE, NULL_RTX, PARM_BOUNDARY,
+	  emit_push_insn (val, mode, NULL_TREE, NULL_RTX, parm_align,
 			  partial, reg, 0, argblock,
 			  GEN_INT (argvec[argnum].locate.offset.constant),
 			  reg_parm_stack_space,
@@ -4201,7 +4233,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		    - int_size_in_bytes (TREE_TYPE (pval))
 		    + partial);
 	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
-				  NULL_RTX, TYPE_MODE (sizetype), 0);
+				  NULL_RTX, TYPE_MODE (sizetype),
+				  EXPAND_NORMAL);
 	}
 
       parm_align = arg->locate.boundary;

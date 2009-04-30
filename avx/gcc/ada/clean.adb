@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2003-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 2003-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -878,7 +878,7 @@ package body Clean is
                --  Source_Dirs or Source_Files is specified as an empty list,
                --  so always look for Ada units in extending projects.
 
-               if Data.Ada_Sources_Present
+               if Has_Ada_Sources (Data)
                  or else Data.Extends /= No_Project
                then
                   for Unit in Unit_Table.First ..
@@ -1028,8 +1028,8 @@ package body Clean is
                   for Proj in Project_Table.First ..
                     Project_Table.Last (Project_Tree.Projects)
                   loop
-                     if Project_Tree.Projects.Table
-                       (Proj).Other_Sources_Present
+                     if Has_Foreign_Sources
+                          (Project_Tree.Projects.Table (Proj))
                      then
                         Global_Archive := True;
                         exit;
@@ -1625,7 +1625,7 @@ package body Clean is
 
             procedure Bad_Argument is
             begin
-               Fail ("invalid argument """, Arg, """");
+               Fail ("invalid argument """ & Arg & """");
             end Bad_Argument;
 
          begin
@@ -1680,7 +1680,7 @@ package body Clean is
                               Dir : constant String := Arg (3 .. Arg'Last);
                            begin
                               if not Is_Directory (Dir) then
-                                 Fail (Dir, " is not a directory");
+                                 Fail (Dir & " is not a directory");
                               else
                                  Add_Lib_Search_Dir (Dir);
                               end if;
@@ -1697,7 +1697,7 @@ package body Clean is
                               Dir : constant String := Argument (Index);
                            begin
                               if not Is_Directory (Dir) then
-                                 Fail (Dir, " is not a directory");
+                                 Fail (Dir & " is not a directory");
                               else
                                  Add_Lib_Search_Dir (Dir);
                               end if;
@@ -1853,8 +1853,9 @@ package body Clean is
 
                            else
                               Fail
-                                ("illegal external assignment '",
-                                 Ext_Asgn, "'");
+                                ("illegal external assignment '"
+                                 & Ext_Asgn
+                                 & "'");
                            end if;
                         end;
 

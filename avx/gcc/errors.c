@@ -1,5 +1,5 @@
 /* Basic error reporting routines.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -40,8 +40,8 @@ int have_error = 0;
 
 /* Print a warning message - output produced, but there may be problems.  */
 
-bool
-warning (int opt ATTRIBUTE_UNUSED, const char *format, ...)
+void
+warning (const char *format, ...)
 {
   va_list ap;
 
@@ -50,7 +50,6 @@ warning (int opt ATTRIBUTE_UNUSED, const char *format, ...)
   vfprintf (stderr, format, ap);
   va_end (ap);
   fputc('\n', stderr);
-  return true;
 }
 
 

@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -232,22 +232,6 @@ delete_insn_chain (rtx start, rtx finish, bool clear_bb)
       start = next;
     }
 }
-
-/* Like delete_insn_chain but also purge dead edges from BB.  */
-
-void
-delete_insn_chain_and_edges (rtx first, rtx last)
-{
-  bool purge = false;
-
-  if (INSN_P (last)
-      && BLOCK_FOR_INSN (last)
-      && BB_END (BLOCK_FOR_INSN (last)) == last)
-    purge = true;
-  delete_insn_chain (first, last, false);
-  if (purge)
-    purge_dead_edges (BLOCK_FOR_INSN (last));
-}
 
 /* Create a new basic block consisting of the instructions between HEAD and END
    inclusive.  This function is designed to allow fast BB construction - reuses
@@ -379,8 +363,6 @@ rtl_delete_block (basic_block b)
      label for an exception handler which can't be reached.  We need
      to remove the label from the exception_handler_label list.  */
   insn = BB_HEAD (b);
-  if (LABEL_P (insn))
-    maybe_remove_eh_handler (insn);
 
   end = get_last_bb_insn (b);
 
@@ -437,7 +419,7 @@ struct rtl_opt_pass pass_free_cfg =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   PROP_cfg,                             /* properties_destroyed */
@@ -572,10 +554,6 @@ rtl_merge_blocks (basic_block a, basic_block b)
   /* If there was a CODE_LABEL beginning B, delete it.  */
   if (LABEL_P (b_head))
     {
-      /* This might have been an EH label that no longer has incoming
-	 EH edges.  Update data structures to match.  */
-      maybe_remove_eh_handler (b_head);
-
       /* Detect basic blocks with nothing but a label.  This can happen
 	 in particular at the end of a function.  */
       if (b_head == b_end)
@@ -2598,10 +2576,6 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
   /* If there was a CODE_LABEL beginning B, delete it.  */
   if (LABEL_P (BB_HEAD (b)))
     {
-      /* This might have been an EH label that no longer has incoming
-	 EH edges.  Update data structures to match.  */
-      maybe_remove_eh_handler (BB_HEAD (b));
-
       delete_insn (BB_HEAD (b));
     }
 
