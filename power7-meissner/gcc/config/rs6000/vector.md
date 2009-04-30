@@ -357,12 +357,23 @@
 
 ;; Note the arguments for __builtin_altivec_vsel are op2, op1, mask
 ;; which is in the reverse order that we want
-(define_expand "vector_vsel<mode>"
+(define_expand "vector_select_<mode>"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
-	(if_then_else:VEC_L (ne (match_operand:VEC_L 3 "vlogical_operand" "")
-				(const_int 0))
-			    (match_operand:VEC_L 2 "vlogical_operand" "")
-			    (match_operand:VEC_L 1 "vlogical_operand" "")))]
+	(if_then_else:VEC_L
+	 (ne:CC (match_operand:VEC_L 3 "vlogical_operand" "")
+		(const_int 0))
+	 (match_operand:VEC_L 2 "vlogical_operand" "")
+	 (match_operand:VEC_L 1 "vlogical_operand" "")))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+(define_expand "vector_select_<mode>_uns"
+  [(set (match_operand:VEC_L 0 "vlogical_operand" "")
+	(if_then_else:VEC_L
+	 (ne:CCUNS (match_operand:VEC_L 3 "vlogical_operand" "")
+		   (const_int 0))
+	 (match_operand:VEC_L 2 "vlogical_operand" "")
+	 (match_operand:VEC_L 1 "vlogical_operand" "")))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 

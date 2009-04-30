@@ -65,6 +65,7 @@
    (UNSPEC_VSUM2SWS     134)
    (UNSPEC_VSUMSWS      135)
    (UNSPEC_VPERM        144)
+   (UNSPEC_VPERM_UNS    145)
    (UNSPEC_VRFIP        148)
    (UNSPEC_VRFIN        149)
    (UNSPEC_VRFIM        150)
@@ -464,10 +465,22 @@
 
 (define_insn "*altivec_vsel<mode>"
   [(set (match_operand:VM 0 "altivec_register_operand" "=v")
-	(if_then_else:VM (ne (match_operand:VM 1 "altivec_register_operand" "v")
-			     (const_int 0))
-			 (match_operand:VM 2 "altivec_register_operand" "v")
-			 (match_operand:VM 3 "altivec_register_operand" "v")))]
+	(if_then_else:VM
+	 (ne:CC (match_operand:VM 1 "altivec_register_operand" "v")
+		(const_int 0))
+	 (match_operand:VM 2 "altivec_register_operand" "v")
+	 (match_operand:VM 3 "altivec_register_operand" "v")))]
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
+  "vsel %0,%3,%2,%1"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*altivec_vsel<mode>_uns"
+  [(set (match_operand:VM 0 "altivec_register_operand" "=v")
+	(if_then_else:VM
+	 (ne:CCUNS (match_operand:VM 1 "altivec_register_operand" "v")
+		   (const_int 0))
+	 (match_operand:VM 2 "altivec_register_operand" "v")
+	 (match_operand:VM 3 "altivec_register_operand" "v")))]
   "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vsel %0,%3,%2,%1"
   [(set_attr "type" "vecperm")])
@@ -1311,6 +1324,16 @@
 		    (match_operand:VM 2 "register_operand" "v")
 		    (match_operand:V16QI 3 "register_operand" "v")]
 		   UNSPEC_VPERM))]
+  "TARGET_ALTIVEC"
+  "vperm %0,%1,%2,%3"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "altivec_vperm_<mode>_uns"
+  [(set (match_operand:VM 0 "register_operand" "=v")
+	(unspec:VM [(match_operand:VM 1 "register_operand" "v")
+		    (match_operand:VM 2 "register_operand" "v")
+		    (match_operand:V16QI 3 "register_operand" "v")]
+		   UNSPEC_VPERM_UNS))]
   "TARGET_ALTIVEC"
   "vperm %0,%1,%2,%3"
   [(set_attr "type" "vecperm")])

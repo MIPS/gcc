@@ -349,6 +349,25 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__builtin_vsx_xxlxor=__builtin_vec_xor");
       builtin_define ("__builtin_vsx_xxsel=__builtin_vec_sel");
       builtin_define ("__builtin_vsx_vperm=__builtin_vec_perm");
+
+      /* Also map the a and m versions of the multiply/add instructions to the
+	 builtin for people blindly going off the instruction manual.  */
+      builtin_define ("__builtin_vsx_xvmaddadp=__builtin_vsx_xvmadddp");
+      builtin_define ("__builtin_vsx_xvmaddmdp=__builtin_vsx_xvmadddp");
+      builtin_define ("__builtin_vsx_xvmaddasp=__builtin_vsx_xvmaddsp");
+      builtin_define ("__builtin_vsx_xvmaddmsp=__builtin_vsx_xvmaddsp");
+      builtin_define ("__builtin_vsx_xvmsubadp=__builtin_vsx_xvmsubdp");
+      builtin_define ("__builtin_vsx_xvmsubmdp=__builtin_vsx_xvmsubdp");
+      builtin_define ("__builtin_vsx_xvmsubasp=__builtin_vsx_xvmsubsp");
+      builtin_define ("__builtin_vsx_xvmsubmsp=__builtin_vsx_xvmsubsp");
+      builtin_define ("__builtin_vsx_xvnmaddadp=__builtin_vsx_xvnmadddp");
+      builtin_define ("__builtin_vsx_xvnmaddmdp=__builtin_vsx_xvnmadddp");
+      builtin_define ("__builtin_vsx_xvnmaddasp=__builtin_vsx_xvnmaddsp");
+      builtin_define ("__builtin_vsx_xvnmaddmsp=__builtin_vsx_xvnmaddsp");
+      builtin_define ("__builtin_vsx_xvnmsubadp=__builtin_vsx_xvnmsubdp");
+      builtin_define ("__builtin_vsx_xvnmsubmdp=__builtin_vsx_xvnmsubdp");
+      builtin_define ("__builtin_vsx_xvnmsubasp=__builtin_vsx_xvnmsubsp");
+      builtin_define ("__builtin_vsx_xvnmsubmsp=__builtin_vsx_xvnmsubsp");
     }
 
   /* May be overridden by target configuration.  */

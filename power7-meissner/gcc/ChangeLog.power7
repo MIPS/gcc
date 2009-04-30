@@ -1,3 +1,47 @@
+2009-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vector_select_<mode>): Rename from
+	vector_vsel_<mode>.  Use mode of CCmode on the NE operator.
+	(vector_select_<mode>_uns): Clone vector_select_<mode> for
+	unsigned types.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Map both of
+	the A and M types of multiply/add builtins to the internal name
+	without either A/M, since the compiler will pick the appropriate
+	instruction based on the registers allocated.
+
+	* config/rs6000/rs6000.c (builtin_mode_to_type): Add support for
+	unsigned types.
+	(struct builtin_hash_struct): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(builtin_hash_function): Ditto.
+	(builtin_hash_eq): Ditto.
+	(builtin_function_type): Add an argument for the builtin function
+	code.  For functions that take or produce unsigned types, use an
+	unsigned type instead of a signed types to make things type
+	correct.  Change callers.
+	(rs6000_builtin_vec_perm): Add support for unsigned vector permute
+	functions.
+	(bdesc_3arg): Ditto.
+	(rs6000_emit_vector_cond): Ditto.
+
+	* config/rs6000/vsx.md (vsx_xxsel<mode>): Make NE operator have
+	CCmode mode.
+	(vsx_xxsel<mode>_uns): Clone vsx_xxsel<mode> to make unsigned
+	varients.
+
+	* config/rs6000/rs6000.h (ALTIVEC_BUILTIN_VSEL*): Add unsigned
+	variants.
+	(ALTIVEC_BUILTIN_VPERM*): Ditto.
+	(VSX_BUILTIN_XXSEL*): Ditto.
+	(VSX_BUILTIN_VPERM*): Ditto.
+
+	* config/rs6000/altivec.md (UNSPEC_VPERM_UNS): New unspec constant.
+	(altivec_vsel<mode>): Use CCmode for NE mode.
+	(altivec_vsel<mode>_uns): Clone from altivec_vsel<mode> for
+	unsigned types.
+	(altivec_vperm<mode>_uns): New insn for vperm on unsigned types.
+
 2009-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Sync up to 146911.
