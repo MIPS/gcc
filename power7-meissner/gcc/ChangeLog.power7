@@ -1,5 +1,7 @@
 2009-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Sync up to mainline 147014.
+
 	* config/rs6000/vector.md (vector_select_<mode>): Rename from
 	vector_vsel_<mode>.  Use mode of CCmode on the NE operator.
 	(vector_select_<mode>_uns): Clone vector_select_<mode> for

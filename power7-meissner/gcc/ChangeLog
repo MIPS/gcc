@@ -1,3 +1,220 @@
+2009-04-30  Rafael Avila de Espindola  <espindola@google.com>
+
+	* alloc-pool.c (alloc_pool_descriptor): Use an insert_opion value
+	instead of an int.
+	* bitmap.c (bitmap_descriptor): Likewise.
+	* ggc-common.c (loc_descriptor): Likewise.
+	* varray.c (varray_descriptor): Likewise.
+	* vec.c (vec_descriptor): Likewise.
+
+2009-04-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* Makefile.in (dce.o): Add $(EXCEPT_H).
+	* dce.c: Include except.h and delete redundant vector definitions.
+	(deletable_insn_p): Return false for non-call insns that can throw
+	if DF is running.
+
+2009-04-30  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* gcse.c (ae_gen): Remove.
+	(can_assign_to_reg_p): Rename to can_assign_to_reg_without_clobbers_p
+	and make non-static function to make it available in store-motion.c.
+	Update call sites with search-and-replace.
+	(enumerate_ldsts, reg_set_info, reg_clear_last_set, store_ops_ok,
+	extract_mentioned_regs, extract_mentioned_regs_helper,
+	find_moveable_store, compute_store_table, load_kills_store, find_loads,
+	store_killed_in_insn, store_killed_after, store_killed_before,
+	build_store_vectors, insert_insn_start_basic_block, insert-store,
+	remove_reachable_equiv_notes, replace_store_insn, delete_store,
+	free_store_memory, one_store_motion_pass, gate_rtl_store_motion,
+	execute_rtl_store_motion, pass_rtl_store_motion): Move to...
+	* store-motion.c: ...new file.  Also copy data structures from gcse.c
+	and clean up to remove parts not used by store motion.
+	* rtl.h (can_assign_to_reg_without_clobbers_p): Add prototype.
+	* Makefile.in (store-motion.o): New rule. Add to OBJS-common.
+
+2009-04-30  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/38571
+	* config/arm/arm.h (FUNCTION_BOUNDARY): Set to 16 for thumb
+	when optimizing for size.
+
+2009-04-30  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcse.c (gcse_constant_p): Fix typo in last change.
+
+2009-04-30  Rafael Avila de Espindola  <espindola@google.com>
+
+	* plugin.c: Include plugin-version.h only if ENABLE_PLUGIN is defined.
+
+2009-04-30  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcse.c (gcse_constant_p): Make sure the constant is sharable.
+
+2009-04-29  James E. Wilson  <wilson@codesourcery.com>
+
+	* config/mips/mips.c (mips_add_offset): Use gen_int_mode for
+	CONST_HIGH_PART result.
+
+2009-04-29  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (initial_elimination_offset): Rename to
+	avr_initial_elimination_offset.
+	(frame_pointer_required_p): Rename to avr_frame_pointer_required_p,
+	change return type to bool.
+	(avr_can_eliminate): New function.
+	* config/avr/avr.h (CAN_ELIMINATE): Use avr_can_eliminate.
+	(FRAME_POINTER_REQUIRED): Use avr_frame_pointer_required_p.
+	(INITIAL_ELIMINATION_OFFSET): Use avr_initial_elimination_offset.
+	* config/avr/avr-protos.h (initial_elimination_offset) : Rename to
+	avr_initial_elimination_offset.
+	(frame_pointer_required_p): Rename to avr_frame_pointer_required_p.
+	(avr_initial_elimination_offset): Define.
+
+2009-04-29  Eric Botcazou  <ebotcazou@adacore.com>
+            Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR rtl-optimization/39938
+	* Makefile.in (cfgrtl.o): Add $(INSN_ATTR_H).
+	* cfgrtl.c: Include insn-attr.h.
+	(rest_of_pass_free_cfg): New function.
+	(pass_free_cfg): Use rest_of_pass_free_cfg as execute function.
+	* resource.c (init_resource_info): Remove call to df_analyze.
+
+2009-04-29  Richard Guenther  <rguenther@suse.de>
+
+	PR target/39943
+	* config/i386/i386.c (ix86_vectorize_builtin_conversion): Only
+	allow conversion to signed integers.
+
+2009-04-29  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (verify_gimple_assign_binary): Allow vector
+	shifts of floating point vectors if the shift amount is
+	a constant multiple of the element size.
+
+2009-04-29  Andreas Krebbel  <krebbel1@de.ibm.com>
+	    Michael Matz  <matz@suse.de>
+
+	PR middle-end/39927
+	PR bootstrap/39929
+	* tree-outof-ssa.c (emit_partition_copy): New function.
+	(insert_partition_copy_on_edge, insert_rtx_to_part_on_edge,
+	insert_part_to_rtx_on_edge): Perform the partition base var
+	copy using emit_partition_copy.
+	(insert_value_copy_on_edge): Convert constants to the right mode.
+	(insert_rtx_to_part_on_edge): Add UNSIGNEDSRCP parameter.
+	(elim_create): Pass the sign of the src to insert_rtx_to_part_on_edge.
+
+2009-04-29  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (bfin_optimize_loop): If we need a scratch reg,
+	scan backwards to try to find a constant to initialize it.
+
+	* config/bfin/bfin.c (bfin_optimize_loop): When looking for the last
+	insn before the loop_end instruction, don't look past labels.
+
+2009-04-29  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39937
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Do not
+	loose type conversions.
+	(forward_propagate_addr_expr): Fix tuplification bug.  Remove
+	stmts only if there are no uses of its definition.
+
+2009-04-29  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.h (splitting_loops): Declare.
+	* config/bfin/bfin-protos.h (WA_05000257, WA_05000283, WA_05000315):
+	Reorder bit definitions to be ascending.
+	(WA_LOAD_LCREGS, ENABLE_WA_LOAD_LCREGS): New macros.
+	* config/bfin/bfin.c (splitting_loops): New variable.
+	(bfin_cpus): Add WA_LOAD_LCREGS as needed.
+	(struct loop_info): Remove members INIT and LOOP_INIT.
+	(bfin_optimize_loop): Don't set them.  Reorder the code that generates
+	the LSETUP sequence.  Allow LC to be loaded from any register, but also
+	add a case to push/pop a PREG scratch if ENABLE_WA_LOAD_LCREGS.
+	(bfin_reorg_loops): When done, split all BB_ENDs with splitting_loops
+	set to 1.
+	* config/bfin/bfin.md (loop_end splitter): Use splitting_loops instead
+	of reload_completed.
+	From Jie Zhang:
+	* config/bfin/bfin.md (movsi_insn): Refine constraints.
+
+2009-04-29  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.in (PLUGIN_VERSION_H): New.
+	(OBJS-common): Remove plugin-version.o.
+	(plugin.o): Depend on (PLUGIN_VERSION_H).
+	(plugin-version.o): Remove.
+	* configure: Regenerate
+	* configure.ac: Create plugin-version.h.
+	* gcc-plugin.h (plugin_gcc_version): Remove.
+	(plugin_default_version_check): Change signature.
+	* plugin-version.c: Remove.
+	* plugin.c: Include plugin-version.h.
+	(str_plugin_gcc_version_name): Remove.
+	(try_init_one_plugin): Pass gcc version to plugin_init.
+	(plugin_default_version_check): Both gcc and plugin versions are now
+	arguments.
+
+2009-04-29  Bernd Schmidt  <bernd.schmidt@analog.com>
+	
+	* config/bfin/bfin.c (bfin_optimize_loop): Unify handling of
+	problematic last insns.  Test for TYPE_CALL rather than CALL_P.
+	Remove special case testing for last insn of inner loops. Don't fail if
+	the loop ends with a jump, emit an extra nop instead.
+
+	* config/bfin/bfin.c (bfin_register_move_cost): Test for subsets of
+	DREGS rather than comparing directly.  Remove code that tries to
+	account for latencies.
+
+2009-04-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39941
+	* tree-ssa-pre.c (eliminate): Schedule update-ssa after
+	eliminating an indirect call.
+
+2009-04-29  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (verify_types_in_gimple_reference): Add require_lvalue
+	parameter.  Allow invariants as base if !require_lvalue.
+	(verify_gimple_assign_single): Adjust.
+
+2009-04-29  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (sp_or_sm, spm_string, spm_name): New macro.
+	(ss<spm_name>hi3, ss<spm_name>hi3_parts, ss<spm_name>hi3_low_parts,
+	ss<spm_name_hi3_high_parts): New patterns, replacing ssaddhi3, ssubhi3,
+	ssaddhi3_parts and sssubhi3_parts.
+	(flag_mulhi3_parts): Produce a HImode output rather than trying to set
+	a VEC_SELECT.
+	* config/bfin/bfin.c (bfin_expand_builtin, case BFIN_BUILTIN_CPLX_SQU):
+	Adjust accordingly.
+
+2009-04-28  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vect-loop.c (get_initial_def_for_induction): Use
+	correct types for pointer increment.
+
+2009-04-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* toplev.c (print_version): Update GMP version string calculation.
+
+2009-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/39938
+	* resource.c (init_resource_info): Add call to df_analyze.
+
+2009-04-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.md (usegp): Cast the result of
+	alpha_find_lo_sum_using_gp to enum attr_usegp.
+	* config/alpha/alpha.c (override_options): Remove end-of-structure
+	marker element from cpu_table.  Use array size of cpu_table to handle
+	-mcpu and -mtune options.
+	(tls_symbolic_operand_type): Change 0 to TLS_MODEL_NONE.
+
 2009-04-28  Joseph Myers  <joseph@codesourcery.com>
 
 	* config.gcc (powerpc*-*-* | rs6000-*-*): Add
@@ -57,9 +274,9 @@
 
 2009-04-28  Paolo Bonzini  <bonzini@gnu.org>
 
-        * config/m32c/m32c.c (TARGET_PROMOTE_FUNCTION_RETURN,
-        m32c_promote_function_return, TARGET_PROMOTE_PROTOTYPES,
-        m32c_promote_prototypes): Delete.
+	* config/m32c/m32c.c (TARGET_PROMOTE_FUNCTION_RETURN,
+	m32c_promote_function_return, TARGET_PROMOTE_PROTOTYPES,
+	m32c_promote_prototypes): Delete.
 
 2009-04-28  Michael Matz  <matz@suse.de>
 
@@ -456,7 +673,7 @@
 	to above.
 
 2009-04-27  Richard Sandiford  <rdsandiford@googlemail.com>
-            Eric Botcazou  <ebotcazou@adacore.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
 
 	* resource.c (find_basic_block): Use BLOCK_FOR_INSN to look up
 	a label's basic block.
