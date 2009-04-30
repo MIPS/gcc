@@ -1,3 +1,143 @@
+2009-04-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* toplev.c (print_version): Update GMP version string calculation.
+
+2009-04-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39903
+	* config/i386/i386.c (construct_container): Don't call
+	gen_reg_or_parallel with BLKmode on X86_64_SSE_CLASS,
+	X86_64_SSESF_CLASS and X86_64_SSEDF_CLASS.
+
+2009-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/39794
+	* alias.c (canon_true_dependence): Add x_addr argument.
+	* rtl.h (canon_true_dependence): Adjust prototype.
+	* cse.c (check_dependence): Adjust canon_true_dependence callers.
+	* cselib.c (cselib_invalidate_mem): Likewise.
+	* gcse.c (compute_transp): Likewise.
+	* dse.c (scan_reads_nospill): Likewise.
+	(record_store, check_mem_read_rtx): Likewise.  For non-const-or-frame
+	addresses pass base->val_rtx as mem_addr, for const-or-frame addresses
+	canon_base_addr of the group, plus optional offset.
+	(struct group_info): Rename canon_base_mem to
+	canon_base_addr.
+	(get_group_info): Set canon_base_addr to canon_rtx of base, not
+	canon_rtx of base_mem.
+
+2009-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/39543
+	* fwprop.c (forward_propagate_asm): New function.
+	(forward_propagate_and_simplify): Propagate also into __asm, if it
+	doesn't increase the number of referenced registers.
+
+	PR c/39889
+	* stmt.c (warn_if_unused_value): Look through NON_LVALUE_EXPR.
+
+2009-04-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/constraints.md ('I', 'J'): Fix condition.
+
+2009-04-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/39867
+	* fold-const.c (fold_cond_expr_with_comparison): When folding
+	> and >= to MAX, make sure the MAX uses the same type as the
+	comparison's operands.
+
+2009-04-23  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu-builtins.h: Delete file.
+
+	* config/spu/spu.h (enum spu_builtin_type): Move here from
+	spu-builtins.h.
+	(struct spu_builtin_description): Likewise.  Add GTY marker.
+	Do not use enum spu_function_code or enum insn_code.
+	(spu_builtins): Add extern declaration.
+
+	* config/spu/spu.c: Do not include "spu-builtins.h".
+	(enum spu_function_code, enum spu_builtin_type_index,
+	V16QI_type_node, V8HI_type_node, V4SI_type_node, V2DI_type_node,
+	V4SF_type_node, V2DF_type_node, unsigned_V16QI_type_node,
+	unsigned_V8HI_type_node, unsigned_V4SI_type_node,
+	unsigned_V2DI_type_node): Move here from spu-builtins.h.
+	(spu_builtin_types): Make static.  Add GTY marker.
+	(spu_builtins): Add extern declaration with GTY marker.
+	Include "gt-spu.h".
+
+	* config/spu/spu-c.c: Do not include "spu-builtins.h".
+	(spu_resolve_overloaded_builtin): Do not use spu_function_code.
+	Check programmatically whether all parameters are scalar.
+
+	* config/spu/t-spu-elf (spu.o, spu-c.o): Update dependencies.
+
+2009-04-22  Jing Yu  <jingyu@google.com>
+
+	PR testsuite/39781
+	* config/arm/arm.h: Define HANDLE_PRAGMA_PACK_PUSH_POP.
+
+2009-04-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline:
+	2009-04-17  Eric Botcazou  <ebotcazou@adacore.com>
+	* dbxout.c (dbxout_block): Reinstate test on TREE_USED.
+	* tree-ssa-live.c (remove_unused_scope_block_p): Update TREE_USED bit.
+
+2009-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* alias.c (find_base_term): Move around LO_SUM case, so that
+	CONST falls through into PLUS/MINUS handling.
+
+	PR c/39855
+	* fold-const.c (fold_binary) <case LSHIFT_EXPR>: When optimizing
+	into 0, use omit_one_operand.
+
+2009-04-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/39762
+	* ira-int.h (ira_register_move_cost, ira_may_move_in_cost,
+	ira_may_move_out_cost): Add comments about way of their usage.
+	(ira_get_register_move_cost, ira_get_may_move_cost): New functions.
+
+	* ira-conflicts.c (process_regs_for_copy): Use function
+	ira_get_register_move_cost instead of global
+	ira_register_move_cost.
+
+	* ira-color.c (update_copy_costs, calculate_allocno_spill_cost,
+	color_pass, move_spill_restore, update_curr_costs): Ditto.
+
+	* ira-lives.c (process_single_reg_class_operands): Ditto.
+
+	* ira-emit.c (emit_move_list): Ditto.
+
+	* ira-costs.c (copy_cost): Don't call ira_init_register_move_cost.
+	(record_reg_classes): Ditto.  Use functions
+	ira_get_register_move_cost and ira_get_may_move_cost instead of
+	global vars ira_register_move_cost, ira_may_move_out_cost and
+	ira_may_move_in_cost.
+	(record_address_regs): Don't call ira_init_register_move_cost.
+	Use function ira_get_may_move_cost instead of global
+	ira_may_move_in_cost.
+	(process_bb_node_for_hard_reg_moves): Use function
+	ira_get_register_move_cost instead of global ira_register_move_cost.
+	(ira_costs): Don't call ira_init_register_move_cost.
+
+2009-04-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39824
+	* tree-ssa-ccp.c (fold_const_aggregate_ref): For INDIRECT_REFs
+	make sure the types are compatible.
+
+2009-04-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.4.1.
+	* DEV-PHASE: Set to prerelease.
+
 2009-04-21  Release Manager
 
 	* GCC 4.4.0 released.
