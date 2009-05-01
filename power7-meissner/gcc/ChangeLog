@@ -1,7 +1,115 @@
+2009-05-01  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* ipa-reference.c: Do not include c-common.h, include splay-tree.h.
+	* ipa-utils.c: Likewise.
+	* ipa-type-escape.c: Likewise.
+	* cgraphunit.c Do not include c-common.h.
+	* ipa-pure-const.c: Likewise.
+	* tree-if-conv.c: Likewise.
+	* matrix-reorg.c: Do not include c-common.h and c-tree.h.
+	* ipa-struct-reorg.c: Likewise.
+	* tree-nomudflap.c: Likewise.
+	* tree-ssa-structalias.c: Likewise.
+
+2009-05-01  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* store-motion.c: Many cleanups to make this pass a first-class
+	citizen instead of an appendix to gcse load motion.  Add TODO list
+	to make this pass faster/cleaner/better.
+
+	(struct ls_expr): Post gcse.c-split cleanups.
+	Rename to st_expr.  Rename "loads" field to "antic_stores".  Rename
+	"stores" field to "avail_stores".
+	(pre_ldst_mems): Rename to store_motion_mems.
+	(pre_ldst_table): Rename to store_motion_mems_table.
+	(pre_ldst_expr_hash): Rename to pre_st_expr_hash, update users.
+	(pre_ldst_expr_eq): Rename to pre_st_expr_eq, update users.
+	(ldst_entry): Rename to st_expr_entry, update users.
+	(free_ldst_entry): Rename to free_st_expr_entry, update users.
+	(free_ldst_mems): Rename to free_store_motion_mems, update users.
+	(enumerate_ldsts): Rename to enumerate_store_motion_mems, update caller.
+	(first_ls_expr): Rename to first_st_expr, update users.
+	(next_ls_expr): Rename to next_st_expr, update users.
+	(print_ldst_list): Rename to print_store_motion_mems.  Print names of
+	fields properly for store motion instead of names inherited from load
+	motion in gcse.c.
+	(ANTIC_STORE_LIST, AVAIL_STORE_LIST): Remove.
+	(LAST_AVAIL_CHECK_FAILURE): Explain what this is.  Undefine when we
+	are done with it.
+
+	(ae_kill): Rename to st_kill, update users.
+	(ae_gen): Rename to st_avloc, update users.
+	(transp): Rename to st_transp, update users.
+	(pre_insert_map): Rename to st_insert_map, update users.
+	(pre_delete_map): Rename to st_delete_map, update users.
+	(insert_store, build_store_vectors, free_store_memory,
+	one_store_motion_pass): Update for abovementioned changes.
+
+	(gcse_subst_count, gcse_create_count): Remove.
+	(one_store_motion_pass): New statistics counters "n_stores_deleted"
+	and "n_stores_created", local variables.
+
+	(extract_mentioned_regs, extract_mentioned_regs_1): Rewrite to
+	use for_each_rtx.
+
+	(regvec, compute_store_table_current_insn): Remove.
+	(reg_set_info, reg_clear_last_set): Remove.
+	(compute_store_table): Use DF caches instead of local dataflow
+	solvers.
+
+2009-05-01  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-objc-common.c (c_tree_printer): Print identifiers with
+	pp_identifier, not pp_string.  Mark "({anonymous})" for
+	translation.
+	* c-pretty-print.c (pp_c_ws_string): New.
+	(pp_c_cv_qualifier, pp_c_type_specifier,
+	pp_c_specifier_qualifier_list, pp_c_parameter_type_list,
+	pp_c_storage_class_specifier, pp_c_function_specifier,
+	pp_c_attributes, pp_c_bool_constant, pp_c_constant,
+	pp_c_primary_expression, pp_c_postfix_expression,
+	pp_c_unary_expression, pp_c_shift_expression,
+	pp_c_relational_expression, pp_c_equality_expression,
+	pp_c_logical_and_expression, pp_c_logical_or_expression): Mostly
+	use pp_string and pp_c_ws_string in place of pp_identifier and
+	pp_c_identifier for non-identifiers.  Mark English strings for
+	translation.
+	* c-pretty-print.h (pp_c_ws_string): Declare.
+
+2009-04-30  Paul Pluzhnikov  <ppluzhnikov@google.com>
+	    Roland McGrath <roland@redhat.com>
+
+	* configure.ac (HAVE_LD_BUILDID): New check for ld --build-id
+	support.
+	(ENABLE_LD_BUILDID): New configuration option.
+	* gcc.c [HAVE_LD_BUILDID and ENABLE_LD_BUILDID]
+	(LINK_BUILDID_SPEC): New macro.
+	(init_spec): If defined, prepend it between LINK_EH_SPEC and
+	link_spec.
+	* doc/install.texi: Document --enable-linker-build-id option.
+	* configure: Rebuild.
+	* config.in: Rebuild.
+
+2009-04-30  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips.h (FRAME_GROWS_DOWNWARD,
+	MIPS_GP_SAVE_AREA_SIZE): Define new macros.
+	(STARTING_FRAME_OFFSET): Return 0 if FRAME_GROWS_DOWNWARD.  Use
+	MIPS_GP_SAVE_AREA_SIZE.
+	* config/mips/mips.c (struct mips_frame_info): Update comment
+	before arg_pointer_offset and hard_frame_pointer_offset.
+	(mips_compute_frame_info): Update diagram before function: to
+	correctly use stack_pointer_rtx for fp_sp_offset and gp_sp_offset, to
+	indicate the position of frame_pointer_rtx with -fstack-protector and
+	to show args_size.  Don't allocate cprestore area for leaf functions
+	if FRAME_GROWS_DOWNWARD.  Use MIPS_GP_SAVE_AREA_SIZE to set
+	cprestore_size.
+	(mips_initial_elimination_offset): Update for FRAME_GROWS_DOWNWARD.
+
 2009-04-30  Michael Matz  <matz@suse.de>
 
-        PR tree-optimization/39955
-        * config/rs6000/rs6000.c (rs6000_check_sdmode): Also check SSA_NAMEs.
+	PR tree-optimization/39955
+	* config/rs6000/rs6000.c (rs6000_check_sdmode): Also check SSA_NAMEs.
 
 2009-04-30  Dave Korn  <dave.korn.cygwin@gmail.com>
 

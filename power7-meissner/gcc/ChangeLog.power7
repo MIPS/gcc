@@ -1,6 +1,8 @@
 2009-05-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Revital1 Eres <ERES@il.ibm.com>
 
+	Sync up to mainline 147040.
+
 	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Do not expand
 	__vector if it is not followed by a known identifier.
 
