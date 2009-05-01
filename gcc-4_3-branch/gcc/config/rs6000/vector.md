@@ -778,14 +778,20 @@
    (match_operand:VEC_K 1 "vlogical_operand" "")
    (match_operand:VEC_K 2 "vlogical_operand" "")
    (match_operand:V16QI 3 "vlogical_operand" "")]
-  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)
-   || ((<MODE>mode == V16QImode || <MODE>mode == V8HImode)
-        && VECTOR_MEM_VSX_P (<MODE>mode))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2],
 				       operands[3]));
   DONE;
 })
+
+;; Under VSX, vectors of 4/8 byte alignments do not need to be aligned
+;; since the load already handles it.
+(define_expand "movmisalign<mode>"
+ [(set (match_operand:VEC_N 0 "vfloat_operand" "")
+       (match_operand:VEC_N 1 "vfloat_operand" ""))]
+ "VECTOR_MEM_VSX_P (<MODE>mode)"
+ "")
 
 
 ;; Vector shift left in bits.  Currently supported ony for shift

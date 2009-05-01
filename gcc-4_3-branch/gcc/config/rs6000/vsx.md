@@ -360,14 +360,6 @@
 ;; We may need to have a varient on the pattern for use in the prologue
 ;; that doesn't depend on TARGET_UPDATE.
 
-
-;; Under VSX, vectors of 4/8 byte alignments do not need to be aligned
-;; since the load already handles it.
-(define_expand "movmisalign<mode>"
- [(set (match_operand:VSX_N 0 "vsx_register_operand" "")
-       (match_operand:VSX_N 1 "vsx_register_operand" ""))]
- "VECTOR_MEM_VSX_P (<MODE>mode)"
- "")
 
 ;; VSX scalar and vector floating point arithmetic instructions
 (define_insn "*vsx_add<mode>3"
