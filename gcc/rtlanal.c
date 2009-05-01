@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "df.h"
 #include "tree.h"
+#include "multi-target.h"
 
 /* Information about a subreg of a hard register.  */
 struct subreg_info
@@ -50,6 +51,8 @@ struct subreg_info
      mode.  */
   bool representable_p;
 };
+
+START_TARGET_SPECIFIC
 
 /* Forward declarations */
 static void set_of_1 (rtx, const_rtx, void *);
@@ -5047,3 +5050,4 @@ constant_pool_constant_p (rtx x)
   return GET_CODE (x) == CONST_DOUBLE;
 }
 
+END_TARGET_SPECIFIC

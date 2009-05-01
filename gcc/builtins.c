@@ -50,6 +50,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "diagnostic.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifndef SLOW_UNALIGNED_ACCESS
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) STRICT_ALIGNMENT
@@ -13742,3 +13745,5 @@ fold_call_stmt (gimple stmt, bool ignore)
     }
   return NULL_TREE;
 }
+
+END_TARGET_SPECIFIC

@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SCHED_INT_H
 #define GCC_SCHED_INT_H
 
+#include "multi-target.h"
+
 #ifdef INSN_SCHEDULING
 
 /* For state_t.  */
@@ -61,6 +63,8 @@ struct sched_scan_info_def
   void (*init_insn) (rtx);
 };
 
+START_TARGET_SPECIFIC
+
 extern const struct sched_scan_info_def *sched_scan_info;
 
 extern void sched_scan (const struct sched_scan_info_def *,
@@ -75,6 +79,8 @@ extern void sched_extend_target (void);
 
 extern void haifa_init_h_i_d (bb_vec_t, basic_block, insn_vec_t, rtx);
 extern void haifa_finish_h_i_d (void);
+
+END_TARGET_SPECIFIC
 
 /* Hooks that are common to all the schedulers.  */
 struct common_sched_info_def
@@ -106,6 +112,8 @@ struct common_sched_info_def
   /* Scheduler pass identifier.  It is preferably used in assertions.  */
   enum sched_pass_id_t sched_pass_id;
 };
+
+START_TARGET_SPECIFIC
 
 extern struct common_sched_info_def *common_sched_info;
 
@@ -174,6 +182,8 @@ extern void sched_finish (void);
 
 extern bool sel_insn_is_speculation_check (rtx);
 
+END_TARGET_SPECIFIC
+
 /* Describe the ready list of the scheduler.
    VEC holds space enough for all insns in the current region.  VECLEN
    says how many exactly.
@@ -188,6 +198,8 @@ struct ready_list
   int first;
   int n_ready;
 };
+
+START_TARGET_SPECIFIC
 
 extern char *ready_try;
 extern struct ready_list ready;
@@ -211,14 +223,12 @@ extern void sched_create_recovery_edges (basic_block, basic_block,
 /* Pointer to data describing the current DFA state.  */
 extern state_t curr_state;
 
+END_TARGET_SPECIFIC
 /* Type to represent status of a dependence.  */
 typedef int ds_t;
 
 /* Type to represent weakness of speculative dependence.  */
 typedef int dw_t;
-
-extern enum reg_note ds_to_dk (ds_t);
-extern ds_t dk_to_ds (enum reg_note);
 
 /* Information about the dependency.  */
 struct _dep
@@ -238,6 +248,11 @@ struct _dep
   ds_t status;
 };
 
+START_TARGET_SPECIFIC
+extern enum reg_note ds_to_dk (ds_t);
+extern ds_t dk_to_ds (enum reg_note);
+END_TARGET_SPECIFIC
+
 typedef struct _dep dep_def;
 typedef dep_def *dep_t;
 
@@ -246,12 +261,14 @@ typedef dep_def *dep_t;
 #define DEP_TYPE(D) ((D)->type)
 #define DEP_STATUS(D) ((D)->status)
 
+START_TARGET_SPECIFIC
 /* Functions to work with dep.  */
 
 extern void init_dep_1 (dep_t, rtx, rtx, enum reg_note, ds_t);
 extern void init_dep (dep_t, rtx, rtx, enum reg_note);
 
 extern void sd_debug_dep (dep_t);
+END_TARGET_SPECIFIC
 
 /* Definition of this struct resides below.  */
 struct _dep_node;
@@ -628,6 +645,7 @@ struct spec_info_def
   int flags;
 };
 typedef struct spec_info_def *spec_info_t;
+START_TARGET_SPECIFIC
 
 extern spec_info_t spec_info;
 
@@ -1371,12 +1389,16 @@ extern void sd_copy_back_deps (rtx, rtx, bool);
 extern void sd_delete_dep (sd_iterator_def);
 extern void sd_debug_lists (rtx, sd_list_types_def);
 
+END_TARGET_SPECIFIC
+
 #endif /* INSN_SCHEDULING */
 
+START_TARGET_SPECIFIC
 /* Functions in sched-vis.c.  These must be outside INSN_SCHEDULING as 
    sched-vis.c is compiled always.  */
 extern void print_insn (char *, const_rtx, int);
 extern void print_pattern (char *, const_rtx, int);
 extern void print_value (char *, const_rtx, int);
+END_TARGET_SPECIFIC
 
 #endif /* GCC_SCHED_INT_H */

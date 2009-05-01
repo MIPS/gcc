@@ -22,7 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_SEL_SCHED_DUMP_H
 
 #include "sel-sched-ir.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 /* These values control the dumping of control flow graph to the .dot file.  */
 enum sel_dump_cfg_def
@@ -238,4 +240,7 @@ extern void debug_blist (blist_t);
 extern void debug_insn_vector (rtx_vec_t);
 extern void debug_hard_reg_set (HARD_REG_SET);
 extern rtx debug_mem_addr_value (rtx);
-#endif
+
+END_TARGET_SPECIFIC
+
+#endif /* GCC_SEL_SCHED_DUMP_H */

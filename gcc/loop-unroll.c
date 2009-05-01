@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "hashtab.h"
 #include "recog.h"    
+#include "multi-target.h"
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -68,6 +69,8 @@ along with GCC; see the file COPYING3.  If not see
    how many times we should unroll the loop; the experiments I have made
    showed that this choice may affect performance in order of several %.
    */
+
+START_TARGET_SPECIFIC
 
 /* Information about induction variables to split.  */
 
@@ -2293,3 +2296,5 @@ free_opt_info (struct opt_info *opt_info)
     }
   free (opt_info);
 }
+
+END_TARGET_SPECIFIC

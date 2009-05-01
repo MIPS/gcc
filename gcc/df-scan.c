@@ -45,6 +45,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "df.h"
 #include "tree-pass.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifndef HAVE_epilogue
 #define HAVE_epilogue 0
@@ -4574,3 +4577,5 @@ df_scan_verify (void)
       df_reg_chain_verify_unmarked (DF_REG_EQ_USE_CHAIN (i));
     }
 }
+
+END_TARGET_SPECIFIC

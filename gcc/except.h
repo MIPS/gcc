@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 
+#include "multi-target.h"
+
 struct function;
 
 /* Per-function EH data.  Used only in except.c, but GC and others
@@ -28,6 +30,8 @@ struct eh_status;
 
 /* Internal structure describing a region.  */
 struct eh_region_d;
+
+START_TARGET_SPECIFIC
 
 /* Test: is exception handling turned on?  */
 extern int doing_eh (int);
@@ -122,6 +126,7 @@ extern int (*lang_eh_type_covers) (tree a, tree b);
 /* Map a type to a runtime object to match type.  */
 extern tree (*lang_eh_runtime_type) (tree);
 
+END_TARGET_SPECIFIC
 
 /* Just because the user configured --with-sjlj-exceptions=no doesn't
    mean that we can use call frame exceptions.  Detect that the target
@@ -172,5 +177,7 @@ struct throw_stmt_node GTY(())
   int region_nr;
 };
 
+START_TARGET_SPECIFIC
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern void set_eh_throw_stmt_table (struct function *, struct htab *);
+END_TARGET_SPECIFIC

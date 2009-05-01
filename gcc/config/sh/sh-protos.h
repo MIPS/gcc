@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SH_PROTOS_H
 #define GCC_SH_PROTOS_H
 
+#include "multi-target.h"
+
 enum sh_function_kind {
   /* A function with normal C ABI  */
   FUNCTION_ORDINARY,
@@ -167,8 +169,11 @@ extern int shmedia_cleanup_truncate (rtx *, void *);
 extern int sh_contains_memref_p (rtx);
 extern int sh_loads_bankedreg_p (rtx);
 extern rtx shmedia_prepare_call_address (rtx fnaddr, int is_sibcall);
+END_TARGET_SPECIFIC
 struct secondary_reload_info;
-extern enum reg_class sh_secondary_reload (bool, rtx, enum reg_class,
+START_TARGET_SPECIFIC
+extern int /*enum reg_class*/ sh_secondary_reload (bool, rtx,
+						   int /*enum reg_class*/,
 					   enum machine_mode,
 					   struct secondary_reload_info *);
 extern int sh2a_get_function_vector_number (rtx);

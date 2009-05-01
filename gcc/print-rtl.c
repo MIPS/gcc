@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "multi-target.h"
 
 /* These headers all define things which are not available in
    generator programs.  */
@@ -41,6 +42,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #endif
+
+START_TARGET_SPECIFIC
 
 static FILE *outfile;
 
@@ -769,3 +772,5 @@ print_simple_rtl (FILE *outf, const_rtx x)
   print_rtl (outf, x);
   flag_simple = 0;
 }
+
+END_TARGET_SPECIFIC

@@ -671,6 +671,10 @@ struct target_option_hooks
   bool (*can_inline_p) (tree, tree);
 };
 
+/* ??? the use of the target vector makes it necessary to cast
+   target-specific enums from/to int, since we expose the function
+   signatures of target specific hooks that operate e.g. on enum reg_class
+   to target-independent passes.  */
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -789,7 +793,7 @@ struct gcc_target
 
   /* Return a register class for which branch target register
      optimizations should be applied.  */
-  enum reg_class (* branch_target_register_class) (void);
+  int /*enum reg_class*/ (* branch_target_register_class) (void);
 
   /* Return true if branch target register optimizations should include
      callee-saved registers that are not already live during the current
@@ -1034,10 +1038,10 @@ struct gcc_target
   const char *(*invalid_binary_op) (int op, const_tree type1, const_tree type2);
 
   /* Return the array of IRA cover classes for the current target.  */
-  const enum reg_class *(*ira_cover_classes) (void);
+  const int /*enum reg_class*/ *(*ira_cover_classes) (void);
 
   /* Return the class for a secondary reload, and fill in extra information.  */
-  enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
+  int /*enum reg_class*/ (*secondary_reload) (bool, rtx, int /*enum reg_class*/,
 				      enum machine_mode,
 				      struct secondary_reload_info *);
 

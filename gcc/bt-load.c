@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "recog.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Target register optimizations - these are performed after reload.  */
 
@@ -1458,7 +1461,8 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 static void
 branch_target_load_optimize (bool after_prologue_epilogue_gen)
 {
-  enum reg_class klass = targetm.branch_target_register_class ();
+  enum reg_class klass
+    = (enum reg_class) targetm.branch_target_register_class ();
   if (klass != NO_REGS)
     {
       /* Initialize issue_rate.  */
@@ -1573,3 +1577,4 @@ struct rtl_opt_pass pass_branch_target_load_optimize2 =
  }
 };
 
+END_TARGET_SPECIFIC

@@ -112,6 +112,7 @@ a register with any other reload.  */
 #include "params.h"
 #include "target.h"
 #include "df.h"
+#include "multi-target.h"
 
 /* True if X is a constant that can be forced into the constant pool.  */
 #define CONST_POOL_OK_P(X)			\
@@ -126,6 +127,8 @@ a register with any other reload.  */
    || (reg_class_size [(C)] >= 1 && CLASS_LIKELY_SPILLED_P (C)))
 
 
+START_TARGET_SPECIFIC
+
 /* All reloads of the current insn are recorded here.  See reload.h for
    comments.  */
 int n_reloads;
@@ -362,7 +365,9 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 
   sri.icode = CODE_FOR_nothing;
   sri.prev_sri = prev_sri;
-  rclass = targetm.secondary_reload (in_p, x, reload_class, reload_mode, &sri);
+  rclass = (enum reg_class) targetm.secondary_reload (in_p, x,
+						      (int) reload_class,
+						      reload_mode, &sri);
   icode = (enum insn_code) sri.icode;
 
   /* If we don't need any secondary registers, done.  */
@@ -524,7 +529,8 @@ secondary_reload_class (bool in_p, enum reg_class rclass,
 
   sri.icode = CODE_FOR_nothing;
   sri.prev_sri = NULL;
-  rclass = targetm.secondary_reload (in_p, x, rclass, mode, &sri);
+  rclass = (enum reg_class) targetm.secondary_reload (in_p, x, (int) rclass,
+						      mode, &sri);
   icode = (enum insn_code) sri.icode;
 
   /* If there are no secondary reloads at all, we return NO_REGS.
@@ -7373,3 +7379,5 @@ debug_reload (void)
 {
   debug_reload_to_stream (stderr);
 }
+
+END_TARGET_SPECIFIC

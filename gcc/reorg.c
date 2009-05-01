@@ -136,6 +136,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "target.h"
 #include "tree-pass.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef DELAY_SLOTS
 
@@ -4119,3 +4122,5 @@ struct rtl_opt_pass pass_machine_reorg =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

@@ -106,6 +106,7 @@
 #include "expr.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "multi-target.h"
 
 /* Type of micro operation.  */
 enum micro_operation_type
@@ -270,6 +271,8 @@ typedef const struct variable_def *const_variable;
 
 /* Macro to access MEM_OFFSET as an HOST_WIDE_INT.  Evaluates MEM twice.  */
 #define INT_MEM_OFFSET(mem) (MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0)
+
+START_TARGET_SPECIFIC
 
 /* Alloc pool for struct attrs_def.  */
 static alloc_pool attrs_pool;
@@ -3446,3 +3449,4 @@ struct rtl_opt_pass pass_variable_tracking =
  }
 };
 
+END_TARGET_SPECIFIC

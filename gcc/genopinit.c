@@ -493,6 +493,9 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"expr.h\"\n");
   printf ("#include \"optabs.h\"\n");
   printf ("#include \"reload.h\"\n\n");
+  printf ("#include \"multi-target.h\"\n\n");
+
+  printf ("START_TARGET_SPECIFIC\n\n");
 
   printf ("void\ninit_all_optabs (void)\n{\n");
 
@@ -525,7 +528,9 @@ from the machine description file `md'.  */\n\n");
       convert_optab_handler (ufixtrunc_optab, i, j)->insn_code\n\
       = convert_optab_handler (sfixtrunc_optab, i, j)->insn_code;\n\
 #endif\n\
-}");
+}\
+\n\
+END_TARGET_SPECIFIC");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

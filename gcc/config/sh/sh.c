@@ -55,7 +55,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "alloc-pool.h"
 #include "tm-constrs.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -191,7 +193,7 @@ static void push_regs (HARD_REG_SET *, int);
 static int calc_live_regs (HARD_REG_SET *);
 static HOST_WIDE_INT rounded_frame_size (int);
 static rtx mark_constant_pool_use (rtx);
-const struct attribute_spec sh_attribute_table[];
+extern const struct attribute_spec sh_attribute_table[];
 static tree sh_handle_interrupt_handler_attribute (tree *, tree, tree, int, bool *);
 static tree sh_handle_resbank_handler_attribute (tree *, tree,
 						 tree, int, bool *);
@@ -1295,7 +1297,7 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
       else
 	opc = NULL_RTX;
 
-      if ((tls_kind = tls_symbolic_operand (op1, Pmode)))
+      if ((tls_kind = (tls_model) tls_symbolic_operand (op1, Pmode)))
 	{
 	  rtx tga_op1, tga_ret, tmp, tmp2;
 
@@ -1476,8 +1478,7 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
   jump = emit_jump_insn (branch_expander (operands[3]));
   if (probability >= 0)
     REG_NOTES (jump)
-      = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (probability),
-                           REG_NOTES (jump));
+      = alloc_reg_note (REG_BR_PROB, GEN_INT (probability), REG_NOTES (jump));
 
 }
 
@@ -1763,7 +1764,7 @@ from_compare (rtx *operands, int code)
   else
     insn = gen_rtx_SET (VOIDmode,
 			gen_rtx_REG (SImode, T_REG),
-			gen_rtx_fmt_ee (code, SImode,
+			gen_rtx_fmt_ee ((enum rtx_code) code, SImode,
 					sh_compare_op0, sh_compare_op1));
   if ((TARGET_SH4 || TARGET_SH2A) && GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
@@ -5122,7 +5123,7 @@ sh_reorg (void)
 			  /* If we are not optimizing, then there may not be
 			     a note.  */
 			  if (note)
-			    PUT_MODE (note, REG_INC);
+			    PUT_REG_NOTE_KIND (note, REG_INC);
 
 			  *last_float_addr = r0_inc_rtx;
 			}
@@ -5702,7 +5703,7 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	    }
 	  if (! epilogue_p)
 	    REG_NOTES (insn)
-	      = (gen_rtx_EXPR_LIST
+	      = (alloc_reg_note
 		 (REG_FRAME_RELATED_EXPR,
 		  gen_rtx_SET (VOIDmode, reg,
 			       gen_rtx_PLUS (SImode, reg, GEN_INT (size))),
@@ -5743,8 +5744,7 @@ push (int rn)
 
   x = frame_insn (x);
   REG_NOTES (x)
-    = gen_rtx_EXPR_LIST (REG_INC,
-			 gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
+    = alloc_reg_note (REG_INC, gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
   return x;
 }
 
@@ -5772,8 +5772,7 @@ pop (int rn)
 
   x = emit_insn (x);
   REG_NOTES (x)
-    = gen_rtx_EXPR_LIST (REG_INC,
-			 gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
+    = alloc_reg_note (REG_INC, gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
 }
 
 /* Generate code to push the regs specified in the mask.  */
@@ -6085,8 +6084,8 @@ sh_media_register_for_return (void)
 typedef struct save_entry_s
 {
   unsigned char reg;
-  unsigned char mode;
   short offset;
+  int mode;
 } save_entry;
 
 #define MAX_TEMPS 4
@@ -6351,7 +6350,7 @@ sh_expand_prologue (void)
       tmp_pnt = schedule.temps;
       for (entry = &schedule.entries[1]; entry->mode != VOIDmode; entry++)
         {
-	  enum machine_mode mode = entry->mode;
+	  enum machine_mode mode = (enum machine_mode) entry->mode;
 	  unsigned int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, pre_dec = NULL_RTX;
 	  rtx orig_reg_rtx;
@@ -6481,8 +6480,8 @@ sh_expand_prologue (void)
 		rtx set, note_rtx;
 
 		set = gen_rtx_SET (VOIDmode, mem_rtx, orig_reg_rtx);
-		note_rtx = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, set,
-					      REG_NOTES (insn));
+		note_rtx = alloc_reg_note (REG_FRAME_RELATED_EXPR, set,
+					   REG_NOTES (insn));
 		REG_NOTES (insn) = note_rtx;
 	      }
 
@@ -6496,8 +6495,8 @@ sh_expand_prologue (void)
 							   GEN_INT (offset)));
 
 		set = gen_rtx_SET (VOIDmode, mem_rtx, reg_rtx);
-		note_rtx = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, set,
-					      REG_NOTES (insn));
+		note_rtx = alloc_reg_note (REG_FRAME_RELATED_EXPR, set,
+					   REG_NOTES (insn));
 		REG_NOTES (insn) = note_rtx;
 	      }
 	  }
@@ -6645,7 +6644,7 @@ sh_expand_epilogue (bool sibcall_p)
       tmp_pnt = schedule.temps;
       for (; entry->mode != VOIDmode; entry--)
 	{
-	  enum machine_mode mode = entry->mode;
+	  enum machine_mode mode = (enum machine_mode) entry->mode;
 	  int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, post_inc = NULL_RTX, insn;
 
@@ -8697,7 +8696,7 @@ get_free_reg (HARD_REG_SET regs_live)
 void
 fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 {
-  enum attr_fp_mode fp_mode = mode;
+  enum attr_fp_mode fp_mode = (enum attr_fp_mode) mode;
   enum attr_fp_mode norm_mode = ACTUAL_NORMAL_MODE (FP_MODE);
   rtx addr_reg;
 
@@ -8728,7 +8727,7 @@ sh_insn_length_adjustment (rtx insn)
 
   /* SH2e has a bug that prevents the use of annulled branches, so if
      the delay slot is not filled, we'll have to put a NOP in it.  */
-  if (sh_cpu == CPU_SH2E
+  if (sh_cpu == PROCESSOR_SH2E
       && GET_CODE (insn) == JUMP_INSN
       && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC
       && GET_CODE (PATTERN (insn)) != ADDR_VEC
@@ -9813,7 +9812,7 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 	  || (!(TARGET_SH4A_ARCH || TARGET_SH4_300) && TARGET_USERMODE))
 	emit_library_call (function_symbol (NULL, "__ic_invalidate",
 					    FUNCTION_ORDINARY),
-			   0, VOIDmode, 1, tramp, SImode);
+			   LCT_NORMAL, VOIDmode, 1, tramp, SImode);
       else
 	emit_insn (gen_ic_invalidate_line (tramp));
     }
@@ -10150,7 +10149,7 @@ sh_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       argmode = TYPE_MODE (TREE_TYPE (arg));
       if (argmode != opmode)
 	arg = build1 (NOP_EXPR, optype, arg);
-      op[nop] = expand_expr (arg, NULL_RTX, opmode, 0);
+      op[nop] = expand_expr (arg, NULL_RTX, opmode, EXPAND_NORMAL);
       if (! (*insn_data[icode].operand[nop].predicate) (op[nop], opmode))
 	op[nop] = copy_to_mode_reg (opmode, op[nop]);
     }
@@ -11232,8 +11231,8 @@ shmedia_prepare_call_address (rtx fnaddr, int is_sibcall)
   return fnaddr;
 }
 
-enum reg_class
-sh_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
+int /*enum reg_class*/
+sh_secondary_reload (bool in_p, rtx x, int /*enum reg_class*/ rclass,
 		     enum machine_mode mode, secondary_reload_info *sri)
 {
   if (in_p)
@@ -11337,3 +11336,5 @@ sh_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
 enum sh_divide_strategy_e sh_div_strategy = SH_DIV_STRATEGY_DEFAULT;
 
 #include "gt-sh.h"
+
+END_TARGET_SPECIFIC

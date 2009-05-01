@@ -4544,8 +4544,11 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"toplev.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"function.h\"\n");
+  printf ("#include \"multi-target.h\"\n");
   printf ("\n");
-  printf ("#define operands recog_data.operand\n\n");
+  printf ("#define operands recog_data.operand\n");
+  printf ("\n");
+  printf ("START_TARGET_SPECIFIC\n\n");
 
   /* Make `insn_alternatives'.  */
   insn_alternatives = oballocvec (int, insn_code_number);
@@ -4611,6 +4614,8 @@ from the machine description file `md'.  */\n\n");
   write_const_num_delay_slots ();
 
   write_length_unit_log ();
+
+  printf ("\nEND_TARGET_SPECIFIC\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

@@ -34,7 +34,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "timevar.h"
 #include "df.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 struct regstat_n_sets_and_refs_t *regstat_n_sets_and_refs;
 
@@ -510,3 +512,4 @@ regstat_free_calls_crossed (void)
   reg_info_p = NULL;
 }
 
+END_TARGET_SPECIFIC

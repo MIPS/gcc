@@ -65,6 +65,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "timevar.h"
 #include "vecprim.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* So we can assign to cfun in this file.  */
 #undef cfun
@@ -121,8 +124,10 @@ static GTY(()) int funcdef_no;
    target specific, per-function data structures.  */
 struct machine_function * (*init_machine_status) (void);
 
+#ifndef EXTRA_TARGET
 /* The currently compiled function.  */
 struct function *cfun = 0;
+#endif /* !EXTRA_TARGET */
 
 /* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
 static VEC(int,heap) *prologue;
@@ -432,6 +437,7 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
 }
 
 
+END_TARGET_SPECIFIC
 /* In order to evaluate some expressions, such as function calls returning
    structures in memory, we need to temporarily allocate stack locations.
    We record each allocated temporary in the following structure.
@@ -482,6 +488,7 @@ struct temp_slot GTY(())
      info is for combine_temp_slots.  */
   HOST_WIDE_INT full_size;
 };
+START_TARGET_SPECIFIC
 
 /* A table of addresses that represent a stack slot.  The table is a mapping
    from address RTXen to a temp slot.  */
@@ -1827,6 +1834,10 @@ struct rtl_opt_pass pass_instantiate_virtual_regs =
    This means a type for which function calls must pass an address to the
    function or get an address back from the function.
    EXP may be a type node or an expression (whose type is tested).  */
+/* FIXME: This function uses target-specific information, but is used
+   by tree passes.  Should check if anything needs to be fixed up when
+   moving (part of) a function to another target, and henceforth dispatch
+   to appropriate aggregate_value_p function.  */
 
 int
 aggregate_value_p (const_tree exp, const_tree fntype)
@@ -4179,6 +4190,8 @@ init_dummy_function_start (void)
   prepare_function_start ();
 }
 
+EXTRA_TARGETS_DECL (void init_function_start (tree));
+
 /* Generate RTL for the start of the function SUBR (a FUNCTION_DECL tree node)
    and initialize static variables for generating RTL for the statements
    of the function.  */
@@ -4186,6 +4199,7 @@ init_dummy_function_start (void)
 void
 init_function_start (tree subr)
 {
+  EXTRA_TARGETS_CALL (init_function_start (subr));
   if (subr && DECL_STRUCT_FUNCTION (subr))
     set_cfun (DECL_STRUCT_FUNCTION (subr));
   else
@@ -5643,3 +5657,5 @@ struct rtl_opt_pass pass_match_asm_constraints =
 
 
 #include "gt-function.h"
+
+END_TARGET_SPECIFIC

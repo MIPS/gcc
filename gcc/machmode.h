@@ -21,11 +21,12 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef HAVE_MACHINE_MODES
 #define HAVE_MACHINE_MODES
 
+#include "multi-target.h"
+
 /* Make an enum class that gives all the machine modes.  */
 #include "insn-modes.h"
 
 /* Get the name of mode MODE as a string.  */
-
 extern const char * const mode_name[NUM_MACHINE_MODES];
 #define GET_MODE_NAME(MODE)  mode_name[MODE]
 
@@ -224,6 +225,7 @@ extern const unsigned char mode_wider[NUM_MACHINE_MODES];
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
 #define GET_MODE_2XWIDER_MODE(MODE) ((enum machine_mode) mode_2xwider[MODE])
 
+START_TARGET_SPECIFIC
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.
    The value is BLKmode if no other mode is found.  */
@@ -251,6 +253,7 @@ extern enum machine_mode get_best_mode (int, int, unsigned int,
 extern CONST_MODE_BASE_ALIGN unsigned char mode_base_align[NUM_MACHINE_MODES];
 
 extern unsigned get_mode_alignment (enum machine_mode);
+END_TARGET_SPECIFIC
 
 #define GET_MODE_ALIGNMENT(MODE) get_mode_alignment (MODE)
 

@@ -61,6 +61,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static int can_delete_note_p (const_rtx);
 static int can_delete_label_p (const_rtx);
@@ -3172,3 +3175,5 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   rtl_extract_cond_bb_edges, /* extract_cond_bb_edges */
   NULL		/* flush_pending_stmts */
 };
+
+END_TARGET_SPECIFIC

@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "real.h"
 #include "double-int.h"
+#include "multi-target.h"
 
 struct fixed_value GTY(())
 {
@@ -44,10 +45,12 @@ extern FIXED_VALUE_TYPE fconst1[MAX_FCONST1];
 #define FCONST0(mode)	fconst0[mode - QQmode]
 #define FCONST1(mode)	fconst1[mode - HAmode]
 
+START_TARGET_SPECIFIC
 /* Return a CONST_FIXED with value R and mode M.  */
 #define CONST_FIXED_FROM_FIXED_VALUE(r, m) \
   const_fixed_from_fixed_value (r, m)
 extern rtx const_fixed_from_fixed_value (FIXED_VALUE_TYPE, enum machine_mode);
+END_TARGET_SPECIFIC
 
 /* Initialize from a decimal or hexadecimal string.  */
 extern void fixed_from_string (FIXED_VALUE_TYPE *, const char *,

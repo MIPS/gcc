@@ -23,6 +23,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "errors.h"
 #include "hashtab.h"
 
+/* FIXME: The intention is that across targets, modes are considered
+   equivalent if they have the same bitsize, mode_class and (where applicable)
+   precision.  Thus, QImode and a target with 32 bit units should be
+   equivalent to SImode on a target with 8 bit units.
+   However, at the moment we don't support mixing targets with different
+   BITS_PER_UNIT.  */
+
 /* enum mode_class is normally defined by machmode.h but we can't
    include that header here.  */
 #include "mode-classes.def"
@@ -54,6 +61,7 @@ struct mode_data
   struct mode_data *next;	/* next this class - arbitrary order */
 
   const char *name;		/* printable mode name -- SI, not SImode */
+  const char *target;		/* the target this mode is specific to.  */
   enum mode_class cl;		/* this mode class */
   unsigned int precision;	/* size in bits, equiv to TYPE_PRECISION */
   unsigned int bytesize;	/* storage size in addressable units */
@@ -81,7 +89,7 @@ static unsigned int n_modes[MAX_MODE_CLASS];
 static struct mode_data *void_mode;
 
 static const struct mode_data blank_mode = {
-  0, "<unknown>", MAX_MODE_CLASS,
+  0, "<unknown>", (const char *) 0, MAX_MODE_CLASS,
   -1U, -1U, -1U, -1U,
   0, 0, 0, 0, 0, 0,
   "<unknown>", 0, 0, 0, 0
@@ -149,6 +157,8 @@ find_mode (const char *name)
   return (struct mode_data *) htab_find (modes_by_name, &key);
 }
 
+static const char *target;
+
 static struct mode_data *
 new_mode (enum mode_class cl, const char *name,
 	  const char *file, unsigned int line)
@@ -169,6 +179,7 @@ new_mode (enum mode_class cl, const char *name,
   memcpy (m, &blank_mode, sizeof (struct mode_data));
   m->cl = cl;
   m->name = name;
+  m->target = target;
   if (file)
     m->file = trim_filename (file);
   m->line = line;
@@ -418,6 +429,26 @@ complete_all_modes (void)
 
   for_all_modes (cl, m)
     complete_mode (m);
+}
+
+static void
+fixup_target_modes (void)
+{
+  struct mode_data *m;
+  int cl;
+
+  /* FIXME: find target-specific modes that describe the same data.  When a
+     mode is found that matches an ealier defined mode, move all earlier modes
+     from the same target in the same mode class in front of the earlier mode;
+     of the equivalent modes, keep only the one that is for the output
+     target.  */
+
+  /* Reset the target field for modes that are for the output target.
+     Henceforth, all modes with the target field set are not modes for
+     the output target.  */
+  for_all_modes (cl, m)
+    if (m->target && !strcmp (m->target, output_target))
+      m->target = (const char *)0;
 }
 
 /* For each mode in class CLASS, construct a corresponding complex mode.  */
@@ -780,7 +811,7 @@ static void
 calc_wider_mode (void)
 {
   int c;
-  struct mode_data *m;
+  struct mode_data *m, *last;
   struct mode_data **sortbuf;
   unsigned int max_n_modes = 0;
   unsigned int i, j;
@@ -824,9 +855,18 @@ calc_wider_mode (void)
 	  qsort (sortbuf, i, sizeof (struct mode_data *), cmp_modes);
 
 	  sortbuf[i] = 0;
+	  last = 0;
 	  for (j = 0; j < i; j++)
-	    sortbuf[j]->next = sortbuf[j]->wider = sortbuf[j + 1];
-
+	    {
+	      sortbuf[j]->wider = void_mode;
+	      if (!sortbuf[j]->target)
+		{
+		  if (last)
+		    last->wider = sortbuf[j];
+		  last = sortbuf[j];
+		}
+	      sortbuf[j]->next = sortbuf[j + 1];
+	    }
 
 	  modes[c] = sortbuf[0];
 	}
@@ -844,8 +884,10 @@ calc_wider_mode (void)
   puts ("\nconst " TYPE " " NAME "[" ASIZE "] =\n{");
 
 #define print_maybe_const_decl(TYPE, NAME, ASIZE, CATEGORY)	\
-  printf ("\n" TYPE " " NAME "[" ASIZE "] = \n{\n",		\
-	  adj_##CATEGORY ? "" : "const ")
+  printf ("\n%s" TYPE " " NAME "[" ASIZE "] = \n{\n",		\
+	  (adj_##CATEGORY \
+	   ? "" \
+	   : "extern const " TYPE " " NAME "[" ASIZE "];\nconst "));
 
 #define print_closer() puts ("};")
 
@@ -870,7 +912,10 @@ enum machine_mode\n{");
   for (c = 0; c < MAX_MODE_CLASS; c++)
     for (m = modes[c]; m; m = m->next)
       {
-	int count_ = printf ("  %smode,", m->name);
+	int count_
+	  = (m->target
+	     ? printf ("  %s_%smode,", m->target, m->name)
+	     : printf ("  %smode,", m->name));
 	printf ("%*s/* %s:%d */\n", 27 - count_, "",
 		 trim_filename (m->file), m->line);
       }
@@ -881,14 +926,14 @@ enum machine_mode\n{");
     {
       first = modes[c];
       last = 0;
-      for (m = first; m; last = m, m = m->next)
+      for (m = first; m && !m->target; last = m, m = m->next)
 	;
 
       /* Don't use BImode for MIN_MODE_INT, since otherwise the middle
 	 end will try to use it for bitfields in structures and the
 	 like, which we do not want.  Only the target md file should
 	 generate BImode widgets.  */
-      if (first && first->precision == 1)
+      while (first && (first->precision == 1 || first->target))
 	first = first->next;
 
       if (first && last)
@@ -933,7 +978,10 @@ emit_insn_modes_c_header (void)
 #include \"coretypes.h\"\n\
 #include \"tm.h\"\n\
 #include \"machmode.h\"\n\
-#include \"real.h\"");
+#include \"real.h\"\n\
+#include \"multi-target.h\"\n\
+\n\
+START_TARGET_SPECIFIC");
 }
 
 static void
@@ -948,7 +996,10 @@ emit_min_insn_modes_c_header (void)
 \n\
 #include \"bconfig.h\"\n\
 #include \"system.h\"\n\
-#include \"machmode.h\"");
+#include \"machmode.h\"\n\
+#include \"multi-target.h\"\n\
+\n\
+START_TARGET_SPECIFIC");
 }
 
 static void
@@ -1002,7 +1053,7 @@ emit_mode_size (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("%sunsigned char", "mode_size",
+  print_maybe_const_decl ("unsigned char", "mode_size",
 			  "NUM_MACHINE_MODES", bytesize);
 
   for_all_modes (c, m)
@@ -1049,6 +1100,8 @@ emit_mode_wider (void)
 	   m2 && m2 != void_mode;
 	   m2 = m2->wider)
 	{
+	  if (m2->target)
+	    continue;
 	  if (m2->bytesize < 2 * m->bytesize)
 	    continue;
 	  if (m->precision != (unsigned int) -1)
@@ -1064,7 +1117,7 @@ emit_mode_wider (void)
 
 	  break;
 	}
-      if (m2 == void_mode)
+      if (m->target || m2 == void_mode)
 	m2 = 0;
       tagged_printf ("%smode",
 		     m2 ? m2->name : void_mode->name,
@@ -1120,7 +1173,7 @@ emit_mode_base_align (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("%sunsigned char",
+  print_maybe_const_decl ("unsigned char",
 			  "mode_base_align", "NUM_MACHINE_MODES",
 			  alignment);
 
@@ -1175,14 +1228,18 @@ emit_real_format_for_mode (void)
 
   /* The beginning of the table is entries for float modes.  */
   for (m = modes[MODE_FLOAT]; m; m = m->next)
-    if (!strcmp (m->format, "0"))
+    if (m->target)
+      ; /* Skip.  */
+    else if (!strcmp (m->format, "0"))
       tagged_printf ("%s", m->format, m->name);
     else
       tagged_printf ("&%s", m->format, m->name);
 
   /* The end of the table is entries for decimal float modes.  */
   for (m = modes[MODE_DECIMAL_FLOAT]; m; m = m->next)
-    if (!strcmp (m->format, "0"))
+    if (m->target)
+      ; /* Skip.  */
+    else if (!strcmp (m->format, "0"))
       tagged_printf ("%s", m->format, m->name);
     else
       tagged_printf ("&%s", m->format, m->name);
@@ -1312,7 +1369,7 @@ emit_mode_ibit (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("%sunsigned char",
+  print_maybe_const_decl ("unsigned char",
 			  "mode_ibit", "NUM_MACHINE_MODES",
 			  ibit);
 
@@ -1330,7 +1387,7 @@ emit_mode_fbit (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("%sunsigned char",
+  print_maybe_const_decl ("unsigned char",
 			  "mode_fbit", "NUM_MACHINE_MODES",
 			  fbit);
 
@@ -1359,6 +1416,7 @@ emit_insn_modes_c (void)
   emit_mode_adjustments ();
   emit_mode_ibit ();
   emit_mode_fbit ();
+  puts ("END_TARGET_SPECIFIC");
 }
 
 static void
@@ -1369,6 +1427,7 @@ emit_min_insn_modes_c (void)
   emit_mode_class ();
   emit_mode_wider ();
   emit_class_narrowest_mode ();
+  puts ("END_TARGET_SPECIFIC");
 }
 
 /* Master control.  */
@@ -1397,6 +1456,8 @@ main (int argc, char **argv)
 
   if (have_error)
     return FATAL_EXIT_CODE;
+
+  fixup_target_modes ();
   
   calc_wider_mode ();
 

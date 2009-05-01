@@ -31,6 +31,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "graphds.h"
 #include "params.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Checks whether BB is executed exactly once in each LOOP iteration.  */
 
@@ -435,3 +438,4 @@ mark_loop_exit_edges (void)
     }
 }
 
+END_TARGET_SPECIFIC

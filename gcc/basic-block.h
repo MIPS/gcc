@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "vec.h"
 #include "function.h"
+#include "multi-target.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -79,6 +80,7 @@ typedef bitmap regset;
 /* Return true if a register is set in a register set.  */
 #define REGNO_REG_SET_P(TO, REG) bitmap_bit_p (TO, REG)
 
+START_TARGET_SPECIFIC
 /* Copy the hard registers in a register set to the hard register set.  */
 extern void reg_set_to_hard_reg_set (HARD_REG_SET *, const_bitmap);
 #define REG_SET_TO_HARD_REG_SET(TO, FROM)				\
@@ -86,6 +88,7 @@ do {									\
   CLEAR_HARD_REG_SET (TO);						\
   reg_set_to_hard_reg_set (&TO, FROM);					\
 } while (0)
+END_TARGET_SPECIFIC
 
 typedef bitmap_iterator reg_set_iterator;
 
@@ -509,45 +512,6 @@ extern bitmap_obstack reg_obstack;
 #define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 #define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
 
-extern void compute_bb_for_insn (void);
-extern unsigned int free_bb_for_insn (void);
-extern void update_bb_for_insn (basic_block);
-
-extern void insert_insn_on_edge (rtx, edge);
-basic_block split_edge_and_insert (edge, rtx);
-
-extern void commit_edge_insertions (void);
-
-extern void remove_fake_edges (void);
-extern void remove_fake_exit_edges (void);
-extern void add_noreturn_fake_exit_edges (void);
-extern void connect_infinite_loops_to_exit (void);
-extern edge unchecked_make_edge (basic_block, basic_block, int);
-extern edge cached_make_edge (sbitmap, basic_block, basic_block, int);
-extern edge make_edge (basic_block, basic_block, int);
-extern edge make_single_succ_edge (basic_block, basic_block, int);
-extern void remove_edge_raw (edge);
-extern void redirect_edge_succ (edge, basic_block);
-extern edge redirect_edge_succ_nodup (edge, basic_block);
-extern void redirect_edge_pred (edge, basic_block);
-extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
-extern void clear_bb_flags (void);
-extern int post_order_compute (int *, bool, bool);
-extern int inverted_post_order_compute (int *);
-extern int pre_and_rev_post_order_compute (int *, int *, bool);
-extern int dfs_enumerate_from (basic_block, int,
-			       bool (*)(const_basic_block, const void *),
-			       basic_block *, int, const void *);
-extern void compute_dominance_frontiers (bitmap *);
-extern bitmap compute_idf (bitmap, bitmap *);
-extern void dump_bb_info (basic_block, bool, bool, int, const char *, FILE *);
-extern void dump_edge_info (FILE *, edge, int);
-extern void brief_dump_cfg (FILE *);
-extern void clear_edges (void);
-extern void scale_bbs_frequencies_int (basic_block *, int, int, int);
-extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type,
-					     gcov_type);
-
 /* Structure to group all of the information to process IF-THEN and
    IF-THEN-ELSE blocks for the conditional execution support.  This
    needs to be in a public file in case the IFCVT macros call
@@ -836,6 +800,10 @@ extern struct edge_list *pre_edge_rev_lcm (int, sbitmap *,
 					   sbitmap **);
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 
+START_TARGET_SPECIFIC
+/* In loop-unroll.c */
+basic_block split_edge_and_insert (edge, rtx);
+
 /* In predict.c */
 extern bool maybe_hot_bb_p (const_basic_block);
 extern bool maybe_hot_edge_p (edge);
@@ -862,6 +830,33 @@ extern bool br_prob_note_reliable_p (const_rtx);
 extern bool predictable_edge_p (edge);
 
 /* In cfg.c  */
+extern edge unchecked_make_edge (basic_block, basic_block, int);
+extern edge cached_make_edge (sbitmap, basic_block, basic_block, int);
+extern edge make_edge (basic_block, basic_block, int);
+extern edge make_single_succ_edge (basic_block, basic_block, int);
+extern void remove_edge_raw (edge);
+extern void redirect_edge_succ (edge, basic_block);
+extern edge redirect_edge_succ_nodup (edge, basic_block);
+extern void redirect_edge_pred (edge, basic_block);
+extern void clear_bb_flags (void);
+extern void dump_bb_info (basic_block, bool, bool, int, const char *, FILE *);
+extern void dump_edge_info (FILE *, edge, int);
+extern void brief_dump_cfg (FILE *);
+extern void clear_edges (void);
+extern void scale_bbs_frequencies_int (basic_block *, int, int, int);
+extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type,
+					     gcov_type);
+extern void check_bb_profile (basic_block, FILE *);
+extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
+extern void initialize_original_copy_tables (void);
+extern void free_original_copy_tables (void);
+extern void set_bb_original (basic_block, basic_block);
+extern basic_block get_bb_original (basic_block);
+extern void set_bb_copy (basic_block, basic_block);
+extern basic_block get_bb_copy (basic_block);
+void set_loop_copy (struct loop *, struct loop *);
+struct loop *get_loop_copy (struct loop *);
+
 extern void dump_regset (regset, FILE *);
 extern void debug_regset (regset);
 extern void init_flow (struct function *);
@@ -884,7 +879,19 @@ extern void clear_aux_for_edges (void);
 extern void free_aux_for_edges (void);
 
 /* In cfganal.c  */
+extern void remove_fake_edges (void);
+extern void remove_fake_exit_edges (void);
+extern void add_noreturn_fake_exit_edges (void);
+extern void connect_infinite_loops_to_exit (void);
 extern void find_unreachable_blocks (void);
+extern int post_order_compute (int *, bool, bool);
+extern int inverted_post_order_compute (int *);
+extern int pre_and_rev_post_order_compute (int *, int *, bool);
+extern int dfs_enumerate_from (basic_block, int,
+			       bool (*)(const_basic_block, const void *),
+			       basic_block *, int, const void *);
+extern void compute_dominance_frontiers (bitmap *);
+extern bitmap compute_idf (bitmap, bitmap *);
 extern bool forwarder_block_p (const_basic_block);
 extern bool can_fallthru (basic_block, basic_block);
 extern bool could_fall_through (basic_block, basic_block);
@@ -892,10 +899,23 @@ extern void flow_nodes_print (const char *, const_sbitmap, FILE *);
 extern void flow_edge_list_print (const char *, const edge *, int, FILE *);
 
 /* In cfgrtl.c  */
+extern void compute_bb_for_insn (void);
+extern unsigned int free_bb_for_insn (void);
+extern void update_bb_for_insn (basic_block);
+extern void insert_insn_on_edge (rtx, edge);
+extern void commit_edge_insertions (void);
+extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern basic_block force_nonfallthru (edge);
 extern rtx block_label (basic_block);
 extern bool purge_all_dead_edges (void);
 extern bool purge_dead_edges (basic_block);
+extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
+extern void init_rtl_bb_info (basic_block);
+extern rtx insert_insn_end_bb_new (rtx, basic_block);
+
+/* In cfglayout.c */
+extern void break_superblocks (void);
+extern void relink_block_chain (bool);
 
 /* In cfgbuild.c.  */
 extern void find_many_sub_basic_blocks (sbitmap);
@@ -916,6 +936,7 @@ extern rtx get_last_bb_insn (basic_block);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (void);
+END_TARGET_SPECIFIC
 
 /* In dominance.c */
 
@@ -954,25 +975,6 @@ extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
 unsigned bb_dom_dfs_in (enum cdi_direction, basic_block);
 unsigned bb_dom_dfs_out (enum cdi_direction, basic_block);
-
-extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
-extern void break_superblocks (void);
-extern void relink_block_chain (bool);
-extern void check_bb_profile (basic_block, FILE *);
-extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
-extern void init_rtl_bb_info (basic_block);
-
-extern void initialize_original_copy_tables (void);
-extern void free_original_copy_tables (void);
-extern void set_bb_original (basic_block, basic_block);
-extern basic_block get_bb_original (basic_block);
-extern void set_bb_copy (basic_block, basic_block);
-extern basic_block get_bb_copy (basic_block);
-void set_loop_copy (struct loop *, struct loop *);
-struct loop *get_loop_copy (struct loop *);
-
-
-extern rtx insert_insn_end_bb_new (rtx, basic_block);
 
 #include "cfghooks.h"
 

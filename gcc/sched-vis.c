@@ -32,6 +32,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "sched-int.h"
 #include "tree-pass.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static char *safe_concat (char *, char *, const char *);
 
@@ -785,3 +788,4 @@ debug_bb_n_slim (int n)
   debug_bb_slim (bb);
 }
 
+END_TARGET_SPECIFIC

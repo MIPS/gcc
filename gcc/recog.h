@@ -18,6 +18,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "multi-target.h"
+
 /* Random number that should be large enough for all purposes.  */
 #define MAX_RECOG_ALTERNATIVES 30
 
@@ -27,6 +29,8 @@ enum op_type {
   OP_OUT,
   OP_INOUT
 };
+
+START_TARGET_SPECIFIC
 
 struct operand_alternative
 {
@@ -287,3 +291,5 @@ struct insn_data
 
 extern const struct insn_data insn_data[];
 extern int peep2_current_count;
+
+END_TARGET_SPECIFIC

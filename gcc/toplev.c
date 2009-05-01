@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-mudflap.h"
 #include "tree-pass.h"
 #include "gimple.h"
+#include "multi-target.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -102,11 +103,13 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+START_TARGET_SPECIFIC
+
 static void general_init (const char *);
 static void do_compile (void);
 static void process_options (void);
-static void backend_init (void);
-static int lang_dependent_init (const char *);
+void backend_init (void);
+int lang_dependent_init (const char *);
 static void init_asm_output (const char *);
 static void finalize (void);
 
@@ -338,6 +341,8 @@ int align_labels_log;
 int align_labels_max_skip;
 int align_functions_log;
 
+#ifndef EXTRA_TARGET
+
 typedef struct
 {
   const char *const string;
@@ -348,6 +353,8 @@ lang_independent_options;
 
 /* Nonzero if subexpressions must be evaluated from left-to-right.  */
 int flag_evaluation_order = 0;
+
+#endif /* !EXTRA_TARGET */
 
 /* The user symbol prefix after having resolved same.  */
 const char *user_label_prefix;
@@ -367,6 +374,8 @@ FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
 const char *dump_file_name;
+
+#ifndef EXTRA_TARGET
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -461,7 +470,7 @@ init_local_tick (void)
 /* Set up a default flag_random_seed and local_tick, unless the user
    already specified one.  Must be called after init_local_tick.  */
 
-static void
+void
 init_random_seed (void)
 {
   unsigned HOST_WIDE_INT value;
@@ -643,6 +652,8 @@ strip_off_ending (char *name, int len)
     }
 }
 
+#endif /* !EXTRA_TARGET */
+
 /* Output a quoted string.  */
 
 void
@@ -701,6 +712,8 @@ output_file_directive (FILE *asm_file, const char *input_name)
   fputc ('\n', asm_file);
 #endif
 }
+
+#ifndef EXTRA_TARGET
 
 /* A subroutine of wrapup_global_declarations.  We've come to the end of
    the compilation unit.  All deferred variables should be undeferred,
@@ -1158,6 +1171,8 @@ print_version (FILE *file, const char *indent)
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
 
+#endif /* !EXTRA_TARGET */
+
 #ifdef ASM_COMMENT_START
 static int
 print_to_asm_out_file (print_switch_type type, const char * text)
@@ -1544,6 +1559,7 @@ realloc_for_line_map (void *ptr, size_t len)
 static void
 general_init (const char *argv0)
 {
+#ifndef EXTRA_TARGET
   const char *p;
 
   p = argv0 + strlen (argv0);
@@ -1598,6 +1614,7 @@ general_init (const char *argv0)
   linemap_init (line_table);
   line_table->reallocator = realloc_for_line_map;
   init_ttree ();
+#endif /* !EXTRA_TARGET */
 
   /* Initialize register usage now so switches may override.  */
   init_reg_sets ();
@@ -1971,7 +1988,7 @@ process_options (void)
 /* This function can be called multiple times to reinitialize the compiler
    back end when register classes or instruction sets have changed,
    before each function.  */
-static void
+void
 backend_init_target (void)
 {
   /* Initialize alignment variables.  */
@@ -2010,9 +2027,10 @@ backend_init_target (void)
   expand_dummy_function_end ();
 }
 
+EXTRA_TARGETS_DECL (void backend_init (void));
 /* Initialize the compiler back end.  This function is called only once,
    when starting the compiler.  */
-static void
+void
 backend_init (void)
 {
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
@@ -2022,6 +2040,8 @@ backend_init (void)
 		    || debug_info_level > DINFO_LEVEL_NONE
 #endif
 		    || flag_test_coverage);
+
+  EXTRA_TARGETS_CALL (backend_init ());
 
   init_rtlanal ();
   init_inline_once ();
@@ -2035,7 +2055,7 @@ backend_init (void)
 
 /* Initialize things that are both lang-dependent and target-dependent.
    This function can be called more than once if target parameters change.  */
-static void
+void
 lang_dependent_init_target (void)
 {
   /* This creates various _DECL nodes, so needs to be called after the
@@ -2058,10 +2078,13 @@ lang_dependent_init_target (void)
   expand_dummy_function_end ();
 }
 
+EXTRA_TARGETS_DECL (int lang_dependent_init (const char *));
+
 /* Language-dependent initialization.  Returns nonzero on success.  */
-static int
+int
 lang_dependent_init (const char *name)
 {
+#ifndef EXTRA_TARGET
   location_t save_loc = input_location;
   if (dump_base_name == 0)
     dump_base_name = name && name[0] ? name : "gccdump";
@@ -2071,8 +2094,10 @@ lang_dependent_init (const char *name)
   if (lang_hooks.init () == 0)
     return 0;
   input_location = save_loc;
+  EXTRA_TARGETS_CALL (lang_dependent_init (name));
 
   init_asm_output (name);
+#endif /* !EXTRA_TARGET */
 
   /* This creates various _DECL nodes, so needs to be called after the
      front end is initialized.  */
@@ -2099,12 +2124,15 @@ lang_dependent_init (const char *name)
   return 1;
 }
 
+EXTRA_TARGETS_DECL (void target_reinit (void));
 
 /* Reinitialize everything when target parameters, such as register usage,
    have changed.  */
 void
 target_reinit (void)
 {
+  EXTRA_TARGETS_CALL (target_reinit ());
+
   /* Reinitialize RTL backend.  */
   backend_init_target ();
 
@@ -2163,6 +2191,8 @@ finalize (void)
   /* Language-specific end of compilation actions.  */
   lang_hooks.finish ();
 }
+
+#ifndef EXTRA_TARGET
 
 /* Initialize the compiler, and compile the input file.  */
 static void
@@ -2232,3 +2262,7 @@ toplev_main (unsigned int argc, const char **argv)
 
   return (SUCCESS_EXIT_CODE);
 }
+
+#endif /* !EXTRA_TARGET */
+
+END_TARGET_SPECIFIC

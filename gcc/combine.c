@@ -105,6 +105,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "cgraph.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Number of attempts to combine instructions in this function.  */
 
@@ -13036,3 +13039,4 @@ struct rtl_opt_pass pass_combine =
  }
 };
 
+END_TARGET_SPECIFIC

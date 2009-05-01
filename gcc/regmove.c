@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static int perhaps_ends_bb_p (rtx);
 static int optimize_reg_copy_1 (rtx, rtx, rtx);
@@ -1370,3 +1373,4 @@ struct rtl_opt_pass pass_regmove =
  }
 };
 
+END_TARGET_SPECIFIC

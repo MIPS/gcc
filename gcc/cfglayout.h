@@ -22,6 +22,10 @@
 
 #include "basic-block.h"
 
+#ifdef EXTRA_TARGET
+namespace EXTRA_TARGET {
+#endif
+
 extern GTY(()) rtx cfg_layout_function_footer;
 extern GTY(()) rtx cfg_layout_function_header;
 
@@ -33,5 +37,9 @@ extern void copy_bbs (basic_block *, unsigned, basic_block *,
 		      edge *, unsigned, edge *, struct loop *,
 		      basic_block);
 extern rtx duplicate_insn_chain (rtx, rtx);
+
+#ifdef EXTRA_TARGET
+} /* Close EXTRA_TARGET namespace.  */
+#endif
 
 #endif /* GCC_CFGLAYOUT_H */

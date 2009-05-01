@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "ggc.h"
 #include "target.h"
+#include "multi-target.h"
 
 /* Simplification and canonicalization of RTL.  */
 
@@ -48,6 +49,8 @@ along with GCC; see the file COPYING3.  If not see
    signed wide int.  */
 #define HWI_SIGN_EXTEND(low) \
  ((((HOST_WIDE_INT) low) < 0) ? ((HOST_WIDE_INT) -1) : ((HOST_WIDE_INT) 0))
+
+START_TARGET_SPECIFIC
 
 static rtx neg_const_int (enum machine_mode, const_rtx);
 static bool plus_minus_operand_p (const_rtx);
@@ -5376,3 +5379,5 @@ simplify_rtx (const_rtx x)
     }
   return NULL;
 }
+
+END_TARGET_SPECIFIC

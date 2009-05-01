@@ -858,9 +858,11 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"tm-constrs.h\"\n");
   printf ("#include \"ggc.h\"\n");
   printf ("#include \"basic-block.h\"\n");
-  printf ("#include \"integrate.h\"\n\n");
+  printf ("#include \"integrate.h\"\n");
+  printf ("#include \"multi-target.h\"\n\n");
   printf ("#define FAIL return (end_sequence (), _val)\n");
   printf ("#define DONE return (_val = get_insns (), end_sequence (), _val)\n\n");
+  printf ("START_TARGET_SPECIFIC\n\n");
 
   /* Read the machine description.  */
 
@@ -903,6 +905,8 @@ from the machine description file `md'.  */\n\n");
      clobber a hard reg.  */
   output_add_clobbers ();
   output_added_clobbers_hard_reg_p ();
+
+  printf ("\nEND_TARGET_SPECIFIC\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

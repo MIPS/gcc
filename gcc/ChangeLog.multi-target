@@ -1,0 +1,155 @@
+2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* regrename.c: Include "multi-target.h" and add START_TARGET_SPECIFIC
+	and END_TARGET_SPECIFC markers.
+	* loop-unswitch.c, sched-ebb.c, fwprop.c, dwarf2asm.c: Likewise.
+	* dwarf2asm.h, ira-conflicts.c, targhooks.c, targhooks.h: Likewise.
+	* regstat.c, see.c, machmode.h, rtlhooks.c, optabs.c: Likewise.
+	* postreload-gcse.c, optabs.h, postreload.c, reload.c: Likewise.
+	* tree.h, reload.h, rtlanal.c, ddg.c, final.c, builtins.c: Likewise.
+	* cfghooks.c, cfghooks.h, cfgloopanal.c, cfg.c: Likewise.
+	* auto-inc-dec.c, toplev.c, toplev.h, reorg.c, regs.h: Likewise.
+	* df-scan.c, haifa-sched.c, dojump.c, dbxout.c, df-core.c: Likewise.
+	* mode-switching.c, modulo-sched.c, caller-save.ci, graph.c: Likewise.
+	* ira-int.h, cse.c, web.c, ira-color.c, sel-sched.c: Likewise.
+	* loop-init.c, cfganal.c, ifcvt.c, jump.c, dwarf2out.c: Likewise.
+	* expr.c, cfgbuild.c, hard-reg-set.h, predict.c, predict.h: Likewise.
+	* recog.c, recog.h, dse.c, sel-sched-ir.c, sel-sched-ir.h: Likewise.
+	* ira-lives.c, regmove.c, sel-sched-dump.c: Likewise.
+	* sel-sched-dump.h, function.c, function.h, print-rtl.c: Likewise.
+	* df.h, sdbout.c, stor-layout.c, rtlhooks-def.h, ira-emit.c: Likewise.
+	* df-byte-scan.c, gcse.c, alias.c, alias.h, init-regs.c: Likewise.
+	* ira-build.c, loop-unroll.c, ggc.h, insn-addr.h, calls.c: Likewise.
+	* loop-doloop.c, rtl-factoring.c, lower-subreg.c, expmed.c: Likewise.
+	* bt-load.c, except.c, except.h, emit-rtl.c, cfgexpand.c: Likewise.
+	* cselib.c, cfgcleanup.c, simplify-rtx.c, explow.c: Likewise.
+	* loop-invariant.c, loop-iv.c, cfglayout.c, varasm.c, ira.c: Likewise.
+	* sched-deps.c, ira.h, rtl.c, ira-costs.c, rtl.h: Likewise.
+	* integrate.c, sched-int.h, output.h, combine.c: Likewise.
+	* fixed-value.h, addresses.h, bb-reorder.c, stack-ptr-mod.c: Likewise.
+	* resource.c, var-tracking.c, resource.h, cfgloop.h: Likewise.
+	* df-problems.c, reginfo.c, sched-rgn.c, basic-block.h: Likewise.
+	* sched-vis.c, passes.c, config/sh/sh-protos.h: Likewise.
+	* config/sh/sh.c, config/sh/sh.h, config/arc/arc.c: Likewise.
+	* config/arc/arc.h, combine-stack-adj.c, cfgrtl.c, stmt.c: Likewise.
+	* dce.c, reload1.c: Likewise.
+	* targhooks.c: Add #ifndef EXTRA_TARGET / #endif directives.
+	* cfghooks.c, toplev.c, expr.c, calls.c, emit-rtl.c: Likewise.
+	* explow.c, passes.c: Likewise.
+	* targhooks.h: (default_branch_target_register_class): Return int
+	instead of enum reg_class.
+	(default_secondary_reload): Likewise.
+	* config/sh/sh-protos.h (sh_secondary_reload): Likewise.
+	* config/sh/sh.c (sh_secondary_reload): Likewise.
+	* targhooks.h: (default_ira_cover_classes): Return const int *
+	instead of const enum reg_class *.
+	* targhooks.c (default_ira_cover_classes): Likewise.
+	* genrecog.c (write_header, main): Make generated file include
+	"multi-target.h" and have START_TARGET_SPECIFIC and END_TARGET_SPECIFC
+	markers.
+	* genopinit.c (main): Likewise.
+	* genoutput.c (output_prologue, main): Likewise.
+	* genextract.c (print_header, main): Likewise.
+	* genautomata.c (main): Likewise.
+	* genemit.c (main): Likewise.
+	* genpeep.c (main): Likewise.
+	* genattrtab.c (main): Likewise.
+	* genattr.c (gen_attr, main): Likewise.
+	* optc-gen.awk: Likewise.
+	* genmodes.c (emit_insn_modes_c_header, emit_insn_modes_c): Likewise.
+	(emit_min_insn_modes_c_header, emit_min_insn_modes_c): Likewise.
+	* genflags.c (main): Likewise.
+	* genpreds.c (write_tm_constrs_h, write_insn_preds_c): Likewise.
+	* opth-gen.awk: Likewise.
+	* gengtype.c (open_base_files): Make generated file include
+	"multi-target.h" and have START_TARGET_SPECIFIC markers.
+	(write_func_for_structure, write_roots): FIXME: effectively comment
+	for EXTRA_TARGET out except for creating the files.
+	(main): Emit END_TARGET_SPECIFIC markers.
+	* multi-target.h: New file.
+	* mkconfig.sh: Support function-like DEFINES.
+	In <target>/<target>-protos.h, wrap header files after multi-target.h
+	up to but excluding tm-preds.h in START_TARGET_SPECIFIC /
+	END_TARGET_SPECIFIC.
+	* tree.h (strip_float_extensions): Delete duplicate declaration.
+	* reload.c (push_secondary_reload): Cast arguments / return value of
+	targetm.secondary_reload from / to enum reg_class.`
+	(secondary_reload_class): Likewise.
+	* ira-costs.c (copy_cost): Likewise.
+	* reload1.c (emit_input_reload_insns): Likewise.
+	* tree-pass.h (rtl_dispatch_pass): New struct.
+	(TODO_arch_dispatch): New macro.
+	(pass_expand): Now has type rtl_dispatch_pass.
+	* tree-scalar-evolution.h (block_before_loop): Don't define for
+	EXTRA_TARGET.
+	(instantiate_parameters, get_chrec_loop): Likewise.
+	* target.h (struct gcc_target): Change branch_target_register_class
+	and ira_cover_classes to avoid the target-specific enum reg_class.
+	* bt-load.c (branch_target_register_class): Likewise.
+	* ddg.h, dbxout.h: Enclose declarations in namespace EXTRA_TARGET.
+	* expr.h, cselib.h, cfglayout.h, gimple.h: Likewise
+	* toplev.c (init_random_seed): No longer static.
+	(lang_dependent_init_target): Likewise.
+	(backend_init): No longer static.  Do an EXTRA_TARGETS_CALL of self.
+	(lang_dependent_init): Likewise.
+	(target_reinit): Do an EXTRA_TARGETS_CALL of self.
+	* toplev.h (init_random_seed): Declare,
+	* machmode.def: Include "extra-modes.h" instead of EXTRA_MODES_FILE.
+	* configure.ac (with_extra_target_list): Add AC_SUBST statement.
+	* configure: Regenerate.
+	* function.c (cfun): Don't define for EXTRA_TARGET.
+	(init_function_start): Do an EXTRA_TARGETS_CALL of self.
+	* function.h (struct function): Add new member target_arch.
+	* genmodes.c (struct mode_date): New member target.
+	(blank_mode): Add initializer for target member.
+	(target): New variable.
+	(new_mode): Initialize target member.
+	(fixup_target_modes): New function.
+	(calc_wider_mode): Skip (other-)target modes.
+	(print_maybe_const_decl): Add declaration for const definition.
+	Don't expect %s in type anymore.  Changed all users.
+	(emit_insn_modes_h): Prefix target modes names with the target name.
+	Don't include target modes in search for MIN_/MAX_ modes.
+	(emit_mode_wider): Skip target modes.
+	(emit_real_format_for_mode): Likewise.
+	(main): Call fixup_target_modes.
+	* emit-rtl.c (const_int_htab, const_double_htab): No longer static
+	* cfgexpand.c (pass_expand): Change type to struct rtl_dispatch_pass.
+	Set TODO_arch_dispatch in todo_flags_finish.
+	Initialize target_variants.
+	* ira.c (setup_cover_and_important_classes): Change type of
+	cover_classes to int *.
+	* README-multi-target: New file.
+	* rtl.h (struct function): Remove forward declaration.
+	(delete_insn): Move declaration to correct block.
+	TDEP-SOURCES: New file.
+	* Makefile.in: Use $(TA) prefix for taget-specific files that are
+	(compiled to be ) included in libbackend.a.
+	(gcc_config_arguments, TA, TARGET_NUM, CXXX, OBJS-rtl): Set.
+	(EXTRA_TARGETS, NUM_TARGETS, empty, space): Likewise.
+	(EXTRA_TARGET_RULES, enumerate): Likewise.
+	(out_object_file) [EXTRA_TARGET]: Set to $(TA)xout.o.
+	(OBJS-common): Use $(OBJS-rtl), and add EXTRA_TARGETS files.
+	(cs-tm.h): Add definitions to indicate total number of targets, the
+	ordinary number of current extra target, and a macro to call all
+	the extra targets to DEFINES.
+	(cs-tm_p.h): Add multi-target.h to HEADERS.
+	($(out_object_file)): Use CXXX.
+	(build/%.o) [EXTRA_TARGET]: Add -DEXTRA_TARGET=$(EXTRA_TARGET).
+	(build/genmodes.o): Add output_target defintion to BUILD_CPPFLAGS.
+	Depend on extra-modes.h instead of on $(extra_modes_file).
+	(extra-modes.h, extra_modes_blurb, COMMON_ABI): New rules.
+	(intl/config.intl, make-OBJS-rtl): Likewise.
+	[EXTRA_TARGET]: Evaluate EXTRA_TARGET_RULES for each target in
+	EXTRA_TARGETS with substitutions.
+	* basic-block.h: Fix location of declarations to properly indicate
+	where the functions are defined.
+	* passes.c (init_optimization_passes) [!EXTRA_TARGET]: Do an
+	EXTRA_TARGETS_CALL of self.
+	(init_optimization_passes) [EXTRA_TARGET]: Initialize
+	pass_expand.target_variants array member for current target.
+	(execute_one_pass): Handle TODO_arch_dispatch flag.
+	* config/sh/sh.c (struct save_entry_s): Change type of mode to int.
+
+	* config/m32r/m32r-protos.h (m32r_compute_function_type): Make this
+	depend on RTX_CODE being defined instead of on TREE_CODE being defined.

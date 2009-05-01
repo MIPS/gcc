@@ -26,6 +26,9 @@ along with GCC; see the file COPYING3.  If not see
    - print active compiler options in assembler output
 */
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #undef ASM_SPEC
 #undef LINK_SPEC
@@ -1086,3 +1089,5 @@ enum arc_function_type {
 #define ARC_INTERRUPT_P(TYPE) \
 ((TYPE) == ARC_FUNCTION_ILINK1 || (TYPE) == ARC_FUNCTION_ILINK2)
 /* Compute the type of a function from its DECL.  */
+
+END_TARGET_SPECIFIC

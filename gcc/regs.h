@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "multi-target.h"
 
 #define REG_BYTES(R) mode_size[(int) GET_MODE (R)]
 
@@ -262,6 +263,7 @@ extern int caller_save_needed;
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE) 0
 #endif
 
+START_TARGET_SPECIFIC
 /* 1 if the corresponding class does contain register of given
    mode.  */
 extern char contains_reg_of_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
@@ -366,5 +368,6 @@ overlaps_hard_reg_set_p (const HARD_REG_SET regs, enum machine_mode mode,
 
   return false;
 }
+END_TARGET_SPECIFIC
 
 #endif /* GCC_REGS_H */

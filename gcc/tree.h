@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "double-int.h"
 #include "alias.h"
 #include "options.h"
+#include "multi-target.h"
 
 /* Codes of tree nodes */
 
@@ -4066,11 +4067,13 @@ extern tree make_accum_type (int, int, int);
 #define make_or_reuse_sat_unsigned_accum_type(P) \
 		make_or_reuse_accum_type (P, 1, 1)
 
+START_TARGET_SPECIFIC
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
    put the prototype here.  Rtl.h does declare the prototype if
    tree.h had been included.  */
 
 extern tree make_tree (tree, rtx);
+END_TARGET_SPECIFIC
 
 /* Return a type like TTYPE except that its TYPE_ATTRIBUTES
    is ATTRIBUTE.
@@ -4215,6 +4218,7 @@ extern tree build_qualified_type (tree, int);
 extern tree build_distinct_type_copy (tree);
 extern tree build_variant_type_copy (tree);
 
+START_TARGET_SPECIFIC
 /* Finish up a builtin RECORD_TYPE. Give it a name and provide its
    fields. Optionally specify an alignment, and then lay it out.  */
 
@@ -4226,6 +4230,7 @@ extern void finish_builtin_struct (tree, const char *,
    node, does nothing except for the first time.  */
 
 extern void layout_type (tree);
+END_TARGET_SPECIFIC
 
 /* These functions allow a front-end to perform a manual layout of a
    RECORD_TYPE.  (For instance, if the placement of subsequent fields
@@ -4262,6 +4267,7 @@ typedef struct record_layout_info_s
   int packed_maybe_necessary;
 } *record_layout_info;
 
+START_TARGET_SPECIFIC
 extern record_layout_info start_record_layout (tree);
 extern tree bit_from_pos (tree, tree);
 extern tree byte_from_pos (tree, tree);
@@ -4273,6 +4279,7 @@ extern void normalize_rli (record_layout_info);
 extern void place_field (record_layout_info, tree);
 extern void compute_record_mode (tree);
 extern void finish_record_layout (record_layout_info, int);
+END_TARGET_SPECIFIC
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
    return a canonicalized ..._TYPE node, so that duplicates are not made.
@@ -4281,6 +4288,7 @@ extern void finish_record_layout (record_layout_info, int);
 
 extern tree type_hash_canon (unsigned int, tree);
 
+START_TARGET_SPECIFIC
 /* Given a VAR_DECL, PARM_DECL, RESULT_DECL or FIELD_DECL node,
    calculates the DECL_SIZE, DECL_SIZE_UNIT, DECL_ALIGN and DECL_MODE
    fields.  Call this only once for any given decl node.
@@ -4302,6 +4310,7 @@ extern void relayout_decl (tree);
    mode_for_size, but is passed a tree.  */
 
 extern enum machine_mode mode_for_size_tree (const_tree, enum mode_class, int);
+END_TARGET_SPECIFIC
 
 /* Return an expr equal to X but certainly not valid as an lvalue.  */
 
@@ -4349,9 +4358,11 @@ extern tree size_diffop (tree, tree);
 
 extern tree round_up (tree, int);
 extern tree round_down (tree, int);
+START_TARGET_SPECIFIC
 extern tree get_pending_sizes (void);
 extern void put_pending_size (tree);
 extern void put_pending_sizes (tree);
+END_TARGET_SPECIFIC
 
 /* Type for sizes of data-type.  */
 
@@ -4402,6 +4413,7 @@ extern bool initializer_zerop (const_tree);
 
 extern tree ctor_to_list (tree);
 
+START_TARGET_SPECIFIC
 /* Examine CTOR to discover:
    * how many scalar fields are set to nonzero values,
      and place it in *P_NZ_ELTS;
@@ -4415,6 +4427,7 @@ extern tree ctor_to_list (tree);
 
 extern bool categorize_ctor_elements (const_tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				      bool *);
+END_TARGET_SPECIFIC
 
 extern HOST_WIDE_INT count_type_elements (const_tree, bool);
 
@@ -4514,6 +4527,7 @@ extern tree substitute_placeholder_in_expr (tree, tree);
   ((EXP) == 0 || TREE_CONSTANT (EXP) ? (EXP)	\
    : substitute_placeholder_in_expr (EXP, OBJ))
 
+START_TARGET_SPECIFIC
 /* variable_size (EXP) is like save_expr (EXP) except that it
    is for the special case of something that is part of a
    variable size for a data type.  It makes special arrangements
@@ -4521,6 +4535,7 @@ extern tree substitute_placeholder_in_expr (tree, tree);
    belongs to a function parameter.  */
 
 extern tree variable_size (tree);
+END_TARGET_SPECIFIC
 
 /* stabilize_reference (EXP) returns a reference equivalent to EXP
    but it can be used multiple times
@@ -4552,6 +4567,7 @@ extern tree get_narrower (tree, int *);
 
 extern int handled_component_p (const_tree);
 
+START_TARGET_SPECIFIC
 /* Given an expression EXP that is a handled_component_p,
    look for the ultimate containing object, which is returned and specify
    the access position and size.  */
@@ -4559,6 +4575,7 @@ extern int handled_component_p (const_tree);
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				 tree *, enum machine_mode *, int *, int *,
 				 bool);
+END_TARGET_SPECIFIC
 
 /* Given an expression EXP that may be a COMPONENT_REF, an ARRAY_REF or an
    ARRAY_RANGE_REF, look for whether EXP or any nested component-refs within
@@ -4708,6 +4725,7 @@ extern bool auto_var_in_fn_p (const_tree, const_tree);
 /* In gimplify.c */
 extern tree unshare_expr (tree);
 
+START_TARGET_SPECIFIC
 /* In stmt.c */
 
 extern void expand_expr_stmt (tree);
@@ -4718,6 +4736,7 @@ extern void expand_goto (tree);
 extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
 extern void expand_return (tree);
+END_TARGET_SPECIFIC
 
 /* In tree-eh.c */
 extern void using_eh_for_cleanups (void);
@@ -4865,6 +4884,7 @@ truth_value_p (enum tree_code code)
 }
 
 
+START_TARGET_SPECIFIC
 /* In builtins.c */
 extern tree fold_call_expr (tree, bool);
 extern tree fold_builtin_fputs (tree, tree, bool, bool, tree);
@@ -4883,7 +4903,6 @@ extern tree fold_builtin_call_array (tree, tree, int, tree *);
 extern void debug_fold_checksum (const_tree);
 extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
-extern tree strip_float_extensions (tree);
 extern tree c_strlen (tree, int);
 extern tree std_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 extern tree build_va_arg_indirect_ref (tree);
@@ -4894,6 +4913,7 @@ extern int get_pointer_alignment (tree, unsigned int);
 extern int get_object_alignment (tree, unsigned int, unsigned int);
 extern tree fold_call_stmt (gimple, bool);
 extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
+END_TARGET_SPECIFIC
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);
@@ -4950,6 +4970,7 @@ extern tree *tree_block (tree);
 extern location_t *block_nonartificial_location (tree);
 extern location_t tree_nonartificial_location (tree);
 
+START_TARGET_SPECIFIC
 /* In function.c */
 extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
@@ -4969,11 +4990,14 @@ extern int aggregate_value_p (const_tree, const_tree);
 extern void push_function_context (void);
 extern void pop_function_context (void);
 extern gimple_seq gimplify_parameters (void);
+END_TARGET_SPECIFIC
 
+START_TARGET_SPECIFIC
 /* In print-rtl.c */
 #ifdef BUFSIZ
 extern void print_rtl (FILE *, const_rtx);
 #endif
+END_TARGET_SPECIFIC
 
 /* In print-tree.c */
 extern void debug_tree (tree);
@@ -5050,6 +5074,7 @@ extern tree decl_attributes (tree *, tree, int);
 extern void set_decl_abstract_flags (tree, int);
 extern void set_decl_origin_self (tree);
 
+START_TARGET_SPECIFIC
 /* In stor-layout.c */
 extern void set_min_and_max_values_for_integral_type (tree, int, bool);
 extern void fixup_signed_type (tree);
@@ -5084,6 +5109,7 @@ extern void expand_decl (tree);
 /* Silly ifdef to avoid having all includers depend on hard-reg-set.h.  */
 extern tree tree_overlaps_hard_reg_set (tree, HARD_REG_SET *);
 #endif
+END_TARGET_SPECIFIC
 
 
 /* Interface of the DWARF2 unwind info support.  */
@@ -5147,8 +5173,10 @@ extern tree walk_tree_without_duplicates_1 (tree*, walk_tree_fn, void*,
 
 /* Assign the RTX to declaration.  */
 
+START_TARGET_SPECIFIC
 extern void set_decl_rtl (tree, rtx);
 extern void set_decl_incoming_rtl (tree, rtx, bool);
+END_TARGET_SPECIFIC
 
 /* Enum and arrays used for tree allocation stats.
    Keep in sync with tree.c:tree_node_kind_names.  */
@@ -5251,8 +5279,12 @@ extern void init_object_sizes (void);
 extern void fini_object_sizes (void);
 extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
 
+START_TARGET_SPECIFIC
 /* In expr.c.  */
+
 extern unsigned HOST_WIDE_INT highest_pow2_factor (const_tree);
+
+END_TARGET_SPECIFIC
 
 /* In tree-inline.c.  */
 

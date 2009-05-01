@@ -21,7 +21,10 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_OPTABS_H
 #define GCC_OPTABS_H
 
+#include "multi-target.h"
 #include "insn-codes.h"
+
+START_TARGET_SPECIFIC
 
 /* Optabs are tables saying how to generate insn bodies
    for various machine modes and numbers of operands.
@@ -741,6 +744,8 @@ enum optab_subtype
 /* Return the optab used for computing the given operation on the type given by
    the second argument.  The third argument distinguishes between the types of
    vector shifts and rotates */
+/* FIXME: need a different interface to take optabs of extra targets into
+   account.  */
 extern optab optab_for_tree_code (enum tree_code, const_tree, enum optab_subtype);
 
 /* The various uses that a comparison can have; used by can_compare_p:
@@ -799,4 +804,6 @@ extern rtx optab_libfunc (optab optab, enum machine_mode mode);
 extern rtx optab_libfunc (optab optab, enum machine_mode mode);
 extern rtx convert_optab_libfunc (convert_optab optab, enum machine_mode mode1,
 			          enum machine_mode mode2);
+END_TARGET_SPECIFIC
+
 #endif /* GCC_OPTABS_H */

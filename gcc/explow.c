@@ -40,6 +40,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "target.h"
 #include "output.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static rtx break_out_memory_refs (rtx);
 static void emit_stack_probe (rtx);
@@ -1496,6 +1499,7 @@ hard_libcall_value (enum machine_mode mode)
   return LIBCALL_VALUE (mode);
 }
 
+#ifndef EXTRA_TARGET
 /* Look up the tree code for a given rtx code
    to provide the arithmetic operation for REAL_ARITHMETIC.
    The function returns an int because the caller may not know
@@ -1532,5 +1536,8 @@ rtx_to_tree_code (enum rtx_code code)
     }
   return ((int) tcode);
 }
+#endif /* !EXTRA_TARGET */
 
 #include "gt-explow.h"
+
+END_TARGET_SPECIFIC

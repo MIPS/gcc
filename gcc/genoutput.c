@@ -243,7 +243,10 @@ output_prologue (void)
   printf ("#include \"toplev.h\"\n");
   printf ("#include \"output.h\"\n");
   printf ("#include \"target.h\"\n");
-  printf ("#include \"tm-constrs.h\"\n");
+  printf ("#include \"multi-target.h\"\n");
+  printf ("#include \"tm-constrs.h\"\n\n");
+
+  printf ("START_TARGET_SPECIFIC\n");
 }
 
 static void
@@ -1063,6 +1066,8 @@ main (int argc, char **argv)
   output_operand_data ();
   output_insn_data ();
   output_get_insn_name ();
+
+  printf ("\nEND_TARGET_SPECIFIC\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 || have_error

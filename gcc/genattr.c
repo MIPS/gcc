@@ -81,7 +81,9 @@ extern int insn_default_length (rtx);\n\
 extern int insn_min_length (rtx);\n\
 extern int insn_variable_length_p (rtx);\n\
 extern int insn_current_length (rtx);\n\n\
-#include \"insn-addr.h\"\n");
+END_TARGET_SPECIFIC /* insn-addr.h includes vecprim.h */\n\
+#include \"insn-addr.h\"\n\
+START_TARGET_SPECIFIC\n");
     }
 }
 
@@ -103,7 +105,10 @@ main (int argc, char **argv)
   puts ("/* Generated automatically by the program `genattr'");
   puts ("   from the machine description file `md'.  */\n");
   puts ("#ifndef GCC_INSN_ATTR_H");
-  puts ("#define GCC_INSN_ATTR_H\n");
+  puts ("#define GCC_INSN_ATTR_H");
+  puts ("");
+  puts ("#include \"multi-target.h\"");
+  puts ("START_TARGET_SPECIFIC\n");
 
   /* For compatibility, define the attribute `alternative', which is just
      a reference to the variable `which_alternative'.  */
@@ -280,6 +285,8 @@ main (int argc, char **argv)
   printf("#define ATTR_FLAG_very_likely\t0x8\n");
   printf("#define ATTR_FLAG_unlikely\t0x10\n");
   printf("#define ATTR_FLAG_very_unlikely\t0x20\n");
+  printf("\n");
+  printf("END_TARGET_SPECIFIC\n");
 
   puts("\n#endif /* GCC_INSN_ATTR_H */");
 

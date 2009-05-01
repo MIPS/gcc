@@ -2478,8 +2478,10 @@ write_header (void)
 #include \"toplev.h\"\n\
 #include \"reload.h\"\n\
 #include \"regs.h\"\n\
+#include \"multi-target.h\"\n\
 #include \"tm-constrs.h\"\n\
-\n");
+\n\
+START_TARGET_SPECIFIC\n");
 
   puts ("\n\
 /* `recog' contains a decision tree that recognizes whether the rtx\n\
@@ -2775,6 +2777,8 @@ main (int argc, char **argv)
   process_tree (&recog_tree, RECOG);
   process_tree (&split_tree, SPLIT);
   process_tree (&peephole2_tree, PEEPHOLE2);
+
+  puts ("END_TARGET_SPECIFIC");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

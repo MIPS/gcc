@@ -157,6 +157,16 @@ struct rtl_opt_pass
   struct opt_pass pass;
 };
 
+#ifdef NUM_TARGETS
+/* Description of RTL pass which dispatches according to the target
+   architecure.  */
+struct rtl_dispatch_pass
+{
+  struct opt_pass pass;
+  struct opt_pass *target_variants[NUM_TARGETS-1];
+};
+#endif
+
 struct varpool_node;
 struct cgraph_node;
 
@@ -225,12 +235,13 @@ struct dump_file_info
 #define TODO_verify_ssa			(1 << 2) 
 #define TODO_verify_flow		(1 << 3)
 #define TODO_verify_stmts		(1 << 4)
-#define TODO_cleanup_cfg        	(1 << 5)
+#define TODO_cleanup_cfg		(1 << 5)
 #define TODO_verify_loops		(1 << 6)
 #define TODO_dump_cgraph		(1 << 7)
 #define TODO_remove_functions		(1 << 8)
 #define TODO_rebuild_frequencies	(1 << 9)
-#define TODO_verify_rtl_sharing         (1 << 10)
+#define TODO_verify_rtl_sharing		(1 << 10)
+#define TODO_arch_dispatch		(1 << 11)
 
 /* To-do flags for calls to update_ssa.  */
 
@@ -416,7 +427,7 @@ extern struct gimple_opt_pass pass_free_datastructures;
 extern struct gimple_opt_pass pass_init_datastructures;
 extern struct gimple_opt_pass pass_fixup_cfg;
 
-extern struct rtl_opt_pass pass_expand;
+extern struct rtl_dispatch_pass pass_expand;
 extern struct rtl_opt_pass pass_init_function;
 extern struct rtl_opt_pass pass_jump;
 extern struct rtl_opt_pass pass_rtl_eh;

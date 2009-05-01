@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "fixed-value.h"
 #include "alias.h"
+#include "multi-target.h"
 
 #undef FFS  /* Some systems predefine this symbol; don't let it interfere.  */
 #undef FLOAT /* Likewise.  */
@@ -1063,6 +1064,7 @@ rhs_regno (const_rtx x)
 #define SUBREG_REG(RTX) XCEXP (RTX, 0, SUBREG)
 #define SUBREG_BYTE(RTX) XCUINT (RTX, 1, SUBREG)
 
+START_TARGET_SPECIFIC
 /* in rtlanal.c */
 /* Return the right cost to give to an operation
    to make the cost of the corresponding register-to-register instruction
@@ -1092,6 +1094,7 @@ extern unsigned HOST_WIDE_INT nonzero_bits (const_rtx, enum machine_mode);
 extern unsigned int num_sign_bit_copies (const_rtx, enum machine_mode);
 extern bool constant_pool_constant_p (rtx);
 extern bool truncated_to_mode (enum machine_mode, const_rtx);
+END_TARGET_SPECIFIC
 
 
 /* 1 if RTX is a subreg containing a reg that is already known to be
@@ -1477,6 +1480,8 @@ extern int currently_expanding_to_rtl;
 
 /* Generally useful functions.  */
 
+START_TARGET_SPECIFIC
+
 /* In expmed.c */
 extern int ceil_log2 (unsigned HOST_WIDE_INT);
 
@@ -1565,7 +1570,6 @@ extern rtx force_const_mem (enum machine_mode, rtx);
 
 /* In varasm.c  */
 
-struct function;
 extern rtx get_pool_constant (rtx);
 extern rtx get_pool_constant_mark (rtx, bool *);
 extern enum machine_mode get_pool_mode (const_rtx);
@@ -1662,7 +1666,7 @@ extern rtx *find_constant_term_loc (rtx *);
 extern rtx try_split (rtx, rtx, int);
 extern int split_branch_probability;
 
-/* In unknown file  */
+/* In $(TA)insn-recog.c */
 extern rtx split_insns (rtx, rtx);
 
 /* In simplify-rtx.c  */
@@ -1704,6 +1708,8 @@ extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
 extern rtx set_unique_reg_note (rtx, enum reg_note, rtx);
 extern void set_insn_deleted (rtx);
 
+END_TARGET_SPECIFIC
+
 /* Functions in rtlanal.c */
 
 /* Single set is implemented as macro for performance reasons.  */
@@ -1721,6 +1727,7 @@ typedef struct replace_label_data
   bool update_label_nuses;
 } replace_label_data;
 
+START_TARGET_SPECIFIC
 extern int rtx_addr_can_trap_p (const_rtx);
 extern bool nonzero_address_p (const_rtx);
 extern int rtx_unstable_p (const_rtx);
@@ -1806,6 +1813,7 @@ extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int, int);
 /* Given a JUMP_INSN, return a canonical description of the test
    being made.  */
 extern rtx get_condition (rtx, rtx *, int, int);
+END_TARGET_SPECIFIC
 
 /* lists.c */
 
@@ -1821,6 +1829,7 @@ extern rtx remove_free_INSN_LIST_node (rtx *);
 extern rtx remove_free_EXPR_LIST_node (rtx *);
 
 
+START_TARGET_SPECIFIC
 /* reginfo.c */
 
 /* Initialize may_move_cost and friends for mode M.  */
@@ -1843,6 +1852,7 @@ extern void setup_reg_classes (int, enum reg_class, enum reg_class);
 
 extern void split_all_insns (void);
 extern unsigned int split_all_insns_noflow (void);
+END_TARGET_SPECIFIC
 
 #define MAX_SAVED_CONST_INT 64
 extern GTY(()) rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
@@ -1851,9 +1861,13 @@ extern GTY(()) rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
 #define const1_rtx	(const_int_rtx[MAX_SAVED_CONST_INT+1])
 #define const2_rtx	(const_int_rtx[MAX_SAVED_CONST_INT+2])
 #define constm1_rtx	(const_int_rtx[MAX_SAVED_CONST_INT-1])
+
+START_TARGET_SPECIFIC
 extern GTY(()) rtx const_true_rtx;
 
 extern GTY(()) rtx const_tiny_rtx[3][(int) MAX_MACHINE_MODE];
+
+END_TARGET_SPECIFIC
 
 /* Returns a constant 0 rtx in mode MODE.  Integer modes are treated the
    same as VOIDmode.  */
@@ -1924,10 +1938,12 @@ extern GTY(()) rtx global_rtl[GR_MAX];
 #define hard_frame_pointer_rtx	(global_rtl[GR_HARD_FRAME_POINTER])
 #define arg_pointer_rtx		(global_rtl[GR_ARG_POINTER])
 
+START_TARGET_SPECIFIC
 extern GTY(()) rtx pic_offset_table_rtx;
 extern GTY(()) rtx static_chain_rtx;
 extern GTY(()) rtx static_chain_incoming_rtx;
 extern GTY(()) rtx return_address_pointer_rtx;
+END_TARGET_SPECIFIC
 
 /* Include the RTL generation functions.  */
 
@@ -1944,12 +1960,14 @@ extern GTY(()) rtx return_address_pointer_rtx;
    generation functions included above do the raw handling.  If you
    add to this list, modify special_rtx in gengenrtl.c as well.  */
 
-extern rtx gen_rtx_CONST_INT (enum machine_mode, HOST_WIDE_INT);
 extern rtx gen_rtx_CONST_VECTOR (enum machine_mode, rtvec);
 extern rtx gen_raw_REG (enum machine_mode, int);
+extern rtx gen_rtx_MEM (enum machine_mode, rtx);
+START_TARGET_SPECIFIC
+extern rtx gen_rtx_CONST_INT (enum machine_mode, HOST_WIDE_INT);
 extern rtx gen_rtx_REG (enum machine_mode, unsigned);
 extern rtx gen_rtx_SUBREG (enum machine_mode, rtx, int);
-extern rtx gen_rtx_MEM (enum machine_mode, rtx);
+END_TARGET_SPECIFIC
 
 #define GEN_INT(N)  gen_rtx_CONST_INT (VOIDmode, (N))
 
@@ -2017,6 +2035,7 @@ extern rtx gen_rtx_MEM (enum machine_mode, rtx);
 /* REGNUM never really appearing in the INSN stream.  */
 #define INVALID_REGNUM			(~(unsigned int) 0)
 
+START_TARGET_SPECIFIC
 extern rtx output_constant_def (tree, int);
 extern rtx lookup_constant_def (tree);
 
@@ -2051,6 +2070,7 @@ extern int regstack_completed;
    if it is used only once, instruction combination will produce
    the same indirect address eventually.  */
 extern int cse_not_expected;
+END_TARGET_SPECIFIC
 
 /* Translates rtx code to tree code, for those codes needed by
    REAL_ARITHMETIC.  The function returns an int because the caller may not
@@ -2058,6 +2078,7 @@ extern int cse_not_expected;
 
 extern int rtx_to_tree_code (enum rtx_code);
 
+START_TARGET_SPECIFIC
 /* In cse.c */
 extern int delete_trivially_dead_insns (rtx, int);
 extern int cse_main (rtx, int);
@@ -2125,7 +2146,6 @@ extern void add_insn_before (rtx, rtx, struct basic_block_def *);
 extern void add_insn_after (rtx, rtx, struct basic_block_def *);
 extern void remove_insn (rtx);
 extern rtx emit (rtx);
-extern rtx delete_insn (rtx);
 extern rtx entry_of_function (void);
 extern void emit_insn_at_entry (rtx);
 extern void delete_insn_chain (rtx, rtx, bool);
@@ -2133,7 +2153,9 @@ extern rtx unlink_insn_chain (rtx, rtx);
 extern rtx delete_insn_and_edges (rtx);
 extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
+END_TARGET_SPECIFIC
 extern rtx gen_const_mem (enum machine_mode, rtx);
+START_TARGET_SPECIFIC
 extern rtx gen_frame_mem (enum machine_mode, rtx);
 extern rtx gen_tmp_stack_mem (enum machine_mode, rtx);
 extern bool validate_subreg (enum machine_mode, enum machine_mode,
@@ -2198,6 +2220,7 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 
 /* In cfgrtl.c */
 extern void print_rtl_with_bb (FILE *, const_rtx);
+extern rtx delete_insn (rtx);
 
 /* In cfg.c.  */
 extern void dump_reg_info (FILE *);
@@ -2306,6 +2329,7 @@ extern GTY(()) rtx stack_limit_rtx;
 /* In predict.c */
 extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
+
 /* In cfgexpand.c */
 extern void add_reg_br_prob_note (rtx last, int probability);
 
@@ -2345,6 +2369,7 @@ extern struct rtl_hooks rtl_hooks;
 
 /* ... but then it has to restore these.  */
 extern const struct rtl_hooks general_rtl_hooks;
+END_TARGET_SPECIFIC
 
 /* Keep this for the nonce.  */
 #define gen_lowpart rtl_hooks.gen_lowpart

@@ -48,6 +48,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "sel-sched-ir.h"
 /* We don't have to use it except for sel_print_insn.  */
 #include "sel-sched-dump.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* A vector holding bb info for whole scheduling pass.  */
 VEC(sel_global_bb_info_def, heap) *sel_global_bb_info = NULL;
@@ -6048,4 +6051,5 @@ sel_remove_loop_preheader (void)
     SET_LOOP_PREHEADER_BLOCKS (loop_outer (current_loop_nest),
 			       preheader_blocks);
 }
-#endif
+END_TARGET_SPECIFIC
+#endif /* INSN_SCHEDULING */

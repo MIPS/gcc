@@ -39,6 +39,9 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 struct du_chain
 {
@@ -2005,3 +2008,5 @@ struct rtl_opt_pass pass_cprop_hardreg =
   TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

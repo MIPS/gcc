@@ -56,6 +56,10 @@ struct elt_list GTY(())
   cselib_val *elt;
 };
 
+#ifdef EXTRA_TARGET
+namespace EXTRA_TARGET {
+#endif
+
 extern void (*cselib_discard_hook) (cselib_val *);
 
 extern cselib_val *cselib_lookup (rtx, enum machine_mode, int);
@@ -69,3 +73,7 @@ extern int references_value_p (const_rtx, int);
 extern rtx cselib_expand_value_rtx (rtx, bitmap, int);
 extern rtx cselib_subst_to_values (rtx);
 extern void cselib_invalidate_rtx (rtx);
+
+#ifdef EXTRA_TARGET
+} /* Close EXTRA_TARGET namespace.  */
+#endif

@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "df.h"
 #include "predict.h"
+#include "multi-target.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -102,6 +103,7 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+#ifndef EXTRA_TARGET
 /* This is used for debugging.  It allows the current pass to printed
    from anywhere in compilation.  */
 struct opt_pass *current_pass;
@@ -302,7 +304,9 @@ struct gimple_opt_pass pass_rest_of_compilation =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+#endif /* !EXTRA_TARGET */
 
+START_TARGET_SPECIFIC
 static bool
 gate_postreload (void)
 {
@@ -497,6 +501,8 @@ next_pass_1 (struct opt_pass **list, struct opt_pass *pass)
 		  tree_rest_of_compilation (DECL (N))  -> all_passes
 */
 
+EXTRA_TARGETS_DECL (void init_optimization_passes (void))
+
 void
 init_optimization_passes (void)
 {
@@ -504,6 +510,7 @@ init_optimization_passes (void)
 
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &((PASS).pass)))
 
+#ifndef EXTRA_TARGET
  /* All passes needed to lower the function into shape optimizers can
     operate on.  These passes are always run first on the function, but
     backend might produce already lowered functions that are not processed
@@ -712,6 +719,10 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mudflap_2);
 
   NEXT_PASS (pass_free_cfg_annotations);
+  EXTRA_TARGETS_CALL (init_optimization_passes ());
+#else /* EXTRA_TARGET */
+  p = &pass_expand.target_variants[TARGET_NUM-1];
+#endif /* EXTRA_TARGET */
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
     {
@@ -817,6 +828,7 @@ init_optimization_passes (void)
 
 #undef NEXT_PASS
 
+#ifndef EXTRA_TARGET
   /* Register the passes with the tree dump code.  */
   register_dump_files (all_lowering_passes, PROP_gimple_any);
   all_lowering_passes->todo_flags_start |= TODO_set_props;
@@ -826,8 +838,10 @@ init_optimization_passes (void)
   register_dump_files (all_passes, 
 		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
 		       | PROP_cfg);
+#endif /* !EXTRA_TARGET */
 }
 
+#ifndef EXTRA_TARGET
 /* If we are in IPA mode (i.e., current_function_decl is NULL), call
    function CALLBACK for every function in the call graph.  Otherwise,
    call CALLBACK on the current function.  */ 
@@ -1224,6 +1238,13 @@ execute_one_pass (struct opt_pass *pass)
   else
     gcc_assert (cfun && current_function_decl);
 
+  if (pass->todo_flags_start & TODO_arch_dispatch)
+    {
+      gcc_assert (cfun);
+      if (cfun->target_arch)
+	pass = ((struct rtl_dispatch_pass *)pass)->target_variants[cfun->target_arch-1];
+    }
+
   if (cfun && cfun->ipa_transforms_to_apply)
     {
       unsigned int i;
@@ -1366,3 +1387,6 @@ execute_ipa_pass_list (struct opt_pass *pass)
 }
 
 #include "gt-passes.h"
+
+#endif /* !EXTRA_TARGET */
+END_TARGET_SPECIFIC

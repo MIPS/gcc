@@ -147,6 +147,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "dbgcnt.h"
 #include "cfgloop.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef INSN_SCHEDULING
 
@@ -5006,3 +5009,5 @@ sched_emit_insn (rtx pat)
 }
 
 #endif /* INSN_SCHEDULING */
+
+END_TARGET_SPECIFIC

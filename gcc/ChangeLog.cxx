@@ -1,3 +1,32 @@
+2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_builtin_vectorized_function): Make signature
+	agree with prototype in targhooks.h.
+	(default_builtin_vectorized_conversion): Likewise.
+	(default_builtin_reciprocal): Likewise.
+
+	* expr.c (move_by_pieces, store_by_pieces): Append _d to struct tag.
+	Changed all users.
+
+	* config/sh/sh.c (sh_attribute_table): Use extern in forward
+	declaration.
+	(prepare_move_operands): Cast return value of tls_symbolic_operand.
+	(expand_cbranchsi4, output_stack_adjust, push): Use alloc_reg_note.
+	(pop, sh_expand_prologue): Likewise.
+	(from_compare): Cast argument to gen_rtx_fmt_ee.
+	(sh_reorg): Use PUT_REG_NOTE_KIND.
+	(sh_expand_prologue): Add cast to enum machine_mode.
+	(sh_expand_epilogue): Likewise.
+	(get_free_reg): Add cast to enum attr_fp_mode.
+	(sh_insn_length_adjustment): Compare sh_cpu with enum value of the
+	proper type.
+	(sh_initialize_trampoline): Use LCT_NORMAL.
+	(sh_expand_builtin): Use EXPAND_NORMAL.
+
+	* config/arc/arc.c (arc_attribute_table): Use extern in forward
+	declaration.
+	(output_shift): Replace initializatin of n with assignment.
+
 2009-04-28  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/sh/sh.h (OVERRIDE_OPTIONS): Use enum processor_type values

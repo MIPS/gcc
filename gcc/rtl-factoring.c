@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "df.h"
 #include "addresses.h"
+#include "multi-target.h"
 
 /* Sequence abstraction:
 
@@ -252,6 +253,8 @@ typedef struct hash_elem_def
   int length;
 } *p_hash_elem;
 typedef const struct hash_elem_def *const_p_hash_elem;
+
+START_TARGET_SPECIFIC
 
 /* The list of same sequence candidates.  */
 static htab_t hash_buckets;
@@ -1472,3 +1475,5 @@ struct rtl_opt_pass pass_rtl_seqabstr =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

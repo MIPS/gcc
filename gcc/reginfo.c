@@ -53,6 +53,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "ira.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Maximum register number used in this function, plus one.  */
 
@@ -1439,3 +1442,5 @@ struct rtl_opt_pass pass_subregs_of_mode_finish =
 
 
 #include "gt-reginfo.h"
+
+END_TARGET_SPECIFIC

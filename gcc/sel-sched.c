@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sel-sched-dump.h"
 #include "sel-sched.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
 
 /* Implementation of selective scheduling approach.
    The below implementation follows the original approach with the following
@@ -250,6 +251,8 @@ along with GCC; see the file COPYING3.  If not see
    http://rogue.colorado.edu/EPIC7/.
    
 */
+
+START_TARGET_SPECIFIC
 
 /* True when pipelining is enabled.  */
 bool pipelining_p;
@@ -7331,4 +7334,6 @@ run_selective_scheduling (void)
   sel_global_finish ();
 }
 
-#endif
+END_TARGET_SPECIFIC
+
+#endif /* INSN_SCHEDULING */

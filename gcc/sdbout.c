@@ -49,6 +49,9 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "tree.h"
 #include "ggc.h"
 #include "varray.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static GTY(()) tree anonymous_types;
 
@@ -1728,3 +1731,5 @@ const struct gcc_debug_hooks sdb_debug_hooks =
 #endif /* SDB_DEBUGGING_INFO */
 
 #include "gt-sdbout.h"
+
+END_TARGET_SPECIFIC

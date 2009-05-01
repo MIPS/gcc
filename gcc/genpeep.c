@@ -379,7 +379,10 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"function.h\"\n");
   printf ("#include \"toplev.h\"\n");
   printf ("#include \"flags.h\"\n");
+  printf ("#include \"multi-target.h\"\n");
   printf ("#include \"tm-constrs.h\"\n\n");
+
+  printf ("START_TARGET_SPECIFIC\n\n");
 
   printf ("#ifdef HAVE_peephole\n");
   printf ("extern rtx peep_operand[];\n\n");
@@ -423,7 +426,9 @@ from the machine description file `md'.  */\n\n");
     max_opno = 1;
 
   printf ("rtx peep_operand[%d];\n", max_opno + 1);
-  printf ("#endif\n");
+  printf ("#endif\n\n");
+
+  printf ("END_TARGET_SPECIFIC\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

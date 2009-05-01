@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "df.h"
 #include "target.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static void store_fixed_bit_field (rtx, unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
@@ -5627,3 +5630,5 @@ do_cmp_and_jump (rtx arg1, rtx arg2, enum rtx_code op, enum machine_mode mode,
   do_compare_rtx_and_jump (arg1, arg2, op, unsignedp, mode,
 			   NULL_RTX, NULL_RTX, label);
 }
+
+END_TARGET_SPECIFIC
