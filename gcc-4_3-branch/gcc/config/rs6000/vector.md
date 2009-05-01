@@ -778,7 +778,9 @@
    (match_operand:VEC_K 1 "vlogical_operand" "")
    (match_operand:VEC_K 2 "vlogical_operand" "")
    (match_operand:V16QI 3 "vlogical_operand" "")]
-  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)
+   || ((<MODE>mode == V16QImode || <MODE>mode == V8HImode)
+        && VECTOR_MEM_VSX_P (<MODE>mode))"
 {
   emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2],
 				       operands[3]));
