@@ -172,6 +172,12 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
       while (tok->type == CPP_PADDING);
       ident = altivec_categorize_keyword (tok);
 
+      /* If the token after __vector is not an identifer, assume the user is
+	 using it as a normal identifier and did not want it expanded as a
+	 keyword.  */
+      if (!ident)
+	return NULL;
+
       if (ident == C_CPP_HASHNODE (__pixel_keyword))
 	{
 	  expand_this = C_CPP_HASHNODE (__vector_keyword);
@@ -182,7 +188,7 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 	  expand_this = C_CPP_HASHNODE (__vector_keyword);
 	  expand_bool_pixel = __bool_keyword;
 	}
-      else if (ident)
+      else
 	{
 	  enum rid rid_code = (enum rid)(ident->rid_code);
 	  if (ident->type == NT_MACRO)

@@ -1,3 +1,38 @@
+2009-05-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Revital1 Eres <ERES@il.ibm.com>
+
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Do not expand
+	__vector if it is not followed by a known identifier.
+
+	* config/rs6000/rs6000.c (rs6000_emit_vector_cond_expr): Don't
+	call unsigned_condition, just manually recognize the unsigned
+	condition tests.  Return NULL_RTX for unhandled conditions.
+
+	* config/rs6000/vector.md (VEC_K, VEC_N): New iterator for vector
+	alignment support.
+	(vec_pack_trunc_v2df): Use vfloat_operand, vint_operand, or
+	vlogical_operand instead of vsx_register.
+	(vec_pack_sfix_trunc_v2df): Ditto.
+	(vec_unpacks_hi_v4sf): Ditto.
+	(vec_unpacks_lo_vv4sf): Ditto.
+	(vec_unpacks_float_hi_v4si): Ditto.
+	(vec_unpacks_float_lo_v4si): Ditto.
+	(vec_unpacku_float_hi_v4si): Ditto.
+	(vec_unpacku_float_lo_v4si): Ditto.
+	(vec_realign_load_<mode>): Move here from altivec.md.  Generate a
+	vperm instruction instead of being an alias that does the same
+	thing.
+	(movmisalign<mode>): New insns, VSX vectors with 4/8 byte
+	alignments don't need realignment support.
+	(vec_shl_<mode>): Move here from altivec.md.
+	(vec_shr_<mode>): Ditto.
+
+	* config/rs6000/altivec.md (altivec_vsldoi_<mode>): Define for all
+	vector types.
+	(vec_shl_<mode>): Move to vector.md.
+	(vec_shr_<mode>): Ditto.
+	(vec_realign_load_<mode>): Ditto.
+
 2009-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Sync up to mainline 147021.

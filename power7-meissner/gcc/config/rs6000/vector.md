@@ -33,11 +33,17 @@
 ;; Vector arithmetic modes
 (define_mode_iterator VEC_A [V16QI V8HI V4SI V4SF V2DF])
 
+;; Vector modes that need alginment via permutes
+(define_mode_iterator VEC_K [V16QI V8HI V4SI V4SF])
+
 ;; Vector logical modes
 (define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF TI])
 
 ;; Vector modes for moves.  Don't do TImode here.
 (define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF])
+
+;; Vector modes for types that don't need a realignment under VSX
+(define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF])
 
 ;; Vector comparison modes
 (define_mode_iterator VEC_C [V16QI V8HI V4SI V4SF V2DF])
@@ -651,9 +657,9 @@
 
 ;; Convert double word types to single word types
 (define_expand "vec_pack_trunc_v2df"
-  [(match_operand:V4SF 0 "vsx_register_operand" "")
-   (match_operand:V2DF 1 "vsx_register_operand" "")
-   (match_operand:V2DF 2 "vsx_register_operand" "")]
+  [(match_operand:V4SF 0 "vfloat_operand" "")
+   (match_operand:V2DF 1 "vfloat_operand" "")
+   (match_operand:V2DF 2 "vfloat_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
 {
   rtx r1 = gen_reg_rtx (V4SFmode);
@@ -666,9 +672,9 @@
 })
 
 (define_expand "vec_pack_sfix_trunc_v2df"
-  [(match_operand:V4SI 0 "vsx_register_operand" "")
-   (match_operand:V2DF 1 "vsx_register_operand" "")
-   (match_operand:V2DF 2 "vsx_register_operand" "")]
+  [(match_operand:V4SI 0 "vint_operand" "")
+   (match_operand:V2DF 1 "vfloat_operand" "")
+   (match_operand:V2DF 2 "vfloat_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
 {
   rtx r1 = gen_reg_rtx (V4SImode);
@@ -681,9 +687,9 @@
 })
 
 (define_expand "vec_pack_ufix_trunc_v2df"
-  [(match_operand:V4SI 0 "vsx_register_operand" "")
-   (match_operand:V2DF 1 "vsx_register_operand" "")
-   (match_operand:V2DF 2 "vsx_register_operand" "")]
+  [(match_operand:V4SI 0 "vint_operand" "")
+   (match_operand:V2DF 1 "vfloat_operand" "")
+   (match_operand:V2DF 2 "vfloat_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
 {
   rtx r1 = gen_reg_rtx (V4SImode);
@@ -697,8 +703,8 @@
 
 ;; Convert single word types to double word
 (define_expand "vec_unpacks_hi_v4sf"
-  [(match_operand:V2DF 0 "vsx_register_operand" "")
-   (match_operand:V4SF 1 "vsx_register_operand" "")]
+  [(match_operand:V2DF 0 "vfloat_operand" "")
+   (match_operand:V4SF 1 "vfloat_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
 {
   rtx reg = gen_reg_rtx (V4SFmode);
@@ -709,8 +715,8 @@
 })
 
 (define_expand "vec_unpacks_lo_v4sf"
-  [(match_operand:V2DF 0 "vsx_register_operand" "")
-   (match_operand:V4SF 1 "vsx_register_operand" "")]
+  [(match_operand:V2DF 0 "vfloat_operand" "")
+   (match_operand:V4SF 1 "vfloat_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
 {
   rtx reg = gen_reg_rtx (V4SFmode);
@@ -721,8 +727,8 @@
 })
 
 (define_expand "vec_unpacks_float_hi_v4si"
-  [(match_operand:V2DF 0 "vsx_register_operand" "")
-   (match_operand:V4SI 1 "vsx_register_operand" "")]
+  [(match_operand:V2DF 0 "vfloat_operand" "")
+   (match_operand:V4SI 1 "vint_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
 {
   rtx reg = gen_reg_rtx (V4SImode);
@@ -733,8 +739,8 @@
 })
 
 (define_expand "vec_unpacks_float_lo_v4si"
-  [(match_operand:V2DF 0 "vsx_register_operand" "")
-   (match_operand:V4SI 1 "vsx_register_operand" "")]
+  [(match_operand:V2DF 0 "vfloat_operand" "")
+   (match_operand:V4SI 1 "vint_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
 {
   rtx reg = gen_reg_rtx (V4SImode);
@@ -745,8 +751,8 @@
 })
 
 (define_expand "vec_unpacku_float_hi_v4si"
-  [(match_operand:V2DF 0 "vsx_register_operand" "")
-   (match_operand:V4SI 1 "vsx_register_operand" "")]
+  [(match_operand:V2DF 0 "vfloat_operand" "")
+   (match_operand:V4SI 1 "vint_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
 {
   rtx reg = gen_reg_rtx (V4SImode);
@@ -757,8 +763,8 @@
 })
 
 (define_expand "vec_unpacku_float_lo_v4si"
-  [(match_operand:V2DF 0 "vsx_register_operand" "")
-   (match_operand:V4SI 1 "vsx_register_operand" "")]
+  [(match_operand:V2DF 0 "vfloat_operand" "")
+   (match_operand:V4SI 1 "vint_operand" "")]
   "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
 {
   rtx reg = gen_reg_rtx (V4SImode);
@@ -767,3 +773,86 @@
   emit_insn (gen_vsx_xvcvuxwdp (operands[0], reg));
   DONE;
 })
+
+
+;; Align vector loads with a permute.
+(define_expand "vec_realign_load_<mode>"
+  [(match_operand:VEC_K 0 "vlogical_operand" "")
+   (match_operand:VEC_K 1 "vlogical_operand" "")
+   (match_operand:VEC_K 2 "vlogical_operand" "")
+   (match_operand:V16QI 3 "vlogical_operand" "")]
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
+{
+  emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2],
+				       operands[3]));
+  DONE;
+})
+
+;; Under VSX, vectors of 4/8 byte alignments do not need to be aligned
+;; since the load already handles it.
+(define_expand "movmisalign<mode>"
+ [(set (match_operand:VEC_N 0 "vsx_register_operand" "")
+       (match_operand:VEC_N 1 "vsx_register_operand" ""))]
+ "VECTOR_MEM_VSX_P (<MODE>mode)"
+ "")
+
+
+;; Vector shift left in bits.  Currently supported ony for shift
+;; amounts that can be expressed as byte shifts (divisible by 8).
+;; General shift amounts can be supported using vslo + vsl. We're
+;; not expecting to see these yet (the vectorizer currently
+;; generates only shifts divisible by byte_size).
+;; TODO, add VSX xxsldwi support for word oriented shifts
+(define_expand "vec_shl_<mode>"
+  [(match_operand:VEC_L 0 "vlogical_operand" "")
+   (match_operand:VEC_L 1 "vlogical_operand" "")
+   (match_operand:QI 2 "reg_or_short_operand" "")]
+  "TARGET_ALTIVEC"
+  "
+{
+  rtx bitshift = operands[2];
+  rtx byteshift = gen_reg_rtx (QImode);
+  HOST_WIDE_INT bitshift_val;
+  HOST_WIDE_INT byteshift_val;
+
+  if (! CONSTANT_P (bitshift))
+    FAIL;
+  bitshift_val = INTVAL (bitshift);
+  if (bitshift_val & 0x7)
+    FAIL;
+  byteshift_val = bitshift_val >> 3;
+  byteshift = gen_rtx_CONST_INT (QImode, byteshift_val);
+  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
+                                        byteshift));
+  DONE;
+}")
+
+;; Vector shift right in bits. Currently supported ony for shift
+;; amounts that can be expressed as byte shifts (divisible by 8).
+;; General shift amounts can be supported using vsro + vsr. We're
+;; not expecting to see these yet (the vectorizer currently
+;; generates only shifts divisible by byte_size).
+;; TODO, add VSX xxsldwi support for word oriented shifts
+(define_expand "vec_shr_<mode>"
+  [(match_operand:VEC_L 0 "vlogical_operand" "")
+   (match_operand:VEC_L 1 "vlogical_operand" "")
+   (match_operand:QI 2 "reg_or_short_operand" "")]
+  "TARGET_ALTIVEC"
+  "
+{
+  rtx bitshift = operands[2];
+  rtx byteshift = gen_reg_rtx (QImode);
+  HOST_WIDE_INT bitshift_val;
+  HOST_WIDE_INT byteshift_val;
+ 
+  if (! CONSTANT_P (bitshift))
+    FAIL;
+  bitshift_val = INTVAL (bitshift);
+  if (bitshift_val & 0x7)
+    FAIL;
+  byteshift_val = 16 - (bitshift_val >> 3);
+  byteshift = gen_rtx_CONST_INT (QImode, byteshift_val);
+  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
+                                        byteshift));
+  DONE;
+}")

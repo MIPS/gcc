@@ -15128,6 +15128,9 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	rev_code = reverse_condition_maybe_unordered (rcode);
 	eq_rtx = rs6000_emit_vector_compare (rev_code, op0, op1, dmode);
 
+	if (!eq_rtx)
+	  return NULL_RTX;
+
 	nor_code = optab_handler (one_cmpl_optab, (int)dmode)->insn_code;
 	gcc_assert (nor_code != CODE_FOR_nothing);
 	emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
@@ -15168,8 +15171,13 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 
 	c_rtx = rs6000_emit_vector_compare (new_code,
 					    op0, op1, dmode);
+	if (!c_rtx)
+	  return NULL_RTX;
+
 	eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
 					     dmode);
+	if (!eq_rtx)
+	  return NULL_RTX;
 
 	ior_code = optab_handler (ior_optab, (int)dmode)->insn_code;
 	gcc_assert (ior_code != CODE_FOR_nothing);
@@ -15178,7 +15186,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
       }
       break;
     default:
-      gcc_unreachable ();
+      return NULL_RTX;
     }
 
   if (try_again)
@@ -15206,7 +15214,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
     }
 
   /* You only get two chances.  */
-  gcc_unreachable ();
+  return NULL_RTX;
 }
 
 /* Emit vector conditional expression.
@@ -15219,7 +15227,7 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
 {
   enum machine_mode dest_mode = GET_MODE (dest);
   enum rtx_code rcode = GET_CODE (cond);
-  enum machine_mode cc_mode = unsigned_condition (rcode) ? CCmode : CCUNSmode;
+  enum machine_mode cc_mode = CCmode;
   rtx mask;
   rtx cond2;
   rtx tmp;
@@ -15227,9 +15235,9 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   if (VECTOR_UNIT_NONE_P (dest_mode))
     return 0;
 
-  /* Swap operands rather than doing a NOR operation to invert the test.  */
   switch (rcode)
     {
+      /* Swap operands rather than doing a NOR to invert the test.  */
     case NE:
     case UNLE:
     case UNLT:
@@ -15239,6 +15247,14 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
       op1 = op2;
       op2 = tmp;
       rcode = reverse_condition (rcode);
+      break;
+
+      /* Mark unsigned tests with CCUNSmode.  */
+    case GTU:
+    case GEU:
+    case LTU:
+    case LEU:
+      cc_mode = CCUNSmode;
       break;
 
     default:
