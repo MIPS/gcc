@@ -38,6 +38,10 @@
 ;; it to use gprs as well as vsx registers.
 (define_mode_iterator VSX_M [V16QI V8HI V4SI V2DI V4SF V2DF])
 
+;; Iterator for the natives that don't need realignment because
+;; the lxvw4x/lxvd2x instructions already obey the alignment
+(define_mode_iterator VSX_N [V4SI V4SF V2DI V2DF])
+
 ;; Iterator for types for load/store with update
 (define_mode_iterator VSX_U [V16QI V8HI V4SI V2DI V4SF V2DF TI DF])
 
@@ -356,6 +360,14 @@
 ;; We may need to have a varient on the pattern for use in the prologue
 ;; that doesn't depend on TARGET_UPDATE.
 
+
+;; Under VSX, vectors of 4/8 byte alignments do not need to be aligned
+;; since the load already handles it.
+(define_expand "movmisalign<mode>"
+ [(set (match_operand:VSX_N 0 "vsx_register_operand" "")
+       (match_operand:VSX_N 1 "vsx_register_operand" ""))]
+ "VECTOR_MEM_VSX_P (<MODE>mode)"
+ "")
 
 ;; VSX scalar and vector floating point arithmetic instructions
 (define_insn "*vsx_add<mode>3"
@@ -820,12 +832,24 @@
   [(set_attr "type" "veccmp")])
 
 ;; Vector select
-(define_insn "*vsx_vsel<mode>"
+(define_insn "*vsx_xxsel<mode>"
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
-	(if_then_else:VSX_L (ne (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
-				(const_int 0))
-			    (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")
-			    (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,wa")))]
+	(if_then_else:VSX_L
+	 (ne:CC (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
+		(const_int 0))
+	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")
+	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,wa")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "xxsel %x0,%x3,%x2,%x1"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*vsx_xxsel<mode>_uns"
+  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
+	(if_then_else:VSX_L
+	 (ne:CCUNS (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
+		   (const_int 0))
+	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")
+	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxsel %x0,%x3,%x2,%x1"
   [(set_attr "type" "vecperm")])

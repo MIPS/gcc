@@ -65,6 +65,7 @@
    (UNSPEC_VSUM2SWS     134)
    (UNSPEC_VSUMSWS      135)
    (UNSPEC_VPERM        144)
+   (UNSPEC_VPERM_UNS    145)
    (UNSPEC_VRFIP        148)
    (UNSPEC_VRFIN        149)
    (UNSPEC_VRFIM        150)
@@ -97,7 +98,7 @@
    (UNSPEC_STVE         203)
    (UNSPEC_SET_VSCR     213)
    (UNSPEC_GET_VRSAVE   214)
-   (UNSPEC_REALIGN_LOAD 215)
+   ;; 215 deleted
    (UNSPEC_REDUC_PLUS   217)
    (UNSPEC_VECSH        219)
    (UNSPEC_EXTEVEN_V4SI 220)
@@ -464,10 +465,22 @@
 
 (define_insn "*altivec_vsel<mode>"
   [(set (match_operand:VM 0 "altivec_register_operand" "=v")
-	(if_then_else:VM (ne (match_operand:VM 1 "altivec_register_operand" "v")
-			     (const_int 0))
-			 (match_operand:VM 2 "altivec_register_operand" "v")
-			 (match_operand:VM 3 "altivec_register_operand" "v")))]
+	(if_then_else:VM
+	 (ne:CC (match_operand:VM 1 "altivec_register_operand" "v")
+		(const_int 0))
+	 (match_operand:VM 2 "altivec_register_operand" "v")
+	 (match_operand:VM 3 "altivec_register_operand" "v")))]
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
+  "vsel %0,%3,%2,%1"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*altivec_vsel<mode>_uns"
+  [(set (match_operand:VM 0 "altivec_register_operand" "=v")
+	(if_then_else:VM
+	 (ne:CCUNS (match_operand:VM 1 "altivec_register_operand" "v")
+		   (const_int 0))
+	 (match_operand:VM 2 "altivec_register_operand" "v")
+	 (match_operand:VM 3 "altivec_register_operand" "v")))]
   "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vsel %0,%3,%2,%1"
   [(set_attr "type" "vecperm")])
@@ -1315,6 +1328,16 @@
   "vperm %0,%1,%2,%3"
   [(set_attr "type" "vecperm")])
 
+(define_insn "altivec_vperm_<mode>_uns"
+  [(set (match_operand:VM 0 "register_operand" "=v")
+	(unspec:VM [(match_operand:VM 1 "register_operand" "v")
+		    (match_operand:VM 2 "register_operand" "v")
+		    (match_operand:V16QI 3 "register_operand" "v")]
+		   UNSPEC_VPERM_UNS))]
+  "TARGET_ALTIVEC"
+  "vperm %0,%1,%2,%3"
+  [(set_attr "type" "vecperm")])
+
 (define_insn "altivec_vrfip"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (unspec:V4SF [(match_operand:V4SF 1 "register_operand" "v")]
@@ -1410,10 +1433,10 @@
   [(set_attr "type" "vecfloat")])
 
 (define_insn "altivec_vsldoi_<mode>"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (unspec:V [(match_operand:V 1 "register_operand" "v")
-		   (match_operand:V 2 "register_operand" "v")
-                   (match_operand:QI 3 "immediate_operand" "i")]
+  [(set (match_operand:VM 0 "register_operand" "=v")
+        (unspec:VM [(match_operand:VM 1 "register_operand" "v")
+		    (match_operand:VM 2 "register_operand" "v")
+		    (match_operand:QI 3 "immediate_operand" "i")]
 		  UNSPEC_VLSDOI))]
   "TARGET_ALTIVEC"
   "vsldoi %0,%1,%2,%3"
@@ -1775,66 +1798,6 @@
   operands[3] = gen_reg_rtx (GET_MODE (operands[0]));
 })
 
-;; Vector shift left in bits. Currently supported ony for shift
-;; amounts that can be expressed as byte shifts (divisible by 8).
-;; General shift amounts can be supported using vslo + vsl. We're
-;; not expecting to see these yet (the vectorizer currently
-;; generates only shifts divisible by byte_size).
-(define_expand "vec_shl_<mode>"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (unspec:V [(match_operand:V 1 "register_operand" "v")
-                   (match_operand:QI 2 "reg_or_short_operand" "")]
-		  UNSPEC_VECSH))]
-  "TARGET_ALTIVEC"
-  "
-{
-  rtx bitshift = operands[2];
-  rtx byteshift = gen_reg_rtx (QImode);
-  HOST_WIDE_INT bitshift_val;
-  HOST_WIDE_INT byteshift_val;
-
-  if (! CONSTANT_P (bitshift))
-    FAIL;
-  bitshift_val = INTVAL (bitshift);
-  if (bitshift_val & 0x7)
-    FAIL;
-  byteshift_val = bitshift_val >> 3;
-  byteshift = gen_rtx_CONST_INT (QImode, byteshift_val);
-  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
-                                        byteshift));
-  DONE;
-}")
-
-;; Vector shift right in bits. Currently supported ony for shift
-;; amounts that can be expressed as byte shifts (divisible by 8).
-;; General shift amounts can be supported using vsro + vsr. We're
-;; not expecting to see these yet (the vectorizer currently
-;; generates only shifts divisible by byte_size).
-(define_expand "vec_shr_<mode>"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (unspec:V [(match_operand:V 1 "register_operand" "v")
-                   (match_operand:QI 2 "reg_or_short_operand" "")]
-		  UNSPEC_VECSH))]
-  "TARGET_ALTIVEC"
-  "
-{
-  rtx bitshift = operands[2];
-  rtx byteshift = gen_reg_rtx (QImode);
-  HOST_WIDE_INT bitshift_val;
-  HOST_WIDE_INT byteshift_val;
- 
-  if (! CONSTANT_P (bitshift))
-    FAIL;
-  bitshift_val = INTVAL (bitshift);
-  if (bitshift_val & 0x7)
-    FAIL;
-  byteshift_val = 16 - (bitshift_val >> 3);
-  byteshift = gen_rtx_CONST_INT (QImode, byteshift_val);
-  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
-                                        byteshift));
-  DONE;
-}")
-
 (define_insn "altivec_vsumsws_nomode"
   [(set (match_operand 0 "register_operand" "=v")
         (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
@@ -1876,16 +1839,6 @@
   emit_insn (gen_altivec_vsumsws_nomode (operands[0], vtmp1, vzero));
   DONE;
 }")
-
-(define_insn "vec_realign_load_<mode>"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (unspec:V [(match_operand:V 1 "register_operand" "v")
-                   (match_operand:V 2 "register_operand" "v")
-                   (match_operand:V16QI 3 "register_operand" "v")]
-		  UNSPEC_REALIGN_LOAD))]
-  "TARGET_ALTIVEC"
-  "vperm %0,%1,%2,%3"
-  [(set_attr "type" "vecperm")])
 
 (define_expand "neg<mode>2"
   [(use (match_operand:VI 0 "register_operand" ""))

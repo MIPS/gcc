@@ -311,7 +311,7 @@ int rs6000_vector_align[NUM_MACHINE_MODES];
 enum reg_class rs6000_vsx_reg_class = NO_REGS;
 
 /* Map selected modes to types for builtins.  */
-static tree builtin_mode_to_type[MAX_MACHINE_MODE];
+static tree builtin_mode_to_type[MAX_MACHINE_MODE][2];
 
 /* Target cpu costs.  */
 
@@ -920,7 +920,7 @@ static unsigned builtin_hash_function (const void *);
 static int builtin_hash_eq (const void *, const void *);
 static tree builtin_function_type (enum machine_mode, enum machine_mode,
 				   enum machine_mode, enum machine_mode,
-				   const char *name);
+				   enum rs6000_builtins, const char *name);
 static void rs6000_common_init_builtins (void);
 static void rs6000_init_libfuncs (void);
 
@@ -1042,7 +1042,8 @@ static GTY ((param_is (struct toc_hash_struct))) htab_t toc_hash_table;
 struct builtin_hash_struct GTY(())
 {
   tree type;
-  enum machine_mode mode[4];	/* return value + 3 arguments */
+  enum machine_mode mode[4];	/* return value + 3 arguments.  */
+  unsigned char uns_p[4];	/* and whether the types are unsigned.  */
 };
 
 static GTY ((param_is (struct builtin_hash_struct))) htab_t builtin_hash_table;
@@ -1784,12 +1785,13 @@ rs6000_init_hard_regno_mode_ok (void)
   /* Precalculate HARD_REGNO_NREGS.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
     for (m = 0; m < NUM_MACHINE_MODES; ++m)
-      rs6000_hard_regno_nregs[m][r] = rs6000_hard_regno_nregs_internal (r, m);
+      rs6000_hard_regno_nregs[m][r]
+	= rs6000_hard_regno_nregs_internal (r, (enum machine_mode)m);
 
   /* Precalculate HARD_REGNO_MODE_OK.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
     for (m = 0; m < NUM_MACHINE_MODES; ++m)
-      if (rs6000_hard_regno_mode_ok (r, m))
+      if (rs6000_hard_regno_mode_ok (r, (enum machine_mode)m))
 	rs6000_hard_regno_mode_ok_p[m][r] = true;
 
   /* Precalculate CLASSS_MAX_NREGS sizes.  */
@@ -2245,7 +2247,7 @@ rs6000_override_options (const char *default_cpu)
 #endif
 
   /* Enable Altivec ABI for AIX -maltivec.  */
-  if (TARGET_XCOFF && TARGET_ALTIVEC)
+  if (TARGET_XCOFF && (TARGET_ALTIVEC || TARGET_VSX))
     rs6000_altivec_abi = 1;
 
   /* The AltiVec ABI is the default for PowerPC-64 GNU/Linux.  For
@@ -2254,7 +2256,7 @@ rs6000_override_options (const char *default_cpu)
   if (TARGET_ELF)
     {
       if (!rs6000_explicit_options.altivec_abi
-	  && (TARGET_64BIT || TARGET_ALTIVEC))
+	  && (TARGET_64BIT || TARGET_ALTIVEC || TARGET_VSX))
 	rs6000_altivec_abi = 1;
 
       /* Enable VRSAVE for AltiVec ABI, unless explicitly overridden.  */
@@ -2346,7 +2348,8 @@ rs6000_override_options (const char *default_cpu)
       else if (! strcmp (rs6000_sched_costly_dep_str, "store_to_load"))
 	rs6000_sched_costly_dep = store_to_load_dep_costly;
       else
-	rs6000_sched_costly_dep = atoi (rs6000_sched_costly_dep_str);
+	rs6000_sched_costly_dep = ((enum rs6000_dependence_cost)
+				   atoi (rs6000_sched_costly_dep_str));
     }
 
   /* Handle -minsert-sched-nops option.  */
@@ -2362,7 +2365,8 @@ rs6000_override_options (const char *default_cpu)
       else if (! strcmp (rs6000_sched_insert_nops_str, "regroup_exact"))
 	rs6000_sched_insert_nops = sched_finish_regroup_exact;
       else
-	rs6000_sched_insert_nops = atoi (rs6000_sched_insert_nops_str);
+	rs6000_sched_insert_nops = ((enum rs6000_nop_insertion)
+				    atoi (rs6000_sched_insert_nops_str));
     }
 
 #ifdef TARGET_REGNAMES
@@ -2723,6 +2727,8 @@ rs6000_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_pac
 tree
 rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
 {
+  tree inner_type = TREE_TYPE (type);
+  bool uns_p = TYPE_UNSIGNED (inner_type);
   tree d;
 
   *mask_element_type = unsigned_char_type_node;
@@ -2730,15 +2736,21 @@ rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
   switch (TYPE_MODE (type))
     {
     case V16QImode:
-      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI];
+      d = (uns_p
+	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI_UNS]
+	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI]);
       break;
 
     case V8HImode:
-      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI];
+      d = (uns_p
+	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI_UNS]
+	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI]);
       break;
 
     case V4SImode:
-      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI];
+      d = (uns_p
+	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI_UNS]
+	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI]);
       break;
 
     case V4SFmode:
@@ -2750,7 +2762,9 @@ rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
       break;
 
     case V2DImode:
-      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI];
+      d = (uns_p
+	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI_UNS]
+	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI]);
       break;
 
     default:
@@ -7959,17 +7973,26 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vmsumuhs, "__builtin_altivec_vmsumuhs", ALTIVEC_BUILTIN_VMSUMUHS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmsumshs, "__builtin_altivec_vmsumshs", ALTIVEC_BUILTIN_VMSUMSHS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vnmsubfp, "__builtin_altivec_vnmsubfp", ALTIVEC_BUILTIN_VNMSUBFP },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v2df, "__builtin_altivec_vperm_2df", ALTIVEC_BUILTIN_VPERM_2DF },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v2di, "__builtin_altivec_vperm_2di", ALTIVEC_BUILTIN_VPERM_2DI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v4sf, "__builtin_altivec_vperm_4sf", ALTIVEC_BUILTIN_VPERM_4SF },
   { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v4si, "__builtin_altivec_vperm_4si", ALTIVEC_BUILTIN_VPERM_4SI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v8hi, "__builtin_altivec_vperm_8hi", ALTIVEC_BUILTIN_VPERM_8HI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v16qi, "__builtin_altivec_vperm_16qi", ALTIVEC_BUILTIN_VPERM_16QI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v2df, "__builtin_altivec_vperm_2df", ALTIVEC_BUILTIN_VPERM_2DF },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v2di, "__builtin_altivec_vperm_2di", ALTIVEC_BUILTIN_VPERM_2DI },
-  { MASK_ALTIVEC, CODE_FOR_vector_vselv4sf, "__builtin_altivec_vsel_4sf", ALTIVEC_BUILTIN_VSEL_4SF },
-  { MASK_ALTIVEC, CODE_FOR_vector_vselv4si, "__builtin_altivec_vsel_4si", ALTIVEC_BUILTIN_VSEL_4SI },
-  { MASK_ALTIVEC, CODE_FOR_vector_vselv8hi, "__builtin_altivec_vsel_8hi", ALTIVEC_BUILTIN_VSEL_8HI },
-  { MASK_ALTIVEC, CODE_FOR_vector_vselv16qi, "__builtin_altivec_vsel_16qi", ALTIVEC_BUILTIN_VSEL_16QI },
-  { MASK_ALTIVEC, CODE_FOR_vector_vselv2df, "__builtin_altivec_vsel_2df", ALTIVEC_BUILTIN_VSEL_2DF },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v16qi_uns, "__builtin_altivec_vperm_16qi", ALTIVEC_BUILTIN_VPERM_16QI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v2di_uns, "__builtin_altivec_vperm_2di_uns", ALTIVEC_BUILTIN_VPERM_2DI_UNS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v4si_uns, "__builtin_altivec_vperm_4si_uns", ALTIVEC_BUILTIN_VPERM_4SI_UNS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v8hi_uns, "__builtin_altivec_vperm_8hi_uns", ALTIVEC_BUILTIN_VPERM_8HI_UNS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v16qi_uns, "__builtin_altivec_vperm_16qi_uns", ALTIVEC_BUILTIN_VPERM_16QI_UNS },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v4sf, "__builtin_altivec_vsel_4sf", ALTIVEC_BUILTIN_VSEL_4SF },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v4si, "__builtin_altivec_vsel_4si", ALTIVEC_BUILTIN_VSEL_4SI },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v8hi, "__builtin_altivec_vsel_8hi", ALTIVEC_BUILTIN_VSEL_8HI },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v16qi, "__builtin_altivec_vsel_16qi", ALTIVEC_BUILTIN_VSEL_16QI },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v2df, "__builtin_altivec_vsel_2df", ALTIVEC_BUILTIN_VSEL_2DF },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v2di, "__builtin_altivec_vsel_2di", ALTIVEC_BUILTIN_VSEL_2DI },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v4si_uns, "__builtin_altivec_vsel_4si_uns", ALTIVEC_BUILTIN_VSEL_4SI_UNS },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v8hi_uns, "__builtin_altivec_vsel_8hi_uns", ALTIVEC_BUILTIN_VSEL_8HI_UNS },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v16qi_uns, "__builtin_altivec_vsel_16qi_uns", ALTIVEC_BUILTIN_VSEL_16QI_UNS },
+  { MASK_ALTIVEC, CODE_FOR_vector_select_v2di_uns, "__builtin_altivec_vsel_2di_uns", ALTIVEC_BUILTIN_VSEL_2DI_UNS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v16qi, "__builtin_altivec_vsldoi_16qi", ALTIVEC_BUILTIN_VSLDOI_16QI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v8hi, "__builtin_altivec_vsldoi_8hi", ALTIVEC_BUILTIN_VSLDOI_8HI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v4si, "__builtin_altivec_vsldoi_4si", ALTIVEC_BUILTIN_VSLDOI_4SI },
@@ -8001,12 +8024,16 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_VSX, CODE_FOR_vsx_fnmaddv4sf4, "__builtin_vsx_xvnmaddsp", VSX_BUILTIN_XVNMADDSP },
   { MASK_VSX, CODE_FOR_vsx_fnmsubv4sf4, "__builtin_vsx_xvnmsubsp", VSX_BUILTIN_XVNMSUBSP },
 
-  { MASK_VSX, CODE_FOR_vector_vselv2di, "__builtin_vsx_xxsel_2di", VSX_BUILTIN_XXSEL_2DI },
-  { MASK_VSX, CODE_FOR_vector_vselv2df, "__builtin_vsx_xxsel_2df", VSX_BUILTIN_XXSEL_2DF },
-  { MASK_VSX, CODE_FOR_vector_vselv4sf, "__builtin_vsx_xxsel_4sf", VSX_BUILTIN_XXSEL_4SF },
-  { MASK_VSX, CODE_FOR_vector_vselv4si, "__builtin_vsx_xxsel_4si", VSX_BUILTIN_XXSEL_4SI },
-  { MASK_VSX, CODE_FOR_vector_vselv8hi, "__builtin_vsx_xxsel_8hi", VSX_BUILTIN_XXSEL_8HI },
-  { MASK_VSX, CODE_FOR_vector_vselv16qi, "__builtin_vsx_xxsel_16qi", VSX_BUILTIN_XXSEL_16QI },
+  { MASK_VSX, CODE_FOR_vector_select_v2di, "__builtin_vsx_xxsel_2di", VSX_BUILTIN_XXSEL_2DI },
+  { MASK_VSX, CODE_FOR_vector_select_v2df, "__builtin_vsx_xxsel_2df", VSX_BUILTIN_XXSEL_2DF },
+  { MASK_VSX, CODE_FOR_vector_select_v4sf, "__builtin_vsx_xxsel_4sf", VSX_BUILTIN_XXSEL_4SF },
+  { MASK_VSX, CODE_FOR_vector_select_v4si, "__builtin_vsx_xxsel_4si", VSX_BUILTIN_XXSEL_4SI },
+  { MASK_VSX, CODE_FOR_vector_select_v8hi, "__builtin_vsx_xxsel_8hi", VSX_BUILTIN_XXSEL_8HI },
+  { MASK_VSX, CODE_FOR_vector_select_v16qi, "__builtin_vsx_xxsel_16qi", VSX_BUILTIN_XXSEL_16QI },
+  { MASK_VSX, CODE_FOR_vector_select_v2di_uns, "__builtin_vsx_xxsel_2di_uns", VSX_BUILTIN_XXSEL_2DI_UNS },
+  { MASK_VSX, CODE_FOR_vector_select_v4si_uns, "__builtin_vsx_xxsel_4si_uns", VSX_BUILTIN_XXSEL_4SI_UNS },
+  { MASK_VSX, CODE_FOR_vector_select_v8hi_uns, "__builtin_vsx_xxsel_8hi_uns", VSX_BUILTIN_XXSEL_8HI_UNS },
+  { MASK_VSX, CODE_FOR_vector_select_v16qi_uns, "__builtin_vsx_xxsel_16qi_uns", VSX_BUILTIN_XXSEL_16QI_UNS },
 
   { MASK_VSX, CODE_FOR_altivec_vperm_v2di, "__builtin_vsx_vperm_2di", VSX_BUILTIN_VPERM_2DI },
   { MASK_VSX, CODE_FOR_altivec_vperm_v2df, "__builtin_vsx_vperm_2df", VSX_BUILTIN_VPERM_2DF },
@@ -8014,6 +8041,10 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_VSX, CODE_FOR_altivec_vperm_v4si, "__builtin_vsx_vperm_4si", VSX_BUILTIN_VPERM_4SI },
   { MASK_VSX, CODE_FOR_altivec_vperm_v8hi, "__builtin_vsx_vperm_8hi", VSX_BUILTIN_VPERM_8HI },
   { MASK_VSX, CODE_FOR_altivec_vperm_v16qi, "__builtin_vsx_vperm_16qi", VSX_BUILTIN_VPERM_16QI },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v2di_uns, "__builtin_vsx_vperm_2di_uns", VSX_BUILTIN_VPERM_2DI_UNS },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v4si_uns, "__builtin_vsx_vperm_4si_uns", VSX_BUILTIN_VPERM_4SI_UNS },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v8hi_uns, "__builtin_vsx_vperm_8hi_uns", VSX_BUILTIN_VPERM_8HI_UNS },
+  { MASK_VSX, CODE_FOR_altivec_vperm_v16qi_uns, "__builtin_vsx_vperm_16qi_uns", VSX_BUILTIN_VPERM_16QI_UNS },
 
   { MASK_VSX, CODE_FOR_vsx_xxpermdi_v2df, "__builtin_vsx_xxpermdi_2df", VSX_BUILTIN_XXPERMDI_2DF },
   { MASK_VSX, CODE_FOR_vsx_xxpermdi_v2di, "__builtin_vsx_xxpermdi_2di", VSX_BUILTIN_XXPERMDI_2DI },
@@ -8544,11 +8575,11 @@ static const struct builtin_description_predicates bdesc_altivec_preds[] =
   { MASK_VSX, CODE_FOR_vector_gt_v2df_p, "__builtin_vsx_xvcmpgtdp_p",
     VSX_BUILTIN_XVCMPGTDP_P },
 
-  { MASK_ALTIVEC|MASK_VSX, 0, "__builtin_vec_vcmpeq_p",
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vcmpeq_p",
     ALTIVEC_BUILTIN_VCMPEQ_P },
-  { MASK_ALTIVEC|MASK_VSX, 0, "__builtin_vec_vcmpgt_p",
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vcmpgt_p",
     ALTIVEC_BUILTIN_VCMPGT_P },
-  { MASK_ALTIVEC|MASK_VSX, 0, "__builtin_vec_vcmpge_p",
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vcmpge_p",
     ALTIVEC_BUILTIN_VCMPGE_P }
 };
 
@@ -9513,8 +9544,8 @@ altivec_expand_vec_set_builtin (tree exp)
   mode1 = TYPE_MODE (TREE_TYPE (TREE_TYPE (arg0)));
   gcc_assert (VECTOR_MODE_P (tmode));
 
-  op0 = expand_expr (arg0, NULL_RTX, tmode, 0);
-  op1 = expand_expr (arg1, NULL_RTX, mode1, 0);
+  op0 = expand_expr (arg0, NULL_RTX, tmode, EXPAND_NORMAL);
+  op1 = expand_expr (arg1, NULL_RTX, mode1, EXPAND_NORMAL);
   elt = get_element_number (TREE_TYPE (arg0), arg2);
 
   if (GET_MODE (op1) != mode1 && GET_MODE (op1) != VOIDmode)
@@ -10407,21 +10438,27 @@ rs6000_init_builtins (void)
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
-  builtin_mode_to_type[QImode] = integer_type_node;
-  builtin_mode_to_type[HImode] = integer_type_node;
-  builtin_mode_to_type[SImode] = intSI_type_node;
-  builtin_mode_to_type[DImode] = intDI_type_node;
-  builtin_mode_to_type[SFmode] = float_type_node;
-  builtin_mode_to_type[DFmode] = double_type_node;
-  builtin_mode_to_type[V2SImode] = V2SI_type_node;
-  builtin_mode_to_type[V2SFmode] = V2SF_type_node;
-  builtin_mode_to_type[V2DImode] = V2DI_type_node;
-  builtin_mode_to_type[V2DFmode] = V2DF_type_node;
-  builtin_mode_to_type[V4HImode] = V4HI_type_node;
-  builtin_mode_to_type[V4SImode] = V4SI_type_node;
-  builtin_mode_to_type[V4SFmode] = V4SF_type_node;
-  builtin_mode_to_type[V8HImode] = V8HI_type_node;
-  builtin_mode_to_type[V16QImode] = V16QI_type_node;
+  builtin_mode_to_type[QImode][0] = integer_type_node;
+  builtin_mode_to_type[HImode][0] = integer_type_node;
+  builtin_mode_to_type[SImode][0] = intSI_type_node;
+  builtin_mode_to_type[SImode][1] = unsigned_intSI_type_node;
+  builtin_mode_to_type[DImode][0] = intDI_type_node;
+  builtin_mode_to_type[DImode][1] = unsigned_intDI_type_node;
+  builtin_mode_to_type[SFmode][0] = float_type_node;
+  builtin_mode_to_type[DFmode][0] = double_type_node;
+  builtin_mode_to_type[V2SImode][0] = V2SI_type_node;
+  builtin_mode_to_type[V2SFmode][0] = V2SF_type_node;
+  builtin_mode_to_type[V2DImode][0] = V2DI_type_node;
+  builtin_mode_to_type[V2DImode][1] = unsigned_V2DI_type_node;
+  builtin_mode_to_type[V2DFmode][0] = V2DF_type_node;
+  builtin_mode_to_type[V4HImode][0] = V4HI_type_node;
+  builtin_mode_to_type[V4SImode][0] = V4SI_type_node;
+  builtin_mode_to_type[V4SImode][1] = unsigned_V4SI_type_node;
+  builtin_mode_to_type[V4SFmode][0] = V4SF_type_node;
+  builtin_mode_to_type[V8HImode][0] = V8HI_type_node;
+  builtin_mode_to_type[V8HImode][1] = unsigned_V8HI_type_node;
+  builtin_mode_to_type[V16QImode][0] = V16QI_type_node;
+  builtin_mode_to_type[V16QImode][1] = unsigned_V16QI_type_node;
 
   (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
 					    get_identifier ("__bool char"),
@@ -10503,11 +10540,13 @@ rs6000_init_builtins (void)
   if (TARGET_PPC_GFXOPT)
     {
       tree ftype = builtin_function_type (SFmode, SFmode, SFmode, VOIDmode,
+					  RS6000_BUILTIN_RECIPF,
 					  "__builtin_recipdivf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
 		   RS6000_BUILTIN_RECIPF);
 
       ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
+				     RS6000_BUILTIN_RSQRTF,
 				     "__builtin_rsqrtf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
@@ -10515,6 +10554,7 @@ rs6000_init_builtins (void)
   if (TARGET_POPCNTB)
     {
       tree ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
+					  RS6000_BUILTIN_RECIP,
 					  "__builtin_recipdiv");
       def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
 		   RS6000_BUILTIN_RECIP);
@@ -10524,6 +10564,7 @@ rs6000_init_builtins (void)
     {
       enum machine_mode mode = (TARGET_64BIT) ? DImode : SImode;
       tree ftype = builtin_function_type (mode, mode, mode, VOIDmode,
+					  POWER7_BUILTIN_BPERMD,
 					  "__builtin_bpermd");
       def_builtin (MASK_POPCNTD, "__builtin_bpermd", ftype,
 		   POWER7_BUILTIN_BPERMD);
@@ -11293,7 +11334,10 @@ builtin_hash_function (const void *hash_entry)
     (const struct builtin_hash_struct *) hash_entry;
 
   for (i = 0; i < 4; i++)
-    ret = (ret * (unsigned)MAX_MACHINE_MODE) + ((unsigned)bh->mode[i]);
+    {
+      ret = (ret * (unsigned)MAX_MACHINE_MODE) + ((unsigned)bh->mode[i]);
+      ret = (ret * 2) + bh->uns_p[i];
+    }
 
   return ret;
 }
@@ -11308,7 +11352,11 @@ builtin_hash_eq (const void *h1, const void *h2)
   return ((p1->mode[0] == p2->mode[0])
 	  && (p1->mode[1] == p2->mode[1])
 	  && (p1->mode[2] == p2->mode[2])
-	  && (p1->mode[3] == p2->mode[3]));
+	  && (p1->mode[3] == p2->mode[3])
+	  && (p1->uns_p[0] == p2->uns_p[0])
+	  && (p1->uns_p[1] == p2->uns_p[1])
+	  && (p1->uns_p[2] == p2->uns_p[2])
+	  && (p1->uns_p[3] == p2->uns_p[3]));
 }
 
 /* Map types for builtin functions with an explicit return type and up to 3
@@ -11317,13 +11365,15 @@ builtin_hash_eq (const void *h1, const void *h2)
 static tree
 builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
 		       enum machine_mode mode_arg1, enum machine_mode mode_arg2,
-		       const char *name)
+		       enum rs6000_builtins builtin, const char *name)
 {
   struct builtin_hash_struct h;
   struct builtin_hash_struct *h2;
   void **found;
   int num_args = 3;
   int i;
+  tree ret_type = NULL_TREE;
+  tree arg_type[3] = { NULL_TREE, NULL_TREE, NULL_TREE };
 
   /* Create builtin_hash_table.  */
   if (builtin_hash_table == NULL)
@@ -11335,6 +11385,184 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
   h.mode[1] = mode_arg0;
   h.mode[2] = mode_arg1;
   h.mode[3] = mode_arg2;
+  h.uns_p[0] = 0;
+  h.uns_p[1] = 0;
+  h.uns_p[2] = 0;
+  h.uns_p[3] = 0;
+
+  /* If the builtin is a type that produces unsigned results, change to use
+     unsigned types instead of signed types.  All of the types below are
+     probably overkill for now.  It is important that the decls that are used
+     in the vectorizer such as the widening multiplies have the correct signed
+     or unsigned type, so that the gimple type verifier doesn't complain about
+     the wrong types being used.  */
+  switch (builtin)
+    {
+    case ALTIVEC_BUILTIN_VADDUBM:
+    case ALTIVEC_BUILTIN_VADDUHM:
+    case ALTIVEC_BUILTIN_VADDUWM:
+    case ALTIVEC_BUILTIN_VADDCUW:
+    case ALTIVEC_BUILTIN_VADDUBS:
+    case ALTIVEC_BUILTIN_VADDUHS:
+    case ALTIVEC_BUILTIN_VADDUWS:
+    case ALTIVEC_BUILTIN_VAVGUB:
+    case ALTIVEC_BUILTIN_VAVGUH:
+    case ALTIVEC_BUILTIN_VAVGUW:
+    case ALTIVEC_BUILTIN_VCMPEQUB:
+    case ALTIVEC_BUILTIN_VCMPEQUH:
+    case ALTIVEC_BUILTIN_VCMPEQUW:
+    case ALTIVEC_BUILTIN_VCMPGTUB:
+    case ALTIVEC_BUILTIN_VCMPGTUH:
+    case ALTIVEC_BUILTIN_VCMPGTUW:
+    case ALTIVEC_BUILTIN_VMAXUB:
+    case ALTIVEC_BUILTIN_VMAXUH:
+    case ALTIVEC_BUILTIN_VMAXUW:
+    case ALTIVEC_BUILTIN_VMSUMUBM:
+    case ALTIVEC_BUILTIN_VMSUMUHM:
+    case ALTIVEC_BUILTIN_VMSUMUHS:
+    case ALTIVEC_BUILTIN_VMSUMSHS:
+    case ALTIVEC_BUILTIN_VMINUB:
+    case ALTIVEC_BUILTIN_VMINUH:
+    case ALTIVEC_BUILTIN_VMINUW:
+    case ALTIVEC_BUILTIN_VMULEUB:
+    case ALTIVEC_BUILTIN_VMULEUH:
+    case ALTIVEC_BUILTIN_VMULOUB:
+    case ALTIVEC_BUILTIN_VMULOUH:
+    case ALTIVEC_BUILTIN_VPKUHUM:
+    case ALTIVEC_BUILTIN_VPKUWUM:
+    case ALTIVEC_BUILTIN_VPKUHUS:
+    case ALTIVEC_BUILTIN_VPKUWUS:
+    case ALTIVEC_BUILTIN_VSUBUBM:
+    case ALTIVEC_BUILTIN_VSUBUHM:
+    case ALTIVEC_BUILTIN_VSUBUWM:
+    case ALTIVEC_BUILTIN_VSUBCUW:
+    case ALTIVEC_BUILTIN_VSUBUBS:
+    case ALTIVEC_BUILTIN_VSUBUHS:
+    case ALTIVEC_BUILTIN_VSUBUWS:
+    case ALTIVEC_BUILTIN_VSUM4UBS:
+    case ALTIVEC_BUILTIN_VCMPEQUB_P:
+    case ALTIVEC_BUILTIN_VCMPEQUH_P:
+    case ALTIVEC_BUILTIN_VCMPEQUW_P:
+    case ALTIVEC_BUILTIN_VCMPGTUB_P:
+    case ALTIVEC_BUILTIN_VCMPGTUH_P:
+    case ALTIVEC_BUILTIN_VCMPGTUW_P:
+    case ALTIVEC_BUILTIN_VEC_VADDUBM:
+    case ALTIVEC_BUILTIN_VEC_VADDUBS:
+    case ALTIVEC_BUILTIN_VEC_VADDUHM:
+    case ALTIVEC_BUILTIN_VEC_VADDUHS:
+    case ALTIVEC_BUILTIN_VEC_VADDUWM:
+    case ALTIVEC_BUILTIN_VEC_VADDUWS:
+    case ALTIVEC_BUILTIN_VEC_VAVGUB:
+    case ALTIVEC_BUILTIN_VEC_VAVGUH:
+    case ALTIVEC_BUILTIN_VEC_VAVGUW:
+    case ALTIVEC_BUILTIN_VEC_VCMPEQUB:
+    case ALTIVEC_BUILTIN_VEC_VCMPEQUH:
+    case ALTIVEC_BUILTIN_VEC_VCMPGTUB:
+    case ALTIVEC_BUILTIN_VEC_VCMPGTUH:
+    case ALTIVEC_BUILTIN_VEC_VCMPGTUW:
+    case ALTIVEC_BUILTIN_VEC_VMAXUB:
+    case ALTIVEC_BUILTIN_VEC_VMAXUH:
+    case ALTIVEC_BUILTIN_VEC_VMAXUW:
+    case ALTIVEC_BUILTIN_VEC_VMINUB:
+    case ALTIVEC_BUILTIN_VEC_VMINUH:
+    case ALTIVEC_BUILTIN_VEC_VMINUW:
+    case ALTIVEC_BUILTIN_VEC_VMSUMMBM:
+    case ALTIVEC_BUILTIN_VEC_VMSUMUBM:
+    case ALTIVEC_BUILTIN_VEC_VMSUMUHM:
+    case ALTIVEC_BUILTIN_VEC_VMSUMUHS:
+    case ALTIVEC_BUILTIN_VEC_VMULESB:
+    case ALTIVEC_BUILTIN_VEC_VMULESH:
+    case ALTIVEC_BUILTIN_VEC_VMULEUB:
+    case ALTIVEC_BUILTIN_VEC_VMULEUH:
+    case ALTIVEC_BUILTIN_VEC_VMULOUB:
+    case ALTIVEC_BUILTIN_VEC_VMULOUH:
+    case ALTIVEC_BUILTIN_VEC_VPKUHUM:
+    case ALTIVEC_BUILTIN_VEC_VPKUHUS:
+    case ALTIVEC_BUILTIN_VEC_VPKUWUM:
+    case ALTIVEC_BUILTIN_VEC_VPKUWUS:
+    case ALTIVEC_BUILTIN_VEC_VSUBUBM:
+    case ALTIVEC_BUILTIN_VEC_VSUBUBS:
+    case ALTIVEC_BUILTIN_VEC_VSUBUHM:
+    case ALTIVEC_BUILTIN_VEC_VSUBUHS:
+    case ALTIVEC_BUILTIN_VEC_VSUBUWM:
+    case ALTIVEC_BUILTIN_VEC_VSUBUWS:
+    case ALTIVEC_BUILTIN_VEC_VSUM4UBS:
+      h.uns_p[0] = 1;
+      h.uns_p[1] = 1;
+      h.uns_p[2] = 1;
+      break;
+
+      /* unsigned 3 argument functions.  */
+    case ALTIVEC_BUILTIN_VPERM_16QI_UNS:
+    case ALTIVEC_BUILTIN_VPERM_8HI_UNS:
+    case ALTIVEC_BUILTIN_VPERM_4SI_UNS:
+    case ALTIVEC_BUILTIN_VPERM_2DI_UNS:
+    case ALTIVEC_BUILTIN_VSEL_16QI_UNS:
+    case ALTIVEC_BUILTIN_VSEL_8HI_UNS:
+    case ALTIVEC_BUILTIN_VSEL_4SI_UNS:
+    case ALTIVEC_BUILTIN_VSEL_2DI_UNS:
+    case VSX_BUILTIN_VPERM_16QI_UNS:
+    case VSX_BUILTIN_VPERM_8HI_UNS:
+    case VSX_BUILTIN_VPERM_4SI_UNS:
+    case VSX_BUILTIN_VPERM_2DI_UNS:
+    case VSX_BUILTIN_XXSEL_16QI_UNS:
+    case VSX_BUILTIN_XXSEL_8HI_UNS:
+    case VSX_BUILTIN_XXSEL_4SI_UNS:
+    case VSX_BUILTIN_XXSEL_2DI_UNS:
+      h.uns_p[0] = 1;
+      h.uns_p[1] = 1;
+      h.uns_p[2] = 1;
+      h.uns_p[3] = 1;
+      break;
+
+      /* signed permute functions with unsigned char mask.  */
+    case ALTIVEC_BUILTIN_VPERM_16QI:
+    case ALTIVEC_BUILTIN_VPERM_8HI:
+    case ALTIVEC_BUILTIN_VPERM_4SI:
+    case ALTIVEC_BUILTIN_VPERM_4SF:
+    case ALTIVEC_BUILTIN_VPERM_2DI:
+    case ALTIVEC_BUILTIN_VPERM_2DF:
+    case VSX_BUILTIN_VPERM_16QI:
+    case VSX_BUILTIN_VPERM_8HI:
+    case VSX_BUILTIN_VPERM_4SI:
+    case VSX_BUILTIN_VPERM_4SF:
+    case VSX_BUILTIN_VPERM_2DI:
+    case VSX_BUILTIN_VPERM_2DF:
+      h.uns_p[3] = 1;
+      break;
+
+      /* unsigned args, signed return.  */
+    case ALTIVEC_BUILTIN_VCFUX:
+    case ALTIVEC_BUILTIN_VPKUHSS:
+    case ALTIVEC_BUILTIN_VPKUWSS:
+    case VSX_BUILTIN_XSCVUXDDP:
+    case VSX_BUILTIN_XVCVUXDDP:
+    case VSX_BUILTIN_XVCVUXDSP:
+    case VSX_BUILTIN_XVCVUXWDP:
+    case VSX_BUILTIN_XVCVUXWSP:
+    case VECTOR_BUILTIN_UNSFLOAT_V4SI_V4SF:
+      h.uns_p[1] = 1;
+      break;
+
+      /* signed args, unsigned return.  */
+    case ALTIVEC_BUILTIN_VCTUXS:
+    case ALTIVEC_BUILTIN_VPKSHUS:
+    case ALTIVEC_BUILTIN_VPKSWUS:
+    case ALTIVEC_BUILTIN_VEC_VPKSHUS:
+    case ALTIVEC_BUILTIN_VEC_VPKSWUS:
+    case VSX_BUILTIN_XSCVDPUXDS:
+    case VSX_BUILTIN_XSCVDPUXWS:
+    case VSX_BUILTIN_XVCVDPUXDS:
+    case VSX_BUILTIN_XVCVDPUXWS:
+    case VSX_BUILTIN_XVCVSPUXDS:
+    case VSX_BUILTIN_XVCVSPUXWS:
+    case VECTOR_BUILTIN_FIXUNS_V4SF_V4SI:
+      h.uns_p[0] = 1;
+      break;
+
+    default:
+      break;
+    }
 
   /* Figure out how many args are present.  */
   while (num_args > 0 && h.mode[num_args] == VOIDmode)
@@ -11343,17 +11571,30 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
   if (num_args == 0)
     fatal_error ("internal error: builtin function %s had no type", name);
 
-  if (!builtin_mode_to_type[h.mode[0]])
+  ret_type = builtin_mode_to_type[h.mode[0]][h.uns_p[0]];
+  if (!ret_type && h.uns_p[0])
+    ret_type = builtin_mode_to_type[h.mode[0]][0];
+
+  if (!ret_type)
     fatal_error ("internal error: builtin function %s had an unexpected "
 		 "return type %s", name, GET_MODE_NAME (h.mode[0]));
 
   for (i = 0; i < num_args; i++)
-    if (!builtin_mode_to_type[h.mode[i+1]])
-      fatal_error ("internal error: builtin function %s, argument %d "
-		   "had unexpected argument type %s", name, i,
-		   GET_MODE_NAME (h.mode[i+1]));
+    {
+      int m = (int) h.mode[i+1];
+      int uns_p = h.uns_p[i+1];
 
-  found = htab_find_slot (builtin_hash_table, &h, 1);
+      arg_type[i] = builtin_mode_to_type[m][uns_p];
+      if (!arg_type[i] && uns_p)
+	arg_type[i] = builtin_mode_to_type[m][0];
+
+      if (!arg_type[i])
+	fatal_error ("internal error: builtin function %s, argument %d "
+		     "had unexpected argument type %s", name, i,
+		     GET_MODE_NAME (m));
+    }
+
+  found = htab_find_slot (builtin_hash_table, &h, INSERT);
   if (*found == NULL)
     {
       h2 = GGC_NEW (struct builtin_hash_struct);
@@ -11363,23 +11604,18 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
       switch (num_args)
 	{
 	case 1:
-	  h2->type = build_function_type_list (builtin_mode_to_type[mode_ret],
-					       builtin_mode_to_type[mode_arg0],
+	  h2->type = build_function_type_list (ret_type, arg_type[0],
 					       NULL_TREE);
 	  break;
 
 	case 2:
-	  h2->type = build_function_type_list (builtin_mode_to_type[mode_ret],
-					       builtin_mode_to_type[mode_arg0],
-					       builtin_mode_to_type[mode_arg1],
-					       NULL_TREE);
+	  h2->type = build_function_type_list (ret_type, arg_type[0],
+					       arg_type[1], NULL_TREE);
 	  break;
 
 	case 3:
-	  h2->type = build_function_type_list (builtin_mode_to_type[mode_ret],
-					       builtin_mode_to_type[mode_arg0],
-					       builtin_mode_to_type[mode_arg1],
-					       builtin_mode_to_type[mode_arg2],
+	  h2->type = build_function_type_list (ret_type, arg_type[0],
+					       arg_type[1], arg_type[2],
 					       NULL_TREE);
 	  break;
 
@@ -11406,8 +11642,8 @@ rs6000_common_init_builtins (void)
 
   if (!TARGET_PAIRED_FLOAT)
     {
-      builtin_mode_to_type[V2SImode] = opaque_V2SI_type_node;
-      builtin_mode_to_type[V2SFmode] = opaque_V2SF_type_node;
+      builtin_mode_to_type[V2SImode][0] = opaque_V2SI_type_node;
+      builtin_mode_to_type[V2SFmode][0] = opaque_V2SF_type_node;
     }
 
   /* Add the ternary operators.  */
@@ -11444,7 +11680,7 @@ rs6000_common_init_builtins (void)
 					insn_data[icode].operand[1].mode,
 					insn_data[icode].operand[2].mode,
 					insn_data[icode].operand[3].mode,
-					d->name);
+					d->code, d->name);
 	}
 
       def_builtin (d->mask, d->name, type, d->code);
@@ -11507,7 +11743,7 @@ rs6000_common_init_builtins (void)
 
 	  else
 	    type = builtin_function_type (mode0, mode1, mode2, VOIDmode,
-					  d->name);
+					  d->code, d->name);
 	}
 
       def_builtin (d->mask, d->name, type, d->code);
@@ -11556,7 +11792,7 @@ rs6000_common_init_builtins (void)
 
 	  else
 	    type = builtin_function_type (mode0, mode1, VOIDmode, VOIDmode,
-					  d->name);
+					  d->code, d->name);
 	}
 
       def_builtin (d->mask, d->name, type, d->code);
@@ -12386,6 +12622,7 @@ rs6000_check_sdmode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case PARM_DECL:
     case FIELD_DECL:
     case RESULT_DECL:
+    case SSA_NAME:
     case REAL_CST:
     case INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
@@ -14748,8 +14985,7 @@ rs6000_emit_vector_compare_vsx (enum rtx_code code,
     case GE:
       emit_insn (gen_rtx_SET (VOIDmode,
 			      mask,
-			      gen_rtx_fmt_ee (code, GET_MODE (mask),
-					      op0,
+			      gen_rtx_fmt_ee (code, GET_MODE (op0), op0,
 					      op1)));
       return mask;
     }
@@ -14779,9 +15015,7 @@ rs6000_emit_vector_compare_altivec (enum rtx_code code,
     case GTU:
       emit_insn (gen_rtx_SET (VOIDmode,
 			      mask,
-			      gen_rtx_fmt_ee (code, GET_MODE (mask),
-					      op0,
-					      op1)));
+			      gen_rtx_fmt_ee (code, GET_MODE (op0), op0, op1)));
       return mask;
     }
 
@@ -14846,6 +15080,9 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	rev_code = reverse_condition_maybe_unordered (rcode);
 	eq_rtx = rs6000_emit_vector_compare (rev_code, op0, op1, dmode);
 
+	if (!eq_rtx)
+	  return NULL_RTX;
+
 	nor_code = optab_handler (one_cmpl_optab, (int)dmode)->insn_code;
 	gcc_assert (nor_code != CODE_FOR_nothing);
 	emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
@@ -14886,8 +15123,13 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 
 	c_rtx = rs6000_emit_vector_compare (new_code,
 					    op0, op1, dmode);
+	if (!c_rtx)
+	  return NULL_RTX;
+
 	eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
 					     dmode);
+	if (!eq_rtx)
+	  return NULL_RTX;
 
 	ior_code = optab_handler (ior_optab, (int)dmode)->insn_code;
 	gcc_assert (ior_code != CODE_FOR_nothing);
@@ -14896,7 +15138,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
       }
       break;
     default:
-      gcc_unreachable ();
+      return NULL_RTX;
     }
 
   if (try_again)
@@ -14924,7 +15166,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
     }
 
   /* You only get two chances.  */
-  gcc_unreachable ();
+  return NULL_RTX;
 }
 
 /* Emit vector conditional expression.
@@ -14937,11 +15179,39 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
 {
   enum machine_mode dest_mode = GET_MODE (dest);
   enum rtx_code rcode = GET_CODE (cond);
+  enum machine_mode cc_mode = CCmode;
   rtx mask;
   rtx cond2;
+  rtx tmp;
 
   if (VECTOR_UNIT_NONE_P (dest_mode))
     return 0;
+
+  switch (rcode)
+    {
+      /* Swap operands rather than doing a NOR to invert the test.  */
+    case NE:
+    case UNLE:
+    case UNLT:
+    case UNGE:
+    case UNGT:
+      tmp = op1;
+      op1 = op2;
+      op2 = tmp;
+      rcode = reverse_condition (rcode);
+      break;
+
+      /* Mark unsigned tests with CCUNSmode.  */
+    case GTU:
+    case GEU:
+    case LTU:
+    case LEU:
+      cc_mode = CCUNSmode;
+      break;
+
+    default:
+      break;
+    }
 
   /* Get the vector mask for the given relational operations.  */
   mask = rs6000_emit_vector_compare (rcode, cc_op0, cc_op1, dest_mode);
@@ -14949,7 +15219,7 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   if (!mask)
     return 0;
 
-  cond2 = gen_rtx_fmt_ee (NE, VOIDmode, mask, const0_rtx);
+  cond2 = gen_rtx_fmt_ee (NE, cc_mode, mask, const0_rtx);
   emit_insn (gen_rtx_SET (VOIDmode,
 			  dest,
 			  gen_rtx_IF_THEN_ELSE (dest_mode,
@@ -19547,7 +19817,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
       h->key_mode = mode;
       h->labelno = labelno;
 
-      found = htab_find_slot (toc_hash_table, h, 1);
+      found = htab_find_slot (toc_hash_table, h, INSERT);
       if (*found == NULL)
 	*found = h;
       else  /* This is indeed a duplicate.
@@ -19968,7 +20238,8 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 # define NO_PROFILE_COUNTERS 0
 #endif
       if (NO_PROFILE_COUNTERS)
-	emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 0);
+	emit_library_call (init_one_libfunc (RS6000_MCOUNT),
+			   LCT_NORMAL, VOIDmode, 0);
       else
 	{
 	  char buf[30];
@@ -19979,8 +20250,8 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 	  label_name = (*targetm.strip_name_encoding) (ggc_strdup (buf));
 	  fun = gen_rtx_SYMBOL_REF (Pmode, label_name);
 
-	  emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 1,
-			     fun, Pmode);
+	  emit_library_call (init_one_libfunc (RS6000_MCOUNT),
+			     LCT_NORMAL, VOIDmode, 1, fun, Pmode);
 	}
     }
   else if (DEFAULT_ABI == ABI_DARWIN)
@@ -19999,7 +20270,7 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 	caller_addr_regno = 0;
 #endif
       emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mcount_name),
-			 0, VOIDmode, 1,
+			 LCT_NORMAL, VOIDmode, 1,
 			 gen_rtx_REG (Pmode, caller_addr_regno), Pmode);
     }
 }
@@ -21916,7 +22187,7 @@ rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
     case ABI_DARWIN:
     case ABI_V4:
       emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__trampoline_setup"),
-			 FALSE, VOIDmode, 4,
+			 LCT_NORMAL, VOIDmode, 4,
 			 addr, Pmode,
 			 GEN_INT (rs6000_trampoline_size ()), SImode,
 			 fnaddr, Pmode,
@@ -24087,7 +24358,8 @@ rs6000_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS)
+  else if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS
+	   && ((TARGET_SINGLE_FLOAT && (mode == SFmode)) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
 	   && targetm.calls.split_complex_arg)
