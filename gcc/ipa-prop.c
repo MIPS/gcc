@@ -1654,7 +1654,6 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 	  else
 	    {
 	      tree type = build_pointer_type (note->type);
-	      tree offset;
 	      expr = orig_expr;
 	      if (!POINTER_TYPE_P (TREE_TYPE (expr)))
 		expr = build_fold_addr_expr (expr);
