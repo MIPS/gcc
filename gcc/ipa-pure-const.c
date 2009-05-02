@@ -136,7 +136,7 @@ warn_function_nothrow (tree decl)
   if (pointer_set_contains (warned_about, decl))
     return;
   pointer_set_insert (warned_about, decl);
-  warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
+  warning (OPT_Wmissing_nothrow, "%Jfunction might be possible candidate "
            "for attribute %<nothrow%> or %<throw ()%> marker in C++ code.",
 	   decl);
 }
@@ -148,20 +148,21 @@ warn_function_pure (tree decl, bool known_finite)
 
   if (!warn_missing_pure || TREE_THIS_VOLATILE (decl))
     return;
+  if (!warned_about)
+    warned_about = pointer_set_create ();
+  if (pointer_set_contains (warned_about, decl))
+    return;
+  pointer_set_insert (warned_about, decl);
   if (!known_finite)
     {
-      warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
+      warning (OPT_Wmissing_pure, "%Jfunction might be possible candidate "
                "for attribute %<pure%> if it is known to be finite.",
 	       decl);
       return;
     }
   if (function_always_visible_to_compiler_p (decl))
     return;
-  if (!warned_about)
-    warned_about = pointer_set_create ();
-  if (pointer_set_contains (warned_about, decl))
-    return;
-  warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
+  warning (OPT_Wmissing_pure, "%Jfunction might be possible candidate "
            "for attribute %<pure%>.",
 	   decl);
 }
@@ -173,20 +174,21 @@ warn_function_const (tree decl, bool known_finite)
 
   if (!warn_missing_const || TREE_THIS_VOLATILE (decl))
     return;
+  if (!warned_about)
+    warned_about = pointer_set_create ();
+  if (pointer_set_contains (warned_about, decl))
+    return;
+  pointer_set_insert (warned_about, decl);
   if (!known_finite)
     {
-      warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
+      warning (OPT_Wmissing_const, "%Jfunction might be possible candidate "
                "for attribute %<const%> if it is known to be finite.",
 	       decl);
       return;
     }
   if (function_always_visible_to_compiler_p (decl))
     return;
-  if (!warned_about)
-    warned_about = pointer_set_create ();
-  if (pointer_set_contains (warned_about, decl))
-    return;
-  warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
+  warning (OPT_Wmissing_const, "%Jfunction might be possible candidate "
            "for attribute %<const%>.",
 	   decl);
 }
