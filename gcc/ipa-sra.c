@@ -2215,7 +2215,7 @@ sra_ipa_modify_assign (gimple *stmt_ptr,
 
   if (gimple_assign_rhs2 (stmt)
       || TREE_CODE (gimple_assign_rhs1 (stmt)) == CONSTRUCTOR)
-    return false;
+    return SRA_SA_NONE;
 
   /* The order of processing rhs and lhs is important.  */
   any |= sra_ipa_modify_expr (gimple_assign_rhs1_ptr (stmt), gsi, false,
