@@ -3,6 +3,9 @@
 
 	Sync up to mainline 147040.
 
+	* config/rs6000/rs6000.c (rs6000_builtin_mask_for_load): Enable
+	for VSX.
+
 	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Do not expand
 	__vector if it is not followed by a known identifier.
 
