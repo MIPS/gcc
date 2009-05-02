@@ -144,6 +144,8 @@ warn_function_nothrow (tree decl)
 static void
 warn_function_pure (tree decl, bool known_finite)
 {
+  static struct pointer_set_t *warned_about;
+
   if (!warn_missing_pure || TREE_THIS_VOLATILE (decl))
     return;
   if (!known_finite)
@@ -155,6 +157,10 @@ warn_function_pure (tree decl, bool known_finite)
     }
   if (function_always_visible_to_compiler_p (decl))
     return;
+  if (!warned_about)
+    warned_about = pointer_set_create ();
+  if (pointer_set_contains (warned_about, decl))
+    return;
   warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
            "for attribute %<pure%>.",
 	   decl);
@@ -163,6 +169,8 @@ warn_function_pure (tree decl, bool known_finite)
 static void
 warn_function_const (tree decl, bool known_finite)
 {
+  static struct pointer_set_t *warned_about;
+
   if (!warn_missing_const || TREE_THIS_VOLATILE (decl))
     return;
   if (!known_finite)
@@ -173,6 +181,10 @@ warn_function_const (tree decl, bool known_finite)
       return;
     }
   if (function_always_visible_to_compiler_p (decl))
+    return;
+  if (!warned_about)
+    warned_about = pointer_set_create ();
+  if (pointer_set_contains (warned_about, decl))
     return;
   warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
            "for attribute %<const%>.",
@@ -1094,7 +1106,7 @@ local_pure_const (void)
       break;
 
     case IPA_PURE:
-      if (!TREE_READONLY (current_function_decl))
+      if (!DECL_PURE_P (current_function_decl))
 	{
 	  if (!skip)
 	    {

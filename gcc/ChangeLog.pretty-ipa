@@ -1,5 +1,11 @@
 2009-05-02  Jan Hubicka  <jh@suse.cz>
 
+	* ipa-pure-const.c (warn_function_nothrow, warn_function_pure): Avoid
+	duplicate warnings.
+	(local_pure_const): Fix.
+
+2009-05-02  Jan Hubicka  <jh@suse.cz>
+
 	* ipa-prop.c (ipa_modify_call_arguments): Properly convert the types.
 
 2009-05-02  Jan Hubicka  <jh@suse.cz>
