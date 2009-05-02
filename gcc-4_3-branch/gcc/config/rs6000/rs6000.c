@@ -2579,7 +2579,7 @@ rs6000_override_options (const char *default_cpu)
 static tree
 rs6000_builtin_mask_for_load (void)
 {
-  if (TARGET_ALTIVEC && !TARGET_VSX)
+  if (TARGET_ALTIVEC || TARGET_VSX)
     return altivec_builtin_mask_for_load;
   else
     return 0;
