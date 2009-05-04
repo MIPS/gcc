@@ -311,7 +311,7 @@ int rs6000_vector_align[NUM_MACHINE_MODES];
 enum reg_class rs6000_vsx_reg_class = NO_REGS;
 
 /* Map selected modes to types for builtins.  */
-static tree builtin_mode_to_type[MAX_MACHINE_MODE][2];
+static GTY(()) tree builtin_mode_to_type[MAX_MACHINE_MODE][2];
 
 /* Target cpu costs.  */
 
