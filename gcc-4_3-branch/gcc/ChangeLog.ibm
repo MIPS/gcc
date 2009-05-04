@@ -1,3 +1,9 @@
+2009-05-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (builtin_mode_to_type): Add GTY marker.
+	(rs6000_builtin_vec_perm): Delete, GCC 4.3 doesn't support the
+	targetm.vectorize.builtin_vec_perm hook.
+	
 2009-05-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Revital1 Eres <ERES@il.ibm.com>
 

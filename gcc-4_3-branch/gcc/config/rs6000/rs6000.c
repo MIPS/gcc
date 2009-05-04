@@ -311,7 +311,7 @@ int rs6000_vector_align[NUM_MACHINE_MODES];
 enum reg_class rs6000_vsx_reg_class = NO_REGS;
 
 /* Map selected modes to types for builtins.  */
-static tree builtin_mode_to_type[MAX_MACHINE_MODE][2];
+static GTY(()) tree builtin_mode_to_type[MAX_MACHINE_MODE][2];
 
 /* Target cpu costs.  */
 
@@ -2721,58 +2721,6 @@ rs6000_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_pac
       /* Assuming that all other types are naturally aligned. CHECKME!  */
       return true;
     }
-}
-
-/* Implement targetm.vectorize.builtin_vec_perm.  */
-tree
-rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
-{
-  tree inner_type = TREE_TYPE (type);
-  bool uns_p = TYPE_UNSIGNED (inner_type);
-  tree d;
-
-  *mask_element_type = unsigned_char_type_node;
-
-  switch (TYPE_MODE (type))
-    {
-    case V16QImode:
-      d = (uns_p
-	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI_UNS]
-	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI]);
-      break;
-
-    case V8HImode:
-      d = (uns_p
-	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI_UNS]
-	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI]);
-      break;
-
-    case V4SImode:
-      d = (uns_p
-	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI_UNS]
-	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI]);
-      break;
-
-    case V4SFmode:
-      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SF];
-      break;
-
-    case V2DFmode:
-      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DF];
-      break;
-
-    case V2DImode:
-      d = (uns_p
-	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI_UNS]
-	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI]);
-      break;
-
-    default:
-      return NULL_TREE;
-    }
-
-  gcc_assert (d);
-  return d;
 }
 
 /* Handle generic options of the form -mfoo=yes/no.
