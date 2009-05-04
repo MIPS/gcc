@@ -912,6 +912,7 @@ static rtx generate_set_vrsave (rtx, rs6000_stack_t *, int);
 int easy_vector_constant (rtx, enum machine_mode);
 static rtx rs6000_dwarf_register_span (rtx);
 static void rs6000_init_dwarf_reg_sizes_extra (tree);
+static rtx rs6000_legitimize_address (rtx, rtx, enum machine_mode);
 static rtx rs6000_legitimize_tls_address (rtx, enum tls_model);
 static void rs6000_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static rtx rs6000_tls_get_addr (void);
@@ -1097,6 +1098,9 @@ static const char alt_reg_names[][8] =
 #define TARGET_ASM_FUNCTION_PROLOGUE rs6000_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE rs6000_output_function_epilogue
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS rs6000_legitimize_address
 
 #undef  TARGET_SCHED_VARIABLE_ISSUE
 #define TARGET_SCHED_VARIABLE_ISSUE rs6000_variable_issue
@@ -3868,7 +3872,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 				      || mode == DImode)))
     {
       if (mode == DImode)
-	return NULL_RTX;
+	return x;
       /* We accept [reg + reg] and [reg + OFFSET].  */
 
       if (GET_CODE (x) == PLUS)
@@ -3940,7 +3944,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       return create_TOC_reference (x);
     }
   else
-    return NULL_RTX;
+    return x;
 }
 
 /* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
@@ -11540,6 +11544,7 @@ rs6000_check_sdmode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case PARM_DECL:
     case FIELD_DECL:
     case RESULT_DECL:
+    case SSA_NAME:
     case REAL_CST:
     case INDIRECT_REF:
     case ALIGN_INDIRECT_REF:

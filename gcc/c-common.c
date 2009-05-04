@@ -730,6 +730,7 @@ const struct c_common_resword c_common_reswords[] =
 {
   { "_Bool",		RID_BOOL,      D_CONLY },
   { "_Complex",		RID_COMPLEX,	0 },
+  { "_Imaginary",	RID_IMAGINARY, D_CONLY },
   { "_Decimal32",       RID_DFLOAT32,  D_CONLY | D_EXT },
   { "_Decimal64",       RID_DFLOAT64,  D_CONLY | D_EXT },
   { "_Decimal128",      RID_DFLOAT128, D_CONLY | D_EXT },
@@ -1761,6 +1762,10 @@ warn_logical_operator (location_t location, enum tree_code code,
 bool
 strict_aliasing_warning (tree otype, tree type, tree expr)
 {
+  /* Strip pointer conversion chains and get to the correct original type.  */
+  STRIP_NOPS (expr);
+  otype = TREE_TYPE (expr);
+
   if (!(flag_strict_aliasing
 	&& POINTER_TYPE_P (type)
 	&& POINTER_TYPE_P (otype)

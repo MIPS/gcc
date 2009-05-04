@@ -644,8 +644,6 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 
 /* Frame pointer and argument pointer elimination.  */
 
-#define FRAME_POINTER_REQUIRED 0
-
 #define ELIMINABLE_REGS						\
 {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM },		\
  { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM },		\
@@ -765,16 +763,6 @@ used in insn definitions or inline assemblies.  */
     goto ADDR;                                                          \
 }
 #endif
-
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.  */
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)                          \
-{                                                                       \
-  (X) = legitimize_address (X, OLDX, MODE);                             \
-  if (memory_address_p (MODE, X))                                       \
-    goto WIN;                                                           \
-}
 
 /* Try a machine-dependent way of reloading an illegitimate address
    operand.  If we find one, push the reload and jump to WIN.  This
