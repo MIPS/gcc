@@ -1,6 +1,6 @@
 /* Database of entities referenced in a compilation unit implementation.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #include "config.h"
@@ -71,7 +72,7 @@ static int fill_label_addrs (void **, void *);
 static bool mostly_zeros_p (tree);
 static bool all_zeros_p (tree);
 static void expand_init_to_stmt_list1 (tree, tree, tree *, bool, tree *,
-				       void *, void *, unsigned HOST_WIDE_INT);
+                                       void *, void *, unsigned HOST_WIDE_INT);
 static int statement_list_num_instr (tree);
 
 /******************************************************************************
@@ -116,8 +117,8 @@ void refs_fini (void)
 
 /* Warning: these strings are not null-terminated */
 static char *
-append_string (char *str, const char *to_append, unsigned int *len,
-	       unsigned int *max_len)
+append_string (char *str, const char *to_append, size_t *len,
+               size_t *max_len)
 {
   size_t i, orig_len = *len;
   size_t append_len = strlen (to_append);
@@ -127,7 +128,7 @@ append_string (char *str, const char *to_append, unsigned int *len,
   if (*len > *max_len)
     {
       while (*len > *max_len)
-	*max_len *= 2;
+        *max_len *= 2;
 
       str = XRESIZEVEC (char, str, *max_len);
     }
@@ -141,7 +142,7 @@ append_string (char *str, const char *to_append, unsigned int *len,
 /* Warning: these strings are not null-terminated */
 static char *
 append_coded_type (char *str, tree type,
-		   unsigned int *len, unsigned int *max_len)
+                   size_t *len, size_t *max_len)
 {
   unsigned HOST_WIDE_INT size;
   enum tree_code type_code;
@@ -447,7 +448,7 @@ make_valuetype_identifier (tree t)
 	    }
           else
 	    {
-	      /* Unnamed bitfields or unions */
+	      /* Unnamed bit-fields or unions */
 	      tmp_name = append_string (tmp_name, "?unnamed",
 					&tmp_name_len, &tmp_name_max_len);
 	    }
@@ -678,7 +679,7 @@ promote_type_for_vararg (tree type)
 
 pointer:
     case POINTER_TYPE:
-      /* FIXME: cil32 is a 32bit machine, in case we support 64bit model
+      /* FIXME: cil32 is a 32-bit machine, in case we support 64-bit model
          changes are needed.  */
       return unsigned_intSI_type_node;
 
