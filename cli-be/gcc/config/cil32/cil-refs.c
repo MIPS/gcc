@@ -95,10 +95,13 @@ static GTY(()) VEC(tree, gc) *pending_ctors = NULL;
 void
 refs_init (void)
 {
-  ref_types = htab_create_ggc (32, ref_type_hash, ref_type_eq, NULL);
-  ref_pinvokes = htab_create_ggc (32, pinvoke_hash, pinvoke_eq, NULL);
-  ref_strings = htab_create_ggc (32, str_ref_hash, str_ref_eq, NULL);
-  labels_map = htab_create_ggc (32, label_addr_hash, label_addr_eq, NULL);
+  if (ref_types == NULL)
+    {
+      ref_types = htab_create_ggc (32, ref_type_hash, ref_type_eq, NULL);
+      ref_strings = htab_create_ggc (32, str_ref_hash, str_ref_eq, NULL);
+      labels_map = htab_create_ggc (32, label_addr_hash, label_addr_eq, NULL);
+      ref_pinvokes = htab_create_ggc (32, pinvoke_hash, pinvoke_eq, NULL);
+    }
 }
 
 /* Tears down the database of referenced entities. */
@@ -855,6 +858,13 @@ referenced_strings_htab ( void )
  * Functions                                                                  *
  ******************************************************************************/
 
+static void
+init_pinvokes ( void )
+{
+  if (ref_pinvokes == NULL)
+    ref_pinvokes = htab_create_ggc (32, pinvoke_hash, pinvoke_eq, NULL);
+}
+
 /* Hash function for pinvokes */
 
 static hashval_t
@@ -884,6 +894,8 @@ add_pinvoke (tree t)
   void **slot;
 
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
+
+  refs_init ();
 
   slot = htab_find_slot (ref_pinvokes, t, INSERT);
 

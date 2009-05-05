@@ -3362,6 +3362,7 @@ gimple_to_cil (void)
   tree node = NULL_TREE;
 
   /* Initialization */
+  refs_init ();
   res_var = NULL_TREE;
 
   /* Preprocessing */

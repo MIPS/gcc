@@ -80,12 +80,6 @@ DEF_VEC_O(var_uses_s);
 DEF_VEC_ALLOC_O(var_uses_s, heap);
 
 /******************************************************************************
- * Globals                                                                    *
- ******************************************************************************/
-
-static bool init = false;
-
-/******************************************************************************
  * Local function prototypes                                                  *
  ******************************************************************************/
 
@@ -148,8 +142,6 @@ emit_cil_init (void)
 {
   FILE *file = asm_out_file;
 
-  gcc_assert (!init);
-
   if (TARGET_GCC4NET_LINKER)
     {
       fputs (".assembly extern mscorlib {}\n"
@@ -170,15 +162,11 @@ emit_cil_init (void)
 	     "void ['OpenSystem.C']'OpenSystem.C'.ModuleAttribute::.ctor() "
 	     "= (01 00 00 00)\n", file);
     }
-
-  init = true;
 }
 
 void
 emit_cil_fini (void)
 {
-  gcc_assert (init);
-
   create_init_method ();
   emit_referenced_strings ();
   emit_referenced_types ();
@@ -188,6 +176,11 @@ emit_cil_fini (void)
 void
 emit_cil_decl (FILE *file, tree decl)
 {
+  if (flag_syntax_only)
+    return;
+
+  refs_init ();
+
   if (TREE_CODE (decl) == VAR_DECL
       && (TREE_STATIC (decl) || TREE_PUBLIC (decl)))
     {
@@ -2436,7 +2429,7 @@ emit_cil_1 (FILE *file)
 static bool
 emit_cil_gate (void)
 {
-  return current_function_decl != NULL;
+  return (current_function_decl != NULL) && !flag_syntax_only;
 }
 
 /* Entry point of the CIL assembly emission pass.  */
@@ -2542,7 +2535,9 @@ emit_vcg_fini (void)
 static bool
 emit_cil_vcg_gate (void)
 {
-  return TARGET_EMIT_VCG && current_function_decl != NULL;
+  return TARGET_EMIT_VCG
+	 && (current_function_decl != NULL)
+	 && !flag_syntax_only;
 }
 
 static unsigned int
