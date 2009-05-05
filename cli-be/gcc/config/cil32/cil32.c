@@ -154,8 +154,7 @@ cil_basic_block_eq (const void *ptr1, const void *ptr2)
 }
 
 static tree
-cil32_handle_function_attribute (tree *node, tree name,
-				 tree args ATTRIBUTE_UNUSED,
+cil32_handle_function_attribute (tree *node, tree name, tree args,
 				 int flags ATTRIBUTE_UNUSED,
 				 bool *no_add_attrs)
 {
@@ -168,7 +167,12 @@ cil32_handle_function_attribute (tree *node, tree name,
     }
 
   if (strcmp (IDENTIFIER_POINTER (name), "pinvoke") == 0)
-    add_pinvoke (*node);
+    {
+      add_pinvoke (*node);
+      add_referenced_assembly (TREE_STRING_POINTER (TREE_VALUE (args)));
+    }
+  else if (strcmp (IDENTIFIER_POINTER (name), "assembly_name") == 0)
+    add_referenced_assembly (TREE_STRING_POINTER (TREE_VALUE (args)));
 
   return NULL_TREE;
 }

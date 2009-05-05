@@ -118,6 +118,7 @@ static void emit_string_custom_attr (FILE *, const char *);
 static bool emit_builtin_call (FILE *, const_cil_stmt);
 static void emit_call (FILE *, const_cil_stmt);
 static void emit_cil_stmt (FILE *, const_cil_stmt);
+static void emit_referenced_assemblies (FILE *);
 static void emit_start_function (FILE *);
 static void rename_var (tree, const char *, unsigned long);
 static void emit_static_vars (FILE *);
@@ -144,9 +145,15 @@ emit_cil_init (void)
 
   if (TARGET_GCC4NET_LINKER)
     {
-      fputs (".assembly extern mscorlib {}\n"
-	     ".assembly extern gcc4net {}\n"
-	     ".assembly extern ExternalAssembly {}\n", file);
+      add_referenced_assembly ("gcc4net");
+      add_referenced_assembly ("mscorlib");
+      add_referenced_assembly ("ExternalAssembly");
+    }
+
+  emit_referenced_assemblies (file);
+
+  if (TARGET_GCC4NET_LINKER)
+    {
       fprintf (file, ".assembly '%s' {\n", aux_base_name);
       fputs ("\t.custom instance "
 	     "void [gcc4net]gcc4net.C_Attributes.CObjectFile::.ctor() "
@@ -156,8 +163,7 @@ emit_cil_init (void)
     }
   else if (TARGET_OPENSYSTEMC)
     {
-      fputs (".assembly extern gcc4net {}\n"
-	     ".module '<Module>'\n"
+      fputs (".module '<Module>'\n"
 	     ".custom instance "
 	     "void ['OpenSystem.C']'OpenSystem.C'.ModuleAttribute::.ctor() "
 	     "= (01 00 00 00)\n", file);
@@ -2264,6 +2270,23 @@ emit_local_vars (FILE *file)
   fprintf (file, ")\n");
 }
 
+/* Emit the external assembly references which might have been added during
+   the previous phases.  */
+
+static void
+emit_referenced_assemblies (FILE *file)
+{
+  htab_iterator hti;
+  tree name;
+
+  FOR_EACH_HTAB_ELEMENT (pending_assemblies_htab (), name, tree, hti)
+    {
+      fprintf(file, ".assembly extern %s {}\n", TREE_STRING_POINTER (name));
+    }
+
+  mark_pending_assemblies ();
+}
+
 /* Emit the prototype of the current function, it's attributes, etc...  */
 
 static void
@@ -2403,6 +2426,7 @@ emit_cil_1 (FILE *file)
       tree_block_label (bb);
     }
 
+  emit_referenced_assemblies (file);
   emit_function_header (file);
 
   FOR_EACH_BB (bb)

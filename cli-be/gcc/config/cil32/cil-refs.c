@@ -39,6 +39,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "errors.h"
 #include "toplev.h"
 #include "tree.h"
+#include "tree-flow.h"
 #include "tree-gimple.h"
 #include "tree-pass.h"
 #include "function.h"
@@ -51,6 +52,9 @@ Erven Rohou             <erven.rohou@inria.fr>
 /******************************************************************************
  * Local function prototypes                                                  *
  ******************************************************************************/
+
+static hashval_t assembly_hash (const void *);
+static int assembly_eq (const void *, const void *);
 
 static char *append_string (char *, const char *, size_t *, size_t *);
 static char *append_coded_type (char *, tree, size_t *, size_t *);
@@ -79,6 +83,8 @@ static int statement_list_num_instr (tree);
  * Globals                                                                    *
  ******************************************************************************/
 
+static GTY((param_is (union tree_node))) htab_t ref_assemblies = NULL;
+static GTY((param_is (union tree_node))) htab_t pending_assemblies = NULL;
 static GTY((param_is (union tree_node))) htab_t ref_types = NULL;
 static GTY((param_is (struct str_ref_d))) htab_t ref_strings = NULL;
 static unsigned int string_id = 0;
@@ -97,6 +103,9 @@ refs_init (void)
 {
   if (ref_types == NULL)
     {
+      ref_assemblies = htab_create_ggc (4, assembly_hash, assembly_eq, NULL);
+      pending_assemblies = htab_create_ggc (4, assembly_hash, assembly_eq,
+					    NULL);
       ref_types = htab_create_ggc (32, ref_type_hash, ref_type_eq, NULL);
       ref_strings = htab_create_ggc (32, str_ref_hash, str_ref_eq, NULL);
       labels_map = htab_create_ggc (32, label_addr_hash, label_addr_eq, NULL);
@@ -112,6 +121,90 @@ void refs_fini (void)
   ref_pinvokes = NULL;
   ref_strings = NULL;
   labels_map = NULL;
+}
+
+/******************************************************************************
+ * Referenced assemblies                                                      *
+ ******************************************************************************/
+
+/* Hash function for referenced assemblies.  */
+
+static hashval_t assembly_hash (const void *ptr)
+{
+  const_tree assembly = (const_tree) ptr;
+  const char *str = TREE_STRING_POINTER (assembly);
+  hashval_t hash = 0;
+  size_t len = TREE_STRING_LENGTH (assembly);
+  size_t i;
+
+  for (i = 0; i < len; i++)
+    {
+      hash += str[i];
+      hash += (hash << 10);
+      hash ^= (hash >> 6);
+    }
+
+  hash += (hash << 3);
+  hash ^= (hash >> 11);
+  hash += (hash << 15);
+
+  return hash;
+}
+
+/* Equality function for referenced assemblies.  */
+
+static int assembly_eq (const void *ptr1, const void *ptr2)
+{
+  const char *str1 = TREE_STRING_POINTER ((const_tree) ptr1);
+  const char *str2 = TREE_STRING_POINTER ((const_tree) ptr2);
+
+  return str1 == str2;
+}
+
+/* Add a referenced assembly to the list of pending assemblies if it is not
+   already present among the referenced assemblies.  NAME is the name of the
+   referenced assembly.  */
+
+void add_referenced_assembly (const char *name)
+{
+  void **slot;
+  tree str = build_string (strlen (name), name);
+
+  slot = htab_find_slot (ref_assemblies, str, NO_INSERT);
+
+  if (slot != NULL)
+    return; /* We have already emitted this assembly's name.  */
+
+  /* Add the assembly to the pending list if it has not been added yet.  */
+  slot = htab_find_slot (pending_assemblies, str, INSERT);
+
+  if (*slot == NULL)
+    *slot = str;
+}
+
+/* Return a pointer to the hash-table holding the referenced assemblies which
+   have not been emitted yet.  */
+
+htab_t pending_assemblies_htab ( void )
+{
+  return pending_assemblies;
+}
+
+/* Move the pending assemblies to the referenced assemblies hash table.  */
+
+void mark_pending_assemblies ( void )
+{
+  htab_iterator hti;
+  void **slot;
+  tree name;
+
+  FOR_EACH_HTAB_ELEMENT (pending_assemblies, name, tree, hti)
+    {
+      slot = htab_find_slot (ref_assemblies, name, INSERT);
+      *slot = name;
+    }
+
+  htab_empty (pending_assemblies);
 }
 
 /******************************************************************************
@@ -857,13 +950,6 @@ referenced_strings_htab ( void )
 /******************************************************************************
  * Functions                                                                  *
  ******************************************************************************/
-
-static void
-init_pinvokes ( void )
-{
-  if (ref_pinvokes == NULL)
-    ref_pinvokes = htab_create_ggc (32, pinvoke_hash, pinvoke_eq, NULL);
-}
 
 /* Hash function for pinvokes */
 

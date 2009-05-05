@@ -67,6 +67,14 @@ extern void refs_init (void);
 extern void refs_fini (void);
 
 /*****************************************************************************
+ * Referenced assemblies                                                     *
+ *****************************************************************************/
+
+extern void add_referenced_assembly (const char *);
+extern htab_t pending_assemblies_htab ( void );
+extern void mark_pending_assemblies ( void );
+
+/*****************************************************************************
  * Types                                                                     *
  *****************************************************************************/
 
