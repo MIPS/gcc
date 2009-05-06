@@ -730,6 +730,7 @@ const struct c_common_resword c_common_reswords[] =
 {
   { "_Bool",		RID_BOOL,      D_CONLY },
   { "_Complex",		RID_COMPLEX,	0 },
+  { "_Imaginary",	RID_IMAGINARY, D_CONLY },
   { "_Decimal32",       RID_DFLOAT32,  D_CONLY | D_EXT },
   { "_Decimal64",       RID_DFLOAT64,  D_CONLY | D_EXT },
   { "_Decimal128",      RID_DFLOAT128, D_CONLY | D_EXT },
@@ -1761,6 +1762,10 @@ warn_logical_operator (location_t location, enum tree_code code,
 bool
 strict_aliasing_warning (tree otype, tree type, tree expr)
 {
+  /* Strip pointer conversion chains and get to the correct original type.  */
+  STRIP_NOPS (expr);
+  otype = TREE_TYPE (expr);
+
   if (!(flag_strict_aliasing
 	&& POINTER_TYPE_P (type)
 	&& POINTER_TYPE_P (otype)
@@ -6374,15 +6379,16 @@ handle_mode_attribute (tree *node, tree name, tree args,
 		       int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   tree type = *node;
+  tree ident = TREE_VALUE (args);
 
   *no_add_attrs = true;
 
-  if (TREE_CODE (TREE_VALUE (args)) != IDENTIFIER_NODE)
+  if (TREE_CODE (ident) != IDENTIFIER_NODE)
     warning (OPT_Wattributes, "%qE attribute ignored", name);
   else
     {
       int j;
-      const char *p = IDENTIFIER_POINTER (TREE_VALUE (args));
+      const char *p = IDENTIFIER_POINTER (ident);
       int len = strlen (p);
       enum machine_mode mode = VOIDmode;
       tree typefm;
@@ -6422,7 +6428,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
       if (mode == VOIDmode)
 	{
-	  error ("unknown machine mode %qs", p);
+	  error ("unknown machine mode %qE", ident);
 	  return NULL_TREE;
 	}
 
