@@ -1,3 +1,34 @@
+2009-05-04  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.c (m32c_override_options): Disable -fivopts for
+	-mcpu=m32c until ivopts supports sizeof(ptr) != sizeof(size_t).
+	(m32c_legitimize_reload_address): Work around reload bug until
+	reload supports sizeof(ptr) != sizeof(size_t).
+
+2009-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-04-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/39914
+	* ira-conflicts.c (ira_build_conflicts): Prohibit call used
+	registers for allocnos created from user-defined variables only
+	when not optimizing.
+
+2009-04-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* toplev.c (print_version): Update GMP version string calculation.
+
+2009-04-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39903
+	* config/i386/i386.c (construct_container): Don't call
+	gen_reg_or_parallel with BLKmode on X86_64_SSE_CLASS,
+	X86_64_SSESF_CLASS and X86_64_SSEDF_CLASS.
+
 2009-04-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/39794
