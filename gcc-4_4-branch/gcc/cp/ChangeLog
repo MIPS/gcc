@@ -1,3 +1,8 @@
+2009-04-15  Catherine Moore  <clm@codesourcery.com>
+
+	PR debug/35463
+	* decl.c (grokdeclarator): Call set_name.
+
 2009-05-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/40013

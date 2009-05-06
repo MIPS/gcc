@@ -8829,7 +8829,10 @@ grokdeclarator (const cp_declarator *declarator,
 	  /* Replace the anonymous name with the real name everywhere.  */
 	  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
 	    if (TYPE_NAME (t) == oldname)
-	      TYPE_NAME (t) = decl;
+	      {
+		debug_hooks->set_name (t, decl);
+		TYPE_NAME (t) = decl;
+	      }
 
 	  if (TYPE_LANG_SPECIFIC (type))
 	    TYPE_WAS_ANONYMOUS (type) = 1;
