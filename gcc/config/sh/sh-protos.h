@@ -180,7 +180,6 @@ extern int sh2a_get_function_vector_number (rtx);
 extern int sh2a_is_function_vector_call (rtx);
 extern void sh_fix_range (const char *);
 extern bool sh_hard_regno_mode_ok (unsigned int, enum machine_mode);
-#endif /* ! GCC_SH_PROTOS_H */
 
 #ifdef SYMBIAN
 extern bool         sh_symbian_dllimport_name_p       (const char *);
@@ -195,3 +194,5 @@ extern void         sh_symbian_encode_section_info    (tree, rtx, int);
 #endif
 #endif
 #endif /* SYMBIAN */
+
+#endif /* ! GCC_SH_PROTOS_H */

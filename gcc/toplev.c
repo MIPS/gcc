@@ -105,17 +105,21 @@ along with GCC; see the file COPYING3.  If not see
 
 START_TARGET_SPECIFIC
 
-static void general_init (const char *);
-static void do_compile (void);
-static void process_options (void);
+void process_options (void);
+EXTRA_TARGETS_DECL (void process_options (void));
 void backend_init (void);
 int lang_dependent_init (const char *);
 static void init_asm_output (const char *);
 static void finalize (void);
 
+#ifndef EXTRA_TARGET
+static void general_init (const char *);
+static void do_compile (void);
+
 static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
+#endif /* !EXTRA_TARGET */
 
 /* Nonzero to dump debug info whilst parsing (-dy option).  */
 static int set_yydebug;
@@ -159,6 +163,15 @@ const char *aux_base_name;
 
 /* Prefix for profile data files */
 const char *profile_data_prefix;
+
+#ifndef EXTRA_TARGET
+/* An array of target vector pointers for all configured targets.  */
+struct gcc_target *targetm_array[NUM_TARGETS]
+  = { &this_targetm, EXTRA_TARGETS_EXPAND_COMMA (&,this_targetm) };
+
+/* A pointer to the current target vector.  */
+struct gcc_target *targetm_pnt = &this_targetm;
+#endif /* !EXTRA_TARGET */
 
 /* A mask of target_flags that includes bit X if X was set or cleared
    on the command line.  */
@@ -1557,7 +1570,7 @@ realloc_for_line_map (void *ptr, size_t len)
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
 static void
-general_init (const char *argv0)
+general_init (const char *argv0 ATTRIBUTE_UNUSED)
 {
 #ifndef EXTRA_TARGET
   const char *p;
@@ -1668,49 +1681,60 @@ init_alignments (void)
 }
 
 /* Process the options that have been parsed.  */
-static void
+void
 process_options (void)
 {
-  /* Just in case lang_hooks.post_options ends up calling a debug_hook.
-     This can happen with incorrect pre-processed input. */
-  debug_hooks = &do_nothing_debug_hooks;
+  bool main_target = false;
 
-  /* This replaces set_Wunused.  */
-  if (warn_unused_function == -1)
-    warn_unused_function = warn_unused;
-  if (warn_unused_label == -1)
-    warn_unused_label = warn_unused;
-  /* Wunused-parameter is enabled if both -Wunused -Wextra are enabled.  */
-  if (warn_unused_parameter == -1)
-    warn_unused_parameter = (warn_unused && extra_warnings);
-  if (warn_unused_variable == -1)
-    warn_unused_variable = warn_unused;
-  if (warn_unused_value == -1)
-    warn_unused_value = warn_unused;
-
-  /* Allow the front end to perform consistency checks and do further
-     initialization based on the command line options.  This hook also
-     sets the original filename if appropriate (e.g. foo.i -> foo.c)
-     so we can correctly initialize debug output.  */
-  no_backend = lang_hooks.post_options (&main_input_filename);
-
-#ifdef OVERRIDE_OPTIONS
-  /* Some machines may reject certain combinations of options.  */
-  OVERRIDE_OPTIONS;
+#ifndef EXTRA_TARGET
+  main_target = true;
 #endif
 
-  if (flag_section_anchors && !target_supports_section_anchors_p ())
+  if (main_target)
+    {
+      /* Just in case lang_hooks.post_options ends up calling a debug_hook.
+	 This can happen with incorrect pre-processed input. */
+      debug_hooks = &do_nothing_debug_hooks;
+
+      /* This replaces set_Wunused.  */
+      if (warn_unused_function == -1)
+	warn_unused_function = warn_unused;
+      if (warn_unused_label == -1)
+	warn_unused_label = warn_unused;
+      /* Wunused-parameter is enabled if both -Wunused -Wextra are enabled.  */
+      if (warn_unused_parameter == -1)
+	warn_unused_parameter = (warn_unused && extra_warnings);
+      if (warn_unused_variable == -1)
+	warn_unused_variable = warn_unused;
+      if (warn_unused_value == -1)
+	warn_unused_value = warn_unused;
+
+      /* Allow the front end to perform consistency checks and do further
+	 initialization based on the command line options.  This hook also
+	 sets the original filename if appropriate (e.g. foo.i -> foo.c)
+	 so we can correctly initialize debug output.  */
+      no_backend = lang_hooks.post_options (&main_input_filename);
+    }
+
+  /* Some machines may reject certain combinations of options.  */
+  this_targetm.target_option.override (main_target);
+
+  /* ??? Should we punt on section anchors if any of the extra targets
+     doesn't support section anchors, or punt on migrating code that uses
+     a section anchor to an extra target which doesn't support them?  */
+  if (main_target
+      && flag_section_anchors && !target_supports_section_anchors_p ())
     {
       warning (OPT_fsection_anchors,
 	       "this target does not support %qs", "-fsection-anchors");
       flag_section_anchors = 0;
     }
 
-  if (flag_short_enums == 2)
+  if (main_target && flag_short_enums == 2)
     flag_short_enums = targetm.default_short_enums ();
 
   /* Set aux_base_name if not already set.  */
-  if (aux_base_name)
+  if (!main_target || aux_base_name)
     ;
   else if (main_input_filename)
     {
@@ -1722,7 +1746,7 @@ process_options (void)
   else
     aux_base_name = "gccaux";
 
-#ifndef HAVE_cloog
+#if !defined (HAVE_cloog) && !defined (EXTRA_TARGET)
   if (flag_graphite
       || flag_loop_block
       || flag_loop_interchange
@@ -1733,27 +1757,29 @@ process_options (void)
 
   /* Unrolling all loops implies that standard loop unrolling must also
      be done.  */
-  if (flag_unroll_all_loops)
+  if (main_target && flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
   /* The loop unrolling code assumes that cse will be run after loop.
      web and rename-registers also help when run after loop unrolling.  */
 
-  if (flag_rerun_cse_after_loop == AUTODETECT_VALUE)
+  if (main_target && flag_rerun_cse_after_loop == AUTODETECT_VALUE)
     flag_rerun_cse_after_loop = flag_unroll_loops || flag_peel_loops;
-  if (flag_web == AUTODETECT_VALUE)
+  if (main_target && flag_web == AUTODETECT_VALUE)
     flag_web = flag_unroll_loops || flag_peel_loops;
   if (flag_rename_registers == AUTODETECT_VALUE)
     flag_rename_registers = flag_unroll_loops || flag_peel_loops;
 
-  if (flag_non_call_exceptions)
+  if (main_target && flag_non_call_exceptions)
     flag_asynchronous_unwind_tables = 1;
-  if (flag_asynchronous_unwind_tables)
+  if (main_target && flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
 
-  if (flag_value_profile_transformations)
+  if (main_target && flag_value_profile_transformations)
     flag_profile_values = 1;
 
+  /* ??? Should we warn about these if some, but not all targets support the
+     option?  */
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING
   if (flag_schedule_insns || flag_schedule_insns_after_reload)
@@ -1875,10 +1901,10 @@ process_options (void)
     flag_rename_registers = default_debug_hooks->var_location
 	    		    != do_nothing_debug_hooks.var_location;
 
-  if (flag_var_tracking == AUTODETECT_VALUE)
+  if (main_target && flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
 
-  if (flag_tree_cselim == AUTODETECT_VALUE)
+  if (main_target && flag_tree_cselim == AUTODETECT_VALUE)
 #ifdef HAVE_conditional_move
     flag_tree_cselim = 1;
 #else
@@ -1888,13 +1914,13 @@ process_options (void)
   /* If the user specifically requested variable tracking with tagging
      uninitialized variables, we need to turn on variable tracking.
      (We already determined above that variable tracking is feasible.)  */
-  if (flag_var_tracking_uninit)
+  if (main_target && flag_var_tracking_uninit)
     flag_var_tracking = 1;
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
      all the other output files.  */
-  if (flag_gen_aux_info)
+  if (main_target && flag_gen_aux_info)
     {
       aux_info_file = fopen (aux_info_file_name, "w");
       if (aux_info_file == 0)
@@ -1921,14 +1947,18 @@ process_options (void)
       flag_function_sections = 0;
     }
 
+/* The main target needs to have at least a dummy prefetch pattern for this to
+   work, since the decision to insert prefectches is done at the tree level;
+   the expander might emit nothing if there is nothing to do for the
+   particular target.  */
 #ifndef HAVE_prefetch
-  if (flag_prefetch_loop_arrays)
+  if (main_target && flag_prefetch_loop_arrays)
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
     }
 #else
-  if (flag_prefetch_loop_arrays && !HAVE_prefetch)
+  if (main_target && flag_prefetch_loop_arrays && !HAVE_prefetch)
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
@@ -1937,29 +1967,30 @@ process_options (void)
 
   /* This combination of options isn't handled for i386 targets and doesn't
      make much sense anyway, so don't allow it.  */
-  if (flag_prefetch_loop_arrays && optimize_size)
+  if (main_target && flag_prefetch_loop_arrays && optimize_size)
     {
       warning (0, "-fprefetch-loop-arrays is not supported with -Os");
       flag_prefetch_loop_arrays = 0;
     }
 
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
-  if (flag_signaling_nans)
+  if (main_target && flag_signaling_nans)
     flag_trapping_math = 1;
 
   /* We cannot reassociate if we want traps or signed zeros.  */
-  if (flag_associative_math && (flag_trapping_math || flag_signed_zeros))
+  if (main_target && flag_associative_math
+      && (flag_trapping_math || flag_signed_zeros))
     {
       warning (0, "-fassociative-math disabled; other options take precedence");
       flag_associative_math = 0;
     }
 
   /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
-  if (flag_cx_limited_range)
+  if (main_target && flag_cx_limited_range)
     flag_complex_method = 0;
 
   /* With -fcx-fortran-rules, we do something in-between cheap and C99.  */
-  if (flag_cx_fortran_rules)
+  if (main_target && flag_cx_fortran_rules)
     flag_complex_method = 1;
 
   /* Targets must be able to place spill slots at lower addresses.  If the
@@ -2205,6 +2236,7 @@ do_compile (void)
   timevar_start (TV_TOTAL);
 
   process_options ();
+  EXTRA_TARGETS_CALL (process_options ());
 
   /* Don't do any more if an error has already occurred.  */
   if (!errorcount)

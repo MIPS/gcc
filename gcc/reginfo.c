@@ -231,6 +231,7 @@ reg_set_to_hard_reg_set (HARD_REG_SET *to, const_bitmap from)
     }
 }
 
+EXTRA_TARGETS_DECL (void init_reg_sets (void));
 /* Function called only once to initialize the above data on reg usage.
    Once this is done, various switches may override.  */
 void
@@ -260,6 +261,7 @@ init_reg_sets (void)
   memcpy (fixed_regs, initial_fixed_regs, sizeof fixed_regs);
   memcpy (call_used_regs, initial_call_used_regs, sizeof call_used_regs);
   memset (global_regs, 0, sizeof global_regs);
+  EXTRA_TARGETS_CALL (init_reg_sets ());
 }
 
 /* Initialize may_move_cost and friends for mode M.  */

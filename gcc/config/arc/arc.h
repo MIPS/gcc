@@ -87,22 +87,6 @@ extern int arc_cpu_type;
    otherwise zero.  This is intended to be redefined in a cover file.
    This is used by arc_init.  */
 #define ARC_EXTENSION_CPU(cpu) 0
-
-/* Sometimes certain combinations of command options do not make
-   sense on a particular target machine.  You can define a macro
-   `OVERRIDE_OPTIONS' to take account of this.  This macro, if
-   defined, is executed once just after all the command options have
-   been parsed.
-
-   Don't use this macro to turn on various extra optimizations for
-   `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
-
-
-#define OVERRIDE_OPTIONS \
-do {				\
-  /* These need to be done at start up.  It's convenient to do them here.  */ \
-  arc_init ();			\
-} while (0)
 
 /* Target machine storage layout.  */
 

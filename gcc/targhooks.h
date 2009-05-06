@@ -117,6 +117,7 @@ extern int /*enum reg_class*/ default_secondary_reload (bool, rtx,
 							int /*enum reg_class*/,
 						enum machine_mode,
 						secondary_reload_info *);
+extern bool default_override_options (bool);
 END_TARGET_SPECIFIC
 extern void hook_void_bitmap (bitmap);
 extern bool default_handle_c_option (size_t, const char *, int);

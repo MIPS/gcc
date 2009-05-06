@@ -277,7 +277,9 @@ finish_optimization_passes (void)
 
   timevar_pop (TV_DUMP);
 }
+#endif /* !EXTRA_TARGET */
 
+START_TARGET_SPECIFIC
 static bool
 gate_rest_of_compilation (void)
 {
@@ -304,9 +306,7 @@ struct gimple_opt_pass pass_rest_of_compilation =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
-#endif /* !EXTRA_TARGET */
 
-START_TARGET_SPECIFIC
 static bool
 gate_postreload (void)
 {

@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_PASS_H 1
 
 #include "timevar.h"
+#include "multi-target.h"
 
 /* In tree-dump.c */
 
@@ -391,7 +392,9 @@ extern struct gimple_opt_pass pass_simple_dse;
 extern struct gimple_opt_pass pass_nrv;
 extern struct gimple_opt_pass pass_mark_used_blocks;
 extern struct gimple_opt_pass pass_rename_ssa_copies;
+START_TARGET_SPECIFIC
 extern struct gimple_opt_pass pass_rest_of_compilation;
+END_TARGET_SPECIFIC
 extern struct gimple_opt_pass pass_sink_code;
 extern struct gimple_opt_pass pass_fre;
 extern struct gimple_opt_pass pass_linear_transform;
@@ -427,6 +430,9 @@ extern struct gimple_opt_pass pass_free_datastructures;
 extern struct gimple_opt_pass pass_init_datastructures;
 extern struct gimple_opt_pass pass_fixup_cfg;
 
+extern struct gimple_opt_pass pass_tracer;
+
+START_TARGET_SPECIFIC
 extern struct rtl_dispatch_pass pass_expand;
 extern struct rtl_opt_pass pass_init_function;
 extern struct rtl_opt_pass pass_jump;
@@ -449,7 +455,6 @@ extern struct rtl_opt_pass pass_gcse;
 extern struct rtl_opt_pass pass_jump_bypass;
 extern struct rtl_opt_pass pass_profiling;
 extern struct rtl_opt_pass pass_rtl_ifcvt;
-extern struct gimple_opt_pass pass_tracer;
 
 extern struct rtl_opt_pass pass_into_cfg_layout_mode;
 extern struct rtl_opt_pass pass_outof_cfg_layout_mode;
@@ -521,6 +526,7 @@ extern struct rtl_opt_pass pass_shorten_branches;
 extern struct rtl_opt_pass pass_set_nothrow_function_flags;
 extern struct rtl_opt_pass pass_final;
 extern struct rtl_opt_pass pass_rtl_seqabstr;
+END_TARGET_SPECIFIC
 extern struct gimple_opt_pass pass_release_ssa_names;
 extern struct gimple_opt_pass pass_early_inline;
 extern struct gimple_opt_pass pass_inline_parameters;

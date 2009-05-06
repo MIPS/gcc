@@ -1,3 +1,7 @@
+2009-05-06  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/sh-protos.h: Fix end of multiple inclusion guard.
+
 2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* coverage.c (ctr_labels): Remove unused variable.

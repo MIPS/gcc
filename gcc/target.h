@@ -51,6 +51,7 @@
 
 #include "tm.h"
 #include "insn-modes.h"
+#include "multi-target.h"
 
 /* Types used by the record_gcc_switches() target function.  */
 typedef enum
@@ -669,6 +670,16 @@ struct target_option_hooks
 
   /* Function to determine if one function can inline another function.  */
   bool (*can_inline_p) (tree, tree);
+
+  /* Do option overrides for the target.  Only if main_taget is true are
+     global options like flag_pic or flag_finite_math_only allowed to be
+     tampered with.  Return true if code can be genarated for this target
+     (e.g. if flag_pic is set and main_taget is false, and the target can't
+      return pic code, return false.  */
+  /* ??? should add another hook elsewhere if code can sometimes be
+     generated, depending on the tree in question.  E.g. might be able to
+     do pic if no statically allocated data is involved.  */
+  bool (*override) (bool main_target);
 };
 
 /* ??? the use of the target vector makes it necessary to cast
@@ -1125,7 +1136,15 @@ struct gcc_target
   /* Leave the boolean fields at the end.  */
 };
 
-extern struct gcc_target targetm;
+extern struct gcc_target *targetm_pnt, *targetm_array[];
+#ifndef targetm
+#define targetm (*targetm_pnt)
+#endif
+
+START_TARGET_SPECIFIC
+extern struct gcc_target this_targetm;
+END_TARGET_SPECIFIC
+EXTRA_TARGETS_DECL(struct gcc_target this_targetm);
 
 struct gcc_targetcm {
   /* Handle target switch CODE (an OPT_* value).  ARG is the argument

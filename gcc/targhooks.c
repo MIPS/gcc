@@ -714,6 +714,21 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
   return (int) rclass;
 }
 
+#define STRINGIFY1(X) #X
+#define STRINGIFY(X) STRINGIFY1 (X)
+
+bool
+default_override_options (bool main_target ATTRIBUTE_UNUSED)
+{
+#ifdef OVERRIDE_OPTIONS
+  if (!main_target)
+    internal_error ("Must override TARGET_OVERRIDE_OPTIONS for "
+		    STRINGIFY (EXTRA_TARGET));
+  OVERRIDE_OPTIONS;
+#endif
+  return true;
+}
+
 #ifndef EXTRA_TARGET
 
 bool

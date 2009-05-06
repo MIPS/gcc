@@ -91,10 +91,14 @@ for (i = 0; i < n_opts; i++) {
 		continue;
 
 	var_seen[name] = 1;
-	if (target_specific == 0 && flag_set_p("Target", flags[i])) {
+	if (target_specific == 0 &&
+		(flag_set_p("Target", flags[i]) ||
+		 flag_set_p("AllTarget", flags[i]))) {
 		print "START_TARGET_SPECIFIC"
 		target_specific = 1;
-	} else if (target_specific && flag_set_p("Target", flags[i]) == 0) {
+	} else if (target_specific &&
+		!(flag_set_p("Target", flags[i]) ||
+		  flag_set_p("AllTarget", flags[i]))) {
 		print "END_TARGET_SPECIFIC"
 		target_specific = 0;
 	}

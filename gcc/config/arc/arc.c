@@ -83,6 +83,7 @@ static int arc_ccfsm_target_label;
 static int last_insn_set_cc_p;
 static int current_insn_set_cc_p;
 static bool arc_handle_option (size_t, const char *, int);
+static bool arc_override_options (bool);
 static void record_cc_ref (rtx);
 static void arc_init_reg_tables (void);
 static int get_arc_condition_code (rtx);
@@ -127,6 +128,9 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION arc_handle_option
 
+#undef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS arc_override_options
+
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS arc_rtx_costs
 #undef TARGET_ADDRESS_COST
@@ -169,7 +173,7 @@ arc_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
     }
 }
 
-/* Called by OVERRIDE_OPTIONS to initialize various things.  */
+/* ??? Called by arc_override_options to initialize various things.  */
 
 void
 arc_init (void)
@@ -193,6 +197,14 @@ arc_init (void)
   arc_punct_chars['?'] = 1;
   arc_punct_chars['!'] = 1;
   arc_punct_chars['~'] = 1;
+}
+
+static bool
+arc_override_options (bool main_target)
+{
+  /* These need to be done at start up.  It's convenient to do them here.  */
+  arc_init ();
+  return true;
 }
 
 /* The condition codes of the ARC, and the inverse function.  */

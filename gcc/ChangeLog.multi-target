@@ -1,3 +1,47 @@
+2009-05-06  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_override_options): New function.
+	(STRINGIFY1, STRINGIFY): New macros.
+	* targhooks.h (default_override_options): Declare.
+	* tree-pass.h: Include multi-target.h.
+	Mark rtl passes and pass_rest_of_compilation as target specific.
+	* target.h: Include multi-target.h.
+	(struct target_option_hooks): Add override member.
+	(targetm): change into a #define.
+	(targetm_pnt, targetm_array): Declare.
+	(this_targetm): Declare.
+	* toplev.c [EXTRA_TARGET] (general_init, do_compile): Don't declare.
+	(process_options): No longer static.
+	[!EXTRA_TARGET] (targetm_array, targetm_pnt): Define and inititialize.
+	(general_init): Add ATTRIBUTE_UNUSED to argv0.
+	(process_options): Guard general code with #ifndef EXTRA_TARGET.
+	Use this_targetm.target_option.override instead of OVERRIDE_OPTIONS.
+	(do_compile): Do an EXTRA_TARGETS_CALL of process_options.
+	(opth-gen.awk): Also make variables target specific that are for
+	options named AllTarget.
+	* common.opt (align_functions, align_jumps): Mark with AllTarget.
+	(align_loops, flag_data_sections, flag_delayed_branch): Likewise.
+	(flag_no_function_cse, flag_function_sections): Likewise.
+	(flag_leading_underscore, flag_omit_frame_pointer): Likewise.
+	(flag_rename_registers, flag_schedule_insns): Likewise.
+	(flag_schedule_insns_after_reload): Likewise.
+	* target-def.h [!TARGET_OVERRIDE_OPTIONS] (TARGET_OVERRIDE_OPTIONS):
+	Define.
+	(TARGET_OPTION_HOOKS): Include TARGET_OVERRIDE_OPTIONS.
+	* reg-stack.c: Include multi-target.h and mark code as target specific.
+	* reginfo.c (init_reg_sets): Make EXTRA_TARGETS_CALL of self.
+	* Makefile.in ($(out_object_file)): Add -Dtargetm=this_targetm.
+	* passes.c (gate_rest_of_compilation): Make target specific.
+	(pass_rest_of_compilation): Likewise.
+	* config/sh/sh.h (OVERRIDE_OPTIONS): Delete, moved contents to:
+	* config/sh/sh.c (sh_override_options): New function.
+	Make manipulation of global flags dependent on main_target.
+	(TARGET_OVERRIDE_OPTIONS): Redefine.
+	* config/arc/arc-protos.h (arc_init): Don't declare.
+	* config/arc/arc.c (arc_override_options): New function.
+	(TARGET_OVERRIDE_OPTIONS): Redefine.
+	* config/arc/arc.h (OVERRIDE_OPTIONS): Don't define.
+
 2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* regrename.c: Include "multi-target.h" and add START_TARGET_SPECIFIC
