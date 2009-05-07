@@ -141,6 +141,7 @@ echo ubound: $ub
 */
 
 /* Debug counter definitions.  */
+DEBUG_COUNTER (alias_export)
 DEBUG_COUNTER (auto_inc_dec)
 DEBUG_COUNTER (ccp)
 DEBUG_COUNTER (cfg_cleanup)
@@ -149,6 +150,7 @@ DEBUG_COUNTER (cprop)
 DEBUG_COUNTER (dce)
 DEBUG_COUNTER (dce_fast)
 DEBUG_COUNTER (dce_ud)
+DEBUG_COUNTER (ddg_export)
 DEBUG_COUNTER (delete_trivial_dead)
 DEBUG_COUNTER (df_byte_scan)
 DEBUG_COUNTER (dse)
@@ -179,4 +181,3 @@ DEBUG_COUNTER (sms_sched_loop)
 DEBUG_COUNTER (store_motion)
 DEBUG_COUNTER (split_for_sched2)
 DEBUG_COUNTER (tail_call)
-DEBUG_COUNTER (alias_export)

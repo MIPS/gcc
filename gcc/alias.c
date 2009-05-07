@@ -1787,11 +1787,11 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
   if (rtx_equal_for_memref_p (x, y))
     {
       if (xsize <= 0 || ysize <= 0)
-	return 2;
+	return 1;
       if (c >= 0 && xsize > c)
-	return 2;
+	return 1;
       if (c < 0 && ysize+c > 0)
-	return 2;
+	return 1;
       return 0;
     }
 
@@ -1862,9 +1862,8 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	  x0 = canon_rtx (XEXP (x, 0));
 	  y0 = canon_rtx (XEXP (y, 0));
 	  if (rtx_equal_for_memref_p (x0, y0))
-	    return ((xsize == 0 || ysize == 0
-                     || (c >= 0 && xsize > c) || (c < 0 && ysize+c > 0)) 
-                    ? 2 : 0);
+	    return (xsize == 0 || ysize == 0
+		    || (c >= 0 && xsize > c) || (c < 0 && ysize+c > 0));
 
 	  /* Can't properly adjust our sizes.  */
 	  if (GET_CODE (x1) != CONST_INT)
@@ -1905,9 +1904,8 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
       if (GET_CODE (x) == CONST_INT && GET_CODE (y) == CONST_INT)
 	{
 	  c += (INTVAL (y) - INTVAL (x));
-	  return ((xsize <= 0 || ysize <= 0
-                   || (c >= 0 && xsize > c) || (c < 0 && ysize+c > 0))
-                  ? 2 : 0);
+	  return (xsize <= 0 || ysize <= 0
+		  || (c >= 0 && xsize > c) || (c < 0 && ysize+c > 0));
 	}
 
       if (GET_CODE (x) == CONST)
@@ -1924,10 +1922,9 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 				   canon_rtx (XEXP (y, 0)), c);
 
       if (CONSTANT_P (y))
-	return ((xsize <= 0 || ysize <= 0
+	return (xsize <= 0 || ysize <= 0
 		|| (rtx_equal_for_memref_p (x, y)
-		    && ((c >= 0 && xsize > c) || (c < 0 && ysize+c > 0))))
-                ? 2 : 0);
+		    && ((c >= 0 && xsize > c) || (c < 0 && ysize+c > 0))));
 
       return 1;
     }
@@ -2281,8 +2278,6 @@ true_dependence (const_rtx mem, enum machine_mode mem_mode, const_rtx x,
       || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
 
-  query_alias_export_info (x, mem, 0);
-
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
@@ -2361,8 +2356,6 @@ canon_true_dependence (const_rtx mem, enum machine_mode mem_mode, rtx mem_addr,
       || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
 
-  query_alias_export_info (x, mem, 0);
-
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
@@ -2428,8 +2421,6 @@ write_dependence_p (const_rtx mem, const_rtx x, int writep)
   if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
       || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
-
-  query_alias_export_info (x, mem, 0);
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;

@@ -494,10 +494,6 @@ falias-export
 Common Report Var(flag_alias_export) Optimization Init(1)
 Save alias information on Tree-SSA to be used on RTL
 
-falias-export-check
-Common Report Var(flag_alias_export_check) Optimization
-Regularly check integrity and consistency of saved alias information
-
 fddg-export
 Common Report Var(flag_ddg_export) Optimization Init(1)
 Save alias information on Tree-SSA to be used on RTL

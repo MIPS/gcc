@@ -317,11 +317,9 @@ mem_attrs_htab_eq (const void *x, const void *y)
 	  && (p->expr == q->expr
 	      || (p->expr != NULL_TREE && q->expr != NULL_TREE
 		  && operand_equal_p (p->expr, q->expr, 0)))
-          /* We do not use operand_equal_p for ORIG_EXPRs because we need to
-             distinguish memory references at different points of the loop (which
-             would have different indices in SSA form, like a[i_1] and a[i_2], but
-             were later rewritten to same a[i]).  */
-          && (p->orig_expr == q->orig_expr));
+          && (p->orig_expr == q->orig_expr
+              || (p->orig_expr != NULL_TREE && q->orig_expr != NULL_TREE
+                  && operand_equal_p (p->orig_expr, q->orig_expr, 0))));
 }
 
 /* Allocate a new mem_attrs structure and insert it into the hash table if
@@ -1453,7 +1451,7 @@ component_ref_for_mem_expr (tree ref)
       while (CONVERT_EXPR_P (inner)
 	     || TREE_CODE (inner) == VIEW_CONVERT_EXPR
 	     || TREE_CODE (inner) == SAVE_EXPR)
-       inner = TREE_OPERAND (inner, 0);
+	inner = TREE_OPERAND (inner, 0);
 
       if (! DECL_P (inner))
 	inner = NULL_TREE;

@@ -42,7 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "sbitmap.h"
 #include "expr.h"
 #include "bitmap.h"
-#include "alias-export.h"
 #include "ddg.h"
 
 #ifdef INSN_SCHEDULING

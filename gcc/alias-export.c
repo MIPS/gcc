@@ -421,7 +421,7 @@ gate_report_aliases (void)
 {
   return ((flag_alias_export == 1
            || flag_ddg_export == 1)
-          && flag_alias_export_check);
+          && false);
 }
 
 void alias_export_finish_once (void)
