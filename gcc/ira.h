@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
    mode or when the conflict table is too big.  */
 extern bool ira_conflicts_p;
 
+START_TARGET_SPECIFIC
 extern void ira_init_once (void);
 extern void ira_init (void);
 extern void ira_finish_once (void);
@@ -34,11 +35,9 @@ extern rtx ira_eliminate_regs (rtx, enum machine_mode);
 extern void ira_sort_regnos_for_alter_reg (int *, int, unsigned int *);
 extern void ira_mark_allocation_change (int);
 extern void ira_mark_memory_move_deletion (int, int);
-START_TARGET_SPECIFIC
 extern bool ira_reassign_pseudos (int *, int, HARD_REG_SET, HARD_REG_SET *,
 				  HARD_REG_SET *, bitmap);
-END_TARGET_SPECIFIC
 extern rtx ira_reuse_stack_slot (int, unsigned int, unsigned int);
 extern void ira_mark_new_stack_slot (rtx, int, unsigned int);
 extern bool ira_better_spill_reload_regno_p (int *, int *, rtx, rtx, rtx);
-
+END_TARGET_SPECIFIC

@@ -76,6 +76,11 @@ struct rtx_constant_pool;
 
 #define n_deferred_constants (crtl->varasm.deferred_constants)
 
+extern struct gcc_target *last_arch;
+#ifndef EXTRA_TARGET
+struct gcc_target *last_arch = &this_targetm;
+#endif /* !EXTRA_TARGET */
+
 START_TARGET_SPECIFIC
 
 /* Number for making the label on the next
@@ -1635,6 +1640,12 @@ assemble_start_function (tree decl, const char *fnname)
   int align;
   char tmp_label[100];
   bool hot_label_written = false;
+
+  if (last_arch != &targetm)
+    {
+      fprintf (asm_out_file, "\t.arch\t\"%s\"\n", targetm.name);
+      last_arch = &targetm;
+    }
 
   crtl->subsections.unlikely_text_section_name = NULL;
 

@@ -2841,6 +2841,15 @@ Use this attribute on the Blackfin, H8/300, H8/300H, and H8S to indicate that
 all registers except the stack pointer should be saved in the prologue
 regardless of whether they are used or not.
 
+@item target_arch ("@var{target-name}")
+@cindex @code{target_arch} attribute
+For multi-targeted configurations, this allows the user to specify on which
+target a function or variable should be implemented.
+Note that if target attributes for more than one target are used for NUMA
+architectures, it is possible that the compiler will be unable to find a
+target assignment for the remaining functions / variables to retain the
+language semantics of data objects in memory.
+
 @item section ("@var{section-name}")
 @cindex @code{section} function attribute
 Normally, the compiler places the code it generates in the @code{text} section.

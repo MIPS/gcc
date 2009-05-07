@@ -1238,13 +1238,6 @@ execute_one_pass (struct opt_pass *pass)
   else
     gcc_assert (cfun && current_function_decl);
 
-  if (pass->todo_flags_start & TODO_arch_dispatch)
-    {
-      gcc_assert (cfun);
-      if (cfun->target_arch)
-	pass = ((struct rtl_dispatch_pass *)pass)->target_variants[cfun->target_arch-1];
-    }
-
   if (cfun && cfun->ipa_transforms_to_apply)
     {
       unsigned int i;
@@ -1340,6 +1333,13 @@ execute_pass_list (struct opt_pass *pass)
     {
       gcc_assert (pass->type == GIMPLE_PASS
 		  || pass->type == RTL_PASS);
+      if (pass->todo_flags_start & TODO_arch_dispatch)
+	{
+	  gcc_assert (cfun);
+	  if (cfun->target_arch)
+	  pass = ((struct rtl_dispatch_pass *)pass)->target_variants[cfun->target_arch-1];
+	}
+
       if (execute_one_pass (pass) && pass->sub)
         execute_pass_list (pass->sub);
       pass = pass->next;

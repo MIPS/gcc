@@ -157,6 +157,8 @@ static void prepare_function_start (void);
 static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
 static void set_insn_locators (rtx, int) ATTRIBUTE_UNUSED;
+extern void allocate_struct_function_1 (tree fndecl, bool abstract_p);
+EXTRA_TARGETS_DECL (void allocate_struct_function_1 (tree, bool));
 
 /* Stack of nested functions.  */
 /* Keep track of the cfun stack.  */
@@ -4041,6 +4043,7 @@ set_cfun (struct function *new_cfun)
   if (cfun != new_cfun)
     {
       cfun = new_cfun;
+      targetm_pnt = targetm_array[cfun ? cfun->target_arch : 0];
       invoke_set_current_function_hook (new_cfun ? new_cfun->decl : NULL_TREE);
     }
 }
@@ -4074,6 +4077,12 @@ get_next_funcdef_no (void)
   return funcdef_no++;
 }
 
+#ifndef EXTRA_TARGET
+static void (* const allocate_struct_function_1_array[]) (tree, bool)
+  = { &allocate_struct_function_1,
+      EXTRA_TARGETS_EXPAND_COMMA (&,allocate_struct_function_1)
+    };
+
 /* Allocate a function structure for FNDECL and set its contents
    to the defaults.  Set cfun to the newly-allocated object.
    Some of the helper functions invoked during initialization assume
@@ -4090,10 +4099,33 @@ get_next_funcdef_no (void)
 void
 allocate_struct_function (tree fndecl, bool abstract_p)
 {
+  int i = 0;
+#if NUM_TARGETS > 1
+  const char *arch_name = targetm.name;
+  tree attr = NULL_TREE;
+
+  if (fndecl)
+    attr = lookup_attribute ("target_arch", DECL_ATTRIBUTES (fndecl));
+  if (attr)
+    arch_name = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+  for (; targetm_array[i]; i++)
+    if (strcmp (targetm_array[i]->name, arch_name) == 0)
+      break;
+#endif
+  cfun = GGC_CNEW (struct function);
+  cfun->target_arch = i;
+  targetm_pnt = targetm_array[i];
+  gcc_assert (targetm_pnt);
+  allocate_struct_function_1_array[i] (fndecl, abstract_p);
+  return;
+}
+#endif /* !EXTRA_TARGET */
+
+void
+allocate_struct_function_1 (tree fndecl, bool abstract_p)
+{
   tree result;
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
-
-  cfun = GGC_CNEW (struct function);
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 

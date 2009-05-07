@@ -330,11 +330,13 @@ extern rtx final_sequence;
 extern int sdb_begin_function_line;
 #endif
 
+END_TARGET_SPECIFIC
 /* File in which assembler code is being written.  */
 
 #ifdef BUFSIZ
 extern FILE *asm_out_file;
 #endif
+START_TARGET_SPECIFIC
 
 /* The first global object in the file.  */
 extern const char *first_global_object_name;

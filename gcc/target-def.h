@@ -30,6 +30,8 @@
    rather than the .c file, then we need to wrap the default
    definition in a #ifndef, since files include tm.h before this one.  */
 
+/* TARGET_NAME is defined by the Makefile.  */
+
 /* Assembler output.  */
 #ifndef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN "("
@@ -832,6 +834,7 @@
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
+  TARGET_NAME,					\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\

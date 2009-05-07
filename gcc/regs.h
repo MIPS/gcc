@@ -73,6 +73,7 @@ struct regstat_n_sets_and_refs_t
   int refs;			/* # of times (REG n) is used or set */
 };
 
+START_TARGET_SPECIFIC
 extern struct regstat_n_sets_and_refs_t *regstat_n_sets_and_refs;
 
 /* Indexed by n, gives number of times (REG n) is used or set.  */
@@ -106,6 +107,7 @@ extern void regstat_free_ri (void);
 extern bitmap regstat_get_setjmp_crosses (void);
 extern void regstat_compute_calls_crossed (void);
 extern void regstat_free_calls_crossed (void);
+END_TARGET_SPECIFIC
 
 
 /* Register information indexed by register number.  This structure is
@@ -212,6 +214,7 @@ extern size_t reg_info_p_size;
 
 #define REG_BASIC_BLOCK(N) (reg_info_p[N].basic_block)
 
+START_TARGET_SPECIFIC
 /* Vector of substitutions of register numbers,
    used to map pseudo regs into hardware regs.
 
@@ -231,6 +234,7 @@ extern bool have_regs_of_mode [MAX_MACHINE_MODE];
    register.  */
 
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
+END_TARGET_SPECIFIC
 
 /* Flag set by local-alloc or global-alloc if they decide to allocate
    something in a call-clobbered register.  */

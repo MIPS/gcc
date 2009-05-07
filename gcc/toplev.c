@@ -166,8 +166,8 @@ const char *profile_data_prefix;
 
 #ifndef EXTRA_TARGET
 /* An array of target vector pointers for all configured targets.  */
-struct gcc_target *targetm_array[NUM_TARGETS]
-  = { &this_targetm, EXTRA_TARGETS_EXPAND_COMMA (&,this_targetm) };
+struct gcc_target *targetm_array[NUM_TARGETS + 1]
+  = { &this_targetm, EXTRA_TARGETS_EXPAND_COMMA (&,this_targetm) 0};
 
 /* A pointer to the current target vector.  */
 struct gcc_target *targetm_pnt = &this_targetm;
@@ -383,7 +383,9 @@ static const param_info lang_independent_params[] = {
 /* Output files for assembler code (real compiler output)
    and debugging dumps.  */
 
+#ifndef EXTRA_TARGET
 FILE *asm_out_file;
+#endif /* !EXTRA_TARGET */
 FILE *aux_info_file;
 FILE *dump_file = NULL;
 const char *dump_file_name;
@@ -1690,12 +1692,12 @@ process_options (void)
   main_target = true;
 #endif
 
+  /* Just in case lang_hooks.post_options ends up calling a debug_hook.
+     This can happen with incorrect pre-processed input. */
+  debug_hooks = &do_nothing_debug_hooks;
+
   if (main_target)
     {
-      /* Just in case lang_hooks.post_options ends up calling a debug_hook.
-	 This can happen with incorrect pre-processed input. */
-      debug_hooks = &do_nothing_debug_hooks;
-
       /* This replaces set_Wunused.  */
       if (warn_unused_function == -1)
 	warn_unused_function = warn_unused;

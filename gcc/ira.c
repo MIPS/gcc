@@ -738,10 +738,10 @@ setup_cover_and_important_classes (void)
   HARD_REG_SET temp_hard_regset2;
   static enum reg_class classes[LIM_REG_CLASSES + 1];
 
-  if (targetm.ira_cover_classes == NULL)
+  if (this_targetm.ira_cover_classes == NULL)
     cover_classes = NULL;
   else
-    cover_classes = targetm.ira_cover_classes ();
+    cover_classes = this_targetm.ira_cover_classes ();
   if (cover_classes == NULL)
     ira_assert (flag_ira_algorithm == IRA_ALGORITHM_PRIORITY);
   else

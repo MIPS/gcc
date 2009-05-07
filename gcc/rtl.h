@@ -2374,12 +2374,14 @@ END_TARGET_SPECIFIC
 /* Keep this for the nonce.  */
 #define gen_lowpart rtl_hooks.gen_lowpart
 
+START_TARGET_SPECIFIC
 extern void insn_locators_alloc (void);
 extern void insn_locators_free (void);
 extern void insn_locators_finalize (void);
 extern void set_curr_insn_source_location (location_t);
 extern void set_curr_insn_block (tree);
 extern int curr_insn_locator (void);
+END_TARGET_SPECIFIC
 extern bool optimize_insn_for_size_p (void);
 extern bool optimize_insn_for_speed_p (void);
 

@@ -4941,10 +4941,12 @@ extern tree type_hash_lookup (unsigned int, tree);
 extern void type_hash_add (unsigned int, tree);
 extern int simple_cst_list_equal (const_tree, const_tree);
 extern void dump_tree_statistics (void);
+START_TARGET_SPECIFIC
 extern void expand_function_end (void);
 extern void expand_function_start (tree);
 extern void stack_protect_prologue (void);
 extern void stack_protect_epilogue (void);
+END_TARGET_SPECIFIC
 extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool needs_to_live_in_memory (const_tree);
 extern tree reconstruct_complex_type (tree, tree);
@@ -4976,7 +4978,10 @@ extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
 extern void expand_dummy_function_end (void);
 extern unsigned int init_function_for_compilation (void);
+END_TARGET_SPECIFIC
+/* Allocate_struct_function uses targetm->name.  */
 extern void allocate_struct_function (tree, bool);
+START_TARGET_SPECIFIC
 extern void push_struct_function (tree fndecl);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (const_tree);

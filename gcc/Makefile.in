@@ -1144,6 +1144,7 @@ OBJS-rtl = \
 	modulo-sched.o \
 	optabs.o \
 	options.o \
+	opts.o \
 	passes.o \
 	postreload-gcse.o \
 	postreload.o \
@@ -1229,7 +1230,6 @@ OBJS-common = \
 	omega.o \
 	omp-low.o \
 	opts-common.o \
-	opts.o \
 	params.o \
 	pointer-set.o \
 	pretty-print.o \
@@ -3119,7 +3119,8 @@ $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    output.h $(INSN_ATTR_H) $(SYSTEM_H) $(TOPLEV_H) $(TARGET_H) libfuncs.h \
    $(TARGET_DEF_H) $(FUNCTION_H) $(SCHED_INT_H) $(TM_P_H) $(EXPR_H) \
    langhooks.h $(GGC_H) $(OPTABS_H) $(REAL_H) tm-constrs.h $(GIMPLE_H)
-	$(CXXX) $(out_file) $(OUTPUT_OPTION) -Dtargetm=this_targetm
+	$(CXXX) $(out_file) $(OUTPUT_OPTION) -Dtargetm=this_targetm \
+	-DTARGET_NAME=\"$(target_noncanonical)\"
 
 # Build auxiliary files that support ecoff format.
 mips-tfile: mips-tfile.o version.o $(LIBDEPS)

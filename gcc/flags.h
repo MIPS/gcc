@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "options.h"
 #include "real.h"
+#include "multi-target.h"
 
 enum debug_info_type
 {
@@ -213,7 +214,9 @@ enum ira_algorithm
   IRA_ALGORITHM_PRIORITY
 };
 
+START_TARGET_SPECIFIC
 extern enum ira_algorithm flag_ira_algorithm;
+END_TARGET_SPECIFIC
 
 /* The regions used for the integrated register allocator (IRA).  */
 enum ira_region

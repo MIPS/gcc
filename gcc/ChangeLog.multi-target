@@ -1,3 +1,61 @@
+2009-05-08  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/extend.texi (target_arch): Document new attribute.
+	* targhooks.c (STRINGIFY1, STRINGIFY): Delete.
+	(default_override_options): Use this_targetm.name for error message.
+	* flags.h (multi-target.h): Include.
+	(flag_ira_algorithm): Mark as target specific.
+	* multi-target.h (EXTRA_TARGETS_EXPAND_COMMA): Add trailing comma.
+	* tree.h (expand_function_end): Mark as target specific.
+	(expand_function_start, stack_protect_prologue): Likewise.
+	(stack_protect_epilogue): Likewise.
+	(allocate_struct_function): Mark as not target specific.
+	* target.h (struct gcc_target): Add new member name.
+	* toplev.c (targetm_array): Add zero delimiter.
+	(asm_out_file): Don't define for EXTRA_TARGET.
+	(process_options): Always initialize debug_hooks.
+	* regs.h (regstat_n_sets_and_refs): Mark as target specific.
+	(REG_N_REFS, REG_N_SETS, regstat_init_n_sets_and_refs): Likewise.
+	(regstat_free_n_sets_and_refs, regstat_compute_ri): Likewise.
+	(regstat_free_ri, regstat_get_setjmp_crosses): LIkewise.
+	(regstat_compute_calls_crossed, regstat_free_calls_crossed): Likewise.
+	(reg_renumber, have_regs_of_mode, reg_raw_mode): Likewise.
+	* opts.c: Include multi-target.h.  Add START_TARGET_SPECIFIC and
+	END_TARGET_SPECIFC markers.  Add #ifndef EXTRA_TARGET / #endif
+	directives.
+	(decode_options): Use this_targetm for target-specific processing.
+	Do an EXTRA_TARGETS_CALL of self.
+	* function.c (allocate_struct_function_1): New function, broken out of:
+	(allocate_struct_function).
+	(set_cfun): Update target_pnt.
+	[!EXTRA_TARGET] (allocate_struct_function_1_array): New const array.
+	[EXTRA_TARGET] (allocate_struct_function): Don't define.
+	(allocate_struct_function): Initialize cfun->target_arch and set
+	targetm_pnt.
+	* varasm.c (last_arch): New variable.
+	(assemble_start_function): Emit .arch directive when targetm changed
+	since the last function was emitted, and update last_arch.
+	* ira.c (setup_cover_and_important_classes): Use this_targetm.
+	* ira.h (ira_init_once, ira_init): Mark as target specific.
+	(ira_finish_once, ira_eliminate_regs): Likewise.
+	(ira_sort_regnos_for_alter_reg, ira_mark_allocation_change): Likewise.
+	(ira_mark_memory_move_deletion, ira_reuse_stack_slot): Likewise.
+	(ira_mark_new_stack_slot, ira_better_spill_reload_regno_p: Likewise.
+	* target-def.h (TARGET_INITIALIZER): Add TARGET_NAME.
+	* rtl.h (insn_locators_alloc): Mark as target specific.
+	(insn_locators_free, insn_locators_finalize): Likewise.
+	(set_curr_insn_source_location, set_curr_insn_block): Likewise.
+	(curr_insn_locator): Likewise.
+	* output.h (asm_out_file): Don't mark as target specific.
+	* c-common.c (handle_target_arch_attribute): New function.
+	(c_common_attribute_table): Add target_arch attribute entry.
+	* Makefile.in (OBJS-common): Move opts.o from here...
+	(OBJS-rtl):  ... to here.
+	($(out_object_file)): Add -DTARGET_NAME=\"$(target_noncanonical)\"
+	to rule.
+	* passes.c (execute_one_pass): Move dispatch code from here...
+	(execute_pass_list): ... to here.
+
 2009-05-06  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* targhooks.c (default_override_options): New function.

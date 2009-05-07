@@ -688,6 +688,10 @@ struct target_option_hooks
    to target-independent passes.  */
 struct gcc_target
 {
+  /* For multi-targeted configurations, the name to be used to describe
+     this target for options, attributes and error messages.  */
+  const char *name;
+
   /* Functions that output assembler for the target.  */
   struct asm_out asm_out;
 
@@ -1136,6 +1140,11 @@ struct gcc_target
   /* Leave the boolean fields at the end.  */
 };
 
+/* *targetm_pnt is the target for the current compilation
+   (e.g. of one function); this_targetm is the target of the current namespace;
+   targetm_array is a zero-terminated array of all targets.
+   In most files, targetm is the same as *targetm_pnt, except in <tyarget>.c,
+   where it is this_targetm.  */
 extern struct gcc_target *targetm_pnt, *targetm_array[];
 #ifndef targetm
 #define targetm (*targetm_pnt)
