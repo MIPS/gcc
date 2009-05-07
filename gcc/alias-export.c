@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
+#include "statistics.h"
 
 /* The final orig_expr -> pt set map used in RTL.  */
 static struct pointer_map_t *exprs_to_ptas = NULL;
@@ -57,6 +58,50 @@ static struct pointer_map_t *part_repr_to_pta = NULL;
 /* The map of partition representative decls to bitmaps that have
    set bits corresponding to decl uids of a partition.  */
 static struct pointer_map_t *part_repr_to_part = NULL;
+
+/* Saved escaped points-to solution.  */
+static struct pt_solution gimple_df_escaped;
+
+/* Alias export statistics counter.  */
+static unsigned int alias_export_disambiguations = 0;
+
+
+/* This structure holds exported data references and relations.  */
+struct ddg_info_def
+{
+
+  /* A hashtable for tree -> dataref mapping.  */
+  htab_t tree_to_dataref;
+
+  /* A hashtable for mapping dataref pairs to data dependence relation.  */
+  htab_t datarefs_pair_to_ddr;
+
+  /* TRUE for passes that perform code motion across loop branches, like SMS.
+     For other passes we assume it is safe to disambiguate references that are
+     dependent and distance vectors are known and non-zero.  */
+  bool pipelining_completed;
+};
+
+/* A struct holding dataref information for a given tree.  */
+typedef struct {
+  const_tree ref;
+  data_reference_p drf;
+} tree_dataref;
+
+/* A struct for holding data dependence relations for datarefs pairs.  */
+typedef struct {
+  data_reference_p a;
+  data_reference_p b;
+  ddr_p ddr;
+} datarefs_pair_ddr;
+
+/* Data references and data dependence relations exported from Tree-SSA
+   level for use on RTL level.  */
+static struct ddg_info_def *ddg_info;
+
+/* DDG export statistics counter.  */
+static unsigned int ddg_export_disambiguations = 0;
+
 
 /* Return the pointer on which REF access is based, or NULL, 
    if there's no such thing.  */
@@ -222,9 +267,6 @@ get_exported_ptr_info (tree expr)
   return NULL;
 }
 
-static struct pt_solution gimple_df_escaped;
-static struct pointer_set_t *bases_got_addressable = NULL;
-
 /* Save the above solution.  */
 void
 record_escaped_solution (struct pt_solution *escaped)
@@ -237,9 +279,12 @@ record_escaped_solution (struct pt_solution *escaped)
     }
 }
 
-/* Checks if two references conflict via trimmed oracle and pta info.  */
-static bool
-export_refs_may_alias_p (tree ref1, tree ref2)
+/* Functions to be called when needed to use exported information.  */
+
+/* Main function to ask saved information about if REF1 and REF2 may
+   alias or not.  */
+bool
+alias_export_may_alias_p (tree ref1, tree ref2)
 {
   struct ptr_info_def *pid1, *pid2;
   
@@ -248,30 +293,9 @@ export_refs_may_alias_p (tree ref1, tree ref2)
   
   pid1 = get_exported_ptr_info (ref1);
   pid2 = get_exported_ptr_info (ref2);
-  return refs_may_alias_p_1 (ref1, ref2, pid1, pid2, &gimple_df_escaped);
-}
-
-/* Statistics counters.  */
-static int disambig_ref_alias_number = 0;
-static int disambig_ref_noalias_number = 0;
-static int real_ref_disambig_number = 0;
-static int dry_run_number = 0;
-static int no_orig_expr_queries = 0;
-static int equal_orig_expr_queries = 0;
-static int not_found_expr_queries = 0;
-
-/* Functions to be called when needed to use exported information.  */
-
-/* Main function to ask saved information about if S1 and S2 may
-   alias or not.  */
-bool
-alias_export_may_alias_p (tree s1, tree s2)
-{
-  /* Both oracles are tried for statistics purposes, but the answers are given
-     only by the PTA-based oracle.  */
-  if (! export_refs_may_alias_p (s1, s2))
+  if (! refs_may_alias_p_1 (ref1, ref2, pid1, pid2, &gimple_df_escaped))
     {
-      real_ref_disambig_number++;
+      alias_export_disambiguations++;
       return false;
     }
 
@@ -282,6 +306,10 @@ alias_export_may_alias_p (tree s1, tree s2)
 void
 free_alias_export_info (void)
 {
+  statistics_counter_event (cfun, "Alias export disambiguations", 
+                            alias_export_disambiguations);
+  alias_export_disambiguations = 0;
+
   if (exprs_to_ptas)
     {
       pointer_map_destroy (exprs_to_ptas);
@@ -307,146 +335,10 @@ free_alias_export_info (void)
       BITMAP_FREE (gimple_df_escaped.vars);
       memset (&gimple_df_escaped, 0, sizeof gimple_df_escaped);
     }
-  if (bases_got_addressable)
-    {
-      pointer_set_destroy (bases_got_addressable);
-      bases_got_addressable = NULL;
-    }
-}
-
-
-static int unit_total = 0;
-static int unit_real_ref_disambig_number = 0;
-static int unit_dry_run_number = 0;
-static int unit_no_orig_expr_number = 0;
-static int unit_equal_orig_expr_number = 0;
-static int unit_not_found_expr_number = 0;
-static void print_ddg_export_stats (void);
-
-static bool
-gate_report_aliases (void)
-{
-  return ((flag_alias_export == 1
-           || flag_ddg_export == 1)
-          && false);
-}
-
-void alias_export_finish_once (void)
-{
-  FILE *report_file;
-  int unit_good_queries;
-
-  if (! gate_report_aliases ())
-    return;
-  
-  report_file = stderr;
-  unit_good_queries = unit_total - unit_dry_run_number;
-  if (report_file)
-    {
-      fprintf (report_file,
-               "====== Statistics for export aliasing information =======\n");
-      fprintf (report_file, "   Total queries per unit: %d\n", unit_total);
-      fprintf (report_file, "   Dry queries: %d (%d%%)\n", unit_dry_run_number,
-               (unit_dry_run_number * 100) / (unit_total == 0 ? 100 : unit_total));
-      fprintf (report_file, "   Helpful unit queries (ref): %d (%d%%)\n", 
-               unit_real_ref_disambig_number,
-               (unit_real_ref_disambig_number * 100) / (unit_good_queries == 0 ? 
-                                                        100 : unit_good_queries));
-      fprintf (report_file, "   No info saved queries: %d (%d%%)\n", 
-               unit_not_found_expr_number,
-               (unit_not_found_expr_number * 100) / (unit_good_queries == 0 ? 
-                                                     100 : unit_good_queries));
-      fprintf (report_file, "   Queries with null orig exprs: %d\n",
-               unit_no_orig_expr_number);
-      fprintf (report_file, "   Queries with equal orig exprs: %d\n",
-               unit_equal_orig_expr_number);
-    }
-}
-
-/* Reports gathered statistic.  */
-static unsigned int ATTRIBUTE_UNUSED
-handle_report_aliases (void)
-{
-  int total = disambig_ref_alias_number + disambig_ref_noalias_number;
-
-  if (dump_file && flag_alias_export)
-    {
-      fprintf (dump_file,
-               "====== Statistics for export aliasing information =======\n");
-      fprintf (dump_file, "   Total queries: %d\n", total);
-      fprintf (dump_file, "   Helpful queries: %d\n", real_ref_disambig_number);
-      fprintf (dump_file, "   Dry queries: %d (%d%%)\n", dry_run_number,
-               (dry_run_number * 100) / (total == 0 ? 100 : total));
-      fprintf (dump_file, "   Aliased queries (ref): %d\n", disambig_ref_alias_number);
-      fprintf (dump_file, "   Non-aliased queries (ref): %d\n", disambig_ref_noalias_number);
-      fprintf (dump_file, "   Queries with null orig exprs: %d\n",
-               no_orig_expr_queries);
-      fprintf (dump_file, "   Queries with equal orig exprs: %d\n",
-               equal_orig_expr_queries);
-    }
-  unit_total += total;
-  unit_real_ref_disambig_number += real_ref_disambig_number;
-  unit_dry_run_number += dry_run_number;
-  unit_no_orig_expr_number += no_orig_expr_queries;
-  unit_equal_orig_expr_number += equal_orig_expr_queries;
-  unit_not_found_expr_number += not_found_expr_queries;
-
-  disambig_ref_noalias_number = 0;
-  disambig_ref_alias_number = 0;
-  real_ref_disambig_number = 0;
-  dry_run_number = 0;
-  no_orig_expr_queries = 0;
-  equal_orig_expr_queries = 0;
-  not_found_expr_queries = 0;
-
-  if (flag_ddg_export)
-    print_ddg_export_stats ();
-  return 0;
 }
 
 
 /* Data dependence export.  */
-/* This structure holds exported data references and relations.  */
-struct ddg_info_def
-{
-
-  /* A hashtable for tree -> dataref mapping.  */
-  htab_t tree_to_dataref;
-
-  /* A hashtable for mapping dataref pairs to data dependence relation.  */
-  htab_t datarefs_pair_to_ddr;
-
-  /* Used by the verifier.  */
-  VEC (data_reference_p, heap) *verifier_seen_datarefs;
-
-  int ddrs_known, ddrs_no, ddrs_unknown, ddrs_not_found;
-
-  /* Number of memory references without/with relevant exported info.  */
-  int refs_bad, refs_ok;
-
-  /* Statistics on DDG info usage in RTL disambiguation.  */
-  int alias_fail_no_tree, alias_fail_no_drf, alias_fail_no_ddr,
-      alias_fail_useless_ddr, alias_fail_graceful, alias_success_useless,
-      alias_success_new, alias_success_no_dep, alias_success_nonzero_dist;
-
-  /* Whether we should skip verification of exported data.  Enabled as late as
-     possible in the RTL pipeline by a separate pass.  */
-  bool skip_verification;
-
-  /* TRUE for passes that perform code motion across loop branches, like SMS.
-     For other passes we assume it is safe to disambiguate references that are
-     dependent and distance vectors are known and non-zero.  */
-  bool pipelining_completed;
-};
-
-typedef struct {
-  const_tree ref;
-  data_reference_p drf;
-} tree_dataref;
-
-/* Data references and data dependence relations exported from Tree-SSA
-   level for use on RTL level.  */
-static struct ddg_info_def *ddg_info;
 
 /* Hash a dataref T.  */
 static hashval_t
@@ -469,13 +361,6 @@ htab_del_tree_dataref (tree_dataref *t)
   if (t->drf)
     free_data_ref (t->drf);
 }
-
-/* A struct for holding data dependence relations for datarefs pairs.  */
-typedef struct {
-  data_reference_p a;
-  data_reference_p b;
-  ddr_p ddr;
-} datarefs_pair_ddr;
 
 /* Hash function for the above.  */
 static hashval_t
@@ -693,36 +578,6 @@ find_ddr (data_reference_p dr1, data_reference_p dr2)
   return pdp ? pdp->ddr : NULL;
 }
 
-/* Depending on current IR, either check that we have saved datarefs for all
-   memory references, or we have MEM_ORIG_EXPRs for MEMs.  */
-static void
-print_ddg_export_stats (void)
-{
-  if (!ddg_info || !dump_file)
-    return;
-
-  if (dump_flags & TDF_STATS)
-    fprintf (dump_file,
-             "DDG info usage in RTL aliasing: %d no tree, %d no drf, %d no ddr, "
-             "%d useless ddr, %d graceful fails, %d useless successes, "
-             "%d new successes, %d no dep, %d nonzero dist\n",
-             ddg_info->alias_fail_no_tree, ddg_info->alias_fail_no_drf,
-             ddg_info->alias_fail_no_ddr, ddg_info->alias_fail_useless_ddr,
-             ddg_info->alias_fail_graceful, ddg_info->alias_success_useless,
-             ddg_info->alias_success_new, ddg_info->alias_success_no_dep,
-             ddg_info->alias_success_nonzero_dist);
-  
-  ddg_info->alias_fail_no_tree = 0;
-  ddg_info->alias_fail_no_drf = 0;
-  ddg_info->alias_fail_no_ddr = 0;
-  ddg_info->alias_fail_useless_ddr = 0;
-  ddg_info->alias_fail_graceful = 0;
-  ddg_info->alias_success_useless = 0;
-  ddg_info->alias_success_new = 0;
-  ddg_info->alias_success_no_dep = 0;
-  ddg_info->alias_success_nonzero_dist = 0;
-}
-
 /* A callback for for_each_rtx to remove exported data for mems.  */
 static int
 walk_mems (rtx *x, void *data ATTRIBUTE_UNUSED)
@@ -780,6 +635,9 @@ ddg_export_may_alias_p (tree t1, tree t2, bool for_pipelining)
   data_reference_p drf1, drf2;
   ddr_p ddr;
 
+  if (! dbg_cnt (ddg_export))
+    return true;
+
   if (!ddg_info || !t1 || !t2)
     return true;
 
@@ -793,18 +651,44 @@ ddg_export_may_alias_p (tree t1, tree t2, bool for_pipelining)
     return true;
 
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
-    return false;
+    {
+      ddg_export_disambiguations++;
+      return false;
+    }
   
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE 
       && DDR_NUM_DIST_VECTS (ddr) > 0
       && ! for_pipelining
       && ! ddg_info->pipelining_completed
       && nonzero_dist_vects (DDR_DIST_VECTS (ddr), DDR_NB_LOOPS (ddr)))
-    return false;
+    {
+      ddg_export_disambiguations++;
+      return false;
+    }
   
   return true;
 }
 
+/* Free ddg export info.  */
+void
+free_ddg_export_info (void)
+{
+  if (!ddg_info)
+    return;
+
+  statistics_counter_event (cfun, "DDG export disambiguations", 
+                            ddg_export_disambiguations);
+  ddg_export_disambiguations = 0;
+
+  /* TODO: DDR_LOOP_NESTs are not free'd.  */
+  htab_delete (ddg_info->datarefs_pair_to_ddr);
+  htab_delete (ddg_info->tree_to_dataref);
+
+  free (ddg_info);
+  ddg_info = NULL;
+}
+
+/* Gate for ddg export pass.  */
 static bool
 gate_ddg_export (void)
 {
@@ -830,19 +714,5 @@ struct gimple_opt_pass pass_gather_ddg_info =
  }
 };
 
-/* Free ddg export info.  */
-void
-free_ddg_export_info (void)
-{
-  if (!ddg_info)
-    return;
-
-  /* TODO: DDR_LOOP_NESTs are not free'd.  */
-  htab_delete (ddg_info->datarefs_pair_to_ddr);
-  htab_delete (ddg_info->tree_to_dataref);
-
-  free (ddg_info);
-  ddg_info = NULL;
-}
 
 

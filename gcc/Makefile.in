@@ -2065,8 +2065,7 @@ alias-export.o : alias-export.c alias-export.h 	\
    $(FUNCTION_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(GGC_H) output.h $(TREE_FLOW_H) \
    $(RTL_H) $(TREE_PASS_H) $(FLAGS_H) tree-ssa-alias.h vec.h bitmap.h \
    pointer-set.h dbgcnt.h $(CFGLOOP_H) tree-data-ref.h tree-scalar-evolution.h \
-   $(DIAGNOSTIC_H)  
-
+   $(DIAGNOSTIC_H) statistics.h
 
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(TOPLEV_H) $(TREE_INLINE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) \

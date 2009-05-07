@@ -2342,8 +2342,6 @@ extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 /* In final.c  */
 extern unsigned int compute_alignments (void);
 
-extern void alias_export_finish_once (void);
-
 
 struct rtl_hooks
 {
