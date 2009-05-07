@@ -812,7 +812,7 @@ package body Lib.Load is
          --  units table when first loaded as a declaration.
 
          Units.Table (Units.Last) := Units.Table (Get_Cunit_Unit_Number (N));
-         Units.Table (Units.Last).Cunit := N;
+         Units.Table (Units.Last).Cunit := Library_Unit (N);
       end if;
    end Make_Instance_Unit;
 

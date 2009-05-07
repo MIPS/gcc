@@ -775,6 +775,12 @@ get_ref_idx_for (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
   unsigned next_ref_idx = htab_elements (h);
   bool retval;
 
+  /* If -funsigned-char is given, replace references to 'char' with
+     'unsigned char'.  FIXME lto, this should be done in
+     free_lang_data.  */
+  if (flag_signed_char == 0 && TYPE_P (t) && t == char_type_node)
+    t = unsigned_char_type_node;
+
   retval = true;
   d_slot.t = t;
   slot = htab_find_slot (h, &d_slot, INSERT);

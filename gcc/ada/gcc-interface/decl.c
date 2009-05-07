@@ -1199,8 +1199,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  post_error ("?Storage_Error will be raised at run-time!",
 			      gnat_entity);
 
-		gnu_expr = build_allocator (gnu_alloc_type, gnu_expr, gnu_type,
-					    0, 0, gnat_entity, mutable_p);
+		gnu_expr
+		  = build_allocator (gnu_alloc_type, gnu_expr, gnu_type,
+				     Empty, Empty, gnat_entity, mutable_p);
 	      }
 	    else
 	      {
@@ -1661,7 +1662,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       /* If the type we are dealing with has got a smaller alignment than the
 	 natural one, we need to wrap it up in a record type and under-align
 	 the latter.  We reuse the padding machinery for this purpose.  */
-      else if (Known_Alignment (gnat_entity)
+      else if (Present (Alignment_Clause (gnat_entity))
 	       && UI_Is_In_Int_Range (Alignment (gnat_entity))
 	       && (align = UI_To_Int (Alignment (gnat_entity)) * BITS_PER_UNIT)
 	       && align < TYPE_ALIGN (gnu_type))
@@ -1957,11 +1958,28 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	if (gnu_comp_size && !Is_Bit_Packed_Array (gnat_entity))
 	  {
-	    tree orig_tem;
+	    tree orig_tem = tem;
+	    unsigned int max_align;
+
+	    /* If an alignment is specified, use it as a cap on the component
+	       type so that it can be honored for the whole type.  But ignore
+	       it for the original type of packed array types.  */
+	    if (No (Packed_Array_Type (gnat_entity))
+		&& Known_Alignment (gnat_entity))
+	      max_align = validate_alignment (Alignment (gnat_entity),
+					      gnat_entity, 0);
+	    else
+	      max_align = 0;
+
 	    tem = make_type_from_size (tem, gnu_comp_size, false);
-	    orig_tem = tem;
+	    if (max_align > 0 && TYPE_ALIGN (tem) > max_align)
+	      tem = orig_tem;
+	    else
+	      orig_tem = tem;
+
 	    tem = maybe_pad_type (tem, gnu_comp_size, 0, gnat_entity,
 				  "C_PAD", false, definition, true);
+
 	    /* If a padding record was made, declare it now since it will
 	       never be declared otherwise.  This is necessary to ensure
 	       that its subtrees are properly marked.  */
@@ -2343,13 +2361,31 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	      if (gnu_comp_size && !Is_Bit_Packed_Array (gnat_entity))
 		{
-		  tree orig_gnu_type;
+		  tree orig_gnu_type = gnu_type;
+		  unsigned int max_align;
+
+		  /* If an alignment is specified, use it as a cap on the
+		     component type so that it can be honored for the whole
+		     type.  But ignore it for the original type of packed
+		     array types.  */
+		  if (No (Packed_Array_Type (gnat_entity))
+		      && Known_Alignment (gnat_entity))
+		    max_align = validate_alignment (Alignment (gnat_entity),
+						    gnat_entity, 0);
+		  else
+		    max_align = 0;
+
 		  gnu_type
 		    = make_type_from_size (gnu_type, gnu_comp_size, false);
-		  orig_gnu_type = gnu_type;
+		  if (max_align > 0 && TYPE_ALIGN (gnu_type) > max_align)
+		    gnu_type = orig_gnu_type;
+		  else
+		    orig_gnu_type = gnu_type;
+
 		  gnu_type = maybe_pad_type (gnu_type, gnu_comp_size, 0,
 					     gnat_entity, "C_PAD", false,
 					     definition, true);
+
 		  /* If a padding record was made, declare it now since it
 		     will never be declared otherwise.  This is necessary
 		     to ensure that its subtrees are properly marked.  */
@@ -2510,9 +2546,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				     | (TYPE_QUAL_VOLATILE
 					* Treat_As_Volatile (gnat_entity))));
 
+	  /* Make it artificial only if the base type was artificial as well.
+	     That's sort of "morally" true and will make it possible for the
+	     debugger to look it up by name in DWARF, which is necessary in
+	     order to decode the packed array type.  */
 	  gnu_decl
 	    = create_type_decl (gnu_entity_name, gnu_type, attr_list,
-				!Comes_From_Source (gnat_entity),
+				!Comes_From_Source (gnat_entity)
+				&& !Comes_From_Source (Etype (gnat_entity)),
 				debug_info_p, gnat_entity);
 
 	  /* Save it as our equivalent in case the call below elaborates
@@ -4625,8 +4666,29 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       /* Back-annotate the Alignment of the type if not already in the
 	 tree.  Likewise for sizes.  */
       if (Unknown_Alignment (gnat_entity))
-	Set_Alignment (gnat_entity,
-		       UI_From_Int (TYPE_ALIGN (gnu_type) / BITS_PER_UNIT));
+	{
+	  unsigned int double_align, align;
+	  bool is_capped_double, align_clause;
+
+	  /* If the default alignment of "double" or larger scalar types is
+	     specifically capped and this is not an array with an alignment
+	     clause on the component type, return the cap.  */
+	  if ((double_align = double_float_alignment) > 0)
+	    is_capped_double
+	      = is_double_float_or_array (gnat_entity, &align_clause);
+	  else if ((double_align = double_scalar_alignment) > 0)
+	    is_capped_double
+	      = is_double_scalar_or_array (gnat_entity, &align_clause);
+	  else
+	    is_capped_double = align_clause = false;
+
+	  if (is_capped_double && !align_clause)
+	    align = double_align;
+	  else
+	    align = TYPE_ALIGN (gnu_type) / BITS_PER_UNIT;
+
+	  Set_Alignment (gnat_entity, UI_From_Int (align));
+	}
 
       if (Unknown_Esize (gnat_entity) && TYPE_SIZE (gnu_type))
 	{
@@ -7336,7 +7398,7 @@ set_rm_size (Uint uint_size, tree gnu_type, Entity_Id gnat_entity)
       return;
     }
 
-  /* Otherwise, set the RM size proper for numerical types...  */
+  /* Otherwise, set the RM size proper for integral types...  */
   if ((TREE_CODE (gnu_type) == INTEGER_TYPE
        && Is_Discrete_Or_Fixed_Point_Type (gnat_entity))
       || (TREE_CODE (gnu_type) == ENUMERAL_TYPE
@@ -7471,9 +7533,47 @@ validate_alignment (Uint alignment, Entity_Id gnat_entity, unsigned int align)
   else if (!(Present (Alignment_Clause (gnat_entity))
 	     && From_At_Mod (Alignment_Clause (gnat_entity)))
 	   && new_align * BITS_PER_UNIT < align)
-    post_error_ne_num ("alignment for& must be at least ^",
-		       gnat_error_node, gnat_entity,
-		       align / BITS_PER_UNIT);
+    {
+      unsigned int double_align;
+      bool is_capped_double, align_clause;
+
+      /* If the default alignment of "double" or larger scalar types is
+	 specifically capped and the new alignment is above the cap, do
+	 not post an error and change the alignment only if there is an
+	 alignment clause; this makes it possible to have the associated
+	 GCC type overaligned by default for performance reasons.  */
+      if ((double_align = double_float_alignment) > 0)
+	{
+	  Entity_Id gnat_type
+	    = Is_Type (gnat_entity) ? gnat_entity : Etype (gnat_entity);
+	  is_capped_double
+	    = is_double_float_or_array (gnat_type, &align_clause);
+	}
+      else if ((double_align = double_scalar_alignment) > 0)
+	{
+	  Entity_Id gnat_type
+	    = Is_Type (gnat_entity) ? gnat_entity : Etype (gnat_entity);
+	  is_capped_double
+	    = is_double_scalar_or_array (gnat_type, &align_clause);
+	}
+      else
+	is_capped_double = align_clause = false;
+
+      if (is_capped_double && new_align >= double_align)
+	{
+	  if (align_clause)
+	    align = new_align * BITS_PER_UNIT;
+	}
+      else
+	{
+	  if (is_capped_double)
+	    align = double_align * BITS_PER_UNIT;
+
+	  post_error_ne_num ("alignment for& must be at least ^",
+			     gnat_error_node, gnat_entity,
+			     align / BITS_PER_UNIT);
+	}
+    }
   else
     {
       new_align = (new_align > 0 ? new_align * BITS_PER_UNIT : 1);
@@ -7758,7 +7858,7 @@ substitute_in_type (tree t, tree f, tree r)
 tree
 rm_size (tree gnu_type)
 {
-  /* For integer types, this is the precision.  */
+  /* For integral types, we store the RM size explicitly.  */
   if (INTEGRAL_TYPE_P (gnu_type) && TYPE_RM_SIZE (gnu_type))
     return TYPE_RM_SIZE (gnu_type);
 

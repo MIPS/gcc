@@ -799,7 +799,7 @@
 	1, 1, 1, 1,			/* 164-167, accg8 - accg11 */	\
 	/* Other registers */						\
 	1,				/* 168, AP   - fake arg ptr */	\
-	0,				/* 169, LR   - Link register*/	\
+	1,				/* 169, LR   - Link register*/	\
 	0,				/* 170, LCR  - Loop count reg*/	\
 	1, 1				/* 171-172, iacc0 */		\
 }
@@ -2119,16 +2119,6 @@ __asm__("\n"								\
    The compiler will try both labelings, looking for one that is valid, and
    will reload one or both registers only if neither labeling works.  */
 #define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_BASE_P (X)
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
-do {							\
-  rtx new_x = frv_legitimize_address (X, OLDX, MODE);	\
-  if (new_x)						\
-    { 							\
-      (X) = new_x; 					\
-      goto WIN; 					\
-    } 							\
-} while (0)
 
 #define FIND_BASE_TERM frv_find_base_term
 

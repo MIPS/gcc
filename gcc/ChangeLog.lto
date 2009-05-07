@@ -1,3 +1,41 @@
+2009-05-07  Diego Novillo  <dnovillo@google.com>
+
+	* lto-cgraph.c (input_edge): Add type casts for C++ warnings.
+	(input_cgraph_1): Likewise.
+	* lto-function-in.c (input_real): Likewise.
+	(process_tree_flags): Define ADD_TLS_FLAG.
+	(lto_static_init_local): Likewise.
+	(input_field_decl): Add type casts for C++ warnings.
+	(input_const_decl): Likewise.
+	(input_function_decl): Likewise.
+	(input_var_decl): Likewise.
+	(input_parm_decl): Likewise.
+	(input_result_decl): Likewise.
+	(input_type_decl): Likewise.
+	(input_label_decl): Likewise.
+	(input_type): Likewise.
+	* lto-function-out.c (expr_to_tag): Change type to enum LTO_tags.
+	(output_tree_flags): Define ADD_TLS_FLAG.
+	(lto_debug_tree_flags): Likewise.
+	* lto-section-out.c (get_ref_idx_for): If -funsigned-char is
+	given, replace T with unsigned_char_type_node.
+	* lto-tree-flags.def: Call ADD_TLS_FLAG instead of
+	ADD_VIS_FLAG_SIZE for field tls_model.
+
+2009-05-07  Diego Novillo  <dnovillo@google.com>
+
+	* ipa-pure-const.c (read_summary): Handle new fields
+	state_previously_known and looping_previously_known.
+	Handle field can_throw.
+	(write_summary): Likewise.
+
+2009-05-07  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @147098.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-04-25  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @146652.

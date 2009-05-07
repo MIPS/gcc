@@ -257,7 +257,7 @@ input_real (struct lto_input_block *ib, struct data_in *data_in, tree type)
 static enum LTO_tags
 input_record_start (struct lto_input_block *ib)
 {
-  enum LTO_tags tag = lto_input_1_unsigned (ib);
+  enum LTO_tags tag = (enum LTO_tags) lto_input_1_unsigned (ib);
 
 #ifdef LTO_STREAM_DEBUGGING
   if (tag)
@@ -422,7 +422,9 @@ process_tree_flags (tree expr, lto_flags_type flags)
 #define ADD_VIS_FLAG(flag_name)  \
   { expr->decl_with_vis. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)					\
-  { expr->decl_with_vis. flag_name = (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)); flags <<= size; }
+  { expr->decl_with_vis. flag_name = (enum symbol_visibility) (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)); flags <<= size; }
+#define ADD_TLS_FLAG(flag_name,size) \
+  { expr->decl_with_vis. flag_name = (enum tls_model) (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)); flags <<= size; }
 #define ADD_FUN_FLAG(flag_name)  \
   { expr->function_decl. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define END_EXPR_CASE(class)      break;
@@ -448,6 +450,7 @@ process_tree_flags (tree expr, lto_flags_type flags)
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
 #undef ADD_VIS_FLAG_SIZE
+#undef ADD_TLS_FLAG
 #undef ADD_FUN_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
@@ -2214,6 +2217,7 @@ lto_static_init_local (void)
 #define ADD_DECL_FLAG(flag_name)           flags_length_for_code[code]++;
 #define ADD_VIS_FLAG(flag_name)            flags_length_for_code[code]++;
 #define ADD_VIS_FLAG_SIZE(flag_name,size)  flags_length_for_code[code] += size;
+#define ADD_TLS_FLAG(flag_name,size)       flags_length_for_code[code] += size;
 #define ADD_FUN_FLAG(flag_name)            flags_length_for_code[code]++;
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                     \
@@ -2241,6 +2245,7 @@ lto_static_init_local (void)
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
 #undef ADD_VIS_FLAG_SIZE
+#undef ADD_TLS_FLAG
 #undef ADD_FUN_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
@@ -2532,7 +2537,7 @@ input_field_decl (struct lto_input_block *ib, struct data_in *data_in)
   LTO_DEBUG_TOKEN ("abstract_origin");
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
 
-  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.mode = (enum machine_mode) lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   decl->decl_common.off_align = lto_input_uleb128 (ib);
 
@@ -2581,7 +2586,7 @@ input_const_decl (struct lto_input_block *ib, struct data_in *data_in)
   decl->decl_minimal.context = NULL_TREE;
   decl->common.type = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
-  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.mode = (enum machine_mode) lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   decl->decl_common.initial = input_tree (ib, data_in);
 
@@ -2674,7 +2679,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
   decl->decl_common.attributes = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
 
-  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.mode = (enum machine_mode) lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align */
 
@@ -2698,8 +2703,8 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
     }
   else
     decl->function_decl.personality = NULL ;
-  decl->function_decl.function_code = lto_input_uleb128 (ib);
-  decl->function_decl.built_in_class = lto_input_uleb128 (ib);
+  decl->function_decl.function_code = (enum built_in_function) lto_input_uleb128 (ib);
+  decl->function_decl.built_in_class = (enum built_in_class) lto_input_uleb128 (ib);
 
   /* struct function is filled in when body is read */
 
@@ -2802,7 +2807,7 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
   decl->decl_common.attributes = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
 
-  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.mode = (enum machine_mode) lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align */
 
@@ -2887,7 +2892,7 @@ input_parm_decl (struct lto_input_block *ib, struct data_in *data_in, tree fn)
   decl->decl_common.attributes = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = NULL_TREE;
 
-  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.mode = (enum machine_mode) lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align */
 
@@ -2928,7 +2933,7 @@ input_result_decl (struct lto_input_block *ib, struct data_in *data_in,
   decl->decl_common.attributes = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
 
-  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.mode = (enum machine_mode) lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align */
 
@@ -2970,7 +2975,7 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
   decl->decl_common.attributes = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
 
-  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.mode = (enum machine_mode) lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
 
   decl->decl_common.size = input_tree (ib, data_in);
@@ -3016,7 +3021,7 @@ input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
   decl->decl_common.attributes = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
 
-  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.mode = (enum machine_mode) lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align, size, size_unit */
 
@@ -3133,7 +3138,7 @@ input_type (struct lto_input_block *ib, struct data_in *data_in, enum tree_code 
   LTO_DEBUG_TOKEN ("precision");
   type->type.precision = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("mode");
-  type->type.mode = lto_input_uleb128 (ib);
+  type->type.mode = (enum machine_mode) lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("align");
   type->type.align = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("pointer_to");

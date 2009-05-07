@@ -118,11 +118,6 @@ extern int optimize_size;
 
 extern bool in_lto_p;
 
-/* Do print extra warnings (such as for uninitialized variables).
-   -W/-Wextra.  */
-
-extern bool extra_warnings;
-
 /* Used to set the level of -Wstrict-aliasing, when no level is specified.  
    The external way to set the default level is to use
    -Wstrict-aliasing=level.  

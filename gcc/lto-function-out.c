@@ -67,7 +67,7 @@ static void output_record_start (struct output_block *, tree, tree,
    eh_region for an instruction is only emitted if it different from
    the last instruction.  */
 static int last_eh_region_seen;
-static unsigned int expr_to_tag[NUM_TREE_CODES];
+static enum LTO_tags expr_to_tag[NUM_TREE_CODES];
 static unsigned int stmt_to_tag[LAST_AND_UNUSED_GIMPLE_CODE];
 
 /* Returns nonzero if P1 and P2 are equal.  */
@@ -513,6 +513,8 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
       { flags <<= 1; if (expr->decl_with_vis. flag_name ) flags |= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)	\
       { flags <<= size; if (expr->decl_with_vis. flag_name ) flags |= expr->decl_with_vis. flag_name; }
+#define ADD_TLS_FLAG(flag_name,size)	\
+      { flags <<= size; if (expr->decl_with_vis. flag_name ) flags |= expr->decl_with_vis. flag_name; }
 #define ADD_FUN_FLAG(flag_name)  \
       { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
 #define END_EXPR_CASE(klass)      break;
@@ -538,6 +540,7 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
 #undef ADD_VIS_FLAG_SIZE
+#undef ADD_TLS_FLAG
 #undef ADD_FUN_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
@@ -2431,6 +2434,8 @@ lto_debug_tree_flags (struct lto_debug_context *context,
 #define ADD_VIS_FLAG(flag_name)  \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)					\
+  { if (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
+#define ADD_TLS_FLAG(flag_name,size)					\
   { if (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
 #define ADD_FUN_FLAG(flag_name)  \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }

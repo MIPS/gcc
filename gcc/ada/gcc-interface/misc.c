@@ -147,7 +147,6 @@ const char **save_argv;
 extern int gnat_argc;
 extern char **gnat_argv;
 
-
 /* Declare functions we use as part of startup.  */
 extern void __gnat_initialize           (void *);
 extern void __gnat_install_SEH_handler  (void *);
@@ -355,7 +354,7 @@ internal_error_function (const char *msgid, va_list *ap)
   pp_format_verbatim (global_dc->printer, &tinfo);
 
   /* Extract a (writable) pointer to the formatted text.  */
-  buffer = (char*) pp_formatted_text (global_dc->printer);
+  buffer = xstrdup (pp_formatted_text (global_dc->printer));
 
   /* Go up to the first newline.  */
   for (p = buffer; *p; p++)
@@ -394,9 +393,12 @@ gnat_init (void)
   gnat_init_decl_processing ();
 
   /* Add the input filename as the last argument.  */
-  gnat_argv[gnat_argc] = (char *) main_input_filename;
-  gnat_argc++;
-  gnat_argv[gnat_argc] = 0;
+  if (main_input_filename)
+    {
+      gnat_argv[gnat_argc] = xstrdup (main_input_filename);
+      gnat_argc++;
+      gnat_argv[gnat_argc] = NULL;
+    }
 
   global_dc->internal_error = &internal_error_function;
 
@@ -549,7 +551,7 @@ gnat_printable_name (tree decl, int verbosity)
 
   if (verbosity == 2 && !DECL_IS_BUILTIN (decl))
     {
-      Set_Identifier_Casing (ada_name, (char *) DECL_SOURCE_FILE (decl));
+      Set_Identifier_Casing (ada_name, DECL_SOURCE_FILE (decl));
       return ggc_strdup (Name_Buffer);
     }
 

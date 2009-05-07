@@ -386,7 +386,7 @@ static unsigned current_funcdef_fde;
 struct GTY(()) indirect_string_node {
   const char *str;
   unsigned int refcount;
-  unsigned int form;
+  enum dwarf_form form;
   char *label;
 };
 
@@ -3894,6 +3894,47 @@ add_loc_descr (dw_loc_descr_ref *list_head, dw_loc_descr_ref descr)
   *d = descr;
 }
 
+/* Add a constant OFFSET to a location expression.  */
+
+static void
+loc_descr_plus_const (dw_loc_descr_ref *list_head, HOST_WIDE_INT offset)
+{
+  dw_loc_descr_ref loc;
+  HOST_WIDE_INT *p;
+
+  gcc_assert (*list_head != NULL);
+
+  if (!offset)
+    return;
+
+  /* Find the end of the chain.  */
+  for (loc = *list_head; loc->dw_loc_next != NULL; loc = loc->dw_loc_next)
+    ;
+
+  p = NULL;
+  if (loc->dw_loc_opc == DW_OP_fbreg
+      || (loc->dw_loc_opc >= DW_OP_breg0 && loc->dw_loc_opc <= DW_OP_breg31))
+    p = &loc->dw_loc_oprnd1.v.val_int;
+  else if (loc->dw_loc_opc == DW_OP_bregx)
+    p = &loc->dw_loc_oprnd2.v.val_int;
+
+  /* If the last operation is fbreg, breg{0..31,x}, optimize by adjusting its
+     offset.  Don't optimize if an signed integer overflow would happen.  */
+  if (p != NULL
+      && ((offset > 0 && *p <= INTTYPE_MAXIMUM (HOST_WIDE_INT) - offset)
+	  || (offset < 0 && *p >= INTTYPE_MINIMUM (HOST_WIDE_INT) - offset)))
+    *p += offset;
+
+  else if (offset > 0)
+    loc->dw_loc_next = new_loc_descr (DW_OP_plus_uconst, offset, 0);
+
+  else
+    {
+      loc->dw_loc_next = int_loc_descriptor (offset);
+      add_loc_descr (&loc->dw_loc_next, new_loc_descr (DW_OP_plus, 0, 0));
+    }
+}
+
 /* Return the size of a location descriptor.  */
 
 static unsigned long
@@ -4413,9 +4454,7 @@ build_cfa_aligned_loc (HOST_WIDE_INT offset, HOST_WIDE_INT alignment)
       head = new_reg_loc_descr (dwarf_fp, 0);
       add_loc_descr (&head, int_loc_descriptor (alignment));
       add_loc_descr (&head, new_loc_descr (DW_OP_and, 0, 0));
-
-      add_loc_descr (&head, int_loc_descriptor (offset));
-      add_loc_descr (&head, new_loc_descr (DW_OP_plus, 0, 0));
+      loc_descr_plus_const (&head, offset);
     }
   else
     head = new_reg_loc_descr (dwarf_fp, offset);
@@ -4971,7 +5010,7 @@ static hashval_t debug_str_do_hash (const void *);
 static int debug_str_eq (const void *, const void *);
 static void add_AT_string (dw_die_ref, enum dwarf_attribute, const char *);
 static inline const char *AT_string (dw_attr_ref);
-static int AT_string_form (dw_attr_ref);
+static enum dwarf_form AT_string_form (dw_attr_ref);
 static void add_AT_die_ref (dw_die_ref, enum dwarf_attribute, dw_die_ref);
 static void add_AT_specification (dw_die_ref, dw_die_ref);
 static inline dw_die_ref AT_ref (dw_attr_ref);
@@ -5977,7 +6016,7 @@ AT_string (dw_attr_ref a)
 /* Find out whether a string should be output inline in DIE
    or out-of-line in .debug_str section.  */
 
-static int
+static enum dwarf_form
 AT_string_form (dw_attr_ref a)
 {
   struct indirect_string_node *node;
@@ -9767,7 +9806,7 @@ int_loc_descriptor (HOST_WIDE_INT i)
   if (i >= 0)
     {
       if (i <= 31)
-	op = DW_OP_lit0 + i;
+	op = (enum dwarf_location_atom) (DW_OP_lit0 + i);
       else if (i <= 0xff)
 	op = DW_OP_const1u;
       else if (i <= 0xffff)
@@ -9919,7 +9958,7 @@ static dw_loc_descr_ref
 tls_mem_loc_descriptor (rtx mem)
 {
   tree base;
-  dw_loc_descr_ref loc_result, loc_result2;
+  dw_loc_descr_ref loc_result;
 
   if (MEM_EXPR (mem) == NULL_TREE || MEM_OFFSET (mem) == NULL_RTX)
     return NULL;
@@ -9935,21 +9974,7 @@ tls_mem_loc_descriptor (rtx mem)
     return NULL;
 
   if (INTVAL (MEM_OFFSET (mem)))
-    {
-      if (INTVAL (MEM_OFFSET (mem)) >= 0)
-	add_loc_descr (&loc_result,
-		       new_loc_descr (DW_OP_plus_uconst,
-				      INTVAL (MEM_OFFSET (mem)), 0));
-      else
-	{
-	  loc_result2 = mem_loc_descriptor (MEM_OFFSET (mem), GET_MODE (mem),
-					    VAR_INIT_STATUS_INITIALIZED);
-	  if (loc_result2 == 0)
-	    return NULL;
-	  add_loc_descr (&loc_result, loc_result2);
-	  add_loc_descr (&loc_result, new_loc_descr (DW_OP_plus, 0, 0));
-	}
-    }
+    loc_descr_plus_const (&loc_result, INTVAL (MEM_OFFSET (mem)));
 
   return loc_result;
 }
@@ -10114,11 +10139,8 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	  if (mem_loc_result == 0)
 	    break;
 
-	  if (GET_CODE (XEXP (rtl, 1)) == CONST_INT
-	      && INTVAL (XEXP (rtl, 1)) >= 0)
-	    add_loc_descr (&mem_loc_result,
-			   new_loc_descr (DW_OP_plus_uconst,
-					  INTVAL (XEXP (rtl, 1)), 0));
+	  if (GET_CODE (XEXP (rtl, 1)) == CONST_INT)
+	    loc_descr_plus_const (&mem_loc_result, INTVAL (XEXP (rtl, 1)));
 	  else
 	    {
 	      dw_loc_descr_ref mem_loc_result2
@@ -10532,13 +10554,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	  }
 
 	bytepos = bitpos / BITS_PER_UNIT;
-	if (bytepos > 0)
-	  add_loc_descr (&ret, new_loc_descr (DW_OP_plus_uconst, bytepos, 0));
-	else if (bytepos < 0)
-	  {
-	    add_loc_descr (&ret, int_loc_descriptor (bytepos));
-	    add_loc_descr (&ret, new_loc_descr (DW_OP_plus, 0, 0));
-	  }
+	loc_descr_plus_const (&ret, bytepos);
 
 	have_address = 1;
 	break;
@@ -10622,11 +10638,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	  if (ret == 0)
 	    return 0;
 
-	  add_loc_descr (&ret,
-			 new_loc_descr (DW_OP_plus_uconst,
-					tree_low_cst (TREE_OPERAND (loc, 1),
-						      0),
-					0));
+	  loc_descr_plus_const (&ret, tree_low_cst (TREE_OPERAND (loc, 1), 0));
 	  break;
 	}
 
@@ -11716,7 +11728,9 @@ loc_by_reference (dw_loc_descr_ref loc, tree decl)
   if (loc == NULL)
     return NULL;
 
-  if ((TREE_CODE (decl) != PARM_DECL && TREE_CODE (decl) != RESULT_DECL)
+  if ((TREE_CODE (decl) != PARM_DECL
+       && TREE_CODE (decl) != RESULT_DECL
+       && (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl)))
       || !DECL_BY_REFERENCE (decl))
     return loc;
 
@@ -12751,7 +12765,8 @@ add_calling_convention_attribute (dw_die_ref subr_die, tree decl)
 {
   enum dwarf_calling_convention value = DW_CC_normal;
 
-  value = targetm.dwarf_calling_convention (TREE_TYPE (decl));
+  value = ((enum dwarf_calling_convention)
+	   targetm.dwarf_calling_convention (TREE_TYPE (decl)));
 
   /* DWARF doesn't provide a way to identify a program's source-level
      entry point.  DW_AT_calling_convention attributes are only meant
@@ -13006,10 +13021,7 @@ descr_info_loc (tree val, tree base_decl)
 	  loc = descr_info_loc (TREE_OPERAND (val, 0), base_decl);
 	  if (!loc)
 	    break;
-	  add_loc_descr (&loc,
-			 new_loc_descr (DW_OP_plus_uconst,
-					tree_low_cst (TREE_OPERAND (val, 1),
-						      1), 0));
+	  loc_descr_plus_const (&loc, tree_low_cst (TREE_OPERAND (val, 1), 0));
 	}
       else
 	{
@@ -13925,9 +13937,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 			loc->dw_loc_oprnd1.v.val_addr
 			  = plus_constant (loc->dw_loc_oprnd1.v.val_addr, off);
 			else
-			  add_loc_descr (&loc,
-					 new_loc_descr (DW_OP_plus_uconst,
-							off, 0));
+			  loc_descr_plus_const (&loc, off);
 		    }
 		  add_AT_loc (var_die, DW_AT_location, loc);
 		  remove_AT (var_die, DW_AT_declaration);
@@ -13990,8 +14000,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 		loc->dw_loc_oprnd1.v.val_addr
 		  = plus_constant (loc->dw_loc_oprnd1.v.val_addr, off);
 	      else
-		add_loc_descr (&loc, new_loc_descr (DW_OP_plus_uconst,
-						    off, 0));
+		loc_descr_plus_const (&loc, off);
 	    }
 	  add_AT_loc (var_die, DW_AT_location, loc);
 	}
@@ -14054,12 +14063,19 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   else
     {
       tree type = TREE_TYPE (decl);
+      bool private_flag_valid = true;
 
       add_name_and_src_coords_attributes (var_die, decl);
       if ((TREE_CODE (decl) == PARM_DECL
-	   || TREE_CODE (decl) == RESULT_DECL)
+	   || TREE_CODE (decl) == RESULT_DECL
+	   || (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl)))
 	  && DECL_BY_REFERENCE (decl))
-	add_type_attribute (var_die, TREE_TYPE (type), 0, 0, context_die);
+	{
+	  add_type_attribute (var_die, TREE_TYPE (type), 0, 0, context_die);
+	  /* DECL_BY_REFERENCE uses the same bit as TREE_PRIVATE,
+	     for PARM_DECL, RESULT_DECL or non-static VAR_DECL.  */
+	  private_flag_valid = false;
+	}
       else
 	add_type_attribute (var_die, type, TREE_READONLY (decl),
 			    TREE_THIS_VOLATILE (decl), context_die);
@@ -14072,7 +14088,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 
       if (TREE_PROTECTED (decl))
 	add_AT_unsigned (var_die, DW_AT_accessibility, DW_ACCESS_protected);
-      else if (TREE_PRIVATE (decl))
+      else if (private_flag_valid && TREE_PRIVATE (decl))
 	add_AT_unsigned (var_die, DW_AT_accessibility, DW_ACCESS_private);
     }
 
@@ -15305,7 +15321,9 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 
       /* Output any DIEs that are needed to specify the type of this data
 	 object.  */
-      if (TREE_CODE (decl_or_origin) == RESULT_DECL
+      if ((TREE_CODE (decl_or_origin) == RESULT_DECL
+	   || (TREE_CODE (decl_or_origin) == VAR_DECL
+	       && !TREE_STATIC (decl_or_origin)))
           && DECL_BY_REFERENCE (decl_or_origin))
 	gen_type_die (TREE_TYPE (TREE_TYPE (decl_or_origin)), context_die);
       else

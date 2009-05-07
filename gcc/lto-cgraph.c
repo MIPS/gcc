@@ -569,7 +569,7 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   LTO_DEBUG_TOKEN ("stmt");
   stmt_id = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("inline_failed");
-  inline_failed = lto_input_uleb128 (ib);
+  inline_failed = (cgraph_inline_failed_t) lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("count");
   count = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("frequency");
@@ -642,7 +642,7 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
   struct cgraph_node *node;
   unsigned i;
 
-  tag = lto_input_uleb128 (ib);
+  tag = (enum LTO_cgraph_tags) lto_input_uleb128 (ib);
   while (tag)
     {
       LTO_DEBUG_INDENT (tag);
@@ -658,7 +658,7 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 	}
 
       LTO_DEBUG_UNDENT();
-      tag = lto_input_uleb128 (ib);
+      tag = (enum LTO_cgraph_tags) lto_input_uleb128 (ib);
     }
 
   for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)

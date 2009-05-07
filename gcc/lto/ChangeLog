@@ -1,3 +1,13 @@
+2009-05-07  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_resolution_read): Add type casts for C++ warnings.
+	(LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE): Define.
+	(lto_fixup_type): Call it for TYPE_POINTER_TO,
+	TYPE_REFERENCE_TO, TYPE_CONTEXT and TYPE_CANONICAL.
+	(lto_fixup_tree): Call gimple_register_type when *TP is a
+	type.
+	(lto_main): Call bitmap_obstack_initialize.
+
 2009-04-22  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (free_section_data): Tidy.

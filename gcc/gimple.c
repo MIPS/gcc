@@ -2814,13 +2814,7 @@ is_gimple_id (tree t)
 bool
 is_gimple_reg_type (tree type)
 {
-  /* In addition to aggregate types, we also exclude complex types if not
-     optimizing because they can be subject to partial stores in GNU C by
-     means of the __real__ and __imag__ operators and we cannot promote
-     them to total stores (see gimplify_modify_expr_complex_part).  */
-  return !(AGGREGATE_TYPE_P (type)
-	   || (TREE_CODE (type) == COMPLEX_TYPE && !optimize));
-
+  return !AGGREGATE_TYPE_P (type);
 }
 
 /* Return true if T is a non-aggregate register variable.  */
@@ -2833,12 +2827,6 @@ is_gimple_reg (tree t)
 
   if (!is_gimple_variable (t))
     return false;
-
-  /* Complex and vector values must have been put into SSA-like form.
-     That is, no assignments to the individual components.  */
-  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
-      || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
-    return DECL_GIMPLE_REG_P (t);
 
   if (!is_gimple_reg_type (TREE_TYPE (t)))
     return false;
@@ -2865,6 +2853,12 @@ is_gimple_reg (tree t)
      clean this up, as there we've got all the appropriate bits exposed.  */
   if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
     return false;
+
+  /* Complex and vector values must have been put into SSA-like form.
+     That is, no assignments to the individual components.  */
+  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
+      || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+    return DECL_GIMPLE_REG_P (t);
 
   return true;
 }
@@ -3702,6 +3696,8 @@ tree
 gimple_register_type (tree t)
 {
   void **slot;
+
+  gcc_assert (TYPE_P (t));
 
   if (gimple_types == NULL)
     gimple_types = htab_create (100000, gimple_type_hash, gimple_type_eq, 0);

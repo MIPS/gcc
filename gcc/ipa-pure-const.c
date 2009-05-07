@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "ggc.h"
 #include "ipa-utils.h"
-#include "c-common.h"
 #include "gimple.h"
 #include "cgraph.h"
 #include "output.h"
@@ -74,7 +73,8 @@ struct funct_state_d
   /* See above.  */
   enum pure_const_state_e pure_const_state;
   /* What user set here; we can be always sure about this.  */
-  enum pure_const_state_e state_set_in_source; 
+  enum pure_const_state_e state_previously_known; 
+  bool looping_previously_known; 
 
   /* True if the function could possibly infinite loop.  There are a
      lot of ways that this could be determined.  We are pretty
@@ -487,7 +487,8 @@ analyze_function (struct cgraph_node *fn, bool ipa)
 
   l = XCNEW (struct funct_state_d);
   l->pure_const_state = IPA_CONST;
-  l->state_set_in_source = IPA_NEITHER;
+  l->state_previously_known = IPA_NEITHER;
+  l->looping_previously_known = true;
   l->looping = false;
   l->can_throw = false;
 
@@ -530,17 +531,17 @@ end:
   if (TREE_READONLY (decl))
     {
       l->pure_const_state = IPA_CONST;
-      l->state_set_in_source = IPA_CONST;
+      l->state_previously_known = IPA_CONST;
       if (!DECL_LOOPING_CONST_OR_PURE_P (decl))
-        l->looping = false;
+        l->looping = false, l->looping_previously_known = false;
     }
   if (DECL_PURE_P (decl))
     {
       if (l->pure_const_state != IPA_CONST)
         l->pure_const_state = IPA_PURE;
-      l->state_set_in_source = IPA_PURE;
+      l->state_previously_known = IPA_PURE;
       if (!DECL_LOOPING_CONST_OR_PURE_P (decl))
-        l->looping = false;
+        l->looping = false, l->looping_previously_known = false;
     }
   if (TREE_NOTHROW (decl))
     l->can_throw = false;
@@ -641,9 +642,14 @@ write_summary (cgraph_node_set set)
 	  lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
 				    node->decl);
 	
+	  /* Note that flags will need to be read in the opposite
+	     order as we are pushing the bitflags into FLAGS.  */
 	  lto_set_flags (&flags, fs->pure_const_state, 2);
+	  lto_set_flags (&flags, fs->state_previously_known, 2);
+	  lto_set_flag (&flags, fs->looping_previously_known);
 	  lto_set_flag (&flags, fs->looping);
-	  lto_set_flag (&flags, fs->state_set_in_source);
+	  lto_set_flag (&flags, fs->can_throw);
+
 	  lto_output_uleb128_stream (ob->main_stream, flags);
 	}
     }
@@ -657,8 +663,7 @@ write_summary (cgraph_node_set set)
 static void 
 read_summary (void)
 {
-  struct lto_file_decl_data ** file_data_vec 
-    = lto_get_file_decl_data ();
+  struct lto_file_decl_data ** file_data_vec = lto_get_file_decl_data ();
   struct lto_file_decl_data * file_data;
   unsigned int j = 0;
 
@@ -683,9 +688,17 @@ read_summary (void)
 	      funct_state fs = XCNEW (struct funct_state_d);
 
 	      set_function_state (cgraph_node (fn_decl), fs);
-	      fs->state_set_in_source = lto_get_flag (&flags);
+
+	      /* Note that the flags must be read in the opposite
+		 order in which they were written (the bitflags were
+		 pushed into FLAGS).  */
+	      fs->can_throw = lto_get_flag (&flags);
 	      fs->looping = lto_get_flag (&flags);
-	      fs->pure_const_state = lto_get_flags (&flags, 2);
+	      fs->looping_previously_known = lto_get_flag (&flags);
+	      fs->state_previously_known
+			= (enum pure_const_state_e) lto_get_flags (&flags, 2);
+	      fs->pure_const_state
+			= (enum pure_const_state_e) lto_get_flags (&flags, 2);
 	    }
 
 	  lto_destroy_simple_input_block (file_data, 
@@ -787,12 +800,11 @@ propagate (void)
 	  enum pure_const_state_e this_state = pure_const_state;
 	  bool this_looping = looping;
 
-	  if (w_l->state_set_in_source != IPA_NEITHER)
-	    {
-	      if (this_state > w_l->state_set_in_source)
-	        this_state = w_l->state_set_in_source;
-	      this_looping = false;
-	    }
+	  if (w_l->state_previously_known != IPA_NEITHER
+	      && this_state > w_l->state_previously_known)
+            this_state = w_l->state_previously_known;
+	  if (!w_l->looping_previously_known)
+	    this_looping = false;
 
 	  /* All nodes within a cycle share the same info.  */
 	  w_l->pure_const_state = this_state;

@@ -1,3 +1,100 @@
+2009-05-03  Jan Hubicka  <jh@suse.cz>
+
+	* include/parallel/settings.h (get): Mark const.
+	* libsupc++/unwind-cxx.h (__cxa_call_terminate): Mark throw ().
+	* libsupc++/eh_call.cc (__cxa_call_terminate): Mark throw ().
+	* config/io/basic_file_stdio.cc (sys_open, is_open, fd, seekoff): Mark
+	throw ().
+	* config/io/basic_file_stdio.h (__basic_file, sys_open): Mark throw ().
+	(is_open, fd): Mark pure and throw ().
+	(seekoff): Mark throw ().
+
+2009-05-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* acinclude.m4 ([GLIBCXX_ENABLE_ATOMIC_BUILTINS]): Do link tests when
+	possible.
+	* configure: Regenerate.
+
+2009-05-02  Jan Hubicka  <jh@suse.cz>
+
+	* include/tr1_impl/functional_hash.h (explicit specializations of ()
+	operator): Mark pure.
+
+2009-04-30  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* scripts/create_testsuite_files: Remove thread directory.
+
+2009-04-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/39868
+	* scripts/run_doxygen: Uncomment removal of includes.
+	(problematic): Rewrite __cxxabiv1 namespace to abi.
+
+2009-04-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert the last commit.
+
+2009-04-25  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/mutex (__get_once_functor_lock, __get_once_mutex):
+	Replace global lock object with local locks on global mutex.
+	* src/mutex.cc: Likewise.
+	* config/abi/pre/gnu.ver: Adjust.
+	* testsuite/30_threads/call_once/call_once2.cc: New.
+
+2009-04-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/39880
+	PR libstdc++/39881
+	PR libstdc++/39882
+	* include/std/system_error (is_error_code_enum<errc>): Remove.
+	(error_condition<>::error_condition(_ErrorCodeEnum,)
+	error_condition<>::operator=(_ErrorCodeEnum)): Use make_error_condition.
+	(error_code<>::error_code(_ErrorCodeEnum,),
+	error_code<>::operator=(_ErrorCodeEnum)): Use make_error_code.
+	* testsuite/19_diagnostics/system_error/39880.cc: New.
+	* testsuite/19_diagnostics/error_condition/modifiers/39881.cc:
+	Likewise.
+	* testsuite/19_diagnostics/error_condition/cons/39881.cc: Likewise.
+	* testsuite/19_diagnostics/error_code/modifiers/39882.cc: Likewise.
+	* testsuite/19_diagnostics/error_code/cons/39882.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_other/char/error_code.cc:
+	Adjust.
+	* testsuite/27_io/basic_ostream/inserters_other/wchar_t/error_code.cc:
+	Likewise.
+	* testsuite/19_diagnostics/error_code/cons/1.cc: Likewise.
+	* testsuite/19_diagnostics/error_code/operators/bool.cc: Likewise.
+	* testsuite/19_diagnostics/error_code/operators/equal.cc: Likewise.
+	* testsuite/19_diagnostics/error_code/operators/not_equal.cc:
+	Likewise.
+	* testsuite/19_diagnostics/error_category/cons/copy_neg.cc: Likewise.
+	* testsuite/19_diagnostics/system_error/cons-1.cc: Likewise.
+	* testsuite/19_diagnostics/system_error/what-4.cc: Likewise.
+	* testsuite/30_threads/unique_lock/locking/2.cc: Likewise.
+
+2009-04-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* doc/xml/authors.xml: Add space.
+	* doc/xml/faq.xml: Update links.
+	* doc/xml/manual/intro.xml: Same.
+	* doc/xml/manual/abi.xml: Update.
+	* doc/xml/manual/appendix_contributing.xml: Fix typo.
+	* doc/xml/manual/status_cxxtr1.xml: Update links.
+	* doc/xml/manual/status_cxx1998.xml: Same.
+	* doc/xml/manual/status_cxx200x.xml: Same.
+
+2009-04-22  Jan Hubicka  <jh@suse.cz>
+
+	* include/tr1_impl/array (at): Do not use builtin_expect.
+	* include/ext/throw_allocator.h (allocate): Likewise.
+	* include/ext/pool_allocator.h (allocate): Likweise.
+	* include/ext/bitmap_allocator.h (allocate): Likewise.
+	* include/ext/rc_string_base.h (_S_construct): Likewise.
+	* include/ext/malloc_allocator.h (allocate): Likewise.
+	* include/ext/mt_allocator.h (allocate): Likewise.
+	* include/ext/sso_string_base.h (_M_construct): Likewise.
+	* include/bits/basic_string.tcc (_S_construct): Likewise.
+
 2009-04-22  Jan Hubicka  <jh@suse.cz>
 
 	* include/c_std/cstdlib (abort, exit, _Exit): Mark noreturn throw ().
@@ -6866,9 +6963,6 @@
 	of debug.
 	* include/Makefile.in: Regenerate.
 	* include/precompiled/stdc++.h: Add.
-
-	* doc/xml/api.xml: Add gcc-4.4 link.
-	* doc/html/api.html: Regenerate.
 
 2009-04-06  Benjamin Kosnik  <bkoz@redhat.com>
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2805,6 +2805,12 @@ package body Exp_Ch4 is
                       High_Bound => High_Bound))))),
         Suppress => All_Checks);
 
+      --  If the result of the concatenation appears as the initializing
+      --  expression of an object declaration, we can just rename the
+      --  result, rather than copying it.
+
+      Set_OK_To_Rename (Ent);
+
       --  Catch the static out of range case now
 
       if Raises_Constraint_Error (High_Bound) then
@@ -3977,6 +3983,17 @@ package body Exp_Ch4 is
                Make_Assignment_Statement (Sloc (Elsex),
                  Name => New_Occurrence_Of (Cnn, Sloc (Elsex)),
                  Expression => Relocate_Node (Elsex))));
+
+         --  Move the SLOC of the parent If statement to the newly created
+         --  one and change it to the SLOC of the expression which, after
+         --  expansion, will correspond to what is being evaluated.
+
+         if Present (Parent (N))
+           and then Nkind (Parent (N)) = N_If_Statement
+         then
+            Set_Sloc (New_If, Sloc (Parent (N)));
+            Set_Sloc (Parent (N), Loc);
+         end if;
 
          Set_Assignment_OK (Name (First (Then_Statements (New_If))));
          Set_Assignment_OK (Name (First (Else_Statements (New_If))));

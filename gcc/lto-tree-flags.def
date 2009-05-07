@@ -818,7 +818,7 @@
       ADD_VIS_FLAG (visibility_specified)
       /* ### We need to serialize the init priority itself.  */
       ADD_VIS_FLAG (init_priority_p)
-      ADD_VIS_FLAG_SIZE (tls_model, 3)
+      ADD_TLS_FLAG (tls_model, 3)
       ADD_EXPR_FLAG (readonly_flag)
       ADD_EXPR_FLAG (volatile_flag)
     END_EXPR_CASE (VAR_DECL)

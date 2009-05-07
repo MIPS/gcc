@@ -1212,7 +1212,7 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   if (!single_succ_p (a))
     return false;
 
-  if (single_succ_edge (a)->flags & EDGE_ABNORMAL)
+  if (single_succ_edge (a)->flags & (EDGE_ABNORMAL | EDGE_EH))
     return false;
 
   if (single_succ (a) != b)
@@ -2084,6 +2084,11 @@ remove_useless_stmts (void)
       remove_useless_stmts_1 (&gsi, &data);
     }
   while (data.repeat);
+
+#ifdef ENABLE_TYPES_CHECKING
+  verify_types_in_gimple_seq (gimple_body (current_function_decl));
+#endif
+
   return 0;
 }
 
@@ -3126,11 +3131,12 @@ verify_types_in_gimple_min_lval (tree expr)
   return false;
 }
 
-/* Verify if EXPR is a valid GIMPLE reference expression.  Returns true
+/* Verify if EXPR is a valid GIMPLE reference expression.  If
+   REQUIRE_LVALUE is true verifies it is an lvalue.  Returns true
    if there is an error, otherwise false.  */
 
 static bool
-verify_types_in_gimple_reference (tree expr)
+verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 {
   while (handled_component_p (expr))
     {
@@ -3202,7 +3208,8 @@ verify_types_in_gimple_reference (tree expr)
       expr = op;
     }
 
-  return verify_types_in_gimple_min_lval (expr);
+  return ((require_lvalue || !is_gimple_min_invariant (expr))
+	  && verify_types_in_gimple_min_lval (expr));
 }
 
 /* Returns true if there is one pointer type in TYPE_POINTER_TO (SRC_OBJ)
@@ -3549,7 +3556,8 @@ verify_gimple_assign_binary (gimple stmt)
       {
 	if (TREE_CODE (rhs1_type) != VECTOR_TYPE
 	    || !(INTEGRAL_TYPE_P (TREE_TYPE (rhs1_type))
-		 || FIXED_POINT_TYPE_P (TREE_TYPE (rhs1_type)))
+		 || FIXED_POINT_TYPE_P (TREE_TYPE (rhs1_type))
+		 || SCALAR_FLOAT_TYPE_P (TREE_TYPE (rhs1_type)))
 	    || (!INTEGRAL_TYPE_P (rhs2_type)
 		&& (TREE_CODE (rhs2_type) != VECTOR_TYPE
 		    || !INTEGRAL_TYPE_P (TREE_TYPE (rhs2_type))))
@@ -3559,6 +3567,16 @@ verify_gimple_assign_binary (gimple stmt)
 	    debug_generic_expr (lhs_type);
 	    debug_generic_expr (rhs1_type);
 	    debug_generic_expr (rhs2_type);
+	    return true;
+	  }
+	/* For shifting a vector of floating point components we
+	   only allow shifting by a constant multiple of the element size.  */
+	if (SCALAR_FLOAT_TYPE_P (TREE_TYPE (rhs1_type))
+	    && (TREE_CODE (rhs2) != INTEGER_CST
+		|| !div_if_zero_remainder (EXACT_DIV_EXPR, rhs2,
+					   TYPE_SIZE (TREE_TYPE (rhs1_type)))))
+	  {
+	    error ("non-element sized vector shift of floating point vector");
 	    return true;
 	  }
 
@@ -3738,7 +3756,7 @@ verify_gimple_assign_single (gimple stmt)
     }
 
   if (handled_component_p (lhs))
-    res |= verify_types_in_gimple_reference (lhs);
+    res |= verify_types_in_gimple_reference (lhs, true);
 
   /* Special codes we cannot handle via their class.  */
   switch (rhs_code)
@@ -3761,7 +3779,7 @@ verify_gimple_assign_single (gimple stmt)
 	    return true;
 	  }
 
-	return verify_types_in_gimple_reference (op);
+	return verify_types_in_gimple_reference (op, true);
       }
 
     /* tcc_reference  */
@@ -3784,7 +3802,7 @@ verify_gimple_assign_single (gimple stmt)
 	  debug_generic_stmt (rhs1);
 	  return true;
 	}
-      return res || verify_types_in_gimple_reference (rhs1);
+      return res || verify_types_in_gimple_reference (rhs1, false);
 
     /* tcc_constant  */
     case SSA_NAME:
@@ -4309,6 +4327,14 @@ verify_stmts (void)
 		  err |= true;
 		}
 	    }
+
+#ifdef ENABLE_TYPES_CHECKING
+	  if (verify_gimple_phi (phi))
+	    {
+	      debug_gimple_stmt (phi);
+	      err |= true;
+	    }
+#endif
 	}
 
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
@@ -4345,6 +4371,14 @@ verify_stmts (void)
 	    }
 
 	  err |= verify_stmt (&gsi);
+
+#ifdef ENABLE_TYPES_CHECKING
+	  if (verify_types_in_gimple_stmt (gsi_stmt (gsi)))
+	    {
+	      debug_gimple_stmt (stmt);
+	      err |= true;
+	    }
+#endif
 	  addr = walk_gimple_op (gsi_stmt (gsi), verify_node_sharing, &wi);
 	  if (addr)
 	    {
@@ -4796,6 +4830,9 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
   if (e->dest == dest)
     return NULL;
 
+  if (e->flags & EDGE_EH)
+    return redirect_eh_edge (e, dest);
+
   gsi = gsi_last_bb (bb);
   stmt = gsi_end_p (gsi) ? NULL : gsi_stmt (gsi);
 
@@ -4888,7 +4925,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 static bool
 gimple_can_remove_branch_p (const_edge e)
 {
-  if (e->flags & EDGE_ABNORMAL)
+  if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
     return false;
 
   return true;
@@ -6987,10 +7024,31 @@ split_critical_edges (void)
   FOR_ALL_BB (bb)
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
-	  {
+        {
+	  if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
 	    split_edge (e);
-	  }
+	  /* PRE inserts statements to edges and expects that 
+	     since split_critical_edges was done beforehand, committing edge
+	     insertions will not split more edges.  In addition to critical
+	     edges we must split edges that have multiple successors and
+	     end by control flow statements, such as RESX. 
+	     Go ahead and split them too.  This matches the logic in
+	     gimple_find_edge_insert_loc.  */
+	  else if ((!single_pred_p (e->dest)
+	            || phi_nodes (e->dest)
+	            || e->dest == EXIT_BLOCK_PTR)
+		   && e->src != ENTRY_BLOCK_PTR
+	           && !(e->flags & EDGE_ABNORMAL))
+	    {
+	      gimple_stmt_iterator gsi;
+
+	      gsi = gsi_last_bb (e->src);
+	      if (!gsi_end_p (gsi)
+		  && stmt_ends_bb_p (gsi_stmt (gsi))
+		  && gimple_code (gsi_stmt (gsi)) != GIMPLE_RETURN)
+		split_edge (e);
+	    }
+	}
     }
   end_recording_case_labels ();
   return 0;

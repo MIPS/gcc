@@ -492,7 +492,7 @@ struct GTY(()) tree_common {
            CALL_EXPR
 
        DECL_BY_REFERENCE in
-           PARM_DECL, RESULT_DECL
+           PARM_DECL, RESULT_DECL, VAR_DECL (only !TREE_STATIC)
 
        OMP_SECTION_LAST in
            OMP_SECTION
@@ -1310,8 +1310,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define CALL_EXPR_RETURN_SLOT_OPT(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.private_flag)
 
-/* In a RESULT_DECL or PARM_DECL, means that it is passed by invisible
-   reference (and the TREE_TYPE is a pointer to the true type).  */
+/* In a RESULT_DECL, PARM_DECL or VAR_DECL without TREE_STATIC, means that it is
+   passed by invisible reference (and the TREE_TYPE is a pointer to the true
+   type).  */
 #define DECL_BY_REFERENCE(NODE) (DECL_COMMON_CHECK (NODE)->base.private_flag)
 
 /* In a CALL_EXPR, means that the call is the jump from a thunk to the
@@ -1869,10 +1870,6 @@ struct GTY(()) tree_exp {
 #define SSA_NAME_PTR_INFO(N) \
     SSA_NAME_CHECK (N)->ssa_name.ptr_info
 
-/* Get the value of this SSA_NAME, if available.  */
-#define SSA_NAME_VALUE(N) \
-   SSA_NAME_CHECK (N)->ssa_name.value_handle
-
 #ifndef _TREE_FLOW_H
 struct ptr_info_def;
 #endif
@@ -1910,13 +1907,6 @@ struct GTY(()) tree_ssa_name {
 
   /* Pointer attributes used for alias analysis.  */
   struct ptr_info_def *ptr_info;
-
-  /* Value for SSA name used by various passes.
-
-     Right now only invariants are allowed to persist beyond a pass in
-     this field; in the future we will allow VALUE_HANDLEs to persist
-     as well.  */
-  tree value_handle;
 
   /* Immediate uses list for this SSA_NAME.  */
   struct ssa_use_operand_d imm_uses;
@@ -2225,8 +2215,8 @@ extern enum machine_mode vector_type_mode (const_tree);
 #define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
   (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.precision = exact_log2 (X))
 
-/* Nonzero in an IDENTIFIER_NODE if the name is a local alias, whose
-   uses are to be substituted for uses of the TREE_CHAINed identifier.  */
+/* Nonzero in a VECTOR_TYPE if the frontends should not emit warnings
+   about missing conversions to other vector types of the same size.  */
 #define TYPE_VECTOR_OPAQUE(NODE) \
   (VECTOR_TYPE_CHECK (NODE)->base.deprecated_flag)
 
@@ -5170,6 +5160,7 @@ struct GTY(()) tree_map_base {
 extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
+extern bool list_equal_p (const_tree, const_tree);
 
 /* Map from a tree to another tree.  */
 

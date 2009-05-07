@@ -28,9 +28,8 @@
 
 package Prj.Env is
 
-   procedure Initialize;
-   --  Called by Prj.Initialize to perform required initialization steps for
-   --  this package.
+   procedure Initialize (In_Tree : Project_Tree_Ref);
+   --  Initialize global components relative to environment variables
 
    procedure Print_Sources (In_Tree : Project_Tree_Ref);
    --  Output the list of sources, after Project files have been scanned
@@ -58,7 +57,8 @@ package Prj.Env is
    --  for the specified project, and that is not information available in
    --  buildgpr.adb.
 
-   procedure Set_Mapping_File_Initial_State_To_Empty;
+   procedure Set_Mapping_File_Initial_State_To_Empty
+     (In_Tree : Project_Tree_Ref);
    --  When creating a mapping file, create an empty map. This case occurs when
    --  run time source files are found in the project files. This only applies
    --  to the Ada_Only mode.
@@ -118,12 +118,6 @@ package Prj.Env is
    procedure Delete_All_Path_Files (In_Tree : Project_Tree_Ref);
    --  Delete all temporary path files that have been created by Set_Ada_Paths
 
-   function Path_Name_Of_Library_Unit_Body
-     (Name    : String;
-      Project : Project_Id;
-      In_Tree : Project_Tree_Ref) return String;
-   --  Returns the path of a library unit
-
    function File_Name_Of_Library_Unit_Body
      (Name              : String;
       Project           : Project_Id;
@@ -167,12 +161,12 @@ package Prj.Env is
       In_Tree : Project_Tree_Ref);
    --  Iterate through all the source directories of a project, including those
    --  of imported or modified projects.
+   --  Only returns those directories that potentially contain Ada sources (ie
+   --  ignore projects that have no Ada sources
 
    generic
       with procedure Action (Path : String);
-   procedure For_All_Object_Dirs
-     (Project : Project_Id;
-      In_Tree : Project_Tree_Ref);
+   procedure For_All_Object_Dirs (Project : Project_Id);
    --  Iterate through all the object directories of a project, including
    --  those of imported or modified projects.
 

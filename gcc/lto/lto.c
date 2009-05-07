@@ -361,7 +361,7 @@ lto_resolution_read (FILE *resolution, const char *file_name)
 	{
 	  if (strcmp (lto_resolution_str[j], r_str) == 0)
 	    {
-	      r = j;
+	      r = (enum ld_plugin_symbol_resolution) j;
 	      break;
 	    }
 	}
@@ -1177,6 +1177,15 @@ typedef struct {
     walk_tree (&(t), lto_fixup_tree, data, NULL); \
   while (0)
 
+#define LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE(t) \
+  do \
+    { \
+      if (t) \
+	(t) = gimple_register_type (t); \
+      walk_tree (&(t), lto_fixup_tree, data, NULL); \
+    } \
+  while (0)
+
 static tree lto_fixup_tree (tree *, int *, void *);
 
 /* Return true if T does not need to be fixed up recursively.  */
@@ -1287,8 +1296,8 @@ lto_fixup_type (tree t, void *data)
   gcc_assert (no_fixup_p (TYPE_SIZE (t)));
   gcc_assert (no_fixup_p (TYPE_SIZE_UNIT (t)));
   LTO_FIXUP_SUBTREE (TYPE_ATTRIBUTES (t));
-  LTO_FIXUP_SUBTREE (TYPE_POINTER_TO (t));
-  LTO_FIXUP_SUBTREE (TYPE_REFERENCE_TO (t));
+  LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_POINTER_TO (t));
+  LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_REFERENCE_TO (t));
   LTO_FIXUP_SUBTREE (TYPE_NAME (t));
 
   /* Accessors are for derived node types only. */
@@ -1301,8 +1310,8 @@ lto_fixup_type (tree t, void *data)
   /* Accessor is for derived node types only. */
   LTO_FIXUP_SUBTREE (t->type.binfo);
 
-  LTO_FIXUP_SUBTREE (TYPE_CONTEXT (t));
-  LTO_FIXUP_SUBTREE (TYPE_CANONICAL (t));
+  LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_CONTEXT (t));
+  LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_CANONICAL (t));
 }
 
 /* Fix up fields of a BINFO T.  DATA points to fix-up states.  */
@@ -1825,6 +1834,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
   /* Initialize stats counters.  */
   memset (&lto_stats, 0, sizeof (lto_stats));
+  bitmap_obstack_initialize (NULL);
 
   /* Read all the symbols and call graph from all the files in the
      command line.  */
