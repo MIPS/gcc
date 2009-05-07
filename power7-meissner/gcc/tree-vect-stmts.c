@@ -1974,11 +1974,38 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
 	  else
 	    {
 	      optab = optab_for_tree_code (code, vectype, optab_vector);
-	      if (vect_print_dump_info (REPORT_DETAILS)
-		  && optab
+	      if (optab
 		  && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
 		      != CODE_FOR_nothing))
-		fprintf (vect_dump, "vector/vector shift/rotate found.");
+		{
+		  tree inner_type = TREE_TYPE (vectype);
+		  tree op1_type = TREE_TYPE (op1);
+
+		  if (vect_print_dump_info (REPORT_DETAILS))
+		    fprintf (vect_dump, "vector/vector shift/rotate found.");
+
+		  /* Unlike the other binary operators, shifts/rotates have
+		     the rhs being int, instead of the same type as the lhs,
+		     so make sure the scalar is the right type if we are
+		     dealing with vectors of short/char.  */
+		  if (TYPE_SIZE (inner_type) != TYPE_SIZE (op1_type))
+		    {
+		      if (dt[1] == vect_constant_def)
+			  op1 = fold_convert (inner_type, op1);
+
+		      else
+			{
+			  VEC(constructor_elt,gc) *v
+			    = VEC_alloc (constructor_elt, gc, nunits_in);
+
+			  op1 = fold_convert (inner_type, op1);
+			  for (i = nunits_in - 1; i >= 0; i--)
+			    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, op1);
+
+			  op1 = build_constructor (vectype, v);
+			}
+		    }
+		}
 	    }
 	}
 

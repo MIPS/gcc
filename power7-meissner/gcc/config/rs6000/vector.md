@@ -856,3 +856,35 @@
                                         byteshift));
   DONE;
 }")
+
+;; Expanders for rotate each element in a vector
+(define_expand "vrotl<mode>3"
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
+	(rotate:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
+		      (match_operand:VEC_I 2 "vint_operand" "")))]
+  "TARGET_ALTIVEC"
+  "")
+
+;; Expanders for arithmetic shift left on each vector element
+(define_expand "vashl<mode>3"
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
+	(ashift:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
+		      (match_operand:VEC_I 2 "vint_operand" "")))]
+  "TARGET_ALTIVEC"
+  "")
+
+;; Expanders for logical shift right on each vector element
+(define_expand "vlshr<mode>3"
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
+	(lshiftrt:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
+			(match_operand:VEC_I 2 "vint_operand" "")))]
+  "TARGET_ALTIVEC"
+  "")
+
+;; Expanders for arithmetic shift right on each vector element
+(define_expand "vashr<mode>3"
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
+	(ashiftrt:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
+			(match_operand:VEC_I 2 "vint_operand" "")))]
+  "TARGET_ALTIVEC"
+  "")

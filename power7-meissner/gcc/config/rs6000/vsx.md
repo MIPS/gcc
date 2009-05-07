@@ -162,20 +162,19 @@
 				 (DF   "fp_sqrt_d")])
 
 ;; Iterator and modes for sp<->dp conversions
-(define_mode_iterator VSX_SPDP [SF DF V4SF V2DF])
+;; Because scalar SF values are represented internally as double, use the
+;; V4SF type to represent this than SF.
+(define_mode_iterator VSX_SPDP [DF V4SF V2DF])
 
-(define_mode_attr VS_spdp_res [(SF	"DF")
-			       (DF	"SF")
+(define_mode_attr VS_spdp_res [(DF	"V4SF")
 			       (V4SF	"V2DF")
 			       (V2DF	"V4SF")])
 
-(define_mode_attr VS_spdp_insn [(SF	"xscvspdp")
-				(DF	"xscvdpsp")
+(define_mode_attr VS_spdp_insn [(DF	"xscvdpsp")
 				(V4SF	"xvcvspdp")
 				(V2DF	"xvcvdpsp")])
 
-(define_mode_attr VS_spdp_type [(SF	"fp")
-				(DF	"fp")
+(define_mode_attr VS_spdp_type [(DF	"fp")
 				(V4SF	"vecfloat")
 				(V2DF	"vecfloat")])
 
@@ -960,6 +959,25 @@
   "<VS_spdp_insn> %x0,%x1"
   [(set_attr "type" "<VS_spdp_type>")])
 
+;; xscvspdp, represent the scalar SF type as V4SF
+(define_insn "vsx_xscvspdp"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
+	(unspec:DF [(match_operand:V4SF 1 "vsx_register_operand" "wa,wa")]
+		   UNSPEC_VSX_CVSPDP))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvspdp %x0,%x1"
+  [(set_attr "type" "fp")])
+
+;; xscvdpsp used for splat'ing a scalar to V4SF, knowing that the internal SF
+;; format of scalars is actually DF.
+(define_insn "vsx_xscvdpsp_scalar"
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa")
+	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "f")]
+		     UNSPEC_VSX_CVSPDP))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvdpsp %x0,%x1"
+  [(set_attr "type" "fp")])
+
 ;; Convert from 64-bit to 32-bit types
 ;; Note, favor the Altivec registers since the usual use of these instructions
 ;; is in vector converts and we need to use the Altivec vperm instruction.
@@ -1098,6 +1116,19 @@
   "xxpermdi %x0,%x1,%x2,0"
   [(set_attr "type" "vecperm")])
 
+;; Special purpose concat using xxpermdi to glue two single precision values
+;; together, relying on the fact that internally scalar floats are represented
+;; as doubles.  This is used to initialize a V4SF vector with 4 floats
+(define_insn "vsx_concat_v2sf"
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:V2DF
+	 [(match_operand:SF 1 "vsx_register_operand" "f,f")
+	  (match_operand:SF 2 "vsx_register_operand" "f,f")]
+	 UNSPEC_VSX_CONCAT))]
+  "VECTOR_MEM_VSX_P (V2DFmode)"
+  "xxpermdi %x0,%x1,%x2,0"
+  [(set_attr "type" "vecperm")])
+
 ;; Set the element of a V2DI/VD2F mode
 (define_insn "vsx_set_<mode>"
   [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,?wa")
@@ -1130,11 +1161,12 @@
 }
   [(set_attr "type" "vecperm")])
 
-;; General V2DF/V2DI permute
+;; General double word oriented permute, allow the other vector types for
+;; optimizing the permute instruction.
 (define_insn "vsx_xxpermdi_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,?wa")
-	(unspec:VSX_D [(match_operand:VSX_D 1 "vsx_register_operand" "wd,wa")
-		       (match_operand:VSX_D 2 "vsx_register_operand" "wd,wa")
+  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:VSX_L [(match_operand:VSX_L 1 "vsx_register_operand" "wd,wa")
+		       (match_operand:VSX_L 2 "vsx_register_operand" "wd,wa")
 		       (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
 		      UNSPEC_VSX_XXPERMDI))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"

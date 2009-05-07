@@ -3860,28 +3860,60 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	}
     }
 
+  /* Double word values on VSX can use xxpermdi or lxvdsx.  */
   if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
     {
-      rtx (*splat) (rtx, rtx);
-      rtx (*concat) (rtx, rtx, rtx);
-
-      if (mode == V2DFmode)
-	{
-	  splat = gen_vsx_splat_v2df;
-	  concat = gen_vsx_concat_v2df;
-	}
-      else
-	{
-	  splat = gen_vsx_splat_v2di;
-	  concat = gen_vsx_concat_v2di;
-	}
-
       if (all_same)
-	emit_insn (splat (target, XVECEXP (vals, 0, 0)));
+	{
+	  rtx element = XVECEXP (vals, 0, 0);
+	  if (mode == V2DFmode)
+	    emit_insn (gen_vsx_splat_v2df (target, element));
+	  else
+	    emit_insn (gen_vsx_splat_v2di (target, element));
+	}
       else
-	emit_insn (concat (target,
-			   copy_to_reg (XVECEXP (vals, 0, 0)),
-			   copy_to_reg (XVECEXP (vals, 0, 1))));
+	{
+	  rtx op0 = XVECEXP (vals, 0, 0);
+	  rtx op1 = XVECEXP (vals, 0, 1);
+	  if (mode == V2DFmode)
+	    emit_insn (gen_vsx_concat_v2df (target, op0, op1));
+	  else
+	    emit_insn (gen_vsx_concat_v2di (target, op0, op1));
+	}
+      return;
+    }
+
+  /* With single precision floating point on VSX, know that internally single
+     precision is actually represented as a double, and either make 2 V2DF
+     vectors, and convert these vectors to single precision, or do one
+     conversion, and splat the result to the other elements.  */
+  if (mode == V4SFmode && VECTOR_MEM_VSX_P (mode))
+    {
+      if (all_same)
+	{
+	  rtx freg = gen_reg_rtx (V4SFmode);
+	  rtx sreg = copy_to_reg (XVECEXP (vals, 0, 0));
+
+	  emit_insn (gen_vsx_xscvdpsp_scalar (freg, sreg));
+	  emit_insn (gen_vsx_xxspltw_v4sf (target, freg, const0_rtx));
+	}
+      else
+	{
+	  rtx dbl_even = gen_reg_rtx (V2DFmode);
+	  rtx dbl_odd  = gen_reg_rtx (V2DFmode);
+	  rtx flt_even = gen_reg_rtx (V4SFmode);
+	  rtx flt_odd  = gen_reg_rtx (V4SFmode);
+
+	  emit_insn (gen_vsx_concat_v2sf (dbl_even,
+					  copy_to_reg (XVECEXP (vals, 0, 0)),
+					  copy_to_reg (XVECEXP (vals, 0, 1))));
+	  emit_insn (gen_vsx_concat_v2sf (dbl_odd,
+					  copy_to_reg (XVECEXP (vals, 0, 2)),
+					  copy_to_reg (XVECEXP (vals, 0, 3))));
+	  emit_insn (gen_vsx_xvcvdpsp (flt_even, dbl_even));
+	  emit_insn (gen_vsx_xvcvdpsp (flt_odd, dbl_odd));
+	  emit_insn (gen_vec_extract_evenv4sf (target, flt_even, flt_odd));
+	}
       return;
     }
 
@@ -8066,6 +8098,10 @@ static const struct builtin_description bdesc_3arg[] =
 
   { MASK_VSX, CODE_FOR_vsx_xxpermdi_v2df, "__builtin_vsx_xxpermdi_2df", VSX_BUILTIN_XXPERMDI_2DF },
   { MASK_VSX, CODE_FOR_vsx_xxpermdi_v2di, "__builtin_vsx_xxpermdi_2di", VSX_BUILTIN_XXPERMDI_2DI },
+  { MASK_VSX, CODE_FOR_vsx_xxpermdi_v4sf, "__builtin_vsx_xxpermdi_4sf", VSX_BUILTIN_XXPERMDI_4SF },
+  { MASK_VSX, CODE_FOR_vsx_xxpermdi_v4si, "__builtin_vsx_xxpermdi_4si", VSX_BUILTIN_XXPERMDI_4SI },
+  { MASK_VSX, CODE_FOR_vsx_xxpermdi_v8hi, "__builtin_vsx_xxpermdi_8hi", VSX_BUILTIN_XXPERMDI_8HI },
+  { MASK_VSX, CODE_FOR_vsx_xxpermdi_v16qi, "__builtin_vsx_xxpermdi_16qi", VSX_BUILTIN_XXPERMDI_16QI },
   { MASK_VSX, CODE_FOR_nothing, "__builtin_vsx_xxpermdi", VSX_BUILTIN_VEC_XXPERMDI },
   { MASK_VSX, CODE_FOR_vsx_set_v2df, "__builtin_vsx_set_2df", VSX_BUILTIN_SET_2DF },
   { MASK_VSX, CODE_FOR_vsx_set_v2di, "__builtin_vsx_set_2di", VSX_BUILTIN_SET_2DI },
@@ -8183,9 +8219,9 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkshus, "__builtin_altivec_vpkshus", ALTIVEC_BUILTIN_VPKSHUS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkuwus, "__builtin_altivec_vpkuwus", ALTIVEC_BUILTIN_VPKUWUS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkswus, "__builtin_altivec_vpkswus", ALTIVEC_BUILTIN_VPKSWUS },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vrlb, "__builtin_altivec_vrlb", ALTIVEC_BUILTIN_VRLB },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vrlh, "__builtin_altivec_vrlh", ALTIVEC_BUILTIN_VRLH },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vrlw, "__builtin_altivec_vrlw", ALTIVEC_BUILTIN_VRLW },
+  { MASK_ALTIVEC, CODE_FOR_vrotlv16qi3, "__builtin_altivec_vrlb", ALTIVEC_BUILTIN_VRLB },
+  { MASK_ALTIVEC, CODE_FOR_vrotlv8hi3, "__builtin_altivec_vrlh", ALTIVEC_BUILTIN_VRLH },
+  { MASK_ALTIVEC, CODE_FOR_vrotlv4si3, "__builtin_altivec_vrlw", ALTIVEC_BUILTIN_VRLW },
   { MASK_ALTIVEC, CODE_FOR_vashlv16qi3, "__builtin_altivec_vslb", ALTIVEC_BUILTIN_VSLB },
   { MASK_ALTIVEC, CODE_FOR_vashlv8hi3, "__builtin_altivec_vslh", ALTIVEC_BUILTIN_VSLH },
   { MASK_ALTIVEC, CODE_FOR_vashlv4si3, "__builtin_altivec_vslw", ALTIVEC_BUILTIN_VSLW },
@@ -11468,6 +11504,9 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
     case ALTIVEC_BUILTIN_VPKUWUM:
     case ALTIVEC_BUILTIN_VPKUHUS:
     case ALTIVEC_BUILTIN_VPKUWUS:
+    case ALTIVEC_BUILTIN_VSRB:
+    case ALTIVEC_BUILTIN_VSRH:
+    case ALTIVEC_BUILTIN_VSRW:
     case ALTIVEC_BUILTIN_VSUBUBM:
     case ALTIVEC_BUILTIN_VSUBUHM:
     case ALTIVEC_BUILTIN_VSUBUWM:
@@ -11516,6 +11555,9 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
     case ALTIVEC_BUILTIN_VEC_VPKUHUS:
     case ALTIVEC_BUILTIN_VEC_VPKUWUM:
     case ALTIVEC_BUILTIN_VEC_VPKUWUS:
+    case ALTIVEC_BUILTIN_VEC_VSRB:
+    case ALTIVEC_BUILTIN_VEC_VSRH:
+    case ALTIVEC_BUILTIN_VEC_VSRW:
     case ALTIVEC_BUILTIN_VEC_VSUBUBM:
     case ALTIVEC_BUILTIN_VEC_VSUBUBS:
     case ALTIVEC_BUILTIN_VEC_VSUBUHM:

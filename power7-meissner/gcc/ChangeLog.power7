@@ -2,6 +2,52 @@
 
 	Sync up to mainline version 147246.
 
+	* config/rs6000/vector.md (vrotl<mode>3): Enable vector rotate of
+	V16QI, V8HI, V4SI vectors.
+	(vashl<mode>3): Move vector/vector shift expanders here from
+	altivec.md.
+	(vashr<mode>3): Ditto.
+	(vlshr<mode>3): Ditto.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	xxpermdi builtins for V16QI, V8HI, V4SI, and V4SF vectors.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Rewrite
+	double word init to not use function pointers.  Add support for
+	initialializing V4SF under VSX systems.
+	(bdesc_2arg): Add support for using xxpermdi on V16QI, V8HI, V4SI,
+	and V4SF vectors.  Change code for vector rotates to use the
+	standard name.
+	(builtin_function_type): Mark vector logical shift right
+	instructions as taking unsigned arguments.
+
+	* config/rs6000/vsx.md (VS_spdp_res): Don't handle xscvspdp here.
+	(VS_spdp_insn): Ditto.
+	(VS_spdp_type): Ditto.
+	(vsx_xscvspdp): Define to use V4SF as the type instead of SF since
+	internally scalar SF's are represented as doubles.
+	(vsx_xscvdpsp_scalar): New insn to optimize initialializing V4SF
+	vectors from SF scalars.
+	(vsx_concat_v2sf): Ditto.
+	(vsx_xxpermdi_<mode>): Add support for using xxpermdi on V16QI,
+	V8HI, V4SI, and V4SF vectors.
+
+	* config/rs6000/rs6000.h (VSX_BUILTIN_XXPERMDI_*): Add support for
+	using xxpermdi on V16QI, V8HI, V4SI, and V4SF vectors.
+
+	* config/rs6000/altivec.md (UNSPEC_VRL): Delete, no longer used.
+	(mulv4si3): Use new name for vector rotate insns.
+	(altivec_vrl<VI_char>): Move expander to vector.md.
+	(altivec_vsl<VI_char>): Ditto.
+	(altivec_vsra<VI_char>): Ditto.
+
+2009-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR tree-optimization/40049
+	* tree-vect-stmts.c (vectorizable_operation): If the machine has
+	only vector/vector shifts, convert the scalar shift amount to the
+	appropriate type.
+
 2009-05-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (builtin_mode_to_type): Add GTY marker.
