@@ -25,15 +25,12 @@ along with GCC; see the file COPYING3.  If not see
 extern tree unshare_and_record_pta_info (tree);
 extern void record_escaped_solution (struct pt_solution *);
 extern void record_stack_var_partition_for (tree, tree);
-extern void record_addressable_bases (tree);
 extern struct ptr_info_def * get_exported_ptr_info (tree);
 
-extern bool alias_export_may_alias_p (tree, tree, const_rtx, const_rtx);
-extern bool alias_export_test (tree, tree);
-
-extern bool ddg_export_may_alias_p (tree, tree, int);
+extern bool alias_export_may_alias_p (tree, tree);
+extern bool ddg_export_may_alias_p (tree, tree, bool);
 extern void replace_var_in_datarefs (tree, tree);
 extern void remove_exported_ddg_data (rtx);
-
+extern void ddg_export_set_pipelining_completed (bool);
 
 #endif /* GCC_ALIAS_EXPORT_H */

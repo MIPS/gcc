@@ -3644,12 +3644,6 @@ iterative_hash_pointer (const void *ptr, hashval_t val2)
     }
 }
 
-hashval_t
-iterative_hash_gimple (gimple stmt, hashval_t val)
-{
-  return iterative_hash_pointer (stmt, val);
-}
-
 /* Produce good hash value combining VAL and VAL2.  */
 static inline hashval_t
 iterative_hash_host_wide_int (HOST_WIDE_INT val, hashval_t val2)

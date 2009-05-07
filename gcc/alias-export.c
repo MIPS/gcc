@@ -1,4 +1,4 @@
-/* Export of alias information to RTL.  
+/* Export of alias/data dependency information to RTL.  
    Copyright (C) 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -25,23 +25,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "timevar.h"
-#include "ggc.h"
-#include "function.h"
 #include "diagnostic.h"
-#include "toplev.h"
+#include "ggc.h"
+#include "output.h"
+#include "function.h"
 #include "tree-dump.h"
 #include "gimple.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
-#include "tree-ssa-propagate.h"
 #include "tree-ssa-alias.h"
 #include "vec.h"
-#include "bitmap.h"
 #include "bitmap.h"
 #include "alias-export.h"
 #include "rtl.h"
 #include "pointer-set.h"
-#include "df.h"
 #include "dbgcnt.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
@@ -240,15 +237,6 @@ record_escaped_solution (struct pt_solution *escaped)
     }
 }
 
-/* Mark bases that got addressable flags that they hadn't.  */
-void
-record_addressable_bases (tree t)
-{
-  if (!bases_got_addressable)
-    bases_got_addressable = pointer_set_create ();
-  pointer_set_insert (bases_got_addressable, t);
-}
-
 /* Checks if two references conflict via trimmed oracle and pta info.  */
 static bool
 export_refs_may_alias_p (tree ref1, tree ref2)
@@ -271,77 +259,22 @@ static int dry_run_number = 0;
 static int no_orig_expr_queries = 0;
 static int equal_orig_expr_queries = 0;
 static int not_found_expr_queries = 0;
-static bool last_dry_run = false;
 
 /* Functions to be called when needed to use exported information.  */
 
 /* Main function to ask saved information about if S1 and S2 may
    alias or not.  */
 bool
-alias_export_may_alias_p (tree s1, tree s2, const_rtx x, const_rtx mem)
+alias_export_may_alias_p (tree s1, tree s2)
 {
   /* Both oracles are tried for statistics purposes, but the answers are given
      only by the PTA-based oracle.  */
-  last_dry_run = false;
   if (! export_refs_may_alias_p (s1, s2))
     {
       real_ref_disambig_number++;
       return false;
     }
-  else if (dump_file)
-    {
-      if (false /* had_addressable_base */)
-        fprintf (dump_file, "\nWe failed because the base got addressable\n");
-      else if ((DECL_P (s1) 
-                && TREE_CODE (s1) == PARM_DECL)
-               || (DECL_P (s2) 
-                   && TREE_CODE (s2) == PARM_DECL))
-        fprintf (dump_file, "\nThat was a PARM_DECL\n");
-      else
-        {
-          fprintf (dump_file, "\nPTA disambiguator failed!\n");
-          fprintf (dump_file, "1st MEM: ");
-          print_rtl_single (dump_file, x);
-          fprintf (dump_file, "1st expr: ");
-          print_generic_expr (dump_file, s1, TDF_VOPS | TDF_UID);
-          fprintf (dump_file, "2nd MEM: ");
-          print_rtl_single (dump_file, mem);
-          fprintf (dump_file, "2nd expr: ");
-          print_generic_expr (dump_file, s2, TDF_VOPS | TDF_UID);
-        }
-    }
 
-  return true;
-}
-
-/* Dry run.  Just gather statistic.  */
-bool
-alias_export_test (tree s1, tree s2)
-{
-  if (s1 == NULL || s2 == NULL)
-    {
-      no_orig_expr_queries++;
-      return true;
-    }
-  if (s1 == s2)
-    {
-      equal_orig_expr_queries++;
-      return true;
-    }
-  /* Dry run after another dry run means that refs were disambiguated without
-     export alias help.  */
-  if (last_dry_run)
-    dry_run_number++;
-  last_dry_run = true;
-
-  if (export_refs_may_alias_p (s1, s2))
-    disambig_ref_alias_number++;
-  else
-    {
-      disambig_ref_noalias_number++;
-      return false;
-    }
-  
   return true;
 }
 
@@ -462,9 +395,6 @@ handle_report_aliases (void)
 {
   int total = disambig_ref_alias_number + disambig_ref_noalias_number;
 
-  /* Last dry run could have no paired good run, so increase counter here.  */
-  if (last_dry_run)
-    dry_run_number++;
   if (dump_file && flag_alias_export)
     {
       fprintf (dump_file,
@@ -494,7 +424,6 @@ handle_report_aliases (void)
   no_orig_expr_queries = 0;
   equal_orig_expr_queries = 0;
   not_found_expr_queries = 0;
-  last_dry_run = false;
 
   if (flag_ddg_export)
     print_ddg_export_stats ();
@@ -530,7 +459,7 @@ struct ddg_info_def
   /* TRUE for passes that perform code motion across loop branches, like SMS.
      For other passes we assume it is safe to disambiguate references that are
      dependent and distance vectors are known and non-zero.  */
-  bool disambiguate_only_intra_loop_deps;
+  bool pipelining_completed;
 };
 
 typedef struct {
@@ -608,7 +537,7 @@ init_ddg_info (void)
    = htab_create (1, (htab_hash) htab_hash_datarefs_pair,
 		  (htab_eq) htab_eq_datarefs_pair,
 		  (htab_del) htab_del_datarefs_pair);
-  ddg_info->disambiguate_only_intra_loop_deps = false;
+  ddg_info->pipelining_completed = false;
 }
 
 /* Save the data reference DRF in the ddg_info structure.  */
@@ -830,6 +759,7 @@ walk_mems (rtx *x, void *data ATTRIBUTE_UNUSED)
 
       return -1;
     }
+  
   return 0;
 }
 
@@ -841,14 +771,13 @@ remove_exported_ddg_data (rtx insn)
   for_each_rtx (&PATTERN (insn), walk_mems, NULL);
 }
 
-#if 0
+/* Set pipelining-completed to B.  */
 void
-ddg_export_disambiguate_only_intra_loop_deps (bool b)
+ddg_export_set_pipelining_completed (bool b)
 {
   if (ddg_info)
-    ddg_info->disambiguate_only_intra_loop_deps = b;
+    ddg_info->pipelining_completed = b;
 }
-#endif
 
 /* Return TRUE if any of DIST_VECTS is non-zero.  */
 static bool
@@ -866,12 +795,10 @@ nonzero_dist_vects (VEC (lambda_vector, heap) *dist_vects, int loops_count)
 }
 
 /* Return TRUE if we cannot prove from exported DDG info that MEM1 and MEM2
-   are independent memory references.  CALL is used to differentiate callers:
-   CALL=0 for early calls from RTL alias analysis, CALL=1 for late calls from
-   RTL alias analysis, CALL=2 for calls from modulo-scheduling DDG
-   construction.  */
+   are independent memory references.  When FOR_PIPELINING is true, do not
+   disambiguate references with non-zero distances.  */
 bool
-ddg_export_may_alias_p (tree t1, tree t2, int call)
+ddg_export_may_alias_p (tree t1, tree t2, bool for_pipelining)
 {
   data_reference_p drf1, drf2;
   ddr_p ddr;
@@ -882,61 +809,22 @@ ddg_export_may_alias_p (tree t1, tree t2, int call)
   drf1 = find_dataref (t1);
   drf2 = find_dataref (t2);
   if (!drf1 || !drf2)
-    {
-      if (call == 1)
-	ddg_info->alias_fail_graceful++;
-      else
-	ddg_info->alias_fail_no_drf++;
-      return true;
-    }
+    return true;
 
   ddr = find_ddr (drf1, drf2);
   if (!ddr)
-    {
-      if (call == 1)
-	ddg_info->alias_fail_graceful++;
-      else
-	ddg_info->alias_fail_no_ddr++;
-      return true;
-    }
+    return true;
 
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
-    {
-      if (call != 1)
-	ddg_info->alias_success_no_dep++;
-
-account_new:
-
-      if (call == 0)
-	ddg_info->alias_success_useless++;
-      else if (call == 1)
-	{
-	  ddg_info->alias_success_useless--;
-	  ddg_info->alias_success_new++;
-	}
-      else
-	{
-	  gcc_assert (call == 2);
-	  ddg_info->alias_success_new++;
-	}
-      return false;
-    }
-
+    return false;
+  
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE 
       && DDR_NUM_DIST_VECTS (ddr) > 0
-      && !ddg_info->disambiguate_only_intra_loop_deps
+      && ! for_pipelining
+      && ! ddg_info->pipelining_completed
       && nonzero_dist_vects (DDR_DIST_VECTS (ddr), DDR_NB_LOOPS (ddr)))
-    {
-      if (call != 1)
-	ddg_info->alias_success_nonzero_dist++;
-
-      goto account_new;
-    }
-
-  if (call == 1)
-    ddg_info->alias_fail_graceful++;
-  else
-    ddg_info->alias_fail_useless_ddr++;
+    return false;
+  
   return true;
 }
 

@@ -299,7 +299,9 @@ mem_attrs_htab_hash (const void *x)
   return (p->alias ^ (p->align * 1000)
 	  ^ ((p->offset ? INTVAL (p->offset) : 0) * 50000)
 	  ^ ((p->size ? INTVAL (p->size) : 0) * 2500000)
-	  ^ (p->orig_expr ? (unsigned long) p->orig_expr : 0));
+	  ^ (size_t) iterative_hash_expr (p->expr, 
+                                          iterative_hash_expr (p->orig_expr, 
+                                                               0)));
 }
 
 /* Returns nonzero if the value represented by X (which is really a

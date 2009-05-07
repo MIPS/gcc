@@ -252,39 +252,25 @@ DEF_VEC_ALLOC_P(alias_set_entry,gc);
 /* The splay-tree used to store the various alias set entries.  */
 static GTY (()) VEC(alias_set_entry,gc) *alias_sets;
 
-/* Check MEM_ORIG_EXPRs of two MEMs and if they are present ask saved alias
-   information whether they may alias or not.  If the last parameter is 0 then
-   it is a dry run and do not count fail statistics.  */
-static bool
-query_alias_export_info (const_rtx x, const_rtx mem, int i)
-{
-  tree x_orig_expr = MEM_ORIG_EXPR (x), mem_orig_expr = MEM_ORIG_EXPR (mem);
-  bool ret = true;
 
-  if (i == 0)
-    {
-      if (flag_alias_export == 1)
-        ret = alias_export_test (x_orig_expr, mem_orig_expr);
-      if (flag_ddg_export == 1 
-          && ret
-          && x_orig_expr != NULL 
-          && mem_orig_expr != NULL
-          && x_orig_expr != mem_orig_expr)
-        ret = ddg_export_may_alias_p (x_orig_expr, mem_orig_expr, i);
-      return ret;
-    }
-  
-  gcc_assert (i == 1);
+/* Check MEM_ORIG_EXPRs of two MEMs and if they are present query saved alias/ddg
+   information whether they may alias or not.  */
+static bool
+query_alias_export_info (const_rtx x, const_rtx mem)
+{
+  tree x_orig_expr = MEM_ORIG_EXPR (x);
+  tree mem_orig_expr = MEM_ORIG_EXPR (mem);
+  bool ret = true;
 
   if (x_orig_expr != NULL 
       && mem_orig_expr != NULL
       && x_orig_expr != mem_orig_expr)
     {
       if (flag_alias_export == 1)
-        ret = alias_export_may_alias_p (x_orig_expr, mem_orig_expr, x, mem);
+        ret = alias_export_may_alias_p (x_orig_expr, mem_orig_expr);
       if (flag_ddg_export == 1
           && ret)
-        ret = ddg_export_may_alias_p (x_orig_expr, mem_orig_expr, i);
+        ret = ddg_export_may_alias_p (x_orig_expr, mem_orig_expr, false);
     }
 
   return ret;
@@ -390,7 +376,7 @@ walk_mems_2 (rtx *x, rtx mem)
       if (alias_sets_conflict_p (MEM_ALIAS_SET (*x), MEM_ALIAS_SET (mem))
           && (! flag_ddg_export
               || ddg_export_may_alias_p (MEM_ORIG_EXPR (*x),
-                                         MEM_ORIG_EXPR (mem), 2)))
+                                         MEM_ORIG_EXPR (mem), true)))
         return 1;
         
       return -1;  
@@ -2312,7 +2298,7 @@ true_dependence (const_rtx mem, enum machine_mode mem_mode, const_rtx x,
                             SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
-  if (! query_alias_export_info (x, mem, 1))
+  if (! query_alias_export_info (x, mem))
     return 0;
 
   if (aliases_everything_p (x))
@@ -2379,7 +2365,7 @@ canon_true_dependence (const_rtx mem, enum machine_mode mem_mode, rtx mem_addr,
                             SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
-  if (! query_alias_export_info (x, mem, 1))
+  if (! query_alias_export_info (x, mem))
     return 0;
 
   if (aliases_everything_p (x))
@@ -2455,7 +2441,7 @@ write_dependence_p (const_rtx mem, const_rtx x, int writep)
                             SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
-  if (! query_alias_export_info (x, mem, 1))
+  if (! query_alias_export_info (x, mem))
     return 0;
 
   fixed_scalar

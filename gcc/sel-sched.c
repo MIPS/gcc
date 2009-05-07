@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sel-sched-dump.h"
 #include "sel-sched.h"
 #include "dbgcnt.h"
+#include "alias-export.h"
 
 /* Implementation of selective scheduling approach.
    The below implementation follows the original approach with the following
@@ -7306,6 +7307,10 @@ sel_global_finish (void)
 
   free_sched_pools ();
   free_dominance_info (CDI_DOMINATORS);
+
+  if (flag_ddg_export
+      && flag_sel_sched_pipelining)
+    ddg_export_set_pipelining_completed (true);
 }
 
 /* Return true when we need to skip selective scheduling.  Used for debugging.  */

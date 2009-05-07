@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
+#include "alias-export.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -2875,6 +2876,9 @@ rest_of_handle_sms (void)
       bb->aux = bb->next_bb;
   free_dominance_info (CDI_DOMINATORS);
   cfg_layout_finalize ();
+
+  if (flag_ddg_export)
+    ddg_export_set_pipelining_completed (true);
 #endif /* INSN_SCHEDULING */
   return 0;
 }
