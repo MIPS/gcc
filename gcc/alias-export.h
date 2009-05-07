@@ -33,4 +33,7 @@ extern void replace_var_in_datarefs (tree, tree);
 extern void remove_exported_ddg_data (rtx);
 extern void ddg_export_set_pipelining_completed (bool);
 
+extern void free_alias_export_info (void);
+extern void free_ddg_export_info (void);
+
 #endif /* GCC_ALIAS_EXPORT_H */

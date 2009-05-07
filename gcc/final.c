@@ -79,6 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "ggc.h"
 #include "cfgloop.h"
+#include "alias-export.h"
 #include "params.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
@@ -4313,6 +4314,11 @@ rest_of_clean_state (void)
   init_temp_slots ();
 
   free_bb_for_insn ();
+
+  if (flag_alias_export)
+    free_alias_export_info ();
+  if (flag_ddg_export)
+    free_ddg_export_info ();
 
   if (targetm.binds_local_p (current_function_decl))
     {

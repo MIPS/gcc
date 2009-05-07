@@ -278,9 +278,9 @@ alias_export_may_alias_p (tree s1, tree s2)
   return true;
 }
 
-/* Cleanup pass.  */
-static unsigned int
-handle_free_aliases (void)
+/* Free exported info.  */
+void
+free_alias_export_info (void)
 {
   if (exprs_to_ptas)
     {
@@ -312,33 +312,7 @@ handle_free_aliases (void)
       pointer_set_destroy (bases_got_addressable);
       bases_got_addressable = NULL;
     }
-  return 0;
 }
-
-static bool
-gate_free_aliases (void)
-{
-  return flag_alias_export != 0;
-}
-
-struct rtl_opt_pass pass_free_alias_export =
-{
- {
-  RTL_PASS,
-  "aliasexpfree",                       /* name */
-  gate_free_aliases,                    /* gate */
-  handle_free_aliases,                  /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_ggc_collect                      /* todo_flags_finish */
- }
-};
 
 
 static int unit_total = 0;
@@ -432,11 +406,14 @@ handle_report_aliases (void)
 
 
 /* Data dependence export.  */
-/* Holds exported data references and relations.  */
+/* This structure holds exported data references and relations.  */
 struct ddg_info_def
 {
+
+  /* A hashtable for tree -> dataref mapping.  */
   htab_t tree_to_dataref;
 
+  /* A hashtable for mapping dataref pairs to data dependence relation.  */
   htab_t datarefs_pair_to_ddr;
 
   /* Used by the verifier.  */
@@ -853,11 +830,12 @@ struct gimple_opt_pass pass_gather_ddg_info =
  }
 };
 
-static unsigned int
-free_ddg_info (void)
+/* Free ddg export info.  */
+void
+free_ddg_export_info (void)
 {
   if (!ddg_info)
-    return 0;
+    return;
 
   /* TODO: DDR_LOOP_NESTs are not free'd.  */
   htab_delete (ddg_info->datarefs_pair_to_ddr);
@@ -865,28 +843,6 @@ free_ddg_info (void)
 
   free (ddg_info);
   ddg_info = NULL;
-  return 0;
 }
-
-struct rtl_opt_pass pass_free_ddg_info =
-{
- {
-  RTL_PASS,
-  NULL,					/* name */
-  NULL,					/* gate */
-  free_ddg_info,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
- }
-};
-
-
 
 
