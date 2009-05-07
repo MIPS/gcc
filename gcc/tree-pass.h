@@ -495,8 +495,6 @@ extern struct rtl_opt_pass pass_leaf_regs;
 extern struct rtl_opt_pass pass_split_before_sched2;
 extern struct rtl_opt_pass pass_sched2;
 
-extern struct rtl_opt_pass pass_check_alias_export_rtl;
-extern struct rtl_opt_pass pass_report_alias_export_stat;
 extern struct rtl_opt_pass pass_free_alias_export;
 extern struct gimple_opt_pass pass_gather_ddg_info;
 extern struct rtl_opt_pass pass_free_ddg_info;

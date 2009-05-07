@@ -249,21 +249,6 @@ record_addressable_bases (tree t)
   pointer_set_insert (bases_got_addressable, t);
 }
 
-#if 0
-/* True when BASE got addressable flag set.  */
-static bool
-base_got_addressable (tree base)
-{
-  if (TREE_ADDRESSABLE (base)
-      && bases_got_addressable
-      && pointer_set_contains (bases_got_addressable, base))
-    return true;
-  return false;
-}
-
-static bool had_addressable_base = false;
-#endif
-
 /* Checks if two references conflict via trimmed oracle and pta info.  */
 static bool
 export_refs_may_alias_p (tree ref1, tree ref2)
@@ -277,182 +262,6 @@ export_refs_may_alias_p (tree ref1, tree ref2)
   pid2 = get_exported_ptr_info (ref2);
   return refs_may_alias_p_1 (ref1, ref2, pid1, pid2, &gimple_df_escaped);
 }
-
-static bool
-gate_check_aliases (void)
-{
-  return flag_alias_export_check != 0;
-}
-
-/* Helper for handle_check_alias_export_rtl. For each mem, if it has MEM_ORIG_EXPR, checks, whether
-   we have already looked through this MEM_ORIG_EXPR. Also report mems without MEM_ORIG_EXPR */
-static int
-check_all_orig_exprs (rtx *xp, void *data)
-{
-  rtx x = *xp;
-  tree orig;
-  rtx insn = (rtx) data;
-
-  if (!dump_file)
-    return -1;
-  if (!x
-      /* Skip REQ_EQUAL notes and such.  */
-      || GET_CODE (x) == EXPR_LIST)
-    return -1;
-
-  /* In everything else, dive if this is not a MEM, maybe we'd find one.  */
-  if (GET_CODE (x) != MEM)
-    return 0;
-
-  orig = MEM_ORIG_EXPR (x);
-  if (!orig)
-    {
-      rtx op0 = XEXP (x, 0);
-
-      /* Never mind about mems pointing to symbol_refs.  */
-      if (GET_CODE (op0) == SYMBOL_REF)
-        return -1;
-
-      /* Never mind about anything frame related.  */
-      if (REG_P (op0) 
-          && REGNO_PTR_FRAME_P (REGNO (op0)))
-        return -1;
-      if (GET_CODE (op0) == PLUS
-          && REG_P (XEXP (op0, 0))
-          && REGNO_PTR_FRAME_P (REGNO (XEXP (op0, 0))))
-        return -1;
-
-      /* Never mind about bit-field calculations.  We don't check it directly,
-         but we allow ORIG_EXPR to be null when EXPR is null and mem references 
-         a structure field.  */
-      if (MEM_IN_STRUCT_P (x)
-          && ! MEM_EXPR (x))
-        return -1;
-
-      /* Maybe there wasn't MEM_ATTRS in the first place?  */
-      if (! MEM_ATTRS (x))
-        {
-          /* We know that happens on indirect calls.  */
-          if (GET_CODE (insn) == CALL_INSN)
-            return -1;
-
-          /* Frame related stuff was probably generated late in the pipeline.  */
-          if (RTX_FRAME_RELATED_P (insn)
-              && reload_completed)
-            return -1;
-
-          /* Likewise with scratch registers.  */
-          if (GET_CODE (XEXP (x, 0)) == SCRATCH
-              && reload_completed)
-            return -1;
-
-          /* BLKmode MEMs were created in peepholes.   */
-          if (GET_MODE (x) == BLKmode
-              && reload_completed)
-            return -1;
-          
-          /* Calculations of tablejump address don't have MEM_ATTRS.  */
-          if (MEM_READONLY_P (x)
-              && tablejump_p (insn, NULL, NULL))
-            return -1;
-
-          /* Also, this could be separately from the jump itself.  */
-          if (MEM_READONLY_P (x)
-              && GET_CODE (PATTERN (insn)) == SET)
-            {
-              rtx dest = SET_DEST (PATTERN (insn));
-              
-              if (REG_P (dest))
-                {
-                  if (df)
-                    {
-                      df_ref ref = DF_REG_USE_CHAIN (REGNO (dest));
-                      
-                      if (ref
-                          && DF_REF_NEXT_REG (ref) == NULL
-                          && tablejump_p (DF_REF_INSN (ref), NULL, NULL))
-                        return -1;
-                    }
-                  else
-                    fprintf (dump_file, "The below warning looks like for tablejump, " 
-                             "but we can't prove this without df\n");
-                }
-            }
-        }
-
-      /* BLKmode mems without MEM_EXPR can be generated when expanding calls.  
-         We don't have a good way of distinguishing them.  */
-      if (GET_MODE (x) == BLKmode
-          && ! MEM_EXPR (x))
-        return -1;
-      if (!MEM_EXPR (x)
-          && ! MEM_ALIAS_SET (x))
-        return -1;
-                    
-      fprintf (dump_file, "Warning: MEM  ");
-      print_rtl_single (dump_file, x);
-      fprintf (dump_file, "without MEM_ORIG_EXPR in insn: ");
-      print_rtl_single (dump_file, insn);
-      fprintf (dump_file, "\n\n");
-      return -1;
-    }
-
-  return -1;
-}
-
-
-/* Debug information about presence the MEM_ORIG_EXPRs of the rtl mems on
-   the RTL level. And checks whether we have looked through them  */
-static unsigned int
-handle_check_alias_export_rtl (void)
-{
-  basic_block bb;
-  rtx insn;
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "Checking alias information for function: %s"
-	      " (RTL level)\n", current_function_name ());
-      fprintf (dump_file, "\n");
-    }
-
-  FOR_EACH_BB (bb)
-    {
-      FOR_BB_INSNS (bb, insn)
-        {
-          if (!INSN_P (insn))
-            continue;
-          for_each_rtx (&insn, check_all_orig_exprs, insn);
-        }
-    }
-  
-  if (dump_file)
-    fprintf (dump_file, "\n\n");
-  return 0;
-}
-
-
-struct rtl_opt_pass pass_check_alias_export_rtl =
-{
- {
-  RTL_PASS,
-  "aliasexpcheck",			/* name */
-  gate_check_aliases,			/* gate */
-  handle_check_alias_export_rtl,	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
- }
-};
-
-/* Routines to deal with substitutions of statements parts in tree-out-of-ssa
-   pass.  */
 
 /* Statistics counters.  */
 static int disambig_ref_alias_number = 0;
@@ -648,7 +457,7 @@ void alias_export_finish_once (void)
 }
 
 /* Reports gathered statistic.  */
-static unsigned int
+static unsigned int ATTRIBUTE_UNUSED
 handle_report_aliases (void)
 {
   int total = disambig_ref_alias_number + disambig_ref_noalias_number;
@@ -691,25 +500,6 @@ handle_report_aliases (void)
     print_ddg_export_stats ();
   return 0;
 }
-
-struct rtl_opt_pass pass_report_alias_export_stat =
-{
- {
-  RTL_PASS,
-  "aliasexpreport",                     /* name */
-  gate_report_aliases,                    /* gate */
-  handle_report_aliases,                /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
-};
 
 
 /* Data dependence export.  */
