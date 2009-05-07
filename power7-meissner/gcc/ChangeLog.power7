@@ -1,3 +1,7 @@
+2009-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Sync up to mainline version 147246.
+
 2009-05-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (builtin_mode_to_type): Add GTY marker.
