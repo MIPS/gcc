@@ -1,5 +1,9 @@
 2009-05-02  Jan Hubicka  <jh@suse.cz>
 
+	Merge from mainline.
+
+2009-05-02  Jan Hubicka  <jh@suse.cz>
+
 	* passes.c: Enable early FRE.
 
 2009-05-02  Jan Hubicka  <jh@suse.cz>

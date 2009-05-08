@@ -1,3 +1,310 @@
+2009-05-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/torture/complex-sign-mul-minus-one.c,
+	gcc.dg/torture/complex-sign-mul-one.c: New tests.
+
+2009-05-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/36892
+	* g++.dg/warn/deprecated-6.C: New.
+	* gcc.dg/deprecated-4.c: Likewise.
+	* gcc.dg/deprecated-5.c: Likewise.
+	* gcc.dg/deprecated-6.c: Likewise.
+
+2009-05-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/vect/no-vfa-vect-37.c: Replace __aligned__(16) with
+	__aligned__(__BIGGEST_ALIGNMENT__).
+	* gcc.dg/vect/no-vfa-vect-43.c: Likewise.
+	* gcc.dg/vect/no-vfa-vect-49.c: Likewise.
+	* gcc.dg/vect/no-vfa-vect-53.c: Likewise.
+	* gcc.dg/vect/no-vfa-vect-57.c: Likewise.
+	* gcc.dg/vect/no-vfa-vect-61.c: Likewise.
+	* gcc.dg/vect/no-vfa-vect-79.c: Likewise.
+	* gcc.dg/vect/Os-vect-95.c: Likewise.
+	* gcc.dg/vect/pr20122.c: Likewise.
+	* gcc.dg/vect/pr36493.c: Likewise.
+	* gcc.dg/vect/pr37385.c: Likewise.
+	* gcc.dg/vect/slp-7.c: Likewise.
+	* gcc.dg/vect/slp-9.c: Likewise.
+	* gcc.dg/vect/slp-widen-mult-s16.c: Likewise.
+	* gcc.dg/vect/slp-widen-mult-u8.c: Likewise.
+	* gcc.dg/vect/vect-35.c: Likewise.
+	* gcc.dg/vect/vect-40.c: Likewise.
+	* gcc.dg/vect/vect-42.c: Likewise.
+	* gcc.dg/vect/vect-44.c: Likewise.
+	* gcc.dg/vect/vect-46.c: Likewise.
+	* gcc.dg/vect/vect-48.c: Likewise.
+	* gcc.dg/vect/vect-52.c: Likewise.
+	* gcc.dg/vect/vect-54.c: Likewise.
+	* gcc.dg/vect/vect-56.c: Likewise.
+	* gcc.dg/vect/vect-58.c: Likewise.
+	* gcc.dg/vect/vect-60.c: Likewise.
+	* gcc.dg/vect/vect-74.c: Likewise.
+	* gcc.dg/vect/vect-75.c: Likewise.
+	* gcc.dg/vect/vect-76.c: Likewise.
+	* gcc.dg/vect/vect-77-alignchecks.c: Likewise.
+	* gcc.dg/vect/vect-77.c: Likewise.
+	* gcc.dg/vect/vect-77-global.c: Likewise.
+	* gcc.dg/vect/vect-78-alignchecks.c: Likewise.
+	* gcc.dg/vect/vect-78.c: Likewise.
+	* gcc.dg/vect/vect-78-global.c: Likewise.
+	* gcc.dg/vect/vect-80.c: Likewise.
+	* gcc.dg/vect/vect-85.c: Likewise.
+	* gcc.dg/vect/vect-87.c: Likewise.
+	* gcc.dg/vect/vect-88.c: Likewise.
+	* gcc.dg/vect/vect-92.c: Likewise.
+	* gcc.dg/vect/vect-93.c: Likewise.
+	* gcc.dg/vect/vect-95.c: Likewise.
+	* gcc.dg/vect/vect-97.c: Likewise.
+	* gcc.dg/vect/vect-complex-1.c: Likewise.
+	* gcc.dg/vect/vect-complex-4.c: Likewise.
+	* gcc.dg/vect/vect-complex-5.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-10.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-11.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-12.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-13.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-14.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-15.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-16.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-17.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-3.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-6.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-7.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-8.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-9.c: Likewise.
+	* gcc.dg/vect/vect-outer-1a.c: Likewise.
+	* gcc.dg/vect/vect-outer-1.c: Likewise.
+	* gcc.dg/vect/vect-outer-2a.c: Likewise.
+	* gcc.dg/vect/vect-outer-2b.c: Likewise.
+	* gcc.dg/vect/vect-outer-2.c: Likewise.
+	* gcc.dg/vect/vect-outer-2c.c: Likewise.
+	* gcc.dg/vect/vect-outer-2d.c: Likewise.
+	* gcc.dg/vect/vect-outer-3a.c: Likewise.
+	* gcc.dg/vect/vect-outer-3b.c: Likewise.
+	* gcc.dg/vect/vect-outer-3.c: Likewise.
+	* gcc.dg/vect/vect-outer-3c.c: Likewise.
+	* gcc.dg/vect/vect-outer-5.c: Likewise.
+	* gcc.dg/vect/vect-outer-6.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-s16a.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-s16b.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-s8a.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-s8b.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-s8c.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-u16a.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-u16b.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-u8a.c: Likewise.
+	* gcc.dg/vect/vect-reduc-dot-u8b.c: Likewise.
+	* gcc.dg/vect/vect-widen-mult-s16.c: Likewise.
+	* gcc.dg/vect/vect-widen-mult-s8.c: Likewise.
+	* gcc.dg/vect/vect-widen-mult-u16.c: Likewise.
+	* gcc.dg/vect/vect-widen-mult-u8.c: Likewise.
+	* gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c: Likewise.
+
+2009-05-08  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/24581
+	* gcc.dg/torture/complex-sign.h: New header.
+	* gcc.dg/torture/complex-sign-add.c,
+	gcc.dg/torture/complex-sign-mixed-add.c,
+	gcc.dg/torture/complex-sign-mixed-div.c,
+	gcc.dg/torture/complex-sign-mixed-mul.c,
+	gcc.dg/torture/complex-sign-mixed-sub.c,
+	gcc.dg/torture/complex-sign-mul.c,
+	gcc.dg/torture/complex-sign-sub.c: New tests.
+
+2009-05-08  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39876
+	* gfortran.dg/intrinsic_3.f90: New.
+
+2009-05-07  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39037
+	* gcc.dg/Wunsuffixed-float-constants-1.c: New test.
+	* gcc.dg/cpp/pragma-float-const-decimal64-1.c: New test.
+	* gcc.dg/dfp/float-constant-double.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-1.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-2.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-3.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-4.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-5.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-6.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-7.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-8.c: New test.
+	* g++.dg/cpp/pragma-float-const-decimal64-1.C: New test.
+
+2009-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40057
+	* gcc.c-torture/execute/pr40057.c: New test.
+
+2009-05-06  James E. Wilson  <wilson@codesourcery.com>
+
+	* gcc.c-torture/compile/const-high-part.c: New test.
+
+2009-05-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/40050
+	* lib/plugin-support.exp (plugin-test-execute): Use HOSTCC to
+	build plugin.
+
+2009-05-06  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39630
+	* gfortran.dg/proc_decl_1.f90: Modified.
+	* gfortran.dg/proc_ptr_comp_1.f90: New.
+	* gfortran.dg/proc_ptr_comp_2.f90: New.
+	* gfortran.dg/proc_ptr_comp_3.f90: New.
+	* gfortran.dg/proc_ptr_comp_4.f90: New.
+	* gfortran.dg/proc_ptr_comp_5.f90: New.
+	* gfortran.dg/proc_ptr_comp_6.f90: New.
+
+2009-05-06  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/17395
+	* g++.dg/template/call7.C: New test.
+
+2009-05-06  Diego Novillo  <dnovillo@google.com>
+
+	* lib/plugin-support.exp: Do not prefix $GMPINC with -I.
+
+2009-05-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gfortran.dg/pr40021.f: Moved to ...
+	* gfortran.fortran-torture/execute/pr40021.f: Here.
+
+2009-05-06  Janis Johnson  <janis187@us.ibm.com>
+
+	PR middle-end/39986
+	* gcc.dg/dfp/pr39986.c: New test.
+
+2009-05-06  Michael Matz  <matz@suse.de>
+
+	PR middle-end/40021
+	* gfortran.dg/pr40021.f: New test.
+
+2009-05-06  Le-Chun Wu  <lcwu@google.com>
+
+	* lib/plugin-support.exp: New file containing support procs for
+	plugin testcases.
+	* lib/target-supports.exp (check_plugin_available): New proc.
+	* gcc.dg/plugin/plugin.exp: New driver script for gcc testcases.
+	* gcc.dg/plugin/selfassign.c: New plugin source file.
+	* gcc.dg/plugin/self-assign-test-1.c: New test.
+	* gcc.dg/plugin/self-assign-test-2.c: Likewise.
+	* g++.dg/README: Add description for plugin test.
+	* g++.dg/dg.exp: Exclude plugin tests from the general test list.
+	* g++.dg/plugin/plugin.exp: New driver script for g++ testcases.
+	* g++.dg/plugin/selfassign.c: New plugin source file.
+	* g++.dg/plugin/self-assign-test-1.C: New test.
+	* g++.dg/plugin/self-assign-test-2.C: Likewise.
+	* g++.dg/plugin/self-assign-test-3.C: Likewise.
+	* g++.dg/plugin/dumb_plugin.c: New plugin source file.
+	* g++.dg/plugin/dumb-plugin-test-1.C: New test.
+
+2009-05-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/40041
+	* gfortran.dg/intrinsic_2.f90: New test.
+	* gfortran.dg/intrinsic.f90: Add old and this PR as comment.
+
+2009-05-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/40032
+	* gcc.dg/noncompile/incomplete-5.c: New test.
+
+2009-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39666
+	* gcc.dg/pr39666-1.c: New test.
+	* gcc.dg/pr39666-2.c: Likewise.
+	* g++.dg/warn/Wuninitialized-4.C: Likewise.
+	* g++.dg/warn/Wuninitialized-5.C: Likewise.
+	* gfortran.dg/pr39666-1.f90: Likewise.
+	* gfortran.dg/pr39666-2.f90: Likewise.
+
+2009-05-05  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/mips.exp: Add -mtune= to mips_option_groups.
+	* gcc.target/mips/dspr2-MULT.c: Pass -mtune=74kc
+	* gcc.target/mips/dspr2-MULTU.c: Likewise.
+
+2009-05-05  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39998
+	* gfortran.dg/proc_ptr_17.f90: New.
+
+2009-05-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40022
+	* gcc.c-torture/execute/pr40022.c: New testcase.
+
+2009-05-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40023
+	* gcc.c-torture/compile/pr40023.c: New testcase.
+
+2009-05-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/overload11.C: Adjust expected errors.
+	* g++.dg/template/overload9.C: Likewise.
+	* g++.dg/ext/ms-1.C: New.
+
+2009-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40013
+	* g++.dg/ext/vla7.C: New test.
+
+2009-05-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/ucnid-11.c, gcc.dg/ucnid-12.c, gcc.dg/ucnid-13.c: New tests.
+
+2009-05-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/ucnid-8.c, gcc.dg/ucnid-9.c, gcc.dg/ucnid-10.c: New tests.
+	* gcc.dg/declspec-9.c, gcc.dg/declspec-10.c, gcc.dg/declspec-11.c:
+	Update expected errors.
+
+2009-05-04  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/28152
+	* g++.dg/parse/parser-pr28152.C: New.
+	* g++.dg/parse/parser-pr28152-2.C: New.
+
+2009-05-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/attr-alias-5.c, gcc.dg/ucnid-7.c: New tests.
+
+2009-05-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/fpmul-2.c: Replace final_cleanup with optimized.
+	* gcc.target/sparc/fexpand-2.c: Likewise.
+	* gcc.target/sparc/fpmerge-2.c: Likewise.
+	* gcc.target/sparc/pdist-2.c: Likewise.
+
+2009-05-03  Richard Guenther  <rguenther@suse.de>
+
+	PR c/39983
+	* gcc.c-torture/compile/pr39983.c: New testcase.
+
+2009-05-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c99-complex-3.c: New test.
+
+2009-05-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cpp/utf8-5byte-1.c: New test.
+
+2009-05-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/ucnid-6.c: Fix typo in dg-do directive.
+
+2009-05-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40001
+	* gcc.target/spu/pr40001.c: New testcase.
+
 2009-04-30  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* gcc.dg/ssp-1.c (__stack_chk_fail): Remove static.

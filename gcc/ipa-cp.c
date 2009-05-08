@@ -728,98 +728,6 @@ ipcp_print_call_profile_counts (FILE * f)
     }
 }
 
-/* Print all counts and probabilities of cfg edges of all functions.  */
-static void
-ipcp_print_edge_profiles (FILE * f)
-{
-  struct cgraph_node *node;
-  basic_block bb;
-  edge_iterator ei;
-  edge e;
-
-  for (node = cgraph_nodes; node; node = node->next)
-    {
-      fprintf (f, "function %s: \n", cgraph_node_name (node));
-      if (node->analyzed)
-	{
-	  bb =
-	    ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
-	  fprintf (f, "ENTRY: ");
-	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		   " %d\n", (HOST_WIDE_INT) bb->count, bb->frequency);
-
-	  if (bb->succs)
-	    FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (e->dest ==
-		  EXIT_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION
-					       (node->decl)))
-		fprintf (f, "edge ENTRY -> EXIT,  Count");
-	      else
-		fprintf (f, "edge ENTRY -> %d,  Count", e->dest->index);
-	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		       " Prob %d\n", (HOST_WIDE_INT) e->count,
-		       e->probability);
-	    }
-	  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
-	  {
-	    fprintf (f, "bb[%d]: ", bb->index);
-	    fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		     " %d\n", (HOST_WIDE_INT) bb->count, bb->frequency);
-	    FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (e->dest ==
-		  EXIT_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION
-					       (node->decl)))
-		fprintf (f, "edge %d -> EXIT,  Count", e->src->index);
-	      else
-		fprintf (f, "edge %d -> %d,  Count", e->src->index,
-			 e->dest->index);
-	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC " Prob %d\n",
-		       (HOST_WIDE_INT) e->count, e->probability);
-	    }
-	  }
-	}
-    }
-}
-
-/* Print counts and frequencies for all basic blocks of all functions.  */
-static void
-ipcp_print_bb_profiles (FILE * f)
-{
-  basic_block bb;
-  struct cgraph_node *node;
-
-  for (node = cgraph_nodes; node; node = node->next)
-    {
-      fprintf (f, "function %s: \n", cgraph_node_name (node));
-      if (node->analyzed)
-	{
-	  bb =
-	    ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
-	  fprintf (f, "ENTRY: Count");
-	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		   " Frequency  %d\n", (HOST_WIDE_INT) bb->count,
-		   bb->frequency);
-
-	  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
-	  {
-	    fprintf (f, "bb[%d]: Count", bb->index);
-	    fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		     " Frequency %d\n", (HOST_WIDE_INT) bb->count,
-		     bb->frequency);
-	  }
-	  bb =
-	    EXIT_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
-	  fprintf (f, "EXIT: Count");
-	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		   " Frequency %d\n", (HOST_WIDE_INT) bb->count,
-		   bb->frequency);
-
-	}
-    }
-}
-
 /* Print profile info for all functions.  */
 static void
 ipcp_print_profile_data (FILE * f)
@@ -828,10 +736,6 @@ ipcp_print_profile_data (FILE * f)
   ipcp_print_func_profile_counts (f);
   fprintf (f, "\nCS COUNTS stage:\n");
   ipcp_print_call_profile_counts (f);
-  fprintf (f, "\nBB COUNTS and FREQUENCIES :\n");
-  ipcp_print_bb_profiles (f);
-  fprintf (f, "\nCFG EDGES COUNTS and PROBABILITIES :\n");
-  ipcp_print_edge_profiles (f);
 }
 
 /* Build and initialize ipa_replace_map struct according to LAT. This struct is

@@ -63,6 +63,10 @@ enum rid
   /* ObjC */
   RID_IN, RID_OUT, RID_INOUT, RID_BYCOPY, RID_BYREF, RID_ONEWAY,
 
+  /* C (reserved and imaginary types not implemented, so any use is a
+     syntax error) */
+  RID_IMAGINARY,
+
   /* C */
   RID_INT,     RID_CHAR,   RID_FLOAT,    RID_DOUBLE, RID_VOID,
   RID_ENUM,    RID_STRUCT, RID_UNION,    RID_IF,     RID_ELSE,
@@ -805,6 +809,11 @@ extern void warn_logical_operator (location_t, enum tree_code,
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
+extern void mark_valid_location_for_stdc_pragma (bool);
+extern bool valid_location_for_stdc_pragma_p (void);
+extern void set_float_const_decimal64 (void);
+extern void clear_float_const_decimal64 (void);
+extern bool float_const_decimal64_p (void);
 
 #define c_sizeof(T)  c_sizeof_or_alignof_type (T, true, 1)
 #define c_alignof(T) c_sizeof_or_alignof_type (T, false, 1)

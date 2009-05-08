@@ -286,6 +286,8 @@ CLOOGINC = @CLOOGINC@
 # Libs and linker option needed for plugin support
 PLUGINLIBS = @pluginlibs@
 
+enable_plugin = @enable_plugin@
+
 CPPLIB = ../libcpp/libcpp.a
 CPPINC = -I$(srcdir)/../libcpp/include
 
@@ -481,6 +483,8 @@ libexecdir = @libexecdir@
 libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(version)
 # Directory in which the compiler finds executables
 libexecsubdir = $(libexecdir)/gcc/$(target_noncanonical)/$(version)
+# Directory in which plugin headers are installed
+plugin_includedir = $(libsubdir)/plugin/include
 # Used to produce a relative $(gcc_tooldir) in gcc.o
 unlibsubdir = ../../..
 # $(prefix), expressed as a path relative to $(libsubdir).
@@ -1170,6 +1174,7 @@ OBJS-common = \
 	real.o \
 	recog.o \
 	reg-stack.o \
+	regcprop.o \
 	reginfo.o \
 	regmove.o \
 	regrename.o \
@@ -3052,6 +3057,10 @@ cfglayout.o : cfglayout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(DF_H)
 timevar.o : timevar.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TIMEVAR_H) $(FLAGS_H) intl.h $(TOPLEV_H) $(RTL_H) timevar.def
+regcprop.o : regcprop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(RTL_H) insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h \
+   output.h $(RECOG_H) $(FUNCTION_H) $(OBSTACK_H) $(FLAGS_H) $(TM_P_H) \
+   addresses.h reload.h $(TOPLEV_H) $(TIMEVAR_H) $(TREE_PASS_H) $(DF_H)
 regrename.o : regrename.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h \
    output.h $(RECOG_H) $(FUNCTION_H) $(OBSTACK_H) $(FLAGS_H) $(TM_P_H) \
@@ -3074,7 +3083,7 @@ params.o : params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(PARAMS_H) $(TO
 pointer-set.o: pointer-set.c pointer-set.h $(CONFIG_H) $(SYSTEM_H)
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
-   $(TREE_H)
+   $(TREE_H) $(GGC_H)
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h $(BCONFIG_H)
 dbgcnt.o: dbgcnt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h errors.h $(DBGCNT_H) \
    $(TM_H) $(RTL_H) output.h
@@ -3339,7 +3348,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-ssa-propagate.c \
   $(srcdir)/tree-phinodes.c \
   $(srcdir)/ipa-reference.c \
-  $(srcdir)/tree-ssa-structalias.c $(srcdir)/tree-inline.c \
+  $(srcdir)/tree-ssa-structalias.c \
   $(srcdir)/tree-ssa-alias.h \
   @all_gtfiles@
 
@@ -3979,6 +3988,10 @@ install: install-common $(INSTALL_HEADERS) \
     install-cpp install-man install-info install-@POSUB@ \
     install-driver
 
+ifeq ($(enable_plugin),yes)
+install: install-plugin
+endif
+
 # Handle cpp installation.
 install-cpp: installdirs cpp$(exeext)
 	-rm -f $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext)
@@ -3999,6 +4012,36 @@ installdirs:
 	$(mkinstalldirs) $(DESTDIR)$(slibdir)
 	$(mkinstalldirs) $(DESTDIR)$(man1dir)
 	$(mkinstalldirs) $(DESTDIR)$(man7dir)
+
+PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+  $(TOPLEV_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(TREE_PASS_H) gcc-plugin.h intl.h \
+  $(PLUGIN_VERSION_H)
+
+# Install the headers needed to build a plugin.
+install-plugin: installdirs
+# We keep the directory structure for files in config and .def files. All
+# other files are flattened to a single directory.
+	$(mkinstalldirs) $(DESTDIR)$(plugin_includedir)
+	headers=`echo $(PLUGIN_HEADERS) | tr ' ' '\n' | sort -u`; \
+	srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`; \
+	for file in $$headers; do \
+	  if [ -f $$file ] ; then \
+	    path=$$file; \
+	  elif [ -f $(srcdir)/$$file ]; then \
+	    path=$(srcdir)/$$file; \
+	  else continue; \
+	  fi; \
+	  case $$path in \
+	  "$(srcdir)"/config/* | "$(srcdir)"/*.def ) \
+	    base=`echo "$$path" | sed -e "s|$$srcdirstrip/||"`;; \
+	  *) base=`basename $$path` ;; \
+	  esac; \
+	  dest=$(plugin_includedir)/$$base; \
+	  echo $(INSTALL_DATA) $$path $(DESTDIR)/$$dest; \
+	  dir=`dirname $$dest`; \
+	  $(mkinstalldirs) $$dir; \
+	  $(INSTALL_DATA) $$path $(DESTDIR)/$$dest; \
+	done
 
 # Install the compiler executables built during cross compilation.
 install-common: native lang.install-common installdirs

@@ -707,8 +707,11 @@ cgraph_create_edge_including_clones (struct cgraph_node *orig, struct cgraph_nod
   if (orig->clones)
     for (node = orig->clones; node != orig;)
       {
-	cgraph_create_edge (node, callee, stmt, count, freq,
-			    loop_depth)->inline_failed = reason;
+        /* It is possible that we already constant propagated into the clone
+	   and turned indirect call into dirrect call.  */
+        if (!cgraph_edge (node, stmt))
+	  cgraph_create_edge (node, callee, stmt, count, freq,
+			      loop_depth)->inline_failed = reason;
 
 	if (node->clones)
 	  node = node->clones;
@@ -897,12 +900,12 @@ cgraph_redirect_edge_callee (struct cgraph_edge *e, struct cgraph_node *n)
 /* Update or remove the corresponding cgraph edge if a GIMPLE_CALL
    OLD_STMT changed into NEW_STMT.  */
 
-void
-cgraph_update_edges_for_call_stmt (gimple old_stmt, gimple new_stmt)
+static void
+cgraph_update_edges_for_call_stmt_node (struct cgraph_node *node,
+					gimple old_stmt, gimple new_stmt)
 {
   tree new_call = (is_gimple_call (new_stmt)) ? gimple_call_fn (new_stmt) : 0;
   tree old_call = (is_gimple_call (old_stmt)) ? gimple_call_fn (old_stmt) : 0;
-  struct cgraph_node *node = cgraph_node (cfun->decl);
 
   if (old_call != new_call)
     {
@@ -937,6 +940,34 @@ cgraph_update_edges_for_call_stmt (gimple old_stmt, gimple new_stmt)
       if (e)
 	cgraph_set_call_stmt (e, new_stmt);
     }
+}
+
+/* Update or remove the corresponding cgraph edge if a GIMPLE_CALL
+   OLD_STMT changed into NEW_STMT.  */
+
+void
+cgraph_update_edges_for_call_stmt (gimple old_stmt, gimple new_stmt)
+{
+  struct cgraph_node *orig = cgraph_node (cfun->decl);
+  struct cgraph_node *node;
+
+  cgraph_update_edges_for_call_stmt_node (orig, old_stmt, new_stmt);
+  if (orig->clones)
+    for (node = orig->clones; node != orig;)
+      {
+        cgraph_update_edges_for_call_stmt_node (node, old_stmt, new_stmt);
+	if (node->clones)
+	  node = node->clones;
+	else if (node->next_sibling_clone)
+	  node = node->next_sibling_clone;
+	else
+	  {
+	    while (node != orig && !node->next_sibling_clone)
+	      node = node->clone_of;
+	    if (node != orig)
+	      node = node->next_sibling_clone;
+	  }
+      }
 }
 
 
@@ -1640,7 +1671,8 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
   SET_DECL_RTL (new_decl, NULL);
 
-  new_node = cgraph_clone_node (old_node, 0, 0, 0, false);
+  new_node = cgraph_clone_node (old_node, old_node->count,
+  				CGRAPH_FREQ_BASE, 0, false);
   new_node->decl = new_decl;
   /* Update the properties.
      Make clone visible only within this translation unit.  Make sure

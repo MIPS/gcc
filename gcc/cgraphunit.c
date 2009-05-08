@@ -578,7 +578,8 @@ verify_cgraph_node (struct cgraph_node *node)
     if (e->aux)
       {
 	error ("aux field set for edge %s->%s",
-	       cgraph_node_name (e->caller), cgraph_node_name (e->callee));
+	       identifier_to_locale (cgraph_node_name (e->caller)),
+	       identifier_to_locale (cgraph_node_name (e->callee)));
 	error_found = true;
       }
   if (node->count < 0)
@@ -740,8 +741,8 @@ verify_cgraph_node (struct cgraph_node *node)
 	  if (!e->aux && !e->indirect_call)
 	    {
 	      error ("edge %s->%s has no corresponding call_stmt",
-		     cgraph_node_name (e->caller),
-		     cgraph_node_name (e->callee));
+		     identifier_to_locale (cgraph_node_name (e->caller)),
+		     identifier_to_locale (cgraph_node_name (e->callee)));
 	      debug_gimple_stmt (e->call_stmt);
 	      error_found = true;
 	    }
