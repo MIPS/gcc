@@ -1,3 +1,10 @@
+2009-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* testsuite/gcc.dg/guality/guality.exp: New.
+	* testsuite/gcc.dg/guality/guality.h: New.
+	* testsuite/gcc.dg/guality/guality.c: New.
+	* testsuite/gcc.dg/guality/example.c: New.
+
 2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
 
 	* fortran/simplify.c (gfc_simplify_transfer): Revert previous
