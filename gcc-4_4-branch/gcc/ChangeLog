@@ -1,3 +1,59 @@
+2009-05-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40062
+	* tree-scalar-evolution.c (follow_ssa_edge_in_condition_phi):
+	Avoid exponential behavior.
+
+2009-05-07  Janis Johnson  <janis187@us.ibm.com>
+
+	PR middle-end/39986
+	* dfp.c (encode_decimal32, decode_decimal32, encode_decimal64,
+	decode_decimal64, encode_decimal128, decode_decimal128): Avoid
+	32-bit memcpy into long.
+
+2009-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40057
+	* dojump.c (prefer_and_bit_test): Use immed_double_const instead of
+	GEN_INT for 1 << bitnum.
+	(do_jump) <case BIT_AND_EXPR>: Use build_int_cst_wide_type instead of
+	build_int_cst_type.
+
+2009-05-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/md.texi (Standard Pattern Names For Generation) [sync_nand]:
+	Remove wrong description of "nand" operation.
+
+2009-05-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-05-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*avx_<code><mode>3_finite): Replace
+	ssemodesuffixf2c with avxmodesuffixf2c.
+
+2009-05-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40022
+	* tree-ssa-phiprop.c (phivn_valid_p): Fix tuplification error.
+
+2009-05-04  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.c (m32c_override_options): Disable -fivopts for
+	-mcpu=m32c until ivopts supports sizeof(ptr) != sizeof(size_t).
+	(m32c_legitimize_reload_address): Work around reload bug until
+	reload supports sizeof(ptr) != sizeof(size_t).
+
+2009-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-04-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/39914
+	* ira-conflicts.c (ira_build_conflicts): Prohibit call used
+	registers for allocnos created from user-defined variables only
+	when not optimizing.
+
 2009-04-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* toplev.c (print_version): Update GMP version string calculation.
