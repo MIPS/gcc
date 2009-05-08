@@ -73,7 +73,7 @@ struct data_in
   VEC(ld_plugin_symbol_resolution_t,heap) *globals_resolution;
 };
 
-/* Used in lto/lto.c */
+/* In lto-function-in.c  */
 extern void lto_static_init_local (void);
 extern tree input_tree (struct lto_input_block *, struct data_in *);
 

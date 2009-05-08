@@ -54,44 +54,30 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tree-in.h"
 #include "lto-utils.h"
 
-/* Call-Graph Streamer.
-
- Originally, the call graph streamer did not handle clone nodes created
- during the IPA-inlining.  The clones complicate things because:
-
- 1. We must write also the master clones.
- 2. We must write the master clones before writing the non-master clones
-    because non-master clones points to the master clone so they cannot
-    exist before the master does.
-    
- The streaming algorithms are now changed before of the two constraints.
-
- For streaming out, we first write out all nodes in the call-cgraph node
- set without the edges.  We take care so that master clones are written
- first.  Then we write out all edges, using the UID of nodes as references.
-
- For streaming in, we first read in all nodes and then the edges.  We
- keep a mapping of the ordering numbers to the nodes read.  The mapping
- is used to decode references to ndoes in the stream.
- */
-
-struct lto_cgraph_encoder_def
+/* Encoder data structure used to stream callgraph nodes.  */
+struct lto_cgraph_encoder_d
 {
-  struct pointer_map_t *map;		/* Map nodes to reference number. */
-  VEC(cgraph_node_ptr,heap) *nodes;	/* Map reference number to node. */
-};
-typedef struct lto_cgraph_encoder_def *lto_cgraph_encoder_t;
+  /* Map nodes to reference number. */
+  struct pointer_map_t *map;
 
-/* Create a new encoder.  */
+  /* Map reference number to node. */
+  VEC(cgraph_node_ptr,heap) *nodes;
+};
+
+typedef struct lto_cgraph_encoder_d *lto_cgraph_encoder_t;
+
+
+/* Create a new cgraph encoder.  */
 
 static lto_cgraph_encoder_t
 lto_cgraph_encoder_new (void)
 {
-  lto_cgraph_encoder_t encoder = XNEW (struct lto_cgraph_encoder_def);
+  lto_cgraph_encoder_t encoder = XCNEW (struct lto_cgraph_encoder_d);
   encoder->map = pointer_map_create ();
   encoder->nodes = NULL;
   return encoder;
 }
+
 
 /* Delete ENCODER and its components.  */
 
@@ -102,6 +88,7 @@ lto_cgraph_encoder_delete (lto_cgraph_encoder_t encoder)
    pointer_map_destroy (encoder->map);
    free (encoder);
 }
+
 
 /* Return the existing reference number of NODE in ENCODER or assign one
    if NODE has not been seen.  */
@@ -121,6 +108,7 @@ lto_cgraph_encoder_encode (lto_cgraph_encoder_t encoder,
     }
 }
 
+
 /* Look up NODE in encoder.  Return NODE's reference if it has been encoded
    or LCC_NOT_FOUND if it is not there.  */
 
@@ -133,7 +121,8 @@ lto_cgraph_encoder_lookup (lto_cgraph_encoder_t encoder,
   return (slot ? (intptr_t) *slot : LCC_NOT_FOUND);
 }
 
-/* Return the cgraph node corresponding to REF using ENCODER. */
+
+/* Return the cgraph node corresponding to REF using ENCODER.  */
 
 static struct cgraph_node *
 lto_cgraph_encoder_deref (lto_cgraph_encoder_t encoder, int ref)
@@ -144,6 +133,7 @@ lto_cgraph_encoder_deref (lto_cgraph_encoder_t encoder, int ref)
   return VEC_index (cgraph_node_ptr, encoder->nodes, ref); 
 }
 
+
 /* Return number of encoded nodes in ENCODER.  */
 
 static int
@@ -151,6 +141,7 @@ lto_cgraph_encoder_size (lto_cgraph_encoder_t encoder)
 {
   return VEC_length (cgraph_node_ptr, encoder->nodes);
 }
+
 
 #ifdef LTO_STREAM_DEBUGGING
 const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] = 
@@ -160,8 +151,8 @@ const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] =
 /* Output the cgraph EDGE to OB using ENCODER.  */
 
 static void
-output_edge (struct lto_simple_output_block *ob,
-	     struct cgraph_edge *edge, lto_cgraph_encoder_t encoder)
+output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
+	     lto_cgraph_encoder_t encoder)
 {
   unsigned int uid;
   intptr_t ref;
@@ -203,7 +194,7 @@ output_edge (struct lto_simple_output_block *ob,
 
 /* Output the cgraph NODE to OB.  ENCODER is used to find the
    reference number of NODE->inlined_to.  SET is the set of nodes we
-   are writting to the current file.  If NODE is not in SET, then NODE
+   are writing to the current file.  If NODE is not in SET, then NODE
    is a boundary of a cgraph_node_set and we pretend NODE just has a
    decl and no callees.  WRITTEN_DECLS is the set of FUNCTION_DECLs
    that have had their callgraph node written so far.  This is used to
@@ -217,9 +208,11 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   unsigned int tag;
   unsigned HOST_WIDEST_INT flags = 0;
   unsigned local, externally_visible, inlinable;
-  bool boundary_p = !cgraph_node_in_set_p (node, set);
-  bool wrote_decl_p = bitmap_bit_p (written_decls, DECL_UID (node->decl));
+  bool boundary_p, wrote_decl_p;
   intptr_t ref;
+
+  boundary_p = !cgraph_node_in_set_p (node, set);
+  wrote_decl_p = bitmap_bit_p (written_decls, DECL_UID (node->decl));
 
   switch (cgraph_function_body_availability (node))
     {
@@ -250,14 +243,14 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   externally_visible = node->local.externally_visible;
   inlinable = node->local.inlinable;
 
-  /* In the WPA mode, we only output part of the call-graph.  Also, we
+  /* In WPA mode, we only output part of the call-graph.  Also, we
      fake cgraph node attributes.  There are two cases that we care.
 
      Boundary nodes: There are nodes that are not part of SET but are
      called from within SET.  We artificially make them look like
      externally visible nodes with no function body. 
 
-     Cherry-pikced nodes:  These are nodes we pulled from other
+     Cherry-picked nodes:  These are nodes we pulled from other
      translation units into SET during IPA-inlining.  We make them as
      local static nodes to prevent clashes with other local statics.  */
   if (boundary_p)
@@ -335,28 +328,27 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 #ifdef LTO_STREAM_DEBUGGING
   gcc_assert (lto_debug_context.indent == 0);
 #endif
-
-#ifdef LTO_STREAM_DEBUGGING
-  gcc_assert (lto_debug_context.indent == 0);
-#endif
 }
 
 
-/* Output the part of the cgraph in SET.  This is a little tricky now as we
-   need to handle clones as well.  To simplify things we first write the nodes
-   and then the edges.  This make the streamed data a bit larger.  */
+/* Output the part of the cgraph in SET.  This is a little tricky now
+   as we need to handle clones as well.  To simplify things we first
+   write the nodes and then the edges.  This make the streamed data a
+   bit larger.  */
 
 static void
 output_cgraph (cgraph_node_set set)
 {
   struct cgraph_node *node;
-  struct lto_simple_output_block *ob 
-    = lto_create_simple_output_block (LTO_section_cgraph);
+  struct lto_simple_output_block *ob;
   cgraph_node_set_iterator csi;
   struct cgraph_edge *edge;
-  lto_cgraph_encoder_t encoder = lto_cgraph_encoder_new ();
+  lto_cgraph_encoder_t encoder;
   int i, n_nodes;
   bitmap written_decls;
+
+  ob = lto_create_simple_output_block (LTO_section_cgraph);
+  encoder = lto_cgraph_encoder_new ();
 
   /* The FUNCTION_DECLs for which we have written a node.  The first
      node found is written as the "original" node, the remaining nodes
@@ -385,14 +377,14 @@ output_cgraph (cgraph_node_set set)
 	  struct cgraph_node *callee = edge->callee;
 	  if (!cgraph_node_in_set_p (callee, set))
 	    {
-	      /* We moved all the inlines.  */
+	      /* We should have moved all the inlines.  */
 	      gcc_assert (!callee->global.inlined_to);
 	      lto_cgraph_encoder_encode (encoder, callee);
 	    }
 	}
     }
 
-  /* Write out the nodes */
+  /* Write out the nodes.  */
   n_nodes = lto_cgraph_encoder_size (encoder);
   for (i = 0; i < n_nodes; i++)
     {
@@ -412,7 +404,6 @@ output_cgraph (cgraph_node_set set)
 
   lto_output_uleb128_stream (ob->main_stream, 0);
 
-  /* Create a section to hold the pickled output the cgraph.  */
   lto_destroy_simple_output_block (ob);
   lto_cgraph_encoder_delete (encoder);
 }
@@ -420,7 +411,7 @@ output_cgraph (cgraph_node_set set)
 
 /* Overwrite the information in NODE based on FILE_DATA, TAG, FLAGS,
    STACK_SIZE and SELF_INSNS.  This is called either to initialize
-   NODE or to replace the values in it, for instance becasue the first
+   NODE or to replace the values in it, for instance because the first
    time we saw it, the function body was not available but now it
    is.  */
 
@@ -452,6 +443,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->analyzed = lto_get_flag (&flags);
   node->lowered = lto_get_flag (&flags);
 }
+
 
 /* Read a node from input_block IB.  TAG is the node's tag just read. 
    Return the node read or overwriten.  */
@@ -493,21 +485,26 @@ input_node (struct lto_file_decl_data *file_data,
     {
       LTO_DEBUG_TOKEN ("stack_size");
       stack_size = lto_input_sleb128 (ib);
+
       LTO_DEBUG_TOKEN ("self_insns");
       self_insns = lto_input_sleb128 (ib);
     }
 
   LTO_DEBUG_TOKEN ("estimated_stack_size");
   estimated_stack_size = lto_input_sleb128 (ib);
+
   LTO_DEBUG_TOKEN ("stack_frame_offset");
   stack_frame_offset = lto_input_sleb128 (ib);
+
   LTO_DEBUG_TOKEN ("inlined_to");
   ref = lto_input_sleb128 (ib);
 
   LTO_DEBUG_TOKEN ("insns");
   insns = lto_input_sleb128 (ib);
+
   LTO_DEBUG_TOKEN ("estimated_growth");
   estimated_growth = lto_input_sleb128 (ib);
+
   LTO_DEBUG_TOKEN ("inlined");
   inlined = lto_input_uleb128 (ib);
 
@@ -558,45 +555,41 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
 
   caller_resolution = lto_symtab_get_resolution (caller->decl);
 
-  /* FIXME lto: The following assert would currently fail for  extern inline
-     functions. */
-
-/*   gcc_assert (caller_resolution == LDPR_PREVAILING_DEF */
-/* 	      || caller_resolution == LDPR_PREVAILING_DEF_IRONLY */
-/* 	      || caller_resolution == LDPR_PREEMPTED_REG */
-/* 	      || caller_resolution == LDPR_PREEMPTED_IR); */
-
   LTO_DEBUG_TOKEN ("stmt");
   stmt_id = lto_input_uleb128 (ib);
+
   LTO_DEBUG_TOKEN ("inline_failed");
   inline_failed = (cgraph_inline_failed_t) lto_input_uleb128 (ib);
+
   LTO_DEBUG_TOKEN ("count");
   count = lto_input_uleb128 (ib);
+
   LTO_DEBUG_TOKEN ("frequency");
   freq = lto_input_uleb128 (ib);
+
   LTO_DEBUG_TOKEN ("loop_next");
   nest = lto_input_uleb128 (ib);
+
   LTO_DEBUG_TOKEN ("flags");
   flags = lto_input_uleb128 (ib);
 
-  /* If the caller was preempted, don't create the edge. */
+  /* If the caller was preempted, don't create the edge.  */
   if (caller_resolution == LDPR_PREEMPTED_REG
       || caller_resolution == LDPR_PREEMPTED_IR)
       return;
 
-
   prevailing_callee = lto_symtab_prevailing_decl (callee->decl);
 
-  /* Make sure the caller is the prevailing decl. */
+  /* Make sure the caller is the prevailing decl.  */
   prevailing_caller = lto_symtab_prevailing_decl (caller->decl);
 
-  /* FIXME lto: remove this once extern inline in handled in lgen. */
+  /* FIXME lto: remove this once extern inline is handled in LGEN. */
   if (caller_resolution != LDPR_PREVAILING_DEF
       && caller_resolution != LDPR_PREVAILING_DEF_IRONLY
       && caller_resolution != LDPR_PREEMPTED_REG
       && caller_resolution != LDPR_PREEMPTED_IR)
     {
-      /* If we have a extern inline, make sure it is the prevailing. */
+      /* If we have a extern inline, make sure it is the prevailing.  */
       gcc_assert (prevailing_caller == caller->decl);
     }
 
@@ -604,16 +597,16 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
     {
       struct lto_file_decl_data *file_data;
 
-      /* We cannot replace a clone! */
+      /* We cannot replace a clone!  */
       gcc_assert (callee == cgraph_node (callee->decl));
-
 
       callee = cgraph_node (prevailing_callee);
       gcc_assert (callee);
 
-      /* If LGEN (cc1 or cc1plus) had nothing to do with the node,
-	 it might not have created it. In this case, we just created a new
-	 node in the above call to cgraph_node. Mark the file it came from. */
+      /* If LGEN (cc1 or cc1plus) had nothing to do with the node, it
+	 might not have created it. In this case, we just created a
+	 new node in the above call to cgraph_node. Mark the file it
+	 came from. */
       file_data = lto_symtab_get_file_data (prevailing_callee);
       if (callee->local.lto_file_data)
 	gcc_assert (callee->local.lto_file_data == file_data);
@@ -631,7 +624,8 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   edge->indirect_call = lto_get_flag (&flags);
 }
 
-/* Input a cgraph from IB using the info in FILE_DATA.  */
+
+/* Read a cgraph from IB using the info in FILE_DATA.  */
 
 static void
 input_cgraph_1 (struct lto_file_decl_data *file_data,
@@ -689,6 +683,7 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 
   VEC_free (cgraph_node_ptr, heap, nodes);
 }
+
 
 /* Input and merge the cgraph from each of the .o files passed to
    lto1.  */

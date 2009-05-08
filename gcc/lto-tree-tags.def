@@ -55,8 +55,6 @@
   MAP_EXPR_TAGS(BIT_FIELD_REF, LTO_bit_field_ref0, 2)
   MAP_EXPR_TAGS(CASE_LABEL_EXPR, LTO_case_label_expr0, 4)
   MAP_EXPR_TAGS(COMPLEX_CST, LTO_complex_cst0, 2)
-  MAP_EXPR_TAGS(FIELD_DECL, LTO_field_decl0, 2)
-  MAP_EXPR_TAGS(TYPE_DECL, LTO_type_decl0, 2)
   MAP_EXPR_TAGS(VAR_DECL, LTO_var_decl0, 2)
   MAP_EXPR_TAGS(VECTOR_CST, LTO_vector_cst0, 2)
 #endif
@@ -71,6 +69,7 @@
   MAP_EXPR_TAG(CONST_DECL, LTO_const_decl)
   MAP_EXPR_TAG(CONSTRUCTOR, LTO_constructor)
   MAP_EXPR_TAG(ENUMERAL_TYPE, LTO_enumeral_type)
+  MAP_EXPR_TAG(FIELD_DECL, LTO_field_decl)
   MAP_EXPR_TAG(FIXED_CST, LTO_fixed_cst)
   MAP_EXPR_TAG(FIXED_POINT_TYPE, LTO_fixed_point_type)
   MAP_EXPR_TAG(FUNCTION_DECL, LTO_function_decl)
@@ -98,6 +97,7 @@
   MAP_EXPR_TAG(TREE_BINFO, LTO_tree_binfo)
   MAP_EXPR_TAG(TREE_LIST, LTO_tree_list)
   MAP_EXPR_TAG(TREE_VEC, LTO_tree_vec)
+  MAP_EXPR_TAG(TYPE_DECL, LTO_type_decl)
   MAP_EXPR_TAG(UNION_TYPE, LTO_union_type)
   MAP_EXPR_TAG(VECTOR_TYPE, LTO_vector_type)
   MAP_EXPR_TAG(VOID_TYPE, LTO_void_type)
@@ -238,8 +238,7 @@
   SET_NAME (LTO_eq_expr, "eq_expr")
   SET_NAME (LTO_exact_div_expr, "exact_div_expr")
   SET_NAME (LTO_exc_ptr_expr, "exc_ptr_expr")
-  SET_NAME (LTO_field_decl0, "field_decl0")
-  SET_NAME (LTO_field_decl1, "field_decl1")
+  SET_NAME (LTO_field_decl, "field_decl")
   SET_NAME (LTO_filter_expr, "filter_expr")
   SET_NAME (LTO_fix_trunc_expr, "fix_trunc_expr")
   SET_NAME (LTO_fixed_cst, "fixed_cst")
@@ -306,8 +305,7 @@
   SET_NAME (LTO_truth_not_expr, "truth_not_expr")
   SET_NAME (LTO_truth_or_expr, "truth_or_expr")
   SET_NAME (LTO_truth_xor_expr, "truth_xor_expr")
-  SET_NAME (LTO_type_decl0, "type_decl0")
-  SET_NAME (LTO_type_decl1, "type_decl1")
+  SET_NAME (LTO_type_decl, "type_decl")
   SET_NAME (LTO_namespace_decl, "namespace_decl")
   SET_NAME (LTO_uneq_expr, "uneq_expr")
   SET_NAME (LTO_unge_expr, "unge_expr")
@@ -370,8 +368,7 @@
   /* Special for the global streamer.  */
   SET_NAME (LTO_tree_pickle_reference, "tree_pickle_reference")
   /* ### */
-  SET_NAME (LTO_local_type_ref, "global_type_ref")
-  SET_NAME (LTO_global_type_ref, "global_type_ref")
+  SET_NAME (LTO_type_ref, "type_ref")
 
   /* The globals and types streamer uses the same tags used by
      the local streamer to represent references to represent the

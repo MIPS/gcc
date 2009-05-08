@@ -636,26 +636,6 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
     }
 }
 
-/* Return true if a FIELD_DECL depends on a function context,
-   i.e., makes reference to a function body and should be serialized
-   with the function body, not the file scope.  */
-
-static bool
-field_decl_is_local (tree decl ATTRIBUTE_UNUSED)
-{
-  return false;
-}
-
-/* Return true if a TYPE__DECL depends on a function context,
-   i.e., makes reference to a function body and should be serialized
-   with the function body, not the file scope.  */
-
-static bool
-type_decl_is_local (tree decl ATTRIBUTE_UNUSED)
-{
-  return false;
-}
-
 
 /* Like output_type_ref, but no debug information is written.  */
 
@@ -668,7 +648,7 @@ output_type_ref_1 (struct output_block *ob, tree node)
   if (flag_signed_char == 0 && node == char_type_node)
     node = unsigned_char_type_node;
 
-  output_record_start (ob, NULL, NULL, LTO_global_type_ref);
+  output_record_start (ob, NULL, NULL, LTO_type_ref);
   lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
 
   LTO_DEBUG_UNDENT();
@@ -1107,17 +1087,8 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case FIELD_DECL:
-      if (!field_decl_is_local (expr))
-        {
-          output_record_start (ob, NULL, NULL, LTO_field_decl1);
-          lto_output_field_decl_index (ob->decl_state, ob->main_stream, expr);
-        }
-      else
-        {
-	  /* Local FIELD_DECLs.  */
-	  output_record_start (ob, NULL, NULL, LTO_field_decl0);
-	  output_local_decl_ref (ob, expr, true);
-        }
+      output_record_start (ob, NULL, NULL, LTO_field_decl);
+      lto_output_field_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case FUNCTION_DECL:
@@ -1133,24 +1104,14 @@ output_expr_operand (struct output_block *ob, tree expr)
 	}
       else
 	{
-	  /* Local VAR_DECLs.  */
 	  output_record_start (ob, NULL, NULL, LTO_var_decl0);
 	  output_local_decl_ref (ob, expr, true);
 	}
       break;
 
     case TYPE_DECL:
-      if (!type_decl_is_local (expr))
-        {
-          output_record_start (ob, NULL, NULL, LTO_type_decl1);
-          lto_output_type_decl_index (ob->decl_state, ob->main_stream, expr);
-        }
-      else
-        {
-	  /* Local TYPE_DECLs.  */
-	  output_record_start (ob, NULL, NULL, LTO_type_decl0);
-	  output_local_decl_ref (ob, expr, true);
-        }
+      output_record_start (ob, NULL, NULL, LTO_type_decl);
+      lto_output_type_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case NAMESPACE_DECL:
@@ -2534,7 +2495,7 @@ static void
 output_field_decl (struct output_block *ob, tree decl)
 {
   /* tag and flags */
-  output_global_record_start (ob, NULL, NULL, LTO_field_decl1);
+  output_global_record_start (ob, NULL, NULL, LTO_field_decl);
   output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);
@@ -2822,7 +2783,7 @@ static void
 output_type_decl (struct output_block *ob, tree decl)
 {
   /* tag and flags */
-  output_global_record_start (ob, NULL, NULL, LTO_type_decl1);
+  output_global_record_start (ob, NULL, NULL, LTO_type_decl);
   output_tree_flags (ob, ERROR_MARK, decl, true);
 
   global_vector_debug (ob);

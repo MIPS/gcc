@@ -1,3 +1,29 @@
+2009-05-08  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (field_decl_is_local): Remove.
+	Update all users.
+	(type_decl_is_local): Remove.  Update all users.
+	* lto-function-in.c: Include ipa-utils.h.
+	Re-order static functions to avoid some forward references.
+	Cleanup formatting and comments throughout.
+	Add documentation for every function.
+	(input_expr_operand): Call get_base_var when
+	post-processing ADDR_EXPR nodes.
+	(input_tree_operand): Likewise.
+	* lto-cgraph.c: Cleanup formatting and comments throughout.
+	* lto-tree-in.h (struct): Likewise.
+	* lto-tree-tags.def: Call MAP_EXPR_TAG for FIELD_DECL and
+	TYPE_DECL.
+	* lto-tags.h (enum LTO_tags): Remove LTO_field_decl1.
+	Rename LTO_field_decl0 to LTO_field_decl.
+	Remove LTO_type_decl1.
+	Rename LTO_type_decl0 to LTO_type_decl.
+	Remove LTO_local_type_ref.
+	Rename LTO_global_type_ref to LTO_type_ref.
+	Update all users.
+	* Makefile.in (lto-function-in.o): Add dependency on
+	IPA_UTILS_H.
+
 2009-05-07  Diego Novillo  <dnovillo@google.com>
 
 	* lto-cgraph.c (input_edge): Add type casts for C++ warnings.
