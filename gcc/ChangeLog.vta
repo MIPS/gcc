@@ -2,10 +2,9 @@
 
 	* cfgexpand.c (expand_debug_expr): Use Pmode in CONST_STRINGs.
 	* var-tracking.c (struct variable_tracking_info_def): Added
-	perm and flooded fields.
+	permp and flooded fields.
 	(dv_is_decl_p): Update comments.
 	(variable_htab_eq): Use #if ENABLE_CHECKING.
-	(unshare_variable): Initialize new_var's loc_chain.
 	(var_reg_decl_set): Update comments.  Add iopt parameter.
 	(var_reg_set): Pass it INSERT as iopt.
 	(var_mem_decl_set): Update comments.  Add iopt parameter.
@@ -32,7 +31,7 @@
 	Simplified to perform only union of multi-part variables.
 	(dataflow_set_merge): Use new entry points.
 	(dataflow_set_equiv_regs, remove_duplicate_values): New.
-	(struct dfset_post_merge): Drop old.  Add perm.
+	(struct dfset_post_merge): Drop old.  Add permp.
 	(variable_post_merge_new_vals): New.
 	(variable_post_merge): Removed.
 	(struct dataflow_set_unavailable): Removed.
@@ -44,7 +43,7 @@
 	(dataflow_set_remove_mem_locs): Mark as changed when cur_loc is
 	removed.
 	(onepart_variable_different_p): New.
-	(variable_different_p): Use it.  Cope with NULL cur_loc.
+	(variable_different_p): Use it.
 	(replace_expr_with_values): Use Pmode for addresses.
 	(compute_bb_dataflow): Pass INSERT as iopt.  Canonicalize register,
 	value equivalence sets, and canonical order.
@@ -59,12 +58,12 @@
 	(clobber_variable_part): ... this.
 	(delete_slot_part): New, factored out of...
 	(delete_variable_part): ... this.
-	(emit_note_insn_var_location): Tolerate empty location list.
-	Remove variable only if refcount is zero.
+	(emit_note_insn_var_location): Remove variable only if
+	refcount is zero.
 	(emit_notes_in_bb): Pass INSERT for iopt.  Remove obsolete code.
 	(vt_add_function_parameters): Pass INSERT for iopt.
-	(vt_initialize): Initialize perm and flooded.
-	(vt_finalize): Release perm.
+	(vt_initialize): Initialize permp and flooded.
+	(vt_finalize): Release permp.
 
 2009-05-08  Alexandre Oliva  <aoliva@redhat.com>
 
