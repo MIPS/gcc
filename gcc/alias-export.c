@@ -103,29 +103,29 @@ static struct ddg_info_def *ddg_info;
 static unsigned int ddg_export_disambiguations = 0;
 
 
-/* Return the pointer on which REF access is based, or NULL, 
-   if there's no such thing.  */
+/* Replace *PBASE with its stack representative in EXPR, if any.  
+   Return EXPR back.  */
 static tree
-get_pointer_from_ref (tree ref)
+maybe_replace_with_partition (tree expr, tree *pbase)
 {
-  HOST_WIDE_INT of, sz, maxsz;
-  tree base;
+  tree *pdecl;
   
-  if (SSA_VAR_P (ref)
-      || handled_component_p (ref)
-      || INDIRECT_REF_P (ref))
-    {
-      base = get_ref_base_and_extent (ref, &of, &sz, &maxsz);
-      if (INDIRECT_REF_P (base))
-        return TREE_OPERAND (base, 0);
-    }
-  return NULL;
+  if (!decls_to_stack)
+    return expr;
+  pdecl = (tree *) pointer_map_contains (decls_to_stack, *pbase);
+  if (!pdecl
+      || *pdecl == *pbase)
+    return expr;
+  if (*pbase == expr)
+    return *pdecl;
+  *pbase = *pdecl;
+  return expr;
 }
 
 /* Change points-to set for POINTER in PID so that it would
    have all conflicting stack vars.  */
 static void
-mark_conflict_stack_vars (tree pointer ATTRIBUTE_UNUSED, struct ptr_info_def *pid)
+mark_conflict_stack_vars (tree pointer, struct ptr_info_def *pid)
 {
   bitmap_iterator bi;
   unsigned i;
@@ -161,34 +161,50 @@ mark_conflict_stack_vars (tree pointer ATTRIBUTE_UNUSED, struct ptr_info_def *pi
 
 /* Record the final points-to set and returns orig expr.  */
 tree
-unshare_and_record_pta_info (tree orig_expr)
+unshare_and_record_pta_info (tree expr)
 {
-  struct ptr_info_def **ppid, *pid;
-  tree pointer, old_expr;
+  tree base, old_expr, *pbase;
 
-  /* No point saving anything for calls.  */
-  if (TREE_CODE (orig_expr) == CALL_EXPR)
-    return NULL;
+  /* No point saving anything for unhandled stuff.  */
+  if (! (SSA_VAR_P (expr)
+         || handled_component_p (expr)
+         || INDIRECT_REF_P (expr)))
+    return NULL_TREE;
 
-  old_expr = orig_expr;
-  orig_expr = unshare_expr (orig_expr);
+  /* Unshare the tree and do replacement in ddg info.  */
+  old_expr = expr;
+  expr = unshare_expr (expr);
   if (flag_ddg_export)
-    replace_var_in_datarefs (old_expr, orig_expr);
+    replace_var_in_datarefs (old_expr, expr);
   
-  pointer = get_pointer_from_ref (orig_expr);
-  if (! pointer
-      || TREE_CODE (pointer) != SSA_NAME
-      || (pid = SSA_NAME_PTR_INFO (pointer)) == NULL)
-    return orig_expr;
+  base = expr, pbase = &expr;
+  while (handled_component_p (base))
+    {
+      pbase = &TREE_OPERAND (base, 0);
+      base = TREE_OPERAND (base, 0);
+    }
+  if (DECL_P (base)
+      || TREE_CODE (base) == SSA_NAME)
+    expr = maybe_replace_with_partition (expr, pbase);
+  else if (INDIRECT_REF_P (base))
+    {
+      struct ptr_info_def **ppid, *pid;
+
+      base = TREE_OPERAND (base, 0);
+      if (TREE_CODE (base) == SSA_NAME
+          && (pid = SSA_NAME_PTR_INFO (base)) != NULL)
+        {
+          if (!exprs_to_ptas)
+            exprs_to_ptas = pointer_map_create ();
+          ppid = (struct ptr_info_def **) pointer_map_insert (exprs_to_ptas,
+                                                              expr);
+          *ppid = pid; 
+          
+          mark_conflict_stack_vars (base, pid);
+        }
+    }
   
-  mark_conflict_stack_vars (pointer, pid);
-
-  if (!exprs_to_ptas)
-    exprs_to_ptas = pointer_map_create ();
-  ppid = (struct ptr_info_def **) pointer_map_insert (exprs_to_ptas, orig_expr);
-  *ppid = pid; 
-
-  return orig_expr;
+  return expr;
 }
 
 /* Record the DECL mapping to its PART_DECL representative.  */
@@ -600,6 +616,9 @@ walk_mems (rtx *x, void *data ATTRIBUTE_UNUSED)
 void
 remove_exported_ddg_data (rtx insn)
 {
+  if (!ddg_info)
+    return;
+
   for_each_rtx (&PATTERN (insn), walk_mems, NULL);
 }
 

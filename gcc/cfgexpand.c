@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "value-prof.h"
 #include "target.h"
+#include "alias-export.h"
 #include "ssaexpand.h"
 
 
@@ -774,16 +775,20 @@ static void
 union_stack_vars (size_t a, size_t b, HOST_WIDE_INT offset)
 {
   size_t i, last;
+  bool adressable;
 
   /* Update each element of partition B with the given offset,
      and merge them into partition A.  */
+  adressable = false;
   for (last = i = b; i != EOC; last = i, i = stack_vars[i].next)
     {
       stack_vars[i].offset += offset;
       stack_vars[i].representative = a;
+      adressable |= TREE_ADDRESSABLE (stack_vars[i].decl);
     }
   stack_vars[last].next = stack_vars[a].next;
   stack_vars[a].next = b;
+  TREE_ADDRESSABLE (stack_vars[a].decl) |= adressable;
 
   /* Update the required alignment of partition A to account for B.  */
   if (stack_vars[a].alignb < stack_vars[b].alignb)
@@ -911,6 +916,21 @@ dump_stack_var_partition (void)
 	}
     }
 }
+
+/* Save the generated partitions for alias.c, so we can say whether two 
+   vars actually occupy different stack locations.  */
+
+static void
+record_stack_var_partitions (void)
+{
+  size_t i;
+  
+  /* Save all stack_vars partition info in the annotations.  */
+  for (i = 0; i < stack_vars_num; i++)
+    record_stack_var_partition_for (stack_vars[i].decl, 
+                                    stack_vars[stack_vars[i].representative].decl);
+}
+
 
 /* Assign rtl to DECL at frame offset OFFSET.  */
 
@@ -1651,6 +1671,9 @@ expand_used_vars (void)
 
       expand_stack_vars (NULL);
 
+      if (flag_alias_export)
+        record_stack_var_partitions ();
+
       fini_vars_expansion ();
     }
 
@@ -1724,6 +1747,52 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 }
 
 
+/* A subroutine of expand_gimple_cond.  Given E, a fallthrough edge
+   of a basic block where we just expanded the conditional at the end,
+   possibly clean up the CFG and instruction sequence.  */
+
+static void
+maybe_cleanup_end_of_block (edge e)
+{
+  /* Special case: when jumpif decides that the condition is
+     trivial it emits an unconditional jump (and the necessary
+     barrier).  But we still have two edges, the fallthru one is
+     wrong.  purge_dead_edges would clean this up later.  Unfortunately
+     we have to insert insns (and split edges) before
+     find_many_sub_basic_blocks and hence before purge_dead_edges.
+     But splitting edges might create new blocks which depend on the
+     fact that if there are two edges there's no barrier.  So the
+     barrier would get lost and verify_flow_info would ICE.  Instead
+     of auditing all edge splitters to care for the barrier (which
+     normally isn't there in a cleaned CFG), fix it here.  */
+  if (BARRIER_P (get_last_insn ()))
+    {
+      basic_block bb = e->src;
+      rtx insn;
+      remove_edge (e);
+      /* Now, we have a single successor block, if we have insns to
+	 insert on the remaining edge we potentially will insert
+	 it at the end of this block (if the dest block isn't feasible)
+	 in order to avoid splitting the edge.  This insertion will take
+	 place in front of the last jump.  But we might have emitted
+	 multiple jumps (conditional and one unconditional) to the
+	 same destination.  Inserting in front of the last one then
+	 is a problem.  See PR 40021.  We fix this by deleting all
+	 jumps except the last unconditional one.  */
+      insn = PREV_INSN (get_last_insn ());
+      /* Make sure we have an unconditional jump.  Otherwise we're
+	 confused.  */
+      gcc_assert (JUMP_P (insn) && !any_condjump_p (insn));
+      for (insn = PREV_INSN (insn); insn != BB_HEAD (bb);)
+	{
+	  insn = PREV_INSN (insn);
+	  if (JUMP_P (NEXT_INSN (insn)))
+	    delete_insn (NEXT_INSN (insn));
+	}
+    }
+}
+
+
 /* A subroutine of expand_gimple_basic_block.  Expand one GIMPLE_COND.
    Returns a new basic block if we've terminated the current basic
    block and created a new one.  */
@@ -1767,19 +1836,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       true_edge->goto_block = NULL;
       false_edge->flags |= EDGE_FALLTHRU;
       ggc_free (pred);
-      /* Special case: when jumpif decides that the condition is
-         trivial it emits an unconditional jump (and the necessary
-	 barrier).  But we still have two edges, the fallthru one is
-	 wrong.  purge_dead_edges would clean this up later.  Unfortunately
-	 we have to insert insns (and split edges) before
-	 find_many_sub_basic_blocks and hence before purge_dead_edges.
-	 But splitting edges might create new blocks which depend on the
-	 fact that if there are two edges there's no barrier.  So the
-	 barrier would get lost and verify_flow_info would ICE.  Instead
-	 of auditing all edge splitters to care for the barrier (which
-	 normally isn't there in a cleaned CFG), fix it here.  */
-      if (BARRIER_P (get_last_insn ()))
-	remove_edge (false_edge);
+      maybe_cleanup_end_of_block (false_edge);
       return NULL;
     }
   if (true_edge->dest == bb->next_bb)
@@ -1796,8 +1853,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       false_edge->goto_block = NULL;
       true_edge->flags |= EDGE_FALLTHRU;
       ggc_free (pred);
-      if (BARRIER_P (get_last_insn ()))
-	remove_edge (true_edge);
+      maybe_cleanup_end_of_block (true_edge);
       return NULL;
     }
 
@@ -2288,8 +2344,9 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
 	  t = get_base_address (t);
-	  if (t && DECL_P (t))
-	    TREE_ADDRESSABLE (t) = 1;
+	  if (t && DECL_P (t)
+              && DECL_MODE (t) != BLKmode)
+            TREE_ADDRESSABLE (t) = 1;
 	}
 
       *walk_subtrees = 0;

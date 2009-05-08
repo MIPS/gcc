@@ -1,3 +1,94 @@
+2009-05-07  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39037
+	* gcc.dg/Wunsuffixed-float-constants-1.c: New test.
+	* gcc.dg/cpp/pragma-float-const-decimal64-1.c: New test.
+	* gcc.dg/dfp/float-constant-double.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-1.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-2.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-3.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-4.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-5.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-6.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-7.c: New test.
+	* gcc.dg/dfp/pragma-float-const-decimal64-8.c: New test.
+	* g++.dg/cpp/pragma-float-const-decimal64-1.C: New test.
+
+2009-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40057
+	* gcc.c-torture/execute/pr40057.c: New test.
+
+2009-05-06  James E. Wilson  <wilson@codesourcery.com>
+
+	* gcc.c-torture/compile/const-high-part.c: New test.
+
+2009-05-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/40050
+	* lib/plugin-support.exp (plugin-test-execute): Use HOSTCC to
+	build plugin.
+
+2009-05-06  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39630
+	* gfortran.dg/proc_decl_1.f90: Modified.
+	* gfortran.dg/proc_ptr_comp_1.f90: New.
+	* gfortran.dg/proc_ptr_comp_2.f90: New.
+	* gfortran.dg/proc_ptr_comp_3.f90: New.
+	* gfortran.dg/proc_ptr_comp_4.f90: New.
+	* gfortran.dg/proc_ptr_comp_5.f90: New.
+	* gfortran.dg/proc_ptr_comp_6.f90: New.
+
+2009-05-06  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/17395
+	* g++.dg/template/call7.C: New test.
+
+2009-05-06  Diego Novillo  <dnovillo@google.com>
+
+	* lib/plugin-support.exp: Do not prefix $GMPINC with -I.
+
+2009-05-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gfortran.dg/pr40021.f: Moved to ...
+	* gfortran.fortran-torture/execute/pr40021.f: Here.
+
+2009-05-06  Janis Johnson  <janis187@us.ibm.com>
+
+	PR middle-end/39986
+	* gcc.dg/dfp/pr39986.c: New test.
+
+2009-05-06  Michael Matz  <matz@suse.de>
+
+	PR middle-end/40021
+	* gfortran.dg/pr40021.f: New test.
+
+2009-05-06  Le-Chun Wu  <lcwu@google.com>
+
+	* lib/plugin-support.exp: New file containing support procs for
+	plugin testcases.
+	* lib/target-supports.exp (check_plugin_available): New proc.
+	* gcc.dg/plugin/plugin.exp: New driver script for gcc testcases.
+	* gcc.dg/plugin/selfassign.c: New plugin source file.
+	* gcc.dg/plugin/self-assign-test-1.c: New test.
+	* gcc.dg/plugin/self-assign-test-2.c: Likewise.
+	* g++.dg/README: Add description for plugin test.
+	* g++.dg/dg.exp: Exclude plugin tests from the general test list.
+	* g++.dg/plugin/plugin.exp: New driver script for g++ testcases.
+	* g++.dg/plugin/selfassign.c: New plugin source file.
+	* g++.dg/plugin/self-assign-test-1.C: New test.
+	* g++.dg/plugin/self-assign-test-2.C: Likewise.
+	* g++.dg/plugin/self-assign-test-3.C: Likewise.
+	* g++.dg/plugin/dumb_plugin.c: New plugin source file.
+	* g++.dg/plugin/dumb-plugin-test-1.C: New test.
+
+2009-05-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/40041
+	* gfortran.dg/intrinsic_2.f90: New test.
+	* gfortran.dg/intrinsic.f90: Add old and this PR as comment.
+
 2009-05-06  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/40032
@@ -47,13 +138,11 @@
 
 2009-05-04  Joseph Myers  <joseph@codesourcery.com>
 
-	* gcc.dg/ucnid-11.c, gcc.dg/ucnid-12.c, gcc.dg/ucnid-13.c: New
-	tests.
+	* gcc.dg/ucnid-11.c, gcc.dg/ucnid-12.c, gcc.dg/ucnid-13.c: New tests.
 
 2009-05-04  Joseph Myers  <joseph@codesourcery.com>
 
-	* gcc.dg/ucnid-8.c, gcc.dg/ucnid-9.c, gcc.dg/ucnid-10.c: New
-	tests.
+	* gcc.dg/ucnid-8.c, gcc.dg/ucnid-9.c, gcc.dg/ucnid-10.c: New tests.
 	* gcc.dg/declspec-9.c, gcc.dg/declspec-10.c, gcc.dg/declspec-11.c:
 	Update expected errors.
 
