@@ -2076,7 +2076,7 @@ expand_debug_expr (tree exp)
     case STRING_CST:
       if (!lookup_constant_def (exp))
 	{
-	  op0 = gen_rtx_CONST_STRING (mode, TREE_STRING_POINTER (exp));
+	  op0 = gen_rtx_CONST_STRING (Pmode, TREE_STRING_POINTER (exp));
 	  op0 = gen_rtx_VAR_LOCATION (Pmode, exp, op0, 0);
 	  op0 = gen_rtx_MEM (mode, op0);
 	  debug_string_constants_p = true;

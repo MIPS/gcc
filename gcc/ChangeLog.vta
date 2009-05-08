@@ -1,5 +1,73 @@
 2009-05-08  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgexpand.c (expand_debug_expr): Use Pmode in CONST_STRINGs.
+	* var-tracking.c (struct variable_tracking_info_def): Added
+	perm and flooded fields.
+	(dv_is_decl_p): Update comments.
+	(variable_htab_eq): Use #if ENABLE_CHECKING.
+	(unshare_variable): Initialize new_var's loc_chain.
+	(var_reg_decl_set): Update comments.  Add iopt parameter.
+	(var_reg_set): Pass it INSERT as iopt.
+	(var_mem_decl_set): Update comments.  Add iopt parameter.
+	(var_mem_set): Pass it INSERT as iopt.
+	(val_store): Pass INSERT as iopt.
+	(val_reset): New.  Pass NO_INSERT as iopt.  Split out of...
+	(val_resolve): ... this.  Avoid dump crash when not given insn.
+	Pass INSERT as iopt.
+	(variable_union): Take advantage of canonical order in 1-part
+	variables.  Use XDELETEVEC.
+	(insert_into_intersection): Update comments.  Rename parameter.
+	Maintain canonical order.
+	(intersect_loc_chains): Take value and location chain rather than
+	DVAR.  Don't insert self.
+	(merge_with_missing_1pdv_as_union): Remove.
+	(tie_break_pointers, canon_value_cmp): New.
+	(loc_cmp, canonicalize_loc_order_check): New.
+	(canonicalize_values_mark, canonicalize_values_star): New.
+	(variable_merge_over_cur): Renamed from variable_merge, combined
+	with variable_merge3.  Reimplemented to perform union of
+	multi-part variables and intersection and progressive
+	canonicalization of 1-part ones.
+	(variable_merge_over_src): Renamed from variable_merge2.
+	Simplified to perform only union of multi-part variables.
+	(dataflow_set_merge): Use new entry points.
+	(dataflow_set_equiv_regs, remove_duplicate_values): New.
+	(struct dfset_post_merge): Drop old.  Add perm.
+	(variable_post_merge_new_vals): New.
+	(variable_post_merge): Removed.
+	(struct dataflow_set_unavailable): Removed.
+	(remove_unavailable_values): Removed.
+	(dataflow_set_remove_unavailable): Removed.
+	(variable_post_merge_perm_vals): New.
+	(dataflow_post_merge_adjust): Create new values, merge permanent
+	values, then canonicalize equivalence sets.
+	(dataflow_set_remove_mem_locs): Mark as changed when cur_loc is
+	removed.
+	(onepart_variable_different_p): New.
+	(variable_different_p): Use it.  Cope with NULL cur_loc.
+	(replace_expr_with_values): Use Pmode for addresses.
+	(compute_bb_dataflow): Pass INSERT as iopt.  Canonicalize register,
+	value equivalence sets, and canonical order.
+	(vt_find_locations): Rework convergence function used for 1-part
+	variables.  Control more verbose dump output with
+	-fverbose-cselib.
+	(variable_was_changed): Mark newly-created empty variable with
+	zero refcount.
+	(set_slot_part): Insert in canonical order on 1-part vars.
+	(set_variable_part): Add iopt parameter.  Update comments.
+	(clobber_slot_part): New, factored out of...
+	(clobber_variable_part): ... this.
+	(delete_slot_part): New, factored out of...
+	(delete_variable_part): ... this.
+	(emit_note_insn_var_location): Tolerate empty location list.
+	Remove variable only if refcount is zero.
+	(emit_notes_in_bb): Pass INSERT for iopt.  Remove obsolete code.
+	(vt_add_function_parameters): Pass INSERT for iopt.
+	(vt_initialize): Initialize perm and flooded.
+	(vt_finalize): Release perm.
+
+2009-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
 	* testsuite/gcc.dg/guality/guality.exp: New.
 	* testsuite/gcc.dg/guality/guality.h: New.
 	* testsuite/gcc.dg/guality/guality.c: New.
