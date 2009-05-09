@@ -1,3 +1,14 @@
+2009-05-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Make sure
+	DF/DI arguments are copied to registers.
+	(rs6000_legitimize_reload_address): Don't allow AND -16 for VSX
+	memory references, since we can't be sure we will get an Altivec
+	register in all cases.
+	(rs6000_legitimize_reload_address): Ditto.
+	(rs6000_legitimate_address): Ditto.
+	(print_operand): Ditto.
+
 2009-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Sync up to mainline version 147246.

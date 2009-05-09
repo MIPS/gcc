@@ -3865,7 +3865,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     {
       if (all_same)
 	{
-	  rtx element = XVECEXP (vals, 0, 0);
+	  rtx element = copy_to_reg (XVECEXP (vals, 0, 0));
 	  if (mode == V2DFmode)
 	    emit_insn (gen_vsx_splat_v2df (target, element));
 	  else
@@ -3873,8 +3873,8 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	}
       else
 	{
-	  rtx op0 = XVECEXP (vals, 0, 0);
-	  rtx op1 = XVECEXP (vals, 0, 1);
+	  rtx op0 = copy_to_reg (XVECEXP (vals, 0, 0));
+	  rtx op1 = copy_to_reg (XVECEXP (vals, 0, 1));
 	  if (mode == V2DFmode)
 	    emit_insn (gen_vsx_concat_v2df (target, op0, op1));
 	  else
@@ -5122,8 +5122,11 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 
   /* Reload an offset address wrapped by an AND that represents the
      masking of the lower bits.  Strip the outer AND and let reload
-     convert the offset address into an indirect address.  */
-  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
+     convert the offset address into an indirect address.  For VSX,
+     force reload to create the address with an AND in a separate
+     register, because we can't guarantee an altivec register will
+     be used.  */
+  else if (VECTOR_MEM_ALTIVEC_P (mode)
 	   && GET_CODE (x) == AND
 	   && GET_CODE (XEXP (x, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
@@ -5201,7 +5204,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
 
   /* If this is an unaligned stvx/ldvx type address, discard the outer AND.  */
   if ((TARGET_ALTIVEC || TARGET_VSX)
-      && VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
+      && VECTOR_MEM_ALTIVEC_P (mode)
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && INTVAL (XEXP (x, 1)) == -16)
@@ -14283,7 +14286,7 @@ print_operand (FILE *file, rtx x, int code)
 
 	    /* Fall through.  Must be [reg+reg].  */
 	  }
-	if (VECTOR_MEM_ALTIVEC_OR_VSX_P (GET_MODE (x))
+	if (VECTOR_MEM_ALTIVEC_P (GET_MODE (x))
 	    && GET_CODE (tmp) == AND
 	    && GET_CODE (XEXP (tmp, 1)) == CONST_INT
 	    && INTVAL (XEXP (tmp, 1)) == -16)
