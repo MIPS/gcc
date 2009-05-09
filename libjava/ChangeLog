@@ -1,3 +1,33 @@
+2009-03-11  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_RegisterClassHookDefault): Clear
+	INTERPRETED access modifier.
+
+2009-03-11  Tom Tromey  <tromey@redhat.com>
+
+	* link.cc (_Jv_Linker::find_field): Pass the field_type to
+	_Jv_CheckOrCreateLoadingConstraint, not the class that is
+	requesting the field.
+
+2009-03-03  Andrew John Hughes  <ahughes@redhat.com>
+
+	* Makefile.am:
+	Remove dangling src.zip and javac symlinks.
+	Fix java.security symlink to use toolexeclibdir
+	as classpath/resource/Makefile.am does.
+	* Makefile.in,
+	* configure: Regenerated.
+	* configure.ac: Drop hard-coded prefix,
+	thus removing sdk_dir and making jre_dir="jre".
+	Map x86_64 to amd64 as used by OpenJDK.
+	* gcj/Makefile.in,
+	* include/Makefile.in,
+	* testsuite/Makefile.in: Regenerated.
+	
+2009-03-01  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure: Regenerate.
+
 2009-02-13  Andrew John Hughes  <ahughes@redhat.com>
 
 	Import GNU Classpath (classpath-0_98-release).

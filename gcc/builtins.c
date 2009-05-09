@@ -469,16 +469,13 @@ c_strlen (tree src, int only_value)
   else
     offset = tree_low_cst (offset_node, 0);
 
-  /* If the offset is known to be out of bounds, warn, and call strlen at
-     runtime.  */
+  /* If the offset is known to be out of bounds, the front-end should
+     have warned already. We call strlen at runtime.  
+
+     ??? Perhaps we should turn this into an assert and force
+     front-ends to define offsets whtin boundaries.  */
   if (offset < 0 || offset > max)
     {
-     /* Suppress multiple warnings for propagated constant strings.  */
-      if (! TREE_NO_WARNING (src))
-        {
-          warning (0, "offset outside bounds of constant string");
-          TREE_NO_WARNING (src) = 1;
-        }
       return NULL_TREE;
     }
 
@@ -11965,8 +11962,9 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 
       if (! integer_all_onesp (size) && tree_int_cst_lt (size, len))
 	{
-	  warning (0, "%Kcall to %D will always overflow destination buffer",
-		   exp, get_callee_fndecl (exp));
+	  warning_at (tree_nonartificial_location (exp),
+		      0, "%Kcall to %D will always overflow destination buffer",
+		      exp, get_callee_fndecl (exp));
 	  return NULL_RTX;
 	}
 
@@ -12073,6 +12071,7 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
 {
   int is_strlen = 0;
   tree len, size;
+  location_t loc = tree_nonartificial_location (exp);
 
   switch (fcode)
     {
@@ -12119,8 +12118,8 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
       src = c_strlen (src, 1);
       if (! src || ! host_integerp (src, 1))
 	{
-	  warning (0, "%Kcall to %D might overflow destination buffer",
-		   exp, get_callee_fndecl (exp));
+	  warning_at (loc, 0, "%Kcall to %D might overflow destination buffer",
+		      exp, get_callee_fndecl (exp));
 	  return;
 	}
       else if (tree_int_cst_lt (src, size))
@@ -12129,8 +12128,8 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
   else if (! host_integerp (len, 1) || ! tree_int_cst_lt (size, len))
     return;
 
-  warning (0, "%Kcall to %D will always overflow destination buffer",
-	   exp, get_callee_fndecl (exp));
+  warning_at (loc, 0, "%Kcall to %D will always overflow destination buffer",
+	      exp, get_callee_fndecl (exp));
 }
 
 /* Emit warning if a buffer overflow is detected at compile time
@@ -12187,10 +12186,9 @@ maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
     return;
 
   if (! tree_int_cst_lt (len, size))
-    {
-      warning (0, "%Kcall to %D will always overflow destination buffer",
-	       exp, get_callee_fndecl (exp));
-    }
+    warning_at (tree_nonartificial_location (exp),
+		0, "%Kcall to %D will always overflow destination buffer",
+		exp, get_callee_fndecl (exp));
 }
 
 /* Emit warning if a free is called with address of a variable.  */
@@ -12209,9 +12207,11 @@ maybe_emit_free_warning (tree exp)
     return;
 
   if (SSA_VAR_P (arg))
-    warning (0, "%Kattempt to free a non-heap object %qD", exp, arg);
+    warning_at (tree_nonartificial_location (exp),
+		0, "%Kattempt to free a non-heap object %qD", exp, arg);
   else
-    warning (0, "%Kattempt to free a non-heap object", exp);
+    warning_at (tree_nonartificial_location (exp),
+		0, "%Kattempt to free a non-heap object", exp);
 }
 
 /* Fold a call to __builtin_object_size with arguments PTR and OST,

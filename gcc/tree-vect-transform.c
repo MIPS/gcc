@@ -1099,7 +1099,10 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   if (!MTAG_P (tag))
     new_type_alias (vect_ptr, tag, DR_REF (dr));
   else
-    set_symbol_mem_tag (vect_ptr, tag);
+    {
+      set_symbol_mem_tag (vect_ptr, tag);
+      mark_sym_for_renaming (tag);
+    }
 
   /** Note: If the dataref is in an inner-loop nested in LOOP, and we are
       vectorizing LOOP (i.e. outer-loop vectorization), we need to create two
@@ -3449,6 +3452,10 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt)
     }
 
   VEC_free (tree, heap, vargs);
+
+  /* Update the exception handling table with the vector stmt if necessary.  */
+  if (maybe_clean_or_replace_eh_stmt (stmt, *vec_stmt))
+    gimple_purge_dead_eh_edges (gimple_bb (stmt));
 
   /* The call in STMT might prevent it from being removed in dce.
      We however cannot remove it here, due to the way the ssa name
@@ -8103,8 +8110,8 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
 				    min_profitable_iters);
 
   cond_expr =
-    build2 (GT_EXPR, boolean_type_node, scalar_loop_iters, 
-	    build_int_cst (TREE_TYPE (scalar_loop_iters), th));
+    fold_build2 (GT_EXPR, boolean_type_node, scalar_loop_iters, 
+		 build_int_cst (TREE_TYPE (scalar_loop_iters), th));
 
   cond_expr = force_gimple_operand (cond_expr, &cond_expr_stmt_list,
 				    false, NULL_TREE);

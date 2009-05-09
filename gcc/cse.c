@@ -3464,6 +3464,7 @@ fold_rtx (rtx x, rtx insn)
 	      int is_shift
 		= (code == ASHIFT || code == ASHIFTRT || code == LSHIFTRT);
 	      rtx y, inner_const, new_const;
+	      rtx canon_const_arg1 = const_arg1;
 	      enum rtx_code associate_code;
 
 	      if (is_shift
@@ -3471,8 +3472,9 @@ fold_rtx (rtx x, rtx insn)
 		      || INTVAL (const_arg1) < 0))
 		{
 		  if (SHIFT_COUNT_TRUNCATED)
-		    const_arg1 = GEN_INT (INTVAL (const_arg1)
-					  & (GET_MODE_BITSIZE (mode) - 1));
+		    canon_const_arg1 = GEN_INT (INTVAL (const_arg1)
+						& (GET_MODE_BITSIZE (mode)
+						   - 1));
 		  else
 		    break;
 		}
@@ -3531,7 +3533,8 @@ fold_rtx (rtx x, rtx insn)
 	      associate_code = (is_shift || code == MINUS ? PLUS : code);
 
 	      new_const = simplify_binary_operation (associate_code, mode,
-						     const_arg1, inner_const);
+						     canon_const_arg1,
+						     inner_const);
 
 	      if (new_const == 0)
 		break;
@@ -4485,7 +4488,8 @@ cse_insn (rtx insn)
 	  enum machine_mode wider_mode;
 
 	  for (wider_mode = GET_MODE_WIDER_MODE (mode);
-	       GET_MODE_BITSIZE (wider_mode) <= BITS_PER_WORD
+	       wider_mode != VOIDmode
+	       && GET_MODE_BITSIZE (wider_mode) <= BITS_PER_WORD
 	       && src_related == 0;
 	       wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	    {

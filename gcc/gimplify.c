@@ -2355,11 +2355,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   else if (parms)
     p = parms;
   else
-    {
-      if (nargs != 0)
-	CALL_CANNOT_INLINE_P (*expr_p) = 1;
-      p = NULL_TREE;
-    }
+    p = NULL_TREE;
   for (i = 0; i < nargs && p; i++, p = TREE_CHAIN (p))
     ;
 
@@ -6047,11 +6043,26 @@ goa_stabilize_expr (tree *expr_p, gimple_seq *pre_p, tree lhs_addr,
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_binary:
+    case tcc_comparison:
       saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 1), pre_p, lhs_addr,
 				     lhs_var);
     case tcc_unary:
       saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 0), pre_p, lhs_addr,
 				     lhs_var);
+      break;
+    case tcc_expression:
+      switch (TREE_CODE (expr))
+	{
+	case TRUTH_ANDIF_EXPR:
+	case TRUTH_ORIF_EXPR:
+	  saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 1), pre_p,
+					 lhs_addr, lhs_var);
+	  saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 0), pre_p,
+					 lhs_addr, lhs_var);
+	  break;
+	default:
+	  break;
+	}
       break;
     default:
       break;
@@ -7126,6 +7137,8 @@ gimplify_type_sizes (tree type, gimple_seq *list_p)
 	if (TREE_CODE (field) == FIELD_DECL)
 	  {
 	    gimplify_one_sizepos (&DECL_FIELD_OFFSET (field), list_p);
+	    gimplify_one_sizepos (&DECL_SIZE (field), list_p);
+	    gimplify_one_sizepos (&DECL_SIZE_UNIT (field), list_p);
 	    gimplify_type_sizes (TREE_TYPE (field), list_p);
 	  }
       break;

@@ -1,6 +1,6 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software
-   Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -219,14 +219,11 @@ struct ivopts_data
   /* The currently optimized loop.  */
   struct loop *current_loop;
 
-  /* Are we optimizing for speed?  */
-  bool speed;
+  /* Numbers of iterations for all exits of the current loop.  */
+  struct pointer_map_t *niters;
 
   /* Number of registers used in it.  */
   unsigned regs_used;
-
-  /* Numbers of iterations for all exits of the current loop.  */
-  struct pointer_map_t *niters;
 
   /* The size of version_info array allocated.  */
   unsigned version_info_size;
@@ -237,9 +234,6 @@ struct ivopts_data
   /* The bitmap of indices in version_info whose value was changed.  */
   bitmap relevant;
 
-  /* The maximum invariant id.  */
-  unsigned max_inv_id;
-
   /* The uses of induction variables.  */
   VEC(iv_use_p,heap) *iv_uses;
 
@@ -249,9 +243,15 @@ struct ivopts_data
   /* A bitmap of important candidates.  */
   bitmap important_candidates;
 
+  /* The maximum invariant id.  */
+  unsigned max_inv_id;
+
   /* Whether to consider just related and important candidates when replacing a
      use.  */
   bool consider_all_candidates;
+
+  /* Are we optimizing for speed?  */
+  bool speed;
 };
 
 /* An assignment of iv candidates to uses.  */
@@ -884,7 +884,7 @@ determine_biv_step (gimple phi)
   if (!is_gimple_reg (name))
     return NULL_TREE;
 
-  if (!simple_iv (loop, phi, name, &iv, true))
+  if (!simple_iv (loop, loop, name, &iv, true))
     return NULL_TREE;
 
   return integer_zerop (iv.step) ? NULL_TREE : iv.step;
@@ -990,7 +990,7 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (!simple_iv (loop, stmt, lhs, iv, true))
+  if (!simple_iv (loop, loop_containing_stmt (stmt), lhs, iv, true))
     return false;
   iv->base = expand_simple_operations (iv->base);
 

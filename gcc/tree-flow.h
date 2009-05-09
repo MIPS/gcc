@@ -768,7 +768,7 @@ extern void dump_referenced_vars (FILE *);
 extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
 extern tree get_virtual_var (tree);
-extern void add_referenced_var (tree);
+extern bool add_referenced_var (tree);
 extern void remove_referenced_var (tree);
 extern void mark_symbols_for_renaming (gimple);
 extern void find_new_referenced_vars (gimple);
@@ -996,7 +996,7 @@ unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
 unsigned tree_predictive_commoning (void);
-tree canonicalize_loop_ivs (struct loop *, htab_t, tree);
+tree canonicalize_loop_ivs (struct loop *, htab_t, tree *);
 bool parallelize_loops (void);
 
 bool loop_only_exit_p (const struct loop *, const_edge);

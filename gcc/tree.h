@@ -1985,6 +1985,9 @@ struct varray_head_tag;
 
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
+#define BLOCK_NONLOCALIZED_VARS(NODE) (BLOCK_CHECK (NODE)->block.nonlocalized_vars)
+#define BLOCK_NUM_NONLOCALIZED_VARS(NODE) VEC_length (tree, BLOCK_NONLOCALIZED_VARS (NODE))
+#define BLOCK_NONLOCALIZED_VAR(NODE,N) VEC_index (tree, BLOCK_NONLOCALIZED_VARS (NODE), N)
 #define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
 #define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
 /* Note: when changing this, make sure to find the places
@@ -2039,6 +2042,8 @@ struct tree_block GTY(())
   location_t locus;
 
   tree vars;
+  VEC(tree,gc) *nonlocalized_vars;
+
   tree subblocks;
   tree supercontext;
   tree abstract_origin;
@@ -2298,6 +2303,7 @@ struct tree_type GTY(())
   unsigned user_align : 1;
 
   unsigned int align;
+  alias_set_type alias_set;
   tree pointer_to;
   tree reference_to;
   union tree_type_symtab {
@@ -2314,7 +2320,6 @@ struct tree_type GTY(())
   tree binfo;
   tree context;
   tree canonical;
-  alias_set_type alias_set;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
 };
@@ -4962,6 +4967,7 @@ extern void set_expr_locus (tree, source_location *);
 
 extern tree *tree_block (tree);
 extern location_t *block_nonartificial_location (tree);
+extern location_t tree_nonartificial_location (tree);
 
 /* In function.c */
 extern void expand_main_function (void);
