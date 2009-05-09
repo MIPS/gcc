@@ -1,3 +1,208 @@
+2009-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR tree-optimization/40049
+	* tree-vect-stmts.c (vectorizable_operation): If the machine has
+	only vector/vector shifts, convert the type of the constant to the
+	appropriate type to avoid building incorrect trees, which
+	eventually have problems with garbage collection.
+
+2009-05-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* fold-const.c (fold_binary): Do not fold multiplication by 1 or
+	-1 for complex floating-point types if honoring signed zeros.
+
+2009-05-08  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphbuild.c (compute_call_stmt_bb_frequency): Accept function argument;
+	handle correctly when profile is absent.
+	(build_cgraph_edges): Update.
+	(rebuild_cgraph_edges): Update.
+	* cgraph.c: Do not include varrau.h 
+	(cgraph_set_call_stmt_including_clones, cgraph_create_edge_including_clones):
+	New function
+	(cgraph_update_edges_for_call_stmt_node): New stati cfunction.
+	(cgraph_update_edges_for_call_stmt): Handle clones.
+	(cgraph_remove_node): Handle clone tree.
+	(cgraph_remove_node_and_inline_clones): New function.
+	(dump_cgraph_node): Dump clone tree.
+	(cgraph_clone_node): Handle clone tree.
+	(clone_function_name): Bring here from tree-inline.c
+	(cgraph_create_virtual_clone): New function.
+	* cgraph.h (ipa_replace_map): Move ehre from ipa.h
+	(cgraph_clone_info): New function
+	(strut cgraph_node): Add clone_info and new clone tree pointers.
+	(cgraph_remove_node_and_inline_clones, cgraph_set_call_stmt_including_clones,
+	cgraph_create_edge_including_clones, cgraph_create_virtual_clone): Declare.
+	(cgraph_function_versioning): Use VEC argument.
+	(compute_call_stmt_bb_frequency): Update prototype.
+	(cgraph_materialize_all_clones): New function.
+	* ipa-cp.c (ipcp_update_cloned_node): Remove.
+	(ipcp_create_replace_map): Update to VECtors.
+	(ipcp_update_callgraph): Use virtual clones.
+	(ipcp_update_bb_counts, ipcp_update_edges_counts): Remove.
+	(ipcp_update_profiling): Do not update local profiling.
+	(ipcp_insert_stage): Use VECtors and virtual clones.
+	* cgraphunit.c (verify_cgraph_node): Verify clone tree.
+	(clone_of_p): New function.
+	(cgraph_preserve_function_body_p): Use clone tree.
+	(cgraph_optimize): Materialize clones.
+	(cgraph_function_versioning): Update for VECtors.
+	(save_inline_function_body): Use clone tree.
+	(cgraph_materialize_clone, cgraph_materialize_all_clones): New functions.
+	* ipa-inline.c (cgraph_default_inline_p): Use analyzed flags.
+	* ipa.c: Include gimple.h.
+	(cgraph_remove_unreachable_nodes): Use clone tree.
+	* ipa-prop.c (ipa_note_param_call): Update call of compute_call_stmt_bb_frequency.
+	* ipa-prop.h (ipa_replace_map): Move to cgraph.h.
+	* tree-inline.c: Do not include varray.h; do not include gt-tree-inline.h
+	(copy_bb): Handle updating of clone tree; add new edge when new call
+	appears.
+	(expand_call_inline): Be strict about every call having edge.
+	(clone_fn_id_num, clone_function_name): Move to cgraph.c.
+	(delete_unreachable_blocks_update_callgraph): New function.
+	(tree_function_versioning): Use VECtors; always remove unreachable blocks
+	and fold conditionals.
+	* tree-inline.h: Do not include varray.h
+	(tree_function_versioning): Remove.
+	* Makefile.in (GTFILES): Remove tree-inline.c
+	* passes.c (do_per_function): Do only functions having body.
+	* ipa-struct-reorg.c (do_reorg_1, collect_data_accesses): Handle cone tree.
+
+2009-05-08  H.J. Lu  <hongjiu.lu@intel.com>
+	    Andrew Morrow  <acm@google.com>
+
+	PR c/36892
+	* c-common.c (c_common_attribute_table): Permit deprecated
+	attribute to take an optional argument.
+	(handle_deprecated_attribute): If the optional argument to
+	__attribute__((deprecated)) is not a string ignore the attribute
+	and emit a warning.
+
+	* c-decl.c (grokdeclarator): Updated warn_deprecated_use call.
+	* c-typeck.c (build_component_ref): Likewise.
+	(build_external_ref): Likewise.
+
+	* toplev.c (warn_deprecated_use): Add an attribute argument.
+	Emit the message associated with __attribute__((deprecated)).
+
+	* toplev.h (warn_deprecated_use): Updated.
+
+	* doc/extend.texi: Document new optional parameter to
+	__attribute__((deprecated))
+
+2009-05-08  Michael Eager <eager@eagercon.com>
+
+	* config/rs6000/rs6000.md (*movdf_softfloat32): replace
+	!TARGET_DOUBLE_FLOAT with TARGET_SINGLE_FLOAT.
+
+2009-05-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40062
+	* tree-scalar-evolution.c (follow_ssa_edge_in_condition_phi):
+	Avoid exponential behavior.
+
+2009-05-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/33928
+	PR 26854
+	* fwprop.c (use_def_ref, get_def_for_use, bitmap_only_bit_bitween,
+	process_uses, build_single_def_use_links): New.
+	(update_df): Update use_def_ref.
+	(forward_propagate_into): Use get_def_for_use instead of use-def
+	chains.
+	(fwprop_init): Call build_single_def_use_links and let it initialize
+	dataflow.
+	(fwprop_done): Free use_def_ref.
+	(fwprop_addr): Eliminate duplicate call to df_set_flags.
+	* df-problems.c (df_rd_simulate_artificial_defs_at_top, 
+	df_rd_simulate_one_insn): New.
+	(df_rd_bb_local_compute_process_def): Update head comment.
+	(df_chain_create_bb): Use the new RD simulation functions.
+	* df.h (df_rd_simulate_artificial_defs_at_top, 
+	df_rd_simulate_one_insn): New.
+	* opts.c (decode_options): Enable fwprop at -O1.
+	* doc/invoke.texi (-fforward-propagate): Document this.
+
+2009-05-08  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/24581
+	* c-typeck.c (build_binary_op): Handle arithmetic between one real
+	and one complex operand specially.
+	* tree-complex.c (some_nonzerop): Do not identify a real value as
+	zero if flag_signed_zeros.
+
+2009-05-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/33928
+        * loop-invariant.c (record_use): Fix && vs. || mishap.
+
+2009-05-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/33928
+        * loop-invariant.c (struct use): Add addr_use_p.
+        (struct def): Add n_addr_uses.
+        (struct invariant): Add cheap_address.
+        (create_new_invariant): Set cheap_address.
+        (record_use): Accept df_ref.  Set addr_use_p and update n_addr_uses.
+        (record_uses): Pass df_ref to record_use.
+        (get_inv_cost): Do not add inv->cost to comp_cost for cheap addresses used
+	only as such.
+
+2009-05-08  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c: Do not include c-pragma.h.
+
+2009-05-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/spu.c: Remove include of c-common.h.
+
+2009-05-07  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39037
+	* c-common.h (mark_valid_location_for_stdc_pragma,
+	valid_location_for_stdc_pragma_p, set_float_const_decimal64,
+	clear_float_const_decimal64, float_const_decimal64_p): New.
+	* c.opt (Wunsuffixed-float-constants): New.
+	* c-lex.c (interpret_float): Use pragma FLOAT_CONST_DECIMAL64 for
+	unsuffixed float constant, handle new warning.
+	* c-cppbuiltin.c (c_cpp_builtins): Use cast for double constants.
+	* c-decl.c (c_scope): New flag float_const_decimal64.
+	(set_float_const_decimal64, clear_float_const_decimal64,
+	float_const_decimal64_p): New.
+	(push_scope): Set new flag.
+	* c-parser.c (c_parser_translation_unit): Mark when it's valid
+	to use STDC pragmas.
+	(c_parser_external_declaration): Ditto.
+	(c_parser_compound_statement_nostart): Ditto.
+	* c-pragma.c (valid_location_for_stdc_pragma,
+	mark_valid_location_for_stdc_pragma,
+	valid_location_for_stdc_pragma_p, handle_stdc_pragma,
+	handle_pragma_float_const_decimal64): New.
+	(init_pragma): Register new pragma FLOAT_CONST_DECIMAL64.
+	* cp/semantics.c (valid_location_for_stdc_pragma_p,
+	set_float_const_decimal64, clear_float_const_decimal64,
+	float_const_decimal64_p): New dummy functions.
+	* doc/extend.texi (Decimal Float): Remove statement that the
+	pragma, and suffix for double constants, are not supported.
+	* doc/invoke.texi (Warning Options): List new option.
+	(-Wunsuffixed-float-constants): New.
+
+2009-05-08  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/i386/i386.c: Do not include c-common.h.
+
+2009-05-07  Mark Heffernan  <meheff@google.com>
+
+	* doc/invoke.texi (Debugging Options): Document change of debugging
+	dump location.
+        * opts.c (decode_options): Make dump_base_name relative to
+	aux_base_name directory.
+
+2009-05-07  Hariharan Sandanagobalane <hariharan@picochip.com>
+
+	* config/picochip/picochip.h (NO_DOLLAR_IN_LABEL): Added.
+	* config/picochip/libgccExtras/divmod15.asm : Removed redefiniton.
+
 2009-05-07  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.in (install-plugin): Simplify a bit.

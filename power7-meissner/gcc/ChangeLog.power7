@@ -1,5 +1,7 @@
 2009-05-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Sync up to mainline version 147300.
+
 	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Make sure
 	DF/DI arguments are copied to registers.
 	(rs6000_legitimize_reload_address): Don't allow AND -16 for VSX
