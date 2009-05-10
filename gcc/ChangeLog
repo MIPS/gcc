@@ -1,12 +1,47 @@
+2009-05-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40081
+	Revert
+	* tree-sra.c (instantiate_element): Instantiate scalar replacements
+	using the main variant of the element type.  Do not fiddle with
+	TREE_THIS_VOLATILE or TREE_SIDE_EFFECTS.
+
+	* tree-sra.c (sra_type_can_be_decomposed_p): Do not decompose
+	structs with volatile fields.
+
+2009-05-10  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (delete_unreachable_blocks_update_callgraph): Declare.
+	(estimate_move_cost): Assert that it does not get called for VOID_TYPE_P.
+	(estimate_num_insns): Skip VOID types in argument handling.
+	(optimize_inline_calls): Delete unreachable blocks and verify that
+	callgraph is valid.
+
+2009-05-10  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphbuild.c (record_reference): Use cgraph_mark_address_taken_node.
+	* cgraph.c (cgraph_mark_address_taken_node): New function.
+	(dump_cgraph_node): Dump new flag.
+	* cgraph.h (struct cgraph_node): Add address_taken.
+	(cgraph_mark_address_taken_node): New function.
+	* ipa.c (cgraph_postorder): Prioritize functions with address taken
+	since new direct calls can be born.
+
+2009-05-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-lex.c (c_lex_with_flags): Expect cpp_hashnode in
+	tok->val.node.node.
+
 2009-05-10  Jan Hubicka  <jh@suse.cz>
 
 	PR middle-end/40084
-	* cgraph.c (cgraph_update_edges_for_call_stmt_node): Take old_call argument;
-	rewrite.
+	* cgraph.c (cgraph_update_edges_for_call_stmt_node): Take old_call
+	argument; rewrite.
 	(cgraph_update_edges_for_call_stmt): Take old_decl argument.
 	* cgraph.h (cgraph_update_edges_for_call_stmt): Update prototype.
 	* tree-inline.c (copy_bb): Set frequency correctly.
-	(fold_marked_statements): Update call of cgraph_update_edges_for_call_stmt.
+	(fold_marked_statements): Update call to
+	cgraph_update_edges_for_call_stmt.
 
 2009-05-10  Joseph Myers  <joseph@codesourcery.com>
 
