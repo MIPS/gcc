@@ -1160,13 +1160,6 @@ cgraph_expand_all_functions (void)
 
 }
 
-enum cgraph_order_kinds {
-  ORDER_UNDEFINED = 0,
-  ORDER_FUNCTION,
-  ORDER_VAR,
-  ORDER_ASM
-};
-
 /* This is used to sort the node types by the cgraph order number.  */
 
 enum cgraph_order_sort_kind

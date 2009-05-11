@@ -338,7 +338,7 @@ gen_eh_region (enum eh_region_type type, struct eh_region_d *outer)
 }
 
 struct eh_region_d *
-gen_eh_region_cleanup (struct eh_region *outer)
+gen_eh_region_cleanup (struct eh_region_d *outer)
 {
   struct eh_region_d *cleanup = gen_eh_region (ERT_CLEANUP, outer);
   return cleanup;
@@ -1381,7 +1381,7 @@ copy_eh_region_1 (struct eh_region_d *old, struct eh_region_d *new_outer)
    Copy whole catch-try chain if neccesary.  */
 
 static struct eh_region_d *
-copy_eh_region (struct eh_region *old, struct eh_region *new_outer)
+copy_eh_region (struct eh_region_d *old, struct eh_region_d *new_outer)
 {
   struct eh_region_d *r, *n, *old_try, *new_try, *ret = NULL;
   VEC(eh_region,heap) *catch_list = NULL;

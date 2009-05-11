@@ -1,3 +1,12 @@
+2009-05-11  Ian Lance Taylor  <iant@google.com>
+
+	* cgraphunit.c (enum cgraph_order_kinds): Remove.
+	* except.c (gen_eh_region_cleanup): Change eh_region to
+	eh_region_d.
+	(copy_eh_region): Likewise.
+	* tree-eh.c (struct leh_state): Change eh_region to eh_region_d.
+	(struct goto_queue_node): Remove duplicate definition.
+
 2009-05-10  Ian Lance Taylor  <iant@google.com>
 
 	Revert the following patches:

@@ -371,24 +371,12 @@ struct leh_state
   /* What's "current" while constructing the eh region tree.  These
      correspond to variables of the same name in cfun->eh, which we
      don't have easy access to.  */
-  struct eh_region *cur_region;
+  struct eh_region_d *cur_region;
 
   /* Processing of TRY_FINALLY requires a bit more state.  This is
      split out into a separate structure so that we don't have to
      copy so much when processing other nodes.  */
   struct leh_tf_state *tf;
-};
-
-/* See 'goto_queue' in struct leh_tf_state.  */
-struct goto_queue_node
-{
-  treemple stmt;
-  gimple_seq repl_stmt;
-  gimple cont_stmt;
-  int index;
-  /* this is used when index >= 0 to indicate that stmt is a label(as
-     opposed to a goto stmt) */
-  int is_label;
 };
 
 struct leh_tf_state
