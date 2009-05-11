@@ -418,11 +418,6 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
 	  token->type = CPP_KEYWORD;
 	  /* Record which keyword.  */
 	  token->keyword = C_RID_CODE (token->u.value);
-	  /* Update the value.  Some keywords are mapped to particular
-	     entities, rather than simply having the value of the
-	     corresponding IDENTIFIER_NODE.  For example, `__const' is
-	     mapped to `const'.  */
-	  token->u.value = ridpointers[token->keyword];
 	}
       else
 	{
@@ -433,8 +428,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
               /* Warn about the C++0x keyword (but still treat it as
                  an identifier).  */
               warning (OPT_Wc__0x_compat, 
-                       "identifier %<%s%> will become a keyword in C++0x",
-                       IDENTIFIER_POINTER (token->u.value));
+                       "identifier %qE will become a keyword in C++0x",
+                       token->u.value);
 
               /* Clear out the C_RID_CODE so we don't warn about this
                  particular identifier-turned-keyword again.  */
@@ -16863,7 +16858,12 @@ cp_parser_attribute_list (cp_parser* parser)
 
 	  /* Save away the identifier that indicates which attribute
 	     this is.  */
-	  identifier = token->u.value;
+	  identifier = (token->type == CPP_KEYWORD) 
+	    /* For keywords, use the canonical spelling, not the
+	       parsed identifier.  */
+	    ? ridpointers[(int) token->keyword]
+	    : token->u.value;
+	  
 	  attribute = build_tree_list (identifier, NULL_TREE);
 
 	  /* Peek at the next token.  */

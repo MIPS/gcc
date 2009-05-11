@@ -126,6 +126,15 @@ static GTY(()) struct stmt_tree_s c_stmt_tree;
 tree c_break_label;
 tree c_cont_label;
 
+/* True if we are currently parsing the fields of a struct or
+   union.  */
+
+static bool in_struct;
+
+/* A list of types defined in the current struct or union.  */
+
+static VEC(tree,heap) *struct_types;
+
 /* Linked list of TRANSLATION_UNIT_DECLS for the translation units
    included in this invocation.  Note that the current translation
    unit is not included in this list.  */
@@ -342,6 +351,9 @@ struct GTY((chain_next ("%h.outer"))) c_scope {
 
   /* True means make a BLOCK for this scope no matter what.  */
   BOOL_BITFIELD keep : 1;
+
+  /* True means that an unsuffixed float constant is _Decimal64.  */
+  BOOL_BITFIELD float_const_decimal64 : 1;
 };
 
 /* The scope currently in effect.  */
@@ -674,6 +686,30 @@ keep_next_level (void)
   keep_next_level_flag = true;
 }
 
+/* Set the flag for the FLOAT_CONST_DECIMAL64 pragma being ON.  */
+
+void
+set_float_const_decimal64 (void)
+{
+  current_scope->float_const_decimal64 = true;
+}
+
+/* Clear the flag for the FLOAT_CONST_DECIMAL64 pragma.  */
+
+void
+clear_float_const_decimal64 (void)
+{
+  current_scope->float_const_decimal64 = false;
+}
+
+/* Return nonzero if an unsuffixed float constant is _Decimal64.  */
+
+bool
+float_const_decimal64_p (void)
+{
+  return current_scope->float_const_decimal64;
+}
+
 /* Identify this scope as currently being filled with parameters.  */
 
 void
@@ -705,6 +741,13 @@ push_scope (void)
 
       keep_next_level_flag = false;
       next_is_function_body = false;
+
+      /* The FLOAT_CONST_DECIMAL64 pragma applies to nested scopes.  */
+      if (current_scope->outer)
+	current_scope->float_const_decimal64
+	  = current_scope->outer->float_const_decimal64;
+      else
+	current_scope->float_const_decimal64 = false;
     }
   else
     {
@@ -716,6 +759,12 @@ push_scope (void)
 	}
       else
 	scope = GGC_CNEW (struct c_scope);
+
+      /* The FLOAT_CONST_DECIMAL64 pragma applies to nested scopes.  */
+      if (current_scope)
+	scope->float_const_decimal64 = current_scope->float_const_decimal64;
+      else
+	scope->float_const_decimal64 = false;
 
       scope->keep          = keep_next_level_flag;
       scope->outer         = current_scope;
@@ -1046,13 +1095,12 @@ pop_file_scope (void)
    In that case, the TYPE_SIZE will be zero.  */
 
 static void
-pushtag (tree name, tree type)
+pushtag (tree name, tree type, location_t loc)
 {
   /* Record the identifier as the type's name if it has none.  */
   if (name && !TYPE_NAME (type))
     TYPE_NAME (type) = name;
-  bind (name, type, current_scope, /*invisible=*/false, /*nested=*/false,
-	UNKNOWN_LOCATION);
+  bind (name, type, current_scope, /*invisible=*/false, /*nested=*/false, loc);
 
   /* Create a fake NULL-named TYPE_DECL node whose TREE_TYPE will be the
      tagged type we just added to the current scope.  This fake
@@ -2685,10 +2733,13 @@ define_label (location_t location, tree name)
    If THISLEVEL_ONLY is nonzero, searches only the current_scope.
    CODE says which kind of type the caller wants;
    it is RECORD_TYPE or UNION_TYPE or ENUMERAL_TYPE.
+   If PLOC is not NULL and this returns non-null, it sets *PLOC to the
+   location where the tag was defined.
    If the wrong kind of type is found, an error is reported.  */
 
 static tree
-lookup_tag (enum tree_code code, tree name, int thislevel_only)
+lookup_tag (enum tree_code code, tree name, int thislevel_only,
+	    location_t *ploc)
 {
   struct c_binding *b = I_TAG_BINDING (name);
   int thislevel = 0;
@@ -2725,6 +2776,10 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
       if (thislevel)
 	pending_xref_error ();
     }
+
+  if (ploc != NULL)
+    *ploc = b->locus;
+
   return b->decl;
 }
 
@@ -2997,12 +3052,12 @@ shadow_tag_warned (const struct c_declspecs *declspecs, int warned)
 	  else
 	    {
 	      pending_invalid_xref = 0;
-	      t = lookup_tag (code, name, 1);
+	      t = lookup_tag (code, name, 1, NULL);
 
 	      if (t == 0)
 		{
 		  t = make_node (code);
-		  pushtag (name, t);
+		  pushtag (name, t, input_location);
 		}
 	    }
 	}
@@ -3857,6 +3912,17 @@ build_compound_literal (tree type, tree init, bool non_const)
 
   return complit;
 }
+
+/* Check the type of a compound literal.  Here we just check that it
+   is valid for C++.  */
+
+void
+check_compound_literal_type (struct c_type_name *type_name, location_t loc)
+{
+  if (warn_cxx_compat && type_name->specs->tag_defined_p)
+    warning_at (loc, OPT_Wc___compat,
+		"defining a type in a compound literal is invalid in C++");
+}
 
 /* Determine whether TYPE is a structure with a flexible array member,
    or a union containing such a structure (possibly recursively).  */
@@ -3894,12 +3960,14 @@ flexible_array_type_p (tree type)
 /* Performs sanity checks on the TYPE and WIDTH of the bit-field NAME,
    replacing with appropriate values if they are invalid.  */
 static void
-check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
+check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
 {
   tree type_mv;
   unsigned int max_width;
   unsigned HOST_WIDE_INT w;
-  const char *name = orig_name ? orig_name: _("<anonymous>");
+  const char *name = (orig_name
+		      ? identifier_to_locale (IDENTIFIER_POINTER (orig_name))
+		      : _("<anonymous>"));
 
   /* Detect and ignore out of range field width and process valid
      field widths.  */
@@ -3967,7 +4035,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
 /* Print warning about variable length array if necessary.  */
 
 static void
-warn_variable_length_array (const char *name, tree size)
+warn_variable_length_array (tree name, tree size)
 {
   int const_size = TREE_CONSTANT (size);
 
@@ -3976,7 +4044,8 @@ warn_variable_length_array (const char *name, tree size)
       if (const_size)
 	{
 	  if (name)
-	    pedwarn (input_location, OPT_Wvla, "ISO C90 forbids array %qs whose size "
+	    pedwarn (input_location, OPT_Wvla,
+		     "ISO C90 forbids array %qE whose size "
 		     "can%'t be evaluated",
 		     name);
 	  else
@@ -3986,7 +4055,8 @@ warn_variable_length_array (const char *name, tree size)
       else
 	{
 	  if (name) 
-	    pedwarn (input_location, OPT_Wvla, "ISO C90 forbids variable length array %qs",
+	    pedwarn (input_location, OPT_Wvla,
+		     "ISO C90 forbids variable length array %qE",
 		     name);
 	  else
 	    pedwarn (input_location, OPT_Wvla, "ISO C90 forbids variable length array");
@@ -3998,7 +4068,7 @@ warn_variable_length_array (const char *name, tree size)
         {
 	  if (name)
 	    warning (OPT_Wvla,
-		     "the size of array %qs can"
+		     "the size of array %qE can"
 		     "%'t be evaluated", name);
 	  else
 	    warning (OPT_Wvla,
@@ -4008,7 +4078,7 @@ warn_variable_length_array (const char *name, tree size)
 	{
 	  if (name)
 	    warning (OPT_Wvla,
-		     "variable length array %qs is used",
+		     "variable length array %qE is used",
 		     name);
 	  else
 	    warning (OPT_Wvla,
@@ -4098,7 +4168,7 @@ grokdeclarator (const struct c_declarator *declarator,
   int restrictp;
   int volatilep;
   int type_quals = TYPE_UNQUALIFIED;
-  const char *name, *orig_name;
+  tree name = NULL_TREE;
   bool funcdef_flag = false;
   bool funcdef_syntax = false;
   bool size_varies = false;
@@ -4126,10 +4196,9 @@ grokdeclarator (const struct c_declarator *declarator,
     funcdef_flag = true, decl_context = NORMAL;
 
   /* Look inside a declarator for the name being declared
-     and get it as a string, for an error message.  */
+     and get it as an IDENTIFIER_NODE, for an error message.  */
   {
     const struct c_declarator *decl = declarator;
-    name = 0;
 
     while (decl)
       switch (decl->kind)
@@ -4147,16 +4216,21 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	case cdk_id:
 	  if (decl->u.id)
-	    name = IDENTIFIER_POINTER (decl->u.id);
+	    name = decl->u.id;
 	  decl = 0;
 	  break;
 
 	default:
 	  gcc_unreachable ();
 	}
-    orig_name = name;
     if (name == 0)
-      name = "type name";
+      {
+	gcc_assert (decl_context == PARM
+		    || decl_context == TYPENAME
+		    || (decl_context == FIELD
+			&& declarator->kind == cdk_id));
+	gcc_assert (!initialized);
+      }
   }
 
   /* A function definition's declarator must have the form of
@@ -4172,13 +4246,16 @@ grokdeclarator (const struct c_declarator *declarator,
     decl_context = PARM;
 
   if (declspecs->deprecated_p && deprecated_state != DEPRECATED_SUPPRESS)
-    warn_deprecated_use (declspecs->type);
+    warn_deprecated_use (declspecs->type, declspecs->decl_attr);
 
   if ((decl_context == NORMAL || decl_context == FIELD)
       && current_scope == file_scope
       && variably_modified_type_p (type, NULL_TREE))
     {
-      error ("variably modified %qs at file scope", name);
+      if (name)
+	error ("variably modified %qE at file scope", name);
+      else
+	error ("variably modified field at file scope");
       type = integer_type_node;
     }
 
@@ -4194,9 +4271,16 @@ grokdeclarator (const struct c_declarator *declarator,
       if ((warn_implicit_int || warn_return_type || flag_isoc99)
 	  && funcdef_flag)
 	warn_about_return_type = 1;
-      else 
-	pedwarn_c99 (input_location, flag_isoc99 ? 0 : OPT_Wimplicit_int, 
-		     "type defaults to %<int%> in declaration of %qs", name);
+      else
+	{
+	  if (name)
+	    pedwarn_c99 (input_location, flag_isoc99 ? 0 : OPT_Wimplicit_int, 
+			 "type defaults to %<int%> in declaration of %qE",
+			 name);
+	  else
+	    pedwarn_c99 (input_location, flag_isoc99 ? 0 : OPT_Wimplicit_int, 
+			 "type defaults to %<int%> in type name");
+	}
     }
 
   /* Adjust the type if a bit-field is being declared,
@@ -4270,11 +4354,17 @@ grokdeclarator (const struct c_declarator *declarator,
 	  switch (decl_context)
 	    {
 	    case FIELD:
-	      error ("storage class specified for structure field %qs",
-		     name);
+	      if (name)
+		error ("storage class specified for structure field %qE",
+		       name);
+	      else
+		error ("storage class specified for structure field");
 	      break;
 	    case PARM:
-	      error ("storage class specified for parameter %qs", name);
+	      if (name)
+		error ("storage class specified for parameter %qE", name);
+	      else
+		error ("storage class specified for unnamed parameter");
 	      break;
 	    default:
 	      error ("storage class specified for typename");
@@ -4294,26 +4384,26 @@ grokdeclarator (const struct c_declarator *declarator,
            /* It is fine to have 'extern const' when compiling at C
               and C++ intersection.  */
            if (!(warn_cxx_compat && constp))
-             warning (0, "%qs initialized and declared %<extern%>", name);
+             warning (0, "%qE initialized and declared %<extern%>", name);
          }
       else
-	error ("%qs has both %<extern%> and initializer", name);
+	error ("%qE has both %<extern%> and initializer", name);
     }
   else if (current_scope == file_scope)
     {
       if (storage_class == csc_auto)
-	error ("file-scope declaration of %qs specifies %<auto%>", name);
+	error ("file-scope declaration of %qE specifies %<auto%>", name);
       if (pedantic && storage_class == csc_register)
 	pedwarn (input_location, OPT_pedantic,
-		 "file-scope declaration of %qs specifies %<register%>", name);
+		 "file-scope declaration of %qE specifies %<register%>", name);
     }
   else
     {
       if (storage_class == csc_extern && funcdef_flag)
-	error ("nested function %qs declared %<extern%>", name);
+	error ("nested function %qE declared %<extern%>", name);
       else if (threadp && storage_class == csc_none)
 	{
-	  error ("function-scope %qs implicitly auto and declared "
+	  error ("function-scope %qE implicitly auto and declared "
 		 "%<__thread%>",
 		 name);
 	  threadp = false;
@@ -4407,13 +4497,19 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    if (VOID_TYPE_P (type))
 	      {
-		error ("declaration of %qs as array of voids", name);
+		if (name)
+		  error ("declaration of %qE as array of voids", name);
+		else
+		  error ("declaration of type name as array of voids");
 		type = error_mark_node;
 	      }
 
 	    if (TREE_CODE (type) == FUNCTION_TYPE)
 	      {
-		error ("declaration of %qs as array of functions", name);
+		if (name)
+		  error ("declaration of %qE as array of functions", name);
+		else
+		  error ("declaration of type name as array of functions");
 		type = error_mark_node;
 	      }
 
@@ -4444,22 +4540,34 @@ grokdeclarator (const struct c_declarator *declarator,
 
 		if (!INTEGRAL_TYPE_P (TREE_TYPE (size)))
 		  {
-		    error ("size of array %qs has non-integer type", name);
+		    if (name)
+		      error ("size of array %qE has non-integer type", name);
+		    else
+		      error ("size of unnamed array has non-integer type");
 		    size = integer_one_node;
 		  }
 
 		size = c_fully_fold (size, false, &size_maybe_const);
 
 		if (pedantic && size_maybe_const && integer_zerop (size))
-		  pedwarn (input_location, OPT_pedantic,
-			   "ISO C forbids zero-size array %qs", name);
+		  {
+		    if (name)
+		      pedwarn (input_location, OPT_pedantic,
+			       "ISO C forbids zero-size array %qE", name);
+		    else
+		      pedwarn (input_location, OPT_pedantic,
+			       "ISO C forbids zero-size array");
+		  }
 
 		if (TREE_CODE (size) == INTEGER_CST && size_maybe_const)
 		  {
 		    constant_expression_warning (size);
 		    if (tree_int_cst_sgn (size) < 0)
 		      {
-			error ("size of array %qs is negative", name);
+			if (name)
+			  error ("size of array %qE is negative", name);
+			else
+			  error ("size of unnamed array is negative");
 			size = integer_one_node;
 		      }
 		    /* Handle a size folded to an integer constant but
@@ -4474,16 +4582,17 @@ grokdeclarator (const struct c_declarator *declarator,
 			if ((decl_context == NORMAL || decl_context == FIELD)
 			    && current_scope == file_scope)
 			  pedwarn (input_location, 0,
-				   "variably modified %qs at file scope", name);
+				   "variably modified %qE at file scope",
+				   name);
 			else
 			  this_size_varies = size_varies = true;
-			warn_variable_length_array (orig_name, size);
+			warn_variable_length_array (name, size);
 		      }
 		  }
 		else if ((decl_context == NORMAL || decl_context == FIELD)
 			 && current_scope == file_scope)
 		  {
-		    error ("variably modified %qs at file scope", name);
+		    error ("variably modified %qE at file scope", name);
 		    size = integer_one_node;
 		  }
 		else
@@ -4492,7 +4601,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		       nonconstant even if it is (eg) a const variable
 		       with known value.  */
 		    this_size_varies = size_varies = true;
-		    warn_variable_length_array (orig_name, size);
+		    warn_variable_length_array (name, size);
 		  }
 
 		if (integer_zerop (size) && !this_size_varies)
@@ -4533,7 +4642,10 @@ grokdeclarator (const struct c_declarator *declarator,
 		    if (TREE_CODE (itype) == INTEGER_CST
 			&& TREE_OVERFLOW (itype))
 		      {
-			error ("size of array %qs is too large", name);
+			if (name)
+			  error ("size of array %qE is too large", name);
+			else
+			  error ("size of unnamed array is too large");
 			type = error_mark_node;
 			continue;
 		      }
@@ -4686,12 +4798,20 @@ grokdeclarator (const struct c_declarator *declarator,
 	    /* Warn about some types functions can't return.  */
 	    if (TREE_CODE (type) == FUNCTION_TYPE)
 	      {
-		error ("%qs declared as function returning a function", name);
+		if (name)
+		  error ("%qE declared as function returning a function",
+			 name);
+		else
+		  error ("type name declared as function "
+			 "returning a function");
 		type = integer_type_node;
 	      }
 	    if (TREE_CODE (type) == ARRAY_TYPE)
 	      {
-		error ("%qs declared as function returning an array", name);
+		if (name)
+		  error ("%qE declared as function returning an array", name);
+		else
+		  error ("type name declared as function returning an array");
 		type = integer_type_node;
 	      }
 
@@ -4806,7 +4926,7 @@ grokdeclarator (const struct c_declarator *declarator,
 
   /* Check the type and width of a bit-field.  */
   if (bitfield)
-    check_bitfield_type_and_width (&type, width, orig_name);
+    check_bitfield_type_and_width (&type, width, name);
 
   /* Did array size calculations overflow?  */
 
@@ -4815,7 +4935,10 @@ grokdeclarator (const struct c_declarator *declarator,
       && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
       && TREE_OVERFLOW (TYPE_SIZE_UNIT (type)))
     {
-      error ("size of array %qs is too large", name);
+      if (name)
+	error ("size of array %qE is too large", name);
+      else
+	error ("size of unnamed array is too large");
       /* If we proceed with the array type as it is, we'll eventually
 	 crash in tree_low_cst().  */
       type = error_mark_node;
@@ -4880,7 +5003,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		    && !(storage_class == csc_static
 			 || storage_class == csc_register)))))
     {
-      error ("variable or field %qs declared void", name);
+      error ("variable or field %qE declared void", name);
       type = integer_type_node;
     }
 
@@ -4958,13 +5081,16 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
-	    error ("field %qs declared as a function", name);
+	    error ("field %qE declared as a function", name);
 	    type = build_pointer_type (type);
 	  }
 	else if (TREE_CODE (type) != ERROR_MARK
 		 && !COMPLETE_OR_UNBOUND_ARRAY_TYPE_P (type))
 	  {
-	    error ("field %qs has incomplete type", name);
+	    if (name)
+	      error ("field %qE has incomplete type", name);
+	    else
+	      error ("unnamed field has incomplete type");
 	    type = error_mark_node;
 	  }
 	type = c_build_qualified_type (type, type_quals);
@@ -4981,7 +5107,7 @@ grokdeclarator (const struct c_declarator *declarator,
       {
 	if (storage_class == csc_register || threadp)
 	  {
-	    error ("invalid storage class for function %qs", name);
+	    error ("invalid storage class for function %qE", name);
 	   }
 	else if (current_scope != file_scope)
 	  {
@@ -4991,10 +5117,11 @@ grokdeclarator (const struct c_declarator *declarator,
 	       GCC allows 'auto', perhaps with 'inline', to support
 	       nested functions.  */
 	    if (storage_class == csc_auto)
-		pedwarn (input_location, OPT_pedantic, "invalid storage class for function %qs", name);
+		pedwarn (input_location, OPT_pedantic,
+			 "invalid storage class for function %qE", name);
 	    else if (storage_class == csc_static)
 	      {
-		error ("invalid storage class for function %qs", name);
+		error ("invalid storage class for function %qE", name);
 		if (funcdef_flag)
 		  storage_class = declspecs->storage_class = csc_none;
 		else
@@ -5454,10 +5581,11 @@ get_parm_info (bool ellipsis)
    Return a c_typespec structure for the type specifier.  */
 
 struct c_typespec
-parser_xref_tag (enum tree_code code, tree name)
+parser_xref_tag (enum tree_code code, tree name, location_t loc)
 {
   struct c_typespec ret;
   tree ref;
+  location_t refloc;
 
   ret.expr = NULL_TREE;
   ret.expr_const_operands = true;
@@ -5465,7 +5593,7 @@ parser_xref_tag (enum tree_code code, tree name)
   /* If a cross reference is requested, look up the type
      already defined for this tag and return it.  */
 
-  ref = lookup_tag (code, name, 0);
+  ref = lookup_tag (code, name, 0, &refloc);
   /* If this is the right type of tag, return what we found.
      (This reference will be shadowed by shadow_tag later if appropriate.)
      If this is the wrong type of tag, do not return it.  If it was the
@@ -5480,6 +5608,35 @@ parser_xref_tag (enum tree_code code, tree name)
   ret.kind = (ref ? ctsk_tagref : ctsk_tagfirstref);
   if (ref && TREE_CODE (ref) == code)
     {
+      if (C_TYPE_DEFINED_IN_STRUCT (ref)
+	  && loc != UNKNOWN_LOCATION
+	  && warn_cxx_compat)
+	{
+	  switch (code)
+	    {
+	    case ENUMERAL_TYPE:
+	      warning_at (loc, OPT_Wc___compat,
+			  ("enum type defined in struct or union "
+			   "is not visible in C++"));
+	      inform (refloc, "enum type defined here");
+	      break;
+	    case RECORD_TYPE:
+	      warning_at (loc, OPT_Wc___compat,
+			  ("struct defined in struct or union "
+			   "is not visible in C++"));
+	      inform (refloc, "struct defined here");
+	      break;
+	    case UNION_TYPE:
+	      warning_at (loc, OPT_Wc___compat,
+			  ("union defined in struct or union "
+			   "is not visible in C++"));
+	      inform (refloc, "union defined here");
+	      break;
+	    default:
+	      gcc_unreachable();
+	    }
+	}
+
       ret.spec = ref;
       return ret;
     }
@@ -5503,7 +5660,7 @@ parser_xref_tag (enum tree_code code, tree name)
       TYPE_MAX_VALUE (ref) = TYPE_MAX_VALUE (unsigned_type_node);
     }
 
-  pushtag (name, ref);
+  pushtag (name, ref, loc);
 
   ret.spec = ref;
   return ret;
@@ -5516,40 +5673,53 @@ parser_xref_tag (enum tree_code code, tree name)
 tree
 xref_tag (enum tree_code code, tree name)
 {
-  return parser_xref_tag (code, name).spec;
+  return parser_xref_tag (code, name, UNKNOWN_LOCATION).spec;
 }
 
 /* Make sure that the tag NAME is defined *in the current scope*
    at least as a forward reference.
-   CODE says which kind of tag NAME ought to be.  */
+   CODE says which kind of tag NAME ought to be.
+
+   This stores the current value of the file static IN_STRUCT in
+   *ENCLOSING_IN_STRUCT, and sets IN_STRUCT to true.  Similarly, this
+   sets STRUCT_TYPES in *ENCLOSING_STRUCT_TYPES, and sets STRUCT_TYPES
+   to an empty vector.  The old values are restored in
+   finish_struct.  */
 
 tree
-start_struct (enum tree_code code, tree name)
+start_struct (enum tree_code code, tree name, bool *enclosing_in_struct,
+	      VEC(tree,heap) **enclosing_struct_types, location_t loc)
 {
   /* If there is already a tag defined at this scope
      (as a forward reference), just return it.  */
 
-  tree ref = 0;
+  tree ref = NULL_TREE;
+  location_t refloc = UNKNOWN_LOCATION;
 
-  if (name != 0)
-    ref = lookup_tag (code, name, 1);
+  if (name != NULL_TREE)
+    ref = lookup_tag (code, name, 1, &refloc);
   if (ref && TREE_CODE (ref) == code)
     {
       if (TYPE_SIZE (ref))
 	{
 	  if (code == UNION_TYPE)
-	    error ("redefinition of %<union %E%>", name);
+	    error_at (loc, "redefinition of %<union %E%>", name);
 	  else
-	    error ("redefinition of %<struct %E%>", name);
+	    error_at (loc, "redefinition of %<struct %E%>", name);
+	  if (refloc != UNKNOWN_LOCATION)
+	    inform (refloc, "originally defined here");
 	  /* Don't create structures using a name already in use.  */
 	  ref = NULL_TREE;
 	}
       else if (C_TYPE_BEING_DEFINED (ref))
 	{
 	  if (code == UNION_TYPE)
-	    error ("nested redefinition of %<union %E%>", name);
+	    error_at (loc, "nested redefinition of %<union %E%>", name);
 	  else
-	    error ("nested redefinition of %<struct %E%>", name);
+	    error_at (loc, "nested redefinition of %<struct %E%>", name);
+	  /* Don't bother to report "originally defined here" for a
+	     nested redefinition; the original definition should be
+	     obvious.  */
 	  /* Don't create structures that contain themselves.  */
 	  ref = NULL_TREE;
 	}
@@ -5560,11 +5730,28 @@ start_struct (enum tree_code code, tree name)
   if (ref == NULL_TREE || TREE_CODE (ref) != code)
     {
       ref = make_node (code);
-      pushtag (name, ref);
+      pushtag (name, ref, loc);
     }
 
   C_TYPE_BEING_DEFINED (ref) = 1;
   TYPE_PACKED (ref) = flag_pack_struct;
+
+  *enclosing_in_struct = in_struct;
+  *enclosing_struct_types = struct_types;
+  in_struct = true;
+  struct_types = VEC_alloc(tree, heap, 0);
+
+  /* FIXME: This will issue a warning for a use of a type defined
+     within a statement expr used within sizeof, et. al.  This is not
+     terribly serious as C++ doesn't permit statement exprs within
+     sizeof anyhow.  */
+  if (warn_cxx_compat && (in_sizeof || in_typeof || in_alignof))
+    warning_at (loc, OPT_Wc___compat,
+		"defining type in %qs expression is invalid in C++",
+		(in_sizeof
+		 ? "sizeof"
+		 : (in_typeof ? "typeof" : "alignof")));
+
   return ref;
 }
 
@@ -5702,14 +5889,22 @@ detect_field_duplicates (tree fieldlist)
 
 /* Fill in the fields of a RECORD_TYPE or UNION_TYPE node, T.
    FIELDLIST is a chain of FIELD_DECL nodes for the fields.
-   ATTRIBUTES are attributes to be applied to the structure.  */
+   ATTRIBUTES are attributes to be applied to the structure.
+
+   ENCLOSING_IN_STRUCT is the value of IN_STRUCT, and
+   ENCLOSING_STRUCT_TYPES is the value of STRUCT_TYPES, when the
+   struct was started.  This sets the C_TYPE_DEFINED_IN_STRUCT flag
+   for any type defined in the current struct.  */
 
 tree
-finish_struct (tree t, tree fieldlist, tree attributes)
+finish_struct (tree t, tree fieldlist, tree attributes,
+	       bool enclosing_in_struct,
+	       VEC(tree,heap) *enclosing_struct_types)
 {
   tree x;
   bool toplevel = file_scope == current_scope;
   int saw_named_field;
+  unsigned int ix;
 
   /* If this type was previously laid out as a forward reference,
      make sure we lay it out again.  */
@@ -5962,6 +6157,24 @@ finish_struct (tree t, tree fieldlist, tree attributes)
   if (cur_stmt_list && variably_modified_type_p (t, NULL_TREE))
     add_stmt (build_stmt (DECL_EXPR, build_decl (TYPE_DECL, NULL, t)));
 
+  /* Set the C_TYPE_DEFINED_IN_STRUCT flag for each type defined in
+     the current struct.  We do this now at the end of the struct
+     because the flag is used to issue visibility warnings when using
+     -Wc++-compat, and we only want to issue those warnings if the
+     type is referenced outside of the struct declaration.  */
+  for (ix = 0; VEC_iterate (tree, struct_types, ix, x); ++ix)
+    C_TYPE_DEFINED_IN_STRUCT (x) = 1;
+
+  VEC_free (tree, heap, struct_types);
+
+  in_struct = enclosing_in_struct;
+  struct_types = enclosing_struct_types;
+
+  /* If this struct is defined inside a struct, add it to
+     STRUCT_TYPES.  */
+  if (in_struct && !in_sizeof && !in_typeof && !in_alignof)
+    VEC_safe_push (tree, heap, struct_types, t);
+
   return t;
 }
 
@@ -5982,32 +6195,35 @@ layout_array_type (tree t)
    may be used to declare the individual values as they are read.  */
 
 tree
-start_enum (struct c_enum_contents *the_enum, tree name)
+start_enum (struct c_enum_contents *the_enum, tree name, location_t loc)
 {
-  tree enumtype = 0;
+  tree enumtype = NULL_TREE;
+  location_t enumloc = UNKNOWN_LOCATION;
 
   /* If this is the real definition for a previous forward reference,
      fill in the contents in the same object that used to be the
      forward reference.  */
 
-  if (name != 0)
-    enumtype = lookup_tag (ENUMERAL_TYPE, name, 1);
+  if (name != NULL_TREE)
+    enumtype = lookup_tag (ENUMERAL_TYPE, name, 1, &enumloc);
 
   if (enumtype == 0 || TREE_CODE (enumtype) != ENUMERAL_TYPE)
     {
       enumtype = make_node (ENUMERAL_TYPE);
-      pushtag (name, enumtype);
+      pushtag (name, enumtype, loc);
     }
 
   if (C_TYPE_BEING_DEFINED (enumtype))
-    error ("nested redefinition of %<enum %E%>", name);
+    error_at (loc, "nested redefinition of %<enum %E%>", name);
 
   C_TYPE_BEING_DEFINED (enumtype) = 1;
 
   if (TYPE_VALUES (enumtype) != 0)
     {
       /* This enum is a named one that has been declared already.  */
-      error ("redeclaration of %<enum %E%>", name);
+      error_at (loc, "redeclaration of %<enum %E%>", name);
+      if (enumloc != UNKNOWN_LOCATION)
+	inform (enumloc, "originally defined here");
 
       /* Completely replace its old definition.
 	 The old enumerators remain defined, however.  */
@@ -6019,6 +6235,16 @@ start_enum (struct c_enum_contents *the_enum, tree name)
 
   if (flag_short_enums)
     TYPE_PACKED (enumtype) = 1;
+
+  /* FIXME: This will issue a warning for a use of a type defined
+     within sizeof in a statement expr.  This is not terribly serious
+     as C++ doesn't permit statement exprs within sizeof anyhow.  */
+  if (warn_cxx_compat && (in_sizeof || in_typeof || in_alignof))
+    warning_at (loc, OPT_Wc___compat,
+		"defining type in %qs expression is invalid in C++",
+		(in_sizeof
+		 ? "sizeof"
+		 : (in_typeof ? "typeof" : "alignof")));
 
   return enumtype;
 }
@@ -6158,6 +6384,11 @@ finish_enum (tree enumtype, tree values, tree attributes)
 
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (enumtype, toplevel);
+
+  /* If this enum is defined inside a struct, add it to
+     STRUCT_TYPES.  */
+  if (in_struct && !in_sizeof && !in_typeof && !in_alignof)
+    VEC_safe_push (tree, heap, struct_types, enumtype);
 
   return enumtype;
 }

@@ -1,6 +1,6 @@
 /* Define control and data flow tables, and regsets.
    Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -356,9 +356,9 @@ enum dom_state
   DOM_OK		/* Everything is ok.  */
 };
 
-/* Values for x_profile_status in control_flow_graph.  */
-
-enum profile_status {
+/* What sort of profiling information we have.  */
+enum profile_status
+{
   PROFILE_ABSENT,
   PROFILE_GUESSED,
   PROFILE_READ

@@ -119,14 +119,18 @@ fixup_t;
 
 /* Structure for holding extra info needed for pointers being read.  */
 
-enum rsym_state
+enum gfc_rsym_state
 {
-  UNUSED, NEEDED, USED
+  UNUSED,
+  NEEDED,
+  USED
 };
 
-enum wsym_state
+enum gfc_wsym_state
 {
-  UNREFERENCED = 0, NEEDS_WRITE, WRITTEN
+  UNREFERENCED = 0,
+  NEEDS_WRITE,
+  WRITTEN
 };
 
 typedef struct pointer_info
@@ -148,7 +152,7 @@ typedef struct pointer_info
     {
       gfc_symbol *sym;
       char true_name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
-      enum rsym_state state;
+      enum gfc_rsym_state state;
       int ns, referenced, renamed;
       module_locus where;
       fixup_t *stfixup;
@@ -160,7 +164,7 @@ typedef struct pointer_info
     struct
     {
       gfc_symbol *sym;
-      enum wsym_state state;
+      enum gfc_wsym_state state;
     }
     wsym;
   }
@@ -3049,6 +3053,7 @@ mio_expr (gfc_expr **ep)
       break;
 
     case EXPR_COMPCALL:
+    case EXPR_PPC:
       gcc_unreachable ();
       break;
     }

@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "toplev.h"
 #include "recog.h"
-#include "c-pragma.h"
 #include "integrate.h"
 #include "dwarf2.h"
 #include "tm_p.h"
@@ -245,6 +244,7 @@ static bool sh_rtx_costs (rtx, int, int, int *, bool);
 static int sh_address_cost (rtx, bool);
 static int sh_pr_n_sets (void);
 static rtx sh_allocate_initial_value (rtx);
+static rtx sh_legitimize_address (rtx, rtx, enum machine_mode);
 static int shmedia_target_regs_stack_space (HARD_REG_SET *);
 static int shmedia_reserve_space_for_target_registers_p (int, HARD_REG_SET *);
 static int shmedia_target_regs_stack_adjust (HARD_REG_SET *);
@@ -373,6 +373,9 @@ static int sh2a_function_vector_p (tree);
 
 #undef TARGET_SCHED_INIT
 #define TARGET_SCHED_INIT sh_md_init
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS sh_legitimize_address
 
 #undef TARGET_CANNOT_MODIFY_JUMPS_P
 #define TARGET_CANNOT_MODIFY_JUMPS_P sh_cannot_modify_jumps_p
@@ -8037,8 +8040,8 @@ sh_insert_attributes (tree node, tree *attributes)
 		  || is_attribute_p ("nosave_low_regs", TREE_PURPOSE (attrs))
 		  || is_attribute_p ("resbank", TREE_PURPOSE (attrs)))
 		warning (OPT_Wattributes,
-			 "%qs attribute only applies to interrupt functions",
-			 IDENTIFIER_POINTER (TREE_PURPOSE (attrs)));
+			 "%qE attribute only applies to interrupt functions",
+			 TREE_PURPOSE (attrs));
 	      else
 		{
 		  *tail = tree_cons (TREE_PURPOSE (attrs), NULL_TREE,
@@ -8120,14 +8123,14 @@ sh_handle_resbank_handler_attribute (tree * node, tree name,
 {
   if (!TARGET_SH2A)
     {
-      warning (OPT_Wattributes, "%qs attribute is supported only for SH2A",
-               IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute is supported only for SH2A",
+               name);
       *no_add_attrs = true;
     }
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-               IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+               name);
       *no_add_attrs = true;
     }
 
@@ -8144,8 +8147,8 @@ sh_handle_interrupt_handler_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-               IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+               name);
       *no_add_attrs = true;
     }
   else if (TARGET_SHCOMPACT)
@@ -8167,30 +8170,30 @@ sh2a_handle_function_vector_handler_attribute (tree * node, tree name,
 {
   if (!TARGET_SH2A)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to SH2A",
-               IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to SH2A",
+               name);
       *no_add_attrs = true;
     }
   else if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-               IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+               name);
       *no_add_attrs = true;
     }
   else if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
     {
       /* The argument must be a constant integer.  */
       warning (OPT_Wattributes,
-               "`%s' attribute argument not an integer constant",
-               IDENTIFIER_POINTER (name));
+               "%qE attribute argument not an integer constant",
+               name);
       *no_add_attrs = true;
     }
   else if (TREE_INT_CST_LOW (TREE_VALUE (args)) > 255)
     {
       /* The argument value must be between 0 to 255.  */
       warning (OPT_Wattributes,
-               "`%s' attribute argument should be between 0 to 255",
-               IDENTIFIER_POINTER (name));
+               "%qE attribute argument should be between 0 to 255",
+               name);
       *no_add_attrs = true;
     }
   return NULL_TREE;
@@ -8255,15 +8258,15 @@ sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
   else if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
     {
       /* The argument must be a constant string.  */
-      warning (OPT_Wattributes, "%qs attribute argument not a string constant",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute argument not a string constant",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -8278,8 +8281,8 @@ sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
   /* The argument specifies a trap number to be used in a trapa instruction
@@ -8287,8 +8290,8 @@ sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
   else if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
     {
       /* The argument must be a constant integer.  */
-      warning (OPT_Wattributes, "%qs attribute argument not an "
-	       "integer constant", IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute argument not an "
+	       "integer constant", name);
       *no_add_attrs = true;
     }
 
@@ -8866,6 +8869,60 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
       return reg;
     }
   return orig;
+}
+
+/* Try machine-dependent ways of modifying an illegitimate address
+   to be legitimate.  If we find one, return the new, valid address.
+   Otherwise, return X.
+
+   For the SH, if X is almost suitable for indexing, but the offset is
+   out of range, convert it into a normal form so that CSE has a chance
+   of reducing the number of address registers used.  */
+
+static rtx
+sh_legitimize_address (rtx x, rtx oldx, enum machine_mode mode)
+{
+  if (flag_pic)
+    x = legitimize_pic_address (oldx, mode, NULL_RTX);
+
+  if (GET_CODE (x) == PLUS
+      && (GET_MODE_SIZE (mode) == 4
+	  || GET_MODE_SIZE (mode) == 8)
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && BASE_REGISTER_RTX_P (XEXP (x, 0))
+      && ! TARGET_SHMEDIA
+      && ! ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && mode == DFmode)
+      && ! (TARGET_SH2E && mode == SFmode))
+    {
+      rtx index_rtx = XEXP (x, 1);
+      HOST_WIDE_INT offset = INTVAL (index_rtx), offset_base;
+      rtx sum;
+
+      /* On rare occasions, we might get an unaligned pointer
+	 that is indexed in a way to give an aligned address.
+	 Therefore, keep the lower two bits in offset_base.  */
+      /* Instead of offset_base 128..131 use 124..127, so that
+	 simple add suffices.  */
+      if (offset > 127)
+	offset_base = ((offset + 4) & ~60) - 4;
+      else
+	offset_base = offset & ~60;
+
+      /* Sometimes the normal form does not suit DImode.  We
+	 could avoid that by using smaller ranges, but that
+	 would give less optimized code when SImode is
+	 prevalent.  */
+      if (GET_MODE_SIZE (mode) + offset - offset_base <= 64)
+	{
+	  sum = expand_binop (Pmode, add_optab, XEXP (x, 0),
+			      GEN_INT (offset_base), NULL_RTX, 0,
+			      OPTAB_LIB_WIDEN);
+
+	  return gen_rtx_PLUS (Pmode, sum, GEN_INT (offset - offset_base));
+	}
+    }
+
+  return x;
 }
 
 /* Mark the use of a constant in the literal table. If the constant

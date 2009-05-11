@@ -1,6 +1,6 @@
 /* Subroutines for code generation on Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
-   Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+   2009 Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
 This file is part of GCC.
@@ -789,14 +789,6 @@ m68hc11_go_if_legitimate_address (rtx operand, enum machine_mode mode,
   return result;
 }
 
-int
-m68hc11_legitimize_address (rtx *operand ATTRIBUTE_UNUSED,
-                            rtx old_operand ATTRIBUTE_UNUSED,
-                            enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
 
 int
 m68hc11_reload_operands (rtx operands[])
@@ -1115,8 +1107,8 @@ m68hc11_handle_page0_attribute (tree *node, tree name,
     }
   else
     {
-      warning (OPT_Wattributes, "%qs attribute ignored",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute ignored",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -1152,8 +1144,8 @@ m68hc11_handle_fntype_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 

@@ -151,7 +151,7 @@ bt;
 /* Expression node types.  */
 typedef enum
 { EXPR_OP = 1, EXPR_FUNCTION, EXPR_CONSTANT, EXPR_VARIABLE,
-  EXPR_SUBSTRING, EXPR_STRUCTURE, EXPR_ARRAY, EXPR_NULL, EXPR_COMPCALL
+  EXPR_SUBSTRING, EXPR_STRUCTURE, EXPR_ARRAY, EXPR_NULL, EXPR_COMPCALL, EXPR_PPC
 }
 expr_t;
 
@@ -698,9 +698,11 @@ typedef struct
   unsigned cray_pointer:1, cray_pointee:1;
 
   /* The symbol is a derived type with allocatable components, pointer 
-     components or private components, possibly nested.  zero_comp
-     is true if the derived type has no component at all.  */
-  unsigned alloc_comp:1, pointer_comp:1, private_comp:1, zero_comp:1;
+     components or private components, procedure pointer components,
+     possibly nested.  zero_comp is true if the derived type has no
+     component at all.  */
+  unsigned alloc_comp:1, pointer_comp:1, proc_pointer_comp:1,
+	   private_comp:1, zero_comp:1;
 
   /* The namespace where the VOLATILE attribute has been set.  */
   struct gfc_namespace *volatile_ns;
@@ -851,6 +853,8 @@ typedef struct gfc_component
   locus loc;
   struct gfc_expr *initializer;
   struct gfc_component *next;
+
+  struct gfc_formal_arglist *formal;
 }
 gfc_component;
 
@@ -928,7 +932,7 @@ enum
 /* Because a symbol can belong to multiple namelists, they must be
    linked externally to the symbol itself.  */
 
-enum omp_sched_kind
+enum gfc_omp_sched_kind
 {
   OMP_SCHED_NONE,
   OMP_SCHED_STATIC,
@@ -938,7 +942,7 @@ enum omp_sched_kind
   OMP_SCHED_AUTO
 };
 
-enum omp_sharing
+enum gfc_omp_default_sharing
 {
   OMP_DEFAULT_UNKNOWN,
   OMP_DEFAULT_NONE,
@@ -952,9 +956,9 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *if_expr;
   struct gfc_expr *num_threads;
   gfc_namelist *lists[OMP_LIST_NUM];
-  enum omp_sched_kind sched_kind;
+  enum gfc_omp_sched_kind sched_kind;
   struct gfc_expr *chunk_size;
-  enum omp_sharing default_sharing;
+  enum gfc_omp_default_sharing default_sharing;
   int collapse;
   bool nowait, ordered, untied;
 }
@@ -1888,7 +1892,7 @@ typedef enum
   EXEC_GOTO, EXEC_CALL, EXEC_COMPCALL, EXEC_ASSIGN_CALL, EXEC_RETURN,
   EXEC_ENTRY, EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE, EXEC_INIT_ASSIGN,
   EXEC_IF, EXEC_ARITHMETIC_IF, EXEC_DO, EXEC_DO_WHILE, EXEC_SELECT,
-  EXEC_FORALL, EXEC_WHERE, EXEC_CYCLE, EXEC_EXIT,
+  EXEC_FORALL, EXEC_WHERE, EXEC_CYCLE, EXEC_EXIT, EXEC_CALL_PPC,
   EXEC_ALLOCATE, EXEC_DEALLOCATE,
   EXEC_OPEN, EXEC_CLOSE, EXEC_WAIT,
   EXEC_READ, EXEC_WRITE, EXEC_IOLENGTH, EXEC_TRANSFER, EXEC_DT_END,
@@ -2270,7 +2274,7 @@ void gfc_set_implicit_none (void);
 void gfc_check_function_type (gfc_namespace *);
 bool gfc_is_intrinsic_typename (const char *);
 
-gfc_typespec *gfc_get_default_type (gfc_symbol *, gfc_namespace *);
+gfc_typespec *gfc_get_default_type (const char *, gfc_namespace *);
 gfc_try gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);
 
 void gfc_set_sym_referenced (gfc_symbol *);
@@ -2489,6 +2493,8 @@ void gfc_expr_set_symbols_referenced (gfc_expr *);
 gfc_try gfc_expr_check_typed (gfc_expr*, gfc_namespace*, bool);
 void gfc_expr_replace_symbols (gfc_expr *, gfc_symbol *);
 
+bool is_proc_ptr_comp (gfc_expr *, gfc_component **);
+
 /* st.c */
 extern gfc_code new_st;
 
@@ -2597,7 +2603,7 @@ void gfc_free_use_stmts (gfc_use_list *);
 symbol_attribute gfc_variable_attr (gfc_expr *, gfc_typespec *);
 symbol_attribute gfc_expr_attr (gfc_expr *);
 match gfc_match_rvalue (gfc_expr **);
-match gfc_match_varspec (gfc_expr*, int, bool);
+match gfc_match_varspec (gfc_expr*, int, bool, bool);
 int gfc_check_digit (char, int);
 
 /* trans.c */

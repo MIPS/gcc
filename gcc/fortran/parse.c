@@ -1582,8 +1582,13 @@ unexpected_statement (gfc_statement st)
 
 enum state_order
 {
-  ORDER_START, ORDER_USE, ORDER_IMPORT, ORDER_IMPLICIT_NONE,
-  ORDER_IMPLICIT, ORDER_SPEC, ORDER_EXEC
+  ORDER_START,
+  ORDER_USE,
+  ORDER_IMPORT,
+  ORDER_IMPLICIT_NONE,
+  ORDER_IMPLICIT,
+  ORDER_SPEC,
+  ORDER_EXEC
 };
 
 typedef struct
@@ -1880,13 +1885,9 @@ parse_derived (void)
 	  unexpected_eof ();
 
 	case ST_DATA_DECL:
+	case ST_PROCEDURE:
 	  accept_statement (st);
 	  seen_component = 1;
-	  break;
-
-	case ST_PROCEDURE:
-	  gfc_error ("PROCEDURE binding at %C must be inside CONTAINS");
-	  error_flag = 1;
 	  break;
 
 	case ST_FINAL:
@@ -1994,6 +1995,12 @@ endType:
       if (c->attr.pointer
 	  || (c->ts.type == BT_DERIVED && c->ts.derived->attr.pointer_comp))
 	sym->attr.pointer_comp = 1;
+
+      /* Look for procedure pointer components.  */
+      if (c->attr.proc_pointer
+	  || (c->ts.type == BT_DERIVED
+	      && c->ts.derived->attr.proc_pointer_comp))
+	sym->attr.proc_pointer_comp = 1;
 
       /* Look for private components.  */
       if (sym->component_access == ACCESS_PRIVATE
@@ -3312,7 +3319,7 @@ gfc_fixup_sibling_symbols (gfc_symbol *sym, gfc_namespace *siblings)
   sym->attr.referenced = 1;
   for (ns = siblings; ns; ns = ns->sibling)
     {
-      gfc_find_sym_tree (sym->name, ns, 0, &st);
+      st = gfc_find_symtree (ns->sym_root, sym->name);
 
       if (!st || (st->n.sym->attr.dummy && ns == st->n.sym->ns))
 	goto fixup_contained;

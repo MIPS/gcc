@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "c-common.h"
 #include "except.h"
 #include "function.h"
 #include "recog.h"
@@ -4242,8 +4241,8 @@ ix86_handle_cconv_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -4262,14 +4261,14 @@ ix86_handle_cconv_attribute (tree *node, tree name,
       if (TREE_CODE (cst) != INTEGER_CST)
 	{
 	  warning (OPT_Wattributes,
-		   "%qs attribute requires an integer constant argument",
-		   IDENTIFIER_POINTER (name));
+		   "%qE attribute requires an integer constant argument",
+		   name);
 	  *no_add_attrs = true;
 	}
       else if (compare_tree_int (cst, REGPARM_MAX) > 0)
 	{
-	  warning (OPT_Wattributes, "argument to %qs attribute larger than %d",
-		   IDENTIFIER_POINTER (name), REGPARM_MAX);
+	  warning (OPT_Wattributes, "argument to %qE attribute larger than %d",
+		   name, REGPARM_MAX);
 	  *no_add_attrs = true;
 	}
 
@@ -4280,8 +4279,8 @@ ix86_handle_cconv_attribute (tree *node, tree name,
     {
       /* Do not warn when emulating the MS ABI.  */
       if (TREE_CODE (*node) != FUNCTION_TYPE || ix86_function_type_abi (*node)!=MS_ABI)
-	warning (OPT_Wattributes, "%qs attribute ignored",
-	         IDENTIFIER_POINTER (name));
+	warning (OPT_Wattributes, "%qE attribute ignored",
+	         name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -9763,7 +9762,7 @@ get_thread_pointer (int to_reg)
   return reg;
 }
 
-/* A subroutine of legitimize_address and ix86_expand_move.  FOR_MOV is
+/* A subroutine of ix86_legitimize_address and ix86_expand_move.  FOR_MOV is
    false if we expect this to be used for a memory address and true if
    we expect to load the address into a register.  */
 
@@ -10021,8 +10020,9 @@ legitimize_dllimport_symbol (rtx symbol, bool want_reg)
    When -fpic is used, special handling is needed for symbolic references.
    See comments by legitimize_pic_address in i386.c for details.  */
 
-rtx
-legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
+static rtx
+ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
+			 enum machine_mode mode)
 {
   int changed = 0;
   unsigned log;
@@ -10847,7 +10847,7 @@ get_some_local_dynamic_name (void)
         otherwise nothing
    R -- print the prefix for register names.
    z -- print the opcode suffix for the size of the current operand.
-   Z -- likewise, with special suffixes for fild/fist instructions.
+   Z -- likewise, with special suffixes for x87 instructions.
    * -- print a star (in certain assembler syntax)
    A -- print an absolute memory reference.
    w -- print the operand as if it's a "word" (HImode) even if it isn't.
@@ -10946,91 +10946,111 @@ print_operand (FILE *file, rtx x, int code)
 	    putc ('t', file);
 	  return;
 
-	case 'Z':
-	  gcc_assert (MEM_P (x));
-
-	  /* fild/fist don't get size suffixes if using Intel opcodes.  */
-	  if (ASSEMBLER_DIALECT == ASM_INTEL)
-	    return;
-
-	  switch (GET_MODE_SIZE (GET_MODE (x)))
-	    {
-	    case 2:
-#ifdef HAVE_AS_IX86_FILDS
-	      putc ('s', file);
-#endif
-	      return;
-
-	    case 4:
-	      putc ('l', file);
-	      return;
-
-	    case 8:
-#ifdef HAVE_AS_IX86_FILDQ
-	      putc ('q', file);
-#else
-	      fputs ("ll", file);
-#endif
-	      return;
-
-	    default:
-	      gcc_unreachable ();
-	    }
-	    
 	case 'z':
-	  /* 387 opcodes don't get size suffixes if the operands are
-	     registers.  */
-	  if (STACK_REG_P (x))
-	    return;
+	  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
+	    {
+	      /* Opcodes don't get size suffixes if using Intel opcodes.  */
+	      if (ASSEMBLER_DIALECT == ASM_INTEL)
+		return;
 
-	  /* Likewise if using Intel opcodes.  */
+	      switch (GET_MODE_SIZE (GET_MODE (x)))
+		{
+		case 1:
+		  putc ('b', file);
+		  return;
+
+		case 2:
+		  putc ('w', file);
+		  return;
+
+		case 4:
+		  putc ('l', file);
+		  return;
+
+		case 8:
+		  putc ('q', file);
+		  return;
+
+		default:
+		  output_operand_lossage
+		    ("invalid operand size for operand code '%c'", code);
+		  return;
+		}
+	    }
+
+	  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+	    warning
+	      (0, "non-integer operand used with operand code '%c'", code);
+	  /* FALLTHRU */
+
+	case 'Z':
+	  /* 387 opcodes don't get size suffixes if using Intel opcodes.  */
 	  if (ASSEMBLER_DIALECT == ASM_INTEL)
 	    return;
 
-	  /* This is the size of op from size of operand.  */
-	  switch (GET_MODE_SIZE (GET_MODE (x)))
+	  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
 	    {
-	    case 1:
-	      putc ('b', file);
-	      return;
-
-	    case 2:
-	      /* ??? This fails for HImode integer
-		 operator with memory operand.  */
-	      if (MEM_P (x))
+	      switch (GET_MODE_SIZE (GET_MODE (x)))
 		{
+		case 2:
 #ifdef HAVE_AS_IX86_FILDS
 		  putc ('s', file);
 #endif
 		  return;
+
+		case 4:
+		  putc ('l', file);
+		  return;
+
+		case 8:
+#ifdef HAVE_AS_IX86_FILDQ
+		  putc ('q', file);
+#else
+		  fputs ("ll", file);
+#endif
+		  return;
+
+		default:
+		  break;
 		}
-	      else
-		putc ('w', file);
-	      return;
+	    }
+	  else if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+	    {
+	      /* 387 opcodes don't get size suffixes
+		 if the operands are registers.  */
+	      if (STACK_REG_P (x))
+		return;
 
-	    case 4:
-	      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
-		putc ('l', file);
-	      else
-		putc ('s', file);
-	      return;
+	      switch (GET_MODE_SIZE (GET_MODE (x)))
+		{
+		case 4:
+		  putc ('s', file);
+		  return;
 
-	    case 8:
-	      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
-		putc ('q', file);
-	      else
-	        putc ('l', file);
-	      return;
+		case 8:
+		  putc ('l', file);
+		  return;
 
-	    case 12:
-	    case 16:
-	      putc ('t', file);
-	      return;
+		case 12:
+		case 16:
+		  putc ('t', file);
+		  return;
 
-	    default:
-	      gcc_unreachable ();
+		default:
+		  break;
+		}
+	    }
+	  else
+	    {
+	      output_operand_lossage
+		("invalid operand type used with operand code '%c'", code);
+	      return;
 	    }
 
+	  output_operand_lossage
+	    ("invalid operand size for operand code '%c'", code);
+	  return;
+	    
 	case 'd':
 	case 'b':
 	case 'w':
@@ -11829,7 +11849,7 @@ output_387_binary_op (rtx insn, rtx *operands)
 
       if (MEM_P (operands[2]))
 	{
-	  p = "%z2\t%2";
+	  p = "%Z2\t%2";
 	  break;
 	}
 
@@ -11859,13 +11879,13 @@ output_387_binary_op (rtx insn, rtx *operands)
     case DIV:
       if (MEM_P (operands[1]))
 	{
-	  p = "r%z1\t%1";
+	  p = "r%Z1\t%1";
 	  break;
 	}
 
       if (MEM_P (operands[2]))
 	{
-	  p = "%z2\t%2";
+	  p = "%Z2\t%2";
 	  break;
 	}
 
@@ -12237,13 +12257,13 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 
       static const char * const alt[16] =
       {
-	"fcom%z2\t%y2\n\tfnstsw\t%0",
-	"fcomp%z2\t%y2\n\tfnstsw\t%0",
-	"fucom%z2\t%y2\n\tfnstsw\t%0",
-	"fucomp%z2\t%y2\n\tfnstsw\t%0",
+	"fcom%Z2\t%y2\n\tfnstsw\t%0",
+	"fcomp%Z2\t%y2\n\tfnstsw\t%0",
+	"fucom%Z2\t%y2\n\tfnstsw\t%0",
+	"fucomp%Z2\t%y2\n\tfnstsw\t%0",
 
-	"ficom%z2\t%y2\n\tfnstsw\t%0",
-	"ficomp%z2\t%y2\n\tfnstsw\t%0",
+	"ficom%Z2\t%y2\n\tfnstsw\t%0",
+	"ficomp%Z2\t%y2\n\tfnstsw\t%0",
 	NULL,
 	NULL,
 
@@ -13565,7 +13585,7 @@ ix86_expand_convert_uns_sisf_sse (rtx target, rtx input)
     emit_move_insn (target, fp_hi);
 }
 
-/* A subroutine of ix86_build_signbit_mask_vector.  If VECT is true,
+/* A subroutine of ix86_build_signbit_mask.  If VECT is true,
    then replicate the value for all elements of the vector
    register.  */
 
@@ -13611,7 +13631,7 @@ ix86_build_const_vector (enum machine_mode mode, bool vect, rtx value)
    all elements of the vector register.  If INVERT is true, then create
    a mask excluding the sign bit.  */
 
-rtx
+static rtx
 ix86_build_signbit_mask (enum machine_mode mode, bool vect, bool invert)
 {
   enum machine_mode vec_mode, imode;
@@ -25615,7 +25635,9 @@ ix86_veclibabi_acml (enum built_in_function fn, tree type_out, tree type_in)
 static tree
 ix86_vectorize_builtin_conversion (unsigned int code, tree type)
 {
-  if (TREE_CODE (type) != VECTOR_TYPE)
+  if (TREE_CODE (type) != VECTOR_TYPE
+      /* There are only conversions from/to signed integers.  */
+      || TYPE_UNSIGNED (TREE_TYPE (type)))
     return NULL_TREE;
 
   switch (code)
@@ -26810,15 +26832,15 @@ ix86_handle_abi_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
   if (!TARGET_64BIT)
     {
-      warning (OPT_Wattributes, "%qs attribute only available for 64-bit",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only available for 64-bit",
+	       name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -26865,8 +26887,8 @@ ix86_handle_struct_attribute (tree *node, tree name,
   if (!(type && (TREE_CODE (*type) == RECORD_TYPE
 		 || TREE_CODE (*type) == UNION_TYPE)))
     {
-      warning (OPT_Wattributes, "%qs attribute ignored",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute ignored",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -26875,8 +26897,8 @@ ix86_handle_struct_attribute (tree *node, tree name,
 	   || ((is_attribute_p ("gcc_struct", name)
 		&& lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (*type)))))
     {
-      warning (OPT_Wattributes, "%qs incompatible attribute ignored",
-               IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE incompatible attribute ignored",
+               name);
       *no_add_attrs = true;
     }
 
@@ -28778,22 +28800,22 @@ output_387_reg_move (rtx insn, rtx *operands)
 	  return "fstp\t%y0";
 	}
       if (STACK_TOP_P (operands[0]))
-	return "fld%z1\t%y1";
+	return "fld%Z1\t%y1";
       return "fst\t%y0";
     }
   else if (MEM_P (operands[0]))
     {
       gcc_assert (REG_P (operands[1]));
       if (find_regno_note (insn, REG_DEAD, REGNO (operands[1])))
-	return "fstp%z0\t%y0";
+	return "fstp%Z0\t%y0";
       else
 	{
 	  /* There is no non-popping store to memory for XFmode.
 	     So if we need one, follow the store with a load.  */
 	  if (GET_MODE (operands[0]) == XFmode)
-	    return "fstp%z0\t%y0\n\tfld%z0\t%y0";
+	    return "fstp%Z0\t%y0\n\tfld%Z0\t%y0";
 	  else
-	    return "fst%z0\t%y0";
+	    return "fst%Z0\t%y0";
 	}
     }
   else
@@ -30017,6 +30039,9 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS ix86_legitimize_address
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ix86_attribute_table

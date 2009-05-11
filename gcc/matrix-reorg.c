@@ -115,7 +115,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "rtl.h"
-#include "c-tree.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-flow-inline.h"
@@ -131,7 +130,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "params.h"
 #include "fibheap.h"
-#include "c-common.h"
 #include "intl.h"
 #include "function.h"
 #include "basic-block.h"
@@ -245,7 +243,8 @@ typedef struct access_site_info *access_site_info_p;
 DEF_VEC_P (access_site_info_p);
 DEF_VEC_ALLOC_P (access_site_info_p, heap);
 
-/* See 'free_stmts' in struct matrix_info.  */
+/* Calls to free when flattening a matrix.  */
+
 struct free_info
 {
   gimple stmt;

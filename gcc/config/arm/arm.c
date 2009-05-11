@@ -73,6 +73,8 @@ static int arm_address_register_rtx_p (rtx, int);
 static int arm_legitimate_index_p (enum machine_mode, rtx, RTX_CODE, int);
 static int thumb2_legitimate_index_p (enum machine_mode, rtx, int);
 static int thumb1_base_register_rtx_p (rtx, enum machine_mode, int);
+static rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
+static rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
 inline static int thumb1_index_register_rtx_p (rtx, int);
 static int thumb_far_jump_used_p (void);
 static bool thumb_force_lr_save (void);
@@ -204,6 +206,9 @@ static bool arm_allocate_stack_slots_for_args (void);
 #undef  TARGET_MERGE_DECL_ATTRIBUTES
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
 #endif
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS arm_legitimize_address
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
@@ -1503,6 +1508,10 @@ arm_override_options (void)
 
   if (arm_float_abi == ARM_FLOAT_ABI_HARD && TARGET_VFP)
     sorry ("-mfloat-abi=hard and VFP");
+
+  if (TARGET_AAPCS_BASED
+      && (arm_fp_model == ARM_FP_MODEL_FPA))
+    error ("FPA is unsupported in the AAPCS");
 
   /* FPA and iWMMXt are incompatible because the insn encodings overlap.
      VFP and iWMMXt can theoretically coexist, but it's unlikely such silicon
@@ -3255,8 +3264,8 @@ arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -3273,8 +3282,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
     {
       if (TREE_CODE (*node) != FUNCTION_DECL)
 	{
-	  warning (OPT_Wattributes, "%qs attribute only applies to functions",
-		   IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qE attribute only applies to functions",
+		   name);
 	  *no_add_attrs = true;
 	}
       /* FIXME: the argument if any is checked for type attributes;
@@ -3287,8 +3296,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	{
 	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
 	    {
-	      warning (OPT_Wattributes, "%qs attribute ignored",
-		       IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qE attribute ignored",
+		       name);
 	      *no_add_attrs = true;
 	    }
 	}
@@ -3315,8 +3324,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	    }
 	  else
 	    {
-	      warning (OPT_Wattributes, "%qs attribute ignored",
-		       IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qE attribute ignored",
+		       name);
 	    }
 	}
     }
@@ -3565,7 +3574,7 @@ require_pic_register (void)
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
 	     process.  */
-	  if (current_ir_type () != IR_GIMPLE)
+	  if (current_ir_type () != IR_GIMPLE || currently_expanding_to_rtl)
 	    crtl->uses_pic_offset_table = 1;
 	}
       else
@@ -3578,7 +3587,7 @@ require_pic_register (void)
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
 	     process.  */
-	  if (current_ir_type () != IR_GIMPLE)
+	  if (current_ir_type () != IR_GIMPLE || currently_expanding_to_rtl)
 	    {
 	      crtl->uses_pic_offset_table = 1;
 	      start_sequence ();
@@ -3587,7 +3596,11 @@ require_pic_register (void)
 
 	      seq = get_insns ();
 	      end_sequence ();
-	      emit_insn_after (seq, entry_of_function ());
+	      /* We can be called during expansion of PHI nodes, where
+	         we can't yet emit instructions directly in the final
+		 insn stream.  Queue the insns on the entry edge, they will
+		 be committed after everything else is expanded.  */
+	      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
 	    }
 	}
     }
@@ -4586,6 +4599,14 @@ legitimize_tls_address (rtx x, rtx reg)
 rtx
 arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 {
+  if (!TARGET_ARM)
+    {
+      /* TODO: legitimize_address for Thumb2.  */
+      if (TARGET_THUMB2)
+        return x;
+      return thumb_legitimize_address (x, orig_x, mode);
+    }
+
   if (arm_tls_symbol_p (x))
     return legitimize_tls_address (x, NULL_RTX);
 
