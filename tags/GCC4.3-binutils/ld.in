@@ -1,0 +1,71 @@
+#!/bin/sh
+
+ILLD=@ILLD@
+OPTIONS="--no-stdlib" 
+FILES=
+CMD=
+VERBOSE=
+
+if test -n "$CLISTDDIR"; then
+    OPTIONS="$OPTIONS -L$CLISTDDIR" 
+fi
+
+while test -n "$1"; do
+  case $1 in
+      --verbose)
+          VERBOSE=true
+          shift
+          ;;
+      --format)
+          OPTIONS="$OPTIONS $1 $2"
+          shift
+          shift
+          ;;
+      --shared)
+          OPTIONS="$OPTIONS --format dll"
+          shift
+          ;;
+      -lm)
+          # Skip option
+          shift
+          ;;
+      -l)
+          OPTIONS="$OPTIONS $1 $2"
+          shift
+          shift
+          ;;
+      -L)
+          OPTIONS="$OPTIONS $1 $2"
+          shift
+          shift
+          ;;
+      -o)
+          OPTIONS="$OPTIONS $1 $2"
+          shift
+          shift
+          ;;
+      -*)
+          OPTIONS="$OPTIONS $1"
+          shift
+          ;;
+      /tmp*)
+          FILES="$FILES /$1"
+          shift
+          ;;
+      /exchange*)
+          FILES="$FILES /$1"
+          shift
+          ;;
+      *)
+          FILES="$FILES $1"
+          shift
+          ;;
+  esac
+done
+
+CMD="$ILLD $OPTIONS $FILES"
+if test -n "$VERBOSE"; then
+    echo $CMD
+fi
+$CMD
+
