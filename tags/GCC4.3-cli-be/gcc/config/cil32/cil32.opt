@@ -1,0 +1,74 @@
+; Options for the CIL32 port of the compiler.
+;
+;    Copyright (C) 2006-2008 Free Software Foundation, Inc.
+;
+; This file is part of GCC.
+;
+; GCC is free software; you can redistribute it and/or modify it under
+; the terms of the GNU General Public License as published by the Free
+; Software Foundation; either version 2, or (at your option) any later
+; version.
+;
+; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+; WARRANTY; without even the implied warranty of MERCHANTABILITY or
+; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+; for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with GCC; see the file COPYING.  If not, write to the Free
+; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+; 02110-1301, USA.
+;
+; Authors:
+;    Andrea Bona
+;    Andrea Ornstein
+;    Erven Rohou
+;    Roberto Costa
+;
+; Contact information at STMicroelectronics:
+; Andrea C. Ornstein   <andrea.ornstein@st.com>
+; Erven Rohou          <erven.rohou@st.com>
+
+mgcc4net-linker
+Target Mask(GCC4NET_LINKER)
+Uses gcc4net specific Linker
+
+mopensystemc
+Target Undocumented Mask(OPENSYSTEMC)
+Use OpenSystem.C Attributes
+
+mexpand-abs
+Target Mask(EXPAND_ABS)
+Expand abs (absolute value) instead of generating a call to Crt::abs
+
+mexpand-minmax
+Target Mask(EXPAND_MINMAX)
+Expand min and max instead of generating a call to Crt::{min,max}
+
+memit-vcg
+Target Mask(EMIT_VCG)
+Emits the functions in VCG format
+
+memit-jit-compilation-hints
+Target Mask(EMIT_JIT_COMPILATION_HINTS)
+Emits compilation hints for a JIT encoded in custom attributes
+
+Wcil-missing-prototypes
+Target Var(warn_cil_missing_prototypes) Init(1)
+Warn about missing prototypes dangerous for CLI generation
+
+Wcil-pragma-ignored
+Target Var(warn_cil_pragma_ignored) Init(1)
+Warn about ignored pragmas
+
+mbig-endian
+Target Report RejectNegative Mask(BIG_ENDIAN)
+Assume target CPU is configured as big endian
+
+mlittle-endian
+Target Report RejectNegative Mask(LITTLE_ENDIAN)
+Assume target CPU is configured as little endian
+
+mthreads
+Target Report RejectNegative
+Target supports Threads

@@ -1,0 +1,347 @@
+/*
+
+   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
+
+Authors:
+   Andrea Ornstein
+   Erven Rohou
+   Gabriele Svelto
+
+Contact information at STMicroelectronics:
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Erven Rohou             <erven.rohou@st.com>
+*/
+
+DEF_CILBUILTIN(BUILT_IN_VA_START, "__builtin_cil_va_start", void_type_node, \
+               1, cil32_va_list_type)
+
+DEF_CILBUILTIN(BUILT_IN_VA_ARG, "__builtin_cil_va_arg", ptr_type_node, \
+               2, cil32_va_list_type, ptr_type_node)
+
+DEF_CILBUILTIN(BUILT_IN_VA_END, "__builtin_cil_va_end", void_type_node, \
+               1, cil32_va_list_type)
+
+DEF_CILBUILTIN(BUILT_IN_VA_COPY, "__builtin_cil_va_copy", void_type_node, \
+               2, cil32_va_list_type, cil32_va_list_type)
+
+DEF_CILBUILTIN(BUILT_IN_VA_INIT, "__builtin_cil_va_init", void_type_node, \
+               1, cil32_va_list_type)
+
+DEF_CILBUILTIN(BUILT_IN_CPBLK, "__builtin_cil_cpblk", void_type_node, \
+               3, ptr_type_node, ptr_type_node, integer_type_node)
+
+DEF_CILBUILTIN(BUILT_IN_INITBLK, "__builtin_cil_initblk", void_type_node, \
+               3, ptr_type_node, integer_type_node, integer_type_node)
+
+DEF_CILBUILTIN(BUILT_IN_IS_LITTLE_ENDIAN, \
+	       "[gcc4net]gcc4net.Crt::__isLittleEndian", integer_type_node, \
+	       0)
+
+DEF_CILBUILTIN(BUILT_IN_ENDIAN_SELECT, \
+	       "[gcc4net]gcc4net.Crt::__EndianSelect", ptr_type_node, \
+	       2, ptr_type_node, ptr_type_node)
+
+DEF_CILBUILTIN(V2SF_CTOR, "[gcc4net]gcc4net.V2SF::V2SF_ctor1", float2_type_node, \
+               2, float_type_node, float_type_node)
+
+DEF_CILBUILTIN(V2SF_TO_DI, "[gcc4net]gcc4net.V2SF::V2SF_to_di", intDI_type_node, \
+               1, float2_type_node)
+
+DEF_CILBUILTIN(V4SF_CTOR, "[gcc4net]gcc4net.V4SF::V4SF_ctor1", float4_type_node, \
+	       4, \
+	       float_type_node, float_type_node, \
+	       float_type_node, float_type_node)
+
+DEF_CILBUILTIN(V4QI_CTOR, "[gcc4net]gcc4net.V4QI::V4QI_ctor1",
+	       intQI4_type_node, \
+	       4, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node)
+
+DEF_CILBUILTIN(V4QI_CTOR2, "[gcc4net]gcc4net.V4QI::V4QI_ctor2", \
+	       intQI4_type_node, \
+	       1, unsigned_type_node)
+
+DEF_CILBUILTIN(V4QI_TO_USI, "[gcc4net]gcc4net.V4QI::V4QI_to_usi", \
+	       unsigned_type_node, \
+               1, intQI4_type_node)
+
+DEF_CILBUILTIN(V4QI_TO_SI, "[gcc4net]gcc4net.V4QI::V4QI_to_si", \
+	       integer_type_node, \
+               1, intQI4_type_node)
+
+DEF_CILBUILTIN(V2HI_CTOR, "[gcc4net]gcc4net.V2HI::V2HI_ctor1", \
+	       intHI2_type_node, \
+	       2, unsigned_intHI_type_node, unsigned_intHI_type_node)
+
+DEF_CILBUILTIN(V2HI_CTOR2, "[gcc4net]gcc4net.V2HI::V2HI_ctor2", \
+	       intHI2_type_node, \
+	       1, unsigned_type_node)
+
+DEF_CILBUILTIN(V2HI_TO_USI, "[gcc4net]gcc4net.V2HI::V2HI_to_usi", \
+	       unsigned_type_node, \
+	       1, intHI2_type_node)
+
+DEF_CILBUILTIN(V2HI_TO_SI, "[gcc4net]gcc4net.V2HI::V2HI_to_si", \
+	       integer_type_node, \
+	       1, intHI2_type_node)
+
+DEF_CILBUILTIN(V8QI_CTOR, "[gcc4net]gcc4net.V8QI::V8QI_ctor1", \
+	       intQI8_type_node, \
+	       8, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node)
+
+DEF_CILBUILTIN(V8QI_CTOR2, "[gcc4net]gcc4net.V8QI::V8QI_ctor2", \
+	       intQI8_type_node, \
+	       1, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(V8QI_TO_UDI, "[gcc4net]gcc4net.V8QI::V8QI_to_udi", \
+	       unsigned_intDI_type_node, \
+	       1, intQI8_type_node)
+
+DEF_CILBUILTIN(V8QI_TO_DI, "[gcc4net]gcc4net.V8QI::V8QI_to_di", \
+	       intDI_type_node, \
+	       1, intQI8_type_node)
+
+DEF_CILBUILTIN(V4HI_CTOR, "[gcc4net]gcc4net.V4HI::V4HI_ctor1", \
+	       intHI4_type_node, \
+               4, \
+	       unsigned_intHI_type_node, unsigned_intHI_type_node, \
+	       unsigned_intHI_type_node, unsigned_intHI_type_node)
+
+DEF_CILBUILTIN(V4HI_CTOR2, "[gcc4net]gcc4net.V8QI::V4HI_ctor2",
+	       intHI4_type_node, \
+	       1, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(V4HI_TO_UDI, "[gcc4net]gcc4net.V4HI::V4HI_to_udi", \
+	       unsigned_intDI_type_node, \
+	       1, intHI4_type_node)
+
+DEF_CILBUILTIN(V4HI_TO_DI, "[gcc4net]gcc4net.V4HI::V4HI_to_di", \
+	       intDI_type_node, \
+               1, intHI4_type_node)
+
+DEF_CILBUILTIN(V2SI_CTOR, "[gcc4net]gcc4net.V2SI::V2SI_ctor1", \
+	       intSI2_type_node, \
+	       2, \
+	       unsigned_intSI_type_node, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(V2SI_CTOR2, "[gcc4net]gcc4net.V2SI::V2SI_ctor2", \
+	       intSI2_type_node, \
+	       1, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(V2SI_TO_UDI, "[gcc4net]gcc4net.V2SI::V2SI_to_udi", \
+	       unsigned_intDI_type_node, \
+	       1, intSI2_type_node)
+
+DEF_CILBUILTIN(V2SI_TO_DI, "[gcc4net]gcc4net.V2SI::V2SI_to_di", \
+	       intDI_type_node, \
+	       1, intSI2_type_node)
+
+DEF_CILBUILTIN(V4SI_CTOR, "[gcc4net]gcc4net.V4SI::V4SI_ctor1", \
+	       intSI4_type_node, \
+	       4, \
+	       unsigned_intSI_type_node, unsigned_intSI_type_node, \
+	       unsigned_intSI_type_node, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(V4SI_TO_V4SF, "[gcc4net]gcc4net.V4SI::V4SI_to_V4SF", \
+	       float4_type_node, \
+	       1, intSI4_type_node)
+
+DEF_CILBUILTIN(V8HI_CTOR, "[gcc4net]gcc4net.V8HI::V8HI_ctor1", \
+	       intHI8_type_node, \
+	       8, \
+	       unsigned_intHI_type_node, unsigned_intHI_type_node, \
+	       unsigned_intHI_type_node, unsigned_intHI_type_node, \
+	       unsigned_intHI_type_node, unsigned_intHI_type_node, \
+	       unsigned_intHI_type_node, unsigned_intHI_type_node)
+
+DEF_CILBUILTIN(V16QI_CTOR, "[gcc4net]gcc4net.V16QI::V16QI_ctor1", \
+	       intQI16_type_node, \
+	       16, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
+	       unsigned_intQI_type_node, unsigned_intQI_type_node)
+
+DEF_CILBUILTIN(MINSI3, "[gcc4net]gcc4net.Crt::__minsi3", intSI_type_node, \
+               2, intSI_type_node, intSI_type_node)
+
+DEF_CILBUILTIN(MINDI3, "[gcc4net]gcc4net.Crt::__mindi3", intDI_type_node, \
+               2, intDI_type_node, intDI_type_node)
+
+DEF_CILBUILTIN(UMINSI3, "[gcc4net]gcc4net.Crt::__uminsi3", \
+	       unsigned_intSI_type_node, \
+	       2, unsigned_intSI_type_node, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(UMINDI3, "[gcc4net]gcc4net.Crt::__umindi3", \
+	       unsigned_intDI_type_node, \
+               2, unsigned_intDI_type_node, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(MINSF3, "[gcc4net]gcc4net.Crt::__minsf3", float_type_node, \
+               2, float_type_node, float_type_node)
+
+DEF_CILBUILTIN(MINDF3, "[gcc4net]gcc4net.Crt::__mindf3", double_type_node, \
+               2, double_type_node, double_type_node)
+
+DEF_CILBUILTIN(MAXSI3, "[gcc4net]gcc4net.Crt::__maxsi3", intSI_type_node, \
+               2, intSI_type_node, intSI_type_node)
+
+DEF_CILBUILTIN(MAXDI3, "[gcc4net]gcc4net.Crt::__maxdi3", intDI_type_node, \
+               2, intDI_type_node, intDI_type_node)
+
+DEF_CILBUILTIN(UMAXSI3, "[gcc4net]gcc4net.Crt::__umaxsi3", \
+	       unsigned_intSI_type_node, \
+	       2, unsigned_intSI_type_node, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(UMAXDI3, "[gcc4net]gcc4net.Crt::__umaxdi3", \
+	       unsigned_intDI_type_node, \
+	       2, unsigned_intDI_type_node, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(MAXSF3, "[gcc4net]gcc4net.Crt::__maxsf3", float_type_node, \
+               2, float_type_node, float_type_node)
+
+DEF_CILBUILTIN(MAXDF3, "[gcc4net]gcc4net.Crt::__maxdf3", double_type_node, \
+               2, double_type_node, double_type_node)
+
+DEF_CILBUILTIN(ABSSI2, "[gcc4net]gcc4net.Crt::__abssi2", intSI_type_node, \
+               1, intSI_type_node)
+
+DEF_CILBUILTIN(ABSDI2, "[gcc4net]gcc4net.Crt::__absdi2", intDI_type_node, \
+               1, intDI_type_node)
+
+DEF_CILBUILTIN(ABSSF2, "[gcc4net]gcc4net.Crt::__abssf2", float_type_node, \
+               1, float_type_node)
+
+DEF_CILBUILTIN(ABSDF2, "[gcc4net]gcc4net.Crt::__absdf2", double_type_node, \
+               1, double_type_node)
+
+DEF_CILBUILTIN(SELECTSI4, "[gcc4net]gcc4net.Crt::__selectsi4", \
+	       intSI_type_node, \
+	       3, intSI_type_node, intSI_type_node, intSI_type_node)
+
+DEF_CILBUILTIN(SELECTDI4, "[gcc4net]gcc4net.Crt::__selectdi4", \
+	       intDI_type_node, \
+	       3, intSI_type_node, intDI_type_node, intDI_type_node)
+
+DEF_CILBUILTIN(SELECTSF4, "[gcc4net]gcc4net.Crt::__selectsf4", \
+	       float_type_node, \
+	       3, intSI_type_node, float_type_node, float_type_node)
+
+DEF_CILBUILTIN(SELECTDF4, "[gcc4net]gcc4net.Crt::__selectdf4", \
+	       double_type_node, \
+	       3, intSI_type_node, double_type_node, double_type_node)
+
+DEF_CILBUILTIN(CLZSI2, "[gcc4net]gcc4net.Crt::__clzsi2", \
+	       intSI_type_node, \
+	       1, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(CLZDI2, "[gcc4net]gcc4net.Crt::__clzdi2", \
+	       intSI_type_node, \
+	       1, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(CTZSI2, "[gcc4net]gcc4net.Crt::__ctzsi2", \
+	       intSI_type_node, \
+	       1, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(CTZDI2, "[gcc4net]gcc4net.Crt::__ctzdi2", \
+	       intSI_type_node, \
+	       1, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(FFSSI2, "[gcc4net]gcc4net.Crt::__ffssi2", \
+	       intSI_type_node, \
+	       1, intSI_type_node)
+
+DEF_CILBUILTIN(FFSDI2, "[gcc4net]gcc4net.Crt::__ffsdi2", \
+	       intSI_type_node, \
+	       1, intDI_type_node)
+
+DEF_CILBUILTIN(PARITYSI2, "[gcc4net]gcc4net.Crt::__paritysi2", \
+	       intSI_type_node, \
+	       1, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(PARITYDI2, "[gcc4net]gcc4net.Crt::__paritydi2", \
+	       intSI_type_node, \
+	       1, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(POPCOUNTSI2, "[gcc4net]gcc4net.Crt::__popcountsi2", \
+	       intSI_type_node, \
+	       1, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(POPCOUNTDI2, "[gcc4net]gcc4net.Crt::__popcountdi2", \
+	       intSI_type_node, \
+	       1, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(CPLX_CHAR_CTOR, \
+	       "[gcc4net]gcc4net.complex_char::complex_char_ctor", \
+	       complex_char_type_node, \
+	       2, char_type_node, char_type_node)
+
+DEF_CILBUILTIN(CPLX_SHORT_CTOR, \
+	       "[gcc4net]gcc4net.complex_short::complex_short_ctor", \
+	       complex_short_integer_type_node, \
+	       2, short_integer_type_node, short_integer_type_node)
+
+DEF_CILBUILTIN(CPLX_INT_CTOR, \
+	       "[gcc4net]gcc4net.complex_int::complex_int_ctor", \
+	       complex_integer_type_node, \
+	       2, integer_type_node, integer_type_node)
+
+DEF_CILBUILTIN(CPLX_LONG_CTOR, \
+	       "[gcc4net]gcc4net.complex_long::complex_long_ctor", \
+	       complex_long_integer_type_node, \
+	       2, long_long_integer_type_node, long_long_integer_type_node)
+
+DEF_CILBUILTIN(CPLX_UCHAR_CTOR, \
+	       "[gcc4net]gcc4net.complex_uchar::complex_uchar_ctor", \
+	       complex_unsigned_char_type_node, \
+	       2, unsigned_char_type_node, unsigned_char_type_node)
+
+DEF_CILBUILTIN(CPLX_USHORT_CTOR, \
+	       "[gcc4net]gcc4net.complex_ushort::complex_ushort_ctor", \
+	       complex_short_unsigned_type_node, \
+	       2, short_unsigned_type_node, short_unsigned_type_node)
+
+DEF_CILBUILTIN(CPLX_UINT_CTOR, \
+	       "[gcc4net]gcc4net.complex_uint::complex_uint_ctor", \
+	       complex_unsigned_type_node, \
+	       2, unsigned_type_node, unsigned_type_node)
+
+DEF_CILBUILTIN(CPLX_ULONG_CTOR, \
+	       "[gcc4net]gcc4net.complex_ulong::complex_ulong_ctor", \
+	       complex_long_unsigned_type_node, \
+	       2, long_long_unsigned_type_node, long_long_unsigned_type_node)
+
+DEF_CILBUILTIN(CPLX_FLOAT_CTOR, \
+	       "[gcc4net]gcc4net.complex_float::complex_float_ctor", \
+	       complex_float_type_node, \
+	       2, float_type_node, float_type_node)
+
+DEF_CILBUILTIN(CPLX_DOUBLE_CTOR, \
+	       "[gcc4net]gcc4net.complex_double::complex_double_ctor", \
+	       complex_double_type_node, \
+	       2, double_type_node, double_type_node)
