@@ -48,7 +48,6 @@
 #include "sched-int.h"
 #include "params.h"
 #include "assert.h"
-#include "c-common.h"
 #include "machmode.h"
 #include "gimple.h"
 #include "tm-constrs.h"
@@ -3725,8 +3724,8 @@ spu_handle_fndecl_attribute (tree * node,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (0, "`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (0, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -3783,7 +3782,7 @@ spu_handle_vector_attribute (tree * node, tree name,
   *no_add_attrs = true;		/* No need to hang on to the attribute.  */
 
   if (!result)
-    warning (0, "`%s' attribute ignored", IDENTIFIER_POINTER (name));
+    warning (0, "%qE attribute ignored", name);
   else
     *node = lang_hooks.types.reconstruct_complex_type (*node, result);
 
