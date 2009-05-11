@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sbitmap.h"
 #include "reload.h"
 #include "recog.h"
+#include "multi-target.h"
 
 struct machine_function GTY(())
 {
@@ -46,6 +47,8 @@ struct machine_function GTY(())
   unsigned char lanes_written[N_HARDWARE_VECREGS];
 };
 
+START_TARGET_SPECIFIC
+
 rtx mxp_compare_op0, mxp_compare_op1;
 sbitmap mxp_acc_classes;
 
@@ -53,7 +56,8 @@ sbitmap mxp_acc_classes;
 struct machine_function *
 mxp_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return ((struct machine_function *)
+	  ggc_alloc_cleared (sizeof (struct machine_function)));
 }
 
 static void mxp_init_libfuncs (void);
@@ -61,6 +65,8 @@ static void mxp_init_libfuncs (void);
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS mxp_init_libfuncs
 
+extern int mxp_secondary_reload (bool, rtx, int, enum machine_mode,
+				 struct secondary_reload_info *);
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD mxp_secondary_reload
 
@@ -356,9 +362,9 @@ frame_insn (rtx x)
 
 /* Helper function for find_save_lanes, called via note_stores.  */
 static void
-find_save_lanes_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+find_save_lanes_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  unsigned char *buf = data;
+  unsigned char *buf = (unsigned char *) data;
   int r = true_regnum (x);
   int vecnum, lanes;
 
@@ -580,8 +586,8 @@ mxp_emit_conditional_branch (rtx *operands, enum rtx_code code)
   emit_jump_insn (gen_branch_true (operands[0], result));
 }
 
-enum reg_class
-mxp_secondary_reload (bool in_p, rtx x, enum reg_class class,
+int
+mxp_secondary_reload (bool in_p, rtx x, int /*enum reg_class*/ rclass,
 		      enum machine_mode mode,
 		      secondary_reload_info *sri ATTRIBUTE_UNUSED)
 {
@@ -589,13 +595,13 @@ mxp_secondary_reload (bool in_p, rtx x, enum reg_class class,
   if (GET_MODE_SIZE (mode) < 16
       && (GET_CODE (x) == REG && REGNO (x) < FIRST_PSEUDO_REGISTER)
       && (in_p
-	  ? (class == Af0_REGS || class == A0f_REGS || class == Aff_REGS || class == ALL_REGS)
+	  ? (rclass == Af0_REGS || rclass == A0f_REGS || rclass == Aff_REGS || rclass == ALL_REGS)
 	  : LANE0_REGNO (REGNO (x)) == ACC_REG))
     {
       int x_regno = true_regnum (x);
       int mask = (GET_MODE_SIZE (mode) - 1) | 1;
       int x_lanes = mask << VREG_LANE (x_regno);
-      int c_lanes = class_scalar_vec_lanes[class];
+      int c_lanes = class_scalar_vec_lanes[rclass];
       int in_lanes  = in_p ? x_lanes : c_lanes;
       int out_lanes = in_p ? c_lanes : x_lanes;
 
@@ -625,7 +631,7 @@ mxp_conditional_register_usage (void)
 
   mxp_acc_classes = sbitmap_alloc (N_REG_CLASSES);
   for (i = 0; i < N_REG_CLASSES; i++)
-    if (reg_classes_intersect_p (i, Aff_REGS))
+    if (reg_classes_intersect_p ((enum reg_class) i, Aff_REGS))
       SET_BIT (mxp_acc_classes, i);
 }
 
@@ -656,13 +662,13 @@ mxp_register_move_cost (enum machine_mode mode,
 }
 
 int
-mxp_memory_move_cost (enum machine_mode mode, enum reg_class class,
+mxp_memory_move_cost (enum machine_mode mode, enum reg_class rclass,
 		      int in_p ATTRIBUTE_UNUSED)
 {
   return (4
 	  + (GET_MODE_SIZE (mode) == 8
-	     && (class_scalar_vec_lanes[(class)] & 0xf0))
-	  + memory_move_secondary_cost (mode, class, in_p));
+	     && (class_scalar_vec_lanes[(rclass)] & 0xf0))
+	  + memory_move_secondary_cost (mode, rclass, in_p));
 }
 
 int
@@ -683,3 +689,5 @@ mxp_vector_mode_supported_p (enum machine_mode mode)
 }
 
 #include "gt-mxp.h"
+
+END_TARGET_SPECIFIC

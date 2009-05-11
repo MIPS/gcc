@@ -517,6 +517,11 @@ static rtx frame_insn (rtx);
 #undef TARGET_MAX_ANCHOR_OFFSET
 #define TARGET_MAX_ANCHOR_OFFSET (1020)
 
+extern enum reg_class arc_secondary_reload (bool, rtx, enum reg_class,
+					    enum machine_mode,
+					    struct secondary_reload_info *);
+
+
 /* Try to keep the (mov:DF _, reg) as early as possible so 
    that the d<add/sub/mul>h-lr insns appear together and can
    use the peephole2 pattern
@@ -691,11 +696,11 @@ void arc_init (void)
 static bool
 arc_override_options (bool main_target)
 {
-  if (arc_size_opt_level == 3)
+  if (main_target && arc_size_opt_level == 3)
     optimize_size = 1;
   if (flag_pic)
     target_flags |= MASK_NO_SDATA_SET;
-  if (flag_no_common == 255)
+  if (main_target && flag_no_common == 255)
     flag_no_common = !TARGET_NO_SDATA_SET;
   /* TARGET_COMPACT_CASESI needs the "q" register class.  */
   if (TARGET_MIXED_CODE)
@@ -1516,7 +1521,7 @@ frame_move_inc (rtx dst, rtx src, rtx reg, rtx addr)
   if (!addr
       || GET_CODE (addr) == PRE_DEC || GET_CODE (addr) == POST_INC
       || GET_CODE (addr) == PRE_MODIFY || GET_CODE (addr) == POST_MODIFY)
-    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, reg, 0);
+    REG_NOTES (insn) = alloc_reg_note (REG_INC, reg, 0);
   return insn;
 }
 
@@ -2509,7 +2514,7 @@ arc_eligible_for_epilogue_delay (rtx trial,int slot)
 rtx
 arc_finalize_pic (void)
 {
-  rtx new;
+  rtx newx;
   rtx baseptr_rtx = gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
 
   if (crtl->uses_pic_offset_table == 0)
@@ -2517,13 +2522,13 @@ arc_finalize_pic (void)
 
   gcc_assert (flag_pic != 0);
   
-  new = gen_rtx_SYMBOL_REF (Pmode, "_DYNAMIC");
-  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, new), ARC_UNSPEC_GOT);
-  new = gen_rtx_CONST (Pmode, new);
+  newx = gen_rtx_SYMBOL_REF (Pmode, "_DYNAMIC");
+  newx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, newx), ARC_UNSPEC_GOT);
+  newx = gen_rtx_CONST (Pmode, newx);
   
-  new = gen_rtx_SET (VOIDmode, baseptr_rtx, new);
+  newx = gen_rtx_SET (VOIDmode, baseptr_rtx, newx);
 
-  return emit_insn (new);
+  return emit_insn (newx);
 }
 
 /* Output the assembler code for doing a shift.
@@ -3928,8 +3933,8 @@ arc_verify_short (rtx insn, int unalign, int check_attr)
       if ((type == TYPE_BRCC && len > 4)
 	  || (type == TYPE_BRCC_NO_DELAY_SLOT && len > 8))
 	{
-	  rtx operator = XEXP (SET_SRC (XVECEXP (PATTERN (insn), 0, 0)), 0);
-	  rtx op0 = XEXP (operator, 0);
+	  rtx oprtr = XEXP (SET_SRC (XVECEXP (PATTERN (insn), 0, 0)), 0);
+	  rtx op0 = XEXP (oprtr, 0);
 
 	  if (GET_CODE (op0) == ZERO_EXTRACT)
 	    op0 = XEXP (op0, 0);
@@ -4134,8 +4139,8 @@ arc_verify_short (rtx insn, int unalign, int check_attr)
 	  if ((type == TYPE_BRCC && len > 4)
 	      || (type == TYPE_BRCC_NO_DELAY_SLOT && len > 8))
 	    {
-	      rtx operator = XEXP (SET_SRC (XVECEXP (PATTERN (scan), 0, 0)), 0);
-	      rtx op0 = XEXP (operator, 0);
+	      rtx oprtr = XEXP (SET_SRC (XVECEXP (PATTERN (scan), 0, 0)), 0);
+	      rtx op0 = XEXP (oprtr, 0);
 
 	      if (GET_CODE (op0) == ZERO_EXTRACT)
 		op0 = XEXP (op0, 0);
@@ -4648,7 +4653,8 @@ arc_rtx_costs (rtx x, int code, int outer_code, int *total, bool speed)
 	     we are looking at.  */
 	  if (CONSTANT_P (XEXP (x, 0)))
 	    {
-	      *total += COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 1), code, speed);
+	      *total += (COSTS_N_INSNS (2)
+			 + rtx_cost (XEXP (x, 1), (enum rtx_code) code, speed));
 	      return true;
 	    }
 	  *total = COSTS_N_INSNS (1);
@@ -4985,7 +4991,7 @@ rtx
 arc_legitimize_pic_address (rtx orig, rtx oldx)
 {
   rtx addr = orig;
-  rtx new = orig;
+  rtx newx = orig;
   rtx base;
 
   if (oldx == orig)
@@ -5003,17 +5009,17 @@ arc_legitimize_pic_address (rtx orig, rtx oldx)
       /* FIXME: if we had a way to emit pc-relative adds that don't
 	 create a GOT entry, we could do without the use of the gp register.  */
       crtl->uses_pic_offset_table = 1;
-      new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), ARC_UNSPEC_GOTOFF);
-      new = gen_rtx_CONST (Pmode, new);
-      new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
+      newx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), ARC_UNSPEC_GOTOFF);
+      newx = gen_rtx_CONST (Pmode, newx);
+      newx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, newx);
 
       if (oldx == NULL)
 	oldx = gen_reg_rtx (Pmode);
 
       if (oldx != 0)
 	{
-	  emit_move_insn (oldx, new);
-	  new = oldx;
+	  emit_move_insn (oldx, newx);
+	  newx = oldx;
 	}
 
     }
@@ -5022,15 +5028,15 @@ arc_legitimize_pic_address (rtx orig, rtx oldx)
       /* This symbol must be referenced via a load from the
 	 Global Offset Table (@GOTPC). */
 
-      new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), ARC_UNSPEC_GOT);
-      new = gen_rtx_CONST (Pmode, new);
-      new = gen_const_mem (Pmode, new);
+      newx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), ARC_UNSPEC_GOT);
+      newx = gen_rtx_CONST (Pmode, newx);
+      newx = gen_const_mem (Pmode, newx);
 
       if (oldx == 0)
 	oldx = gen_reg_rtx (Pmode);
 
-      emit_move_insn (oldx, new);
-      new = oldx;
+      emit_move_insn (oldx, newx);
+      newx = oldx;
     }
   else
     {
@@ -5059,39 +5065,40 @@ arc_legitimize_pic_address (rtx orig, rtx oldx)
 	    {
 	      /* FIXME: like above, could do without gp reference.  */
 	      crtl->uses_pic_offset_table = 1;
-	      new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0), ARC_UNSPEC_GOTOFF);
-	      new = gen_rtx_PLUS (Pmode, new, op1);
-	      new = gen_rtx_CONST (Pmode, new);
-	      new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
+	      newx
+		= gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0), ARC_UNSPEC_GOTOFF);
+	      newx = gen_rtx_PLUS (Pmode, newx, op1);
+	      newx = gen_rtx_CONST (Pmode, newx);
+	      newx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, newx);
 
 	      if (oldx != 0)
 		{
-		  emit_move_insn (oldx, new);
-		  new = oldx;
+		  emit_move_insn (oldx, newx);
+		  newx = oldx;
 		}
 	    }
 	  else
 	    {
 	      base = arc_legitimize_pic_address (XEXP (addr, 0), oldx);
-	      new  = arc_legitimize_pic_address (XEXP (addr, 1),
+	      newx  = arc_legitimize_pic_address (XEXP (addr, 1),
 					     base == oldx ? NULL_RTX : oldx);
 
-	      if (GET_CODE (new) == CONST_INT)
-		new = plus_constant (base, INTVAL (new));
+	      if (GET_CODE (newx) == CONST_INT)
+		newx = plus_constant (base, INTVAL (newx));
 	      else
 		{
-		  if (GET_CODE (new) == PLUS && CONSTANT_P (XEXP (new, 1)))
+		  if (GET_CODE (newx) == PLUS && CONSTANT_P (XEXP (newx, 1)))
 		    {
-		      base = gen_rtx_PLUS (Pmode, base, XEXP (new, 0));
-		      new = XEXP (new, 1);
+		      base = gen_rtx_PLUS (Pmode, base, XEXP (newx, 0));
+		      newx = XEXP (newx, 1);
 		    }
-		  new = gen_rtx_PLUS (Pmode, base, new);
+		  newx = gen_rtx_PLUS (Pmode, base, newx);
 		}
 	    }
 	}
     }
 
- return new;
+ return newx;
 }
 
 void
@@ -5642,7 +5649,7 @@ arc_expand_builtin (tree exp,
     case ARC_BUILTIN_NORM:
       icode = CODE_FOR_norm;
       arg0 = CALL_EXPR_ARG (exp, 0);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
       mode0 =  insn_data[icode].operand[1].mode;
       target = gen_reg_rtx (SImode);
 
@@ -5657,7 +5664,7 @@ arc_expand_builtin (tree exp,
 	/* FIXME : This should all be HI mode, not SI mode */
 	icode = CODE_FOR_normw;
 	arg0 = CALL_EXPR_ARG (exp, 0);
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	mode0 =  insn_data[icode].operand[1].mode;
 	target = gen_reg_rtx (SImode);
 	
@@ -5671,8 +5678,8 @@ arc_expand_builtin (tree exp,
 	icode = CODE_FOR_mul64;
 	arg0 = CALL_EXPR_ARG (exp, 0);
 	arg1 = CALL_EXPR_ARG (exp, 1);
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	
 	mode0 =  insn_data[icode].operand[0].mode;
 	mode1 =  insn_data[icode].operand[1].mode;
@@ -5690,8 +5697,8 @@ arc_expand_builtin (tree exp,
 	icode = CODE_FOR_mulu64;
 	arg0 = CALL_EXPR_ARG (exp, 0);
 	arg1 = CALL_EXPR_ARG (exp, 1);
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	
 	mode0 =  insn_data[icode].operand[0].mode;
 	mode1 =  insn_data[icode].operand[1].mode;
@@ -5718,7 +5725,7 @@ arc_expand_builtin (tree exp,
     case ARC_BUILTIN_SWAP:
 	icode = CODE_FOR_swap;
 	arg0 = CALL_EXPR_ARG (exp, 0);
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	mode0 =  insn_data[icode].operand[1].mode;
 	target = gen_reg_rtx (SImode);
 
@@ -5733,8 +5740,8 @@ arc_expand_builtin (tree exp,
 	arg0 = CALL_EXPR_ARG (exp, 0);
 	arg1 = CALL_EXPR_ARG (exp, 1);
 	
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	target = gen_reg_rtx (SImode);
 
 	mode0 =  insn_data[icode].operand[0].mode;
@@ -5760,7 +5767,7 @@ arc_expand_builtin (tree exp,
 
 	fold (arg0);
 	
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	mode0 = insn_data[icode].operand[1].mode;
 
 	emit_insn (gen_sleep (op0));
@@ -5774,7 +5781,7 @@ arc_expand_builtin (tree exp,
     case ARC_BUILTIN_FLAG:
 	icode = CODE_FOR_flag;
 	arg0 = CALL_EXPR_ARG (exp, 0);
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	mode0 =  insn_data[icode].operand[0].mode;
 
 	if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
@@ -5790,7 +5797,7 @@ arc_expand_builtin (tree exp,
 
 	fold (arg0);
 	
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	mode0 = insn_data[icode].operand[1].mode;
 	
 	emit_insn (gen_core_read (target, op0));
@@ -5803,8 +5810,8 @@ arc_expand_builtin (tree exp,
 	
 	fold (arg1);
 	
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 
 	mode0 = insn_data[icode].operand[0].mode;
 	mode1 = insn_data[icode].operand[1].mode;
@@ -5819,7 +5826,7 @@ arc_expand_builtin (tree exp,
 
 	fold (arg0);
 	
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	mode0 = insn_data[icode].operand[1].mode;
 	
 	emit_insn (gen_lr (target, op0));
@@ -5832,8 +5839,8 @@ arc_expand_builtin (tree exp,
 	
 	fold (arg1);
 	
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 
 	mode0 = insn_data[icode].operand[0].mode;
 	mode1 = insn_data[icode].operand[1].mode;
@@ -5847,7 +5854,7 @@ arc_expand_builtin (tree exp,
 
 	fold (arg0);
 	
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	mode0 = insn_data[icode].operand[1].mode;
 
 	emit_insn (gen_trap_s (op0));
@@ -6274,8 +6281,8 @@ arc_reorg (void)
 		  XEXP (XVECEXP (PATTERN (lp), 0, 7), 0)
 		    = gen_rtx_LABEL_REF (Pmode, top_label);
 		  REG_NOTES (lp)
-		    = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, top_label,
-					 REG_NOTES (lp));
+		    = alloc_reg_note (REG_LABEL_OPERAND, top_label,
+				      REG_NOTES (lp));
 		  LABEL_NUSES (top_label)++;
 		}
 	      /* We can avoid tedious loop start / end setting for empty loops
@@ -6406,14 +6413,14 @@ estimate required size increase).
 	  if (recog_memoized (insn) == CODE_FOR_cbranchsi4_scratch)
 	    {
 	      rtx pat = PATTERN (insn);
-	      rtx operator = XEXP (SET_SRC (XVECEXP (pat, 0, 0)), 0);
+	      rtx oprtr = XEXP (SET_SRC (XVECEXP (pat, 0, 0)), 0);
 	      rtx *ccp = &XEXP (XVECEXP (pat, 0, 1), 0);
 
 	      offset = branch_dest (insn) - INSN_ADDRESSES (INSN_UID (insn));
 	      if ((offset >= -140 && offset < 140)
-		  && rtx_equal_p (XEXP (operator, 1), const0_rtx)
- 		  && compact_register_operand (XEXP (operator, 0), VOIDmode)
-		  && equality_comparison_operator (operator, VOIDmode))
+		  && rtx_equal_p (XEXP (oprtr, 1), const0_rtx)
+ 		  && compact_register_operand (XEXP (oprtr, 0), VOIDmode)
+		  && equality_comparison_operator (oprtr, VOIDmode))
 		PUT_MODE (*ccp, CC_Zmode);
 	      else if (GET_MODE (*ccp) == CC_Zmode)
 		PUT_MODE (*ccp, CC_ZNmode);
@@ -6467,18 +6474,18 @@ estimate required size increase).
 	      else
  	        /* Check if this is a data dependency */
  		{
- 		  rtx operator, cc_clob_rtx, op0, op1, brcc_insn, note;
+ 		  rtx oprtr, cc_clob_rtx, op0, op1, brcc_insn, note;
 		  rtx cmp0, cmp1;
 
  		  /* ok this is the set cc. copy args here */
- 		  operator = XEXP (pc_target, 0);
+ 		  oprtr = XEXP (pc_target, 0);
 
 		  op0 = cmp0 = XEXP (SET_SRC (pat), 0);
 		  op1 = cmp1 = XEXP (SET_SRC (pat), 1);
 		  if (GET_CODE (op0) == ZERO_EXTRACT
 		      && XEXP (op0, 1) == const1_rtx
- 		      && (GET_CODE (operator) == EQ
-			  || GET_CODE (operator) == NE))
+ 		      && (GET_CODE (oprtr) == EQ
+			  || GET_CODE (oprtr) == NE))
 		    {
 		      /* btst / b{eq,ne} -> bbit{0,1} */
 		      op0 = XEXP (cmp0, 0);
@@ -6506,14 +6513,14 @@ estimate required size increase).
  		  if (!find_regno_note (insn, REG_DEAD, CC_REG))
  		    continue;
 
-		  operator = gen_rtx_fmt_ee (GET_CODE (operator),
-					     GET_MODE (operator), cmp0, cmp1);
+		  oprtr = gen_rtx_fmt_ee (GET_CODE (oprtr),
+					     GET_MODE (oprtr), cmp0, cmp1);
 		  /* If we create a LIMM where there was none before,
 		     we only benefit if we can avoid a scheduling bubble
 		     for the ARC600.  Otherwise, we'd only forgo chances
 		     at short insn generation, and risk out-of-range
 		     branches.  */
-		  if (!brcc_nolimm_operator (operator, VOIDmode)
+		  if (!brcc_nolimm_operator (oprtr, VOIDmode)
 		      && !long_immediate_operand (op1, VOIDmode)
 		      && (TARGET_ARC700
 			  || next_active_insn (link_insn) != insn))
@@ -6527,14 +6534,14 @@ estimate required size increase).
  		  else if ((offset >= -140 && offset < 140)
 			   && rtx_equal_p (op1, const0_rtx)
 			   && compact_register_operand (op0, VOIDmode)
-			   && (GET_CODE (operator) == EQ
-			       || GET_CODE (operator) == NE))
+			   && (GET_CODE (oprtr) == EQ
+			       || GET_CODE (oprtr) == NE))
  		    cc_clob_rtx = gen_rtx_REG (CC_Zmode, CC_REG);
  		  else
  		    cc_clob_rtx = gen_rtx_REG (CCmode, CC_REG);
 
  		  brcc_insn
-		    = gen_rtx_IF_THEN_ELSE (VOIDmode, operator, label, pc_rtx);
+		    = gen_rtx_IF_THEN_ELSE (VOIDmode, oprtr, label, pc_rtx);
  		  brcc_insn = gen_rtx_SET (VOIDmode, pc_rtx, brcc_insn);
 		  cc_clob_rtx = gen_rtx_CLOBBER (VOIDmode, cc_clob_rtx);
 		  brcc_insn
@@ -6910,7 +6917,7 @@ static const struct builtin_description arc_simd_builtin_desc_list[] =
   /* VVV builtins go first */
 #define SIMD_BUILTIN(type,code, string, builtin) \
   { type,CODE_FOR_##code, "__builtin_arc_" string, \
-    ARC_SIMD_BUILTIN_##builtin, 0, 0 },
+    ARC_SIMD_BUILTIN_##builtin, UNKNOWN, 0 },
 
   SIMD_BUILTIN (Va_Vb_Vc,    vaddaw_insn,   "vaddaw",     VADDAW)
   SIMD_BUILTIN (Va_Vb_Vc,     vaddw_insn,    "vaddw",      VADDW)
@@ -7197,8 +7204,8 @@ arc_expand_simd_builtin (tree exp,
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0);
     arg1 = CALL_EXPR_ARG (exp, 1);
-    op0 = expand_expr (arg0, NULL_RTX, V8HImode, 0);
-    op1 = expand_expr (arg1, NULL_RTX, SImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+    op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
     
     target = gen_reg_rtx (V8HImode);
     mode0 =  insn_data[icode].operand[1].mode;
@@ -7222,8 +7229,8 @@ arc_expand_simd_builtin (tree exp,
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0);
     arg1 = CALL_EXPR_ARG (exp, 1);
-    op0 = expand_expr (arg0, NULL_RTX, V8HImode, 0);
-    op1 = expand_expr (arg1, NULL_RTX, SImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+    op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
     
     target = gen_reg_rtx (V8HImode);
     mode0 =  insn_data[icode].operand[1].mode;
@@ -7251,8 +7258,8 @@ arc_expand_simd_builtin (tree exp,
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0);
     arg1 = CALL_EXPR_ARG (exp, 1);
-    op0 = expand_expr (arg0, NULL_RTX, SImode, 0);
-    op1 = expand_expr (arg1, NULL_RTX, SImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
+    op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
     
     target = gen_reg_rtx (V8HImode);
     mode0 =  insn_data[icode].operand[1].mode;
@@ -7277,8 +7284,8 @@ arc_expand_simd_builtin (tree exp,
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0);
     arg1 = CALL_EXPR_ARG (exp, 1);
-    op0 = expand_expr (arg0, NULL_RTX, V8HImode, 0);
-    op1 = expand_expr (arg1, NULL_RTX, SImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+    op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
     op2 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);
 
     target = gen_reg_rtx (V8HImode);
@@ -7304,8 +7311,8 @@ arc_expand_simd_builtin (tree exp,
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0);
     arg1 = CALL_EXPR_ARG (exp, 1);
-    op0 = expand_expr (arg0, NULL_RTX, V8HImode, 0);
-    op1 = expand_expr (arg1, NULL_RTX, V8HImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+    op1 = expand_expr (arg1, NULL_RTX, V8HImode, EXPAND_NORMAL);
     
     target = gen_reg_rtx (V8HImode);
     mode0 =  insn_data[icode].operand[1].mode;
@@ -7327,7 +7334,7 @@ arc_expand_simd_builtin (tree exp,
   case Va_Vb:
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0);
-    op0 = expand_expr (arg0, NULL_RTX, V8HImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
     
     target = gen_reg_rtx (V8HImode);
     mode0 =  insn_data[icode].operand[1].mode;
@@ -7346,8 +7353,8 @@ arc_expand_simd_builtin (tree exp,
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0);
     arg1 = CALL_EXPR_ARG (exp, 1);
-    op0 = expand_expr (arg0, NULL_RTX, SImode, 0);
-    op1 = expand_expr (arg1, NULL_RTX, SImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
+    op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
 
     
     if (icode == CODE_FOR_vdirun_insn)
@@ -7378,8 +7385,8 @@ arc_expand_simd_builtin (tree exp,
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0);
     arg1 = CALL_EXPR_ARG (exp, 1);
-    op0 = expand_expr (arg0, NULL_RTX, SImode, 0);
-    op1 = expand_expr (arg1, NULL_RTX, SImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
+    op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
 
     
     if (! (GET_CODE (op0) == CONST_INT)
@@ -7412,7 +7419,7 @@ arc_expand_simd_builtin (tree exp,
     
     fold (arg0);
     
-    op0 = expand_expr (arg0, NULL_RTX, SImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
     mode0 = insn_data[icode].operand[0].mode;
 
     /* op0 should be u6 */
@@ -7434,7 +7441,7 @@ arc_expand_simd_builtin (tree exp,
     
     fold (arg0);
     
-    op0 = expand_expr (arg0, NULL_RTX, SImode, 0);
+    op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
     mode0 = insn_data[icode].operand[0].mode;
     
     if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
@@ -7455,9 +7462,9 @@ arc_expand_simd_builtin (tree exp,
       arg1 = CALL_EXPR_ARG (exp, 1); /* [I]0-7 */
       arg2 = CALL_EXPR_ARG (exp, 2); /* u8 */
 
-      src_vreg = expand_expr (arg0, NULL_RTX, V8HImode, 0);
-      op0 = expand_expr (arg1, NULL_RTX, SImode, 0);    /* [I]0-7 */
-      op1 = expand_expr (arg2, NULL_RTX, SImode, 0);    /* u8 */
+      src_vreg = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+      op0 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);  /* [I]0-7 */
+      op1 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL);  /* u8 */
       op2 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);	                /* VR0 */
     
       /* target <- src vreg */
@@ -7492,9 +7499,9 @@ arc_expand_simd_builtin (tree exp,
     arg2 = CALL_EXPR_ARG (exp, 2); /* u8 */
 
     op0 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);  /* VR0    */
-    op1 = expand_expr (arg1, NULL_RTX, SImode, 0);        /* I[0-7] */
-    op2 = expand_expr (arg2, NULL_RTX, SImode, 0);        /* u8     */
-    op3 = expand_expr (arg0, NULL_RTX, V8HImode, 0);      /* Vdest  */
+    op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);     /* I[0-7] */
+    op2 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL);     /* u8     */
+    op3 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);   /* Vdest  */
     
     mode0 =  insn_data[icode].operand[0].mode;
     mode1 =  insn_data[icode].operand[1].mode;
@@ -7527,8 +7534,8 @@ arc_expand_simd_builtin (tree exp,
     arg1 = CALL_EXPR_ARG (exp, 1); /* [I]0-7 */
 
     op0 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);  /* VR0    */
-    op1 = expand_expr (arg0, NULL_RTX, SImode, 0);        /* I[0-7] */
-    op2 = expand_expr (arg1, NULL_RTX, SImode, 0);        /* u8     */
+    op1 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);     /* I[0-7] */
+    op2 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);     /* u8     */
     
     /* target <- src vreg */
     target = gen_reg_rtx (V8HImode);
@@ -7562,11 +7569,13 @@ arc_expand_simd_builtin (tree exp,
     arg2 = CALL_EXPR_ARG (exp, 2); /* [I]0-7 */
     arg3 = CALL_EXPR_ARG (exp, 3); /* u8 */
 
-    op0 = expand_expr (arg3, NULL_RTX, SImode, 0);         /* u8               */
-    op1 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);  /* VR                */
-    op2 = expand_expr (arg2, NULL_RTX, SImode, 0);        /* [I]0-7            */
-    op3 = expand_expr (arg0, NULL_RTX, V8HImode, 0);      /* vreg to be stored */
-    op4 = expand_expr (arg1, NULL_RTX, SImode, 0);        /* vreg 0-7 subreg no. */
+    op0 = expand_expr (arg3, NULL_RTX, SImode, EXPAND_NORMAL); /* u8     */
+    op1 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);       /* VR     */
+    op2 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL); /* [I]0-7 */
+    /* vreg to be stored */
+    op3 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+    /* vreg 0-7 subreg no. */
+    op4 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
 
     mode0 =  insn_data[icode].operand[0].mode;
     mode2 =  insn_data[icode].operand[2].mode;
@@ -7610,15 +7619,15 @@ arc_expand_simd_builtin (tree exp,
 }
 
 enum reg_class
-arc_secondary_reload (bool in_p, rtx x, enum reg_class class,
+arc_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
                      enum machine_mode mode ATTRIBUTE_UNUSED,
 		     secondary_reload_info *sri ATTRIBUTE_UNUSED)
 {
   /* We can't load/store the D-registers directly */
-  if (class == DOUBLE_REGS && (GET_CODE (x) == MEM))
+  if (rclass == DOUBLE_REGS && (GET_CODE (x) == MEM))
     return GENERAL_REGS;
   /* The loop counter register can be stored, but not loaded directly.  */
-  if ((class == LPCOUNT_REG || class == WRITABLE_CORE_REGS)
+  if ((rclass == LPCOUNT_REG || rclass == WRITABLE_CORE_REGS)
       && in_p && GET_CODE (x) == MEM)
     return GENERAL_REGS;
   return NO_REGS;
@@ -7889,33 +7898,33 @@ prepare_move_operands (rtx *operands, enum machine_mode mode)
 	  rtx addr = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
 	  /* This is like change_address_1 (operands[0], mode, 0, 1) ,
 	     except that we can't use that function because it is static.  */
-	  rtx new = change_address (operands[0], mode, addr);
-	  MEM_COPY_ATTRIBUTES (new, operands[0]);
-	  operands[0] = new;
+	  rtx newx = change_address (operands[0], mode, addr);
+	  MEM_COPY_ATTRIBUTES (newx, operands[0]);
+	  operands[0] = newx;
 	}
       if (!cse_not_expected)
 	{
-	  rtx new = XEXP (operands[0], 0);
+	  rtx newx = XEXP (operands[0], 0);
 
-	  new = arc_legitimize_address (new, new, mode);
-	  if (new)
+	  newx = arc_legitimize_address (newx, newx, mode);
+	  if (newx)
 	    {
-	      new = change_address (operands[0], mode, new);
-	      MEM_COPY_ATTRIBUTES (new, operands[0]);
-	      operands[0] = new;
+	      newx = change_address (operands[0], mode, newx);
+	      MEM_COPY_ATTRIBUTES (newx, operands[0]);
+	      operands[0] = newx;
 	    }
 	}
     }
   if (MEM_P (operands[1]) && !cse_not_expected)
     {
-      rtx new = XEXP (operands[1], 0);
+      rtx newx = XEXP (operands[1], 0);
 
-      new = arc_legitimize_address (new, new, mode);
-      if (new)
+      newx = arc_legitimize_address (newx, newx, mode);
+      if (newx)
 	{
-	  new = change_address (operands[1], mode, new);
-	  MEM_COPY_ATTRIBUTES (new, operands[1]);
-	  operands[1] = new;
+	  newx = change_address (operands[1], mode, newx);
+	  MEM_COPY_ATTRIBUTES (newx, operands[1]);
+	  operands[1] = newx;
 	}
     }
   return 0;
@@ -8218,7 +8227,7 @@ arc_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     }
   else if (GET_CODE (addr) == SYMBOL_REF && !SYMBOL_REF_FUNCTION_P (addr))
     x = force_reg (Pmode, x);
-  if (memory_address_p (mode, x))
+  if (memory_address_p ((enum machine_mode) mode, x))
      return x;
   return NULL_RTX;
 }

@@ -18,6 +18,12 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #ifdef RTX_CODE
+
+/* For arc, insn-attrtab.c needs this, but does not include reload.h.  */
+END_TARGET_SPECIFIC
+extern int regno_clobbered_p (unsigned int, rtx, enum machine_mode, int);
+START_TARGET_SPECIFIC
+
 #ifdef TREE_CODE
 extern rtx arc_va_arg (tree, tree);
 #endif /* TREE_CODE */
@@ -112,10 +118,6 @@ extern int valid_brcc_with_delay_p (rtx *);
 extern int small_data_pattern (rtx , enum machine_mode ATTRIBUTE_UNUSED);
 extern rtx arc_rewrite_small_data (rtx);
 extern int arc_ccfsm_cond_exec_p (void);
-struct secondary_reload_info;
-extern enum reg_class arc_secondary_reload (bool, rtx, enum reg_class,
-					    enum machine_mode,
-					    struct secondary_reload_info *);
 extern int arc_register_move_cost (enum machine_mode, enum reg_class,
 				   enum reg_class);
 extern rtx disi_highpart (rtx);

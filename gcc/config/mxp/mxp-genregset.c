@@ -380,6 +380,8 @@ emit_c (void)
   int n_printed = 0;
 
   printf (
+"#include \"multi-target.h\"\n"
+"START_TARGET_SPECIFIC\n"
 "/* For each register class, indicate the lanes relevant for potential\n"
 "   cross-lane moves.  For move destinations, we can disregard scalar\n"
 "   registers, since they allow cheap cross-lane moves.  */\n");
@@ -403,6 +405,7 @@ emit_c (void)
       printf ("\n};\n");
     }
   while (*s && (s = ""));
+  printf ("END_TARGET_SPECIFIC");
 }
 
 int

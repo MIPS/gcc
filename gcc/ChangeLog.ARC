@@ -1,3 +1,47 @@
+2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* varasm.c (pickle_in_section): Add / change casts to make g++ content.
+	* genmodes.c (fixup_target_modes): Skip commoning for MODE_VECTOR_CC.
+	* config/arc/arc-protos.h (regno_clobbered_p): Declare.
+	* config/mxp/mxp.md (doloop_end): Accept new argument.
+	(nop): New pattern.
+	* config/mxp/mxp-protos.h (mxp_secondary_reload): Move decalration
+	from here...
+	* config/mxp/mxp.c: ... to here.
+	* config/mxp/mxp.c: Include multi-target.h, and add
+	START_TARGET_SPECIFIC / END_TARGET_SPECIFIC markers.
+	* config/mxp/mxp.h: Likewise.
+	* config/mxp/mxp.c: (mxp_init_machine_status): Cast return value of
+	ggc_alloc_cleared.
+	(mxp_secondary_reload): Change arguments / return type to match
+	target.h declaration.  Rename class to rclass.
+	(mxp_conditional_register_usage): Cast argument to
+	reg_classes_intersect_p .
+	(mxp_memory_move_cost): Rename class to rclass.
+	* config/mxp/mxp-genregset.h (emit_c): Make emitted program include
+	multi-target.h and have START_TARGET_SPECIFIC / END_TARGET_SPECIFIC
+	markers.
+	* config/arc/arc-protos.h (arc_secondary_reload): Move declaration
+	from here...
+	* config/arc/arc.c: ... to here.
+	* config/arc/arc.c (arc_override_options): Avoid changing general
+	flags for !main_target.
+	(frame_move_inc): Use alloc_reg_note.
+	(arc_finalize_pic): Rename new to newx.
+	(arc_verify_short): Rename operator to oprtr.
+	(arc_rtx_costs): cast argument to rtx_cost.
+	(arc_legitimize_pic_address): Rename new to newx.
+	(arc_expand_builtin, arc_expand_simd_builtin): Use EXPAND_NORMAL
+	instead of 0 to pass to expand_expr.
+	(arc_reorg): Use alloc_reg_note.  Rename operator to oprtr.
+	(arc_simd_builtin_desc_list): Use UNKNOWN for first rtx_code.
+	(arc_secondary_reload): Rename class to rclass.
+	(prepare_move_operands): Rename new to newx.
+	(arc_legitimize_address): Cast argument to memory_address_p.
+	* config/arc/arc.h (enum reg_class): Rename SP_REG to SP_REGS.
+	Changed user.
+	(ARG_POINTER_CFA_OFFSET): Add TARGET_SCOPE.
+
 2009-04-03  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* longlong.h [__ARC700__] (umul_ppmm): Add earlyclobber

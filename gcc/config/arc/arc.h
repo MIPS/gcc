@@ -649,7 +649,7 @@ enum reg_class
    R0_REG,			/* 'x' */
    GP_REG,			/* 'Rgp' */
    FP_REG,			/* 'f' */
-   SP_REG,			/* 'b' */
+   SP_REGS,			/* 'b' */
    LPCOUNT_REG, 		/* 'l' */
    LINK_REGS,	 		/* 'k' */
    DOUBLE_REGS,			/* D0, D1 */
@@ -675,7 +675,7 @@ enum reg_class
   "R0_REG",            	  \
   "GP_REG",            	  \
   "FP_REG",            	  \
-  "SP_REG",		  \
+  "SP_REGS",		  \
   "LPCOUNT_REG",	  \
   "LINK_REGS",         	  \
   "DOUBLE_REGS",          \
@@ -1990,7 +1990,7 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
 #define CFA_FRAME_BASE_OFFSET(FUNDECL) (-arc_decl_pretend_args ((FUNDECL)))
 
 #define ARG_POINTER_CFA_OFFSET(FNDECL) \
-  (FIRST_PARM_OFFSET (FNDECL) + arc_decl_pretend_args ((FNDECL)))
+  (FIRST_PARM_OFFSET (FNDECL) + TARGET_SCOPE arc_decl_pretend_args ((FNDECL)))
 
 /* There are a number of peepholes which are most likely the result of
    the original authers being ignorant of the combine pass and/or how

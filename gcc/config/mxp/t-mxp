@@ -1,7 +1,7 @@
 $(out_object_file): gt-sh.h
 gt-sh.h : s-gtype ; @true
 
-# ??? the generated .md file must be placed in srcdir, becuase that's the
+# ??? the generated .md file must be placed in srcdir, because that's the
 # only place that the gensupport include knows about.
 s-mddeps: $(srcdir)/config/mxp/mxp-regset.md
 build/genconstants.o: genconstants.c s-mxp-regset-h

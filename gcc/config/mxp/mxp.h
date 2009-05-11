@@ -1,4 +1,5 @@
 #include "mxp-regset.h"
+#include "multi-target.h"
 
 #define N_HARDWARE_VECREGS 32
 /* Data is byte-addressed, using 16 bit addresses.  Code is word-addressed,
@@ -288,6 +289,9 @@
     }                                                   \
   while (0)
 
+struct simple_bitmap_def;
+START_TARGET_SPECIFIC
 extern rtx mxp_compare_op0, mxp_compare_op1;
 extern unsigned char class_vec_lanes[], class_scalar_vec_lanes[];
 extern struct simple_bitmap_def *mxp_acc_classes;
+END_TARGET_SPECIFIC

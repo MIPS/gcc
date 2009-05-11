@@ -870,7 +870,9 @@ vmr4w.240 %0,%4,%4")
    (use (match_operand:QI 1 "const_int_operand" ""))
    (use (match_operand:QI 2 "const_int_operand" ""))
    (use (match_operand:QI 3 "const_int_operand" ""))
-   (use (label_ref (match_operand 4 "" "")))]
+   (use (label_ref (match_operand 4 "" "")))
+   (match_operand 5 "" "")]
+
   ""
 {
   emit_jump_insn (gen_decrement_and_branch_until_zero (operands[0], operands[4],
@@ -893,6 +895,11 @@ vmr4w.240 %0,%4,%4")
    (clobber (match_scratch:VECA 3 "=&<ax>"))]
   ""
   "vmin<unit_suffix>.%L0 %v0,%v1,%v2")
+
+(define_insn "nop"
+  [(const_int 0)]
+  ""
+  "vaddnaw.0 0,0,0")
 
 (define_automaton "mxp")
 
