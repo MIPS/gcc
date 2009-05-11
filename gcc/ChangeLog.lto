@@ -1,3 +1,7 @@
+2009-05-11  Diego Novillo  <dnovillo@google.com>
+
+	* lto-cgraph.c: Update copyright year.
+
 2009-05-08  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (field_decl_is_local): Remove.
