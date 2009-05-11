@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "multi-target.h"
 
+struct gcc_target;
+
 START_TARGET_SPECIFIC
 
 /* Initialize data in final at the beginning of a compilation.  */
@@ -397,6 +399,11 @@ extern int compute_reloc_for_constant (tree);
 
 /* User label prefix in effect for this compilation.  */
 extern const char *user_label_prefix;
+
+/* Output any directives needed for a change of target architecture,
+   and/or switch output files.  */
+extern void default_target_new_arch (FILE *,
+				     struct gcc_target *, struct gcc_target *);
 
 /* Default target function prologue and epilogue assembler output.  */
 extern void default_function_pro_epilogue (FILE *, HOST_WIDE_INT);

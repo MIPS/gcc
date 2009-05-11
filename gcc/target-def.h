@@ -94,6 +94,7 @@
 #define TARGET_ASM_ASSEMBLE_VISIBILITY default_assemble_visibility
 #endif
 
+#define TARGET_ASM_NEW_ARCH default_target_new_arch
 #define TARGET_ASM_FUNCTION_PROLOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_EPILOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_END_PROLOGUE no_asm_to_stream
@@ -271,6 +272,7 @@
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_TTYPE,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
+			TARGET_ASM_NEW_ARCH,			\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
 			TARGET_ASM_FUNCTION_BEGIN_EPILOGUE,	\

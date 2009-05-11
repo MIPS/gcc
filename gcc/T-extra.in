@@ -1,0 +1,50 @@
+# $(CURRENT_TARGET) is empty if these are definitions for the Makfile in the
+# same directory, but it is set to the target name if this makefile fragment
+# is used from a parent directory in a multi-targte configuration.
+
+$(CURRENT_TARGET)extra_modes_file=@extra_modes_file@
+
+# List of extra executables that should be compiled for this target machine
+# that are used for compiling from source code to object code.
+# The rules for compiling them should be in the t-* file for the machine.
+$(CURRENT_TARGET)EXTRA_PASSES =@extra_passes@
+
+# Like EXTRA_PASSES, but these are used when linking.
+$(CURRENT_TARGET)EXTRA_PROGRAMS = @extra_programs@
+
+# List of extra object files that should be compiled for this target machine.
+# The rules for compiling them should be in the t-* file for the machine.
+$(CURRENT_TARGET)EXTRA_PARTS = @extra_parts@
+
+# List of extra object files that should be compiled and linked with
+# compiler proper (cc1, cc1obj, cc1plus).
+$(CURRENT_TARGET)EXTRA_OBJS = @extra_objs@
+
+# List of extra object files that should be compiled and linked with
+# the gcc driver.
+$(CURRENT_TARGET)EXTRA_GCC_OBJS =@extra_gcc_objs@
+
+# List of additional header files to install.
+$(CURRENT_TARGET)EXTRA_HEADERS =@extra_headers_list@
+
+# The configure script will set this to collect2$(exeext), except on a
+# (non-Unix) host which can not build collect2, for which it will be
+# set to empty.
+$(CURRENT_TARGET)COLLECT2 = @collect2@
+
+# List of extra C and assembler files to add to static and shared libgcc2.
+# Assembler files should have names ending in `.asm'.
+$(CURRENT_TARGET)LIB2FUNCS_EXTRA =
+
+# List of extra C and assembler files to add to static libgcc2.
+# Assembler files should have names ending in `.asm'.
+$(CURRENT_TARGET)LIB2FUNCS_STATIC_EXTRA =
+
+# List of functions not to build from libgcc2.c.
+$(CURRENT_TARGET)LIB2FUNCS_EXCLUDE =
+
+# Target sfp-machine.h file.
+$(CURRENT_TARGET)SFP_MACHINE =
+
+# Program to convert libraries.
+$(CURRENT_TARGET)LIBCONVERT =

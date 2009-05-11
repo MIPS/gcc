@@ -1,5 +1,34 @@
 2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* T-extra.in: New file, broken out of:
+	* Makefile.in.
+	* T-extra.in: Use $(CURRENT_TARGET) prefix for names of variables
+	that are set.
+	* targhooks.c (stack_chk_fail_decl): Declare extern and non-target
+	specific.
+	* multi-target.h (TARGET_SCOPE): Define.
+	* target.h (struct asm_out): Add new member new_arch.
+	* configure.ac (all_outputs): Add T-extra.in.
+	* configure: Regenerate.
+	* varasm.c [!EXTRA_TARGET] (last_arch): Don't initialize.
+	(default_target_new_arch): New function.
+	(assemble_start_function): Use asm_out.new_arch hook.
+	* target-def.h (TARGET_ASM_OUT): Add TARGET_ASM_NEW_ARCH.
+	* output.h (default_target_new_arch): Declare.
+	* cfgloop.h (add_loop): Not target specific.
+	* Makefile.in: Include T-extra both from main dir and from any
+	extra targets directories.
+	(cs-tm.h): Define TARGET_SCOPE_ in generated header file.
+	(options.c): place rtl.h in front of insn-attr.h for header list.
+	(extra-modes.h): Rework rules to work with T-extra to avoid
+	recursive make.
+	(EXTRA_OBJS): Include files from extra targets, and add dependencies /
+	rules to build them.
+
+2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* genmodes.c (drop_mode): handle !old_contained.
+
 	* genmodes.c (find_mode): Set target field for to-be searched mode.
 	(eq_mode): Also consider target.
 	(drop_mode): New function.

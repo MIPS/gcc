@@ -455,10 +455,13 @@ drop_mode (struct mode_data *old, struct mode_data *new)
   struct mode_data *m, *last;
 
   DEBUG ("dropping %s %s\n", m->name, m->target);
-  for (m = old->contained; m; last = m, m = m->next_cont)
-    m->component = new;
-  last->next_cont = new->contained;
-  new->contained = old->contained;
+  if (old->contained)
+    {
+      for (m = old->contained; m; last = m, m = m->next_cont)
+	m->component = new;
+      last->next_cont = new->contained;
+      new->contained = old->contained;
+    }
 }
 
 static void
@@ -474,7 +477,7 @@ fixup_target_modes (void)
      target.  */
   for (cl = 0; cl < MAX_MODE_CLASS; cl++)
     {
-      if (cl == MODE_RANDOM || cl == MODE_CC)
+      if (cl == MODE_RANDOM || cl == MODE_CC || cl == MODE_VECTOR_CC)
 	continue;
       for (m_prev = 0, m = modes[cl]; m; m_prev = m, m = m->next)
 	{

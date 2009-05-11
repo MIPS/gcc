@@ -464,7 +464,6 @@ target_cpu_default=@target_cpu_default@
 GCC_THREAD_FILE=@thread_file@
 OBJC_BOEHM_GC=@objc_boehm_gc@
 GTHREAD_FLAGS=@gthread_flags@
-extra_modes_file=@extra_modes_file@
 extra_opt_files=@extra_opt_files@
 host_hook_obj=@out_host_hook_obj@
 
@@ -631,50 +630,9 @@ SHLIBUNWIND_INSTALL =
 # nm flags to list global symbols in libgcc object files.
 SHLIB_NM_FLAGS = -pg
 
-# List of extra executables that should be compiled for this target machine
-# that are used for compiling from source code to object code.
-# The rules for compiling them should be in the t-* file for the machine.
-EXTRA_PASSES =@extra_passes@
-
-# Like EXTRA_PASSES, but these are used when linking.
-EXTRA_PROGRAMS = @extra_programs@
-
-# List of extra object files that should be compiled for this target machine.
-# The rules for compiling them should be in the t-* file for the machine.
-EXTRA_PARTS = @extra_parts@
-
-# List of extra object files that should be compiled and linked with
-# compiler proper (cc1, cc1obj, cc1plus).
-EXTRA_OBJS = @extra_objs@
-
-# List of extra object files that should be compiled and linked with
-# the gcc driver.
-EXTRA_GCC_OBJS =@extra_gcc_objs@
-
-# List of additional header files to install.
-EXTRA_HEADERS =@extra_headers_list@
-
-# The configure script will set this to collect2$(exeext), except on a
-# (non-Unix) host which can not build collect2, for which it will be
-# set to empty.
-COLLECT2 = @collect2@
-
-# List of extra C and assembler files to add to static and shared libgcc2.
-# Assembler files should have names ending in `.asm'.
-LIB2FUNCS_EXTRA =
-
-# List of extra C and assembler files to add to static libgcc2.
-# Assembler files should have names ending in `.asm'.
-LIB2FUNCS_STATIC_EXTRA =
-
-# List of functions not to build from libgcc2.c.
-LIB2FUNCS_EXCLUDE =
-
-# Target sfp-machine.h file.
-SFP_MACHINE =
-
-# Program to convert libraries.
-LIBCONVERT =
+#include the framgment with all the target specific EXTRA* = @foo@ definitions.
+#For multi-target configurations, this can be shared.
+include T-extra
 
 # Control whether header files are installed.
 INSTALL_HEADERS=install-headers install-mkheaders
@@ -1561,6 +1519,7 @@ cs-tm.h: Makefile
 	HEADERS="$(tm_include_list)" \
 	DEFINES="NUM_TARGETS=$(NUM_TARGETS) TARGET_NUM=$(TARGET_NUM) \
 	EXTRA_TARGETS_EXPAND(PREFIX,CALL,DELIM)=$(subst $(space),/**/DELIM/**/,$(foreach TA,$(subst -,_,$(EXTRA_TARGETS)),PREFIX/**/$(TA)/**/CALL)) \
+	TARGET_SCOPE_=$(subst -,_,$(target_noncanonical)):: \
 	$(tm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm.h
 
@@ -2034,7 +1993,8 @@ s-options: $(ALL_OPT_FILES) Makefile $(srcdir)/opt-gather.awk
 options.c: optionlist $(srcdir)/opt-functions.awk $(srcdir)/optc-gen.awk \
     $(INSN_ATTR_H)
 	$(AWK) -f $(srcdir)/opt-functions.awk -f $(srcdir)/optc-gen.awk -v \
-	 header_name="config.h system.h coretypes.h tm.h insn-attr.h" < $< > $@
+	 header_name="config.h system.h coretypes.h tm.h rtl.h insn-attr.h" \
+	< $< > $@
 
 options.h: s-options-h ; @true
 s-options-h: optionlist $(srcdir)/opt-functions.awk $(srcdir)/opth-gen.awk
@@ -3485,15 +3445,6 @@ build/genmodes.o : \
   BUILD_CPPFLAGS += -Doutput_target='"$(subst -,_,$(target_noncanonical))"'
 build/genmodes.o : genmodes.c $(BCONFIG_H) $(SYSTEM_H) errors.h		\
   $(HASHTAB_H) machmode.def extra-modes.h
-extra-modes.h: Makefile $(foreach ta,$(EXTRA_TARGETS),$(ta)-extra-modes.h)
-	echo target=\"$(subst -,_,$(target_noncanonical))\"\; > $@
-ifdef extra_modes_file
-	echo \#include \"$(extra_modes_file)\" >> $@
-else
-	echo // no extra_modes_file. >> $@
-endif
-	cat $(foreach ta,$(EXTRA_TARGETS),$(ta)-extra-modes.h) >> $@
-	echo 'target = (const char *) 0;' >> $@
 build/genopinit.o : genopinit.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h
 build/genoutput.o : genoutput.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
@@ -3504,19 +3455,6 @@ build/genpreds.o : genpreds.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h $(OBSTACK_H)
 build/genrecog.o : genrecog.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h
-
-ifndef TA
-%-extra-modes.h: %/Makefile
-	$(MAKE) -C $* ../$*-extra-modes.h TA=$*-
-endif
-
-../$(TA)extra-modes.h:
-	echo target=\"$(subst -,_,$(target_noncanonical))\"\; > $@
-ifdef extra_modes_file
-	echo \#include \"$(extra_modes_file:../%=%)\" >> $@
-else
-	echo // no extra_modes_file. >> $@
-endif
 
 #Fixme: modify EXTRA_TARGETS configuration to make sure that we use a
 #uniform type and storage layout
@@ -3529,23 +3467,17 @@ intl/config.intl: ../intl/config.intl
 
 define EXTRA_TARGET_RULES
 
-# ??? This is no good - --with-mpfr doesn't set the right variables when
-# used at this level.  Need to pass GMPLIBS and GMPINC for $(MAKE) instead.
-## we need to pass down options like --with-mpfr; but we need to loose
-##the original --target= and --with-extra=-target-list options.
-#THIS-TARGET/Makefile: $(COMMON_ABI)
-#	-mkdir THIS-TARGET
-#	cd THIS-TARGET \
-#	&& $(srcdir:.%=../.%)/configure --target=THIS-TARGET \
-#	$(filter-out --target%,$(subst --with-extra-target-list='$(EXTRA_TARGETS)',,$(wordlist 2,999,$(gcc_config_arguments))))
-
-THIS-TARGET: intl/config.intl
+THIS-TARGET/config.status THIS-TARGET/T-extra: intl/config.intl
 	-mkdir THIS-TARGET
 	cd THIS-TARGET \
 	&& $(srcdir:.%=../.%)/configure --target=THIS-TARGET
 
-THIS-TARGET/Makefile: THIS-TARGET Makefile
-	$(MAKE) -C THIS-TARGET Makefile
+CURRENT_TARGET=THIS-TARGET-
+-include THIS-TARGET/T-extra
+
+THIS-TARGET/Makefile: THIS-TARGET/config.status Makefile
+	$(info THIS-TARGET/Makefile will be remade when needed.)
+#	$(MAKE) -C THIS-TARGET Makefile
 
 # Wo don't want a stamp file for the recursive make invocation, because
 # only the recursive make understands all the dependencies for THIS-TARGET,
@@ -3553,7 +3485,8 @@ THIS-TARGET/Makefile: THIS-TARGET Makefile
 # when individual files are deleted manually or due interrupts / error
 # conditions.  Just say that each file is up-to-date if we have used
 # a recursive make to update it.
-$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) xout.o) : make-THIS-TARGET ;
+$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) xout.o) \
+$(addprefix THIS-TARGET/,$(THIS-TARGET-EXTRA_OBJS)) : make-THIS-TARGET ;
 
 # Use a single recursive make invokation to update all files of THIS-TARGET.
 # Having more than one would not merely cost more time, but cause serious
@@ -3572,7 +3505,7 @@ endef
 # EXTRA_TARGET_RULES
 
 .PHONY: make-OBJS-rtl
-make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) xout.o) ;
+make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) xout.o) $(EXTRA_OBJS);
 
 enumerate=$(if $(1),$(call enumerate,$(wordlist 2,999,$(1))) $(words $(1)))
 
@@ -3582,6 +3515,21 @@ $(subst THIS_TARGET,$(subst -,_,$(word $(num),$(EXTRA_TARGETS))),\
 $(subst THIS-TARGET,$(word $(num),$(EXTRA_TARGETS)),\
 $(subst THIS-TARGET-NUM,$(num),$(value EXTRA_TARGET_RULES))))))
 endif
+
+extra-modes.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra)
+	echo target=\"$(subst -,_,$(target_noncanonical))\"\; > $@
+	$(foreach file,$(extra_modes_file),echo \#include \"$(file)\" >> $@)
+	$(foreach ta,$(EXTRA_TARGETS),\
+	  echo target=\"$(subst -,_,$(ta))\"\; >> $@;\
+	  $(foreach file,$($(ta)-extra_modes_file),\
+	    echo \#include \"$(file)\" >> $@;))
+	echo 'target = (const char *) 0;' >> $@
+EXTRA_OBJS := $(EXTRA_OBJS) \
+  $(foreach ta,$(EXTRA_TARGETS),$(addprefix $(ta)/,$($(ta)-EXTRA_OBJS)))
+show: force
+	@echo $(EXTRA_OBJS)
+	@echo $(extra_modes_file)
+	@echo $(mxp-elf-extra_modes_file)
 
 # Compile the programs that generate insn-* from the machine description.
 # They are compiled with $(CC_FOR_BUILD), and associated libraries,

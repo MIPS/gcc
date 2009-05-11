@@ -148,6 +148,9 @@ struct asm_out
      associated with the tree decl.  */
   void (* visibility) (tree, int);
 
+  /* Output assembler code when changing architectures.  */
+  void (* new_arch) (FILE *, struct gcc_target *, struct gcc_target *);
+
   /* Output the assembler code for entry to a function.  */
   void (* function_prologue) (FILE *, HOST_WIDE_INT);
 
