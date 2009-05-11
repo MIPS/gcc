@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -3627,4 +3630,4 @@ struct rtl_opt_pass pass_split_for_shorten_branches =
  }
 };
 
-
+END_TARGET_SPECIFIC

@@ -39,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "vecprim.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Holds the interesting trailing notes for the function.  */
 rtx cfg_layout_function_footer;
@@ -1429,3 +1432,5 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
 }
 
 #include "gt-cfglayout.h"
+
+END_TARGET_SPECIFIC

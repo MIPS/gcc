@@ -1,3 +1,47 @@
+2009-05-06  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/sh-protos.h: Fix end of multiple inclusion guard.
+
+2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* coverage.c (ctr_labels): Remove unused variable.
+	Makefile.in ($(TA)rtlanal.o): Depend on $(DF_H).
+	($(TA)sel-sched-ir.o): Depend on $(CFGLOOP_H).
+
+	* config/arc/arc.c: #include "df.h".
+	(arc_address_cost): Use INTVAL to refer to the value of a CONST_INT.
+
+2009-04-25  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/sh.md (cbranchsi4): Use UNKNOWN as not-defined rtx code.
+	(cbranchdi4): Likewise.
+	* config/sh/sh.c (prepare_cbranch_operands): Likewise.
+	(expand_cbranchdi4): Likewise.
+
+2009-04-24  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	config/sh/t-sh: (gt-sh.h): Remove redundant rule.
+
+2009-04-07  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* haifa-sched.c (insn_cost): No longer HAIFA_INLINE.
+
+2009-04-04  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/39501
+	* arm.md (movsfcc): Disable if not TARGET_HARD_FLOAT.
+	* testsuite/gcc.c-torture/execute/pr39501.c: New file.
+	* testsuite/gcc.c-torture/execute/pr39501.x: New file.
+
+2009-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* unwind-dw2.h (_Unwind_FrameState): Add REG_UNDEFINED enum value.
+	* unwind-dw2.c (execute_cfa_program): Set how to REG_UNDEFINED
+	instead of REG_UNSAVED for DW_CFA_undefined.
+	(uw_update_context_1): Handle REG_UNDEFINED the same as REG_UNSAVED.
+	(uw_update_context): If RA column is REG_UNDEFINED, mark it as
+	outermost frame.
+
 2009-04-02  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/39595

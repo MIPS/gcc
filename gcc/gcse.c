@@ -172,6 +172,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
 
 /* Propagate flow information through back edges and thus enable PRE's
    moving loop invariant calculations out of loops.
@@ -270,6 +271,8 @@ along with GCC; see the file COPYING3.  If not see
    each register in each block and thus can try to use an existing
    register.  */
 
+START_TARGET_SPECIFIC
+
 /* GCSE global vars.  */
 
 /* Note whether or not we should run jump optimization after gcse.  We
@@ -6745,3 +6748,5 @@ struct rtl_opt_pass pass_gcse =
 
 
 #include "gt-gcse.h"
+
+END_TARGET_SPECIFIC

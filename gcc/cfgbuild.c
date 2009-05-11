@@ -45,6 +45,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "toplev.h"
 #include "timevar.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static int count_basic_blocks (const_rtx);
 static void find_basic_blocks_1 (rtx);
@@ -822,3 +825,5 @@ find_many_sub_basic_blocks (sbitmap blocks)
   FOR_EACH_BB (bb)
     SET_STATE (bb, 0);
 }
+
+END_TARGET_SPECIFIC

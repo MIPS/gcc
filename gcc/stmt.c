@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "regs.h"
 #include "alloc-pool.h"
+#include "multi-target.h"
 
 /* Functions and data structures for expanding case statements.  */
 
@@ -92,6 +93,8 @@ struct case_node
 
 typedef struct case_node case_node;
 typedef struct case_node *case_node_ptr;
+
+START_TARGET_SPECIFIC
 
 /* These are used by estimate_case_costs and balance_case_nodes.  */
 
@@ -3174,3 +3177,4 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	}
     }
 }
+END_TARGET_SPECIFIC

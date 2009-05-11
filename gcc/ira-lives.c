@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "sparseset.h"
 #include "ira-int.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* The code in this file is similar to one in global but the code
    works on the allocno basis and creates live ranges instead of
@@ -1269,3 +1272,5 @@ ira_finish_allocno_live_ranges (void)
   ira_free (ira_finish_point_ranges);
   ira_free (ira_start_point_ranges);
 }
+
+END_TARGET_SPECIFIC

@@ -57,6 +57,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "target.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Optimize jump y; x: ... y: jumpif... x?
    Don't know if it is worth bothering with.  */
@@ -1748,3 +1751,5 @@ reg_or_subregno (const_rtx reg)
   gcc_assert (REG_P (reg));
   return REGNO (reg);
 }
+
+END_TARGET_SPECIFIC

@@ -51,6 +51,7 @@
 
 #include "tm.h"
 #include "insn-modes.h"
+#include "multi-target.h"
 
 /* Types used by the record_gcc_switches() target function.  */
 typedef enum
@@ -669,10 +670,28 @@ struct target_option_hooks
 
   /* Function to determine if one function can inline another function.  */
   bool (*can_inline_p) (tree, tree);
+
+  /* Do option overrides for the target.  Only if main_taget is true are
+     global options like flag_pic or flag_finite_math_only allowed to be
+     tampered with.  Return true if code can be genarated for this target
+     (e.g. if flag_pic is set and main_taget is false, and the target can't
+      return pic code, return false.  */
+  /* ??? should add another hook elsewhere if code can sometimes be
+     generated, depending on the tree in question.  E.g. might be able to
+     do pic if no statically allocated data is involved.  */
+  bool (*override) (bool main_target);
 };
 
+/* ??? the use of the target vector makes it necessary to cast
+   target-specific enums from/to int, since we expose the function
+   signatures of target specific hooks that operate e.g. on enum reg_class
+   to target-independent passes.  */
 struct gcc_target
 {
+  /* For multi-targeted configurations, the name to be used to describe
+     this target for options, attributes and error messages.  */
+  const char *name;
+
   /* Functions that output assembler for the target.  */
   struct asm_out asm_out;
 
@@ -792,7 +811,7 @@ struct gcc_target
 
   /* Return a register class for which branch target register
      optimizations should be applied.  */
-  enum reg_class (* branch_target_register_class) (void);
+  int /*enum reg_class*/ (* branch_target_register_class) (void);
 
   /* Return true if branch target register optimizations should include
      callee-saved registers that are not already live during the current
@@ -1037,10 +1056,10 @@ struct gcc_target
   const char *(*invalid_binary_op) (int op, const_tree type1, const_tree type2);
 
   /* Return the array of IRA cover classes for the current target.  */
-  const enum reg_class *(*ira_cover_classes) (void);
+  const int /*enum reg_class*/ *(*ira_cover_classes) (void);
 
   /* Return the class for a secondary reload, and fill in extra information.  */
-  enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
+  int /*enum reg_class*/ (*secondary_reload) (bool, rtx, int /*enum reg_class*/,
 				      enum machine_mode,
 				      struct secondary_reload_info *);
   /* Return true if a reload loading IN should share a reload register
@@ -1127,7 +1146,20 @@ struct gcc_target
   /* Leave the boolean fields at the end.  */
 };
 
-extern struct gcc_target targetm;
+/* *targetm_pnt is the target for the current compilation
+   (e.g. of one function); this_targetm is the target of the current namespace;
+   targetm_array is a zero-terminated array of all targets.
+   In most files, targetm is the same as *targetm_pnt, except in <tyarget>.c,
+   where it is this_targetm.  */
+extern struct gcc_target *targetm_pnt, *targetm_array[];
+#ifndef targetm
+#define targetm (*targetm_pnt)
+#endif
+
+START_TARGET_SPECIFIC
+extern struct gcc_target this_targetm;
+END_TARGET_SPECIFIC
+EXTRA_TARGETS_DECL(struct gcc_target this_targetm);
 
 struct gcc_targetcm {
   /* Handle target switch CODE (an OPT_* value).  ARG is the argument

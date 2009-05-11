@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
 
 /* This pass was originally removed from flow.c. However there is
    almost nothing that remains of that code.
@@ -149,6 +150,8 @@ along with GCC; see the file COPYING3.  If not see
 
            *(a += c) pre
 */
+START_TARGET_SPECIFIC
+
 #ifdef AUTO_INC_DEC
 
 enum form
@@ -520,9 +523,9 @@ attempt_change (rtx new_addr, rtx inc_reg)
   PUT_MODE (mem_tmp, mode);
   XEXP (mem_tmp, 0) = new_addr;
 
-  old_cost = rtx_cost (mem, 0, speed) 
-    + rtx_cost (PATTERN (inc_insn.insn), 0, speed);
-  new_cost = rtx_cost (mem_tmp, 0, speed);
+  old_cost = rtx_cost (mem, (enum rtx_code) 0, speed) 
+    + rtx_cost (PATTERN (inc_insn.insn), (enum rtx_code) 0, speed);
+  new_cost = rtx_cost (mem_tmp, (enum rtx_code) 0, speed);
   
   /* The first item of business is to see if this is profitable.  */
   if (old_cost < new_cost)
@@ -1560,3 +1563,4 @@ struct rtl_opt_pass pass_inc_dec =
  }
 };
 
+END_TARGET_SPECIFIC

@@ -164,6 +164,10 @@ struct ddg_all_sccs
 };
 
 
+#ifdef EXTRA_TARGET
+namespace EXTRA_TARGET {
+#endif
+
 ddg_ptr create_ddg (basic_block, int closing_branch_deps);
 void free_ddg (ddg_ptr);
 
@@ -182,5 +186,9 @@ void free_ddg_all_sccs (ddg_all_sccs_ptr);
 
 int find_nodes_on_paths (sbitmap result, ddg_ptr, sbitmap from, sbitmap to);
 int longest_simple_path (ddg_ptr, int from, int to, sbitmap via);
+
+#ifdef EXTRA_TARGET
+} /* Close EXTRA_TARGET namespace.  */
+#endif
 
 #endif /* GCC_DDG_H */

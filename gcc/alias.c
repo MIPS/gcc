@@ -46,6 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "ipa-type-escape.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -2643,3 +2646,5 @@ end_alias_analysis (void)
 }
 
 #include "gt-alias.h"
+
+END_TARGET_SPECIFIC

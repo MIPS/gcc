@@ -147,6 +147,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "dbgcnt.h"
 #include "cfgloop.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef INSN_SCHEDULING
 
@@ -601,7 +604,7 @@ static rtx last_scheduled_insn;
 /* Compute cost of executing INSN.
    This is the number of cycles between instruction issue and
    instruction results.  */
-HAIFA_INLINE int
+int
 insn_cost (rtx insn)
 {
   int cost;
@@ -5006,3 +5009,5 @@ sched_emit_insn (rtx pat)
 }
 
 #endif /* INSN_SCHEDULING */
+
+END_TARGET_SPECIFIC

@@ -63,6 +63,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "df.h"
 #include "hashtab.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Possible return values of iv_get_reaching_def.  */
 
@@ -2859,3 +2862,5 @@ free_simple_loop_desc (struct loop *loop)
   free (desc);
   loop->aux = NULL;
 }
+
+END_TARGET_SPECIFIC

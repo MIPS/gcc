@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef STACK_GROWS_DOWNWARD
 # undef STACK_GROWS_DOWNWARD
@@ -1363,3 +1366,5 @@ struct rtl_opt_pass pass_lower_subreg2 =
   TODO_verify_flow                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

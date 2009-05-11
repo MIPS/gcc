@@ -35,6 +35,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "params.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* This structure is used to record liveness information at the targets or
    fallthrough insns of branches.  We will most likely need the information
@@ -1277,3 +1280,5 @@ mark_end_of_function_resources (rtx trial, int include_delayed_effects)
   mark_referenced_resources (trial, &end_of_function_needs,
 			     include_delayed_effects);
 }
+
+END_TARGET_SPECIFIC

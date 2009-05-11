@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sparseset.h"
 #include "ira-int.h"
 #include "addresses.h"
+#include "multi-target.h"
 
 /* This file contains code responsible for allocno conflict creation,
    allocno copy creation and allocno info accumulation on upper level
@@ -60,6 +61,7 @@ static IRA_INT_TYPE **conflicts;
 			    ALLOCNO_MAX (A1)))
 
 
+START_TARGET_SPECIFIC
 
 /* Build allocno conflict table by processing allocno live ranges.
    Return true if the table was built.  The table is not built if it
@@ -833,3 +835,5 @@ ira_build_conflicts (void)
       && internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
     print_conflicts (ira_dump_file, false);
 }
+
+END_TARGET_SPECIFIC

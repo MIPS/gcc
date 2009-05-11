@@ -34,6 +34,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "dbgcnt.h"
 #include "tm_p.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 DEF_VEC_I(int);
 DEF_VEC_ALLOC_I(int,heap);
@@ -1159,3 +1162,5 @@ struct rtl_opt_pass pass_fast_rtl_byte_dce =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

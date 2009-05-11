@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
+#include "multi-target.h"
 
 
 /* This pass does simple forward propagation and simplification when an
@@ -102,6 +103,8 @@ along with GCC; see the file COPYING3.  If not see
 
    where the first two insns are now dead.  */
 
+
+START_TARGET_SPECIFIC
 
 static int num_changes;
 
@@ -1143,3 +1146,4 @@ struct rtl_opt_pass pass_rtl_fwprop_addr =
   TODO_dump_func                        /* todo_flags_finish */
  }
 };
+END_TARGET_SPECIFIC

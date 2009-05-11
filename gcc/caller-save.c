@@ -39,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "df.h"
 #include "ggc.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Call used hard registers which can not be saved because there is no
    insn for this.  */
@@ -1292,3 +1295,5 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
   return new_chain;
 }
 #include "gt-caller-save.h"
+
+END_TARGET_SPECIFIC

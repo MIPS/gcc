@@ -80,6 +80,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "cfgloop.h"
 #include "params.h"
+#include "multi-target.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -122,6 +123,8 @@ along with GCC; see the file COPYING3.  If not see
 #define SEEN_BB		1
 #define SEEN_NOTE	2
 #define SEEN_EMITTED	4
+
+START_TARGET_SPECIFIC
 
 /* Last insn processed by final_scan_insn.  */
 static rtx debug_insn;
@@ -4422,3 +4425,4 @@ struct rtl_opt_pass pass_clean_state =
  }
 };
 
+END_TARGET_SPECIFIC

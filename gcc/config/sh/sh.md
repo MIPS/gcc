@@ -181,6 +181,7 @@
 
 ;; Target CPU.
 
+; keep this in sync with enum processor_type in sh.h
 (define_attr "cpu"
  "sh1,sh2,sh2e,sh2a,sh3,sh3e,sh4,sh4a,sh5"
   (const (symbol_ref "sh_cpu_attr")))
@@ -647,7 +648,7 @@
 		      (pc)))
    (clobber (reg:SI T_REG))]
   "TARGET_CBRANCHDI4"
-  "expand_cbranchsi4 (operands, CODE_FOR_nothing, -1); DONE;")
+  "expand_cbranchsi4 (operands, UNKNOWN, -1); DONE;")
 
 ;; -------------------------------------------------------------------------
 ;; SImode unsigned integer comparisons
@@ -720,13 +721,13 @@
 
   if (TARGET_EXPAND_CBRANCHDI4)
     {
-      if (expand_cbranchdi4 (operands, CODE_FOR_nothing))
+      if (expand_cbranchdi4 (operands, UNKNOWN))
 	DONE;
     }
-  comparison = prepare_cbranch_operands (operands, DImode, CODE_FOR_nothing);
+  comparison = prepare_cbranch_operands (operands, DImode, UNKNOWN);
   if (comparison != GET_CODE (operands[0]))
     operands[0]
-      = gen_rtx_fmt_ee (VOIDmode, comparison, operands[1], operands[2]);
+      = gen_rtx_fmt_ee (comparison, VOIDmode, operands[1], operands[2]);
    operands[4] = gen_rtx_SCRATCH (SImode);
 }")
 
@@ -4915,7 +4916,7 @@ label:
 						 gen_rtx_PRE_DEC (Pmode,
 							  stack_pointer_rtx)),
 					get_fpscr_rtx ()));
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, NULL_RTX);
+  REG_NOTES (insn) = alloc_reg_note (REG_INC, stack_pointer_rtx, NULL_RTX);
   DONE;
 }")
 
@@ -4928,7 +4929,7 @@ label:
 					gen_frame_mem (PSImode,
 						 gen_rtx_POST_INC (Pmode,
 							  stack_pointer_rtx))));
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, NULL_RTX);
+  REG_NOTES (insn) = alloc_reg_note (REG_INC, stack_pointer_rtx, NULL_RTX);
   DONE;
 }")
 
@@ -5959,7 +5960,7 @@ label:
 			     gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx));
   insn = emit_insn (gen_movdf_i4 (tos, operands[1], operands[2]));
   if (! (TARGET_SH5 && true_regnum (operands[1]) < 16))
-    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, NULL_RTX);
+    REG_NOTES (insn) = alloc_reg_note (REG_INC, stack_pointer_rtx, NULL_RTX);
   if (TARGET_SH5 && true_regnum (operands[0]) < 16)
     tos = gen_tmp_stack_mem (DFmode, stack_pointer_rtx);
   else
@@ -5969,7 +5970,7 @@ label:
   if (TARGET_SH5 && true_regnum (operands[0]) < 16)
     emit_move_insn (stack_pointer_rtx, plus_constant (stack_pointer_rtx, 8));
   else
-    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, NULL_RTX);
+    REG_NOTES (insn) = alloc_reg_note (REG_INC, stack_pointer_rtx, NULL_RTX);
   DONE;
 }")
 
@@ -6126,7 +6127,7 @@ label:
   insn = emit_insn (gen_movsf_ie (gen_rtx_REG (SFmode,
 					   regno + !! TARGET_LITTLE_ENDIAN),
 				  mem2, operands[2]));
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, operands[1], NULL_RTX);
+  REG_NOTES (insn) = alloc_reg_note (REG_INC, operands[1], NULL_RTX);
   insn = emit_insn (gen_movsf_ie (gen_rtx_REG (SFmode,
 					       regno + ! TARGET_LITTLE_ENDIAN),
 				  change_address (mem, SFmode, NULL_RTX),
@@ -6165,12 +6166,12 @@ label:
     }
   addr = XEXP (addr, 0);
   insn = emit_insn (gen_movsf_ie (reg0, mem2, operands[2]));
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, addr, NULL_RTX);
+  REG_NOTES (insn) = alloc_reg_note (REG_INC, addr, NULL_RTX);
   insn = emit_insn (gen_movsf_ie (reg1, operands[1], operands[2]));
   if (adjust)
     emit_insn (adjust);
   else
-    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, addr, NULL_RTX);
+    REG_NOTES (insn) = alloc_reg_note (REG_INC, addr, NULL_RTX);
   DONE;
 }")
 
@@ -6203,12 +6204,12 @@ label:
     }
   addr = XEXP (addr, 0);
   if (! adjust)
-    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, addr, NULL_RTX);
+    REG_NOTES (insn) = alloc_reg_note (REG_INC, addr, NULL_RTX);
   insn = emit_insn (gen_movsf_ie (operands[0],
 				  gen_rtx_REG (SFmode,
 					   regno + !! TARGET_LITTLE_ENDIAN),
 				  operands[2]));
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, addr, NULL_RTX);
+  REG_NOTES (insn) = alloc_reg_note (REG_INC, addr, NULL_RTX);
   DONE;
 }")
 
@@ -10489,7 +10490,7 @@ mov.l\\t1f,r0\\n\\
   mem = replace_equiv_address (mem, gen_rtx_POST_INC (Pmode, operands[0]));
 
   new_insn = emit_insn (gen_fpu_switch (fpscr, mem));
-  REG_NOTES (new_insn) = gen_rtx_EXPR_LIST (REG_INC, operands[0], NULL_RTX);
+  REG_NOTES (new_insn) = alloc_reg_note (REG_INC, operands[0], NULL_RTX);
   DONE;
 })
 
@@ -10507,7 +10508,7 @@ mov.l\\t1f,r0\\n\\
   mem = replace_equiv_address (mem, gen_rtx_POST_INC (Pmode, operands[0]));
 
   new_insn = emit_insn (gen_fpu_switch (fpscr, mem));
-  REG_NOTES (new_insn) = gen_rtx_EXPR_LIST (REG_INC, operands[0], NULL_RTX);
+  REG_NOTES (new_insn) = alloc_reg_note (REG_INC, operands[0], NULL_RTX);
 
   if (!find_regno_note (curr_insn, REG_DEAD, true_regnum (operands[0])))
     emit_insn (gen_addsi3 (operands[0], operands[0], GEN_INT (-4)));

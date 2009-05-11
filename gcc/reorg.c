@@ -136,6 +136,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "target.h"
 #include "tree-pass.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef DELAY_SLOTS
 
@@ -174,7 +177,7 @@ static int max_uid;
 static int stop_search_p (rtx, int);
 static int resource_conflicts_p (struct resources *, struct resources *);
 static int insn_references_resource_p (rtx, struct resources *, int);
-static int insn_sets_resource_p (rtx, struct resources *, int);
+static int insn_sets_resource_p (rtx, struct resources *, bool);
 static rtx find_end_label (void);
 static rtx emit_delay_sequence (rtx, rtx, int);
 static rtx add_to_delay_list (rtx, rtx);
@@ -313,12 +316,14 @@ insn_references_resource_p (rtx insn, struct resources *res,
 
 static int
 insn_sets_resource_p (rtx insn, struct resources *res,
-		      int include_delayed_effects)
+		      bool include_delayed_effects)
 {
   struct resources insn_sets;
 
   CLEAR_RESOURCE (&insn_sets);
-  mark_set_resources (insn, &insn_sets, 0, include_delayed_effects);
+  mark_set_resources (insn, &insn_sets, 0,
+		      (include_delayed_effects
+		       ? MARK_SRC_DEST_CALL : MARK_SRC_DEST));
   return resource_conflicts_p (&insn_sets, res);
 }
 
@@ -4144,3 +4149,5 @@ struct rtl_opt_pass pass_machine_reorg =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

@@ -77,7 +77,6 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
 #endif /* TREE_CODE */
 
 
-extern void arc_init (void);
 extern unsigned int arc_compute_frame_size (int);
 extern int arc_delay_slots_for_epilogue (void);
 extern rtx arc_finalize_pic (void);

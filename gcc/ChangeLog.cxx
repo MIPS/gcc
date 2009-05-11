@@ -1,3 +1,74 @@
+2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_builtin_vectorized_function): Make signature
+	agree with prototype in targhooks.h.
+	(default_builtin_vectorized_conversion): Likewise.
+	(default_builtin_reciprocal): Likewise.
+
+	* expr.c (move_by_pieces, store_by_pieces): Append _d to struct tag.
+	Changed all users.
+
+	* config/sh/sh.c (sh_attribute_table): Use extern in forward
+	declaration.
+	(prepare_move_operands): Cast return value of tls_symbolic_operand.
+	(expand_cbranchsi4, output_stack_adjust, push): Use alloc_reg_note.
+	(pop, sh_expand_prologue): Likewise.
+	(from_compare): Cast argument to gen_rtx_fmt_ee.
+	(sh_reorg): Use PUT_REG_NOTE_KIND.
+	(sh_expand_prologue): Add cast to enum machine_mode.
+	(sh_expand_epilogue): Likewise.
+	(get_free_reg): Add cast to enum attr_fp_mode.
+	(sh_insn_length_adjustment): Compare sh_cpu with enum value of the
+	proper type.
+	(sh_initialize_trampoline): Use LCT_NORMAL.
+	(sh_expand_builtin): Use EXPAND_NORMAL.
+
+	* config/arc/arc.c (arc_attribute_table): Use extern in forward
+	declaration.
+	(output_shift): Replace initializatin of n with assignment.
+
+2009-04-28  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/sh.h (OVERRIDE_OPTIONS): Use enum processor_type values
+	to assign to sh_cpu.
+
+	* config/sh/sh.md (attribute cpu): Add comment about connection to
+	enum processor_type in sh.h.
+
+2009-04-27  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* reorg.c (insn_sets_resource_p): include_delayed_effects is now bool.
+	Pass proper type to mark_set_resources.
+
+2009-04-25  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/sh.md (push_fpscr, pop_fpscr): Use alloc_reg_note.
+	(movdf_i4+1, reload_outdf__RnFRm+3, reload_outdf__RnFRm+4): Likewise.
+	(reload_outdf__RnFRm+5, fpu_switch+1, fpu_switch+2): Likewise.
+
+	* config/sh/predicates.md (trapping_target_operand): Rename and to
+	and_expr.
+
+2009-04-24  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* auto-inc-dec.c (attempt_change): Pass proper type to rtx_cost.
+	* regmove.c (try_auto_increment): Use PUT_REG_NOTE_KIND.
+	* targhooks.h (default_builtin_vectorized_function): Make prototype
+	agree with target.h:struct vectorize:builtin_vectorized_function.
+	(default_builtin_vectorized_conversion): Likewise with respect to
+	builtin_conversion.
+	(default_builtin_reciprocal): Likewise wrt.
+	struct gcc_target:builtin_reciprocal
+	* config/m32r/m32r.h (INITIALIZE_TRAMPOLINE): Use LCT_NORMAL.
+	* config/m32r/m32r.c (df.h): #include.
+	(m32r_attribute_table): Mark forward declaration with extern.
+	(pop): Use alloc_reg_note.
+	(block_move_call): Use LCT_NORMAL.
+
+2009-04-07  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* cp/pt.c (tsubst_decl): Adjust forward declaration.
+
 2009-03-25  Jerry Quinn  <jlquinn@cerberus.qb5.org>
 
 	* config/i386/i386.c (ix86_function_specific_save): Don't check

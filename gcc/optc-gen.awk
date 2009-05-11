@@ -75,6 +75,8 @@ print "int target_flags;"
 print "#else"
 print "#include " quote "flags.h" quote
 print "#include " quote "target.h" quote
+print "#include " quote "multi-target.h" quote
+print "START_TARGET_SPECIFIC"
 print "#endif /* GCC_DRIVER */"
 print ""
 
@@ -530,6 +532,9 @@ print "  if (targetm.target_option.print)";
 print "    targetm.target_option.print (file, indent, ptr);";
 
 print "}";
+print "#endif";
+print "#ifndef GCC_DRIVER"
+print "END_TARGET_SPECIFIC";
 print "#endif";
 
 }

@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "target.h"
 #include "optabs.h"
+#include "multi-target.h"
 
 /* This module is used to modify loops with a determinable number of
    iterations to use special low-overhead looping instructions.
@@ -64,6 +65,8 @@ along with GCC; see the file COPYING3.  If not see
    somehow extremely lower than the cost of compare & jump, or unless the bct
    register cannot be used for anything else but doloop -- ??? detect these
    cases).  */
+
+START_TARGET_SPECIFIC
 
 #ifdef HAVE_doloop_end
 
@@ -836,3 +839,4 @@ doloop_optimize_loops (void)
 }
 #endif /* HAVE_doloop_end */
 
+END_TARGET_SPECIFIC

@@ -9411,13 +9411,18 @@ main (int argc, char **argv)
 	"#include \"insn-attr.h\"\n"
 	"#include \"toplev.h\"\n"
 	"#include \"flags.h\"\n"
-	"#include \"function.h\"\n");
+	"#include \"function.h\"\n"
+	"#include \"multi-target.h\"\n"
+	"\n"
+	"START_TARGET_SPECIFIC\n");
 
   if (VEC_length (decl_t, decls) > 0)
     {
       expand_automata ();
       write_automata ();
     }
+
+  puts ("END_TARGET_SPECIFIC");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

@@ -85,6 +85,9 @@
 #include "toplev.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifndef HAVE_conditional_execution
 #define HAVE_conditional_execution 0
@@ -2309,3 +2312,4 @@ struct rtl_opt_pass pass_partition_blocks =
 };
 
 
+END_TARGET_SPECIFIC

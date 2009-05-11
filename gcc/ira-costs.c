@@ -37,9 +37,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "params.h"
 #include "ira-int.h"
+#include "multi-target.h"
 
 /* The file contains code is similar to one in regclass but the code
    works on the allocno basis.  */
+
+START_TARGET_SPECIFIC
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 /* Indexed by n, is TRUE if allocno with number N is used in an
@@ -136,7 +139,9 @@ copy_cost (rtx x, enum machine_mode mode, enum reg_class rclass, bool to_p,
      copy it.  */
   sri.prev_sri = prev_sri;
   sri.extra_cost = 0;
-  secondary_class = targetm.secondary_reload (to_p, x, rclass, mode, &sri);
+  secondary_class
+    = (enum reg_class) targetm.secondary_reload (to_p, x, (int) rclass,
+						 mode, &sri);
 
   if (ira_register_move_cost[mode] == NULL)
     ira_init_register_move_cost (mode);
@@ -1661,3 +1666,5 @@ ira_tune_allocno_costs_and_cover_classes (void)
 	ALLOCNO_COVER_CLASS_COST (a) = min_cost;
     }
 }
+
+END_TARGET_SPECIFIC

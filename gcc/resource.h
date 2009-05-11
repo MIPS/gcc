@@ -22,6 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "hard-reg-set.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Macro to clear all resources.  */
 #define CLEAR_RESOURCE(RES)	\
@@ -54,5 +57,7 @@ extern void incr_ticks_for_insn (rtx);
 extern void mark_end_of_function_resources (rtx, int);
 extern void init_resource_info (rtx);
 extern void free_resource_info (void);
+
+END_TARGET_SPECIFIC
 
 #endif /* GCC_RESOURCE_H */

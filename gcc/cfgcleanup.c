@@ -56,6 +56,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "dce.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #define FORWARDER_BLOCK_P(BB) ((BB)->flags & BB_FORWARDER_BLOCK)
 
@@ -2256,4 +2259,4 @@ struct rtl_opt_pass pass_jump2 =
  }
 };
 
-
+END_TARGET_SPECIFIC

@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "dbgcnt.h"
 #include "target.h"
+#include "multi-target.h"
 
 /* This file contains three techniques for performing Dead Store
    Elimination (dse).  
@@ -198,6 +199,7 @@ along with GCC; see the file COPYING3.  If not see
    that really have constant offsets this size.  */
 #define MAX_OFFSET (64 * 1024)
 
+START_TARGET_SPECIFIC
 
 static bitmap scratch = NULL;
 struct insn_info;
@@ -3859,3 +3861,5 @@ struct rtl_opt_pass pass_rtl_dse2 =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

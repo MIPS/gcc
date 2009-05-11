@@ -77,6 +77,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -113,6 +116,8 @@ static int sjlj_fc_data_ofs;
 static int sjlj_fc_personality_ofs;
 static int sjlj_fc_lsda_ofs;
 static int sjlj_fc_jbuf_ofs;
+
+END_TARGET_SPECIFIC
 
 /* Possible types of an exception region.  */
 enum eh_region_type
@@ -225,6 +230,7 @@ struct eh_status GTY(())
   htab_t GTY((param_is (struct throw_stmt_node))) throw_stmt_table;
 };
 
+START_TARGET_SPECIFIC
 static int t2r_eq (const void *, const void *);
 static hashval_t t2r_hash (const void *);
 static void add_type_for_runtime (tree);
@@ -3978,3 +3984,5 @@ struct rtl_opt_pass pass_rtl_eh =
 };
 
 #include "gt-except.h"
+
+END_TARGET_SPECIFIC

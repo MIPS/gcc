@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GGC_H
 #define GCC_GGC_H
 #include "statistics.h"
+#include "multi-target.h"
 
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
@@ -52,9 +53,11 @@ typedef void (*gt_note_pointers) (void *, void *, gt_pointer_operator,
 typedef void (*gt_handle_reorder) (void *, void *, gt_pointer_operator,
 				   void *);
 
+START_TARGET_SPECIFIC
 /* Used by the gt_pch_n_* routines.  Register an object in the hash table.  */
 extern int gt_pch_note_object (void *, void *, gt_note_pointers,
 			       enum gt_types_enum);
+END_TARGET_SPECIFIC
 
 /* Used by the gt_pch_n_* routines.  Register that an object has a reorder
    function.  */
@@ -162,12 +165,14 @@ struct ggc_pch_data;
 /* Return a new ggc_pch_data structure.  */
 extern struct ggc_pch_data *init_ggc_pch (void);
 
+START_TARGET_SPECIFIC
 /* The second parameter and third parameters give the address and size
    of an object.  Update the ggc_pch_data structure with as much of
    that information as is necessary. The bool argument should be true
    if the object is a string.  */
 extern void ggc_pch_count_object (struct ggc_pch_data *, void *, size_t, bool,
 				  enum gt_types_enum);
+END_TARGET_SPECIFIC
 
 /* Return the total size of the data to be written to hold all
    the objects previously passed to ggc_pch_count_object.  */
@@ -177,11 +182,13 @@ extern size_t ggc_pch_total_size (struct ggc_pch_data *);
    in the second parameter.  */
 extern void ggc_pch_this_base (struct ggc_pch_data *, void *);
 
+START_TARGET_SPECIFIC
 /* Assuming that the objects really do end up at the address
    passed to ggc_pch_this_base, return the address of this object.
    The bool argument should be true if the object is a string.  */
 extern char *ggc_pch_alloc_object (struct ggc_pch_data *, void *, size_t, bool,
 				   enum gt_types_enum);
+END_TARGET_SPECIFIC
 
 /* Write out any initial information required.  */
 extern void ggc_pch_prepare_write (struct ggc_pch_data *, FILE *);
@@ -212,8 +219,10 @@ extern bool ggc_protect_identifiers;
 /* The internal primitive.  */
 extern void *ggc_alloc_stat (size_t MEM_STAT_DECL);
 #define ggc_alloc(s) ggc_alloc_stat (s MEM_STAT_INFO)
+START_TARGET_SPECIFIC
 /* Allocate an object of the specified type and size.  */
 extern void *ggc_alloc_typed_stat (enum gt_types_enum, size_t MEM_STAT_DECL);
+END_TARGET_SPECIFIC
 #define ggc_alloc_typed(s,z) ggc_alloc_typed_stat (s,z MEM_STAT_INFO)
 /* Like ggc_alloc, but allocates cleared memory.  */
 extern void *ggc_alloc_cleared_stat (size_t MEM_STAT_DECL);
@@ -323,4 +332,4 @@ extern void *ggc_alloc_zone_stat (size_t, struct alloc_zone * MEM_STAT_DECL);
 
 #endif
 
-#endif
+#endif /* GCC_GGC_H */

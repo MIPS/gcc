@@ -54,24 +54,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfglayout.h"
 #include "basic-block.h"
 #include "tree-iterator.h"
+#include "multi-target.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+START_TARGET_SPECIFIC
 /* The (assembler) name of the first globally-visible object output.  */
 extern GTY(()) const char *first_global_object_name;
 extern GTY(()) const char *weak_global_object_name;
 
 const char *first_global_object_name;
 const char *weak_global_object_name;
+END_TARGET_SPECIFIC
 
 struct addr_const;
 struct constant_descriptor_rtx;
 struct rtx_constant_pool;
 
 #define n_deferred_constants (crtl->varasm.deferred_constants)
+
+extern struct gcc_target *last_arch;
+#ifndef EXTRA_TARGET
+struct gcc_target *last_arch = &this_targetm;
+#endif /* !EXTRA_TARGET */
+
+START_TARGET_SPECIFIC
 
 /* Number for making the label on the next
    constant that is stored in memory.  */
@@ -1633,6 +1643,12 @@ assemble_start_function (tree decl, const char *fnname)
   int align;
   char tmp_label[100];
   bool hot_label_written = false;
+
+  if (last_arch != &targetm)
+    {
+      fprintf (asm_out_file, "\t.arch\t\"%s\"\n", targetm.name);
+      last_arch = &targetm;
+    }
 
   crtl->subsections.unlikely_text_section_name = NULL;
 
@@ -3355,6 +3371,7 @@ lookup_constant_def (tree exp)
   return (desc ? desc->rtl : NULL_RTX);
 }
 
+END_TARGET_SPECIFIC
 /* Used in the hash tables to avoid outputting the same constant
    twice.  Unlike 'struct constant_descriptor_tree', RTX constants
    are output once per function, not once per file.  */
@@ -3392,6 +3409,7 @@ struct constant_descriptor_rtx GTY((chain_next ("%h.next")))
   int labelno;
   int mark;
 };
+START_TARGET_SPECIFIC
 
 /* Hash and compare functions for const_rtx_htab.  */
 
@@ -6841,3 +6859,5 @@ default_elf_asm_output_external (FILE *file ATTRIBUTE_UNUSED,
 }
 
 #include "gt-varasm.h"
+
+END_TARGET_SPECIFIC

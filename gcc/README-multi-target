@@ -1,0 +1,36 @@
+rtl passes are duplicated for each target architecture, using namespaces
+and object file name prefixes to avoid name clashes.
+Making architecture-specific functions member functions of an architecture
+class would be conceptually cleaner, but using non-static functions would
+require passing the this-pointer around all the time thus making the compiler
+slower.
+Unfortunately, virtual static member functions are not supported by the C++
+language.  And even if they were, it would require lots of code changes to
+use them throughout.
+
+The target vector has to be broken up into a target ABI part,
+a target architecture part - or a set of target architecture parts,
+and a target architectures heuristics part;
+the latter guides tree optimizations depending on the set of target
+architectures, e.g. the tree vectorizer wants a notion of UNITS_PER_WORD
+and the set of vector modes supported, even though these are really a
+function of the target architecture.
+
+Targets are expected to be uniform with respect to targetm.have_ctors_dtors.
+(Otherwise cgraphunit would need to be target architecture specific.)
+
+The passes have to be broken up into a set of tree passes and a set of
+rtl passes.  rtl passes are target architecture specific, and use a target
+architecture pass manager in the target architecture namespace.
+
+For each extra target architecture, there is a constructor which adds a target
+architecture vector with an architecture specific pass list (starting with
+rtl expansion) to a list of target architectures.
+
+x_rtl (crtl) is target architecture specific because state has to be saved
+across functions of the same architecture in order to support constant
+pools shared across functions.
+
+Some parameters will need to be able to hold different values for different
+target architectures, e.g. PARAM_PREDICTABLE_BRANCH_OUTCOME (which requires
+predict.c to have target architecture specific versions).

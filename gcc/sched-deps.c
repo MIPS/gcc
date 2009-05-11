@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sched-int.h"
 #include "params.h"
 #include "cselib.h"
+#include "multi-target.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -49,6 +50,8 @@ along with GCC; see the file COPYING3.  If not see
 #else
 #define CHECK (false)
 #endif
+
+START_TARGET_SPECIFIC
 
 /* Holds current parameters for the dependency analyzer.  */
 struct sched_deps_info_def *sched_deps_info;
@@ -3514,5 +3517,7 @@ check_dep (dep_t dep, bool relaxed_p)
     }
 }
 #endif /* ENABLE_CHECKING */
+
+END_TARGET_SPECIFIC
 
 #endif /* INSN_SCHEDULING */

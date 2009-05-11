@@ -34,6 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 	
 */
 
+#include "multi-target.h"
+
 /* ************************************************************************* 
  * Role of the SYMBOL_REF_FLAG in the rtx:
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,6 +61,8 @@ along with GCC; see the file COPYING3.  If not see
 
 /* ashwin : include options.h */
 /* #include "options.h" */
+
+START_TARGET_SPECIFIC
 
 #undef ASM_SPEC
 #undef LINK_SPEC
@@ -296,34 +300,6 @@ do {                                                                    \
   TARGET_Q_CLASS = (SIZE != 0);						\
   TARGET_CASE_VECTOR_PC_RELATIVE = (SIZE != 0);				\
   TARGET_COMPACT_CASESI = (SIZE != 0);					\
-} while (0)
-
-/* Sometimes certain combinations of command options do not make
-   sense on a particular target machine.  You can define a macro
-   `OVERRIDE_OPTIONS' to take account of this.  This macro, if
-   defined, is executed once just after all the command options have
-   been parsed.
-
-   Don't use this macro to turn on various extra optimizations for
-   `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
-
-#define OVERRIDE_OPTIONS \
-do {				\
-  if (arc_size_opt_level == 3)	\
-    optimize_size = 1;		\
-  if (flag_pic) \
-    target_flags |= MASK_NO_SDATA_SET; \
-  if (flag_no_common == 255)	\
-    flag_no_common = !TARGET_NO_SDATA_SET; \
-  /* TARGET_COMPACT_CASESI needs the "q" register class.  */ \
-  if (TARGET_MIXED_CODE) \
-    TARGET_Q_CLASS = 1; \
-  if (!TARGET_Q_CLASS) \
-    TARGET_COMPACT_CASESI = 0; \
-  if (TARGET_COMPACT_CASESI) \
-    TARGET_CASE_VECTOR_PC_RELATIVE = 1; \
-  /* These need to be done at start up.  It's convenient to do them here.  */ \
-  arc_init ();			\
 } while (0)
 
 /* Target machine storage layout.  */
@@ -2029,5 +2005,7 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
 do { \
 /* FIXME.  */ \
 } while (0)
+
+END_TARGET_SPECIFIC
 
 #endif /* GCC_ARC_H */

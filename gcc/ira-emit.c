@@ -43,7 +43,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "errors.h"
 #include "df.h"
 #include "ira-int.h"
+#include "multi-target.h"
 
+
+START_TARGET_SPECIFIC
 
 typedef struct move *move_t;
 
@@ -1124,3 +1127,5 @@ ira_emit (bool loops_p)
   ira_free (at_bb_end);
   ira_free (at_bb_start);
 }
+
+END_TARGET_SPECIFIC

@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "alloc-pool.h"
 #include "timevar.h"
+#include "multi-target.h"
 
 struct dataflow;
 struct df;
@@ -760,12 +761,15 @@ struct df
 #define DF_INSN_UID_EQ_USES(INSN) (DF_INSN_UID_GET(INSN)->eq_uses)
 #define DF_INSN_UID_MWS(INSN) (DF_INSN_UID_GET(INSN)->mw_hardregs)
 
+START_TARGET_SPECIFIC
+
 /* An obstack for bitmap not related to specific dataflow problems.
    This obstack should e.g. be used for bitmaps with a short life time
    such as temporary bitmaps.  This obstack is declared in df-core.c.  */
 
 extern bitmap_obstack df_bitmap_obstack;
 
+END_TARGET_SPECIFIC
 
 /* One of these structures is allocated for every basic block.  */
 struct df_scan_bb_info
@@ -852,6 +856,7 @@ struct df_byte_lr_bb_info
   bitmap out;   /* At the bottom of the block.  */
 };
 
+START_TARGET_SPECIFIC
 
 /* This is used for debugging and for the dumpers to find the latest
    instance so that the df info can be added to the dumps.  This
@@ -1087,5 +1092,7 @@ extern bool unionfind_union (struct web_entry *, struct web_entry *);
 extern void union_defs (df_ref,
                         struct web_entry *, struct web_entry *,
 			bool (*fun) (struct web_entry *, struct web_entry *));
+
+END_TARGET_SPECIFIC
 
 #endif /* GCC_DF_H */

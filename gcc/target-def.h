@@ -30,6 +30,8 @@
    rather than the .c file, then we need to wrap the default
    definition in a #ifndef, since files include tm.h before this one.  */
 
+/* TARGET_NAME is defined by the Makefile.  */
+
 /* Assembler output.  */
 #ifndef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN "("
@@ -819,6 +821,10 @@
 #define TARGET_OPTION_CAN_INLINE_P default_target_option_can_inline_p
 #endif
 
+#ifndef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS default_override_options
+#endif
+
 #define TARGET_OPTION_HOOKS			\
   {						\
     TARGET_OPTION_VALID_ATTRIBUTE_P,		\
@@ -827,11 +833,13 @@
     TARGET_OPTION_PRINT,			\
     TARGET_OPTION_PRAGMA_PARSE,			\
     TARGET_OPTION_CAN_INLINE_P,			\
+    TARGET_OVERRIDE_OPTIONS,			\
   }
 
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
+  TARGET_NAME,					\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\

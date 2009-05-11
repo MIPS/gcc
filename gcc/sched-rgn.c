@@ -69,6 +69,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef INSN_SCHEDULING
 
@@ -3522,3 +3525,4 @@ struct rtl_opt_pass pass_sched2 =
  }
 };
 
+END_TARGET_SPECIFIC

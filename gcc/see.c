@@ -479,6 +479,7 @@ The implementation consists of four data structures:
 #include "timevar.h"
 #include "tree-pass.h"
 #include "dce.h"
+#include "multi-target.h"
 
 /* Used to classify defs and uses according to relevancy.  */
 enum entry_type {
@@ -610,6 +611,8 @@ struct see_mentioned_reg_data
   rtx reg;
   bool mentioned;
 };
+
+START_TARGET_SPECIFIC
 
 /* An array of web_entries.  The i'th definition in the df object is associated
    with def_entry[i]  */
@@ -3892,3 +3895,5 @@ struct rtl_opt_pass pass_see =
   TODO_dump_func			/* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

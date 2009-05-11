@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
 
 /* Round to the next highest integer that meets the alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
@@ -62,6 +63,8 @@ typedef struct initial_value_struct GTY(()) {
   int max_entries;
   initial_value_pair * GTY ((length ("%h.num_entries"))) entries;
 } initial_value_struct;
+
+START_TARGET_SPECIFIC
 
 static void set_block_origin_self (tree);
 static void set_block_abstract_flags (tree, int);
@@ -365,3 +368,5 @@ allocate_initial_values (rtx *reg_equiv_memory_loc)
 }
 
 #include "gt-integrate.h"
+
+END_TARGET_SPECIFIC

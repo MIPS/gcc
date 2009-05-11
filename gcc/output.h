@@ -22,6 +22,10 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_OUTPUT_H
 #define GCC_OUTPUT_H
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
+
 /* Initialize data in final at the beginning of a compilation.  */
 extern void init_final (const char *);
 
@@ -108,6 +112,7 @@ extern void output_address (rtx);
    Addition and subtraction are the only arithmetic
    that may appear in these expressions.  */
 extern void output_addr_const (FILE *, rtx);
+END_TARGET_SPECIFIC
 
 /* Output a string of assembler code, substituting numbers, strings
    and fixed syntactic prefixes.  */
@@ -121,6 +126,7 @@ typedef HOST_WIDE_INT __gcc_host_wide_int__;
 #define ATTRIBUTE_ASM_FPRINTF(m, n) ATTRIBUTE_NONNULL(m)
 #endif
 
+START_TARGET_SPECIFIC
 extern void asm_fprintf (FILE *file, const char *p, ...)
      ATTRIBUTE_ASM_FPRINTF(2, 3);
 
@@ -324,11 +330,13 @@ extern rtx final_sequence;
 extern int sdb_begin_function_line;
 #endif
 
+END_TARGET_SPECIFIC
 /* File in which assembler code is being written.  */
 
 #ifdef BUFSIZ
 extern FILE *asm_out_file;
 #endif
+START_TARGET_SPECIFIC
 
 /* The first global object in the file.  */
 extern const char *first_global_object_name;
@@ -395,6 +403,8 @@ extern void default_function_pro_epilogue (FILE *, HOST_WIDE_INT);
 
 /* Default target hook that outputs nothing to a stream.  */
 extern void no_asm_to_stream (FILE *);
+
+END_TARGET_SPECIFIC
 
 /* Flags controlling properties of a section.  */
 #define SECTION_ENTSIZE	 0x000ff	/* entity size in section */
@@ -544,6 +554,8 @@ union section GTY ((desc ("SECTION_STYLE (&(%h))")))
 
 struct object_block;
 
+START_TARGET_SPECIFIC
+
 /* Special well-known sections.  */
 /* Don't GTY the unnamed / noswitch sections, see PR31634.  */
 extern /* unnamed */ section *text_section;
@@ -652,6 +664,8 @@ extern void dbxout_stab_value_internal_label (const char *, int *);
 extern void dbxout_stab_value_internal_label_diff (const char *, int *,
 						   const char *);
 
-#endif
+#endif /* defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO */
+
+END_TARGET_SPECIFIC
 
 #endif /* ! GCC_OUTPUT_H */

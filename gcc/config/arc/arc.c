@@ -58,6 +58,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm-constrs.h"
 #include "reload.h" /* For operands_match_p */
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Which cpu we're compiling for (NULL(=A4), A4, A5, ARC600, ARC700) */
 const char *arc_cpu_string;
@@ -325,6 +328,7 @@ const struct attribute_spec arc_attribute_table[] =
   { "short_call",   0, 0, false, true,  true,  NULL },
   { NULL, 0, 0, false, false, false, NULL }
 };
+static bool arc_override_options (bool);
 static bool arc_assemble_integer (rtx, unsigned int, int);
 static int arc_comp_type_attributes (const_tree, const_tree);
 static void arc_file_start (void);
@@ -416,6 +420,9 @@ static rtx frame_insn (rtx);
 #define TARGET_ATTRIBUTE_TABLE arc_attribute_table
 #undef TARGET_ASM_INTERNAL_LABEL
 #define TARGET_ASM_INTERNAL_LABEL arc_internal_label
+#undef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS arc_override_options
+
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS arc_rtx_costs
 #undef TARGET_ADDRESS_COST
@@ -531,7 +538,7 @@ arc_sched_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Called by OVERRIDE_OPTIONS to initialize various things.  */
+/* ??? Called by arc_override_options to initialize various things.  */
 void arc_init (void)
 {
   char *tmp;
@@ -681,6 +688,27 @@ void arc_init (void)
   gcc_obstack_init (&arc_local_obstack);
 }
 
+static bool
+arc_override_options (bool main_target)
+{
+  if (arc_size_opt_level == 3)
+    optimize_size = 1;
+  if (flag_pic)
+    target_flags |= MASK_NO_SDATA_SET;
+  if (flag_no_common == 255)
+    flag_no_common = !TARGET_NO_SDATA_SET;
+  /* TARGET_COMPACT_CASESI needs the "q" register class.  */
+  if (TARGET_MIXED_CODE)
+    TARGET_Q_CLASS = 1;
+  if (!TARGET_Q_CLASS)
+    TARGET_COMPACT_CASESI = 0;
+  if (TARGET_COMPACT_CASESI)
+    TARGET_CASE_VECTOR_PC_RELATIVE = 1;
+  /* These need to be done at start up.  It's convenient to do them here.  */
+  arc_init ();
+  return true;
+}
+
 /* The condition codes of the ARC, and the inverse function.  */
 /* For short branches, the "c" / "nc" names are not defined in the ARC
    Programmers manual, so we have to use "lo" / "hs"" instead.  */
@@ -1432,7 +1460,7 @@ arc_address_cost (rtx addr, bool speed)
 	  {
 	  case CONST_INT :
 	    return (TARGET_A4
-		    ? (SMALL_INT (plus1) ? 1 : 2)
+		    ? (SMALL_INT (INTVAL (plus1)) ? 1 : 2)
 		    : !RTX_OK_FOR_OFFSET_P (SImode, plus1)
 		    ? COSTS_N_INSNS (1)
 		    : speed
@@ -2541,10 +2569,10 @@ output_shift (rtx *operands)
     }
   else
     {
-      int n = INTVAL (operands[2]);
+      int n;
 
       /* Only consider the lower 5 bits of the shift count */
-      n = n & 0x1f;
+      n = INTVAL (operands[2]) & 0x1f;
 
       /* If the count is negative, take only lower 5 bits.  */
       /* FIXME: No longer needed */
@@ -8844,3 +8872,5 @@ arc_dead_or_set_postreload_p (const_rtx insn, const_rtx reg)
 }
 
 #include "gt-arc.h"
+
+END_TARGET_SPECIFIC

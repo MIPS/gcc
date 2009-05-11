@@ -271,14 +271,14 @@ fabi-version=
 Common Joined UInteger Var(flag_abi_version) Init(2)
 
 falign-functions
-Common Report Var(align_functions,0) Optimization UInteger
+Common Report AllTarget Var(align_functions,0) Optimization UInteger
 Align the start of functions
 
 falign-functions=
 Common RejectNegative Joined UInteger
 
 falign-jumps
-Common Report Var(align_jumps,0) Optimization UInteger
+Common Report AllTarget Var(align_jumps,0) Optimization UInteger
 Align labels which are only reached by jumping
 
 falign-jumps=
@@ -292,7 +292,7 @@ falign-labels=
 Common RejectNegative Joined UInteger
 
 falign-loops
-Common Report Var(align_loops) Optimization UInteger
+Common Report AllTarget Var(align_loops) Optimization UInteger
 Align the start of loops
 
 falign-loops=
@@ -410,7 +410,7 @@ Common Report Var(flag_cx_fortran_rules) Optimization
 Complex multiplication and division follow Fortran rules
 
 fdata-sections
-Common Report Var(flag_data_sections) Optimization
+Common Report AllTarget Var(flag_data_sections) Optimization
 Place data items into their own section
 
 fdbg-cnt-list
@@ -431,8 +431,10 @@ fdefer-pop
 Common Report Var(flag_defer_pop) Optimization
 Defer popping functions args from stack until later
 
+; Although not all targets have delayed branches, the option can be nominally
+; set for all targets.
 fdelayed-branch
-Common Report Var(flag_delayed_branch) Optimization
+Common Report AllTarget Var(flag_delayed_branch) Optimization
 Attempt to fill delay slots of branch instructions
 
 fdelete-null-pointer-checks
@@ -518,11 +520,11 @@ Perform a forward propagation pass on RTL
 ; Used for compiling the Unix kernel, where strange substitutions are
 ; done on the assembly output.
 ffunction-cse
-Common Report Var(flag_no_function_cse,0)
+Common Report AllTarget Var(flag_no_function_cse,0)
 Allow function addresses to be held in registers
 
 ffunction-sections
-Common Report Var(flag_function_sections)
+Common Report AllTarget Var(flag_function_sections)
 Place each function into its own section
 
 fgcse
@@ -724,7 +726,7 @@ Common Report Var(flag_keep_static_consts) Init(1)
 Emit static const variables even if they are not used
 
 fleading-underscore
-Common Report Var(flag_leading_underscore) Init(-1)
+Common Report AllTarget Var(flag_leading_underscore) Init(-1)
 Give external symbols a leading underscore
 
 floop-optimize
@@ -799,7 +801,7 @@ Common Report Var(flag_non_call_exceptions) Optimization
 Support synchronous non-call exceptions
 
 fomit-frame-pointer
-Common Report Var(flag_omit_frame_pointer) Optimization
+Common Report AllTarget Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames
 
 foptimize-register-move
@@ -929,7 +931,7 @@ Common Report Var(flag_regmove) Optimization
 Enables a register move optimization
 
 frename-registers
-Common Report Var(flag_rename_registers) Init(2) Optimization
+Common Report AllTarget Var(flag_rename_registers) Init(2) Optimization
 Perform a register renaming optimization pass
 
 freorder-blocks
@@ -985,11 +987,11 @@ Common Report Var(flag_sched2_use_traces) Optimization
 If scheduling post reload, do trace scheduling
 
 fschedule-insns
-Common Report Var(flag_schedule_insns) Optimization
+Common Report AllTarget Var(flag_schedule_insns) Optimization
 Reschedule instructions before register allocation
 
 fschedule-insns2
-Common Report Var(flag_schedule_insns_after_reload) Optimization
+Common Report AllTarget Var(flag_schedule_insns_after_reload) Optimization
 Reschedule instructions after register allocation
 
 ; This flag should be on when a target implements non-trivial

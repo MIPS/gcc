@@ -55,7 +55,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "alloc-pool.h"
 #include "tm-constrs.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -170,6 +172,7 @@ int assembler_dialect;
 static bool shmedia_space_reserved_for_target_registers;
 
 static bool sh_handle_option (size_t, const char *, int);
+static bool sh_override_options (bool);
 static void split_branches (rtx);
 static int branch_dest (rtx);
 static void force_into (rtx, rtx);
@@ -191,7 +194,7 @@ static void push_regs (HARD_REG_SET *, int);
 static int calc_live_regs (HARD_REG_SET *);
 static HOST_WIDE_INT rounded_frame_size (int);
 static rtx mark_constant_pool_use (rtx);
-const struct attribute_spec sh_attribute_table[];
+extern const struct attribute_spec sh_attribute_table[];
 static tree sh_handle_interrupt_handler_attribute (tree *, tree, tree, int, bool *);
 static tree sh_handle_resbank_handler_attribute (tree *, tree,
 						 tree, int, bool *);
@@ -308,6 +311,9 @@ static int sh2a_function_vector_p (tree);
 #define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION sh_handle_option
+
+#undef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS sh_override_options
 
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES sh_insert_attributes
@@ -1295,7 +1301,7 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
       else
 	opc = NULL_RTX;
 
-      if ((tls_kind = tls_symbolic_operand (op1, Pmode)))
+      if ((tls_kind = (tls_model) tls_symbolic_operand (op1, Pmode)))
 	{
 	  rtx tga_op1, tga_ret, tmp, tmp2;
 
@@ -1375,7 +1381,7 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
   rtx op1;
   rtx scratch = NULL_RTX;
 
-  if (comparison == CODE_FOR_nothing)
+  if (comparison == UNKNOWN)
     comparison = GET_CODE (operands[0]);
   else
     scratch = operands[4];
@@ -1476,8 +1482,7 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
   jump = emit_jump_insn (branch_expander (operands[3]));
   if (probability >= 0)
     REG_NOTES (jump)
-      = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (probability),
-                           REG_NOTES (jump));
+      = alloc_reg_note (REG_BR_PROB, GEN_INT (probability), REG_NOTES (jump));
 
 }
 
@@ -1515,7 +1520,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   op2h = gen_highpart_mode (SImode, DImode, operands[2]);
   op1l = gen_lowpart (SImode, operands[1]);
   op2l = gen_lowpart (SImode, operands[2]);
-  msw_taken = msw_skip = lsw_taken = CODE_FOR_nothing;
+  msw_taken = msw_skip = lsw_taken = UNKNOWN;
   prob = split_branch_probability;
   rev_prob = REG_BR_PROB_BASE - prob;
   switch (comparison)
@@ -1606,9 +1611,9 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
       break;
     default: return false;
     }
-  num_branches = ((msw_taken != CODE_FOR_nothing)
-		  + (msw_skip != CODE_FOR_nothing)
-		  + (lsw_taken != CODE_FOR_nothing));
+  num_branches = ((msw_taken != UNKNOWN)
+		  + (msw_skip != UNKNOWN)
+		  + (lsw_taken != UNKNOWN));
   if (comparison != EQ && comparison != NE && num_branches > 1)
     {
       if (!CONSTANT_P (operands[2])
@@ -1634,20 +1639,20 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   operands[4] = NULL_RTX;
   if (reload_completed
       && ! arith_reg_or_0_operand (op2h, SImode) && true_regnum (op1h)
-      && (msw_taken != CODE_FOR_nothing || msw_skip != CODE_FOR_nothing))
+      && (msw_taken != UNKNOWN || msw_skip != UNKNOWN))
     {
       emit_move_insn (scratch, operands[2]);
       operands[2] = scratch;
     }
-  if (msw_taken != CODE_FOR_nothing)
+  if (msw_taken != UNKNOWN)
     expand_cbranchsi4 (operands, msw_taken, msw_taken_prob);
-  if (msw_skip != CODE_FOR_nothing)
+  if (msw_skip != UNKNOWN)
     {
       rtx taken_label = operands[3];
 
       /* Operands were possibly modified, but msw_skip doesn't expect this.
 	 Always use the original ones.  */
-      if (msw_taken != CODE_FOR_nothing)
+      if (msw_taken != UNKNOWN)
 	{
 	  operands[1] = op1h;
 	  operands[2] = op2h;
@@ -1659,14 +1664,14 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
     }
   operands[1] = op1l;
   operands[2] = op2l;
-  if (lsw_taken != CODE_FOR_nothing)
+  if (lsw_taken != UNKNOWN)
     {
       if (reload_completed
 	  && ! arith_reg_or_0_operand (op2l, SImode) && true_regnum (op1l))
 	operands[4] = scratch;
       expand_cbranchsi4 (operands, lsw_taken, lsw_taken_prob);
     }
-  if (msw_skip != CODE_FOR_nothing)
+  if (msw_skip != UNKNOWN)
     emit_label (skip_label);
   return true;
 }
@@ -1763,7 +1768,7 @@ from_compare (rtx *operands, int code)
   else
     insn = gen_rtx_SET (VOIDmode,
 			gen_rtx_REG (SImode, T_REG),
-			gen_rtx_fmt_ee (code, SImode,
+			gen_rtx_fmt_ee ((enum rtx_code) code, SImode,
 					sh_compare_op0, sh_compare_op1));
   if ((TARGET_SH4 || TARGET_SH2A) && GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
@@ -5122,7 +5127,7 @@ sh_reorg (void)
 			  /* If we are not optimizing, then there may not be
 			     a note.  */
 			  if (note)
-			    PUT_MODE (note, REG_INC);
+			    PUT_REG_NOTE_KIND (note, REG_INC);
 
 			  *last_float_addr = r0_inc_rtx;
 			}
@@ -5702,7 +5707,7 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	    }
 	  if (! epilogue_p)
 	    REG_NOTES (insn)
-	      = (gen_rtx_EXPR_LIST
+	      = (alloc_reg_note
 		 (REG_FRAME_RELATED_EXPR,
 		  gen_rtx_SET (VOIDmode, reg,
 			       gen_rtx_PLUS (SImode, reg, GEN_INT (size))),
@@ -5743,8 +5748,7 @@ push (int rn)
 
   x = frame_insn (x);
   REG_NOTES (x)
-    = gen_rtx_EXPR_LIST (REG_INC,
-			 gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
+    = alloc_reg_note (REG_INC, gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
   return x;
 }
 
@@ -5772,8 +5776,7 @@ pop (int rn)
 
   x = emit_insn (x);
   REG_NOTES (x)
-    = gen_rtx_EXPR_LIST (REG_INC,
-			 gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
+    = alloc_reg_note (REG_INC, gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
 }
 
 /* Generate code to push the regs specified in the mask.  */
@@ -6085,8 +6088,8 @@ sh_media_register_for_return (void)
 typedef struct save_entry_s
 {
   unsigned char reg;
-  unsigned char mode;
   short offset;
+  int mode;
 } save_entry;
 
 #define MAX_TEMPS 4
@@ -6351,7 +6354,7 @@ sh_expand_prologue (void)
       tmp_pnt = schedule.temps;
       for (entry = &schedule.entries[1]; entry->mode != VOIDmode; entry++)
         {
-	  enum machine_mode mode = entry->mode;
+	  enum machine_mode mode = (enum machine_mode) entry->mode;
 	  unsigned int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, pre_dec = NULL_RTX;
 	  rtx orig_reg_rtx;
@@ -6481,8 +6484,8 @@ sh_expand_prologue (void)
 		rtx set, note_rtx;
 
 		set = gen_rtx_SET (VOIDmode, mem_rtx, orig_reg_rtx);
-		note_rtx = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, set,
-					      REG_NOTES (insn));
+		note_rtx = alloc_reg_note (REG_FRAME_RELATED_EXPR, set,
+					   REG_NOTES (insn));
 		REG_NOTES (insn) = note_rtx;
 	      }
 
@@ -6496,8 +6499,8 @@ sh_expand_prologue (void)
 							   GEN_INT (offset)));
 
 		set = gen_rtx_SET (VOIDmode, mem_rtx, reg_rtx);
-		note_rtx = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, set,
-					      REG_NOTES (insn));
+		note_rtx = alloc_reg_note (REG_FRAME_RELATED_EXPR, set,
+					   REG_NOTES (insn));
 		REG_NOTES (insn) = note_rtx;
 	      }
 	  }
@@ -6645,7 +6648,7 @@ sh_expand_epilogue (bool sibcall_p)
       tmp_pnt = schedule.temps;
       for (; entry->mode != VOIDmode; entry--)
 	{
-	  enum machine_mode mode = entry->mode;
+	  enum machine_mode mode = (enum machine_mode) entry->mode;
 	  int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, post_inc = NULL_RTX, insn;
 
@@ -8697,7 +8700,7 @@ get_free_reg (HARD_REG_SET regs_live)
 void
 fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 {
-  enum attr_fp_mode fp_mode = mode;
+  enum attr_fp_mode fp_mode = (enum attr_fp_mode) mode;
   enum attr_fp_mode norm_mode = ACTUAL_NORMAL_MODE (FP_MODE);
   rtx addr_reg;
 
@@ -8728,7 +8731,7 @@ sh_insn_length_adjustment (rtx insn)
 
   /* SH2e has a bug that prevents the use of annulled branches, so if
      the delay slot is not filled, we'll have to put a NOP in it.  */
-  if (sh_cpu == CPU_SH2E
+  if (sh_cpu == PROCESSOR_SH2E
       && GET_CODE (insn) == JUMP_INSN
       && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC
       && GET_CODE (PATTERN (insn)) != ADDR_VEC
@@ -9813,7 +9816,7 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 	  || (!(TARGET_SH4A_ARCH || TARGET_SH4_300) && TARGET_USERMODE))
 	emit_library_call (function_symbol (NULL, "__ic_invalidate",
 					    FUNCTION_ORDINARY),
-			   0, VOIDmode, 1, tramp, SImode);
+			   LCT_NORMAL, VOIDmode, 1, tramp, SImode);
       else
 	emit_insn (gen_ic_invalidate_line (tramp));
     }
@@ -10150,7 +10153,7 @@ sh_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       argmode = TYPE_MODE (TREE_TYPE (arg));
       if (argmode != opmode)
 	arg = build1 (NOP_EXPR, optype, arg);
-      op[nop] = expand_expr (arg, NULL_RTX, opmode, 0);
+      op[nop] = expand_expr (arg, NULL_RTX, opmode, EXPAND_NORMAL);
       if (! (*insn_data[icode].operand[nop].predicate) (op[nop], opmode))
 	op[nop] = copy_to_mode_reg (opmode, op[nop]);
     }
@@ -11232,8 +11235,8 @@ shmedia_prepare_call_address (rtx fnaddr, int is_sibcall)
   return fnaddr;
 }
 
-enum reg_class
-sh_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
+int /*enum reg_class*/
+sh_secondary_reload (bool in_p, rtx x, int /*enum reg_class*/ rclass,
 		     enum machine_mode mode, secondary_reload_info *sri)
 {
   if (in_p)
@@ -11336,4 +11339,239 @@ sh_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
 
 enum sh_divide_strategy_e sh_div_strategy = SH_DIV_STRATEGY_DEFAULT;
 
+static bool
+sh_override_options (bool main_target)
+{
+  int regno;
+
+  SUBTARGET_OVERRIDE_OPTIONS;
+  if (main_target)
+    {
+      if (flag_finite_math_only == 2)
+	flag_finite_math_only
+	  = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;
+    }
+  if (TARGET_SH2E && !flag_finite_math_only)
+    target_flags |= MASK_IEEE;
+  sh_cpu = PROCESSOR_SH1;
+  assembler_dialect = 0;
+  if (TARGET_SH2)
+    sh_cpu = PROCESSOR_SH2;
+  if (TARGET_SH2E)
+    sh_cpu = PROCESSOR_SH2E;
+  if (TARGET_SH2A)
+    {
+      sh_cpu = PROCESSOR_SH2A;
+      if (TARGET_SH2A_DOUBLE)
+        target_flags |= MASK_FMOVD;
+    }
+  if (TARGET_SH3)
+    sh_cpu = PROCESSOR_SH3;
+  if (TARGET_SH3E)
+    sh_cpu = PROCESSOR_SH3E;
+  if (TARGET_SH4)
+    {
+      assembler_dialect = 1;
+      sh_cpu = PROCESSOR_SH4;
+    }
+  if (TARGET_SH4A_ARCH)
+    {
+      assembler_dialect = 1;
+      sh_cpu = PROCESSOR_SH4A;
+    }
+  if (TARGET_SH5)
+    {
+      sh_cpu = PROCESSOR_SH5;
+      target_flags |= MASK_ALIGN_DOUBLE;
+      if (TARGET_SHMEDIA_FPU)
+	target_flags |= MASK_FMOVD;
+      if (TARGET_SHMEDIA)
+	{
+	  /* There are no delay slots on SHmedia.  */
+	  flag_delayed_branch = 0;
+	  /* Relaxation isn't yet supported for SHmedia */
+	  target_flags &= ~MASK_RELAX;
+	  /* After reload, if conversion does little good but can cause
+	     ICEs:
+	     - find_if_block doesn't do anything for SH because we don't
+	       have conditional execution patterns.  (We use conditional
+	       move patterns, which are handled differently, and only
+	       before reload).
+	     - find_cond_trap doesn't do anything for the SH because we \	
+	       don't have conditional traps.
+	     - find_if_case_1 uses redirect_edge_and_branch_force in
+	       the only path that does an optimization, and this causes
+	       an ICE when branch targets are in registers.
+	     - find_if_case_2 doesn't do anything for the SHmedia after
+	       reload except when it can redirect a tablejump - and
+	       that's rather rare.  */
+	  flag_if_conversion2 = 0;
+	  if (! strcmp (sh_div_str, "call"))
+	    sh_div_strategy = SH_DIV_CALL;
+	  else if (! strcmp (sh_div_str, "call2"))
+	    sh_div_strategy = SH_DIV_CALL2;
+	  if (! strcmp (sh_div_str, "fp") && TARGET_FPU_ANY)
+	    sh_div_strategy = SH_DIV_FP;
+	  else if (! strcmp (sh_div_str, "inv"))
+	    sh_div_strategy = SH_DIV_INV;
+	  else if (! strcmp (sh_div_str, "inv:minlat"))
+	    sh_div_strategy = SH_DIV_INV_MINLAT;
+	  else if (! strcmp (sh_div_str, "inv20u"))
+	    sh_div_strategy = SH_DIV_INV20U;
+	  else if (! strcmp (sh_div_str, "inv20l"))
+	    sh_div_strategy = SH_DIV_INV20L;
+	  else if (! strcmp (sh_div_str, "inv:call2"))
+	    sh_div_strategy = SH_DIV_INV_CALL2;
+	  else if (! strcmp (sh_div_str, "inv:call"))
+	    sh_div_strategy = SH_DIV_INV_CALL;
+	  else if (! strcmp (sh_div_str, "inv:fp"))
+	    {
+	      if (TARGET_FPU_ANY)
+		sh_div_strategy = SH_DIV_INV_FP;
+	      else
+		sh_div_strategy = SH_DIV_INV;
+	    }
+	  TARGET_CBRANCHDI4 = 0;
+	  /* Assembler CFI isn't yet fully supported for SHmedia.  */
+	  flag_dwarf2_cfi_asm = 0;
+	}
+    }
+  else
+    {
+       /* Only the sh64-elf assembler fully supports .quad properly.  */
+       targetm.asm_out.aligned_op.di = NULL;
+       targetm.asm_out.unaligned_op.di = NULL;
+    }
+  if (TARGET_SH1)
+    {
+      if (! strcmp (sh_div_str, "call-div1"))
+	sh_div_strategy = SH_DIV_CALL_DIV1;
+      else if (! strcmp (sh_div_str, "call-fp")
+	       && (TARGET_FPU_DOUBLE
+		   || (TARGET_HARD_SH4 && TARGET_SH2E)
+		   || (TARGET_SHCOMPACT && TARGET_FPU_ANY)))
+	sh_div_strategy = SH_DIV_CALL_FP;
+      else if (! strcmp (sh_div_str, "call-table") && TARGET_SH2)
+	sh_div_strategy = SH_DIV_CALL_TABLE;
+      else
+	/* Pick one that makes most sense for the target in general.
+	   It is not much good to use different functions depending
+	   on -Os, since then we'll end up with two different functions
+	   when some of the code is compiled for size, and some for
+	   speed.  */
+
+	/* SH4 tends to emphasize speed.  */
+	if (TARGET_HARD_SH4)
+	  sh_div_strategy = SH_DIV_CALL_TABLE;
+	/* These have their own way of doing things.  */
+	else if (TARGET_SH2A)
+	  sh_div_strategy = SH_DIV_INTRINSIC;
+	/* ??? Should we use the integer SHmedia function instead?  */
+	else if (TARGET_SHCOMPACT && TARGET_FPU_ANY)
+	  sh_div_strategy = SH_DIV_CALL_FP;
+        /* SH1 .. SH3 cores often go into small-footprint systems, so
+	   default to the smallest implementation available.  */
+	else if (TARGET_SH2)	/* ??? EXPERIMENTAL */
+	  sh_div_strategy = SH_DIV_CALL_TABLE;
+	else
+	  sh_div_strategy = SH_DIV_CALL_DIV1;
+    }
+  if (!TARGET_SH1)
+    TARGET_PRETEND_CMOVE = 0;
+  if (sh_divsi3_libfunc[0])
+    ; /* User supplied - leave it alone.  */
+  else if (TARGET_DIVIDE_CALL_FP)
+    sh_divsi3_libfunc = "__sdivsi3_i4";
+  else if (TARGET_DIVIDE_CALL_TABLE)
+    sh_divsi3_libfunc = "__sdivsi3_i4i";
+  else if (TARGET_SH5)
+    sh_divsi3_libfunc = "__sdivsi3_1";
+  else
+    sh_divsi3_libfunc = "__sdivsi3";
+  if (sh_branch_cost == -1)
+    sh_branch_cost
+      = TARGET_SH5 ? 1 : ! TARGET_SH2 || TARGET_HARD_SH4 ? 2 : 1;
+
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (! VALID_REGISTER_P (regno))
+      sh_register_names[regno][0] = '\0';
+
+  for (regno = 0; regno < ADDREGNAMES_SIZE; regno++)
+    if (! VALID_REGISTER_P (ADDREGNAMES_REGNO (regno)))
+      sh_additional_register_names[regno][0] = '\0';
+
+  if (flag_omit_frame_pointer == 2)
+   {
+     /* The debugging information is sufficient,
+        but gdb doesn't implement this yet */
+     if (0)
+      flag_omit_frame_pointer
+        = (PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);
+     else
+      flag_omit_frame_pointer = 0;
+   }
+
+  if ((flag_pic && ! TARGET_PREFERGOT)
+      || (TARGET_SHMEDIA && !TARGET_PT_FIXED))
+    flag_no_function_cse = 1;
+
+  if (SMALL_REGISTER_CLASSES)
+    {
+      /* Never run scheduling before reload, since that can
+	 break global alloc, and generates slower code anyway due
+	 to the pressure on R0.  */
+      /* Enable sched1 for SH4; ready queue will be reordered by
+	 the target hooks when pressure is high. We can not do this for
+	 PIC, SH3 and lower as they give spill failures for R0.  */
+      if (!TARGET_HARD_SH4 || flag_pic)
+        flag_schedule_insns = 0;
+      /* ??? Current exception handling places basic block boundaries
+	 after call_insns.  It causes the high pressure on R0 and gives
+	 spill failures for R0 in reload.  See PR 22553 and the thread
+	 on gcc-patches
+         <http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00816.html>.  */
+      else if (flag_exceptions)
+	{
+	  if (flag_schedule_insns == 1)
+	    warning (0, "ignoring -fschedule-insns because of exception handling bug");
+	  flag_schedule_insns = 0;
+	}
+    }
+
+  if (align_loops == 0)
+    align_loops =  1 << (TARGET_SH5 ? 3 : 2);
+  if (align_jumps == 0)
+    align_jumps = 1 << CACHE_LOG;
+  else if (align_jumps < (TARGET_SHMEDIA ? 4 : 2))
+    align_jumps = TARGET_SHMEDIA ? 4 : 2;
+
+  /* Allocation boundary (in *bytes*) for the code of a function.
+     SH1: 32 bit alignment is faster, because instructions are always
+     fetched as a pair from a longword boundary.
+     SH2 .. SH5 : align to cache line start.  */
+  if (align_functions == 0)
+    align_functions
+      = TARGET_SMALLCODE ? FUNCTION_BOUNDARY/8 : (1 << CACHE_LOG);
+  /* The linker relaxation code breaks when a function contains
+     alignments that are larger than that at the start of a
+     compilation unit.  */
+  if (TARGET_RELAX)
+    {
+      int min_align
+	= align_loops > align_jumps ? align_loops : align_jumps;
+
+      /* Also take possible .long constants / mova tables int account.	*/
+      if (min_align < 4)
+	min_align = 4;
+      if (align_functions < min_align)
+	align_functions = min_align;
+    }
+
+  if (sh_fixed_range_str)
+    sh_fix_range (sh_fixed_range_str);
+  return true;
+}
+
 #include "gt-sh.h"
+
+END_TARGET_SPECIFIC

@@ -39,6 +39,10 @@ along with GCC; see the file COPYING3.  If not see
    we have an array of HARD_REG_SETs, so it needn't be as complex as
    it used to be.  */
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
+
 typedef unsigned HOST_WIDEST_FAST_INT HARD_REG_ELT_TYPE;
 
 #if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDEST_FAST_INT
@@ -678,5 +682,7 @@ extern const char * reg_class_names[];
    REGN cannot change modes between the specified modes.  */
 #define REG_CANNOT_CHANGE_MODE_P(REGN, FROM, TO)                          \
          CANNOT_CHANGE_MODE_CLASS (FROM, TO, REGNO_REG_CLASS (REGN))
+
+END_TARGET_SPECIFIC
 
 #endif /* ! GCC_HARD_REG_SET_H */

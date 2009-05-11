@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
 
 /* The basic idea of common subexpression elimination is to go
    through the code, keeping a record of expressions that would
@@ -206,6 +207,8 @@ Related expressions:
    is also entered.  These are made to point at each other
    so that it is possible to find out if there exists any
    register equivalent to an expression related to a given expression.  */
+
+START_TARGET_SPECIFIC
 
 /* Length of qty_table vector.  We know in advance we will not need
    a quantity number this big.  */
@@ -7001,3 +7004,4 @@ struct rtl_opt_pass pass_cse2 =
  }
 };
 
+END_TARGET_SPECIFIC

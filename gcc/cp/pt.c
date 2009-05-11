@@ -171,7 +171,7 @@ static tree tsubst (tree, tree, int, tree);
 static tree tsubst_expr	(tree, tree, int, tree, bool);
 static tree tsubst_copy	(tree, tree, int, tree);
 static tree tsubst_pack_expansion (tree, tree, int, tree);
-static tree tsubst_decl (tree, tree, tsubst_flags_t);
+static tree tsubst_decl (tree, tree, int);
 
 /* Make the current scope suitable for access checking when we are
    processing T.  T can be FUNCTION_DECL for instantiated function

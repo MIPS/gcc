@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "real.h"
 #include "basic-block.h"
 #include "target.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Each optab contains info on how this target machine
    can perform a particular operation
@@ -7437,3 +7440,5 @@ expand_sync_lock_test_and_set (rtx mem, rtx val, rtx target)
 }
 
 #include "gt-optabs.h"
+
+END_TARGET_SPECIFIC
