@@ -6,7 +6,7 @@
 2009-02-24  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* loop-doloop.c (doloop_valid_p): Rename to:
-	(validize_doloop).  Try to fix up loops with condiitons for infinite
+	(validize_doloop).  Try to fix up loops with conditons for infinite
 	looping by enclosing them in an outer loop.
 	Changed caller.
 	(add_test): Add new parameter edgep.  Changed caller.
