@@ -1,5 +1,7 @@
 2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* var-tracking.c: Include tm_p.h .
+
 	* targhooks.c (default_builtin_vectorized_function): Make signature
 	agree with prototype in targhooks.h.
 	(default_builtin_vectorized_conversion): Likewise.
