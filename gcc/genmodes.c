@@ -446,10 +446,13 @@ drop_mode (struct mode_data *old, struct mode_data *new)
   struct mode_data *m, *last;
 
   DEBUG ("dropping %s %s\n", m->name, m->target);
-  for (m = old->contained; m; last = m, m = m->next_cont)
-    m->component = new;
-  last->next_cont = new->contained;
-  new->contained = old->contained;
+  if old->contained)
+    {
+      for (m = old->contained; m; last = m, m = m->next_cont)
+	m->component = new;
+      last->next_cont = new->contained;
+      new->contained = old->contained;
+    }
 }
 
 static void
