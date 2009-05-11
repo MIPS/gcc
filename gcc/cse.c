@@ -1465,8 +1465,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
 	  struct table_elt *p, *next;
 
 	  for (p = classp; (next = p->next_same_value) && CHEAPER (next, elt);
-	       p = next)
-	    ;
+	       p = next);
 
 	  /* Put it after P and before NEXT.  */
 	  elt->next_same_value = next;

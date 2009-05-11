@@ -1,3 +1,26 @@
+2009-05-10  Ian Lance Taylor  <iant@google.com>
+
+	Revert the following patches:
+	2009-02-04  Ian Lance Taylor  <iant@google.com>
+	* cse.c (insert): Put empty loop ';' on new line.
+	* emit-rtl.c (push_to_sequence): Likewise.
+	* haifa-sched.c (max_issue): Put empty loop ';' on new line.
+	* matrix-reorg.c (add_allocation_site): Likewise.
+	* postreload-gcse.c (eliminate_partially_redundant_load):
+	Likewise.
+	* sched-rgn.c (rgn_add_block): Likewise.
+	(rgn_fix_recovery_cfg): Likewise.
+	* tree-loop-distribution.c (rdg_flag_similar_memory_accesses):
+	Likewise.
+	2009-02-03  Ian Lance Taylor  <iant@google.com>
+	* tree.c (attribute_list_contained): Put empty loop ';' on new
+	line.
+	2009-01-31  Ian Lance Taylor  <iant@google.com>
+	* reload.c (alternative_allows_const_pool_ref): Put empty loop ';'
+	on new line.
+	2008-07-04  Tom Tromey  <tromey@redhat.com>
+	* java/mangle.c (emit_compression_string): Insert newline.
+
 2009-04-28  Ian Lance Taylor  <iant@google.com>
 
 	* c-decl.c (grokdeclarator): Change size_varies to bool.  Change

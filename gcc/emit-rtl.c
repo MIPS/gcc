@@ -4915,8 +4915,7 @@ push_to_sequence (rtx first)
 
   start_sequence ();
 
-  for (last = first; last && NEXT_INSN (last); last = NEXT_INSN (last))
-    ;
+  for (last = first; last && NEXT_INSN (last); last = NEXT_INSN (last));
 
   first_insn = first;
   last_insn = last;
