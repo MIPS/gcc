@@ -1,5 +1,18 @@
 2009-05-09  Jan Hubicka  <jh@suse.cz>
 
+	* tree-ssa-loop-ivcanon.c (struct loop_size): new structure.
+	(constant_after_peeling): New predicate.
+	(tree_estimate_loop_size): New function.
+	(estimated_unrolled_size): Rewrite for new estimates.
+	(try_unroll_loop_completely): Use new estimates.
+
+	* testsuite/gcc.dg/tree-ssa/pr21829.c: Simplify matching since
+	we now optimize better.
+	* testsuite/gcc.dg/Wunreachable-8.c: Bogus warnings now come
+	out at different places.
+
+2009-05-09  Jan Hubicka  <jh@suse.cz>
+
 	Merge from mainline.
 
 2009-05-02  Jan Hubicka  <jh@suse.cz>
