@@ -1,0 +1,6 @@
+#!/bin/sh
+
+basedir=`dirname $0`
+basedir=`cd $basedir/.. ; pwd`
+
+MONO_PATH=$basedir/lib @CILRUN@ "$@" 

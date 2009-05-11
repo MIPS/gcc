@@ -1,0 +1,28 @@
+#!/bin/sh
+
+basedir=`dirname $0`
+basedir=`cd $basedir/@DPREFIX@ ; pwd`
+
+VERBOSE=
+PARAM=
+CMD=
+
+while test -n "$1"; do
+  case $1 in
+      --verbose)
+          VERBOSE=true
+          shift
+          ;;
+      *)
+          PARAM="$PARAM $1";
+          shift
+          ;;
+  esac
+done
+
+
+CMD="@CILRUN@ $basedir/lbin/objcopy.exe $PARAM"
+if test -n "$VERBOSE"; then
+    echo $CMD
+fi
+$CMD
