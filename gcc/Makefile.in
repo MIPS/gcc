@@ -3479,12 +3479,14 @@ build/genmodes.o : \
   BUILD_CPPFLAGS += -Doutput_target='"$(subst -,_,$(target_noncanonical))"'
 build/genmodes.o : genmodes.c $(BCONFIG_H) $(SYSTEM_H) errors.h		\
   $(HASHTAB_H) machmode.def extra-modes.h
-extra-modes.h: Makefile $(foreach ta,$(EXTRA_TARGETS),$(ta)/Makefile)
+extra-modes.h: Makefile $(foreach ta,$(EXTRA_TARGETS),$(ta)-extra-modes.h)
 	echo target=\"$(subst -,_,$(target_noncanonical))\"\; > $@
-	echo '$(shell $(MAKE) extra_modes_blurb)' >> $@
-	$(foreach ta,$(EXTRA_TARGETS),\
-	  echo target=\"$(subst -,_,$(ta))\"\; >> $@;\
-	  echo '$(shell cd $(ta);$(MAKE) extra_modes_blurb)' >> $@;)
+ifdef extra_modes_file
+	echo \#include \"$(extra_modes_file)\" >> $@
+else
+	echo // no extra_modes_file. >> $@
+endif
+	cat $(foreach ta,$(EXTRA_TARGETS),$(ta)-extra-modes.h) >> $@
 	echo 'target = (const char *) 0;' >> $@
 build/genopinit.o : genopinit.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h
@@ -3497,12 +3499,17 @@ build/genpreds.o : genpreds.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
 build/genrecog.o : genrecog.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h
 
-.PHONY: extra_modes_blurb
-extra_modes_blurb:
+ifndef TA
+%-extra-modes.h: %/Makefile
+	$(MAKE) -C $* ../$*-extra-modes.h TA=$*-
+endif
+
+../$(TA)extra-modes.h:
+	echo target=\"$(subst -,_,$(target_noncanonical))\"\; > $@
 ifdef extra_modes_file
-	@echo \#include \"$(extra_modes_file)\"
+	echo \#include \"$(extra_modes_file:../%=%)\" >> $@
 else
-	@echo // no extra_modes_file.
+	echo // no extra_modes_file. >> $@
 endif
 
 #Fixme: modify EXTRA_TARGETS configuration to make sure that we use a

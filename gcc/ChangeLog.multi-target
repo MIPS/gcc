@@ -1,3 +1,24 @@
+2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* genmodes.c (find_mode): Set target field for to-be searched mode.
+	(eq_mode): Also consider target.
+	(drop_mode): New function.
+	(fixup_target_modes): Implement commoning of equivalent modes.
+	Mangle mode names for other-target modes.
+	(make_complex_modes): When processing target-specific input, don't
+	make modes for other targets.
+	(make_complex_modes, make_vector_modes): Tag new modes with the same
+	target field as the modes that they are made from.
+	(make_partial_integer_mode): Make error message clearer.
+	(emit_insn_modes_h): Remove mangling of mode name.
+	* Makefile.in (extra-modes.h): Use *-extra-modes.h instead of
+	extra_modes_blurb.
+	(extra_modes_blurb): Remove rule.
+	[!TA] (%-extra-modes.h): New rule.
+	* config/rs6000/t-rs6000 (rs6000-c.o): Use CXXX.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add casts
+	to enum rs6000_builtins.
+
 2009-05-08  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* doc/extend.texi (target_arch): Document new attribute.

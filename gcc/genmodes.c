@@ -23,12 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "errors.h"
 #include "hashtab.h"
 
+#define DEBUG if (0) printf
+
 /* FIXME: The intention is that across targets, modes are considered
    equivalent if they have the same bitsize, mode_class and (where applicable)
    precision.  Thus, QImode and a target with 32 bit units should be
    equivalent to SImode on a target with 8 bit units.
    However, at the moment we don't support mixing targets with different
    BITS_PER_UNIT.  */
+/* FIXME: We need to change the handling of RESET_FLOAT_FORMAT so that
+   it doesn't change the original mode for other targets.  */
 
 /* enum mode_class is normally defined by machmode.h but we can't
    include that header here.  */
@@ -147,6 +151,8 @@ vector_class (enum mode_class cl)
     }
 }
 
+static const char *target = (const char *) 0;
+
 /* Utility routines.  */
 static inline struct mode_data *
 find_mode (const char *name)
@@ -154,10 +160,9 @@ find_mode (const char *name)
   struct mode_data key;
 
   key.name = name;
+  key.target = target;
   return (struct mode_data *) htab_find (modes_by_name, &key);
 }
-
-static const char *target;
 
 static struct mode_data *
 new_mode (enum mode_class cl, const char *name,
@@ -207,7 +212,9 @@ eq_mode (const void *p, const void *q)
   const struct mode_data *a = (const struct mode_data *)p;
   const struct mode_data *b = (const struct mode_data *)q;
 
-  return !strcmp (a->name, b->name);
+  return (!strcmp (a->name, b->name)
+	  && ((a->target ? a->target : target)
+	      == (b->target ? b->target : target)));
 }
 
 #define for_all_modes(C, M)			\
@@ -431,17 +438,95 @@ complete_all_modes (void)
     complete_mode (m);
 }
 
+/* Remove the duplicate mode OLD.  All referenecs to it should be replaced
+   with NEW.  */
+static void
+drop_mode (struct mode_data *old, struct mode_data *new)
+{
+  struct mode_data *m, *last;
+
+  DEBUG ("dropping %s %s\n", m->name, m->target);
+  for (m = old->contained; m; last = m, m = m->next_cont)
+    m->component = new;
+  last->next_cont = new->contained;
+  new->contained = old->contained;
+}
+
 static void
 fixup_target_modes (void)
 {
-  struct mode_data *m;
+  struct mode_data *m, *m_prev, *m2, *m2_prev, *m3, *m3_prev;
   int cl;
 
-  /* FIXME: find target-specific modes that describe the same data.  When a
-     mode is found that matches an ealier defined mode, move all earlier modes
+  /* Find target-specific modes that describe the same data.  When a mode
+     is found that matches a mode earlier in the list, move all earlier modes
      from the same target in the same mode class in front of the earlier mode;
      of the equivalent modes, keep only the one that is for the output
      target.  */
+  for (cl = 0; cl < MAX_MODE_CLASS; cl++)
+    {
+      if (cl == MODE_RANDOM || cl == MODE_CC)
+	continue;
+      for (m_prev = 0, m = modes[cl]; m; m_prev = m, m = m->next)
+	{
+	  for (m2_prev = 0, m2 = modes[cl]; m2 != m;
+	       m2_prev = m2, m2 = m2->next)
+	    if (m->precision == m2->precision
+		&& m->bytesize == m2->bytesize
+		&& m->ncomponents == m2->ncomponents
+		&& m->format == m2->format
+		&& m->ibit == m2->ibit
+		&& m->fbit == m2->fbit)
+	      {
+		gcc_assert (m->target && m2->target);
+		gcc_assert (m->target != m2->target);
+		/* Find all modes between m2 and m which are for the same
+		   target as m and insert them in front of m2.  */
+		for (m3_prev = m2; m3 = m3_prev->next, m3 != m; )
+		  {
+		    if (m3->target != m->target)
+		      {
+			m3_prev = m3;
+			continue;
+		      }
+		    m3_prev->next = m3->next;
+		    if (m2_prev)
+		      m2_prev->next = m3;
+		    else
+		      modes[cl] = m3;
+		    m2_prev = m3;
+		    m3->next = m2;
+		    if (m3 == m_prev)
+		      {
+			m_prev = m3_prev;
+			break;
+		      }
+		  }
+		/* Remove m from the list.  */
+		gcc_assert (m_prev && m_prev->next == m);
+		gcc_assert (m->next != m);
+		gcc_assert (m_prev != m);
+		m_prev->next = m->next;
+		/* If m is for the output target, retain it in place of m2.  */
+		if (!strcmp (m->target, output_target))
+		  {
+		    if (m2_prev)
+		      m2_prev->next = m;
+		    else
+		      modes[cl] = m;
+		    if (m_prev == m2)
+		      m_prev = m;
+		    m->next = m2->next;
+		    drop_mode (m2, m);
+		  }
+		else
+		  drop_mode (m, m2);
+		m = m_prev;
+		break;
+	      }
+	  gcc_assert (m2 == m || m == m_prev);
+	}
+    }
 
   /* Reset the target field for modes that are for the output target.
      Henceforth, all modes with the target field set are not modes for
@@ -449,6 +534,19 @@ fixup_target_modes (void)
   for_all_modes (cl, m)
     if (m->target && !strcmp (m->target, output_target))
       m->target = (const char *)0;
+    /* Mangle name of modes for other targets.  */
+    else if (m->target)
+      {
+	size_t t_len = strlen (m->target);
+	size_t n_len = strlen (m->name);
+	char *new_name
+	  = XNEWVEC (char, t_len + 1 + n_len + 1);
+
+	strcpy (new_name, m->target);
+	new_name[t_len] = '_';
+	strcat (new_name + t_len + 1, m->name);
+	m->name = new_name;
+      }
 }
 
 /* For each mode in class CLASS, construct a corresponding complex mode.  */
@@ -461,6 +559,7 @@ make_complex_modes (enum mode_class cl,
   struct mode_data *c;
   char buf[8];
   enum mode_class cclass = complex_class (cl);
+  const char *save_target;
 
   if (cclass == MODE_RANDOM)
     return;
@@ -469,6 +568,8 @@ make_complex_modes (enum mode_class cl,
     {
       /* Skip BImode.  FIXME: BImode probably shouldn't be MODE_INT.  */
       if (m->precision == 1)
+	continue;
+      if (m->target && target && m->target != target)
 	continue;
 
       if (strlen (m->name) >= sizeof buf)
@@ -503,7 +604,10 @@ make_complex_modes (enum mode_class cl,
       else
 	snprintf (buf, sizeof buf, "C%s", m->name);
 
+      save_target = target;
+      target = m->target;
       c = new_mode (cclass, xstrdup (buf), file, line);
+      target = save_target;
       c->component = m;
     }
 }
@@ -533,6 +637,8 @@ make_vector_modes (enum mode_class cl, unsigned int width,
       if (ncomponents < 2)
 	continue;
       if (width % m->bytesize)
+	continue;
+      if (m->target && target && m->target != target)
 	continue;
 
       /* Skip QFmode and BImode.  FIXME: this special case should
@@ -678,7 +784,7 @@ make_partial_integer_mode (const char *base, const char *name,
   struct mode_data *component = find_mode (base);
   if (!component)
     {
-      error ("%s:%d: no mode \"%s\"", file, line, name);
+      error ("%s:%d: no base mode \"%s\" for \"%s\"", file, line, base, name);
       return;
     }
   if (component->cl != MODE_INT)
@@ -912,10 +1018,7 @@ enum machine_mode\n{");
   for (c = 0; c < MAX_MODE_CLASS; c++)
     for (m = modes[c]; m; m = m->next)
       {
-	int count_
-	  = (m->target
-	     ? printf ("  %s_%smode,", m->target, m->name)
-	     : printf ("  %smode,", m->name));
+	int count_ = printf ("  %smode,", m->name);
 	printf ("%*s/* %s:%d */\n", 27 - count_, "",
 		 trim_filename (m->file), m->line);
       }
