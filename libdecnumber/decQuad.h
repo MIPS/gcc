@@ -95,6 +95,10 @@
 
   #include "decQuadSymbols.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
   /* Utilities and conversions, extractors, etc.) */
   extern decQuad * decQuadFromBCD(decQuad *, int32_t, const uint8_t *, int32_t);
   extern decQuad * decQuadFromInt32(decQuad *, int32_t);
@@ -184,5 +188,9 @@
   /* to force a dependency on decimal128 and decNumber in decQuad.     */
   #define decQuadToNumber(dq, dn) decimal128ToNumber((decimal128 *)(dq), dn)
   #define decQuadFromNumber(dq, dn, set) (decQuad *)decimal128FromNumber((decimal128 *)(dq), dn, set)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

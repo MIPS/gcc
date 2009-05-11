@@ -818,7 +818,8 @@ rdg_flag_similar_memory_accesses (struct graph *rdg, bitmap partition,
 
 	/* If the node I has two uses, then keep these together in the
 	   same PARTITION.  */
-	for (n = 0, e = rdg->vertices[i].succ; e; e = e->succ_next, n++);
+	for (n = 0, e = rdg->vertices[i].succ; e; e = e->succ_next, n++)
+	  ;
 
 	if (n > 1)
 	  rdg_flag_all_uses (rdg, i, partition, loops, processed, &foo);

@@ -702,7 +702,8 @@ emit_compression_string (int i)
       unsigned HOST_WIDE_INT n;
       unsigned HOST_WIDE_INT m=1;
       /* How many digits for I in base 36? */
-      for (n = i; n >= 36; n /= 36, m *=36);
+      for (n = i; n >= 36; n /= 36, m *=36)
+	;
       /* Write the digits out */
       while (m > 0)
 	{

@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 
 
 struct regstat_n_sets_and_refs_t *regstat_n_sets_and_refs;
-struct regstat_n_sets_and_refs_t *regstat_n_sets_and_refs;
 
 /*----------------------------------------------------------------------------
    REG_N_SETS and REG_N_REFS.  

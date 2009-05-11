@@ -2063,12 +2063,14 @@ ggc_print_statistics (void)
 #endif
 }
 
+struct ggc_pch_ondisk
+{
+  unsigned totals[NUM_ORDERS];
+};
+
 struct ggc_pch_data
 {
-  struct ggc_pch_ondisk
-  {
-    unsigned totals[NUM_ORDERS];
-  } d;
+  struct ggc_pch_ondisk d;
   size_t base[NUM_ORDERS];
   size_t written[NUM_ORDERS];
 };
@@ -2158,7 +2160,7 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
-  static const char emptyBytes[256];
+  static const char emptyBytes[256] = { 0 };
 
   if (size < NUM_SIZE_LOOKUP)
     order = size_lookup[size];

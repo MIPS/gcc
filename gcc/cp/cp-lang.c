@@ -69,7 +69,7 @@ const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 tree
 objcp_tsubst_copy_and_build (tree t ATTRIBUTE_UNUSED,
 			     tree args ATTRIBUTE_UNUSED,
-			     tsubst_flags_t complain ATTRIBUTE_UNUSED,
+			     int complain ATTRIBUTE_UNUSED,
 			     tree in_decl ATTRIBUTE_UNUSED,
 			     bool function_p ATTRIBUTE_UNUSED)
 {

@@ -37,6 +37,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 typedef int iconv_t;  /* dummy */
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
@@ -538,7 +542,7 @@ extern void _cpp_push_token_context (cpp_reader *, cpp_hashnode *,
 extern void _cpp_backup_tokens_direct (cpp_reader *, unsigned int);
 
 /* In identifiers.c */
-extern void _cpp_init_hashtable (cpp_reader *, hash_table *);
+extern void _cpp_init_hashtable (cpp_reader *, cpp_hash_table *);
 extern void _cpp_destroy_hashtable (cpp_reader *);
 
 /* In files.c */
@@ -707,5 +711,9 @@ ufputs (const unsigned char *s, FILE *f)
 {
   return fputs ((const char *)s, f);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! LIBCPP_INTERNAL_H */

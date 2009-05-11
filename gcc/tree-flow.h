@@ -231,8 +231,10 @@ typedef struct
 /* Aliasing information for SSA_NAMEs representing pointer variables.  */
 struct ptr_info_def GTY(())
 {
-  /* Mask of reasons this pointer's value escapes the function.  */
-  ENUM_BITFIELD (escape_type) escape_mask : 9;
+  /* Mask of reasons this pointer's value escapes the function.  This
+     actually holds enum escape_type values, or'd together.  So, it
+     must be wide enough to hold all values from the enum.  */
+  unsigned int escape_mask : 9;
 
   /* Nonzero if points-to analysis couldn't determine where this pointer
      is pointing to.  */
@@ -380,8 +382,10 @@ struct var_ann_d GTY(())
   ENUM_BITFIELD (noalias_state) noalias_state : 2;
 
   /* Mask of values saying the reasons why this variable has escaped
-     the function.  */
-  ENUM_BITFIELD (escape_type) escape_mask : 9;
+     the function.  This actually holds enum escape_type values, or'd
+     together.  So, it must be wide enough to hold all values from the
+     enum.  */
+  unsigned int escape_mask : 9;
 
   /* Memory partition tag assigned to this symbol.  */
   tree mpt;

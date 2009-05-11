@@ -184,15 +184,15 @@ init_attributes (void)
     for (k = 0; attribute_tables[i][k].name != NULL; k++)
       {
 	struct substring str;
-	const void **slot;
+	void **slot;
 
 	str.str = attribute_tables[i][k].name;
 	str.length = strlen (attribute_tables[i][k].name);
-	slot = (const void **)htab_find_slot_with_hash (attribute_hash, &str,
+	slot = htab_find_slot_with_hash (attribute_hash, &str,
 					 substring_hash (str.str, str.length),
 					 INSERT);
 	gcc_assert (!*slot);
-	*slot = &attribute_tables[i][k];
+	*slot = CONST_CAST (struct attribute_spec*, &attribute_tables[i][k]);
       }
   attributes_initialized = true;
 }

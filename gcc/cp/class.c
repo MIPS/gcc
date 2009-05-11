@@ -4853,7 +4853,7 @@ layout_class_type (tree t, tree *virtuals_p)
       if (DECL_C_BIT_FIELD (field)
 	  && INT_CST_LT (TYPE_SIZE (type), DECL_SIZE (field)))
 	{
-	  integer_type_kind itk;
+	  int itk;
 	  tree integer_type;
 	  bool was_unnamed_p = false;
 	  /* We must allocate the bits as if suitably aligned for the
@@ -5943,7 +5943,7 @@ pop_lang_context (void)
 static tree
 resolve_address_of_overloaded_function (tree target_type,
 					tree overload,
-					tsubst_flags_t flags,
+					int flags,
 					bool template_only,
 					tree explicit_targs,
 					tree access_path)
@@ -6239,9 +6239,9 @@ resolve_address_of_overloaded_function (tree target_type,
    function, or a pointer to member function.  */
 
 tree
-instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
+instantiate_type (tree lhstype, tree rhs, int flags)
 {
-  tsubst_flags_t flags_in = flags;
+  int flags_in = flags;
   tree access_path = NULL_TREE;
 
   flags &= ~tf_ptrmem_ok;

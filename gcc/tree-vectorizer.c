@@ -1450,9 +1450,9 @@ vect_set_verbosity_level (const char *val)
 
    vl = atoi (val);
    if (vl < MAX_VERBOSITY_LEVEL)
-     vect_verbosity_level = vl;
+     vect_verbosity_level = (enum verbosity_levels) vl;
    else
-     vect_verbosity_level = MAX_VERBOSITY_LEVEL - 1;
+     vect_verbosity_level = (enum verbosity_levels) (MAX_VERBOSITY_LEVEL - 1);
 }
 
 
@@ -1533,7 +1533,7 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_TYPE (res) = undef_vec_info_type;
   STMT_VINFO_STMT (res) = stmt;
   STMT_VINFO_LOOP_VINFO (res) = loop_vinfo;
-  STMT_VINFO_RELEVANT (res) = 0;
+  STMT_VINFO_RELEVANT (res) = vect_unused_in_loop;
   STMT_VINFO_LIVE_P (res) = false;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
@@ -1555,7 +1555,7 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
   STMT_VINFO_INSIDE_OF_LOOP_COST (res) = 0;
   STMT_VINFO_OUTSIDE_OF_LOOP_COST (res) = 0;
-  STMT_SLP_TYPE (res) = 0;
+  STMT_SLP_TYPE (res) = loop_vect;
   DR_GROUP_FIRST_DR (res) = NULL;
   DR_GROUP_NEXT_DR (res) = NULL;
   DR_GROUP_SIZE (res) = 0;
@@ -1895,7 +1895,7 @@ vect_supportable_dr_alignment (struct data_reference *dr)
   gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  enum machine_mode mode = (int) TYPE_MODE (vectype);
+  enum machine_mode mode = TYPE_MODE (vectype);
   struct loop *vect_loop = LOOP_VINFO_LOOP (STMT_VINFO_LOOP_VINFO (stmt_info));
   bool nested_in_vect_loop = nested_in_vect_loop_p (vect_loop, stmt);
   bool invariant_in_outerloop = false;
@@ -2157,7 +2157,7 @@ supportable_widening_operation (enum tree_code code, gimple stmt, tree vectype,
   struct loop *vect_loop = LOOP_VINFO_LOOP (loop_info);
   bool ordered_p;
   enum machine_mode vec_mode;
-  enum insn_code icode1 = 0, icode2 = 0;
+  enum insn_code icode1 = (enum insn_code) 0, icode2 = (enum insn_code) 0;
   optab optab1, optab2;
   tree type = gimple_expr_type (stmt);
   tree wide_vectype = get_vectype_for_scalar_type (type);
@@ -2909,7 +2909,7 @@ struct simple_ipa_opt_pass pass_ipa_increase_alignment =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

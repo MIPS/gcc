@@ -531,6 +531,12 @@ default_hidden_stack_protect_fail (void)
 #endif
 }
 
+enum reg_class
+default_branch_target_register_class (void)
+{
+  return NO_REGS;
+}
+
 bool
 hook_bool_const_rtx_commutative_p (const_rtx x,
 				   int outer_code ATTRIBUTE_UNUSED)

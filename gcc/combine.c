@@ -342,10 +342,12 @@ static int nonzero_sign_valid;
 /* Record one modification to rtl structure
    to be undone by storing old_contents into *where.  */
 
+enum undo_kinds { UNDO_RTX, UNDO_INT, UNDO_MODE };
+
 struct undo
 {
   struct undo *next;
-  enum { UNDO_RTX, UNDO_INT, UNDO_MODE } kind;
+  enum undo_kinds kind;
   union { rtx r; int i; enum machine_mode m; } old_contents;
   union { rtx *r; int *i; } where;
 };
@@ -3628,12 +3630,12 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     if (i3dest_killed)
       {
 	if (newi2pat && reg_set_p (i3dest_killed, newi2pat))
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i3dest_killed,
-					       NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i3dest_killed,
+					    NULL_RTX),
 			    NULL_RTX, i2, NULL_RTX, elim_i2, elim_i1);
 	else
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i3dest_killed,
-					       NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i3dest_killed,
+					    NULL_RTX),
 			    NULL_RTX, i3, newi2pat ? i2 : NULL_RTX,
 			    elim_i2, elim_i1);
       }
@@ -3641,10 +3643,10 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     if (i2dest_in_i2src)
       {
 	if (newi2pat && reg_set_p (i2dest, newi2pat))
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i2dest, NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i2dest, NULL_RTX),
 			    NULL_RTX, i2, NULL_RTX, NULL_RTX, NULL_RTX);
 	else
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i2dest, NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i2dest, NULL_RTX),
 			    NULL_RTX, i3, newi2pat ? i2 : NULL_RTX,
 			    NULL_RTX, NULL_RTX);
       }
@@ -3652,10 +3654,10 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     if (i1dest_in_i1src)
       {
 	if (newi2pat && reg_set_p (i1dest, newi2pat))
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i1dest, NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i1dest, NULL_RTX),
 			    NULL_RTX, i2, NULL_RTX, NULL_RTX, NULL_RTX);
 	else
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i1dest, NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i1dest, NULL_RTX),
 			    NULL_RTX, i3, newi2pat ? i2 : NULL_RTX,
 			    NULL_RTX, NULL_RTX);
       }
@@ -9903,8 +9905,8 @@ recog_for_combine (rtx *pnewpat, rtx insn, rtx *pnotes)
 	  if (GET_CODE (XEXP (XVECEXP (newpat, 0, i), 0)) != SCRATCH) 
 	    {
 	      gcc_assert (REG_P (XEXP (XVECEXP (newpat, 0, i), 0)));
-	      notes = gen_rtx_EXPR_LIST (REG_UNUSED,
-					 XEXP (XVECEXP (newpat, 0, i), 0), notes);
+	      notes = alloc_reg_note (REG_UNUSED,
+				      XEXP (XVECEXP (newpat, 0, i), 0), notes);
 	    }
 	}
       pat = newpat;
@@ -11429,11 +11431,11 @@ record_value_for_reg (rtx reg, rtx insn, rtx value)
 	rsp->last_set = insn;
 
       rsp->last_set_value = 0;
-      rsp->last_set_mode = 0;
+      rsp->last_set_mode = VOIDmode;
       rsp->last_set_nonzero_bits = 0;
       rsp->last_set_sign_bit_copies = 0;
       rsp->last_death = 0;
-      rsp->truncated_to_mode = 0;
+      rsp->truncated_to_mode = VOIDmode;
     }
 
   /* Mark registers that are being referenced in this value.  */
@@ -11580,11 +11582,11 @@ record_dead_and_set_regs (rtx insn)
 	    rsp->last_set_invalid = 1;
 	    rsp->last_set = insn;
 	    rsp->last_set_value = 0;
-	    rsp->last_set_mode = 0;
+	    rsp->last_set_mode = VOIDmode;
 	    rsp->last_set_nonzero_bits = 0;
 	    rsp->last_set_sign_bit_copies = 0;
 	    rsp->last_death = 0;
-	    rsp->truncated_to_mode = 0;
+	    rsp->truncated_to_mode = VOIDmode;
 	  }
 
       last_call_luid = mem_last_set = DF_INSN_LUID (insn);
@@ -12275,7 +12277,7 @@ move_deaths (rtx x, rtx maybe_kill_insn, int from_luid, rtx to_insn,
 	      *pnotes = note;
 	    }
 	  else
-	    *pnotes = gen_rtx_EXPR_LIST (REG_DEAD, x, *pnotes);
+	    *pnotes = alloc_reg_note (REG_DEAD, x, *pnotes);
 	}
 
       return;
@@ -12845,7 +12847,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 							  PATTERN (place)))
 			    {
 			      rtx new_note
-				= gen_rtx_EXPR_LIST (REG_DEAD, piece, NULL_RTX);
+				= alloc_reg_note (REG_DEAD, piece, NULL_RTX);
 
 			      distribute_notes (new_note, place, place,
 						NULL_RTX, NULL_RTX, NULL_RTX);
@@ -12892,9 +12894,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	}
 
       if (place2)
-	REG_NOTES (place2) 
-	  = gen_rtx_fmt_ee (GET_CODE (note), REG_NOTE_KIND (note),
-			    XEXP (note, 0), REG_NOTES (place2));
+	add_reg_note (place2, REG_NOTE_KIND (note), XEXP (note, 0));
     }
 }
 

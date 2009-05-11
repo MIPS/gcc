@@ -964,6 +964,9 @@ write_rtx_next (void)
   int i;
 
   oprintf (f, "\n/* Used to implement the RTX_NEXT macro.  */\n");
+  oprintf (f, "#ifdef __cplusplus\n");
+  oprintf (f, "extern\n");
+  oprintf (f, "#endif\n");
   oprintf (f, "const unsigned char rtx_next[NUM_RTX_CODE] = {\n");
   for (i = 0; i < NUM_RTX_CODE; i++)
     if (rtx_next_new[i] == -1)
@@ -3026,9 +3029,14 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
   {
     size_t fnum;
     for (fnum = 0; fnum < num_lang_dirs; fnum++)
-      oprintf (base_files [fnum],
-	       "const struct %s * const %s[] = {\n",
-	       tname, name);
+      {
+	oprintf (base_files[fnum], "#ifdef __cplusplus\n");
+	oprintf (base_files[fnum], "extern\n");
+	oprintf (base_files[fnum], "#endif\n");
+	oprintf (base_files [fnum],
+		 "const struct %s * const %s[] = {\n",
+		 tname, name);
+      }
   }
 
 
@@ -3358,6 +3366,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_root_tab gt_ggc_r_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3392,6 +3403,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_root_tab gt_ggc_rd_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3436,6 +3450,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_cache_tab gt_ggc_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3472,6 +3489,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_root_tab gt_pch_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3508,6 +3528,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_root_tab gt_pch_rs_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");

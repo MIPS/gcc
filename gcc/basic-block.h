@@ -365,6 +365,14 @@ enum dom_state
   DOM_OK		/* Everything is ok.  */
 };
 
+/* Values for x_profile_status in control_flow_graph.  */
+
+enum profile_status {
+  PROFILE_ABSENT,
+  PROFILE_GUESSED,
+  PROFILE_READ
+};
+
 /* A structure to group all the per-function control flow graph data.
    The x_* prefixing is necessary because otherwise references to the
    fields of this struct are interpreted as the defines for backward
@@ -392,11 +400,7 @@ struct control_flow_graph GTY(())
      only used for the gimple CFG.  */
   VEC(basic_block,gc) *x_label_to_block_map;
 
-  enum profile_status {
-    PROFILE_ABSENT,
-    PROFILE_GUESSED,
-    PROFILE_READ
-  } x_profile_status;
+  enum profile_status x_profile_status;
 
   /* Whether the dominators and the postdominators are available.  */
   enum dom_state x_dom_computed[2];

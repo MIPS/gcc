@@ -27,21 +27,21 @@ struct function;
 struct eh_status;
 
 /* Internal structure describing a region.  */
-struct eh_region;
+struct eh_region_d;
 
 /* Test: is exception handling turned on?  */
 extern int doing_eh (int);
 
 /* Note that the current EH region (if any) may contain a throw, or a
    call to a function which itself may contain a throw.  */
-extern void note_eh_region_may_contain_throw (struct eh_region *);
+extern void note_eh_region_may_contain_throw (struct eh_region_d *);
 
 /* Invokes CALLBACK for every exception handler label.  Only used by old
    loop hackery; should not be used by new code.  */
 extern void for_each_eh_label (void (*) (rtx));
 
 /* Invokes CALLBACK for every exception region in the current function.  */
-extern void for_each_eh_region (void (*) (struct eh_region *));
+extern void for_each_eh_region (void (*) (struct eh_region_d *));
 
 /* Determine if the given INSN can throw an exception.  */
 extern bool can_throw_internal_1 (int, bool);
@@ -86,19 +86,19 @@ extern int duplicate_eh_regions (struct function *, duplicate_eh_regions_map,
 extern void sjlj_emit_function_exit_after (rtx);
 extern void default_init_unwind_resume_libfunc (void);
 
-extern struct eh_region *gen_eh_region_cleanup (struct eh_region *,
-						struct eh_region *);
-extern struct eh_region *gen_eh_region_try (struct eh_region *);
-extern struct eh_region *gen_eh_region_catch (struct eh_region *, tree);
-extern struct eh_region *gen_eh_region_allowed (struct eh_region *, tree);
-extern struct eh_region *gen_eh_region_must_not_throw (struct eh_region *);
-extern int get_eh_region_number (struct eh_region *);
-extern bool get_eh_region_may_contain_throw (struct eh_region *);
-extern tree get_eh_region_tree_label (struct eh_region *);
-extern void set_eh_region_tree_label (struct eh_region *, tree);
+extern struct eh_region_d *gen_eh_region_cleanup (struct eh_region_d *,
+						struct eh_region_d *);
+extern struct eh_region_d *gen_eh_region_try (struct eh_region_d *);
+extern struct eh_region_d *gen_eh_region_catch (struct eh_region_d *, tree);
+extern struct eh_region_d *gen_eh_region_allowed (struct eh_region_d *, tree);
+extern struct eh_region_d *gen_eh_region_must_not_throw (struct eh_region_d *);
+extern int get_eh_region_number (struct eh_region_d *);
+extern bool get_eh_region_may_contain_throw (struct eh_region_d *);
+extern tree get_eh_region_tree_label (struct eh_region_d *);
+extern void set_eh_region_tree_label (struct eh_region_d *, tree);
 
 extern void foreach_reachable_handler (int, bool,
-				       void (*) (struct eh_region *, void *),
+				       void (*) (struct eh_region_d *, void *),
 				       void *);
 
 extern void collect_eh_region_array (void);

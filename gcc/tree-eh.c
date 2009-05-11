@@ -87,7 +87,7 @@ struct_ptr_hash (const void *a)
    of space by only allocating memory for those that can throw.  */
 
 static void
-record_stmt_eh_region (struct eh_region *region, gimple t)
+record_stmt_eh_region (struct eh_region_d *region, gimple t)
 {
   if (!region)
     return;
@@ -351,13 +351,25 @@ struct leh_state
   /* What's "current" while constructing the eh region tree.  These
      correspond to variables of the same name in cfun->eh, which we
      don't have easy access to.  */
-  struct eh_region *cur_region;
-  struct eh_region *prev_try;
+  struct eh_region_d *cur_region;
+  struct eh_region_d *prev_try;
 
   /* Processing of TRY_FINALLY requires a bit more state.  This is
      split out into a separate structure so that we don't have to
      copy so much when processing other nodes.  */
   struct leh_tf_state *tf;
+};
+
+/* See 'goto_queue' in struct leh_tf_state.  */
+struct goto_queue_node
+{
+  treemple stmt;
+  gimple_seq repl_stmt;
+  gimple cont_stmt;
+  int index;
+  /* this is used when index >= 0 to indicate that stmt is a label(as
+     opposed to a goto stmt) */
+  int is_label;
 };
 
 struct leh_tf_state
@@ -376,7 +388,7 @@ struct leh_tf_state
   struct leh_state *outer;
 
   /* The exception region created for it.  */
-  struct eh_region *region;
+  struct eh_region_d *region;
 
   /* The GOTO_QUEUE is is an array of GIMPLE_GOTO and GIMPLE_RETURN statements
      that are seen to escape this GIMPLE_TRY_FINALLY node.
@@ -386,15 +398,7 @@ struct leh_tf_state
      REPL_STMT is the sequence used to replace the goto/return statement.
      CONT_STMT is used to store the statement that allows the return/goto to
      jump to the original destination. */
-  struct goto_queue_node {
-    treemple stmt;
-    gimple_seq repl_stmt;
-    gimple cont_stmt;
-    int index;
-    /* this is used when index >= 0 to indicate that stmt is a label(as
-       opposed to a goto stmt) */
-    int is_label;
-  } *goto_queue;
+  struct goto_queue_node *goto_queue;
   size_t goto_queue_size;
   size_t goto_queue_active;
 
@@ -1643,7 +1647,7 @@ lower_try_finally (struct leh_state *state, gimple tp)
 static gimple_seq
 lower_catch (struct leh_state *state, gimple tp)
 {
-  struct eh_region *try_region;
+  struct eh_region_d *try_region;
   struct leh_state this_state;
   gimple_stmt_iterator gsi;
   tree out_label;
@@ -1663,7 +1667,7 @@ lower_catch (struct leh_state *state, gimple tp)
   out_label = NULL;
   for (gsi = gsi_start (gimple_try_cleanup (tp)); !gsi_end_p (gsi); )
     {
-      struct eh_region *catch_region;
+      struct eh_region_d *catch_region;
       tree eh_label;
       gimple x, gcatch;
 
@@ -1706,7 +1710,7 @@ static gimple_seq
 lower_eh_filter (struct leh_state *state, gimple tp)
 {
   struct leh_state this_state;
-  struct eh_region *this_region;
+  struct eh_region_d *this_region;
   gimple inner;
   tree eh_label;
 
@@ -1747,7 +1751,7 @@ static gimple_seq
 lower_cleanup (struct leh_state *state, gimple tp)
 {
   struct leh_state this_state;
-  struct eh_region *this_region;
+  struct eh_region_d *this_region;
   struct leh_tf_state fake_tf;
   gimple_seq result;
 
@@ -1931,7 +1935,7 @@ struct gimple_opt_pass pass_lower_eh =
 /* Construct EH edges for STMT.  */
 
 static void
-make_eh_edge (struct eh_region *region, void *data)
+make_eh_edge (struct eh_region_d *region, void *data)
 {
   gimple stmt;
   tree lab;
@@ -1974,7 +1978,7 @@ static bool mark_eh_edge_found_error;
    field, output error if something goes wrong.  */
 
 static void
-mark_eh_edge (struct eh_region *region, void *data)
+mark_eh_edge (struct eh_region_d *region, void *data)
 {
   gimple stmt;
   tree lab;

@@ -569,7 +569,8 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		     alternative yet and the operand being replaced is not
 		     a cheap CONST_INT.  */
 		  if (op_alt_regno[i][j] == -1
-		      && reg_fits_class_p (testreg, rclass, 0, mode)
+		      && reg_fits_class_p (testreg, (enum reg_class) rclass,
+					   0, mode)
 		      && (GET_CODE (recog_data.operand[i]) != CONST_INT
 			  || (rtx_cost (recog_data.operand[i], SET,
 			  		optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn)))

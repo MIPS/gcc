@@ -469,7 +469,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
   else if (token->type == CPP_PRAGMA)
     {
       /* We smuggled the cpp_token->u.pragma value in an INTEGER_CST.  */
-      token->pragma_kind = TREE_INT_CST_LOW (token->u.value);
+      token->pragma_kind = ((enum pragma_kind)
+			    TREE_INT_CST_LOW (token->u.value));
       token->u.value = NULL_TREE;
     }
 }
@@ -1272,7 +1273,7 @@ typedef struct cp_parser_expression_stack_entry
   /* Tree code for the binary operation we are parsing.  */
   enum tree_code tree_type;
   /* Precedence of the binary operation we are parsing.  */
-  int prec;
+  enum cp_parser_prec prec;
 } cp_parser_expression_stack_entry;
 
 /* The stack for storing partial expressions.  We only need NUM_PREC_VALUES
@@ -1670,16 +1671,16 @@ static void cp_parser_block_declaration
 static void cp_parser_simple_declaration
   (cp_parser *, bool);
 static void cp_parser_decl_specifier_seq
-  (cp_parser *, cp_parser_flags, cp_decl_specifier_seq *, int *);
+  (cp_parser *, int, cp_decl_specifier_seq *, int *);
 static tree cp_parser_storage_class_specifier_opt
   (cp_parser *);
 static tree cp_parser_function_specifier_opt
   (cp_parser *, cp_decl_specifier_seq *);
 static tree cp_parser_type_specifier
-  (cp_parser *, cp_parser_flags, cp_decl_specifier_seq *, bool,
+  (cp_parser *, int, cp_decl_specifier_seq *, bool,
    int *, bool *);
 static tree cp_parser_simple_type_specifier
-  (cp_parser *, cp_decl_specifier_seq *, cp_parser_flags);
+  (cp_parser *, cp_decl_specifier_seq *, int);
 static tree cp_parser_type_name
   (cp_parser *);
 static tree cp_parser_nonclass_name 
@@ -2151,11 +2152,11 @@ static void
 cp_parser_check_decl_spec (cp_decl_specifier_seq *decl_specs,
 			   location_t location)
 {
-  cp_decl_spec ds;
+  int ds;
 
   for (ds = ds_first; ds != ds_last; ++ds)
     {
-      unsigned count = decl_specs->specs[(int)ds];
+      unsigned count = decl_specs->specs[ds];
       if (count < 2)
 	continue;
       /* The "long" specifier is a special case because of "long long".  */
@@ -2186,7 +2187,7 @@ cp_parser_check_decl_spec (cp_decl_specifier_seq *decl_specs,
 	    "__complex",
 	    "__thread"
 	  };
-	  error ("%Hduplicate %qs", &location, decl_spec_names[(int)ds]);
+	  error ("%Hduplicate %qs", &location, decl_spec_names[ds]);
 	}
     }
 }
@@ -6371,16 +6372,25 @@ cp_parser_question_colon_clause (cp_parser* parser, tree logical_or_expr)
   cp_lexer_consume_token (parser->lexer);
   if (cp_parser_allow_gnu_extensions_p (parser)
       && cp_lexer_next_token_is (parser->lexer, CPP_COLON))
-    /* Implicit true clause.  */
-    expr = NULL_TREE;
+    {
+      /* Implicit true clause.  */
+      expr = NULL_TREE;
+      skip_evaluation += logical_or_expr == truthvalue_true_node;
+    }
   else
-    /* Parse the expression.  */
-    expr = cp_parser_expression (parser, /*cast_p=*/false, NULL);
+    {
+      /* Parse the expression.  */
+      skip_evaluation += logical_or_expr == truthvalue_false_node;
+      expr = cp_parser_expression (parser, /*cast_p=*/false, NULL);
+      skip_evaluation += ((logical_or_expr == truthvalue_true_node)
+			  - (logical_or_expr == truthvalue_false_node));
+    }
 
   /* The next token should be a `:'.  */
   cp_parser_require (parser, CPP_COLON, "%<:%>");
   /* Parse the assignment-expression.  */
   assignment_expr = cp_parser_assignment_expression (parser, /*cast_p=*/false, NULL);
+  skip_evaluation -= logical_or_expr == truthvalue_true_node;
 
   /* Build the conditional-expression.  */
   return build_x_conditional_expr (logical_or_expr,
@@ -7038,6 +7048,7 @@ static void
 cp_parser_label_for_labeled_statement (cp_parser* parser)
 {
   cp_token *token;
+  tree label = NULL_TREE;
 
   /* The next token should be an identifier.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -7097,12 +7108,21 @@ cp_parser_label_for_labeled_statement (cp_parser* parser)
 
     default:
       /* Anything else must be an ordinary label.  */
-      finish_label_stmt (cp_parser_identifier (parser));
+      label = finish_label_stmt (cp_parser_identifier (parser));
       break;
     }
 
   /* Require the `:' token.  */
   cp_parser_require (parser, CPP_COLON, "%<:%>");
+
+  /* For an ordinary label, check for attributes.  */
+  if (label != NULL_TREE)
+    {
+      tree attrs = cp_parser_attributes_opt (parser);
+
+      if (attrs != NULL_TREE)
+	cplus_decl_attributes (&label, attrs, 0);
+    }
 }
 
 /* Parse an expression-statement.
@@ -8348,7 +8368,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 
 static void
 cp_parser_decl_specifier_seq (cp_parser* parser,
-			      cp_parser_flags flags,
+			      int flags,
 			      cp_decl_specifier_seq *decl_specs,
 			      int* declares_class_or_enum)
 {
@@ -10956,7 +10976,7 @@ cp_parser_explicit_specialization (cp_parser* parser)
 
 static tree
 cp_parser_type_specifier (cp_parser* parser,
-			  cp_parser_flags flags,
+			  int flags,
 			  cp_decl_specifier_seq *decl_specs,
 			  bool is_declaration,
 			  int* declares_class_or_enum,
@@ -11135,7 +11155,7 @@ cp_parser_type_specifier (cp_parser* parser,
 static tree
 cp_parser_simple_type_specifier (cp_parser* parser,
 				 cp_decl_specifier_seq *decl_specs,
-				 cp_parser_flags flags)
+				 int flags)
 {
   tree type = NULL_TREE;
   cp_token *token;
@@ -13309,182 +13329,184 @@ cp_parser_direct_declarator (cp_parser* parser,
 	}
       else if (first && dcl_kind != CP_PARSER_DECLARATOR_ABSTRACT)
 	{
-	  tree qualifying_scope;
-	  tree unqualified_name;
-	  special_function_kind sfk;
-	  bool abstract_ok;
-          bool pack_expansion_p = false;
-	  cp_token *declarator_id_start_token;
+	  {
+	    tree qualifying_scope;
+	    tree unqualified_name;
+	    special_function_kind sfk;
+	    bool abstract_ok;
+	    bool pack_expansion_p = false;
+	    cp_token *declarator_id_start_token;
 
-	  /* Parse a declarator-id */
-	  abstract_ok = (dcl_kind == CP_PARSER_DECLARATOR_EITHER);
-	  if (abstract_ok)
-            {
-              cp_parser_parse_tentatively (parser);
+	    /* Parse a declarator-id */
+	    abstract_ok = (dcl_kind == CP_PARSER_DECLARATOR_EITHER);
+	    if (abstract_ok)
+	      {
+		cp_parser_parse_tentatively (parser);
 
-              /* If we see an ellipsis, we should be looking at a
-                 parameter pack. */
-              if (token->type == CPP_ELLIPSIS)
-                {
-                  /* Consume the `...' */
-                  cp_lexer_consume_token (parser->lexer);
+		/* If we see an ellipsis, we should be looking at a
+		   parameter pack. */
+		if (token->type == CPP_ELLIPSIS)
+		  {
+		    /* Consume the `...' */
+		    cp_lexer_consume_token (parser->lexer);
 
-                  pack_expansion_p = true;
-                }
-            }
+		    pack_expansion_p = true;
+		  }
+	      }
 
-	  declarator_id_start_token = cp_lexer_peek_token (parser->lexer);
-	  unqualified_name
-	    = cp_parser_declarator_id (parser, /*optional_p=*/abstract_ok);
-	  qualifying_scope = parser->scope;
-	  if (abstract_ok)
-	    {
-              bool okay = false;
+	    declarator_id_start_token = cp_lexer_peek_token (parser->lexer);
+	    unqualified_name
+	      = cp_parser_declarator_id (parser, /*optional_p=*/abstract_ok);
+	    qualifying_scope = parser->scope;
+	    if (abstract_ok)
+	      {
+		bool okay = false;
 
-              if (!unqualified_name && pack_expansion_p)
-                {
-                  /* Check whether an error occurred. */
-                  okay = !cp_parser_error_occurred (parser);
+		if (!unqualified_name && pack_expansion_p)
+		  {
+		    /* Check whether an error occurred. */
+		    okay = !cp_parser_error_occurred (parser);
 
-                  /* We already consumed the ellipsis to mark a
-                     parameter pack, but we have no way to report it,
-                     so abort the tentative parse. We will be exiting
-                     immediately anyway. */
-                  cp_parser_abort_tentative_parse (parser);
-                }
-              else
-                okay = cp_parser_parse_definitely (parser);
+		    /* We already consumed the ellipsis to mark a
+		       parameter pack, but we have no way to report it,
+		       so abort the tentative parse. We will be exiting
+		       immediately anyway. */
+		    cp_parser_abort_tentative_parse (parser);
+		  }
+		else
+		  okay = cp_parser_parse_definitely (parser);
 
-	      if (!okay)
-		unqualified_name = error_mark_node;
-	      else if (unqualified_name
-		       && (qualifying_scope
-			   || (TREE_CODE (unqualified_name)
-			       != IDENTIFIER_NODE)))
-		{
-		  cp_parser_error (parser, "expected unqualified-id");
+		if (!okay)
 		  unqualified_name = error_mark_node;
-		}
-	    }
+		else if (unqualified_name
+			 && (qualifying_scope
+			     || (TREE_CODE (unqualified_name)
+				 != IDENTIFIER_NODE)))
+		  {
+		    cp_parser_error (parser, "expected unqualified-id");
+		    unqualified_name = error_mark_node;
+		  }
+	      }
 
-	  if (!unqualified_name)
-	    return NULL;
-	  if (unqualified_name == error_mark_node)
-	    {
-	      declarator = cp_error_declarator;
-              pack_expansion_p = false;
-              declarator->parameter_pack_p = false;
-	      break;
-	    }
+	    if (!unqualified_name)
+	      return NULL;
+	    if (unqualified_name == error_mark_node)
+	      {
+		declarator = cp_error_declarator;
+		pack_expansion_p = false;
+		declarator->parameter_pack_p = false;
+		break;
+	      }
 
-	  if (qualifying_scope && at_namespace_scope_p ()
-	      && TREE_CODE (qualifying_scope) == TYPENAME_TYPE)
-	    {
-	      /* In the declaration of a member of a template class
-		 outside of the class itself, the SCOPE will sometimes
-		 be a TYPENAME_TYPE.  For example, given:
+	    if (qualifying_scope && at_namespace_scope_p ()
+		&& TREE_CODE (qualifying_scope) == TYPENAME_TYPE)
+	      {
+		/* In the declaration of a member of a template class
+		   outside of the class itself, the SCOPE will sometimes
+		   be a TYPENAME_TYPE.  For example, given:
 
-		 template <typename T>
-		 int S<T>::R::i = 3;
+		   template <typename T>
+		   int S<T>::R::i = 3;
 
-		 the SCOPE will be a TYPENAME_TYPE for `S<T>::R'.  In
-		 this context, we must resolve S<T>::R to an ordinary
-		 type, rather than a typename type.
+		   the SCOPE will be a TYPENAME_TYPE for `S<T>::R'.  In
+		   this context, we must resolve S<T>::R to an ordinary
+		   type, rather than a typename type.
 
-		 The reason we normally avoid resolving TYPENAME_TYPEs
-		 is that a specialization of `S' might render
-		 `S<T>::R' not a type.  However, if `S' is
-		 specialized, then this `i' will not be used, so there
-		 is no harm in resolving the types here.  */
-	      tree type;
+		   The reason we normally avoid resolving TYPENAME_TYPEs
+		   is that a specialization of `S' might render
+		   `S<T>::R' not a type.  However, if `S' is
+		   specialized, then this `i' will not be used, so there
+		   is no harm in resolving the types here.  */
+		tree type;
 
-	      /* Resolve the TYPENAME_TYPE.  */
-	      type = resolve_typename_type (qualifying_scope,
-					    /*only_current_p=*/false);
-	      /* If that failed, the declarator is invalid.  */
-	      if (TREE_CODE (type) == TYPENAME_TYPE)
-		error ("%H%<%T::%E%> is not a type",
-		       &declarator_id_start_token->location,
-		       TYPE_CONTEXT (qualifying_scope),
-		       TYPE_IDENTIFIER (qualifying_scope));
-	      qualifying_scope = type;
-	    }
+		/* Resolve the TYPENAME_TYPE.  */
+		type = resolve_typename_type (qualifying_scope,
+					      /*only_current_p=*/false);
+		/* If that failed, the declarator is invalid.  */
+		if (TREE_CODE (type) == TYPENAME_TYPE)
+		  error ("%H%<%T::%E%> is not a type",
+			 &declarator_id_start_token->location,
+			 TYPE_CONTEXT (qualifying_scope),
+			 TYPE_IDENTIFIER (qualifying_scope));
+		qualifying_scope = type;
+	      }
 
-	  sfk = sfk_none;
+	    sfk = sfk_none;
 
-	  if (unqualified_name)
-	    {
-	      tree class_type;
+	    if (unqualified_name)
+	      {
+		tree class_type;
 
-	      if (qualifying_scope
-		  && CLASS_TYPE_P (qualifying_scope))
-		class_type = qualifying_scope;
-	      else
-		class_type = current_class_type;
+		if (qualifying_scope
+		    && CLASS_TYPE_P (qualifying_scope))
+		  class_type = qualifying_scope;
+		else
+		  class_type = current_class_type;
 
-	      if (TREE_CODE (unqualified_name) == TYPE_DECL)
-		{
-		  tree name_type = TREE_TYPE (unqualified_name);
-		  if (class_type && same_type_p (name_type, class_type))
-		    {
-		      if (qualifying_scope
-			  && CLASSTYPE_USE_TEMPLATE (name_type))
-			{
-			  error ("%Hinvalid use of constructor as a template",
-				 &declarator_id_start_token->location);
-			  inform (input_location, "use %<%T::%D%> instead of %<%T::%D%> to "
-				  "name the constructor in a qualified name",
-				  class_type,
-				  DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
-				  class_type, name_type);
-			  declarator = cp_error_declarator;
-			  break;
-			}
-		      else
+		if (TREE_CODE (unqualified_name) == TYPE_DECL)
+		  {
+		    tree name_type = TREE_TYPE (unqualified_name);
+		    if (class_type && same_type_p (name_type, class_type))
+		      {
+			if (qualifying_scope
+			    && CLASSTYPE_USE_TEMPLATE (name_type))
+			  {
+			    error ("%Hinvalid use of constructor as a template",
+				   &declarator_id_start_token->location);
+			    inform (input_location, "use %<%T::%D%> instead "
+				    "of %<%T::%D%> to "
+				    "name the constructor in a qualified name",
+				    class_type,
+				    DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
+				    class_type, name_type);
+			    declarator = cp_error_declarator;
+			    break;
+			  }
+			else
+			  unqualified_name = constructor_name (class_type);
+		      }
+		    else
+		      {
+			/* We do not attempt to print the declarator
+			   here because we do not have enough
+			   information about its original syntactic
+			   form.  */
+			cp_parser_error (parser, "invalid declarator");
+			declarator = cp_error_declarator;
+			break;
+		      }
+		  }
+
+		if (class_type)
+		  {
+		    if (TREE_CODE (unqualified_name) == BIT_NOT_EXPR)
+		      sfk = sfk_destructor;
+		    else if (IDENTIFIER_TYPENAME_P (unqualified_name))
+		      sfk = sfk_conversion;
+		    else if (/* There's no way to declare a constructor
+				for an anonymous type, even if the type
+				got a name for linkage purposes.  */
+			     !TYPE_WAS_ANONYMOUS (class_type)
+			     && constructor_name_p (unqualified_name,
+						    class_type))
+		      {
 			unqualified_name = constructor_name (class_type);
-		    }
-		  else
-		    {
-		      /* We do not attempt to print the declarator
-			 here because we do not have enough
-			 information about its original syntactic
-			 form.  */
-		      cp_parser_error (parser, "invalid declarator");
-		      declarator = cp_error_declarator;
-		      break;
-		    }
-		}
+			sfk = sfk_constructor;
+		      }
 
-	      if (class_type)
-		{
-		  if (TREE_CODE (unqualified_name) == BIT_NOT_EXPR)
-		    sfk = sfk_destructor;
-		  else if (IDENTIFIER_TYPENAME_P (unqualified_name))
-		    sfk = sfk_conversion;
-		  else if (/* There's no way to declare a constructor
-			      for an anonymous type, even if the type
-			      got a name for linkage purposes.  */
-			   !TYPE_WAS_ANONYMOUS (class_type)
-			   && constructor_name_p (unqualified_name,
-						  class_type))
-		    {
-		      unqualified_name = constructor_name (class_type);
-		      sfk = sfk_constructor;
-		    }
+		    if (ctor_dtor_or_conv_p && sfk != sfk_none)
+		      *ctor_dtor_or_conv_p = -1;
+		  }
+	      }
+	    declarator = make_id_declarator (qualifying_scope,
+					     unqualified_name,
+					     sfk);
+	    declarator->id_loc = token->location;
+	    declarator->parameter_pack_p = pack_expansion_p;
 
-		  if (ctor_dtor_or_conv_p && sfk != sfk_none)
-		    *ctor_dtor_or_conv_p = -1;
-		}
-	    }
-	  declarator = make_id_declarator (qualifying_scope,
-					   unqualified_name,
-					   sfk);
-	  declarator->id_loc = token->location;
-          declarator->parameter_pack_p = pack_expansion_p;
-
-          if (pack_expansion_p)
-            maybe_warn_variadic_templates ();
-
+	    if (pack_expansion_p)
+	      maybe_warn_variadic_templates ();
+	  }
 	handle_declarator:;
 	  scope = get_scope_of_declarator (declarator);
 	  if (scope)
@@ -13820,7 +13842,7 @@ cp_parser_type_specifier_seq (cp_parser* parser,
 			      cp_decl_specifier_seq *type_specifier_seq)
 {
   bool seen_type_specifier = false;
-  cp_parser_flags flags = CP_PARSER_FLAGS_OPTIONAL;
+  int flags = CP_PARSER_FLAGS_OPTIONAL;
   cp_token *start_token = NULL;
 
   /* Clear the TYPE_SPECIFIER_SEQ.  */
@@ -20309,7 +20331,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
       decl = cp_parser_lookup_name_simple (parser, name, token->location);
       if (decl == error_mark_node)
 	cp_parser_name_lookup_error (parser, name, decl, NULL, token->location);
-      else if (kind != 0)
+      else if (kind != OMP_CLAUSE_ERROR)
 	{
 	  tree u = build_omp_clause (kind);
 	  OMP_CLAUSE_DECL (u) = decl;
@@ -21016,7 +21038,7 @@ static void
 cp_parser_omp_flush (cp_parser *parser, cp_token *pragma_tok)
 {
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
-    (void) cp_parser_omp_var_list (parser, 0, NULL);
+    (void) cp_parser_omp_var_list (parser, OMP_CLAUSE_ERROR, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
   finish_omp_flush ();
@@ -21857,7 +21879,7 @@ cp_parser_omp_threadprivate (cp_parser *parser, cp_token *pragma_tok)
 {
   tree vars;
 
-  vars = cp_parser_omp_var_list (parser, 0, NULL);
+  vars = cp_parser_omp_var_list (parser, OMP_CLAUSE_ERROR, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
   finish_omp_threadprivate (vars);

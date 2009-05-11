@@ -3444,7 +3444,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   for (; count < nargs; count++)
     {
       rtx val = va_arg (p, rtx);
-      enum machine_mode mode = va_arg (p, enum machine_mode);
+      enum machine_mode mode = (enum machine_mode) va_arg (p, int);
 
       /* We cannot convert the arg value to the mode the library wants here;
 	 must do it earlier where we know the signedness of the arg.  */
@@ -4232,7 +4232,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		    - int_size_in_bytes (TREE_TYPE (pval))
 		    + partial);
 	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
-				  NULL_RTX, TYPE_MODE (sizetype), 0);
+				  NULL_RTX, TYPE_MODE (sizetype),
+				  EXPAND_NORMAL);
 	}
 
       parm_align = arg->locate.boundary;

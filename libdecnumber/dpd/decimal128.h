@@ -84,6 +84,10 @@
 
   #include "decimal128Symbols.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
   /* String conversions						      */
   decimal128 * decimal128FromString(decimal128 *, const char *, decContext *);
   char * decimal128ToString(const decimal128 *, char *);
@@ -97,5 +101,9 @@
   /* Format-dependent utilities					      */
   uint32_t    decimal128IsCanonical(const decimal128 *);
   decimal128 * decimal128Canonical(decimal128 *, const decimal128 *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

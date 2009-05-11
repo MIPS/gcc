@@ -71,6 +71,10 @@
 
   #include "decDoubleSymbols.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
   /* Utilities and conversions, extractors, etc.) */
   extern decDouble * decDoubleFromBCD(decDouble *, int32_t, const uint8_t *, int32_t);
   extern decDouble * decDoubleFromInt32(decDouble *, int32_t);
@@ -162,5 +166,9 @@
   /* to force a dependency on decimal64 and decNumber in decDouble.    */
   #define decDoubleToNumber(dq, dn) decimal64ToNumber((decimal64 *)(dq), dn)
   #define decDoubleFromNumber(dq, dn, set) (decDouble *)decimal64FromNumber((decimal64 *)(dq), dn, set)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

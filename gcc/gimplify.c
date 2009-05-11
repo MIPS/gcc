@@ -1942,7 +1942,7 @@ gimplify_var_or_parm_decl (tree *expr_p)
 
 static enum gimplify_status
 gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
-			fallback_t fallback)
+			int fallback)
 {
   tree *p;
   VEC(tree,heap) *stack;
@@ -2819,7 +2819,7 @@ generic_expr_could_trap_p (tree expr)
       *EXPR_P should be stored.  */
 
 static enum gimplify_status
-gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
+gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, int fallback)
 {
   tree expr = *expr_p;
   tree tmp, type, arm1, arm2;
@@ -5790,7 +5790,7 @@ static enum gimplify_status
 gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 {
   tree for_stmt, decl, var, t;
-  enum gimplify_status ret = GS_OK;
+  enum gimplify_status ret = GS_ALL_DONE;
   gimple gfor;
   gimple_seq for_body, for_pre_body;
   int i;
@@ -5812,6 +5812,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	      == TREE_VEC_LENGTH (OMP_FOR_INCR (for_stmt)));
   for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
     {
+      enum gimplify_status gs;
+
       t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
       gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
       decl = TREE_OPERAND (t, 0);
@@ -5840,8 +5842,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       else
 	var = decl;
 
-      ret |= gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
-			    is_gimple_val, fb_rvalue);
+      gs = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
+			  is_gimple_val, fb_rvalue);
+      ret = MIN (ret, gs);
       if (ret == GS_ERROR)
 	return ret;
 
@@ -5850,8 +5853,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gcc_assert (COMPARISON_CLASS_P (t));
       gcc_assert (TREE_OPERAND (t, 0) == decl);
 
-      ret |= gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
-			    is_gimple_val, fb_rvalue);
+      gs = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
+			  is_gimple_val, fb_rvalue);
+      ret = MIN (ret, gs);
 
       /* Handle OMP_FOR_INCR.  */
       t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
@@ -5898,8 +5902,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	      gcc_unreachable ();
 	    }
 
-	  ret |= gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
-				is_gimple_val, fb_rvalue);
+	  gs = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
+			      is_gimple_val, fb_rvalue);
+	  ret = MIN (ret, gs);
 	  break;
 
 	default:
@@ -6190,7 +6195,7 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq *pre_p)
 
 enum gimplify_status
 gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
-	       bool (*gimple_test_f) (tree), fallback_t fallback)
+	       bool (*gimple_test_f) (tree), int fallback)
 {
   tree tmp;
   gimple_seq internal_pre = NULL;
@@ -6288,7 +6293,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	}
 
       /* Do any language-specific gimplification.  */
-      ret = lang_hooks.gimplify_expr (expr_p, pre_p, post_p);
+      ret = ((enum gimplify_status)
+	     lang_hooks.gimplify_expr (expr_p, pre_p, post_p));
       if (ret == GS_OK)
 	{
 	  if (*expr_p == NULL_TREE)

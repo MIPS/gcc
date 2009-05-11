@@ -2809,7 +2809,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       if (!decl_rtl)
 	DBXOUT_DECR_NESTING_AND_RETURN (0);
 
-      decl_rtl = eliminate_regs (decl_rtl, 0, NULL_RTX);
+      decl_rtl = eliminate_regs (decl_rtl, VOIDmode, NULL_RTX);
 #ifdef LEAF_REG_REMAP
       if (current_function_uses_only_leaf_regs)
 	leaf_renumber_regs_insn (decl_rtl);
@@ -3314,8 +3314,9 @@ dbxout_parms (tree parms)
 	/* Perform any necessary register eliminations on the parameter's rtl,
 	   so that the debugging output will be accurate.  */
 	DECL_INCOMING_RTL (parms)
-	  = eliminate_regs (DECL_INCOMING_RTL (parms), 0, NULL_RTX);
-	SET_DECL_RTL (parms, eliminate_regs (DECL_RTL (parms), 0, NULL_RTX));
+	  = eliminate_regs (DECL_INCOMING_RTL (parms), VOIDmode, NULL_RTX);
+	SET_DECL_RTL (parms,
+		      eliminate_regs (DECL_RTL (parms), VOIDmode, NULL_RTX));
 #ifdef LEAF_REG_REMAP
 	if (current_function_uses_only_leaf_regs)
 	  {

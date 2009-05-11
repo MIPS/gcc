@@ -1587,7 +1587,7 @@ static void
 resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
 {
   gfc_gsymbol * gsym;
-  unsigned int type;
+  enum gfc_symbol_type type;
 
   type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
 
@@ -4299,7 +4299,8 @@ check_host_association (gfc_expr *e)
   gfc_symtree *st;
   int n;
   gfc_ref *ref;
-  gfc_actual_arglist *arg, *tail;
+  gfc_actual_arglist *arg;
+  gfc_actual_arglist *tail = NULL;
   bool retval = e->expr_type == EXPR_FUNCTION;
 
   /*  If the expression is the result of substitution in
