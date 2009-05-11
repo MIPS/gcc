@@ -1890,6 +1890,7 @@ END_TARGET_SPECIFIC
 #define HARD_FRAME_POINTER_REGNUM FRAME_POINTER_REGNUM
 #endif
 
+START_TARGET_SPECIFIC
 /* Index labels for global_rtl.  */
 enum global_rtl_index
 {
@@ -1939,7 +1940,6 @@ extern GTY(()) rtx global_rtl[GR_MAX];
 #define hard_frame_pointer_rtx	(global_rtl[GR_HARD_FRAME_POINTER])
 #define arg_pointer_rtx		(global_rtl[GR_ARG_POINTER])
 
-START_TARGET_SPECIFIC
 extern GTY(()) rtx pic_offset_table_rtx;
 extern GTY(()) rtx static_chain_rtx;
 extern GTY(()) rtx static_chain_incoming_rtx;

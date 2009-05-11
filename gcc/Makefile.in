@@ -3516,6 +3516,7 @@ $(subst THIS-TARGET,$(word $(num),$(EXTRA_TARGETS)),\
 $(subst THIS-TARGET-NUM,$(num),$(value EXTRA_TARGET_RULES))))))
 endif
 
+ifndef TA
 extra-modes.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra)
 	echo target=\"$(subst -,_,$(target_noncanonical))\"\; > $@
 	$(foreach file,$(extra_modes_file),echo \#include \"$(file)\" >> $@)
@@ -3526,10 +3527,7 @@ extra-modes.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra)
 	echo 'target = (const char *) 0;' >> $@
 EXTRA_OBJS := $(EXTRA_OBJS) \
   $(foreach ta,$(EXTRA_TARGETS),$(addprefix $(ta)/,$($(ta)-EXTRA_OBJS)))
-show: force
-	@echo $(EXTRA_OBJS)
-	@echo $(extra_modes_file)
-	@echo $(mxp-elf-extra_modes_file)
+endif
 
 # Compile the programs that generate insn-* from the machine description.
 # They are compiled with $(CC_FOR_BUILD), and associated libraries,

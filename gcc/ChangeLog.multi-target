@@ -1,3 +1,8 @@
+2009-05-12  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* rtl.h (global_rtl_index, global_rtl): Mark as target specific.
+	* Makefile.in (extra_modes.h) [TA]: Disable.
+
 2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* T-extra.in: New file, broken out of:
