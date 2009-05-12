@@ -56,6 +56,7 @@
   MAP_EXPR_TAGS(CASE_LABEL_EXPR, LTO_case_label_expr0, 4)
   MAP_EXPR_TAGS(COMPLEX_CST, LTO_complex_cst0, 2)
   MAP_EXPR_TAGS(VAR_DECL, LTO_var_decl0, 2)
+  MAP_EXPR_TAGS(LABEL_DECL, LTO_label_decl0, 2)
   MAP_EXPR_TAGS(VECTOR_CST, LTO_vector_cst0, 2)
 #endif
 
@@ -77,7 +78,6 @@
   MAP_EXPR_TAG(IDENTIFIER_NODE, LTO_identifier_node)
   MAP_EXPR_TAG(INTEGER_CST, LTO_integer_cst)
   MAP_EXPR_TAG(INTEGER_TYPE, LTO_integer_type)
-  MAP_EXPR_TAG(LABEL_DECL, LTO_label_decl)
   MAP_EXPR_TAG(METHOD_TYPE, LTO_method_type)
   MAP_EXPR_TAG(NAMESPACE_DECL, LTO_namespace_decl)
   MAP_EXPR_TAG(OFFSET_TYPE, LTO_offset_type)
@@ -254,7 +254,8 @@
   SET_NAME (LTO_identifier_node, "identifier_node")
   SET_NAME (LTO_indirect_ref, "indirect_ref")
   SET_NAME (LTO_integer_cst, "integer_cst")
-  SET_NAME (LTO_label_decl, "label_decl")
+  SET_NAME (LTO_label_decl0, "label_decl0")
+  SET_NAME (LTO_label_decl1, "label_decl1")
   SET_NAME (LTO_label_expr, "label_expr")
   SET_NAME (LTO_le_expr, "le_expr")
   SET_NAME (LTO_lrotate_expr, "lrotate_expr")

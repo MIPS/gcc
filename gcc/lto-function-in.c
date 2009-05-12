@@ -254,14 +254,20 @@ input_record_start (struct lto_input_block *ib)
 static tree 
 get_label_decl (struct data_in *data_in, struct lto_input_block *ib)
 {
-  int index = lto_input_sleb128 (ib);
+  int ix, nlabels;
+  tree label;
 
-  /* A negative INDEX indicates that the label is an unnamed label.
+  /* A negative IX indicates that the label is an unnamed label.
      These are stored at the back of DATA_IN->LABELS.  */
-  if (index >= 0)
-    return data_in->labels[index];
-  else
-    return data_in->labels[data_in->num_named_labels - index];
+  ix = lto_input_sleb128 (ib);
+  ix = (ix >= 0) ? ix : (int) data_in->num_named_labels - ix;
+  nlabels = (int) data_in->num_named_labels + data_in->num_unnamed_labels;
+  gcc_assert (ix >= 0 && ix < nlabels);
+
+  label = data_in->labels[ix];
+  gcc_assert (!DECL_NONLOCAL (label));
+
+  return label;
 }
 
 
@@ -694,7 +700,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case TYPE_DECL:
       gcc_assert (tag == LTO_type_decl);
-      result = lto_file_decl_data_get_field_decl (data_in->file_data,
+      result = lto_file_decl_data_get_type_decl (data_in->file_data,
 						  lto_input_uleb128 (ib));
       gcc_assert (result);
       break;
@@ -763,7 +769,11 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case LABEL_DECL:
-      result = get_label_decl (data_in, ib);
+      if (tag == LTO_label_decl1)
+	result = lto_file_decl_data_get_label_decl (data_in->file_data,
+						    lto_input_uleb128 (ib));
+      else
+	result = get_label_decl (data_in, ib);
       break;
 
     case COMPONENT_REF:
@@ -867,7 +877,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 	tree ops[7];
 	int len = TREE_CODE_LENGTH (code);
 	int i;
-	for (i = 0; i<len; i++)
+	for (i = 0; i < len; i++)
 	  ops[i] = input_expr_operand (ib, data_in, fn, 
 				       input_record_start (ib));
 	switch (len)
@@ -938,6 +948,7 @@ input_labels (struct lto_input_block *ib, struct data_in *data_in,
 	      unsigned int named_count, unsigned int unnamed_count)
 {
   unsigned int i;
+  tree label;
 
   clear_line_info (data_in);
 
@@ -947,15 +958,23 @@ input_labels (struct lto_input_block *ib, struct data_in *data_in,
      number of named labels.  */
   data_in->labels = (tree *) xcalloc (named_count + unnamed_count,
 				      sizeof (tree));
+  data_in->num_named_labels = named_count;
+  data_in->num_unnamed_labels = unnamed_count;
+
   for (i = 0; i < named_count; i++)
     {
       tree name = input_identifier (data_in, ib);
-      data_in->labels[i] = build_decl (LABEL_DECL, name, void_type_node);
+      label = build_decl (LABEL_DECL, name, void_type_node);
+      DECL_CONTEXT (label) = current_function_decl;
+      data_in->labels[i] = label;
     }
 
   for (i = 0; i < unnamed_count; i++)
-    data_in->labels[i + named_count] 
-      = build_decl (LABEL_DECL, NULL_TREE, void_type_node);
+    {
+      label = build_decl (LABEL_DECL, NULL_TREE, void_type_node);
+      DECL_CONTEXT (label) = current_function_decl;
+      data_in->labels[i + named_count] = label;
+    }
 }
 
 
@@ -1154,7 +1173,7 @@ input_local_vars (struct lto_input_block *ib, struct data_in *data_in,
     }
 
   LTO_DEBUG_TOKEN ("local vars");
-  for (i = 0; i < (int)count; i++)
+  for (i = 0; i < (int) count; i++)
     if (!data_in->local_decls[i])
       {
 	/* Some local decls may have already been read in if they are
@@ -1187,7 +1206,7 @@ static eh_region
 input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
 		 struct function *fn, int region_number)
 {
-  enum LTO_tags tag;
+  enum LTO_tags tag, label_tag;
   eh_region r;
 
   /* Read the region header.  */
@@ -1212,8 +1231,9 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
   r->outer = (eh_region) (intptr_t) lto_input_uleb128 (ib);
   r->inner = (eh_region) (intptr_t) lto_input_uleb128 (ib);
   r->next_peer = (eh_region) (intptr_t) lto_input_uleb128 (ib);
-  if (input_record_start (ib))
-    r->tree_label = input_expr_operand (ib, data_in, fn, LTO_label_decl);
+  label_tag = input_record_start (ib);
+  if (label_tag)
+    r->tree_label = input_expr_operand (ib, data_in, fn, label_tag);
 
   if (tag == LTO_eh_table_cleanup1
       || tag == LTO_eh_table_try1
@@ -1711,7 +1731,8 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	SSA_NAME_DEF_STMT (lhs) = stmt;
     }
   else if (code == GIMPLE_LABEL)
-    DECL_CONTEXT (gimple_label_label (stmt)) = fn->decl;
+    gcc_assert (DECL_NONLOCAL (gimple_label_label (stmt))
+	        || DECL_CONTEXT (gimple_label_label (stmt)) == fn->decl);
   else if (code == GIMPLE_ASM)
     {
       unsigned i;
@@ -1788,7 +1809,11 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
       gimple_set_block (stmt, DECL_INITIAL (fn->decl));
       gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
 
+      /* After the statement, expect a 0 delimiter or the EH region
+	 that the previous statement belongs to.  */
       tag = input_record_start (ib);
+      gcc_assert (tag == LTO_set_eh1 || tag == LTO_set_eh0 || tag == LTO_null);
+
       if (tag == LTO_set_eh1 || tag == LTO_set_eh0)
 	{
 	  HOST_WIDE_INT region = 0;
@@ -1857,6 +1882,16 @@ input_function (tree fn_decl, struct data_in *data_in,
 
   DECL_CONTEXT (fn_decl) = NULL_TREE;
 
+  /* Read the static chain and non-local goto save area.  */
+  tag = input_record_start (ib);
+  if (tag)
+    fn->static_chain_decl = input_expr_operand (ib, data_in, fn, tag);
+
+  tag = input_record_start (ib);
+  if (tag)
+    fn->nonlocal_goto_save_area = input_expr_operand (ib, data_in, fn, tag);
+
+  /* Read all the basic blocks.  */
   tag = input_record_start (ib);
   while (tag)
     {
@@ -2184,7 +2219,6 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
 
       push_cfun (fn);
       init_tree_ssa (fn);
-      data_in.num_named_labels = header->num_named_labels;
 
       /* Use the function's decl state. */
       decl_state = lto_get_function_in_decl_state (file_data, fn_decl);
@@ -2841,7 +2875,7 @@ input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
   global_vector_enter (data_in, decl);
 
   decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = NULL_TREE;
+  decl->decl_minimal.context = input_tree (ib, data_in);
   decl->common.type = input_tree (ib, data_in);
   decl->decl_common.attributes = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);

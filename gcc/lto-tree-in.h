@@ -56,9 +56,14 @@ struct data_in
 
   /* The length of the string table.  */
   unsigned int strings_len;
+
   /* Number of named labels.  Used to find the index of unnamed labels
      since they share space with the named labels.  */
   unsigned int num_named_labels;  
+
+  /* Number of unnamed labels.  */
+  unsigned int num_unnamed_labels;
+
   const char *current_file;
   int current_line;
   int current_col;

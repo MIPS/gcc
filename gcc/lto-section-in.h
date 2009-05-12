@@ -125,6 +125,7 @@ DEFINE_DECL_STREAM_FUNCS (FN_DECL, fn_decl)
 DEFINE_DECL_STREAM_FUNCS (VAR_DECL, var_decl)
 DEFINE_DECL_STREAM_FUNCS (TYPE_DECL, type_decl)
 DEFINE_DECL_STREAM_FUNCS (NAMESPACE_DECL, namespace_decl)
+DEFINE_DECL_STREAM_FUNCS (LABEL_DECL, label_decl)
 
 /* Return a char pointer to the start of a data stream for an lto pass
    or function.  The first parameter is the file data that contains

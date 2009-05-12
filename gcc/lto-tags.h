@@ -363,7 +363,11 @@ enum LTO_tags
   LTO_identifier_node,
   LTO_indirect_ref,
   LTO_integer_cst,
-  LTO_label_decl,
+
+  /* 1 for DECL_NONLOCAL labels, 0 for local labels.  */
+  LTO_label_decl0,
+  LTO_label_decl1,
+
   LTO_label_expr,
   LTO_le_expr,
   LTO_lrotate_expr,

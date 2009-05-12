@@ -1,7 +1,7 @@
 /* Write the gimple representation of a function and its local
    variables to a .o file.
 
-   Copyright 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright 2009 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -80,7 +80,7 @@ eq_label_slot_node (const void *p1, const void *p2)
   const struct lto_decl_slot *ds2 =
     (const struct lto_decl_slot *) p2;
 
-  return LABEL_DECL_UID (ds1->t) == LABEL_DECL_UID (ds2->t);
+  return ds1->t == ds2->t;
 }
 
 /* Returns a hash code for P.  */
@@ -89,7 +89,7 @@ static hashval_t
 hash_label_slot_node (const void *p)
 {
   const struct lto_decl_slot *ds = (const struct lto_decl_slot *) p;
-  return (hashval_t) LABEL_DECL_UID (ds->t);
+  return htab_hash_pointer (ds->t);
 }
 
 
@@ -698,6 +698,22 @@ output_label_ref (struct output_block *ob, tree label)
   struct lto_decl_slot d_slot;
   d_slot.t = label;
 
+  /* If LABEL is DECL_NONLOCAL it will referenced from other
+     functions, so it needs to be streamed out in the global context.  */
+  if (DECL_NONLOCAL (label))
+    {
+      struct lto_out_decl_state *state;
+      struct lto_output_stream *obs;
+      struct lto_tree_ref_encoder *encoder;
+      unsigned index;
+
+      obs = ob->main_stream;
+      state = ob->decl_state;
+      encoder = &state->streams[LTO_DECL_STREAM_LABEL_DECL];
+      lto_output_decl_index (obs, encoder, label, &index);
+      return;
+    }
+
   slot = htab_find_slot (ob->label_hash_table, &d_slot, INSERT);
   if (*slot == NULL)
     {
@@ -720,6 +736,7 @@ output_label_ref (struct output_block *ob, tree label)
   else
     {
       struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
+      gcc_assert (old_slot->t == label);
       output_sleb128 (ob, old_slot->slot_num);
     }
 }
@@ -1060,13 +1077,13 @@ output_expr_operand (struct output_block *ob, tree expr)
 	  variant |= 0x1;
 	if (CASE_HIGH (expr) != NULL_TREE)
 	  variant |= 0x2;
-	output_record_start (ob, expr, NULL,
-			     LTO_case_label_expr0 + variant);
+	output_record_start (ob, expr, NULL, LTO_case_label_expr0 + variant);
 
 	if (CASE_LOW (expr) != NULL_TREE)
 	  output_expr_operand (ob, CASE_LOW (expr));
 	if (CASE_HIGH (expr) != NULL_TREE)
 	  output_expr_operand (ob, CASE_HIGH (expr));
+	gcc_assert (!DECL_NONLOCAL (CASE_LABEL (expr)));
 	output_label_ref (ob, CASE_LABEL (expr));
       }
       break;
@@ -1097,7 +1114,7 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case VAR_DECL:
-      if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
+      if (decl_function_context (expr) == NULL)
 	{
 	  output_record_start (ob, NULL, NULL, LTO_var_decl1);
 	  lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
@@ -1126,7 +1143,9 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case LABEL_DECL:
-      output_record_start (ob, expr, NULL, tag);
+      output_record_start (ob, expr, NULL_TREE,
+			   DECL_NONLOCAL (expr) ? LTO_label_decl1
+					        : LTO_label_decl0);
       output_label_ref (ob, expr);
       break;
 
@@ -1443,7 +1462,6 @@ output_local_vars (struct output_block *ob, struct function *fn)
 	    VEC_replace (int, ob->unexpanded_local_decls_index, j, i++);
 	}
     }
-
 
   /* End of statics.  */
   output_zero (ob);
@@ -2009,6 +2027,17 @@ output_function (struct cgraph_node *node)
     output_zero (ob);
 
   gcc_assert (!DECL_CONTEXT (function));
+
+  /* Output the static chain and non-local goto save area.  */
+  if (fn->static_chain_decl)
+    output_expr_operand (ob, fn->static_chain_decl);
+  else
+    output_zero (ob);
+
+  if (fn->nonlocal_goto_save_area)
+    output_expr_operand (ob, fn->nonlocal_goto_save_area);
+  else
+    output_zero (ob);
 
   /* We will renumber the statements.  The code that does this uses
      the same ordering that we use for serializing them so we can use
@@ -2827,15 +2856,16 @@ output_type_decl (struct output_block *ob, tree decl)
 static void
 output_label_decl (struct output_block *ob, tree decl)
 {
+  enum LTO_tags tag = DECL_NONLOCAL (decl) ? LTO_label_decl1 : LTO_label_decl0;
+
   /* tag and flags */
-  output_global_record_start (ob, NULL, NULL, LTO_label_decl);
-  output_tree_flags (ob, ERROR_MARK, decl, true);
+  output_global_record_start (ob, decl, NULL, tag);
 
   global_vector_debug (ob);
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
-  /* We don't output the context here. It is output by output_named_labels. */
+  output_tree (ob, decl->decl_minimal.context);
 
   output_tree (ob, decl->common.type);
 
