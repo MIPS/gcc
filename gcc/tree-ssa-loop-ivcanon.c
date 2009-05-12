@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "flags.h"
 #include "tree-inline.h"
+#include "target.h"
 
 /* Specifies types of loops that may be unrolled.  */
 
@@ -133,10 +134,12 @@ struct loop_size
 {
   /* Number of instructions in the loop.  */
   int overall;
+
   /* Number of instructions that will be likely optimized out in
      peeled iterations of loop  (i.e. computation based on induction
      variable where induction variable starts at known constant.)  */
   int eliminated_by_peeling;
+
   /* Same statistics for last iteration of loop: it is smaller because
      instructions after exit are not executed.  */
   int last_iteration;
@@ -149,6 +152,7 @@ static bool
 constant_after_peeling (tree op, gimple stmt, struct loop *loop)
 {
   affine_iv iv;
+
   if (is_gimple_min_invariant (op))
     return true;
   
@@ -158,18 +162,26 @@ constant_after_peeling (tree op, gimple stmt, struct loop *loop)
       tree base = op;
 
       /* First make fast look if we see constant array inside.  */
-      while (handled_component_p (base) || TREE_CODE (base) == ARRAY_REF)
+      while (handled_component_p (base))
 	base = TREE_OPERAND (base, 0);
-      if ((DECL_P (base) && TREE_CONSTANT (base) && DECL_INITIAL (base))
-	  || TREE_CODE (base) == STRING_CST)
+      if ((DECL_P (base)
+      	   && TREE_STATIC (base)
+	   && TREE_READONLY (base)
+           && (DECL_INITIAL (base)
+	       || (!DECL_EXTERNAL (base)
+		   && targetm.binds_local_p (base))))
+	  || CONSTANT_CLASS_P (base))
 	{
 	  /* If so, see if we understand all the indices.  */
 	  base = op;
-	  while (handled_component_p (base)
-		 || (TREE_CODE (base) == ARRAY_REF
-		     && constant_after_peeling (TREE_OPERAND (base, 1), stmt, loop)))
-	    base = TREE_OPERAND (base, 0);
-	  return (DECL_P (base) || TREE_CODE (base) == STRING_CST);
+	  while (handled_component_p (base))
+	    {
+	      if (TREE_CODE (base) == ARRAY_REF
+		  && !constant_after_peeling (TREE_OPERAND (base, 1), stmt, loop))
+		return false;
+	      base = TREE_OPERAND (base, 0);
+	    }
+	  return true;
 	}
       return false;
     }
@@ -185,7 +197,7 @@ constant_after_peeling (tree op, gimple stmt, struct loop *loop)
 }
 
 /* Computes an estimated number of insns in LOOP, weighted by WEIGHTS.
-   Return results in SIZE, estimate benefits for complette unrolling existing by EXIT.  */
+   Return results in SIZE, estimate benefits for complete unrolling exiting by EXIT.  */
 
 static void
 tree_estimate_loop_size (struct loop *loop, edge exit, struct loop_size *size)
@@ -285,11 +297,11 @@ tree_estimate_loop_size (struct loop *loop, edge exit, struct loop_size *size)
 
 /* Estimate number of insns of completely unrolled loop.
    It is (NUNROLL + 1) * size of loop body with taking into account
-   the fact that in last copy everything after exit conditoinal
+   the fact that in last copy everything after exit conditional
    is dead and that some instructions will be eliminated after
    peeling.
 
-   Loop body is likely going to simplify futher, this is dificult
+   Loop body is likely going to simplify futher, this is difficult
    to guess, we just decrease the result by 1/3.  */
 
 static unsigned HOST_WIDE_INT

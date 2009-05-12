@@ -418,10 +418,6 @@ extern FILE * asm_out_file;
 /* True if we are currently building a constant table.  */
 int making_const_table;
 
-/* Define the information needed to generate branch insns.  This is
-   stored from the compare operation.  */
-rtx arm_compare_op0, arm_compare_op1;
-
 /* The processor for which instructions should be scheduled.  */
 enum processor_type arm_tune = arm_none;
 
@@ -3596,7 +3592,11 @@ require_pic_register (void)
 
 	      seq = get_insns ();
 	      end_sequence ();
-	      emit_insn_after (seq, entry_of_function ());
+	      /* We can be called during expansion of PHI nodes, where
+	         we can't yet emit instructions directly in the final
+		 insn stream.  Queue the insns on the entry edge, they will
+		 be committed after everything else is expanded.  */
+	      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
 	    }
 	}
     }
