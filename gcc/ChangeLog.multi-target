@@ -1,5 +1,9 @@
 2009-05-12  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* target.h (this_targetm): Remove semicolon after EXTRA_TARGETS_DECL.
+	* Makefile.in (opts.o): Change to:
+	$(TA)opts.o.
+
 	* rtl.h (global_rtl_index, global_rtl): Mark as target specific.
 	* Makefile.in (extra_modes.h) [TA]: Disable.
 

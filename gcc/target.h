@@ -1162,7 +1162,7 @@ extern struct gcc_target *targetm_pnt, *targetm_array[];
 START_TARGET_SPECIFIC
 extern struct gcc_target this_targetm;
 END_TARGET_SPECIFIC
-EXTRA_TARGETS_DECL(struct gcc_target this_targetm);
+EXTRA_TARGETS_DECL(struct gcc_target this_targetm)
 
 struct gcc_targetcm {
   /* Handle target switch CODE (an OPT_* value).  ARG is the argument
