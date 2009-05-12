@@ -1450,18 +1450,31 @@ void
 ipa_write_summaries (void)
 {
   cgraph_node_set set;
-  struct cgraph_node *node;
+  struct cgraph_node **order;
+  int i, order_pos;
  
-  if (flag_generate_lto && !(errorcount || sorrycount))
-    {
-      lto_new_extern_inline_states ();
-      set = cgraph_node_set_new ();
-      for (node = cgraph_nodes; node; node = node->next)
-	cgraph_node_set_add (set, node);
-      ipa_write_summaries_1 (set);
-      lto_delete_extern_inline_states ();
-      ggc_free (set);
-    }
+  if (!flag_generate_lto || errorcount || sorrycount)
+    return;
+
+  lto_new_extern_inline_states ();
+  set = cgraph_node_set_new ();
+
+  /* Create the callgraph set in the same order used in
+     cgraph_expand_all_functions.  This mostly facilitates debugging,
+     since it causes the gimple file to be processed in the same order
+     as the source code.  */
+  order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  order_pos = cgraph_postorder (order);
+  gcc_assert (order_pos == cgraph_n_nodes);
+
+  for (i = order_pos - 1; i >= 0; i--)
+    cgraph_node_set_add (set, order[i]);
+
+  ipa_write_summaries_1 (set);
+  lto_delete_extern_inline_states ();
+
+  free (order);
+  ggc_free (set);
 }
 
 
