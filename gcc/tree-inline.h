@@ -131,7 +131,9 @@ typedef struct eni_weights_d
   /* Cost for omp construct.  */
   unsigned omp_cost;
 
-  /* Cost of non-trivial operations is based on time rather than size.  */
+  /* True when time of statemnt should be estimated.  Thus i.e
+     cost of switch statement is logarithmic rather than linear in number
+     of cases.  */
   bool time_based;
 } eni_weights;
 
