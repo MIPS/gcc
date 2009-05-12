@@ -1686,7 +1686,7 @@ cselib_invalidate_mem (rtx mem_rtx)
 	    }
 	  if (num_mems < PARAM_VALUE (PARAM_MAX_CSELIB_MEMORY_LOCATIONS)
 	      && ! canon_true_dependence (mem_rtx, GET_MODE (mem_rtx), mem_addr,
-		      			  x, cselib_rtx_varies_p))
+		      			  x, NULL_RTX, cselib_rtx_varies_p))
 	    {
 	      has_mem = true;
 	      num_mems++;

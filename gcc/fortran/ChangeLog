@@ -1,3 +1,42 @@
+2009-04-22  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2009-03-30  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Define BUILT_IN_HUGE_VAL
+	family of intrinsics instead of BUILT_IN_INF family.
+	* trans-intrinsics.c (gfc_conv_intrinsic_nearest): Use
+	BUILT_IN_HUGE_VAL instead of BUILT_IN_INF.
+
+2009-04-21  Release Manager
+
+	* GCC 4.4.0 released.
+
+2009-04-08  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/38152
+	* trans-decl.c (gfc_get_symbol_decl): Correctly set decl location for
+	procedure pointer decls.
+
+2009-04-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline:
+	PR fortran/39519
+	* parse.c (parse_derived): Do not break on finding pointer,
+	allocatable or private components.
+
+2009-04-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39594
+	* resolve.c (resolve_common_vars): Add FL_VARIABLE to symbol
+	if it is not a procedure pointer.
+	* primary.c (match_actual_arg): Ditto.
+
+2009-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-types.c (gfc_sym_type, gfc_return_by_reference): For
+	sym->attr.result check sym->ns->proc_name->attr.is_bind_c.
+
 2009-03-18  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* lang.opt: Unify help texts for -I, -Wconversion, -d, -fopenmp,
