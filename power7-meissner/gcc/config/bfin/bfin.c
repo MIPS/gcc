@@ -67,10 +67,6 @@ struct GTY(()) machine_function
   int has_loopreg_clobber;
 };
 
-/* Test and compare insns in bfin.md store the information needed to
-   generate branch and scc insns here.  */
-rtx bfin_compare_op0, bfin_compare_op1;
-
 /* RTX for condition code flag register and RETS register */
 extern GTY(()) rtx bfin_cc_rtx;
 extern GTY(()) rtx bfin_rets_rtx;
@@ -2714,7 +2710,7 @@ rtx
 bfin_gen_compare (rtx cmp, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   enum rtx_code code1, code2;
-  rtx op0 = bfin_compare_op0, op1 = bfin_compare_op1;
+  rtx op0 = XEXP (cmp, 0), op1 = XEXP (cmp, 1);
   rtx tem = bfin_cc_rtx;
   enum rtx_code code = GET_CODE (cmp);
 
@@ -2742,7 +2738,7 @@ bfin_gen_compare (rtx cmp, enum machine_mode mode ATTRIBUTE_UNUSED)
 	code2 = EQ;
 	break;
       }
-      emit_insn (gen_rtx_SET (BImode, tem,
+      emit_insn (gen_rtx_SET (VOIDmode, tem,
 			      gen_rtx_fmt_ee (code1, BImode, op0, op1)));
     }
 
@@ -4219,17 +4215,17 @@ bfin_optimize_loop (loop_info loop)
     {
       /* If loop->iter_reg is a DREG or PREG, we can split it here
 	 without scratch register.  */
-      rtx insn;
+      rtx insn, test;
 
       emit_insn_before (gen_addsi3 (loop->iter_reg,
 				    loop->iter_reg,
 				    constm1_rtx),
 			loop->loop_end);
 
-      emit_insn_before (gen_cmpsi (loop->iter_reg, const0_rtx),
-			loop->loop_end);
-
-      insn = emit_jump_insn_before (gen_bne (loop->start_label),
+      test = gen_rtx_NE (VOIDmode, loop->iter_reg, const0_rtx);
+      insn = emit_jump_insn_before (gen_cbranchsi4 (test,
+						    loop->iter_reg, const0_rtx,
+						    loop->start_label),
 				    loop->loop_end);
 
       JUMP_LABEL (insn) = loop->start_label;
@@ -5267,8 +5263,8 @@ handle_int_attribute (tree *node, tree name,
 
   if (TREE_CODE (x) != FUNCTION_TYPE)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
   else if (funkind (x) != SUBROUTINE)
@@ -5328,8 +5324,8 @@ bfin_handle_longcall_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (OPT_Wattributes, "`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -5357,8 +5353,8 @@ bfin_handle_l1_text_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
   if (TREE_CODE (decl) != FUNCTION_DECL)
     {
-      error ("`%s' attribute only applies to functions",
-	     IDENTIFIER_POINTER (name));
+      error ("%qE attribute only applies to functions",
+	     name);
       *no_add_attrs = true;
     }
 
@@ -5389,15 +5385,15 @@ bfin_handle_l1_data_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
   if (TREE_CODE (decl) != VAR_DECL)
     {
-      error ("`%s' attribute only applies to variables",
-	     IDENTIFIER_POINTER (name));
+      error ("%qE attribute only applies to variables",
+	     name);
       *no_add_attrs = true;
     }
   else if (current_function_decl != NULL_TREE
 	   && !TREE_STATIC (decl))
     {
-      error ("`%s' attribute cannot be specified for local variables",
-	     IDENTIFIER_POINTER (name));
+      error ("%qE attribute cannot be specified for local variables",
+	     name);
       *no_add_attrs = true;
     }
   else
