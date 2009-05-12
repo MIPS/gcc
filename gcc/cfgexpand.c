@@ -2344,8 +2344,7 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
 	  t = get_base_address (t);
-	  if (t && DECL_P (t)
-              && DECL_MODE (t) != BLKmode)
+	  if (t && DECL_P (t))
             TREE_ADDRESSABLE (t) = 1;
 	}
 
@@ -2488,7 +2487,6 @@ gimple_expand_cfg (void)
   crtl->stack_alignment_estimated = STACK_BOUNDARY;
   crtl->preferred_stack_boundary = STACK_BOUNDARY;
   cfun->cfg->max_jumptable_ents = 0;
-
 
   /* Expand the variables recorded during gimple lowering.  */
   expand_used_vars ();

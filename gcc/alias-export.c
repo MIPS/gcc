@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "bitmap.h"
 #include "alias-export.h"
+#include "emit-rtl.h"
 #include "rtl.h"
 #include "pointer-set.h"
 #include "dbgcnt.h"
@@ -69,7 +70,6 @@ static unsigned int alias_export_disambiguations = 0;
 /* This structure holds exported data references and relations.  */
 struct ddg_info_def
 {
-
   /* A hashtable for tree -> dataref mapping.  */
   htab_t tree_to_dataref;
 
@@ -122,15 +122,34 @@ maybe_replace_with_partition (tree expr, tree *pbase)
   return expr;
 }
 
-/* Change points-to set for POINTER in PID so that it would
-   have all conflicting stack vars.  */
+/* If some of PTVARS variables got partitioned, add all partition vars to 
+   PTVARS.  */
 static void
-mark_conflict_stack_vars (tree pointer, struct ptr_info_def *pid)
+add_partitioned_vars_to_ptset (bitmap ptvars)
 {
   bitmap_iterator bi;
   unsigned i;
   bitmap temp;
   tree *pdecl;
+
+  temp = BITMAP_ALLOC (NULL);
+  EXECUTE_IF_SET_IN_BITMAP (ptvars, 0, i, bi)
+    if ((pdecl = (tree *) pointer_map_contains (decls_to_stack,
+                                                referenced_var (i))))
+      bitmap_ior_into (temp, 
+                       *((bitmap *) pointer_map_contains (part_repr_to_part, 
+                                                          *pdecl)));
+  bitmap_ior_into (ptvars, temp);
+  BITMAP_FREE (temp);
+}
+
+/* Change points-to set for POINTER in PID so that it would
+   have all conflicting stack vars.  */
+static void
+mark_conflict_stack_vars (tree pointer, struct ptr_info_def *pid)
+{
+  tree *pdecl;
+  bitmap temp;
 
   if (!decls_to_stack)
     return;
@@ -138,17 +157,7 @@ mark_conflict_stack_vars (tree pointer, struct ptr_info_def *pid)
   /* If pointer points to one of partition vars, make it point to all 
      of them.  */
   if (pid->pt.vars)
-    {
-      temp = BITMAP_ALLOC (NULL);
-      EXECUTE_IF_SET_IN_BITMAP (pid->pt.vars, 0, i, bi)
-        if ((pdecl = (tree *) pointer_map_contains (decls_to_stack,
-                                                    referenced_var (i))))
-          bitmap_ior_into (temp, 
-                           *((bitmap *) pointer_map_contains (part_repr_to_part, 
-                                                              *pdecl)));
-      bitmap_ior_into (pid->pt.vars, temp);
-      BITMAP_FREE (temp);
-    }
+    add_partitioned_vars_to_ptset (pid->pt.vars);
 
   /* If pointer got paritioned itself, make its points-to set a union
      of all the partition vars' points-to sets.  */
@@ -159,11 +168,12 @@ mark_conflict_stack_vars (tree pointer, struct ptr_info_def *pid)
     }
 }
 
-/* Record the final points-to set and returns orig expr.  */
+/* Record the final points-to set for MEM with original expression EXPR 
+   and returns unshared original expression.  */
 tree
 unshare_and_record_pta_info (tree expr)
 {
-  tree base, old_expr, *pbase;
+  tree base, old_expr;
 
   /* No point saving anything for unhandled stuff.  */
   if (! (SSA_VAR_P (expr)
@@ -176,17 +186,12 @@ unshare_and_record_pta_info (tree expr)
   expr = unshare_expr (expr);
   if (flag_ddg_export)
     replace_var_in_datarefs (old_expr, expr);
-  
-  base = expr, pbase = &expr;
+
+  /* Record points-to set for expr.  */
+  base = expr;
   while (handled_component_p (base))
-    {
-      pbase = &TREE_OPERAND (base, 0);
-      base = TREE_OPERAND (base, 0);
-    }
-  if (DECL_P (base)
-      || TREE_CODE (base) == SSA_NAME)
-    expr = maybe_replace_with_partition (expr, pbase);
-  else if (INDIRECT_REF_P (base))
+    base = TREE_OPERAND (base, 0);
+  if (INDIRECT_REF_P (base))
     {
       struct ptr_info_def **ppid, *pid;
 
@@ -200,10 +205,40 @@ unshare_and_record_pta_info (tree expr)
                                                               expr);
           *ppid = pid; 
           
+          /* We can record stack conflicts in points-to sets here instead of
+             postponing this until end of expand, as incomplete stack sharing 
+             information might occur only for stack vars here, not for 
+             indirect-refs.  */
           mark_conflict_stack_vars (base, pid);
         }
     }
+ 
+  return expr;
+}
+
+/* Fixup stack-partitioned base var in EXPR and CONST_MEM.  */
+static tree
+rewrite_partitioned_mem_expr (const_rtx const_mem, tree expr)
+{
+  tree base, *pbase;
+  rtx mem = CONST_CAST_RTX (const_mem);
   
+  if (!decls_to_stack)
+    return expr;
+  
+  base = expr, pbase = &expr;
+  while (handled_component_p (base))
+    {
+      pbase = &TREE_OPERAND (base, 0);
+      base = TREE_OPERAND (base, 0);
+    }
+  if (DECL_P (base)
+      || TREE_CODE (base) == SSA_NAME)
+    {
+      expr = maybe_replace_with_partition (expr, pbase);
+      set_mem_orig_expr (mem, expr);
+    }
+
   return expr;
 }
 
@@ -270,7 +305,7 @@ record_stack_var_partition_for (tree decl, tree part_decl)
 }
 
 /* Return the ptr-info-def structure for given expression.  */
-struct ptr_info_def *
+static struct ptr_info_def *
 get_exported_ptr_info (tree expr)
 {
   struct ptr_info_def **ppid;
@@ -292,21 +327,27 @@ record_escaped_solution (struct pt_solution *escaped)
     {
       gimple_df_escaped.vars = BITMAP_ALLOC (NULL);
       bitmap_copy (gimple_df_escaped.vars, escaped->vars);
+
+      /* We need to account for stack slot sharing also here.  */
+      if (decls_to_stack)
+        add_partitioned_vars_to_ptset (gimple_df_escaped.vars);
     }
 }
 
 /* Functions to be called when needed to use exported information.  */
 
 /* Main function to ask saved information about if REF1 and REF2 may
-   alias or not.  */
+   alias or not.  MEM1 and MEM2 are corresponding mems.  */
 bool
-alias_export_may_alias_p (tree ref1, tree ref2)
+alias_export_may_alias_p (const_rtx mem1, const_rtx mem2, tree ref1, tree ref2)
 {
   struct ptr_info_def *pid1, *pid2;
   
   if (! dbg_cnt (alias_export))
     return true;
   
+  ref1 = rewrite_partitioned_mem_expr (mem1, ref1);
+  ref2 = rewrite_partitioned_mem_expr (mem2, ref2);
   pid1 = get_exported_ptr_info (ref1);
   pid2 = get_exported_ptr_info (ref2);
   if (! refs_may_alias_p_1 (ref1, ref2, pid1, pid2, &gimple_df_escaped))

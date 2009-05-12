@@ -1932,6 +1932,7 @@ void
 set_mem_orig_expr (rtx mem, tree orig_expr)
 {
   if (orig_expr 
+      && currently_expanding_to_rtl
       && (flag_alias_export || flag_ddg_export))
     orig_expr = unshare_and_record_pta_info (orig_expr);
   MEM_ATTRS (mem)

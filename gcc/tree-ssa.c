@@ -819,7 +819,7 @@ delete_tree_ssa (void)
 	  SSA_NAME_IMM_USE_NODE (var).next = &(SSA_NAME_IMM_USE_NODE (var));
 	}
       if (! var || TREE_CODE (var) != SSA_NAME
-          || ! flag_alias_export || ! flag_ddg_export)
+          || ! (flag_alias_export || flag_ddg_export))
         release_ssa_name (var);
     }
 
@@ -851,6 +851,10 @@ delete_tree_ssa (void)
 	set_phi_nodes (bb, NULL);
     }
 
+  /* We need to do this while referenced_vars are still accessible.  */
+  if (flag_alias_export)
+    record_escaped_solution (&cfun->gimple_df->escaped);
+
   /* Remove annotations from every referenced local variable.  */
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
@@ -874,8 +878,6 @@ delete_tree_ssa (void)
 
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
-  if (flag_alias_export)
-    record_escaped_solution (&cfun->gimple_df->escaped);
   pt_solution_reset (&cfun->gimple_df->escaped);
   pt_solution_reset (&cfun->gimple_df->callused);
   cfun->gimple_df->modified_noreturn_calls = NULL;

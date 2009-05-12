@@ -267,7 +267,7 @@ query_alias_export_info (const_rtx x, const_rtx mem)
       && x_orig_expr != mem_orig_expr)
     {
       if (flag_alias_export == 1)
-        ret = alias_export_may_alias_p (x_orig_expr, mem_orig_expr);
+        ret = alias_export_may_alias_p (x, mem, x_orig_expr, mem_orig_expr);
       if (flag_ddg_export == 1
           && ret)
         ret = ddg_export_may_alias_p (x_orig_expr, mem_orig_expr, false);
