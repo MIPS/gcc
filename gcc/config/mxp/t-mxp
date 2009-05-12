@@ -4,7 +4,7 @@ gt-sh.h : s-gtype ; @true
 # ??? the generated .md file must be placed in srcdir, because that's the
 # only place that the gensupport include knows about.
 s-mddeps: $(srcdir)/config/mxp/mxp-regset.md
-build/genconstants.o: genconstants.c s-mxp-regset-h
+tm_file_list += s-mxp-regset-h
 mxp-regset.h: s-mxp-regset-h; @true
 mxp-regset.c: s-mxp-regset-c; @true
 $(srcdir)/config/mxp/mxp-regset.md: s-mxp-regset-md; @true

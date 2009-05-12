@@ -1,5 +1,10 @@
 2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* config/mxp/t-mxp (tm_file_list): Add s-mxp-regset-h.
+	(build/genconstants.o): Remove extra dependency.
+
+2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
+
 	* varasm.c (pickle_in_section): Add / change casts to make g++ content.
 	* genmodes.c (fixup_target_modes): Skip commoning for MODE_VECTOR_CC.
 	* config/arc/arc-protos.h (regno_clobbered_p): Declare.
