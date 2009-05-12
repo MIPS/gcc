@@ -1,3 +1,7 @@
+2009-05-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Revert changes here to prepare for final merge.
+
 2009-04-07  Paolo Bonzini  <bonzini@gnu.org>
 
 	* gcc.c-torture/compile/test-cond-int.c: Fix.
