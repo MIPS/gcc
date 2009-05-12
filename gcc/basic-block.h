@@ -382,7 +382,7 @@ struct GTY(()) control_flow_graph {
      only used for the gimple CFG.  */
   VEC(basic_block,gc) *x_label_to_block_map;
 
-  enum profile_status {
+  enum profile_status_d {
     PROFILE_ABSENT,
     PROFILE_GUESSED,
     PROFILE_READ

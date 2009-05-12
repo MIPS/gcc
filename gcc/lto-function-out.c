@@ -912,7 +912,7 @@ output_eh_regions (struct output_block *ob, struct function *fn)
 {
   eh_region curr;
 
-  if (fn->eh)
+  if (fn->eh && fn->eh->region_array)
     {
       unsigned i;
 
@@ -1565,9 +1565,12 @@ output_cfg (struct output_block *ob, struct function *fn)
 
   ob->main_stream = ob->cfg_stream;
 
+  LTO_DEBUG_TOKEN ("profile_status");
+  output_uleb128 (ob, profile_status_for_function (fn));
+
   /* Output the number of the highest basic block.  */
   LTO_DEBUG_TOKEN ("lastbb");
-  output_uleb128 (ob, last_basic_block_for_function(fn));
+  output_uleb128 (ob, last_basic_block_for_function (fn));
 
   FOR_ALL_BB_FN (bb, fn)
     {
@@ -1584,6 +1587,13 @@ output_cfg (struct output_block *ob, struct function *fn)
 	{
 	  LTO_DEBUG_TOKEN ("dest");
 	  output_uleb128 (ob, e->dest->index);
+
+	  LTO_DEBUG_TOKEN ("probability");
+	  output_sleb128 (ob, e->probability);
+
+	  LTO_DEBUG_TOKEN ("count");
+	  output_sleb128 (ob, e->count);
+
 	  LTO_DEBUG_TOKEN ("eflags");
 	  output_uleb128 (ob, e->flags);
 	}
@@ -1994,6 +2004,7 @@ static int function_num;
 static void
 output_function (struct cgraph_node *node)
 {
+  unsigned HOST_WIDE_INT flags;
   tree function = node->decl;
   struct function *fn = DECL_STRUCT_FUNCTION (function);
   basic_block bb;
@@ -2016,17 +2027,27 @@ output_function (struct cgraph_node *node)
 
   output_record_start (ob, NULL, NULL, LTO_function);
 
-  /* Output any exception-handling regions.  */
-  output_eh_regions (ob, fn);
+  /* Write all the attributes for FN.  Note that flags must be
+     encoded in opposite order as they are decoded in
+     input_function.  */
+  flags = 0;
+  lto_set_flag (&flags, fn->is_thunk);
+  lto_set_flag (&flags, fn->has_local_explicit_reg_vars);
+  lto_set_flag (&flags, fn->after_tree_profile);
+  lto_set_flag (&flags, fn->returns_pcc_struct);
+  lto_set_flag (&flags, fn->returns_struct);
+  lto_set_flag (&flags, fn->always_inline_functions_inlined);
+  lto_set_flag (&flags, fn->after_inlining);
+  lto_set_flag (&flags, fn->dont_save_pending_sizes_p);
+  lto_set_flag (&flags, fn->stdarg);
+  lto_set_flag (&flags, fn->has_nonlocal_label);
+  lto_set_flag (&flags, fn->calls_alloca);
+  lto_set_flag (&flags, fn->calls_setjmp);
+  lto_set_flags (&flags, fn->function_frequency, 2);
+  lto_set_flags (&flags, fn->va_list_fpr_size, 8);
+  lto_set_flags (&flags, fn->va_list_gpr_size, 8);
 
-  /* Output the head of the arguments list.  */
-  LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
-  if (DECL_ARGUMENTS (function))
-    output_expr_operand (ob, DECL_ARGUMENTS (function));
-  else
-    output_zero (ob);
-
-  gcc_assert (!DECL_CONTEXT (function));
+  lto_output_uleb128_stream (ob->main_stream, flags);
 
   /* Output the static chain and non-local goto save area.  */
   if (fn->static_chain_decl)
@@ -2038,6 +2059,18 @@ output_function (struct cgraph_node *node)
     output_expr_operand (ob, fn->nonlocal_goto_save_area);
   else
     output_zero (ob);
+
+  /* Output any exception-handling regions.  */
+  output_eh_regions (ob, fn);
+
+  /* Output the head of the arguments list.  */
+  LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
+  if (DECL_ARGUMENTS (function))
+    output_expr_operand (ob, DECL_ARGUMENTS (function));
+  else
+    output_zero (ob);
+
+  gcc_assert (!DECL_CONTEXT (function));
 
   /* We will renumber the statements.  The code that does this uses
      the same ordering that we use for serializing them so we can use

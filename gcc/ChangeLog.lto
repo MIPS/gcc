@@ -1,5 +1,20 @@
 2009-05-12  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-out.c (output_eh_regions): Only emit EH
+	regions when there is a region array for FN.
+	(output_cfg): Write profile status for the function.
+	Write fields 'probability' and 'count' for every basic
+	block.
+	(output_function): Write all bitfield flags in struct
+	function for FN.
+	* lto-function-in.c (input_cfg): Corresponding changes
+	for reading.
+	(input_function): Likewise.
+	* basic-block.h (enum profile_status_d): Rename from enum
+	profile_status.
+
+2009-05-12  Diego Novillo  <dnovillo@google.com>
+
 	* passes.c (ipa_write_summaries): Call cgraph_postorder
 	to sort the cgraph nodes before creating the cgraph set.
 

@@ -1502,6 +1502,10 @@ input_cfg (struct lto_input_block *ib, struct function *fn)
   init_empty_tree_cfg_for_function (fn);
   init_ssa_operands ();
 
+  LTO_DEBUG_TOKEN ("profile_status");
+  profile_status_for_function (fn) = 
+    (enum profile_status_d) lto_input_uleb128 (ib);
+
   LTO_DEBUG_TOKEN ("lastbb");
   bb_count = lto_input_uleb128 (ib);
 
@@ -1533,16 +1537,30 @@ input_cfg (struct lto_input_block *ib, struct function *fn)
 	  unsigned int dest_index;
 	  unsigned int edge_flags;
 	  basic_block dest;
+	  int probability;
+	  gcov_type count;
+	  edge e;
 
 	  LTO_DEBUG_TOKEN ("dest");
 	  dest_index = lto_input_uleb128 (ib);
+
+	  LTO_DEBUG_TOKEN ("probability");
+	  probability = (int) lto_input_sleb128 (ib);
+
+	  LTO_DEBUG_TOKEN ("count");
+	  count = (gcov_type) lto_input_sleb128 (ib);
+
 	  LTO_DEBUG_TOKEN ("eflags");
 	  edge_flags = lto_input_uleb128 (ib);
+
 	  dest = BASIC_BLOCK_FOR_FUNCTION (fn, dest_index);
 
 	  if (dest == NULL) 
 	    dest = make_new_block (fn, dest_index);
-	  make_edge (bb, dest, edge_flags);
+
+	  e = make_edge (bb, dest, edge_flags);
+	  e->probability = probability;
+	  e->count = count;
 	}
 
       LTO_DEBUG_TOKEN ("bbindex");
@@ -1863,6 +1881,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   struct cgraph_edge *cedge; 
   basic_block bb;
   struct cgraph_node *node;
+  unsigned HOST_WIDE_INT flags;
 
   fn = DECL_STRUCT_FUNCTION (fn_decl);
   tag = input_record_start (ib);
@@ -1873,14 +1892,25 @@ input_function (tree fn_decl, struct data_in *data_in,
   gimple_register_cfg_hooks ();
   gcc_assert (tag == LTO_function);
 
-  input_eh_regions (ib, data_in, fn);
+  /* Read all the attributes for FN.  Note that flags are decoded in
+     the opposite order that they were encoded by output_function.  */
+  flags = lto_input_uleb128 (ib);
 
-  LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
-  tag = input_record_start (ib);
-  if (tag)
-    DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, data_in, fn, tag); 
-
-  DECL_CONTEXT (fn_decl) = NULL_TREE;
+  fn->va_list_gpr_size = lto_get_flags (&flags, 8);
+  fn->va_list_fpr_size = lto_get_flags (&flags, 8);
+  fn->function_frequency = (enum function_frequency) lto_get_flags (&flags, 2);
+  fn->calls_setjmp = lto_get_flag (&flags);
+  fn->calls_alloca = lto_get_flag (&flags);
+  fn->has_nonlocal_label = lto_get_flag (&flags);
+  fn->stdarg = lto_get_flag (&flags);
+  fn->dont_save_pending_sizes_p = lto_get_flag (&flags);
+  fn->after_inlining = lto_get_flag (&flags);
+  fn->always_inline_functions_inlined = lto_get_flag (&flags);
+  fn->returns_struct = lto_get_flag (&flags);
+  fn->returns_pcc_struct = lto_get_flag (&flags);
+  fn->after_tree_profile = lto_get_flag (&flags);
+  fn->has_local_explicit_reg_vars = lto_get_flag (&flags);
+  fn->is_thunk = lto_get_flag (&flags);
 
   /* Read the static chain and non-local goto save area.  */
   tag = input_record_start (ib);
@@ -1890,6 +1920,15 @@ input_function (tree fn_decl, struct data_in *data_in,
   tag = input_record_start (ib);
   if (tag)
     fn->nonlocal_goto_save_area = input_expr_operand (ib, data_in, fn, tag);
+
+  input_eh_regions (ib, data_in, fn);
+
+  LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
+  tag = input_record_start (ib);
+  if (tag)
+    DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, data_in, fn, tag); 
+
+  DECL_CONTEXT (fn_decl) = NULL_TREE;
 
   /* Read all the basic blocks.  */
   tag = input_record_start (ib);
