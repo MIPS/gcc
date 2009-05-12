@@ -1,3 +1,92 @@
+2009-05-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	* optabs.c (prepare_cmp_insn): Temporarily disable test that
+	causes spurious differences between trunk and cond-optab branch.
+
+2009-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/37137
+	* doc/install.texi (STAGE1_TFLAGS, BUILD_CONFIG): Document.
+
+2009-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree.c (iterative_hash_pointer): Delete.
+	(iterative_hash_expr): Short-circuit handling of NULL pointer.
+	Hash UIDs and versions of SSA names.  Don't special-case built-in
+	function declarations.
+
+2009-05-11  Ian Lance Taylor  <iant@google.com>
+
+	PR bootstrap/40103
+	* graphite.c: Force -Wc++-compat to only be a warning before
+	#including "cloog/cloog.h".
+
+2009-05-11  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-cp.c (ipcp_cloning_candidate_p): Add missing return false.
+	
+2009-05-11  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-loop-ivcanon.c: Include target.h
+	(struct loop_size): new structure.
+	(constant_after_peeling): New predicate.
+	(tree_estimate_loop_size): New function.
+	(estimated_unrolled_size): Rewrite for new estimates.
+	(try_unroll_loop_completely): Use new estimates.
+	* Makefile.in (tree-ssa-loop-ivcanon.o): Add dependenc on target.h
+
+2009-05-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/spu-c.c (spu_categorize_keyword): Update for recent
+	libcpp interface change.
+	(spu_macro_to_expand): Likewise.
+
+2009-05-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/40026
+	* gimplify.c (gimplify_init_constructor): Change initial conditional
+	to assertion.  Rewrite TREE_OPERAND (*expr_p, 1) after
+	optimize_compound_literals_in_ctor.
+
+2009-05-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/m68k/m68k-devices.def (52274, 52277, 5301x, 5225x, 51xx):
+	New devices.
+	* doc/invoke.texi (M680x0 Options): Document new coldfire cpus.
+
+2009-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* tree-vect-data-refs.c (vect_analyze_group_access): Use
+	HOST_WIDE_INT for gap.
+
+2009-05-11  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40074
+	* tree-vect-data-refs.c (vect_analyze_group_access): Take gaps into
+	account in group size and step comparison.
+
+2009-05-11  Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Strip now incorrect comment.
+	(execute_function_todo): Do not set PROP_alias.
+	* tree-pass.h (PROP_alias): Remove.
+	* tree-ssa-structalias.c (pass_build_alias): Do not provide PROP_alias.
+	* tree-if-conv.c (pass_if_conversion): Do not require PROP_alias.
+	* tree-nrv.c (pass_return_slot): Likewise.
+	* tree-object-size.c (pass_object_sizes): Likewise.
+	* tree-ssa-dom.c (pass_dominator): Likewise.
+	(pass_phi_only_cprop): Likewise.
+	* tree-ssa-dse.c (pass_dse): Likewise.
+	* tree-ssa-phiopt.c (pass_phiopt): Likewise.
+	(pass_cselim): Likewise.
+	* tree-ssa-pre.c (pass_pre): Likewise.
+	(pass_fre): Likewise.
+	* tree-ssa-reassoc.c (pass_reassoc): Likewise.
+	* tree-ssa-sink.c (pass_sink_code): Likewise.
+	* tree-stdarg.c (pass_stdarg): Likewise.
+	* tree-tailcall.c (pass_tail_calls): Likewise.
+	* tree-vrp.c (pass_vrp): Likewise.
+
 2009-05-10  Ian Lance Taylor  <iant@google.com>
 
 	* basic-block.h (enum profile_status): Break out of struct
