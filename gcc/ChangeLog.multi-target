@@ -1,5 +1,8 @@
 2009-05-12  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* dce.h : Include multi-target.h.  Add START_TARGET_SPECIFIC and
+	END_TARGET_SPECIFC markers.
+
 	* target.h (this_targetm): Remove semicolon after EXTRA_TARGETS_DECL.
 	* Makefile.in (opts.o): Change to:
 	$(TA)opts.o.
