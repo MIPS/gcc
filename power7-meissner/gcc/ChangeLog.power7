@@ -1,3 +1,31 @@
+2009-05-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_builtin_conversion): Return
+	special builtin functions that take unsigned vectors for unsigned
+	types.
+	(rs6000_builtin_mul_widen_even): Ditto.
+	(rs6000_builtin_mul_widen_odd): Ditto.
+	(bdesc_2arg): Add new builtins that explicitily take unsigned
+	vector arguments for target hooks that need a type correct
+	function decl for widening multiplies and permutes.
+	(bdesc_1arg): Ditto.
+	(builtin_function_type): Convert argument types and return values
+	to unsigned vectors only for special builtins.  All other builtins
+	take signed types, even if they produce unsigned results.
+	(rs6000_emit_vector_compare_internal): Combine VSX and Altivec
+	comparision generation.  Move mask generation here from
+	rs6000_emit_vector_compare.
+	(rs6000_emit_vector_compare_vsx): Delete.
+	(rs6000_emit_vector_compare_altivec): Ditto.
+	(rs6000_emit_vector_compare): Fix thinko if -fno-trapping-math.
+	Combine VSX and Altivec comparison generation.
+	(rs6000_emit_cond): Ditto.
+
+	* config/rs6000/rs6000.h (ALTIVEC_BUILTIN_*_UNS): Add builtins
+	that explicitly take unsigned vector arguments or produce unsigned
+	vector types.
+	(VSX_BUILTIN_*_UNS): Ditto.
+
 2009-05-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Sync up to mainline version 147300.

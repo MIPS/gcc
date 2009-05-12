@@ -1015,8 +1015,7 @@ static tree rs6000_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool rs6000_must_pass_in_stack (enum machine_mode, const_tree);
 static bool rs6000_scalar_mode_supported_p (enum machine_mode);
 static bool rs6000_vector_mode_supported_p (enum machine_mode);
-static rtx rs6000_emit_vector_compare_vsx (enum rtx_code, rtx, rtx, rtx);
-static rtx rs6000_emit_vector_compare_altivec (enum rtx_code, rtx, rtx, rtx);
+static rtx rs6000_emit_vector_compare_inner (enum rtx_code, rtx, rtx);
 static rtx rs6000_emit_vector_compare (enum rtx_code, rtx, rtx,
 				       enum machine_mode);
 static tree rs6000_stack_protect_fail (void);
@@ -2623,7 +2622,7 @@ rs6000_builtin_conversion (enum tree_code code, tree type)
 	    return NULL_TREE;
 
 	  return TYPE_UNSIGNED (type)
-	    ? rs6000_builtin_decls[VSX_BUILTIN_XVCVDPUXDS]
+	    ? rs6000_builtin_decls[VSX_BUILTIN_XVCVDPUXDS_UNS]
 	    : rs6000_builtin_decls[VSX_BUILTIN_XVCVDPSXDS];
 
 	case V4SImode:
@@ -2677,12 +2676,12 @@ rs6000_builtin_mul_widen_even (tree type)
     {
     case V8HImode:
       return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUH]
+            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUH_UNS]
             : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESH];
 
     case V16QImode:
       return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUB]
+            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUB_UNS]
             : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESB];
     default:
       return NULL_TREE;
@@ -2700,12 +2699,12 @@ rs6000_builtin_mul_widen_odd (tree type)
     {
     case V8HImode:
       return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUH]
+            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUH_UNS]
             : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSH];
 
     case V16QImode:
       return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUB]
+            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUB_UNS]
             : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSB];
     default:
       return NULL_TREE;
@@ -8204,12 +8203,16 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_sminv4si3, "__builtin_altivec_vminsw", ALTIVEC_BUILTIN_VMINSW },
   { MASK_ALTIVEC, CODE_FOR_sminv4sf3, "__builtin_altivec_vminfp", ALTIVEC_BUILTIN_VMINFP },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmuleub, "__builtin_altivec_vmuleub", ALTIVEC_BUILTIN_VMULEUB },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmuleub, "__builtin_altivec_vmuleub_uns", ALTIVEC_BUILTIN_VMULEUB_UNS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmulesb, "__builtin_altivec_vmulesb", ALTIVEC_BUILTIN_VMULESB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmuleuh, "__builtin_altivec_vmuleuh", ALTIVEC_BUILTIN_VMULEUH },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmuleuh, "__builtin_altivec_vmuleuh_uns", ALTIVEC_BUILTIN_VMULEUH_UNS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmulesh, "__builtin_altivec_vmulesh", ALTIVEC_BUILTIN_VMULESH },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmuloub, "__builtin_altivec_vmuloub", ALTIVEC_BUILTIN_VMULOUB },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmuloub, "__builtin_altivec_vmuloub_uns", ALTIVEC_BUILTIN_VMULOUB_UNS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmulosb, "__builtin_altivec_vmulosb", ALTIVEC_BUILTIN_VMULOSB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmulouh, "__builtin_altivec_vmulouh", ALTIVEC_BUILTIN_VMULOUH },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmulouh, "__builtin_altivec_vmulouh_uns", ALTIVEC_BUILTIN_VMULOUH_UNS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmulosh, "__builtin_altivec_vmulosh", ALTIVEC_BUILTIN_VMULOSH },
   { MASK_ALTIVEC, CODE_FOR_norv4si3, "__builtin_altivec_vnor", ALTIVEC_BUILTIN_VNOR },
   { MASK_ALTIVEC, CODE_FOR_iorv4si3, "__builtin_altivec_vor", ALTIVEC_BUILTIN_VOR },
@@ -8744,8 +8747,10 @@ static struct builtin_description bdesc_1arg[] =
 
   { MASK_VSX, CODE_FOR_vsx_fix_truncv2dfv2di2, "__builtin_vsx_xvcvdpsxds", VSX_BUILTIN_XVCVDPSXDS },
   { MASK_VSX, CODE_FOR_vsx_fixuns_truncv2dfv2di2, "__builtin_vsx_xvcvdpuxds", VSX_BUILTIN_XVCVDPUXDS },
+  { MASK_VSX, CODE_FOR_vsx_fixuns_truncv2dfv2di2, "__builtin_vsx_xvcvdpuxds_uns", VSX_BUILTIN_XVCVDPUXDS_UNS },
   { MASK_VSX, CODE_FOR_vsx_floatv2div2df2, "__builtin_vsx_xvcvsxddp", VSX_BUILTIN_XVCVSXDDP },
   { MASK_VSX, CODE_FOR_vsx_floatunsv2div2df2, "__builtin_vsx_xvcvuxddp", VSX_BUILTIN_XVCVUXDDP },
+  { MASK_VSX, CODE_FOR_vsx_floatunsv2div2df2, "__builtin_vsx_xvcvuxddp_uns", VSX_BUILTIN_XVCVUXDDP_UNS },
 
   { MASK_VSX, CODE_FOR_vsx_fix_truncv4sfv4si2, "__builtin_vsx_xvcvspsxws", VSX_BUILTIN_XVCVSPSXWS },
   { MASK_VSX, CODE_FOR_vsx_fixuns_truncv4sfv4si2, "__builtin_vsx_xvcvspuxws", VSX_BUILTIN_XVCVSPUXWS },
@@ -11465,109 +11470,17 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
   h.uns_p[2] = 0;
   h.uns_p[3] = 0;
 
-  /* If the builtin is a type that produces unsigned results, change to use
-     unsigned types instead of signed types.  All of the types below are
-     probably overkill for now.  It is important that the decls that are used
-     in the vectorizer such as the widening multiplies have the correct signed
-     or unsigned type, so that the gimple type verifier doesn't complain about
-     the wrong types being used.  */
+  /* If the builtin is a type that produces unsigned results or takes unsigned
+     arguments, and it is returned as a decl for the vectorizer (such as
+     widening multiplies, permute), make sure the arguments and return value
+     are type correct.  */
   switch (builtin)
     {
-    case ALTIVEC_BUILTIN_VADDUBM:
-    case ALTIVEC_BUILTIN_VADDUHM:
-    case ALTIVEC_BUILTIN_VADDUWM:
-    case ALTIVEC_BUILTIN_VADDCUW:
-    case ALTIVEC_BUILTIN_VADDUBS:
-    case ALTIVEC_BUILTIN_VADDUHS:
-    case ALTIVEC_BUILTIN_VADDUWS:
-    case ALTIVEC_BUILTIN_VAVGUB:
-    case ALTIVEC_BUILTIN_VAVGUH:
-    case ALTIVEC_BUILTIN_VAVGUW:
-    case ALTIVEC_BUILTIN_VCMPEQUB:
-    case ALTIVEC_BUILTIN_VCMPEQUH:
-    case ALTIVEC_BUILTIN_VCMPEQUW:
-    case ALTIVEC_BUILTIN_VCMPGTUB:
-    case ALTIVEC_BUILTIN_VCMPGTUH:
-    case ALTIVEC_BUILTIN_VCMPGTUW:
-    case ALTIVEC_BUILTIN_VMAXUB:
-    case ALTIVEC_BUILTIN_VMAXUH:
-    case ALTIVEC_BUILTIN_VMAXUW:
-    case ALTIVEC_BUILTIN_VMSUMUBM:
-    case ALTIVEC_BUILTIN_VMSUMUHM:
-    case ALTIVEC_BUILTIN_VMSUMUHS:
-    case ALTIVEC_BUILTIN_VMSUMSHS:
-    case ALTIVEC_BUILTIN_VMINUB:
-    case ALTIVEC_BUILTIN_VMINUH:
-    case ALTIVEC_BUILTIN_VMINUW:
-    case ALTIVEC_BUILTIN_VMULEUB:
-    case ALTIVEC_BUILTIN_VMULEUH:
-    case ALTIVEC_BUILTIN_VMULOUB:
-    case ALTIVEC_BUILTIN_VMULOUH:
-    case ALTIVEC_BUILTIN_VPKUHUM:
-    case ALTIVEC_BUILTIN_VPKUWUM:
-    case ALTIVEC_BUILTIN_VPKUHUS:
-    case ALTIVEC_BUILTIN_VPKUWUS:
-    case ALTIVEC_BUILTIN_VSRB:
-    case ALTIVEC_BUILTIN_VSRH:
-    case ALTIVEC_BUILTIN_VSRW:
-    case ALTIVEC_BUILTIN_VSUBUBM:
-    case ALTIVEC_BUILTIN_VSUBUHM:
-    case ALTIVEC_BUILTIN_VSUBUWM:
-    case ALTIVEC_BUILTIN_VSUBCUW:
-    case ALTIVEC_BUILTIN_VSUBUBS:
-    case ALTIVEC_BUILTIN_VSUBUHS:
-    case ALTIVEC_BUILTIN_VSUBUWS:
-    case ALTIVEC_BUILTIN_VSUM4UBS:
-    case ALTIVEC_BUILTIN_VCMPEQUB_P:
-    case ALTIVEC_BUILTIN_VCMPEQUH_P:
-    case ALTIVEC_BUILTIN_VCMPEQUW_P:
-    case ALTIVEC_BUILTIN_VCMPGTUB_P:
-    case ALTIVEC_BUILTIN_VCMPGTUH_P:
-    case ALTIVEC_BUILTIN_VCMPGTUW_P:
-    case ALTIVEC_BUILTIN_VEC_VADDUBM:
-    case ALTIVEC_BUILTIN_VEC_VADDUBS:
-    case ALTIVEC_BUILTIN_VEC_VADDUHM:
-    case ALTIVEC_BUILTIN_VEC_VADDUHS:
-    case ALTIVEC_BUILTIN_VEC_VADDUWM:
-    case ALTIVEC_BUILTIN_VEC_VADDUWS:
-    case ALTIVEC_BUILTIN_VEC_VAVGUB:
-    case ALTIVEC_BUILTIN_VEC_VAVGUH:
-    case ALTIVEC_BUILTIN_VEC_VAVGUW:
-    case ALTIVEC_BUILTIN_VEC_VCMPEQUB:
-    case ALTIVEC_BUILTIN_VEC_VCMPEQUH:
-    case ALTIVEC_BUILTIN_VEC_VCMPGTUB:
-    case ALTIVEC_BUILTIN_VEC_VCMPGTUH:
-    case ALTIVEC_BUILTIN_VEC_VCMPGTUW:
-    case ALTIVEC_BUILTIN_VEC_VMAXUB:
-    case ALTIVEC_BUILTIN_VEC_VMAXUH:
-    case ALTIVEC_BUILTIN_VEC_VMAXUW:
-    case ALTIVEC_BUILTIN_VEC_VMINUB:
-    case ALTIVEC_BUILTIN_VEC_VMINUH:
-    case ALTIVEC_BUILTIN_VEC_VMINUW:
-    case ALTIVEC_BUILTIN_VEC_VMSUMMBM:
-    case ALTIVEC_BUILTIN_VEC_VMSUMUBM:
-    case ALTIVEC_BUILTIN_VEC_VMSUMUHM:
-    case ALTIVEC_BUILTIN_VEC_VMSUMUHS:
-    case ALTIVEC_BUILTIN_VEC_VMULESB:
-    case ALTIVEC_BUILTIN_VEC_VMULESH:
-    case ALTIVEC_BUILTIN_VEC_VMULEUB:
-    case ALTIVEC_BUILTIN_VEC_VMULEUH:
-    case ALTIVEC_BUILTIN_VEC_VMULOUB:
-    case ALTIVEC_BUILTIN_VEC_VMULOUH:
-    case ALTIVEC_BUILTIN_VEC_VPKUHUM:
-    case ALTIVEC_BUILTIN_VEC_VPKUHUS:
-    case ALTIVEC_BUILTIN_VEC_VPKUWUM:
-    case ALTIVEC_BUILTIN_VEC_VPKUWUS:
-    case ALTIVEC_BUILTIN_VEC_VSRB:
-    case ALTIVEC_BUILTIN_VEC_VSRH:
-    case ALTIVEC_BUILTIN_VEC_VSRW:
-    case ALTIVEC_BUILTIN_VEC_VSUBUBM:
-    case ALTIVEC_BUILTIN_VEC_VSUBUBS:
-    case ALTIVEC_BUILTIN_VEC_VSUBUHM:
-    case ALTIVEC_BUILTIN_VEC_VSUBUHS:
-    case ALTIVEC_BUILTIN_VEC_VSUBUWM:
-    case ALTIVEC_BUILTIN_VEC_VSUBUWS:
-    case ALTIVEC_BUILTIN_VEC_VSUM4UBS:
+      /* unsigned 2 argument functions.  */
+    case ALTIVEC_BUILTIN_VMULEUB_UNS:
+    case ALTIVEC_BUILTIN_VMULEUH_UNS:
+    case ALTIVEC_BUILTIN_VMULOUB_UNS:
+    case ALTIVEC_BUILTIN_VMULOUH_UNS:
       h.uns_p[0] = 1;
       h.uns_p[1] = 1;
       h.uns_p[2] = 1;
@@ -11613,30 +11526,13 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
       break;
 
       /* unsigned args, signed return.  */
-    case ALTIVEC_BUILTIN_VCFUX:
-    case ALTIVEC_BUILTIN_VPKUHSS:
-    case ALTIVEC_BUILTIN_VPKUWSS:
-    case VSX_BUILTIN_XSCVUXDDP:
-    case VSX_BUILTIN_XVCVUXDDP:
-    case VSX_BUILTIN_XVCVUXDSP:
-    case VSX_BUILTIN_XVCVUXWDP:
-    case VSX_BUILTIN_XVCVUXWSP:
+    case VSX_BUILTIN_XVCVUXDDP_UNS:
     case VECTOR_BUILTIN_UNSFLOAT_V4SI_V4SF:
       h.uns_p[1] = 1;
       break;
 
       /* signed args, unsigned return.  */
-    case ALTIVEC_BUILTIN_VCTUXS:
-    case ALTIVEC_BUILTIN_VPKSHUS:
-    case ALTIVEC_BUILTIN_VPKSWUS:
-    case ALTIVEC_BUILTIN_VEC_VPKSHUS:
-    case ALTIVEC_BUILTIN_VEC_VPKSWUS:
-    case VSX_BUILTIN_XSCVDPUXDS:
-    case VSX_BUILTIN_XSCVDPUXWS:
-    case VSX_BUILTIN_XVCVDPUXDS:
-    case VSX_BUILTIN_XVCVDPUXWS:
-    case VSX_BUILTIN_XVCVSPUXDS:
-    case VSX_BUILTIN_XVCVSPUXWS:
+    case VSX_BUILTIN_XVCVDPUXDS_UNS:
     case VECTOR_BUILTIN_FIXUNS_V4SF_V4SI:
       h.uns_p[0] = 1;
       break;
@@ -12779,7 +12675,7 @@ rs6000_secondary_reload (bool in_p,
 	     register if the addressing is reg+reg or (reg+reg)&(-16).  */
 	  if (rclass == GENERAL_REGS || rclass == BASE_REGS)
 	    {
-	      if (! rs6000_legitimate_offset_address_p (TImode, addr, true))
+	      if (! rs6000_legitimate_offset_address_p (TImode, addr, false))
 		{
 		  sri->icode = icode;
 		  /* account for splitting the loads, and converting the
@@ -12793,19 +12689,19 @@ rs6000_secondary_reload (bool in_p,
 	  else if (rclass == VSX_REGS || rclass == ALTIVEC_REGS
 		   || rclass == FLOAT_REGS)
 	    {
-	      if (rclass != ALTIVEC_REGS
+	      if (!VECTOR_MEM_ALTIVEC_P (mode)
 		  && GET_CODE (addr) == AND
 		  && GET_CODE (XEXP (addr, 1)) == CONST_INT
 		  && INTVAL (XEXP (addr, 1)) == -16
-		  && (legitimate_indirect_address_p (XEXP (addr, 0), true)
-		      || legitimate_indexed_address_p (XEXP (addr, 0), true)))
+		  && (legitimate_indirect_address_p (XEXP (addr, 0), false)
+		      || legitimate_indexed_address_p (XEXP (addr, 0), false)))
 		{
 		  sri->icode = icode;
 		  sri->extra_cost = ((GET_CODE (XEXP (addr, 0)) == PLUS)
 				     ? 2 : 1);
 		}
-	      else if (!legitimate_indexed_address_p (addr, true)
-		       && !legitimate_indirect_address_p (addr, true))
+	      else if (!legitimate_indexed_address_p (addr, false)
+		       && !legitimate_indirect_address_p (addr, false))
 		{
 		  sri->icode = icode;
 		  sri->extra_cost = 1;
@@ -15067,55 +14963,30 @@ output_e500_flip_gt_bit (rtx dst, rtx src)
   return string;
 }
 
-/* Return insn for VSX comparisons.  */
+/* Return insn for VSX or Altivec comparisons.  */
 
 static rtx
-rs6000_emit_vector_compare_vsx (enum rtx_code code,
-				rtx mask,
-				rtx op0,
-				rtx op1)
+rs6000_emit_vector_compare_inner (enum rtx_code code, rtx op0, rtx op1)
 {
-  switch (code)
-    {
-    default:
-      break;
+  rtx mask;
+  enum machine_mode mode = GET_MODE (op0);
 
-    case EQ:
-    case GT:
-    case GE:
-      emit_insn (gen_rtx_SET (VOIDmode,
-			      mask,
-			      gen_rtx_fmt_ee (code, GET_MODE (op0), op0,
-					      op1)));
-      return mask;
-    }
-
-  return NULL_RTX;
-}
-
-/* Return insn for Altivec comparisons.  */
-
-static rtx
-rs6000_emit_vector_compare_altivec (enum rtx_code code,
-				    rtx mask,
-				    rtx op0,
-				    rtx op1)
-{
   switch (code)
     {
     default:
       break;
 
     case GE:
-      if (GET_MODE (mask) != V4SFmode)
+      if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
 	return NULL_RTX;
-      /* fall through */
+
     case EQ:
     case GT:
     case GTU:
+      mask = gen_reg_rtx (mode);
       emit_insn (gen_rtx_SET (VOIDmode,
 			      mask,
-			      gen_rtx_fmt_ee (code, GET_MODE (op0), op0, op1)));
+			      gen_rtx_fmt_ee (code, mode, op0, op1)));
       return mask;
     }
 
@@ -15134,24 +15005,13 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
   bool swap_operands = false;
   bool try_again = false;
 
-  gcc_assert (TARGET_ALTIVEC || TARGET_VSX);
+  gcc_assert (VECTOR_UNIT_ALTIVEC_OR_VSX_P (dmode));
   gcc_assert (GET_MODE (op0) == GET_MODE (op1));
 
-  mask = gen_reg_rtx (dmode);
-
-  /* Try for VSX before Altivec.  */
-  if (VECTOR_UNIT_VSX_P (dmode))
-    {
-      rtx vsx = rs6000_emit_vector_compare_vsx (rcode, mask, op0, op1);
-      if (vsx)
-	return vsx;
-    }
-  else if (VECTOR_UNIT_ALTIVEC_P (dmode))
-    {
-      rtx av = rs6000_emit_vector_compare_altivec (rcode, mask, op0, op1);
-      if (av)
-	return av;
-    }
+  /* See if the comparison works as is.  */
+  mask = rs6000_emit_vector_compare_inner (rcode, op0, op1);
+  if (mask)
+    return mask;
 
   switch (rcode)
     {
@@ -15175,17 +15035,22 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
       {
 	enum rtx_code rev_code;
 	enum insn_code nor_code;
-	rtx eq_rtx;
+	rtx mask2;
 
 	rev_code = reverse_condition_maybe_unordered (rcode);
-	eq_rtx = rs6000_emit_vector_compare (rev_code, op0, op1, dmode);
-
-	if (!eq_rtx)
+	if (rev_code == UNKNOWN)
 	  return NULL_RTX;
 
 	nor_code = optab_handler (one_cmpl_optab, (int)dmode)->insn_code;
-	gcc_assert (nor_code != CODE_FOR_nothing);
-	emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
+	if (nor_code == CODE_FOR_nothing)
+	  return NULL_RTX;
+
+	mask2 = rs6000_emit_vector_compare (rev_code, op0, op1, dmode);
+	if (!mask2)
+	  return NULL_RTX;
+
+	mask = gen_reg_rtx (dmode);
+	emit_insn (GEN_FCN (nor_code) (mask, mask2));
 	return mask;
       }
       break;
@@ -15221,18 +15086,19 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	    gcc_unreachable ();
 	  }
 
-	c_rtx = rs6000_emit_vector_compare (new_code,
-					    op0, op1, dmode);
+	ior_code = optab_handler (ior_optab, (int)dmode)->insn_code;
+	if (ior_code == CODE_FOR_nothing)
+	  return NULL_RTX;
+
+	c_rtx = rs6000_emit_vector_compare (new_code, op0, op1, dmode);
 	if (!c_rtx)
 	  return NULL_RTX;
 
-	eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
-					     dmode);
+	eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1, dmode);
 	if (!eq_rtx)
 	  return NULL_RTX;
 
-	ior_code = optab_handler (ior_optab, (int)dmode)->insn_code;
-	gcc_assert (ior_code != CODE_FOR_nothing);
+	mask = gen_reg_rtx (dmode);
 	emit_insn (GEN_FCN (ior_code) (mask, c_rtx, eq_rtx));
 	return mask;
       }
@@ -15251,30 +15117,21 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	  op1 = tmp;
 	}
 
-      if (VECTOR_UNIT_VSX_P (dmode))
-	{
-	  rtx vsx = rs6000_emit_vector_compare_vsx (rcode, mask, op0, op1);
-	  if (vsx)
-	    return vsx;
-	}
-      else if (VECTOR_UNIT_ALTIVEC_P (dmode))
-	{
-	  rtx av = rs6000_emit_vector_compare_altivec (rcode, mask, op0, op1);
-	  if (av)
-	    return av;
-	}
+      mask = rs6000_emit_vector_compare_inner (rcode, op0, op1);
+      if (mask)
+	return mask;
     }
 
   /* You only get two chances.  */
   return NULL_RTX;
 }
 
-/* Emit vector conditional expression.
-   DEST is destination. OP1 and OP2 are two VEC_COND_EXPR operands.
-   CC_OP0 and CC_OP1 are the two operands for the relation operation COND.  */
+/* Emit vector conditional expression.  DEST is destination. OP_TRUE and
+   OP_FALSE are two VEC_COND_EXPR operands.  CC_OP0 and CC_OP1 are the two
+   operands for the relation operation COND.  */
 
 int
-rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
+rs6000_emit_vector_cond_expr (rtx dest, rtx op_true, rtx op_false,
 			      rtx cond, rtx cc_op0, rtx cc_op1)
 {
   enum machine_mode dest_mode = GET_MODE (dest);
@@ -15283,22 +15140,26 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   rtx mask;
   rtx cond2;
   rtx tmp;
+  bool invert_move = false;
 
   if (VECTOR_UNIT_NONE_P (dest_mode))
     return 0;
 
   switch (rcode)
     {
-      /* Swap operands rather than doing a NOR to invert the test.  */
+      /* Swap operands if we can, and fall back to doing the operation as
+	 specified, and doing a NOR to invert the test.  */
     case NE:
     case UNLE:
     case UNLT:
     case UNGE:
     case UNGT:
-      tmp = op1;
-      op1 = op2;
-      op2 = tmp;
-      rcode = reverse_condition (rcode);
+      /* Invert condition and try again.
+	 e.g., A  = (B != C) ? D : E becomes A = (B == C) ? E : D.  */
+      invert_move = true;
+      rcode = reverse_condition_maybe_unordered (rcode);
+      if (rcode == UNKNOWN)
+	return 0;
       break;
 
       /* Mark unsigned tests with CCUNSmode.  */
@@ -15319,13 +15180,20 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   if (!mask)
     return 0;
 
+  if (invert_move)
+    {
+      tmp = op_true;
+      op_true = op_false;
+      op_false = tmp;
+    }
+
   cond2 = gen_rtx_fmt_ee (NE, cc_mode, mask, const0_rtx);
   emit_insn (gen_rtx_SET (VOIDmode,
 			  dest,
 			  gen_rtx_IF_THEN_ELSE (dest_mode,
 						cond2,
-						op1,
-						op2)));
+						op_true,
+						op_false)));
   return 1;
 }
 
