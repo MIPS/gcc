@@ -1888,7 +1888,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   struct cgraph_edge *cedge; 
   basic_block bb;
   struct cgraph_node *node;
-  unsigned HOST_WIDE_INT flags;
+  unsigned HOST_WIDEST_INT flags;
 
   fn = DECL_STRUCT_FUNCTION (fn_decl);
   tag = input_record_start (ib);
@@ -1901,7 +1901,7 @@ input_function (tree fn_decl, struct data_in *data_in,
 
   /* Read all the attributes for FN.  Note that flags are decoded in
      the opposite order that they were encoded by output_function.  */
-  flags = lto_input_uleb128 (ib);
+  flags = lto_input_widest_uint_uleb128 (ib);
 
   fn->va_list_gpr_size = lto_get_flags (&flags, 8);
   fn->va_list_fpr_size = lto_get_flags (&flags, 8);

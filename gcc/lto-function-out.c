@@ -2004,7 +2004,7 @@ static int function_num;
 static void
 output_function (struct cgraph_node *node)
 {
-  unsigned HOST_WIDE_INT flags;
+  unsigned HOST_WIDEST_INT flags;
   tree function = node->decl;
   struct function *fn = DECL_STRUCT_FUNCTION (function);
   basic_block bb;
@@ -2047,7 +2047,7 @@ output_function (struct cgraph_node *node)
   lto_set_flags (&flags, fn->va_list_fpr_size, 8);
   lto_set_flags (&flags, fn->va_list_gpr_size, 8);
 
-  lto_output_uleb128_stream (ob->main_stream, flags);
+  lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
 
   /* Output the static chain and non-local goto save area.  */
   if (fn->static_chain_decl)

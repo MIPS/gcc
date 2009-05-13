@@ -650,7 +650,7 @@ write_summary (cgraph_node_set set)
 	  lto_set_flag (&flags, fs->looping);
 	  lto_set_flag (&flags, fs->can_throw);
 
-	  lto_output_uleb128_stream (ob->main_stream, flags);
+	  lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
 	}
     }
 
@@ -684,7 +684,7 @@ read_summary (void)
 	    {
 	      unsigned int index = lto_input_uleb128 (ib);
 	      tree fn_decl = lto_file_decl_data_get_fn_decl (file_data, index);
-	      unsigned HOST_WIDEST_INT flags = lto_input_uleb128 (ib);
+	      unsigned HOST_WIDEST_INT flags = lto_input_widest_uint_uleb128 (ib);
 	      funct_state fs = XCNEW (struct funct_state_d);
 
 	      set_function_state (cgraph_node (fn_decl), fs);

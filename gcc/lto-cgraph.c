@@ -187,7 +187,7 @@ output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   LTO_DEBUG_TOKEN ("flags");
   lto_set_flag (&flags, edge->indirect_call);
   lto_set_flag (&flags, edge->call_stmt_cannot_inline_p);
-  lto_output_uleb128_stream (ob->main_stream, flags);
+  lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
   LTO_DEBUG_UNDENT();
 }
 
@@ -287,7 +287,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   lto_set_flag (&flags, node->local.vtable_method);
 
   LTO_DEBUG_TOKEN ("flags");
-  lto_output_uleb128_stream (ob->main_stream, flags);
+  lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
 
   if (tag != LTO_cgraph_unavail_node)
     {
@@ -571,7 +571,7 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   nest = lto_input_uleb128 (ib);
 
   LTO_DEBUG_TOKEN ("flags");
-  flags = lto_input_uleb128 (ib);
+  flags = lto_input_widest_uint_uleb128 (ib);
 
   /* If the caller was preempted, don't create the edge.  */
   if (caller_resolution == LDPR_PREEMPTED_REG

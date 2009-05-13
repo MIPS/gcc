@@ -1,3 +1,21 @@
+2009-05-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ipa-pure-const.c (write_summary): Replace
+	lto_output_uleb128_stream with
+	lto_output_widest_uint_uleb128_stream on HOST_WIDEST_INT.
+	(read_summary): Replace lto_input_uleb128 with
+	lto_input_widest_uint_uleb128 on HOST_WIDEST_INT.
+
+	* lto-cgraph.c (output_edge): Replace lto_output_uleb128_stream
+	with lto_output_widest_uint_uleb128_stream on HOST_WIDEST_INT.
+	(output_node): Likewise.
+	(input_edge): Replace lto_input_uleb128 with
+	lto_input_widest_uint_uleb128 on HOST_WIDEST_INT.
+
+	* lto-function-in.c (input_function): Use HOST_WIDEST_INT
+	for flags.
+	* lto-function-out.c (output_function): Likewise. 
+
 2009-05-12  Diego Novillo  <dnovillo@google.com>
 
 	* lto-tree-flags.def: Add public_flag for INTEGER_CSTs.
