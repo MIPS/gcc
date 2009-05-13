@@ -1,6 +1,6 @@
 /* Subroutines for code generation on Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
-   Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+   2009 Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
 This file is part of GCC.
@@ -141,10 +141,6 @@ int m68hc11_sp_correction;
 
 int m68hc11_addr_mode;
 int m68hc11_mov_addr_mode;
-
-/* Comparison operands saved by the "tstxx" and "cmpxx" expand patterns.  */
-rtx m68hc11_compare_op0;
-rtx m68hc11_compare_op1;
 
 
 const struct processor_costs *m68hc11_cost;
@@ -1107,8 +1103,8 @@ m68hc11_handle_page0_attribute (tree *node, tree name,
     }
   else
     {
-      warning (OPT_Wattributes, "%qs attribute ignored",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute ignored",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -1144,8 +1140,8 @@ m68hc11_handle_fntype_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -3877,7 +3873,11 @@ m68hc11_notice_update_cc (rtx exp, rtx insn ATTRIBUTE_UNUSED)
 	{
 	  cc_status.flags = 0;
 	  cc_status.value1 = XEXP (exp, 0);
-	  cc_status.value2 = XEXP (exp, 1);
+	  if (GET_CODE (XEXP (exp, 1)) == COMPARE
+	      && XEXP (XEXP (exp, 1), 1) == CONST0_RTX (GET_MODE (XEXP (XEXP (exp, 1), 0))))
+	    cc_status.value2 = XEXP (XEXP (exp, 1), 0);
+	  else
+	    cc_status.value2 = XEXP (exp, 1);
 	}
       else
 	{
@@ -5355,6 +5355,7 @@ m68hc11_rtx_costs_1 (rtx x, enum rtx_code code,
     case COMPARE:
     case ABS:
     case ZERO_EXTEND:
+    case ZERO_EXTRACT:
       total = extra_cost + rtx_cost (XEXP (x, 0), code, !optimize_size);
       if (mode == QImode)
 	{
@@ -5405,6 +5406,10 @@ m68hc11_rtx_costs (rtx x, int code, int outer_code, int *total,
 	*total = 0;
       return true;
     
+    case ZERO_EXTRACT:
+      if (outer_code != COMPARE)
+	return false;
+
     case ROTATE:
     case ROTATERT:
     case ASHIFT:

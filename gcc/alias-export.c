@@ -168,8 +168,9 @@ mark_conflict_stack_vars (tree pointer, struct ptr_info_def *pid)
     }
 }
 
-/* Record the final points-to set for MEM with original expression EXPR 
-   and returns unshared original expression.  */
+/* Record the final points-to set for EXPR and unshare it.  Returns 
+   the unshared expression or NULL_TREE, if EXPR cannot be used for 
+   alias/ddg export later.  */
 tree
 unshare_and_record_pta_info (tree expr)
 {
