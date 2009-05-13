@@ -38,7 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 
 struct lto_compression_stream
 {
-  void (*callback) (const char *, size_t, void *);
+  void (*callback) (const char *, unsigned, void *);
   void *opaque;
   char *buffer;
   size_t bytes;
@@ -55,7 +55,7 @@ static const size_t MIN_STREAM_ALLOCATION = 1024;
    is unused.  */
 
 static void *
-lto_zalloc (void *opaque, size_t items, size_t size)
+lto_zalloc (void *opaque, unsigned items, unsigned size)
 {
   gcc_assert (opaque == Z_NULL);
   return xmalloc (items * size);
@@ -94,7 +94,7 @@ lto_normalized_zlib_level (void)
    OPAQUE token, IS_COMPRESSION indicates if compressing or uncompressing.  */
 
 static struct lto_compression_stream *
-lto_new_compression_stream (void (*callback) (const char *, size_t, void *),
+lto_new_compression_stream (void (*callback) (const char *, unsigned, void *),
 			    void *opaque, bool is_compression)
 {
   struct lto_compression_stream *stream
@@ -143,7 +143,7 @@ lto_destroy_compression_stream (struct lto_compression_stream *stream)
    OPAQUE token.  */
 
 struct lto_compression_stream *
-lto_start_compression (void (*callback) (const char *, size_t, void *),
+lto_start_compression (void (*callback) (const char *, unsigned, void *),
 		       void *opaque)
 {
   return lto_new_compression_stream (callback, opaque, true);
@@ -222,7 +222,7 @@ lto_end_compression (struct lto_compression_stream *stream)
    OPAQUE token.  */
 
 struct lto_compression_stream *
-lto_start_uncompression (void (*callback) (const char *, size_t, void *),
+lto_start_uncompression (void (*callback) (const char *, unsigned, void *),
 			 void *opaque)
 {
   return lto_new_compression_stream (callback, opaque, false);

@@ -271,7 +271,7 @@ struct lto_buffer
    to by OPAQUE.  */
 
 static void
-lto_append_data (const char *data, size_t length, void *opaque)
+lto_append_data (const char *data, unsigned length, void *opaque)
 {
   struct lto_buffer *buffer = (struct lto_buffer *) opaque;
 

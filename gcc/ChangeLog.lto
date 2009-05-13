@@ -1,5 +1,15 @@
 2009-05-13  Diego Novillo  <dnovillo@google.com>
 
+	* lto-compress.c (struct lto_compression_stream): Change
+	size_t to unsigned.  Update all users.
+	(lto_zalloc): Likewise.
+	(lto_new_compression_stream): Likewise.
+	(lto_start_compression): Likewise.
+	(lto_start_uncompression): Likewise.
+	* lto-section-in.c (lto_apend_data): Likewise.
+
+2009-05-13  Diego Novillo  <dnovillo@google.com>
+
 	* gimple.c: Include alias.h.
 	(gimple_signed_or_unsigned_type): New.
 	(gimple_unsigned_type): New.
