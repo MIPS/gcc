@@ -1,5 +1,13 @@
 2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* function.h (struct incoming_args): Base info GTY description on
+	cfun->target_arch.
+	* gentargtype.cc (cumulative_asrgs_u): Use TARGET_NUM for tag.
+	Add an align_dummy member.
+	* Makefile.in [EXTRA_TARGET] (target-types.h): Likewise.
+	[!EXTRA_TARGET] (target-types.h target-gtypes.h): 
+	Use TARGET_NUM for tag.
+
 	* Makefile.in [!EXTRA_TARGET] (target-types.h):
 	Fix rule to provide GTY information.
 	[!EXTRA_TARGET] (target-gtypes.h): Share rule with target-types.h .

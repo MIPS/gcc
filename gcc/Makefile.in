@@ -3531,8 +3531,11 @@ target-types.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra $($
 	    echo 'using $(subst -,_,$(ta)::$(ta))cumulative_args;') \
 	  | cpp -I $(srcdir) >> $@;)
 	echo 'typedef union {' >> $@
-	$(foreach ta,_ $(EXTRA_TARGETS:%=%-),\
-	  echo '$(subst -,_,$(ta)cumulative_args $(ta)ca;)' >> $@;) \
+	$(foreach num,$(call enumerate,_ $(EXTRA_TARGETS)),\
+	  $(foreach ta,$(subst -,_,$(word $(num), _ $(EXTRA_TARGETS:%=%_))),\
+	    echo '$(ta)cumulative_args GTY ((tag ("$(num) - 1"))) \
+	       $(ta)ca;' >> $@;)) \
+	echo '  void *GTY ((default, skip)) align_dummy[1];' >> $@
 	echo '} cumulative_args_u;' >> $@
 	echo '#endif /* TARGET_TYPES_H */' >> $@
 target-gtypes.h: build/gentargtype$(build_exeext)
@@ -3542,7 +3545,7 @@ else # !EXTRA_TARGETS
 target-types.h target-gtypes.h: Makefile
 	echo 'typedef union GTY (())' > $@
 	echo '  {' >> $@
-	echo '    CUMULATIVE_ARGS GTY ((tag ("this_targetm"))) _ca;' >> $@
+	echo '    CUMULATIVE_ARGS GTY ((tag ("TARGET_NUM"))) _ca;' >> $@
 	echo '  } cumulative_args_u;' >> $@
 endif # !EXTRA_TARGETS
 EXTRA_OBJS := $(EXTRA_OBJS) \

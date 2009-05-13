@@ -242,7 +242,7 @@ struct incoming_args GTY(())
 
   /* Quantities of various kinds of registers
      used for the current function's args.  */
-  cumulative_args_u GTY ((desc ("targetm_pnt"))) info;
+  cumulative_args_u GTY ((desc ("cfun ? cfun->target_arch : -1"))) info;
 
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
