@@ -3527,7 +3527,7 @@ target-types.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra $($
 	    $(foreach file,$($(ta:%_=%)tm_include_list),\
 	      echo '#include "$(file)"';)\
 	    echo 'typedef CUMULATIVE_ARGS $(subst -,_,$(ta))cumulative_args;';\
-	    echo '};';\
+	    echo '}';\
 	    echo 'using $(subst -,_,$(ta)::$(ta))cumulative_args;') \
 	  | cpp -I $(srcdir) >> $@;)
 	echo 'typedef union {' >> $@
@@ -3886,8 +3886,10 @@ build/fix-header.o: fix-header.c $(OBSTACK_H) scan.h errors.h \
 
 build/scan-decls.o: scan-decls.c scan.h $(CPPLIB_H) $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H)
 
+# Use -fno-exceptions to work around incompatibility with RHEL 3 stdio.h
+# vasprintf declaration and libiberty vasprintf declaration.
 build/gentargtype.o: $(srcdir)/gentargtype.cc target-types.h $(SYSTEM_H)
-	$(CXX) -c \
+	$(CXX) -c -fno-exceptions \
 	$(filter-out -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wc++-compat,$(BUILD_CFLAGS)) \
 	$(BUILD_CPPFLAGS) -o $@ $<
 

@@ -1,5 +1,8 @@
 2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* Makefile.in (target-types.h): Remove extra semicolon.
+	(build/gentargtype.o): Use -fno-exceptions.
+
 	* Makefile.in (out_file, out_object_file, md_file, tm_file_list,
 	tm_include_list, tm_defines, tm_p_file_list, tm_p_include_list,
 	EXTRA_TARGETS, NUM_TARGETS): Move from here...
