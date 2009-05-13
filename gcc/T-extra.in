@@ -2,6 +2,15 @@
 # same directory, but it is set to the target name if this makefile fragment
 # is used from a parent directory in a multi-targte configuration.
 
+$(CURRENT_TARGET)out_file=$(srcdir)/config/@out_file@
+$(CURRENT_TARGET)out_object_file=@out_object_file@
+$(CURRENT_TARGET)md_file=$(srcdir)/config/@md_file@
+$(CURRENT_TARGET)tm_file_list=@tm_file_list@
+$(CURRENT_TARGET)tm_include_list=@tm_include_list@
+$(CURRENT_TARGET)tm_defines=@tm_defines@
+$(CURRENT_TARGET)tm_p_file_list=@tm_p_file_list@
+$(CURRENT_TARGET)tm_p_include_list=@tm_p_include_list@
+
 $(CURRENT_TARGET)extra_modes_file=@extra_modes_file@
 
 # List of extra executables that should be compiled for this target machine
@@ -48,3 +57,6 @@ $(CURRENT_TARGET)SFP_MACHINE =
 
 # Program to convert libraries.
 $(CURRENT_TARGET)LIBCONVERT =
+
+$(CURRENT_TARGET)EXTRA_TARGETS = @with_extra_target_list@
+$(CURRENT_TARGET)NUM_TARGETS := $(words 1 @with_extra_target_list@)

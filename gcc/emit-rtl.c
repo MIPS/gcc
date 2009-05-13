@@ -61,14 +61,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "multi-target.h"
 
 START_TARGET_SPECIFIC
-
 /* Commonly used modes.  */
 
 enum machine_mode byte_mode;	/* Mode whose width is BITS_PER_UNIT.  */
 enum machine_mode word_mode;	/* Mode whose width is BITS_PER_WORD.  */
 enum machine_mode double_mode;	/* Mode whose width is DOUBLE_TYPE_SIZE.  */
 enum machine_mode ptr_mode;	/* Mode whose width is POINTER_SIZE.  */
+END_TARGET_SPECIFIC
 
+#ifndef EXTRA_TARGET
 /* Datastructures maintained for currently processed function in RTL form.  */
 
 struct rtl_data x_rtl;
@@ -79,7 +80,9 @@ struct rtl_data x_rtl;
    with length attribute nested in top level structures.  */
 
 rtx * regno_reg_rtx;
+#endif /* !EXTRA_TARGET */
 
+START_TARGET_SPECIFIC
 /* This is *not* reset after each function.  It gives each CODE_LABEL
    in the entire compilation a unique label number.  */
 

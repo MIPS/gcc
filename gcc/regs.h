@@ -73,7 +73,6 @@ struct regstat_n_sets_and_refs_t
   int refs;			/* # of times (REG n) is used or set */
 };
 
-START_TARGET_SPECIFIC
 extern struct regstat_n_sets_and_refs_t *regstat_n_sets_and_refs;
 
 /* Indexed by n, gives number of times (REG n) is used or set.  */
@@ -102,12 +101,15 @@ REG_N_SETS (int regno)
 /* Functions defined in reg-stat.c.  */
 extern void regstat_init_n_sets_and_refs (void);
 extern void regstat_free_n_sets_and_refs (void);
+START_TARGET_SPECIFIC
+/* This one uses FIRST_PSEUDO_REGISTER, and hookifying that would at least
+   increase register pressure.  */
 extern void regstat_compute_ri (void);
+END_TARGET_SPECIFIC
 extern void regstat_free_ri (void);
 extern bitmap regstat_get_setjmp_crosses (void);
 extern void regstat_compute_calls_crossed (void);
 extern void regstat_free_calls_crossed (void);
-END_TARGET_SPECIFIC
 
 
 /* Register information indexed by register number.  This structure is

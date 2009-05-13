@@ -418,18 +418,11 @@ TARGET_SYSTEM_ROOT = @TARGET_SYSTEM_ROOT@
 
 xmake_file=@xmake_file@
 tmake_file=@tmake_file@
-out_file=$(srcdir)/config/@out_file@
-ifdef EXTRA_TARGET
-out_object_file=$(TA)xout.o
-else
-out_object_file=@out_object_file@
-endif
-md_file=$(srcdir)/config/@md_file@
-tm_file_list=@tm_file_list@
-tm_include_list=@tm_include_list@
-tm_defines=@tm_defines@
-tm_p_file_list=@tm_p_file_list@
-tm_p_include_list=@tm_p_include_list@
+
+#include the framgment with all the target specific definitions.
+#For multi-target configurations, this may be shared.
+include T-extra
+
 build_xm_file_list=@build_xm_file_list@
 build_xm_include_list=@build_xm_include_list@
 build_xm_defines=@build_xm_defines@
@@ -629,10 +622,6 @@ SHLIBUNWIND_INSTALL =
 
 # nm flags to list global symbols in libgcc object files.
 SHLIB_NM_FLAGS = -pg
-
-#include the framgment with all the target specific EXTRA* = @foo@ definitions.
-#For multi-target configurations, this can be shared.
-include T-extra
 
 # Control whether header files are installed.
 INSTALL_HEADERS=install-headers install-mkheaders
@@ -1145,12 +1134,9 @@ OBJS-rtl = \
 	vmsdbgout.o \
 	web.o
 
-EXTRA_TARGETS = @with_extra_target_list@
-NUM_TARGETS := $(words 1 @with_extra_target_list@)
-
 OBJS-common = \
 	$(OBJS-rtl) \
-	$(foreach TA,$(EXTRA_TARGETS),$(addprefix $(TA)/$(TA)-,$(OBJS-rtl) xout.o)) \
+	$(foreach TA,$(EXTRA_TARGETS),$(addprefix $(TA)/$(TA)-,$(OBJS-rtl) $($(TA)-out_object_file))) \
 	$(GGC) \
 	alloc-pool.o \
 	bitmap.o \
@@ -2939,7 +2925,7 @@ $(TA)ira-color.o: ira-color.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 $(TA)ira-emit.o: ira-emit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) \
    $(EXPR_H) $(BASIC_BLOCK_H) $(TOPLEV_H) $(TM_P_H) $(PARAMS_H) \
-   $(IRA_INT_H)
+   $(IRA_INT_H) $(DF_H)
 $(TA)ira-lives.o: ira-lives.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) $(REGS_H) except.h hard-reg-set.h $(FLAGS_H) \
    insn-config.h $(RECOG_H) $(BASIC_BLOCK_H) $(TOPLEV_H) $(TM_P_H) $(PARAMS_H) \
@@ -3079,7 +3065,7 @@ $(TA)lower-subreg.o : lower-subreg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    insn-config.h $(BASIC_BLOCK_H) $(RECOG_H) $(OBSTACK_H) $(BITMAP_H) \
    $(EXPR_H) except.h $(REGS_H) $(TREE_PASS_H) $(DF_H)
 
-$(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
+$(TA)$(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h insn-config.h conditions.h \
    output.h $(INSN_ATTR_H) $(SYSTEM_H) $(TOPLEV_H) $(TARGET_H) libfuncs.h \
    $(TARGET_DEF_H) $(FUNCTION_H) $(SCHED_INT_H) $(TM_P_H) $(EXPR_H) \
@@ -3297,7 +3283,7 @@ s-constrs-h: $(MD_DEPS) build/genpreds$(build_exeext)
 	$(STAMP) s-constrs-h
 
 GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
-  $(host_xm_file_list) \
+  $(host_xm_file_list) target-gtypes.h \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
   $(srcdir)/alias.h $(srcdir)/coverage.c $(srcdir)/rtl.h \
   $(srcdir)/optabs.h $(srcdir)/tree.h $(srcdir)/varray.h $(srcdir)/libfuncs.h $(SYMTAB_H) \
@@ -3456,9 +3442,9 @@ build/genpreds.o : genpreds.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
 build/genrecog.o : genrecog.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h
 
-#Fixme: modify EXTRA_TARGETS configuration to make sure that we use a
+#Fixme: should take nore seps to make sure that we use a
 #uniform type and storage layout
-COMMON_ABI = $(TM_H)
+COMMON_ABI=target-types.h target-gtypes.h
 
 #make sure ENABLE_NLS is consistent between this dir and subdirs.
 #configure checks for ../intl/config.intl
@@ -3485,27 +3471,32 @@ THIS-TARGET/Makefile: THIS-TARGET/config.status Makefile
 # when individual files are deleted manually or due interrupts / error
 # conditions.  Just say that each file is up-to-date if we have used
 # a recursive make to update it.
-$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) xout.o) \
+$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) $(THIS-TARGET-out_object_file)) \
 $(addprefix THIS-TARGET/,$(THIS-TARGET-EXTRA_OBJS)) : make-THIS-TARGET ;
 
 # Use a single recursive make invokation to update all files of THIS-TARGET.
 # Having more than one would not merely cost more time, but cause serious
 # synchronization issues for parallel make.
+XTGT_COPY_FILES=\
+  $(addprefix THIS-TARGET/,extra-modes.h target-types.h)
 .PHONY: make-THIS-TARGET
-make-THIS-TARGET : THIS-TARGET/Makefile THIS-TARGET/extra-modes.h $(COMMON_ABI)
+make-THIS-TARGET : THIS-TARGET/Makefile $(XTGT_COPY_FILES) \
+  THIS-TARGET/target-gtypes.h $(COMMON_ABI)
 	$(MAKE) -C THIS-TARGET make-OBJS-rtl \
 	EXTRA_TARGET='THIS_TARGET' TA='THIS-TARGET-' \
 	TARGET_NUM=THIS-TARGET-NUM \
 	toplevel_builddir='$(toplevel_builddir:.%=../.%)' \
 	GMPLIBS='$(GMPLIBS)' GMPINC='$(GMPINC)'
-THIS-TARGET/extra-modes.h: extra-modes.h
+$(XTGT_COPY_FILES): THIS-TARGET/% : %
 	cp $< $@
+THIS-TARGET/target-gtypes.h: target-gtypes.h
+	sed 's/_ca/THIS_TARGET&/' < $< > $@
 
 endef
 # EXTRA_TARGET_RULES
 
 .PHONY: make-OBJS-rtl
-make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) xout.o) $(EXTRA_OBJS);
+make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) $(out_object_file)) $(EXTRA_OBJS);
 
 enumerate=$(if $(1),$(call enumerate,$(wordlist 2,999,$(1))) $(words $(1)))
 
@@ -3519,12 +3510,38 @@ endif
 ifndef TA
 extra-modes.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra)
 	echo target=\"$(subst -,_,$(target_noncanonical))\"\; > $@
-	$(foreach file,$(extra_modes_file),echo \#include \"$(file)\" >> $@)
+	$(foreach file,$(extra_modes_file),echo '#include "$(file)"' >> $@)
 	$(foreach ta,$(EXTRA_TARGETS),\
-	  echo target=\"$(subst -,_,$(ta))\"\; >> $@;\
+	  echo target='"$(subst -,_,$(ta))"'\; >> $@;\
 	  $(foreach file,$($(ta)-extra_modes_file),\
-	    echo \#include \"$(file)\" >> $@;))
+	    echo '#include "$(file)"' >> $@;))
 	echo 'target = (const char *) 0;' >> $@
+ifdef EXTRA_TARGETS
+# ??? This generates a rather long header file to address one small
+# pernicious issue.
+# ??? config/h8300/h8300.h uses rtx_def*.
+target-types.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra $($(ta)-tm_include_list))
+	echo '#ifndef TARGET_TYPES_H' > $@
+	$(foreach ta,_ $(EXTRA_TARGETS:%=%-),\
+	  ( echo 'namespace $(subst -,_,$(ta)) {';\
+	    $(foreach file,$($(ta:%_=%)tm_include_list),\
+	      echo '#include "$(file)"';)\
+	    echo 'typedef CUMULATIVE_ARGS $(subst -,_,$(ta))cumulative_args;';\
+	    echo '};';\
+	    echo 'using $(subst -,_,$(ta)::$(ta))cumulative_args;') \
+	  | cpp -I $(srcdir) >> $@;)
+	echo 'typedef union {' >> $@
+	$(foreach ta,_ $(EXTRA_TARGETS:%=%-),\
+	  echo '$(subst -,_,$(ta)cumulative_args $(ta)ca;)' >> $@;) \
+	echo '} cumulative_args_u;' >> $@
+	echo '#endif /* TARGET_TYPES_H */' >> $@
+else # !EXTRA_TARGETS
+# using struct instead of union makes this gty-safe.
+target-types.h:
+	echo 'typdef struct { CUMULATIVE_ARGS _ca; } cumulative_args_u;' >> $@
+endif # !EXTRA_TARGETS
+target-gtypes.h: build/gentargtype$(build_exeext)
+	$(RUN_GEN) build/gentargtype$(build_exeext) > $@
 EXTRA_OBJS := $(EXTRA_OBJS) \
   $(foreach ta,$(EXTRA_TARGETS),$(addprefix $(ta)/,$($(ta)-EXTRA_OBJS)))
 endif
@@ -3868,6 +3885,14 @@ build/fix-header.o: fix-header.c $(OBSTACK_H) scan.h errors.h \
 	xsys-protos.h $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) $(CPPLIB_H)
 
 build/scan-decls.o: scan-decls.c scan.h $(CPPLIB_H) $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H)
+
+build/gentargtype.o: $(srcdir)/gentargtype.cc target-types.h $(SYSTEM_H)
+	$(CXX) -c \
+	$(filter-out -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wc++-compat,$(BUILD_CFLAGS)) \
+	$(BUILD_CPPFLAGS) -o $@ $<
+
+build/gentargtype$(build_exeext): build/gentargtype.o $(BUILD_LIBDEPS)
+	$(CXX) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ $<
 
 # stmp-fixproto depends on this, not on fix-header directly.
 # The idea is to make sure fix-header gets built,

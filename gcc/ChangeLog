@@ -1,3 +1,7 @@
+2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* Makefile.in (($(TA)ira-emit.o): Depend on $(DF_H).
+
 2009-05-06  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/sh/sh-protos.h: Fix end of multiple inclusion guard.

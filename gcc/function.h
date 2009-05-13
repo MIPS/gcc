@@ -26,6 +26,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "varray.h"
 #include "multi-target.h"
+#ifdef GENERATOR_FILE
+#include "target-gtypes.h"
+#elif 1
+/* ??? We still have clashes of target-defines with enum tags, e.g. mxp
+   insn-constants.h defiens FP_REG, which is an enum tag in arc.h that
+   gets copied into the arc namespace of target-types.h.
+   Using target-gtypes.h is not standards conformant, because the same type
+   has different definitions in different files (albeit all the same size).  */
+#include "target-gtypes.h"
+#else
+#include "target-types.h"
+#endif
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -83,14 +95,12 @@ struct emit_status GTY(())
   unsigned char * GTY((skip)) regno_pointer_align;
 };
 
-START_TARGET_SPECIFIC
 /* Indexed by pseudo register number, gives the rtx for that pseudo.
    Allocated in parallel with regno_pointer_align.  
    FIXME: We could put it into emit_status struct, but gengtype is not able to deal
    with length attribute nested in top level structures.  */
 
 extern GTY ((length ("crtl->emit.x_reg_rtx_no"))) rtx * regno_reg_rtx;
-END_TARGET_SPECIFIC
 
 /* For backward compatibility... eventually these should all go away.  */
 #define reg_rtx_no (crtl->emit.x_reg_rtx_no)
@@ -208,7 +218,6 @@ struct varasm_status GTY(())
   unsigned int deferred_constants;
 };
 
-START_TARGET_SPECIFIC
 /* Information mainlined about RTL representation of incoming arguments.  */
 struct incoming_args GTY(())
 {
@@ -233,12 +242,20 @@ struct incoming_args GTY(())
 
   /* Quantities of various kinds of registers
      used for the current function's args.  */
-  CUMULATIVE_ARGS info;
+  cumulative_args_u GTY ((desc ("targetm_pnt"))) info;
 
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
 };
-END_TARGET_SPECIFIC
+
+#ifdef EXTRA_TARGET
+#define CONCAT_(A,B) A##B
+#define CONCAT(A,B) CONCAT_(A,B)
+#define INCOMING_ARGS_INFO(INCOMING_ARGS) \
+  ((INCOMING_ARGS).info.CONCAT(EXTRA_TARGET,_ca))
+#else
+#define INCOMING_ARGS_INFO(INCOMING_ARGS) ((INCOMING_ARGS).info._ca)
+#endif
 
 /* Data for function partitioning.  */
 struct function_subsections GTY(())
@@ -260,7 +277,6 @@ struct function_subsections GTY(())
 
 struct initial_value_struct;
 
-START_TARGET_SPECIFIC
 /* Datastructures maintained for currently processed function in RTL form.  */
 struct rtl_data GTY(())
 {
@@ -449,7 +465,6 @@ struct rtl_data GTY(())
   /* True if dbr_schedule has already been called for this function.  */
   bool dbr_scheduled_p;
 };
-END_TARGET_SPECIFIC
 
 #define return_label (crtl->x_return_label)
 #define naked_return_label (crtl->x_naked_return_label)
@@ -466,14 +481,12 @@ END_TARGET_SPECIFIC
 #define stack_realign_fp (crtl->stack_realign_needed && !crtl->need_drap)
 #define stack_realign_drap (crtl->stack_realign_needed && crtl->need_drap)
 
-START_TARGET_SPECIFIC
 extern GTY(()) struct rtl_data x_rtl;
 
 /* Accessor to RTL datastructures.  We keep them statically allocated now since
    we never keep multiple functions.  For threaded compiler we might however
    want to do differently.  */
 #define crtl (&x_rtl)
-END_TARGET_SPECIFIC
 
 /* This structure can save all the important global and static variables
    describing the status of the current function.  */

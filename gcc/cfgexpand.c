@@ -2286,6 +2286,8 @@ gimple_expand_cfg (void)
   edge_iterator ei;
   edge e;
 
+  init_emit ();
+
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
 

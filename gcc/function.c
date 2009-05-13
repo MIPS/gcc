@@ -3276,7 +3276,7 @@ assign_parms (tree fndecl)
   /* For stdarg.h function, save info about
      regs and stack space used by the named args.  */
 
-  crtl->args.info = all.args_so_far;
+  INCOMING_ARGS_INFO (crtl->args) = all.args_so_far;
 
   /* Set the rtx used for the function return value.  Put this in its
      own variable so any optimizers that need this information don't have
@@ -4185,7 +4185,6 @@ prepare_function_start (void)
 {
   gcc_assert (!crtl->emit.x_last_insn);
   init_temp_slots ();
-  init_emit ();
   init_varasm_status ();
   init_expr ();
   default_rtl_profile ();
@@ -4220,6 +4219,7 @@ init_dummy_function_start (void)
   in_dummy_function = true;
   push_struct_function (NULL_TREE);
   prepare_function_start ();
+  init_emit ();
 }
 
 EXTRA_TARGETS_DECL (void init_function_start (tree));

@@ -36,7 +36,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "multi-target.h"
 
-START_TARGET_SPECIFIC
+/* Local to this file but global across targets.  */
+extern bitmap setjmp_crosses;
+
+#ifndef EXTRA_TARGET
 
 struct regstat_n_sets_and_refs_t *regstat_n_sets_and_refs;
 
@@ -92,12 +95,15 @@ regstat_free_n_sets_and_refs (void)
 
    ----------------------------------------------------------------------------*/
 
-static bitmap setjmp_crosses;
+bitmap setjmp_crosses;
+
 struct reg_info_t *reg_info_p;
 
 /* The number allocated elements of reg_info_p.  */
 size_t reg_info_p_size;
+#endif /* !EXTRA_TARGET */
 
+START_TARGET_SPECIFIC
 /* Compute register info: lifetime, bb, and number of defs and uses
    for basic block BB.  The three bitvectors are scratch regs used
    here.  */
@@ -368,8 +374,9 @@ regstat_compute_ri (void)
   BITMAP_FREE (local_processed);
   timevar_pop (TV_REG_STATS);
 }
+END_TARGET_SPECIFIC
 
-
+#ifndef EXTRA_TARGET
 /* Free all storage associated with the problem.  */
 
 void
@@ -512,4 +519,4 @@ regstat_free_calls_crossed (void)
   reg_info_p = NULL;
 }
 
-END_TARGET_SPECIFIC
+#endif /* !EXTRA_TARGET */
