@@ -886,6 +886,9 @@ extern void recalculate_side_effects (tree);
 extern int gimple_types_compatible_p (tree, tree);
 extern tree gimple_register_type (tree);
 extern void print_gimple_types_stats (void);
+extern tree gimple_unsigned_type (tree);
+extern tree gimple_signed_type (tree);
+extern alias_set_type gimple_get_alias_set (tree);
 extern void count_uses_and_derefs (tree, gimple, unsigned *, unsigned *,
 				   unsigned *);
 extern bool walk_stmt_load_store_addr_ops (gimple, void *,

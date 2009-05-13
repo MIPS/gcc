@@ -1,3 +1,15 @@
+2009-05-13  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.c: Include alias.h.
+	(gimple_signed_or_unsigned_type): New.
+	(gimple_unsigned_type): New.
+	(gimple_signed_type): New.
+	(gimple_get_alias_set): New.
+	* gimple.h (gimple_unsigned_type): Declare.
+	(gimple_signed_type): Declare.
+	(gimple_get_alias_set): Declare.
+	* Makefile.in (gimple.o): Add dependency on ALIAS_H.
+
 2009-05-13  Simon Baldwin  <simonb@google.com>
 
 	* lto-compress.h: New file.

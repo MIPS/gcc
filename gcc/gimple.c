@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "flags.h"
+#include "alias.h"
 
 /* Global type table.  FIXME lto, it should be possible to re-use some
    of the type hashing routines in tree.c (type_hash_canon, type_hash_lookup,
@@ -3750,6 +3751,232 @@ print_gimple_types_stats (void)
 	     htab_collisions (gimple_types));
   else
     fprintf (stderr, "GIMPLE type table is empty\n");
+}
+
+
+/* Return a type the same as TYPE except unsigned or
+   signed according to UNSIGNEDP.  */
+
+static tree
+gimple_signed_or_unsigned_type (bool unsignedp, tree type)
+{
+  tree type1;
+
+  type1 = TYPE_MAIN_VARIANT (type);
+  if (type1 == signed_char_type_node
+      || type1 == char_type_node
+      || type1 == unsigned_char_type_node)
+    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
+  if (type1 == integer_type_node || type1 == unsigned_type_node)
+    return unsignedp ? unsigned_type_node : integer_type_node;
+  if (type1 == short_integer_type_node || type1 == short_unsigned_type_node)
+    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
+  if (type1 == long_integer_type_node || type1 == long_unsigned_type_node)
+    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
+  if (type1 == long_long_integer_type_node
+      || type1 == long_long_unsigned_type_node)
+    return unsignedp
+           ? long_long_unsigned_type_node
+	   : long_long_integer_type_node;
+#if HOST_BITS_PER_WIDE_INT >= 64
+  if (type1 == intTI_type_node || type1 == unsigned_intTI_type_node)
+    return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
+#endif
+  if (type1 == intDI_type_node || type1 == unsigned_intDI_type_node)
+    return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
+  if (type1 == intSI_type_node || type1 == unsigned_intSI_type_node)
+    return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
+  if (type1 == intHI_type_node || type1 == unsigned_intHI_type_node)
+    return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
+  if (type1 == intQI_type_node || type1 == unsigned_intQI_type_node)
+    return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
+
+#define GIMPLE_FIXED_TYPES(NAME)	    \
+  if (type1 == short_ ## NAME ## _type_node \
+      || type1 == unsigned_short_ ## NAME ## _type_node) \
+    return unsignedp ? unsigned_short_ ## NAME ## _type_node \
+		     : short_ ## NAME ## _type_node; \
+  if (type1 == NAME ## _type_node \
+      || type1 == unsigned_ ## NAME ## _type_node) \
+    return unsignedp ? unsigned_ ## NAME ## _type_node \
+		     : NAME ## _type_node; \
+  if (type1 == long_ ## NAME ## _type_node \
+      || type1 == unsigned_long_ ## NAME ## _type_node) \
+    return unsignedp ? unsigned_long_ ## NAME ## _type_node \
+		     : long_ ## NAME ## _type_node; \
+  if (type1 == long_long_ ## NAME ## _type_node \
+      || type1 == unsigned_long_long_ ## NAME ## _type_node) \
+    return unsignedp ? unsigned_long_long_ ## NAME ## _type_node \
+		     : long_long_ ## NAME ## _type_node;
+
+#define GIMPLE_FIXED_MODE_TYPES(NAME) \
+  if (type1 == NAME ## _type_node \
+      || type1 == u ## NAME ## _type_node) \
+    return unsignedp ? u ## NAME ## _type_node \
+		     : NAME ## _type_node;
+
+#define GIMPLE_FIXED_TYPES_SAT(NAME) \
+  if (type1 == sat_ ## short_ ## NAME ## _type_node \
+      || type1 == sat_ ## unsigned_short_ ## NAME ## _type_node) \
+    return unsignedp ? sat_ ## unsigned_short_ ## NAME ## _type_node \
+		     : sat_ ## short_ ## NAME ## _type_node; \
+  if (type1 == sat_ ## NAME ## _type_node \
+      || type1 == sat_ ## unsigned_ ## NAME ## _type_node) \
+    return unsignedp ? sat_ ## unsigned_ ## NAME ## _type_node \
+		     : sat_ ## NAME ## _type_node; \
+  if (type1 == sat_ ## long_ ## NAME ## _type_node \
+      || type1 == sat_ ## unsigned_long_ ## NAME ## _type_node) \
+    return unsignedp ? sat_ ## unsigned_long_ ## NAME ## _type_node \
+		     : sat_ ## long_ ## NAME ## _type_node; \
+  if (type1 == sat_ ## long_long_ ## NAME ## _type_node \
+      || type1 == sat_ ## unsigned_long_long_ ## NAME ## _type_node) \
+    return unsignedp ? sat_ ## unsigned_long_long_ ## NAME ## _type_node \
+		     : sat_ ## long_long_ ## NAME ## _type_node;
+
+#define GIMPLE_FIXED_MODE_TYPES_SAT(NAME)	\
+  if (type1 == sat_ ## NAME ## _type_node \
+      || type1 == sat_ ## u ## NAME ## _type_node) \
+    return unsignedp ? sat_ ## u ## NAME ## _type_node \
+		     : sat_ ## NAME ## _type_node;
+
+  GIMPLE_FIXED_TYPES (fract);
+  GIMPLE_FIXED_TYPES_SAT (fract);
+  GIMPLE_FIXED_TYPES (accum);
+  GIMPLE_FIXED_TYPES_SAT (accum);
+
+  GIMPLE_FIXED_MODE_TYPES (qq);
+  GIMPLE_FIXED_MODE_TYPES (hq);
+  GIMPLE_FIXED_MODE_TYPES (sq);
+  GIMPLE_FIXED_MODE_TYPES (dq);
+  GIMPLE_FIXED_MODE_TYPES (tq);
+  GIMPLE_FIXED_MODE_TYPES_SAT (qq);
+  GIMPLE_FIXED_MODE_TYPES_SAT (hq);
+  GIMPLE_FIXED_MODE_TYPES_SAT (sq);
+  GIMPLE_FIXED_MODE_TYPES_SAT (dq);
+  GIMPLE_FIXED_MODE_TYPES_SAT (tq);
+  GIMPLE_FIXED_MODE_TYPES (ha);
+  GIMPLE_FIXED_MODE_TYPES (sa);
+  GIMPLE_FIXED_MODE_TYPES (da);
+  GIMPLE_FIXED_MODE_TYPES (ta);
+  GIMPLE_FIXED_MODE_TYPES_SAT (ha);
+  GIMPLE_FIXED_MODE_TYPES_SAT (sa);
+  GIMPLE_FIXED_MODE_TYPES_SAT (da);
+  GIMPLE_FIXED_MODE_TYPES_SAT (ta);
+
+  /* For ENUMERAL_TYPEs in C++, must check the mode of the types, not
+     the precision; they have precision set to match their range, but
+     may use a wider mode to match an ABI.  If we change modes, we may
+     wind up with bad conversions.  For INTEGER_TYPEs in C, must check
+     the precision as well, so as to yield correct results for
+     bit-field types.  C++ does not have these separate bit-field
+     types, and producing a signed or unsigned variant of an
+     ENUMERAL_TYPE may cause other problems as well.  */
+  if (!INTEGRAL_TYPE_P (type)
+      || TYPE_UNSIGNED (type) == unsignedp)
+    return type;
+
+#define TYPE_OK(node)							    \
+  (TYPE_MODE (type) == TYPE_MODE (node)					    \
+   && TYPE_PRECISION (type) == TYPE_PRECISION (node))
+  if (TYPE_OK (signed_char_type_node))
+    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
+  if (TYPE_OK (integer_type_node))
+    return unsignedp ? unsigned_type_node : integer_type_node;
+  if (TYPE_OK (short_integer_type_node))
+    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
+  if (TYPE_OK (long_integer_type_node))
+    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
+  if (TYPE_OK (long_long_integer_type_node))
+    return (unsignedp
+	    ? long_long_unsigned_type_node
+	    : long_long_integer_type_node);
+
+#if HOST_BITS_PER_WIDE_INT >= 64
+  if (TYPE_OK (intTI_type_node))
+    return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
+#endif
+  if (TYPE_OK (intDI_type_node))
+    return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
+  if (TYPE_OK (intSI_type_node))
+    return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
+  if (TYPE_OK (intHI_type_node))
+    return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
+  if (TYPE_OK (intQI_type_node))
+    return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
+
+#undef GIMPLE_FIXED_TYPES
+#undef GIMPLE_FIXED_MODE_TYPES
+#undef GIMPLE_FIXED_TYPES_SAT
+#undef GIMPLE_FIXED_MODE_TYPES_SAT
+#undef TYPE_OK
+
+  return build_nonstandard_integer_type (TYPE_PRECISION (type), unsignedp);
+}
+
+
+/* Return an unsigned type the same as TYPE in other respects.  */
+
+tree
+gimple_unsigned_type (tree type)
+{
+  return gimple_signed_or_unsigned_type (true, type);
+}
+
+
+/* Return a signed type the same as TYPE in other respects.  */
+
+tree
+gimple_signed_type (tree type)
+{
+  return gimple_signed_or_unsigned_type (false, type);
+}
+
+
+/* Return the typed-based alias set for T, which may be an expression
+   or a type.  Return -1 if we don't do anything special.  */
+
+alias_set_type
+gimple_get_alias_set (tree t)
+{
+  tree u;
+
+  /* Permit type-punning when accessing a union, provided the access
+     is directly through the union.  For example, this code does not
+     permit taking the address of a union member and then storing
+     through it.  Even the type-punning allowed here is a GCC
+     extension, albeit a common and useful one; the C standard says
+     that such accesses have implementation-defined behavior.  */
+  for (u = t;
+       TREE_CODE (u) == COMPONENT_REF || TREE_CODE (u) == ARRAY_REF;
+       u = TREE_OPERAND (u, 0))
+    if (TREE_CODE (u) == COMPONENT_REF
+	&& TREE_CODE (TREE_TYPE (TREE_OPERAND (u, 0))) == UNION_TYPE)
+      return 0;
+
+  /* That's all the expressions we handle specially.  */
+  if (!TYPE_P (t))
+    return -1;
+
+  /* For convenience, follow the C standard when dealing with
+     character types.  Any object may be accessed via an lvalue that
+     has character type.  */
+  if (t == char_type_node
+      || t == signed_char_type_node
+      || t == unsigned_char_type_node)
+    return 0;
+
+  /* Allow aliasing between signed and unsigned variants of the same
+     type.  We treat the signed variant as canonical.  */
+  if (TREE_CODE (t) == INTEGER_TYPE && TYPE_UNSIGNED (t))
+    {
+      tree t1 = gimple_signed_type (t);
+
+      /* t1 == t can happen for boolean nodes which are always unsigned.  */
+      if (t1 != t)
+	return get_alias_set (t1);
+    }
+
+  return -1;
 }
 
 
