@@ -3535,13 +3535,16 @@ target-types.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra $($
 	  echo '$(subst -,_,$(ta)cumulative_args $(ta)ca;)' >> $@;) \
 	echo '} cumulative_args_u;' >> $@
 	echo '#endif /* TARGET_TYPES_H */' >> $@
-else # !EXTRA_TARGETS
-# using struct instead of union makes this gty-safe.
-target-types.h:
-	echo 'typdef struct { CUMULATIVE_ARGS _ca; } cumulative_args_u;' >> $@
-endif # !EXTRA_TARGETS
 target-gtypes.h: build/gentargtype$(build_exeext)
 	$(RUN_GEN) build/gentargtype$(build_exeext) > $@
+else # !EXTRA_TARGETS
+# using struct instead of union makes this gty-safe.
+target-types.h target-gtypes.h: Makefile
+	echo 'typedef union GTY (())' > $@
+	echo '  {' >> $@
+	echo '    CUMULATIVE_ARGS GTY ((tag ("this_targetm"))) _ca;' >> $@
+	echo '  } cumulative_args_u;' >> $@
+endif # !EXTRA_TARGETS
 EXTRA_OBJS := $(EXTRA_OBJS) \
   $(foreach ta,$(EXTRA_TARGETS),$(addprefix $(ta)/,$($(ta)-EXTRA_OBJS)))
 endif

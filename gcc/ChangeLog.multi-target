@@ -1,5 +1,9 @@
 2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* Makefile.in [!EXTRA_TARGET] (target-types.h):
+	Fix rule to provide GTY information.
+	[!EXTRA_TARGET] (target-gtypes.h): Share rule with target-types.h .
+
 	* Makefile.in (target-types.h): Remove extra semicolon.
 	(build/gentargtype.o): Use -fno-exceptions.
 
