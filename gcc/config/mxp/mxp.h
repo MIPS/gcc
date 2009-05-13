@@ -1,4 +1,7 @@
+/* Don't include multi-target.h fot target-types.h generation.  */
+#if defined(IN_GCC) || defined(GENERATOR_FILE)
 #include "mxp-regset.h"
+#endif
 #include "multi-target.h"
 
 #define N_HARDWARE_VECREGS 32

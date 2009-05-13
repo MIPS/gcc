@@ -1,4 +1,12 @@
-2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
+2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mpx/t-mxp ($(out_object_file), gt-sh.h): Remove.
+	(tm_file_list): Add mxp-regset.h instead of s-mxp-regset-h.
+	* config/mxp/mxp.h (mxp-regset.h): Don't include for target-types.h.
+	* config/arc/arc.c (arc_expand_prologue): If fame_size_to_allocate
+	is narrower than HOST_WIDE_INT, zero-extend it before negation.
+
+2009-05-12  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/t-mxp (tm_file_list): Add s-mxp-regset-h.
 	(build/genconstants.o): Remove extra dependency.

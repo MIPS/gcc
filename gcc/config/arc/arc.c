@@ -2185,7 +2185,7 @@ arc_expand_prologue (void)
   frame_size_to_allocate -= first_offset;
   /* Allocate the stack frame.  */
   if (frame_size_to_allocate > 0)
-    frame_stack_add (-frame_size_to_allocate);
+    frame_stack_add ((HOST_WIDE_INT) 0 - frame_size_to_allocate);
     
   /* For ARCtangent-A4, save any needed call-saved regs (and call-used
      if this is an interrupt handler).
