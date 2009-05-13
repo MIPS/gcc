@@ -1816,6 +1816,18 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   index = lto_input_uleb128 (ib);
   bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
 
+  LTO_DEBUG_TOKEN ("count");
+  bb->count = lto_input_sleb128 (ib);
+
+  LTO_DEBUG_TOKEN ("loop_depth");
+  bb->loop_depth = lto_input_sleb128 (ib);
+
+  LTO_DEBUG_TOKEN ("frequency");
+  bb->frequency = lto_input_sleb128 (ib);
+
+  LTO_DEBUG_TOKEN ("flags");
+  bb->flags = lto_input_sleb128 (ib);
+
   /* LTO_bb1 has statements.  LTO_bb0 does not.  */
   if (tag == LTO_bb0)
     {

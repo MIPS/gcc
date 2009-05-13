@@ -1708,9 +1708,20 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 		        ? LTO_bb1
 			: LTO_bb0);
 
-  /* The index of the basic block.  */
   LTO_DEBUG_TOKEN ("bbindex");
   output_uleb128 (ob, bb->index);
+
+  LTO_DEBUG_TOKEN ("count");
+  output_sleb128 (ob, bb->count);
+
+  LTO_DEBUG_TOKEN ("loop_depth");
+  output_sleb128 (ob, bb->loop_depth);
+
+  LTO_DEBUG_TOKEN ("frequency");
+  output_sleb128 (ob, bb->frequency);
+
+  LTO_DEBUG_TOKEN ("flags");
+  output_sleb128 (ob, bb->flags);
 
   if (!gsi_end_p (bsi) || phi_nodes (bb))
     {

@@ -1,3 +1,9 @@
+2009-05-13  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_bb): Write basic block
+	fields 'count', 'loop_depth', 'frequency' and 'flags'.
+	* lto-function-in.c (input_bb): Corresponding changes.
+
 2009-05-13  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* ipa-pure-const.c (write_summary): Replace
