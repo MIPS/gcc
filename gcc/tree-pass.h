@@ -407,6 +407,7 @@ extern struct gimple_opt_pass pass_tracer;
 extern struct ipa_opt_pass pass_ipa_inline;
 extern struct ipa_opt_pass pass_ipa_cp;
 extern struct ipa_opt_pass pass_ipa_reference;
+extern struct ipa_opt_pass pass_ipa_profile;
 extern struct ipa_opt_pass pass_ipa_pure_const;
 
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;

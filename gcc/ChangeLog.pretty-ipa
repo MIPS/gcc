@@ -1,5 +1,22 @@
 2009-05-12  Jan Hubicka  <jh@suse.cz>
 
+	* tree-pass.h (pass_ipa_profile): New.
+	* predict.c (maybe_hot_frequency_p): Support executed once.
+	(cgraph_maybe_hot_edge_p): Likewise; handle function profile.
+	(compute_function_frequency): Likewise.
+	* function.h (enum function_frequency): Add
+	FUNCTION_FREQUENCY_EXECUTED_ONCE.
+	* ipa.c (function_and_variable_visibility): Be more aggressive wrt
+	comdat and -fwhole-program.
+	* ipa-profile.c: New file.
+	* Makefile.in: Add ipa-profile.o.
+	* passes.c (init_optimization_passes): Add ipa_profile pass.
+	(pass_init_dump_file): Handle FUNCTION_FREQUENCY_EXECUTED_ONCE.
+	(execute_ipa_summary_passes): When generate_summary is NULL, don't call
+	it.
+
+2009-05-12  Jan Hubicka  <jh@suse.cz>
+
 	Merge from mainline.
 
 2009-05-09  Jan Hubicka  <jh@suse.cz>

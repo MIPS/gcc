@@ -263,15 +263,22 @@ function_and_variable_visibility (void)
   for (node = cgraph_nodes; node; node = node->next)
     {
       if (node->reachable
-	  && (DECL_COMDAT (node->decl)
+	  /* COMDAT functions must be shared only if they have address taken,
+	     otherwise we can produce our own private implementation with
+	     -fwhole-program.  */
+	  && ((DECL_COMDAT (node->decl) && (node->address_taken || !node->analyzed))
 	      || (!flag_whole_program
-		  && TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl))))
+		  && TREE_PUBLIC (node->decl)
+		  && (!DECL_EXTERNAL (node->decl)))))
 	node->local.externally_visible = true;
       if (!node->local.externally_visible && node->analyzed
 	  && !DECL_EXTERNAL (node->decl))
 	{
 	  gcc_assert (flag_whole_program || !TREE_PUBLIC (node->decl));
 	  TREE_PUBLIC (node->decl) = 0;
+	  DECL_COMDAT (node->decl) = 0;
+	  DECL_WEAK (node->decl) = 0;
+	  DECL_ONE_ONLY (node->decl) = 0;
 	}
       node->local.local = (!node->needed
 			   && node->analyzed

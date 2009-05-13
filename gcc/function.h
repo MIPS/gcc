@@ -183,6 +183,9 @@ enum function_frequency {
   /* This function most likely won't be executed at all.
      (set only when profile feedback is available or via function attribute). */
   FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
+  /* For functions that are known to be executed once (i.e. constructors, destructors
+     and main function.  */
+  FUNCTION_FREQUENCY_EXECUTED_ONCE,
   /* The default value.  */
   FUNCTION_FREQUENCY_NORMAL,
   /* Optimize this function hard

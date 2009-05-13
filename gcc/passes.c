@@ -585,6 +585,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
     }
+  NEXT_PASS (pass_ipa_profile);
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
   NEXT_PASS (pass_ipa_cp);
@@ -1128,6 +1129,8 @@ pass_init_dump_file (struct opt_pass *pass)
 	  fprintf (dump_file, "\n;; Function %s (%s)%s\n\n", dname, aname,
 	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
 	     ? " (hot)"
+	     : cfun->function_frequency == FUNCTION_FREQUENCY_EXECUTED_ONCE
+	     ? " (executed once)"
 	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
 	     ? " (unlikely executed)"
 	     : "");
@@ -1188,7 +1191,8 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 
       /* Execute all of the IPA_PASSes in the list.  */
       if (ipa_pass->pass.type == IPA_PASS 
-	  && (!pass->gate || pass->gate ()))
+	  && (!pass->gate || pass->gate ())
+	  && ipa_pass->generate_summary)
 	{
 	  pass_init_dump_file (pass);
 	  ipa_pass->generate_summary ();

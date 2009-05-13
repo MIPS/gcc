@@ -123,6 +123,9 @@ maybe_hot_frequency_p (int freq)
     }
   if (profile_status == PROFILE_ABSENT)
     return true;
+  if (cfun->function_frequency == FUNCTION_FREQUENCY_EXECUTED_ONCE
+      && freq <= (ENTRY_BLOCK_PTR->frequency * 2 / 3))
+    return false;
   if (freq < BB_FREQ_MAX / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION))
     return false;
   return true;
@@ -169,8 +172,19 @@ cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
     return false;
   if (lookup_attribute ("hot", DECL_ATTRIBUTES (edge->caller->decl)))
     return true;
+  if (DECL_STRUCT_FUNCTION (edge->caller->decl))
+    {
+      struct function *fun = DECL_STRUCT_FUNCTION (edge->caller->decl);
+      if (fun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
+        return false;
+      if (fun->function_frequency == FUNCTION_FREQUENCY_HOT)
+        return true;
+      if (fun->function_frequency == FUNCTION_FREQUENCY_EXECUTED_ONCE
+          && edge->frequency < CGRAPH_FREQ_BASE * 3 / 2)
+	return false;
+    }
   if (flag_guess_branch_prob
-      && edge->frequency < (CGRAPH_FREQ_MAX
+      && edge->frequency < (CGRAPH_FREQ_BASE
       			    / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION)))
     return false;
   return true;
@@ -2126,6 +2140,9 @@ compute_function_frequency (void)
 {
   basic_block bb;
 
+  if (cfun->function_frequency == FUNCTION_FREQUENCY_EXECUTED_ONCE)
+    return;
+
   if (!profile_info || !flag_branch_probabilities)
     {
       if (lookup_attribute ("cold", DECL_ATTRIBUTES (current_function_decl))
@@ -2134,6 +2151,11 @@ compute_function_frequency (void)
       else if (lookup_attribute ("hot", DECL_ATTRIBUTES (current_function_decl))
 	       != NULL)
         cfun->function_frequency = FUNCTION_FREQUENCY_HOT;
+      else if (MAIN_NAME_P (DECL_NAME (current_function_decl)))
+        cfun->function_frequency = FUNCTION_FREQUENCY_EXECUTED_ONCE;
+      else if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
+	       || DECL_STATIC_DESTRUCTOR (current_function_decl))
+        cfun->function_frequency = FUNCTION_FREQUENCY_EXECUTED_ONCE;
       return;
     }
   cfun->function_frequency = FUNCTION_FREQUENCY_UNLIKELY_EXECUTED;
