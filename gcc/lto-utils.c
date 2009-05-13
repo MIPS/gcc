@@ -163,6 +163,22 @@ print_lto_report (void)
 	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
 	       tree_code_name[i], lto_stats.num_trees[i]);
 
+  if (flag_lto)
+    {
+      fprintf (stderr, "[%s] Compression: "
+	       HOST_WIDE_INT_PRINT_UNSIGNED " output bytes, "
+	       HOST_WIDE_INT_PRINT_UNSIGNED " compressed bytes", s,
+	       lto_stats.num_output_il_bytes,
+	       lto_stats.num_compressed_il_bytes);
+      if (lto_stats.num_output_il_bytes > 0)
+	{
+	  const float dividend = (float) lto_stats.num_compressed_il_bytes;
+	  const float divisor = (float) lto_stats.num_output_il_bytes;
+	  fprintf (stderr, " (ratio: %f)", dividend / divisor);
+	}
+      fprintf (stderr, "\n");
+    }
+
   if (flag_wpa)
     {
       fprintf (stderr, "[%s] # of output files: "
@@ -176,6 +192,19 @@ print_lto_report (void)
       fprintf (stderr, "[%s] # callgraph partitions: "
 	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
 	       lto_stats.num_cgraph_partitions);
+
+      fprintf (stderr, "[%s] Compression: "
+	       HOST_WIDE_INT_PRINT_UNSIGNED " input bytes, "
+	       HOST_WIDE_INT_PRINT_UNSIGNED " uncompressed bytes", s,
+	       lto_stats.num_input_il_bytes,
+	       lto_stats.num_uncompressed_il_bytes);
+      if (lto_stats.num_input_il_bytes > 0)
+	{
+	  const float dividend = (float) lto_stats.num_uncompressed_il_bytes;
+	  const float divisor = (float) lto_stats.num_input_il_bytes;
+	  fprintf (stderr, " (ratio: %f)", dividend / divisor);
+	}
+      fprintf (stderr, "\n");
     }
 
   for (i = 0; i < LTO_N_SECTION_TYPES; i++)

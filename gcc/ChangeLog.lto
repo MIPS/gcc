@@ -1,3 +1,37 @@
+2009-05-13  Simon Baldwin  <simonb@google.com>
+
+	* lto-compress.h: New file.
+	* lto-compress.c: New file.
+	* Makefile.in: Added entries to build lto-compress module, added
+	ZLIB to BACKENDLIBS.
+	* lto-header.h (struct lto_stats_d): Add counters to monitor
+	compression performance.
+	* langhooks.c (lhd_append_data): Omit call to assemble_string if
+	data to send is NULL.
+	* lto-section-in.c: Include lto-compress.h.
+	* (struct lto_buffer): New structure supporting data accumulation
+	from compression.
+	* (lto_append_data): New function, compression callback.
+	* (struct lto_data_header): New structure added to uncompressed
+	data streams to allow free to find the original compressed data.
+	* (lto_get_section_data): Uncompress retrieved section data, and
+	return instead the uncompressed text.
+	* (lto_free_section_data): Retrieve the address and length of the
+	original compressed data and free that, then free the uncompressed
+	data.
+	* lto-section-out.c: Include lto-compress.h.
+	* (lto_append_data): New function, compression callback.
+	* (compression_stream): Static pointer to current compression stream.
+	* (lto_begin_section): Add call to lto_start_compression.
+	* (lto_end_section): Add call to lto_end_compression.
+	* (lto_write_stream): Add call to lto_compress_block, general tidy up
+	of loop structure.
+	* common.opt: Add new flag -flto-compression-level.
+	* lto-utils.c (print_lto_report): Add report of (un-)compression
+	statistics.
+	* doc/invoke.texi: Documented -flto-compression-level.
+	* doc/sourcebuild.texi: Added information on new use of zlib.
+
 2009-05-13  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_bb): Write basic block

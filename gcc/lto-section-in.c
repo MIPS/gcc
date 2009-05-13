@@ -49,6 +49,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section.h"
 #include "lto-section-in.h"
 #include "lto-utils.h"
+#include "lto-compress.h"
 #include "cpplib.h"
 
 /* Section names.  These must correspond to the values of
@@ -258,6 +259,37 @@ lto_get_file_decl_data (void)
   return file_decl_data;
 }
 
+/* Buffer structure for accumulating data from compression callbacks.  */
+
+struct lto_buffer
+{
+  char *data;
+  size_t length;
+};
+
+/* Compression callback, append LENGTH bytes from DATA to the buffer pointed
+   to by OPAQUE.  */
+
+static void
+lto_append_data (const char *data, size_t length, void *opaque)
+{
+  struct lto_buffer *buffer = (struct lto_buffer *) opaque;
+
+  buffer->data = (char *) xrealloc (buffer->data, buffer->length + length);
+  memcpy (buffer->data + buffer->length, data, length);
+  buffer->length += length;
+}
+
+/* Header placed in returned uncompressed data streams.  Allows the
+   uncompressed allocated data to be mapped back to the underlying
+   compressed data for use with free_section_f.  */
+
+struct lto_data_header
+{
+  const char *data;
+  size_t len;
+};
+
 /* Return a char pointer to the start of a data stream for an LTO pass
    or function.  FILE_DATA indicates where to obtain the data.
    SECTION_TYPE is the type of information to be obtained.  NAME is
@@ -271,15 +303,44 @@ lto_get_section_data (struct lto_file_decl_data *file_data,
 		      const char *name, 
 		      size_t *len)
 {
-  const char *s = (get_section_f) (file_data, section_type, name, len);
+  const char *data = (get_section_f) (file_data, section_type, name, len);
+  const size_t header_length = sizeof (struct lto_data_header);
+  struct lto_data_header *header;
+  struct lto_buffer buffer;
+  struct lto_compression_stream *stream;
   lto_stats.section_size[section_type] += *len;
-  return s;
+
+  if (data == NULL)
+    return NULL;
+
+  /* FIXME lto: WPA mode does not write compressed sections, so for now
+     suppress uncompression if flag_ltrans.  */
+  if (flag_ltrans)
+    return data;
+
+  /* Create a mapping header containing the underlying data and length,
+     and prepend this to the uncompression buffer.  The uncompressed data
+     then follows, and a pointer to the start of the uncompressed data is
+     returned.  */
+  header = (struct lto_data_header *) xmalloc (header_length);
+  header->data = data;
+  header->len = *len;
+  
+  buffer.data = (char *) header;
+  buffer.length = header_length; 
+
+  stream = lto_start_uncompression (lto_append_data, &buffer);
+  lto_uncompress_block (stream, data, *len);
+  lto_end_uncompression (stream);
+
+  *len = buffer.length - header_length;
+  return buffer.data + header_length;
 }
 
 
-/* Return the data found from the above call.  The first three
+/* Free the data found from the above call.  The first three
    parameters are the same as above.  DATA is the data to be freed and
-   LEN is the length of that data. */
+   LEN is the length of that data.  */
 
 void 
 lto_free_section_data (struct lto_file_decl_data *file_data, 
@@ -288,8 +349,25 @@ lto_free_section_data (struct lto_file_decl_data *file_data,
 		       const char *data,
 		       size_t len)
 {
+  const size_t header_length = sizeof (struct lto_data_header);
+  const char *real_data = data - header_length;
+  const struct lto_data_header *header
+    = (const struct lto_data_header *) real_data;
+
   gcc_assert (free_section_f);
-  (free_section_f) (file_data, section_type, name, data, len);
+
+  /* FIXME lto: WPA mode does not write compressed sections, so for now
+     suppress uncompression mapping if flag_ltrans.  */
+  if (flag_ltrans)
+    {
+      (free_section_f) (file_data, section_type, name, data, len);
+      return;
+    }
+
+  /* The underlying data address has been extracted from the mapping header.
+     Free that, then free the allocated uncompression buffer.  */
+  (free_section_f) (file_data, section_type, name, header->data, header->len);
+  free (CONST_CAST (char *, real_data));
 }
 
 

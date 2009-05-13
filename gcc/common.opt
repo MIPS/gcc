@@ -726,6 +726,11 @@ floop-optimize
 Common
 Does nothing.  Preserved for backward compatibility.
 
+; The initial value of -1 comes from Z_DEFAULT_COMPRESSION in zlib.h.
+flto-compression-level=
+Common Joined UInteger Var(flag_lto_compression_level) Init(-1)
+-flto-compression-level=<number> Use zlib compression level <number> for IL
+
 flto-report
 Common Report Var(flag_lto_report) Init(0) Optimization
 Report various link-time optimization statistics

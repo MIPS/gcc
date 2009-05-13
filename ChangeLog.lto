@@ -1,3 +1,9 @@
+2009-05-13  Simon Baldwin  <simonb@google.com>
+
+	* configure.ac: If --with-system-zlib, suppress local zlib and
+	pass --with-system-zlib to subdir configure scripts.
+	* configure: Regenerate.
+
 2009-02-05  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.def: all-lto-plugin depends on all-libiberty.

@@ -1,3 +1,7 @@
+2009-05-13  Simon Baldwin  <simonb@google.com>
+
+	* config-lang.in: Removed zlib from lang specific dirs.
+
 2009-01-12  Diego Novillo  <dnovillo@google.com>
 
 	* lang.c (struct lang_hooks): Remove const qualifier.

@@ -6853,6 +6853,14 @@ written.  This option is only meaningful in conjunction with @option{-fwpa}.
 
 Disabled by default.
 
+@item -flto-compression-level=@var{n}
+This option specifies the level of compression used for intermediate language
+written to LTO object files, and is only meaningful in conjunction with
+LTO mode (@option{-fwhopr}, @option{-flto}).  Valid values are 0 to 9,
+and correspond to levels of compression provided by Zlib.  Values
+outside this range are clamped to either 0 or 9.  If the option is not given,
+LTO uses Zlib's default compression setting.
+
 @item -flto-report
 This option is only useful when processing object files in LTO
 mode (via -fwhopr or -flto).

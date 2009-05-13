@@ -97,8 +97,9 @@ The C++ runtime library.
 Scripts used by the @code{gccadmin} account on @code{gcc.gnu.org}.
 
 @item zlib
-The @code{zlib} compression library, used by the Java front end and as
-part of the Java runtime library.
+The @code{zlib} compression library, used by the Java front end, as
+part of the Java runtime library, and for compressing and uncompressing
+GCC's intermediate language in LTO object files.
 @end table
 
 The build system in the top level directory, including how recursion

@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-section.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
+#include "lto-compress.h"
 #include "pointer-set.h"
 #include "stdint.h"
 #include "lto-symtab.h"
@@ -207,12 +208,33 @@ lto_eq_global_slot_node (const void *p1, const void *p2)
 *****************************************************************************/
 
 
+/* Flush compressed stream data function, sends NUM_CHARS from CHARS
+   to the append lang hook, OPAQUE is currently always NULL.  */
+
+static void
+lto_append_data (const char *chars, unsigned int num_chars, void *opaque)
+{
+  gcc_assert (opaque == NULL);
+  lang_hooks.lto.append_data (chars, num_chars, opaque);
+}
+
+/* Pointer to the current compression stream.  */
+
+static struct lto_compression_stream *compression_stream = NULL;
+
 /* Begin a new output section named NAME.  */
 
 void
 lto_begin_section (const char *name)
 {
   lang_hooks.lto.begin_section (name);
+
+  /* FIXME lto: for now, suppress compression if the lang_hook that appends
+     data is anything other than assembler output.  The effect here is that
+     we get compression of IL only in non-ltrans object files.  */
+  gcc_assert (compression_stream == NULL);
+  if (!flag_wpa)
+    compression_stream = lto_start_compression (lto_append_data, NULL);
 }
 
 
@@ -221,6 +243,11 @@ lto_begin_section (const char *name)
 void
 lto_end_section (void)
 {
+  if (compression_stream)
+    {
+      lto_end_compression (compression_stream);
+      compression_stream = NULL;
+    }
   lang_hooks.lto.end_section ();
 }
 
@@ -232,25 +259,34 @@ void
 lto_write_stream (struct lto_output_stream *obs)
 {
   unsigned int block_size = 1024;
-  unsigned int num_chars;
   struct lto_char_ptr_base *block;
+  struct lto_char_ptr_base *next_block;
   if (!obs->first_block)
     return;
 
-  block = obs->first_block;
-  while (block)
+  for (block = obs->first_block; block; block = next_block)
     {
       const char *base = ((char *)block) + sizeof (struct lto_char_ptr_base);
-      struct lto_char_ptr_base *old_block = block;
-      block = (struct lto_char_ptr_base *)block->ptr;
-      /* If there is a next block, then this one is full, if there is
-	 not a next block, then the left_in_block field says how many
-	 chars there are in this block.  */
-      num_chars = block_size - sizeof (struct lto_char_ptr_base);
-      if (!block)
-	num_chars = num_chars - obs->left_in_block;
+      unsigned int num_chars = block_size - sizeof (struct lto_char_ptr_base);
 
-      lang_hooks.lto.append_data (base, num_chars, old_block);
+      /* If this is not the last block, it is full.  If it is the last
+	 block, left_in_block indicates how many chars are unoccupied in
+	 this block; subtract from num_chars to obtain occupancy.  */
+      next_block = (struct lto_char_ptr_base *) block->ptr;
+      if (!next_block)
+	num_chars -= obs->left_in_block;
+
+      /* FIXME lto: WPA mode uses an ELF function as a lang_hook to append
+         output data.  This hook is not happy with the way that compression
+         blocks up output differently to the way it's blocked here.  So for
+         now, we don't compress WPA output.  */
+      if (compression_stream)
+	{
+	  lto_compress_block (compression_stream, base, num_chars);
+	  lang_hooks.lto.append_data (NULL, 0, block);
+	}
+      else
+	lang_hooks.lto.append_data (base, num_chars, block);
       block_size *= 2;
     }
 }

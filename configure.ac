@@ -252,6 +252,13 @@ if test x$with_gnu_as = xno ; then
   noconfigdirs="$noconfigdirs gas"
 fi
 
+use_included_zlib=
+# Make sure we don't let ZLIB be added if we didn't want it.
+if test x$with_system_zlib = xyes ; then
+  use_included_zlib=no
+  noconfigdirs="$noconfigdirs zlib"
+fi
+
 # some tools are so dependent upon X11 that if we're not building with X, 
 # it's not even worth trying to configure, much less build, that tool.
 
@@ -1908,7 +1915,7 @@ if test x"${with_libs}" != x && test x"${with_libs}" != xno ; then
   fi
 fi
 
-# Set with_gnu_as and with_gnu_ld as appropriate.
+# Set with_gnu_as, with_gnu_ld, and with_system_zlib as appropriate.
 #
 # This is done by determining whether or not the appropriate directory
 # is available, and by checking whether or not specific configurations
@@ -1919,7 +1926,9 @@ fi
 #
 # If the default for a toolchain is to use GNU as and ld, and you don't 
 # want to do that, then you should use the --without-gnu-as and
-# --without-gnu-ld options for the configure script.
+# --without-gnu-ld options for the configure script.  Similarly, if
+# the default is to use the included zlib and you don't want to do that,
+# you should use the --with-system-zlib option for the configure script.
 
 if test x${use_gnu_as} = x &&
    echo " ${configdirs} " | grep " gas " > /dev/null 2>&1 ; then
@@ -1931,6 +1940,14 @@ if test x${use_gnu_ld} = x &&
    echo " ${configdirs} " | egrep " (go)?ld " > /dev/null 2>&1 ; then
   with_gnu_ld=yes
   extra_host_args="$extra_host_args --with-gnu-ld"
+fi
+
+if test x${use_included_zlib} = x &&
+   echo " ${configdirs} " | grep " zlib " > /dev/null 2>&1 ; then
+  :
+else
+  with_system_zlib=yes
+  extra_host_args="$extra_host_args --with-system-zlib"
 fi
 
 # If using newlib, add --with-newlib to the extra_host_args so that gcc/configure

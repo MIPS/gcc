@@ -96,6 +96,10 @@ struct lto_stats_d
   unsigned HOST_WIDE_INT section_size[LTO_N_SECTION_TYPES];
   unsigned HOST_WIDE_INT num_function_bodies;
   unsigned HOST_WIDE_INT num_trees[NUM_TREE_CODES];
+  unsigned HOST_WIDE_INT num_output_il_bytes;
+  unsigned HOST_WIDE_INT num_compressed_il_bytes;
+  unsigned HOST_WIDE_INT num_input_il_bytes;
+  unsigned HOST_WIDE_INT num_uncompressed_il_bytes;
 };
 
 extern struct lto_stats_d lto_stats;

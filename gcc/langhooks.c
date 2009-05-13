@@ -618,7 +618,8 @@ lhd_begin_section (const char *name)
 void
 lhd_append_data (const void *data, size_t len, void *block)
 {
-  assemble_string ((const char *)data, len);
+  if (data)
+    assemble_string ((const char *)data, len);
   free (block);
 }
 
