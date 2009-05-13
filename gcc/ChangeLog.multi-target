@@ -1,3 +1,52 @@
+2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* Makefile.in (out_file, out_object_file, md_file, tm_file_list,
+	tm_include_list, tm_defines, tm_p_file_list, tm_p_include_list,
+	EXTRA_TARGETS, NUM_TARGETS): Move from here...
+	* T-extra ... to here.
+	* Makefile.in (xout.o): Replace with $(<target>-out_object_file).
+	(GTFILES): Add target-gtypes.h.
+	(COMMON_ABI): Chaneg to target-types.h target-gtypes.h.
+	(EXTRA_TARGET_RULES): Copy / sed target-types.g / target-gtypes.h to
+	extra targets directories.
+	[!TA] [EXTRA_TARGETS] (target-types.h, target-gtypes.h): New rules.
+	(build/gentargtype.o, build/gentargtype$(build_exeext)): Likewise.
+	* gentargtype.cc: New file.
+	* regstat.c (setjmp_crosses): No longer target specific.
+	(regstat_n_sets_and_refs): Likewise.
+	(regstat_init_n_sets_and_refs, regstat_free_n_sets_and_refs): Likewise.
+	(reg_info_p, reg_info_p_size): Likewise.
+	(regstat_free_ri, regstat_get_setjmp_crosses): Likewise.
+	(regstat_bb_compute_calls_crossed): Likewise.
+	(regstat_compute_calls_crossed, regstat_free_calls_crossed): Likewise.
+	* regs.h (REG_N_REFS, REG_N_SETS): Likewise.
+	(regstat_init_n_sets_and_refs, regstat_free_n_sets_and_refs): Likewise.
+	(regstat_free_ri, regstat_get_setjmp_crosses): Likewise.
+	(regstat_compute_calls_crossed, regstat_free_calls_crossed): Likewise.
+	* machmode.h (class_narrowest_mode): Target specific.
+	(byte_mode, word_mode, ptr_mode, init_adjust_machine_modes): Likewise.
+	* flags.h (align_loops_log, align_loops_max_skip): Likewise.
+	(align_jumps_log, align_jumps_max_skip, align_labels_log): Likewise.
+	(align_labels_max_skip, align_functions_log): Likewise.
+	* df-core.c (df_bitmap_obstack): Likewise.
+	(struct df): Rename to:
+	(struct df_d).
+	* dse.h (struct df): Don't declare.
+	* function.c (assign_parms): Use INCOMING_ARGS_INFO.
+	(prepare_function_start): Don't call init_emit.
+	(init_dummy_function_start): Call init_emit.
+	* function.h: Include target-types / target-gtypes.h.
+	(incoming_args): Use cumulative_args_ud for info member.
+	(INCOMING_ARGS_INFO): Define.
+	(regno_reg_rtx, struct incoming_args): No longer target specific.
+	(struct rtl_data, x_rtl): Likewise.
+	* df.h (struct df): Rename to:
+	(struct df_d).
+	(df_bitmap_obstack, df): No longer target specific.
+	* emit-rtl.c (x_rtl, regno_reg_rtx): Likewise.
+	* reginfo.c (max_regno): Likewise.
+	* cfgexpand.c (gimple_expand_cfg): Call init_emit.
+	
 2009-05-12  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* dce.h : Include multi-target.h.  Add START_TARGET_SPECIFIC and
