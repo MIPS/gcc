@@ -1,5 +1,9 @@
 2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* config/mxp/mxp-genregset.c (emit_regsets): Emit REG_ALLOC_ORDER
+	definition.
+	* config/mxp/mxp.h (REG_ALLOC_ORDER): Don't define.
+
 	* config/mpx/t-mxp ($(out_object_file), gt-sh.h): Remove.
 	(tm_file_list): Add mxp-regset.h instead of s-mxp-regset-h.
 	* config/mxp/mxp.h (mxp-regset.h): Don't include for target-types.h.

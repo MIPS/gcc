@@ -157,21 +157,6 @@
       : (CLASS)) \
    : (CLASS))
 
-#define REG_ALLOC_ORDER \
-{ \
-  /* Non-scalar general registers. */ \
-  18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, \
-  50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, \
-  /* Other non-scalar vector registers.  */ \
-  19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, \
-  51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, \
-  /* Scalar registers */ \
-  1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, \
-  0, 8, \
-  /* Accumulator */ \
-  78, 79, \
-}
-
 /* TImode references can address the entire 16 bit data address space using
    the data base pointer i9 and a 12-bit offset shifted left by 4.  */
 #define CONSTANT_ADDRESS_P(X) 1

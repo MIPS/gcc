@@ -343,6 +343,35 @@ emit_regsets (void)
       printf (" }, \\\n");
     }
   printf ("}\n");
+  printf ("\n"
+	  "#define REG_ALLOC_ORDER \\\n"
+	  "{ \\\n"
+	  "  /* Non-scalar general registers. */ \\\n  ");
+  for (i = 2, n_printed = 0; i < 62; i++)
+    {
+      for (j = 0; j < 8 / MXP_UNITS_PER_MXP_VEC_REG; j++)
+	{
+	  printf ("%d, ", i * 16 / MXP_UNITS_PER_MXP_VEC_REG + j);
+	  COUNT_REG;
+	}
+    }
+  printf ("/* Other non-scalar vector registers.  */ \\\n  ");
+  for (i = 2, n_printed = 0; i < 62; i++)
+    {
+      for (j = 8 / MXP_UNITS_PER_MXP_VEC_REG;
+	   j < 16 / MXP_UNITS_PER_MXP_VEC_REG; j++)
+	{
+	  printf ("%d, ", i * 16 / MXP_UNITS_PER_MXP_VEC_REG + j);
+	  COUNT_REG;
+	}
+    }
+  printf ("/* Scalar registers */ \\\n"
+	  "  1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 0, 8,\\\n"
+	  "  /* Accumulator */ \\\n  ");
+  for (j = 0; j < 16 / MXP_UNITS_PER_MXP_VEC_REG; j++)
+    printf ("%d, ", 62 * 16 / MXP_UNITS_PER_MXP_VEC_REG + j);
+  printf ("\\\n}\n");
+
 }
 
 static void
