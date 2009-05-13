@@ -415,6 +415,7 @@
       
     START_EXPR_CASE (INTEGER_CST)
       ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
     END_EXPR_CASE (INTEGER_CST)
       
     START_EXPR_CASE (INTEGER_TYPE)

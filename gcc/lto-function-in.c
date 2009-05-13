@@ -916,7 +916,14 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
   LTO_DEBUG_UNDENT();
   if (flags)
-    process_tree_flags (result, flags);
+    {
+      /* If we need to set flags on a constant, make a copy to avoid
+	 clobbering shared constants.  */
+      if (CONSTANT_CLASS_P (result))
+	result = copy_node (result);
+
+      process_tree_flags (result, flags);
+    }
 
   if (needs_line_set)
     set_line_info (data_in, result);

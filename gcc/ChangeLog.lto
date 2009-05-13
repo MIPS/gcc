@@ -1,5 +1,11 @@
 2009-05-12  Diego Novillo  <dnovillo@google.com>
 
+	* lto-tree-flags.def: Add public_flag for INTEGER_CSTs.
+	* lto-function-in.c (input_expr_operand): If there are
+	flags to be added on constants, create a copy of RESULT.
+
+2009-05-12  Diego Novillo  <dnovillo@google.com>
+
 	* lto-function-out.c (output_eh_regions): Only emit EH
 	regions when there is a region array for FN.
 	(output_cfg): Write profile status for the function.
