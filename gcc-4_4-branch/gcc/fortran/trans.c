@@ -1054,6 +1054,7 @@ gfc_trans_code (gfc_code * code)
       switch (code->op)
 	{
 	case EXEC_NOP:
+	case EXEC_END_PROCEDURE:
 	  res = NULL_TREE;
 	  break;
 
