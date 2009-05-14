@@ -1175,7 +1175,7 @@ gfc_check_interfaces (gfc_namespace *ns)
 {
   gfc_namespace *old_ns, *ns2;
   char interface_name[100];
-  int iloop;
+  int i;
 
   old_ns = gfc_current_ns;
   gfc_current_ns = ns;
@@ -1184,10 +1184,8 @@ gfc_check_interfaces (gfc_namespace *ns)
 
   gfc_traverse_user_op (ns, check_uop_interfaces);
 
-  for (iloop = GFC_INTRINSIC_BEGIN; iloop != GFC_INTRINSIC_END; iloop++)
+  for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     {
-      gfc_intrinsic_op i = (gfc_intrinsic_op) iloop;
-
       if (i == INTRINSIC_USER)
 	continue;
 
@@ -1195,12 +1193,12 @@ gfc_check_interfaces (gfc_namespace *ns)
 	strcpy (interface_name, "intrinsic assignment operator");
       else
 	sprintf (interface_name, "intrinsic '%s' operator",
-		 gfc_op2string (i));
+		 gfc_op2string ((gfc_intrinsic_op) i));
 
       if (check_interface0 (ns->op[i], interface_name))
 	continue;
 
-      check_operator_interface (ns->op[i], i);
+      check_operator_interface (ns->op[i], (gfc_intrinsic_op) i);
 
       for (ns2 = ns; ns2; ns2 = ns2->parent)
 	{
@@ -2593,7 +2591,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
   gfc_expr *lhs, *rhs;
   gfc_symbol *sym;
 
-  lhs = c->expr;
+  lhs = c->expr1;
   rhs = c->expr2;
 
   /* Don't allow an intrinsic assignment to be replaced.  */
@@ -2628,7 +2626,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
   /* Replace the assignment with the call.  */
   c->op = EXEC_ASSIGN_CALL;
   c->symtree = gfc_find_sym_in_symtree (sym);
-  c->expr = NULL;
+  c->expr1 = NULL;
   c->expr2 = NULL;
   c->ext.actual = actual;
 

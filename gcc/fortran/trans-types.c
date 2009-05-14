@@ -252,7 +252,7 @@ void init_c_interop_kinds (void)
 void
 gfc_init_kinds (void)
 {
-  int mode_loop;
+  unsigned int mode;
   int i_index, r_index, kind;
   bool saw_i4 = false, saw_i8 = false;
   bool saw_r4 = false, saw_r8 = false, saw_r16 = false;
@@ -264,7 +264,7 @@ gfc_init_kinds (void)
       enum machine_mode mode = (enum machine_mode) mode_loop;
       int kind, bitsize;
 
-      if (!targetm.scalar_mode_supported_p (mode))
+      if (!targetm.scalar_mode_supported_p ((enum machine_mode) mode))
 	continue;
 
       /* The middle end doesn't support constants larger than 2*HWI.
@@ -310,17 +310,15 @@ gfc_init_kinds (void)
   /* Set the maximum integer kind.  Used with at least BOZ constants.  */
   gfc_max_integer_kind = gfc_integer_kinds[i_index - 1].kind;
 
-  for (r_index = 0, mode_loop = MIN_MODE_FLOAT;
-       mode_loop <= MAX_MODE_FLOAT;
-       mode_loop++)
+  for (r_index = 0, mode = MIN_MODE_FLOAT; mode <= MAX_MODE_FLOAT; mode++)
     {
-      enum machine_mode mode = (enum machine_mode) mode_loop;
-      const struct real_format *fmt = REAL_MODE_FORMAT (mode);
+      const struct real_format *fmt =
+	REAL_MODE_FORMAT ((enum machine_mode) mode);
       int kind;
 
       if (fmt == NULL)
 	continue;
-      if (!targetm.scalar_mode_supported_p (mode))
+      if (!targetm.scalar_mode_supported_p ((enum machine_mode) mode))
 	continue;
 
       /* Only let float/double/long double go through because the fortran
