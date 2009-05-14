@@ -1,3 +1,70 @@
+2009-05-14  Ben Elliston <bje@au.ibm.com>
+
+	Backport from mainline:
+	2009-05-14  Jakub Jelinek  <jakub@redhat.com>
+		    Ben Elliston <bje@au.ibm.com>
+
+ 	PR middle-end/40035
+ 	* dse.c (check_mem_read_rtx): Guard against width == -1.
+
+2009-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37179
+	* config/i386/driver-i386.c (processor_signatures): New enum.
+	(SIG_GEODE): Move from vendor_signatures to processor_signatures.
+	(host_detect_local_cpu): For SIG_AMD vendor, check for SIG_GEODE
+	processor signature to detect geode processor.
+
+2009-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2009-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39666
+	* gimplify.c (gimplify_switch_expr): If case labels cover the whole
+	range of the type, but default label is missing, add it with one
+	of the existing labels instead of adding a new label for it.
+
+2009-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* tree-vect-analyze.c (vect_analyze_group_access): Use
+	HOST_WIDE_INT for gap.
+
+2009-05-11  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40074
+	* tree-vect-analyze.c (vect_analyze_group_access): Take gaps into
+	account in group size and step comparison.
+
+2009-05-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40062
+	* tree-scalar-evolution.c (follow_ssa_edge_in_condition_phi):
+	Avoid exponential behavior.
+
+2009-05-07  Janis Johnson  <janis187@us.ibm.com>
+
+	PR middle-end/39986
+	* dfp.c (encode_decimal32, decode_decimal32, encode_decimal64,
+	decode_decimal64, encode_decimal128, decode_decimal128): Avoid
+	32-bit memcpy into long.
+
+2009-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40057
+	* dojump.c (prefer_and_bit_test): Use immed_double_const instead of
+	GEN_INT for 1 << bitnum.
+	(do_jump) <case BIT_AND_EXPR>: Use build_int_cst_wide_type instead of
+	build_int_cst_type.
+
+2009-05-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/md.texi (Standard Pattern Names For Generation) [sync_nand]:
+	Remove wrong description of "nand" operation.
+
 2009-04-28  Catherine Moore  <clm@codesourcery.com>
 
 	* debug.h (set_name): Add comment.
