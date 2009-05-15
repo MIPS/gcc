@@ -1629,6 +1629,30 @@ output_phi (struct output_block *ob, gimple phi)
 }
 
 
+/* Emit the location of STMT to outpub block OB.  */
+
+static void
+output_stmt_location (struct output_block *ob, gimple stmt)
+{
+  expanded_location xloc;
+
+  xloc = expand_location (gimple_location (stmt));
+  if (xloc.file == NULL)
+    {
+      output_string (ob, ob->main_stream, xloc.file);
+      return;
+    }
+
+  output_string (ob, ob->main_stream, xloc.file);
+  output_sleb128 (ob, xloc.line);
+  output_sleb128 (ob, xloc.column);
+
+  ob->current_file = xloc.file;
+  ob->current_line = xloc.line;
+  ob->current_col = xloc.column;
+}
+
+
 /* Emit statement STMT on the main stream of output block OB.  */
 
 static void
@@ -1647,6 +1671,9 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
 
   /* Emit the number of operands in the statement.  */
   lto_output_uleb128_stream (ob->main_stream, gimple_num_ops (stmt));
+
+  /* Emit location information for the statement.  */
+  output_stmt_location (ob, stmt);
 
   /* Emit the tuple header.  FIXME lto.  This is emitting fields that are not
      necessary to emit (e.g., gimple_statement_base.bb,

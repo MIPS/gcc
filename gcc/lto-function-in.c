@@ -1680,6 +1680,49 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
 }
 
 
+/* Read location information from input block IB using the descriptors
+   in DATA_IN.  */
+
+static location_t
+input_stmt_location (struct lto_input_block *ib, struct data_in *data_in)
+{
+  location_t loc;
+  const char *file;
+  HOST_WIDE_INT line, column;
+
+  file = input_string (data_in, ib);
+  if (file == NULL)
+    return UNKNOWN_LOCATION;
+
+  file = canon_file_name (file);
+  line = lto_input_sleb128 (ib);
+  column = lto_input_sleb128 (ib);
+
+  if (file != data_in->current_file)
+    {
+      data_in->current_file = file;
+      linemap_add (line_table, LC_LEAVE, false, NULL, 0);
+    }
+
+  if (line != data_in->current_line)
+    {
+      data_in->current_line = line;
+      if (!file)
+	linemap_line_start (line_table, data_in->current_line, 80);
+    }
+
+  linemap_add (line_table, LC_ENTER, false, data_in->current_file,
+	       data_in->current_line);
+
+  if (column != data_in->current_col)
+    data_in->current_col = column;
+
+  LINEMAP_POSITION_FOR_COLUMN (loc, line_table, data_in->current_col);
+
+  return loc;
+}
+
+
 /* Read a statement with tag TAG in function FN from block IB using
    descriptors in DATA_IN.  */
 
@@ -1692,6 +1735,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   unsigned HOST_WIDE_INT num_ops;
   size_t i, nbytes;
   char *buf;
+  location_t location;
 
   if (tag == LTO_gimple_asm)
     code = GIMPLE_ASM;
@@ -1720,6 +1764,9 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 
   /* Read the number of operands in the statement.  */
   num_ops = lto_input_uleb128 (ib);
+
+  /* Read location information.  */
+  location = input_stmt_location (ib, data_in);
 
   /* Read the tuple header.  FIXME lto.  This seems unnecessarily slow
      and it is reading pointers in the tuple that need to be re-built
@@ -1795,6 +1842,9 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 
   /* Mark the statement modified so its operand vectors can be filled in.  */
   gimple_set_modified (stmt, true);
+
+  /* Set location information for STMT.  */
+  gimple_set_location (stmt, location);
 
   return stmt;
 }

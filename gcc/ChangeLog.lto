@@ -1,5 +1,12 @@
 2009-05-15  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-out.c (output_stmt_location): New.
+	(output_gimple_stmt): Call it.
+	* lto-function-in.c (input_stmt_location): New.
+	(input_gimple_stmt): Call it.
+
+2009-05-15  Diego Novillo  <dnovillo@google.com>
+
 	* lto-tags.h (LTO_SOURCE_FILE): Add brackets around value.
 	(LTO_SOURCE_LINE): Likewise.
 	(LTO_SOURCE_COL): Likewise.
