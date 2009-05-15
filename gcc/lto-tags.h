@@ -537,21 +537,12 @@ extern sbitmap lto_flags_needed_for;
 
 void lto_static_init (void);
 
-/* The serialization plan is that when any of the current file, line,
-   or col change (from the state last serialized), we write the
-   changed entity and only that entity into the stream.  We also
-   serialize the fact that the current node needs a line number.
-   Otherwise we end up putting line numbers on everything.  This takes
-   4 bits on every node and are added to the flags that are serialized
-   for the node.  
-
-   We waste a bit for the col even though we do not use the col except in
-   USE_MAPPED_LOCATION
-*/
-#define LTO_SOURCE_FILE    0x1
-#define LTO_SOURCE_LINE    0x2
-#define LTO_SOURCE_COL     0x4
-#define LTO_SOURCE_HAS_LOC 0x8
+/* Indicators for the presence of locus information on expressions and
+   symbols.  */
+#define LTO_SOURCE_FILE    1 << 0
+#define LTO_SOURCE_LINE    1 << 1
+#define LTO_SOURCE_COL     1 << 2
+#define LTO_SOURCE_HAS_LOC 1 << 3
 #define LTO_SOURCE_LOC_BITS 4
 
 /* The VAR_DECL tree code has more than 32 bits in flags.  On some hosts,

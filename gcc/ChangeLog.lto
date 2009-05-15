@@ -1,5 +1,19 @@
 2009-05-15  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-out.c (output_tree_flags): Always emit
+	location information for expressions and symbols that
+	have them.
+	Make sure that FLAGS has enough space left to encode
+	location information.
+	* lto-function-in.c (input_line_info): Change return type
+	to void.
+	Update all callers.
+	Assert that FLAGS has LTO_SOURCE_HAS_LOC set.
+	* lto-tags.h: Update comment describing the LTO_SOURCE_*
+	flags.
+
+2009-05-15  Diego Novillo  <dnovillo@google.com>
+
 	* lto-symtab.c (lto_symtab_prevailing_decl): If DECL is a
 	builtin return it.
 	* lto-function-out.c (output_expr_operand)<FUNCTION_DECL>:

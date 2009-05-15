@@ -451,10 +451,12 @@ canon_file_name (const char *string)
 /* Based on FLAGS read in a file, a line and a column into the
    fields in DATA_IN using input block IB.  */
 
-static bool
+static void
 input_line_info (struct lto_input_block *ib, struct data_in *data_in, 
 		 lto_flags_type flags)
 {
+  gcc_assert (flags & LTO_SOURCE_HAS_LOC);
+
   if (flags & LTO_SOURCE_FILE)
     {
       if (data_in->current_file)
@@ -482,8 +484,6 @@ input_line_info (struct lto_input_block *ib, struct data_in *data_in,
       LTO_DEBUG_TOKEN ("col");
       data_in->current_col = lto_input_uleb128 (ib);
     }
-
-  return (flags & LTO_SOURCE_HAS_LOC) != 0;
 }
 
 
@@ -524,7 +524,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
   tree type = NULL_TREE;
   lto_flags_type flags;
   tree result = NULL_TREE;
-  bool needs_line_set = false;
+  bool needs_line_set;
 
   if (tag == LTO_type_ref)
     {
@@ -540,8 +540,9 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
   flags = input_tree_flags (ib, code, false);
 
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
-    needs_line_set = input_line_info (ib, data_in, flags);
+  needs_line_set = (flags & LTO_SOURCE_HAS_LOC);
+  if (needs_line_set)
+    input_line_info (ib, data_in, flags);
 
   switch (code)
     {
@@ -1070,10 +1071,13 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
     }
 
   flags = input_tree_flags (ib, ERROR_MARK, true);
-
   LTO_DEBUG_TREE_FLAGS (TREE_CODE (result), flags);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, result);
+
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, result);
+    }
 
   DECL_CONTEXT (result) = fn->decl;
 
@@ -2461,11 +2465,18 @@ input_tree_with_context (struct lto_input_block *ib, struct data_in *data_in,
 static tree
 input_field_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
-  tree decl = make_node (FIELD_DECL);
+  tree decl;
+  lto_flags_type flags;
   
-  lto_flags_type flags = input_tree_flags (ib, FIELD_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  decl = make_node (FIELD_DECL);
+  
+  flags = input_tree_flags (ib, FIELD_DECL, true);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   global_vector_enter (data_in, decl);
@@ -2528,11 +2539,18 @@ input_field_decl (struct lto_input_block *ib, struct data_in *data_in)
 static tree
 input_const_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
-  tree decl = make_node (CONST_DECL);
+  tree decl;
+  lto_flags_type flags;
 
-  lto_flags_type flags = input_tree_flags (ib, CONST_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  decl = make_node (CONST_DECL);
+
+  flags = input_tree_flags (ib, CONST_DECL, true);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   global_vector_enter (data_in, decl);
@@ -2644,9 +2662,14 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in,
     }
 
   decl = make_node (FUNCTION_DECL);
+
   flags = input_tree_flags (ib, FUNCTION_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   index = global_vector_enter (data_in, decl);
@@ -2751,12 +2774,18 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
   unsigned index;
   lto_decl_flags_t decl_flags;
+  tree decl;
+  lto_flags_type flags;
 
-  tree decl = make_node (VAR_DECL);
+  decl = make_node (VAR_DECL);
 
-  lto_flags_type flags = input_tree_flags (ib, VAR_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  flags = input_tree_flags (ib, VAR_DECL, true);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   /* Additional LTO decl flags. */
@@ -2850,11 +2879,18 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 static tree
 input_parm_decl (struct lto_input_block *ib, struct data_in *data_in, tree fn)
 {
-  tree decl = make_node (PARM_DECL);
+  tree decl;
+  lto_flags_type flags;
 
-  lto_flags_type flags = input_tree_flags (ib, PARM_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  decl = make_node (PARM_DECL);
+
+  flags = input_tree_flags (ib, PARM_DECL, true);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   global_vector_enter (data_in, decl);
@@ -2884,11 +2920,18 @@ static tree
 input_result_decl (struct lto_input_block *ib, struct data_in *data_in,
 		   tree fn)
 {
-  tree decl = make_node (RESULT_DECL);
+  tree decl;
+  lto_flags_type flags;
 
-  lto_flags_type flags = input_tree_flags (ib, RESULT_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  decl = make_node (RESULT_DECL);
+
+  flags = input_tree_flags (ib, RESULT_DECL, true);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   global_vector_enter (data_in, decl);
@@ -2915,11 +2958,18 @@ input_result_decl (struct lto_input_block *ib, struct data_in *data_in,
 static tree
 input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
-  tree decl = make_node (TYPE_DECL);
+  tree decl;
+  lto_flags_type flags;
 
-  lto_flags_type flags = input_tree_flags (ib, TYPE_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  decl = make_node (TYPE_DECL);
+
+  flags = input_tree_flags (ib, TYPE_DECL, true);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   global_vector_enter (data_in, decl);
@@ -2950,11 +3000,18 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
 static tree
 input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
-  tree decl = make_node (LABEL_DECL);
+  tree decl;
+  lto_flags_type flags;
 
-  lto_flags_type flags = input_tree_flags (ib, LABEL_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  decl = make_node (LABEL_DECL);
+
+  flags = input_tree_flags (ib, LABEL_DECL, true);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   global_vector_enter (data_in, decl);
@@ -2979,11 +3036,18 @@ input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
 static tree
 input_imported_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
-  tree decl = make_node (IMPORTED_DECL);
+  tree decl;
+  lto_flags_type flags;
 
-  lto_flags_type flags = input_tree_flags (ib, IMPORTED_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
+  decl = make_node (IMPORTED_DECL);
+
+  flags = input_tree_flags (ib, IMPORTED_DECL, true);
+  if (flags & LTO_SOURCE_HAS_LOC)
+    {
+      input_line_info (ib, data_in, flags);
+      set_line_info (data_in, decl);
+    }
+
   process_tree_flags (decl, flags);
 
   global_vector_enter (data_in, decl);
@@ -3015,7 +3079,7 @@ input_binfo (struct lto_input_block *ib, struct data_in *data_in)
 
   binfo = make_tree_binfo (num_base_binfos);
 
-  gcc_assert (!input_line_info (ib, data_in, flags));
+  gcc_assert (!(flags & LTO_SOURCE_HAS_LOC));
   process_tree_flags (binfo, flags);
 
   global_vector_enter (data_in, binfo);
@@ -3239,8 +3303,9 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
 
   /* Handlers for declarations currently handle line info themselves.  */
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
-    needs_line_set = input_line_info (ib, data_in, flags);
+  needs_line_set = flags & LTO_SOURCE_HAS_LOC;
+  if (needs_line_set)
+    input_line_info (ib, data_in, flags);
 
   switch (code)
     {

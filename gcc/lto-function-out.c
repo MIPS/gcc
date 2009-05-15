@@ -470,10 +470,12 @@ static void
 output_tree_flags (struct output_block *ob, enum tree_code code, tree expr, 
 		   bool force_loc)
 {
-  lto_flags_type flags = 0;
-  const char *file_to_write = NULL;
-  int line_to_write = -1;
-  int col_to_write = -1;
+  lto_flags_type flags;
+  const char *current_file;
+  int current_line;
+  int current_col;
+
+  flags = 0;
 
   if (code == 0 || TEST_BIT (lto_flags_needed_for, code))
     {
@@ -545,93 +547,82 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 
+      /* Make sure that we have room to store the locus bits.  */
+      {
+	lto_flags_type mask;
+	mask = LTO_SOURCE_FILE 
+	       | LTO_SOURCE_LINE
+	       | LTO_SOURCE_COL
+	       | LTO_SOURCE_HAS_LOC;
+	mask <<= (HOST_BITS_PER_WIDEST_INT - LTO_SOURCE_LOC_BITS); 
+	gcc_assert ((flags & mask) == 0);
+      }
+
       flags <<= LTO_SOURCE_LOC_BITS;
+
+      current_file = NULL;
+      current_line = -1;
+      current_col = -1;
+
       if (expr)
 	{
-	  const char *current_file = NULL;
-	  int current_line = 0;
-	  int current_col = 0;
-	  if (EXPR_P (expr))
-	    {
-	      if (EXPR_HAS_LOCATION (expr))
-		{
-		  expanded_location xloc 
-		    = expand_location (EXPR_LOCATION (expr));
+	  expanded_location xloc;
 
-		  current_file = xloc.file;
-		  current_line = xloc.line;
-		  current_col = xloc.column;
-		  flags |= LTO_SOURCE_HAS_LOC;
-		}
-	    }
+	  memset (&xloc, 0, sizeof (xloc));
 
-	  /* We use force_loc here because we only want to put out the
-	     line number when we are writing the top level list of var
-	     and parm decls, not when we access them inside a
-	     function.  */
+	  if (EXPR_P (expr) && EXPR_HAS_LOCATION (expr))
+	    xloc = expand_location (EXPR_LOCATION (expr));
 	  else if (force_loc && DECL_P (expr))
 	    {
-	      expanded_location xloc 
-		= expand_location (DECL_SOURCE_LOCATION (expr));
-	      if (xloc.file)
-		{
-		  current_file = xloc.file;
-		  current_line = xloc.line;
-		  current_col = xloc.column;
-		  flags |= LTO_SOURCE_HAS_LOC;
-		}
+	      /* We use FORCE_LOC here because we only want to put out
+		 the line number when we are writing the top level
+		 list of var and parm decls, not when we access them
+		 inside a function.  */
+	      xloc = expand_location (DECL_SOURCE_LOCATION (expr));
 	    }
 
-	  if (current_file
-	      && (ob->current_file == NULL
-		  || strcmp (ob->current_file, current_file) != 0))
+	  if (xloc.file)
 	    {
-	      file_to_write = current_file;
-	      ob->current_file = current_file;
-	      flags |= LTO_SOURCE_FILE;
+	      current_file = xloc.file;
+	      current_line = xloc.line;
+	      current_col = xloc.column;
+	      flags |= LTO_SOURCE_HAS_LOC;
 	    }
-	  if (current_line != 0
-	      && ob->current_line != current_line)
-	    {
-	      line_to_write = current_line;
-	      ob->current_line = current_line;
-	      flags |= LTO_SOURCE_LINE;
-	    }
-	  if (current_col != 0
-	      && ob->current_col != current_col)
-	    {
-	      col_to_write = current_col;
-	      ob->current_col = current_col;
-	      flags |= LTO_SOURCE_COL;
-	    }
+
+	  if (current_file)
+	    flags |= LTO_SOURCE_FILE;
+
+	  if (current_line != -1)
+	    flags |= LTO_SOURCE_LINE;
+
+	  if (current_col != -1)
+	    flags |= LTO_SOURCE_COL;
 	}
 
       LTO_DEBUG_TOKEN ("flags");
       output_widest_uint_uleb128 (ob, flags);
-      /* Note that when we force flags with code == 0,
-         we cause the debugging info to be omitted.
-         I tried to fix this like so:
-           LTO_DEBUG_TREE_FLAGS (TREE_CODE (expr), flags);
-         This breaks input_local_var, however, which
-         expects the debug info to be missing.
-         Do the fix anyway, and fix input_local_var.  */
-      /* LTO_DEBUG_TREE_FLAGS (code, flags); */
+
       LTO_DEBUG_TREE_FLAGS (TREE_CODE (expr), flags);
 
-      if (file_to_write)
+      if (flags & LTO_SOURCE_FILE)
 	{
+	  ob->current_file = current_file;
 	  LTO_DEBUG_TOKEN ("file");
-	  output_string (ob, ob->main_stream, file_to_write);
+	  output_string (ob, ob->main_stream, current_file);
 	}
-      if (line_to_write != -1)
+
+      if (flags & LTO_SOURCE_LINE)
 	{
+	  ob->current_line = current_line;
 	  LTO_DEBUG_TOKEN ("line");
-	  output_uleb128 (ob, line_to_write);
+	  output_uleb128 (ob, current_line);
 	}
-      if (col_to_write != -1)
+
+      if (flags & LTO_SOURCE_COL)
 	{
+	  ob->current_col = current_col;
 	  LTO_DEBUG_TOKEN ("col");
-	  output_uleb128 (ob, col_to_write);
+	  output_uleb128 (ob, current_col);
 	}
     }
 }
