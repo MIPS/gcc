@@ -1,3 +1,10 @@
+2009-05-14  Ian Lance Taylor  <iant@google.com>
+
+	* tree.c (tree_range_check_failed): Change c to int.
+	(omp_clause_range_check_failed): Likewise.
+	* fortran/trans-types.c (gfc_init_kinds): Change mode to int.
+	Remove uses of mode_loop.
+
 2009-05-11  Ian Lance Taylor  <iant@google.com>
 
 	* cgraphunit.c (enum cgraph_order_kinds): Remove.

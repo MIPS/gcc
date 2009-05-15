@@ -252,16 +252,13 @@ void init_c_interop_kinds (void)
 void
 gfc_init_kinds (void)
 {
-  unsigned int mode;
+  int mode;
   int i_index, r_index, kind;
   bool saw_i4 = false, saw_i8 = false;
   bool saw_r4 = false, saw_r8 = false, saw_r16 = false;
 
-  for (i_index = 0, mode_loop = MIN_MODE_INT;
-       mode_loop <= MAX_MODE_INT;
-       mode_loop++)
+  for (i_index = 0, mode = MIN_MODE_INT; mode <= MAX_MODE_INT; mode++)
     {
-      enum machine_mode mode = (enum machine_mode) mode_loop;
       int kind, bitsize;
 
       if (!targetm.scalar_mode_supported_p ((enum machine_mode) mode))

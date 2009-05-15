@@ -7147,7 +7147,7 @@ tree_range_check_failed (const_tree node, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  unsigned int c;
+  int c;
 
   for (c = c1; c <= c2; ++c)
     length += 4 + strlen (tree_code_name[c]);
@@ -7208,7 +7208,7 @@ omp_clause_range_check_failed (const_tree node, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  unsigned int c;
+  int c;
 
   for (c = c1; c <= c2; ++c)
     length += 4 + strlen (omp_clause_code_name[c]);
