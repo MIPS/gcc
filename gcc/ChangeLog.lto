@@ -1,5 +1,12 @@
 2009-05-15  Diego Novillo  <dnovillo@google.com>
 
+	* lto-tags.h (LTO_SOURCE_FILE): Add brackets around value.
+	(LTO_SOURCE_LINE): Likewise.
+	(LTO_SOURCE_COL): Likewise.
+	(LTO_SOURCE_HAS_LOC): Likewise.
+
+2009-05-15  Diego Novillo  <dnovillo@google.com>
+
 	* lto-function-out.c (output_tree_flags): Always emit
 	location information for expressions and symbols that
 	have them.

@@ -539,10 +539,10 @@ void lto_static_init (void);
 
 /* Indicators for the presence of locus information on expressions and
    symbols.  */
-#define LTO_SOURCE_FILE    1 << 0
-#define LTO_SOURCE_LINE    1 << 1
-#define LTO_SOURCE_COL     1 << 2
-#define LTO_SOURCE_HAS_LOC 1 << 3
+#define LTO_SOURCE_FILE    (1 << 0)
+#define LTO_SOURCE_LINE    (1 << 1)
+#define LTO_SOURCE_COL     (1 << 2)
+#define LTO_SOURCE_HAS_LOC (1 << 3)
 #define LTO_SOURCE_LOC_BITS 4
 
 /* The VAR_DECL tree code has more than 32 bits in flags.  On some hosts,
