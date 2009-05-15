@@ -631,7 +631,8 @@ lto_symtab_prevailing_decl (tree decl)
   tree ret;
   gcc_assert (decl);
 
-  if (!TREE_PUBLIC (decl))
+  /* Builtins and local symbols are their own prevailing decl.  */
+  if (!TREE_PUBLIC (decl) || DECL_IS_BUILTIN (decl))
     return decl;
 
   /* FIXME lto. There should be no DECL_ABSTRACT in the middle end. */

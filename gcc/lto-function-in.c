@@ -2610,16 +2610,41 @@ get_resolution (struct data_in *data_in, unsigned index)
 
 
 /* Read a FUNCTION_DECL tree from input block IB using descriptors in
-   DATA_IN.  */
+   DATA_IN.  TAG is one of LTO_function_decl0 or LTO_function_decl1.  */
 
 static tree
-input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
+input_function_decl (struct lto_input_block *ib, struct data_in *data_in,
+		     enum LTO_tags tag)
 {
   unsigned index;
   unsigned has_personality;
-  tree decl = make_node (FUNCTION_DECL);
+  tree decl;
+  lto_flags_type flags;
 
-  lto_flags_type flags = input_tree_flags (ib, FUNCTION_DECL, true);
+  if (tag == LTO_function_decl1)
+    {
+      /* If we are going to read a built-in function, all we need is
+	 the code and class.  */
+      enum built_in_class fclass;
+      enum built_in_function fcode;
+
+      fclass = (enum built_in_class) lto_input_uleb128 (ib);
+      gcc_assert (fclass == BUILT_IN_NORMAL || fclass == BUILT_IN_MD);
+
+      fcode = (enum built_in_function) lto_input_uleb128 (ib);
+      gcc_assert (fcode < END_BUILTINS);
+
+      decl = built_in_decls[(size_t) fcode];
+      gcc_assert (decl);
+
+      global_vector_enter (data_in, decl);
+
+      LTO_DEBUG_TOKEN ("end_function_decl");
+      return decl;
+    }
+
+  decl = make_node (FUNCTION_DECL);
+  flags = input_tree_flags (ib, FUNCTION_DECL, true);
   if (input_line_info (ib, data_in, flags))
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
@@ -2651,11 +2676,13 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
   else
     decl->function_decl.personality = NULL ;
 
-  decl->function_decl.function_code =
-    	(enum built_in_function) lto_input_uleb128 (ib);
 
-  decl->function_decl.built_in_class =
-    	(enum built_in_class) lto_input_uleb128 (ib);
+  DECL_BUILT_IN_CLASS (decl) = (enum built_in_class) lto_input_uleb128 (ib);
+  gcc_assert (!DECL_IS_BUILTIN (decl)
+	      || DECL_BUILT_IN_CLASS (decl) == NOT_BUILT_IN
+	      || DECL_BUILT_IN_CLASS (decl) == BUILT_IN_FRONTEND);
+
+  DECL_FUNCTION_CODE (decl) = (enum built_in_function) lto_input_uleb128 (ib);
 
   /* Need to ensure static entities between different files
      don't clash unexpectedly.  */
@@ -3343,7 +3370,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case FUNCTION_DECL:
-      result = input_function_decl (ib, data_in);
+      result = input_function_decl (ib, data_in, tag);
       break;
 
     case IMPORTED_DECL:

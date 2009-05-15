@@ -1109,6 +1109,7 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case FUNCTION_DECL:
+      tag = DECL_IS_BUILTIN (expr) ? LTO_function_decl1 : LTO_function_decl0;
       output_record_start (ob, NULL, NULL, tag);
       lto_output_fn_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
@@ -2627,8 +2628,23 @@ output_function_decl (struct output_block *ob, tree decl)
 {
   bool saved_external, saved_public;
 
-  /* tag and flags */
-  output_global_record_start (ob, NULL, NULL, LTO_function_decl);
+  global_vector_debug (ob);
+
+  /* If DECL is a builtin of class BUILT_IN_MD or BUILT_IN_NORMAL, we
+     only need to write its code and class.  If DECL is BUILT_IN_FRONTEND
+     we have to write it out as a regular function.  */
+  if (DECL_IS_BUILTIN (decl)
+      && (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	  || DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD))
+    {
+      output_global_record_start (ob, NULL, NULL, LTO_function_decl1);
+      output_uleb128 (ob, DECL_BUILT_IN_CLASS (decl));
+      output_uleb128 (ob, DECL_FUNCTION_CODE (decl));
+      LTO_DEBUG_TOKEN ("end_function_decl");
+      return;
+    }
+
+  output_global_record_start (ob, NULL, NULL, LTO_function_decl0);
 
   /* This function is a cherry-picked inlined function.  To avoid
      multiple definition in the final link, we fake the function decl
@@ -2644,8 +2660,6 @@ output_function_decl (struct output_block *ob, tree decl)
     }
   else
     output_tree_flags (ob, ERROR_MARK, decl, true);
-
-  global_vector_debug (ob);
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
@@ -2696,8 +2710,11 @@ output_function_decl (struct output_block *ob, tree decl)
   else
     output_uleb128 (ob, 0);
 
-  output_uleb128 (ob, decl->function_decl.function_code);
-  output_uleb128 (ob, decl->function_decl.built_in_class);
+  gcc_assert (!DECL_IS_BUILTIN (decl)
+	      || DECL_BUILT_IN_CLASS (decl) == NOT_BUILT_IN
+	      || DECL_BUILT_IN_CLASS (decl) == BUILT_IN_FRONTEND);
+  output_uleb128 (ob, DECL_BUILT_IN_CLASS (decl));
+  output_uleb128 (ob, DECL_FUNCTION_CODE (decl));
   LTO_DEBUG_TOKEN ("end_function_decl");
 }
 

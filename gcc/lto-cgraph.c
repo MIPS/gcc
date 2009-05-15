@@ -508,7 +508,14 @@ input_node (struct lto_file_decl_data *file_data,
   LTO_DEBUG_TOKEN ("inlined");
   inlined = lto_input_uleb128 (ib);
 
-  gcc_assert (!node->aux);
+  /* Make sure that we have not read this node before.  Nodes that
+     have already been read will have their tag stored in the 'aux'
+     field.  Since built-in functions can be referenced in multiple
+     functions, they are expected to be read more than once.
+     FIXME lto, this is wasteful and may lead to suboptimal code if
+     the different cgraph nodes for the same built-in have different
+     flags.  */
+  gcc_assert (!node->aux || DECL_IS_BUILTIN (node->decl));
 
   input_overwrite_node (file_data, node, tag, flags, stack_size, self_insns);
 

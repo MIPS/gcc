@@ -354,7 +354,11 @@ enum LTO_tags
   LTO_float_expr,
   LTO_floor_div_expr,
   LTO_floor_mod_expr,
-  LTO_function_decl,
+
+  /* 1 for built-in functions, 0 for regular functions.  */
+  LTO_function_decl0,
+  LTO_function_decl1,
+
   LTO_ge_expr,
   LTO_goto_expr,
   LTO_gt_expr,

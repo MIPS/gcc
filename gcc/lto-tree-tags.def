@@ -58,6 +58,7 @@
   MAP_EXPR_TAGS(VAR_DECL, LTO_var_decl0, 2)
   MAP_EXPR_TAGS(LABEL_DECL, LTO_label_decl0, 2)
   MAP_EXPR_TAGS(VECTOR_CST, LTO_vector_cst0, 2)
+  MAP_EXPR_TAGS(FUNCTION_DECL, LTO_function_decl0, 2)
 #endif
 
 #ifdef TREE_SINGLE_MECHANICAL_FALSE
@@ -73,7 +74,6 @@
   MAP_EXPR_TAG(FIELD_DECL, LTO_field_decl)
   MAP_EXPR_TAG(FIXED_CST, LTO_fixed_cst)
   MAP_EXPR_TAG(FIXED_POINT_TYPE, LTO_fixed_point_type)
-  MAP_EXPR_TAG(FUNCTION_DECL, LTO_function_decl)
   MAP_EXPR_TAG(FUNCTION_TYPE, LTO_function_type)
   MAP_EXPR_TAG(IDENTIFIER_NODE, LTO_identifier_node)
   MAP_EXPR_TAG(INTEGER_CST, LTO_integer_cst)
@@ -246,7 +246,8 @@
   SET_NAME (LTO_float_expr, "float_expr")
   SET_NAME (LTO_floor_div_expr, "floor_div_expr")
   SET_NAME (LTO_floor_mod_expr, "floor_mod_expr")
-  SET_NAME (LTO_function_decl, "function_decl")
+  SET_NAME (LTO_function_decl0, "function_decl0")
+  SET_NAME (LTO_function_decl1, "function_decl1")
   SET_NAME (LTO_ge_expr, "ge_expr")
   SET_NAME (LTO_goto_expr, "goto_expr")
   SET_NAME (LTO_gt_expr, "gt_expr")

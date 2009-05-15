@@ -1,3 +1,12 @@
+2009-05-15  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_materialize_function): Assert that DECL is
+	not a builtin.
+	(materialize_cgraph): Don't try to materialize builtin
+	functions.
+	* lto-section-out.c (write_symbol_vec): Do not write
+	builtin functions.
+
 2009-05-13  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c (LANG_HOOKS_GET_ALIAS_SET): Define.

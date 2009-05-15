@@ -93,6 +93,8 @@ lto_materialize_function (struct cgraph_node *node)
     {
       struct function *fn;
 
+      gcc_assert (!DECL_IS_BUILTIN (decl));
+
       /* This function has a definition.  */
       TREE_STATIC (decl) = 1;
 
@@ -1718,7 +1720,13 @@ materialize_cgraph (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
-      lto_materialize_function (node);
+      /* Builtin functions need not be materialized and may, in fact,
+	 cause confusion because there may be a regular function in
+	 the file whose assembler name matches that of the function
+	 (e.g., testsuite/gcc.c-torture/execute/20030125-1.c).  */
+      if (!DECL_IS_BUILTIN (node->decl))
+	lto_materialize_function (node);
+
       lto_stats.num_input_cgraph_nodes++;
     }
 

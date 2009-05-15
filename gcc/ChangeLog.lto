@@ -1,3 +1,25 @@
+2009-05-15  Diego Novillo  <dnovillo@google.com>
+
+	* lto-symtab.c (lto_symtab_prevailing_decl): If DECL is a
+	builtin return it.
+	* lto-function-out.c (output_expr_operand)<FUNCTION_DECL>:
+	Set TAG to LTO_function_decl1 if EXPR is a builtin.
+	Otherwise, set it to LTO_function_decl0.
+	(output_function_decl): If DECL is a builtin, only write
+	its class and function code.
+	* lto-function-in.c (input_function_decl): Add argument TAG.
+	Update all users.
+	If TAG is LTO_function_decl1 retrieve the function symbol
+	from the built_in_decls array.
+	* lto-cgraph.c (input_node): Allow nodes of builtin
+	functions to be overwritten.
+	* lto-tree-tags.def: Add LTO_function_decl0 and
+	LTO_function_decl1.
+	Remove LTO_function_decl.  Update all users.
+	* lto-tags.h (enum LTO_tags): Add LTO_function_decl0 and
+	LTO_function_decl1.
+	Remove LTO_function_decl.
+
 2009-05-13  Diego Novillo  <dnovillo@google.com>
 
 	* lto-compress.c (struct lto_compression_stream): Change
@@ -148,7 +170,6 @@
 	(lto_read_body): Do not set DATA_IN.NUM_NAMED_LABELS.
 	(input_label_decl): Read DECL_CONTEXT.
 	* lto-header.h (lto_decl_stream_e_t): Add LTO_DECL_STREAM_LABEL_DECL.
-	/* FIXME lto tuple streamer.  */
 	* lto-tree-in.h (struct data_in): Add field 'num_unnamed_labels'.
 	* lto-tree-tags.def: Call MAP_EXPR_TAGS for
 	LTO_label_decl0 and LTO_label_decl1.
