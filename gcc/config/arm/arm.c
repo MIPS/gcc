@@ -73,6 +73,8 @@ static int arm_address_register_rtx_p (rtx, int);
 static int arm_legitimate_index_p (enum machine_mode, rtx, RTX_CODE, int);
 static int thumb2_legitimate_index_p (enum machine_mode, rtx, int);
 static int thumb1_base_register_rtx_p (rtx, enum machine_mode, int);
+static rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
+static rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
 inline static int thumb1_index_register_rtx_p (rtx, int);
 static int thumb_far_jump_used_p (void);
 static bool thumb_force_lr_save (void);
@@ -204,6 +206,9 @@ static bool arm_allocate_stack_slots_for_args (void);
 #undef  TARGET_MERGE_DECL_ATTRIBUTES
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
 #endif
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS arm_legitimize_address
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
@@ -582,10 +587,6 @@ enum machine_mode output_memory_reference_mode;
 /* The register number to be used for the PIC offset register.  */
 unsigned arm_pic_register = INVALID_REGNUM;
 
-/* Set to 1 when a return insn is output, this means that the epilogue
-   is not needed.  */
-int return_used_this_function;
-
 /* Set to 1 after arm_reorg has started.  Reset to start at the start of
    the next function.  */
 static int after_arm_reorg = 0;
@@ -733,7 +734,7 @@ static const struct fpu_desc all_fpus[] =
 /* Floating point models used by the different hardware.
    See fputype in arm.h.  */
 
-static const enum fputype fp_model_for_fpu[] =
+static const enum arm_fp_model fp_model_for_fpu[] =
 {
   /* No FP hardware.  */
   ARM_FP_MODEL_UNKNOWN,		/* FPUTYPE_NONE  */
@@ -1203,13 +1204,13 @@ arm_override_options (void)
       const struct processors * sel;
       unsigned int        sought;
 
-      selected_cpu = TARGET_CPU_DEFAULT;
+      selected_cpu = (enum processor_type) TARGET_CPU_DEFAULT;
       if (selected_cpu == arm_none)
 	{
 #ifdef SUBTARGET_CPU_DEFAULT
 	  /* Use the subtarget default CPU if none was specified by
 	     configure.  */
-	  selected_cpu = SUBTARGET_CPU_DEFAULT;
+	  selected_cpu = (enum processor_type) SUBTARGET_CPU_DEFAULT;
 #endif
 	  /* Default to ARM6.  */
 	  if (selected_cpu == arm_none)
@@ -1507,6 +1508,10 @@ arm_override_options (void)
 
   if (arm_float_abi == ARM_FLOAT_ABI_HARD && TARGET_VFP)
     sorry ("-mfloat-abi=hard and VFP");
+
+  if (TARGET_AAPCS_BASED
+      && (arm_fp_model == ARM_FP_MODEL_FPA))
+    error ("FPA is unsupported in the AAPCS");
 
   /* FPA and iWMMXt are incompatible because the insn encodings overlap.
      VFP and iWMMXt can theoretically coexist, but it's unlikely such silicon
@@ -3259,8 +3264,8 @@ arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -3277,8 +3282,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
     {
       if (TREE_CODE (*node) != FUNCTION_DECL)
 	{
-	  warning (OPT_Wattributes, "%qs attribute only applies to functions",
-		   IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qE attribute only applies to functions",
+		   name);
 	  *no_add_attrs = true;
 	}
       /* FIXME: the argument if any is checked for type attributes;
@@ -3291,8 +3296,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	{
 	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
 	    {
-	      warning (OPT_Wattributes, "%qs attribute ignored",
-		       IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qE attribute ignored",
+		       name);
 	      *no_add_attrs = true;
 	    }
 	}
@@ -3319,8 +3324,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	    }
 	  else
 	    {
-	      warning (OPT_Wattributes, "%qs attribute ignored",
-		       IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qE attribute ignored",
+		       name);
 	    }
 	}
     }
@@ -3569,7 +3574,7 @@ require_pic_register (void)
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
 	     process.  */
-	  if (current_ir_type () != IR_GIMPLE)
+	  if (current_ir_type () != IR_GIMPLE || currently_expanding_to_rtl)
 	    crtl->uses_pic_offset_table = 1;
 	}
       else
@@ -3582,7 +3587,7 @@ require_pic_register (void)
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
 	     process.  */
-	  if (current_ir_type () != IR_GIMPLE)
+	  if (current_ir_type () != IR_GIMPLE || currently_expanding_to_rtl)
 	    {
 	      crtl->uses_pic_offset_table = 1;
 	      start_sequence ();
@@ -3591,7 +3596,11 @@ require_pic_register (void)
 
 	      seq = get_insns ();
 	      end_sequence ();
-	      emit_insn_after (seq, entry_of_function ());
+	      /* We can be called during expansion of PHI nodes, where
+	         we can't yet emit instructions directly in the final
+		 insn stream.  Queue the insns on the entry edge, they will
+		 be committed after everything else is expanded.  */
+	      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
 	    }
 	}
     }
@@ -4590,6 +4599,14 @@ legitimize_tls_address (rtx x, rtx reg)
 rtx
 arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 {
+  if (!TARGET_ARM)
+    {
+      /* TODO: legitimize_address for Thumb2.  */
+      if (TARGET_THUMB2)
+        return x;
+      return thumb_legitimize_address (x, orig_x, mode);
+    }
+
   if (arm_tls_symbol_p (x))
     return legitimize_tls_address (x, NULL_RTX);
 
@@ -4788,7 +4805,7 @@ thumb_legitimize_reload_address (rtx *x_p,
 
       x = copy_rtx (x);
       push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
-		   Pmode, VOIDmode, 0, 0, opnum, type);
+		   Pmode, VOIDmode, 0, 0, opnum, (enum reload_type) type);
       return x;
     }
 
@@ -4805,7 +4822,7 @@ thumb_legitimize_reload_address (rtx *x_p,
 
       x = copy_rtx (x);
       push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
-		   Pmode, VOIDmode, 0, 0, opnum, type);
+		   Pmode, VOIDmode, 0, 0, opnum, (enum reload_type) type);
       return x;
     }
 
@@ -5143,10 +5160,17 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	  return true;
 	}
 
+      /* A shift as a part of RSB costs no more than RSB itself.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), code, speed);
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  return true;
+	}
+
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 1), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 1), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 1), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 0), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 1), 0), subcode, speed);
@@ -5182,9 +5206,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	 multiplication by a power of two, so that we fall down into
 	 the code below.  */
       if (GET_CODE (XEXP (x, 0)) == MULT
-	  && ! (GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-		&& ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-		     (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0)))
+	  && !power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  /* The cost comes from the cost of the multiply.  */
 	  return false;
@@ -5267,9 +5289,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	}
 
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 1), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
@@ -5326,9 +5346,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	      || subcode == LSHIFTRT
 	      || subcode == ROTATE || subcode == ROTATERT
 	      || (subcode == MULT
-		  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-		  && ((INTVAL (XEXP (XEXP (x, 0), 1)) & 
-		       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0)))
+		  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode)))
 	    {
 	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
 	      /* Register shifts cost an extra cycle.  */
@@ -5436,9 +5454,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 	}
 
       if (subcode == MULT
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-	       (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0))
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
 	{
 	  *total += rtx_cost (XEXP (x, 1), code, speed);
 	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
@@ -5458,7 +5474,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
       return true;
 
     case ABS:
-      if (GET_MODE_CLASS (mode == MODE_FLOAT))
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	{
 	  if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
 	    {
@@ -5674,6 +5690,16 @@ arm_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	  return false;
 	}
 
+      /* A shift as a part of ADD costs nothing.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total = COSTS_N_INSNS (TARGET_THUMB2 ? 2 : 1);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), code, false);
+	  *total += rtx_cost (XEXP (x, 1), code, false);
+	  return true;
+	}
+
       /* Fall through */
     case AND: case XOR: case IOR:
       if (mode == SImode)
@@ -5767,7 +5793,10 @@ arm_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 
     case CONST_INT:
       if (const_ok_for_arm (INTVAL (x)))
-	*total = COSTS_N_INSNS (outer_code == SET ? 1 : 0);
+	/* A multiplication by a constant requires another instruction
+	   to load the constant to a register.  */
+	*total = COSTS_N_INSNS ((outer_code == SET || outer_code == MULT)
+				? 1 : 0);
       else if (const_ok_for_arm (~INTVAL (x)))
 	*total = COSTS_N_INSNS (outer_code == AND ? 0 : 1);
       else if (const_ok_for_arm (-INTVAL (x)))
@@ -5814,10 +5843,12 @@ arm_rtx_costs (rtx x, int code, int outer_code, int *total,
 	       bool speed)
 {
   if (!speed)
-    return arm_size_rtx_costs (x, code, outer_code, total);
+    return arm_size_rtx_costs (x, (enum rtx_code) code,
+			       (enum rtx_code) outer_code, total);
   else
-    return all_cores[(int)arm_tune].rtx_costs (x, code, outer_code, total,
-					       speed);
+    return all_cores[(int)arm_tune].rtx_costs (x, (enum rtx_code) code,
+					       (enum rtx_code) outer_code,
+					       total, speed);
 }
 
 /* RTX costs for cores with a slow MUL implementation.  Thumb-2 is not
@@ -7401,7 +7432,7 @@ adjacent_mem_locations (rtx a, rtx b)
       /* Don't accept any offset that will require multiple
 	 instructions to handle, since this would cause the
 	 arith_adjacentmem pattern to output an overlong sequence.  */
-      if (!const_ok_for_op (PLUS, val0) || !const_ok_for_op (PLUS, val1))
+      if (!const_ok_for_op (val0, PLUS) || !const_ok_for_op (val1, PLUS))
 	return 0;
 
       /* Don't allow an eliminable register: register elimination can make
@@ -10207,8 +10238,7 @@ vfp_emit_fstmd (int base_reg, int count)
     }
 
   par = emit_insn (par);
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
   RTX_FRAME_RELATED_P (par) = 1;
 
   return count * 8;
@@ -11618,7 +11648,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 
   sprintf (conditional, "%%?%%%c0", reverse ? 'D' : 'd');
 
-  return_used_this_function = 1;
+  cfun->machine->return_used_this_function = 1;
 
   offsets = arm_get_frame_offsets ();
   live_regs_mask = offsets->saved_regs_mask;
@@ -11883,7 +11913,6 @@ arm_output_function_prologue (FILE *f, HOST_WIDE_INT frame_size)
   if (crtl->calls_eh_return)
     asm_fprintf (f, "\t@ Calls __builtin_eh_return.\n");
 
-  return_used_this_function = 0;
 }
 
 const char *
@@ -11904,7 +11933,8 @@ arm_output_epilogue (rtx sibling)
 
   /* If we have already generated the return instruction
      then it is futile to generate anything else.  */
-  if (use_return_insn (FALSE, sibling) && return_used_this_function)
+  if (use_return_insn (FALSE, sibling) && 
+      (cfun->machine->return_used_this_function != 0))
     return "";
 
   func_type = arm_current_func_type ();
@@ -12351,7 +12381,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       /* ??? Probably not safe to set this here, since it assumes that a
 	 function will be emitted as assembly immediately after we generate
 	 RTL for it.  This does not happen for inline functions.  */
-      return_used_this_function = 0;
+      cfun->machine->return_used_this_function = 0;
     }
   else /* TARGET_32BIT */
     {
@@ -12359,7 +12389,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       offsets = arm_get_frame_offsets ();
 
       gcc_assert (!use_return_insn (FALSE, NULL)
-		  || !return_used_this_function
+		  || (cfun->machine->return_used_this_function != 0)
 		  || offsets->saved_regs == offsets->outgoing_args
 		  || frame_pointer_needed);
 
@@ -12491,8 +12521,8 @@ emit_multi_reg_push (unsigned long mask)
   RTX_FRAME_RELATED_P (tmp) = 1;
   XVECEXP (dwarf, 0, 0) = tmp;
 
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
+
   return par;
 }
 
@@ -12558,8 +12588,8 @@ emit_sfm (int base_reg, int count)
   XVECEXP (dwarf, 0, 0) = tmp;
 
   par = emit_insn (par);
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
+
   return par;
 }
 
@@ -12978,8 +13008,7 @@ thumb_set_frame_pointer (arm_stack_offsets *offsets)
       dwarf = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
 			   plus_constant (stack_pointer_rtx, amount));
       RTX_FRAME_RELATED_P (dwarf) = 1;
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-					    REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
     }
 
   RTX_FRAME_RELATED_P (insn) = 1;
@@ -13042,8 +13071,7 @@ arm_expand_prologue (void)
       dwarf = gen_rtx_SET (VOIDmode, r0, dwarf);
       insn = gen_movsi (r0, stack_pointer_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					    dwarf, REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
       emit_insn (insn);
       emit_insn (gen_andsi3 (r1, r0, GEN_INT (~(HOST_WIDE_INT)7)));
       emit_insn (gen_movsi (stack_pointer_rtx, r1));
@@ -13110,8 +13138,7 @@ arm_expand_prologue (void)
 				   plus_constant (stack_pointer_rtx,
 						  -fp_offset));
 	      RTX_FRAME_RELATED_P (insn) = 1;
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-						    dwarf, REG_NOTES (insn));
+	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
 	    }
 	  else
 	    {
@@ -14021,7 +14048,7 @@ static enum arm_cond_code
 get_arm_condition_code (rtx comparison)
 {
   enum machine_mode mode = GET_MODE (XEXP (comparison, 0));
-  int code;
+  enum arm_cond_code code;
   enum rtx_code comp_code = GET_CODE (comparison);
 
   if (GET_MODE_CLASS (mode) != MODE_CC)
@@ -14663,7 +14690,8 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 
 /* For efficiency and historical reasons LO_REGS, HI_REGS and CC_REGS are
    not used in arm mode.  */
-int
+
+enum reg_class
 arm_regno_class (int regno)
 {
   if (TARGET_THUMB1)
@@ -14817,7 +14845,7 @@ static const struct builtin_description bdesc_2arg[] =
 {
 #define IWMMXT_BUILTIN(code, string, builtin) \
   { FL_IWMMXT, CODE_FOR_##code, "__builtin_arm_" string, \
-    ARM_BUILTIN_##builtin, 0, 0 },
+    ARM_BUILTIN_##builtin, UNKNOWN, 0 },
 
   IWMMXT_BUILTIN (addv8qi3, "waddb", WADDB)
   IWMMXT_BUILTIN (addv4hi3, "waddh", WADDH)
@@ -14879,7 +14907,7 @@ static const struct builtin_description bdesc_2arg[] =
   IWMMXT_BUILTIN (iwmmxt_wmaddu, "wmaddu", WMADDU)
 
 #define IWMMXT_BUILTIN2(code, builtin) \
-  { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, 0, 0 },
+  { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, UNKNOWN, 0 },
 
   IWMMXT_BUILTIN2 (iwmmxt_wpackhss, WPACKHSS)
   IWMMXT_BUILTIN2 (iwmmxt_wpackwss, WPACKWSS)
@@ -15276,7 +15304,7 @@ arm_init_tls_builtins (void)
   TREE_READONLY (decl) = 1;
 }
 
-typedef enum {
+enum neon_builtin_type_bits {
   T_V8QI  = 0x0001,
   T_V4HI  = 0x0002,
   T_V2SI  = 0x0004,
@@ -15290,7 +15318,7 @@ typedef enum {
   T_TI	  = 0x0400,
   T_EI	  = 0x0800,
   T_OI	  = 0x1000
-} neon_builtin_type_bits;
+};
 
 #define v8qi_UP  T_V8QI
 #define v4hi_UP  T_V4HI
@@ -15353,7 +15381,7 @@ typedef enum {
 typedef struct {
   const char *name;
   const neon_itype itype;
-  const neon_builtin_type_bits bits;
+  const int bits;
   const enum insn_code codes[T_MAX];
   const unsigned int num_vars;
   unsigned int base_fcode;
@@ -16270,7 +16298,7 @@ arm_expand_neon_args (rtx target, int icode, int have_retval,
 
   for (;;)
     {
-      builtin_arg thisarg = va_arg (ap, int);
+      builtin_arg thisarg = (builtin_arg) va_arg (ap, int);
 
       if (thisarg == NEON_ARG_STOP)
         break;
@@ -17300,7 +17328,7 @@ thumb_unexpanded_epilogue (void)
   int had_to_push_lr;
   int size;
 
-  if (return_used_this_function)
+  if (cfun->machine->return_used_this_function != 0)
     return "";
 
   if (IS_NAKED (arm_current_func_type ()))
@@ -17624,9 +17652,7 @@ thumb1_expand_prologue (void)
 			       plus_constant (stack_pointer_rtx,
 					      -amount));
 	  RTX_FRAME_RELATED_P (dwarf) = 1;
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				 REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
 	}
     }
 
@@ -19393,7 +19419,7 @@ arm_emit_tls_decoration (FILE *fp, rtx x)
   rtx val;
 
   val = XVECEXP (x, 0, 0);
-  reloc = INTVAL (XVECEXP (x, 0, 1));
+  reloc = (enum tls_reloc) INTVAL (XVECEXP (x, 0, 1));
 
   output_addr_const (fp, val);
 

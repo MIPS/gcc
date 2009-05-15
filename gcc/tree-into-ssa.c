@@ -1,5 +1,5 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -113,18 +113,6 @@ static sbitmap old_ssa_names;
 static sbitmap new_ssa_names;
 
 
-/* Symbols whose SSA form needs to be updated or created for the first
-   time.  */
-static bitmap syms_to_rename;
-
-/* Subset of SYMS_TO_RENAME.  Contains all the GIMPLE register symbols
-   that have been marked for renaming.  */
-static bitmap regs_to_rename;
-
-/* Subset of SYMS_TO_RENAME.  Contains all the memory symbols
-   that have been marked for renaming.  */
-static bitmap mem_syms_to_rename;
-
 /* Set of SSA names that have been marked to be released after they
    were registered in the replacement table.  They will be finally
    released after we finish updating the SSA web.  */
@@ -155,12 +143,9 @@ struct repl_map_d
    then REPL_TBL[N_i] = { O_1, O_2, ..., O_j }.  */
 static htab_t repl_tbl;
 
-/* true if register_new_name_mapping needs to initialize the data
-   structures needed by update_ssa.  */
-static bool need_to_initialize_update_ssa_p = true;
-
-/* true if update_ssa needs to update virtual operands.  */
-static bool need_to_update_vops_p = false;
+/* The function the SSA updating data structures have been initialized for.
+   NULL if they need to be initialized by register_new_name_mapping.  */
+static struct function *update_ssa_initialized_fn = NULL;
 
 /* Statistics kept by update_ssa to use in the virtual mapping
    heuristic.  If the number of virtual mappings is beyond certain
@@ -325,7 +310,7 @@ get_ssa_name_ann (tree name)
   info = VEC_index (ssa_name_info_p, info_for_ssa_name, ver);
   if (info->age < current_info_for_ssa_name_age)
     {
-      info->need_phi_state = 0;
+      info->need_phi_state = NEED_PHI_STATE_UNKNOWN;
       info->current_def = NULL_TREE;
       info->age = current_info_for_ssa_name_age;
     }
@@ -585,7 +570,7 @@ set_livein_block (tree var, basic_block bb)
 static inline bool
 symbol_marked_for_renaming (tree sym)
 {
-  return bitmap_bit_p (syms_to_rename, DECL_UID (sym));
+  return bitmap_bit_p (SYMS_TO_RENAME (cfun), DECL_UID (sym));
 }
 
 
@@ -595,6 +580,8 @@ static inline bool
 is_old_name (tree name)
 {
   unsigned ver = SSA_NAME_VERSION (name);
+  if (!new_ssa_names)
+    return false;
   return ver < new_ssa_names->n_bits && TEST_BIT (old_ssa_names, ver);
 }
 
@@ -605,6 +592,8 @@ static inline bool
 is_new_name (tree name)
 {
   unsigned ver = SSA_NAME_VERSION (name);
+  if (!new_ssa_names)
+    return false;
   return ver < new_ssa_names->n_bits && TEST_BIT (new_ssa_names, ver);
 }
 
@@ -694,8 +683,6 @@ add_new_name_mapping (tree new_tree, tree old)
   if (!is_gimple_reg (new_tree))
     {
       tree sym;
-
-      need_to_update_vops_p = true;
 
       update_ssa_stats.num_virtual_mappings++;
       update_ssa_stats.num_virtual_symbols++;
@@ -1707,10 +1694,10 @@ dump_decl_set (FILE *file, bitmap set)
 	  fprintf (file, " ");
 	}
 
-      fprintf (file, "}\n");
+      fprintf (file, "}");
     }
   else
-    fprintf (file, "NIL\n");
+    fprintf (file, "NIL");
 }
 
 
@@ -1720,6 +1707,7 @@ void
 debug_decl_set (bitmap set)
 {
   dump_decl_set (stderr, set);
+  fprintf (stderr, "\n");
 }
 
 
@@ -1803,7 +1791,8 @@ dump_currdefs (FILE *file)
 
   fprintf (file, "\n\nCurrent reaching definitions\n\n");
   FOR_EACH_REFERENCED_VAR (var, i)
-    if (syms_to_rename == NULL || bitmap_bit_p (syms_to_rename, DECL_UID (var)))
+    if (SYMS_TO_RENAME (cfun) == NULL
+	|| bitmap_bit_p (SYMS_TO_RENAME (cfun), DECL_UID (var)))
       {
 	fprintf (file, "CURRDEF (");
 	print_generic_expr (file, var, 0);
@@ -2223,14 +2212,9 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   /* Rewrite USES included in OLD_SSA_NAMES and USES whose underlying
      symbol is marked for renaming.  */
   if (rewrite_uses_p (stmt) && !IS_DEBUG_STMT (stmt))
-    {
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
-	maybe_replace_use (use_p);
+    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
+      maybe_replace_use (use_p);
 
-      if (need_to_update_vops_p)
-	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
-	  maybe_replace_use (use_p);
-    }
   else if (rewrite_uses_p (stmt) && IS_DEBUG_STMT (stmt))
     {
       bool failed = false;
@@ -2241,14 +2225,6 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	    failed = true;
 	    break;
 	  }
-
-      if (!failed && need_to_update_vops_p)
-	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
-	  if (!maybe_replace_use_in_debug_insn (use_p))
-	    {
-	      failed = true;
-	      break;
-	    }
 
       if (failed)
 	{
@@ -2273,14 +2249,8 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
      Also register definitions for names whose underlying symbol is
      marked for renaming.  */
   if (register_defs_p (stmt))
-    {
-      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
-	maybe_register_def (def_p, stmt);
-
-      if (need_to_update_vops_p)
-	FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-	  maybe_register_def (def_p, stmt);
-    }
+    FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
+      maybe_register_def (def_p, stmt);
 }
 
 
@@ -2604,12 +2574,13 @@ struct gimple_opt_pass pass_build_ssa =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg | PROP_referenced_vars,	/* properties_required */
   PROP_ssa,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func
+    | TODO_update_ssa_only_virtuals
     | TODO_verify_ssa
     | TODO_remove_unused_locals		/* todo_flags_finish */
  }
@@ -2899,7 +2870,7 @@ dump_update_ssa (FILE *file)
   unsigned i = 0;
   bitmap_iterator bi;
 
-  if (!need_ssa_update_p ())
+  if (!need_ssa_update_p (cfun))
     return;
 
   if (new_ssa_names && sbitmap_first_set_bit (new_ssa_names) >= 0)
@@ -2926,10 +2897,11 @@ dump_update_ssa (FILE *file)
 	       update_ssa_stats.num_virtual_symbols);
     }
 
-  if (syms_to_rename && !bitmap_empty_p (syms_to_rename))
+  if (!bitmap_empty_p (SYMS_TO_RENAME (cfun)))
     {
       fprintf (file, "\n\nSymbols to be put in SSA form\n\n");
-      dump_decl_set (file, syms_to_rename);
+      dump_decl_set (file, SYMS_TO_RENAME (cfun));
+      fprintf (file, "\n");
     }
 
   if (names_to_release && !bitmap_empty_p (names_to_release))
@@ -2958,7 +2930,7 @@ debug_update_ssa (void)
 /* Initialize data structures used for incremental SSA updates.  */
 
 static void
-init_update_ssa (void)
+init_update_ssa (struct function *fn)
 {
   /* Reserve more space than the current number of names.  The calls to
      add_new_name_mapping are typically done after creating new SSA
@@ -2970,14 +2942,10 @@ init_update_ssa (void)
   sbitmap_zero (new_ssa_names);
 
   repl_tbl = htab_create (20, repl_map_hash, repl_map_eq, repl_map_free);
-  need_to_initialize_update_ssa_p = false;
-  need_to_update_vops_p = false;
-  syms_to_rename = BITMAP_ALLOC (NULL);
-  regs_to_rename = BITMAP_ALLOC (NULL);
-  mem_syms_to_rename = BITMAP_ALLOC (NULL);
   names_to_release = NULL;
   memset (&update_ssa_stats, 0, sizeof (update_ssa_stats));
   update_ssa_stats.virtual_symbols = BITMAP_ALLOC (NULL);
+  update_ssa_initialized_fn = fn;
 }
 
 
@@ -2998,11 +2966,7 @@ delete_update_ssa (void)
   htab_delete (repl_tbl);
   repl_tbl = NULL;
 
-  need_to_initialize_update_ssa_p = true;
-  need_to_update_vops_p = false;
-  BITMAP_FREE (syms_to_rename);
-  BITMAP_FREE (regs_to_rename);
-  BITMAP_FREE (mem_syms_to_rename);
+  bitmap_clear (SYMS_TO_RENAME (update_ssa_initialized_fn));
   BITMAP_FREE (update_ssa_stats.virtual_symbols);
 
   if (names_to_release)
@@ -3027,6 +2991,7 @@ delete_update_ssa (void)
 
   BITMAP_FREE (blocks_with_phis_to_rewrite);
   BITMAP_FREE (blocks_to_update);
+  update_ssa_initialized_fn = NULL;
 }
 
 
@@ -3073,12 +3038,14 @@ create_new_def_for (tree old_name, gimple stmt, def_operand_p def)
    update_ssa.  */
 
 void
-register_new_name_mapping (tree new_Tree ATTRIBUTE_UNUSED, tree old ATTRIBUTE_UNUSED)
+register_new_name_mapping (tree new_tree, tree old)
 {
-  if (need_to_initialize_update_ssa_p)
-    init_update_ssa ();
+  if (!update_ssa_initialized_fn)
+    init_update_ssa (cfun);
 
-  add_new_name_mapping (new_Tree, old);
+  gcc_assert (update_ssa_initialized_fn == cfun);
+
+  add_new_name_mapping (new_tree, old);
 }
 
 
@@ -3087,17 +3054,7 @@ register_new_name_mapping (tree new_Tree ATTRIBUTE_UNUSED, tree old ATTRIBUTE_UN
 void
 mark_sym_for_renaming (tree sym)
 {
-  if (need_to_initialize_update_ssa_p)
-    init_update_ssa ();
-
-  bitmap_set_bit (syms_to_rename, DECL_UID (sym));
-
-  if (!is_gimple_reg (sym))
-    {
-      need_to_update_vops_p = true;
-      if (memory_partition (sym))
-	bitmap_set_bit (syms_to_rename, DECL_UID (memory_partition (sym)));
-    }
+  bitmap_set_bit (SYMS_TO_RENAME (cfun), DECL_UID (sym));
 }
 
 
@@ -3112,20 +3069,21 @@ mark_set_for_renaming (bitmap set)
   if (set == NULL || bitmap_empty_p (set))
     return;
 
-  if (need_to_initialize_update_ssa_p)
-    init_update_ssa ();
-
   EXECUTE_IF_SET_IN_BITMAP (set, 0, i, bi)
     mark_sym_for_renaming (referenced_var (i));
 }
 
 
-/* Return true if there is any work to be done by update_ssa.  */
+/* Return true if there is any work to be done by update_ssa
+   for function FN.  */
 
 bool
-need_ssa_update_p (void)
+need_ssa_update_p (struct function *fn)
 {
-  return syms_to_rename || old_ssa_names || new_ssa_names;
+  gcc_assert (fn != NULL);
+  return (update_ssa_initialized_fn == fn
+	  || (fn->gimple_df
+	      && !bitmap_empty_p (SYMS_TO_RENAME (fn))));
 }
 
 /* Return true if SSA name mappings have been registered for SSA updating.  */
@@ -3133,6 +3091,11 @@ need_ssa_update_p (void)
 bool
 name_mappings_registered_p (void)
 {
+  if (!update_ssa_initialized_fn)
+    return false;
+
+  gcc_assert (update_ssa_initialized_fn == cfun);
+
   return repl_tbl && htab_elements (repl_tbl) > 0;
 }
 
@@ -3141,12 +3104,12 @@ name_mappings_registered_p (void)
 bool
 name_registered_for_update_p (tree n ATTRIBUTE_UNUSED)
 {
-  if (!need_ssa_update_p ())
+  if (!update_ssa_initialized_fn)
     return false;
 
-  return is_new_name (n)
-         || is_old_name (n)
-	 || symbol_marked_for_renaming (SSA_NAME_VAR (n));
+  gcc_assert (update_ssa_initialized_fn == cfun);
+
+  return is_new_name (n) || is_old_name (n);
 }
 
 
@@ -3159,6 +3122,9 @@ ssa_names_to_replace (void)
   bitmap ret;
   sbitmap_iterator sbi;
   
+  gcc_assert (update_ssa_initialized_fn == NULL
+	      || update_ssa_initialized_fn == cfun);
+
   ret = BITMAP_ALLOC (NULL);
   EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
     bitmap_set_bit (ret, i);
@@ -3172,7 +3138,7 @@ ssa_names_to_replace (void)
 void
 release_ssa_name_after_update_ssa (tree name)
 {
-  gcc_assert (!need_to_initialize_update_ssa_p);
+  gcc_assert (cfun && update_ssa_initialized_fn == cfun);
 
   if (names_to_release == NULL)
     names_to_release = BITMAP_ALLOC (NULL);
@@ -3432,10 +3398,14 @@ update_ssa (unsigned update_flags)
   bool insert_phi_p;
   sbitmap_iterator sbi;
 
-  if (!need_ssa_update_p ())
+  if (!need_ssa_update_p (cfun))
     return;
 
   timevar_push (TV_TREE_SSA_INCREMENTAL);
+
+  if (!update_ssa_initialized_fn)
+    init_update_ssa (cfun);
+  gcc_assert (update_ssa_initialized_fn == cfun);
 
   blocks_with_phis_to_rewrite = BITMAP_ALLOC (NULL);
   if (!phis_to_rewrite)
@@ -3485,35 +3455,6 @@ update_ssa (unsigned update_flags)
   if (insert_phi_p && switch_virtuals_to_full_rewrite_p ())
     switch_virtuals_to_full_rewrite ();
 
-  /* If there are symbols to rename, identify those symbols that are
-     GIMPLE registers into the set REGS_TO_RENAME and those that are
-     memory symbols into the set MEM_SYMS_TO_RENAME.  */
-  if (!bitmap_empty_p (syms_to_rename))
-    {
-      unsigned i;
-      bitmap_iterator bi;
-
-      EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
-	{
-	  tree sym = referenced_var (i);
-	  if (is_gimple_reg (sym))
-	    bitmap_set_bit (regs_to_rename, i);
-	  else
-	    {
-	      /* Memory partitioning information may have been
-		 computed after the symbol was marked for renaming,
-		 if SYM is inside a partition also mark the partition
-		 for renaming.  */
-	      tree mpt = memory_partition (sym);
-	      if (mpt)
-		bitmap_set_bit (syms_to_rename, DECL_UID (mpt));
-	    }
-	}
-
-      /* Memory symbols are those not in REGS_TO_RENAME.  */
-      bitmap_and_compl (mem_syms_to_rename, syms_to_rename, regs_to_rename);
-    }
-
   /* If there are names defined in the replacement table, prepare
      definition and use sites for all the names in NEW_SSA_NAMES and
      OLD_SSA_NAMES.  */
@@ -3525,12 +3466,12 @@ update_ssa (unsigned update_flags)
 	 removal, and there are no symbols to rename, then there's
 	 nothing else to do.  */
       if (sbitmap_first_set_bit (new_ssa_names) < 0
-	  && bitmap_empty_p (syms_to_rename))
+	  && bitmap_empty_p (SYMS_TO_RENAME (cfun)))
 	goto done;
     }
 
   /* Next, determine the block at which to start the renaming process.  */
-  if (!bitmap_empty_p (syms_to_rename))
+  if (!bitmap_empty_p (SYMS_TO_RENAME (cfun)))
     {
       /* If we have to rename some symbols from scratch, we need to
 	 start the process at the root of the CFG.  FIXME, it should
@@ -3584,7 +3525,7 @@ update_ssa (unsigned update_flags)
 	  sbitmap_free (tmp);
 	}
 
-      EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (SYMS_TO_RENAME (cfun), 0, i, bi)
 	insert_updated_phi_nodes_for (referenced_var (i), dfs, blocks_to_update,
 	                              update_flags);
 
@@ -3605,7 +3546,7 @@ update_ssa (unsigned update_flags)
   EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
     set_current_def (ssa_name (i), NULL_TREE);
 
-  EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (SYMS_TO_RENAME (cfun), 0, i, bi)
     set_current_def (referenced_var (i), NULL_TREE);
 
   /* Now start the renaming process at START_BB.  */

@@ -1953,6 +1953,51 @@ find_loop_niter (struct loop *loop, edge *exit)
   return niter ? niter : chrec_dont_know;
 }
 
+/* Return true if loop is known to have bounded number of iterations.  */
+
+bool
+finite_loop_p (struct loop *loop)
+{
+  unsigned i;
+  VEC (edge, heap) *exits = get_loop_exit_edges (loop);
+  edge ex;
+  struct tree_niter_desc desc;
+  bool finite = false;
+
+  if (flag_unsafe_loop_optimizations)
+    return true;
+  if ((TREE_READONLY (current_function_decl)
+       || DECL_PURE_P (current_function_decl))
+      && !DECL_LOOPING_CONST_OR_PURE_P (current_function_decl))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Found loop %i to be finite: it is within pure or const function.\n",
+		 loop->num);
+      return true;
+    }
+   
+  exits = get_loop_exit_edges (loop);
+  for (i = 0; VEC_iterate (edge, exits, i, ex); i++)
+    {
+      if (!just_once_each_iteration_p (loop, ex->src))
+	continue;
+
+      if (number_of_iterations_exit (loop, ex, &desc, false))
+        {
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Found loop %i to be finite: iterating ", loop->num);
+	      print_generic_expr (dump_file, desc.niter, TDF_SLIM);
+	      fprintf (dump_file, " times\n");
+	    }
+	  finite = true;
+	  break;
+	}
+    }
+  VEC_free (edge, heap, exits);
+  return finite;
+}
+
 /*
 
    Analysis of a number of iterations of a loop by a brute-force evaluation.
@@ -1993,17 +2038,13 @@ chain_of_csts_start (struct loop *loop, tree x)
 
   code = gimple_assign_rhs_code (stmt);
   if (gimple_references_memory_p (stmt)
-      /* Before alias information is computed, operand scanning marks
-	 statements that write memory volatile.  However, the statements
-	 that only read memory are not marked, thus gimple_references_memory_p
-	 returns false for them.  */
       || TREE_CODE_CLASS (code) == tcc_reference
-      || TREE_CODE_CLASS (code) == tcc_declaration
-      || SINGLE_SSA_DEF_OPERAND (stmt, SSA_OP_DEF) == NULL_DEF_OPERAND_P)
+      || (code == ADDR_EXPR
+	  && !is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
     return NULL;
 
   use = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_USE);
-  if (use == NULL_USE_OPERAND_P)
+  if (use == NULL_TREE)
     return NULL;
 
   return chain_of_csts_start (loop, use);

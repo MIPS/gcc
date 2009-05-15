@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #define skip_leading_substring(whole,  part) \
    (strncmp (whole, part, strlen (part)) ? NULL : whole + strlen (part))
 
-extern int toplev_main (unsigned int, const char **);
+extern int toplev_main (int, char **);
 extern int read_integral_parameter (const char *, const char *, const int);
 extern void strip_off_ending (char *, int);
 extern const char *trim_filename (const char *);
@@ -83,7 +83,7 @@ extern void announce_function (tree);
 
 extern void error_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warning_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
-extern void warn_deprecated_use (tree);
+extern void warn_deprecated_use (tree, tree);
 extern bool parse_optimize_options (tree, bool);
 
 #ifdef BUFSIZ
@@ -132,6 +132,7 @@ extern int flag_if_conversion;
 extern int flag_if_conversion2;
 extern int flag_keep_static_consts;
 extern int flag_peel_loops;
+extern int flag_rerun_cse_after_global_opts;
 extern int flag_rerun_cse_after_loop;
 extern int flag_thread_jumps;
 extern int flag_tracer;

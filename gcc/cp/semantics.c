@@ -108,8 +108,7 @@ static tree finalize_nrv_r (tree *, int *, void *);
       In case of parsing error, we simply call `pop_deferring_access_checks'
       without `perform_deferred_access_checks'.  */
 
-typedef struct deferred_access GTY(())
-{
+typedef struct GTY(()) deferred_access {
   /* A VEC representing name-lookups for which we have deferred
      checking access controls.  We cannot check the accessibility of
      names used in a decl-specifier-seq until we know what is being
@@ -1422,6 +1421,16 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 {
   gcc_assert (TREE_CODE (decl) == FIELD_DECL);
 
+  if (!object && skip_evaluation)
+    {
+      /* DR 613: Can use non-static data members without an associated
+         object in sizeof/decltype/alignof.  */
+      tree scope = qualifying_scope;
+      if (scope == NULL_TREE)
+	scope = context_for_name_lookup (decl);
+      object = maybe_dummy_object (scope, NULL);
+    }
+
   if (!object)
     {
       if (current_function_decl
@@ -1433,7 +1442,8 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
       return error_mark_node;
     }
-  TREE_USED (current_class_ptr) = 1;
+  if (current_class_ptr)
+    TREE_USED (current_class_ptr) = 1;
   if (processing_template_decl && !qualifying_scope)
     {
       tree type = TREE_TYPE (decl);
@@ -1443,7 +1453,9 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       else
 	{
 	  /* Set the cv qualifiers.  */
-	  int quals = cp_type_quals (TREE_TYPE (current_class_ref));
+	  int quals = (current_class_ref
+		       ? cp_type_quals (TREE_TYPE (current_class_ref))
+		       : TYPE_UNQUALIFIED);
 
 	  if (DECL_MUTABLE_P (decl))
 	    quals &= ~TYPE_QUAL_CONST;
@@ -1514,6 +1526,32 @@ check_accessibility_of_qualified_id (tree decl,
 {
   tree scope;
   tree qualifying_type = NULL_TREE;
+
+  /* If we are parsing a template declaration and if decl is a typedef,
+     add it to a list tied to the template.
+     At template instantiation time, that list will be walked and
+     access check performed.  */
+  if (is_typedef_decl (decl))
+    {
+      /* This the scope through which type_decl is accessed.
+	 It will be useful information later to do access check for
+	 type_decl usage.  */
+      tree scope = nested_name_specifier
+      ?  nested_name_specifier
+      : DECL_CONTEXT (decl);
+      tree templ_info = NULL;
+      tree cs = current_scope ();
+
+      if (cs && (CLASS_TYPE_P (cs) || TREE_CODE (cs) == FUNCTION_DECL))
+	templ_info = get_template_info (cs);
+
+      if (templ_info
+	  && TI_TEMPLATE (templ_info)
+	  && scope
+	  && CLASS_TYPE_P (scope)
+	  && !currently_open_class (scope))
+	append_type_to_template_for_access_check (current_scope (), decl, scope);
+    }
 
   /* If we're not checking, return immediately.  */
   if (deferred_access_no_check)
@@ -1836,14 +1874,10 @@ perform_koenig_lookup (tree fn, tree args)
    qualified.  For example a call to `X::f' never generates a virtual
    call.)
 
-   KOENIG_P is 1 if we want to perform argument-dependent lookup,
-   -1 if we don't, but we want to accept functions found by previous
-   argument-dependent lookup, and 0 if we want nothing to do with it.
-
    Returns code for the call.  */
 
 tree
-finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
+finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
 		  tsubst_flags_t complain)
 {
   tree result;
@@ -1866,7 +1900,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
 	  || any_type_dependent_arguments_p (args))
 	{
 	  result = build_nt_call_list (fn, args);
-	  KOENIG_LOOKUP_P (result) = koenig_p > 0;
+	  KOENIG_LOOKUP_P (result) = koenig_p;
 	  if (cfun)
 	    {
 	      do
@@ -1952,11 +1986,19 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
       if (TREE_CODE (fn) == FUNCTION_DECL
 	  && (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL
 	      || DECL_BUILT_IN_CLASS (fn) == BUILT_IN_MD))
-	result = resolve_overloaded_builtin (fn, args);
+	{
+	  VEC(tree,gc)* vec = VEC_alloc (tree, gc, list_length (args));
+	  tree p;
+
+	  for (p = args; p != NULL_TREE; p = TREE_CHAIN (p))
+	    VEC_quick_push (tree, vec, TREE_VALUE (p));
+	  result = resolve_overloaded_builtin (fn, vec);
+	  VEC_free (tree, gc, vec);
+	}
 
       if (!result)
 	/* A call to a namespace-scope function.  */
-	result = build_new_function_call (fn, args, koenig_p != 0, complain);
+	result = build_new_function_call (fn, args, koenig_p, complain);
     }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
@@ -1982,9 +2024,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
   if (processing_template_decl)
     {
       result = build_call_list (TREE_TYPE (result), orig_fn, orig_args);
-      /* Don't repeat arg-dependent lookup at instantiation time if this call
-         is not type-dependent.  */
-      KOENIG_LOOKUP_P (result) = 0;
+      KOENIG_LOOKUP_P (result) = koenig_p;
     }
   return result;
 }
@@ -2824,11 +2864,6 @@ finish_id_expression (tree id_expression,
 	     dependent.  */
 	  if (scope)
 	    {
-	      /* Since this name was dependent, the expression isn't
-		 constant -- yet.  No error is issued because it might
-		 be constant when things are instantiated.  */
-	      if (integral_constant_expression_p)
-		*non_integral_constant_expression_p = true;
 	      if (TYPE_P (scope))
 		{
 		  if (address_p && done)
@@ -2836,7 +2871,7 @@ finish_id_expression (tree id_expression,
 						     done, address_p,
 						     template_p,
 						     template_arg_p);
-		  else if (dependent_type_p (scope))
+		  else if (dependent_scope_p (scope))
 		    decl = build_qualified_name (/*type=*/NULL_TREE,
 						 scope,
 						 id_expression,
@@ -3003,7 +3038,7 @@ finish_id_expression (tree id_expression,
     }
 
   if (TREE_DEPRECATED (decl))
-    warn_deprecated_use (decl);
+    warn_deprecated_use (decl, NULL_TREE);
 
   return decl;
 }
@@ -3613,7 +3648,7 @@ finish_omp_clauses (tree clauses)
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
-      enum tree_code c_kind = OMP_CLAUSE_CODE (c);
+      enum omp_clause_code c_kind = OMP_CLAUSE_CODE (c);
       bool remove = false;
       bool need_complete_non_reference = false;
       bool need_default_ctor = false;
@@ -4093,7 +4128,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   cond = cp_build_binary_op (elocus,
 			     TREE_CODE (cond), decl, diff,
 			     tf_warning_or_error);
-  incr = build_modify_expr (elocus, decl, PLUS_EXPR, incr);
+  incr = build_modify_expr (elocus, decl, NULL_TREE, PLUS_EXPR,
+			    incr, NULL_TREE);
 
   orig_body = *body;
   *body = push_stmt_list ();
@@ -5012,6 +5048,25 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 
   return (trait_expr_value (kind, type1, type2)
 	  ? boolean_true_node : boolean_false_node);
+}
+
+/* Do-nothing variants of functions to handle pragma FLOAT_CONST_DECIMAL64,
+   which is ignored for C++.  */
+
+void
+set_float_const_decimal64 (void)
+{
+}
+
+void
+clear_float_const_decimal64 (void)
+{
+}
+
+bool
+float_const_decimal64_p (void)
+{
+  return 0;
 }
 
 #include "gt-cp-semantics.h"

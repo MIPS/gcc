@@ -757,7 +757,7 @@ dv_pool (decl_or_value dv)
 			 || (C) == RESULT_DECL || (C) == COMPONENT_REF)
 
 /* Check that VALUE won't ever look like a DECL.  */
-static char check_value_is_not_decl [(!IS_DECL_CODE (VALUE))
+static char check_value_is_not_decl [(!IS_DECL_CODE ((enum tree_code)VALUE))
 				     ? 1 : -1] ATTRIBUTE_UNUSED;
 
 
@@ -1107,13 +1107,13 @@ var_reg_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
 		    dv_from_decl (decl), offset, set_src, INSERT);
 }
 
-static int
+static enum var_init_status
 get_init_value (dataflow_set *set, rtx loc, decl_or_value dv)
 {
   void **slot;
   variable var;
   int i;
-  int ret_val = VAR_INIT_STATUS_UNKNOWN;
+  enum var_init_status ret_val = VAR_INIT_STATUS_UNKNOWN;
 
   if (! flag_var_tracking_uninit)
     return VAR_INIT_STATUS_INITIALIZED;
@@ -6899,4 +6899,3 @@ struct rtl_opt_pass pass_variable_tracking =
   TODO_dump_func | TODO_verify_rtl_sharing/* todo_flags_finish */
  }
 };
-

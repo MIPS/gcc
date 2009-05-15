@@ -282,8 +282,7 @@ static tree analyze_scalar_evolution_1 (struct loop *, tree, tree);
    basic block INSTANTIATED_BELOW, the value of VAR can be expressed
    as CHREC.  */
 
-struct scev_info_str GTY(())
-{
+struct GTY(()) scev_info_str {
   basic_block instantiated_below;
   tree var;
   tree chrec;
@@ -1320,11 +1319,7 @@ follow_ssa_edge_in_condition_phi (struct loop *loop,
 
   *evolution_of_loop = evolution_of_branch;
 
-  /* If the phi node is just a copy, do not increase the limit.  */
   n = gimple_phi_num_args (condition_phi);
-  if (n > 1)
-    limit++;
-
   for (i = 1; i < n; i++)
     {
       /* Quickly give up when the evolution of one of the branches is
@@ -1332,10 +1327,12 @@ follow_ssa_edge_in_condition_phi (struct loop *loop,
       if (*evolution_of_loop == chrec_dont_know)
 	return t_true;
 
+      /* Increase the limit by the PHI argument number to avoid exponential
+	 time and memory complexity.  */
       res = follow_ssa_edge_in_condition_phi_branch (i, loop, condition_phi,
 						     halting_phi,
 						     &evolution_of_branch,
-						     init, limit);
+						     init, limit + i);
       if (res == t_false || res == t_dont_know)
 	return res;
 
@@ -1576,6 +1573,20 @@ analyze_initial_condition (gimple loop_phi_node)
   /* Ooops -- a loop without an entry???  */
   if (init_cond == chrec_not_analyzed_yet)
     init_cond = chrec_dont_know;
+
+  /* During early loop unrolling we do not have fully constant propagated IL.
+     Handle degenerate PHIs here to not miss important unrollings.  */
+  if (TREE_CODE (init_cond) == SSA_NAME)
+    {
+      gimple def = SSA_NAME_DEF_STMT (init_cond);
+      tree res;
+      if (gimple_code (def) == GIMPLE_PHI
+	  && (res = degenerate_phi_result (def)) != NULL_TREE
+	  /* Only allow invariants here, otherwise we may break
+	     loop-closed SSA form.  */
+	  && is_gimple_min_invariant (res))
+	init_cond = res;
+    }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

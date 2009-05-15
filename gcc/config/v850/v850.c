@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for NEC V850 series
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006, 2007, 2008 Free Software Foundation, Inc.
+   2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -1931,7 +1931,7 @@ Saved %d bytes via epilogue function (%d vs. %d) in function %s\n",
       else if (actual_fsize)
 	emit_jump_insn (gen_return_internal ());
       else
-	emit_jump_insn (gen_return ());
+	emit_jump_insn (gen_return_simple ());
     }
 
   v850_interrupt_cache_p = FALSE;
@@ -2045,8 +2045,8 @@ v850_handle_interrupt_attribute (tree * node,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 

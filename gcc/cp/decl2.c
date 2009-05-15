@@ -820,6 +820,9 @@ grokfield (const cp_declarator *declarator,
 	  cplus_decl_attributes (&value, attrlist, attrflags);
 	}
 
+      if (declspecs->specs[(int)ds_typedef])
+	set_underlying_type (value);
+
       return value;
     }
 
@@ -998,7 +1001,7 @@ grokbitfield (const cp_declarator *declarator,
       error ("static member %qD cannot be a bit-field", value);
       return NULL_TREE;
     }
-  finish_decl (value, NULL_TREE, NULL_TREE);
+  finish_decl (value, NULL_TREE, NULL_TREE, NULL_TREE);
 
   if (width != error_mark_node)
     {
@@ -1124,19 +1127,6 @@ save_template_attributes (tree *attr_p, tree *decl_p)
 
   if (!late_attrs)
     return;
-
-  /* Give this type a name so we know to look it up again at instantiation
-     time.  */
-  if (TREE_CODE (*decl_p) == TYPE_DECL
-      && DECL_ORIGINAL_TYPE (*decl_p) == NULL_TREE)
-    {
-      tree oldt = TREE_TYPE (*decl_p);
-      tree newt = build_variant_type_copy (oldt);
-      DECL_ORIGINAL_TYPE (*decl_p) = oldt;
-      TREE_TYPE (*decl_p) = newt;
-      TYPE_NAME (newt) = *decl_p;
-      TREE_USED (newt) = TREE_USED (*decl_p);
-    }
 
   if (DECL_P (*decl_p))
     q = &DECL_ATTRIBUTES (*decl_p);
@@ -1858,7 +1848,7 @@ constrain_visibility (tree decl, int visibility)
   else if (visibility > DECL_VISIBILITY (decl)
 	   && !DECL_VISIBILITY_SPECIFIED (decl))
     {
-      DECL_VISIBILITY (decl) = visibility;
+      DECL_VISIBILITY (decl) = (enum symbol_visibility) visibility;
       return true;
     }
   return false;
@@ -3260,11 +3250,11 @@ cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED)
     {
     case PTRMEM_CST:
       if (TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
-	cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (t)));
+	cgraph_mark_address_taken_node (cgraph_node (PTRMEM_CST_MEMBER (t)));
       break;
     case BASELINK:
       if (TREE_CODE (BASELINK_FUNCTIONS (t)) == FUNCTION_DECL)
-	cgraph_mark_needed_node (cgraph_node (BASELINK_FUNCTIONS (t)));
+	cgraph_mark_address_taken_node (cgraph_node (BASELINK_FUNCTIONS (t)));
       break;
     case VAR_DECL:
       if (DECL_VTABLE_OR_VTT_P (t))

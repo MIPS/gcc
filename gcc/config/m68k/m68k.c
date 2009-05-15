@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Motorola 68000 family.
    Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2003, 2004, 2005, 2006, 2007, 2008
+   2001, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -134,9 +134,6 @@ static int m68k_sched_first_cycle_multipass_dfa_lookahead (void);
 static bool m68k_handle_option (size_t, const char *, int);
 static rtx find_addr_reg (rtx);
 static const char *singlemove_string (rtx *);
-#ifdef M68K_TARGET_COFF
-static void m68k_coff_asm_named_section (const char *, unsigned int, tree);
-#endif /* M68K_TARGET_COFF */
 static void m68k_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree);
 static rtx m68k_struct_value_rtx (tree, int);
@@ -146,6 +143,7 @@ static tree m68k_handle_fndecl_attribute (tree *node, tree name,
 static void m68k_compute_frame_layout (void);
 static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
 static bool m68k_ok_for_sibcall_p (tree, tree);
+static rtx m68k_legitimize_address (rtx, rtx, enum machine_mode);
 static bool m68k_rtx_costs (rtx, int, int, int *, bool);
 #if M68K_HONOR_TARGET_STRICT_ALIGNMENT
 static bool m68k_return_in_memory (const_tree, const_tree);
@@ -197,6 +195,9 @@ int m68k_last_compare_had_fp_operands;
 
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS m68k_legitimize_address
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST m68k_sched_adjust_cost
@@ -780,8 +781,8 @@ m68k_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -1425,6 +1426,83 @@ m68k_legitimize_sibcall_address (rtx x)
   return replace_equiv_address (x, gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM));
 }
 
+/* Convert X to a legitimate address and return it if successful.  Otherwise
+   return X.
+
+   For the 68000, we handle X+REG by loading X into a register R and
+   using R+REG.  R will go in an address reg and indexing will be used.
+   However, if REG is a broken-out memory address or multiplication,
+   nothing needs to be done because REG can certainly go in an address reg.  */
+
+rtx
+m68k_legitimize_address (rtx x, rtx oldx, enum machine_mode mode)
+{
+  if (GET_CODE (x) == PLUS)
+    {
+      int ch = (x) != (oldx);
+      int copied = 0;
+
+#define COPY_ONCE(Y) if (!copied) { Y = copy_rtx (Y); copied = ch = 1; }
+
+      if (GET_CODE (XEXP (x, 0)) == MULT)
+	{
+	  COPY_ONCE (x);
+	  XEXP (x, 0) = force_operand (XEXP (x, 0), 0);
+	}
+      if (GET_CODE (XEXP (x, 1)) == MULT)
+	{
+	  COPY_ONCE (x);
+	  XEXP (x, 1) = force_operand (XEXP (x, 1), 0);
+	}
+      if (ch)
+	{
+          if (GET_CODE (XEXP (x, 1)) == REG
+	      && GET_CODE (XEXP (x, 0)) == REG)
+	    {
+	      if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (mode) == MODE_FLOAT)
+	        {
+	          COPY_ONCE (x);
+	          x = force_operand (x, 0);
+	        }
+	      return x;
+	    }
+	  if (memory_address_p (mode, x))
+	    return x;
+	}
+      if (GET_CODE (XEXP (x, 0)) == REG
+	  || (GET_CODE (XEXP (x, 0)) == SIGN_EXTEND
+	      && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
+	      && GET_MODE (XEXP (XEXP (x, 0), 0)) == HImode))
+	{
+	  rtx temp = gen_reg_rtx (Pmode);
+	  rtx val = force_operand (XEXP (x, 1), 0);
+	  emit_move_insn (temp, val);
+	  COPY_ONCE (x);
+	  XEXP (x, 1) = temp;
+	  if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (mode) == MODE_FLOAT
+	      && GET_CODE (XEXP (x, 0)) == REG)
+	    x = force_operand (x, 0);
+	}
+      else if (GET_CODE (XEXP (x, 1)) == REG
+	       || (GET_CODE (XEXP (x, 1)) == SIGN_EXTEND
+		   && GET_CODE (XEXP (XEXP (x, 1), 0)) == REG
+		   && GET_MODE (XEXP (XEXP (x, 1), 0)) == HImode))
+	{
+	  rtx temp = gen_reg_rtx (Pmode);
+	  rtx val = force_operand (XEXP (x, 0), 0);
+	  emit_move_insn (temp, val);
+	  COPY_ONCE (x);
+	  XEXP (x, 0) = temp;
+	  if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (mode) == MODE_FLOAT
+	      && GET_CODE (XEXP (x, 1)) == REG)
+	    x = force_operand (x, 0);
+	}
+    }
+
+  return x;
+}
+
+ 
 /* Output a dbCC; jCC sequence.  Note we do not handle the 
    floating point version of this sequence (Fdbcc).  We also
    do not handle alternative conditions when CC_NO_OVERFLOW is
@@ -4335,26 +4413,6 @@ output_sibcall (rtx x)
   else
     return "jmp %a0";
 }
-
-#ifdef M68K_TARGET_COFF
-
-/* Output assembly to switch to section NAME with attribute FLAGS.  */
-
-static void
-m68k_coff_asm_named_section (const char *name, unsigned int flags, 
-			     tree decl ATTRIBUTE_UNUSED)
-{
-  char flagchar;
-
-  if (flags & SECTION_WRITE)
-    flagchar = 'd';
-  else
-    flagchar = 'x';
-
-  fprintf (asm_out_file, "\t.section\t%s,\"%c\"\n", name, flagchar);
-}
-
-#endif /* M68K_TARGET_COFF */
 
 static void
 m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,

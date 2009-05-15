@@ -62,6 +62,7 @@ static const char *cond_string (enum rtx_code);
 static int avr_num_arg_regs (enum machine_mode, tree);
 
 static RTX_CODE compare_condition (rtx insn);
+static rtx avr_legitimize_address (rtx, rtx, enum machine_mode);
 static int compare_sign_p (rtx insn);
 static tree avr_handle_progmem_attribute (tree *, tree, tree, int, bool *);
 static tree avr_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
@@ -87,6 +88,7 @@ static bool avr_return_in_memory (const_tree, const_tree);
 static struct machine_function * avr_init_machine_status (void);
 static rtx avr_builtin_setjmp_frame_value (void);
 static bool avr_hard_regno_scratch_ok (unsigned int);
+static unsigned int avr_case_values_threshold (void);
 
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
 #define FIRST_CUM_REG 26
@@ -219,6 +221,8 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega8hva",   ARCH_AVR4, "__AVR_ATmega8HVA__" },
   { "atmega4hvd",   ARCH_AVR4, "__AVR_ATmega4HVD__" },
   { "atmega8hvd",   ARCH_AVR4, "__AVR_ATmega8HVD__" },
+  { "atmega8c1",    ARCH_AVR4, "__AVR_ATmega8C1__" },
+  { "atmega8m1",    ARCH_AVR4, "__AVR_ATmega8M1__" },
   { "at90pwm1",     ARCH_AVR4, "__AVR_AT90PWM1__" },
   { "at90pwm2",     ARCH_AVR4, "__AVR_AT90PWM2__" },
   { "at90pwm2b",    ARCH_AVR4, "__AVR_AT90PWM2B__" },
@@ -266,6 +270,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90can64",    ARCH_AVR5, "__AVR_AT90CAN64__" },
   { "at90pwm216",   ARCH_AVR5, "__AVR_AT90PWM216__" },
   { "at90pwm316",   ARCH_AVR5, "__AVR_AT90PWM316__" },
+  { "atmega16c1",   ARCH_AVR5, "__AVR_ATmega16C1__" },
   { "atmega32c1",   ARCH_AVR5, "__AVR_ATmega32C1__" },
   { "atmega64c1",   ARCH_AVR5, "__AVR_ATmega64C1__" },
   { "atmega16m1",   ARCH_AVR5, "__AVR_ATmega16M1__" },
@@ -305,7 +310,6 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { NULL,           ARCH_UNKNOWN, NULL }
 };
 
-int avr_case_values_threshold = 30000;
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -346,6 +350,9 @@ int avr_case_values_threshold = 30000;
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG avr_reorg
 
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS avr_legitimize_address
+
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY avr_return_in_memory
 
@@ -357,6 +364,8 @@ int avr_case_values_threshold = 30000;
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK avr_hard_regno_scratch_ok
+#undef TARGET_CASE_VALUES_THRESHOLD
+#define TARGET_CASE_VALUES_THRESHOLD avr_case_values_threshold
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -384,10 +393,6 @@ avr_override_options (void)
 
   avr_current_arch = &avr_arch_types[t->arch];
   avr_extra_arch_macro = t->macro;
-
-  if (optimize && !TARGET_NO_TABLEJUMP)
-    avr_case_values_threshold = 
-      (!AVR_HAVE_JMP_CALL || TARGET_CALL_PROLOGUES) ? 8 : 17;
 
   tmp_reg_rtx  = gen_rtx_REG (QImode, TMP_REGNO);
   zero_reg_rtx = gen_rtx_REG (QImode, ZERO_REGNO);
@@ -544,10 +549,21 @@ avr_regs_to_save (HARD_REG_SET *set)
   return count;
 }
 
+/* Return true if register FROM can be eliminated via register TO.  */
+
+bool
+avr_can_eliminate (int from, int to)
+{
+  return ((from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
+	  || ((from == FRAME_POINTER_REGNUM 
+	       || from == FRAME_POINTER_REGNUM + 1)
+	      && !frame_pointer_needed));
+}
+
 /* Compute offset between arg_pointer and frame_pointer.  */
 
 int
-initial_elimination_offset (int from, int to)
+avr_initial_elimination_offset (int from, int to)
 {
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return 0;
@@ -1152,7 +1168,7 @@ legitimate_address_p (enum machine_mode mode, rtx x, int strict)
    memory address for an operand of mode MODE  */
 
 rtx
-legitimize_address (rtx x, rtx oldx, enum machine_mode mode)
+avr_legitimize_address (rtx x, rtx oldx, enum machine_mode mode)
 {
   x = oldx;
   if (TARGET_ALL_DEBUG)
@@ -2842,8 +2858,8 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
 
 /* Return 1 if frame pointer for current function required.  */
 
-int
-frame_pointer_required_p (void)
+bool
+avr_frame_pointer_required_p (void)
 {
   return (cfun->calls_alloca
 	  || crtl->args.info.nregs == 0
@@ -4788,8 +4804,8 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	}
       else
 	{
-	  warning (OPT_Wattributes, "%qs attribute ignored",
-		   IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qE attribute ignored",
+		   name);
 	  *no_add_attrs = true;
 	}
     }
@@ -4808,8 +4824,8 @@ avr_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -4824,8 +4840,8 @@ avr_handle_fntype_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -6109,6 +6125,13 @@ avr_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     }
   else
     return false;
+}
+
+/* Worker function for CASE_VALUES_THRESHOLD.  */
+
+unsigned int avr_case_values_threshold (void)
+{
+  return (!AVR_HAVE_JMP_CALL || TARGET_CALL_PROLOGUES) ? 8 : 17;
 }
 
 #include "gt-avr.h"

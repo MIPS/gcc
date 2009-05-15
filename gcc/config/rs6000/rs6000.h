@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -16,8 +16,13 @@
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
    License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING3.  If not see
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
 /* Note that some other tm.h files include this one and then override
@@ -240,6 +245,15 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_DFP 0
 #endif
 
+/* Define TARGET_TLS_MARKERS if the target assembler does not support
+   arg markers for __tls_get_addr calls.  */
+#ifndef HAVE_AS_TLS_MARKERS
+#undef  TARGET_TLS_MARKERS
+#define TARGET_TLS_MARKERS 0
+#else
+#define TARGET_TLS_MARKERS tls_markers
+#endif
+
 #ifndef TARGET_SECURE_PLT
 #define TARGET_SECURE_PLT 0
 #endif
@@ -362,16 +376,6 @@ enum group_termination
     current_group,
     previous_group
   };
-
-/* Support for a compile-time default CPU, et cetera.  The rules are:
-   --with-cpu is ignored if -mcpu is specified.
-   --with-tune is ignored if -mtune is specified.
-   --with-float is ignored if -mhard-float or -msoft-float are
-    specified.  */
-#define OPTION_DEFAULT_SPECS \
-  {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
-  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
-  {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }
 
 /* rs6000_select[0] is reserved for the default cpu defined via --with-cpu */
 struct rs6000_cpu_select
@@ -1022,12 +1026,6 @@ extern int rs6000_xilinx_fpu;
 
 /* Base register for access to local variables of the function.  */
 #define FRAME_POINTER_REGNUM 113
-
-/* Value should be nonzero if functions must have frame pointers.
-   Zero means the frame pointer need not be set up (and parms
-   may be accessed via the stack pointer) in functions that seem suitable.
-   This is computed in `reload', in reload1.c.  */
-#define FRAME_POINTER_REQUIRED 0
 
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM 67
@@ -1814,38 +1812,6 @@ typedef struct rs6000_args
     goto ADDR;							\
 }
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   On RS/6000, first check for the sum of a register with a constant
-   integer that is out of range.  If so, generate code to add the
-   constant with the low-order 16 bits masked to the register and force
-   this result into another register (this can be done with `cau').
-   Then generate an address of REG+(CONST&0xffff), allowing for the
-   possibility of bit 16 being a one.
-
-   Then check for the sum of a register and something not constant, try to
-   load the other things into a register and return the sum.  */
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)			\
-{  rtx result = rs6000_legitimize_address (X, OLDX, MODE);	\
-   if (result != NULL_RTX)					\
-     {								\
-       (X) = result;						\
-       goto WIN;						\
-     }								\
-}
-
 /* Try a machine-dependent way of reloading an illegitimate address
    operand.  If we find one, push the reload and jump to WIN.  This
    macro is used in only one place: `find_reloads_address' in reload.c.

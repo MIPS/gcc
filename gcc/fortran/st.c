@@ -1,5 +1,5 @@
 /* Build executable statement trees.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -88,6 +88,7 @@ gfc_free_statement (gfc_code *p)
   switch (p->op)
     {
     case EXEC_NOP:
+    case EXEC_END_BLOCK:
     case EXEC_ASSIGN:
     case EXEC_INIT_ASSIGN:
     case EXEC_GOTO:
@@ -109,6 +110,7 @@ gfc_free_statement (gfc_code *p)
       break;
 
     case EXEC_COMPCALL:
+    case EXEC_CALL_PPC:
     case EXEC_CALL:
     case EXEC_ASSIGN_CALL:
       gfc_free_actual_arglist (p->ext.actual);

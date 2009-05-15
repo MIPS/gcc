@@ -428,6 +428,24 @@ enum reg_pending_barrier_mode
   TRUE_BARRIER
 };
 
+/* Whether a register movement is associated with a call.  */
+enum post_call_group
+{
+  not_post_call,
+  post_call,
+  post_call_initial
+};
+
+/* Insns which affect pseudo-registers.  */
+struct deps_reg
+{
+  rtx uses;
+  rtx sets;
+  rtx clobbers;
+  int uses_length;
+  int clobbers_length;
+};
+
 /* Describe state of dependencies used during sched_analyze phase.  */
 struct deps
 {
@@ -491,7 +509,7 @@ struct deps
 
   /* Used to keep post-call pseudo/hard reg movements together with
      the call.  */
-  enum { not_post_call, post_call, post_call_initial } in_post_call_group_p;
+  enum post_call_group in_post_call_group_p;
 
   /* The last debug insn we've seen.  */
   rtx last_debug_insn;
@@ -504,14 +522,7 @@ struct deps
      N within the current basic block; or zero, if there is no
      such insn.  Needed for new registers which may be introduced
      by splitting insns.  */
-  struct deps_reg
-    {
-      rtx uses;
-      rtx sets;
-      rtx clobbers;
-      int uses_length;
-      int clobbers_length;
-    } *reg_last;
+  struct deps_reg *reg_last;
 
   /* Element N is set for each register that has any nonzero element
      in reg_last[N].{uses,sets,clobbers}.  */

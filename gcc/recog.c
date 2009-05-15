@@ -1322,6 +1322,32 @@ indirect_operand (rtx op, enum machine_mode mode)
 	  && general_operand (XEXP (op, 0), Pmode));
 }
 
+/* Return 1 if this is an ordered comparison operator (not including
+   ORDERED and UNORDERED).  */
+
+int
+ordered_comparison_operator (rtx op, enum machine_mode mode)
+{
+  if (mode != VOIDmode && GET_MODE (op) != mode)
+    return false;
+  switch (GET_CODE (op))
+    {
+    case EQ:
+    case NE:
+    case LT:
+    case LTU:
+    case LE:
+    case LEU:
+    case GT:
+    case GTU:
+    case GE:
+    case GEU:
+      return true;
+    default:
+      return false;
+    }
+}
+
 /* Return 1 if this is a comparison operator.  This allows the use of
    MATCH_OPERATOR to recognize all the branch insns.  */
 
@@ -3478,7 +3504,7 @@ struct rtl_opt_pass pass_split_all_insns =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3508,7 +3534,7 @@ struct rtl_opt_pass pass_split_after_reload =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3552,7 +3578,7 @@ struct rtl_opt_pass pass_split_before_regstack =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3590,7 +3616,7 @@ struct rtl_opt_pass pass_split_before_sched2 =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3622,7 +3648,7 @@ struct rtl_opt_pass pass_split_for_shorten_branches =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3630,5 +3656,3 @@ struct rtl_opt_pass pass_split_for_shorten_branches =
   TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
  }
 };
-
-

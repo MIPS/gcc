@@ -1,3 +1,34 @@
+2009-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with trunk@147415.
+	* tree-vect-loop.c: Move over VTA changes to code moved from...
+	* tree-vectorizer.c: ... here.
+	* regcprop.c: Likewise, from...
+	* regrename.c: ... here.
+	* dwarf2out.c (add_string): Combine with merged find_AT_string,
+	incrementing node refcount.
+	(add_AT_string): Use merged version.
+	(get_debug_string_label): Use find_AT_string, don't increment
+	refcount.
+	(INTERNAL_DW_OP_tls_addr): Cast to enum dwarf_location_atom.
+	(loc_descriptor_from_tree_1): Adjust.
+	* gcse.c (alloc_gcse_mem): Remove change to max_cuid computation.
+	* rtl-factoring.c: Dropped altogether.
+	* rtl.h (PAT_VAR_LOCATION_STATUS): Cast to enum type.
+	* tree-outof-ssa.c (rewrite_trees, analyze_edges_for_bb): Merge
+	(not_ssa_name_p): Removed.
+	(set_location_for_edge): Skip debug stmts.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p): Likewise.
+	* tree-ssa-operands.c (add_vop, get_addr_dereference_operands):
+	Likewise.
+	* ipa-pure-const.c (scan_function_stmt): Likewise.
+	* tree-inline.h: Restore include of varray.h.
+	* tree-cfg.c (verify_gimple_debug): New stub.
+	(verify_types_in_gimple_stmt): Call it.
+	* gcc.c (main): Update type of copy of save_temp_flags.
+	* var-tracking.c (check_value_is_not_decl): Cast VALUE to enum
+	tree_code.
+
 2009-05-08  Alexandre Oliva  <aoliva@redhat.com>
 
 	Merged with trunk@145121, branches/gcc-4_4-branch@145122.

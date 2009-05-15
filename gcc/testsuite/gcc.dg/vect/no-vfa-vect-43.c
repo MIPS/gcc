@@ -25,10 +25,11 @@ __attribute__ ((noinline)) int
 main1 (float *pa)
 {
   int i;
-  float pb[N] __attribute__ ((__aligned__(16))) = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54,57};
-  float pc[N] __attribute__ ((__aligned__(16))) = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19};
+  float pb[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__))) = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54,57};
+  float pc[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__))) = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19};
 
- /* Not vectorizable: pa may alias pb and/or pc, since their addresses escape.  */
+  /* Vectorizable: pa may not alias pb and/or pc, even though their
+     addresses escape.  &pa would need to escape to point to escaped memory.  */
   for (i = 0; i < N; i++)
     {
       pa[i] = pb[i] * pc[i];
@@ -65,7 +66,7 @@ main2 (float * pa)
 int main (void)
 {
   int i;
-  float a[N] __attribute__ ((__aligned__(16)));
+  float a[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 
   check_vect ();
 
@@ -74,6 +75,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
-/*  { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 1 "vect" { target vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */
+/*  { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 2 "vect" { target vect_no_align } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

@@ -1109,7 +1109,7 @@ hash_with_unspec_callback (const_rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
       && targetm.sched.skip_rtx_p (x))
     {
       *nx = XVECEXP (x, 0 ,0);
-      *nmode = 0;
+      *nmode = VOIDmode;
       return 1;
     }
   
@@ -1505,14 +1505,6 @@ insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
   if (res)
     {
       expr_history_def *phist = VEC_index (expr_history_def, vect, ind);
-
-      /* When merging, either old vinsns are the *same* or, if not, both 
-         old and new vinsns are different pointers.  In the latter case, 
-         though, new vinsns should be equal.  */
-      gcc_assert (phist->old_expr_vinsn == old_expr_vinsn
-                  || (phist->new_expr_vinsn != new_expr_vinsn 
-                      && (vinsn_equal_p 
-                          (phist->old_expr_vinsn, old_expr_vinsn))));
 
       /* It is possible that speculation types of expressions that were 
          propagated through different paths will be different here.  In this
@@ -3492,6 +3484,8 @@ bool
 maybe_tidy_empty_bb (basic_block bb)
 {
   basic_block succ_bb, pred_bb;
+  edge e;
+  edge_iterator ei;
   bool rescan_p;
 
   /* Keep empty bb only if this block immediately precedes EXIT and
@@ -3502,6 +3496,11 @@ maybe_tidy_empty_bb (basic_block bb)
           && (!single_pred_p (bb) 
               || !(single_pred_edge (bb)->flags & EDGE_FALLTHRU))))
     return false;
+
+  /* Do not attempt to redirect complex edges.  */
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    if (e->flags & EDGE_COMPLEX)
+      return false;
 
   free_data_sets (bb);
 
@@ -3521,9 +3520,6 @@ maybe_tidy_empty_bb (basic_block bb)
   /* Redirect all non-fallthru edges to the next bb.  */
   while (rescan_p)
     {
-      edge e;
-      edge_iterator ei;
-
       rescan_p = false;
 
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -5285,8 +5281,6 @@ sel_create_recovery_block (insn_t orig_insn)
 void
 sel_merge_blocks (basic_block a, basic_block b)
 {
-  gcc_assert (can_merge_blocks_p (a, b));
-
   sel_remove_empty_bb (b, true, false);
   merge_blocks (a, b);
 
@@ -5331,6 +5325,7 @@ sel_redirect_edge_and_branch (edge e, basic_block to)
   basic_block src;
   int prev_max_uid;
   rtx jump;
+  edge redirected;
 
   latch_edge_p = (pipelining_p
                   && current_loop_nest
@@ -5338,9 +5333,10 @@ sel_redirect_edge_and_branch (edge e, basic_block to)
 
   src = e->src;
   prev_max_uid = get_max_uid ();
-  
-  redirect_edge_and_branch (e, to);
-  gcc_assert (last_added_blocks == NULL);
+
+  redirected = redirect_edge_and_branch (e, to);
+
+  gcc_assert (redirected && last_added_blocks == NULL);
 
   /* When we've redirected a latch edge, update the header.  */
   if (latch_edge_p)

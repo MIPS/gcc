@@ -57,7 +57,6 @@ extern bool constant_address_p (rtx);
 extern bool legitimate_pic_operand_p (rtx);
 extern int legitimate_pic_address_disp_p (rtx);
 extern int legitimate_address_p (enum machine_mode, rtx, int);
-extern rtx legitimize_address (rtx, rtx, enum machine_mode);
 
 extern void print_reg (rtx, int, FILE*);
 extern void print_operand (FILE*, rtx, int);
@@ -85,6 +84,9 @@ extern void ix86_fixup_binary_operands_no_copy (enum rtx_code,
 extern void ix86_expand_binary_operator (enum rtx_code,
 					 enum machine_mode, rtx[]);
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
+extern bool ix86_lea_for_add_ok (enum rtx_code, rtx, rtx[]);
+extern bool ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn);
+extern bool ix86_agi_dependent (rtx set_insn, rtx use_insn);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
 extern rtx ix86_build_const_vector (enum machine_mode, bool, rtx);
@@ -94,7 +96,6 @@ extern void ix86_expand_convert_uns_sixf_sse (rtx, rtx);
 extern void ix86_expand_convert_uns_sidf_sse (rtx, rtx);
 extern void ix86_expand_convert_uns_sisf_sse (rtx, rtx);
 extern void ix86_expand_convert_sign_didf_sse (rtx, rtx);
-extern rtx ix86_build_signbit_mask (enum machine_mode, bool, bool);
 extern void ix86_expand_fp_absneg_operator (enum rtx_code, enum machine_mode,
 					    rtx[]);
 extern void ix86_expand_copysign (rtx []);
@@ -139,9 +140,8 @@ extern int ix86_function_arg_boundary (enum machine_mode, tree);
 extern bool ix86_sol10_return_in_memory (const_tree,const_tree);
 extern rtx ix86_force_to_memory (enum machine_mode, rtx);
 extern void ix86_free_from_memory (enum machine_mode);
-extern int ix86_cfun_abi (void);
-extern int ix86_function_abi (const_tree);
-extern int ix86_function_type_abi (const_tree);
+extern enum calling_abi ix86_cfun_abi (void);
+extern enum calling_abi ix86_function_type_abi (const_tree);
 extern void ix86_call_abi_override (const_tree);
 extern tree ix86_fn_abi_va_list (tree);
 extern tree ix86_canonical_va_list_type (tree);

@@ -721,6 +721,9 @@ gfc_init_types (void)
   for (index = 0; gfc_integer_kinds[index].kind != 0; ++index)
     {
       type = gfc_build_int_type (&gfc_integer_kinds[index]);
+      /* Ensure integer(kind=1) doesn't have TYPE_STRING_FLAG set.  */
+      if (TYPE_STRING_FLAG (type))
+	type = make_signed_type (gfc_integer_kinds[index].bit_size);
       gfc_integer_types[index] = type;
       snprintf (name_buf, sizeof(name_buf), "integer(kind=%d)",
 		gfc_integer_kinds[index].kind);
@@ -1623,8 +1626,8 @@ gfc_sym_type (gfc_symbol * sym)
   tree type;
   int byref;
 
-  /* Procedure Pointers inside COMMON blocks or as function result.  */
-  if (sym->attr.proc_pointer && (sym->attr.in_common || sym->attr.result))
+  /* Procedure Pointers inside COMMON blocks.  */
+  if (sym->attr.proc_pointer && sym->attr.in_common)
     {
       /* Unset proc_pointer as gfc_get_function_type calls gfc_sym_type.  */
       sym->attr.proc_pointer = 0;
@@ -1642,8 +1645,11 @@ gfc_sym_type (gfc_symbol * sym)
   if (sym->backend_decl && !sym->attr.function)
     return TREE_TYPE (sym->backend_decl);
 
-  if (sym->ts.type == BT_CHARACTER && sym->attr.is_bind_c
-      && (sym->attr.function || sym->attr.result))
+  if (sym->ts.type == BT_CHARACTER
+      && ((sym->attr.function && sym->attr.is_bind_c)
+	  || (sym->attr.result
+	      && sym->ns->proc_name
+	      && sym->ns->proc_name->attr.is_bind_c)))
     type = gfc_character1_type_node;
   else
     type = gfc_typenode_for_spec (&sym->ts);
@@ -1781,6 +1787,21 @@ copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to)
 }
 
 
+/* Build a tree node for a procedure pointer component.  */
+
+tree
+gfc_get_ppc_type (gfc_component* c)
+{
+  tree t;
+  if (c->attr.function)
+    t = gfc_typenode_for_spec (&c->ts);
+  else
+    t = void_type_node;
+  /* TODO: Build argument list.  */
+  return build_pointer_type (build_function_type (t, NULL_TREE));
+}
+
+
 /* Build a tree node for a derived type.  If there are equal
    derived types, with different local names, these are built
    at the same time.  If an equal derived type has been built
@@ -1827,16 +1848,9 @@ gfc_get_derived_type (gfc_symbol * derived)
   /* derived->backend_decl != 0 means we saw it before, but its
      components' backend_decl may have not been built.  */
   if (derived->backend_decl)
-    {
-      /* Its components' backend_decl have been built.  */
-      if (TYPE_FIELDS (derived->backend_decl))
-        return derived->backend_decl;
-      else
-        typenode = derived->backend_decl;
-    }
+    return derived->backend_decl;
   else
     {
-
       /* We see this derived type first time, so build the type node.  */
       typenode = make_node (RECORD_TYPE);
       TYPE_NAME (typenode) = get_identifier (derived->name);
@@ -1885,6 +1899,8 @@ gfc_get_derived_type (gfc_symbol * derived)
     {
       if (c->ts.type == BT_DERIVED)
         field_type = c->ts.derived->backend_decl;
+      else if (c->attr.proc_pointer)
+	field_type = gfc_get_ppc_type (c);
       else
 	{
 	  if (c->ts.type == BT_CHARACTER)
@@ -1972,7 +1988,11 @@ gfc_return_by_reference (gfc_symbol * sym)
   if (sym->attr.dimension)
     return 1;
 
-  if (sym->ts.type == BT_CHARACTER && !sym->attr.is_bind_c)
+  if (sym->ts.type == BT_CHARACTER
+      && !sym->attr.is_bind_c
+      && (!sym->attr.result
+	  || !sym->ns->proc_name
+	  || !sym->ns->proc_name->attr.is_bind_c))
     return 1;
 
   /* Possibly return complex numbers by reference for g77 compatibility.
@@ -2156,7 +2176,18 @@ gfc_get_function_type (gfc_symbol * sym)
     }
   else if (sym->result && sym->result->attr.proc_pointer)
     /* Procedure pointer return values.  */
-    type = gfc_sym_type (sym->result);
+    {
+      if (sym->result->attr.result && strcmp (sym->name,"ppr@") != 0)
+	{
+	  /* Unset proc_pointer as gfc_get_function_type
+	     is called recursively.  */
+	  sym->result->attr.proc_pointer = 0;
+	  type = build_pointer_type (gfc_get_function_type (sym->result));
+	  sym->result->attr.proc_pointer = 1;
+	}
+      else
+       type = gfc_sym_type (sym->result);
+    }
   else
     type = gfc_sym_type (sym);
 

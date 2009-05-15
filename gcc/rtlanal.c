@@ -39,18 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "tree.h"
 
-/* Information about a subreg of a hard register.  */
-struct subreg_info
-{
-  /* Offset of first hard register involved in the subreg.  */
-  int offset;
-  /* Number of hard registers involved in the subreg.  */
-  int nregs;
-  /* Whether this subreg can be represented as a hard reg with the new
-     mode.  */
-  bool representable_p;
-};
-
 /* Forward declarations */
 static void set_of_1 (rtx, const_rtx, void *);
 static bool covers_regno_p (const_rtx, unsigned int);
@@ -58,9 +46,6 @@ static bool covers_regno_no_parallel_p (const_rtx, unsigned int);
 static int rtx_referenced_p_1 (rtx *, void *);
 static int computed_jump_p_1 (const_rtx);
 static void parms_set (rtx, const_rtx, void *);
-static void subreg_get_info (unsigned int, enum machine_mode,
-			     unsigned int, enum machine_mode,
-			     struct subreg_info *);
 
 static unsigned HOST_WIDE_INT cached_nonzero_bits (const_rtx, enum machine_mode,
                                                    const_rtx, enum machine_mode,
@@ -1880,10 +1865,11 @@ find_regno_fusage (const_rtx insn, enum rtx_code code, unsigned int regno)
 }
 
 
-/* Add register note with kind KIND and datum DATUM to INSN.  */
+/* Allocate a register note with kind KIND and datum DATUM.  LIST is
+   stored as the pointer to the next register note.  */
 
-void
-add_reg_note (rtx insn, enum reg_note kind, rtx datum)
+rtx
+alloc_reg_note (enum reg_note kind, rtx datum, rtx list)
 {
   rtx note;
 
@@ -1896,16 +1882,24 @@ add_reg_note (rtx insn, enum reg_note kind, rtx datum)
       /* These types of register notes use an INSN_LIST rather than an
 	 EXPR_LIST, so that copying is done right and dumps look
 	 better.  */
-      note = alloc_INSN_LIST (datum, REG_NOTES (insn));
+      note = alloc_INSN_LIST (datum, list);
       PUT_REG_NOTE_KIND (note, kind);
       break;
 
     default:
-      note = alloc_EXPR_LIST (kind, datum, REG_NOTES (insn));
+      note = alloc_EXPR_LIST (kind, datum, list);
       break;
     }
 
-  REG_NOTES (insn) = note;
+  return note;
+}
+
+/* Add register note with kind KIND and datum DATUM to INSN.  */
+
+void
+add_reg_note (rtx insn, enum reg_note kind, rtx datum)
+{
+  REG_NOTES (insn) = alloc_reg_note (kind, datum, REG_NOTES (insn));
 }
 
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
@@ -3091,7 +3085,7 @@ subreg_lsb (const_rtx x)
    offset - The byte offset.
    ymode  - The mode of a top level SUBREG (or what may become one).
    info   - Pointer to structure to fill in.  */
-static void
+void
 subreg_get_info (unsigned int xregno, enum machine_mode xmode,
 		 unsigned int offset, enum machine_mode ymode,
 		 struct subreg_info *info)
@@ -5045,4 +5039,3 @@ constant_pool_constant_p (rtx x)
   x = avoid_constant_pool_reference (x);
   return GET_CODE (x) == CONST_DOUBLE;
 }
-

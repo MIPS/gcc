@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -802,7 +802,7 @@ struct rtl_opt_pass pass_compute_alignments =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -2236,6 +2236,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #endif
 	      }
 
+	    if (targetm.asm_out.final_postscan_insn)
+	      targetm.asm_out.final_postscan_insn (file, insn, ops,
+						   insn_noperands);
+
 	    this_is_asm_operands = 0;
 	    break;
 	  }
@@ -2637,6 +2641,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	/* Output assembler code from the template.  */
 	output_asm_insn (templ, recog_data.operand);
+
+	/* Some target machines need to postscan each insn after
+	   it is output.  */
+	if (targetm.asm_out.final_postscan_insn)
+	  targetm.asm_out.final_postscan_insn (file, insn, recog_data.operand,
+					       recog_data.n_operands);
 
 	/* If necessary, report the effect that the instruction has on
 	   the unwind info.   We've already done this for delay slots
@@ -4346,6 +4356,7 @@ rest_of_clean_state (void)
     sdbout_types (NULL_TREE);
 #endif
 
+  flag_rerun_cse_after_global_opts = 0;
   reload_completed = 0;
   epilogue_completed = 0;
 #ifdef STACK_REGS
@@ -4404,4 +4415,3 @@ struct rtl_opt_pass pass_clean_state =
   0                                     /* todo_flags_finish */
  }
 };
-

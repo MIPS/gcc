@@ -836,13 +836,17 @@ gfc_is_intrinsic (gfc_symbol* sym, int subroutine_flag, locus loc)
   /* See if this intrinsic is allowed in the current standard.  */
   if (gfc_check_intrinsic_standard (isym, &symstd, false, loc) == FAILURE)
     {
-      if (gfc_option.warn_intrinsics_std)
-	gfc_warning_now ("The intrinsic '%s' at %L is not included in the"
-			 " selected standard but %s and '%s' will be treated as"
-			 " if declared EXTERNAL.  Use an appropriate -std=*"
-			 " option or define -fall-intrinsics to allow this"
-			 " intrinsic.", sym->name, &loc, symstd, sym->name);
-      sym->attr.external = 1;
+      if (sym->attr.proc == PROC_UNKNOWN)
+	{
+	  if (gfc_option.warn_intrinsics_std)
+	    gfc_warning_now ("The intrinsic '%s' at %L is not included in the"
+			     " selected standard but %s and '%s' will be"
+			     " treated as if declared EXTERNAL.  Use an"
+			     " appropriate -std=* option or define"
+			     " -fall-intrinsics to allow this intrinsic.",
+			     sym->name, &loc, symstd, sym->name);
+	  gfc_add_external (&sym->attr, &loc);
+	}
 
       return false;
     }
@@ -1362,7 +1366,7 @@ add_functions (void)
 
   add_sym_2 ("dim", GFC_ISYM_DIM, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dr, GFC_STD_F77,
 	     gfc_check_a_p, gfc_simplify_dim, gfc_resolve_dim,
-	     x, BT_REAL, dr, REQUIRED, y, BT_UNKNOWN, dr, REQUIRED);
+	     x, BT_REAL, dr, REQUIRED, y, BT_REAL, dr, REQUIRED);
 
   add_sym_2 ("idim", GFC_ISYM_DIM, CLASS_ELEMENTAL, ACTUAL_YES, BT_INTEGER, di, GFC_STD_F77,
 	     NULL, gfc_simplify_dim, gfc_resolve_dim,

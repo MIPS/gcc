@@ -16,8 +16,13 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_DEFAULTS_H
@@ -688,8 +693,11 @@ along with GCC; see the file COPYING3.  If not see
 #define FLOAT_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
 #endif
 
-#ifndef TARGET_FLT_EVAL_METHOD
+#ifdef TARGET_FLT_EVAL_METHOD
+#define TARGET_FLT_EVAL_METHOD_NON_DEFAULT 1
+#else
 #define TARGET_FLT_EVAL_METHOD 0
+#define TARGET_FLT_EVAL_METHOD_NON_DEFAULT 0
 #endif
 
 #ifndef TARGET_DEC_EVAL_METHOD
@@ -870,10 +878,6 @@ along with GCC; see the file COPYING3.  If not see
 #define SHIFT_COUNT_TRUNCATED 0
 #endif
 
-#ifndef LEGITIMIZE_ADDRESS
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
-#endif
-
 #ifndef LEGITIMATE_PIC_OPERAND_P
 #define LEGITIMATE_PIC_OPERAND_P(X) 1
 #endif
@@ -952,6 +956,17 @@ along with GCC; see the file COPYING3.  If not see
 /* Alignment value for attribute ((aligned)).  */
 #ifndef ATTRIBUTE_ALIGNED_VALUE
 #define ATTRIBUTE_ALIGNED_VALUE BIGGEST_ALIGNMENT
+#endif
+
+/* Many ports have no mode-dependent addresses (except possibly autoincrement
+   and autodecrement addresses, which are handled by target-independent code
+   in recog.c).  */
+#ifndef GO_IF_MODE_DEPENDENT_ADDRESS
+#define GO_IF_MODE_DEPENDENT_ADDRESS(X, WIN)
+#endif
+
+#ifndef FRAME_POINTER_REQUIRED
+#define FRAME_POINTER_REQUIRED false
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

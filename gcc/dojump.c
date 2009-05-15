@@ -141,7 +141,8 @@ prefer_and_bit_test (enum machine_mode mode, int bitnum)
     }
 
   /* Fill in the integers.  */
-  XEXP (and_test, 1) = GEN_INT ((unsigned HOST_WIDE_INT) 1 << bitnum);
+  XEXP (and_test, 1)
+    = immed_double_const ((unsigned HOST_WIDE_INT) 1 << bitnum, 0, mode);
   XEXP (XEXP (shift_test, 0), 1) = GEN_INT (bitnum);
 
   return (rtx_cost (and_test, IF_THEN_ELSE, optimize_insn_for_speed_p ())
@@ -257,8 +258,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
         if (! SLOW_BYTE_ACCESS
             && type != 0 && bitsize >= 0
             && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (exp))
-            && (optab_handler (cmp_optab, TYPE_MODE (type))->insn_code
-		!= CODE_FOR_nothing))
+            && have_insn_for (COMPARE, TYPE_MODE (type)))
           {
             do_jump (fold_convert (type, exp), if_false_label, if_true_label);
             break;
@@ -475,10 +475,10 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 		  && prefer_and_bit_test (TYPE_MODE (argtype),
 					  TREE_INT_CST_LOW (shift)))
 		{
-		  HOST_WIDE_INT mask = (HOST_WIDE_INT) 1
-				       << TREE_INT_CST_LOW (shift);
+		  unsigned HOST_WIDE_INT mask
+		    = (unsigned HOST_WIDE_INT) 1 << TREE_INT_CST_LOW (shift);
 		  do_jump (build2 (BIT_AND_EXPR, argtype, arg,
-				   build_int_cst_type (argtype, mask)),
+				   build_int_cst_wide_type (argtype, mask, 0)),
 			   clr_label, set_label);
 		  break;
 		}
@@ -499,8 +499,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
           && (mode = mode_for_size (i + 1, MODE_INT, 0)) != BLKmode
           && (type = lang_hooks.types.type_for_mode (mode, 1)) != 0
           && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (exp))
-          && (optab_handler (cmp_optab, TYPE_MODE (type))->insn_code
-              != CODE_FOR_nothing))
+          && have_insn_for (COMPARE, TYPE_MODE (type)))
         {
           do_jump (fold_convert (type, exp), if_false_label, if_true_label);
           break;

@@ -91,6 +91,18 @@ struct _dep;
 /* This is defined in ddg.h .  */
 struct ddg;
 
+/* Assembler instructions for creating various kinds of integer object.  */
+
+struct asm_int_op
+{
+  const char *hi;
+  const char *si;
+  const char *di;
+  const char *ti;
+};
+
+/* The target structure.  This holds all the backend hooks.  */
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -101,13 +113,7 @@ struct gcc_target
 
     /* Assembler instructions for creating various kinds of integer object.  */
     const char *byte_op;
-    struct asm_int_op
-    {
-      const char *hi;
-      const char *si;
-      const char *di;
-      const char *ti;
-    } aligned_op, unaligned_op;
+    struct asm_int_op aligned_op, unaligned_op;
 
     /* Try to output the assembler code for an integer object whose
        value is given by X.  SIZE is the size of the object in bytes and
@@ -245,6 +251,8 @@ struct gcc_target
     /* Output a DTP-relative reference to a TLS symbol.  */
     void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
 
+    /* Some target machines need to postscan each insn after it is output.  */
+    void (*final_postscan_insn) (FILE *, rtx, rtx *, int);
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */
@@ -551,10 +559,12 @@ struct gcc_target
 			  enum machine_mode mode, int ignore);
 
   /* Select a replacement for a target-specific builtin.  This is done
-     *before* regular type checking, and so allows the target to implement
-     a crude form of function overloading.  The result is a complete
-     expression that implements the operation.  */
-  tree (*resolve_overloaded_builtin) (tree decl, tree params);
+     *before* regular type checking, and so allows the target to
+     implement a crude form of function overloading.  The result is a
+     complete expression that implements the operation.  PARAMS really
+     has type VEC(tree,gc)*, but we don't want to include tree.h
+     here.  */
+  tree (*resolve_overloaded_builtin) (tree decl, void *params);
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
@@ -582,7 +592,7 @@ struct gcc_target
 
   /* Return a register class for which branch target register
      optimizations should be applied.  */
-  int (* branch_target_register_class) (void);
+  enum reg_class (* branch_target_register_class) (void);
 
   /* Return true if branch target register optimizations should include
      callee-saved registers that are not already live during the current
@@ -598,6 +608,10 @@ struct gcc_target
 
   /* True if X is considered to be commutative.  */
   bool (* commutative_p) (const_rtx, int);
+
+  /* Given an invalid address X for a given machine mode, try machine-specific
+     ways to make it legitimate.  Return X or an invalid address on failure.  */
+  rtx (* legitimize_address) (rtx, rtx, enum machine_mode);
 
   /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
   rtx (* delegitimize_address) (rtx);
@@ -671,9 +685,6 @@ struct gcc_target
      least some operations are supported; need to check optabs or builtins
      for further details.  */
   bool (* vector_mode_supported_p) (enum machine_mode mode);
-
-  /* True if a vector is opaque.  */
-  bool (* vector_opaque_p) (const_tree);
 
   /* Compute a (partial) cost for rtx X.  Return true if the complete
      cost has been computed, and false if subexpressions should be
@@ -919,6 +930,10 @@ struct gcc_target
   /* Return true if is OK to use a hard register REGNO as scratch register
      in peephole2.  */
   bool (* hard_regno_scratch_ok) (unsigned int regno);
+
+  /* Return the smallest number of different values for which it is best to
+     use a jump-table instead of a tree of conditional branches.  */
+  unsigned int (* case_values_threshold) (void);
 
   /* Functions specific to the C family of frontends.  */
   struct c {
