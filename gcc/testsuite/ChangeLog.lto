@@ -1,3 +1,7 @@
+2009-05-15  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/20090206-1_0.c: Add -fPIC.
+
 2009-04-01  Rafael Avila de Espindola  <espindola@google.com>
 
 	* g++.dg/lto/20080909-1_0.C:  Don't use -flto-single.

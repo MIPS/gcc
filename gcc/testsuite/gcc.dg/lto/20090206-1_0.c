@@ -1,6 +1,6 @@
 /* { dg-do link { target i?86-*-linux* x86_64-*-linux* } } */
-/* { dg-options "{-shared -fwhopr -msse2}" } */
-/* { dg-suppress-ld-options {-msse2} } */
+/* { dg-options "{-fPIC -shared -fwhopr -msse2}" } */
+/* { dg-suppress-ld-options {-fPIC -msse2} } */
 
 typedef short v8hi __attribute__((__vector_size__(16)));
 void func (void) {
