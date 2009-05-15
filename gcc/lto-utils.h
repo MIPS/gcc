@@ -36,4 +36,11 @@ extern void lto_set_decl_flags (tree, lto_decl_flags_t);
 extern char *lto_get_section_name (int, const char *);
 extern void print_lto_report (void);
 
+/* Return true if LABEL should be emitted in the global context.  */
+static inline bool
+emit_label_in_global_context_p (tree label)
+{
+  return DECL_NONLOCAL (label) || FORCED_LABEL (label);
+}
+
 #endif /* !GCC_LTO_UTILS_H */

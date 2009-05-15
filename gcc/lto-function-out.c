@@ -680,6 +680,7 @@ output_local_decl_ref (struct output_block *ob, tree name, bool write)
   return index;
 }
 
+
 /* Look up LABEL in the label table and write the uleb128 index for it.  */
 
 static void
@@ -689,9 +690,10 @@ output_label_ref (struct output_block *ob, tree label)
   struct lto_decl_slot d_slot;
   d_slot.t = label;
 
-  /* If LABEL is DECL_NONLOCAL it will referenced from other
-     functions, so it needs to be streamed out in the global context.  */
-  if (DECL_NONLOCAL (label))
+  /* If LABEL is DECL_NONLOCAL or FORCED_LABEL, it may be referenced
+     from other functions, so it needs to be streamed out in the
+     global context.  */
+  if (emit_label_in_global_context_p (label))
     {
       struct lto_out_decl_state *state;
       struct lto_output_stream *obs;
@@ -1074,7 +1076,6 @@ output_expr_operand (struct output_block *ob, tree expr)
 	  output_expr_operand (ob, CASE_LOW (expr));
 	if (CASE_HIGH (expr) != NULL_TREE)
 	  output_expr_operand (ob, CASE_HIGH (expr));
-	gcc_assert (!DECL_NONLOCAL (CASE_LABEL (expr)));
 	output_label_ref (ob, CASE_LABEL (expr));
       }
       break;
@@ -1135,9 +1136,10 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case LABEL_DECL:
-      output_record_start (ob, expr, NULL_TREE,
-			   DECL_NONLOCAL (expr) ? LTO_label_decl1
-					        : LTO_label_decl0);
+      tag = emit_label_in_global_context_p (expr)
+	    ? LTO_label_decl1
+	    : LTO_label_decl0;
+      output_record_start (ob, expr, NULL_TREE, tag);
       output_label_ref (ob, expr);
       break;
 
@@ -2935,7 +2937,11 @@ output_type_decl (struct output_block *ob, tree decl)
 static void
 output_label_decl (struct output_block *ob, tree decl)
 {
-  enum LTO_tags tag = DECL_NONLOCAL (decl) ? LTO_label_decl1 : LTO_label_decl0;
+  enum LTO_tags tag;
+  
+  tag = emit_label_in_global_context_p (decl)
+	? LTO_label_decl1
+	: LTO_label_decl0;
 
   /* tag and flags */
   output_global_record_start (ob, decl, NULL, tag);

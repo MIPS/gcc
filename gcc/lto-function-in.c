@@ -265,7 +265,7 @@ get_label_decl (struct data_in *data_in, struct lto_input_block *ib)
   gcc_assert (ix >= 0 && ix < nlabels);
 
   label = data_in->labels[ix];
-  gcc_assert (!DECL_NONLOCAL (label));
+  gcc_assert (!emit_label_in_global_context_p (label));
 
   return label;
 }
@@ -1807,7 +1807,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	SSA_NAME_DEF_STMT (lhs) = stmt;
     }
   else if (code == GIMPLE_LABEL)
-    gcc_assert (DECL_NONLOCAL (gimple_label_label (stmt))
+    gcc_assert (emit_label_in_global_context_p (gimple_label_label (stmt))
 	        || DECL_CONTEXT (gimple_label_label (stmt)) == fn->decl);
   else if (code == GIMPLE_ASM)
     {

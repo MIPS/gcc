@@ -1,5 +1,12 @@
 2009-05-15  Diego Novillo  <dnovillo@google.com>
 
+	* lto-symtab.c (lto_symtab_merge_decl): Remove stale comment.
+	* lto-utils.h (emit_label_in_global_context_p): New.
+	Replace every reference to DECL_NONLOCAL to a reference
+	to emit_label_in_global_context_p.
+
+2009-05-15  Diego Novillo  <dnovillo@google.com>
+
 	* lto-function-out.c (output_stmt_location): New.
 	(output_gimple_stmt): Call it.
 	* lto-function-in.c (input_stmt_location): New.
