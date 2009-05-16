@@ -195,7 +195,7 @@ void
 register_attribute (const struct attribute_spec *attr) 
 {
   struct substring str;
-  const void **slot;
+  void **slot;
 
   str.str = attr->name;
   str.length = strlen (str.str);

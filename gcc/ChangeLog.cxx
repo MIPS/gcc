@@ -1,3 +1,7 @@
+2009-05-16  Ian Lance Taylor  <iant@google.com>
+
+	* attribs.c (register_attribute): Change slot to void **.
+
 2009-05-14  Ian Lance Taylor  <iant@google.com>
 
 	* tree.c (tree_range_check_failed): Change c to int.
