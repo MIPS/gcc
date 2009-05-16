@@ -435,7 +435,7 @@ expand_resx_expr (tree exp)
 {
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
   struct eh_region_d *reg = VEC_index (eh_region,
-				     cfun->eh->region_array, region_nr);
+				       cfun->eh->region_array, region_nr);
 
   gcc_assert (!reg->resume);
   do_pending_stack_adjust ();
@@ -729,7 +729,7 @@ hash_type_list (tree t)
 static hashval_t
 hash_eh_region (const void *r)
 {
-  const struct eh_region_d *region = (const struct eh_region_d *)r;
+  const struct eh_region_d *region = (const struct eh_region_d *) r;
   hashval_t val = region->type;
 
   if (region->tree_label)
@@ -770,8 +770,8 @@ hash_eh_region (const void *r)
 static int
 eh_regions_equal_p (const void *r1, const void *r2)
 {
-  return eh_region_replaceable_by_p ((const struct eh_region_d *)r1,
-				     (const struct eh_region_d *)r2);
+  return eh_region_replaceable_by_p ((const struct eh_region_d *) r1,
+				     (const struct eh_region_d *) r2);
 }
 
 /* Walk all peers of REGION and try to merge those regions
@@ -851,7 +851,7 @@ merge_peers (struct eh_region_d *region)
 	  if (!*slot)
 	    *slot = r1;
 	  else
-	    replace_region ((struct eh_region_d *)*slot, r1);
+	    replace_region ((struct eh_region_d *) *slot, r1);
 	}
       htab_delete (hash);
     }
@@ -2234,7 +2234,8 @@ sjlj_assign_call_site_values (rtx dispatch_label, struct sjlj_lp_info *lp_info)
   for (i = cfun->eh->last_region_number; i > 0; --i)
     if (lp_info[i].directly_reachable)
       {
-	struct eh_region_d *r = VEC_index (eh_region, cfun->eh->region_array, i);
+	struct eh_region_d *r =
+	  VEC_index (eh_region, cfun->eh->region_array, i);
 
 	r->landing_pad = dispatch_label;
 	lp_info[i].action_index = collect_one_action_chain (ar_hash, r);
@@ -2518,14 +2519,17 @@ sjlj_emit_dispatch_table (rtx dispatch_label, struct sjlj_lp_info *lp_info)
 
       emit_cmp_and_jump_insns (dispatch, GEN_INT (lp_info[i].dispatch_index),
 			       EQ, NULL_RTX, TYPE_MODE (integer_type_node), 0,
-	                       ((struct eh_region_d *)VEC_index (eh_region, cfun->eh->region_array, i))
-				->post_landing_pad);
+	                       (((struct eh_region_d *)
+				 VEC_index (eh_region,
+					    cfun->eh->region_array, i))
+				->post_landing_pad));
     }
 
   seq = get_insns ();
   end_sequence ();
 
-  before = (((struct eh_region_d *)VEC_index (eh_region, cfun->eh->region_array, first_reachable))
+  before = (((struct eh_region_d *)
+	     VEC_index (eh_region, cfun->eh->region_array, first_reachable))
 	    ->post_landing_pad);
 
   bb = emit_to_new_bb_before (seq, before);
@@ -2840,7 +2844,8 @@ check_handled (tree handled, tree type)
 
 static void
 add_reachable_handler (struct reachable_info *info,
-		       struct eh_region_d *lp_region, struct eh_region_d *region)
+		       struct eh_region_d *lp_region,
+		       struct eh_region_d *region)
 {
   if (! info)
     return;
@@ -3925,7 +3930,8 @@ dw2_size_of_call_site_table (void)
 
   for (i = 0; i < n; ++i)
     {
-      call_site_record cs = VEC_index (call_site_record, crtl->eh.call_site_record, i);
+      struct call_site_record_d *cs =
+	VEC_index (call_site_record, crtl->eh.call_site_record, i);
       size += size_of_uleb128 (cs->action);
     }
 
@@ -3941,7 +3947,8 @@ sjlj_size_of_call_site_table (void)
 
   for (i = 0; i < n; ++i)
     {
-      call_site_record cs = VEC_index (call_site_record, crtl->eh.call_site_record, i);
+      struct call_site_record_d *cs =
+	VEC_index (call_site_record, crtl->eh.call_site_record, i);
       size += size_of_uleb128 (INTVAL (cs->landing_pad));
       size += size_of_uleb128 (cs->action);
     }
@@ -3958,7 +3965,8 @@ dw2_output_call_site_table (void)
 
   for (i = 0; i < n; ++i)
     {
-      call_site_record cs = VEC_index (call_site_record, crtl->eh.call_site_record, i);
+      struct call_site_record_d *cs =
+	VEC_index (call_site_record, crtl->eh.call_site_record, i);
       char reg_start_lab[32];
       char reg_end_lab[32];
       char landing_pad_lab[32];
@@ -4012,7 +4020,8 @@ sjlj_output_call_site_table (void)
 
   for (i = 0; i < n; ++i)
     {
-      call_site_record cs = VEC_index (call_site_record, crtl->eh.call_site_record, i);
+      struct call_site_record_d *cs =
+	VEC_index (call_site_record, crtl->eh.call_site_record, i);
 
       dw2_asm_output_data_uleb128 (INTVAL (cs->landing_pad),
 				   "region %d landing pad", i);

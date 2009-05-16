@@ -1,3 +1,297 @@
+2009-05-15  Ian Lance Taylor  <iant@google.com>
+
+	* alias.c (struct alias_set_entry_d): Rename from struct
+	alias_set_entry.  Change all uses.
+	* except.c (struct call_site_record_d): Rename from struct
+	call_site_record.  Change all uses.
+	* except.h (struct eh_region_d): Rename from struct eh_region.
+	Change all uses.
+	* gcse.c (struct hash_table_d): Rename from struct hash_table.
+	Change all uses.
+	* graphite.c (struct ivtype_map_elt_d): Rename fromstruct
+	ivtype_map_elt.  Change all uses.
+	(struct rename_map_elt_d): Rename fromstruct rename_map_elt.
+	Change all uses.
+	(struct ifsese_d): Rename fromstruct ifsese.  Change all uses.
+	* graphite.h (struct name_tree_d): Rename from struct name_tree.
+	Change all uses.
+	(struct sese_d): Rename from struct sese.  Change all uses.
+	* omega.h (struct eqn_d): Rename from struct eqn.  Change all
+	uses.
+	(struct omega_pb_d): Rename from struct omega_pb.  Change all
+	uses.
+	* optabs.h (struct optab_d): Rename from struct optab.  Change all
+	uses.
+	(struct convert_optab_d): Rename from struct convert_optab.
+	Change all uses.
+	* tree-pass.h (struct ipa_opt_pass_d): Rename fromstruct
+	ipa_opt_pass.  Change all uses.
+	* tree-predcom.c (struct dref_d): Rename from struct dref.  Change
+	all uses.
+
+	* c-decl.c (pushtag): If -Wc++-compat, warn if the tag is already
+	defined as a typedef.
+	(grokdeclarator): If -Wc++-compat, warn if a typedef is already
+	defined as a tag.
+
+2009-05-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 16302
+	* fold-const.c (make_range,build_range_check,merge_ranges): Move
+	declaration to...
+	(merge_ranges): Returns bool. 
+	* tree.h (make_range): .. to here.
+	(build_range_check): Likewise.
+	(merge_ranges): Likewise. Renamed from merge_ranges.
+	* c-typeck.c (parser_build_binary_op): Update calls to
+	warn_logical_operator.
+	* c-common.c (warn_logical_operator): Add new warning.
+	* c-common.h (warn_logical_operator): Update declaration.
+	
+2009-05-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* ira-conflicts.c (add_insn_allocno_copies): Fix wrong
+	conditional.
+	
+2009-05-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/install.texi: Document MPC requirements, flags etc.
+
+	* builtins.c (do_mpc_arg1, fold_builtin_ccos): New.
+	(fold_builtin_cexp): Ensure we get a complex REAL_TYPE.
+	Evaluate constant arguments.
+	(fold_builtin_carg): Ensure we get a complex REAL_TYPE.
+	(fold_builtin_1): Likewise, also evaluate constant arguments.
+	Remove superfluous break.
+	(do_mpc_ckconv): New.
+	* real.h: Include mpc.h.
+	* toplev.c (print_version): Output MPC version info if available.
+
+2009-05-15  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* fold-const.c (fold_convert_const_real_from_real): Check for
+	overflow.
+
+2009-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_reorg): Call optimize_function_for_speed_p
+	only once.
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* doc/invoke.texi (max-early-inliner-iterations): New flag.
+	* ipa-inline.c (enum inlining_mode): New INLINE_SIZE_NORECURSIVE.
+	(try_inline): Fix return value.
+	(cgraph_decide_inlining_incrementally): Honor new value.
+	(cgraph_early_inlining): Handle indirect inlining.
+	* params.def (PARAM_EARLY_INLINER_MAX_ITERATIONS): New.
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (struct cgraph_node): Add finalized_by_frotnend flag.
+	* cgraphunit.c (cgraph_finalize_function): Set it.
+	(cgraph_expand_function): Use it.
+
+2009-05-15  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* real.c (encode_ieee_half): Define.
+	(decode_ieee_half): Define.
+	(ieee_half_format): Define.
+	(arm_half_format): Define.
+	* real.h (ieee_half_format): Declare.
+	(arm_half_format): Declare.
+
+2009-05-15  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* optabs.c (prepare_float_lib_cmp):  Test that the comparison,
+	swapped, and reversed optabs exist before trying to use them.
+
+2009-05-15  Paul Brook  <paul@codesourcery.com>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/arm/arm.c (neon_vector_mem_operand): Handle element/structure
+	loads.  Allow PRE_DEC.
+	(output_move_neon): Handle PRE_DEC.
+	(arm_print_operand): Add 'A' for neon structure loads.
+	* config/arm/arm-protos.h (neon_vector_mem_operand): Update prototype.
+	* config/arm/neon.md (neon_mov): Update comment.
+	* config/arm/constraints.md (Un, Us): Update neon_vector_mem_operand
+	calls.
+	(Um): New constraint.
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	Revert the following patch until testsuite fallout is fixed:
+	* cgraph.c (dump_cgraph_node): Dump size/time/benefit.
+	* cgraph.h (struct inline_summary): New filed self_wize,
+	size_inlining_benefit, self_time and time_inlining_benefit.
+	(struct cgraph_global_info): Replace insns by time ans size fields.
+	* ipa-cp (ipcp_cloning_candidate_p): Base estimate on size
+	(ipcp_estimate_growth, ipcp_insert_stage): Likewise.
+	(ipcp_update_callgraph): Do not touch function bodies.
+	* ipa-inline.c: Include except.h
+	MAX_TIME: New constant.
+	(overall_insns): Remove
+	(overall_size, max_benefit): New static variables.
+	(cgraph_estimate_time_after_inlining): New function.
+	(cgraph_estimate_size_after_inlining): Rewrite using benefits.
+	(cgraph_clone_inlined_nodes): Update size.
+	(cgraph_mark_inline_edge): Update size.
+	(cgraph_estimate_growth): Use size info.
+	(cgraph_check_inline_limits): Check size.
+	(cgraph_default_inline_p): Likewise.
+	(cgraph_edge_badness): Compute badness based on benefit and size cost.
+	(cgraph_decide_recursive_inlining): Check size.
+	(cgraph_decide_inlining_of_small_function): Update size; dump sizes and times.
+	(cgraph_decide_inlining): Likewise.
+	(cgraph_decide_inlining_incrementally): Likewise; honor PARAM_EARLY_INLINING_INSNS.
+	(likely_eliminated_by_inlining_p): New predicate.
+	(estimate_function_body_sizes): New function.
+	(compute_inline_parameters): Use it.
+	* except.c (must_not_throw_labels): New function.
+	* except.h (must_not_throw_labels): Declare.
+	* tree-inline.c (init_inline_once): Kill inlining_weigths
+	* tree-ssa-structalias.c: Avoid uninitialized warning.
+	* params.def (PARAM_MAX_INLINE_INSNS_SINGLE): Reduce to 300.
+	(PARAM_MAX_INLINE_INSNS_AUTO): Reduce to 60.
+	(PARAM_INLINE_CALL_COST): Remove.
+	(PARAM_EARLY_INLINING_INSNS): New.
+
+2009-05-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (eliminate): Use TODO_update_ssa_only_virtuals,
+	not TODO_update_ssa.
+
+2009-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39999
+	* gimple.h (gimple_expr_type): Use the expression type looking
+	through useless conversions.
+	* tree-ssa-sccvn.c (vn_nary_op_lookup_stmt): Use gimple_expr_type.
+	(vn_nary_op_insert_stmt): Likewise.
+	(simplify_binary_expression): Likewise.
+
+2009-05-15  Richard Guenther  <rguenther@suse.de>
+
+	* common.opt (-ftree-forwprop, -ftree-phiprop, -ftree-pta):
+	New options, enabled by default.
+	* doc/invoke.texi (-ftree-forwprop, -ftree-phiprop, -ftree-pta):
+	Document.
+	* tree-ssa-forwprop.c (gate_forwprop): Use flag_tree_forwprop.
+	* tree-ssa-phiprop.c (gate_phiprop): Use flag_tree_phiprop.
+	* tree-ssa-structalias.c (gate_tree_pta): New function.
+	(pass_build_alias): Use it.
+
+2009-05-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Also
+	recurse on an invariant address if a conversion from a pointer
+	type to a wider integer type is involved.
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (dump_cgraph_node): Dump size/time/benefit.
+	* cgraph.h (struct inline_summary): New filed self_wize,
+	size_inlining_benefit, self_time and time_inlining_benefit.
+	(struct cgraph_global_info): Replace insns by time ans size fields.
+	* ipa-cp (ipcp_cloning_candidate_p): Base estimate on size
+	(ipcp_estimate_growth, ipcp_insert_stage): Likewise.
+	(ipcp_update_callgraph): Do not touch function bodies.
+	* ipa-inline.c: Include except.h
+	MAX_TIME: New constant.
+	(overall_insns): Remove
+	(overall_size, max_benefit): New static variables.
+	(cgraph_estimate_time_after_inlining): New function.
+	(cgraph_estimate_size_after_inlining): Rewrite using benefits.
+	(cgraph_clone_inlined_nodes): Update size.
+	(cgraph_mark_inline_edge): Update size.
+	(cgraph_estimate_growth): Use size info.
+	(cgraph_check_inline_limits): Check size.
+	(cgraph_default_inline_p): Likewise.
+	(cgraph_edge_badness): Compute badness based on benefit and size cost.
+	(cgraph_decide_recursive_inlining): Check size.
+	(cgraph_decide_inlining_of_small_function): Update size; dump sizes and times.
+	(cgraph_decide_inlining): Likewise.
+	(cgraph_decide_inlining_incrementally): Likewise; honor PARAM_EARLY_INLINING_INSNS.
+	(likely_eliminated_by_inlining_p): New predicate.
+	(estimate_function_body_sizes): New function.
+	(compute_inline_parameters): Use it.
+	* except.c (must_not_throw_labels): New function.
+	* except.h (must_not_throw_labels): Declare.
+	* tree-inline.c (init_inline_once): Kill inlining_weigths
+	* tree-ssa-structalias.c: Avoid uninitialized warning.
+	* params.def (PARAM_MAX_INLINE_INSNS_SINGLE): Reduce to 300.
+	(PARAM_MAX_INLINE_INSNS_AUTO): Reduce to 60.
+	(PARAM_INLINE_CALL_COST): Remove.
+	(PARAM_EARLY_INLINING_INSNS): New.
+	doc/invoke.texi (max-inline-insns-auto, early-inlining-insns): Update.
+	(inline-call-cost): Remove.
+	(early-inlining-insns): New.
+
+2009-05-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dbxout.c (dbxout_range_type): Add LOW and HIGH parameters.  Use them
+	for bounds.
+	(print_int_cst_bounds_in_octal_p): Likewise.
+	(dbxout_type): Adjust calls to above functions.  Be prepared to deal
+	with subtypes.
+	* dwarf2out.c (base_type_die): Likewise.
+	(is_subrange_type): Delete.
+	(subrange_type_die): Add LOW and HIGH parameters.  Use them for bounds.
+	(modified_type_die): Call subrange_type_for_debug_p on subtypes.
+	* fold-const.c (fold_truth_not_expr) <CONVERT_EXPR>: Do not strip it if
+	the destination type is boolean.
+	(build_range_check): Do not special-case subtypes.
+	(fold_sign_changed_comparison): Likewise.
+	(fold_unary): Likewise.
+	* langhooks-def.h (LANG_HOOKS_GET_SUBRANGE_BOUNDS): Define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Add LANG_HOOKS_GET_SUBRANGE_BOUNDS.
+	* langhooks.h (lang_hooks_for_types): Add get_subrange_bounds.
+	* tree.c (subrange_type_for_debug_p): New predicate based on the former
+	is_subrange_type.
+	* tree.h (subrange_type_for_debug_p): Declare.
+	* tree-chrec.c (avoid_arithmetics_in_type_p): Delete.
+	(convert_affine_scev): Remove call to above function.
+	(chrec_convert_aggressive): Likewise.
+	* tree-ssa.c (useless_type_conversion_p_1): Do not specifically return
+	false for conversions involving subtypes.
+	* tree-vrp.c (vrp_val_max): Do not special-case subtypes.
+	(vrp_val_min): Likewise.
+	(needs_overflow_infinity): Likewise.
+	(extract_range_from_unary_expr): Likewise.
+
+2009-05-15  Paolo Bonzini  <bonzini@gnu.org>
+
+        * config/frv/frv.h: Clean up references to GO_IF_LEGITIMATE_ADDRESS.
+        * config/frv/frv.c: Likewise.
+        * config/s390/s390.c: Likewise.
+        * config/sparc/sparc.h: Likewise.
+        * config/i386/i386.h: Likewise.
+        * config/i386/i386.c: Likewise.
+        * config/crx/crx.c: Likewise.
+        * config/m68hc11/m68hc11.h: Likewise.
+        * config/iq2000/iq2000.c: Likewise.
+        * config/mn10300/mn10300.h: Likewise.
+        * config/mn10300/mn10300.c: Likewise.
+        * config/m68k/m68k.c: Likewise.
+        * config/rs6000/rs6000.c: Likewise.
+        * config/rs6000/xcoff.h: Likewise.
+        * config/rs6000/linux64.h: Likewise.
+        * config/rs6000/sysv4.h: Likewise.
+        * config/score/score3.c: Likewise.
+        * config/score/score7.c: Likewise.
+        * config/score/score.c: Likewise.
+        * config/arm/arm.md: Likewise.
+        * config/mips/mips.c: Likewise.
+        * config/mips/mips.md: Likewise.
+        * config/bfin/bfin.h: Likewise.
+        * config/pa/pa.c: Likewise.
+        * config/pa/constraints.md: Likewise.
+
+        * config/pdp11/pdp11-protos.h (legitimate_address_p): Delete.
+        * config/pdp11/pdp11.c (legitimate_address_p): Delete.
+        * config/pdp11/pdp11.h: Use memory_address_p instead.
+
 2009-05-14  Ian Lance Taylor  <iant@google.com>
 
 	* passes.c (finish_optimization_passes): Change i to int.
@@ -232,7 +526,7 @@
 	* mips-tfile.c (add_ext_symbol): Add casts to enum types.
 	(mark_stabs): Add casts to enum types.
 	(parse_stabs_common): Add casts to enum types.
-	
+
 2009-05-13  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* config/mips/mips.c (mips_print_operand) <REG, MEM, default>:
@@ -240,11 +534,13 @@
 
 2009-05-13  Taras Glek  <tglek@mozilla.com>
 
-       * attribs.c moved out attribute registration into register_attribute
-       * doc/plugins.texi Documented register_attribute and PLUGIN_ATTRIBUTES
-       * gcc-plugin.h Added forward decl for register_attribute
-       * plugin.c Added PLUGIN_ATTRIBUTES boilerplate
-       * plugin.h Added PLUGIN_ATTRIBUTES
+	* attribs.c (register_attribute): moved out attribute registration into
+	register_attribute.
+	* doc/plugins.texi: Documented register_attribute and PLUGIN_ATTRIBUTES.
+	* gcc-plugin.h: Added forward decl for register_attribute.
+	* gcc-plugin.h (plugins_event): Added PLUGIN_ATTRIBUTES.
+	* plugin.c (register_callback, invoke_plugin_callbacks): Added
+	PLUGIN_ATTRIBUTES boilerplate.
 
 2009-05-14  Dave Korn  <dave.korn.cygwin@gmail.com>
 

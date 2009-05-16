@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -48,7 +48,8 @@ struct optab_d
   enum rtx_code code;
   const char *libcall_basename;
   char libcall_suffix;
-  void (*libcall_gen)(struct optab_d *, const char *name, char suffix, enum machine_mode);
+  void (*libcall_gen)(struct optab_d *, const char *name, char suffix,
+		      enum machine_mode);
   struct optab_handlers handlers[NUM_MACHINE_MODES];
 };
 typedef struct optab_d * optab;

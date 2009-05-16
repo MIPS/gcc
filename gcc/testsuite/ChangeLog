@@ -1,3 +1,60 @@
+2009-05-15  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wcxx-compat-10.c: New testcase.
+
+2009-05-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 16302
+	* gcc.dg/pr16302.c: New.
+	* g++.dg/warn/pr16302.C: New.
+
+2009-05-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-5.c: New.
+	* gcc.dg/torture/builtin-math-6.c: New.
+	* lib/target-supports.exp (check_effective_target_mpc): New.
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* testsuite/gcc.dg/tree-ssa/inline-3.c: New testcase
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.target/i386/align-main-1.c (check): Mark noinline.
+	* gcc.target/i386/align-main-2.c (check): Mark noinline.
+	* gcc.dg/ipa/ipa-4.c: Disable early inlining.
+	* gcc.dg/vect/vect-iv-10.c (main1): Mark noinline.
+	* gcc.dg/vect/costmodel/i386/costmodel-vect-33.c (main1): Mark noinline.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-33.c (main1): Mark noinline.
+	* gcc.dg/vect/pr31699.c (foo): Mark noinline.
+	* gcc.dg/vect/pr18400.c (main1): Mark noinline.
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* sibcall-6.c: Add no-ipa-cp argument and mark the function to be
+	optimized by sibcall noinline.
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* sibcall-1.c (track): Mark noinline.
+	* sibcall-2.c (track): Mark noinline.
+	* sibcall-3.c (track): Mark noinline.
+	* sibcall-4.c (track): Mark noinline.
+
+2009-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* flatten-2.c: Disable early inlining; add comment.
+	* flatten-3.c: New test based on flatten-2.c.
+
+2009-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39999
+	* gcc.c-torture/compile/pr39999.c: New testcase.
+
+2009-05-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c-torture/compile/ptr-conv-1.c: New test.
+
 2009-05-14  Ian Lance Taylor  <iant@google.com>
 
 	* gcc.dg/Wcxx-compat-9.c: New testcase.
