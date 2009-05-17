@@ -1,5 +1,11 @@
 2009-05-12  Jan Hubicka  <jh@suse.cz>
 
+	* ipa-inline.c (try_inline): Fix return value
+	(leaf_node_p): new.
+	(cgraph_decide_inlining_incrementally): Use it.
+
+2009-05-12  Jan Hubicka  <jh@suse.cz>
+
 	* tree-inline.c (estimate_operator_cost): Add operands;
 	when division happens by constant, it is cheap.
 	(estimate_num_insns): Loads and stores are not having cost of 0;

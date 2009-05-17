@@ -1290,6 +1290,7 @@ try_inline (struct cgraph_edge *e, enum inlining_mode mode, int depth)
   struct cgraph_node *callee = e->callee;
   enum inlining_mode callee_mode = (enum inlining_mode) (size_t) callee->aux;
   bool always_inline = e->callee->local.disregard_inline_limits;
+  bool inlined = false;
 
   /* We've hit cycle?  */
   if (callee_mode)
@@ -1344,8 +1345,23 @@ try_inline (struct cgraph_edge *e, enum inlining_mode mode, int depth)
 
       if (mode == INLINE_ALL || always_inline)
 	cgraph_decide_inlining_incrementally (e->callee, mode, depth + 1);
+      inlined = true;
     }
   callee->aux = (void *)(size_t) callee_mode;
+  return inlined;
+}
+
+/* Return true when N is leaf function.  Accept cheap (pure&const) builtins
+   in leaf functions.  */
+static bool
+leaf_node_p (struct cgraph_node *n)
+{
+  struct cgraph_edge *e;
+  for (e = n->callees; e; e = e->next_callee)
+    if (!DECL_BUILT_IN (e->callee->decl)
+	|| (!TREE_READONLY (e->callee->decl)
+	    || DECL_PURE_P (e->callee->decl)))
+      return false;
   return true;
 }
 
@@ -1479,7 +1495,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    continue;
 	  }
 
-	if (cgraph_maybe_hot_edge_p (e))
+	if (cgraph_maybe_hot_edge_p (e) && leaf_node_p (e->callee))
 	  allowed_growth = PARAM_VALUE (PARAM_EARLY_INLINING_INSNS);
 
 	/* When the function body would grow and inlining the function won't
@@ -1489,8 +1505,8 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	     || (!flag_inline_functions
 		 && !DECL_DECLARED_INLINE_P (e->callee->decl)))
 	    && (cgraph_estimate_size_after_inlining (1, e->caller, e->callee)
-		>= e->caller->global.size + allowed_growth)
-	    && cgraph_estimate_growth (e->callee) >= allowed_growth)
+		> e->caller->global.size + allowed_growth)
+	    && cgraph_estimate_growth (e->callee) > allowed_growth)
 	  {
 	    if (dump_file)
 	      {
