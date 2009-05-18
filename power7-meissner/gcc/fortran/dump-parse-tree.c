@@ -1148,6 +1148,9 @@ show_code_node (int level, gfc_code *c)
 
   switch (c->op)
     {
+    case EXEC_END_PROCEDURE:
+      break;
+
     case EXEC_NOP:
       fputs ("NOP", dumpfile);
       break;
@@ -1163,38 +1166,38 @@ show_code_node (int level, gfc_code *c)
     case EXEC_INIT_ASSIGN:
     case EXEC_ASSIGN:
       fputs ("ASSIGN ", dumpfile);
-      show_expr (c->expr);
+      show_expr (c->expr1);
       fputc (' ', dumpfile);
       show_expr (c->expr2);
       break;
 
     case EXEC_LABEL_ASSIGN:
       fputs ("LABEL ASSIGN ", dumpfile);
-      show_expr (c->expr);
-      fprintf (dumpfile, " %d", c->label->value);
+      show_expr (c->expr1);
+      fprintf (dumpfile, " %d", c->label1->value);
       break;
 
     case EXEC_POINTER_ASSIGN:
       fputs ("POINTER ASSIGN ", dumpfile);
-      show_expr (c->expr);
+      show_expr (c->expr1);
       fputc (' ', dumpfile);
       show_expr (c->expr2);
       break;
 
     case EXEC_GOTO:
       fputs ("GOTO ", dumpfile);
-      if (c->label)
-	fprintf (dumpfile, "%d", c->label->value);
+      if (c->label1)
+	fprintf (dumpfile, "%d", c->label1->value);
       else
 	{
-	  show_expr (c->expr);
+	  show_expr (c->expr1);
 	  d = c->block;
 	  if (d != NULL)
 	    {
 	      fputs (", (", dumpfile);
 	      for (; d; d = d ->block)
 		{
-		  code_indent (level, d->label);
+		  code_indent (level, d->label1);
 		  if (d->block != NULL)
 		    fputc (',', dumpfile);
 		  else
@@ -1218,26 +1221,26 @@ show_code_node (int level, gfc_code *c)
 
     case EXEC_COMPCALL:
       fputs ("CALL ", dumpfile);
-      show_compcall (c->expr);
+      show_compcall (c->expr1);
       break;
 
     case EXEC_CALL_PPC:
       fputs ("CALL ", dumpfile);
-      show_expr (c->expr);
+      show_expr (c->expr1);
       show_actual_arglist (c->ext.actual);
       break;
 
     case EXEC_RETURN:
       fputs ("RETURN ", dumpfile);
-      if (c->expr)
-	show_expr (c->expr);
+      if (c->expr1)
+	show_expr (c->expr1);
       break;
 
     case EXEC_PAUSE:
       fputs ("PAUSE ", dumpfile);
 
-      if (c->expr != NULL)
-	show_expr (c->expr);
+      if (c->expr1 != NULL)
+	show_expr (c->expr1);
       else
 	fprintf (dumpfile, "%d", c->ext.stop_code);
 
@@ -1246,8 +1249,8 @@ show_code_node (int level, gfc_code *c)
     case EXEC_STOP:
       fputs ("STOP ", dumpfile);
 
-      if (c->expr != NULL)
-	show_expr (c->expr);
+      if (c->expr1 != NULL)
+	show_expr (c->expr1);
       else
 	fprintf (dumpfile, "%d", c->ext.stop_code);
 
@@ -1255,15 +1258,15 @@ show_code_node (int level, gfc_code *c)
 
     case EXEC_ARITHMETIC_IF:
       fputs ("IF ", dumpfile);
-      show_expr (c->expr);
+      show_expr (c->expr1);
       fprintf (dumpfile, " %d, %d, %d",
-		  c->label->value, c->label2->value, c->label3->value);
+		  c->label1->value, c->label2->value, c->label3->value);
       break;
 
     case EXEC_IF:
       d = c->block;
       fputs ("IF ", dumpfile);
-      show_expr (d->expr);
+      show_expr (d->expr1);
       fputc ('\n', dumpfile);
       show_code (level + 1, d->next);
 
@@ -1272,19 +1275,19 @@ show_code_node (int level, gfc_code *c)
 	{
 	  code_indent (level, 0);
 
-	  if (d->expr == NULL)
+	  if (d->expr1 == NULL)
 	    fputs ("ELSE\n", dumpfile);
 	  else
 	    {
 	      fputs ("ELSE IF ", dumpfile);
-	      show_expr (d->expr);
+	      show_expr (d->expr1);
 	      fputc ('\n', dumpfile);
 	    }
 
 	  show_code (level + 1, d->next);
 	}
 
-      code_indent (level, c->label);
+      code_indent (level, c->label1);
 
       fputs ("ENDIF", dumpfile);
       break;
@@ -1292,7 +1295,7 @@ show_code_node (int level, gfc_code *c)
     case EXEC_SELECT:
       d = c->block;
       fputs ("SELECT CASE ", dumpfile);
-      show_expr (c->expr);
+      show_expr (c->expr1);
       fputc ('\n', dumpfile);
 
       for (; d; d = d->block)
@@ -1314,7 +1317,7 @@ show_code_node (int level, gfc_code *c)
 	  show_code (level + 1, d->next);
 	}
 
-      code_indent (level, c->label);
+      code_indent (level, c->label1);
       fputs ("END SELECT", dumpfile);
       break;
 
@@ -1322,7 +1325,7 @@ show_code_node (int level, gfc_code *c)
       fputs ("WHERE ", dumpfile);
 
       d = c->block;
-      show_expr (d->expr);
+      show_expr (d->expr1);
       fputc ('\n', dumpfile);
 
       show_code (level + 1, d->next);
@@ -1331,7 +1334,7 @@ show_code_node (int level, gfc_code *c)
 	{
 	  code_indent (level, 0);
 	  fputs ("ELSE WHERE ", dumpfile);
-	  show_expr (d->expr);
+	  show_expr (d->expr1);
 	  fputc ('\n', dumpfile);
 	  show_code (level + 1, d->next);
 	}
@@ -1357,10 +1360,10 @@ show_code_node (int level, gfc_code *c)
 	    fputc (',', dumpfile);
 	}
 
-      if (c->expr != NULL)
+      if (c->expr1 != NULL)
 	{
 	  fputc (',', dumpfile);
-	  show_expr (c->expr);
+	  show_expr (c->expr1);
 	}
       fputc ('\n', dumpfile);
 
@@ -1390,12 +1393,12 @@ show_code_node (int level, gfc_code *c)
 
     case EXEC_DO_WHILE:
       fputs ("DO WHILE ", dumpfile);
-      show_expr (c->expr);
+      show_expr (c->expr1);
       fputc ('\n', dumpfile);
 
       show_code (level + 1, c->block->next);
 
-      code_indent (level, c->label);
+      code_indent (level, c->label1);
       fputs ("END DO", dumpfile);
       break;
 
@@ -1413,10 +1416,10 @@ show_code_node (int level, gfc_code *c)
 
     case EXEC_ALLOCATE:
       fputs ("ALLOCATE ", dumpfile);
-      if (c->expr)
+      if (c->expr1)
 	{
 	  fputs (" STAT=", dumpfile);
-	  show_expr (c->expr);
+	  show_expr (c->expr1);
 	}
 
       for (a = c->ext.alloc_list; a; a = a->next)
@@ -1429,10 +1432,10 @@ show_code_node (int level, gfc_code *c)
 
     case EXEC_DEALLOCATE:
       fputs ("DEALLOCATE ", dumpfile);
-      if (c->expr)
+      if (c->expr1)
 	{
 	  fputs (" STAT=", dumpfile);
-	  show_expr (c->expr);
+	  show_expr (c->expr1);
 	}
 
       for (a = c->ext.alloc_list; a; a = a->next)
@@ -1795,7 +1798,7 @@ show_code_node (int level, gfc_code *c)
 
     case EXEC_IOLENGTH:
       fputs ("IOLENGTH ", dumpfile);
-      show_expr (c->expr);
+      show_expr (c->expr1);
       goto show_dt_code;
       break;
 
@@ -1904,7 +1907,7 @@ show_code_node (int level, gfc_code *c)
 
     case EXEC_TRANSFER:
       fputs ("TRANSFER ", dumpfile);
-      show_expr (c->expr);
+      show_expr (c->expr1);
       break;
 
     case EXEC_DT_END:

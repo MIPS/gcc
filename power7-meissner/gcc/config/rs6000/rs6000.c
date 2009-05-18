@@ -792,6 +792,7 @@ struct processor_costs power7_cost = {
 
 static bool rs6000_function_ok_for_sibcall (tree, tree);
 static const char *rs6000_invalid_within_doloop (const_rtx);
+static bool rs6000_legitimate_address_p (enum machine_mode, rtx, bool);
 static rtx rs6000_generate_compare (rtx, enum machine_mode);
 static void rs6000_emit_stack_tie (void);
 static void rs6000_frame_related (rtx, rtx, HOST_WIDE_INT, rtx, rtx);
@@ -1366,6 +1367,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_IRA_COVER_CLASSES
 #define TARGET_IRA_COVER_CLASSES rs6000_ira_cover_classes
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P rs6000_legitimate_address_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4271,7 +4275,7 @@ gpr_or_gpr_p (rtx op0, rtx op1)
 }
 
 
-/* Subroutines of rs6000_legitimize_address and rs6000_legitimate_address.  */
+/* Subroutines of rs6000_legitimize_address and rs6000_legitimate_address_p.  */
 
 static bool
 constant_pool_expr_p (rtx op)
@@ -4953,13 +4957,6 @@ rs6000_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
   return RS6000_SYMBOL_REF_TLS_P (*x);
 }
 
-/* The convention appears to be to define this wherever it is used.
-   With legitimize_reload_address now defined here, REG_MODE_OK_FOR_BASE_P
-   is now used here.  */
-#ifndef REG_MODE_OK_FOR_BASE_P
-#define REG_MODE_OK_FOR_BASE_P(REGNO, MODE) REG_OK_FOR_BASE_P (REGNO)
-#endif
-
 /* Our implementation of LEGITIMIZE_RELOAD_ADDRESS.  Returns a value to
    replace the input X, or the original X if no replacement is called for.
    The output parameter *WIN is 1 if the calling macro should goto WIN,
@@ -5019,7 +5016,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
   else if (GET_CODE (x) == PLUS
 	   && GET_CODE (XEXP (x, 0)) == REG
 	   && REGNO (XEXP (x, 0)) < 32
-	   && REG_MODE_OK_FOR_BASE_P (XEXP (x, 0), mode)
+	   && INT_REG_OK_FOR_BASE_P (XEXP (x, 0), 1)
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT
 	   && (INTVAL (XEXP (x, 1)) & 3) != 0
 	   && VECTOR_MEM_NONE_P (mode)
@@ -5037,7 +5034,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
   else if (GET_CODE (x) == PLUS
 	   && GET_CODE (XEXP (x, 0)) == REG
 	   && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
-	   && REG_MODE_OK_FOR_BASE_P (XEXP (x, 0), mode)
+	   && INT_REG_OK_FOR_BASE_P (XEXP (x, 0), 1)
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT
 	   && !SPE_VECTOR_MODE (mode)
 	   && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
@@ -5190,8 +5187,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
    32-bit DImode, TImode, TFmode, TDmode), indexed addressing cannot be used
    because adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */
-int
-rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
+bool
+rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
 {
   int ret;
   rtx orig_x = x;

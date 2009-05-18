@@ -1,3 +1,53 @@
+2009-05-14  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39996
+	* gfortran.dg/func_decl_2.f90: Modified (replacing warnings by errors).
+	* gfortran.dg/duplicate_type_2.f90: Ditto.
+	* gfortran.dg/duplicate_type_3.f90: New.
+
+2009-05-14  Laurent GUERBY  <laurent@guerby.net>
+	
+        * ada/acats/tests/c3/c38202a.ada: Use Impdef.
+        * ada/acats/tests/c5/c59002c.ada: Likewise.
+	
+2009-05-13  Taras Glek  <tglek@mozilla.com>
+
+	* g++.dg/plugin/attribute_plugin-test-1.C Testcase input for custom attributes and decl smashing
+	* g++.dg/plugin/attribute_plugin.c Testcase plugin to test user attributes
+	* g++.dg/plugin/dumb_plugin.c Fixed typo
+	* g++.dg/plugin/plugin.exp Added attribute_plugin test 
+
+2009-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/39865
+	* gfortran.dg/pr39865.f90: New test.
+	* gfortran.dg/hollerith.f90: Don't expect errors for CHARACTER
+	arrays in FMT=.
+	* gfortran.dg/hollerith_f95.f90: Likewise.
+	* gfortran.dg/hollerith6.f90: New test.
+	* gfortran.dg/hollerith7.f90: New test.
+
+2009-05-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR cpp/36674
+	* gcc.dg/cpp/pr36674.i: New.
+
+2009-05-14  Ben Elliston  <bje@au.ibm.com>
+	 
+	PR middle-end/40035
+	* gcc.c-torture/compile/pr40035.c: New test.
+
+2009-05-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/i386/pr39543-2.c: Skip if ilp32 && pic.
+
+2009-05-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/40110
+	* gfortran.dg/bind_c_usage_18.f90: Change dg-error into dg-warning.
+	* gfortran.dg/c_kind_tests_2.f03: Ditto.
+	* gfortran.dg/interop_params.f03: Ditto.
+
 2009-05-12  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.dg/tree-ssa/loop-36.c: Reduce amount of iterations to 2 so unrolling
