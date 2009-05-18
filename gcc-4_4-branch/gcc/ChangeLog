@@ -1,3 +1,54 @@
+2009-05-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39999
+	* gimple.h (gimple_expr_type): Use the expression type looking
+	through useless conversions.
+	* tree-ssa-sccvn.c (vn_nary_op_lookup_stmt): Use gimple_expr_type.
+	(vn_nary_op_insert_stmt): Likewise.
+	(simplify_binary_expression): Likewise.
+
+2009-05-16  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/40153
+	* arm.md (cstoresi_nltu_thumb1): Use a neg of ltu as the pattern name
+	implies.
+
+2009-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/40147
+	* ipa-utils.h (memory_identifier_string): Moved to ...
+	* tree.h (memory_identifier_string): Here.  Add GTY(()).
+
+2009-05-14  Ben Elliston <bje@au.ibm.com>
+
+	Backport from mainline:
+	2009-05-14  Jakub Jelinek  <jakub@redhat.com>
+		    Ben Elliston <bje@au.ibm.com>
+
+	PR middle-end/40035
+	* dse.c (check_mem_read_rtx): Guard against width == -1.
+
+2009-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37179
+	* config/i386/driver-i386.c (processor_signatures): New enum.
+	(SIG_GEODE): Move from vendor_signatures to processor_signatures.
+	(host_detect_local_cpu): For SIG_AMD vendor, check for SIG_GEODE
+	processor signature to detect geode processor.
+
+2009-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2009-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39666
+	* gimplify.c (gimplify_switch_expr): If case labels cover the whole
+	range of the type, but default label is missing, add it with one
+	of the existing labels instead of adding a new label for it.
+
 2009-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:

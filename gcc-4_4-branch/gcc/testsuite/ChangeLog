@@ -1,3 +1,61 @@
+2009-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/39907
+	* gcc.target/x86_64/abi/asm-support.S (snapshot_ret): Preserve
+	stack alignment.
+
+2009-05-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39999
+	* gcc.c-torture/compile/pr39999.c: New testcase.
+
+2009-05-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40139
+	* g++.dg/template/dtor6.C: New.
+
+2009-05-16  David Billinghurst <billingd@gcc.gnu.org>
+
+	* gfortran.dg/default_format_denormal_1.f90: XFAIL on cygwin.
+	* gfortran.dg/default_format_1.f90: Revert change of 2009-05-12
+
+2009-05-14  Ben Elliston  <bje@au.ibm.com>
+
+	Backport from mainline:
+	2009-05-14  Ben Elliston  <bje@au.ibm.com> 
+
+	PR middle-end/40035
+	* gcc.c-torture/compile/pr40035.c: New test.
+
+2009-05-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/i386/pr39543-2.c: Skip if ilp32 && pic.
+
+2009-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2009-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39666
+	* gcc.dg/pr39666-1.c: New test.
+	* gcc.dg/pr39666-2.c: Likewise.
+	* g++.dg/warn/Wuninitialized-4.C: Likewise.
+	* g++.dg/warn/Wuninitialized-5.C: Likewise.
+	* gfortran.dg/pr39666-1.f90: Likewise.
+	* gfortran.dg/pr39666-2.f90: Likewise.
+
+2009-05-12  David Billinghurst <billingd@gcc.gnu.org>
+
+	* gfortran.dg/default_format_1.f90: XFAIL on cygwin.
+
+2009-05-12  David Billinghurst <billingd@gcc.gnu.org>
+
+	* lib/target-supports.exp (check_profiling_available): Return
+ 	false for -p on *-*-cygwin* targets.
+
 2009-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
