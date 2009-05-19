@@ -2314,8 +2314,10 @@ set_new_first_and_last_insn (rtx first, rtx last)
   last_insn = last;
   cur_insn_uid = 0;
 
-  if (flag_min_insn_uid)
+  if (flag_min_insn_uid || MAY_HAVE_DEBUG_INSNS)
     {
+      int debug_count = 0;
+
       cur_insn_uid = flag_min_insn_uid - 1;
       cur_debug_insn_uid = 0;
 
@@ -2323,9 +2325,16 @@ set_new_first_and_last_insn (rtx first, rtx last)
 	if (INSN_UID (insn) < flag_min_insn_uid)
 	  cur_debug_insn_uid = MAX (cur_debug_insn_uid, INSN_UID (insn));
 	else
-	  cur_insn_uid = MAX (cur_insn_uid, INSN_UID (insn));
+	  {
+	    cur_insn_uid = MAX (cur_insn_uid, INSN_UID (insn));
+	    if (DEBUG_INSN_P (insn))
+	      debug_count++;
+	  }
 
-      cur_debug_insn_uid++;
+      if (debug_count)
+	cur_debug_insn_uid = flag_min_insn_uid + debug_count;
+      else
+	cur_debug_insn_uid++;
     }
   else
     for (insn = first; insn; insn = NEXT_INSN (insn))
@@ -3010,6 +3019,27 @@ get_max_uid (void)
 {
   return cur_insn_uid;
 }
+
+/* Return the number of actual (non-debug) insns emitted in this
+   function.  */
+
+int
+get_max_insn_count (void)
+{
+  int n = cur_insn_uid;
+
+  /* The table size must be stable across -g, to avoid codegen
+     differences due to debug insns, and not be affected by
+     -fmin-insn-uid, to avoid excessive table size and to simplify
+     debugging of -fcompare-debug failures.  */
+  if (cur_debug_insn_uid > flag_min_insn_uid)
+    n -= cur_debug_insn_uid;
+  else
+    n -= flag_min_insn_uid;
+
+  return n;
+}
+
 
 /* Return the next insn.  If it is a SEQUENCE, return the first insn
    of the sequence.  */
@@ -3585,9 +3615,9 @@ make_debug_insn_raw (rtx pattern)
   rtx insn;
 
   insn = rtx_alloc (DEBUG_INSN);
-  INSN_UID (insn) = cur_debug_insn_uid < flag_min_insn_uid
-    ? cur_debug_insn_uid++
-    : cur_insn_uid++;
+  INSN_UID (insn) = cur_debug_insn_uid++;
+  if (cur_debug_insn_uid > flag_min_insn_uid)
+    INSN_UID (insn) = cur_insn_uid++;
 
   PATTERN (insn) = pattern;
   INSN_CODE (insn) = -1;
@@ -5492,7 +5522,10 @@ init_emit (void)
   first_insn = NULL;
   last_insn = NULL;
   if (flag_min_insn_uid)
-    cur_insn_uid = flag_min_insn_uid;
+    {
+      cur_insn_uid = flag_min_insn_uid;
+      gcc_assert (flag_min_insn_uid > 0);
+    }
   else
     cur_insn_uid = 1;
   cur_debug_insn_uid = 1;

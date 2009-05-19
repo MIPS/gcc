@@ -2162,6 +2162,7 @@ extern void set_used_flags (rtx);
 extern void reorder_insns (rtx, rtx, rtx);
 extern void reorder_insns_nobb (rtx, rtx, rtx);
 extern int get_max_uid (void);
+extern int get_max_insn_count (void);
 extern int in_sequence_p (void);
 extern void force_next_line_note (void);
 extern void init_emit (void);

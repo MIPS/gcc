@@ -464,7 +464,7 @@ static void record_last_reg_set_info (rtx, int);
 static void record_last_mem_set_info (rtx);
 static void record_last_set_info (rtx, const_rtx, void *);
 static void compute_hash_table (struct hash_table *);
-static void alloc_hash_table (int, struct hash_table *, int);
+static void alloc_hash_table (struct hash_table *, int);
 static void free_hash_table (struct hash_table *);
 static void compute_hash_table_work (struct hash_table *);
 static void dump_hash_table (FILE *, const char *, struct hash_table *);
@@ -1700,17 +1700,18 @@ compute_hash_table_work (struct hash_table *table)
 }
 
 /* Allocate space for the set/expr hash TABLE.
-   N_INSNS is the number of instructions in the function.
    It is used to determine the number of buckets to use.
    SET_P determines whether set or expression table will
    be created.  */
 
 static void
-alloc_hash_table (int n_insns, struct hash_table *table, int set_p)
+alloc_hash_table (struct hash_table *table, int set_p)
 {
   int n;
 
-  table->size = n_insns / 4;
+  n = get_max_insn_count ();
+
+  table->size = n / 4;
   if (table->size < 11)
     table->size = 11;
 
@@ -3956,7 +3957,7 @@ one_pre_gcse_pass (void)
   gcc_obstack_init (&gcse_obstack);
   alloc_gcse_mem ();
 
-  alloc_hash_table (get_max_uid (), &expr_hash_table, 0);
+  alloc_hash_table (&expr_hash_table, 0);
   add_noreturn_fake_exit_edges ();
   if (flag_gcse_lm)
     compute_ld_motion_mems ();
@@ -4437,7 +4438,7 @@ one_code_hoisting_pass (void)
   gcc_obstack_init (&gcse_obstack);
   alloc_gcse_mem ();
 
-  alloc_hash_table (get_max_uid (), &expr_hash_table, 0);
+  alloc_hash_table (&expr_hash_table, 0);
   compute_hash_table (&expr_hash_table);
   if (dump_file)
     dump_hash_table (dump_file, "Code Hosting Expressions", &expr_hash_table);
@@ -4977,7 +4978,7 @@ one_cprop_pass (void)
   implicit_sets = XCNEWVEC (rtx, last_basic_block);
   find_implicit_sets ();
 
-  alloc_hash_table (get_max_uid (), &set_hash_table, 1);
+  alloc_hash_table (&set_hash_table, 1);
   compute_hash_table (&set_hash_table);
 
   /* Free implicit_sets before peak usage.  */
