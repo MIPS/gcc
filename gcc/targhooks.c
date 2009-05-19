@@ -65,6 +65,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "optabs.h"
 #include "recog.h"
+#include "diagnostic.h"
+#include "tree-pass.h"
 #include "multi-target.h"
 
 extern GTY(()) tree stack_chk_fail_decl;
@@ -824,6 +826,53 @@ default_target_option_can_inline_p (tree caller, tree callee)
 }
 
 #endif /* !EXTRA_TARGET */
+
+/* Used by the function get_vectype_for_scalar_type.
+
+   Returns the vector type corresponding to SCALAR_TYPE as supported
+   by the target.  */
+
+tree
+default_vectype_for_scalar_type (tree scalar_type, FILE *vect_dump)
+{
+  enum machine_mode inner_mode = TYPE_MODE (scalar_type);
+  int nbytes = GET_MODE_SIZE (inner_mode);
+  int nunits;
+  tree vectype;
+
+  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (inner_mode))
+    return NULL_TREE;
+
+  /* FORNOW: Only a single vector size per mode (UNITS_PER_SIMD_WORD)
+     is expected.  */
+  nunits = UNITS_PER_SIMD_WORD (inner_mode) / nbytes;
+
+  vectype = build_vector_type (scalar_type, nunits);
+  if (vect_dump)
+    {
+      fprintf (vect_dump, "get vectype with %d units of type ", nunits);
+      print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
+    }
+
+  if (!vectype)
+    return NULL_TREE;
+
+  if (vect_dump)
+    {
+      fprintf (vect_dump, "vectype: ");
+      print_generic_expr (vect_dump, vectype, TDF_SLIM);
+    }
+
+  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
+      && !INTEGRAL_MODE_P (TYPE_MODE (vectype)))
+    {
+      if (vect_dump)
+        fprintf (vect_dump, "mode not supported by target.");
+      return NULL_TREE;
+    }
+
+  return vectype;
+}
 
 #include "gt-targhooks.h"
 

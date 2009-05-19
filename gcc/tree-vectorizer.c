@@ -1836,54 +1836,6 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 }
 
 
-/* Function get_vectype_for_scalar_type.
-
-   Returns the vector type corresponding to SCALAR_TYPE as supported
-   by the target.  */
-
-tree
-get_vectype_for_scalar_type (tree scalar_type)
-{
-  enum machine_mode inner_mode = TYPE_MODE (scalar_type);
-  int nbytes = GET_MODE_SIZE (inner_mode);
-  int nunits;
-  tree vectype;
-
-  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (inner_mode))
-    return NULL_TREE;
-
-  /* FORNOW: Only a single vector size per mode (UNITS_PER_SIMD_WORD)
-     is expected.  */
-  nunits = UNITS_PER_SIMD_WORD (inner_mode) / nbytes;
-
-  vectype = build_vector_type (scalar_type, nunits);
-  if (vect_print_dump_info (REPORT_DETAILS))
-    {
-      fprintf (vect_dump, "get vectype with %d units of type ", nunits);
-      print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
-    }
-
-  if (!vectype)
-    return NULL_TREE;
-
-  if (vect_print_dump_info (REPORT_DETAILS))
-    {
-      fprintf (vect_dump, "vectype: ");
-      print_generic_expr (vect_dump, vectype, TDF_SLIM);
-    }
-
-  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
-      && !INTEGRAL_MODE_P (TYPE_MODE (vectype)))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "mode not supported by target.");
-      return NULL_TREE;
-    }
-
-  return vectype;
-}
-
-
 /* Function vect_supportable_dr_alignment
 
    Return whether the data reference DR is supported with respect to its
@@ -2808,15 +2760,38 @@ vectorize_loops (void)
   FOR_EACH_LOOP (li, loop, 0)
     if (optimize_loop_nest_for_speed_p (loop))
       {
-	loop_vec_info loop_vinfo;
+	loop_vec_info loop_vinfo = 0;
+	int best_factor = -1;
+	int target_arch, best_arch = -1;
 
 	vect_loop_location = find_loop_location (loop);
-	loop_vinfo = vect_analyze_loop (loop);
+	for (target_arch = -1; targetm_pnt = targetm_array[++target_arch]; )
+	  {
+	    if (loop_vinfo)
+	      destroy_loop_vec_info (loop_vinfo, true);
+	    loop_vinfo = vect_analyze_loop (loop);
+	    if (!loop_vinfo)
+	      continue;
+	    if (LOOP_VINFO_VECT_FACTOR (loop_vinfo) > best_factor)
+	      {
+		best_arch = target_arch;
+		best_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+	      }
+	  }
+	if (best_arch >= 0 && target_arch != best_arch)
+	  {
+	    if (loop_vinfo)
+	      destroy_loop_vec_info (loop_vinfo, true);
+	    targetm_pnt = targetm_array[best_arch];
+	    loop_vinfo = vect_analyze_loop (loop);
+	  }
+	targetm_pnt = &this_targetm;
 	loop->aux = loop_vinfo;
 
 	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	  continue;
 
+	loop_vinfo->target_arch = target_arch;
 	vect_transform_loop (loop_vinfo);
 	num_vectorized_loops++;
       }

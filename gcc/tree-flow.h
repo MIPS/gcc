@@ -979,7 +979,6 @@ struct tree_niter_desc
 /* In tree-vectorizer.c */
 unsigned vectorize_loops (void);
 extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
-extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
 bool empty_block_p (basic_block);

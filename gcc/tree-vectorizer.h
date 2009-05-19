@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_VECTORIZER_H
 #define GCC_TREE_VECTORIZER_H
 
+#include "target.h"
+
 typedef source_location LOC;
 #define UNKNOWN_LOC UNKNOWN_LOCATION
 #define EXPR_LOC(e) EXPR_LOCATION(e)
@@ -184,6 +186,9 @@ typedef struct _loop_vec_info {
   
   /* Is the loop vectorizable? */
   bool vectorizable;
+
+  /* For what target is this loop to be vectorized?  targetm_array index.  */
+  unsigned int target_arch : 8;
 
   /* Unrolling factor  */
   int vectorization_factor;
@@ -722,7 +727,6 @@ extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
   General Vectorization Utilities
  *************************************************************************/
 /** In tree-vectorizer.c **/
-extern tree get_vectype_for_scalar_type (tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, gimple *, tree *,
 				enum vect_def_type *);
 extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
@@ -801,5 +805,15 @@ extern void vect_transform_loop (loop_vec_info);
 extern bool vect_print_dump_info (enum verbosity_levels);
 extern void vect_set_verbosity_level (const char *);
 extern LOC find_loop_location (struct loop *);
+
+
+/* Return a vector type for SCALAR_TYPE.  */
+static inline tree
+get_vectype_for_scalar_type (tree scalar_type)
+{
+  FILE *dump_file = vect_print_dump_info (REPORT_DETAILS) ? vect_dump : 0;
+
+  return targetm.vectorize.vectype_for_scalar_type (scalar_type, dump_file);
+}
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

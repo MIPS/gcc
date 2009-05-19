@@ -1,3 +1,33 @@
+2009-05-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c: Include diagnostic.h and tree-pass.h.
+	(default_vectype_for_scalar_type): New function.
+	* targhooks.h (default_vectype_for_scalar_type): Declare.
+	* target.h (struct vectorize): New member vectype_for_scalar_type.
+	toplev.c (backend_init): Set targetm_pnt at function start and after
+	EXTRA_TARGETS_CALL.
+	(lang_dependent_init): Likewise.
+	* function.c (init_emit_array): Declare.
+	[!EXTRA_TARGET] (init_emit_array): Define and initialize.
+	(prepare_function_start): Call the init_emit function for
+	cfun->target_arch.
+	(init_dummy_function_start): Don't call init_emit.
+	* tree-vectorizer.c (get_vectype_from_scalar_type): Remove.
+	(vectorize_loops): Call vect_analyze_loops for all targets.
+	Set loop_vinfo->target_arch to the selected target.
+	* tree-vectorizer.h: Include target.h
+	(struct loop_vec_info): New member target_arch.
+	(get_vectype_for_scalar_type): Now a static incline function.
+	* tree-vect-analyze.c (vect_analyze_loop): Show for which target
+	we are doing the analysis.
+	* emit-rtl.c (gen_reg_rtx): Add assert.
+	* cfgexpand.c (gimple_expand_cfg): Don't call init_emit.
+	* target-def.h (TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE): Define.
+	(TARGET_VECTORIZE): Add TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE.
+	* tree-flow.h (get_vectype_for_scalar_type): Don't declare.
+	* Makefile.in (TREE_VECTORIZER_H): Set.  Use it to replace
+	tree-vectorizer.h in dependencies.
+
 2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* function.h (struct incoming_args): Base info GTY description on

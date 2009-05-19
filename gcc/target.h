@@ -447,6 +447,9 @@ struct sched
 /* Functions relating to vectorization.  */
 struct vectorize
 {
+  /* Return a vector type for SCALAR_TYPE.  */
+  tree (* vectype_for_scalar_type) (tree scalar_type, FILE *vect_dump);
+
   /* The following member value is a pointer to a function called
      by the vectorizer, and return the decl of the target builtin
      function.  */

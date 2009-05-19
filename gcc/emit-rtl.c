@@ -929,6 +929,8 @@ gen_reg_rtx (enum machine_mode mode)
 
       crtl->emit.regno_pointer_align_length = old_size * 2;
     }
+  else
+    gcc_assert (reg_rtx_no < crtl->emit.regno_pointer_align_length);
 
   val = gen_raw_REG (mode, reg_rtx_no);
   regno_reg_rtx[reg_rtx_no++] = val;

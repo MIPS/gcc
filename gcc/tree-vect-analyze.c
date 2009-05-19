@@ -4577,7 +4577,13 @@ vect_analyze_loop (struct loop *loop)
   loop_vec_info loop_vinfo;
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "===== analyze_loop_nest =====");
+    {
+      if (targetm_pnt == &this_targetm)
+	fprintf (vect_dump, "===== analyze_loop_nest =====");
+      else
+	fprintf (vect_dump, "===== analyze_loop_nest for target %s =====",
+		 targetm.name);
+    }
 
   if (loop_outer (loop) 
       && loop_vec_info_for_loop (loop_outer (loop))
