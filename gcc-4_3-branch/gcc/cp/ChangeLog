@@ -1,3 +1,71 @@
+2009-04-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/38228
+	* pt.c (unify): Do not allow the result of a template argument
+	deduction to be a METHOD_TYPE.
+	* cvt.c (cp_convert): Report a meaningful error for non-valid use
+	of pointer to member functions during conversions.
+	* call.c (build_new_op): Report a meaningful error for non-valid
+	use of pointer to member functions in binary expressions.
+	* typeck.c (invalid_nonstatic_memfn_p): Do not crash when EXPR is
+	NULL;
+
+2009-04-22  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/39639
+	* parser.c (cp_parser_template_argument_list): Display an error
+	when an ellipsis is not preceded by a parameter pack. Also, warn
+	about variadic templates usage without -std=c++0x.
+
+2009-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39480
+	* call.c (build_over_call): Don't call memcpy if the target is
+	the same as the source.
+
+2009-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28301
+	* parser.c (cp_parser_skip_to_end_of_block_or_statement): Return
+	if we see a close brace without an open brace.
+
+2009-04-08  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/39637
+	* parser.c (cp_parser_enumerator_definition): Make sure the
+	initializer of the enumerator doesn't contain any bare parameter pack.
+
+2009-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35146
+	* pt.c (fn_type_unification): For DEDUCE_EXACT check that
+	the deduced template arguments give us the parameter types
+	we're looking for.
+
+2009-03-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38030, 38850, 39070
+	* pt.c (type_dependent_expression_p_push): New fn.
+	(tsubst_copy_and_build) [CALL_EXPR]: Only do arg-dep lookup when the
+	substitution makes the call non-dependent.  Preserve koenig_p.
+	* parser.c (cp_parser_postfix_expression): Only do arg-dep lookup
+	for non-dependent calls.
+	* semantics.c (finish_call_expr): Revert earlier changes.
+	* cp-tree.h: Revert change to finish_call_expr prototype.
+
+2009-03-26  Ben Elliston  <bje@au.ibm.com>
+
+	Backport from mainline:
+	2009-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39175
+	* decl2.c (determine_visibility): If visibility changed and
+	DECL_RTL has been already set, call make_decl_rtl to update symbol
+	flags.
+
 2009-03-18  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
@@ -7,18 +75,6 @@
 	* parser.c (cp_parser_explicit_specialization): Don't skip the
 	rest of the specialization when begin_specialization returns
 	false.
-
-2009-03-04  Jason Merrill  <jason@redhat.com>
-
-	PR c++/9634
-	PR c++/29469
-	PR c++/29607
-	* decl.c (make_typename_type): Do look inside currently open classes.
-	* parser.c (cp_parser_lookup_name): Likewise.
-	(cp_parser_template_name): Likewise.
-	* pt.c (dependent_scope_p): New function.
-	* cp-tree.h: Declare it.
-	* class.c (currently_open_class): Return fast if T isn't a class.
 
 2009-02-20  Jason Merrill  <jason@redhat.com>
 
