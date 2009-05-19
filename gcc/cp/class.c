@@ -625,7 +625,6 @@ build_vtbl_ref_1 (tree instance, tree idx)
   if (!vtbl)
     vtbl = build_vfield_ref (instance, basetype);
 
-  assemble_external (vtbl);
 
   aref = build_array_ref (vtbl, idx, input_location);
   TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
@@ -775,7 +774,7 @@ get_vtable_decl (tree type, int complete)
   if (complete)
     {
       DECL_EXTERNAL (decl) = 1;
-      finish_decl (decl, NULL_TREE, NULL_TREE);
+      finish_decl (decl, NULL_TREE, NULL_TREE, NULL_TREE);
     }
 
   return decl;
@@ -4865,7 +4864,7 @@ layout_class_type (tree t, tree *virtuals_p)
       if (DECL_C_BIT_FIELD (field)
 	  && INT_CST_LT (TYPE_SIZE (type), DECL_SIZE (field)))
 	{
-	  integer_type_kind itk;
+	  unsigned int itk;
 	  tree integer_type;
 	  bool was_unnamed_p = false;
 	  /* We must allocate the bits as if suitably aligned for the
@@ -6148,7 +6147,7 @@ resolve_address_of_overloaded_function (tree target_type,
       if (flags & tf_error)
 	{
 	  error ("no matches converting function %qD to type %q#T",
-		 DECL_NAME (OVL_FUNCTION (overload)),
+		 DECL_NAME (OVL_CURRENT (overload)),
 		 target_type);
 
 	  /* print_candidates expects a chain with the functions in
@@ -6311,13 +6310,8 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
      dependent on overload resolution.  */
   gcc_assert (TREE_CODE (rhs) == ADDR_EXPR
 	      || TREE_CODE (rhs) == COMPONENT_REF
-	      || TREE_CODE (rhs) == COMPOUND_EXPR
-	      || really_overloaded_fn (rhs));
-
-  /* We don't overwrite rhs if it is an overloaded function.
-     Copying it would destroy the tree link.  */
-  if (TREE_CODE (rhs) != OVERLOAD)
-    rhs = copy_node (rhs);
+	      || really_overloaded_fn (rhs)
+	      || (flag_ms_extensions && TREE_CODE (rhs) == FUNCTION_DECL));
 
   /* This should really only be used when attempting to distinguish
      what sort of a pointer to function we have.  For now, any
@@ -6368,19 +6362,6 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 						/*template_only=*/false,
 						/*explicit_targs=*/NULL_TREE,
 						access_path);
-
-    case COMPOUND_EXPR:
-      TREE_OPERAND (rhs, 0)
-	= instantiate_type (lhstype, TREE_OPERAND (rhs, 0), flags);
-      if (TREE_OPERAND (rhs, 0) == error_mark_node)
-	return error_mark_node;
-      TREE_OPERAND (rhs, 1)
-	= instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
-      if (TREE_OPERAND (rhs, 1) == error_mark_node)
-	return error_mark_node;
-
-      TREE_TYPE (rhs) = lhstype;
-      return rhs;
 
     case ADDR_EXPR:
     {

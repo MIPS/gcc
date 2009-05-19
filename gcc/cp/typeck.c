@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 static tree pfn_from_ptrmemfunc (tree);
 static tree delta_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, const char *, tree, int,
-				    tsubst_flags_t);
+				    tsubst_flags_t, int);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
 static tree rationalize_conditional_expr (enum tree_code, tree, 
 					  tsubst_flags_t);
@@ -1508,7 +1508,7 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op, bool complain)
 bool
 invalid_nonstatic_memfn_p (const_tree expr, tsubst_flags_t complain)
 {
-  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
+  if (expr && DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
     {
       if (complain & tf_error)
         error ("invalid use of non-static member function");
@@ -1909,7 +1909,7 @@ build_class_member_access_expr (tree object, tree member,
       member_scope = DECL_CLASS_CONTEXT (member);
       mark_used (member);
       if (TREE_DEPRECATED (member))
-	warn_deprecated_use (member);
+	warn_deprecated_use (member, NULL_TREE);
     }
   else
     member_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (member));
@@ -2369,7 +2369,7 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
     }
 
   if (TREE_DEPRECATED (member))
-    warn_deprecated_use (member);
+    warn_deprecated_use (member, NULL_TREE);
 
   if (template_p)
     check_template_keyword (member);
@@ -2857,6 +2857,28 @@ build_function_call (tree function, tree params)
   return cp_build_function_call (function, params, tf_warning_or_error);
 }
 
+/* Used by the C-common bits.  */
+tree
+build_function_call_vec (tree function, VEC(tree,gc) *params,
+			 VEC(tree,gc) *origtypes ATTRIBUTE_UNUSED)
+{
+  tree p;
+  tree *pp;
+  unsigned int i;
+  tree t;
+
+  /* FIXME: Should just change cp_build_function_call to use a
+     VEC.  */
+  p = NULL_TREE;
+  pp = &p;
+  for (i = 0; VEC_iterate (tree, params, i, t); ++i)
+    {
+      *pp = build_tree_list (NULL, t);
+      pp = &TREE_CHAIN (*pp);
+    }
+  return cp_build_function_call (function, p, tf_warning_or_error);
+}
+
 tree
 cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
 {
@@ -2870,7 +2892,8 @@ cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
 
   /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
      expressions, like those used for ObjC messenger dispatches.  */
-  function = objc_rewrite_function_call (function, params);
+  if (params != NULL_TREE)
+    function = objc_rewrite_function_call (function, TREE_VALUE (params));
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs, since FUNCTION is used in non-lvalue context.  */
@@ -4031,7 +4054,7 @@ cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      pointer_int_sum() anyway.  */
   complete_type (TREE_TYPE (res_type));
 
-  return pointer_int_sum (input_location, resultcode, ptrop,
+  return pointer_int_sum (resultcode, ptrop,
 			  fold_if_not_in_template (intop));
 }
 
@@ -4118,8 +4141,20 @@ build_x_unary_op (enum tree_code code, tree xarg, tsubst_flags_t complain)
 			/*overloaded_p=*/NULL, complain);
   if (!exp && code == ADDR_EXPR)
     {
-      /*  A pointer to member-function can be formed only by saying
-	  &X::mf.  */
+      if (is_overloaded_fn (xarg))
+	{
+	  tree fn = get_first_fn (xarg);
+	  if (DECL_CONSTRUCTOR_P (fn) || DECL_DESTRUCTOR_P (fn))
+	    {
+	      const char *type =
+		(DECL_CONSTRUCTOR_P (fn) ? "constructor" : "destructor");
+	      error ("taking address of %s %qE", type, xarg);
+	      return error_mark_node;
+	    }
+	}
+
+      /* A pointer to member-function can be formed only by saying
+	 &X::mf.  */
       if (!flag_ms_extensions && TREE_CODE (TREE_TYPE (xarg)) == METHOD_TYPE
 	  && (TREE_CODE (xarg) != OFFSET_REF || !PTRMEM_OK_P (xarg)))
 	{
@@ -5011,11 +5046,22 @@ cp_build_compound_expr (tree lhs, tree rhs, tsubst_flags_t complain)
       return rhs;
     }
 
+  if (type_unknown_p (rhs))
+    {
+      error ("no context to resolve type of %qE", rhs);
+      return error_mark_node;
+    }
+  
   return build2 (COMPOUND_EXPR, TREE_TYPE (rhs), lhs, rhs);
 }
 
 /* Issue a diagnostic message if casting from SRC_TYPE to DEST_TYPE
-   casts away constness.  CAST gives the type of cast.  */
+   casts away constness.  CAST gives the type of cast.  
+
+   ??? This function warns for casting away any qualifier not just
+   const.  We would like to specify exactly what qualifiers are casted
+   away.
+*/
 
 static void
 check_for_casting_away_constness (tree src_type, tree dest_type,
@@ -5026,27 +5072,29 @@ check_for_casting_away_constness (tree src_type, tree dest_type,
   if (cast == CAST_EXPR && !warn_cast_qual)
       return;
   
-  if (casts_away_constness (src_type, dest_type))
-    switch (cast)
-      {
-      case CAST_EXPR:
-	warning (OPT_Wcast_qual, 
-                 "cast from type %qT to type %qT casts away constness",
-		 src_type, dest_type);
-	return;
-	
-      case STATIC_CAST_EXPR:
-	error ("static_cast from type %qT to type %qT casts away constness",
+  if (!casts_away_constness (src_type, dest_type))
+    return;
+
+  switch (cast)
+    {
+    case CAST_EXPR:
+      warning (OPT_Wcast_qual, 
+	       "cast from type %qT to type %qT casts away qualifiers",
 	       src_type, dest_type);
-	return;
-	
-      case REINTERPRET_CAST_EXPR:
-	error ("reinterpret_cast from type %qT to type %qT casts away constness",
-	       src_type, dest_type);
-	return;
-      default:
-	gcc_unreachable();
-      }
+      return;
+      
+    case STATIC_CAST_EXPR:
+      error ("static_cast from type %qT to type %qT casts away qualifiers",
+	     src_type, dest_type);
+      return;
+      
+    case REINTERPRET_CAST_EXPR:
+      error ("reinterpret_cast from type %qT to type %qT casts away qualifiers",
+	     src_type, dest_type);
+      return;
+    default:
+      gcc_unreachable();
+    }
 }
 
 /* Convert EXPR (an expression with pointer-to-member type) to TYPE
@@ -5840,7 +5888,9 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
 /* For use from the C common bits.  */
 tree
 build_modify_expr (location_t location ATTRIBUTE_UNUSED,
-		   tree lhs, enum tree_code modifycode, tree rhs)
+		   tree lhs, tree lhs_origtype ATTRIBUTE_UNUSED,
+		   enum tree_code modifycode, tree rhs,
+		   tree rhs_origtype ATTRIBUTE_UNUSED)
 {
   return cp_build_modify_expr (lhs, modifycode, rhs, tf_warning_or_error);
 }
@@ -6107,12 +6157,14 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
     }
 
   if (modifycode == INIT_EXPR)
+    /* Calls with INIT_EXPR are all direct-initialization, so don't set
+       LOOKUP_ONLYCONVERTING.  */
     newrhs = convert_for_initialization (lhs, olhstype, newrhs, LOOKUP_NORMAL,
 					 "initialization", NULL_TREE, 0,
                                          complain);
   else
     newrhs = convert_for_assignment (olhstype, newrhs, "assignment",
-				     NULL_TREE, 0, complain);
+				     NULL_TREE, 0, complain, LOOKUP_IMPLICIT);
 
   if (!same_type_p (lhstype, olhstype))
     newrhs = cp_convert_and_check (lhstype, newrhs);
@@ -6518,7 +6570,7 @@ delta_from_ptrmemfunc (tree t)
 static tree
 convert_for_assignment (tree type, tree rhs,
 			const char *errtype, tree fndecl, int parmnum,
-			tsubst_flags_t complain)
+			tsubst_flags_t complain, int flags)
 {
   tree rhstype;
   enum tree_code coder;
@@ -6639,7 +6691,8 @@ convert_for_assignment (tree type, tree rhs,
       TREE_NO_WARNING (rhs) = 1;
     }
 
-  return perform_implicit_conversion (strip_top_quals (type), rhs, complain);
+  return perform_implicit_conversion_flags (strip_top_quals (type), rhs,
+					    complain, flags);
 }
 
 /* Convert RHS to be of type TYPE.
@@ -6730,7 +6783,7 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
     return ocp_convert (type, rhs, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
 
   return convert_for_assignment (type, rhs, errtype, fndecl, parmnum,
-				 complain);
+				 complain, flags);
 }
 
 /* If RETVAL is the address of, or a reference to, a local variable or
@@ -7338,7 +7391,12 @@ casts_away_constness_r (tree *t1, tree *t2)
 }
 
 /* Returns nonzero if casting from TYPE1 to TYPE2 casts away
-   constness.  */
+   constness.  
+
+   ??? This function returns non-zero if casting away qualifiers not
+   just const.  We would like to return to the caller exactly which
+   qualifiers are casted away to give more accurate diagnostics.
+*/
 
 static bool
 casts_away_constness (tree t1, tree t2)

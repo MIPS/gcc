@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -236,11 +236,14 @@ package body Sem_Warn is
       Iter : constant Node_Id := Iteration_Scheme (Loop_Statement);
 
       Ref : Node_Id := Empty;
-      --  Reference in iteration scheme to variable that may not be modified in
-      --  loop, indicating a possible infinite loop.
+      --  Reference in iteration scheme to variable that might not be modified
+      --  in loop, indicating a possible infinite loop.
 
       Var : Entity_Id := Empty;
       --  Corresponding entity (entity of Ref)
+
+      Function_Call_Found : Boolean := False;
+      --  True if Find_Var found a function call in the condition
 
       procedure Find_Var (N : Node_Id);
       --  Inspect condition to see if it depends on a single entity reference.
@@ -304,6 +307,8 @@ package body Sem_Warn is
          --  Case of condition is function call
 
          elsif Nkind (N) = N_Function_Call then
+
+            Function_Call_Found := True;
 
             --  Forget it if function name is not entity, who knows what
             --  we might be calling?
@@ -541,7 +546,7 @@ package body Sem_Warn is
    --  Start of processing for Check_Infinite_Loop_Warning
 
    begin
-      --  We need a while iteration with no condition actions. Conditions
+      --  We need a while iteration with no condition actions. Condition
       --  actions just make things too complicated to get the warning right.
 
       if No (Iter)
@@ -556,19 +561,25 @@ package body Sem_Warn is
 
       Find_Var (Condition (Iter));
 
-      --  Nothing to do if local variable from source not found
+      --  Nothing to do if local variable from source not found. If it's a
+      --  renaming, it is probably renaming something too complicated to deal
+      --  with here.
 
       if No (Var)
         or else Ekind (Var) /= E_Variable
         or else Is_Library_Level_Entity (Var)
         or else not Comes_From_Source (Var)
+        or else Nkind (Parent (Var)) = N_Object_Renaming_Declaration
       then
          return;
 
       --  Nothing to do if there is some indirection involved (assume that the
       --  designated variable might be modified in some way we don't see).
+      --  However, if no function call was found, then we don't care about
+      --  indirections, because the condition must be something like "while X
+      --  /= null loop", so we don't care if X.all is modified in the loop.
 
-      elsif Has_Indirection (Etype (Var)) then
+      elsif Function_Call_Found and then Has_Indirection (Etype (Var)) then
          return;
 
       --  Same sort of thing for volatile variable, might be modified by
@@ -943,8 +954,8 @@ package body Sem_Warn is
                   --  here (note that the dereference may not be explicit in
                   --  the source, for example in the case of a dispatching call
                   --  with an anonymous access controlling formal, or of an
-                  --  assignment of a pointer involving discriminant check
-                  --  on the designated object).
+                  --  assignment of a pointer involving discriminant check on
+                  --  the designated object).
 
                   if not Warnings_Off_E1 then
                      Error_Msg_NE ("?& may be null!", UR, E1);
@@ -994,7 +1005,7 @@ package body Sem_Warn is
                           and then not Has_Pragma_Unmodified_Check_Spec (E1)
                         then
                            if not Warnings_Off_E1 then
-                              Error_Msg_N
+                              Error_Msg_N -- CODEFIX
                                 ("?& is not modified, "
                                  & "could be declared constant!",
                                  E1);
@@ -1144,7 +1155,7 @@ package body Sem_Warn is
                      elsif not Has_Unreferenced (E1)
                        and then not Warnings_Off_E1
                      then
-                        Output_Reference_Error
+                        Output_Reference_Error -- CODEFIX
                           ("?variable& is never read and never assigned!");
                      end if;
 
@@ -2331,7 +2342,7 @@ package body Sem_Warn is
                            end if;
 
                            if not Is_Visible_Renaming then
-                              Error_Msg_N
+                              Error_Msg_N -- CODEFIX
                                 ("\?with clause might be moved to body!",
                                  Name (Item));
                            end if;
@@ -2359,7 +2370,7 @@ package body Sem_Warn is
                      if Unit = Spec_Unit then
                         Set_Unreferenced_In_Spec (Item);
                      else
-                        Error_Msg_N
+                        Error_Msg_N -- CODEFIX
                           ("?unit& is never instantiated!", Name (Item));
                      end if;
 
@@ -2370,7 +2381,7 @@ package body Sem_Warn is
                   elsif Unreferenced_In_Spec (Item) then
                      Error_Msg_N
                        ("?unit& is not instantiated in spec!", Name (Item));
-                     Error_Msg_N
+                     Error_Msg_N -- CODEFIX
                        ("\?with clause can be moved to body!", Name (Item));
                   end if;
                end if;
@@ -3006,6 +3017,7 @@ package body Sem_Warn is
 
          when 'X' =>
             Warn_On_Non_Local_Exception         := False;
+            No_Warn_On_Non_Local_Exception      := True;
 
          when others =>
             return False;
@@ -3078,6 +3090,8 @@ package body Sem_Warn is
             Warn_On_Unrecognized_Pragma         := False;
             Warn_On_Unrepped_Components         := False;
             Warn_On_Warnings_Off                := False;
+
+            No_Warn_On_Non_Local_Exception      := True;
 
          when 'b' =>
             Warn_On_Bad_Fixed_Value             := True;
@@ -3768,7 +3782,7 @@ package body Sem_Warn is
                     and then No (Renamed_Object (E))
                   then
                      if not Has_Pragma_Unmodified_Check_Spec (E) then
-                        Error_Msg_N
+                        Error_Msg_N -- CODEFIX
                           ("?variable & is assigned but never read!", E);
                      end if;
 
@@ -3857,11 +3871,11 @@ package body Sem_Warn is
                Error_Msg_N ("?procedure & is not referenced!", E);
 
             when E_Generic_Procedure =>
-               Error_Msg_N
+               Error_Msg_N -- CODEFIX
                  ("?generic procedure & is never instantiated!", E);
 
             when E_Generic_Function  =>
-               Error_Msg_N
+               Error_Msg_N -- CODEFIX
                  ("?generic function & is never instantiated!", E);
 
             when Type_Kind          =>
@@ -3889,8 +3903,8 @@ package body Sem_Warn is
       X    : Node_Id;
 
       function Check_Ref (N : Node_Id) return Traverse_Result;
-      --  Used to instantiate Traverse_Func. Returns Abandon if
-      --  a reference to the entity in question is found.
+      --  Used to instantiate Traverse_Func. Returns Abandon if a reference to
+      --  the entity in question is found.
 
       function Test_No_Refs is new Traverse_Func (Check_Ref);
 
@@ -3921,7 +3935,7 @@ package body Sem_Warn is
       --  variable with the last assignment field set, with warnings enabled,
       --  and which is not imported or exported. We also check that it is OK
       --  to capture the value. We are not going to capture any value, but
-      --  the warning messages depends on the same kind of conditions.
+      --  the warning message depends on the same kind of conditions.
 
       if Is_Assignable (Ent)
         and then not Is_Return_Object (Ent)
@@ -4013,18 +4027,27 @@ package body Sem_Warn is
 
                      --  Otherwise we are at the outer level. An exception
                      --  handler is significant only if it references the
-                     --  variable in question.
+                     --  variable in question, or if the entity in question
+                     --  is an OUT or IN OUT parameter, which which case
+                     --  the caller can reference it after the exception
+                     --  hanlder completes
 
                   else
-                     X := First (Exception_Handlers (P));
-                     while Present (X) loop
-                        if Test_No_Refs (X) = Abandon then
-                           Set_Last_Assignment (Ent, Empty);
-                           return;
-                        end if;
+                     if Is_Formal (Ent) then
+                        Set_Last_Assignment (Ent, Empty);
+                        return;
 
-                        X := Next (X);
-                     end loop;
+                     else
+                        X := First (Exception_Handlers (P));
+                        while Present (X) loop
+                           if Test_No_Refs (X) = Abandon then
+                              Set_Last_Assignment (Ent, Empty);
+                              return;
+                           end if;
+
+                           X := Next (X);
+                        end loop;
+                     end if;
                   end if;
                end if;
             end if;

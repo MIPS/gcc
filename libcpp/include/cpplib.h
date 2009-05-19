@@ -162,8 +162,7 @@ enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_STDC89, CLK_STDC94, CLK_STDC99,
 	     CLK_GNUCXX, CLK_CXX98, CLK_GNUCXX0X, CLK_CXX0X, CLK_ASM};
 
 /* Payload of a NUMBER, STRING, CHAR or COMMENT token.  */
-struct cpp_string GTY(())
-{
+struct GTY(()) cpp_string {
   unsigned int len;
   const unsigned char *text;
 };
@@ -178,6 +177,10 @@ struct cpp_string GTY(())
 #define BOL		(1 << 6) /* Token at beginning of line.  */
 #define PURE_ZERO	(1 << 7) /* Single 0 digit, used by the C++ frontend,
 				    set in c-lex.c.  */
+#define SP_DIGRAPH	(1 << 8) /* # or ## token was a digraph.  */
+#define SP_PREV_WHITE	(1 << 9) /* If whitespace before a ##
+				    operator, or before this token
+				    after a # operator.  */
 
 /* Specify which field, if any, of the cpp_token union is used.  */
 
@@ -186,27 +189,38 @@ enum cpp_token_fld_kind {
   CPP_TOKEN_FLD_SOURCE,
   CPP_TOKEN_FLD_STR,
   CPP_TOKEN_FLD_ARG_NO,
+  CPP_TOKEN_FLD_TOKEN_NO,
   CPP_TOKEN_FLD_PRAGMA,
   CPP_TOKEN_FLD_NONE
 };
 
+/* A macro argument in the cpp_token union.  */
+struct GTY(()) cpp_macro_arg {
+  /* Argument number.  */
+  unsigned int arg_no;
+};
+
+/* An identifier in the cpp_token union.  */
+struct GTY(()) cpp_identifier {
+  /* The canonical (UTF-8) spelling of the identifier.  */
+  cpp_hashnode *
+    GTY ((nested_ptr (union tree_node,
+		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
+			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
+       node;
+};
+
 /* A preprocessing token.  This has been carefully packed and should
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
-struct cpp_token GTY(())
-{
+struct GTY(()) cpp_token {
   source_location src_loc;	/* Location of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
-  unsigned char flags;		/* flags - see above */
+  unsigned short flags;		/* flags - see above */
 
   union cpp_token_u
   {
     /* An identifier.  */
-    cpp_hashnode *
-      GTY ((nested_ptr (union tree_node,
-		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
-			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL"),
-	    tag ("CPP_TOKEN_FLD_NODE")))
-	 node;
+    struct cpp_identifier GTY ((tag ("CPP_TOKEN_FLD_NODE"))) node;
 	 
     /* Inherit padding from this token.  */
     cpp_token * GTY ((tag ("CPP_TOKEN_FLD_SOURCE"))) source;
@@ -215,7 +229,11 @@ struct cpp_token GTY(())
     struct cpp_string GTY ((tag ("CPP_TOKEN_FLD_STR"))) str;
 
     /* Argument no. for a CPP_MACRO_ARG.  */
-    unsigned int GTY ((tag ("CPP_TOKEN_FLD_ARG_NO"))) arg_no;
+    struct cpp_macro_arg GTY ((tag ("CPP_TOKEN_FLD_ARG_NO"))) macro_arg;
+
+    /* Original token no. for a CPP_PASTE (from a sequence of
+       consecutive paste tokens in a macro expansion).  */
+    unsigned int GTY ((tag ("CPP_TOKEN_FLD_TOKEN_NO"))) token_no;
 
     /* Caller-supplied identifier for a CPP_PRAGMA.  */
     unsigned int GTY ((tag ("CPP_TOKEN_FLD_PRAGMA"))) pragma;
@@ -560,7 +578,7 @@ enum node_type
 
 /* Different flavors of builtin macro.  _Pragma is an operator, but we
    handle it with the builtin code for efficiency reasons.  */
-enum builtin_type
+enum cpp_builtin_type
 {
   BT_SPECLINE = 0,		/* `__LINE__' */
   BT_DATE,			/* `__DATE__' */
@@ -600,20 +618,18 @@ enum {
    ends.  Also used to store CPP identifiers, which are a superset of
    identifiers in the grammatical sense.  */
 
-union _cpp_hashnode_value GTY(())
-{
+union GTY(()) _cpp_hashnode_value {
   /* If a macro.  */
   cpp_macro * GTY((tag ("NTV_MACRO"))) macro;
   /* Answers to an assertion.  */
   struct answer * GTY ((tag ("NTV_ANSWER"))) answers;
   /* Code for a builtin macro.  */
-  enum builtin_type GTY ((tag ("NTV_BUILTIN"))) builtin;
+  enum cpp_builtin_type GTY ((tag ("NTV_BUILTIN"))) builtin;
   /* Macro argument index.  */
   unsigned short GTY ((tag ("NTV_ARGUMENT"))) arg_index;
 };
 
-struct cpp_hashnode GTY(())
-{
+struct GTY(()) cpp_hashnode {
   struct ht_identifier ident;
   unsigned int is_directive : 1;
   unsigned int directive_index : 7;	/* If is_directive,
@@ -837,7 +853,7 @@ extern void cpp_output_line (cpp_reader *, FILE *);
 extern unsigned char *cpp_output_line_to_string (cpp_reader *,
 						 const unsigned char *);
 extern void cpp_output_token (const cpp_token *, FILE *);
-extern const char *cpp_type2name (enum cpp_ttype);
+extern const char *cpp_type2name (enum cpp_ttype, unsigned char flags);
 /* Returns the value of an escape sequence, truncated to the correct
    target precision.  PSTR points to the input pointer, which is just
    after the backslash.  LIMIT is how much text we have.  WIDE is true

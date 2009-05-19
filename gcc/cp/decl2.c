@@ -1001,7 +1001,7 @@ grokbitfield (const cp_declarator *declarator,
       error ("static member %qD cannot be a bit-field", value);
       return NULL_TREE;
     }
-  finish_decl (value, NULL_TREE, NULL_TREE);
+  finish_decl (value, NULL_TREE, NULL_TREE, NULL_TREE);
 
   if (width != error_mark_node)
     {
@@ -1764,7 +1764,7 @@ maybe_emit_vtables (tree ctype)
 
       if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
 	{
-	  tree expr = store_init_value (vtbl, DECL_INITIAL (vtbl));
+	  tree expr = store_init_value (vtbl, DECL_INITIAL (vtbl), LOOKUP_NORMAL);
 
 	  /* It had better be all done at compile-time.  */
 	  gcc_assert (!expr);
@@ -1848,7 +1848,7 @@ constrain_visibility (tree decl, int visibility)
   else if (visibility > DECL_VISIBILITY (decl)
 	   && !DECL_VISIBILITY_SPECIFIED (decl))
     {
-      DECL_VISIBILITY (decl) = visibility;
+      DECL_VISIBILITY (decl) = (enum symbol_visibility) visibility;
       return true;
     }
   return false;
@@ -3250,11 +3250,11 @@ cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED)
     {
     case PTRMEM_CST:
       if (TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
-	cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (t)));
+	cgraph_mark_address_taken_node (cgraph_node (PTRMEM_CST_MEMBER (t)));
       break;
     case BASELINK:
       if (TREE_CODE (BASELINK_FUNCTIONS (t)) == FUNCTION_DECL)
-	cgraph_mark_needed_node (cgraph_node (BASELINK_FUNCTIONS (t)));
+	cgraph_mark_address_taken_node (cgraph_node (BASELINK_FUNCTIONS (t)));
       break;
     case VAR_DECL:
       if (DECL_VTABLE_OR_VTT_P (t))

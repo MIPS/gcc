@@ -377,16 +377,6 @@ enum group_termination
     previous_group
   };
 
-/* Support for a compile-time default CPU, et cetera.  The rules are:
-   --with-cpu is ignored if -mcpu is specified.
-   --with-tune is ignored if -mtune is specified.
-   --with-float is ignored if -mhard-float or -msoft-float are
-    specified.  */
-#define OPTION_DEFAULT_SPECS \
-  {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
-  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
-  {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }
-
 /* rs6000_select[0] is reserved for the default cpu defined via --with-cpu */
 struct rs6000_cpu_select
 {
@@ -1036,12 +1026,6 @@ extern int rs6000_xilinx_fpu;
 
 /* Base register for access to local variables of the function.  */
 #define FRAME_POINTER_REGNUM 113
-
-/* Value should be nonzero if functions must have frame pointers.
-   Zero means the frame pointer need not be set up (and parms
-   may be accessed via the stack pointer) in functions that seem suitable.
-   This is computed in `reload', in reload1.c.  */
-#define FRAME_POINTER_REQUIRED 0
 
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM 67
@@ -1738,6 +1722,19 @@ typedef struct rs6000_args
  : (reg_renumber[REGNO] > 0					\
     && (reg_renumber[REGNO] <= 31 || reg_renumber[REGNO] == 67	\
 	|| reg_renumber[REGNO] == FRAME_POINTER_REGNUM)))
+
+/* Nonzero if X is a hard reg that can be used as an index
+   or if it is a pseudo reg in the non-strict case.  */
+#define INT_REG_OK_FOR_INDEX_P(X, STRICT)			\
+  ((!(STRICT) && REGNO (X) >= FIRST_PSEUDO_REGISTER)		\
+   || REGNO_OK_FOR_INDEX_P (REGNO (X)))
+
+/* Nonzero if X is a hard reg that can be used as a base reg
+   or if it is a pseudo reg in the non-strict case.  */
+#define INT_REG_OK_FOR_BASE_P(X, STRICT)			\
+  ((!(STRICT) && REGNO (X) >= FIRST_PSEUDO_REGISTER)		\
+   || REGNO_OK_FOR_BASE_P (REGNO (X)))
+
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 
@@ -1771,95 +1768,7 @@ typedef struct rs6000_args
 				    && EASY_VECTOR_15((n) >> 1) \
 				    && ((n) & 1) == 0)
 
-/* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
-   and check its validity for a certain class.
-   We have two alternate definitions for each of them.
-   The usual definition accepts all pseudo regs; the other rejects
-   them unless they have been allocated suitable hard regs.
-   The symbol REG_OK_STRICT causes the latter definition to be used.
-
-   Most source files want to accept pseudo regs in the hope that
-   they will get allocated to the class that the insn wants them to be in.
-   Source files for reload pass need to be strict.
-   After reload, it makes no difference, since pseudo regs have
-   been eliminated by then.  */
-
-#ifdef REG_OK_STRICT
-# define REG_OK_STRICT_FLAG 1
-#else
-# define REG_OK_STRICT_FLAG 0
-#endif
-
-/* Nonzero if X is a hard reg that can be used as an index
-   or if it is a pseudo reg in the non-strict case.  */
-#define INT_REG_OK_FOR_INDEX_P(X, STRICT)			\
-  ((!(STRICT) && REGNO (X) >= FIRST_PSEUDO_REGISTER)		\
-   || REGNO_OK_FOR_INDEX_P (REGNO (X)))
-
-/* Nonzero if X is a hard reg that can be used as a base reg
-   or if it is a pseudo reg in the non-strict case.  */
-#define INT_REG_OK_FOR_BASE_P(X, STRICT)			\
-  ((!(STRICT) && REGNO (X) >= FIRST_PSEUDO_REGISTER)		\
-   || REGNO_OK_FOR_BASE_P (REGNO (X)))
-
-#define REG_OK_FOR_INDEX_P(X) INT_REG_OK_FOR_INDEX_P (X, REG_OK_STRICT_FLAG)
-#define REG_OK_FOR_BASE_P(X)  INT_REG_OK_FOR_BASE_P (X, REG_OK_STRICT_FLAG)
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-   On the RS/6000, there are four valid addresses: a SYMBOL_REF that
-   refers to a constant pool entry of an address (or the sum of it
-   plus a constant), a short (16-bit signed) constant plus a register,
-   the sum of two registers, or a register indirect, possibly with an
-   auto-increment.  For DFmode, DDmode and DImode with a constant plus
-   register, we must ensure that both words are addressable or PowerPC64
-   with offset word aligned.
-
-   For modes spanning multiple registers (DFmode and DDmode in 32-bit GPRs,
-   32-bit DImode, TImode), indexed addressing cannot be used because
-   adjacent memory cells are accessed by adding word-sized offsets
-   during assembly output.  */
-
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
-{ if (rs6000_legitimate_address (MODE, X, REG_OK_STRICT_FLAG))	\
-    goto ADDR;							\
-}
-
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   On RS/6000, first check for the sum of a register with a constant
-   integer that is out of range.  If so, generate code to add the
-   constant with the low-order 16 bits masked to the register and force
-   this result into another register (this can be done with `cau').
-   Then generate an address of REG+(CONST&0xffff), allowing for the
-   possibility of bit 16 being a one.
-
-   Then check for the sum of a register and something not constant, try to
-   load the other things into a register and return the sum.  */
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)			\
-{  rtx result = rs6000_legitimize_address (X, OLDX, MODE);	\
-   if (result != NULL_RTX)					\
-     {								\
-       (X) = result;						\
-       goto WIN;						\
-     }								\
-}
-
 /* Try a machine-dependent way of reloading an illegitimate address
    operand.  If we find one, push the reload and jump to WIN.  This
    macro is used in only one place: `find_reloads_address' in reload.c.
@@ -2034,12 +1943,6 @@ do {								\
 /* Given a condition code and a mode, return the inverse condition.  */
 #define REVERSE_CONDITION(CODE, MODE) rs6000_reverse_condition (MODE, CODE)
 
-/* Define the information needed to generate branch and scc insns.  This is
-   stored from the compare operation.  */
-
-extern GTY(()) rtx rs6000_compare_op0;
-extern GTY(()) rtx rs6000_compare_op1;
-extern int rs6000_compare_fp_p;
 
 /* Control the assembler format that we output.  */
 

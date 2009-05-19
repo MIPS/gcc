@@ -39,8 +39,8 @@ static __ea void *bigblock;
 static __ea void *block;
 static int *ls_block;
 
-extern void __cache_tag_array_size;
-#define CACHE_SIZE (4 * (int) &__cache_tag_array_size)
+extern char __cache_tag_array_size[];
+#define CACHE_SIZE (4 * (int) &__cache_tag_array_size[0])
 
 void
 init_mem (void)

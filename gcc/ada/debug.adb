@@ -91,9 +91,9 @@ package body Debug is
    --  dY   Enable configurable run-time mode
    --  dZ   Generate listing showing the contents of the dispatch tables
 
-   --  d.a
+   --  d.a  Force Target_Strict_Alignment mode to True
    --  d.b
-   --  d.c
+   --  d.c  Generate inline concatenation, do not call procedure
    --  d.d
    --  d.e
    --  d.f  Inhibit folding of static expressions
@@ -104,7 +104,7 @@ package body Debug is
    --  d.k
    --  d.l  Use Ada 95 semantics for limited function returns
    --  d.m  For -gnatl, print full source only for main unit
-   --  d.n
+   --  d.n  Print source file names
    --  d.o
    --  d.p
    --  d.q
@@ -120,7 +120,7 @@ package body Debug is
 
    --  d.A
    --  d.B
-   --  d.C
+   --  d.C  Generate concatenation call, do not generate inline code
    --  d.D
    --  d.E
    --  d.F
@@ -140,7 +140,7 @@ package body Debug is
    --  d.T  Force Optimize_Alignment (Time)
    --  d.U
    --  d.V
-   --  d.W
+   --  d.W  Print out debugging information for Walk_Library_Items
    --  d.X
    --  d.Y
    --  d.Z
@@ -191,7 +191,7 @@ package body Debug is
    --  dc
    --  dd
    --  de
-   --  df
+   --  df  Only output file names, not path names, in log
    --  dg
    --  dh
    --  di
@@ -283,7 +283,7 @@ package body Debug is
    --       list header is allocated, a line of output is generated. Certain
    --       other basic tree operations also cause a line of output to be
    --       generated. This option is useful in seeing where the parser is
-   --       blowing up.;
+   --       blowing up.
 
    --  do   Print the source recreated from the generated tree. In the case
    --       where the tree has been rewritten, this output includes only the
@@ -428,8 +428,6 @@ package body Debug is
    --       in preelaborable packages, but this restriction is a huge pain,
    --       especially in the predefined library units.
 
-   --  dQ   needs full documentation ???
-
    --  dR   Bypass the check for a proper version of s-rpc being present
    --       to use the -gnatz? switch. This allows debugging of the use
    --       of stubs generation without needing to have GLADE (or some
@@ -498,6 +496,14 @@ package body Debug is
    --         - In case of abstract subprograms the text "is abstract" is
    --           added at the end of the line.
 
+   --  d.a  Force Target_Strict_Alignment to True, even on targets where it
+   --       would normally be false. Can be used for testing strict alignment
+   --       circuitry in the compiler.
+
+   --  d.c  Generate inline concatenation, instead of calling one of the
+   --       System.Concat_n.Str_Concat_n routines in cases where the latter
+   --       routines would normally be called.
+
    --  d.f  Suppress folding of static expressions. This of course results
    --       in seriously non-conforming behavior, but is useful sometimes
    --       when tracking down handling of complex expressions.
@@ -516,6 +522,10 @@ package body Debug is
    --       debug switch is used, then the full listing is given only for the
    --       main source (this corresponds to a previous behavior of -gnatl and
    --       is used for running the ACATS tests).
+
+   --  d.n  Print source file names as they are loaded. This is useful if the
+   --       compiler has a bug -- these are the files that need to be included
+   --       in a bug report.
 
    --  d.r  Forces the flag OK_To_Reorder_Components to be set in all record
    --       base types that have no discriminants.
@@ -542,6 +552,9 @@ package body Debug is
    --       fully compiled and analyzed, they just get eliminated from the
    --       code generation step.
 
+   --  d.C  Generate call to System.Concat_n.Str_Concat_n routines in cases
+   --       where we would normally generate inline concatenation code.
+
    --  d.I  Inspector mode. Relevant for VM_Target /= None. Try to generate
    --       byte code, even in case of unsupported construct, for the sake
    --       of static analysis tools.
@@ -549,6 +562,10 @@ package body Debug is
    --  d.S  Force Optimize_Alignment (Space) mode as the default
 
    --  d.T  Force Optimize_Alignment (Time) mode as the default
+
+   --  d.W  Print out debugging information for Walk_Library_Items, including
+   --       the order in which units are walked. This is primarily for SofCheck
+   --       Inspector.
 
    --  d1   Error messages have node numbers where possible. Normally error
    --       messages have only source locations. This option is useful when
@@ -600,6 +617,10 @@ package body Debug is
    --      are irrelevant and confusing. This debug flag causes all links to
    --      be listed, and is useful when diagnosing circularities introduced
    --      by incorrect changes to the run-time library itself.
+
+   --  db  Output debug information from Better_Choice in Binde, which uses
+   --      various heuristics to determine elaboration order in cases where
+   --      multiple orders are valid.
 
    --  dc  List units as they are chosen. As units are selected for addition to
    --      the elaboration order, a line of output is generated showing which

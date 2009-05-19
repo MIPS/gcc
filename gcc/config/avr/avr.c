@@ -62,6 +62,7 @@ static const char *cond_string (enum rtx_code);
 static int avr_num_arg_regs (enum machine_mode, tree);
 
 static RTX_CODE compare_condition (rtx insn);
+static rtx avr_legitimize_address (rtx, rtx, enum machine_mode);
 static int compare_sign_p (rtx insn);
 static tree avr_handle_progmem_attribute (tree *, tree, tree, int, bool *);
 static tree avr_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
@@ -70,6 +71,7 @@ const struct attribute_spec avr_attribute_table[];
 static bool avr_assemble_integer (rtx, unsigned int, int);
 static void avr_file_start (void);
 static void avr_file_end (void);
+static bool avr_legitimate_address_p (enum machine_mode, rtx, bool);
 static void avr_asm_function_end_prologue (FILE *);
 static void avr_asm_function_begin_epilogue (FILE *);
 static rtx avr_function_value (const_tree, const_tree, bool);
@@ -87,6 +89,7 @@ static bool avr_return_in_memory (const_tree, const_tree);
 static struct machine_function * avr_init_machine_status (void);
 static rtx avr_builtin_setjmp_frame_value (void);
 static bool avr_hard_regno_scratch_ok (unsigned int);
+static unsigned int avr_case_values_threshold (void);
 
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
 #define FIRST_CUM_REG 26
@@ -348,6 +351,9 @@ static const struct mcu_type_s avr_mcu_types[] = {
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG avr_reorg
 
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS avr_legitimize_address
+
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY avr_return_in_memory
 
@@ -359,6 +365,11 @@ static const struct mcu_type_s avr_mcu_types[] = {
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK avr_hard_regno_scratch_ok
+#undef TARGET_CASE_VALUES_THRESHOLD
+#define TARGET_CASE_VALUES_THRESHOLD avr_case_values_threshold
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P avr_legitimate_address_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -542,10 +553,21 @@ avr_regs_to_save (HARD_REG_SET *set)
   return count;
 }
 
+/* Return true if register FROM can be eliminated via register TO.  */
+
+bool
+avr_can_eliminate (int from, int to)
+{
+  return ((from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
+	  || ((from == FRAME_POINTER_REGNUM 
+	       || from == FRAME_POINTER_REGNUM + 1)
+	      && !frame_pointer_needed));
+}
+
 /* Compute offset between arg_pointer and frame_pointer.  */
 
 int
-initial_elimination_offset (int from, int to)
+avr_initial_elimination_offset (int from, int to)
 {
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return 0;
@@ -1081,8 +1103,8 @@ avr_asm_function_begin_epilogue (FILE *file)
 /* Return nonzero if X (an RTX) is a legitimate memory address on the target
    machine for a memory operand of mode MODE.  */
 
-int
-legitimate_address_p (enum machine_mode mode, rtx x, int strict)
+bool
+avr_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 {
   enum reg_class r = NO_REGS;
   
@@ -1150,7 +1172,7 @@ legitimate_address_p (enum machine_mode mode, rtx x, int strict)
    memory address for an operand of mode MODE  */
 
 rtx
-legitimize_address (rtx x, rtx oldx, enum machine_mode mode)
+avr_legitimize_address (rtx x, rtx oldx, enum machine_mode mode)
 {
   x = oldx;
   if (TARGET_ALL_DEBUG)
@@ -2840,8 +2862,8 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
 
 /* Return 1 if frame pointer for current function required.  */
 
-int
-frame_pointer_required_p (void)
+bool
+avr_frame_pointer_required_p (void)
 {
   return (cfun->calls_alloca
 	  || crtl->args.info.nregs == 0
@@ -2897,21 +2919,21 @@ compare_eq_p (rtx insn)
 /* Output test instruction for HImode.  */
 
 const char *
-out_tsthi (rtx insn, int *l)
+out_tsthi (rtx insn, rtx op, int *l)
 {
   if (compare_sign_p (insn))
     {
       if (l) *l = 1;
       return AS1 (tst,%B0);
     }
-  if (reg_unused_after (insn, SET_SRC (PATTERN (insn)))
+  if (reg_unused_after (insn, op)
       && compare_eq_p (insn))
     {
       /* Faster than sbiw if we can clobber the operand.  */
       if (l) *l = 1;
       return AS2 (or,%A0,%B0);
     }
-  if (test_hard_reg_class (ADDW_REGS, SET_SRC (PATTERN (insn))))
+  if (test_hard_reg_class (ADDW_REGS, op))
     {
       if (l) *l = 1;
       return AS2 (sbiw,%0,0);
@@ -2925,14 +2947,14 @@ out_tsthi (rtx insn, int *l)
 /* Output test instruction for SImode.  */
 
 const char *
-out_tstsi (rtx insn, int *l)
+out_tstsi (rtx insn, rtx op, int *l)
 {
   if (compare_sign_p (insn))
     {
       if (l) *l = 1;
       return AS1 (tst,%D0);
     }
-  if (test_hard_reg_class (ADDW_REGS, SET_SRC (PATTERN (insn))))
+  if (test_hard_reg_class (ADDW_REGS, op))
     {
       if (l) *l = 3;
       return (AS2 (sbiw,%A0,0) CR_TAB
@@ -4349,8 +4371,8 @@ adjust_insn_length (rtx insn, int len)
 	{
 	  switch (GET_MODE (op[1]))
 	    {
-	    case HImode: out_tsthi (insn,&len); break;
-	    case SImode: out_tstsi (insn,&len); break;
+	    case HImode: out_tsthi (insn, op[1], &len); break;
+	    case SImode: out_tstsi (insn, op[1], &len); break;
 	    default: break;
 	    }
 	}
@@ -4786,8 +4808,8 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	}
       else
 	{
-	  warning (OPT_Wattributes, "%qs attribute ignored",
-		   IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qE attribute ignored",
+		   name);
 	  *no_add_attrs = true;
 	}
     }
@@ -4806,8 +4828,8 @@ avr_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -4822,8 +4844,8 @@ avr_handle_fntype_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -5716,6 +5738,21 @@ avr_reorg (void)
 		  XEXP (pattern,1) = x;
 		  INSN_CODE (next) = -1;
 		}
+	      else if (true_regnum (XEXP (pattern, 0)) >= 0
+		       && XEXP (pattern, 1) == const0_rtx)
+	        {
+	          /* This is a tst insn, we can reverse it.  */
+	          rtx next = next_real_insn (insn);
+	          rtx pat = PATTERN (next);
+	          rtx src = SET_SRC (pat);
+	          rtx t = XEXP (src,0);
+    
+	          PUT_CODE (t, swap_condition (GET_CODE (t)));
+	          XEXP (pattern, 1) = XEXP (pattern, 0);
+	          XEXP (pattern, 0) = const0_rtx;
+	          INSN_CODE (next) = -1;
+	          INSN_CODE (insn) = -1;
+	        }
 	      else if (true_regnum (XEXP (pattern,0)) >= 0
 		       && GET_CODE (XEXP (pattern,1)) == CONST_INT)
 		{
@@ -5734,20 +5771,6 @@ avr_reorg (void)
 		      INSN_CODE (insn) = -1;
 		    }
 		}
-	    }
-	  else if (true_regnum (SET_SRC (pattern)) >= 0)
-	    {
-	      /* This is a tst insn */
-	      rtx next = next_real_insn (insn);
-	      rtx pat = PATTERN (next);
-	      rtx src = SET_SRC (pat);
-	      rtx t = XEXP (src,0);
-
-	      PUT_CODE (t, swap_condition (GET_CODE (t)));
-	      SET_SRC (pattern) = gen_rtx_COMPARE (GET_MODE (SET_SRC (pattern)), const0_rtx,
-					       SET_SRC (pattern));
-	      INSN_CODE (next) = -1;
-	      INSN_CODE (insn) = -1;
 	    }
 	}
     }

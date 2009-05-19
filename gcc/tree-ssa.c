@@ -834,7 +834,6 @@ delete_tree_ssa (void)
 	    {
 	      gimple_set_def_ops (stmt, NULL);
 	      gimple_set_use_ops (stmt, NULL);
-	      gimple_set_addresses_taken (stmt, NULL);
 	    }
 
 	  if (gimple_has_mem_ops (stmt))
@@ -845,7 +844,8 @@ delete_tree_ssa (void)
 
 	  gimple_set_modified (stmt, true);
 	}
-      set_phi_nodes (bb, NULL);
+      if (!(bb->flags & BB_RTL))
+	set_phi_nodes (bb, NULL);
     }
 
   /* Remove annotations from every referenced local variable.  */
@@ -923,19 +923,9 @@ useless_type_conversion_p_1 (tree outer_type, tree inner_type)
 	  || TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
 	return false;
 
-      /* Conversions from a non-base to a base type are not useless.
-	 This way we preserve the invariant to do arithmetic in
-	 base types only.  */
-      if (TREE_TYPE (inner_type)
-	  && TREE_TYPE (inner_type) != inner_type
-	  && (TREE_TYPE (outer_type) == outer_type
-	      || TREE_TYPE (outer_type) == NULL_TREE))
-	return false;
-
       /* We don't need to preserve changes in the types minimum or
 	 maximum value in general as these do not generate code
 	 unless the types precisions are different.  */
-
       return true;
     }
 
@@ -973,6 +963,10 @@ useless_type_conversion_p_1 (tree outer_type, tree inner_type)
 	   != TYPE_REF_CAN_ALIAS_ALL (outer_type))
 	  || (get_alias_set (TREE_TYPE (inner_type))
 	      != get_alias_set (TREE_TYPE (outer_type))))
+
+      /* Do not lose casts between pointers that when dereferenced access
+	 memory with different alias sets.  */
+      if (get_deref_alias_set (inner_type) != get_deref_alias_set (outer_type))
 	return false;
 
       /* We do not care for const qualification of the pointed-to types
@@ -1006,6 +1000,13 @@ useless_type_conversion_p_1 (tree outer_type, tree inner_type)
     {
       /* Different types of aggregates are incompatible.  */
       if (TREE_CODE (inner_type) != TREE_CODE (outer_type))
+	return false;
+
+      /* Conversions from array types with unknown extent to
+	 array types with known extent are not useless.  */
+      if (TREE_CODE (inner_type) == ARRAY_TYPE
+	  && !TYPE_DOMAIN (inner_type)
+	  && TYPE_DOMAIN (outer_type))
 	return false;
 
       /* ???  This seems to be necessary even for aggregates that don't
@@ -1465,7 +1466,7 @@ struct gimple_opt_pass pass_early_warn_uninitialized =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -1484,7 +1485,7 @@ struct gimple_opt_pass pass_late_warn_uninitialized =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -1512,25 +1513,30 @@ execute_update_addresses_taken (bool do_optimize)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  const_gimple stmt = gsi_stmt (gsi);
+	  gimple stmt = gsi_stmt (gsi);
 	  enum gimple_code code = gimple_code (stmt);
-	  bitmap taken = gimple_addresses_taken (stmt);
-	  
-	  if (taken)
-	    bitmap_ior_into (addresses_taken, taken);
-	  
+
+	  /* Note all addresses taken by the stmt.  */
+	  gimple_ior_addresses_taken (addresses_taken, stmt);
+
 	  /* If we have a call or an assignment, see if the lhs contains
 	     a local decl that requires not to be a gimple register.  */
 	  if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
 	    {
-	      tree lhs = gimple_get_lhs (stmt);
-	      /* A plain decl does not need it set.  */
-	      if (lhs && handled_component_p (lhs))
-	        {
-		  var = get_base_address (lhs);
-		  if (DECL_P (var))
-		    bitmap_set_bit (not_reg_needs, DECL_UID (var));
-		}
+              tree lhs = gimple_get_lhs (stmt);
+              
+              /* We may not rewrite TMR_SYMBOL to SSA.  */
+              if (lhs && TREE_CODE (lhs) == TARGET_MEM_REF
+                  && TMR_SYMBOL (lhs))
+                bitmap_set_bit (not_reg_needs, DECL_UID (TMR_SYMBOL (lhs)));
+
+              /* A plain decl does not need it set.  */
+              else if (lhs && handled_component_p (lhs))
+                {
+                  var = get_base_address (lhs);
+                  if (DECL_P (var))
+                    bitmap_set_bit (not_reg_needs, DECL_UID (var));
+                }
 	    }
 	}
 
@@ -1582,7 +1588,9 @@ execute_update_addresses_taken (bool do_optimize)
 	if (!DECL_GIMPLE_REG_P (var)
 	    && !bitmap_bit_p (not_reg_needs, DECL_UID (var))
 	    && (TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE
-		|| TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE))
+		|| TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
+	    && !TREE_THIS_VOLATILE (var)
+	    && (TREE_CODE (var) != VAR_DECL || !DECL_HARD_REGISTER (var)))
 	  {
 	    DECL_GIMPLE_REG_P (var) = 1;
 	    mark_sym_for_renaming (var);
@@ -1627,7 +1635,7 @@ struct gimple_opt_pass pass_update_address_taken =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

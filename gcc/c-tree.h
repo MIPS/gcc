@@ -33,8 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Language-specific declaration information.  */
 
-struct lang_decl GTY(())
-{
+struct GTY(()) lang_decl {
   char dummy;
 };
 
@@ -57,8 +56,7 @@ struct lang_decl GTY(())
    and C_RID_YYCODE is the token number wanted by Yacc.  */
 #define C_IS_RESERVED_WORD(ID) TREE_LANG_FLAG_0 (ID)
 
-struct lang_type GTY(())
-{
+struct GTY(()) lang_type {
   /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
   struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s;
   /* In an ENUMERAL_TYPE, the min and max values.  */
@@ -74,6 +72,10 @@ struct lang_type GTY(())
    Note that TYPE_SIZE may have simplified to a constant.  */
 #define C_TYPE_VARIABLE_SIZE(TYPE) TYPE_LANG_FLAG_1 (TYPE)
 #define C_DECL_VARIABLE_SIZE(TYPE) DECL_LANG_FLAG_0 (TYPE)
+
+/* Record whether a type is defined inside a struct or union type.
+   This is used for -Wc++-compat. */
+#define C_TYPE_DEFINED_IN_STRUCT(TYPE) TYPE_LANG_FLAG_2 (TYPE)
 
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(EXP) DECL_LANG_FLAG_1 (EXP)
@@ -163,6 +165,11 @@ struct c_expr
      initializers, or ERROR_MARK for other expressions (including
      parenthesized expressions).  */
   enum tree_code original_code;
+  /* If not NULL, the original type of an expression.  This will
+     differ from the type of the value field for an enum constant.
+     The type of an enum constant is a plain integer type, but this
+     field will be the enum type.  */
+  tree original_type;
 };
 
 /* A kind of type specifier.  Note that this information is currently
@@ -404,8 +411,7 @@ struct c_parm {
    that keep track of the progress of compilation of the current function.
    Used for nested functions.  */
 
-struct language_function GTY(())
-{
+struct GTY(()) language_function {
   struct c_language_function base;
   tree x_break_label;
   tree x_cont_label;
@@ -467,6 +473,18 @@ struct c_enum_contents
   int enum_overflow;
 };
 
+/* A type of reference to a static identifier in an inline
+   function.  */
+enum c_inline_static_type {
+  /* Identifier with internal linkage used in function that may be an
+     inline definition (i.e., file-scope static).  */
+  csi_internal,
+  /* Modifiable object with static storage duration defined in
+     function that may be an inline definition (i.e., local
+     static).  */
+  csi_modifiable
+};
+
 
 /* in c-parser.c */
 extern void c_parse_init (void);
@@ -483,6 +501,8 @@ extern int global_bindings_p (void);
 extern void push_scope (void);
 extern tree pop_scope (void);
 
+extern void record_inline_static (location_t, tree, tree,
+				  enum c_inline_static_type);
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);
@@ -497,10 +517,10 @@ extern void undeclared_variable (tree, location_t);
 extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void c_maybe_initialize_eh (void);
-extern void finish_decl (tree, tree, tree);
+extern void finish_decl (tree, tree, tree, tree);
 extern tree finish_enum (tree, tree, tree);
 extern void finish_function (void);
-extern tree finish_struct (tree, tree, tree);
+extern tree finish_struct (tree, tree, tree, bool, VEC(tree,heap) *);
 extern struct c_arg_info *get_parm_info (bool);
 extern tree grokfield (location_t, struct c_declarator *,
 		       struct c_declspecs *, tree, tree *);
@@ -518,15 +538,16 @@ extern tree c_builtin_function (tree);
 extern tree c_builtin_function_ext_scope (tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
-extern tree start_enum (struct c_enum_contents *, tree);
+extern tree start_enum (struct c_enum_contents *, tree, location_t);
 extern int  start_function (struct c_declspecs *, struct c_declarator *, tree);
 extern tree start_decl (struct c_declarator *, struct c_declspecs *, bool,
 			tree);
-extern tree start_struct (enum tree_code, tree);
+extern tree start_struct (enum tree_code, tree, bool *, VEC(tree,heap) **,
+			  location_t);
 extern void store_parm_decls (void);
 extern void store_parm_decls_from (struct c_arg_info *);
 extern tree xref_tag (enum tree_code, tree);
-extern struct c_typespec parser_xref_tag (enum tree_code, tree);
+extern struct c_typespec parser_xref_tag (enum tree_code, tree, location_t);
 extern int c_expand_decl (tree);
 extern struct c_parm *build_c_parm (struct c_declspecs *, tree,
 				    struct c_declarator *);
@@ -581,7 +602,7 @@ extern struct c_expr default_function_array_conversion (struct c_expr);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
 extern tree build_array_ref (tree, tree, location_t);
-extern tree build_external_ref (tree, int, location_t);
+extern tree build_external_ref (tree, int, location_t, tree *);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);
@@ -592,9 +613,9 @@ extern struct c_expr parser_build_binary_op (location_t,
 					     struct c_expr);
 extern tree build_conditional_expr (tree, bool, tree, tree);
 extern tree build_compound_expr (tree, tree);
-extern tree c_cast_expr (struct c_type_name *, tree);
+extern tree c_cast_expr (struct c_type_name *, tree, location_t);
 extern tree build_c_cast (tree, tree);
-extern void store_init_value (tree, tree);
+extern void store_init_value (tree, tree, tree);
 extern void error_init (const char *);
 extern void pedwarn_init (location_t, int opt, const char *);
 extern void maybe_warn_string_init (tree, struct c_expr);
@@ -607,6 +628,7 @@ extern void set_init_index (tree, tree);
 extern void set_init_label (tree);
 extern void process_init_element (struct c_expr, bool);
 extern tree build_compound_literal (tree, tree, bool);
+extern void check_compound_literal_type (struct c_type_name *, location_t);
 extern tree c_start_case (tree);
 extern void c_finish_case (tree);
 extern tree build_asm_expr (tree, tree, tree, tree, bool);
@@ -620,7 +642,7 @@ extern tree c_begin_stmt_expr (void);
 extern tree c_finish_stmt_expr (tree);
 extern tree c_process_expr_stmt (tree);
 extern tree c_finish_expr_stmt (tree);
-extern tree c_finish_return (tree);
+extern tree c_finish_return (tree, tree);
 extern tree c_finish_bc_stmt (tree *, bool);
 extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);

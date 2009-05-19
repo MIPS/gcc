@@ -3981,8 +3981,10 @@ eliminate (void)
 		 value is constant, use that constant.  */
 	      if (!sprime && is_gimple_min_invariant (VN_INFO (lhs)->valnum))
 		{
-		  sprime = fold_convert (TREE_TYPE (lhs),
-					 VN_INFO (lhs)->valnum);
+		  sprime = VN_INFO (lhs)->valnum;
+		  if (!useless_type_conversion_p (TREE_TYPE (lhs),
+						  TREE_TYPE (sprime)))
+		    sprime = fold_convert (TREE_TYPE (lhs), sprime);
 
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
@@ -4129,6 +4131,11 @@ eliminate (void)
 		  update_stmt (stmt);
 		  if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
 		    gimple_purge_dead_eh_edges (b);
+
+		  /* Changing an indirect call to a direct call may
+		     have exposed different semantics.  This may
+		     require an SSA update.  */
+		  todo |= TODO_update_ssa_only_virtuals;
 		}
 	    }
 	}
@@ -4181,6 +4188,8 @@ eliminate (void)
 
 	  remove_phi_node (&gsi, false);
 
+	  if (!useless_type_conversion_p (TREE_TYPE (res), TREE_TYPE (sprime)))
+	    sprime = fold_convert (TREE_TYPE (res), sprime);
 	  stmt = gimple_build_assign (res, sprime);
 	  SSA_NAME_DEF_STMT (res) = stmt;
 	  if (TREE_CODE (sprime) == SSA_NAME)
@@ -4206,10 +4215,12 @@ eliminate (void)
       /* If there is a single use only, propagate the equivalency
 	 instead of keeping the copy.  */
       if (TREE_CODE (lhs) == SSA_NAME
-	  && single_imm_use (lhs, &use_p, &use_stmt))
+	  && single_imm_use (lhs, &use_p, &use_stmt)
+	  && may_propagate_copy (USE_FROM_PTR (use_p),
+				 gimple_assign_rhs1 (stmt)))
 	{
 	  SET_USE (use_p, gimple_assign_rhs1 (stmt));
-	  update_stmt (stmt);
+	  update_stmt (use_stmt);
 	}
 
       /* If this is a store or a now unused copy, remove it.  */
@@ -4547,7 +4558,7 @@ struct gimple_opt_pass pass_pre =
   0,					/* static_pass_number */
   TV_TREE_PRE,				/* tv_id */
   PROP_no_crit_edges | PROP_cfg
-    | PROP_ssa | PROP_alias,		/* properties_required */
+    | PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_rebuild_alias,			/* todo_flags_start */
@@ -4582,7 +4593,7 @@ struct gimple_opt_pass pass_fre =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_FRE,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

@@ -44,7 +44,7 @@ static tree build_cplus_array_type_1 (tree, tree);
 static int list_hash_eq (const void *, const void *);
 static hashval_t list_hash_pieces (tree, tree, tree);
 static hashval_t list_hash (const void *);
-static cp_lvalue_kind lvalue_p_1 (tree, int);
+static cp_lvalue_kind lvalue_p_1 (const_tree, int);
 static tree build_target_expr (tree, tree);
 static tree count_trees_r (tree *, int *, void *);
 static tree verify_stmt_tree_r (tree *, int *, void *);
@@ -59,7 +59,7 @@ static tree handle_init_priority_attribute (tree *, tree, tree, int, bool *);
    nonzero, rvalues of class type are considered lvalues.  */
 
 static cp_lvalue_kind
-lvalue_p_1 (tree ref,
+lvalue_p_1 (const_tree ref,
 	    int treat_class_rvalues_as_lvalues)
 {
   cp_lvalue_kind op1_lvalue_kind = clk_none;
@@ -207,7 +207,9 @@ lvalue_p_1 (tree ref,
     case BASELINK:
       /* We now represent a reference to a single static member function
 	 with a BASELINK.  */
-      return lvalue_p_1 (BASELINK_FUNCTIONS (ref),
+      /* This CONST_CAST is okay because BASELINK_FUNCTIONS returns
+	 its argument unmodified and we assign it to a const_tree.  */
+      return lvalue_p_1 (BASELINK_FUNCTIONS (CONST_CAST_TREE (ref)),
 			 treat_class_rvalues_as_lvalues);
 
     case NON_DEPENDENT_EXPR:
@@ -251,8 +253,8 @@ real_lvalue_p (tree ref)
 /* This differs from real_lvalue_p in that class rvalues are
    considered lvalues.  */
 
-int
-lvalue_p (tree ref)
+bool
+lvalue_p (const_tree ref)
 {
   return
     (lvalue_p_1 (ref, /*class rvalue ok*/ 1) != clk_none);
@@ -1198,7 +1200,8 @@ get_first_fn (tree from)
 {
   gcc_assert (is_overloaded_fn (from));
   /* A baselink is also considered an overloaded function.  */
-  if (TREE_CODE (from) == COMPONENT_REF)
+  if (TREE_CODE (from) == OFFSET_REF
+      || TREE_CODE (from) == COMPONENT_REF)
     from = TREE_OPERAND (from, 1);
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
@@ -1236,11 +1239,12 @@ build_overload (tree decl, tree chain)
 
 #define PRINT_RING_SIZE 4
 
-const char *
-cxx_printable_name (tree decl, int v)
+static const char *
+cxx_printable_name_internal (tree decl, int v, bool translate)
 {
   static unsigned int uid_ring[PRINT_RING_SIZE];
   static char *print_ring[PRINT_RING_SIZE];
+  static bool trans_ring[PRINT_RING_SIZE];
   static int ring_counter;
   int i;
 
@@ -1248,11 +1252,11 @@ cxx_printable_name (tree decl, int v)
   if (v < 2
       || TREE_CODE (decl) != FUNCTION_DECL
       || DECL_LANG_SPECIFIC (decl) == 0)
-    return lang_decl_name (decl, v);
+    return lang_decl_name (decl, v, translate);
 
   /* See if this print name is lying around.  */
   for (i = 0; i < PRINT_RING_SIZE; i++)
-    if (uid_ring[i] == DECL_UID (decl))
+    if (uid_ring[i] == DECL_UID (decl) && translate == trans_ring[i])
       /* yes, so return it.  */
       return print_ring[i];
 
@@ -1261,19 +1265,37 @@ cxx_printable_name (tree decl, int v)
 
   if (current_function_decl != NULL_TREE)
     {
-      if (uid_ring[ring_counter] == DECL_UID (current_function_decl))
-	ring_counter += 1;
-      if (ring_counter == PRINT_RING_SIZE)
-	ring_counter = 0;
+      /* There may be both translated and untranslated versions of the
+	 name cached.  */
+      for (i = 0; i < 2; i++)
+	{
+	  if (uid_ring[ring_counter] == DECL_UID (current_function_decl))
+	    ring_counter += 1;
+	  if (ring_counter == PRINT_RING_SIZE)
+	    ring_counter = 0;
+	}
       gcc_assert (uid_ring[ring_counter] != DECL_UID (current_function_decl));
     }
 
   if (print_ring[ring_counter])
     free (print_ring[ring_counter]);
 
-  print_ring[ring_counter] = xstrdup (lang_decl_name (decl, v));
+  print_ring[ring_counter] = xstrdup (lang_decl_name (decl, v, translate));
   uid_ring[ring_counter] = DECL_UID (decl);
+  trans_ring[ring_counter] = translate;
   return print_ring[ring_counter];
+}
+
+const char *
+cxx_printable_name (tree decl, int v)
+{
+  return cxx_printable_name_internal (decl, v, false);
+}
+
+const char *
+cxx_printable_name_translate (tree decl, int v)
+{
+  return cxx_printable_name_internal (decl, v, true);
 }
 
 /* Build the FUNCTION_TYPE or METHOD_TYPE which may throw exceptions

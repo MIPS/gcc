@@ -1031,7 +1031,7 @@ package body Exp_Attr is
 
          elsif Is_Class_Wide_Type (Ptyp)
            and then Is_Interface (Ptyp)
-           and then VM_Target = No_VM
+           and then Tagged_Type_Expansion
            and then not (Nkind (Pref) in N_Has_Entity
                           and then Is_Subprogram (Entity (Pref)))
          then
@@ -1218,7 +1218,7 @@ package body Exp_Attr is
       --  A reference to P'Body_Version or P'Version is expanded to
 
       --     Vnn : Unsigned;
-      --     pragma Import (C, Vnn, "uuuuT";
+      --     pragma Import (C, Vnn, "uuuuT");
       --     ...
       --     Get_Version_String (Vnn)
 
@@ -3118,7 +3118,7 @@ package body Exp_Attr is
                   --  accessibility check on virtual machines, so we omit it.
 
                   if Ada_Version >= Ada_05
-                    and then VM_Target = No_VM
+                    and then Tagged_Type_Expansion
                   then
                      Insert_Action (N,
                        Make_Implicit_If_Statement (N,
@@ -3908,8 +3908,11 @@ package body Exp_Attr is
          --  For X'Size applied to an object of a class-wide type, transform
          --  X'Size into a call to the primitive operation _Size applied to X.
 
-         elsif Is_Class_Wide_Type (Ptyp) then
-
+         elsif Is_Class_Wide_Type (Ptyp)
+           or else (Id = Attribute_Size
+                      and then Is_Tagged_Type (Ptyp)
+                      and then Has_Unknown_Discriminants (Ptyp))
+         then
             --  No need to do anything else compiling under restriction
             --  No_Dispatching_Calls. During the semantic analysis we
             --  already notified such violation.
@@ -3936,7 +3939,7 @@ package body Exp_Attr is
 
             Rewrite (N, New_Node);
             Analyze_And_Resolve (N, Typ);
-               return;
+            return;
 
          --  Case of known RM_Size of a type
 
@@ -4352,7 +4355,7 @@ package body Exp_Attr is
             --  For VMs we leave the type attribute unexpanded because
             --  there's not a dispatching table to reference.
 
-            if VM_Target = No_VM then
+            if Tagged_Type_Expansion then
                Rewrite (N,
                  Unchecked_Convert_To (RTE (RE_Tag),
                    New_Reference_To
@@ -4377,7 +4380,7 @@ package body Exp_Attr is
 
             --  Not needed for VM targets, since all handled by the VM
 
-            if VM_Target = No_VM then
+            if Tagged_Type_Expansion then
                Rewrite (N,
                  Make_Explicit_Dereference (Loc,
                    Unchecked_Convert_To (RTE (RE_Tag_Ptr),
@@ -5235,6 +5238,7 @@ package body Exp_Attr is
            Attribute_Address_Size                 |
            Attribute_Base                         |
            Attribute_Class                        |
+           Attribute_Compiler_Version             |
            Attribute_Default_Bit_Order            |
            Attribute_Delta                        |
            Attribute_Denorm                       |

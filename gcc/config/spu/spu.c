@@ -48,17 +48,82 @@
 #include "sched-int.h"
 #include "params.h"
 #include "assert.h"
-#include "c-common.h"
 #include "machmode.h"
 #include "gimple.h"
 #include "tm-constrs.h"
-#include "spu-builtins.h"
 #include "ddg.h"
 #include "sbitmap.h"
 #include "timevar.h"
 #include "df.h"
 
 /* Builtin types, data and prototypes. */
+
+enum spu_builtin_type_index
+{
+  SPU_BTI_END_OF_PARAMS,
+
+  /* We create new type nodes for these. */
+  SPU_BTI_V16QI,
+  SPU_BTI_V8HI,
+  SPU_BTI_V4SI,
+  SPU_BTI_V2DI,
+  SPU_BTI_V4SF,
+  SPU_BTI_V2DF,
+  SPU_BTI_UV16QI,
+  SPU_BTI_UV8HI,
+  SPU_BTI_UV4SI,
+  SPU_BTI_UV2DI,
+
+  /* A 16-byte type. (Implemented with V16QI_type_node) */
+  SPU_BTI_QUADWORD,
+
+  /* These all correspond to intSI_type_node */
+  SPU_BTI_7,
+  SPU_BTI_S7,
+  SPU_BTI_U7,
+  SPU_BTI_S10,
+  SPU_BTI_S10_4,
+  SPU_BTI_U14,
+  SPU_BTI_16,
+  SPU_BTI_S16,
+  SPU_BTI_S16_2,
+  SPU_BTI_U16,
+  SPU_BTI_U16_2,
+  SPU_BTI_U18,
+
+  /* These correspond to the standard types */
+  SPU_BTI_INTQI, 
+  SPU_BTI_INTHI, 
+  SPU_BTI_INTSI, 
+  SPU_BTI_INTDI, 
+
+  SPU_BTI_UINTQI,
+  SPU_BTI_UINTHI,
+  SPU_BTI_UINTSI,
+  SPU_BTI_UINTDI,
+
+  SPU_BTI_FLOAT, 
+  SPU_BTI_DOUBLE,
+
+  SPU_BTI_VOID,   
+  SPU_BTI_PTR,   
+
+  SPU_BTI_MAX
+};
+
+#define V16QI_type_node               (spu_builtin_types[SPU_BTI_V16QI])
+#define V8HI_type_node                (spu_builtin_types[SPU_BTI_V8HI])
+#define V4SI_type_node                (spu_builtin_types[SPU_BTI_V4SI])
+#define V2DI_type_node                (spu_builtin_types[SPU_BTI_V2DI])
+#define V4SF_type_node                (spu_builtin_types[SPU_BTI_V4SF])
+#define V2DF_type_node                (spu_builtin_types[SPU_BTI_V2DF])
+#define unsigned_V16QI_type_node      (spu_builtin_types[SPU_BTI_UV16QI])
+#define unsigned_V8HI_type_node       (spu_builtin_types[SPU_BTI_UV8HI])
+#define unsigned_V4SI_type_node       (spu_builtin_types[SPU_BTI_UV4SI])
+#define unsigned_V2DI_type_node       (spu_builtin_types[SPU_BTI_UV2DI])
+
+static GTY(()) tree spu_builtin_types[SPU_BTI_MAX];
+
 struct spu_builtin_range
 {
   int low, high;
@@ -87,6 +152,9 @@ char regs_ever_allocated[FIRST_PSEUDO_REGISTER];
 static void spu_init_builtins (void);
 static unsigned char spu_scalar_mode_supported_p (enum machine_mode mode);
 static unsigned char spu_vector_mode_supported_p (enum machine_mode mode);
+static bool spu_legitimate_address_p (enum machine_mode, rtx, bool);
+static bool spu_addr_space_legitimate_address_p (enum machine_mode, rtx,
+						 bool, addr_space_t);
 static rtx adjust_operand (rtx op, HOST_WIDE_INT * start);
 static rtx get_pic_reg (void);
 static int need_to_save_reg (int regno, int saving);
@@ -135,6 +203,9 @@ static void spu_init_libfuncs (void);
 static bool spu_return_in_memory (const_tree type, const_tree fntype);
 static void fix_range (const char *);
 static void spu_encode_section_info (tree, rtx, int);
+static rtx spu_legitimize_address (rtx, rtx, enum machine_mode);
+static rtx spu_addr_space_legitimize_address (rtx, rtx, enum machine_mode,
+					      addr_space_t);
 static tree spu_builtin_mul_widen_even (tree);
 static tree spu_builtin_mul_widen_odd (tree);
 static tree spu_builtin_mask_for_load (void);
@@ -147,7 +218,6 @@ static bool spu_no_relocation (tree, tree);
 static unsigned int spu_section_type_flags (tree, const char *, int);
 
 extern const char *reg_names[];
-rtx spu_compare_op0, spu_compare_op1;
 
 /* Which instruction set architecture to use.  */
 int spu_arch;
@@ -203,8 +273,6 @@ spu_libgcc_cmp_return_mode (void);
 static enum machine_mode
 spu_libgcc_shift_count_mode (void);
 
-/* Built in types.  */
-tree spu_builtin_types[SPU_BTI_MAX];
 
 /* Pointer mode for __ea references.  */
 #define EAmode (spu_ea_model != 32 ? DImode : SImode)
@@ -223,19 +291,12 @@ static const char *spu_addr_space_name (addr_space_t);
 #undef TARGET_ADDR_SPACE_NAME
 #define TARGET_ADDR_SPACE_NAME spu_addr_space_name
 
-static bool spu_addr_space_memory_address_p (enum machine_mode, rtx,
-					     addr_space_t);
-#undef TARGET_ADDR_SPACE_MEMORY_ADDRESS_P
-#define TARGET_ADDR_SPACE_MEMORY_ADDRESS_P spu_addr_space_memory_address_p
-
-static bool spu_addr_space_strict_memory_address_p (enum machine_mode, rtx,
-						    addr_space_t);
-#undef TARGET_ADDR_SPACE_STRICT_MEMORY_ADDRESS_P
-#define TARGET_ADDR_SPACE_STRICT_MEMORY_ADDRESS_P \
-  spu_addr_space_strict_memory_address_p
+#undef TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P
+#define TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P \
+  spu_addr_space_legitimate_address_p
 
 #undef TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS
-#define TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS spu_legitimize_address
+#define TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS spu_addr_space_legitimize_address
 
 static bool spu_addr_space_can_convert_p (addr_space_t, addr_space_t);
 #undef TARGET_ADDR_SPACE_CAN_CONVERT_P
@@ -284,12 +345,17 @@ static bool spu_valid_pointer_mode (enum machine_mode mode);
 #undef TARGET_ASM_ALIGNED_DI_OP
 #define TARGET_ASM_ALIGNED_DI_OP "\t.quad\t"
 
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS spu_legitimize_address
+
 /* The current assembler doesn't like .4byte foo@ppu, so use the normal .long
    and .quad for the debugger.  When it is known that the assembler is fixed,
    these can be removed.  */
 #undef TARGET_ASM_UNALIGNED_SI_OP
 #define TARGET_ASM_UNALIGNED_SI_OP	"\t.long\t"
 
+/* The .8byte directive doesn't seem to work well for a 32 bit
+   architecture. */
 #undef TARGET_ASM_UNALIGNED_DI_OP
 #define TARGET_ASM_UNALIGNED_DI_OP	"\t.quad\t"
 
@@ -404,6 +470,9 @@ const struct attribute_spec spu_attribute_table[];
 
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS spu_section_type_flags
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P spu_legitimate_address_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -849,41 +918,44 @@ int spu_comp_icode[12][3] = {
    WORD_MODE, we can generate better code in most cases if we do it
    ourselves.  */
 void
-spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
+spu_emit_branch_or_set (int is_set, rtx cmp, rtx operands[])
 {
   int reverse_compare = 0;
   int reverse_test = 0;
   rtx compare_result, eq_result;
   rtx comp_rtx, eq_rtx;
-  rtx target = operands[0];
   enum machine_mode comp_mode;
   enum machine_mode op_mode;
-  enum spu_comp_code scode, eq_code, ior_code;
+  enum spu_comp_code scode, eq_code;
+  enum insn_code ior_code;
+  enum rtx_code code = GET_CODE (cmp);
+  rtx op0 = XEXP (cmp, 0);
+  rtx op1 = XEXP (cmp, 1);
   int index;
   int eq_test = 0;
 
-  /* When spu_compare_op1 is a CONST_INT change (X >= C) to (X > C-1),
+  /* When op1 is a CONST_INT change (X >= C) to (X > C-1),
      and so on, to keep the constant in operand 1. */
-  if (GET_CODE (spu_compare_op1) == CONST_INT)
+  if (GET_CODE (op1) == CONST_INT)
     {
-      HOST_WIDE_INT val = INTVAL (spu_compare_op1) - 1;
-      if (trunc_int_for_mode (val, GET_MODE (spu_compare_op0)) == val)
+      HOST_WIDE_INT val = INTVAL (op1) - 1;
+      if (trunc_int_for_mode (val, GET_MODE (op0)) == val)
 	switch (code)
 	  {
 	  case GE:
-	    spu_compare_op1 = GEN_INT (val);
+	    op1 = GEN_INT (val);
 	    code = GT;
 	    break;
 	  case LT:
-	    spu_compare_op1 = GEN_INT (val);
+	    op1 = GEN_INT (val);
 	    code = LE;
 	    break;
 	  case GEU:
-	    spu_compare_op1 = GEN_INT (val);
+	    op1 = GEN_INT (val);
 	    code = GTU;
 	    break;
 	  case LTU:
-	    spu_compare_op1 = GEN_INT (val);
+	    op1 = GEN_INT (val);
 	    code = LEU;
 	    break;
 	  default:
@@ -892,7 +964,7 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
     }
 
   comp_mode = SImode;
-  op_mode = GET_MODE (spu_compare_op0);
+  op_mode = GET_MODE (op0);
 
   switch (code)
     {
@@ -1016,18 +1088,18 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
       abort ();
     }
 
-  if (GET_MODE (spu_compare_op1) == DFmode
+  if (GET_MODE (op1) == DFmode
       && (scode != SPU_GT && scode != SPU_EQ))
     abort ();
 
-  if (is_set == 0 && spu_compare_op1 == const0_rtx
-      && (GET_MODE (spu_compare_op0) == SImode
-	  || GET_MODE (spu_compare_op0) == HImode) && scode == SPU_EQ)
+  if (is_set == 0 && op1 == const0_rtx
+      && (GET_MODE (op0) == SImode
+	  || GET_MODE (op0) == HImode) && scode == SPU_EQ)
     {
       /* Don't need to set a register with the result when we are 
          comparing against zero and branching. */
       reverse_test = !reverse_test;
-      compare_result = spu_compare_op0;
+      compare_result = op0;
     }
   else
     {
@@ -1035,23 +1107,22 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 
       if (reverse_compare)
 	{
-	  rtx t = spu_compare_op1;
-	  spu_compare_op1 = spu_compare_op0;
-	  spu_compare_op0 = t;
+	  rtx t = op1;
+	  op1 = op0;
+	  op0 = t;
 	}
 
       if (spu_comp_icode[index][scode] == 0)
 	abort ();
 
       if (!(*insn_data[spu_comp_icode[index][scode]].operand[1].predicate)
-	  (spu_compare_op0, op_mode))
-	spu_compare_op0 = force_reg (op_mode, spu_compare_op0);
+	  (op0, op_mode))
+	op0 = force_reg (op_mode, op0);
       if (!(*insn_data[spu_comp_icode[index][scode]].operand[2].predicate)
-	  (spu_compare_op1, op_mode))
-	spu_compare_op1 = force_reg (op_mode, spu_compare_op1);
+	  (op1, op_mode))
+	op1 = force_reg (op_mode, op1);
       comp_rtx = GEN_FCN (spu_comp_icode[index][scode]) (compare_result,
-							 spu_compare_op0,
-							 spu_compare_op1);
+							 op0, op1);
       if (comp_rtx == 0)
 	abort ();
       emit_insn (comp_rtx);
@@ -1060,8 +1131,7 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
         {
           eq_result = gen_reg_rtx (comp_mode);
           eq_rtx = GEN_FCN (spu_comp_icode[index][eq_code]) (eq_result,
-							     spu_compare_op0,
-							     spu_compare_op1);
+							     op0, op1);
           if (eq_rtx == 0)
 	    abort ();
           emit_insn (eq_rtx);
@@ -1092,13 +1162,14 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
       else
 	bcomp = gen_rtx_NE (comp_mode, compare_result, const0_rtx);
 
-      loc_ref = gen_rtx_LABEL_REF (VOIDmode, target);
+      loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands[3]);
       emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
 				   gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
 							 loc_ref, pc_rtx)));
     }
   else if (is_set == 2)
     {
+      rtx target = operands[0];
       int compare_size = GET_MODE_BITSIZE (comp_mode);
       int target_size = GET_MODE_BITSIZE (GET_MODE (target));
       enum machine_mode mode = mode_for_size (target_size, MODE_INT, 0);
@@ -1133,6 +1204,7 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
     }
   else
     {
+      rtx target = operands[0];
       if (reverse_test)
 	emit_insn (gen_rtx_SET (VOIDmode, compare_result,
 				gen_rtx_NOT (comp_mode, compare_result)));
@@ -1593,6 +1665,13 @@ print_operand (FILE * file, rtx x, int code)
       output_addr_const (file, GEN_INT (val));
       return;
 
+    case 'v':
+    case 'w':
+      constant_to_array (mode, x, arr);
+      val = (((arr[0] << 1) + (arr[1] >> 7)) & 0xff) - 127;
+      output_addr_const (file, GEN_INT (code == 'w' ? -val : val));
+      return;
+
     case 0:
       if (xcode == REG)
 	fprintf (file, "%s", reg_names[REGNO (x)]);
@@ -1605,7 +1684,7 @@ print_operand (FILE * file, rtx x, int code)
       return;
 
       /* unused letters
-	              o qr  uvw yz
+	              o qr  u   yz
 	AB            OPQR  UVWXYZ */
     default:
       output_operand_lossage ("invalid %%xn code");
@@ -1958,8 +2037,7 @@ spu_expand_prologue (void)
 	}
       RTX_FRAME_RELATED_P (insn) = 1;
       real = gen_addsi3 (sp_reg, sp_reg, GEN_INT (-total_size));
-      REG_NOTES (insn) =
-	gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, real, REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, real);
 
       if (total_size > 2000)
 	{
@@ -1976,9 +2054,7 @@ spu_expand_prologue (void)
 	  insn = frame_emit_add_imm (fp_reg, sp_reg, fp_offset, scratch_reg_0);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  real = gen_addsi3 (fp_reg, sp_reg, GEN_INT (fp_offset));
-	  REG_NOTES (insn) = 
-	    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			       real, REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, real);
           REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = STACK_BOUNDARY;
 	}
     }
@@ -2767,6 +2843,25 @@ spu_machine_dependent_reorg (void)
 
   pad_bb ();
 
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (NONJUMP_INSN_P (insn) && INSN_CODE (insn) == CODE_FOR_hbr)
+      {
+	/* Adjust the LABEL_REF in a hint when we have inserted a nop
+	   between its branch label and the branch .  We don't move the
+	   label because GCC expects it at the beginning of the block. */
+	rtx unspec = SET_SRC (XVECEXP (PATTERN (insn), 0, 0));
+	rtx label_ref = XVECEXP (unspec, 0, 0);
+	rtx label = XEXP (label_ref, 0);
+	rtx branch;
+	int offset = 0;
+	for (branch = NEXT_INSN (label);
+	     !JUMP_P (branch) && !CALL_P (branch);
+	     branch = NEXT_INSN (branch))
+	  if (NONJUMP_INSN_P (branch))
+	    offset += get_attr_length (branch);
+	if (offset > 0)
+	  XVECEXP (unspec, 0, 0) = plus_constant (label_ref, offset);
+      }
 
   if (spu_flag_var_tracking)
     {
@@ -3519,6 +3614,58 @@ ea_symbol_ref (rtx *px, void *data ATTRIBUTE_UNUSED)
  	  && TYPE_ADDR_SPACE (TREE_TYPE (decl)));
 }
 
+/* TRUE when op is an immediate and an exact power of 2, and given that
+   OP is 2^scale, scale >= LOW && scale <= HIGH.  When OP is a vector,
+   all entries must be the same. */
+bool
+exp2_immediate_p (rtx op, enum machine_mode mode, int low, int high)
+{
+  enum machine_mode int_mode;
+  HOST_WIDE_INT val;
+  unsigned char arr[16];
+  int bytes, i, j;
+
+  gcc_assert (GET_CODE (op) == CONST_INT || GET_CODE (op) == CONST_DOUBLE
+	      || GET_CODE (op) == CONST_VECTOR);
+
+  if (GET_CODE (op) == CONST_VECTOR
+      && !const_vector_immediate_p (op))
+    return 0;
+
+  if (GET_MODE (op) != VOIDmode)
+    mode = GET_MODE (op);
+
+  constant_to_array (mode, op, arr);
+
+  if (VECTOR_MODE_P (mode))
+    mode = GET_MODE_INNER (mode);
+
+  bytes = GET_MODE_SIZE (mode);
+  int_mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
+
+  /* Check that bytes are repeated. */
+  for (i = bytes; i < 16; i += bytes)
+    for (j = 0; j < bytes; j++)
+      if (arr[j] != arr[i + j])
+	return 0;
+
+  val = arr[0];
+  for (j = 1; j < bytes; j++)
+    val = (val << 8) | arr[j];
+
+  val = trunc_int_for_mode (val, int_mode);
+
+  /* Currently, we only handle SFmode */
+  gcc_assert (mode == SFmode);
+  if (mode == SFmode)
+    {
+      int exp = (val >> 23) - 127;
+      return val > 0 && (val & 0x007fffff) == 0
+	     &&  exp >= low && exp <= high;
+    }
+  return FALSE;
+}
+
 /* We accept:
    - any 32-bit constant (SImode, SFmode)
    - any constant that can be generated with fsmbi (any mode)
@@ -3562,17 +3709,10 @@ spu_legitimate_constant_p (rtx x)
   The alignment matters in the reg+const case because lqd and stqd
   ignore the 4 least significant bits of the const.  (TODO: It might be
   preferable to allow any alignment and fix it up when splitting.) */
-int
-spu_legitimate_address (enum machine_mode mode ATTRIBUTE_UNUSED,
-			rtx x, int reg_ok_strict,
-			addr_space_t as)
+static bool
+spu_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
+			  rtx x, bool reg_ok_strict)
 {
-  if (as == ADDR_SPACE_EA)
-    return (REG_P (x) && (GET_MODE (x) == EAmode));
-
-  else if (as != ADDR_SPACE_GENERIC)
-    gcc_unreachable ();
-
   if (mode == TImode && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && INTVAL (XEXP (x, 1)) == (HOST_WIDE_INT) -16)
@@ -3650,16 +3790,28 @@ spu_legitimate_address (enum machine_mode mode ATTRIBUTE_UNUSED,
   return 0;
 }
 
+/* Like spu_legitimate_address_p, except with named addresses.  */
+static bool
+spu_addr_space_legitimate_address_p (enum machine_mode mode, rtx x,
+				     bool reg_ok_strict, addr_space_t as)
+{
+  if (as == ADDR_SPACE_EA)
+    return (REG_P (x) && (GET_MODE (x) == EAmode));
+
+  else if (as != ADDR_SPACE_GENERIC)
+    gcc_unreachable ();
+
+  return spu_legitimate_address_p (mode, x, reg_ok_strict);
+}
+
 /* When the address is reg + const_int, force the const_int into a
    register.  */
-rtx
+static rtx
 spu_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
-			enum machine_mode mode, addr_space_t as)
+			enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   rtx op0, op1;
-				 
-  if (as != ADDR_SPACE_GENERIC)
-    return NULL_RTX;
+  rtx y;
 
   /* Make sure both operands are registers.  */
   if (GET_CODE (x) == PLUS)
@@ -3680,11 +3832,22 @@ spu_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	}
       else if (GET_CODE (op1) != REG)
 	op1 = force_reg (Pmode, op1);
-      x = gen_rtx_PLUS (Pmode, op0, op1);
-      if (spu_legitimate_address (mode, x, 0, as))
-	return x;
+      y = gen_rtx_PLUS (Pmode, op0, op1);
+      if (spu_legitimate_address_p (mode, y, 0))
+	return y;
     }
-  return NULL_RTX;
+  return x;
+}
+
+/* Like spu_legitimate_address, except with named address support.  */
+static rtx
+spu_addr_space_legitimize_address (rtx x, rtx oldx, enum machine_mode mode,
+				   addr_space_t as)
+{
+  if (as != ADDR_SPACE_GENERIC)
+    return x;
+
+  return spu_legitimize_address (x, oldx, mode);
 }
 
 /* Handle an attribute requiring a FUNCTION_DECL; arguments as in
@@ -3697,8 +3860,8 @@ spu_handle_fndecl_attribute (tree * node,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (0, "`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (0, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -3755,7 +3918,7 @@ spu_handle_vector_attribute (tree * node, tree name,
   *no_add_attrs = true;		/* No need to hang on to the attribute.  */
 
   if (!result)
-    warning (0, "`%s' attribute ignored", IDENTIFIER_POINTER (name));
+    warning (0, "%qE attribute ignored", name);
   else
     *node = lang_hooks.types.reconstruct_complex_type (*node, result);
 
@@ -5412,6 +5575,16 @@ spu_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 
 /* Create the built-in types and functions */
 
+enum spu_function_code
+{
+#define DEF_BUILTIN(fcode, icode, name, type, params) fcode,
+#include "spu-builtins.def"
+#undef DEF_BUILTIN
+   NUM_SPU_BUILTINS
+};
+
+extern GTY(()) struct spu_builtin_description spu_builtins[NUM_SPU_BUILTINS];
+
 struct spu_builtin_description spu_builtins[] = {
 #define DEF_BUILTIN(fcode, icode, name, type, params) \
   {fcode, icode, name, type, params, NULL_TREE},
@@ -6230,7 +6403,7 @@ static int
 expand_builtin_args (struct spu_builtin_description *d, tree exp,
 		     rtx target, rtx ops[])
 {
-  enum insn_code icode = d->icode;
+  enum insn_code icode = (enum insn_code) d->icode;
   int i = 0, a;
 
   /* Expand the arguments into rtl. */
@@ -6243,7 +6416,7 @@ expand_builtin_args (struct spu_builtin_description *d, tree exp,
       tree arg = CALL_EXPR_ARG (exp, a);
       if (arg == 0)
 	abort ();
-      ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+      ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, EXPAND_NORMAL);
     }
 
   /* The insn pattern may have additional operands (SCRATCH).
@@ -6258,7 +6431,7 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
 {
   rtx pat;
   rtx ops[8];
-  enum insn_code icode = d->icode;
+  enum insn_code icode = (enum insn_code) d->icode;
   enum machine_mode mode, tmode;
   int i, p;
   int n_operands;
@@ -6670,28 +6843,6 @@ spu_addr_space_name (addr_space_t addrspace)
   gcc_unreachable ();
 }
 
-/* Return if an address is valid for a given mode that points to a given named
-   address space.  */
-
-static bool
-spu_addr_space_memory_address_p (enum machine_mode mode, rtx x,
-				 addr_space_t as)
-{
-  gcc_assert (as == ADDR_SPACE_GENERIC || as == ADDR_SPACE_EA);
-  return spu_legitimate_address (mode, x, 0, as);
-}
-
-/* Return if an address is valid for a given mode that points to a given named
-   address space after register allocation has been done.  */
-
-static bool
-spu_addr_space_strict_memory_address_p (enum machine_mode mode, rtx x,
-					addr_space_t as)
-{
-  gcc_assert (as == ADDR_SPACE_GENERIC || as == ADDR_SPACE_EA);
-  return spu_legitimate_address (mode, x, 1, as);
-}
-
 /* Determine if you can convert one address to another.  */
 
 static bool
@@ -6906,6 +7057,38 @@ spu_section_type_flags (tree decl, const char *name, int reloc)
   if (strcmp (name, "._ea") == 0)
     return SECTION_WRITE | SECTION_DEBUG;
   return default_section_type_flags (decl, name, reloc);
+}
+
+/* Generate a constant or register which contains 2^SCALE.  We assume
+   the result is valid for MODE.  Currently, MODE must be V4SFmode and
+   SCALE must be SImode. */
+rtx
+spu_gen_exp2 (enum machine_mode mode, rtx scale)
+{
+  gcc_assert (mode == V4SFmode);
+  gcc_assert (GET_MODE (scale) == SImode || GET_CODE (scale) == CONST_INT);
+  if (GET_CODE (scale) != CONST_INT)
+    {
+      /* unsigned int exp = (127 + scale) << 23;
+	__vector float m = (__vector float) spu_splats (exp); */
+      rtx reg = force_reg (SImode, scale);
+      rtx exp = gen_reg_rtx (SImode);
+      rtx mul = gen_reg_rtx (mode);
+      emit_insn (gen_addsi3 (exp, reg, GEN_INT (127)));
+      emit_insn (gen_ashlsi3 (exp, exp, GEN_INT (23)));
+      emit_insn (gen_spu_splats (mul, gen_rtx_SUBREG (GET_MODE_INNER (mode), exp, 0)));
+      return mul;
+    }
+  else 
+    {
+      HOST_WIDE_INT exp = 127 + INTVAL (scale);
+      unsigned char arr[16];
+      arr[0] = arr[4] = arr[8] = arr[12] = exp >> 1;
+      arr[1] = arr[5] = arr[9] = arr[13] = exp << 7;
+      arr[2] = arr[6] = arr[10] = arr[14] = 0;
+      arr[3] = arr[7] = arr[11] = arr[15] = 0;
+      return array_to_constant (mode, arr);
+    }
 }
 
 

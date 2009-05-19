@@ -313,13 +313,14 @@ GFORTRAN_TRANS_DEPS = fortran/gfortran.h fortran/libgfortran.h \
 
 fortran/f95-lang.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
   gt-fortran-f95-lang.h gtype-fortran.h $(CGRAPH_H) $(TARGET_H) fortran/cpp.h \
-  $(BUILTINS_DEF) fortran/types.def
+  $(BUILTINS_DEF) fortran/types.def \
+  libfuncs.h expr.h except.h
 fortran/scanner.o: toplev.h fortran/cpp.h
 fortran/convert.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans.o: $(GFORTRAN_TRANS_DEPS) tree-iterator.h
 fortran/trans-decl.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-decl.h \
   $(CGRAPH_H) $(TARGET_H) $(FUNCTION_H) $(FLAGS_H) $(RTL_H) $(GIMPLE_H) \
-  $(TREE_DUMP_H) debug.h
+  $(TREE_DUMP_H) debug.h pointer-set.h
 fortran/trans-types.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-types.h \
   $(REAL_H) toplev.h $(TARGET_H) $(FLAGS_H) dwarf2out.h
 fortran/trans-const.o: $(GFORTRAN_TRANS_DEPS)

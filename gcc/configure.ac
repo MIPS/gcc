@@ -810,6 +810,11 @@ AC_SUBST(datarootdir)
 AC_SUBST(docdir)
 AC_SUBST(htmldir)
 
+AC_ARG_WITH(multilib-list,
+[  --with-multilib-list    Select multilibs (SH only)],
+:,
+with_multilib_list=default)
+
 # -------------------------
 # Checks for other programs
 # -------------------------
@@ -1487,6 +1492,32 @@ static const char thread_model[] = "$thread_file";
 static const struct {
   const char *name, *value;
 } configure_default_options[] = $configure_default_options;
+EOF
+changequote([,])dnl
+
+changequote(,)dnl
+gcc_BASEVER=`cat $srcdir/BASE-VER`
+gcc_DEVPHASE=`cat $srcdir/DEV-PHASE`
+gcc_DATESTAMP=`cat $srcdir/DATESTAMP`
+if test -f $srcdir/REVISION ; then
+	gcc_REVISION=`cat $srcdir/REVISION`
+else
+        gcc_REVISION=""
+fi
+cat > plugin-version.h <<EOF
+#include "configargs.h"
+
+static char basever[] = "$gcc_BASEVER";
+static char datestamp[] = "$gcc_DATESTAMP";
+static char devphase[] = "$gcc_DEVPHASE";
+static char revision[] = "$gcc_REVISION";
+
+/* FIXME plugins: We should make the version information more precise.
+   One way to do is to add a checksum. */
+
+static struct plugin_gcc_version gcc_version = {basever, datestamp,
+						devphase, revision,
+						configuration_arguments};
 EOF
 changequote([,])dnl
 
@@ -2539,6 +2570,22 @@ x:
 	tls_first_minor=16
 	tls_as_opt='-32 --fatal-warnings'
 	;;
+  m68k-*-*)
+    conftest_s='
+	.section .tdata,"awT",@progbits
+x:
+	.word 2
+	.text
+foo:
+	move.l x@TLSGD(%a5),%a0
+	move.l x@TLSLDM(%a5),%a0
+	move.l x@TLSLDO(%a5),%a0
+	move.l x@TLSIE(%a5),%a0
+	move.l x@TLSLE(%a5),%a0'
+	tls_first_major=2
+	tls_first_minor=19
+	tls_as_opt='--fatal-warnings'
+	;;
   powerpc-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
@@ -2926,10 +2973,16 @@ foo:	nop
     esac
 
     gcc_GAS_CHECK_FEATURE([filds and fists mnemonics],
-       gcc_cv_as_ix86_filds_fists,
-      [2,9,0],, [filds mem; fists mem],,
-      [AC_DEFINE(HAVE_GAS_FILDS_FISTS, 1,
-        [Define if your assembler uses the new HImode fild and fist notation.])])
+       gcc_cv_as_ix86_filds,,,
+       [filds mem; fists mem],,
+       [AC_DEFINE(HAVE_AS_IX86_FILDS, 1,
+         [Define if your assembler uses filds and fists mnemonics.])])
+
+    gcc_GAS_CHECK_FEATURE([fildq and fistpq mnemonics],
+       gcc_cv_as_ix86_fildq,,,
+       [fildq mem; fistpq mem],,
+       [AC_DEFINE(HAVE_AS_IX86_FILDQ, 1,
+         [Define if your assembler uses fildq and fistq mnemonics.])])
 
     gcc_GAS_CHECK_FEATURE([cmov syntax],
       gcc_cv_as_ix86_cmov_sun_syntax,,,
@@ -3473,6 +3526,41 @@ EOF
     ;;
 esac
 
+AC_CACHE_CHECK(linker --build-id support,
+  gcc_cv_ld_buildid,
+  [gcc_cv_ld_buildid=no
+  if test $in_tree_ld = yes ; then
+    if test "$gcc_cv_gld_major_version" -eq 2 -a \
+       "$gcc_cv_gld_minor_version" -ge 18 -o \
+       "$gcc_cv_gld_major_version" -gt 2 \
+       && test $in_tree_ld_is_elf = yes; then
+      gcc_cv_ld_buildid=yes
+    fi
+  elif test x$gcc_cv_ld != x; then
+    if $gcc_cv_ld --help 2>/dev/null | grep build-id > /dev/null; then
+      gcc_cv_ld_buildid=yes
+    fi
+  fi])
+if test x"$gcc_cv_ld_buildid" = xyes; then
+  AC_DEFINE(HAVE_LD_BUILDID, 1,
+  [Define if your linker supports --build-id.])
+fi
+
+AC_ARG_ENABLE(linker-build-id,
+[  --enable-linker-build-id
+                          compiler will always pass --build-id to linker],
+[],
+enable_linker_build_id=no)
+
+if test x"$enable_linker_build_id" = xyes; then
+  if test x"$gcc_cv_ld_buildid" = xyes; then
+    AC_DEFINE(ENABLE_LD_BUILDID, 1,
+    [Define if gcc should always pass --build-id to linker.])
+  else
+    AC_MSG_WARN(--build-id is not supported by your linker; --enable-linker-build-id ignored)
+  fi
+fi
+
 AC_CACHE_CHECK(linker --sysroot support,
   gcc_cv_ld_sysroot,
   [gcc_cv_ld_sysroot=no
@@ -3879,6 +3967,9 @@ AC_SUBST(check_languages)
 AC_SUBST(cpp_install_dir)
 AC_SUBST(xmake_file)
 AC_SUBST(tmake_file)
+AC_SUBST(TM_ENDIAN_CONFIG)
+AC_SUBST(TM_MULTILIB_CONFIG)
+AC_SUBST(TM_MULTILIB_EXCEPTIONS_CONFIG)
 AC_SUBST(extra_gcc_objs)
 AC_SUBST(extra_headers_list)
 AC_SUBST(extra_objs)
@@ -3947,6 +4038,74 @@ AC_ARG_VAR(CLOOGLIBS,[How to link CLOOG])
 AC_ARG_VAR(CLOOGINC,[How to find CLOOG include files])
 if test "x${CLOOGLIBS}" != "x" ; then 
    AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
+fi
+
+# Check for plugin support
+AC_ARG_ENABLE(plugin,
+[  --enable-plugin         enable plugin support],
+enable_plugin=$enableval,
+enable_plugin=yes; default_plugin=yes)
+
+pluginlibs=
+if test x"$enable_plugin" = x"yes"; then
+  # Check that the host supports -rdynamic and -ldl
+  have_rdynamic=no
+  have_dl=no
+  saved_LDFLAGS="$LDFLAGS"
+  saved_LIBS="$LIBS"
+  LIBS=
+
+  # Check -rdynamic
+  LDFLAGS="$LDFLAGS -rdynamic"
+  AC_MSG_CHECKING([for -rdynamic])
+  AC_TRY_LINK([],[return 0;],
+    [AC_MSG_RESULT([yes]); have_rdynamic=yes],
+    [AC_MSG_RESULT([no])])
+  if test x"$have_rdynamic" = x"yes" ; then
+    pluginlibs="-rdynamic"
+  fi
+
+  # Check -ldl
+  LDFLAGS="$LDFLAGS -ldl"
+  AC_MSG_CHECKING([for -ldl])
+  AC_TRY_LINK(
+    [#include <dlfcn.h>],
+    [volatile int f = 0; if (f) dlopen ("dummy", 0);],
+    [AC_MSG_RESULT([yes]); have_dl=yes],
+    [AC_MSG_RESULT([no])])
+  if test x"$have_dl" = x"yes"; then
+    pluginlibs="$pluginlibs -ldl"
+  fi
+
+  # Check that we can build shared objects with -fPIC -shared
+  LDFLAGS="$LDFLAGS -fPIC -shared"
+  AC_MSG_CHECKING([for -fPIC -shared])
+  AC_TRY_LINK(
+    [extern int X;],[return X == 0;],
+    [AC_MSG_RESULT([yes]); have_pic_shared=yes],
+    [AC_MSG_RESULT([no]); have_pic_shared=no])
+  if test x"$have_pic_shared" != x"yes"; then
+    pluginlibs=
+    enable_plugin=no
+  fi
+
+  # If plugin support had been requested but not available, fail.
+  if test x"$enable_plugin" = x"no" ; then
+    if test x"$default_plugin" != x"yes"; then
+      AC_MSG_ERROR([
+Building GCC with plugin support requires a host that supports
+-fPIC, -shared, -ldl and -rdynamic.])
+    fi
+  fi
+
+  LDFLAGS="$saved_LDFLAGS"
+  LIBS="$saved_LIBS"
+fi
+
+AC_SUBST(pluginlibs)
+AC_SUBST(enable_plugin)
+if test x"$enable_plugin" = x"yes"; then
+  AC_DEFINE(ENABLE_PLUGIN, 1, [Define to enable plugin support.])
 fi
 
 # Configure the subdirectories

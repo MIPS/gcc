@@ -6,7 +6,7 @@
 --                                                                          --
 --                             T e m p l a t e                              --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -219,6 +219,10 @@ package Snames is
    Name_Put                            : constant Name_Id := N + $;
    Name_Put_Line                       : constant Name_Id := N + $;
    Name_To                             : constant Name_Id := N + $;
+
+   --  Name used by the integrated preprocessor
+
+   Name_Defined                        : constant Name_Id := N + $;
 
    --  Names for packages that are treated specially by the compiler
 
@@ -684,6 +688,7 @@ package Snames is
    Name_Callable                       : constant Name_Id := N + $;
    Name_Caller                         : constant Name_Id := N + $;
    Name_Code_Address                   : constant Name_Id := N + $; -- GNAT
+   Name_Compiler_Version               : constant Name_Id := N + $; -- GNAT
    Name_Component_Size                 : constant Name_Id := N + $;
    Name_Compose                        : constant Name_Id := N + $;
    Name_Constrained                    : constant Name_Id := N + $;
@@ -1093,6 +1098,7 @@ package Snames is
    Name_Metrics                          : constant Name_Id := N + $;
    Name_Naming                           : constant Name_Id := N + $;
    Name_None                             : constant Name_Id := N + $;
+   Name_Object_File_Suffix               : constant Name_Id := N + $;
    Name_Object_Generated                 : constant Name_Id := N + $;
    Name_Object_List                      : constant Name_Id := N + $;
    Name_Objects_Linked                   : constant Name_Id := N + $;
@@ -1111,6 +1117,7 @@ package Snames is
    Name_Roots                            : constant Name_Id := N + $; --  GPR
    Name_Required_Switches                : constant Name_Id := N + $;
    Name_Run_Path_Option                  : constant Name_Id := N + $;
+   Name_Separate_Run_Path_Options        : constant Name_Id := N + $;
    Name_Shared_Library_Minimum_Switches  : constant Name_Id := N + $;
    Name_Shared_Library_Prefix            : constant Name_Id := N + $;
    Name_Shared_Library_Suffix            : constant Name_Id := N + $;
@@ -1130,6 +1137,7 @@ package Snames is
    Name_Toolchain_Description            : constant Name_Id := N + $;
    Name_Toolchain_Version                : constant Name_Id := N + $;
    Name_Runtime_Library_Dir              : constant Name_Id := N + $;
+   Name_Runtime_Source_Dir               : constant Name_Id := N + $;
 
    --  Other miscellaneous names used in front end
 
@@ -1181,6 +1189,7 @@ package Snames is
       Attribute_Callable,
       Attribute_Caller,
       Attribute_Code_Address,
+      Attribute_Compiler_Version,
       Attribute_Component_Size,
       Attribute_Compose,
       Attribute_Constrained,

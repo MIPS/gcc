@@ -1,3 +1,71 @@
+2009-05-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge to mainline, subversion revision 147681.
+
+	* c-decl.c (grokdeclarator): Merge to mainline, fixup named
+	address space errors.
+
+	* config/spu/spu.h (PTRDIFF_TYPE): Define.
+	(SIZE_TYPE): Ditto.
+
+	* config/spu/spu.c (spu_legitimate_address_space_p): Make static,
+	remove named address space support from the generic version.
+	(spu_legitimize_address_space): Ditto.
+	(spu_addr_space_legitimate_address_p): Named address space version
+	of spu_addr_space_legitimate_address_p.
+	(spu_addr_space_legitimize_address): Named address space version
+	of spu_addr_space_legitimze_address.
+	(TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P): Define hook.
+	(TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS): Ditto.
+	(spu_addr_space_memory_address_p): Delete, no longer used.
+	(spu_addr_space_strict_memory_address_p): Ditto.
+	(TARGET_ADDR_SPACE_MEMORY_ADDRESS_P): Ditto.
+	(TARGET_ADDR_SPACE_STRICT_MEMORY_ADDRESS_P): Ditto.
+
+	* config/spu/spu-protos.h (spu_legitimate_address): Delete
+	declaration.
+	(spu_legitimize_address): Ditto.
+
+	* c-typeck.c (digest_init): Merge to mainline.
+	(build_c_cast): Ditto.
+	(store_init_value): Ditto.
+
+	* explow.c (memory_address_addr_space): Rewrite address space
+	legitimate_address_p hook similar to the non address space
+	version.
+
+	* expr.c (expand_expr_real_1): Merge to mainline.
+
+	* Makefile.in (tree-pretty-print.o): Merge to mainline.
+	(auto-inc-dec.o): Ditto.
+
+	* recog.c (memory_address_addr_space_p): Rename hook.
+
+	* target-def.h (TARGET_ADDR_SPACE_MEMORY_ADDRESS_P): Delete.
+	(TARGET_ADDR_SPACE_STRICT_MEMORY_ADDRESS_P): Ditto.
+	(TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P): Combine strict,
+	non-strict named address space versions into one hook.
+	(TARGET_ADDR_SPACE_HOOKS): Ditto.
+
+	* target.h (addr_space structure): Combine strict, non-strict
+	legitimate address hooks.
+
+	* targethooks.c (default_addr_space_memory_address_p): Delete.
+	(default_addr_space_strict_memory_address_p): Ditto.
+	(default_addr_space_legitimate_address_p): Combine strict,
+	non-strict legitimate address hooks.
+	(default_addr_space_legitimize_address): Return the address, not
+	NULL_RTX.
+
+	* targethooks.h (default_addr_space_memory_address_p): Delete.
+	(default_addr_space_strict_memory_address_p): Ditto.
+	(default_addr_space_legitimate_address_p): Combine strict,
+	non-strict legitimate address hooks.
+
+	* tree.h (build_low_bits_mask): Merge to mainline.
+
+	* tree-ssa.c (useless_type_conversion_p_1): Merge to mainline.
+
 2009-04-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* c-decl.c (grokdeclarator): Undo clearing the named address space

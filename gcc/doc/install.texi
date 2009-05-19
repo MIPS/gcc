@@ -344,8 +344,19 @@ not installed in your default library search path.
 
 Necessary to build libgcj, the GCJ runtime.
 
-@end table
+@item MPC Library version 0.6.0 (or later)
 
+Optional when building GCC@.  Having this library will enable
+additional optimizations on complex numbers.  It can be downloaded
+from @uref{http://www.multiprecision.org/mpc/}.  The
+@option{--with-mpc} configure option should be used if your MPC
+Library is not installed in your default library search path.  See
+also @option{--with-mpc-lib} and @option{--with-mpc-include}.
+Alternatively, if an MPC source distribution is found in a
+subdirectory of your GCC sources named @file{mpc}, it will be built
+together with GCC@.
+
+@end table
 
 @heading Tools/packages necessary for modifying GCC
 @table @asis
@@ -464,7 +475,7 @@ the GCC-specific entry point.  You can download a suitable jar from
 @itemx antlr binary
 
 If you wish to build the @command{gjdoc} binary in libjava, you will
-need to have a @file{antlr.jar} library available. The library is
+need to have an @file{antlr.jar} library available. The library is
 searched in system locations but can be configured with
 @option{--with-antlr-jar=} instead.  When configuring with
 @option{--enable-java-maintainer-mode}, you will need to have one of
@@ -525,11 +536,11 @@ components of the binutils you intend to build alongside the compiler
 (@file{bfd}, @file{binutils}, @file{gas}, @file{gprof}, @file{ld},
 @file{opcodes}, @dots{}) to the directory containing the GCC sources.
 
-Likewise, the GMP and MPFR libraries can be automatically built together
-with GCC.  Unpack the GMP and/or MPFR source distributions in the
-directory containing the GCC sources and rename their directories to
-@file{gmp} and @file{mpfr}, respectively (or use symbolic links with the
-same name).
+Likewise the GMP, MPFR and MPC libraries can be automatically built
+together with GCC.  Unpack the GMP, MPFR and/or MPC source
+distributions in the directory containing the GCC sources and rename
+their directories to @file{gmp}, @file{mpfr} and @file{mpc},
+respectively (or use symbolic links with the same name).
 
 @html
 <hr />
@@ -720,8 +731,9 @@ manual.)
 
 @item --with-gxx-include-dir=@var{dirname}
 Specify
-the installation directory for G++ header files.  The default is
-@file{@var{prefix}/include/c++/@var{version}}.
+the installation directory for G++ header files.  The default depends
+on other configuration options, and differs between cross and native
+configurations.
 
 @end table
 
@@ -982,6 +994,57 @@ sysv, aix.
 
 @end table
 
+@item --with-multilib-list=@var{list}
+@itemx --without-multilib-list
+Specify what multilibs to build.
+Currently only implemented for sh*-*-*.
+
+@var{list} is a comma separated list of CPU names.  These must be of the
+form @code{sh*} or @code{m*} (in which case they match the compiler option
+for that processor).  The list should not contain any endian options -
+these are handled by @option{--with-endian}.
+
+If @var{list} is empty, then there will be no multilibs for extra
+processors.  The multilib for the secondary endian remains enabled.
+
+As a special case, if an entry in the list starts with a @code{!}
+(exclamation point), then it is added to the list of excluded multilibs.
+Entries of this sort should be compatible with @samp{MULTILIB_EXCLUDES}
+(once the leading @code{!} has been stripped).
+
+If @option{--with-multilib-list} is not given, then a default set of
+multilibs is selected based on the value of @option{--target}.  This is
+usually the complete set of libraries, but some targets imply a more
+specialized subset.
+
+Example 1: to configure a compiler for SH4A only, but supporting both
+endians, with little endian being the default:
+@smallexample
+--with-cpu=sh4a --with-endian=little,big --with-multilib-list=
+@end smallexample
+
+Example 2: to configure a compiler for both SH4A and SH4AL-DSP, but with
+only little endian SH4AL:
+@smallexample
+--with-cpu=sh4a --with-endian=little,big --with-multilib-list=sh4al,!mb/m4al
+@end smallexample
+
+@item --with-endian=@var{endians}
+Specify what endians to use.
+Currently only implemented for sh*-*-*.
+
+@var{endians} may be one of the following:
+@table @code
+@item big
+Use big endian exclusively.
+@item little
+Use little endian exclusively.
+@item big,little
+Use big endian by default.  Provide a multilib for little endian.
+@item little,big
+Use little endian by default.  Provide a multilib for big endian.
+@end table
+
 @item --enable-threads
 Specify that the target
 supports threads.  This affects the Objective-C compiler and runtime
@@ -1059,8 +1122,8 @@ Specify which cpu variant the compiler should generate code for by default.
 This option is only supported on some targets, including ARM, i386, M68k,
 PowerPC, and SPARC@.  The @option{--with-cpu-32} and
 @option{--with-cpu-64} options specify separate default CPUs for
-32-bit and 64-bit modes; these options are only supported for i386 and
-x86-64.
+32-bit and 64-bit modes; these options are only supported for i386,
+x86-64 and PowerPC.
 
 @item --with-schedule=@var{cpu}
 @itemx --with-arch=@var{cpu}
@@ -1436,17 +1499,24 @@ When neither of these configure options are used, the default will be
 @itemx --with-mpfr=@var{pathname}
 @itemx --with-mpfr-include=@var{pathname}
 @itemx --with-mpfr-lib=@var{pathname}
-If you do not have GMP (the GNU Multiple Precision library) and the
-MPFR Libraries installed in a standard location and you want to build
-GCC, you can explicitly specify the directory where they are installed
-(@samp{--with-gmp=@var{gmpinstalldir}},
-@samp{--with-mpfr=@var{mpfrinstalldir}}).  The
+@itemx --with-mpc=@var{pathname}
+@itemx --with-mpc-include=@var{pathname}
+@itemx --with-mpc-lib=@var{pathname}
+If you do not have GMP (the GNU Multiple Precision library), the MPFR
+library and/or the MPC library installed in a standard location and
+you want to build GCC, you can explicitly specify the directory where
+they are installed (@samp{--with-gmp=@var{gmpinstalldir}},
+@samp{--with-mpfr=@var{mpfrinstalldir}},
+@samp{--with-mpc=@var{mpcinstalldir}}).  The
 @option{--with-gmp=@var{gmpinstalldir}} option is shorthand for
 @option{--with-gmp-lib=@var{gmpinstalldir}/lib} and
 @option{--with-gmp-include=@var{gmpinstalldir}/include}.  Likewise the
 @option{--with-mpfr=@var{mpfrinstalldir}} option is shorthand for
 @option{--with-mpfr-lib=@var{mpfrinstalldir}/lib} and
-@option{--with-mpfr-include=@var{mpfrinstalldir}/include}.  If these
+@option{--with-mpfr-include=@var{mpfrinstalldir}/include}, also the
+@option{--with-mpc=@var{mpcinstalldir}} option is shorthand for
+@option{--with-mpc-lib=@var{mpcinstalldir}/lib} and
+@option{--with-mpc-include=@var{mpcinstalldir}/include}.  If these
 shorthand assumptions are not correct, you can use the explicit
 include and lib options directly.
 
@@ -1483,6 +1553,14 @@ for the standard C++ library automatically.
 Convert source directory names using @option{-fdebug-prefix-map} when
 building runtime libraries.  @samp{@var{map}} is a space-separated
 list of maps of the form @samp{@var{old}=@var{new}}.
+
+@item --enable-linker-build-id
+Tells GCC to pass @option{--build-id} option to the linker for all final
+links (links performed without the @option{-r} or @option{--relocatable}
+option), if the linker supports it.  If you specify
+@option{--enable-linker-build-id}, but your linker does not
+support @option{--build-id} option, a warning is issued and the
+@option{--enable-linker-build-id} option is ignored.  The default is off.
 
 @end table
 
@@ -1553,7 +1631,7 @@ that will be used while building GCC itself.  This option can be useful
 if the directory layouts are different between the system you are building
 GCC on, and the system where you will deploy it.
 
-For example, on a @option{ia64-hp-hpux} system, you may have the GNU
+For example, on an @samp{ia64-hp-hpux} system, you may have the GNU
 assembler and linker in @file{/usr/bin}, and the native tools in a
 different path, and build a toolchain that expects to find the
 native tools in @file{/usr/bin}.
@@ -1922,7 +2000,7 @@ bootstrapped, you can use @code{CFLAGS_FOR_TARGET} to modify their
 compilation flags, as for non-bootstrapped target libraries.
 Again, if the native compiler miscompiles the stage1 compiler, you may
 need to work around this by avoiding non-working parts of the stage1
-compiler.  Use @code{STAGE1_LIBCFLAGS} to this end.
+compiler.  Use @code{STAGE1_TFLAGS} to this end.
 
 If you used the flag @option{--enable-languages=@dots{}} to restrict
 the compilers to be built, only those you've actually enabled will be
@@ -1946,6 +2024,26 @@ the one you are building on: for example, you could build a
 @code{powerpc64-unknown-linux-gnu} host.  In this case, pass
 @option{--enable-bootstrap} to the configure script.
 
+@code{BUILD_CONFIG} can be used to bring in additional customization to
+the build.  It can be set to a whitespace-separated list of names.  For
+each such @code{NAME}, top-level @file{config/@code{NAME}.mk} will be
+included by the top-level @file{Makefile}, bringing in any settings it
+contains.  Some examples are:
+
+@table @asis
+@item @samp{bootstrap-O1}
+Removes any @option{-O}-started option from @code{BOOT_CFLAGS}, and adds
+@option{-O1} to it.  @samp{BUILD_CONFIG=bootstrap-O1} is equivalent to
+@samp{BOOT_CFLAGS='-g -O1'}.
+
+@item @samp{bootstrap-O3}
+Analogous to @code{bootstrap-O1}.
+
+@item @samp{bootstrap-debug}
+Builds stage2 without debug information, and uses
+@file{contrib/compare-debug} to compare object files.
+
+@end table
 
 @section Building a cross compiler
 
@@ -3337,7 +3435,7 @@ The native AIX tools do interoperate with GCC@.
 Building @file{libstdc++.a} requires a fix for an AIX Assembler bug
 APAR IY26685 (AIX 4.3) or APAR IY25528 (AIX 5.1).  It also requires a
 fix for another AIX Assembler bug and a co-dependent AIX Archiver fix
-referenced as APAR IY53606 (AIX 5.2) or a APAR IY54774 (AIX 5.1)
+referenced as APAR IY53606 (AIX 5.2) or as APAR IY54774 (AIX 5.1)
 
 @samp{libstdc++} in GCC 3.4 increments the major version number of the
 shared object and GCC installation places the @file{libstdc++.a}
@@ -3892,7 +3990,7 @@ compiler.  This is Sun bug 4974440.  This is fixed with patch 112760-07.
 GCC 3.4 changed the default debugging format from STABS to DWARF-2 for
 32-bit code on Solaris 7 and later.  If you use the Sun assembler, this
 change apparently runs afoul of Sun bug 4910101 (which is referenced as
-a x86-only problem by Sun, probably because they do not use DWARF-2).
+an x86-only problem by Sun, probably because they do not use DWARF-2).
 A symptom of the problem is that you cannot compile C++ programs like
 @command{groff} 1.19.1 without getting messages similar to the following:
 

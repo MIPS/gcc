@@ -32,11 +32,9 @@
 #include "basic-block.h"
 #include "output.h"
 #include "tree.h"
-#include "c-common.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "varray.h"
-#include "c-tree.h"
 #include "diagnostic.h"
 #include "toplev.h"
 #include "gimple.h"
@@ -3052,6 +3050,14 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results,
       else
 	result->offset = bitpos;
     }
+  else if (result->type == ADDRESSOF)
+    {
+      /* We can end up here for component references on a
+         VIEW_CONVERT_EXPR <>(&foobar).  */
+      result->type = SCALAR;
+      result->var = anything_id;
+      result->offset = 0;
+    }
   else
     gcc_unreachable ();
 }
@@ -5731,6 +5737,11 @@ compute_may_aliases (void)
   return 0;
 }
 
+static bool
+gate_tree_pta (void)
+{
+  return flag_tree_pta;
+}
 
 /* A dummy pass to cause points-to information to be computed via
    TODO_rebuild_alias.  */
@@ -5740,14 +5751,14 @@ struct gimple_opt_pass pass_build_alias =
  {
   GIMPLE_PASS,
   "alias",		    /* name */
-  NULL,			    /* gate */
+  gate_tree_pta,	    /* gate */
   NULL,                     /* execute */
   NULL,                     /* sub */
   NULL,                     /* next */
   0,                        /* static_pass_number */
-  0,                        /* tv_id */
+  TV_NONE,                  /* tv_id */
   PROP_cfg | PROP_ssa,      /* properties_required */
-  PROP_alias,               /* properties_provided */
+  0,			    /* properties_provided */
   0,                        /* properties_destroyed */
   0,                        /* todo_flags_start */
   TODO_rebuild_alias | TODO_dump_func  /* todo_flags_finish */

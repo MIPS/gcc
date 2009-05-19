@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1132,8 +1132,9 @@ package body Exp_Ch9 is
       --    for Lnn in Family_Low .. Family_High loop
       --       Inn := Inn + 1;
       --       Set_Entry_Name
-      --         (_init._object, Inn, new String ("<Entry name> " & Lnn'Img));
-      --          _init._task_id
+      --         (_init._object <or> _init._task_id,
+      --          Inn,
+      --          new String ("<Entry name>(" & Lnn'Img & ")"));
       --    end loop;
       --  Note that the bounds of the range may reference discriminants. The
       --  above construct is added directly to the statements of the block.
@@ -1141,8 +1142,10 @@ package body Exp_Ch9 is
       procedure Build_Entry_Name (Id : Entity_Id);
       --  Generate:
       --    Inn := Inn + 1;
-      --    Set_Entry_Name (_init._task_id, Inn, new String ("<Entry name>");
-      --                    _init._object
+      --    Set_Entry_Name
+      --      (_init._object <or>_init._task_id,
+      --       Inn,
+      --       new String ("<Entry name>");
       --  The above construct is added directly to the statements of the block.
 
       function Build_Set_Entry_Name_Call (Arg3 : Node_Id) return Node_Id;
@@ -1213,13 +1216,12 @@ package body Exp_Ch9 is
       begin
          Get_Name_String (Chars (Id));
 
-         if Is_Enumeration_Type (Etype (Def)) then
-            Name_Len := Name_Len + 1;
-            Name_Buffer (Name_Len) := ' ';
-         end if;
+         --  Add a leading '('
+
+         Add_Char_To_Name_Buffer ('(');
 
          --  Generate:
-         --    new String'("<Entry name>" & Lnn'Img);
+         --    new String'("<Entry name>(" & Lnn'Img & ")");
 
          --  This is an implicit heap allocation, and Comes_From_Source is
          --  False, which ensures that it will get flagged as a violation of
@@ -1233,13 +1235,18 @@ package body Exp_Ch9 is
                Expression =>
                  Make_Op_Concat (Loc,
                    Left_Opnd =>
-                     Make_String_Literal (Loc,
-                       String_From_Name_Buffer),
+                     Make_Op_Concat (Loc,
+                       Left_Opnd =>
+                         Make_String_Literal (Loc,
+                           Strval => String_From_Name_Buffer),
+                       Right_Opnd =>
+                         Make_Attribute_Reference (Loc,
+                           Prefix =>
+                             New_Reference_To (L_Id, Loc),
+                               Attribute_Name => Name_Img)),
                    Right_Opnd =>
-                     Make_Attribute_Reference (Loc,
-                       Prefix =>
-                         New_Reference_To (L_Id, Loc),
-                           Attribute_Name => Name_Img))));
+                     Make_String_Literal (Loc,
+                       Strval => ")"))));
 
          Increment_Index (L_Stmts);
          Append_To (L_Stmts, Build_Set_Entry_Name_Call (Val));
@@ -1247,7 +1254,8 @@ package body Exp_Ch9 is
          --  Generate:
          --    for Lnn in Family_Low .. Family_High loop
          --       Inn := Inn + 1;
-         --       Set_Entry_Name (_init._task_id, Inn, <Val>);
+         --       Set_Entry_Name
+         --         (_init._object <or> _init._task_id, Inn, <Val>);
          --    end loop;
 
          Append_To (B_Stmts,
@@ -1591,7 +1599,7 @@ package body Exp_Ch9 is
          Body_Spec : Node_Id;
 
       begin
-         Body_Spec := Build_Wrapper_Spec (Loc, Subp_Id, Obj_Typ, Formals);
+         Body_Spec := Build_Wrapper_Spec (Subp_Id, Obj_Typ, Formals);
 
          --  The subprogram is not overriding or is not a primitive declared
          --  between two views.
@@ -1768,11 +1776,11 @@ package body Exp_Ch9 is
    ------------------------
 
    function Build_Wrapper_Spec
-     (Loc     : Source_Ptr;
-      Subp_Id : Entity_Id;
+     (Subp_Id : Entity_Id;
       Obj_Typ : Entity_Id;
       Formals : List_Id) return Node_Id
    is
+      Loc           : constant Source_Ptr := Sloc (Subp_Id);
       First_Param   : Node_Id;
       Iface         : Entity_Id;
       Iface_Elmt    : Elmt_Id;
@@ -2139,18 +2147,18 @@ package body Exp_Ch9 is
                  and then Ekind (Defining_Identifier (Decl)) = E_Entry
                then
                   Wrap_Spec :=
-                    Build_Wrapper_Spec (Loc,
-                      Subp_Id => Defining_Identifier (Decl),
-                      Obj_Typ => Rec_Typ,
-                      Formals => Parameter_Specifications (Decl));
+                    Build_Wrapper_Spec
+                      (Subp_Id => Defining_Identifier (Decl),
+                       Obj_Typ => Rec_Typ,
+                       Formals => Parameter_Specifications (Decl));
 
                elsif Nkind (Decl) = N_Subprogram_Declaration then
                   Wrap_Spec :=
-                    Build_Wrapper_Spec (Loc,
-                      Subp_Id => Defining_Unit_Name (Specification (Decl)),
-                      Obj_Typ => Rec_Typ,
-                      Formals =>
-                        Parameter_Specifications (Specification (Decl)));
+                    Build_Wrapper_Spec
+                      (Subp_Id => Defining_Unit_Name (Specification (Decl)),
+                       Obj_Typ => Rec_Typ,
+                       Formals =>
+                         Parameter_Specifications (Specification (Decl)));
                end if;
 
                if Present (Wrap_Spec) then
@@ -2783,6 +2791,11 @@ package body Exp_Ch9 is
 
       Set_Debug_Info_Needed (New_Id);
 
+      --  If a pragma Eliminate applies to the source entity, the internal
+      --  subprograms will be eliminated as well.
+
+      Set_Is_Eliminated (New_Id, Is_Eliminated (Def_Id));
+
       if Nkind (Specification (Decl)) = N_Procedure_Specification then
          New_Spec :=
            Make_Procedure_Specification (Loc,
@@ -3167,13 +3180,9 @@ package body Exp_Ch9 is
          Name_Len := Name_Len - 1;
       end if;
 
-      Name_Buffer (Name_Len + 1) := '_';
-      Name_Buffer (Name_Len + 2) := '_';
-
-      Name_Len := Name_Len + 2;
+      Add_Str_To_Name_Buffer ("__");
       for J in 1 .. Select_Len loop
-         Name_Len := Name_Len + 1;
-         Name_Buffer (Name_Len) := Select_Buffer (J);
+         Add_Char_To_Name_Buffer (Select_Buffer (J));
       end loop;
 
       --  Now add the Append_Char if specified. The encoding to follow
@@ -3186,13 +3195,10 @@ package body Exp_Ch9 is
 
       if Append_Char /= ' ' then
          if Append_Char = 'P' or Append_Char = 'N' then
-            Name_Len := Name_Len + 1;
-            Name_Buffer (Name_Len) := Append_Char;
+            Add_Char_To_Name_Buffer (Append_Char);
             return Name_Find;
          else
-            Name_Buffer (Name_Len + 1) := '_';
-            Name_Buffer (Name_Len + 2) := Append_Char;
-            Name_Len := Name_Len + 2;
+            Add_Str_To_Name_Buffer ((1 => '_', 2 => Append_Char));
             return New_External_Name (Name_Find, ' ', -1);
          end if;
       else
@@ -7211,7 +7217,7 @@ package body Exp_Ch9 is
 
             when N_Subprogram_Body =>
 
-               --  Exclude functions created to analyze defaults
+               --  Do not create bodies for eliminated operations
 
                if not Is_Eliminated (Defining_Entity (Op_Body))
                  and then not Is_Eliminated (Corresponding_Spec (Op_Body))
@@ -7219,13 +7225,13 @@ package body Exp_Ch9 is
                   New_Op_Body :=
                     Build_Unprotected_Subprogram_Body (Op_Body, Pid);
 
-                  --  Propagate the finalization chain to the new body.
-                  --  In the unlikely event that the subprogram contains a
-                  --  declaration or allocator for an object that requires
-                  --  finalization, the corresponding chain is created when
-                  --  analyzing the body, and attached to its entity. This
-                  --  entity is not further elaborated, and so the chain
-                  --  properly belongs to the newly created subprogram body.
+                  --  Propagate the finalization chain to the new body. In the
+                  --  unlikely event that the subprogram contains a declaration
+                  --  or allocator for an object that requires finalization,
+                  --  the corresponding chain is created when analyzing the
+                  --  body, and attached to its entity. This entity is not
+                  --  further elaborated, and so the chain properly belongs to
+                  --  the newly created subprogram body.
 
                   Chain :=
                     Finalization_Chain_Entity (Defining_Entity (Op_Body));
@@ -7246,11 +7252,11 @@ package body Exp_Ch9 is
                   --  appear that this is needed only if this is a visible
                   --  operation of the type, or if it is an interrupt handler,
                   --  and this was the strategy used previously in GNAT.
-                  --  However, the operation may be exported through a
-                  --  'Access to an external caller. This is the common idiom
-                  --  in code that uses the Ada 2005 Timing_Events package
-                  --  As a result we need to produce the protected body for
-                  --  both visible and private operations.
+                  --  However, the operation may be exported through a 'Access
+                  --  to an external caller. This is the common idiom in code
+                  --  that uses the Ada 2005 Timing_Events package. As a result
+                  --  we need to produce the protected body for both visible
+                  --  and private operations.
 
                   if Present (Corresponding_Spec (Op_Body)) then
                      Op_Decl :=
@@ -7461,9 +7467,26 @@ package body Exp_Ch9 is
       E_Count      : Int;
       Object_Comp  : Node_Id;
 
+      procedure Check_Inlining (Subp : Entity_Id);
+      --  If the original operation has a pragma Inline, propagate the flag
+      --  to the internal body, for possible inlining later on. The source
+      --  operation is invisible to the back-end and is never actually called.
+
       procedure Register_Handler;
       --  For a protected operation that is an interrupt handler, add the
       --  freeze action that will register it as such.
+
+      --------------------
+      -- Check_Inlining --
+      --------------------
+
+      procedure Check_Inlining (Subp : Entity_Id) is
+      begin
+         if Is_Inlined (Subp) then
+            Set_Is_Inlined (Protected_Body_Subprogram (Subp));
+            Set_Is_Inlined (Subp, False);
+         end if;
+      end Check_Inlining;
 
       ----------------------
       -- Register_Handler --
@@ -7713,7 +7736,7 @@ package body Exp_Ch9 is
                Set_Protected_Body_Subprogram
                  (Defining_Unit_Name (Specification (Priv)),
                   Defining_Unit_Name (Specification (Sub)));
-
+               Check_Inlining (Defining_Unit_Name (Specification (Priv)));
                Current_Node := Sub;
 
                Sub :=
@@ -7785,9 +7808,7 @@ package body Exp_Ch9 is
       Comp := First (Visible_Declarations (Pdef));
 
       while Present (Comp) loop
-         if Nkind (Comp) = N_Subprogram_Declaration
-           and then not Is_Eliminated (Defining_Entity (Comp))
-         then
+         if Nkind (Comp) = N_Subprogram_Declaration then
             Sub :=
               Make_Subprogram_Declaration (Loc,
                 Specification =>
@@ -7800,6 +7821,7 @@ package body Exp_Ch9 is
             Set_Protected_Body_Subprogram
               (Defining_Unit_Name (Specification (Comp)),
                Defining_Unit_Name (Specification (Sub)));
+               Check_Inlining (Defining_Unit_Name (Specification (Comp)));
 
             --  Make the protected version of the subprogram available for
             --  expansion of external calls.

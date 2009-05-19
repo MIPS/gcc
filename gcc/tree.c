@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -148,8 +148,7 @@ static GTY(()) int next_type_uid = 1;
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
 
-struct type_hash GTY(())
-{
+struct GTY(()) type_hash {
   unsigned long hash;
   tree type;
 };
@@ -3579,7 +3578,8 @@ set_expr_locus (tree node, source_location *loc)
 
    LOC is the location to use in tree T.  */
 
-void protected_set_expr_location (tree t, location_t loc)
+void
+protected_set_expr_location (tree t, location_t loc)
 {
   if (t && CAN_HAVE_LOCATION_P (t))
     SET_EXPR_LOCATION (t, loc);
@@ -3619,24 +3619,6 @@ iterative_hash_hashval_t (hashval_t val, hashval_t val2)
 
   mix (a, val, val2);
   return val2;
-}
-
-/* Produce good hash value combining PTR and VAL2.  */
-static inline hashval_t
-iterative_hash_pointer (const void *ptr, hashval_t val2)
-{
-  if (sizeof (ptr) == sizeof (hashval_t))
-    return iterative_hash_hashval_t ((size_t) ptr, val2);
-  else
-    {
-      hashval_t a = (hashval_t) (size_t) ptr;
-      /* Avoid warnings about shifting of more than the width of the type on
-         hosts that won't execute this path.  */
-      int zero = 0;
-      hashval_t b = (hashval_t) ((size_t) ptr >> (sizeof (hashval_t) * 8 + zero));
-      mix (a, b, val2);
-      return val2;
-    }
 }
 
 /* Produce good hash value combining VAL and VAL2.  */
@@ -4058,8 +4040,8 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	}
       else
 	{
-	  warning (OPT_Wattributes, "%qs attribute ignored",
-		   IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qE attribute ignored",
+		   name);
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -4070,8 +4052,8 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       && TREE_CODE (node) != TYPE_DECL)
     {
       *no_add_attrs = true;
-      warning (OPT_Wattributes, "%qs attribute ignored",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute ignored",
+	       name);
       return NULL_TREE;
     }
 
@@ -4080,8 +4062,8 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       && TREE_CODE (TREE_TYPE (node)) != UNION_TYPE)
     {
       *no_add_attrs = true;
-      warning (OPT_Wattributes, "%qs attribute ignored",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute ignored",
+	       name);
       return NULL_TREE;
     }
 
@@ -4136,7 +4118,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	  || TREE_CODE (node) == FUNCTION_DECL))
     {
       error ("external linkage required for symbol %q+D because of "
-	     "%qs attribute", node, IDENTIFIER_POINTER (name));
+	     "%qE attribute", node, name);
       *no_add_attrs = true;
     }
 
@@ -4149,9 +4131,9 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
     {
       if (DECL_VISIBILITY_SPECIFIED (node)
 	  && DECL_VISIBILITY (node) != VISIBILITY_DEFAULT)
-	error ("%qs implies default visibility, but %qD has already "
+	error ("%qE implies default visibility, but %qD has already "
 	       "been declared with a different visibility", 
-	       IDENTIFIER_POINTER (name), node);
+	       name, node);
       DECL_VISIBILITY (node) = VISIBILITY_DEFAULT;
       DECL_VISIBILITY_SPECIFIED (node) = 1;
     }
@@ -5326,7 +5308,7 @@ iterative_hash_expr (const_tree t, hashval_t val)
   char tclass;
 
   if (t == NULL_TREE)
-    return iterative_hash_pointer (t, val);
+    return iterative_hash_hashval_t (0, val);
 
   code = TREE_CODE (t);
 
@@ -5360,7 +5342,7 @@ iterative_hash_expr (const_tree t, hashval_t val)
 
     case SSA_NAME:
       /* we can just compare by pointer.  */
-      return iterative_hash_pointer (t, val);
+      return iterative_hash_host_wide_int (SSA_NAME_VERSION (t), val);
 
     case TREE_LIST:
       /* A list of expressions, for a CALL_EXPR or as the elements of a
@@ -5384,13 +5366,12 @@ iterative_hash_expr (const_tree t, hashval_t val)
 	 __builtin__ form.  Otherwise nodes that compare equal
 	 according to operand_equal_p might get different
 	 hash codes.  */
-      if (DECL_BUILT_IN (t))
+      if (DECL_BUILT_IN (t) && built_in_decls[DECL_FUNCTION_CODE (t)])
 	{
-	  val = iterative_hash_pointer (built_in_decls[DECL_FUNCTION_CODE (t)], 
-				      val);
-	  return val;
+	  t = built_in_decls[DECL_FUNCTION_CODE (t)];
+	  code = TREE_CODE (t);
 	}
-      /* else FALL THROUGH */
+      /* FALL THROUGH */
     default:
       tclass = TREE_CODE_CLASS (code);
 
@@ -5729,6 +5710,57 @@ build_range_type (tree type, tree lowval, tree highval)
 			    itype);
   else
     return itype;
+}
+
+/* Return true if the debug information for TYPE, a subtype, should be emitted
+   as a subrange type.  If so, set LOWVAL to the low bound and HIGHVAL to the
+   high bound, respectively.  Sometimes doing so unnecessarily obfuscates the
+   debug info and doesn't reflect the source code.  */
+
+bool
+subrange_type_for_debug_p (const_tree type, tree *lowval, tree *highval)
+{
+  tree base_type = TREE_TYPE (type), low, high;
+
+  /* Subrange types have a base type which is an integral type.  */
+  if (!INTEGRAL_TYPE_P (base_type))
+    return false;
+
+  /* Get the real bounds of the subtype.  */
+  if (lang_hooks.types.get_subrange_bounds)
+    lang_hooks.types.get_subrange_bounds (type, &low, &high);
+  else
+    {
+      low = TYPE_MIN_VALUE (type);
+      high = TYPE_MAX_VALUE (type);
+    }
+
+  /* If the type and its base type have the same representation and the same
+     name, then the type is not a subrange but a copy of the base type.  */
+  if ((TREE_CODE (base_type) == INTEGER_TYPE
+       || TREE_CODE (base_type) == BOOLEAN_TYPE)
+      && int_size_in_bytes (type) == int_size_in_bytes (base_type)
+      && tree_int_cst_equal (low, TYPE_MIN_VALUE (base_type))
+      && tree_int_cst_equal (high, TYPE_MAX_VALUE (base_type)))
+    {
+      tree type_name = TYPE_NAME (type);
+      tree base_type_name = TYPE_NAME (base_type);
+
+      if (type_name && TREE_CODE (type_name) == TYPE_DECL)
+	type_name = DECL_NAME (type_name);
+
+      if (base_type_name && TREE_CODE (base_type_name) == TYPE_DECL)
+	base_type_name = DECL_NAME (base_type_name);
+
+      if (type_name == base_type_name)
+	return false;
+    }
+
+  if (lowval)
+    *lowval = low;
+  if (highval)
+    *highval = high;
+  return true;
 }
 
 /* Just like build_index_type, but takes lowval and highval instead
@@ -7183,7 +7215,7 @@ tree_range_check_failed (const_tree node, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  enum tree_code c;
+  unsigned int c;
 
   for (c = c1; c <= c2; ++c)
     length += 4 + strlen (tree_code_name[c]);
@@ -7244,7 +7276,7 @@ omp_clause_range_check_failed (const_tree node, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  enum omp_clause_code c;
+  unsigned int c;
 
   for (c = c1; c <= c2; ++c)
     length += 4 + strlen (omp_clause_code_name[c]);
@@ -7847,7 +7879,7 @@ build_common_builtin_nodes (void)
      complex.  Further, we can do slightly better with folding these 
      beasties if the real and complex parts of the arguments are separate.  */
   {
-    enum machine_mode mode;
+    int mode;
 
     for (mode = MIN_MODE_COMPLEX_FLOAT; mode <= MAX_MODE_COMPLEX_FLOAT; ++mode)
       {
@@ -7856,7 +7888,7 @@ build_common_builtin_nodes (void)
 	enum built_in_function mcode, dcode;
 	tree type, inner_type;
 
-	type = lang_hooks.types.type_for_mode (mode, 0);
+	type = lang_hooks.types.type_for_mode ((enum machine_mode) mode, 0);
 	if (type == NULL)
 	  continue;
 	inner_type = TREE_TYPE (type);
@@ -7867,8 +7899,10 @@ build_common_builtin_nodes (void)
 	tmp = tree_cons (NULL_TREE, inner_type, tmp);
 	ftype = build_function_type (type, tmp);
 
-        mcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
-        dcode = BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+        mcode = ((enum built_in_function)
+		 (BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT));
+        dcode = ((enum built_in_function)
+		 (BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT));
 
         for (p = GET_MODE_NAME (mode), q = mode_name_buf; *p; p++, q++)
 	  *q = TOLOWER (*p);
@@ -7985,6 +8019,19 @@ tree
 build_vector_type (tree innertype, int nunits)
 {
   return make_vector_type (innertype, nunits, VOIDmode);
+}
+
+/* Similarly, but takes the inner type and number of units, which must be
+   a power of two.  */
+
+tree
+build_opaque_vector_type (tree innertype, int nunits)
+{
+  tree t;
+  innertype = build_distinct_type_copy (innertype);
+  t = make_vector_type (innertype, nunits, VOIDmode);
+  TYPE_VECTOR_OPAQUE (t) = true;
+  return t;
 }
 
 
@@ -9087,26 +9134,6 @@ prototype_p (tree fntype)
   return (t != NULL_TREE);
 }
 
-/* Return the number of arguments that a function has.  */
-
-int
-function_args_count (tree fntype)
-{
-  function_args_iterator args_iter;
-  tree t;
-  int num = 0;
-
-  if (fntype)
-    {
-      FOREACH_FUNCTION_ARGS(fntype, t, args_iter)
-	{
-	  num++;
-	}
-    }
-
-  return num;
-}
-
 /* If BLOCK is inlined from an __attribute__((__artificial__))
    routine, return pointer to location from where it has been
    called.  */
@@ -9392,5 +9419,17 @@ block_ultimate_origin (const_tree block)
       return ret_val;
     }
 }
+
+/* Return true if T1 and T2 are equivalent lists.  */
+
+bool
+list_equal_p (const_tree t1, const_tree t2)
+{
+  for (; t1 && t2; t1 = TREE_CHAIN (t1) , t2 = TREE_CHAIN (t2))
+    if (TREE_VALUE (t1) != TREE_VALUE (t2))
+      return false;
+  return !t1 && !t2;
+}
+
 
 #include "gt-tree.h"

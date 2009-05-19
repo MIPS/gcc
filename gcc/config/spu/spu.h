@@ -144,6 +144,12 @@ extern GTY(()) int spu_tune;
 
 #define STDINT_LONG32 0
 
+/* Type used for ptrdiff_t, as a string used in a declaration.  */
+#define PTRDIFF_TYPE "long int"
+
+/* Type used for size_t, as a string used in a declaration.  */
+#define SIZE_TYPE "long unsigned int"
+
 
 /* Register Basics */
 
@@ -314,8 +320,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 /* Elimination */
 
-#define FRAME_POINTER_REQUIRED 0
-
 #define ELIMINABLE_REGS  \
   {{ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM},				\
   {ARG_POINTER_REGNUM,	 HARD_FRAME_POINTER_REGNUM},			\
@@ -417,30 +421,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 #define CONSTANT_ADDRESS_P(X)   spu_constant_address_p(X)
 
 #define MAX_REGS_PER_ADDRESS 2
-
-#ifdef REG_OK_STRICT
-# define REG_OK_STRICT_FLAG 1
-#else
-# define REG_OK_STRICT_FLAG 0
-#endif
-
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
-    { if (spu_legitimate_address (MODE, X, REG_OK_STRICT_FLAG,	\
-				  ADDR_SPACE_GENERIC))		\
-	goto ADDR;						\
-    }
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)			\
-  {  rtx result = spu_legitimize_address (X, OLDX, MODE,	\
-					  ADDR_SPACE_GENERIC);	\
-     if (result != NULL_RTX)					\
-       {							\
-	 (X) = result;						\
-	 goto WIN;						\
-       }							\
-  }
-
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 #define LEGITIMATE_CONSTANT_P(X) spu_legitimate_constant_p(X)
 
@@ -632,11 +612,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
       }                                                                   \
   } while (0)
 
-/* These are set by the cmp patterns and used while expanding
-   conditional branches. */
-extern GTY(()) rtx spu_compare_op0;
-extern GTY(()) rtx spu_compare_op1;
-
 /* Address spaces */
 #define ADDR_SPACE_GENERIC	0
 #define ADDR_SPACE_EA		1
@@ -644,3 +619,31 @@ extern GTY(()) rtx spu_compare_op1;
 
 /* Named address space keywords.  */
 #define TARGET_ADDR_SPACE_KEYWORDS  ADDR_SPACE_KEYWORD("__ea", ADDR_SPACE_EA)
+
+/* Builtins.  */
+enum spu_builtin_type
+{
+  B_INSN,
+  B_JUMP,
+  B_BISLED,
+  B_CALL,
+  B_HINT,
+  B_OVERLOAD,
+  B_INTERNAL
+};
+
+struct GTY(()) spu_builtin_description
+{
+  int fcode;
+  int icode;
+  const char *name;
+  enum spu_builtin_type type;
+
+  /* The first element of parm is always the return type.  The rest
+     are a zero terminated list of parameters.  */
+  int parm[5];
+
+  tree fndecl;
+};
+
+extern struct spu_builtin_description spu_builtins[];

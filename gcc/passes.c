@@ -239,7 +239,7 @@ rest_of_type_compilation (tree type, int toplev)
 void
 finish_optimization_passes (void)
 {
-  enum tree_dump_index i;
+  int i;
   struct dump_file_info *dfi;
   char *name;
 
@@ -319,7 +319,7 @@ struct rtl_opt_pass pass_postreload =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   PROP_rtl,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -368,7 +368,7 @@ get_pass_for_id (int id)
    to do this depth first, and independent of whether the pass is
    enabled or not.  */
 
-static void
+void
 register_one_dump_file (struct opt_pass *pass)
 {
   char *dot_name, *flag_name, *glob_name;
@@ -595,13 +595,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_forwprop);
-      /* Ideally the function call conditional
-	 dead code elimination phase can be delayed
-	 till later where potentially more opportunities
-	 can be found.  Due to lack of good ways to
-	 update VDEFs associated with the shrink-wrapped
-	 calls, it is better to do the transformation
-	 here where memory SSA is not built yet.  */
       NEXT_PASS (pass_call_cdce);
       /* pass_build_alias is a dummy pass that ensures that we
 	 execute TODO_rebuild_alias at this point.  Re-building
@@ -707,17 +700,13 @@ init_optimization_passes (void)
       NEXT_PASS (pass_local_pure_const);
     }
   NEXT_PASS (pass_cleanup_eh);
-  NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
-  NEXT_PASS (pass_mark_used_blocks);
-  NEXT_PASS (pass_cleanup_cfg_post_optimizing);
-
-  NEXT_PASS (pass_warn_function_noreturn);
-  NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_mudflap_2);
+  NEXT_PASS (pass_cleanup_cfg_post_optimizing);
+  NEXT_PASS (pass_warn_function_noreturn);
 
-  NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
+
   NEXT_PASS (pass_rest_of_compilation);
     {
       struct opt_pass **p = &pass_rest_of_compilation.pass.sub;
@@ -733,7 +722,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_df_initialize_opt);
       NEXT_PASS (pass_cse);
       NEXT_PASS (pass_rtl_fwprop);
-      NEXT_PASS (pass_gcse);
+      NEXT_PASS (pass_rtl_cprop);
+      NEXT_PASS (pass_rtl_pre);
+      NEXT_PASS (pass_rtl_hoist);
+      NEXT_PASS (pass_rtl_cprop);
+      NEXT_PASS (pass_rtl_store_motion);
+      NEXT_PASS (pass_cse_after_global_opts);
       NEXT_PASS (pass_rtl_ifcvt);
       /* Perform loop optimizations.  It might be better to do them a bit
 	 sooner, but we want the profile feedback to work more
@@ -750,7 +744,7 @@ init_optimization_passes (void)
 	  *p = NULL;
 	}
       NEXT_PASS (pass_web);
-      NEXT_PASS (pass_jump_bypass);
+      NEXT_PASS (pass_rtl_cprop);
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_dse1);
       NEXT_PASS (pass_rtl_fwprop_addr);
@@ -845,7 +839,7 @@ do_per_function (void (*callback) (void *data), void *data)
     {
       struct cgraph_node *node;
       for (node = cgraph_nodes; node; node = node->next)
-	if (node->analyzed)
+	if (node->analyzed && gimple_has_body_p (node->decl))
 	  {
 	    push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	    current_function_decl = node->decl;
@@ -955,7 +949,6 @@ execute_function_todo (void *data)
       if (!(flags & TODO_update_address_taken))
 	execute_update_addresses_taken (true);
       compute_may_aliases ();
-      cfun->curr_properties |= PROP_alias;
     }
   
   if (flags & TODO_remove_unused_locals)
@@ -1159,14 +1152,14 @@ update_properties_after_pass (void *data)
 static void
 add_ipa_transform_pass (void *data)
 {
-  struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *) data;
+  struct ipa_opt_pass_d *ipa_pass = (struct ipa_opt_pass_d *) data;
   VEC_safe_push (ipa_opt_pass, heap, cfun->ipa_transforms_to_apply, ipa_pass);
 }
 
 /* Execute summary generation for all of the passes in IPA_PASS.  */
 
 static void
-execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
+execute_ipa_summary_passes (struct ipa_opt_pass_d *ipa_pass)
 {
   while (ipa_pass)
     {
@@ -1180,7 +1173,7 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 	  ipa_pass->generate_summary ();
 	  pass_fini_dump_file (pass);
 	}
-      ipa_pass = (struct ipa_opt_pass *)ipa_pass->pass.next;
+      ipa_pass = (struct ipa_opt_pass_d *)ipa_pass->pass.next;
     }
 }
 
@@ -1188,7 +1181,7 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 
 static void
 execute_one_ipa_transform_pass (struct cgraph_node *node,
-				struct ipa_opt_pass *ipa_pass)
+				struct ipa_opt_pass_d *ipa_pass)
 {
   struct opt_pass *pass = &ipa_pass->pass;
   unsigned int todo_after = 0;
@@ -1207,14 +1200,14 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   execute_todo (ipa_pass->function_transform_todo_flags_start);
 
   /* If a timevar is present, start it.  */
-  if (pass->tv_id)
+  if (pass->tv_id != TV_NONE)
     timevar_push (pass->tv_id);
 
   /* Do it!  */
   todo_after = ipa_pass->function_transform (node);
 
   /* Stop timevar.  */
-  if (pass->tv_id)
+  if (pass->tv_id != TV_NONE)
     timevar_pop (pass->tv_id);
 
   /* Run post-pass cleanup and verification.  */
@@ -1281,7 +1274,7 @@ execute_one_pass (struct opt_pass *pass)
 #endif
 
   /* If a timevar is present, start it.  */
-  if (pass->tv_id)
+  if (pass->tv_id != TV_NONE)
     timevar_push (pass->tv_id);
 
   /* Do it!  */
@@ -1292,7 +1285,7 @@ execute_one_pass (struct opt_pass *pass)
     }
 
   /* Stop timevar.  */
-  if (pass->tv_id)
+  if (pass->tv_id != TV_NONE)
     timevar_pop (pass->tv_id);
 
   do_per_function (update_properties_after_pass, pass);
@@ -1360,7 +1353,7 @@ execute_ipa_pass_list (struct opt_pass *pass)
 	    {
 	      if (!quiet_flag && !cfun)
 		fprintf (stderr, " <summary generate>");
-	      execute_ipa_summary_passes ((struct ipa_opt_pass *) pass);
+	      execute_ipa_summary_passes ((struct ipa_opt_pass_d *) pass);
 	    }
 	  summaries_generated = true;
 	}

@@ -851,8 +851,9 @@ package body GNAT.Command_Line is
 
       if Command_Line = null then
          Parser := new Opt_Parser_Data (CL.Argument_Count);
-         Initialize_Option_Scan
-           (Switch_Char              => Switch_Char,
+         Internal_Initialize_Option_Scan
+           (Parser                   => Parser,
+            Switch_Char              => Switch_Char,
             Stop_At_First_Non_Switch => Stop_At_First_Non_Switch,
             Section_Delimiters       => Section_Delimiters);
       else
@@ -890,6 +891,7 @@ package body GNAT.Command_Line is
       Parser.In_Expansion     := False;
       Parser.Switch_Character := Switch_Char;
       Parser.Stop_At_First    := Stop_At_First_Non_Switch;
+      Parser.Section          := (others => 1);
 
       --  If we are using sections, we have to preprocess the command line
       --  to delimit them. A section can be repeated, so we just give each
@@ -1277,7 +1279,7 @@ package body GNAT.Command_Line is
 
                         if Separator (Parser) = ASCII.NUL then
                            Add_Switch
-                             (Cmd, Sw & Parameter (Parser), "");
+                             (Cmd, Sw & Parameter (Parser), "", ASCII.NUL);
                         else
                            Add_Switch
                              (Cmd, Sw, Parameter (Parser), Separator (Parser));
@@ -2449,6 +2451,8 @@ package body GNAT.Command_Line is
          Free (Config.Aliases);
          Free (Config.Expansions);
          Free (Config.Prefixes);
+         Free (Config.Sections);
+         Free (Config.Switches);
          Unchecked_Free (Config);
       end if;
    end Free;

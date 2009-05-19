@@ -63,6 +63,10 @@ enum rid
   /* ObjC */
   RID_IN, RID_OUT, RID_INOUT, RID_BYCOPY, RID_BYREF, RID_ONEWAY,
 
+  /* C (reserved and imaginary types not implemented, so any use is a
+     syntax error) */
+  RID_IMAGINARY,
+
   /* C */
   RID_INT,     RID_CHAR,   RID_FLOAT,    RID_DOUBLE, RID_VOID,
   RID_ENUM,    RID_STRUCT, RID_UNION,    RID_IF,     RID_ELSE,
@@ -253,8 +257,7 @@ enum c_tree_index
 
 /* Identifier part common to the C front ends.  Inherits from
    tree_identifier, despite appearances.  */
-struct c_common_identifier GTY(())
-{
+struct GTY(()) c_common_identifier {
   struct tree_common common;
   struct cpp_hashnode node;
 };
@@ -362,8 +365,7 @@ extern GTY(()) tree c_global_trees[CTI_MAX];
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type, not a
    tree for size reasons.  */
-struct sorted_fields_type GTY(())
-{
+struct GTY(()) sorted_fields_type {
   int len;
   tree GTY((length ("%h.len"))) elts[1];
 };
@@ -390,7 +392,7 @@ extern c_language_kind c_language;
 
 /* Information about a statement tree.  */
 
-struct stmt_tree_s GTY(()) {
+struct GTY(()) stmt_tree_s {
   /* The current statement list being collected.  */
   tree x_cur_stmt_list;
 
@@ -416,7 +418,7 @@ typedef struct stmt_tree_s *stmt_tree;
 /* Global state pertinent to the current function.  Some C dialects
    extend this structure with additional fields.  */
 
-struct c_language_function GTY(()) {
+struct GTY(()) c_language_function {
   /* While we are parsing the function, this contains information
      about the statement-tree that we are building.  */
   struct stmt_tree_s x_stmt_tree;
@@ -443,7 +445,8 @@ extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl (tree);
-extern tree build_modify_expr (location_t, tree, enum tree_code, tree);
+extern tree build_modify_expr (location_t, tree, tree, enum tree_code,
+			       tree, tree);
 extern tree build_indirect_ref (location_t, tree, const char *);
 
 extern int c_expand_decl (tree);
@@ -829,10 +832,16 @@ extern bool strict_aliasing_warning (tree, tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
-extern void warn_logical_operator (enum tree_code, tree, tree);
+extern void warn_logical_operator (location_t, enum tree_code, tree,
+				   enum tree_code, tree, enum tree_code, tree);
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
+extern void mark_valid_location_for_stdc_pragma (bool);
+extern bool valid_location_for_stdc_pragma_p (void);
+extern void set_float_const_decimal64 (void);
+extern void clear_float_const_decimal64 (void);
+extern bool float_const_decimal64_p (void);
 
 #define c_sizeof(T)  c_sizeof_or_alignof_type (T, true, 1)
 #define c_alignof(T) c_sizeof_or_alignof_type (T, false, 1)
@@ -845,7 +854,7 @@ extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwis
    and, if so, perhaps change them both back to their original type.  */
 extern tree shorten_compare (tree *, tree *, tree *, enum tree_code *);
 
-extern tree pointer_int_sum (location_t, enum tree_code, tree, tree);
+extern tree pointer_int_sum (enum tree_code, tree, tree);
 
 /* Add qualifiers to a type, in the fashion for C.  */
 extern tree c_build_qualified_type (tree, int);
@@ -949,7 +958,9 @@ extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
 
 extern tree build_function_call (tree, tree);
 
-extern tree resolve_overloaded_builtin (tree, tree);
+extern tree build_function_call_vec (tree, VEC(tree,gc) *, VEC(tree,gc) *);
+
+extern tree resolve_overloaded_builtin (tree, VEC(tree,gc) *);
 
 extern tree finish_label_address_expr (tree, location_t);
 
@@ -957,6 +968,7 @@ extern tree finish_label_address_expr (tree, location_t);
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
 extern tree lookup_name (tree);
+extern bool lvalue_p (const_tree);
 
 extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
@@ -1053,7 +1065,7 @@ extern void builtin_define_std (const char *macro);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
-extern void c_parse_error (const char *, enum cpp_ttype, tree);
+extern void c_parse_error (const char *, enum cpp_ttype, tree, unsigned char);
 
 /* Objective-C / Objective-C++ entry points.  */
 

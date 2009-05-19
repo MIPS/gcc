@@ -554,8 +554,8 @@ namespace std
     independent_bits_engine<_RandomNumberEngine, __w, _UIntType>::
     operator()()
     {
-      const long double __r = static_cast<long double>(this->max())
-			    - static_cast<long double>(this->min()) + 1.0L;
+      const long double __r = static_cast<long double>(_M_b.max())
+			    - static_cast<long double>(_M_b.min()) + 1.0L;
       const result_type __m = std::log10(__r) / std::log10(2.0L);
       result_type __n, __n0, __y0, __y1, __s0, __s1;
       for (size_t __i = 0; __i < 2; ++__i)
@@ -564,8 +564,8 @@ namespace std
 	  __n0 = __n - __w % __n;
 	  const result_type __w0 = __w / __n;
 	  const result_type __w1 = __w0 + 1;
-	  __s0 = 1UL << __w0;
-	  __s1 = 1UL << __w1;
+	  __s0 = result_type(1) << __w0;
+	  __s1 = result_type(1) << __w1;
 	  __y0 = __s0 * (__r / __s0);
 	  __y1 = __s1 * (__r / __s1);
 	  if (__r - __y0 <= __y0 / __n)
@@ -577,19 +577,17 @@ namespace std
 	{
 	  result_type __u;
 	  do
-	    __u = _M_b() - this->min();
+	    __u = _M_b() - _M_b.min();
 	  while (__u >= __y0);
-	  __sum = __s0 * __sum
-		+ __u % __s0;
+	  __sum = __s0 * __sum + __u % __s0;
 	}
       for (size_t __k = __n0; __k < __n; ++__k)
 	{
 	  result_type __u;
 	  do
-	    __u = _M_b() - this->min();
+	    __u = _M_b() - _M_b.min();
 	  while (__u >= __y1);
-	  __sum = __s1 * __sum
-		+ __u % __s1;
+	  __sum = __s1 * __sum + __u % __s1;
 	}
       return __sum;
     }
@@ -1653,12 +1651,11 @@ namespace std
 	  __aurng(__urng);
 	_RealType __u;
 	do
-	  {
-	    __u = __aurng();
-	  }
+	  __u = __aurng();
 	while (__u == 0.5);
 
-	return __p.a() + __p.b() * std::tan(M_PI * __u);
+	const _RealType __pi = 3.1415926535897932384626433832795029L;
+	return __p.a() + __p.b() * std::tan(__pi * __u);
       }
 
   template<typename _RealType, typename _CharT, typename _Traits>
@@ -1921,14 +1918,14 @@ namespace std
 	  __aurng(__urng);
 
 	bool __reject;
-	const _RealType __alpha = __param.alpha();
-	const _RealType __beta = __param.beta();
-	if (__alpha >= 1)
+	const _RealType __alpha_val = __param.alpha();
+	const _RealType __beta_val = __param.beta();
+	if (__alpha_val >= 1)
 	  {
 	    // alpha - log(4)
-	    const result_type __b = __alpha
+	    const result_type __b = __alpha_val
 	      - result_type(1.3862943611198906188344642429163531L);
-	    const result_type __c = __alpha + __param._M_l_d;
+	    const result_type __c = __alpha_val + __param._M_l_d;
 	    const result_type __1l = 1 / __param._M_l_d;
 
 	    // 1 + log(9 / 2)
@@ -1936,11 +1933,11 @@ namespace std
 
 	    do
 	      {
-		const result_type __u = __aurng() / __beta;
-		const result_type __v = __aurng() / __beta;
+		const result_type __u = __aurng() / __beta_val;
+		const result_type __v = __aurng() / __beta_val;
 
 		const result_type __y = __1l * std::log(__v / (1 - __v));
-		__x = __alpha * std::exp(__y);
+		__x = __alpha_val * std::exp(__y);
 
 		const result_type __z = __u * __v * __v;
 		const result_type __r = __b + __c * __y - __x;
@@ -1953,12 +1950,12 @@ namespace std
 	  }
 	else
 	  {
-	    const result_type __c = 1 / __alpha;
+	    const result_type __c = 1 / __alpha_val;
 
 	    do
 	      {
-		const result_type __z = -std::log(__aurng() / __beta);
-		const result_type __e = -std::log(__aurng() / __beta);
+		const result_type __z = -std::log(__aurng() / __beta_val);
+		const result_type __e = -std::log(__aurng() / __beta_val);
 
 		__x = std::pow(__z, __c);
 
@@ -1967,7 +1964,7 @@ namespace std
 	    while (__reject);
 	  }
 
-	return __beta * __x;
+	return __beta_val * __x;
       }
 
   template<typename _RealType, typename _CharT, typename _Traits>
@@ -2005,10 +2002,10 @@ namespace std
       const typename __ios_base::fmtflags __flags = __is.flags();
       __is.flags(__ios_base::dec | __ios_base::skipws);
 
-      _RealType __alpha, __beta;
-      __is >> __alpha >> __beta;
+      _RealType __alpha_val, __beta_val;
+      __is >> __alpha_val >> __beta_val;
       __x.param(typename gamma_distribution<_RealType>::
-		param_type(__alpha, __beta));
+		param_type(__alpha_val, __beta_val));
 
       __is.flags(__flags);
       return __is;
@@ -2649,12 +2646,12 @@ namespace std
 		       _RandomAccessIterator __end)
     {
       typedef typename iterator_traits<_RandomAccessIterator>::value_type
-        __Type;
+        _Type;
 
       if (__begin == __end)
 	return;
 
-      std::fill(__begin, __end, __Type(0x8b8b8b8bU));
+      std::fill(__begin, __end, _Type(0x8b8b8b8bU));
 
       const size_t __n = __end - __begin;
       const size_t __s = _M_v.size();
@@ -2669,21 +2666,21 @@ namespace std
 
       for (size_t __k = 0; __k < __m; ++__k)
 	{
-	  __Type __arg = __begin[__k % __n]
-		       ^ __begin[(__k + __p) % __n]
-		       ^ __begin[(__k - 1) % __n];
-	  __Type __r1 = __arg ^ (__arg << 27);
-	  __r1 = __detail::__mod<__Type, 1664525U, 0U,
-		   __detail::_Shift<__Type, 32>::__value>(__r1);
-	  __Type __r2 = __r1;
+	  _Type __arg = (__begin[__k % __n]
+			 ^ __begin[(__k + __p) % __n]
+			 ^ __begin[(__k - 1) % __n]);
+	  _Type __r1 = __arg ^ (__arg << 27);
+	  __r1 = __detail::__mod<_Type, 1664525U, 0U,
+		   __detail::_Shift<_Type, 32>::__value>(__r1);
+	  _Type __r2 = __r1;
 	  if (__k == 0)
 	    __r2 += __s;
 	  else if (__k <= __s)
 	    __r2 += __k % __n + _M_v[__k - 1];
 	  else
 	    __r2 += __k % __n;
-	  __r2 = __detail::__mod<__Type, 1U, 0U,
-		   __detail::_Shift<__Type, 32>::__value>(__r2);
+	  __r2 = __detail::__mod<_Type, 1U, 0U,
+		   __detail::_Shift<_Type, 32>::__value>(__r2);
 	  __begin[(__k + __p) % __n] += __r1;
 	  __begin[(__k + __q) % __n] += __r2;
 	  __begin[__k % __n] = __r2;
@@ -2691,15 +2688,15 @@ namespace std
 
       for (size_t __k = __m; __k < __m + __n; ++__k)
 	{
-	  __Type __arg = __begin[__k % __n]
-		       + __begin[(__k + __p) % __n]
-		       + __begin[(__k - 1) % __n];
-	  __Type __r3 = __arg ^ (__arg << 27);
-	  __r3 = __detail::__mod<__Type, 1566083941U, 0U,
-		   __detail::_Shift<__Type, 32>::__value>(__r3);
-	  __Type __r4 = __r3 - __k % __n;
-	  __r4 = __detail::__mod<__Type, 1U, 0U,
-		   __detail::_Shift<__Type, 32>::__value>(__r4);
+	  _Type __arg = (__begin[__k % __n]
+			 + __begin[(__k + __p) % __n]
+			 + __begin[(__k - 1) % __n]);
+	  _Type __r3 = __arg ^ (__arg << 27);
+	  __r3 = __detail::__mod<_Type, 1566083941U, 0U,
+		   __detail::_Shift<_Type, 32>::__value>(__r3);
+	  _Type __r4 = __r3 - __k % __n;
+	  __r4 = __detail::__mod<_Type, 1U, 0U,
+		   __detail::_Shift<_Type, 32>::__value>(__r4);
 	  __begin[(__k + __p) % __n] ^= __r4;
 	  __begin[(__k + __q) % __n] ^= __r3;
 	  __begin[__k % __n] = __r4;

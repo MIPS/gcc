@@ -449,9 +449,13 @@ simulate_block (basic_block block)
 	  simulate_stmt (stmt);
 	}
 
-      /* We can not predict when abnormal edges will be executed, so
+      /* We can not predict when abnormal and EH edges will be executed, so
 	 once a block is considered executable, we consider any
 	 outgoing abnormal edges as executable.
+
+	 TODO: This is not exactly true.  Simplifying statement might
+	 prove it non-throwing and also computed goto can be handled
+	 when destination is known.
 
 	 At the same time, if this block has only one successor that is
 	 reached by non-abnormal edges, then add that successor to the
@@ -460,7 +464,7 @@ simulate_block (basic_block block)
       normal_edge = NULL;
       FOR_EACH_EDGE (e, ei, block->succs)
 	{
-	  if (e->flags & EDGE_ABNORMAL)
+	  if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
 	    add_control_edge (e);
 	  else
 	    {
@@ -483,7 +487,6 @@ ssa_prop_init (void)
   edge e;
   edge_iterator ei;
   basic_block bb;
-  size_t i;
 
   /* Worklists of SSA edges.  */
   interesting_ssa_edges = VEC_alloc (gimple, gc, 20);
@@ -500,11 +503,6 @@ ssa_prop_init (void)
 
   cfg_blocks = VEC_alloc (basic_block, heap, 20);
   VEC_safe_grow (basic_block, heap, cfg_blocks, 20);
-
-  /* Initialize the values for every SSA_NAME.  */
-  for (i = 1; i < num_ssa_names; i++)
-    if (ssa_name (i))
-      SSA_NAME_VALUE (ssa_name (i)) = NULL_TREE;
 
   /* Initially assume that every edge in the CFG is not executable.
      (including the edges coming out of ENTRY_BLOCK_PTR).  */
@@ -825,36 +823,6 @@ ssa_propagate (ssa_prop_visit_stmt_fn visit_stmt,
     }
 
   ssa_prop_fini ();
-}
-
-
-/* Return true if STMT is of the form 'LHS = mem_ref', where 'mem_ref'
-   is a non-volatile pointer dereference, a structure reference or a
-   reference to a single _DECL.  Ignore volatile memory references
-   because they are not interesting for the optimizers.  */
-
-bool
-stmt_makes_single_load (gimple stmt)
-{
-  tree rhs;
-
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
-    return false;
-
-  /* Only a GIMPLE_SINGLE_RHS assignment may have a
-     declaration or reference as its RHS.  */
-  if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
-      != GIMPLE_SINGLE_RHS)
-    return false;
-
-  if (!gimple_vuse (stmt))
-    return false;
-
-  rhs = gimple_assign_rhs1 (stmt);
-
-  return (!TREE_THIS_VOLATILE (rhs)
-	  && (DECL_P (rhs)
-	      || REFERENCE_CLASS_P (rhs)));
 }
 
 

@@ -54,7 +54,7 @@ typedef int (*tree_fn_t) (tree, void*);
 /* The PENDING_TEMPLATES is a TREE_LIST of templates whose
    instantiations have been deferred, either because their definitions
    were not yet available, or because we were putting off doing the work.  */
-struct pending_template GTY (()) {
+struct GTY (()) pending_template {
   struct pending_template *next;
   struct tinst_level *tinst;
 };
@@ -6325,6 +6325,7 @@ uses_template_parms (tree t)
 	   || TREE_CODE (t) == BASELINK
 	   || TREE_CODE (t) == IDENTIFIER_NODE
 	   || TREE_CODE (t) == TRAIT_EXPR
+	   || TREE_CODE (t) == CONSTRUCTOR
 	   || CONSTANT_CLASS_P (t))
     dependent_p = (type_dependent_expression_p (t)
 		   || value_dependent_expression_p (t));
@@ -9181,6 +9182,14 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 	max = tsubst_expr (omax, args, complain, in_decl,
 			   /*integral_constant_expression_p=*/false);
+
+	/* Fix up type of the magic NOP_EXPR with TREE_SIDE_EFFECTS if
+	   needed.  */
+	if (TREE_CODE (max) == NOP_EXPR
+	    && TREE_SIDE_EFFECTS (omax)
+	    && !TREE_TYPE (max))
+	  TREE_TYPE (max) = TREE_TYPE (TREE_OPERAND (max, 0));
+
 	max = fold_decl_constant_value (max);
 
 	/* If we're in a partial instantiation, preserve the magic NOP_EXPR
@@ -9921,16 +9930,29 @@ tsubst_qualified_id (tree qualified_id, tree args,
     expr = name;
 
   if (dependent_type_p (scope))
-    return build_qualified_name (/*type=*/NULL_TREE,
-				 scope, expr,
-				 QUALIFIED_NAME_IS_TEMPLATE (qualified_id));
+    {
+      tree type = NULL_TREE;
+      if (DECL_P (expr) && !dependent_scope_p (scope))
+	type = TREE_TYPE (expr);
+      return build_qualified_name (type, scope, expr,
+				   QUALIFIED_NAME_IS_TEMPLATE (qualified_id));
+    }
 
   if (!BASELINK_P (name) && !DECL_P (expr))
     {
       if (TREE_CODE (expr) == BIT_NOT_EXPR)
-	/* If this were actually a destructor call, it would have been
-	   parsed as such by the parser.  */
-	expr = error_mark_node;
+	{
+	  /* A BIT_NOT_EXPR is used to represent a destructor.  */
+	  if (!check_dtor_name (scope, TREE_OPERAND (expr, 0)))
+	    {
+	      error ("qualifying type %qT does not match destructor name ~%qT",
+		     scope, TREE_OPERAND (expr, 0));
+	      expr = error_mark_node;
+	    }
+	  else
+	    expr = lookup_qualified_name (scope, complete_dtor_identifier,
+					  /*is_type_p=*/0, false);
+	}
       else
 	expr = lookup_qualified_name (scope, expr, /*is_type_p=*/0, false);
       if (TREE_CODE (TREE_CODE (expr) == TEMPLATE_DECL
@@ -10011,11 +10033,15 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
       if (r == NULL)
 	{
+	  tree c;
 	  /* This can happen for a parameter name used later in a function
 	     declaration (such as in a late-specified return type).  Just
 	     make a dummy decl, since it's only used for its type.  */
 	  gcc_assert (skip_evaluation);	  
-	  r = tsubst_decl (t, args, complain);
+	  /* We copy T because want to tsubst the PARM_DECL only,
+	     not the following PARM_DECLs that are chained to T.  */
+	  c = copy_node (t);
+	  r = tsubst_decl (c, args, complain);
 	  /* Give it the template pattern as its context; its true context
 	     hasn't been instantiated yet and this is good enough for
 	     mangling.  */
@@ -10773,7 +10799,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 			  init = t;
 		      }
 
-		    finish_decl (decl, init, NULL_TREE);
+		    finish_decl (decl, init, NULL_TREE, NULL_TREE);
 		  }
 	      }
 	  }
@@ -13130,7 +13156,9 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
                        match.  */
 
                     if (resolve_overloaded_unification
-                        (tparms, targs, parm, arg, strict, sub_strict)
+                        (tparms, targs, parm, arg,
+			 (unification_kind_t) strict,
+			 sub_strict)
                         != 0)
                       return 1;
                     skip_arg_p = true;
@@ -13149,8 +13177,8 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
 
             if (!subr)
               arg_strict |= 
-                maybe_adjust_types_for_deduction (strict, &parm, &arg, 
-						  arg_expr);
+                maybe_adjust_types_for_deduction ((unification_kind_t) strict,
+						  &parm, &arg, arg_expr);
           }
 
         if (!skip_arg_p)
@@ -13576,6 +13604,13 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	 against it unless PARM is also a parameter pack.  */
       if ((template_parameter_pack_p (arg) || PACK_EXPANSION_P (arg))
 	  && !template_parameter_pack_p (parm))
+	return 1;
+
+      /* If the argument deduction results is a METHOD_TYPE,
+         then there is a problem.
+         METHOD_TYPE doesn't map to any real C++ type the result of
+	 the deduction can not be of that type.  */
+      if (TREE_CODE (arg) == METHOD_TYPE)
 	return 1;
 
       TREE_VEC_ELT (INNERMOST_TEMPLATE_ARGS (targs), idx) = arg;
@@ -15574,7 +15609,7 @@ instantiate_decl (tree d, int defer_ok,
 
       /* Enter the scope of D so that access-checking works correctly.  */
       push_nested_class (DECL_CONTEXT (d));
-      finish_decl (d, init, NULL_TREE);
+      finish_decl (d, init, NULL_TREE, NULL_TREE);
       pop_nested_class ();
     }
   else if (TREE_CODE (d) == FUNCTION_DECL)

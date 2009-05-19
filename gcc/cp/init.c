@@ -869,7 +869,6 @@ build_vtbl_address (tree binfo)
   /* Figure out what vtable BINFO's vtable is based on, and mark it as
      used.  */
   vtbl = get_vtbl_decl_for_binfo (binfo_for);
-  assemble_external (vtbl);
   TREE_USED (vtbl) = 1;
 
   /* Now compute the address to use when initializing the vptr.  */
@@ -1388,7 +1387,7 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags,
       /* If store_init_value returns NULL_TREE, the INIT has been
 	 recorded as the DECL_INITIAL for EXP.  That means there's
 	 nothing more we have to do.  */
-      init = store_init_value (exp, init);
+      init = store_init_value (exp, init, flags);
       if (init)
 	finish_expr_stmt (init);
       return;
@@ -2921,6 +2920,7 @@ build_vec_init (tree base, tree maxindex, tree init,
       atype = build_pointer_type (atype);
       stmt_expr = build1 (NOP_EXPR, atype, stmt_expr);
       stmt_expr = cp_build_indirect_ref (stmt_expr, NULL, complain);
+      TREE_NO_WARNING (stmt_expr) = 1;
     }
 
   current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;

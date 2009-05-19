@@ -465,7 +465,7 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t nbytes)
   /* Check whether we exceed the total record length.  */
 
   if (dtp->u.p.current_unit->flags.has_recl
-      && (nbytes > dtp->u.p.current_unit->bytes_left))
+      && ((gfc_offset) nbytes > dtp->u.p.current_unit->bytes_left))
     {
       to_read_record = dtp->u.p.current_unit->bytes_left;
       short_record = 1;
@@ -2332,7 +2332,6 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
           if (dtp->pos != dtp->u.p.current_unit->strm_pos)
             {
               fbuf_flush (dtp->u.p.current_unit, dtp->u.p.mode);
-              sflush (dtp->u.p.current_unit->s);
               if (sseek (dtp->u.p.current_unit->s, dtp->pos - 1, SEEK_SET) < 0)
                 {
                   generate_error (&dtp->common, LIBERROR_OS, NULL);
@@ -3143,11 +3142,6 @@ finalize_transfer (st_parameter_dt *dtp)
 	  && dtp->u.p.advance_status != ADVANCE_NO)
 	next_record (dtp, 1);
 
-      if (dtp->u.p.current_unit->flags.form == FORM_UNFORMATTED
-	  && stell (dtp->u.p.current_unit->s) >= dtp->rec)
-	{
-	  sflush (dtp->u.p.current_unit->s);
-	}
       return;
     }
 
@@ -3169,7 +3163,6 @@ finalize_transfer (st_parameter_dt *dtp)
       dtp->u.p.current_unit->saved_pos =
 	dtp->u.p.max_pos > 0 ? dtp->u.p.max_pos - bytes_written : 0;
       fbuf_flush (dtp->u.p.current_unit, dtp->u.p.mode);
-      sflush (dtp->u.p.current_unit->s);
       return;
     }
   else if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED 

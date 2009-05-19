@@ -619,7 +619,6 @@ static unsigned int
 tree_ssa_dominator_optimize (void)
 {
   struct dom_walk_data walk_data;
-  unsigned int i;
 
   memset (&opt_stats, 0, sizeof (opt_stats));
 
@@ -658,6 +657,9 @@ tree_ssa_dominator_optimize (void)
      headers to an exit edge, or through loop header to the loop body, assuming
      that we update the loop info.  */
   loop_optimizer_init (LOOPS_HAVE_SIMPLE_LATCHES);
+
+  /* Initialize the value-handle array.  */
+  threadedge_initialize_values ();
 
   /* We need accurate information regarding back edges in the CFG
      for jump threading; this may include back edges that are not part of
@@ -716,23 +718,6 @@ tree_ssa_dominator_optimize (void)
       bitmap_zero (need_eh_cleanup);
     }
 
-  /* Finally, remove everything except invariants in SSA_NAME_VALUE.
-
-     Long term we will be able to let everything in SSA_NAME_VALUE
-     persist.  However, for now, we know this is the safe thing to do.  */
-  for (i = 0; i < num_ssa_names; i++)
-   {
-      tree name = ssa_name (i);
-      tree value;
-
-      if (!name)
-        continue;
-
-      value = SSA_NAME_VALUE (name);
-      if (value && !is_gimple_min_invariant (value))
-	SSA_NAME_VALUE (name) = NULL;
-    }
-
   statistics_counter_event (cfun, "Redundant expressions eliminated",
 			    opt_stats.num_re);
   statistics_counter_event (cfun, "Constants propagated",
@@ -759,6 +744,10 @@ tree_ssa_dominator_optimize (void)
   VEC_free (tree, heap, const_and_copies_stack);
   VEC_free (gimple_p, heap, stmts_to_rescan);
   
+  /* Free the value-handle array.  */
+  threadedge_finalize_values ();
+  ssa_name_values = NULL;
+
   return 0;
 }
 
@@ -779,7 +768,7 @@ struct gimple_opt_pass pass_dominator =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_SSA_DOMINATOR_OPTS,		/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
@@ -912,7 +901,7 @@ restore_vars_to_original_value (void)
 	}
 
       prev_value = VEC_pop (tree, const_and_copies_stack);
-      SSA_NAME_VALUE (dest) =  prev_value;
+      set_ssa_name_value (dest, prev_value);
     }
 }
 
@@ -1124,7 +1113,7 @@ record_equivalences_from_phis (basic_block bb)
 	 inferred from a comparison.  All uses of this ssa name are dominated
 	 by this assignment, so unwinding just costs time and space.  */
       if (i == gimple_phi_num_args (phi) && may_propagate_copy (lhs, rhs))
-	SSA_NAME_VALUE (lhs) = rhs;
+	set_ssa_name_value (lhs, rhs);
     }
 }
 
@@ -1437,7 +1426,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 static void
 record_const_or_copy_1 (tree x, tree y, tree prev_x)
 {
-  SSA_NAME_VALUE (x) = y;
+  set_ssa_name_value (x, y);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1915,26 +1904,6 @@ eliminate_redundant_computations (gimple_stmt_iterator* gsi)
   return retval;
 }
 
-/* Return true if statement GS is an assignment that peforms a useless
-   type conversion.  It is is intended to be a tuples analog of function
-   tree_ssa_useless_type_conversion.  */
-
-static bool
-gimple_assign_unary_useless_conversion_p (gimple gs)
-{
-  if (is_gimple_assign (gs)
-      && (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (gs))
-          || gimple_assign_rhs_code (gs) == VIEW_CONVERT_EXPR
-          || gimple_assign_rhs_code (gs) == NON_LVALUE_EXPR))
-    {
-      tree lhs_type = TREE_TYPE (gimple_assign_lhs (gs));
-      tree rhs_type = TREE_TYPE (gimple_assign_rhs1 (gs));
-      return useless_type_conversion_p (lhs_type, rhs_type);
-    }
-  
-  return false;
-}
-
 /* STMT, a GIMPLE_ASSIGN, may create certain equivalences, in either
    the available expressions table or the const_and_copies table.
    Detect and record those equivalences.  */
@@ -1953,14 +1922,10 @@ record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
   lhs_code = TREE_CODE (lhs);
 
   if (lhs_code == SSA_NAME
-      && (gimple_assign_single_p (stmt)
-          || gimple_assign_unary_useless_conversion_p (stmt)))
+      && gimple_assign_single_p (stmt))
     {
       tree rhs = gimple_assign_rhs1 (stmt);
                
-      /* Strip away any useless type conversions.  */
-      STRIP_USELESS_TYPE_CONVERSION (rhs);
-
       /* If the RHS of the assignment is a constant or another variable that
 	 may be propagated, register it in the CONST_AND_COPIES table.  We
 	 do not need to record unwind data for this, since this is a true
@@ -1980,7 +1945,7 @@ record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
 	    fprintf (dump_file, "\n");
 	  }
 
-	SSA_NAME_VALUE (lhs) = rhs;
+	set_ssa_name_value (lhs, rhs);
       }
     }
 
@@ -2958,7 +2923,7 @@ struct gimple_opt_pass pass_phi_only_cprop =
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   TV_TREE_PHI_CPROP,                    /* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,     /* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,                                    /* properties_provided */
   0,		                        /* properties_destroyed */
   0,                                    /* todo_flags_start */

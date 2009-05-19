@@ -108,8 +108,7 @@ static tree finalize_nrv_r (tree *, int *, void *);
       In case of parsing error, we simply call `pop_deferring_access_checks'
       without `perform_deferred_access_checks'.  */
 
-typedef struct deferred_access GTY(())
-{
+typedef struct GTY(()) deferred_access {
   /* A VEC representing name-lookups for which we have deferred
      checking access controls.  We cannot check the accessibility of
      names used in a decl-specifier-seq until we know what is being
@@ -1665,11 +1664,10 @@ finish_qualified_id_expr (tree qualifying_class,
       fns = BASELINK_FUNCTIONS (expr);
       if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
 	fns = TREE_OPERAND (fns, 0);
-      /* If so, the expression may be relative to the current
-	 class.  */
+      /* If so, the expression may be relative to 'this'.  */
       if (!shared_member_p (fns)
-	  && current_class_type
-	  && DERIVED_FROM_P (qualifying_class, current_class_type))
+	  && current_class_ref
+	  && DERIVED_FROM_P (qualifying_class, TREE_TYPE (current_class_ref)))
 	expr = (build_class_member_access_expr
 		(maybe_dummy_object (qualifying_class, NULL),
 		 expr,
@@ -1987,7 +1985,15 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
       if (TREE_CODE (fn) == FUNCTION_DECL
 	  && (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL
 	      || DECL_BUILT_IN_CLASS (fn) == BUILT_IN_MD))
-	result = resolve_overloaded_builtin (fn, args);
+	{
+	  VEC(tree,gc)* vec = VEC_alloc (tree, gc, list_length (args));
+	  tree p;
+
+	  for (p = args; p != NULL_TREE; p = TREE_CHAIN (p))
+	    VEC_quick_push (tree, vec, TREE_VALUE (p));
+	  result = resolve_overloaded_builtin (fn, vec);
+	  VEC_free (tree, gc, vec);
+	}
 
       if (!result)
 	/* A call to a namespace-scope function.  */
@@ -2864,16 +2870,16 @@ finish_id_expression (tree id_expression,
 						     done, address_p,
 						     template_p,
 						     template_arg_p);
-		  else if (dependent_scope_p (scope))
-		    decl = build_qualified_name (/*type=*/NULL_TREE,
-						 scope,
-						 id_expression,
-						 template_p);
-		  else if (DECL_P (decl))
-		    decl = build_qualified_name (TREE_TYPE (decl),
-						 scope,
-						 id_expression,
-						 template_p);
+		  else
+		    {
+		      tree type = NULL_TREE;
+		      if (DECL_P (decl) && !dependent_scope_p (scope))
+			type = TREE_TYPE (decl);
+		      decl = build_qualified_name (type,
+						   scope,
+						   id_expression,
+						   template_p);
+		    }
 		}
 	      if (TREE_TYPE (decl))
 		decl = convert_from_reference (decl);
@@ -3031,7 +3037,7 @@ finish_id_expression (tree id_expression,
     }
 
   if (TREE_DEPRECATED (decl))
-    warn_deprecated_use (decl);
+    warn_deprecated_use (decl, NULL_TREE);
 
   return decl;
 }
@@ -3641,7 +3647,7 @@ finish_omp_clauses (tree clauses)
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
-      enum tree_code c_kind = OMP_CLAUSE_CODE (c);
+      enum omp_clause_code c_kind = OMP_CLAUSE_CODE (c);
       bool remove = false;
       bool need_complete_non_reference = false;
       bool need_default_ctor = false;
@@ -4121,7 +4127,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   cond = cp_build_binary_op (elocus,
 			     TREE_CODE (cond), decl, diff,
 			     tf_warning_or_error);
-  incr = build_modify_expr (elocus, decl, PLUS_EXPR, incr);
+  incr = build_modify_expr (elocus, decl, NULL_TREE, PLUS_EXPR,
+			    incr, NULL_TREE);
 
   orig_body = *body;
   *body = push_stmt_list ();
@@ -5040,6 +5047,25 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 
   return (trait_expr_value (kind, type1, type2)
 	  ? boolean_true_node : boolean_false_node);
+}
+
+/* Do-nothing variants of functions to handle pragma FLOAT_CONST_DECIMAL64,
+   which is ignored for C++.  */
+
+void
+set_float_const_decimal64 (void)
+{
+}
+
+void
+clear_float_const_decimal64 (void)
+{
+}
+
+bool
+float_const_decimal64_p (void)
+{
+  return 0;
 }
 
 #include "gt-cp-semantics.h"

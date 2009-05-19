@@ -241,7 +241,7 @@ static const char *const mips_fp_conditions[] = {
 };
 
 /* Information about a function's frame layout.  */
-struct mips_frame_info GTY(()) {
+struct GTY(())  mips_frame_info {
   /* The size of the frame in bytes.  */
   HOST_WIDE_INT total_size;
 
@@ -285,14 +285,14 @@ struct mips_frame_info GTY(()) {
   HOST_WIDE_INT acc_sp_offset;
   HOST_WIDE_INT cop0_sp_offset;
 
-  /* The offset of arg_pointer_rtx from frame_pointer_rtx.  */
+  /* The offset of arg_pointer_rtx from the bottom of the frame.  */
   HOST_WIDE_INT arg_pointer_offset;
 
-  /* The offset of hard_frame_pointer_rtx from frame_pointer_rtx.  */
+  /* The offset of hard_frame_pointer_rtx from the bottom of the frame.  */
   HOST_WIDE_INT hard_frame_pointer_offset;
 };
 
-struct machine_function GTY(()) {
+struct GTY(())  machine_function {
   /* The register returned by mips16_gp_pseudo_reg; see there for details.  */
   rtx mips16_gp_pseudo_rtx;
 
@@ -447,9 +447,6 @@ static int set_noat;
 /* True if we're writing out a branch-likely instruction rather than a
    normal branch.  */
 static bool mips_branch_likely;
-
-/* The operands passed to the last cmpMM expander.  */
-rtx cmp_operands[2];
 
 /* The current instruction-set architecture.  */
 enum processor_type mips_arch;
@@ -1094,13 +1091,7 @@ static const struct mips_rtx_cost_data mips_rtx_cost_data[PROCESSOR_MAX] = {
     DEFAULT_COSTS
   },
   { /* XLR */
-    /* Need to replace first five with the costs of calling the appropriate 
-       libgcc routine.  */
-    COSTS_N_INSNS (256),          /* fp_add */
-    COSTS_N_INSNS (256),          /* fp_mult_sf */
-    COSTS_N_INSNS (256),          /* fp_mult_df */
-    COSTS_N_INSNS (256),          /* fp_div_sf */
-    COSTS_N_INSNS (256),          /* fp_div_df */
+    SOFT_FP_COSTS,
     COSTS_N_INSNS (8),            /* int_mult_si */
     COSTS_N_INSNS (8),            /* int_mult_di */
     COSTS_N_INSNS (72),           /* int_div_si */
@@ -1112,7 +1103,7 @@ static const struct mips_rtx_cost_data mips_rtx_cost_data[PROCESSOR_MAX] = {
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
-struct mflip_mips16_entry GTY (()) {
+struct GTY (())  mflip_mips16_entry {
   const char *name;
   bool mips16_p;
 };
@@ -1298,9 +1289,9 @@ mips_insert_attributes (tree decl, tree *attributes)
 	{
 	  /* DECL cannot be simultaneously "mips16" and "nomips16".  */
 	  if (mips16_p && nomips16_p)
-	    error ("%qs cannot have both %<mips16%> and "
+	    error ("%qE cannot have both %<mips16%> and "
 		   "%<nomips16%> attributes",
-		   IDENTIFIER_POINTER (DECL_NAME (decl)));
+		   DECL_NAME (decl));
 	}
       else if (TARGET_FLIP_MIPS16 && !DECL_ARTIFICIAL (decl))
 	{
@@ -1320,11 +1311,11 @@ mips_merge_decl_attributes (tree olddecl, tree newdecl)
 {
   /* The decls' "mips16" and "nomips16" attributes must match exactly.  */
   if (mips_mips16_decl_p (olddecl) != mips_mips16_decl_p (newdecl))
-    error ("%qs redeclared with conflicting %qs attributes",
-	   IDENTIFIER_POINTER (DECL_NAME (newdecl)), "mips16");
+    error ("%qE redeclared with conflicting %qs attributes",
+	   DECL_NAME (newdecl), "mips16");
   if (mips_nomips16_decl_p (olddecl) != mips_nomips16_decl_p (newdecl))
-    error ("%qs redeclared with conflicting %qs attributes",
-	   IDENTIFIER_POINTER (DECL_NAME (newdecl)), "nomips16");
+    error ("%qE redeclared with conflicting %qs attributes",
+	   DECL_NAME (newdecl), "nomips16");
 
   return merge_attributes (DECL_ATTRIBUTES (olddecl),
 			   DECL_ATTRIBUTES (newdecl));
@@ -2125,10 +2116,9 @@ mips_classify_address (struct mips_address_info *info, rtx x,
     }
 }
 
-/* Return true if X is a legitimate address for a memory operand of mode
-   MODE.  STRICT_P is true if REG_OK_STRICT is in effect.  */
+/* Implement TARGET_LEGITIMATE_ADDRESS_P.  */
 
-bool
+static bool
 mips_legitimate_address_p (enum machine_mode mode, rtx x, bool strict_p)
 {
   struct mips_address_info addr;
@@ -2150,7 +2140,7 @@ mips_stack_address_p (rtx x, enum machine_mode mode)
 
 /* Return true if ADDR matches the pattern for the LWXS load scaled indexed
    address instruction.  Note that such addresses are not considered
-   legitimate in the GO_IF_LEGITIMATE_ADDRESS sense, because their use
+   legitimate in the TARGET_LEGITIMATE_ADDRESS_P sense, because their use
    is so restricted.  */
 
 static bool
@@ -2709,8 +2699,10 @@ mips_add_offset (rtx temp, rtx reg, HOST_WIDE_INT offset)
 	}
       else
 	{
-	  /* Leave OFFSET as a 16-bit offset and put the excess in HIGH.  */
-	  high = GEN_INT (CONST_HIGH_PART (offset));
+	  /* Leave OFFSET as a 16-bit offset and put the excess in HIGH.
+	     The addition inside the macro CONST_HIGH_PART may cause an
+	     overflow, so we need to force a sign-extension check.  */
+	  high = gen_int_mode (CONST_HIGH_PART (offset), Pmode);
 	  offset = CONST_LOW_PART (offset);
 	}
       high = mips_force_temporary (temp, high);
@@ -2852,41 +2844,36 @@ mips_force_address (rtx x, enum machine_mode mode)
   return x;
 }
 
-/* This function is used to implement LEGITIMIZE_ADDRESS.  If *XLOC can
+/* This function is used to implement LEGITIMIZE_ADDRESS.  If X can
    be legitimized in a way that the generic machinery might not expect,
-   put the new address in *XLOC and return true.  MODE is the mode of
+   return a new address, otherwise return NULL.  MODE is the mode of
    the memory being accessed.  */
 
-bool
-mips_legitimize_address (rtx *xloc, enum machine_mode mode)
+static rtx
+mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
+			 enum machine_mode mode)
 {
   rtx base, addr;
   HOST_WIDE_INT offset;
 
-  if (mips_tls_symbol_p (*xloc))
-    {
-      *xloc = mips_legitimize_tls_address (*xloc);
-      return true;
-    }
+  if (mips_tls_symbol_p (x))
+    return mips_legitimize_tls_address (x);
 
   /* See if the address can split into a high part and a LO_SUM.  */
-  if (mips_split_symbol (NULL, *xloc, mode, &addr))
-    {
-      *xloc = mips_force_address (addr, mode);
-      return true;
-    }
+  if (mips_split_symbol (NULL, x, mode, &addr))
+    return mips_force_address (addr, mode);
 
   /* Handle BASE + OFFSET using mips_add_offset.  */
-  mips_split_plus (*xloc, &base, &offset);
+  mips_split_plus (x, &base, &offset);
   if (offset != 0)
     {
       if (!mips_valid_base_register_p (base, mode, false))
 	base = copy_to_mode_reg (Pmode, base);
       addr = mips_add_offset (NULL, base, offset);
-      *xloc = mips_force_address (addr, mode);
-      return true;
+      return mips_force_address (addr, mode);
     }
-  return false;
+
+  return x;
 }
 
 /* Load VALUE into DEST.  TEMP is as for mips_force_temporary.  */
@@ -3318,7 +3305,7 @@ mips_binary_cost (rtx x, int single_cost, int double_cost)
   else
     cost = single_cost;
   return (cost
-	  + rtx_cost (XEXP (x, 0), 0, !optimize_size)
+	  + rtx_cost (XEXP (x, 0), SET, !optimize_size)
 	  + rtx_cost (XEXP (x, 1), GET_CODE (x), !optimize_size));
 }
 
@@ -3537,7 +3524,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  && UINTVAL (XEXP (x, 1)) == 0xffffffff)
 	{
 	  *total = (mips_zero_extend_cost (mode, XEXP (x, 0))
-		    + rtx_cost (XEXP (x, 0), 0, speed));
+		    + rtx_cost (XEXP (x, 0), SET, speed));
 	  return true;
 	}
       /* Fall through.  */
@@ -3569,7 +3556,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
     case LO_SUM:
       /* Low-part immediates need an extended MIPS16 instruction.  */
       *total = (COSTS_N_INSNS (TARGET_MIPS16 ? 2 : 1)
-		+ rtx_cost (XEXP (x, 0), 0, speed));
+		+ rtx_cost (XEXP (x, 0), SET, speed));
       return true;
 
     case LT:
@@ -3609,17 +3596,17 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  if (GET_CODE (op0) == MULT && GET_CODE (XEXP (op0, 0)) == NEG)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (XEXP (XEXP (op0, 0), 0), 0, speed)
-			+ rtx_cost (XEXP (op0, 1), 0, speed)
-			+ rtx_cost (op1, 0, speed));
+			+ rtx_cost (XEXP (XEXP (op0, 0), 0), SET, speed)
+			+ rtx_cost (XEXP (op0, 1), SET, speed)
+			+ rtx_cost (op1, SET, speed));
 	      return true;
 	    }
 	  if (GET_CODE (op1) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (op0, 0, speed)
-			+ rtx_cost (XEXP (op1, 0), 0, speed)
-			+ rtx_cost (XEXP (op1, 1), 0, speed));
+			+ rtx_cost (op0, SET, speed)
+			+ rtx_cost (XEXP (op1, 0), SET, speed)
+			+ rtx_cost (XEXP (op1, 1), SET, speed));
 	      return true;
 	    }
 	}
@@ -3660,9 +3647,9 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	      && GET_CODE (XEXP (op, 0)) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (XEXP (XEXP (op, 0), 0), 0, speed)
-			+ rtx_cost (XEXP (XEXP (op, 0), 1), 0, speed)
-			+ rtx_cost (XEXP (op, 1), 0, speed));
+			+ rtx_cost (XEXP (XEXP (op, 0), 0), SET, speed)
+			+ rtx_cost (XEXP (XEXP (op, 0), 1), SET, speed)
+			+ rtx_cost (XEXP (op, 1), SET, speed));
 	      return true;
 	    }
 	}
@@ -3700,9 +3687,10 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  if (outer_code == SQRT || GET_CODE (XEXP (x, 1)) == SQRT)
 	    /* An rsqrt<mode>a or rsqrt<mode>b pattern.  Count the
 	       division as being free.  */
-	    *total = rtx_cost (XEXP (x, 1), 0, speed);
+	    *total = rtx_cost (XEXP (x, 1), SET, speed);
 	  else
-	    *total = mips_fp_div_cost (mode) + rtx_cost (XEXP (x, 1), 0, speed);
+	    *total = (mips_fp_div_cost (mode)
+		      + rtx_cost (XEXP (x, 1), SET, speed));
 	  return true;
 	}
       /* Fall through.  */
@@ -3730,7 +3718,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total,
 	      && CONST_INT_P (XEXP (x, 1))
 	      && exact_log2 (INTVAL (XEXP (x, 1))) >= 0)
 	    {
-	      *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), 0, speed);
+	      *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), SET, speed);
 	      return true;
 	    }
 	  *total = COSTS_N_INSNS (mips_idiv_insns ());
@@ -4229,8 +4217,8 @@ mips_reversed_fp_cond (enum rtx_code *code)
 }
 
 /* Convert a comparison into something that can be used in a branch or
-   conditional move.  cmp_operands[0] and cmp_operands[1] are the values
-   being compared and *CODE is the code used to compare them.
+   conditional move.  On entry, *OP0 and *OP1 are the values being
+   compared and *CODE is the code used to compare them.
 
    Update *CODE, *OP0 and *OP1 so that they describe the final comparison.
    If NEED_EQ_NE_P, then only EQ or NE comparisons against zero are possible,
@@ -4243,42 +4231,38 @@ mips_reversed_fp_cond (enum rtx_code *code)
 static void
 mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 {
-  if (GET_MODE_CLASS (GET_MODE (cmp_operands[0])) == MODE_INT)
+  rtx cmp_op0 = *op0;
+  rtx cmp_op1 = *op1;
+
+  if (GET_MODE_CLASS (GET_MODE (*op0)) == MODE_INT)
     {
-      if (!need_eq_ne_p && cmp_operands[1] == const0_rtx)
-	{
-	  *op0 = cmp_operands[0];
-	  *op1 = cmp_operands[1];
-	}
+      if (!need_eq_ne_p && *op1 == const0_rtx)
+	;
       else if (*code == EQ || *code == NE)
 	{
 	  if (need_eq_ne_p)
 	    {
-	      *op0 = mips_zero_if_equal (cmp_operands[0], cmp_operands[1]);
+	      *op0 = mips_zero_if_equal (cmp_op0, cmp_op1);
 	      *op1 = const0_rtx;
 	    }
 	  else
-	    {
-	      *op0 = cmp_operands[0];
-	      *op1 = force_reg (GET_MODE (*op0), cmp_operands[1]);
-	    }
+	    *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
 	}
       else
 	{
 	  /* The comparison needs a separate scc instruction.  Store the
 	     result of the scc in *OP0 and compare it against zero.  */
 	  bool invert = false;
-	  *op0 = gen_reg_rtx (GET_MODE (cmp_operands[0]));
-	  mips_emit_int_order_test (*code, &invert, *op0,
-				    cmp_operands[0], cmp_operands[1]);
+	  *op0 = gen_reg_rtx (GET_MODE (cmp_op0));
+	  mips_emit_int_order_test (*code, &invert, *op0, cmp_op0, cmp_op1);
 	  *code = (invert ? EQ : NE);
 	  *op1 = const0_rtx;
 	}
     }
-  else if (ALL_FIXED_POINT_MODE_P (GET_MODE (cmp_operands[0])))
+  else if (ALL_FIXED_POINT_MODE_P (GET_MODE (cmp_op0)))
     {
       *op0 = gen_rtx_REG (CCDSPmode, CCDSP_CC_REGNUM);
-      mips_emit_binary (*code, *op0, cmp_operands[0], cmp_operands[1]);
+      mips_emit_binary (*code, *op0, cmp_op0, cmp_op1);
       *code = NE;
       *op1 = const0_rtx;
     }
@@ -4298,49 +4282,55 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	      ? gen_reg_rtx (CCmode)
 	      : gen_rtx_REG (CCmode, FPSW_REGNUM));
       *op1 = const0_rtx;
-      mips_emit_binary (cmp_code, *op0, cmp_operands[0], cmp_operands[1]);
+      mips_emit_binary (cmp_code, *op0, cmp_op0, cmp_op1);
     }
 }
 
-/* Try comparing cmp_operands[0] and cmp_operands[1] using rtl code CODE.
-   Store the result in TARGET and return true if successful.
+/* Try performing the comparison in OPERANDS[1], whose arms are OPERANDS[2]
+   and OPERAND[3].  Store the result in OPERANDS[0].
 
-   On 64-bit targets, TARGET may be narrower than cmp_operands[0].  */
+   On 64-bit targets, the mode of the comparison and target will always be
+   SImode, thus possibly narrower than that of the comparison's operands.  */
 
-bool
-mips_expand_scc (enum rtx_code code, rtx target)
+void
+mips_expand_scc (rtx operands[])
 {
-  if (GET_MODE_CLASS (GET_MODE (cmp_operands[0])) != MODE_INT)
-    return false;
+  rtx target = operands[0];
+  enum rtx_code code = GET_CODE (operands[1]);
+  rtx op0 = operands[2];
+  rtx op1 = operands[3];
+
+  gcc_assert (GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT);
 
   if (code == EQ || code == NE)
     {
       if (ISA_HAS_SEQ_SNE
-	  && reg_imm10_operand (cmp_operands[1], GET_MODE (cmp_operands[1])))
-	mips_emit_binary (code, target, cmp_operands[0], cmp_operands[1]);
+	  && reg_imm10_operand (op1, GET_MODE (op1)))
+	mips_emit_binary (code, target, op0, op1);
       else
 	{
-	  rtx zie = mips_zero_if_equal (cmp_operands[0], cmp_operands[1]);
+	  rtx zie = mips_zero_if_equal (op0, op1);
 	  mips_emit_binary (code, target, zie, const0_rtx);
 	}
     }
   else
-    mips_emit_int_order_test (code, 0, target,
-			      cmp_operands[0], cmp_operands[1]);
-  return true;
+    mips_emit_int_order_test (code, 0, target, op0, op1);
 }
 
-/* Compare cmp_operands[0] with cmp_operands[1] using comparison code
-   CODE and jump to OPERANDS[0] if the condition holds.  */
+/* Compare OPERANDS[1] with OPERANDS[2] using comparison code
+   CODE and jump to OPERANDS[3] if the condition holds.  */
 
 void
-mips_expand_conditional_branch (rtx *operands, enum rtx_code code)
+mips_expand_conditional_branch (rtx *operands)
 {
-  rtx op0, op1, condition;
+  enum rtx_code code = GET_CODE (operands[0]);
+  rtx op0 = operands[1];
+  rtx op1 = operands[2];
+  rtx condition;
 
   mips_emit_compare (&code, &op0, &op1, TARGET_MIPS16);
   condition = gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
-  emit_jump_insn (gen_condjump (condition, operands[0]));
+  emit_jump_insn (gen_condjump (condition, operands[3]));
 }
 
 /* Implement:
@@ -4367,35 +4357,36 @@ mips_expand_vcondv2sf (rtx dest, rtx true_src, rtx false_src,
 					 cmp_result));
 }
 
-/* Compare cmp_operands[0] with cmp_operands[1] using the code of
-   OPERANDS[1].  Move OPERANDS[2] into OPERANDS[0] if the condition
-   holds, otherwise move OPERANDS[3] into OPERANDS[0].  */
+/* Perform the comparison in OPERANDS[1].  Move OPERANDS[2] into OPERANDS[0]
+   if the condition holds, otherwise move OPERANDS[3] into OPERANDS[0].  */
 
 void
 mips_expand_conditional_move (rtx *operands)
 {
-  enum rtx_code code;
-  rtx cond, op0, op1;
+  rtx cond;
+  enum rtx_code code = GET_CODE (operands[1]);
+  rtx op0 = XEXP (operands[1], 0);
+  rtx op1 = XEXP (operands[1], 1);
 
-  code = GET_CODE (operands[1]);
   mips_emit_compare (&code, &op0, &op1, true);
-  cond = gen_rtx_fmt_ee (code, GET_MODE (op0), op0, op1),
+  cond = gen_rtx_fmt_ee (code, GET_MODE (op0), op0, op1);
   emit_insn (gen_rtx_SET (VOIDmode, operands[0],
 			  gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
 						operands[2], operands[3])));
 }
 
-/* Compare cmp_operands[0] with cmp_operands[1] using rtl code CODE,
-   then trap if the condition holds.  */
+/* Perform the comparison in COMPARISON, then trap if the condition holds.  */
 
 void
-mips_expand_conditional_trap (enum rtx_code code)
+mips_expand_conditional_trap (rtx comparison)
 {
   rtx op0, op1;
   enum machine_mode mode;
+  enum rtx_code code;
 
   /* MIPS conditional trap instructions don't have GT or LE flavors,
      so we must swap the operands and convert to LT and GE respectively.  */
+  code = GET_CODE (comparison);
   switch (code)
     {
     case GT:
@@ -4403,17 +4394,17 @@ mips_expand_conditional_trap (enum rtx_code code)
     case GTU:
     case LEU:
       code = swap_condition (code);
-      op0 = cmp_operands[1];
-      op1 = cmp_operands[0];
+      op0 = XEXP (comparison, 1);
+      op1 = XEXP (comparison, 0);
       break;
 
     default:
-      op0 = cmp_operands[0];
-      op1 = cmp_operands[1];
+      op0 = XEXP (comparison, 0);
+      op1 = XEXP (comparison, 1);
       break;
     }
 
-  mode = GET_MODE (cmp_operands[0]);
+  mode = GET_MODE (XEXP (comparison, 0));
   op0 = force_reg (mode, op0);
   if (!arith_operand (op1, mode))
     op1 = force_reg (mode, op1);
@@ -5545,7 +5536,7 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
 /* Each locally-defined hard-float MIPS16 function has a local symbol
    associated with it.  This hash table maps the function symbol (FUNC)
    to the local symbol (LOCAL). */
-struct mips16_local_alias GTY(()) {
+struct GTY(()) mips16_local_alias {
   rtx func;
   rtx local;
 };
@@ -6404,7 +6395,7 @@ static void
 mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 		      HOST_WIDE_INT bytes_per_iter)
 {
-  rtx label, src_reg, dest_reg, final_src;
+  rtx label, src_reg, dest_reg, final_src, test;
   HOST_WIDE_INT leftover;
 
   leftover = length % bytes_per_iter;
@@ -6431,11 +6422,11 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   mips_emit_move (dest_reg, plus_constant (dest_reg, bytes_per_iter));
 
   /* Emit the loop condition.  */
+  test = gen_rtx_NE (VOIDmode, src_reg, final_src);
   if (Pmode == DImode)
-    emit_insn (gen_cmpdi (src_reg, final_src));
+    emit_jump_insn (gen_cbranchdi4 (test, src_reg, final_src, label));
   else
-    emit_insn (gen_cmpsi (src_reg, final_src));
-  emit_jump_insn (gen_bne (label));
+    emit_jump_insn (gen_cbranchsi4 (test, src_reg, final_src, label));
 
   /* Mop up any left-over bytes.  */
   if (leftover)
@@ -7300,6 +7291,8 @@ mips_print_operand (FILE *file, rtx op, int letter)
 		|| (letter == 'L' && TARGET_BIG_ENDIAN)
 		|| letter == 'D')
 	      regno++;
+	    else if (letter && letter != 'z' && letter != 'M' && letter != 'L')
+	      output_operand_lossage ("invalid use of '%%%c'", letter);
 	    /* We need to print $0 .. $31 for COP0 registers.  */
 	    if (COP0_REG_P (regno))
 	      fprintf (file, "$%s", &reg_names[regno][4]);
@@ -7311,6 +7304,8 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	case MEM:
 	  if (letter == 'D')
 	    output_address (plus_constant (XEXP (op, 0), 4));
+	  else if (letter && letter != 'z')
+	    output_operand_lossage ("invalid use of '%%%c'", letter);
 	  else
 	    output_address (XEXP (op, 0));
 	  break;
@@ -7318,6 +7313,8 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	default:
 	  if (letter == 'z' && op == CONST0_RTX (GET_MODE (op)))
 	    fputs (reg_names[GP_REG_FIRST], file);
+	  else if (letter && letter != 'z')
+	    output_operand_lossage ("invalid use of '%%%c'", letter);
 	  else if (CONST_GP_P (op))
 	    fputs (reg_names[GLOBAL_POINTER_REGNUM], file);
 	  else
@@ -8676,16 +8673,16 @@ mips_save_reg_p (unsigned int regno)
 	|                               |       + UNITS_PER_WORD
 	|  accumulator save area        |
 	|                               |
-	+-------------------------------+ <-- frame_pointer_rtx + fp_sp_offset
+	+-------------------------------+ <-- stack_pointer_rtx + fp_sp_offset
 	|                               |       + UNITS_PER_HWFPVALUE
 	|  FPR save area                |
 	|                               |
-	+-------------------------------+ <-- frame_pointer_rtx + gp_sp_offset
+	+-------------------------------+ <-- stack_pointer_rtx + gp_sp_offset
 	|                               |       + UNITS_PER_WORD
 	|  GPR save area                |
 	|                               |
-	+-------------------------------+
-	|                               | \
+	+-------------------------------+ <-- frame_pointer_rtx with
+	|                               | \     -fstack-protector
 	|  local variables              |  | var_size
 	|                               | /
 	+-------------------------------+
@@ -8693,16 +8690,17 @@ mips_save_reg_p (unsigned int regno)
 	|  $gp save area                |  | cprestore_size
 	|                               | /
       P +-------------------------------+ <-- hard_frame_pointer_rtx for
-	|                               |       MIPS16 code
-	|  outgoing stack arguments     |
-	|                               |
-	+-------------------------------+
-	|                               |
-	|  caller-allocated save area   |
-	|  for register arguments       |
-	|                               |
+	|                               | \     MIPS16 code
+	|  outgoing stack arguments     |  |
+	|                               |  |
+	+-------------------------------+  | args_size
+	|                               |  |
+	|  caller-allocated save area   |  |
+	|  for register arguments       |  |
+	|                               | /
 	+-------------------------------+ <-- stack_pointer_rtx
-					      frame_pointer_rtx
+					      frame_pointer_rtx without
+					        -fstack-protector
 					      hard_frame_pointer_rtx for
 						non-MIPS16 code.
 
@@ -8747,11 +8745,11 @@ mips_compute_frame_info (void)
 
   cfun->machine->global_pointer = mips_global_pointer ();
 
-  /* The first STARTING_FRAME_OFFSET bytes contain the outgoing argument
-     area and the $gp save slot.  This area isn't needed in leaf functions,
-     but if the target-independent frame size is nonzero, we're committed
-     to allocating it anyway.  */
-  if (size == 0 && current_function_is_leaf)
+  /* The first two blocks contain the outgoing argument area and the $gp save
+     slot.  This area isn't needed in leaf functions, but if the
+     target-independent frame size is nonzero, we have already committed to
+     allocating these in STARTING_FRAME_OFFSET for !FRAME_GROWS_DOWNWARD.  */
+  if ((size == 0 || FRAME_GROWS_DOWNWARD) && current_function_is_leaf)
     {
       /* The MIPS 3.0 linker does not like functions that dynamically
 	 allocate the stack and have 0 for STACK_DYNAMIC_OFFSET, since it
@@ -8766,7 +8764,7 @@ mips_compute_frame_info (void)
   else
     {
       frame->args_size = crtl->outgoing_args_size;
-      frame->cprestore_size = STARTING_FRAME_OFFSET - frame->args_size;
+      frame->cprestore_size = MIPS_GP_SAVE_AREA_SIZE;
     }
   offset = frame->args_size + frame->cprestore_size;
 
@@ -8945,12 +8943,16 @@ mips_initial_elimination_offset (int from, int to)
 
   mips_compute_frame_info ();
 
-  /* Set OFFSET to the offset from the soft frame pointer, which is also
-     the offset from the end-of-prologue stack pointer.  */
+  /* Set OFFSET to the offset from the end-of-prologue stack pointer.  */
   switch (from)
     {
     case FRAME_POINTER_REGNUM:
-      offset = 0;
+      if (FRAME_GROWS_DOWNWARD)
+	offset = (cfun->machine->frame.args_size
+		  + cfun->machine->frame.cprestore_size
+		  + cfun->machine->frame.var_size);
+      else
+	offset = 0;
       break;
 
     case ARG_POINTER_REGNUM:
@@ -11647,8 +11649,9 @@ AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
    for instruction CODE_FOR_loongson_<INSN>.  FUNCTION_TYPE is a
    builtin_description field.  */
 #define LOONGSON_BUILTIN_ALIAS(INSN, FN_NAME, FUNCTION_TYPE)		\
-  { CODE_FOR_loongson_ ## INSN, 0, "__builtin_loongson_" #FN_NAME,	\
-    MIPS_BUILTIN_DIRECT, FUNCTION_TYPE, mips_builtin_avail_loongson }
+  { CODE_FOR_loongson_ ## INSN, MIPS_FP_COND_f,				\
+    "__builtin_loongson_" #FN_NAME, MIPS_BUILTIN_DIRECT,		\
+    FUNCTION_TYPE, mips_builtin_avail_loongson }
 
 /* Define a Loongson MIPS_BUILTIN_DIRECT function __builtin_loongson_<INSN>
    for instruction CODE_FOR_loongson_<INSN>.  FUNCTION_TYPE is a
@@ -12374,8 +12377,8 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   gcc_assert (avail != 0);
   if (TARGET_MIPS16)
     {
-      error ("built-in function %qs not supported for MIPS16",
-	     IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      error ("built-in function %qE not supported for MIPS16",
+	     DECL_NAME (fndecl));
       return ignore ? const0_rtx : CONST0_RTX (mode);
     }
   switch (d->builtin_type)
@@ -14471,8 +14474,8 @@ mips_override_options (void)
   /* Set up mips_hard_regno_mode_ok.  */
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
     for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-      mips_hard_regno_mode_ok[(int)mode][regno]
-	= mips_hard_regno_mode_ok_p (regno, mode);
+      mips_hard_regno_mode_ok[mode][regno]
+	= mips_hard_regno_mode_ok_p (regno, (enum machine_mode) mode);
 
   /* Function to allocate machine-dependent function status.  */
   init_machine_status = &mips_init_machine_status;
@@ -14725,7 +14728,7 @@ mips_final_prescan_insn (rtx insn, rtx *opvec, int noperands)
 
 /* Implement TARGET_ASM_FINAL_POSTSCAN_INSN.  */
 
-void
+static void
 mips_final_postscan_insn (FILE *file, rtx insn, rtx *opvec, int noperands)
 {
   int i;
@@ -14745,6 +14748,9 @@ mips_final_postscan_insn (FILE *file, rtx insn, rtx *opvec, int noperands)
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 #undef TARGET_ASM_ALIGNED_DI_OP
 #define TARGET_ASM_ALIGNED_DI_OP "\t.dword\t"
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS mips_legitimize_address
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE mips_output_function_prologue
@@ -14907,6 +14913,9 @@ mips_final_postscan_insn (FILE *file, rtx insn, rtx *opvec, int noperands)
 
 #undef TARGET_ASM_FINAL_POSTSCAN_INSN
 #define TARGET_ASM_FINAL_POSTSCAN_INSN mips_final_postscan_insn
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P	mips_legitimate_address_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
