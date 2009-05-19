@@ -1,5 +1,9 @@
 2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-eh.c (tree_empty_eh_handler_p): Skip debug stmts.
+
+2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
+
 	* ipa-pure-const.c (check_stmt): Ignore debug stmts.
 
 2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
