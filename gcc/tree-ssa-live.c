@@ -517,6 +517,13 @@ remove_unused_scope_block_p (tree scope)
 		&& ann->used)
 	unused = false;
 
+      /* Removing declarations, when we're not optimizing, is going to
+	 affect the order in which variables are expanded, causing
+	 codegen differences we ought to avoid.  We can't even remove
+	 the blocks, for the same reason.  */
+      else if (!optimize)
+	unused = false;
+
       /* When we are not doing full debug info, we however can keep around
 	 only the used variables for cfgexpand's memory packing saving quite
 	 a lot of memory.  
