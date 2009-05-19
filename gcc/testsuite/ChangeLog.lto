@@ -1,3 +1,22 @@
+2009-05-19  Diego Novillo  <dnovillo@google.com>
+
+	* lib/target-supports.exp (check_effective_target_lto): New.
+	* lib/c-torture.exp: Call it to set LTO_TORTURE_OPTIONS.
+	* lib/gcc-dg.exp: Likewise.
+	* lib/torture-options.exp (set-torture-options): Add 3rd
+	argument.  Append it to 'torture_with_loops' and
+	'torture_without_loops'.
+	* gcc.c-torture/execute/execute.exp: Add LTO_TORTURE_OPTIONS 
+	when calling set-torture-options.
+	* gcc.c-torture/execute/builtins/builtins.exp: Likewise.
+	* gcc.c-torture/execute/ieee/ieee.exp: Likewise.
+	* gcc.c-torture/unsorted/unsorted.exp: Likewise.
+	* gcc.target/i386/math-torture/math-torture.exp: Likewise.
+	* gcc.target/x86_64/abi/abi-x86_64.exp: Likewise.
+	* gcc.target/x86_64/abi/avx/abi-avx.exp: Likewise.
+	* gcc.misc-tests/i386-prefetch.exp: Likewise.
+	* gcc.misc-tests/dectest.exp: Likewise.
+
 2009-05-15  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/20090206-1_0.c: Add -fPIC.

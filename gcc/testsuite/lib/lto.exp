@@ -33,7 +33,7 @@ proc lto_init { args } {
 	    {-O2 -fwhopr}	\
 	    {-O0 -flto}		\
 	    {-O2 -flto}		\
-	    ]
+	]
     }
 }
 

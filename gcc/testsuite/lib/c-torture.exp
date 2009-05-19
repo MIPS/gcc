@@ -17,6 +17,7 @@
 
 # This file was written by Rob Savoye. (rob@cygnus.com)
 
+load_lib target-supports.exp
 load_lib file-format.exp
 load_lib target-libpath.exp
 
@@ -34,21 +35,31 @@ if [info exists TORTURE_OPTIONS] {
     # items below, even though -O3 is also specified, because some ports may
     # choose to disable inlining functions by default, even when optimizing.
     set C_TORTURE_OPTIONS [list \
-	{ -O0 -flto } \
-	{ -O0 -fwhopr } \
-	{ -O1 -flto } \
-	{ -O2 -flto } \
-	{ -O2 -fwhopr } \
-	{ -O3 -flto -fomit-frame-pointer } \
-	{ -O3 -flto -fomit-frame-pointer -funroll-loops } \
-	{ -O3 -flto -fomit-frame-pointer -funroll-all-loops -finline-functions } \
+	{ -O0 } \
+	{ -O1 } \
+	{ -O2 } \
+	{ -O3 -fomit-frame-pointer } \
+	{ -O3 -fomit-frame-pointer -funroll-loops } \
+	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions } \
 	{ -O3 -g } \
-	{ -Os -flto } ]
+	{ -Os } ]
 }
 
 if [info exists ADDITIONAL_TORTURE_OPTIONS] {
     set C_TORTURE_OPTIONS \
 	[concat $C_TORTURE_OPTIONS $ADDITIONAL_TORTURE_OPTIONS]
+}
+
+set LTO_TORTURE_OPTIONS ""
+if [check_effective_target_lto] {
+    set LTO_TORTURE_OPTIONS [list \
+	{ -O0 -flto } \
+	{ -O2 -flto } \
+	{ -O3 -flto } \
+	{ -O0 -fwhopr } \
+	{ -O2 -fwhopr } \
+	{ -O3 -fwhopr }
+    ]
 }
 
 global GCC_UNDER_TEST

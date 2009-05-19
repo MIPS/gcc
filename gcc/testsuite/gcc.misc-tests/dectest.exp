@@ -20,7 +20,7 @@
 #
 # Contributed by Ben Elliston <bje@au.ibm.com>.
 
-set DEC_TORTURE_OPTIONS [list {} -O1 {-O2 -flto} -O3 -Os -msoft-float]
+set DEC_TORTURE_OPTIONS [list {} -O1 -O2 -O3 -Os -msoft-float]
 
 proc target-specific-flags {} {
   set result "-frounding-math "
@@ -518,7 +518,7 @@ if [catch {set testdir $env(DECTEST)}] {
 }
 
 torture-init
-set-torture-options $DEC_TORTURE_OPTIONS
+set-torture-options $DEC_TORTURE_OPTIONS {{}} $LTO_TORTURE_OPTIONS
 
 note "Using tests in $testdir"
 dfp-run-tests [lsort [glob -nocomplain $testdir/*.decTest]]

@@ -441,12 +441,6 @@ complain_wrong_lang (const char *text, const struct cl_option *option,
   if (lang_mask & CL_LTO)
     return;
 
-  /* FIXME lto.  Hack.  Do not merge.  This merely hides this warning
-     to avoid spurious failures in non-C/C++ testsuites.  It would be
-     much better to fix the testsuites.  */
-  if (option->flag_var == &flag_lto || option->flag_var == &flag_whopr)
-    return;
-
   ok_langs = write_langs (option->flags);
   bad_lang = write_langs (lang_mask);
 

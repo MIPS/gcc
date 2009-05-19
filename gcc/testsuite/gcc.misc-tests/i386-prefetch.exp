@@ -90,16 +90,16 @@ load_lib torture-options.exp
 dg-init
 torture-init
 
-set-torture-options $PREFETCH_NONE
+set-torture-options $PREFETCH_NONE {{}} $LTO_TORTURE_OPTIONS
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/i386-pf-none-*.c]] ""
 
-set-torture-options $PREFETCH_SSE
+set-torture-options $PREFETCH_SSE {{}} $LTO_TORTURE_OPTIONS
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/i386-pf-sse-*.c]] ""
 
-set-torture-options $PREFETCH_3DNOW
+set-torture-options $PREFETCH_3DNOW {{}} $LTO_TORTURE_OPTIONS
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/i386-pf-3dnow-*.c]] ""
 
-set-torture-options $PREFETCH_ATHLON
+set-torture-options $PREFETCH_ATHLON {{}} $LTO_TORTURE_OPTIONS
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/i386-pf-athlon-*.c]] ""
 
 torture-finish
