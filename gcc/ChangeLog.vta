@@ -1,5 +1,9 @@
 2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cgraph.c (dump_cgraph_node): Honor -fdump-noaddr.
+
+2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
+
 	* emit-rtl.c (get_max_insn_count): New.
 	(make_debug_insn_raw): Count debug insns past flag_min_insn_uid.
 	(set_new_first_and_last_insn): Likewise.
