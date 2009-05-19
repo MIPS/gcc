@@ -1,5 +1,5 @@
 /* Callgraph based analysis of static variables.
-   Copyright (C) 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -398,6 +398,9 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
 {
   gimple stmt = gsi_stmt (*gsip);
   unsigned int i = 0;
+
+  if (IS_DEBUG_STMT (stmt))
+    return;
 
   if (dump_file)
     {
