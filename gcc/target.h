@@ -698,6 +698,10 @@ struct gcc_target
      this target for options, attributes and error messages.  */
   const char *name;
 
+  /* Position of this target vector in targetm_array.
+     Initialized with the Makefile-generated TARGET_NUM.  */
+  int target_arch;
+
   /* Functions that output assembler for the target.  */
   struct asm_out asm_out;
 

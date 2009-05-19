@@ -845,6 +845,7 @@
 #define TARGET_INITIALIZER			\
 {						\
   TARGET_NAME,					\
+  TARGET_NUM,					\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\

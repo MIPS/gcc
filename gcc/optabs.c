@@ -337,13 +337,21 @@ widen_operand (rtx op, enum machine_mode mode, enum machine_mode oldmode,
   return result;
 }
 
+#ifndef EXTRA_TARGET
+EXTRA_TARGETS_DECL (optab optab_for_tree_code_1 (enum tree_code, const_tree,
+						 enum optab_subtype));
+optab
+  (*optab_for_tree_code_array[]) (enum tree_code, const_tree, enum optab_subtype)
+    = { optab_for_tree_code_1,
+	EXTRA_TARGETS_EXPAND_COMMA (&, optab_for_tree_code_1) };
+#endif
 /* Return the optab used for computing the operation given by the tree code,
    CODE and the tree EXP.  This function is not always usable (for example, it
    cannot give complete results for multiplication or division) but probably
    ought to be relied on more widely throughout the expander.  */
 optab
-optab_for_tree_code (enum tree_code code, const_tree type,
-		     enum optab_subtype subtype)
+optab_for_tree_code_1 (enum tree_code code, const_tree type,
+		       enum optab_subtype subtype)
 {
   bool trapv;
   switch (code)
@@ -571,7 +579,7 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
   oprnd0 = TREE_OPERAND (exp, 0);
   tmode0 = TYPE_MODE (TREE_TYPE (oprnd0));
   widen_pattern_optab =
-    optab_for_tree_code (TREE_CODE (exp), TREE_TYPE (oprnd0), optab_default);
+    optab_for_tree_code_1 (TREE_CODE (exp), TREE_TYPE (oprnd0), optab_default);
   icode = (int) optab_handler (widen_pattern_optab, tmode0)->insn_code;
   gcc_assert (icode != CODE_FOR_nothing);
   xmode0 = insn_data[icode].operand[1].mode;

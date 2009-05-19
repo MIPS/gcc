@@ -23,8 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "multi-target.h"
 #include "insn-codes.h"
-
-START_TARGET_SPECIFIC
+#include "target.h"
 
 /* Optabs are tables saying how to generate insn bodies
    for various machine modes and numbers of operands.
@@ -374,6 +373,8 @@ enum optab_index
 
   OTI_MAX
 };
+
+START_TARGET_SPECIFIC
 
 extern struct optab_d optab_table[OTI_MAX];
 
@@ -731,6 +732,7 @@ extern bool maybe_emit_unop_insn (int, rtx, rtx, enum rtx_code);
 extern void emit_cmp_insn (rtx, rtx, enum rtx_code, rtx, enum machine_mode,
 			   int);
 
+END_TARGET_SPECIFIC
 /* An extra flag to control optab_for_tree_code's behavior.  This is needed to
    distinguish between machines with a vector shift that takes a scalar for the
    shift amount vs. machines that take a vector for the shift amount.  */
@@ -740,13 +742,26 @@ enum optab_subtype
   optab_scalar,
   optab_vector
 };
+START_TARGET_SPECIFIC
 
 /* Return the optab used for computing the given operation on the type given by
    the second argument.  The third argument distinguishes between the types of
    vector shifts and rotates */
-/* FIXME: need a different interface to take optabs of extra targets into
-   account.  */
-extern optab optab_for_tree_code (enum tree_code, const_tree, enum optab_subtype);
+extern optab optab_for_tree_code_1 (enum tree_code, const_tree,
+				    enum optab_subtype);
+extern optab (*optab_for_tree_code_array[]) (enum tree_code, const_tree,
+					       enum optab_subtype);
+static inline optab
+optab_for_tree_code (enum tree_code code, const_tree type,
+                     enum optab_subtype subtype)
+{
+#if NUM_TARGETS > 1
+  return (*optab_for_tree_code_array[targetm.target_arch]) (code, type,
+							    subtype);
+#else
+  return optab_for_tree_code_1 (code, type, subtype);
+#endif
+}
 
 /* The various uses that a comparison can have; used by can_compare_p:
    jumps, conditional moves, store flag operations.  */

@@ -1,5 +1,22 @@
 2009-05-19  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* optabs.c (optab_for_tree_code_array): New array.
+	(optab_for_tree_code): Rename to...
+	(optab_for_tree_code_1) ... this.
+	* optabs.h: Include target.h.  Make types at start of file
+	non-target- specific.
+	(enum optab_subtype): No longer target specific.
+	(optab_for_tree_code_1, optab_for_tree_code_array): Declare.
+	(optab_for_tree_code): New a static inline function.
+	* target.h (struct gcc_target): New member target_arch.
+	* tree-vectorizer.c (vectorize_loops): Use actually selected target
+	architecture.
+	* stor-layout.c (vector_type_mode_array): Declare.
+	(vector_type_mode): Dispatch through vector_type_mode_array.
+	[!EXTRA_TARGET]: (vector_type_mode_array): Define.
+	* target-def.h (TARGET_INITIALIZER): Add TARGET_NUM.
+	* Makefile.in (OPTABS_H): Add $(TARGET_H).
+
 	* targhooks.c: Include diagnostic.h and tree-pass.h.
 	(default_vectype_for_scalar_type): New function.
 	* targhooks.h (default_vectype_for_scalar_type): Declare.

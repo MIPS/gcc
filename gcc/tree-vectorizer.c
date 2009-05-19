@@ -2784,6 +2784,7 @@ vectorize_loops (void)
 	      destroy_loop_vec_info (loop_vinfo, true);
 	    targetm_pnt = targetm_array[best_arch];
 	    loop_vinfo = vect_analyze_loop (loop);
+	    target_arch = best_arch;
 	  }
 	targetm_pnt = &this_targetm;
 	loop->aux = loop_vinfo;
@@ -2792,7 +2793,9 @@ vectorize_loops (void)
 	  continue;
 
 	loop_vinfo->target_arch = target_arch;
+	targetm_pnt = targetm_array[target_arch];
 	vect_transform_loop (loop_vinfo);
+	targetm_pnt = &this_targetm;
 	num_vectorized_loops++;
       }
   vect_loop_location = UNKNOWN_LOC;
