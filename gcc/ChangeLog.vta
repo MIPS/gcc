@@ -1,5 +1,10 @@
 2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-ssa-structalias.c (handle_lhs_call): Initialize tmp.
+	* fortran/module.c (mio_f2k_derived): Initialize cur.
+
+2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-eh.c (tree_empty_eh_handler_p): Skip debug stmts.
 
 2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
