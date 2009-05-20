@@ -1,3 +1,24 @@
+2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config.gcc (spu-*-elf*): Use spu-cxx.o for cxx_target_objs.
+	* config/spu/spu-protos.h (struct cpp_reader): Forward declaration.
+	(spu_expand_epilogue) Use bool.
+	* config/spu/spu-c.c [CC1PLUS]: Include cp/cp-tree.h instead of
+	c-tree.h.
+	[!CC1PLUS]: Define same_type_p.
+	(spu_resolve_overloaded_builtin): Insert enum casts.  Use same_type_p.
+	* config/spu/t-spu-elf (spu-c.o): Depend on $(C_TREE_H).
+	Use $(CXXX) to build.
+	(spu-cxx.o): New rule.
+	* config/spu/spu.c (spu_scalar_mode_supported_p): Declare with bool.
+	(spu_vector_mode_supported_p, spu_handle_fndecl_attribute): Likewise.
+	(spu_handle_vector_attribute, spu_pass_by_reference): Likewise.
+	(spu_rtx_costs, spu_function_ok_for_sibcall): Likewise.
+	(spu_attribute_table): Declare extern.
+	(spu_emit_branch_or_set): Fix type and scope of ior_code.
+	(spu_expand_prologue): Use alloc_reg_note.
+	(expand_builtin_args): Use EXPAND_NORMAL instead of 0.
+
 2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* var-tracking.c: Include tm_p.h .

@@ -57,6 +57,9 @@
 #include "sbitmap.h"
 #include "timevar.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Builtin types, data and prototypes. */
 struct spu_builtin_range
@@ -85,8 +88,8 @@ char regs_ever_allocated[FIRST_PSEUDO_REGISTER];
 
 /*  Prototypes and external defs.  */
 static void spu_init_builtins (void);
-static unsigned char spu_scalar_mode_supported_p (enum machine_mode mode);
-static unsigned char spu_vector_mode_supported_p (enum machine_mode mode);
+static bool spu_scalar_mode_supported_p (enum machine_mode mode);
+static bool spu_vector_mode_supported_p (enum machine_mode mode);
 static rtx adjust_operand (rtx op, HOST_WIDE_INT * start);
 static rtx get_pic_reg (void);
 static int need_to_save_reg (int regno, int saving);
@@ -111,14 +114,12 @@ static void spu_sched_init_global (FILE *, int, int);
 static void spu_sched_init (FILE *, int, int);
 static int spu_sched_reorder (FILE *, int, rtx *, int *, int);
 static tree spu_handle_fndecl_attribute (tree * node, tree name, tree args,
-					 int flags,
-					 unsigned char *no_add_attrs);
+					 int flags, bool *no_add_attrs);
 static tree spu_handle_vector_attribute (tree * node, tree name, tree args,
-					 int flags,
-					 unsigned char *no_add_attrs);
+					 int flags, bool *no_add_attrs);
 static int spu_naked_function_p (tree func);
-static unsigned char spu_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-					    const_tree type, unsigned char named);
+static bool spu_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+					    const_tree type, bool named);
 static tree spu_build_builtin_va_list (void);
 static void spu_va_start (tree, rtx);
 static tree spu_gimplify_va_arg_expr (tree valist, tree type,
@@ -128,9 +129,9 @@ static int store_with_one_insn_p (rtx mem);
 static int mem_is_padded_component_ref (rtx x);
 static bool spu_assemble_integer (rtx x, unsigned int size, int aligned_p);
 static void spu_asm_globalize_label (FILE * file, const char *name);
-static unsigned char spu_rtx_costs (rtx x, int code, int outer_code,
+static bool spu_rtx_costs (rtx x, int code, int outer_code,
 				    int *total, bool speed);
-static unsigned char spu_function_ok_for_sibcall (tree decl, tree exp);
+static bool spu_function_ok_for_sibcall (tree decl, tree exp);
 static void spu_init_libfuncs (void);
 static bool spu_return_in_memory (const_tree type, const_tree fntype);
 static void fix_range (const char *);
@@ -248,7 +249,7 @@ tree spu_builtin_types[SPU_BTI_MAX];
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST spu_sched_adjust_cost
 
-const struct attribute_spec spu_attribute_table[];
+extern const struct attribute_spec spu_attribute_table[];
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE spu_attribute_table
 
@@ -786,7 +787,7 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
   rtx target = operands[0];
   enum machine_mode comp_mode;
   enum machine_mode op_mode;
-  enum spu_comp_code scode, eq_code, ior_code;
+  enum spu_comp_code scode, eq_code;
   int index;
   int eq_test = 0;
 
@@ -986,6 +987,8 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 
       if (eq_test)
         {
+	  enum insn_code ior_code;
+
           eq_result = gen_reg_rtx (comp_mode);
           eq_rtx = GEN_FCN (spu_comp_icode[index][eq_code]) (eq_result,
 							     spu_compare_op0,
@@ -1893,7 +1896,7 @@ spu_expand_prologue (void)
       RTX_FRAME_RELATED_P (insn) = 1;
       real = gen_addsi3 (sp_reg, sp_reg, GEN_INT (-total_size));
       REG_NOTES (insn) =
-	gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, real, REG_NOTES (insn));
+	alloc_reg_note (REG_FRAME_RELATED_EXPR, real, REG_NOTES (insn));
 
       if (total_size > 2000)
 	{
@@ -1911,8 +1914,7 @@ spu_expand_prologue (void)
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  real = gen_addsi3 (fp_reg, sp_reg, GEN_INT (fp_offset));
 	  REG_NOTES (insn) = 
-	    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			       real, REG_NOTES (insn));
+	    alloc_reg_note (REG_FRAME_RELATED_EXPR, real, REG_NOTES (insn));
           REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = STACK_BOUNDARY;
 	}
     }
@@ -5898,7 +5900,7 @@ expand_builtin_args (struct spu_builtin_description *d, tree exp,
       tree arg = CALL_EXPR_ARG (exp, a);
       if (arg == 0)
 	abort ();
-      ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+      ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, EXPAND_NORMAL);
     }
 
   /* The insn pattern may have additional operands (SCRATCH).
@@ -6298,3 +6300,4 @@ spu_section_type_flags (tree decl, const char *name, int reloc)
   return default_section_type_flags (decl, name, reloc);
 }
 
+END_TARGET_SPECIFIC

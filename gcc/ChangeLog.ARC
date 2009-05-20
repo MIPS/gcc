@@ -1,3 +1,7 @@
+2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/spu/spu.md (doloop_end): Accept extra operand.
+
 2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp-genregset.c (emit_regsets): Emit REG_ALLOC_ORDER

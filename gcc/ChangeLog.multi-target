@@ -1,3 +1,8 @@
+2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/spu/spu.c: Include multi-target.h.
+	Add START_TARGET_SPECIFIC / END_TARGET_SPECIFIC markers.
+
 2009-05-19  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* optabs.c (optab_for_tree_code_array): New array.

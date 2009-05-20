@@ -19,6 +19,7 @@
 
 #include "rtl.h"
 
+struct cpp_reader;
 extern void spu_cpu_cpp_builtins (struct cpp_reader * pfile);
 extern void builtin_define_std (const char *);
 extern void spu_optimization_options (int level, int size);
@@ -39,7 +40,7 @@ extern int spu_split_immediate (rtx * ops);
 extern int spu_saved_regs_size (void);
 extern int direct_return (void);
 extern void spu_expand_prologue (void);
-extern void spu_expand_epilogue (unsigned char sibcall_p);
+extern void spu_expand_epilogue (bool sibcall_p);
 extern rtx spu_return_addr (int count, rtx frame);
 extern rtx spu_const (enum machine_mode mode, HOST_WIDE_INT val);
 extern rtx spu_const_from_ints (enum machine_mode mode, 

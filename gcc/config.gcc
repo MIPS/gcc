@@ -2343,7 +2343,7 @@ spu-*-elf*)
 	extra_headers="spu_intrinsics.h spu_internals.h vmx2spu.h spu_mfcio.h vec_types.h"
 	extra_modes=spu/spu-modes.def
 	c_target_objs="${c_target_objs} spu-c.o"
-	cxx_target_objs="${cxx_target_objs} spu-c.o"
+	cxx_target_objs="${cxx_target_objs} spu-cxx.o"
 	;;
 v850e1-*-*)
 	target_cpu_default="TARGET_CPU_v850e1"

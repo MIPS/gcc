@@ -20,7 +20,13 @@
 #include "tm.h"
 #include "cpplib.h"
 #include "tree.h"
+#ifdef CC1PLUS
+#include "cp/cp-tree.h"
+#else /* !CC1PLUS */
 #include "c-tree.h"
+#define same_type_p(TYPE1, TYPE2) \
+  comptypes ((TYPE1), (TYPE2))
+#endif /* !CC1PLUS */
 #include "c-pragma.h"
 #include "function.h"
 #include "rtl.h"
@@ -102,7 +108,7 @@ spu_resolve_overloaded_builtin (tree fndecl, tree fnargs)
 			  || SCALAR_FLOAT_TYPE_P (t) \
 			  || POINTER_TYPE_P (t))
   spu_function_code new_fcode, fcode =
-    DECL_FUNCTION_CODE (fndecl) - END_BUILTINS;
+    (spu_function_code) (DECL_FUNCTION_CODE (fndecl) - END_BUILTINS);
   struct spu_builtin_description *desc;
   tree match = NULL_TREE;
 
@@ -116,8 +122,9 @@ spu_resolve_overloaded_builtin (tree fndecl, tree fnargs)
   /* Compare the signature of each internal builtin function with the
      function arguments until a match is found. */
 
-  for (new_fcode = fcode + 1; spu_builtins[new_fcode].type == B_INTERNAL;
-       new_fcode++)
+  for (new_fcode = (spu_function_code) (fcode + 1);
+       spu_builtins[new_fcode].type == B_INTERNAL;
+       new_fcode = (spu_function_code) (new_fcode + 1))
     {
       tree decl = spu_builtins[new_fcode].fndecl;
       tree params = TYPE_ARG_TYPES (TREE_TYPE (decl));
@@ -159,8 +166,8 @@ spu_resolve_overloaded_builtin (tree fndecl, tree fnargs)
 		    || fcode == SPU_HCMPEQ || fcode == SPU_HCMPGT
 		    || fcode == SPU_MASKB || fcode == SPU_MASKH
 		    || fcode == SPU_MASKW) && p == 0))
-	      && !comptypes (TYPE_MAIN_VARIANT (param_type),
-			     TYPE_MAIN_VARIANT (arg_type)))
+	      && !same_type_p (TYPE_MAIN_VARIANT (param_type),
+			       TYPE_MAIN_VARIANT (arg_type)))
 	    break;
 	}
       if (param == void_list_node)
