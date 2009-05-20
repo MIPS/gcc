@@ -54,7 +54,7 @@
 
 	* function.h (struct incoming_args): Base info GTY description on
 	cfun->target_arch.
-	* gentargtype.cc (cumulative_asrgs_u): Use TARGET_NUM for tag.
+	* gentargtype.cc (cumulative_args_u): Use TARGET_NUM for tag.
 	Add an align_dummy member.
 	* Makefile.in [EXTRA_TARGET] (target-types.h): Likewise.
 	[!EXTRA_TARGET] (target-types.h target-gtypes.h): 
@@ -103,7 +103,7 @@
 	(prepare_function_start): Don't call init_emit.
 	(init_dummy_function_start): Call init_emit.
 	* function.h: Include target-types / target-gtypes.h.
-	(incoming_args): Use cumulative_args_ud for info member.
+	(incoming_args): Use cumulative_args_u for info member.
 	(INCOMING_ARGS_INFO): Define.
 	(regno_reg_rtx, struct incoming_args): No longer target specific.
 	(struct rtl_data, x_rtl): Likewise.
