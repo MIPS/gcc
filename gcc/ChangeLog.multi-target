@@ -1,5 +1,8 @@
 2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* config/rs6000/rs6000.c (rs6000_va_start): Use INCOMING_ARGS_INFO.
+	(compute_vrsave_mask): Likewise.
+
 	* config/spu/spu.c: Include multi-target.h.
 	Add START_TARGET_SPECIFIC / END_TARGET_SPECIFIC markers.
 

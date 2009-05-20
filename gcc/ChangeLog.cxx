@@ -1,5 +1,19 @@
 2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* opt-gen.awk: For all variables with an Init clause, set var_seen.
+	* config/rs6000/rs6000.c (rs6000_builtin_conversion): Adjust to
+	target.h declaration.
+	(rs6000_init_hard_regno_mode_ok): Add enum cast(s).
+	(rs6000_override_options): Likewise.
+	(bdesc_altivec_preds): Add enum casts.
+	(altivec_expand_vec_set_builtin): Use EXPAND_NORMAL instead of 0.
+	(rs6000_init_dwarf_reg_sizes_extra): Likewise.
+	(emit_unlikely_jump, rs6000_emit_allocate_stack): Use alloc_reg_note.
+	(rs6000_frame_related, rs6000_emit_prologue): Likewise.
+	(output_toc): Use INSERT as last argument to htab_find_slot.
+	(output_profile_hook): Use LCT_NORMAL Instead of 0.
+	(rs6000_initialize_trampoline): Likewise.
+
 	* config.gcc (spu-*-elf*): Use spu-cxx.o for cxx_target_objs.
 	* config/spu/spu-protos.h (struct cpp_reader): Forward declaration.
 	(spu_expand_epilogue) Use bool.

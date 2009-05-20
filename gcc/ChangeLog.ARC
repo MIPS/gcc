@@ -1,5 +1,7 @@
 2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* config/rs6000/rs6000.md (doloop_end): Accept extra operand.
+
 	* config/spu/spu.md (doloop_end): Accept extra operand.
 
 2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
