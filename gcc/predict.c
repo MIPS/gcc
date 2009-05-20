@@ -728,8 +728,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
 					 INTVAL (XEXP (XEXP (*pnote, 0), 0)));
 	  int probability = INTVAL (XEXP (XEXP (*pnote, 0), 1));
 
-	  dump_prediction (dump_file, (enum br_predictor) predictor,
-			   probability, bb,
+	  dump_prediction (dump_file, predictor, probability, bb,
 			   !first_match || best_predictor == predictor);
 	  *pnote = XEXP (*pnote, 1);
 	}
@@ -896,8 +895,7 @@ combine_predictions_for_bb (basic_block bb)
 
 	  if (pred->ep_edge != EDGE_SUCC (bb, 0))
 	    probability = REG_BR_PROB_BASE - probability;
-	  dump_prediction (dump_file, (enum br_predictor) predictor,
-			   probability, bb,
+	  dump_prediction (dump_file, predictor, probability, bb,
 			   !first_match || best_predictor == predictor);
 	}
     }

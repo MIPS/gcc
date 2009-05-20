@@ -20361,7 +20361,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
       decl = cp_parser_lookup_name_simple (parser, name, token->location);
       if (decl == error_mark_node)
 	cp_parser_name_lookup_error (parser, name, decl, NULL, token->location);
-      else if (kind != OMP_CLAUSE_ERROR)
+      else if (kind != 0)
 	{
 	  tree u = build_omp_clause (kind);
 	  OMP_CLAUSE_DECL (u) = decl;

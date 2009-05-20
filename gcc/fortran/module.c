@@ -4997,12 +4997,9 @@ import_iso_c_binding_module (void)
       
       for (u = gfc_rename_list; u; u = u->next)
 	{
-	  iso_c_binding_symbol is;
+	  i = get_c_kind (u->use_name, c_interop_kinds_table);
 
-	  is = (iso_c_binding_symbol) get_c_kind (u->use_name,
-						  c_interop_kinds_table);
-
-	  if (is == ISOCBINDING_INVALID || is == ISOCBINDING_LAST)
+	  if (i == ISOCBINDING_INVALID || i == ISOCBINDING_LAST)
 	    {
 	      gfc_error ("Symbol '%s' referenced at %L does not exist in "
 			 "intrinsic module ISO_C_BINDING.", u->use_name,

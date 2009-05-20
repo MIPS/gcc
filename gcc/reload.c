@@ -3191,8 +3191,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 					   recog_data.operand_loc[loc1],
 					   recog_data.operand_loc[loc2],
 					   operand_mode[i], operand_mode[m],
-					   (enum reg_class) this_alternative[m],
-					   -1,
+					   this_alternative[m], -1,
 					   this_alternative_earlyclobber[m]);
 
 		    if (value != 0)
@@ -3445,8 +3444,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  break;
 		winreg = 1;
 		if (REG_P (operand)
-		    && reg_fits_class_p (operand,
-					 (enum reg_class) this_alternative[i],
+		    && reg_fits_class_p (operand, this_alternative[i],
 					 offset, GET_MODE (recog_data.operand[i])))
 		  win = 1;
 		break;
@@ -3578,7 +3576,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      && reg_class_size [(int) preferred_class[i]] > 0
 	      && ! SMALL_REGISTER_CLASS_P (preferred_class[i]))
 	    {
-	      if (! reg_class_subset_p ((enum reg_class) this_alternative[i],
+	      if (! reg_class_subset_p (this_alternative[i],
 					preferred_class[i]))
 		{
 		  /* Since we don't have a way of forming the intersection,
@@ -3586,7 +3584,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		     is a subset of the class we have; that's the most
 		     common case anyway.  */
 		  if (reg_class_subset_p (preferred_class[i],
-					  (enum reg_class) this_alternative[i]))
+					  this_alternative[i]))
 		    this_alternative[i] = preferred_class[i];
 		  else
 		    reject += (2 + 2 * pref_or_nothing[i]);

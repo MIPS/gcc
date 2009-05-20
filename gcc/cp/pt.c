@@ -3008,7 +3008,7 @@ process_template_parm (tree list, tree parm, bool is_non_type,
 	   The top-level cv-qualifiers on the template-parameter are
 	   ignored when determining its type.  */
 	TREE_TYPE (parm) = TYPE_MAIN_VARIANT (TREE_TYPE (parm));
-	if (invalid_nontype_parm_type_p (TREE_TYPE (parm), tf_error))
+	if (invalid_nontype_parm_type_p (TREE_TYPE (parm), 1))
           {
             err_parm_list = build_tree_list (defval, parm);
             TREE_VALUE (err_parm_list) = error_mark_node;

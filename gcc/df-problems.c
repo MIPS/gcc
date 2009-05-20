@@ -442,7 +442,7 @@ df_rd_bb_local_compute (unsigned int bb_index)
   if (!(df->changeable_flags & DF_NO_HARD_REGS))
     df_rd_bb_local_compute_process_def (bb_info, 
 					df_get_artificial_defs (bb_index),
-					DF_REF_NONE);
+					0);
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
@@ -452,8 +452,7 @@ df_rd_bb_local_compute (unsigned int bb_index)
 	continue;
 
       df_rd_bb_local_compute_process_def (bb_info, 
-					  DF_INSN_UID_DEFS (uid),
-					  DF_REF_NONE);
+					  DF_INSN_UID_DEFS (uid), 0);
 
       /* This complex dance with the two bitmaps is required because
 	 instructions can assign twice to the same pseudo.  This
@@ -2172,7 +2171,7 @@ df_chain_create_bb (unsigned int bb_index)
   if (!(df->changeable_flags & DF_NO_HARD_REGS))
     df_chain_create_bb_process_use (cpy,
 				    df_get_artificial_uses (bb->index), 
-				    DF_REF_NONE);
+				    0);
 
   BITMAP_FREE (cpy);
 }

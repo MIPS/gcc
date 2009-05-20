@@ -1157,3 +1157,4 @@ walk_aliased_vdefs (tree ref, tree vdef,
 
   return ret;
 }
+

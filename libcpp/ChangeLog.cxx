@@ -1,3 +1,10 @@
+2009-05-20  Ian Lance Taylor  <iant@google.com>
+
+	Revert the following patches:
+	2008-07-03  Tom Tromey  <tromey@redhat.com>
+	* include/symtab.h (cpp_hash_table): Rename from hash_table.
+	* symtab.c, init.c, identifiers.c, internal.h: Update all users.
+
 2009-01-30  Ian Lance Taylor  <iant@google.com>
 
 	* include/symtab.h: Use extern "C" for C++.

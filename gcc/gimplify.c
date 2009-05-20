@@ -1993,7 +1993,7 @@ gimplify_var_or_parm_decl (tree *expr_p)
 
 static enum gimplify_status
 gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
-			int fallback)
+			fallback_t fallback)
 {
   tree *p;
   VEC(tree,heap) *stack;
@@ -2915,7 +2915,7 @@ generic_expr_could_trap_p (tree expr)
       *EXPR_P should be stored.  */
 
 static enum gimplify_status
-gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, int fallback)
+gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 {
   tree expr = *expr_p;
   tree tmp, type, arm1, arm2;
@@ -6385,7 +6385,7 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq *pre_p)
 
 enum gimplify_status
 gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
-	       bool (*gimple_test_f) (tree), int fallback)
+	       bool (*gimple_test_f) (tree), fallback_t fallback)
 {
   tree tmp;
   gimple_seq internal_pre = NULL;

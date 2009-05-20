@@ -140,7 +140,7 @@ init_library (void)
 
 /* Initialize a cpp_reader structure.  */
 cpp_reader *
-cpp_create_reader (enum c_lang lang, cpp_hash_table *table,
+cpp_create_reader (enum c_lang lang, hash_table *table,
 		   struct line_maps *line_table)
 {
   cpp_reader *pfile;
@@ -307,7 +307,7 @@ cpp_destroy (cpp_reader *pfile)
    "builtin" macros: these are handled by builtin_macro() in
    macro.c.  Builtin is somewhat of a misnomer -- the property of
    interest is that these macros require special code to compute their
-   expansions.  The value is a "cpp_builtin_type" enumerator.
+   expansions.  The value is a "builtin_type" enumerator.
 
    operator_array holds the C++ named operators.  These are keywords
    which act as aliases for punctuators.  In C++, they cannot be

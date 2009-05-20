@@ -1,3 +1,45 @@
+2009-05-20  Ian Lance Taylor  <iant@google.com>
+
+	Revert the following patches:
+	2009-02-06  Ian Lance Taylor  <iant@google.com>
+	* timevar.c (timevar_pop_1): Ignore TV_NONE.
+	2009-01-31  Ian Lance Taylor  <iant@google.com>
+	* targhooks.h (default_branch_target_register_class): Declare.
+	2008-09-17  Tom Tromey  <tromey@redhat.com>
+	* timevar.c (timevar_print): Ignore TV_NONE.
+	(timevar_push_1): Likewise.
+	2008-09-10  Ian Lance Taylor  <iant@google.com>
+	* df.h (enum df_ref_flags): Define DF_REF_NONE.
+	* df-problems.c (df_rd_bb_local_compute): Change 0 to enum
+	constant.
+	(df_chain_create_bb): Likewise.
+	(df_chain_add_problem): Change flags to unsigned int.
+	* gimple.h (gimplify_expr: Update declaration.
+	* gimplify.c (gimplify_compound_lval): Change fallback to int.
+	(gimplify_cond_expr, gimplify_expr): Likewise.
+	* ira-costs.c (record_reg_classes): Add cast to enum type.
+	* predict.c (combine_predictions_for_insn): Add cast to enum
+	type.
+	(combine_predictions_for_bb): Likewise.
+	* postreload.c (reload_cse_simplify_operands): Add cast to enum
+	type.
+	* reload.c (find_reloads): Add cast to enum type.
+	* rtl.h (alloc_reg_note): Declare.
+	* cp/parser.c (cp_parser_omp_var_list_no_open): Change integer
+	constant to enum constant.
+	* cp/pt.c (process_template_parm): Change integer constant to enum
+	constant.
+	* fortran/module.c (import_iso_c_binding_module): Use new
+	iso_c_binding_symbol local.  Add cast to enum type.
+	* objcp/objcp-lang.c (objcp_tsubst_copy_and_build): Change
+	complain to int.
+	2008-07-03  Tom Tromey  <tromey@redhat.com>
+	* stringpool.c (alloc_node): Update.
+
+	* gimple.c (gimple_range_check_failed): Remove.
+	* tree-ssa-alias.c: Add trailing blank line.
+	* tree-ssa-dse.c: Remove trailing blank line.
+
 2009-05-16  Ian Lance Taylor  <iant@google.com>
 
 	* attribs.c (register_attribute): Change slot to void **.

@@ -82,8 +82,6 @@ enum df_ref_type {DF_REF_REG_DEF, DF_REF_REG_USE,
 
 enum df_ref_flags
   {
-    DF_REF_NONE = 0,
-
     /* This flag is set if this ref occurs inside of a conditional
        execution instruction.  */
     DF_REF_CONDITIONAL = 1 << 0,

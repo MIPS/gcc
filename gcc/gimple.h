@@ -952,7 +952,7 @@ struct gimplify_ctx
 };
 
 extern enum gimplify_status gimplify_expr (tree *, gimple_seq *, gimple_seq *,
-					   bool (*) (tree), int);
+					   bool (*) (tree), fallback_t);
 extern void gimplify_type_sizes (tree, gimple_seq *);
 extern void gimplify_one_sizepos (tree *, gimple_seq *);
 extern bool gimplify_stmt (tree *, gimple_seq *);

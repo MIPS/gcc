@@ -1,5 +1,5 @@
 /* Timing variables for measuring compiler performance.
-   Copyright (C) 2000, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
 This file is part of GCC.
@@ -266,10 +266,6 @@ timevar_push_1 (timevar_id_t timevar)
   struct timevar_stack_def *context;
   struct timevar_time_def now;
 
-  /* Completely ignore TV_NONE.  */
-  if (timevar == TV_NONE)
-    return;
-
   /* Mark this timing variable as used.  */
   tv->used = 1;
 
@@ -315,10 +311,6 @@ timevar_pop_1 (timevar_id_t timevar)
 {
   struct timevar_time_def now;
   struct timevar_stack_def *popped = stack;
-
-  /* Completely ignore TV_NONE.  */
-  if (timevar == TV_NONE)
-    return;
 
   gcc_assert (&timevars[timevar] == stack->timevar);
   
@@ -425,9 +417,6 @@ timevar_print (FILE *fp)
       /* Don't print the total execution time here; that goes at the
 	 end.  */
       if ((timevar_id_t) id == TV_TOTAL)
-	continue;
-      /* Always ignore TV_NONE.  */
-      if ((timevar_id_t) id == TV_NONE)
 	continue;
 
       /* Don't print timing variables that were never used.  */

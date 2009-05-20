@@ -469,3 +469,4 @@ struct gimple_opt_pass pass_dse =
     | TODO_verify_ssa		/* todo_flags_finish */
  }
 };
+
