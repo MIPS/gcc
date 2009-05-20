@@ -1,3 +1,15 @@
+2009-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.target/ea/errors.c (f1): Delete __ea on function test.
+	(func3): Delete __ea on function test, rename func4 to be func3.
+
+	* gcc.target/ea/execute1.c: Remove dg-xfail-run-if, since this
+	test now runs successfully.
+
+	* gcc.target/ea/execute1-m64.c: Change to compile only since the
+	test doesn't work using the elfspe simulator.
+
 2009-05-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/spu/ea/cache-common.h (__cache_tag_array_size): Avoid

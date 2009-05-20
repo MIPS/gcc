@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-O2 -std=gnu99 -g -pedantic-errors -mea32" } */
-/* { dg-xfail-run-if "" { "spu-*-*" } { "*" } { "" } } */
 
 #include <stdlib.h>
 

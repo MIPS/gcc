@@ -699,21 +699,16 @@ struct gcc_target
        independent methods to make the address valid.  */
     rtx (* legitimize_address) (rtx, rtx, enum machine_mode, addr_space_t);
 
+    /* True if one named address space is a subset of another named address. */
+    bool (* subset_p) (addr_space_t, addr_space_t);
+
     /* True if it is legal to convert a pointer of one address space to
        another.  */
-    bool (* can_convert_p) (addr_space_t, addr_space_t);
-
-    /* True if converting a pointer of one address space to another is just a
-       NOP and can be optimized away by the compiler.  */
-    bool (* nop_convert_p) (addr_space_t, addr_space_t);
-
-    /* True if one named address space is a subset of another and if so, which
-       address space is the superset.  */
-    bool (* subset_p) (addr_space_t, addr_space_t, addr_space_t *);
+    bool (* can_convert_p) (tree, tree);
 
     /* Function to convert an rtl expression from one address space to
        another.  */
-    rtx (* convert) (rtx, enum machine_mode, addr_space_t, addr_space_t);
+    rtx (* convert) (rtx, tree, tree);
 
     /* Section name to use for a named address space.  */
     tree (* section_name) (addr_space_t);

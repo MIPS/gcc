@@ -8170,10 +8170,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  if (as_to != as_from)
 	    {
 	      op0 = expand_expr (subexp0, NULL_RTX, VOIDmode, modifier);
-	      return targetm.addr_space.convert (op0,
-						 TYPE_MODE (type),
-						 as_from,
-						 as_to);
+	      op0 = targetm.addr_space.convert (op0, subexp0_type, type);
+	      if (!op0)
+		gcc_unreachable ();
+	      return op0;
 	    }
 	}
 

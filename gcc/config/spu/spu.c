@@ -216,6 +216,17 @@ static int spu_sms_res_mii (struct ddg *g);
 static void asm_file_start (void);
 static bool spu_no_relocation (tree, tree);
 static unsigned int spu_section_type_flags (tree, const char *, int);
+static enum machine_mode spu_addr_space_pointer_mode (addr_space_t);
+static tree spu_addr_space_minus_type (addr_space_t, addr_space_t);
+static const char *spu_addr_space_name (addr_space_t);
+static bool spu_addr_space_subset_p (addr_space_t, addr_space_t);
+static bool spu_addr_space_can_convert_p (tree, tree);
+static rtx spu_addr_space_convert (rtx, tree, tree);
+static tree spu_addr_space_section_name (addr_space_t);
+static bool spu_addr_space_static_init_ok_p (tree, tree, addr_space_t,
+					     addr_space_t);
+static unsigned int spu_section_type_flags (tree, const char *, int);
+static bool spu_valid_pointer_mode (enum machine_mode mode);
 
 extern const char *reg_names[];
 
@@ -279,15 +290,12 @@ spu_libgcc_shift_count_mode (void);
 
 /*  TARGET overrides.  */
 
-static enum machine_mode spu_addr_space_pointer_mode (addr_space_t);
 #undef TARGET_ADDR_SPACE_POINTER_MODE
 #define TARGET_ADDR_SPACE_POINTER_MODE spu_addr_space_pointer_mode
 
-static tree spu_addr_space_minus_type (addr_space_t, addr_space_t);
 #undef TARGET_ADDR_SPACE_MINUS_TYPE
 #define TARGET_ADDR_SPACE_MINUS_TYPE spu_addr_space_minus_type
 
-static const char *spu_addr_space_name (addr_space_t);
 #undef TARGET_ADDR_SPACE_NAME
 #define TARGET_ADDR_SPACE_NAME spu_addr_space_name
 
@@ -298,38 +306,24 @@ static const char *spu_addr_space_name (addr_space_t);
 #undef TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS
 #define TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS spu_addr_space_legitimize_address
 
-static bool spu_addr_space_can_convert_p (addr_space_t, addr_space_t);
 #undef TARGET_ADDR_SPACE_CAN_CONVERT_P
 #define TARGET_ADDR_SPACE_CAN_CONVERT_P spu_addr_space_can_convert_p
 
-static bool spu_addr_space_nop_convert_p (addr_space_t, addr_space_t);
-#undef TARGET_ADDR_SPACE_NOP_CONVERT_P
-#define TARGET_ADDR_SPACE_NOP_CONVERT_P spu_addr_space_nop_convert_p
-
-static bool spu_addr_space_subset_p (addr_space_t, addr_space_t,
-				     addr_space_t *);
 #undef TARGET_ADDR_SPACE_SUBSET_P
 #define TARGET_ADDR_SPACE_SUBSET_P spu_addr_space_subset_p
 
-static rtx spu_addr_space_convert (rtx, enum machine_mode, addr_space_t,
-				   addr_space_t);
 #undef TARGET_ADDR_SPACE_CONVERT
 #define TARGET_ADDR_SPACE_CONVERT spu_addr_space_convert
 
-static tree spu_addr_space_section_name (addr_space_t);
 #undef TARGET_ADDR_SPACE_SECTION_NAME
 #define TARGET_ADDR_SPACE_SECTION_NAME spu_addr_space_section_name
 
-static bool spu_addr_space_static_init_ok_p (tree, tree, addr_space_t,
-					     addr_space_t);
 #undef TARGET_ADDR_SPACE_STATIC_INIT_OK_P
 #define TARGET_ADDR_SPACE_STATIC_INIT_OK_P spu_addr_space_static_init_ok_p
 
-static unsigned int spu_section_type_flags (tree, const char *, int);
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS spu_section_type_flags
 
-static bool spu_valid_pointer_mode (enum machine_mode mode);
 #undef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE spu_valid_pointer_mode
 
@@ -6846,95 +6840,74 @@ spu_addr_space_name (addr_space_t addrspace)
 /* Determine if you can convert one address to another.  */
 
 static bool
-spu_addr_space_can_convert_p (addr_space_t from, addr_space_t to)
+spu_addr_space_can_convert_p (tree from_type, tree to_type)
 {
-  gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
-  gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
+  addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (from_type));
+  addr_space_t to_as = TYPE_ADDR_SPACE (TREE_TYPE (to_type));
+
+  gcc_assert (from_as == ADDR_SPACE_GENERIC || from_as == ADDR_SPACE_EA);
+  gcc_assert (to_as == ADDR_SPACE_GENERIC || to_as == ADDR_SPACE_EA);
 
   if (TARGET_NO_EA_TO_GENERIC_CONVERSION
-      && from == ADDR_SPACE_EA
-      && to == ADDR_SPACE_GENERIC)
+      && from_as == ADDR_SPACE_EA
+      && to_as == ADDR_SPACE_GENERIC)
     return false;
 
   return true;
 }
 
-/* Determine if converting one address to another is a NOP.  */
-
-static bool
-spu_addr_space_nop_convert_p (addr_space_t from, addr_space_t to)
-{
-  gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
-  gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
-  return (to == from);
-}
-
 /* Determine if one named address space is a subset of another.  */
 
 static bool
-spu_addr_space_subset_p (addr_space_t as1,
-			 addr_space_t as2,
-			 addr_space_t *common_as)
+spu_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
 {
-  gcc_assert (as1 == ADDR_SPACE_GENERIC || as1 == ADDR_SPACE_EA);
-  gcc_assert (as2 == ADDR_SPACE_GENERIC || as2 == ADDR_SPACE_EA);
+  gcc_assert (subset == ADDR_SPACE_GENERIC || subset == ADDR_SPACE_EA);
+  gcc_assert (superset == ADDR_SPACE_GENERIC || superset == ADDR_SPACE_EA);
 
-  if (as1 == as2)
-    {
-      *common_as = as1;
-      return true;
-    }
+  if (subset == superset)
+    return true;
 
   /* If we have -mno-address-space-conversion, treat __ea and generic as not
      being subsets but instead as disjoint address spaces.  This will require
      the user to explicitly convert between the different address spaces,
      instead of relying on the compiler to do it automatically.  */
   else if (TARGET_NO_ADDRESS_SPACE_CONVERSION)
-    {
-      *common_as = ADDR_SPACE_BAD;
-      return false;
-    }
+    return false;
 
   else
-    {
-      *common_as = ADDR_SPACE_EA;
-      return true;
-    }
+    return (subset == ADDR_SPACE_GENERIC && superset == ADDR_SPACE_EA);
 }
 
 /* Convert from one address space to another.  */
 static rtx
-spu_addr_space_convert (rtx op,
-			enum machine_mode mode,
-			addr_space_t from,
-			addr_space_t to)
+spu_addr_space_convert (rtx op, tree from_type, tree to_type)
 {
+  addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (from_type));
+  addr_space_t to_as = TYPE_ADDR_SPACE (TREE_TYPE (to_type));
   rtx reg;
 
-  gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
-  gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
+  gcc_assert (from_as == ADDR_SPACE_GENERIC || from_as == ADDR_SPACE_EA);
+  gcc_assert (to_as == ADDR_SPACE_GENERIC || to_as == ADDR_SPACE_EA);
 
-  if (to == from)
+  if (to_as == from_as)
     return op;
 
-  else if (to == ADDR_SPACE_GENERIC && from == ADDR_SPACE_EA)
+  else if (to_as == ADDR_SPACE_GENERIC && from_as == ADDR_SPACE_EA)
     {
-      reg = gen_reg_rtx (mode);
+      reg = gen_reg_rtx (Pmode);
       emit_insn (gen_from_ea (reg, op));
       return reg;
     }
 
-  else if (to == ADDR_SPACE_EA && from == ADDR_SPACE_GENERIC)
+  else if (to_as == ADDR_SPACE_EA && from_as == ADDR_SPACE_GENERIC)
     {
-      reg = gen_reg_rtx (mode);
+      reg = gen_reg_rtx (EAmode);
       emit_insn (gen_to_ea (reg, op));
       return reg;
     }
 
   else
     gcc_unreachable ();
-
-  return 0;
 }
 
 static GTY(()) tree spu_ea_name;

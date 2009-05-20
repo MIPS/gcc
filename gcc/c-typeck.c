@@ -98,6 +98,7 @@ static void push_member_name (tree);
 static int spelling_length (void);
 static char *print_spelling (char *);
 static void warning_init (int, const char *);
+static bool addr_space_superset (addr_space_t, addr_space_t, addr_space_t *);
 static bool digest_init_addr_space_ok_p (tree, tree, addr_space_t);
 static tree digest_init (tree, tree, tree, bool, bool, int, addr_space_t);
 static void output_init_element (tree, tree, bool, tree, tree, int, bool);
@@ -290,6 +291,32 @@ c_type_promotes_to (tree type)
   return type;
 }
 
+/* Return true if between two named address spaces, whether there is a superset
+   named address space that encompasses both address spaces.  If there is a
+   superset, return which address space is the superset.  */
+
+static bool
+addr_space_superset (addr_space_t as1, addr_space_t as2, addr_space_t *common)
+{
+  if (as1 == as2)
+    {
+      *common = as1;
+      return true;
+    }
+  else if (targetm.addr_space.subset_p (as1, as2))
+    {
+      *common = as2;
+      return true;
+    }
+  else if (targetm.addr_space.subset_p (as2, as1))
+    {
+      *common = as1;
+      return true;
+    }
+  else
+    return false;
+}
+
 /* Return a variant of TYPE which has all the type qualifiers of LIKE
    as well as those of TYPE.  */
 
@@ -308,7 +335,7 @@ qualify_type (tree type, tree like)
   /* Two different named address spaces, check for one being a subset of the
      other, and if there isn't a common superset address space, raise an
      error.  */
-  else if (!targetm.addr_space.subset_p (as_type, as_like, &as_common))
+  else if (!addr_space_superset (as_type, as_like, &as_common))
     {
       as_common = 0;
       error ("%qT and %qT are in different named address spaces",
@@ -659,7 +686,7 @@ common_pointer_type (tree t1, tree t2)
   as2 = TYPE_ADDR_SPACE (pointed_to_2);
   if (as1 == as2)
     as_common = as1;
-  else if (!targetm.addr_space.subset_p (as1, as2, &as_common))
+  else if (!addr_space_superset (as1, as2, &as_common))
     gcc_unreachable ();
 
   target_quals |= ENCODE_QUAL_ADDR_SPACE (as_common);
@@ -1131,12 +1158,10 @@ comp_target_types (tree ttl, tree ttr)
   tree mvr = TREE_TYPE (ttr);
   addr_space_t asl = TYPE_ADDR_SPACE (mvl);
   addr_space_t asr = TYPE_ADDR_SPACE (mvr);
-  addr_space_t as_common = 0;
+  addr_space_t as_common;
 
   /* See if the pointers point to different address spaces.  */
-  if (asl != asr
-      && !targetm.addr_space.subset_p (asl, asr, &as_common)
-      && (asl != as_common))
+  if (asl != asr && !addr_space_superset (asl, asr, &as_common))
     return 0;
 
   /* Do not lose qualifiers on element types of array types that are
@@ -3925,26 +3950,22 @@ build_conditional_expr (tree ifexp, bool ifexp_bcp, tree op1, tree op2)
     }
   else if (code1 == POINTER_TYPE && code2 == POINTER_TYPE)
     {
-      addr_space_t as1;
-      addr_space_t as2;
-      addr_space_t as_common = 0;
+      addr_space_t as1 = TYPE_ADDR_SPACE (TREE_TYPE (type1));
+      addr_space_t as2 = TYPE_ADDR_SPACE (TREE_TYPE (type2));
+      addr_space_t as_common = as1;
 
+      if (as1 != as2 && !addr_space_superset (as1, as2, &as_common))
+	{
+	  error ("pointers to incompatible address spaces used in conditional "
+		 "expression");
+	  return error_mark_node;
+	}
       if (comp_target_types (type1, type2))
 	result_type = common_pointer_type (type1, type2);
       else if (null_pointer_constant_p (orig_op1))
 	result_type = qualify_type (type2, type1);
       else if (null_pointer_constant_p (orig_op2))
 	result_type = qualify_type (type1, type2);
-      else if (((as1 = TYPE_ADDR_SPACE (TREE_TYPE (type1)))
-		!= (as2 = TYPE_ADDR_SPACE (TREE_TYPE (type2))))
-	       && (TYPE_MAIN_VARIANT (TREE_TYPE (type1))
-		   == TYPE_MAIN_VARIANT (TREE_TYPE (type2)))
-	       && !targetm.addr_space.subset_p (as1, as2, &as_common))
-	{
-	  error ("pointers to incompatible address spaces used in conditional "
-		 "expression");
-	  result_type = type1;
-	}
       else if (VOID_TYPE_P (TREE_TYPE (type1)))
 	{
 	  if (TREE_CODE (TREE_TYPE (type2)) == FUNCTION_TYPE)
@@ -3965,10 +3986,13 @@ build_conditional_expr (tree ifexp, bool ifexp_bcp, tree op1, tree op2)
 	}
       else
 	{
+	  int qual = ENCODE_QUAL_ADDR_SPACE (as_common);
+
 	  if (!objc_ok)
 	    pedwarn (input_location, 0, 
 		     "pointer type mismatch in conditional expression");
-	  result_type = build_pointer_type (void_type_node);
+	  result_type = build_pointer_type
+			  (build_qualified_type (void_type_node, qual));
 	}
     }
   else if (code1 == POINTER_TYPE && code2 == INTEGER_TYPE)
@@ -4256,7 +4280,7 @@ build_c_cast (tree type, tree expr)
 	  addr_space_t as_from = TYPE_ADDR_SPACE (TREE_TYPE (otype));
 
 	  if (as_to != as_from
-	      && !targetm.addr_space.can_convert_p (as_from, as_to))
+	      && !targetm.addr_space.can_convert_p (otype, type))
 	    {
 	      if (!as_from)
 		error ("cast to %s address space pointer from generic address "
@@ -4927,14 +4951,12 @@ convert_for_assignment (tree type, tree rhs, tree origtype,
 	warning (OPT_Wc___compat, "request for implicit conversion from "
 		 "%qT to %qT not permitted in C++", rhstype, type);
 
-	      /* See if the pointers point to incompatible address spaces.  */
+      /* See if the pointers point to incompatible address spaces.  */
       asl = TYPE_ADDR_SPACE (ttl);
       asr = TYPE_ADDR_SPACE (ttr);
-      as_common = 0;
-      if ((asl != asr)
+      if (asl != asr
 	  && !null_pointer_constant_p (rhs)
-	  && !targetm.addr_space.subset_p (asl, asr, &as_common)
-	  && asl != as_common)
+	  && !addr_space_superset (asl, asr, &as_common))
 	{
 	  switch (errtype)
 	    {
@@ -9331,7 +9353,15 @@ build_binary_op (location_t location, enum tree_code code,
 	{
 	  tree tt0 = TREE_TYPE (type0);
 	  tree tt1 = TREE_TYPE (type1);
-	  addr_space_t as;
+	  addr_space_t as0 = TYPE_ADDR_SPACE (tt0);
+	  addr_space_t as1 = TYPE_ADDR_SPACE (tt1);
+	  addr_space_t as_common = as0;
+
+	  if (as0 != as1 && !addr_space_superset (as0, as1, &as_common))
+	    {
+	      error ("comparison of pointers to incompatible address spaces");
+	      return error_mark_node;
+	    }
 
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
@@ -9346,17 +9376,6 @@ build_binary_op (location_t location, enum tree_code code,
 		  && TREE_CODE (tt1) == FUNCTION_TYPE)
 		pedwarn (location, OPT_pedantic, "ISO C forbids "
 			 "comparison of %<void *%> with function pointer");
-
-	      /* If this operand is a pointer into another address
-		 space, make the result of the comparison such a
-		 pointer also.  */
-	      if (POINTER_TYPE_P (type0)
-		  && (as = TYPE_ADDR_SPACE (TREE_TYPE (type0))))
-		{
-		  int qual = ENCODE_QUAL_ADDR_SPACE (as);
-		  result_type = build_pointer_type
-		    (build_qualified_type (void_type_node, qual));
-		}
 	    }
 	  else if (VOID_TYPE_P (tt1))
 	    {
@@ -9364,17 +9383,6 @@ build_binary_op (location_t location, enum tree_code code,
 		  && TREE_CODE (tt0) == FUNCTION_TYPE)
 		pedwarn (location, OPT_pedantic, "ISO C forbids "
 			 "comparison of %<void *%> with function pointer");
-
-	      /* If this operand is a pointer into another address
-		 space, make the result of the comparison such a
-		 pointer also.  */
-	      if (POINTER_TYPE_P (type1)
-		  && (as = TYPE_ADDR_SPACE (TREE_TYPE (type1))))
-		{
-		  int qual = ENCODE_QUAL_ADDR_SPACE (as);
-		  result_type = build_pointer_type
-		    (build_qualified_type (void_type_node, qual));
-		}
 	    }
 	  else
 	    /* Avoid warning about the volatile ObjC EH puts on decls.  */
@@ -9383,7 +9391,11 @@ build_binary_op (location_t location, enum tree_code code,
 		       "comparison of distinct pointer types lacks a cast");
 
 	  if (result_type == NULL_TREE)
-	    result_type = ptr_type_node;
+	    {
+	      int qual = ENCODE_QUAL_ADDR_SPACE (as_common);
+	      result_type = build_pointer_type
+			      (build_qualified_type (void_type_node, qual));
+	    }
 	}
       else if (code0 == POINTER_TYPE && null_pointer_constant_p (orig_op1))
 	{
@@ -9427,6 +9439,16 @@ build_binary_op (location_t location, enum tree_code code,
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
+	  addr_space_t as0 = TYPE_ADDR_SPACE (TREE_TYPE (type0));
+	  addr_space_t as1 = TYPE_ADDR_SPACE (TREE_TYPE (type1));
+	  addr_space_t as_common = as0;
+
+	  if (as0 != as1 && !addr_space_superset (as0, as1, &as_common))
+	    {
+	      error ("comparison of pointers to incompatible address spaces");
+	      return error_mark_node;
+	    }
+
 	  if (comp_target_types (type0, type1))
 	    {
 	      result_type = common_pointer_type (type0, type1);
@@ -9440,7 +9462,9 @@ build_binary_op (location_t location, enum tree_code code,
 	    }
 	  else
 	    {
-	      result_type = ptr_type_node;
+	      int qual = ENCODE_QUAL_ADDR_SPACE (as_common);
+	      result_type = build_pointer_type
+			      (build_qualified_type (void_type_node, qual));
 	      pedwarn (location, 0,
 		       "comparison of distinct pointer types lacks a cast");
 	    }

@@ -2,8 +2,6 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99 -pedantic-errors" } */
 
-extern __ea void f1 ();	 /* { dg-error "'__ea' specified for function 'f1'" } */
-
 void func ()
 {
   register __ea int local1; /* { dg-error "'__ea' combined with 'register' qualifier for 'local1'" } */
@@ -25,13 +23,9 @@ struct st {
   int *__ea q;		    /* { dg-error "'__ea' specified for structure field 'q'" } */
 } s;
 
-__ea int func3 (int x) {    /* { dg-error "'__ea' specified for function 'func3'" } */
-  return x;
-}
-
 struct A { int a; };
 
-int func4 (int *__ea x)	    /* { dg-error "'__ea' specified for parameter 'x'" } */
+int func3 (int *__ea x)	    /* { dg-error "'__ea' specified for parameter 'x'" } */
 {
   struct A i = (__ea struct A) { 1 };	/* { dg-error "compound literal qualified by address-space qualifier" } */
   return i.a;

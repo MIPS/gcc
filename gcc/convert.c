@@ -62,31 +62,28 @@ convert_to_pointer (tree type, tree expr)
       /* If the pointers point to different address spaces, see if we can do the
 	 convert, and if we can do the convert, whether the conversion is a NOP
 	 or not.  */
-      tcode = NOP_EXPR;
       from_as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (expr)));
-      if (to_as != from_as)
+      if (to_as == from_as)
+	tcode = NOP_EXPR;
+      else if (targetm.addr_space.can_convert_p (TREE_TYPE (expr), type))
+	tcode = CONVERT_EXPR;
+      else
 	{
-	  if (! targetm.addr_space.can_convert_p (from_as, to_as))
-	    {
-	      if (!from_as)
-		error ("cannot convert generic address space pointers to "
-		       "%s address space pointers",
-		       targetm.addr_space.name (to_as));
-	      else if (!to_as)
-		error ("cannot convert %s address space pointers to "
-		       "generic address space pointers",
-		       targetm.addr_space.name (from_as));
-	      else
-		error ("cannot convert %s address space pointers to "
-		       "%s address space pointers",
-		       targetm.addr_space.name (from_as),
-		       targetm.addr_space.name (to_as));
+	  if (!from_as)
+	    error ("cannot convert generic address space pointers to %s "
+		   "address space pointers",
+		   targetm.addr_space.name (to_as));
+	  else if (!to_as)
+	    error ("cannot convert %s address space pointers to generic "
+		   "address space pointers",
+		   targetm.addr_space.name (from_as));
+	  else
+	    error ("cannot convert %s address space pointers to %s address "
+		   "space pointers",
+		   targetm.addr_space.name (from_as),
+		   targetm.addr_space.name (to_as));
 
-	      return convert_to_pointer (type, integer_zero_node);
-	    }
-
-	  if (! targetm.addr_space.nop_convert_p (from_as, to_as))
-	    tcode = CONVERT_EXPR;
+	  return convert_to_pointer (type, integer_zero_node);
 	}
       return fold_build1 (tcode, type, expr);
 

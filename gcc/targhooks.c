@@ -803,43 +803,35 @@ default_addr_space_legitimize_address (rtx x ATTRIBUTE_UNUSED,
   return x;
 }
 
-/* The default hook for determining whether you can convert from one address
-   space to another.  */
-
-bool
-default_addr_space_can_convert_p (addr_space_t to_addr, addr_space_t from_addr)
-{
-  return to_addr == from_addr;
-}
-
-/* The default hook for determining whether convert from one address space to
-   another is a NOP.  */
-
-bool
-default_addr_space_nop_convert_p (addr_space_t to_addr, addr_space_t from_addr)
-{
-  return to_addr == from_addr;
-}
-
 /* The default hook for determining if one named address space is a subset of
    another and to return which address space to use as the common address
    space.  */
 
 bool
-default_addr_space_subset_p (addr_space_t as1,
-			     addr_space_t as2,
-			     addr_space_t *common_as)
+default_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
 {
-  if (as1 == as2)
-    {
-      *common_as = as1;
-      return true;
-    }
+  return (subset == superset);
+}
+
+/* The default hook for determining whether you can convert from one address
+   space to another.  */
+
+bool
+default_addr_space_can_convert_p (tree from_type, tree to_type)
+{
+  addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (from_type));
+  addr_space_t to_as = TYPE_ADDR_SPACE (TREE_TYPE (to_type));
+
+  if (to_as == from_as)
+    return true;
+
+  /* If the from named address is a subset of the to named address, it should
+     be legal to do the conversion.  */
+  else if (targetm.addr_space.subset_p (from_as, to_as))
+    return true;
+
   else
-    {
-      *common_as = 0;
-      return false;
-    }
+    return false;
 }
 
 /* The default hook for TARGET_ADDR_SPACE_CONVERT. This hook should never be
@@ -847,9 +839,8 @@ default_addr_space_subset_p (addr_space_t as1,
 
 rtx 
 default_addr_space_convert (rtx op ATTRIBUTE_UNUSED,
-			    enum machine_mode mode ATTRIBUTE_UNUSED,
-			    addr_space_t from ATTRIBUTE_UNUSED,
-			    addr_space_t to ATTRIBUTE_UNUSED)
+			    tree from_type ATTRIBUTE_UNUSED,
+			    tree to_type ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }

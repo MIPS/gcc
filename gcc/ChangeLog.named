@@ -1,3 +1,60 @@
+2009-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* targhooks.c (default_addr_space_nop_convert_p): Delete, no
+	longer used.
+	(default_addr_space_subset_p): Update for change to calling
+	signuatures.
+	(default_addr_space_can_convert_p): Ditto.
+	(default_addr_space_convert): Ditto.
+
+	* targhooks.h (default_addr_space_nop_convert_p): Delete, no
+	longer used.
+	(default_addr_space_subset_p): Update for change to calling
+	signuatures.
+	(default_addr_space_can_convert_p): Ditto.
+	(default_addr_space_convert): Ditto.
+
+	* target.h (struct addr_space): Delete the nop_convert_p hook.
+	Change the subset_p hook to remove the third argument, and make
+	the hook a pure subset test.  Change the convert and can_convert_p
+	hooks to take tree types instead of named address spaces for more
+	flexibility.  Reorder elements so the convert and can_convert_p
+	hooks are next to each other.
+
+	* c-typeck.c (addr_space_superset): New static function to
+	determine if one named address space is a subset of another, and
+	if so, which named address space is the superset.
+	(qualify_type): Change to use addr_space_superset.
+	(common_pointer_type): Ditto.
+	(comp_target_types): Ditto.
+	(build_conditional_expr): Ditto.
+	(build_binary_op): Ditto.
+	(build_c_cast): Change to pass tree types to determine if we can
+	convert between two pointers to different named addresses.
+
+	* target-def.h (TARGET_ADDR_SPACE_NOP_CONVERT_P): Delete, no
+	longer used.
+	(TARGET_ADDR_SPACE_HOOKS): Delete nop_convert_p field.  Reorder
+	initializers to match changes in target.h.
+
+	* config/spu/spu.c (toplevel): Move declarations of named address
+	space target hook functions where the other functions are
+	declared.
+	(spu_addr_space_nop_convert_p): Delete, no longer used.
+	(TARGET_ADDR_SPACE_NOP_CONVERT_P): Ditto.
+	(spu_addr_space_subset_p): Change to make the target hook return
+	only if the first named address space is a subset of the second.
+	(spu_addr_space_can_convert_p): Change to take tree types instead
+	of named address spaces for more flexibility.
+	(spu_addr_space_convert): Ditto.
+
+	* config/spu/spu.h (ADDR_SPACE_BAD): Delete.
+
+	* convert.c (convert_to_pointer): Delete the support for named
+	address space conversion being a NOP.  Change convert target hook
+	calling signature.
+
 2009-05-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge to mainline, subversion revision 147681.
