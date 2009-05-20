@@ -145,6 +145,7 @@ static tree spu_builtin_vec_perm (tree, tree *);
 static int spu_sms_res_mii (struct ddg *g);
 static void asm_file_start (void);
 static unsigned int spu_section_type_flags (tree, const char *, int);
+static bool spu_override_options (bool);
 
 extern const char *reg_names[];
 rtx spu_compare_op0, spu_compare_op1;
@@ -334,6 +335,9 @@ extern const struct attribute_spec spu_attribute_table[];
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS spu_section_type_flags
 
+#undef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS spu_override_options
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 void
@@ -351,12 +355,13 @@ spu_optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
    on a particular target machine.  You can define a macro
    OVERRIDE_OPTIONS to take account of this. This macro, if defined, is
    executed once just after all the command options have been parsed.  */
-void
-spu_override_options (void)
+static bool
+spu_override_options (bool main_target)
 {
   /* Small loops will be unpeeled at -O3.  For SPU it is more important
      to keep code small by default.  */
-  if (!flag_unroll_loops && !flag_peel_loops
+  /* FIXME: this parameter should exist separately for all targets.  */
+  if (!flag_unroll_loops && !flag_peel_loops && main_target
       && !PARAM_SET_P (PARAM_MAX_COMPLETELY_PEEL_TIMES))
     PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES) = 1;
 
@@ -406,6 +411,7 @@ spu_override_options (void)
     }
 
   REAL_MODE_FORMAT (SFmode) = &spu_single_format;
+  return true;
 }
 
 /* Handle an attribute requiring a FUNCTION_DECL; arguments as in

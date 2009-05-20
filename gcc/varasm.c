@@ -1637,10 +1637,13 @@ default_target_new_arch (FILE *out_file,
 			 struct gcc_target *last_arch,
 			 struct gcc_target *new_arch)
 {
+#ifndef EXTRA_TARGET
   if (&targetm != &this_targetm)
     targetm.asm_out.new_arch (out_file, last_arch, new_arch);
-  else if (last_arch != new_arch && last_arch)
-    fprintf (out_file, "\t.arch\t\"%s\"\n", new_arch->name);
+  else if (last_arch)
+#endif
+    if (last_arch != new_arch)
+      fprintf (out_file, "\t.arch\t\"%s\"\n", new_arch->name);
 }
 
 /* Output assembler code for the constant pool of a function and associated

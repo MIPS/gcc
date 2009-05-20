@@ -1,4 +1,4 @@
-/* Don't include multi-target.h fot target-types.h generation.  */
+/* Don't include mxp-regset.h for target-types.h generation.  */
 #if defined(IN_GCC) || defined(GENERATOR_FILE)
 #include "mxp-regset.h"
 #endif

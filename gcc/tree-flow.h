@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
 #include "ipa-reference.h"
+#include "multi-target.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -1169,11 +1170,13 @@ struct mem_address
 };
 
 struct affine_tree_combination;
+START_TARGET_SPECIFIC
 tree create_mem_ref (gimple_stmt_iterator *, tree, 
 		     struct affine_tree_combination *, bool);
 rtx addr_for_mem_ref (struct mem_address *, bool);
-void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
+END_TARGET_SPECIFIC
+void get_address_description (tree, struct mem_address *);
 
 void init_alias_heapvars (void);
 void delete_alias_heapvars (void);

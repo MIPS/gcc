@@ -1,5 +1,8 @@
 2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* config/rs6000/rs6000.c (legitimate_indirect_address_p):
+	Don't define inline.
+
 	* opt-gen.awk: For all variables with an Init clause, set var_seen.
 	* config/rs6000/rs6000.c (rs6000_builtin_conversion): Adjust to
 	target.h declaration.

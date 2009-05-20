@@ -1130,6 +1130,7 @@ OBJS-rtl = \
 	stor-layout.o \
 	targhooks.o \
 	toplev.o \
+	tree-ssa-address.o \
 	var-tracking.o \
 	varasm.o \
 	vmsdbgout.o \
@@ -1220,7 +1221,6 @@ OBJS-common = \
 	tree-scalar-evolution.o \
 	tree-sra.o \
 	tree-switch-conversion.o \
-	tree-ssa-address.o \
 	tree-ssa-alias.o \
 	tree-ssa-ccp.o \
 	tree-ssa-coalesce.o \
