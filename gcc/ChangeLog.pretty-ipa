@@ -1,3 +1,11 @@
+2009-05-20  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_estimate_time_after_inlining): Fix roudoff errors
+	(cgraph_mark_inline_edge): Do not duplicate when not needed.
+	(cgraph_edge_badness): Be more precise.
+	(cgraph_decide_inlining): Fix debug output.
+	(estimate_function_body_sizes): Watch VOIDtypes.
+
 2009-05-18  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-prop.c (ipa_check_stmt_modifications): Removed.

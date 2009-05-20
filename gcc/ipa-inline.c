@@ -184,8 +184,8 @@ static int
 cgraph_estimate_time_after_inlining (int frequency, struct cgraph_node *to,
 				     struct cgraph_node *what)
 {
-  gcov_type time = (((gcov_type)what->global.time - inline_summary
-   		     (what)->time_inlining_benefit)
+  gcov_type time = (((gcov_type)what->global.time
+		     - inline_summary (what)->time_inlining_benefit)
   		    * frequency + CGRAPH_FREQ_BASE / 2) / CGRAPH_FREQ_BASE
 		    + to->global.time;
   if (time < 0)
@@ -273,6 +273,9 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
   int old_size = 0, new_size = 0;
   struct cgraph_node *to = NULL, *what;
   struct cgraph_edge *curr = e;
+  int freq;
+  bool duplicate = false;
+  int orig_size = e->callee->global.size;
 
   if (e->callee->inline_decl)
     cgraph_redirect_edge_callee (e, cgraph_node (e->callee->inline_decl));
@@ -284,10 +287,14 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
     DECL_POSSIBLY_INLINED (e->callee->decl) = true;
   e->callee->global.inlined = true;
 
+  if (e->callee->callers->next_caller
+      || e->callee->needed)
+    duplicate = true;
   cgraph_clone_inlined_nodes (e, true, update_original);
 
   what = e->callee;
 
+  freq = e->frequency;
   /* Now update size of caller and all functions caller is inlined into.  */
   for (;e && !e->inline_failed; e = e->caller->callers)
     {
@@ -295,11 +302,13 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
       old_size = e->caller->global.size;
       new_size = cgraph_estimate_size_after_inlining (1, to, what);
       to->global.size = new_size;
-      to->global.time = cgraph_estimate_time_after_inlining (e->frequency, to, what);
+      to->global.time = cgraph_estimate_time_after_inlining (freq, to, what);
     }
   gcc_assert (what->global.inlined_to == to);
   if (new_size > old_size)
     overall_size += new_size - old_size;
+  if (!duplicate)
+    overall_size -= orig_size;
   ncalls_inlined++;
 
   if (flag_indirect_inlining)
@@ -509,7 +518,7 @@ cgraph_recursive_inlining_p (struct cgraph_node *to,
 static int
 cgraph_edge_badness (struct cgraph_edge *edge)
 {
-  int badness;
+  gcov_type badness;
   int growth =
     cgraph_estimate_size_after_inlining (1, edge->caller, edge->callee);
 
@@ -537,20 +546,22 @@ cgraph_edge_badness (struct cgraph_edge *edge)
   else if (flag_guess_branch_prob)
     {
       int div = edge->frequency * 100 / CGRAPH_FREQ_BASE + 1;
-      badness = growth * 256;
+      badness = growth * 10000;
       div *= MIN (100 * inline_summary (edge->callee)->time_inlining_benefit
       	          / (edge->callee->global.time + 1) + 1, 100);
       
 
       /* Decrease badness if call is nested.  */
       /* Compress the range so we don't overflow.  */
-      if (div > 256)
-	div = 256 + ceil_log2 (div) - 8;
+      if (div > 10000)
+	div = 10000 + ceil_log2 (div) - 8;
       if (div < 1)
 	div = 1;
       if (badness > 0)
 	badness /= div;
       badness += cgraph_estimate_growth (edge->callee);
+      if (badness > INT_MAX)
+        badness = INT_MAX;
     }
   /* When function local profile is not available or it does not give
      useful information (ie frequency is zero), base the cost on
@@ -1058,7 +1069,7 @@ cgraph_decide_inlining_of_small_functions (void)
       if (dump_file)
 	{
 	  fprintf (dump_file, 
-		   " Inlined into %s which now has sie %i and self time %i,"
+		   " Inlined into %s which now has size %i and self time %i,"
 		   "net change of %+i.\n",
 		   cgraph_node_name (edge->caller),
 		   edge->caller->global.time,
@@ -1224,6 +1235,7 @@ cgraph_decide_inlining (void)
 	      && !DECL_EXTERNAL (node->decl)
 	      && !DECL_COMDAT (node->decl))
 	    {
+	      old_size = overall_size;
 	      if (dump_file)
 		{
 		  fprintf (dump_file,
@@ -1791,11 +1803,12 @@ estimate_function_body_sizes (struct cgraph_node *node)
       size_inlining_benefit += cost;
     }
   for (arg = DECL_ARGUMENTS (node->decl); arg; arg = TREE_CHAIN (arg))
-    {
-      int cost = estimate_move_cost (TREE_TYPE (arg));
-      time_inlining_benefit += cost;
-      size_inlining_benefit += cost;
-    }
+    if (!VOID_TYPE_P (TREE_TYPE (arg)))
+      {
+        int cost = estimate_move_cost (TREE_TYPE (arg));
+        time_inlining_benefit += cost;
+        size_inlining_benefit += cost;
+      }
   if (time_inlining_benefit > MAX_TIME)
     time_inlining_benefit = MAX_TIME;
   if (time > MAX_TIME)
@@ -1969,7 +1982,7 @@ inline_transform (struct cgraph_node *node)
   return todo | execute_fixup_cfg ();
 }
 
-struct ipa_opt_pass pass_ipa_inline = 
+struct ipa_opt_pass pass_ipa_inline =
 {
  {
   IPA_PASS,
