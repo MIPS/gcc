@@ -239,11 +239,6 @@ proc libstdc++_init { testfile } {
     append cxxflags [getenv CXXFLAGS]
     v3track cxxflags 2
 
-    # If the compiler supports LTO, use it.
-    if [check_effective_target_lto] {
-      append cxxflags " -fwhopr"
-    }
-
     # Always use MO files built by this test harness.
     set cxxflags "$cxxflags -DLOCALEDIR=\".\""
     set ccflags "$cxxflags -DLOCALEDIR=\".\""
@@ -497,6 +492,7 @@ proc v3-build_support { } {
     global v3-threads
     global v3-symver
     global v3-sharedlib
+    global cxxflags
 
     # Figure out whether or not the library supports certain features.
     set v3-wchar_t 0
@@ -596,6 +592,11 @@ proc v3-build_support { } {
 		error "could not compile $f"
 	    }
 	}
+    }
+
+    # If the compiler supports LTO, use it.
+    if [check_effective_target_lto] {
+      append cxxflags " -fwhopr"
     }
 }
 
