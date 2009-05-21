@@ -1,3 +1,28 @@
+2009-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39942
+	* config/i386/x86-64.h (ASM_OUTPUT_MAX_SKIP_ALIGN): Don't emit second
+	.p2align 3 if MAX_SKIP is smaller than 7.
+	* config/i386/linux.h (ASM_OUTPUT_MAX_SKIP_ALIGN): Likewise.
+
+2009-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40204
+	* fold-const.c (fold_binary) <case BIT_AND_EXPR>: Avoid infinite
+	recursion if build_int_cst_type returns the same INTEGER_CST as
+	arg1.
+
+2009-05-19  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Do
+	not falsely claim to have propagated into all uses.
+
+2009-05-18  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/40109
+	* dwarf2out.c (gen_type_die_with_usage): Generate the DIE as a
+	child of the containing namespace's DIE.
+
 2009-05-18  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/39999
