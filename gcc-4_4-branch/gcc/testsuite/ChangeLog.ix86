@@ -1,3 +1,11 @@
+2009-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/movbe-1.c: New.
+	* gcc.target/i386/movbe-2.c: Likewise.
+
 2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
