@@ -1,3 +1,23 @@
+2009-05-21  Diego Novillo  <dnovillo@google.com>
+
+	* doc/install.texi: Document libelf requirements,
+	--with-libelf and --enable-lto.
+	* configure: Regenerate.
+	* aclocal.m4: Do not include ../config/libelf.m4.
+	* config.in: Regenerate.
+	* configure.ac: Remove calls to AC_CHECK_LIBELF and
+	AC_CHECK_GELF.
+	If LTO is enabled, define ENABLE_LTO.
+	Call AC_ARG_VAR for LIBELFLIBS and LIBELFINC.
+	* c-opts.c (c_common_post_options): Issue an error if
+	ENABLE_LTO is false and -flto or -fwhopr are used.
+	* Makefile.in (LIBELFLIBS): Define.
+	(LIBELFINC): Define.
+	(BACKENDLIBS): Add LIBELFLIB.
+	(INCLUDES): Add LIBELFINC.
+	* collect2.c (main): Issue an error if ENABLE_LTO is
+	false and -flto or -fwhopr are used.
+
 2009-05-19  Diego Novillo  <dnovillo@google.com>
 
 	* opts.c (complain_wrong_lang): Remove workaround to

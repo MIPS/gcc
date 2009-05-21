@@ -107,6 +107,12 @@
 #endif
 
 
+/* Define to enable LTO support. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_LTO
+#endif
+
+
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #ifndef USED_FOR_TARGET
@@ -923,12 +929,6 @@
 #endif
 
 
-/* Define to 1 if you have the <gelf.h> header file. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_GELF_H
-#endif
-
-
 /* Define to 1 if you have the `getchar_unlocked' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GETCHAR_UNLOCKED
@@ -1087,24 +1087,6 @@
 /* Define if your linker supports --sysroot. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_SYSROOT
-#endif
-
-
-/* Define to 1 if you have the <libelf/gelf.h> header file. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_LIBELF_GELF_H
-#endif
-
-
-/* Define to 1 if you have the <libelf.h> header file. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_LIBELF_H
-#endif
-
-
-/* Define to 1 if you have the <libelf/libelf.h> header file. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_LIBELF_LIBELF_H
 #endif
 
 
@@ -1388,6 +1370,12 @@
 /* Define if cloog is in use. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_cloog
+#endif
+
+
+/* Define if libelf is in use. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_libelf
 #endif
 
 

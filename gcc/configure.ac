@@ -931,9 +931,6 @@ AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h iconv.h \
 AC_CHECK_HEADER(thread.h, [have_thread_h=yes], [have_thread_h=])
 AC_CHECK_HEADER(pthread.h, [have_pthread_h=yes], [have_pthread_h=])
 
-AC_CHECK_LIBELF
-AC_CHECK_GELF
-
 # These tests can't be done till we know if we have limits.h.
 gcc_AC_C_CHAR_BIT
 AC_C_BIGENDIAN
@@ -3842,6 +3839,10 @@ changequote([,])dnl
 	all_compilers="$all_compilers $compilers"
 	all_outputs="$all_outputs $outputs"
 	all_gtfiles="$all_gtfiles [[$subdir]] $gtfiles"
+
+	if test x"$language" = x"lto" ; then
+	    AC_DEFINE(ENABLE_LTO, 1, [Define to enable LTO support.])
+	fi
 done
 
 # Pick up gtfiles for c
@@ -4026,6 +4027,12 @@ AC_ARG_VAR(CLOOGLIBS,[How to link CLOOG])
 AC_ARG_VAR(CLOOGINC,[How to find CLOOG include files])
 if test "x${CLOOGLIBS}" != "x" ; then 
    AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
+fi
+
+AC_ARG_VAR(LIBELFLIBS,[How to link libelf])
+AC_ARG_VAR(LIBELFINC,[How to find libelf include files])
+if test "x${LIBELFLIBS}" != "x" ; then 
+   AC_DEFINE(HAVE_libelf, 1, [Define if libelf is in use.])
 fi
 
 # Check for plugin support

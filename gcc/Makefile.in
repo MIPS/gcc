@@ -283,6 +283,10 @@ PPLINC = @PPLINC@
 CLOOGLIBS = @CLOOGLIBS@
 CLOOGINC = @CLOOGINC@
 
+# How to find libelf
+LIBELFLIBS = @LIBELFLIBS@
+LIBELFINC = @LIBELFINC@
+
 # Libs and linker option needed for plugin support
 PLUGINLIBS = @pluginlibs@
 
@@ -926,7 +930,8 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 # How to link with both our special library facilities
 # and the system's installed libraries.
 LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER)
-BACKENDLIBS = $(CLOOGLIBS) $(PPLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(ZLIB)
+BACKENDLIBS = $(CLOOGLIBS) $(PPLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(ZLIB) \
+		$(LIBELFLIB)
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
 
@@ -955,7 +960,7 @@ BUILD_ERRORS = build/errors.o
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/../include @INCINTL@ \
 	   $(CPPINC) $(GMPINC) $(DECNUMINC) \
-	   $(PPLINC) $(CLOOGINC)
+	   $(PPLINC) $(CLOOGINC) $(LIBELFINC)
 
 .c.o:
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)

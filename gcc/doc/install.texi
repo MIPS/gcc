@@ -344,6 +344,15 @@ not installed in your default library search path.
 
 Necessary to build libgcj, the GCJ runtime.
 
+@item libelf version 0.8.10
+
+Necessary to build link-time optimization (LTO) support.  It can be
+downloaded from @uref{http://www.mr511.de/software/libelf-0.8.10.tar.gz},
+though it is commonly available in several systems.
+
+The @option{--with-libelf} configure option should be used if libelf is
+not installed in your default library search patch.
+
 @end table
 
 
@@ -1814,6 +1823,10 @@ Use the @code{WCHAR} and Win32 W functions natively.  Does @emph{not}
 add @code{-lunicows} to @file{libgcj.spec}.  The built executables will
 only run on Microsoft Windows NT and above.
 @end table
+
+@item --enable-lto
+Enable link-time optimization (LTO).  This is enabled by default if a
+working libelf implemetnation is found (see @option{--with-libelf}).
 @end table
 
 @subsubheading AWT-Specific Options

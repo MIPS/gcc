@@ -1,3 +1,7 @@
+2009-05-21  Diego Novillo  <dnovillo@google.com>
+
+	* libelf.m4: Remove.
+
 2008-08-25  Rafael Avila de Espindola  <espindola@google.com>
 
 	* libelf.m4(AC_CHECK_GELF): New

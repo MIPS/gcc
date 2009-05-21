@@ -27,15 +27,8 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include "plugin-api.h"
 #include "../gcc/lto/common.h"
 
-#ifdef HAVE_GELF_H
+/* The presence of gelf.h is checked by the toplevel configure script.  */
 # include <gelf.h>
-#else
-# if defined(HAVE_LIBELF_GELF_H)
-#   include <libelf/gelf.h>
-# else
-#  error "gelf.h not available"
-# endif
-#endif
 
 static ld_plugin_claim_file_handler claim_file_handler;
 static ld_plugin_all_symbols_read_handler all_symbols_read_handler;

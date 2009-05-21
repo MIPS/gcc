@@ -1,3 +1,18 @@
+2009-05-21  Diego Novillo  <dnovillo@google.com>
+
+	* configure.ac: Remove call to AC_CHECK_GELF.
+	Call AC_ARG_VAR for LIBELFLIBS and LIBELFINC.
+	* acinclude.m4: Do not include ../config/libelf.m4
+	* Makefile.am (LIBELFLIBS): Define.
+	(LIBELFINC): Define.
+	(AM_CPPFLAGS): Add $(LIBELFINC).
+	(ltosymtab_LDADD): Add $(LIBELFLIBS).
+	(liblto_plugin_la_LIBADD): Add $(LIBELFLIBS)
+	* lto-plugin.c: Always include <gelf.h>
+	* lto-symtab.c: Likewise.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
 2009-03-23  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-plugin.c (libgcc_filename): New.

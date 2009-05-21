@@ -1,3 +1,17 @@
+2009-05-20  Diego Novillo  <dnovillo@google.com>
+
+	* configure.ac (host_libs): Remove lto-plugin.
+	Add --enable-lto.
+	Add --with-libelf, --with-libelf-include and --with-libelf-lib.
+	If --enable-lto is used, add 'lto' to new_enable_languages.
+	If --enable-lto is used and gold is enabled, add
+	lto-plugin to configdirs.
+	* Makefile.tpl (HOST_EXPORTS): Add LIBELFLIBS and LIBELFINC.
+	(HOST_LIBELFLIBS): Define.
+	(HOST_LIBELFINC): Define.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
 2009-05-13  Simon Baldwin  <simonb@google.com>
 
 	* configure.ac: If --with-system-zlib, suppress local zlib and

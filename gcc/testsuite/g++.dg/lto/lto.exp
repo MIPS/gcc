@@ -42,6 +42,11 @@ lto_init
 # with other lto tests running at the same time.
 set sid "cp_lto"
 
+# If LTO has not been enabled, bail.
+if { ![check_effective_target_lto] } {
+    return
+}
+
 # Main loop.
 foreach src [lsort [find $srcdir/$subdir *_0.C]] {
     # If we're only testing specific files and this isn't one of them, skip it.

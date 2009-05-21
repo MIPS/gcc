@@ -1026,20 +1026,24 @@ c_common_post_options (const char **pfilename)
   C_COMMON_OVERRIDE_OPTIONS;
 #endif
 
-  /* Reconcile -flto and -fwhopr.  Set additional flags as appropriate and
-     check option consistency.  */
-  if (flag_lto && flag_whopr)
-    error ("-flto and -fwhopr are mutually exclusive");
-
   if (flag_lto || flag_whopr)
     {
+#ifdef ENABLE_LTO
       flag_generate_lto = 1;
 
       /* When generating IL, do not operate in whole-program mode.
 	 Otherwise, symbols will be privatized too early, causing link
 	 errors later.  */
       flag_whole_program = 0;
+#else
+      error ("LTO support has not been enabled in this configuration");
+#endif
     }
+
+  /* Reconcile -flto and -fwhopr.  Set additional flags as appropriate and
+     check option consistency.  */
+  if (flag_lto && flag_whopr)
+    error ("-flto and -fwhopr are mutually exclusive");
 
   /* Excess precision other than "fast" requires front-end
      support.  */

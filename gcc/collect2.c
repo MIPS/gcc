@@ -1416,12 +1416,17 @@ main (int argc, char **argv)
 	      break;
 
             case 'f':
-              if (strcmp (arg, "-flto") == 0 || strcmp (arg, "-fwhopr") == 0)
-              {
-                /* Do not pass LTO flag to the linker. */
-                ld1--;
-                ld2--;
-              }
+	      if (strcmp (arg, "-flto") == 0 || strcmp (arg, "-fwhopr") == 0)
+		{
+#ifdef ENABLE_LTO
+		  /* Do not pass LTO flag to the linker. */
+		  ld1--;
+		  ld2--;
+#else
+		  error ("LTO support has not been enabled in this "
+			 "configuration");
+#endif
+		}
               break;
 
 	    case 'l':

@@ -158,7 +158,7 @@ build_tools="build-texinfo build-byacc build-flex build-bison build-m4 build-fix
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libcpp libdecnumber gmp mpfr ppl cloog libiconv lto-plugin"
+host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libcpp libdecnumber gmp mpfr ppl cloog libiconv"
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
@@ -1450,6 +1450,79 @@ fi
 AC_SUBST(clooglibs)
 AC_SUBST(clooginc)
 
+# Check for LTO support.
+AC_ARG_ENABLE(lto,
+[  --enable-lto            enable link time optimization support],
+enable_lto=$enableval,
+enable_lto=yes; default_enable_lto=yes)
+
+if test x"$enable_lto" = x"yes" ; then
+  # Make sure that libelf.h and gelf.h are available.
+  AC_ARG_WITH(libelf, [  --with-libelf=PATH       Specify prefix directory for the installed libelf package
+                          Equivalent to --with-libelf-include=PATH/include
+                          plus --with-libelf-lib=PATH/lib])
+
+  AC_ARG_WITH(libelf_include, [  --with-libelf-include=PATH Specify directory for installed libelf include files])
+
+  AC_ARG_WITH(libelf_lib, [  --with-libelf-lib=PATH   Specify the directory for the installed libelf library])
+
+  case $with_libelf in 
+    no)
+      libelflibs=
+      libelfinc=
+      ;;
+    *)
+      libelflibs="-L$with_libelf/lib -lelf"
+      libelfinc="-I$with_libelf/include"
+      LIBS="$libelflibs $LIBS"
+      ;;
+  esac
+  if test "x$with_libelf_include" != x; then
+    libelfinc="-I$with_libelf_include"
+  fi
+  if test "x$with_libelf_lib" != x; then
+    libelflibs="-L$with_libelf_lib -lelf"
+    LIBS="$libelflibs $LIBS"
+  fi
+  if test "x$with_libelf$with_libelf_include$with_libelf_lib" = x && test -d ${srcdir}/libelf; then
+    libelflibs='-L$$r/$(HOST_SUBDIR)/libelf/.libs -L$$r/$(HOST_SUBDIR)/libelf/_libs -lelf '
+    libelfinc='-I$$r/$(HOST_SUBDIR)/libelf/include -I$$s/libelf/include'
+    LIBS="$libelflibs $LIBS"
+  fi
+
+  # Flags needed for libelf.
+  AC_SUBST(libelflibs)
+  AC_SUBST(libelfinc)
+
+  saved_CFLAGS="$CFLAGS"
+  saved_CPPFLAGS="$CPPFLAGS"
+
+  CFLAGS="$CFLAGS $libelfinc"
+  CPPFLAGS="$CPPFLAGS $libelfinc"
+
+  AC_CHECK_HEADERS(libelf.h, [have_libelf_h=yes])
+  AC_CHECK_HEADERS(gelf.h, [have_gelf_h=yes])
+
+  CFLAGS="$saved_CFLAGS"
+  CPPFLAGS="$saved_CPPFLAGS"
+
+  if test x"$have_libelf_h" != x"yes" ; then
+    if test x"$default_enable_lto" != x"yes" ; then
+      AC_MSG_ERROR([LTO support requires libelf.h.])
+    else
+      enable_lto=no
+    fi
+  fi
+
+  if test x"$have_gelf_h" != x"yes" ; then
+    if test x"$default_enable_lto" != x"yes" ; then
+      AC_MSG_ERROR([LTO support requires gelf.h.])
+    else
+      enable_lto=no
+    fi
+  fi
+fi
+
 
 # By default, C is the only stage 1 language.
 stage1_languages=,c,
@@ -1515,6 +1588,16 @@ if test -d ${srcdir}/gcc; then
   done
 
   new_enable_languages=,c,
+
+  # If LTO is enabled, add the LTO front end.
+  if test "$enable_lto" = "yes" ; then
+    new_enable_languages="${new_enable_languages}lto,"
+    if test "${ENABLE_GOLD}" = "yes" ; then
+      configdirs="$configdirs lto-plugin"
+    fi
+    configdirs="$configdirs lto-plugin"
+  fi
+
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
   potential_languages=,c,
 

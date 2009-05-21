@@ -30,8 +30,7 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
    It also has 2 options of its own:
    -debug: Print the command line used to run lto-wrapper.
    -nop: Instead of running lto-wrapper, pass the original to the plugin. This
-   only works if the input files are hybrid.
-*/
+   only works if the input files are hybrid.  */
 
 #include <assert.h>
 #include <string.h>
@@ -47,15 +46,8 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include <stdbool.h>
 #include <libiberty.h>
 
-#ifdef HAVE_GELF_H
-# include <gelf.h>
-#else
-# if defined(HAVE_LIBELF_GELF_H)
-#   include <libelf/gelf.h>
-# else
-#  error "gelf.h not available"
-# endif
-#endif
+/* The presence of gelf.h is checked by the toplevel configure script.  */
+#include <gelf.h>
 
 #include "plugin-api.h"
 #include "../gcc/lto/common.h"

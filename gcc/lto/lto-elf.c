@@ -24,15 +24,7 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "toplev.h"
 #include "lto.h"
-#ifdef HAVE_GELF_H
-# include <gelf.h>
-#else
-# if defined(HAVE_LIBELF_GELF_H)
-#   include <libelf/gelf.h>
-# else
-#  error "gelf.h not available"
-# endif
-#endif
+#include <gelf.h>
 #include "tm.h"
 #include "libiberty.h"
 #include "ggc.h"
