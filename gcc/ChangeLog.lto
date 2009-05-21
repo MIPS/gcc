@@ -1,3 +1,7 @@
+2009-05-21  Simon Baldwin  <simonb@google.com>
+
+	* Makefile.in: Added ZLIBINC to lto-compress.o compilation.
+
 2009-05-21  Diego Novillo  <dnovillo@google.com>
 
 	* doc/install.texi: Document libelf requirements,

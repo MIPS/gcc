@@ -2087,6 +2087,11 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 
 double-int.o: double-int.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 
+# lto-compress.o needs $(ZLIBINC) added to the include flags.
+lto-compress.o: lto-compress.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+	$(TREE_H) langhooks.h lto-header.h $(LTO_SECTION_OUT_H) lto-compress.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(ZLIBINC) $< $(OUTPUT_OPTION)
+
 lto-stream-debug.o : lto-stream-debug.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TOPLEV_H) $(FLAGS_H) $(PARAMS_H) input.h debug.h  $(TREE_H) \
    lto-header.h 
@@ -2123,8 +2128,6 @@ lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
    except.h debug.h $(TIMEVAR_H) lto-header.h $(LTO_SECTION_OUT_H) output.h \
    dwarf2asm.h dwarf2out.h  $(BITMAP_H) lto-utils.h $(LTO_OPTS_H) lto-compress.h
-lto-compress.o: lto-compress.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TREE_H) langhooks.h lto-header.h $(LTO_SECTION_OUT_H) lto-compress.h
 lto-symtab.o: lto-symtab.c $(LTO_TREE_IN_H) $(CONFIG_H) coretypes.h \
    $(SYSTEM_H) toplev.h $(LTO_TREE_H) $(GGC_H) $(LAMBDA_H) \
    $(GIMPLE_H) $(HASHTAB_H) $(LTO_TREE_IN_H) gt-lto-symtab.h
