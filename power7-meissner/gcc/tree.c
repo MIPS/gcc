@@ -5696,6 +5696,57 @@ build_range_type (tree type, tree lowval, tree highval)
     return itype;
 }
 
+/* Return true if the debug information for TYPE, a subtype, should be emitted
+   as a subrange type.  If so, set LOWVAL to the low bound and HIGHVAL to the
+   high bound, respectively.  Sometimes doing so unnecessarily obfuscates the
+   debug info and doesn't reflect the source code.  */
+
+bool
+subrange_type_for_debug_p (const_tree type, tree *lowval, tree *highval)
+{
+  tree base_type = TREE_TYPE (type), low, high;
+
+  /* Subrange types have a base type which is an integral type.  */
+  if (!INTEGRAL_TYPE_P (base_type))
+    return false;
+
+  /* Get the real bounds of the subtype.  */
+  if (lang_hooks.types.get_subrange_bounds)
+    lang_hooks.types.get_subrange_bounds (type, &low, &high);
+  else
+    {
+      low = TYPE_MIN_VALUE (type);
+      high = TYPE_MAX_VALUE (type);
+    }
+
+  /* If the type and its base type have the same representation and the same
+     name, then the type is not a subrange but a copy of the base type.  */
+  if ((TREE_CODE (base_type) == INTEGER_TYPE
+       || TREE_CODE (base_type) == BOOLEAN_TYPE)
+      && int_size_in_bytes (type) == int_size_in_bytes (base_type)
+      && tree_int_cst_equal (low, TYPE_MIN_VALUE (base_type))
+      && tree_int_cst_equal (high, TYPE_MAX_VALUE (base_type)))
+    {
+      tree type_name = TYPE_NAME (type);
+      tree base_type_name = TYPE_NAME (base_type);
+
+      if (type_name && TREE_CODE (type_name) == TYPE_DECL)
+	type_name = DECL_NAME (type_name);
+
+      if (base_type_name && TREE_CODE (base_type_name) == TYPE_DECL)
+	base_type_name = DECL_NAME (base_type_name);
+
+      if (type_name == base_type_name)
+	return false;
+    }
+
+  if (lowval)
+    *lowval = low;
+  if (highval)
+    *highval = high;
+  return true;
+}
+
 /* Just like build_index_type, but takes lowval and highval instead
    of just highval (maxval).  */
 
@@ -7147,7 +7198,7 @@ tree_range_check_failed (const_tree node, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  enum tree_code c;
+  unsigned int c;
 
   for (c = c1; c <= c2; ++c)
     length += 4 + strlen (tree_code_name[c]);
@@ -7208,7 +7259,7 @@ omp_clause_range_check_failed (const_tree node, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  enum omp_clause_code c;
+  unsigned int c;
 
   for (c = c1; c <= c2; ++c)
     length += 4 + strlen (omp_clause_code_name[c]);
@@ -7811,7 +7862,7 @@ build_common_builtin_nodes (void)
      complex.  Further, we can do slightly better with folding these 
      beasties if the real and complex parts of the arguments are separate.  */
   {
-    enum machine_mode mode;
+    int mode;
 
     for (mode = MIN_MODE_COMPLEX_FLOAT; mode <= MAX_MODE_COMPLEX_FLOAT; ++mode)
       {
@@ -7820,7 +7871,7 @@ build_common_builtin_nodes (void)
 	enum built_in_function mcode, dcode;
 	tree type, inner_type;
 
-	type = lang_hooks.types.type_for_mode (mode, 0);
+	type = lang_hooks.types.type_for_mode ((enum machine_mode) mode, 0);
 	if (type == NULL)
 	  continue;
 	inner_type = TREE_TYPE (type);

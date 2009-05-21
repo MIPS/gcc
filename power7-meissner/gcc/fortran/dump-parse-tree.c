@@ -1,5 +1,5 @@
 /* Parse tree dumper
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
@@ -680,9 +680,7 @@ show_components (gfc_symbol *sym)
 static void
 show_typebound (gfc_symtree* st)
 {
-  if (!st->n.tb)
-    return;
-
+  gcc_assert (st->n.tb);
   show_indent ();
 
   if (st->n.tb->is_generic)
@@ -708,7 +706,7 @@ show_typebound (gfc_symtree* st)
   else
     fputs (", PRIVATE", dumpfile);
 
-  fprintf (dumpfile, " :: %s => ", st->n.sym->name);
+  fprintf (dumpfile, " :: %s => ", st->name);
 
   if (st->n.tb->is_generic)
     {
@@ -739,7 +737,7 @@ show_f2k_derived (gfc_namespace* f2k)
     }
 
   /* Type-bound procedures.  */
-  gfc_traverse_symtree (f2k->sym_root, &show_typebound);
+  gfc_traverse_symtree (f2k->tb_sym_root, &show_typebound);
 
   --show_level;
 }
@@ -1422,6 +1420,12 @@ show_code_node (int level, gfc_code *c)
 	  show_expr (c->expr1);
 	}
 
+      if (c->expr2)
+	{
+	  fputs (" ERRMSG=", dumpfile);
+	  show_expr (c->expr2);
+	}
+
       for (a = c->ext.alloc_list; a; a = a->next)
 	{
 	  fputc (' ', dumpfile);
@@ -1436,6 +1440,12 @@ show_code_node (int level, gfc_code *c)
 	{
 	  fputs (" STAT=", dumpfile);
 	  show_expr (c->expr1);
+	}
+
+      if (c->expr2)
+	{
+	  fputs (" ERRMSG=", dumpfile);
+	  show_expr (c->expr2);
 	}
 
       for (a = c->ext.alloc_list; a; a = a->next)
@@ -1973,7 +1983,7 @@ show_namespace (gfc_namespace *ns)
 {
   gfc_interface *intr;
   gfc_namespace *save;
-  gfc_intrinsic_op op;
+  int op;
   gfc_equiv *eq;
   int i;
 
@@ -2023,7 +2033,7 @@ show_namespace (gfc_namespace *ns)
 
 	  show_indent ();
 	  fprintf (dumpfile, "Operator interfaces for %s:",
-		   gfc_op2string (op));
+		   gfc_op2string ((gfc_intrinsic_op) op));
 
 	  for (; intr; intr = intr->next)
 	    fprintf (dumpfile, " %s", intr->sym->name);

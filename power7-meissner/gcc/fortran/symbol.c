@@ -2197,7 +2197,7 @@ gfc_get_namespace (gfc_namespace *parent, int parent_types)
 {
   gfc_namespace *ns;
   gfc_typespec *ts;
-  gfc_intrinsic_op in;
+  int in;
   int i;
 
   ns = XCNEW (gfc_namespace);
@@ -3088,7 +3088,7 @@ void
 gfc_free_namespace (gfc_namespace *ns)
 {
   gfc_namespace *p, *q;
-  gfc_intrinsic_op i;
+  int i;
 
   if (ns == NULL)
     return;
@@ -3914,6 +3914,7 @@ gfc_copy_formal_args_intr (gfc_symbol *dest, gfc_intrinsic_sym *src)
       /* May need to copy more info for the symbol.  */
       formal_arg->sym->ts = curr_arg->ts;
       formal_arg->sym->attr.optional = curr_arg->optional;
+      formal_arg->sym->attr.intent = curr_arg->intent;
       formal_arg->sym->attr.flavor = FL_VARIABLE;
       formal_arg->sym->attr.dummy = 1;
 
@@ -4494,4 +4495,3 @@ gfc_get_tbp_symtree (gfc_symtree **root, const char *name)
 
   return result;
 }
-

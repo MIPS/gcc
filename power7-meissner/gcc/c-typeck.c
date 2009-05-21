@@ -2961,7 +2961,7 @@ parser_build_binary_op (location_t location, enum tree_code code,
     warn_about_parentheses (code, code1, arg1.value, code2, arg2.value);
 
   if (warn_logical_op)
-    warn_logical_operator (input_location, code,
+    warn_logical_operator (input_location, code, TREE_TYPE (result.value),
 			   code1, arg1.value, code2, arg2.value);
 
   /* Warn about comparisons against string literals, with the exception
@@ -3266,6 +3266,16 @@ build_unary_op (location_t location,
 				 ? lv_increment
 				 : lv_decrement)))
 	return error_mark_node;
+
+      if (warn_cxx_compat && TREE_CODE (TREE_TYPE (arg)) == ENUMERAL_TYPE)
+	{
+	  if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
+	    warning_at (location, OPT_Wc___compat,
+			"increment of enumeration value is invalid in C++");
+	  else
+	    warning_at (location, OPT_Wc___compat,
+			"decrement of enumeration value is invalid in C++");
+	}
 
       /* Ensure the argument is fully folded inside any SAVE_EXPR.  */
       arg = c_fully_fold (arg, false, NULL);
@@ -8978,7 +8988,11 @@ build_binary_op (location_t location, enum tree_code code,
     case FLOOR_MOD_EXPR:
       warn_for_div_by_zero (location, op1);
 
-      if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
+      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
+	  && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE)
+	common = 1;
+      else if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  /* Although it would be tempting to shorten always here, that loses
 	     on some targets, since the modulo instruction is undefined if the

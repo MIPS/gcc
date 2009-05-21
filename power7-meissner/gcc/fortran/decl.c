@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
+#include "flags.h"
 
 
 /* Macros to access allocate memory for gfc_data_variable,
@@ -2815,7 +2816,7 @@ match_attr_spec (void)
 
   locus start, seen_at[NUM_DECL];
   int seen[NUM_DECL];
-  decl_types d;
+  unsigned int d;
   const char *attr;
   match m;
   gfc_try t;
@@ -5295,7 +5296,7 @@ set_enum_kind(void)
   if (max_enum == NULL || enum_history == NULL)
     return;
 
-  if (!gfc_option.fshort_enums)
+  if (!flag_short_enums)
     return;
 
   i = 0;

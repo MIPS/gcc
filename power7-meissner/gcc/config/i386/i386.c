@@ -9258,9 +9258,9 @@ legitimate_pic_address_disp_p (rtx disp)
   return 0;
 }
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression that is a valid
-   memory address for an instruction.  The MODE argument is the machine mode
-   for the MEM expression that wants to use this address.
+/* Recognizes RTL expressions that are valid memory addresses for an
+   instruction.  The MODE argument is the machine mode for the MEM
+   expression that wants to use this address.
 
    It only recognizes address in canonical form.  LEGITIMIZE_ADDRESS should
    convert common non-canonical forms to canonical form so that they will
@@ -9527,7 +9527,7 @@ ix86_GOT_alias_set (void)
       differentiate them from global data objects.  The returned
       address is the PIC reg + an unspec constant.
 
-   GO_IF_LEGITIMATE_ADDRESS rejects symbolic references unless the PIC
+   TARGET_LEGITIMATE_ADDRESS_P rejects symbolic references unless the PIC
    reg also appears in the address.  */
 
 static rtx
@@ -10010,9 +10010,6 @@ legitimize_dllimport_symbol (rtx symbol, bool want_reg)
 
    OLDX is the address as it was before break_out_memory_refs was called.
    In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
 
    It is always safe for this macro to do nothing.  It exists to recognize
    opportunities to optimize the output.
@@ -27194,6 +27191,7 @@ x86_function_profiler (FILE *file, int labelno ATTRIBUTE_UNUSED)
     }
 }
 
+#ifdef ASM_OUTPUT_MAX_SKIP_PAD
 /* We don't have exact information about the insn sizes, but we may assume
    quite safely that we are informed about all 1 byte insns and memory
    address sizes.  This is enough to eliminate unnecessary padding in
@@ -27244,7 +27242,7 @@ min_insn_size (rtx insn)
    window.  */
 
 static void
-ix86_avoid_jump_misspredicts (void)
+ix86_avoid_jump_mispredicts (void)
 {
   rtx insn, start = get_insns ();
   int nbytes = 0, njumps = 0;
@@ -27258,15 +27256,52 @@ ix86_avoid_jump_misspredicts (void)
 
      The smallest offset in the page INSN can start is the case where START
      ends on the offset 0.  Offset of INSN is then NBYTES - sizeof (INSN).
-     We add p2align to 16byte window with maxskip 17 - NBYTES + sizeof (INSN).
+     We add p2align to 16byte window with maxskip 15 - NBYTES + sizeof (INSN).
      */
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+  for (insn = start; insn; insn = NEXT_INSN (insn))
     {
+      int min_size;
 
-      nbytes += min_insn_size (insn);
+      if (GET_CODE (insn) == CODE_LABEL)
+	{
+	  int align = label_to_alignment (insn);
+	  int max_skip = label_to_max_skip (insn);
+
+	  if (max_skip > 15)
+	    max_skip = 15;
+	  /* If align > 3, only up to 16 - max_skip - 1 bytes can be
+	     already in the current 16 byte page, because otherwise
+	     ASM_OUTPUT_MAX_SKIP_ALIGN could skip max_skip or fewer
+	     bytes to reach 16 byte boundary.  */
+	  if (align <= 0
+	      || (align <= 3 && max_skip != (1 << align) - 1))
+	    max_skip = 0;
+	  if (dump_file)
+	    fprintf (dump_file, "Label %i with max_skip %i\n",
+		     INSN_UID (insn), max_skip);
+	  if (max_skip)
+	    {
+	      while (nbytes + max_skip >= 16)
+		{
+		  start = NEXT_INSN (start);
+		  if ((JUMP_P (start)
+		       && GET_CODE (PATTERN (start)) != ADDR_VEC
+		       && GET_CODE (PATTERN (start)) != ADDR_DIFF_VEC)
+		      || CALL_P (start))
+		    njumps--, isjump = 1;
+		  else
+		    isjump = 0;
+		  nbytes -= min_insn_size (start);
+		}
+	    }
+	  continue;
+	}
+
+      min_size = min_insn_size (insn);
+      nbytes += min_size;
       if (dump_file)
-        fprintf(dump_file, "Insn %i estimated to %i bytes\n",
-		INSN_UID (insn), min_insn_size (insn));
+	fprintf (dump_file, "Insn %i estimated to %i bytes\n",
+		 INSN_UID (insn), min_size);
       if ((JUMP_P (insn)
 	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
 	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
@@ -27290,7 +27325,7 @@ ix86_avoid_jump_misspredicts (void)
       gcc_assert (njumps >= 0);
       if (dump_file)
         fprintf (dump_file, "Interval %i to %i has %i bytes\n",
-		INSN_UID (start), INSN_UID (insn), nbytes);
+		 INSN_UID (start), INSN_UID (insn), nbytes);
 
       if (njumps == 3 && isjump && nbytes < 16)
 	{
@@ -27299,10 +27334,11 @@ ix86_avoid_jump_misspredicts (void)
 	  if (dump_file)
 	    fprintf (dump_file, "Padding insn %i by %i bytes!\n",
 		     INSN_UID (insn), padsize);
-          emit_insn_before (gen_align (GEN_INT (padsize)), insn);
+          emit_insn_before (gen_pad (GEN_INT (padsize)), insn);
 	}
     }
 }
+#endif
 
 /* AMD Athlon works faster
    when RET is not destination of conditional jump or directly preceded
@@ -27362,12 +27398,15 @@ ix86_pad_returns (void)
 static void
 ix86_reorg (void)
 {
-  if (TARGET_PAD_RETURNS && optimize
-      && optimize_function_for_speed_p (cfun))
-    ix86_pad_returns ();
-  if (TARGET_FOUR_JUMP_LIMIT && optimize
-      && optimize_function_for_speed_p (cfun))
-    ix86_avoid_jump_misspredicts ();
+  if (optimize && optimize_function_for_speed_p (cfun))
+    {
+      if (TARGET_PAD_RETURNS)
+	ix86_pad_returns ();
+#ifdef ASM_OUTPUT_MAX_SKIP_PAD
+      if (TARGET_FOUR_JUMP_LIMIT)
+	ix86_avoid_jump_mispredicts ();
+#endif
+    }
 }
 
 /* Return nonzero when QImode register that must be represented via REX prefix

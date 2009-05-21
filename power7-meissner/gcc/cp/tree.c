@@ -1200,7 +1200,8 @@ get_first_fn (tree from)
 {
   gcc_assert (is_overloaded_fn (from));
   /* A baselink is also considered an overloaded function.  */
-  if (TREE_CODE (from) == COMPONENT_REF)
+  if (TREE_CODE (from) == OFFSET_REF
+      || TREE_CODE (from) == COMPONENT_REF)
     from = TREE_OPERAND (from, 1);
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
@@ -1264,10 +1265,15 @@ cxx_printable_name_internal (tree decl, int v, bool translate)
 
   if (current_function_decl != NULL_TREE)
     {
-      if (uid_ring[ring_counter] == DECL_UID (current_function_decl))
-	ring_counter += 1;
-      if (ring_counter == PRINT_RING_SIZE)
-	ring_counter = 0;
+      /* There may be both translated and untranslated versions of the
+	 name cached.  */
+      for (i = 0; i < 2; i++)
+	{
+	  if (uid_ring[ring_counter] == DECL_UID (current_function_decl))
+	    ring_counter += 1;
+	  if (ring_counter == PRINT_RING_SIZE)
+	    ring_counter = 0;
+	}
       gcc_assert (uid_ring[ring_counter] != DECL_UID (current_function_decl));
     }
 
