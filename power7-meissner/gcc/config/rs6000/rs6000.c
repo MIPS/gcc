@@ -11444,6 +11444,7 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
   int i;
   tree ret_type = NULL_TREE;
   tree arg_type[3] = { NULL_TREE, NULL_TREE, NULL_TREE };
+  tree args;
 
   /* Create builtin_hash_table.  */
   if (builtin_hash_table == NULL)
@@ -11567,28 +11568,12 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
       h2 = GGC_NEW (struct builtin_hash_struct);
       *h2 = h;
       *found = (void *)h2;
+      args = void_list_node;
 
-      switch (num_args)
-	{
-	case 1:
-	  h2->type = build_function_type_list (ret_type, arg_type[0],
-					       NULL_TREE);
-	  break;
+      for (i = num_args - 1; i >= 0; i--)
+	args = tree_cons (NULL_TREE, arg_type[i], args);
 
-	case 2:
-	  h2->type = build_function_type_list (ret_type, arg_type[0],
-					       arg_type[1], NULL_TREE);
-	  break;
-
-	case 3:
-	  h2->type = build_function_type_list (ret_type, arg_type[0],
-					       arg_type[1], arg_type[2],
-					       NULL_TREE);
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
+      h2->type = build_function_type (ret_type, args);
     }
 
   return ((struct builtin_hash_struct *)(*found))->type;
