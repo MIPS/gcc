@@ -21,7 +21,7 @@ handle_struct (void *event_data, void *data)
            IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type))));
 }
 
-/* Callback function to invoke before the program is genericized.  */ 
+/* Callback function to invoke before the function body is genericized.  */ 
 
 void
 handle_pre_generic (void *event_data, void *data)
@@ -78,11 +78,13 @@ static struct gimple_opt_pass pass_dumb_plugin_example =
    both of which determine where the plugin pass should be inserted.  */
 
 int
-plugin_init (const char *plugin_name,
-             struct plugin_gcc_version *version __attribute__((unused)),
-             int argc, struct plugin_argument *argv)
+plugin_init (struct plugin_name_args *plugin_info,
+             struct plugin_gcc_version *version)
 {
   struct plugin_pass pass_info;
+  const char *plugin_name = plugin_info->base_name;
+  int argc = plugin_info->argc;
+  struct plugin_argument *argv = plugin_info->argv;
   char *ref_pass_name = NULL;
   int ref_instance_number = 0;
   int i;

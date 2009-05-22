@@ -616,6 +616,9 @@ struct gcc_target
   /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
   rtx (* delegitimize_address) (rtx);
 
+  /* Given an address RTX, say whether it is valid.  */
+  bool (* legitimate_address_p) (enum machine_mode, rtx, bool);
+
   /* True if the given constant can be put into an object_block.  */
   bool (* use_blocks_for_constant_p) (enum machine_mode, const_rtx);
 
@@ -909,6 +912,24 @@ struct gcc_target
   /* Return the diagnostic message string if the binary operation OP
      is not permitted on TYPE1 and TYPE2, NULL otherwise.  */
   const char *(*invalid_binary_op) (int op, const_tree type1, const_tree type2);
+
+  /* Return the diagnostic message string if TYPE is not valid as a
+     function parameter type, NULL otherwise.  */
+  const char *(*invalid_parameter_type) (const_tree type);
+
+  /* Return the diagnostic message string if TYPE is not valid as a
+     function return type, NULL otherwise.  */
+  const char *(*invalid_return_type) (const_tree type);
+
+  /* If values of TYPE are promoted to some other type when used in
+     expressions (analogous to the integer promotions), return that type,
+     or NULL_TREE otherwise.  */
+  tree (*promoted_type) (const_tree type);
+
+  /* Convert EXPR to TYPE, if target-specific types with special conversion
+     rules are involved.  Return the converted expression, or NULL to apply
+     the standard conversion rules.  */
+  tree (*convert_to_type) (tree type, tree expr);
 
   /* Return the array of IRA cover classes for the current target.  */
   const enum reg_class *(*ira_cover_classes) (void);

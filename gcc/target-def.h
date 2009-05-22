@@ -488,6 +488,7 @@
 #define TARGET_COMMUTATIVE_P hook_bool_const_rtx_commutative_p
 #define TARGET_LEGITIMIZE_ADDRESS default_legitimize_address
 #define TARGET_DELEGITIMIZE_ADDRESS hook_rtx_rtx_identity
+#define TARGET_LEGITIMATE_ADDRESS_P default_legitimate_address_p
 #define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_const_rtx_false
 #define TARGET_MIN_ANCHOR_OFFSET 0
 #define TARGET_MAX_ANCHOR_OFFSET 0
@@ -535,6 +536,10 @@
 #define TARGET_INVALID_CONVERSION hook_constcharptr_const_tree_const_tree_null
 #define TARGET_INVALID_UNARY_OP hook_constcharptr_int_const_tree_null
 #define TARGET_INVALID_BINARY_OP hook_constcharptr_int_const_tree_const_tree_null
+#define TARGET_INVALID_PARAMETER_TYPE hook_constcharptr_const_tree_null
+#define TARGET_INVALID_RETURN_TYPE hook_constcharptr_const_tree_null
+#define TARGET_PROMOTED_TYPE hook_tree_const_tree_null
+#define TARGET_CONVERT_TO_TYPE hook_tree_tree_tree_null
 
 #define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
 
@@ -872,6 +877,7 @@
   TARGET_COMMUTATIVE_P,				\
   TARGET_LEGITIMIZE_ADDRESS,			\
   TARGET_DELEGITIMIZE_ADDRESS,			\
+  TARGET_LEGITIMATE_ADDRESS_P,			\
   TARGET_USE_BLOCKS_FOR_CONSTANT_P,		\
   TARGET_MIN_ANCHOR_OFFSET,			\
   TARGET_MAX_ANCHOR_OFFSET,			\
@@ -920,6 +926,10 @@
   TARGET_INVALID_CONVERSION,			\
   TARGET_INVALID_UNARY_OP,			\
   TARGET_INVALID_BINARY_OP,			\
+  TARGET_INVALID_PARAMETER_TYPE,		\
+  TARGET_INVALID_RETURN_TYPE,			\
+  TARGET_PROMOTED_TYPE,				\
+  TARGET_CONVERT_TO_TYPE,			\
   TARGET_IRA_COVER_CLASSES,			\
   TARGET_SECONDARY_RELOAD,			\
   TARGET_EXPAND_TO_RTL_HOOK,			\

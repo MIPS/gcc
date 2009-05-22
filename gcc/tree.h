@@ -3849,6 +3849,7 @@ extern tree maybe_get_identifier (const char *);
 
 extern tree build_nt (enum tree_code, ...);
 extern tree build_nt_call_list (tree, tree);
+extern tree build_nt_call_vec (tree, VEC(tree,gc) *);
 
 extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
@@ -3886,6 +3887,8 @@ extern tree build_one_cst (tree);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
+extern tree build_tree_list_vec_stat (const VEC(tree,gc) * MEM_STAT_DECL);
+#define build_tree_list_vec(v) build_tree_list_vec_stat (v MEM_STAT_INFO)
 extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
 extern tree build_fn_decl (const char *, tree);
 #define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
@@ -3899,7 +3902,8 @@ extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);
 extern tree build_call_list (tree, tree, tree);
 extern tree build_call_nary (tree, tree, int, ...);
 extern tree build_call_valist (tree, tree, int, va_list);
-extern tree build_call_array (tree, tree, int, tree*);
+extern tree build_call_array (tree, tree, int, const tree *);
+extern tree build_call_vec (tree, tree, VEC(tree,gc) *);
 
 /* Construct various nodes representing data types.  */
 
@@ -4325,6 +4329,10 @@ extern bool initializer_zerop (const_tree);
 /* Given a CONSTRUCTOR CTOR, return the elements as a TREE_LIST.  */
 
 extern tree ctor_to_list (tree);
+
+/* Given a CONSTRUCTOR CTOR, return the element values as a vector.  */
+
+extern VEC(tree,gc) *ctor_to_vec (tree);
 
 /* Examine CTOR to discover:
    * how many scalar fields are set to nonzero values,
@@ -4836,6 +4844,10 @@ extern bool is_builtin_name (const char*);
 extern int get_object_alignment (tree, unsigned int, unsigned int);
 extern tree fold_call_stmt (gimple, bool);
 extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
+extern tree make_range (tree, int *, tree *, tree *, bool *);
+extern tree build_range_check (tree, tree, int, tree, tree);
+extern bool merge_ranges (int *, tree *, tree *, int, tree, tree, int, 
+			  tree, tree);
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);
@@ -4876,6 +4888,7 @@ extern void build_common_tree_nodes_2 (int);
 extern void build_common_builtin_nodes (void);
 extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
+extern bool subrange_type_for_debug_p (const_tree, tree *, tree *);
 extern HOST_WIDE_INT int_cst_value (const_tree);
 
 extern bool fields_compatible_p (const_tree, const_tree);
@@ -5205,6 +5218,9 @@ extern unsigned HOST_WIDE_INT highest_pow2_factor (const_tree);
 /* In tree-inline.c.  */
 
 void init_inline_once (void);
+
+/* In ipa-reference.c.  Used for parsing attributes of asm code.  */
+extern GTY(()) tree memory_identifier_string;
 
 /* Compute the number of operands in an expression node NODE.  For 
    tcc_vl_exp nodes like CALL_EXPRs, this is stored in the node itself,

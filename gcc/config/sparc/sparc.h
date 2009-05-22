@@ -1845,15 +1845,9 @@ do {									\
 #define USE_AS_OFFSETABLE_LO10 0
 #endif
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-   On SPARC, the actual legitimate addresses must be REG+REG or REG+SMALLINT
-   ordinarily.  This changes a bit when generating PIC.
-
-   If you change this, execute "rm explow.o recog.o reload.o".  */
+/* On SPARC, the actual legitimate addresses must be REG+REG or REG+SMALLINT
+   ordinarily.  This changes a bit when generating PIC.  The details are
+   in sparc.c's implementation of TARGET_LEGITIMATE_ADDRESS_P.  */
 
 #define SYMBOLIC_CONST(X) symbolic_operand (X, VOIDmode)
 
@@ -1874,20 +1868,6 @@ do {									\
 
 #define RTX_OK_FOR_OLO10_P(X)						\
   (GET_CODE (X) == CONST_INT && INTVAL (X) >= -0x1000 && INTVAL (X) < 0xc00 - 8)
-
-#ifdef REG_OK_STRICT
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
-{							\
-  if (legitimate_address_p (MODE, X, 1))		\
-    goto ADDR;						\
-}
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
-{							\
-  if (legitimate_address_p (MODE, X, 0))		\
-    goto ADDR;						\
-}
-#endif
 
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.

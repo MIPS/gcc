@@ -122,7 +122,7 @@ gate_profile (void)
   return true;
 }
 
-struct ipa_opt_pass pass_ipa_profile =
+struct ipa_opt_pass_d pass_ipa_profile =
 {
  {
   IPA_PASS,

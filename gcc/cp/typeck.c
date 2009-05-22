@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 static tree pfn_from_ptrmemfunc (tree);
 static tree delta_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, const char *, tree, int,
-				    tsubst_flags_t);
+				    tsubst_flags_t, int);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
 static tree rationalize_conditional_expr (enum tree_code, tree, 
 					  tsubst_flags_t);
@@ -61,7 +61,7 @@ static void casts_away_constness_r (tree *, tree *);
 static bool casts_away_constness (tree, tree);
 static void maybe_warn_about_returning_address_of_local (tree);
 static tree lookup_destructor (tree, tree, tree);
-static int convert_arguments (int, tree *, tree, tree, tree, int,
+static int convert_arguments (tree, VEC(tree,gc) **, tree, int,
                               tsubst_flags_t);
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
@@ -1699,10 +1699,14 @@ decay_conversion (tree exp)
 tree
 default_conversion (tree exp)
 {
+  /* Check for target-specific promotions.  */
+  tree promoted_type = targetm.promoted_type (TREE_TYPE (exp));
+  if (promoted_type)
+    exp = cp_convert (promoted_type, exp);
   /* Perform the integral promotions first so that bitfield
      expressions (which may promote to "int", even if the bitfield is
      declared "unsigned") are promoted correctly.  */
-  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (exp)))
+  else if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (exp)))
     exp = perform_integral_promotions (exp);
   /* Perform the other conversions.  */
   exp = decay_conversion (exp);
@@ -2862,38 +2866,57 @@ tree
 build_function_call_vec (tree function, VEC(tree,gc) *params,
 			 VEC(tree,gc) *origtypes ATTRIBUTE_UNUSED)
 {
-  tree p;
-  tree *pp;
-  unsigned int i;
-  tree t;
+  VEC(tree,gc) *orig_params = params;
+  tree ret = cp_build_function_call_vec (function, &params,
+					 tf_warning_or_error);
 
-  /* FIXME: Should just change cp_build_function_call to use a
-     VEC.  */
-  p = NULL_TREE;
-  pp = &p;
-  for (i = 0; VEC_iterate (tree, params, i, t); ++i)
-    {
-      *pp = build_tree_list (NULL, t);
-      pp = &TREE_CHAIN (*pp);
-    }
-  return cp_build_function_call (function, p, tf_warning_or_error);
+  /* cp_build_function_call_vec can reallocate PARAMS by adding
+     default arguments.  That should never happen here.  Verify
+     that.  */
+  gcc_assert (params == orig_params);
+
+  return ret;
 }
+
+/* Build a function call using a tree list of arguments.  */
 
 tree
 cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
+{
+  VEC(tree,gc) *vec;
+  tree ret;
+
+  vec = make_tree_vector ();
+  for (; params != NULL_TREE; params = TREE_CHAIN (params))
+    VEC_safe_push (tree, gc, vec, TREE_VALUE (params));
+  ret = cp_build_function_call_vec (function, &vec, complain);
+  release_tree_vector (vec);
+  return ret;
+}
+
+/* Build a function call using a vector of arguments.  PARAMS may be
+   NULL if there are no parameters.  This changes the contents of
+   PARAMS.  */
+
+tree
+cp_build_function_call_vec (tree function, VEC(tree,gc) **params,
+			    tsubst_flags_t complain)
 {
   tree fntype, fndecl;
   tree name = NULL_TREE;
   int is_method;
   tree original = function;
-  int nargs, parm_types_len;
+  int nargs;
   tree *argarray;
   tree parm_types;
+  VEC(tree,gc) *allocated = NULL;
+  tree ret;
 
   /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
      expressions, like those used for ObjC messenger dispatches.  */
-  if (params != NULL_TREE)
-    function = objc_rewrite_function_call (function, TREE_VALUE (params));
+  if (params != NULL && !VEC_empty (tree, *params))
+    function = objc_rewrite_function_call (function,
+					   VEC_index (tree, *params, 0));
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs, since FUNCTION is used in non-lvalue context.  */
@@ -2953,57 +2976,55 @@ cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
   fntype = TREE_TYPE (fntype);
   parm_types = TYPE_ARG_TYPES (fntype);
 
-  /* Allocate storage for converted arguments.  */
-  parm_types_len = list_length (parm_types);
-  nargs = list_length (params);
-  if (parm_types_len > nargs)
-    nargs = parm_types_len;
-  argarray = (tree *) alloca (nargs * sizeof (tree));
+  if (params == NULL)
+    {
+      allocated = make_tree_vector ();
+      params = &allocated;
+    }
 
-  /* Convert the parameters to the types declared in the
-     function prototype, or apply default promotions.  */
-  nargs = convert_arguments (nargs, argarray, parm_types,
-			     params, fndecl, LOOKUP_NORMAL,
-                             complain);
+  nargs = convert_arguments (parm_types, params, fndecl, LOOKUP_NORMAL,
+			     complain);
   if (nargs < 0)
     return error_mark_node;
+
+  argarray = VEC_address (tree, *params);
 
   /* Check for errors in format strings and inappropriately
      null parameters.  */
   check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,
 			    parm_types);
 
-  return build_cxx_call (function, nargs, argarray);
+  ret = build_cxx_call (function, nargs, argarray);
+
+  if (allocated != NULL)
+    release_tree_vector (allocated);
+
+  return ret;
 }
 
-/* Convert the actual parameter expressions in the list VALUES
-   to the types in the list TYPELIST.
+/* Convert the actual parameter expressions in the list VALUES to the
+   types in the list TYPELIST.  The converted expressions are stored
+   back in the VALUES vector.
    If parmdecls is exhausted, or when an element has NULL as its type,
    perform the default conversions.
-
-   Store the converted arguments in ARGARRAY.  NARGS is the size of this array.
 
    NAME is an IDENTIFIER_NODE or 0.  It is used only for error messages.
 
    This is also where warnings about wrong number of args are generated.
 
    Returns the actual number of arguments processed (which might be less
-   than NARGS), or -1 on error.
-
-   VALUES is a chain of TREE_LIST nodes with the elements of the list
-   in the TREE_VALUE slots of those nodes.
+   than the length of the vector), or -1 on error.
 
    In C++, unspecified trailing parameters can be filled in with their
    default arguments, if such were specified.  Do so here.  */
 
 static int
-convert_arguments (int nargs, tree *argarray,
-		   tree typelist, tree values, tree fndecl, int flags,
-                   tsubst_flags_t complain)
+convert_arguments (tree typelist, VEC(tree,gc) **values, tree fndecl,
+		   int flags, tsubst_flags_t complain)
 {
-  tree typetail, valtail;
+  tree typetail;
   const char *called_thing = 0;
-  int i = 0;
+  unsigned int i;
 
   /* Argument passing is always copy-initialization.  */
   flags |= LOOKUP_ONLYCONVERTING;
@@ -3022,12 +3043,12 @@ convert_arguments (int nargs, tree *argarray,
 	called_thing = "function";
     }
 
-  for (valtail = values, typetail = typelist;
-       valtail;
-       valtail = TREE_CHAIN (valtail), i++)
+  for (i = 0, typetail = typelist;
+       i < VEC_length (tree, *values);
+       i++)
     {
       tree type = typetail ? TREE_VALUE (typetail) : 0;
-      tree val = TREE_VALUE (valtail);
+      tree val = VEC_index (tree, *values, i);
 
       if (val == error_mark_node || type == error_mark_node)
 	return -1;
@@ -3096,7 +3117,7 @@ convert_arguments (int nargs, tree *argarray,
 	  if (parmval == error_mark_node)
 	    return -1;
 
-	  argarray[i] = parmval;
+	  VEC_replace (tree, *values, i, parmval);
 	}
       else
 	{
@@ -3109,7 +3130,7 @@ convert_arguments (int nargs, tree *argarray,
 	  else
 	    val = convert_arg_to_ellipsis (val);
 
-	  argarray[i] = val;
+	  VEC_replace (tree, *values, i, val);
 	}
 
       if (typetail)
@@ -3138,7 +3159,7 @@ convert_arguments (int nargs, tree *argarray,
 	      if (parmval == error_mark_node)
 		return -1;
 
-	      argarray[i] = parmval;
+	      VEC_safe_push (tree, gc, *values, parmval);
 	      typetail = TREE_CHAIN (typetail);
 	      /* ends with `...'.  */
 	      if (typetail == NULL_TREE)
@@ -3162,8 +3183,7 @@ convert_arguments (int nargs, tree *argarray,
 	}
     }
 
-  gcc_assert (i <= nargs);
-  return i;
+  return (int) i;
 }
 
 /* Build a binary-operation expression, after performing default
@@ -3492,7 +3512,11 @@ cp_build_binary_op (location_t location,
     case FLOOR_MOD_EXPR:
       warn_for_div_by_zero (location, op1);
 
-      if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
+      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
+	  && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE)
+	common = 1;
+      else if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  /* Although it would be tempting to shorten always here, that loses
 	     on some targets, since the modulo instruction is undefined if the
@@ -4141,8 +4165,20 @@ build_x_unary_op (enum tree_code code, tree xarg, tsubst_flags_t complain)
 			/*overloaded_p=*/NULL, complain);
   if (!exp && code == ADDR_EXPR)
     {
-      /*  A pointer to member-function can be formed only by saying
-	  &X::mf.  */
+      if (is_overloaded_fn (xarg))
+	{
+	  tree fn = get_first_fn (xarg);
+	  if (DECL_CONSTRUCTOR_P (fn) || DECL_DESTRUCTOR_P (fn))
+	    {
+	      const char *type =
+		(DECL_CONSTRUCTOR_P (fn) ? "constructor" : "destructor");
+	      error ("taking address of %s %qE", type, xarg);
+	      return error_mark_node;
+	    }
+	}
+
+      /* A pointer to member-function can be formed only by saying
+	 &X::mf.  */
       if (!flag_ms_extensions && TREE_CODE (TREE_TYPE (xarg)) == METHOD_TYPE
 	  && (TREE_CODE (xarg) != OFFSET_REF || !PTRMEM_OK_P (xarg)))
 	{
@@ -4972,6 +5008,34 @@ tree build_x_compound_expr_from_list (tree list, const char *msg)
     }
 
   return expr;
+}
+
+/* Like build_x_compound_expr_from_list, but using a VEC.  */
+
+tree
+build_x_compound_expr_from_vec (VEC(tree,gc) *vec, const char *msg)
+{
+  if (VEC_empty (tree, vec))
+    return NULL_TREE;
+  else if (VEC_length (tree, vec) == 1)
+    return VEC_index (tree, vec, 0);
+  else
+    {
+      tree expr;
+      unsigned int ix;
+      tree t;
+
+      if (msg != NULL)
+	permerror (input_location,
+		   "%s expression list treated as compound expression",
+		   msg);
+
+      expr = VEC_index (tree, vec, 0);
+      for (ix = 1; VEC_iterate (tree, vec, ix, t); ++ix)
+	expr = build_x_compound_expr (expr, t, tf_warning_or_error);
+
+      return expr;
+    }
 }
 
 /* Handle overloading of the ',' operator when needed.  */
@@ -6018,10 +6082,11 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	/* Do the default thing.  */;
       else
 	{
+	  VEC(tree,gc) *rhs_vec = make_tree_vector_single (rhs);
 	  result = build_special_member_call (lhs, complete_ctor_identifier,
-					      build_tree_list (NULL_TREE, rhs),
-					      lhstype, LOOKUP_NORMAL,
+					      &rhs_vec, lhstype, LOOKUP_NORMAL,
                                               complain);
+	  release_tree_vector (rhs_vec);
 	  if (result == NULL_TREE)
 	    return error_mark_node;
 	  return result;
@@ -6145,12 +6210,14 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
     }
 
   if (modifycode == INIT_EXPR)
+    /* Calls with INIT_EXPR are all direct-initialization, so don't set
+       LOOKUP_ONLYCONVERTING.  */
     newrhs = convert_for_initialization (lhs, olhstype, newrhs, LOOKUP_NORMAL,
 					 "initialization", NULL_TREE, 0,
                                          complain);
   else
     newrhs = convert_for_assignment (olhstype, newrhs, "assignment",
-				     NULL_TREE, 0, complain);
+				     NULL_TREE, 0, complain, LOOKUP_IMPLICIT);
 
   if (!same_type_p (lhstype, olhstype))
     newrhs = cp_convert_and_check (lhstype, newrhs);
@@ -6556,7 +6623,7 @@ delta_from_ptrmemfunc (tree t)
 static tree
 convert_for_assignment (tree type, tree rhs,
 			const char *errtype, tree fndecl, int parmnum,
-			tsubst_flags_t complain)
+			tsubst_flags_t complain, int flags)
 {
   tree rhstype;
   enum tree_code coder;
@@ -6677,7 +6744,8 @@ convert_for_assignment (tree type, tree rhs,
       TREE_NO_WARNING (rhs) = 1;
     }
 
-  return perform_implicit_conversion (strip_top_quals (type), rhs, complain);
+  return perform_implicit_conversion_flags (strip_top_quals (type), rhs,
+					    complain, flags);
 }
 
 /* Convert RHS to be of type TYPE.
@@ -6768,7 +6836,7 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
     return ocp_convert (type, rhs, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
 
   return convert_for_assignment (type, rhs, errtype, fndecl, parmnum,
-				 complain);
+				 complain, flags);
 }
 
 /* If RETVAL is the address of, or a reference to, a local variable or

@@ -2424,7 +2424,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	      f = f || !sym->attr.always_explicit;
 	  
 	      argss = gfc_walk_expr (arg->expr);
-	      gfc_conv_array_parameter (se, arg->expr, argss, f, NULL, NULL);
+	      gfc_conv_array_parameter (se, arg->expr, argss, f,
+					NULL, NULL, NULL);
 	    }
 
 	  /* TODO -- the following two lines shouldn't be necessary, but
@@ -2676,7 +2677,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			fsym ? fsym->attr.intent : INTENT_INOUT);
 	      else
 	        gfc_conv_array_parameter (&parmse, e, argss, f, fsym,
-					  sym->name);
+					  sym->name, NULL);
 
               /* If an ALLOCATABLE dummy argument has INTENT(OUT) and is 
                  allocated on entry, it must be deallocated.  */
@@ -4014,7 +4015,7 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
 tree
 gfc_trans_pointer_assign (gfc_code * code)
 {
-  return gfc_trans_pointer_assignment (code->expr, code->expr2);
+  return gfc_trans_pointer_assignment (code->expr1, code->expr2);
 }
 
 
@@ -4352,7 +4353,7 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
   gfc_start_block (&se.pre);
   se.want_pointer = 1;
 
-  gfc_conv_array_parameter (&se, expr1, ss, 0, NULL, NULL);
+  gfc_conv_array_parameter (&se, expr1, ss, 0, NULL, NULL, NULL);
 
   se.direct_byref = 1;
   se.ss = gfc_walk_expr (expr2);
@@ -4427,11 +4428,14 @@ gfc_trans_zero_assign (gfc_expr * expr)
   len = fold_build2 (MULT_EXPR, gfc_array_index_type, len,
 		     fold_convert (gfc_array_index_type, tmp));
 
-  /* Convert arguments to the correct types.  */
+  /* If we are zeroing a local array avoid taking its address by emitting
+     a = {} instead.  */
   if (!POINTER_TYPE_P (TREE_TYPE (dest)))
-    dest = gfc_build_addr_expr (pvoid_type_node, dest);
-  else
-    dest = fold_convert (pvoid_type_node, dest);
+    return build2 (MODIFY_EXPR, void_type_node,
+		   dest, build_constructor (TREE_TYPE (dest), NULL));
+
+  /* Convert arguments to the correct types.  */
+  dest = fold_convert (pvoid_type_node, dest);
   len = fold_convert (size_type_node, len);
 
   /* Construct call to __builtin_memset.  */
@@ -4839,11 +4843,11 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2, bool init_flag)
 tree
 gfc_trans_init_assign (gfc_code * code)
 {
-  return gfc_trans_assignment (code->expr, code->expr2, true);
+  return gfc_trans_assignment (code->expr1, code->expr2, true);
 }
 
 tree
 gfc_trans_assign (gfc_code * code)
 {
-  return gfc_trans_assignment (code->expr, code->expr2, false);
+  return gfc_trans_assignment (code->expr1, code->expr2, false);
 }

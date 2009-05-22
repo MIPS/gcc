@@ -1,3 +1,7 @@
+2009-05-22  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline.
+
 2009-05-20  Jan Hubicka  <jh@suse.cz>
 
 	* ipa-inline.c (cgraph_estimate_time_after_inlining): Fix roudoff errors

@@ -238,6 +238,7 @@ static bool sh_rtx_costs (rtx, int, int, int *, bool);
 static int sh_address_cost (rtx, bool);
 static int sh_pr_n_sets (void);
 static rtx sh_allocate_initial_value (rtx);
+static bool sh_legitimate_address_p (enum machine_mode, rtx, bool);
 static rtx sh_legitimize_address (rtx, rtx, enum machine_mode);
 static int shmedia_target_regs_stack_space (HARD_REG_SET *);
 static int shmedia_reserve_space_for_target_registers_p (int, HARD_REG_SET *);
@@ -479,6 +480,9 @@ static int sh2a_function_vector_p (tree);
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD sh_secondary_reload
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P	sh_legitimate_address_p
 
 /* Machine-specific symbol_ref flags.  */
 #define SYMBOL_FLAG_FUNCVEC_FUNCTION    (SYMBOL_FLAG_MACH_DEP << 0)
@@ -1632,7 +1636,8 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   operands[2] = op2h;
   operands[4] = NULL_RTX;
   if (reload_completed
-      && ! arith_reg_or_0_operand (op2h, SImode) && true_regnum (op1h)
+      && ! arith_reg_or_0_operand (op2h, SImode)
+      && (true_regnum (op1h) || (comparison != EQ && comparison != NE))
       && (msw_taken != LAST_AND_UNUSED_RTX_CODE
 	  || msw_skip != LAST_AND_UNUSED_RTX_CODE))
     {
@@ -1662,8 +1667,12 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   if (lsw_taken != LAST_AND_UNUSED_RTX_CODE)
     {
       if (reload_completed
-	  && ! arith_reg_or_0_operand (op2l, SImode) && true_regnum (op1l))
-	operands[4] = scratch;
+	  && ! arith_reg_or_0_operand (op2l, SImode)
+	  && (true_regnum (op1l) || (lsw_taken != EQ && lsw_taken != NE)))
+	{
+	  emit_move_insn (scratch, operands[2]);
+	  operands[2] = scratch;
+	}
       expand_cbranchsi4 (operands, lsw_taken, lsw_taken_prob);
     }
   if (msw_skip != LAST_AND_UNUSED_RTX_CODE)
@@ -8948,6 +8957,124 @@ sh_insn_length_adjustment (rtx insn)
       return sum;
     }
   return 0;
+}
+
+/* Return TRUE for a valid displacement for the REG+disp addressing
+   with MODE.  */
+
+/* ??? The SH2e does not have the REG+disp addressing mode when loading values
+   into the FRx registers.  We implement this by setting the maximum offset
+   to zero when the value is SFmode.  This also restricts loading of SFmode
+   values into the integer registers, but that can't be helped.  */
+
+/* The SH allows a displacement in a QI or HI amode, but only when the
+   other operand is R0. GCC doesn't handle this very well, so we forgot
+   all of that.
+
+   A legitimate index for a QI or HI is 0, SI can be any number 0..63,
+   DI can be any number 0..60.  */
+
+bool
+sh_legitimate_index_p (enum machine_mode mode, rtx op)
+{
+  if (GET_CODE (op) == CONST_INT)
+    {
+      if (TARGET_SHMEDIA)
+	{
+	  int size;
+
+	  /* Check if this the address of an unaligned load / store.  */
+	  if (mode == VOIDmode)
+	    return CONST_OK_FOR_I06 (INTVAL (op));
+
+	  size = GET_MODE_SIZE (mode);
+	  return (!(INTVAL (op) & (size - 1))
+		  && INTVAL (op) >= -512 * size
+		  && INTVAL (op) < 512 * size);
+	}
+
+      if (TARGET_SH2A)
+	{
+	  if (GET_MODE_SIZE (mode) == 1
+		&& (unsigned) INTVAL (op) < 4096)
+	    return true;
+	}
+
+      if ((GET_MODE_SIZE (mode) == 4
+	   && (unsigned) INTVAL (op) < 64
+	   && !(INTVAL (op) & 3)
+	   && !(TARGET_SH2E && mode == SFmode))
+	  || (GET_MODE_SIZE (mode) == 4
+	      && (unsigned) INTVAL (op) < 16383
+	      && !(INTVAL (op) & 3) && TARGET_SH2A))
+	return true;
+
+      if ((GET_MODE_SIZE (mode) == 8
+	   && (unsigned) INTVAL (op) < 60
+	   && !(INTVAL (op) & 3)
+	   && !((TARGET_SH4 || TARGET_SH2A) && mode == DFmode))
+	  || ((GET_MODE_SIZE (mode)==8)
+	      && (unsigned) INTVAL (op) < 8192
+	      && !(INTVAL (op) & (TARGET_SH2A_DOUBLE ? 7 : 3))
+	      && (TARGET_SH2A && mode == DFmode)))
+	return true;
+    }
+
+  return false;
+}
+
+/* Recognize an RTL expression that is a valid memory address for
+   an instruction.
+   The MODE argument is the machine mode for the MEM expression
+   that wants to use this address.
+   Allow  REG
+	  REG+disp
+	  REG+r0
+	  REG++
+	  --REG  */
+
+static bool
+sh_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
+{
+  if (MAYBE_BASE_REGISTER_RTX_P (x, strict))
+    return true;
+  else if ((GET_CODE (x) == POST_INC || GET_CODE (x) == PRE_DEC)
+	   && ! TARGET_SHMEDIA
+	   && MAYBE_BASE_REGISTER_RTX_P (XEXP (x, 0), strict))
+    return true;
+  else if (GET_CODE (x) == PLUS
+	   && (mode != PSImode || reload_completed))
+    {
+      rtx xop0 = XEXP (x, 0);
+      rtx xop1 = XEXP (x, 1);
+
+      if (GET_MODE_SIZE (mode) <= 8
+	  && MAYBE_BASE_REGISTER_RTX_P (xop0, strict)
+	  && sh_legitimate_index_p (mode, xop1))
+	return true;
+
+      if ((ALLOW_INDEXED_ADDRESS || GET_MODE (x) == DImode
+	   || ((xop0 == stack_pointer_rtx
+		|| xop0 == hard_frame_pointer_rtx)
+	       && REG_P (xop1) && REGNO (xop1) == R0_REG)
+	   || ((xop1 == stack_pointer_rtx
+		|| xop1 == hard_frame_pointer_rtx)
+	       && REG_P (xop0) && REGNO (xop0) == R0_REG))
+	  && ((!TARGET_SHMEDIA && GET_MODE_SIZE (mode) <= 4)
+	      || (TARGET_SHMEDIA && GET_MODE_SIZE (mode) <= 8)
+	      || ((TARGET_SH4 || TARGET_SH2A_DOUBLE)
+		  && TARGET_FMOVD && mode == DFmode)))
+	{
+	  if (MAYBE_BASE_REGISTER_RTX_P (xop1, strict)
+	      && MAYBE_INDEX_REGISTER_RTX_P (xop0, strict))
+	    return true;
+	  if (MAYBE_INDEX_REGISTER_RTX_P (xop1, strict)
+	      && MAYBE_BASE_REGISTER_RTX_P (xop0, strict))
+	    return true;
+	}
+    }
+
+  return false;
 }
 
 /* Return TRUE if X references a SYMBOL_REF or LABEL_REF whose symbol

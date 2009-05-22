@@ -4017,7 +4017,7 @@ read_module (void)
   module_locus operator_interfaces, user_operators;
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1];
-  gfc_intrinsic_op i;
+  int i;
   int ambiguous, j, nuse, symbol;
   pointer_info *info, *q;
   gfc_use_rename *u;
@@ -4225,7 +4225,7 @@ read_module (void)
 
       if (only_flag)
 	{
-	  u = find_use_operator (i);
+	  u = find_use_operator ((gfc_intrinsic_op) i);
 
 	  if (u == NULL)
 	    {
@@ -4677,7 +4677,7 @@ write_symtree (gfc_symtree *st)
 static void
 write_module (void)
 {
-  gfc_intrinsic_op i;
+  int i;
 
   /* Write the operator interfaces.  */
   mio_lparen ();
@@ -4759,7 +4759,7 @@ read_md5_from_module_file (const char * filename, unsigned char md5[16])
   if ((file = fopen (filename, "r")) == NULL)
     return -1;
 
-  /* Read two lines.  */
+  /* Read the first line.  */
   if (fgets (buf, sizeof (buf) - 1, file) == NULL)
     {
       fclose (file);
@@ -4769,8 +4769,12 @@ read_md5_from_module_file (const char * filename, unsigned char md5[16])
   /* The file also needs to be overwritten if the version number changed.  */
   n = strlen ("GFORTRAN module version '" MOD_VERSION "' created");
   if (strncmp (buf, "GFORTRAN module version '" MOD_VERSION "' created", n) != 0)
-    return -1;
+    {
+      fclose (file);
+      return -1;
+    }
  
+  /* Read a second line.  */
   if (fgets (buf, sizeof (buf) - 1, file) == NULL)
     {
       fclose (file);
