@@ -1,5 +1,12 @@
+2009-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/tm.texi (Named Address Spaces): Update named address space
+	documentation.
+
 2009-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Merge up to mainline, branch id 147741.
 
 	* targhooks.c (default_addr_space_nop_convert_p): Delete, no
 	longer used.

@@ -9830,52 +9830,47 @@ named address spaces, the default version of this hook will cause the
 compiler to abort.
 @end deftypefn
 
-@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_MEMORY_ADDRESS_P (enum machine_mode @var{mode}, rtx @var{exp}, addr_space_t @var{as})
+@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P (enum machine_mode @var{mode}, rtx @var{exp}, bool @var{strict}, addr_space_t @var{as})
 Define this to return true if @var{exp} is a valid address for mode
-@var{mode} in the named address space @var{as}.  Valid address can
-contain references to psuedo registers that are not yet assigned to
-hard registers.
-@end deftypefn
-
-@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_STRICT_MEMORY_ADDRESS_P (enum machine_mode @var{mode}, rtx @var{exp}, addr_space_t @var{as})
-Define this to return true if @var{exp} is a valid address for mode
-@var{mode} in the named address space @var{as}.  Valid address can
-only contain references to hard registers.  Any address with a pseudo
-register should return false.
+@var{mode} in the named address space @var{as}.  The @var{strict}
+parameter says whether strict addressing is in effect after reload has
+finished.  This target hook is the same as the
+@code{TARGET_LEGITIMATE_ADDRESS_P} target hook, except that includes
+explicit named address space support.
 @end deftypefn
 
 @deftypefn {Target Hook} {rtx} TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS (rtx @var{x}, rtx @var{oldx}, enum machine_mode @var{mode}, addr_space_t @var{as})
 Define this to modify an invalid address @var{x} to be a valid address
-with mode @var{mode} in the named address space @var{as}.  This hook
-is similar to the @code{LEGITIMIZE_ADDRESS} macro, except that it
-includes explicit named address space support.
-@end deftypefn
-
-@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_CAN_CONVERT_P (addr_space_t @var{from}, addr_space_t @var{to})
-Define this to return whether a pointer which points to the @var{from}
-named address space can be converted to a pointer which points to the
-@var{to} named address space.
-@end deftypefn
-
-@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_NOP_CONVERT_P (addr_space_t @var{from}, addr_space_t @var{to})
-Define this to return whether converting a pointer which points to the
-@var{from} named address space to a pointer which points to the
-@var{to} named address space can be done as a simple copy or if a real
-conversion needs to be done.
+with mode @var{mode} in the named address space @var{as}.  This target
+hook is the same as the @code{LEGITIMIZE_ADDRESS} target hook, except
+that it includes explicit named address space support.
 @end deftypefn
 
 @deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_SUBSET_P (addr_space_t @var{superset}, addr_space_t @var{subset})
 Define this to return the @var{subset} named address space is
-contained within the @var{superset} named address space.
+contained within the @var{superset} named address space.  Pointers to
+a named addresses that is a subset of another named address space will
+be converted automatically without a cast if used together in
+arithmetic operations.
 @end deftypefn
 
-@deftypefn {Target Hook} {rtx} TARGET_ADDR_SPACE_CONVERT (rtx @var{op}, enum machine_mode @var{mode}, addr_space_t @var{from}, addr_space_t @var{to})
+@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_CAN_CONVERT_P (tree @var{from_type}, tree @var{to_type})
+Define this to return whether a pointer with type @var{from_type} that
+points to one named address space can be converted to a pointer with
+the type @var{to_type} which points to a different named address
+space.  if @code{TARGET_ADDR_SPACE_SUBSET_P} would return true,
+@code{TARGET_ADDR_SPACE_CAN_CONVERT_P} should also return true.
+@code{TARGET_ADDR_SPACE_CAN_CONVERT_P} is used where the user issues
+an explicit cast.
+@end deftypefn
+
+@deftypefn {Target Hook} {rtx} TARGET_ADDR_SPACE_CONVERT (rtx @var{op}, tree @var{from_type}, tree @var{to_type})
 Define this to convert the pointer expression represented by the RTL
-@var{op} that points to the named address space @var{from} to a new
-pointer expression with type @var{mode} in the named address space
-@var{to}.  As this hook should never be called for targets that do not
-support named address spaces, the default version of this hook will
-cause the compiler to abort.
+@var{op} with type @var{from_type} that points to a named address
+space to a new pointer expression with type @var{to_type} that points
+to a different the named address space.  As this hook should never be
+called for targets that do not support named address spaces, the
+default version of this hook will cause the compiler to abort.
 @end deftypefn
 
 @deftypefn {Target Hook} {tree} TARGET_ADDR_SPACE_SECTION_NAME (addr_space_t @var{address_space})
