@@ -1045,7 +1045,7 @@ get_next_region_sharing_label (int region)
 bitmap
 must_not_throw_labels (void)
 {
-  struct eh_region *i;
+  struct eh_region_d *i;
   bitmap labels = BITMAP_ALLOC (NULL);
 
   i = cfun->eh->region_tree;
