@@ -3588,21 +3588,6 @@ sra_modify_partially_complex_lhs (gimple stmt, gimple_stmt_iterator *gsi)
   return SRA_SA_PROCESSED;
 }
 
-/* Return true iff T has a VIEW_CONVERT_EXPR among its handled components.  */
-
-static bool
-contains_view_convert_expr_p (tree t)
-{
-  while (1)
-    {
-      if (TREE_CODE (t) == VIEW_CONVERT_EXPR)
-	return true;
-      if (!handled_component_p (t))
-	return false;
-      t = TREE_OPERAND (t, 0);
-    }
-}
-
 /* Change STMT to assign compatible types by means of adding component or array
    references or VIEW_CONVERT_EXPRs.  All parameters have the same meaning as
    variable with the same names in sra_intra_modify_assign.  This is done in a
