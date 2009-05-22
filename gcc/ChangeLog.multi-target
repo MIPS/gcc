@@ -1,3 +1,8 @@
+2009-05-22  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/i386/i386.c (ix86_va_start): Use INCOMING_ARGS_INFO.
+	(ix86_secondary_reload): Make signature agree with target.h
+
 2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-ssa-address.c: Include multi-target.h .  Add
