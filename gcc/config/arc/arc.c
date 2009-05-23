@@ -87,7 +87,7 @@ struct arc_ccfsm GTY (())
   int target_label;
 };
 
-#define arc_ccfsm_current cfun->machine->ccfsm_current
+#define arc_ccfsm_current MACHINE_FUNCTION (*cfun)->ccfsm_current
 
 #define ARC_CCFSM_BRANCH_DELETED_P(STATE) \
   ((STATE)->state == 1 || (STATE)->state == 2)
@@ -1705,7 +1705,7 @@ typedef struct machine_function GTY (())
   rtx ccfsm_current_insn;
   char arc_reorg_started;
   char prescan_initialized;
-} machine_function;
+} machine_function_t;
 
 /* Type of function DECL.
 
@@ -1717,7 +1717,7 @@ arc_compute_function_type (struct function *fun)
 {
   tree decl = fun->decl;
   tree a;
-  enum arc_function_type fn_type = fun->machine->fn_type;
+  enum arc_function_type fn_type = MACHINE_FUNCTION (*fun)->fn_type;
 
   if (fn_type != ARC_FUNCTION_UNKNOWN)
     return fn_type;
@@ -1748,7 +1748,7 @@ arc_compute_function_type (struct function *fun)
 	}
     }
 
-  return fun->machine->fn_type = fn_type;
+  return MACHINE_FUNCTION (*fun)->fn_type = fn_type;
 }
 
 #define FRAME_POINTER_MASK (1 << (FRAME_POINTER_REGNUM))
@@ -1769,7 +1769,7 @@ arc_compute_function_type (struct function *fun)
      && regno == PIC_OFFSET_TABLE_REGNUM) )
 
 #define MUST_SAVE_RETURN_ADDR \
-  (cfun->machine->frame_info.save_return_addr)
+  (MACHINE_FUNCTION (*cfun)->frame_info.save_return_addr)
 
 /* Return non-zero if there are registers to be saved or loaded using
    millicode thunks.  We can only use consecutive sequences starting
@@ -1814,7 +1814,7 @@ arc_compute_frame_size (int size)	/* size = # of var. bytes allocated.  */
   unsigned int gmask;
   enum arc_function_type fn_type;
   int interrupt_p;
-  struct arc_frame_info *frame_info = &cfun->machine->frame_info;
+  struct arc_frame_info *frame_info = &MACHINE_FUNCTION (*cfun)->frame_info;
 
   size = ARC_STACK_ALIGN (size);
 
@@ -1926,7 +1926,7 @@ arc_save_restore (rtx base_reg, unsigned int offset,
 		  unsigned int gmask, int epilogue_p, int *first_offset)
 {
   int regno;
-  struct arc_frame_info *frame = &cfun->machine->frame_info;
+  struct arc_frame_info *frame = &MACHINE_FUNCTION (*cfun)->frame_info;
   rtx sibthunk_insn = NULL_RTX;
   rtx extra_pop = NULL_RTX;
                       
@@ -2077,7 +2077,7 @@ void
 arc_expand_prologue (void)
 {
   int size = get_frame_size ();
-  unsigned int gmask = cfun->machine->frame_info.gmask;
+  unsigned int gmask = MACHINE_FUNCTION (*cfun)->frame_info.gmask;
   /*  unsigned int frame_pointer_offset;*/
   unsigned int frame_size_to_allocate;
   /* (FIXME: The first store will use a PRE_MODIFY; this will usually be r13.
@@ -2088,9 +2088,9 @@ arc_expand_prologue (void)
   size = ARC_STACK_ALIGN (size);
 
   /* Compute/get total frame size */
-  size = (!cfun->machine->frame_info.initialized
+  size = (!MACHINE_FUNCTION (*cfun)->frame_info.initialized
 	   ? arc_compute_frame_size (size)
-	   : cfun->machine->frame_info.total_size);
+	   : MACHINE_FUNCTION (*cfun)->frame_info.total_size);
 
   /* Keep track of frame size to be allocated */
   frame_size_to_allocate = size;
@@ -2099,13 +2099,14 @@ arc_expand_prologue (void)
   gcc_assert (!(size == 0 && gmask));
 
   /* Allocate space for register arguments if this is a variadic function.  */
-  if (cfun->machine->frame_info.pretend_size != 0)
+  if (MACHINE_FUNCTION (*cfun)->frame_info.pretend_size != 0)
     {
        /* Ensure pretend_size is maximum of 8 * word_size */
-      gcc_assert (cfun->machine->frame_info.pretend_size <= 32);
+      gcc_assert (MACHINE_FUNCTION (*cfun)->frame_info.pretend_size <= 32);
 
-      frame_stack_add (-cfun->machine->frame_info.pretend_size);
-      frame_size_to_allocate -= cfun->machine->frame_info.pretend_size;
+      frame_stack_add (-MACHINE_FUNCTION (*cfun)->frame_info.pretend_size);
+      frame_size_to_allocate
+	-= MACHINE_FUNCTION (*cfun)->frame_info.pretend_size;
     }
     
   /* The home-grown ABI says link register is saved first. */
@@ -2139,12 +2140,12 @@ arc_expand_prologue (void)
 
   /* Save any needed call-saved regs (and call-used if this is an
      interrupt handler) for ARCompact ISA.  */
-  if (TARGET_ARCOMPACT && cfun->machine->frame_info.reg_size)
+  if (TARGET_ARCOMPACT && MACHINE_FUNCTION (*cfun)->frame_info.reg_size)
     {
-      first_offset = -cfun->machine->frame_info.reg_size;
+      first_offset = -MACHINE_FUNCTION (*cfun)->frame_info.reg_size;
       /* N.B. FRAME_POINTER_MASK and RETURN_ADDR_MASK are cleared in gmask.  */
       arc_save_restore (stack_pointer_rtx, 0, gmask, 0, &first_offset);
-      frame_size_to_allocate -= cfun->machine->frame_info.reg_size;
+      frame_size_to_allocate -= MACHINE_FUNCTION (*cfun)->frame_info.reg_size;
     } /* if */
 
 
@@ -2193,7 +2194,8 @@ arc_expand_prologue (void)
 
   if (TARGET_A4)
     {
-      arc_save_restore (stack_pointer_rtx, cfun->machine->frame_info.reg_offset,
+      arc_save_restore (stack_pointer_rtx,
+			MACHINE_FUNCTION (*cfun)->frame_info.reg_offset,
                         /* The zeroing of these two bits is unnecessary,
                            but leave this in for clarity.  */
                         gmask & ~(FRAME_POINTER_MASK | RETURN_ADDR_MASK), 0, 0);
@@ -2214,19 +2216,20 @@ arc_expand_epilogue (int sibcall_p)
   enum arc_function_type fn_type = arc_compute_function_type (cfun);
 
   size = ARC_STACK_ALIGN (size);
-  size = (!cfun->machine->frame_info.initialized
+  size = (!MACHINE_FUNCTION (*cfun)->frame_info.initialized
 	   ? arc_compute_frame_size (size)
-	   : cfun->machine->frame_info.total_size);
+	   : MACHINE_FUNCTION (*cfun)->frame_info.total_size);
 
   if (1)
     {
-      unsigned int pretend_size = cfun->machine->frame_info.pretend_size;
+      unsigned int pretend_size
+	= MACHINE_FUNCTION (*cfun)->frame_info.pretend_size;
       unsigned int frame_size; 
       unsigned int size_to_deallocate; 
       int restored, fp_restored_p;
       int can_trust_sp_p = !cfun->calls_alloca;
       int first_offset = 0;
-      int millicode_p = cfun->machine->frame_info.millicode_end_reg > 0;
+      int millicode_p = MACHINE_FUNCTION (*cfun)->frame_info.millicode_end_reg > 0;
 
       size_to_deallocate = size;
 
@@ -2234,8 +2237,8 @@ arc_expand_epilogue (int sibcall_p)
         frame_size = size - pretend_size;
       else
         frame_size = size - (pretend_size +
-                             cfun->machine->frame_info.reg_size + 
-                             cfun->machine->frame_info.extra_size);
+                             MACHINE_FUNCTION (*cfun)->frame_info.reg_size + 
+                             MACHINE_FUNCTION (*cfun)->frame_info.extra_size);
 
       /* ??? There are lots of optimizations that can be done here.
 	 EG: Use fp to restore regs if it's closer.
@@ -2264,12 +2267,12 @@ arc_expand_epilogue (int sibcall_p)
         {
 	  gcc_assert (0); /* Bitrot.  */
 #if 0
-          if (cfun->machine->frame_info.reg_size)
+          if (MACHINE_FUNCTION (*cfun)->frame_info.reg_size)
             arc_save_restore (stack_pointer_rtx,
-			      cfun->machine->frame_info.reg_offset,
+			      MACHINE_FUNCTION (*cfun)->frame_info.reg_offset,
 			      /* The zeroing of these two bits is unnecessary,
 				 but leave this in for clarity.  */
-			      cfun->machine->frame_info.gmask
+			      MACHINE_FUNCTION (*cfun)->frame_info.gmask
 			      & ~(FRAME_POINTER_MASK | RETURN_ADDR_MASK), 1, 0);
           if (MUST_SAVE_RETURN_ADDR)
             fprintf (file, "\tld %s,[%s,%d]\n", reg_names[RETURN_ADDR_REGNUM],
@@ -2294,14 +2297,14 @@ arc_expand_epilogue (int sibcall_p)
 	  */
 	  if (millicode_p)
 	    {
-	      int sibthunk_p = (!sibcall_p
-				&& fn_type == ARC_FUNCTION_NORMAL
-				&& !cfun->machine->frame_info.pretend_size);
+	      int sibthunk_p
+		= (!sibcall_p && fn_type == ARC_FUNCTION_NORMAL
+		   && !MACHINE_FUNCTION (*cfun)->frame_info.pretend_size);
 
-	      gcc_assert (!(cfun->machine->frame_info.gmask
+	      gcc_assert (!(MACHINE_FUNCTION (*cfun)->frame_info.gmask
 			    & (FRAME_POINTER_MASK | RETURN_ADDR_MASK)));
 	      arc_save_restore (stack_pointer_rtx, 0,
-				cfun->machine->frame_info.gmask,
+				MACHINE_FUNCTION (*cfun)->frame_info.gmask,
 				1 + sibthunk_p, &first_offset);
 	      if (sibthunk_p)
 		return;
@@ -2310,7 +2313,7 @@ arc_expand_epilogue (int sibcall_p)
 	     a limm to be encoded in a PRE_MODIFY, yet we can add it with a
 	     fast add to the stack pointer, do this now.  */
 	  if ((!SMALL_INT (first_offset)
-	       && cfun->machine->frame_info.gmask
+	       && MACHINE_FUNCTION (*cfun)->frame_info.gmask
 	       && ((TARGET_ARC700 && !optimize_size)
 		   ? first_offset <= 0x800
 		   : satisfies_constraint_C2a (GEN_INT (first_offset))))
@@ -2318,9 +2321,10 @@ arc_expand_epilogue (int sibcall_p)
 		 address to restore, and they both would need a LIMM.  */
 	      || (MUST_SAVE_RETURN_ADDR
 		  && !SMALL_INT
-		        ((cfun->machine->frame_info.reg_size + first_offset)
+		        ((MACHINE_FUNCTION (*cfun)->frame_info.reg_size
+			  + first_offset)
 			 >> 2)
-		  && cfun->machine->frame_info.gmask))
+		  && MACHINE_FUNCTION (*cfun)->frame_info.gmask))
 	    {
 	      frame_stack_add (first_offset);
 	      first_offset = 0;
@@ -2328,13 +2332,13 @@ arc_expand_epilogue (int sibcall_p)
 	  if (MUST_SAVE_RETURN_ADDR)
 	    {
 	      rtx ra = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
-	      int ra_offs = cfun->machine->frame_info.reg_size + first_offset;
+	      int ra_offs = MACHINE_FUNCTION (*cfun)->frame_info.reg_size + first_offset;
 	      rtx addr = plus_constant (stack_pointer_rtx, ra_offs);
 
 	      /* If the load of blink would need a LIMM, but we can add 
 		 the offset quickly to sp, do the latter.  */
 	      if (!SMALL_INT (ra_offs >> 2)
-		  && !cfun->machine->frame_info.gmask
+		  && !MACHINE_FUNCTION (*cfun)->frame_info.gmask
 		  && ((TARGET_ARC700 && !optimize_size)
 		      ? ra_offs <= 0x800
 		      : satisfies_constraint_C2a (GEN_INT (ra_offs))))
@@ -2351,12 +2355,13 @@ arc_expand_epilogue (int sibcall_p)
 		 restore.  We also want a separate load if the combined insn
 		 would need a limm, but a separate load doesn't.  */
 	      if (ra_offs
-		  && !cfun->machine->frame_info.gmask
+		  && !MACHINE_FUNCTION (*cfun)->frame_info.gmask
 		  && (SMALL_INT (ra_offs) || !SMALL_INT (ra_offs >> 2)))
 		{
 		  addr = gen_rtx_PRE_MODIFY (Pmode, stack_pointer_rtx, addr);
 		  first_offset = 0;
-		  size_to_deallocate -= cfun->machine->frame_info.reg_size;
+		  size_to_deallocate
+		    -= MACHINE_FUNCTION (*cfun)->frame_info.reg_size;
 		}
 	      else if (!ra_offs && size_to_deallocate == UNITS_PER_WORD)
 		{
@@ -2369,11 +2374,11 @@ arc_expand_epilogue (int sibcall_p)
 
 	  if (!millicode_p)
 	    {
-	      if (cfun->machine->frame_info.reg_size)
+	      if (MACHINE_FUNCTION (*cfun)->frame_info.reg_size)
 		arc_save_restore (stack_pointer_rtx, 0,
 				  /* The zeroing of these two bits is unnecessary,
 				     but leave this in for clarity.  */
-				  cfun->machine->frame_info.gmask
+				  MACHINE_FUNCTION (*cfun)->frame_info.gmask
 				  & ~(FRAME_POINTER_MASK | RETURN_ADDR_MASK), 1, &first_offset);
 	    }
 
@@ -2460,9 +2465,9 @@ arc_delay_slots_for_epilogue (void)
 {
   if (arc_compute_function_type (cfun) != ARC_FUNCTION_NORMAL)
     return 0;
-  if (!cfun->machine->frame_info.initialized)
+  if (!MACHINE_FUNCTION (*cfun)->frame_info.initialized)
     (void) arc_compute_frame_size (get_frame_size ());
-  if (cfun->machine->frame_info.total_size == 0)
+  if (MACHINE_FUNCTION (*cfun)->frame_info.total_size == 0)
     return 1;
   return 0;
 }
@@ -2486,7 +2491,7 @@ arc_eligible_for_epilogue_delay (rtx trial,int slot)
       /* ??? Note that this will always be true since only functions with
 	 empty frames have epilogue delay slots.  See
 	 arc_delay_slots_for_epilogue.  */
-      && cfun->machine->frame_info.gmask == 0
+      && MACHINE_FUNCTION (*cfun)->frame_info.gmask == 0
       && ! reg_mentioned_p (stack_pointer_rtx, PATTERN (trial))
       && ! reg_mentioned_p (frame_pointer_rtx, PATTERN (trial)))
     return 1;
@@ -3123,9 +3128,10 @@ arc_print_operand (FILE *file,rtx x,int code)
 	}
       break;
     case '&':
-      if (TARGET_ANNOTATE_ALIGN && cfun->machine->size_reason)
-	fprintf (file, "; %s. unalign: %d", cfun->machine->size_reason,
-		 cfun->machine->unalign);
+      if (TARGET_ANNOTATE_ALIGN && MACHINE_FUNCTION (*cfun)->size_reason)
+	fprintf (file, "; %s. unalign: %d",
+		 MACHINE_FUNCTION (*cfun)->size_reason,
+		 MACHINE_FUNCTION (*cfun)->unalign);
       return;
     default :
       /* Unknown flag.  */
@@ -3378,7 +3384,7 @@ unspec_prof_htab_eq (const void *x, const void *y)
    4: make insns conditional
    5: make insn conditional (only for outputting anulled delay slot insns)
 
-   special value for cfun->machine->uid_ccfsm_state:
+   special value for MACHINE_FUNCTION (*cfun)->uid_ccfsm_state:
    6: return with but one insn before it since function start / call
 
    State transitions (state->state by whom, under what condition):
@@ -3789,14 +3795,14 @@ arc_ccfsm_record_branch_deleted (void)
 int
 arc_ccfsm_cond_exec_p (void)
 {
-  return (cfun->machine->prescan_initialized
+  return (MACHINE_FUNCTION (*cfun)->prescan_initialized
 	  && ARC_CCFSM_COND_EXEC_P (&arc_ccfsm_current));
 }
 
 void
 arc_ccfsm_advance_to (rtx insn)
 {
-  struct machine_function *machine = cfun->machine;
+  struct machine_function *machine = MACHINE_FUNCTION (*cfun);
   rtx scan = machine->ccfsm_current_insn;
   int restarted = 0;
   struct arc_ccfsm *statep = &arc_ccfsm_current;
@@ -3843,7 +3849,7 @@ arc_next_active_insn (rtx insn, struct arc_ccfsm *statep)
 	arc_ccfsm_advance (insn, statep);
     }
   while (NOTE_P (insn)
-	 || (cfun->machine->arc_reorg_started
+	 || (MACHINE_FUNCTION (*cfun)->arc_reorg_started
 	     && LABEL_P (insn) && !label_to_alignment (insn))
 	 || (NONJUMP_INSN_P (insn)
 	     && (GET_CODE (PATTERN (insn)) == USE
@@ -3888,7 +3894,7 @@ arc_verify_short (rtx insn, int unalign, int check_attr)
   int odd = 3; /* 0/2: (mis)alignment specified; 3: keep short.  */
   enum attr_iscompact iscompact;
   struct machine_function *machine;
-  const char **rp = &cfun->machine->size_reason;
+  const char **rp = &MACHINE_FUNCTION (*cfun)->size_reason;
   int jump_p;
   rtx this_sequence = NULL_RTX;
   rtx recog_insn = recog_data.insn;
@@ -3899,7 +3905,7 @@ arc_verify_short (rtx insn, int unalign, int check_attr)
       if (iscompact == ISCOMPACT_FALSE)
 	return 0;
     }
-  machine = cfun->machine;
+  machine = MACHINE_FUNCTION (*cfun);
 
   if (machine->force_short_suffix >= 0)
     return machine->force_short_suffix;
@@ -3988,7 +3994,7 @@ arc_verify_short (rtx insn, int unalign, int check_attr)
   /* Basic block reordering calculates insn lengths while it has the insns
      at the end of a basic block detached from the remainder of the insn
      chain.  */
-  gcc_assert (next || !cfun->machine->arc_reorg_started);
+  gcc_assert (next || !MACHINE_FUNCTION (*cfun)->arc_reorg_started);
   if (NEXT_INSN (prev) != insn)
     this_sequence = PATTERN (NEXT_INSN (prev));
   else if (next && PREV_INSN (next) != insn)
@@ -4238,10 +4244,10 @@ output_short_suffix (FILE *file)
 {
   rtx insn = current_output_insn;
 
-  if (arc_verify_short (insn, cfun->machine->unalign, 1))
+  if (arc_verify_short (insn, MACHINE_FUNCTION (*cfun)->unalign, 1))
     {
       fprintf (file, "_s");
-      cfun->machine->unalign ^= 2;
+      MACHINE_FUNCTION (*cfun)->unalign ^= 2;
     }
   /* Restore recog_operand.  */
   extract_insn_cached (insn);
@@ -4271,15 +4277,15 @@ arc_final_prescan_insn (rtx insn,rtx *opvec ATTRIBUTE_UNUSED,
   /* Restore extraction data which might have been clobbered by arc_hazard.  */
   extract_constrain_insn_cached (insn);
 
-  if (!cfun->machine->prescan_initialized)
+  if (!MACHINE_FUNCTION (*cfun)->prescan_initialized)
     {
       /* Clear lingering state from branch shortening.  */
       memset (&arc_ccfsm_current, 0, sizeof arc_ccfsm_current);
-      cfun->machine->prescan_initialized = 1;
+      MACHINE_FUNCTION (*cfun)->prescan_initialized = 1;
     }
   arc_ccfsm_advance (insn, &arc_ccfsm_current);
 
-  cfun->machine->size_reason = 0;
+  MACHINE_FUNCTION (*cfun)->size_reason = 0;
 }
 
 /* Define the offset between two registers, one to be eliminated, and
@@ -4288,7 +4294,7 @@ arc_final_prescan_insn (rtx insn,rtx *opvec ATTRIBUTE_UNUSED,
 int
 arc_initial_elimination_offset (int from,int to)
 {
-  if (! cfun->machine->frame_info.initialized)
+  if (! MACHINE_FUNCTION (*cfun)->frame_info.initialized)
      arc_compute_frame_size (get_frame_size ());
 
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
@@ -4296,26 +4302,26 @@ arc_initial_elimination_offset (int from,int to)
       if (TARGET_A4)
         return 0;
       else
-        return (cfun->machine->frame_info.extra_size
-                + cfun->machine->frame_info.reg_size);
+        return (MACHINE_FUNCTION (*cfun)->frame_info.extra_size
+                + MACHINE_FUNCTION (*cfun)->frame_info.reg_size);
     }
 
   if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     {
-        return (cfun->machine->frame_info.total_size
-                - cfun->machine->frame_info.pretend_size);
+        return (MACHINE_FUNCTION (*cfun)->frame_info.total_size
+                - MACHINE_FUNCTION (*cfun)->frame_info.pretend_size);
     }
 
   if ((from == FRAME_POINTER_REGNUM) && (to == STACK_POINTER_REGNUM))
     {
       if (TARGET_A4)
-        return (cfun->machine->frame_info.total_size 
-                - cfun->machine->frame_info.pretend_size);
+        return (MACHINE_FUNCTION (*cfun)->frame_info.total_size 
+                - MACHINE_FUNCTION (*cfun)->frame_info.pretend_size);
       else
-        return (cfun->machine->frame_info.total_size
-                - (cfun->machine->frame_info.pretend_size
-                   + cfun->machine->frame_info.extra_size
-                   + cfun->machine->frame_info.reg_size));
+        return (MACHINE_FUNCTION (*cfun)->frame_info.total_size
+                - (MACHINE_FUNCTION (*cfun)->frame_info.pretend_size
+                   + MACHINE_FUNCTION (*cfun)->frame_info.extra_size
+                   + MACHINE_FUNCTION (*cfun)->frame_info.reg_size));
     }
 
   gcc_unreachable ();
@@ -6133,7 +6139,7 @@ arc_reorg (void)
   long offset;
   int changed;
 
-  cfun->machine->arc_reorg_started = 1;
+  MACHINE_FUNCTION (*cfun)->arc_reorg_started = 1;
   arc_reorg_in_progress = 1;
 
   /* Emit special sections for profiling.  */
@@ -6391,7 +6397,7 @@ estimate required size increase).
 
       /* Call shorten_branches to calculate the insn lengths */
       shorten_branches (get_insns());
-      cfun->machine->ccfsm_current_insn = NULL_RTX;
+      MACHINE_FUNCTION (*cfun)->ccfsm_current_insn = NULL_RTX;
 
       if (!INSN_ADDRESSES_SET_P())
  	  fatal_error ("Insn addresses not set after shorten_branches");
@@ -8116,10 +8122,10 @@ arc_adjust_insn_length (rtx insn, int len)
     }
   /* Rtl changes too much before arc_reorg to keep ccfsm state.
      But we are not required to give exact answers then.  */
-  if (cfun->machine->arc_reorg_started
+  if (MACHINE_FUNCTION (*cfun)->arc_reorg_started
       && (JUMP_P (insn) || (len & 2)))
     {
-      struct arc_ccfsm *statep = &cfun->machine->ccfsm_current;
+      struct arc_ccfsm *statep = &MACHINE_FUNCTION (*cfun)->ccfsm_current;
 
       arc_ccfsm_advance_to (insn);
       switch (statep->state)
@@ -8313,7 +8319,7 @@ arc_pad_return (void)
   if (!prev)
     {
       fputs ("\tnop_s\n", asm_out_file);
-      cfun->machine->unalign ^= 2;
+      MACHINE_FUNCTION (*cfun)->unalign ^= 2;
       want_long = 1;
     }
   /* If PREV is a sequence, we know it must be a branch / jump or a tailcall,
@@ -8331,11 +8337,11 @@ arc_pad_return (void)
 	  : CALL_ATTR (prev, NON_SIBCALL)))
     {
       if (want_long)
-	cfun->machine->size_reason
+	MACHINE_FUNCTION (*cfun)->size_reason
 	  = "call/return and return/return must be 6 bytes apart to avoid mispredict";
-      else if (TARGET_UNALIGN_BRANCH && cfun->machine->unalign)
+      else if (TARGET_UNALIGN_BRANCH && MACHINE_FUNCTION (*cfun)->unalign)
 	{
-	  cfun->machine->size_reason
+	  MACHINE_FUNCTION (*cfun)->size_reason
 	    = "Long unaligned jump avoids non-delay slot penalty";
 	  want_long = 1;
 	}
@@ -8345,9 +8351,9 @@ arc_pad_return (void)
 	  prev = XVECEXP (final_sequence, 0, 1);
 	  gcc_assert (!prev_real_insn (insn)
 		      || !arc_hazard (prev_real_insn (insn), prev));
-	  cfun->machine->force_short_suffix = !want_long;
+	  MACHINE_FUNCTION (*cfun)->force_short_suffix = !want_long;
 	  final_scan_insn (prev, asm_out_file, optimize, 1, NULL);
-	  cfun->machine->force_short_suffix = -1;
+	  MACHINE_FUNCTION (*cfun)->force_short_suffix = -1;
 	  INSN_DELETED_P (prev) = 1;
 	  current_output_insn = insn;
 	}
@@ -8356,7 +8362,7 @@ arc_pad_return (void)
       else
 	{
 	  fputs ("\tnop_s\n", asm_out_file);
-	  cfun->machine->unalign ^= 2;
+	  MACHINE_FUNCTION (*cfun)->unalign ^= 2;
 	}
     }
   return;
@@ -8368,7 +8374,7 @@ arc_init_machine_status (void)
 {
   struct machine_function *machine;
   machine =
-    (machine_function *) ggc_alloc_cleared (sizeof (machine_function));
+    (machine_function_t *) ggc_alloc_cleared (sizeof (machine_function_t));
   machine->fn_type = ARC_FUNCTION_UNKNOWN;
   machine->force_short_suffix = -1;
 
@@ -8435,20 +8441,20 @@ arc_check_millicode (rtx op, int offset, int load_p)
 int
 arc_get_unalign (void)
 {
-  return cfun->machine->unalign;
+  return MACHINE_FUNCTION (*cfun)->unalign;
 }
 
 void
 arc_clear_unalign (void)
 {
   if (cfun)
-    cfun->machine->unalign = 0;
+    MACHINE_FUNCTION (*cfun)->unalign = 0;
 }
 
 void
 arc_toggle_unalign (void)
 {
-  cfun->machine->unalign ^= 2;
+  MACHINE_FUNCTION (*cfun)->unalign ^= 2;
 }
 
 /* Operands 0..2 are the operands of a addsi which uses a 12 bit
@@ -8610,7 +8616,7 @@ arc_split_dilogic (rtx *operands, enum rtx_code code)
 const char *
 arc_short_long (rtx insn, const char *s_tmpl, const char *l_tmpl)
 {
-  int is_short = arc_verify_short (insn, cfun->machine->unalign, -1);
+  int is_short = arc_verify_short (insn, MACHINE_FUNCTION (*cfun)->unalign, -1);
 
   extract_constrain_insn_cached (insn);
   return is_short ? s_tmpl : l_tmpl;
@@ -8701,7 +8707,7 @@ arc_need_delay (rtx insn)
 int
 arc_scheduling_not_expected (void)
 {
-  return cfun->machine->arc_reorg_started;
+  return MACHINE_FUNCTION (*cfun)->arc_reorg_started;
 }
 
 /* Oddly enough, sometimes we get a zero overhead loop that branch

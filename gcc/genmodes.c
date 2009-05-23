@@ -109,6 +109,7 @@ struct mode_adjust
   struct mode_adjust *next;
   struct mode_data *mode;
   const char *adjustment;
+  const char *target;
 
   const char *file;
   unsigned int line;
@@ -262,6 +263,7 @@ new_adjust (const char *name,
 
   a = XNEW (struct mode_adjust);
   a->mode = mode;
+  a->target = target;
   a->adjustment = adjustment;
   a->file = file;
   a->line = line;
@@ -1379,6 +1381,8 @@ emit_mode_adjustments (void)
      A size adjustment forces us to recalculate the alignment too.  */
   for (a = adj_bytesize; a; a = a->next)
     {
+      if (a->target && a->target != output_target)
+	continue;
       printf ("\n  /* %s:%d */\n  s = %s;\n",
 	      a->file, a->line, a->adjustment);
       printf ("  mode_size[%smode] = s;\n", a->mode->name);
@@ -1422,6 +1426,8 @@ emit_mode_adjustments (void)
      ??? This may not be the right thing for vector modes.  */
   for (a = adj_alignment; a; a = a->next)
     {
+      if (a->target && a->target != output_target)
+	continue;
       printf ("\n  /* %s:%d */\n  s = %s;\n",
 	      a->file, a->line, a->adjustment);
       printf ("  mode_base_align[%smode] = s;\n", a->mode->name);
@@ -1458,6 +1464,8 @@ emit_mode_adjustments (void)
   /* Ibit adjustments don't have to propagate.  */
   for (a = adj_ibit; a; a = a->next)
     {
+      if (a->target && a->target != output_target)
+	continue;
       printf ("\n  /* %s:%d */\n  s = %s;\n",
 	      a->file, a->line, a->adjustment);
       printf ("  mode_ibit[%smode] = s;\n", a->mode->name);
@@ -1466,6 +1474,8 @@ emit_mode_adjustments (void)
   /* Fbit adjustments don't have to propagate.  */
   for (a = adj_fbit; a; a = a->next)
     {
+      if (a->target && a->target != output_target)
+	continue;
       printf ("\n  /* %s:%d */\n  s = %s;\n",
 	      a->file, a->line, a->adjustment);
       printf ("  mode_fbit[%smode] = s;\n", a->mode->name);
@@ -1473,8 +1483,12 @@ emit_mode_adjustments (void)
       
   /* Real mode formats don't have to propagate anywhere.  */
   for (a = adj_format; a; a = a->next)
-    printf ("\n  /* %s:%d */\n  REAL_MODE_FORMAT (%smode) = %s;\n",
-	    a->file, a->line, a->mode->name, a->adjustment);
+    {
+      if (a->target && a->target != output_target)
+	continue;
+      printf ("\n  /* %s:%d */\n  REAL_MODE_FORMAT (%smode) = %s;\n",
+	      a->file, a->line, a->mode->name, a->adjustment);
+    }
 
   puts ("}");
 }

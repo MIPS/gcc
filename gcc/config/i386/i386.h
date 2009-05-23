@@ -948,7 +948,7 @@ do {									\
     if (j != INVALID_REGNUM)						\
       fixed_regs[j] = call_used_regs[j] = 1;				\
     if (TARGET_64BIT							\
-	&& ((cfun && cfun->machine->call_abi == MS_ABI)			\
+	&& ((cfun && MACHINE_FUNCTION (*cfun)->call_abi == MS_ABI)			\
 	    || (!cfun && DEFAULT_ABI == MS_ABI)))			\
       {									\
 	call_used_regs[SI_REG] = 0;					\
@@ -2431,13 +2431,14 @@ struct machine_function GTY(())
   int call_abi;
 };
 
-#define ix86_stack_locals (cfun->machine->stack_locals)
-#define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
-#define ix86_varargs_fpr_size (cfun->machine->varargs_fpr_size)
-#define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
-#define ix86_current_function_needs_cld (cfun->machine->needs_cld)
+#define ix86_stack_locals (MACHINE_FUNCTION (*cfun)->stack_locals)
+#define ix86_varargs_gpr_size (MACHINE_FUNCTION (*cfun)->varargs_gpr_size)
+#define ix86_varargs_fpr_size (MACHINE_FUNCTION (*cfun)->varargs_fpr_size)
+#define ix86_optimize_mode_switching \
+  (MACHINE_FUNCTION (*cfun)->optimize_mode_switching)
+#define ix86_current_function_needs_cld (MACHINE_FUNCTION (*cfun)->needs_cld)
 #define ix86_tls_descriptor_calls_expanded_in_cfun \
-  (cfun->machine->tls_descriptor_call_expanded_p)
+  (MACHINE_FUNCTION (*cfun)->tls_descriptor_call_expanded_p)
 /* Since tls_descriptor_call_expanded is not cleared, even if all TLS
    calls are optimized away, we try to detect cases in which it was
    optimized away.  Since such instructions (use (reg REG_SP)), we can

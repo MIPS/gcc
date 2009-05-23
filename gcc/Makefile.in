@@ -3491,7 +3491,7 @@ make-THIS-TARGET : THIS-TARGET/Makefile $(XTGT_COPY_FILES) \
 $(XTGT_COPY_FILES): THIS-TARGET/% : %
 	cp $< $@
 THIS-TARGET/target-gtypes.h: target-gtypes.h
-	sed 's/_ca/THIS_TARGET&/' < $< > $@
+	sed 's/\(_ca\|_mf\)/THIS_TARGET&/' < $< > $@
 
 endef
 # EXTRA_TARGET_RULES
@@ -3528,16 +3528,27 @@ target-types.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra $($
 	    $(foreach file,$($(ta:%_=%)tm_include_list),\
 	      echo '#include "$(file)"';)\
 	    echo 'typedef CUMULATIVE_ARGS $(subst -,_,$(ta))cumulative_args;';\
+	    echo 'typedef struct machine_function *$(subst -,_,$(ta))machine_function;';\
 	    echo '}';\
-	    echo 'using $(subst -,_,$(ta)::$(ta))cumulative_args;') \
+	    echo 'using $(subst -,_,$(ta)::$(ta))cumulative_args;'; \
+	    echo 'using $(subst -,_,$(ta)::$(ta))machine_function;') \
 	  | cpp -I $(srcdir) >> $@;)
+	echo '' >> $@
 	echo 'typedef union {' >> $@
 	$(foreach num,$(call enumerate,_ $(EXTRA_TARGETS)),\
 	  $(foreach ta,$(subst -,_,$(word $(num), _ $(EXTRA_TARGETS:%=%_))),\
-	    echo '$(ta)cumulative_args GTY ((tag ("$(num) - 1"))) \
+	    echo '  $(ta)cumulative_args GTY ((tag ("$(num) - 1"))) \
 	       $(ta)ca;' >> $@;)) \
 	echo '  void *GTY ((default, skip)) align_dummy[1];' >> $@
 	echo '} cumulative_args_u;' >> $@
+	echo '' >> $@
+	echo 'typedef union {' >> $@
+	$(foreach num,$(call enumerate,_ $(EXTRA_TARGETS)),\
+	  $(foreach ta,$(subst -,_,$(word $(num), _ $(EXTRA_TARGETS:%=%_))),\
+	    echo '  $(ta)machine_function GTY ((tag ("$(num) - 1"))) \
+	       $(ta)mf;' >> $@;)) \
+	echo '  void *GTY ((default, skip)) align_dummy[1];' >> $@
+	echo '} machine_function_u;' >> $@
 	echo '#endif /* TARGET_TYPES_H */' >> $@
 target-gtypes.h: build/gentargtype$(build_exeext)
 	$(RUN_GEN) build/gentargtype$(build_exeext) > $@
@@ -3548,6 +3559,10 @@ target-types.h target-gtypes.h: Makefile
 	echo '  {' >> $@
 	echo '    CUMULATIVE_ARGS GTY ((tag ("TARGET_NUM"))) _ca;' >> $@
 	echo '  } cumulative_args_u;' >> $@
+	echo 'typedef union GTY (())' >> $@
+	echo '  {' >> $@
+	echo '    struct machine_function GTY ((tag ("TARGET_NUM"))) _mf;' >> $@
+	echo '  } machine_function_u;' >> $@
 endif # !EXTRA_TARGETS
 EXTRA_OBJS := $(EXTRA_OBJS) \
   $(foreach ta,$(EXTRA_TARGETS),$(addprefix $(ta)/,$($(ta)-EXTRA_OBJS)))

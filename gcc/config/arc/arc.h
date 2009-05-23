@@ -62,6 +62,8 @@ along with GCC; see the file COPYING3.  If not see
 /* ashwin : include options.h */
 /* #include "options.h" */
 
+struct function;
+
 START_TARGET_SPECIFIC
 
 #undef ASM_SPEC
@@ -1930,7 +1932,6 @@ enum arc_function_type {
 ((TYPE) == ARC_FUNCTION_ILINK1 || (TYPE) == ARC_FUNCTION_ILINK2)
 
 /* Compute the type of a function from its DECL.  Needed for EPILOGUE_USES.  */
-struct function;
 extern enum arc_function_type arc_compute_function_type (struct function *);
 
 /* Called by crtstuff.c to make calls to function FUNCTION that are defined in

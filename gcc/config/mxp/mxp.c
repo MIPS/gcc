@@ -40,14 +40,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "multi-target.h"
 
+START_TARGET_SPECIFIC
+
 struct machine_function GTY(())
 {
   int rounded_frame_size;
   int saved_regs_size;
   unsigned char lanes_written[N_HARDWARE_VECREGS];
 };
-
-START_TARGET_SPECIFIC
 
 rtx mxp_compare_op0, mxp_compare_op1;
 sbitmap mxp_acc_classes;
@@ -458,7 +458,7 @@ mxp_expand_prologue (void)
 {
   int frame_size = 0;
   int save_size;
-  unsigned char *buf = cfun->machine->lanes_written;
+  unsigned char *buf = MACHINE_FUNCTION (*cfun)->lanes_written;
 
   /* There are no interrupts, hence we may save registers before adjusting
      the stack pointer, and for leaf functions we can leave out the stack
@@ -484,11 +484,11 @@ mxp_expand_prologue (void)
 	    }
 	}
     }
-  cfun->machine->saved_regs_size = frame_size;
+  MACHINE_FUNCTION (*cfun)->saved_regs_size = frame_size;
   frame_size += get_frame_size ();
   /* Round up frame size to keep stack 128-bit aligned.  */
   frame_size = (frame_size + 15) & -16;
-  cfun->machine->rounded_frame_size = frame_size;
+  MACHINE_FUNCTION (*cfun)->rounded_frame_size = frame_size;
   if (!current_function_is_leaf && frame_size)
     {
       /* Adjust stack pointer for register saves, local variables and
@@ -506,16 +506,16 @@ mxp_expand_epilogue (void)
 {
   int frame_size = get_frame_size ();
   int save_size;
-  unsigned char *buf = cfun->machine->lanes_written;
+  unsigned char *buf = MACHINE_FUNCTION (*cfun)->lanes_written;
 
   /* Round up frame size to keep stack 128-bit aligned.  */
   frame_size = (frame_size + 15) & -16;
 
   if (!current_function_is_leaf && frame_size)
     emit_insn (gen_add2_insn (stack_pointer_rtx,
-	       GEN_INT (cfun->machine->rounded_frame_size)));
+	       GEN_INT (MACHINE_FUNCTION (*cfun)->rounded_frame_size)));
   /* FIXME: restore callee-saved registers.  */
-  frame_size = cfun->machine->saved_regs_size;
+  frame_size = MACHINE_FUNCTION (*cfun)->saved_regs_size;
   for (save_size = 2; save_size <= 16; save_size <<= 1)
     {
       enum machine_mode save_mode

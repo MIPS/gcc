@@ -253,8 +253,11 @@ struct incoming_args GTY(())
 #define CONCAT(A,B) CONCAT_(A,B)
 #define INCOMING_ARGS_INFO(INCOMING_ARGS) \
   ((INCOMING_ARGS).info.CONCAT(EXTRA_TARGET,_ca))
+#define MACHINE_FUNCTION(FUNCTION) \
+  ((FUNCTION).machine.CONCAT(EXTRA_TARGET,_mf))
 #else
 #define INCOMING_ARGS_INFO(INCOMING_ARGS) ((INCOMING_ARGS).info._ca)
+#define MACHINE_FUNCTION(FUNCTION) ((FUNCTION).machine._mf)
 #endif
 
 /* Data for function partitioning.  */
@@ -530,7 +533,7 @@ struct function GTY(())
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
-  struct machine_function * GTY ((maybe_undef)) machine;
+  machine_function_u GTY ((desc ("%0.target_arch"))) machine;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;

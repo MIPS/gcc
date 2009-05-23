@@ -869,7 +869,8 @@ when another one comes along.
 
 GCC defines a data structure called @code{struct function} which
 contains all of the data specific to an individual function.  This
-structure contains a field called @code{machine} whose type is
+structure contains a field which can be accessed as
+MACHINE_FUNCTION (@var{function}) whose type is
 @code{struct machine_function *}, which can be used by targets to point
 to their own specific data.
 

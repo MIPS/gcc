@@ -20,9 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef RTX_CODE
 
 /* For arc, insn-attrtab.c needs this, but does not include reload.h.  */
-END_TARGET_SPECIFIC
 extern int regno_clobbered_p (unsigned int, rtx, enum machine_mode, int);
-START_TARGET_SPECIFIC
 
 #ifdef TREE_CODE
 extern rtx arc_va_arg (tree, tree);

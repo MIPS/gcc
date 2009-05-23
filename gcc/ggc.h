@@ -53,11 +53,9 @@ typedef void (*gt_note_pointers) (void *, void *, gt_pointer_operator,
 typedef void (*gt_handle_reorder) (void *, void *, gt_pointer_operator,
 				   void *);
 
-START_TARGET_SPECIFIC
 /* Used by the gt_pch_n_* routines.  Register an object in the hash table.  */
 extern int gt_pch_note_object (void *, void *, gt_note_pointers,
 			       enum gt_types_enum);
-END_TARGET_SPECIFIC
 
 /* Used by the gt_pch_n_* routines.  Register that an object has a reorder
    function.  */
