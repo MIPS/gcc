@@ -1,3 +1,72 @@
+2009-05-23  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/tm.texi: Adjust struct machine_function documentation.
+	* gengtype.c (open_base_files): Don't emit START_TARGET_SPECIFIC.
+	(finish_root_table): Emit END_TARGET_SPECIFIC.
+	(write_roots): Don't return early for EXTRA_TARGET.
+	Emit START_TARGET_SPECIFIC for each root.
+	(main): Don't emit END_TARGET_SPECIFIC.
+	* gengtype.h (pp_nest, no_extra_nest): Declare.
+	* gengtype-lex.l (pp_nest, no_extra_nest): New variables.
+	(TARGET_SCOPE/{EOID}): New pattern.
+	(^{HWS}"#"{HWS}ifndef{HWS}EXTRA_TARGET[[:alnum:]_][^\n]*): Likewise.
+	(^{HWS}"#"{HWS}ifndef{HWS}EXTRA_TARGET[^\n]*): Likewise.
+	(^{HWS}"#"{HWS}if[^\n]*, ^{HWS}"#"{HWS}endif[^\n]*): Likewise.
+	* function.c (free_after_compilation): Use MACHINE_FUNCTION.
+	(allocate_struct_function_1): Likewise.
+	* function.h (MACHINE_FUNCTION): Define.
+	(struct function): Use machine_function_u for member machine.
+	* gengtype-parse.c (token) [EXTRA_TARGET]: Loop till !no_extra_nest.
+	* gentargtype.cc (u): Remove.
+	(main): Use sizeof (cumulative_args_u).
+	Emit definition for efine machine_function_u.
+	* ggc.h (gt_pch_note_object): No longer target specific.
+	* genmodes.c (struct mode_adjust): New member target.
+	(new_adjust): Set target member.
+	(emit_mode_adjustments): Skip adjustments for other targets.
+	* Makefile.in (EXTRA_TARGET_RULES) <THIS-TARGET/target-gtypes.h>:
+	Set _mf too.
+	(target-types.h): Also emit machine_function_u definition.
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE):
+	Use MACHINE_FUNCTION.
+	(ix86_stack_locals, ix86_varargs_gpr_size): Likewise.
+	(ix86_varargs_fpr_size, ix86_optimize_mode_switching): Likewise.
+	(ix86_current_function_needs_cld: Likewise.
+	* config/i386/i386.c (ix86_cfun_abi, ix86_call_abi_override): Likewise.
+	(ix86_maybe_switch_abi, ix86_frame_pointer_required): Likewise.
+	(ix86_compute_frame_layout, ix86_expand_prologue): Likewise.
+	(ix86_expand_epilogue, get_some_local_dynamic_name_1): Likewise.
+	(x86_output_mi_thunk): Likewise.
+	* config/sh/sh.c (calc_live_regs): Use INCOMING_ARGS_INFO.
+	(sh_expand_prologue, sh_expand_epilogue): Likewise.
+	(sh_builtin_saveregs, sh_va_start): Likewise.
+	(initial_elimination_offset, sh_allocate_initial_value): Likewise.
+	(sh_function_ok_for_sibcall): Likewise.
+	* config/sh/sh.md (return, return_i): Likewise.
+	(shcompact_return_tramp, shcompact_return_tramp_i): Likewise.
+	* config/mxp/mxp.c (struct machine_function): Target specific.
+	(mxp_expand_prologue, mxp_expand_epilogue): Use MACHINE_FUNCTION.
+	* config/rs6000/rs6000.c (rs6000_emit_move): Likewise.
+	(rs6000_emit_move, setup_incoming_varargs, rs6000_va_start): Likewise.
+	(rs6000_secondary_memory_needed_rtx): Likewise.
+	(rs6000_alloc_sdmode_stack_slot, rs6000_instantiate_decls): Likewise.
+	(rs6000_get_some_local_dynamic_name, rs6000_stack_info): Likewise.
+	(rs6000_savres_strategy): Likewise.
+	* config/arc/arc-protos.h (regno_clobbered_p): Target specific.
+	* config/arc/arc.c (arc_ccfsm_current): Use MACHINE_FUNCTION.
+	(arc_compute_function_type, arc_compute_frame_size): Likewise.
+	(arc_save_restore, arc_expand_prologue, arc_expand_epilogue): Likewise.
+	(arc_delay_slots_for_epilogue, arc_ccfsm_cond_exec_p): Likewise.
+	(arc_ccfsm_advance_to, arc_next_active_insn): Likewise.
+	(arc_verify_short, output_short_suffix): Likewise.
+	(arc_final_prescan_insn, arc_initial_elimination_offset): Likewise.
+	(arc_reorg, arc_adjust_insn_length, arc_pad_return): Likewise.
+	(arc_get_unalign, arc_clear_unalign, arc_toggle_unalign): Likewise.
+	(arc_short_long, arc_scheduling_not_expected): Likewise.
+	(machine_function): Rename to...
+	(machine_function_t) ... this.  Changed all users.
+	* config/arc/arc.h (struct function): Not target specific.
+
 2009-05-22  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/i386/i386.c (ix86_va_start): Use INCOMING_ARGS_INFO.
