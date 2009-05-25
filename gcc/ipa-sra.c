@@ -3375,12 +3375,11 @@ sra_intra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write,
     {
       gimple *stmt = gsi_stmt_ptr (gsi);
 
-      push_stmt_changes (stmt);
       if (!useless_type_conversion_p (type, access->type))
 	sra_fix_incompatible_types_for_expr (expr, type, access, gsi, write);
       else
 	*expr = get_access_replacement (access);
-      pop_stmt_changes (stmt);
+      update_stmt (*stmt);
     }
 
   if (access->first_child)
