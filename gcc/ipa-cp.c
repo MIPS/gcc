@@ -837,10 +837,7 @@ ipcp_update_callgraph (void)
 	  {
 	    next = cs->next_caller;
 	    if (!ipcp_node_is_clone (cs->caller) && ipcp_need_redirect_p (cs))
-	      {
-		cgraph_redirect_edge_callee (cs, orig_node);
-		gimple_call_set_fndecl (cs->call_stmt, orig_node->decl);
-	      }
+	      cgraph_redirect_edge_callee (cs, orig_node);
 	  }
       }
 }

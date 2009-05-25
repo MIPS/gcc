@@ -1529,7 +1529,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    continue;
 	  }
 	if (!cgraph_check_inline_limits (node, e->callee, &e->inline_failed,
-				        false)
+				         false)
 	    || gimple_call_cannot_inline_p (e->call_stmt))
 	  {
 	    if (dump_file)

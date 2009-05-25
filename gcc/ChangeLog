@@ -1,3 +1,435 @@
+2009-05-25  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (dump_cgraph_node): Dump size/time/benefit.
+	* cgraph.h (struct inline_summary): New filed self_wize,
+	size_inlining_benefit, self_time and time_inlining_benefit.
+	(struct cgraph_global_info): Replace insns by time ans size fields.
+	* ipa-cp (ipcp_cloning_candidate_p): Base estimate on size
+	(ipcp_estimate_growth, ipcp_insert_stage): Likewise.
+	(ipcp_update_callgraph): Do not touch function bodies.
+	* ipa-inline.c: Include except.h
+	(MAX_TIME): New constant.
+	(overall_insns): Remove.
+	(leaf_node_p): New.
+	(overall_size, max_benefit): New static variables.
+	(cgraph_estimate_time_after_inlining): New function.
+	(cgraph_estimate_size_after_inlining): Rewrite using benefits.
+	(cgraph_clone_inlined_nodes): Update size.
+	(cgraph_mark_inline_edge): Update size.
+	(cgraph_estimate_growth): Use size info.
+	(cgraph_check_inline_limits): Check size.
+	(cgraph_default_inline_p): Likewise.
+	(cgraph_edge_badness): Compute badness based on benefit and size cost.
+	(cgraph_decide_recursive_inlining): Check size.
+	(cgraph_decide_inlining_of_small_function): Update size; dump sizes and
+	times.
+	(cgraph_decide_inlining): Likewise.
+	(cgraph_decide_inlining_incrementally): Likewise; honor
+	PARAM_EARLY_INLINING_INSNS.
+	(likely_eliminated_by_inlining_p): New predicate.
+	(estimate_function_body_sizes): New function.
+	(compute_inline_parameters): Use it.
+	* except.c (must_not_throw_labels): New function.
+	* except.h (must_not_throw_labels): Declare.
+	* tree-inline.c (init_inline_once): Kill inlining_weigths
+	* tree-ssa-structalias.c: Avoid uninitialized warning.
+	* params.def (PARAM_MAX_INLINE_INSNS_SINGLE): Reduce to 300.
+	(PARAM_MAX_INLINE_INSNS_AUTO): Reduce to 60.
+	(PARAM_INLINE_CALL_COST): Remove.
+	(PARAM_EARLY_INLINING_INSNS): New.
+
+2009-05-25  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36327
+	* tree-ssa-alias.c (walk_non_aliased_vuses): Add second walker
+	callback for reference translation or lookup at the point
+	of may-defs.
+	* tree-ssa-alias.h (walk_non_aliased_vuses): Adjust prototype.
+	* tree-ssa-sccvn.c (get_ref_from_reference_ops): Bail out
+	for union COMPONENT_REFs.
+	(vn_reference_lookup_3): New callback.  Lookup from memset
+	and CONSTRUCTOR assignment, translate through struct copies.
+	(vn_reference_lookup_pieces): Make sure to not free the
+	passed operands array.  Adjust walk_non_aliased_vuses call.
+	(vn_reference_lookup): Adjust walk_non_aliased_vuses call,
+	make sure we do not leak memory.
+
+2009-05-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.h (dump_points_to_solution): Declare.
+	* tree-inline.c (expand_call_inline): Reset the escaped and
+	callused solutions.
+	* tree-ssa-structalias.c (pass_build_ealias): New.
+	* tree-pass.h (pass_build_ealias): Declare.
+	* passes.c (init_optimization_passes): Add PTA during 
+	early optimizations.
+	* tree-ssa-alias.c (dump_alias_info): Dump the ESCAPED
+	and CALLUSED solutions.
+	(dump_points_to_solution): New function, split out from ...
+	(dump_points_to_info_for): ... here.
+	* tree-parloops.c (parallelize_loops): Reset the escaped and
+	callused solutions.
+
+2009-05-25  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR bootstrap/40027
+	* config/i386/i386.c (USE_HIDDEN_LINKONCE): Only define if missing.
+	* config/i386/sol2.h [!TARGET_GNU_LD] (USE_HIDDEN_LINKONCE): Define.
+
+2009-05-25  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40238
+	* tree-vect-stmts.c (vect_init_vector): Insert initialization
+	statements after basic block's labels.
+	* tree-vect-slp.c (vect_slp_transform_bb): Call destroy_bb_vec_info() 
+	to free the allocated memory.
+
+2009-05-24  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc/config/sh/sh.c (sh_set_return_address): Mark store of
+	return address with a USE.
+
+2009-05-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40233
+	* tree.c (make_vector_type): Build the TYPE_DEBUG_REPRESENTATION_TYPEs
+	array type from the main variant of the inner type.
+
+2009-05-24  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/vax/vax-protos.h (legitimate_constant_address_p): Change
+	definition to bool (from int) to un-break build.
+	(legitimate_constant_p, vax_mode_dependent_address_p): Likewise.
+
+2009-05-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* tree-ssa-operands.h (push_stmt_changes, pop_stmt_changes,
+	discard_stmt_changes): Delete.
+	* tree-ssa-operands.c (scb_stack): Delete.
+	(init_ssa_operands): Do not initialize it.
+	(fini_ssa_operands): Do not free it.
+	(push_stmt_changes, pop_stmt_changes, discard_stmt_changes): Delete.
+
+	* tree-cfg.c (replace_uses_by): Replace pop_stmt_changes with 
+	update_stmt, remove the others.  Fix comments.
+	* tree-dfa.c (optimize_stack_restore): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr): Likewise.
+	* tree-ssa-loop-ivopts.c (rewrite_use): Likewise.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	* tree-ssa-ccp.c (optimize_stack_restore, execute_fold_all_builtins):
+	Likewise.
+	* tree-ssa-propagate.c (substitute_and_fold): Likewise.
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Likewise.
+	(dom_opt_finalize_block): Likewise, adjusting access to stmts_to_rescan.
+	(optimize_stmt): Likewise, adjusting access to stmts_to_rescan.
+	(stmts_to_rescan): Change item type to gimple.
+	(tree_ssa_dominator_optimize): Change type of stmts_to_rescan.
+
+2009-05-24  Ira Rosen  <irar@il.ibm.com>
+
+	* doc/passes.texi (Tree-SSA passes): Document SLP pass.
+	* tree-pass.h (pass_slp_vectorize): New pass.
+	* params.h (SLP_MAX_INSNS_IN_BB): Define.
+	* timevar.def (TV_TREE_SLP_VECTORIZATION): Define.
+	* tree-vectorizer.c (timevar.h): Include.
+	(user_vect_verbosity_level): Declare.
+	(vect_location): Fix comment.
+	(vect_set_verbosity_level): Update user_vect_verbosity_level
+	instead of vect_verbosity_level.
+	(vect_set_dump_settings): Add an argument. Ignore user defined
+	verbosity if dump flags require higher level of verbosity. Print to
+	stderr only for loop vectorization.
+	(vectorize_loops): Update call to vect_set_dump_settings.
+	(execute_vect_slp): New function.
+	(gate_vect_slp): Likewise.
+	(struct gimple_opt_pass pass_slp_vectorize): New.
+	* tree-vectorizer.h (struct _bb_vec_info): Define along macros to
+	access its members.
+	(vec_info_for_bb): New function.
+	(struct _stmt_vec_info): Add bb_vinfo and a macro for its access.
+	(VECTORIZATION_ENABLED): New macro.
+	(SLP_ENABLED, SLP_DISABLED): Likewise.
+	(vect_is_simple_use): Add bb_vec_info argument.
+	(new_stmt_vec_info, vect_analyze_data_ref_dependences,
+	vect_analyze_data_refs_alignment, vect_verify_datarefs_alignment,
+	vect_analyze_data_ref_accesses, vect_analyze_data_refs,
+	vect_schedule_slp, vect_analyze_slp): Likewise.
+	(vect_analyze_stmt): Add slp_tree argument.
+	(find_bb_location): Declare.
+	(vect_slp_analyze_bb, vect_slp_transform_bb): Likewise.
+	* tree-vect-loop.c (new_loop_vec_info): Adjust function calls.
+	(vect_analyze_loop_operations, vect_analyze_loop,
+	get_initial_def_for_induction, vect_create_epilog_for_reduction,
+	vect_finalize_reduction, vectorizable_reduction,
+	vectorizable_live_operation, vect_transform_loop): Likewise.
+	* tree-data-ref.c (dr_analyze_innermost): Update comment,
+	skip evolution analysis if analyzing a basic block.
+	(dr_analyze_indices): Likewise.
+	(initialize_data_dependence_relation): Skip the test whether the
+	object is invariant for basic blocks.
+	(compute_all_dependences): Skip dependence analysis for data
+	references in basic blocks.
+	(find_data_references_in_stmt): Don't fail in case of invariant
+	access in basic block.
+	(find_data_references_in_bb): New function.
+	(find_data_references_in_loop): Move code to
+	find_data_references_in_bb and add a call to it.
+	(compute_data_dependences_for_bb): New function.
+	* tree-data-ref.h (compute_data_dependences_for_bb): Declare.
+	* tree-vect-data-refs.c (vect_check_interleaving): Adjust to the case
+	that STEP is 0.
+	(vect_analyze_data_ref_dependence): Check for interleaving in case of
+	unknown dependence in basic block and fail in case of dependence in
+	basic block.
+	(vect_analyze_data_ref_dependences): Add bb_vinfo argument, get data
+	dependence instances from either loop or basic block vectorization
+	info.
+	(vect_compute_data_ref_alignment): Check if it is loop vectorization
+	before calling nested_in_vect_loop_p.
+	(vect_compute_data_refs_alignment): Add bb_vinfo argument, get data
+	dependence instances from either loop or basic block vectorization
+	info.
+	(vect_verify_datarefs_alignment): Likewise.
+	(vect_enhance_data_refs_alignment): Adjust function calls.
+	(vect_analyze_data_refs_alignment): Likewise.
+	(vect_analyze_group_access): Fix printing. Skip different checks if
+	DR_STEP is 0. Keep strided stores either in loop or basic block
+	vectorization data structure. Fix indentation.
+	(vect_analyze_data_ref_access): Fix comments, allow zero step in
+	basic blocks.
+	(vect_analyze_data_ref_accesses): Add bb_vinfo argument, get data
+	dependence instances from either loop or basic block vectorization
+	info.
+	(vect_analyze_data_refs): Update comment. Call
+	compute_data_dependences_for_bb to analyze basic blocks.
+	(vect_create_addr_base_for_vector_ref): Check for outer loop only in
+	case of loop vectorization. In case of basic block vectorization use
+	data-ref itself as a base.
+	(vect_create_data_ref_ptr): In case of basic block vectorization:
+	don't advance the pointer, add new statements before the current
+	statement.  Adjust function calls.
+	(vect_supportable_dr_alignment): Support only aligned accesses in
+	basic block vectorization.
+	* common.opt (ftree-slp-vectorize): New flag.
+	* tree-vect-patterns.c (widened_name_p): Adjust function calls.
+	(vect_pattern_recog_1): Likewise.
+	* tree-vect-stmts.c (process_use): Likewise.
+	(vect_init_vector): Add new statements in the beginning of the basic
+	block in case of basic block SLP.
+	(vect_get_vec_def_for_operand): Adjust function calls.
+	(vect_finish_stmt_generation): Likewise.
+	(vectorizable_call): Add assert that it is loop vectorization, adjust
+	function calls.
+	(vectorizable_conversion, vectorizable_assignment): Likewise.
+	(vectorizable_operation): In case of basic block SLP, take
+	vectorization factor from statement's type and skip the relevance
+	check. Adjust function calls.
+	(vectorizable_type_demotion): Add assert that it is loop
+	vectorization, adjust function calls.
+	(vectorizable_type_promotion): Likewise.
+	(vectorizable_store): Check for outer loop only in case of loop
+	vectorization. Adjust function calls. For basic blocks, skip the
+	relevance check and don't advance pointers.
+	(vectorizable_load): Likewise.
+	(vectorizable_condition): Add assert that it is loop vectorization,
+	adjust function calls.
+	(vect_analyze_stmt): Add argument. In case of basic block SLP, check
+	that it is not reduction, get vector type, call only supported
+	functions, skip loop specific parts.
+	(vect_transform_stmt): Check for outer loop only in case of loop
+	vectorization.
+	(new_stmt_vec_info): Add new argument and initialize bb_vinfo.
+	(vect_is_simple_use): Fix comment, add new argument, fix conditions
+	for external definition.
+	* passes.c (pass_slp_vectorize): New pass.
+	* tree-vect-slp.c (find_bb_location): New function.
+	(vect_get_and_check_slp_defs): Add argument, adjust function calls,
+	check for patterns only in loops.
+	(vect_build_slp_tree): Add argument, adjust function calls, fail in
+	case of multiple types in basic block SLP.
+	(vect_mark_slp_stmts_relevant): New function.
+	(vect_supported_load_permutation_p): Fix comment.
+	(vect_analyze_slp_instance): Add argument. In case of basic block
+	SLP, take vectorization factor from statement's type, check that
+	unrolling factor is 1. Adjust function call. Save SLP instance in
+	either loop or basic block vectorization structure. Return FALSE,
+	if SLP failed.
+	(vect_analyze_slp): Add argument. Get strided stores groups from
+	either loop or basic block vectorization structure. Return FALSE
+	if basic block SLP failed.
+	(new_bb_vec_info): New function.
+	(destroy_bb_vec_info, vect_slp_analyze_node_operations,
+	vect_slp_analyze_operations, vect_slp_analyze_bb): Likewise.
+	(vect_schedule_slp): Add argument. Get SLP instances from either
+	loop or basic block vectorization structure. Set vectorization factor
+	to be 1 for basic block SLP.
+	(vect_slp_transform_bb): New function.
+	* params.def (PARAM_SLP_MAX_INSNS_IN_BB): Define.
+
+2009-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* final.c (shorten_branches): Do not align labels for jump tables.
+	(final_scan_insn): Use JUMP_TABLE_DATA_P.
+
+2009-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/passes.texi: Standardize spelling of RTL, Tree and Tree SSA.
+	Remove outdated reference to flow.c and fix nits.
+	* doc/gccint.texi: Tweak RTL description.
+	* doc/rtl.texi: Likewise.
+
+2009-05-23  Denis Chertykov  <chertykov@gmail.com>
+
+	* config/avr/avr.c: Change my email address.
+	* config/avr/avr.h: Likewise.
+	* config/avr/avr.md: Likewise.
+	* config/avr/avr-protos.h: Likewise.
+	* config/avr/libgcc.S: Likewise.
+
+2009-05-22  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	* config/spu/spu-protos.h (aligned_mem_p, spu_valid_mov): Remove.
+	(spu_split_load, spu_split_store): Change return type to int.
+	(spu_split_convert): Declare.
+	* config/spu/predicates.md (spu_mem_operand): Remove.
+	(spu_mov_operand): Update.
+	(spu_dest_operand, shiftrt_operator, extend_operator): Define.
+	* config/spu/spu.c (regno_aligned_for_load): Remove.
+	(reg_aligned_for_addr, spu_expand_load): Define.
+	(spu_expand_extv): Reimplement and handle MEM.
+	(spu_expand_insv): Handle MEM.
+	(spu_sched_reorder): Handle insn's with length 0.
+	(spu_legitimate_address_p): Reimplement.
+	(store_with_one_insn_p): Return TRUE for any mode with size
+	larger than 16 bytes.
+	(address_needs_split): Define.
+	(spu_expand_mov): Call spu_split_load and spu_split_store for MEM
+	operands.
+	(spu_convert_move): Define.
+	(spu_split_load): Use spu_expand_load and change all MEM's to TImode.
+	(spu_split_store): Change all MEM's to TImode.
+	(spu_init_expanders): Preallocate registers that correspond to
+	LAST_VIRTUAL_REG+1 and LAST_VIRTUAL_REG+2 and set them with
+	mark_reg_pointer.
+	(spu_split_convert): Define.
+	* config/spu/spu.md (QHSI, QHSDI): New mode iterators.
+	(_move<mode>, _movdi, _movti): Update predicate and condition.
+	(load, store): Change to define_split.
+	(extendqiti2, extendhiti2, extendsiti2, extendditi2): Simplify to
+	extend<mode>ti2.
+	(zero_extendqiti2, zero_extendhiti2, <v>lshr<mode>3_imm): Define.
+	(lshr<mode>3, lshr<mode>3_imm, lshr<mode>3_re): Simplify to one
+	define_insn_and_split of lshr<mode>3.
+	(shrqbybi_<mode>, shrqby_<mode>): Simplify to define_expand.
+	(<v>ashr<mode>3_imm): Define.
+	(extv, extzv, insv): Allow MEM operands.
+	(trunc_shr_ti<mode>, trunc_shr_tidi, shl_ext_<mode>ti,
+	shl_ext_diti, sext_trunc_lshr_tiqisi, zext_trunc_lshr_tiqisi,
+	sext_trunc_lshr_tihisi, zext_trunc_lshr_tihisi): Define for combine.
+	(_spu_convert2): Change to define_insn_and_split and remove the
+	corresponding define_peephole2.
+	(stack_protect_set, stack_protect_test, stack_protect_test_si):
+	Change predicates to memory_operand.
+
+2009-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/thumb2.md: Add 16-bit multiply instructions.
+
+2009-05-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR tree-optimization/40219
+	* tree.c (iterative_hash_expr): Make sure the builtin function is
+	a normal builtin function and not a front end or back end builtin
+	before indexing into the built_in_decls array.
+
+2009-05-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/38964
+	* alias.c (write_dependence_p): Do not use TBAA for answering
+	anti-dependence or output-dependence.
+	* tree-ssa-structalias.c (set_uids_in_ptset): Remove TBAA pruning code.
+	(emit_pointer_definition): Remove.
+	(emit_alias_warning): Likewise.
+	(find_what_var_points_to): Remove TBAA pruning code.
+	(find_what_p_points_to): Likewise.  Do not warn about strict-aliasing
+	violations.
+	(compute_points_to_sets): Remove code computing the set of
+	dereferenced pointers.
+	* tree-data-ref.c (dr_may_alias_p): Properly use the split
+	oracle for querying anti and output dependencies.
+	* tree-ssa-alias.c (refs_may_alias_p_1): Add argument specifying
+	if TBAA may be applied.
+	(refs_anti_dependent_p): New function.
+	(refs_output_dependent_p): Likewise.
+	* tree-ssa-alias.h (refs_anti_dependent_p): Declare.
+	(refs_output_dependent_p): Likewise.
+	* doc/tree-ssa.texi (Memory model): New section.
+	* doc/c-tree.texi (CHANGE_DYNAMIC_TYPE_EXPR): Remove.
+	* doc/gimple.texi (GIMPLE_CHANGE_DYNAMIC_TYPE): Remove.
+	* cfgexpand.c (expand_gimple_basic_block): Do not handle
+	GIMPLE_CHANGE_DYNAMIC_TYPE or CHANGE_DYNAMIC_TYPE_EXPR.
+	* expr.c (expand_expr_real_1): Likewise.
+	* gimple-low.c (lower_stmt): Likewise.
+	* gimple-pretty-print.c (dump_gimple_stmt): Likewise.
+	(dump_gimple_cdt): Remove.
+	* gimple.c (gss_for_code): Do not handle GIMPLE_CHANGE_DYNAMIC_TYPE.
+	(gimple_size): Likewise.
+	(walk_gimple_op): Likewise.
+	(is_gimple_stmt): Likewise.
+	(walk_stmt_load_store_addr_ops): Likewise.
+	(gimple_build_cdt): Remove.
+	* gimple.def (GIMPLE_CHANGE_DYNAMIC_TYPE): Remove.
+	* gimple.h (gimple_cdt_new_type): Remove.
+	(gimple_cdt_new_type_ptr): Likewise.
+	(gimple_cdt_set_new_type): Likewise.
+	(gimple_cdt_location): Likewise.
+	(gimple_cdt_location_ptr): Likewise.
+	(gimple_cdt_set_location): Likewise.
+	* gimplify.c (gimplify_expr): Do not handle CHANGE_DYNAMIC_TYPE_EXPR.
+	* tree-cfg.c (remove_useless_stmts_1): Do not handle
+	GIMPLE_CHANGE_DYNAMIC_TYPE.
+	(verify_types_in_gimple_stmt): Likewise.
+	* tree-inline.c (estimate_num_insns): Likewise.
+	(expand_call_inline): Do not copy DECL_NO_TBAA_P.
+	(copy_decl_to_var): Likewise.
+	(copy_result_decl_to_var): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Do not handle
+	CHANGE_DYNAMIC_TYPE_EXPR.
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Likewise.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+	* tree-ssa-structalias.c (struct variable_info): Remove
+	no_tbaa_pruning member.
+	(new_var_info): Do not set it based on DECL_NO_TBAA_P.
+	(unify_nodes): Do not copy it.
+	(find_func_aliases): Do not handle GIMPLE_CHANGE_DYNAMIC_TYPE.
+	(dump_solution_for_var): Do not dump no_tbaa_pruning state.
+	(set_uids_in_ptset): Do not check it.
+	(find_what_var_points_to): Likewise.
+	(compute_tbaa_pruning): Remove.
+	(compute_points_to_sets): Do not call it.
+	* tree.c (walk_tree_1): Do not handle CHANGE_DYNAMIC_TYPE_EXPR.
+	* tree.def (CHANGE_DYNAMIC_TYPE_EXPR): Remove.
+	* tree.h (CHANGE_DYNAMIC_TYPE_NEW_TYPE): Remove.
+	(CHANGE_DYNAMIC_TYPE_LOCATION): Likewise.
+	(DECL_NO_TBAA_P): Likewise.
+	(struct tree_decl_common): Move no_tbaa_flag to unused flags section.
+	* omp-low.c (copy_var_decl): Do not copy DECL_NO_TBAA_P.
+	(expand_omp_atomic_pipeline): Do not set it.
+	* print-tree.c (print_node): Do not dump it.
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Remove
+	redundant check.
+
+2009-05-22 Vladimir Makarov <vmakarov@redhat.com>
+
+	PR target/39856
+	* reg-stack.c (subst_stack_regs_pat): Remove gcc_assert for note
+	for clobber.
+
+2009-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.c (handle_dll_attribute): Mark dllexport'd inlines as
+	non-external.
+
 2009-05-22  Ben Elliston  <bje@au.ibm.com>
 
 	* Makefile.in (bversion.h, s-bversion): New targets.
@@ -163,10 +595,9 @@
 	(*strmovqi_rex_1, *strsetqi_rex_1, *rep_stosqi_rex64,
 	*cmpstrnqi_nz_rex_1, *cmpstrnqi_rex_1, *strlenqi_rex_1): Clear
 	prefix_rex attribute.
-	* config/i386/predicates.md (ext_QIreg_operand,
-	const128_operand): New predicates.
-	(memory_displacement_only_operand): Always return 0 for
-	TARGET_64BIT.
+	* config/i386/predicates.md (ext_QIreg_operand, const128_operand):
+	New predicates.
+	(memory_displacement_only_operand): Always return 0 for TARGET_64BIT.
 
 2009-05-21  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
@@ -233,8 +664,7 @@
 
 	PR middle-end/40204
 	* fold-const.c (fold_binary) <case BIT_AND_EXPR>: Avoid infinite
-	recursion if build_int_cst_type returns the same INTEGER_CST as
-	arg1.
+	recursion if build_int_cst_type returns the same INTEGER_CST as arg1.
 
 2009-05-20  Eric Botcazou  <ebotcazou@adacore.com>
 
@@ -285,18 +715,17 @@
 	with mismatched comparison modes.
 
 2009-05-20  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
-    
+
 	* config/arm/arm.md (*arm_iorsi3): Refactored for only ARM.
-        (peephole ior (reg, int) -> mov, ior): Refactored for only ARM.
-        * config/arm/thumb2.md (*thumb_andsi_not_shiftsi_si): Allow bic
-        with shifts for Thumb2.
-        (orsi_notsi): New for orn.
-        (*thumb_orsi_notshiftsi_si): Allow orn with shifts.
-        (*thumb2_iorsi3): Rewrite support for iorsi for Thumb2.
-        * config/arm/arm.c (const_ok_for_op): Split case for IOR for
-        Thumb2.
-        (arm_gen_constant): Set can_invert for IOR and Thumb2, Add
-        comments. Don't invert remainder for IOR.
+	(peephole ior (reg, int) -> mov, ior): Refactored for only ARM.
+	* config/arm/thumb2.md (*thumb_andsi_not_shiftsi_si): Allow bic
+	with shifts for Thumb2.
+	(orsi_notsi): New for orn.
+	(*thumb_orsi_notshiftsi_si): Allow orn with shifts.
+	(*thumb2_iorsi3): Rewrite support for iorsi for Thumb2.
+	* config/arm/arm.c (const_ok_for_op): Split case for IOR for Thumb2.
+	(arm_gen_constant): Set can_invert for IOR and Thumb2, Add comments.
+	Don't invert remainder for IOR.
 	
 2009-05-19  Zdenek Dvorak  <ook@ucw.cz>
 
@@ -636,10 +1065,8 @@
 	* graphite.h (struct name_tree_d): Rename from struct name_tree.
 	Change all uses.
 	(struct sese_d): Rename from struct sese.  Change all uses.
-	* omega.h (struct eqn_d): Rename from struct eqn.  Change all
-	uses.
-	(struct omega_pb_d): Rename from struct omega_pb.  Change all
-	uses.
+	* omega.h (struct eqn_d): Rename from struct eqn.  Change all uses.
+	(struct omega_pb_d): Rename from struct omega_pb.  Change all uses.
 	* optabs.h (struct optab_d): Rename from struct optab.  Change all
 	uses.
 	(struct convert_optab_d): Rename from struct convert_optab.
@@ -670,8 +1097,7 @@
 	
 2009-05-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
-	* ira-conflicts.c (add_insn_allocno_copies): Fix wrong
-	conditional.
+	* ira-conflicts.c (add_insn_allocno_copies): Fix wrong conditional.
 	
 2009-05-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
@@ -689,8 +1115,7 @@
 
 2009-05-15  Sandra Loosemore  <sandra@codesourcery.com>
 
-	* fold-const.c (fold_convert_const_real_from_real): Check for
-	overflow.
+	* fold-const.c (fold_convert_const_real_from_real): Check for overflow.
 
 2009-05-15  H.J. Lu  <hongjiu.lu@intel.com>
 
@@ -750,7 +1175,7 @@
 	(ipcp_estimate_growth, ipcp_insert_stage): Likewise.
 	(ipcp_update_callgraph): Do not touch function bodies.
 	* ipa-inline.c: Include except.h
-	MAX_TIME: New constant.
+	(MAX_TIME): New constant.
 	(overall_insns): Remove
 	(overall_size, max_benefit): New static variables.
 	(cgraph_estimate_time_after_inlining): New function.
@@ -820,7 +1245,7 @@
 	(ipcp_estimate_growth, ipcp_insert_stage): Likewise.
 	(ipcp_update_callgraph): Do not touch function bodies.
 	* ipa-inline.c: Include except.h
-	MAX_TIME: New constant.
+	(MAX_TIME): New constant.
 	(overall_insns): Remove
 	(overall_size, max_benefit): New static variables.
 	(cgraph_estimate_time_after_inlining): New function.
@@ -1052,10 +1477,8 @@
 	(TARGET_LEGITIMATE_ADDRESS_P): New.
 
 	* config/iq2000/iq2000.h (GO_IF_LEGITIMATE_ADDRESS): Delete.
-	* config/iq2000/iq2000-protos.h (iq2000_legitimate_address_p):
-	Remove.
-	* config/iq2000/iq2000.c (iq2000_legitimate_address_p):
-	Make static.
+	* config/iq2000/iq2000-protos.h (iq2000_legitimate_address_p): Remove.
+	* config/iq2000/iq2000.c (iq2000_legitimate_address_p): Make static.
 	(TARGET_LEGITIMATE_ADDRESS_P): New.
 
 	* config/mn10300/mn10300.h (GO_IF_LEGITIMATE_ADDRESS): Delete.
@@ -2093,8 +2516,7 @@
 	* config/arm/arm.c (arm_handle_fndecl_attribute,
 	arm_handle_isr_attribute): Likewise.
 	* config/avr/avr.c (avr_handle_progmem_attribute,
-	avr_handle_fndecl_attribute, avr_handle_fntype_attribute):
-	Likewise.
+	avr_handle_fndecl_attribute, avr_handle_fntype_attribute): Likewise.
 	* config/bfin/bfin.c (handle_int_attribute,
 	bfin_handle_longcall_attribute, bfin_handle_l1_text_attribute,
 	bfin_handle_l1_data_attribute, bfin_handle_longcall_attribute,
@@ -2106,8 +2528,7 @@
 	h8300_handle_eightbit_data_attribute,
 	h8300_handle_tiny_data_attribute): Likewise.
 	* config/i386/i386.c (ix86_handle_cconv_attribute,
-	ix86_handle_abi_attribute, ix86_handle_struct_attribute):
-	Likewise.
+	ix86_handle_abi_attribute, ix86_handle_struct_attribute): Likewise.
 	* config/i386/winnt.c (ix86_handle_shared_attribute,
 	ix86_handle_selectany_attribute): Likewise.
 	* config/ia64/ia64.c (ia64_handle_model_attribute): Likewise.
@@ -2136,8 +2557,7 @@
 
 2009-05-10  Joseph Myers  <joseph@codesourcery.com>
 
-	* pretty-print.h (struct pretty_print_info): Add
-	translate_identifiers.
+	* pretty-print.h (struct pretty_print_info): Add translate_identifiers.
 	(pp_translate_identifiers): New.
 	(pp_identifier): Only conditionally translate identifier to locale
 	character set.
