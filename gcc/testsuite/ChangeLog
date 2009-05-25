@@ -1,3 +1,40 @@
+2009-05-20  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/compile/20090518-1.c: New testcase.
+
+2009-05-19  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/40087
+	* gcc.dg/tree-ssa/pr40087.c: New test.
+
+2009-05-19  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.dg/vector-4.c: New testcase.
+	* gcc.dg/simd-1b.c: % is now allowed for integer vectors.
+	* g++.dg/ext/vector16.C: New testcase.
+
+2009-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/40172
+	* gcc.dg/pr40172.c: Renamed to ...
+	* gcc.dg/pr40172-1.c: This.
+
+	* gcc.dg/pr40172-2.c: New.
+	* gcc.dg/pr40172-3.c: Likewise.
+
+2009-05-19  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/40172
+	* gcc.dg/pr40172.c: Add -Wlogical-op to dg-options.
+	
+2009-05-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization6.ad[sb]: New test.
+
+2009-05-19  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/compile/20090519-1.c: New testcase.
+
 2009-05-18  Jason Merrill  <jason@redhat.com>
 
 	* g++.dg/cpp0x/explicit1.C: New.
