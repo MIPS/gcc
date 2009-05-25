@@ -1,3 +1,63 @@
+2009-05-25  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR bootstrap/40027
+	* config/i386/i386.c (USE_HIDDEN_LINKONCE): Only define if missing.
+	* config/i386/sol2.h [!TARGET_GNU_LD] (USE_HIDDEN_LINKONCE): Define.
+
+2009-05-24  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc/config/sh/sh.c (sh_set_return_address): Mark store of
+	return address with a USE.
+
+2009-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/passes.texi: Standardize spelling of RTL, Tree and Tree SSA.
+	Remove outdated reference to flow.c and fix nits.
+	* doc/gccint.texi: Tweak RTL description.
+	* doc/rtl.texi: Likewise.
+
+2009-05-22  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/40087
+	* tree-ssa-loop-niter.c (number_of_iterations_ne_max,
+	number_of_iterations_ne): Rename never_infinite argument.
+	(number_of_iterations_lt_to_ne, number_of_iterations_lt,
+	number_of_iterations_le): Handle pointer-type ivs when
+	exit_must_be_taken is false.
+	(number_of_iterations_cond):  Do not always assume that
+	exit_must_be_taken if the control variable is a pointer.
+
+2009-05-22 Vladimir Makarov <vmakarov@redhat.com>
+
+	PR target/39856
+	* reg-stack.c (subst_stack_regs_pat): Remove gcc_assert for note
+	for clobber.
+
+2009-05-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR rtl-optimization/40105
+	Backport from mainline:
+
+	2009-04-29  Eric Botcazou  <ebotcazou@adacore.com>
+		    Steven Bosscher  <steven@gcc.gnu.org>
+
+	* Makefile.in (cfgrtl.o): Add $(INSN_ATTR_H).
+	* cfgrtl.c: Include insn-attr.h.
+	(rest_of_pass_free_cfg): New function.
+	(pass_free_cfg): Use rest_of_pass_free_cfg as execute function.
+
+	2009-04-27  Richard Sandiford  <rdsandiford@googlemail.com>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	* resource.c (find_basic_block): Use BLOCK_FOR_INSN to look up
+	a label's basic block.
+	(mark_target_live_regs): Tidy and rework obsolete comments.
+	Change back DF problem to LIVE.  If a label starts a basic block,
+	assume that all registers that used to be live then still are.
+	(init_resource_info): If a label starts a basic block, set its
+	BLOCK_FOR_INSN accordingly.
+	(free_resource_info): Undo the setting of BLOCK_FOR_INSN.
+
 2009-05-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/39942
