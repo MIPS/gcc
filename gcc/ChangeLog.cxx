@@ -1,3 +1,51 @@
+2009-05-25  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/sh/t-sh (sh-c.o): Use $(CXX) for building.
+
+	* config/arc/arc.c: #include "df.h".
+	(arc_address_cost): Use INTVAL to refer to the value of a CONST_INT.
+
+	* targhooks.c (default_builtin_vectorized_function): Make signature
+	agree with prototype in targhooks.h.
+	(default_builtin_vectorized_conversion): Likewise.
+	(default_builtin_reciprocal): Likewise.
+
+	* expr.c (move_by_pieces, store_by_pieces): Append _d to struct tag.
+	Changed all users.
+
+	* config/sh/sh.c (sh_attribute_table): Use extern in forward
+	declaration.
+
+	* config/arc/arc.c (arc_attribute_table): Use extern in forward
+	declaration.
+	(output_shift): Replace initialization of n with assignment.
+
+	* config/sh/sh.h (OVERRIDE_OPTIONS): Use enum processor_type values
+	to assign to sh_cpu.
+
+	* config/sh/sh.md (attribute cpu): Add comment about connection to
+	enum processor_type in sh.h.
+
+	* reorg.c (insn_sets_resource_p): include_delayed_effects is now bool.
+	Changed all callers.
+
+	* config/sh/predicates.md (trapping_target_operand): Rename and to
+	and_expr.
+
+	* targhooks.h (default_builtin_vectorized_function): Make prototype
+	agree with target.h:struct vectorize:builtin_vectorized_function.
+	(default_builtin_vectorized_conversion): Likewise with respect to
+	builtin_conversion.
+	(default_builtin_reciprocal): Likewise wrt.
+	struct gcc_target:builtin_reciprocal
+	* config/m32r/m32r.h (INITIALIZE_TRAMPOLINE): Use LCT_NORMAL.
+	* config/m32r/m32r.c (df.h): #include.
+	(m32r_attribute_table): Mark forward declaration with extern.
+	(pop): Use alloc_reg_note.
+	(block_move_call): Use LCT_NORMAL.
+
+	* haifa-sched.c (insn_cost): No longer HAIFA_INLINE.
+
 2009-05-20  Ian Lance Taylor  <iant@google.com>
 
 	Revert the following patches:

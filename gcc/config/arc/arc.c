@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "df.h"
 
 /* Which cpu we're compiling for.  */
 int arc_cpu_type;
@@ -78,6 +79,9 @@ static bool arc_handle_option (size_t, const char *, int);
 static void record_cc_ref (rtx);
 static void arc_init_reg_tables (void);
 static int get_arc_condition_code (rtx);
+#ifdef __cplusplus
+extern
+#endif
 const struct attribute_spec arc_attribute_table[];
 static tree arc_handle_interrupt_attribute (tree *, tree, tree, int, bool *);
 static bool arc_assemble_integer (rtx, unsigned int, int);
@@ -897,7 +901,7 @@ arc_address_cost (rtx addr, bool speed ATTRIBUTE_UNUSED)
 	switch (GET_CODE (plus1))
 	  {
 	  case CONST_INT :
-	    return SMALL_INT (plus1) ? 1 : 2;
+	    return SMALL_INT (INTVAL (plus1)) ? 1 : 2;
 	  case CONST :
 	  case SYMBOL_REF :
 	  case LABEL_REF :
@@ -1502,8 +1506,9 @@ output_shift (rtx *operands)
     }
   else
     {
-      int n = INTVAL (operands[2]);
+      int n;
 
+      n = INTVAL (operands[2]);
       /* If the count is negative, make it 0.  */
       if (n < 0)
 	n = 0;

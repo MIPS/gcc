@@ -398,7 +398,7 @@ default_invalid_within_doloop (const_rtx insn)
 /* Mapping of builtin functions to vectorized variants.  */
 
 tree
-default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
+default_builtin_vectorized_function (unsigned /*enum built_in_function*/ fn ATTRIBUTE_UNUSED,
 				     tree type_out ATTRIBUTE_UNUSED,
 				     tree type_in ATTRIBUTE_UNUSED)
 {
@@ -408,7 +408,7 @@ default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
 /* Vectorized conversion.  */
 
 tree
-default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
+default_builtin_vectorized_conversion (unsigned /*enum tree_code code*/ ATTRIBUTE_UNUSED,
 				       tree type ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
@@ -417,7 +417,7 @@ default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
 /* Reciprocal.  */
 
 tree
-default_builtin_reciprocal (enum built_in_function fn ATTRIBUTE_UNUSED,
+default_builtin_reciprocal (unsigned /*enum built_in_function*/ fn ATTRIBUTE_UNUSED,
 			    bool md_fn ATTRIBUTE_UNUSED,
 			    bool sqrt ATTRIBUTE_UNUSED)
 {

@@ -1034,7 +1034,7 @@ L2:     .word STATIC
 				     gen_int_mode (m32r_cache_flush_trap, SImode))); \
       else if (m32r_cache_flush_func && m32r_cache_flush_func[0])		\
 	emit_library_call (m32r_function_symbol (m32r_cache_flush_func),	\
-			   0, VOIDmode, 3, TRAMP, Pmode,			\
+			   LCT_NORMAL, VOIDmode, 3, TRAMP, Pmode,	\
 			   gen_int_mode (TRAMPOLINE_SIZE, SImode), SImode,	\
 			   GEN_INT (3), SImode);				\
     }										\
