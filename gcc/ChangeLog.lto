@@ -1,5 +1,12 @@
 2009-05-26  Diego Novillo  <dnovillo@google.com>
 
+	* tree-pretty-print.c (dump_location): New.
+	(dump_generic_node): Call it.
+	Factor code to handle BLOCK nodes ...
+	(dump_block_node): ... here.
+
+2009-05-26  Diego Novillo  <dnovillo@google.com>
+
 	* tree.c (free_lang_data_in_decl): Set DECL_CONTEXT for
 	every symbol in DECL_STRUCT_FUNCTION (DECL)->local_decls.
 
