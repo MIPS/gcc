@@ -62,6 +62,7 @@ const char *LTO_tree_tag_names[LTO_tree_last_tag];
 /* Forward declarations to break cyclical dependencies.  */
 static void output_record_start (struct output_block *, tree, tree,
 				 unsigned int);
+static void output_expr_operand (struct output_block *, tree);
 
 /* The index of the last eh_region seen for an instruction.  The
    eh_region for an instruction is only emitted if it different from
@@ -143,9 +144,6 @@ string_slot_free (void *p)
 }
 
 
-/* The output stream that contains the abbrev table for all of the
-   functions in this compilation unit.  */
-static void output_expr_operand (struct output_block *, tree);
 
 /* Clear the line info stored in DATA_IN.  */
 
@@ -580,6 +578,8 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
 		 inside a function.  */
 	      xloc = expand_location (DECL_SOURCE_LOCATION (expr));
 	    }
+	  else if (TREE_CODE (expr) == BLOCK)
+	    xloc = expand_location (BLOCK_SOURCE_LOCATION (expr));
 
 	  if (xloc.file)
 	    {
@@ -963,6 +963,88 @@ output_constructor (struct output_block *ob, tree ctor)
     }
 }
 
+
+/* Helper for output_tree_block.  T is either a FUNCTION_DECL or a
+   BLOCK.  If T is a FUNCTION_DECL, write a reference to it (to avoid
+   duplicate definitions on the reader side).  Otherwise, write it as
+   a regular tree node.  OB is as in output_tree_block.
+
+   FIXME lto, this would not be needed if streaming of nodes in the
+   global context was unified with streaming of function bodies.  */
+
+static void
+output_block_or_decl (struct output_block *ob, tree t)
+{
+  if (t == NULL_TREE)
+    output_zero (ob);
+  else if (TREE_CODE (t) == FUNCTION_DECL)
+    output_expr_operand (ob, t);
+  else if (TREE_CODE (t) == BLOCK)
+    output_tree (ob, t);
+  else
+    gcc_unreachable ();
+}
+
+
+/* Write symbol binding block BLOCK to output block OB.  */
+
+static void
+output_tree_block (struct output_block *ob, tree block)
+{
+  unsigned HOST_WIDE_INT block_flags;
+  unsigned i;
+  tree t;
+  static struct function *last_cfun = NULL;
+  static struct pointer_set_t *local_syms = NULL;
+  static unsigned last_block_num = 0;
+
+  BLOCK_NUMBER (block) = last_block_num++;
+
+  block_flags = 0;
+  lto_set_flag (&block_flags, BLOCK_ABSTRACT (block));
+  lto_set_flags (&block_flags, BLOCK_NUMBER (block), 31);
+  output_sleb128 (ob, block_flags);
+
+  /* Note that we are only interested in emitting the symbols that are
+     actually referenced in CFUN.  Create a set of local symbols to
+     use as a filter for BLOCK_VARS.  */
+  if (last_cfun != cfun)
+    {
+      if (local_syms)
+	pointer_set_destroy (local_syms);
+      
+      local_syms = pointer_set_create ();
+      for (t = cfun->local_decls; t; t = TREE_CHAIN (t))
+	{
+	  tree v = TREE_VALUE (t);
+	  if (TREE_CODE (v) != TYPE_DECL)
+	    pointer_set_insert (local_syms, v);
+	}
+
+      last_cfun = cfun;
+    }
+
+  /* FIXME lto.  Disabled for now.  This is causing regressions in
+     libstdc++ testsuite
+     (testsuite/23_containers/list/check_construct_destroy.cc).  */
+  for (t = BLOCK_VARS (block); t && 0; t = TREE_CHAIN (t))
+    if (TREE_CODE (t) != TYPE_DECL && pointer_set_contains (local_syms, t))
+      output_expr_operand (ob, t);
+  output_zero (ob);
+
+  output_sleb128 (ob, VEC_length (tree, BLOCK_NONLOCALIZED_VARS (block)));
+  for (i = 0; VEC_iterate (tree, BLOCK_NONLOCALIZED_VARS (block), i, t); i++)
+    output_expr_operand (ob, t);
+
+  output_block_or_decl (ob, BLOCK_SUPERCONTEXT (block));
+  output_block_or_decl (ob, BLOCK_ABSTRACT_ORIGIN (block));
+  output_block_or_decl (ob, BLOCK_FRAGMENT_ORIGIN (block));
+  output_block_or_decl (ob, BLOCK_FRAGMENT_CHAIN (block));
+  output_tree (ob, BLOCK_CHAIN (block));
+  output_tree (ob, BLOCK_SUBBLOCKS (block));
+}
+
+
 /* Output EXPR to the main stream in OB.  */
 
 static void
@@ -1266,23 +1348,6 @@ output_expr_operand (struct output_block *ob, tree expr)
 	break;
       }
 
-      /* This is the error case, these are type codes that will either
-	 never happen or that we have not gotten around to dealing
-	 with are here.  */
-    case BIND_EXPR:
-    case BLOCK:
-    case CATCH_EXPR:
-    case EH_FILTER_EXPR:
-    case OMP_CRITICAL:
-    case OMP_FOR:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_PARALLEL:
-    case OMP_SECTIONS:
-    case OMP_SINGLE:
-    case TARGET_MEM_REF:
-    case TRY_CATCH_EXPR:
-    case TRY_FINALLY_EXPR:
     default:
       /* We cannot have forms that are not explicity handled.  So when
 	 this is triggered, there is some form that is not being
@@ -1297,34 +1362,44 @@ output_expr_operand (struct output_block *ob, tree expr)
 /* Output the local var at INDEX to OB.  */
 
 static void
-output_local_var_decl (struct output_block *ob, int index, tree fn)
+output_local_var_decl (struct output_block *ob, int index)
 {
-  tree decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
-  unsigned int variant = 0;
-  bool is_var = (TREE_CODE (decl) == VAR_DECL);
-  bool needs_backing_var
-    = (DECL_DEBUG_EXPR_IS_FROM (decl) && DECL_DEBUG_EXPR (decl));
-  
-  /* This will either be a local var decl or a parm decl. */
+  tree decl, name;
+  unsigned variant = 0;
+  bool is_var, needs_backing_var;
   unsigned int tag;
   
-  /* FIXME lto: If we agree that is is correct for reset_lang_specific
-     to null out the DECL_SIZE expression for variably-modified types,
-     then we cannot assume that DECL_SIZE is non-null here.  This assertion
-     fails on gcc.c-torture/compile/20020210-1.c for that reason.  */
-  /*gcc_assert (DECL_SIZE (decl));*/
+  decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
+  is_var = (TREE_CODE (decl) == VAR_DECL);
+  needs_backing_var = (DECL_DEBUG_EXPR_IS_FROM (decl) && DECL_DEBUG_EXPR (decl));
+  
   variant |= DECL_ATTRIBUTES (decl)      != NULL_TREE ? 0x01 : 0;
   variant |= DECL_SIZE_UNIT (decl)       != NULL_TREE ? 0x02 : 0;
   variant |= needs_backing_var                        ? 0x04 : 0;
 
-  tag = (is_var
-	 ? LTO_local_var_decl_body0
-	 : LTO_parm_decl_body0)
-    + variant;
+  /* This will either be a local var decl or a parm decl. */
+  tag = (is_var ? LTO_local_var_decl_body0 : LTO_parm_decl_body0) + variant;
 
   output_record_start (ob, NULL, NULL, tag);
 
-  output_identifier (ob, ob->main_stream, DECL_NAME (decl));
+  /* To facilitate debugging, create a DECL_NAME for compiler temporaries
+     so they match the format 'D.<uid>' used by the pretty printer.  This
+     will reduce some spurious differences in dump files between the
+     original front end and gimple.  Note, however, that this will not
+     fix all differences.  Temporaries generated by optimizers in lto1
+     will have different DECL_UIDs than those created by the
+     optimizers in the original front end.  */
+  if (DECL_NAME (decl) == NULL)
+    {
+      char s[20];
+      gcc_assert (DECL_UID (decl) < 1000000);
+      sprintf (s, "D.%d", DECL_UID (decl));
+      name = get_identifier (s);
+    }
+  else
+    name = DECL_NAME (decl);
+
+  output_identifier (ob, ob->main_stream, name);
   output_identifier (ob, ob->main_stream, decl->decl_with_vis.assembler_name);
 
   output_type_ref (ob, TREE_TYPE (decl));
@@ -1354,7 +1429,7 @@ output_local_var_decl (struct output_block *ob, int index, tree fn)
   clear_line_info (ob);
   output_tree_flags (ob, ERROR_MARK, decl, true);
 
-  gcc_assert (DECL_CONTEXT (decl) == fn);
+  gcc_assert (decl_function_context (decl) != NULL_TREE);
 
   LTO_DEBUG_TOKEN ("align");
   output_uleb128 (ob, DECL_ALIGN (decl));
@@ -1378,9 +1453,8 @@ output_local_var_decl (struct output_block *ob, int index, tree fn)
   if (needs_backing_var)
     output_expr_operand (ob, DECL_DEBUG_EXPR (decl));
 
-  /* FIXME lto: We don't need DECL_ABSTRACT_ORIGIN. We should probably clear it
-   before getting here. It is created by the inliner after
-   reset_decl_lang_specific. */
+  if (DECL_HAS_VALUE_EXPR_P (decl))
+    output_expr_operand (ob, DECL_VALUE_EXPR (decl));
 
   LTO_DEBUG_UNDENT();
 }
@@ -1388,7 +1462,7 @@ output_local_var_decl (struct output_block *ob, int index, tree fn)
 /* Output the local declaration or type at INDEX to OB.  */
 
 static void
-output_local_decl (struct output_block *ob, int index, tree fn)
+output_local_decl (struct output_block *ob, int index)
 {
   tree decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
 
@@ -1399,7 +1473,7 @@ output_local_decl (struct output_block *ob, int index, tree fn)
 
   if (TREE_CODE (decl) == VAR_DECL
       || TREE_CODE (decl) == PARM_DECL)
-    output_local_var_decl (ob, index, fn);
+    output_local_var_decl (ob, index);
   else
     gcc_unreachable ();
 }
@@ -1469,7 +1543,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
      them.  */
   LTO_DEBUG_TOKEN ("local vars");
   while (index < lto_tree_ref_encoder_size (&ob->local_decl_encoder))
-    output_local_decl (ob, index++, fn->decl);
+    output_local_decl (ob, index++);
 
   ob->main_stream = tmp_stream;
 }
@@ -1676,6 +1750,9 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
 
   /* Emit location information for the statement.  */
   output_stmt_location (ob, stmt);
+
+  /* Emit the lexical block holding STMT.  */
+  output_tree (ob, gimple_block (stmt));
 
   /* Emit the tuple header.  FIXME lto.  This is emitting fields that are not
      necessary to emit (e.g., gimple_statement_base.bb,
@@ -1940,6 +2017,7 @@ lto_static_init (void)
   /* These forms never need types.  */
   sbitmap_ones (lto_types_needed_for);
   RESET_BIT (lto_types_needed_for, ASM_EXPR);
+  RESET_BIT (lto_types_needed_for, BLOCK);
   RESET_BIT (lto_types_needed_for, CASE_LABEL_EXPR);
   RESET_BIT (lto_types_needed_for, FIELD_DECL);
   RESET_BIT (lto_types_needed_for, FUNCTION_DECL);
@@ -2031,7 +2109,8 @@ lto_static_init_local (void)
 static int function_num;
 #endif
 
-/* Output FN.  */
+
+/* Output the body of function NODE->DECL.  */
 
 static void
 output_function (struct cgraph_node *node)
@@ -2045,6 +2124,8 @@ output_function (struct cgraph_node *node)
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
   ob->cgraph_node = node;
+  ob->main_hash_table = htab_create (37, lto_hash_global_slot_node,
+				     lto_eq_global_slot_node, free);
 
   gcc_assert (!current_function_decl && !cfun);
 
@@ -2092,8 +2173,12 @@ output_function (struct cgraph_node *node)
   else
     output_zero (ob);
 
-  /* Output any exception-handling regions.  */
+  /* Output any exception handling regions.  */
   output_eh_regions (ob, fn);
+
+  /* Output DECL_INITIAL for the function, which contains the tree of
+     lexical scopes.  */
+  output_tree (ob, DECL_INITIAL (function));
 
   /* Output the head of the arguments list.  */
   LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
@@ -2714,8 +2799,6 @@ output_function_decl (struct output_block *ob, tree decl)
   output_tree_with_context (ob, decl->decl_non_common.result, decl);
   output_tree (ob, decl->decl_non_common.vindex);
 
-  /* omit initial -- should be written with body */
-
   if (decl->function_decl.personality)
     {
       /* FIXME lto: We have to output the index since the symbol table
@@ -3189,7 +3272,10 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
   fprintf (stderr, "\n");
 #endif
 
-  if (TYPE_P (expr) || DECL_P (expr) || TREE_CODE (expr) == TREE_BINFO)
+  if (TYPE_P (expr)
+      || DECL_P (expr)
+      || TREE_CODE (expr) == TREE_BINFO
+      || TREE_CODE (expr) == BLOCK)
     {
       unsigned int global_index;
       /* FIXME lto:  There are decls that pass the predicate above, but which
@@ -3213,7 +3299,6 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
  	  case NAMESPACE_DECL:
  	  case TRANSLATION_UNIT_DECL:
 	  case LABEL_DECL:
- 	    break;
  	  case VOID_TYPE:
  	  case INTEGER_TYPE:
  	  case REAL_TYPE:
@@ -3231,8 +3316,8 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
  	  case QUAL_UNION_TYPE:
  	  case FUNCTION_TYPE:
  	  case METHOD_TYPE:
- 	    break;
  	  case TREE_BINFO:
+	  case BLOCK:
  	    break;
  
  	  default:
@@ -3283,6 +3368,11 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
 
   switch (code)
     {
+    case BLOCK:
+      output_global_record_start (ob, expr, NULL, LTO_block);
+      output_tree_block (ob, expr);
+      break;
+
     case COMPLEX_CST:
       if (TREE_CODE (TREE_REALPART (expr)) == REAL_CST)
 	{
@@ -3564,31 +3654,13 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
 	break;
       }
 
-      /* This is the error case, these are type codes that will either
-	 never happen or that we have not gotten around to dealing
-	 with are here.  */
-    case BIND_EXPR:
-    case BLOCK:
-    case CATCH_EXPR:
-    case EH_FILTER_EXPR:
-    case OMP_CRITICAL:
-    case OMP_FOR:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_PARALLEL:
-    case OMP_SECTIONS:
-    case OMP_SINGLE:
-    case TARGET_MEM_REF:
-    case TRY_CATCH_EXPR:
-    case TRY_FINALLY_EXPR:
     default:
       if (TREE_CODE (expr) >= NUM_TREE_CODES)
 	{
 	  /* EXPR is a language-specific tree node, which has no meaning
-	     outside of the front-end.  Something along the lines of
-	     http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
-	     should be implemented.  */
-	  error ("Unimplemented code (FE-specific): %d", (int) code);
+	     outside of the front end.  These nodes should have been
+	     cleaned up by pass_ipa_free_lang_data.  */
+	  error ("Invalid FE-specific tree code: %d", (int) code);
 	  gcc_unreachable ();
 	}
       else

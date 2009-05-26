@@ -1,5 +1,47 @@
 2009-05-26  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-out.c (output_expr_operand): Move forward
+	declaration earlier in the file.
+	(output_tree_flags): Handle BLOCK nodes.
+	(output_block_or_decl): New.
+	(output_tree_block): New.
+	(output_tree_with_context): Call it to handle BLOCK nodes.
+	Handle BLOCK nodes when detecting nodes that have been
+	written out already.
+	(output_expr_operand): Handle every unhandled code with
+	the default label.
+	(output_local_var_decl): If DECL does not have a name,
+	set DECL_NAME to D.<uid>.
+	Write DECL_VALUE_EXPR, if it has one.
+	(output_gimple_stmt): Write gimple_block (STMT).
+	(lto_static_init): Remove BLOCK from set
+	lto_types_needed_for.
+	(output_function): Create a hash table for OB->MAIN_HASH_TABLE.
+	Write DECL_INITIAL (FUNCTION).
+	* lto-function-in.c (input_expr_operand): Forward declare.
+	(input_local_var_decl): Read DECL_VALUE_EXPR, if needed.
+	(input_gimple_stmt): Read gimple_block for STMT.
+	(input_function): Read DECL_INITIAL for FN_DECL.
+	(input_block_or_decl): New.
+	(input_tree_block): New.
+	(input_tree_operand): Call it.
+	* lto-tags.h (enum LTO_tags): Add LTO_block.
+	* lto-tree-tags.def: Call MAP_EXPR_TAG for LTO_block.
+	Call SET_NAME for LTO_block.
+	* lto-tree-flags.def: Remove asm_written_flag from BLOCK,
+	QUAL_UNION_TYPE, RECORD_TYPE and UNION_TYPE.
+
+2009-05-26  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_local_var_decl): if DECL has
+	no DECL_NAME, write the name D.<DECL_UID>.
+	Remove argument FN.  Update all users.
+	If DECL has a value expression, write it.
+	* lto-function-in.c (input_local_var_decl): If DECL has a
+	value expression, read it.
+
+2009-05-26  Diego Novillo  <dnovillo@google.com>
+
 	* tree-pretty-print.c (dump_location): New.
 	(dump_generic_node): Call it.
 	Factor code to handle BLOCK nodes ...

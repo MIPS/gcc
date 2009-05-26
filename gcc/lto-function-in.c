@@ -59,6 +59,8 @@ static tree input_tree_operand (struct lto_input_block *, struct data_in *,
                                 tree, enum LTO_tags);
 static tree input_local_decl (struct lto_input_block *, struct data_in *,
 			      struct function *, unsigned int);
+static tree input_expr_operand (struct lto_input_block *, struct data_in *, 
+				struct function *, enum LTO_tags);
 
 /* Map between LTO tags and tree codes.  */
 static enum tree_code tag_to_expr[LTO_tree_last_tag];
@@ -1103,11 +1105,21 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
       = input_expr_operand (ib, data_in, fn, input_record_start (ib));
 
   if (variant & 0x4)
-    SET_DECL_DEBUG_EXPR (result, 
-			 input_expr_operand (ib, data_in, fn, 
-					     input_record_start (ib)));
+    {
+      tag = input_record_start (ib);
+      gcc_assert (tag);
+      SET_DECL_DEBUG_EXPR (result, input_expr_operand (ib, data_in, fn, tag));
+    }
 
   process_tree_flags (result, flags);
+
+  if (DECL_HAS_VALUE_EXPR_P (result))
+    {
+      tag = input_record_start (ib);
+      gcc_assert (tag);
+      SET_DECL_VALUE_EXPR (result, input_expr_operand (ib, data_in, fn, tag));
+    }
+
   LTO_DEBUG_UNDENT();
 
   return result;
@@ -1736,6 +1748,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   size_t i, nbytes;
   char *buf;
   location_t location;
+  tree block;
 
   if (tag == LTO_gimple_asm)
     code = GIMPLE_ASM;
@@ -1767,6 +1780,9 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 
   /* Read location information.  */
   location = input_stmt_location (ib, data_in);
+
+  /* Read lexical block reference.  */
+  block = input_tree (ib, data_in);
 
   /* Read the tuple header.  FIXME lto.  This seems unnecessarily slow
      and it is reading pointers in the tuple that need to be re-built
@@ -1827,7 +1843,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
      should disappear after we fix the unnecessary fields that are
      written for every tuple.  */
   gimple_set_bb (stmt, NULL);
-  gimple_set_block (stmt, NULL);
+  gimple_set_block (stmt, block);
   if (gimple_has_ops (stmt))
     {
       gimple_set_def_ops (stmt, NULL);
@@ -1958,8 +1974,6 @@ input_function (tree fn_decl, struct data_in *data_in,
 
   fn = DECL_STRUCT_FUNCTION (fn_decl);
   tag = input_record_start (ib);
-  DECL_INITIAL (fn_decl) = DECL_SAVED_TREE (fn_decl) = make_node (BLOCK);
-  BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
   clear_line_info (data_in);
 
   gimple_register_cfg_hooks ();
@@ -1994,7 +2008,17 @@ input_function (tree fn_decl, struct data_in *data_in,
   if (tag)
     fn->nonlocal_goto_save_area = input_expr_operand (ib, data_in, fn, tag);
 
+  /* Read the exception handling regions in the function.  */
   input_eh_regions (ib, data_in, fn);
+
+  /* Read the tree of lexical scopes for the function.  */
+  DECL_INITIAL (fn_decl) = input_tree (ib, data_in);
+  if (DECL_INITIAL (fn_decl) == NULL_TREE)
+    {
+      DECL_INITIAL (fn_decl) = make_node (BLOCK);
+      BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
+    }
+  DECL_SAVED_TREE (fn_decl) = DECL_INITIAL (fn_decl);
 
   LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
   tag = input_record_start (ib);
@@ -3283,6 +3307,87 @@ input_type_tree (struct lto_input_block *ib, struct data_in *data_in)
 }
 
 
+/* Helper for input_tree_block.  Read a FUNCTION_DECL reference or a
+   BLOCK from IB using descriptors in DATA_IN.  */
+
+static tree
+input_block_or_decl (struct lto_input_block *ib, struct data_in *data_in)
+{
+  enum LTO_tags tag;
+
+  /* FIXME lto, this would not be needed if streaming of trees in
+     global context was unified with trees in function bodies.  */
+  tag = input_record_start (ib);
+
+  if (tag == LTO_null)
+    return NULL_TREE;
+  else if (tag == LTO_function_decl0)
+    return lto_file_decl_data_get_fn_decl (data_in->file_data,
+					   lto_input_uleb128 (ib));
+  else if (tag == LTO_block || tag == LTO_tree_pickle_reference)
+    return input_tree_operand (ib, data_in, NULL, tag);
+  else
+    gcc_unreachable ();
+}
+
+
+/* Read a BLOCK tree from input block IB using descriptors in DATA_IN.  */
+
+static tree
+input_tree_block (struct lto_input_block *ib, struct data_in *data_in)
+{
+  unsigned HOST_WIDE_INT block_flags;
+  tree block;
+  unsigned i, vlen;
+  enum LTO_tags tag;
+  tree first, curr, prev;
+
+  block = make_node (BLOCK);
+
+  global_vector_enter (data_in, block);
+
+  block_flags = lto_input_sleb128 (ib);
+  BLOCK_NUMBER (block) = lto_get_flags (&block_flags, 31);
+  BLOCK_ABSTRACT (block) = lto_get_flag (&block_flags);
+
+  first = prev = NULL_TREE;
+  tag = input_record_start (ib);
+  while (tag)
+    {
+      curr = input_expr_operand (ib, data_in, cfun, tag);
+      if (prev)
+	TREE_CHAIN (prev) = curr;
+      else
+	first = curr;
+
+      TREE_CHAIN (curr) = NULL_TREE;
+      prev = curr;
+      tag = input_record_start (ib);
+    }
+  BLOCK_VARS (block) = first;
+
+
+  vlen = lto_input_sleb128 (ib);
+  for (i = 0; i < vlen; i++)
+    {
+      tree var;
+
+      tag = input_record_start (ib);
+      var = input_expr_operand (ib, data_in, cfun, tag);
+      VEC_safe_push (tree, gc, BLOCK_NONLOCALIZED_VARS (block), var);
+    }
+
+  BLOCK_SUPERCONTEXT (block) = input_block_or_decl (ib, data_in);
+  BLOCK_ABSTRACT_ORIGIN (block) = input_block_or_decl (ib, data_in);
+  BLOCK_FRAGMENT_ORIGIN (block) = input_block_or_decl (ib, data_in);
+  BLOCK_FRAGMENT_CHAIN (block) = input_block_or_decl (ib, data_in);
+  BLOCK_CHAIN (block) = input_tree (ib, data_in);
+  BLOCK_SUBBLOCKS (block) = input_tree (ib, data_in);
+
+  return block;
+}
+
+
 /* Read a node in the body of function FN from input block IB using
    descriptors in DATA_IN.  TAG indicates the kind of tree that is
    expected to be read.  */
@@ -3359,6 +3464,10 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
   switch (code)
     {
+    case BLOCK:
+      result = input_tree_block (ib, data_in);
+      break;
+
     case COMPLEX_CST:
       {
 	tree elt_type = input_type_tree (ib, data_in);

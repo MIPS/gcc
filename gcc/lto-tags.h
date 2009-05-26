@@ -307,6 +307,8 @@ enum LTO_tags
   LTO_bit_not_expr,
   LTO_bit_xor_expr,
 
+  LTO_block,
+
   /* Call_exprs are terminated by a 0 to indicate the end of the
      parameter list.  Variant 1 indicates the presence of a call
      chain.  */

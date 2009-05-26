@@ -1120,7 +1120,8 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       if (incorporeal_function_p (t))
 	continue;
 
-      gcc_assert (!DECL_ABSTRACT (t));
+      if (DECL_ABSTRACT (t))
+	continue;
 
       if (TREE_CODE (t) == RESULT_DECL)
 	continue;

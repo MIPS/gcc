@@ -193,7 +193,6 @@
     END_EXPR_CASE (BIT_XOR_EXPR)
       
     START_EXPR_CASE (BLOCK)
-      ADD_EXPR_FLAG (asm_written_flag)
     END_EXPR_CASE (BLOCK)
       
     START_EXPR_CASE (BOOLEAN_TYPE)
@@ -597,7 +596,6 @@
     END_EXPR_CASE (PREINCREMENT_EXPR)
       
     START_EXPR_CASE (QUAL_UNION_TYPE)
-      ADD_EXPR_FLAG (asm_written_flag)
       ADD_TYPE_FLAG (no_force_blk_flag)
     END_EXPR_CASE (QUAL_UNION_TYPE)
       
@@ -622,7 +620,6 @@
     END_EXPR_CASE (REAL_TYPE)
       
     START_EXPR_CASE (RECORD_TYPE)
-      ADD_EXPR_FLAG (asm_written_flag)
       ADD_TYPE_FLAG (no_force_blk_flag)
     END_EXPR_CASE (RECORD_TYPE)
       
@@ -775,7 +772,6 @@
     END_EXPR_CASE (UNGT_EXPR)
       
     START_EXPR_CASE (UNION_TYPE)
-      ADD_EXPR_FLAG (asm_written_flag)
       ADD_TYPE_FLAG (no_force_blk_flag)
       ADD_TYPE_FLAG (transparent_union_flag)
     END_EXPR_CASE (UNION_TYPE)
