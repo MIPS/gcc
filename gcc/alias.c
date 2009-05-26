@@ -47,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-type-escape.h"
 #include "df.h"
 #include "alias-export.h"
-#include "params.h"
 
 /* The aliasing API provided here solves related but different problems:
 
