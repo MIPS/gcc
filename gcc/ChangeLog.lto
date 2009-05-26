@@ -1,3 +1,15 @@
+2009-05-26  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (free_lang_data_in_decl): Set DECL_CONTEXT for
+	every symbol in DECL_STRUCT_FUNCTION (DECL)->local_decls.
+
+2009-05-26  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (dump_block_tree): New.
+	(debug_block_tree): New.
+	* tree.h (dump_block_tree): Declare.
+	(debug_block_tree): Declare.
+
 2009-05-21  Simon Baldwin  <simonb@google.com>
 
 	* Makefile.in: Added ZLIBINC to lto-compress.o compilation.
