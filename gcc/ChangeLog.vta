@@ -1,5 +1,11 @@
 2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
 
+	* testsuite/lib/gnat.exp (gnat_target_compile): Restore
+	ADA_INCLUDE_PATH and incdir.
+	(local_find_gnatmake): Revert to --GCC rather than --LINK.
+
+2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-ssa-live.c (remove_unused_scope_block_p): Revert
 	previous patch.
 	(remove_unused_locals): Skip when not optimizing.
