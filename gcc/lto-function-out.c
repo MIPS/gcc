@@ -991,7 +991,7 @@ output_block_or_decl (struct output_block *ob, tree t)
 static void
 output_tree_block (struct output_block *ob, tree block)
 {
-  unsigned HOST_WIDE_INT block_flags;
+  unsigned HOST_WIDEST_INT block_flags;
   unsigned i;
   tree t;
   static struct function *last_cfun = NULL;

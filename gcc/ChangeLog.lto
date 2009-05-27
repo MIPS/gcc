@@ -1,3 +1,9 @@
+2009-05-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* lto-function-in.c (input_tree_block): Use HOST_WIDEST_INT
+	on block_flags.
+	* lto-function-out.c (output_tree_block): Likewise.
+
 2009-05-27  Diego Novillo  <dnovillo@google.com>
 
 	* lto-section-out.c (write_symbol_vec): Tidy test for

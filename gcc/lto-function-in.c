@@ -3336,7 +3336,7 @@ input_block_or_decl (struct lto_input_block *ib, struct data_in *data_in)
 static tree
 input_tree_block (struct lto_input_block *ib, struct data_in *data_in)
 {
-  unsigned HOST_WIDE_INT block_flags;
+  unsigned HOST_WIDEST_INT block_flags;
   tree block;
   unsigned i, vlen;
   enum LTO_tags tag;
