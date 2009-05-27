@@ -804,8 +804,10 @@ void
 delete_tree_ssa (void)
 {
   size_t i;
+#if 0
   basic_block bb;
   gimple_stmt_iterator gsi;
+#endif
   referenced_var_iterator rvi;
   tree var;
 
@@ -818,11 +820,11 @@ delete_tree_ssa (void)
 	  SSA_NAME_IMM_USE_NODE (var).prev = &(SSA_NAME_IMM_USE_NODE (var));
 	  SSA_NAME_IMM_USE_NODE (var).next = &(SSA_NAME_IMM_USE_NODE (var));
 	}
-      if (! var || TREE_CODE (var) != SSA_NAME
-          || ! (flag_alias_export || flag_ddg_export))
+      if (! var || TREE_CODE (var) != SSA_NAME)
         release_ssa_name (var);
     }
 
+#if 0
   /* FIXME.  This may not be necessary.  We will release all this
      memory en masse in free_ssa_operands.  This clearing used to be
      necessary to avoid problems with the inliner, but it may not be
@@ -854,6 +856,7 @@ delete_tree_ssa (void)
   /* We need to do this while referenced_vars are still accessible.  */
   if (flag_alias_export)
     record_escaped_solution (&cfun->gimple_df->escaped);
+#endif
 
   /* Remove annotations from every referenced local variable.  */
   FOR_EACH_REFERENCED_VAR (var, rvi)

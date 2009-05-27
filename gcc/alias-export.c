@@ -351,7 +351,7 @@ alias_export_may_alias_p (const_rtx mem1, const_rtx mem2, tree ref1, tree ref2)
   ref2 = rewrite_partitioned_mem_expr (mem2, ref2);
   pid1 = get_exported_ptr_info (ref1);
   pid2 = get_exported_ptr_info (ref2);
-  if (! refs_may_alias_p_1 (ref1, ref2, pid1, pid2, &gimple_df_escaped))
+  if (! refs_may_alias_p_1 (ref1, ref2, pid1, pid2))
     {
       alias_export_disambiguations++;
       return false;

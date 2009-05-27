@@ -72,6 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "cfglayout.h"
 #include "tree-pass.h"
+#include "tree-flow.h"
 #include "timevar.h"
 #include "cgraph.h"
 #include "coverage.h"
@@ -4323,6 +4324,8 @@ rest_of_clean_state (void)
   init_temp_slots ();
 
   free_bb_for_insn ();
+
+  delete_tree_ssa ();
 
   if (flag_alias_export)
     free_alias_export_info ();
