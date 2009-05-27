@@ -1,3 +1,10 @@
+2009-05-27  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-live.c (dump_scope_block): Document arguments.
+	(dump_scope_blocks): Document.
+	(debug_scope_blocks): New.
+	* tree-flow.h (debug_scope_blocks): Declare.
+
 2009-05-27  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* lto-function-in.c (input_tree_block): Use HOST_WIDEST_INT
