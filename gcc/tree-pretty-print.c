@@ -449,16 +449,16 @@ dump_block_node (pretty_printer *buffer, tree block, int spc, int flags)
 {
   tree t;
 
-  pp_printf (buffer, "BLOCK #%d", BLOCK_NUMBER (block));
+  pp_printf (buffer, "BLOCK #%d ", BLOCK_NUMBER (block));
 
   if (flags & TDF_ADDRESS)
-    pp_printf (buffer, " [%p]", (void *) block);
+    pp_printf (buffer, "[%p] ", (void *) block);
 
   if (BLOCK_ABSTRACT (block))
-    pp_string (buffer, " [abstract]");
+    pp_string (buffer, "[abstract] ");
 
   if (TREE_ASM_WRITTEN (block))
-    pp_string (buffer, " [written]");
+    pp_string (buffer, "[written] ");
 
   if (flags & TDF_SLIM)
     return;

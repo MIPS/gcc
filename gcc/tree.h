@@ -4659,8 +4659,6 @@ extern const char *get_name (tree);
 extern bool stdarg_p (tree);
 extern bool prototype_p (tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
-extern void dump_block_tree (FILE *, tree, int);
-extern void debug_block_tree (tree, int);
 
 /* In gimplify.c */
 extern tree unshare_expr (tree);

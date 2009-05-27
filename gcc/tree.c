@@ -10036,29 +10036,4 @@ list_equal_p (const_tree t1, const_tree t2)
   return !t1 && !t2;
 }
 
-
-/* Dump the tree of lexical bindings starting at BLOCK to FILE.  FLAGS
-   is as in print_generic_expr.  */
-
-void
-dump_block_tree (FILE *file, tree block, int flags)
-{
-  tree t;
-
-  print_generic_expr (file, block, flags);
-  fprintf (file, "\n");
-  for (t = BLOCK_SUBBLOCKS (block); t; t = BLOCK_CHAIN (t))
-    dump_block_tree (file, t, flags);
-}
-
-
-/* Dump the tree of lexical bindings starting at BLOCK to stderr.  FLAGS
-   is as in print_generic_expr.  */
-
-void
-debug_block_tree (tree block, int flags)
-{
-  dump_block_tree (stderr, block, flags);
-}
-
 #include "gt-tree.h"

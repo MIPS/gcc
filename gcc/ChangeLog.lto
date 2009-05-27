@@ -6,6 +6,15 @@
 
 2009-05-27  Diego Novillo  <dnovillo@google.com>
 
+	* tree-pretty-print.c (dump_block_node): Tidy white
+	space in dump.
+	* tree.c (dump_block_tree): Remove.
+	(debug_block_tree): Remove.
+	* tree.h (dump_block_tree): Remove.
+	(debug_block_tree): Remove.
+
+2009-05-27  Diego Novillo  <dnovillo@google.com>
+
 	* lto-section-out.c (write_symbol_vec): Tidy test for
 	symbols to keep out of the symbol table.
 
