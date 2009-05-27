@@ -1,3 +1,8 @@
+2009-05-27  Diego Novillo  <dnovillo@google.com>
+
+	* lto-section-out.c (write_symbol_vec): Tidy test for
+	symbols to keep out of the symbol table.
+
 2009-05-26  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_expr_operand): Move forward

@@ -1111,19 +1111,13 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       uint64_t size;
       const char *comdat;
 
-      if (!TREE_PUBLIC (t))
-	continue;
-
-      if (DECL_IS_BUILTIN (t))
-	continue;
-
-      if (incorporeal_function_p (t))
-	continue;
-
-      if (DECL_ABSTRACT (t))
-	continue;
-
-      if (TREE_CODE (t) == RESULT_DECL)
+      /* None of the following kinds of symbols are needed in the
+	 symbol table.  */
+      if (!TREE_PUBLIC (t)
+	  || DECL_IS_BUILTIN (t)
+	  || incorporeal_function_p (t)
+	  || DECL_ABSTRACT (t)
+	  || TREE_CODE (t) == RESULT_DECL)
 	continue;
 
       gcc_assert (TREE_CODE (t) == VAR_DECL
