@@ -108,10 +108,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
   #include "decNumberSymbols.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
   /* Conversions						      */
   decNumber * decNumberFromInt32(decNumber *, int32_t);
   decNumber * decNumberFromUInt32(decNumber *, uint32_t);
@@ -195,9 +191,5 @@ extern "C" {
 				    && (dn)->digits==1 \
 				    && (((dn)->bits&DECSPECIAL)==0))
   #define decNumberRadix(dn)	   (10)
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

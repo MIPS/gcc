@@ -77,10 +77,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #include "decimal32Symbols.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
   /* String conversions 					      */
   decimal32 * decimal32FromString(decimal32 *, const char *, decContext *);
   char * decimal32ToString(const decimal32 *, char *);
@@ -94,9 +90,5 @@ extern "C" {
   /* Format-dependent utilities 				      */
   uint32_t    decimal32IsCanonical(const decimal32 *);
   decimal32 * decimal32Canonical(decimal32 *, const decimal32 *);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

@@ -1,3 +1,10 @@
+2009-05-26  Ian Lance Taylor  <iant@google.com>
+
+	* dfp.c: If __cplusplus, use extern "C" around inclusion of
+	libdecnumber header files.
+	* Makefile.in (INCLUDES): Remove $(DECNUMINC).
+	(dfp.o): Add separate compilation command using DECNUMINC.
+
 2009-05-25  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/sh/t-sh (sh-c.o): Use $(CXX) for building.

@@ -27,14 +27,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #define DFP_INIT_ROUNDMODE(A)  A = __decGetRound()
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 extern void __dfp_set_round (int);
 extern int __dfp_get_round (void);
 extern enum rounding __decGetRound (void);
-
-#ifdef __cplusplus
-}
-#endif
