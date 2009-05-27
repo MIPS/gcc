@@ -1,5 +1,11 @@
 2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-ssa-live.c (remove_unused_scope_block_p): Revert
+	previous patch.
+	(remove_unused_locals): Skip when not optimizing.
+
+2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-inline.c (remap_decls): Enable nonlocalized variables
 	when not optimizing.
 
