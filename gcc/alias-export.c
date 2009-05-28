@@ -60,9 +60,6 @@ static struct pointer_map_t *part_repr_to_pta = NULL;
    set bits corresponding to decl uids of a partition.  */
 static struct pointer_map_t *part_repr_to_part = NULL;
 
-/* Saved escaped points-to solution.  */
-static struct pt_solution gimple_df_escaped;
-
 /* Alias export statistics counter.  */
 static unsigned int alias_export_disambiguations = 0;
 
@@ -122,27 +119,36 @@ maybe_replace_with_partition (tree expr, tree *pbase)
   return expr;
 }
 
-/* If some of PTVARS variables got partitioned, add all partition vars to 
-   PTVARS.  */
+/* If some of PID->PT.VARS variables got partitioned, add all partition 
+   vars to that bitmap.  */
 static void
-add_partitioned_vars_to_ptset (bitmap ptvars)
+add_partitioned_vars_to_ptset (struct pt_solution *pi)
 {
-  bitmap_iterator bi;
-  unsigned i;
-  bitmap temp;
-  tree *pdecl;
-
-  temp = BITMAP_ALLOC (NULL);
-  EXECUTE_IF_SET_IN_BITMAP (ptvars, 0, i, bi)
-    if ((pdecl = (tree *) pointer_map_contains (decls_to_stack,
-                                                referenced_var (i))))
-      bitmap_ior_into (temp, 
-                       *((bitmap *) pointer_map_contains (part_repr_to_part, 
-                                                          *pdecl)));
-  bitmap_ior_into (ptvars, temp);
-  BITMAP_FREE (temp);
+  if (pi->vars)
+    {
+      bitmap_iterator bi;
+      unsigned i;
+      bitmap temp;
+      tree *pdecl;
+      
+      temp = BITMAP_ALLOC (NULL);
+      EXECUTE_IF_SET_IN_BITMAP (pi->vars, 0, i, bi)
+        if ((pdecl = (tree *) pointer_map_contains (decls_to_stack,
+                                                    referenced_var (i))))
+          bitmap_ior_into (temp, 
+                           *((bitmap *) pointer_map_contains (part_repr_to_part, 
+                                                              *pdecl)));
+      if (! bitmap_empty_p (temp))
+        {
+          bitmap_ior_into (temp, pi->vars);
+          pi->vars = BITMAP_GGC_ALLOC ();
+          bitmap_copy (pi->vars, temp);
+        }
+      BITMAP_FREE (temp);
+    }
 }
 
+#if 0
 /* Change points-to set for POINTER in PID so that it would
    have all conflicting stack vars.  */
 static void
@@ -167,6 +173,7 @@ mark_conflict_stack_vars (tree pointer, struct ptr_info_def *pid)
       bitmap_ior_into (pid->pt.vars, temp);
     }
 }
+#endif
 
 /* Record the final points-to set for EXPR and unshare it.  Returns 
    the unshared expression or NULL_TREE, if EXPR cannot be used for 
@@ -188,30 +195,24 @@ unshare_and_record_pta_info (tree expr)
   if (flag_ddg_export)
     replace_var_in_datarefs (old_expr, expr);
 
-  /* Record points-to set for expr.  */
+  /* We can record stack conflicts in points-to sets here instead of
+     postponing this until end of expand, as incomplete stack sharing 
+     information might occur only for stack vars here, not for 
+     indirect-refs.  */
+  if (!decls_to_stack)
+    return expr;
+  
   base = expr;
   while (handled_component_p (base))
     base = TREE_OPERAND (base, 0);
   if (INDIRECT_REF_P (base))
     {
-      struct ptr_info_def **ppid, *pid;
+      struct ptr_info_def *pid;
 
       base = TREE_OPERAND (base, 0);
       if (TREE_CODE (base) == SSA_NAME
           && (pid = SSA_NAME_PTR_INFO (base)) != NULL)
-        {
-          if (!exprs_to_ptas)
-            exprs_to_ptas = pointer_map_create ();
-          ppid = (struct ptr_info_def **) pointer_map_insert (exprs_to_ptas,
-                                                              expr);
-          *ppid = pid; 
-          
-          /* We can record stack conflicts in points-to sets here instead of
-             postponing this until end of expand, as incomplete stack sharing 
-             information might occur only for stack vars here, not for 
-             indirect-refs.  */
-          mark_conflict_stack_vars (base, pid);
-        }
+        add_partitioned_vars_to_ptset (&pid->pt);
     }
  
   return expr;
@@ -292,6 +293,7 @@ record_stack_var_partition_for (tree decl, tree part_decl)
   if (DECL_P (decl))
     bitmap_set_bit (temp, DECL_UID (decl));
 
+#if 0
   /* Third, when decl is a pointer, we need to do the same 
      for points-to sets.  */
   if (TREE_CODE (decl) == SSA_NAME
@@ -303,8 +305,10 @@ record_stack_var_partition_for (tree decl, tree part_decl)
         bitmap_ior_into (temp, SSA_NAME_PTR_INFO (part_decl)->pt.vars);
       bitmap_ior_into (temp, SSA_NAME_PTR_INFO (decl)->pt.vars);
     }
+#endif
 }
 
+#if 0
 /* Return the ptr-info-def structure for given expression.  */
 static struct ptr_info_def *
 get_exported_ptr_info (tree expr)
@@ -318,20 +322,17 @@ get_exported_ptr_info (tree expr)
     return *ppid;
   return NULL;
 }
+#endif
 
 /* Save the above solution.  */
 void
-record_escaped_solution (struct pt_solution *escaped)
+record_escaped_solution (void)
 {
-  gimple_df_escaped = *escaped;
-  if (escaped->vars)
+  /* We need to account for stack slot sharing also here.  */
+  if (decls_to_stack)
     {
-      gimple_df_escaped.vars = BITMAP_ALLOC (NULL);
-      bitmap_copy (gimple_df_escaped.vars, escaped->vars);
-
-      /* We need to account for stack slot sharing also here.  */
-      if (decls_to_stack)
-        add_partitioned_vars_to_ptset (gimple_df_escaped.vars);
+      add_partitioned_vars_to_ptset (&cfun->gimple_df->escaped);
+      add_partitioned_vars_to_ptset (&cfun->gimple_df->callused);
     }
 }
 
@@ -342,16 +343,12 @@ record_escaped_solution (struct pt_solution *escaped)
 bool
 alias_export_may_alias_p (const_rtx mem1, const_rtx mem2, tree ref1, tree ref2)
 {
-  struct ptr_info_def *pid1, *pid2;
-  
   if (! dbg_cnt (alias_export))
     return true;
   
   ref1 = rewrite_partitioned_mem_expr (mem1, ref1);
   ref2 = rewrite_partitioned_mem_expr (mem2, ref2);
-  pid1 = get_exported_ptr_info (ref1);
-  pid2 = get_exported_ptr_info (ref2);
-  if (! refs_may_alias_p_1 (ref1, ref2, pid1, pid2))
+  if (! refs_may_alias_p (ref1, ref2))
     {
       alias_export_disambiguations++;
       return false;
@@ -387,11 +384,6 @@ free_alias_export_info (void)
     {
       pointer_map_destroy (part_repr_to_part);
       part_repr_to_part = NULL;
-    }
-  if (gimple_df_escaped.vars)
-    {
-      BITMAP_FREE (gimple_df_escaped.vars);
-      memset (&gimple_df_escaped, 0, sizeof gimple_df_escaped);
     }
 }
 

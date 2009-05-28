@@ -20,10 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_ALIAS_EXPORT_H
 #define GCC_ALIAS_EXPORT_H
 
-#include "tree-ssa-alias.h"
-
 extern tree unshare_and_record_pta_info (tree);
-extern void record_escaped_solution (struct pt_solution *);
+extern void record_escaped_solution (void);
 extern void record_stack_var_partition_for (tree, tree);
 
 extern bool alias_export_may_alias_p (const_rtx, const_rtx, tree, tree);

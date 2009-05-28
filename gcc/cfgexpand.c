@@ -929,6 +929,7 @@ record_stack_var_partitions (void)
   for (i = 0; i < stack_vars_num; i++)
     record_stack_var_partition_for (stack_vars[i].decl, 
                                     stack_vars[stack_vars[i].representative].decl);
+  record_escaped_solution ();
 }
 
 

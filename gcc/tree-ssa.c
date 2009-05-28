@@ -824,40 +824,6 @@ delete_tree_ssa (void)
         release_ssa_name (var);
     }
 
-#if 0
-  /* FIXME.  This may not be necessary.  We will release all this
-     memory en masse in free_ssa_operands.  This clearing used to be
-     necessary to avoid problems with the inliner, but it may not be
-     needed anymore.  */
-  FOR_EACH_BB (bb)
-    {
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	{
-	  gimple stmt = gsi_stmt (gsi);
-
-	  if (gimple_has_ops (stmt))
-	    {
-	      gimple_set_def_ops (stmt, NULL);
-	      gimple_set_use_ops (stmt, NULL);
-	    }
-
-	  if (gimple_has_mem_ops (stmt))
-	    {
-	      gimple_set_vdef (stmt, NULL_TREE);
-	      gimple_set_vuse (stmt, NULL_TREE);
-	    }
-
-	  gimple_set_modified (stmt, true);
-	}
-      if (!(bb->flags & BB_RTL))
-	set_phi_nodes (bb, NULL);
-    }
-
-  /* We need to do this while referenced_vars are still accessible.  */
-  if (flag_alias_export)
-    record_escaped_solution (&cfun->gimple_df->escaped);
-#endif
-
   /* Remove annotations from every referenced local variable.  */
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
