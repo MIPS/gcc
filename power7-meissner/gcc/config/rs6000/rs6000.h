@@ -1346,14 +1346,14 @@ extern enum reg_class rs6000_vsx_reg_class;
  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  rs6000_preferred_reload_class (X, CLASS)
+  rs6000_preferred_reload_class_ptr (X, CLASS)
 
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
    NO_REGS is returned.  */
 
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  rs6000_secondary_reload_class (CLASS, MODE, IN)
+  rs6000_secondary_reload_class_ptr (CLASS, MODE, IN)
 
 /* If we are copying between FP or AltiVec registers and anything
    else, we need a memory location.  The exception is when we are
@@ -1361,7 +1361,7 @@ extern enum reg_class rs6000_vsx_reg_class;
    are available.*/
 
 #define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
-  rs6000_secondary_memory_needed (CLASS1, CLASS2, MODE)
+  rs6000_secondary_memory_needed_ptr (CLASS1, CLASS2, MODE)
 
 /* For cpus that cannot load/store SDmode values from the 64-bit
    FP registers without using a full 64-bit load/store, we need
@@ -1381,7 +1381,7 @@ extern enum reg_class rs6000_vsx_reg_class;
 /* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
-  rs6000_cannot_change_mode_class (FROM, TO, CLASS)
+  rs6000_cannot_change_mode_class_ptr (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 

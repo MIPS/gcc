@@ -64,14 +64,17 @@ extern int insvdi_rshift_rlwimi_p (rtx, rtx, rtx);
 extern int registers_ok_for_quad_peep (rtx, rtx);
 extern int mems_ok_for_quad_peep (rtx, rtx);
 extern bool gpr_or_gpr_p (rtx, rtx);
-extern enum reg_class rs6000_preferred_reload_class(rtx, enum reg_class);
-extern enum reg_class rs6000_secondary_reload_class (enum reg_class,
-						     enum machine_mode, rtx);
-extern bool rs6000_secondary_memory_needed (enum reg_class, enum reg_class,
-					    enum machine_mode);
-extern bool rs6000_cannot_change_mode_class (enum machine_mode,
-					     enum machine_mode,
-					     enum reg_class);
+extern enum reg_class (*rs6000_preferred_reload_class_ptr) (rtx,
+							    enum reg_class);
+extern enum reg_class (*rs6000_secondary_reload_class_ptr) (enum reg_class,
+							    enum machine_mode,
+							    rtx);
+extern bool (*rs6000_secondary_memory_needed_ptr) (enum reg_class,
+						   enum reg_class,
+						   enum machine_mode);
+extern bool (*rs6000_cannot_change_mode_class_ptr) (enum machine_mode,
+						    enum machine_mode,
+						    enum reg_class);
 extern void rs6000_secondary_reload_inner (rtx, rtx, rtx, bool);
 extern int paired_emit_vector_cond_expr (rtx, rtx, rtx,
                                          rtx, rtx, rtx);
