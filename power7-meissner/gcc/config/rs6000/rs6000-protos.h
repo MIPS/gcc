@@ -116,10 +116,10 @@ extern rtx create_TOC_reference (rtx);
 extern void rs6000_split_multireg_move (rtx, rtx);
 extern void rs6000_emit_move (rtx, rtx, enum machine_mode);
 extern rtx rs6000_secondary_memory_needed_rtx (enum machine_mode);
-extern rtx rs6000_legitimize_reload_address (rtx, enum machine_mode,
-					     int, int, int, int *);
+extern rtx (*rs6000_legitimize_reload_address_ptr) (rtx, enum machine_mode,
+						    int, int, int, int *);
 extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx, int);
-extern bool rs6000_mode_dependent_address (rtx);
+extern bool (*rs6000_mode_dependent_address_ptr) (rtx);
 extern rtx rs6000_find_base_term (rtx);
 extern bool rs6000_offsettable_memref_p (rtx);
 extern rtx rs6000_return_addr (int, rtx);

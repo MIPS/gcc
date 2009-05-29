@@ -1880,7 +1880,7 @@ typedef struct rs6000_args
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	     \
 do {									     \
   int win;								     \
-  (X) = rs6000_legitimize_reload_address ((X), (MODE), (OPNUM),		     \
+  (X) = rs6000_legitimize_reload_address_ptr ((X), (MODE), (OPNUM),	     \
 			(int)(TYPE), (IND_LEVELS), &win);		     \
   if ( win )								     \
     goto WIN;								     \
@@ -1891,7 +1891,7 @@ do {									     \
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)		\
 do {								\
-  if (rs6000_mode_dependent_address (ADDR))			\
+  if (rs6000_mode_dependent_address_ptr (ADDR))			\
     goto LABEL;							\
 } while (0)
 

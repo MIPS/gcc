@@ -1,3 +1,103 @@
+2009-05-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h
+	(rs6000_legitimize_reload_address): Delete, in favor of calling
+	function through a pointer.
+	(rs6000_mode_dependent_address): Ditto.
+	(rs6000_legitimize_reload_address_ptr): Pointer to function, so
+	that the -mdebug=address support is not done automatically, and
+	the code is closer to the original mainline code.
+	(rs6000_mode_dependent_address_ptr): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address_ptr):
+	New pointer for switching to the debug version if -mdebug=addr.
+	(rs6000_mode_dependent_address_ptr): Ditto.
+	(rs6000_legitimize_reload_address): Move debug stuff to separate
+	function.  Make static.  Make closer to the original mainline
+	code.
+	(rs6000_mode_dependent_address): Ditto.
+	(rs6000_debug_legitimize_reload_address): Move debug code here.
+	Print more information in the debug code.
+	(rs6000_mode_dependent_address): Ditto.
+	(rs6000_override_options): Override legitimize reload address and
+	mode dependent adress pointers if -mdebug=addr.
+	(reg_offset_addressing_ok_p): New function to return true if the
+	mode allows reg + integer addresses.
+	(rs6000_legitimate_offset_address_p): Move code to say whether a
+	mode supports reg+int addressing to reg_offset_addressing_ok_p and
+	call it.
+	(rs6000_legitimize_address): Test early whether a mode only
+	supports reg+reg addressing.  Handle reg+0 addressing which seems
+	to fall through.
+	(rs6000_legitimate_address_p): Add more checks for modes that only
+	can do reg+reg addressing.
+	(rs6000_emit_move): Deal with (const (plus (symbol_ref) (reg)))
+	addresses that are generated upstream, and convert them into
+	loading the SYMBOL_REF from the TOC, and adding the register.
+	(rs6000_secondary_memory_needed_rtx): Modify debug output to be
+	consistant where the newlines are put out.  Add more debug
+	output.
+	(rs6000_secondary_reload_inner): Ditto.
+	(rs6000_preferred_reload_class): Ditto.
+	(create_TOC_reference): Add -mdebug=addr output.
+	(output_toc): Add assert to make sure what we think is a CONST_INT
+	is indeed a CONST_INT.
+
+	* config/rs6000/rs6000.h (LEGITIMIZE_RELOAD_ADDRESS): Call
+	function through a pointer to add -mdebug=addr support.
+	(GO_IF_MODE_DEPENDENT_ADDRESS): Ditto.
+
+2009-05-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_preferred_reload_class):
+	Delete, in favor of calling function through a pointer.
+	(rs6000_secondary_memory_needed): Ditto.
+	(rs6000_preferred_reload_class): Ditto.
+	(rs6000_secondary_reload_class): Ditto.
+	(rs6000_cannot_change_mode_class): Ditto.
+	(rs6000_preferred_reload_class_ptr): Pointer to function, so that
+	the -mdebug=addr support is not done automatically, and the code
+	is closer to the original mainline code.
+	(rs6000_secondary_memory_needed_ptr): Ditto.
+	(rs6000_preferred_reload_class_ptr): Ditto.
+	(rs6000_secondary_reload_class_ptr): Ditto.
+	(rs6000_cannot_change_mode_class_ptr): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_preferred_reload_class):
+	Remove debug code, make code closer to mainline code.
+	(rs6000_secondary_memory_needed): Ditto.
+	(rs6000_preferred_reload_class): Ditto.
+	(rs6000_secondary_reload_class): Ditto.
+	(rs6000_cannot_change_mode_class): Ditto.
+	(rs6000_preferred_reload_class_ptr): Pointer to function, so that
+	the -mdebug=addr support is not done automatically, and the code
+	is closer to the original mainline code.
+	(rs6000_secondary_memory_needed_ptr): Ditto.
+	(rs6000_preferred_reload_class_ptr): Ditto.
+	(rs6000_secondary_reload_class_ptr): Ditto.
+	(rs6000_cannot_change_mode_class_ptr): Ditto.
+	(rs6000_debug_preferred_reload_class): New function to support
+	-mdebug=addr without cluttering up the normal function behavior.
+	(rs6000_debug_secondary_memory_needed): Ditto.
+	(rs6000_debug_preferred_reload_class): Ditto.
+	(rs6000_debug_secondary_reload_class): Ditto.
+	(rs6000_debug_cannot_change_mode_class): Ditto.
+	(rs6000_override_options): If -mdebug=addr, change to use the
+	debug varients of the code.
+	(rs6000_seconary_reload): Handle register class being NO_REGS.
+	Handle vector addresses that are just indirect through a pointer.
+	Add assert to make sure return type was set.  Add more debug
+	information.
+	(rs6000_secondary_reload_inner): Only do AND -16 if load type is
+	altivec, not VSX.
+	(rs6000_emit_move): Don't emit USE on toc constants.
+
+	* config/rs6000/rs6000.h (PREFERRED_RELOAD_CLASS): Call through
+	pointer to allow switching in case of -mdebug=addr.
+	(SECONDARY_RELOAD_CLASS): Ditto.
+	(SECONDARY_MEMORY_NEEDED): Ditto.
+	(CANNOT_CHANGE_MODE_CLASS): Ditto.
+
 2009-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR tree-optimization/40219
