@@ -2,7 +2,7 @@
    
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
-   Contributed by Denis Chertykov (denisc@overta.ru)
+   Contributed by Denis Chertykov (chertykov@gmail.com)
 
    This file is part of GCC.
 
@@ -61,7 +61,6 @@ extern void function_arg_advance (CUMULATIVE_ARGS *cum,
 
 #ifdef RTX_CODE
 extern void asm_output_external_libcall (FILE *file, rtx symref);
-extern int legitimate_address_p (enum machine_mode mode, rtx x,	int strict);
 extern int compare_diff_p (rtx insn);
 extern const char *output_movqi (rtx insn, rtx operands[], int *l);
 extern const char *output_movhi (rtx insn, rtx operands[], int *l);

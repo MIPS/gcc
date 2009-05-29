@@ -148,33 +148,6 @@ add_partitioned_vars_to_ptset (struct pt_solution *pi)
     }
 }
 
-#if 0
-/* Change points-to set for POINTER in PID so that it would
-   have all conflicting stack vars.  */
-static void
-mark_conflict_stack_vars (tree pointer, struct ptr_info_def *pid)
-{
-  tree *pdecl;
-  bitmap temp;
-
-  if (!decls_to_stack)
-    return;
-
-  /* If pointer points to one of partition vars, make it point to all 
-     of them.  */
-  if (pid->pt.vars)
-    add_partitioned_vars_to_ptset (pid->pt.vars);
-
-  /* If pointer got paritioned itself, make its points-to set a union
-     of all the partition vars' points-to sets.  */
-  if ((pdecl = (tree *) pointer_map_contains (decls_to_stack, pointer)))
-    {
-      temp = *((bitmap *) pointer_map_contains (part_repr_to_pta, *pdecl));
-      bitmap_ior_into (pid->pt.vars, temp);
-    }
-}
-#endif
-
 /* Record the final points-to set for EXPR and unshare it.  Returns 
    the unshared expression or NULL_TREE, if EXPR cannot be used for 
    alias/ddg export later.  */
@@ -292,37 +265,7 @@ record_stack_var_partition_for (tree decl, tree part_decl)
     bitmap_set_bit (temp, DECL_UID (part_decl));
   if (DECL_P (decl))
     bitmap_set_bit (temp, DECL_UID (decl));
-
-#if 0
-  /* Third, when decl is a pointer, we need to do the same 
-     for points-to sets.  */
-  if (TREE_CODE (decl) == SSA_NAME
-      && SSA_NAME_PTR_INFO (decl))
-    {
-      temp = map_decl_to_bitmap (&part_repr_to_pta, part_decl);
-      if (TREE_CODE (part_decl) == SSA_NAME
-          && SSA_NAME_PTR_INFO (part_decl))
-        bitmap_ior_into (temp, SSA_NAME_PTR_INFO (part_decl)->pt.vars);
-      bitmap_ior_into (temp, SSA_NAME_PTR_INFO (decl)->pt.vars);
-    }
-#endif
 }
-
-#if 0
-/* Return the ptr-info-def structure for given expression.  */
-static struct ptr_info_def *
-get_exported_ptr_info (tree expr)
-{
-  struct ptr_info_def **ppid;
-
-  if (! exprs_to_ptas)
-    return NULL;
-  ppid = (struct ptr_info_def **) pointer_map_contains (exprs_to_ptas, expr);
-  if (ppid)
-    return *ppid;
-  return NULL;
-}
-#endif
 
 /* Save the above solution.  */
 void

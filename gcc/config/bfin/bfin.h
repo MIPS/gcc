@@ -908,45 +908,12 @@ typedef struct {
 
 /*   A number, the maximum number of registers that can appear in a
      valid memory address.  Note that it is up to you to specify a
-     value equal to the maximum number that `GO_IF_LEGITIMATE_ADDRESS'
+     value equal to the maximum number that `TARGET_LEGITIMATE_ADDRESS_P'
      would ever accept. */
 #define MAX_REGS_PER_ADDRESS 1
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address. 
-
-   Blackfin addressing modes are as follows:
-
-      [preg]
-      [preg + imm16]
-
-      B [ Preg + uimm15 ]
-      W [ Preg + uimm16m2 ]
-      [ Preg + uimm17m4 ] 
-
-      [preg++]
-      [preg--]
-      [--sp]
-*/
-
 #define LEGITIMATE_MODE_FOR_AUTOINC_P(MODE) \
       (GET_MODE_SIZE (MODE) <= 4 || (MODE) == PDImode)
-
-#ifdef REG_OK_STRICT
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, WIN)		\
-  do {							\
-    if (bfin_legitimate_address_p (MODE, X, 1))		\
-      goto WIN;						\
-  } while (0);
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, WIN)		\
-  do {							\
-    if (bfin_legitimate_address_p (MODE, X, 0))		\
-      goto WIN;						\
-  } while (0);
-#endif
 
 #define HAVE_POST_INCREMENT 1
 #define HAVE_POST_DECREMENT 1

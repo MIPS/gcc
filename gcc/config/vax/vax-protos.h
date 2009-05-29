@@ -21,8 +21,6 @@ extern void override_options (void);
 
 extern bool legitimate_constant_address_p (rtx);
 extern bool legitimate_constant_p (rtx);
-extern bool legitimate_pic_operand_p (rtx);
-extern bool legitimate_address_p (enum machine_mode, rtx, bool);
 extern bool vax_mode_dependent_address_p (rtx);
 
 #ifdef RTX_CODE

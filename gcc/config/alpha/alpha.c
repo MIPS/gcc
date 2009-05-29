@@ -801,8 +801,8 @@ alpha_linkage_symbol_p (const char *symname)
    any of those forms can be surrounded with an AND that clear the
    low-order three bits; this is an "unaligned" access.  */
 
-bool
-alpha_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
+static bool
+alpha_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 {
   /* If this is an ldq_u type address, discard the outer AND.  */
   if (mode == DImode
@@ -5488,7 +5488,7 @@ alpha_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt,
 
 #ifdef ENABLE_EXECUTE_STACK
   emit_library_call (init_one_libfunc ("__enable_execute_stack"),
-		     0, VOIDmode, 1, tramp, Pmode);
+		     LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
 #endif
 
   if (jmpofs >= 0)
@@ -10838,6 +10838,9 @@ alpha_init_libfuncs (void)
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE alpha_mangle_type
 #endif
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P alpha_legitimate_address_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
