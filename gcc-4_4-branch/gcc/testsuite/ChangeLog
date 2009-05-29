@@ -1,3 +1,60 @@
+2009-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40291
+	* gcc.c-torture/compile/pr40291.c: New test.
+
+	PR target/40017
+	* gcc.target/powerpc/altivec-types-1.c: Don't expect error for
+	__vector _Bool.
+	* gcc.target/powerpc/altivec-30.c: New test.
+	* gcc.target/powerpc/altivec-31.c: New test.
+
+2009-05-27  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist15.C: New.
+	* g++.dg/cpp0x/initlist16.C: New.
+	* g++.dg/cpp0x/initlist17.C: New.
+
+2009-05-28  Kai Tietz  <kai.tietz@onevision.com>
+
+	*  g++.dg/ext/packed6.C (size_t): Use __extension__ and
+	__SIZE_TYPE__.
+	* g++.dg/opt/memcpy1.C (size_t): Likewise.
+	* g++.dg/pr37742.C (size_t): Likewise.
+	* g++.dg/torture/pr34850.C (size_t): Likewise.
+	* g++.dg/torture/20070621-1.C (ptrdiff_t): Use __extension__ and
+	_PTRDIFF_TYPE__.
+	* g++.dg/torture/pr34222.C (ptrdiff_t): Likewise.
+	* g++.dg/tree-ssa/pr22444.C (ptrdiff_t): Likewise.
+	(size_t): Use __extension__ and __SIZE_TYPE__.
+        * gcc.c-torture/compile/20000211-1.c (size_t): Typedef size_t via
+	__SIZE_TYPE__.
+        * gcc.c-torture/compile/20010328-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20030320-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20030405-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20030902-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20060202-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20080613-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/920428-2.c (size_t): Likewise,
+        * gcc.c-torture/compile/980329-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/980816-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr32584.c (size_t): Likewise,
+        * (__ssize_t): Likewise.
+        * gcc.c-torture/compile/pr33173.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr33382.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr34334.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr34688.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr35043.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr37669.c (size_t): Likewise,
+        * gcc.dg/20050629-1.c (size_t): Typedef size_t via __SIZE_TYPE__.
+        * gcc.dg/pr33667.c (size_t): Likewise.
+        * gcc.dg/prefetch-loop-arrays-1.c (size_t): Likewise.
+        * gcc.dg/torture/pr39204.c (size_t): Likewise.
+        * gcc.dg/tree-ssa/20041122-1.c (size_t): Likewise.
+        * gcc.dg/tree-ssa/pr36908.c (size_t): Likewise.
+        * gcc.dg/tree-ssa/pr38250.c (size_t): Likewise.
+        * gcc.dg/tree-ssa/ssa-dse-10.c (size_t): Likewise.
+
 2009-05-27  Kai TIetz  <kai.tietz@onevision.com>
 
 	* g++.old-deja/g++.brendan/array1.C (array): Use __SIZE_TYPE__
