@@ -806,6 +806,7 @@ static unsigned rs6000_hash_constant (rtx);
 static unsigned toc_hash_function (const void *);
 static int toc_hash_eq (const void *, const void *);
 static bool reg_offset_addressing_ok_p (enum machine_mode);
+static bool virtual_stack_registers_memory_p (rtx);
 static bool constant_pool_expr_p (rtx);
 static bool legitimate_small_data_p (enum machine_mode, rtx);
 static bool legitimate_lo_sum_address_p (enum machine_mode, rtx, int);
@@ -4384,6 +4385,26 @@ reg_offset_addressing_ok_p (enum machine_mode mode)
 }
 
 static bool
+virtual_stack_registers_memory_p (rtx op)
+{
+  int regnum;
+
+  if (GET_CODE (op) == REG)
+    regnum = REGNO (op);
+
+  else if (GET_CODE (op) == PLUS
+	   && GET_CODE (XEXP (op, 0)) == REG
+	   && GET_CODE (XEXP (op, 1)) == CONST_INT)
+    regnum = REGNO (XEXP (op, 0));
+
+  else
+    return false;
+
+  return (regnum >= FIRST_VIRTUAL_REGISTER
+	  && regnum <= LAST_VIRTUAL_REGISTER);
+}
+
+static bool
 constant_pool_expr_p (rtx op)
 {
   rtx base, offset;
@@ -4441,12 +4462,10 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
     return false;
   if (!reg_offset_addressing_ok_p (mode))
-    return false;
+    return virtual_stack_registers_memory_p (x);
   if (legitimate_constant_pool_address_p (x))
     return true;
   if (GET_CODE (XEXP (x, 1)) != CONST_INT)
-    return false;
-  if (!reg_offset_addressing_ok_p (mode))
     return false;
 
   offset = INTVAL (XEXP (x, 1));
@@ -4631,6 +4650,9 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 {
   if (!reg_offset_addressing_ok_p (mode))
     {
+      if (virtual_stack_registers_memory_p (x))
+	return x;
+
       /* In theory we should not be seeing addresses of the form reg+0,
 	 but just in case it is generated, optimize it away.  */
       if (GET_CODE (x) == PLUS && XEXP (x, 1) == const0_rtx)
@@ -5335,6 +5357,8 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
 	   && (mode == DFmode || mode == DDmode || mode == DImode))
       && TARGET_UPDATE
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict))
+    return 1;
+  if (virtual_stack_registers_memory_p (x))
     return 1;
   if (reg_offset_p && legitimate_small_data_p (mode, x))
     return 1;

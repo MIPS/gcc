@@ -1,3 +1,15 @@
+2009-05-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (virtual_stack_registers_memory_p): New
+	function, return true if this is memory pointed to by the virtual
+	stack registers before the stack has been instantiated.
+	(rs6000_legitimate_offset_address_p): If a mode doesn't allow
+	reg+offset addressing, still allow references to the virtual stack
+	pointers, which will be fixed up later.
+	(rs6000_legitimate_offset_address_p): Ditto.
+	(rs6000_legitimize_address): Ditto.
+	(rs6000_legitimate_address_p): Ditto.
+
 2009-05-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h
