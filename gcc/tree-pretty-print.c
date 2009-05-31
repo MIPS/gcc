@@ -1054,7 +1054,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case COMPONENT_REF:
       op0 = TREE_OPERAND (node, 0);
       str = ".";
-      if (TREE_CODE (op0) == INDIRECT_REF)
+      if (op0 && TREE_CODE (op0) == INDIRECT_REF)
 	{
 	  op0 = TREE_OPERAND (op0, 0);
 	  str = "->";

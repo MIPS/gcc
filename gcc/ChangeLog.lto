@@ -1,3 +1,8 @@
+2009-05-31  Diego Novillo  <dnovillo@google.com>
+
+	* tree-pretty-print.c (dump_generic_node): Protect
+	against NULL op0.
+
 2009-05-27  Diego Novillo  <dnovillo@google.com>
 
 	* tree-ssa-live.c (dump_scope_block): Document arguments.
