@@ -1,5 +1,10 @@
 2009-05-31  Diego Novillo  <dnovillo@google.com>
 
+	* lto-section-out.c (preload_common_node): Call
+	preload_common node on fields of structures.
+
+2009-05-31  Diego Novillo  <dnovillo@google.com>
+
 	* tree.h (set_builtin_user_assembler_name): Move from ...
 	* c-common.h (set_builtin_user_assembler_name): ... here.
 	* builtins.c (set_builtin_user_assembler_name): Move from ...

@@ -936,6 +936,19 @@ preload_common_node (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
 #endif
 
  get_ref_idx_for (t, h, v, ref_p);
+
+ /* The FIELD_DECLs of structures should be shared, so that every
+    COMPONENT_REF uses the same tree node when referencing a field.
+    Pointer equality between FIELD_DECLs is used by the alias
+    machinery to compute overlapping memory references (See
+    nonoverlapping_component_refs_p).  */
+ if (TREE_CODE (t) == RECORD_TYPE)
+   {
+     tree f;
+
+     for (f = TYPE_FIELDS (t); f; f = TREE_CHAIN (f))
+       preload_common_node (f, h, v, ref_p);
+   }
 }
 
 
