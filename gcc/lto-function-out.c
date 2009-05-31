@@ -2745,6 +2745,20 @@ output_function_decl (struct output_block *ob, tree decl)
       output_global_record_start (ob, NULL, NULL, LTO_function_decl1);
       output_uleb128 (ob, DECL_BUILT_IN_CLASS (decl));
       output_uleb128 (ob, DECL_FUNCTION_CODE (decl));
+      if (DECL_ASSEMBLER_NAME_SET_P (decl))
+	{
+	  /* When the assembler name of a builtin gets a user name,
+	     the new name is always prefixed with '*' by
+	     set_builtin_user_assembler_name.  So, to prevent the
+	     reader side from adding a second '*', we omit it here.  */
+	  char *str = (char *) IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+	  if (strlen (str) > 1 && str[0] == '*')
+	    output_string (ob, ob->main_stream, &str[1]);
+	  else
+	    output_string (ob, ob->main_stream, NULL);
+	}
+      else
+	output_string (ob, ob->main_stream, NULL);
       LTO_DEBUG_TOKEN ("end_function_decl");
       return;
     }

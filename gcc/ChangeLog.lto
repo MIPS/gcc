@@ -1,5 +1,16 @@
 2009-05-31  Diego Novillo  <dnovillo@google.com>
 
+	* tree.h (set_builtin_user_assembler_name): Move from ...
+	* c-common.h (set_builtin_user_assembler_name): ... here.
+	* builtins.c (set_builtin_user_assembler_name): Move from ...
+	* c-common.c (set_builtin_user_assembler_name): ... here.
+	* lto-function-out.c (output_function_decl): Preserve
+	user-set assembler names for builtins.
+	* lto-function-in.c (input_function_decl): Call
+	set_builtin_user_assembler_name if needed.
+
+2009-05-31  Diego Novillo  <dnovillo@google.com>
+
 	* tree-pretty-print.c (dump_generic_node): Protect
 	against NULL op0.
 

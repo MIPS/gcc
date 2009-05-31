@@ -2719,6 +2719,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in,
 	 the code and class.  */
       enum built_in_class fclass;
       enum built_in_function fcode;
+      const char *asmname;
 
       fclass = (enum built_in_class) lto_input_uleb128 (ib);
       gcc_assert (fclass == BUILT_IN_NORMAL || fclass == BUILT_IN_MD);
@@ -2728,6 +2729,10 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in,
 
       decl = built_in_decls[(size_t) fcode];
       gcc_assert (decl);
+
+      asmname = input_string (data_in, ib);
+      if (asmname)
+	set_builtin_user_assembler_name (decl, asmname);
 
       global_vector_enter (data_in, decl);
 
