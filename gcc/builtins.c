@@ -4189,7 +4189,7 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
 
     arg1_rtx = get_memory_rtx (arg1, len);
     arg2_rtx = get_memory_rtx (arg2, len);
-    arg3_rtx = expand_normal (len);
+    arg3_rtx = expand_normal (fold_convert (sizetype, len));
 
     /* Set MEM_SIZE as appropriate.  */
     if (GET_CODE (arg3_rtx) == CONST_INT)
@@ -11220,7 +11220,7 @@ validate_arg (const_tree arg, enum tree_code code)
 bool
 validate_gimple_arglist (const_gimple call, ...)
 {
-  int code;
+  enum tree_code code;
   bool res = 0;
   va_list ap;
   const_tree arg;
@@ -11231,8 +11231,8 @@ validate_gimple_arglist (const_gimple call, ...)
 
   do
     {
-      code = va_arg (ap, int);
-      switch ((enum tree_code) code)
+      code = (enum tree_code) va_arg (ap, int);
+      switch (code)
 	{
 	case 0:
 	  /* This signifies an ellipses, any further arguments are all ok.  */
@@ -11248,7 +11248,7 @@ validate_gimple_arglist (const_gimple call, ...)
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
 	  arg = gimple_call_arg (call, i++);
-	  if (!validate_arg (arg, (enum tree_code) code))
+	  if (!validate_arg (arg, code))
 	    goto end;
 	  break;
 	}
