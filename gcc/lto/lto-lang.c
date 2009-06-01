@@ -686,6 +686,10 @@ lto_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       result = 1;
       break;
 
+    case OPT_Wabi:
+      warn_psabi = value;
+      break;
+
     default:
       break;
     }

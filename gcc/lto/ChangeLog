@@ -1,3 +1,7 @@
+2009-06-01  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c (lto_handle_option): Hanlde OPT_Wabi.
+
 2009-05-31  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c (lto_type_for_mode): Handle all the modes

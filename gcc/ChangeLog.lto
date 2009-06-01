@@ -1,5 +1,10 @@
 2009-06-01  Diego Novillo  <dnovillo@google.com>
 
+	* c.opt (Wabi): Add LTO.
+	(Wpsabi): Add LTO.
+
+2009-06-01  Diego Novillo  <dnovillo@google.com>
+
 	* lto-function-out.c (output_function_decl): Fix type of STR.
 
 2009-05-31  Diego Novillo  <dnovillo@google.com>
