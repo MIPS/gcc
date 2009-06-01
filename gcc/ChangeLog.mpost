@@ -1,0 +1,59 @@
+2009-06-01  Grigori Fursin  <grigori.fursin@inria.fr>
+	    Cupertino Miranda  <cupertinomiranda@gmail.com>
+            Zbigniew Chamski  <zbigniew.chamski@gmail.com>
+
+	* events.c: New file, support for ICI.
+	* feature.c: New file, support for ICI.
+	* feature.h: New file, support for ICI.
+	* feature-internal.h: New file, support for ICI.
+	* feature-list.c:New file, support for ICI.
+	* highlev-plugin.h: New file, support for ICI.
+	* highlev-plugin-internal.h: New file, support for ICI.
+	* ici-legacy.h: New file, support for ICI.
+	* ic-interface.h: New file, support for ICI.
+	* pass-manager.c: New file, support for ICI.
+	* pass-manager.h: New file, support for ICI.
+	* plugin-loader.c: New file, support for ICI.
+	* cgraphbuild.c (pass_build_cgraph_edges): Set the pass name. 
+	* tree-pass.h: Add ml_feat pass.
+	* final.c (pass_final): Set the pass name.
+	* params.c (num_compiler_params): Declared as extern instead of static.
+	* params.h (num_compiler_params): Declared as extern.
+	* toplev.c: Support for ICI.
+	* df-core.c (pass_dfinit_no_opt): Set the pass name.
+	* tree-ssa-alias.c (pass_reset_cc_flags): Set the pass name.
+	* ipa-inline.c (pass_inline_parameters): Set the pass name.
+	* tree-ssa-loop.c (pass_record_bounds): Set the pass name.
+	* predict.c (pass_strip_predict_hints): Set the pass name.
+	* tree-eh.c (pass_lower_eh): Change the pass name.
+	* fortran/Make-lang.in: Support for ICI.
+	* function.c (pass_init_function): Set the pass name.
+	(pass_leaf_regs): Set the pass name.
+	* loop-unroll.c (unroll_and_peel_loops): Support for ICI. 
+	* tree-dfa.c (pass_referenced_vars): Set the pass name.
+        (pass_rtl_eh): Change the pass name.
+	* except (cset_nothrow_function_flags): Set the pass name.
+	* common.opt: Support for ICI.
+	* tree-ssa.c (pass_early_warn_uninitialized): Change the pass name. 
+	(pass_late_warn_uninitialized): Set the pass name.
+	* tree-optimize.c: Support for ICI.
+	(pass_all_optimizations): Set the pass name.
+	(pass_free_datastructures): Set the pass name.
+	(pass_free_cfg_annotations): Set the pass name.
+	(pass_init_datastructures): Set the pass name.
+	* stack-ptr-mod.c (pass_stack_ptr_mod): Set the pass name.	
+	* reg-stack.c (pass_stack_regs): Set the pass name.
+	* Makefile.in: Support for ICI.
+	* tree-cfg.c (pass_warn_function_return): Set the pass name.
+        (pass_warn_function_noreturn): Set the pass name.
+	* passes.c: Support for ICI.
+	* cfgrtl.c (pass_free_cfg): 
+	* dce.c (pass_ud_rtl_dce): Set the pass name.
+	(pass_fast_rtl_dce): Change of pass name. 
+
+	
+2009-06-01  Mircea Namolaru  <namolaru@il.ibm.com>  
+	    Sergei Dyshel <sergeid@il.ibm.com>
+
+	* ml-feat.c: New file, support for feature extraction.
+	
