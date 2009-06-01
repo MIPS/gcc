@@ -1,0 +1,6 @@
+2009-06-01  Grigori Fursin  <grigori.fursin@inria.fr>
+	    Cupertino Miranda  <cupertinomiranda@gmail.com>
+            Zbigniew Chamski  <zbigniew.chamski@gmail.com>
+
+	* configure: Support for ICI
+	* configure.ac: Support for ICI.
