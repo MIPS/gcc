@@ -202,7 +202,7 @@ struct gimple_opt_pass pass_build_cgraph_edges =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "build_cgraph_edges",			/* name */
   NULL,					/* gate */
   build_cgraph_edges,			/* execute */
   NULL,					/* sub */
@@ -263,7 +263,7 @@ struct gimple_opt_pass pass_rebuild_cgraph_edges =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "rebuild_cgraph_edges",		/* name */
   NULL,					/* gate */
   rebuild_cgraph_edges,			/* execute */
   NULL,					/* sub */

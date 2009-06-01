@@ -1912,7 +1912,7 @@ struct gimple_opt_pass pass_lower_eh =
 {
  {
   GIMPLE_PASS,
-  "eh",					/* name */
+  "lower_eh",				/* name */
   NULL,					/* gate */
   lower_eh_constructs,			/* execute */
   NULL,					/* sub */

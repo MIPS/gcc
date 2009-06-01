@@ -573,6 +573,10 @@ fguess-branch-probability
 Common Report Var(flag_guess_branch_prob) Optimization
 Enable guessing of branch probabilities
 
+fici
+Common Report Var(flag_ici) 
+Enables Interactive Compilation Interface
+
 ; Nonzero means ignore `#ident' directives.  0 means handle them.
 ; Generate position-independent code for executables if possible
 ; On SVR4 targets, it also controls whether or not to emit a

@@ -2218,7 +2218,7 @@ struct gimple_opt_pass pass_strip_predict_hints =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "strip_predict_hints",		/* name */
   NULL,					/* gate */
   strip_predict_hints,			/* execute */
   NULL,					/* sub */

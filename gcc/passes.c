@@ -102,9 +102,24 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+#include "highlev-plugin-internal.h"
+#include "pass-manager.h"
+
 /* This is used for debugging.  It allows the current pass to printed
    from anywhere in compilation.  */
 struct opt_pass *current_pass;
+
+
+/* Return current pass name if known, and NULL otherwise */
+const char *
+get_current_pass_name (void)
+{
+  if (current_pass)
+    return current_pass->name;	/* can be NULL if name is not set */
+  else
+    return NULL;
+}
+
 
 /* Call from anywhere to find out what pass this is.  Useful for
    printing out debugging information deep inside an service
@@ -288,7 +303,7 @@ struct gimple_opt_pass pass_rest_of_compilation =
 {
  {
   GIMPLE_PASS,
-  NULL,                                 /* name */
+  "pass_rest_of_compilation",           /* name */
   gate_rest_of_compilation,             /* gate */
   NULL,                                 /* execute */
   NULL,                                 /* sub */
@@ -313,7 +328,7 @@ struct rtl_opt_pass pass_postreload =
 {
  {
   RTL_PASS,
-  NULL,                                 /* name */
+  "pass_postreload",                    /* name */
   gate_postreload,                      /* gate */
   NULL,                                 /* execute */
   NULL,                                 /* sub */
@@ -472,6 +487,9 @@ next_pass_1 (struct opt_pass **list, struct opt_pass *pass)
       pass->todo_flags_start |= TODO_mark_first_instance;
       pass->static_pass_number = -1;
       *list = pass;
+
+      /* Inserts pass in ICI pass list.  */
+      register_pass (pass);
     }  
   
   return &(*list)->next;
@@ -1213,11 +1231,14 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   current_pass = NULL;
 }
 
-static bool
+bool
 execute_one_pass (struct opt_pass *pass)
 {
   bool initializing_dump;
   unsigned int todo_after = 0;
+
+  /* ICI: FGG: Important to make gate_status static to pass reference to ICI */
+  static bool gate_status;
 
   /* IPA passes are executed on whole program, so cfun should be NULL.
      Other passes need function context set.  */
@@ -1243,9 +1264,23 @@ execute_one_pass (struct opt_pass *pass)
 
   current_pass = pass;
 
-  /* See if we're supposed to run this pass.  */
-  if (pass->gate && !pass->gate ())
+  /* Check whether gate check should be avoided.  
+     User controls the value of the gate through the parameter "gate_status". */
+  gate_status = (pass->gate == NULL) ? true : pass->gate();
+
+  register_event_parameter("gate_status", &gate_status);
+  call_plugin_event("avoid_gate");
+  unregister_event_parameter("gate_status");
+
+  if (!gate_status) {
+    current_pass = NULL;
     return false;
+  }
+
+  /* Pass execution event trigger: useful to identify passes being
+     executed. Pass name is accessible as a feature (it is a constant object
+     in GCC.) */
+  call_plugin_event("pass_execution");
 
   if (!quiet_flag && !cfun)
     fprintf (stderr, " <%s>", pass->name ? pass->name : "");

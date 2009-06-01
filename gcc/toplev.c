@@ -102,6 +102,8 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+#include "highlev-plugin-internal.h"
+
 static void general_init (const char *);
 static void do_compile (void);
 static void process_options (void);
@@ -2218,11 +2220,21 @@ toplev_main (unsigned int argc, const char **argv)
      enough to default flags appropriately.  */
   decode_options (argc, argv);
 
+  /* Loads ICI plugin */
+  load_ici_plugin ();
+
+  /* Initialize additional passes (such as, for example, ml-feat:
+     A Static Program Features Extractor for MILEPOST GCC). */
+  register_pass (&pass_ml_feat);
+
   init_local_tick ();
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
     do_compile ();
+
+  /* Unloads ICI plugin */
+  unload_ici_plugin ();
 
   if (warningcount || errorcount) 
     print_ignored_options ();

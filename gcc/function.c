@@ -4217,7 +4217,7 @@ struct rtl_opt_pass pass_init_function =
 {
  {
   RTL_PASS,
-  NULL,                                 /* name */
+  "init_function",                      /* name */
   NULL,                                 /* gate */   
   init_function_for_compilation,        /* execute */       
   NULL,                                 /* sub */
@@ -5391,7 +5391,7 @@ struct rtl_opt_pass pass_leaf_regs =
 {
  {
   RTL_PASS,
-  NULL,                                 /* name */
+  "leaf_regs",                          /* name */
   NULL,                                 /* gate */
   rest_of_handle_check_leaf_regs,       /* execute */
   NULL,                                 /* sub */

@@ -2812,7 +2812,7 @@ struct rtl_opt_pass pass_set_nothrow_function_flags =
 {
  {
   RTL_PASS,
-  NULL,                                 /* name */
+  "set_nothrow_function_flags",         /* name */
   NULL,                                 /* gate */
   set_nothrow_function_flags,           /* execute */
   NULL,                                 /* sub */
@@ -3959,7 +3959,7 @@ struct rtl_opt_pass pass_rtl_eh =
 {
  {
   RTL_PASS,
-  "eh",                                 /* name */
+  "rtl_eh",                                 /* name */
   gate_handle_eh,                       /* gate */
   rest_of_handle_eh,			/* execute */
   NULL,                                 /* sub */

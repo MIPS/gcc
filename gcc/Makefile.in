@@ -297,6 +297,9 @@ DECNUMFMT = $(srcdir)/../libdecnumber/$(enable_decimal_float)
 DECNUMINC = -I$(DECNUM) -I$(DECNUMFMT) -I../libdecnumber
 LIBDECNUMBER = ../libdecnumber/libdecnumber.a
 
+# Where to find DynLibrary loader and how to export internal symbols to DLs
+LIBDL = -ldl -rdynamic
+
 # Substitution type for target's getgroups 2nd arg.
 TARGET_GETGROUPS_T = @TARGET_GETGROUPS_T@
 
@@ -914,7 +917,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 # How to link with both our special library facilities
 # and the system's installed libraries.
 LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER)
-BACKENDLIBS = $(CLOOGLIBS) $(PPLLIBS) $(GMPLIBS)
+BACKENDLIBS = $(CLOOGLIBS) $(PPLLIBS) $(GMPLIBS) $(LIBDL)
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
 
@@ -1097,10 +1100,13 @@ OBJS-common = \
 	ebitmap.o \
 	emit-rtl.o \
 	et-forest.o \
+	events.o \
 	except.o \
 	explow.o \
 	expmed.o \
 	expr.o \
+	feature.o \
+	feature-list.o \
 	final.o \
 	fixed-value.o \
 	fold-const.o \
@@ -1146,6 +1152,7 @@ OBJS-common = \
 	loop-unswitch.o \
 	lower-subreg.o \
 	mcf.o \
+	ml-feat.o \
 	mode-switching.o \
 	modulo-sched.o \
 	omega.o \
@@ -1155,7 +1162,9 @@ OBJS-common = \
 	opts-common.o \
 	opts.o \
 	params.o \
+	pass-manager.o \
 	passes.o \
+	plugin-loader.o \
 	pointer-set.o \
 	postreload-gcse.o \
 	postreload.o \
@@ -2445,10 +2454,28 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    value-prof.h $(PARAMS_H) $(TM_P_H) reload.h ira.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(CFGLOOP_H) hosthooks.h \
    $(CGRAPH_H) $(COVERAGE_H) alloc-pool.h $(GGC_H) $(INTEGRATE_H) \
-   opts.h params.def tree-mudflap.h $(REAL_H) tree-pass.h $(GIMPLE_H)
+   opts.h params.def tree-mudflap.h $(REAL_H) tree-pass.h $(GIMPLE_H) \
+	highlev-plugin-internal.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
+
+pass-manager.o : pass-manager.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TOPLEV_H) \
+   $(HASHTAB_H) tree-pass.h highlev-plugin-internal.h feature-internal.h \
+   pass-manager.h
+
+events.o : events.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
+   $(TOPLEV_H) errors.h highlev-plugin-internal.h
+
+feature.o : feature.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
+   $(TOPLEV_H) feature-internal.h
+
+feature-list.o : feature-list.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TREE_H) $(INPUT_H) $(BASIC_BLOCK_H) $(TREE_INLINE_H) $(TREE_FLOW_H) \
+   tree-pass.h version.h opts.h params.h function.h feature-internal.h
+
+plugin-loader.o : plugin-loader.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
+   $(TOPLEV_H) $(GCC_H) options.h highlev-plugin-internal.h feature-internal.h
 
 passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(FUNCTION_H) $(FLAGS_H) xcoffout.h $(INPUT_H) $(INSN_ATTR_H) output.h \
@@ -2459,7 +2486,7 @@ passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(REAL_H) $(CFGLOOP_H) \
    hosthooks.h $(CGRAPH_H) $(COVERAGE_H) tree-pass.h $(TREE_DUMP_H) \
    $(GGC_H) $(INTEGRATE_H) $(CPPLIB_H) opts.h $(TREE_FLOW_H) $(TREE_INLINE_H) \
-   gt-passes.h $(DF_H) $(PREDICT_H)
+   gt-passes.h $(DF_H) $(PREDICT_H) highlev-plugin-internal.h pass-manager.h
 
 main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TOPLEV_H)
 
@@ -2825,6 +2852,10 @@ loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(CFGLAYOUT_H) $(PARAMS_H) \
    output.h $(EXPR_H) coretypes.h $(TM_H) $(OBSTACK_H)
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
+   $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(CFGLAYOUT_H) $(PARAMS_H) \
+   output.h $(EXPR_H) coretypes.h $(TM_H) $(HASHTAB_H) $(RECOG_H) \
+   $(OBSTACK_H)
+ml-feat.o: ml-feat.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(CFGLAYOUT_H) $(PARAMS_H) \
    output.h $(EXPR_H) coretypes.h $(TM_H) $(HASHTAB_H) $(RECOG_H) \
    $(OBSTACK_H)

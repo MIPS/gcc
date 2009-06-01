@@ -32,8 +32,8 @@ along with GCC; see the file COPYING3.  If not see
 param_info *compiler_params;
 
 /* The number of entries in the table.  */
-
-static size_t num_compiler_params;
+/* Changed for FICI0: access to list of compiler parameters */
+size_t num_compiler_params;
 
 /* Add the N PARAMS to the current list of compiler parameters.  */
 

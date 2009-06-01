@@ -431,7 +431,7 @@ struct rtl_opt_pass pass_free_cfg =
 {
  {
   RTL_PASS,
-  NULL,                                 /* name */
+  "free_cfg",                           /* name */
   NULL,                                 /* gate */
   free_bb_for_insn,                     /* execute */
   NULL,                                 /* sub */

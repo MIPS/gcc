@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "except.h"
 
+#include "highlev-plugin-internal.h"
 
 /* Gate: execute, or not, all of the non-trivial optimizations.  */
 
@@ -66,7 +67,7 @@ struct gimple_opt_pass pass_all_optimizations =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "all_optimizations",			/* name */
   gate_all_optimizations,		/* gate */
   NULL,					/* execute */
   NULL,					/* sub */
@@ -235,9 +236,9 @@ struct gimple_opt_pass pass_free_datastructures =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "free_datastructures",		/* name */
   NULL,					/* gate */
-  execute_free_datastructures,			/* execute */
+  execute_free_datastructures,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -264,7 +265,7 @@ struct gimple_opt_pass pass_free_cfg_annotations =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "free_cfg_annotations",		/* name */
   NULL,					/* gate */
   execute_free_cfg_annotations,		/* execute */
   NULL,					/* sub */
@@ -348,7 +349,7 @@ struct gimple_opt_pass pass_init_datastructures =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "init_datastructures",		/* name */
   NULL,					/* gate */
   execute_init_datastructures,		/* execute */
   NULL,					/* sub */
@@ -391,6 +392,8 @@ tree_rest_of_compilation (tree fndecl)
 {
   location_t saved_loc;
   struct cgraph_node *node;
+  static int ici_all_passes = 0;	/* must be forced into memory for
+					   address-of to be meaningful */
 
   timevar_push (TV_EXPAND);
 
@@ -417,8 +420,21 @@ tree_rest_of_compilation (tree fndecl)
 
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
   /* Perform all tree transforms and optimizations.  */
-  execute_pass_list (all_passes);
+
+  /* ICI Event: Substitution of pass manager.
+   * ICI Parameter <all_passes> : set to identify when inside this
+   * region. It is useful when implementing <pass_execution> event 
+   * but still identify the passes from all_passes.  */
+  ici_all_passes = 1;
+  register_event_parameter ("all_passes", &ici_all_passes);
+
+  /* try calling the event - if not successful, fall back on the default
+     pass ordering */
+  if (call_plugin_event ("all_passes_manager") != PLUGEVT_SUCCESS)
+    execute_pass_list (all_passes);
   
+  unregister_event_parameter ("all_passes");
+
   bitmap_obstack_release (&reg_obstack);
 
   /* Release the default bitmap obstack.  */

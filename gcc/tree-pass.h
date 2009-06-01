@@ -389,6 +389,9 @@ extern struct gimple_opt_pass pass_rebuild_cgraph_edges;
 extern struct gimple_opt_pass pass_build_cgraph_edges;
 extern struct gimple_opt_pass pass_reset_cc_flags;
 
+/* Initialize additional passes (such as ml-feat: Static Program Features Extractor for MILEPOST GCC for example) */
+extern struct gimple_opt_pass pass_ml_feat;
+
 /* IPA Passes */
 extern struct ipa_opt_pass pass_ipa_inline;
 extern struct ipa_opt_pass pass_ipa_cp;
@@ -519,8 +522,10 @@ extern struct opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;
 extern struct opt_pass *current_pass;
 
 extern struct opt_pass * get_pass_for_id (int);
+extern bool execute_one_pass (struct opt_pass *);
 extern void execute_pass_list (struct opt_pass *);
 extern void execute_ipa_pass_list (struct opt_pass *);
+extern const char *get_current_pass_name (void);
 extern void print_current_pass (FILE *);
 extern void debug_pass (void);
 

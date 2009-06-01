@@ -1637,7 +1637,7 @@ struct gimple_opt_pass pass_inline_parameters =
 {
  {
   GIMPLE_PASS,
-  NULL,	 				/* name */
+  "inline_parameters",			/* name */
   NULL,					/* gate */
   compute_inline_parameters_for_current,/* execute */
   NULL,					/* sub */

@@ -1638,7 +1638,7 @@ struct gimple_opt_pass pass_early_warn_uninitialized =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "early_warn_uninitialized",		/* name */
   gate_warn_uninitialized,		/* gate */
   execute_early_warn_uninitialized,	/* execute */
   NULL,					/* sub */
@@ -1657,7 +1657,7 @@ struct gimple_opt_pass pass_late_warn_uninitialized =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "late_warn_uninitialized",		/* name */
   gate_warn_uninitialized,		/* gate */
   execute_late_warn_uninitialized,	/* execute */
   NULL,					/* sub */

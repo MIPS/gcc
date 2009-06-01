@@ -3761,9 +3761,9 @@ struct gimple_opt_pass pass_reset_cc_flags =
 {
  {
   GIMPLE_PASS,
-  NULL,		 /* name */
-  NULL,  	 /* gate */
-  reset_cc_flags, /* execute */
+  "reset_cc_flags",      /* name */
+  NULL,  	         /* gate */
+  reset_cc_flags,        /* execute */
   NULL,			 /* sub */
   NULL,			 /* next */
   0,			 /* static_pass_number */
