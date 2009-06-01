@@ -846,6 +846,7 @@
 {						\
   TARGET_NAME,					\
   TARGET_NUM,					\
+  &ptr_mode,					\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\

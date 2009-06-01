@@ -72,7 +72,7 @@ enum verbosity_levels {
   REPORT_DR_DETAILS,
   REPORT_BAD_FORM_LOOPS,
   REPORT_OUTER_LOOPS,
-  REPORT_SLP,
+  REPORT_SLP, /* report Superword Level Parallelism analysis details.  */
   REPORT_DETAILS,
   /* New verbosity levels should be added before this one.  */
   MAX_VERBOSITY_LEVEL
@@ -186,9 +186,6 @@ typedef struct _loop_vec_info {
   
   /* Is the loop vectorizable? */
   bool vectorizable;
-
-  /* For what target is this loop to be vectorized?  targetm_array index.  */
-  unsigned int target_arch : 8;
 
   /* Unrolling factor  */
   int vectorization_factor;

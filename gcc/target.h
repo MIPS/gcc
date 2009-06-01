@@ -702,6 +702,9 @@ struct gcc_target
      Initialized with the Makefile-generated TARGET_NUM.  */
   int target_arch;
 
+  /* Points to the ptr_mode variable for this target.  */
+  enum machine_mode *ptr_mode;
+
   /* Functions that output assembler for the target.  */
   struct asm_out asm_out;
 

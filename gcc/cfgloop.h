@@ -152,6 +152,8 @@ struct loop GTY ((chain_next ("%h.next")))
 
   bool any_upper_bound;
   bool any_estimate;
+  /* For what target is this loop to be vectorized?  targetm_array index.  */
+  unsigned target_arch : 8;
 
   /* An integer estimation of the number of iterations.  Estimate_state
      describes what is the state of the estimation.  */

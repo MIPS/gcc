@@ -2772,7 +2772,10 @@ vectorize_loops (void)
 	    loop_vinfo = vect_analyze_loop (loop);
 	    if (!loop_vinfo)
 	      continue;
-	    if (LOOP_VINFO_VECT_FACTOR (loop_vinfo) > best_factor)
+	    /* FIXME: insert some machine learning heuristic here to
+	       better compare the targets.  */
+	    if (LOOP_VINFO_VECTORIZABLE_P (loop_vinfo)
+		&& LOOP_VINFO_VECT_FACTOR (loop_vinfo) > best_factor)
 	      {
 		best_arch = target_arch;
 		best_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
@@ -2781,21 +2784,33 @@ vectorize_loops (void)
 	if (best_arch >= 0 && target_arch != best_arch)
 	  {
 	    if (loop_vinfo)
-	      destroy_loop_vec_info (loop_vinfo, true);
-	    targetm_pnt = targetm_array[best_arch];
-	    loop_vinfo = vect_analyze_loop (loop);
-	    target_arch = best_arch;
+	      {
+		destroy_loop_vec_info (loop_vinfo, true);
+		loop_vinfo = 0;
+	      }
+	    if (best_arch == (int) cfun->target_arch)
+	      {
+		targetm_pnt = targetm_array[best_arch];
+		loop_vinfo = vect_analyze_loop (loop);
+		target_arch = best_arch;
+	      }
 	  }
-	targetm_pnt = &this_targetm;
+	targetm_pnt = targetm_array[cfun->target_arch];
 	loop->aux = loop_vinfo;
 
-	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
+	if (best_arch < 0)
 	  continue;
 
-	loop_vinfo->target_arch = target_arch;
-	targetm_pnt = targetm_array[target_arch];
+	if (best_arch != (int) cfun->target_arch)
+	  {
+	    /* This loop should be vectorized for another target.  Since we
+	       might to have more than one thread on this other target, but
+	       do the reduction on the main processor, leave this to
+	       parallelize_loops.  */
+	    loop->target_arch = best_arch;
+	    continue;
+	  }
 	vect_transform_loop (loop_vinfo);
-	targetm_pnt = &this_targetm;
 	num_vectorized_loops++;
       }
   vect_loop_location = UNKNOWN_LOC;

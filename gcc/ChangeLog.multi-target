@@ -1,3 +1,20 @@
+2009-06-01  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* target.h (struct gcc_target): Add member ptr_mode.
+	* target-def.h (TARGET_INITIALIZER): Add initializer for ptr_mode.
+	* tree-ssa-loop.c (gate_tree_parallelize_loops): Also enable if a
+	loop is to be executed on another target.
+	* tree-parloop.c (separate_decls_in_region): New parameter new_target.
+	Changed caller.
+	(create loop_fn): New parameter target_arch.  Changed caller.
+	(parallelize_loops): Also enable for loops that are to be executed
+	on another target.
+	* tree-vectorizer.c (vectorize_loops): If a loop is to be vectorized
+	for a different target, only set the target_arch filed in loop and
+	ignore the lop for now.  Use cfun->target_arch to restore target.
+	* tree-vectorizer.h (struct _loop_vec_info): Remove target_arch member.
+	* cfgloop.h (struct loop): Add target_arch member.
+
 2009-05-23  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* doc/tm.texi: Adjust struct machine_function documentation.
