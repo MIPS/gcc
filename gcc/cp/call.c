@@ -1400,9 +1400,31 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
   if (conv)
     return conv;
 
-  if (is_std_init_list (to) && expr
-      && BRACE_ENCLOSED_INITIALIZER_P (expr))
-    return build_list_conv (to, expr, flags);
+  if (expr && BRACE_ENCLOSED_INITIALIZER_P (expr))
+    {
+      if (is_std_init_list (to))
+	return build_list_conv (to, expr, flags);
+
+      /* Allow conversion from an initializer-list with one element to a
+	 scalar type if this is copy-initialization.  Direct-initialization
+	 would be something like int i({1}), which is invalid.  */
+      if (SCALAR_TYPE_P (to) && CONSTRUCTOR_NELTS (expr) <= 1
+	  && (flags & LOOKUP_ONLYCONVERTING))
+	{
+	  tree elt;
+	  if (CONSTRUCTOR_NELTS (expr) == 1)
+	    elt = CONSTRUCTOR_ELT (expr, 0)->value;
+	  else
+	    elt = integer_zero_node;
+	  conv = implicit_conversion (to, TREE_TYPE (elt), elt,
+				      c_cast_p, flags);
+	  if (conv)
+	    {
+	      conv->check_narrowing = true;
+	      return conv;
+	    }
+	}
+    }
 
   if (expr != NULL_TREE
       && (MAYBE_CLASS_TYPE_P (from)
@@ -1781,7 +1803,7 @@ promoted_arithmetic_type_p (tree type)
      (including e.g.  int and long but excluding e.g.  char).
      Similarly, the term promoted arithmetic type refers to promoted
      integral types plus floating types.  */
-  return ((INTEGRAL_TYPE_P (type)
+  return ((CP_INTEGRAL_TYPE_P (type)
 	   && same_type_p (type_promotes_to (type), type))
 	  || TREE_CODE (type) == REAL_TYPE);
 }
@@ -1883,7 +1905,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	     T       operator~(T);  */
 
     case BIT_NOT_EXPR:
-      if (INTEGRAL_TYPE_P (type1))
+      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type1))
 	break;
       return;
 
@@ -1953,7 +1975,8 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
     case MINUS_EXPR:
       if (TYPE_PTROB_P (type1) && TYPE_PTROB_P (type2))
 	break;
-      if (TYPE_PTROB_P (type1) && INTEGRAL_TYPE_P (type2))
+      if (TYPE_PTROB_P (type1)
+	  && INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type2))
 	{
 	  type2 = ptrdiff_type_node;
 	  break;
@@ -2013,12 +2036,12 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
       if (ARITHMETIC_TYPE_P (type1) && ARITHMETIC_TYPE_P (type2))
 	break;
     case ARRAY_REF:
-      if (INTEGRAL_TYPE_P (type1) && TYPE_PTROB_P (type2))
+      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type1) && TYPE_PTROB_P (type2))
 	{
 	  type1 = ptrdiff_type_node;
 	  break;
 	}
-      if (TYPE_PTROB_P (type1) && INTEGRAL_TYPE_P (type2))
+      if (TYPE_PTROB_P (type1) && INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type2))
 	{
 	  type2 = ptrdiff_type_node;
 	  break;
@@ -2042,7 +2065,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
     case BIT_XOR_EXPR:
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
-      if (INTEGRAL_TYPE_P (type1) && INTEGRAL_TYPE_P (type2))
+      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type1) && INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type2))
 	break;
       return;
 
@@ -2087,7 +2110,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	{
 	case PLUS_EXPR:
 	case MINUS_EXPR:
-	  if (TYPE_PTROB_P (type1) && INTEGRAL_TYPE_P (type2))
+	  if (TYPE_PTROB_P (type1) && INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type2))
 	    {
 	      type2 = ptrdiff_type_node;
 	      break;
@@ -2104,7 +2127,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	case BIT_XOR_EXPR:
 	case LSHIFT_EXPR:
 	case RSHIFT_EXPR:
-	  if (INTEGRAL_TYPE_P (type1) && INTEGRAL_TYPE_P (type2))
+	  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type1) && INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type2))
 	    break;
 	  return;
 
@@ -2329,7 +2352,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 		  type = TYPE_MAIN_VARIANT (type_decays_to (type));
 		  if (enum_p && TREE_CODE (type) == ENUMERAL_TYPE)
 		    types[i] = tree_cons (NULL_TREE, type, types[i]);
-		  if (INTEGRAL_TYPE_P (type))
+		  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
 		    type = type_promotes_to (type);
 		}
 
@@ -2346,9 +2369,9 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	  if (i != 0 || ! ref1)
 	    {
 	      type = TYPE_MAIN_VARIANT (type_decays_to (type));
-	      if (enum_p && TREE_CODE (type) == ENUMERAL_TYPE)
+	      if (enum_p && UNSCOPED_ENUM_P (type))
 		types[i] = tree_cons (NULL_TREE, type, types[i]);
-	      if (INTEGRAL_TYPE_P (type))
+	      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
 		type = type_promotes_to (type);
 	    }
 	  types[i] = tree_cons (NULL_TREE, type, types[i]);
@@ -4668,6 +4691,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
   if (convs->bad_p
       && convs->kind != ck_user
+      && convs->kind != ck_list
       && convs->kind != ck_ambig
       && convs->kind != ck_ref_bind
       && convs->kind != ck_rvalue
@@ -4747,6 +4771,17 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	return expr;
       }
     case ck_identity:
+      if (BRACE_ENCLOSED_INITIALIZER_P (expr))
+	{
+	  int nelts = CONSTRUCTOR_NELTS (expr);
+	  if (nelts == 0)
+	    expr = integer_zero_node;
+	  else if (nelts == 1)
+	    expr = CONSTRUCTOR_ELT (expr, 0)->value;
+	  else
+	    gcc_unreachable ();
+	}
+
       if (type_unknown_p (expr))
 	expr = instantiate_type (totype, expr, complain);
       /* Convert a constant to its underlying value, unless we are
@@ -4755,7 +4790,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       if (inner >= 0)
         {   
           expr = decl_constant_value (expr);
-          if (expr == null_node && INTEGRAL_TYPE_P (totype))
+          if (expr == null_node && INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (totype))
             /* If __null has been converted to an integer type, we do not
                want to warn about uses of EXPR as an integer, rather than
                as a pointer.  */
@@ -7184,7 +7219,7 @@ tourney (struct z_candidate *candidates)
 bool
 can_convert (tree to, tree from)
 {
-  return can_convert_arg (to, from, NULL_TREE, LOOKUP_NORMAL);
+  return can_convert_arg (to, from, NULL_TREE, LOOKUP_IMPLICIT);
 }
 
 /* Returns nonzero if ARG (of type FROM) can be converted to TO.  */
@@ -7212,7 +7247,7 @@ can_convert_arg (tree to, tree from, tree arg, int flags)
 /* Like can_convert_arg, but allows dubious conversions as well.  */
 
 bool
-can_convert_arg_bad (tree to, tree from, tree arg)
+can_convert_arg_bad (tree to, tree from, tree arg, int flags)
 {
   conversion *t;
   void *p;
@@ -7221,7 +7256,7 @@ can_convert_arg_bad (tree to, tree from, tree arg)
   p = conversion_obstack_alloc (0);
   /* Try to perform the conversion.  */
   t  = implicit_conversion (to, from, arg, /*c_cast_p=*/false,
-			    LOOKUP_NORMAL);
+			    flags);
   /* Free all the conversions we allocated.  */
   obstack_free (&conversion_obstack, p);
 

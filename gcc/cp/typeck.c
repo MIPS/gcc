@@ -260,6 +260,19 @@ cp_common_type (tree t1, tree t2)
   enum tree_code code2 = TREE_CODE (t2);
   tree attributes;
 
+  /* In what follows, we slightly generalize the rules given in [expr] so
+     as to deal with `long long' and `complex'.  First, merge the
+     attributes.  */
+  attributes = (*targetm.merge_type_attributes) (t1, t2);
+
+  if (SCOPED_ENUM_P (t1) || SCOPED_ENUM_P (t2))
+    {
+      if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
+	return build_type_attribute_variant (t1, attributes);
+      else
+	return NULL_TREE;
+    }
+
   /* FIXME: Attributes.  */
   gcc_assert (ARITHMETIC_TYPE_P (t1)
 	      || TREE_CODE (t1) == VECTOR_TYPE
@@ -267,11 +280,6 @@ cp_common_type (tree t1, tree t2)
   gcc_assert (ARITHMETIC_TYPE_P (t2)
 	      || TREE_CODE (t2) == VECTOR_TYPE
 	      || UNSCOPED_ENUM_P (t2));
-
-  /* In what follows, we slightly generalize the rules given in [expr] so
-     as to deal with `long long' and `complex'.  First, merge the
-     attributes.  */
-  attributes = (*targetm.merge_type_attributes) (t1, t2);
 
   /* If one type is complex, form the common type of the non-complex
      components, then make that complex.  Use T1 or T2 if it is the
@@ -2486,12 +2494,8 @@ cp_build_indirect_ref (tree ptr, const char *errorstring,
       /* [expr.unary.op]
 
 	 If the type of the expression is "pointer to T," the type
-	 of  the  result  is  "T."
-
-	 We must use the canonical variant because certain parts of
-	 the back end, like fold, do pointer comparisons between
-	 types.  */
-      tree t = canonical_type_variant (TREE_TYPE (type));
+	 of  the  result  is  "T."  */
+      tree t = TREE_TYPE (type);
 
       if (CONVERT_EXPR_P (ptr)
           || TREE_CODE (ptr) == VIEW_CONVERT_EXPR)
@@ -3636,9 +3640,9 @@ cp_build_binary_op (location_t location,
 
       build_type = boolean_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
-	   || code0 == COMPLEX_TYPE)
+	   || code0 == COMPLEX_TYPE || code0 == ENUMERAL_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	      || code1 == COMPLEX_TYPE))
+	      || code1 == COMPLEX_TYPE || code1 == ENUMERAL_TYPE))
 	short_compare = 1;
       else if ((code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	       || (TYPE_PTRMEM_P (type0) && TYPE_PTRMEM_P (type1)))
@@ -3910,9 +3914,10 @@ cp_build_binary_op (location_t location,
       break;
     }
 
-  if (((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE)
+  if (((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE
+	|| code0 == ENUMERAL_TYPE)
        && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	   || code1 == COMPLEX_TYPE)))
+	   || code1 == COMPLEX_TYPE || code1 == ENUMERAL_TYPE)))
     arithmetic_types_p = 1;
   else
     {
@@ -5348,8 +5353,10 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
   /* The effect of all that is that any conversion between any two
      types which are integral, floating, or enumeration types can be
      performed.  */
-  if ((INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type))
-      && (INTEGRAL_TYPE_P (intype) || SCALAR_FLOAT_TYPE_P (intype)))
+  if ((INTEGRAL_OR_ENUMERATION_TYPE_P (type)
+       || SCALAR_FLOAT_TYPE_P (type))
+      && (INTEGRAL_OR_ENUMERATION_TYPE_P (intype)
+	  || SCALAR_FLOAT_TYPE_P (intype)))
     {
       expr = ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL);
 
@@ -5649,7 +5656,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
     }
   else if (TREE_CODE (type) == VECTOR_TYPE)
     return fold_if_not_in_template (convert_to_vector (type, expr));
-  else if (TREE_CODE (intype) == VECTOR_TYPE && INTEGRAL_TYPE_P (type))
+  else if (TREE_CODE (intype) == VECTOR_TYPE
+	   && INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     return fold_if_not_in_template (convert_to_integer (type, expr));
   else
     {
@@ -6690,7 +6698,7 @@ convert_for_assignment (tree type, tree rhs,
      We allow bad conversions here because by the time we get to this point
      we are committed to doing the conversion.  If we end up doing a bad
      conversion, convert_like will complain.  */
-  if (!can_convert_arg_bad (type, rhstype, rhs))
+  if (!can_convert_arg_bad (type, rhstype, rhs, flags))
     {
       /* When -Wno-pmf-conversions is use, we just silently allow
 	 conversions from pointers-to-members to plain pointers.  If

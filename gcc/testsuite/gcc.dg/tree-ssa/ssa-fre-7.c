@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O -fdump-tree-fre-details -fdump-tree-optimized -fno-tree-sra" } */
+/* { dg-options "-O -fno-tree-sra -fdump-tree-fre-details -fdump-tree-optimized" } */
 #if (__SIZEOF_INT__ == __SIZEOF_FLOAT__)
 typedef int intflt;
 #elif (__SIZEOF_LONG__ == __SIZEOF_FLOAT__)

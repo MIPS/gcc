@@ -738,7 +738,9 @@ remap_decls (tree decls, VEC(nonlocalized_var,gc) **nonlocalized_list, copy_body
 	      && (var_ann (old_var) || !gimple_in_ssa_p (cfun)))
 	    cfun->local_decls = tree_cons (NULL_TREE, old_var,
 						   cfun->local_decls);
-	  if (nonlocalized_list != NULL)
+	  if ((!optimize || debug_info_level > DINFO_LEVEL_TERSE)
+	      && !DECL_IGNORED_P (old_var)
+	      && nonlocalized_list)
 	    {
 	      tree value = NULL;
 	      if ((TREE_CODE (old_var) == VAR_DECL || TREE_CODE (old_var) == PARM_DECL)
@@ -760,7 +762,9 @@ remap_decls (tree decls, VEC(nonlocalized_var,gc) **nonlocalized_list, copy_body
 	;
       else if (!new_var)
         {
-	  if (nonlocalized_list != NULL)
+	  if ((!optimize || debug_info_level > DINFO_LEVEL_TERSE)
+	      && !DECL_IGNORED_P (old_var)
+	      && nonlocalized_list)
 	    {
 	      tree value = NULL;
 	      if ((TREE_CODE (old_var) == VAR_DECL || TREE_CODE (old_var) == PARM_DECL)
