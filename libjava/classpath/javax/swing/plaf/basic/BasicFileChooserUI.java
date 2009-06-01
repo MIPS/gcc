@@ -42,7 +42,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
@@ -183,7 +182,7 @@ public class BasicFileChooserUI extends FileChooserUI
   protected class BasicFileView extends FileView
   {
     /** Storage for cached icons. */
-    protected Hashtable iconCache = new Hashtable();
+    protected Hashtable<File, Icon> iconCache = new Hashtable<File, Icon>();
 
     /**
      * Creates a new instance.
@@ -444,10 +443,10 @@ public class BasicFileChooserUI extends FileChooserUI
               setDirectory(null);
             }
           lastSelected = path;
-          parentPath = path.substring(0, path.lastIndexOf("/") + 1);
+          parentPath = f.getParent();
 	    
           if (f.isFile())
-            setFileName(path.substring(path.lastIndexOf("/") + 1));
+            setFileName(f.getName());
           else if (filechooser.getFileSelectionMode() != 
 		   JFileChooser.FILES_ONLY)
             setFileName(path);
@@ -827,9 +826,9 @@ public class BasicFileChooserUI extends FileChooserUI
         installComponents(fc);
         installListeners(fc);
         
-        Object path = filechooser.getCurrentDirectory();
+        File path = filechooser.getCurrentDirectory();
         if (path != null)
-          parentPath = path.toString().substring(path.toString().lastIndexOf("/"));
+          parentPath = path.getParent();
       }
   }
 

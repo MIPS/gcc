@@ -59,9 +59,10 @@ import java.io.IOException;
  * PolicyQualifierId ::= OBJECT IDENTIFIER
  * </pre>
  *
- * @since JDK 1.4
+ * @since 1.4
+ * @specnote this class was final in 1.4, but beginning with 1.5 is not
  */
-public final class PolicyQualifierInfo
+public class PolicyQualifierInfo
 {
 
   // Fields.
@@ -123,7 +124,7 @@ PolicyQualifierId ::= OBJECT IDENTIFIER
    *
    * @return This structure's OID field.
    */
-  public String getPolicyQualifierId()
+  public final String getPolicyQualifierId()
   {
     return oid.toString();
   }
@@ -136,7 +137,7 @@ PolicyQualifierId ::= OBJECT IDENTIFIER
    *
    * @return The encoded form.
    */
-  public byte[] getEncoded()
+  public final byte[] getEncoded()
   {
     return (byte[]) encoded.clone();
   }
@@ -148,7 +149,7 @@ PolicyQualifierId ::= OBJECT IDENTIFIER
    *
    * @return The encoded qualifier.
    */
-  public byte[] getPolicyQualifier()
+  public final byte[] getPolicyQualifier()
   {
     if (qualifier == null)
       return new byte[0];

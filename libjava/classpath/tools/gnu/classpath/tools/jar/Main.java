@@ -1,5 +1,5 @@
 /* Main.java - jar program main()
- Copyright (C) 2006 Free Software Foundation, Inc.
+ Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
  This file is part of GNU Classpath.
 
@@ -38,14 +38,16 @@
 
 package gnu.classpath.tools.jar;
 
-import gnu.classpath.tools.getopt.ClasspathToolParser;
+import gnu.classpath.tools.common.ClasspathToolParser;
 import gnu.classpath.tools.getopt.FileArgumentCallback;
 import gnu.classpath.tools.getopt.Option;
 import gnu.classpath.tools.getopt.OptionException;
 import gnu.classpath.tools.getopt.OptionGroup;
 import gnu.classpath.tools.getopt.Parser;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -78,7 +80,7 @@ public class Main
   File manifestFile;
 
   /** A list of Entry objects, each describing a file to write.  */
-  ArrayList entries = new ArrayList();
+  ArrayList<Entry> entries = new ArrayList<Entry>();
 
   /** Used only while parsing, holds the first argument for -C.  */
   String changedDirectory;
@@ -170,9 +172,9 @@ public class Main
     }
   }
 
-  private Parser initializeParser()
+  private ClasspathToolParser initializeParser()
   {
-    Parser p = new JarParser("jar"); //$NON-NLS-1$
+    ClasspathToolParser p = new JarParser("jar"); //$NON-NLS-1$
     p.setHeader(Messages.getString("Main.Usage")); //$NON-NLS-1$
 
     OptionGroup grp = new OptionGroup(Messages.getString("Main.OpMode")); //$NON-NLS-1$
@@ -232,19 +234,44 @@ public class Main
         changedDirectory = argument;
       }
     });
+    grp.add(new Option('@', Messages.getString("Main.Stdin"))
+    {
+      public void parsed(String argument) throws OptionException
+      {
+	readNamesFromStdin = true;
+      }
+    });
     p.add(grp);
 
     return p;
   }
 
+  private void readNames()
+  {
+    String line;
+    try
+      {
+	BufferedReader br
+	  = new BufferedReader(new InputStreamReader(System.in));
+	while ((line = br.readLine()) != null)
+	  entries.add(new Entry(new File(line)));
+      }
+    catch (IOException _)
+      {
+	// Ignore.
+      }
+  }
+
   private void run(String[] args)
       throws InstantiationException, IllegalAccessException, IOException
   {
-    Parser p = initializeParser();
+    ClasspathToolParser p = initializeParser();
     // Special hack to emulate old tar-style commands.
     if (args.length > 0 && args[0].charAt(0) != '-')
       args[0] = '-' + args[0];
-    p.parse(args, new HandleFile());
+    p.parse(args, new HandleFile(), true);
+    if (readNamesFromStdin)
+      readNames();
     Action t = (Action) operationMode.newInstance();
     t.run(this);
   }

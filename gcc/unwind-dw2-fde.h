@@ -1,5 +1,5 @@
 /* Subroutines needed for unwinding stack frames for exception handling.  */
-/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
+/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2009
    Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@cygnus.com>.
 
@@ -7,27 +7,22 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_UNWIND_DW2_FDE_H
 #define GCC_UNWIND_DW2_FDE_H
@@ -160,13 +155,13 @@ typedef struct dwarf_fde fde;
 static inline const struct dwarf_cie *
 get_cie (const struct dwarf_fde *f)
 {
-  return (void *)&f->CIE_delta - f->CIE_delta;
+  return (const void *)&f->CIE_delta - f->CIE_delta;
 }
 
 static inline const fde *
 next_fde (const fde *f)
 {
-  return (const fde *) ((char *) f + f->length + sizeof (f->length));
+  return (const fde *) ((const char *) f + f->length + sizeof (f->length));
 }
 
 extern const fde * _Unwind_Find_FDE (void *, struct dwarf_eh_bases *);

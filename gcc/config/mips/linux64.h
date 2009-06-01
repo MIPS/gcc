@@ -1,6 +1,7 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format
    using n32/64 abi.
-   Copyright 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,20 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Force the default endianness and ABI flags onto the command line
    in order to make the other specs easier to write.  */
+#undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS \
-"%{!EB:%{!EL:%(endian_spec)}}", \
-"%{!mabi=*: -mabi=n32}"
-
-#undef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC "\
-%{!fno-PIC:%{!fno-pic:-KPIC}} \
-%{fno-PIC:-non_shared} %{fno-pic:-non_shared}"
+  BASE_DRIVER_SELF_SPECS, \
+  LINUX_DRIVER_SELF_SPECS \
+  " %{!EB:%{!EL:%(endian_spec)}}" \
+  " %{!mabi=*: -mabi=n32}"
 
 #undef LIB_SPEC
 #define LIB_SPEC "\
-%{shared: -lc} \
-%{!shared: %{pthread:-lpthread} \
-  %{profile:-lc_p} %{!profile: -lc}}"
+%{pthread:-lpthread} \
+%{shared:-lc} \
+%{!shared: \
+  %{profile:-lc_p} %{!profile:-lc}}"
 
 #define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
 #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld.so.1"

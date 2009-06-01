@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.security.cert;
 
 import gnu.classpath.SystemProperties;
+import gnu.java.lang.CPStringBuilder;
 import gnu.java.security.der.DERReader;
 import gnu.java.security.der.DERValue;
 
@@ -69,6 +70,7 @@ import javax.security.auth.x500.X500Principal;
  * use or modify this class then they need to synchronize on the object.
  *
  * @author Casey Marshall (csm@gnu.org)
+ * @since 1.4
  */
 public class X509CRLSelector implements CRLSelector, Cloneable
 {
@@ -157,7 +159,7 @@ public class X509CRLSelector implements CRLSelector, Cloneable
    * @throws IOException If any of the elements in the collection is not
    *         a valid name.
    */
-  public void setIssuerNames(Collection names) throws IOException
+  public void setIssuerNames(Collection<?> names) throws IOException
   {
     if (names == null)
       {
@@ -224,7 +226,7 @@ public class X509CRLSelector implements CRLSelector, Cloneable
    *
    * @return The set of issuer names.
    */
-  public Collection getIssuerNames()
+  public Collection<Object> getIssuerNames()
   {
     if (issuerNames != null)
       return Collections.unmodifiableList(issuerNames);
@@ -334,7 +336,7 @@ public class X509CRLSelector implements CRLSelector, Cloneable
    */
   public String toString()
   {
-    StringBuffer str = new StringBuffer(X509CRLSelector.class.getName());
+    CPStringBuilder str = new CPStringBuilder(X509CRLSelector.class.getName());
     String nl = SystemProperties.getProperty("line.separator");
     String eol = ";" + nl;
 

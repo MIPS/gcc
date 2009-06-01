@@ -1,6 +1,6 @@
 ! { dg-do compile }
 ! One of the tests of the patch for PR30068.
-! Taken from the fortran standard.
+!  Taken from the fortran 2003 standard C11.2.
 !
 ! The interface is invalid although it is unambiguous because the
 ! standard explicitly does not require recursion into the formal

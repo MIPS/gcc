@@ -1,5 +1,5 @@
 /* Float.java -- object wrapper for float
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -39,6 +39,8 @@ exception statement from your version. */
 
 package java.lang;
 
+import gnu.java.lang.CPStringBuilder;
+
 /**
  * Instances of class <code>Float</code> represent primitive
  * <code>float</code> values.
@@ -49,10 +51,12 @@ package java.lang;
  * @author Paul Fisher
  * @author Andrew Haley (aph@cygnus.com)
  * @author Eric Blake (ebb9@email.byu.edu)
+ * @author Tom Tromey (tromey@redhat.com)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  * @since 1.0
- * @status updated to 1.4
+ * @status partly updated to 1.5
  */
-public final class Float extends Number implements Comparable
+public final class Float extends Number implements Comparable<Float>
 {
   /**
    * Compatible with JDK 1.0+.
@@ -91,13 +95,23 @@ public final class Float extends Number implements Comparable
    * <code>Class</code> object.
    * @since 1.1
    */
-  public static final Class TYPE = VMClassLoader.getPrimitiveClass('F');
+  public static final Class<Float> TYPE = (Class<Float>) VMClassLoader.getPrimitiveClass('F');
 
   /**
    * The number of bits needed to represent a <code>float</code>.
    * @since 1.5
    */
   public static final int SIZE = 32;
+
+  /**
+   * Cache representation of 0
+   */
+  private static final Float ZERO = new Float(0.0f);
+
+  /**
+   * Cache representation of 1
+   */
+  private static final Float ONE = new Float(1.0f);
 
   /**
    * The immutable value of this Float.
@@ -179,7 +193,7 @@ public final class Float extends Number implements Comparable
    */
   public static String toString(float f)
   {
-    return VMDouble.toString(f, true);
+    return VMFloat.toString(f);
   }
 
   /**
@@ -209,7 +223,7 @@ public final class Float extends Number implements Comparable
       return f < 0 ? "-Infinity" : "Infinity";
 
     int bits = floatToIntBits(f);
-    StringBuilder result = new StringBuilder();
+    CPStringBuilder result = new CPStringBuilder();
     
     if (bits < 0)
       result.append('-');
@@ -271,7 +285,7 @@ public final class Float extends Number implements Comparable
    */
   public static Float valueOf(String s)
   {
-    return new Float(parseFloat(s));
+    return valueOf(parseFloat(s));
   }
 
   /**
@@ -281,13 +295,16 @@ public final class Float extends Number implements Comparable
    *
    * @param val the value to wrap
    * @return the <code>Float</code>
-   * 
    * @since 1.5
    */
   public static Float valueOf(float val)
   {
-    // We don't actually cache, but we could.
-    return new Float(val);
+    if ((val == 0.0) && (floatToRawIntBits(val) == 0))
+      return ZERO;
+    else if (val == 1.0)
+      return ONE;
+    else
+      return new Float(val);
   }
 
   /**
@@ -330,9 +347,9 @@ public final class Float extends Number implements Comparable
    *
    * @param str the <code>String</code> to convert
    * @return the <code>float</code> value of <code>s</code>
-   * @throws NumberFormatException if <code>s</code> cannot be parsed as a
+   * @throws NumberFormatException if <code>str</code> cannot be parsed as a
    *         <code>float</code>
-   * @throws NullPointerException if <code>s</code> is null
+   * @throws NullPointerException if <code>str</code> is null
    * @see #MIN_VALUE
    * @see #MAX_VALUE
    * @see #POSITIVE_INFINITY
@@ -341,9 +358,7 @@ public final class Float extends Number implements Comparable
    */
   public static float parseFloat(String str)
   {
-    // XXX Rounding parseDouble() causes some errors greater than 1 ulp from
-    // the infinitely precise decimal.
-    return (float) Double.parseDouble(str);
+    return VMFloat.parseFloat(str);
   }
 
   /**
@@ -499,17 +514,13 @@ public final class Float extends Number implements Comparable
    */
   public boolean equals(Object obj)
   {
-    if (! (obj instanceof Float))
-      return false;
-
-    float f = ((Float) obj).value;
-
-    // Avoid call to native method. However, some implementations, like gcj,
-    // are better off using floatToIntBits(value) == floatToIntBits(f).
-    // Check common case first, then check NaN and 0.
-    if (value == f)
-      return (value != 0) || (1 / value == 1 / f);
-    return isNaN(value) && isNaN(f);
+    if (obj instanceof Float)
+      {
+        float f = ((Float) obj).value;
+        return (floatToRawIntBits(value) == floatToRawIntBits(f)) ||
+          (isNaN(value) && isNaN(f));
+      }
+    return false;
   }
 
   /**
@@ -527,7 +538,10 @@ public final class Float extends Number implements Comparable
    */
   public static int floatToIntBits(float value)
   {
-    return VMFloat.floatToIntBits(value);
+    if (isNaN(value))
+      return 0x7fc00000;
+    else
+      return VMFloat.floatToRawIntBits(value);
   }
 
   /**
@@ -584,22 +598,6 @@ public final class Float extends Number implements Comparable
   }
 
   /**
-   * Behaves like <code>compareTo(Float)</code> unless the Object
-   * is not an <code>Float</code>.
-   *
-   * @param o the object to compare
-   * @return the comparison
-   * @throws ClassCastException if the argument is not a <code>Float</code>
-   * @see #compareTo(Float)
-   * @see Comparable
-   * @since 1.2
-   */
-  public int compareTo(Object o)
-  {
-    return compare(value, ((Float) o).value);
-  }
-
-  /**
    * Behaves like <code>new Float(x).compareTo(new Float(y))</code>; in
    * other words this compares two floats, special casing NaN and zero,
    * without the overhead of objects.
@@ -611,16 +609,25 @@ public final class Float extends Number implements Comparable
    */
   public static int compare(float x, float y)
   {
-    if (isNaN(x))
-      return isNaN(y) ? 0 : 1;
-    if (isNaN(y))
-      return -1;
-    // recall that 0.0 == -0.0, so we convert to infinities and try again
-    if (x == 0 && y == 0)
-      return (int) (1 / x - 1 / y);
-    if (x == y)
-      return 0;
+      // handle the easy cases:
+      if (x < y)
+	  return -1;
+      if (x > y)
+	  return 1;
 
-    return x > y ? 1 : -1;
+      // handle equality respecting that 0.0 != -0.0 (hence not using x == y):
+      int ix = floatToRawIntBits(x);
+      int iy = floatToRawIntBits(y);
+      if (ix == iy)
+	  return 0;
+
+      // handle NaNs:
+      if (x != x)
+	  return (y != y) ? 0 : 1;
+      else if (y != y)
+	  return -1;
+
+      // handle +/- 0.0
+      return (ix < iy) ? -1 : 1;
   }
 }

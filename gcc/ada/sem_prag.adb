@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -32,17 +31,16 @@
 
 with Atree;    use Atree;
 with Casing;   use Casing;
+with Checks;   use Checks;
 with Csets;    use Csets;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
-with Elists;   use Elists;
 with Errout;   use Errout;
 with Exp_Dist; use Exp_Dist;
-with Hostparm; use Hostparm;
 with Lib;      use Lib;
 with Lib.Writ; use Lib.Writ;
 with Lib.Xref; use Lib.Xref;
-with Namet;    use Namet;
+with Namet.Sp; use Namet.Sp;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -51,10 +49,12 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Ch3;  use Sem_Ch3;
+with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_Ch12; use Sem_Ch12;
 with Sem_Ch13; use Sem_Ch13;
-with Sem_Disp; use Sem_Disp;
 with Sem_Dist; use Sem_Dist;
 with Sem_Elim; use Sem_Elim;
 with Sem_Eval; use Sem_Eval;
@@ -77,10 +77,9 @@ with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Ttypes;
 with Uintp;    use Uintp;
+with Uname;    use Uname;
 with Urealp;   use Urealp;
 with Validsw;  use Validsw;
-
-with GNAT.Spelling_Checker; use GNAT.Spelling_Checker;
 
 package body Sem_Prag is
 
@@ -94,12 +93,12 @@ package body Sem_Prag is
    --  form and processing:
 
    --  pragma Export_xxx
-   --        [Internal                 =>] LOCAL_NAME,
+   --        [Internal                 =>] LOCAL_NAME
    --     [, [External                 =>] EXTERNAL_SYMBOL]
    --     [, other optional parameters   ]);
 
    --  pragma Import_xxx
-   --        [Internal                 =>] LOCAL_NAME,
+   --        [Internal                 =>] LOCAL_NAME
    --     [, [External                 =>] EXTERNAL_SYMBOL]
    --     [, other optional parameters   ]);
 
@@ -176,6 +175,20 @@ package body Sem_Prag is
    --  (the original one, following the renaming chain) is returned.
    --  Otherwise the entity is returned unchanged. Should be in Einfo???
 
+   function Get_Pragma_Arg (Arg : Node_Id) return Node_Id;
+   --  All the routines that check pragma arguments take either a pragma
+   --  argument association (in which case the expression of the argument
+   --  association is checked), or the expression directly. The function
+   --  Get_Pragma_Arg is a utility used to deal with these two cases. If Arg
+   --  is a pragma argument association node, then its expression is returned,
+   --  otherwise Arg is returned unchanged.
+
+   procedure rv;
+   --  This is a dummy function called by the processing for pragma Reviewable.
+   --  It is there for assisting front end debugging. By placing a Reviewable
+   --  pragma in the source program, a breakpoint on rv catches this place in
+   --  the source, allowing convenient stepping to the point of interest.
+
    procedure Set_Unit_Name (N : Node_Id; With_Item : Node_Id);
    --  Place semantic information on the argument of an Elaborate or
    --  Elaborate_All pragma. Entity name for unit and its parents is
@@ -227,12 +240,48 @@ package body Sem_Prag is
       end if;
    end Adjust_External_Name_Case;
 
+   ------------------------------
+   -- Analyze_PPC_In_Decl_Part --
+   ------------------------------
+
+   procedure Analyze_PPC_In_Decl_Part (N : Node_Id; S : Entity_Id) is
+      Arg1 : constant Node_Id :=
+               First (Pragma_Argument_Associations (N));
+      Arg2 : constant Node_Id := Next (Arg1);
+
+   begin
+      --  Install formals and push subprogram spec onto scope stack
+      --  so that we can see the formals from the pragma.
+
+      Install_Formals (S);
+      Push_Scope (S);
+
+      --  Preanalyze the boolean expression, we treat this as a
+      --  spec expression (i.e. similar to a default expression).
+
+      Preanalyze_Spec_Expression
+        (Get_Pragma_Arg (Arg1), Standard_Boolean);
+
+      --  If there is a message argument, analyze it the same way
+
+      if Present (Arg2) then
+         Preanalyze_Spec_Expression
+           (Get_Pragma_Arg (Arg2), Standard_String);
+      end if;
+
+      --  Remove the subprogram from the scope stack now that the
+      --  pre-analysis of the precondition/postcondition is done.
+
+      End_Scope;
+   end Analyze_PPC_In_Decl_Part;
+
    --------------------
    -- Analyze_Pragma --
    --------------------
 
    procedure Analyze_Pragma (N : Node_Id) is
       Loc     : constant Source_Ptr := Sloc (N);
+      Pname   : constant Name_Id    := Pragma_Name (N);
       Prag_Id : Pragma_Id;
 
       Pragma_Exit : exception;
@@ -254,6 +303,11 @@ package body Sem_Prag is
       type Name_List is array (Natural range <>) of Name_Id;
       type Args_List is array (Natural range <>) of Node_Id;
       --  Types used for arguments to Check_Arg_Order and Gather_Associations
+
+      procedure Ada_2005_Pragma;
+      --  Called for pragmas defined in Ada 2005, that are not in Ada 95. In
+      --  Ada 95 mode, these are implementation defined pragmas, so should be
+      --  caught by the No_Implementation_Pragmas restriction
 
       procedure Check_Ada_83_Warning;
       --  Issues a warning message for the current pragma if operating in Ada
@@ -303,6 +357,7 @@ package body Sem_Prag is
 
       procedure Check_Arg_Is_One_Of (Arg : Node_Id; N1, N2 : Name_Id);
       procedure Check_Arg_Is_One_Of (Arg : Node_Id; N1, N2, N3 : Name_Id);
+      procedure Check_Arg_Is_One_Of (Arg : Node_Id; N1, N2, N3, N4 : Name_Id);
       --  Check the specified argument Arg to make sure that it is an
       --  identifier whose name matches either N1 or N2 (or N3 if present).
       --  If not then give error and raise Pragma_Exit.
@@ -355,7 +410,7 @@ package body Sem_Prag is
 
       procedure Check_In_Main_Program;
       --  Common checks for pragmas that appear within a main program
-      --  (Priority, Main_Storage, Time_Slice).
+      --  (Priority, Main_Storage, Time_Slice, Relative_Deadline).
 
       procedure Check_Interrupt_Or_Attach_Handler;
       --  Common processing for first argument of pragma Interrupt_Handler
@@ -388,6 +443,30 @@ package body Sem_Prag is
       --  In this version of the procedure, the identifier name is given as
       --  a string with lower case letters.
 
+      procedure Check_Precondition_Postcondition (In_Body : out Boolean);
+      --  Called to process a precondition or postcondition pragma. There are
+      --  three cases:
+      --
+      --    The pragma appears after a subprogram spec
+      --
+      --      If the corresponding check is not enabled, the pragma is analyzed
+      --      but otherwise ignored and control returns with In_Body set False.
+      --
+      --      If the check is enabled, then the first step is to analyze the
+      --      pragma, but this is skipped if the subprogram spec appears within
+      --      a package specification (because this is the case where we delay
+      --      analysis till the end of the spec). Then (whether or not it was
+      --      analyzed), the pragma is chained to the subprogram in question
+      --      (using Spec_PPC_List and Next_Pragma) and control returns to the
+      --      caller with In_Body set False.
+      --
+      --    The pragma appears at the start of subprogram body declarations
+      --
+      --      In this case an immediate return to the caller is made with
+      --      In_Body set True, and the pragma is NOT analyzed.
+      --
+      --    In all other cases, an error message for bad placement is given
+
       procedure Check_Static_Constraint (Constr : Node_Id);
       --  Constr is a constraint from an N_Subtype_Indication node from a
       --  component constraint in an Unchecked_Union type. This routine checks
@@ -412,7 +491,7 @@ package body Sem_Prag is
 
       procedure Error_Pragma (Msg : String);
       pragma No_Return (Error_Pragma);
-      --  Outputs error message for current pragma. The message contains an %
+      --  Outputs error message for current pragma. The message contains a %
       --  that will be replaced with the pragma name, and the flag is placed
       --  on the pragma itself. Pragma_Exit is then raised.
 
@@ -442,6 +521,13 @@ package body Sem_Prag is
       --  the message may also contain an & insertion character which will
       --  reference the identifier. After placing the message, Pragma_Exit
       --  is raised.
+
+      procedure Error_Pragma_Ref (Msg : String; Ref : Entity_Id);
+      pragma No_Return (Error_Pragma_Ref);
+      --  Outputs error message for current pragma. The message may contain
+      --  a % that will be replaced with the pragma name. The parameter Ref
+      --  must be an entity whose name can be referenced by & and sloc by #.
+      --  After placing the message, Pragma_Exit is raised.
 
       function Find_Lib_Unit_Name return Entity_Id;
       --  Used for a library unit pragma to find the entity to which the
@@ -475,17 +561,9 @@ package body Sem_Prag is
       --  optional identifiers when it returns). An entry in Args is Empty
       --  on return if the corresponding argument is not present.
 
-      function Get_Pragma_Arg (Arg : Node_Id) return Node_Id;
-      --  All the routines that check pragma arguments take either a pragma
-      --  argument association (in which case the expression of the argument
-      --  association is checked), or the expression directly. The function
-      --  Get_Pragma_Arg is a utility used to deal with these two cases. If
-      --  Arg is a pragma argument association node, then its expression is
-      --  returned, otherwise Arg is returned unchanged.
-
       procedure GNAT_Pragma;
-      --  Called for all GNAT defined pragmas to note the use of the feature,
-      --  and also check the relevant restriction (No_Implementation_Pragmas).
+      --  Called for all GNAT defined pragmas to check the relevant restriction
+      --  (No_Implementation_Pragmas).
 
       function Is_Before_First_Decl
         (Pragma_Node : Node_Id;
@@ -494,10 +572,19 @@ package body Sem_Prag is
       --  Decls where Decls is the list of declarative items.
 
       function Is_Configuration_Pragma return Boolean;
-      --  Deterermines if the placement of the current pragma is appropriate
-      --  for a configuration pragma (precedes the current compilation unit)
+      --  Determines if the placement of the current pragma is appropriate
+      --  for a configuration pragma.
+
+      function Is_In_Context_Clause return Boolean;
+      --  Returns True if pragma appears within the context clause of a unit,
+      --  and False for any other placement (does not generate any messages).
+
+      function Is_Static_String_Expression (Arg : Node_Id) return Boolean;
+      --  Analyzes the argument, and determines if it is a static string
+      --  expression, returns True if so, False if non-static or not String.
 
       procedure Pragma_Misplaced;
+      pragma No_Return (Pragma_Misplaced);
       --  Issue fatal error message for misplaced pragma
 
       procedure Process_Atomic_Shared_Volatile;
@@ -505,8 +592,11 @@ package body Sem_Prag is
       --  Shared is an obsolete Ada 83 pragma, treated as being identical
       --  in effect to pragma Atomic.
 
+      procedure Process_Compile_Time_Warning_Or_Error;
+      --  Common processing for Compile_Time_Error and Compile_Time_Warning
+
       procedure Process_Convention (C : out Convention_Id; E : out Entity_Id);
-      --  Common procesing for Convention, Interface, Import and Export.
+      --  Common processing for Convention, Interface, Import and Export.
       --  Checks first two arguments of pragma, and sets the appropriate
       --  convention value in the specified entity or entities. On return
       --  C is the convention, E is the referenced entity.
@@ -525,7 +615,7 @@ package body Sem_Prag is
         (Arg_Internal : Node_Id;
          Arg_External : Node_Id;
          Arg_Size     : Node_Id);
-      --  Common processing for the pragmass Import/Export_Object.
+      --  Common processing for the pragmas Import/Export_Object.
       --  The three arguments correspond to the three named parameters
       --  of the pragmas. An argument is empty if the corresponding
       --  parameter is not present in the pragma.
@@ -548,7 +638,7 @@ package body Sem_Prag is
          Arg_First_Optional_Parameter : Node_Id := Empty);
       --  Common processing for all extended Import and Export pragmas
       --  applying to subprograms. The caller omits any arguments that do
-      --  bnot apply to the pragma in question (for example, Arg_Result_Type
+      --  not apply to the pragma in question (for example, Arg_Result_Type
       --  can be non-Empty only in the Import_Function and Export_Function
       --  cases). The argument names correspond to the allowed pragma
       --  association identifiers.
@@ -581,8 +671,11 @@ package body Sem_Prag is
       procedure Process_Interrupt_Or_Attach_Handler;
       --  Common processing for Interrupt and Attach_Handler pragmas
 
-      procedure Process_Restrictions_Or_Restriction_Warnings;
-      --  Common processing for Restrictions and Restriction_Warnings pragmas
+      procedure Process_Restrictions_Or_Restriction_Warnings (Warn : Boolean);
+      --  Common processing for Restrictions and Restriction_Warnings pragmas.
+      --  Warn is True for Restriction_Warnings, or for Restrictions if the
+      --  flag Treat_Restrictions_As_Warnings is set, and False if this flag
+      --  is not set in the Restrictions case.
 
       procedure Process_Suppress_Unsuppress (Suppress_Case : Boolean);
       --  Common processing for Suppress and Unsuppress. The boolean parameter
@@ -622,6 +715,17 @@ package body Sem_Prag is
       --  make up the Ravenscar Profile. N is the corresponding pragma
       --  node, which is used for error messages on any constructs
       --  that violate the profile.
+
+      ---------------------
+      -- Ada_2005_Pragma --
+      ---------------------
+
+      procedure Ada_2005_Pragma is
+      begin
+         if Ada_Version <= Ada_95 then
+            Check_Restriction (No_Implementation_Pragmas, N);
+         end if;
+      end Ada_2005_Pragma;
 
       --------------------------
       -- Check_Ada_83_Warning --
@@ -685,7 +789,7 @@ package body Sem_Prag is
             --  Here we have a real error (non-static expression)
 
             else
-               Error_Msg_Name_1 := Chars (N);
+               Error_Msg_Name_1 := Pname;
                Flag_Non_Static_Expr
                  ("argument for pragma% must be a identifier or " &
                   "static string expression!", Argx);
@@ -824,6 +928,24 @@ package body Sem_Prag is
          end if;
       end Check_Arg_Is_One_Of;
 
+      procedure Check_Arg_Is_One_Of
+        (Arg            : Node_Id;
+         N1, N2, N3, N4 : Name_Id)
+      is
+         Argx : constant Node_Id := Get_Pragma_Arg (Arg);
+
+      begin
+         Check_Arg_Is_Identifier (Argx);
+
+         if Chars (Argx) /= N1
+           and then Chars (Argx) /= N2
+           and then Chars (Argx) /= N3
+           and then Chars (Argx) /= N4
+         then
+            Error_Pragma_Arg ("invalid argument for pragma%", Argx);
+         end if;
+      end Check_Arg_Is_One_Of;
+
       ---------------------------------
       -- Check_Arg_Is_Queuing_Policy --
       ---------------------------------
@@ -879,7 +1001,7 @@ package body Sem_Prag is
          --  Finally, we have a real error
 
          else
-            Error_Msg_Name_1 := Chars (N);
+            Error_Msg_Name_1 := Pname;
             Flag_Non_Static_Expr
               ("argument for pragma% must be a static expression!", Argx);
             raise Pragma_Exit;
@@ -932,7 +1054,7 @@ package body Sem_Prag is
                for K in Names'Range loop
                   if Chars (Arg) = Names (K) then
                      if K < Highest_So_Far then
-                        Error_Msg_Name_1 := Chars (N);
+                        Error_Msg_Name_1 := Pname;
                         Error_Msg_N
                           ("parameters out of order for pragma%", Arg);
                         Error_Msg_Name_1 := Names (K);
@@ -1082,7 +1204,7 @@ package body Sem_Prag is
          elsif Present (Parameter_Specifications (Specification (P)))
            or else not Is_Compilation_Unit (Defining_Entity (P))
          then
-            Error_Msg_Name_1 := Chars (N);
+            Error_Msg_Name_1 := Pname;
             Error_Msg_N
               ("?pragma% is only effective in main program", N);
          end if;
@@ -1159,10 +1281,10 @@ package body Sem_Prag is
             --  sequence, so the only way we get here is by being in the
             --  declarative part of the body.
 
-            elsif Nkind (P) = N_Subprogram_Body
-              or else Nkind (P) = N_Package_Body
-              or else Nkind (P) = N_Task_Body
-              or else Nkind (P) = N_Entry_Body
+            elsif Nkind_In (P, N_Subprogram_Body,
+                               N_Package_Body,
+                               N_Task_Body,
+                               N_Entry_Body)
             then
                return;
             end if;
@@ -1209,7 +1331,7 @@ package body Sem_Prag is
       begin
          if Present (Arg) and then Chars (Arg) /= No_Name then
             if Chars (Arg) /= Id then
-               Error_Msg_Name_1 := Chars (N);
+               Error_Msg_Name_1 := Pname;
                Error_Msg_Name_2 := Id;
                Error_Msg_N ("pragma% argument expects identifier%", Arg);
                raise Pragma_Exit;
@@ -1224,6 +1346,143 @@ package body Sem_Prag is
          Check_Optional_Identifier (Arg, Name_Find);
       end Check_Optional_Identifier;
 
+      --------------------------------------
+      -- Check_Precondition_Postcondition --
+      --------------------------------------
+
+      procedure Check_Precondition_Postcondition (In_Body : out Boolean) is
+         P  : Node_Id;
+         PO : Node_Id;
+
+         procedure Chain_PPC (PO : Node_Id);
+         --  If PO is a subprogram declaration node (or a generic subprogram
+         --  declaration node), then the precondition/postcondition applies
+         --  to this subprogram and the processing for the pragma is completed.
+         --  Otherwise the pragma is misplaced.
+
+         ---------------
+         -- Chain_PPC --
+         ---------------
+
+         procedure Chain_PPC (PO : Node_Id) is
+            S : Node_Id;
+
+         begin
+            if not Nkind_In (PO, N_Subprogram_Declaration,
+                                 N_Generic_Subprogram_Declaration)
+            then
+               Pragma_Misplaced;
+            end if;
+
+            --  Here if we have subprogram or generic subprogram declaration
+
+            S := Defining_Unit_Name (Specification (PO));
+
+            --  Analyze the pragma unless it appears within a package spec,
+            --  which is the case where we delay the analysis of the PPC until
+            --  the end of the package declarations (for details, see
+            --  Analyze_Package_Specification.Analyze_PPCs).
+
+            if not Is_Package_Or_Generic_Package (Scope (S)) then
+               Analyze_PPC_In_Decl_Part (N, S);
+            end if;
+
+            --  Chain spec PPC pragma to list for subprogram
+
+            Set_Next_Pragma (N, Spec_PPC_List (S));
+            Set_Spec_PPC_List (S, N);
+
+            --  Return indicating spec case
+
+            In_Body := False;
+            return;
+         end Chain_PPC;
+
+         --  Start of processing for Check_Precondition_Postcondition
+
+      begin
+         if not Is_List_Member (N) then
+            Pragma_Misplaced;
+         end if;
+
+         --  Record whether pragma is enabled
+
+         Set_PPC_Enabled (N, Check_Enabled (Pname));
+
+         --  If we are within an inlined body, the legality of the pragma
+         --  has been checked already.
+
+         if In_Inlined_Body then
+            In_Body := True;
+            return;
+         end if;
+
+         --  Search prior declarations
+
+         P := N;
+         while Present (Prev (P)) loop
+            P := Prev (P);
+
+            --  If the previous node is a generic subprogram, do not go to
+            --  to the original node, which is the unanalyzed tree: we need
+            --  to attach the pre/postconditions to the analyzed version
+            --  at this point. They get propagated to the original tree when
+            --  analyzing the corresponding body.
+
+            if Nkind (P) not in N_Generic_Declaration then
+               PO := Original_Node (P);
+            else
+               PO := P;
+            end if;
+
+            --  Skip past prior pragma
+
+            if Nkind (PO) = N_Pragma then
+               null;
+
+            --  Skip stuff not coming from source
+
+            elsif not Comes_From_Source (PO) then
+               null;
+
+            --  Only remaining possibility is subprogram declaration
+
+            else
+               Chain_PPC (PO);
+               return;
+            end if;
+         end loop;
+
+         --  If we fall through loop, pragma is at start of list, so see if
+         --  it is at the start of declarations of a subprogram body.
+
+         if Nkind (Parent (N)) = N_Subprogram_Body
+           and then List_Containing (N) = Declarations (Parent (N))
+         then
+            if Operating_Mode /= Generate_Code then
+
+               --  Analyze expression in pragma, for correctness
+               --  and for ASIS use.
+
+               Preanalyze_Spec_Expression
+                 (Get_Pragma_Arg (Arg1), Standard_Boolean);
+            end if;
+
+            In_Body := True;
+            return;
+
+         --  See if it is in the pragmas after a library level subprogram
+
+         elsif Nkind (Parent (N)) = N_Compilation_Unit_Aux then
+            Chain_PPC (Unit (Parent (Parent (N))));
+            return;
+         end if;
+
+         --  If we fall through, pragma was misplaced
+
+         Pragma_Misplaced;
+      end Check_Precondition_Postcondition;
+
       -----------------------------
       -- Check_Static_Constraint --
       -----------------------------
@@ -1235,12 +1494,12 @@ package body Sem_Prag is
 
       procedure Check_Static_Constraint (Constr : Node_Id) is
 
+         procedure Require_Static (E : Node_Id);
+         --  Require given expression to be static expression
+
          --------------------
          -- Require_Static --
          --------------------
-
-         procedure Require_Static (E : Node_Id);
-         --  Require given expression to be static expression
 
          procedure Require_Static (E : Node_Id) is
          begin
@@ -1289,9 +1548,9 @@ package body Sem_Prag is
       -- Check_Valid_Configuration_Pragma --
       --------------------------------------
 
-      --  A configuration pragma must appear in the context clause of
-      --  a compilation unit, at the start of the list (i.e. only other
-      --  pragmas may precede it).
+      --  A configuration pragma must appear in the context clause of a
+      --  compilation unit, and only other pragmas may precede it. Note that
+      --  the test also allows use in a configuration pragma file.
 
       procedure Check_Valid_Configuration_Pragma is
       begin
@@ -1407,8 +1666,8 @@ package body Sem_Prag is
                      Pragma_Misplaced;
 
                   elsif (Nkind (Parent_Node) = N_Generic_Package_Declaration
-                          or else Nkind (Parent_Node)
-                            = N_Generic_Subprogram_Declaration)
+                           or else Nkind (Parent_Node) =
+                                             N_Generic_Subprogram_Declaration)
                     and then Plist = Generic_Formal_Declarations (Parent_Node)
                   then
                      Pragma_Misplaced;
@@ -1470,7 +1729,7 @@ package body Sem_Prag is
 
       procedure Error_Pragma (Msg : String) is
       begin
-         Error_Msg_Name_1 := Chars (N);
+         Error_Msg_Name_1 := Pname;
          Error_Msg_N (Msg, N);
          raise Pragma_Exit;
       end Error_Pragma;
@@ -1481,14 +1740,14 @@ package body Sem_Prag is
 
       procedure Error_Pragma_Arg (Msg : String; Arg : Node_Id) is
       begin
-         Error_Msg_Name_1 := Chars (N);
+         Error_Msg_Name_1 := Pname;
          Error_Msg_N (Msg, Get_Pragma_Arg (Arg));
          raise Pragma_Exit;
       end Error_Pragma_Arg;
 
       procedure Error_Pragma_Arg (Msg1, Msg2 : String; Arg : Node_Id) is
       begin
-         Error_Msg_Name_1 := Chars (N);
+         Error_Msg_Name_1 := Pname;
          Error_Msg_N (Msg1, Get_Pragma_Arg (Arg));
          Error_Pragma_Arg (Msg2, Arg);
       end Error_Pragma_Arg;
@@ -1499,10 +1758,22 @@ package body Sem_Prag is
 
       procedure Error_Pragma_Arg_Ident (Msg : String; Arg : Node_Id) is
       begin
-         Error_Msg_Name_1 := Chars (N);
+         Error_Msg_Name_1 := Pname;
          Error_Msg_N (Msg, Arg);
          raise Pragma_Exit;
       end Error_Pragma_Arg_Ident;
+
+      ----------------------
+      -- Error_Pragma_Ref --
+      ----------------------
+
+      procedure Error_Pragma_Ref (Msg : String; Ref : Entity_Id) is
+      begin
+         Error_Msg_Name_1 := Pname;
+         Error_Msg_Sloc   := Sloc (Ref);
+         Error_Msg_NE (Msg, N, Ref);
+         raise Pragma_Exit;
+      end Error_Pragma_Ref;
 
       ------------------------
       -- Find_Lib_Unit_Name --
@@ -1687,15 +1958,14 @@ package body Sem_Prag is
                   end if;
 
                   if Index = Names'Last then
-                     Error_Msg_Name_1 := Chars (N);
+                     Error_Msg_Name_1 := Pname;
                      Error_Msg_N ("pragma% does not allow & argument", Arg);
 
                      --  Check for possible misspelling
 
                      for Index1 in Names'Range loop
                         if Is_Bad_Spelling_Of
-                             (Get_Name_String (Chars (Arg)),
-                              Get_Name_String (Names (Index1)))
+                             (Chars (Arg), Names (Index1))
                         then
                            Error_Msg_Name_1 := Names (Index1);
                            Error_Msg_N ("\possible misspelling of%", Arg);
@@ -1711,19 +1981,6 @@ package body Sem_Prag is
             Next (Arg);
          end loop;
       end Gather_Associations;
-
-      --------------------
-      -- Get_Pragma_Arg --
-      --------------------
-
-      function Get_Pragma_Arg (Arg : Node_Id) return Node_Id is
-      begin
-         if Nkind (Arg) = N_Pragma_Argument_Association then
-            return Expression (Arg);
-         else
-            return Arg;
-         end if;
-      end Get_Pragma_Arg;
 
       -----------------
       -- GNAT_Pragma --
@@ -1763,9 +2020,9 @@ package body Sem_Prag is
       -- Is_Configuration_Pragma --
       -----------------------------
 
-      --  A configuration pragma must appear in the context clause of
-      --  a compilation unit, at the start of the list (i.e. only other
-      --  pragmas may precede it).
+      --  A configuration pragma must appear in the context clause of a
+      --  compilation unit, and only other pragmas may precede it. Note that
+      --  the test below also permits use in a configuration pragma file.
 
       function Is_Configuration_Pragma return Boolean is
          Lis : constant List_Id := List_Containing (N);
@@ -1803,6 +2060,46 @@ package body Sem_Prag is
          end if;
       end Is_Configuration_Pragma;
 
+      --------------------------
+      -- Is_In_Context_Clause --
+      --------------------------
+
+      function Is_In_Context_Clause return Boolean is
+         Plist       : List_Id;
+         Parent_Node : Node_Id;
+
+      begin
+         if not Is_List_Member (N) then
+            return False;
+
+         else
+            Plist := List_Containing (N);
+            Parent_Node := Parent (Plist);
+
+            if Parent_Node = Empty
+              or else Nkind (Parent_Node) /= N_Compilation_Unit
+              or else Context_Items (Parent_Node) /= Plist
+            then
+               return False;
+            end if;
+         end if;
+
+         return True;
+      end Is_In_Context_Clause;
+
+      ---------------------------------
+      -- Is_Static_String_Expression --
+      ---------------------------------
+
+      function Is_Static_String_Expression (Arg : Node_Id) return Boolean is
+         Argx : constant Node_Id := Get_Pragma_Arg (Arg);
+
+      begin
+         Analyze_And_Resolve (Argx);
+         return Is_OK_Static_Expression (Argx)
+           and then Nkind (Argx) = N_String_Literal;
+      end Is_Static_String_Expression;
+
       ----------------------
       -- Pragma_Misplaced --
       ----------------------
@@ -1824,10 +2121,10 @@ package body Sem_Prag is
          Utyp : Entity_Id;
 
          procedure Set_Atomic (E : Entity_Id);
-         --  Set given type as atomic, and if no explicit alignment was
-         --  given, set alignment to unknown, since back end knows what
-         --  the alignment requirements are for atomic arrays. Note that
-         --  this step is necessary for derived types.
+         --  Set given type as atomic, and if no explicit alignment was given,
+         --  set alignment to unknown, since back end knows what the alignment
+         --  requirements are for atomic arrays. Note: this step is necessary
+         --  for derived types.
 
          ----------------
          -- Set_Atomic --
@@ -1875,9 +2172,8 @@ package body Sem_Prag is
                Set_Atomic (Base_Type (E));
             end if;
 
-            --  Attribute belongs on the base type. If the
-            --  view of the type is currently private, it also
-            --  belongs on the underlying type.
+            --  Attribute belongs on the base type. If the view of the type is
+            --  currently private, it also belongs on the underlying type.
 
             Set_Is_Volatile (Base_Type (E));
             Set_Is_Volatile (Underlying_Type (E));
@@ -1896,10 +2192,9 @@ package body Sem_Prag is
             if Prag_Id /= Pragma_Volatile then
                Set_Is_Atomic (E);
 
-               --  If the object declaration has an explicit
-               --  initialization, a temporary may have to be
-               --  created to hold the expression, to insure
-               --  that access to the object remain atomic.
+               --  If the object declaration has an explicit initialization, a
+               --  temporary may have to be created to hold the expression, to
+               --  ensure that access to the object remain atomic.
 
                if Nkind (Parent (E)) = N_Object_Declaration
                  and then Present (Expression (Parent (E)))
@@ -1909,7 +2204,7 @@ package body Sem_Prag is
 
                --  An interesting improvement here. If an object of type X
                --  is declared atomic, and the type X is not atomic, that's
-               --  a pity, since it may not have appropraite alignment etc.
+               --  a pity, since it may not have appropriate alignment etc.
                --  We can rescue this in the special case where the object
                --  and type are in the same unit by just setting the type
                --  as atomic, so that the back end will process it as atomic.
@@ -1936,6 +2231,111 @@ package body Sem_Prag is
          end if;
       end Process_Atomic_Shared_Volatile;
 
+      -------------------------------------------
+      -- Process_Compile_Time_Warning_Or_Error --
+      -------------------------------------------
+
+      procedure Process_Compile_Time_Warning_Or_Error is
+         Arg1x : constant Node_Id := Get_Pragma_Arg (Arg1);
+
+      begin
+         Check_Arg_Count (2);
+         Check_No_Identifiers;
+         Check_Arg_Is_Static_Expression (Arg2, Standard_String);
+         Analyze_And_Resolve (Arg1x, Standard_Boolean);
+
+         if Compile_Time_Known_Value (Arg1x) then
+            if Is_True (Expr_Value (Get_Pragma_Arg (Arg1))) then
+               declare
+                  Str   : constant String_Id :=
+                            Strval (Get_Pragma_Arg (Arg2));
+                  Len   : constant Int := String_Length (Str);
+                  Cont  : Boolean;
+                  Ptr   : Nat;
+                  CC    : Char_Code;
+                  C     : Character;
+                  Cent  : constant Entity_Id :=
+                            Cunit_Entity (Current_Sem_Unit);
+
+                  Force : constant Boolean :=
+                            Prag_Id = Pragma_Compile_Time_Warning
+                              and then
+                                Is_Spec_Name (Unit_Name (Current_Sem_Unit))
+                              and then (Ekind (Cent) /= E_Package
+                                          or else not In_Private_Part (Cent));
+                  --  Set True if this is the warning case, and we are in the
+                  --  visible part of a package spec, or in a subprogram spec,
+                  --  in which case we want to force the client to see the
+                  --  warning, even though it is not in the main unit.
+
+               begin
+                  --  Loop through segments of message separated by line
+                  --  feeds. We output these segments as separate messages
+                  --  with continuation marks for all but the first.
+
+                  Cont := False;
+                  Ptr := 1;
+                  loop
+                     Error_Msg_Strlen := 0;
+
+                     --  Loop to copy characters from argument to error
+                     --  message string buffer.
+
+                     loop
+                        exit when Ptr > Len;
+                        CC := Get_String_Char (Str, Ptr);
+                        Ptr := Ptr + 1;
+
+                        --  Ignore wide chars ??? else store character
+
+                        if In_Character_Range (CC) then
+                           C := Get_Character (CC);
+                           exit when C = ASCII.LF;
+                           Error_Msg_Strlen := Error_Msg_Strlen + 1;
+                           Error_Msg_String (Error_Msg_Strlen) := C;
+                        end if;
+                     end loop;
+
+                     --  Here with one line ready to go
+
+                     Error_Msg_Warn := Prag_Id = Pragma_Compile_Time_Warning;
+
+                     --  If this is a warning in a spec, then we want clients
+                     --  to see the warning, so mark the message with the
+                     --  special sequence !! to force the warning. In the case
+                     --  of a package spec, we do not force this if we are in
+                     --  the private part of the spec.
+
+                     if Force then
+                        if Cont = False then
+                           Error_Msg_N ("<~!!", Arg1);
+                           Cont := True;
+                        else
+                           Error_Msg_N ("\<~!!", Arg1);
+                        end if;
+
+                     --  Error, rather than warning, or in a body, so we do not
+                     --  need to force visibility for client (error will be
+                     --  output in any case, and this is the situation in which
+                     --  we do not want a client to get a warning, since the
+                     --  warning is in the body or the spec private part.
+
+                     else
+                        if Cont = False then
+                           Error_Msg_N ("<~", Arg1);
+                           Cont := True;
+                        else
+                           Error_Msg_N ("\<~", Arg1);
+                        end if;
+                     end if;
+
+                     exit when Ptr > Len;
+                  end loop;
+               end;
+            end if;
+         end if;
+      end Process_Compile_Time_Warning_Or_Error;
+
       ------------------------
       -- Process_Convention --
       ------------------------
@@ -1961,11 +2361,11 @@ package body Sem_Prag is
 
          procedure Set_Convention_From_Pragma (E : Entity_Id) is
          begin
-            --  Check invalid attempt to change convention for an overridden
-            --  dispatching operation. This is Ada 2005 AI 430. Technically
-            --  this is an amendment and should only be done in Ada 2005 mode.
-            --  However, this is clearly a mistake, since the problem that is
-            --  addressed by this AI is that there is a clear gap in the RM!
+            --  Ada 2005 (AI-430): Check invalid attempt to change convention
+            --  for an overridden dispatching operation. Technically this is
+            --  an amendment and should only be done in Ada 2005 mode. However,
+            --  this is clearly a mistake, since the problem that is addressed
+            --  by this AI is that there is a clear gap in the RM!
 
             if Is_Dispatching_Operation (E)
               and then Present (Overridden_Operation (E))
@@ -1995,10 +2395,10 @@ package body Sem_Prag is
                Set_Convention (Class_Wide_Type (E), C);
             end if;
 
-            --  If the entity is a record type, then check for special case
-            --  of C_Pass_By_Copy, which is treated the same as C except that
-            --  the special record flag is set. This convention is also only
-            --  permitted on record types (see AI95-00131).
+            --  If the entity is a record type, then check for special case of
+            --  C_Pass_By_Copy, which is treated the same as C except that the
+            --  special record flag is set. This convention is only permitted
+            --  on record types (see AI95-00131).
 
             if Cname = Name_C_Pass_By_Copy then
                if Is_Record_Type (E) then
@@ -2050,11 +2450,11 @@ package body Sem_Prag is
          elsif Is_Convention_Name (Cname) then
             C := Get_Convention_Id (Chars (Expression (Arg1)));
 
-         --  In DEC VMS, it seems that there is an undocumented feature
-         --  that any unrecognized convention is treated as the default,
-         --  which for us is convention C. It does not seem so terrible
-         --  to do this unconditionally, silently in the VMS case, and
-         --  with a warning in the non-VMS case.
+         --  In DEC VMS, it seems that there is an undocumented feature that
+         --  any unrecognized convention is treated as the default, which for
+         --  us is convention C. It does not seem so terrible to do this
+         --  unconditionally, silently in the VMS case, and with a warning
+         --  in the non-VMS case.
 
          else
             if Warn_On_Export_Import and not OpenVMS_On_Target then
@@ -2078,19 +2478,24 @@ package body Sem_Prag is
 
          E := Entity (Id);
 
-         --  Go to renamed subprogram if present, since convention applies
-         --  to the actual renamed entity, not to the renaming entity.
-         --  If subprogram is inherited, go to parent subprogram.
+         --  Go to renamed subprogram if present, since convention applies to
+         --  the actual renamed entity, not to the renaming entity. If the
+         --  subprogram is inherited, go to parent subprogram.
 
          if Is_Subprogram (E)
            and then Present (Alias (E))
          then
-            if Nkind (Parent (Declaration_Node (E)))
-              = N_Subprogram_Renaming_Declaration
+            if Nkind (Parent (Declaration_Node (E))) =
+                                       N_Subprogram_Renaming_Declaration
             then
+               if Scope (E) /= Scope (Alias (E)) then
+                  Error_Pragma_Ref
+                    ("cannot apply pragma% to non-local renaming&#", E);
+               end if;
                E := Alias (E);
 
-            elsif Nkind (Parent (E)) = N_Full_Type_Declaration
+            elsif Nkind_In (Parent (E), N_Full_Type_Declaration,
+                                        N_Private_Extension_Declaration)
               and then Scope (E) = Scope (Alias (E))
             then
                E := Alias (E);
@@ -2112,13 +2517,19 @@ package body Sem_Prag is
               or else
             Ekind (E) = E_Named_Real
          then
-            Error_Msg_Name_1 := Chars (N);
+            Error_Msg_Name_1 := Pname;
             Error_Msg_N
               ("cannot apply pragma% to named constant!",
                Get_Pragma_Arg (Arg2));
             Error_Pragma_Arg
               ("\supply appropriate type for&!", Arg2);
          end if;
+
+         if Ekind (E) = E_Enumeration_Literal then
+            Error_Pragma ("enumeration literal not allowed for pragma%");
+         end if;
+
+         --  Check for rep item appearing too early or too late
 
          if Etype (E) = Any_Type
            or else Rep_Item_Too_Early (E, N)
@@ -2198,7 +2609,7 @@ package body Sem_Prag is
             --  Treat a pragma Import as an implicit body, for GPS use
 
             if Prag_Id = Pragma_Import then
-                  Generate_Reference (E, Id, 'b');
+               Generate_Reference (E, Id, 'b');
             end if;
 
             E1 := E;
@@ -2206,15 +2617,21 @@ package body Sem_Prag is
                E1 := Homonym (E1);
                exit when No (E1) or else Scope (E1) /= Current_Scope;
 
-               --  Note: below we are missing a check for Rep_Item_Too_Late.
-               --  That is deliberate, we cannot chain the rep item on more
-               --  than one Rep_Item chain, to be fixed later ???
+               --  Do not set the pragma on inherited operations or on
+               --  formal subprograms.
 
                if Comes_From_Source (E1)
                  and then Comp_Unit = Get_Source_Unit (E1)
+                 and then not Is_Formal_Subprogram (E1)
                  and then Nkind (Original_Node (Parent (E1))) /=
-                   N_Full_Type_Declaration
+                                                    N_Full_Type_Declaration
                then
+                  if Present (Alias (E1))
+                    and then Scope (E1) /= Scope (Alias (E1))
+                  then
+                     Error_Pragma_Ref
+                       ("cannot apply pragma% to non-local renaming&#", E1);
+                  end if;
                   Set_Convention_From_Pragma (E1);
 
                   if Prag_Id = Pragma_Import then
@@ -2239,8 +2656,6 @@ package body Sem_Prag is
          Code_Val : Uint;
 
       begin
-         GNAT_Pragma;
-
          if not OpenVMS_On_Target then
             Error_Pragma
               ("?pragma% ignored (applies only to Open'V'M'S)");
@@ -2298,8 +2713,6 @@ package body Sem_Prag is
         (Arg_Internal : Node_Id := Empty)
       is
       begin
-         GNAT_Pragma;
-
          if No (Arg_Internal) then
             Error_Pragma ("Internal parameter required for pragma%");
          end if;
@@ -2434,12 +2847,11 @@ package body Sem_Prag is
             then
                Error_Msg_Sloc := Sloc (Def_Id);
                Error_Pragma_Arg
-                 ("no initialization allowed for declaration of& #",
-                  "\imported entities cannot be initialized ('R'M' 'B.1(24))",
-                  Arg1);
+                 ("imported entities cannot be initialized (RM B.1(24))",
+                  "\no initialization allowed for & declared#", Arg1);
             else
                Set_Imported (Def_Id);
-               Note_Possible_Modification (Arg_Internal);
+               Note_Possible_Modification (Arg_Internal, Sure => False);
             end if;
          end if;
       end Process_Extended_Import_Export_Object_Pragma;
@@ -2500,7 +2912,7 @@ package body Sem_Prag is
                end if;
 
                --  We have a match if the corresponding argument is of an
-               --  anonymous access type, and its designicated type matches
+               --  anonymous access type, and its designated type matches
                --  the type of the prefix of the access attribute
 
                return Ekind (Ftyp) = E_Anonymous_Access_Type
@@ -2552,9 +2964,8 @@ package body Sem_Prag is
                --  Pragma cannot apply to subprogram body
 
                if Is_Subprogram (Def_Id)
-                 and then
-                   Nkind (Parent
-                     (Declaration_Node (Def_Id))) = N_Subprogram_Body
+                 and then Nkind (Parent (Declaration_Node (Def_Id))) =
+                                                             N_Subprogram_Body
                then
                   Error_Pragma
                     ("pragma% requires separate spec"
@@ -2571,8 +2982,9 @@ package body Sem_Prag is
 
                elsif Etype (Def_Id) /= Standard_Void_Type
                  and then
-                   (Chars (N) = Name_Export_Procedure
-                      or else Chars (N) = Name_Import_Procedure)
+                   (Pname = Name_Export_Procedure
+                      or else
+                    Pname = Name_Import_Procedure)
                then
                   Match := False;
 
@@ -2650,7 +3062,7 @@ package body Sem_Prag is
                   else
                      if not Ambiguous then
                         Ambiguous := True;
-                        Error_Msg_Name_1 := Chars (N);
+                        Error_Msg_Name_1 := Pname;
                         Error_Msg_N
                           ("pragma% does not uniquely identify subprogram!",
                            N);
@@ -2675,7 +3087,6 @@ package body Sem_Prag is
                if Is_Generic_Subprogram (Entity (Arg_Internal)) then
                   Error_Pragma
                     ("pragma% cannot be given for generic subprogram");
-
                else
                   Error_Pragma
                     ("pragma% does not identify local subprogram");
@@ -2685,7 +3096,7 @@ package body Sem_Prag is
             return;
          end if;
 
-         --  Import pragmas must be be for imported entities
+         --  Import pragmas must be for imported entities
 
          if Prag_Id = Pragma_Import_Function
               or else
@@ -2700,16 +3111,16 @@ package body Sem_Prag is
 
          --  Here we have the Export case which can set the entity as exported
 
-         --  But does not do so if the specified external name is null,
-         --  since that is taken as a signal in DEC Ada 83 (with which
-         --  we want to be compatible) to request no external name.
+         --  But does not do so if the specified external name is null, since
+         --  that is taken as a signal in DEC Ada 83 (with which we want to be
+         --  compatible) to request no external name.
 
          elsif Nkind (Arg_External) = N_String_Literal
            and then String_Length (Strval (Arg_External)) = 0
          then
             null;
 
-         --  In all other cases, set entit as exported
+         --  In all other cases, set entity as exported
 
          else
             Set_Exported (Ent, Arg_Internal);
@@ -2795,7 +3206,6 @@ package body Sem_Prag is
 
                   if Present (Expressions (Arg_Mechanism)) then
                      Mname := First (Expressions (Arg_Mechanism));
-
                      while Present (Mname) loop
                         if No (Formal) then
                            Error_Pragma_Arg
@@ -2812,7 +3222,6 @@ package body Sem_Prag is
 
                   if Present (Component_Associations (Arg_Mechanism)) then
                      Massoc := First (Component_Associations (Arg_Mechanism));
-
                      while Present (Massoc) loop
                         Choice := First (Choices (Massoc));
 
@@ -2834,6 +3243,11 @@ package body Sem_Prag is
                            if Chars (Choice) = Chars (Formal) then
                               Set_Mechanism_Value
                                 (Formal, Expression (Massoc));
+
+                              --  Set entity on identifier for ASIS
+
+                              Set_Entity (Choice, Formal);
+
                               exit;
                            end if;
 
@@ -2914,7 +3328,6 @@ package body Sem_Prag is
          Exp : Node_Id;
 
       begin
-         GNAT_Pragma;
          Check_No_Identifiers;
          Check_At_Least_N_Arguments (1);
 
@@ -2950,25 +3363,31 @@ package body Sem_Prag is
       begin
          Process_Convention (C, Def_Id);
          Kill_Size_Check_Code (Def_Id);
-         Note_Possible_Modification (Expression (Arg2));
+         Note_Possible_Modification (Expression (Arg2), Sure => False);
 
          if Ekind (Def_Id) = E_Variable
               or else
             Ekind (Def_Id) = E_Constant
          then
+            --  We do not permit Import to apply to a renaming declaration
+
+            if Present (Renamed_Object (Def_Id)) then
+               Error_Pragma_Arg
+                 ("pragma% not allowed for object renaming", Arg2);
+
             --  User initialization is not allowed for imported object, but
             --  the object declaration may contain a default initialization,
             --  that will be discarded. Note that an explicit initialization
             --  only counts if it comes from source, otherwise it is simply
             --  the code generator making an implicit initialization explicit.
 
-            if Present (Expression (Parent (Def_Id)))
-               and then Comes_From_Source (Expression (Parent (Def_Id)))
+            elsif Present (Expression (Parent (Def_Id)))
+              and then Comes_From_Source (Expression (Parent (Def_Id)))
             then
                Error_Msg_Sloc := Sloc (Def_Id);
                Error_Pragma_Arg
                  ("no initialization allowed for declaration of& #",
-                  "\imported entities cannot be initialized ('R'M' 'B.1(24))",
+                  "\imported entities cannot be initialized (RM B.1(24))",
                   Arg2);
 
             else
@@ -2976,7 +3395,7 @@ package body Sem_Prag is
                Process_Interface_Name (Def_Id, Arg3, Arg4);
 
                --  Note that we do not set Is_Public here. That's because we
-               --  only want to set if if there is no address clause, and we
+               --  only want to set it if there is no address clause, and we
                --  don't know that yet, so we delay that processing till
                --  freeze time.
 
@@ -3083,16 +3502,14 @@ package body Sem_Prag is
                      if Present (Decl)
                        and then Nkind (Decl) = N_Subprogram_Declaration
                        and then Present (Corresponding_Body (Decl))
-                       and then
-                         Nkind
-                           (Unit_Declaration_Node
-                             (Corresponding_Body (Decl))) =
+                       and then Nkind (Unit_Declaration_Node
+                                        (Corresponding_Body (Decl))) =
                                              N_Subprogram_Renaming_Declaration
                      then
                         Error_Msg_Sloc := Sloc (Def_Id);
-                        Error_Msg_NE ("cannot import&#," &
-                           " already completed by a renaming",
-                           N, Def_Id);
+                        Error_Msg_NE
+                          ("cannot import&, renaming already provided for " &
+                           "declaration #", N, Def_Id);
                      end if;
                   end;
 
@@ -3113,18 +3530,49 @@ package body Sem_Prag is
                end if;
             end loop;
 
-         --  When the convention is Java, we also allow Import to be given
-         --  for packages, exceptions, and record components.
+         --  When the convention is Java or CIL, we also allow Import to be
+         --  given for packages, generic packages, exceptions, and record
+         --  components.
 
-         elsif C = Convention_Java
+         elsif (C = Convention_Java or else C = Convention_CIL)
            and then
-             (Ekind (Def_Id) = E_Package
+             (Is_Package_Or_Generic_Package (Def_Id)
                 or else Ekind (Def_Id) = E_Exception
                 or else Nkind (Parent (Def_Id)) = N_Component_Declaration)
          then
             Set_Imported (Def_Id);
             Set_Is_Public (Def_Id);
             Process_Interface_Name (Def_Id, Arg3, Arg4);
+
+         --  Import a CPP class
+
+         elsif Is_Record_Type (Def_Id)
+           and then C = Convention_CPP
+         then
+            if not Is_Tagged_Type (Def_Id) then
+               Error_Msg_Sloc := Sloc (Def_Id);
+               Error_Pragma_Arg ("imported 'C'P'P type must be tagged", Arg2);
+
+            else
+               --  Types treated as CPP classes are treated as limited, but we
+               --  don't require them to be declared this way. A warning is
+               --  issued to encourage the user to declare them as limited.
+               --  This is not an error, for compatibility reasons, because
+               --  these types have been supported this way for some time.
+
+               if not Is_Limited_Type (Def_Id) then
+                  Error_Msg_N
+                    ("imported 'C'P'P type should be " &
+                       "explicitly declared limited?",
+                     Get_Pragma_Arg (Arg2));
+                  Error_Msg_N
+                    ("\type will be considered limited",
+                     Get_Pragma_Arg (Arg2));
+               end if;
+
+               Set_Is_CPP_Class (Def_Id);
+               Set_Is_Limited_Record (Def_Id);
+            end if;
 
          else
             Error_Pragma_Arg
@@ -3163,15 +3611,17 @@ package body Sem_Prag is
          --  corresponding body, if there is one present.
 
          procedure Set_Inline_Flags (Subp : Entity_Id);
-         --  Sets Is_Inlined and Has_Pragma_Inline flags for Subp
+         --  Sets Is_Inlined and Has_Pragma_Inline flags for Subp and also
+         --  Has_Pragma_Inline_Always for the Inline_Always case.
 
          function Inlining_Not_Possible (Subp : Entity_Id) return Boolean;
          --  Returns True if it can be determined at this stage that inlining
-         --  is not possible, for examle if the body is available and contains
+         --  is not possible, for example if the body is available and contains
          --  exception handlers, we prevent inlining, since otherwise we can
          --  get undefined symbols at link time. This function also emits a
          --  warning if front-end inlining is enabled and the pragma appears
          --  too late.
+         --
          --  ??? is business with link symbols still valid, or does it relate
          --  to front end ZCX which is being phased out ???
 
@@ -3203,8 +3653,8 @@ package body Sem_Prag is
                --  trivially possible.
 
                elsif
-                 Nkind (Unit_Declaration_Node (Corresponding_Body (Decl)))
-                   = N_Subprogram_Renaming_Declaration
+                 Nkind (Unit_Declaration_Node (Corresponding_Body (Decl))) =
+                                             N_Subprogram_Renaming_Declaration
                then
                   return False;
 
@@ -3235,7 +3685,16 @@ package body Sem_Prag is
             Inner_Subp : Entity_Id   := Subp;
 
          begin
+            --  Ignore if bad type, avoid cascaded error
+
             if Etype (Subp) = Any_Type then
+               Applies := True;
+               return;
+
+            --  Ignore if all inlining is suppressed
+
+            elsif Suppress_All_Inlining then
+               Applies := True;
                return;
 
             --  If inlining is not possible, for now do not treat as an error
@@ -3245,29 +3704,36 @@ package body Sem_Prag is
                return;
 
             --  Here we have a candidate for inlining, but we must exclude
-            --  derived operations. Otherwise we will end up trying to
-            --  inline a phantom declaration, and the result would be to
-            --  drag in a body which has no direct inlining associated with
-            --  it. That would not only be inefficient but would also result
-            --  in the backend doing cross-unit inlining in cases where it
-            --  was definitely inappropriate to do so.
+            --  derived operations. Otherwise we would end up trying to inline
+            --  a phantom declaration, and the result would be to drag in a
+            --  body which has no direct inlining associated with it. That
+            --  would not only be inefficient but would also result in the
+            --  backend doing cross-unit inlining in cases where it was
+            --  definitely inappropriate to do so.
 
-            --  However, a simple Comes_From_Source test is insufficient,
-            --  since we do want to allow inlining of generic instances,
-            --  which also do not come from source. Predefined operators do
-            --  not come from source but are not inlineable either.
+            --  However, a simple Comes_From_Source test is insufficient, since
+            --  we do want to allow inlining of generic instances which also do
+            --  not come from source. We also need to recognize specs
+            --  generated by the front-end for bodies that carry the pragma.
+            --  Finally, predefined operators do not come from source but are
+            --  not inlineable either.
+
+            elsif Is_Generic_Instance (Subp)
+              or else Nkind (Parent (Parent (Subp))) = N_Subprogram_Declaration
+            then
+               null;
 
             elsif not Comes_From_Source (Subp)
-              and then not Is_Generic_Instance (Subp)
               and then Scope (Subp) /= Standard_Standard
             then
                Applies := True;
                return;
+            end if;
 
             --  The referenced entity must either be the enclosing entity,
             --  or an entity declared within the current open scope.
 
-            elsif Present (Scope (Subp))
+            if Present (Scope (Subp))
               and then Scope (Subp) /= Current_Scope
               and then Subp /= Current_Scope
             then
@@ -3295,6 +3761,22 @@ package body Sem_Prag is
                     and then Present (Corresponding_Body (Decl))
                   then
                      Set_Inline_Flags (Corresponding_Body (Decl));
+
+                  elsif Is_Generic_Instance (Subp) then
+
+                     --  Indicate that the body needs to be created for
+                     --  inlining subsequent calls. The instantiation
+                     --  node follows the declaration of the wrapper
+                     --  package created for it.
+
+                     if Scope (Subp) /= Standard_Standard
+                       and then
+                         Need_Subprogram_Instance_Body
+                          (Next (Unit_Declaration_Node (Scope (Alias (Subp)))),
+                              Subp)
+                     then
+                        null;
+                     end if;
                   end if;
                end if;
 
@@ -3333,9 +3815,11 @@ package body Sem_Prag is
 
             if not Has_Pragma_Inline (Subp) then
                Set_Has_Pragma_Inline (Subp);
-               Set_Next_Rep_Item (N, First_Rep_Item (Subp));
-               Set_First_Rep_Item (Subp, N);
                Effective := True;
+            end if;
+
+            if Prag_Id = Pragma_Inline_Always then
+               Set_Has_Pragma_Inline_Always (Subp);
             end if;
          end Set_Inline_Flags;
 
@@ -3383,6 +3867,7 @@ package body Sem_Prag is
 
             elsif not Effective
               and then Warn_On_Redundant_Constructs
+              and then not Suppress_All_Inlining
             then
                if Inlining_Not_Possible (Subp) then
                   Error_Msg_NE
@@ -3410,17 +3895,23 @@ package body Sem_Prag is
          Link_Nam   : Node_Id;
          String_Val : String_Id;
 
-         procedure Check_Form_Of_Interface_Name (SN : Node_Id);
+         procedure Check_Form_Of_Interface_Name
+           (SN            : Node_Id;
+            Ext_Name_Case : Boolean);
          --  SN is a string literal node for an interface name. This routine
          --  performs some minimal checks that the name is reasonable. In
          --  particular that no spaces or other obviously incorrect characters
          --  appear. This is only a warning, since any characters are allowed.
+         --  Ext_Name_Case is True for an External_Name, False for a Link_Name.
 
          ----------------------------------
          -- Check_Form_Of_Interface_Name --
          ----------------------------------
 
-         procedure Check_Form_Of_Interface_Name (SN : Node_Id) is
+         procedure Check_Form_Of_Interface_Name
+           (SN            : Node_Id;
+            Ext_Name_Case : Boolean)
+         is
             S  : constant String_Id := Strval (Expr_Value_S (SN));
             SL : constant Nat       := String_Length (S);
             C  : Char_Code;
@@ -3433,13 +3924,28 @@ package body Sem_Prag is
             for J in 1 .. SL loop
                C := Get_String_Char (S, J);
 
-               if Warn_On_Export_Import
-                 and then (not In_Character_Range (C)
-                             or else Get_Character (C) = ' '
-                             or else Get_Character (C) = ',')
+               --  Look for dubious character and issue unconditional warning.
+               --  Definitely dubious if not in character range.
+
+               if not In_Character_Range (C)
+
+                  --  For all cases except external names on CLI target,
+                  --  commas, spaces and slashes are dubious (in CLI, we use
+                  --  spaces and commas in external names to specify assembly
+                  --  version and public key).
+
+                  or else ((not Ext_Name_Case or else VM_Target /= CLI_Target)
+                             and then (Get_Character (C) = ' '
+                                         or else
+                                       Get_Character (C) = ','
+                                         or else
+                                       Get_Character (C) = '/'
+                                         or else
+                                       Get_Character (C) = '\'))
                then
-                  Error_Msg_N
-                    ("?interface name contains illegal character", SN);
+                  Error_Msg
+                    ("?interface name contains illegal character",
+                     Sloc (SN) + Source_Ptr (J));
                end if;
             end loop;
          end Check_Form_Of_Interface_Name;
@@ -3449,6 +3955,18 @@ package body Sem_Prag is
       begin
          if No (Link_Arg) then
             if No (Ext_Arg) then
+               if VM_Target = CLI_Target
+                 and then Ekind (Subprogram_Def) = E_Package
+                 and then Nkind (Parent (Subprogram_Def)) =
+                                                 N_Package_Specification
+                 and then Present (Generic_Parent (Parent (Subprogram_Def)))
+               then
+                  Set_Interface_Name
+                     (Subprogram_Def,
+                      Interface_Name
+                        (Generic_Parent (Parent (Subprogram_Def))));
+               end if;
+
                return;
 
             elsif Chars (Ext_Arg) = Name_Link_Name then
@@ -3472,13 +3990,13 @@ package body Sem_Prag is
 
          if Present (Ext_Nam) then
             Check_Arg_Is_Static_Expression (Ext_Nam, Standard_String);
-            Check_Form_Of_Interface_Name (Ext_Nam);
+            Check_Form_Of_Interface_Name (Ext_Nam, Ext_Name_Case => True);
 
-            --  Verify that the external name is not the name of a local
-            --  entity, which would hide the imported one and lead to
-            --  run-time surprises. The problem can only arise for entities
-            --  declared in a package body (otherwise the external name is
-            --  fully qualified and won't conflict).
+            --  Verify that external name is not the name of a local entity,
+            --  which would hide the imported one and could lead to run-time
+            --  surprises. The problem can only arise for entities declared in
+            --  a package body (otherwise the external name is fully qualified
+            --  and will not conflict).
 
             declare
                Nam : Name_Id;
@@ -3499,13 +4017,12 @@ package body Sem_Prag is
                     and then Ekind (Scope (E)) = E_Package
                   then
                      Par := Parent (E);
-
                      while Present (Par) loop
                         if Nkind (Par) = N_Package_Body then
-                           Error_Msg_Sloc  := Sloc (E);
+                           Error_Msg_Sloc := Sloc (E);
                            Error_Msg_NE
                              ("imported entity is hidden by & declared#",
-                                 Ext_Arg, E);
+                              Ext_Arg, E);
                            exit;
                         end if;
 
@@ -3518,7 +4035,7 @@ package body Sem_Prag is
 
          if Present (Link_Nam) then
             Check_Arg_Is_Static_Expression (Link_Nam, Standard_String);
-            Check_Form_Of_Interface_Name (Link_Nam);
+            Check_Form_Of_Interface_Name (Link_Nam, Ext_Name_Case => False);
          end if;
 
          --  If there is no link name, just set the external name
@@ -3534,15 +4051,16 @@ package body Sem_Prag is
 
          else
             Start_String;
-            Store_String_Char (Get_Char_Code ('*'));
+
+            if VM_Target = No_VM then
+               Store_String_Char (Get_Char_Code ('*'));
+            end if;
+
             String_Val := Strval (Expr_Value_S (Link_Nam));
-
-            for J in 1 .. String_Length (String_Val) loop
-               Store_String_Char (Get_String_Char (String_Val, J));
-            end loop;
-
+            Store_String_Chars (String_Val);
             Link_Nam :=
-              Make_String_Literal (Sloc (Link_Nam), End_String);
+              Make_String_Literal (Sloc (Link_Nam),
+                Strval => End_String);
          end if;
 
          Set_Encoded_Interface_Name
@@ -3585,7 +4103,9 @@ package body Sem_Prag is
       --  but it is harmless (and more straightforward) to simply handle all
       --  cases here, even if it means we repeat a bit of work in some cases.
 
-      procedure Process_Restrictions_Or_Restriction_Warnings is
+      procedure Process_Restrictions_Or_Restriction_Warnings
+        (Warn : Boolean)
+      is
          Arg   : Node_Id;
          R_Id  : Restriction_Id;
          Id    : Name_Id;
@@ -3595,10 +4115,6 @@ package body Sem_Prag is
          procedure Check_Unit_Name (N : Node_Id);
          --  Checks unit name parameter for No_Dependence. Returns if it has
          --  an appropriate form, otherwise raises pragma argument error.
-
-         procedure Set_Warning (R : All_Restrictions);
-         --  If this is a Restriction_Warnings pragma, set warning flag,
-         --  otherwise reset the flag.
 
          ---------------------
          -- Check_Unit_Name --
@@ -3618,19 +4134,6 @@ package body Sem_Prag is
                  ("wrong form for unit name for No_Dependence", N);
             end if;
          end Check_Unit_Name;
-
-         -----------------
-         -- Set_Warning --
-         -----------------
-
-         procedure Set_Warning (R : All_Restrictions) is
-         begin
-            if Prag_Id = Pragma_Restriction_Warnings then
-               Restriction_Warnings (R) := True;
-            else
-               Restriction_Warnings (R) := False;
-            end if;
-         end Set_Warning;
 
       --  Start of processing for Process_Restrictions_Or_Restriction_Warnings
 
@@ -3657,25 +4160,69 @@ package body Sem_Prag is
                    (Process_Restriction_Synonyms (Expr));
 
                if R_Id not in All_Boolean_Restrictions then
-                  Error_Pragma_Arg
-                    ("invalid restriction identifier", Arg);
+                  Error_Msg_Name_1 := Pname;
+                  Error_Msg_N
+                    ("invalid restriction identifier&", Get_Pragma_Arg (Arg));
+
+                  --  Check for possible misspelling
+
+                  for J in Restriction_Id loop
+                     declare
+                        Rnm : constant String := Restriction_Id'Image (J);
+
+                     begin
+                        Name_Buffer (1 .. Rnm'Length) := Rnm;
+                        Name_Len := Rnm'Length;
+                        Set_Casing (All_Lower_Case);
+
+                        if Is_Bad_Spelling_Of (Chars (Expr), Name_Enter) then
+                           Set_Casing
+                             (Identifier_Casing (Current_Source_File));
+                           Error_Msg_String (1 .. Rnm'Length) :=
+                             Name_Buffer (1 .. Name_Len);
+                           Error_Msg_Strlen := Rnm'Length;
+                           Error_Msg_N
+                             ("\possible misspelling of ""~""",
+                              Get_Pragma_Arg (Arg));
+                           exit;
+                        end if;
+                     end;
+                  end loop;
+
+                  raise Pragma_Exit;
                end if;
 
                if Implementation_Restriction (R_Id) then
-                  Check_Restriction
-                    (No_Implementation_Restrictions, Arg);
+                  Check_Restriction (No_Implementation_Restrictions, Arg);
                end if;
 
-               Set_Restriction (R_Id, N);
-               Set_Warning (R_Id);
+               --  If this is a warning, then set the warning unless we already
+               --  have a real restriction active (we never want a warning to
+               --  override a real restriction).
 
-               --  A very special case that must be processed here:
-               --  pragma Restrictions (No_Exceptions) turns off
-               --  all run-time checking. This is a bit dubious in
-               --  terms of the formal language definition, but it
-               --  is what is intended by RM H.4(12).
+               if Warn then
+                  if not Restriction_Active (R_Id) then
+                     Set_Restriction (R_Id, N);
+                     Restriction_Warnings (R_Id) := True;
+                  end if;
 
-               if R_Id = No_Exceptions then
+               --  If real restriction case, then set it and make sure that the
+               --  restriction warning flag is off, since a real restriction
+               --  always overrides a warning.
+
+               else
+                  Set_Restriction (R_Id, N);
+                  Restriction_Warnings (R_Id) := False;
+               end if;
+
+               --  A very special case that must be processed here: pragma
+               --  Restrictions (No_Exceptions) turns off all run-time
+               --  checking. This is a bit dubious in terms of the formal
+               --  language definition, but it is what is intended by RM
+               --  H.4(12). Restriction_Warnings never affects generated code
+               --  so this is done only in the real restriction case.
+
+               if R_Id = No_Exceptions and then not Warn then
                   Scope_Suppress := (others => True);
                end if;
 
@@ -3705,19 +4252,36 @@ package body Sem_Prag is
                then
                   Error_Pragma_Arg
                     ("value must be non-negative integer", Arg);
+               end if;
 
-                  --  Restriction pragma is active
+               --  Restriction pragma is active
+
+               Val := Expr_Value (Expr);
+
+               if not UI_Is_In_Int_Range (Val) then
+                  Error_Pragma_Arg
+                    ("pragma ignored, value too large?", Arg);
+               end if;
+
+               --  Warning case. If the real restriction is active, then we
+               --  ignore the request, since warning never overrides a real
+               --  restriction. Otherwise we set the proper warning. Note that
+               --  this circuit sets the warning again if it is already set,
+               --  which is what we want, since the constant may have changed.
+
+               if Warn then
+                  if not Restriction_Active (R_Id) then
+                     Set_Restriction
+                       (R_Id, N, Integer (UI_To_Int (Val)));
+                     Restriction_Warnings (R_Id) := True;
+                  end if;
+
+               --  Real restriction case, set restriction and make sure warning
+               --  flag is off since real restriction always overrides warning.
 
                else
-                  Val := Expr_Value (Expr);
-
-                  if not UI_Is_In_Int_Range (Val) then
-                     Error_Pragma_Arg
-                       ("pragma ignored, value too large?", Arg);
-                  else
-                     Set_Restriction (R_Id, N, Integer (UI_To_Int (Val)));
-                     Set_Warning (R_Id);
-                  end if;
+                  Set_Restriction (R_Id, N, Integer (UI_To_Int (Val)));
+                  Restriction_Warnings (R_Id) := False;
                end if;
             end if;
 
@@ -3739,9 +4303,7 @@ package body Sem_Prag is
          E    : Entity_Id;
 
          In_Package_Spec : constant Boolean :=
-                             (Ekind (Current_Scope) = E_Package
-                                or else
-                              Ekind (Current_Scope) = E_Generic_Package)
+                             Is_Package_Or_Generic_Package (Current_Scope)
                                and then not In_Package_Body (Current_Scope);
 
          procedure Suppress_Unsuppress_Echeck (E : Entity_Id; C : Check_Id);
@@ -3752,18 +4314,20 @@ package body Sem_Prag is
          --------------------------------
 
          procedure Suppress_Unsuppress_Echeck (E : Entity_Id; C : Check_Id) is
-            ESR : constant Entity_Check_Suppress_Record :=
-                    (Entity   => E,
-                     Check    => C,
-                     Suppress => Suppress_Case);
-
          begin
             Set_Checks_May_Be_Suppressed (E);
 
             if In_Package_Spec then
-               Global_Entity_Suppress.Append (ESR);
+               Push_Global_Suppress_Stack_Entry
+                 (Entity   => E,
+                  Check    => C,
+                  Suppress => Suppress_Case);
+
             else
-               Local_Entity_Suppress.Append (ESR);
+               Push_Local_Suppress_Stack_Entry
+                 (Entity   => E,
+                  Check    => C,
+                  Suppress => Suppress_Case);
             end if;
 
             --  If this is a first subtype, and the base type is distinct,
@@ -3791,11 +4355,17 @@ package body Sem_Prag is
          Check_No_Identifier (Arg1);
          Check_Arg_Is_Identifier (Arg1);
 
-         if not Is_Check_Name (Chars (Expression (Arg1))) then
+         C := Get_Check_Id (Chars (Expression (Arg1)));
+
+         if C = No_Check_Id then
             Error_Pragma_Arg
               ("argument of pragma% is not valid check name", Arg1);
-         else
-            C := Get_Check_Id (Chars (Expression (Arg1)));
+         end if;
+
+         if not Suppress_Case
+           and then (C = All_Checks or else C = Overflow_Check)
+         then
+            Opt.Overflow_Checks_Unsuppressed := True;
          end if;
 
          if Arg_Count = 1 then
@@ -3806,10 +4376,10 @@ package body Sem_Prag is
 
             if C = All_Checks then
 
-               --  For All_Checks, we set all specific checks with the
-               --  exception of Elaboration_Check, which is handled specially
-               --  because of not wanting All_Checks to have the effect of
-               --  deactivating static elaboration order processing.
+               --  For All_Checks, we set all specific predefined checks with
+               --  the exception of Elaboration_Check, which is handled
+               --  specially because of not wanting All_Checks to have the
+               --  effect of deactivating static elaboration order processing.
 
                for J in Scope_Suppress'Range loop
                   if J /= Elaboration_Check then
@@ -3817,24 +4387,23 @@ package body Sem_Prag is
                   end if;
                end loop;
 
-            --  If not All_Checks, just set appropriate entry. Note that we
-            --  will set Elaboration_Check if this is explicitly specified.
+            --  If not All_Checks, and predefined check, then set appropriate
+            --  scope entry. Note that we will set Elaboration_Check if this
+            --  is explicitly specified.
 
-            else
+            elsif C in Predefined_Check_Id then
                Scope_Suppress (C) := Suppress_Case;
             end if;
 
-            --  Also make an entry in the Local_Entity_Suppress table. See
-            --  extended description in the package spec of Sem for details.
+            --  Also make an entry in the Local_Entity_Suppress table
 
-            Local_Entity_Suppress.Append
-              ((Entity   => Empty,
-                Check    => C,
-                Suppress => Suppress_Case));
+            Push_Local_Suppress_Stack_Entry
+              (Entity   => Empty,
+               Check    => C,
+               Suppress => Suppress_Case);
 
-         --  Case of two arguments present, where the check is
-         --  suppressed for a specified entity (given as the second
-         --  argument of the pragma)
+         --  Case of two arguments present, where the check is suppressed for
+         --  a specified entity (given as the second argument of the pragma)
 
          else
             Check_Optional_Identifier (Arg2, Name_On);
@@ -3863,7 +4432,7 @@ package body Sem_Prag is
               and then Scope (E) /= Current_Scope
             then
                Error_Pragma_Arg
-                 ("entity in pragma% is not in package spec ('R'M 11.5(7))",
+                 ("entity in pragma% is not in package spec (RM 11.5(7))",
                   Arg2);
             end if;
 
@@ -4049,18 +4618,23 @@ package body Sem_Prag is
 
       procedure Set_Imported (E : Entity_Id) is
       begin
-         Error_Msg_Sloc  := Sloc (E);
+         --  Error message if already imported or exported
 
          if Is_Exported (E) or else Is_Imported (E) then
-            Error_Msg_NE ("import of& declared# not allowed", N, E);
-
             if Is_Exported (E) then
-               Error_Msg_N ("\entity was previously exported", N);
+               Error_Msg_NE ("entity& was previously exported", N, E);
             else
-               Error_Msg_N ("\entity was previously imported", N);
+               Error_Msg_NE ("entity& was previously imported", N, E);
             end if;
 
-            Error_Pragma ("\(pragma% applies to all previous entities)");
+            Error_Msg_Name_1 := Pname;
+            Error_Msg_N
+              ("\(pragma% applies to all previous entities)", N);
+
+            Error_Msg_Sloc  := Sloc (E);
+            Error_Msg_NE ("\import not allowed for& declared#", N, E);
+
+         --  Here if not previously imported or exported, OK to import
 
          else
             Set_Is_Imported (E);
@@ -4090,6 +4664,7 @@ package body Sem_Prag is
       procedure Set_Mechanism_Value (Ent : Entity_Id; Mech_Name : Node_Id) is
          Class : Node_Id;
          Param : Node_Id;
+         Mech_Name_Id : Name_Id;
 
          procedure Bad_Class;
          --  Signal bad descriptor class name
@@ -4123,7 +4698,8 @@ package body Sem_Prag is
               ("mechanism for & has already been set", Mech_Name, Ent);
          end if;
 
-         --  MECHANISM_NAME ::= value | reference | descriptor
+         --  MECHANISM_NAME ::= value | reference | descriptor |
+         --                     short_descriptor
 
          if Nkind (Mech_Name) = N_Identifier then
             if Chars (Mech_Name) = Name_Value then
@@ -4139,6 +4715,11 @@ package body Sem_Prag is
                Set_Mechanism (Ent, By_Descriptor);
                return;
 
+            elsif Chars (Mech_Name) = Name_Short_Descriptor then
+               Check_VMS (Mech_Name);
+               Set_Mechanism (Ent, By_Short_Descriptor);
+               return;
+
             elsif Chars (Mech_Name) = Name_Copy then
                Error_Pragma_Arg
                  ("bad mechanism name, Value assumed", Mech_Name);
@@ -4147,22 +4728,28 @@ package body Sem_Prag is
                Bad_Mechanism;
             end if;
 
-         --  MECHANISM_NAME ::= descriptor (CLASS_NAME)
+         --  MECHANISM_NAME ::= descriptor (CLASS_NAME) |
+         --                     short_descriptor (CLASS_NAME)
          --  CLASS_NAME     ::= ubs | ubsb | uba | s | sb | a | nca
 
          --  Note: this form is parsed as an indexed component
 
          elsif Nkind (Mech_Name) = N_Indexed_Component then
+
             Class := First (Expressions (Mech_Name));
 
             if Nkind (Prefix (Mech_Name)) /= N_Identifier
-              or else Chars (Prefix (Mech_Name)) /= Name_Descriptor
-              or else Present (Next (Class))
+             or else not (Chars (Prefix (Mech_Name)) = Name_Descriptor or else
+                          Chars (Prefix (Mech_Name)) = Name_Short_Descriptor)
+             or else Present (Next (Class))
             then
                Bad_Mechanism;
+            else
+               Mech_Name_Id := Chars (Prefix (Mech_Name));
             end if;
 
-         --  MECHANISM_NAME ::= descriptor (Class => CLASS_NAME)
+         --  MECHANISM_NAME ::= descriptor (Class => CLASS_NAME) |
+         --                     short_descriptor (Class => CLASS_NAME)
          --  CLASS_NAME     ::= ubs | ubsb | uba | s | sb | a | nca
 
          --  Note: this form is parsed as a function call
@@ -4172,7 +4759,8 @@ package body Sem_Prag is
             Param := First (Parameter_Associations (Mech_Name));
 
             if Nkind (Name (Mech_Name)) /= N_Identifier
-              or else Chars (Name (Mech_Name)) /= Name_Descriptor
+              or else not (Chars (Name (Mech_Name)) = Name_Descriptor or else
+                           Chars (Name (Mech_Name)) = Name_Short_Descriptor)
               or else Present (Next (Param))
               or else No (Selector_Name (Param))
               or else Chars (Selector_Name (Param)) /= Name_Class
@@ -4180,6 +4768,7 @@ package body Sem_Prag is
                Bad_Mechanism;
             else
                Class := Explicit_Actual_Parameter (Param);
+               Mech_Name_Id := Chars (Name (Mech_Name));
             end if;
 
          else
@@ -4193,26 +4782,75 @@ package body Sem_Prag is
          if Nkind (Class) /= N_Identifier then
             Bad_Class;
 
-         elsif Chars (Class) = Name_UBS then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_UBS
+         then
             Set_Mechanism (Ent, By_Descriptor_UBS);
 
-         elsif Chars (Class) = Name_UBSB then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_UBSB
+         then
             Set_Mechanism (Ent, By_Descriptor_UBSB);
 
-         elsif Chars (Class) = Name_UBA then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_UBA
+         then
             Set_Mechanism (Ent, By_Descriptor_UBA);
 
-         elsif Chars (Class) = Name_S then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_S
+         then
             Set_Mechanism (Ent, By_Descriptor_S);
 
-         elsif Chars (Class) = Name_SB then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_SB
+         then
             Set_Mechanism (Ent, By_Descriptor_SB);
 
-         elsif Chars (Class) = Name_A then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_A
+         then
             Set_Mechanism (Ent, By_Descriptor_A);
 
-         elsif Chars (Class) = Name_NCA then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_NCA
+         then
             Set_Mechanism (Ent, By_Descriptor_NCA);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_UBS
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_UBS);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_UBSB
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_UBSB);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_UBA
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_UBA);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_S
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_S);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_SB
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_SB);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_A
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_A);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_NCA
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_NCA);
 
          else
             Bad_Class;
@@ -4281,21 +4919,36 @@ package body Sem_Prag is
 
          --  Set the corresponding restrictions
 
-         Set_Profile_Restrictions (Ravenscar, N, Warn => False);
+         Set_Profile_Restrictions
+           (Ravenscar, N, Warn => Treat_Restrictions_As_Warnings);
       end Set_Ravenscar_Profile;
 
    --  Start of processing for Analyze_Pragma
 
    begin
-      if not Is_Pragma_Name (Chars (N)) then
+      --  Deal with unrecognized pragma
+
+      if not Is_Pragma_Name (Pname) then
          if Warn_On_Unrecognized_Pragma then
-            Error_Pragma ("unrecognized pragma%?");
-         else
-            return;
+            Error_Msg_Name_1 := Pname;
+            Error_Msg_N ("?unrecognized pragma%!", Pragma_Identifier (N));
+
+            for PN in First_Pragma_Name .. Last_Pragma_Name loop
+               if Is_Bad_Spelling_Of (Pname, PN) then
+                  Error_Msg_Name_1 := PN;
+                  Error_Msg_N
+                    ("\?possible misspelling of %!", Pragma_Identifier (N));
+                  exit;
+               end if;
+            end loop;
          end if;
-      else
-         Prag_Id := Get_Pragma_Id (Chars (N));
+
+         return;
       end if;
+
+      --  Here to start processing for recognized pragma
+
+      Prag_Id := Get_Pragma_Id (Pname);
 
       --  Preset arguments
 
@@ -4334,7 +4987,7 @@ package body Sem_Prag is
       end;
 
       --  An enumeration type defines the pragmas that are supported by the
-      --  implementation. Get_Pragma_Id (in package Prag) transorms a name
+      --  implementation. Get_Pragma_Id (in package Prag) transforms a name
       --  into the corresponding enumeration value for the following case.
 
       case Prag_Id is
@@ -4370,9 +5023,25 @@ package body Sem_Prag is
 
          when Pragma_Ada_83 =>
             GNAT_Pragma;
+            Check_Arg_Count (0);
+
+            --  We really should check unconditionally for proper configuration
+            --  pragma placement, since we really don't want mixed Ada modes
+            --  within a single unit, and the GNAT reference manual has always
+            --  said this was a configuration pragma, but we did not check and
+            --  are hesitant to add the check now.
+
+            --  However, we really cannot tolerate mixing Ada 2005 with Ada 83
+            --  or Ada 95, so we must check if we are in Ada 2005 mode.
+
+            if Ada_Version >= Ada_05 then
+               Check_Valid_Configuration_Pragma;
+            end if;
+
+            --  Now set Ada 83 mode
+
             Ada_Version := Ada_83;
             Ada_Version_Explicit := Ada_Version;
-            Check_Arg_Count (0);
 
          ------------
          -- Ada_95 --
@@ -4385,9 +5054,25 @@ package body Sem_Prag is
 
          when Pragma_Ada_95 =>
             GNAT_Pragma;
+            Check_Arg_Count (0);
+
+            --  We really should check unconditionally for proper configuration
+            --  pragma placement, since we really don't want mixed Ada modes
+            --  within a single unit, and the GNAT reference manual has always
+            --  said this was a configuration pragma, but we did not check and
+            --  are hesitant to add the check now.
+
+            --  However, we really cannot tolerate mixing Ada 2005 with Ada 83
+            --  or Ada 95, so we must check if we are in Ada 2005 mode.
+
+            if Ada_Version >= Ada_05 then
+               Check_Valid_Configuration_Pragma;
+            end if;
+
+            --  Now set Ada 95 mode
+
             Ada_Version := Ada_95;
             Ada_Version_Explicit := Ada_Version;
-            Check_Arg_Count (0);
 
          ---------------------
          -- Ada_05/Ada_2005 --
@@ -4416,10 +5101,21 @@ package body Sem_Prag is
                   return;
                end if;
 
-               Set_Is_Ada_2005 (Entity (E_Id));
+               Set_Is_Ada_2005_Only (Entity (E_Id));
 
             else
                Check_Arg_Count (0);
+
+               --  For Ada_2005 we unconditionally enforce the documented
+               --  configuration pragma placement, since we do not want to
+               --  tolerate mixed modes in a unit involving Ada 2005. That
+               --  would cause real difficulties for those cases where there
+               --  are incompatibilities between Ada 95 and Ada 2005.
+
+               Check_Valid_Configuration_Pragma;
+
+               --  Now set Ada 2005 mode
+
                Ada_Version := Ada_05;
                Ada_Version_Explicit := Ada_05;
             end if;
@@ -4474,10 +5170,11 @@ package body Sem_Prag is
             Check_Arg_Is_Identifier (Arg1);
 
             declare
-               Arg : Node_Id := Arg2;
+               Arg : Node_Id;
                Exp : Node_Id;
 
             begin
+               Arg := Arg2;
                while Present (Arg) loop
                   Exp := Expression (Arg);
                   Analyze (Exp);
@@ -4507,49 +5204,45 @@ package body Sem_Prag is
          --  pragma Assert ([Check =>] Boolean_EXPRESSION
          --                 [, [Message =>] Static_String_EXPRESSION]);
 
-         when Pragma_Assert =>
+         when Pragma_Assert => Assert : declare
+            Expr : Node_Id;
+            Newa : List_Id;
+
+         begin
+            Ada_2005_Pragma;
             Check_At_Least_N_Arguments (1);
             Check_At_Most_N_Arguments (2);
             Check_Arg_Order ((Name_Check, Name_Message));
             Check_Optional_Identifier (Arg1, Name_Check);
 
+            --  We treat pragma Assert as equivalent to:
+
+            --    pragma Check (Assertion, condition [, msg]);
+
+            --  So rewrite pragma in this manner, and analyze the result
+
+            Expr := Get_Pragma_Arg (Arg1);
+            Newa := New_List (
+              Make_Pragma_Argument_Association (Loc,
+                Expression =>
+                  Make_Identifier (Loc,
+                    Chars => Name_Assertion)),
+
+              Make_Pragma_Argument_Association (Sloc (Expr),
+                Expression => Expr));
+
             if Arg_Count > 1 then
                Check_Optional_Identifier (Arg2, Name_Message);
-               Check_Arg_Is_Static_Expression (Arg2, Standard_String);
+               Analyze_And_Resolve (Get_Pragma_Arg (Arg2), Standard_String);
+               Append_To (Newa, Relocate_Node (Arg2));
             end if;
 
-            --  If expansion is active and assertions are inactive, then
-            --  we rewrite the Assertion as:
-
-            --    if False and then condition then
-            --       null;
-            --    end if;
-
-            --  The reason we do this rewriting during semantic analysis
-            --  rather than as part of normal expansion is that we cannot
-            --  analyze and expand the code for the boolean expression
-            --  directly, or it may cause insertion of actions that would
-            --  escape the attempt to suppress the assertion code.
-
-            if Expander_Active and not Assertions_Enabled then
-               Rewrite (N,
-                 Make_If_Statement (Loc,
-                   Condition =>
-                     Make_And_Then (Loc,
-                       Left_Opnd  => New_Occurrence_Of (Standard_False, Loc),
-                       Right_Opnd => Get_Pragma_Arg (Arg1)),
-                   Then_Statements => New_List (
-                     Make_Null_Statement (Loc))));
-
-               Analyze (N);
-
-            --  Otherwise (if assertions are enabled, or if we are not
-            --  operating with expansion active), then we just analyze
-            --  and resolve the expression.
-
-            else
-               Analyze_And_Resolve (Expression (Arg1), Any_Boolean);
-            end if;
+            Rewrite (N,
+              Make_Pragma (Loc,
+                Chars => Name_Check,
+                Pragma_Argument_Associations => Newa));
+            Analyze (N);
+         end Assert;
 
          ----------------------
          -- Assertion_Policy --
@@ -4557,10 +5250,63 @@ package body Sem_Prag is
 
          --  pragma Assertion_Policy (Check | Ignore)
 
-         when Pragma_Assertion_Policy =>
+         when Pragma_Assertion_Policy => Assertion_Policy : declare
+            Policy : Node_Id;
+
+         begin
+            Ada_2005_Pragma;
+            Check_Valid_Configuration_Pragma;
             Check_Arg_Count (1);
+            Check_No_Identifiers;
             Check_Arg_Is_One_Of (Arg1, Name_Check, Name_Ignore);
-            Assertions_Enabled := Chars (Expression (Arg1)) = Name_Check;
+
+            --  We treat pragma Assertion_Policy as equivalent to:
+
+            --    pragma Check_Policy (Assertion, policy)
+
+            --  So rewrite the pragma in that manner and link on to the chain
+            --  of Check_Policy pragmas, marking the pragma as analyzed.
+
+            Policy := Get_Pragma_Arg (Arg1);
+
+            Rewrite (N,
+              Make_Pragma (Loc,
+                Chars => Name_Check_Policy,
+
+                Pragma_Argument_Associations => New_List (
+                  Make_Pragma_Argument_Association (Loc,
+                    Expression =>
+                      Make_Identifier (Loc,
+                        Chars => Name_Assertion)),
+
+                  Make_Pragma_Argument_Association (Loc,
+                    Expression =>
+                      Make_Identifier (Sloc (Policy),
+                        Chars => Chars (Policy))))));
+
+            Set_Analyzed (N);
+            Set_Next_Pragma (N, Opt.Check_Policy_List);
+            Opt.Check_Policy_List := N;
+         end Assertion_Policy;
+
+         ------------------------------
+         -- Assume_No_Invalid_Values --
+         ------------------------------
+
+         --  pragma Assume_No_Invalid_Values (On | Off);
+
+         when Pragma_Assume_No_Invalid_Values =>
+            GNAT_Pragma;
+            Check_Valid_Configuration_Pragma;
+            Check_Arg_Count (1);
+            Check_No_Identifiers;
+            Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
+
+            if Chars (Expression (Arg1)) = Name_On then
+               Assume_No_Invalid_Values := True;
+            else
+               Assume_No_Invalid_Values := False;
+            end if;
 
          ---------------
          -- AST_Entry --
@@ -4871,7 +5617,7 @@ package body Sem_Prag is
                               New_Copy_Tree (Expression (Arg2));
                   begin
                      Set_Parent (Temp, N);
-                     Pre_Analyze_And_Resolve (Temp, RTE (RE_Interrupt_ID));
+                     Preanalyze_And_Resolve (Temp, RTE (RE_Interrupt_ID));
                   end;
 
                else
@@ -4919,28 +5665,196 @@ package body Sem_Prag is
             end if;
          end C_Pass_By_Copy;
 
+         -----------
+         -- Check --
+         -----------
+
+         --  pragma Check ([Name    =>] Identifier,
+         --                [Check   =>] Boolean_Expression
+         --              [,[Message =>] String_Expression]);
+
+         when Pragma_Check => Check : declare
+            Expr : Node_Id;
+            Eloc : Source_Ptr;
+
+            Check_On : Boolean;
+            --  Set True if category of assertions referenced by Name enabled
+
+         begin
+            GNAT_Pragma;
+            Check_At_Least_N_Arguments (2);
+            Check_At_Most_N_Arguments (3);
+            Check_Optional_Identifier (Arg1, Name_Name);
+            Check_Optional_Identifier (Arg2, Name_Check);
+
+            if Arg_Count = 3 then
+               Check_Optional_Identifier (Arg3, Name_Message);
+               Analyze_And_Resolve (Get_Pragma_Arg (Arg3), Standard_String);
+            end if;
+
+            Check_Arg_Is_Identifier (Arg1);
+            Check_On := Check_Enabled (Chars (Get_Pragma_Arg (Arg1)));
+
+            --  If expansion is active and the check is not enabled then we
+            --  rewrite the Check as:
+
+            --    if False and then condition then
+            --       null;
+            --    end if;
+
+            --  The reason we do this rewriting during semantic analysis rather
+            --  than as part of normal expansion is that we cannot analyze and
+            --  expand the code for the boolean expression directly, or it may
+            --  cause insertion of actions that would escape the attempt to
+            --  suppress the check code.
+
+            --  Note that the Sloc for the if statement corresponds to the
+            --  argument condition, not the pragma itself. The reason for this
+            --  is that we may generate a warning if the condition is False at
+            --  compile time, and we do not want to delete this warning when we
+            --  delete the if statement.
+
+            Expr := Expression (Arg2);
+
+            if Expander_Active and then not Check_On then
+               Eloc := Sloc (Expr);
+
+               Rewrite (N,
+                 Make_If_Statement (Eloc,
+                   Condition =>
+                     Make_And_Then (Eloc,
+                       Left_Opnd  => New_Occurrence_Of (Standard_False, Eloc),
+                       Right_Opnd => Expr),
+                   Then_Statements => New_List (
+                     Make_Null_Statement (Eloc))));
+
+               Analyze (N);
+
+            --  Check is active
+
+            else
+               Analyze_And_Resolve (Expr, Any_Boolean);
+            end if;
+
+            --  If assertion is of the form (X'First = literal), where X is
+            --  a formal, then set Low_Bound_Known flag on this formal.
+
+            if Nkind (Expr) = N_Op_Eq then
+               declare
+                  Right : constant Node_Id := Right_Opnd (Expr);
+                  Left  : constant Node_Id := Left_Opnd  (Expr);
+               begin
+                  if Nkind (Left) = N_Attribute_Reference
+                    and then Attribute_Name (Left) = Name_First
+                    and then Is_Entity_Name (Prefix (Left))
+                    and then Is_Formal (Entity (Prefix (Left)))
+                    and then Nkind (Right) = N_Integer_Literal
+                  then
+                     Set_Low_Bound_Known (Entity (Prefix (Left)));
+                  end if;
+               end;
+            end if;
+         end Check;
+
+         ----------------
+         -- Check_Name --
+         ----------------
+
+         --  pragma Check_Name (check_IDENTIFIER);
+
+         when Pragma_Check_Name =>
+            Check_No_Identifiers;
+            GNAT_Pragma;
+            Check_Valid_Configuration_Pragma;
+            Check_Arg_Count (1);
+            Check_Arg_Is_Identifier (Arg1);
+
+            declare
+               Nam : constant Name_Id := Chars (Expression (Arg1));
+
+            begin
+               for J in Check_Names.First .. Check_Names.Last loop
+                  if Check_Names.Table (J) = Nam then
+                     return;
+                  end if;
+               end loop;
+
+               Check_Names.Append (Nam);
+            end;
+
+         ------------------
+         -- Check_Policy --
+         ------------------
+
+         --  pragma Check_Policy ([Name =>] IDENTIFIER,
+         --                       POLICY_IDENTIFIER;
+
+         --  POLICY_IDENTIFIER ::= ON | OFF | CHECK | IGNORE
+
+         --  Note: this is a configuration pragma, but it is allowed to
+         --  appear anywhere else.
+
+         when Pragma_Check_Policy =>
+            GNAT_Pragma;
+            Check_Arg_Count (2);
+            Check_No_Identifier (Arg2);
+            Check_Optional_Identifier (Arg1, Name_Name);
+            Check_Arg_Is_One_Of
+              (Arg2, Name_On, Name_Off, Name_Check, Name_Ignore);
+
+            --  A Check_Policy pragma can appear either as a configuration
+            --  pragma, or in a declarative part or a package spec (see RM
+            --  11.5(5) for rules for Suppress/Unsuppress which are also
+            --  followed for Check_Policy).
+
+            if not Is_Configuration_Pragma then
+               Check_Is_In_Decl_Part_Or_Package_Spec;
+            end if;
+
+            Set_Next_Pragma (N, Opt.Check_Policy_List);
+            Opt.Check_Policy_List := N;
+
+         ---------------------
+         -- CIL_Constructor --
+         ---------------------
+
+         --  pragma CIL_Constructor ([Entity =>] LOCAL_NAME);
+
+         --  Processing for this pragma is shared with Java_Constructor
+
          -------------
          -- Comment --
          -------------
 
          --  pragma Comment (static_string_EXPRESSION)
 
-         --  Processing for pragma Comment shares the circuitry for
-         --  pragma Ident. The only differences are that Ident enforces
-         --  a limit of 31 characters on its argument, and also enforces
-         --  limitations on placement for DEC compatibility. Pragma
-         --  Comment shares neither of these restrictions.
+         --  Processing for pragma Comment shares the circuitry for pragma
+         --  Ident. The only differences are that Ident enforces a limit of 31
+         --  characters on its argument, and also enforces limitations on
+         --  placement for DEC compatibility. Pragma Comment shares neither of
+         --  these restrictions.
 
          -------------------
          -- Common_Object --
          -------------------
 
          --  pragma Common_Object (
-         --        [Internal =>] LOCAL_NAME,
+         --        [Internal =>] LOCAL_NAME
          --     [, [External =>] EXTERNAL_SYMBOL]
          --     [, [Size     =>] EXTERNAL_SYMBOL]);
 
          --  Processing for this pragma is shared with Psect_Object
+
+         ------------------------
+         -- Compile_Time_Error --
+         ------------------------
+
+         --  pragma Compile_Time_Error
+         --    (boolean_EXPRESSION, static_string_EXPRESSION);
+
+         when Pragma_Compile_Time_Error =>
+            GNAT_Pragma;
+            Process_Compile_Time_Warning_Or_Error;
 
          --------------------------
          -- Compile_Time_Warning --
@@ -4949,47 +5863,18 @@ package body Sem_Prag is
          --  pragma Compile_Time_Warning
          --    (boolean_EXPRESSION, static_string_EXPRESSION);
 
-         when Pragma_Compile_Time_Warning => Compile_Time_Warning : declare
-            Arg1x : constant Node_Id := Get_Pragma_Arg (Arg1);
-
-         begin
+         when Pragma_Compile_Time_Warning =>
             GNAT_Pragma;
-            Check_Arg_Count (2);
-            Check_No_Identifiers;
-            Check_Arg_Is_Static_Expression (Arg2, Standard_String);
-            Analyze_And_Resolve (Arg1x, Standard_Boolean);
+            Process_Compile_Time_Warning_Or_Error;
 
-            if Compile_Time_Known_Value (Arg1x) then
-               if Is_True (Expr_Value (Get_Pragma_Arg (Arg1))) then
-                  String_To_Name_Buffer (Strval (Get_Pragma_Arg (Arg2)));
-                  Add_Char_To_Name_Buffer ('?');
+         -------------------
+         -- Compiler_Unit --
+         -------------------
 
-                  declare
-                     Msg : String (1 .. Name_Len) :=
-                             Name_Buffer (1 .. Name_Len);
-
-                     B : Natural;
-
-                  begin
-                     --  This loop looks for multiple lines separated by
-                     --  ASCII.LF and breaks them into continuation error
-                     --  messages marked with the usual back slash.
-
-                     B := 1;
-                     for S in 2 .. Msg'Length - 1 loop
-                        if Msg (S) = ASCII.LF then
-                           Msg (S) := '?';
-                           Error_Msg_N (Msg (B .. S), Arg1);
-                           B := S;
-                           Msg (B) := '\';
-                        end if;
-                     end loop;
-
-                     Error_Msg_N (Msg (B .. Msg'Length), Arg1);
-                  end;
-               end if;
-            end if;
-         end Compile_Time_Warning;
+         when Pragma_Compiler_Unit =>
+            GNAT_Pragma;
+            Check_Arg_Count (0);
+            Set_Is_Compiler_Unit (Get_Source_Unit (N));
 
          -----------------------------
          -- Complete_Representation --
@@ -5044,11 +5929,18 @@ package body Sem_Prag is
               or else Etype (Ent) /= Etype (Next_Entity (Ent))
             then
                Error_Pragma_Arg
-                 ("record for pragma% must have two fields of same fpt type",
-                  Arg1);
+                 ("record for pragma% must have two fields of the same "
+                  & "floating-point type", Arg1);
 
             else
                Set_Has_Complex_Representation (Base_Type (E));
+
+               --  We need to treat the type has having a non-standard
+               --  representation, for back-end purposes, even though in
+               --  general a complex will have the default representation
+               --  of a record with two real components.
+
+               Set_Has_Non_Standard_Rep (Base_Type (E));
             end if;
          end Complex_Representation;
 
@@ -5184,6 +6076,8 @@ package body Sem_Prag is
          when Pragma_Convention => Convention : declare
             C : Convention_Id;
             E : Entity_Id;
+            pragma Warnings (Off, C);
+            pragma Warnings (Off, E);
          begin
             Check_Arg_Order ((Name_Convention, Name_Entity));
             Check_Ada_83_Warning;
@@ -5209,7 +6103,7 @@ package body Sem_Prag is
             Check_Optional_Identifier (Arg1, Name_Name);
             Check_Optional_Identifier (Arg2, Name_Convention);
             Check_Arg_Is_Identifier (Arg1);
-            Check_Arg_Is_Identifier (Arg1);
+            Check_Arg_Is_Identifier (Arg2);
             Idnam := Chars (Expression (Arg1));
             Cname := Chars (Expression (Arg2));
 
@@ -5229,14 +6123,16 @@ package body Sem_Prag is
          --  pragma CPP_Class ([Entity =>] local_NAME)
 
          when Pragma_CPP_Class => CPP_Class : declare
-            Arg         : Node_Id;
-            Typ         : Entity_Id;
-            Default_DTC : Entity_Id := Empty;
-            VTP_Type    : constant Entity_Id  := RTE (RE_Vtable_Ptr);
-            C           : Entity_Id;
-            Tag_C       : Entity_Id;
+            Arg : Node_Id;
+            Typ : Entity_Id;
 
          begin
+            if Warn_On_Obsolescent_Feature then
+               Error_Msg_N
+                 ("'G'N'A'T pragma cpp'_class is now obsolete; replace it" &
+                  " by pragma import?", N);
+            end if;
+
             GNAT_Pragma;
             Check_Arg_Count (1);
             Check_Optional_Identifier (Arg1, Name_Entity);
@@ -5257,79 +6153,38 @@ package body Sem_Prag is
 
             Typ := Entity (Arg);
 
-            if not Is_Record_Type (Typ) then
-               Error_Pragma_Arg ("pragma% applicable to a record, "
-                 & "tagged record or record extension", Arg1);
-            end if;
-
-            Default_DTC := First_Component (Typ);
-            while Present (Default_DTC)
-              and then Etype (Default_DTC) /= VTP_Type
-            loop
-               Next_Component (Default_DTC);
-            end loop;
-
-            --  Case of non tagged type
-
             if not Is_Tagged_Type (Typ) then
-               Set_Is_CPP_Class (Typ);
-
-               if Present (Default_DTC) then
-                  Error_Pragma_Arg
-                    ("only tagged records can contain vtable pointers", Arg1);
-               end if;
-
-            --  Case of tagged type with no user-defined vtable ptr. In this
-            --  case, because of our C++ ABI compatibility, the programmer
-            --  does not need to specify the tag component.
-
-            elsif Is_Tagged_Type (Typ)
-              and then No (Default_DTC)
-            then
-               Set_Is_CPP_Class (Typ);
-               Set_Is_Limited_Record (Typ);
-
-            --  Tagged type that has a vtable ptr
-
-            elsif Present (Default_DTC) then
-               Set_Is_CPP_Class (Typ);
-               Set_Is_Limited_Record (Typ);
-               Set_Is_Tag (Default_DTC);
-               Set_DT_Entry_Count (Default_DTC, No_Uint);
-
-               --  Since a CPP type has no direct link to its associated tag
-               --  most tags checks cannot be performed
-
-               Set_Kill_Tag_Checks (Typ);
-               Set_Kill_Tag_Checks (Class_Wide_Type (Typ));
-
-               --  Get rid of the _tag component when there was one.
-               --  It is only useful for regular tagged types
-
-               if Expander_Active and then Typ = Root_Type (Typ) then
-
-                  Tag_C := First_Tag_Component (Typ);
-                  C := First_Entity (Typ);
-
-                  if C = Tag_C then
-                     Set_First_Entity (Typ, Next_Entity (Tag_C));
-
-                  else
-                     while Next_Entity (C) /= Tag_C loop
-                        Next_Entity (C);
-                     end loop;
-
-                     Set_Next_Entity (C, Next_Entity (Tag_C));
-                  end if;
-               end if;
+               Error_Pragma_Arg ("pragma% applicable to tagged types ", Arg1);
             end if;
+
+            --  Types treated as CPP classes are treated as limited, but we
+            --  don't require them to be declared this way. A warning is issued
+            --  to encourage the user to declare them as limited. This is not
+            --  an error, for compatibility reasons, because these types have
+            --  been supported this way for some time.
+
+            if not Is_Limited_Type (Typ) then
+               Error_Msg_N
+                 ("imported 'C'P'P type should be " &
+                    "explicitly declared limited?",
+                  Get_Pragma_Arg (Arg1));
+               Error_Msg_N
+                 ("\type will be considered limited",
+                  Get_Pragma_Arg (Arg1));
+            end if;
+
+            Set_Is_CPP_Class      (Typ);
+            Set_Is_Limited_Record (Typ);
+            Set_Convention        (Typ, Convention_CPP);
          end CPP_Class;
 
          ---------------------
          -- CPP_Constructor --
          ---------------------
 
-         --  pragma CPP_Constructor ([Entity =>] LOCAL_NAME);
+         --  pragma CPP_Constructor ([Entity =>] LOCAL_NAME
+         --    [, [External_Name =>] static_string_EXPRESSION ]
+         --    [, [Link_Name     =>] static_string_EXPRESSION ]);
 
          when Pragma_CPP_Constructor => CPP_Constructor : declare
             Id     : Entity_Id;
@@ -5337,7 +6192,8 @@ package body Sem_Prag is
 
          begin
             GNAT_Pragma;
-            Check_Arg_Count (1);
+            Check_At_Least_N_Arguments (1);
+            Check_At_Most_N_Arguments (3);
             Check_Optional_Identifier (Arg1, Name_Entity);
             Check_Arg_Is_Local_Name (Arg1);
 
@@ -5356,10 +6212,9 @@ package body Sem_Prag is
               and then Is_Class_Wide_Type (Etype (Def_Id))
               and then Is_CPP_Class (Etype (Etype (Def_Id)))
             then
-               --  What the heck is this??? this pragma allows only 1 arg
-
                if Arg_Count >= 2 then
-                  Check_At_Most_N_Arguments (3);
+                  Set_Imported (Def_Id);
+                  Set_Is_Public (Def_Id);
                   Process_Interface_Name (Def_Id, Arg2, Arg3);
                end if;
 
@@ -5382,119 +6237,14 @@ package body Sem_Prag is
          -- CPP_Virtual --
          -----------------
 
-         --  pragma CPP_Virtual
-         --      [Entity =>]       LOCAL_NAME
-         --    [ [Vtable_Ptr =>]   LOCAL_NAME,
-         --      [Position =>]     static_integer_EXPRESSION]);
-
          when Pragma_CPP_Virtual => CPP_Virtual : declare
-            Arg      : Node_Id;
-            Typ      : Entity_Id;
-            Subp     : Entity_Id;
-            VTP_Type : constant Entity_Id  := RTE (RE_Vtable_Ptr);
-            DTC      : Entity_Id;
-            V        : Uint;
-
          begin
             GNAT_Pragma;
-            Check_Arg_Order ((Name_Entity, Name_Vtable_Ptr, Name_Position));
 
-            if Arg_Count = 3 then
-               Check_Optional_Identifier (Arg2, Name_Vtable_Ptr);
-
-               --  We allow Entry_Count as well as Position for the third
-               --  parameter for back compatibility with versions of GNAT
-               --  before version 3.12. The documentation has always said
-               --  Position, but the code up to 3.12 said Entry_Count.
-
-               if Chars (Arg3) /= Name_Entry_Count then
-                  Check_Optional_Identifier (Arg3, Name_Position);
-               end if;
-
-            else
-               Check_Arg_Count (1);
-            end if;
-
-            Check_Optional_Identifier (Arg1, Name_Entity);
-            Check_Arg_Is_Local_Name (Arg1);
-
-            --  First argument must be a subprogram name
-
-            Arg := Expression (Arg1);
-            Find_Program_Unit_Name (Arg);
-
-            if Etype (Arg) = Any_Type then
-               return;
-            else
-               Subp := Entity (Arg);
-            end if;
-
-            if not (Is_Subprogram (Subp)
-                     and then Is_Dispatching_Operation (Subp))
-            then
-               Error_Pragma_Arg
-                 ("pragma% must reference a primitive operation", Arg1);
-            end if;
-
-            Typ := Find_Dispatching_Type (Subp);
-
-            --  If only one Argument defaults are :
-            --    . DTC_Entity is the default Vtable pointer
-            --    . DT_Position will be set at the freezing point
-
-            if Arg_Count = 1 then
-               Set_DTC_Entity (Subp, First_Tag_Component (Typ));
-               return;
-            end if;
-
-            --  Second argument is a component name of type Vtable_Ptr
-
-            Arg := Expression (Arg2);
-
-            if Nkind (Arg) /= N_Identifier then
-               Error_Msg_NE ("must be a& component name", Arg, Typ);
-               raise Pragma_Exit;
-            end if;
-
-            DTC := First_Component (Typ);
-            while Present (DTC) and then Chars (DTC) /= Chars (Arg) loop
-               Next_Component (DTC);
-            end loop;
-
-            --  Case of tagged type with no user-defined vtable ptr
-
-            if No (DTC) then
-               Error_Msg_NE ("must be a& component name", Arg, Typ);
-               raise Pragma_Exit;
-
-            elsif Etype (DTC) /= VTP_Type then
-               Wrong_Type (Arg, VTP_Type);
-               return;
-            end if;
-
-            --  Third argument is an integer (DT_Position)
-
-            Arg := Expression (Arg3);
-            Analyze_And_Resolve (Arg, Any_Integer);
-
-            if not Is_Static_Expression (Arg) then
-               Flag_Non_Static_Expr
-                 ("third argument of pragma CPP_Virtual must be static!",
-                  Arg3);
-               raise Pragma_Exit;
-
-            else
-               V := Expr_Value (Expression (Arg3));
-
-               if V <= 0 then
-                  Error_Pragma_Arg
-                    ("third argument of pragma% must be positive",
-                     Arg3);
-
-               else
-                  Set_DTC_Entity (Subp, DTC);
-                  Set_DT_Position (Subp, V);
-               end if;
+            if Warn_On_Obsolescent_Feature then
+               Error_Msg_N
+                 ("'G'N'A'T pragma cpp'_virtual is now obsolete and has " &
+                  "no effect?", N);
             end if;
          end CPP_Virtual;
 
@@ -5502,110 +6252,14 @@ package body Sem_Prag is
          -- CPP_Vtable --
          ----------------
 
-         --  pragma CPP_Vtable (
-         --    [Entity =>]       LOCAL_NAME
-         --    [Vtable_Ptr =>]   LOCAL_NAME,
-         --    [Entry_Count =>]  static_integer_EXPRESSION);
-
          when Pragma_CPP_Vtable => CPP_Vtable : declare
-            Arg      : Node_Id;
-            Typ      : Entity_Id;
-            VTP_Type : constant Entity_Id  := RTE (RE_Vtable_Ptr);
-            DTC      : Entity_Id;
-            V        : Uint;
-            Elmt     : Elmt_Id;
-
          begin
             GNAT_Pragma;
-            Check_Arg_Order ((Name_Entity, Name_Vtable_Ptr, Name_Entry_Count));
-            Check_Arg_Count (3);
-            Check_Optional_Identifier (Arg1, Name_Entity);
-            Check_Optional_Identifier (Arg2, Name_Vtable_Ptr);
-            Check_Optional_Identifier (Arg3, Name_Entry_Count);
-            Check_Arg_Is_Local_Name (Arg1);
 
-            --  First argument is a record type name
-
-            Arg := Expression (Arg1);
-            Analyze (Arg);
-
-            if Etype (Arg) = Any_Type then
-               return;
-            else
-               Typ := Entity (Arg);
-            end if;
-
-            if not (Is_Tagged_Type (Typ) and then Is_CPP_Class (Typ)) then
-               Error_Pragma_Arg ("'C'P'P_Class tagged type expected", Arg1);
-            end if;
-
-            --  Second argument is a component name of type Vtable_Ptr
-
-            Arg := Expression (Arg2);
-
-            if Nkind (Arg) /= N_Identifier then
-               Error_Msg_NE ("must be a& component name", Arg, Typ);
-               raise Pragma_Exit;
-            end if;
-
-            DTC := First_Component (Typ);
-            while Present (DTC) and then Chars (DTC) /= Chars (Arg) loop
-               Next_Component (DTC);
-            end loop;
-
-            if No (DTC) then
-               Error_Msg_NE ("must be a& component name", Arg, Typ);
-               raise Pragma_Exit;
-
-            elsif Etype (DTC) /= VTP_Type then
-               Wrong_Type (DTC, VTP_Type);
-               return;
-
-            --  If it is the first pragma Vtable, This becomes the default tag
-
-            elsif (not Is_Tag (DTC))
-              and then DT_Entry_Count (First_Tag_Component (Typ)) = No_Uint
-            then
-               Set_Is_Tag (First_Tag_Component (Typ), False);
-               Set_Is_Tag (DTC, True);
-               Set_DT_Entry_Count (DTC, No_Uint);
-            end if;
-
-            --  Those pragmas must appear before any primitive operation
-            --  definition (except inherited ones) otherwise the default
-            --  may be wrong
-
-            Elmt := First_Elmt (Primitive_Operations (Typ));
-            while Present (Elmt) loop
-               if No (Alias (Node (Elmt))) then
-                  Error_Msg_Sloc := Sloc (Node (Elmt));
-                  Error_Pragma
-                    ("pragma% must appear before this primitive operation");
-               end if;
-
-               Next_Elmt (Elmt);
-            end loop;
-
-            --  Third argument is an integer (DT_Entry_Count)
-
-            Arg := Expression (Arg3);
-            Analyze_And_Resolve (Arg, Any_Integer);
-
-            if not Is_Static_Expression (Arg) then
-               Flag_Non_Static_Expr
-                 ("entry count for pragma CPP_Vtable must be a static " &
-                  "expression!", Arg3);
-               raise Pragma_Exit;
-
-            else
-               V := Expr_Value (Expression (Arg3));
-
-               if V <= 0 then
-                  Error_Pragma_Arg
-                    ("entry count for pragma% must be positive", Arg3);
-               else
-                  Set_DT_Entry_Count (DTC, V);
-               end if;
+            if Warn_On_Obsolescent_Feature then
+               Error_Msg_N
+                 ("'G'N'A'T pragma cpp'_vtable is now obsolete and has " &
+                  "no effect?", N);
             end if;
          end CPP_Vtable;
 
@@ -5668,7 +6322,7 @@ package body Sem_Prag is
          --  pragma Detect_Blocking;
 
          when Pragma_Detect_Blocking =>
-            GNAT_Pragma;
+            Ada_2005_Pragma;
             Check_Arg_Count (0);
             Check_Valid_Configuration_Pragma;
             Detect_Blocking := True;
@@ -5680,8 +6334,8 @@ package body Sem_Prag is
          --  pragma Discard_Names [([On =>] LOCAL_NAME)];
 
          when Pragma_Discard_Names => Discard_Names : declare
-            E_Id : Entity_Id;
             E    : Entity_Id;
+            E_Id : Entity_Id;
 
          begin
             Check_Ada_83_Warning;
@@ -5701,7 +6355,8 @@ package body Sem_Prag is
 
                   --  If there is no parameter, then from now on this pragma
                   --  applies to any enumeration, exception or tagged type
-                  --  defined in the current declarative part.
+                  --  defined in the current declarative part, and recursively
+                  --  to any nested scope.
 
                   Set_Discard_Names (Current_Scope);
                   return;
@@ -5710,6 +6365,7 @@ package body Sem_Prag is
                   Check_Arg_Count (1);
                   Check_Optional_Identifier (Arg1, Name_On);
                   Check_Arg_Is_Local_Name (Arg1);
+
                   E_Id := Expression (Arg1);
 
                   if Etype (E_Id) = Any_Type then
@@ -5719,8 +6375,8 @@ package body Sem_Prag is
                   end if;
 
                   if (Is_First_Subtype (E)
-                       and then (Is_Enumeration_Type (E)
-                                  or else Is_Tagged_Type (E)))
+                      and then
+                        (Is_Enumeration_Type (E) or else Is_Tagged_Type (E)))
                     or else Ekind (E) = E_Exception
                   then
                      Set_Discard_Names (E);
@@ -5728,6 +6384,7 @@ package body Sem_Prag is
                      Error_Pragma_Arg
                        ("inappropriate entity for pragma%", Arg1);
                   end if;
+
                end if;
             end if;
          end Discard_Names;
@@ -5739,29 +6396,14 @@ package body Sem_Prag is
          --  pragma Elaborate (library_unit_NAME {, library_unit_NAME});
 
          when Pragma_Elaborate => Elaborate : declare
-            Plist       : List_Id;
-            Parent_Node : Node_Id;
-            Arg         : Node_Id;
-            Citem       : Node_Id;
+            Arg   : Node_Id;
+            Citem : Node_Id;
 
          begin
             --  Pragma must be in context items list of a compilation unit
 
-            if not Is_List_Member (N) then
+            if not Is_In_Context_Clause then
                Pragma_Misplaced;
-               return;
-
-            else
-               Plist := List_Containing (N);
-               Parent_Node := Parent (Plist);
-
-               if Parent_Node = Empty
-                 or else Nkind (Parent_Node) /= N_Compilation_Unit
-                 or else Context_Items (Parent_Node) /= Plist
-               then
-                  Pragma_Misplaced;
-                  return;
-               end if;
             end if;
 
             --  Must be at least one argument
@@ -5777,7 +6419,6 @@ package body Sem_Prag is
 
             if Ada_Version = Ada_83 and then Comes_From_Source (N) then
                Citem := Next (N);
-
                while Present (Citem) loop
                   if Nkind (Citem) = N_Pragma
                     or else (Nkind (Citem) = N_With_Clause
@@ -5794,13 +6435,13 @@ package body Sem_Prag is
             end if;
 
             --  Finally, the arguments must all be units mentioned in a with
-            --  clause in the same context clause. Note we already checked
-            --  (in Par.Prag) that the arguments are either identifiers or
+            --  clause in the same context clause. Note we already checked (in
+            --  Par.Prag) that the arguments are all identifiers or selected
+            --  components.
 
             Arg := Arg1;
             Outer : while Present (Arg) loop
-               Citem := First (Plist);
-
+               Citem := First (List_Containing (N));
                Inner : while Citem /= N loop
                   if Nkind (Citem) = N_With_Clause
                     and then Same_Name (Name (Citem), Expression (Arg))
@@ -5814,12 +6455,13 @@ package body Sem_Prag is
                      --  compilation unit. If the pragma appears in some unit
                      --  in the context, there might still be a need for an
                      --  Elaborate_All_Desirable from the current compilation
-                     --  to the the named unit, so we keep the check enabled.
+                     --  to the named unit, so we keep the check enabled.
 
                      if In_Extended_Main_Source_Unit (N) then
                         Set_Suppress_Elaboration_Warnings
                           (Entity (Name (Citem)));
                      end if;
+
                      exit Inner;
                   end if;
 
@@ -5835,7 +6477,7 @@ package body Sem_Prag is
             end loop Outer;
 
             --  Give a warning if operating in static mode with -gnatwl
-            --  (elaboration warnings eanbled) switch set.
+            --  (elaboration warnings enabled) switch set.
 
             if Elab_Warnings and not Dynamic_Elaboration_Checks then
                Error_Msg_N
@@ -5852,31 +6494,16 @@ package body Sem_Prag is
          --  pragma Elaborate_All (library_unit_NAME {, library_unit_NAME});
 
          when Pragma_Elaborate_All => Elaborate_All : declare
-            Plist       : List_Id;
-            Parent_Node : Node_Id;
-            Arg         : Node_Id;
-            Citem       : Node_Id;
+            Arg   : Node_Id;
+            Citem : Node_Id;
 
          begin
             Check_Ada_83_Warning;
 
             --  Pragma must be in context items list of a compilation unit
 
-            if not Is_List_Member (N) then
+            if not Is_In_Context_Clause then
                Pragma_Misplaced;
-               return;
-
-            else
-               Plist := List_Containing (N);
-               Parent_Node := Parent (Plist);
-
-               if Parent_Node = Empty
-                 or else Nkind (Parent_Node) /= N_Compilation_Unit
-                 or else Context_Items (Parent_Node) /= Plist
-               then
-                  Pragma_Misplaced;
-                  return;
-               end if;
             end if;
 
             --  Must be at least one argument
@@ -5896,8 +6523,7 @@ package body Sem_Prag is
 
             Arg := Arg1;
             Outr : while Present (Arg) loop
-               Citem := First (Plist);
-
+               Citem := First (List_Containing (N));
                Innr : while Citem /= N loop
                   if Nkind (Citem) = N_With_Clause
                     and then Same_Name (Name (Citem), Expression (Arg))
@@ -6076,15 +6702,6 @@ package body Sem_Prag is
                Source_Location);
          end Eliminate;
 
-         -------------------------
-         -- Explicit_Overriding --
-         -------------------------
-
-         when Pragma_Explicit_Overriding =>
-            Check_Valid_Configuration_Pragma;
-            Check_Arg_Count (0);
-            Explicit_Overriding := True;
-
          ------------
          -- Export --
          ------------
@@ -6099,6 +6716,8 @@ package body Sem_Prag is
             C      : Convention_Id;
             Def_Id : Entity_Id;
 
+            pragma Warnings (Off, C);
+
          begin
             Check_Ada_83_Warning;
             Check_Arg_Order
@@ -6111,11 +6730,27 @@ package body Sem_Prag is
             Process_Convention (C, Def_Id);
 
             if Ekind (Def_Id) /= E_Constant then
-               Note_Possible_Modification (Expression (Arg2));
+               Note_Possible_Modification (Expression (Arg2), Sure => False);
             end if;
 
             Process_Interface_Name (Def_Id, Arg3, Arg4);
             Set_Exported (Def_Id, Arg2);
+
+            --  If the entity is a deferred constant, propagate the
+            --  information to the full view, because gigi elaborates
+            --  the full view only.
+
+            if Ekind (Def_Id) = E_Constant
+              and then Present (Full_View (Def_Id))
+            then
+               declare
+                  Id2 : constant Entity_Id := Full_View (Def_Id);
+               begin
+                  Set_Is_Exported    (Id2, Is_Exported          (Def_Id));
+                  Set_First_Rep_Item (Id2, First_Rep_Item       (Def_Id));
+                  Set_Interface_Name (Id2, Einfo.Interface_Name (Def_Id));
+               end;
+            end if;
          end Export;
 
          ----------------------
@@ -6123,8 +6758,8 @@ package body Sem_Prag is
          ----------------------
 
          --  pragma Export_Exception (
-         --        [Internal         =>] LOCAL_NAME,
-         --     [, [External         =>] EXTERNAL_SYMBOL,]
+         --        [Internal         =>] LOCAL_NAME
+         --     [, [External         =>] EXTERNAL_SYMBOL]
          --     [, [Form     =>] Ada | VMS]
          --     [, [Code     =>] static_integer_EXPRESSION]);
 
@@ -6142,6 +6777,8 @@ package body Sem_Prag is
             Code     : Node_Id renames Args (4);
 
          begin
+            GNAT_Pragma;
+
             if Inside_A_Generic then
                Error_Pragma ("pragma% cannot be used for generic entities");
             end if;
@@ -6163,8 +6800,8 @@ package body Sem_Prag is
          ---------------------
 
          --  pragma Export_Function (
-         --        [Internal         =>] LOCAL_NAME,
-         --     [, [External         =>] EXTERNAL_SYMBOL,]
+         --        [Internal         =>] LOCAL_NAME
+         --     [, [External         =>] EXTERNAL_SYMBOL]
          --     [, [Parameter_Types  =>] (PARAMETER_TYPES)]
          --     [, [Result_Type      =>] TYPE_DESIGNATOR]
          --     [, [Mechanism        =>] MECHANISM]
@@ -6230,7 +6867,7 @@ package body Sem_Prag is
          -------------------
 
          --  pragma Export_Object (
-         --        [Internal =>] LOCAL_NAME,
+         --        [Internal =>] LOCAL_NAME
          --     [, [External =>] EXTERNAL_SYMBOL]
          --     [, [Size     =>] EXTERNAL_SYMBOL]);
 
@@ -6285,8 +6922,8 @@ package body Sem_Prag is
          ----------------------
 
          --  pragma Export_Procedure (
-         --        [Internal         =>] LOCAL_NAME,
-         --     [, [External         =>] EXTERNAL_SYMBOL,]
+         --        [Internal         =>] LOCAL_NAME
+         --     [, [External         =>] EXTERNAL_SYMBOL]
          --     [, [Parameter_Types  =>] (PARAMETER_TYPES)]
          --     [, [Mechanism        =>] MECHANISM]);
 
@@ -6363,7 +7000,7 @@ package body Sem_Prag is
          -----------------------------
 
          --  pragma Export_Valued_Procedure (
-         --        [Internal         =>] LOCAL_NAME,
+         --        [Internal         =>] LOCAL_NAME
          --     [, [External         =>] EXTERNAL_SYMBOL,]
          --     [, [Parameter_Types  =>] (PARAMETER_TYPES)]
          --     [, [Mechanism        =>] MECHANISM]);
@@ -6444,7 +7081,7 @@ package body Sem_Prag is
                      null;
                   else
                      Error_Msg_Sloc := Sloc (System_Extend_Pragma_Arg);
-                     Error_Pragma ("pragma% conflicts with that at#");
+                     Error_Pragma ("pragma% conflicts with that #");
                   end if;
 
                else
@@ -6473,13 +7110,9 @@ package body Sem_Prag is
 
             if Chars (Expression (Arg1)) = Name_On then
                Extensions_Allowed := True;
-               Ada_Version := Ada_Version_Type'Last;
             else
                Extensions_Allowed := False;
-               Ada_Version := Ada_Version_Type'Min (Ada_Version, Ada_95);
             end if;
-
-            Ada_Version_Explicit := Ada_Version;
 
          --------------
          -- External --
@@ -6492,8 +7125,11 @@ package body Sem_Prag is
          --    [, [Link_Name     =>] static_string_EXPRESSION ]);
 
          when Pragma_External => External : declare
-            C      : Convention_Id;
-            Def_Id : Entity_Id;
+               Def_Id : Entity_Id;
+
+               C : Convention_Id;
+               pragma Warnings (Off, C);
+
          begin
             GNAT_Pragma;
             Check_Arg_Order
@@ -6504,7 +7140,7 @@ package body Sem_Prag is
             Check_At_Least_N_Arguments (2);
             Check_At_Most_N_Arguments  (4);
             Process_Convention (C, Def_Id);
-            Note_Possible_Modification (Expression (Arg2));
+            Note_Possible_Modification (Expression (Arg2), Sure => False);
             Process_Interface_Name (Def_Id, Arg3, Arg4);
             Set_Exported (Def_Id, Arg2);
          end External;
@@ -6558,6 +7194,48 @@ package body Sem_Prag is
             end case;
          end External_Name_Casing;
 
+         --------------------------
+         -- Favor_Top_Level --
+         --------------------------
+
+         --  pragma Favor_Top_Level (type_NAME);
+
+         when Pragma_Favor_Top_Level => Favor_Top_Level : declare
+               Named_Entity : Entity_Id;
+
+         begin
+            GNAT_Pragma;
+            Check_No_Identifiers;
+            Check_Arg_Count (1);
+            Check_Arg_Is_Local_Name (Arg1);
+            Named_Entity := Entity (Expression (Arg1));
+
+            --  If it's an access-to-subprogram type (in particular, not a
+            --  subtype), set the flag on that type.
+
+            if Is_Access_Subprogram_Type (Named_Entity) then
+               Set_Can_Use_Internal_Rep (Named_Entity, False);
+
+            --  Otherwise it's an error (name denotes the wrong sort of entity)
+
+            else
+               Error_Pragma_Arg
+                 ("access-to-subprogram type expected", Expression (Arg1));
+            end if;
+         end Favor_Top_Level;
+
+         ---------------
+         -- Fast_Math --
+         ---------------
+
+         --  pragma Fast_Math;
+
+         when Pragma_Fast_Math =>
+            GNAT_Pragma;
+            Check_No_Identifiers;
+            Check_Valid_Configuration_Pragma;
+            Fast_Math := True;
+
          ---------------------------
          -- Finalize_Storage_Only --
          ---------------------------
@@ -6570,6 +7248,7 @@ package body Sem_Prag is
             Typ     : Entity_Id;
 
          begin
+            GNAT_Pragma;
             Check_No_Identifiers;
             Check_Arg_Count (1);
             Check_Arg_Is_Local_Name (Arg1);
@@ -6807,13 +7486,64 @@ package body Sem_Prag is
             end;
          end Ident;
 
+         --------------------------
+         -- Implemented_By_Entry --
+         --------------------------
+
+         --  pragma Implemented_By_Entry (DIRECT_NAME);
+
+         when Pragma_Implemented_By_Entry => Implemented_By_Entry : declare
+            Ent : Entity_Id;
+
+         begin
+            Ada_2005_Pragma;
+            Check_Arg_Count (1);
+            Check_No_Identifiers;
+            Check_Arg_Is_Identifier (Arg1);
+            Check_Arg_Is_Local_Name (Arg1);
+            Ent := Entity (Expression (Arg1));
+
+            --  Pragma Implemented_By_Entry must be applied only to protected
+            --  synchronized or task interface primitives.
+
+            if (Ekind (Ent) /= E_Function
+                  and then Ekind (Ent) /= E_Procedure)
+               or else not Present (First_Formal (Ent))
+               or else not Is_Concurrent_Interface (Etype (First_Formal (Ent)))
+            then
+               Error_Pragma_Arg
+                 ("pragma % must be applied to a concurrent interface " &
+                  "primitive", Arg1);
+
+            else
+               if Einfo.Implemented_By_Entry (Ent)
+                 and then Warn_On_Redundant_Constructs
+               then
+                  Error_Pragma ("?duplicate pragma%!");
+               else
+                  Set_Implemented_By_Entry (Ent);
+               end if;
+            end if;
+         end Implemented_By_Entry;
+
+         -----------------------
+         -- Implicit_Packing --
+         -----------------------
+
+         --  pragma Implicit_Packing;
+
+         when Pragma_Implicit_Packing =>
+            GNAT_Pragma;
+            Check_Arg_Count (0);
+            Implicit_Packing := True;
+
          ------------
          -- Import --
          ------------
 
          --  pragma Import (
-         --    [   Convention    =>] convention_IDENTIFIER,
-         --    [   Entity        =>] local_NAME
+         --       [Convention    =>] convention_IDENTIFIER,
+         --       [Entity        =>] local_NAME
          --    [, [External_Name =>] static_string_EXPRESSION ]
          --    [, [Link_Name     =>] static_string_EXPRESSION ]);
 
@@ -6833,8 +7563,8 @@ package body Sem_Prag is
          ----------------------
 
          --  pragma Import_Exception (
-         --        [Internal         =>] LOCAL_NAME,
-         --     [, [External         =>] EXTERNAL_SYMBOL,]
+         --        [Internal         =>] LOCAL_NAME
+         --     [, [External         =>] EXTERNAL_SYMBOL]
          --     [, [Form     =>] Ada | VMS]
          --     [, [Code     =>] static_integer_EXPRESSION]);
 
@@ -6852,6 +7582,7 @@ package body Sem_Prag is
             Code     : Node_Id renames Args (4);
 
          begin
+            GNAT_Pragma;
             Gather_Associations (Names, Args);
 
             if Present (External) and then Present (Code) then
@@ -6946,7 +7677,7 @@ package body Sem_Prag is
          -------------------
 
          --  pragma Import_Object (
-         --        [Internal =>] LOCAL_NAME,
+         --        [Internal =>] LOCAL_NAME
          --     [, [External =>] EXTERNAL_SYMBOL]
          --     [, [Size     =>] EXTERNAL_SYMBOL]);
 
@@ -6979,7 +7710,7 @@ package body Sem_Prag is
          ----------------------
 
          --  pragma Import_Procedure (
-         --        [Internal                 =>] LOCAL_NAME,
+         --        [Internal                 =>] LOCAL_NAME
          --     [, [External                 =>] EXTERNAL_SYMBOL]
          --     [, [Parameter_Types          =>] (PARAMETER_TYPES)]
          --     [, [Mechanism                =>] MECHANISM]
@@ -7042,7 +7773,7 @@ package body Sem_Prag is
          -----------------------------
 
          --  pragma Import_Valued_Procedure (
-         --        [Internal                 =>] LOCAL_NAME,
+         --        [Internal                 =>] LOCAL_NAME
          --     [, [External                 =>] EXTERNAL_SYMBOL]
          --     [, [Parameter_Types          =>] (PARAMETER_TYPES)]
          --     [, [Mechanism                =>] MECHANISM]
@@ -7137,6 +7868,7 @@ package body Sem_Prag is
          --  pragma Inline_Always ( NAME {, NAME} );
 
          when Pragma_Inline_Always =>
+            GNAT_Pragma;
             Process_Inline (True);
 
          --------------------
@@ -7146,6 +7878,7 @@ package body Sem_Prag is
          --  pragma Inline_Generic (NAME {, NAME});
 
          when Pragma_Inline_Generic =>
+            GNAT_Pragma;
             Process_Generic_List;
 
          ----------------------
@@ -7182,13 +7915,20 @@ package body Sem_Prag is
          ---------------
 
          --  pragma Interface (
-         --    convention_IDENTIFIER,
-         --    local_NAME );
+         --    [   Convention    =>] convention_IDENTIFIER,
+         --    [   Entity        =>] local_NAME
+         --    [, [External_Name =>] static_string_EXPRESSION ]
+         --    [, [Link_Name     =>] static_string_EXPRESSION ]);
 
          when Pragma_Interface =>
             GNAT_Pragma;
-            Check_Arg_Count (2);
-            Check_No_Identifiers;
+            Check_Arg_Order
+              ((Name_Convention,
+                Name_Entity,
+                Name_External_Name,
+                Name_Link_Name));
+            Check_At_Least_N_Arguments (2);
+            Check_At_Most_N_Arguments  (4);
             Process_Import_Or_Interface;
 
          --------------------
@@ -7224,12 +7964,12 @@ package body Sem_Prag is
                Def_Id := Entity (Id);
             end if;
 
-            --  Special DEC-compatible processing for the object case,
-            --  forces object to be imported.
+            --  Special DEC-compatible processing for the object case, forces
+            --  object to be imported.
 
             if Ekind (Def_Id) = E_Variable then
                Kill_Size_Check_Code (Def_Id);
-               Note_Possible_Modification (Id);
+               Note_Possible_Modification (Id, Sure => False);
 
                --  Initialization is not allowed for imported variable
 
@@ -7249,7 +7989,8 @@ package body Sem_Prag is
                   if Is_Imported (Def_Id)
                     and then Present (First_Rep_Item (Def_Id))
                     and then Nkind (First_Rep_Item (Def_Id)) = N_Pragma
-                    and then Chars (First_Rep_Item (Def_Id)) = Name_Interface
+                    and then
+                      Pragma_Name (First_Rep_Item (Def_Id)) = Name_Interface
                   then
                      null;
                   else
@@ -7335,7 +8076,7 @@ package body Sem_Prag is
                --  described in "Handling of Default and Per-Object
                --  Expressions" in sem.ads.
 
-               Analyze_Per_Use_Expression (Arg, RTE (RE_Interrupt_Priority));
+               Preanalyze_Spec_Expression (Arg, RTE (RE_Interrupt_Priority));
             end if;
 
             if Nkind (P) /= N_Task_Definition
@@ -7474,7 +8215,7 @@ package body Sem_Prag is
                   Error_Msg_Sloc :=
                     Interrupt_States.Table (IST_Num).Pragma_Loc;
                   Error_Pragma_Arg
-                    ("state conflicts with that given at #", Arg2);
+                    ("state conflicts with that given #", Arg2);
                   exit;
                end if;
 
@@ -7488,10 +8229,14 @@ package body Sem_Prag is
 
          --  pragma Java_Constructor ([Entity =>] LOCAL_NAME);
 
-         when Pragma_Java_Constructor => Java_Constructor : declare
-            Id     : Entity_Id;
-            Def_Id : Entity_Id;
-            Hom_Id : Entity_Id;
+         --  Also handles pragma CIL_Constructor
+
+         when Pragma_CIL_Constructor | Pragma_Java_Constructor =>
+         Java_Constructor : declare
+            Id         : Entity_Id;
+            Def_Id     : Entity_Id;
+            Hom_Id     : Entity_Id;
+            Convention : Convention_Id;
 
          begin
             GNAT_Pragma;
@@ -7508,6 +8253,12 @@ package body Sem_Prag is
                return;
             end if;
 
+            case Prag_Id is
+               when Pragma_CIL_Constructor  => Convention := Convention_CIL;
+               when Pragma_Java_Constructor => Convention := Convention_Java;
+               when others                  => null;
+            end case;
+
             Hom_Id := Entity (Id);
 
             --  Loop through homonyms
@@ -7515,26 +8266,37 @@ package body Sem_Prag is
             loop
                Def_Id := Get_Base_Subprogram (Hom_Id);
 
-               --  The constructor is required to be a function returning
-               --  an access type whose designated type has convention Java.
+               --  The constructor is required to be a function returning an
+               --  access type whose designated type has convention Java/CIL.
 
                if Ekind (Def_Id) = E_Function
-                 and then Ekind (Etype (Def_Id)) in Access_Kind
                  and then
-                   (Atree.Convention
-                      (Designated_Type (Etype (Def_Id))) = Convention_Java
-                   or else
-                     Atree.Convention
-                      (Root_Type (Designated_Type (Etype (Def_Id))))
-                        = Convention_Java)
+                   (Is_Value_Type (Etype (Def_Id))
+                     or else
+                       (Ekind (Etype (Def_Id)) in Access_Kind
+                         and then
+                          (Atree.Convention
+                             (Designated_Type (Etype (Def_Id))) = Convention
+                            or else
+                              Atree.Convention
+                               (Root_Type (Designated_Type (Etype (Def_Id)))) =
+                                                                 Convention)))
                then
                   Set_Is_Constructor (Def_Id);
-                  Set_Convention     (Def_Id, Convention_Java);
+                  Set_Convention     (Def_Id, Convention);
+                  Set_Is_Imported    (Def_Id);
 
                else
-                  Error_Pragma_Arg
-                    ("pragma% requires function returning a 'Java access type",
-                      Arg1);
+                  if Convention = Convention_Java then
+                     Error_Pragma_Arg
+                       ("pragma% requires function returning a " &
+                        "'Java access type", Arg1);
+                  else
+                     pragma Assert (Convention = Convention_CIL);
+                     Error_Pragma_Arg
+                       ("pragma% requires function returning a " &
+                        "'CIL access type", Arg1);
+                  end if;
                end if;
 
                Hom_Id := Homonym (Hom_Id);
@@ -7580,7 +8342,7 @@ package body Sem_Prag is
             --  java.lang.Object.Typ and that all primitives of the type
             --  should be declared abstract. ???
 
-            if not Is_Tagged_Type (Typ) or else not Is_Abstract (Typ) then
+            if not Is_Tagged_Type (Typ) or else not Is_Abstract_Type (Typ) then
                Error_Pragma_Arg ("pragma% requires an abstract "
                  & "tagged type", Arg1);
 
@@ -7694,7 +8456,7 @@ package body Sem_Prag is
                   --  differences in processing between Link_With
                   --  and Linker_Options).
 
-                  declare
+                  Arg_Store : declare
                      C : constant Char_Code := Get_Char_Code (' ');
                      S : constant String_Id :=
                            Strval (Expr_Value_S (Expression (Arg)));
@@ -7704,12 +8466,18 @@ package body Sem_Prag is
                      procedure Skip_Spaces;
                      --  Advance F past any spaces
 
+                     -----------------
+                     -- Skip_Spaces --
+                     -----------------
+
                      procedure Skip_Spaces is
                      begin
                         while F <= L and then Get_String_Char (S, F) = C loop
                            F := F + 1;
                         end loop;
                      end Skip_Spaces;
+
+                  --  Start of processing for Arg_Store
 
                   begin
                      Skip_Spaces; -- skip leading spaces
@@ -7729,7 +8497,7 @@ package body Sem_Prag is
                            F := F + 1;
                         end if;
                      end loop;
-                  end;
+                  end Arg_Store;
 
                   Arg := Next (Arg);
 
@@ -7830,22 +8598,20 @@ package body Sem_Prag is
             Check_No_Identifiers;
             Check_Arg_Count (1);
             Check_Is_In_Decl_Part_Or_Package_Spec;
+            Check_Arg_Is_Static_Expression (Arg1, Standard_String);
+            Start_String (Strval (Expr_Value_S (Expression (Arg1))));
+
+            Arg := Arg2;
+            while Present (Arg) loop
+               Check_Arg_Is_Static_Expression (Arg, Standard_String);
+               Store_String_Char (ASCII.NUL);
+               Store_String_Chars (Strval (Expr_Value_S (Expression (Arg))));
+               Arg := Next (Arg);
+            end loop;
 
             if Operating_Mode = Generate_Code
               and then In_Extended_Main_Source_Unit (N)
             then
-               Check_Arg_Is_Static_Expression (Arg1, Standard_String);
-               Start_String (Strval (Expr_Value_S (Expression (Arg1))));
-
-               Arg := Arg2;
-               while Present (Arg) loop
-                  Check_Arg_Is_Static_Expression (Arg, Standard_String);
-                  Store_String_Char (ASCII.NUL);
-                  Store_String_Chars
-                    (Strval (Expr_Value_S (Expression (Arg))));
-                  Arg := Next (Arg);
-               end loop;
-
                Store_Linker_Option_String (End_String);
             end if;
          end Linker_Options;
@@ -7866,6 +8632,12 @@ package body Sem_Prag is
             Check_Optional_Identifier (Arg2, Name_Section);
             Check_Arg_Is_Library_Level_Local_Name (Arg1);
             Check_Arg_Is_Static_Expression (Arg2, Standard_String);
+
+            --  This pragma applies only to objects
+
+            if not Is_Object (Entity (Expression (Arg1))) then
+               Error_Pragma_Arg ("pragma% applies only to objects", Arg1);
+            end if;
 
             --  The only processing required is to link this item on to the
             --  list of rep items for the given entity. This is accomplished
@@ -7970,9 +8742,9 @@ package body Sem_Prag is
          -----------------------
 
          --  pragma Machine_Attribute (
-         --    [Entity         =>] LOCAL_NAME,
-         --    [Attribute_Name =>] static_string_EXPRESSION
-         --  [,[Info           =>] static_string_EXPRESSION] );
+         --       [Entity         =>] LOCAL_NAME,
+         --       [Attribute_Name =>] static_string_EXPRESSION
+         --    [, [Info           =>] static_string_EXPRESSION] );
 
          when Pragma_Machine_Attribute => Machine_Attribute : declare
             Def_Id : Entity_Id;
@@ -8020,12 +8792,13 @@ package body Sem_Prag is
          -- Main --
          ----------
 
-         --  pragma Main_Storage
-         --   (MAIN_STORAGE_OPTION [, MAIN_STORAGE_OPTION]);
+         --  pragma Main
+         --   (MAIN_OPTION [, MAIN_OPTION]);
 
-         --  MAIN_STORAGE_OPTION ::=
-         --    [WORKING_STORAGE =>] static_SIMPLE_EXPRESSION
-         --  | [TOP_GUARD =>] static_SIMPLE_EXPRESSION
+         --  MAIN_OPTION ::=
+         --    [STACK_SIZE              =>] static_integer_EXPRESSION
+         --  | [TASK_STACK_SIZE_DEFAULT =>] static_integer_EXPRESSION
+         --  | [TIME_SLICING_ENABLED    =>] static_boolean_EXPRESSION
 
          when Pragma_Main => Main : declare
             Args  : Args_List (1 .. 3);
@@ -8053,9 +8826,9 @@ package body Sem_Prag is
             Nod := Next (N);
             while Present (Nod) loop
                if Nkind (Nod) = N_Pragma
-                 and then Chars (Nod) = Name_Main
+                 and then Pragma_Name (Nod) = Name_Main
                then
-                  Error_Msg_Name_1 := Chars (N);
+                  Error_Msg_Name_1 := Pname;
                   Error_Msg_N ("duplicate pragma% not permitted", Nod);
                end if;
 
@@ -8097,9 +8870,9 @@ package body Sem_Prag is
             Nod := Next (N);
             while Present (Nod) loop
                if Nkind (Nod) = N_Pragma
-                 and then Chars (Nod) = Name_Main_Storage
+                 and then Pragma_Name (Nod) = Name_Main_Storage
                then
-                  Error_Msg_Name_1 := Chars (N);
+                  Error_Msg_Name_1 := Pname;
                   Error_Msg_N ("duplicate pragma% not permitted", Nod);
                end if;
 
@@ -8121,6 +8894,23 @@ package body Sem_Prag is
             Check_No_Identifiers;
             Check_Arg_Count (1);
             Check_Arg_Is_Integer_Literal (Arg1);
+
+         -------------
+         -- No_Body --
+         -------------
+
+         --  pragma No_Body;
+
+         --  The only correct use of this pragma is on its own in a file, in
+         --  which case it is specially processed (see Gnat1drv.Check_Bad_Body
+         --  and Frontend, which use Sinput.L.Source_File_Is_Pragma_No_Body to
+         --  check for a file containing nothing but a No_Body pragma). If we
+         --  attempt to process it during normal semantics processing, it means
+         --  it was misplaced.
+
+         when Pragma_No_Body =>
+            GNAT_Pragma;
+            Pragma_Misplaced;
 
          ---------------
          -- No_Return --
@@ -8165,6 +8955,13 @@ package body Sem_Prag is
                     or else Ekind (E) = E_Generic_Procedure
                   then
                      Set_No_Return (E);
+
+                     --  Set flag on any alias as well
+
+                     if Is_Overloadable (E) and then Present (Alias (E)) then
+                        Set_No_Return (Alias (E));
+                     end if;
+
                      Found := True;
                   end if;
 
@@ -8179,13 +8976,43 @@ package body Sem_Prag is
             end loop;
          end No_Return;
 
+         -----------------
+         -- No_Run_Time --
+         -----------------
+
+         --  pragma No_Run_Time;
+
+         --  Note: this pragma is retained for backwards compatibility.
+         --  See body of Rtsfind for full details on its handling.
+
+         when Pragma_No_Run_Time =>
+            GNAT_Pragma;
+            Check_Valid_Configuration_Pragma;
+            Check_Arg_Count (0);
+
+            No_Run_Time_Mode           := True;
+            Configurable_Run_Time_Mode := True;
+
+            --  Set Duration to 32 bits if word size is 32
+
+            if Ttypes.System_Word_Size = 32 then
+               Duration_32_Bits_On_Target := True;
+            end if;
+
+            --  Set appropriate restrictions
+
+            Set_Restriction (No_Finalization, N);
+            Set_Restriction (No_Exception_Handlers, N);
+            Set_Restriction (Max_Tasks, N, 0);
+            Set_Restriction (No_Tasking, N);
+
          ------------------------
          -- No_Strict_Aliasing --
          ------------------------
 
          --  pragma No_Strict_Aliasing [([Entity =>] type_LOCAL_NAME)];
 
-         when Pragma_No_Strict_Aliasing => No_Strict_Alias : declare
+         when Pragma_No_Strict_Aliasing => No_Strict_Aliasing : declare
             E_Id : Entity_Id;
 
          begin
@@ -8209,157 +9036,7 @@ package body Sem_Prag is
 
                Set_No_Strict_Aliasing (Implementation_Base_Type (E_Id));
             end if;
-         end No_Strict_Alias;
-
-         -----------------
-         -- Obsolescent --
-         -----------------
-
-         --  pragma Obsolescent [(static_string_EXPRESSION [, Ada_05])];
-
-         when Pragma_Obsolescent => Obsolescent : declare
-            Subp   : Node_Or_Entity_Id;
-            S      : String_Id;
-            Active : Boolean := True;
-
-            procedure Check_Obsolete_Subprogram;
-            --  Checks if Subp is a subprogram declaration node, and if so
-            --  replaces Subp by the defining entity of the subprogram. If not,
-            --  issues an error message
-
-            ------------------------------
-            -- Check_Obsolete_Subprogram--
-            ------------------------------
-
-            procedure Check_Obsolete_Subprogram is
-            begin
-               if Nkind (Subp) /= N_Subprogram_Declaration then
-                  Error_Pragma
-                    ("pragma% misplaced, must immediately " &
-                     "follow subprogram/package declaration");
-               else
-                  Subp := Defining_Entity (Subp);
-               end if;
-            end Check_Obsolete_Subprogram;
-
-         --  Start of processing for pragma Obsolescent
-
-         begin
-            GNAT_Pragma;
-            Check_At_Most_N_Arguments (2);
-            Check_No_Identifiers;
-
-            --  Check OK placement
-
-            --  First possibility is within a declarative region, where the
-            --  pragma immediately follows a subprogram declaration.
-
-            if Present (Prev (N)) then
-               Subp := Prev (N);
-               Check_Obsolete_Subprogram;
-
-            --  Second possibility, stand alone subprogram declaration with the
-            --  pragma immediately following the declaration.
-
-            elsif No (Prev (N))
-              and then Nkind (Parent (N)) = N_Compilation_Unit_Aux
-            then
-               Subp := Unit (Parent (Parent (N)));
-               Check_Obsolete_Subprogram;
-
-            --  Only other possibility is library unit placement for package
-
-            else
-               Subp := Find_Lib_Unit_Name;
-
-               if Ekind (Subp) /= E_Package
-                 and then Ekind (Subp) /= E_Generic_Package
-               then
-                  Check_Obsolete_Subprogram;
-               end if;
-            end if;
-
-            --  If OK placement, acquire arguments
-
-            if Arg_Count >= 1 then
-
-               --  Deal with static string argument
-
-               Check_Arg_Is_Static_Expression (Arg1, Standard_String);
-               S := Strval (Expression (Arg1));
-
-               for J in 1 .. String_Length (S) loop
-                  if not In_Character_Range (Get_String_Char (S, J)) then
-                     Error_Pragma_Arg
-                       ("pragma% argument does not allow wide characters",
-                        Arg1);
-                  end if;
-               end loop;
-
-               Set_Obsolescent_Warning (Subp, Expression (Arg1));
-
-               --  Check for Ada_05 parameter
-
-               if Arg_Count /= 1 then
-                  Check_Arg_Count (2);
-
-                  declare
-                     Argx : constant Node_Id := Get_Pragma_Arg (Arg2);
-
-                  begin
-                     Check_Arg_Is_Identifier (Argx);
-
-                     if Chars (Argx) /= Name_Ada_05 then
-                        Error_Msg_Name_2 := Name_Ada_05;
-                        Error_Pragma_Arg
-                          ("only allowed argument for pragma% is %", Argx);
-                     end if;
-
-                     if Ada_Version_Explicit < Ada_05
-                       or else not Warn_On_Ada_2005_Compatibility
-                     then
-                        Active := False;
-                     end if;
-                  end;
-               end if;
-            end if;
-
-            --  Set flag if pragma active
-
-            if Active then
-               Set_Is_Obsolescent (Subp);
-            end if;
-         end Obsolescent;
-
-         -----------------
-         -- No_Run_Time --
-         -----------------
-
-         --  pragma No_Run_Time
-
-         --  Note: this pragma is retained for backwards compatibiltiy.
-         --  See body of Rtsfind for full details on its handling.
-
-         when Pragma_No_Run_Time =>
-            GNAT_Pragma;
-            Check_Valid_Configuration_Pragma;
-            Check_Arg_Count (0);
-
-            No_Run_Time_Mode           := True;
-            Configurable_Run_Time_Mode := True;
-
-            declare
-               Word32 : constant Boolean := Ttypes.System_Word_Size = 32;
-            begin
-               if Word32 then
-                  Duration_32_Bits_On_Target := True;
-               end if;
-            end;
-
-            Set_Restriction (No_Finalization, N);
-            Set_Restriction (No_Exception_Handlers, N);
-            Set_Restriction (Max_Tasks, N, 0);
-            Set_Restriction (No_Tasking, N);
+         end No_Strict_Aliasing;
 
          -----------------------
          -- Normalize_Scalars --
@@ -8374,11 +9051,219 @@ package body Sem_Prag is
             Normalize_Scalars := True;
             Init_Or_Norm_Scalars := True;
 
+         -----------------
+         -- Obsolescent --
+         -----------------
+
+         --  pragma Obsolescent [(
+         --    [Entity => NAME,]
+         --    [(static_string_EXPRESSION [, Ada_05])];
+
+         when Pragma_Obsolescent => Obsolescent : declare
+            Ename : Node_Id;
+            Decl  : Node_Id;
+
+            procedure Set_Obsolescent (E : Entity_Id);
+            --  Given an entity Ent, mark it as obsolescent if appropriate
+
+            ---------------------
+            -- Set_Obsolescent --
+            ---------------------
+
+            procedure Set_Obsolescent (E : Entity_Id) is
+               Active : Boolean;
+               Ent    : Entity_Id;
+               S      : String_Id;
+
+            begin
+               Active := True;
+               Ent    := E;
+
+               --  Entity name was given
+
+               if Present (Ename) then
+
+                  --  If entity name matches, we are fine
+                  --  Save entity in pragma argument, for ASIS use.
+
+                  if Chars (Ename) = Chars (Ent) then
+                     Set_Entity (Ename, Ent);
+                     Generate_Reference (Ent, Ename);
+
+                  --  If entity name does not match, only possibility is an
+                  --  enumeration literal from an enumeration type declaration.
+
+                  elsif Ekind (Ent) /= E_Enumeration_Type then
+                     Error_Pragma
+                       ("pragma % entity name does not match declaration");
+
+                  else
+                     Ent := First_Literal (E);
+                     loop
+                        if No (Ent) then
+                           Error_Pragma
+                             ("pragma % entity name does not match any " &
+                              "enumeration literal");
+
+                        elsif Chars (Ent) = Chars (Ename) then
+                           Set_Entity (Ename, Ent);
+                           Generate_Reference (Ent, Ename);
+                           exit;
+
+                        else
+                           Ent := Next_Literal (Ent);
+                        end if;
+                     end loop;
+                  end if;
+               end if;
+
+               --  Ent points to entity to be marked
+
+               if Arg_Count >= 1 then
+
+                  --  Deal with static string argument
+
+                  Check_Arg_Is_Static_Expression (Arg1, Standard_String);
+                  S := Strval (Expression (Arg1));
+
+                  for J in 1 .. String_Length (S) loop
+                     if not In_Character_Range (Get_String_Char (S, J)) then
+                        Error_Pragma_Arg
+                          ("pragma% argument does not allow wide characters",
+                           Arg1);
+                     end if;
+                  end loop;
+
+                  Obsolescent_Warnings.Append
+                    ((Ent => Ent, Msg => Strval (Expression (Arg1))));
+
+                  --  Check for Ada_05 parameter
+
+                  if Arg_Count /= 1 then
+                     Check_Arg_Count (2);
+
+                     declare
+                        Argx : constant Node_Id := Get_Pragma_Arg (Arg2);
+
+                     begin
+                        Check_Arg_Is_Identifier (Argx);
+
+                        if Chars (Argx) /= Name_Ada_05 then
+                           Error_Msg_Name_2 := Name_Ada_05;
+                           Error_Pragma_Arg
+                             ("only allowed argument for pragma% is %", Argx);
+                        end if;
+
+                        if Ada_Version_Explicit < Ada_05
+                          or else not Warn_On_Ada_2005_Compatibility
+                        then
+                           Active := False;
+                        end if;
+                     end;
+                  end if;
+               end if;
+
+               --  Set flag if pragma active
+
+               if Active then
+                  Set_Is_Obsolescent (Ent);
+               end if;
+
+               return;
+            end Set_Obsolescent;
+
+         --  Start of processing for pragma Obsolescent
+
+         begin
+            GNAT_Pragma;
+
+            Check_At_Most_N_Arguments (3);
+
+            --  See if first argument specifies an entity name
+
+            if Arg_Count >= 1
+              and then Chars (Arg1) = Name_Entity
+            then
+               Ename := Get_Pragma_Arg (Arg1);
+
+               if Nkind (Ename) /= N_Character_Literal
+                    and then
+                  Nkind (Ename) /= N_Identifier
+                    and then
+                  Nkind (Ename) /= N_Operator_Symbol
+               then
+                  Error_Pragma_Arg ("entity name expected for pragma%", Arg1);
+               end if;
+
+               --  Eliminate first argument, so we can share processing
+
+               Arg1 := Arg2;
+               Arg2 := Arg3;
+               Arg_Count := Arg_Count - 1;
+
+            --  No Entity name argument given
+
+            else
+               Ename := Empty;
+            end if;
+
+            Check_No_Identifiers;
+
+            --  Get immediately preceding declaration
+
+            Decl := Prev (N);
+            while Present (Decl) and then Nkind (Decl) = N_Pragma loop
+               Prev (Decl);
+            end loop;
+
+            --  Cases where we do not follow anything other than another pragma
+
+            if No (Decl) then
+
+               --  First case: library level compilation unit declaration with
+               --  the pragma immediately following the declaration.
+
+               if Nkind (Parent (N)) = N_Compilation_Unit_Aux then
+                  Set_Obsolescent
+                    (Defining_Entity (Unit (Parent (Parent (N)))));
+                  return;
+
+               --  Case 2: library unit placement for package
+
+               else
+                  declare
+                     Ent : constant Entity_Id := Find_Lib_Unit_Name;
+                  begin
+                     if Is_Package_Or_Generic_Package (Ent) then
+                        Set_Obsolescent (Ent);
+                        return;
+                     end if;
+                  end;
+               end if;
+
+            --  Cases where we must follow a declaration
+
+            else
+               if Nkind (Decl) not in N_Declaration
+                 and then Nkind (Decl) not in N_Later_Decl_Item
+                 and then Nkind (Decl) not in N_Generic_Declaration
+               then
+                  Error_Pragma
+                    ("pragma% misplaced, " &
+                     "must immediately follow a declaration");
+
+               else
+                  Set_Obsolescent (Defining_Entity (Decl));
+                  return;
+               end if;
+            end if;
+         end Obsolescent;
+
          --------------
          -- Optimize --
          --------------
 
-         --  pragma Optimize (Time | Space);
+         --  pragma Optimize (Time | Space | Off);
 
          --  The actual check for optimize is done in Gigi. Note that this
          --  pragma does not actually change the optimization setting, it
@@ -8389,17 +9274,38 @@ package body Sem_Prag is
             Check_Arg_Count (1);
             Check_Arg_Is_One_Of (Arg1, Name_Time, Name_Space, Name_Off);
 
-         -------------------------
-         -- Optional_Overriding --
-         -------------------------
+         ------------------------
+         -- Optimize_Alignment --
+         ------------------------
 
-         --  These pragmas are treated as part of the previous subprogram
-         --  declaration, and analyzed immediately after it (see sem_ch6,
-         --  Check_Overriding_Operation). If the pragma has not been analyzed
-         --  yet, it appears in the wrong place.
+         --  pragma Optimize_Alignment (Time | Space | Off);
 
-         when Pragma_Optional_Overriding =>
-            Error_Msg_N ("pragma must appear immediately after subprogram", N);
+         when Pragma_Optimize_Alignment =>
+            GNAT_Pragma;
+            Check_No_Identifiers;
+            Check_Arg_Count (1);
+            Check_Valid_Configuration_Pragma;
+
+            declare
+               Nam : constant Name_Id := Chars (Get_Pragma_Arg (Arg1));
+            begin
+               case Nam is
+                  when Name_Time =>
+                     Opt.Optimize_Alignment := 'T';
+                  when Name_Space =>
+                     Opt.Optimize_Alignment := 'S';
+                  when Name_Off =>
+                     Opt.Optimize_Alignment := 'O';
+                  when others =>
+                     Error_Pragma_Arg ("invalid argument for pragma%", Arg1);
+               end case;
+            end;
+
+            --  Set indication that mode is set locally. If we are in fact in a
+            --  configuration pragma file, this setting is harmless since the
+            --  switch will get reset anyway at the start of each unit.
+
+            Optimize_Alignment_Local := True;
 
          ----------
          -- Pack --
@@ -8452,7 +9358,7 @@ package body Sem_Prag is
                  or else Is_Atomic (Component_Type (Typ))
                then
                   Error_Pragma
-                       ("?pragma% ignored, cannot pack atomic components");
+                    ("?pragma% ignored, cannot pack atomic components");
                end if;
 
                --  If we had an explicit component size given, then we do not
@@ -8475,7 +9381,13 @@ package body Sem_Prag is
 
                else
                   if not Rep_Item_Too_Late (Typ, N) then
-                     Set_Is_Packed            (Base_Type (Typ));
+                     if VM_Target = No_VM then
+                        Set_Is_Packed (Base_Type (Typ));
+                     elsif not GNAT_Mode then
+                        Error_Pragma
+                          ("?pragma% ignored in this configuration");
+                     end if;
+
                      Set_Has_Pragma_Pack      (Base_Type (Typ));
                      Set_Has_Non_Standard_Rep (Base_Type (Typ));
                   end if;
@@ -8485,8 +9397,13 @@ package body Sem_Prag is
 
             else pragma Assert (Is_Record_Type (Typ));
                if not Rep_Item_Too_Late (Typ, N) then
+                  if VM_Target = No_VM then
+                     Set_Is_Packed (Base_Type (Typ));
+                  elsif not GNAT_Mode then
+                     Error_Pragma ("?pragma% ignored in this configuration");
+                  end if;
+
                   Set_Has_Pragma_Pack      (Base_Type (Typ));
-                  Set_Is_Packed            (Base_Type (Typ));
                   Set_Has_Non_Standard_Rep (Base_Type (Typ));
                end if;
             end if;
@@ -8525,18 +9442,58 @@ package body Sem_Prag is
                Check_Arg_Is_One_Of (Arg1, Name_Semaphore, Name_No);
             end if;
 
-         -------------
-         -- Polling --
-         -------------
+         ----------------------------------
+         -- Preelaborable_Initialization --
+         ----------------------------------
 
-         --  pragma Polling (ON | OFF);
+         --  pragma Preelaborable_Initialization (DIRECT_NAME);
 
-         when Pragma_Polling =>
-            GNAT_Pragma;
+         when Pragma_Preelaborable_Initialization => Preelab_Init : declare
+            Ent : Entity_Id;
+
+         begin
+            Ada_2005_Pragma;
             Check_Arg_Count (1);
             Check_No_Identifiers;
-            Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
-            Polling_Required := (Chars (Expression (Arg1)) = Name_On);
+            Check_Arg_Is_Identifier (Arg1);
+            Check_Arg_Is_Local_Name (Arg1);
+            Check_First_Subtype (Arg1);
+            Ent := Entity (Expression (Arg1));
+
+            if not Is_Private_Type (Ent)
+              and then not Is_Protected_Type (Ent)
+            then
+               Error_Pragma_Arg
+                 ("pragma % can only be applied to private or protected type",
+                  Arg1);
+            end if;
+
+            --  Give an error if the pragma is applied to a protected type that
+            --  does not qualify (due to having entries, or due to components
+            --  that do not qualify).
+
+            if Is_Protected_Type (Ent)
+              and then not Has_Preelaborable_Initialization (Ent)
+            then
+               Error_Msg_N
+                 ("protected type & does not have preelaborable " &
+                  "initialization", Ent);
+
+            --  Otherwise mark the type as definitely having preelaborable
+            --  initialization.
+
+            else
+               Set_Known_To_Have_Preelab_Init (Ent);
+            end if;
+
+            if Has_Pragma_Preelab_Init (Ent)
+              and then Warn_On_Redundant_Constructs
+            then
+               Error_Pragma ("?duplicate pragma%!");
+            else
+               Set_Has_Pragma_Preelab_Init (Ent);
+            end if;
+         end Preelab_Init;
 
          --------------------
          -- Persistent_BSS --
@@ -8595,6 +9552,95 @@ package body Sem_Prag is
                Persistent_BSS_Mode := True;
             end if;
          end Persistent_BSS;
+
+         -------------
+         -- Polling --
+         -------------
+
+         --  pragma Polling (ON | OFF);
+
+         when Pragma_Polling =>
+            GNAT_Pragma;
+            Check_Arg_Count (1);
+            Check_No_Identifiers;
+            Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
+            Polling_Required := (Chars (Expression (Arg1)) = Name_On);
+
+         -------------------
+         -- Postcondition --
+         -------------------
+
+         --  pragma Postcondition ([Check   =>] Boolean_Expression
+         --                      [,[Message =>] String_Expression]);
+
+         when Pragma_Postcondition => Postcondition : declare
+            In_Body : Boolean;
+            pragma Warnings (Off, In_Body);
+
+         begin
+            GNAT_Pragma;
+            Check_At_Least_N_Arguments (1);
+            Check_At_Most_N_Arguments (2);
+            Check_Optional_Identifier (Arg1, Name_Check);
+
+            --  All we need to do here is call the common check procedure,
+            --  the remainder of the processing is found in Sem_Ch6/Sem_Ch7.
+
+            Check_Precondition_Postcondition (In_Body);
+         end Postcondition;
+
+         ------------------
+         -- Precondition --
+         ------------------
+
+         --  pragma Precondition ([Check   =>] Boolean_Expression
+         --                     [,[Message =>] String_Expression]);
+
+         when Pragma_Precondition => Precondition : declare
+            In_Body : Boolean;
+
+         begin
+            GNAT_Pragma;
+            Check_At_Least_N_Arguments (1);
+            Check_At_Most_N_Arguments (2);
+            Check_Optional_Identifier (Arg1, Name_Check);
+
+            Check_Precondition_Postcondition (In_Body);
+
+            --  If in spec, nothing to do. If in body, then we convert the
+            --  pragma to pragma Check (Precondition, cond [, msg]). Note we
+            --  do this whether or not precondition checks are enabled. That
+            --  works fine since pragma Check will do this check.
+
+            if In_Body then
+               if Arg_Count = 2 then
+                  Check_Optional_Identifier (Arg3, Name_Message);
+                  Analyze_And_Resolve (Get_Pragma_Arg (Arg2), Standard_String);
+               end if;
+
+               Analyze_And_Resolve (Get_Pragma_Arg (Arg1), Standard_Boolean);
+
+               Rewrite (N,
+                 Make_Pragma (Loc,
+                   Chars => Name_Check,
+                   Pragma_Argument_Associations => New_List (
+                     Make_Pragma_Argument_Association (Loc,
+                       Expression =>
+                         Make_Identifier (Loc,
+                           Chars => Name_Precondition)),
+
+                     Make_Pragma_Argument_Association (Sloc (Arg1),
+                       Expression => Relocate_Node (Get_Pragma_Arg (Arg1))))));
+
+               if Arg_Count = 2 then
+                  Append_To (Pragma_Argument_Associations (N),
+                    Make_Pragma_Argument_Association (Sloc (Arg2),
+                      Expression => Relocate_Node (Get_Pragma_Arg (Arg2))));
+               end if;
+
+               Analyze (N);
+            end if;
+         end Precondition;
 
          ------------------
          -- Preelaborate --
@@ -8723,7 +9769,19 @@ package body Sem_Prag is
                end if;
 
                Set_Main_Priority
-                 (Current_Sem_Unit, UI_To_Int (Expr_Value (Arg)));
+                    (Current_Sem_Unit, UI_To_Int (Expr_Value (Arg)));
+
+               --  Load an arbitrary entity from System.Tasking to make sure
+               --  this package is implicitly with'ed, since we need to have
+               --  the tasking run-time active for the pragma Priority to have
+               --  any effect.
+
+               declare
+                  Discard : Entity_Id;
+                  pragma Warnings (Off, Discard);
+               begin
+                  Discard := RTE (RE_Task_List);
+               end;
 
             --  Task or Protected, must be of type Integer
 
@@ -8737,7 +9795,7 @@ package body Sem_Prag is
                --  described in "Handling of Default and Per-Object
                --  Expressions" in sem.ads.
 
-               Analyze_Per_Use_Expression (Arg, Standard_Integer);
+               Preanalyze_Spec_Expression (Arg, Standard_Integer);
 
                if not Is_Static_Expression (Arg) then
                   Check_Restriction (Static_Priorities, Arg);
@@ -8764,15 +9822,150 @@ package body Sem_Prag is
             end if;
          end Priority;
 
+         -----------------------------------
+         -- Priority_Specific_Dispatching --
+         -----------------------------------
+
+         --  pragma Priority_Specific_Dispatching (
+         --    policy_IDENTIFIER,
+         --    first_priority_EXPRESSION,
+         --    last_priority_EXPRESSION);
+
+         when Pragma_Priority_Specific_Dispatching =>
+         Priority_Specific_Dispatching : declare
+            Prio_Id : constant Entity_Id := RTE (RE_Any_Priority);
+            --  This is the entity System.Any_Priority;
+
+            DP          : Character;
+            Lower_Bound : Node_Id;
+            Upper_Bound : Node_Id;
+            Lower_Val   : Uint;
+            Upper_Val   : Uint;
+
+         begin
+            Ada_2005_Pragma;
+            Check_Arg_Count (3);
+            Check_No_Identifiers;
+            Check_Arg_Is_Task_Dispatching_Policy (Arg1);
+            Check_Valid_Configuration_Pragma;
+            Get_Name_String (Chars (Expression (Arg1)));
+            DP := Fold_Upper (Name_Buffer (1));
+
+            Lower_Bound := Expression (Arg2);
+            Check_Arg_Is_Static_Expression (Lower_Bound, Standard_Integer);
+            Lower_Val := Expr_Value (Lower_Bound);
+
+            Upper_Bound := Expression (Arg3);
+            Check_Arg_Is_Static_Expression (Upper_Bound, Standard_Integer);
+            Upper_Val := Expr_Value (Upper_Bound);
+
+            --  It is not allowed to use Task_Dispatching_Policy and
+            --  Priority_Specific_Dispatching in the same partition.
+
+            if Task_Dispatching_Policy /= ' ' then
+               Error_Msg_Sloc := Task_Dispatching_Policy_Sloc;
+               Error_Pragma
+                 ("pragma% incompatible with Task_Dispatching_Policy#");
+
+            --  Check lower bound in range
+
+            elsif Lower_Val < Expr_Value (Type_Low_Bound (Prio_Id))
+                    or else
+                  Lower_Val > Expr_Value (Type_High_Bound (Prio_Id))
+            then
+               Error_Pragma_Arg
+                 ("first_priority is out of range", Arg2);
+
+            --  Check upper bound in range
+
+            elsif Upper_Val < Expr_Value (Type_Low_Bound (Prio_Id))
+                    or else
+                  Upper_Val > Expr_Value (Type_High_Bound (Prio_Id))
+            then
+               Error_Pragma_Arg
+                 ("last_priority is out of range", Arg3);
+
+            --  Check that the priority range is valid
+
+            elsif Lower_Val > Upper_Val then
+               Error_Pragma
+                 ("last_priority_expression must be greater than" &
+                  " or equal to first_priority_expression");
+
+            --  Store the new policy, but always preserve System_Location since
+            --  we like the error message with the run-time name.
+
+            else
+               --  Check overlapping in the priority ranges specified in other
+               --  Priority_Specific_Dispatching pragmas within the same
+               --  partition. We can only check those we know about!
+
+               for J in
+                  Specific_Dispatching.First .. Specific_Dispatching.Last
+               loop
+                  if Specific_Dispatching.Table (J).First_Priority in
+                    UI_To_Int (Lower_Val) .. UI_To_Int (Upper_Val)
+                  or else Specific_Dispatching.Table (J).Last_Priority in
+                    UI_To_Int (Lower_Val) .. UI_To_Int (Upper_Val)
+                  then
+                     Error_Msg_Sloc :=
+                       Specific_Dispatching.Table (J).Pragma_Loc;
+                        Error_Pragma
+                          ("priority range overlaps with "
+                           & "Priority_Specific_Dispatching#");
+                  end if;
+               end loop;
+
+               --  The use of Priority_Specific_Dispatching is incompatible
+               --  with Task_Dispatching_Policy.
+
+               if Task_Dispatching_Policy /= ' ' then
+                  Error_Msg_Sloc := Task_Dispatching_Policy_Sloc;
+                     Error_Pragma
+                       ("Priority_Specific_Dispatching incompatible "
+                        & "with Task_Dispatching_Policy#");
+               end if;
+
+               --  The use of Priority_Specific_Dispatching forces ceiling
+               --  locking policy.
+
+               if Locking_Policy /= ' ' and then Locking_Policy /= 'C' then
+                  Error_Msg_Sloc := Locking_Policy_Sloc;
+                     Error_Pragma
+                       ("Priority_Specific_Dispatching incompatible "
+                        & "with Locking_Policy#");
+
+               --  Set the Ceiling_Locking policy, but preserve System_Location
+               --  since we like the error message with the run time name.
+
+               else
+                  Locking_Policy := 'C';
+
+                  if Locking_Policy_Sloc /= System_Location then
+                     Locking_Policy_Sloc := Loc;
+                  end if;
+               end if;
+
+               --  Add entry in the table
+
+               Specific_Dispatching.Append
+                    ((Dispatching_Policy => DP,
+                      First_Priority     => UI_To_Int (Lower_Val),
+                      Last_Priority      => UI_To_Int (Upper_Val),
+                      Pragma_Loc         => Loc));
+            end if;
+         end Priority_Specific_Dispatching;
+
          -------------
          -- Profile --
          -------------
 
          --  pragma Profile (profile_IDENTIFIER);
 
-         --  profile_IDENTIFIER => Protected | Ravenscar
+         --  profile_IDENTIFIER => Restricted | Ravenscar
 
          when Pragma_Profile =>
+            Ada_2005_Pragma;
             Check_Arg_Count (1);
             Check_Valid_Configuration_Pragma;
             Check_No_Identifiers;
@@ -8782,9 +9975,9 @@ package body Sem_Prag is
             begin
                if Chars (Argx) = Name_Ravenscar then
                   Set_Ravenscar_Profile (N);
-
                elsif Chars (Argx) = Name_Restricted then
-                  Set_Profile_Restrictions (Restricted, N, Warn => False);
+                  Set_Profile_Restrictions
+                    (Restricted, N, Warn => Treat_Restrictions_As_Warnings);
                else
                   Error_Pragma_Arg ("& is not a valid profile", Argx);
                end if;
@@ -8796,7 +9989,7 @@ package body Sem_Prag is
 
          --  pragma Profile_Warnings (profile_IDENTIFIER);
 
-         --  profile_IDENTIFIER => Protected | Ravenscar
+         --  profile_IDENTIFIER => Restricted | Ravenscar
 
          when Pragma_Profile_Warnings =>
             GNAT_Pragma;
@@ -8809,7 +10002,6 @@ package body Sem_Prag is
             begin
                if Chars (Argx) = Name_Ravenscar then
                   Set_Profile_Restrictions (Ravenscar, N, Warn => True);
-
                elsif Chars (Argx) = Name_Restricted then
                   Set_Profile_Restrictions (Restricted, N, Warn => True);
                else
@@ -9131,6 +10323,55 @@ package body Sem_Prag is
             end if;
          end;
 
+         -----------------------
+         -- Relative_Deadline --
+         -----------------------
+
+         --  pragma Relative_Deadline (time_span_EXPRESSION);
+
+         when Pragma_Relative_Deadline => Relative_Deadline : declare
+            P   : constant Node_Id := Parent (N);
+            Arg : Node_Id;
+
+         begin
+            Ada_2005_Pragma;
+            Check_No_Identifiers;
+            Check_Arg_Count (1);
+
+            Arg := Expression (Arg1);
+
+            --  The expression must be analyzed in the special manner described
+            --  in "Handling of Default and Per-Object Expressions" in sem.ads.
+
+            Preanalyze_Spec_Expression (Arg, RTE (RE_Time_Span));
+
+            --  Subprogram case
+
+            if Nkind (P) = N_Subprogram_Body then
+               Check_In_Main_Program;
+
+            --  Tasks
+
+            elsif Nkind (P) = N_Task_Definition then
+               null;
+
+            --  Anything else is incorrect
+
+            else
+               Pragma_Misplaced;
+            end if;
+
+            if Has_Relative_Deadline_Pragma (P) then
+               Error_Pragma ("duplicate pragma% not allowed");
+            else
+               Set_Has_Relative_Deadline_Pragma (P, True);
+
+               if Nkind (P) = N_Task_Definition then
+                  Record_Rep_Item (Defining_Identifier (Parent (P)), N);
+               end if;
+            end if;
+         end Relative_Deadline;
+
          ---------------------------
          -- Remote_Call_Interface --
          ---------------------------
@@ -9231,7 +10472,8 @@ package body Sem_Prag is
             GNAT_Pragma;
             Check_Arg_Count (0);
             Check_Valid_Configuration_Pragma;
-            Set_Profile_Restrictions (Restricted, N, Warn => False);
+            Set_Profile_Restrictions
+              (Restricted, N, Warn => Treat_Restrictions_As_Warnings);
 
             if Warn_On_Obsolescent_Feature then
                Error_Msg_N
@@ -9251,7 +10493,8 @@ package body Sem_Prag is
          --  | restriction_parameter_IDENTIFIER => EXPRESSION
 
          when Pragma_Restrictions =>
-            Process_Restrictions_Or_Restriction_Warnings;
+            Process_Restrictions_Or_Restriction_Warnings
+              (Warn => Treat_Restrictions_As_Warnings);
 
          --------------------------
          -- Restriction_Warnings --
@@ -9264,7 +10507,8 @@ package body Sem_Prag is
          --  | restriction_parameter_IDENTIFIER => EXPRESSION
 
          when Pragma_Restriction_Warnings =>
-            Process_Restrictions_Or_Restriction_Warnings;
+            GNAT_Pragma;
+            Process_Restrictions_Or_Restriction_Warnings (Warn => True);
 
          ----------------
          -- Reviewable --
@@ -9275,6 +10519,7 @@ package body Sem_Prag is
          when Pragma_Reviewable =>
             Check_Ada_83_Warning;
             Check_Arg_Count (0);
+            rv;
 
          -------------------
          -- Share_Generic --
@@ -9424,6 +10669,24 @@ package body Sem_Prag is
          when Pragma_Source_Reference =>
             GNAT_Pragma;
 
+         --------------------------------
+         -- Static_Elaboration_Desired --
+         --------------------------------
+
+         --  pragma Static_Elaboration_Desired (DIRECT_NAME);
+
+         when Pragma_Static_Elaboration_Desired =>
+            GNAT_Pragma;
+            Check_At_Most_N_Arguments (1);
+
+            if Is_Compilation_Unit (Current_Scope)
+              and then Ekind (Current_Scope) = E_Package
+            then
+               Set_Static_Elaboration_Desired (Current_Scope, True);
+            else
+               Error_Pragma ("pragma% must apply to a library-level package");
+            end if;
+
          ------------------
          -- Storage_Size --
          ------------------
@@ -9438,13 +10701,11 @@ package body Sem_Prag is
             Check_No_Identifiers;
             Check_Arg_Count (1);
 
-            --  The expression must be analyzed in the special manner
-            --  described in "Handling of Default Expressions" in sem.ads.
-
-            --  Set In_Default_Expression for per-object case ???
+            --  The expression must be analyzed in the special manner described
+            --  in "Handling of Default Expressions" in sem.ads.
 
             Arg := Expression (Arg1);
-            Analyze_Per_Use_Expression (Arg, Any_Integer);
+            Preanalyze_Spec_Expression (Arg, Any_Integer);
 
             if not Is_Static_Expression (Arg) then
                Check_Restriction (Static_Storage_Size, Arg);
@@ -9530,7 +10791,7 @@ package body Sem_Prag is
                end if;
             end Check_OK_Stream_Convert_Function;
 
-         --  Start of procecessing for Stream_Convert
+         --  Start of processing for Stream_Convert
 
          begin
             GNAT_Pragma;
@@ -9550,6 +10811,24 @@ package body Sem_Prag is
                Write : constant Entity_Id := Entity (Expression (Arg3));
 
             begin
+               Check_First_Subtype (Arg1);
+
+               --  Check for too early or too late. Note that we don't enforce
+               --  the rule about primitive operations in this case, since, as
+               --  is the case for explicit stream attributes themselves, these
+               --  restrictions are not appropriate. Note that the chaining of
+               --  the pragma by Rep_Item_Too_Late is actually the critical
+               --  processing done for this pragma.
+
+               if Rep_Item_Too_Early (Typ, N)
+                    or else
+                  Rep_Item_Too_Late (Typ, N, FOnly => True)
+               then
+                  return;
+               end if;
+
+               --  Return if previous error
+
                if Etype (Typ) = Any_Type
                     or else
                   Etype (Read) = Any_Type
@@ -9559,14 +10838,7 @@ package body Sem_Prag is
                   return;
                end if;
 
-               Check_First_Subtype (Arg1);
-
-               if Rep_Item_Too_Early (Typ, N)
-                    or else
-                  Rep_Item_Too_Late (Typ, N)
-               then
-                  return;
-               end if;
+               --  Error checks
 
                if Underlying_Type (Etype (Read)) /= Typ then
                   Error_Pragma_Arg
@@ -9810,6 +11082,7 @@ package body Sem_Prag is
          --  or the identifier GCC, no other identifiers are acceptable.
 
          when Pragma_System_Name =>
+            GNAT_Pragma;
             Check_No_Identifiers;
             Check_Arg_Count (1);
             Check_Arg_Is_One_Of (Arg1, Name_Gcc, Name_Gnat);
@@ -9890,8 +11163,6 @@ package body Sem_Prag is
          --  pragma Task_Name (string_EXPRESSION);
 
          when Pragma_Task_Name => Task_Name : declare
-         --  pragma Priority (EXPRESSION);
-
             P   : constant Node_Id := Parent (N);
             Arg : Node_Id;
 
@@ -9965,80 +11236,6 @@ package body Sem_Prag is
             end if;
          end Task_Storage;
 
-         -----------------
-         -- Thread_Body --
-         -----------------
-
-         --  pragma Thread_Body
-         --    (  [Entity =>]               LOCAL_NAME
-         --     [,[Secondary_Stack_Size =>] static_integer_EXPRESSION]);
-
-         when Pragma_Thread_Body => Thread_Body : declare
-            Id : Node_Id;
-            SS : Node_Id;
-            E  : Entity_Id;
-
-         begin
-            GNAT_Pragma;
-            Check_Arg_Order ((Name_Entity, Name_Secondary_Stack_Size));
-            Check_At_Least_N_Arguments (1);
-            Check_At_Most_N_Arguments (2);
-            Check_Optional_Identifier (Arg1, Name_Entity);
-            Check_Arg_Is_Local_Name (Arg1);
-
-            Id := Expression (Arg1);
-
-            if not Is_Entity_Name (Id)
-              or else not Is_Subprogram (Entity (Id))
-            then
-               Error_Pragma_Arg ("subprogram name required", Arg1);
-            end if;
-
-            E := Entity (Id);
-
-            --  Go to renamed subprogram if present, since Thread_Body applies
-            --  to the actual renamed entity, not to the renaming entity.
-
-            if Present (Alias (E))
-              and then Nkind (Parent (Declaration_Node (E))) =
-                         N_Subprogram_Renaming_Declaration
-            then
-               E := Alias (E);
-            end if;
-
-            --  Various error checks
-
-            if Nkind (Parent (Declaration_Node (E))) = N_Subprogram_Body then
-               Error_Pragma
-                 ("pragma% requires separate spec and must come before body");
-
-            elsif Rep_Item_Too_Early (E, N)
-              or else Rep_Item_Too_Late (E, N)
-            then
-               raise Pragma_Exit;
-
-            elsif Is_Thread_Body (E) then
-               Error_Pragma_Arg
-                 ("only one thread body pragma allowed", Arg1);
-
-            elsif Present (Homonym (E))
-              and then Scope (Homonym (E)) = Current_Scope
-            then
-               Error_Pragma_Arg
-                 ("thread body subprogram must not be overloaded", Arg1);
-            end if;
-
-            Set_Is_Thread_Body (E);
-
-            --  Deal with secondary stack argument
-
-            if Arg_Count = 2 then
-               Check_Optional_Identifier (Arg2, Name_Secondary_Stack_Size);
-               SS := Expression (Arg2);
-               Analyze_And_Resolve (SS, Any_Integer);
-            end if;
-         end Thread_Body;
-
          ----------------
          -- Time_Slice --
          ----------------
@@ -10060,9 +11257,9 @@ package body Sem_Prag is
                Nod := Next (N);
                while Present (Nod) loop
                   if Nkind (Nod) = N_Pragma
-                    and then Chars (Nod) = Name_Time_Slice
+                    and then Pragma_Name (Nod) = Name_Time_Slice
                   then
-                     Error_Msg_Name_1 := Chars (N);
+                     Error_Msg_Name_1 := Pname;
                      Error_Msg_N ("duplicate pragma% not permitted", Nod);
                   end if;
 
@@ -10134,7 +11331,7 @@ package body Sem_Prag is
             Variant : Node_Id;
 
          begin
-            GNAT_Pragma;
+            Ada_2005_Pragma;
             Check_No_Identifiers;
             Check_Arg_Count (1);
             Check_Arg_Is_Local_Name (Arg1);
@@ -10182,7 +11379,6 @@ package body Sem_Prag is
                end if;
 
                Discr := First_Discriminant (Typ);
-
                while Present (Discr) loop
                   if No (Discriminant_Default_Value (Discr)) then
                      Error_Msg_N
@@ -10197,10 +11393,8 @@ package body Sem_Prag is
 
                Comp := First (Component_Items (Clist));
                while Present (Comp) loop
-
                   Check_Component (Comp);
                   Next (Comp);
-
                end loop;
 
                if No (Clist) or else No (Variant_Part (Clist)) then
@@ -10254,11 +11448,36 @@ package body Sem_Prag is
                Get_Name_String (Chars (Cunitent));
                Set_Casing (Mixed_Case);
                Write_Str (Name_Buffer (1 .. Name_Len));
-               Write_Str (" is not implemented");
+               Write_Str (" is not supported in this configuration");
                Write_Eol;
                raise Unrecoverable_Error;
             end if;
          end Unimplemented_Unit;
+
+         ------------------------
+         -- Universal_Aliasing --
+         ------------------------
+
+         --  pragma Universal_Aliasing [([Entity =>] type_LOCAL_NAME)];
+
+         when Pragma_Universal_Aliasing => Universal_Alias : declare
+            E_Id : Entity_Id;
+
+         begin
+            GNAT_Pragma;
+            Check_Arg_Count (1);
+            Check_Optional_Identifier (Arg2, Name_Entity);
+            Check_Arg_Is_Local_Name (Arg1);
+            E_Id := Entity (Expression (Arg1));
+
+            if E_Id = Any_Type then
+               return;
+            elsif No (E_Id) or else not Is_Type (E_Id) then
+               Error_Pragma_Arg ("pragma% requires type", Arg1);
+            end if;
+
+            Set_Universal_Aliasing (Implementation_Base_Type (E_Id));
+         end Universal_Alias;
 
          --------------------
          -- Universal_Data --
@@ -10285,13 +11504,13 @@ package body Sem_Prag is
                Error_Pragma ("?pragma% ignored (applies only to AAMP)");
             end if;
 
-         ------------------
-         -- Unreferenced --
-         ------------------
+         ----------------
+         -- Unmodified --
+         ----------------
 
-         --  pragma Unreferenced (local_Name {, local_Name});
+         --  pragma Unmodified (local_Name {, local_Name});
 
-         when Pragma_Unreferenced => Unreferenced : declare
+         when Pragma_Unmodified => Unmodified : declare
             Arg_Node : Node_Id;
             Arg_Expr : Node_Id;
             Arg_Ent  : Entity_Id;
@@ -10300,17 +11519,19 @@ package body Sem_Prag is
             GNAT_Pragma;
             Check_At_Least_N_Arguments (1);
 
+            --  Loop through arguments
+
             Arg_Node := Arg1;
             while Present (Arg_Node) loop
                Check_No_Identifier (Arg_Node);
 
-               --  Note that the analyze call done by Check_Arg_Is_Local_Name
-               --  will in fact generate a reference, so that the entity will
-               --  have a reference, which will inhibit any warnings about it
-               --  not being referenced, and also properly show up in the ali
-               --  file as a reference. But this reference is recorded before
-               --  the Has_Pragma_Unreferenced flag is set, so that no warning
-               --  is generated for this reference.
+               --  Note: the analyze call done by Check_Arg_Is_Local_Name
+               --  will in fact generate reference, so that the entity will
+               --  have a reference, which will inhibit any warnings about
+               --  it not being referenced, and also properly show up in the
+               --  ali file as a reference. But this reference is recorded
+               --  before the Has_Pragma_Unreferenced flag is set, so that
+               --  no warning is generated for this reference.
 
                Check_Arg_Is_Local_Name (Arg_Node);
                Arg_Expr := Get_Pragma_Arg (Arg_Node);
@@ -10318,21 +11539,143 @@ package body Sem_Prag is
                if Is_Entity_Name (Arg_Expr) then
                   Arg_Ent := Entity (Arg_Expr);
 
-                  --  If the entity is overloaded, the pragma applies to the
-                  --  most recent overloading, as documented. In this case,
-                  --  name resolution does not generate a reference, so it
-                  --  must be done here explicitly.
-
-                  if Is_Overloaded (Arg_Expr) then
-                     Generate_Reference (Arg_Ent, N);
+                  if not Is_Assignable (Arg_Ent) then
+                     Error_Pragma_Arg
+                       ("pragma% can only be applied to a variable",
+                        Arg_Expr);
+                  else
+                     Set_Has_Pragma_Unmodified (Arg_Ent);
                   end if;
-
-                  Set_Has_Pragma_Unreferenced (Arg_Ent);
                end if;
 
                Next (Arg_Node);
             end loop;
+         end Unmodified;
+
+         ------------------
+         -- Unreferenced --
+         ------------------
+
+         --  pragma Unreferenced (local_Name {, local_Name});
+
+         --    or when used in a context clause:
+
+         --  pragma Unreferenced (library_unit_NAME {, library_unit_NAME}
+
+         when Pragma_Unreferenced => Unreferenced : declare
+            Arg_Node : Node_Id;
+            Arg_Expr : Node_Id;
+            Arg_Ent  : Entity_Id;
+            Citem    : Node_Id;
+
+         begin
+            GNAT_Pragma;
+            Check_At_Least_N_Arguments (1);
+
+            --  Check case of appearing within context clause
+
+            if Is_In_Context_Clause then
+
+               --  The arguments must all be units mentioned in a with clause
+               --  in the same context clause. Note we already checked (in
+               --  Par.Prag) that the arguments are either identifiers or
+               --  selected components.
+
+               Arg_Node := Arg1;
+               while Present (Arg_Node) loop
+                  Citem := First (List_Containing (N));
+                  while Citem /= N loop
+                     if Nkind (Citem) = N_With_Clause
+                       and then Same_Name (Name (Citem), Expression (Arg_Node))
+                     then
+                        Set_Has_Pragma_Unreferenced
+                          (Cunit_Entity
+                             (Get_Source_Unit
+                                (Library_Unit (Citem))));
+                        Set_Unit_Name (Expression (Arg_Node), Name (Citem));
+                        exit;
+                     end if;
+
+                     Next (Citem);
+                  end loop;
+
+                  if Citem = N then
+                     Error_Pragma_Arg
+                       ("argument of pragma% is not with'ed unit", Arg_Node);
+                  end if;
+
+                  Next (Arg_Node);
+               end loop;
+
+            --  Case of not in list of context items
+
+            else
+               Arg_Node := Arg1;
+               while Present (Arg_Node) loop
+                  Check_No_Identifier (Arg_Node);
+
+                  --  Note: the analyze call done by Check_Arg_Is_Local_Name
+                  --  will in fact generate reference, so that the entity will
+                  --  have a reference, which will inhibit any warnings about
+                  --  it not being referenced, and also properly show up in the
+                  --  ali file as a reference. But this reference is recorded
+                  --  before the Has_Pragma_Unreferenced flag is set, so that
+                  --  no warning is generated for this reference.
+
+                  Check_Arg_Is_Local_Name (Arg_Node);
+                  Arg_Expr := Get_Pragma_Arg (Arg_Node);
+
+                  if Is_Entity_Name (Arg_Expr) then
+                     Arg_Ent := Entity (Arg_Expr);
+
+                     --  If the entity is overloaded, the pragma applies to the
+                     --  most recent overloading, as documented. In this case,
+                     --  name resolution does not generate a reference, so it
+                     --  must be done here explicitly.
+
+                     if Is_Overloaded (Arg_Expr) then
+                        Generate_Reference (Arg_Ent, N);
+                     end if;
+
+                     Set_Has_Pragma_Unreferenced (Arg_Ent);
+                  end if;
+
+                  Next (Arg_Node);
+               end loop;
+            end if;
          end Unreferenced;
+
+         --------------------------
+         -- Unreferenced_Objects --
+         --------------------------
+
+         --  pragma Unreferenced_Objects (local_Name {, local_Name});
+
+         when Pragma_Unreferenced_Objects => Unreferenced_Objects : declare
+            Arg_Node : Node_Id;
+            Arg_Expr : Node_Id;
+
+         begin
+            GNAT_Pragma;
+            Check_At_Least_N_Arguments (1);
+
+            Arg_Node := Arg1;
+            while Present (Arg_Node) loop
+               Check_No_Identifier (Arg_Node);
+               Check_Arg_Is_Local_Name (Arg_Node);
+               Arg_Expr := Get_Pragma_Arg (Arg_Node);
+
+               if not Is_Entity_Name (Arg_Expr)
+                 or else not Is_Type (Entity (Arg_Expr))
+               then
+                  Error_Pragma_Arg
+                    ("argument for pragma% must be type or subtype", Arg_Node);
+               end if;
+
+               Set_Has_Pragma_Unreferenced_Objects (Entity (Arg_Expr));
+               Next (Arg_Node);
+            end loop;
+         end Unreferenced_Objects;
 
          ------------------------------
          -- Unreserve_All_Interrupts --
@@ -10355,7 +11698,7 @@ package body Sem_Prag is
          --  pragma Unsuppress (IDENTIFIER [, [On =>] NAME]);
 
          when Pragma_Unsuppress =>
-            GNAT_Pragma;
+            Ada_2005_Pragma;
             Process_Suppress_Unsuppress (False);
 
          -------------------
@@ -10446,21 +11789,24 @@ package body Sem_Prag is
          -- Warnings --
          --------------
 
-         --  pragma Warnings (On | Off, [LOCAL_NAME])
+         --  pragma Warnings (On | Off);
+         --  pragma Warnings (On | Off, LOCAL_NAME);
          --  pragma Warnings (static_string_EXPRESSION);
+         --  pragma Warnings (On | Off, STRING_LITERAL);
 
          when Pragma_Warnings => Warnings : begin
             GNAT_Pragma;
             Check_At_Least_N_Arguments (1);
             Check_No_Identifiers;
 
-            --  One argument case
+            declare
+               Argx : constant Node_Id := Get_Pragma_Arg (Arg1);
 
-            if Arg_Count = 1 then
-               declare
-                  Argx : constant Node_Id := Get_Pragma_Arg (Arg1);
+            begin
+               --  One argument case
 
-               begin
+               if Arg_Count = 1 then
+
                   --  On/Off one argument case was processed by parser
 
                   if Nkind (Argx) = N_Identifier
@@ -10471,93 +11817,168 @@ package body Sem_Prag is
                   then
                      null;
 
-                  else
-                     Check_Arg_Is_Static_Expression (Arg1, Standard_String);
+                  --  One argument case must be ON/OFF or static string expr
 
+                  elsif not Is_Static_String_Expression (Arg1) then
+                     Error_Pragma_Arg
+                       ("argument of pragma% must be On/Off or " &
+                        "static string expression", Arg2);
+
+                  --  One argument string expression case
+
+                  else
                      declare
                         Lit : constant Node_Id   := Expr_Value_S (Argx);
                         Str : constant String_Id := Strval (Lit);
+                        Len : constant Nat       := String_Length (Str);
                         C   : Char_Code;
+                        J   : Nat;
+                        OK  : Boolean;
+                        Chr : Character;
 
                      begin
-                        for J in 1 .. String_Length (Str) loop
+                        J := 1;
+                        while J <= Len loop
                            C := Get_String_Char (Str, J);
+                           OK := In_Character_Range (C);
 
-                           if In_Character_Range (C)
-                             and then Set_Warning_Switch (Get_Character (C))
-                           then
-                              null;
-                           else
-                              Error_Pragma_Arg
-                                ("invalid warning switch character", Arg1);
+                           if OK then
+                              Chr := Get_Character (C);
+
+                              --  Dot case
+
+                              if J < Len and then Chr = '.' then
+                                 J := J + 1;
+                                 C := Get_String_Char (Str, J);
+                                 Chr := Get_Character (C);
+
+                                 if not Set_Dot_Warning_Switch (Chr) then
+                                    Error_Pragma_Arg
+                                      ("invalid warning switch character " &
+                                       '.' & Chr, Arg1);
+                                 end if;
+
+                              --  Non-Dot case
+
+                              else
+                                 OK := Set_Warning_Switch (Chr);
+                              end if;
                            end if;
+
+                           if not OK then
+                              Error_Pragma_Arg
+                                ("invalid warning switch character " & Chr,
+                                 Arg1);
+                           end if;
+
+                           J := J + 1;
                         end loop;
                      end;
                   end if;
-               end;
 
-            --  Two argument case
+                  --  Two or more arguments (must be two)
 
-            elsif Arg_Count /= 1 then
-               Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
-               Check_Arg_Count (2);
+               else
+                  Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
+                  Check_At_Most_N_Arguments (2);
 
-               declare
-                  E_Id : Node_Id;
-                  E    : Entity_Id;
+                  declare
+                     E_Id : Node_Id;
+                     E    : Entity_Id;
+                     Err  : Boolean;
 
-               begin
-                  E_Id := Expression (Arg2);
-                  Analyze (E_Id);
+                  begin
+                     E_Id := Expression (Arg2);
+                     Analyze (E_Id);
 
-                  --  In the expansion of an inlined body, a reference to
-                  --  the formal may be wrapped in a conversion if the actual
-                  --  is a conversion. Retrieve the real entity name.
+                     --  In the expansion of an inlined body, a reference to
+                     --  the formal may be wrapped in a conversion if the
+                     --  actual is a conversion. Retrieve the real entity name.
 
-                  if (In_Instance_Body
-                      or else In_Inlined_Body)
-                    and then Nkind (E_Id) = N_Unchecked_Type_Conversion
-                  then
-                     E_Id := Expression (E_Id);
-                  end if;
+                     if (In_Instance_Body
+                         or else In_Inlined_Body)
+                       and then Nkind (E_Id) = N_Unchecked_Type_Conversion
+                     then
+                        E_Id := Expression (E_Id);
+                     end if;
 
-                  if not Is_Entity_Name (E_Id) then
-                     Error_Pragma_Arg
-                       ("second argument of pragma% must be entity name",
-                        Arg2);
-                  end if;
+                     --  Entity name case
 
-                  E := Entity (E_Id);
+                     if Is_Entity_Name (E_Id) then
+                        E := Entity (E_Id);
 
-                  if E = Any_Id then
-                     return;
-                  else
-                     loop
-                        Set_Warnings_Off
-                          (E, (Chars (Expression (Arg1)) = Name_Off));
+                        if E = Any_Id then
+                           return;
+                        else
+                           loop
+                              Set_Warnings_Off
+                                (E, (Chars (Expression (Arg1)) = Name_Off));
 
-                        if Is_Enumeration_Type (E) then
-                           declare
-                              Lit : Entity_Id;
-                           begin
-                              Lit := First_Literal (E);
-                              while Present (Lit) loop
-                                 Set_Warnings_Off (Lit);
-                                 Next_Literal (Lit);
-                              end loop;
-                           end;
+                              if Chars (Expression (Arg1)) = Name_Off
+                                and then Warn_On_Warnings_Off
+                              then
+                                 Warnings_Off_Pragmas.Append ((N, E));
+                              end if;
+
+                              if Is_Enumeration_Type (E) then
+                                 declare
+                                    Lit : Entity_Id;
+                                 begin
+                                    Lit := First_Literal (E);
+                                    while Present (Lit) loop
+                                       Set_Warnings_Off (Lit);
+                                       Next_Literal (Lit);
+                                    end loop;
+                                 end;
+                              end if;
+
+                              exit when No (Homonym (E));
+                              E := Homonym (E);
+                           end loop;
                         end if;
 
-                        exit when No (Homonym (E));
-                        E := Homonym (E);
-                     end loop;
-                  end if;
-               end;
+                     --  Error if not entity or static string literal case
 
-               --  More than two arguments
-            else
-               Check_At_Most_N_Arguments (2);
-            end if;
+                     elsif not Is_Static_String_Expression (Arg2) then
+                        Error_Pragma_Arg
+                          ("second argument of pragma% must be entity " &
+                           "name or static string expression", Arg2);
+
+                     --  String literal case
+
+                     else
+                        String_To_Name_Buffer
+                          (Strval (Expr_Value_S (Expression (Arg2))));
+
+                        --  Note on configuration pragma case: If this is a
+                        --  configuration pragma, then for an OFF pragma, we
+                        --  just set Config True in the call, which is all
+                        --  that needs to be done. For the case of ON, this
+                        --  is normally an error, unless it is canceling the
+                        --  effect of a previous OFF pragma in the same file.
+                        --  In any other case, an error will be signalled (ON
+                        --  with no matching OFF).
+
+                        if Chars (Argx) = Name_Off then
+                           Set_Specific_Warning_Off
+                             (Loc, Name_Buffer (1 .. Name_Len),
+                              Config => Is_Configuration_Pragma);
+
+                        elsif Chars (Argx) = Name_On then
+                           Set_Specific_Warning_On
+                             (Loc, Name_Buffer (1 .. Name_Len), Err);
+
+                           if Err then
+                              Error_Msg
+                                ("?pragma Warnings On with no " &
+                                 "matching Warnings Off",
+                                 Loc);
+                           end if;
+                        end if;
+                     end if;
+                  end;
+               end if;
+            end;
          end Warnings;
 
          -------------------
@@ -10594,6 +12015,22 @@ package body Sem_Prag is
             end if;
          end Weak_External;
 
+         -----------------------------
+         -- Wide_Character_Encoding --
+         -----------------------------
+
+         --  pragma Wide_Character_Encoding (IDENTIFIER);
+
+         when Pragma_Wide_Character_Encoding =>
+            GNAT_Pragma;
+
+            --  Nothing to do, handled in parser. Note that we do not enforce
+            --  configuration pragma placement, this pragma can appear at any
+            --  place in the source, allowing mixed encodings within a single
+            --  source program.
+
+            null;
+
          --------------------
          -- Unknown_Pragma --
          --------------------
@@ -10609,13 +12046,48 @@ package body Sem_Prag is
       when Pragma_Exit => null;
    end Analyze_Pragma;
 
+   -------------------
+   -- Check_Enabled --
+   -------------------
+
+   function Check_Enabled (Nam : Name_Id) return Boolean is
+      PP : Node_Id;
+
+   begin
+      PP := Opt.Check_Policy_List;
+      loop
+         if No (PP) then
+            return Assertions_Enabled;
+
+         elsif
+           Nam = Chars (Expression (First (Pragma_Argument_Associations (PP))))
+         then
+            case
+              Chars (Expression (Last (Pragma_Argument_Associations (PP))))
+            is
+            when Name_On | Name_Check =>
+               return True;
+            when Name_Off | Name_Ignore =>
+               return False;
+            when others =>
+               raise Program_Error;
+            end case;
+
+         else
+            PP := Next_Pragma (PP);
+         end if;
+      end loop;
+   end Check_Enabled;
+
    ---------------------------------
    -- Delay_Config_Pragma_Analyze --
    ---------------------------------
 
    function Delay_Config_Pragma_Analyze (N : Node_Id) return Boolean is
    begin
-      return Chars (N) = Name_Interrupt_State;
+      return Pragma_Name (N) = Name_Interrupt_State
+               or else
+             Pragma_Name (N) = Name_Priority_Specific_Dispatching;
    end Delay_Config_Pragma_Analyze;
 
    -------------------------
@@ -10641,6 +12113,28 @@ package body Sem_Prag is
 
       return Result;
    end Get_Base_Subprogram;
+
+   --------------------
+   -- Get_Pragma_Arg --
+   --------------------
+
+   function Get_Pragma_Arg (Arg : Node_Id) return Node_Id is
+   begin
+      if Nkind (Arg) = N_Pragma_Argument_Association then
+         return Expression (Arg);
+      else
+         return Arg;
+      end if;
+   end Get_Pragma_Arg;
+
+   ----------------
+   -- Initialize --
+   ----------------
+
+   procedure Initialize is
+   begin
+      Externals.Init;
+   end Initialize;
 
    -----------------------------
    -- Is_Config_Static_String --
@@ -10694,7 +12188,7 @@ package body Sem_Prag is
          return True;
       end Add_Config_Static_String;
 
-   --  Start of prorcessing for Is_Config_Static_String
+   --  Start of processing for Is_Config_Static_String
 
    begin
 
@@ -10709,168 +12203,192 @@ package body Sem_Prag is
    --  This function makes use of the following static table which indicates
    --  whether a given pragma is significant. A value of -1 in this table
    --  indicates that the reference is significant. A value of zero indicates
-   --  than appearence as any argument is insignificant, a positive value
-   --  indicates that appearence in that parameter position is significant.
+   --  than appearance as any argument is insignificant, a positive value
+   --  indicates that appearance in that parameter position is significant.
+
+   --  A value of 99 flags a special case requiring a special check (this is
+   --  used for cases not covered by this standard encoding, e.g. pragma Check
+   --  where the first argument is not significant, but the others are).
 
    Sig_Flags : constant array (Pragma_Id) of Int :=
-
-     (Pragma_AST_Entry                    => -1,
-      Pragma_Abort_Defer                  => -1,
-      Pragma_Ada_83                       => -1,
-      Pragma_Ada_95                       => -1,
-      Pragma_Ada_05                       => -1,
-      Pragma_Ada_2005                     => -1,
-      Pragma_All_Calls_Remote             => -1,
-      Pragma_Annotate                     => -1,
-      Pragma_Assert                       => -1,
-      Pragma_Assertion_Policy             =>  0,
-      Pragma_Asynchronous                 => -1,
-      Pragma_Atomic                       =>  0,
-      Pragma_Atomic_Components            =>  0,
-      Pragma_Attach_Handler               => -1,
-      Pragma_CPP_Class                    =>  0,
-      Pragma_CPP_Constructor              =>  0,
-      Pragma_CPP_Virtual                  =>  0,
-      Pragma_CPP_Vtable                   =>  0,
-      Pragma_C_Pass_By_Copy               =>  0,
-      Pragma_Comment                      =>  0,
-      Pragma_Common_Object                => -1,
-      Pragma_Compile_Time_Warning         => -1,
-      Pragma_Complete_Representation      =>  0,
-      Pragma_Complex_Representation       =>  0,
-      Pragma_Component_Alignment          => -1,
-      Pragma_Controlled                   =>  0,
-      Pragma_Convention                   =>  0,
-      Pragma_Convention_Identifier        =>  0,
-      Pragma_Debug                        => -1,
-      Pragma_Debug_Policy                 =>  0,
-      Pragma_Detect_Blocking              => -1,
-      Pragma_Discard_Names                =>  0,
-      Pragma_Elaborate                    => -1,
-      Pragma_Elaborate_All                => -1,
-      Pragma_Elaborate_Body               => -1,
-      Pragma_Elaboration_Checks           => -1,
-      Pragma_Eliminate                    => -1,
-      Pragma_Explicit_Overriding          => -1,
-      Pragma_Export                       => -1,
-      Pragma_Export_Exception             => -1,
-      Pragma_Export_Function              => -1,
-      Pragma_Export_Object                => -1,
-      Pragma_Export_Procedure             => -1,
-      Pragma_Export_Value                 => -1,
-      Pragma_Export_Valued_Procedure      => -1,
-      Pragma_Extend_System                => -1,
-      Pragma_Extensions_Allowed           => -1,
-      Pragma_External                     => -1,
-      Pragma_External_Name_Casing         => -1,
-      Pragma_Finalize_Storage_Only        =>  0,
-      Pragma_Float_Representation         =>  0,
-      Pragma_Ident                        => -1,
-      Pragma_Import                       => +2,
-      Pragma_Import_Exception             =>  0,
-      Pragma_Import_Function              =>  0,
-      Pragma_Import_Object                =>  0,
-      Pragma_Import_Procedure             =>  0,
-      Pragma_Import_Valued_Procedure      =>  0,
-      Pragma_Initialize_Scalars           => -1,
-      Pragma_Inline                       =>  0,
-      Pragma_Inline_Always                =>  0,
-      Pragma_Inline_Generic               =>  0,
-      Pragma_Inspection_Point             => -1,
-      Pragma_Interface                    => +2,
-      Pragma_Interface_Name               => +2,
-      Pragma_Interrupt_Handler            => -1,
-      Pragma_Interrupt_Priority           => -1,
-      Pragma_Interrupt_State              => -1,
-      Pragma_Java_Constructor             => -1,
-      Pragma_Java_Interface               => -1,
-      Pragma_Keep_Names                   =>  0,
-      Pragma_License                      => -1,
-      Pragma_Link_With                    => -1,
-      Pragma_Linker_Alias                 => -1,
-      Pragma_Linker_Constructor           => -1,
-      Pragma_Linker_Destructor            => -1,
-      Pragma_Linker_Options               => -1,
-      Pragma_Linker_Section               => -1,
-      Pragma_List                         => -1,
-      Pragma_Locking_Policy               => -1,
-      Pragma_Long_Float                   => -1,
-      Pragma_Machine_Attribute            => -1,
-      Pragma_Main                         => -1,
-      Pragma_Main_Storage                 => -1,
-      Pragma_Memory_Size                  => -1,
-      Pragma_No_Return                    =>  0,
-      Pragma_No_Run_Time                  => -1,
-      Pragma_No_Strict_Aliasing           => -1,
-      Pragma_Normalize_Scalars            => -1,
-      Pragma_Obsolescent                  =>  0,
-      Pragma_Optimize                     => -1,
-      Pragma_Optional_Overriding          => -1,
-      Pragma_Pack                         =>  0,
-      Pragma_Page                         => -1,
-      Pragma_Passive                      => -1,
-      Pragma_Polling                      => -1,
-      Pragma_Persistent_BSS               =>  0,
-      Pragma_Preelaborate                 => -1,
-      Pragma_Preelaborate_05              => -1,
-      Pragma_Priority                     => -1,
-      Pragma_Profile                      =>  0,
-      Pragma_Profile_Warnings             =>  0,
-      Pragma_Propagate_Exceptions         => -1,
-      Pragma_Psect_Object                 => -1,
-      Pragma_Pure                         => -1,
-      Pragma_Pure_05                      => -1,
-      Pragma_Pure_Function                => -1,
-      Pragma_Queuing_Policy               => -1,
-      Pragma_Ravenscar                    => -1,
-      Pragma_Remote_Call_Interface        => -1,
-      Pragma_Remote_Types                 => -1,
-      Pragma_Restricted_Run_Time          => -1,
-      Pragma_Restriction_Warnings         => -1,
-      Pragma_Restrictions                 => -1,
-      Pragma_Reviewable                   => -1,
-      Pragma_Share_Generic                => -1,
-      Pragma_Shared                       => -1,
-      Pragma_Shared_Passive               => -1,
-      Pragma_Source_File_Name             => -1,
-      Pragma_Source_File_Name_Project     => -1,
-      Pragma_Source_Reference             => -1,
-      Pragma_Storage_Size                 => -1,
-      Pragma_Storage_Unit                 => -1,
-      Pragma_Stream_Convert               => -1,
-      Pragma_Style_Checks                 => -1,
-      Pragma_Subtitle                     => -1,
-      Pragma_Suppress                     =>  0,
-      Pragma_Suppress_Exception_Locations =>  0,
-      Pragma_Suppress_All                 => -1,
-      Pragma_Suppress_Debug_Info          =>  0,
-      Pragma_Suppress_Initialization      =>  0,
-      Pragma_System_Name                  => -1,
-      Pragma_Task_Dispatching_Policy      => -1,
-      Pragma_Task_Info                    => -1,
-      Pragma_Task_Name                    => -1,
-      Pragma_Task_Storage                 =>  0,
-      Pragma_Thread_Body                  => +2,
-      Pragma_Time_Slice                   => -1,
-      Pragma_Title                        => -1,
-      Pragma_Unchecked_Union              =>  0,
-      Pragma_Unimplemented_Unit           => -1,
-      Pragma_Universal_Data               => -1,
-      Pragma_Unreferenced                 => -1,
-      Pragma_Unreserve_All_Interrupts     => -1,
-      Pragma_Unsuppress                   =>  0,
-      Pragma_Use_VADS_Size                => -1,
-      Pragma_Validity_Checks              => -1,
-      Pragma_Volatile                     =>  0,
-      Pragma_Volatile_Components          =>  0,
-      Pragma_Warnings                     => -1,
-      Pragma_Weak_External                =>  0,
-      Unknown_Pragma                      =>  0);
+     (Pragma_AST_Entry                     => -1,
+      Pragma_Abort_Defer                   => -1,
+      Pragma_Ada_83                        => -1,
+      Pragma_Ada_95                        => -1,
+      Pragma_Ada_05                        => -1,
+      Pragma_Ada_2005                      => -1,
+      Pragma_All_Calls_Remote              => -1,
+      Pragma_Annotate                      => -1,
+      Pragma_Assert                        => -1,
+      Pragma_Assertion_Policy              =>  0,
+      Pragma_Assume_No_Invalid_Values      =>  0,
+      Pragma_Asynchronous                  => -1,
+      Pragma_Atomic                        =>  0,
+      Pragma_Atomic_Components             =>  0,
+      Pragma_Attach_Handler                => -1,
+      Pragma_Check                         => 99,
+      Pragma_Check_Name                    =>  0,
+      Pragma_Check_Policy                  =>  0,
+      Pragma_CIL_Constructor               => -1,
+      Pragma_CPP_Class                     =>  0,
+      Pragma_CPP_Constructor               =>  0,
+      Pragma_CPP_Virtual                   =>  0,
+      Pragma_CPP_Vtable                    =>  0,
+      Pragma_C_Pass_By_Copy                =>  0,
+      Pragma_Comment                       =>  0,
+      Pragma_Common_Object                 => -1,
+      Pragma_Compile_Time_Error            => -1,
+      Pragma_Compile_Time_Warning          => -1,
+      Pragma_Compiler_Unit                 =>  0,
+      Pragma_Complete_Representation       =>  0,
+      Pragma_Complex_Representation        =>  0,
+      Pragma_Component_Alignment           => -1,
+      Pragma_Controlled                    =>  0,
+      Pragma_Convention                    =>  0,
+      Pragma_Convention_Identifier         =>  0,
+      Pragma_Debug                         => -1,
+      Pragma_Debug_Policy                  =>  0,
+      Pragma_Detect_Blocking               => -1,
+      Pragma_Discard_Names                 =>  0,
+      Pragma_Elaborate                     => -1,
+      Pragma_Elaborate_All                 => -1,
+      Pragma_Elaborate_Body                => -1,
+      Pragma_Elaboration_Checks            => -1,
+      Pragma_Eliminate                     => -1,
+      Pragma_Export                        => -1,
+      Pragma_Export_Exception              => -1,
+      Pragma_Export_Function               => -1,
+      Pragma_Export_Object                 => -1,
+      Pragma_Export_Procedure              => -1,
+      Pragma_Export_Value                  => -1,
+      Pragma_Export_Valued_Procedure       => -1,
+      Pragma_Extend_System                 => -1,
+      Pragma_Extensions_Allowed            => -1,
+      Pragma_External                      => -1,
+      Pragma_Favor_Top_Level               => -1,
+      Pragma_External_Name_Casing          => -1,
+      Pragma_Fast_Math                     => -1,
+      Pragma_Finalize_Storage_Only         =>  0,
+      Pragma_Float_Representation          =>  0,
+      Pragma_Ident                         => -1,
+      Pragma_Implemented_By_Entry          => -1,
+      Pragma_Implicit_Packing              =>  0,
+      Pragma_Import                        => +2,
+      Pragma_Import_Exception              =>  0,
+      Pragma_Import_Function               =>  0,
+      Pragma_Import_Object                 =>  0,
+      Pragma_Import_Procedure              =>  0,
+      Pragma_Import_Valued_Procedure       =>  0,
+      Pragma_Initialize_Scalars            => -1,
+      Pragma_Inline                        =>  0,
+      Pragma_Inline_Always                 =>  0,
+      Pragma_Inline_Generic                =>  0,
+      Pragma_Inspection_Point              => -1,
+      Pragma_Interface                     => +2,
+      Pragma_Interface_Name                => +2,
+      Pragma_Interrupt_Handler             => -1,
+      Pragma_Interrupt_Priority            => -1,
+      Pragma_Interrupt_State               => -1,
+      Pragma_Java_Constructor              => -1,
+      Pragma_Java_Interface                => -1,
+      Pragma_Keep_Names                    =>  0,
+      Pragma_License                       => -1,
+      Pragma_Link_With                     => -1,
+      Pragma_Linker_Alias                  => -1,
+      Pragma_Linker_Constructor            => -1,
+      Pragma_Linker_Destructor             => -1,
+      Pragma_Linker_Options                => -1,
+      Pragma_Linker_Section                => -1,
+      Pragma_List                          => -1,
+      Pragma_Locking_Policy                => -1,
+      Pragma_Long_Float                    => -1,
+      Pragma_Machine_Attribute             => -1,
+      Pragma_Main                          => -1,
+      Pragma_Main_Storage                  => -1,
+      Pragma_Memory_Size                   => -1,
+      Pragma_No_Return                     =>  0,
+      Pragma_No_Body                       =>  0,
+      Pragma_No_Run_Time                   => -1,
+      Pragma_No_Strict_Aliasing            => -1,
+      Pragma_Normalize_Scalars             => -1,
+      Pragma_Obsolescent                   =>  0,
+      Pragma_Optimize                      => -1,
+      Pragma_Optimize_Alignment            => -1,
+      Pragma_Pack                          =>  0,
+      Pragma_Page                          => -1,
+      Pragma_Passive                       => -1,
+      Pragma_Preelaborable_Initialization  => -1,
+      Pragma_Polling                       => -1,
+      Pragma_Persistent_BSS                =>  0,
+      Pragma_Postcondition                 => -1,
+      Pragma_Precondition                  => -1,
+      Pragma_Preelaborate                  => -1,
+      Pragma_Preelaborate_05               => -1,
+      Pragma_Priority                      => -1,
+      Pragma_Priority_Specific_Dispatching => -1,
+      Pragma_Profile                       =>  0,
+      Pragma_Profile_Warnings              =>  0,
+      Pragma_Propagate_Exceptions          => -1,
+      Pragma_Psect_Object                  => -1,
+      Pragma_Pure                          => -1,
+      Pragma_Pure_05                       => -1,
+      Pragma_Pure_Function                 => -1,
+      Pragma_Queuing_Policy                => -1,
+      Pragma_Ravenscar                     => -1,
+      Pragma_Relative_Deadline             => -1,
+      Pragma_Remote_Call_Interface         => -1,
+      Pragma_Remote_Types                  => -1,
+      Pragma_Restricted_Run_Time           => -1,
+      Pragma_Restriction_Warnings          => -1,
+      Pragma_Restrictions                  => -1,
+      Pragma_Reviewable                    => -1,
+      Pragma_Share_Generic                 => -1,
+      Pragma_Shared                        => -1,
+      Pragma_Shared_Passive                => -1,
+      Pragma_Source_File_Name              => -1,
+      Pragma_Source_File_Name_Project      => -1,
+      Pragma_Source_Reference              => -1,
+      Pragma_Storage_Size                  => -1,
+      Pragma_Storage_Unit                  => -1,
+      Pragma_Static_Elaboration_Desired    => -1,
+      Pragma_Stream_Convert                => -1,
+      Pragma_Style_Checks                  => -1,
+      Pragma_Subtitle                      => -1,
+      Pragma_Suppress                      =>  0,
+      Pragma_Suppress_Exception_Locations  =>  0,
+      Pragma_Suppress_All                  => -1,
+      Pragma_Suppress_Debug_Info           =>  0,
+      Pragma_Suppress_Initialization       =>  0,
+      Pragma_System_Name                   => -1,
+      Pragma_Task_Dispatching_Policy       => -1,
+      Pragma_Task_Info                     => -1,
+      Pragma_Task_Name                     => -1,
+      Pragma_Task_Storage                  =>  0,
+      Pragma_Time_Slice                    => -1,
+      Pragma_Title                         => -1,
+      Pragma_Unchecked_Union               =>  0,
+      Pragma_Unimplemented_Unit            => -1,
+      Pragma_Universal_Aliasing            => -1,
+      Pragma_Universal_Data                => -1,
+      Pragma_Unmodified                    => -1,
+      Pragma_Unreferenced                  => -1,
+      Pragma_Unreferenced_Objects          => -1,
+      Pragma_Unreserve_All_Interrupts      => -1,
+      Pragma_Unsuppress                    =>  0,
+      Pragma_Use_VADS_Size                 => -1,
+      Pragma_Validity_Checks               => -1,
+      Pragma_Volatile                      =>  0,
+      Pragma_Volatile_Components           =>  0,
+      Pragma_Warnings                      => -1,
+      Pragma_Weak_External                 => -1,
+      Pragma_Wide_Character_Encoding       =>  0,
+      Unknown_Pragma                       =>  0);
 
    function Is_Non_Significant_Pragma_Reference (N : Node_Id) return Boolean is
-      P : Node_Id;
-      C : Int;
-      A : Node_Id;
+      Id : Pragma_Id;
+      P  : Node_Id;
+      C  : Int;
+      A  : Node_Id;
 
    begin
       P := Parent (N);
@@ -10879,7 +12397,8 @@ package body Sem_Prag is
          return False;
 
       else
-         C := Sig_Flags (Get_Pragma_Id (Chars (Parent (P))));
+         Id := Get_Pragma_Id (Parent (P));
+         C := Sig_Flags (Id);
 
          case C is
             when -1 =>
@@ -10887,6 +12406,21 @@ package body Sem_Prag is
 
             when 0 =>
                return True;
+
+            when 99 =>
+               case Id is
+
+                  --  For pragma Check, the first argument is not significant,
+                  --  the second and the third (if present) arguments are
+                  --  significant.
+
+                  when Pragma_Check =>
+                     return
+                       P = First (Pragma_Argument_Associations (Parent (P)));
+
+                  when others =>
+                     raise Program_Error;
+               end case;
 
             when others =>
                A := First (Pragma_Argument_Associations (Parent (P)));
@@ -10898,7 +12432,7 @@ package body Sem_Prag is
                   Next (A);
                end loop;
 
-               return A = P;
+               return A = P; -- is this wrong way round ???
          end case;
       end if;
    end Is_Non_Significant_Pragma_Reference;
@@ -10916,7 +12450,7 @@ package body Sem_Prag is
    function Is_Pragma_String_Literal (Par : Node_Id) return Boolean is
       Pragn : constant Node_Id := Parent (Par);
       Assoc : constant List_Id := Pragma_Argument_Associations (Pragn);
-      Pname : constant Name_Id := Chars (Pragn);
+      Pname : constant Name_Id := Pragma_Name (Pragn);
       Argn  : Natural;
       N     : Node_Id;
 
@@ -10990,7 +12524,7 @@ package body Sem_Prag is
          if Present (PA) then
             P := First (PA);
             while Present (P) loop
-               if Chars (P) = Name_Suppress_All then
+               if Pragma_Name (P) = Name_Suppress_All then
                   Prepend_To (Context_Items (N),
                     Make_Pragma (Sloc (P),
                       Chars => Name_Suppress,
@@ -11007,6 +12541,15 @@ package body Sem_Prag is
          end if;
       end;
    end Process_Compilation_Unit_Pragmas;
+
+   --------
+   -- rv --
+   --------
+
+   procedure rv is
+   begin
+      null;
+   end rv;
 
    --------------------------------
    -- Set_Encoded_Interface_Name --
@@ -11048,11 +12591,12 @@ package body Sem_Prag is
       --  If first character is asterisk, this is a link name, and we
       --  leave it completely unmodified. We also ignore null strings
       --  (the latter case happens only in error cases) and no encoding
-      --  should occur for Java interface names.
+      --  should occur for Java or AAMP interface names.
 
       if Len = 0
         or else Get_String_Char (Str, 1) = Get_Char_Code ('*')
-        or else Java_VM
+        or else VM_Target /= No_VM
+        or else AAMP_On_Target
       then
          Set_Interface_Name (E, S);
 
@@ -11142,4 +12686,5 @@ package body Sem_Prag is
          Set_Entity (Pref, Scop);
       end if;
    end Set_Unit_Name;
+
 end Sem_Prag;

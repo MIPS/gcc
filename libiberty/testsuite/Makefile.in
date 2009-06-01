@@ -67,19 +67,21 @@ test-demangle: $(srcdir)/test-demangle.c ../libiberty.a
 test-pexecute: $(srcdir)/test-pexecute.c ../libiberty.a
 	$(TEST_COMPILE) -DHAVE_CONFIG_H -I.. -o test-pexecute \
 		$(srcdir)/test-pexecute.c ../libiberty.a
-		
+
 test-expandargv: $(srcdir)/test-expandargv.c ../libiberty.a
 	$(TEST_COMPILE) -DHAVE_CONFIG_H -I.. -o test-expandargv \
 		$(srcdir)/test-expandargv.c ../libiberty.a
 
 # Standard (either GNU or Cygnus) rules we don't use.
-html install-html info install-info clean-info dvi pdf install etags tags installcheck:
+html install-html info install-info clean-info dvi pdf install-pdf \
+install etags tags installcheck:
 
 # The standard clean rules.
 mostlyclean:
 	rm -f test-demangle
 	rm -f test-pexecute
 	rm -f test-expandargv
+	rm -f core
 clean: mostlyclean
 distclean: clean
 	rm -f Makefile

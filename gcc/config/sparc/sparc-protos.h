@@ -1,5 +1,6 @@
 /* Prototypes of target machine for SPARC.
-   Copyright (C) 1999, 2000, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -24,19 +25,18 @@ along with GCC; see the file COPYING3.  If not see
 #define __SPARC_PROTOS_H__
 
 #ifdef TREE_CODE
-extern struct rtx_def *function_value (tree, enum machine_mode, int);
+extern struct rtx_def *function_value (const_tree, enum machine_mode, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *,
 				  enum machine_mode, tree, int);
 extern struct rtx_def *function_arg (const CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, int, int);
 #ifdef RTX_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
-extern void sparc_va_start (tree, rtx);
 #endif
 extern unsigned long sparc_type_code (tree);
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
-extern enum direction function_arg_padding (enum machine_mode, tree);
+extern enum direction function_arg_padding (enum machine_mode, const_tree);
 #endif /* ARGS_SIZE_RTX */
 #endif /* TREE_CODE */
 
@@ -55,7 +55,8 @@ extern void sparc_output_scratch_registers (FILE *);
 extern enum machine_mode select_cc_mode (enum rtx_code, rtx, rtx);
 /* Define the function that build the compare insn for scc and bcc.  */
 extern rtx gen_compare_reg (enum rtx_code code);
-extern void sparc_emit_float_lib_cmp (rtx, rtx, enum rtx_code);
+extern rtx gen_compare_operator (enum rtx_code code);
+extern enum rtx_code sparc_emit_float_lib_cmp (rtx, rtx, enum rtx_code);
 extern void sparc_emit_floatunsdi (rtx [2], enum machine_mode);
 extern void sparc_emit_fixunsdi (rtx [2], enum machine_mode);
 extern void emit_tfmode_binop (enum rtx_code, rtx *);
@@ -72,6 +73,7 @@ extern int legitimate_address_p (enum machine_mode, rtx, int);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern rtx legitimize_tls_address (rtx);
 extern rtx legitimize_address (rtx, rtx, enum machine_mode);
+extern void sparc_emit_call_insn (rtx, rtx);
 extern void sparc_defer_case_vector (rtx, rtx, int);
 extern bool sparc_expand_move (enum machine_mode, rtx *);
 extern void sparc_emit_set_const32 (rtx, rtx);
@@ -106,13 +108,13 @@ extern int mem_min_alignment (rtx, int);
 extern int pic_address_needs_scratch (rtx);
 extern int reg_unused_after (rtx, rtx);
 extern int register_ok_for_ldd (rtx);
+extern int memory_ok_for_ldd (rtx);
 extern int registers_ok_for_ldd_peep (rtx, rtx);
 extern int v9_regcmp_p (enum rtx_code);
 /* Function used for V8+ code generation.  Returns 1 if the high
    32 bits of REG are 0 before INSN.  */   
 extern int sparc_check_64 (rtx, rtx);
 extern rtx gen_df_reg (rtx, int);
-extern int sparc_extra_constraint_check (rtx, int, int);
 extern void sparc_expand_compare_and_swap_12 (rtx, rtx, rtx, rtx);
 #endif /* RTX_CODE */
 

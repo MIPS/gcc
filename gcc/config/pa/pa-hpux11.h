@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for HP PA-RISC
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -105,9 +105,8 @@ along with GCC; see the file COPYING3.  If not see
 /* We can debug dynamically linked executables on hpux11; we also
    want dereferencing of a NULL pointer to cause a SEGV.  */
 #undef LINK_SPEC
-#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_PA_11)
 #define LINK_SPEC \
-  "%{!mpa-risc-1-0:%{!march=1.0:%{!shared:-L/lib/pa1.1 -L/usr/lib/pa1.1 }}}\
+  "%<fwhole-program\
    %{!shared:%{p:-L/lib/libp -L/usr/lib/libp %{!static:\
      %nWarning: consider linking with `-static' as system libraries with\n\
      %n  profiling support are only provided in archive format}}}\
@@ -116,17 +115,6 @@ along with GCC; see the file COPYING3.  If not see
      %n  profiling support are only provided in archive format}}}\
    -z %{mlinker-opt:-O} %{!shared:-u main -u __gcc_plt_call}\
    %{static:-a archive} %{shared:-b}"
-#else
-#define LINK_SPEC \
-  "%{!shared:%{p:-L/lib/libp -L/usr/lib/libp %{!static:\
-     %nWarning: consider linking with `-static' as system libraries with\n\
-     %n  profiling support are only provided in archive format}}}\
-   %{!shared:%{pg:-L/lib/libp -L/usr/lib/libp %{!static:\
-     %nWarning: consider linking with `-static' as system libraries with\n\
-     %n  profiling support are only provided in archive format}}}\
-   -z %{mlinker-opt:-O} %{!shared:-u main -u __gcc_plt_call}\
-   %{static:-a archive} %{shared:-b}"
-#endif
 
 /* HP-UX 11 has posix threads.  HP libc contains pthread stubs so that
    non-threaded applications can be linked with a thread-safe libc
@@ -135,8 +123,10 @@ along with GCC; see the file COPYING3.  If not see
 #undef LIB_SPEC
 #define LIB_SPEC \
   "%{!shared:\
-     %{mt|pthread:-lpthread} -lc \
-     %{static:%{!nolibdld:-a shared -ldld -a archive -lpthread -lc}}}"
+     %{static|mt|pthread:%{fopenmp:%{static:-a archive_shared} -lrt\
+       %{static:-a archive}} -lpthread} -lc\
+     %{static:%{!nolibdld:-a archive_shared -ldld -a archive -lc}}}\
+   %{shared:%{mt|pthread:-lpthread}}"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
@@ -146,7 +136,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */
 
-#ifndef CROSS_COMPILE
+#ifndef CROSS_DIRECTORY_STRUCTURE
 #undef MD_EXEC_PREFIX
 #define MD_EXEC_PREFIX "/usr/ccs/bin/"
 #endif
@@ -155,7 +145,7 @@ along with GCC; see the file COPYING3.  If not see
    the /usr/ccs/lib directory.  However, the profiling files are in
    /opt/langtools/lib.  */
 
-#ifndef CROSS_COMPILE
+#ifndef CROSS_DIRECTORY_STRUCTURE
 #undef MD_STARTFILE_PREFIX
 #define MD_STARTFILE_PREFIX "/usr/ccs/lib/"
 #define MD_STARTFILE_PREFIX_1 "/opt/langtools/lib/"
@@ -190,3 +180,6 @@ along with GCC; see the file COPYING3.  If not see
    with secondary definition (weak) symbols.  */
 #undef TARGET_SOM_SDEF
 #define TARGET_SOM_SDEF 1
+
+#undef TARGET_HPUX_11
+#define TARGET_HPUX_11 1

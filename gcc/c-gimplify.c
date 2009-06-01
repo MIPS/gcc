@@ -2,7 +2,8 @@
    by the C-based front ends.  The structure of gimplified, or
    language-independent, trees is dictated by the grammar described in this
    file.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Lowering of expressions contributed by Sebastian Pop <s.pop@laposte.net>
    Re-written to support lowering of whole function trees, documentation
    and miscellaneous cleanups by Diego Novillo <dnovillo@redhat.com>
@@ -31,7 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "varray.h"
 #include "c-tree.h"
 #include "c-common.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "tree-flow.h"
@@ -87,7 +88,8 @@ c_genericize (tree fndecl)
       fprintf (dump_orig, "\n;; Function %s",
 	       lang_hooks.decl_printable_name (fndecl, 2));
       fprintf (dump_orig, " (%s)\n",
-	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl)));
+	       (!DECL_ASSEMBLER_NAME_SET_P (fndecl) ? "null"
+		: IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl))));
       fprintf (dump_orig, ";; enabled by -%s\n", dump_flag_name (TDI_original));
       fprintf (dump_orig, "\n");
 
@@ -104,7 +106,6 @@ c_genericize (tree fndecl)
   /* Go ahead and gimplify for now.  */
   gimplify_function_tree (fndecl);
 
-  /* Dump the genericized tree IR.  */
   dump_function (TDI_generic, fndecl);
 
   /* Genericize all nested functions now.  We do things in this order so
@@ -118,14 +119,16 @@ c_genericize (tree fndecl)
 static void
 add_block_to_enclosing (tree block)
 {
+  unsigned i;
   tree enclosing;
+  gimple bind;
+  VEC(gimple, heap) *stack = gimple_bind_expr_stack ();
 
-  for (enclosing = gimple_current_bind_expr ();
-       enclosing; enclosing = TREE_CHAIN (enclosing))
-    if (BIND_EXPR_BLOCK (enclosing))
+  for (i = 0; VEC_iterate (gimple, stack, i, bind); i++)
+    if (gimple_bind_block (bind))
       break;
 
-  enclosing = BIND_EXPR_BLOCK (enclosing);
+  enclosing = gimple_bind_block (bind);
   BLOCK_SUBBLOCKS (enclosing) = chainon (BLOCK_SUBBLOCKS (enclosing), block);
 }
 
@@ -178,10 +181,24 @@ c_build_bind_expr (tree block, tree body)
    decl instead.  */
 
 static enum gimplify_status
-gimplify_compound_literal_expr (tree *expr_p, tree *pre_p)
+gimplify_compound_literal_expr (tree *expr_p, gimple_seq *pre_p)
 {
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_EXPR_DECL (decl_s);
+  /* Mark the decl as addressable if the compound literal
+     expression is addressable now, otherwise it is marked too late
+     after we gimplify the initialization expression.  */
+  if (TREE_ADDRESSABLE (*expr_p))
+    TREE_ADDRESSABLE (decl) = 1;
+
+  /* Preliminarily mark non-addressed complex variables as eligible
+     for promotion to gimple registers.  We'll transform their uses
+     as we find them.  */
+  if ((TREE_CODE (TREE_TYPE (decl)) == COMPLEX_TYPE
+       || TREE_CODE (TREE_TYPE (decl)) == VECTOR_TYPE)
+      && !TREE_THIS_VOLATILE (decl)
+      && !needs_to_live_in_memory (decl))
+    DECL_GIMPLE_REG_P (decl) = 1;
 
   /* This decl isn't mentioned in the enclosing block, so add it to the
      list of temps.  FIXME it seems a bit of a kludge to say that
@@ -194,10 +211,53 @@ gimplify_compound_literal_expr (tree *expr_p, tree *pre_p)
   return GS_OK;
 }
 
-/* Do C-specific gimplification.  Args are as for gimplify_expr.  */
+/* Optimize embedded COMPOUND_LITERAL_EXPRs within a CONSTRUCTOR,
+   return a new CONSTRUCTOR if something changed.  */
+
+static tree
+optimize_compound_literals_in_ctor (tree orig_ctor)
+{
+  tree ctor = orig_ctor;
+  VEC(constructor_elt,gc) *elts = CONSTRUCTOR_ELTS (ctor);
+  unsigned int idx, num = VEC_length (constructor_elt, elts);
+
+  for (idx = 0; idx < num; idx++)
+    {
+      tree value = VEC_index (constructor_elt, elts, idx)->value;
+      tree newval = value;
+      if (TREE_CODE (value) == CONSTRUCTOR)
+	newval = optimize_compound_literals_in_ctor (value);
+      else if (TREE_CODE (value) == COMPOUND_LITERAL_EXPR)
+	{
+	  tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (value);
+	  tree decl = DECL_EXPR_DECL (decl_s);
+	  tree init = DECL_INITIAL (decl);
+
+	  if (!TREE_ADDRESSABLE (value)
+	      && !TREE_ADDRESSABLE (decl)
+	      && init)
+	    newval = init;
+	}
+      if (newval == value)
+	continue;
+
+      if (ctor == orig_ctor)
+	{
+	  ctor = copy_node (orig_ctor);
+	  CONSTRUCTOR_ELTS (ctor) = VEC_copy (constructor_elt, gc, elts);
+	  elts = CONSTRUCTOR_ELTS (ctor);
+	}
+      VEC_index (constructor_elt, elts, idx)->value = newval;
+    }
+  return ctor;
+}
+
+/* Do C-specific gimplification on *EXPR_P.  PRE_P and POST_P are as in
+   gimplify_expr.  */
 
 int
-c_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
+c_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
+		 gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   enum tree_code code = TREE_CODE (*expr_p);
 
@@ -218,6 +278,41 @@ c_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 
     case COMPOUND_LITERAL_EXPR:
       return gimplify_compound_literal_expr (expr_p, pre_p);
+
+    case INIT_EXPR:
+    case MODIFY_EXPR:
+      if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == COMPOUND_LITERAL_EXPR)
+	{
+	  tree complit = TREE_OPERAND (*expr_p, 1);
+	  tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (complit);
+	  tree decl = DECL_EXPR_DECL (decl_s);
+	  tree init = DECL_INITIAL (decl);
+
+	  /* struct T x = (struct T) { 0, 1, 2 } can be optimized
+	     into struct T x = { 0, 1, 2 } if the address of the
+	     compound literal has never been taken.  */
+	  if (!TREE_ADDRESSABLE (complit)
+	      && !TREE_ADDRESSABLE (decl)
+	      && init)
+	    {
+	      *expr_p = copy_node (*expr_p);
+	      TREE_OPERAND (*expr_p, 1) = init;
+	      return GS_OK;
+	    }
+	}
+      else if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == CONSTRUCTOR)
+	{
+	  tree ctor
+	    = optimize_compound_literals_in_ctor (TREE_OPERAND (*expr_p, 1));
+
+	  if (ctor != TREE_OPERAND (*expr_p, 1))
+	    {
+	      *expr_p = copy_node (*expr_p);
+	      TREE_OPERAND (*expr_p, 1) = ctor;
+	      return GS_OK;
+	    }
+	}
+      return GS_UNHANDLED;
 
     default:
       return GS_UNHANDLED;

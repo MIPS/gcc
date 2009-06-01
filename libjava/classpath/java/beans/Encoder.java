@@ -181,7 +181,7 @@ public class Encoder
     return exceptionListener;
   }
 
-  public PersistenceDelegate getPersistenceDelegate(Class type)
+  public PersistenceDelegate getPersistenceDelegate(Class<?> type)
   {
     // This is not specified but the JDK behaves like this.
     if (type == null)
@@ -195,7 +195,7 @@ public class Encoder
 
     PersistenceDelegate pd = (PersistenceDelegate) delegates.get(type);
 
-    return (pd != null) ? pd : (PersistenceDelegate) defaultPersistenceDelegate;
+    return (pd != null) ? pd : defaultPersistenceDelegate;
   }
 
   /**
@@ -215,7 +215,8 @@ public class Encoder
    * access is thread safe.
    * </p>
    */
-  public void setPersistenceDelegate(Class type, PersistenceDelegate delegate)
+  public void setPersistenceDelegate(Class<?> type,
+                                     PersistenceDelegate delegate)
   {
     // If the argument is null this will cause a NullPointerException
     // which is expected behavior.

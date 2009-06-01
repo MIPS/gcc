@@ -1,5 +1,5 @@
 /* Integer matrix math routines
-   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
 
 This file is part of GCC.
@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "tree-flow.h"
 #include "lambda.h"
 
 static void lambda_matrix_get_column (lambda_matrix, int, int, 
@@ -37,7 +38,7 @@ lambda_matrix_new (int m, int n)
   lambda_matrix mat;
   int i;
 
-  mat = ggc_alloc (m * sizeof (lambda_vector));
+  mat = GGC_NEWVEC (lambda_vector, m);
   
   for (i = 0; i < m; i++)
     mat[i] = lambda_vector_new (n);

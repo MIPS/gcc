@@ -6,42 +6,35 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
 -- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package contains all the GNULL primitives that interface directly
---  with the underlying OS.
+--  This package contains all the GNULL primitives that interface directly with
+--  the underlying OS.
 
 with System.Parameters;
---  used for Size_Type
-
 with System.Tasking;
---  used for Task_Id
-
 with System.OS_Interface;
---  used for Thread_Id
 
 package System.Task_Primitives.Operations is
    pragma Preelaborate;
@@ -137,10 +130,14 @@ package System.Task_Primitives.Operations is
    --  call specified below. See locking rules in System.Tasking (spec) for
    --  more details.
 
-   procedure Initialize_Lock (Prio : System.Any_Priority; L : access Lock);
-   procedure Initialize_Lock (L : access RTS_Lock; Level : Lock_Level);
+   procedure Initialize_Lock
+     (Prio : System.Any_Priority;
+      L    : not null access Lock);
+   procedure Initialize_Lock
+     (L     : not null access RTS_Lock;
+      Level : Lock_Level);
    pragma Inline (Initialize_Lock);
-   --  Initialize a lock object.
+   --  Initialize a lock object
    --
    --  For Lock, Prio is the ceiling priority associated with the lock. For
    --  RTS_Lock, the ceiling is implicitly Priority'Last.
@@ -156,19 +153,24 @@ package System.Task_Primitives.Operations is
    --  unless the lock object has been initialized and has not since been
    --  finalized.
    --
-   --  Initialization of the per-task lock is implicit in Create_Task.
+   --  Initialization of the per-task lock is implicit in Create_Task
    --
-   --  These operations raise Storage_Error if a lack of storage is detected.
+   --  These operations raise Storage_Error if a lack of storage is detected
 
-   procedure Finalize_Lock (L : access Lock);
-   procedure Finalize_Lock (L : access RTS_Lock);
+   procedure Finalize_Lock (L : not null access Lock);
+   procedure Finalize_Lock (L : not null access RTS_Lock);
    pragma Inline (Finalize_Lock);
    --  Finalize a lock object, freeing any resources allocated by the
    --  corresponding Initialize_Lock operation.
 
-   procedure Write_Lock (L : access Lock; Ceiling_Violation : out Boolean);
-   procedure Write_Lock (L : access RTS_Lock; Global_Lock : Boolean := False);
-   procedure Write_Lock (T : ST.Task_Id);
+   procedure Write_Lock
+     (L                 : not null access Lock;
+      Ceiling_Violation : out Boolean);
+   procedure Write_Lock
+     (L           : not null access RTS_Lock;
+      Global_Lock : Boolean := False);
+   procedure Write_Lock
+     (T : ST.Task_Id);
    pragma Inline (Write_Lock);
    --  Lock a lock object for write access. After this operation returns,
    --  the calling task holds write permission for the lock object. No other
@@ -192,7 +194,9 @@ package System.Task_Primitives.Operations is
    --  holds T's lock, or has interrupt-level priority. Finalization of the
    --  per-task lock is implicit in Exit_Task.
 
-   procedure Read_Lock (L : access Lock; Ceiling_Violation : out Boolean);
+   procedure Read_Lock
+     (L                 : not null access Lock;
+      Ceiling_Violation : out Boolean);
    pragma Inline (Read_Lock);
    --  Lock a lock object for read access. After this operation returns,
    --  the calling task has non-exclusive read permission for the logical
@@ -214,11 +218,15 @@ package System.Task_Primitives.Operations is
    --  potential write access, and (3) implementations of priority ceiling
    --  locking that make a reader-writer distinction have higher overhead.
 
-   procedure Unlock (L : access Lock);
-   procedure Unlock (L : access RTS_Lock; Global_Lock : Boolean := False);
-   procedure Unlock (T : ST.Task_Id);
+   procedure Unlock
+     (L : not null access Lock);
+   procedure Unlock
+     (L           : not null access RTS_Lock;
+      Global_Lock : Boolean := False);
+   procedure Unlock
+     (T : ST.Task_Id);
    pragma Inline (Unlock);
-   --  Unlock a locked lock object.
+   --  Unlock a locked lock object
    --
    --  The effect is undefined unless the calling task holds read or write
    --  permission for the lock L, and L is the lock object most recently
@@ -240,14 +248,13 @@ package System.Task_Primitives.Operations is
 
    --  It is not clear what to do about ceiling violations due to RTS calls
    --  done at interrupt priority. In general, it is not acceptable to give
-   --  all RTS locks interrupt priority, since that whould give terrible
+   --  all RTS locks interrupt priority, since that would give terrible
    --  performance on systems where this has the effect of masking hardware
-   --  interrupts, though we could get away with allowing
-   --  Interrupt_Priority'last where we are layered on an OS that does not
-   --  allow us to mask interrupts. Ideally, we would like to raise
-   --  Program_Error back at the original point of the RTS call, but this
-   --  would require a lot of detailed analysis and recoding, with almost
-   --  certain performance penalties.
+   --  interrupts, though we could get away allowing Interrupt_Priority'last
+   --  where we are layered on an OS that does not allow us to mask interrupts.
+   --  Ideally, we would like to raise Program_Error back at the original point
+   --  of the RTS call, but this would require a lot of detailed analysis and
+   --  recoding, with almost certain performance penalties.
 
    --  For POSIX systems, we considered just skipping setting priority ceiling
    --  on RTS locks. This would mean there is no ceiling violation, but we
@@ -276,6 +283,18 @@ package System.Task_Primitives.Operations is
    --  to PO-type locks, with ceiling Interrupt_Priority'Last.
 
    --  For now, we will just shut down the system if there is ceiling violation
+
+   procedure Set_Ceiling
+     (L    : not null access Lock;
+      Prio : System.Any_Priority);
+   pragma Inline (Set_Ceiling);
+   --  Change the ceiling priority associated to the lock
+   --
+   --  The effect is undefined unless the calling task holds read or write
+   --  permission for the lock L, and L is the lock object most recently
+   --  locked by the calling task for which the calling task still holds
+   --  read or write permission. (That is, matching pairs of Lock and Unlock
+   --  operations on each lock object must be properly nested.)
 
    procedure Yield (Do_Yield : Boolean := True);
    pragma Inline (Yield);
@@ -317,15 +336,15 @@ package System.Task_Primitives.Operations is
    -- Extensions --
    ----------------
 
-   --  Whoever calls either of the Sleep routines is responsible
-   --  for checking for pending aborts before the call.
-   --  Pending priority changes are handled internally.
+   --  Whoever calls either of the Sleep routines is responsible for checking
+   --  for pending aborts before the call. Pending priority changes are handled
+   --  internally.
 
    procedure Sleep
      (Self_ID : ST.Task_Id;
       Reason  : System.Tasking.Task_States);
    pragma Inline (Sleep);
-   --  Wait until the current task, T,  is signaled to wake up.
+   --  Wait until the current task, T,  is signaled to wake up
    --
    --  precondition:
    --    The calling task is holding its own ATCB lock
@@ -391,8 +410,8 @@ package System.Task_Primitives.Operations is
    --  setup/cleared upon entrance/exit of RTS while maintaining a single
    --  thread of control in the RTS. Since we intend these routines to be used
    --  for implementing the Single_Lock RTS, Lock_RTS should follow the first
-   --  Defer_Abortion operation entering RTS. In the same fashion Unlock_RTS
-   --  should preceed the last Undefer_Abortion exiting RTS.
+   --  Defer_Abort operation entering RTS. In the same fashion Unlock_RTS
+   --  should precede the last Undefer_Abort exiting RTS.
    --
    --  These routines also replace the functions Lock/Unlock_All_Tasks_List
 
@@ -494,10 +513,11 @@ package System.Task_Primitives.Operations is
    function Suspend_Task
      (T           : ST.Task_Id;
       Thread_Self : OSI.Thread_Id) return Boolean;
-   --  Suspend a specific task when the underlying thread library provides
-   --  such functionality, unless the thread associated with T is Thread_Self.
-   --  Such functionality is needed by gdb on some targets (e.g VxWorks)
-   --  Return True is the operation is successful
+   --  Suspend a specific task when the underlying thread library provides this
+   --  functionality, unless the thread associated with T is Thread_Self. Such
+   --  functionality is needed by gdb on some targets (e.g VxWorks) Return True
+   --  is the operation is successful. On targets where this operation is not
+   --  available, a dummy body is present which always returns False.
 
    function Resume_Task
      (T           : ST.Task_Id;
@@ -506,5 +526,21 @@ package System.Task_Primitives.Operations is
    --  such functionality, unless the thread associated with T is Thread_Self.
    --  Such functionality is needed by gdb on some targets (e.g VxWorks)
    --  Return True is the operation is successful
+
+   procedure Stop_All_Tasks;
+   --  Stop all tasks when the underlying thread library provides such
+   --  functionality. Such functionality is needed by gdb on some targets (e.g
+   --  VxWorks) This function can be run from an interrupt handler. Return True
+   --  is the operation is successful
+
+   function Stop_Task (T : ST.Task_Id) return Boolean;
+   --  Stop a specific task when the underlying thread library provides
+   --  such functionality. Such functionality is needed by gdb on some targets
+   --  (e.g VxWorks). Return True is the operation is successful.
+
+   function Continue_Task (T : ST.Task_Id) return Boolean;
+   --  Continue a specific task when the underlying thread library provides
+   --  such functionality. Such functionality is needed by gdb on some targets
+   --  (e.g VxWorks) Return True is the operation is successful
 
 end System.Task_Primitives.Operations;

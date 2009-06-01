@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -121,6 +119,7 @@ package System.Stream_Attributes is
    function I_SU  (Stream : not null access RST) return UST.Short_Unsigned;
    function I_U   (Stream : not null access RST) return UST.Unsigned;
    function I_WC  (Stream : not null access RST) return Wide_Character;
+   function I_WWC (Stream : not null access RST) return Wide_Wide_Character;
 
    -----------------------
    -- Output Procedures --
@@ -154,28 +153,14 @@ package System.Stream_Attributes is
                     Item   : UST.Short_Unsigned);
    procedure W_U   (Stream : not null access RST; Item : UST.Unsigned);
    procedure W_WC  (Stream : not null access RST; Item : Wide_Character);
+   procedure W_WWC (Stream : not null access RST; Item : Wide_Wide_Character);
 
-   ----------------------------
-   -- Composite Input/Output --
-   ----------------------------
-
-   --  The following Boolean constant is defined and set to True only if the
-   --  stream representation of a series of elementary items of the same
-   --  type (one of the types handled by the above procedures) has the same
-   --  representation as an array of such items in memory. This allows such
-   --  a series of items to be read or written as a block, instead of
-   --  element by element.
-
-   --  If the stream representation does not have this property for all the
-   --  above types, then this constant can be omitted or set to False,
-   --  and the front end will generate element-by-element operations.
-
-   --  This interface assumes that a Stream_Element has the same size as
-   --  a Storage_Unit. If that is not the case, then this flag should
-   --  also be omitted (or set to False).
-
-   Block_Stream_Ops_OK : constant Boolean := True;
-   --  Set to False if block stream operations not permitted
+   function Block_IO_OK return Boolean;
+   --  Package System.Stream_Attributes has several bodies - the default one
+   --  distributed with GNAT, s-strxdr.adb which is based on the XDR standard
+   --  and s-stratt.adb for Garlic. All three bodies share the same spec. The
+   --  role of this function is to determine whether the current version of
+   --  System.Stream_Attributes is able to support block IO.
 
 private
    pragma Inline (I_AD);
@@ -197,6 +182,7 @@ private
    pragma Inline (I_SU);
    pragma Inline (I_U);
    pragma Inline (I_WC);
+   pragma Inline (I_WWC);
 
    pragma Inline (W_AD);
    pragma Inline (W_AS);
@@ -217,5 +203,8 @@ private
    pragma Inline (W_SU);
    pragma Inline (W_U);
    pragma Inline (W_WC);
+   pragma Inline (W_WWC);
+
+   pragma Inline (Block_IO_OK);
 
 end System.Stream_Attributes;

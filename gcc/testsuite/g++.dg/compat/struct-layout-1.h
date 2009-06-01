@@ -44,18 +44,23 @@ typedef int u2df;
 #endif
 #if (defined __i386__ || defined __x86_64__) && !defined SKIP_ATTRIBUTE
 # ifdef __MMX__
-#  include <mmintrin.h>
+typedef int __m64 __attribute__ ((__vector_size__ (8)));
 # else
 typedef int __m64;
 # endif
 # ifdef __SSE__
-#  include <xmmintrin.h>
+typedef float __m128 __attribute__ ((__vector_size__ (16)));
 # else
 typedef int __m128;
 # endif
 #else
 typedef int __m64;
 typedef int __m128;
+#endif
+#if defined (__uClinux__)
+/* The maximum achievable alignment on uClinux is usually 16 bytes.  */
+#define v16sf v4sf
+#define u16sf u4sf
 #endif
 
 #define FLDS_MAX	32

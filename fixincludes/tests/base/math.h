@@ -43,6 +43,23 @@ extern int matherr();
 #endif  /* EXCEPTION_STRUCTURE_CHECK */
 
 
+#if defined( HPPA_HPUX_FP_MACROS_CHECK )
+#endif /* _INCLUDE_HPUX_SOURCE */
+
+#if defined(_INCLUDE_HPUX_SOURCE) || \
+   (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))
+#  define FP_NORMAL     0
+#  define FP_ZERO       1
+#  define FP_INFINITE   2
+#  define FP_SUBNORMAL  3
+#  define FP_NAN        4
+#endif
+
+#ifdef _INCLUDE_HPUX_SOURCE
+
+#endif  /* HPPA_HPUX_FP_MACROS_CHECK */
+
+
 #if defined( HPUX11_CPP_POW_INLINE_CHECK )
 
 #endif  /* HPUX11_CPP_POW_INLINE_CHECK */
@@ -101,22 +118,6 @@ extern int class();
 int foo;
 #endif
 #endif  /* STRICT_ANSI_NOT_CTD_CHECK */
-
-
-#if defined( ULTRIX_ATOF_PARAM_CHECK )
-extern double atof(const char *__nptr);
-
-#endif  /* ULTRIX_ATOF_PARAM_CHECK */
-
-
-#if defined( WINDISS_MATH1_CHECK )
-#ifndef __GNUC__
-#endif  /* WINDISS_MATH1_CHECK */
-
-
-#if defined( WINDISS_MATH2_CHECK )
-#endif /* __GNUC__ */
-#endif  /* WINDISS_MATH2_CHECK */
 
 #endif  /* FIXINC_WRAP_MATH_H_EXCEPTION_STRUCTURE */
 #ifdef __cplusplus

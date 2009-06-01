@@ -1,4 +1,4 @@
-! { dg-do run}
+! { dg-do run }
 ! { dg-options "-O2 -fdump-tree-original" }
 !
 ! Check some basic functionality of allocatable components, including that they
@@ -139,5 +139,6 @@ contains
     end subroutine check_alloc2
 
 end program alloc
-! { dg-final { scan-tree-dump-times "deallocate" 33 "original" } }
+! { dg-final { scan-tree-dump-times "builtin_free" 21 "original" } }
 ! { dg-final { cleanup-tree-dump "original" } }
+! { dg-final { cleanup-modules "alloc_m" } }

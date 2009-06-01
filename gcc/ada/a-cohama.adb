@@ -6,29 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
---                                                                          --
--- This specification is derived from the Ada Reference Manual for use with --
--- GNAT. The copyright notice above, and the license provisions that follow --
--- apply solely to the  contents of the part following the private keyword. --
+--          Copyright (C) 2004-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- This unit was originally developed by Matthew J Heaney.                  --
 ------------------------------------------------------------------------------
@@ -69,7 +63,7 @@ package body Ada.Containers.Hashed_Maps is
    pragma Inline (Next);
 
    function Read_Node
-     (Stream : access Root_Stream_Type'Class) return Node_Access;
+     (Stream : not null access Root_Stream_Type'Class) return Node_Access;
    pragma Inline (Read_Node);
 
    procedure Set_Next (Node : Node_Access; Next : Node_Access);
@@ -78,7 +72,7 @@ package body Ada.Containers.Hashed_Maps is
    function Vet (Position : Cursor) return Boolean;
 
    procedure Write_Node
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Node   : Node_Access);
    pragma Inline (Write_Node);
 
@@ -524,6 +518,8 @@ package body Ada.Containers.Hashed_Maps is
       New_Item  : Element_Type)
    is
       Position : Cursor;
+      pragma Unreferenced (Position);
+
       Inserted : Boolean;
 
    begin
@@ -566,10 +562,22 @@ package body Ada.Containers.Hashed_Maps is
          Process (Cursor'(Container'Unchecked_Access, Node));
       end Process_Node;
 
+      B : Natural renames Container'Unrestricted_Access.HT.Busy;
+
    --  Start of processing for Iterate
 
    begin
-      Local_Iterate (Container.HT);
+      B := B + 1;
+
+      begin
+         Local_Iterate (Container.HT);
+      exception
+         when others =>
+            B := B - 1;
+            raise;
+      end;
+
+      B := B - 1;
    end Iterate;
 
    ---------
@@ -695,7 +703,7 @@ package body Ada.Containers.Hashed_Maps is
    ----------
 
    procedure Read
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : out Map)
    is
    begin
@@ -703,7 +711,7 @@ package body Ada.Containers.Hashed_Maps is
    end Read;
 
    procedure Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : out Cursor)
    is
    begin
@@ -715,7 +723,7 @@ package body Ada.Containers.Hashed_Maps is
    ---------------
 
    function Read_Node
-     (Stream : access Root_Stream_Type'Class) return Node_Access
+     (Stream : not null access Root_Stream_Type'Class) return Node_Access
    is
       Node : Node_Access := new Node_Type;
 
@@ -842,8 +850,10 @@ package body Ada.Containers.Hashed_Maps is
          declare
             K : Key_Type renames Position.Node.Key;
             E : Element_Type renames Position.Node.Element;
+
          begin
             Process (K, E);
+
          exception
             when others =>
                L := L - 1;
@@ -916,7 +926,7 @@ package body Ada.Containers.Hashed_Maps is
    -----------
 
    procedure Write
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : Map)
    is
    begin
@@ -924,7 +934,7 @@ package body Ada.Containers.Hashed_Maps is
    end Write;
 
    procedure Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : Cursor)
    is
    begin
@@ -936,7 +946,7 @@ package body Ada.Containers.Hashed_Maps is
    ----------------
 
    procedure Write_Node
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Node   : Node_Access)
    is
    begin

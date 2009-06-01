@@ -60,14 +60,21 @@ final class VMThreadMXBeanImpl
 
   /**
    * Returns the ids of cycles of deadlocked threads, occurring
+   * due to monitor ownership or ownable synchronizer ownership.
+   * This will only be called if ownable synchronizer monitoring
+   * is supported.
+   *
+   * @return the ids of the deadlocked threads.
+   */
+  static native long[] findDeadlockedThreads();
+
+  /**
+   * Returns the ids of cycles of deadlocked threads, occurring
    * due to monitor ownership.
    *
    * @return the ids of the deadlocked threads.
    */
-  static long[] findMonitorDeadlockedThreads()
-  {
-    return new long[0];
-  }
+  static native long[] findMonitorDeadlockedThreads();
 
   /* This is the same as in Thread.getAllStackTraces() */
   static Thread[] getAllThreads()
@@ -110,10 +117,7 @@ final class VMThreadMXBeanImpl
    * @return the nanoseconds of CPU time used by
    *         the current thread.
    */
-  static long getCurrentThreadCpuTime()
-  {
-    return -1;
-  }
+  static native long getCurrentThreadCpuTime();
 
   /**
    * Returns the number of nanoseconds of user time
@@ -124,10 +128,7 @@ final class VMThreadMXBeanImpl
    * @return the nanoseconds of user time used by
    *         the current thread.
    */
-  static long getCurrentThreadUserTime()
-  {
-    return -1;
-  }
+  static native long getCurrentThreadUserTime();
 
   /**
    * Returns the number of live daemon threads.
@@ -147,14 +148,30 @@ final class VMThreadMXBeanImpl
   }
 
   /**
+   * Fill out the given {@link ThreadInfo} object
+   * with ownable synchronizer usage information.
+   * This is only called if ownable synchronizer
+   * usage monitoring is supported.
+   *
+   * @param info the {@link ThreadInfo} object to modify.
+   */
+  static native void getLockInfo(ThreadInfo info);
+
+  /**
+   * Fill out the given {@link ThreadInfo} object
+   * with monitor usage information.  This is only
+   * called if monitor usage monitoring is supported.
+   *
+   * @param info the {@link ThreadInfo} object to modify.
+   */
+  static native void getMonitorInfo(ThreadInfo info);
+
+  /**
    * Returns the current peak number of live threads.
    *
    * @return the peak number of live threads.
    */
-  static int getPeakThreadCount()
-  {
-    return -1;
-  }
+  static native int getPeakThreadCount();
 
   /**
    * Returns the number of live threads.
@@ -177,10 +194,7 @@ final class VMThreadMXBeanImpl
    * @return the nanoseconds of CPU time used by
    *         the thread.
    */
-  static long getThreadCpuTime(long id)
-  {
-    return -1;
-  }
+  static native long getThreadCpuTime(long id);
 
   /**
    * Returns the {@link java.lang.management.ThreadInfo}
@@ -190,10 +204,7 @@ final class VMThreadMXBeanImpl
    * @param maxDepth the depth of the stack trace.
    * @return the corresponding <code>ThreadInfo</code>.
    */
-  static ThreadInfo getThreadInfoForId(long id, int maxDepth)
-  {
-    return null;
-  }
+  static native ThreadInfo getThreadInfoForId(long id, int maxDepth);
   
   /**
    * Returns the number of nanoseconds of user time
@@ -205,10 +216,7 @@ final class VMThreadMXBeanImpl
    * @return the nanoseconds of user time used by
    *         the thread.
    */
-  static long getThreadUserTime(long id)
-  {
-    return -1;
-  }
+  static native long getThreadUserTime(long id);
   
   /**
    * Returns the total number of threads that have
@@ -217,17 +225,12 @@ final class VMThreadMXBeanImpl
    *
    * @return the total number of threads started.
    */
-  static long getTotalStartedThreadCount()
-  {
-    return -1;
-  }
+  static native long getTotalStartedThreadCount();
 
   /**
    * Resets the peak thread count to the current
    * number of live threads.
    */
-  static void resetPeakThreadCount()
-  {
-  }
+  static native void resetPeakThreadCount();
 
 }

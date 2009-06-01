@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS                                   \
+  DARWIN_EXTRA_SPECS                                            \
   { "darwin_arch", DARWIN_ARCH_SPEC },                          \
   { "darwin_crt2", "" },                                        \
   { "darwin_subarch", DARWIN_SUBARCH_SPEC },

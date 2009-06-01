@@ -6,48 +6,45 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1997-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package contains the definitions and routines used as parameters
---  to the run-time system at program startup for the SGI implementation.
+--  This package contains the definitions and routines used as parameters to
+--  the run-time system at program startup for the SGI implementation.
 
 package System.Program_Info is
    pragma Preelaborate;
 
    function Initial_Sproc_Count return Integer;
-   --  The number of sproc created at program startup for scheduling
-   --  threads.
+   --  The number of sproc created at program startup for scheduling threads
 
    function Max_Sproc_Count return Integer;
-   --  The maximum number of sprocs that can be created by the program
-   --  for servicing threads.  This limit includes both the pre-created
-   --  sprocs and those explicitly created under program control.
+   --  The maximum number of sprocs that can be created by the program for
+   --  servicing threads. This limit includes both the pre-created sprocs and
+   --  those explicitly created under program control.
 
    function Sproc_Stack_Size return Integer;
-   --  The size, in bytes, of the sproc's initial stack.
+   --  The size, in bytes, of the sproc's initial stack
 
    function Default_Time_Slice  return Duration;
    --  The default time quanta for round-robin scheduling of threads of
@@ -56,9 +53,9 @@ package System.Program_Info is
    --  Task_Info pragma. See s-tasinf.ads for more information.
 
    function Default_Task_Stack return Integer;
-   --  The default stack size for each created thread.  This default value
-   --  can be overriden on a per-task basis by the language-defined
-   --  Storage_Size pragma.
+   --  The default stack size for each created thread. This default value can
+   --  be overridden on a per-task basis by the language-defined Storage_Size
+   --  pragma.
 
    function Stack_Guard_Pages return Integer;
    --  The number of non-writable, guard pages to append to the bottom of

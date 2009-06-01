@@ -1,12 +1,13 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +15,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file basic_ios.h
  *  This is an internal header file, included by other library headers.
@@ -38,16 +34,26 @@
 
 #pragma GCC system_header
 
-#include <bits/streambuf_iterator.h>
 #include <bits/localefwd.h>
 #include <bits/locale_classes.h>
 #include <bits/locale_facets.h>
+#include <bits/streambuf_iterator.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
+
+  template<typename _Facet>
+    inline const _Facet&
+    __check_facet(const _Facet* __f)
+    {
+      if (!__f)
+	__throw_bad_cast();
+      return *__f;
+    }
 
   // 27.4.5  Template class basic_ios
   /**
    *  @brief  Virtual base class for all stream classes.
+   *  @ingroup io
    *
    *  Most of the member functions called dispatched on stream objects
    *  (e.g., @c std::cout.foo(bar);) are consolidated in this class.
@@ -71,9 +77,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       //@{
       /**
-       *  @if maint
        *  These are non-standard types.
-       *  @endif
       */
       typedef ctype<_CharT>                          __ctype_type;
       typedef num_put<_CharT, ostreambuf_iterator<_CharT, _Traits> >
@@ -217,7 +221,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  in the error flags, then an exception of type
        *  std::ios_base::failure is thrown.
        *
-       *  If the error flage is already set when the exceptions mask is
+       *  If the error flag is already set when the exceptions mask is
        *  added, the exception is immediately thrown.  Try running the
        *  following under GCC 3.1 or later:
        *  @code
@@ -255,7 +259,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       explicit
       basic_ios(basic_streambuf<_CharT, _Traits>* __sb)
       : ios_base(), _M_tie(0), _M_fill(), _M_fill_init(false), _M_streambuf(0),
-      _M_ctype(0), _M_num_put(0), _M_num_get(0)
+	_M_ctype(0), _M_num_put(0), _M_num_get(0)
       { this->init(__sb); }
 
       /**
@@ -347,7 +351,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       copyfmt(const basic_ios& __rhs);
 
       /**
-       *  @brief  Retreives the "empty" character.
+       *  @brief  Retrieves the "empty" character.
        *  @return  The current fill character.
        *
        *  It defaults to a space (' ') in the current locale.
@@ -390,7 +394,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  with this stream, calls that buffer's @c pubimbue(loc).
        *
        *  Additional l10n notes are at
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/22_locale/howto.html
+       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/localization.html
       */
       locale
       imbue(const locale& __loc);
@@ -410,10 +414,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @endcode
        *
        *  Additional l10n notes are at
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/22_locale/howto.html
+       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/localization.html
       */
       char
-      narrow(char_type __c, char __dfault) const;
+      narrow(char_type __c, char __dfault) const
+      { return __check_facet(_M_ctype).narrow(__c, __dfault); }
 
       /**
        *  @brief  Widens characters.
@@ -428,10 +433,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @endcode
        *
        *  Additional l10n notes are at
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/22_locale/howto.html
+       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/localization.html
       */
       char_type
-      widen(char __c) const;
+      widen(char __c) const
+      { return __check_facet(_M_ctype).widen(__c); }
 
     protected:
       // 27.4.5.1  basic_ios constructors
@@ -443,7 +449,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       */
       basic_ios()
       : ios_base(), _M_tie(0), _M_fill(char_type()), _M_fill_init(false), 
-      _M_streambuf(0), _M_ctype(0), _M_num_put(0), _M_num_get(0)
+	_M_streambuf(0), _M_ctype(0), _M_num_put(0), _M_num_get(0)
       { }
 
       /**

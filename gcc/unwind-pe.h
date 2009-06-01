@@ -1,31 +1,26 @@
 /* Exception handling and frame unwind runtime interface routines.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2008, 2009 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
-
-   In addition to the permissions in the GNU General Public License, the
-   Free Software Foundation gives you unlimited permission to link the
-   compiled version of this file into combinations with other programs,
-   and to distribute those combinations without any restriction coming
-   from the use of this file.  (The General Public License restrictions
-   do apply in other respects; for example, they cover modification of
-   the file, and distribution when not linked into a combined
-   executable.)
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
    License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+   <http://www.gnu.org/licenses/>.  */
 
 /* @@@ Really this should be out of line, but this also causes link
    compatibility problems with the base ABI.  This is slightly better
@@ -69,6 +64,9 @@
 /* Given an encoding, return the number of bytes the format occupies.
    This is only defined for fixed-size encodings, and so does not
    include leb128.  */
+
+static unsigned int
+size_of_encoded_value (unsigned char encoding) __attribute__ ((unused));
 
 static unsigned int
 size_of_encoded_value (unsigned char encoding)
@@ -130,17 +128,17 @@ base_of_encoded_value (unsigned char encoding, struct _Unwind_Context *context)
    pointers should not be leb128 encoded on that target.  */
 
 static const unsigned char *
-read_uleb128 (const unsigned char *p, _Unwind_Word *val)
+read_uleb128 (const unsigned char *p, _uleb128_t *val)
 {
   unsigned int shift = 0;
   unsigned char byte;
-  _Unwind_Word result;
+  _uleb128_t result;
 
   result = 0;
   do
     {
       byte = *p++;
-      result |= ((_Unwind_Word)byte & 0x7f) << shift;
+      result |= ((_uleb128_t)byte & 0x7f) << shift;
       shift += 7;
     }
   while (byte & 0x80);
@@ -152,26 +150,26 @@ read_uleb128 (const unsigned char *p, _Unwind_Word *val)
 /* Similar, but read a signed leb128 value.  */
 
 static const unsigned char *
-read_sleb128 (const unsigned char *p, _Unwind_Sword *val)
+read_sleb128 (const unsigned char *p, _sleb128_t *val)
 {
   unsigned int shift = 0;
   unsigned char byte;
-  _Unwind_Word result;
+  _uleb128_t result;
 
   result = 0;
   do
     {
       byte = *p++;
-      result |= ((_Unwind_Word)byte & 0x7f) << shift;
+      result |= ((_uleb128_t)byte & 0x7f) << shift;
       shift += 7;
     }
   while (byte & 0x80);
 
   /* Sign-extend a negative value.  */
   if (shift < 8 * sizeof(result) && (byte & 0x40) != 0)
-    result |= -(((_Unwind_Word)1L) << shift);
+    result |= -(((_uleb128_t)1L) << shift);
 
-  *val = (_Unwind_Sword) result;
+  *val = (_sleb128_t) result;
   return p;
 }
 
@@ -215,7 +213,7 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
 
 	case DW_EH_PE_uleb128:
 	  {
-	    _Unwind_Word tmp;
+	    _uleb128_t tmp;
 	    p = read_uleb128 (p, &tmp);
 	    result = (_Unwind_Internal_Ptr) tmp;
 	  }
@@ -223,7 +221,7 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
 
 	case DW_EH_PE_sleb128:
 	  {
-	    _Unwind_Sword tmp;
+	    _sleb128_t tmp;
 	    p = read_sleb128 (p, &tmp);
 	    result = (_Unwind_Internal_Ptr) tmp;
 	  }

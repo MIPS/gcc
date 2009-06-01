@@ -88,7 +88,7 @@ public class DTD
   /**
    * The table of existing available DTDs.
    */
-  static Hashtable dtdHash = new Hashtable();
+  static Hashtable<String,DTD> dtdHash = new Hashtable<String,DTD>();
 
   /**
    * The applet element for this DTD.
@@ -148,12 +148,13 @@ public class DTD
   /**
    * The element for accessing all DTD elements by name.
    */
-  public Hashtable elementHash = new Hashtable();
+  public Hashtable<String,Element> elementHash =
+    new Hashtable<String,Element>();
 
   /**
    * The entity table for accessing all DTD entities by name.
    */
-  public Hashtable entityHash = new Hashtable();
+  public Hashtable<Object, Entity> entityHash = new Hashtable<Object, Entity>();
 
   /**
    *  The name of this DTD.
@@ -165,7 +166,7 @@ public class DTD
    * javax.swing.text.html.parser.Element#index field of all elements
    * in this vector is set to the element position in this vector.
    */
-  public Vector elements = new Vector();
+  public Vector<Element> elements = new Vector<Element>();
 
   /** Create a new DTD with the specified name. */
   protected DTD(String a_name)
@@ -180,7 +181,7 @@ public class DTD
   public static DTD getDTD(String name)
                     throws IOException
   {
-    DTD d = (DTD) dtdHash.get(name);
+    DTD d = dtdHash.get(name);
 
     if (d == null)
       {
@@ -209,7 +210,7 @@ public class DTD
    */
   public Element getElement(int index)
   {
-    return (Element) elements.get(index);
+    return elements.get(index);
   }
 
   /**
@@ -224,7 +225,7 @@ public class DTD
     String name = Entity.mapper.get(id);
 
     if (name != null)
-      return (Entity) entityHash.get(name);
+      return entityHash.get(name);
     else
       return null;
   }
@@ -234,7 +235,7 @@ public class DTD
    */
   public Entity getEntity(String entity_name)
   {
-    return (Entity) entityHash.get(entity_name);
+    return entityHash.get(entity_name);
   }
 
   /**
@@ -269,7 +270,7 @@ public class DTD
    */
   public void defineAttributes(String forElement, AttributeList attributes)
   {
-    Element e = (Element) elementHash.get(forElement.toLowerCase());
+    Element e = elementHash.get(forElement.toLowerCase());
 
     if (e == null)
       e = newElement(forElement);
@@ -420,7 +421,7 @@ public class DTD
     if (allowed_values != null)
       {
         StringTokenizer st = new StringTokenizer(allowed_values, " \t|");
-        Vector v = new Vector(st.countTokens());
+        Vector<String> v = new Vector<String>(st.countTokens());
 
         while (st.hasMoreTokens())
           v.add(st.nextToken());
@@ -571,7 +572,7 @@ public class DTD
    */
   private Element newElement(String name)
   {
-    Element e = (Element) elementHash.get(name.toLowerCase());
+    Element e = elementHash.get(name.toLowerCase());
 
     if (e == null)
       {

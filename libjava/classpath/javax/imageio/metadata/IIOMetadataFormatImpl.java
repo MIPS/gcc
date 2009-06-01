@@ -39,18 +39,13 @@ exception statement from your version. */
 package javax.imageio.metadata;
 
 import org.w3c.dom.Attr;
-import org.w3c.dom.DOMException;
-import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.TypeInfo;
-import org.w3c.dom.UserDataHandler;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -462,7 +457,7 @@ public abstract class IIOMetadataFormatImpl implements IIOMetadataFormat
                                int dataType,
                                boolean required,
                                String defaultValue,
-                               List enumeratedValues)
+                               List<String> enumeratedValues)
   {
     IIOMetadataNode node = (IIOMetadataNode) nodes.get (elementName);
     node.setAttributeNode (new IIOMetadataNodeAttrEnumerated (node,
@@ -568,8 +563,8 @@ public abstract class IIOMetadataFormatImpl implements IIOMetadataFormat
     node.setUserObject (null);
   }
 
-  protected void addObjectValue (String elementName, Class classType,
-                                 boolean required, Object defaultValue)
+  protected <T> void addObjectValue (String elementName, Class<T> classType,
+                                     boolean required, T defaultValue)
   {
     IIOMetadataNode node = (IIOMetadataNode) nodes.get (elementName);
     addNodeObject (node, new NodeObject (node,
@@ -578,9 +573,9 @@ public abstract class IIOMetadataFormatImpl implements IIOMetadataFormat
                                          defaultValue));
   }
 
-  protected void addObjectValue (String elementName, Class classType,
-                                 boolean required, Object defaultValue,
-                                 List enumeratedValues)
+  protected <T> void addObjectValue (String elementName, Class<T> classType,
+                                     boolean required, T defaultValue,
+                                     List<? extends T> enumeratedValues)
   {
     IIOMetadataNode node = (IIOMetadataNode) nodes.get (elementName);
     addNodeObject (node, new NodeObjectEnumerated (node,
@@ -590,12 +585,13 @@ public abstract class IIOMetadataFormatImpl implements IIOMetadataFormat
                                                    enumeratedValues));
   }
 
-  protected void addObjectValue (String elementName, Class classType,
-                                 Object defaultValue,
-                                 Comparable minValue,
-                                 Comparable maxValue,
-                                 boolean minInclusive,
-                                 boolean maxInclusive)
+  protected <T extends Object & Comparable<? super T>>
+  void addObjectValue (String elementName, Class<T> classType,
+                       T defaultValue,
+                       Comparable<? super T> minValue,
+                       Comparable<? super T> maxValue,
+                       boolean minInclusive,
+                       boolean maxInclusive)
   {
     IIOMetadataNode node = (IIOMetadataNode) nodes.get (elementName);
     addNodeObject (node, new NodeObjectBounded (node,
@@ -607,7 +603,7 @@ public abstract class IIOMetadataFormatImpl implements IIOMetadataFormat
                                                 maxInclusive));
   }
 
-  protected void addObjectValue (String elementName, Class classType,
+  protected void addObjectValue (String elementName, Class<?> classType,
                                  int arrayMinLength, int arrayMaxLength)
   {
     IIOMetadataNode node = (IIOMetadataNode) nodes.get (elementName);
@@ -836,7 +832,7 @@ public abstract class IIOMetadataFormatImpl implements IIOMetadataFormat
     return ((Integer) ((NodeObjectArray) getNodeObject (node)).getArrayMinLength ()).intValue();
   }
 
-  public Class getObjectClass (String elementName)
+  public Class<?> getObjectClass (String elementName)
   {
     IIOMetadataNode node = (IIOMetadataNode) nodes.get (elementName);
     return getNodeObject (node).getClassType ();
@@ -854,13 +850,13 @@ public abstract class IIOMetadataFormatImpl implements IIOMetadataFormat
     return ((NodeObjectEnumerated) getNodeObject (node)).getEnumerations ();
   }
 
-  public Comparable getObjectMaxValue (String elementName)
+  public Comparable<?> getObjectMaxValue (String elementName)
   {
     IIOMetadataNode node = (IIOMetadataNode) nodes.get (elementName);
     return ((NodeObjectBounded) getNodeObject (node)).getMaxValue ();
   }
 
-  public Comparable getObjectMinValue (String elementName)
+  public Comparable<?> getObjectMinValue (String elementName)
   {
     IIOMetadataNode node = (IIOMetadataNode) nodes.get (elementName);
     return ((NodeObjectBounded) getNodeObject (node)).getMinValue ();

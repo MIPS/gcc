@@ -1,5 +1,5 @@
 /* Deflater.java - Compress a data stream
-   Copyright (C) 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -150,7 +150,7 @@ public class Deflater
   private int state;
 
   /** The total bytes of output written. */
-  private int totalOut;
+  private long totalOut;
  
   /** The pending output. */
   private DeflaterPending pending;
@@ -243,6 +243,15 @@ public class Deflater
    */
   public int getTotalIn()
   {
+    return (int) engine.getTotalIn();
+  }
+
+  /** 
+   * Gets the number of input bytes processed so far.
+   * @since 1.5
+   */
+  public long getBytesRead()
+  {
     return engine.getTotalIn();
   }
 
@@ -250,6 +259,15 @@ public class Deflater
    * Gets the number of output bytes so far.
    */
   public int getTotalOut()
+  {
+    return (int) totalOut;
+  }
+
+  /** 
+   * Gets the number of output bytes so far.
+   * @since 1.5
+   */
+  public long getBytesWritten()
   {
     return totalOut;
   }

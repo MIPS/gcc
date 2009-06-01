@@ -1,11 +1,11 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
 // of the GNU General Public License as published by the Free Software
-// Foundation; either version 2, or (at your option) any later
+// Foundation; either version 3, or (at your option) any later
 // version.
 
 // This library is distributed in the hope that it will be useful, but
@@ -13,20 +13,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-// MA 02111-1307, USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free
-// software library without restriction.  Specifically, if other files
-// instantiate templates or use macros or inline functions from this
-// file, or you compile this file and link it with other files to
-// produce an executable, this file does not by itself cause the
-// resulting executable to be covered by the GNU General Public
-// License.  This exception does not however invalidate any other
-// reasons why the executable file might be covered by the GNU General
-// Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 // Copyright (C) 2004 Ami Tavory and Vladimir Dreizin, IBM-HRL.
 
@@ -53,14 +47,14 @@
 #include <ext/pb_ds/exception.hpp>
 #include <ext/pb_ds/detail/eq_fn/hash_eq_fn.hpp>
 #ifdef _GLIBCXX_DEBUG
-#include <ext/pb_ds/detail/map_debug_base.hpp>
+#include <ext/pb_ds/detail/debug_map_base.hpp>
 #endif 
 #ifdef PB_DS_HT_MAP_TRACE_
 #include <iostream>
 #endif 
 #include <debug/debug.h>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace detail
   {
@@ -92,8 +86,8 @@ namespace pb_ds
     types_traits<Key, Mapped, Allocator, Store_Hash>
 
 #ifdef _GLIBCXX_DEBUG
-#define PB_DS_MAP_DEBUG_BASE_C_DEC \
-    map_debug_base<Key,	Eq_Fn, typename Allocator::template rebind<Key>::other::const_reference>
+#define PB_DS_DEBUG_MAP_BASE_C_DEC \
+    debug_map_base<Key,	Eq_Fn, typename Allocator::template rebind<Key>::other::const_reference>
 #endif 
 
 #ifdef PB_DS_DATA_TRUE_INDICATOR
@@ -106,10 +100,6 @@ namespace pb_ds
 #define PB_DS_V2S(X) Mapped_Data()
 #endif 
 
-#define PB_DS_STATIC_ASSERT(UNIQUE, E) \
-    typedef static_assert_dumclass<sizeof(static_assert<(bool)(E)>)> \
-    UNIQUE##static_assert_type
-
     // <011i$i0|\|-<|-|4i|\|i|\|g |-|4$|-| 74813.
     template<typename Key,
 	     typename Mapped,
@@ -121,7 +111,7 @@ namespace pb_ds
 	     typename Resize_Policy >
     class PB_DS_CLASS_NAME:
 #ifdef _GLIBCXX_DEBUG
-      protected PB_DS_MAP_DEBUG_BASE_C_DEC,
+      protected PB_DS_DEBUG_MAP_BASE_C_DEC,
 #endif 
       public PB_DS_HASH_EQ_FN_C_DEC,
       public Resize_Policy,
@@ -158,7 +148,7 @@ namespace pb_ds
       typedef Resize_Policy resize_base;
 
 #ifdef _GLIBCXX_DEBUG
-      typedef PB_DS_MAP_DEBUG_BASE_C_DEC map_debug_base;
+      typedef PB_DS_DEBUG_MAP_BASE_C_DEC debug_base;
 #endif 
 
 #define PB_DS_GEN_POS std::pair<entry_pointer, typename Allocator::size_type>
@@ -171,7 +161,7 @@ namespace pb_ds
 #undef PB_DS_GEN_POS
 
     public:
-      typedef Allocator allocator;
+      typedef Allocator allocator_type;
       typedef typename Allocator::size_type size_type;
       typedef typename Allocator::difference_type difference_type;
       typedef Hash_Fn hash_fn;
@@ -394,11 +384,11 @@ namespace pb_ds
 	resize_base::notify_insert_search_end();
 	if (p_e != NULL)
 	  {
-	    _GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_exists(r_key);)
+	    _GLIBCXX_DEBUG_ONLY(debug_base::check_key_exists(r_key);)
 	    return (p_e->m_value.second);
 	  }
 
-	_GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_does_not_exist(r_key);)
+	_GLIBCXX_DEBUG_ONLY(debug_base::check_key_does_not_exist(r_key);)
 	return insert_new_imp(value_type(r_key, mapped_type()), pos)->second;
       }
 
@@ -419,11 +409,11 @@ namespace pb_ds
 	resize_base::notify_insert_search_end();
 	if (p_e != NULL)
 	  {
-	    _GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_exists(r_key);)
+	    _GLIBCXX_DEBUG_ONLY(debug_base::check_key_exists(r_key);)
 	    return p_e->m_value.second;
 	  }
 
-	_GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_does_not_exist(r_key);)
+	_GLIBCXX_DEBUG_ONLY(debug_base::check_key_does_not_exist(r_key);)
 	return insert_new_imp(value_type(r_key, mapped_type()), 
 			      pos_hash_pair)->second;
       }
@@ -449,7 +439,7 @@ namespace pb_ds
 	m_entries[pos] = p_e;
 	resize_base::notify_inserted(++m_num_used_e);
 
-	_GLIBCXX_DEBUG_ONLY(map_debug_base::insert_new(PB_DS_V2F(r_val));)
+	_GLIBCXX_DEBUG_ONLY(debug_base::insert_new(PB_DS_V2F(r_val));)
 	_GLIBCXX_DEBUG_ONLY(assert_valid();)
 	return &p_e->m_value;
       }
@@ -468,7 +458,7 @@ namespace pb_ds
 	p_e->m_p_next = m_entries[r_pos_hash_pair.first];
 	m_entries[r_pos_hash_pair.first] = p_e;
 	resize_base::notify_inserted(++m_num_used_e);
-	_GLIBCXX_DEBUG_ONLY(map_debug_base::insert_new(PB_DS_V2F(r_val));)
+	_GLIBCXX_DEBUG_ONLY(debug_base::insert_new(PB_DS_V2F(r_val));)
 	_GLIBCXX_DEBUG_ONLY(assert_valid();)
 	return &p_e->m_value;
       }
@@ -489,9 +479,9 @@ namespace pb_ds
 
 #ifdef _GLIBCXX_DEBUG
 	if (p_e == NULL)
-	  map_debug_base::check_key_does_not_exist(r_key);
+	  debug_base::check_key_does_not_exist(r_key);
 	else
-	  map_debug_base::check_key_exists(r_key);
+	  debug_base::check_key_exists(r_key);
 #endif 
 	return &p_e->m_value;
       }
@@ -515,9 +505,9 @@ namespace pb_ds
 
 #ifdef _GLIBCXX_DEBUG
 	if (p_e == NULL)
-	  map_debug_base::check_key_does_not_exist(r_key);
+	  debug_base::check_key_does_not_exist(r_key);
 	else
-	  map_debug_base::check_key_exists(r_key);
+	  debug_base::check_key_exists(r_key);
 #endif 
 	return &p_e->m_value;
       }
@@ -613,7 +603,7 @@ namespace pb_ds
       enum
 	{
 	  store_hash_ok = !Store_Hash 
-	                  || !is_same<Hash_Fn, pb_ds::null_hash_fn>::value
+	                  || !is_same<Hash_Fn, __gnu_pbds::null_hash_fn>::value
 	};
 
       PB_DS_STATIC_ASSERT(sth, store_hash_ok);
@@ -636,12 +626,11 @@ namespace pb_ds
 #undef PB_DS_HASH_EQ_FN_C_DEC
 #undef PB_DS_RANGED_HASH_FN_C_DEC
 #undef PB_DS_TYPES_TRAITS_C_DEC
-#undef PB_DS_MAP_DEBUG_BASE_C_DEC
+#undef PB_DS_DEBUG_MAP_BASE_C_DEC
 #undef PB_DS_CLASS_NAME
 #undef PB_DS_V2F
 #undef PB_DS_V2S
-#undef PB_DS_STATIC_ASSERT
 
   } // namespace detail
-} // namespace pb_ds
+} // namespace __gnu_pbds
 

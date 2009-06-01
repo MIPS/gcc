@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for VAX using ELF
-   Copyright (C) 2002, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Matt Thomas <matt@3am-software.com>
 
 This file is part of GCC.
@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 /* Before the prologue, the top of the frame is below the argument
    count pushed by the CALLS and before the start of the saved registers.  */
 #define INCOMING_FRAME_SP_OFFSET 0
+
+/* Offset from the frame pointer register value to the top of the stack.  */
+#define FRAME_POINTER_CFA_OFFSET(FNDECL) 0
 
 /* We use R2-R5 (call-clobbered) registers for exceptions.  */
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 2 : INVALID_REGNUM)

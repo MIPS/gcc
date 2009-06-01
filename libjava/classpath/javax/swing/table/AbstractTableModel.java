@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.swing.table;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.Serializable;
 import java.util.EventListener;
 
@@ -80,7 +82,7 @@ public abstract class AbstractTableModel implements TableModel, Serializable
    */
   public String getColumnName(int columnIndex)
   {
-    StringBuffer buffer = new StringBuffer();
+    CPStringBuilder buffer = new CPStringBuilder();
     while (columnIndex >= 0)
       {
         buffer.insert(0, (char) ('A' + columnIndex % 26));
@@ -125,7 +127,7 @@ public abstract class AbstractTableModel implements TableModel, Serializable
    * 
    * @return The class.
    */
-  public Class getColumnClass(int columnIndex)
+  public Class<?> getColumnClass(int columnIndex)
   {
     return Object.class;
   }
@@ -294,7 +296,7 @@ public abstract class AbstractTableModel implements TableModel, Serializable
    * 
    * @return An array of listeners (possibly empty).
    */
-  public EventListener[] getListeners(Class listenerType)
+  public <T extends EventListener> T[] getListeners(Class<T> listenerType)
   {
     return listenerList.getListeners(listenerType);
   }

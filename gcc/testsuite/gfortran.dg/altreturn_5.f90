@@ -28,3 +28,4 @@
       CALL PHLOAD (R, 2, res)
       if (res .ne. "two") call abort ()
       END
+

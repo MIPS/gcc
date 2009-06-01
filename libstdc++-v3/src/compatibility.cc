@@ -1,12 +1,12 @@
 // Compatibility symbols for previous versions -*- C++ -*-
 
-// Copyright (C) 2005, 2006
+// Copyright (C) 2005, 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,23 +14,19 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 #include <bits/c++config.h>
 
-#if defined(_GLIBCXX_SYMVER_GNU) && defined(PIC)
+#if defined(_GLIBCXX_SYMVER_GNU) && defined(PIC) \
+    && defined(_GLIBCXX_HAVE_AS_SYMVER_DIRECTIVE)
 #define istreambuf_iterator istreambuf_iteratorXX
 #define basic_fstream basic_fstreamXX
 #define basic_ifstream basic_ifstreamXX
@@ -51,6 +47,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <ext/numeric_traits.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -68,7 +65,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb && __n > 0)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      const int_type __eof = traits_type::eof();
 	      __streambuf_type* __sb = this->rdbuf();
@@ -96,10 +93,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 			  __c = __sb->snextc();
 			} 
 		    }
-		  if (__n == numeric_limits<streamsize>::max()
+		  if (__n == __gnu_cxx::__numeric_traits<streamsize>::__max
 		      && !traits_type::eq_int_type(__c, __eof))
 		    {
-		      _M_gcount = numeric_limits<streamsize>::min();
+		      _M_gcount =
+			__gnu_cxx::__numeric_traits<streamsize>::__min;
 		      __large_ignore = true;
 		    }
 		  else
@@ -107,12 +105,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		}
 
 	      if (__large_ignore)
-		_M_gcount = numeric_limits<streamsize>::max();
+		_M_gcount = __gnu_cxx::__numeric_traits<streamsize>::__max;
 
 	      if (traits_type::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -134,7 +137,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb && __n > 0)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      const int_type __eof = traits_type::eof();
 	      __streambuf_type* __sb = this->rdbuf();
@@ -161,10 +164,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 			  __c = __sb->snextc();
 			}
 		    }
-		  if (__n == numeric_limits<streamsize>::max()
+		  if (__n == __gnu_cxx::__numeric_traits<streamsize>::__max
 		      && !traits_type::eq_int_type(__c, __eof))
 		    {
-		      _M_gcount = numeric_limits<streamsize>::min();
+		      _M_gcount =
+			__gnu_cxx::__numeric_traits<streamsize>::__min;
 		      __large_ignore = true;
 		    }
 		  else
@@ -172,12 +176,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		}
 
 	      if (__large_ignore)
-		_M_gcount = numeric_limits<streamsize>::max();
+		_M_gcount = __gnu_cxx::__numeric_traits<streamsize>::__max;
 
 	      if (traits_type::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -191,7 +200,8 @@ _GLIBCXX_END_NAMESPACE
 
 // NB: These symbols renames should go into the shared library only,
 // and only those shared libraries that support versioning.
-#if defined(_GLIBCXX_SYMVER_GNU) && defined(PIC)
+#if defined(_GLIBCXX_SYMVER_GNU) && defined(PIC) \
+    && defined(_GLIBCXX_HAVE_AS_SYMVER_DIRECTIVE)
 
 /* gcc-3.4.4
 _ZNSt19istreambuf_iteratorIcSt11char_traitsIcEEppEv
@@ -398,7 +408,10 @@ GLIBCXX_3.4)
 #undef _List_node_base
 
 // gcc-4.1.0
-#ifdef _GLIBCXX_LONG_DOUBLE_COMPAT
+// Long double versions of "C" math functions. 
+#if defined (_GLIBCXX_LONG_DOUBLE_COMPAT) \
+    || (defined (__hppa__) && defined (__linux__))
+
 #define _GLIBCXX_MATHL_WRAPPER(name, argdecl, args, ver) \
 extern "C" double						\
 __ ## name ## l_wrapper argdecl					\

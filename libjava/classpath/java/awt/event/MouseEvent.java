@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.awt.event;
 
 import gnu.java.awt.EventModifier;
+import gnu.java.lang.CPStringBuilder;
 
 import java.awt.Component;
 import java.awt.Point;
@@ -164,6 +165,16 @@ public class MouseEvent extends InputEvent
   private int y;
 
   /**
+   * The screen position of that mouse event, X coordinate.
+   */
+  private int absX;
+
+  /**
+   * The screen position of that mouse event, Y coordinate.
+   */
+  private int absY;
+
+  /**
    * The number of clicks that took place. For MOUSE_CLICKED, MOUSE_PRESSED,
    * and MOUSE_RELEASED, this will be at least 1; otherwise it is 0.
    *
@@ -211,29 +222,8 @@ public class MouseEvent extends InputEvent
                     int x, int y, int clickCount, boolean popupTrigger,
                     int button)
   {
-    super(source, id, when, modifiers);
-    this.x = x;
-    this.y = y;
-    this.clickCount = clickCount;
-    this.popupTrigger = popupTrigger;
-    this.button = button;
-    if (button < NOBUTTON || button > BUTTON3)
-      throw new IllegalArgumentException();
-    if ((modifiers & EventModifier.OLD_MASK) != 0)
-      {
-        if ((modifiers & BUTTON1_MASK) != 0)
-          this.button = BUTTON1;
-        else if ((modifiers & BUTTON2_MASK) != 0)
-          this.button = BUTTON2;
-        else if ((modifiers & BUTTON3_MASK) != 0)
-          this.button = BUTTON3;
-      }
-    // clear the mouse button modifier masks if this is a button
-    // release event.
-    if (id == MOUSE_RELEASED)
-      this.modifiersEx &= ~(BUTTON1_DOWN_MASK
-			    | BUTTON2_DOWN_MASK
-			    | BUTTON3_DOWN_MASK);
+    this(source, id, when, modifiers, x, y, 0, 0, clickCount, popupTrigger,
+         button);
   }
 
   /**
@@ -258,6 +248,59 @@ public class MouseEvent extends InputEvent
   }
 
   /**
+   * Creates a new MouseEvent. This is like the other constructors and adds
+   * specific absolute coordinates.
+   *
+   * @param source the source of the event
+   * @param id the event id
+   * @param when the timestamp of when the event occurred
+   * @param modifiers the modifier keys during the event, in old or new style
+   * @param x the X coordinate of the mouse point
+   * @param y the Y coordinate of the mouse point
+   * @param absX the absolute X screen coordinate of this event
+   * @param absY the absolute Y screen coordinate of this event
+   * @param clickCount the number of mouse clicks for this event
+   * @param popupTrigger true if this event triggers a popup menu
+   * @param button the most recent mouse button to change state
+   *
+   * @throws IllegalArgumentException if source is null or button is invalid
+   *
+   * @since 1.6
+   */
+  public MouseEvent(Component source, int id, long when, int modifiers,
+                    int x, int y, int absX, int absY, int clickCount,
+                    boolean popupTrigger, int button)
+  {
+    super(source, id, when, modifiers);
+
+    this.x = x;
+    this.y = y;
+    this.clickCount = clickCount;
+    this.popupTrigger = popupTrigger;
+    this.button = button;
+    if (button < NOBUTTON || button > BUTTON3)
+      throw new IllegalArgumentException();
+    if ((modifiers & EventModifier.OLD_MASK) != 0)
+      {
+        if ((modifiers & BUTTON1_MASK) != 0)
+          this.button = BUTTON1;
+        else if ((modifiers & BUTTON2_MASK) != 0)
+          this.button = BUTTON2;
+        else if ((modifiers & BUTTON3_MASK) != 0)
+          this.button = BUTTON3;
+      }
+    // clear the mouse button modifier masks if this is a button
+    // release event.
+    if (id == MOUSE_RELEASED)
+      this.modifiersEx &= ~(BUTTON1_DOWN_MASK
+			    | BUTTON2_DOWN_MASK
+			    | BUTTON3_DOWN_MASK);
+
+    this.absX = absX;
+    this.absY = absY;
+  }
+
+  /**
    * This method returns the X coordinate of the mouse position. This is
    * relative to the source component.
    *
@@ -277,6 +320,30 @@ public class MouseEvent extends InputEvent
   public int getY()
   {
     return y;
+  }
+
+  /**
+   * @since 1.6
+   */
+  public Point getLocationOnScreen()
+  {
+    return new Point(absX, absY);
+  }
+
+  /**
+   * @since 1.6
+   */
+  public int getXOnScreen()
+  {
+    return absX;
+  }
+
+  /**
+   * @since 1.6
+   */
+  public int getYOnScreen()
+  {
+    return absY;
   }
 
   /**
@@ -368,7 +435,7 @@ public class MouseEvent extends InputEvent
    */
   public String paramString()
   {
-    StringBuffer s = new StringBuffer();
+    CPStringBuilder s = new CPStringBuilder();
     switch (id)
       {
       case MOUSE_CLICKED:

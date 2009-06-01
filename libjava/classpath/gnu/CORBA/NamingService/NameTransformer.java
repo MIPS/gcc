@@ -1,5 +1,5 @@
 /* NameTransformer.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.CORBA.NamingService;
 
+import gnu.java.lang.CPStringBuilder;
+
 import org.omg.CORBA.IntHolder;
 import org.omg.CosNaming.NameComponent;
 import org.omg.CosNaming.NamingContextPackage.InvalidName;
@@ -63,7 +65,7 @@ public class NameTransformer
    * representation. See {@link #toString(NameComponent)} for the
    * description of this format.
    *
-   * @param name the string form of the name.
+   * @param a_name the string form of the name.
    *
    * @return the array form of the name.
    *
@@ -74,10 +76,6 @@ public class NameTransformer
   {
     ArrayList components = new ArrayList();
     StringTokenizer st = new StringTokenizer(a_name, "./\\", true);
-
-    String id;
-    String kind;
-    String next;
 
     // Create the buffer array, reserving the last element for null.
     String[] n = new String[ st.countTokens() + 1 ];
@@ -129,7 +127,7 @@ public class NameTransformer
   {
     NameValidator.check(a_name);
 
-    StringBuffer b = new StringBuffer();
+    CPStringBuilder b = new CPStringBuilder();
 
     NameComponent n;
 
@@ -156,7 +154,7 @@ public class NameTransformer
    * @param b a buffer to append the contents to.
    * @param s a string to append.
    */
-  private void appEscaping(StringBuffer b, String s)
+  private void appEscaping(CPStringBuilder b, String s)
   {
     char c;
     for (int i = 0; i < s.length(); i++)
@@ -275,7 +273,7 @@ public class NameTransformer
    */
   private String readPart(IntHolder p, String[] t)
   {
-    StringBuffer part = new StringBuffer();
+    CPStringBuilder part = new CPStringBuilder();
 
     while (t [ p.value ] != null && !t [ p.value ].equals(".") &&
            !t [ p.value ].equals("/")

@@ -1,12 +1,12 @@
 // Wrapper for underlying C-language localization -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file c++locale.h
  *  This is an internal header file, included by other library headers.
@@ -39,18 +34,13 @@
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
-#ifndef _C_LOCALE_H
-#define _C_LOCALE_H 1
+#ifndef _GLIBCXX_CXX_LOCALE_H
+#define _GLIBCXX_CXX_LOCALE_H 1
 
 #pragma GCC system_header
 
-#include <cstring>              // get std::strlen
-#include <cstdio>               // get std::vsnprintf or std::vsprintf
 #include <clocale>
-#include <langinfo.h>		// For codecvt
-#include <iconv.h>		// For codecvt using iconv, iconv_t
-#include <libintl.h> 		// For messages
-#include <cstdarg>
+#include <cstddef>
 
 #define _GLIBCXX_C_LOCALE_GNU 1
 
@@ -81,28 +71,36 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
     __c_locale __old = __gnu_cxx::__uselocale(__cloc);
 #else
-    char* __old = std::setlocale(LC_ALL, NULL);
-    char* __sav = new char[std::strlen(__old) + 1];
-    std::strcpy(__sav, __old);
-    std::setlocale(LC_ALL, "C");
+    char* __old = std::setlocale(LC_NUMERIC, NULL);
+    char* __sav = NULL;
+    if (__builtin_strcmp(__old, "C"))
+      {
+	const size_t __len = __builtin_strlen(__old) + 1;
+	__sav = new char[__len];
+	__builtin_memcpy(__sav, __old, __len);
+	std::setlocale(LC_NUMERIC, "C");
+      }
 #endif
 
-    va_list __args;
-    va_start(__args, __fmt);
+    __builtin_va_list __args;
+    __builtin_va_start(__args, __fmt);
 
 #ifdef _GLIBCXX_USE_C99
-    const int __ret = std::vsnprintf(__out, __size, __fmt, __args);
+    const int __ret = __builtin_vsnprintf(__out, __size, __fmt, __args);
 #else
-    const int __ret = std::vsprintf(__out, __fmt, __args);
+    const int __ret = __builtin_vsprintf(__out, __fmt, __args);
 #endif
 
-    va_end(__args);
+    __builtin_va_end(__args);
 
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
     __gnu_cxx::__uselocale(__old);
 #else
-    std::setlocale(LC_ALL, __sav);
-    delete [] __sav;
+    if (__sav)
+      {
+	std::setlocale(LC_NUMERIC, __sav);
+	delete [] __sav;
+      }
 #endif
     return __ret;
   }

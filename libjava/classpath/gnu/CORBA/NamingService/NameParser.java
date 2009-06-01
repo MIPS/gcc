@@ -44,6 +44,8 @@ import gnu.CORBA.IOR;
 import gnu.CORBA.Unexpected;
 import gnu.CORBA.Version;
 
+import gnu.java.lang.CPStringBuilder;
+
 import org.omg.CORBA.BAD_PARAM;
 import org.omg.CORBA.DATA_CONVERSION;
 import org.omg.CORBA.ORB;
@@ -62,7 +64,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 /**
@@ -193,9 +194,6 @@ public class NameParser
 
     boolean corbaname;
 
-    // The alternative addresses, if given.
-    ArrayList alt_addr = new ArrayList();
-
     // The version numbers with default values.
     int major = 1;
     int minor = 0;
@@ -305,7 +303,7 @@ public class NameParser
             ior.Internet.version = new Version(major, minor);
 
             // Then host data goes till '/' or ':'.
-            StringBuffer bhost = new StringBuffer(corbaloc.length());
+            CPStringBuilder bhost = new CPStringBuilder(corbaloc.length());
             while (!t[p].equals(":") && !t[p].equals("/") && !t[p].equals(","))
               bhost.append(t[p++]);
 
@@ -398,7 +396,7 @@ public class NameParser
       {
         InputStreamReader r = new InputStreamReader(u.openStream());
 
-        StringBuffer b = new StringBuffer();
+        CPStringBuilder b = new CPStringBuilder();
         int c;
 
         while ((c = r.read()) > 0)
@@ -469,7 +467,7 @@ public class NameParser
               + "' found");
         }
 
-    StringBuffer bKey = new StringBuffer();
+    CPStringBuilder bKey = new CPStringBuilder();
     p++;
 
     while (p < t.length && !t[p].equals("#"))

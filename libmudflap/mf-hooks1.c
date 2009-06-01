@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2009 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -7,28 +7,22 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 
@@ -75,21 +69,24 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 
 #if PIC
+
+enum { BS = 4096, NB=10 };
+static char __mf_0fn_bufs[NB][BS];
+static unsigned __mf_0fn_bufs_used[NB];
+
+
 /* A special bootstrap variant. */
 void *
 __mf_0fn_malloc (size_t c)
 {
-  enum foo { BS = 4096, NB=10 };
-  static char bufs[NB][BS];
-  static unsigned bufs_used[NB];
   unsigned i;
 
   for (i=0; i<NB; i++)
     {
-      if (! bufs_used[i] && c < BS)
+      if (! __mf_0fn_bufs_used[i] && c < BS)
 	{
-	  bufs_used[i] = 1;
-	  return & bufs[i][0];
+	  __mf_0fn_bufs_used[i] = 1;
+	  return & __mf_0fn_bufs[i][0];
 	}
     }
   return NULL;
@@ -245,6 +242,19 @@ WRAPPER(void, free, void *buf)
 
   if (UNLIKELY(buf == NULL))
     return;
+
+#if PIC
+  /* Check whether the given buffer might have come from a
+     __mf_0fn_malloc/calloc call that for whatever reason was not
+     redirected back to __mf_0fn_free.  If so, we just ignore the
+     call. */
+  if (UNLIKELY((uintptr_t) buf >= (uintptr_t) __mf_0fn_bufs &&
+               (uintptr_t) buf < ((uintptr_t) __mf_0fn_bufs + sizeof(__mf_0fn_bufs))))
+  {
+    VERBOSE_TRACE ("skipping free of boot (0fn) alloc buffer %p\n", buf);
+    return;
+  }
+#endif
 
   LOCKTH ();
   if (UNLIKELY(!freeq_initialized))

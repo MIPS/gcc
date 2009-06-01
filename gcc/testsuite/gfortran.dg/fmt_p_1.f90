@@ -6,7 +6,8 @@ program gfcbug66
   character(50) :: outstr
   write (outstr,'(1X,2E12.3)')    x, 2 * x
   if (outstr.ne."    0.100E-99   0.200E-99") call abort
-  write (outstr,'(1X,1P,2E12.3)') x, 2 * x   ! Second printed number is wrong
+  ! Before patch 2 * x was put out wrong
+  write (outstr,'(1X,1P,2E12.3)') x, 2 * x
   if (outstr.ne."    1.000-100   2.000-100") call abort
 end program gfcbug66
 

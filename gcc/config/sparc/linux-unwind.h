@@ -1,30 +1,27 @@
 /* DWARF2 EH unwinding support for SPARC Linux.
-   Copyright 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2004, 2005, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file with other programs, and to distribute
-those programs without any restriction coming from the use of this
-file.  (The General Public License restrictions do apply in other
-respects; for example, they cover modification of the file, and
-distribution when not linked into another program.)
 
 GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
+
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
@@ -53,9 +50,9 @@ sparc64_fallback_frame_state (struct _Unwind_Context *context,
   new_cfa = *(long *)((context->cfa) + (regs_off + (14 * 8)));
   new_cfa += 2047; /* Stack bias */
   fpu_save = *(long *)((this_cfa) + (fpu_save_off));
-  fs->cfa_how = CFA_REG_OFFSET;
-  fs->cfa_reg = 14;
-  fs->cfa_offset = new_cfa - (long) context->cfa;
+  fs->regs.cfa_how = CFA_REG_OFFSET;
+  fs->regs.cfa_reg = 14;
+  fs->regs.cfa_offset = new_cfa - (long) context->cfa;
   for (i = 1; i < 16; ++i)
     {
       fs->regs.reg[i].how = REG_SAVED_OFFSET;
@@ -122,9 +119,9 @@ sparc_fallback_frame_state (struct _Unwind_Context *context,
   this_cfa = (int) context->cfa;
   new_cfa = *(int *)((context->cfa) + (regs_off+(4*4)+(14 * 4)));
   fpu_save = *(int *)((this_cfa) + (fpu_save_off));
-  fs->cfa_how = CFA_REG_OFFSET;
-  fs->cfa_reg = 14;
-  fs->cfa_offset = new_cfa - (int) context->cfa;
+  fs->regs.cfa_how = CFA_REG_OFFSET;
+  fs->regs.cfa_reg = 14;
+  fs->regs.cfa_offset = new_cfa - (int) context->cfa;
   for (i = 1; i < 16; ++i)
     {
       if (i == 14)

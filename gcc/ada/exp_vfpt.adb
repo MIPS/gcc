@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -243,7 +242,7 @@ package body Exp_VFpt is
       Func  : RE_Id;
 
       function Call_Type (T : Entity_Id; Otyp : Entity_Id) return RE_Id;
-      --  Given one of the two types T, determines the coresponding call
+      --  Given one of the two types T, determines the corresponding call
       --  type, i.e. the type to be used for the call (or the result of
       --  the call). The actual operand is converted to (or from) this type.
       --  Otyp is the other type, which is useful in figuring out the result.
@@ -443,6 +442,41 @@ package body Exp_VFpt is
 
       Analyze_And_Resolve (N, T_Typ, Suppress => All_Checks);
    end Expand_Vax_Conversion;
+
+   -------------------------------
+   -- Expand_Vax_Foreign_Return --
+   -------------------------------
+
+   procedure Expand_Vax_Foreign_Return (N : Node_Id) is
+      Loc  : constant Source_Ptr := Sloc (N);
+      Typ  : constant Entity_Id  := Base_Type (Etype (N));
+      Func : RE_Id;
+      Args : List_Id;
+      Atyp : Entity_Id;
+      Rtyp : constant Entity_Id  := Etype (N);
+
+   begin
+      if Digits_Value (Typ) = VAXFF_Digits then
+         Func := RE_Return_F;
+         Atyp := RTE (RE_F);
+      elsif Digits_Value (Typ) = VAXDF_Digits then
+         Func := RE_Return_D;
+         Atyp := RTE (RE_D);
+      else pragma Assert (Digits_Value (Typ) = VAXGF_Digits);
+         Func := RE_Return_G;
+         Atyp := RTE (RE_G);
+      end if;
+
+      Args := New_List (Convert_To (Atyp, N));
+
+      Rewrite (N,
+        Convert_To (Rtyp,
+          Make_Function_Call (Loc,
+            Name                   => New_Occurrence_Of (RTE (Func), Loc),
+            Parameter_Associations => Args)));
+
+      Analyze_And_Resolve (N, Typ, Suppress => All_Checks);
+   end Expand_Vax_Foreign_Return;
 
    -----------------------------
    -- Expand_Vax_Real_Literal --

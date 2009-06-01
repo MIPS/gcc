@@ -1,6 +1,6 @@
 /* Utility routines for finding and reading Java(TM) .class files.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005,
-   2007  Free Software Foundation, Inc.
+   2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,10 +34,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "java-tree.h"
 #include "hashtab.h"
-#if JCF_USE_SCANDIR
 #include <dirent.h>
-#include <fnmatch.h>
-#endif
 
 #include "zlib.h"
 
@@ -78,8 +75,9 @@ jcf_filbuf_from_stdio (JCF *jcf, int count)
       JCF_u4 old_read_end = jcf->read_end - jcf->buffer;
       JCF_u4 old_size = jcf->buffer_end - jcf->buffer;
       JCF_u4 new_size = (old_size == 0 ? 2000 : 2 * old_size) + count;
-      unsigned char *new_buffer = jcf->buffer == NULL ? ALLOC (new_size)
-	: REALLOC (jcf->buffer, new_size);
+      unsigned char *new_buffer
+	= jcf->buffer == NULL ? XNEWVAR (unsigned char, new_size)
+	: XRESIZEVAR (unsigned char, jcf->buffer, new_size);
       jcf->buffer = new_buffer;
       jcf->buffer_end = new_buffer + new_size;
       jcf->read_ptr = new_buffer + old_read_ptr;
@@ -115,7 +113,7 @@ opendir_in_zip (const char *zipfile, int is_system)
 	return zipf;
     }
 
-  zipf = ALLOC (sizeof (struct ZipFile) + strlen (zipfile) + 1);
+  zipf = XNEWVAR (struct ZipFile, sizeof (struct ZipFile) + strlen (zipfile) + 1);
   zipf->next = SeenZipFiles;
   zipf->name = (char*)(zipf+1);
   strcpy (zipf->name, zipfile);
@@ -133,10 +131,18 @@ opendir_in_zip (const char *zipfile, int is_system)
     {
       jcf_dependency_add_file (zipfile, is_system);
       if (read (fd, magic, 4) != 4 || GET_u4 (magic) != (JCF_u4)ZIPMAGIC)
-	return NULL;
+	{
+	  free (zipf);
+	  close (fd);
+	  return NULL;
+	}
       lseek (fd, 0L, SEEK_SET);
       if (read_zip_archive (zipf) != 0)
-	return NULL;
+	{
+	  free (zipf);
+	  close (fd);
+	  return NULL;
+	}
     }
 
   SeenZipFiles = zipf;  
@@ -250,7 +256,7 @@ open_class (const char *filename, JCF *jcf, int fd, const char *dep_name)
       jcf->read_ptr = jcf->buffer;
       jcf->read_end = jcf->buffer_end;
       jcf->read_state = NULL;
-      jcf->filename = filename;
+      jcf->filename = xstrdup (filename);
       if (read (fd, jcf->buffer, stat_buf.st_size) != stat_buf.st_size)
 	{
 	  perror ("Failed to read .class file");
@@ -272,145 +278,6 @@ find_classfile (char *filename, JCF *jcf, const char *dep_name)
   if (fd < 0)
     return NULL;
   return open_class (filename, jcf, fd, dep_name);
-}
-
-#if JCF_USE_SCANDIR
-
-/* A comparison function (as for qsort) that compares KEY (a char *
-   giving the basename of a file) with the name stored in ENTRY (a
-   dirent **).  */
-
-static int
-compare_path (const void *key, const void *entry)
-{
-  return strcmp ((const char *) key, 
-		 (*((const struct dirent **) entry))->d_name);
-}
-
-/* Returns nonzero if ENTRY names a .java or .class file.  */
-
-static int
-java_or_class_file (const struct dirent *entry)
-{
-  const char *base = lbasename (entry->d_name);
-  return (fnmatch ("*.java", base, 0) == 0 || 
-	  fnmatch ("*.class", base, 0) == 0);
-}
-
-/* Information about the files present in a particular directory.  */
-typedef struct memoized_dirlist_entry 
-{
-  /* The name of the directory.  */
-  const char *dir;
-  /* The number of .java and .class files present, or -1 if we could
-     not, for some reason, obtain the list.  */
-  int num_files;
-  /* The .java and .class files in the directory, in alphabetical
-     order.  */
-  struct dirent **files;
-} memoized_dirlist_entry;
-
-/* A hash function for a memoized_dirlist_entry.  */
-static hashval_t
-memoized_dirlist_hash (const void *entry)
-{
-  const memoized_dirlist_entry *mde = (const memoized_dirlist_entry *) entry;
-  return htab_hash_string (mde->dir);
-}
-
-/* Returns true if ENTRY (a memoized_dirlist_entry *) corresponds to
-   the directory given by KEY (a char *) giving the directory 
-   name.  */
-
-static int
-memoized_dirlist_lookup_eq (const void *entry, const void *key)
-{
-  return strcmp ((const char *) key,
-		 ((const memoized_dirlist_entry *) entry)->dir) == 0;
-}
-
-/* A hash table mapping directory names to the lists of .java and
-   .class files in that directory.  */
-
-static htab_t memoized_dirlists;
-
-#endif
-
-/* Like stat, but avoids actually making the stat system call if we
-   know that it cannot succeed.  FILENAME and BUF are as for stat.  */
-
-static int
-caching_stat (char *filename, struct stat *buf)
-{
-#if JCF_USE_SCANDIR
-  char *sep;
-  char origsep = 0;
-  char *base;
-  memoized_dirlist_entry *dent;
-  void **slot;
-  struct memoized_dirlist_entry temp;
-  
-  /* If the hashtable has not already been created, create it now.  */
-  if (!memoized_dirlists)
-    memoized_dirlists = htab_create (37,
-				     memoized_dirlist_hash,
-				     memoized_dirlist_lookup_eq,
-				     NULL);
-
-  /* Get the name of the directory.  */
-  sep = strrchr (filename, DIR_SEPARATOR);
-#ifdef DIR_SEPARATOR_2
-  if (! sep)
-    sep = strrchr (filename, DIR_SEPARATOR_2);
-#endif
-  if (sep)
-    {
-      origsep = *sep;
-      *sep = '\0';
-      base = sep + 1;
-    }
-  else
-    base = filename;
-
-  /* Obtain the entry for this directory from the hash table.  This
-     approach is ok since we know that the hash function only looks at
-     the directory name.  */
-  temp.dir = filename;
-  temp.num_files = 0;
-  temp.files = NULL;
-  slot = htab_find_slot (memoized_dirlists, &temp, INSERT);
-  if (!*slot)
-    {
-      /* We have not already scanned this directory; scan it now.  */
-      dent = XNEW (memoized_dirlist_entry);
-      dent->dir = xstrdup (filename);
-      /* Unfortunately, scandir is not fully standardized.  In
-	 particular, the type of the function pointer passed as the
-	 third argument sometimes takes a "const struct dirent *"
-	 parameter, and sometimes just a "struct dirent *".  We cast
-	 to (void *) and use __extension__ so that either way it is
-	 quietly accepted.  FIXME: scandir is not in POSIX.  */
-      dent->num_files = __extension__ scandir (filename, &dent->files, 
-					       (void *) java_or_class_file, 
-					       alphasort);
-      *slot = dent;
-    }
-  else
-    dent = *((memoized_dirlist_entry **) slot);
-
-  /* Put the separator back.  */
-  if (sep)
-    *sep = origsep;
-
-  /* If the file is not in the list, there is no need to stat it; it
-     does not exist.  */
-  if (dent->num_files != -1
-      && !bsearch (base, dent->files, dent->num_files,
-		   sizeof (struct dirent *), compare_path))
-    return -1;
-#endif
-  
-  return stat (filename, buf);
 }
 
 /* Returns 1 if the CLASSNAME (really a char *) matches the name
@@ -436,15 +303,13 @@ static htab_t memoized_class_lookups;
    file. */
 
 const char *
-find_class (const char *classname, int classname_length, JCF *jcf,
-	    int source_ok)
+find_class (const char *classname, int classname_length, JCF *jcf)
 {
   int fd;
-  int i, k, java = -1, class = -1;
-  struct stat java_buf, class_buf;
+  int i, k, klass = -1;
+  struct stat class_buf;
   char *dep_file;
   void *entry;
-  char *java_buffer;
   int buflen;
   char *buffer;
   hashval_t hash;
@@ -465,17 +330,13 @@ find_class (const char *classname, int classname_length, JCF *jcf,
   /* Allocate and zero out the buffer, since we don't explicitly put a
      null pointer when we're copying it below.  */
   buflen = jcf_path_max_len () + classname_length + 10;
-  buffer = ALLOC (buflen);
+  buffer = XNEWVAR (char, buflen);
   memset (buffer, 0, buflen);
-
-  java_buffer = alloca (buflen);
-
-  jcf->java_source = 0;
 
   for (entry = jcf_path_start (); entry != NULL; entry = jcf_path_next (entry))
     {
       const char *path_name = jcf_path_name (entry);
-      if (class != 0)
+      if (klass != 0)
 	{
 	  int dir_len;
 
@@ -518,42 +379,12 @@ find_class (const char *classname, int classname_length, JCF *jcf,
 	      else
 		continue;
 	    }
-	  class = caching_stat(buffer, &class_buf);
-	}
-
-      if (source_ok)
-	{
-	  /* Compute name of .java file.  */
-	  int l, m;
-	  strcpy (java_buffer, path_name);
-	  l = strlen (java_buffer);
-	  for (m = 0; m < classname_length; ++m)
-	    java_buffer[m + l] = (classname[m] == '.'
-				  ? DIR_SEPARATOR : classname[m]);
-	  strcpy (java_buffer + m + l, ".java");
-	  java = caching_stat (java_buffer, &java_buf);
-	  if (java == 0)
-	    break;
+	  klass = stat (buffer, &class_buf);
 	}
     }
 
-  /* We preferably pick a class file if we have a chance. If the source
-     file is newer than the class file, we issue a warning and parse the
-     source file instead.
-     There should be a flag to allow people have the class file picked
-     up no matter what. FIXME. */
-  if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
-    {
-      if (flag_newer)
-	warning (0, "source file for class %qs is newer than its matching class file.  Source file %qs used instead", classname, java_buffer);
-      class = -1;
-    }
-
-  if (! java)
-    dep_file = java_buffer;
-  else
-    dep_file = buffer;
-  if (!class)
+  dep_file = buffer;
+  if (!klass)
     {
       SOURCE_FRONTEND_DEBUG ((stderr, "[Class selected: %s]\n",
 			      classname+classname_length-
@@ -563,42 +394,22 @@ find_class (const char *classname, int classname_length, JCF *jcf,
       if (fd >= 0)
 	goto found;
     }
-  /* Give .java a try, if necessary */
-  if (!java)
-    {
-      strcpy (buffer, java_buffer);
-      SOURCE_FRONTEND_DEBUG ((stderr, "[Source selected: %s]\n",
-			      classname+classname_length-
-			      (classname_length <= 30 ? 
-			       classname_length : 30)));
-      fd = JCF_OPEN_EXACT_CASE (buffer, O_RDONLY);
-      if (fd >= 0)
-	{
-	  jcf->java_source = 1;
-	  goto found;
-	}
-    }
 
   free (buffer);
 
   /* Remember that this class could not be found so that we do not
      have to look again.  */
-  *htab_find_slot_with_hash (memoized_class_lookups, classname, hash, INSERT) 
-    = (void *) classname;
+  *(const void **)htab_find_slot_with_hash (memoized_class_lookups,
+					    classname, hash, INSERT)
+    = classname;
 
   return NULL;
  found:
-  if (jcf->java_source)
-    {
-      JCF_ZERO (jcf);		/* JCF_FINISH relies on this */
-      jcf->java_source = 1;
-      jcf->filename = xstrdup (buffer);
-      close (fd);		/* We use STDIO for source file */
-    }
-  else
-    buffer = (char *) open_class (buffer, jcf, fd, dep_file);
-  jcf->classname = xstrdup (classname);
-  return buffer;
+  {
+    const char *const tmp = open_class (buffer, jcf, fd, dep_file);
+    jcf->classname = xstrdup (classname);
+    return tmp;
+  }
 }
 
 void

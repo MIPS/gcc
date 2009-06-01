@@ -38,7 +38,19 @@ exception statement from your version. */
 
 package gnu.java.lang.reflect;
 
-import java.lang.reflect.*;
+import gnu.java.lang.CPStringBuilder;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.GenericDeclaration;
+import java.lang.reflect.GenericSignatureFormatError;
+import java.lang.reflect.MalformedParameterizedTypeException;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -60,7 +72,6 @@ final class TypeVariableImpl extends TypeImpl implements TypeVariable
         return this;
     }
 
-    /* FIXME[GENERICS]: Remove cast */
     public Type[] getBounds()
     {
         resolve(bounds);
@@ -141,10 +152,9 @@ final class ParameterizedTypeImpl extends TypeImpl implements ParameterizedType
         return this;
     }
 
-    /* FIXME[GENERICS]: Remove cast */
     public Type[] getActualTypeArguments()
     {
-        return (Type[]) typeArgs.clone();
+      return (Type[]) typeArgs.clone();
     }
 
     public Type getRawType()
@@ -186,7 +196,7 @@ final class ParameterizedTypeImpl extends TypeImpl implements ParameterizedType
 
     public String toString()
     {
-        StringBuilder sb = new StringBuilder();
+        CPStringBuilder sb = new CPStringBuilder();
         if (owner != null)
         {
             sb.append(owner);
@@ -276,12 +286,11 @@ final class UnresolvedTypeVariable extends TypeImpl implements Type
         GenericDeclaration d = decl;
         while (d != null)
         {
-	    TypeVariable[] vars = d.getTypeParameters();
-            for (int a = 0; a < vars.length  ; ++a)
+            for (TypeVariable t : d.getTypeParameters())
             {
-                if (vars[a].getName().equals(name))
+                if (t.getName().equals(name))
                 {
-                    return vars[a];
+                    return t;
                 }
             }
             d = getParent(d);
@@ -414,7 +423,7 @@ class GenericSignatureParser
     TypeVariable[] readFormalTypeParameters()
     {
         consume('<');
-        ArrayList params = new ArrayList();
+        ArrayList<TypeVariable> params = new ArrayList<TypeVariable>();
         do
         {
             // TODO should we handle name clashes?
@@ -430,7 +439,7 @@ class GenericSignatureParser
     {
         String identifier = readIdentifier();
         consume(':');
-        ArrayList bounds = new ArrayList();
+        ArrayList<Type> bounds = new ArrayList<Type>();
         if (peekChar() != ':')
         {
             bounds.add(readFieldTypeSignature());
@@ -501,7 +510,7 @@ class GenericSignatureParser
     private Type[] readTypeArguments()
     {
         consume('<');
-        ArrayList list = new ArrayList();
+        ArrayList<Type> list = new ArrayList<Type>();
         do
         {
             list.add(readTypeArgument());

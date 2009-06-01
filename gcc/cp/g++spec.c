@@ -1,6 +1,6 @@
-/* Specific flags and argument handling of the C++ front-end.
+/* Specific flags and argument handling of the C++ front end.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2007 Free Software Foundation, Inc.
+   2007, 2008  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 #ifndef LIBSTDCXX_PROFILE
 #define LIBSTDCXX_PROFILE LIBSTDCXX
+#endif
+#ifndef LIBSTDCXX_STATIC
+#define LIBSTDCXX_STATIC LIBSTDCXX
 #endif
 
 void
@@ -158,9 +161,17 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 		arg = "";
 	      if (library == 0
 		  && (strcmp (arg, "c++") == 0
-		      || strcmp (arg, "c++-cpp-output") == 0))
+		      || strcmp (arg, "c++-cpp-output") == 0
+		      || strcmp (arg, "objective-c++") == 0
+		      || strcmp (arg, "objective-c++-cpp-output") == 0))
 		library = 1;
 		
+	      saw_speclang = 1;
+	    }
+	  else if (strcmp (argv[i], "-ObjC++") == 0)
+	    {
+	      if (library == 0)
+		library = 1;
 	      saw_speclang = 1;
 	    }
 	  /* Arguments that go directly to the linker might be .o files,
@@ -227,6 +238,12 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	    {
 	      if ((len <= 2 || strcmp (argv[i] + (len - 2), ".H") != 0)
 		  && (len <= 2 || strcmp (argv[i] + (len - 2), ".h") != 0)
+		  && (len <= 4 || strcmp (argv[i] + (len - 4), ".hpp") != 0)
+		  && (len <= 3 || strcmp (argv[i] + (len - 3), ".hp") != 0)
+		  && (len <= 4 || strcmp (argv[i] + (len - 4), ".hxx") != 0)
+		  && (len <= 4 || strcmp (argv[i] + (len - 4), ".h++") != 0)
+		  && (len <= 4 || strcmp (argv[i] + (len - 4), ".HPP") != 0)
+		  && (len <= 4 || strcmp (argv[i] + (len - 4), ".tcc") != 0)
 		  && (len <= 3 || strcmp (argv[i] + (len - 3), ".hh") != 0))
 		library = 1;
 	    }
@@ -235,13 +252,6 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 
   if (quote)
     fatal ("argument to '%s' missing\n", quote);
-
-  /* If we know we don't have to do anything, bail now.  */
-  if (! added && library <= 0)
-    {
-      free (args);
-      return;
-    }
 
   /* There's no point adding -shared-libgcc if we don't have a shared
      libgcc.  */
@@ -308,7 +318,8 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   /* Add `-lstdc++' if we haven't already done so.  */
   if (library > 0)
     {
-      arglist[j] = saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX;
+      arglist[j] = shared_libgcc == 0 ? LIBSTDCXX_STATIC
+	: saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX;
       if (arglist[j][0] != '-' || arglist[j][1] == 'l')
 	added_libraries++;
       j++;

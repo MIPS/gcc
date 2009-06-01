@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package javax.accessibility;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.util.Locale;
 import java.util.Vector;
 
@@ -62,7 +64,7 @@ public class AccessibleStateSet
    * @see #toArray()
    * @see #clear()
    */
-  protected Vector states = new Vector();
+  protected Vector<AccessibleState> states = new Vector<AccessibleState>();
 
   /**
    * Create an empty state set.
@@ -165,7 +167,7 @@ public class AccessibleStateSet
     if (i == 0)
       return "";
     // Pre-allocate an average of 10 chars per state.
-    StringBuffer b = new StringBuffer(i * 10);
+    CPStringBuilder b = new CPStringBuilder(i * 10);
     while (--i >= 0)
       b.append(states.get(i)).append(',');
     return b.substring(0, b.length() - 1);

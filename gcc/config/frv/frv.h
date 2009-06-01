@@ -1,5 +1,5 @@
 /* Target macros for the FRV port of GCC.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Red Hat Inc.
 
@@ -592,6 +592,8 @@
 #define FDPIC_FPTR_REGNO  (GPR_FIRST + 14)        /* uClinux PIC function pointer register.  */
 #define FDPIC_REGNO   (GPR_FIRST + 15)        /* uClinux PIC register.  */
 
+#define HARD_REGNO_RENAME_OK(from,to) (TARGET_FDPIC ? ((to) != FDPIC_REG) : 1)
+
 #define OUR_FDPIC_REG	get_hard_reg_initial_val (SImode, FDPIC_REGNO)
 
 #define FPR_FIRST       64			/* First FP reg */
@@ -1153,6 +1155,21 @@ enum reg_class
   { 0xffffffff,0xffffffff,0xffffffff,0xffffffff,0xffffffff,0x1fff}, /* ALL_REGS */\
 }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						\
+{									\
+  GPR_REGS, FPR_REGS, ACC_REGS, ICR_REGS, FCR_REGS, ICC_REGS, FCC_REGS, \
+  ACCG_REGS, SPR_REGS,							\
+  LIM_REG_CLASSES							\
+}
+
 /* A C expression whose value is a register class containing hard register
    REGNO.  In general there is more than one such class; choose a class which
    is "minimal", meaning that no smaller class also contains the register.  */
@@ -1235,10 +1252,10 @@ extern enum reg_class reg_class_from_letter[];
 #define PREFERRED_RELOAD_CLASS(X, CLASS) CLASS
 
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X) \
-  frv_secondary_reload_class (CLASS, MODE, X, TRUE)
+  frv_secondary_reload_class (CLASS, MODE, X)
 
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X) \
-  frv_secondary_reload_class (CLASS, MODE, X, FALSE)
+  frv_secondary_reload_class (CLASS, MODE, X)
 
 /* A C expression whose value is nonzero if pseudos that have been assigned to
    registers of class CLASS would likely be spilled because registers of CLASS
@@ -1271,21 +1288,21 @@ extern enum reg_class reg_class_from_letter[];
 
 #define ZERO_P(x) (x == CONST0_RTX (GET_MODE (x)))
 
-/* 6 bit signed immediate.  */
+/* 6-bit signed immediate.  */
 #define CONST_OK_FOR_I(VALUE) IN_RANGE_P(VALUE, -32, 31)
-/* 10 bit signed immediate.  */
+/* 10-bit signed immediate.  */
 #define CONST_OK_FOR_J(VALUE) IN_RANGE_P(VALUE, -512, 511)
 /* Unused */
 #define CONST_OK_FOR_K(VALUE)  0
-/* 16 bit signed immediate.  */
+/* 16-bit signed immediate.  */
 #define CONST_OK_FOR_L(VALUE) IN_RANGE_P(VALUE, -32768, 32767)
-/* 16 bit unsigned immediate.  */
+/* 16-bit unsigned immediate.  */
 #define CONST_OK_FOR_M(VALUE)  IN_RANGE_P (VALUE, 0, 65535)
-/* 12 bit signed immediate that is negative.  */
+/* 12-bit signed immediate that is negative.  */
 #define CONST_OK_FOR_N(VALUE) IN_RANGE_P(VALUE, -2048, -1)
 /* Zero */
 #define CONST_OK_FOR_O(VALUE) ((VALUE) == 0)
-/* 12 bit signed immediate that is negative.  */
+/* 12-bit signed immediate that is negative.  */
 #define CONST_OK_FOR_P(VALUE) IN_RANGE_P(VALUE, 1, 2047)
 
 /* A C expression that defines the machine-dependent operand constraint letters
@@ -1620,7 +1637,7 @@ typedef struct frv_stack {
 
 /* If defined, the maximum amount of space required for outgoing arguments will
    be computed and placed into the variable
-   `current_function_outgoing_args_size'.  No space will be pushed onto the
+   `crtl->outgoing_args_size'.  No space will be pushed onto the
    stack for each call; instead, the function prologue should increase the
    stack frame size by this amount.
 
@@ -1847,19 +1864,6 @@ typedef struct frv_stack {
 
 #define FUNCTION_PROFILER(FILE, LABELNO)
 
-
-/* Implementing the Varargs Macros.  */
-
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
-   is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
-   variable to initialize.  NEXTARG is the machine independent notion of the
-   'next' argument after the variable arguments.  If not defined, a standard
-   implementation will be defined that works for arguments passed on the stack.  */
-
-#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG)		\
-  (frv_expand_builtin_va_start(VALIST, NEXTARG))
-
-
 /* Trampolines for Nested Functions.  */
 
 /* A C expression for the size in bytes of the trampoline, as an integer.  */
@@ -2206,7 +2210,7 @@ do {							\
 
 /* A C expression for the cost of a branch instruction.  A value of 1 is the
    default; other values are interpreted relative to that.  */
-#define BRANCH_COST frv_branch_cost_int
+#define BRANCH_COST(speed_p, predictable_p) frv_branch_cost_int
 
 /* Define this macro as a C expression which is nonzero if accessing less than
    a word of memory (i.e. a `char' or a `short') is no faster than accessing a
@@ -2594,33 +2598,7 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) \
 fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
-/* Define this if the label before a jump-table needs to be output specially.
-   The first three arguments are the same as for `(*targetm.asm_out.internal_label)';
-   the fourth argument is the jump-table which follows (a `jump_insn'
-   containing an `addr_vec' or `addr_diff_vec').
-
-   This feature is used on system V to output a `swbeg' statement for the
-   table.
-
-   If this macro is not defined, these labels are output with
-   `(*targetm.asm_out.internal_label)'.
-
-   Defined in svr4.h.  */
-/* When generating embedded PIC or mips16 code we want to put the jump
-   table in the .text section.  In all other cases, we want to put the
-   jump table in the .rdata section.  Unfortunately, we can't use
-   JUMP_TABLES_IN_TEXT_SECTION, because it is not conditional.
-   Instead, we use ASM_OUTPUT_CASE_LABEL to switch back to the .text
-   section if appropriate.  */
-
-#undef  ASM_OUTPUT_CASE_LABEL
-#define ASM_OUTPUT_CASE_LABEL(STREAM, PREFIX, NUM, TABLE)               \
-do {                                                                    \
-  if (flag_pic)                                                         \
-    switch_to_section (function_section (current_function_decl));       \
-  (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM);              \
-} while (0)
-
+#define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 /* Assembler Commands for Exception Regions.  */
 

@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2000-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -30,12 +29,12 @@
 --  overhead of the full compiler scanner and parser.
 
 --  Note that neither the package spec, nor the package body, of this
---  unit contains any with statements at all. This is a compeltely
+--  unit contains any with statements at all. This is a completely
 --  independent package, suitable for incorporation into tools that do
 --  not access any other units in the GNAT compiler or tools sources.
 
 --  This package is NOT task safe, so multiple tasks that may call the
---  Scan_SFN_Pragmas procedure at the same time are responsibible for
+--  Scan_SFN_Pragmas procedure at the same time are responsible for
 --  avoiding such multiple calls by appropriate synchronization.
 
 package SFN_Scan is
@@ -92,6 +91,6 @@ package SFN_Scan is
    --  that includes only pragmas and comments. It does not do a full
    --  syntax correctness scan by any means, but if it does find anything
    --  that it can tell is wrong it will immediately raise the exception
-   --  to indicate the aproximate location of the error
+   --  to indicate the approximate location of the error
 
 end SFN_Scan;

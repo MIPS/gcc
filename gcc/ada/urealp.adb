@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2009  Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -57,9 +55,23 @@ package body Urealp is
       --  Flag set if value is negative
    end record;
 
+   --  The following representation clause ensures that the above record
+   --  has no holes. We do this so that when instances of this record are
+   --  written by Tree_Gen, we do not write uninitialized values to the file.
+
+   for Ureal_Entry use record
+      Num      at  0 range 0 .. 31;
+      Den      at  4 range 0 .. 31;
+      Rbase    at  8 range 0 .. 31;
+      Negative at 12 range 0 .. 31;
+   end record;
+
+   for Ureal_Entry'Size use 16 * 8;
+   --  This ensures that we did not leave out any fields
+
    package Ureals is new Table.Table (
      Table_Component_Type => Ureal_Entry,
-     Table_Index_Type     => Ureal,
+     Table_Index_Type     => Ureal'Base,
      Table_Low_Bound      => Ureal_First_Entry,
      Table_Initial        => Alloc.Ureals_Initial,
      Table_Increment      => Alloc.Ureals_Increment,
@@ -427,8 +439,7 @@ package body Urealp is
 
    function Store_Ureal (Val : Ureal_Entry) return Ureal is
    begin
-      Ureals.Increment_Last;
-      Ureals.Table (Ureals.Last) := Val;
+      Ureals.Append (Val);
 
       --  Normalize representation of signed values
 
@@ -1431,14 +1442,14 @@ package body Urealp is
       return UR_10_36;
    end Ureal_10_36;
 
-   -------------------
-   -- Ureal_M_10_36 --
-   -------------------
+   ----------------
+   -- Ureal_2_80 --
+   ----------------
 
-   function Ureal_M_10_36 return Ureal is
+   function Ureal_2_80 return Ureal is
    begin
-      return UR_M_10_36;
-   end Ureal_M_10_36;
+      return UR_2_80;
+   end Ureal_2_80;
 
    -----------------
    -- Ureal_2_128 --
@@ -1449,14 +1460,14 @@ package body Urealp is
       return UR_2_128;
    end Ureal_2_128;
 
-   ----------------
-   -- Ureal_2_80 --
-   ----------------
+   -------------------
+   -- Ureal_2_M_80 --
+   -------------------
 
-   function Ureal_2_80 return Ureal is
+   function Ureal_2_M_80 return Ureal is
    begin
-      return UR_2_80;
-   end Ureal_2_80;
+      return UR_2_M_80;
+   end Ureal_2_M_80;
 
    -------------------
    -- Ureal_2_M_128 --
@@ -1466,15 +1477,6 @@ package body Urealp is
    begin
       return UR_2_M_128;
    end Ureal_2_M_128;
-
-   -------------------
-   -- Ureal_2_M_80 --
-   -------------------
-
-   function Ureal_2_M_80 return Ureal is
-   begin
-      return UR_2_M_80;
-   end Ureal_2_M_80;
 
    ----------------
    -- Ureal_Half --
@@ -1493,6 +1495,15 @@ package body Urealp is
    begin
       return UR_M_0;
    end Ureal_M_0;
+
+   -------------------
+   -- Ureal_M_10_36 --
+   -------------------
+
+   function Ureal_M_10_36 return Ureal is
+   begin
+      return UR_M_10_36;
+   end Ureal_M_10_36;
 
    -----------------
    -- Ureal_Tenth --

@@ -2,37 +2,37 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---        A D A . C O N T A I N E R S . R E D _ B L A C K _ T R E E S .     --
---                    G E N E R I C _ O P E R A T I O N S                   --
+--             ADA.CONTAINERS.RED_BLACK_TREES.GENERIC_OPERATIONS            --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
---                                                                          --
--- This specification is derived from the Ada Reference Manual for use with --
--- GNAT. The copyright notice above, and the license provisions that follow --
--- apply solely to the  contents of the part following the private keyword. --
+--          Copyright (C) 2004-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- This unit was originally developed by Matthew J Heaney.                  --
 ------------------------------------------------------------------------------
+
+--  The references below to "CLR" refer to the following book, from which
+--  several of the algorithms here were adapted:
+--     Introduction to Algorithms
+--     by Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest
+--     Publisher: The MIT Press (June 18, 1990)
+--     ISBN: 0262031418
 
 with System;  use type System.Address;
 
@@ -141,7 +141,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
 
    procedure Delete_Fixup (Tree : in out Tree_Type; Node : Node_Access) is
 
-      --  CLR p274 ???
+      --  CLR p274
 
       X : Node_Access := Node;
       W : Node_Access;
@@ -237,7 +237,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
      (Tree : in out Tree_Type;
       Node : Node_Access)
    is
-      --  CLR p273 ???
+      --  CLR p273
 
       X, Y : Node_Access;
 
@@ -595,6 +595,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
 
    procedure Generic_Delete_Tree (X : in out Node_Access) is
       Y : Node_Access;
+      pragma Warnings (Off, Y);
    begin
       while X /= null loop
          Y := Right (X);
@@ -695,7 +696,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
    ------------------
 
    procedure Generic_Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Tree   : in out Tree_Type)
    is
       N : Count_Type'Base;
@@ -773,7 +774,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
    -------------------
 
    procedure Generic_Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Tree   : Tree_Type)
    is
       procedure Process (Node : Node_Access);
@@ -804,7 +805,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
 
    procedure Left_Rotate (Tree : in out Tree_Type; X : Node_Access) is
 
-      --  CLR p266 ???
+      --  CLR p266
 
       Y : constant Node_Access := Right (X);
       pragma Assert (Y /= null);
@@ -837,7 +838,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
 
    function Max (Node : Node_Access) return Node_Access is
 
-      --  CLR p248 ???
+      --  CLR p248
 
       X : Node_Access := Node;
       Y : Node_Access;
@@ -860,7 +861,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
 
    function Min (Node : Node_Access) return Node_Access is
 
-      --  CLR p248 ???
+      --  CLR p248
 
       X : Node_Access := Node;
       Y : Node_Access;
@@ -883,7 +884,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
 
    function Next (Node : Node_Access) return Node_Access is
    begin
-      --  CLR p249 ???
+      --  CLR p249
 
       if Node = null then
          return null;
@@ -904,14 +905,6 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
             X := Y;
             Y := Parent (Y);
          end loop;
-
-         --  Why is this code commented out ???
-
---           if Right (X) /= Y then
---              return Y;
---           else
---              return X;
---           end if;
 
          return Y;
       end;
@@ -943,14 +936,6 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
             Y := Parent (Y);
          end loop;
 
-         --  Why is this code commented out ???
-
---           if Left (X) /= Y then
---              return Y;
---           else
---              return X;
---           end if;
-
          return Y;
       end;
    end Previous;
@@ -963,7 +948,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
      (Tree : in out Tree_Type;
       Node : Node_Access)
    is
-      --  CLR p.268 ???
+      --  CLR p.268
 
       X : Node_Access := Node;
       pragma Assert (X /= null);

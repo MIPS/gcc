@@ -68,6 +68,9 @@ along with GCC; see the file COPYING3.  If not see
    runtime library.  */
 #define TARGET_C99_FUNCTIONS (OPTION_GLIBC)
 
+/* Whether we have sincos that follows the GNU extension.  */
+#define TARGET_HAS_SINCOS (OPTION_GLIBC)
+
 #define TARGET_POSIX_IO
 
 #define LINK_GCC_C_SEQUENCE_SPEC \
@@ -82,3 +85,19 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Define if long doubles should be mangled as 'g'.  */
 #define TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+
+/* -mcpu=native handling only makes sense with compiler running on
+   an Alpha chip.  */
+#if defined(__alpha__) || defined(__alpha)
+extern const char *host_detect_local_cpu (int argc, const char **argv);
+# define EXTRA_SPEC_FUNCTIONS						\
+  { "local_cpu_detect", host_detect_local_cpu },
+
+# define MCPU_MTUNE_NATIVE_SPECS					\
+   " %{mcpu=native:%<mcpu=native %:local_cpu_detect(cpu)}"		\
+   " %{mtune=native:%<mtune=native %:local_cpu_detect(tune)}"
+#else
+# define MCPU_MTUNE_NATIVE_SPECS ""
+#endif
+
+#define DRIVER_SELF_SPECS MCPU_MTUNE_NATIVE_SPECS

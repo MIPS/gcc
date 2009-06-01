@@ -51,10 +51,12 @@ package java.lang;
  * @author Warren Levy
  * @author Eric Blake (ebb9@email.byu.edu)
  * @author Tom Tromey (tromey@redhat.com)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
+ * @author Ian Rogers
  * @since 1.0
- * @status largely updated to 1.5
+ * @status updated to 1.5
  */
-public final class Integer extends Number implements Comparable
+public final class Integer extends Number implements Comparable<Integer>
 {
   /**
    * Compatible with JDK 1.0.2+.
@@ -78,7 +80,7 @@ public final class Integer extends Number implements Comparable
    * <code>Class</code> object.
    * @since 1.1
    */
-  public static final Class TYPE = VMClassLoader.getPrimitiveClass('I');
+  public static final Class<Integer> TYPE = (Class<Integer>) VMClassLoader.getPrimitiveClass('I');
 
   /**
    * The number of bits needed to represent an <code>int</code>.
@@ -91,7 +93,12 @@ public final class Integer extends Number implements Comparable
   // these constants control how much we actually cache.
   private static final int MIN_CACHE = -128;
   private static final int MAX_CACHE = 127;
-  private static Integer[] intCache = new Integer[MAX_CACHE - MIN_CACHE + 1];
+  private static final Integer[] intCache = new Integer[MAX_CACHE - MIN_CACHE + 1];
+  static
+  {
+    for (int i=MIN_CACHE; i <= MAX_CACHE; i++)
+      intCache[i - MIN_CACHE] = new Integer(i);
+  }
 
   /**
    * The immutable value of this Integer.
@@ -125,6 +132,45 @@ public final class Integer extends Number implements Comparable
   }
 
   /**
+   * Return the size of a string large enough to hold the given number
+   *
+   * @param num the number we want the string length for (must be positive)
+   * @param radix the radix (base) that will be used for the string
+   * @return a size sufficient for a string of num
+   */
+  private static int stringSize(int num, int radix) {
+    int exp;
+    if (radix < 4)
+      {
+        exp = 1;
+      }
+    else if (radix < 8)
+      {
+        exp = 2;
+      }
+    else if (radix < 16)
+      {
+        exp = 3;
+      }
+    else if (radix < 32)
+      {
+        exp = 4;
+      }
+    else
+      {
+        exp = 5;
+      }
+    int size=0;
+    do
+      {
+        num >>>= exp;
+        size++;
+      }
+    while(num != 0);
+    return size;
+  }
+
+  /**
    * Converts the <code>int</code> to a <code>String</code> using
    * the specified radix (base). If the radix exceeds
    * <code>Character.MIN_RADIX</code> or <code>Character.MAX_RADIX</code>, 10
@@ -141,22 +187,40 @@ public final class Integer extends Number implements Comparable
     if (radix < Character.MIN_RADIX || radix > Character.MAX_RADIX)
       radix = 10;
 
-    // For negative numbers, print out the absolute value w/ a leading '-'.
-    // Use an array large enough for a binary number.
-    char[] buffer = new char[33];
-    int i = 33;
-    boolean isNeg = false;
-    if (num < 0)
+    // Is the value negative?
+    boolean isNeg = num < 0;
+
+    // Is the string a single character?
+    if (!isNeg && num < radix)
+      return new String(digits, num, 1, true);
+
+    // Compute string size and allocate buffer
+    // account for a leading '-' if the value is negative
+    int size;
+    int i;
+    char[] buffer;
+    if (isNeg)
       {
-        isNeg = true;
         num = -num;
 
         // When the value is MIN_VALUE, it overflows when made positive
         if (num < 0)
 	  {
+            i = size = stringSize(MAX_VALUE, radix) + 2;
+            buffer = new char[size];
 	    buffer[--i] = digits[(int) (-(num + radix) % radix)];
 	    num = -(num / radix);
 	  }
+        else
+          {
+            i = size = stringSize(num, radix) + 1;
+            buffer = new char[size];
+          }
+      }
+    else
+      {
+        i = size = stringSize(num, radix);
+        buffer = new char[size];
       }
 
     do
@@ -170,7 +234,7 @@ public final class Integer extends Number implements Comparable
       buffer[--i] = '-';
 
     // Package constructor avoids an array copy.
-    return new String(buffer, i, 33 - i, true);
+    return new String(buffer, i, size - i, true);
   }
 
   /**
@@ -274,7 +338,7 @@ public final class Integer extends Number implements Comparable
    */
   public static Integer valueOf(String s, int radix)
   {
-    return new Integer(parseInt(s, radix, false));
+    return valueOf(parseInt(s, radix, false));
   }
 
   /**
@@ -290,7 +354,7 @@ public final class Integer extends Number implements Comparable
    */
   public static Integer valueOf(String s)
   {
-    return new Integer(parseInt(s, 10, false));
+    return valueOf(parseInt(s, 10, false));
   }
 
   /**
@@ -305,12 +369,8 @@ public final class Integer extends Number implements Comparable
   {
     if (val < MIN_CACHE || val > MAX_CACHE)
       return new Integer(val);
-    synchronized (intCache)
-      {
-	if (intCache[val - MIN_CACHE] == null)
-	  intCache[val - MIN_CACHE] = new Integer(val);
-	return intCache[val - MIN_CACHE];
-      }
+    else
+      return intCache[val - MIN_CACHE];
   }
 
   /**
@@ -439,7 +499,7 @@ public final class Integer extends Number implements Comparable
   public static Integer getInteger(String nm, int val)
   {
     Integer result = getInteger(nm, null);
-    return result == null ? new Integer(val) : result;
+    return result == null ? valueOf(val) : result;
   }
 
   /**
@@ -505,7 +565,7 @@ public final class Integer extends Number implements Comparable
    */
   public static Integer decode(String str)
   {
-    return new Integer(parseInt(str, 10, true));
+    return valueOf(parseInt(str, 10, true));
   }
 
   /**
@@ -523,22 +583,6 @@ public final class Integer extends Number implements Comparable
       return 0;
     // Returns just -1 or 1 on inequality; doing math might overflow.
     return value > i.value ? 1 : -1;
-  }
-
-  /**
-   * Behaves like <code>compareTo(Integer)</code> unless the Object
-   * is not an <code>Integer</code>.
-   *
-   * @param o the object to compare
-   * @return the comparison
-   * @throws ClassCastException if the argument is not an <code>Integer</code>
-   * @see #compareTo(Integer)
-   * @see Comparable
-   * @since 1.2
-   */
-  public int compareTo(Object o)
-  {
-    return compareTo((Integer) o);
   }
 
   /**
@@ -643,7 +687,14 @@ public final class Integer extends Number implements Comparable
    */
   public static int signum(int x)
   {
-    return x < 0 ? -1 : (x > 0 ? 1 : 0);
+    return (x >> 31) | (-x >>> 31);
+
+    // The LHS propagates the sign bit through every bit in the word;
+    // if X < 0, every bit is set to 1, else 0.  if X > 0, the RHS
+    // negates x and shifts the resulting 1 in the sign bit to the
+    // LSB, leaving every other bit 0.
+
+    // Hacker's Delight, Section 2-7
   }
 
   /**
@@ -681,10 +732,22 @@ public final class Integer extends Number implements Comparable
   // Package visible for use by Long.
   static String toUnsignedString(int num, int exp)
   {
-    // Use an array large enough for a binary number.
+    // Compute string length
+    int size = 1;
+    int copy = num >>> exp;
+    while (copy != 0)
+      {
+        size++;
+        copy >>>= exp;
+      }
+    // Quick path for single character strings
+    if (size == 1)
+      return new String(digits, num, 1, true);
+
+    // Encode into buffer
     int mask = (1 << exp) - 1;
-    char[] buffer = new char[32];
-    int i = 32;
+    char[] buffer = new char[size];
+    int i = size;
     do
       {
         buffer[--i] = digits[num & mask];
@@ -693,7 +756,7 @@ public final class Integer extends Number implements Comparable
     while (num != 0);
 
     // Package constructor avoids an array copy.
-    return new String(buffer, i, 32 - i, true);
+    return new String(buffer, i, size - i, true);
   }
 
   /**
@@ -723,9 +786,15 @@ public final class Integer extends Number implements Comparable
     if (ch == '-')
       {
         if (len == 1)
-          throw new NumberFormatException("pure '-'");
+	  throw new NumberFormatException("pure '-'");
         isNeg = true;
         ch = str.charAt(++index);
+      }
+    else if (ch == '+')
+      {
+	if (len == 1)
+	  throw new NumberFormatException("pure '+'");
+	ch = str.charAt(++index);
       }
     if (decode)
       {

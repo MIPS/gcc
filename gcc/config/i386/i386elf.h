@@ -1,5 +1,5 @@
 /* Target definitions for GCC for Intel 80386 using ELF
-   Copyright (C) 1988, 1991, 1995, 2000, 2001, 2002, 2007
+   Copyright (C) 1988, 1991, 1995, 2000, 2001, 2002, 2007, 2008
    Free Software Foundation, Inc.
 
    Derived from sysv4.h written by Ron Guilmette (rfg@netcom.com).
@@ -26,18 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 
 #define TARGET_VERSION fprintf (stderr, " (i386 bare ELF target)");
 
-/* By default, target has a 80387, uses IEEE compatible arithmetic,
-   and returns float values in the 387.  */
-
-#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
-
 /* The ELF ABI for the i386 says that records and unions are returned
    in memory.  */
 
-#undef RETURN_IN_MEMORY
-#define RETURN_IN_MEMORY(TYPE) \
-  (TYPE_MODE (TYPE) == BLKmode \
-   || (VECTOR_MODE_P (TYPE_MODE (TYPE)) && int_size_in_bytes (TYPE) == 8))
+#define SUBTARGET_RETURN_IN_MEMORY(TYPE, FNTYPE) \
+	(TYPE_MODE (TYPE) == BLKmode \
+	 || (VECTOR_MODE_P (TYPE_MODE (TYPE)) && int_size_in_bytes (TYPE) == 8))
 
 #undef CPP_SPEC
 #define CPP_SPEC ""

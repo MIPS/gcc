@@ -6,24 +6,23 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2009, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
- * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * or FITNESS FOR A PARTICULAR PURPOSE.                                     *
  *                                                                          *
- * As a  special  exception,  if you  link  this file  with other  files to *
- * produce an executable,  this file does not by itself cause the resulting *
- * executable to be covered by the GNU General Public License. This except- *
- * ion does not  however invalidate  any other reasons  why the  executable *
- * file might be covered by the  GNU Public License.                        *
+ * As a special exception under Section 7 of GPL version 3, you are granted *
+ * additional permissions described in the GCC Runtime Library Exception,   *
+ * version 3.1, as published by the Free Software Foundation.               *
+ *                                                                          *
+ * You should have received a copy of the GNU General Public License and    *
+ * a copy of the GCC Runtime Library Exception along with this program;     *
+ * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    *
+ * <http://www.gnu.org/licenses/>.                                          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -59,8 +58,13 @@
 #include <windows.h>
 
 extern void __gnat_init_float (void);
-extern void __gnat_plist_init (void);
 extern void __gnat_install_SEH_handler (void *);
+
+#ifndef RTX
+/* Do not define for RTX since it is only used for creating child processes
+   which is not supported in RTX. */
+extern void __gnat_plist_init (void);
+#endif
 
 void
 __gnat_initialize (void *eh)
@@ -70,10 +74,6 @@ __gnat_initialize (void *eh)
       precision, and we require the full precision for proper operation,
       given that we have set Max_Digits etc with this in mind */
    __gnat_init_float ();
-
-   /* Initialize a lock for a process handle list - see adaint.c for the
-      implementation of __gnat_portable_no_block_spawn, __gnat_portable_wait */
-   __gnat_plist_init();
 
    /* Note that we do not activate this for the compiler itself to avoid a
       bootstrap path problem.  Older version of gnatbind will generate a call
@@ -91,8 +91,8 @@ __gnat_initialize (void *eh)
 /* __gnat_initialize (init_float version) */
 /******************************************/
 
-#elif defined (__INTERIX) || defined (__Lynx__) || \
-      defined (__FreeBSD__) || defined(__NetBSD__)
+#elif defined (__Lynx__) || defined (__FreeBSD__) || defined(__NetBSD__) \
+  || defined (__OpenBSD__)
 
 extern void __gnat_init_float (void);
 
@@ -115,37 +115,38 @@ __gnat_initialize (void *eh)
 {
   __gnat_init_float ();
 
-  /* On targets where we might be using the ZCX scheme, we need to register
-     the frame tables.
+  /* On targets where we use the ZCX scheme, we need to register the frame
+     tables at load/startup time.
 
      For applications loaded as a set of "modules", the crtstuff objects
-     linked in (crtbegin/end) are tailored to provide this service a-la C++
-     constructor fashion, typically triggered by the VxWorks loader.  This is
-     achieved by way of a special variable declaration in the crt object, the
-     name of which has been deduced by analyzing the output of the "munching"
-     step documented for C++.  The de-registration is handled symmetrically,
-     a-la C++ destructor fashion and typically triggered by the dynamic
-     unloader.  Note that since the tables shall be registered against a
-     common datastructure, libgcc should be one of the modules (vs being
-     partially linked against all the others at build time) and shall be
-     loaded first.
+     linked in (crtbegin.o/end.o) are tailored to provide this service
+     automatically, a-la C++ constructor fashion, triggered by the VxWorks
+     loader thanks to a special variable declaration in crtbegin.o (_ctors).
+
+     Automatic de-registration is handled symmetrically, a-la C++ destructor
+     fashion (with a _dtors variable also in crtbegin.o) triggered by the
+     dynamic unloader.
+
+     Note that since the tables shall be registered against a common
+     data structure, libgcc should be one of the modules (vs being partially
+     linked against all the others at build time) and shall be loaded first.
 
      For applications linked with the kernel, the scheme above would lead to
-     duplicated symbols because the VxWorks kernel build "munches" by default.
-     To prevent those conflicts, we link against crtbegin/endS objects that
-     don't include the special variable and directly call the appropriate
-     function here. We'll never unload that, so there is no de-registration to
-     worry about.
+     duplicated symbols because the VxWorks kernel build "munches" by default,
+     so we link against crtbeginT.o instead of crtbegin.o, which doesn't
+     include the special variables. We know which set of crt objects is used
+     thanks to a boolean indicator present in both sets (__module_has_ctors),
+     and directly call the appropriate function here in the not-automatic
+     case. We'll never unload that, so there is no de-registration to worry
+     about.
 
      For whole applications loaded as a single module, we may use one scheme
      or the other, except for the mixed Ada/C++ case in which the first scheme
      would fail for the same reason as in the linked-with-kernel situation.
 
-     We can differentiate by looking at the __module_has_ctors value provided
-     by each class of crt objects. As of today, selecting the crt set with the
-     ctors/dtors capabilities (first scheme above) is triggered by adding
-     "-dynamic" to the gcc *link* command line options. Selecting the other
-     set of crt objects is achieved by "-static" instead.
+     Selecting the crt set with the ctors/dtors capabilities (first scheme
+     above) is triggered by adding "-dynamic" to the gcc *link* command line
+     options. Selecting the other set is achieved by using "-static" instead.
 
      This is a first approach, tightly synchronized with a number of GCC
      configuration and crtstuff changes. We need to ensure that those changes

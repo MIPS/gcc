@@ -1,6 +1,6 @@
 ! { dg-do compile }
 ! One of the tests of the patch for PR30068.
-! Taken from the fortran standard.
+! Taken from the fortran 2003 standard C11.2.
 !
 ! The standard specifies that the optional arguments should be
 ! ignored in the counting of like type/kind, so the specific

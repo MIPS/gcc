@@ -40,6 +40,7 @@ package javax.imageio;
 
 import java.awt.Dimension;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.awt.image.RenderedImage;
 import java.io.IOException;
@@ -102,19 +103,19 @@ public abstract class ImageWriter
    * A list of installed progress listeners.  Initially null, meaning
    * no installed listeners.
    */
-  protected List progressListeners = null;
+  protected List<IIOWriteProgressListener> progressListeners = null;
 
   /**
    * A list of installed warning listeners.  Initially null, meaning
    * no installed listeners.
    */
-  protected List warningListeners = null;
+  protected List<IIOWriteWarningListener> warningListeners = null;
 
   /**
    * A list of warning locales corresponding with the list of
    * installed warning listeners.  Initially null, meaning no locales.
    */
-  protected List warningLocales = null;
+  protected List<Locale> warningLocales = null;
 
   /**
    * Construct an image writer.
@@ -898,7 +899,7 @@ public abstract class ImageWriter
    * IllegalStateException).  If input is null then the current input
    * source will be removed.
    *
-   * @param input the output destination object
+   * @param output the output destination object
    *
    * @exception IllegalArgumentException if input is not a valid input
    * source for this writer and is not an ImageInputStream
@@ -1076,7 +1077,7 @@ public abstract class ImageWriter
   public void prepareInsertEmpty (int imageIndex, ImageTypeSpecifier imageType,
                                   int width, int height,
                                   IIOMetadata imageMetadata,
-                                  List thumbnails,
+                                  List<? extends BufferedImage> thumbnails,
                                   ImageWriteParam param)
     throws IOException
   {
@@ -1149,7 +1150,7 @@ public abstract class ImageWriter
                                  ImageTypeSpecifier imageType,
                                  int width, int height,
                                  IIOMetadata imageMetadata,
-                                 List thumbnails,
+                                 List<? extends BufferedImage> thumbnails,
                                  ImageWriteParam param)
     throws IOException
   {
@@ -1337,7 +1338,7 @@ public abstract class ImageWriter
    * @param imageIndex the frame index at which to insert the image
    * @param image the image data, metadata and thumbnails to be
    * inserted
-   * @param the image write parameters, or null
+   * @param param image write parameters, or null
    *
    * @exception IllegalStateException if output is null
    * @exception UnsupportedOperationException if image insertion is

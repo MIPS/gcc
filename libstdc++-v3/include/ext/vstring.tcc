@@ -1,11 +1,11 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -13,19 +13,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file ext/vstring.tcc
  *  This file is a GNU extension to the Standard C++ Library.
@@ -37,6 +32,8 @@
 #define _VSTRING_TCC 1
 
 #pragma GCC system_header
+
+#include <cxxabi-forced.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -467,7 +464,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       int __r = traits_type::compare(this->_M_data() + __pos,
 				     __str.data(), __len);
       if (!__r)
-	__r = __n - __osize;
+	__r = _S_compare(__n, __osize);
       return __r;
     }
 
@@ -486,7 +483,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       int __r = traits_type::compare(this->_M_data() + __pos1,
 				     __str.data() + __pos2, __len);
       if (!__r)
-	__r = __n1 - __n2;
+	__r = _S_compare(__n1, __n2);
       return __r;
     }
 
@@ -502,7 +499,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       const size_type __len = std::min(__size, __osize);
       int __r = traits_type::compare(this->_M_data(), __s, __len);
       if (!__r)
-	__r = __size - __osize;
+	__r = _S_compare(__size, __osize);
       return __r;
     }
 
@@ -519,7 +516,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       const size_type __len = std::min(__n1, __osize);
       int __r = traits_type::compare(this->_M_data() + __pos, __s, __len);
       if (!__r)
-	__r = __n1 - __osize;
+	__r = _S_compare(__n1, __osize);
       return __r;
     }
 
@@ -536,7 +533,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       const size_type __len = std::min(__n1, __n2);
       int __r = traits_type::compare(this->_M_data() + __pos, __s, __len);
       if (!__r)
-	__r = __n1 - __n2;
+	__r = _S_compare(__n1, __n2);
       return __r;
     }
 
@@ -551,20 +548,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       __gnu_cxx::__versa_string<_CharT, _Traits,
 	                                 _Alloc, _Base>& __str)
     {
-      typedef basic_istream<_CharT, _Traits>	        __istream_type;
-      typedef typename __istream_type::int_type		__int_type;
-      typedef typename __istream_type::__streambuf_type __streambuf_type;
-      typedef typename __istream_type::__ctype_type	__ctype_type;
+      typedef basic_istream<_CharT, _Traits>            __istream_type;
+      typedef typename __istream_type::ios_base         __ios_base;
       typedef __gnu_cxx::__versa_string<_CharT, _Traits, _Alloc, _Base>
 	                                                __string_type;
+      typedef typename __istream_type::int_type		__int_type;
       typedef typename __string_type::size_type		__size_type;
+      typedef ctype<_CharT>				__ctype_type;
+      typedef typename __ctype_type::ctype_base         __ctype_base;
 
       __size_type __extracted = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      typename __ios_base::iostate __err = __ios_base::goodbit;
       typename __istream_type::sentry __cerb(__in, false);
       if (__cerb)
 	{
-	  try
+	  __try
 	    {
 	      // Avoid reallocation for common case.
 	      __str.erase();
@@ -575,12 +573,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		                              : __str.max_size();
 	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
 	      const __int_type __eof = _Traits::eof();
-	      __streambuf_type* __sb = __in.rdbuf();
-	      __int_type __c = __sb->sgetc();
+	      __int_type __c = __in.rdbuf()->sgetc();
 
 	      while (__extracted < __n
 		     && !_Traits::eq_int_type(__c, __eof)
-		     && !__ct.is(ctype_base::space, _Traits::to_char_type(__c)))
+		     && !__ct.is(__ctype_base::space,
+				 _Traits::to_char_type(__c)))
 		{
 		  if (__len == sizeof(__buf) / sizeof(_CharT))
 		    {
@@ -589,25 +587,30 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		    }
 		  __buf[__len++] = _Traits::to_char_type(__c);
 		  ++__extracted;
-		  __c = __sb->snextc();
+		  __c = __in.rdbuf()->snextc();
 		}
 	      __str.append(__buf, __len);
 
 	      if (_Traits::eq_int_type(__c, __eof))
-		__err |= ios_base::eofbit;
+		__err |= __ios_base::eofbit;
 	      __in.width(0);
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __in._M_setstate(__ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    {
 	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 91. Description of operator>> and getline() for string<>
 	      // might cause endless loop
-	      __in._M_setstate(ios_base::badbit);
+	      __in._M_setstate(__ios_base::badbit);
 	    }
 	}
       // 211.  operator>>(istream&, string&) doesn't set failbit
       if (!__extracted)
-	__err |= ios_base::failbit;
+	__err |= __ios_base::failbit;
       if (__err)
 	__in.setstate(__err);
       return __in;
@@ -621,20 +624,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    _CharT __delim)
     {
       typedef basic_istream<_CharT, _Traits>	        __istream_type;
-      typedef typename __istream_type::int_type		__int_type;
-      typedef typename __istream_type::__streambuf_type __streambuf_type;
-      typedef typename __istream_type::__ctype_type	__ctype_type;
+      typedef typename __istream_type::ios_base         __ios_base;
       typedef __gnu_cxx::__versa_string<_CharT, _Traits, _Alloc, _Base>
 	                                                __string_type;
+      typedef typename __istream_type::int_type		__int_type;
       typedef typename __string_type::size_type		__size_type;
 
       __size_type __extracted = 0;
       const __size_type __n = __str.max_size();
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      typename __ios_base::iostate __err = __ios_base::goodbit;
       typename __istream_type::sentry __cerb(__in, true);
       if (__cerb)
 	{
-	  try
+	  __try
 	    {
 	      // Avoid reallocation for common case.
 	      __str.erase();
@@ -642,8 +644,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      __size_type __len = 0;
 	      const __int_type __idelim = _Traits::to_int_type(__delim);
 	      const __int_type __eof = _Traits::eof();
-	      __streambuf_type* __sb = __in.rdbuf();
-	      __int_type __c = __sb->sgetc();
+	      __int_type __c = __in.rdbuf()->sgetc();
 
 	      while (__extracted < __n
 		     && !_Traits::eq_int_type(__c, __eof)
@@ -656,35 +657,40 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		    }
 		  __buf[__len++] = _Traits::to_char_type(__c);
 		  ++__extracted;
-		  __c = __sb->snextc();
+		  __c = __in.rdbuf()->snextc();
 		}
 	      __str.append(__buf, __len);
 
 	      if (_Traits::eq_int_type(__c, __eof))
-		__err |= ios_base::eofbit;
+		__err |= __ios_base::eofbit;
 	      else if (_Traits::eq_int_type(__c, __idelim))
 		{
 		  ++__extracted;		  
-		  __sb->sbumpc();
+		  __in.rdbuf()->sbumpc();
 		}
 	      else
-		__err |= ios_base::failbit;
+		__err |= __ios_base::failbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __in._M_setstate(__ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    {
 	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 91. Description of operator>> and getline() for string<>
 	      // might cause endless loop
-	      __in._M_setstate(ios_base::badbit);
+	      __in._M_setstate(__ios_base::badbit);
 	    }
 	}
       if (!__extracted)
-	__err |= ios_base::failbit;
+	__err |= __ios_base::failbit;
       if (__err)
 	__in.setstate(__err);
       return __in;
     }      
-  
+
 _GLIBCXX_END_NAMESPACE
 
 #endif // _VSTRING_TCC

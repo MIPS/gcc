@@ -1,5 +1,5 @@
 /* Handle errors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
@@ -30,11 +30,31 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "gfortran.h"
 
-int gfc_suppress_error = 0;
+static int suppress_errors = 0;
 
 static int terminal_width, buffer_flag, errors, warnings;
 
 static gfc_error_buf error_buffer, warning_buffer, *cur_error_buffer;
+
+
+/* Go one level deeper suppressing errors.  */
+
+void
+gfc_push_suppress_errors (void)
+{
+  gcc_assert (suppress_errors >= 0);
+  ++suppress_errors;
+}
+
+
+/* Leave one level of error suppressing.  */
+
+void
+gfc_pop_suppress_errors (void)
+{
+  gcc_assert (suppress_errors > 0);
+  --suppress_errors;
+}
 
 
 /* Per-file error initialization.  */
@@ -68,12 +88,10 @@ error_char (char c)
     {
       if (cur_error_buffer->index >= cur_error_buffer->allocated)
 	{
-	  cur_error_buffer->allocated =
-	    cur_error_buffer->allocated
-	    ? cur_error_buffer->allocated * 2 : 1000;
-	  cur_error_buffer->message
-	    = xrealloc (cur_error_buffer->message,
-			cur_error_buffer->allocated);
+	  cur_error_buffer->allocated = cur_error_buffer->allocated
+				      ? cur_error_buffer->allocated * 2 : 1000;
+	  cur_error_buffer->message = XRESIZEVEC (char, cur_error_buffer->message,
+						  cur_error_buffer->allocated);
 	}
       cur_error_buffer->message[cur_error_buffer->index++] = c;
     }
@@ -89,7 +107,7 @@ error_char (char c)
 	  if (index + 1 >= allocated)
 	    {
 	      allocated = allocated ? allocated * 2 : 1000;
-	      line = xrealloc (line, allocated);
+	      line = XRESIZEVEC (char, line, allocated);
 	    }
 	  line[index++] = c;
 	  if (c == '\n')
@@ -115,18 +133,12 @@ error_string (const char *p)
 
 /* Print a formatted integer to the error buffer or output.  */
 
-#define IBUF_LEN 30
+#define IBUF_LEN 60
 
 static void
-error_integer (int i)
+error_uinteger (unsigned long int i)
 {
   char *p, int_buf[IBUF_LEN];
-
-  if (i < 0)
-    {
-      i = -i;
-      error_char ('-');
-    }
 
   p = int_buf + IBUF_LEN - 1;
   *p-- = '\0';
@@ -143,6 +155,91 @@ error_integer (int i)
   error_string (p + 1);
 }
 
+static void
+error_integer (long int i)
+{
+  unsigned long int u;
+
+  if (i < 0)
+    {
+      u = (unsigned long int) -i;
+      error_char ('-');
+    }
+  else
+    u = i;
+
+  error_uinteger (u);
+}
+
+
+static void
+print_wide_char_into_buffer (gfc_char_t c, char *buf)
+{
+  static const char xdigit[16] = { '0', '1', '2', '3', '4', '5', '6',
+    '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+  if (gfc_wide_is_printable (c))
+    {
+      buf[1] = '\0';
+      buf[0] = (unsigned char) c;
+    }
+  else if (c < ((gfc_char_t) 1 << 8))
+    {
+      buf[4] = '\0';
+      buf[3] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[2] = xdigit[c & 0x0F];
+
+      buf[1] = 'x';
+      buf[0] = '\\';
+    }
+  else if (c < ((gfc_char_t) 1 << 16))
+    {
+      buf[6] = '\0';
+      buf[5] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[4] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[3] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[2] = xdigit[c & 0x0F];
+
+      buf[1] = 'u';
+      buf[0] = '\\';
+    }
+  else
+    {
+      buf[10] = '\0';
+      buf[9] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[8] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[7] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[6] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[5] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[4] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[3] = xdigit[c & 0x0F];
+      c = c >> 4;
+      buf[2] = xdigit[c & 0x0F];
+
+      buf[1] = 'U';
+      buf[0] = '\\';
+    }
+}
+
+static char wide_char_print_buffer[11];
+
+const char *
+gfc_print_wide_char (gfc_char_t c)
+{
+  print_wide_char_into_buffer (c, wide_char_print_buffer);
+  return wide_char_print_buffer;
+}
+
 
 /* Show the file, where it was included, and the source line, give a
    locus.  Calls error_printf() recursively, but the recursion is at
@@ -151,12 +248,12 @@ error_integer (int i)
 static void error_printf (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 
 static void
-show_locus (locus * loc, int c1, int c2)
+show_locus (locus *loc, int c1, int c2)
 {
   gfc_linebuf *lb;
   gfc_file *f;
-  char c, *p;
-  int i, m, offset, cmax;
+  gfc_char_t c, *p;
+  int i, offset, cmax;
 
   /* TODO: Either limit the total length and number of included files
      displayed or add buffering of arbitrary number of characters in
@@ -174,11 +271,7 @@ show_locus (locus * loc, int c1, int c2)
   error_string (f->filename);
   error_char (':');
     
-#ifdef USE_MAPPED_LOCATION
   error_integer (LOCATION_LINE (lb->location));
-#else
-  error_integer (lb->linenum);
-#endif
 
   if ((c1 > 0) || (c2 > 0))
     error_char ('.');
@@ -199,7 +292,7 @@ show_locus (locus * loc, int c1, int c2)
     {
       i = f->inclusion_line;
 
-      f = f->included_by;
+      f = f->up;
       if (f == NULL) break;
 
       error_printf ("    Included at %s:%d:", f->filename, i);
@@ -214,14 +307,6 @@ show_locus (locus * loc, int c1, int c2)
 
   offset = 0;
 
-  /* When the loci is not associated with a column, it will have a
-     value of zero.  We adjust this to 1 so that it will appear.  */
-     
-  if (c1 == 0)
-    c1 = 1;
-  if (c2 == 0)
-    c2 = 1;
-
   /* If the two loci would appear in the same column, we shift
      '2' one column to the right, so as to print '12' rather than
      just '1'.  We do this here so it will be accounted for in the
@@ -234,12 +319,6 @@ show_locus (locus * loc, int c1, int c2)
   if (cmax > terminal_width - 5)
     offset = cmax - terminal_width + 5;
 
-  /* TODO: Is there a good reason for the following apparently-redundant
-     check, and the similar ones in the single-locus cases below?  */
-
-  if (offset < 0)
-    offset = 0;
-
   /* Show the line itself, taking care not to print more than what can
      show up on the terminal.  Tabs are converted to spaces, and 
      nonprintable characters are converted to a "\xNN" sequence.  */
@@ -248,34 +327,21 @@ show_locus (locus * loc, int c1, int c2)
      to work correctly when nonprintable characters exist.  A better 
      solution should be found.  */
 
-  p = lb->line + offset;
-  i = strlen (p);
+  p = &(lb->line[offset]);
+  i = gfc_wide_strlen (p);
   if (i > terminal_width)
     i = terminal_width - 1;
 
   for (; i > 0; i--)
     {
+      static char buffer[11];
+
       c = *p++;
       if (c == '\t')
 	c = ' ';
 
-      if (ISPRINT (c))
-	error_char (c);
-      else
-	{
-	  error_char ('\\');
-	  error_char ('x');
-
-	  m = ((c >> 4) & 0x0F) + '0';
-	  if (m > '9')
-	    m += 'A' - '9' - 1;
-	  error_char (m);
-
-	  m = (c & 0x0F) + '0';
-	  if (m > '9')
-	    m += 'A' - '9' - 1;
-	  error_char (m);
-	}
+      print_wide_char_into_buffer (c, buffer);
+      error_string (buffer);
     }
 
   error_char ('\n');
@@ -287,7 +353,7 @@ show_locus (locus * loc, int c1, int c2)
   c1 -= offset;
   c2 -= offset;
 
-  for (i = 1; i <= cmax; i++)
+  for (i = 0; i <= cmax; i++)
     {
       if (i == c1)
 	error_char ('1');
@@ -307,7 +373,7 @@ show_locus (locus * loc, int c1, int c2)
    loci may or may not be on the same source line.  */
 
 static void
-show_loci (locus * l1, locus * l2)
+show_loci (locus *l1, locus *l2)
 {
   int m, c1, c2;
 
@@ -348,7 +414,6 @@ show_loci (locus * l1, locus * l2)
   show_locus (l1, c1, c2);
 
   return;
-
 }
 
 
@@ -377,7 +442,8 @@ show_loci (locus * l1, locus * l2)
 static void ATTRIBUTE_GCC_GFC(2,0)
 error_print (const char *type, const char *format0, va_list argp)
 {
-  enum { TYPE_CURRENTLOC, TYPE_LOCUS, TYPE_INTEGER, TYPE_CHAR, TYPE_STRING,
+  enum { TYPE_CURRENTLOC, TYPE_LOCUS, TYPE_INTEGER, TYPE_UINTEGER,
+         TYPE_LONGINT, TYPE_ULONGINT, TYPE_CHAR, TYPE_STRING,
 	 NOTYPE };
   struct
   {
@@ -386,6 +452,9 @@ error_print (const char *type, const char *format0, va_list argp)
     union
     {
       int intval;
+      unsigned int uintval;
+      long int longintval;
+      unsigned long int ulongintval;
       char charval;
       const char * stringval;
     } u;
@@ -422,7 +491,10 @@ error_print (const char *type, const char *format0, va_list argp)
 	continue;
 
       if (*format == '%')
-	continue;
+	{
+	  format++;
+	  continue;
+	}
 
       if (ISDIGIT (*format))
 	{
@@ -457,6 +529,19 @@ error_print (const char *type, const char *format0, va_list argp)
 	  case 'd':
 	  case 'i':
 	    arg[pos].type = TYPE_INTEGER;
+	    break;
+
+	  case 'u':
+	    arg[pos].type = TYPE_UINTEGER;
+
+	  case 'l':
+	    c = *format++;
+	    if (c == 'u')
+	      arg[pos].type = TYPE_ULONGINT;
+	    else if (c == 'i' || c == 'd')
+	      arg[pos].type = TYPE_LONGINT;
+	    else
+	      gcc_unreachable ();
 	    break;
 
 	  case 'c':
@@ -505,6 +590,18 @@ error_print (const char *type, const char *format0, va_list argp)
 	    arg[pos].u.intval = va_arg (argp, int);
 	    break;
 
+	  case TYPE_UINTEGER:
+	    arg[pos].u.uintval = va_arg (argp, unsigned int);
+	    break;
+
+	  case TYPE_LONGINT:
+	    arg[pos].u.longintval = va_arg (argp, long int);
+	    break;
+
+	  case TYPE_ULONGINT:
+	    arg[pos].u.ulongintval = va_arg (argp, unsigned long int);
+	    break;
+
 	  case TYPE_CHAR:
 	    arg[pos].u.charval = (char) va_arg (argp, int);
 	    break;
@@ -544,10 +641,10 @@ error_print (const char *type, const char *format0, va_list argp)
 	}
 
       format++;
-      if (ISDIGIT(*format))
+      if (ISDIGIT (*format))
 	{
 	  /* This is a position specifier.  See comment above.  */
-	  while (ISDIGIT(*format))
+	  while (ISDIGIT (*format))
 	    format++;
 	    
 	  /* Skip over the dollar sign.  */
@@ -574,6 +671,19 @@ error_print (const char *type, const char *format0, va_list argp)
 	case 'i':
 	  error_integer (spec[n++].u.intval);
 	  break;
+
+	case 'u':
+	  error_uinteger (spec[n++].u.uintval);
+	  break;
+
+	case 'l':
+	  format++;
+	  if (*format == 'u')
+	    error_uinteger (spec[n++].u.ulongintval);
+	  else
+	    error_integer (spec[n++].u.longintval);
+	  break;
+
 	}
     }
 
@@ -627,7 +737,11 @@ gfc_warning (const char *nocmsgid, ...)
   error_char ('\0');
 
   if (buffer_flag == 0)
+  {
     warnings++;
+    if (warnings_are_errors)
+      gfc_increment_error_count();
+  }
 }
 
 
@@ -652,21 +766,19 @@ gfc_notification_std (int std)
    standard does not contain the requested bits.  Return FAILURE if
    an error is generated.  */
 
-try
+gfc_try
 gfc_notify_std (int std, const char *nocmsgid, ...)
 {
   va_list argp;
   bool warning;
 
-  warning = ((gfc_option.warn_std & std) != 0)
-	    && !inhibit_warnings;
-  if ((gfc_option.allow_std & std) != 0
-      && !warning)
+  warning = ((gfc_option.warn_std & std) != 0) && !inhibit_warnings;
+  if ((gfc_option.allow_std & std) != 0 && !warning)
     return SUCCESS;
 
-  if (gfc_suppress_error)
+  if (suppress_errors)
     return warning ? SUCCESS : FAILURE;
-  
+
   cur_error_buffer = warning ? &warning_buffer : &error_buffer;
   cur_error_buffer->flag = 1;
   cur_error_buffer->index = 0;
@@ -682,13 +794,13 @@ gfc_notify_std (int std, const char *nocmsgid, ...)
 
   if (buffer_flag == 0)
     {
-      if (warning)
+      if (warning && !warnings_are_errors)
 	warnings++;
       else
 	gfc_increment_error_count();
     }
 
-  return warning ? SUCCESS : FAILURE;
+  return (warning && !warnings_are_errors) ? SUCCESS : FAILURE;
 }
 
 
@@ -706,6 +818,8 @@ gfc_warning_now (const char *nocmsgid, ...)
   i = buffer_flag;
   buffer_flag = 0;
   warnings++;
+  if (warnings_are_errors)
+    gfc_increment_error_count();
 
   va_start (argp, nocmsgid);
   error_print (_("Warning:"), _(nocmsgid), argp);
@@ -748,7 +862,7 @@ gfc_error (const char *nocmsgid, ...)
 {
   va_list argp;
 
-  if (gfc_suppress_error)
+  if (suppress_errors)
     return;
 
   error_buffer.flag = 1;
@@ -881,7 +995,7 @@ gfc_error_check (void)
 /* Save the existing error state.  */
 
 void
-gfc_push_error (gfc_error_buf * err)
+gfc_push_error (gfc_error_buf *err)
 {
   err->flag = error_buffer.flag;
   if (error_buffer.flag)
@@ -894,7 +1008,7 @@ gfc_push_error (gfc_error_buf * err)
 /* Restore a previous pushed error state.  */
 
 void
-gfc_pop_error (gfc_error_buf * err)
+gfc_pop_error (gfc_error_buf *err)
 {
   error_buffer.flag = err->flag;
   if (error_buffer.flag)
@@ -910,35 +1024,10 @@ gfc_pop_error (gfc_error_buf * err)
 /* Free a pushed error state, but keep the current error state.  */
 
 void
-gfc_free_error (gfc_error_buf * err)
+gfc_free_error (gfc_error_buf *err)
 {
   if (err->flag)
     gfc_free (err->message);
-}
-
-
-/* Debug wrapper for printf.  */
-
-void
-gfc_status (const char *cmsgid, ...)
-{
-  va_list argp;
-
-  va_start (argp, cmsgid);
-
-  vprintf (_(cmsgid), argp);
-
-  va_end (argp);
-}
-
-
-/* Subroutine for outputting a single char so that we don't have to go
-   around creating a lot of 1-character strings.  */
-
-void
-gfc_status_char (char c)
-{
-  putchar (c);
 }
 
 

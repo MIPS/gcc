@@ -1,5 +1,5 @@
 /* GtkFramePeer.java -- Implements FramePeer with GTK
-   Copyright (C) 1999, 2002, 2004, 2006 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -57,6 +57,11 @@ public class GtkFramePeer extends GtkWindowPeer
   native void removeMenuBarPeer ();
   native void gtkFixedSetVisible (boolean visible);
 
+  private native void maximize();
+  private native void unmaximize();
+  private native void iconify();
+  private native void deiconify();
+
   int getMenuBarHeight ()
   {
     return menuBar == null ? 0 : getMenuBarHeight (menuBar);
@@ -82,7 +87,7 @@ public class GtkFramePeer extends GtkWindowPeer
       {
         // We're adding a menubar where there was no menubar before.
         gtkFixedSetVisible (false);
-        menuBar = (MenuBarPeer) ((MenuBar) bar).getPeer();
+        menuBar = (MenuBarPeer) bar.getPeer();
         setMenuBarPeer (menuBar);
         int menuBarWidth =
           awtComponent.getWidth () - insets.left - insets.right;
@@ -104,7 +109,7 @@ public class GtkFramePeer extends GtkWindowPeer
         int oldHeight = menuBarHeight;
         int menuBarWidth =
           awtComponent.getWidth () - insets.left - insets.right;
-        menuBar = (MenuBarPeer) ((MenuBar) bar).getPeer ();
+        menuBar = (MenuBarPeer) bar.getPeer ();
         setMenuBarPeer (menuBar);
         if (menuBarWidth > 0)
           setMenuBarWidth (menuBar, menuBarWidth);
@@ -171,13 +176,17 @@ public class GtkFramePeer extends GtkWindowPeer
 
   public void setIconImage (Image image) 
   {
-      if (image != null)
-	{
-	  if (image instanceof GtkImage)
-	    nativeSetIconImage((GtkImage) image);
-	  else
-	    nativeSetIconImage(new GtkImage(image.getSource()));
-	}
+    if (image != null)
+      {
+        GtkImage gtkImage;
+        if (image instanceof GtkImage)
+          gtkImage = (GtkImage) image;
+	else
+	  gtkImage = new GtkImage(image.getSource());
+
+        if (gtkImage.isLoaded && ! gtkImage.errorLoading)
+          nativeSetIconImage(gtkImage);
+      }
   }
 
   protected void postConfigureEvent (int x, int y, int width, int height)
@@ -199,12 +208,25 @@ public class GtkFramePeer extends GtkWindowPeer
 
   public int getState ()
   {
-    return 0;
+    return windowState;
   }
 
   public void setState (int state)
   {
-
+    switch (state)
+      {
+        case Frame.NORMAL:
+          if ((windowState & Frame.ICONIFIED) != 0)
+            deiconify();
+          if ((windowState & Frame.MAXIMIZED_BOTH) != 0)
+            unmaximize();
+          break;
+        case Frame.ICONIFIED:
+          iconify();
+          break;
+        case Frame.MAXIMIZED_BOTH:
+          maximize();
+      }
   }
 
   public void setMaximizedBounds (Rectangle r)
@@ -222,6 +244,13 @@ public class GtkFramePeer extends GtkWindowPeer
     // TODO Auto-generated method stub
     return false;
   }
+
+  public Rectangle getBoundsPrivate()
+  {
+    // TODO: Implement this properly.
+    throw new InternalError("Not yet implemented");
+  }
+
 }
 
 

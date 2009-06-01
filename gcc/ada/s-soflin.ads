@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -32,63 +30,82 @@
 ------------------------------------------------------------------------------
 
 --  This package contains a set of subprogram access variables that access
---  some low-level primitives that are called different depending whether
---  tasking is involved or not (e.g. the Get/Set_Jmpbuf_Address that needs
---  to provide a different value for each task). To avoid dragging in the
---  tasking all the time, we use a system of soft links where the links are
---  initialized to non-tasking versions, and then if the tasking is
---  initialized, they are reset to the real tasking versions.
+--  some low-level primitives that are different depending whether tasking is
+--  involved or not (e.g. the Get/Set_Jmpbuf_Address that needs to provide a
+--  different value for each task). To avoid dragging in the tasking runtimes
+--  all the time, we use a system of soft links where the links are
+--  initialized to non-tasking versions, and then if the tasking support is
+--  initialized, they are set to the real tasking versions.
+
+pragma Warnings (Off);
+--  When compiling this package with older compilers, there are many warnings,
+--  so we suppress them throughout most of this file. Pragmas Compiler_Unit,
+--  Preelaborate_05, and Favor_Top_Level are not supported by older compilers.
+
+pragma Compiler_Unit;
 
 with Ada.Exceptions;
 with System.Stack_Checking;
 
 package System.Soft_Links is
-   pragma Warnings (Off);
    pragma Preelaborate_05;
-   pragma Warnings (On);
 
    subtype EOA is Ada.Exceptions.Exception_Occurrence_Access;
    subtype EO is Ada.Exceptions.Exception_Occurrence;
 
    function Current_Target_Exception return EO;
    pragma Import
-     (Ada, Current_Target_Exception,
-      "__gnat_current_target_exception");
+     (Ada, Current_Target_Exception, "__gnat_current_target_exception");
    --  Import this subprogram from the private part of Ada.Exceptions
 
    --  First we have the access subprogram types used to establish the links.
    --  The approach is to establish variables containing access subprogram
-   --  values which by default point to dummy no tasking versions of routines.
+   --  values, which by default point to dummy no tasking versions of routines.
 
    type No_Param_Proc     is access procedure;
+   pragma Favor_Top_Level (No_Param_Proc);
    type Addr_Param_Proc   is access procedure (Addr : Address);
+   pragma Favor_Top_Level (Addr_Param_Proc);
    type EO_Param_Proc     is access procedure (Excep : EO);
+   pragma Favor_Top_Level (EO_Param_Proc);
 
    type Get_Address_Call  is access function return Address;
+   pragma Favor_Top_Level (Get_Address_Call);
    type Set_Address_Call  is access procedure (Addr : Address);
+   pragma Favor_Top_Level (Set_Address_Call);
    type Set_Address_Call2 is access procedure
      (Self_ID : Address; Addr : Address);
+   pragma Favor_Top_Level (Set_Address_Call2);
 
    type Get_Integer_Call  is access function return Integer;
+   pragma Favor_Top_Level (Get_Integer_Call);
    type Set_Integer_Call  is access procedure (Len : Integer);
+   pragma Favor_Top_Level (Set_Integer_Call);
 
    type Get_EOA_Call      is access function return EOA;
+   pragma Favor_Top_Level (Get_EOA_Call);
    type Set_EOA_Call      is access procedure (Excep : EOA);
+   pragma Favor_Top_Level (Set_EOA_Call);
    type Set_EO_Call       is access procedure (Excep : EO);
+   pragma Favor_Top_Level (Set_EO_Call);
 
    type Special_EO_Call   is access
      procedure (Excep : EO := Current_Target_Exception);
+   pragma Favor_Top_Level (Special_EO_Call);
 
    type Timed_Delay_Call  is access
      procedure (Time : Duration; Mode : Integer);
+   pragma Favor_Top_Level (Timed_Delay_Call);
 
    type Get_Stack_Access_Call is access
      function return Stack_Checking.Stack_Access;
+   pragma Favor_Top_Level (Get_Stack_Access_Call);
 
    type Task_Name_Call is access
      function return String;
+   pragma Favor_Top_Level (Task_Name_Call);
 
-   --  Suppress checks on all these types, since we know corrresponding
+   --  Suppress checks on all these types, since we know the corresponding
    --  values can never be null (the soft links are always initialized).
 
    pragma Suppress (Access_Check, No_Param_Proc);
@@ -112,6 +129,8 @@ package System.Soft_Links is
      function (Traceback : System.Address;
                Len       : Natural)
                return      String;
+   pragma Favor_Top_Level (Traceback_Decorator_Wrapper_Call);
+   pragma Warnings (On);
 
    --  Declarations for the no tasking versions of the required routines
 
@@ -126,7 +145,7 @@ package System.Soft_Links is
    --  uses this.
 
    procedure Update_Exception_NT (X : EO := Current_Target_Exception);
-   --  Handle exception setting. This routine is provided for targets which
+   --  Handle exception setting. This routine is provided for targets that
    --  have built-in exception handling such as the Java Virtual Machine.
    --  Currently, only JGNAT uses this. See 4jexcept.ads for an explanation on
    --  how this routine is used.
@@ -241,7 +260,7 @@ package System.Soft_Links is
    -- Master_Id Soft-Links --
    --------------------------
 
-   --  Soft-Links are used for procedures that manipulate  Master_Ids because
+   --  Soft-Links are used for procedures that manipulate Master_Ids because
    --  a Master_Id must be generated for access to limited class-wide types,
    --  whose root may be extended with task components.
 
@@ -359,5 +378,26 @@ package System.Soft_Links is
    pragma Inline (Set_Sec_Stack_Addr_Soft);
 
    function Get_Exc_Stack_Addr_Soft return Address;
+
+   --  The following is a dummy record designed to mimic Communication_Block as
+   --  defined in s-tpobop.ads:
+
+   --     type Communication_Block is record
+   --        Self      : Task_Id;  --  An access type
+   --        Enqueued  : Boolean := True;
+   --        Cancelled : Boolean := False;
+   --     end record;
+
+   --  The record is used in the construction of the predefined dispatching
+   --  primitive _disp_asynchronous_select in order to avoid the import of
+   --  System.Tasking.Protected_Objects.Operations. Note that this package
+   --  is always imported in the presence of interfaces since the dispatch
+   --  table uses entities from here.
+
+   type Dummy_Communication_Block is record
+      Comp_1 : Address;  --  Address and access have the same size
+      Comp_2 : Boolean;
+      Comp_3 : Boolean;
+   end record;
 
 end System.Soft_Links;

@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -157,8 +156,8 @@ begin
          Create_Block : declare
             Success        : Boolean;
             Make_Args      : Argument_List (1 .. 9);
-            C_Lib_Dir      : String := Lib_Dir.all & ASCII.Nul;
-            C_ADC_File     : String := ADC_File.all & ASCII.Nul;
+            C_Lib_Dir      : String := Lib_Dir.all & ASCII.NUL;
+            C_ADC_File     : String := ADC_File.all & ASCII.NUL;
             F_ADC_File     : String (1 .. max_path_len);
             F_ADC_File_Len : Integer := max_path_len;
             Include_Dirs   : Integer;
@@ -178,7 +177,7 @@ begin
             full_name (C_ADC_File'Address, F_ADC_File'Address);
 
             for I in 1 .. max_path_len loop
-               if F_ADC_File (I) = ASCII.Nul then
+               if F_ADC_File (I) = ASCII.NUL then
                   F_ADC_File_Len := I - 1;
                   exit;
                end if;

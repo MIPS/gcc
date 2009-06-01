@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package java.lang.reflect;
 
+import gnu.java.lang.CPStringBuilder;
+
 import gnu.java.lang.reflect.TypeSignature;
 
 import java.io.Serializable;
@@ -156,7 +158,7 @@ import java.util.Set;
  * @see Class
  * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.3
- * @status updated to 1.4, except for the use of ProtectionDomain
+ * @status updated to 1.5, except for the use of ProtectionDomain
  */
 public class Proxy implements Serializable
 {
@@ -255,8 +257,8 @@ public class Proxy implements Serializable
    */
   // synchronized so that we aren't trying to build the same class
   // simultaneously in two threads
-  public static synchronized Class getProxyClass(ClassLoader loader,
-                                                 Class[] interfaces)
+  public static synchronized Class<?> getProxyClass(ClassLoader loader,
+						    Class<?>... interfaces)
   {
     interfaces = (Class[]) interfaces.clone();
     ProxyType pt = new ProxyType(loader, interfaces);
@@ -310,7 +312,7 @@ public class Proxy implements Serializable
    * @see Constructor#newInstance(Object[])
    */
   public static Object newProxyInstance(ClassLoader loader,
-                                        Class[] interfaces,
+                                        Class<?>[] interfaces,
                                         InvocationHandler handler)
   {
     try
@@ -358,7 +360,7 @@ public class Proxy implements Serializable
    */
   // This is synchronized on the off chance that another thread is
   // trying to add a class to the map at the same time we read it.
-  public static synchronized boolean isProxyClass(Class clazz)
+  public static synchronized boolean isProxyClass(Class<?> clazz)
   {
     if (! Proxy.class.isAssignableFrom(clazz))
       return false;
@@ -471,9 +473,9 @@ public class Proxy implements Serializable
                                  .getMethod("equals",
                                             new Class[] {Object.class}));
           coreMethods.put(sig, sig);
-          sig = new ProxySignature(Object.class.getMethod("hashCode", null));
+          sig = new ProxySignature(Object.class.getMethod("hashCode"));
           coreMethods.put(sig, sig);
-          sig = new ProxySignature(Object.class.getMethod("toString", null));
+          sig = new ProxySignature(Object.class.getMethod("toString"));
           coreMethods.put(sig, sig);
         }
       catch (Exception e)
@@ -1033,7 +1035,7 @@ public class Proxy implements Serializable
           code_length += 9; // new, dup_x1, swap, invokespecial, athrow
         }
       int handler_pc = code_length - 1;
-      StringBuffer signature = new StringBuffer("(");
+      CPStringBuilder signature = new CPStringBuilder("(");
       for (int j = 0; j < paramtypes.length; j++)
         signature.append(TypeSignature.getEncodingOfClass(paramtypes[j]));
       signature.append(")").append(TypeSignature.getEncodingOfClass(ret_type));
@@ -1261,8 +1263,8 @@ public class Proxy implements Serializable
 	  // we're in the same package.
           m.flag = true;
 
-          Object[] args = {loader, qualName, bytecode, new Integer(0),
-                           new Integer(bytecode.length),
+          Object[] args = {loader, qualName, bytecode, Integer.valueOf(0),
+                           Integer.valueOf(bytecode.length),
                            Object.class.getProtectionDomain() };
           Class clazz = (Class) m.invoke(null, args);
 
@@ -1492,7 +1494,7 @@ public class Proxy implements Serializable
       if (i == len)
         return str;
 
-      final StringBuffer sb = new StringBuffer(str);
+      final CPStringBuilder sb = new CPStringBuilder(str);
       sb.setLength(i);
       for ( ; i < len; i++)
         {
@@ -1533,7 +1535,7 @@ public class Proxy implements Serializable
           int size = poolEntries.size() + 1;
           if (size >= 65535)
             throw new IllegalArgumentException("exceeds VM limitations");
-          i = new Integer(size);
+          i = Integer.valueOf(size);
           poolEntries.put(sequence, i);
           pool.append(sequence);
         }

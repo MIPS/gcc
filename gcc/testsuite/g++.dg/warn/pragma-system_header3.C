@@ -1,10 +1,9 @@
-// PR c++/30500
-// { dg-options "-Wcast-align" }
+// PR c++/32368
+// { dg-options "-Wall -O" }
 
 #include "pragma-system_header3.h"
 
-void f()
+int main()
 {
-  g<int>();
-  h<int>();
+	return f();
 }

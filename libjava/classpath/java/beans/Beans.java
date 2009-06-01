@@ -295,7 +295,7 @@ public class Beans
     * @return the Bean as a new view, or if the operation
     *         could not be performed, the Bean itself.
     */
-   public static Object getInstanceOf(Object bean, Class newClass)
+   public static Object getInstanceOf(Object bean, Class<?> newClass)
    {
         return bean;
    }
@@ -309,12 +309,12 @@ public class Beans
     * Objects.
     *
     * @param bean the Bean to cast.
-    * @param newClass the Class to cast it to.
+    * @param newBeanClass the Class to cast it to.
     *
     * @return whether the Bean can be cast to the class type
     *         in question.
     */
-   public static boolean isInstanceOf(Object bean, Class newBeanClass)
+   public static boolean isInstanceOf(Object bean, Class<?> newBeanClass)
    {
        return newBeanClass.isInstance(bean);
    }

@@ -1,6 +1,6 @@
 /* Generate code from machine description to compute values of attributes.
-   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2002, 2003, 2004, 2005, 2006, 2007, 2008  Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -135,7 +135,7 @@ struct insn_def
   struct insn_def *next;	/* Next insn in chain.  */
   rtx def;			/* The DEFINE_...  */
   int insn_code;		/* Instruction number.  */
-  int insn_index;		/* Expression numer in file, for errors.  */
+  int insn_index;		/* Expression number in file, for errors.  */
   int lineno;			/* Line number.  */
   int num_alternatives;		/* Number of alternatives.  */
   int vec_idx;			/* Index of attribute vector in `def'.  */
@@ -188,6 +188,14 @@ struct delay_desc
   int lineno;			/* Line number.  */
 };
 
+struct attr_value_list
+{
+  struct attr_value *av;
+  struct insn_ent *ie;
+  struct attr_desc *attr;
+  struct attr_value_list *next;
+};
+
 /* Listheads of above structures.  */
 
 /* This one is indexed by the first character of the attribute name.  */
@@ -195,6 +203,7 @@ struct delay_desc
 static struct attr_desc *attrs[MAX_ATTRS_INDEX];
 static struct insn_def *defs;
 static struct delay_desc *delays;
+struct attr_value_list **insn_code_values;
 
 /* Other variables.  */
 
@@ -277,7 +286,8 @@ static rtx one_fn		   (rtx);
 static rtx max_fn		   (rtx);
 static rtx min_fn		   (rtx);
 
-#define oballoc(size) obstack_alloc (hash_obstack, size)
+#define oballoc(T) XOBNEW (hash_obstack, T)
+#define oballocvec(T, N) XOBNEWVEC (hash_obstack, T, (N))
 
 /* Hash table for sharing RTL and strings.  */
 
@@ -317,7 +327,7 @@ attr_hash_add_rtx (int hashcode, rtx rtl)
 {
   struct attr_hash *h;
 
-  h = obstack_alloc (hash_obstack, sizeof (struct attr_hash));
+  h = XOBNEW (hash_obstack, struct attr_hash);
   h->hashcode = hashcode;
   h->u.rtl = rtl;
   h->next = attr_hash_table[hashcode % RTL_HASH_SIZE];
@@ -331,7 +341,7 @@ attr_hash_add_string (int hashcode, char *str)
 {
   struct attr_hash *h;
 
-  h = obstack_alloc (hash_obstack, sizeof (struct attr_hash));
+  h = XOBNEW (hash_obstack, struct attr_hash);
   h->hashcode = -hashcode;
   h->u.str = str;
   h->next = attr_hash_table[hashcode % RTL_HASH_SIZE];
@@ -592,7 +602,7 @@ attr_string (const char *str, int len)
       return h->u.str;			/* <-- return if found.  */
 
   /* Not found; create a permanent copy and add it to the hash table.  */
-  new_str = obstack_alloc (hash_obstack, len + 1);
+  new_str = XOBNEWVAR (hash_obstack, char, len + 1);
   memcpy (new_str, str, len);
   new_str[len] = '\0';
   attr_hash_add_string (hashcode, new_str);
@@ -958,6 +968,7 @@ check_attr_value (rtx exp, struct attr_desc *attr)
     case CTZ:
     case POPCOUNT:
     case PARITY:
+    case BSWAP:
       XEXP (exp, 0) = check_attr_value (XEXP (exp, 0), attr);
       break;
 
@@ -1287,7 +1298,7 @@ get_attr_value (rtx value, struct attr_desc *attr, int insn_code)
 	    || insn_alternatives[av->first_insn->def->insn_code]))
       return av;
 
-  av = oballoc (sizeof (struct attr_value));
+  av = oballoc (struct attr_value);
   av->value = value;
   av->next = attr->first_value;
   attr->first_value = av;
@@ -1430,7 +1441,7 @@ fill_attr (struct attr_desc *attr)
       else
 	av = get_attr_value (value, attr, id->insn_code);
 
-      ie = oballoc (sizeof (struct insn_ent));
+      ie = oballoc (struct insn_ent);
       ie->def = id;
       insert_insn_ent (av, ie);
     }
@@ -1561,7 +1572,7 @@ make_length_attrs (void)
 							 no_address_fn[i],
 							 address_fn[i]),
 				     new_attr, ie->def->insn_code);
-	    new_ie = oballoc (sizeof (struct insn_ent));
+	    new_ie = oballoc (struct insn_ent);
 	    new_ie->def = ie->def;
 	    insert_insn_ent (new_av, new_ie);
 	  }
@@ -1835,11 +1846,11 @@ insert_right_side (enum rtx_code code, rtx exp, rtx term, int insn_code, int ins
 
   if (GET_CODE (exp) == code)
     {
-      rtx new = insert_right_side (code, XEXP (exp, 1),
-				   term, insn_code, insn_index);
-      if (new != XEXP (exp, 1))
+      rtx new_rtx = insert_right_side (code, XEXP (exp, 1),
+				       term, insn_code, insn_index);
+      if (new_rtx != XEXP (exp, 1))
 	/* Make a copy of this expression and call recursively.  */
-	newexp = attr_rtx (code, XEXP (exp, 0), new);
+	newexp = attr_rtx (code, XEXP (exp, 0), new_rtx);
       else
 	newexp = exp;
     }
@@ -1969,10 +1980,10 @@ evaluate_eq_attr (rtx exp, rtx value, int insn_code, int insn_index)
 
       for (i = 0; i < XVECLEN (value, 0); i += 2)
 	{
-	  rtx this = simplify_test_exp_in_temp (XVECEXP (value, 0, i),
-						insn_code, insn_index);
+	  rtx this_cond = simplify_test_exp_in_temp (XVECEXP (value, 0, i),
+						    insn_code, insn_index);
 
-	  right = insert_right_side (AND, andexp, this,
+	  right = insert_right_side (AND, andexp, this_cond,
 				     insn_code, insn_index);
 	  right = insert_right_side (AND, right,
 				     evaluate_eq_attr (exp,
@@ -1984,7 +1995,7 @@ evaluate_eq_attr (rtx exp, rtx value, int insn_code, int insn_index)
 				     insn_code, insn_index);
 
 	  /* Add this condition into the AND expression.  */
-	  newexp = attr_rtx (NOT, this);
+	  newexp = attr_rtx (NOT, this_cond);
 	  andexp = insert_right_side (AND, andexp, newexp,
 				      insn_code, insn_index);
 	}
@@ -2446,6 +2457,7 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
   struct attr_desc *attr;
   struct attr_value *av;
   struct insn_ent *ie;
+  struct attr_value_list *iv;
   int i;
   rtx newexp = exp;
   bool left_alt, right_alt;
@@ -2716,16 +2728,36 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
 	 would give this insn the values being tested for.  */
       if (insn_code >= 0
 	  && (attr = find_attr (&XSTR (exp, 0), 0)) != NULL)
-	for (av = attr->first_value; av; av = av->next)
-	  for (ie = av->first_insn; ie; ie = ie->next)
-	    if (ie->def->insn_code == insn_code)
-	      {
-		rtx x;
-		x = evaluate_eq_attr (exp, av->value, insn_code, insn_index);
-		x = SIMPLIFY_TEST_EXP (x, insn_code, insn_index);
-		if (attr_rtx_cost(x) < 20)
-		  return x;
-	      }
+	{
+	  rtx x;
+
+	  av = NULL;
+	  if (insn_code_values)
+	    {
+	      for (iv = insn_code_values[insn_code]; iv; iv = iv->next)
+		if (iv->attr == attr)
+		  {
+		    av = iv->av;
+		    break;
+		  }
+	    }
+	  else
+	    {
+	      for (av = attr->first_value; av; av = av->next)
+		for (ie = av->first_insn; ie; ie = ie->next)
+		  if (ie->def->insn_code == insn_code)
+		    goto got_av;
+	    }
+
+	  if (av)
+	    {
+	    got_av:
+	      x = evaluate_eq_attr (exp, av->value, insn_code, insn_index);
+	      x = SIMPLIFY_TEST_EXP (x, insn_code, insn_index);
+	      if (attr_rtx_cost(x) < 20)
+		return x;
+	    }
+	}
       break;
 
     default:
@@ -2754,14 +2786,6 @@ optimize_attrs (void)
   struct insn_ent *ie;
   rtx newexp;
   int i;
-  struct attr_value_list
-  {
-    struct attr_value *av;
-    struct insn_ent *ie;
-    struct attr_desc *attr;
-    struct attr_value_list *next;
-  };
-  struct attr_value_list **insn_code_values;
   struct attr_value_list *ivbuf;
   struct attr_value_list *iv;
 
@@ -2838,6 +2862,7 @@ optimize_attrs (void)
 
   free (ivbuf);
   free (insn_code_values - 2);
+  insn_code_values = NULL;
 }
 
 /* Clear the ATTR_CURR_SIMPLIFIED_P flag in EXP and its subexpressions.  */
@@ -2925,7 +2950,7 @@ gen_attr (rtx exp, int lineno)
       name_ptr = XSTR (exp, 1);
       while ((p = next_comma_elt (&name_ptr)) != NULL)
 	{
-	  av = oballoc (sizeof (struct attr_value));
+	  av = oballoc (struct attr_value);
 	  av->value = attr_rtx (CONST_STRING, p);
 	  av->next = attr->first_value;
 	  attr->first_value = av;
@@ -3031,37 +3056,6 @@ compares_alternatives_p (rtx exp)
   return 0;
 }
 
-/* Returns nonzero is INNER is contained in EXP.  */
-
-static int
-contained_in_p (rtx inner, rtx exp)
-{
-  int i, j;
-  const char *fmt;
-
-  if (rtx_equal_p (inner, exp))
-    return 1;
-
-  for (i = 0, fmt = GET_RTX_FORMAT (GET_CODE (exp));
-       i < GET_RTX_LENGTH (GET_CODE (exp)); i++)
-    switch (*fmt++)
-      {
-      case 'e':
-      case 'u':
-	if (contained_in_p (inner, XEXP (exp, i)))
-	  return 1;
-	break;
-
-      case 'E':
-	for (j = 0; j < XVECLEN (exp, i); j++)
-	  if (contained_in_p (inner, XVECEXP (exp, i, j)))
-	    return 1;
-	break;
-      }
-
-  return 0;
-}
-
 /* Process DEFINE_PEEPHOLE, DEFINE_INSN, and DEFINE_ASM_ATTRIBUTES.  */
 
 static void
@@ -3069,7 +3063,7 @@ gen_insn (rtx exp, int lineno)
 {
   struct insn_def *id;
 
-  id = oballoc (sizeof (struct insn_def));
+  id = oballoc (struct insn_def);
   id->next = defs;
   defs = id;
   id->def = exp;
@@ -3133,7 +3127,7 @@ gen_delay (rtx def, int lineno)
 	have_annul_false = 1;
     }
 
-  delay = oballoc (sizeof (struct delay_desc));
+  delay = oballoc (struct delay_desc);
   delay->def = def;
   delay->num = ++num_delays;
   delay->next = delays;
@@ -3887,51 +3881,6 @@ write_attr_case (struct attr_desc *attr, struct attr_value *av,
   printf ("\n");
 }
 
-/* Search for uses of non-const attributes and write code to cache them.  */
-
-static int
-write_expr_attr_cache (rtx p, struct attr_desc *attr)
-{
-  const char *fmt;
-  int i, ie, j, je;
-
-  if (GET_CODE (p) == EQ_ATTR)
-    {
-      if (XSTR (p, 0) != attr->name)
-	return 0;
-
-      if (!attr->is_numeric)
-	printf ("  enum attr_%s ", attr->name);
-      else
-	printf ("  int ");
-
-      printf ("attr_%s = get_attr_%s (insn);\n", attr->name, attr->name);
-      return 1;
-    }
-
-  fmt = GET_RTX_FORMAT (GET_CODE (p));
-  ie = GET_RTX_LENGTH (GET_CODE (p));
-  for (i = 0; i < ie; i++)
-    {
-      switch (*fmt++)
-	{
-	case 'e':
-	  if (write_expr_attr_cache (XEXP (p, i), attr))
-	    return 1;
-	  break;
-
-	case 'E':
-	  je = XVECLEN (p, i);
-	  for (j = 0; j < je; ++j)
-	    if (write_expr_attr_cache (XVECEXP (p, i, j), attr))
-	      return 1;
-	  break;
-	}
-    }
-
-  return 0;
-}
-
 /* Utilities to write in various forms.  */
 
 static void
@@ -4210,7 +4159,7 @@ find_attr (const char **name_p, int create)
   if (! create)
     return NULL;
 
-  attr = oballoc (sizeof (struct attr_desc));
+  attr = oballoc (struct attr_desc);
   attr->name = DEF_ATTR_STRING (name);
   attr->first_value = attr->default_val = NULL;
   attr->is_numeric = attr->is_const = attr->is_special = 0;
@@ -4349,7 +4298,7 @@ static size_t n_insn_reservs;
 static void
 gen_insn_reserv (rtx def)
 {
-  struct insn_reserv *decl = oballoc (sizeof (struct insn_reserv));
+  struct insn_reserv *decl = oballoc (struct insn_reserv);
 
   decl->name            = DEF_ATTR_STRING (XSTR (def, 0));
   decl->default_latency = XINT (def, 1);
@@ -4390,7 +4339,7 @@ gen_bypass_1 (const char *s, size_t len)
     if (s == b->insn)
       return;  /* already got that one */
 
-  b = oballoc (sizeof (struct bypass_list));
+  b = oballoc (struct bypass_list);
   b->insn = s;
   b->next = all_bypasses;
   all_bypasses = b;
@@ -4582,13 +4531,13 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"coretypes.h\"\n");
   printf ("#include \"tm.h\"\n");
   printf ("#include \"rtl.h\"\n");
+  printf ("#include \"insn-attr.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"insn-config.h\"\n");
   printf ("#include \"recog.h\"\n");
   printf ("#include \"regs.h\"\n");
   printf ("#include \"real.h\"\n");
   printf ("#include \"output.h\"\n");
-  printf ("#include \"insn-attr.h\"\n");
   printf ("#include \"toplev.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"function.h\"\n");
@@ -4596,13 +4545,13 @@ from the machine description file `md'.  */\n\n");
   printf ("#define operands recog_data.operand\n\n");
 
   /* Make `insn_alternatives'.  */
-  insn_alternatives = oballoc (insn_code_number * sizeof (int));
+  insn_alternatives = oballocvec (int, insn_code_number);
   for (id = defs; id; id = id->next)
     if (id->insn_code >= 0)
       insn_alternatives[id->insn_code] = (1 << id->num_alternatives) - 1;
 
   /* Make `insn_n_alternatives'.  */
-  insn_n_alternatives = oballoc (insn_code_number * sizeof (int));
+  insn_n_alternatives = oballocvec (int, insn_code_number);
   for (id = defs; id; id = id->next)
     if (id->insn_code >= 0)
       insn_n_alternatives[id->insn_code] = id->num_alternatives;

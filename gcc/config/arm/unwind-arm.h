@@ -1,30 +1,26 @@
 /* Header file for the ARM EABI unwinder
-   Copyright (C) 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Paul Brook
 
    This file is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
-   Free Software Foundation; either version 2, or (at your option) any
+   Free Software Foundation; either version 3, or (at your option) any
    later version.
-
-   In addition to the permissions in the GNU General Public License, the
-   Free Software Foundation gives you unlimited permission to link the
-   compiled version of this file into combinations with other programs,
-   and to distribute those combinations without any restriction coming
-   from the use of this file.  (The General Public License restrictions
-   do apply in other respects; for example, they cover modification of
-   the file, and distribution when not linked into a combine
-   executable.)
 
    This file is distributed in the hope that it will be useful, but
    WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Language-independent unwinder header public defines.  This contains both
    ABI defined objects, and GNU support routines.  */
@@ -205,6 +201,13 @@ extern "C" {
 	_Unwind_Control_Block *, struct _Unwind_Context *, void *);
   _Unwind_Reason_Code _Unwind_ForcedUnwind (_Unwind_Control_Block *,
 					    _Unwind_Stop_Fn, void *);
+  /* @@@ Use unwind data to perform a stack backtrace.  The trace callback
+     is called for every stack frame in the call chain, but no cleanup
+     actions are performed.  */
+  typedef _Unwind_Reason_Code (*_Unwind_Trace_Fn) (_Unwind_Context *, void *);
+  _Unwind_Reason_Code _Unwind_Backtrace(_Unwind_Trace_Fn,
+					void*);
+
   _Unwind_Word _Unwind_GetCFA (struct _Unwind_Context *);
   void _Unwind_Complete(_Unwind_Control_Block *ucbp);
   void _Unwind_DeleteException (_Unwind_Exception *);
@@ -225,11 +228,11 @@ extern "C" {
       if (!tmp)
 	return 0;
 
-#if defined(linux) || defined(__NetBSD__)
+#if (defined(linux) && !defined(__uClinux__)) || defined(__NetBSD__)
       /* Pc-relative indirect.  */
       tmp += ptr;
       tmp = *(_Unwind_Word *) tmp;
-#elif defined(__symbian__)
+#elif defined(__symbian__) || defined(__uClinux__)
       /* Absolute pointer.  Nothing more to do.  */
 #else
       /* Pc-relative pointer.  */
@@ -263,6 +266,13 @@ extern "C" {
      landing pad uses the same instruction set as the call site.  */
 #define _Unwind_SetIP(context, val) \
   _Unwind_SetGR (context, 15, val | (_Unwind_GetGR (context, 15) & 1))
+
+/* leb128 type numbers have a potentially unlimited size.
+   The target of the following definitions of _sleb128_t and _uleb128_t
+   is to have efficient data types large enough to hold the leb128 type
+   numbers used in the unwind code.  */
+typedef long _sleb128_t;
+typedef unsigned long _uleb128_t;
 
 #ifdef __cplusplus
 }   /* extern "C" */

@@ -173,19 +173,17 @@ public class EventHandler implements InvocationHandler
     try
       {
 	// Look for boolean property getter isProperty
-	getter = o.getClass().getMethod("is" + capitalize(prop),
-						 null);
+	getter = o.getClass().getMethod("is" + capitalize(prop));
       }
     catch (NoSuchMethodException nsme1)
       {
         try {
           // Look for regular property getter getProperty
-          getter = o.getClass().getMethod("get" + capitalize(prop),
-						 null);
+          getter = o.getClass().getMethod("get" + capitalize(prop));
         } catch(NoSuchMethodException nsme2) {
             try {
             // Finally look for a method of the name prop
-            getter = o.getClass().getMethod(prop, null);
+            getter = o.getClass().getMethod(prop);
             } catch(NoSuchMethodException nsme3) {
                 // Ok, give up with an intelligent hint for the user.
                 throw new RuntimeException("Method not called: Could not find a property or method '" + prop
@@ -194,7 +192,7 @@ public class EventHandler implements InvocationHandler
         }
       }
     try {
-      Object val = getter.invoke(o, null);
+      Object val = getter.invoke(o);
 
       if (rest != null)
         return getProperty(val, rest);
@@ -304,7 +302,7 @@ public class EventHandler implements InvocationHandler
     // more specification compliant than the JDK itself because this one will fail in such a case.
     try
       {
-      actionMethod = targetClass.getMethod(action, null);
+      actionMethod = targetClass.getMethod(action);
       }
     catch(NoSuchMethodException nsme)
       {
@@ -342,7 +340,7 @@ public class EventHandler implements InvocationHandler
       throw new ArrayIndexOutOfBoundsException(0);
     
     // Invoke target.action(property)
-    return actionMethod.invoke(target, null);
+    return actionMethod.invoke(target);
       } catch(InvocationTargetException ite) {
          throw new RuntimeException(ite.getCause());
       } catch(IllegalAccessException iae) {
@@ -463,7 +461,8 @@ public class EventHandler implements InvocationHandler
    * @param action Target property or method to invoke.
    * @return A constructed proxy object.
    */
-  public static Object create(Class listenerInterface, Object target, String action)
+  public static <T> T create(Class<T> listenerInterface, Object target,
+			     String action)
   {
     return create(listenerInterface, target, action, null, null);
   }
@@ -552,8 +551,8 @@ public class EventHandler implements InvocationHandler
    * @param eventPropertyName Name of property to extract from event.
    * @return A constructed proxy object.
    */
-  public static Object create(Class listenerInterface, Object target,
-			      String action, String eventPropertyName)
+  public static <T> T create(Class<T> listenerInterface, Object target,
+			     String action, String eventPropertyName)
   {
     return create(listenerInterface, target, action, eventPropertyName, null);
   }
@@ -587,9 +586,9 @@ public class EventHandler implements InvocationHandler
    * @param listenerMethodName Listener method to implement.
    * @return A constructed proxy object.
    */
-  public static Object create(Class listenerInterface, Object target,
-			      String action, String eventPropertyName,
-			      String listenerMethodName)
+  public static <T> T create(Class<T> listenerInterface, Object target,
+			     String action, String eventPropertyName,
+			     String listenerMethodName)
   {
     // Create EventHandler instance
     EventHandler eh = new EventHandler(target, action, eventPropertyName,
@@ -597,10 +596,9 @@ public class EventHandler implements InvocationHandler
 
     // Create proxy object passing in the event handler
     Object proxy = Proxy.newProxyInstance(listenerInterface.getClassLoader(),
-					  new Class[] {listenerInterface},
+					  new Class<?>[] {listenerInterface},
 					  eh);
 
-    return proxy;
+    return (T) proxy;
   }
-
 }

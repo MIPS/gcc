@@ -6,32 +6,30 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GNAT.OS_Lib; use GNAT.OS_Lib;
+with System.OS_Lib; use System.OS_Lib;
 
 package body Output is
 
@@ -57,6 +55,15 @@ package body Output is
    begin
       Special_Output_Proc := null;
    end Cancel_Special_Output;
+
+   ------------
+   -- Column --
+   ------------
+
+   function Column return Pos is
+   begin
+      return Pos (Next_Col);
+   end Column;
 
    ------------------
    -- Flush_Buffer --
@@ -99,15 +106,6 @@ package body Output is
          Next_Col := 1;
       end if;
    end Flush_Buffer;
-
-   ------------
-   -- Column --
-   ------------
-
-   function Column return Pos is
-   begin
-      return Pos (Next_Col);
-   end Column;
 
    ---------------------------
    -- Restore_Output_Buffer --
@@ -240,8 +238,12 @@ package body Output is
          Write_Eol;
       end if;
 
-      Buffer (Next_Col) := C;
-      Next_Col := Next_Col + 1;
+      if C = ASCII.LF then
+         Write_Eol;
+      else
+         Buffer (Next_Col) := C;
+         Next_Col := Next_Col + 1;
+      end if;
    end Write_Char;
 
    ---------------
@@ -250,10 +252,27 @@ package body Output is
 
    procedure Write_Eol is
    begin
+      --  Remove any trailing space
+
+      while Next_Col > 1 and then Buffer (Next_Col - 1) = ' ' loop
+         Next_Col := Next_Col - 1;
+      end loop;
+
       Buffer (Next_Col) := ASCII.LF;
       Next_Col := Next_Col + 1;
       Flush_Buffer;
    end Write_Eol;
+
+   ---------------------------
+   -- Write_Eol_Keep_Blanks --
+   ---------------------------
+
+   procedure Write_Eol_Keep_Blanks is
+   begin
+      Buffer (Next_Col) := ASCII.LF;
+      Next_Col := Next_Col + 1;
+      Flush_Buffer;
+   end Write_Eol_Keep_Blanks;
 
    ----------------------
    -- Write_Erase_Char --
@@ -294,6 +313,17 @@ package body Output is
       Write_Str (S);
       Write_Eol;
    end Write_Line;
+
+   ------------------
+   -- Write_Spaces --
+   ------------------
+
+   procedure Write_Spaces (N : Nat) is
+   begin
+      for J in 1 .. N loop
+         Write_Char (' ');
+      end loop;
+   end Write_Spaces;
 
    ---------------
    -- Write_Str --

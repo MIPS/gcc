@@ -1,6 +1,6 @@
 /* Target definitions for GCC for Intel 80386 running Solaris 2
    Copyright (C) 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2007 Free Software Foundation, Inc.
+   2004, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Fred Fish (fnf@cygnus.com).
 
 This file is part of GCC.
@@ -49,7 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Solaris 2/Intel as chokes on #line directives.  */
 #undef CPP_SPEC
-#define CPP_SPEC "%{.S:-P} %(cpp_subtarget)"
+#define CPP_SPEC "%{,assembler-with-cpp:-P} %(cpp_subtarget)"
 
 /* FIXME: Removed -K PIC from generic Solaris 2 ASM_SPEC: the native assembler
    gives many warnings: R_386_32 relocation is used for symbol ".text".  */
@@ -95,6 +95,9 @@ along with GCC; see the file COPYING3.  If not see
    the bits from config/sol2.c.  */
 #define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
 #define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
+
+/* Register the Solaris-specific #pragma directives.  */
+#define REGISTER_SUBTARGET_PRAGMAS() solaris_register_pragmas ()
 
 /* Output a simple call for .init/.fini.  */
 #define ASM_OUTPUT_CALL(FILE, FN)				\

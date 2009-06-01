@@ -142,7 +142,7 @@ PrependVersionedLibdir (::java::lang::String* libpath)
 }
 
 void
-gnu::classpath::SystemProperties::insertSystemProperties (java::util::Properties *newprops)
+gnu::classpath::SystemProperties::insertSystemProperties (::java::util::Properties *newprops)
 {
   // A convenience define.
 #define SET(Prop,Val) \
@@ -156,7 +156,7 @@ gnu::classpath::SystemProperties::insertSystemProperties (java::util::Properties
   SET ("java.runtime.version", JV_VERSION);
   SET ("java.vendor", "Free Software Foundation, Inc.");
   SET ("java.vendor.url", "http://gcc.gnu.org/java/");
-  SET ("java.class.version", "48.0");
+  SET ("java.class.version", "49.0");
   SET ("java.vm.specification.version", "1.0");
   SET ("java.vm.specification.name", "Java(tm) Virtual Machine Specification");
   SET ("java.vm.specification.vendor", "Sun Microsystems Inc.");
@@ -270,7 +270,10 @@ gnu::classpath::SystemProperties::insertSystemProperties (java::util::Properties
       if (errno != ERANGE)
 	break;
       buflen = 2 * buflen;
+      char *orig_buf = buffer;
       buffer = (char *) realloc (buffer, buflen);
+      if (buffer == NULL)
+	free (orig_buf);
     }
   if (buffer != NULL)
     free (buffer);

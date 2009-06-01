@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -78,7 +77,7 @@ package Lib.Writ is
 
    --    Adding entirely new lines (with a new key letter) to the ali
    --    file is always safe, at any point (other than before the V
-   --    line), since suchy lines will be ignored.
+   --    line), since such lines will be ignored.
 
    --  Following the guidelines in this section should ensure that this
    --  problem is minimized and that old tools will be able to deal
@@ -168,7 +167,7 @@ package Lib.Writ is
    --    P <<parameters>>
 
    --      Indicates various information that applies to the compilation
-   --      of the corresponding source unit. Parameters is a sequence of
+   --      of the corresponding source file. Parameters is a sequence of
    --      zero or more two letter codes that indicate configuration
    --      pragmas and other parameters that apply:
    --
@@ -210,7 +209,7 @@ package Lib.Writ is
    --              to all units in the file.
    --
    --         NS   Normalize_Scalars pragma in effect for all units in
-   --              this file
+   --              this file.
    --
    --         Qx   A valid Queueing_Policy pragma applies to all the units
    --              in this file, where x is the first character (upper case)
@@ -368,6 +367,26 @@ package Lib.Writ is
    --      line number of the corresponding Interrupt_State pragma.
    --      This is used in consistency messages.
 
+   --  -------------------------------------
+   --  -- S Priority Specific Dispatching --
+   --  -------------------------------------
+
+   --    S policy_identifier first_priority last_priority line-number
+
+   --      This line records information from a Priority_Specific_Dispatching
+   --      pragma. There is one line for each separate pragma, and if no such
+   --      pragmas are used, then no S lines are present.
+
+   --      The policy_identifier is the first character (upper case) of the
+   --      corresponding policy name (e.g. 'F' for FIFO_Within_Priorities).
+
+   --      The first_priority and last_priority fields define the range of
+   --      priorities to which the specified dispatching policy apply.
+
+   --      The line number is an unsigned decimal integer giving the
+   --      line number of the corresponding Priority_Specific_Dispatching
+   --      pragma. This is used in consistency messages.
+
    ----------------------------
    -- Compilation Unit Lines --
    ----------------------------
@@ -376,7 +395,7 @@ package Lib.Writ is
    --  each compilation unit that appears in the corresponding object file.
    --  In particular, when a package body or subprogram body is compiled,
    --  there will be two sets of information, one for the spec and one for
-   --  the body. with the entry for the body appearing first. This is the
+   --  the body, with the entry for the body appearing first. This is the
    --  only case in which a single ALI file contains more than one unit (in
    --  particular note that subunits do *not* count as compilation units for
    --  this purpose, and generate no library information, since they are
@@ -403,11 +422,25 @@ package Lib.Writ is
    --      The <<attributes>> are a series of two letter codes indicating
    --      information about the unit:
    --
+   --         BD  Unit does not have pragma Elaborate_Body, but the elaboration
+   --             circuit has determined that it would be a good idea if this
+   --             pragma were present, since the body of the package contains
+   --             elaboration code that modifies one or more variables in the
+   --             visible part of the package. The binder will try, but does
+   --             not promise, to keep the elaboration of the body close to
+   --             the elaboration of the spec.
+   --
    --         DE  Dynamic Elaboration. This unit was compiled with the
    --             dynamic elaboration model, as set by either the -gnatE
    --             switch or pragma Elaboration_Checks (Dynamic).
    --
-   --         EB  Unit has pragma Elaborate_Body
+   --         EB  Unit has pragma Elaborate_Body, or is a generic instance
+   --             that has a body. Set for instances because RM 12.3(20)
+   --             requires that the body be immediately elaborated after the
+   --             spec (we would normally do that anyway, because elaborate
+   --             spec and body together whenever possible, and for an instance
+   --             it is always possible; however setting EB ensures that this
+   --             is done even when using the -p gnatbind switch).
    --
    --         EE  Elaboration entity is present which must be set true when
    --             the unit is elaborated. The name of the elaboration entity
@@ -425,7 +458,8 @@ package Lib.Writ is
    --             case usage is detected, or the compiler cannot determine
    --             the style, then no I parameter will appear.
    --
-   --         IS  Initialize_Scalars pragma applies to this unit
+   --         IS  Initialize_Scalars pragma applies to this unit, or else there
+   --             is at least one use of the Invalid_Value attribute.
    --
    --         KM  Unit source uses a style with keywords in mixed case
    --         KU  (KM) or all upper case (KU). If the standard lower-case
@@ -437,6 +471,23 @@ package Lib.Writ is
    --             may or may not have NE set, depending on whether or not
    --             elaboration code is required. Set if N_Compilation_Unit
    --             node has flag Has_No_Elaboration_Code set.
+   --
+   --         OL   The units in this file are compiled with a local pragma
+   --              Optimize_Alignment, so no consistency requirement applies
+   --              to these units. All internal units have this status since
+   --              they have an automatic default of Optimize_Alignment (Off).
+   --
+   --         OO   Optimize_Alignment (Off) is the default setting for all
+   --              units in this file. All files in the partition that specify
+   --              a default must specify the same default.
+   --
+   --         OS   Optimize_Alignment (Space) is the default setting for all
+   --              units in this file. All files in the partition that specify
+   --              a default must specify the same default.
+   --
+   --         OT   Optimize_Alignment (Time) is the default setting for all
+   --              units in this file. All files in the partition that specify
+   --              a default must specify the same default.
    --
    --         PK  Unit is package, rather than a subprogram
    --
@@ -465,15 +516,15 @@ package Lib.Writ is
    --    W unit-name [source-name lib-name] [E] [EA] [ED] [AD]
    --
    --      One of these lines is present for each unit that is mentioned in
-   --      an explicit with clause by the current unit. The first parameter
-   --      is the unit name in internal format. The second parameter is the
-   --      file name of the file that must be compiled to compile this unit.
-   --      It is usually the file for the body, except for packages
-   --      which have no body; for units that need a body, if the source file
-   --      for the body cannot be found, the file name of the spec is used
-   --      instead. The third parameter is the file name of the library
-   --      information file that contains the results of compiling this unit.
-   --      The optional modifiers are used as follows:
+   --      an explicit with clause by the current unit. The first parameter is
+   --      the unit name in internal format. The second parameter is the file
+   --      name of the file that must be compiled to compile this unit. It is
+   --      usually the file for the body, except for packages which have no
+   --      body. For units that need a body, if the source file for the body
+   --      cannot be found, the file name of the spec is used instead. The
+   --      third parameter is the file name of the library information file
+   --      that contains the results of compiling this unit. The optional
+   --      modifiers are used as follows:
    --
    --        E   pragma Elaborate applies to this unit
    --
@@ -495,13 +546,15 @@ package Lib.Writ is
    --      of a generic unit compiled with earlier versions of GNAT which
    --      did not generate object or ali files for generics.
 
+   --  In fact W lines include implicit withs ???
+
    --  -----------------------
    --  -- L  Linker_Options --
    --  -----------------------
 
    --  Following the W lines (if any, or the U line if not), are an
    --  optional series of lines that indicates the usage of the pragma
-   --  Linker_Options in the associated unit. For each appearence of a
+   --  Linker_Options in the associated unit. For each appearance of a
    --  pragma Linker_Options (or Link_With) in the unit, a line is
    --  present with the form:
 
@@ -642,6 +695,36 @@ package Lib.Writ is
      Table_Initial        => 30,
      Table_Increment      => 200,
      Table_Name           => "Name_Interrupt_States");
+
+   --  The table structure defined here stores one entry for each
+   --  Priority_Specific_Dispatching pragma encountered either in the main
+   --  source or in an ancillary with'ed source. Since
+   --  have to be consistent across all units in a partition, we may
+   --  as well detect inconsistencies at compile time when we can.
+
+   type Specific_Dispatching_Entry is record
+      Dispatching_Policy : Character;
+      --  First character (upper case) of the corresponding policy name
+
+      First_Priority     : Nat;
+      --  Lower bound of the priority range to which the specified dispatching
+      --  policy applies.
+
+      Last_Priority      : Nat;
+      --  Upper bound of the priority range to which the specified dispatching
+      --  policy applies.
+
+      Pragma_Loc         : Source_Ptr;
+      --  Location of pragma setting this value in place
+   end record;
+
+   package Specific_Dispatching is new Table.Table (
+     Table_Component_Type => Specific_Dispatching_Entry,
+     Table_Index_Type     => Nat,
+     Table_Low_Bound      => 1,
+     Table_Initial        => 10,
+     Table_Increment      => 100,
+     Table_Name           => "Name_Priority_Specific_Dispatching");
 
    -----------------
    -- Subprograms --

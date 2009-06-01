@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -95,17 +93,24 @@ package Output is
    --  e.g. CR/LF for DOS, or LF for Unix) to the standard output file.
    --  This routine also empties the line buffer, actually writing it
    --  to the file. Note that Write_Eol is the only routine that causes
-   --  any actual output to be written.
+   --  any actual output to be written. Trailing spaces are removed.
+
+   procedure Write_Eol_Keep_Blanks;
+   --  Similar as Write_Eol, except that trailing spaces are not removed
 
    procedure Write_Int (Val : Int);
    --  Write an integer value with no leading blanks or zeroes. Negative
    --  values are preceded by a minus sign).
 
+   procedure Write_Spaces (N : Nat);
+   --  Write N spaces
+
    procedure Write_Str (S : String);
    --  Write a string of characters to the standard output file. Note that
-   --  end of line is handled separately using WRITE_EOL, so the string
-   --  should not contain either of the characters LF or CR, but it may
-   --  contain horizontal tab characters.
+   --  end of line is normally handled separately using WRITE_EOL, but it
+   --  is allowed for the string to contain LF (but not CR) characters,
+   --  which are properly interpreted as end of line characters. The string
+   --  may also contain horizontal tab characters.
 
    procedure Write_Line (S : String);
    --  Equivalent to Write_Str (S) followed by Write_Eol;
@@ -132,7 +137,7 @@ package Output is
 
    procedure Restore_Output_Buffer (S : Saved_Output_Buffer);
    --  Restore previously saved output buffer. The value in S is not affected
-   --  so it is legtimate to restore a buffer more than once.
+   --  so it is legitimate to restore a buffer more than once.
 
    --------------------------
    -- Debugging Procedures --
@@ -144,7 +149,7 @@ package Output is
    --  names, precisely to make sure that they are only used for debugging!
 
    procedure w (C : Character);
-   --  Dump quote, character quote, followed by line return
+   --  Dump quote, character, quote, followed by line return
 
    procedure w (S : String);
    --  Dump string followed by line return

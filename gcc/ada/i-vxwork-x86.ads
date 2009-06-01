@@ -6,7 +6,7 @@
 --                                                                          --
 --                                   S p e c                                --
 --                                                                          --
---                     Copyright (C) 1999-2005, AdaCore                     --
+--                     Copyright (C) 1999-2008, AdaCore                     --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,6 +47,9 @@
 --  For complete documentation of the operations in this package, please
 --  consult the VxWorks Programmer's Manual and VxWorks Reference Manual.
 
+pragma Warnings (Off, "*foreign convention*");
+pragma Warnings (Off, "*add Convention pragma*");
+
 with System.VxWorks;
 
 package Interfaces.VxWorks is
@@ -73,7 +76,7 @@ package Interfaces.VxWorks is
    --     procedure Handler (Parameter : System.Address) is
    --     begin
    --        Count := Count + 1;
-   --        logMsg ("received an interrupt" & ASCII.LF & ASCII.Nul);
+   --        logMsg ("received an interrupt" & ASCII.LF & ASCII.NUL);
    --     end Handler;
    --  end P;
    --
@@ -155,16 +158,16 @@ package Interfaces.VxWorks is
    procedure intVecGet2
      (vector       : Interrupt_Vector;
       pFunction    : out VOIDFUNCPTR;
-      pIdtGate     : access int;
-      pIdtSelector : access int);
+      pIdtGate     : not null access int;
+      pIdtSelector : not null access int);
    --  Binding to the C routine intVecGet2. Use this to get the
    --  existing handler for later restoral
 
    procedure intVecSet2
      (vector       : Interrupt_Vector;
       pFunction    : VOIDFUNCPTR;
-      pIdtGate     : access int;
-      pIdtSelector : access int);
+      pIdtGate     : not null access int;
+      pIdtSelector : not null access int);
    --  Binding to the C routine intVecSet2. Use this to restore a
    --  handler obtained using intVecGet2
 

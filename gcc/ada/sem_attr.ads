@@ -6,18 +6,18 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License along  --
+-- with this program; see file COPYING3.  If not see                        --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -32,13 +32,11 @@
 --  This spec also documents all GNAT implementation defined pragmas
 
 with Exp_Tss; use Exp_Tss;
+with Namet;   use Namet;
 with Snames;  use Snames;
 with Types;   use Types;
 
 package Sem_Attr is
-
-   type Attribute_Class_Array is array (Attribute_Id) of Boolean;
-   --  Type used to build attribute classification flag arrays
 
    -----------------------------------------
    -- Implementation Dependent Attributes --
@@ -78,18 +76,18 @@ package Sem_Attr is
       ---------------
 
       Attribute_Asm_Input => True,
-      --  Used only in conjunction with the Asm and Asm_Volatile subprograms
-      --  in package Machine_Code to construct machine instructions. See
-      --  documentation in package Machine_Code in file s-maccod.ads.
+      --  Used only in conjunction with the Asm subprograms in package
+      --  Machine_Code to construct machine instructions. See documentation
+      --  in package Machine_Code in file s-maccod.ads.
 
       ----------------
       -- Asm_Output --
       ----------------
 
       Attribute_Asm_Output => True,
-      --  Used only in conjunction with the Asm and Asm_Volatile subprograms
-      --  in package Machine_Code to construct machine instructions. See
-      --  documentation in package Machine_Code in file s-maccod.ads.
+      --  Used only in conjunction with the Asm subprograms in package
+      --  Machine_Code to construct machine instructions. See documentation
+      --  in package Machine_Code in file s-maccod.ads.
 
       ---------------
       -- AST_Entry --
@@ -212,6 +210,21 @@ package Sem_Attr is
       --  absence of an enumeration representation clause. This is a static
       --  attribute (i.e. the result is static if the argument is static).
 
+      --------------
+      -- Enum_Val --
+      --------------
+
+      Attribute_Enum_Val => True,
+      --  For every enumeration subtype S, S'Enum_Val denotes a function
+      --  with the following specification:
+      --
+      --    function S'Enum_Val (Arg : universal_integer) return S'Base;
+      --
+      --  This function performs the inverse transformation to Enum_Rep. Given
+      --  a representation value for the type, it returns the corresponding
+      --  enumeration value. Constraint_Error is raised if no value of the
+      --  enumeration type corresponds to the given integer value.
+
       -----------------
       -- Fixed_Value --
       -----------------
@@ -278,6 +291,16 @@ package Sem_Attr is
       --  attribute is primarily intended for use in implementation of the
       --  standard input-output functions for fixed-point values.
 
+      Attribute_Invalid_Value => True,
+      --  For every scalar type, S'Invalid_Value designates an undefined value
+      --  of the type. If possible this value is an invalid value, and in fact
+      --  is identical to the value that would be set if Initialize_Scalars
+      --  mode were in effect (including the behavior of its value on
+      --  environment variables or binder switches). The intended use is
+      --  to set a value where initialization is required (e.g. as a result of
+      --  the coding standards in use), but logically no initialization is
+      --  needed, and the value should never be accessed.
+
       ------------------
       -- Machine_Size --
       ------------------
@@ -303,7 +326,7 @@ package Sem_Attr is
       --------------------
 
       Attribute_Mechanism_Code => True,
-      --  function'Mechanism_Code yeilds an integer code for the mechanism
+      --  function'Mechanism_Code yields an integer code for the mechanism
       --  used for the result of function, and subprogram'Mechanism_Code (n)
       --  yields the mechanism used for formal parameter number n (a static
       --  integer value, 1 = first parameter). The code returned is:
@@ -327,7 +350,7 @@ package Sem_Attr is
       --  A reference T'Null_Parameter denotes an (imaginary) object of type or
       --  subtype T allocated at (machine) address zero. The attribute is
       --  allowed only as the default expression of a formal parameter, or as
-      --  an actual expression of a subporgram call. In either case, the
+      --  an actual expression of a subprogram call. In either case, the
       --  subprogram must be imported.
       --
       --  The identity of the object is represented by the address zero in the
@@ -382,6 +405,27 @@ package Sem_Attr is
       --  for constructing this definition in package System (see note above
       --  in Default_Bit_Order description). The is a static attribute.
 
+      ---------------
+      -- Stub_Type --
+      ---------------
+
+      Attribute_Stub_Type => True,
+      --  The GNAT implementation of remote access-to-classwide types is
+      --  organised as described in AARM E.4(20.t): a value of an RACW type
+      --  (designating a remote object) is represented as a normal access
+      --  value, pointing to a "stub" object which in turn contains the
+      --  necessary information to contact the designated remote object. A
+      --  call on any dispatching operation of such a stub object does the
+      --  remote call, if necessary, using the information in the stub object
+      --  to locate the target partition, etc.
+      --
+      --  For a prefix T that denotes a remote access-to-classwide type,
+      --  T'Stub_Type denotes the type of the corresponding stub objects.
+      --
+      --  By construction, the layout of T'Stub_Type is identical to that of
+      --  System.Partition_Interface.RACW_Stub_Type (see implementation notes
+      --  in body of Exp_Dist).
+
       -----------------
       -- Target_Name --
       -----------------
@@ -402,7 +446,7 @@ package Sem_Attr is
       --  to convert this to an address using the same semantics as the
       --  System.Storage_Elements.To_Address function. The important difference
       --  is that this is a static attribute so it can be used in
-      --  initializations in preealborate packages.
+      --  initializations in preelaborate packages.
 
       ----------------
       -- Type_Class --
@@ -519,6 +563,17 @@ package Sem_Attr is
    --  parser has already checked that type returning attributes appear only
    --  in appropriate contexts (i.e. in subtype marks, or as prefixes for
    --  other attributes).
+
+   function Name_Implies_Lvalue_Prefix (Nam : Name_Id) return Boolean;
+   --  Determine whether the name of an attribute reference categorizes its
+   --  prefix as an lvalue. The following attributes fall under this bracket
+   --  by directly or indirectly modifying their prefixes.
+   --     Access
+   --     Address
+   --     Input
+   --     Read
+   --     Unchecked_Access
+   --     Unrestricted_Access
 
    procedure Resolve_Attribute (N : Node_Id; Typ : Entity_Id);
    --  Performs type resolution of attribute. If the attribute yields a

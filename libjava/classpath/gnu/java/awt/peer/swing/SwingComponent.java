@@ -37,6 +37,7 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.swing;
 
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 
@@ -62,7 +63,7 @@ public interface SwingComponent
 
   /**
    * Handles a mouse event. This is usually forwarded to
-   * {@link java.awt.Component#processMouseMotionEvent(MouseEvent)} of the swing
+   * {@link Component#processMouseMotionEvent(MouseEvent)} of the swing
    * component.
    *
    * @param ev the mouse event
@@ -71,7 +72,7 @@ public interface SwingComponent
 
   /**
    * Handles a mouse motion event. This is usually forwarded to
-   * {@link java.awt.Component#processMouseEvent(MouseEvent)} of the swing
+   * {@link Component#processMouseEvent(MouseEvent)} of the swing
    * component.
    *
    * @param ev the mouse motion event
@@ -80,10 +81,19 @@ public interface SwingComponent
 
   /**
    * Handles a key event. This is usually forwarded to
-   * {@link java.awt.Component#processKeyEvent(KeyEvent)} of the swing
+   * {@link Component#processKeyEvent(KeyEvent)} of the swing
    * component.
    *
    * @param ev the key event
    */
   void handleKeyEvent(KeyEvent ev);
+  
+  /**
+   * Handles a focus event. This is usually forwarded to
+   * {@link Component#processFocusEvent(FocusEvent)} of the swing
+   * component.
+   *
+   * @param ev the focus event
+   */
+  void handleFocusEvent(FocusEvent ev);
 }

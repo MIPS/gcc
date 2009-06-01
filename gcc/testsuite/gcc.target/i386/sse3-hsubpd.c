@@ -1,24 +1,16 @@
-/* { dg-do run { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-O2 -msse3" } */
+/* { dg-do run } */
+/* { dg-options "-O2 -msse3 -mfpmath=sse" } */
+
+#ifndef CHECK_H
+#define CHECK_H "sse3-check.h"
+#endif
+
+#ifndef TEST
+#define TEST sse3_test
+#endif
+
+#include CHECK_H
 #include <pmmintrin.h>
-#include <stdlib.h>
-#include "../../gcc.dg/i386-cpuid.h"
-
-static void sse3_test (void);
-
-int
-main ()
-{
-  unsigned long cpu_facilities;
-
-  cpu_facilities = i386_cpuid_ecx ();
-
-  /* Run SSE3 test only if host has SSE3 support.  */
-  if ((cpu_facilities & bit_SSE3))
-    sse3_test ();
-
-  exit (0);
-}
 
 static void
 sse3_test_hsubpd (double *i1, double *i2, double *r)
@@ -75,7 +67,7 @@ static double vals[80] =
   };
 
 static void
-sse3_test (void)
+TEST (void)
 {
   int i;
   int fail = 0;

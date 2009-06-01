@@ -1,42 +1,36 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* format.c-- parse a FORMAT string into a binary format suitable for
  * interpretation during I/O statements */
 
-#include "config.h"
+#include "io.h"
 #include <ctype.h>
 #include <string.h>
-#include "libgfortran.h"
-#include "io.h"
 
 #define FARRAY_SIZE 64
 
@@ -51,6 +45,7 @@ typedef struct format_data
 {
   char *format_string, *string;
   const char *error;
+  char error_element;
   format_token saved_token;
   int value, format_string_len, reversion_ok;
   fnode *avail;
@@ -68,12 +63,12 @@ static const fnode colon_node = { FMT_COLON, 0, NULL, NULL, {{ 0, 0, 0 }}, 0,
 static const char posint_required[] = "Positive width required in format",
   period_required[] = "Period required in format",
   nonneg_required[] = "Nonnegative width required in format",
-  unexpected_element[] = "Unexpected element in format",
+  unexpected_element[] = "Unexpected element '%c' in format\n",
   unexpected_end[] = "Unexpected end of format string",
   bad_string[] = "Unterminated character constant in format",
   bad_hollerith[] = "Hollerith constant extends past the end of the format",
-  reversion_error[] = "Exhausted data descriptors in format";
-
+  reversion_error[] = "Exhausted data descriptors in format",
+  zero_width[] = "Zero width in format descriptor";
 
 /* next_char()-- Return the next character in the format string.
  * Returns -1 when the string is done.  If the literal flag is set,
@@ -90,9 +85,9 @@ next_char (format_data *fmt, int literal)
 	return -1;
 
       fmt->format_string_len--;
-      c = toupper (*fmt->format_string++);
+      fmt->error_element = c = toupper (*fmt->format_string++);
     }
-  while (c == ' ' && !literal);
+  while ((c == ' ' || c == '\t') && !literal);
 
   return c;
 }
@@ -397,7 +392,6 @@ format_lex (format_data *fmt)
 	  unget_char (fmt);
 	  break;
 	}
-
       break;
 
     case 'G':
@@ -417,7 +411,19 @@ format_lex (format_data *fmt)
       break;
 
     case 'D':
-      token = FMT_D;
+      switch (next_char (fmt, 0))
+	{
+	case 'P':
+	  token = FMT_DP;
+	  break;
+	case 'C':
+	  token = FMT_DC;
+	  break;
+	default:
+	  token = FMT_D;
+	  unget_char (fmt);
+	  break;
+	}
       break;
 
     case -1:
@@ -552,6 +558,11 @@ parse_format_list (st_parameter_dt *dtp)
       tail->repeat = 1;
       goto optional_comma;
 
+    case FMT_DC:
+    case FMT_DP:
+      notify_std (&dtp->common, GFC_STD_F2003, "Fortran 2003: DC or DP "
+		  "descriptor not allowed");
+    /* Fall through.  */
     case FMT_S:
     case FMT_SS:
     case FMT_SP:
@@ -577,6 +588,7 @@ parse_format_list (st_parameter_dt *dtp)
       tail->repeat = 1;
       notify_std (&dtp->common, GFC_STD_GNU, "Extension: $ descriptor");
       goto between_desc;
+
 
     case FMT_T:
     case FMT_TL:
@@ -682,6 +694,12 @@ parse_format_list (st_parameter_dt *dtp)
 
     case FMT_A:
       t = format_lex (fmt);
+      if (t == FMT_ZERO)
+	{
+	  fmt->error = zero_width;
+	  goto finished;
+	}
+
       if (t != FMT_POSINT)
 	{
 	  fmt->saved_token = t;
@@ -703,6 +721,31 @@ parse_format_list (st_parameter_dt *dtp)
       tail->repeat = repeat;
 
       u = format_lex (fmt);
+      if (t == FMT_G && u == FMT_ZERO)
+	{
+	  if (notification_std (GFC_STD_F2008) == ERROR
+	      || dtp->u.p.mode == READING)
+	    {
+	      fmt->error = zero_width;
+	      goto finished;
+	    }
+	  tail->u.real.w = 0;
+	  u = format_lex (fmt);
+	  if (u != FMT_PERIOD)
+	    {
+	      fmt->saved_token = u;
+	      break;
+	    }
+
+	  u = format_lex (fmt);
+	  if (u != FMT_POSINT)
+	    {
+	      fmt->error = posint_required;
+	      goto finished;
+	    }
+	  tail->u.real.d = fmt->value;
+	  break;
+	}
       if (t == FMT_F || dtp->u.p.mode == WRITING)
 	{
 	  if (u != FMT_POSINT && u != FMT_ZERO)
@@ -858,12 +901,8 @@ parse_format_list (st_parameter_dt *dtp)
       goto finished;
 
     case FMT_SLASH:
-      get_fnode (fmt, &head, &tail, FMT_SLASH);
-      tail->repeat = 1;
-      goto optional_comma;
-
     case FMT_COLON:
-      get_fnode (fmt, &head, &tail, FMT_COLON);
+      get_fnode (fmt, &head, &tail, t);
       tail->repeat = 1;
       goto optional_comma;
 
@@ -919,7 +958,10 @@ format_error (st_parameter_dt *dtp, const fnode *f, const char *message)
   if (f != NULL)
     fmt->format_string = f->source;
 
-  st_sprintf (buffer, "%s\n", message);
+  if (message == unexpected_element)
+    sprintf (buffer, message, fmt->error_element);
+  else
+    sprintf (buffer, "%s\n", message);
 
   j = fmt->format_string - dtp->format;
 
@@ -948,7 +990,7 @@ format_error (st_parameter_dt *dtp, const fnode *f, const char *message)
   *p++ = '^';
   *p = '\0';
 
-  generate_error (&dtp->common, ERROR_FORMAT, buffer);
+  generate_error (&dtp->common, LIBERROR_FORMAT, buffer);
 }
 
 
@@ -1067,7 +1109,7 @@ next_format0 (fnode * f)
 
 /* next_format()-- Return the next format node.  If the format list
  * ends up being exhausted, we do reversion.  Reversion is only
- * allowed if the we've seen a data descriptor since the
+ * allowed if we've seen a data descriptor since the
  * initialization or the last reversion.  We return NULL if there
  * are no more data descriptors to return (which is an error
  * condition). */

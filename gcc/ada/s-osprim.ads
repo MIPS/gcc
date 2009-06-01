@@ -6,25 +6,23 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1998-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1998-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
 -- Extensive contributions were provided by Ada Core Technologies, Inc.     --
@@ -45,49 +43,49 @@ package System.OS_Primitives is
    Max_Sensible_Delay : constant Duration :=
                           Duration'Min (183 * 24 * 60 * 60.0,
                                         Duration'Last);
-   --  Max of half a year delay, needed to prevent exceptions for large
-   --  delay values. It seems unlikely that any test will notice this
-   --  restriction, except in the case of applications setting the clock at
-   --  at run time (see s-tastim.adb). Also note that a larger value might
-   --  cause problems (e.g overflow, or more likely OS limitation in the
-   --  primitives used). In the case where half a year is too long (which
-   --  occurs in high integrity mode with 32-bit words, and possibly on
-   --  some specific ports of GNAT), Duration'Last is used instead.
+   --  Max of half a year delay, needed to prevent exceptions for large delay
+   --  values. It seems unlikely that any test will notice this restriction,
+   --  except in the case of applications setting the clock at run time (see
+   --  s-tastim.adb). Also note that a larger value might cause problems (e.g
+   --  overflow, or more likely OS limitation in the primitives used). In the
+   --  case where half a year is too long (which occurs in high integrity mode
+   --  with 32-bit words, and possibly on some specific ports of GNAT),
+   --  Duration'Last is used instead.
 
    procedure Initialize;
-   --  Initialize global settings related to this package.
-   --  This procedure should be called before any other subprograms in
-   --  this package. Note that this procedure can be called several times.
+   --  Initialize global settings related to this package. This procedure
+   --  should be called before any other subprograms in this package. Note
+   --  that this procedure can be called several times.
 
    function Clock return Duration;
    pragma Inline (Clock);
-   --  Returns "absolute" time, represented as an offset
-   --  relative to "the Epoch", which is Jan 1, 1970 on unixes.
-   --  This implementation is affected by system's clock changes.
+   --  Returns "absolute" time, represented as an offset relative to "the
+   --  Epoch", which is Jan 1, 1970 00:00:00 UTC on UNIX systems. This
+   --  implementation is affected by system's clock changes.
 
    function Monotonic_Clock return Duration;
    pragma Inline (Monotonic_Clock);
-   --  Returns "absolute" time, represented as an offset
-   --  relative to "the Epoch", which is Jan 1, 1970.
-   --  This clock implementation is immune to the system's clock changes.
+   --  Returns "absolute" time, represented as an offset relative to "the Unix
+   --  Epoch", which is Jan 1, 1970 00:00:00 UTC. This clock implementation is
+   --  immune to the system's clock changes.
 
    Relative          : constant := 0;
    Absolute_Calendar : constant := 1;
    Absolute_RT       : constant := 2;
-   --  Values for Mode call below. Note that the compiler (exp_ch9.adb)
-   --  relies on these values. So any change here must be reflected in
-   --  corresponding changes in the compiler.
+   --  Values for Mode call below. Note that the compiler (exp_ch9.adb) relies
+   --  on these values. So any change here must be reflected in corresponding
+   --  changes in the compiler.
 
    procedure Timed_Delay (Time : Duration; Mode : Integer);
-   --  Implements the semantics of the delay statement when no tasking is
-   --  used in the application.
+   --  Implements the semantics of the delay statement when no tasking is used
+   --  in the application.
    --
    --    Mode is one of the three values above
    --
    --    Time is a relative or absolute duration value, depending on Mode.
    --
-   --  Note that currently Ada.Real_Time always uses the tasking run time, so
-   --  this procedure should never be called with Mode set to Absolute_RT.
+   --  Note that currently Ada.Real_Time always uses the tasking run time,
+   --  so this procedure should never be called with Mode set to Absolute_RT.
    --  This may change in future or bare board implementations.
 
 end System.OS_Primitives;

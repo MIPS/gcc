@@ -1,5 +1,5 @@
 /* RMIClassLoaderImpl.java -- FIXME: briefly describe file purpose
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,9 @@ exception statement from your version. */
 
 package gnu.java.rmi.server;
 
+import gnu.java.lang.CPStringBuilder;
+
+import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -63,18 +66,12 @@ public class RMIClassLoaderImpl extends RMIClassLoaderSpi
       this.annotation = annotation;
     }
 
-    private MyClassLoader (URL[] urls, ClassLoader parent)
-    {
-      super (urls, parent);
-      this.annotation = urlToAnnotation (urls);
-    }
-
     public static String urlToAnnotation (URL[] urls)
     {
       if (urls.length == 0)
         return null;
 
-      StringBuffer annotation = new StringBuffer (64 * urls.length);
+      CPStringBuilder annotation = new CPStringBuilder (64 * urls.length);
 
       for (int i = 0; i < urls.length; i++)
       {
@@ -186,6 +183,7 @@ public class RMIClassLoaderImpl extends RMIClassLoaderSpi
       {
         defaultClassLoader = new MyClassLoader (new URL[] { defaultCodebase }, null,
                                                defaultAnnotation);
+        // XXX using getContextClassLoader here *cannot* be right
         cacheLoaders.put (new CacheKey (defaultAnnotation,
                                         Thread.currentThread().getContextClassLoader()),
                                         defaultClassLoader);
@@ -216,47 +214,53 @@ public class RMIClassLoaderImpl extends RMIClassLoaderSpi
                          ClassLoader defaultLoader)
     throws MalformedURLException, ClassNotFoundException
   {
-    ClassLoader loader;
-    if (defaultLoader == null)
-      loader = Thread.currentThread().getContextClassLoader();
-    else
-      loader = defaultLoader;
-
-    //try context class loader first
     try 
       {
-        return Class.forName(name, false, loader);
+        if (defaultLoader != null)
+            return Class.forName(name, false, defaultLoader);
       }
     catch (ClassNotFoundException e)
       {
-        // class not found in the local classpath
-      }
-    
-    if (codeBase.length() == 0) //==""
-      {
-        loader = defaultClassLoader;
-      }
-    else
-      {
-        loader = getClassLoader(codeBase);
       }
 
-    if (loader == null)
-      {
-        //do not throw NullPointerException
-        throw new ClassNotFoundException ("Could not find class (" + name +
-                                          ") at codebase (" + codeBase + ")");
-      }
-
-    return Class.forName(name, false, loader);
+    return Class.forName(name, false, getClassLoader(codeBase));
   }
 
   public Class loadProxyClass(String codeBase, String[] interfaces,
                               ClassLoader defaultLoader)
       throws MalformedURLException, ClassNotFoundException
   {
-    // FIXME: Implement this.
-    return null;
+    Class clss[] = new Class[interfaces.length];
+
+    for (int i = 0; i < interfaces.length; i++)
+      {
+        clss[i] = loadClass(codeBase, interfaces[i], defaultLoader);
+      }
+    
+    // Chain all class loaders (they may differ).
+    ArrayList loaders = new ArrayList(clss.length);
+    ClassLoader loader = null;
+    for (int i = 0; i < clss.length; i++)
+      {
+        loader = clss[i].getClassLoader();
+        if (! loaders.contains(loader))
+          {
+            loaders.add(0, loader);
+          }
+      }
+    if (loaders.size() > 1)
+      {
+        loader = new CombinedClassLoader(loaders);
+      }
+
+    try
+      {
+        return Proxy.getProxyClass(loader, clss);
+      }
+    catch (IllegalArgumentException e)
+      {
+        throw new ClassNotFoundException(null, e);
+      }
   }
 
   /**
@@ -272,6 +276,9 @@ public class RMIClassLoaderImpl extends RMIClassLoaderSpi
   public ClassLoader getClassLoader(String codebase)
     throws MalformedURLException
   {
+    if (codebase == null || codebase.length() == 0)
+      return Thread.currentThread().getContextClassLoader();
+
     ClassLoader loader;
     CacheKey loaderKey = new CacheKey
     (codebase, Thread.currentThread().getContextClassLoader());
@@ -332,7 +339,7 @@ public class RMIClassLoaderImpl extends RMIClassLoaderSpi
         if (urls.length == 0)
           return null;
         
-        StringBuffer annotation = new StringBuffer (64 * urls.length);
+        CPStringBuilder annotation = new CPStringBuilder (64 * urls.length);
         
         for (int i = 0; i < urls.length; i++)
           {

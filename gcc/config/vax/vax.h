@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler.  VAX version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -642,17 +643,13 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-/* This machine doesn't use IEEE floats.  */
-
-#define TARGET_FLOAT_FORMAT VAX_FLOAT_FORMAT
-
 /* Specify the cost of a branch insn; roughly the number of extra insns that
    should be added to avoid a branch.
 
    Branches are extremely cheap on the VAX while the shift insns often
    used to replace branches can be expensive.  */
 
-#define BRANCH_COST 0
+#define BRANCH_COST(speed_p, predictable_p) 0
 
 /* Tell final.c how to eliminate redundant test instructions.  */
 
@@ -823,14 +820,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
   ( fputs (".lcomm ", (FILE)),				\
     assemble_name ((FILE), (NAME)),			\
     fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-  ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-    sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;

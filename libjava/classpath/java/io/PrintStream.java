@@ -39,6 +39,9 @@ exception statement from your version. */
 
 package java.io;
 
+import java.util.Locale;
+import java.util.Formatter;
+
 import gnu.classpath.SystemProperties;
 
 /* Written using "Java Class Libraries", 2nd edition, ISBN 0-201-31002-3
@@ -58,8 +61,9 @@ import gnu.classpath.SystemProperties;
  *
  * @author Aaron M. Renn (arenn@urbanophile.com)
  * @author Tom Tromey (tromey@cygnus.com)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  */
-public class PrintStream extends FilterOutputStream
+public class PrintStream extends FilterOutputStream implements Appendable
 {
   /* Notice the implementation is quite similar to OutputStreamWriter.
    * This leads to some minor duplication, because neither inherits
@@ -67,12 +71,12 @@ public class PrintStream extends FilterOutputStream
 
   // Line separator string.
   private static final char[] line_separator
-    = SystemProperties.getProperty("line.separator").toCharArray();
+    = SystemProperties.getProperty("line.separator", "\n").toCharArray();
 
   /**
    *  Encoding name
    */
-  private String encoding;
+  private final String encoding;
 
   /**
    * This boolean indicates whether or not an error has ever occurred
@@ -84,7 +88,7 @@ public class PrintStream extends FilterOutputStream
    * This is <code>true</code> if auto-flush is enabled, 
    * <code>false</code> otherwise
    */
-  private boolean auto_flush;
+  private final boolean auto_flush;
 
   /**
    * This method initializes a new <code>PrintStream</code> object to write
@@ -181,16 +185,17 @@ public class PrintStream extends FilterOutputStream
   public PrintStream (OutputStream out, boolean auto_flush)
   {
     super (out);
-
+    String encoding;
     try {
-	this.encoding = SystemProperties.getProperty("file.encoding");
+	encoding = SystemProperties.getProperty("file.encoding");
     } catch (SecurityException e){
-	this.encoding = "ISO8859_1";
+	encoding = "ISO8859_1";
     } catch (IllegalArgumentException e){
-	this.encoding = "ISO8859_1";
+	encoding = "ISO8859_1";
     } catch (NullPointerException e){
-	this.encoding = "ISO8859_1";
+	encoding = "ISO8859_1";
     }
+    this.encoding = encoding;
     this.auto_flush = auto_flush;
   }
 
@@ -620,5 +625,51 @@ public class PrintStream extends FilterOutputStream
         setError ();
       }
   }
-} // class PrintStream
 
+  /** @since 1.5 */
+  public PrintStream append(char c)
+  {
+    print(c);
+    return this;
+  }
+
+  /** @since 1.5 */
+  public PrintStream append(CharSequence cs)
+  {
+    print(cs == null ? "null" : cs.toString());
+    return this;
+  }
+
+  /** @since 1.5 */
+  public PrintStream append(CharSequence cs, int start, int end)
+  {
+    print(cs == null ? "null" : cs.subSequence(start, end).toString());
+    return this;
+  }
+
+  /** @since 1.5 */
+  public PrintStream printf(String format, Object... args)
+  {
+    return format(format, args);
+  }
+
+  /** @since 1.5 */
+  public PrintStream printf(Locale locale, String format, Object... args)
+  {
+    return format(locale, format, args);
+  }
+
+  /** @since 1.5 */
+  public PrintStream format(String format, Object... args)
+  {
+    return format(Locale.getDefault(), format, args);
+  }
+
+  /** @since 1.5 */
+  public PrintStream format(Locale locale, String format, Object... args)
+  {
+    Formatter f = new Formatter(this, locale);
+    f.format(format, args);
+    return this;
+  }
+} // class PrintStream

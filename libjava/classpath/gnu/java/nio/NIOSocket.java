@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package gnu.java.nio;
 
-import gnu.java.net.PlainSocketImpl;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.channels.SocketChannel;
@@ -48,30 +47,33 @@ import java.nio.channels.SocketChannel;
  */
 public final class NIOSocket extends Socket
 {
-  private PlainSocketImpl impl;
   private SocketChannelImpl channel;
     
-  protected NIOSocket (PlainSocketImpl impl, SocketChannelImpl channel)
+  protected NIOSocket (SocketChannelImpl channel)
     throws IOException
   {
-    super (impl);
-    this.impl = impl;
+    super (new NIOSocketImpl(channel));
     this.channel = channel;
   }
 
-  public final PlainSocketImpl getPlainSocketImpl()
-  {
-    return impl;
-  }
+  //public final PlainSocketImpl getPlainSocketImpl()
+  //{
+  //  return impl;
+  //}
 
-  final void setChannel (SocketChannelImpl channel)
-  {
-    this.impl = channel.getPlainSocketImpl();
-    this.channel = channel;
-  }
+  //final void setChannel (SocketChannelImpl channel)
+  //{
+  //  this.impl = channel.getPlainSocketImpl();
+  //  this.channel = channel;
+  //}
   
   public final SocketChannel getChannel()
   {
     return channel;
+  }
+  
+  public boolean isConnected()
+  {
+    return channel.isConnected();
   }
 }

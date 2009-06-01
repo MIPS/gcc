@@ -1,5 +1,5 @@
 /* Generic routines for manipulating SSA_NAME expressions
-   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
                                                                                
 This file is part of GCC.
                                                                                
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "varray.h"
 #include "ggc.h"
 #include "tree-flow.h"
+#include "tree-pass.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -56,13 +57,6 @@ along with GCC; see the file COPYING3.  If not see
    We could also use a zone allocator for these objects since they have
    a very well defined lifetime.  If someone wants to experiment with that
    this is the place to try it.  */
-   
-/* Array of all SSA_NAMEs used in the function.  */
-VEC(tree,gc) *ssa_names;
-
-/* Free list of SSA_NAMEs.  This list is wiped at the end of each function
-   after we leave SSA form.  */
-static GTY (()) tree free_ssanames;
 
 /* Version numbers with special meanings.  We start allocating new version
    numbers after the special ones.  */
@@ -73,12 +67,16 @@ unsigned int ssa_name_nodes_reused;
 unsigned int ssa_name_nodes_created;
 #endif
 
-/* Initialize management of SSA_NAMEs.  */
+/* Initialize management of SSA_NAMEs to default SIZE.  If SIZE is
+   zero use default.  */
 
 void
-init_ssanames (void)
+init_ssanames (struct function *fn, int size)
 {
-  ssa_names = VEC_alloc (tree, gc, 50);
+  if (size < 50)
+    size = 50;
+
+  SSANAMES (fn) = VEC_alloc (tree, gc, size);
 
   /* Version 0 is special, so reserve the first slot in the table.  Though
      currently unused, we may use version 0 in alias analysis as part of
@@ -87,8 +85,8 @@ init_ssanames (void)
 
      We use VEC_quick_push here because we know that SSA_NAMES has at
      least 50 elements reserved in it.  */
-  VEC_quick_push (tree, ssa_names, NULL_TREE);
-  free_ssanames = NULL;
+  VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
+  FREE_SSANAMES (fn) = NULL;
 }
 
 /* Finalize management of SSA_NAMEs.  */
@@ -96,8 +94,8 @@ init_ssanames (void)
 void
 fini_ssanames (void)
 {
-  VEC_free (tree, gc, ssa_names);
-  free_ssanames = NULL;
+  VEC_free (tree, gc, SSANAMES (cfun));
+  FREE_SSANAMES (cfun) = NULL;
 }
 
 /* Dump some simple statistics regarding the re-use of SSA_NAME nodes.  */
@@ -111,27 +109,24 @@ ssanames_print_statistics (void)
 }
 #endif
 
-/* Return an SSA_NAME node for variable VAR defined in statement STMT.
-   STMT may be an empty statement for artificial references (e.g., default
-   definitions created when a variable is used without a preceding
-   definition).  */
+/* Return an SSA_NAME node for variable VAR defined in statement STMT
+   in function FN.  STMT may be an empty statement for artificial
+   references (e.g., default definitions created when a variable is
+   used without a preceding definition).  */
 
 tree
-make_ssa_name (tree var, tree stmt)
+make_ssa_name_fn (struct function *fn, tree var, gimple stmt)
 {
   tree t;
   use_operand_p imm;
 
-  gcc_assert (DECL_P (var)
-	      || TREE_CODE (var) == INDIRECT_REF);
-
-  gcc_assert (!stmt || EXPR_P (stmt) || TREE_CODE (stmt) == PHI_NODE);
+  gcc_assert (DECL_P (var));
 
   /* If our free list has an element, then use it.  */
-  if (free_ssanames)
+  if (FREE_SSANAMES (fn))
     {
-      t = free_ssanames;
-      free_ssanames = TREE_CHAIN (free_ssanames);
+      t = FREE_SSANAMES (fn);
+      FREE_SSANAMES (fn) = TREE_CHAIN (FREE_SSANAMES (fn));
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_reused++;
 #endif
@@ -139,13 +134,13 @@ make_ssa_name (tree var, tree stmt)
       /* The node was cleared out when we put it on the free list, so
 	 there is no need to do so again here.  */
       gcc_assert (ssa_name (SSA_NAME_VERSION (t)) == NULL);
-      VEC_replace (tree, ssa_names, SSA_NAME_VERSION (t), t);
+      VEC_replace (tree, SSANAMES (fn), SSA_NAME_VERSION (t), t);
     }
   else
     {
       t = make_node (SSA_NAME);
-      SSA_NAME_VERSION (t) = num_ssa_names;
-      VEC_safe_push (tree, gc, ssa_names, t);
+      SSA_NAME_VERSION (t) = VEC_length (tree, SSANAMES (fn));
+      VEC_safe_push (tree, gc, SSANAMES (fn), t);
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_created++;
 #endif
@@ -156,11 +151,12 @@ make_ssa_name (tree var, tree stmt)
   SSA_NAME_DEF_STMT (t) = stmt;
   SSA_NAME_PTR_INFO (t) = NULL;
   SSA_NAME_IN_FREE_LIST (t) = 0;
+  SSA_NAME_IS_DEFAULT_DEF (t) = 0;
   imm = &(SSA_NAME_IMM_USE_NODE (t));
   imm->use = NULL;
   imm->prev = imm;
   imm->next = imm;
-  imm->stmt = t;
+  imm->loc.ssa_name = t;
 
   return t;
 }
@@ -182,7 +178,7 @@ release_ssa_name (tree var)
 
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
-  if (var == default_def (SSA_NAME_VAR (var)))
+  if (SSA_NAME_IS_DEFAULT_DEF (var))
     return;
 
   /* If VAR has been registered for SSA updating, don't remove it.
@@ -212,12 +208,14 @@ release_ssa_name (tree var)
       while (imm->next != imm)
 	delink_imm_use (imm->next);
 
-      VEC_replace (tree, ssa_names, SSA_NAME_VERSION (var), NULL_TREE);
+      VEC_replace (tree, SSANAMES (cfun),
+		   SSA_NAME_VERSION (var), NULL_TREE);
       memset (var, 0, tree_size (var));
 
       imm->prev = imm;
       imm->next = imm;
-      imm->stmt = var;
+      imm->loc.ssa_name = var;
+
       /* First put back the right tree node so that the tree checking
 	 macros do not complain.  */
       TREE_SET_CODE (var, SSA_NAME);
@@ -233,15 +231,15 @@ release_ssa_name (tree var)
       SSA_NAME_IN_FREE_LIST (var) = 1;
 
       /* And finally link it into the free list.  */
-      TREE_CHAIN (var) = free_ssanames;
-      free_ssanames = var;
+      TREE_CHAIN (var) = FREE_SSANAMES (cfun);
+      FREE_SSANAMES (cfun) = var;
     }
 }
 
 /* Creates a duplicate of a ssa name NAME defined in statement STMT.  */
 
 tree
-duplicate_ssa_name (tree name, tree stmt)
+duplicate_ssa_name (tree name, gimple stmt)
 {
   tree new_name = make_ssa_name (SSA_NAME_VAR (name), stmt);
   struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
@@ -267,7 +265,7 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
   if (!ptr_info)
     return;
 
-  new_ptr_info = ggc_alloc (sizeof (struct ptr_info_def));
+  new_ptr_info = GGC_NEW (struct ptr_info_def);
   *new_ptr_info = *ptr_info;
 
   if (ptr_info->pt_vars)
@@ -283,14 +281,14 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
 /* Release all the SSA_NAMEs created by STMT.  */
 
 void
-release_defs (tree stmt)
+release_defs (gimple stmt)
 {
   tree def;
   ssa_op_iter iter;
 
   /* Make sure that we are in SSA.  Otherwise, operand cache may point
      to garbage.  */
-  gcc_assert (in_ssa_p);
+  gcc_assert (gimple_in_ssa_p (cfun));
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)
@@ -307,4 +305,59 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }
 
-#include "gt-tree-ssanames.h"
+/* Return SSA names that are unused to GGC memory.  This is used to keep
+   footprint of compiler during interprocedural optimization.
+   As a side effect the SSA_NAME_VERSION number reuse is reduced
+   so this function should not be used too often.  */
+static unsigned int
+release_dead_ssa_names (void)
+{
+  tree t, next;
+  int n = 0;
+  referenced_var_iterator rvi;
+
+  /* Current defs point to various dead SSA names that in turn points to dead
+     statements so bunch of dead memory is held from releasing.  */
+  FOR_EACH_REFERENCED_VAR (t, rvi)
+    set_current_def (t, NULL);
+  /* Now release the freelist.  */
+  for (t = FREE_SSANAMES (cfun); t; t = next)
+    {
+      next = TREE_CHAIN (t);
+      /* Dangling pointers might make GGC to still see dead SSA names, so it is
+ 	 important to unlink the list and avoid GGC from seeing all subsequent
+	 SSA names.  In longer run we want to have all dangling pointers here
+	 removed (since they usually go through dead statements that consume
+	 considerable amounts of memory).  */
+      TREE_CHAIN (t) = NULL_TREE;
+      n++;
+    }
+  FREE_SSANAMES (cfun) = NULL;
+
+  /* Cgraph edges has been invalidated and point to dead statement.  We need to
+     remove them now and will rebuild it before next IPA pass.  */
+  cgraph_node_remove_callees (cgraph_node (current_function_decl));
+
+  if (dump_file)
+    fprintf (dump_file, "Released %i names, %.2f%%\n", n, n * 100.0 / num_ssa_names);
+  return 0;
+}
+
+struct gimple_opt_pass pass_release_ssa_names =
+{
+ {
+  GIMPLE_PASS,
+  "release_ssa",			/* name */
+  NULL,					/* gate */
+  release_dead_ssa_names,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_ssa,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func 			/* todo_flags_finish */
+ }
+};

@@ -39,12 +39,15 @@ exception statement from your version. */
 package java.security;
 
 import gnu.classpath.SystemProperties;
+import gnu.java.lang.CPStringBuilder;
 import gnu.java.security.Engine;
 import gnu.java.security.action.GetSecurityPropertyAction;
+import gnu.java.security.jce.prng.SecureRandomAdapter;
 import gnu.java.security.jce.prng.Sha160RandomSpi;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Enumeration;
@@ -187,100 +190,105 @@ public class SecureRandom extends Random
     this.algorithm = algorithm;
   }
 
-  // Class methods.
-  // ------------------------------------------------------------------------
-
   /**
-   * Returns an instance of a SecureRandom. It creates the class from
-   * the first provider that implements it.
-   *
+   * Returns an instance of a <code>SecureRandom</code> from the first provider
+   * that implements it.
+   * 
    * @param algorithm The algorithm name.
-   * @return A new SecureRandom implementing the given algorithm.
-   * @throws NoSuchAlgorithmException If no installed provider implements
-   *         the given algorithm.
+   * @return A new <code>SecureRandom</code> implementing the given algorithm.
+   * @throws NoSuchAlgorithmException If no installed provider implements the
+   *           given algorithm.
+   * @throws IllegalArgumentException if <code>algorithm</code> is
+   *           <code>null</code> or is an empty string.
    */
   public static SecureRandom getInstance(String algorithm)
-    throws NoSuchAlgorithmException
+      throws NoSuchAlgorithmException
   {
     Provider[] p = Security.getProviders();
-    
+    NoSuchAlgorithmException lastException = null;
     for (int i = 0; i < p.length; i++)
-      {
-        try
-          {
-            return getInstance(algorithm, p[i]);
-          }
-        catch (NoSuchAlgorithmException e)
-          {
-	    // Ignore.
-          }
-      }
-
-    // None found.
+      try
+        {
+          return getInstance(algorithm, p[i]);
+        }
+      catch (NoSuchAlgorithmException x)
+        {
+          lastException = x;
+        }
+    if (lastException != null)
+      throw lastException;
     throw new NoSuchAlgorithmException(algorithm);
   }
 
   /**
-   * Returns an instance of a SecureRandom. It creates the class
-   * for the specified algorithm from the named provider.
-   *
+   * Returns an instance of a <code>SecureRandom</code> for the specified
+   * algorithm from the named provider.
+   * 
    * @param algorithm The algorithm name.
-   * @param provider  The provider name.
-   * @return A new SecureRandom implementing the chosen algorithm.
+   * @param provider The provider name.
+   * @return A new <code>SecureRandom</code> implementing the chosen
+   *         algorithm.
    * @throws NoSuchAlgorithmException If the named provider does not implement
-   *         the algorithm, or if the implementation cannot be
-   *         instantiated.
-   * @throws NoSuchProviderException If no provider named
-   *         <code>provider</code> is currently installed.
-   * @throws IllegalArgumentException If <code>provider</code> is null
-   *         or is empty.
+   *           the algorithm, or if the implementation cannot be instantiated.
+   * @throws NoSuchProviderException If no provider named <code>provider</code>
+   *           is currently installed.
+   * @throws IllegalArgumentException if either <code>algorithm</code> or
+   *           <code>provider</code> is <code>null</code> or empty.
    */
   public static SecureRandom getInstance(String algorithm, String provider)
-  throws NoSuchAlgorithmException, NoSuchProviderException
+      throws NoSuchAlgorithmException, NoSuchProviderException
   {
-    if (provider == null || provider.length() == 0)
-      throw new IllegalArgumentException("Illegal provider");
-
+    if (provider == null)
+      throw new IllegalArgumentException("provider MUST NOT be null");
+    provider = provider.trim();
+    if (provider.length() == 0)
+      throw new IllegalArgumentException("provider MUST NOT be empty");
     Provider p = Security.getProvider(provider);
     if (p == null)
       throw new NoSuchProviderException(provider);
-    
     return getInstance(algorithm, p);
   }
 
   /**
-   * Returns an instance of a SecureRandom. It creates the class for
-   * the specified algorithm from the given provider.
-   *
-   * @param algorithm The SecureRandom algorithm to create.
-   * @param provider  The provider to get the instance from.
-   * @throws NoSuchAlgorithmException If the algorithm cannot be found, or
-   *         if the class cannot be instantiated.
-   * @throws IllegalArgumentException If <code>provider</code> is null.
+   * Returns an instance of a <code>SecureRandom</code> for the specified
+   * algorithm from the given provider.
+   * 
+   * @param algorithm The <code>SecureRandom</code> algorithm to create.
+   * @param provider The provider to use.
+   * @throws NoSuchAlgorithmException If the algorithm cannot be found, or if
+   *           the class cannot be instantiated.
+   * @throws IllegalArgumentException if either <code>algorithm</code> or
+   *           <code>provider</code> is <code>null</code>, or if
+   *           <code>algorithm</code> is an empty string.
    */
   public static SecureRandom getInstance(String algorithm, Provider provider)
-  throws NoSuchAlgorithmException
+      throws NoSuchAlgorithmException
   {
-    if (provider == null)
-      throw new IllegalArgumentException("Illegal provider");
+    CPStringBuilder sb = new CPStringBuilder("SecureRandom for algorithm [")
+        .append(algorithm).append("] from provider[")
+        .append(provider).append("] could not be created");
+    Throwable cause;
     try
       {
-        return new SecureRandom((SecureRandomSpi)
-          Engine.getInstance(SECURE_RANDOM, algorithm, provider),
-          provider, algorithm);
+        Object spi = Engine.getInstance(SECURE_RANDOM, algorithm, provider);
+        return new SecureRandom((SecureRandomSpi) spi, provider, algorithm);
       }
-    catch (java.lang.reflect.InvocationTargetException ite)
+    catch (InvocationTargetException x)
       {
-	throw new NoSuchAlgorithmException(algorithm);
+        cause = x.getCause();
+        if (cause instanceof NoSuchAlgorithmException)
+          throw (NoSuchAlgorithmException) cause;
+        if (cause == null)
+          cause = x;
       }
-    catch (ClassCastException cce)
+    catch (ClassCastException x)
       {
-        throw new NoSuchAlgorithmException(algorithm);
+        cause = x;
       }
+    NoSuchAlgorithmException x = new NoSuchAlgorithmException(sb.toString());
+    x.initCause(cause);
+    throw x;
   }
-
-  // Instance methods.
-  // ------------------------------------------------------------------------
 
   /**
      Returns the provider being used by the current SecureRandom class.
@@ -394,9 +402,7 @@ public class SecureRandom extends Random
    */
   public static byte[] getSeed(int numBytes)
   {
-    byte[] tmp = new byte[numBytes];
-    generateSeed(tmp);
-    return tmp;
+    return SecureRandomAdapter.getSeed(numBytes);
   }
 
   /**
@@ -411,64 +417,4 @@ public class SecureRandom extends Random
     return secureRandomSpi.engineGenerateSeed(numBytes);
   }
 
-  // Seed methods.
-
-  private static final String SECURERANDOM_SOURCE = "securerandom.source";
-  private static final String JAVA_SECURITY_EGD = "java.security.egd";
-  private static final Logger logger = Logger.getLogger(SecureRandom.class.getName());
-
-  private static int generateSeed(byte[] buffer)
-  {
-    return generateSeed(buffer, 0, buffer.length);
-  }
-
-  private static int generateSeed(byte[] buffer, int offset, int length)
-  {
-    URL sourceUrl = null;
-    String urlStr = null;
-
-    GetSecurityPropertyAction action = new GetSecurityPropertyAction(SECURERANDOM_SOURCE);
-    try
-      {
-        urlStr = (String) AccessController.doPrivileged(action);
-        if (urlStr != null)
-          sourceUrl = new URL(urlStr);
-      }
-    catch (MalformedURLException ignored)
-      {
-        logger.log(Level.WARNING, SECURERANDOM_SOURCE + " property is malformed: {0}", 
-                   urlStr);
-      }
-
-    if (sourceUrl == null)
-      {
-        try
-          {
-            urlStr = SystemProperties.getProperty(JAVA_SECURITY_EGD);
-            if (urlStr != null)
-              sourceUrl = new URL(urlStr);
-          }
-        catch (MalformedURLException mue)
-          {
-            logger.log(Level.WARNING, JAVA_SECURITY_EGD + " property is malformed: {0}",
-                       urlStr);
-          }
-      }
-
-    if (sourceUrl != null)
-      {
-        try
-          {
-            InputStream in = sourceUrl.openStream();
-            return in.read(buffer, offset, length);
-          }
-        catch (IOException ioe)
-          {
-            logger.log(Level.FINE, "error reading random bytes", ioe);
-          }
-      }
-
-    // If we get here, we did not get any seed from a property URL.
-    return VMSecureRandom.generateSeed(buffer, offset, length);
-  }
 }

@@ -1,36 +1,26 @@
 /* libgcc routines for 68000 w/o floating-point hardware.
-   Copyright (C) 1994, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1996, 1997, 1998, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file with other programs, and to distribute
-those programs without any restriction coming from the use of this
-file.  (The General Public License restrictions do apply in other
-respects; for example, they cover modification of the file, and
-distribution when not linked into another program.)
 
 This file is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
-/* As a special exception, if you link this library with files
-   compiled with GCC to produce an executable, this does not cause
-   the resulting executable to be covered by the GNU General Public License.
-   This exception does not however invalidate any other reasons why
-   the executable file might be covered by the GNU General Public License.  */
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 /* Use this one for any 680x0; assumes no floating point hardware.
    The trailing " '" appearing on some lines is for ANSI preprocessors.  Yuk.
@@ -61,6 +51,18 @@ Boston, MA 02110-1301, USA.  */
 
 #define SYM(x) CONCAT1 (__USER_LABEL_PREFIX__, x)
 
+/* Note that X is a function.  */
+	
+#ifdef __ELF__
+#define FUNC(x) .type SYM(x),function
+#else
+/* The .proc pseudo-op is accepted, but ignored, by GAS.  We could just	
+   define this to the empty string for non-ELF systems, but defining it
+   to .proc means that the information is available to the assembler if
+   the need arises.  */
+#define FUNC(x) .proc
+#endif
+		
 /* Use the right prefix for registers.  */
 
 #define REG(x) CONCAT1 (__REGISTER_PREFIX__, x)
@@ -117,17 +119,11 @@ Boston, MA 02110-1301, USA.  */
 
 #else /* __PIC__ */
 
-	/* Common for -mid-shared-libary and -msep-data */
+# if defined (__uClinux__)
 
-	.macro PICCALL addr
-	bsr	\addr
-	.endm
+	/* Versions for uClinux */
 
-	.macro PICJUMP addr
-	bra	\addr
-	.endm
-
-# if defined(__ID_SHARED_LIBRARY__)
+#  if defined(__ID_SHARED_LIBRARY__)
 
 	/* -mid-shared-library versions  */
 
@@ -141,7 +137,17 @@ Boston, MA 02110-1301, USA.  */
 	movel	\sym@GOT(\areg), sp@-
 	.endm
 
-# else /* !__ID_SHARED_LIBRARY__ */
+	.macro PICCALL addr
+	PICLEA	\addr,a0
+	jsr	a0@
+	.endm
+
+	.macro PICJUMP addr
+	PICLEA	\addr,a0
+	jmp	a0@
+	.endm
+
+#  else /* !__ID_SHARED_LIBRARY__ */
 
 	/* Versions for -msep-data */
 
@@ -153,7 +159,67 @@ Boston, MA 02110-1301, USA.  */
 	movel	\sym@GOT(a5), sp@-
 	.endm
 
-# endif /* !__ID_SHARED_LIBRARY__ */
+	.macro PICCALL addr
+#if defined (__mcoldfire__) && !defined (__mcfisab__) && !defined (__mcfisac__)
+	lea	\addr-.-8,a0
+	jsr	pc@(a0)
+#else
+	bsr	\addr
+#endif
+	.endm
+
+	.macro PICJUMP addr
+	/* ISA C has no bra.l instruction, and since this assembly file
+	   gets assembled into multiple object files, we avoid the
+	   bra instruction entirely.  */
+#if defined (__mcoldfire__) && !defined (__mcfisab__)
+	lea	\addr-.-8,a0
+	jmp	pc@(a0)
+#else
+	bra	\addr
+#endif
+	.endm
+
+#  endif
+
+# else /* !__uClinux__ */
+
+	/* Versions for Linux */
+
+	.macro PICLEA sym, reg
+	movel	#_GLOBAL_OFFSET_TABLE_@GOTPC, \reg
+	lea	(-6, pc, \reg), \reg
+	movel	\sym@GOT(\reg), \reg
+	.endm
+
+	.macro PICPEA sym, areg
+	movel	#_GLOBAL_OFFSET_TABLE_@GOTPC, \areg
+	lea	(-6, pc, \areg), \areg
+	movel	\sym@GOT(\areg), sp@-
+	.endm
+
+	.macro PICCALL addr
+#if defined (__mcoldfire__) && !defined (__mcfisab__) && !defined (__mcfisac__)
+	lea	\addr-.-8,a0
+	jsr	pc@(a0)
+#else
+	bsr	\addr
+#endif
+	.endm
+
+	.macro PICJUMP addr
+	/* ISA C has no bra.l instruction, and since this assembly file
+	   gets assembled into multiple object files, we avoid the
+	   bra instruction entirely.  */
+#if defined (__mcoldfire__) && !defined (__mcfisab__)
+	lea	\addr-.-8,a0
+	jmp	pc@(a0)
+#else
+	bra	\addr
+#endif
+	.endm
+
+# endif
 #endif /* __PIC__ */
 
 
@@ -367,7 +433,7 @@ $_exception_handler:
 
 #ifdef  L_mulsi3
 	.text
-	.proc
+	FUNC(__mulsi3)
 	.globl	SYM (__mulsi3)
 SYM (__mulsi3):
 	movew	sp@(4), d0	/* x0 -> d0 */
@@ -390,7 +456,7 @@ SYM (__mulsi3):
 
 #ifdef  L_udivsi3
 	.text
-	.proc
+	FUNC(__udivsi3)
 	.globl	SYM (__udivsi3)
 SYM (__udivsi3):
 #ifndef __mcoldfire__
@@ -466,7 +532,7 @@ L2:	subql	IMM (1),d4
 
 #ifdef  L_divsi3
 	.text
-	.proc
+	FUNC(__divsi3)
 	.globl	SYM (__divsi3)
 SYM (__divsi3):
 	movel	d2, sp@-
@@ -504,7 +570,7 @@ L3:	movel	sp@+, d2
 
 #ifdef  L_umodsi3
 	.text
-	.proc
+	FUNC(__umodsi3)
 	.globl	SYM (__umodsi3)
 SYM (__umodsi3):
 	movel	sp@(8), d1	/* d1 = divisor */
@@ -530,7 +596,7 @@ SYM (__umodsi3):
 
 #ifdef  L_modsi3
 	.text
-	.proc
+	FUNC(__modsi3)
 	.globl	SYM (__modsi3)
 SYM (__modsi3):
 	movel	sp@(8), d1	/* d1 = divisor */
@@ -600,6 +666,7 @@ ROUND_TO_MINUS    = 3 | round result towards minus infinity
 	.globl SYM (__negdf2)
 	.globl SYM (__cmpdf2)
 	.globl SYM (__cmpdf2_internal)
+	.hidden SYM (__cmpdf2_internal)
 
 	.text
 	.even
@@ -673,6 +740,7 @@ Ld$div$0:
 |=============================================================================
 
 | double __subdf3(double, double);
+	FUNC(__subdf3)
 SYM (__subdf3):
 	bchg	IMM (31),sp@(12) | change sign of second operand
 				| and fall through, so we always add
@@ -681,6 +749,7 @@ SYM (__subdf3):
 |=============================================================================
 
 | double __adddf3(double, double);
+	FUNC(__adddf3)
 SYM (__adddf3):
 #ifndef __mcoldfire__
 	link	a6,IMM (0)	| everything will be done in registers
@@ -1404,6 +1473,7 @@ Ladddf$nf:
 |=============================================================================
 
 | double __muldf3(double, double);
+	FUNC(__muldf3)
 SYM (__muldf3):
 #ifndef __mcoldfire__
 	link	a6,IMM (0)
@@ -1736,6 +1806,7 @@ Lmuldf$b$den:
 |=============================================================================
 
 | double __divdf3(double, double);
+	FUNC(__divdf3)
 SYM (__divdf3):
 #ifndef __mcoldfire__
 	link	a6,IMM (0)
@@ -2177,6 +2248,7 @@ Lround$0:
 |=============================================================================
 
 | double __negdf2(double, double);
+	FUNC(__negdf2)
 SYM (__negdf2):
 #ifndef __mcoldfire__
 	link	a6,IMM (0)
@@ -2349,6 +2421,7 @@ Lcmpd$inop:
 	PICJUMP	$_exception_handler
 
 | int __cmpdf2(double, double);
+	FUNC(__cmpdf2)
 SYM (__cmpdf2):
 	link	a6,IMM (0)
 	pea	1
@@ -2356,7 +2429,7 @@ SYM (__cmpdf2):
 	movl	a6@(16),sp@-
 	movl	a6@(12),sp@-
 	movl	a6@(8),sp@-
-	bsr	SYM (__cmpdf2_internal)
+	PICCALL	SYM (__cmpdf2_internal)
 	unlk	a6
 	rts
 
@@ -2508,6 +2581,7 @@ ROUND_TO_MINUS    = 3 | round result towards minus infinity
 	.globl SYM (__negsf2)
 	.globl SYM (__cmpsf2)
 	.globl SYM (__cmpsf2_internal)
+	.hidden SYM (__cmpsf2_internal)
 
 | These are common routines to return and signal exceptions.	
 
@@ -2577,6 +2651,7 @@ Lf$div$0:
 |=============================================================================
 
 | float __subsf3(float, float);
+	FUNC(__subsf3)
 SYM (__subsf3):
 	bchg	IMM (31),sp@(8)	| change sign of second operand
 				| and fall through
@@ -2585,6 +2660,7 @@ SYM (__subsf3):
 |=============================================================================
 
 | float __addsf3(float, float);
+	FUNC(__addsf3)
 SYM (__addsf3):
 #ifndef __mcoldfire__
 	link	a6,IMM (0)	| everything will be done in registers
@@ -3071,6 +3147,7 @@ Laddsf$nf:
 |=============================================================================
 
 | float __mulsf3(float, float);
+	FUNC(__mulsf3)
 SYM (__mulsf3):
 #ifndef __mcoldfire__
 	link	a6,IMM (0)
@@ -3285,6 +3362,7 @@ Lmulsf$b$den:
 |=============================================================================
 
 | float __divsf3(float, float);
+	FUNC(__divsf3)
 SYM (__divsf3):
 #ifndef __mcoldfire__
 	link	a6,IMM (0)
@@ -3610,6 +3688,7 @@ Lround$0:
 | and +/-INFINITY.
 
 | float __negsf2(float);
+	FUNC(__negsf2)
 SYM (__negsf2):
 #ifndef __mcoldfire__
 	link	a6,IMM (0)
@@ -3751,12 +3830,13 @@ Lcmpf$inop:
 	PICJUMP	$_exception_handler
 
 | int __cmpsf2(float, float);
+	FUNC(__cmpsf2)
 SYM (__cmpsf2):
 	link	a6,IMM (0)
 	pea	1
 	movl	a6@(12),sp@-
 	movl	a6@(8),sp@-
-	bsr (__cmpsf2_internal)
+	PICCALL SYM (__cmpsf2_internal)
 	unlk	a6
 	rts
 
@@ -3849,7 +3929,7 @@ Lround$to$minus:
 
 #ifdef  L_eqdf2
 	.text
-	.proc
+	FUNC(__eqdf2)
 	.globl	SYM (__eqdf2)
 SYM (__eqdf2):
 	link	a6,IMM (0)
@@ -3865,7 +3945,7 @@ SYM (__eqdf2):
 
 #ifdef  L_nedf2
 	.text
-	.proc
+	FUNC(__nedf2)
 	.globl	SYM (__nedf2)
 SYM (__nedf2):
 	link	a6,IMM (0)
@@ -3881,7 +3961,7 @@ SYM (__nedf2):
 
 #ifdef  L_gtdf2
 	.text
-	.proc
+	FUNC(__gtdf2)
 	.globl	SYM (__gtdf2)
 SYM (__gtdf2):
 	link	a6,IMM (0)
@@ -3897,7 +3977,7 @@ SYM (__gtdf2):
 
 #ifdef  L_gedf2
 	.text
-	.proc
+	FUNC(__gedf2)
 	.globl	SYM (__gedf2)
 SYM (__gedf2):
 	link	a6,IMM (0)
@@ -3913,7 +3993,7 @@ SYM (__gedf2):
 
 #ifdef  L_ltdf2
 	.text
-	.proc
+	FUNC(__ltdf2)
 	.globl	SYM (__ltdf2)
 SYM (__ltdf2):
 	link	a6,IMM (0)
@@ -3929,7 +4009,7 @@ SYM (__ltdf2):
 
 #ifdef  L_ledf2
 	.text
-	.proc
+	FUNC(__ledf2)
 	.globl	SYM (__ledf2)
 SYM (__ledf2):
 	link	a6,IMM (0)
@@ -3948,7 +4028,7 @@ SYM (__ledf2):
 
 #ifdef  L_eqsf2
 	.text
-	.proc
+	FUNC(__eqsf2)
 	.globl	SYM (__eqsf2)
 SYM (__eqsf2):
 	link	a6,IMM (0)
@@ -3962,7 +4042,7 @@ SYM (__eqsf2):
 
 #ifdef  L_nesf2
 	.text
-	.proc
+	FUNC(__nesf2)
 	.globl	SYM (__nesf2)
 SYM (__nesf2):
 	link	a6,IMM (0)
@@ -3976,7 +4056,7 @@ SYM (__nesf2):
 
 #ifdef  L_gtsf2
 	.text
-	.proc
+	FUNC(__gtsf2)
 	.globl	SYM (__gtsf2)
 SYM (__gtsf2):
 	link	a6,IMM (0)
@@ -3990,7 +4070,7 @@ SYM (__gtsf2):
 
 #ifdef  L_gesf2
 	.text
-	.proc
+	FUNC(__gesf2)
 	.globl	SYM (__gesf2)
 SYM (__gesf2):
 	link	a6,IMM (0)
@@ -4004,7 +4084,7 @@ SYM (__gesf2):
 
 #ifdef  L_ltsf2
 	.text
-	.proc
+	FUNC(__ltsf2)
 	.globl	SYM (__ltsf2)
 SYM (__ltsf2):
 	link	a6,IMM (0)
@@ -4018,7 +4098,7 @@ SYM (__ltsf2):
 
 #ifdef  L_lesf2
 	.text
-	.proc
+	FUNC(__lesf2)
 	.globl	SYM (__lesf2)
 SYM (__lesf2):
 	link	a6,IMM (0)
@@ -4029,3 +4109,8 @@ SYM (__lesf2):
 	unlk	a6
 	rts
 #endif /* L_lesf2 */
+
+#if defined (__ELF__) && defined (__linux__)
+	/* Make stack non-executable for ELF linux targets.  */
+	.section	.note.GNU-stack,"",@progbits
+#endif

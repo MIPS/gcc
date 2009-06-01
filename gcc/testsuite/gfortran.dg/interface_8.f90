@@ -1,6 +1,6 @@
 ! { dg-do compile }
 ! One of the tests of the patch for PR30068.
-! Taken from the fortran standard.
+! Taken from comp.lang.fortran 3rd December 2006.
 !
 ! Although the generic procedure is not referenced and it would
 ! normally be permissible for it to be ambiguous, the USE, ONLY

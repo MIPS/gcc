@@ -1,6 +1,6 @@
 /* Handle exceptions for GNU compiler for the Java(TM) language.
    Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005,
-   2007 Free Software Foundation, Inc.
+   2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -391,7 +391,7 @@ prepare_eh_table_type (tree type)
   if (is_compiled_class (type) && !flag_indirect_dispatch)
     {
       name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
-      buf = alloca (strlen (name) + 5);
+      buf = (char *) alloca (strlen (name) + 5);
       sprintf (buf, "%s_ref", name);
       decl = build_decl (VAR_DECL, get_identifier (buf), ptr_type_node);
       TREE_STATIC (decl) = 1;
@@ -408,7 +408,7 @@ prepare_eh_table_type (tree type)
     {
       utf8_ref = build_utf8_ref (DECL_NAME (TYPE_NAME (type)));
       name = IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (utf8_ref, 0)));
-      buf = alloca (strlen (name) + 5);
+      buf = (char *) alloca (strlen (name) + 5);
       sprintf (buf, "%s_ref", name);
       decl = build_decl (VAR_DECL, get_identifier (buf), utf8const_ptr_type);
       TREE_STATIC (decl) = 1;
@@ -466,8 +466,9 @@ build_exception_object_ref (tree type)
   /* Java only passes object via pointer and doesn't require adjusting.
      The java object is immediately before the generic exception header.  */
   obj = build0 (EXC_PTR_EXPR, build_pointer_type (type));
-  obj = build2 (MINUS_EXPR, TREE_TYPE (obj), obj,
-		TYPE_SIZE_UNIT (TREE_TYPE (obj)));
+  obj = build2 (POINTER_PLUS_EXPR, TREE_TYPE (obj), obj,
+		fold_build1 (NEGATE_EXPR, sizetype,
+			     TYPE_SIZE_UNIT (TREE_TYPE (obj))));
   obj = build1 (INDIRECT_REF, type, obj);
 
   return obj;

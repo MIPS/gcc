@@ -37,7 +37,13 @@ exception statement from your version. */
 
 package gnu.java.lang.management;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryPoolMXBean;
+import java.lang.management.MemoryType;
 import java.lang.management.MemoryUsage;
+
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Provides access to information about the memory
@@ -62,10 +68,7 @@ final class VMMemoryMXBeanImpl
    */
   static MemoryUsage getHeapMemoryUsage()
   {
-    Runtime runtime = Runtime.getRuntime();
-    long totalMem = runtime.totalMemory();
-    return new MemoryUsage(-1, totalMem - runtime.freeMemory(),
-			   totalMem, runtime.maxMemory());
+    return getUsage(MemoryType.HEAP);
   }
 
   /**
@@ -76,7 +79,10 @@ final class VMMemoryMXBeanImpl
    * @return an {@link java.lang.management.MemoryUsage} instance
    *         for non-heap memory.
    */
-  static native MemoryUsage getNonHeapMemoryUsage();
+  static MemoryUsage getNonHeapMemoryUsage()
+  {
+    return getUsage(MemoryType.NON_HEAP);
+  }
 
   /**
    * Returns the number of objects ready to be garbage collected.
@@ -90,7 +96,7 @@ final class VMMemoryMXBeanImpl
    * information when memory is allocated and deallocated.  The
    * format of the output is left up to the virtual machine.
    *
-   * @return true if verbose class loading output is on.
+   * @return true if verbose memory usage output is on.
    */
   static native boolean isVerbose();
 
@@ -101,9 +107,50 @@ final class VMMemoryMXBeanImpl
    * may be called by multiple threads concurrently, but there
    * is only one global setting of verbosity that is affected.
    *
-   * @param verbose the new setting for verbose class loading
+   * @param verbose the new setting for verbose memory usage
    *                output.
    */
   static native void setVerbose(boolean verbose);
+
+  /**
+   * Totals the memory usage from all the pools that match
+   * the given type.
+   *
+   * @param type the type of memory pools to accumulate
+   *             (heap or non-heap).
+   * @return the memory usage overall.
+   */
+  private static MemoryUsage getUsage(MemoryType type) {
+    long init = 0, committed = 0, used = 0, max = 0;
+    Iterator pools =
+      ManagementFactory.getMemoryPoolMXBeans().iterator();
+    while (pools.hasNext())
+      {
+	MemoryPoolMXBean pool = (MemoryPoolMXBean) pools.next();
+	if (pool.getType() == type)
+	  {
+	    MemoryUsage usage = pool.getUsage();
+	    if (init != -1)
+	      {
+		long poolInit = usage.getInit();
+		if (poolInit == -1)
+		  init = -1;
+		else
+		  init += poolInit;
+	      }
+	    committed += usage.getCommitted();
+	    used += usage.getUsed();
+	    if (max != -1)
+	      {
+		long poolMax = usage.getMax();
+		if (poolMax == -1)
+		  max = -1;
+		else
+		  max += poolMax;
+	      }
+	  }
+      }
+    return new MemoryUsage(init, used, committed, max);
+  }
 
 }

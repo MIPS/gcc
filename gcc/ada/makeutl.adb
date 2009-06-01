@@ -6,31 +6,36 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Namet;    use Namet;
+with Debug;
 with Osint;    use Osint;
+with Output;   use Output;
 with Prj.Ext;
 with Prj.Util;
 with Snames;   use Snames;
 with Table;
 
+with Ada.Command_Line;  use Ada.Command_Line;
+
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+
+with System.Case_Util; use System.Case_Util;
 with System.HTable;
 
 package body Makeutl is
@@ -40,7 +45,7 @@ package body Makeutl is
       Index : Int;
    end record;
    --  Identify either a mono-unit source (when Index = 0) or a specific unit
-   --  in a multi-unit source.
+   --  (index = 1's origin index of unit) in a multi-unit source.
 
    --  There follow many global undocumented declarations, comments needed ???
 
@@ -81,6 +86,46 @@ package body Makeutl is
 
    procedure Add_Linker_Option (Option : String);
 
+   ---------
+   -- Add --
+   ---------
+
+   procedure Add
+     (Option : String_Access;
+      To     : in out String_List_Access;
+      Last   : in out Natural)
+   is
+   begin
+      if Last = To'Last then
+         declare
+            New_Options : constant String_List_Access :=
+                            new String_List (1 .. To'Last * 2);
+         begin
+            New_Options (To'Range) := To.all;
+
+            --  Set all elements of the original options to null to avoid
+            --  deallocation of copies.
+
+            To.all := (others => null);
+
+            Free (To);
+            To := New_Options;
+         end;
+      end if;
+
+      Last := Last + 1;
+      To (Last) := Option;
+   end Add;
+
+   procedure Add
+     (Option : String;
+      To     : in out String_List_Access;
+      Last   : in out Natural)
+   is
+   begin
+      Add (Option => new String'(Option), To => To, Last => Last);
+   end Add;
+
    -----------------------
    -- Add_Linker_Option --
    -----------------------
@@ -108,6 +153,31 @@ package body Makeutl is
       end if;
    end Add_Linker_Option;
 
+   -----------------
+   -- Create_Name --
+   -----------------
+
+   function Create_Name (Name : String) return File_Name_Type is
+   begin
+      Name_Len := 0;
+      Add_Str_To_Name_Buffer (Name);
+      return Name_Find;
+   end Create_Name;
+
+   function Create_Name (Name : String) return Name_Id is
+   begin
+      Name_Len := 0;
+      Add_Str_To_Name_Buffer (Name);
+      return Name_Find;
+   end Create_Name;
+
+   function Create_Name (Name : String) return Path_Name_Type is
+   begin
+      Name_Len := 0;
+      Add_Str_To_Name_Buffer (Name);
+      return Name_Find;
+   end Create_Name;
+
    ----------------------
    -- Delete_All_Marks --
    ----------------------
@@ -116,6 +186,76 @@ package body Makeutl is
    begin
       Marks.Reset;
    end Delete_All_Marks;
+
+   ----------------------------
+   -- Executable_Prefix_Path --
+   ----------------------------
+
+   function Executable_Prefix_Path return String is
+      Exec_Name : constant String := Command_Name;
+
+      function Get_Install_Dir (S : String) return String;
+      --  S is the executable name preceded by the absolute or relative
+      --  path, e.g. "c:\usr\bin\gcc.exe". Returns the absolute directory
+      --  where "bin" lies (in the example "C:\usr").
+      --  If the executable is not in a "bin" directory, return "".
+
+      ---------------------
+      -- Get_Install_Dir --
+      ---------------------
+
+      function Get_Install_Dir (S : String) return String is
+         Exec      : String  := S;
+         Path_Last : Integer := 0;
+
+      begin
+         for J in reverse Exec'Range loop
+            if Exec (J) = Directory_Separator then
+               Path_Last := J - 1;
+               exit;
+            end if;
+         end loop;
+
+         if Path_Last >= Exec'First + 2 then
+            To_Lower (Exec (Path_Last - 2 .. Path_Last));
+         end if;
+
+         if Path_Last < Exec'First + 2
+           or else Exec (Path_Last - 2 .. Path_Last) /= "bin"
+           or else (Path_Last - 3 >= Exec'First
+                     and then Exec (Path_Last - 3) /= Directory_Separator)
+         then
+            return "";
+         end if;
+
+         return Normalize_Pathname (Exec (Exec'First .. Path_Last - 4));
+      end Get_Install_Dir;
+
+   --  Beginning of Executable_Prefix_Path
+
+   begin
+      --  First determine if a path prefix was placed in front of the
+      --  executable name.
+
+      for J in reverse Exec_Name'Range loop
+         if Exec_Name (J) = Directory_Separator then
+            return Get_Install_Dir (Exec_Name);
+         end if;
+      end loop;
+
+      --  If we get here, the user has typed the executable name with no
+      --  directory prefix.
+
+      declare
+         Path : constant String_Access := Locate_Exec_On_Path (Exec_Name);
+      begin
+         if Path = null then
+            return "";
+         else
+            return Get_Install_Dir (Path.all);
+         end if;
+      end;
+   end Executable_Prefix_Path;
 
    ----------
    -- Hash --
@@ -126,6 +266,41 @@ package body Makeutl is
       return Union_Id (Key.File) mod Max_Mask_Num;
    end Hash;
 
+   ------------
+   -- Inform --
+   ------------
+
+   procedure Inform (N : File_Name_Type; Msg : String) is
+   begin
+      Inform (Name_Id (N), Msg);
+   end Inform;
+
+   procedure Inform (N : Name_Id := No_Name; Msg : String) is
+   begin
+      Osint.Write_Program_Name;
+
+      Write_Str (": ");
+
+      if N /= No_Name then
+         Write_Str ("""");
+
+         declare
+            Name : constant String := Get_Name_String (N);
+         begin
+            if Debug.Debug_Flag_F and then Is_Absolute_Path (Name) then
+               Write_Str (File_Name (Name));
+            else
+               Write_Str (Name);
+            end if;
+         end;
+
+         Write_Str (""" ");
+      end if;
+
+      Write_Str (Msg);
+      Write_Eol;
+   end Inform;
+
    ----------------------------
    -- Is_External_Assignment --
    ----------------------------
@@ -134,6 +309,9 @@ package body Makeutl is
       Start     : Positive := 3;
       Finish    : Natural := Argv'Last;
       Equal_Pos : Natural;
+
+      pragma Assert (Argv'First = 1);
+      pragma Assert (Argv (1 .. 2) = "-X");
 
    begin
       if Argv'Last < 5 then
@@ -155,7 +333,7 @@ package body Makeutl is
       end loop;
 
       if Equal_Pos = Start
-        or else Equal_Pos >= Finish
+        or else Equal_Pos > Finish
       then
          return False;
       else
@@ -272,7 +450,7 @@ package body Makeutl is
                  new String'
                    (Get_Name_String
                         (In_Tree.Projects.Table
-                             (Proj). Directory));
+                             (Proj).Directory.Name));
             end if;
 
             while Options /= Nil_String loop
@@ -311,8 +489,13 @@ package body Makeutl is
 
    package body Mains is
 
+      type File_And_Loc is record
+         File_Name : File_Name_Type;
+         Location  : Source_Ptr := No_Location;
+      end record;
+
       package Names is new Table.Table
-        (Table_Component_Type => File_Name_Type,
+        (Table_Component_Type => File_And_Loc,
          Table_Index_Type     => Integer,
          Table_Low_Bound      => 1,
          Table_Initial        => 10,
@@ -332,7 +515,7 @@ package body Makeutl is
          Name_Len := 0;
          Add_Str_To_Name_Buffer (Name);
          Names.Increment_Last;
-         Names.Table (Names.Last) := Name_Find;
+         Names.Table (Names.Last) := (Name_Find, No_Location);
       end Add_Main;
 
       ------------
@@ -345,6 +528,19 @@ package body Makeutl is
          Mains.Reset;
       end Delete;
 
+      ------------------
+      -- Get_Location --
+      ------------------
+
+      function Get_Location return Source_Ptr is
+      begin
+         if Current in Names.First .. Names.Last then
+            return Names.Table (Current).Location;
+         else
+            return No_Location;
+         end if;
+      end Get_Location;
+
       ---------------
       -- Next_Main --
       ---------------
@@ -353,10 +549,9 @@ package body Makeutl is
       begin
          if Current >= Names.Last then
             return "";
-
          else
             Current := Current + 1;
-            return Get_Name_String (Names.Table (Current));
+            return Get_Name_String (Names.Table (Current).File_Name);
          end if;
       end Next_Main;
 
@@ -378,6 +573,29 @@ package body Makeutl is
          Current := 0;
       end Reset;
 
+      ------------------
+      -- Set_Location --
+      ------------------
+
+      procedure Set_Location (Location : Source_Ptr) is
+      begin
+         if Names.Last > 0 then
+            Names.Table (Names.Last).Location := Location;
+         end if;
+      end Set_Location;
+
+      -----------------
+      -- Update_Main --
+      -----------------
+
+      procedure Update_Main (Name : String) is
+      begin
+         if Current in Names.First .. Names.Last then
+            Name_Len := 0;
+            Add_Str_To_Name_Buffer (Name);
+            Names.Table (Current).File_Name := Name_Find;
+         end if;
+      end Update_Main;
    end Mains;
 
    ----------
@@ -389,14 +607,29 @@ package body Makeutl is
       Marks.Set (K => (File => Source_File, Index => Index), E => True);
    end Mark;
 
+   -----------------------
+   -- Path_Or_File_Name --
+   -----------------------
+
+   function Path_Or_File_Name (Path : Path_Name_Type) return String is
+      Path_Name : constant String := Get_Name_String (Path);
+   begin
+      if Debug.Debug_Flag_F then
+         return File_Name (Path_Name);
+      else
+         return Path_Name;
+      end if;
+   end Path_Or_File_Name;
+
    ---------------------------
    -- Test_If_Relative_Path --
    ---------------------------
 
    procedure Test_If_Relative_Path
-     (Switch             : in out String_Access;
-      Parent             : String_Access;
-      Including_L_Switch : Boolean := True)
+     (Switch               : in out String_Access;
+      Parent               : String_Access;
+      Including_L_Switch   : Boolean := True;
+      Including_Non_Switch : Boolean := True)
    is
    begin
       if Switch /= null then
@@ -451,7 +684,7 @@ package body Makeutl is
                   end if;
                end if;
 
-            else
+            elsif Including_Non_Switch then
                if not Is_Absolute_Path (Sw) then
                   if Parent = null or else Parent'Length = 0 then
                      Do_Fail
@@ -500,7 +733,7 @@ package body Makeutl is
          Start := Start - 1;
       end loop;
 
-      --  If there is no difits, or if the digits are not preceded by
+      --  If there are no digits, or if the digits are not preceded by
       --  the character that precedes a unit index, this is not the ALI file
       --  of a unit in a multi-unit source.
 

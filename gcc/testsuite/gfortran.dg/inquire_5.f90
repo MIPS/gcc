@@ -1,4 +1,4 @@
-! { dg-do run }
+! { dg-do run { target fd_truncate } }
 ! pr19314 inquire(..position=..) segfaults
 ! test by Thomas.Koenig@online.de
 !         bdavis9659@comcast.net
@@ -26,6 +26,8 @@
       close(7)
       open(7,STATUS='SCRATCH',POSITION='REWIND')
       write(7,*)'this is a record written to the file'
+      write(7,*)'this is another record'
+      backspace(7)
       inquire(7,position=chr)
       if (chr.NE.'ASIS') CALL ABORT
       rewind(7)

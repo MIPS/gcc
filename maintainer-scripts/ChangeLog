@@ -1,10 +1,69 @@
-2007-10-07  Release Manager
+2009-04-21  Release Manager
 
-	* GCC 4.2.2 released.
+	* GCC 4.4.0 released.
 
-2007-07-19  Release Manager
+2009-04-09  Jakub Jelinek  <jakub@redhat.com>
 
-	* GCC 4.2.1 released.
+	* gcc_release: Change copyright header to refer to version
+	3 of the GNU General Public License and to point readers at the
+	COPYING3 file and the FSF's license web page.
+	* maintainer-addresses: Likewise.
+
+2009-02-21  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* update_version_svn (ADD_BRANCHES): Remove autovect-branch
+	and document format.
+
+2009-01-17  Richard Guenther  <rguenther@suse.de>
+
+	* gcc_release (JAVA_DIRS): Remove fastjar.
+
+2008-10-04  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release: Fix a couple of comments.
+
+2008-07-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* crontab: Remove 4.1 snapshots job.
+	* update_version: Remove.
+	* gcc_release: Remove support for g77 and release status in
+	version.c.
+	* update_version_svn: Ignore 4.1 branch.  Remove support for
+	updating files other than DATESTAMP.
+	* update_web_docs_svn: Remove support for g77 manual.
+
+2008-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* crontab: Add 4.3 branch.  Set trunk to 4.4.
+
+2008-01-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc_release (build_sources): Pass --disable-multilib to
+	gcc_build.
+	(SVN): Don't use full path.
+
+2008-01-21  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* update_web_docs_libstdcxx_svn: "docs" dir moved to "doc".
+
+2007-10-01  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release: Do not include copies of faq.html in releases,
+	and remove all the explicit support code to pull in web pages.
+
+2007-08-21  Paul Brook  <paul@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc_release: Do not include copies of bugs.html in releases.
+	* update_web_docs_svn: Set VERSION_PACKAGE and BUGURL in
+	gcc-vers.texi.
+
+2007-07-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* update_web_docs_svn: Use -o with makeinfo, texi2dvi and texi2pdf
+	commands.
 
 2007-06-28  Mike Stump  <mrs@apple.com>
 
@@ -14,9 +73,35 @@
 
 	* gcc_release: Adjust placement of release candidates.
 
-2007-05-13  Release Manager
+2007-04-01  Gerald Pfeifer  <gerald@pfeifer.com>
 
-	* GCC 4.2.0 released.
+	* update_web_docs_svn (MANUALS): Move towards the top of the
+	script.  Reformat for easier editing/diffing.
+
+2006-03-31  Tobias Burnus  <burnus@net-b.de>
+
+	* update_web_docs_svn: Build also gfc-internals.
+
+2007-02-25  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* update_version_svn (IGNORE_BRANCHES): Add 4_0-branch.
+
+2007-01-29  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: No longer build snapshots for 4.0.x.
+
+2007-01-21  Tobias Burnus  <burnus@net-b.de>
+
+	* update_web_docs_svn: Build also libgomp documentation.
+
+2007-01-05  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: Spread snapshots more evenly throughout the week, and
+	in "ascending" order.  Build all at the same time of the day.
+
+2006-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* crontab: Add 4.2 branch.  Set trunk to 4.3.
 
 2006-09-17  Gerald Pfeifer  <gerald@pfeifer.com>
 
@@ -268,7 +353,7 @@
 
 	* update_version: Add some documentation.
 
-2004-01-02  Pop Sébastian  <pop@gauvain.u-strasbg.fr>
+2004-01-02  Pop SÃ©bastian  <pop@gauvain.u-strasbg.fr>
 
 	* update_version (ADD_BRANCHES): Add lno-branch.
 

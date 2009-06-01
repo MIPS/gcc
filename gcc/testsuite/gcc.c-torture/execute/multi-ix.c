@@ -12,7 +12,24 @@
 #include <stdarg.h>
 
 #ifdef STACK_SIZE
-#define CHUNK ((STACK_SIZE-100)/40/sizeof(int))
+/* We need to be careful that we don't blow our stack.  Function f, in the
+   worst case, needs to fit on the stack:
+
+   * 40 int[CHUNK] arrays;
+   * ~40 ints;
+   * ~40 pointers for stdarg passing.
+
+   Subtract the last two off STACK_SIZE and figure out what the maximum
+   chunk size can be.  We make the last bit conservative to account for
+   register saves and other processor-dependent saving.  Limit the
+   chunk size to some sane values.  */
+
+#define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+#define MAX(X,Y) ((X) > (Y) ? (X) : (Y))
+
+#define CHUNK								\
+  MIN (500, (MAX (1, (signed)(STACK_SIZE-40*sizeof(int)-256*sizeof(void *)) \
+		      / (signed)(40*sizeof(int)))))
 #else
 #define CHUNK 500
 #endif
@@ -136,6 +153,11 @@ f (int n)
 int
 main ()
 {
+  /* CHUNK needs to be at least 40 to avoid stack corruption,
+     since index variable i0 in "a[i0] = i0" equals 39.  */
+  if (CHUNK < 40)
+    exit (0);
+
   f (1);
   exit (0);
 }
@@ -161,7 +183,7 @@ void z(int n, ...)
   while (n--)
     {
       int *a = va_arg (list, int *);
-      __builtin_bzero (a, sizeof (l));
+      __builtin_memset (a, 0, sizeof (l));
     }
   va_end (list);
 }

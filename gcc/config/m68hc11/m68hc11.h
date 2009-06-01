@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
@@ -151,7 +151,7 @@ extern short *reg_renumber;	/* def in local_alloc.c */
    Don't use this macro to turn on various extra optimizations for
    `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
 
-#define OVERRIDE_OPTIONS	m68hc11_override_options ();
+#define OVERRIDE_OPTIONS	m68hc11_override_options ()
 
 
 /* Define cost parameters for a given processor variant.  */
@@ -408,9 +408,9 @@ SOFT_REG_FIRST+28, SOFT_REG_FIRST+29,SOFT_REG_FIRST+30,SOFT_REG_FIRST+31
    ((GET_MODE_SIZE (MODE) + HARD_REG_SIZE - 1) / HARD_REG_SIZE))
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
-    - 8 bit values are stored anywhere (except the SP register).
-    - 16 bit values can be stored in any register whose mode is 16
-    - 32 bit values can be stored in D, X registers or in a soft register
+    - 8-bit values are stored anywhere (except the SP register).
+    - 16-bit values can be stored in any register whose mode is 16
+    - 32-bit values can be stored in D, X registers or in a soft register
       (except the last one because we need 2 soft registers)
     - Values whose size is > 32 bit are not stored in real hard
       registers.  They may be stored in soft registers if there are
@@ -460,7 +460,7 @@ enum reg_class
   D_REGS,			/* 16-bit data register */
   X_REGS,			/* 16-bit X register */
   Y_REGS,			/* 16-bit Y register */
-  SP_REGS,			/* 16 bit stack pointer */
+  SP_REGS,			/* 16-bit stack pointer */
   DA_REGS,			/* 8-bit A reg.  */
   DB_REGS,			/* 8-bit B reg.  */
   Z_REGS,			/* 16-bit fake Z register */
@@ -488,7 +488,7 @@ enum reg_class
   D_OR_SP_OR_S_REGS,		/* 16-bit soft register or D or SP register */
   A_OR_S_REGS,			/* 16-bit soft register or X, Y registers */
   D_OR_A_OR_S_REGS,		/* 16-bit soft register or D, X, Y registers */
-  TMP_REGS,			/* 16 bit fake scratch register */
+  TMP_REGS,			/* 16-bit fake scratch register */
   D_OR_A_OR_TMP_REGS,		/* General scratch register */
   G_REGS,			/* 16-bit general register
                                    (H_REGS + soft registers) */
@@ -1067,18 +1067,15 @@ extern enum reg_class m68hc11_index_reg_class;
    local-alloc.c.  */
 
 
-/* Internal macro, return 1 if REGNO is a valid base register.  */
-#define REG_VALID_P(REGNO) ((REGNO) >= 0)
-
 extern unsigned char m68hc11_reg_valid_for_base[FIRST_PSEUDO_REGISTER];
 #define REG_VALID_FOR_BASE_P(REGNO) \
-    (REG_VALID_P (REGNO) && (REGNO) < FIRST_PSEUDO_REGISTER \
+    ((REGNO) < FIRST_PSEUDO_REGISTER \
      && m68hc11_reg_valid_for_base[REGNO])
 
 /* Internal macro, return 1 if REGNO is a valid index register.  */
 extern unsigned char m68hc11_reg_valid_for_index[FIRST_PSEUDO_REGISTER];
 #define REG_VALID_FOR_INDEX_P(REGNO) \
-    (REG_VALID_P (REGNO) >= 0 && (REGNO) < FIRST_PSEUDO_REGISTER \
+    ((REGNO) < FIRST_PSEUDO_REGISTER \
      && m68hc11_reg_valid_for_index[REGNO])
 
 /* Internal macro, the nonstrict definition for REGNO_OK_FOR_BASE_P.  */
@@ -1238,12 +1235,7 @@ extern unsigned char m68hc11_reg_valid_for_index[FIRST_PSEUDO_REGISTER];
 
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)  \
-{									\
-  if (GET_CODE (ADDR) == PRE_DEC || GET_CODE (ADDR) == POST_DEC		\
-      || GET_CODE (ADDR) == PRE_INC || GET_CODE (ADDR) == POST_INC)	\
-    goto LABEL;								\
-}
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
@@ -1271,7 +1263,7 @@ extern unsigned char m68hc11_reg_valid_for_index[FIRST_PSEUDO_REGISTER];
 
    Pretend branches are cheap because GCC generates sub-optimal code
    for the default value.  */
-#define BRANCH_COST 0
+#define BRANCH_COST(speed_p, predictable_p) 0
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS	0
@@ -1412,6 +1404,7 @@ do {                                                                    \
 /* Output #ident as a .ident.  */
 
 /* output external reference */
+#undef ASM_OUTPUT_EXTERNAL
 #define ASM_OUTPUT_EXTERNAL(FILE,DECL,NAME) \
   {fputs ("\t; extern\t", FILE); \
   assemble_name (FILE, NAME); \
@@ -1512,7 +1505,7 @@ do {                                                                    \
 /* MOVE_RATIO is the number of move instructions that is better than a
    block move.  Make this small on 6811, since the code size grows very
    large with each move.  */
-#define MOVE_RATIO		3
+#define MOVE_RATIO(speed)	3
 
 /* Define if shifts truncate the shift count which implies one can omit
    a sign-extension or zero-extension of a shift count.  */

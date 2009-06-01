@@ -1,10 +1,11 @@
-!{ dg-do run }
+!{ dg-do run { target fd_truncate } }
 ! PR26464 File I/O error related to buffering and BACKSPACE
 ! Test case derived from case by Dale Ranta.
 ! Submitted  by Jerry DeLisle  <jvdelisle@gcc.gnu.org>
       program test
       integer,parameter :: datasize = 1000
       dimension idata(datasize)
+      idata = -42
       open (11, status="scratch", form="unformatted")
         idata(1)   =  -1
         idata(  datasize)   =  -2
@@ -31,4 +32,4 @@
        call abort()
  1010  stop
        end
-       
+

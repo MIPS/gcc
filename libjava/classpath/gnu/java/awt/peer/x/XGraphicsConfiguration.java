@@ -37,13 +37,26 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.x;
 
+import gnu.x11.Display;
+import gnu.x11.Screen;
+
+import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
+import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.Transparency;
+import java.awt.color.ColorSpace;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
+import java.awt.image.ComponentColorModel;
+import java.awt.image.ComponentSampleModel;
+import java.awt.image.DataBuffer;
+import java.awt.image.Raster;
+import java.awt.image.SampleModel;
 import java.awt.image.VolatileImage;
+import java.awt.image.WritableRaster;
 
 public class XGraphicsConfiguration
     extends GraphicsConfiguration
@@ -63,26 +76,60 @@ public class XGraphicsConfiguration
 
   public BufferedImage createCompatibleImage(int w, int h)
   {
-    return new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+    return createCompatibleImage(w, h, Transparency.OPAQUE);
+  }
+
+  public BufferedImage createCompatibleImage(int w, int h, int transparency)
+  {
+    BufferedImage bi;
+    switch (transparency)
+      {
+        case Transparency.OPAQUE:
+          DataBuffer buffer = new ZPixmapDataBuffer(w, h);
+          SampleModel sm = new ComponentSampleModel(DataBuffer.TYPE_BYTE, w, h,
+                                                    4, w * 4,
+                                                    new int[]{0, 1, 2, 3 });
+          ColorSpace cs = ColorSpace.getInstance(ColorSpace.CS_LINEAR_RGB);
+          ColorModel cm = new ComponentColorModel(cs, true, false,
+                                                  Transparency.OPAQUE,
+                                                  DataBuffer.TYPE_BYTE);
+          WritableRaster raster = Raster.createWritableRaster(sm, buffer,
+                                                              new Point(0, 0));
+          bi = new BufferedImage(cm, raster, false, null);
+          break;
+        case Transparency.BITMASK:
+        case Transparency.TRANSLUCENT:
+          bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+          break;
+        default:
+          throw new IllegalArgumentException("Illegal transparency: "
+                                             + transparency);
+      }
+    return bi;
   }
 
   public VolatileImage createCompatibleVolatileImage(int w, int h)
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    return createCompatibleVolatileImage(w, h, Transparency.OPAQUE);
   }
 
   public VolatileImage createCompatibleVolatileImage(int width, int height,
                                                      int transparency)
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
-  }
-
-  public BufferedImage createCompatibleImage(int w, int h, int transparency)
-  {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    VolatileImage im;
+    switch (transparency)
+      {
+      case Transparency.OPAQUE:
+        im = new PixmapVolatileImage(width, height);
+        break;
+      case Transparency.BITMASK:
+      case Transparency.TRANSLUCENT:
+        throw new UnsupportedOperationException("Not yet implemented");
+      default:
+        throw new IllegalArgumentException("Unknown transparency type: "
+                                           + transparency);  
+      }
+    return im;
   }
 
   public ColorModel getColorModel()
@@ -99,8 +146,7 @@ public class XGraphicsConfiguration
 
   public AffineTransform getDefaultTransform()
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    return new AffineTransform();
   }
 
   public AffineTransform getNormalizingTransform()
@@ -111,8 +157,44 @@ public class XGraphicsConfiguration
 
   public Rectangle getBounds()
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    Display d = device.getDisplay();
+    Screen screen = d.default_screen;
+    
+    return new Rectangle(0, 0, screen.width, screen.height); 
+  }
+
+  /**
+   * Determines the size of the primary screen.
+   *
+   * @return the size of the primary screen
+   */
+  Dimension getSize()
+  {
+    // TODO: A GraphicsConfiguration should correspond to a Screen instance.
+    Display d = device.getDisplay();
+    Screen screen = d.default_screen;
+    int w = screen.width;
+    int h = screen.height;
+    return new Dimension(w, h);
+  }
+
+  /**
+   * Determines the resolution of the primary screen in pixel-per-inch.
+   *
+   * @returnthe resolution of the primary screen in pixel-per-inch
+   */
+  int getResolution()
+  {
+    Display d = device.getDisplay();
+    Screen screen = d.default_screen;
+    int w = screen.width * 254;
+    int h = screen.height * 254;
+    int wmm = screen.width_in_mm * 10;
+    int hmm = screen.height_in_mm * 10;
+    int xdpi = w / wmm;
+    int ydpi = h / hmm;
+    int dpi = (xdpi + ydpi) / 2;
+    return dpi;
   }
 
 }

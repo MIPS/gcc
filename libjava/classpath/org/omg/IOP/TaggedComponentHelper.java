@@ -43,15 +43,12 @@ import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
-import org.omg.CORBA.MARSHAL;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.StructMember;
 import org.omg.CORBA.TCKind;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
-
-import java.io.IOException;
 
 /**
  * A helper operations for the {@link TaggedComponent}.
@@ -136,18 +133,9 @@ public abstract class TaggedComponentHelper
   {
     TaggedComponent value = new TaggedComponent();
     value.tag = input.read_long();
-    value.component_data = new byte[input.read_long()];
-    try
-      {
-        input.read(value.component_data);
-      }
-    catch (IOException e)
-      {
-        MARSHAL m = new MARSHAL();
-        m.minor = Minor.Encapsulation;
-        m.initCause(e);
-        throw m;
-      }
+    int length = input.read_long();
+    value.component_data = new byte[length];
+    input.read_octet_array(value.component_data, 0, length);
     return value;
   }
 
@@ -163,17 +151,6 @@ public abstract class TaggedComponentHelper
   {
     output.write_long(value.tag);
     output.write_long(value.component_data.length);
-
-    try
-      {
-        output.write(value.component_data);
-      }
-    catch (IOException e)
-      {
-        MARSHAL m = new MARSHAL();
-        m.minor = Minor.Encapsulation;
-        m.initCause(e);
-        throw m;
-      }
+    output.write_octet_array(value.component_data, 0, value.component_data.length);
   }
 }

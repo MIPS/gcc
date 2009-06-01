@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package java.net;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.util.Arrays;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -95,7 +97,7 @@ public final class Inet6Address extends InetAddress
   /**
    * The address family of these addresses (used for serialization).
    */
-  private static final int FAMILY = 10; // AF_INET6
+  private static final int AF_INET6 = 10;
 
   /**
    * Create an Inet6Address object
@@ -105,7 +107,7 @@ public final class Inet6Address extends InetAddress
    */
   Inet6Address(byte[] addr, String host)
   {
-    super(addr, host, FAMILY);
+    super(addr, host, AF_INET6);
     // Super constructor clones the addr.  Get a reference to the clone.
     this.ipaddress = this.addr;
     ifname = null;
@@ -121,7 +123,7 @@ public final class Inet6Address extends InetAddress
    */
   public boolean isMulticastAddress()
   {
-    return ipaddress[0] == 0xFF;
+    return ipaddress[0] == (byte) 0xFF;
   }
 
   /**
@@ -317,7 +319,7 @@ public final class Inet6Address extends InetAddress
    */
   public String getHostAddress()
   {
-    StringBuffer sbuf = new StringBuffer(40);
+    CPStringBuilder sbuf = new CPStringBuilder(40);
 
     for (int i = 0; i < 16; i += 2)
       {

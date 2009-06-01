@@ -1,13 +1,13 @@
 // -*- C++ -*-
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 //
 // This library is distributed in the hope that it will be useful,
@@ -16,18 +16,9 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// with this library; see the file COPYING3.  If not see
+// <http://www.gnu.org/licenses/>.
 //
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
 
 // This file provides the following:
 //
@@ -58,8 +49,8 @@
 
 #include <bits/c++config.h>
 #include <bits/functexcept.h>
-#include <cstddef>
-#include <locale>
+#include <ctime>
+
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
@@ -100,22 +91,6 @@ namespace __gnu_test
   void
   verify_demangle(const char* mangled, const char* wanted);
 
-  // 17.3.2.1.2 - Bitmask types [lib.bitmask.types]
-  // bitmask_operators
-  template<typename bitmask_type>
-    void
-    bitmask_operators(bitmask_type a = bitmask_type(),
-		      bitmask_type b = bitmask_type())
-    {
-      a | b;
-      a & b;
-      a ^ b;
-      ~b;
-      a |= b; // set
-      a &= ~b; // clear
-      a ^= b;
-    }
-
   // Simple callback structure for variable numbers of tests (all with
   // same signature).  Assume all unit tests are of the signature
   // void test01(); 
@@ -134,7 +109,7 @@ namespace __gnu_test
     func_callback(const func_callback&);
 
   public:
-    func_callback(): _M_size(0) { };
+    func_callback(): _M_size(0) { }
 
     int
     size() const { return _M_size; }
@@ -158,24 +133,6 @@ namespace __gnu_test
   // Run select unit tests after setting environment variables.
   void 
   run_tests_wrapped_env(const char*, const char*, const func_callback&);
-
-
-  // For containers (23.1/3).
-  struct NonDefaultConstructible
-  {
-    NonDefaultConstructible(int) { }
-  };
- 
-  inline bool
-  operator==(const NonDefaultConstructible&,
-	     const NonDefaultConstructible&)
-  { return false; }
-
-  inline bool
-  operator<(const NonDefaultConstructible&,
-	    const NonDefaultConstructible&)
-  { return false; }
-
 
   // Counting.
   struct counter
@@ -387,8 +344,8 @@ namespace __gnu_test
   };
 
   // For use in 22_locale/time_get and time_put.
-  tm test_tm(int sec, int min, int hour, int mday, int mon,
-	     int year, int wday, int yday, int isdst);
+  std::tm test_tm(int sec, int min, int hour, int mday, int mon,
+		  int year, int wday, int yday, int isdst);
 
 } // namespace __gnu_test
 

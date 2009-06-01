@@ -1,5 +1,6 @@
 /* Generic dominator tree walker
-   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation,
+   Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -121,7 +122,7 @@ along with GCC; see the file COPYING3.  If not see
   which reduces code duplication since the rewriting phase is inherently
   a walk of the dominator tree.
 
-  And (of course), we use the dominator walker to drive a our dominator
+  And (of course), we use the dominator walker to drive our dominator
   optimizer, which is a semi-global optimizer.
 
   TODO:
@@ -143,7 +144,7 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 {
   void *bd = NULL;
   basic_block dest;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   bool is_interesting;
   basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks * 2);
   int sp = 0;
@@ -151,7 +152,9 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
   while (true)
     {
       /* Don't worry about unreachable blocks.  */
-      if (EDGE_COUNT (bb->preds) > 0 || bb == ENTRY_BLOCK_PTR)
+      if (EDGE_COUNT (bb->preds) > 0
+	  || bb == ENTRY_BLOCK_PTR
+	  || bb == EXIT_BLOCK_PTR)
 	{
 	  /* If block BB is not interesting to the caller, then none of the
 	     callbacks that walk the statements in BB are going to be
@@ -165,8 +168,8 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 	    {
 	      bool recycled;
 
-	      /* First get some local data, reusing any local data pointer we may
-	         have saved.  */
+	      /* First get some local data, reusing any local data
+		 pointer we may have saved.  */
 	      if (VEC_length (void_p, walk_data->free_block_data) > 0)
 		{
 		  bd = VEC_pop (void_p, walk_data->free_block_data);
@@ -196,13 +199,14 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 	  if (is_interesting && walk_data->before_dom_children_walk_stmts)
 	    {
 	      if (walk_data->walk_stmts_backward)
-		for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+		for (gsi = gsi_last (bb_seq (bb)); !gsi_end_p (gsi);
+		     gsi_prev (&gsi))
 		  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb,
-								bsi);
+								gsi);
 	      else
-		for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 		  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb,
-								bsi);
+								gsi);
 	    }
 
 	  /* Callback for operations to execute before we have walked the
@@ -211,7 +215,7 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 	    (*walk_data->before_dom_children_after_stmts) (walk_data, bb);
 
 	  /* Mark the current BB to be popped out of the recursion stack
-	     once childs are processed.  */
+	     once children are processed.  */
 	  worklist[sp++] = bb;
 	  worklist[sp++] = NULL;
 
@@ -236,13 +240,14 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 	  if (is_interesting && walk_data->after_dom_children_walk_stmts)
 	    {
 	      if (walk_data->walk_stmts_backward)
-		for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+		for (gsi = gsi_last (bb_seq (bb)); !gsi_end_p (gsi);
+		     gsi_prev (&gsi))
 		  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb,
-							       bsi);
+							       gsi);
 	      else
-		for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 		  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb,
-							       bsi);
+							       gsi);
 	    }
 
 	  /* Callback for operations to execute after we have walked the

@@ -6,46 +6,46 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This version is used for all Ada 2005 builds. It differs from a-except.ads
---  only with respect to the addition of Wide_[Wide]Exception_Name functions.
+--  This version of Ada.Exceptions fully supports both Ada 95 and Ada 2005.
+--  It is used in all situations except for the build of the compiler and
+--  other basic tools. For these latter builds, we use an Ada 95-only version.
 
 --  The reason for this splitting off of a separate version is that bootstrap
 --  compilers often will be used that do not support Ada 2005 features, and
 --  Ada.Exceptions is part of the compiler sources.
 
---  The base version of this unit Ada.Exceptions omits the Wide version of
---  Exception_Name and is used to build the compiler and other basic tools.
+pragma Style_Checks (All_Checks);
+--  No subprogram ordering check, due to logical grouping
 
 pragma Polling (Off);
 --  We must turn polling off for this unit, because otherwise we get
 --  elaboration circularities with System.Exception_Tables.
 
 with System;                  use System;
+with System.Exceptions;       use System.Exceptions;
 with System.Standard_Library; use System.Standard_Library;
 with System.Soft_Links;       use System.Soft_Links;
 with System.WCh_Con;          use System.WCh_Con;
@@ -394,7 +394,7 @@ package body Ada.Exceptions is
    --  is deferred before the reraise operation.
 
    --  Save_Occurrence variations: As the management of the private data
-   --  attached to occurrences is delicate, wether or not pointers to such
+   --  attached to occurrences is delicate, whether or not pointers to such
    --  data has to be copied in various situations is better made explicit.
    --  The following procedures provide an internal interface to help making
    --  this explicit.
@@ -418,11 +418,11 @@ package body Ada.Exceptions is
    -- Run-Time Check Routines --
    -----------------------------
 
-   --  These routines are called from the runtime to raise a specific
-   --  exception with a reason message attached. The parameters are
-   --  the file name and line number in each case. The names are keyed
-   --  to the codes defined in Types.ads and a-types.h (for example,
-   --  the name Rcheck_05 refers to the Reason whose Pos code is 5).
+   --  These routines raise a specific exception with a reason message
+   --  attached. The parameters are the file name and line number in each
+   --  case. The names are keyed to the codes defined in types.ads and
+   --  a-types.h (for example, the name Rcheck_05 refers to the Reason
+   --  RT_Exception_Code'Val (5)).
 
    procedure Rcheck_00 (File : System.Address; Line : Integer);
    procedure Rcheck_01 (File : System.Address; Line : Integer);
@@ -555,23 +555,24 @@ package body Ada.Exceptions is
    Rmsg_14 : constant String := "access before elaboration"        & NUL;
    Rmsg_15 : constant String := "accessibility check failed"       & NUL;
    Rmsg_16 : constant String := "all guards closed"                & NUL;
-   Rmsg_17 : constant String := "duplicated entry address"         & NUL;
-   Rmsg_18 : constant String := "explicit raise"                   & NUL;
-   Rmsg_19 : constant String := "finalize/adjust raised exception" & NUL;
-   Rmsg_20 : constant String := "implicit return with No_Return"   & NUL;
-   Rmsg_21 : constant String := "misaligned address value"         & NUL;
-   Rmsg_22 : constant String := "missing return"                   & NUL;
-   Rmsg_23 : constant String := "overlaid controlled object"       & NUL;
-   Rmsg_24 : constant String := "potentially blocking operation"   & NUL;
-   Rmsg_25 : constant String := "stubbed subprogram called"        & NUL;
-   Rmsg_26 : constant String := "unchecked union restriction"      & NUL;
-   Rmsg_27 : constant String := "illegal use of remote access-to-" &
-                                "class-wide type, see RM E.4(18)"  & NUL;
-   Rmsg_28 : constant String := "empty storage pool"               & NUL;
-   Rmsg_29 : constant String := "explicit raise"                   & NUL;
-   Rmsg_30 : constant String := "infinite recursion"               & NUL;
-   Rmsg_31 : constant String := "object too large"                 & NUL;
-   Rmsg_32 : constant String := "restriction violation"            & NUL;
+   Rmsg_17 : constant String := "Current_Task referenced in entry" &
+                                " body"                            & NUL;
+   Rmsg_18 : constant String := "duplicated entry address"         & NUL;
+   Rmsg_19 : constant String := "explicit raise"                   & NUL;
+   Rmsg_20 : constant String := "finalize/adjust raised exception" & NUL;
+   Rmsg_21 : constant String := "implicit return with No_Return"   & NUL;
+   Rmsg_22 : constant String := "misaligned address value"         & NUL;
+   Rmsg_23 : constant String := "missing return"                   & NUL;
+   Rmsg_24 : constant String := "overlaid controlled object"       & NUL;
+   Rmsg_25 : constant String := "potentially blocking operation"   & NUL;
+   Rmsg_26 : constant String := "stubbed subprogram called"        & NUL;
+   Rmsg_27 : constant String := "unchecked union restriction"      & NUL;
+   Rmsg_28 : constant String := "actual/returned class-wide value "
+                                & "not transportable"              & NUL;
+   Rmsg_29 : constant String := "empty storage pool"               & NUL;
+   Rmsg_30 : constant String := "explicit raise"                   & NUL;
+   Rmsg_31 : constant String := "infinite recursion"               & NUL;
+   Rmsg_32 : constant String := "object too large"                 & NUL;
 
    -----------------------
    -- Polling Interface --
@@ -801,19 +802,28 @@ package body Ada.Exceptions is
       --  This is so the debugger can reliably inspect the parameter when
       --  inserting a breakpoint at the start of this procedure.
 
-      Id : Exception_Id := E;
+      --  To provide support for breakpoints on unhandled exceptions, the
+      --  debugger will also need to be able to inspect the value of E from
+      --  inner frames so we need to make sure that its value is also spilled
+      --  on stack.  We take the address and dereference using volatile local
+      --  objects for this purpose.
+
+      --  The pragma Warnings (Off) are needed because the compiler knows that
+      --  these locals are not referenced and that this use of pragma Volatile
+      --  is peculiar!
+
+      type EID_Access is access Exception_Id;
+
+      Access_To_E : EID_Access := E'Unrestricted_Access;
+      pragma Volatile (Access_To_E);
+      pragma Warnings (Off, Access_To_E);
+
+      Id : Exception_Id := Access_To_E.all;
       pragma Volatile (Id);
       pragma Warnings (Off, Id);
-      --  In order to provide support for breakpoints on unhandled exceptions,
-      --  the debugger will also need to be able to inspect the value of E from
-      --  another (inner) frame. So we need to make sure that if E is passed in
-      --  a register, its value is also spilled on stack. For this, we store
-      --  the parameter value in a local variable, and add a pragma Volatile to
-      --  make sure it is spilled. The pragma Warnings (Off) is needed because
-      --  the compiler knows that Id is not referenced and that this use of
-      --  pragma Volatile is peculiar!
 
    begin
+      Debug_Raise_Exception (E => SSL.Exception_Data_Ptr (E));
       Exception_Propagation.Propagate_Exception
         (E => E, From_Signal_Handler => False);
    end Raise_Current_Excep;
@@ -826,20 +836,20 @@ package body Ada.Exceptions is
      (E       : Exception_Id;
       Message : String := "")
    is
+      EF : Exception_Id := E;
+
    begin
-      if E /= null then
-         Exception_Data.Set_Exception_Msg (E, Message);
-         Abort_Defer.all;
-         Raise_Current_Excep (E);
+      --  Raise CE if E = Null_ID (AI-446)
+
+      if E = null then
+         EF := Constraint_Error'Identity;
       end if;
 
-      --  Note: if E is null, then we simply return, which is correct Ada 95
-      --  semantics. If we are operating in Ada 2005 mode, then the expander
-      --  generates a raise Constraint_Error immediately following the call
-      --  to provide the required Ada 2005 semantics (see AI-329). We do it
-      --  this way to avoid having run time dependencies on the Ada version.
+      --  Go ahead and raise appropriate exception
 
-      return;
+      Exception_Data.Set_Exception_Msg (EF, Message);
+      Abort_Defer.all;
+      Raise_Current_Excep (EF);
    end Raise_Exception;
 
    ----------------------------
@@ -855,6 +865,46 @@ package body Ada.Exceptions is
       Abort_Defer.all;
       Raise_Current_Excep (E);
    end Raise_Exception_Always;
+
+   -------------------------------------
+   -- Raise_From_Controlled_Operation --
+   -------------------------------------
+
+   procedure Raise_From_Controlled_Operation
+     (X : Ada.Exceptions.Exception_Occurrence)
+   is
+      Prefix   : constant String := "adjust/finalize raised ";
+      Orig_Msg : constant String := Exception_Message (X);
+      New_Msg  : constant String := Prefix & Exception_Name (X);
+
+   begin
+      if Orig_Msg'Length >= Prefix'Length
+        and then
+          Orig_Msg (Orig_Msg'First .. Orig_Msg'First + Prefix'Length - 1) =
+                                                                     Prefix
+      then
+         --  Message already has proper prefix, just re-reraise PROGRAM_ERROR
+
+         Raise_Exception_No_Defer
+           (E       => Program_Error'Identity,
+            Message => Orig_Msg);
+
+      elsif Orig_Msg = "" then
+
+         --  No message present: just provide our own
+
+         Raise_Exception_No_Defer
+           (E       => Program_Error'Identity,
+            Message => New_Msg);
+
+      else
+         --  Message present, add informational prefix
+
+         Raise_Exception_No_Defer
+           (E       => Program_Error'Identity,
+            Message => New_Msg & ": " & Orig_Msg);
+      end if;
+   end Raise_From_Controlled_Operation;
 
    -------------------------------
    -- Raise_From_Signal_Handler --
@@ -1106,7 +1156,7 @@ package body Ada.Exceptions is
 
    procedure Rcheck_28 (File : System.Address; Line : Integer) is
    begin
-      Raise_Storage_Error_Msg (File, Line, Rmsg_28'Address);
+      Raise_Program_Error_Msg (File, Line, Rmsg_28'Address);
    end Rcheck_28;
 
    procedure Rcheck_29 (File : System.Address; Line : Integer) is
@@ -1305,17 +1355,27 @@ package body Ada.Exceptions is
    --  Encoding method for source, as exported by binder
 
    function Wide_Exception_Name
-     (Id : Exception_Id) return Wide_String is
+     (Id : Exception_Id) return Wide_String
+   is
+      S : constant String := Exception_Name (Id);
+      W : Wide_String (1 .. S'Length);
+      L : Natural;
    begin
-      return String_To_Wide_String
-        (Exception_Name (Id), Get_WC_Encoding_Method (WC_Encoding));
+      String_To_Wide_String
+        (S, W, L, Get_WC_Encoding_Method (WC_Encoding));
+      return W (1 .. L);
    end Wide_Exception_Name;
 
    function Wide_Exception_Name
-     (X : Exception_Occurrence) return Wide_String is
+     (X : Exception_Occurrence) return Wide_String
+   is
+      S : constant String := Exception_Name (X);
+      W : Wide_String (1 .. S'Length);
+      L : Natural;
    begin
-      return String_To_Wide_String
-        (Exception_Name (X), Get_WC_Encoding_Method (WC_Encoding));
+      String_To_Wide_String
+        (S, W, L, Get_WC_Encoding_Method (WC_Encoding));
+      return W (1 .. L);
    end Wide_Exception_Name;
 
    ----------------------------
@@ -1325,17 +1385,25 @@ package body Ada.Exceptions is
    function Wide_Wide_Exception_Name
      (Id : Exception_Id) return Wide_Wide_String
    is
+      S : constant String := Exception_Name (Id);
+      W : Wide_Wide_String (1 .. S'Length);
+      L : Natural;
    begin
-      return String_To_Wide_Wide_String
-        (Exception_Name (Id), Get_WC_Encoding_Method (WC_Encoding));
+      String_To_Wide_Wide_String
+        (S, W, L, Get_WC_Encoding_Method (WC_Encoding));
+      return W (1 .. L);
    end Wide_Wide_Exception_Name;
 
    function Wide_Wide_Exception_Name
      (X : Exception_Occurrence) return Wide_Wide_String
    is
+      S : constant String := Exception_Name (X);
+      W : Wide_Wide_String (1 .. S'Length);
+      L : Natural;
    begin
-      return String_To_Wide_Wide_String
-        (Exception_Name (X), Get_WC_Encoding_Method (WC_Encoding));
+      String_To_Wide_Wide_String
+        (S, W, L, Get_WC_Encoding_Method (WC_Encoding));
+      return W (1 .. L);
    end Wide_Wide_Exception_Name;
 
    --------------------------

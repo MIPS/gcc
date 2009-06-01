@@ -1,13 +1,13 @@
 ## Linker script for GNU namespace versioning.
 ##
-## Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004, 2005, 2007, 2009 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ##
 ## This file is part of the GNU ISO C++ Library.  This library is free
 ## software; you can redistribute it and/or modify it under the
 ## terms of the GNU General Public License as published by the
-## Free Software Foundation; either version 2, or (at your option)
+## Free Software Foundation; either version 3, or (at your option)
 ## any later version.
 ##
 ## This library is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License along
-## with this library; see the file COPYING.  If not, write to the Free
-## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-## USA.
+## with this library; see the file COPYING3.  If not see
+## <http://www.gnu.org/licenses/>.
 
 GLIBCXX_3.7 {
 
@@ -66,7 +65,8 @@ GLIBCXX_3.7 {
     _ZNSt2_614__convert_to_v*;
 
     # std::__copy_streambufs
-    _ZNSt2_617__copy_streambufsI[cw]NS_11char_traitsI[cw]EEEEiPNS_15basic_streambufIT_T0_EES7_;
+    _ZNSt2_617__copy_streambufsI*;
+    _ZNSt2_621__copy_streambufs_eofI*;
 
     # __gnu_cxx::__atomic_add
     # __gnu_cxx::__exchange_and_add
@@ -86,6 +86,40 @@ GLIBCXX_3.7 {
 
     _ZN9__gnu_cxx2_69free_list6_M_getE[jm];
     _ZN9__gnu_cxx2_69free_list8_M_clearEv;
+
+    # debug mode
+    _ZN10__gnu_norm15_List_node_base4hook*;
+    _ZN10__gnu_norm15_List_node_base4swap*;
+    _ZN10__gnu_norm15_List_node_base6unhookEv;
+    _ZN10__gnu_norm15_List_node_base7reverseEv;
+    _ZN10__gnu_norm15_List_node_base8transfer*;
+
+    _ZNSt6__norm15_List_node_base4hook*;
+    _ZNSt6__norm15_List_node_base4swap*;
+    _ZNSt6__norm15_List_node_base6unhookEv;
+    _ZNSt6__norm15_List_node_base7reverseEv;
+    _ZNSt6__norm15_List_node_base8transfer*;
+
+    _ZN11__gnu_debug19_Safe_sequence_base12_M_get_mutexEv;
+    _ZN11__gnu_debug19_Safe_sequence_base13_M_detach_allEv;
+    _ZN11__gnu_debug19_Safe_sequence_base18_M_detach_singularEv;
+    _ZN11__gnu_debug19_Safe_sequence_base22_M_revalidate_singularEv;
+    _ZN11__gnu_debug19_Safe_sequence_base7_M_swapERS0_;
+
+    _ZN11__gnu_debug19_Safe_iterator_base9_M_attachEPNS_19_Safe_sequence_baseEb;
+    _ZN11__gnu_debug19_Safe_iterator_base16_M_attach_singleEPNS_19_Safe_sequence_baseEb;
+    _ZN11__gnu_debug19_Safe_iterator_base9_M_detachEv;
+    _ZN11__gnu_debug19_Safe_iterator_base16_M_detach_singleEv;
+    _ZN11__gnu_debug19_Safe_iterator_base12_M_get_mutexEv;
+    _ZNK11__gnu_debug19_Safe_iterator_base11_M_singularEv;
+    _ZNK11__gnu_debug19_Safe_iterator_base14_M_can_compareERKS0_;
+
+    _ZNK11__gnu_debug16_Error_formatter10_M_message*;
+    _ZNK11__gnu_debug16_Error_formatter10_Parameter*;
+    _ZNK11__gnu_debug16_Error_formatter13_M_print_word*;
+    _ZNK11__gnu_debug16_Error_formatter15_M_print_string*;
+    _ZNK11__gnu_debug16_Error_formatter8_M_error*;
+    _ZNK11__gnu_debug16_Error_formatter17_M_get_max_lengthEv;
 
   local:
     *;
@@ -164,7 +198,7 @@ CXXABI_1.7 {
     _ZTVN10__cxxabiv120__si_class_type_infoE;
     _ZTVN10__cxxabiv121__vmi_class_type_infoE;
 
-    # typeinfo structure (and some names)
+    # typeinfo structure
     _ZTI[a-z];
     _ZTIP[a-z];
     _ZTIPK[a-z];
@@ -178,6 +212,8 @@ CXXABI_1.7 {
     _ZTIN10__cxxabiv119__pointer_type_infoE;
     _ZTIN10__cxxabiv120__si_class_type_infoE;
     _ZTIN10__cxxabiv121__vmi_class_type_infoE;
+    _ZTIN10__cxxabiv115__forced_unwindE;
+    _ZTIN10__cxxabiv119__foreign_exceptionE;
 
     # typeinfo name
     _ZTS[a-z];

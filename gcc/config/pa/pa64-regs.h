@@ -1,5 +1,6 @@
 /* Configuration for GCC-compiler for PA-RISC.
-   Copyright (C) 1999, 2000, 2003, 2004, 2007 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2003, 2004, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,7 +31,7 @@ along with GCC; see the file COPYING3.  If not see
    HP-PA 2.0w has 32 fullword registers and 32 floating point
    registers. However, the floating point registers behave
    differently: the left and right halves of registers are addressable
-   as 32 bit registers.
+   as 32-bit registers.
 
    Due to limitations within GCC itself, we do not expose the left/right
    half addressability when in wide mode.  This is not a major performance
@@ -156,8 +157,7 @@ along with GCC; see the file COPYING3.  If not see
 #define VALID_FP_MODE_P(MODE)						\
   ((MODE) == SFmode || (MODE) == DFmode					\
    || (MODE) == SCmode || (MODE) == DCmode				\
-   || (MODE) == QImode || (MODE) == HImode || (MODE) == SImode		\
-   || (MODE) == DImode)
+   || (MODE) == SImode || (MODE) == DImode)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On the HP-PA, the cpu registers can hold any mode.  We
@@ -236,23 +236,29 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
  {{0x00000000, 0x00000000},	/* NO_REGS */			\
   {0x00000002, 0x00000000},	/* R1_REGS */			\
   {0xfffffffe, 0x00000000},	/* GENERAL_REGS */		\
-  {0x00000000, 0x00000000},	/* FPUPPER_REGS */			\
+  {0x00000000, 0x00000000},	/* FPUPPER_REGS */		\
   {0x00000000, 0x0fffffff},	/* FP_REGS */			\
   {0xfffffffe, 0x0fffffff},	/* GENERAL_OR_FP_REGS */	\
   {0x00000000, 0x10000000},	/* SHIFT_REGS */		\
   {0xfffffffe, 0x1fffffff}}	/* ALL_REGS */
 
-/* Defines invalid mode changes.
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
 
-   SImode loads to floating-point registers are not zero-extended.
-   The definition for LOAD_EXTEND_OP specifies that integer loads
-   narrower than BITS_PER_WORD will be zero-extended.  As a result,
-   we inhibit changes from SImode unless they are to a mode that is
-   identical in size.  */
+#define IRA_COVER_CLASSES						\
+{									\
+  GENERAL_REGS, FP_REGS, SHIFT_REGS, LIM_REG_CLASSES			\
+}
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
-  ((FROM) == SImode && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)       \
-   ? reg_classes_intersect_p (CLASS, FP_REGS) : 0)
+/* Defines invalid mode changes.  */
+
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+  pa_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
@@ -264,18 +270,6 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
    : (REGNO) < 32 ? GENERAL_REGS					\
    : (REGNO) < 60 ? FP_REGS						\
    : SHIFT_REGS)
-
-
-/* Get reg_class from a letter such as appears in the machine description.  */
-/* Keep 'x' for backward compatibility with user asm.  */
-#define REG_CLASS_FROM_LETTER(C) \
-  ((C) == 'f' ? FP_REGS :					\
-   (C) == 'y' ? FP_REGS :					\
-   (C) == 'x' ? FP_REGS :					\
-   (C) == 'q' ? SHIFT_REGS :					\
-   (C) == 'a' ? R1_REGS :					\
-   (C) == 'Z' ? ALL_REGS : NO_REGS)
-
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */

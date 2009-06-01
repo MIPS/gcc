@@ -1,29 +1,28 @@
 /* GNU Objective C Runtime message lookup 
    Copyright (C) 1993, 1995, 1996, 1997, 1998,
-   2001, 2002, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2004, 2009 Free Software Foundation, Inc.
    Contributed by Kresten Krab Thorup
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
-Foundation; either version 2, or (at your option) any later version.
+Foundation; either version 3, or (at your option) any later version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 details.
 
-You should have received a copy of the GNU General Public License along with
-GCC; see the file COPYING.  If not, write to the Free Software
-Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
-/* As a special exception, if you link this library with files compiled with
-   GCC to produce an executable, this does not cause the resulting executable
-   to be covered by the GNU General Public License. This exception does not
-   however invalidate any other reasons why the executable file might be
-   covered by the GNU General Public License.  */
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
+
 
 /* FIXME: This file has no business including tm.h.  */
 /* FIXME: This should be using libffi instead of __builtin_apply
@@ -41,6 +40,8 @@ Boston, MA 02110-1301, USA.  */
 #define gen_rtx(args...) 1
 #define gen_rtx_MEM(args...) 1
 #define gen_rtx_REG(args...) 1
+/* Alread defined in gcc/coretypes.h. So prevent double definition warning.  */
+#undef rtx
 #define rtx int
 
 #if ! defined (STRUCT_VALUE) || STRUCT_VALUE == 0
@@ -52,10 +53,15 @@ Boston, MA 02110-1301, USA.  */
 /* The uninstalled dispatch table */
 struct sarray *__objc_uninstalled_dtable = 0;   /* !T:MUTEX */
 
-/* Hook for method forwarding. If it is set, is invoked to return a
-   function that performs the real forwarding. Otherwise the libgcc
-   based functions (__builtin_apply and friends) are used. */
+/* Two hooks for method forwarding. If either is set, it is invoked
+ * to return a function that performs the real forwarding.  If both
+ * are set, the result of __objc_msg_forward2 will be preferred over
+ * that of __objc_msg_forward.  If both return NULL or are unset,
+ * the libgcc based functions (__builtin_apply and friends) are
+ * used.
+ */
 IMP (*__objc_msg_forward) (SEL) = NULL;
+IMP (*__objc_msg_forward2) (id, SEL) = NULL;
 
 /* Send +initialize to class */
 static void __objc_send_initialize (Class);
@@ -69,8 +75,7 @@ static void __objc_init_install_dtable (id, SEL);
    return type for the selector.
    __objc_block_forward for structures.
    __objc_double_forward for floats/doubles.
-   __objc_word_forward for pointers or types that fit in registers.
-   */
+   __objc_word_forward for pointers or types that fit in registers. */
 static double __objc_double_forward (id, SEL, ...);
 static id __objc_word_forward (id, SEL, ...);
 typedef struct { id many[8]; } __big;
@@ -87,10 +92,17 @@ id nil_method (id, SEL);
 /* Given a selector, return the proper forwarding implementation. */
 inline
 IMP
-__objc_get_forward_imp (SEL sel)
+__objc_get_forward_imp (id rcv, SEL sel)
 {
   /* If a custom forwarding hook was registered, try getting a forwarding
-   * function from it.  */
+     function from it. There are two forward routine hooks, one that
+     takes the receiver as an argument and one that does not. */
+  if (__objc_msg_forward2)
+    {
+      IMP result;
+      if ((result = __objc_msg_forward2 (rcv, sel)) != NULL)
+       return result;
+    }
   if (__objc_msg_forward)
     {
       IMP result;
@@ -99,7 +111,7 @@ __objc_get_forward_imp (SEL sel)
     }
 
   /* In all other cases, use the default forwarding functions built using
-   * __builtin_apply and friends.  */
+     __builtin_apply and friends.  */
     {
       const char *t = sel->sel_types;
 
@@ -168,7 +180,7 @@ get_imp (Class class, SEL sel)
 		 is not in the dispatch table.  So the method just
 		 doesn't exist for the class.  Return the forwarding
 		 implementation. */
-	      res = __objc_get_forward_imp (sel);
+             res = __objc_get_forward_imp ((id)class, sel);
 	    }
 	}
     }
@@ -237,7 +249,7 @@ objc_msg_lookup (id receiver, SEL op)
 		{
 		  /* If the method still just doesn't exist for the
 		     class, attempt to forward the method. */
-		  result = __objc_get_forward_imp (op);
+		  result = __objc_get_forward_imp (receiver, op);
 		}
 	    }
 	}
@@ -674,14 +686,14 @@ __objc_print_dtable_stats ()
 #endif
 
   printf ("arrays: %d = %ld bytes\n", narrays, 
-	  (long) narrays * sizeof (struct sarray));
+	  (long) ((size_t) narrays * sizeof (struct sarray)));
   total += narrays * sizeof (struct sarray);
   printf ("buckets: %d = %ld bytes\n", nbuckets, 
-	  (long) nbuckets * sizeof (struct sbucket));
+	  (long) ((size_t) nbuckets * sizeof (struct sbucket)));
   total += nbuckets * sizeof (struct sbucket);
 
   printf ("idxtables: %d = %ld bytes\n",
-	  idxsize, (long) idxsize * sizeof (void *));
+	  idxsize, (long) ((size_t) idxsize * sizeof (void *)));
   total += idxsize * sizeof (void *);
   printf ("-----------------------------------\n");
   printf ("total: %d bytes\n", total);

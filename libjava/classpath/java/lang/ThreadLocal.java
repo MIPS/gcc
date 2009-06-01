@@ -1,5 +1,5 @@
 /* ThreadLocal -- a variable with a unique value per thread
-   Copyright (C) 2000, 2002, 2003, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -36,9 +36,6 @@ obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
 package java.lang;
-
-import java.util.Map;
-
 
 /**
  * ThreadLocal objects have a different state associated with every
@@ -84,22 +81,41 @@ import java.util.Map;
  * @author Mark Wielaard (mark@klomp.org)
  * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.2
- * @status updated to 1.4
+ * @status updated to 1.5
  */
-public class ThreadLocal
+public class ThreadLocal<T>
 {
   /**
    * Placeholder to distinguish between uninitialized and null set by the
    * user. Do not expose this to the public. Package visible for use by
    * InheritableThreadLocal
    */
-  static final Object NULL = new Object();
+  static final Object sentinel = new Object();
+
+  /**
+   * The base for the computation of the next hash for a thread local.
+   */
+  private static int nextHashBase = 1;
+
+  /**
+   * Allocate a new hash.
+   */
+  private synchronized int computeNextHash() 
+  {
+    return nextHashBase++ * 6709;
+  }
+
+  /**
+   * Hash code computed for ThreadLocalMap
+   */
+  final int fastHash;
 
   /**
    * Creates a ThreadLocal object without associating any value to it yet.
    */
   public ThreadLocal()
   {
+    fastHash = computeNextHash();
   }
 
   /**
@@ -110,7 +126,7 @@ public class ThreadLocal
    *
    * @return the initial value of the variable in this thread
    */
-  protected Object initialValue()
+  protected T initialValue()
   {
     return null;
   }
@@ -123,18 +139,18 @@ public class ThreadLocal
    *
    * @return the value of the variable in this thread
    */
-  public Object get()
+  public T get()
   {
-    Map map = Thread.getThreadLocals();
+    ThreadLocalMap map = Thread.getThreadLocals();
     // Note that we don't have to synchronize, as only this thread will
     // ever modify the map.
-    Object value = map.get(this);
-    if (value == null)
+    T value = (T) map.get(this);
+    if (value == sentinel)
       {
         value = initialValue();
-        map.put(this, value == null ? NULL : value);
+        map.set(this, value);
       }
-    return value == NULL ? null : value;
+    return value;
   }
 
   /**
@@ -145,12 +161,12 @@ public class ThreadLocal
    *
    * @param value the value to set this thread's view of the variable to
    */
-  public void set(Object value)
+  public void set(T value)
   {
-    Map map = Thread.getThreadLocals();
+    ThreadLocalMap map = Thread.getThreadLocals();
     // Note that we don't have to synchronize, as only this thread will
     // ever modify the map.
-    map.put(this, value == null ? NULL : value);
+    map.set(this, value);
   }
 
   /**
@@ -160,7 +176,7 @@ public class ThreadLocal
    */
   public void remove()
   {
-    Map map = Thread.getThreadLocals();
+    ThreadLocalMap map = Thread.getThreadLocals();
     map.remove(this);
   }
 }

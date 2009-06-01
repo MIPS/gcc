@@ -1,5 +1,6 @@
 /* Definitions for AMD x86-64 running Linux-based GNU systems with ELF format.
-   Copyright (C) 2001, 2002, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Jan Hubicka <jh@suse.cz>, based on linux.h.
 
 This file is part of GCC.
@@ -14,11 +15,20 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
+#if TARGET_64BIT_DEFAULT
 #define TARGET_VERSION fprintf (stderr, " (x86-64 Linux/ELF)");
+#else
+#define TARGET_VERSION fprintf (stderr, " (i386 Linux/ELF)");
+#endif
 
 #define TARGET_OS_CPP_BUILTINS()				\
   do								\
@@ -51,23 +61,49 @@ along with GCC; see the file COPYING3.  If not see
 #define GLIBC_DYNAMIC_LINKER32 "/lib/ld-linux.so.2"
 #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
 
+#undef ASM_SPEC
+#define ASM_SPEC "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} \
+ %{Wa,*:%*} %{m32:--32} %{m64:--64} \
+ %{!mno-sse2avx:%{mavx:-msse2avx}} %{msse2avx:%{!mavx:-msse2avx}}"
+
+#if TARGET_64BIT_DEFAULT
+#define SPEC_32 "m32"
+#define SPEC_64 "!m32"
+#else
+#define SPEC_32 "!m64"
+#define SPEC_64 "m64"
+#endif
+
 #undef	LINK_SPEC
-#define LINK_SPEC "%{!m32:-m elf_x86_64} %{m32:-m elf_i386} \
+#define LINK_SPEC "%{" SPEC_64 ":-m elf_x86_64} %{" SPEC_32 ":-m elf_i386} \
   %{shared:-shared} \
   %{!shared: \
     %{!static: \
       %{rdynamic:-export-dynamic} \
-      %{m32:%{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER32 "}} \
-      %{!m32:%{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}}} \
+      %{" SPEC_32 ":%{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER32 "}} \
+      %{" SPEC_64 ":%{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}}} \
     %{static:-static}}"
 
 /* Similar to standard Linux, but adding -ffast-math support.  */
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
+   %{mpc32:crtprec32.o%s} \
+   %{mpc64:crtprec64.o%s} \
+   %{mpc80:crtprec80.o%s} \
    %{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
 
+#if TARGET_64BIT_DEFAULT
 #define MULTILIB_DEFAULTS { "m64" }
+#else
+#define MULTILIB_DEFAULTS { "m32" }
+#endif
+
+/* Put all *tf routines in libgcc.  */
+#undef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE 1
+#define LIBGCC2_TF_CEXT q
+#define TF_SIZE 113
 
 #undef NEED_INDICATE_EXEC_STACK
 #define NEED_INDICATE_EXEC_STACK 1

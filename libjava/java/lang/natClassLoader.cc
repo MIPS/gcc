@@ -1,6 +1,6 @@
 // natClassLoader.cc - Implementation of java.lang.ClassLoader native methods.
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2008  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -41,6 +41,7 @@ details.  */
 #include <java/lang/StringBuffer.h>
 #include <java/io/Serializable.h>
 #include <java/lang/Cloneable.h>
+#include <java/lang/ref/WeakReference.h>
 #include <java/util/HashMap.h>
 #include <gnu/gcj/runtime/BootClassLoader.h>
 #include <gnu/gcj/runtime/SystemClassLoader.h>
@@ -143,7 +144,21 @@ _Jv_RegisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
       // them later.
       return;
     }
-  loader->loadedClasses->put(klass->name->toString(), klass);
+
+  JvSynchronize sync (loader->loadingConstraints);
+
+  using namespace java::lang::ref;
+
+  jstring name = klass->getName();
+  WeakReference *ref = (WeakReference *) loader->loadingConstraints->get (name);
+  if (ref)
+    {
+      jclass constraint = (jclass) ref->get();
+      if (constraint && constraint != klass)
+	throw new java::lang::LinkageError(JvNewStringLatin1("loading constraint violated"));
+    }
+  loader->loadingConstraints->put(name, new WeakReference(klass));
+  loader->loadedClasses->put(name, klass);
 }
 
 // If we found an error while defining an interpreted class, we must
@@ -154,6 +169,46 @@ _Jv_UnregisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
   if (! loader)
     loader = java::lang::VMClassLoader::bootLoader;
   loader->loadedClasses->remove(klass->name->toString());
+}
+
+// Check a loading constraint.  In particular check that, if there is
+// a constraint for the name of KLASS in LOADER, that it maps to
+// KLASS.  If there is no such constraint, make a new one.  If the
+// constraint is violated, throw an exception.  Do nothing for
+// primitive types.
+void
+_Jv_CheckOrCreateLoadingConstraint (jclass klass,
+				    java::lang::ClassLoader *loader)
+{
+  // Strip arrays.
+  while (klass->isArray())
+    klass = klass->getComponentType();
+  // Ignore primitive types.
+  if (klass->isPrimitive())
+    return;
+
+  if (! loader)
+    loader = java::lang::VMClassLoader::bootLoader;
+  jstring name = klass->getName();
+
+  JvSynchronize sync (loader->loadingConstraints);
+
+  using namespace java::lang::ref;
+
+  WeakReference *ref = (WeakReference *) loader->loadingConstraints->get (name);
+  if (ref)
+    {
+      jclass constraint = (jclass) ref->get();
+      if (constraint)
+	{
+	  if (klass != constraint)
+	    throw new java::lang::LinkageError(JvNewStringLatin1("loading constraint violated"));
+	  // Otherwise, all is ok.
+	  return;
+	}
+    }
+  // No constraint (or old constraint GC'd).  Make a new one.
+  loader->loadingConstraints->put(name, new WeakReference(klass));
 }
 
 
@@ -180,6 +235,47 @@ _Jv_UnregisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 // _Jv_RegisterNewClasses() are of Type 2.
 
 
+// Check that the file we're trying to load has been compiled with a
+// compatible version of gcj.  In previous versions of libgcj we
+// silently failed to register classes of an incompatible ABI version,
+// but this was totally bogus.
+void
+_Jv_CheckABIVersion (unsigned long value)
+{
+  // We are compatible with GCJ 4.0.0 BC-ABI classes. This release used a
+  // different format for the version ID string.
+   if (value == OLD_GCJ_40_BC_ABI_VERSION)
+     return;
+     
+  // The 20 low-end bits are used for the version number.
+  unsigned long version = value & 0xfffff;
+
+  if (value & FLAG_BINARYCOMPAT_ABI)
+    {
+      int abi_rev = version % 100;
+      int abi_ver = version - abi_rev;
+      // We are compatible with abi_rev 0 and 1.
+      if (abi_ver == GCJ_40_BC_ABI_VERSION && abi_rev <= 1)
+        return;
+    }
+  else
+    {
+      // C++ ABI
+      if (version == GCJ_CXX_ABI_VERSION)
+	return;
+
+      // If we've loaded a library that uses the C++ ABI, and this
+      // library is an incompatible version, then we're dead.  There's
+      // no point throwing an exception: that will crash.
+      JvFail ("gcj linkage error.\n"
+	      "Incorrect library ABI version detected.  Aborting.\n");
+    }
+
+  throw new ::java::lang::ClassFormatError
+    (JvNewStringLatin1 ("Library compiled with later ABI version than"
+			" this version of libgcj supports"));
+}
+
 // This function is called many times during startup, before main() is
 // run.  At that point in time we know for certain we are running 
 // single-threaded, so we don't need to lock when adding classes to the 
@@ -194,8 +290,8 @@ _Jv_RegisterClasses (const jclass *classes)
     {
       jclass klass = *classes;
 
-      if (_Jv_CheckABIVersion ((unsigned long) klass->next_or_version))
-	(*_Jv_RegisterClassHook) (klass);
+      _Jv_CheckABIVersion ((unsigned long) klass->next_or_version);
+      (*_Jv_RegisterClassHook) (klass);
     }
 }
 
@@ -211,28 +307,34 @@ _Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
     {
       jclass klass = classes[i];
 
-      if (_Jv_CheckABIVersion ((unsigned long) klass->next_or_version))
-	(*_Jv_RegisterClassHook) (klass);
+      _Jv_CheckABIVersion ((unsigned long) klass->next_or_version);
+      (*_Jv_RegisterClassHook) (klass);
     }
 }
 
 // Create a class on the heap from an initializer struct.
-jclass
+inline jclass
 _Jv_NewClassFromInitializer (const char *class_initializer)
 {
+  const unsigned long version 
+    = ((unsigned long) 
+       ((::java::lang::Class *)class_initializer)->next_or_version);
+  _Jv_CheckABIVersion (version);
+  
   /* We create an instance of java::lang::Class and copy all of its
      fields except the first word (the vtable pointer) from
      CLASS_INITIALIZER.  This first word is pre-initialized by
      _Jv_AllocObj, and we don't want to overwrite it.  */
-
+  
   jclass new_class
-    = (jclass)_Jv_AllocObj (sizeof (java::lang::Class),
-			    &java::lang::Class::class$);
+    = (jclass)_Jv_AllocObj (sizeof (::java::lang::Class),
+			    &::java::lang::Class::class$);
   const char *src = class_initializer + sizeof (void*);
   char *dst = (char*)new_class + sizeof (void*);
-  size_t len = sizeof (*new_class) - sizeof (void*);
+  size_t len = (::java::lang::Class::initializerSize (version) 
+		- sizeof (void*));
   memcpy (dst, src, len);
-
+  
   new_class->engine = &_Jv_soleIndirectCompiledEngine;
 
   /* FIXME:  Way back before the dawn of time, we overloaded the
@@ -244,8 +346,7 @@ _Jv_NewClassFromInitializer (const char *class_initializer)
      kludge!  */
   new_class->accflags &= ~java::lang::reflect::Modifier::INTERPRETED;
 
-  if (_Jv_CheckABIVersion ((unsigned long) new_class->next_or_version))
-    (*_Jv_RegisterClassHook) (new_class);
+  (*_Jv_RegisterClassHook) (new_class);
   
   return new_class;
 }
@@ -278,6 +379,15 @@ _Jv_RegisterClassHookDefault (jclass klass)
   // it.
   if (! klass->engine)
     klass->engine = &_Jv_soleCompiledEngine;
+
+  /* FIXME:  Way back before the dawn of time, we overloaded the
+     SYNTHETIC class access modifier to mean INTERPRETED.  This was a
+     Bad Thing, but it didn't matter then because classes were never
+     marked synthetic.  However, it is possible to redeem the
+     situation: _Jv_RegisterClassHookDefault is only called from
+     compiled classes, so we clear the INTERPRETED flag.  This is a
+     kludge!  */
+  klass->accflags &= ~java::lang::reflect::Modifier::INTERPRETED;
 
   if (system_class_list != SYSTEM_LOADER_INITIALIZED)
     {

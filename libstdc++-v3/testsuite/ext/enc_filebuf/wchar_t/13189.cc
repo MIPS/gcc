@@ -1,9 +1,11 @@
-// Copyright (C) 2003, 2004, 2005 Free Software Foundation
+// { dg-require-iconv "ISO-8859-1" }
+
+// Copyright (C) 2003, 2004, 2005, 2007, 2009 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -12,22 +14,18 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// with this library; see the file COPYING3.  If not see
+// <http://www.gnu.org/licenses/>.
 
 #include <testsuite_hooks.h>
-#ifdef _GLIBCXX_USE___ENC_TRAITS
 #include <ext/enc_filebuf.h>
-#endif
 
 void test01()
 {
-#ifdef _GLIBCXX_USE___ENC_TRAITS
   using namespace std;
-  typedef __enc_traits state_type;
   typedef wchar_t char_type;
   typedef __gnu_cxx::enc_filebuf<char_type> filebuf_type;
+  typedef filebuf_type::state_type state_type;
   typedef codecvt<char_type, char, state_type> enc_codecvt;
 
   bool test __attribute__((unused)) = true;
@@ -47,7 +45,6 @@ void test01()
   catch(...)
     {
     }
-#endif
 }
 
 int main() 

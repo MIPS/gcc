@@ -1,22 +1,164 @@
-2007-10-07  Release Manager
+2009-04-21  Release Manager
 
-	* GCC 4.2.2 released.
+	* GCC 4.4.0 released.
 
-2007-07-19  Release Manager
+2009-03-17  Jason Merrill  <jason@redhat.com>
 
-	* GCC 4.2.1 released.
+	* demangle.h (enum demangle_component_type): Add
+	DEMANGLE_COMPONENT_FUNCTION_PARAM.
 
-2007-05-13  Release Manager
+2008-12-10  Jason Merrill  <jason@redhat.com>
 
-	* GCC 4.2.0 released.
+	* demangle.h (enum demangle_component_type): Add 
+	DEMANGLE_COMPONENT_FIXED_TYPE.
 
-2007-05-04  Mark Mitchell  <mark@codesourcery.com>
+2008-11-19  Bob Wilson  <bob.wilson@acm.org>
+	
+	* xtensa-config.h (XCHAL_HAVE_MUL16, XCHAL_HAVE_MUL32, XCHAL_HAVE_DIV32)
+	(XCHAL_HAVE_MINMAX, XCHAL_HAVE_SEXT, XCHAL_HAVE_THREADPTR)
+	(XCHAL_HAVE_RELEASE_SYNC, XCHAL_HAVE_S32C1I): Change to 1.
+	(XCHAL_NUM_AREGS): Change to 32.
+	(XCHAL_ICACHE_SIZE, XCHAL_DCACHE_SIZE): Change to 16K.
+	(XCHAL_ICACHE_LINESIZE, XCHAL_DCACHE_LINESIZE): Change to 32.
+	(XCHAL_ICACHE_LINEWIDTH, XCHAL_DCACHE_LINEWIDTH): Change to 5.
+	(XCHAL_DCACHE_IS_WRITEBACK): Change to 1.
+	(XCHAL_DEBUGLEVEL): Change to 6.
+	
+2008-10-21  Alan Modra  <amodra@bigpond.net.au>
+
+	* obstack.h (obstack_finish <!__GNUC__>): Cast result to void *.
+
+2008-10-06  Jason Merrill  <jason@redhat.com>
+
+	* demangle.h (enum demangle_component_type): Add
+	DEMANGLE_COMPONENT_PACK_EXPANSION.
+
+2008-09-09  Jason Merrill  <jason@redhat.com>
+
+	* demangle.h (enum demangle_component_type): Add
+	DEMANGLE_COMPONENT_DECLTYPE.
+
+2008-07-07  Joel Brobecker  <brobecker@adacore.com>
+
+	* safe-ctype.h: Add #include of ctype.h before redefining
+	the ctype.h macros.
+
+2008-07-04  Joel Brobecker  <brobecker@adacore.com>
+
+	* safe-ctype.h: Remove #error when detecting that ctype.h has been
+	included. Redefine the various macros provided by ctype.h as
+	undefined variables.
+
+2008-06-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (XALLOCA, XDUP, XALLOCAVEC, XDUPVEC, XALLOCAVAR,
+	XDUPVAR, XOBNEWVEC, XOBNEWVAR): New.
+
+2008-03-24  Ian Lance Taylor  <iant@google.com>
+
+	* sha1.h: New file, from gnulib.
+
+	* md5.h: Add extern "C" when compiled with C++.
+
+2008-03-21  Ian Lance Taylor  <iant@google.com>
+
+	* filenames.h: Add extern "C" when compiled with C++.
+
+2008-02-11  Bob Wilson  <bob.wilson@acm.org>
+
+	* xtensa-config.h (XCHAL_HAVE_THREADPTR): Redefine to zero.
+	(XCHAL_NUM_AREGS, XCHAL_MAX_INSTRUCTION_SIZE): New.
+
+2008-01-26  David Daney  <ddaney@avtrex.com>
+
+	* demangle.h (demangle_component_type):  Add
+	DEMANGLE_COMPONENT_JAVA_RESOURCE,
+	DEMANGLE_COMPONENT_COMPOUND_NAME, and
+	DEMANGLE_COMPONENT_CHARACTER as new enum values.
+	(demangle_component): Add struct s_character to union u.
+
+2007-11-07  Joseph Myers  <joseph@codesourcery.com>
+	    Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* floatformat.h (struct floatformat): Add split_half field.
+	(floatformat_ibm_long_double): New.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* libiberty.h (pex_free): Document process killing.
+
+2007-08-31  Douglas Gregor  <doug.gregor@gmail.com>
+	
+	* demangle.h (enum demangle_component_type): Add
+	DEMANGLE_COMPONENT_RVALUE_REFERENCE. 
+
+2007-07-25  Ben Elliston  <bje@au.ibm.com>
+
+	* ternary.h: Remove.
+
+2007-07-18  Bob Wilson  <bob.wilson@acm.org>
+	
+	* xtensa-config.h (XCHAL_HAVE_THREADPTR): New.
+	(XCHAL_HAVE_RELEASE_SYNC, XCHAL_HAVE_S32C1I): New.
+	
+2007-07-17  Nick Clifton  <nickc@redhat.com>
+
+	* COPYING3: New file.  Contains version 3 of the GNU General
+	Public License.
+
+2007-07-12  Kai Tietz   <kai.tietz@onevision.com>
+
+	* splay-tree.h (libi_uhostptr_t, libi_shostptr_t): New types,
+	needed for WIN64 when a long is not wide enough for a pointer.
+        (splay_tree_key, splay_tree_value): Use the new types.
+
+2007-05-07  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* libiberty.h (writeargv): Declare.
+
+2007-04-25  Mark Mitchell  <mark@codesourcery.com>
 
 	* demangle.h: Change license to LGPL + exception.
+
+2007-03-29  Joel Brobecker  <brobecker@adacore.com>
+
+	* filenames.h (FILENAME_CMP): Adjust define to call filename_cmp
+	regardless of the type of file system.
+
+2007-03-06  Jan Hubicka  <jh@suse.cz>
+	
+	* ansidecl.h (ATTRIBUTE_COLD, ATTRIBUTE_HOT): New.
 
 2007-02-09  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* libiberty.h (pex_write_input): Remove prototype.
+
+2007-01-31  Vladimir Prus  <vladimir@codesourcery.com>
+	
+	* libiberty.h (PEX_STDERR_TO_PIPE): New define.
+	(PEX_BINARY_ERROR): New define.
+	(pex_read_err): New function.
+
+2007-01-29  Simon Baldwin <simonb@google.com>
+
+	* demangle.h: New cplus_demangle_print_callback,
+	cplus_demangle_v3_callback, and java_demangle_v3_callback function
+	prototypes, and demangle_callbackref type definition.
+
+2006-12-06  Nick Clifton  <nickc@redhat.com>
+
+	* ansidecl.h (ATTRIBUTE_PACKED): Define.
+
+2006-11-30  Andrew Stubbs  <andrew.stubbs@st.com>
+            J"orn Rennecke <joern.rennecke@st.com>
+
+	PR driver/29931
+	* libiberty.h (make_relative_prefix_ignore_links): Declare.
+
+2006-11-27  Bob Wilson  <bob.wilson@acm.org>
+
+	* xtensa-config.h (XSHAL_ABI): New.
+	(XTHAL_ABI_WINDOWED, XTHAL_ABI_CALL0): New.
 
 2006-04-11  Jim Blandy  <jimb@codesourcery.com>
 

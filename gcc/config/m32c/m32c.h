@@ -1,5 +1,5 @@
 /* Target Definitions for R8C/M16C/M32C
-   Copyright (C) 2005, 2007
+   Copyright (C) 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Red Hat.
 
@@ -28,9 +28,9 @@
 #define STARTFILE_SPEC "crt0.o%s crtbegin.o%s"
 
 /* There are four CPU series we support, but they basically break down
-   into two families - the R8C/M16C families, with 16 bit address
-   registers and one set of opcodes, and the M32CM/M32C group, with 24
-   bit address registers and a different set of opcodes.  The
+   into two families - the R8C/M16C families, with 16-bit address
+   registers and one set of opcodes, and the M32CM/M32C group, with
+   24-bit address registers and a different set of opcodes.  The
    assembler doesn't care except for which opcode set is needed; the
    big difference is in the memory maps, which we cover in
    LIB_SPEC.  */
@@ -96,7 +96,7 @@ extern int target_memregs;
 
 #define TARGET_VERSION fprintf (stderr, " (m32c)");
 
-#define OVERRIDE_OPTIONS m32c_override_options ();
+#define OVERRIDE_OPTIONS m32c_override_options ()
 
 /* Defining data structures for per-function information */
 
@@ -138,21 +138,37 @@ machine_function;
    GCC expects us to have a "native" format, so we pick the one that
    matches "int".  Pointers are 16 bits for R8C/M16C (when TARGET_A16
    is true) and 24 bits for M32CM/M32C (when TARGET_A24 is true), but
-   24 bit pointers are stored in 32 bit words.  */
+   24-bit pointers are stored in 32-bit words.  */
 #define BITS_PER_UNIT 8
 #define UNITS_PER_WORD 2
 #define POINTER_SIZE (TARGET_A16 ? 16 : 32)
 #define POINTERS_EXTEND_UNSIGNED 1
+/* We have a problem with libgcc2.  It only defines two versions of
+   each function, one for "int" and one for "long long".  Ie it assumes
+   that "sizeof (int) == sizeof (long)".  For the M32C this is not true
+   and we need a third set of functions.  We explicitly define
+   LIBGCC2_UNITS_PER_WORD here so that it is clear that we are expecting
+   to get the SI and DI versions from the libgcc2.c sources, and we
+   provide our own set of HI functions in m32c-lib2.c, which is why this
+   definition is surrounded by #ifndef..#endif.  */
+#ifndef LIBGCC2_UNITS_PER_WORD
+#define LIBGCC2_UNITS_PER_WORD 4
+#endif
 
 /* These match the alignment enforced by the two types of stack operations.  */
 #define PARM_BOUNDARY (TARGET_A16 ? 8 : 16)
 #define STACK_BOUNDARY (TARGET_A16 ? 8 : 16)
 
 /* We do this because we care more about space than about speed.  For
-   the chips with 16 bit busses, we could set these to 16 if
+   the chips with 16-bit busses, we could set these to 16 if
    desired.  */
 #define FUNCTION_BOUNDARY 8
 #define BIGGEST_ALIGNMENT 8
+
+/* Since we have a maximum structure alignment of 8 there
+   is no need to enforce any alignment of bitfield types.  */
+#undef  PCC_BITFIELD_TYPE_MATTERS
+#define PCC_BITFIELD_TYPE_MATTERS 0
 
 #define STRICT_ALIGNMENT 0
 #define SLOW_BYTE_ACCESS 1
@@ -179,9 +195,9 @@ machine_function;
 
 /* Register layout:
 
-        [r0h][r0l]  $r0  (16 bits, or two 8 bit halves)
+        [r0h][r0l]  $r0  (16 bits, or two 8-bit halves)
         [--------]  $r2  (16 bits)
-        [r1h][r1l]  $r1  (16 bits, or two 8 bit halves)
+        [r1h][r1l]  $r1  (16 bits, or two 8-bit halves)
         [--------]  $r3  (16 bits)
    [---][--------]  $a0  (might be 24 bits)
    [---][--------]  $a1  (might be 24 bits)
@@ -224,7 +240,7 @@ machine_function;
 
 #define REG_ALLOC_ORDER { \
 	0, 1, 2, 3, 4, 5, /* r0..r3, a0, a1 */ \
-	12, 13, 14, 15, 16, 17, 18, /* mem0..mem7 */  \
+        12, 13, 14, 15, 16, 17, 18, 19, /* mem0..mem7 */	\
 	6, 7, 8, 9, 10, 11 /* sb, fb, sp, pc, flg, ap */ }
 
 /* How Values Fit in Registers */
@@ -270,6 +286,7 @@ machine_function;
   { 0x000001f0 }, /* PS  - a0 a1 sb fp sp */\
   { 0x0000000f }, /* SI  - r0r2 r1r3 a0a1 */\
   { 0x0000003f }, /* HI  - r0 r1 r2 r3 a0 a1 */\
+  { 0x00000033 }, /* R02A  - r0r2 a0 a1 */ \
   { 0x0000003f }, /* RA  - r0..r3 a0 a1 */\
   { 0x0000007f }, /* GENERAL */\
   { 0x00000400 }, /* FLG */\
@@ -308,6 +325,7 @@ enum reg_class
   PS_REGS,
   SI_REGS,
   HI_REGS,
+  R02A_REGS,
   RA_REGS,
   GENERAL_REGS,
   FLG_REGS,
@@ -348,6 +366,7 @@ enum reg_class
 "PS_REGS", \
 "SI_REGS", \
 "HI_REGS", \
+"R02A_REGS", \
 "RA_REGS", \
 "GENERAL_REGS", \
 "FLG_REGS", \
@@ -458,6 +477,12 @@ enum reg_class
 #define DWARF_FRAME_REGNUM(N) m32c_dwarf_frame_regnum (N)
 #define DBX_REGISTER_NUMBER(N) m32c_dwarf_frame_regnum (N)
 
+#undef ASM_PREFERRED_EH_DATA_FORMAT
+/* This is the same as the default in practice, except that by making
+   it explicit we tell binutils what size pointers to use.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
+  (TARGET_A16 ? DW_EH_PE_udata2 : DW_EH_PE_udata4)
+
 /* Eliminating Frame Pointer and Arg Pointer */
 
 /* If the frame pointer isn't used, we detect it manually.  But the
@@ -561,15 +586,13 @@ typedef struct m32c_cumulative_args
 
 #define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN) \
 	if (m32c_legitimize_address(&(X),OLDX,MODE)) \
-	  goto win;
+	  goto WIN;
 
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN) \
 	if (m32c_legitimize_reload_address(&(X),MODE,OPNUM,TYPE,IND_LEVELS)) \
-	  goto win;
+	  goto WIN;
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL) \
-	if (m32c_mode_dependent_address (ADDR)) \
-	  goto LABEL;
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 #define LEGITIMATE_CONSTANT_P(X) m32c_legitimate_constant_p (X)
 
@@ -666,7 +689,7 @@ typedef struct m32c_cumulative_args
 
 #define STORE_FLAG_VALUE 1
 
-/* 16 or 24 bit pointers */
+/* 16- or 24-bit pointers */
 #define Pmode (TARGET_A16 ? HImode : PSImode)
 #define FUNCTION_MODE QImode
 

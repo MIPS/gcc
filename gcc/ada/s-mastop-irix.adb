@@ -7,25 +7,23 @@
 --                                 B o d y                                  --
 --                         (Version for IRIX/MIPS)                          --
 --                                                                          --
---          Copyright (C) 1999-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1999-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -39,13 +37,13 @@
 with System.Machine_Code; use System.Machine_Code;
 with System.Memory;
 with System.Soft_Links; use System.Soft_Links;
-with Unchecked_Conversion;
+with Ada.Unchecked_Conversion;
 
 package body System.Machine_State_Operations is
 
    use System.Storage_Elements;
 
-   --  The exc_unwind function in libexc operats on a Sigcontext
+   --  The exc_unwind function in libexc operates on a Sigcontext
 
    --  Type sigcontext_t is defined in /usr/include/sys/signal.h.
    --  We define an equivalent Ada type here. From the comments in
@@ -92,16 +90,19 @@ package body System.Machine_State_Operations is
    --  within the Sigcontext.
 
    function To_Sigcontext_Ptr is
-     new Unchecked_Conversion (Machine_State, Sigcontext_Ptr);
+     new Ada.Unchecked_Conversion (Machine_State, Sigcontext_Ptr);
 
    type Addr_Int is mod 2 ** Long_Integer'Size;
    --  An unsigned integer type whose size is the same as System.Address.
    --  We rely on the fact that Long_Integer'Size = System.Address'Size in
    --  all ABIs.  Type Addr_Int can be converted to Uns64.
 
-   function To_Code_Loc is new Unchecked_Conversion (Addr_Int, Code_Loc);
-   function To_Addr_Int is new Unchecked_Conversion (System.Address, Addr_Int);
-   function To_Uns32_Ptr is new Unchecked_Conversion (Addr_Int, Uns32_Ptr);
+   function To_Code_Loc is
+     new Ada.Unchecked_Conversion (Addr_Int, Code_Loc);
+   function To_Addr_Int is
+     new Ada.Unchecked_Conversion (System.Address, Addr_Int);
+   function To_Uns32_Ptr is
+     new Ada.Unchecked_Conversion (Addr_Int, Uns32_Ptr);
 
    --------------------------------
    -- ABI-Dependent Declarations --
@@ -112,7 +113,7 @@ package body System.Machine_State_Operations is
    o32n : constant Natural := Boolean'Pos (o32);
    n32n : constant Natural := Boolean'Pos (n32);
    --  Flags to indicate which ABI is in effect for this compilation. For the
-   --  purposes of this unit, the n32 and n64 ABI's are identical.
+   --  purposes of this unit, the n32 and n64 ABIs are identical.
 
    LSC : constant Character := Character'Val (o32n * Character'Pos ('w') +
                                               n32n * Character'Pos ('d'));
@@ -157,7 +158,7 @@ package body System.Machine_State_Operations is
 
       type Address_Int is mod 2 ** Standard'Address_Size;
       function To_I_Type_Ptr is new
-        Unchecked_Conversion (Address_Int, I_Type_Ptr);
+        Ada.Unchecked_Conversion (Address_Int, I_Type_Ptr);
 
       Ret_Ins : constant I_Type_Ptr := To_I_Type_Ptr (Address_Int (Scp.SC_PC));
       GP_Ptr  : Uns32_Ptr;
@@ -278,11 +279,14 @@ package body System.Machine_State_Operations is
 
    procedure Set_Machine_State (M : Machine_State) is
 
-      STOREI : constant String (1 .. 2) := 's' & LSC;
+      SI : constant String (1 .. 2) := 's' & LSC;
       --  This is "sw" in o32 mode, and "sd" in n32 mode
 
-      STOREF : constant String (1 .. 4) := 's' & LSC & "c1";
+      SF : constant String (1 .. 4) := 's' & LSC & "c1";
       --  This is "swc1" in o32 mode and "sdc1" in n32 mode
+
+      PI : String renames SC_Regs_Pos;
+      PF : String renames SC_Fpregs_Pos;
 
       Scp : Sigcontext_Ptr;
 
@@ -294,41 +298,41 @@ package body System.Machine_State_Operations is
 
       <<Past_Prolog>>
 
-      Asm (STOREI & " $16,  16*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $17,  17*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $18,  18*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $19,  19*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $20,  20*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $21,  21*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $22,  22*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $23,  23*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $24,  24*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $25,  25*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $26,  26*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $27,  27*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $28,  28*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $29,  29*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $30,  30*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
-      Asm (STOREI & " $31,  31*8+" & Roff & "+" & SC_Regs_Pos & "($4)");
+      Asm (SI & " $16,  16*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $17,  17*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $18,  18*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $19,  19*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $20,  20*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $21,  21*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $22,  22*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $23,  23*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $24,  24*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $25,  25*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $26,  26*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $27,  27*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $28,  28*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $29,  29*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $30,  30*8+" & Roff & "+" & PI & "($4)", Volatile => True);
+      Asm (SI & " $31,  31*8+" & Roff & "+" & PI & "($4)", Volatile => True);
 
       --  Restore floating-point registers from machine state
 
-      Asm (STOREF & " $f16, 16*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f17, 17*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f18, 18*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f19, 19*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f20, 20*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f21, 21*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f22, 22*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f23, 23*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f24, 24*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f25, 25*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f26, 26*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f27, 27*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f28, 28*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f29, 29*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f30, 30*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
-      Asm (STOREF & " $f31, 31*8+" & Roff & "+" & SC_Fpregs_Pos & "($4)");
+      Asm (SF & " $f16, 16*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f17, 17*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f18, 18*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f19, 19*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f20, 20*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f21, 21*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f22, 22*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f23, 23*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f24, 24*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f25, 25*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f26, 26*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f27, 27*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f28, 28*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f29, 29*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f30, 30*8+" & Roff & "+" & PF & "($4)", Volatile => True);
+      Asm (SF & " $f31, 31*8+" & Roff & "+" & PF & "($4)", Volatile => True);
 
       --  Set the PC value for the context to a location after the
       --  prolog has been executed.

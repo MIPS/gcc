@@ -74,7 +74,6 @@ import java.awt.print.Pageable;
 import java.awt.print.Paper;
 import java.awt.print.Printable;
 import java.awt.print.PrinterException;
-import java.awt.print.PrinterGraphics;
 import java.awt.print.PrinterJob;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -191,7 +190,8 @@ class PostScriptGraphics2D extends Graphics2D
 	  {
 	    int index = 0;
 	    while(spoolPage(out, printable, pageFormat, index++) ==
-		  Printable.PAGE_EXISTS);
+		  Printable.PAGE_EXISTS)
+              ;
 	  }
 	out.println("%%Trailer");
 	out.println("%%EOF");

@@ -1,5 +1,5 @@
 ;; Predicate definitions for MIPS.
-;; Copyright (C) 2004, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2007, 2008 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -76,9 +76,11 @@
        (ior (match_test "op == CONST0_RTX (GET_MODE (op))")
 	    (match_test "op == CONST1_RTX (GET_MODE (op))"))))
 
-(define_predicate "fpr_operand"
+(define_predicate "d_operand"
   (and (match_code "reg")
-       (match_test "FP_REG_P (REGNO (op))")))
+       (match_test "TARGET_MIPS16
+		    ? M16_REG_P (REGNO (op))
+		    : GP_REG_P (REGNO (op))")))
 
 (define_predicate "lo_operand"
   (and (match_code "reg")
@@ -96,30 +98,23 @@
 {
   enum mips_symbol_type symbol_type;
 
-  if (!mips_symbolic_constant_p (op, &symbol_type))
+  if (!mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &symbol_type))
     return false;
 
   switch (symbol_type)
     {
-    case SYMBOL_GENERAL:
-      /* We can only use direct calls for TARGET_ABSOLUTE_ABICALLS if we
-	 are sure that the target function does not need $25 to be live
-	 on entry.  This is true for any locally-defined function because
-	 any such function will use %hi/%lo accesses to set up $gp.  */
-      if (TARGET_ABSOLUTE_ABICALLS
-          && !(GET_CODE (op) == SYMBOL_REF
-	       && SYMBOL_REF_DECL (op)
-	       && !DECL_EXTERNAL (SYMBOL_REF_DECL (op))))
+    case SYMBOL_ABSOLUTE:
+      /* We can only use direct calls if we're sure that the target
+	 function does not need $25 to be valid on entry.  */
+      if (mips_use_pic_fn_addr_reg_p (op))
 	return false;
 
-      /* If -mlong-calls, force all calls to use register addressing.  Also,
-	 if this function has the long_call attribute, we must use register
-	 addressing.  */
-      return (!TARGET_LONG_CALLS
-	      && !(GET_CODE (op) == SYMBOL_REF
-		   && SYMBOL_REF_LONG_CALL_P (op)));
+      /* If -mlong-calls or if this function has an explicit long_call
+	 attribute, we must use register addressing.  The
+	 SYMBOL_FLAG_LONG_CALL bit is set by mips_encode_section_info.  */
+      return !(GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_LONG_CALL_P (op));
 
-    case SYMBOL_GOT_GLOBAL:
+    case SYMBOL_GOT_DISP:
       /* Without explicit relocs, there is no special syntax for
 	 loading the address of a call destination into a register.
 	 Using "la $25,foo; jal $25" would prevent the lazy binding
@@ -154,16 +149,6 @@
   /* Otherwise check whether the constant can be loaded in a single
      instruction.  */
   return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op);
-})
-
-;; A legitimate symbolic operand that takes more than one instruction
-;; to load.
-(define_predicate "splittable_symbolic_operand"
-  (match_code "const,symbol_ref,label_ref")
-{
-  enum mips_symbol_type symbol_type;
-  return (mips_symbolic_constant_p (op, &symbol_type)
-	  && mips_split_p[symbol_type]);
 })
 
 (define_predicate "move_operand"
@@ -213,8 +198,13 @@
     case LABEL_REF:
       if (CONST_GP_P (op))
 	return true;
-      return (mips_symbolic_constant_p (op, &symbol_type)
+      return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
 	      && !mips_split_p[symbol_type]);
+
+    case HIGH:
+      op = XEXP (op, 0);
+      return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
+	      && !mips_split_hi_p[symbol_type]);
 
     default:
       return true;
@@ -228,29 +218,43 @@
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return mips_symbolic_constant_p (op, &type);
+  return mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type);
 })
 
-(define_predicate "general_symbolic_operand"
+(define_predicate "absolute_symbolic_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return mips_symbolic_constant_p (op, &type) && type == SYMBOL_GENERAL;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_ABSOLUTE);
 })
 
-(define_predicate "global_got_operand"
+(define_predicate "force_to_mem_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type symbol_type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
+	  && symbol_type == SYMBOL_FORCE_TO_MEM);
+})
+
+(define_predicate "got_disp_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return mips_symbolic_constant_p (op, &type) && type == SYMBOL_GOT_GLOBAL;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GOT_DISP);
 })
 
-(define_predicate "local_got_operand"
+(define_predicate "got_page_ofst_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return mips_symbolic_constant_p (op, &type) && type == SYMBOL_GOT_LOCAL;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GOT_PAGE_OFST);
 })
+
+(define_predicate "symbol_ref_operand"
+  (match_code "symbol_ref"))
 
 (define_predicate "stack_operand"
   (and (match_code "mem")

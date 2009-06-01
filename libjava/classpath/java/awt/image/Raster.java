@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package java.awt.image;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.awt.Point;
 import java.awt.Rectangle;
 
@@ -302,7 +304,7 @@ public class Raster
       Point location)
   {
     SampleModel sm = new ComponentSampleModel(dataBuffer.getDataType(),
-        w, h, scanlineStride, pixelStride, bandOffsets);
+        w, h, pixelStride, scanlineStride, bandOffsets);
     return createWritableRaster(sm, dataBuffer, location);
   }
 
@@ -511,9 +513,10 @@ public class Raster
                             int height, int childMinX, int childMinY,
                             int[] bandList)
   {
-    /* FIXME: Throw RasterFormatException if child bounds extends
-       beyond the bounds of this raster. */
-
+    if (parentX < minX || parentX + width > minX + this.width
+        || parentY < minY || parentY + height > minY + this.height)
+      throw new RasterFormatException("Child raster extends beyond parent");
+    
     SampleModel sm = (bandList == null) ?
       sampleModel :
       sampleModel.createSubsetSampleModel(bandList);
@@ -919,7 +922,7 @@ public class Raster
    */
   public String toString()
   {
-    StringBuffer result = new StringBuffer();
+    CPStringBuilder result = new CPStringBuilder();
     
     result.append(getClass().getName());
     result.append("[(");

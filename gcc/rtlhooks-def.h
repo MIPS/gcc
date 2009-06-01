@@ -1,5 +1,5 @@
 /* Default macros to initialize an rtl_hooks data structure.
-   Copyright 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,18 +34,18 @@ along with GCC; see the file COPYING3.  If not see
   RTL_HOOKS_GEN_LOWPART_NO_EMIT,		\
   RTL_HOOKS_REG_NONZERO_REG_BITS,		\
   RTL_HOOKS_REG_NUM_SIGN_BIT_COPIES,		\
-  RTL_HOOKS_REG_TRUNCATED_TO_MODE,		\
+  RTL_HOOKS_REG_TRUNCATED_TO_MODE		\
 }
 
 extern rtx gen_lowpart_general (enum machine_mode, rtx);
 extern rtx gen_lowpart_no_emit_general (enum machine_mode, rtx);
-extern rtx reg_nonzero_bits_general (rtx, enum machine_mode, rtx,
+extern rtx reg_nonzero_bits_general (const_rtx, enum machine_mode, const_rtx,
 				     enum machine_mode,
 				     unsigned HOST_WIDE_INT,
 				     unsigned HOST_WIDE_INT *);
-extern rtx reg_num_sign_bit_copies_general (rtx, enum machine_mode, rtx,
+extern rtx reg_num_sign_bit_copies_general (const_rtx, enum machine_mode, const_rtx,
 					    enum machine_mode,
 					    unsigned int, unsigned int *);
-extern bool reg_truncated_to_mode_general (enum machine_mode, rtx);
+extern bool reg_truncated_to_mode_general (enum machine_mode, const_rtx);
 
 #endif /* GCC_RTL_HOOKS_DEF_H */

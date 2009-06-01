@@ -1,5 +1,5 @@
 /* Solaris 10 configuration.
-   Copyright (C) 2004, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC.
 
 This file is part of GCC.
@@ -31,6 +31,23 @@ along with GCC; see the file COPYING3.  If not see
 #define ASM_SPEC "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} " \
 		 "%{Wa,*:%*} %{m32:-xarch=generic} %{m64:-xarch=generic64} " \
 		 "-s %(asm_cpu)"
+#endif
+
+/* The native Solaris assembler can't calculate the difference between
+   symbols in different sections, which causes problems for -fPIC jump
+   tables in .rodata.  */
+#ifndef HAVE_AS_IX86_DIFF_SECT_DELTA
+#undef JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 1
+
+/* The native Solaris assembler cannot handle the SYMBOL-. syntax, but
+   requires SYMBOL@rel/@rel64 instead.  */
+#define ASM_OUTPUT_DWARF_PCREL(FILE, SIZE, LABEL)	\
+  do {							\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
+    assemble_name (FILE, LABEL);			\
+    fputs (SIZE == 8 ? "@rel64" : "@rel", FILE);	\
+  } while (0)
 #endif
 
 #undef NO_PROFILE_COUNTERS
@@ -102,12 +119,6 @@ along with GCC; see the file COPYING3.  If not see
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION i386_solaris_elf_named_section
 
-/* In 32-bit mode, follow the SVR4 ABI definition; in 64-bit mode, use
-   the AMD64 ABI definition.  */
-#undef RETURN_IN_MEMORY
-#define RETURN_IN_MEMORY(TYPE)			\
-  (TARGET_64BIT 				\
-   ? ix86_return_in_memory (TYPE)		\
-   : (TYPE_MODE (TYPE) == BLKmode		\
-      || (VECTOR_MODE_P (TYPE_MODE (TYPE)) 	\
-	  && int_size_in_bytes (TYPE) == 8)))
+#undef SUBTARGET_RETURN_IN_MEMORY
+#define SUBTARGET_RETURN_IN_MEMORY(TYPE, FNTYPE) \
+	ix86_sol10_return_in_memory (TYPE, FNTYPE)

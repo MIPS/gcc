@@ -1,12 +1,13 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +15,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file localefwd.h
  *  This is an internal header file, included by other library headers.
@@ -43,66 +39,74 @@
 #pragma GCC system_header
 
 #include <bits/c++config.h>
-#include <bits/c++locale.h>     // Defines __c_locale, config-specific includes
-#include <iosfwd>		// For ostreambuf_iterator, istreambuf_iterator
-#include <bits/functexcept.h>
+#include <bits/c++locale.h>  // Defines __c_locale, config-specific include
+#include <iosfwd>            // For ostreambuf_iterator, istreambuf_iterator
+#include <cctype>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // 22.1.1 Locale
   class locale;
 
+  template<typename _Facet>
+    bool
+    has_facet(const locale&) throw();
+
+  template<typename _Facet>
+    const _Facet&
+    use_facet(const locale&);
+
   // 22.1.3 Convenience interfaces
   template<typename _CharT>
-    inline bool
+    bool
     isspace(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     isprint(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     iscntrl(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     isupper(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     islower(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     isalpha(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     isdigit(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     ispunct(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     isxdigit(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     isalnum(_CharT, const locale&);
 
   template<typename _CharT>
-    inline bool
+    bool
     isgraph(_CharT, const locale&);
 
   template<typename _CharT>
-    inline _CharT
+    _CharT
     toupper(_CharT, const locale&);
 
   template<typename _CharT>
-    inline _CharT
+    _CharT
     tolower(_CharT, const locale&);
 
   // 22.2.1 and 22.2.1.3 ctype
@@ -118,7 +122,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // NB: Specialized for char and wchar_t in locale_facets.h.
 
   class codecvt_base;
-  class __enc_traits;
   template<typename _InternT, typename _ExternT, typename _StateT>
     class codecvt;
   template<> class codecvt<char, char, mbstate_t>;
@@ -174,23 +177,6 @@ _GLIBCXX_END_LDBL_NAMESPACE
     class messages;
   template<typename _CharT>
     class messages_byname;
-
-  template<typename _Facet>
-    bool
-    has_facet(const locale& __loc) throw();
-
-  template<typename _Facet>
-    const _Facet&
-    use_facet(const locale& __loc);
-
-  template<typename _Facet>
-    inline const _Facet&
-    __check_facet(const _Facet* __f)
-    {
-      if (!__f)
-	__throw_bad_cast();
-      return *__f;
-    }
 
 _GLIBCXX_END_NAMESPACE
 

@@ -1,5 +1,5 @@
-/* Language-level data type conversion for GCC.
-   Copyright (C) 1987, 1988, 1991, 1998, 2002, 2007
+/* Language-level data type conversion for GNU C.
+   Copyright (C) 1987, 1988, 1991, 1998, 2002, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -57,9 +57,8 @@ along with GCC; see the file COPYING3.  If not see
      In expr.c: expand_expr, for operands of a MULT_EXPR.
      In fold-const.c: fold.
      In tree.c: get_narrower and get_unwidened.  */
-
+
 /* Subroutines of `convert'.  */
-
 
 
 /* Create an expression whose value is that of EXPR,
@@ -90,7 +89,7 @@ convert (tree type, tree expr)
       return error_mark_node;
     }
   if (code == VOID_TYPE)
-    return build1 (CONVERT_EXPR, type, e);
+    return fold_build1 (CONVERT_EXPR, type, e);
 #if 0
   /* This is incorrect.  A truncation can't be stripped this way.
      Extensions will be stripped by the use of get_unwidened.  */
@@ -104,7 +103,7 @@ convert (tree type, tree expr)
       e = gfc_truthvalue_conversion (e);
 
       /* If we have a NOP_EXPR, we must fold it here to avoid
-         infinite recursion between fold () and convert ().  */
+	 infinite recursion between fold () and convert ().  */
       if (TREE_CODE (e) == NOP_EXPR)
 	return fold_build1 (NOP_EXPR, type, TREE_OPERAND (e, 0));
       else

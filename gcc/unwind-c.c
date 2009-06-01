@@ -1,5 +1,5 @@
 /* Supporting functions for C exception handling.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2009 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldy@quesejoda.com>.
    Shamelessly stolen from the Java front end.
 
@@ -7,27 +7,22 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combined
-executable.)
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -50,7 +45,7 @@ static const unsigned char *
 parse_lsda_header (struct _Unwind_Context *context, const unsigned char *p,
 		   lsda_header_info *info)
 {
-  _Unwind_Word tmp;
+  _uleb128_t tmp;
   unsigned char lpstart_encoding;
 
   info->Start = (context ? _Unwind_GetRegionStart (context) : 0);
@@ -175,7 +170,7 @@ PERSONALITY_FUNCTION (int version,
     return _URC_CONTINUE_UNWIND;
   else
     {
-      _Unwind_Word cs_lp, cs_action;
+      _uleb128_t cs_lp, cs_action;
       do
 	{
 	  p = read_uleb128 (p, &cs_lp);
@@ -185,7 +180,7 @@ PERSONALITY_FUNCTION (int version,
 
       /* Can never have null landing pad for sjlj -- that would have
 	 been indicated by a -1 call site index.  */
-      landing_pad = cs_lp + 1;
+      landing_pad = (_Unwind_Ptr)cs_lp + 1;
       if (cs_action)
 	action_record = info.action_table + cs_action - 1;
       goto found_something;
@@ -195,7 +190,7 @@ PERSONALITY_FUNCTION (int version,
   while (p < info.action_table)
     {
       _Unwind_Ptr cs_start, cs_len, cs_lp;
-      _Unwind_Word cs_action;
+      _uleb128_t cs_action;
 
       /* Note that all call-site encodings are "absolute" displacements.  */
       p = read_encoded_value (0, info.call_site_encoding, p, &cs_start);

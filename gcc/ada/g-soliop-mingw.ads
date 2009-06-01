@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 2001-2005, AdaCore                     --
+--                     Copyright (C) 2001-2008, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,11 +32,13 @@
 ------------------------------------------------------------------------------
 
 --  This package is used to provide target specific linker_options for the
---  support of scokets as required by the package GNAT.Sockets.
+--  support of sockets as required by the package GNAT.Sockets.
 
 --  This is the Windows/NT version of this package
 
+--  This package should not be directly with'ed by an application program
+
 package GNAT.Sockets.Linker_Options is
 private
-   pragma Linker_Options ("-lwsock32");
+   pragma Linker_Options ("-lws2_32");
 end GNAT.Sockets.Linker_Options;

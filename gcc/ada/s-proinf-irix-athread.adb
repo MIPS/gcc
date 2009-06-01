@@ -6,35 +6,33 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is an Irix (old pthread library) version of this package.
+--  This is an Irix (old pthread library) version of this package
 
---  This package   contains the parameters  used by   the run-time system at
---  program startup.  These parameters are  isolated in this package body to
+--  This package contains the parameters used by the run-time system at
+--  program startup. These parameters are isolated in this package body to
 --  facilitate replacement by the end user.
 --
 --  To replace the default values, copy this source file into your build
@@ -44,10 +42,9 @@
 --     % gcc -c -O2 -gnatpg s-proinf.adb
 --
 --  then relink your application as usual.
---
 
-pragma Warnings (Off);
-with GNAT.OS_Lib;
+pragma Warnings (Off); -- why???
+with System.OS_Lib;
 pragma Warnings (On);
 
 package body System.Program_Info is
@@ -75,8 +72,8 @@ package body System.Program_Info is
 
       MP_NPROCS : constant := 1; --   # processor in complex
 
-      Pthread_Sproc_Count : constant GNAT.OS_Lib.String_Access :=
-        GNAT.OS_Lib.Getenv ("PTHREAD_SPROC_COUNT");
+      Pthread_Sproc_Count : constant System.OS_Lib.String_Access :=
+        System.OS_Lib.Getenv ("PTHREAD_SPROC_COUNT");
 
    begin
       if Pthread_Sproc_Count.all'Length = 0 then
@@ -88,6 +85,7 @@ package body System.Program_Info is
       else
          return Integer'Value (Pthread_Sproc_Count.all);
       end if;
+
    exception
       when others =>
          return Default_Initial_Sproc_Count;
@@ -98,8 +96,8 @@ package body System.Program_Info is
    ---------------------
 
    function Max_Sproc_Count return Integer is
-      Pthread_Max_Sproc_Count : constant GNAT.OS_Lib.String_Access :=
-        GNAT.OS_Lib.Getenv ("PTHREAD_MAX_SPROC_COUNT");
+      Pthread_Max_Sproc_Count : constant System.OS_Lib.String_Access :=
+        System.OS_Lib.Getenv ("PTHREAD_MAX_SPROC_COUNT");
 
    begin
       if Pthread_Max_Sproc_Count.all'Length = 0 then
@@ -126,10 +124,12 @@ package body System.Program_Info is
    ------------------------
 
    function Default_Time_Slice return Duration is
-      Pthread_Time_Slice_Sec : constant GNAT.OS_Lib.String_Access :=
-        GNAT.OS_Lib.Getenv ("PTHREAD_TIME_SLICE_SEC");
-      Pthread_Time_Slice_Usec : constant GNAT.OS_Lib.String_Access :=
-        GNAT.OS_Lib.Getenv ("PTHREAD_TIME_SLICE_USEC");
+      Pthread_Time_Slice_Sec : constant System.OS_Lib.String_Access :=
+                                 System.OS_Lib.Getenv
+                                   ("PTHREAD_TIME_SLICE_SEC");
+      Pthread_Time_Slice_Usec : constant System.OS_Lib.String_Access :=
+                                  System.OS_Lib.Getenv
+                                    ("PTHREAD_TIME_SLICE_USEC");
 
       Val_Sec, Val_Usec : Integer := 0;
 
@@ -169,9 +169,9 @@ package body System.Program_Info is
    -----------------------
 
    function Stack_Guard_Pages return Integer is
-      Pthread_Stack_Guard_Pages : constant GNAT.OS_Lib.String_Access :=
-        GNAT.OS_Lib.Getenv ("PTHREAD_STACK_GUARD_PAGES");
-
+      Pthread_Stack_Guard_Pages : constant System.OS_Lib.String_Access :=
+                                    System.OS_Lib.Getenv
+                                      ("PTHREAD_STACK_GUARD_PAGES");
    begin
       if Pthread_Stack_Guard_Pages.all'Length /= 0 then
          return Integer'Value (Pthread_Stack_Guard_Pages.all);
@@ -197,8 +197,9 @@ package body System.Program_Info is
    ------------------------
 
    function Pthread_Arena_Size  return Integer is
-      Pthread_Arena_Size : constant GNAT.OS_Lib.String_Access :=
-        GNAT.OS_Lib.Getenv ("PTHREAD_ARENA_SIZE");
+      Pthread_Arena_Size : constant System.OS_Lib.String_Access :=
+                             System.OS_Lib.Getenv
+                               ("PTHREAD_ARENA_SIZE");
 
    begin
       if Pthread_Arena_Size.all'Length = 0 then
@@ -206,6 +207,7 @@ package body System.Program_Info is
       else
          return Integer'Value (Pthread_Arena_Size.all);
       end if;
+
    exception
       when others =>
          return Default_Pthread_Arena_Size;

@@ -1,4 +1,4 @@
-/* Copyright (C) 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 2003, 2004, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -64,6 +64,10 @@ union SockAddr
 void
 gnu::java::net::PlainSocketImpl::create (jboolean stream)
 {
+  // We might already have been create()d in the nio case.
+  if (native_fd != -1)
+    return;
+
   int sock = _Jv_socket (AF_INET, stream ? SOCK_STREAM : SOCK_DGRAM, 0);
 
   if (sock < 0)
@@ -95,12 +99,7 @@ gnu::java::net::PlainSocketImpl::bind (::java::net::InetAddress *host, jint lpor
   if (len == 4)
     {
       u.address.sin_family = AF_INET;
-
-      if (host != NULL)
-        memcpy (&u.address.sin_addr, bytes, len);
-      else
-        u.address.sin_addr.s_addr = htonl (INADDR_ANY);
-
+      memcpy (&u.address.sin_addr, bytes, len);
       len = sizeof (struct sockaddr_in);
       u.address.sin_port = htons (lport);
     }
@@ -360,7 +359,7 @@ gnu::java::net::PlainSocketImpl$SocketOutputStream::write(jbyteArray b, jint off
   if (offset < 0 || len < 0 || offset + len > JvGetArrayLength (b))
     throw new ::java::lang::ArrayIndexOutOfBoundsException;
 
-  write_helper (this$0->native_fd, elements (b) + offset * sizeof (jbyte), len);
+  write_helper (this$0->native_fd, elements (b) + offset, len);
 }
 
 static void
@@ -431,8 +430,7 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer,
   if (offset < 0 || count < 0 || offset + count > bsize)
     throw new ::java::lang::ArrayIndexOutOfBoundsException;
 
-  return read_helper (this$0,
-		      elements (buffer) + offset * sizeof (jbyte), count);
+  return read_helper (this$0, elements (buffer) + offset, count);
 }
 
 static jint

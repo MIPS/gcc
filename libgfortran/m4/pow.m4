@@ -1,5 +1,5 @@
 `/* Support routines for the intrinsic power (**) operator.
-   Copyright 2004 Free Software Foundation, Inc.
+   Copyright 2004, 2007, 2009 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -7,29 +7,24 @@ This file is part of the GNU Fortran 95 runtime library (libgfortran).
 Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
+version 3 of the License, or (at your option) any later version.
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
-#include "config.h"
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
+
 #include "libgfortran.h"'
+
 include(iparm.m4)dnl
 
 /* Use Binary Method to calculate the powi. This is not an optimal but
@@ -39,15 +34,15 @@ include(iparm.m4)dnl
 
 `#if defined (HAVE_'rtype_name`) && defined (HAVE_'atype_name`)'
 
-rtype_name `pow_'rtype_code`_'atype_code (rtype_name a, atype_name b);
-export_proto(pow_`'rtype_code`_'atype_code);
+rtype_name `pow_'rtype_code`_'atype_code` ('rtype_name` a, 'atype_name` b);
+export_proto(pow_'rtype_code`_'atype_code`);
 
-rtype_name
-`pow_'rtype_code`_'atype_code (rtype_name a, atype_name b)
+'rtype_name`
+pow_'rtype_code`_'atype_code` ('rtype_name` a, 'atype_name` b)
 {
-  rtype_name pow, x;
-  atype_name n;
-  `GFC_UINTEGER_'atype_kind` u;'
+  'rtype_name` pow, x;
+  'atype_name` n;
+  GFC_UINTEGER_'atype_kind` u;
   
   n = b;
   x = a;
@@ -56,7 +51,7 @@ rtype_name
     {
       if (n < 0)
 	{
-ifelse(rtype_letter,i,`dnl
+'ifelse(rtype_letter,i,`dnl
 	  if (x == 1)
 	    return 1;
 	  if (x == -1)
@@ -66,7 +61,7 @@ ifelse(rtype_letter,i,`dnl
 	  u = -n;
 	  x = pow / x;
 ')dnl
-	}
+`	}
       else
 	{
 	   u = n;
@@ -85,4 +80,4 @@ ifelse(rtype_letter,i,`dnl
   return pow;
 }
 
-#endif
+#endif'

@@ -35,12 +35,11 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version.  */
 
-
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif /* HAVE_CONFIG_H */
 
 #include <gnu_java_net_local_LocalSocketImpl.h>
 

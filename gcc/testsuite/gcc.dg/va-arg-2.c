@@ -5,8 +5,8 @@
 
 #include <varargs.h>  /* { dg-bogus "varargs.h" "missing file" } */
 
-/* { dg-error "" "In file included from" { target *-*-* } 6 } */
+/* { dg-message "" "In file included from" { target *-*-* } 6 } */
 /* { dg-error "no longer implements" "#error 1" { target *-*-* } 4 } */
 /* { dg-error "Revise your code" "#error 2" { target *-*-* } 5 } */
 
-int x;  /* prevent empty-source-file warning */
+int x;  /* prevent empty-translation-unit warning */

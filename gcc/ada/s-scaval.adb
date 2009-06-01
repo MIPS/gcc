@@ -6,32 +6,30 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2003-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2003-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Unchecked_Conversion;
+with Ada.Unchecked_Conversion;
 
 package body System.Scalar_Values is
 
@@ -60,7 +58,29 @@ package body System.Scalar_Values is
       EFloat : constant Boolean := Long_Long_Float'Size > Long_Float'Size;
       --  Set True if we are on an x86 with 96-bit floats for extended
 
-      type ByteLF is array (0 .. 7 + 4 * Boolean'Pos (EFloat)) of Byte1;
+      AFloat : constant Boolean :=
+                 Long_Float'Size = 48 and Long_Long_Float'Size = 48;
+      --  Set True if we are on an AAMP with 48-bit extended floating point
+
+      type ByteLF is array (0 .. 7 - 2 * Boolean'Pos (AFloat)) of Byte1;
+
+      for ByteLF'Component_Size use 8;
+
+      --  Type used to hold Long_Float values on all targets and to initialize
+      --  48-bit Long_Float values used on AAMP. On AAMP, this type is 6 bytes.
+      --  On other targets the type is 8 bytes, and type Byte8 is used for
+      --  values that are then converted to ByteLF.
+
+      pragma Warnings (Off);
+      function To_ByteLF is new Ada.Unchecked_Conversion (Byte8, ByteLF);
+      pragma Warnings (On);
+
+      type ByteLLF is
+        array (0 .. 7 + 4 * Boolean'Pos (EFloat) - 2 * Boolean'Pos (AFloat))
+          of Byte1;
+
+      for ByteLLF'Component_Size use 8;
+
       --  Type used to initialize Long_Long_Float values used on x86 and
       --  any other target with the same 80-bit floating-point values that
       --  GCC always stores in 96-bits. Note that we are assuming Intel
@@ -75,8 +95,8 @@ package body System.Scalar_Values is
 
       IV_Isf : aliased Byte4;     -- Initialize short float
       IV_Ifl : aliased Byte4;     -- Initialize float
-      IV_Ilf : aliased Byte8;     -- Initialize long float
-      IV_Ill : aliased ByteLF;    -- Initialize long long float
+      IV_Ilf : aliased ByteLF;    -- Initialize long float
+      IV_Ill : aliased ByteLLF;   -- Initialize long long float
 
       for IV_Isf'Address use IS_Isf'Address;
       for IV_Ifl'Address use IS_Ifl'Address;
@@ -164,9 +184,16 @@ package body System.Scalar_Values is
          IS_Iz4 := 16#0000_0000#;
          IS_Iz8 := 16#0000_0000_0000_0000#;
 
-         IV_Isf := IS_Iu4;
-         IV_Ifl := IS_Iu4;
-         IV_Ilf := IS_Iu8;
+         if AFloat then
+            IV_Isf := 16#FFFF_FF00#;
+            IV_Ifl := 16#FFFF_FF00#;
+            IV_Ilf := (0, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#);
+
+         else
+            IV_Isf := IS_Iu4;
+            IV_Ifl := IS_Iu4;
+            IV_Ilf := To_ByteLF (IS_Iu8);
+         end if;
 
          if EFloat then
             IV_Ill := (0, 0, 0, 0, 0, 0, 0, 16#C0#, 16#FF#, 16#FF#, 0, 0);
@@ -190,9 +217,16 @@ package body System.Scalar_Values is
          IS_Iz4 := 16#0000_0000#;
          IS_Iz8 := 16#0000_0000_0000_0000#;
 
-         IV_Isf := 16#FF80_0000#;
-         IV_Ifl := 16#FF80_0000#;
-         IV_Ilf := 16#FFF0_0000_0000_0000#;
+         if AFloat then
+            IV_Isf := 16#0000_0001#;
+            IV_Ifl := 16#0000_0001#;
+            IV_Ilf := (1, 0, 0, 0, 0, 0);
+
+         else
+            IV_Isf := 16#FF80_0000#;
+            IV_Ifl := 16#FF80_0000#;
+            IV_Ilf := To_ByteLF (16#FFF0_0000_0000_0000#);
+         end if;
 
          if EFloat then
             IV_Ill := (0, 0, 0, 0, 0, 0, 0, 16#80#, 16#FF#, 16#FF#, 0, 0);
@@ -216,9 +250,16 @@ package body System.Scalar_Values is
          IS_Iz4 := 16#FFFF_FFFF#;
          IS_Iz8 := 16#FFFF_FFFF_FFFF_FFFF#;
 
-         IV_Isf := 16#7F80_0000#;
-         IV_Ifl := 16#7F80_0000#;
-         IV_Ilf := 16#7FF0_0000_0000_0000#;
+         if AFloat then
+            IV_Isf := 16#7FFF_FFFF#;
+            IV_Ifl := 16#7FFF_FFFF#;
+            IV_Ilf := (16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#7F#);
+
+         else
+            IV_Isf := 16#7F80_0000#;
+            IV_Ifl := 16#7F80_0000#;
+            IV_Ilf := To_ByteLF (16#7FF0_0000_0000_0000#);
+         end if;
 
          if EFloat then
             IV_Ill := (0, 0, 0, 0, 0, 0, 0, 16#80#, 16#FF#, 16#7F#, 0, 0);
@@ -260,7 +301,12 @@ package body System.Scalar_Values is
 
          IV_Isf := IS_Is4;
          IV_Ifl := IS_Is4;
-         IV_Ilf := IS_Is8;
+
+         if AFloat then
+            IV_Ill := (B, B, B, B, B, B);
+         else
+            IV_Ilf := To_ByteLF (IS_Is8);
+         end if;
 
          if EFloat then
             IV_Ill := (B, B, B, B, B, B, B, B, B, B, B, B);
@@ -272,11 +318,12 @@ package body System.Scalar_Values is
 
       if not EFloat then
          declare
-            pragma Warnings (Off);
-            function To_ByteLF is new Unchecked_Conversion (Byte8, ByteLF);
+            pragma Warnings (Off);  -- why???
+            function To_ByteLLF is
+              new Ada.Unchecked_Conversion (ByteLF, ByteLLF);
             pragma Warnings (On);
          begin
-            IV_Ill := To_ByteLF (IV_Ilf);
+            IV_Ill := To_ByteLLF (IV_Ilf);
          end;
       end if;
    end Initialize;

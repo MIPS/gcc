@@ -1,6 +1,6 @@
 /* List management for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   1999, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 
 static void free_list (rtx *, rtx *);
-static void free_DEPS_LIST_node (rtx);
 
 /* Functions for maintaining cache-able lists of EXPR_LIST and INSN_LISTs.  */
 
@@ -36,10 +35,6 @@ static GTY ((deletable)) rtx unused_insn_list;
 
 /* An EXPR_LIST containing all EXPR_LISTs allocated but currently unused.  */
 static GTY ((deletable)) rtx unused_expr_list;
-
-/* An DEPS_LIST containing all DEPS_LISTs allocated but currently unused.  */
-static GTY ((deletable)) rtx unused_deps_list;
-
 
 /* This function will free an entire list of either EXPR_LIST, INSN_LIST
    or DEPS_LIST nodes.  This is to be used only on lists that consist
@@ -53,17 +48,13 @@ free_list (rtx *listp, rtx *unused_listp)
   prev_link = *listp;
   link = XEXP (prev_link, 1);
 
-  gcc_assert ((unused_listp != &unused_insn_list
-	       || GET_CODE (prev_link) == INSN_LIST)
-	      && (unused_listp != &unused_deps_list
-		  || GET_CODE (prev_link) == DEPS_LIST));
+  gcc_assert (unused_listp != &unused_insn_list
+	      || GET_CODE (prev_link) == INSN_LIST);
   
   while (link)
     {
-      gcc_assert ((unused_listp != &unused_insn_list
-		   || GET_CODE (prev_link) == INSN_LIST)
-		  && (unused_listp != &unused_deps_list
-		      || GET_CODE (prev_link) == DEPS_LIST));
+      gcc_assert (unused_listp != &unused_insn_list
+		  || GET_CODE (prev_link) == INSN_LIST);
   
       prev_link = link;
       link = XEXP (link, 1);
@@ -154,31 +145,6 @@ alloc_EXPR_LIST (int kind, rtx val, rtx next)
   return r;
 }
 
-/* This call is used in place of a gen_rtx_DEPS_LIST.  If there is a cached
-   node available, we'll use it, otherwise a call to gen_rtx_DEPS_LIST
-   is made.  */
-rtx
-alloc_DEPS_LIST (rtx val, rtx next, int ds)
-{
-  rtx r;
-
-  if (unused_deps_list)
-    {
-      r = unused_deps_list;
-      unused_deps_list = XEXP (r, 1);
-      XEXP (r, 0) = val;
-      XEXP (r, 1) = next;
-      XINT (r, 2) = ds;
-      PUT_REG_NOTE_KIND (r, VOIDmode);
-
-      gcc_assert (GET_CODE (r) == DEPS_LIST);
-    }
-  else
-    r = gen_rtx_DEPS_LIST (VOIDmode, val, next, ds);
-
-  return r;
-}
-
 /* This function will free up an entire list of EXPR_LIST nodes.  */
 void
 free_EXPR_LIST_list (rtx *listp)
@@ -195,15 +161,6 @@ free_INSN_LIST_list (rtx *listp)
   if (*listp == 0)
     return;
   free_list (listp, &unused_insn_list);
-}
-
-/* This function will free up an entire list of DEPS_LIST nodes.  */
-void
-free_DEPS_LIST_list (rtx *listp)
-{
-  if (*listp == 0)
-    return;
-  free_list (listp, &unused_deps_list);
 }
 
 /* This function will free up an individual EXPR_LIST node.  */
@@ -223,23 +180,6 @@ free_INSN_LIST_node (rtx ptr)
   unused_insn_list = ptr;
 }
 
-/* This function will free up an individual DEPS_LIST node.  */
-static void
-free_DEPS_LIST_node (rtx ptr)
-{
-  gcc_assert (GET_CODE (ptr) == DEPS_LIST);
-  XEXP (ptr, 1) = unused_deps_list;
-  unused_deps_list = ptr;
-}
-
-/* Remove and free corresponding to ELEM node in the DEPS_LIST pointed to
-   by LISTP.  */
-void
-remove_free_DEPS_LIST_elem (rtx elem, rtx *listp)
-{
-  free_DEPS_LIST_node (remove_list_elem (elem, listp));
-}
-
 /* Remove and free corresponding to ELEM node in the INSN_LIST pointed to
    by LISTP.  */
 void
@@ -248,20 +188,30 @@ remove_free_INSN_LIST_elem (rtx elem, rtx *listp)
   free_INSN_LIST_node (remove_list_elem (elem, listp));
 }
 
-/* Create and return a copy of the DEPS_LIST LIST.  */
+/* Remove and free the first node in the INSN_LIST pointed to by LISTP.  */
 rtx
-copy_DEPS_LIST_list (rtx list)
+remove_free_INSN_LIST_node (rtx *listp)
 {
-  rtx res = NULL_RTX, *resp = &res;
+  rtx node = *listp;
+  rtx elem = XEXP (node, 0);
 
-  while (list)
-    {
-      *resp = alloc_DEPS_LIST (XEXP (list, 0), 0, XINT (list, 2));
-      PUT_REG_NOTE_KIND (*resp, REG_NOTE_KIND (list));
-      resp = &XEXP (*resp, 1);
-      list = XEXP (list, 1);
-    }
-  return res;
+  remove_list_node (listp);
+  free_INSN_LIST_node (node);
+
+  return elem;
+}
+
+/* Remove and free the first node in the EXPR_LIST pointed to by LISTP.  */
+rtx
+remove_free_EXPR_LIST_node (rtx *listp)
+{
+  rtx node = *listp;
+  rtx elem = XEXP (node, 0);
+
+  remove_list_node (listp);
+  free_EXPR_LIST_node (node);
+
+  return elem;
 }
 
 #include "gt-lists.h"

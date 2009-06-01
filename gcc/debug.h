@@ -1,5 +1,6 @@
 /* Debug hooks for GCC.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -56,7 +57,7 @@ struct gcc_debug_hooks
      instructions.  This may not be the case for blocks containing
      nested functions, since we may actually call such a function even
      though the BLOCK information is messed up.  Defaults to true.  */
-  bool (* ignore_block) (tree);
+  bool (* ignore_block) (const_tree);
 
   /* Record a source file location at (FILE, LINE).  */
   void (* source_line) (unsigned int line, const char *file);
@@ -98,7 +99,8 @@ struct gcc_debug_hooks
   void (* type_decl) (tree decl, int local);
 
   /* Debug information for imported modules and declarations.  */
-  void (* imported_module_or_decl) (tree decl, tree context);
+  void (* imported_module_or_decl) (tree decl, tree name,
+				    tree context, bool child);
 
   /* DECL is an inline function, whose body is present, but which is
      not being output at this point.  */
@@ -139,8 +141,8 @@ extern void debug_nothing_int (unsigned int);
 extern void debug_nothing_int_int (unsigned int, unsigned int);
 extern void debug_nothing_tree (tree);
 extern void debug_nothing_tree_int (tree, int);
-extern void debug_nothing_tree_tree (tree, tree);
-extern bool debug_true_tree (tree);
+extern void debug_nothing_tree_tree_tree_bool (tree, tree, tree, bool);
+extern bool debug_true_const_tree (const_tree);
 extern void debug_nothing_rtx (rtx);
 
 /* Hooks for various debug formats.  */
@@ -160,11 +162,16 @@ extern void dwarf2out_frame_finish (void);
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
 extern int dwarf2out_do_frame (void);
+extern int dwarf2out_do_cfi_asm (void);
+extern void dwarf2out_switch_text_section (void);
 
 extern void debug_flush_symbol_queue (void);
 extern void debug_queue_symbol (tree);
 extern void debug_free_queue (void);
 extern int debug_nesting;
 extern int symbol_queue_index;
+
+const char *remap_debug_filename (const char *);
+void add_debug_prefix_map (const char *);
 
 #endif /* !GCC_DEBUG_H  */

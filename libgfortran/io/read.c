@@ -1,43 +1,38 @@
-/* Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
-#include "config.h"
+#include "io.h"
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include "libgfortran.h"
-#include "io.h"
+
+typedef unsigned char uchar;
 
 /* read.c -- Deal with formatted reads */
+
 
 /* set_integer()-- All of the integer assignments come here to
  * actually place the value into memory.  */
@@ -92,7 +87,9 @@ GFC_UINTEGER_LARGEST
 max_value (int length, int signed_flag)
 {
   GFC_UINTEGER_LARGEST value;
+#if defined HAVE_GFC_REAL_16 || defined HAVE_GFC_REAL_10
   int n;
+#endif
 
   switch (length)
     {
@@ -175,10 +172,11 @@ convert_real (st_parameter_dt *dtp, void *dest, const char *buffer, int length)
       internal_error (&dtp->common, "Unsupported real kind during IO");
     }
 
-  if (errno != 0 && errno != EINVAL)
+  if (errno == EINVAL)
     {
-      generate_error (&dtp->common, ERROR_READ_VALUE,
-		      "Range error during floating point read");
+      generate_error (&dtp->common, LIBERROR_READ_VALUE,
+		      "Error during floating point read");
+      next_record (dtp, 1);
       return 1;
     }
 
@@ -192,11 +190,13 @@ void
 read_l (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 {
   char *p;
-  int w;
+  size_t w;
 
   w = f->u.w;
-  p = read_block (dtp, &w);
-  if (p == NULL)
+
+  p = gfc_alloca (w);
+
+  if (read_block_form (dtp, p, &w) == FAILURE)
     return;
 
   while (*p == ' ')
@@ -225,41 +225,246 @@ read_l (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
       break;
     default:
     bad:
-      generate_error (&dtp->common, ERROR_READ_VALUE,
+      generate_error (&dtp->common, LIBERROR_READ_VALUE,
 		      "Bad value on logical read");
+      next_record (dtp, 1);
       break;
     }
 }
 
 
-/* read_a()-- Read a character record.  This one is pretty easy. */
-
-void
-read_a (st_parameter_dt *dtp, const fnode *f, char *p, int length)
+static inline gfc_char4_t
+read_utf8 (st_parameter_dt *dtp, size_t *nbytes) 
 {
-  char *source;
-  int w, m, n;
+  static const uchar masks[6] = { 0x7F, 0x1F, 0x0F, 0x07, 0x02, 0x01 };
+  static const uchar patns[6] = { 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
+  static uchar buffer[6];
+  size_t i, nb, nread;
+  gfc_char4_t c;
+  int status;
+  char *s;
 
-  w = f->u.w;
-  if (w == -1) /* '(A)' edit descriptor  */
-    w = length;
+  *nbytes = 1;
+  s = (char *) &buffer[0];
+  status = read_block_form (dtp, s, nbytes);
+  if (status == FAILURE)
+    return 0;
 
-  dtp->u.p.sf_read_comma = 0;
-  source = read_block (dtp, &w);
-  dtp->u.p.sf_read_comma = 1;
-  if (source == NULL)
+  /* If this is a short read, just return.  */
+  if (*nbytes == 0)
+    return 0;
+
+  c = buffer[0];
+  if (c < 0x80)
+    return c;
+
+  /* The number of leading 1-bits in the first byte indicates how many
+     bytes follow.  */
+  for (nb = 2; nb < 7; nb++)
+    if ((c & ~masks[nb-1]) == patns[nb-1])
+      goto found;
+  goto invalid;
+	
+ found:
+  c = (c & masks[nb-1]);
+  nread = nb - 1;
+
+  s = (char *) &buffer[1];
+  status = read_block_form (dtp, s, &nread);
+  if (status == FAILURE)
+    return 0;
+  /* Decode the bytes read.  */
+  for (i = 1; i < nb; i++)
+    {
+      gfc_char4_t n = *s++;
+
+      if ((n & 0xC0) != 0x80)
+	goto invalid;
+
+      c = ((c << 6) + (n & 0x3F));
+    }
+
+  /* Make sure the shortest possible encoding was used.  */
+  if (c <=      0x7F && nb > 1) goto invalid;
+  if (c <=     0x7FF && nb > 2) goto invalid;
+  if (c <=    0xFFFF && nb > 3) goto invalid;
+  if (c <=  0x1FFFFF && nb > 4) goto invalid;
+  if (c <= 0x3FFFFFF && nb > 5) goto invalid;
+
+  /* Make sure the character is valid.  */
+  if (c > 0x7FFFFFFF || (c >= 0xD800 && c <= 0xDFFF))
+    goto invalid;
+
+  return c;
+      
+ invalid:
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, "Invalid UTF-8 encoding");
+  return (gfc_char4_t) '?';
+}
+
+
+static void
+read_utf8_char1 (st_parameter_dt *dtp, char *p, int len, size_t width)
+{
+  gfc_char4_t c;
+  char *dest;
+  size_t nbytes;
+  int i, j;
+
+  len = ((int) width < len) ? len : (int) width;
+
+  dest = (char *) p;
+
+  /* Proceed with decoding one character at a time.  */
+  for (j = 0; j < len; j++, dest++)
+    {
+      c = read_utf8 (dtp, &nbytes);
+
+      /* Check for a short read and if so, break out.  */
+      if (nbytes == 0)
+	break;
+
+      *dest = c > 255 ? '?' : (uchar) c;
+    }
+
+  /* If there was a short read, pad the remaining characters.  */
+  for (i = j; i < len; i++)
+    *dest++ = ' ';
+  return;
+}
+
+static void
+read_default_char1 (st_parameter_dt *dtp, char *p, int len, size_t width)
+{
+  char *s;
+  int m, n, status;
+
+  s = gfc_alloca (width);
+
+  status = read_block_form (dtp, s, &width);
+  
+  if (status == FAILURE)
     return;
-  if (w > length)
-     source += (w - length);
+  if (width > (size_t) len)
+     s += (width - len);
 
-  m = (w > length) ? length : w;
-  memcpy (p, source, m);
+  m = ((int) width > len) ? len : (int) width;
+  memcpy (p, s, m);
 
-  n = length - w;
+  n = len - width;
   if (n > 0)
     memset (p + m, ' ', n);
 }
 
+
+static void
+read_utf8_char4 (st_parameter_dt *dtp, void *p, int len, size_t width)
+{
+  gfc_char4_t *dest;
+  size_t nbytes;
+  int i, j;
+
+  len = ((int) width < len) ? len : (int) width;
+
+  dest = (gfc_char4_t *) p;
+
+  /* Proceed with decoding one character at a time.  */
+  for (j = 0; j < len; j++, dest++)
+    {
+      *dest = read_utf8 (dtp, &nbytes);
+
+      /* Check for a short read and if so, break out.  */
+      if (nbytes == 0)
+	break;
+    }
+
+  /* If there was a short read, pad the remaining characters.  */
+  for (i = j; i < len; i++)
+    *dest++ = (gfc_char4_t) ' ';
+  return;
+}
+
+
+static void
+read_default_char4 (st_parameter_dt *dtp, char *p, int len, size_t width)
+{
+  char *s;
+  gfc_char4_t *dest;
+  int m, n, status;
+
+  s = gfc_alloca (width);
+
+  status = read_block_form (dtp, s, &width);
+  
+  if (status == FAILURE)
+    return;
+  if (width > (size_t) len)
+     s += (width - len);
+
+  m = ((int) width > len) ? len : (int) width;
+  
+  dest = (gfc_char4_t *) p;
+  
+  for (n = 0; n < m; n++, dest++, s++)
+    *dest = (unsigned char ) *s;
+
+  for (n = 0; n < len - (int) width; n++, dest++)
+    *dest = (unsigned char) ' ';
+}
+
+
+/* read_a()-- Read a character record into a KIND=1 character destination,
+   processing UTF-8 encoding if necessary.  */
+
+void
+read_a (st_parameter_dt *dtp, const fnode *f, char *p, int length)
+{
+  int wi;
+  size_t w;
+
+  wi = f->u.w;
+  if (wi == -1) /* '(A)' edit descriptor  */
+    wi = length;
+  w = wi;
+
+  /* Read in w characters, treating comma as not a separator.  */
+  dtp->u.p.sf_read_comma = 0;
+
+  if (dtp->u.p.current_unit->flags.encoding == ENCODING_UTF8)
+    read_utf8_char1 (dtp, p, length, w);
+  else
+    read_default_char1 (dtp, p, length, w);
+
+  dtp->u.p.sf_read_comma =
+    dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA ? 0 : 1;
+}
+
+
+/* read_a_char4()-- Read a character record into a KIND=4 character destination,
+   processing UTF-8 encoding if necessary.  */
+
+void
+read_a_char4 (st_parameter_dt *dtp, const fnode *f, char *p, int length)
+{
+  int wi;
+  size_t w;
+
+  wi = f->u.w;
+  if (wi == -1) /* '(A)' edit descriptor  */
+    wi = length;
+  w = wi;
+
+  /* Read in w characters, treating comma as not a separator.  */
+  dtp->u.p.sf_read_comma = 0;
+
+  if (dtp->u.p.current_unit->flags.encoding == ENCODING_UTF8)
+    read_utf8_char4 (dtp, p, length, w);
+  else
+    read_default_char4 (dtp, p, length, w);
+  
+  dtp->u.p.sf_read_comma =
+    dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA ? 0 : 1;
+}
 
 /* eat_leading_spaces()-- Given a character pointer and a width,
  * ignore the leading spaces.  */
@@ -321,13 +526,18 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 {
   GFC_UINTEGER_LARGEST value, maxv, maxv_10;
   GFC_INTEGER_LARGEST v;
-  int w, negative;
+  int w, negative; 
+  size_t wu;
   char c, *p;
 
-  w = f->u.w;
-  p = read_block (dtp, &w);
-  if (p == NULL)
+  wu = f->u.w;
+
+  p = gfc_alloca (wu);
+
+  if (read_block_form (dtp, p, &wu) == FAILURE)
     return;
+
+  w = wu;
 
   p = eat_leading_spaces (&w, p);
   if (w == 0)
@@ -376,13 +586,13 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
       if (c < '0' || c > '9')
 	goto bad;
 
-      if (value > maxv_10)
+      if (value > maxv_10 && compile_options.range_check == 1)
 	goto overflow;
 
       c -= '0';
       value = 10 * value;
 
-      if (value > maxv - c)
+      if (value > maxv - c && compile_options.range_check == 1)
 	goto overflow;
       value += c;
     }
@@ -395,14 +605,16 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
   return;
 
  bad:
-  generate_error (&dtp->common, ERROR_READ_VALUE,
+  generate_error (&dtp->common, LIBERROR_READ_VALUE,
 		  "Bad value during integer read");
+  next_record (dtp, 1);
   return;
 
  overflow:
-  generate_error (&dtp->common, ERROR_READ_OVERFLOW,
+  generate_error (&dtp->common, LIBERROR_READ_OVERFLOW,
 		  "Value overflowed during integer read");
-  return;
+  next_record (dtp, 1);
+
 }
 
 
@@ -419,11 +631,16 @@ read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
   GFC_INTEGER_LARGEST v;
   int w, negative;
   char c, *p;
+  size_t wu;
 
-  w = f->u.w;
-  p = read_block (dtp, &w);
-  if (p == NULL)
+  wu = f->u.w;
+
+  p = gfc_alloca (wu);
+
+  if (read_block_form (dtp, p, &wu) == FAILURE)
     return;
+
+  w = wu;
 
   p = eat_leading_spaces (&w, p);
   if (w == 0)
@@ -539,14 +756,16 @@ read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
   return;
 
  bad:
-  generate_error (&dtp->common, ERROR_READ_VALUE,
+  generate_error (&dtp->common, LIBERROR_READ_VALUE,
 		  "Bad value during integer read");
+  next_record (dtp, 1);
   return;
 
  overflow:
-  generate_error (&dtp->common, ERROR_READ_OVERFLOW,
+  generate_error (&dtp->common, LIBERROR_READ_OVERFLOW,
 		  "Value overflowed during integer read");
-  return;
+  next_record (dtp, 1);
+
 }
 
 
@@ -559,6 +778,7 @@ read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
 void
 read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 {
+  size_t wu;
   int w, seen_dp, exponent;
   int exponent_sign, val_sign;
   int ndigits;
@@ -570,10 +790,14 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 
   val_sign = 1;
   seen_dp = 0;
-  w = f->u.w;
-  p = read_block (dtp, &w);
-  if (p == NULL)
+  wu = f->u.w;
+
+  p = gfc_alloca (wu);
+
+  if (read_block_form (dtp, p, &wu) == FAILURE)
     return;
+
+  w = wu;
 
   p = eat_leading_spaces (&w, p);
   if (w == 0)
@@ -597,7 +821,7 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
   /* A digit, a '.' or a exponent character ('e', 'E', 'd' or 'D')
      is required at this point */
 
-  if (!isdigit (*p) && *p != '.' && *p != 'd' && *p != 'D'
+  if (!isdigit (*p) && *p != '.' && *p != ',' && *p != 'd' && *p != 'D'
       && *p != 'e' && *p != 'E')
     goto bad_float;
 
@@ -610,6 +834,13 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
     {
       switch (*p)
 	{
+	case ',':
+	  if (dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA
+               && *p == ',')
+	    *p = '.';
+	  else
+	    goto bad_float;
+	  /* Fall through */
 	case '.':
 	  if (seen_dp)
 	    goto bad_float;
@@ -659,8 +890,9 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
   goto done;
 
  bad_float:
-  generate_error (&dtp->common, ERROR_READ_VALUE,
+  generate_error (&dtp->common, LIBERROR_READ_VALUE,
 		  "Bad value during floating point read");
+  next_record (dtp, 1);
   return;
 
   /* The value read is zero */
@@ -719,14 +951,9 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
      of the exponent in order to take account of the scale factor and
      the d parameter before explict conversion takes place. */
  exp2:
-  if (!isdigit (*p))
-    goto bad_float;
-
-  exponent = *p - '0';
-  p++;
-  w--;
-
-  if (dtp->u.p.blank_status == BLANK_UNSPECIFIED) /* Normal processing of exponent */
+  /* Normal processing of exponent */
+  exponent = 0;
+  if (dtp->u.p.blank_status == BLANK_UNSPECIFIED)
     {
       while (w > 0 && isdigit (*p))
         {
@@ -740,7 +967,7 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
       while (w > 0)
         {
           if (*p != ' ')
-  	  goto bad_float;
+	    goto bad_float;
           p++;
           w--;
         }
@@ -831,7 +1058,6 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
   if (buffer != scratch)
      free_mem (buffer);
 
-  return;
 }
 
 
@@ -839,19 +1065,16 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
  * and never look at it. */
 
 void
-read_x (st_parameter_dt *dtp, int n)
+read_x (st_parameter_dt * dtp, int n)
 {
-  if (!is_stream_io (dtp))
-    {
-      if ((dtp->u.p.current_unit->flags.pad == PAD_NO || is_internal_unit (dtp))
-	  && dtp->u.p.current_unit->bytes_left < n)
-	n = dtp->u.p.current_unit->bytes_left;
+  if ((dtp->u.p.current_unit->pad_status == PAD_NO || is_internal_unit (dtp))
+       && dtp->u.p.current_unit->bytes_left < n)
+    n = dtp->u.p.current_unit->bytes_left;
 
-      dtp->u.p.sf_read_comma = 0;
-      if (n > 0)
-	read_sf (dtp, &n, 1);
-      dtp->u.p.sf_read_comma = 1;
-    }
-  else
-    dtp->u.p.current_unit->strm_pos += (gfc_offset) n;
+  dtp->u.p.sf_read_comma = 0;
+  if (n > 0)
+    read_sf (dtp, &n, 1);
+  dtp->u.p.sf_read_comma = 1;
+  dtp->u.p.current_unit->strm_pos += (gfc_offset) n;
 }
+

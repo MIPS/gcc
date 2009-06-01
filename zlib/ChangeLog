@@ -1,14 +1,6 @@
-2007-10-07  Release Manager
+2009-04-21  Release Manager
 
-	* GCC 4.2.2 released.
-
-2007-07-19  Release Manager
-
-	* GCC 4.2.1 released.
-
-2007-05-13  Release Manager
-
-	* GCC 4.2.0 released.
+	* GCC 4.4.0 released.
 
 
                 ChangeLog file for zlib
@@ -573,7 +565,7 @@ Changes in 1.0.6 (19 Jan 1998)
         386 asm code replacing longest_match().
    contrib/iostream/ by Kevin Ruland <kevin@rodin.wustl.edu>
         A C++ I/O streams interface to the zlib gz* functions
-   contrib/iostream2/  by Tyge Løvset <Tyge.Lovset@cmr.no>
+   contrib/iostream2/  by Tyge LÃ¸vset <Tyge.Lovset@cmr.no>
         Another C++ I/O streams interface
    contrib/untgz/  by "Pedro A. Aranda Guti\irrez" <paag@tid.es>
         A very simple tar.gz file extractor using zlib

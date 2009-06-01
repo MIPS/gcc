@@ -13,7 +13,7 @@ signed short Y[N] __attribute__ ((__aligned__(16)));
    Detected as a dot-product pattern.
    Vectorized on targets that support dot-product for signed shorts.  */
 
-int
+__attribute__ ((noinline)) int
 foo (int len)
 {
   int i;
@@ -50,5 +50,6 @@ main (void)
 
 /* { dg-final { scan-tree-dump-times "vect_recog_dot_prod_pattern: detected" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_sdot_hi } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_widen_mult_hi_to_si } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

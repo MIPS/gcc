@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+   2009  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -15,8 +15,13 @@
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
    License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING3.  If not see
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
 #ifndef RS6000_BI_ARCH
@@ -57,9 +62,9 @@ extern int dot_symbols;
 #endif
 
 #undef  PROCESSOR_DEFAULT
-#define PROCESSOR_DEFAULT PROCESSOR_POWER4
+#define PROCESSOR_DEFAULT PROCESSOR_POWER6
 #undef  PROCESSOR_DEFAULT64
-#define PROCESSOR_DEFAULT64 PROCESSOR_POWER4
+#define PROCESSOR_DEFAULT64 PROCESSOR_POWER6
 
 /* We don't need to generate entries in .fixup, except when
    -mrelocatable or -mrelocatable-lib is given.  */
@@ -97,9 +102,9 @@ extern int dot_symbols;
 	      target_flags &= ~MASK_EABI;			\
 	      error (INVALID_64BIT, "eabi");			\
 	    }							\
-	  if (target_flags & MASK_PROTOTYPE)			\
+	  if (TARGET_PROTOTYPE)					\
 	    {							\
-	      target_flags &= ~MASK_PROTOTYPE;			\
+	      TARGET_PROTOTYPE = 0;				\
 	      error (INVALID_64BIT, "prototype");		\
 	    }							\
 	  if ((target_flags & MASK_POWERPC64) == 0)		\
@@ -164,7 +169,7 @@ extern int dot_symbols;
 #define ASM_SPEC64 "-a64"
 
 #define ASM_SPEC_COMMON "%(asm_cpu) \
-%{.s: %{mregnames} %{mno-regnames}} %{.S: %{mregnames} %{mno-regnames}} \
+%{,assembler|,assembler-with-cpp: %{mregnames} %{mno-regnames}} \
 %{v:-V} %{Qy:} %{!Qn:-Qy} %{Wa,*:%*} \
 %{mlittle} %{mlittle-endian} %{mbig} %{mbig-endian}"
 
@@ -217,9 +222,7 @@ extern int dot_symbols;
    ? 128								\
    : (TARGET_64BIT							\
       && TARGET_ALIGN_NATURAL == 0					\
-      && TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE		\
-		    ? get_inner_array_type (FIELD)			\
-		    : TREE_TYPE (FIELD)) == DFmode)			\
+      && TYPE_MODE (strip_array_types (TREE_TYPE (FIELD))) == DFmode)	\
    ? MIN ((COMPUTED), 32)						\
    : (COMPUTED))
 
@@ -283,6 +286,10 @@ extern int dot_symbols;
 /* glibc has float and long double forms of math functions.  */
 #undef  TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS (OPTION_GLIBC)
+
+/* Whether we have sincos that follows the GNU extension.  */
+#undef  TARGET_HAS_SINCOS
+#define TARGET_HAS_SINCOS (OPTION_GLIBC)
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()			\
@@ -475,8 +482,7 @@ extern int dot_symbols;
 	   && GET_MODE_BITSIZE (MODE) <= GET_MODE_BITSIZE (Pmode))	\
        || (GET_CODE (X) == CONST_DOUBLE					\
 	   && ((TARGET_64BIT						\
-		&& (TARGET_POWERPC64					\
-		    || TARGET_MINIMAL_TOC				\
+		&& (TARGET_MINIMAL_TOC					\
 		    || (SCALAR_FLOAT_MODE_P (GET_MODE (X))		\
 			&& ! TARGET_NO_FP_IN_TOC)))			\
 	       || (!TARGET_64BIT					\

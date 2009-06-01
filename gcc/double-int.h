@@ -1,5 +1,5 @@
 /* Operations with long integers.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -19,6 +19,11 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef DOUBLE_INT_H
 #define DOUBLE_INT_H
+
+#ifndef GENERATOR_FILE
+#include <gmp.h>
+#endif
+#include "coretypes.h"
 
 /* A large integer is currently represented as a pair of HOST_WIDE_INTs.
    It therefore represents a number with precision of
@@ -57,7 +62,8 @@ union tree_node;
 /* Constructors and conversions.  */
 
 union tree_node *double_int_to_tree (union tree_node *, double_int);
-double_int tree_to_double_int (union tree_node *tree);
+bool double_int_fits_to_tree_p (const union tree_node *, double_int);
+double_int tree_to_double_int (const union tree_node *);
 
 /* Constructs double_int from integer CST.  The bits over the precision of
    HOST_WIDE_INT are filled with the sign bit.  */
@@ -132,6 +138,7 @@ void dump_double_int (FILE *, double_int, bool);
 double_int double_int_ext (double_int, unsigned, bool);
 double_int double_int_sext (double_int, unsigned);
 double_int double_int_zext (double_int, unsigned);
+double_int double_int_mask (unsigned);
 
 #define ALL_ONES (~((unsigned HOST_WIDE_INT) 0))
 
@@ -170,5 +177,12 @@ double_int_equal_p (double_int cst1, double_int cst2)
 {
   return cst1.low == cst2.low && cst1.high == cst2.high;
 }
+
+#ifndef GENERATOR_FILE
+/* Conversion to and from GMP integer representations.  */
+
+void mpz_set_double_int (mpz_t, double_int, bool);
+double_int mpz_get_double_int (const_tree, mpz_t, bool);
+#endif
 
 #endif /* DOUBLE_INT_H */

@@ -1,13 +1,13 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007
+// 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -15,19 +15,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file basic_string.tcc
  *  This is an internal header file, included by other library headers.
@@ -46,17 +41,9 @@
 
 #pragma GCC system_header
 
+#include <cxxabi-forced.h>
+
 _GLIBCXX_BEGIN_NAMESPACE(std)
-
-  template<typename _Type>
-    inline bool
-    __is_null_pointer(_Type* __ptr)
-    { return __ptr == 0; }
-
-  template<typename _Type>
-    inline bool
-    __is_null_pointer(_Type)
-    { return false; }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     const typename basic_string<_CharT, _Traits, _Alloc>::size_type
@@ -105,7 +92,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  }
 	_Rep* __r = _Rep::_S_create(__len, size_type(0), __a);
 	_M_copy(__r->_M_refdata(), __buf, __len);
-	try
+	__try
 	  {
 	    while (__beg != __end)
 	      {
@@ -121,7 +108,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		++__beg;
 	      }
 	  }
-	catch(...)
+	__catch(...)
 	  {
 	    __r->_M_destroy(__a);
 	    __throw_exception_again;
@@ -142,16 +129,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  return _S_empty_rep()._M_refdata();
 #endif
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__is_null_pointer(__beg) && __beg != __end, 0))
+	if (__builtin_expect(__gnu_cxx::__is_null_pointer(__beg)
+			     && __beg != __end, 0))
 	  __throw_logic_error(__N("basic_string::_S_construct NULL not valid"));
 
 	const size_type __dnew = static_cast<size_type>(std::distance(__beg,
 								      __end));
 	// Check for out_of_range and length_error exceptions.
 	_Rep* __r = _Rep::_S_create(__dnew, size_type(0), __a);
-	try
+	__try
 	  { _S_copy_chars(__r->_M_refdata(), __beg, __end); }
-	catch(...)
+	__catch(...)
 	  {
 	    __r->_M_destroy(__a);
 	    __throw_exception_again;
@@ -241,6 +229,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     basic_string(_InputIterator __beg, _InputIterator __end, const _Alloc& __a)
     : _M_dataplus(_S_construct(__beg, __end, __a), __a)
     { }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>::
+    basic_string(initializer_list<_CharT> __l, const _Alloc& __a)
+    : _M_dataplus(_S_construct(__l.begin(), __l.end(), __a), __a)
+    { }
+#endif
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
@@ -903,7 +899,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const size_type __len = std::min(__n, __osize);
       int __r = traits_type::compare(_M_data() + __pos, __str.data(), __len);
       if (!__r)
-	__r = __n - __osize;
+	__r = _S_compare(__n, __osize);
       return __r;
     }
 
@@ -921,7 +917,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       int __r = traits_type::compare(_M_data() + __pos1,
 				     __str.data() + __pos2, __len);
       if (!__r)
-	__r = __n1 - __n2;
+	__r = _S_compare(__n1, __n2);
       return __r;
     }
 
@@ -936,7 +932,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const size_type __len = std::min(__size, __osize);
       int __r = traits_type::compare(_M_data(), __s, __len);
       if (!__r)
-	__r = __size - __osize;
+	__r = _S_compare(__size, __osize);
       return __r;
     }
 
@@ -952,7 +948,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const size_type __len = std::min(__n1, __osize);
       int __r = traits_type::compare(_M_data() + __pos, __s, __len);
       if (!__r)
-	__r = __n1 - __osize;
+	__r = _S_compare(__n1, __osize);
       return __r;
     }
 
@@ -968,14 +964,150 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const size_type __len = std::min(__n1, __n2);
       int __r = traits_type::compare(_M_data() + __pos, __s, __len);
       if (!__r)
-	__r = __n1 - __n2;
+	__r = _S_compare(__n1, __n2);
       return __r;
+    }
+
+  // 21.3.7.9 basic_string::getline and operators
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_istream<_CharT, _Traits>&
+    operator>>(basic_istream<_CharT, _Traits>& __in,
+	       basic_string<_CharT, _Traits, _Alloc>& __str)
+    {
+      typedef basic_istream<_CharT, _Traits>		__istream_type;
+      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
+      typedef typename __istream_type::ios_base         __ios_base;
+      typedef typename __istream_type::int_type		__int_type;
+      typedef typename __string_type::size_type		__size_type;
+      typedef ctype<_CharT>				__ctype_type;
+      typedef typename __ctype_type::ctype_base         __ctype_base;
+
+      __size_type __extracted = 0;
+      typename __ios_base::iostate __err = __ios_base::goodbit;
+      typename __istream_type::sentry __cerb(__in, false);
+      if (__cerb)
+	{
+	  __try
+	    {
+	      // Avoid reallocation for common case.
+	      __str.erase();
+	      _CharT __buf[128];
+	      __size_type __len = 0;	      
+	      const streamsize __w = __in.width();
+	      const __size_type __n = __w > 0 ? static_cast<__size_type>(__w)
+		                              : __str.max_size();
+	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
+	      const __int_type __eof = _Traits::eof();
+	      __int_type __c = __in.rdbuf()->sgetc();
+
+	      while (__extracted < __n
+		     && !_Traits::eq_int_type(__c, __eof)
+		     && !__ct.is(__ctype_base::space,
+				 _Traits::to_char_type(__c)))
+		{
+		  if (__len == sizeof(__buf) / sizeof(_CharT))
+		    {
+		      __str.append(__buf, sizeof(__buf) / sizeof(_CharT));
+		      __len = 0;
+		    }
+		  __buf[__len++] = _Traits::to_char_type(__c);
+		  ++__extracted;
+		  __c = __in.rdbuf()->snextc();
+		}
+	      __str.append(__buf, __len);
+
+	      if (_Traits::eq_int_type(__c, __eof))
+		__err |= __ios_base::eofbit;
+	      __in.width(0);
+	    }
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __in._M_setstate(__ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
+	    {
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 91. Description of operator>> and getline() for string<>
+	      // might cause endless loop
+	      __in._M_setstate(__ios_base::badbit);
+	    }
+	}
+      // 211.  operator>>(istream&, string&) doesn't set failbit
+      if (!__extracted)
+	__err |= __ios_base::failbit;
+      if (__err)
+	__in.setstate(__err);
+      return __in;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_istream<_CharT, _Traits>&
+    getline(basic_istream<_CharT, _Traits>& __in,
+	    basic_string<_CharT, _Traits, _Alloc>& __str, _CharT __delim)
+    {
+      typedef basic_istream<_CharT, _Traits>		__istream_type;
+      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
+      typedef typename __istream_type::ios_base         __ios_base;
+      typedef typename __istream_type::int_type		__int_type;
+      typedef typename __string_type::size_type		__size_type;
+
+      __size_type __extracted = 0;
+      const __size_type __n = __str.max_size();
+      typename __ios_base::iostate __err = __ios_base::goodbit;
+      typename __istream_type::sentry __cerb(__in, true);
+      if (__cerb)
+	{
+	  __try
+	    {
+	      __str.erase();
+	      const __int_type __idelim = _Traits::to_int_type(__delim);
+	      const __int_type __eof = _Traits::eof();
+	      __int_type __c = __in.rdbuf()->sgetc();
+
+	      while (__extracted < __n
+		     && !_Traits::eq_int_type(__c, __eof)
+		     && !_Traits::eq_int_type(__c, __idelim))
+		{
+		  __str += _Traits::to_char_type(__c);
+		  ++__extracted;
+		  __c = __in.rdbuf()->snextc();
+		}
+
+	      if (_Traits::eq_int_type(__c, __eof))
+		__err |= __ios_base::eofbit;
+	      else if (_Traits::eq_int_type(__c, __idelim))
+		{
+		  ++__extracted;		  
+		  __in.rdbuf()->sbumpc();
+		}
+	      else
+		__err |= __ios_base::failbit;
+	    }
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __in._M_setstate(__ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
+	    {
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 91. Description of operator>> and getline() for string<>
+	      // might cause endless loop
+	      __in._M_setstate(__ios_base::badbit);
+	    }
+	}
+      if (!__extracted)
+	__err |= __ios_base::failbit;
+      if (__err)
+	__in.setstate(__err);
+      return __in;
     }
 
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.
   // NB: This syntax is a GNU extension.
-#if _GLIBCXX_EXTERN_TEMPLATE
+#if _GLIBCXX_EXTERN_TEMPLATE > 0
   extern template class basic_string<char>;
   extern template
     basic_istream<char>&

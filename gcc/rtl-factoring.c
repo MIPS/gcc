@@ -1,5 +1,5 @@
 /* RTL factoring (sequence abstraction).
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "timevar.h"
 #include "output.h"
+#include "df.h"
 #include "addresses.h"
 
 /* Sequence abstraction:
@@ -236,6 +237,7 @@ typedef struct hash_bucket_def
   /* List of sequence candidates.  */
   htab_t seq_candidates;
 } *p_hash_bucket;
+typedef const struct hash_bucket_def *const_p_hash_bucket;
 
 /* Contains the last insn of the sequence, and its index value.  */
 typedef struct hash_elem_def
@@ -249,6 +251,7 @@ typedef struct hash_elem_def
   /* The cached length of the insn.  */
   int length;
 } *p_hash_elem;
+typedef const struct hash_elem_def *const_p_hash_elem;
 
 /* The list of same sequence candidates.  */
 static htab_t hash_buckets;
@@ -320,14 +323,14 @@ compute_rtx_cost (rtx insn)
   tmp_bucket.hash = compute_hash (insn);
 
   /* Select the hash group.  */
-  bucket = htab_find (hash_buckets, &tmp_bucket);
+  bucket = (p_hash_bucket) htab_find (hash_buckets, &tmp_bucket);
 
   if (bucket)
   {
     tmp_elem.insn = insn;
 
     /* Select the insn.  */
-    elem = htab_find (bucket->seq_candidates, &tmp_elem);
+    elem = (p_hash_elem) htab_find (bucket->seq_candidates, &tmp_elem);
 
     /* If INSN is parsed the cost will be the cached length.  */
     if (elem)
@@ -441,50 +444,78 @@ collect_pattern_seqs (void)
   htab_iterator hti0, hti1, hti2;
   p_hash_bucket hash_bucket;
   p_hash_elem e0, e1;
-#ifdef STACK_REGS
+#if defined STACK_REGS || defined HAVE_cc0
   basic_block bb;
-  bitmap_head stack_reg_live;
+  bitmap_head dont_collect;
 
   /* Extra initialization step to ensure that no stack registers (if present)
-     are live across abnormal edges. Set a flag in STACK_REG_LIVE for an insn
-     if a stack register is live after the insn.  */
-  bitmap_initialize (&stack_reg_live, NULL);
+     or cc0 code (if present) are live across abnormal edges.
+     Set a flag in DONT_COLLECT for an insn if a stack register is live
+     after the insn or the insn is cc0 setter or user.  */
+  bitmap_initialize (&dont_collect, NULL);
 
+#ifdef STACK_REGS
   FOR_EACH_BB (bb)
   {
     regset_head live;
-    struct propagate_block_info *pbi;
     rtx insn;
+    rtx prev;
 
     /* Initialize liveness propagation.  */
     INIT_REG_SET (&live);
-    COPY_REG_SET (&live, bb->il.rtl->global_live_at_end);
-    pbi = init_propagate_block_info (bb, &live, NULL, NULL, 0);
+    bitmap_copy (&live, DF_LR_OUT (bb));
+    df_simulate_initialize_backwards (bb, &live);
 
     /* Propagate liveness info and mark insns where a stack reg is live.  */
     insn = BB_END (bb);
-    while (1)
+    for (insn = BB_END (bb); ; insn = prev)
       {
-        int reg;
-        for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
-          {
-            if (REGNO_REG_SET_P (&live, reg))
-              {
-                bitmap_set_bit (&stack_reg_live, INSN_UID (insn));
-                break;
-              }
-          }
-
-        if (insn == BB_HEAD (bb))
-          break;
-        insn = propagate_one_insn (pbi, insn);
+	prev = PREV_INSN (insn);
+	if (INSN_P (insn))
+	  {
+	    int reg;
+	    for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
+	      {
+		if (REGNO_REG_SET_P (&live, reg))
+		  {
+		    bitmap_set_bit (&dont_collect, INSN_UID (insn));
+		    break;
+		  }
+	      }
+	    
+	  }
+	if (insn == BB_HEAD (bb))
+	  break;
+	df_simulate_one_insn_backwards (bb, insn, &live);
+	insn = prev;
       }
 
     /* Free unused data.  */
     CLEAR_REG_SET (&live);
-    free_propagate_block_info (pbi);
   }
 #endif
+
+#ifdef HAVE_cc0
+  /* Mark CC0 setters and users as ineligible for collection into sequences.
+     This is an over-conservative fix, since it is OK to include
+     a cc0_setter, but only if we also include the corresponding cc0_user,
+     and vice versa.  */
+  FOR_EACH_BB (bb)
+  {
+    rtx insn;
+    rtx next_tail;
+
+    next_tail = NEXT_INSN (BB_END (bb));
+
+    for (insn = BB_HEAD (bb); insn != next_tail; insn = NEXT_INSN (insn))
+      {
+	if (INSN_P (insn) && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
+	  bitmap_set_bit (&dont_collect, INSN_UID (insn));
+      }
+  }
+#endif
+
+#endif /* defined STACK_REGS || defined HAVE_cc0 */
 
   /* Initialize PATTERN_SEQS to empty.  */
   pattern_seqs = 0;
@@ -498,15 +529,15 @@ collect_pattern_seqs (void)
         FOR_EACH_HTAB_ELEMENT (hash_bucket->seq_candidates, e1, p_hash_elem,
                                hti2)
           if (e0 != e1
-#ifdef STACK_REGS
-              && !bitmap_bit_p (&stack_reg_live, INSN_UID (e0->insn))
-              && !bitmap_bit_p (&stack_reg_live, INSN_UID (e1->insn))
+#if defined STACK_REGS || defined HAVE_cc0
+              && !bitmap_bit_p (&dont_collect, INSN_UID (e0->insn))
+              && !bitmap_bit_p (&dont_collect, INSN_UID (e1->insn))
 #endif
              )
             match_seqs (e0, e1);
-#ifdef STACK_REGS
+#if defined STACK_REGS || defined HAVE_cc0
   /* Free unused data.  */
-  bitmap_clear (&stack_reg_live);
+  bitmap_clear (&dont_collect);
 #endif
 }
 
@@ -534,19 +565,18 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
   basic_block bb;
   regset_head live;
   HARD_REG_SET hlive;
-  struct propagate_block_info *pbi;
   rtx x;
   int i;
 
   /* Initialize liveness propagation.  */
   bb = BLOCK_FOR_INSN (insn);
   INIT_REG_SET (&live);
-  COPY_REG_SET (&live, bb->il.rtl->global_live_at_end);
-  pbi = init_propagate_block_info (bb, &live, NULL, NULL, 0);
+  bitmap_copy (&live, DF_LR_OUT (bb));
+  df_simulate_initialize_backwards (bb, &live);
 
   /* Propagate until INSN if found.  */
-  for (x = BB_END (bb); x != insn;)
-    x = propagate_one_insn (pbi, x);
+  for (x = BB_END (bb); x != insn; x = PREV_INSN (x))
+    df_simulate_one_insn_backwards (bb, x, &live);
 
   /* Clear registers live after INSN.  */
   renumbered_reg_set_to_hard_reg_set (&hlive, &live);
@@ -555,7 +585,8 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
   /* Clear registers live in and before the sequence.  */
   for (i = 0; i < length;)
     {
-      rtx prev = propagate_one_insn (pbi, x);
+      rtx prev = PREV_INSN (x);
+      df_simulate_one_insn_backwards (bb, x, &live);
 
       if (INSN_P (x))
         {
@@ -568,7 +599,6 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
     }
 
   /* Free unused data.  */
-  free_propagate_block_info (pbi);
   CLEAR_REG_SET (&live);
 }
 
@@ -694,7 +724,7 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
 				 base_reg_class (VOIDmode, MEM, SCRATCH)))
 #endif
         || (hascall && call_used_regs[i])
-        || (!call_used_regs[i] && !regs_ever_live[i]))
+        || (!call_used_regs[i] && !df_regs_ever_live_p (i)))
       CLEAR_HARD_REG_BIT (linkregs, i);
 
   /* Find an appropriate register to be used as the link register.  */
@@ -932,7 +962,7 @@ determine_seq_blocks (void)
 /* Builds a symbol_ref for LABEL.  */
 
 static rtx
-gen_symbol_ref_rtx_for_label (rtx label)
+gen_symbol_ref_rtx_for_label (const_rtx label)
 {
   char name[20];
   rtx sym;
@@ -941,6 +971,17 @@ gen_symbol_ref_rtx_for_label (rtx label)
   sym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
   SYMBOL_REF_FLAGS (sym) = SYMBOL_FLAG_LOCAL;
   return sym;
+}
+
+/* Splits basic block at the requested insn and rebuilds dataflow.  */
+
+static basic_block
+split_block_and_df_analyze (basic_block bb, rtx insn)
+{
+  basic_block next;
+  next = split_block (bb, insn)->dest;
+  df_analyze ();
+  return next;
 }
 
 /* Ensures that INSN is the last insn in its block and returns the block label
@@ -953,7 +994,7 @@ block_label_after (rtx insn)
   if ((insn == BB_END (bb)) && (bb->next_bb != EXIT_BLOCK_PTR))
     return block_label (bb->next_bb);
   else
-    return block_label (split_block (bb, insn)->dest);
+    return block_label (split_block_and_df_analyze (bb, insn));
 }
 
 /* Ensures that the last insns of the best pattern and its matching sequences
@@ -973,9 +1014,8 @@ split_blocks_after_seqs (void)
       for (mseq = sb->matching_seqs; mseq; mseq = mseq->next_matching_seq)
         {
           block_label_after (mseq->insn);
-          IOR_REG_SET (BLOCK_FOR_INSN (pattern_seqs->insn)->
-                       il.rtl->global_live_at_end,
-                       BLOCK_FOR_INSN (mseq->insn)->il.rtl->global_live_at_end);
+          IOR_REG_SET (df_get_live_out (BLOCK_FOR_INSN (pattern_seqs->insn)),
+                       df_get_live_out (BLOCK_FOR_INSN (mseq->insn)));
         }
     }
 }
@@ -1003,8 +1043,9 @@ split_pattern_seq (void)
 
   /* Emit an indirect jump via the link register after the sequence acting
      as the return insn.  Also emit a barrier and update the basic block.  */
-  retjmp = emit_jump_insn_after (gen_indirect_jump (pattern_seqs->link_reg),
-                                 BB_END (bb));
+  if (!find_reg_note (BB_END (bb), REG_NORETURN, NULL))
+    retjmp = emit_jump_insn_after (gen_indirect_jump (pattern_seqs->link_reg),
+                                   BB_END (bb));
   emit_barrier_after (BB_END (bb));
 
   /* Replace all outgoing edges with a new one to the block of RETLABEL.  */
@@ -1020,7 +1061,7 @@ split_pattern_seq (void)
       for (; i < sb->length; i++)
         insn = prev_insn_in_block (insn);
 
-      sb->label = block_label (split_block (bb, insn)->dest);
+      sb->label = block_label (split_block_and_df_analyze (bb, insn));
     }
 
   /* Emit an insn saving the return address to the link register before the
@@ -1029,7 +1070,7 @@ split_pattern_seq (void)
                               gen_symbol_ref_rtx_for_label
                               (retlabel)), BB_END (bb));
   /* Update liveness info.  */
-  SET_REGNO_REG_SET (bb->il.rtl->global_live_at_end,
+  SET_REGNO_REG_SET (df_get_live_out (bb),
                      REGNO (pattern_seqs->link_reg));
 }
 
@@ -1062,7 +1103,7 @@ erase_matching_seqs (void)
           /* Delete the insns of the sequence.  */
           for (i = 0; i < sb->length; i++)
             insn = prev_insn_in_block (insn);
-          delete_basic_block (split_block (bb, insn)->dest);
+          delete_basic_block (split_block_and_df_analyze (bb, insn));
 
           /* Emit an insn saving the return address to the link register
              before the deleted sequence.  */
@@ -1081,12 +1122,12 @@ erase_matching_seqs (void)
           BB_END (bb) = callinsn;
 
           /* Maintain control flow and liveness information.  */
-          SET_REGNO_REG_SET (bb->il.rtl->global_live_at_end,
+          SET_REGNO_REG_SET (df_get_live_out (bb),
                              REGNO (pattern_seqs->link_reg));
           emit_barrier_after (BB_END (bb));
           make_single_succ_edge (bb, BLOCK_FOR_INSN (sb->label), 0);
-          IOR_REG_SET (bb->il.rtl->global_live_at_end,
-            BLOCK_FOR_INSN (sb->label)->il.rtl->global_live_at_start);
+          IOR_REG_SET (df_get_live_out (bb),
+		       df_get_live_in (BLOCK_FOR_INSN (sb->label)));
 
           make_edge (BLOCK_FOR_INSN (seq_blocks->label),
                      BLOCK_FOR_INSN (retlabel), EDGE_ABNORMAL);
@@ -1130,7 +1171,7 @@ abstract_best_seq (void)
   free_seq_blocks ();
 
   /* Record the usage of the link register.  */
-  regs_ever_live[REGNO (pattern_seqs->link_reg)] = 1;
+  df_set_regs_ever_live (REGNO (pattern_seqs->link_reg), true);
 
   /* Remove the best pattern sequence.  */
   bestpseq = pattern_seqs;
@@ -1201,7 +1242,7 @@ dump_best_pattern_seq (int iter)
 static unsigned int
 htab_hash_bucket (const void *p)
 {
-  p_hash_bucket bucket = (p_hash_bucket) p;
+  const_p_hash_bucket bucket = (const_p_hash_bucket) p;
   return bucket->hash;
 }
 
@@ -1231,7 +1272,7 @@ htab_del_bucket (void *p)
 static unsigned int
 htab_hash_elem (const void *p)
 {
-  p_hash_elem elem = (p_hash_elem) p;
+  const_p_hash_elem elem = (const_p_hash_elem) p;
   return htab_hash_pointer (elem->insn);
 }
 
@@ -1278,7 +1319,7 @@ fill_hash_bucket (void)
           tmp_bucket.hash = compute_hash (insn);
 
           /* Select the hash group.  */
-          bucket = htab_find (hash_buckets, &tmp_bucket);
+          bucket = (p_hash_bucket) htab_find (hash_buckets, &tmp_bucket);
 
           if (!bucket)
             {
@@ -1358,6 +1399,8 @@ static void
 rtl_seqabstr (void)
 {
   int iter;
+  df_set_flags (DF_LR_RUN_DCE);
+  df_analyze ();
 
   /* Create a hash list for COLLECT_PATTERN_SEQS.  */
   hash_buckets = htab_create (HASH_INIT, htab_hash_bucket , htab_eq_bucket ,
@@ -1389,20 +1432,6 @@ rtl_seqabstr (void)
 
   /* Cleanup hash tables.  */
   htab_delete (hash_buckets);
-
-  if (iter > 1)
-    {
-      /* Update notes.  */
-      count_or_remove_death_notes (NULL, 1);
-
-      life_analysis (PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-		     | PROP_KILL_DEAD_CODE);
-
-      /* Extra cleanup.  */
-      cleanup_cfg (CLEANUP_EXPENSIVE |
-                   CLEANUP_UPDATE_LIFE |
-                   (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
-    }
 }
 
 /* The gate function for TREE_OPT_PASS.  */
@@ -1418,18 +1447,15 @@ gate_rtl_seqabstr (void)
 static unsigned int
 rest_of_rtl_seqabstr (void)
 {
-  life_analysis (PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
-
-  cleanup_cfg (CLEANUP_EXPENSIVE |
-               CLEANUP_UPDATE_LIFE |
-               (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
-
   /* Abstract out common insn sequences. */
   rtl_seqabstr ();
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_seqabstr = {
+struct rtl_opt_pass pass_rtl_seqabstr = 
+{
+ {
+  RTL_PASS,
   "seqabstr",                           /* name */
   gate_rtl_seqabstr,                    /* gate */
   rest_of_rtl_seqabstr,                 /* execute */
@@ -1441,7 +1467,8 @@ struct tree_opt_pass pass_rtl_seqabstr = {
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'Q'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };

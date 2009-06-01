@@ -1,5 +1,4 @@
 /* { dg-require-effective-target vect_int } */
-/* { dg-do run } */
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -18,6 +17,7 @@ struct foo {
 struct foo f2;
 int z[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 
+__attribute__ ((noinline))
 void fbar(struct foo *fp)
 {
   int i,j;
@@ -34,6 +34,8 @@ void fbar(struct foo *fp)
 int main (void)
 {
   struct foo  *fp = (struct foo *) malloc (2*sizeof (struct foo));
+
+  check_vect ();
 
   fbar(fp);
   return 0;

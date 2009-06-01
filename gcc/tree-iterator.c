@@ -1,5 +1,5 @@
 /* Iterator routines for manipulating GENERIC and GIMPLE tree statements.
-   Copyright (C) 2003, 2004, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-iterator.h"
 #include "ggc.h"
 
@@ -89,7 +89,7 @@ tsi_link_before (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
     }
   else
     {
-      head = ggc_alloc (sizeof (*head));
+      head = GGC_NEW (struct tree_statement_list_node);
       head->prev = NULL;
       head->next = NULL;
       head->stmt = t;
@@ -165,7 +165,7 @@ tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
     }
   else
     {
-      head = ggc_alloc (sizeof (*head));
+      head = GGC_NEW (struct tree_statement_list_node);
       head->prev = NULL;
       head->next = NULL;
       head->stmt = t;
@@ -290,6 +290,8 @@ tsi_split_statement_list_before (tree_stmt_iterator *i)
   cur->prev = NULL;
   if (prev)
     prev->next = NULL;
+  else
+    STATEMENT_LIST_HEAD (old_sl) = NULL;
 
   return new_sl;
 }
@@ -311,11 +313,25 @@ expr_first (tree expr)
 
   while (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
+
   return expr;
 }
 
 /* Return the last expression in a sequence of COMPOUND_EXPRs,
    or in a STATEMENT_LIST.  */
+
+#define EXPR_LAST_BODY do { \
+  if (expr == NULL_TREE) \
+    return expr;\
+  if (TREE_CODE (expr) == STATEMENT_LIST) \
+    { \
+      struct tree_statement_list_node *n = STATEMENT_LIST_TAIL (expr); \
+      return n ? n->stmt : NULL_TREE; \
+    } \
+  while (TREE_CODE (expr) == COMPOUND_EXPR) \
+    expr = TREE_OPERAND (expr, 1); \
+  return expr; \
+} while (0)
 
 tree
 expr_last (tree expr)
@@ -331,6 +347,7 @@ expr_last (tree expr)
 
   while (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 1);
+
   return expr;
 }
 

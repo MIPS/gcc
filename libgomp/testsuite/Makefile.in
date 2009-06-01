@@ -42,10 +42,15 @@ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/depstand.m4 \
 	$(top_srcdir)/../config/enable.m4 \
+	$(top_srcdir)/../config/futex.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/multi.m4 \
+	$(top_srcdir)/../config/override.m4 \
+	$(top_srcdir)/../config/proginstall.m4 \
 	$(top_srcdir)/../config/stdint.m4 \
-	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/acinclude.m4 \
+	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/../ltoptions.m4 \
+	$(top_srcdir)/../ltsugar.m4 $(top_srcdir)/../ltversion.m4 \
+	$(top_srcdir)/../lt~obsolete.m4 $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -76,6 +81,8 @@ CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
@@ -83,32 +90,47 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FC = @FC@
 FCFLAGS = @FCFLAGS@
+FGREP = @FGREP@
 GENINSRC_FALSE = @GENINSRC_FALSE@
 GENINSRC_TRUE = @GENINSRC_TRUE@
+GREP = @GREP@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBGOMP_BUILD_VERSIONED_SHLIB_FALSE = @LIBGOMP_BUILD_VERSIONED_SHLIB_FALSE@
 LIBGOMP_BUILD_VERSIONED_SHLIB_TRUE = @LIBGOMP_BUILD_VERSIONED_SHLIB_TRUE@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
 MAINTAINER_MODE_FALSE = @MAINTAINER_MODE_FALSE@
 MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKEINFO = @MAKEINFO@
+NM = @NM@
+NMEDIT = @NMEDIT@
+OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OMP_LOCK_25_ALIGN = @OMP_LOCK_25_ALIGN@
+OMP_LOCK_25_KIND = @OMP_LOCK_25_KIND@
+OMP_LOCK_25_SIZE = @OMP_LOCK_25_SIZE@
 OMP_LOCK_ALIGN = @OMP_LOCK_ALIGN@
 OMP_LOCK_KIND = @OMP_LOCK_KIND@
 OMP_LOCK_SIZE = @OMP_LOCK_SIZE@
+OMP_NEST_LOCK_25_ALIGN = @OMP_NEST_LOCK_25_ALIGN@
+OMP_NEST_LOCK_25_KIND = @OMP_NEST_LOCK_25_KIND@
+OMP_NEST_LOCK_25_SIZE = @OMP_NEST_LOCK_25_SIZE@
 OMP_NEST_LOCK_ALIGN = @OMP_NEST_LOCK_ALIGN@
 OMP_NEST_LOCK_KIND = @OMP_NEST_LOCK_KIND@
 OMP_NEST_LOCK_SIZE = @OMP_NEST_LOCK_SIZE@
 OPT_LDFLAGS = @OPT_LDFLAGS@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -119,6 +141,7 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 RANLIB = @RANLIB@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -129,7 +152,14 @@ XCFLAGS = @XCFLAGS@
 XLDFLAGS = @XLDFLAGS@
 ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
+ac_ct_DSYMUTIL = @ac_ct_DSYMUTIL@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 ac_ct_FC = @ac_ct_FC@
+ac_ct_LIPO = @ac_ct_LIPO@
+ac_ct_NMEDIT = @ac_ct_NMEDIT@
+ac_ct_OBJDUMP = @ac_ct_OBJDUMP@
+ac_ct_OTOOL = @ac_ct_OTOOL@
+ac_ct_OTOOL64 = @ac_ct_OTOOL64@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
@@ -163,6 +193,7 @@ libexecdir = @libexecdir@
 libtool_VERSION = @libtool_VERSION@
 link_gomp = @link_gomp@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 multi_basedir = @multi_basedir@

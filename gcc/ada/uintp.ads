@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009  Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -224,6 +222,17 @@ package Uintp is
    pragma Inline (UI_Sub);
    --  Returns difference of two integer values
 
+   function UI_Modular_Exponentiation
+     (B      : Uint;
+      E      : Uint;
+      Modulo : Uint) return Uint;
+   --  Efficiently compute (B ** E) rem Modulo
+
+   function UI_Modular_Inverse (N : Uint; Modulo : Uint) return Uint;
+   --  Compute the multiplicative inverse of N in modular arithmetics with the
+   --  given Modulo (uses Euclid's algorithm). Note: the call is considered
+   --  to be erroneous (and the behavior is undefined) if n is not invertible.
+
    function UI_From_Dint (Input : Dint) return Uint;
    --  Converts Dint value to universal integer form
 
@@ -392,18 +401,18 @@ private
    --  a multi-digit format using Base as the base. This value is chosen so
    --  that the product Base*Base is within the range of allowed Int values.
 
-   --  Base is defined to allow efficient execution of the primitive
-   --  operations (a0, b0, c0) defined in the section "The Classical
-   --  Algorithms" (sec. 4.3.1) of Donald Knuth's "The Art of Computer
-   --  Programming", Vol. 2. These algorithms are used in this package.
+   --  Base is defined to allow efficient execution of the primitive operations
+   --  (a0, b0, c0) defined in the section "The Classical Algorithms"
+   --  (sec. 4.3.1) of Donald Knuth's "The Art of Computer  Programming",
+   --  Vol. 2. These algorithms are used in this package.
 
    Base_Bits : constant := 15;
    --  Number of bits in base value
 
    Base : constant Int := 2 ** Base_Bits;
 
-   --  Values in the range -(Base+1) .. maxdirect are encoded directly as
-   --  Uint values by adding a bias value. The value of maxdirect is chosen
+   --  Values in the range -(Base+1) .. Max_Direct are encoded directly as
+   --  Uint values by adding a bias value. The value of Max_Direct is chosen
    --  so that a directly represented number always fits in two digits when
    --  represented in base format.
 
@@ -411,10 +420,10 @@ private
    Max_Direct : constant Int := (Base - 1) * (Base - 1);
 
    --  The following values define the bias used to store Uint values which
-   --  are in this range, as well as the biased values for the first and
-   --  last values in this range. We use a new derived type for these
-   --  constants to avoid accidental use of Uint arithmetic on these
-   --  values, which is never correct.
+   --  are in this range, as well as the biased values for the first and last
+   --  values in this range. We use a new derived type for these constants to
+   --  avoid accidental use of Uint arithmetic on these values, which is never
+   --  correct.
 
    type Ctrl is range Int'First .. Int'Last;
 
@@ -466,11 +475,11 @@ private
       Save_Udigit : Int;
    end record;
 
-   --  Values outside the range that is represented directly are stored
-   --  using two tables. The secondary table Udigits contains sequences of
-   --  Int values consisting of the digits of the number in a radix Base
-   --  system. The digits are stored from most significant to least
-   --  significant with the first digit only carrying the sign.
+   --  Values outside the range that is represented directly are stored using
+   --  two tables. The secondary table Udigits contains sequences of Int values
+   --  consisting of the digits of the number in a radix Base system. The
+   --  digits are stored from most significant to least significant with the
+   --  first digit only carrying the sign.
 
    --  There is one entry in the primary Uints table for each distinct Uint
    --  value. This table entry contains the length (number of digits) and
@@ -478,11 +487,11 @@ private
 
    Uint_First_Entry : constant Uint := Uint (Uint_Table_Start);
 
-   --  Some subprograms defined in this package manipulate the Udigits
-   --  table directly, while for others it is more convenient to work with
-   --  locally defined arrays of the digits of the Universal Integers.
-   --  The type UI_Vector is defined for this purpose and some internal
-   --  subprograms used for converting from one to the other are defined.
+   --  Some subprograms defined in this package manipulate the Udigits table
+   --  directly, while for others it is more convenient to work with locally
+   --  defined arrays of the digits of the Universal Integers. The type
+   --  UI_Vector is defined for this purpose and some internal subprograms
+   --  used for converting from one to the other are defined.
 
    type UI_Vector is array (Pos range <>) of Int;
    --  Vector containing the integer values of a Uint value
@@ -507,7 +516,7 @@ private
 
    package Uints is new Table.Table (
      Table_Component_Type => Uint_Entry,
-     Table_Index_Type     => Uint,
+     Table_Index_Type     => Uint'Base,
      Table_Low_Bound      => Uint_First_Entry,
      Table_Initial        => Alloc.Uints_Initial,
      Table_Increment      => Alloc.Uints_Increment,
@@ -522,7 +531,7 @@ private
      Table_Name           => "Udigits");
 
    --  Note: the reason these tables are defined here in the private part of
-   --  the spec, rather than in the body, is that they are refrerenced
-   --  directly by gigi.
+   --  the spec, rather than in the body, is that they are referenced directly
+   --  by gigi.
 
 end Uintp;

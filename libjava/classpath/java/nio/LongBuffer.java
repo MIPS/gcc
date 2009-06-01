@@ -1,5 +1,5 @@
 /* LongBuffer.java -- 
-   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,19 +38,24 @@ exception statement from your version. */
 
 package java.nio;
 
+// GCJ LOCAL: Change gnu.classpath.Pointer to RawData
+import gnu.gcj.RawData;
+
 /**
  * @since 1.4
  */
 public abstract class LongBuffer extends Buffer
-  implements Comparable
+  implements Comparable<LongBuffer>
 {
-  int array_offset;
-  long[] backing_buffer;
+  final int array_offset;
+  final long[] backing_buffer;
 
-  LongBuffer (int capacity, int limit, int position, int mark)
+  LongBuffer (int capacity, int limit, int position, int mark,
+	      RawData address, long[] backing_buffer, int array_offset)
   {
-    super (capacity, limit, position, mark);
-    array_offset = 0;
+    super (capacity, limit, position, mark, address);
+    this.backing_buffer = backing_buffer;
+    this.array_offset = array_offset;
   }
 
   /**
@@ -273,7 +278,7 @@ public abstract class LongBuffer extends Buffer
   {
     if (obj instanceof LongBuffer)
       {
-        return compareTo (obj) == 0;
+        return compareTo ((LongBuffer) obj) == 0;
       }
 
     return false;
@@ -285,10 +290,8 @@ public abstract class LongBuffer extends Buffer
    * @exception ClassCastException If obj is not an object derived from
    * <code>LongBuffer</code>.
    */
-  public int compareTo (Object obj)
+  public int compareTo (LongBuffer other)
   {
-    LongBuffer other = (LongBuffer) obj;
-
     int num = Math.min(remaining(), other.remaining());
     int pos_this = position();
     int pos_other = other.position();

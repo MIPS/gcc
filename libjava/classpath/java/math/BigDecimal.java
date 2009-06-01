@@ -37,7 +37,9 @@ exception statement from your version. */
 
 package java.math;
 
-public class BigDecimal extends Number implements Comparable
+import gnu.java.lang.CPStringBuilder;
+
+public class BigDecimal extends Number implements Comparable<BigDecimal>
 {
   private BigInteger intVal;
   private int scale;
@@ -451,7 +453,7 @@ public class BigDecimal extends Number implements Comparable
 
     // val is a StringBuilder from which we'll create a BigInteger
     // which will be the unscaled value for this BigDecimal
-    StringBuilder val = new StringBuilder(point - start - 1);
+    CPStringBuilder val = new CPStringBuilder(point - start - 1);
     if (dot != -1)
       {
         // If there was a decimal we must combine the two parts that 
@@ -672,7 +674,38 @@ public class BigDecimal extends Number implements Comparable
   {
     return divide (val, scale, roundingMode);
   }
-   
+  
+  /**
+   * Returns a BigDecimal whose value is (this / val), with the specified scale
+   * and rounding according to the RoundingMode 
+   * @param val the divisor
+   * @param scale the scale of the BigDecimal returned
+   * @param roundingMode the rounding mode to use
+   * @return a BigDecimal whose value is approximately (this / val)
+   * @throws ArithmeticException if divisor is zero or the rounding mode is
+   * UNNECESSARY but the specified scale cannot represent the value exactly
+   * @since 1.5
+   */
+  public BigDecimal divide(BigDecimal val, 
+                           int scale, RoundingMode roundingMode)
+  {
+    return divide (val, scale, roundingMode.ordinal());
+  }
+
+  /**
+   * Returns a BigDecimal whose value is (this / val) rounded according to the
+   * RoundingMode
+   * @param val the divisor
+   * @param roundingMode the rounding mode to use
+   * @return a BigDecimal whose value is approximately (this / val)
+   * @throws ArithmeticException if divisor is zero or the rounding mode is
+   * UNNECESSARY but the specified scale cannot represent the value exactly
+   */
+  public BigDecimal divide (BigDecimal val, RoundingMode roundingMode)
+  {
+    return divide (val, scale, roundingMode.ordinal());
+  }
+  
   public BigDecimal divide(BigDecimal val, int newScale, int roundingMode)
     throws ArithmeticException, IllegalArgumentException 
   {
@@ -823,12 +856,7 @@ public class BigDecimal extends Number implements Comparable
     return this;
   }
     
-  public int compareTo (Object obj) 
-  {
-    return compareTo((BigDecimal) obj);
-  }
-
-  public int compareTo (BigDecimal val)
+  public int compareTo (BigDecimal val) 
   {
     if (scale == val.scale)
       return intVal.compareTo (val.intVal);
@@ -973,7 +1001,7 @@ public class BigDecimal extends Number implements Comparable
   {
     return round(mc);
   }
-   
+  
   /**
    * Returns a BigDecimal which is this BigDecimal rounded according to the
    * MathContext rounding settings.
@@ -993,12 +1021,12 @@ public class BigDecimal extends Number implements Comparable
     // Make a new BigDecimal which is the correct power of 10 to chop off
     // the required number of digits and then call divide.
     BigDecimal div = new BigDecimal(BigInteger.TEN.pow(numToChop));
-    BigDecimal rounded = divide(div, scale, 4);
+    BigDecimal rounded = divide(div, scale, mc.getRoundingMode().ordinal());
     rounded.scale -= numToChop;
     rounded.precision = mcPrecision;
     return rounded;
   }
-
+  
   /**
    * Returns the precision of this BigDecimal (the number of digits in the
    * unscaled value).  The precision of a zero value is 1.
@@ -1044,7 +1072,7 @@ public class BigDecimal extends Number implements Comparable
     boolean negative = (bigStr.charAt(0) == '-');
     int point = bigStr.length() - scale - (negative ? 1 : 0);
 
-    StringBuilder val = new StringBuilder();
+    CPStringBuilder val = new CPStringBuilder();
 
     if (scale >= 0 && (point - 1) >= -6)
       {
@@ -1111,7 +1139,7 @@ public class BigDecimal extends Number implements Comparable
 
     // This is the adjusted exponent described above.
     int adjExp = point - 1;
-    StringBuilder val = new StringBuilder();
+    CPStringBuilder val = new CPStringBuilder();
 
     if (scale >= 0 && adjExp >= -6)
       {
@@ -1216,8 +1244,8 @@ public class BigDecimal extends Number implements Comparable
 
     int point = bigStr.length() - scale - (negative ? 1 : 0);
 
-    StringBuffer sb = new StringBuffer(bigStr.length() + 2
-                                       + (point <= 0 ? (-point + 1) : 0));
+    CPStringBuilder sb = new CPStringBuilder(bigStr.length() + 2
+					     + (point <= 0 ? (-point + 1) : 0));
     if (point <= 0)
       {
         // We have to prepend zeros and a decimal point.
@@ -1350,7 +1378,24 @@ public class BigDecimal extends Number implements Comparable
     if( scale < 0 ) throw new ArithmeticException("Scale parameter < 0.");
     return divide (ONE, scale, roundingMode);
   }
-   
+  
+  /**
+   * Returns a BigDecimal whose value is the same as this BigDecimal but whose
+   * representation has a scale of <code>newScale</code>.  If the scale is
+   * reduced then rounding may occur, according to the RoundingMode.
+   * @param newScale
+   * @param roundingMode
+   * @return a BigDecimal whose scale is as given, whose value is 
+   * <code>this</code> with possible rounding
+   * @throws ArithmeticException if the rounding mode is UNNECESSARY but 
+   * rounding is required 
+   * @since 1.5
+   */
+  public BigDecimal setScale(int newScale, RoundingMode roundingMode)
+  {
+    return setScale(newScale, roundingMode.ordinal());
+  }
+  
   /**
    * Returns a new BigDecimal constructed from the BigDecimal(String) 
    * constructor using the Double.toString(double) method to obtain

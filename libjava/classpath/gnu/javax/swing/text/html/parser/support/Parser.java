@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.javax.swing.text.html.parser.support;
 
+import gnu.java.lang.CPStringBuilder;
+
 import gnu.javax.swing.text.html.parser.htmlAttributeSet;
 import gnu.javax.swing.text.html.parser.htmlValidator;
 import gnu.javax.swing.text.html.parser.support.low.Constants;
@@ -56,6 +58,7 @@ import java.util.TreeSet;
 import java.util.Vector;
 
 import javax.swing.text.ChangedCharSetException;
+import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.html.HTML;
 import javax.swing.text.html.parser.AttributeList;
 import javax.swing.text.html.parser.DTD;
@@ -131,12 +134,12 @@ public class Parser
   /**
   * The buffer to collect the incremental output like text or coment.
   */
-  private StringBuffer buffer = new StringBuffer();
+  private final StringBuffer buffer = new StringBuffer();
 
   /**
    * The buffer to store the document title.
    */
-  private StringBuffer title = new StringBuffer();
+  private final StringBuffer title = new StringBuffer();
 
   /**
    * The current token.
@@ -215,7 +218,7 @@ public class Parser
            * The tag validator closes all unclosed elements that are required
            * to have the end (closing) tag.
            *
-           * @param element The tag being fictionally (forcibly) closed.
+           * @param tElement The tag being fictionally (forcibly) closed.
            */
           protected void handleSupposedEndTag(Element tElement)
           {
@@ -233,7 +236,7 @@ public class Parser
            * assigned to the empty one, the previous value is
            * restored before return.
            *
-           * @param element The tag being fictionally (forcibly) closed.
+           * @param tElement The tag being fictionally (forcibly) closed.
            */
           protected void handleSupposedStartTag(Element tElement)
           {
@@ -250,9 +253,9 @@ public class Parser
    * Get the attributes of the current tag.
    * @return The attribute set, representing the attributes of the current tag.
    */
-  public htmlAttributeSet getAttributes()
+  public SimpleAttributeSet getAttributes()
   {
-    return attributes;
+    return new SimpleAttributeSet(attributes);
   }
 
   /**
@@ -497,6 +500,9 @@ public class Parser
         mustBe(t.kind);
       }
     hTag = new Token(start, last);
+
+    // Consume any whitespace immediately following a comment.
+    optional(WS);
     handleComment();
   }
 
@@ -519,8 +525,7 @@ public class Parser
     restOfTag(false, name, start);
 
     buffer.setLength(0);
-
-    script: 
+ 
     while (!SCRIPT_CLOSE.matches(this))
       {
         append(getNextToken());
@@ -579,6 +584,8 @@ public class Parser
                  );
           }
       }
+    // Consume any whitespace that follows the Sgml insertion.
+    optional(WS);
   }
 
   /**
@@ -600,8 +607,7 @@ public class Parser
     restOfTag(false, name, start);
 
     buffer.setLength(0);
-
-    style: 
+ 
     while (!STYLE_CLOSE.matches(this))
       {
         append(getNextToken());
@@ -658,7 +664,10 @@ public class Parser
     else
       text = textProcessor.preprocess(buffer);
 
-    if (text != null && text.length > 0)
+    if (text != null && text.length > 0
+        // According to the specs we need to discard whitespace immediately
+        // before a closing tag.
+        && (text.length > 1 || text[0] != ' ' || ! TAG_CLOSE.matches(this)))
       {
         TagElement pcdata = new TagElement(dtd.getElement("#pcdata"));
         attributes = htmlAttributeSet.EMPTY_HTML_ATTRIBUTE_SET;
@@ -733,7 +742,7 @@ public class Parser
    * Handle the tag with no content, like &lt;br&gt;. The method is
    * called for the elements that, in accordance with the current DTD,
    * has an empty content.
-   * @param The tag being handled.
+   * @param tag The tag being handled.
    * @throws javax.swing.text.ChangedCharSetException
    */
   protected void handleEmptyTag(TagElement tag)
@@ -745,7 +754,7 @@ public class Parser
    * The method is called when the HTML closing tag ((like &lt;/table&gt;)
    * is found or if the parser concludes that the one should be present
    * in the current position.
-   * @param The tag
+   * @param tag The tag
    */
   protected void handleEndTag(TagElement tag)
   {
@@ -760,7 +769,7 @@ public class Parser
    * The method is called when the HTML opening tag ((like &lt;table&gt;)
    * is found or if the parser concludes that the one should be present
    * in the current position.
-   * @param The tag
+   * @param tag The tag
    */
   protected void handleStartTag(TagElement tag)
   {
@@ -789,7 +798,7 @@ public class Parser
    * both title starting and closing tags are already behind.
    * The passed argument contains the concatenation of all
    * title text sections.
-   * @param The title text.
+   * @param title The title text.
    */
   protected void handleTitle(char[] title)
   {
@@ -859,7 +868,7 @@ public class Parser
   {
     Object value = HTML.NULL_ATTRIBUTE_VALUE;
 
-    Element e = (Element) dtd.elementHash.get(element.toLowerCase());
+    Element e = dtd.elementHash.get(element.toLowerCase());
     if (e != null)
       {
         AttributeList attr = e.getAttribute(attribute);
@@ -889,6 +898,8 @@ public class Parser
   protected void parseDocument()
                         throws ParseException
   {
+    // Read up any initial whitespace.
+    optional(WS);
     while (getTokenAhead().kind != EOF)
       {
         advanced = false;
@@ -979,13 +990,15 @@ public class Parser
                           + next.getImage() + "'");
                     attrValue = value.getImage();
                   }
-                else if (next.kind == SLASH)
-                // The slash in this context is treated as the ordinary
-                // character, not as a token. The slash may be part of
+                else if (next.kind == SLASH || next.kind == OTHER)
+                // The slash and other characters (like %) in this context is
+                // treated as the ordinary
+                // character, not as a token. The character may be part of
                 // the unquoted URL.
                   {
-                    StringBuffer image = new StringBuffer(value.getImage());
-                    while (next.kind == NUMTOKEN || next.kind == SLASH)
+                    CPStringBuilder image = new CPStringBuilder(value.getImage());
+                    while (next.kind == NUMTOKEN || next.kind == SLASH
+                           || next.kind == OTHER)
                       {
                         image.append(getNextToken().getImage());
                         next = getTokenAhead();
@@ -1014,7 +1027,7 @@ public class Parser
                 // character, not as a token. The slash may be part of
                 // the unquoted URL.
                   {
-                    StringBuffer image = new StringBuffer(value.getImage());
+                    CPStringBuilder image = new CPStringBuilder(value.getImage());
                     while (next.kind == NUMTOKEN || next.kind == SLASH)
                       {
                         image.append(getNextToken().getImage());
@@ -1133,7 +1146,7 @@ public class Parser
    * is found or if the parser concludes that the one should be present
    * in the current position. The method is called immediately before
    * calling the handleStartTag.
-   * @param The tag
+   * @param tag The tag
    */
   protected void startTag(TagElement tag)
                    throws ChangedCharSetException
@@ -1169,7 +1182,7 @@ public class Parser
    * A hooks for operations, preceeding call to handleEmptyTag().
    * Handle the tag with no content, like &lt;br&gt;. As no any
    * nested tags are expected, the tag validator is not involved.
-   * @param The tag being handled.
+   * @param tag The tag being handled.
    */
   private void _handleEmptyTag(TagElement tag)
   {
@@ -1177,6 +1190,13 @@ public class Parser
       {
         validator.validateTag(tag, attributes);
         handleEmptyTag(tag);
+        HTML.Tag h = tag.getHTMLTag();
+        // When a block tag is closed, consume whitespace that follows after
+        // it.
+        // For some unknown reason a FRAME tag is not treated as block element.
+        // However in this case it should be treated as such.
+        if (isBlock(h))
+          optional(WS);
       }
     catch (ChangedCharSetException ex)
       {
@@ -1188,12 +1208,12 @@ public class Parser
    * A hooks for operations, preceeding call to handleEndTag().
    * The method is called when the HTML closing tag
    * is found. Calls handleTitle after closing the 'title' tag.
-   * @param The tag
+   * @param tag The tag
    */
   private void _handleEndTag(TagElement tag)
   {
-    validator.closeTag(tag);
-    _handleEndTag_remaining(tag);
+    if (validator.closeTag(tag))
+       _handleEndTag_remaining(tag);
   }
 
   /**
@@ -1213,6 +1233,11 @@ public class Parser
     if (preformatted < 0)
       preformatted = 0;
 
+    // When a block tag is closed, consume whitespace that follows after
+    // it.
+    if (isBlock(h))
+      optional(WS);
+
     if (h == HTML.Tag.TITLE)
       {
         titleOpen = false;
@@ -1229,7 +1254,7 @@ public class Parser
    * The method is called when the HTML opening tag ((like &lt;table&gt;)
    * is found.
    * Package-private to avoid an accessor method.
-   * @param The tag
+   * @param tag The tag
    */
   void _handleStartTag(TagElement tag)
   {
@@ -1238,6 +1263,9 @@ public class Parser
     handleStartTag(tag);
 
     HTML.Tag h = tag.getHTMLTag();
+
+    if (isBlock(h))
+      optional(WS);
 
     if (h.isPreformatted())
       preformatted++;
@@ -1300,7 +1328,7 @@ public class Parser
 
   private TagElement makeTagElement(String name, boolean isSupposed)
   {
-    Element e = (Element) dtd.elementHash.get(name.toLowerCase());
+    Element e = dtd.elementHash.get(name.toLowerCase());
     if (e == null)
       {
         error("Unknown tag <" + name + ">");
@@ -1354,7 +1382,7 @@ public class Parser
                 if (c == '\r')
                   buffer.append(' '); // CR replaced by space
                 else if (c == '\n')
-                  ; // LF ignored
+                  { /* LF ignored */ }
                 else if (c == '\t')
                   buffer.append(' '); // Tab replaced by space
                 else
@@ -1418,8 +1446,6 @@ public class Parser
 
     hTag = new Token(start, next);
 
-    attributes.setResolveParent(defaulter.getDefaultParameters(name.getImage()));
-
     if (!end)
       {
         // The tag body contains errors. If additionally the tag
@@ -1457,7 +1483,12 @@ public class Parser
         if (te.getElement().type == DTDConstants.EMPTY)
           _handleEmptyTag(te);
         else
-          _handleStartTag(te);
+          {
+            // According to the specs we need to consume whitespace following
+            // immediately after a opening tag.
+            optional(WS);
+            _handleStartTag(te);
+          }
       }
   }
 
@@ -1482,5 +1513,20 @@ public class Parser
   private void ws_error()
   {
     error("Whitespace here is not permitted");
+  }
+
+  /**
+   * Returns true when the specified tag should be considered a block tag
+   * wrt whitespace handling. We need this special handling, since there
+   * are a couple of tags that we must treat as block tags but which aren't
+   * officially block tags.
+   *
+   * @param tag the tag to check
+   * @return true when the specified tag should be considered a block tag
+   *         wrt whitespace handling
+   */
+  private boolean isBlock(HTML.Tag tag)
+  {
+    return tag.isBlock() || tag == HTML.Tag.STYLE || tag == HTML.Tag.FRAME;
   }
 }

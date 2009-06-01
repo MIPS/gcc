@@ -1,6 +1,6 @@
 /* LinkedHashSet.java -- a set backed by a LinkedHashMap, for linked
    list traversal.
-   Copyright (C) 2001, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -88,8 +88,8 @@ import java.io.Serializable;
  * @since 1.4
  * @status updated to 1.4
  */
-public class LinkedHashSet extends HashSet
-  implements Set, Cloneable, Serializable
+public class LinkedHashSet<T> extends HashSet<T>
+  implements Set<T>, Cloneable, Serializable
 {
   /**
    * Compatible with JDK 1.4.
@@ -98,7 +98,7 @@ public class LinkedHashSet extends HashSet
 
   /**
    * Construct a new, empty HashSet whose backing HashMap has the default
-   * capacity (11) and loadFacor (0.75).
+   * capacity (11) and loadFactor (0.75).
    */
   public LinkedHashSet()
   {
@@ -140,7 +140,7 @@ public class LinkedHashSet extends HashSet
    * @param c a collection of initial set elements
    * @throws NullPointerException if c is null
    */
-  public LinkedHashSet(Collection c)
+  public LinkedHashSet(Collection<? extends T> c)
   {
     super(c);
   }
@@ -152,9 +152,8 @@ public class LinkedHashSet extends HashSet
    * @param load the initial load factor
    * @return the backing HashMap
    */
-  HashMap init(int capacity, float load)
+  HashMap<T, String> init(int capacity, float load)
   {
-    return new LinkedHashMap(capacity, load);
+    return new LinkedHashMap<T, String>(capacity, load);
   }
-
 }

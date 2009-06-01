@@ -6,25 +6,23 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1997-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
 -- Extensive contributions were provided by Ada Core Technologies, Inc.     --
@@ -53,23 +51,23 @@ package System.Tasking.Debug is
    --  the standard error file.
 
    procedure Print_Task_Info (T : Task_Id);
-   --  Similar to Print_Current_Task, for a given task.
+   --  Similar to Print_Current_Task, for a given task
 
    procedure Set_User_State (Value : Long_Integer);
-   --  Set user state value in the current task.
-   --  This state will be displayed when calling List_Tasks or
-   --  Print_Current_Task. It is useful for setting task specific state.
+   --  Set user state value in the current task. This state will be displayed
+   --  when calling List_Tasks or Print_Current_Task. It is useful for setting
+   --  task specific state.
 
    function Get_User_State return Long_Integer;
-   --  Return the user state for the current task.
+   --  Return the user state for the current task
 
    -------------------------
    -- General GDB support --
    -------------------------
 
    Known_Tasks : array (0 .. 999) of Task_Id := (others => null);
-   --  Global array of tasks read by gdb, and updated by
-   --  Create_Task and Finalize_TCB
+   --  Global array of tasks read by gdb, and updated by Create_Task and
+   --  Finalize_TCB
 
    ----------------------------------
    -- VxWorks specific GDB support --
@@ -79,11 +77,11 @@ package System.Tasking.Debug is
    --  manner, only VxWorks currently uses them.
 
    procedure Task_Creation_Hook (Thread : OS_Interface.Thread_Id);
-   --  This procedure is used to notify GDB of task's creation.
-   --  It must be called by the task's creator.
+   --  This procedure is used to notify GDB of task's creation. It must be
+   --  called by the task's creator.
 
    procedure Task_Termination_Hook;
-   --  This procedure is used to notify GDB of task's termination.
+   --  This procedure is used to notify GDB of task's termination
 
    procedure Suspend_All_Tasks (Thread_Self : OS_Interface.Thread_Id);
    --  Suspend all the tasks except the one whose associated thread is
@@ -93,6 +91,19 @@ package System.Tasking.Debug is
    procedure Resume_All_Tasks (Thread_Self : OS_Interface.Thread_Id);
    --  Resume all the tasks except the one whose associated thread is
    --  Thread_Self by traversing All_Tasks_Lists and calling
+   --  System.Task_Primitives.Operations.Continue_Task.
+
+   procedure Stop_All_Tasks_Handler;
+   --  Stop all the tasks by traversing All_Tasks_Lists and calling
+   --  System.Task_Primitives.Operations.Stop_All_Task. This function
+   --  can be used in an interrupt handler.
+
+   procedure Stop_All_Tasks;
+   --  Stop all the tasks by traversing All_Tasks_Lists and calling
+   --  System.Task_Primitives.Operations.Stop_Task.
+
+   procedure Continue_All_Tasks;
+   --  Continue all the tasks by traversing All_Tasks_Lists and calling
    --  System.Task_Primitives.Operations.Continue_Task.
 
    -------------------------------
@@ -111,8 +122,7 @@ package System.Tasking.Debug is
    procedure Set_Trace
      (Flag  : Character;
       Value : Boolean := True);
-   --  Enable or disable tracing for Flag.
-   --  By default, flags in the range 'A' .. 'Z' are disabled, others are
-   --  enabled.
+   --  Enable or disable tracing for Flag. By default, flags in the range
+   --  'A' .. 'Z' are disabled, others are enabled.
 
 end System.Tasking.Debug;

@@ -127,7 +127,7 @@ public class DefaultPersistenceDelegate extends PersistenceDelegate
                       {
                         Method readMethod = propertyDescs[i].getReadMethod();
 
-                        args[i] = readMethod.invoke(oldInstance, null);
+                        args[i] = readMethod.invoke(oldInstance);
                       }
                   }
               }
@@ -154,8 +154,8 @@ public class DefaultPersistenceDelegate extends PersistenceDelegate
     return new Expression(oldInstance, oldInstance.getClass(), "new", args);
   }
 
-  protected void initialize(Class type, Object oldInstance, Object newInstance,
-                            Encoder out)
+  protected void initialize(Class<?> type, Object oldInstance,
+                            Object newInstance, Encoder out)
   {
     // Calling the supertype's implementation of initialize makes it
     // possible that descendants of classes like AbstractHashMap
@@ -186,7 +186,7 @@ public class DefaultPersistenceDelegate extends PersistenceDelegate
 
             if (readMethod != null && writeMethod != null)
               {
-                Object oldValue = readMethod.invoke(oldInstance, null);
+                Object oldValue = readMethod.invoke(oldInstance);
 
                 if (oldValue != null)
                   out.writeStatement(new Statement(oldInstance,

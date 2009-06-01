@@ -1,9 +1,10 @@
-! { dg-do run }
+! { dg-do run { target fd_truncate } }
 ! PR 26499  Test write with rewind sequences to make sure buffering and
 ! end-of-file conditions are handled correctly.  Derived from test case by Dale
 ! Ranta.  Submitted by Jerry DeLisle <jvdelisle@gcc.gnu.org>.
       program test
       dimension idata(1011)
+      idata = -42
       open(unit=11,form='unformatted')
         idata(1)   = -705
         idata(  1011)   = -706

@@ -1,4 +1,4 @@
-@c Copyright (c) 2006 Free Software Foundation, Inc.
+@c Copyright (c) 2006, 2007, 2008 Free Software Foundation, Inc.
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -17,15 +17,16 @@ RTL, as well as the interfaces to loop-related analyses (induction
 variable analysis and number of iterations analysis).
 
 @menu
-* Loop representation::		Representation and analysis of loops.
-* Loop querying::		Getting information about loops.
-* Loop manipulation::		Loop manipulation functions.
-* LCSSA::			Loop-closed SSA form.
-* Scalar evolutions::   	Induction variables on GIMPLE.
-* loop-iv::			Induction variables on RTL.
-* Number of iterations::	Number of iterations analysis.
-* Dependency analysis::		Data dependency analysis.
-* Lambda::			Linear loop transformations framework.
+* Loop representation::         Representation and analysis of loops.
+* Loop querying::               Getting information about loops.
+* Loop manipulation::           Loop manipulation functions.
+* LCSSA::                       Loop-closed SSA form.
+* Scalar evolutions::           Induction variables on GIMPLE.
+* loop-iv::                     Induction variables on RTL.
+* Number of iterations::        Number of iterations analysis.
+* Dependency analysis::         Data dependency analysis.
+* Lambda::                      Linear loop transformations framework.
+* Omega::                       A solver for linear programming problems.
 @end menu
 
 @node Loop representation
@@ -48,14 +49,20 @@ a single header, or if there is a branching in the middle of the loop.
 The representation of loops in GCC however allows only loops with a
 single latch.  During loop analysis, headers of such loops are split and
 forwarder blocks are created in order to disambiguate their structures.
-A heuristic based on profile information is used to determine whether
-the latches correspond to sub-loops or to control flow in a single loop.
-This means that the analysis sometimes changes the CFG, and if you run
-it in the middle of an optimization pass, you must be able to deal with
-the new blocks.
+Heuristic based on profile information and structure of the induction
+variables in the loops is used to determine whether the latches
+correspond to sub-loops or to control flow in a single loop.  This means
+that the analysis sometimes changes the CFG, and if you run it in the
+middle of an optimization pass, you must be able to deal with the new
+blocks.  You may avoid CFG changes by passing
+@code{LOOPS_MAY_HAVE_MULTIPLE_LATCHES} flag to the loop discovery,
+note however that most other loop manipulation functions will not work
+correctly for loops with multiple latch edges (the functions that only
+query membership of blocks to loops and subloop relationships, or
+enumerate and test loop exits, can be expected to work).
 
 Body of the loop is the set of blocks that are dominated by its header,
-and reachable from its latch against the direction of edges in CFG.  The
+and reachable from its latch against the direction of edges in CFG@.  The
 loops are organized in a containment hierarchy (tree) such that all the
 loops immediately contained inside loop L are the children of L in the
 tree.  This tree is represented by the @code{struct loops} structure.
@@ -63,20 +70,32 @@ The root of this tree is a fake loop that contains all blocks in the
 function.  Each of the loops is represented in a @code{struct loop}
 structure.  Each loop is assigned an index (@code{num} field of the
 @code{struct loop} structure), and the pointer to the loop is stored in
-the corresponding field of the @code{parray} field of the loops
-structure.  Index of a sub-loop is always greater than the index of its
-super-loop.  The indices do not have to be continuous, there may be
-empty (@code{NULL}) entries in the @code{parray} created by deleting
-loops.  The index of a loop never changes.  The first unused index is
-stored in the @code{num} field of the loops structure.
+the corresponding field of the @code{larray} vector in the loops
+structure.  The indices do not have to be continuous, there may be
+empty (@code{NULL}) entries in the @code{larray} created by deleting
+loops.  Also, there is no guarantee on the relative order of a loop
+and its subloops in the numbering.  The index of a loop never changes.
+
+The entries of the @code{larray} field should not be accessed directly.
+The function @code{get_loop} returns the loop description for a loop with
+the given index.  @code{number_of_loops} function returns number of
+loops in the function.  To traverse all loops, use @code{FOR_EACH_LOOP}
+macro.  The @code{flags} argument of the macro is used to determine
+the direction of traversal and the set of loops visited.  Each loop is
+guaranteed to be visited exactly once, regardless of the changes to the
+loop tree, and the loops may be removed during the traversal.  The newly
+created loops are never traversed, if they need to be visited, this
+must be done separately after their creation.  The @code{FOR_EACH_LOOP}
+macro allocates temporary variables.  If the @code{FOR_EACH_LOOP} loop
+were ended using break or goto, they would not be released;
+@code{FOR_EACH_LOOP_BREAK} macro must be used instead.
 
 Each basic block contains the reference to the innermost loop it belongs
 to (@code{loop_father}).  For this reason, it is only possible to have
 one @code{struct loops} structure initialized at the same time for each
-CFG.  It is recommended to use the global variable @code{current_loops}
-to contain the @code{struct loops} structure, especially if the loop
-structures are updated throughout several passes.  Many of the loop
-manipulation functions assume that dominance information is up-to-date.
+CFG@.  The global variable @code{current_loops} contains the
+@code{struct loops} structure.  Many of the loop manipulation functions
+assume that dominance information is up-to-date.
 
 The loops are analyzed through @code{loop_optimizer_init} function.  The
 argument of this function is a set of flags represented in an integer
@@ -84,6 +103,13 @@ bitmask.  These flags specify what other properties of the loop
 structures should be calculated/enforced and preserved later:
 
 @itemize
+@item @code{LOOPS_MAY_HAVE_MULTIPLE_LATCHES}: If this flag is set, no
+changes to CFG will be performed in the loop analysis, in particular,
+loops with multiple latch edges will not be disambiguated.  If a loop
+has multiple latches, its latch block is set to NULL@.  Most of
+the loop manipulation functions will not work for loops in this shape.
+No other flags that require CFG changes can be passed to
+loop_optimizer_init.
 @item @code{LOOPS_HAVE_PREHEADERS}: Forwarder blocks are created in such
 a way that each loop has only one entry edge, and additionally, the
 source block of this entry edge has only one successor.  This creates a
@@ -103,14 +129,16 @@ edges in the strongly connected components that are not natural loops
 flag is not set for blocks and edges that belong to natural loops that
 are in such an irreducible region (but it is set for the entry and exit
 edges of such a loop, if they lead to/from this region).
-@item @code{LOOPS_HAVE_MARKED_SINGLE_EXITS}: If a loop has exactly one
-exit edge, this edge is stored in @code{single_exit} field of the loop
-structure.  @code{NULL} is stored there otherwise.
+@item @code{LOOPS_HAVE_RECORDED_EXITS}: The lists of exits are recorded
+and updated for each loop.  This makes some functions (e.g.,
+@code{get_loop_exit_edges}) more efficient.  Some functions (e.g.,
+@code{single_exit}) can be used only if the lists of exits are
+recorded.
 @end itemize
 
 These properties may also be computed/enforced later, using functions
 @code{create_preheaders}, @code{force_single_succ_latches},
-@code{mark_irreducible_loops} and @code{mark_single_exit_loops}.
+@code{mark_irreducible_loops} and @code{record_loop_exits}.
 
 The memory occupied by the loops structures should be freed with
 @code{loop_optimizer_finalize} function.
@@ -140,9 +168,6 @@ the basic blocks of the sub-loops).
 number of super-loops of the loop.
 @item @code{outer}, @code{inner}, @code{next}: The super-loop, the first
 sub-loop, and the sibling of the loop in the loops tree.
-@item @code{single_exit}: The exit edge of the loop, if the loop has
-exactly one exit and the loops were analyzed with
-LOOPS_HAVE_MARKED_SINGLE_EXITS.
 @end itemize
 
 There are other fields in the loop structures, many of them used only by
@@ -176,6 +201,9 @@ with @code{EDGE_LOOP_EXIT} flag.
 @code{get_loop_body_in_bfs_order}: Enumerates the basic blocks in the
 loop in depth-first search order in reversed CFG, ordered by dominance
 relation, and breath-first search order, respectively.
+@item @code{single_exit}: Returns the single exit edge of the loop, or
+@code{NULL} if the loop has more than one exit.  You can only use this
+function if LOOPS_HAVE_MARKED_SINGLE_EXITS property is used.
 @item @code{get_loop_exit_edges}: Enumerates the exit edges of a loop.
 @item @code{just_once_each_iteration_p}: Returns true if the basic block
 is executed exactly once during each iteration of a loop (that is, it
@@ -195,19 +223,11 @@ The loops tree can be manipulated using the following functions:
 @item @code{remove_bb_from_loops}: Removes a basic block from loops.
 @end itemize
 
-The specialized versions of several low-level CFG functions that also
-update loop structures are provided:
+Most low-level CFG functions update loops automatically.  The following
+functions handle some more complicated cases of CFG manipulations:
 
 @itemize
-@item @code{loop_split_edge_with}: Splits an edge, and places a
-specified RTL code on it.  On GIMPLE, the function can still be used,
-but the code must be NULL.
-@item @code{bsi_insert_on_edge_immediate_loop}: Inserts code on edge,
-splitting it if necessary.  Only works on GIMPLE.
 @item @code{remove_path}: Removes an edge and all blocks it dominates.
-@item @code{loop_commit_inserts}: Commits insertions scheduled on edges,
-and sets loops for the new blocks.  This function can only be used on
-GIMPLE.
 @item @code{split_loop_exit_edge}: Splits exit edge of the loop,
 ensuring that PHI node arguments remain in the loop (this ensures that
 loop-closed SSA form is preserved).  Only useful on GIMPLE.
@@ -220,7 +240,7 @@ are only reliable for the innermost loops:
 
 @itemize
 @item @code{create_iv}: Creates a new induction variable.  Only works on
-GIMPLE.  @code{standard_iv_increment_position} can be used to find a
+GIMPLE@.  @code{standard_iv_increment_position} can be used to find a
 suitable place for the iv increment.
 @item @code{duplicate_loop_to_header_edge},
 @code{tree_duplicate_loop_to_header_edge}: These functions (on RTL and
@@ -249,7 +269,7 @@ cannot be taken.  Works only on GIMPLE.
 Throughout the loop optimizations on tree level, one extra condition is
 enforced on the SSA form:  No SSA name is used outside of the loop in
 that it is defined.  The SSA form satisfying this condition is called
-``loop-closed SSA form'' -- LCSSA.  To enforce LCSSA, PHI nodes must be
+``loop-closed SSA form'' -- LCSSA@.  To enforce LCSSA, PHI nodes must be
 created at the exits of the loops for the SSA names that are used
 outside of them.  Only the real operands (not virtual SSA names) are
 held in LCSSA, in order to save memory.
@@ -288,7 +308,7 @@ LCSSA is preserved.
 @cindex IV analysis on GIMPLE
 
 Scalar evolutions (SCEV) are used to represent results of induction
-variable analysis on GIMPLE.  They enable us to represent variables with
+variable analysis on GIMPLE@.  They enable us to represent variables with
 complicated behavior in a simple and consistent way (we only use it to
 express values of polynomial induction variables, but it is possible to
 extend it).  The interfaces to SCEV analysis are declared in
@@ -328,7 +348,7 @@ and step must be the same.  A variable has evolution
 loop) equivalent to @code{x_1} in the following example
 
 @smallexample
-while (...)
+while (@dots{})
   @{
     x_1 = phi (base, x_2);
     x_2 = x_1 + step;
@@ -400,13 +420,15 @@ calculations.
 @cindex Number of iterations analysis
 
 Both on GIMPLE and on RTL, there are functions available to determine
-the number of iterations of a loop, with a similar interface.  In many
-cases, it is not possible to determine number of iterations
-unconditionally -- the determined number is correct only if some
-assumptions are satisfied.  The analysis tries to verify these
-conditions using the information contained in the program; if it fails,
-the conditions are returned together with the result.  The following
-information and conditions are provided by the analysis:
+the number of iterations of a loop, with a similar interface.  The
+number of iterations of a loop in GCC is defined as the number of
+executions of the loop latch.  In many cases, it is not possible to
+determine the number of iterations unconditionally -- the determined
+number is correct only if some assumptions are satisfied.  The analysis
+tries to verify these conditions using the information contained in the
+program; if it fails, the conditions are returned together with the
+result.  The following information and conditions are provided by the
+analysis:
 
 @itemize
 @item @code{assumptions}: If this condition is false, the rest of
@@ -414,7 +436,7 @@ the information is invalid.
 @item @code{noloop_assumptions} on RTL, @code{may_be_zero} on GIMPLE: If
 this condition is true, the loop exits in the first iteration.
 @item @code{infinite}: If this condition is true, the loop is infinite.
-This condition is only available on RTL.  On GIMPLE, conditions for
+This condition is only available on RTL@.  On GIMPLE, conditions for
 finiteness of the loop are included in @code{assumptions}.
 @item @code{niter_expr} on RTL, @code{niter} on GIMPLE: The expression
 that gives number of iterations.  The number of iterations is defined as
@@ -431,19 +453,19 @@ structure.  The corresponding function is named
 @code{check_simple_exit}.  There are also functions that pass through
 all the exits of a loop and try to find one with easy to determine
 number of iterations -- @code{find_loop_niter} on GIMPLE and
-@code{find_simple_exit} on RTL.  Finally, there are functions that
+@code{find_simple_exit} on RTL@.  Finally, there are functions that
 provide the same information, but additionally cache it, so that
 repeated calls to number of iterations are not so costly --
-@code{number_of_iterations_in_loop} on GIMPLE and
-@code{get_simple_loop_desc} on RTL.
+@code{number_of_latch_executions} on GIMPLE and @code{get_simple_loop_desc}
+on RTL.
 
 Note that some of these functions may behave slightly differently than
 others -- some of them return only the expression for the number of
 iterations, and fail if there are some assumptions.  The function
-@code{number_of_iterations_in_loop} works only for single-exit loops,
-and it returns the value for number of iterations higher by one with
-respect to all other functions (i.e., it returns number of executions of
-the exit statement, not of the loop latch).
+@code{number_of_latch_executions} works only for single-exit loops.
+The function @code{number_of_cond_exit_executions} can be used to
+determine number of executions of the exit condition of a single-exit
+loop (i.e., the @code{number_of_latch_executions} increased by one).
 
 @node Dependency analysis
 @section Data Dependency Analysis
@@ -477,7 +499,7 @@ and mapping this order to the elements of this array avoids costly
 queries to the loop body representation.
 
 Three types of data references are currently handled: ARRAY_REF, 
-INDIRECT_REF and COMPONENT_REF. The data structure for the data reference 
+INDIRECT_REF and COMPONENT_REF@. The data structure for the data reference 
 is @code{data_reference}, where @code{data_reference_p} is a name of a 
 pointer to the data reference structure. The structure contains the 
 following elements:
@@ -602,3 +624,32 @@ Given a transformed loopnest, conversion back into gcc IR is done by
 @code{lambda_loopnest_to_gcc_loopnest}.  This function will modify the
 loops so that they match the transformed loopnest.
 
+
+@node Omega
+@section Omega a solver for linear programming problems
+@cindex Omega a solver for linear programming problems
+
+The data dependence analysis contains several solvers triggered
+sequentially from the less complex ones to the more sophisticated.
+For ensuring the consistency of the results of these solvers, a data
+dependence check pass has been implemented based on two different
+solvers.  The second method that has been integrated to GCC is based
+on the Omega dependence solver, written in the 1990's by William Pugh
+and David Wonnacott.  Data dependence tests can be formulated using a
+subset of the Presburger arithmetics that can be translated to linear
+constraint systems.  These linear constraint systems can then be
+solved using the Omega solver.
+
+The Omega solver is using Fourier-Motzkin's algorithm for variable
+elimination: a linear constraint system containing @code{n} variables
+is reduced to a linear constraint system with @code{n-1} variables.
+The Omega solver can also be used for solving other problems that can
+be expressed under the form of a system of linear equalities and
+inequalities.  The Omega solver is known to have an exponential worst
+case, also known under the name of ``omega nightmare'' in the
+literature, but in practice, the omega test is known to be efficient
+for the common data dependence tests.
+
+The interface used by the Omega solver for describing the linear
+programming problems is described in @file{omega.h}, and the solver is
+@code{omega_solve_problem}.  

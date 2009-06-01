@@ -1,12 +1,12 @@
 // vector<bool> specialization -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /*
  *
@@ -59,13 +54,15 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _BVECTOR_H
-#define _BVECTOR_H 1
+#ifndef _STL_BVECTOR_H
+#define _STL_BVECTOR_H 1
 
-_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+#include <initializer_list>
+
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
   typedef unsigned long _Bit_type;
-  enum { _S_word_bit = int(CHAR_BIT * sizeof(_Bit_type)) };
+  enum { _S_word_bit = int(__CHAR_BIT__ * sizeof(_Bit_type)) };
 
   struct _Bit_reference
   {
@@ -373,7 +370,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       __fill_bvector(__first, __last, __x);
   }
 
-  template<class _Alloc>
+  template<typename _Alloc>
     struct _Bvector_base
     {
       typedef typename _Alloc::template rebind<_Bit_type>::other
@@ -385,6 +382,11 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	_Bit_iterator 	_M_start;
 	_Bit_iterator 	_M_finish;
 	_Bit_type* 	_M_end_of_storage;
+
+	_Bvector_impl()
+	: _Bit_alloc_type(), _M_start(), _M_finish(), _M_end_of_storage(0)
+	{ }
+ 
 	_Bvector_impl(const _Bit_alloc_type& __a)
 	: _Bit_alloc_type(__a), _M_start(), _M_finish(), _M_end_of_storage(0)
 	{ }
@@ -405,7 +407,24 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       get_allocator() const
       { return allocator_type(_M_get_Bit_allocator()); }
 
-      _Bvector_base(const allocator_type& __a) : _M_impl(__a) { }
+      _Bvector_base()
+      : _M_impl() { }
+      
+      _Bvector_base(const allocator_type& __a)
+      : _M_impl(__a) { }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      _Bvector_base(_Bvector_base&& __x)
+      : _M_impl(__x._M_get_Bit_allocator())
+      {
+	this->_M_impl._M_start = __x._M_impl._M_start;
+	this->_M_impl._M_finish = __x._M_impl._M_finish;
+	this->_M_impl._M_end_of_storage = __x._M_impl._M_end_of_storage;
+	__x._M_impl._M_start = _Bit_iterator();
+	__x._M_impl._M_finish = _Bit_iterator();
+	__x._M_impl._M_end_of_storage = 0;
+      }
+#endif
 
       ~_Bvector_base()
       { this->_M_deallocate(); }
@@ -432,7 +451,7 @@ _GLIBCXX_END_NESTED_NAMESPACE
 // Declare a partial specialization of vector<T, Alloc>.
 #include <bits/stl_vector.h>
 
-_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
   /**
    *  @brief  A specialization of vector for booleans which offers fixed time
@@ -443,8 +462,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
    *  really references and pointers to bool.  See DR96 for details.  @see
    *  vector for function documentation.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  In some terminology a %vector can be described as a dynamic
    *  C-style array, it offers fast and efficient access to individual
@@ -480,8 +498,11 @@ template<typename _Alloc>
     using _Base::_M_get_Bit_allocator;
 
   public:
+    vector()
+    : _Base() { }
+
     explicit
-    vector(const allocator_type& __a = allocator_type())
+    vector(const allocator_type& __a)
     : _Base(__a) { }
 
     explicit
@@ -501,7 +522,20 @@ template<typename _Alloc>
       _M_copy_aligned(__x.begin(), __x.end(), this->_M_impl._M_start);
     }
 
-    template<class _InputIterator>
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    vector(vector&& __x)
+    : _Base(std::forward<_Base>(__x)) { }
+
+    vector(initializer_list<bool> __l,
+	   const allocator_type& __a = allocator_type())
+    : _Base(__a)
+    {
+      _M_initialize_range(__l.begin(), __l.end(),
+			  random_access_iterator_tag());
+    }
+#endif
+
+    template<typename _InputIterator>
       vector(_InputIterator __first, _InputIterator __last,
 	     const allocator_type& __a = allocator_type())
       : _Base(__a)
@@ -527,6 +561,24 @@ template<typename _Alloc>
       return *this;
     }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    vector&
+    operator=(vector&& __x)
+    {
+      // NB: DR 675.
+      this->clear();
+      this->swap(__x); 
+      return *this;
+    }
+
+    vector&
+    operator=(initializer_list<bool> __l)
+    {
+      this->assign (__l.begin(), __l.end());
+      return *this;
+    }
+#endif
+
     // assign(), a generalized assignment member function.  Two
     // versions: one that takes a count, and one that takes a range.
     // The range version is a member template, so we dispatch on whether
@@ -535,7 +587,7 @@ template<typename _Alloc>
     assign(size_type __n, const bool& __x)
     { _M_fill_assign(__n, __x); }
 
-    template<class _InputIterator>
+    template<typename _InputIterator>
       void
       assign(_InputIterator __first, _InputIterator __last)
       {
@@ -543,6 +595,12 @@ template<typename _Alloc>
 	_M_assign_dispatch(__first, __last, _Integral());
       }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    void
+    assign(initializer_list<bool> __l)
+    { this->assign(__l.begin(), __l.end()); }
+#endif
+    
     iterator
     begin()
     { return this->_M_impl._M_start; }
@@ -575,6 +633,24 @@ template<typename _Alloc>
     rend() const
     { return const_reverse_iterator(begin()); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    const_iterator
+    cbegin() const
+    { return this->_M_impl._M_start; }
+
+    const_iterator
+    cend() const
+    { return this->_M_impl._M_finish; }
+
+    const_reverse_iterator
+    crbegin() const
+    { return const_reverse_iterator(end()); }
+
+    const_reverse_iterator
+    crend() const
+    { return const_reverse_iterator(begin()); }
+#endif
+
     size_type
     size() const
     { return size_type(end() - begin()); }
@@ -582,9 +658,12 @@ template<typename _Alloc>
     size_type
     max_size() const
     {
+      const size_type __isize =
+	__gnu_cxx::__numeric_traits<difference_type>::__max
+	- int(_S_word_bit) + 1;
       const size_type __asize = _M_get_Bit_allocator().max_size();
-      return (__asize <= size_type(-1) / int(_S_word_bit) ?
-	      __asize * int(_S_word_bit) : size_type(-1));
+      return (__asize <= __isize / int(_S_word_bit)
+	      ? __asize * int(_S_word_bit) : __isize);
     }
 
     size_type
@@ -628,21 +707,7 @@ template<typename _Alloc>
     { _M_range_check(__n); return (*this)[__n]; }
 
     void
-    reserve(size_type __n)
-    {
-      if (__n > this->max_size())
-	__throw_length_error(__N("vector::reserve"));
-      if (this->capacity() < __n)
-	{
-	  _Bit_type* __q = this->_M_allocate(__n);
-	  this->_M_impl._M_finish = _M_copy_aligned(begin(), end(),
-						    iterator(__q, 0));
-	  this->_M_deallocate();
-	  this->_M_impl._M_start = iterator(__q, 0);
-	  this->_M_impl._M_end_of_storage = (__q + (__n + int(_S_word_bit) - 1)
-					     / int(_S_word_bit));
-	}
-    }
+    reserve(size_type __n);
 
     reference
     front()
@@ -678,7 +743,11 @@ template<typename _Alloc>
     }
 
     void
-    swap(vector<bool, _Alloc>& __x)
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    swap(vector&& __x)
+#else
+    swap(vector& __x)
+#endif
     {
       std::swap(this->_M_impl._M_start, __x._M_impl._M_start);
       std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
@@ -712,7 +781,7 @@ template<typename _Alloc>
       return begin() + __n;
     }
 
-    template<class _InputIterator>
+    template<typename _InputIterator>
       void
       insert(iterator __position,
 	     _InputIterator __first, _InputIterator __last)
@@ -724,6 +793,11 @@ template<typename _Alloc>
     void
     insert(iterator __position, size_type __n, const bool& __x)
     { _M_fill_insert(__position, __n, __x); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    void insert(iterator __p, initializer_list<bool> __l)
+    { this->insert(__p, __l.begin(), __l.end()); }
+#endif
 
     void
     pop_back()
@@ -790,23 +864,26 @@ template<typename _Alloc>
     }
 
     // Check whether it's an integral type.  If so, it's not an iterator.
-    template<class _Integer>
+
+    // _GLIBCXX_RESOLVE_LIB_DEFECTS
+    // 438. Ambiguity in the "do the right thing" clause
+    template<typename _Integer>
       void
       _M_initialize_dispatch(_Integer __n, _Integer __x, __true_type)
       {
-	_M_initialize(__n);
+	_M_initialize(static_cast<size_type>(__n));
 	std::fill(this->_M_impl._M_start._M_p, 
 		  this->_M_impl._M_end_of_storage, __x ? ~0 : 0);
       }
 
-    template<class _InputIterator>
+    template<typename _InputIterator>
       void 
       _M_initialize_dispatch(_InputIterator __first, _InputIterator __last,
 			     __false_type)
       { _M_initialize_range(__first, __last, 
 			    std::__iterator_category(__first)); }
 
-    template<class _InputIterator>
+    template<typename _InputIterator>
       void
       _M_initialize_range(_InputIterator __first, _InputIterator __last,
 			  std::input_iterator_tag)
@@ -815,7 +892,7 @@ template<typename _Alloc>
 	  push_back(*__first);
       }
 
-    template<class _ForwardIterator>
+    template<typename _ForwardIterator>
       void
       _M_initialize_range(_ForwardIterator __first, _ForwardIterator __last,
 			  std::forward_iterator_tag)
@@ -825,10 +902,12 @@ template<typename _Alloc>
 	std::copy(__first, __last, this->_M_impl._M_start);
       }
 
-    template<class _Integer>
+    // _GLIBCXX_RESOLVE_LIB_DEFECTS
+    // 438. Ambiguity in the "do the right thing" clause
+    template<typename _Integer>
       void
       _M_assign_dispatch(_Integer __n, _Integer __val, __true_type)
-      { _M_fill_assign((size_t) __n, (bool) __val); }
+      { _M_fill_assign(__n, __val); }
 
     template<class _InputIterator>
       void
@@ -853,7 +932,7 @@ template<typename _Alloc>
 	}
     }
 
-    template<class _InputIterator>
+    template<typename _InputIterator>
       void
       _M_assign_aux(_InputIterator __first, _InputIterator __last,
 		    std::input_iterator_tag)
@@ -867,7 +946,7 @@ template<typename _Alloc>
 	  insert(end(), __first, __last);
       }
     
-    template<class _ForwardIterator>
+    template<typename _ForwardIterator>
       void
       _M_assign_aux(_ForwardIterator __first, _ForwardIterator __last,
 		    std::forward_iterator_tag)
@@ -885,13 +964,16 @@ template<typename _Alloc>
       }
 
     // Check whether it's an integral type.  If so, it's not an iterator.
-    template<class _Integer>
+
+    // _GLIBCXX_RESOLVE_LIB_DEFECTS
+    // 438. Ambiguity in the "do the right thing" clause
+    template<typename _Integer>
       void
       _M_insert_dispatch(iterator __pos, _Integer __n, _Integer __x,
 			 __true_type)
       { _M_fill_insert(__pos, __n, __x); }
 
-    template<class _InputIterator>
+    template<typename _InputIterator>
       void
       _M_insert_dispatch(iterator __pos,
 			 _InputIterator __first, _InputIterator __last,
@@ -900,35 +982,9 @@ template<typename _Alloc>
 			std::__iterator_category(__first)); }
 
     void
-    _M_fill_insert(iterator __position, size_type __n, bool __x)
-    {
-      if (__n == 0)
-	return;
-      if (capacity() - size() >= __n)
-	{
-	  std::copy_backward(__position, end(),
-			     this->_M_impl._M_finish + difference_type(__n));
-	  std::fill(__position, __position + difference_type(__n), __x);
-	  this->_M_impl._M_finish += difference_type(__n);
-	}
-      else
-	{
-	  const size_type __len = size() + std::max(size(), __n);
-	  _Bit_type * __q = this->_M_allocate(__len);
-	  iterator __i = _M_copy_aligned(begin(), __position,
-					 iterator(__q, 0));
-	  std::fill(__i, __i + difference_type(__n), __x);
-	  this->_M_impl._M_finish = std::copy(__position, end(),
-					      __i + difference_type(__n));
-	  this->_M_deallocate();
-	  this->_M_impl._M_end_of_storage = (__q + ((__len
-						     + int(_S_word_bit) - 1)
-						    / int(_S_word_bit)));
-	  this->_M_impl._M_start = iterator(__q, 0);
-	}
-    }
+    _M_fill_insert(iterator __position, size_type __n, bool __x);
 
-    template<class _InputIterator>
+    template<typename _InputIterator>
       void
       _M_insert_range(iterator __pos, _InputIterator __first, 
 		      _InputIterator __last, std::input_iterator_tag)
@@ -940,65 +996,22 @@ template<typename _Alloc>
 	  }
       }
 
-    template<class _ForwardIterator>
+    template<typename _ForwardIterator>
       void
       _M_insert_range(iterator __position, _ForwardIterator __first, 
-		      _ForwardIterator __last, std::forward_iterator_tag)
-      {
-	if (__first != __last)
-	  {
-	    size_type __n = std::distance(__first, __last);
-	    if (capacity() - size() >= __n)
-	      {
-		std::copy_backward(__position, end(),
-				   this->_M_impl._M_finish
-				   + difference_type(__n));
-		std::copy(__first, __last, __position);
-		this->_M_impl._M_finish += difference_type(__n);
-	      }
-	    else
-	      {
-		const size_type __len = size() + std::max(size(), __n);
-		_Bit_type * __q = this->_M_allocate(__len);
-		iterator __i = _M_copy_aligned(begin(), __position,
-					       iterator(__q, 0));
-		__i = std::copy(__first, __last, __i);
-		this->_M_impl._M_finish = std::copy(__position, end(), __i);
-		this->_M_deallocate();
-		this->_M_impl._M_end_of_storage = (__q
-						   + ((__len
-						       + int(_S_word_bit) - 1)
-						      / int(_S_word_bit)));
-		this->_M_impl._M_start = iterator(__q, 0);
-	      }
-	  }
-      }
+		      _ForwardIterator __last, std::forward_iterator_tag);
 
     void
-    _M_insert_aux(iterator __position, bool __x)
+    _M_insert_aux(iterator __position, bool __x);
+
+    size_type
+    _M_check_len(size_type __n, const char* __s) const
     {
-      if (this->_M_impl._M_finish._M_p != this->_M_impl._M_end_of_storage)
-	{
-	  std::copy_backward(__position, this->_M_impl._M_finish, 
-			     this->_M_impl._M_finish + 1);
-	  *__position = __x;
-	  ++this->_M_impl._M_finish;
-	}
-      else
-	{
-	  const size_type __len = size() ? 2 * size()
-	                                 : static_cast<size_type>(_S_word_bit);
-	  _Bit_type * __q = this->_M_allocate(__len);
-	  iterator __i = _M_copy_aligned(begin(), __position,
-					 iterator(__q, 0));
-	  *__i++ = __x;
-	  this->_M_impl._M_finish = std::copy(__position, end(), __i);
-	  this->_M_deallocate();
-	  this->_M_impl._M_end_of_storage = (__q + ((__len
-						     + int(_S_word_bit) - 1)
-						    / int(_S_word_bit)));
-	  this->_M_impl._M_start = iterator(__q, 0);
-	}
+      if (max_size() - size() < __n)
+	__throw_length_error(__N(__s));
+
+      const size_type __len = size() + std::max(size(), __n);
+      return (__len < size() || __len > max_size()) ? max_size() : __len;
     }
 
     void

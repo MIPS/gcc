@@ -39,12 +39,17 @@ exception statement from your version. */
 
 package java.text;
 
+import gnu.java.locale.LocaleHelper;
+
+import java.text.spi.DateFormatProvider;
+
 import java.io.InvalidObjectException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.util.ServiceLoader;
 import java.util.TimeZone;
 
 /**
@@ -214,80 +219,6 @@ public abstract class DateFormat extends Format implements Cloneable
    * In the U.S. locale, this is 'z'.
    */
   public static final int TIMEZONE_FIELD = 17;
-  /**
-   * Represents the position of the ISO year
-   * pattern character in the array of
-   * localized pattern characters.
-   * In the U.S. locale, this is 'Y'.
-   * This is a GNU extension in accordance with
-   * the CLDR data used.  This value may
-   * differ from the normal year value.
-   */
-  public static final int ISO_YEAR_FIELD = 18;
-  /**
-   * Represents the position of the localized
-   * day of the week pattern character in the
-   * array of localized pattern characters.
-   * In the U.S. locale, this is 'e'.
-   * This is a GNU extension in accordance with
-   * the CLDR data used.  This value only
-   * differs from the day of the week with
-   * numeric formatting, in which case the
-   * locale's first day of the week is used.
-   */
-  public static final int LOCALIZED_DAY_OF_WEEK_FIELD = 19;
-  /**
-   * Represents the position of the extended year
-   * pattern character in the array of
-   * localized pattern characters.
-   * In the U.S. locale, this is 'u'.
-   * This is a GNU extension in accordance with
-   * the CLDR data used.  This value modifies
-   * the year value, so as to incorporate the era.
-   * For example, in the Gregorian calendar system,
-   * the extended year is negative instead of being
-   * marked as BC.
-   */
-  public static final int EXTENDED_YEAR_FIELD = 20;
-  /**
-   * Represents the position of the modified Julian
-   * day pattern character in the array of
-   * localized pattern characters.
-   * In the U.S. locale, this is 'g'.
-   * This is a GNU extension in accordance with
-   * the CLDR data used.  This value differs
-   * from the standard Julian day in that days
-   * are marked from midnight onwards rather than
-   * noon, and the local time zone affects the value.
-   * In simple terms, it can be thought of as all
-   * the date fields represented as a single number.
-   */
-  public static final int MODIFIED_JULIAN_DAY_FIELD = 21;
-  /**
-   * Represents the position of the millisecond
-   * in the day pattern character in the array of
-   * localized pattern characters.
-   * In the U.S. locale, this is 'A'.
-   * This is a GNU extension in accordance with
-   * the CLDR data used.  This value represents
-   * all the time fields (excluding the time zone)
-   * numerically, giving the number of milliseconds
-   * into the day (e.g. 10 in the morning would
-   * be 10 * 60 * 60 * 1000).  Any daylight savings
-   * offset also affects this value.
-   */
-  public static final int MILLISECOND_IN_DAY_FIELD = 22;
-  /**
-   * Represents the position of the RFC822
-   * timezone pattern character in the array of
-   * localized pattern characters.
-   * In the U.S. locale, this is 'Z'.
-   * This is a GNU extension in accordance with
-   * the CLDR data used.  The value is the offset
-   * of the current time from GMT e.g. -0500 would
-   * be five hours prior to GMT.
-   */
-  public static final int RFC822_TIMEZONE_FIELD = 23;
 
   public static class Field extends Format.Field
   {
@@ -331,18 +262,6 @@ public abstract class DateFormat extends Format implements Cloneable
 	= new Field("hour0", Calendar.HOUR);
     public static final DateFormat.Field TIME_ZONE
 	= new Field("timezone", Calendar.ZONE_OFFSET);
-    public static final DateFormat.Field ISO_YEAR
-	= new Field("iso year", Calendar.YEAR);
-    public static final DateFormat.Field LOCALIZED_DAY_OF_WEEK
-	= new Field("localized day of week", Calendar.DAY_OF_WEEK);
-    public static final DateFormat.Field EXTENDED_YEAR
-      = new Field("extended year", Calendar.YEAR);
-    public static final DateFormat.Field MODIFIED_JULIAN_DAY
-	= new Field("julian day", -1);
-    public static final DateFormat.Field MILLISECOND_IN_DAY
-	= new Field("millisecond in day", -1);
-    public static final DateFormat.Field RFC822_TIME_ZONE
-	= new Field("rfc822 timezone", Calendar.ZONE_OFFSET);
 
     static final DateFormat.Field[] allFields =
     {
@@ -350,9 +269,7 @@ public abstract class DateFormat extends Format implements Cloneable
       HOUR_OF_DAY0, MINUTE, SECOND, MILLISECOND,
       DAY_OF_WEEK, DAY_OF_YEAR, DAY_OF_WEEK_IN_MONTH,
       WEEK_OF_YEAR, WEEK_OF_MONTH, AM_PM, HOUR1, HOUR0,
-      TIME_ZONE, ISO_YEAR, LOCALIZED_DAY_OF_WEEK,
-      EXTENDED_YEAR, MODIFIED_JULIAN_DAY, MILLISECOND_IN_DAY,
-      RFC822_TIME_ZONE
+      TIME_ZONE
     };
 
     // For deserialization
@@ -550,17 +467,14 @@ public abstract class DateFormat extends Format implements Cloneable
   private static DateFormat computeInstance (int dateStyle, int timeStyle,
                                              Locale loc, boolean use_date,
                                              boolean use_time)
+    throws MissingResourceException
   {
-    ResourceBundle res;
-    try
-      {
-	res = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation",
-				       loc, ClassLoader.getSystemClassLoader());
-      }
-    catch (MissingResourceException x)
-      {
-	res = null;
-      }
+    if (loc.equals(Locale.ROOT))
+      return computeDefault(dateStyle,timeStyle,use_date,use_time);
+
+    ResourceBundle res =
+      ResourceBundle.getBundle("gnu.java.locale.LocaleInformation",
+			       loc, ClassLoader.getSystemClassLoader());
 
     String pattern = null;
     if (use_date)
@@ -642,6 +556,59 @@ public abstract class DateFormat extends Format implements Cloneable
     return new SimpleDateFormat (pattern, loc);
   }
 
+  private static DateFormat computeDefault (int dateStyle, int timeStyle,
+					    boolean use_date, boolean use_time)
+  {
+    String pattern = null;
+    if (use_date)
+      {
+	switch (dateStyle)
+	  {
+	  case FULL:
+	    pattern = "EEEE MMMM d, yyyy G";
+	    break;
+	  case LONG:
+	    pattern = "MMMM d, yyyy";
+	    break;
+	  case MEDIUM:
+	    pattern = "d-MMM-yy";
+	    break;
+	  case SHORT:
+	    pattern = "M/d/yy";
+	  default:
+	    throw new IllegalArgumentException ();
+	  }
+      }
+    
+    if (use_time)
+      {
+	if (pattern == null)
+	  pattern = "";
+	else
+	  pattern += " ";
+
+	switch (timeStyle)
+	  {
+	  case FULL:
+	    pattern += "h:mm:ss;S 'o''clock' a z";
+	    break;
+	  case LONG:
+	    pattern += "h:mm:ss a z";
+	    break;
+	  case MEDIUM:
+	    pattern += "h:mm:ss a";
+	    break;
+	  case SHORT:
+	    pattern += "h:mm a";
+	    break;
+	  default:
+	    throw new IllegalArgumentException ();
+	  }
+      }
+
+    return new SimpleDateFormat (pattern, Locale.ROOT);
+  }
+
  /**
    * This method returns an instance of <code>DateFormat</code> that will
    * format using the default formatting style for dates.
@@ -678,7 +645,29 @@ public abstract class DateFormat extends Format implements Cloneable
    */
   public static final DateFormat getDateInstance (int style, Locale loc)
   {
-    return computeInstance (style, loc, true, false);
+    try
+      {
+	return computeInstance (style, loc, true, false);
+      }
+    catch (MissingResourceException e)
+      {
+	for (DateFormatProvider p :
+	       ServiceLoader.load(DateFormatProvider.class))
+	  {
+	    for (Locale l : p.getAvailableLocales())
+	      {
+		if (l.equals(loc))
+		  {
+		    DateFormat df = p.getDateInstance(style, loc);
+		    if (df != null)
+		      return df;
+		    break;
+		  }
+	      }
+	  }
+	return getDateInstance(style,
+			       LocaleHelper.getFallbackLocale(loc));
+      }
   }
 
   /**
@@ -717,7 +706,30 @@ public abstract class DateFormat extends Format implements Cloneable
 						      int timeStyle, 
 						      Locale loc)
   {
-    return computeInstance (dateStyle, timeStyle, loc, true, true);
+    try
+      {
+	return computeInstance (dateStyle, timeStyle, loc, true, true);
+      }
+    catch (MissingResourceException e)
+      {
+	for (DateFormatProvider p :
+	       ServiceLoader.load(DateFormatProvider.class))
+	  {
+	    for (Locale l : p.getAvailableLocales())
+	      {
+		if (l.equals(loc))
+		  {
+		    DateFormat df = p.getDateTimeInstance(dateStyle,
+							  timeStyle, loc);
+		    if (df != null)
+		      return df;
+		    break;
+		  }
+	      }
+	  }
+	return getDateTimeInstance(dateStyle, timeStyle,
+				   LocaleHelper.getFallbackLocale(loc));
+      }
   }
 
   /**
@@ -779,7 +791,29 @@ public abstract class DateFormat extends Format implements Cloneable
    */
   public static final DateFormat getTimeInstance (int style, Locale loc)
   {
-    return computeInstance (style, loc, false, true);
+    try
+      {
+	return computeInstance (style, loc, false, true);
+      }
+    catch (MissingResourceException e)
+      {
+	for (DateFormatProvider p :
+	       ServiceLoader.load(DateFormatProvider.class))
+	  {
+	    for (Locale l : p.getAvailableLocales())
+	      {
+		if (l.equals(loc))
+		  {
+		    DateFormat df = p.getTimeInstance(style, loc);
+		    if (df != null)
+		      return df;
+		    break;
+		  }
+	      }
+	  }
+	return getTimeInstance(style,
+			       LocaleHelper.getFallbackLocale(loc));
+      }
   }
 
   /**

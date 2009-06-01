@@ -6,31 +6,25 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
---                                                                          --
--- This specification is derived from the Ada Reference Manual for use with --
--- GNAT. The copyright notice above, and the license provisions that follow --
--- apply solely to the  contents of the part following the private keyword. --
+--          Copyright (C) 2004-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
 --                                                                          --
--- This unit has originally being developed by Matthew J Heaney.            --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
+--                                                                          --
+-- This unit was originally developed by Matthew J Heaney.                  --
 ------------------------------------------------------------------------------
 
 with Ada.Unchecked_Deallocation;
@@ -50,6 +44,9 @@ package body Ada.Containers.Hashed_Sets is
    -----------------------
    -- Local Subprograms --
    -----------------------
+
+   procedure Assign (Node : Node_Access; Item : Element_Type);
+   pragma Inline (Assign);
 
    function Copy_Node (Source : Node_Access) return Node_Access;
    pragma Inline (Copy_Node);
@@ -86,14 +83,9 @@ package body Ada.Containers.Hashed_Sets is
    function Next (Node : Node_Access) return Node_Access;
    pragma Inline (Next);
 
-   function Read_Node (Stream : access Root_Stream_Type'Class)
+   function Read_Node (Stream : not null access Root_Stream_Type'Class)
      return Node_Access;
    pragma Inline (Read_Node);
-
-   procedure Replace_Element
-     (HT       : in out Hash_Table_Type;
-      Node     : Node_Access;
-      New_Item : Element_Type);
 
    procedure Set_Next (Node : Node_Access; Next : Node_Access);
    pragma Inline (Set_Next);
@@ -101,7 +93,7 @@ package body Ada.Containers.Hashed_Sets is
    function Vet (Position : Cursor) return Boolean;
 
    procedure Write_Node
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Node   : Node_Access);
    pragma Inline (Write_Node);
 
@@ -136,6 +128,9 @@ package body Ada.Containers.Hashed_Sets is
    procedure Read_Nodes is
       new HT_Ops.Generic_Read (Read_Node);
 
+   procedure Replace_Element is
+      new Element_Keys.Generic_Replace_Element (Hash_Node, Assign);
+
    procedure Write_Nodes is
       new HT_Ops.Generic_Write (Write_Node);
 
@@ -156,6 +151,15 @@ package body Ada.Containers.Hashed_Sets is
    begin
       HT_Ops.Adjust (Container.HT);
    end Adjust;
+
+   ------------
+   -- Assign --
+   ------------
+
+   procedure Assign (Node : Node_Access; Item : Element_Type) is
+   begin
+      Node.Element := Item;
+   end Assign;
 
    --------------
    -- Capacity --
@@ -264,24 +268,41 @@ package body Ada.Containers.Hashed_Sets is
            "attempt to tamper with elements (set is busy)";
       end if;
 
-      --  TODO: This can be written in terms of a loop instead as
-      --  active-iterator style, sort of like a passive iterator.
+      if Source.HT.Length < Target.HT.Length then
+         declare
+            Src_Node : Node_Access;
 
-      Tgt_Node := HT_Ops.First (Target.HT);
-      while Tgt_Node /= null loop
-         if Is_In (Source.HT, Tgt_Node) then
-            declare
-               X : Node_Access := Tgt_Node;
-            begin
+         begin
+            Src_Node := HT_Ops.First (Source.HT);
+            while Src_Node /= null loop
+               Tgt_Node := Element_Keys.Find (Target.HT, Src_Node.Element);
+
+               if Tgt_Node /= null then
+                  HT_Ops.Delete_Node_Sans_Free (Target.HT, Tgt_Node);
+                  Free (Tgt_Node);
+               end if;
+
+               Src_Node := HT_Ops.Next (Source.HT, Src_Node);
+            end loop;
+         end;
+
+      else
+         Tgt_Node := HT_Ops.First (Target.HT);
+         while Tgt_Node /= null loop
+            if Is_In (Source.HT, Tgt_Node) then
+               declare
+                  X : Node_Access := Tgt_Node;
+               begin
+                  Tgt_Node := HT_Ops.Next (Target.HT, Tgt_Node);
+                  HT_Ops.Delete_Node_Sans_Free (Target.HT, X);
+                  Free (X);
+               end;
+
+            else
                Tgt_Node := HT_Ops.Next (Target.HT, Tgt_Node);
-               HT_Ops.Delete_Node_Sans_Free (Target.HT, X);
-               Free (X);
-            end;
-
-         else
-            Tgt_Node := HT_Ops.Next (Target.HT, Tgt_Node);
-         end if;
-      end loop;
+            end if;
+         end loop;
+      end if;
    end Difference;
 
    function Difference (Left, Right : Set) return Set is
@@ -304,7 +325,7 @@ package body Ada.Containers.Hashed_Sets is
       declare
          Size : constant Hash_Type := Prime_Numbers.To_Prime (Left.Length);
       begin
-         Buckets := new Buckets_Type (0 .. Size - 1);
+         Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
 
       Length := 0;
@@ -622,6 +643,8 @@ package body Ada.Containers.Hashed_Sets is
       New_Item  : Element_Type)
    is
       Position : Cursor;
+      pragma Unreferenced (Position);
+
       Inserted : Boolean;
 
    begin
@@ -685,7 +708,7 @@ package body Ada.Containers.Hashed_Sets is
          return;
       end if;
 
-      if Source.Length = 0 then
+      if Source.HT.Length = 0 then
          Clear (Target);
          return;
       end if;
@@ -694,15 +717,6 @@ package body Ada.Containers.Hashed_Sets is
          raise Program_Error with
            "attempt to tamper with elements (set is busy)";
       end if;
-
-      --  TODO: optimize this to use an explicit
-      --  loop instead of an active iterator
-      --  (similar to how a passive iterator is
-      --  implemented).
-      --
-      --  Another possibility is to test which
-      --  set is smaller, and iterate over the
-      --  smaller set.
 
       Tgt_Node := HT_Ops.First (Target.HT);
       while Tgt_Node /= null loop
@@ -739,7 +753,7 @@ package body Ada.Containers.Hashed_Sets is
       declare
          Size : constant Hash_Type := Prime_Numbers.To_Prime (Length);
       begin
-         Buckets := new Buckets_Type (0 .. Size - 1);
+         Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
 
       Length := 0;
@@ -818,9 +832,6 @@ package body Ada.Containers.Hashed_Sets is
          return False;
       end if;
 
-      --  TODO: rewrite this to loop in the
-      --  style of a passive iterator.
-
       Subset_Node := HT_Ops.First (Subset.HT);
       while Subset_Node /= null loop
          if not Is_In (Of_Set.HT, Subset_Node) then
@@ -855,13 +866,22 @@ package body Ada.Containers.Hashed_Sets is
          Process (Cursor'(Container'Unrestricted_Access, Node));
       end Process_Node;
 
+      B : Natural renames Container'Unrestricted_Access.HT.Busy;
+
    --  Start of processing for Iterate
 
    begin
-      --  TODO: resolve whether HT_Ops.Generic_Iteration should
-      --  manipulate busy bit.
+      B := B + 1;
 
-      Iterate (Container.HT);
+      begin
+         Iterate (Container.HT);
+      exception
+         when others =>
+            B := B - 1;
+            raise;
+      end;
+
+      B := B - 1;
    end Iterate;
 
    ------------
@@ -989,15 +1009,15 @@ package body Ada.Containers.Hashed_Sets is
    ----------
 
    procedure Read
-     (Stream    : access Root_Stream_Type'Class;
-      Container :    out Set)
+     (Stream    : not null access Root_Stream_Type'Class;
+      Container : out Set)
    is
    begin
       Read_Nodes (Stream, Container.HT);
    end Read;
 
    procedure Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : out Cursor)
    is
    begin
@@ -1008,7 +1028,7 @@ package body Ada.Containers.Hashed_Sets is
    -- Read_Node --
    ---------------
 
-   function Read_Node (Stream : access Root_Stream_Type'Class)
+   function Read_Node (Stream : not null access Root_Stream_Type'Class)
      return Node_Access
    is
       Node : Node_Access := new Node_Type;
@@ -1046,109 +1066,6 @@ package body Ada.Containers.Hashed_Sets is
 
       Node.Element := New_Item;
    end Replace;
-
-   ---------------------
-   -- Replace_Element --
-   ---------------------
-
-   procedure Replace_Element
-     (HT       : in out Hash_Table_Type;
-      Node     : Node_Access;
-      New_Item : Element_Type)
-   is
-   begin
-      if Equivalent_Elements (Node.Element, New_Item) then
-         pragma Assert (Hash (Node.Element) = Hash (New_Item));
-
-         if HT.Lock > 0 then
-            raise Program_Error with
-              "attempt to tamper with cursors (set is locked)";
-         end if;
-
-         Node.Element := New_Item;  --  Note that this assignment can fail
-         return;
-      end if;
-
-      if HT.Busy > 0 then
-         raise Program_Error with
-           "attempt to tamper with elements (set is busy)";
-      end if;
-
-      HT_Ops.Delete_Node_Sans_Free (HT, Node);
-
-      Insert_New_Element : declare
-         function New_Node (Next : Node_Access) return Node_Access;
-         pragma Inline (New_Node);
-
-         procedure Local_Insert is
-            new Element_Keys.Generic_Conditional_Insert (New_Node);
-
-         --------------
-         -- New_Node --
-         --------------
-
-         function New_Node (Next : Node_Access) return Node_Access is
-         begin
-            Node.Element := New_Item;  -- Note that this assignment can fail
-            Node.Next := Next;
-            return Node;
-         end New_Node;
-
-         Result   : Node_Access;
-         Inserted : Boolean;
-
-      --  Start of processing for Insert_New_Element
-
-      begin
-         Local_Insert
-           (HT       => HT,
-            Key      => New_Item,
-            Node     => Result,
-            Inserted => Inserted);
-
-         if Inserted then
-            return;
-         end if;
-      exception
-         when others =>
-            null;   --  Assignment must have failed
-      end Insert_New_Element;
-
-      Reinsert_Old_Element : declare
-         function New_Node (Next : Node_Access) return Node_Access;
-         pragma Inline (New_Node);
-
-         procedure Local_Insert is
-            new Element_Keys.Generic_Conditional_Insert (New_Node);
-
-         --------------
-         -- New_Node --
-         --------------
-
-         function New_Node (Next : Node_Access) return Node_Access is
-         begin
-            Node.Next := Next;
-            return Node;
-         end New_Node;
-
-         Result   : Node_Access;
-         Inserted : Boolean;
-
-      --  Start of processing for Reinsert_Old_Element
-
-      begin
-         Local_Insert
-           (HT       => HT,
-            Key      => Node.Element,
-            Node     => Result,
-            Inserted => Inserted);
-      exception
-         when others =>
-            null;
-      end Reinsert_Old_Element;
-
-      raise Program_Error with "attempt to replace existing element";
-   end Replace_Element;
 
    procedure Replace_Element
      (Container : in out Set;
@@ -1331,7 +1248,7 @@ package body Ada.Containers.Hashed_Sets is
          Size : constant Hash_Type :=
                   Prime_Numbers.To_Prime (Left.Length + Right.Length);
       begin
-         Buckets := new Buckets_Type (0 .. Size - 1);
+         Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
 
       Length := 0;
@@ -1412,9 +1329,11 @@ package body Ada.Containers.Hashed_Sets is
    ------------
 
    function To_Set (New_Item : Element_Type) return Set is
-      HT       : Hash_Table_Type;
+      HT : Hash_Table_Type;
+
       Node     : Node_Access;
       Inserted : Boolean;
+      pragma Unreferenced (Node, Inserted);
 
    begin
       Insert (HT, New_Item, Node, Inserted);
@@ -1458,6 +1377,7 @@ package body Ada.Containers.Hashed_Sets is
 
          Tgt_Node : Node_Access;
          Success  : Boolean;
+         pragma Unreferenced (Tgt_Node, Success);
 
       --  Start of processing for Process
 
@@ -1509,7 +1429,7 @@ package body Ada.Containers.Hashed_Sets is
          Size : constant Hash_Type :=
                   Prime_Numbers.To_Prime (Left.Length + Right.Length);
       begin
-         Buckets := new Buckets_Type (0 .. Size - 1);
+         Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
 
       Iterate_Left : declare
@@ -1644,7 +1564,7 @@ package body Ada.Containers.Hashed_Sets is
    -----------
 
    procedure Write
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : Set)
    is
    begin
@@ -1652,7 +1572,7 @@ package body Ada.Containers.Hashed_Sets is
    end Write;
 
    procedure Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : Cursor)
    is
    begin
@@ -1664,7 +1584,7 @@ package body Ada.Containers.Hashed_Sets is
    ----------------
 
    procedure Write_Node
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Node   : Node_Access)
    is
    begin

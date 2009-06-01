@@ -1,6 +1,6 @@
 /* config.in.  Generated from configure.ac by autoheader.  */
 
-/* Define as the number of bits in a byte, if \`limits.h' doesn't. */
+/* Define as the number of bits in a byte, if `limits.h' doesn't. */
 #ifndef USED_FOR_TARGET
 #undef CHAR_BIT
 #endif
@@ -46,9 +46,28 @@
 #endif
 
 
+/* Define to 1 to specify that we are using the BID decimal floating point
+   format instead of DPD */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_DECIMAL_BID_FORMAT
+#endif
+
+
 /* Define to 1 to enable decimal float extension to C. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_DECIMAL_FLOAT
+#endif
+
+
+/* Define if you want more run-time sanity checks for dataflow. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_DF_CHECKING
+#endif
+
+
+/* Define to 1 to enable fixed-point arithmetic extension to C. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_FIXED_POINT
 #endif
 
 
@@ -71,6 +90,14 @@
    memory allocation checks. This is quite expensive. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_GC_CHECKING
+#endif
+
+
+/* Define if you want operations on GIMPLE (the basic data structure of the
+   high-level optimizers) to be checked for dynamic type safety at runtime.
+   This is moderately expensive. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_GIMPLE_CHECKING
 #endif
 
 
@@ -105,6 +132,13 @@
    enabled by this option. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_TREE_CHECKING
+#endif
+
+
+/* Define if you want all gimple types to be verified after gimplifiation.
+   This is cheap. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_TYPES_CHECKING
 #endif
 
 
@@ -154,9 +188,27 @@
 #endif
 
 
-/* Define to 1 if you have the `alphasort' function. */
+/* Define if your assembler supports cmpb. */
 #ifndef USED_FOR_TARGET
-#undef HAVE_ALPHASORT
+#undef HAVE_AS_CMPB
+#endif
+
+
+/* Define if your assembler supports the --debug-prefix-map option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_DEBUG_PREFIX_MAP
+#endif
+
+
+/* Define if your assembler supports DFP instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_DFP
+#endif
+
+
+/* Define if your assembler supports .dtprelword. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_DTPRELWORD
 #endif
 
 
@@ -185,6 +237,12 @@
 #endif
 
 
+/* Define if your assembler supports .gnu_attribute. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_GNU_ATTRIBUTE
+#endif
+
+
 /* Define true if the assembler supports '.long foo@GOTOFF'. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_GOTOFF_IN_DATA
@@ -203,9 +261,22 @@
 #endif
 
 
+/* Define if your assembler supports the subtraction of symbols in different
+   sections. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_DIFF_SECT_DELTA
+#endif
+
+
 /* Define if your assembler supports the ffreep mnemonic. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_FFREEP
+#endif
+
+
+/* Define if your assembler supports the sahf mnemonic. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_SAHF
 #endif
 
 
@@ -221,6 +292,12 @@
 #endif
 
 
+/* Define if the assembler won't complain about a line such as # 0 "" 2. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_LINE_ZERO
+#endif
+
+
 /* Define if your assembler supports ltoffx and ldxmov relocations. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_LTOFFX_LDXMOV_RELOCS
@@ -233,9 +310,21 @@
 #endif
 
 
+/* Define if your assembler supports mffgpr and mftgpr. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_MFPGPR
+#endif
+
+
 /* Define if your assembler supports the -no-mul-bug-abort option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_NO_MUL_BUG_ABORT_OPTION
+#endif
+
+
+/* Define if the assembler understands -mno-shared. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_NO_SHARED
 #endif
 
 
@@ -286,6 +375,12 @@
 /* Define if your assembler supports thread-local storage. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_TLS
+#endif
+
+
+/* Define if your assembler supports VSX instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_VSX
 #endif
 
 
@@ -642,6 +737,12 @@
 #endif
 
 
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DLFCN_H
+#endif
+
+
 /* Define to 1 if you have the <fcntl.h> header file. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_FCNTL_H
@@ -726,6 +827,18 @@
 #endif
 
 
+/* Define 0/1 if your assembler supports CFI directives. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_CFI_DIRECTIVE
+#endif
+
+
+/* Define 0/1 if your assembler supports .cfi_personality. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_CFI_PERSONALITY_DIRECTIVE
+#endif
+
+
 /* Define if your assembler uses the new HImode fild and fist notation. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GAS_FILDS_FISTS
@@ -734,6 +847,18 @@
 
 /* Define if your assembler and linker support .hidden. */
 #undef HAVE_GAS_HIDDEN
+
+/* Define if your assembler supports .lcomm with an alignment field. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_LCOMM_WITH_ALIGNMENT
+#endif
+
+
+/* Define if your assembler supports .literal16. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_LITERAL16
+#endif
+
 
 /* Define if your assembler supports specifying the maximum number of bytes to
    skip when using the GAS .p2align command. */
@@ -793,8 +918,11 @@
 #endif
 
 
-/* Define to 1 if system unwind library has _Unwind_GetIPInfo. */
+/* Define if _Unwind_GetIPInfo is available. */
+#ifndef USED_FOR_TARGET
 #undef HAVE_GETIPINFO
+#endif
+
 
 /* Define to 1 if you have the `getrlimit' function. */
 #ifndef USED_FOR_TARGET
@@ -811,6 +939,18 @@
 /* Define to 1 if you have the `gettimeofday' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GETTIMEOFDAY
+#endif
+
+
+/* Define if using GNU as. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GNU_AS
+#endif
+
+
+/* Define if using GNU ld. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GNU_LD
 #endif
 
 
@@ -882,6 +1022,13 @@
 
 /* Define if your linker supports --eh-frame-hdr option. */
 #undef HAVE_LD_EH_FRAME_HDR
+
+/* Define if your linker supports garbage collection of sections in presence
+   of EH frames. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_EH_GC_SECTIONS
+#endif
+
 
 /* Define if your PowerPC64 linker only needs function descriptor syms. */
 #ifndef USED_FOR_TARGET
@@ -1001,12 +1148,6 @@
 /* Define to 1 if you have the `putc_unlocked' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_PUTC_UNLOCKED
-#endif
-
-
-/* Define to 1 if you have the `scandir' function. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_SCANDIR
 #endif
 
 
@@ -1197,9 +1338,22 @@
 #endif
 
 
+/* Define if cloog is in use. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_cloog
+#endif
+
+
 /* Define as const if the declaration of iconv() needs const. */
 #ifndef USED_FOR_TARGET
 #undef ICONV_CONST
+#endif
+
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#ifndef USED_FOR_TARGET
+#undef LT_OBJDIR
 #endif
 
 
@@ -1336,12 +1490,6 @@
 #endif
 
 
-/* Define if location_t is fileline integer cookie. */
-#ifndef USED_FOR_TARGET
-#undef USE_MAPPED_LOCATION
-#endif
-
-
 /* Define to be the last component of the Windows registry key under which to
    look for installation paths. The full key used will be
    HKEY_LOCAL_MACHINE/SOFTWARE/Free Software Foundation/{WIN32_REGISTRY_KEY}.
@@ -1358,9 +1506,50 @@
 #endif
 
 
-/* Always define this when using the GNU C Library */
+/* Define to 1 if on MINIX. */
 #ifndef USED_FOR_TARGET
-#undef _GNU_SOURCE
+#undef _MINIX
+#endif
+
+
+/* Define to 2 if the system does not provide POSIX.1 features except with
+   this defined. */
+#ifndef USED_FOR_TARGET
+#undef _POSIX_1_SOURCE
+#endif
+
+
+/* Define to 1 if you need to in order for `stat' and other things to work. */
+#ifndef USED_FOR_TARGET
+#undef _POSIX_SOURCE
+#endif
+
+
+/* Enable extensions on AIX 3, Interix.  */
+#ifndef _ALL_SOURCE
+# undef _ALL_SOURCE
+#endif
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# undef _GNU_SOURCE
+#endif
+/* Enable threading extensions on Solaris.  */
+#ifndef _POSIX_PTHREAD_SEMANTICS
+# undef _POSIX_PTHREAD_SEMANTICS
+#endif
+/* Enable extensions on HP NonStop.  */
+#ifndef _TANDEM_SOURCE
+# undef _TANDEM_SOURCE
+#endif
+/* Enable general extensions on Solaris.  */
+#ifndef __EXTENSIONS__
+# undef __EXTENSIONS__
+#endif
+
+
+/* Define to `char *' if <sys/types.h> does not define. */
+#ifndef USED_FOR_TARGET
+#undef caddr_t
 #endif
 
 
@@ -1382,7 +1571,7 @@
 #endif
 
 
-/* Define to \`long' if <sys/resource.h> doesn't define. */
+/* Define to `long' if <sys/resource.h> doesn't define. */
 #ifndef USED_FOR_TARGET
 #undef rlim_t
 #endif

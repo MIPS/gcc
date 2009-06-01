@@ -41,33 +41,33 @@ package java.nio;
 final class ShortViewBufferImpl extends ShortBuffer
 {
   /** Position in bb (i.e. a byte offset) where this buffer starts. */
-  private int offset;
-  private ByteBuffer bb;
-  private boolean readOnly;
-  private ByteOrder endian;
+  private final int offset;
+  private final ByteBuffer bb;
+  private final boolean readOnly;
+  private final ByteOrder endian;
 
   ShortViewBufferImpl (ByteBuffer bb, int capacity)
   {
-    super (capacity, capacity, 0, -1);
+    super (capacity, capacity, 0, -1, bb.isDirect() ?
+           VMDirectByteBuffer.adjustAddress(bb.address, bb.position()):null,
+	   null, 0);
     this.bb = bb;
     this.offset = bb.position();
     this.readOnly = bb.isReadOnly();
     this.endian = bb.order();
-    if (bb.isDirect())
-      this.address = VMDirectByteBuffer.adjustAddress(bb.address, offset);
   }
   
   public ShortViewBufferImpl (ByteBuffer bb, int offset, int capacity,
 			      int limit, int position, int mark,
 			      boolean readOnly, ByteOrder endian)
   {
-    super (capacity, limit, position, mark);
+    super (capacity, limit, position, mark, bb.isDirect() ?
+           VMDirectByteBuffer.adjustAddress(bb.address, offset):null,
+	   null, 0);
     this.bb = bb;
     this.offset = offset;
     this.readOnly = readOnly;
     this.endian = endian;
-    if (bb.isDirect())
-      this.address = VMDirectByteBuffer.adjustAddress(bb.address, offset);
   }
 
   /**
@@ -131,7 +131,7 @@ final class ShortViewBufferImpl extends ShortBuffer
   public ShortBuffer slice ()
   {
     // Create a sliced copy of this object that shares its content.
-    return new ShortViewBufferImpl (bb, (position () >> 1) + offset,
+    return new ShortViewBufferImpl (bb, (position () << 1) + offset,
 				    remaining(), remaining(), 0, -1,
 				    readOnly, endian);
   }

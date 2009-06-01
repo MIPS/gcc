@@ -1,33 +1,28 @@
 /* Subroutines needed for unwinding stack frames for exception handling.  */
-/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2008,
+   2009  Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@cygnus.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef _Unwind_Find_FDE
 #include "tconfig.h"
@@ -44,7 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* The unseen_objects list contains objects that have been registered
    but not yet categorized in any way.  The seen_objects list has had
-   it's pc_begin and count fields initialized at minimum, and is sorted
+   its pc_begin and count fields initialized at minimum, and is sorted
    by decreasing value of pc_begin.  */
 static struct object *unseen_objects;
 static struct object *seen_objects;
@@ -79,7 +74,7 @@ __register_frame_info_bases (const void *begin, struct object *ob,
 			     void *tbase, void *dbase)
 {
   /* If .eh_frame is empty, don't register at all.  */
-  if ((uword *) begin == 0 || *(uword *) begin == 0)
+  if ((const uword *) begin == 0 || *(const uword *) begin == 0)
     return;
 
   ob->pc_begin = (void *)-1;
@@ -177,7 +172,7 @@ __deregister_frame_info_bases (const void *begin)
   struct object *ob = 0;
 
   /* If .eh_frame is empty, we haven't registered.  */
-  if ((uword *) begin == 0 || *(uword *) begin == 0)
+  if ((const uword *) begin == 0 || *(const uword *) begin == 0)
     return ob;
 
   init_object_mutex_once ();
@@ -266,8 +261,8 @@ get_cie_encoding (const struct dwarf_cie *cie)
 {
   const unsigned char *aug, *p;
   _Unwind_Ptr dummy;
-  _Unwind_Word utmp;
-  _Unwind_Sword stmp;
+  _uleb128_t utmp;
+  _sleb128_t stmp;
 
   aug = cie->augmentation;
   if (aug[0] != 'z')
@@ -323,8 +318,8 @@ static int
 fde_unencoded_compare (struct object *ob __attribute__((unused)),
 		       const fde *x, const fde *y)
 {
-  _Unwind_Ptr x_ptr = *(_Unwind_Ptr *) x->pc_begin;
-  _Unwind_Ptr y_ptr = *(_Unwind_Ptr *) y->pc_begin;
+  const _Unwind_Ptr x_ptr = *(const _Unwind_Ptr *) x->pc_begin;
+  const _Unwind_Ptr y_ptr = *(const _Unwind_Ptr *) y->pc_begin;
 
   if (x_ptr > y_ptr)
     return 1;
@@ -434,7 +429,7 @@ fde_split (struct object *ob, fde_compare_t fde_compare,
 {
   static const fde *marker;
   size_t count = linear->count;
-  const fde **chain_end = &marker;
+  const fde *const *chain_end = &marker;
   size_t i, j, k;
 
   /* This should optimize out, but it is wise to make sure this assumption
@@ -444,13 +439,13 @@ fde_split (struct object *ob, fde_compare_t fde_compare,
 
   for (i = 0; i < count; i++)
     {
-      const fde **probe;
+      const fde *const *probe;
 
       for (probe = chain_end;
 	   probe != &marker && fde_compare (ob, linear->array[i], *probe) < 0;
 	   probe = chain_end)
 	{
-	  chain_end = (const fde **) erratic->array[probe - linear->array];
+	  chain_end = (const fde *const*) erratic->array[probe - linear->array];
 	  erratic->array[probe - linear->array] = NULL;
 	}
       erratic->array[i] = (const fde *) chain_end;
@@ -679,7 +674,7 @@ add_fdes (struct object *ob, struct fde_accumulator *accu, const fde *this_fde)
 
       if (encoding == DW_EH_PE_absptr)
 	{
-	  if (*(_Unwind_Ptr *) this_fde->pc_begin == 0)
+	  if (*(const _Unwind_Ptr *) this_fde->pc_begin == 0)
 	    continue;
 	}
       else
@@ -797,8 +792,8 @@ linear_search_fdes (struct object *ob, const fde *this_fde, void *pc)
 
       if (encoding == DW_EH_PE_absptr)
 	{
-	  pc_begin = ((_Unwind_Ptr *) this_fde->pc_begin)[0];
-	  pc_range = ((_Unwind_Ptr *) this_fde->pc_begin)[1];
+	  pc_begin = ((const _Unwind_Ptr *) this_fde->pc_begin)[0];
+	  pc_range = ((const _Unwind_Ptr *) this_fde->pc_begin)[1];
 	  if (pc_begin == 0)
 	    continue;
 	}
@@ -844,12 +839,9 @@ binary_search_unencoded_fdes (struct object *ob, void *pc)
   for (lo = 0, hi = vec->count; lo < hi; )
     {
       size_t i = (lo + hi) / 2;
-      const fde *f = vec->array[i];
-      void *pc_begin;
-      uaddr pc_range;
-
-      pc_begin = ((void **) f->pc_begin)[0];
-      pc_range = ((uaddr *) f->pc_begin)[1];
+      const fde *const f = vec->array[i];
+      const void *pc_begin = ((const void *const*) f->pc_begin)[0];
+      const uaddr pc_range = ((const uaddr *) f->pc_begin)[1];
 
       if (pc < pc_begin)
 	hi = i;
@@ -950,7 +942,7 @@ search_object (struct object* ob, void *pc)
     }
   else
     {
-      /* Long slow labourious linear search, cos we've no memory.  */
+      /* Long slow laborious linear search, cos we've no memory.  */
       if (ob->s.b.from_array)
 	{
 	  fde **p;

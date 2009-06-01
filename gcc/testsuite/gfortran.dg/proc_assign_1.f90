@@ -30,11 +30,11 @@ contains
         end subroutine foobar
     end function foo
     subroutine bar()         ! This was the original bug.
-        foo = 10             ! { dg-error "is not a VALUE" }
+        foo = 10             ! { dg-error "is not a variable" }
     end subroutine bar
     integer function oh_no ()
         oh_no = 1
-        foo = 5              ! { dg-error "is not a VALUE" }
+        foo = 5              ! { dg-error "is not a variable" }
     end function oh_no
 end module simple
 
@@ -50,25 +50,25 @@ end module simpler
     real w, stmt_fcn
     interface
         function ext1 ()
-            integer ext1
+           integer ext1
         end function ext1
         function ext2 (arg)
-            integer ext2, arg
+           integer ext2, arg
         end function ext2
     end interface
     stmt_fcn (w) = sin (w)     
     call x (y ())
-    x = 10                   ! { dg-error "Expected VARIABLE" }
-    y = 20                   ! { dg-error "is not a VALUE" }
-    foo_er = 8               ! { dg-error "is not a VALUE" }
-    ext1 = 99                ! { dg-error "is not a VALUE" }
-    ext2 = 99                ! { dg-error "is not a VALUE" }
-    stmt_fcn = 1.0           ! { dg-error "Expected VARIABLE" }
+    x = 10                   ! { dg-error "is not a variable" }
+    y = 20                   ! { dg-error "is not a variable" }
+    foo_er = 8               ! { dg-error "is not a variable" }
+    ext1 = 99                ! { dg-error "is not a variable" }
+    ext2 = 99                ! { dg-error "is not a variable" }
+    stmt_fcn = 1.0           ! { dg-error "is not a variable" }
     w = stmt_fcn (1.0)
 contains
     subroutine x (i)
         integer i
-        y = i                ! { dg-error "is not a VALUE" }
+        y = i                ! { dg-error "is not a variable" }
     end subroutine x
     function y ()
         integer y

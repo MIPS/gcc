@@ -38,72 +38,114 @@ exception statement from your version. */
 
 package gnu.java.util.regex;
 
-final class RETokenEnd extends REToken {
+import gnu.java.lang.CPStringBuilder;
+
+final class RETokenEnd extends REToken
+{
     /**
      * Indicates whether this token should match on a line break.
      */
   private String newline;
   private boolean check_java_line_terminators;
 
-  RETokenEnd(int subIndex,String newline) { 
-    super(subIndex);
+  /**
+   * Indicates whether this token is a real one generated at compile time,
+   * or a fake one temporarily added by RE#getMatchImpl.
+   */
+  private boolean fake = false;
+
+    RETokenEnd (int subIndex, String newline)
+  {
+    super (subIndex);
     this.newline = newline;
     this.check_java_line_terminators = false;
   }
 
-  RETokenEnd(int subIndex, String newline, boolean b) { 
-    super(subIndex);
+  RETokenEnd (int subIndex, String newline, boolean b)
+  {
+    super (subIndex);
     this.newline = newline;
     this.check_java_line_terminators = b;
   }
 
-  int getMaximumLength() {
+  void setFake (boolean fake)
+  {
+    this.fake = fake;
+  }
+
+  int getMaximumLength ()
+  {
     return 0;
   }
 
-    REMatch matchThis(CharIndexed input, REMatch mymatch) {
-	char ch = input.charAt(mymatch.index);
-	if (ch == CharIndexed.OUT_OF_BOUNDS)
-	    return ((mymatch.eflags & RE.REG_NOTEOL)>0) ? 
-		null : mymatch;
-        if (check_java_line_terminators) {
-	    if (ch == '\n') {
-                char ch1 = input.charAt(mymatch.index - 1);
-		if (ch1 == '\r') return null;
-		return mymatch;
-	    }
-	    if (ch == '\r') return mymatch;
-	    if (ch == '\u0085') return mymatch; // A next-line character
-	    if (ch == '\u2028') return mymatch; // A line-separator character
-	    if (ch == '\u2029') return mymatch; // A paragraph-separator character
-	    return null;
-	}
-	if (newline != null) {
-	    char z;
-	    int i = 0; // position in newline
-	    do {
-		z = newline.charAt(i);
-		if (ch != z) return null;
-		++i;
-		ch = input.charAt(mymatch.index + i);
-	    } while (i < newline.length());
-	    
+  boolean match (CharIndexed input, REMatch mymatch)
+  {
+    if (!fake)
+      return super.match (input, mymatch);
+    return super.matchFake (input, mymatch);
+  }
+
+  REMatch matchThis (CharIndexed input, REMatch mymatch)
+  {
+    char ch = input.charAt (mymatch.index);
+    if (ch == CharIndexed.OUT_OF_BOUNDS)
+      return ((mymatch.eflags & RE.REG_NOTEOL) > 0) ? null : mymatch;
+    if (check_java_line_terminators)
+      {
+	if (ch == '\n')
+	  {
+	    char ch1 = input.charAt (mymatch.index - 1);
+	    if (ch1 == '\r')
+	      return null;
 	    return mymatch;
-	}
+	  }
+	if (ch == '\r')
+	  return mymatch;
+	if (ch == '\u0085')
+	  return mymatch;	// A next-line character
+	if (ch == '\u2028')
+	  return mymatch;	// A line-separator character
+	if (ch == '\u2029')
+	  return mymatch;	// A paragraph-separator character
 	return null;
-    }
+      }
+    if (newline != null)
+      {
+	char z;
+	int i = 0;		// position in newline
+	do
+	  {
+	    z = newline.charAt (i);
+	    if (ch != z)
+	      return null;
+	    ++i;
+	    ch = input.charAt (mymatch.index + i);
+	  }
+	while (i < newline.length ());
 
-    boolean returnsFixedLengthMatches() { return true; }
+	return mymatch;
+      }
+    return null;
+  }
 
-    int findFixedLengthMatches(CharIndexed input, REMatch mymatch, int max) {
-        REMatch m = (REMatch) mymatch.clone();
-	REToken tk = (REToken) this.clone();
-	tk.chain(null);
-	if (tk.match(input, m)) return max;
-	else return 0;
-    }
+  boolean returnsFixedLengthMatches ()
+  {
+    return true;
+  }
 
-  void dump(StringBuffer os) {
-    os.append('$');
+  int findFixedLengthMatches (CharIndexed input, REMatch mymatch, int max)
+  {
+    REMatch m = (REMatch) mymatch.clone ();
+    REToken tk = (REToken) this.clone ();
+    tk.chain (null);
+    if (tk.match (input, m))
+      return max;
+    else
+      return 0;
+  }
+
+  void dump (CPStringBuilder os)
+  {
+    os.append ('$');
   }
 }

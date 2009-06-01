@@ -1,5 +1,5 @@
 /* ByteBuffer.java -- 
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,20 +38,26 @@ exception statement from your version. */
 
 package java.nio;
 
+// GCJ LOCAL: Change gnu.classpath.Pointer to RawData
+import gnu.gcj.RawData;
+import gnu.classpath.Pointer;
+
 /**
  * @since 1.4
  */
 public abstract class ByteBuffer extends Buffer
-  implements Comparable
+  implements Comparable<ByteBuffer>
 {
   ByteOrder endian = ByteOrder.BIG_ENDIAN;
+  final byte[] backing_buffer;
+  final int array_offset;
 
-  int array_offset;
-  byte[] backing_buffer;
-
-  ByteBuffer (int capacity, int limit, int position, int mark)
+  ByteBuffer (int capacity, int limit, int position, int mark,
+	      RawData address, byte[] backing_buffer, int array_offset)
   {
-    super (capacity, limit, position, mark);
+    super (capacity, limit, position, mark, address);
+    this.backing_buffer = backing_buffer;
+    this.array_offset = array_offset;
   }
 
   /**
@@ -290,7 +296,7 @@ public abstract class ByteBuffer extends Buffer
   {
     if (obj instanceof ByteBuffer)
       {
-        return compareTo (obj) == 0;
+        return compareTo ((ByteBuffer) obj) == 0;
       }
 
     return false;
@@ -302,10 +308,8 @@ public abstract class ByteBuffer extends Buffer
    * @exception ClassCastException If obj is not an object derived from
    * <code>ByteBuffer</code>.
    */
-  public int compareTo (Object obj)
+  public int compareTo (ByteBuffer other)
   {
-    ByteBuffer other = (ByteBuffer) obj;
-
     int num = Math.min(remaining(), other.remaining());
     int pos_this = position();
     int pos_other = other.position();

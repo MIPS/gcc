@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 1995-2005, AdaCore                     --
+--                     Copyright (C) 1995-2008, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,12 +39,11 @@
 --  See also GNAT.Bubble_Sort, a version that works with subprogram access
 --  parameters, allowing code sharing. The generic version is slightly more
 --  efficient but does not allow code sharing and has an interface that is
---  more awkward to use. The generic version is also Pure, while the access
---  subprograqm version can only be Preelaborate.
+--  more awkward to use.
 
 --  There is also GNAT.Bubble_Sort_A, which is now considered obsolete, but
 --  was an older version working with subprogram parameters. This version
---  is retained for baccwards compatibility with old versions of GNAT.
+--  is retained for backwards compatibility with old versions of GNAT.
 
 generic
    --  The data to be sorted is assumed to be indexed by integer values from

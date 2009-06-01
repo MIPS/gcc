@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -82,8 +80,7 @@ package body Table is
 
       procedure Append (New_Val : Table_Component_Type) is
       begin
-         Increment_Last;
-         Table (Table_Index_Type (Last_Val)) := New_Val;
+         Set_Item (Table_Index_Type (Last_Val + 1), New_Val);
       end Append;
 
       --------------------
@@ -163,7 +160,7 @@ package body Table is
       ----------------
 
       procedure Reallocate is
-         New_Size : Memory.size_t;
+         New_Size   : Memory.size_t;
 
       begin
          if Max < Last_Val then
@@ -174,10 +171,15 @@ package body Table is
 
             Length := Int'Max (Length, Table_Initial);
 
-            --  Now increment table length until it is sufficiently large
+            --  Now increment table length until it is sufficiently large. Use
+            --  the increment value or 10, which ever is larger (the reason
+            --  for the use of 10 here is to ensure that the table does really
+            --  increase in size (which would not be the case for a table of
+            --  length 10 increased by 3% for instance).
 
             while Max < Last_Val loop
-               Length := Length * (100 + Table_Increment) / 100;
+               Length := Int'Max (Length * (100 + Table_Increment) / 100,
+                                  Length + 10);
                Max := Min + Length - 1;
             end loop;
 
@@ -263,12 +265,74 @@ package body Table is
          (Index : Table_Index_Type;
           Item  : Table_Component_Type)
       is
-      begin
-         if Int (Index) > Max then
-            Set_Last (Index);
-         end if;
+         --  If Item is a value within the current allocation, and we are going
+         --  to reallocate, then we must preserve an intermediate copy here
+         --  before calling Increment_Last. Otherwise, if Table_Component_Type
+         --  is passed by reference, we are going to end up copying from
+         --  storage that might have been deallocated from Increment_Last
+         --  calling Reallocate.
 
-         Table (Index) := Item;
+         subtype Allocated_Table_T is
+           Table_Type (Table'First .. Table_Index_Type (Max + 1));
+         --  A constrained table subtype one element larger than the currently
+         --  allocated table.
+
+         Allocated_Table_Address : constant System.Address :=
+                                     Table.all'Address;
+         --  Used for address clause below (we can't use non-static expression
+         --  Table.all'Address directly in the clause because some older
+         --  versions of the compiler do not allow it).
+
+         Allocated_Table : Allocated_Table_T;
+         pragma Import (Ada, Allocated_Table);
+         pragma Suppress (Range_Check, On => Allocated_Table);
+         for Allocated_Table'Address use Allocated_Table_Address;
+         --  Allocated_Table represents the currently allocated array, plus one
+         --  element (the supplementary element is used to have a convenient
+         --  way of computing the address just past the end of the current
+         --  allocation). Range checks are suppressed because this unit
+         --  uses direct calls to System.Memory for allocation, and this can
+         --  yield misaligned storage (and we cannot rely on the bootstrap
+         --  compiler supporting specifically disabling alignment checks, so we
+         --  need to suppress all range checks). It is safe to suppress this
+         --  check here because we know that a (possibly misaligned) object
+         --  of that type does actually exist at that address.
+         --  ??? We should really improve the allocation circuitry here to
+         --  guarantee proper alignment.
+
+         Need_Realloc : constant Boolean := Int (Index) > Max;
+         --  True if this operation requires storage reallocation (which may
+         --  involve moving table contents around).
+
+      begin
+         --  If we're going to reallocate, check whether Item references an
+         --  element of the currently allocated table.
+
+         if Need_Realloc
+           and then Allocated_Table'Address <= Item'Address
+           and then Item'Address <
+                      Allocated_Table (Table_Index_Type (Max + 1))'Address
+         then
+            --  If so, save a copy on the stack because Increment_Last will
+            --  reallocate storage and might deallocate the current table.
+
+            declare
+               Item_Copy : constant Table_Component_Type := Item;
+            begin
+               Set_Last (Index);
+               Table (Index) := Item_Copy;
+            end;
+
+         else
+            --  Here we know that either we won't reallocate (case of Index <
+            --  Max) or that Item is not in the currently allocated table.
+
+            if Int (Index) > Last_Val then
+               Set_Last (Index);
+            end if;
+
+            Table (Index) := Item;
+         end if;
       end Set_Item;
 
       --------------
@@ -279,6 +343,7 @@ package body Table is
       begin
          if Int (New_Val) < Last_Val then
             Last_Val := Int (New_Val);
+
          else
             Last_Val := Int (New_Val);
 

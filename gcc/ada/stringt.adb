@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -61,7 +59,7 @@ package body Stringt is
 
    package Strings is new Table.Table (
      Table_Component_Type => String_Entry,
-     Table_Index_Type     => String_Id,
+     Table_Index_Type     => String_Id'Base,
      Table_Low_Bound      => First_String_Id,
      Table_Initial        => Alloc.Strings_Initial,
      Table_Increment      => Alloc.Strings_Increment,
@@ -139,9 +137,7 @@ package body Stringt is
 
    procedure Start_String is
    begin
-      Strings.Increment_Last;
-      Strings.Table (Strings.Last).String_Index := String_Chars.Last + 1;
-      Strings.Table (Strings.Last).Length := 0;
+      Strings.Append ((String_Index => String_Chars.Last + 1, Length => 0));
    end Start_String;
 
    --  Version to start from initially stored string
@@ -166,9 +162,8 @@ package body Stringt is
            String_Chars.Last + 1;
 
          for J in 1 .. Strings.Table (S).Length loop
-            String_Chars.Increment_Last;
-            String_Chars.Table (String_Chars.Last) :=
-              String_Chars.Table (Strings.Table (S).String_Index + (J - 1));
+            String_Chars.Append
+              (String_Chars.Table (Strings.Table (S).String_Index + (J - 1)));
          end loop;
       end if;
 
@@ -183,8 +178,7 @@ package body Stringt is
 
    procedure Store_String_Char (C : Char_Code) is
    begin
-      String_Chars.Increment_Last;
-      String_Chars.Table (String_Chars.Last) := C;
+      String_Chars.Append (C);
       Strings.Table (Strings.Last).Length :=
         Strings.Table (Strings.Last).Length + 1;
    end Store_String_Char;
@@ -206,10 +200,27 @@ package body Stringt is
    end Store_String_Chars;
 
    procedure Store_String_Chars (S : String_Id) is
+
+      --  We are essentially doing this:
+
+      --   for J in 1 .. String_Length (S) loop
+      --      Store_String_Char (Get_String_Char (S, J));
+      --   end loop;
+
+      --  but when the string is long it's more efficient to grow the
+      --  String_Chars table all at once.
+
+      S_First  : constant Int := Strings.Table (S).String_Index;
+      S_Len    : constant Int := String_Length (S);
+      Old_Last : constant Int := String_Chars.Last;
+      New_Last : constant Int := Old_Last + S_Len;
+
    begin
-      for J in 1 .. String_Length (S) loop
-         Store_String_Char (Get_String_Char (S, J));
-      end loop;
+      String_Chars.Set_Last (New_Last);
+      String_Chars.Table (Old_Last + 1 .. New_Last) :=
+        String_Chars.Table (S_First .. S_First + S_Len - 1);
+      Strings.Table (Strings.Last).Length :=
+        Strings.Table (Strings.Last).Length + S_Len;
    end Store_String_Chars;
 
    ----------------------
@@ -415,11 +426,19 @@ package body Stringt is
          for J in 1 .. String_Length (Id) loop
             C := Get_String_Char (Id, J);
 
-            if Character'Val (C) = '"' then
+            if C = Character'Pos ('"') then
                Write_Str ("""""");
-
             else
                Write_Char_Code (C);
+            end if;
+
+            --  If string is very long, quit
+
+            if J >= 1000 then  --  arbitrary limit
+               Write_Str ("""...etc (length = ");
+               Write_Int (String_Length (Id));
+               Write_Str (")");
+               return;
             end if;
          end loop;
 

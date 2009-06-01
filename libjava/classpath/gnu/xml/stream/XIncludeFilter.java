@@ -42,7 +42,6 @@ import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.HashSet;
@@ -52,7 +51,6 @@ import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -122,17 +120,7 @@ class XIncludeFilter
                  boolean expandERefs)
   {
     super(reader);
-    try
-      {
-        this.systemId = XMLParser.absolutize(null, systemId);
-      }
-    catch (MalformedURLException e)
-      {
-        RuntimeException e2 = new RuntimeException("unsupported URL: " +
-                                                   systemId);
-        e2.initCause(e);
-        throw e2;
-      }
+    this.systemId = XMLParser.absolutize(null, systemId);
     this.namespaceAware = namespaceAware;
     this.validating = validating;
     this.expandERefs = expandERefs;
@@ -511,7 +499,7 @@ class XIncludeFilter
             return event;
           case XPathResult.NUMBER_TYPE:
             double nval = result.getNumberValue();
-            String ntext = new Double(nval).toString();
+            String ntext = Double.toString(nval);
             buf = ntext.toCharArray();
             len = buf.length;
             result = null;

@@ -1,5 +1,5 @@
 /* Perform branch target register load optimizations.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -36,6 +36,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "toplev.h"
 #include "tree-pass.h"
+#include "recog.h"
+#include "df.h"
 
 /* Target register optimizations - these are performed after reload.  */
 
@@ -109,8 +111,8 @@ typedef struct btr_def_s
 
 static int issue_rate;
 
-static int basic_block_freq (basic_block);
-static int insn_sets_btr_p (rtx, int, int *);
+static int basic_block_freq (const_basic_block);
+static int insn_sets_btr_p (const_rtx, int, int *);
 static rtx *find_btr_use (rtx);
 static int btr_referenced_p (rtx, rtx *);
 static int find_btr_reference (rtx *, void *);
@@ -138,8 +140,8 @@ static void btr_def_live_range (btr_def, HARD_REG_SET *);
 static void move_btr_def (basic_block, int, btr_def, bitmap, HARD_REG_SET *);
 static int migrate_btr_def (btr_def, int);
 static void migrate_btr_defs (enum reg_class, int);
-static int can_move_up (basic_block, rtx, int);
-static void note_btr_set (rtx, rtx, void *);
+static int can_move_up (const_basic_block, const_rtx, int);
+static void note_btr_set (rtx, const_rtx, void *);
 
 /* The following code performs code motion of target load instructions
    (instructions that set branch target registers), to move them
@@ -177,7 +179,7 @@ static int first_btr, last_btr;
 
 /* Return an estimate of the frequency of execution of block bb.  */
 static int
-basic_block_freq (basic_block bb)
+basic_block_freq (const_basic_block bb)
 {
   return bb->frequency;
 }
@@ -192,20 +194,17 @@ static int
 find_btr_reference (rtx *px, void *preg)
 {
   rtx x;
-  int regno, i;
 
   if (px == preg)
     return -1;
   x = *px;
   if (!REG_P (x))
     return 0;
-  regno = REGNO (x);
-  for (i = hard_regno_nregs[regno][GET_MODE (x)] - 1; i >= 0; i--)
-    if (TEST_HARD_REG_BIT (all_btrs, regno+i))
-      {
-	btr_reference_found = px;
-	return 1;
-      }
+  if (overlaps_hard_reg_set_p (all_btrs, GET_MODE (x), REGNO (x)))
+    {
+      btr_reference_found = px;
+      return 1;
+    }
   return -1;
 }
 
@@ -223,7 +222,7 @@ btr_referenced_p (rtx x, rtx *excludep)
    If such a set is found and REGNO is nonzero, assign the register number
    of the destination register to *REGNO.  */
 static int
-insn_sets_btr_p (rtx insn, int check_const, int *regno)
+insn_sets_btr_p (const_rtx insn, int check_const, int *regno)
 {
   rtx set;
 
@@ -280,8 +279,7 @@ find_btr_def_group (btr_def_group *all_btr_def_groups, btr_def def)
 
       if (!this_group)
 	{
-	  this_group = obstack_alloc (&migrate_btrl_obstack,
-				      sizeof (struct btr_def_group_s));
+	  this_group = XOBNEW (&migrate_btrl_obstack, struct btr_def_group_s);
 	  this_group->src = def_src;
 	  this_group->members = NULL;
 	  this_group->next = *all_btr_def_groups;
@@ -303,31 +301,30 @@ add_btr_def (fibheap_t all_btr_defs, basic_block bb, int insn_luid, rtx insn,
 	     unsigned int dest_reg, int other_btr_uses_before_def,
 	     btr_def_group *all_btr_def_groups)
 {
-  btr_def this
-    = obstack_alloc (&migrate_btrl_obstack, sizeof (struct btr_def_s));
-  this->bb = bb;
-  this->luid = insn_luid;
-  this->insn = insn;
-  this->btr = dest_reg;
-  this->cost = basic_block_freq (bb);
-  this->has_ambiguous_use = 0;
-  this->other_btr_uses_before_def = other_btr_uses_before_def;
-  this->other_btr_uses_after_use = 0;
-  this->next_this_bb = NULL;
-  this->next_this_group = NULL;
-  this->uses = NULL;
-  this->live_range = NULL;
-  find_btr_def_group (all_btr_def_groups, this);
+  btr_def this_def = XOBNEW (&migrate_btrl_obstack, struct btr_def_s);
+  this_def->bb = bb;
+  this_def->luid = insn_luid;
+  this_def->insn = insn;
+  this_def->btr = dest_reg;
+  this_def->cost = basic_block_freq (bb);
+  this_def->has_ambiguous_use = 0;
+  this_def->other_btr_uses_before_def = other_btr_uses_before_def;
+  this_def->other_btr_uses_after_use = 0;
+  this_def->next_this_bb = NULL;
+  this_def->next_this_group = NULL;
+  this_def->uses = NULL;
+  this_def->live_range = NULL;
+  find_btr_def_group (all_btr_def_groups, this_def);
 
-  fibheap_insert (all_btr_defs, -this->cost, this);
+  fibheap_insert (all_btr_defs, -this_def->cost, this_def);
 
   if (dump_file)
     fprintf (dump_file,
       "Found target reg definition: sets %u { bb %d, insn %d }%s priority %d\n",
-      dest_reg, bb->index, INSN_UID (insn), (this->group ? "" : ":not const"),
-      this->cost);
+	     dest_reg, bb->index, INSN_UID (insn),
+	     (this_def->group ? "" : ":not const"), this_def->cost);
 
-  return this;
+  return this_def;
 }
 
 /* Create a new target register user structure, for a use in block BB,
@@ -355,7 +352,7 @@ new_btr_user (basic_block bb, int insn_luid, rtx insn)
 	usep = NULL;
     }
   use = usep ? *usep : NULL_RTX;
-  user = obstack_alloc (&migrate_btrl_obstack, sizeof (struct btr_user_s));
+  user = XOBNEW (&migrate_btrl_obstack, struct btr_user_s);
   user->bb = bb;
   user->luid = insn_luid;
   user->insn = insn;
@@ -424,15 +421,15 @@ typedef struct {
    straightforward definitions.  DATA points to information about the
    current basic block that needs updating.  */
 static void
-note_btr_set (rtx dest, rtx set ATTRIBUTE_UNUSED, void *data)
+note_btr_set (rtx dest, const_rtx set ATTRIBUTE_UNUSED, void *data)
 {
-  defs_uses_info *info = data;
+  defs_uses_info *info = (defs_uses_info *) data;
   int regno, end_regno;
 
   if (!REG_P (dest))
     return;
   regno = REGNO (dest);
-  end_regno = regno + hard_regno_nregs[regno][GET_MODE (dest)];
+  end_regno = END_HARD_REGNO (dest);
   for (; regno < end_regno; regno++)
     if (TEST_HARD_REG_BIT (all_btrs, regno))
       {
@@ -478,7 +475,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
       CLEAR_HARD_REG_SET (info.btrs_written_in_block);
       for (reg = first_btr; reg <= last_btr; reg++)
 	if (TEST_HARD_REG_BIT (all_btrs, reg)
-	    && REGNO_REG_SET_P (bb->il.rtl->global_live_at_start, reg))
+	    && REGNO_REG_SET_P (df_get_live_in (bb), reg))
 	  SET_HARD_REG_BIT (info.btrs_live_in_block, reg);
 
       for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb));
@@ -509,8 +506,8 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
 		  note_other_use_this_block (regno, info.users_this_bb);
 		}
 	      /* Check for the blockage emitted by expand_nl_goto_receiver.  */
-	      else if (current_function_has_nonlocal_label
-		       && GET_CODE (PATTERN (insn)) == ASM_INPUT)
+	      else if (cfun->has_nonlocal_label
+		       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE)
 		{
 		  btr_user user;
 
@@ -579,7 +576,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
       COPY_HARD_REG_SET (btrs_live[i], info.btrs_live_in_block);
       COPY_HARD_REG_SET (btrs_written[i], info.btrs_written_in_block);
 
-      REG_SET_TO_HARD_REG_SET (btrs_live_at_end[i], bb->il.rtl->global_live_at_end);
+      REG_SET_TO_HARD_REG_SET (btrs_live_at_end[i], df_get_live_out (bb));
       /* If this block ends in a jump insn, add any uses or even clobbers
 	 of branch target registers that it might have.  */
       for (insn = BB_END (bb); insn != BB_HEAD (bb) && ! INSN_P (insn); )
@@ -987,20 +984,19 @@ static int
 choose_btr (HARD_REG_SET used_btrs)
 {
   int i;
-  GO_IF_HARD_REG_SUBSET (all_btrs, used_btrs, give_up);
 
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    {
+  if (!hard_reg_set_subset_p (all_btrs, used_btrs))
+    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+      {
 #ifdef REG_ALLOC_ORDER
-      int regno = reg_alloc_order[i];
+	int regno = reg_alloc_order[i];
 #else
-      int regno = i;
+	int regno = i;
 #endif
-      if (TEST_HARD_REG_BIT (all_btrs, regno)
-	  && !TEST_HARD_REG_BIT (used_btrs, regno))
-	return regno;
-    }
-give_up:
+	if (TEST_HARD_REG_BIT (all_btrs, regno)
+	    && !TEST_HARD_REG_BIT (used_btrs, regno))
+	  return regno;
+      }
   return -1;
 }
 
@@ -1206,7 +1202,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
   /* Insert target register initialization at head of basic block.  */
   def->insn = emit_insn_after (new_insn, insp);
 
-  regs_ever_live[btr] = 1;
+  df_set_regs_ever_live (btr, true);
 
   if (dump_file)
     fprintf (dump_file, "New pt is insn %d, inserted after insn %d\n",
@@ -1229,7 +1225,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
 	replacement_rtx = btr_rtx;
       else
 	replacement_rtx = gen_rtx_REG (GET_MODE (user->use), btr);
-      replace_rtx (user->insn, user->use, replacement_rtx);
+      validate_replace_rtx (user->use, replacement_rtx, user->insn);
       user->use = replacement_rtx;
     }
 }
@@ -1237,7 +1233,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
 /* We anticipate intra-block scheduling to be done.  See if INSN could move
    up within BB by N_INSNS.  */
 static int
-can_move_up (basic_block bb, rtx insn, int n_insns)
+can_move_up (const_basic_block bb, const_rtx insn, int n_insns)
 {
   while (insn != BB_HEAD (bb) && n_insns > 0)
     {
@@ -1277,7 +1273,7 @@ migrate_btr_def (btr_def def, int min_cost)
   HARD_REG_SET btrs_live_in_range;
   int btr_used_near_def = 0;
   int def_basic_block_freq;
-  basic_block try;
+  basic_block attempt;
   int give_up = 0;
   int def_moved = 0;
   btr_user user;
@@ -1331,31 +1327,31 @@ migrate_btr_def (btr_def def, int min_cost)
 
   def_basic_block_freq = basic_block_freq (def->bb);
 
-  for (try = get_immediate_dominator (CDI_DOMINATORS, def->bb);
-       !give_up && try && try != ENTRY_BLOCK_PTR && def->cost >= min_cost;
-       try = get_immediate_dominator (CDI_DOMINATORS, try))
+  for (attempt = get_immediate_dominator (CDI_DOMINATORS, def->bb);
+       !give_up && attempt && attempt != ENTRY_BLOCK_PTR && def->cost >= min_cost;
+       attempt = get_immediate_dominator (CDI_DOMINATORS, attempt))
     {
       /* Try to move the instruction that sets the target register into
-	 basic block TRY.  */
-      int try_freq = basic_block_freq (try);
+	 basic block ATTEMPT.  */
+      int try_freq = basic_block_freq (attempt);
       edge_iterator ei;
       edge e;
 
-      /* If TRY has abnormal edges, skip it.  */
-      FOR_EACH_EDGE (e, ei, try->succs)
+      /* If ATTEMPT has abnormal edges, skip it.  */
+      FOR_EACH_EDGE (e, ei, attempt->succs)
 	if (e->flags & EDGE_COMPLEX)
 	  break;
       if (e)
 	continue;
 
       if (dump_file)
-	fprintf (dump_file, "trying block %d ...", try->index);
+	fprintf (dump_file, "trying block %d ...", attempt->index);
 
       if (try_freq < def_basic_block_freq
 	  || (try_freq == def_basic_block_freq && btr_used_near_def))
 	{
 	  int btr;
-	  augment_live_range (live_range, &btrs_live_in_range, def->bb, try,
+	  augment_live_range (live_range, &btrs_live_in_range, def->bb, attempt,
 			      flag_btr_bb_exclusive);
 	  if (dump_file)
 	    {
@@ -1366,7 +1362,7 @@ migrate_btr_def (btr_def def, int min_cost)
 	  btr = choose_btr (btrs_live_in_range);
 	  if (btr != -1)
 	    {
-	      move_btr_def (try, btr, def, live_range, &btrs_live_in_range);
+	      move_btr_def (attempt, btr, def, live_range, &btrs_live_in_range);
 	      bitmap_copy(live_range, def->live_range);
 	      btr_used_near_def = 0;
 	      def_moved = 1;
@@ -1421,7 +1417,8 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
   CLEAR_HARD_REG_SET (all_btrs);
   for (first_btr = -1, reg = 0; reg < FIRST_PSEUDO_REGISTER; reg++)
     if (TEST_HARD_REG_BIT (reg_class_contents[(int) btr_class], reg)
-	&& (allow_callee_save || call_used_regs[reg] || regs_ever_live[reg]))
+	&& (allow_callee_save || call_used_regs[reg] 
+	    || df_regs_ever_live_p (reg)))
       {
 	SET_HARD_REG_BIT (all_btrs, reg);
 	last_btr = reg;
@@ -1429,14 +1426,14 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 	  first_btr = reg;
       }
 
-  btrs_live = xcalloc (n_basic_blocks, sizeof (HARD_REG_SET));
-  btrs_live_at_end = xcalloc (n_basic_blocks, sizeof (HARD_REG_SET));
+  btrs_live = XCNEWVEC (HARD_REG_SET, n_basic_blocks);
+  btrs_live_at_end = XCNEWVEC (HARD_REG_SET, n_basic_blocks);
 
   build_btr_def_use_webs (all_btr_defs);
 
   while (!fibheap_empty (all_btr_defs))
     {
-      btr_def def = fibheap_extract_min (all_btr_defs);
+      btr_def def = (btr_def) fibheap_extract_min (all_btr_defs);
       int min_cost = -fibheap_min_key (all_btr_defs);
       if (migrate_btr_def (def, min_cost))
 	{
@@ -1458,11 +1455,11 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
   fibheap_delete (all_btr_defs);
 }
 
-void
+static void
 branch_target_load_optimize (bool after_prologue_epilogue_gen)
 {
-  enum reg_class class = targetm.branch_target_register_class ();
-  if (class != NO_REGS)
+  enum reg_class klass = targetm.branch_target_register_class ();
+  if (klass != NO_REGS)
     {
       /* Initialize issue_rate.  */
       if (targetm.sched.issue_rate)
@@ -1470,37 +1467,72 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
       else
 	issue_rate = 1;
 
-      /* Build the CFG for migrate_btr_defs.  */
+      if (!after_prologue_epilogue_gen)
+	{
+	  /* Build the CFG for migrate_btr_defs.  */
 #if 1
-      /* This may or may not be needed, depending on where we
-	 run this phase.  */
-      cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
+	  /* This may or may not be needed, depending on where we
+	     run this phase.  */
+	  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
 #endif
+	}
+      df_analyze ();
 
-      life_analysis (0);
 
       /* Dominator info is also needed for migrate_btr_def.  */
       calculate_dominance_info (CDI_DOMINATORS);
-      migrate_btr_defs (class,
+      migrate_btr_defs (klass,
 		       (targetm.branch_target_register_callee_saved
 			(after_prologue_epilogue_gen)));
 
       free_dominance_info (CDI_DOMINATORS);
-
-      update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			PROP_DEATH_NOTES | PROP_REG_INFO);
     }
 }
 
 static bool
-gate_handle_branch_target_load_optimize (void)
+gate_handle_branch_target_load_optimize1 (void)
+{
+  return flag_branch_target_load_optimize;
+}
+
+
+static unsigned int
+rest_of_handle_branch_target_load_optimize1 (void)
+{
+  branch_target_load_optimize (epilogue_completed);
+  return 0;
+}
+
+struct rtl_opt_pass pass_branch_target_load_optimize1 =
+{
+ {
+  RTL_PASS,
+  "btl1",                               /* name */
+  gate_handle_branch_target_load_optimize1,      /* gate */
+  rest_of_handle_branch_target_load_optimize1,   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,		                        /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_verify_rtl_sharing |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+ }
+};
+
+static bool
+gate_handle_branch_target_load_optimize2 (void)
 {
   return (optimize > 0 && flag_branch_target_load_optimize2);
 }
 
 
 static unsigned int
-rest_of_handle_branch_target_load_optimize (void)
+rest_of_handle_branch_target_load_optimize2 (void)
 {
   static int warned = 0;
 
@@ -1521,11 +1553,13 @@ rest_of_handle_branch_target_load_optimize (void)
   return 0;
 }
 
-struct tree_opt_pass pass_branch_target_load_optimize =
+struct rtl_opt_pass pass_branch_target_load_optimize2 =
 {
-  "btl",                               /* name */
-  gate_handle_branch_target_load_optimize,      /* gate */
-  rest_of_handle_branch_target_load_optimize,   /* execute */
+ {
+  RTL_PASS,
+  "btl2",                               /* name */
+  gate_handle_branch_target_load_optimize2,      /* gate */
+  rest_of_handle_branch_target_load_optimize2,   /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -1536,6 +1570,6 @@ struct tree_opt_pass pass_branch_target_load_optimize =
   0,                                    /* todo_flags_start */
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
-  'd'                                   /* letter */
+ }
 };
 

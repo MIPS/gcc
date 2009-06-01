@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -62,6 +60,9 @@ package Elists is
    procedure Lock;
    --  Lock tables used for element lists before calling backend
 
+   procedure Unlock;
+   --  Unlock list tables, in cases where the back end needs to modify them
+
    procedure Tree_Read;
    --  Initializes internal tables from current tree file using the relevant
    --  Table.Tree_Read routines. Note that Initialize should not be called if
@@ -86,7 +87,7 @@ package Elists is
    function Elmts_Address return System.Address;
    --  Return address of Elmts table (used in Back_End for Gigi call)
 
-   function Node (Elmt : Elmt_Id) return Node_Id;
+   function Node (Elmt : Elmt_Id) return Node_Or_Entity_Id;
    pragma Inline (Node);
    --  Returns the value of a given list element. Returns Empty if Elmt
    --  is set to No_Elmt.
@@ -98,13 +99,13 @@ package Elists is
 
    function First_Elmt (List : Elist_Id) return Elmt_Id;
    pragma Inline (First_Elmt);
-   --  Obtains the first element of the given element list or, if the
-   --  list has no items, then No_Elmt is returned.
+   --  Obtains the first element of the given element list or, if the list has
+   --  no items, then No_Elmt is returned.
 
    function Last_Elmt (List : Elist_Id) return Elmt_Id;
    pragma Inline (Last_Elmt);
-   --  Obtains the last element of the given element list or, if the
-   --  list has no items, then No_Elmt is returned.
+   --  Obtains the last element of the given element list or, if the list has
+   --  no items, then No_Elmt is returned.
 
    function Next_Elmt (Elmt : Elmt_Id) return Elmt_Id;
    pragma Inline (Next_Elmt);
@@ -121,17 +122,22 @@ package Elists is
    --  This function determines if a given tree id references an element list
    --  that contains no items.
 
-   procedure Append_Elmt (Node : Node_Id; To : Elist_Id);
-   --  Appends Node at the end of To, allocating a new element
+   procedure Append_Elmt (N : Node_Or_Entity_Id; To : Elist_Id);
+   --  Appends N at the end of To, allocating a new element. N must be a
+   --  non-empty node or entity Id, and To must be an Elist (not No_Elist).
 
-   procedure Prepend_Elmt (Node : Node_Id; To : Elist_Id);
-   --  Appends Node at the beginning of To, allocating a new element
+   procedure Append_Unique_Elmt (N : Node_Or_Entity_Id; To : Elist_Id);
+   --  Like Append_Elmt, except that a check is made to see if To already
+   --  contains N and if so the call has no effect.
 
-   procedure Insert_Elmt_After (Node : Node_Id; Elmt : Elmt_Id);
-   --  Add a new element (Node) right after the pre-existing element Elmt
+   procedure Prepend_Elmt (N : Node_Or_Entity_Id; To : Elist_Id);
+   --  Appends N at the beginning of To, allocating a new element
+
+   procedure Insert_Elmt_After (N : Node_Or_Entity_Id; Elmt : Elmt_Id);
+   --  Add a new element (N) right after the pre-existing element Elmt
    --  It is invalid to call this subprogram with Elmt = No_Elmt.
 
-   procedure Replace_Elmt (Elmt : Elmt_Id; New_Node : Node_Id);
+   procedure Replace_Elmt (Elmt : Elmt_Id; New_Node : Node_Or_Entity_Id);
    pragma Inline (Replace_Elmt);
    --  Causes the given element of the list to refer to New_Node, the node
    --  which was previously referred to by Elmt is effectively removed from

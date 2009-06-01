@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -52,20 +50,35 @@ package body Widechar is
    is
    begin
       case Wide_Character_Encoding_Method is
+
+         --  For Hex mode, just test for an ESC character. The ESC character
+         --  cannot appear in any other context in a legal Ada program.
+
          when WCEM_Hex =>
             return S (P) = ASCII.ESC;
+
+         --  For brackets, just test ["x where x is a hex character. This is
+         --  sufficient test, since this sequence cannot otherwise appear in a
+         --  legal Ada program.
+
+         when WCEM_Brackets =>
+            return P <= S'Last - 2
+              and then S (P) = '['
+              and then S (P + 1) = '"'
+              and then (S (P + 2) in '0' .. '9'
+                            or else
+                           S (P + 2) in 'a' .. 'f'
+                            or else
+                        S (P + 2) in 'A' .. 'F');
+
+         --  All other encoding methods use the upper bit set in the first
+         --  character to uniquely represent a wide character.
 
          when WCEM_Upper     |
               WCEM_Shift_JIS |
               WCEM_EUC       |
               WCEM_UTF8      =>
             return S (P) >= Character'Val (16#80#);
-
-         when WCEM_Brackets =>
-            return P <= S'Last - 2
-              and then S (P) = '['
-              and then S (P + 1) = '"'
-              and then S (P + 2) /= '"';
       end case;
    end Is_Start_Of_Wide_Char;
 
@@ -89,6 +102,7 @@ package body Widechar is
       Err : out Boolean)
    is
       P_Init : constant Source_Ptr := P;
+      Chr    : Character;
 
       function In_Char return Character;
       --  Function to obtain characters of wide character escape sequence
@@ -105,10 +119,21 @@ package body Widechar is
 
       function WC_In is new Char_Sequence_To_UTF_32 (In_Char);
 
-   --  Start of processingf for Scan_Wide
+   --  Start of processing for Scan_Wide
 
    begin
-      C := Char_Code (WC_In (In_Char, Wide_Character_Encoding_Method));
+      Chr := In_Char;
+
+      --  Scan out the wide character. If the first character is a bracket,
+      --  we allow brackets encoding regardless of the standard encoding
+      --  method being used, but otherwise we use this standard method.
+
+      if Chr = '[' then
+         C := Char_Code (WC_In (Chr, WCEM_Brackets));
+      else
+         C := Char_Code (WC_In (Chr, Wide_Character_Encoding_Method));
+      end if;
+
       Err := False;
       Wide_Char_Byte_Count := Wide_Char_Byte_Count + Nat (P - P_Init - 1);
 

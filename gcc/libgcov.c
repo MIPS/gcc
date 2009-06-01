@@ -1,33 +1,29 @@
 /* Routines required for instrumenting a program.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -614,6 +610,18 @@ __gcov_merge_add (gcov_type *counters, unsigned n_counters)
 }
 #endif /* L_gcov_merge_add */
 
+#ifdef L_gcov_merge_ior
+/* The profile merging function that just adds the counters.  It is given
+   an array COUNTERS of N_COUNTERS old counters and it reads the same number
+   of counters from the gcov file.  */
+void
+__gcov_merge_ior (gcov_type *counters, unsigned n_counters)
+{
+  for (; n_counters; counters++, n_counters--)
+    *counters |= gcov_read_counter ();
+}
+#endif
+
 #ifdef L_gcov_merge_single
 /* The profile merging function for choosing the most common value.
    It is given an array COUNTERS of N_COUNTERS old counters and it
@@ -726,7 +734,6 @@ __gcov_pow2_profiler (gcov_type *counters, gcov_type value)
 }
 #endif
 
-#ifdef L_gcov_one_value_profiler
 /* Tries to determine the most common value among its inputs.  Checks if the
    value stored in COUNTERS[0] matches VALUE.  If this is the case, COUNTERS[1]
    is incremented.  If this is not the case and COUNTERS[1] is not zero,
@@ -737,8 +744,8 @@ __gcov_pow2_profiler (gcov_type *counters, gcov_type value)
 
    In any case, COUNTERS[2] is incremented.  */
 
-void
-__gcov_one_value_profiler (gcov_type *counters, gcov_type value)
+static inline void
+__gcov_one_value_profiler_body (gcov_type *counters, gcov_type value)
 {
   if (value == counters[0])
     counters[1]++;
@@ -750,6 +757,53 @@ __gcov_one_value_profiler (gcov_type *counters, gcov_type value)
   else
     counters[1]--;
   counters[2]++;
+}
+
+#ifdef L_gcov_one_value_profiler
+void
+__gcov_one_value_profiler (gcov_type *counters, gcov_type value)
+{
+  __gcov_one_value_profiler_body (counters, value);
+}
+#endif
+
+#ifdef L_gcov_indirect_call_profiler
+/* Tries to determine the most common value among its inputs. */
+void
+__gcov_indirect_call_profiler (gcov_type* counter, gcov_type value, 
+			       void* cur_func, void* callee_func)
+{
+  /* If the C++ virtual tables contain function descriptors then one
+     function may have multiple descriptors and we need to dereference
+     the descriptors to see if they point to the same function.  */
+  if (cur_func == callee_func
+      || (TARGET_VTABLE_USES_DESCRIPTORS && callee_func
+	  && *(void **) cur_func == *(void **) callee_func))
+    __gcov_one_value_profiler_body (counter, value);
+}
+#endif
+
+
+#ifdef L_gcov_average_profiler
+/* Increase corresponding COUNTER by VALUE.  FIXME: Perhaps we want
+   to saturate up.  */
+
+void
+__gcov_average_profiler (gcov_type *counters, gcov_type value)
+{
+  counters[0] += value;
+  counters[1] ++;
+}
+#endif
+
+#ifdef L_gcov_ior_profiler
+/* Increase corresponding COUNTER by VALUE.  FIXME: Perhaps we want
+   to saturate up.  */
+
+void
+__gcov_ior_profiler (gcov_type *counters, gcov_type value)
+{
+  *counters |= value;
 }
 #endif
 
@@ -770,7 +824,7 @@ __gcov_fork (void)
    that they are not lost.  */
 
 int
-__gcov_execl (const char *path, const char *arg, ...)
+__gcov_execl (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -787,7 +841,7 @@ __gcov_execl (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   va_end (aq);
@@ -801,7 +855,7 @@ __gcov_execl (const char *path, const char *arg, ...)
    that they are not lost.  */
 
 int
-__gcov_execlp (const char *path, const char *arg, ...)
+__gcov_execlp (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -818,7 +872,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   va_end (aq);
@@ -832,7 +886,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
    that they are not lost.  */
 
 int
-__gcov_execle (const char *path, const char *arg, ...)
+__gcov_execle (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -850,7 +904,7 @@ __gcov_execle (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   envp = va_arg (aq, char **);

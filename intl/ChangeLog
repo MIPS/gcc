@@ -1,14 +1,25 @@
-2007-10-07  Release Manager
+2009-04-21  Release Manager
 
-	* GCC 4.2.2 released.
+	* GCC 4.4.0 released.
 
-2007-07-19  Release Manager
+2008-06-17  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
-	* GCC 4.2.1 released.
+	* configure: Regenerate.
 
-2007-05-13  Release Manager
+2008-06-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
-	* GCC 4.2.0 released.
+	* Makefile.in (datarootdir): New variable.
+
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/35457
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2008-03-17  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* aclocal.m4: Regenerate.
+	* configure: Likewise.
 
 2006-09-27  Alan Modra  <amodra@bigpond.net.au>
 

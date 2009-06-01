@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -38,8 +36,8 @@ with System.File_IO;
 with System.Soft_Links;
 with System.CRTL;
 
-with Unchecked_Conversion;
-with Unchecked_Deallocation;
+with Ada.Unchecked_Conversion;
+with Ada.Unchecked_Deallocation;
 
 package body Ada.Streams.Stream_IO is
 
@@ -48,8 +46,8 @@ package body Ada.Streams.Stream_IO is
 
    subtype AP is FCB.AFCB_Ptr;
 
-   function To_FCB is new Unchecked_Conversion (File_Mode, FCB.File_Mode);
-   function To_SIO is new Unchecked_Conversion (FCB.File_Mode, File_Mode);
+   function To_FCB is new Ada.Unchecked_Conversion (File_Mode, FCB.File_Mode);
+   function To_SIO is new Ada.Unchecked_Conversion (FCB.File_Mode, File_Mode);
    use type FCB.File_Mode;
    use type FCB.Shared_Status_Type;
 
@@ -76,7 +74,7 @@ package body Ada.Streams.Stream_IO is
 
    --  No special processing required for closing Stream_IO file
 
-   procedure AFCB_Close (File : access Stream_AFCB) is
+   procedure AFCB_Close (File : not null access Stream_AFCB) is
       pragma Warnings (Off, File);
    begin
       null;
@@ -86,11 +84,11 @@ package body Ada.Streams.Stream_IO is
    -- AFCB_Free --
    ---------------
 
-   procedure AFCB_Free (File : access Stream_AFCB) is
+   procedure AFCB_Free (File : not null access Stream_AFCB) is
       type FCB_Ptr is access all Stream_AFCB;
       FT : FCB_Ptr := FCB_Ptr (File);
 
-      procedure Free is new Unchecked_Deallocation (Stream_AFCB, FCB_Ptr);
+      procedure Free is new Ada.Unchecked_Deallocation (Stream_AFCB, FCB_Ptr);
 
    begin
       Free (FT);
@@ -102,7 +100,7 @@ package body Ada.Streams.Stream_IO is
 
    procedure Close (File : in out File_Type) is
    begin
-      FIO.Close (AP (File));
+      FIO.Close (AP (File)'Unrestricted_Access);
    end Close;
 
    ------------
@@ -138,7 +136,7 @@ package body Ada.Streams.Stream_IO is
 
    procedure Delete (File : in out File_Type) is
    begin
-      FIO.Delete (AP (File));
+      FIO.Delete (AP (File)'Unrestricted_Access);
    end Delete;
 
    -----------------
@@ -362,7 +360,7 @@ package body Ada.Streams.Stream_IO is
       if ((File.Mode = FCB.In_File) /= (Mode = In_File))
         and then not File.Update_Mode
       then
-         FIO.Reset (AP (File), FCB.Inout_File);
+         FIO.Reset (AP (File)'Unrestricted_Access, FCB.Inout_File);
          File.Update_Mode := True;
       end if;
 

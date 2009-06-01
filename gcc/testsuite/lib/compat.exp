@@ -1,4 +1,5 @@
-# Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+# Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008
+# Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,8 +52,11 @@ set option_list $COMPAT_OPTIONS
 
 # Subsets of tests can be selectively disabled by members of this list:
 #  - ATTRIBUTE: disable all tests using the __attribute__ extension,
+#  - COMPLEX: disable all tests using the complex types feature,
 #  - COMPLEX_INT: disable all tests using the complex integral types extension,
 #  - VA: disable all tests using the variable number of arguments feature,
+#  - VLA_IN_STRUCT: disable all tests using the variable-length arrays as
+#    structure members extension,
 #  - ZERO_ARRAY: disable all tests using the zero-sized arrays extension.
 # The default skip lists can be overriden by
 # COMPAT_SKIPS="[list {skip_1}...{skip_n}]"
@@ -115,7 +119,7 @@ proc compat-run { testname objlist dest optall optfile optstr } {
 
     # Check that all of the objects were built successfully.
     foreach obj [split $objlist] {
-	if ![file exists $obj] then {
+	if ![file_on_host exists $obj] then {
 	    unresolved "$testcase $testname link $optstr"
 	    unresolved "$testcase $testname execute $optstr"
 	    return
@@ -142,7 +146,7 @@ proc compat-run { testname objlist dest optall optfile optstr } {
     set result [${tool}_load $dest "" ""]
     set status [lindex $result 0]
     if { $status == "pass" } then {
-	remote_file build delete $dest
+	file_on_host delete $dest
     }
     $status "$testcase $testname execute $optstr"
 }
@@ -156,6 +160,8 @@ proc compat-run { testname objlist dest optall optfile optstr } {
 proc compat-get-options-main { src } {
     # dg-options sets a variable called dg-extra-tool-flags.
     set dg-extra-tool-flags ""
+    # dg-options sets a variable called tool_flags.
+    set tool_flags ""
 
     # dg-require-* sets dg-do-what.
     upvar dg-do-what dg-do-what 
@@ -164,6 +170,8 @@ proc compat-get-options-main { src } {
     foreach op $tmp {
 	set cmd [lindex $op 0]
 	if { ![string compare "dg-options" $cmd] \
+	     || [string match "dg-prune-output" $cmd] \
+	     || [string match "dg-skip-if" $cmd] \
 	     || [string match "dg-require-*" $cmd]  } {
 	    set status [catch "$op" errmsg]
 	    if { $status != 0 } {
@@ -208,6 +216,7 @@ proc compat-get-options { src } {
     foreach op $tmp {
 	set cmd [lindex $op 0]
 	if { ![string compare "dg-options" $cmd] \
+	     || ![string compare "dg-prune-output" $cmd] \
 	     || ![string compare "dg-xfail-if" $cmd] } {
 	    set status [catch "$op" errmsg]
 	    if { $status != 0 } {
@@ -259,10 +268,13 @@ proc compat-execute { src1 sid use_alt } {
     }
 
     # Set up the names of the other source files.
-    regsub "_main.*" $src1 "" base
-    regsub ".*/" $base "" base
-    regsub "_main" $src1 "_x" src2
-    regsub "_main" $src1 "_y" src3
+    set dir [file dirname $src1]
+    set ext [file extension $src1]
+    set base [file rootname $src1]
+    set base [string range $base [string length $dir] end]
+    regsub "_main" $base "" base
+    set src2 "${dir}/${base}_x${ext}"
+    set src3 "${dir}/${base}_y${ext}"
 
     # Use the dg-options mechanism to specify extra flags for this test. 
     # The extra flags in each file are used to compile that file, and the
@@ -271,6 +283,15 @@ proc compat-execute { src1 sid use_alt } {
     set compile_xfail_2 $compiler_conditional_xfail_data
     set extra_flags_3 [compat-get-options $src3]
     set compile_xfail_3 $compiler_conditional_xfail_data
+
+    # On the SPU, most of the compat test cases exceed local store size.
+    # Use automatic overlay support to make them fit.
+    if { [check_effective_target_spu_auto_overlay] } {
+	set extra_flags_1 "$extra_flags_1 -Wl,--auto-overlay"
+	set extra_flags_1 "$extra_flags_1 -ffunction-sections"
+	set extra_flags_2 "$extra_flags_2 -ffunction-sections"
+	set extra_flags_3 "$extra_flags_3 -ffunction-sections"
+    }
 
     # Define the names of the object files.
     regsub "sid" "sid_main_tst.o" $sid obj1
@@ -321,16 +342,16 @@ proc compat-execute { src1 sid use_alt } {
 
 	# There's a unique name for each executable we generate, based on
 	# the set of options and how the pieces of the tests are compiled.
-	set execname1 "${execbase}-${count}1"
-	set execname2 "${execbase}-${count}2"
-	set execname3 "${execbase}-${count}3"
-	set execname4 "${execbase}-${count}4"
+	set execname1 "${execbase}-${count}1.exe"
+	set execname2 "${execbase}-${count}2.exe"
+	set execname3 "${execbase}-${count}3.exe"
+	set execname4 "${execbase}-${count}4.exe"
 	incr count
 
-	remote_file build delete $execname1
-	remote_file build delete $execname2
-	remote_file build delete $execname3
-	remote_file build delete $execname4
+	file_on_host delete $execname1
+	file_on_host delete $execname2
+	file_on_host delete $execname3
+	file_on_host delete $execname4
 
 	# Compile pieces with the alternate compiler; we'll catch problems
 	# later.  Skip this if we don't have an alternate compiler.
@@ -370,7 +391,7 @@ proc compat-execute { src1 sid use_alt } {
 	if { $files != "" } {
 	    foreach objfile $files {
 		if { ![info exists gluefile] || $objfile != $gluefile } {
-		    eval "remote_file build delete $objfile"
+		    eval "file_on_host delete $objfile"
 		}
 	    }
 	}

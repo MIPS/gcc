@@ -1,11 +1,11 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
 // of the GNU General Public License as published by the Free Software
-// Foundation; either version 2, or (at your option) any later
+// Foundation; either version 3, or (at your option) any later
 // version.
 
 // This library is distributed in the hope that it will be useful, but
@@ -13,20 +13,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-// MA 02111-1307, USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free
-// software library without restriction.  Specifically, if other files
-// instantiate templates or use macros or inline functions from this
-// file, or you compile this file and link it with other files to
-// produce an executable, this file does not by itself cause the
-// resulting executable to be covered by the GNU General Public
-// License.  This exception does not however invalidate any other
-// reasons why the executable file might be covered by the GNU General
-// Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 // Copyright (C) 2004 Ami Tavory and Vladimir Dreizin, IBM-HRL.
 
@@ -98,7 +92,7 @@ join_prep(PB_DS_CLASS_C_DEC& other, split_join_branch_bag& r_bag)
     __throw_join_error();
 
   rec_join_prep(m_p_head->m_p_parent, other.m_p_head->m_p_parent, r_bag);
-  _GLIBCXX_DEBUG_ONLY(map_debug_base::join(other);)
+  _GLIBCXX_DEBUG_ONLY(debug_base::join(other);)
   return true;
 }
 
@@ -387,12 +381,12 @@ insert(const_reference r_val)
   if (p_lf != NULL && p_lf->m_type == pat_trie_leaf_node_type && 
       synth_e_access_traits::equal_keys(PB_DS_V2F(static_cast<leaf_pointer>(p_lf)->value()), PB_DS_V2F(r_val)))
     {
-      _GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_exists(PB_DS_V2F(r_val)));
+      _GLIBCXX_DEBUG_ONLY(debug_base::check_key_exists(PB_DS_V2F(r_val)));
       _GLIBCXX_DEBUG_ONLY(assert_valid();)
       return std::make_pair(iterator(p_lf), false);
     }
 
-  _GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_does_not_exist(PB_DS_V2F(r_val)));
+  _GLIBCXX_DEBUG_ONLY(debug_base::check_key_does_not_exist(PB_DS_V2F(r_val)));
 
   leaf_pointer p_new_lf = s_leaf_allocator.allocate(1);
   cond_dealtor cond(p_new_lf);
@@ -407,7 +401,7 @@ insert(const_reference r_val)
   cond.set_no_action_dtor();
   ++m_size;
   update_min_max_for_inserted_leaf(p_new_lf);
-  _GLIBCXX_DEBUG_ONLY(map_debug_base::insert_new(PB_DS_V2F(r_val));)   
+  _GLIBCXX_DEBUG_ONLY(debug_base::insert_new(PB_DS_V2F(r_val));)   
   _GLIBCXX_DEBUG_ONLY(assert_valid();)
   return std::make_pair(point_iterator(p_new_lf), true);
 }

@@ -1,11 +1,11 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
 // of the GNU General Public License as published by the Free Software
-// Foundation; either version 2, or (at your option) any later
+// Foundation; either version 3, or (at your option) any later
 // version.
 
 // This library is distributed in the hope that it will be useful, but
@@ -13,20 +13,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-// MA 02111-1307, USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free
-// software library without restriction.  Specifically, if other files
-// instantiate templates or use macros or inline functions from this
-// file, or you compile this file and link it with other files to
-// produce an executable, this file does not by itself cause the
-// resulting executable to be covered by the GNU General Public
-// License.  This exception does not however invalidate any other
-// reasons why the executable file might be covered by the GNU General
-// Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 // Copyright (C) 2004 Ami Tavory and Vladimir Dreizin, IBM-HRL.
 
@@ -49,7 +43,7 @@
 #include <ext/pb_ds/tree_policy.hpp>
 #include <ext/pb_ds/detail/eq_fn/eq_by_less.hpp>
 #include <ext/pb_ds/detail/types_traits.hpp>
-#include <ext/pb_ds/detail/map_debug_base.hpp>
+#include <ext/pb_ds/detail/debug_map_base.hpp>
 #include <ext/pb_ds/detail/type_utils.hpp>
 #include <ext/pb_ds/exception.hpp>
 #include <ext/pb_ds/detail/tree_trace_base.hpp>
@@ -60,7 +54,7 @@
 #include <assert.h>
 #include <debug/debug.h>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace detail
   {
@@ -89,8 +83,8 @@ namespace pb_ds
     types_traits<Key, Mapped, Allocator, false>
 
 #ifdef _GLIBCXX_DEBUG
-#define PB_DS_MAP_DEBUG_BASE_C_DEC \
-    map_debug_base<Key, eq_by_less<Key, Cmp_Fn>, \
+#define PB_DS_DEBUG_MAP_BASE_C_DEC \
+    debug_map_base<Key, eq_by_less<Key, Cmp_Fn>, \
        	typename Allocator::template rebind<Key>::other::const_reference>
 #endif 
 
@@ -118,7 +112,7 @@ namespace pb_ds
 	     class Node_And_It_Traits, class Allocator>
     class PB_DS_OV_TREE_CLASS_NAME :
 #ifdef _GLIBCXX_DEBUG
-      protected PB_DS_MAP_DEBUG_BASE_C_DEC,
+      protected PB_DS_DEBUG_MAP_BASE_C_DEC,
 #endif 
 #ifdef PB_DS_TREE_TRACE
       public PB_DS_TREE_TRACE_BASE_C_DEC,
@@ -139,7 +133,7 @@ namespace pb_ds
       typedef Cmp_Fn cmp_fn_base;
 
 #ifdef _GLIBCXX_DEBUG
-      typedef PB_DS_MAP_DEBUG_BASE_C_DEC map_debug_base;
+      typedef PB_DS_DEBUG_MAP_BASE_C_DEC debug_base;
 #endif 
 
       typedef typename traits_base::pointer mapped_pointer_;
@@ -158,7 +152,7 @@ namespace pb_ds
 
     public:
 
-      typedef Allocator allocator;
+      typedef Allocator allocator_type;
       typedef typename Allocator::size_type size_type;
       typedef typename Allocator::difference_type difference_type;
 
@@ -244,7 +238,7 @@ namespace pb_ds
 	point_iterator it = lower_bound(r_key);
 	if (it != end() && !Cmp_Fn::operator()(r_key, PB_DS_V2F(*it)))
 	  {
-	    _GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_exists(r_key));
+	    _GLIBCXX_DEBUG_ONLY(debug_base::check_key_exists(r_key));
 	    _GLIBCXX_DEBUG_ONLY(assert_valid();)
 	     return it->second;
 	  }
@@ -267,7 +261,7 @@ namespace pb_ds
 	if (it != end()&&  !Cmp_Fn::operator()(r_key, PB_DS_V2F(*it)))
 	  {
 	    _GLIBCXX_DEBUG_ONLY(assert_valid();)
-	    _GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_exists(r_key));
+	    _GLIBCXX_DEBUG_ONLY(debug_base::check_key_exists(r_key));
 	    return std::make_pair(it, false);
 	  }
 
@@ -301,11 +295,11 @@ namespace pb_ds
 	iterator pot_it = lower_bound(r_key);
 	if (pot_it != end()&&  !Cmp_Fn::operator()(r_key, PB_DS_V2F(*pot_it)))
 	  {
-	    _GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_exists(r_key));
+	    _GLIBCXX_DEBUG_ONLY(debug_base::check_key_exists(r_key));
 	    return ++pot_it;
 	  }
 
-	_GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_does_not_exist(r_key));
+	_GLIBCXX_DEBUG_ONLY(debug_base::check_key_does_not_exist(r_key));
 	return pot_it;
       }
 
@@ -320,11 +314,11 @@ namespace pb_ds
 	iterator pot_it = lower_bound(r_key);
 	if (pot_it != end() && !Cmp_Fn::operator()(r_key, PB_DS_V2F(*pot_it)))
 	  {
-	    _GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_exists(r_key));
+	    _GLIBCXX_DEBUG_ONLY(debug_base::check_key_exists(r_key));
 	    return pot_it;
 	  }
 
-	_GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_does_not_exist(r_key));
+	_GLIBCXX_DEBUG_ONLY(debug_base::check_key_does_not_exist(r_key));
 	return end();
       }
 
@@ -423,7 +417,7 @@ namespace pb_ds
 	  typename Allocator::group_throw_prob_adjustor adjust(m_size);
 #endif 
 
-	_GLIBCXX_DEBUG_ONLY(map_debug_base::check_key_does_not_exist(PB_DS_V2F(r_value)));
+	_GLIBCXX_DEBUG_ONLY(debug_base::check_key_does_not_exist(PB_DS_V2F(r_value)));
 
 	value_vector a_values = s_value_alloc.allocate(m_size + 1);
 
@@ -461,7 +455,7 @@ namespace pb_ds
 	++m_size;
 	m_a_values = a_values;
 	m_end_it = m_a_values + m_size;
-	_GLIBCXX_DEBUG_ONLY(map_debug_base::insert_new(PB_DS_V2F(r_value)));
+	_GLIBCXX_DEBUG_ONLY(debug_base::insert_new(PB_DS_V2F(r_value)));
 	update(node_begin(), (node_update* )this);
 	_GLIBCXX_DEBUG_ONLY(PB_DS_CLASS_C_DEC::assert_valid();)
 	return ret_it;
@@ -514,7 +508,7 @@ namespace pb_ds
 #undef PB_DS_CLASS_T_DEC
 #undef PB_DS_OV_TREE_CLASS_NAME
 #undef PB_DS_TYPES_TRAITS_C_DEC
-#undef PB_DS_MAP_DEBUG_BASE_C_DEC
+#undef PB_DS_DEBUG_MAP_BASE_C_DEC
 #ifdef PB_DS_TREE_TRACE
 #undef PB_DS_TREE_TRACE_BASE_C_DEC
 #endif 
@@ -525,4 +519,4 @@ namespace pb_ds
 #undef PB_DS_CONST_NODE_ITERATOR_NAME
 
   } // namespace detail
-} // namespace pb_ds
+} // namespace __gnu_pbds

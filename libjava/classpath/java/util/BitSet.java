@@ -36,6 +36,9 @@ obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
 package java.util;
+
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.Serializable;
 
 /* Written using "Java Class Libraries", 2nd edition, ISBN 0-201-31002-3
@@ -687,7 +690,7 @@ public class BitSet implements Cloneable, Serializable
    */
   public String toString()
   {
-    StringBuffer r = new StringBuffer("{");
+    CPStringBuilder r = new CPStringBuilder("{");
     boolean first = true;
     for (int i = 0; i < bits.length; ++i)
       {
@@ -740,5 +743,16 @@ public class BitSet implements Cloneable, Serializable
         System.arraycopy(bits, 0, nd, 0, bits.length);
         bits = nd;
       }
+  }
+
+  // This is used by EnumSet for efficiency.
+  final boolean containsAll(BitSet other)
+  {
+    for (int i = other.bits.length - 1; i >= 0; i--)
+      {
+	if ((bits[i] & other.bits[i]) != other.bits[i])
+	  return false;
+      }
+    return true;
   }
 }

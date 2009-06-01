@@ -1,5 +1,5 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "output.h"
 #include "except.h"		/* For USING_SJLJ_EXCEPTIONS.  */
+#include "debug.h"		/* For dwarf2out_do_frame.  */
 #include "toplev.h"
 #include "tm_p.h"		/* Target prototypes.  */
 #include "target.h"
@@ -48,8 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Non-static as some targets don't use it.  */
 void builtin_define_std (const char *) ATTRIBUTE_UNUSED;
-static void builtin_define_with_value_n (const char *, const char *,
-					 size_t);
 static void builtin_define_with_int_value (const char *, HOST_WIDE_INT);
 static void builtin_define_with_hex_fp_value (const char *, tree,
 					      int, const char *,
@@ -58,6 +57,7 @@ static void builtin_define_with_hex_fp_value (const char *, tree,
 static void builtin_define_stdint_macros (void);
 static void builtin_define_type_max (const char *, tree, int);
 static void builtin_define_type_precision (const char *, tree);
+static void builtin_define_type_sizeof (const char *, tree);
 static void builtin_define_float_constants (const char *, 
 					    const char *,
 					    const char *,
@@ -69,6 +69,14 @@ static void
 builtin_define_type_precision (const char *name, tree type)
 {
   builtin_define_with_int_value (name, TYPE_PRECISION (type));
+}
+
+/* Define NAME with value TYPE size_unit.  */
+static void
+builtin_define_type_sizeof (const char *name, tree type)
+{
+  builtin_define_with_int_value (name,
+				 tree_low_cst (TYPE_SIZE_UNIT (type), 1));
 }
 
 /* Define the float.h constants for TYPE using NAME_PREFIX, FP_SUFFIX,
@@ -101,7 +109,7 @@ builtin_define_float_constants (const char *name_prefix,
   /* The radix of the exponent representation.  */
   if (type == float_type_node)
     builtin_define_with_int_value ("__FLT_RADIX__", fmt->b);
-  log10_b = log10_2 * fmt->log2_b;
+  log10_b = log10_2;
 
   /* The number of radix digits, p, in the floating-point significand.  */
   sprintf (name, "__%s_MANT_DIG__", name_prefix);
@@ -190,38 +198,15 @@ builtin_define_float_constants (const char *name_prefix,
   /* Since, for the supported formats, B is always a power of 2, we
      construct the following numbers directly as a hexadecimal
      constants.  */
-
-  /* The maximum representable finite floating-point number,
-     (1 - b**-p) * b**emax  */
-  {
-    int i, n;
-    char *p;
-
-    strcpy (buf, "0x0.");
-    n = fmt->p * fmt->log2_b;
-    for (i = 0, p = buf + 4; i + 3 < n; i += 4)
-      *p++ = 'f';
-    if (i < n)
-      *p++ = "08ce"[n - i];
-    sprintf (p, "p%d", fmt->emax * fmt->log2_b);
-    if (fmt->pnan < fmt->p)
-      {
-	/* This is an IBM extended double format made up of two IEEE
-	   doubles.  The value of the long double is the sum of the
-	   values of the two parts.  The most significant part is
-	   required to be the value of the long double rounded to the
-	   nearest double.  Rounding means we need a slightly smaller
-	   value for LDBL_MAX.  */
-	buf[4 + fmt->pnan / 4] = "7bde"[fmt->pnan % 4];
-      }
-  }
+  get_max_float (fmt, buf, sizeof (buf));
+  
   sprintf (name, "__%s_MAX__", name_prefix);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
   /* The minimum normalized positive floating-point number,
      b**(emin-1).  */
   sprintf (name, "__%s_MIN__", name_prefix);
-  sprintf (buf, "0x1p%d", (fmt->emin - 1) * fmt->log2_b);
+  sprintf (buf, "0x1p%d", fmt->emin - 1);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
   /* The difference between 1 and the least value greater than 1 that is
@@ -230,9 +215,9 @@ builtin_define_float_constants (const char *name_prefix,
   if (fmt->pnan < fmt->p)
     /* This is an IBM extended double format, so 1.0 + any double is
        representable precisely.  */
-      sprintf (buf, "0x1p%d", (fmt->emin - fmt->p) * fmt->log2_b);
+      sprintf (buf, "0x1p%d", fmt->emin - fmt->p);
     else
-      sprintf (buf, "0x1p%d", (1 - fmt->p) * fmt->log2_b);
+      sprintf (buf, "0x1p%d", 1 - fmt->p);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
   /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
@@ -241,7 +226,7 @@ builtin_define_float_constants (const char *name_prefix,
   sprintf (name, "__%s_DENORM_MIN__", name_prefix);
   if (fmt->has_denorm)
     {
-      sprintf (buf, "0x1p%d", (fmt->emin - fmt->p) * fmt->log2_b);
+      sprintf (buf, "0x1p%d", fmt->emin - fmt->p);
       builtin_define_with_hex_fp_value (name, type, decimal_dig,
 					buf, fp_suffix, fp_cast);
     }
@@ -294,7 +279,7 @@ builtin_define_decimal_float_constants (const char *name_prefix,
 
   /* Compute the minimum representable value.  */
   sprintf (name, "__%s_MIN__", name_prefix);
-  sprintf (buf, "1E%d%s", fmt->emin, suffix);
+  sprintf (buf, "1E%d%s", fmt->emin - 1, suffix);
   builtin_define_with_value (name, buf, 0); 
 
   /* Compute the maximum representable value.  */
@@ -307,8 +292,9 @@ builtin_define_decimal_float_constants (const char *name_prefix,
 	*p++ = '.';
     }
   *p = 0;
-  /* fmt->p plus 1, to account for the decimal point.  */
-  sprintf (&buf[fmt->p + 1], "E%d%s", fmt->emax, suffix); 
+  /* fmt->p plus 1, to account for the decimal point and fmt->emax
+     minus 1 because the digits are nines, not 1.0.  */
+  sprintf (&buf[fmt->p + 1], "E%d%s", fmt->emax - 1, suffix); 
   builtin_define_with_value (name, buf, 0);
 
   /* Compute epsilon (the difference between 1 and least value greater
@@ -317,8 +303,8 @@ builtin_define_decimal_float_constants (const char *name_prefix,
   sprintf (buf, "1E-%d%s", fmt->p - 1, suffix);
   builtin_define_with_value (name, buf, 0);
 
-  /* Minimum denormalized postive decimal value.  */
-  sprintf (name, "__%s_DEN__", name_prefix);
+  /* Minimum subnormal positive decimal value.  */
+  sprintf (name, "__%s_SUBNORMAL_MIN__", name_prefix);
   p = buf;
   for (digits = fmt->p; digits > 1; digits--)
     {
@@ -327,7 +313,61 @@ builtin_define_decimal_float_constants (const char *name_prefix,
 	*p++ = '.';
     }
   *p = 0;
-  sprintf (&buf[fmt->p], "1E%d%s", fmt->emin, suffix); 
+  sprintf (&buf[fmt->p], "1E%d%s", fmt->emin - 1, suffix); 
+  builtin_define_with_value (name, buf, 0);
+}
+
+/* Define fixed-point constants for TYPE using NAME_PREFIX and SUFFIX.  */
+
+static void
+builtin_define_fixed_point_constants (const char *name_prefix,
+				      const char *suffix,
+				      tree type)
+{
+  char name[64], buf[256], *new_buf;
+  int i, mod;
+
+  sprintf (name, "__%s_FBIT__", name_prefix);
+  builtin_define_with_int_value (name, TYPE_FBIT (type));
+
+  sprintf (name, "__%s_IBIT__", name_prefix);
+  builtin_define_with_int_value (name, TYPE_IBIT (type));
+
+  /* If there is no suffix, defines are for fixed-point modes.
+     We just return.  */
+  if (strcmp (suffix, "") == 0)
+    return;
+
+  if (TYPE_UNSIGNED (type))
+    {
+      sprintf (name, "__%s_MIN__", name_prefix);
+      sprintf (buf, "0.0%s", suffix);
+      builtin_define_with_value (name, buf, 0);
+    }
+  else
+    {
+      sprintf (name, "__%s_MIN__", name_prefix);
+      if (ALL_ACCUM_MODE_P (TYPE_MODE (type)))
+	sprintf (buf, "(-0X1P%d%s-0X1P%d%s)", TYPE_IBIT (type) - 1, suffix,
+		 TYPE_IBIT (type) - 1, suffix);
+      else
+	sprintf (buf, "(-0.5%s-0.5%s)", suffix, suffix);
+      builtin_define_with_value (name, buf, 0);
+    }
+
+  sprintf (name, "__%s_MAX__", name_prefix);
+  sprintf (buf, "0X");
+  new_buf = buf + 2;
+  mod = (TYPE_FBIT (type) + TYPE_IBIT (type)) % 4;
+  if (mod)
+    sprintf (new_buf++, "%x", (1 << mod) - 1);
+  for (i = 0; i < (TYPE_FBIT (type) + TYPE_IBIT (type)) / 4; i++)
+    sprintf (new_buf++, "F");
+  sprintf (new_buf, "P-%d%s", TYPE_FBIT (type), suffix);
+  builtin_define_with_value (name, buf, 0);
+
+  sprintf (name, "__%s_EPSILON__", name_prefix);
+  sprintf (buf, "0x1P-%d%s", TYPE_FBIT (type), suffix);
   builtin_define_with_value (name, buf, 0);
 }
 
@@ -335,40 +375,19 @@ builtin_define_decimal_float_constants (const char *name_prefix,
 static void
 define__GNUC__ (void)
 {
-  /* The format of the version string, enforced below, is
-     ([^0-9]*-)?[0-9]+[.][0-9]+([.][0-9]+)?([- ].*)?  */
-  const char *q, *v = version_string;
+  int major, minor, patchlevel;
 
-  while (*v && !ISDIGIT (*v))
-    v++;
-  gcc_assert (*v && (v <= version_string || v[-1] == '-'));
-
-  q = v;
-  while (ISDIGIT (*v))
-    v++;
-  builtin_define_with_value_n ("__GNUC__", q, v - q);
-  if (c_dialect_cxx ())
-    builtin_define_with_value_n ("__GNUG__", q, v - q);
-
-  gcc_assert (*v == '.' && ISDIGIT (v[1]));
-
-  q = ++v;
-  while (ISDIGIT (*v))
-    v++;
-  builtin_define_with_value_n ("__GNUC_MINOR__", q, v - q);
-
-  if (*v == '.')
+  if (sscanf (BASEVER, "%d.%d.%d", &major, &minor, &patchlevel) != 3)
     {
-      gcc_assert (ISDIGIT (v[1]));
-      q = ++v;
-      while (ISDIGIT (*v))
-	v++;
-      builtin_define_with_value_n ("__GNUC_PATCHLEVEL__", q, v - q);
+      sscanf (BASEVER, "%d.%d", &major, &minor);
+      patchlevel = 0;
     }
-  else
-    builtin_define_with_value_n ("__GNUC_PATCHLEVEL__", "0", 1);
+  cpp_define_formatted (parse_in, "__GNUC__=%d", major);
+  cpp_define_formatted (parse_in, "__GNUC_MINOR__=%d", minor);
+  cpp_define_formatted (parse_in, "__GNUC_PATCHLEVEL__=%d", patchlevel);
 
-  gcc_assert (!*v || *v == ' ' || *v == '-');
+  if (c_dialect_cxx ())
+    cpp_define_formatted (parse_in, "__GNUG__=%d", major);
 }
 
 /* Define macros used by <stdint.h>.  Currently only defines limits
@@ -387,6 +406,58 @@ builtin_define_stdint_macros (void)
     gcc_unreachable ();
   builtin_define_type_max ("__INTMAX_MAX__", intmax_type_node, intmax_long);
 }
+
+/* Adjust the optimization macros when a #pragma GCC optimization is done to
+   reflect the current level.  */
+void
+c_cpp_builtins_optimize_pragma (cpp_reader *pfile, tree prev_tree,
+				tree cur_tree)
+{
+  struct cl_optimization *prev = TREE_OPTIMIZATION (prev_tree);
+  struct cl_optimization *cur  = TREE_OPTIMIZATION (cur_tree);
+  bool prev_fast_math;
+  bool cur_fast_math;
+
+  /* -undef turns off target-specific built-ins.  */
+  if (flag_undef)
+    return;
+
+  /* Other target-independent built-ins determined by command-line
+     options.  */
+  if (!prev->optimize_size && cur->optimize_size)
+    cpp_define (pfile, "__OPTIMIZE_SIZE__");
+  else if (prev->optimize_size && !cur->optimize_size)
+    cpp_undef (pfile, "__OPTIMIZE_SIZE__");
+
+  if (!prev->optimize && cur->optimize)
+    cpp_define (pfile, "__OPTIMIZE__");
+  else if (prev->optimize && !cur->optimize)
+    cpp_undef (pfile, "__OPTIMIZE__");
+
+  prev_fast_math = fast_math_flags_struct_set_p (prev);
+  cur_fast_math  = fast_math_flags_struct_set_p (cur);
+  if (!prev_fast_math && cur_fast_math)
+    cpp_define (pfile, "__FAST_MATH__");
+  else if (prev_fast_math && !cur_fast_math)
+    cpp_undef (pfile, "__FAST_MATH__");
+
+  if (!prev->flag_signaling_nans && cur->flag_signaling_nans)
+    cpp_define (pfile, "__SUPPORT_SNAN__");
+  else if (prev->flag_signaling_nans && !cur->flag_signaling_nans)
+    cpp_undef (pfile, "__SUPPORT_SNAN__");
+
+  if (!prev->flag_finite_math_only && cur->flag_finite_math_only)
+    {
+      cpp_undef (pfile, "__FINITE_MATH_ONLY__");
+      cpp_define (pfile, "__FINITE_MATH_ONLY__=1");
+    }
+  else if (!prev->flag_finite_math_only && cur->flag_finite_math_only)
+    {
+      cpp_undef (pfile, "__FINITE_MATH_ONLY__");
+      cpp_define (pfile, "__FINITE_MATH_ONLY__=0");
+    }
+}
+
 
 /* Hook that registers front end and target-specific built-ins.  */
 void
@@ -409,6 +480,10 @@ c_cpp_builtins (cpp_reader *pfile)
 	cpp_define (pfile, "__GXX_WEAK__=0");
       if (warn_deprecated)
 	cpp_define (pfile, "__DEPRECATED");
+      if (flag_rtti)
+	cpp_define (pfile, "__GXX_RTTI");
+      if (cxx_dialect == cxx0x)
+        cpp_define (pfile, "__GXX_EXPERIMENTAL_CXX0X__");
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */
@@ -477,6 +552,62 @@ c_cpp_builtins (cpp_reader *pfile)
   builtin_define_decimal_float_constants ("DEC64", "DD", dfloat64_type_node);
   builtin_define_decimal_float_constants ("DEC128", "DL", dfloat128_type_node);
 
+  /* For fixed-point fibt, ibit, max, min, and epsilon.  */
+  if (targetm.fixed_point_supported_p ())
+    {
+      builtin_define_fixed_point_constants ("SFRACT", "HR",
+					    short_fract_type_node);
+      builtin_define_fixed_point_constants ("USFRACT", "UHR",
+					    unsigned_short_fract_type_node);
+      builtin_define_fixed_point_constants ("FRACT", "R",
+					    fract_type_node);
+      builtin_define_fixed_point_constants ("UFRACT", "UR",
+					    unsigned_fract_type_node);
+      builtin_define_fixed_point_constants ("LFRACT", "LR",
+					    long_fract_type_node);
+      builtin_define_fixed_point_constants ("ULFRACT", "ULR",
+					    unsigned_long_fract_type_node);
+      builtin_define_fixed_point_constants ("LLFRACT", "LLR",
+					    long_long_fract_type_node);
+      builtin_define_fixed_point_constants ("ULLFRACT", "ULLR",
+					    unsigned_long_long_fract_type_node);
+      builtin_define_fixed_point_constants ("SACCUM", "HK",
+					    short_accum_type_node);
+      builtin_define_fixed_point_constants ("USACCUM", "UHK",
+					    unsigned_short_accum_type_node);
+      builtin_define_fixed_point_constants ("ACCUM", "K",
+					    accum_type_node);
+      builtin_define_fixed_point_constants ("UACCUM", "UK",
+					    unsigned_accum_type_node);
+      builtin_define_fixed_point_constants ("LACCUM", "LK",
+					    long_accum_type_node);
+      builtin_define_fixed_point_constants ("ULACCUM", "ULK",
+					    unsigned_long_accum_type_node);
+      builtin_define_fixed_point_constants ("LLACCUM", "LLK",
+					    long_long_accum_type_node);
+      builtin_define_fixed_point_constants ("ULLACCUM", "ULLK",
+					    unsigned_long_long_accum_type_node);
+
+      builtin_define_fixed_point_constants ("QQ", "", qq_type_node);
+      builtin_define_fixed_point_constants ("HQ", "", hq_type_node);
+      builtin_define_fixed_point_constants ("SQ", "", sq_type_node);
+      builtin_define_fixed_point_constants ("DQ", "", dq_type_node);
+      builtin_define_fixed_point_constants ("TQ", "", tq_type_node);
+      builtin_define_fixed_point_constants ("UQQ", "", uqq_type_node);
+      builtin_define_fixed_point_constants ("UHQ", "", uhq_type_node);
+      builtin_define_fixed_point_constants ("USQ", "", usq_type_node);
+      builtin_define_fixed_point_constants ("UDQ", "", udq_type_node);
+      builtin_define_fixed_point_constants ("UTQ", "", utq_type_node);
+      builtin_define_fixed_point_constants ("HA", "", ha_type_node);
+      builtin_define_fixed_point_constants ("SA", "", sa_type_node);
+      builtin_define_fixed_point_constants ("DA", "", da_type_node);
+      builtin_define_fixed_point_constants ("TA", "", ta_type_node);
+      builtin_define_fixed_point_constants ("UHA", "", uha_type_node);
+      builtin_define_fixed_point_constants ("USA", "", usa_type_node);
+      builtin_define_fixed_point_constants ("UDA", "", uda_type_node);
+      builtin_define_fixed_point_constants ("UTA", "", uta_type_node);
+    }
+
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
   builtin_define_with_value ("__USER_LABEL_PREFIX__", user_label_prefix, 0);
@@ -484,7 +615,10 @@ c_cpp_builtins (cpp_reader *pfile)
   /* Misc.  */
   builtin_define_with_value ("__VERSION__", version_string, 1);
 
-  cpp_define (pfile, "__GNUC_GNU_INLINE__");
+  if (flag_gnu89_inline)
+    cpp_define (pfile, "__GNUC_GNU_INLINE__");
+  else
+    cpp_define (pfile, "__GNUC_STDC_INLINE__");
 
   /* Definitions for LP64 model.  */
   if (TYPE_PRECISION (long_integer_type_node) == 64
@@ -504,7 +638,7 @@ c_cpp_builtins (cpp_reader *pfile)
 
   if (fast_math_flags_set_p ())
     cpp_define (pfile, "__FAST_MATH__");
-  if (flag_really_no_inline)
+  if (flag_no_inline)
     cpp_define (pfile, "__NO_INLINE__");
   if (flag_signaling_nans)
     cpp_define (pfile, "__SUPPORT_SNAN__");
@@ -517,6 +651,11 @@ c_cpp_builtins (cpp_reader *pfile)
       builtin_define_with_int_value ("__pic__", flag_pic);
       builtin_define_with_int_value ("__PIC__", flag_pic);
     }
+  if (flag_pie)
+    {
+      builtin_define_with_int_value ("__pie__", flag_pie);
+      builtin_define_with_int_value ("__PIE__", flag_pie);
+    }
 
   if (flag_iso)
     cpp_define (pfile, "__STRICT_ANSI__");
@@ -526,6 +665,38 @@ c_cpp_builtins (cpp_reader *pfile)
 
   if (c_dialect_cxx () && TYPE_UNSIGNED (wchar_type_node))
     cpp_define (pfile, "__WCHAR_UNSIGNED__");
+
+  /* Tell source code if the compiler makes sync_compare_and_swap
+     builtins available.  */
+#ifdef HAVE_sync_compare_and_swapqi
+  if (HAVE_sync_compare_and_swapqi)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1");
+#endif
+
+#ifdef HAVE_sync_compare_and_swaphi
+  if (HAVE_sync_compare_and_swaphi)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2");
+#endif
+
+#ifdef HAVE_sync_compare_and_swapsi
+  if (HAVE_sync_compare_and_swapsi)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4");
+#endif
+
+#ifdef HAVE_sync_compare_and_swapdi
+  if (HAVE_sync_compare_and_swapdi)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8");
+#endif
+
+#ifdef HAVE_sync_compare_and_swapti
+  if (HAVE_sync_compare_and_swapti)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16");
+#endif
+
+#ifdef DWARF2_UNWIND_INFO
+  if (dwarf2out_do_cfi_asm ())
+    cpp_define (pfile, "__GCC_HAVE_DWARF2_CFI_ASM");
+#endif
 
   /* Make the choice of ObjC runtime visible to source code.  */
   if (c_dialect_objc () && flag_next_runtime)
@@ -547,7 +718,25 @@ c_cpp_builtins (cpp_reader *pfile)
     cpp_define (pfile, "__SSP__=1");
 
   if (flag_openmp)
-    cpp_define (pfile, "_OPENMP=200505");
+    cpp_define (pfile, "_OPENMP=200805");
+
+  builtin_define_type_sizeof ("__SIZEOF_INT__", integer_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_LONG__", long_integer_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_LONG_LONG__",
+			      long_long_integer_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_SHORT__", short_integer_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_FLOAT__", float_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_DOUBLE__", double_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_LONG_DOUBLE__", long_double_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_SIZE_T__", size_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_WCHAR_T__", wchar_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_WINT_T__", wint_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_PTRDIFF_T__",
+			      unsigned_ptrdiff_type_node);
+  /* ptr_type_node can't be used here since ptr_mode is only set when
+     toplev calls backend_init which is not done with -E switch.  */
+  builtin_define_with_int_value ("__SIZEOF_POINTER__",
+				 POINTER_SIZE / BITS_PER_UNIT);
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */
@@ -567,6 +756,15 @@ c_cpp_builtins (cpp_reader *pfile)
      new appearance would clobber any existing args.  */
   if (TARGET_DECLSPEC)
     builtin_define ("__declspec(x)=__attribute__((x))");
+
+  /* If decimal floating point is supported, tell the user if the
+     alternate format (BID) is used instead of the standard (DPD)
+     format.  */
+  if (ENABLE_DECIMAL_FLOAT && ENABLE_DECIMAL_BID_FORMAT)
+    cpp_define (pfile, "__DECIMAL_BID_FORMAT__");
+
+  builtin_define_with_int_value ("__BIGGEST_ALIGNMENT__",
+				 BIGGEST_ALIGNMENT / BITS_PER_UNIT);
 }
 
 /* Pass an object-like macro.  If it doesn't lie in the user's
@@ -637,23 +835,6 @@ builtin_define_with_value (const char *macro, const char *expansion, int is_str)
   cpp_define (parse_in, buf);
 }
 
-/* Pass an object-like macro and a value to define it to.  The third
-   parameter is the length of the expansion.  */
-static void
-builtin_define_with_value_n (const char *macro, const char *expansion, size_t elen)
-{
-  char *buf;
-  size_t mlen = strlen (macro);
-
-  /* Space for an = and a NUL.  */
-  buf = (char *) alloca (mlen + elen + 2);
-  memcpy (buf, macro, mlen);
-  buf[mlen] = '=';
-  memcpy (buf + mlen + 1, expansion, elen);
-  buf[mlen + elen + 1] = '\0';
-
-  cpp_define (parse_in, buf);
-}
 
 /* Pass an object-like macro and an integer value to define it to.  */
 static void
@@ -675,7 +856,7 @@ builtin_define_with_int_value (const char *macro, HOST_WIDE_INT value)
 /* Pass an object-like macro a hexadecimal floating-point value.  */
 static void
 builtin_define_with_hex_fp_value (const char *macro,
-				  tree type ATTRIBUTE_UNUSED, int digits,
+				  tree type, int digits,
 				  const char *hex_str, 
 				  const char *fp_suffix,
 				  const char *fp_cast)
@@ -694,7 +875,8 @@ builtin_define_with_hex_fp_value (const char *macro,
      then print it back out as decimal.  */
 
   real_from_string (&real, hex_str);
-  real_to_decimal (dec_str, &real, sizeof (dec_str), digits, 0);
+  real_to_decimal_for_mode (dec_str, &real, sizeof (dec_str), digits, 0,
+			    TYPE_MODE (type));
 
   /* Assemble the macro in the following fashion
      macro = fp_cast [dec_str fp_suffix] */

@@ -1,33 +1,29 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -84,7 +80,7 @@ __negdi2 (DWtype u)
 Wtype
 __addvSI3 (Wtype a, Wtype b)
 {
-  const Wtype w = a + b;
+  const Wtype w = (UWtype) a + (UWtype) b;
 
   if (b >= 0 ? w < a : w > a)
     abort ();
@@ -95,7 +91,7 @@ __addvSI3 (Wtype a, Wtype b)
 SItype
 __addvsi3 (SItype a, SItype b)
 {
-  const SItype w = a + b;
+  const SItype w = (USItype) a + (USItype) b;
 
   if (b >= 0 ? w < a : w > a)
     abort ();
@@ -109,7 +105,7 @@ __addvsi3 (SItype a, SItype b)
 DWtype
 __addvDI3 (DWtype a, DWtype b)
 {
-  const DWtype w = a + b;
+  const DWtype w = (UDWtype) a + (UDWtype) b;
 
   if (b >= 0 ? w < a : w > a)
     abort ();
@@ -122,7 +118,7 @@ __addvDI3 (DWtype a, DWtype b)
 Wtype
 __subvSI3 (Wtype a, Wtype b)
 {
-  const Wtype w = a - b;
+  const Wtype w = (UWtype) a - (UWtype) b;
 
   if (b >= 0 ? w > a : w < a)
     abort ();
@@ -133,7 +129,7 @@ __subvSI3 (Wtype a, Wtype b)
 SItype
 __subvsi3 (SItype a, SItype b)
 {
-  const SItype w = a - b;
+  const SItype w = (USItype) a - (USItype) b;
 
   if (b >= 0 ? w > a : w < a)
     abort ();
@@ -147,7 +143,7 @@ __subvsi3 (SItype a, SItype b)
 DWtype
 __subvDI3 (DWtype a, DWtype b)
 {
-  const DWtype w = a - b;
+  const DWtype w = (UDWtype) a - (UDWtype) b;
 
   if (b >= 0 ? w > a : w < a)
     abort ();
@@ -187,7 +183,7 @@ __mulvsi3 (SItype a, SItype b)
 Wtype
 __negvSI2 (Wtype a)
 {
-  const Wtype w = -a;
+  const Wtype w = -(UWtype) a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -198,7 +194,7 @@ __negvSI2 (Wtype a)
 SItype
 __negvsi2 (SItype a)
 {
-  const SItype w = -a;
+  const SItype w = -(USItype) a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -212,7 +208,7 @@ __negvsi2 (SItype a)
 DWtype
 __negvDI2 (DWtype a)
 {
-  const DWtype w = -a;
+  const DWtype w = -(UDWtype) a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -231,7 +227,7 @@ __absvSI2 (Wtype a)
 #ifdef L_negvsi2
     w = __negvSI2 (a);
 #else
-    w = -a;
+    w = -(UWtype) a;
 
   if (w < 0)
     abort ();
@@ -249,7 +245,7 @@ __absvsi2 (SItype a)
 #ifdef L_negvsi2
     w = __negvsi2 (a);
 #else
-    w = -a;
+    w = -(USItype) a;
 
   if (w < 0)
     abort ();
@@ -270,7 +266,7 @@ __absvDI2 (DWtype a)
 #ifdef L_negvdi2
     w = __negvDI2 (a);
 #else
-    w = -a;
+    w = -(UDWtype) a;
 
   if (w < 0)
     abort ();
@@ -406,16 +402,16 @@ __mulvDI3 (DWtype u, DWtype v)
 
 
 /* Unless shift functions are defined with full ANSI prototypes,
-   parameter b will be promoted to int if word_type is smaller than an int.  */
+   parameter b will be promoted to int if shift_count_type is smaller than an int.  */
 #ifdef L_lshrdi3
 DWtype
-__lshrdi3 (DWtype u, word_type b)
+__lshrdi3 (DWtype u, shift_count_type b)
 {
   if (b == 0)
     return u;
 
   const DWunion uu = {.ll = u};
-  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  const shift_count_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   DWunion w;
 
   if (bm <= 0)
@@ -437,13 +433,13 @@ __lshrdi3 (DWtype u, word_type b)
 
 #ifdef L_ashldi3
 DWtype
-__ashldi3 (DWtype u, word_type b)
+__ashldi3 (DWtype u, shift_count_type b)
 {
   if (b == 0)
     return u;
 
   const DWunion uu = {.ll = u};
-  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  const shift_count_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   DWunion w;
 
   if (bm <= 0)
@@ -465,13 +461,13 @@ __ashldi3 (DWtype u, word_type b)
 
 #ifdef L_ashrdi3
 DWtype
-__ashrdi3 (DWtype u, word_type b)
+__ashrdi3 (DWtype u, shift_count_type b)
 {
   if (b == 0)
     return u;
 
   const DWunion uu = {.ll = u};
-  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  const shift_count_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   DWunion w;
 
   if (bm <= 0)
@@ -492,6 +488,30 @@ __ashrdi3 (DWtype u, word_type b)
 }
 #endif
 
+#ifdef L_bswapsi2
+SItype
+__bswapsi2 (SItype u)
+{
+  return ((((u) & 0xff000000) >> 24)
+	  | (((u) & 0x00ff0000) >>  8)
+	  | (((u) & 0x0000ff00) <<  8)
+	  | (((u) & 0x000000ff) << 24));
+}
+#endif
+#ifdef L_bswapdi2
+DItype
+__bswapdi2 (DItype u)
+{
+  return ((((u) & 0xff00000000000000ull) >> 56)
+	  | (((u) & 0x00ff000000000000ull) >> 40)
+	  | (((u) & 0x0000ff0000000000ull) >> 24)
+	  | (((u) & 0x000000ff00000000ull) >>  8)
+	  | (((u) & 0x00000000ff000000ull) <<  8)
+	  | (((u) & 0x0000000000ff0000ull) << 24)
+	  | (((u) & 0x000000000000ff00ull) << 40)
+	  | (((u) & 0x00000000000000ffull) << 56));
+}
+#endif
 #ifdef L_ffssi2
 #undef int
 int
@@ -1058,7 +1078,7 @@ __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
 DWtype
 __divdi3 (DWtype u, DWtype v)
 {
-  word_type c = 0;
+  Wtype c = 0;
   DWunion uu = {.ll = u};
   DWunion vv = {.ll = v};
   DWtype w;
@@ -1082,7 +1102,7 @@ __divdi3 (DWtype u, DWtype v)
 DWtype
 __moddi3 (DWtype u, DWtype v)
 {
-  word_type c = 0;
+  Wtype c = 0;
   DWunion uu = {.ll = u};
   DWunion vv = {.ll = v};
   DWtype w;
@@ -1122,7 +1142,7 @@ __udivdi3 (UDWtype n, UDWtype d)
 #endif
 
 #ifdef L_cmpdi2
-word_type
+cmp_return_type
 __cmpdi2 (DWtype a, DWtype b)
 {
   const DWunion au = {.ll = a};
@@ -1141,7 +1161,7 @@ __cmpdi2 (DWtype a, DWtype b)
 #endif
 
 #ifdef L_ucmpdi2
-word_type
+cmp_return_type
 __ucmpdi2 (DWtype a, DWtype b)
 {
   const DWunion au = {.ll = a};
@@ -1160,7 +1180,7 @@ __ucmpdi2 (DWtype a, DWtype b)
 #endif
 
 #if defined(L_fixunstfdi) && LIBGCC2_HAS_TF_MODE
-DWtype
+UDWtype
 __fixunstfDI (TFtype a)
 {
   if (a < 0)
@@ -1196,7 +1216,7 @@ __fixtfdi (TFtype a)
 #endif
 
 #if defined(L_fixunsxfdi) && LIBGCC2_HAS_XF_MODE
-DWtype
+UDWtype
 __fixunsxfDI (XFtype a)
 {
   if (a < 0)
@@ -1232,7 +1252,7 @@ __fixxfdi (XFtype a)
 #endif
 
 #if defined(L_fixunsdfdi) && LIBGCC2_HAS_DF_MODE
-DWtype
+UDWtype
 __fixunsdfDI (DFtype a)
 {
   /* Get high part of result.  The division here will just moves the radix
@@ -1261,7 +1281,7 @@ __fixdfdi (DFtype a)
 #endif
 
 #if defined(L_fixunssfdi) && LIBGCC2_HAS_SF_MODE
-DWtype
+UDWtype
 __fixunssfDI (SFtype a)
 {
 #if LIBGCC2_HAS_DF_MODE
@@ -1396,11 +1416,7 @@ __floatunditf (UDWtype u)
 #define F_MODE_OK(SIZE) \
   (SIZE < DI_SIZE							\
    && SIZE > (DI_SIZE - SIZE + FSSIZE)					\
-   /* Don't use IBM Extended Double TFmode for TI->SF calculations.	\
-      The conversion from long double to float suffers from double	\
-      rounding, because we convert via double.  In any case, the	\
-      fallback code is faster.  */					\
-   && !IS_IBM_EXTENDED (SIZE))
+   && !AVOID_FP_TYPE_CONVERSION(SIZE))
 #if defined(L_floatdisf)
 #define FUNC __floatdisf
 #define FSTYPE SFtype
@@ -1491,13 +1507,21 @@ FUNC (DWtype u)
   hi = u >> shift;
 
   /* If we lost any nonzero bits, set the lsb to ensure correct rounding.  */
-  if (u & (((DWtype)1 << shift) - 1))
+  if ((UWtype)u << (W_TYPE_SIZE - shift))
     hi |= 1;
 
   /* Convert the one word of data, and rescale.  */
-  FSTYPE f = hi;
-  f *= (UDWtype)1 << shift;
-  return f;
+  FSTYPE f = hi, e;
+  if (shift == W_TYPE_SIZE)
+    e = Wtype_MAXp1_F;
+  /* The following two cases could be merged if we knew that the target
+     supported a native unsigned->float conversion.  More often, we only
+     have a signed conversion, and have to add extra fixup code.  */
+  else if (shift == W_TYPE_SIZE - 1)
+    e = Wtype_MAXp1_F / 2;
+  else
+    e = (Wtype)1 << shift;
+  return f * e;
 #endif
 }
 #endif
@@ -1508,11 +1532,7 @@ FUNC (DWtype u)
 #define F_MODE_OK(SIZE) \
   (SIZE < DI_SIZE							\
    && SIZE > (DI_SIZE - SIZE + FSSIZE)					\
-   /* Don't use IBM Extended Double TFmode for TI->SF calculations.	\
-      The conversion from long double to float suffers from double	\
-      rounding, because we convert via double.  In any case, the	\
-      fallback code is faster.  */					\
-   && !IS_IBM_EXTENDED (SIZE))
+   && !AVOID_FP_TYPE_CONVERSION(SIZE))
 #if defined(L_floatundisf)
 #define FUNC __floatundisf
 #define FSTYPE SFtype
@@ -1596,13 +1616,21 @@ FUNC (UDWtype u)
   hi = u >> shift;
 
   /* If we lost any nonzero bits, set the lsb to ensure correct rounding.  */
-  if (u & (((UDWtype)1 << shift) - 1))
+  if ((UWtype)u << (W_TYPE_SIZE - shift))
     hi |= 1;
 
   /* Convert the one word of data, and rescale.  */
-  FSTYPE f = hi;
-  f *= (UDWtype)1 << shift;
-  return f;
+  FSTYPE f = hi, e;
+  if (shift == W_TYPE_SIZE)
+    e = Wtype_MAXp1_F;
+  /* The following two cases could be merged if we knew that the target
+     supported a native unsigned->float conversion.  More often, we only
+     have a signed conversion, and have to add extra fixup code.  */
+  else if (shift == W_TYPE_SIZE - 1)
+    e = Wtype_MAXp1_F / 2;
+  else
+    e = (Wtype)1 << shift;
+  return f * e;
 #endif
 }
 #endif
@@ -1748,7 +1776,11 @@ NAME (TYPE x, int m)
 # define MTYPE	TFtype
 # define CTYPE	TCtype
 # define MODE	tc
-# define CEXT	l
+# if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
+#  define CEXT l
+# else
+#  define CEXT LIBGCC2_TF_CEXT
+# endif
 # define NOTRUNC 1
 #else
 # error
@@ -1794,6 +1826,7 @@ CTYPE
 CONCAT3(__mul,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 {
   MTYPE ac, bd, ad, bc, x, y;
+  CTYPE res;
 
   ac = a * c;
   bd = b * d;
@@ -1850,7 +1883,9 @@ CONCAT3(__mul,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 	}
     }
 
-  return x + I * y;
+  __real__ res = x;
+  __imag__ res = y;
+  return res;
 }
 #endif /* complex multiply */
 
@@ -1861,8 +1896,9 @@ CTYPE
 CONCAT3(__div,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 {
   MTYPE denom, ratio, x, y;
+  CTYPE res;
 
-  /* ??? We can get better behavior from logarithmic scaling instead of 
+  /* ??? We can get better behavior from logarithmic scaling instead of
      the division.  But that would mean starting to link libgcc against
      libm.  We could implement something akin to ldexp/frexp as gcc builtins
      fairly easily...  */
@@ -1906,7 +1942,9 @@ CONCAT3(__div,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 	}
     }
 
-  return x + I * y;
+  __real__ res = x;
+  __imag__ res = y;
+  return res;
 }
 #endif /* complex divide */
 
@@ -2010,7 +2048,7 @@ __enable_execute_stack (void *addr __attribute__((__unused__)))
 
 /* Jump to a trampoline, loading the static chain address.  */
 
-#if defined(WINNT) && ! defined(__CYGWIN__) && ! defined (_UWIN)
+#if defined(WINNT) && ! defined(__CYGWIN__)
 
 int
 getpagesize (void)
@@ -2022,14 +2060,10 @@ getpagesize (void)
 #endif
 }
 
-#ifdef __i386__
-extern int VirtualProtect (char *, int, int, int *) __attribute__((stdcall));
-#endif
-
 int
 mprotect (char *addr, int len, int prot)
 {
-  int np, op;
+  DWORD np, op;
 
   if (prot == 7)
     np = 0x40;
@@ -2043,6 +2077,8 @@ mprotect (char *addr, int len, int prot)
     np = 0x02;
   else if (prot == 0)
     np = 0x01;
+  else
+    return -1;
 
   if (VirtualProtect (addr, len, np, &op))
     return 0;
@@ -2050,7 +2086,7 @@ mprotect (char *addr, int len, int prot)
     return -1;
 }
 
-#endif /* WINNT && ! __CYGWIN__ && ! _UWIN */
+#endif /* WINNT && ! __CYGWIN__ */
 
 #ifdef TRANSFER_FROM_TRAMPOLINE
 TRANSFER_FROM_TRAMPOLINE

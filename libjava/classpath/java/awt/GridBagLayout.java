@@ -46,6 +46,7 @@ import java.util.Hashtable;
 /**
  * @author Michael Koch (konqueror@gmx.de)
  * @author Jeroen Frijters (jeroen@frijters.net)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  */
 public class GridBagLayout
     implements Serializable, LayoutManager2
@@ -62,8 +63,8 @@ public class GridBagLayout
     // REMAINDER constraints.
     // Constraints kept in comptable are never modified, and constraints
     // kept in internalcomptable can be modified internally only.
-    protected Hashtable comptable;
-    private Hashtable internalcomptable;
+    protected Hashtable<Component,GridBagConstraints> comptable;
+    private Hashtable<Component,GridBagConstraints> internalcomptable;
     protected GridBagLayoutInfo layoutInfo;
     protected GridBagConstraints defaultConstraints;
 
@@ -74,8 +75,8 @@ public class GridBagLayout
 
     public GridBagLayout ()
     {
-	this.comptable = new Hashtable();
-	this.internalcomptable = new Hashtable();
+	this.comptable = new Hashtable<Component,GridBagConstraints>();
+	this.internalcomptable = new Hashtable<Component,GridBagConstraints>();
 	this.defaultConstraints= new GridBagConstraints();
     }
 
@@ -210,12 +211,12 @@ public class GridBagLayout
 
     protected GridBagConstraints lookupConstraints (Component component)
     {
-	GridBagConstraints result = (GridBagConstraints) comptable.get (component);
+	GridBagConstraints result = comptable.get (component);
 
 	if (result == null)
 	{
 	    setConstraints (component, defaultConstraints);
-	    result = (GridBagConstraints) comptable.get (component);
+	    result = comptable.get (component);
 	}
     
 	return result;
@@ -223,8 +224,7 @@ public class GridBagLayout
 
     private GridBagConstraints lookupInternalConstraints (Component component)
     {
-	GridBagConstraints result =
-            (GridBagConstraints) internalcomptable.get (component);
+	GridBagConstraints result = internalcomptable.get (component);
 
 	if (result == null)
 	{
@@ -319,6 +319,16 @@ public class GridBagLayout
 	return new Point (col, row);
     }
 
+    /**
+     * Return a string representation of this GridBagLayout.
+     *
+     * @return a string representation
+     */
+    public String toString()
+    {
+      return getClass().getName();
+    }
+    
     /**
      * Move and resize a rectangle according to a set of grid bag
      * constraints.  The x, y, width and height fields of the
@@ -489,16 +499,18 @@ public class GridBagLayout
 
       // Guaranteed to contain the last component added to the given row
       // or column, whose gridwidth/height is not REMAINDER.
-      HashMap lastInRow = new HashMap();
-      HashMap lastInCol = new HashMap();
+      HashMap<Integer,Component> lastInRow = new HashMap<Integer,Component>();
+      HashMap<Integer,Component> lastInCol = new HashMap<Integer,Component>();
 
       Component[] components = parent.getComponents();
 
       // Components sorted by gridwidths/heights,
       // smallest to largest, with REMAINDER and RELATIVE at the end.
       // These are useful when determining sizes and weights.
-      ArrayList sortedByWidth = new ArrayList(components.length);
-      ArrayList sortedByHeight = new ArrayList(components.length);
+      ArrayList<Component> sortedByWidth =
+	new ArrayList<Component>(components.length);
+      ArrayList<Component> sortedByHeight =
+	new ArrayList<Component>(components.length);
 
       // STEP 1: first we figure out how many rows/columns
       for (int i = 0; i < components.length; i++)
@@ -549,7 +561,7 @@ public class GridBagLayout
                 x = 0;
               else
                 {
-                  Component lastComponent = (Component) lastInRow.get(new Integer(constraints.gridy));
+                  Component lastComponent = lastInRow.get(new Integer(constraints.gridy));
                   GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
                   x = lastConstraints.gridx + Math.max(1, lastConstraints.gridwidth);
                 }
@@ -560,7 +572,7 @@ public class GridBagLayout
                 {
                   if (lastInRow.containsKey(new Integer(y)))
                     {
-                      Component lastComponent = (Component) lastInRow.get(new Integer(y));
+                      Component lastComponent = lastInRow.get(new Integer(y));
                       GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
                       x = Math.max (x,
                                     lastConstraints.gridx + Math.max(1, lastConstraints.gridwidth));
@@ -582,7 +594,7 @@ public class GridBagLayout
                 }
               else
                 {
-                  Component lastComponent = (Component)lastInCol.get(new Integer(constraints.gridx));
+                  Component lastComponent = lastInCol.get(new Integer(constraints.gridx));
                   GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
                   y = lastConstraints.gridy + Math.max(1, lastConstraints.gridheight);
                 }
@@ -593,7 +605,7 @@ public class GridBagLayout
                 {
                   if (lastInCol.containsKey(new Integer(x)))
                     {
-                      Component lastComponent = (Component) lastInCol.get(new Integer(x));
+                      Component lastComponent = lastInCol.get(new Integer(x));
                       GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
                       y = Math.max (y,
                                     lastConstraints.gridy + Math.max(1, lastConstraints.gridheight));
@@ -623,7 +635,7 @@ public class GridBagLayout
                 {
                   if(lastInRow.containsKey(new Integer(y)))
                     {
-                      Component lastComponent = (Component) lastInRow.get(new Integer(y));
+                      Component lastComponent = lastInRow.get(new Integer(y));
                       GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
                       if (constraints.gridx > lastConstraints.gridx)
                         {
@@ -640,7 +652,7 @@ public class GridBagLayout
                 {
                   if(lastInCol.containsKey(new Integer(x)))
                     {
-                      Component lastComponent = (Component) lastInCol.get(new Integer(x));
+                      Component lastComponent = lastInCol.get(new Integer(x));
                       GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
                       if (constraints.gridy > lastConstraints.gridy)
                         {
@@ -694,7 +706,7 @@ public class GridBagLayout
                     {
                       if (lastInRow.containsKey(new Integer(y)))
                         {
-                          Component lastComponent = (Component) lastInRow.get(new Integer(y));
+                          Component lastComponent = lastInRow.get(new Integer(y));
                           GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
 
                           if (lastConstraints.gridwidth == GridBagConstraints.RELATIVE)
@@ -729,7 +741,7 @@ public class GridBagLayout
                     {
                       if (lastInCol.containsKey(new Integer(x)))
                         {
-                          Component lastComponent = (Component) lastInRow.get(new Integer(x));
+                          Component lastComponent = lastInRow.get(new Integer(x));
                           if (lastComponent != null)
                             {
                               GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
@@ -763,7 +775,7 @@ public class GridBagLayout
       // STEP 3: Determine sizes and weights for columns.
       for (int i = 0; i < sortedByWidth.size(); i++)
         {
-          Component component = (Component) sortedByWidth.get(i);
+          Component component = sortedByWidth.get(i);
 			
           // If component is not visible we dont have to care about it.
           if (!component.isVisible())
@@ -791,7 +803,7 @@ public class GridBagLayout
       // STEP 4: Determine sizes and weights for rows.
       for (int i = 0; i < sortedByHeight.size(); i++)
         {
-          Component component = (Component) sortedByHeight.get(i);
+          Component component = sortedByHeight.get(i);
 			
           // If component is not visible we dont have to care about it.
           if (!component.isVisible())
@@ -877,7 +889,8 @@ public class GridBagLayout
      *                    width. Otherwise, sort by height.
      * FIXME: Use a better sorting algorithm.
      */
-    private void sortBySpan (Component component, int span, ArrayList list, boolean sortByWidth)
+    private void sortBySpan (Component component, int span,
+			     ArrayList<Component> list, boolean sortByWidth)
     {
       if (span == GridBagConstraints.REMAINDER
           || span == GridBagConstraints.RELATIVE)
@@ -890,7 +903,7 @@ public class GridBagLayout
           int i = 0;
           if (list.size() > 0)
             {
-              GridBagConstraints gbc = lookupInternalConstraints((Component) list.get(i));
+              GridBagConstraints gbc = lookupInternalConstraints(list.get(i));
               int otherspan = sortByWidth ?
                               gbc.gridwidth :
                               gbc.gridheight;
@@ -901,7 +914,7 @@ public class GridBagLayout
                   i++;
                   if (i < list.size())
                     {
-                      gbc = lookupInternalConstraints((Component) list.get(i));
+                      gbc = lookupInternalConstraints(list.get(i));
                       otherspan = sortByWidth ?
                                   gbc.gridwidth :
                                   gbc.gridheight;

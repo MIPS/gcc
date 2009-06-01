@@ -40,6 +40,7 @@ package java.util;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
 
 /**
  * This class is a concrete <code>ResourceBundle</code> that gets it
@@ -97,7 +98,8 @@ public class PropertyResourceBundle extends ResourceBundle
   private Properties properties;
 
   /**
-   * Creates a new property resource bundle.
+   * Creates a new property resource bundle.  The property file must
+   * be encoded using ISO-8859-1.
    *
    * @param stream an input stream, where the resources are read from
    * @throws NullPointerException if stream is null
@@ -107,6 +109,21 @@ public class PropertyResourceBundle extends ResourceBundle
   {
     properties = new Properties();
     properties.load(stream);
+  }
+
+  /**
+   * Creates a new property resource bundle.  The encoding of the property
+   * file is determined by the supplied {@link Reader} object.
+   *
+   * @param reader an input stream, where the resources are read from
+   * @throws NullPointerException if stream is null
+   * @throws IOException if reading the stream fails
+   * @since 1.6
+   */
+  public PropertyResourceBundle(Reader reader) throws IOException
+  {
+    properties = new Properties();
+    properties.load(reader);
   }
 
   /**
@@ -126,15 +143,17 @@ public class PropertyResourceBundle extends ResourceBundle
    *
    * @return an enumeration of the keys
    */
-  public Enumeration getKeys()
+  public Enumeration<String> getKeys()
   {
     if (parent == null)
-      return properties.propertyNames();
+      // FIXME: bogus cast.
+      return (Enumeration<String>) properties.propertyNames();
     // We make a new Set that holds all the keys, then return an enumeration
     // for that. This prevents modifications from ruining the enumeration,
     // as well as ignoring duplicates.
-    Set s = new HashSet();
-    Enumeration e = properties.propertyNames();
+    Set<String> s = new HashSet<String>();
+    // FIXME: bogus cast.
+    Enumeration<String> e = (Enumeration<String>) properties.propertyNames();
     while (e.hasMoreElements())
       s.add(e.nextElement());
     ResourceBundle bundle = parent;

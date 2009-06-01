@@ -1,5 +1,5 @@
 /* Double.java -- object wrapper for double
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.lang;
 
+import gnu.java.lang.CPStringBuilder;
 
 /**
  * Instances of class <code>Double</code> represent primitive
@@ -49,10 +50,12 @@ package java.lang;
  * @author Paul Fisher
  * @author Andrew Haley (aph@cygnus.com)
  * @author Eric Blake (ebb9@email.byu.edu)
+ * @author Tom Tromey (tromey@redhat.com)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  * @since 1.0
- * @status updated to 1.4
+ * @status partly updated to 1.5
  */
-public final class Double extends Number implements Comparable
+public final class Double extends Number implements Comparable<Double>
 {
   /**
    * Compatible with JDK 1.0+.
@@ -98,7 +101,17 @@ public final class Double extends Number implements Comparable
    * <code>Class</code> object.
    * @since 1.1
    */
-  public static final Class TYPE = VMClassLoader.getPrimitiveClass('D');
+  public static final Class<Double> TYPE = (Class<Double>) VMClassLoader.getPrimitiveClass('D');
+
+  /**
+   * Cache representation of 0
+   */
+  private static final Double ZERO = new Double(0.0d);
+
+  /**
+   * Cache representation of 1
+   */
+  private static final Double ONE = new Double(1.0d);
 
   /**
    * The immutable value of this Double.
@@ -199,7 +212,7 @@ public final class Double extends Number implements Comparable
       return d < 0 ? "-Infinity" : "Infinity";
 
     long bits = doubleToLongBits(d);
-    StringBuilder result = new StringBuilder();
+    CPStringBuilder result = new CPStringBuilder();
     
     if (bits < 0)
       result.append('-');
@@ -254,13 +267,16 @@ public final class Double extends Number implements Comparable
    *
    * @param val the value to wrap
    * @return the <code>Double</code>
-   * 
    * @since 1.5
    */
   public static Double valueOf(double val)
   {
-    // We don't actually cache, but we could.
-    return new Double(val);
+    if ((val == 0.0) && (doubleToRawLongBits(val) == 0L))
+      return ZERO;
+    else if (val == 1.0)
+      return ONE;
+    else
+      return new Double(val);
   }
 
  /**
@@ -275,7 +291,7 @@ public final class Double extends Number implements Comparable
    */
   public static Double valueOf(String s)
   {
-    return new Double(parseDouble(s));
+    return valueOf(parseDouble(s));
   }
 
   /**
@@ -488,17 +504,13 @@ public final class Double extends Number implements Comparable
    */
   public boolean equals(Object obj)
   {
-    if (! (obj instanceof Double))
-      return false;
-
-    double d = ((Double) obj).value;
-
-    // Avoid call to native method. However, some implementations, like gcj,
-    // are better off using floatToIntBits(value) == floatToIntBits(f).
-    // Check common case first, then check NaN and 0.
-    if (value == d)
-      return (value != 0) || (1 / value == 1 / d);
-    return isNaN(value) && isNaN(d);
+    if (obj instanceof Double)
+      {
+        double d = ((Double) obj).value;
+        return (doubleToRawLongBits(value) == doubleToRawLongBits(d)) ||
+          (isNaN(value) && isNaN(d));
+      }
+    return false;
   }
 
   /**
@@ -517,7 +529,10 @@ public final class Double extends Number implements Comparable
    */
   public static long doubleToLongBits(double value)
   {
-    return VMDouble.doubleToLongBits(value);
+    if (isNaN(value))
+      return 0x7ff8000000000000L;
+    else
+      return VMDouble.doubleToRawLongBits(value);
   }
 
   /**
@@ -575,22 +590,6 @@ public final class Double extends Number implements Comparable
   }
 
   /**
-   * Behaves like <code>compareTo(Double)</code> unless the Object
-   * is not an <code>Double</code>.
-   *
-   * @param o the object to compare
-   * @return the comparison
-   * @throws ClassCastException if the argument is not a <code>Double</code>
-   * @see #compareTo(Double)
-   * @see Comparable
-   * @since 1.2
-   */
-  public int compareTo(Object o)
-  {
-    return compare(value, ((Double) o).value);
-  }
-
-  /**
    * Behaves like <code>new Double(x).compareTo(new Double(y))</code>; in
    * other words this compares two doubles, special casing NaN and zero,
    * without the overhead of objects.
@@ -602,16 +601,25 @@ public final class Double extends Number implements Comparable
    */
   public static int compare(double x, double y)
   {
-    if (isNaN(x))
-      return isNaN(y) ? 0 : 1;
-    if (isNaN(y))
-      return -1;
-    // recall that 0.0 == -0.0, so we convert to infinites and try again
-    if (x == 0 && y == 0)
-      return (int) (1 / x - 1 / y);
-    if (x == y)
-      return 0;
+      // handle the easy cases:
+      if (x < y)
+	  return -1;
+      if (x > y)
+	  return 1;
 
-    return x > y ? 1 : -1;
+      // handle equality respecting that 0.0 != -0.0 (hence not using x == y):
+      long lx = doubleToRawLongBits(x);
+      long ly = doubleToRawLongBits(y);
+      if (lx == ly)
+	  return 0;
+
+      // handle NaNs:
+      if (x != x)
+	  return (y != y) ? 0 : 1;
+      else if (y != y)
+	  return -1;
+
+      // handle +/- 0.0
+      return (lx < ly) ? -1 : 1;
   }
 }

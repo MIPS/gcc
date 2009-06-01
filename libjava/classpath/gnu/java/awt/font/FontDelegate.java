@@ -61,6 +61,13 @@ import java.util.Locale;
  */
 public interface FontDelegate
 {
+  public static final int FLAG_FITTED = 1 << 0;
+  public static final int FLAG_NO_HINT_HORIZONTAL = 1 << 1;
+  public static final int FLAG_NO_HINT_VERTICAL = 1 << 2;
+  public static final int FLAG_NO_HINT_EDGE_POINTS = 1 << 3;
+  public static final int FLAG_NO_HINT_STRONG_POINTS = 1 << 4;
+  public static final int FLAG_NO_HINT_WEAK_POINTS = 1 << 5;
+
   /**
    * Returns the full name of this font face in the specified
    * locale, for example <i>&#x201c;Univers Light&#x201d;</i>.
@@ -108,8 +115,16 @@ public interface FontDelegate
    * Returns the number of glyphs in this font face.
    */
   public int getNumGlyphs();
-  
-  
+
+  /**
+   * Returns the glyph code for the specified character.
+   *
+   * @param c the character to map
+   *
+   * @return the glyph code
+   */
+  public int getGlyphIndex(int c);
+
   /**
    * Returns the index of the glyph which gets displayed if the font
    * cannot map a Unicode code point to a glyph. Many fonts show this
@@ -221,7 +236,8 @@ public interface FontDelegate
                                      float pointSize,
                                      AffineTransform transform,
                                      boolean antialias,
-                                     boolean fractionalMetrics);
+                                     boolean fractionalMetrics,
+                                     int type);
 
 
   /**

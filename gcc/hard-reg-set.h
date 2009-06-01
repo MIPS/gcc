@@ -1,5 +1,5 @@
 /* Sets (bit vectors) of hard registers, and operations on them.
-   Copyright (C) 1987, 1992, 1994, 2000, 2003, 2004, 2005, 2007
+   Copyright (C) 1987, 1992, 1994, 2000, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC
@@ -82,9 +82,14 @@ typedef HARD_REG_ELT_TYPE HARD_REG_SET[HARD_REG_SET_LONGS];
    IOR_COMPL_HARD_REG_SET and AND_COMPL_HARD_REG_SET
    which use the complement of the set FROM.
 
-   Also define GO_IF_HARD_REG_SUBSET (X, Y, TO):
-   if X is a subset of Y, go to TO.
-*/
+   Also define:
+
+   hard_reg_set_subset_p (X, Y), which returns true if X is a subset of Y.
+   hard_reg_set_equal_p (X, Y), which returns true if X and Y are equal.
+   hard_reg_set_intersect_p (X, Y), which returns true if X and Y intersect.
+   hard_reg_set_empty_p (X), which returns true if X is empty.  */
+
+#define UHOST_BITS_PER_WIDE_INT ((unsigned) HOST_BITS_PER_WIDEST_FAST_INT)
 
 #ifdef HARD_REG_SET
 
@@ -106,13 +111,31 @@ typedef HARD_REG_ELT_TYPE HARD_REG_SET[HARD_REG_SET_LONGS];
 #define AND_HARD_REG_SET(TO, FROM) ((TO) &= (FROM))
 #define AND_COMPL_HARD_REG_SET(TO, FROM) ((TO) &= ~ (FROM))
 
-#define GO_IF_HARD_REG_SUBSET(X,Y,TO) if (HARD_CONST (0) == ((X) & ~(Y))) goto TO
+static inline bool
+hard_reg_set_subset_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return (x & ~y) == HARD_CONST (0);
+}
 
-#define GO_IF_HARD_REG_EQUAL(X,Y,TO) if ((X) == (Y)) goto TO
+static inline bool
+hard_reg_set_equal_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return x == y;
+}
+
+static inline bool
+hard_reg_set_intersect_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return (x & y) != HARD_CONST (0);
+}
+
+static inline bool
+hard_reg_set_empty_p (const HARD_REG_SET x)
+{
+  return x == HARD_CONST (0);
+}
 
 #else
-
-#define UHOST_BITS_PER_WIDE_INT ((unsigned) HOST_BITS_PER_WIDEST_FAST_INT)
 
 #define SET_HARD_REG_BIT(SET, BIT)		\
   ((SET)[(BIT) / UHOST_BITS_PER_WIDE_INT]	\
@@ -167,17 +190,29 @@ do { HARD_REG_ELT_TYPE *scan_tp_ = (TO), *scan_fp_ = (FROM); 	\
      scan_tp_[0] |= ~ scan_fp_[0];				\
      scan_tp_[1] |= ~ scan_fp_[1]; } while (0)
 
-#define GO_IF_HARD_REG_SUBSET(X,Y,TO)  \
-do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
-     if ((0 == (scan_xp_[0] & ~ scan_yp_[0]))			\
-	 && (0 == (scan_xp_[1] & ~ scan_yp_[1])))		\
-	goto TO; } while (0)
+static inline bool
+hard_reg_set_subset_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return (x[0] & ~y[0]) == 0 && (x[1] & ~y[1]) == 0;
+}
 
-#define GO_IF_HARD_REG_EQUAL(X,Y,TO)  \
-do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
-     if ((scan_xp_[0] == scan_yp_[0])				\
-	 && (scan_xp_[1] == scan_yp_[1]))			\
-	goto TO; } while (0)
+static inline bool
+hard_reg_set_equal_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return x[0] == y[0] && x[1] == y[1];
+}
+
+static inline bool
+hard_reg_set_intersect_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return (x[0] & y[0]) != 0 || (x[1] & y[1]) != 0;
+}
+
+static inline bool
+hard_reg_set_empty_p (const HARD_REG_SET x)
+{
+  return x[0] == 0 && x[1] == 0;
+}
 
 #else
 #if FIRST_PSEUDO_REGISTER <= 3*HOST_BITS_PER_WIDEST_FAST_INT
@@ -229,19 +264,33 @@ do { HARD_REG_ELT_TYPE *scan_tp_ = (TO), *scan_fp_ = (FROM); 	\
      scan_tp_[1] |= ~ scan_fp_[1];				\
      scan_tp_[2] |= ~ scan_fp_[2]; } while (0)
 
-#define GO_IF_HARD_REG_SUBSET(X,Y,TO)  \
-do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
-     if ((0 == (scan_xp_[0] & ~ scan_yp_[0]))			\
-	 && (0 == (scan_xp_[1] & ~ scan_yp_[1]))		\
-	 && (0 == (scan_xp_[2] & ~ scan_yp_[2])))		\
-	goto TO; } while (0)
+static inline bool
+hard_reg_set_subset_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return ((x[0] & ~y[0]) == 0
+	  && (x[1] & ~y[1]) == 0
+	  && (x[2] & ~y[2]) == 0);
+}
 
-#define GO_IF_HARD_REG_EQUAL(X,Y,TO)  \
-do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
-     if ((scan_xp_[0] == scan_yp_[0])				\
-	 && (scan_xp_[1] == scan_yp_[1])			\
-	 && (scan_xp_[2] == scan_yp_[2]))			\
-	goto TO; } while (0)
+static inline bool
+hard_reg_set_equal_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return x[0] == y[0] && x[1] == y[1] && x[2] == y[2];
+}
+
+static inline bool
+hard_reg_set_intersect_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return ((x[0] & y[0]) != 0
+	  || (x[1] & y[1]) != 0
+	  || (x[2] & y[2]) != 0);
+}
+
+static inline bool
+hard_reg_set_empty_p (const HARD_REG_SET x)
+{
+  return x[0] == 0 && x[1] == 0 && x[2] == 0;
+}
 
 #else
 #if FIRST_PSEUDO_REGISTER <= 4*HOST_BITS_PER_WIDEST_FAST_INT
@@ -301,23 +350,37 @@ do { HARD_REG_ELT_TYPE *scan_tp_ = (TO), *scan_fp_ = (FROM); 	\
      scan_tp_[2] |= ~ scan_fp_[2];				\
      scan_tp_[3] |= ~ scan_fp_[3]; } while (0)
 
-#define GO_IF_HARD_REG_SUBSET(X,Y,TO)  \
-do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
-     if ((0 == (scan_xp_[0] & ~ scan_yp_[0]))			\
-	 && (0 == (scan_xp_[1] & ~ scan_yp_[1]))		\
-	 && (0 == (scan_xp_[2] & ~ scan_yp_[2]))		\
-	 && (0 == (scan_xp_[3] & ~ scan_yp_[3])))		\
-	goto TO; } while (0)
+static inline bool
+hard_reg_set_subset_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return ((x[0] & ~y[0]) == 0
+	  && (x[1] & ~y[1]) == 0
+	  && (x[2] & ~y[2]) == 0
+	  && (x[3] & ~y[3]) == 0);
+}
 
-#define GO_IF_HARD_REG_EQUAL(X,Y,TO)  \
-do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
-     if ((scan_xp_[0] == scan_yp_[0])				\
-	 && (scan_xp_[1] == scan_yp_[1])			\
-	 && (scan_xp_[2] == scan_yp_[2])			\
-	 && (scan_xp_[3] == scan_yp_[3]))			\
-	goto TO; } while (0)
+static inline bool
+hard_reg_set_equal_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return x[0] == y[0] && x[1] == y[1] && x[2] == y[2] && x[3] == y[3];
+}
 
-#else /* FIRST_PSEUDO_REGISTER > 3*HOST_BITS_PER_WIDEST_FAST_INT */
+static inline bool
+hard_reg_set_intersect_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  return ((x[0] & y[0]) != 0
+	  || (x[1] & y[1]) != 0
+	  || (x[2] & y[2]) != 0
+	  || (x[3] & y[3]) != 0);
+}
+
+static inline bool
+hard_reg_set_empty_p (const HARD_REG_SET x)
+{
+  return x[0] == 0 && x[1] == 0 && x[2] == 0 && x[3] == 0;
+}
+
+#else /* FIRST_PSEUDO_REGISTER > 4*HOST_BITS_PER_WIDEST_FAST_INT */
 
 #define CLEAR_HARD_REG_SET(TO)  \
 do { HARD_REG_ELT_TYPE *scan_tp_ = (TO);			\
@@ -367,24 +430,148 @@ do { HARD_REG_ELT_TYPE *scan_tp_ = (TO), *scan_fp_ = (FROM); 	\
      for (i = 0; i < HARD_REG_SET_LONGS; i++)			\
        *scan_tp_++ |= ~ *scan_fp_++; } while (0)
 
-#define GO_IF_HARD_REG_SUBSET(X,Y,TO)  \
-do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
-     int i;							\
-     for (i = 0; i < HARD_REG_SET_LONGS; i++)			\
-       if (0 != (*scan_xp_++ & ~ *scan_yp_++)) break;		\
-     if (i == HARD_REG_SET_LONGS) goto TO; } while (0)
+static inline bool
+hard_reg_set_subset_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  int i;
 
-#define GO_IF_HARD_REG_EQUAL(X,Y,TO)  \
-do { HARD_REG_ELT_TYPE *scan_xp_ = (X), *scan_yp_ = (Y); 	\
-     int i;							\
-     for (i = 0; i < HARD_REG_SET_LONGS; i++)			\
-       if (*scan_xp_++ != *scan_yp_++) break;			\
-     if (i == HARD_REG_SET_LONGS) goto TO; } while (0)
+  for (i = 0; i < HARD_REG_SET_LONGS; i++)
+    if ((x[i] & ~y[i]) != 0)
+      return false;
+  return true;
+}
+
+static inline bool
+hard_reg_set_equal_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  int i;
+
+  for (i = 0; i < HARD_REG_SET_LONGS; i++)
+    if (x[i] != y[i])
+      return false;
+  return true;
+}
+
+static inline bool
+hard_reg_set_intersect_p (const HARD_REG_SET x, const HARD_REG_SET y)
+{
+  int i;
+
+  for (i = 0; i < HARD_REG_SET_LONGS; i++)
+    if ((x[i] & y[i]) != 0)
+      return true;
+  return false;
+}
+
+static inline bool
+hard_reg_set_empty_p (const HARD_REG_SET x)
+{
+  int i;
+
+  for (i = 0; i < HARD_REG_SET_LONGS; i++)
+    if (x[i] != 0)
+      return false;
+  return true;
+}
 
 #endif
 #endif
 #endif
 #endif
+
+/* Iterator for hard register sets.  */
+
+typedef struct
+{
+  /* Pointer to the current element.  */
+  HARD_REG_ELT_TYPE *pelt;
+
+  /* The length of the set.  */
+  unsigned short length;
+
+  /* Word within the current element.  */
+  unsigned short word_no;
+
+  /* Contents of the actually processed word.  When finding next bit
+     it is shifted right, so that the actual bit is always the least
+     significant bit of ACTUAL.  */
+  HARD_REG_ELT_TYPE bits;
+} hard_reg_set_iterator;
+
+#define HARD_REG_ELT_BITS UHOST_BITS_PER_WIDE_INT
+
+/* The implementation of the iterator functions is fully analogous to 
+   the bitmap iterators.  */
+static inline void
+hard_reg_set_iter_init (hard_reg_set_iterator *iter, HARD_REG_SET set, 
+                        unsigned min, unsigned *regno)
+{
+#ifdef HARD_REG_SET_LONGS
+  iter->pelt = set;
+  iter->length = HARD_REG_SET_LONGS;
+#else
+  iter->pelt = &set;
+  iter->length = 1;
+#endif
+  iter->word_no = min / HARD_REG_ELT_BITS;
+  if (iter->word_no < iter->length)
+    {
+      iter->bits = iter->pelt[iter->word_no];
+      iter->bits >>= min % HARD_REG_ELT_BITS;
+
+      /* This is required for correct search of the next bit.  */
+      min += !iter->bits;
+    }
+  *regno = min;
+}
+
+static inline bool 
+hard_reg_set_iter_set (hard_reg_set_iterator *iter, unsigned *regno)
+{
+  while (1)
+    {
+      /* Return false when we're advanced past the end of the set.  */
+      if (iter->word_no >= iter->length)
+        return false;
+
+      if (iter->bits)
+        {
+          /* Find the correct bit and return it.  */
+          while (!(iter->bits & 1))
+            {
+              iter->bits >>= 1;
+              *regno += 1;
+            }
+          return (*regno < FIRST_PSEUDO_REGISTER);
+        }
+  
+      /* Round to the beginning of the next word.  */
+      *regno = (*regno + HARD_REG_ELT_BITS - 1);
+      *regno -= *regno % HARD_REG_ELT_BITS;
+
+      /* Find the next non-zero word.  */
+      while (++iter->word_no < iter->length)
+        {
+          iter->bits = iter->pelt[iter->word_no];
+          if (iter->bits)
+            break;
+          *regno += HARD_REG_ELT_BITS;
+        }
+    }
+}
+
+static inline void
+hard_reg_set_iter_next (hard_reg_set_iterator *iter, unsigned *regno)
+{
+  iter->bits >>= 1;
+  *regno += 1;
+}
+
+#define EXECUTE_IF_SET_IN_HARD_REG_SET(SET, MIN, REGNUM, ITER)          \
+  for (hard_reg_set_iter_init (&(ITER), (SET), (MIN), &(REGNUM));       \
+       hard_reg_set_iter_set (&(ITER), &(REGNUM));                      \
+       hard_reg_set_iter_next (&(ITER), &(REGNUM)))
+
 
 /* Define some standard sets of registers.  */
 
@@ -414,9 +601,6 @@ extern char call_really_used_regs[];
 
 extern HARD_REG_SET call_used_reg_set;
   
-/* Registers that we don't want to caller save.  */
-extern HARD_REG_SET losing_caller_save_reg_set;
-
 /* Indexed by hard register number, contains 1 for registers that are
    fixed use -- i.e. in fixed_regs -- or a function value return register
    or TARGET_STRUCT_VALUE_RTX or STATIC_CHAIN_REGNUM.  These are the
@@ -445,6 +629,11 @@ extern char global_regs[FIRST_PSEUDO_REGISTER];
 
 extern HARD_REG_SET regs_invalidated_by_call;
 
+/* Call used hard registers which can not be saved because there is no
+   insn for this.  */
+
+extern HARD_REG_SET no_caller_save_reg_set;
+
 #ifdef REG_ALLOC_ORDER
 /* Table of register numbers in the order in which to try to use them.  */
 
@@ -462,6 +651,10 @@ extern HARD_REG_SET reg_class_contents[N_REG_CLASSES];
 /* For each reg class, number of regs it contains.  */
 
 extern unsigned int reg_class_size[N_REG_CLASSES];
+
+/* For each reg class, table listing all the classes contained in it.  */
+
+extern enum reg_class reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
 
 /* For each pair of reg classes,
    a largest reg class contained in their union.  */

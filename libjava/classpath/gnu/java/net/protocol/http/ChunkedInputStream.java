@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.java.net.protocol.http;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ProtocolException;
@@ -58,10 +60,6 @@ import java.net.ProtocolException;
 public class ChunkedInputStream
   extends InputStream
 {
-
-  private static final byte CR = 0x0d;
-  private static final byte LF = 0x0a;
-
   Headers headers;
 
   /** The underlying stream. */
@@ -117,7 +115,7 @@ public class ChunkedInputStream
         // Read chunk header
         int c, last = 0;
         boolean seenSemi = false;
-        StringBuilder buf = new StringBuilder();
+        CPStringBuilder buf = new CPStringBuilder();
         do
           {
             c = in.read();

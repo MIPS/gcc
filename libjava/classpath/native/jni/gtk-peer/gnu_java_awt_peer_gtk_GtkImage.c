@@ -1,5 +1,5 @@
 /* gtkimage.c
-   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,8 +37,6 @@ exception statement from your version. */
 
 #include "jcl.h"
 #include "gtkpeer.h"
-#include <cairo-xlib.h>
-#include <gdk/gdkx.h>
 
 #include "gnu_java_awt_peer_gtk_GtkImage.h"
 
@@ -367,6 +365,9 @@ GdkPixbuf *cp_gtk_image_get_pixbuf (JNIEnv *env, jobject obj)
 				 "Lgnu/classpath/Pointer;");
   g_assert (data_fid != 0);
   data = (*env)->GetObjectField (env, obj, data_fid);
+
+  if (data == NULL)
+    return NULL;
 
   return (GdkPixbuf *)JCL_GetRawData (env, data);
 }

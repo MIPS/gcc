@@ -13,7 +13,7 @@ extern char arr1[1];
 char arr1[1];
 extern char arr2[0];
 char arr2[0];
-extern char arr3[0];            /* { dg-error "previous declaration" } */
+extern char arr3[0];            /* { dg-message "note: previous declaration" } */
 char arr3[1];                   /* { dg-error "conflicting types" } */
 
 /* Variable size matches.  */
@@ -24,7 +24,7 @@ void func(int n, int m)
     /* Invalid: not compatible because 4 != 6.  */
     int a[n][6][m];
     int (*p)[4][n+1];
-    p = a;			/* { dg-error "incompatible" } */
+    p = a;			/* { dg-warning "incompatible" } */
   }
   {
     /* Compatible, but defined behavior only if n == 6 and m == n+1.  */

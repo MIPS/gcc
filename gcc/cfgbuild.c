@@ -1,6 +1,7 @@
 /* Control flow graph building code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -45,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "timevar.h"
 
-static int count_basic_blocks (rtx);
+static int count_basic_blocks (const_rtx);
 static void find_basic_blocks_1 (rtx);
 static void make_edges (basic_block, basic_block, int);
 static void make_label_edge (sbitmap, basic_block, rtx, int);
@@ -56,7 +57,7 @@ static void compute_outgoing_frequencies (basic_block);
    block.  */
 
 bool
-inside_basic_block_p (rtx insn)
+inside_basic_block_p (const_rtx insn)
 {
   switch (GET_CODE (insn))
     {
@@ -88,7 +89,7 @@ inside_basic_block_p (rtx insn)
    the basic block.  */
 
 bool
-control_flow_insn_p (rtx insn)
+control_flow_insn_p (const_rtx insn)
 {
   rtx note;
 
@@ -140,11 +141,11 @@ control_flow_insn_p (rtx insn)
 /* Count the basic blocks of the function.  */
 
 static int
-count_basic_blocks (rtx f)
+count_basic_blocks (const_rtx f)
 {
   int count = NUM_FIXED_BLOCKS;
   bool saw_insn = false;
-  rtx insn;
+  const_rtx insn;
 
   for (insn = f; insn; insn = NEXT_INSN (insn))
     {
@@ -170,7 +171,7 @@ count_basic_blocks (rtx f)
      check for the edge case of do-nothing functions with no basic blocks.  */
   if (count == NUM_FIXED_BLOCKS)
     {
-      emit_insn (gen_rtx_USE (VOIDmode, const0_rtx));
+      emit_use (const0_rtx);
       count = NUM_FIXED_BLOCKS + 1;
     }
 
@@ -256,7 +257,7 @@ make_edges (basic_block min, basic_block max, int update_p)
   /* Heavy use of computed goto in machine-generated code can lead to
      nearly fully-connected CFGs.  In that case we spend a significant
      amount of time searching the edge lists for duplicates.  */
-  if (forced_labels || cfun->max_jumptable_ents > 100)
+  if (forced_labels || cfun->cfg->max_jumptable_ents > 100)
     edge_cache = sbitmap_alloc (last_basic_block);
 
   /* By nature of the way these get numbered, ENTRY_BLOCK_PTR->next_bb block
@@ -401,7 +402,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       while (insn
 	     && NOTE_P (insn)
-	     && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK)
+	     && NOTE_KIND (insn) != NOTE_INSN_BASIC_BLOCK)
 	insn = NEXT_INSN (insn);
 
       if (!insn)
@@ -468,22 +469,18 @@ find_basic_blocks_1 (rtx f)
       switch (code)
 	{
 	case NOTE:
-	  {
-	    int kind = NOTE_LINE_NUMBER (insn);
-
-	    /* Look for basic block notes with which to keep the
-	       basic_block_info pointers stable.  Unthread the note now;
-	       we'll put it back at the right place in create_basic_block.
-	       Or not at all if we've already found a note in this block.  */
-	    if (kind == NOTE_INSN_BASIC_BLOCK)
-	      {
-		if (bb_note == NULL_RTX)
-		  bb_note = insn;
-		else
-		  next = delete_insn (insn);
-	      }
-	    break;
-	  }
+	  /* Look for basic block notes with which to keep the
+	     basic_block_info pointers stable.  Unthread the note now;
+	     we'll put it back at the right place in create_basic_block.
+	     Or not at all if we've already found a note in this block.  */
+	  if (NOTE_INSN_BASIC_BLOCK_P (insn))
+	    {
+	      if (bb_note == NULL_RTX)
+		bb_note = insn;
+	      else
+		next = delete_insn (insn);
+	    }
+	  break;
 
 	case CODE_LABEL:
 	case JUMP_INSN:
@@ -547,9 +544,7 @@ find_basic_blocks (rtx f)
      actually lay them out.  */
 
   basic_block_info = VEC_alloc (basic_block, gc, n_basic_blocks);
-  VEC_safe_grow (basic_block, gc, basic_block_info, n_basic_blocks);
-  memset (VEC_address (basic_block, basic_block_info), 0,
-	  sizeof (basic_block) * n_basic_blocks);
+  VEC_safe_grow_cleared (basic_block, gc, basic_block_info, n_basic_blocks);
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
 
@@ -635,7 +630,7 @@ find_bb_boundaries (basic_block bb)
 {
   basic_block orig_bb = bb;
   rtx insn = BB_HEAD (bb);
-  rtx end = BB_END (bb);
+  rtx end = BB_END (bb), x;
   rtx table;
   rtx flow_transfer_insn = NULL_RTX;
   edge fallthru = NULL;
@@ -656,7 +651,16 @@ find_bb_boundaries (basic_block bb)
 	{
 	  fallthru = split_block (bb, PREV_INSN (insn));
 	  if (flow_transfer_insn)
-	    BB_END (bb) = flow_transfer_insn;
+	    {
+	      BB_END (bb) = flow_transfer_insn;
+
+	      /* Clean up the bb field for the insns between the blocks.  */
+	      for (x = NEXT_INSN (flow_transfer_insn);
+		   x != BB_HEAD (fallthru->dest);
+		   x = NEXT_INSN (x))
+		if (!BARRIER_P (x))
+		  set_block_for_insn (x, NULL);
+	    }
 
 	  bb = fallthru->dest;
 	  remove_edge (fallthru);
@@ -671,6 +675,14 @@ find_bb_boundaries (basic_block bb)
 	{
 	  fallthru = split_block (bb, PREV_INSN (insn));
 	  BB_END (bb) = flow_transfer_insn;
+
+	  /* Clean up the bb field for the insns between the blocks.  */
+	  for (x = NEXT_INSN (flow_transfer_insn);
+	       x != BB_HEAD (fallthru->dest);
+	       x = NEXT_INSN (x))
+	    if (!BARRIER_P (x))
+	      set_block_for_insn (x, NULL);
+
 	  bb = fallthru->dest;
 	  remove_edge (fallthru);
 	  flow_transfer_insn = NULL_RTX;
@@ -687,7 +699,18 @@ find_bb_boundaries (basic_block bb)
      return and barrier, or possibly other sequence not behaving like
      ordinary jump, we need to take care and move basic block boundary.  */
   if (flow_transfer_insn)
-    BB_END (bb) = flow_transfer_insn;
+    {
+      BB_END (bb) = flow_transfer_insn;
+
+      /* Clean up the bb field for the insns that do not belong to BB.  */
+      x = flow_transfer_insn;
+      while (x != end)
+	{
+	  x = NEXT_INSN (x);
+	  if (!BARRIER_P (x))
+	    set_block_for_insn (x, NULL);
+	}
+    }
 
   /* We've possibly replaced the conditional jump by conditional jump
      followed by cleanup at fallthru edge, so the outgoing edges may

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived for use with GNAT from AI-00248,  which is --
 -- expected to be a part of a future expected revised Ada Reference Manual. --
@@ -15,21 +15,19 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -76,9 +74,6 @@ with Ada.IO_Exceptions;
 with Ada.Strings.Unbounded;
 
 package Ada.Directories is
-
-   pragma Ada_05;
-   --  To be removed later ???
 
    -----------------------------------
    -- Directory and File Operations --
@@ -320,9 +315,9 @@ package Ada.Directories is
    procedure End_Search (Search : in out Search_Type);
    --  Ends the search represented by Search. After a successful call on
    --  End_Search, the object Search will have no entries available. Note
-   --  that is is not necessary to call End_Search if the call to Start_Search
+   --  that it is not necessary to call End_Search if the call to Start_Search
    --  was unsuccessful and raised an exception (but it is harmless to make
-   --  the call in this case)>
+   --  the call in this case).
 
    function More_Entries (Search : Search_Type) return Boolean;
    --  Returns True if more entries are available to be returned by a call
@@ -339,6 +334,24 @@ package Ada.Directories is
    --  another program). The exception Use_Error is propagated if the external
    --  environment does not support continued searching of the directory
    --  represented by Search.
+
+   procedure Search
+     (Directory : String;
+      Pattern   : String;
+      Filter    : Filter_Type := (others => True);
+      Process   : not null access procedure
+                                    (Directory_Entry : Directory_Entry_Type));
+   --  Searches in the directory named by Directory for entries matching
+   --  Pattern. The subprogram designated by Process is called with each
+   --  matching entry in turn. Pattern represents a pattern for matching file
+   --  names. If Pattern is null, all items in the directory are matched;
+   --  otherwise, the interpretation of Pattern is implementation-defined.
+   --  Only items that match Filter will be returned. The exception Name_Error
+   --  is propagated if the string given by Directory does not identify
+   --  an existing directory, or if Pattern does not allow the identification
+   --  of any possible external file or directory. The exception Use_Error is
+   --  propagated if the external environment does not support the searching
+   --  of the directory with the given name (in the absence of Name_Error).
 
    -------------------------------------
    -- Operations on Directory Entries --

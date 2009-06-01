@@ -1,12 +1,13 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+// 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +15,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file fstream.tcc
  *  This is an internal header file, included by other library headers.
@@ -41,6 +37,8 @@
 #define _FSTREAM_TCC 1
 
 #pragma GCC system_header
+
+#include <cxxabi-forced.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -127,36 +125,51 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::__filebuf_type*
     basic_filebuf<_CharT, _Traits>::
-    close() throw()
+    close()
     {
-      __filebuf_type* __ret = NULL;
-      if (this->is_open())
+      if (!this->is_open())
+	return NULL;
+
+      bool __testfail = false;
+      {
+	// NB: Do this here so that re-opened filebufs will be cool...
+	struct __close_sentry
 	{
-	  bool __testfail = false;
-	  try
-	    {
-	      if (!_M_terminate_output())
-		__testfail = true;
-	    }
-	  catch(...)
-	    { __testfail = true; }
+	  basic_filebuf *__fb;
+	  __close_sentry (basic_filebuf *__fbi): __fb(__fbi) { }
+	  ~__close_sentry ()
+	  {
+	    __fb->_M_mode = ios_base::openmode(0);
+	    __fb->_M_pback_init = false;
+	    __fb->_M_destroy_internal_buffer();
+	    __fb->_M_reading = false;
+	    __fb->_M_writing = false;
+	    __fb->_M_set_buffer(-1);
+	    __fb->_M_state_last = __fb->_M_state_cur = __fb->_M_state_beg;
+	  }
+	} __cs (this);
 
-	  // NB: Do this here so that re-opened filebufs will be cool...
-	  _M_mode = ios_base::openmode(0);
-	  _M_pback_init = false;
-	  _M_destroy_internal_buffer();
-	  _M_reading = false;
-	  _M_writing = false;
-	  _M_set_buffer(-1);
-	  _M_state_last = _M_state_cur = _M_state_beg;
+	__try
+	  {
+	    if (!_M_terminate_output())
+	      __testfail = true;
+	  }
+	__catch(__cxxabiv1::__forced_unwind&)
+	  {
+	    _M_file.close();
+	    __throw_exception_again;
+	  }
+	__catch(...)
+	  { __testfail = true; }
+      }
 
-	  if (!_M_file.close())
-	    __testfail = true;
+      if (!_M_file.close())
+	__testfail = true;
 
-	  if (!__testfail)
-	    __ret = this;
-	}
-      return __ret;
+      if (__testfail)
+	return NULL;
+      else
+	return this;
     }
 
   template<typename _CharT, typename _Traits>
@@ -194,7 +207,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const bool __testin = _M_mode & ios_base::in;
       if (__testin && !_M_writing)
 	{
-	  // Check for pback madness, and if so swich back to the
+	  // Check for pback madness, and if so switch back to the
 	  // normal buffers and jet outta here before expensive
 	  // fileops happen...
 	  _M_destroy_pback();
@@ -245,14 +258,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		{
 		  char* __buf = new char[__blen];
 		  if (__remainder)
-		    std::memcpy(__buf, _M_ext_next, __remainder);
+		    __builtin_memcpy(__buf, _M_ext_next, __remainder);
 
 		  delete [] _M_ext_buf;
 		  _M_ext_buf = __buf;
 		  _M_ext_buf_size = __blen;
 		}
 	      else if (__remainder)
-		std::memmove(_M_ext_buf, _M_ext_next, __remainder);
+		__builtin_memmove(_M_ext_buf, _M_ext_next, __remainder);
 
 	      _M_ext_next = _M_ext_buf;
 	      _M_ext_end = _M_ext_buf + __remainder;
@@ -279,16 +292,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		      _M_ext_end += __elen;
 		    }
 
-		  char_type* __iend;
-		  __r = _M_codecvt->in(_M_state_cur, _M_ext_next,
-				       _M_ext_end, _M_ext_next, this->eback(),
-				       this->eback() + __buflen, __iend);
+		  char_type* __iend = this->eback();
+		  if (_M_ext_next < _M_ext_end)
+		    __r = _M_codecvt->in(_M_state_cur, _M_ext_next,
+					 _M_ext_end, _M_ext_next,
+					 this->eback(),
+					 this->eback() + __buflen, __iend);
 		  if (__r == codecvt_base::noconv)
 		    {
 		      size_t __avail = _M_ext_end - _M_ext_buf;
 		      __ilen = std::min(__avail, __buflen);
 		      traits_type::copy(this->eback(),
-					reinterpret_cast<char_type*>(_M_ext_buf), __ilen);
+					reinterpret_cast<char_type*>
+					(_M_ext_buf), __ilen);
 		      _M_ext_next = _M_ext_buf + __ilen;
 		    }
 		  else
@@ -641,21 +657,23 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     setbuf(char_type* __s, streamsize __n)
     {
       if (!this->is_open())
-	if (__s == 0 && __n == 0)
-	  _M_buf_size = 1;
-	else if (__s && __n > 0)
-	  {
-	    // This is implementation-defined behavior, and assumes that
-	    // an external char_type array of length __n exists and has
-	    // been pre-allocated. If this is not the case, things will
-	    // quickly blow up. When __n > 1, __n - 1 positions will be
-	    // used for the get area, __n - 1 for the put area and 1
-	    // position to host the overflow char of a full put area.
-	    // When __n == 1, 1 position will be used for the get area
-	    // and 0 for the put area, as in the unbuffered case above.
-	    _M_buf = __s;
-	    _M_buf_size = __n;
-	  }
+	{
+	  if (__s == 0 && __n == 0)
+	    _M_buf_size = 1;
+	  else if (__s && __n > 0)
+	    {
+	      // This is implementation-defined behavior, and assumes that
+	      // an external char_type array of length __n exists and has
+	      // been pre-allocated. If this is not the case, things will
+	      // quickly blow up. When __n > 1, __n - 1 positions will be
+	      // used for the get area, __n - 1 for the put area and 1
+	      // position to host the overflow char of a full put area.
+	      // When __n == 1, 1 position will be used for the get area
+	      // and 0 for the put area, as in the unbuffered case above.
+	      _M_buf = __s;
+	      _M_buf_size = __n;
+	    }
+	}
       return this;
     }
 
@@ -867,7 +885,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 					     this->gptr() - this->eback());
 		      const streamsize __remainder = _M_ext_end - _M_ext_next;
 		      if (__remainder)
-			std::memmove(_M_ext_buf, _M_ext_next, __remainder);
+			__builtin_memmove(_M_ext_buf, _M_ext_next, __remainder);
 
 		      _M_ext_next = _M_ext_buf;
 		      _M_ext_end = _M_ext_buf + __remainder;

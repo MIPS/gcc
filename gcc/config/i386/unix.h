@@ -1,5 +1,5 @@
 /* Definitions for Unix assembler syntax for the Intel 80386.
-   Copyright (C) 1988, 1994, 1999, 2000, 2001, 2002, 2007
+   Copyright (C) 1988, 1994, 1999, 2000, 2001, 2002, 2007, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -14,8 +14,13 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 /* This file defines the aspects of assembler syntax
@@ -61,5 +66,11 @@ along with GCC; see the file COPYING3.  If not see
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
+#undef TARGET_SUBTARGET_DEFAULT
+#define TARGET_SUBTARGET_DEFAULT \
+	(MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
 
-#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
+/* By default, 64-bit mode uses 128-bit long double.  */
+#undef TARGET_SUBTARGET64_DEFAULT
+#define TARGET_SUBTARGET64_DEFAULT \
+	MASK_128BIT_LONG_DOUBLE

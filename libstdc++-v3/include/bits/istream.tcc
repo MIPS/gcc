@@ -1,13 +1,13 @@
 // istream classes -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007
+// 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -15,19 +15,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file istream.tcc
  *  This is an internal header file, included by other library headers.
@@ -43,8 +38,7 @@
 
 #pragma GCC system_header
 
-#include <locale>
-#include <ostream> // For flush()
+#include <cxxabi-forced.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -57,7 +51,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  if (__in.tie())
 	    __in.tie()->flush();
-	  if (!__noskip && (__in.flags() & ios_base::skipws))
+	  if (!__noskip && bool(__in.flags() & ios_base::skipws))
 	    {
 	      const __int_type __eof = traits_type::eof();
 	      __streambuf_type* __sb = __in.rdbuf();
@@ -96,12 +90,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	if (__cerb)
 	  {
 	    ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	    try
+	    __try
 	      {
 		const __num_get_type& __ng = __check_facet(this->_M_num_get);
 		__ng.get(*this, 0, *this, __err, __v);
 	      }
-	    catch(...)
+	    __catch(__cxxabiv1::__forced_unwind&)
+	      {
+		this->_M_setstate(ios_base::badbit);		
+		__throw_exception_again;
+	      }
+	    __catch(...)
 	      { this->_M_setstate(ios_base::badbit); }
 	    if (__err)
 	      this->setstate(__err);
@@ -120,9 +119,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       _M_extract(__l);
       if (!this->fail())
 	{
-	  if (numeric_limits<short>::min() <= __l
-	      && __l <= numeric_limits<short>::max())
-	    __n = __l;
+	  if (__gnu_cxx::__numeric_traits<short>::__min <= __l
+	      && __l <= __gnu_cxx::__numeric_traits<short>::__max)
+	    __n = short(__l);
 	  else
 	    this->setstate(ios_base::failbit);
 	}
@@ -140,9 +139,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       _M_extract(__l);
       if (!this->fail())
 	{
-	  if (numeric_limits<int>::min() <= __l
-	      && __l <= numeric_limits<int>::max())
-	    __n = __l;
+	  if (__gnu_cxx::__numeric_traits<int>::__min <= __l
+	      && __l <= __gnu_cxx::__numeric_traits<int>::__max)
+	    __n = int(__l);
 	  else
 	    this->setstate(ios_base::failbit);
 	}
@@ -158,7 +157,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       sentry __cerb(*this, false);
       if (__cerb && __sbout)
 	{
-	  try
+	  __try
 	    {
 	      bool __ineof;
 	      if (!__copy_streambufs_eof(this->rdbuf(), __sbout, __ineof))
@@ -166,7 +165,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (__ineof)
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::failbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::failbit); }
 	}
       else if (!__sbout)
@@ -188,7 +192,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       sentry __cerb(*this, true);
       if (__cerb)
 	{
-	  try
+	  __try
 	    {
 	      __c = this->rdbuf()->sbumpc();
 	      // 27.6.1.1 paragraph 3
@@ -197,7 +201,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      else
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	}
       if (!_M_gcount)
@@ -217,7 +226,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       sentry __cerb(*this, true);
       if (__cerb)
 	{
-	  try
+	  __try
 	    {
 	      const int_type __cb = this->rdbuf()->sbumpc();
 	      // 27.6.1.1 paragraph 3
@@ -229,7 +238,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      else
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	}
       if (!_M_gcount)
@@ -249,7 +263,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       sentry __cerb(*this, true);
       if (__cerb)
 	{
-	  try
+	  __try
 	    {
 	      const int_type __idelim = traits_type::to_int_type(__delim);
 	      const int_type __eof = traits_type::eof();
@@ -267,7 +281,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (traits_type::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	}
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
@@ -291,7 +310,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       sentry __cerb(*this, true);
       if (__cerb)
 	{
-	  try
+	  __try
 	    {
 	      const int_type __idelim = traits_type::to_int_type(__delim);
 	      const int_type __eof = traits_type::eof();
@@ -310,7 +329,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (traits_type::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	}
       if (!_M_gcount)
@@ -330,7 +354,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       sentry __cerb(*this, true);
       if (__cerb)
         {
-          try
+          __try
             {
               const int_type __idelim = traits_type::to_int_type(__delim);
               const int_type __eof = traits_type::eof();
@@ -358,7 +382,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
                     __err |= ios_base::failbit;
                 }
             }
-          catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+          __catch(...)
             { this->_M_setstate(ios_base::badbit); }
         }
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
@@ -385,7 +414,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      const int_type __eof = traits_type::eof();
 	      __streambuf_type* __sb = this->rdbuf();
@@ -395,7 +424,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      else
 		_M_gcount = 1;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -413,7 +447,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb && __n > 0)
         {
           ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-          try
+          __try
             {
               const int_type __eof = traits_type::eof();
               __streambuf_type* __sb = this->rdbuf();
@@ -435,10 +469,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		      ++_M_gcount;
 		      __c = __sb->snextc();
 		    }
-		  if (__n == numeric_limits<streamsize>::max()
+		  if (__n == __gnu_cxx::__numeric_traits<streamsize>::__max
 		      && !traits_type::eq_int_type(__c, __eof))
 		    {
-		      _M_gcount = numeric_limits<streamsize>::min();
+		      _M_gcount =
+			__gnu_cxx::__numeric_traits<streamsize>::__min;
 		      __large_ignore = true;
 		    }
 		  else
@@ -446,12 +481,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		}
 
 	      if (__large_ignore)
-		_M_gcount = numeric_limits<streamsize>::max();
+		_M_gcount = __gnu_cxx::__numeric_traits<streamsize>::__max;
 
 	      if (traits_type::eq_int_type(__c, __eof))
                 __err |= ios_base::eofbit;
             }
-          catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+          __catch(...)
             { this->_M_setstate(ios_base::badbit); }
           if (__err)
             this->setstate(__err);
@@ -469,7 +509,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb && __n > 0)
         {
           ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-          try
+          __try
             {
               const int_type __eof = traits_type::eof();
               __streambuf_type* __sb = this->rdbuf();
@@ -486,11 +526,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		      ++_M_gcount;
 		      __c = __sb->snextc();
 		    }
-		  if (__n == numeric_limits<streamsize>::max()
+		  if (__n == __gnu_cxx::__numeric_traits<streamsize>::__max
 		      && !traits_type::eq_int_type(__c, __eof)
 		      && !traits_type::eq_int_type(__c, __delim))
 		    {
-		      _M_gcount = numeric_limits<streamsize>::min();
+		      _M_gcount =
+			__gnu_cxx::__numeric_traits<streamsize>::__min;
 		      __large_ignore = true;
 		    }
 		  else
@@ -498,18 +539,24 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		}
 
 	      if (__large_ignore)
-		_M_gcount = numeric_limits<streamsize>::max();
+		_M_gcount = __gnu_cxx::__numeric_traits<streamsize>::__max;
 
               if (traits_type::eq_int_type(__c, __eof))
                 __err |= ios_base::eofbit;
 	      else if (traits_type::eq_int_type(__c, __delim))
 		{
-		  if (_M_gcount < numeric_limits<streamsize>::max())
+		  if (_M_gcount
+		      < __gnu_cxx::__numeric_traits<streamsize>::__max)
 		    ++_M_gcount;
 		  __sb->sbumpc();
 		}
             }
-          catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+          __catch(...)
             { this->_M_setstate(ios_base::badbit); }
           if (__err)
             this->setstate(__err);
@@ -528,13 +575,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      __c = this->rdbuf()->sgetc();
 	      if (traits_type::eq_int_type(__c, traits_type::eof()))
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -552,13 +604,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      _M_gcount = this->rdbuf()->sgetn(__s, __n);
 	      if (_M_gcount != __n)
 		__err |= (ios_base::eofbit | ios_base::failbit);
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -576,7 +633,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      // Cannot compare int_type with streamsize generically.
 	      const streamsize __num = this->rdbuf()->in_avail();
@@ -585,7 +642,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      else if (__num == -1)
 		__err |= ios_base::eofbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -605,7 +667,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      const int_type __eof = traits_type::eof();
 	      __streambuf_type* __sb = this->rdbuf();
@@ -613,7 +675,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		  || traits_type::eq_int_type(__sb->sputbackc(__c), __eof))
 		__err |= ios_base::badbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -633,7 +700,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      const int_type __eof = traits_type::eof();
 	      __streambuf_type* __sb = this->rdbuf();
@@ -641,7 +708,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		  || traits_type::eq_int_type(__sb->sungetc(), __eof))
 		__err |= ios_base::badbit;
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -661,7 +733,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      __streambuf_type* __sb = this->rdbuf();
 	      if (__sb)
@@ -672,7 +744,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		    __ret = 0;
 		}
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -688,13 +765,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
       pos_type __ret = pos_type(-1);
-      try
+      __try
 	{
 	  if (!this->fail())
 	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur,
 					      ios_base::in);
 	}
-      catch(...)
+      __catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);
+	  __throw_exception_again;
+	}
+      __catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
       return __ret;
     }
@@ -707,7 +789,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
       ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-      try
+      __try
 	{
 	  if (!this->fail())
 	    {
@@ -720,7 +802,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		__err |= ios_base::failbit;
 	    }
 	}
-      catch(...)
+      __catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);
+	  __throw_exception_again;
+	}
+      __catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
       if (__err)
 	this->setstate(__err);
@@ -735,7 +822,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
       ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-      try
+      __try
 	{
 	  if (!this->fail())
 	    {
@@ -748,7 +835,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		__err |= ios_base::failbit;
 	    }
 	}
-      catch(...)
+      __catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);
+	  __throw_exception_again;
+	}
+      __catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
       if (__err)
 	this->setstate(__err);
@@ -767,7 +859,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__cerb)
 	{
 	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
+	  __try
 	    {
 	      const __int_type __cb = __in.rdbuf()->sbumpc();
 	      if (!_Traits::eq_int_type(__cb, _Traits::eof()))
@@ -775,7 +867,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      else
 		__err |= (ios_base::eofbit | ios_base::failbit);
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __in._M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { __in._M_setstate(ios_base::badbit); }
 	  if (__err)
 	    __in.setstate(__err);
@@ -788,7 +885,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     operator>>(basic_istream<_CharT, _Traits>& __in, _CharT* __s)
     {
       typedef basic_istream<_CharT, _Traits>		__istream_type;
-      typedef typename __istream_type::__streambuf_type __streambuf_type;
+      typedef basic_streambuf<_CharT, _Traits>          __streambuf_type;
       typedef typename _Traits::int_type		int_type;
       typedef _CharT					char_type;
       typedef ctype<_CharT>				__ctype_type;
@@ -798,12 +895,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typename __istream_type::sentry __cerb(__in, false);
       if (__cerb)
 	{
-	  try
+	  __try
 	    {
 	      // Figure out how many characters to extract.
 	      streamsize __num = __in.width();
 	      if (__num <= 0)
-		__num = numeric_limits<streamsize>::max();
+		__num = __gnu_cxx::__numeric_traits<streamsize>::__max;
 
 	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
 
@@ -828,7 +925,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      *__s = char_type();
 	      __in.width(0);
 	    }
-	  catch(...)
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __in._M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
 	    { __in._M_setstate(ios_base::badbit); }
 	}
       if (!__extracted)
@@ -840,13 +942,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // 27.6.1.4 Standard basic_istream manipulators
   template<typename _CharT, typename _Traits>
-    basic_istream<_CharT,_Traits>&
-    ws(basic_istream<_CharT,_Traits>& __in)
+    basic_istream<_CharT, _Traits>&
+    ws(basic_istream<_CharT, _Traits>& __in)
     {
       typedef basic_istream<_CharT, _Traits>		__istream_type;
-      typedef typename __istream_type::__streambuf_type __streambuf_type;
-      typedef typename __istream_type::__ctype_type	__ctype_type;
+      typedef basic_streambuf<_CharT, _Traits>          __streambuf_type;
       typedef typename __istream_type::int_type		__int_type;
+      typedef ctype<_CharT>				__ctype_type;
 
       const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
       const __int_type __eof = _Traits::eof();
@@ -859,133 +961,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
        if (_Traits::eq_int_type(__c, __eof))
 	 __in.setstate(ios_base::eofbit);
-      return __in;
-    }
-
-  // 21.3.7.9 basic_string::getline and operators
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_istream<_CharT, _Traits>&
-    operator>>(basic_istream<_CharT, _Traits>& __in,
-	       basic_string<_CharT, _Traits, _Alloc>& __str)
-    {
-      typedef basic_istream<_CharT, _Traits>		__istream_type;
-      typedef typename __istream_type::int_type		__int_type;
-      typedef typename __istream_type::__streambuf_type __streambuf_type;
-      typedef typename __istream_type::__ctype_type	__ctype_type;
-      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
-      typedef typename __string_type::size_type		__size_type;
-
-      __size_type __extracted = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-      typename __istream_type::sentry __cerb(__in, false);
-      if (__cerb)
-	{
-	  try
-	    {
-	      // Avoid reallocation for common case.
-	      __str.erase();
-	      _CharT __buf[128];
-	      __size_type __len = 0;	      
-	      const streamsize __w = __in.width();
-	      const __size_type __n = __w > 0 ? static_cast<__size_type>(__w)
-		                              : __str.max_size();
-	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
-	      const __int_type __eof = _Traits::eof();
-	      __streambuf_type* __sb = __in.rdbuf();
-	      __int_type __c = __sb->sgetc();
-
-	      while (__extracted < __n
-		     && !_Traits::eq_int_type(__c, __eof)
-		     && !__ct.is(ctype_base::space, _Traits::to_char_type(__c)))
-		{
-		  if (__len == sizeof(__buf) / sizeof(_CharT))
-		    {
-		      __str.append(__buf, sizeof(__buf) / sizeof(_CharT));
-		      __len = 0;
-		    }
-		  __buf[__len++] = _Traits::to_char_type(__c);
-		  ++__extracted;
-		  __c = __sb->snextc();
-		}
-	      __str.append(__buf, __len);
-
-	      if (_Traits::eq_int_type(__c, __eof))
-		__err |= ios_base::eofbit;
-	      __in.width(0);
-	    }
-	  catch(...)
-	    {
-	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	      // 91. Description of operator>> and getline() for string<>
-	      // might cause endless loop
-	      __in._M_setstate(ios_base::badbit);
-	    }
-	}
-      // 211.  operator>>(istream&, string&) doesn't set failbit
-      if (!__extracted)
-	__err |= ios_base::failbit;
-      if (__err)
-	__in.setstate(__err);
-      return __in;
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_istream<_CharT, _Traits>&
-    getline(basic_istream<_CharT, _Traits>& __in,
-	    basic_string<_CharT, _Traits, _Alloc>& __str, _CharT __delim)
-    {
-      typedef basic_istream<_CharT, _Traits>		__istream_type;
-      typedef typename __istream_type::int_type		__int_type;
-      typedef typename __istream_type::__streambuf_type __streambuf_type;
-      typedef typename __istream_type::__ctype_type	__ctype_type;
-      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
-      typedef typename __string_type::size_type		__size_type;
-
-      __size_type __extracted = 0;
-      const __size_type __n = __str.max_size();
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-      typename __istream_type::sentry __cerb(__in, true);
-      if (__cerb)
-	{
-	  try
-	    {
-	      __str.erase();
-	      const __int_type __idelim = _Traits::to_int_type(__delim);
-	      const __int_type __eof = _Traits::eof();
-	      __streambuf_type* __sb = __in.rdbuf();
-	      __int_type __c = __sb->sgetc();
-
-	      while (__extracted < __n
-		     && !_Traits::eq_int_type(__c, __eof)
-		     && !_Traits::eq_int_type(__c, __idelim))
-		{
-		  __str += _Traits::to_char_type(__c);
-		  ++__extracted;
-		  __c = __sb->snextc();
-		}
-
-	      if (_Traits::eq_int_type(__c, __eof))
-		__err |= ios_base::eofbit;
-	      else if (_Traits::eq_int_type(__c, __idelim))
-		{
-		  ++__extracted;		  
-		  __sb->sbumpc();
-		}
-	      else
-		__err |= ios_base::failbit;
-	    }
-	  catch(...)
-	    {
-	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	      // 91. Description of operator>> and getline() for string<>
-	      // might cause endless loop
-	      __in._M_setstate(ios_base::badbit);
-	    }
-	}
-      if (!__extracted)
-	__err |= ios_base::failbit;
-      if (__err)
-	__in.setstate(__err);
       return __in;
     }
 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2004, 2005, 2007 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -93,12 +93,6 @@ along with GCC; see the file COPYING3.  If not see
 	}						\
     }							\
   while (0)
-#endif
-
-#define CPP_SPEC "%(cpp_subtarget)"
-
-#ifndef CPP_SUBTARGET_SPEC
-#define CPP_SUBTARGET_SPEC ""
 #endif
 
 #define WORD_SWITCH_TAKES_ARG(STR)		\
@@ -214,25 +208,6 @@ extern enum alpha_fp_trap_mode alpha_fptm;
   {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }
 
-/* This macro defines names of additional specifications to put in the
-   specs that can be used in various specifications like CC1_SPEC.  Its
-   definition is an initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GCC driver
-   program.
-
-   Do not define this macro if it does not need to do anything.  */
-
-#ifndef SUBTARGET_EXTRA_SPECS
-#define SUBTARGET_EXTRA_SPECS
-#endif
-
-#define EXTRA_SPECS				\
-  { "cpp_subtarget", CPP_SUBTARGET_SPEC },	\
-  SUBTARGET_EXTRA_SPECS
-
-
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if
@@ -269,10 +244,6 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 
 /* Define the size of `long long'.  The default is the twice the word size.  */
 #define LONG_LONG_TYPE_SIZE 64
-
-/* We're IEEE unless someone says to use VAX.  */
-#define TARGET_FLOAT_FORMAT \
-  (TARGET_FLOAT_VAX ? VAX_FLOAT_FORMAT : IEEE_FLOAT_FORMAT)
 
 /* The two floating-point formats we support are S-floating, which is
    4 bytes, and T-floating, which is 8 bytes.  `float' is S and `double'
@@ -582,6 +553,19 @@ enum reg_class {
   {0x00000000, 0x7fffffff},	/* FLOAT_REGS */	\
   {0xffffffff, 0xffffffff} }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, FLOAT_REGS, LIM_REG_CLASSES				     \
+}
+
 /* The same information, inverted:
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
@@ -599,82 +583,12 @@ enum reg_class {
 #define INDEX_REG_CLASS NO_REGS
 #define BASE_REG_CLASS GENERAL_REGS
 
-/* Get reg_class from a letter such as appears in the machine description.  */
-
-#define REG_CLASS_FROM_LETTER(C)	\
- ((C) == 'a' ? R24_REG			\
-  : (C) == 'b' ? R25_REG		\
-  : (C) == 'c' ? R27_REG		\
-  : (C) == 'f' ? FLOAT_REGS		\
-  : (C) == 'v' ? R0_REG			\
-  : NO_REGS)
-
-/* Define this macro to change register usage conditional on target flags.  */
-/* #define CONDITIONAL_REGISTER_USAGE  */
-
-/* The letters I, J, K, L, M, N, O, and P in a register constraint string
-   can be used to stand for particular ranges of immediate operands.
-   This macro defines what the ranges are.
-   C is the letter, and VALUE is a constant value.
-   Return 1 if VALUE is in the range specified by C.
-
-   For Alpha:
-   `I' is used for the range of constants most insns can contain.
-   `J' is the constant zero.
-   `K' is used for the constant in an LDA insn.
-   `L' is used for the constant in a LDAH insn.
-   `M' is used for the constants that can be AND'ed with using a ZAP insn.
-   `N' is used for complemented 8-bit constants.
-   `O' is used for negated 8-bit constants.
-   `P' is used for the constants 1, 2 and 3.  */
-
-#define CONST_OK_FOR_LETTER_P   alpha_const_ok_for_letter_p
-
-/* Similar, but for floating or large integer constants, and defining letters
-   G and H.   Here VALUE is the CONST_DOUBLE rtx itself.
-
-   For Alpha, `G' is the floating-point constant zero.  `H' is a CONST_DOUBLE
-   that is the operand of a ZAP insn.  */
-
-#define CONST_DOUBLE_OK_FOR_LETTER_P  alpha_const_double_ok_for_letter_p
-
-/* Optional extra constraints for this machine.
-
-   For the Alpha, `Q' means that this is a memory operand but not a
-   reference to an unaligned location.
-
-   `R' is a SYMBOL_REF that has SYMBOL_REF_FLAG set or is the current
-   function.
-
-   'S' is a 6-bit constant (valid for a shift insn).
-
-   'T' is a HIGH.
-
-   'U' is a symbolic operand.
-
-   'W' is a vector zero.  */
-
-#define EXTRA_CONSTRAINT  alpha_extra_constraint
-
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
    in some cases it is preferable to use a more restrictive class.  */
 
 #define PREFERRED_RELOAD_CLASS  alpha_preferred_reload_class
-
-/* Loading and storing HImode or QImode values to and from memory
-   usually requires a scratch register.  The exceptions are loading
-   QImode and HImode from an aligned address to a general register
-   unless byte instructions are permitted.
-   We also cannot load an unaligned address or a paradoxical SUBREG into an
-   FP register.  */
-
-#define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,IN) \
-  alpha_secondary_reload_class((CLASS), (MODE), (IN), 1)
-
-#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS,MODE,OUT) \
-  alpha_secondary_reload_class((CLASS), (MODE), (OUT), 0)
 
 /* If we are copying between general and FP registers, we need a memory
    location unless the FIX extension is available.  */
@@ -726,7 +640,7 @@ extern int alpha_memory_latency;
 #define MEMORY_MOVE_COST(MODE,CLASS,IN)  (2*alpha_memory_latency)
 
 /* Provide the cost of a branch.  Exact meaning under development.  */
-#define BRANCH_COST 5
+#define BRANCH_COST(speed_p, predictable_p) 5
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -757,7 +671,7 @@ extern int alpha_memory_latency;
 
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
-   found in the variable current_function_outgoing_args_size.  */
+   found in the variable crtl->outgoing_args_size.  */
 #define ACCUMULATE_OUTGOING_ARGS 1
 
 /* Offset of first parameter from the argument pointer register value.  */
@@ -1010,7 +924,7 @@ do {						\
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 28)
 #define EH_RETURN_HANDLER_RTX \
   gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, \
-				     current_function_outgoing_args_size))
+				     crtl->outgoing_args_size))
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1165,7 +1079,7 @@ do {									     \
    Without byte/word accesses, we want no more than four instructions;
    with, several single byte accesses are better.  */
 
-#define MOVE_RATIO  (TARGET_BWX ? 7 : 2)
+#define MOVE_RATIO(speed)  (TARGET_BWX ? 7 : 2)
 
 /* Largest number of bytes of an object that can be placed in a register.
    On the Alpha we have plenty of registers, so use TImode.  */
@@ -1419,23 +1333,16 @@ do {						\
 
    -	Generates double precision suffix for floating point
 	instructions (t for IEEE, g for VAX)
-
-   +	Generates a nop instruction after a noreturn call at the very end
-	of the function
    */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE) \
   ((CODE) == '/' || (CODE) == ',' || (CODE) == '-' || (CODE) == '~' \
-   || (CODE) == '#' || (CODE) == '*' || (CODE) == '&' || (CODE) == '+')
+   || (CODE) == '#' || (CODE) == '*' || (CODE) == '&')
 
 /* Print a memory address as an operand to reference that memory location.  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) \
   print_operand_address((FILE), (ADDR))
-
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  alpha_va_start (valist, nextarg)
 
 /* Tell collect that the object format is ECOFF.  */
 #define OBJECT_FORMAT_COFF

@@ -6,65 +6,43 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2009, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
 -- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package provides RTS Internal Declarations.
+--  This package provides RTS Internal Declarations
+
 --  These declarations are not part of the GNARLI
 
 pragma Polling (Off);
---  Turn off polling, we do not want ATC polling to take place during
---  tasking operations. It causes infinite loops and other problems.
+--  Turn off polling, we do not want ATC polling to take place during tasking
+--  operations. It causes infinite loops and other problems.
 
 with System.Tasking.Debug;
---  used for Known_Tasks
-
 with System.Task_Primitives.Operations;
---  used for Write_Lock
---           Set_Priority
---           Wakeup
---           Unlock
---           Sleep
---           Abort_Task
---           Lock/Unlock_RTS
-
 with System.Tasking.Initialization;
---  Used for Defer_Abort
---           Undefer_Abort
---           Locked_Abort_To_Level
-
 with System.Tasking.Queuing;
---  used for Dequeue_Call
---           Dequeue_Head
-
 with System.Parameters;
---  used for Single_Lock
---           Runtime_Traces
-
 with System.Traces.Tasking;
---  used for Send_Trace_Info
 
 package body System.Tasking.Utilities is
 
@@ -130,8 +108,7 @@ package body System.Tasking.Utilities is
       if System.Tasking.Detect_Blocking
         and then Self_Id.Common.Protected_Action_Nesting > 0
       then
-         Ada.Exceptions.Raise_Exception
-           (Program_Error'Identity, "potentially blocking operation");
+         raise Program_Error with "potentially blocking operation";
       end if;
 
       Initialization.Defer_Abort_Nestable (Self_Id);
@@ -382,7 +359,7 @@ package body System.Tasking.Utilities is
             --  Our parent should wait in Phase 1 of Complete_Master.
 
             Master_Completion_Phase := 1;
-            pragma Assert (Self_ID.Awake_Count = 1);
+            pragma Assert (Self_ID.Awake_Count >= 1);
          end if;
 
       --  We are accepting with a terminate alternative
@@ -454,8 +431,6 @@ package body System.Tasking.Utilities is
             Write_Lock (C);
          end loop;
 
-         pragma Assert (P.Awake_Count /= 0);
-
          if P.Common.State = Master_Phase_2_Sleep
            and then C.Master_of_Task = P.Master_Within
          then
@@ -478,7 +453,6 @@ package body System.Tasking.Utilities is
       C.Awake_Count := C.Awake_Count - 1;
 
       if Task_Completed then
-         pragma Assert (Self_ID.Awake_Count = 0);
          C.Alive_Count := C.Alive_Count - 1;
       end if;
 
@@ -499,7 +473,9 @@ package body System.Tasking.Utilities is
       loop
          --  Notify P that C has gone passive
 
-         P.Awake_Count := P.Awake_Count - 1;
+         if P.Awake_Count > 0 then
+            P.Awake_Count := P.Awake_Count - 1;
+         end if;
 
          if Task_Completed and then C.Alive_Count = 0 then
             P.Alive_Count := P.Alive_Count - 1;

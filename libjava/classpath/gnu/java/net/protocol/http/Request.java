@@ -1,5 +1,5 @@
 /* Request.java --
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,8 +38,9 @@ exception statement from your version. */
 
 package gnu.java.net.protocol.http;
 
-import gnu.java.net.BASE64;
+import gnu.java.lang.CPStringBuilder;
 import gnu.java.net.LineInputStream;
+import gnu.java.util.Base64;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,7 +53,6 @@ import java.text.ParseException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import java.util.zip.GZIPInputStream;
@@ -96,7 +96,7 @@ public class Request
   /**
    * Map of response header handlers.
    */
-  protected Map responseHeaderHandlers;
+  protected Map<String, ResponseHeaderHandler> responseHeaderHandlers;
 
   /**
    * The authenticator.
@@ -121,7 +121,7 @@ public class Request
     this.method = method;
     this.path = path;
     requestHeaders = new Headers();
-    responseHeaderHandlers = new HashMap();
+    responseHeaderHandlers = new HashMap<String, ResponseHeaderHandler>();
   }
 
   /**
@@ -302,9 +302,8 @@ public class Request
             String line = method + ' ' + requestUri + ' ' + version + CRLF;
             out.write(line.getBytes(US_ASCII));
             // Request headers
-            for (Iterator i = requestHeaders.iterator(); i.hasNext(); )
+            for (Headers.HeaderElement elt : requestHeaders)
               {
-                Headers.HeaderElement elt = (Headers.HeaderElement)i.next();
                 line = elt.name + HEADER_SEP + elt.value + CRLF;
                 out.write(line.getBytes(US_ASCII));
               }
@@ -439,9 +438,8 @@ public class Request
 
   void notifyHeaderHandlers(Headers headers)
   {
-    for (Iterator i = headers.iterator(); i.hasNext(); )
+    for (Headers.HeaderElement entry : headers)
       {
-        Headers.HeaderElement entry = (Headers.HeaderElement) i.next();
         // Handle Set-Cookie
         if ("Set-Cookie".equalsIgnoreCase(entry.name))
             handleSetCookie(entry.value);
@@ -461,7 +459,6 @@ public class Request
     throws IOException
   {
     long contentLength = -1;
-    Headers trailer = null;
     
     // Persistent connections are the default in HTTP/1.1
     boolean doClose = "close".equalsIgnoreCase(getHeader("Connection")) ||
@@ -532,7 +529,7 @@ public class Request
         Credentials creds = authenticator.getCredentials(realm, attempts);
         String userPass = creds.getUsername() + ':' + creds.getPassword();
         byte[] b_userPass = userPass.getBytes("US-ASCII");
-        byte[] b_encoded = BASE64.encode(b_userPass);
+        byte[] b_encoded = Base64.encode(b_userPass).getBytes("US-ASCII");
         String authorization =
           scheme + " " + new String(b_encoded, "US-ASCII");
         setHeader("Authorization", authorization);
@@ -632,7 +629,7 @@ public class Request
   {
     int len = text.length();
     String key = null;
-    StringBuilder buf = new StringBuilder();
+    CPStringBuilder buf = new CPStringBuilder();
     Properties ret = new Properties();
     boolean inQuote = false;
     for (int i = 0; i < len; i++)
@@ -685,7 +682,7 @@ public class Request
   {
     int nc = connection.getNonceCount(nonce);
     String hex = Integer.toHexString(nc);
-    StringBuilder buf = new StringBuilder();
+    CPStringBuilder buf = new CPStringBuilder();
     for (int i = 8 - hex.length(); i > 0; i--)
       {
         buf.append('0');
@@ -756,7 +753,7 @@ public class Request
 
     int len = text.length();
     String attr = null;
-    StringBuilder buf = new StringBuilder();
+    CPStringBuilder buf = new CPStringBuilder();
     boolean inQuote = false;
     for (int i = 0; i <= len; i++)
       {

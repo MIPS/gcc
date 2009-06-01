@@ -1,12 +1,13 @@
 // -*- C++ -*-
 // Iterator Wrappers for the C++ library testsuite. 
 //
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 //
 // This library is distributed in the hope that it will be useful,
@@ -15,18 +16,9 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// with this library; see the file COPYING3.  If not see
+// <http://www.gnu.org/licenses/>.
 //
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
 
 // This file provides the following:
 //
@@ -37,7 +29,8 @@
 // test_container, which is given two pointers to T and an iterator type.
 
 #include <testsuite_hooks.h>
-#include <iterator>
+#include <bits/stl_iterator_base_types.h>
+#include <bits/move.h>
 
 #ifndef _TESTSUITE_ITERATORS
 #define _TESTSUITE_ITERATORS
@@ -61,8 +54,7 @@ namespace __gnu_test
     {
       T* first;
       T* last;
-      BoundsContainer(T* _first, T* _last)
-	: first(_first), last(_last)
+      BoundsContainer(T* _first, T* _last) : first(_first), last(_last)
       { }
     };
 
@@ -73,7 +65,7 @@ namespace __gnu_test
       T* incrementedto;
       bool* writtento;
       OutputContainer(T* _first, T* _last)
-	: BoundsContainer<T>(_first, _last), incrementedto(_first)
+      : BoundsContainer<T>(_first, _last), incrementedto(_first)
       {
 	writtento = new bool[this->last - this->first];
 	for(int i = 0; i < this->last - this->first; i++)
@@ -104,6 +96,17 @@ namespace __gnu_test
 	SharedInfo->writtento[ptr - SharedInfo->first] = 1;
 	*ptr = new_val;
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<class U>
+      void
+      operator=(U&& new_val)
+      {
+	ITERATOR_VERIFY(SharedInfo->writtento[ptr - SharedInfo->first] == 0);
+	SharedInfo->writtento[ptr - SharedInfo->first] = 1;
+	*ptr = std::move(new_val);
+      }
+#endif
     };
 
   /**
@@ -114,21 +117,21 @@ namespace __gnu_test
    * instansiated directly, but generated from a test_container
    */
   template<class T>
-  struct output_iterator_wrapper: public std::iterator
-  <std::output_iterator_tag, T, ptrdiff_t, T*, T&>
+  struct output_iterator_wrapper
+  : public std::iterator<std::output_iterator_tag, T, ptrdiff_t, T*, T&>
   {
     typedef OutputContainer<T> ContainerType;
     T* ptr;
     ContainerType* SharedInfo;
 
     output_iterator_wrapper(T* _ptr, ContainerType* SharedInfo_in)
-      :ptr(_ptr), SharedInfo(SharedInfo_in)
+    : ptr(_ptr), SharedInfo(SharedInfo_in)
     {
       ITERATOR_VERIFY(ptr >= SharedInfo->first && ptr <= SharedInfo->last);
     }
     
     output_iterator_wrapper(const output_iterator_wrapper& in)
-      :ptr(in.ptr), SharedInfo(in.SharedInfo)
+    : ptr(in.ptr), SharedInfo(in.SharedInfo)
     { }
 
     WritableObject<T>
@@ -175,8 +178,8 @@ namespace __gnu_test
    * instansiated directly, but generated from a test_container
    */
   template<class T>
-  class input_iterator_wrapper:public std::iterator
-  <std::input_iterator_tag, T, ptrdiff_t, T*, T&>
+  class input_iterator_wrapper
+  : public std::iterator<std::input_iterator_tag, T, ptrdiff_t, T*, T&>
   {
   protected:
     input_iterator_wrapper()
@@ -188,11 +191,11 @@ namespace __gnu_test
     ContainerType* SharedInfo;
 
     input_iterator_wrapper(T* _ptr, ContainerType* SharedInfo_in)
-      : ptr(_ptr), SharedInfo(SharedInfo_in)
+    : ptr(_ptr), SharedInfo(SharedInfo_in)
     { ITERATOR_VERIFY(ptr >= SharedInfo->first && ptr <= SharedInfo->last); }
     
     input_iterator_wrapper(const input_iterator_wrapper& in)
-      : ptr(in.ptr), SharedInfo(in.SharedInfo)
+    : ptr(in.ptr), SharedInfo(in.SharedInfo)
     { }
 
     bool
@@ -257,16 +260,16 @@ namespace __gnu_test
    * instansiated directly, but generated from a test_container
    */
   template<class T>
-  struct forward_iterator_wrapper:public input_iterator_wrapper<T>
+  struct forward_iterator_wrapper : public input_iterator_wrapper<T>
   {
     typedef BoundsContainer<T> ContainerType;
     typedef std::forward_iterator_tag iterator_category;
     forward_iterator_wrapper(T* _ptr, ContainerType* SharedInfo_in)
-      :input_iterator_wrapper<T>(_ptr, SharedInfo_in)
+    : input_iterator_wrapper<T>(_ptr, SharedInfo_in)
     { }
     
     forward_iterator_wrapper(const forward_iterator_wrapper& in)
-      :input_iterator_wrapper<T>(in)
+    : input_iterator_wrapper<T>(in)
     { }
 
     forward_iterator_wrapper()
@@ -311,16 +314,16 @@ namespace __gnu_test
    * instansiated directly, but generated from a test_container
    */
   template<class T>
-  struct bidirectional_iterator_wrapper:public forward_iterator_wrapper<T>
+  struct bidirectional_iterator_wrapper : public forward_iterator_wrapper<T>
   {
     typedef BoundsContainer<T> ContainerType;
     typedef std::bidirectional_iterator_tag iterator_category;
     bidirectional_iterator_wrapper(T* _ptr, ContainerType* SharedInfo_in)
-      :forward_iterator_wrapper<T>(_ptr, SharedInfo_in)
+    : forward_iterator_wrapper<T>(_ptr, SharedInfo_in)
     { }
 
     bidirectional_iterator_wrapper(const bidirectional_iterator_wrapper& in)
-      :forward_iterator_wrapper<T>(in)
+    : forward_iterator_wrapper<T>(in)
     { }
 
     bidirectional_iterator_wrapper(): forward_iterator_wrapper<T>()
@@ -375,16 +378,17 @@ namespace __gnu_test
    * instansiated directly, but generated from a test_container
    */
   template<class T>
-  struct random_access_iterator_wrapper:public bidirectional_iterator_wrapper<T>
+  struct random_access_iterator_wrapper 
+  : public bidirectional_iterator_wrapper<T>
   {
     typedef BoundsContainer<T> ContainerType;
     typedef std::random_access_iterator_tag iterator_category;
     random_access_iterator_wrapper(T* _ptr, ContainerType* SharedInfo_in)
-      : bidirectional_iterator_wrapper<T>(_ptr, SharedInfo_in)
+    : bidirectional_iterator_wrapper<T>(_ptr, SharedInfo_in)
     { }
 
     random_access_iterator_wrapper(const random_access_iterator_wrapper<T>& in)
-      : bidirectional_iterator_wrapper<T>(in)
+    : bidirectional_iterator_wrapper<T>(in)
     { }
 
     random_access_iterator_wrapper():bidirectional_iterator_wrapper<T>()

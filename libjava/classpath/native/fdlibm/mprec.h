@@ -100,7 +100,7 @@ union double_union
  * An alternative that might be better on some machines is
  * #define Storeinc(a,b,c) (*a++ = b << 16 | c & 0xffff)
  */
-#if defined(IEEE_8087) + defined(VAX)
+#if defined(__IEEE_BYTES_LITTLE_ENDIAN) + defined(IEEE_8087) + defined(VAX)
 #define Storeinc(a,b,c) (((unsigned short *)a)[1] = (unsigned short)b, \
 ((unsigned short *)a)[0] = (unsigned short)c, a++)
 #else
@@ -294,7 +294,9 @@ struct _Jv_Bigint
 #define	_SIGNED		signed
 #define	_DOTS		, ...
 #define _VOID void
+#ifndef _EXFUN
 #define	_EXFUN(name, proto)		name proto
+#endif  /* !EXFUN */
 #define	_DEFUN(name, arglist, args)	name(args)
 #define	_DEFUN_VOID(name)		name(_NOARGS)
 #define _CAST_VOID (void)

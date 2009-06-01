@@ -6,25 +6,23 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1998-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1998-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
 -- Extensive contributions were provided by Ada Core Technologies, Inc.     --
@@ -56,7 +54,7 @@ package body System.OS_Primitives is
    pragma Convention (C, struct_timeval);
 
    function gettimeofday
-     (tv : access struct_timeval;
+     (tv : not null access struct_timeval;
       tz : struct_timezone_ptr) return Integer;
    pragma Import (C, gettimeofday, "gettimeofday");
 
@@ -66,7 +64,7 @@ package body System.OS_Primitives is
    end record;
    pragma Convention (C, timespec);
 
-   function nanosleep (rqtp, rmtp : access timespec) return Integer;
+   function nanosleep (rqtp, rmtp : not null access timespec) return Integer;
    pragma Import (C, nanosleep, "nanosleep");
 
    -----------
@@ -125,11 +123,12 @@ package body System.OS_Primitives is
      (Time : Duration;
       Mode : Integer)
    is
-      Request : aliased timespec;
-      Remaind : aliased timespec;
-      Rel_Time : Duration;
-      Abs_Time : Duration;
-      Check_Time : Duration := Clock;
+      Request    : aliased timespec;
+      Remaind    : aliased timespec;
+      Rel_Time   : Duration;
+      Abs_Time   : Duration;
+      Base_Time  : constant Duration := Clock;
+      Check_Time : Duration := Base_Time;
 
       Result : Integer;
       pragma Unreferenced (Result);
@@ -149,7 +148,7 @@ package body System.OS_Primitives is
             Result := nanosleep (Request'Access, Remaind'Access);
             Check_Time := Clock;
 
-            exit when Abs_Time <= Check_Time;
+            exit when Abs_Time <= Check_Time or else Check_Time < Base_Time;
 
             Rel_Time := Abs_Time - Check_Time;
          end loop;

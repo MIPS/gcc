@@ -1,5 +1,5 @@
 ;; Predicate definitions for ARM and Thumb
-;; Copyright (C) 2004, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2007, 2008 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -37,6 +37,16 @@
 {
   return REGNO (op) < FIRST_PSEUDO_REGISTER;
 })
+
+;; A low register.
+(define_predicate "low_register_operand"
+  (and (match_code "reg")
+       (match_test "REGNO (op) <= LAST_LO_REGNUM")))
+
+;; A low register or const_int.
+(define_predicate "low_reg_or_int_operand"
+  (ior (match_code "const_int")
+       (match_operand 0 "low_register_operand")))
 
 ;; Any core register, or any pseudo.  */ 
 (define_predicate "arm_general_register_operand"
@@ -173,6 +183,10 @@
 	    (match_code "ashift,ashiftrt,lshiftrt,rotatert"))
        (match_test "mode == GET_MODE (op)")))
 
+;; True for operators that have 16-bit thumb variants.  */
+(define_special_predicate "thumb_16bit_operator"
+  (match_code "plus,minus,and,ior,xor"))
+
 ;; True for EQ & NE
 (define_special_predicate "equality_operator"
   (match_code "eq,ne"))
@@ -219,6 +233,10 @@
   (and (match_operand 0 "memory_operand")
        (match_test "arm_legitimate_address_p (mode, XEXP (op, 0), SIGN_EXTEND,
 					      0)")))
+
+(define_special_predicate "arm_reg_or_extendqisi_mem_op"
+  (ior (match_operand 0 "arm_extendqisi_mem_op")
+       (match_operand 0 "s_register_operand")))
 
 (define_predicate "power_of_two_operand"
   (match_code "const_int")
@@ -398,13 +416,13 @@
 ;; Thumb predicates
 ;;
 
-(define_predicate "thumb_cmp_operand"
+(define_predicate "thumb1_cmp_operand"
   (ior (and (match_code "reg,subreg")
 	    (match_operand 0 "s_register_operand"))
        (and (match_code "const_int")
 	    (match_test "((unsigned HOST_WIDE_INT) INTVAL (op)) < 256"))))
 
-(define_predicate "thumb_cmpneg_operand"
+(define_predicate "thumb1_cmpneg_operand"
   (and (match_code "const_int")
        (match_test "INTVAL (op) < 0 && INTVAL (op) > -256")))
 
@@ -454,4 +472,44 @@
   (and (match_code "const_int")
        (match_test "((unsigned HOST_WIDE_INT) INTVAL (op)) < 64")))
 
+
+;; Neon predicates
+
+(define_predicate "const_multiple_of_8_operand"
+  (match_code "const_int")
+{
+  unsigned HOST_WIDE_INT val = INTVAL (op);
+  return (val & 7) == 0;
+})
+
+(define_predicate "imm_for_neon_mov_operand"
+  (match_code "const_vector")
+{
+  return neon_immediate_valid_for_move (op, mode, NULL, NULL);
+})
+
+(define_predicate "imm_for_neon_logic_operand"
+  (match_code "const_vector")
+{
+  return neon_immediate_valid_for_logic (op, mode, 0, NULL, NULL);
+})
+
+(define_predicate "imm_for_neon_inv_logic_operand"
+  (match_code "const_vector")
+{
+  return neon_immediate_valid_for_logic (op, mode, 1, NULL, NULL);
+})
+
+(define_predicate "neon_logic_op2"
+  (ior (match_operand 0 "imm_for_neon_logic_operand")
+       (match_operand 0 "s_register_operand")))
+
+(define_predicate "neon_inv_logic_op2"
+  (ior (match_operand 0 "imm_for_neon_inv_logic_operand")
+       (match_operand 0 "s_register_operand")))
+
+;; TODO: We could check lane numbers more precisely based on the mode.
+(define_predicate "neon_lane_number"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 7")))
 

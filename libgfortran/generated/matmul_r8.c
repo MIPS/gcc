@@ -1,5 +1,5 @@
 /* Implementation of the MATMUL intrinsic
-   Copyright 2002, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2002, 2005, 2006, 2007, 2009 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -7,34 +7,39 @@ This file is part of the GNU Fortran 95 runtime library (libgfortran).
 Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
+version 3 of the License, or (at your option) any later version.
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
-#include "config.h"
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
+
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "libgfortran.h"
+
 
 #if defined (HAVE_GFC_REAL_8)
+
+/* Prototype for the BLAS ?gemm subroutine, a pointer to which can be
+   passed to us by the front-end, in which case we'll call it for large
+   matrices.  */
+
+typedef void (*blas_call)(const char *, const char *, const int *, const int *,
+                          const int *, const GFC_REAL_8 *, const GFC_REAL_8 *,
+                          const int *, const GFC_REAL_8 *, const int *,
+                          const GFC_REAL_8 *, GFC_REAL_8 *, const int *,
+                          int, int);
 
 /* The order of loops is different in the case of plain matrix
    multiplication C=MATMUL(A,B), and in the frequent special case where
@@ -56,18 +61,24 @@ Boston, MA 02110-1301, USA.  */
        DO I=1,M
          S = 0
          DO K=1,COUNT
-           S = S+A(I,K)+B(K,J)
+           S = S+A(I,K)*B(K,J)
          C(I,J) = S
    ENDIF
 */
 
+/* If try_blas is set to a nonzero value, then the matmul function will
+   see if there is a way to perform the matrix multiplication by a call
+   to the BLAS gemm function.  */
+
 extern void matmul_r8 (gfc_array_r8 * const restrict retarray, 
-	gfc_array_r8 * const restrict a, gfc_array_r8 * const restrict b);
+	gfc_array_r8 * const restrict a, gfc_array_r8 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm);
 export_proto(matmul_r8);
 
 void
 matmul_r8 (gfc_array_r8 * const restrict retarray, 
-	gfc_array_r8 * const restrict a, gfc_array_r8 * const restrict b)
+	gfc_array_r8 * const restrict a, gfc_array_r8 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm)
 {
   const GFC_REAL_8 * restrict abase;
   const GFC_REAL_8 * restrict bbase;
@@ -119,6 +130,47 @@ matmul_r8 (gfc_array_r8 * const restrict retarray,
 	= internal_malloc_size (sizeof (GFC_REAL_8) * size0 ((array_t *) retarray));
       retarray->offset = 0;
     }
+    else if (unlikely (compile_options.bounds_check))
+      {
+	index_type ret_extent, arg_extent;
+
+	if (GFC_DESCRIPTOR_RANK (a) == 1)
+	  {
+	    arg_extent = b->dim[1].ubound + 1 - b->dim[1].lbound;
+	    ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	    if (arg_extent != ret_extent)
+	      runtime_error ("Incorrect extent in return array in"
+			     " MATMUL intrinsic: is %ld, should be %ld",
+			     (long int) ret_extent, (long int) arg_extent);
+	  }
+	else if (GFC_DESCRIPTOR_RANK (b) == 1)
+	  {
+	    arg_extent = a->dim[0].ubound + 1 - a->dim[0].lbound;
+	    ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	    if (arg_extent != ret_extent)
+	      runtime_error ("Incorrect extent in return array in"
+			     " MATMUL intrinsic: is %ld, should be %ld",
+			     (long int) ret_extent, (long int) arg_extent);	    
+	  }
+	else
+	  {
+	    arg_extent = a->dim[0].ubound + 1 - a->dim[0].lbound;
+	    ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	    if (arg_extent != ret_extent)
+	      runtime_error ("Incorrect extent in return array in"
+			     " MATMUL intrinsic for dimension 1:"
+			     " is %ld, should be %ld",
+			     (long int) ret_extent, (long int) arg_extent);
+
+	    arg_extent = b->dim[1].ubound + 1 - b->dim[1].lbound;
+	    ret_extent = retarray->dim[1].ubound + 1 - retarray->dim[1].lbound;
+	    if (arg_extent != ret_extent)
+	      runtime_error ("Incorrect extent in return array in"
+			     " MATMUL intrinsic for dimension 2:"
+			     " is %ld, should be %ld",
+			     (long int) ret_extent, (long int) arg_extent);
+	  }
+      }
 
 
   if (GFC_DESCRIPTOR_RANK (retarray) == 1)
@@ -153,7 +205,11 @@ matmul_r8 (gfc_array_r8 * const restrict retarray,
       xcount = a->dim[0].ubound + 1 - a->dim[0].lbound;
     }
 
-  assert(count == b->dim[0].ubound + 1 - b->dim[0].lbound);
+  if (count != b->dim[0].ubound + 1 - b->dim[0].lbound)
+    {
+      if (count > 0 || b->dim[0].ubound + 1 - b->dim[0].lbound > 0)
+	runtime_error ("dimension of array B incorrect in MATMUL intrinsic");
+    }
 
   if (GFC_DESCRIPTOR_RANK (b) == 1)
     {
@@ -176,6 +232,31 @@ matmul_r8 (gfc_array_r8 * const restrict retarray,
   abase = a->data;
   bbase = b->data;
   dest = retarray->data;
+
+
+  /* Now that everything is set up, we're performing the multiplication
+     itself.  */
+
+#define POW3(x) (((float) (x)) * ((float) (x)) * ((float) (x)))
+
+  if (try_blas && rxstride == 1 && (axstride == 1 || aystride == 1)
+      && (bxstride == 1 || bystride == 1)
+      && (((float) xcount) * ((float) ycount) * ((float) count)
+          > POW3(blas_limit)))
+  {
+    const int m = xcount, n = ycount, k = count, ldc = rystride;
+    const GFC_REAL_8 one = 1, zero = 0;
+    const int lda = (axstride == 1) ? aystride : axstride,
+              ldb = (bxstride == 1) ? bystride : bxstride;
+
+    if (lda > 0 && ldb > 0 && ldc > 0 && m > 1 && n > 1 && k > 1)
+      {
+        assert (gemm != NULL);
+        gemm (axstride == 1 ? "N" : "T", bxstride == 1 ? "N" : "T", &m, &n, &k,
+              &one, abase, &lda, bbase, &ldb, &zero, dest, &ldc, 1, 1);
+        return;
+      }
+  }
 
   if (rxstride == 1 && axstride == 1 && bxstride == 1)
     {

@@ -98,7 +98,8 @@ class CommonAppletStub
       }
     catch (MalformedURLException e)
       {
-        throw new RuntimeException("unknown codebase");
+        throw new RuntimeException("Attempted to create"
+                                   + " invalid codebase URL.", e);
       }
   }
 
@@ -112,7 +113,7 @@ class CommonAppletStub
    */
   public String getParameter(String name)
   {
-    return (String) tag.getParameter(name.toLowerCase());
+    return tag.getParameter(name.toLowerCase());
   }
 
   /**

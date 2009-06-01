@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -28,17 +27,35 @@
 
 package Prj.Util is
 
+   --  ??? throughout this spec, parameters are not well enough documented
+
    function Executable_Of
      (Project  : Project_Id;
       In_Tree  : Project_Tree_Ref;
-      Main     : Name_Id;
+      Main     : File_Name_Type;
       Index    : Int;
-      Ada_Main : Boolean := True) return Name_Id;
+      Ada_Main : Boolean := True;
+      Language : String := "") return File_Name_Type;
    --  Return the value of the attribute Builder'Executable for file Main in
    --  the project Project, if it exists. If there is no attribute Executable
    --  for Main, remove the suffix from Main; then, if the attribute
    --  Executable_Suffix is specified, add this suffix, otherwise add the
    --  standard executable suffix for the platform.
+   --  What is Ada_Main???
+   --  What is Language???
+
+   procedure Put
+     (Into_List  : in out Name_List_Index;
+      From_List  : String_List_Id;
+      In_Tree    : Project_Tree_Ref;
+      Lower_Case : Boolean := False);
+   --  Append a name list to a string list
+   --  Describe parameters???
+
+   procedure Duplicate
+     (This    : in out Name_List_Index;
+      In_Tree : Project_Tree_Ref);
+   --  Duplicate a name list
 
    function Value_Of
      (Variable : Variable_Value;
@@ -58,13 +75,13 @@ package Prj.Util is
    --  associative array.
 
    function Value_Of
-     (Index     : Name_Id;
-      Src_Index : Int := 0;
-      In_Array  : Array_Element_Id;
-      In_Tree   : Project_Tree_Ref) return Variable_Value;
-   --  Get a string array component (single String or String list).
-   --  Returns Nil_Variable_Value if there is no component Index
-   --  or if In_Array is null.
+     (Index                  : Name_Id;
+      Src_Index              : Int := 0;
+      In_Array               : Array_Element_Id;
+      In_Tree                : Project_Tree_Ref;
+      Force_Lower_Case_Index : Boolean := False) return Variable_Value;
+   --  Get a string array component (single String or String list). Returns
+   --  Nil_Variable_Value if no component Index or if In_Array is null.
    --
    --  Depending on the attribute (only attributes may be associative arrays)
    --  the index may or may not be case sensitive. If the index is not case
@@ -76,7 +93,8 @@ package Prj.Util is
       Index                   : Int := 0;
       Attribute_Or_Array_Name : Name_Id;
       In_Package              : Package_Id;
-      In_Tree                 : Project_Tree_Ref) return Variable_Value;
+      In_Tree                 : Project_Tree_Ref;
+      Force_Lower_Case_Index  : Boolean := False) return Variable_Value;
    --  In a specific package,
    --   - if there exists an array Attribute_Or_Array_Name with an index Name,
    --     returns the corresponding component (depending on the attribute, the
@@ -128,14 +146,14 @@ package Prj.Util is
    --  the last character of each line, if possible.
 
    type Text_File is limited private;
-   --  Represents a text file. Default is invalid text file
+   --  Represents a text file (default is invalid text file)
 
    function Is_Valid (File : Text_File) return Boolean;
-   --  Returns True if File designates an open text file that
-   --  has not yet been closed.
+   --  Returns True if File designates an open text file that has not yet been
+   --  closed.
 
    procedure Open (File : out Text_File; Name : String);
-   --  Open a text file. If this procedure fails, File is invalid
+   --  Open a text file to read (file is invalid if text file cannot be opened)
 
    function End_Of_File (File : Text_File) return Boolean;
    --  Returns True if the end of the text file File has been reached. Fails if
@@ -145,7 +163,7 @@ package Prj.Util is
      (File : Text_File;
       Line : out String;
       Last : out Natural);
-   --  Reads a line from an open text file. Fails if File is invalid
+   --  Reads a line from an open text file (fails if file is invalid)
 
    procedure Close (File : in out Text_File);
    --  Close an open text file. File becomes invalid. Fails if File is already

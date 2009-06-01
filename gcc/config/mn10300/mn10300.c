@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2007 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GCC.
@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
+#include "reload.h"
 #include "expr.h"
 #include "optabs.h"
 #include "function.h"
@@ -59,23 +60,24 @@ enum processor_type mn10300_processor = PROCESSOR_DEFAULT;
 /* The size of the callee register save area.  Right now we save everything
    on entry since it costs us nothing in code size.  It does cost us from a
    speed standpoint, so we want to optimize this sooner or later.  */
-#define REG_SAVE_BYTES (4 * regs_ever_live[2] \
-			+ 4 * regs_ever_live[3] \
-		        + 4 * regs_ever_live[6] \
-			+ 4 * regs_ever_live[7] \
-			+ 16 * (regs_ever_live[14] || regs_ever_live[15] \
-				|| regs_ever_live[16] || regs_ever_live[17]))
+#define REG_SAVE_BYTES (4 * df_regs_ever_live_p (2)	\
+			+ 4 * df_regs_ever_live_p (3)	\
+		        + 4 * df_regs_ever_live_p (6)	\
+			+ 4 * df_regs_ever_live_p (7)			\
+			+ 16 * (df_regs_ever_live_p (14) || df_regs_ever_live_p (15) \
+				|| df_regs_ever_live_p (16) || df_regs_ever_live_p (17)))
 
 
 static bool mn10300_handle_option (size_t, const char *, int);
 static int mn10300_address_cost_1 (rtx, int *);
-static int mn10300_address_cost (rtx);
-static bool mn10300_rtx_costs (rtx, int, int, int *);
+static int mn10300_address_cost (rtx, bool);
+static bool mn10300_rtx_costs (rtx, int, int, int *, bool);
 static void mn10300_file_start (void);
-static bool mn10300_return_in_memory (tree, tree);
+static bool mn10300_return_in_memory (const_tree, const_tree);
 static rtx mn10300_builtin_saveregs (void);
+static void mn10300_va_start (tree, rtx);
 static bool mn10300_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				       tree, bool);
+				       const_tree, bool);
 static int mn10300_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				      tree, bool);
 
@@ -102,7 +104,7 @@ static int mn10300_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_ENCODE_SECTION_INFO mn10300_encode_section_info
 
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY mn10300_return_in_memory
 #undef TARGET_PASS_BY_REFERENCE
@@ -114,6 +116,8 @@ static int mn10300_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS mn10300_builtin_saveregs
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START mn10300_va_start
 
 static void mn10300_encode_section_info (tree, rtx, int);
 struct gcc_target targetm = TARGET_INITIALIZER;
@@ -273,7 +277,7 @@ print_operand (FILE *file, rtx x, int code)
 	else
 	  print_operand (file, x, 0);
 	break;
-     
+
       case 'D':
 	switch (GET_CODE (x))
 	  {
@@ -386,7 +390,7 @@ print_operand (FILE *file, rtx x, int code)
 		      gcc_unreachable ();
 		    case VOIDmode:
 		    case DImode:
-		      print_operand_address (file, 
+		      print_operand_address (file,
 					     GEN_INT (CONST_DOUBLE_HIGH (x)));
 		      break;
 		    default:
@@ -536,7 +540,7 @@ fp_regs_to_save (void)
     return 0;
 
   for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; ++i)
-    if (regs_ever_live[i] && ! call_used_regs[i])
+    if (df_regs_ever_live_p (i) && ! call_really_used_regs[i])
       ++n;
 
   return n;
@@ -545,7 +549,7 @@ fp_regs_to_save (void)
 /* Print a set of registers in the format required by "movm" and "ret".
    Register K is saved if bit K of MASK is set.  The data and address
    registers can be stored individually, but the extended registers cannot.
-   We assume that the mask alread takes that into account.  For instance,
+   We assume that the mask already takes that into account.  For instance,
    bits 14 to 17 must have the same value.  */
 
 void
@@ -582,21 +586,21 @@ int
 can_use_return_insn (void)
 {
   /* size includes the fixed stack space needed for function calls.  */
-  int size = get_frame_size () + current_function_outgoing_args_size;
+  int size = get_frame_size () + crtl->outgoing_args_size;
 
   /* And space for the return pointer.  */
-  size += current_function_outgoing_args_size ? 4 : 0;
+  size += crtl->outgoing_args_size ? 4 : 0;
 
   return (reload_completed
 	  && size == 0
-	  && !regs_ever_live[2]
-	  && !regs_ever_live[3]
-	  && !regs_ever_live[6]
-	  && !regs_ever_live[7]
-	  && !regs_ever_live[14]
-	  && !regs_ever_live[15]
-	  && !regs_ever_live[16]
-	  && !regs_ever_live[17]
+	  && !df_regs_ever_live_p (2)
+	  && !df_regs_ever_live_p (3)
+	  && !df_regs_ever_live_p (6)
+	  && !df_regs_ever_live_p (7)
+	  && !df_regs_ever_live_p (14)
+	  && !df_regs_ever_live_p (15)
+	  && !df_regs_ever_live_p (16)
+	  && !df_regs_ever_live_p (17)
 	  && fp_regs_to_save () == 0
 	  && !frame_pointer_needed);
 }
@@ -613,7 +617,7 @@ mn10300_get_live_callee_saved_regs (void)
 
   mask = 0;
   for (i = 0; i <= LAST_EXTENDED_REGNUM; i++)
-    if (regs_ever_live[i] && ! call_used_regs[i])
+    if (df_regs_ever_live_p (i) && ! call_really_used_regs[i])
       mask |= (1 << i);
   if ((mask & 0x3c000) != 0)
     mask |= 0x3c000;
@@ -694,8 +698,8 @@ expand_prologue (void)
   HOST_WIDE_INT size;
 
   /* SIZE includes the fixed stack space needed for function calls.  */
-  size = get_frame_size () + current_function_outgoing_args_size;
-  size += (current_function_outgoing_args_size ? 4 : 0);
+  size = get_frame_size () + crtl->outgoing_args_size;
+  size += (crtl->outgoing_args_size ? 4 : 0);
 
   /* If we use any of the callee-saved registers, save them now.  */
   mn10300_gen_multiple_store (mn10300_get_live_callee_saved_regs ());
@@ -800,7 +804,7 @@ expand_prologue (void)
 	 frame pointer, size is nonzero and the user hasn't
 	 changed the calling conventions of a0.  */
       if (! frame_pointer_needed && size
-	  && call_used_regs[FIRST_ADDRESS_REGNUM]
+	  && call_really_used_regs [FIRST_ADDRESS_REGNUM]
 	  && ! fixed_regs[FIRST_ADDRESS_REGNUM])
 	{
 	  /* Insn: add -(size + 4 * num_regs_to_save), sp.  */
@@ -824,7 +828,7 @@ expand_prologue (void)
 
       /* Consider alternative save_a0_no_merge if the user hasn't
 	 changed the calling conventions of a0.  */
-      if (call_used_regs[FIRST_ADDRESS_REGNUM]
+      if (call_really_used_regs [FIRST_ADDRESS_REGNUM]
 	  && ! fixed_regs[FIRST_ADDRESS_REGNUM])
 	{
 	  /* Insn: add -4 * num_regs_to_save, sp.  */
@@ -881,7 +885,7 @@ expand_prologue (void)
 	default:
 	  gcc_unreachable ();
 	}
-	  
+
       /* Now prepare register a0, if we have decided to use it.  */
       switch (strategy)
 	{
@@ -899,14 +903,14 @@ expand_prologue (void)
 	    emit_insn (gen_addsi3 (reg, reg, GEN_INT (xsize)));
 	  reg = gen_rtx_POST_INC (SImode, reg);
 	  break;
-	  
+
 	default:
 	  gcc_unreachable ();
 	}
-      
+
       /* Now actually save the FP registers.  */
       for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; ++i)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_really_used_regs [i])
 	  {
 	    rtx addr;
 
@@ -923,7 +927,7 @@ expand_prologue (void)
 		  }
 		else
 		  addr = stack_pointer_rtx;
-		
+
 		xsize += 4;
 	      }
 
@@ -943,24 +947,8 @@ expand_prologue (void)
     emit_insn (gen_addsi3 (stack_pointer_rtx,
 			   stack_pointer_rtx,
 			   GEN_INT (-size)));
-  if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
-    {
-      rtx insn = get_last_insn ();
-      rtx last = emit_insn (gen_GOTaddr2picreg ());
-
-      /* Mark these insns as possibly dead.  Sometimes, flow2 may
-	 delete all uses of the PIC register.  In this case, let it
-	 delete the initialization too.  */
-      do
-	{
-	  insn = NEXT_INSN (insn);
-
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-						const0_rtx,
-						REG_NOTES (insn));
-	}
-      while (insn != last);
-    }
+  if (flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
+    emit_insn (gen_GOTaddr2picreg ());
 }
 
 void
@@ -969,8 +957,8 @@ expand_epilogue (void)
   HOST_WIDE_INT size;
 
   /* SIZE includes the fixed stack space needed for function calls.  */
-  size = get_frame_size () + current_function_outgoing_args_size;
-  size += (current_function_outgoing_args_size ? 4 : 0);
+  size = get_frame_size () + crtl->outgoing_args_size;
+  size += (crtl->outgoing_args_size ? 4 : 0);
 
   if (TARGET_AM33_2 && fp_regs_to_save ())
     {
@@ -1058,7 +1046,7 @@ expand_epilogue (void)
 
 	  /* Consider using a1 in post-increment mode, as long as the
 	     user hasn't changed the calling conventions of a1.  */
-	  if (call_used_regs[FIRST_ADDRESS_REGNUM+1]
+	  if (call_really_used_regs [FIRST_ADDRESS_REGNUM + 1]
 	      && ! fixed_regs[FIRST_ADDRESS_REGNUM+1])
 	    {
 	      /* Insn: mov sp,a1.  */
@@ -1108,7 +1096,7 @@ expand_epilogue (void)
 					      + REG_SAVE_BYTES - 252)));
 	      size = 252 - REG_SAVE_BYTES - 4 * num_regs_to_save;
 	      break;
-	      
+
 	    case restore_a1:
 	      reg = gen_rtx_REG (SImode, FIRST_ADDRESS_REGNUM + 1);
 	      emit_insn (gen_movsi (reg, stack_pointer_rtx));
@@ -1126,10 +1114,10 @@ expand_epilogue (void)
 	reg = gen_rtx_POST_INC (SImode, reg);
 
       for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; ++i)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_really_used_regs [i])
 	  {
 	    rtx addr;
-	    
+
 	    if (reg)
 	      addr = reg;
 	    else if (size)
@@ -1166,7 +1154,7 @@ expand_epilogue (void)
 
      If the stack size + register save area is more than 255 bytes,
      then the stack must be cut back here since the size + register
-     save size is too big for a ret/retf instruction. 
+     save size is too big for a ret/retf instruction.
 
      Else leave it alone, it will be cut back as part of the
      ret/retf instruction, or there wasn't any stack to begin with.
@@ -1188,10 +1176,10 @@ expand_epilogue (void)
     }
 
   /* Adjust the stack and restore callee-saved registers, if any.  */
-  if (size || regs_ever_live[2] || regs_ever_live[3]
-      || regs_ever_live[6] || regs_ever_live[7]
-      || regs_ever_live[14] || regs_ever_live[15]
-      || regs_ever_live[16] || regs_ever_live[17]
+  if (size || df_regs_ever_live_p (2) || df_regs_ever_live_p (3)
+      || df_regs_ever_live_p (6) || df_regs_ever_live_p (7)
+      || df_regs_ever_live_p (14) || df_regs_ever_live_p (15)
+      || df_regs_ever_live_p (16) || df_regs_ever_live_p (17)
       || frame_pointer_needed)
     emit_jump_insn (gen_return_internal_regs
 		    (GEN_INT (size + REG_SAVE_BYTES)));
@@ -1332,25 +1320,30 @@ store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 }
 
 /* What (if any) secondary registers are needed to move IN with mode
-   MODE into a register in register class CLASS. 
+   MODE into a register in register class RCLASS.
 
    We might be able to simplify this.  */
 enum reg_class
-mn10300_secondary_reload_class (enum reg_class class, enum machine_mode mode,
+mn10300_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
 				rtx in)
 {
+  rtx inner = in;
+
+  /* Strip off any SUBREG expressions from IN.  Basically we want
+     to know if IN is a pseudo or (subreg (pseudo)) as those can
+     turn into MEMs during reload.  */
+  while (GET_CODE (inner) == SUBREG)
+    inner = SUBREG_REG (inner);
+
   /* Memory loads less than a full word wide can't have an
      address or stack pointer destination.  They must use
      a data register as an intermediate register.  */
   if ((GET_CODE (in) == MEM
-       || (GET_CODE (in) == REG
-	   && REGNO (in) >= FIRST_PSEUDO_REGISTER)
-       || (GET_CODE (in) == SUBREG
-	   && GET_CODE (SUBREG_REG (in)) == REG
-	   && REGNO (SUBREG_REG (in)) >= FIRST_PSEUDO_REGISTER))
+       || (GET_CODE (inner) == REG
+	   && REGNO (inner) >= FIRST_PSEUDO_REGISTER))
       && (mode == QImode || mode == HImode)
-      && (class == ADDRESS_REGS || class == SP_REGS
-	  || class == SP_OR_ADDRESS_REGS))
+      && (rclass == ADDRESS_REGS || rclass == SP_REGS
+	  || rclass == SP_OR_ADDRESS_REGS))
     {
       if (TARGET_AM33)
 	return DATA_OR_EXTENDED_REGS;
@@ -1359,12 +1352,12 @@ mn10300_secondary_reload_class (enum reg_class class, enum machine_mode mode,
 
   /* We can't directly load sp + const_int into a data register;
      we must use an address register as an intermediate.  */
-  if (class != SP_REGS
-      && class != ADDRESS_REGS
-      && class != SP_OR_ADDRESS_REGS
-      && class != SP_OR_EXTENDED_REGS
-      && class != ADDRESS_OR_EXTENDED_REGS
-      && class != SP_OR_ADDRESS_OR_EXTENDED_REGS
+  if (rclass != SP_REGS
+      && rclass != ADDRESS_REGS
+      && rclass != SP_OR_ADDRESS_REGS
+      && rclass != SP_OR_EXTENDED_REGS
+      && rclass != ADDRESS_OR_EXTENDED_REGS
+      && rclass != SP_OR_ADDRESS_OR_EXTENDED_REGS
       && (in == stack_pointer_rtx
 	  || (GET_CODE (in) == PLUS
 	      && (XEXP (in, 0) == stack_pointer_rtx
@@ -1374,18 +1367,24 @@ mn10300_secondary_reload_class (enum reg_class class, enum machine_mode mode,
   if (GET_CODE (in) == PLUS
       && (XEXP (in, 0) == stack_pointer_rtx
 	  || XEXP (in, 1) == stack_pointer_rtx))
+    return GENERAL_REGS;
+
+  if (TARGET_AM33_2
+      && rclass == FP_REGS)
     {
-      if (TARGET_AM33)
-	return DATA_OR_EXTENDED_REGS;
-      return DATA_REGS;
-    }
- 
-  if (TARGET_AM33_2 && class == FP_REGS
-      && GET_CODE (in) == MEM && ! OK_FOR_Q (in))
-    {
-      if (TARGET_AM33)
-	return DATA_OR_EXTENDED_REGS;
-      return DATA_REGS;
+      /* We can't load directly into an FP register from a	
+	 constant address.  */
+      if (GET_CODE (in) == MEM
+	  && CONSTANT_ADDRESS_P (XEXP (in, 0)))
+	return (TARGET_AM33 ? DATA_OR_EXTENDED_REGS : DATA_REGS);
+
+      /* Handle case were a pseudo may not get a hard register
+	 but has an equivalent memory location defined.  */
+      if (GET_CODE (inner) == REG
+	  && REGNO (inner) >= FIRST_PSEUDO_REGISTER
+	  && reg_equiv_mem [REGNO (inner)]
+	  && CONSTANT_ADDRESS_P (XEXP (reg_equiv_mem [REGNO (inner)], 0)))
+	return (TARGET_AM33 ? DATA_OR_EXTENDED_REGS : DATA_REGS);
     }
 
   /* Otherwise assume no secondary reloads are needed.  */
@@ -1399,10 +1398,10 @@ initial_offset (int from, int to)
      is the size of the callee register save area.  */
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
     {
-      if (regs_ever_live[2] || regs_ever_live[3]
-	  || regs_ever_live[6] || regs_ever_live[7]
-	  || regs_ever_live[14] || regs_ever_live[15]
-	  || regs_ever_live[16] || regs_ever_live[17]
+      if (df_regs_ever_live_p (2) || df_regs_ever_live_p (3)
+	  || df_regs_ever_live_p (6) || df_regs_ever_live_p (7)
+	  || df_regs_ever_live_p (14) || df_regs_ever_live_p (15)
+	  || df_regs_ever_live_p (16) || df_regs_ever_live_p (17)
 	  || fp_regs_to_save ()
 	  || frame_pointer_needed)
 	return REG_SAVE_BYTES
@@ -1416,20 +1415,20 @@ initial_offset (int from, int to)
      area, and the fixed stack space needed for function calls (if any).  */
   if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     {
-      if (regs_ever_live[2] || regs_ever_live[3]
-	  || regs_ever_live[6] || regs_ever_live[7]
-	  || regs_ever_live[14] || regs_ever_live[15]
-	  || regs_ever_live[16] || regs_ever_live[17]
+      if (df_regs_ever_live_p (2) || df_regs_ever_live_p (3)
+	  || df_regs_ever_live_p (6) || df_regs_ever_live_p (7)
+	  || df_regs_ever_live_p (14) || df_regs_ever_live_p (15)
+	  || df_regs_ever_live_p (16) || df_regs_ever_live_p (17)
 	  || fp_regs_to_save ()
 	  || frame_pointer_needed)
 	return (get_frame_size () + REG_SAVE_BYTES
 		+ 4 * fp_regs_to_save ()
-		+ (current_function_outgoing_args_size
-		   ? current_function_outgoing_args_size + 4 : 0)); 
+		+ (crtl->outgoing_args_size
+		   ? crtl->outgoing_args_size + 4 : 0));
       else
 	return (get_frame_size ()
-		+ (current_function_outgoing_args_size
-		   ? current_function_outgoing_args_size + 4 : 0)); 
+		+ (crtl->outgoing_args_size
+		   ? crtl->outgoing_args_size + 4 : 0));
     }
 
   /* The difference between the frame pointer and stack pointer is the sum
@@ -1437,8 +1436,8 @@ initial_offset (int from, int to)
      for function calls (if any).  */
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return (get_frame_size ()
-	    + (current_function_outgoing_args_size
-	       ? current_function_outgoing_args_size + 4 : 0)); 
+	    + (crtl->outgoing_args_size
+	       ? crtl->outgoing_args_size + 4 : 0));
 
   gcc_unreachable ();
 }
@@ -1446,7 +1445,7 @@ initial_offset (int from, int to)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-mn10300_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+mn10300_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   /* Return values > 8 bytes in length in memory.  */
   return (int_size_in_bytes (type) > 8
@@ -1465,28 +1464,28 @@ mn10300_builtin_saveregs (void)
                    && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
                        != void_type_node)))
                 ? UNITS_PER_WORD : 0);
-  int set = get_varargs_alias_set ();
+  alias_set_type set = get_varargs_alias_set ();
 
   if (argadj)
-    offset = plus_constant (current_function_arg_offset_rtx, argadj);
+    offset = plus_constant (crtl->args.arg_offset_rtx, argadj);
   else
-    offset = current_function_arg_offset_rtx;
+    offset = crtl->args.arg_offset_rtx;
 
-  mem = gen_rtx_MEM (SImode, current_function_internal_arg_pointer);
+  mem = gen_rtx_MEM (SImode, crtl->args.internal_arg_pointer);
   set_mem_alias_set (mem, set);
   emit_move_insn (mem, gen_rtx_REG (SImode, 0));
 
   mem = gen_rtx_MEM (SImode,
-		     plus_constant (current_function_internal_arg_pointer, 4));
+		     plus_constant (crtl->args.internal_arg_pointer, 4));
   set_mem_alias_set (mem, set);
   emit_move_insn (mem, gen_rtx_REG (SImode, 1));
 
   return copy_to_reg (expand_binop (Pmode, add_optab,
-				    current_function_internal_arg_pointer,
+				    crtl->args.internal_arg_pointer,
 				    offset, 0, 0, OPTAB_LIB_WIDEN));
 }
 
-void
+static void
 mn10300_va_start (tree valist, rtx nextarg)
 {
   nextarg = expand_builtin_saveregs ();
@@ -1497,7 +1496,7 @@ mn10300_va_start (tree valist, rtx nextarg)
 
 static bool
 mn10300_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-			   enum machine_mode mode, tree type,
+			   enum machine_mode mode, const_tree type,
 			   bool named ATTRIBUTE_UNUSED)
 {
   unsigned HOST_WIDE_INT size;
@@ -1607,7 +1606,7 @@ mn10300_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    callers relying on this extra copy.  */
 
 rtx
-mn10300_function_value (tree valtype, tree func, int outgoing)
+mn10300_function_value (const_tree valtype, const_tree func, int outgoing)
 {
   rtx rv;
   enum machine_mode mode = TYPE_MODE (valtype);
@@ -1615,7 +1614,7 @@ mn10300_function_value (tree valtype, tree func, int outgoing)
   if (! POINTER_TYPE_P (valtype))
     return gen_rtx_REG (mode, FIRST_DATA_REGNUM);
   else if (! TARGET_PTR_A0D0 || ! outgoing
-	   || current_function_returns_struct)
+	   || cfun->returns_struct)
     return gen_rtx_REG (mode, FIRST_ADDRESS_REGNUM);
 
   rv = gen_rtx_PARALLEL (mode, rtvec_alloc (2));
@@ -1623,7 +1622,7 @@ mn10300_function_value (tree valtype, tree func, int outgoing)
     = gen_rtx_EXPR_LIST (VOIDmode,
 			 gen_rtx_REG (mode, FIRST_ADDRESS_REGNUM),
 			 GEN_INT (0));
-  
+
   XVECEXP (rv, 0, 1)
     = gen_rtx_EXPR_LIST (VOIDmode,
 			 gen_rtx_REG (mode, FIRST_DATA_REGNUM),
@@ -1671,7 +1670,7 @@ output_tst (rtx operand, rtx insn)
 	}
 
       /* Are we setting a data register to zero (this does not win for
-	 address registers)? 
+	 address registers)?
 
 	 If it's a call clobbered register, have we past a call?
 
@@ -1687,8 +1686,8 @@ output_tst (rtx operand, rtx insn)
 	      == REGNO_REG_CLASS (REGNO (operand)))
 	  && REGNO_REG_CLASS (REGNO (SET_DEST (set))) != EXTENDED_REGS
 	  && REGNO (SET_DEST (set)) != REGNO (operand)
-	  && (!past_call 
-	      || !call_used_regs[REGNO (SET_DEST (set))]))
+	  && (!past_call
+	      || ! call_really_used_regs [REGNO (SET_DEST (set))]))
 	{
 	  rtx xoperands[2];
 	  xoperands[0] = operand;
@@ -1706,8 +1705,8 @@ output_tst (rtx operand, rtx insn)
 	      != REGNO_REG_CLASS (REGNO (operand)))
 	  && REGNO_REG_CLASS (REGNO (SET_DEST (set))) == EXTENDED_REGS
 	  && REGNO (SET_DEST (set)) != REGNO (operand)
-	  && (!past_call 
-	      || !call_used_regs[REGNO (SET_DEST (set))]))
+	  && (!past_call
+	      || ! call_really_used_regs [REGNO (SET_DEST (set))]))
 	{
 	  rtx xoperands[2];
 	  xoperands[0] = operand;
@@ -1870,7 +1869,8 @@ legitimate_pic_operand_p (rtx x)
       && (XINT (x, 1) == UNSPEC_PIC
 	  || XINT (x, 1) == UNSPEC_GOT
 	  || XINT (x, 1) == UNSPEC_GOTOFF
-	  || XINT (x, 1) == UNSPEC_PLT))
+	  || XINT (x, 1) == UNSPEC_PLT
+	  || XINT (x, 1) == UNSPEC_GOTSYM_OFF))
       return 1;
 
   fmt = GET_RTX_FORMAT (GET_CODE (x));
@@ -1980,7 +1980,7 @@ mn10300_address_cost_1 (rtx x, int *unsig)
     case EXPR_LIST:
     case SUBREG:
     case MEM:
-      return mn10300_address_cost (XEXP (x, 0));
+      return mn10300_address_cost (XEXP (x, 0), !optimize_size);
 
     case ZERO_EXTEND:
       *unsig = 1;
@@ -2009,14 +2009,14 @@ mn10300_address_cost_1 (rtx x, int *unsig)
 }
 
 static int
-mn10300_address_cost (rtx x)
+mn10300_address_cost (rtx x, bool speed ATTRIBUTE_UNUSED)
 {
   int s = 0;
   return mn10300_address_cost_1 (x, &s);
 }
 
 static bool
-mn10300_rtx_costs (rtx x, int code, int outer_code, int *total)
+mn10300_rtx_costs (rtx x, int code, int outer_code, int *total, bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -2086,7 +2086,7 @@ mn10300_wide_const_load_uses_clr (rtx operands[2])
 	val[1] = INTVAL (high);
       }
       break;
-      
+
     case CONST_DOUBLE:
       if (GET_MODE (operands[1]) == DFmode)
 	{
@@ -2102,7 +2102,7 @@ mn10300_wide_const_load_uses_clr (rtx operands[2])
 	  val[1] = CONST_DOUBLE_HIGH (operands[1]);
 	}
       break;
-      
+
     default:
       return false;
     }

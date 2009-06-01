@@ -1,4 +1,5 @@
-/* { dg-do compile { target x86_64-*-* } } */
+/* { dg-do compile } */
+/* { dg-require-effective-target lp64 } */
 /* { dg-options "-O" } */
 
 typedef int int32_t;

@@ -1,32 +1,28 @@
 /* 128-bit long double support routines for Darwin.
-   Copyright (C) 1993, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1993, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
+
 
 /* Implementations of floating-point long double basic arithmetic
    functions called by the IBM C compiler when generating code for
@@ -49,8 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    This code currently assumes big-endian.  */
 
-#if ((!defined (__NO_FPRS__) || defined (_SOFT_FLOAT)) \
-     && !defined (__LITTLE_ENDIAN__) \
+#if (!defined (__LITTLE_ENDIAN__) \
      && (defined (__MACH__) || defined (__powerpc__) || defined (_AIX)))
 
 #define fabs(x) __builtin_fabs(x)
@@ -145,7 +140,7 @@ __gcc_qsub (double a, double b, double c, double d)
   return __gcc_qadd (a, b, -c, -d);
 }
 
-#ifdef _SOFT_FLOAT
+#ifdef __NO_FPRS__
 static double fmsub (double, double, double);
 #endif
 
@@ -164,7 +159,7 @@ __gcc_qmul (double a, double b, double c, double d)
   /* Sum terms of two highest orders. */
   
   /* Use fused multiply-add to get low part of a * c.  */
-#ifndef _SOFT_FLOAT
+#ifndef __NO_FPRS__
   asm ("fmsub %0,%1,%2,%3" : "=f"(tau) : "f"(a), "f"(c), "f"(t));
 #else
   tau = fmsub (a, c, t);
@@ -201,7 +196,7 @@ __gcc_qdiv (double a, double b, double c, double d)
 			   numerically necessary.  */
   
   /* Use fused multiply-add to get low part of c * t.	 */
-#ifndef _SOFT_FLOAT
+#ifndef __NO_FPRS__
   asm ("fmsub %0,%1,%2,%3" : "=f"(sigma) : "f"(c), "f"(t), "f"(s));
 #else
   sigma = fmsub (c, t, s);
@@ -219,14 +214,13 @@ __gcc_qdiv (double a, double b, double c, double d)
   return z.ldval;
 }
 
-#if defined (_SOFT_FLOAT) && defined (__LONG_DOUBLE_128__)
+#if defined (_SOFT_DOUBLE) && defined (__LONG_DOUBLE_128__)
 
 long double __gcc_qneg (double, double);
 int __gcc_qeq (double, double, double, double);
 int __gcc_qne (double, double, double, double);
 int __gcc_qge (double, double, double, double);
 int __gcc_qle (double, double, double, double);
-int __gcc_qunord (double, double, double, double);
 long double __gcc_stoq (float);
 long double __gcc_dtoq (double);
 float __gcc_qtos (double, double);
@@ -239,7 +233,6 @@ long double __gcc_utoq (unsigned int);
 extern int __eqdf2 (double, double);
 extern int __ledf2 (double, double);
 extern int __gedf2 (double, double);
-extern int __unorddf2 (double, double);
 
 /* Negate 'long double' value and return the result.	*/
 long double
@@ -284,15 +277,6 @@ __gcc_qge (double a, double aa, double c, double cc)
 }
 
 strong_alias (__gcc_qge, __gcc_qgt);
-
-/* Compare two 'long double' values for unordered.  */
-int
-__gcc_qunord (double a, double aa, double c, double cc)
-{
-  if (__eqdf2 (a, c) == 0)
-    return __unorddf2 (aa, cc);
-  return __unorddf2 (a, c);
-}
 
 /* Convert single to long double.  */
 long double
@@ -362,6 +346,24 @@ __gcc_utoq (unsigned int a)
   return __gcc_dtoq ((double) a);
 }
 
+#endif
+
+#ifdef __NO_FPRS__
+
+int __gcc_qunord (double, double, double, double);
+
+extern int __eqdf2 (double, double);
+extern int __unorddf2 (double, double);
+
+/* Compare two 'long double' values for unordered.  */
+int
+__gcc_qunord (double a, double aa, double c, double cc)
+{
+  if (__eqdf2 (a, c) == 0)
+    return __unorddf2 (aa, cc);
+  return __unorddf2 (a, c);
+}
+
 #include "config/soft-fp/soft-fp.h"
 #include "config/soft-fp/double.h"
 #include "config/soft-fp/quad.h"
@@ -381,7 +383,7 @@ fmsub (double a, double b, double c)
     FP_DECL_Q(V);
     FP_DECL_D(R);
     double r;
-    long double u, v, x, y, z;
+    long double u, x, y, z;
 
     FP_INIT_ROUNDMODE;
     FP_UNPACK_RAW_D (A, a);
@@ -416,15 +418,13 @@ fmsub (double a, double b, double c)
     FP_UNPACK_SEMIRAW_Q(U,u);
     FP_UNPACK_SEMIRAW_Q(Z,z);
     FP_SUB_Q(V,U,Z);
-    FP_PACK_SEMIRAW_Q(v,V);
-    FP_HANDLE_EXCEPTIONS;
 
     /* Truncate quad to double.  */
-    FP_INIT_ROUNDMODE;
-    FP_UNPACK_SEMIRAW_Q(V,v);
 #if (2 * _FP_W_TYPE_SIZE) < _FP_FRACBITS_Q
+    V_f[3] &= 0x0007ffff;
     FP_TRUNC(D,Q,2,4,R,V);
 #else
+    V_f1 &= 0x0007ffffffffffffL;
     FP_TRUNC(D,Q,1,2,R,V);
 #endif
     FP_PACK_SEMIRAW_D(r,R);

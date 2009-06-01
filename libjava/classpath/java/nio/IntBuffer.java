@@ -1,5 +1,5 @@
 /* IntBuffer.java -- 
-   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,19 +38,24 @@ exception statement from your version. */
 
 package java.nio;
 
+// GCJ LOCAL: Change gnu.classpath.Pointer to RawData
+import gnu.gcj.RawData;
+
 /**
  * @since 1.4
  */
 public abstract class IntBuffer extends Buffer
-  implements Comparable
+  implements Comparable<IntBuffer>
 {
-  int array_offset;
-  int[] backing_buffer;
+  final int array_offset;
+  final int[] backing_buffer;
 
-  IntBuffer (int capacity, int limit, int position, int mark)
+  IntBuffer (int capacity, int limit, int position, int mark,
+	      RawData address, int[] backing_buffer, int array_offset)
   {
-    super (capacity, limit, position, mark);
-    array_offset = 0;
+    super (capacity, limit, position, mark, address);
+    this.backing_buffer = backing_buffer;
+    this.array_offset = array_offset;
   }
 
   /**
@@ -70,7 +75,8 @@ public abstract class IntBuffer extends Buffer
    */
   public static final IntBuffer wrap (int[] array, int offset, int length)
   {
-    return new IntBufferImpl (array, 0, array.length, offset + length, offset, -1, false);
+    return new IntBufferImpl (array, 0, array.length, offset + length, offset,
+			      -1, false);
   }
 
   /**
@@ -273,7 +279,7 @@ public abstract class IntBuffer extends Buffer
   {
     if (obj instanceof IntBuffer)
       {
-        return compareTo (obj) == 0;
+        return compareTo ((IntBuffer) obj) == 0;
       }
 
     return false;
@@ -285,10 +291,8 @@ public abstract class IntBuffer extends Buffer
    * @exception ClassCastException If obj is not an object derived from
    * <code>IntBuffer</code>.
    */
-  public int compareTo (Object obj)
+  public int compareTo (IntBuffer other)
   {
-    IntBuffer other = (IntBuffer) obj;
-
     int num = Math.min(remaining(), other.remaining());
     int pos_this = position();
     int pos_other = other.position();

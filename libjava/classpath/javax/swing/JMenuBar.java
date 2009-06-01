@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.swing;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Insets;
@@ -298,19 +300,25 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
   }
 
   /**
-   * DOCUMENT ME!
+   * This method is not implemented and will throw an {@link Error} if called.
    *
-   * @return DOCUMENT ME!
+   * @return This method never returns anything, it throws an exception.
    */
   public JMenu getHelpMenu()
   {
-    return null;
+    // the following error matches the behaviour of the reference 
+    // implementation...
+    throw new Error("getHelpMenu() is not implemented");
   }
 
   /**
-   * Returns margin betweeen menu bar's border and its menues
+   * Returns the margin between the menu bar's border and its menus.  If the
+   * margin is <code>null</code>, this method returns 
+   * <code>new Insets(0, 0, 0, 0)</code>.
    *
-   * @return margin between menu bar's border and its menues
+   * @return The margin (never <code>null</code>).
+   * 
+   * @see #setMargin(Insets)
    */
   public Insets getMargin()
   {
@@ -475,7 +483,7 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    */
   protected String paramString()
   {
-    StringBuffer sb = new StringBuffer();
+    CPStringBuilder sb = new CPStringBuilder();
     sb.append(super.paramString());
     sb.append(",margin=");
     if (getMargin() != null)
@@ -617,21 +625,20 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
   }
 
   /**
-   * Sets the menu bar's "margin" bound property,  which represents
-   * distance between the menubar's border and its menus.
-   * icon. When marging property is modified, PropertyChangeEvent will
-   * be fired to menuBar's PropertyChangeListener's.
+   * Sets the margin between the menu bar's border and its menus (this is a
+   * bound property with the name 'margin').
    *
-   * @param m distance between the menubar's border and its menus.
-   *
+   * @param m  the margin (<code>null</code> permitted).
+   * 
+   * @see #getMargin()
    */
   public void setMargin(Insets m)
   {
     if (m != margin)
       {
-	Insets oldMargin = margin;
-	margin = m;
-	firePropertyChange("margin", oldMargin, margin);
+        Insets oldMargin = margin;
+        margin = m;
+        firePropertyChange("margin", oldMargin, margin);
       }
   }
 

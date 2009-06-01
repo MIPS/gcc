@@ -1,9 +1,10 @@
-! { dg-do run }
+! { dg-do run { target fd_truncate } }
 ! PR 26499 : Positioning of EOF after  write and rewind.
 ! Test case from Dale Ranta in PR.
 ! Submitted by Jerry DeLisle <jvdelisle@verizon.net>.
       program test
       dimension idata(100)
+      idata = -42
       open(unit=11,form='unformatted')
       write(11)idata
       write(11)idata

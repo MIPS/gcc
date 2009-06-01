@@ -1,5 +1,5 @@
 /* Definitions for computing resource usage of specific insns.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "insn-attr.h"
 #include "params.h"
+#include "df.h"
 
 /* This structure is used to record liveness information at the targets or
    fallthrough insns of branches.  We will most likely need the information
@@ -77,7 +78,7 @@ static HARD_REG_SET current_live_regs;
 
 static HARD_REG_SET pending_dead_regs;
 
-static void update_live_status (rtx, rtx, void *);
+static void update_live_status (rtx, const_rtx, void *);
 static int find_basic_block (rtx, int);
 static rtx next_insn_no_annul (rtx);
 static rtx find_dead_or_set_registers (rtx, struct resources*,
@@ -88,7 +89,7 @@ static rtx find_dead_or_set_registers (rtx, struct resources*,
    It deadens any CLOBBERed registers and livens any SET registers.  */
 
 static void
-update_live_status (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
+update_live_status (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
 {
   int first_regno, last_regno;
   int i;
@@ -98,11 +99,16 @@ update_live_status (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
     return;
 
   if (GET_CODE (dest) == SUBREG)
-    first_regno = subreg_regno (dest);
-  else
-    first_regno = REGNO (dest);
+    {
+      first_regno = subreg_regno (dest);
+      last_regno = first_regno + subreg_nregs (dest);
 
-  last_regno = first_regno + hard_regno_nregs[first_regno][GET_MODE (dest)];
+    }
+  else
+    {
+      first_regno = REGNO (dest);
+      last_regno = END_HARD_REGNO (dest);
+    }
 
   if (GET_CODE (x) == CLOBBER)
     for (i = first_regno; i < last_regno; i++)
@@ -216,6 +222,7 @@ mark_referenced_resources (rtx x, struct resources *res,
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case SYMBOL_REF:
@@ -228,8 +235,7 @@ mark_referenced_resources (rtx x, struct resources *res,
       else
 	{
 	  unsigned int regno = subreg_regno (x);
-	  unsigned int last_regno
-	    = regno + hard_regno_nregs[regno][GET_MODE (x)];
+	  unsigned int last_regno = regno + subreg_nregs (x);
 
 	  gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
 	  for (r = regno; r < last_regno; r++)
@@ -238,15 +244,8 @@ mark_referenced_resources (rtx x, struct resources *res,
       return;
 
     case REG:
-	{
-	  unsigned int regno = REGNO (x);
-	  unsigned int last_regno
-	    = regno + hard_regno_nregs[regno][GET_MODE (x)];
-
-	  gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
-	  for (r = regno; r < last_regno; r++)
-	    SET_HARD_REG_BIT (res->regs, r);
-	}
+      gcc_assert (HARD_REGISTER_P (x));
+      add_to_hard_reg_set (&res->regs, GET_MODE (x), REGNO (x));
       return;
 
     case MEM:
@@ -267,12 +266,9 @@ mark_referenced_resources (rtx x, struct resources *res,
       return;
 
     case UNSPEC_VOLATILE:
+    case TRAP_IF:
     case ASM_INPUT:
       /* Traditional asm's are always volatile.  */
-      res->volatil = 1;
-      return;
-
-    case TRAP_IF:
       res->volatil = 1;
       break;
 
@@ -640,6 +636,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
     case USE:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case LABEL_REF:
     case SYMBOL_REF:
@@ -663,9 +660,8 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 	  rtx link;
 
 	  res->cc = res->memory = 1;
-	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-	    if (call_used_regs[r] || global_regs[r])
-	      SET_HARD_REG_BIT (res->regs, r);
+
+	  IOR_HARD_REG_SET (res->regs, regs_invalidated_by_call);
 
 	  for (link = CALL_INSN_FUNCTION_USAGE (x);
 	       link; link = XEXP (link, 1))
@@ -762,8 +758,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 	  else
 	    {
 	      unsigned int regno = subreg_regno (x);
-	      unsigned int last_regno
-		= regno + hard_regno_nregs[regno][GET_MODE (x)];
+	      unsigned int last_regno = regno + subreg_nregs (x);
 
 	      gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
 	      for (r = regno; r < last_regno; r++)
@@ -775,13 +770,8 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
     case REG:
       if (in_dest)
 	{
-	  unsigned int regno = REGNO (x);
-	  unsigned int last_regno
-	    = regno + hard_regno_nregs[regno][GET_MODE (x)];
-
-	  gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
-	  for (r = regno; r < last_regno; r++)
-	    SET_HARD_REG_BIT (res->regs, r);
+	  gcc_assert (HARD_REGISTER_P (x));
+	  add_to_hard_reg_set (&res->regs, GET_MODE (x), REGNO (x));
 	}
       return;
 
@@ -831,7 +821,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 /* Return TRUE if INSN is a return, possibly with a filled delay slot.  */
 
 static bool
-return_insn_p (rtx insn)
+return_insn_p (const_rtx insn)
 {
   if (JUMP_P (insn) && GET_CODE (PATTERN (insn)) == RETURN)
     return true;
@@ -964,11 +954,8 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
      TARGET.  Otherwise, we must assume everything is live.  */
   if (b != -1)
     {
-      regset regs_live = BASIC_BLOCK (b)->il.rtl->global_live_at_start;
-      unsigned int j;
-      unsigned int regno;
+      regset regs_live = DF_LR_IN (BASIC_BLOCK (b));
       rtx start_insn, stop_insn;
-      reg_set_iterator rsi;
 
       /* Compute hard regs live at start of block -- this is the real hard regs
 	 marked live, plus live pseudo regs that have been renumbered to
@@ -976,21 +963,10 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 
       REG_SET_TO_HARD_REG_SET (current_live_regs, regs_live);
 
-      EXECUTE_IF_SET_IN_REG_SET (regs_live, FIRST_PSEUDO_REGISTER, i, rsi)
-	{
-	  if (reg_renumber[i] >= 0)
-	    {
-	      regno = reg_renumber[i];
-	      for (j = regno;
-		   j < regno + hard_regno_nregs[regno][PSEUDO_REGNO_MODE (i)];
-		   j++)
-		SET_HARD_REG_BIT (current_live_regs, j);
-	    }
-	}
-
       /* Get starting and ending insn, handling the case where each might
 	 be a SEQUENCE.  */
-      start_insn = (b == 0 ? insns : BB_HEAD (BASIC_BLOCK (b)));
+      start_insn = (b == ENTRY_BLOCK_PTR->next_bb->index ? 
+		    insns : BB_HEAD (BASIC_BLOCK (b)));
       stop_insn = target;
 
       if (NONJUMP_INSN_P (start_insn)
@@ -1051,16 +1027,9 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 		if (REG_NOTE_KIND (link) == REG_DEAD
 		    && REG_P (XEXP (link, 0))
 		    && REGNO (XEXP (link, 0)) < FIRST_PSEUDO_REGISTER)
-		  {
-		    unsigned int first_regno = REGNO (XEXP (link, 0));
-		    unsigned int last_regno
-		      = (first_regno
-			 + hard_regno_nregs[first_regno]
-					   [GET_MODE (XEXP (link, 0))]);
-
-		    for (i = first_regno; i < last_regno; i++)
-		      SET_HARD_REG_BIT (pending_dead_regs, i);
-		  }
+		  add_to_hard_reg_set (&pending_dead_regs,
+				      GET_MODE (XEXP (link, 0)),
+				      REGNO (XEXP (link, 0)));
 
 	      note_stores (PATTERN (real_insn), update_live_status, NULL);
 
@@ -1070,16 +1039,9 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 		if (REG_NOTE_KIND (link) == REG_UNUSED
 		    && REG_P (XEXP (link, 0))
 		    && REGNO (XEXP (link, 0)) < FIRST_PSEUDO_REGISTER)
-		  {
-		    unsigned int first_regno = REGNO (XEXP (link, 0));
-		    unsigned int last_regno
-		      = (first_regno
-			 + hard_regno_nregs[first_regno]
-					   [GET_MODE (XEXP (link, 0))]);
-
-		    for (i = first_regno; i < last_regno; i++)
-		      CLEAR_HARD_REG_BIT (current_live_regs, i);
-		  }
+		  remove_from_hard_reg_set (&current_live_regs,
+					   GET_MODE (XEXP (link, 0)),
+					   REGNO (XEXP (link, 0)));
 	    }
 
 	  else if (LABEL_P (real_insn))
@@ -1094,7 +1056,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 	     RTL chain when there are no epilogue insns.  Certain resources
 	     are implicitly required at that point.  */
 	  else if (NOTE_P (real_insn)
-		   && NOTE_LINE_NUMBER (real_insn) == NOTE_INSN_EPILOGUE_BEG)
+		   && NOTE_KIND (real_insn) == NOTE_INSN_EPILOGUE_BEG)
 	    IOR_HARD_REG_SET (current_live_regs, start_of_epilogue_needs.regs);
 	}
 
@@ -1185,8 +1147,8 @@ init_resource_info (rtx epilogue_insn)
   else
     SET_HARD_REG_BIT (end_of_function_needs.regs, STACK_POINTER_REGNUM);
 
-  if (current_function_return_rtx != 0)
-    mark_referenced_resources (current_function_return_rtx,
+  if (crtl->return_rtx != 0)
+    mark_referenced_resources (crtl->return_rtx,
 			       &end_of_function_needs, 1);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)

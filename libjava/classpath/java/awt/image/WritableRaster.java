@@ -111,13 +111,8 @@ public class WritableRaster extends Raster
   public WritableRaster createWritableTranslatedChild(int childMinX,
                                                       int childMinY)
   {
-    // This mirrors the code from the super class
-    int tcx = sampleModelTranslateX - minX + childMinX;
-    int tcy = sampleModelTranslateY - minY + childMinY;
-    
-    return new WritableRaster(sampleModel, dataBuffer,
-        new Rectangle(childMinX, childMinY, width, height), 
-        new Point(tcx, tcy), this);
+    return createWritableChild(minX, minY, width, height,
+                               childMinX, childMinY, null);
   }
 
   /**
@@ -136,15 +131,37 @@ public class WritableRaster extends Raster
   {
     // This mirrors the code from the super class
     
-    // FIXME: Throw RasterFormatException if child bounds extends
-    // beyond the bounds of this raster.
+    if (parentX < minX || parentX + w > minX + width
+        || parentY < minY || parentY + h > minY + height)
+      throw new RasterFormatException("Child raster extends beyond parent");
     
     SampleModel sm = (bandList == null) ?
       sampleModel :
       sampleModel.createSubsetSampleModel(bandList);
+
+    return new WritableRaster(sm, getDataBuffer(),
+                              new Rectangle(childMinX, childMinY, w, h),
+                              new Point(sampleModelTranslateX + childMinX -
+                                          parentX,
+                                        sampleModelTranslateY + childMinY -
+                                          parentY),
+                              this);
+  }
+  
+  public Raster createChild(int parentX, int parentY, int width,
+                            int height, int childMinX, int childMinY,
+                            int[] bandList)
+  {
+    if (parentX < minX || parentX + width > minX + this.width
+        || parentY < minY || parentY + height > minY + this.height)
+      throw new RasterFormatException("Child raster extends beyond parent");
     
+    SampleModel sm = (bandList == null) ?
+      sampleModel :
+      sampleModel.createSubsetSampleModel(bandList);
+
     return new WritableRaster(sm, dataBuffer,
-        new Rectangle(childMinX, childMinY, w, h),
+        new Rectangle(childMinX, childMinY, width, height),
         new Point(sampleModelTranslateX + childMinX - parentX,
                   sampleModelTranslateY + childMinY - parentY),
         this);

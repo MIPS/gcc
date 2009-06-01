@@ -6,12 +6,31 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
--- This specification is adapted from the Ada Reference Manual for use with --
--- GNAT.  In accordance with the copyright of that document, you can freely --
--- copy and modify this specification,  provided that if you redistribute a --
--- modified version,  any changes that you have made are clearly indicated. --
+--          Copyright (C) 2004-2009, Free Software Foundation, Inc.         --
 --                                                                          --
+-- GNAT is free software;  you can  redistribute it  and/or modify it under --
+-- terms of the  GNU General Public License as published  by the Free Soft- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
+-- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
+--                                                                          --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
+--                                                                          --
+-- This unit was originally developed by Matthew J Heaney.                  --
 ------------------------------------------------------------------------------
+
+--  This package declares the prime numbers array used to implement hashed
+--  containers. Bucket arrays are always allocated with a prime-number
+--  length (computed using To_Prime below), as this produces better scatter
+--  when hash values are folded.
 
 package Ada.Containers.Prime_Numbers is
    pragma Pure;
@@ -27,5 +46,6 @@ package Ada.Containers.Prime_Numbers is
       1610612741, 3221225473, 4294967291);
 
    function To_Prime (Length : Count_Type) return Hash_Type;
+   --  Returns the smallest value in Primes not less than Length
 
 end Ada.Containers.Prime_Numbers;

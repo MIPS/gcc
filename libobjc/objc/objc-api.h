@@ -1,11 +1,12 @@
 /* GNU Objective-C Runtime API.
-   Copyright (C) 1993, 1995, 1996, 1997, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1996, 1997, 2001, 2002, 2003, 2004, 2005,
+   2007, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -13,16 +14,15 @@ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
 License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
-/* As a special exception, if you link this library with files compiled
-   with GCC to produce an executable, this does not cause the resulting
-   executable to be covered by the GNU General Public License.  This
-   exception does not however invalidate any other reasons why the
-   executable file might be covered by the GNU General Public License. */
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
+
 
 #ifndef __objc_api_INCLUDE_GNU
 #define __objc_api_INCLUDE_GNU
@@ -41,11 +41,9 @@ extern "C" {
 /* For functions which return Method_t */
 #define METHOD_NULL	(Method_t)0
                                                 /* Boolean typedefs */
-/*
-** Method descriptor returned by introspective Object methods.
-** This is really just the first part of the more complete objc_method
-** structure defined below and used internally by the runtime.
-*/
+/* Method descriptor returned by introspective Object methods.
+   This is really just the first part of the more complete objc_method
+   structure defined below and used internally by the runtime.  */
 struct objc_method_description
 {
     SEL name;			/* this is a selector, not a string */
@@ -85,36 +83,32 @@ struct objc_method_description
 #define _C_COMPLEX   'j'
 
 
-/*
-** Error handling
-**
-** Call objc_error() or objc_verror() to record an error; this error
-** routine will generally exit the program but not necessarily if the
-** user has installed his own error handler.
-**
-** Call objc_set_error_handler to assign your own function for
-** handling errors.  The function should return YES if it is ok
-** to continue execution, or return NO or just abort if the
-** program should be stopped.  The default error handler is just to
-** print a message on stderr.
-**
-** The error handler function should be of type objc_error_handler
-** The first parameter is an object instance of relevance.
-** The second parameter is an error code.
-** The third parameter is a format string in the printf style.
-** The fourth parameter is a variable list of arguments.
-*/
+/* Error handling
+  
+   Call objc_error() or objc_verror() to record an error; this error
+   routine will generally exit the program but not necessarily if the
+   user has installed his own error handler.
+  
+   Call objc_set_error_handler to assign your own function for
+   handling errors.  The function should return YES if it is ok
+   to continue execution, or return NO or just abort if the
+   program should be stopped.  The default error handler is just to
+   print a message on stderr.
+  
+   The error handler function should be of type objc_error_handler
+   The first parameter is an object instance of relevance.
+   The second parameter is an error code.
+   The third parameter is a format string in the printf style.
+   The fourth parameter is a variable list of arguments.  */
 extern void objc_error(id object, int code, const char* fmt, ...);
 extern void objc_verror(id object, int code, const char* fmt, va_list ap);
 typedef BOOL (*objc_error_handler)(id, int code, const char *fmt, va_list ap);
 extern objc_error_handler objc_set_error_handler(objc_error_handler func);
 
-/*
-** Error codes
-** These are used by the runtime library, and your
-** error handling may use them to determine if the error is
-** hard or soft thus whether execution can continue or abort.
-*/
+/* Error codes
+   These are used by the runtime library, and your
+   error handling may use them to determine if the error is
+   hard or soft thus whether execution can continue or abort.  */
 #define OBJC_ERR_UNKNOWN 0             /* Generic error */
 
 #define OBJC_ERR_OBJC_VERSION 1        /* Incorrect runtime version */
@@ -139,10 +133,8 @@ extern objc_error_handler objc_set_error_handler(objc_error_handler func);
 
 #define OBJC_ERR_BAD_STATE 40          /* Bad thread state */
 
-/*
-** Set this variable nonzero to print a line describing each
-** message that is sent.  (this is currently disabled)
-*/
+/* Set this variable nonzero to print a line describing each
+   message that is sent.  (this is currently disabled)  */
 extern BOOL objc_trace;
 
 
@@ -160,14 +152,12 @@ struct objc_static_instances
 #endif
 };
 
-/*
-** Whereas a Module (defined further down) is the root (typically) of a file,
-** a Symtab is the root of the class and category definitions within the
-** module.  
-** 
-** A Symtab contains a variable length array of pointers to classes and
-** categories  defined in the module. 
-*/
+/* Whereas a Module (defined further down) is the root (typically) of a file,
+   a Symtab is the root of the class and category definitions within the
+   module.  
+   
+   A Symtab contains a variable length array of pointers to classes and
+   categories  defined in the module.   */
 typedef struct objc_symtab {
   unsigned long sel_ref_cnt;                     /* Unknown. */
   SEL        refs;                              /* Unknown. */
@@ -431,11 +421,23 @@ objc_EXPORT void *(*_objc_calloc)(size_t, size_t);
 objc_EXPORT void (*_objc_free)(void *);
 
 /*
-**  Hook for method forwarding. This makes it easy to substitute a
+**  Hooks for method forwarding. This makes it easy to substitute a
 **  library, such as ffcall, that implements closures, thereby avoiding
-**  gcc's __builtin_apply problems.
+**  gcc's __builtin_apply problems.  __objc_msg_forward2's result will
+**  be preferred over that of __objc_msg_forward if both are set and
+**  return non-NULL.
 */
 objc_EXPORT IMP (*__objc_msg_forward)(SEL);
+objc_EXPORT IMP (*__objc_msg_forward2)(id, SEL);
+
+/*
+** Hook for uncaught exceptions.  This hook is called when an exception
+** is thrown and no valid exception handler is in place.  The function
+** is expected never to return.  If the function returns the result is
+** currently undefined.
+*/
+objc_EXPORT void (*_objc_unexpected_exception)(id);
+
 
 Method_t class_get_class_method(MetaClass _class, SEL aSel);
 

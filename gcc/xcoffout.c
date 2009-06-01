@@ -1,6 +1,6 @@
 /* Output xcoff-format symbol table information from GNU compiler.
    Copyright (C) 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2002, 2003, 2004,
-   2007  Free Software Foundation, Inc.
+   2007, 2008  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "ggc.h"
 #include "target.h"
+#include "debug.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 
@@ -300,7 +301,8 @@ xcoffout_source_file (FILE *file, const char *filename, int inline_p)
       if (xcoff_current_include_file)
 	{
 	  fprintf (file, "\t.ei\t");
-	  output_quoted_string (file, xcoff_current_include_file);
+	  output_quoted_string (file,
+	      remap_debug_filename (xcoff_current_include_file));
 	  fprintf (file, "\n");
 	  xcoff_current_include_file = NULL;
 	}
@@ -308,7 +310,7 @@ xcoffout_source_file (FILE *file, const char *filename, int inline_p)
       if (strcmp (main_input_filename, filename) || inline_p)
 	{
 	  fprintf (file, "\t.bi\t");
-	  output_quoted_string (file, filename);
+	  output_quoted_string (file, remap_debug_filename (filename));
 	  fprintf (file, "\n");
 	  xcoff_current_include_file = filename;
 	}
@@ -411,7 +413,7 @@ xcoffout_declare_function (FILE *file, tree decl, const char *name)
   len = strlen (name);
   if (name[len - 1] == ']')
     {
-      char *n = alloca (len - 3);
+      char *n = XALLOCAVEC (char, len - 3);
       memcpy (n, name, len - 4);
       n[len - 4] = '\0';
       name = n;

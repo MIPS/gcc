@@ -1,5 +1,5 @@
 /* Configuration file for Symbian OS on ARM processors.
-   Copyright (C) 2004, 2005, 2007
+   Copyright (C) 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC   
 
@@ -78,13 +78,16 @@
 
 /* Define the __symbian__ macro.  */
 #undef TARGET_OS_CPP_BUILTINS
-#define TARGET_OS_CPP_BUILTINS()		\
-  do						\
-    {						\
-      /* Include the default BPABI stuff.  */	\
-      TARGET_BPABI_CPP_BUILTINS ();		\
-      builtin_define ("__symbian__");		\
-    }						\
+#define TARGET_OS_CPP_BUILTINS()				\
+  do								\
+    {								\
+      /* Include the default BPABI stuff.  */			\
+      TARGET_BPABI_CPP_BUILTINS ();				\
+      /* Symbian OS does not support merging symbols across DLL	\
+	 boundaries.  */					\
+      builtin_define ("__GXX_MERGED_TYPEINFO_NAMES=0");		\
+      builtin_define ("__symbian__");				\
+    }								\
   while (false)
 
 /* On SymbianOS, these sections are not writable, so we use "a",
@@ -98,3 +101,5 @@
 
 /* SymbianOS cannot merge entities with vague linkage at runtime.  */
 #define TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P false
+
+#define TARGET_DEFAULT_WORD_RELOCATIONS 1

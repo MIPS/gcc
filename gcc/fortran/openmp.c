@@ -1,5 +1,6 @@
 /* OpenMP directive matching and resolving.
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Jakub Jelinek
 
 This file is part of GCC.
@@ -18,7 +19,6 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-
 #include "config.h"
 #include "system.h"
 #include "flags.h"
@@ -36,17 +36,17 @@ match
 gfc_match_omp_eos (void)
 {
   locus old_loc;
-  int c;
+  char c;
 
   old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
 
-  c = gfc_next_char ();
+  c = gfc_next_ascii_char ();
   switch (c)
     {
     case '!':
       do
-	c = gfc_next_char ();
+	c = gfc_next_ascii_char ();
       while (c != '\n');
       /* Fall through */
 
@@ -182,6 +182,8 @@ cleanup:
 #define OMP_CLAUSE_SCHEDULE	(1 << 9)
 #define OMP_CLAUSE_DEFAULT	(1 << 10)
 #define OMP_CLAUSE_ORDERED	(1 << 11)
+#define OMP_CLAUSE_COLLAPSE	(1 << 12)
+#define OMP_CLAUSE_UNTIED	(1 << 13)
 
 /* Match OpenMP directive clauses. MASK is a bitmask of
    clauses that are allowed for a particular directive.  */
@@ -335,6 +337,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	    c->default_sharing = OMP_DEFAULT_PRIVATE;
 	  else if (gfc_match ("default ( none )") == MATCH_YES)
 	    c->default_sharing = OMP_DEFAULT_NONE;
+	  else if (gfc_match ("default ( firstprivate )") == MATCH_YES)
+	    c->default_sharing = OMP_DEFAULT_FIRSTPRIVATE;
 	  if (c->default_sharing != OMP_DEFAULT_UNKNOWN)
 	    continue;
 	}
@@ -351,10 +355,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	    c->sched_kind = OMP_SCHED_GUIDED;
 	  else if (gfc_match ("runtime") == MATCH_YES)
 	    c->sched_kind = OMP_SCHED_RUNTIME;
+	  else if (gfc_match ("auto") == MATCH_YES)
+	    c->sched_kind = OMP_SCHED_AUTO;
 	  if (c->sched_kind != OMP_SCHED_NONE)
 	    {
 	      match m = MATCH_NO;
-	      if (c->sched_kind != OMP_SCHED_RUNTIME)
+	      if (c->sched_kind != OMP_SCHED_RUNTIME
+		  && c->sched_kind != OMP_SCHED_AUTO)
 		m = gfc_match (" , %e )", &c->chunk_size);
 	      if (m != MATCH_YES)
 		m = gfc_match_char (')');
@@ -371,6 +378,36 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	{
 	  c->ordered = needs_space = true;
 	  continue;
+	}
+      if ((mask & OMP_CLAUSE_UNTIED) && !c->untied
+	  && gfc_match ("untied") == MATCH_YES)
+	{
+	  c->untied = needs_space = true;
+	  continue;
+	}
+      if ((mask & OMP_CLAUSE_COLLAPSE) && !c->collapse)
+	{
+	  gfc_expr *cexpr = NULL;
+	  match m = gfc_match ("collapse ( %e )", &cexpr);
+
+	  if (m == MATCH_YES)
+	    {
+	      int collapse;
+	      const char *p = gfc_extract_int (cexpr, &collapse);
+	      if (p)
+		{
+		  gfc_error (p);
+		  collapse = 1;
+		}
+	      else if (collapse <= 0)
+		{
+		  gfc_error ("COLLAPSE clause argument not constant positive integer at %C");
+		  collapse = 1;
+		}
+	      c->collapse = collapse;
+	      gfc_free_expr (cexpr);
+	      continue;
+	    }
 	}
 
       break;
@@ -393,10 +430,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 #define OMP_DO_CLAUSES \
   (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION			\
-   | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED)
+   | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED | OMP_CLAUSE_COLLAPSE)
 #define OMP_SECTIONS_CLAUSES \
   (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION)
+#define OMP_TASK_CLAUSES \
+  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
+   | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_UNTIED)
 
 match
 gfc_match_omp_parallel (void)
@@ -408,6 +448,30 @@ gfc_match_omp_parallel (void)
   new_st.ext.omp_clauses = c;
   return MATCH_YES;
 }
+
+
+match
+gfc_match_omp_task (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OMP_TASK_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+  new_st.op = EXEC_OMP_TASK;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_omp_taskwait (void)
+{
+  if (gfc_match_omp_eos () != MATCH_YES)
+    return MATCH_ERROR;
+  new_st.op = EXEC_OMP_TASKWAIT;
+  new_st.ext.omp_clauses = NULL;
+  return MATCH_YES;
+}
+
 
 match
 gfc_match_omp_critical (void)
@@ -423,6 +487,7 @@ gfc_match_omp_critical (void)
   return MATCH_YES;
 }
 
+
 match
 gfc_match_omp_do (void)
 {
@@ -433,6 +498,7 @@ gfc_match_omp_do (void)
   new_st.ext.omp_clauses = c;
   return MATCH_YES;
 }
+
 
 match
 gfc_match_omp_flush (void)
@@ -449,6 +515,7 @@ gfc_match_omp_flush (void)
   return MATCH_YES;
 }
 
+
 match
 gfc_match_omp_threadprivate (void)
 {
@@ -464,12 +531,6 @@ gfc_match_omp_threadprivate (void)
   if (m != MATCH_YES)
     return m;
 
-  if (!targetm.have_tls)
-    {
-      sorry ("threadprivate variables not supported in this target");
-      goto cleanup;
-    }
-
   for (;;)
     {
       m = gfc_match_symbol (&sym, 0);
@@ -477,8 +538,8 @@ gfc_match_omp_threadprivate (void)
 	{
 	case MATCH_YES:
 	  if (sym->attr.in_common)
-	    gfc_error_now ("Threadprivate variable at %C is an element of"
-			   " a COMMON block");
+	    gfc_error_now ("Threadprivate variable at %C is an element of "
+			   "a COMMON block");
 	  else if (gfc_add_threadprivate (&sym->attr, sym->name,
 		   &sym->declared_at) == FAILURE)
 	    goto cleanup;
@@ -524,6 +585,7 @@ cleanup:
   return MATCH_ERROR;
 }
 
+
 match
 gfc_match_omp_parallel_do (void)
 {
@@ -535,6 +597,7 @@ gfc_match_omp_parallel_do (void)
   new_st.ext.omp_clauses = c;
   return MATCH_YES;
 }
+
 
 match
 gfc_match_omp_parallel_sections (void)
@@ -548,6 +611,7 @@ gfc_match_omp_parallel_sections (void)
   return MATCH_YES;
 }
 
+
 match
 gfc_match_omp_parallel_workshare (void)
 {
@@ -559,6 +623,7 @@ gfc_match_omp_parallel_workshare (void)
   return MATCH_YES;
 }
 
+
 match
 gfc_match_omp_sections (void)
 {
@@ -569,6 +634,7 @@ gfc_match_omp_sections (void)
   new_st.ext.omp_clauses = c;
   return MATCH_YES;
 }
+
 
 match
 gfc_match_omp_single (void)
@@ -582,6 +648,7 @@ gfc_match_omp_single (void)
   return MATCH_YES;
 }
 
+
 match
 gfc_match_omp_workshare (void)
 {
@@ -591,6 +658,7 @@ gfc_match_omp_workshare (void)
   new_st.ext.omp_clauses = gfc_get_omp_clauses ();
   return MATCH_YES;
 }
+
 
 match
 gfc_match_omp_master (void)
@@ -602,6 +670,7 @@ gfc_match_omp_master (void)
   return MATCH_YES;
 }
 
+
 match
 gfc_match_omp_ordered (void)
 {
@@ -611,6 +680,7 @@ gfc_match_omp_ordered (void)
   new_st.ext.omp_clauses = NULL;
   return MATCH_YES;
 }
+
 
 match
 gfc_match_omp_atomic (void)
@@ -622,6 +692,7 @@ gfc_match_omp_atomic (void)
   return MATCH_YES;
 }
 
+
 match
 gfc_match_omp_barrier (void)
 {
@@ -631,6 +702,7 @@ gfc_match_omp_barrier (void)
   new_st.ext.omp_clauses = NULL;
   return MATCH_YES;
 }
+
 
 match
 gfc_match_omp_end_nowait (void)
@@ -644,6 +716,7 @@ gfc_match_omp_end_nowait (void)
   new_st.ext.omp_bool = nowait;
   return MATCH_YES;
 }
+
 
 match
 gfc_match_omp_end_single (void)
@@ -661,6 +734,7 @@ gfc_match_omp_end_single (void)
   new_st.ext.omp_clauses = c;
   return MATCH_YES;
 }
+
 
 /* OpenMP directive resolving routines.  */
 
@@ -690,23 +764,57 @@ resolve_omp_clauses (gfc_code *code)
       gfc_expr *expr = omp_clauses->num_threads;
       if (gfc_resolve_expr (expr) == FAILURE
 	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
-	gfc_error ("NUM_THREADS clause at %L requires a scalar"
-		   " INTEGER expression", &expr->where);
+	gfc_error ("NUM_THREADS clause at %L requires a scalar "
+		   "INTEGER expression", &expr->where);
     }
   if (omp_clauses->chunk_size)
     {
       gfc_expr *expr = omp_clauses->chunk_size;
       if (gfc_resolve_expr (expr) == FAILURE
 	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
-	gfc_error ("SCHEDULE clause's chunk_size at %L requires"
-		   " a scalar INTEGER expression", &expr->where);
+	gfc_error ("SCHEDULE clause's chunk_size at %L requires "
+		   "a scalar INTEGER expression", &expr->where);
     }
 
   /* Check that no symbol appears on multiple clauses, except that
      a symbol can appear on both firstprivate and lastprivate.  */
   for (list = 0; list < OMP_LIST_NUM; list++)
     for (n = omp_clauses->lists[list]; n; n = n->next)
-      n->sym->mark = 0;
+      {
+	n->sym->mark = 0;
+	if (n->sym->attr.flavor == FL_VARIABLE)
+	  continue;
+	if (n->sym->attr.flavor == FL_PROCEDURE
+	    && n->sym->result == n->sym
+	    && n->sym->attr.function)
+	  {
+	    if (gfc_current_ns->proc_name == n->sym
+		|| (gfc_current_ns->parent
+		    && gfc_current_ns->parent->proc_name == n->sym))
+	      continue;
+	    if (gfc_current_ns->proc_name->attr.entry_master)
+	      {
+		gfc_entry_list *el = gfc_current_ns->entries;
+		for (; el; el = el->next)
+		  if (el->sym == n->sym)
+		    break;
+		if (el)
+		  continue;
+	      }
+	    if (gfc_current_ns->parent
+		&& gfc_current_ns->parent->proc_name->attr.entry_master)
+	      {
+		gfc_entry_list *el = gfc_current_ns->parent->entries;
+		for (; el; el = el->next)
+		  if (el->sym == n->sym)
+		    break;
+		if (el)
+		  continue;
+	      }
+	  }
+	gfc_error ("Object '%s' is not a variable at %L", n->sym->name,
+		   &code->loc);
+      }
 
   for (list = 0; list < OMP_LIST_NUM; list++)
     if (list != OMP_LIST_FIRSTPRIVATE && list != OMP_LIST_LASTPRIVATE)
@@ -764,8 +872,8 @@ resolve_omp_clauses (gfc_code *code)
 		if (!n->sym->attr.threadprivate)
 		  gfc_error ("Non-THREADPRIVATE object '%s' in COPYIN clause"
 			     " at %L", n->sym->name, &code->loc);
-		if (n->sym->attr.allocatable)
-		  gfc_error ("COPYIN clause object '%s' is ALLOCATABLE at %L",
+		if (n->sym->ts.type == BT_DERIVED && n->sym->ts.derived->attr.alloc_comp)
+		  gfc_error ("COPYIN clause object '%s' at %L has ALLOCATABLE components",
 			     n->sym->name, &code->loc);
 	      }
 	    break;
@@ -773,19 +881,19 @@ resolve_omp_clauses (gfc_code *code)
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
-		  gfc_error ("Assumed size array '%s' in COPYPRIVATE clause"
-			     " at %L", n->sym->name, &code->loc);
-		if (n->sym->attr.allocatable)
-		  gfc_error ("COPYPRIVATE clause object '%s' is ALLOCATABLE"
-			     " at %L", n->sym->name, &code->loc);
+		  gfc_error ("Assumed size array '%s' in COPYPRIVATE clause "
+			     "at %L", n->sym->name, &code->loc);
+		if (n->sym->ts.type == BT_DERIVED && n->sym->ts.derived->attr.alloc_comp)
+		  gfc_error ("COPYPRIVATE clause object '%s' at %L has ALLOCATABLE components",
+			     n->sym->name, &code->loc);
 	      }
 	    break;
 	  case OMP_LIST_SHARED:
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->attr.threadprivate)
-		  gfc_error ("THREADPRIVATE object '%s' in SHARED clause at"
-			     " %L", n->sym->name, &code->loc);
+		  gfc_error ("THREADPRIVATE object '%s' in SHARED clause at "
+			     "%L", n->sym->name, &code->loc);
 		if (n->sym->attr.cray_pointee)
 		  gfc_error ("Cray pointee '%s' in SHARED clause at %L",
 			    n->sym->name, &code->loc);
@@ -805,8 +913,10 @@ resolve_omp_clauses (gfc_code *code)
 		    if (n->sym->attr.pointer)
 		      gfc_error ("POINTER object '%s' in %s clause at %L",
 				 n->sym->name, name, &code->loc);
-		    if (n->sym->attr.allocatable)
-		      gfc_error ("%s clause object '%s' is ALLOCATABLE at %L",
+		    /* Variables in REDUCTION-clauses must be of intrinsic type (flagged below).  */
+		    if ((list < OMP_LIST_REDUCTION_FIRST || list > OMP_LIST_REDUCTION_LAST) &&
+		        n->sym->ts.type == BT_DERIVED && n->sym->ts.derived->attr.alloc_comp)
+		      gfc_error ("%s clause object '%s' has ALLOCATABLE components at %L",
 				 name, n->sym->name, &code->loc);
 		    if (n->sym->attr.cray_pointer)
 		      gfc_error ("Cray pointer '%s' in %s clause at %L",
@@ -818,8 +928,8 @@ resolve_omp_clauses (gfc_code *code)
 		if (n->sym->attr.in_namelist
 		    && (list < OMP_LIST_REDUCTION_FIRST
 			|| list > OMP_LIST_REDUCTION_LAST))
-		  gfc_error ("Variable '%s' in %s clause is used in"
-			     " NAMELIST statement at %L",
+		  gfc_error ("Variable '%s' in %s clause is used in "
+			     "NAMELIST statement at %L",
 			     n->sym->name, name, &code->loc);
 		switch (list)
 		  {
@@ -827,19 +937,19 @@ resolve_omp_clauses (gfc_code *code)
 		  case OMP_LIST_MULT:
 		  case OMP_LIST_SUB:
 		    if (!gfc_numeric_ts (&n->sym->ts))
-		      gfc_error ("%c REDUCTION variable '%s' is %s at %L",
+		      gfc_error ("%c REDUCTION variable '%s' at %L must be of numeric type, got %s",
 				 list == OMP_LIST_PLUS ? '+'
 				 : list == OMP_LIST_MULT ? '*' : '-',
-				 n->sym->name, gfc_typename (&n->sym->ts),
-				 &code->loc);
+				 n->sym->name, &code->loc,
+				 gfc_typename (&n->sym->ts));
 		    break;
 		  case OMP_LIST_AND:
 		  case OMP_LIST_OR:
 		  case OMP_LIST_EQV:
 		  case OMP_LIST_NEQV:
 		    if (n->sym->ts.type != BT_LOGICAL)
-		      gfc_error ("%s REDUCTION variable '%s' must be LOGICAL"
-				 " at %L",
+		      gfc_error ("%s REDUCTION variable '%s' must be LOGICAL "
+				 "at %L",
 				 list == OMP_LIST_AND ? ".AND."
 				 : list == OMP_LIST_OR ? ".OR."
 				 : list == OMP_LIST_EQV ? ".EQV." : ".NEQV.",
@@ -849,8 +959,8 @@ resolve_omp_clauses (gfc_code *code)
 		  case OMP_LIST_MIN:
 		    if (n->sym->ts.type != BT_INTEGER
 			&& n->sym->ts.type != BT_REAL)
-		      gfc_error ("%s REDUCTION variable '%s' must be"
-				 " INTEGER or REAL at %L",
+		      gfc_error ("%s REDUCTION variable '%s' must be "
+				 "INTEGER or REAL at %L",
 				 list == OMP_LIST_MAX ? "MAX" : "MIN",
 				 n->sym->name, &code->loc);
 		    break;
@@ -858,8 +968,8 @@ resolve_omp_clauses (gfc_code *code)
 		  case OMP_LIST_IOR:
 		  case OMP_LIST_IEOR:
 		    if (n->sym->ts.type != BT_INTEGER)
-		      gfc_error ("%s REDUCTION variable '%s' must be INTEGER"
-				 " at %L",
+		      gfc_error ("%s REDUCTION variable '%s' must be INTEGER "
+				 "at %L",
 				 list == OMP_LIST_IAND ? "IAND"
 				 : list == OMP_LIST_MULT ? "IOR" : "IEOR",
 				 n->sym->name, &code->loc);
@@ -876,6 +986,7 @@ resolve_omp_clauses (gfc_code *code)
 	  }
       }
 }
+
 
 /* Return true if SYM is ever referenced in EXPR except in the SE node.  */
 
@@ -916,6 +1027,7 @@ expr_references_sym (gfc_expr *e, gfc_symbol *s, gfc_expr *se)
     }
 }
 
+
 /* If EXPR is a conversion function that widens the type
    if WIDENING is true or narrows the type if WIDENING is false,
    return the inner expression, otherwise return NULL.  */
@@ -928,7 +1040,7 @@ is_conversion (gfc_expr *expr, bool widening)
   if (expr->expr_type != EXPR_FUNCTION
       || expr->value.function.isym == NULL
       || expr->value.function.esym != NULL
-      || expr->value.function.isym->generic_id != GFC_ISYM_CONVERSION)
+      || expr->value.function.isym->id != GFC_ISYM_CONVERSION)
     return NULL;
 
   if (widening)
@@ -949,6 +1061,7 @@ is_conversion (gfc_expr *expr, bool widening)
   return NULL;
 }
 
+
 static void
 resolve_omp_atomic (gfc_code *code)
 {
@@ -967,8 +1080,8 @@ resolve_omp_atomic (gfc_code *code)
 	  && code->expr->ts.type != BT_COMPLEX
 	  && code->expr->ts.type != BT_LOGICAL))
     {
-      gfc_error ("!$OMP ATOMIC statement must set a scalar variable of"
-		 " intrinsic type at %L", &code->loc);
+      gfc_error ("!$OMP ATOMIC statement must set a scalar variable of "
+		 "intrinsic type at %L", &code->loc);
       return;
     }
 
@@ -980,7 +1093,7 @@ resolve_omp_atomic (gfc_code *code)
   if (expr2->expr_type == EXPR_OP)
     {
       gfc_expr *v = NULL, *e, *c;
-      gfc_intrinsic_op op = expr2->value.op.operator;
+      gfc_intrinsic_op op = expr2->value.op.op;
       gfc_intrinsic_op alt_op = INTRINSIC_NONE;
 
       switch (op)
@@ -1007,8 +1120,8 @@ resolve_omp_atomic (gfc_code *code)
 	  alt_op = INTRINSIC_EQV;
 	  break;
 	default:
-	  gfc_error ("!$OMP ATOMIC assignment operator must be"
-		     " +, *, -, /, .AND., .OR., .EQV. or .NEQV. at %L",
+	  gfc_error ("!$OMP ATOMIC assignment operator must be "
+		     "+, *, -, /, .AND., .OR., .EQV. or .NEQV. at %L",
 		     &expr2->where);
 	  return;
 	}
@@ -1043,8 +1156,8 @@ resolve_omp_atomic (gfc_code *code)
 	    else if ((c = is_conversion (e, true)) != NULL)
 	      q = &e->value.function.actual->expr;
 	    else if (e->expr_type != EXPR_OP
-		     || (e->value.op.operator != op
-			 && e->value.op.operator != alt_op)
+		     || (e->value.op.op != op
+			 && e->value.op.op != alt_op)
 		     || e->rank != 0)
 	      break;
 	    else
@@ -1055,23 +1168,23 @@ resolve_omp_atomic (gfc_code *code)
 
 	  if (v == NULL)
 	    {
-	      gfc_error ("!$OMP ATOMIC assignment must be var = var op expr"
-			 " or var = expr op var at %L", &expr2->where);
+	      gfc_error ("!$OMP ATOMIC assignment must be var = var op expr "
+			 "or var = expr op var at %L", &expr2->where);
 	      return;
 	    }
 
 	  if (p != NULL)
 	    {
 	      e = *p;
-	      switch (e->value.op.operator)
+	      switch (e->value.op.op)
 		{
 		case INTRINSIC_MINUS:
 		case INTRINSIC_DIVIDE:
 		case INTRINSIC_EQV:
 		case INTRINSIC_NEQV:
-		  gfc_error ("!$OMP ATOMIC var = var op expr not"
-			     " mathematically equivalent to var = var op"
-			     " (expr) at %L", &expr2->where);
+		  gfc_error ("!$OMP ATOMIC var = var op expr not "
+			     "mathematically equivalent to var = var op "
+			     "(expr) at %L", &expr2->where);
 		  break;
 		default:
 		  break;
@@ -1101,8 +1214,8 @@ resolve_omp_atomic (gfc_code *code)
 
       if (e->rank != 0 || expr_references_sym (code->expr2, var, v))
 	{
-	  gfc_error ("expr in !$OMP ATOMIC assignment var = var op expr"
-		     " must be scalar and cannot reference var at %L",
+	  gfc_error ("expr in !$OMP ATOMIC assignment var = var op expr "
+		     "must be scalar and cannot reference var at %L",
 		     &expr2->where);
 	  return;
 	}
@@ -1115,7 +1228,7 @@ resolve_omp_atomic (gfc_code *code)
     {
       gfc_actual_arglist *arg, *var_arg;
 
-      switch (expr2->value.function.isym->generic_id)
+      switch (expr2->value.function.isym->id)
 	{
 	case GFC_ISYM_MIN:
 	case GFC_ISYM_MAX:
@@ -1125,15 +1238,15 @@ resolve_omp_atomic (gfc_code *code)
 	case GFC_ISYM_IEOR:
 	  if (expr2->value.function.actual->next->next != NULL)
 	    {
-	      gfc_error ("!$OMP ATOMIC assignment intrinsic IAND, IOR"
+	      gfc_error ("!$OMP ATOMIC assignment intrinsic IAND, IOR "
 			 "or IEOR must have two arguments at %L",
 			 &expr2->where);
 	      return;
 	    }
 	  break;
 	default:
-	  gfc_error ("!$OMP ATOMIC assignment intrinsic must be"
-		     " MIN, MAX, IAND, IOR or IEOR at %L",
+	  gfc_error ("!$OMP ATOMIC assignment intrinsic must be "
+		     "MIN, MAX, IAND, IOR or IEOR at %L",
 		     &expr2->where);
 	  return;
 	}
@@ -1148,17 +1261,17 @@ resolve_omp_atomic (gfc_code *code)
 	      && arg->expr->symtree->n.sym == var)
 	    var_arg = arg;
 	  else if (expr_references_sym (arg->expr, var, NULL))
-	    gfc_error ("!$OMP ATOMIC intrinsic arguments except one must not"
-		       " reference '%s' at %L", var->name, &arg->expr->where);
+	    gfc_error ("!$OMP ATOMIC intrinsic arguments except one must not "
+		       "reference '%s' at %L", var->name, &arg->expr->where);
 	  if (arg->expr->rank != 0)
-	    gfc_error ("!$OMP ATOMIC intrinsic arguments must be scalar"
-		       " at %L", &arg->expr->where);
+	    gfc_error ("!$OMP ATOMIC intrinsic arguments must be scalar "
+		       "at %L", &arg->expr->where);
 	}
 
       if (var_arg == NULL)
 	{
-	  gfc_error ("First or last !$OMP ATOMIC intrinsic argument must"
-		     " be '%s' at %L", var->name, &expr2->where);
+	  gfc_error ("First or last !$OMP ATOMIC intrinsic argument must "
+		     "be '%s' at %L", var->name, &expr2->where);
 	  return;
 	}
 
@@ -1175,9 +1288,10 @@ resolve_omp_atomic (gfc_code *code)
 	}
     }
   else
-    gfc_error ("!$OMP ATOMIC assignment must have an operator or intrinsic"
-	       " on right hand side at %L", &expr2->where);
+    gfc_error ("!$OMP ATOMIC assignment must have an operator or intrinsic "
+	       "on right hand side at %L", &expr2->where);
 }
+
 
 struct omp_context
 {
@@ -1186,15 +1300,36 @@ struct omp_context
   struct pointer_set_t *private_iterators;
   struct omp_context *previous;
 } *omp_current_ctx;
-gfc_code *omp_current_do_code;
+static gfc_code *omp_current_do_code;
+static int omp_current_do_collapse;
 
 void
 gfc_resolve_omp_do_blocks (gfc_code *code, gfc_namespace *ns)
 {
   if (code->block->next && code->block->next->op == EXEC_DO)
-    omp_current_do_code = code->block->next;
+    {
+      int i;
+      gfc_code *c;
+
+      omp_current_do_code = code->block->next;
+      omp_current_do_collapse = code->ext.omp_clauses->collapse;
+      for (i = 1, c = omp_current_do_code; i < omp_current_do_collapse; i++)
+	{
+	  c = c->block;
+	  if (c->op != EXEC_DO || c->next == NULL)
+	    break;
+	  c = c->next;
+	  if (c->op != EXEC_DO)
+	    break;
+	}
+      if (i < omp_current_do_collapse || omp_current_do_collapse <= 0)
+	omp_current_do_collapse = 1;
+    }
   gfc_resolve_blocks (code->block, ns);
+  omp_current_do_collapse = 0;
+  omp_current_do_code = NULL;
 }
+
 
 void
 gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
@@ -1224,6 +1359,7 @@ gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
   pointer_set_destroy (ctx.private_iterators);
 }
 
+
 /* Note a DO iterator variable.  This is special in !$omp parallel
    construct, where they are predetermined private.  */
 
@@ -1231,6 +1367,8 @@ void
 gfc_resolve_do_iterator (gfc_code *code, gfc_symbol *sym)
 {
   struct omp_context *ctx;
+  int i = omp_current_do_collapse;
+  gfc_code *c = omp_current_do_code;
 
   if (sym->attr.threadprivate)
     return;
@@ -1238,8 +1376,14 @@ gfc_resolve_do_iterator (gfc_code *code, gfc_symbol *sym)
   /* !$omp do and !$omp parallel do iteration variable is predetermined
      private just in the !$omp do resp. !$omp parallel do construct,
      with no implications for the outer parallel constructs.  */
-  if (code == omp_current_do_code)
-    return;
+
+  while (i-- >= 1)
+    {
+      if (code == c)
+	return;
+
+      c = c->block->next;
+    }
 
   for (ctx = omp_current_ctx; ctx; ctx = ctx->previous)
     {
@@ -1259,11 +1403,12 @@ gfc_resolve_do_iterator (gfc_code *code, gfc_symbol *sym)
     }
 }
 
+
 static void
 resolve_omp_do (gfc_code *code)
 {
-  gfc_code *do_code;
-  int list;
+  gfc_code *do_code, *c;
+  int list, i, collapse;
   gfc_namelist *n;
   gfc_symbol *dovar;
 
@@ -1271,32 +1416,86 @@ resolve_omp_do (gfc_code *code)
     resolve_omp_clauses (code);
 
   do_code = code->block->next;
-  if (do_code->op == EXEC_DO_WHILE)
-    gfc_error ("!$OMP DO cannot be a DO WHILE or DO without loop control at %L",
-	       &do_code->loc);
-  else
+  collapse = code->ext.omp_clauses->collapse;
+  if (collapse <= 0)
+    collapse = 1;
+  for (i = 1; i <= collapse; i++)
     {
+      if (do_code->op == EXEC_DO_WHILE)
+	{
+	  gfc_error ("!$OMP DO cannot be a DO WHILE or DO without loop control "
+		     "at %L", &do_code->loc);
+	  break;
+	}
       gcc_assert (do_code->op == EXEC_DO);
       if (do_code->ext.iterator->var->ts.type != BT_INTEGER)
 	gfc_error ("!$OMP DO iteration variable must be of type integer at %L",
 		   &do_code->loc);
       dovar = do_code->ext.iterator->var->symtree->n.sym;
       if (dovar->attr.threadprivate)
-	gfc_error ("!$OMP DO iteration variable must not be THREADPRIVATE at %L",
-		   &do_code->loc);
+	gfc_error ("!$OMP DO iteration variable must not be THREADPRIVATE "
+		   "at %L", &do_code->loc);
       if (code->ext.omp_clauses)
 	for (list = 0; list < OMP_LIST_NUM; list++)
 	  if (list != OMP_LIST_PRIVATE && list != OMP_LIST_LASTPRIVATE)
 	    for (n = code->ext.omp_clauses->lists[list]; n; n = n->next)
 	      if (dovar == n->sym)
 		{
-		  gfc_error ("!$OMP DO iteration variable present on clause"
-			     " other than PRIVATE or LASTPRIVATE at %L",
+		  gfc_error ("!$OMP DO iteration variable present on clause "
+			     "other than PRIVATE or LASTPRIVATE at %L",
 			     &do_code->loc);
 		  break;
 		}
+      if (i > 1)
+	{
+	  gfc_code *do_code2 = code->block->next;
+	  int j;
+
+	  for (j = 1; j < i; j++)
+	    {
+	      gfc_symbol *ivar = do_code2->ext.iterator->var->symtree->n.sym;
+	      if (dovar == ivar
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->start)
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->end)
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->step))
+		{
+		  gfc_error ("!$OMP DO collapsed loops don't form rectangular iteration space at %L",
+			     &do_code->loc);
+		  break;
+		}
+	      if (j < i)
+		break;
+	      do_code2 = do_code2->block->next;
+	    }
+	}
+      if (i == collapse)
+	break;
+      for (c = do_code->next; c; c = c->next)
+	if (c->op != EXEC_NOP && c->op != EXEC_CONTINUE)
+	  {
+	    gfc_error ("collapsed !$OMP DO loops not perfectly nested at %L",
+		       &c->loc);
+	    break;
+	  }
+      if (c)
+	break;
+      do_code = do_code->block;
+      if (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE)
+	{
+	  gfc_error ("not enough DO loops for collapsed !$OMP DO at %L",
+		     &code->loc);
+	  break;
+	}
+      do_code = do_code->next;
+      if (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE)
+	{
+	  gfc_error ("not enough DO loops for collapsed !$OMP DO at %L",
+		     &code->loc);
+	  break;
+	}
     }
 }
+
 
 /* Resolve OpenMP directive clauses and check various requirements
    of each directive.  */

@@ -41,6 +41,8 @@ package gnu.CORBA.CDR;
 import gnu.CORBA.Minor;
 import gnu.CORBA.ObjectCreator;
 
+import gnu.java.lang.CPStringBuilder;
+
 import org.omg.CORBA.CustomMarshal;
 import org.omg.CORBA.DataInputStream;
 import org.omg.CORBA.DataOutputStream;
@@ -155,7 +157,6 @@ public abstract class Vio
    * read(InputStream, Class) or read(InputStream, Serializable).
    * 
    * @param input a stream to read from.
-   * @param repository_id a repository id of the object being read, may be null.
    * 
    * @return the loaded value.
    * 
@@ -173,7 +174,7 @@ public abstract class Vio
    * is known. Hence it may be faster to use the alternative methods,
    * read(InputStream, Class) or read(InputStream, Serializable).
    * 
-   * @param an_input a stream to read from.
+   * @param input a stream to read from.
    * @param repository_id a repository id of the object being read, may be null.
    * 
    * @return the loaded value.
@@ -638,7 +639,7 @@ public abstract class Vio
               r = new byte[chunk_size + 256];
 
             n = 0;
-            reading: while (n < chunk_size)
+            while (n < chunk_size)
               n += input.read(r, n, chunk_size - n);
             output.write(r, 0, n);
           }
@@ -755,7 +756,7 @@ public abstract class Vio
       return "null";
     else
       {
-        StringBuffer b = new StringBuffer("{");
+        CPStringBuilder b = new CPStringBuilder("{");
         for (int i = 0; i < s.length; i++)
           {
             b.append(s[i]);
@@ -904,7 +905,7 @@ public abstract class Vio
    * 
    * @param output an output stream to write into.
    * @param value a value to write.
-   * @param id a value repository id (can be either single string or string
+   * @param ids a value repository id (can be either single string or string
    * array).
    * @param helper a helper, writing object - specifical part. Can be null if
    * the value should be written using other methods.

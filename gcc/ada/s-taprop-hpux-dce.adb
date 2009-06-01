@@ -6,25 +6,23 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2009, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
 -- Extensive contributions were provided by Ada Core Technologies, Inc.     --
@@ -33,49 +31,33 @@
 
 --  This is a HP-UX DCE threads (HPUX 10) version of this package
 
---  This package contains all the GNULL primitives that interface directly
---  with the underlying OS.
+--  This package contains all the GNULL primitives that interface directly with
+--  the underlying OS.
 
 pragma Polling (Off);
---  Turn off polling, we do not want ATC polling to take place during
---  tasking operations. It causes infinite loops and other problems.
+--  Turn off polling, we do not want ATC polling to take place during tasking
+--  operations. It causes infinite loops and other problems.
+
+with Ada.Unchecked_Conversion;
+with Ada.Unchecked_Deallocation;
+
+with Interfaces.C;
 
 with System.Tasking.Debug;
---  used for Known_Tasks
-
 with System.Interrupt_Management;
---  used for Keep_Unmasked
---           Abort_Task_Interrupt
---           Interrupt_ID
+with System.OS_Primitives;
+with System.Task_Primitives.Interrupt_Operations;
 
 pragma Warnings (Off);
 with System.Interrupt_Management.Operations;
---  used for Set_Interrupt_Mask
---           All_Tasks_Mask
 pragma Elaborate_All (System.Interrupt_Management.Operations);
-
 pragma Warnings (On);
 
-with System.OS_Primitives;
---  used for Delay_Modes
-
-with Interfaces.C;
---  used for int
---           size_t
-
-with System.Task_Primitives.Interrupt_Operations;
---  used for Get_Interrupt_ID
-
 with System.Soft_Links;
---  used for Defer/Undefer_Abort
-
 --  We use System.Soft_Links instead of System.Tasking.Initialization
 --  because the later is a higher level package that we shouldn't depend on.
 --  For example when using the restricted run time, it is replaced by
 --  System.Tasking.Restricted.Stages.
-
-with Unchecked_Conversion;
-with Unchecked_Deallocation;
 
 package body System.Task_Primitives.Operations is
 
@@ -167,7 +149,8 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Handler (Sig : Signal);
 
-   function To_Address is new Unchecked_Conversion (Task_Id, System.Address);
+   function To_Address is
+     new Ada.Unchecked_Conversion (Task_Id, System.Address);
 
    -------------------
    -- Abort_Handler --
@@ -182,15 +165,18 @@ package body System.Task_Primitives.Operations is
 
    begin
       if Self_Id.Deferral_Level = 0
-        and then Self_Id.Pending_ATC_Level < Self_Id.ATC_Nesting_Level and then
-        not Self_Id.Aborting
+        and then Self_Id.Pending_ATC_Level < Self_Id.ATC_Nesting_Level
+        and then not Self_Id.Aborting
       then
          Self_Id.Aborting := True;
 
          --  Make sure signals used for RTS internal purpose are unmasked
 
-         Result := pthread_sigmask (SIG_UNBLOCK,
-           Unblocked_Signal_Mask'Unchecked_Access, Old_Set'Unchecked_Access);
+         Result :=
+           pthread_sigmask
+             (SIG_UNBLOCK,
+              Unblocked_Signal_Mask'Access,
+              Old_Set'Access);
          pragma Assert (Result = 0);
 
          raise Standard'Abort_Signal;
@@ -201,8 +187,8 @@ package body System.Task_Primitives.Operations is
    -- Stack_Guard --
    -----------------
 
-   --  The underlying thread system sets a guard page at the
-   --  bottom of a thread stack, so nothing is needed.
+   --  The underlying thread system sets a guard page at the bottom of a thread
+   --  stack, so nothing is needed.
    --  ??? Check the comment above
 
    procedure Stack_Guard (T : ST.Task_Id; On : Boolean) is
@@ -230,16 +216,15 @@ package body System.Task_Primitives.Operations is
    -- Initialize_Lock --
    ---------------------
 
-   --  Note: mutexes and cond_variables needed per-task basis are
-   --        initialized in Initialize_TCB and the Storage_Error is
-   --        handled. Other mutexes (such as RTS_Lock, Memory_Lock...)
-   --        used in RTS is initialized before any status change of RTS.
-   --        Therefore rasing Storage_Error in the following routines
-   --        should be able to be handled safely.
+   --  Note: mutexes and cond_variables needed per-task basis are initialized
+   --  in Initialize_TCB and the Storage_Error is handled. Other mutexes (such
+   --  as RTS_Lock, Memory_Lock...) used in RTS is initialized before any
+   --  status change of RTS. Therefore raising Storage_Error in the following
+   --  routines should be able to be handled safely.
 
    procedure Initialize_Lock
      (Prio : System.Any_Priority;
-      L    : access Lock)
+      L    : not null access Lock)
    is
       Attributes : aliased pthread_mutexattr_t;
       Result     : Interfaces.C.int;
@@ -265,7 +250,10 @@ package body System.Task_Primitives.Operations is
       pragma Assert (Result = 0);
    end Initialize_Lock;
 
-   procedure Initialize_Lock (L : access RTS_Lock; Level : Lock_Level) is
+   procedure Initialize_Lock
+     (L     : not null access RTS_Lock;
+      Level : Lock_Level)
+   is
       pragma Unreferenced (Level);
 
       Attributes : aliased pthread_mutexattr_t;
@@ -295,14 +283,14 @@ package body System.Task_Primitives.Operations is
    -- Finalize_Lock --
    -------------------
 
-   procedure Finalize_Lock (L : access Lock) is
+   procedure Finalize_Lock (L : not null access Lock) is
       Result : Interfaces.C.int;
    begin
       Result := pthread_mutex_destroy (L.L'Access);
       pragma Assert (Result = 0);
    end Finalize_Lock;
 
-   procedure Finalize_Lock (L : access RTS_Lock) is
+   procedure Finalize_Lock (L : not null access RTS_Lock) is
       Result : Interfaces.C.int;
    begin
       Result := pthread_mutex_destroy (L);
@@ -313,7 +301,10 @@ package body System.Task_Primitives.Operations is
    -- Write_Lock --
    ----------------
 
-   procedure Write_Lock (L : access Lock; Ceiling_Violation : out Boolean) is
+   procedure Write_Lock
+     (L                 : not null access Lock;
+      Ceiling_Violation : out Boolean)
+   is
       Result : Interfaces.C.int;
 
    begin
@@ -330,7 +321,8 @@ package body System.Task_Primitives.Operations is
    end Write_Lock;
 
    procedure Write_Lock
-     (L : access RTS_Lock; Global_Lock : Boolean := False)
+     (L           : not null access RTS_Lock;
+      Global_Lock : Boolean := False)
    is
       Result : Interfaces.C.int;
    begin
@@ -353,7 +345,10 @@ package body System.Task_Primitives.Operations is
    -- Read_Lock --
    ---------------
 
-   procedure Read_Lock (L : access Lock; Ceiling_Violation : out Boolean) is
+   procedure Read_Lock
+     (L                 : not null access Lock;
+      Ceiling_Violation : out Boolean)
+   is
    begin
       Write_Lock (L, Ceiling_Violation);
    end Read_Lock;
@@ -362,14 +357,17 @@ package body System.Task_Primitives.Operations is
    -- Unlock --
    ------------
 
-   procedure Unlock (L : access Lock) is
+   procedure Unlock (L : not null access Lock) is
       Result : Interfaces.C.int;
    begin
       Result := pthread_mutex_unlock (L.L'Access);
       pragma Assert (Result = 0);
    end Unlock;
 
-   procedure Unlock (L : access RTS_Lock; Global_Lock : Boolean := False) is
+   procedure Unlock
+     (L           : not null access RTS_Lock;
+      Global_Lock : Boolean := False)
+   is
       Result : Interfaces.C.int;
    begin
       if not Single_Lock or else Global_Lock then
@@ -387,6 +385,21 @@ package body System.Task_Primitives.Operations is
       end if;
    end Unlock;
 
+   -----------------
+   -- Set_Ceiling --
+   -----------------
+
+   --  Dynamic priority ceilings are not supported by the underlying system
+
+   procedure Set_Ceiling
+     (L    : not null access Lock;
+      Prio : System.Any_Priority)
+   is
+      pragma Unreferenced (L, Prio);
+   begin
+      null;
+   end Set_Ceiling;
+
    -----------
    -- Sleep --
    -----------
@@ -400,11 +413,13 @@ package body System.Task_Primitives.Operations is
       Result : Interfaces.C.int;
    begin
       if Single_Lock then
-         Result := pthread_cond_wait
-           (Self_ID.Common.LL.CV'Access, Single_RTS_Lock'Access);
+         Result :=
+           pthread_cond_wait
+             (Self_ID.Common.LL.CV'Access, Single_RTS_Lock'Access);
       else
-         Result := pthread_cond_wait
-           (Self_ID.Common.LL.CV'Access, Self_ID.Common.LL.L'Access);
+         Result :=
+           pthread_cond_wait
+             (Self_ID.Common.LL.CV'Access, Self_ID.Common.LL.L'Access);
       end if;
 
       --  EINTR is not considered a failure
@@ -445,18 +460,21 @@ package body System.Task_Primitives.Operations is
          Request := To_Timespec (Abs_Time);
 
          loop
-            exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level
-              or else Self_ID.Pending_Priority_Change;
+            exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level;
 
             if Single_Lock then
-               Result := pthread_cond_timedwait
-                 (Self_ID.Common.LL.CV'Access, Single_RTS_Lock'Access,
-                  Request'Access);
+               Result :=
+                 pthread_cond_timedwait
+                   (Self_ID.Common.LL.CV'Access,
+                    Single_RTS_Lock'Access,
+                    Request'Access);
 
             else
-               Result := pthread_cond_timedwait
-                 (Self_ID.Common.LL.CV'Access, Self_ID.Common.LL.L'Access,
-                  Request'Access);
+               Result :=
+                 pthread_cond_timedwait
+                   (Self_ID.Common.LL.CV'Access,
+                    Self_ID.Common.LL.L'Access,
+                    Request'Access);
             end if;
 
             exit when Abs_Time <= Monotonic_Clock;
@@ -479,14 +497,16 @@ package body System.Task_Primitives.Operations is
    -----------------
 
    procedure Timed_Delay
-     (Self_ID  : Task_Id;
-      Time     : Duration;
-      Mode     : ST.Delay_Modes)
+     (Self_ID : Task_Id;
+      Time    : Duration;
+      Mode    : ST.Delay_Modes)
    is
       Check_Time : constant Duration := Monotonic_Clock;
       Abs_Time   : Duration;
       Request    : aliased timespec;
-      Result     : Interfaces.C.int;
+
+      Result : Interfaces.C.int;
+      pragma Warnings (Off, Result);
 
    begin
       if Single_Lock then
@@ -506,20 +526,20 @@ package body System.Task_Primitives.Operations is
          Self_ID.Common.State := Delay_Sleep;
 
          loop
-            if Self_ID.Pending_Priority_Change then
-               Self_ID.Pending_Priority_Change := False;
-               Self_ID.Common.Base_Priority := Self_ID.New_Base_Priority;
-               Set_Priority (Self_ID, Self_ID.Common.Base_Priority);
-            end if;
-
             exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level;
 
             if Single_Lock then
-               Result := pthread_cond_timedwait (Self_ID.Common.LL.CV'Access,
-                 Single_RTS_Lock'Access, Request'Access);
+               Result :=
+                 pthread_cond_timedwait
+                   (Self_ID.Common.LL.CV'Access,
+                    Single_RTS_Lock'Access,
+                    Request'Access);
             else
-               Result := pthread_cond_timedwait (Self_ID.Common.LL.CV'Access,
-                 Self_ID.Common.LL.L'Access, Request'Access);
+               Result :=
+                 pthread_cond_timedwait
+                   (Self_ID.Common.LL.CV'Access,
+                    Self_ID.Common.LL.L'Access,
+                    Request'Access);
             end if;
 
             exit when Abs_Time <= Monotonic_Clock;
@@ -569,9 +589,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Wakeup (T : Task_Id; Reason : System.Tasking.Task_States) is
       pragma Unreferenced (Reason);
-
       Result : Interfaces.C.int;
-
    begin
       Result := pthread_cond_signal (T.Common.LL.CV'Access);
       pragma Assert (Result = 0);
@@ -601,8 +619,7 @@ package body System.Task_Primitives.Operations is
    --  Global array containing the id of the currently running task for
    --  each priority.
    --
-   --  Note: we assume that we are on a single processor with run-til-blocked
-   --  scheduling.
+   --  Note: assume we are on single processor with run-til-blocked scheduling
 
    procedure Set_Priority
      (T                   : Task_Id;
@@ -613,25 +630,42 @@ package body System.Task_Primitives.Operations is
       Array_Item : Integer;
       Param      : aliased struct_sched_param;
 
+      function Get_Policy (Prio : System.Any_Priority) return Character;
+      pragma Import (C, Get_Policy, "__gnat_get_specific_dispatching");
+      --  Get priority specific dispatching policy
+
+      Priority_Specific_Policy : constant Character := Get_Policy (Prio);
+      --  Upper case first character of the policy name corresponding to the
+      --  task as set by a Priority_Specific_Dispatching pragma.
+
    begin
       Param.sched_priority  := Interfaces.C.int (Underlying_Priorities (Prio));
 
-      if Time_Slice_Val > 0 then
-         Result := pthread_setschedparam
-           (T.Common.LL.Thread, SCHED_RR, Param'Access);
+      if Dispatching_Policy = 'R'
+        or else Priority_Specific_Policy = 'R'
+        or else Time_Slice_Val > 0
+      then
+         Result :=
+           pthread_setschedparam
+             (T.Common.LL.Thread, SCHED_RR, Param'Access);
 
-      elsif Dispatching_Policy = 'F' or else Time_Slice_Val = 0 then
-         Result := pthread_setschedparam
-           (T.Common.LL.Thread, SCHED_FIFO, Param'Access);
+      elsif Dispatching_Policy = 'F'
+        or else Priority_Specific_Policy = 'F'
+        or else Time_Slice_Val = 0
+      then
+         Result :=
+           pthread_setschedparam
+             (T.Common.LL.Thread, SCHED_FIFO, Param'Access);
 
       else
-         Result := pthread_setschedparam
-           (T.Common.LL.Thread, SCHED_OTHER, Param'Access);
+         Result :=
+           pthread_setschedparam
+             (T.Common.LL.Thread, SCHED_OTHER, Param'Access);
       end if;
 
       pragma Assert (Result = 0);
 
-      if Dispatching_Policy = 'F' then
+      if Dispatching_Policy = 'F' or else Priority_Specific_Policy = 'F' then
 
          --  Annex D requirement [RM D.2.2 par. 9]:
          --    If the task drops its priority due to the loss of inherited
@@ -737,8 +771,9 @@ package body System.Task_Primitives.Operations is
          pragma Assert (Result = 0 or else Result = ENOMEM);
 
          if Result = 0 then
-            Result := pthread_mutex_init (Self_ID.Common.LL.L'Access,
-              Mutex_Attr'Access);
+            Result :=
+              pthread_mutex_init
+                (Self_ID.Common.LL.L'Access, Mutex_Attr'Access);
             pragma Assert (Result = 0 or else Result = ENOMEM);
          end if;
 
@@ -755,8 +790,10 @@ package body System.Task_Primitives.Operations is
       pragma Assert (Result = 0 or else Result = ENOMEM);
 
       if Result = 0 then
-         Result := pthread_cond_init (Self_ID.Common.LL.CV'Access,
-           Cond_Attr'Access);
+         Result :=
+           pthread_cond_init
+             (Self_ID.Common.LL.CV'Access,
+              Cond_Attr'Access);
          pragma Assert (Result = 0 or else Result = ENOMEM);
       end if;
 
@@ -790,7 +827,7 @@ package body System.Task_Primitives.Operations is
       Result     : Interfaces.C.int;
 
       function Thread_Body_Access is new
-        Unchecked_Conversion (System.Address, Thread_Body);
+        Ada.Unchecked_Conversion (System.Address, Thread_Body);
 
    begin
       Result := pthread_attr_init (Attributes'Access);
@@ -820,7 +857,7 @@ package body System.Task_Primitives.Operations is
       Succeeded := Result = 0;
 
       pthread_detach (T.Common.LL.Thread'Access);
-      --  Detach the thread using pthread_detach, sinc DCE threads do not have
+      --  Detach the thread using pthread_detach, since DCE threads do not have
       --  pthread_attr_set_detachstate.
 
       Result := pthread_attr_destroy (Attributes'Access);
@@ -839,7 +876,7 @@ package body System.Task_Primitives.Operations is
       Is_Self : constant Boolean := T = Self;
 
       procedure Free is new
-        Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
+        Ada.Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
 
    begin
       if not Single_Lock then
@@ -876,9 +913,8 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Task (T : Task_Id) is
    begin
-      --
       --  Interrupt Server_Tasks may be waiting on an "event" flag (signal)
-      --
+
       if T.Common.State = Interrupt_Server_Blocked_On_Event_Flag then
          System.Interrupt_Management.Operations.Interrupt_Self_Process
            (System.Interrupt_Management.Interrupt_ID
@@ -895,8 +931,7 @@ package body System.Task_Primitives.Operations is
       Cond_Attr  : aliased pthread_condattr_t;
       Result     : Interfaces.C.int;
    begin
-      --  Initialize internal state. It is always initialized to False (ARM
-      --  D.10 par. 6).
+      --  Initialize internal state (always to False (ARM D.10(6)))
 
       S.State := False;
       S.Waiting := False;
@@ -931,6 +966,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Finalize (S : in out Suspension_Object) is
       Result  : Interfaces.C.int;
+
    begin
       --  Destroy internal mutex
 
@@ -961,6 +997,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Set_False (S : in out Suspension_Object) is
       Result  : Interfaces.C.int;
+
    begin
       SSL.Abort_Defer.all;
 
@@ -981,6 +1018,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Set_True (S : in out Suspension_Object) is
       Result : Interfaces.C.int;
+
    begin
       SSL.Abort_Defer.all;
 
@@ -998,6 +1036,7 @@ package body System.Task_Primitives.Operations is
 
          Result := pthread_cond_signal (S.CV'Access);
          pragma Assert (Result = 0);
+
       else
          S.State := True;
       end if;
@@ -1014,6 +1053,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Suspend_Until_True (S : in out Suspension_Object) is
       Result : Interfaces.C.int;
+
    begin
       SSL.Abort_Defer.all;
 
@@ -1127,15 +1167,44 @@ package body System.Task_Primitives.Operations is
       return False;
    end Resume_Task;
 
+   --------------------
+   -- Stop_All_Tasks --
+   --------------------
+
+   procedure Stop_All_Tasks is
+   begin
+      null;
+   end Stop_All_Tasks;
+
+   ---------------
+   -- Stop_Task --
+   ---------------
+
+   function Stop_Task (T : ST.Task_Id) return Boolean is
+      pragma Unreferenced (T);
+   begin
+      return False;
+   end Stop_Task;
+
+   -------------------
+   -- Continue_Task --
+   -------------------
+
+   function Continue_Task (T : ST.Task_Id) return Boolean is
+      pragma Unreferenced (T);
+   begin
+      return False;
+   end Continue_Task;
+
    ----------------
    -- Initialize --
    ----------------
 
    procedure Initialize (Environment_Task : Task_Id) is
-      act       : aliased struct_sigaction;
-      old_act   : aliased struct_sigaction;
-      Tmp_Set   : aliased sigset_t;
-      Result    : Interfaces.C.int;
+      act     : aliased struct_sigaction;
+      old_act : aliased struct_sigaction;
+      Tmp_Set : aliased sigset_t;
+      Result  : Interfaces.C.int;
 
       function State
         (Int : System.Interrupt_Management.Interrupt_ID) return Character;

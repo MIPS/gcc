@@ -1,36 +1,32 @@
 /* DWARF2 EH unwinding support for PowerPC and PowerPC64 Linux.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
-
-   In addition to the permissions in the GNU General Public License,
-   the Free Software Foundation gives you unlimited permission to link
-   the compiled version of this file with other programs, and to
-   distribute those programs without any restriction coming from the
-   use of this file.  (The General Public License restrictions do
-   apply in other respects; for example, they cover modification of
-   the file, and distribution when not linked into another program.)
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
    License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
 
-/* This file defines our own versions of various kernel and user
-   structs, so that system headers are not needed, which otherwise
-   can make bootstrapping a new toolchain difficult.  Do not use
-   these structs elsewhere;  Many fields are missing, particularly
-   from the end of the structures.  */
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+   <http://www.gnu.org/licenses/>.  */
+
+#define R_LR		65
+#define R_CR2		70
+#define R_VR0		77
+#define R_VRSAVE	109
+#define R_VSCR		110
 
 struct gcc_vregs
 {
@@ -156,10 +152,10 @@ get_regs (struct _Unwind_Context *context)
   /* li r0, 0x0077; sc  (sigreturn new)  */
   /* li r0, 0x6666; sc  (rt_sigreturn old)  */
   /* li r0, 0x00AC; sc  (rt_sigreturn new)  */
-  if (*(unsigned int *) (pc + 4) != 0x44000002)
+  if (*(const unsigned int *) (pc + 4) != 0x44000002)
     return NULL;
-  if (*(unsigned int *) (pc + 0) == 0x38007777
-      || *(unsigned int *) (pc + 0) == 0x38000077)
+  if (*(const unsigned int *) (pc + 0) == 0x38007777
+      || *(const unsigned int *) (pc + 0) == 0x38000077)
     {
       struct sigframe {
 	char gap[SIGNAL_FRAMESIZE];
@@ -168,8 +164,8 @@ get_regs (struct _Unwind_Context *context)
       } *frame = (struct sigframe *) context->cfa;
       return frame->regs;
     }
-  else if (*(unsigned int *) (pc + 0) == 0x38006666
-	   || *(unsigned int *) (pc + 0) == 0x380000AC)
+  else if (*(const unsigned int *) (pc + 0) == 0x38006666
+	   || *(const unsigned int *) (pc + 0) == 0x380000AC)
     {
       struct rt_sigframe {
 	char gap[SIGNAL_FRAMESIZE + 16];
@@ -232,9 +228,9 @@ ppc_fallback_frame_state (struct _Unwind_Context *context,
     return _URC_END_OF_STACK;
 
   new_cfa = regs->gpr[STACK_POINTER_REGNUM];
-  fs->cfa_how = CFA_REG_OFFSET;
-  fs->cfa_reg = STACK_POINTER_REGNUM;
-  fs->cfa_offset = new_cfa - (long) context->cfa;
+  fs->regs.cfa_how = CFA_REG_OFFSET;
+  fs->regs.cfa_reg = STACK_POINTER_REGNUM;
+  fs->regs.cfa_offset = new_cfa - (long) context->cfa;
 
   for (i = 0; i < 32; i++)
     if (i != STACK_POINTER_REGNUM)
@@ -243,11 +239,14 @@ ppc_fallback_frame_state (struct _Unwind_Context *context,
 	fs->regs.reg[i].loc.offset = (long) &regs->gpr[i] - new_cfa;
       }
 
-  fs->regs.reg[CR2_REGNO].how = REG_SAVED_OFFSET;
-  fs->regs.reg[CR2_REGNO].loc.offset = (long) &regs->ccr - new_cfa;
+  fs->regs.reg[R_CR2].how = REG_SAVED_OFFSET;
+  /* CR? regs are always 32-bit and PPC is big-endian, so in 64-bit
+     libgcc loc.offset needs to point to the low 32 bits of regs->ccr.  */
+  fs->regs.reg[R_CR2].loc.offset = (long) &regs->ccr - new_cfa
+				   + sizeof (long) - 4;
 
-  fs->regs.reg[LINK_REGISTER_REGNUM].how = REG_SAVED_OFFSET;
-  fs->regs.reg[LINK_REGISTER_REGNUM].loc.offset = (long) &regs->link - new_cfa;
+  fs->regs.reg[R_LR].how = REG_SAVED_OFFSET;
+  fs->regs.reg[R_LR].loc.offset = (long) &regs->link - new_cfa;
 
   fs->regs.reg[ARG_POINTER_REGNUM].how = REG_SAVED_OFFSET;
   fs->regs.reg[ARG_POINTER_REGNUM].loc.offset = (long) &regs->nip - new_cfa;
@@ -288,18 +287,29 @@ ppc_fallback_frame_state (struct _Unwind_Context *context,
 	{
 	  for (i = 0; i < 32; i++)
 	    {
-	      fs->regs.reg[i + FIRST_ALTIVEC_REGNO].how = REG_SAVED_OFFSET;
-	      fs->regs.reg[i + FIRST_ALTIVEC_REGNO].loc.offset
-		= (long) &vregs[i] - new_cfa;
+	      fs->regs.reg[i + R_VR0].how = REG_SAVED_OFFSET;
+	      fs->regs.reg[i + R_VR0].loc.offset
+		= (long) &vregs->vr[i] - new_cfa;
 	    }
 
-	  fs->regs.reg[VSCR_REGNO].how = REG_SAVED_OFFSET;
-	  fs->regs.reg[VSCR_REGNO].loc.offset = (long) &vregs->vscr - new_cfa;
+	  fs->regs.reg[R_VSCR].how = REG_SAVED_OFFSET;
+	  fs->regs.reg[R_VSCR].loc.offset = (long) &vregs->vscr - new_cfa;
 	}
 
-      fs->regs.reg[VRSAVE_REGNO].how = REG_SAVED_OFFSET;
-      fs->regs.reg[VRSAVE_REGNO].loc.offset = (long) &vregs->vsave - new_cfa;
+      fs->regs.reg[R_VRSAVE].how = REG_SAVED_OFFSET;
+      fs->regs.reg[R_VRSAVE].loc.offset = (long) &vregs->vsave - new_cfa;
     }
+
+  /* If we have SPE register high-parts... we check at compile-time to
+     avoid expanding the code for all other PowerPC.  */
+#ifdef __SPE__
+  for (i = 0; i < 32; i++)
+    {
+      fs->regs.reg[i + FIRST_PSEUDO_REGISTER - 1].how = REG_SAVED_OFFSET;
+      fs->regs.reg[i + FIRST_PSEUDO_REGISTER - 1].loc.offset
+	= (long) &regs->vregs - new_cfa + 4 * i;
+    }
+#endif
 
   return _URC_NO_REASON;
 }
@@ -340,8 +350,8 @@ frob_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs ATT
 	 code that does the save/restore is generated by the linker, so
 	 we have no good way to determine at compile time what to do.  */
       unsigned int *insn
-	= (unsigned int *) _Unwind_GetGR (context, LINK_REGISTER_REGNUM);
-      if (*insn == 0xE8410028)
+	= (unsigned int *) _Unwind_GetGR (context, R_LR);
+      if (insn && *insn == 0xE8410028)
 	_Unwind_SetGRPtr (context, 2, context->cfa + 40);
     }
 #endif

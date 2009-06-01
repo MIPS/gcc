@@ -1,5 +1,5 @@
 @c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,
-@c 2001,2002,2003,2004,2005,2006,2007 Free Software Foundation, Inc.
+@c 2001,2002,2003,2004,2005,2006,2007,2008,2009 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -66,7 +66,7 @@ Geoff Berry for his Java object serialization work and various patches.
 
 @item
 Uros Bizjak for the implementation of x87 math built-in functions and
-for various middle end and i386 back end improvements and bugfixes.
+for various middle end and i386 back end improvements and bug fixes.
 
 @item
 Eric Blake for helping to make GCJ and libgcj conform to the
@@ -180,7 +180,7 @@ R. Kelley Cook for making GCC buildable from a read-only directory as
 well as other miscellaneous build process and documentation clean-ups.
 
 @item
-Ralf Corsepius for SH testing and minor bugfixing.
+Ralf Corsepius for SH testing and minor bug fixing.
 
 @item
 Stan Cox for care and feeding of the x86 port and lots of behind
@@ -267,6 +267,9 @@ Christian Ehrhardt for dealing with bug reports.
 @item
 Ben Elliston for his work to move the Objective-C runtime into its
 own subdirectory and for his work on autoconf.
+
+@item
+Revital Eres for work on the PowerPC 750CL port.
 
 @item
 Marc Espie for OpenBSD support.
@@ -521,6 +524,10 @@ maintaining the S+core port.
 Weiwen Liu for testing and various bug fixes.
 
 @item
+Manuel L@'opez-Ib@'a@~nez for improving @option{-Wconversion} and
+many other diagnostics fixes and improvements.
+
+@item
 Dave Love for his ongoing work with the Fortran front end and
 runtime libraries.
 
@@ -659,7 +666,7 @@ Geoff Noer for his work on getting cygwin native builds working.
 
 @item
 Diego Novillo for his work on Tree SSA, OpenMP, SPEC performance
-tracking web pages and assorted fixes.
+tracking web pages, GIMPLE tuples, and assorted fixes.
 
 @item
 David O'Brien for the FreeBSD/alpha, FreeBSD/AMD x86-64, FreeBSD/ARM,
@@ -826,6 +833,9 @@ for GNU/Linux.
 Andrey Slepuhin for assorted AIX hacking.
 
 @item
+Trevor Smigiel for contributing the SPU port.
+
+@item
 Christopher Smith did the port for Convex machines.
 
 @item
@@ -906,6 +916,10 @@ Teemu Torma for thread safe exception handling support.
 @item
 Leonard Tower wrote parts of the parser, RTL generator, and RTL
 definitions, and of the VAX machine description.
+
+@item 
+Daniel Towner and Hariharan Sandanagobalane contributed and 
+maintain the picoChip port.
 
 @item
 Tom Tromey for internationalization support and for his many Java
@@ -1163,10 +1177,10 @@ GCC version 4.1:
 @itemize @bullet
 @item
 Lillian Angel for @code{JTree} implementation and lots Free Swing
-additions and bugfixes.
+additions and bug fixes.
 
 @item
-Wolfgang Baer for @code{GapContent} bugfixes.
+Wolfgang Baer for @code{GapContent} bug fixes.
 
 @item
 Anthony Balkissoon for @code{JList}, Free Swing 1.5 updates and mouse event
@@ -1202,17 +1216,17 @@ Kelley Cook for build fixes.
 Martin Cordova for Suggestions for better @code{SocketTimeoutException}.
 
 @item
-David Daney for @code{BitSet} bugfixes, @code{HttpURLConnection}
+David Daney for @code{BitSet} bug fixes, @code{HttpURLConnection}
 rewrite and improvements.
 
 @item
 Thomas Fitzsimmons for lots of upgrades to the gtk+ AWT and Cairo 2D
 support. Lots of imageio framework additions, lots of AWT and Free
-Swing bugfixes.
+Swing bug fixes.
 
 @item
 Jeroen Frijters for @code{ClassLoader} and nio cleanups, serialization fixes,
-better @code{Proxy} support, bugfixes and IKVM integration.
+better @code{Proxy} support, bug fixes and IKVM integration.
 
 @item
 Santiago Gala for @code{AccessControlContext} fixes.
@@ -1243,7 +1257,7 @@ updates, @code{Serialization} fixes, @code{Properties} XML support and
 generic branch work, VMIntegration guide update.
 
 @item
-Bastiaan Huisman for @code{TimeZone} bugfixing.
+Bastiaan Huisman for @code{TimeZone} bug fixing.
 
 @item
 Andreas Jaeger for mprec updates.
@@ -1256,7 +1270,7 @@ Ito Kazumitsu for @code{NetworkInterface} implementation and updates.
 
 @item
 Roman Kennke for @code{BoxLayout}, @code{GrayFilter} and
-@code{SplitPane}, plus bugfixes all over. Lots of Free Swing work
+@code{SplitPane}, plus bug fixes all over. Lots of Free Swing work
 including styled text.
 
 @item
@@ -1268,7 +1282,7 @@ build fixes.
 
 @item
 Guilhem Lavaux for configuration, thread and channel fixes and Kaffe
-integration. JCL native @code{Pointer} updates. Logger bugfixes.
+integration. JCL native @code{Pointer} updates. Logger bug fixes.
 
 @item
 David Lichteblau for JCL support library global/local reference
@@ -1326,7 +1340,7 @@ Christian Schlichtherle for zip fixes and cleanups.
 @item
 Robert Schuster for documentation updates and beans fixes,
 @code{TreeNode} enumerations and @code{ActionCommand} and various
-fixes, XML and URL, AWT and Free Swing bugfixes.
+fixes, XML and URL, AWT and Free Swing bug fixes.
 
 @item
 Keith Seitz for lots of JDWP work.
@@ -1349,11 +1363,11 @@ Kaffe integration. @code{Qt4} build infrastructure, @code{SHA1PRNG}
 and @code{GdkPixbugDecoder} updates.
 
 @item
-Tom Tromey for Eclipse integration, generics work, lots of bugfixes
+Tom Tromey for Eclipse integration, generics work, lots of bug fixes
 and gcj integration including coordinating The Big Merge.
 
 @item
-Mark Wielaard for bugfixes, packaging and release management,
+Mark Wielaard for bug fixes, packaging and release management,
 @code{Clipboard} implementation, system call interrupts and network
 timeouts and @code{GdkPixpufDecoder} fixes.
 
@@ -1403,6 +1417,9 @@ Sidney Cadot
 
 @item
 Bradford Castalia
+
+@item
+Robert Clark
 
 @item
 Jonathan Corbet
@@ -1597,5 +1614,6 @@ David E. Young
 And many others
 @end itemize
 
-And finally we'd like to thank everyone who uses the compiler, submits bug
-reports and generally reminds us why we're doing this work in the first place.
+And finally we'd like to thank everyone who uses the compiler, provides
+feedback and generally reminds us why we're doing this work in the first
+place.

@@ -1,11 +1,13 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 Libgfortran is distributed in the hope that it will be useful,
@@ -13,29 +15,24 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
-/* As a special exception, if you link this library with other files,
-   some of which are compiled with GCC, to produce an executable,
-   this library does not by itself cause the resulting executable
-   to be covered by the GNU General Public License.
-   This exception does not however invalidate any other reasons why
-   the executable file might be covered by the GNU General Public License.  */
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GFOR_IO_H
 #define GFOR_IO_H
 
 /* IO library include.  */
 
-#include <setjmp.h>
 #include "libgfortran.h"
 
+#include <setjmp.h>
 #include <gthr.h>
-
-#define DEFAULT_TEMPDIR "/tmp"
 
 /* Basic types used in data transfers.  */
 
@@ -45,41 +42,46 @@ typedef enum
 }
 bt;
 
-
 struct st_parameter_dt;
 
 typedef struct stream
 {
-  char *(*alloc_w_at) (struct stream *, int *, gfc_offset);
-  char *(*alloc_r_at) (struct stream *, int *, gfc_offset);
+  char *(*alloc_w_at) (struct stream *, int *);
   try (*sfree) (struct stream *);
   try (*close) (struct stream *);
   try (*seek) (struct stream *, gfc_offset);
-  try (*truncate) (struct stream *);
+  try (*trunc) (struct stream *);
   int (*read) (struct stream *, void *, size_t *);
   int (*write) (struct stream *, const void *, size_t *);
   try (*set) (struct stream *, int, size_t);
 }
 stream;
 
+typedef enum
+{ SYNC_BUFFERED, SYNC_UNBUFFERED, ASYNC }
+io_mode;
 
 /* Macros for doing file I/O given a stream.  */
 
 #define sfree(s) ((s)->sfree)(s)
 #define sclose(s) ((s)->close)(s)
 
-#define salloc_r(s, len) ((s)->alloc_r_at)(s, len, -1)
-#define salloc_w(s, len) ((s)->alloc_w_at)(s, len, -1)
-
-#define salloc_r_at(s, len, where) ((s)->alloc_r_at)(s, len, where)
-#define salloc_w_at(s, len, where) ((s)->alloc_w_at)(s, len, where)
+#define salloc_w(s, len) ((s)->alloc_w_at)(s, len)
 
 #define sseek(s, pos) ((s)->seek)(s, pos)
-#define struncate(s) ((s)->truncate)(s)
+#define struncate(s) ((s)->trunc)(s)
 #define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
 
 #define sset(s, c, n) ((s)->set)(s, c, n)
+
+/* Macros for testing what kinds of I/O we are doing.  */
+
+#define is_array_io(dtp) ((dtp)->internal_unit_desc)
+
+#define is_internal_unit(dtp) ((dtp)->u.p.unit_is_internal)
+
+#define is_stream_io(dtp) ((dtp)->u.p.current_unit->flags.access == ACCESS_STREAM)
 
 /* The array_loop_spec contains the variables for the loops over index ranges
    that are encountered.  Since the variables can be negative, ssize_t
@@ -198,6 +200,25 @@ typedef enum
 unit_pad;
 
 typedef enum
+{ DECIMAL_POINT, DECIMAL_COMMA, DECIMAL_UNSPECIFIED }
+unit_decimal;
+
+typedef enum
+{ ENCODING_UTF8, ENCODING_DEFAULT, ENCODING_UNSPECIFIED }
+unit_encoding;
+
+typedef enum
+{ ROUND_UP, ROUND_DOWN, ROUND_ZERO, ROUND_NEAREST, ROUND_COMPATIBLE,
+  ROUND_PROCDEFINED, ROUND_UNSPECIFIED }
+unit_round;
+
+/* NOTE: unit_sign must correspond with the sign_status enumerator in
+   st_parameter_dt to not break the ABI.  */
+typedef enum
+{ SIGN_PROCDEFINED, SIGN_SUPPRESS, SIGN_PLUS, SIGN_UNSPECIFIED }
+unit_sign;
+
+typedef enum
 { ADVANCE_YES, ADVANCE_NO, ADVANCE_UNSPECIFIED }
 unit_advance;
 
@@ -206,8 +227,12 @@ typedef enum
 unit_mode;
 
 typedef enum
-{ CONVERT_NONE=-1, CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
-unit_convert;
+{ ASYNC_YES, ASYNC_NO, ASYNC_UNSPECIFIED }
+unit_async;
+
+typedef enum
+{ SIGN_S, SIGN_SS, SIGN_SP }
+unit_sign_s;
 
 #define CHARACTER1(name) \
 	      char * name; \
@@ -215,42 +240,6 @@ unit_convert;
 #define CHARACTER2(name) \
 	      gfc_charlen_type name ## _len; \
 	      char * name
-
-#define IOPARM_LIBRETURN_MASK		(3 << 0)
-#define IOPARM_LIBRETURN_OK		(0 << 0)
-#define IOPARM_LIBRETURN_ERROR		(1 << 0)
-#define IOPARM_LIBRETURN_END		(2 << 0)
-#define IOPARM_LIBRETURN_EOR		(3 << 0)
-#define IOPARM_ERR			(1 << 2)
-#define IOPARM_END			(1 << 3)
-#define IOPARM_EOR			(1 << 4)
-#define IOPARM_HAS_IOSTAT		(1 << 5)
-#define IOPARM_HAS_IOMSG		(1 << 6)
-
-#define IOPARM_COMMON_MASK		((1 << 7) - 1)
-
-typedef struct st_parameter_common
-{
-  GFC_INTEGER_4 flags;
-  GFC_INTEGER_4 unit;
-  const char *filename;
-  GFC_INTEGER_4 line;
-  CHARACTER2 (iomsg);
-  GFC_INTEGER_4 *iostat;
-}
-st_parameter_common;
-
-#define IOPARM_OPEN_HAS_RECL_IN		(1 << 7)
-#define IOPARM_OPEN_HAS_FILE		(1 << 8)
-#define IOPARM_OPEN_HAS_STATUS		(1 << 9)
-#define IOPARM_OPEN_HAS_ACCESS		(1 << 10)
-#define IOPARM_OPEN_HAS_FORM		(1 << 11)
-#define IOPARM_OPEN_HAS_BLANK		(1 << 12)
-#define IOPARM_OPEN_HAS_POSITION	(1 << 13)
-#define IOPARM_OPEN_HAS_ACTION		(1 << 14)
-#define IOPARM_OPEN_HAS_DELIM		(1 << 15)
-#define IOPARM_OPEN_HAS_PAD		(1 << 16)
-#define IOPARM_OPEN_HAS_CONVERT		(1 << 17)
 
 typedef struct
 {
@@ -266,6 +255,11 @@ typedef struct
   CHARACTER1 (delim);
   CHARACTER2 (pad);
   CHARACTER1 (convert);
+  CHARACTER2 (decimal);
+  CHARACTER1 (encoding);
+  CHARACTER2 (round);
+  CHARACTER1 (sign);
+  CHARACTER2 (asynchronous);
 }
 st_parameter_open;
 
@@ -308,6 +302,16 @@ st_parameter_filepos;
 #define IOPARM_INQUIRE_HAS_WRITE	(1 << 28)
 #define IOPARM_INQUIRE_HAS_READWRITE	(1 << 29)
 #define IOPARM_INQUIRE_HAS_CONVERT	(1 << 30)
+#define IOPARM_INQUIRE_HAS_FLAGS2	(1 << 31)
+
+#define IOPARM_INQUIRE_HAS_ASYNCHRONOUS	(1 << 0)
+#define IOPARM_INQUIRE_HAS_DECIMAL	(1 << 1)
+#define IOPARM_INQUIRE_HAS_ENCODING	(1 << 2)
+#define IOPARM_INQUIRE_HAS_ROUND	(1 << 3)
+#define IOPARM_INQUIRE_HAS_SIGN		(1 << 4)
+#define IOPARM_INQUIRE_HAS_PENDING	(1 << 5)
+#define IOPARM_INQUIRE_HAS_SIZE		(1 << 6)
+#define IOPARM_INQUIRE_HAS_ID		(1 << 7)
 
 typedef struct
 {
@@ -332,6 +336,15 @@ typedef struct
   CHARACTER1 (write);
   CHARACTER2 (readwrite);
   CHARACTER1 (convert);
+  GFC_INTEGER_4 flags2;
+  CHARACTER1 (asynchronous);
+  CHARACTER2 (decimal);
+  CHARACTER1 (encoding);
+  CHARACTER2 (round);
+  CHARACTER1 (sign);
+  GFC_INTEGER_4 *pending;
+  GFC_INTEGER_4 *size;
+  GFC_INTEGER_4 *id;
 }
 st_parameter_inquire;
 
@@ -347,14 +360,25 @@ struct format_data;
 #define IOPARM_DT_HAS_ADVANCE			(1 << 13)
 #define IOPARM_DT_HAS_INTERNAL_UNIT		(1 << 14)
 #define IOPARM_DT_HAS_NAMELIST_NAME		(1 << 15)
+#define IOPARM_DT_HAS_ID			(1 << 16)
+#define IOPARM_DT_HAS_POS			(1 << 17)
+#define IOPARM_DT_HAS_ASYNCHRONOUS		(1 << 18)
+#define IOPARM_DT_HAS_BLANK			(1 << 19)
+#define IOPARM_DT_HAS_DECIMAL			(1 << 20)
+#define IOPARM_DT_HAS_DELIM			(1 << 21)
+#define IOPARM_DT_HAS_PAD			(1 << 22)
+#define IOPARM_DT_HAS_ROUND			(1 << 23)
+#define IOPARM_DT_HAS_SIGN			(1 << 24)
+#define IOPARM_DT_HAS_F2003                     (1 << 25)
 /* Internal use bit.  */
 #define IOPARM_DT_IONML_SET			(1 << 31)
+
 
 typedef struct st_parameter_dt
 {
   st_parameter_common common;
   GFC_IO_INT rec;
-  GFC_INTEGER_4 *size, *iolength;
+  GFC_IO_INT *size, *iolength;
   gfc_array_char *internal_unit_desc;
   CHARACTER1 (format);
   CHARACTER2 (advance);
@@ -370,11 +394,11 @@ typedef struct st_parameter_dt
 			    size_t, size_t);
 	  struct gfc_unit *current_unit;
 	  /* Item number in a formatted data transfer.  Also used in namelist
-	       read_logical as an index into line_buffer.  */
+	     read_logical as an index into line_buffer.  */
 	  int item_count;
 	  unit_mode mode;
 	  unit_blank blank_status;
-	  enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
+	  unit_sign sign_status;
 	  int scale_factor;
 	  int max_pos; /* Maximum righthand column written to.  */
 	  /* Number of skips + spaces to be done for T and X-editing.  */
@@ -387,7 +411,6 @@ typedef struct st_parameter_dt
 	       2 if an EOR was encountered due to a 2-bytes marker (CRLF) */
 	  int sf_seen_eor;
 	  unit_advance advance_status;
-
 	  unsigned reversion_flag : 1; /* Format reversion has occurred.  */
 	  unsigned first_item : 1;
 	  unsigned seen_dollar : 1;
@@ -409,7 +432,7 @@ typedef struct st_parameter_dt
 	     character string is being read so don't use commas to shorten a
 	     formatted field width.  */
 	  unsigned sf_read_comma : 1;
-          /* A namelist specific flag used to enable reading input from 
+	  /* A namelist specific flag used to enable reading input from 
 	     line_buffer for logical reads.  */
 	  unsigned line_buffer_enabled : 1;
 	  /* An internal unit specific flag used to identify that the associated
@@ -418,7 +441,9 @@ typedef struct st_parameter_dt
 	  /* An internal unit specific flag to signify an EOF condition for list
 	     directed read.  */
 	  unsigned at_eof : 1;
-	  /* 16 unused bits.  */
+	  /* Used for g0 floating point output.  */
+	  unsigned g0_no_blanks : 1;
+	  /* 15 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -440,13 +465,22 @@ typedef struct st_parameter_dt
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
 	  char value[32];
-	  gfc_offset size_used;
+	  GFC_IO_INT size_used;
 	} p;
       /* This pad size must be equal to the pad_size declared in
 	 trans-io.c (gfc_build_io_library_fndecls).  The above structure
 	 must be smaller or equal to this array.  */
       char pad[16 * sizeof (char *) + 32 * sizeof (int)];
     } u;
+  GFC_INTEGER_4 *id;
+  GFC_IO_INT pos;
+  CHARACTER1 (asynchronous);
+  CHARACTER2 (blank);
+  CHARACTER1 (decimal);
+  CHARACTER2 (delim);
+  CHARACTER1 (pad);
+  CHARACTER2 (round);
+  CHARACTER1 (sign);
 }
 st_parameter_dt;
 
@@ -454,6 +488,16 @@ st_parameter_dt;
 extern char check_st_parameter_dt[sizeof (((st_parameter_dt *) 0)->u.pad)
 				  >= sizeof (((st_parameter_dt *) 0)->u.p)
 				  ? 1 : -1];
+
+#define IOPARM_WAIT_HAS_ID		(1 << 7)
+
+typedef struct
+{
+  st_parameter_common common;
+  CHARACTER1 (id);
+}
+st_parameter_wait;
+
 
 #undef CHARACTER1
 #undef CHARACTER2
@@ -471,15 +515,32 @@ typedef struct
   unit_pad pad;
   unit_convert convert;
   int has_recl;
+  unit_decimal decimal;
+  unit_encoding encoding;
+  unit_round round;
+  unit_sign sign;
+  unit_async async;
 }
 unit_flags;
 
 
-/* The default value of record length for preconnected units is defined
-   here. This value can be overriden by an environment variable.
-   Default value is 1 Gb.  */
+/* Formatting buffer. This is a temporary scratch buffer. Currently used only
+   by formatted writes. After every
+   formatted write statement, this buffer is flushed. This buffer is needed since
+   not all devices are seekable, and T or TL edit descriptors require 
+   moving backwards in the record.  However, advance='no' complicates the
+   situation, so the buffer must only be partially flushed from the end of the
+   last flush until the current position in the record. */
 
-#define DEFAULT_RECL 1073741824
+typedef struct fbuf
+{
+  char *buf;			/* Start of buffer.  */
+  size_t len;			/* Length of buffer.  */
+  size_t act;			/* Active bytes in buffer.  */
+  size_t flushed;		/* Flushed bytes from beginning of buffer.  */
+  size_t pos;			/* Current position in buffer.  */
+}
+fbuf;
 
 
 typedef struct gfc_unit
@@ -491,13 +552,17 @@ typedef struct gfc_unit
   struct gfc_unit *left, *right;
   int priority;
 
-  int read_bad, current_record;
+  int read_bad, current_record, saved_pos, previous_nonadvancing_write;
+
   enum
   { NO_ENDFILE, AT_ENDFILE, AFTER_ENDFILE }
   endfile;
 
   unit_mode mode;
   unit_flags flags;
+  unit_pad pad_status;
+  unit_decimal decimal_status;
+  unit_delim delim_status;
 
   /* recl                 -- Record length of the file.
      last_record          -- Last record number read or written
@@ -531,6 +596,9 @@ typedef struct gfc_unit
 
   int file_len;
   char *file;
+  
+  /* Formatting buffer.  */
+  struct fbuf *fbuf;
 }
 gfc_unit;
 
@@ -543,7 +611,8 @@ typedef enum
   FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_T, FMT_TR, FMT_TL,
   FMT_LPAREN, FMT_RPAREN, FMT_X, FMT_S, FMT_SS, FMT_SP, FMT_STRING,
   FMT_BADSTRING, FMT_P, FMT_I, FMT_B, FMT_BN, FMT_BZ, FMT_O, FMT_Z, FMT_F,
-  FMT_E, FMT_EN, FMT_ES, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END
+  FMT_E, FMT_EN, FMT_ES, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END, FMT_DC,
+  FMT_DP
 }
 format_token;
 
@@ -608,7 +677,7 @@ internal_proto(compare_files);
 extern stream *open_external (st_parameter_open *, unit_flags *);
 internal_proto(open_external);
 
-extern stream *open_internal (char *, int);
+extern stream *open_internal (char *, int, gfc_offset);
 internal_proto(open_internal);
 
 extern stream *input_stream (void);
@@ -625,9 +694,6 @@ internal_proto(compare_file_filename);
 
 extern gfc_unit *find_file (const char *file, gfc_charlen_type file_len);
 internal_proto(find_file);
-
-extern void flush_all_units (void);
-internal_proto(flush_all_units);
 
 extern int stream_at_bof (stream *);
 internal_proto(stream_at_bof);
@@ -670,6 +736,9 @@ internal_proto(file_position);
 
 extern int is_seekable (stream *);
 internal_proto(is_seekable);
+
+extern int is_special (stream *);
+internal_proto(is_special);
 
 extern int is_preconnected (stream *);
 internal_proto(is_preconnected);
@@ -717,15 +786,6 @@ internal_proto(get_internal_unit);
 extern void free_internal_unit (st_parameter_dt *);
 internal_proto(free_internal_unit);
 
-extern int is_internal_unit (st_parameter_dt *);
-internal_proto(is_internal_unit);
-
-extern int is_array_io (st_parameter_dt *);
-internal_proto(is_array_io);
-
-extern int is_stream_io (st_parameter_dt *);
-internal_proto(is_stream_io);
-
 extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
 
@@ -738,10 +798,13 @@ internal_proto(get_unit);
 extern void unlock_unit (gfc_unit *);
 internal_proto(unlock_unit);
 
-/* open.c */
+extern void update_position (gfc_unit *);
+internal_proto(update_position);
 
-extern void test_endfile (gfc_unit *);
-internal_proto(test_endfile);
+extern void finish_last_advance_record (gfc_unit *u);
+internal_proto (finish_last_advance_record);
+
+/* open.c */
 
 extern gfc_unit *new_unit (st_parameter_open *, gfc_unit *, unit_flags *);
 internal_proto(new_unit);
@@ -770,8 +833,8 @@ internal_proto(free_format_data);
 extern const char *type_name (bt);
 internal_proto(type_name);
 
-extern void *read_block (st_parameter_dt *, int *);
-internal_proto(read_block);
+extern try read_block_form (st_parameter_dt *, void *, size_t *);
+internal_proto(read_block_form);
 
 extern char *read_sf (st_parameter_dt *, int *, int);
 internal_proto(read_sf);
@@ -779,10 +842,12 @@ internal_proto(read_sf);
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);
 
-extern gfc_offset next_array_record (st_parameter_dt *, array_loop_spec *);
+extern gfc_offset next_array_record (st_parameter_dt *, array_loop_spec *,
+				     int*);
 internal_proto(next_array_record);
 
-extern gfc_offset init_loop_spec (gfc_array_char *, array_loop_spec *);
+extern gfc_offset init_loop_spec (gfc_array_char *, array_loop_spec *,
+				  gfc_offset *);
 internal_proto(init_loop_spec);
 
 extern void next_record (st_parameter_dt *, int);
@@ -790,6 +855,9 @@ internal_proto(next_record);
 
 extern void reverse_memcpy (void *, const void *, size_t);
 internal_proto (reverse_memcpy);
+
+extern void st_wait (st_parameter_wait *);
+export_proto(st_wait);
 
 /* read.c */
 
@@ -803,6 +871,9 @@ extern int convert_real (st_parameter_dt *, void *, const char *, int);
 internal_proto(convert_real);
 
 extern void read_a (st_parameter_dt *, const fnode *, char *, int);
+internal_proto(read_a);
+
+extern void read_a_char4 (st_parameter_dt *, const fnode *, char *, int);
 internal_proto(read_a);
 
 extern void read_f (st_parameter_dt *, const fnode *, char *, int);
@@ -840,6 +911,9 @@ internal_proto(namelist_write);
 extern void write_a (st_parameter_dt *, const fnode *, const char *, int);
 internal_proto(write_a);
 
+extern void write_a_char4 (st_parameter_dt *, const fnode *, const char *, int);
+internal_proto(write_a_char4);
+
 extern void write_b (st_parameter_dt *, const fnode *, const char *, int);
 internal_proto(write_b);
 
@@ -867,6 +941,12 @@ internal_proto(write_l);
 extern void write_o (st_parameter_dt *, const fnode *, const char *, int);
 internal_proto(write_o);
 
+extern void write_real (st_parameter_dt *, const char *, int);
+internal_proto(write_real);
+
+extern void write_real_g0 (st_parameter_dt *, const char *, int, int);
+internal_proto(write_real_g0);
+
 extern void write_x (st_parameter_dt *, int, int);
 internal_proto(write_x);
 
@@ -877,16 +957,31 @@ extern void list_formatted_write (st_parameter_dt *, bt, void *, int, size_t,
 				  size_t);
 internal_proto(list_formatted_write);
 
-/* error.c */
-extern notification notification_std(int);
-internal_proto(notification_std);
-
 /* size_from_kind.c */
 extern size_t size_from_real_kind (int);
 internal_proto(size_from_real_kind);
 
 extern size_t size_from_complex_kind (int);
 internal_proto(size_from_complex_kind);
+
+/* fbuf.c */
+extern void fbuf_init (gfc_unit *, size_t);
+internal_proto(fbuf_init);
+
+extern void fbuf_destroy (gfc_unit *);
+internal_proto(fbuf_destroy);
+
+extern void fbuf_reset (gfc_unit *);
+internal_proto(fbuf_reset);
+
+extern char * fbuf_alloc (gfc_unit *, size_t);
+internal_proto(fbuf_alloc);
+
+extern int fbuf_flush (gfc_unit *, int);
+internal_proto(fbuf_flush);
+
+extern int fbuf_seek (gfc_unit *, gfc_offset);
+internal_proto(fbuf_seek);
 
 /* lock.c */
 extern void free_ionml (st_parameter_dt *);
@@ -926,7 +1021,3 @@ dec_waiting_unlocked (gfc_unit *u)
 
 #endif
 
-/* ../runtime/environ.c  This is here because we return unit_convert.  */
-
-unit_convert get_unformatted_convert (int);
-internal_proto(get_unformatted_convert);

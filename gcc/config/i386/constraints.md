@@ -18,7 +18,7 @@
 ;; <http://www.gnu.org/licenses/>.
 
 ;;; Unused letters:
-;;;     B     H           TU W   
+;;;     B     H           TU W
 ;;;           h jk          vw  z
 
 ;; Integer register constraints.
@@ -82,24 +82,41 @@
 (define_register_constraint "x" "TARGET_SSE ? SSE_REGS : NO_REGS"
  "Any SSE register.")
 
-(define_register_constraint "Y" "TARGET_SSE2? SSE_REGS : NO_REGS"
- "@internal Any SSE2 register.")
+;; We use the Y prefix to denote any number of conditional register sets:
+;;  z	First SSE register.
+;;  2	SSE2 enabled
+;;  i	SSE2 inter-unit moves enabled
+;;  m	MMX inter-unit moves enabled
+
+(define_register_constraint "Yz" "TARGET_SSE ? SSE_FIRST_REG : NO_REGS"
+ "First SSE register (@code{%xmm0}).")
+
+(define_register_constraint "Y2" "TARGET_SSE2 ? SSE_REGS : NO_REGS"
+ "@internal Any SSE register, when SSE2 is enabled.")
+
+(define_register_constraint "Yi"
+ "TARGET_SSE2 && TARGET_INTER_UNIT_MOVES ? SSE_REGS : NO_REGS"
+ "@internal Any SSE register, when SSE2 and inter-unit moves are enabled.")
+
+(define_register_constraint "Ym"
+ "TARGET_MMX && TARGET_INTER_UNIT_MOVES ? MMX_REGS : NO_REGS"
+ "@internal Any MMX register, when inter-unit moves are enabled.")
 
 ;; Integer constant constraints.
 (define_constraint "I"
   "Integer constant in the range 0 @dots{} 31, for 32-bit shifts."
   (and (match_code "const_int")
-       (match_test "ival >= 0 && ival <= 31")))
+       (match_test "IN_RANGE (ival, 0, 31)")))
 
 (define_constraint "J"
   "Integer constant in the range 0 @dots{} 63, for 64-bit shifts."
   (and (match_code "const_int")
-       (match_test "ival >= 0 && ival <= 63")))
+       (match_test "IN_RANGE (ival, 0, 63)")))
 
 (define_constraint "K"
   "Signed 8-bit integer constant."
   (and (match_code "const_int")
-       (match_test "ival >= -128 && ival <= 127")))
+       (match_test "IN_RANGE (ival, -128, 127)")))
 
 (define_constraint "L"
   "@code{0xFF} or @code{0xFFFF}, for andsi as a zero-extending move."
@@ -109,18 +126,18 @@
 (define_constraint "M"
   "0, 1, 2, or 3 (shifts for the @code{lea} instruction)."
   (and (match_code "const_int")
-       (match_test "ival >= 0 && ival <= 3")))
+       (match_test "IN_RANGE (ival, 0, 3)")))
 
 (define_constraint "N"
-  "Unsigned 8-bit integer constant (for @code{in} and @code{out} 
+  "Unsigned 8-bit integer constant (for @code{in} and @code{out}
    instructions)."
   (and (match_code "const_int")
-       (match_test "ival >= 0 && ival <= 255")))
+       (match_test "IN_RANGE (ival, 0, 255)")))
 
 (define_constraint "O"
   "@internal Integer constant in the range 0 @dots{} 127, for 128-bit shifts."
   (and (match_code "const_int")
-       (match_test "ival >= 0 && ival <= 127")))
+       (match_test "IN_RANGE (ival, 0, 127)")))
 
 ;; Floating-point constant constraints.
 ;; We allow constants even if TARGET_80387 isn't set, because the

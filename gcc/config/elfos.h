@@ -1,7 +1,7 @@
 /* elfos.h  --  operating system specific defines to be used when
    targeting GCC for some generic ELF system
    Copyright (C) 1991, 1994, 1995, 1999, 2000, 2001, 2002, 2003, 2004,
-   2007 Free Software Foundation, Inc.
+   2007, 2009 Free Software Foundation, Inc.
    Based on svr4.h contributed by Ron Guilmette (rfg@netcom.com).
 
 This file is part of GCC.
@@ -16,8 +16,13 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #define TARGET_OBJFMT_CPP_BUILTINS()		\
@@ -39,12 +44,15 @@ along with GCC; see the file COPYING3.  If not see
 #undef  USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
 
-/* Biggest alignment supported by the object file format of this
-   machine.  Use this macro to limit the alignment which can be
-   specified using the `__attribute__ ((aligned (N)))' construct.  If
-   not defined, the default value is `BIGGEST_ALIGNMENT'.  */
+/* The biggest alignment supported by ELF in bits. 32-bit ELF 
+   supports section alignment up to (0x80000000 * 8), while 
+   64-bit ELF supports (0x8000000000000000 * 8). If this macro 
+   is not defined, the default is the largest alignment supported 
+   by 32-bit ELF and representable on a 32-bit host. Use this
+   macro to limit the alignment which can be specified using
+   the `__attribute__ ((aligned (N)))' construct.  */
 #ifndef MAX_OFILE_ALIGNMENT
-#define MAX_OFILE_ALIGNMENT (32768 * 8)
+#define MAX_OFILE_ALIGNMENT (((unsigned int) 1 << 28) * 8)
 #endif
 
 /* Use periods rather than dollar signs in special g++ assembler names.  */
@@ -495,3 +503,18 @@ along with GCC; see the file COPYING3.  If not see
         fprintf ((FILE), "\"\n");					\
     }									\
   while (0)
+
+/* Allow the use of the -frecord-gcc-switches switch via the
+   elf_record_gcc_switches function defined in varasm.c.  */
+#undef  TARGET_ASM_RECORD_GCC_SWITCHES
+#define TARGET_ASM_RECORD_GCC_SWITCHES elf_record_gcc_switches
+
+/* A C statement (sans semicolon) to output to the stdio stream STREAM
+   any text necessary for declaring the name of an external symbol
+   named NAME which is referenced in this compilation but not defined.
+   It is needed to properly support non-default visibility.  */
+
+#ifndef ASM_OUTPUT_EXTERNAL
+#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
+  default_elf_asm_output_external (FILE, DECL, NAME)
+#endif

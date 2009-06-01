@@ -1,4 +1,4 @@
-!   Copyright 2002, 2005 Free Software Foundation, Inc.
+!   Copyright 2002, 2005, 2009 Free Software Foundation, Inc.
 !   Contributed by Tobias Schl"uter
 !
 !This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -6,27 +6,22 @@
 !GNU libgfortran is free software; you can redistribute it and/or
 !modify it under the terms of the GNU General Public
 !License as published by the Free Software Foundation; either
-!version 2 of the License, or (at your option) any later version.
-
-!In addition to the permissions in the GNU General Public License, the
-!Free Software Foundation gives you unlimited permission to link the
-!compiled version of this file into combinations with other programs,
-!and to distribute those combinations without any restriction coming
-!from the use of this file.  (The General Public License restrictions
-!do apply in other respects; for example, they cover modification of
-!the file, and distribution when not linked into a combine
-!executable.)
+!version 3 of the License, or (at your option) any later version.
 !
 !GNU libgfortran is distributed in the hope that it will be useful,
 !but WITHOUT ANY WARRANTY; without even the implied warranty of
 !MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !GNU General Public License for more details.
 !
-!You should have received a copy of the GNU General Public
-!License along with libgfortran; see the file COPYING.  If not,
-!write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-!Boston, MA 02110-1301, USA.
+!Under Section 7 of GPL version 3, you are granted additional
+!permissions described in the GCC Runtime Library Exception, version
+!3.1, as published by the Free Software Foundation.
 !
+!You should have received a copy of the GNU General Public License and
+!a copy of the GCC Runtime Library Exception along with this program;
+!see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+!<http://www.gnu.org/licenses/>.
+
 ! Specifics for the intrinsics whose calling conventions change if
 ! -ff2c is used.
 !
@@ -41,7 +36,7 @@
 
 ! one argument functions
 #define REAL_HEAD(NAME) \
-elemental function f2c_specific__/**/NAME/**/_r4 (parm) result(res);
+elemental function _gfortran_f2c_specific__/**/NAME/**/_r4 (parm) result(res);
 
 #define REAL_BODY(NAME) \
   REAL, intent (in) :: parm; \
@@ -50,7 +45,7 @@ elemental function f2c_specific__/**/NAME/**/_r4 (parm) result(res);
 end function
 
 #define COMPLEX_HEAD(NAME) \
-subroutine f2c_specific__/**/NAME/**/_c4 (res, parm);
+subroutine _gfortran_f2c_specific__/**/NAME/**/_c4 (res, parm);
 
 #define COMPLEX_BODY(NAME) \
   COMPLEX, intent (in) :: parm; \
@@ -59,7 +54,7 @@ subroutine f2c_specific__/**/NAME/**/_c4 (res, parm);
 end subroutine
 
 #define DCOMPLEX_HEAD(NAME) \
-subroutine f2c_specific__/**/NAME/**/_c8 (res, parm);
+subroutine _gfortran_f2c_specific__/**/NAME/**/_c8 (res, parm);
 
 #define DCOMPLEX_BODY(NAME) \
   DOUBLE COMPLEX, intent (in) :: parm; \
@@ -71,7 +66,7 @@ REAL_HEAD(abs)
 REAL_BODY(abs)
 
 ! abs is special in that the result is real
-elemental function f2c_specific__abs_c4 (parm) result (res)
+elemental function _gfortran_f2c_specific__abs_c4 (parm) result (res)
   COMPLEX, intent(in) :: parm
   DOUBLE PRECISION :: res
   res = abs(parm)
@@ -79,16 +74,16 @@ end function
 
 
 ! aimag is special in that the result is real
-elemental function f2c_specific__aimag_c4 (parm)
+elemental function _gfortran_f2c_specific__aimag_c4 (parm)
   complex(kind=4), intent(in) :: parm
-  double precision :: f2c_specific__aimag_c4
-  f2c_specific__aimag_c4 = aimag(parm)
+  double precision :: _gfortran_f2c_specific__aimag_c4
+  _gfortran_f2c_specific__aimag_c4 = aimag(parm)
 end function
 
-elemental function f2c_specific__aimag_c8 (parm)
+elemental function _gfortran_f2c_specific__aimag_c8 (parm)
   complex(kind=8), intent(in) :: parm
-  double precision :: f2c_specific__aimag_c8
-  f2c_specific__aimag_c8 = aimag(parm)
+  double precision :: _gfortran_f2c_specific__aimag_c8
+  _gfortran_f2c_specific__aimag_c8 = aimag(parm)
 end function
 
 
@@ -168,7 +163,7 @@ REAL_BODY(anint)
 
 ! two argument functions
 #define REAL2_HEAD(NAME) \
-elemental function f2c_specific__/**/NAME/**/_r4 (p1, p2) result(res);
+elemental function _gfortran_f2c_specific__/**/NAME/**/_r4 (p1, p2) result(res);
 
 #define REAL2_BODY(NAME) \
   REAL, intent (in) :: p1, p2; \
@@ -189,12 +184,12 @@ REAL2_HEAD(mod)
 REAL2_BODY(mod)
 
 ! conjg is special-cased because it is not suffixed _c4 but _4
-subroutine f2c_specific__conjg_4 (res, parm)
+subroutine _gfortran_f2c_specific__conjg_4 (res, parm)
   COMPLEX, intent (in) :: parm
   COMPLEX, intent (out) :: res
   res = conjg (parm)
 end subroutine
-subroutine f2c_specific__conjg_8 (res, parm)
+subroutine _gfortran_f2c_specific__conjg_8 (res, parm)
   DOUBLE COMPLEX, intent (in) :: parm
   DOUBLE COMPLEX, intent (out) :: res
   res = conjg (parm)
