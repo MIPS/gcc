@@ -2755,7 +2755,7 @@ output_function_decl (struct output_block *ob, tree decl)
 	     the new name is always prefixed with '*' by
 	     set_builtin_user_assembler_name.  So, to prevent the
 	     reader side from adding a second '*', we omit it here.  */
-	  char *str = (char *) IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+	  const char *str = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 	  if (strlen (str) > 1 && str[0] == '*')
 	    output_string (ob, ob->main_stream, &str[1]);
 	  else
