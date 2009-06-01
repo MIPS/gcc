@@ -528,6 +528,9 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
   tree result = NULL_TREE;
   bool needs_line_set;
 
+  if (tag == LTO_null)
+    return NULL_TREE;
+
   if (tag == LTO_type_ref)
     {
       int index = lto_input_uleb128 (ib);
@@ -781,13 +784,11 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case COMPONENT_REF:
       {
-	tree op0;
-	tree op1;
+	tree op0, op1, op2;
 	op0 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
 	op1 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-  
-	/* Ignore 3 because it can be recomputed.  */
-	result = build3 (code, type, op0, op1, NULL_TREE);
+	op2 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+	result = build3 (code, type, op0, op1, op2);
       }
       break;
 
@@ -814,13 +815,13 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
       {
-	/* Ignore operands 2 and 3 for ARRAY_REF and ARRAY_RANGE REF
-	   because they can be recomputed.  */
-	tree op0, op1;
+	tree op0, op1, op2, op3;
 	
 	op0 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
 	op1 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-	result = build4 (code, type, op0, op1, NULL_TREE, NULL_TREE);
+	op2 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+	op3 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+	result = build4 (code, type, op0, op1, op2, op3);
       }
       break;
 

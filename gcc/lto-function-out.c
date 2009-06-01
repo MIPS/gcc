@@ -1054,7 +1054,11 @@ output_expr_operand (struct output_block *ob, tree expr)
   enum tree_code_class klass;
   unsigned int tag;
 
-  gcc_assert (expr);
+  if (expr == NULL_TREE)
+    {
+      output_zero (ob);
+      return;
+    }
 
   code = TREE_CODE (expr);
   klass = TREE_CODE_CLASS (code);
@@ -1234,7 +1238,7 @@ output_expr_operand (struct output_block *ob, tree expr)
       output_record_start (ob, expr, expr, tag);
       output_expr_operand (ob, TREE_OPERAND (expr, 0));
       output_expr_operand (ob, TREE_OPERAND (expr, 1));
-      /* Ignore 3 because it can be recomputed.  */
+      output_expr_operand (ob, TREE_OPERAND (expr, 2));
       break;
 
     case BIT_FIELD_REF:
@@ -1263,11 +1267,11 @@ output_expr_operand (struct output_block *ob, tree expr)
 
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
-      /* Ignore operands 2 and 3 for ARRAY_REF and ARRAY_RANGE REF
-	 because they can be recomputed.  */
       output_record_start (ob, expr, expr, tag);
       output_expr_operand (ob, TREE_OPERAND (expr, 0));
       output_expr_operand (ob, TREE_OPERAND (expr, 1));
+      output_expr_operand (ob, TREE_OPERAND (expr, 2));
+      output_expr_operand (ob, TREE_OPERAND (expr, 3));
       break;
 
 

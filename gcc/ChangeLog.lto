@@ -1,5 +1,14 @@
 2009-05-31  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-out.c (output_expr_operand): Handle
+	NULL_TREE values for EXPR.
+	<case COMPONENT_REF>: Write operand 2.
+	<case ARRAY_REF>: Write operands 2 and 3.
+	* lto-function-in.c (input_expr_operand): Corresponding
+	changes.
+
+2009-05-31  Diego Novillo  <dnovillo@google.com>
+
 	* lto-section-out.c (preload_common_node): Call
 	preload_common node on fields of structures.
 
