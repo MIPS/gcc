@@ -1,3 +1,8 @@
+2009-05-31  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c (lto_type_for_mode): Handle all the modes
+	handled in c_common_type_for_mode.
+
 2009-05-21  Diego Novillo  <dnovillo@google.com>
 
 	* lto-elf.c: Always include <gelf.h>.
