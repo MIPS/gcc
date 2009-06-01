@@ -509,6 +509,7 @@ dump_block_node (pretty_printer *buffer, tree block, int spc, int flags)
       newline_and_indent (buffer, spc + 2);
     }
 
+#if 0
   if (VEC_length (tree, BLOCK_NONLOCALIZED_VARS (block)) > 0)
     {
       unsigned i;
@@ -522,6 +523,7 @@ dump_block_node (pretty_printer *buffer, tree block, int spc, int flags)
 	}
       newline_and_indent (buffer, spc + 2);
     }
+#endif
 
   if (BLOCK_ABSTRACT_ORIGIN (block))
     {
