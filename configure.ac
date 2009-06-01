@@ -2637,6 +2637,16 @@ case "${target}" in
     ;;
 esac
 
+# Plugin-specific flags
+case "${target}" in
+  *-*-darwin*)
+    FLAGS_FOR_TARGET="$FLAGS_FOR_TARGET -dynamic -ldl"
+    ;;
+  *)
+    FLAGS_FOR_TARGET="$FLAGS_FOR_TARGET -export-dynamic -ldl"
+    ;;
+esac
+
 # Makefile fragments.
 for frag in host_makefile_frag target_makefile_frag alphaieee_frag ospace_frag;
 do
