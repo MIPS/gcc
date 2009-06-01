@@ -1,3 +1,12 @@
+2009-05-31  Ian Lance Taylor  <iant@google.com>
+
+	Revert last patch.
+	2009-05-26  Ian Lance Taylor  <iant@google.com>
+	* dfp.c: If __cplusplus, use extern "C" around inclusion of
+	libdecnumber header files.
+	* Makefile.in (INCLUDES): Remove $(DECNUMINC).
+	(dfp.o): Add separate compilation command using DECNUMINC.
+
 2009-05-26  Ian Lance Taylor  <iant@google.com>
 
 	* dfp.c: If __cplusplus, use extern "C" around inclusion of

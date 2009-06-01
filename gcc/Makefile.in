@@ -983,7 +983,8 @@ BUILD_ERRORS = build/errors.o
 # libintl.h will be found in ../intl if we are using the included libintl.
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/../include @INCINTL@ \
-	   $(CPPINC) $(GMPINC) $(PPLINC) $(CLOOGINC)
+	   $(CPPINC) $(GMPINC) $(DECNUMINC) \
+	   $(PPLINC) $(CLOOGINC)
 
 # [gcc-in-cxx] Keep the .c extension, but compile with C++.
 .c.o:
@@ -2061,11 +2062,6 @@ endif
 	-DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
 	-DBUGURL=$(BUGURL_s) -c $(srcdir)/version.c $(OUTPUT_OPTION)
 
-dfp.o: dfp.c dfp.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)	$(TREE_H) \
-   $(TOPLEV_H) $(TM_P_H) $(REAL_H) $(DECNUM_H)
-	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) $(DECNUMINC) -c \
-		$(srcdir)/dfp.c $(OUTPUT_OPTION)
-
 gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) $(OBSTACK_H) $(BITMAP_H) \
 	input.h $(TREE_H) $(RTL_H) $(FUNCTION_H) insn-config.h $(EXPR_H) \
@@ -2638,6 +2634,8 @@ emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REAL_H) $(DF_H)
 real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(TOPLEV_H) $(TM_P_H) $(REAL_H) dfp.h
+dfp.o : dfp.c dfp.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)	$(TREE_H) \
+   $(TOPLEV_H) $(TM_P_H) $(REAL_H) $(DECNUM_H)
 fixed-value.o: fixed-value.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) fixed-value.h $(REAL_H) $(TOPLEV_H)
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
