@@ -2191,8 +2191,6 @@ output_function (struct cgraph_node *node)
   else
     output_zero (ob);
 
-  gcc_assert (!DECL_CONTEXT (function));
-
   /* We will renumber the statements.  The code that does this uses
      the same ordering that we use for serializing them so we can use
      the same code on the other end and not have to write out the
@@ -2786,7 +2784,7 @@ output_function_decl (struct output_block *ob, tree decl)
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
-  gcc_assert (decl->decl_minimal.context == NULL_TREE);
+  output_tree (ob, decl->decl_minimal.context);
 
   output_tree (ob, decl->decl_with_vis.assembler_name);
   output_tree (ob, decl->decl_with_vis.section_name);

@@ -545,9 +545,11 @@ lto_1_to_1_map (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
-      /* We assume file_data are unique.  */
+      /* We only need to partition the nodes that we read from the
+	 gimple bytecode files.  */
       file_data = node->local.lto_file_data;
-      gcc_assert (file_data);
+      if (file_data == NULL)
+	continue;
 
       slot = pointer_map_contains (pmap, file_data);
       if (slot)
@@ -1720,14 +1722,21 @@ materialize_cgraph (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
-      /* Builtin functions need not be materialized and may, in fact,
-	 cause confusion because there may be a regular function in
-	 the file whose assembler name matches that of the function
-	 (e.g., testsuite/gcc.c-torture/execute/20030125-1.c).  */
-      if (!DECL_IS_BUILTIN (node->decl))
-	lto_materialize_function (node);
-
-      lto_stats.num_input_cgraph_nodes++;
+      /* Some cgraph nodes get created on the fly, and they don't need
+	 to be materialized.  For instance, nodes for nested functions
+	 where the parent function was not streamed out or builtin
+	 functions.  Additionally, builtin functions should not be
+	 materialized and may, in fact, cause confusion because there
+	 may be a regular function in the file whose assembler name
+	 matches that of the function.
+	 See gcc.c-torture/execute/20030125-1.c and
+	 gcc.c-torture/execute/921215-1.c.  */
+      if (node->local.lto_file_data
+          && !DECL_IS_BUILTIN (node->decl))
+	{
+	  lto_materialize_function (node);
+	  lto_stats.num_input_cgraph_nodes++;
+	}
     }
 
   timevar_pop (TV_IPA_LTO_GIMPLE_IO);

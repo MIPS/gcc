@@ -4017,19 +4017,14 @@ free_lang_data_in_decl (tree decl)
     }
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      tree context = DECL_CONTEXT (decl);
       tree t;
 
       /* An weakref to an external function is DECL_EXTERNAL but not
 	 TREE_PUBLIC. FIXME lto: This is confusing, why does it need to be
 	 DECL_EXTERNAL? */
-
       if (DECL_EXTERNAL (decl)
 	  && !lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
 	TREE_PUBLIC (decl) = true;
-
-      if (context && TREE_CODE (context) == FUNCTION_DECL)
-	DECL_CONTEXT (decl) = NULL_TREE;
 
       /* If DECL has a gimple body, then the context for its arguments
 	 must be DECL.  Otherwise, it doesn't really matter, as we

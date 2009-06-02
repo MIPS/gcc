@@ -2026,8 +2026,6 @@ input_function (tree fn_decl, struct data_in *data_in,
   if (tag)
     DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, data_in, fn, tag); 
 
-  DECL_CONTEXT (fn_decl) = NULL_TREE;
-
   /* Read all the basic blocks.  */
   tag = input_record_start (ib);
   while (tag)
@@ -2755,6 +2753,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in,
   index = global_vector_enter (data_in, decl);
 
   decl->decl_minimal.name = input_tree (ib, data_in);
+  decl->decl_minimal.context = input_tree (ib, data_in);
   decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
   decl->decl_with_vis.section_name = input_tree (ib, data_in);
   decl->decl_with_vis.comdat_group = input_tree (ib, data_in);

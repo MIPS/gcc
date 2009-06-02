@@ -1,3 +1,17 @@
+2009-06-02  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (free_lang_data_in_decl): Do not clear
+	DECL_CONTEXT for FUNCTION_DECLs.
+	* lto-function-out.c (output_function): Do not expect
+	DECL_CONTEXT to be NULL.
+	(output_function_decl): Emit DECL_CONTEXT.
+	* lto-function-in.c (input_function): Do not clear
+	DECL_CONTEXT.
+	(input_function_decl): Read DECL_CONTEXT.
+	* lto-cgraph.c (input_cgraph): Tolerate extra cgraph
+	nodes created by cgraph_node while reading the call
+	graph.
+
 2009-06-01  Diego Novillo  <dnovillo@google.com>
 
 	* c.opt (Wabi): Add LTO.

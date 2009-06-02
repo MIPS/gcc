@@ -729,8 +729,13 @@ input_cgraph (void)
      tell which nodes should be overwritten.  */
   for (node = cgraph_nodes; node; node = node->next)
     {
-      gcc_assert (node->local.lto_file_data);
-      node->aux = NULL;
+      /* Some nodes may have been created by cgraph_node.  This
+	 happens when the callgraph contains nested functions.  If the
+	 node for the parent function was never emitted to the gimple
+	 file, cgraph_node will create a node for it when setting the
+	 context of the nested function.  */
+      if (node->local.lto_file_data)
+	node->aux = NULL;
     }
 }
 
