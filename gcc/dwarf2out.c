@@ -17661,9 +17661,10 @@ prune_unused_types_mark (dw_die_ref die, int dokids)
       /* If this is an array type, we need to make sure our
 	 kids get marked, even if they're types.  If we're
 	 breaking out types into comdat sections, do this
-	 for all types.  */
+	 for all type definitions.  */
       if (die->die_tag == DW_TAG_array_type
-          || (use_dwarf4_extensions && is_type_die (die)))
+          || (use_dwarf4_extensions 
+              && is_type_die (die) && ! is_declaration_die (die)))
 	FOR_EACH_CHILD (die, c, prune_unused_types_mark (c, 1));
       else
 	FOR_EACH_CHILD (die, c, prune_unused_types_walk (c));
