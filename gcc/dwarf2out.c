@@ -7176,6 +7176,7 @@ checksum_die_context (dw_die_ref die, struct md5_ctx *ctx)
   if (die->die_parent != NULL)
     checksum_die_context (die->die_parent, ctx);
 
+  CHECKSUM_ULEB128 ('C');
   CHECKSUM_ULEB128 (tag);
   if (name != NULL)
     CHECKSUM_STRING (name);
@@ -7186,9 +7187,23 @@ checksum_die_context (dw_die_ref die, struct md5_ctx *ctx)
 static inline void
 loc_checksum_ordered (dw_loc_descr_ref loc, struct md5_ctx *ctx)
 {
-  CHECKSUM (loc->dw_loc_opc);
-  CHECKSUM (loc->dw_loc_oprnd1);
-  CHECKSUM (loc->dw_loc_oprnd2);
+  /* Special case for lone DW_OP_plus_uconst: checksum as if the location
+     were emitted as a DW_FORM_sdata instead of a location expression.  */
+  if (loc->dw_loc_opc == DW_OP_plus_uconst && loc->dw_loc_next == NULL)
+    {
+      CHECKSUM_ULEB128 (DW_FORM_sdata);
+      CHECKSUM_SLEB128 ((HOST_WIDE_INT) loc->dw_loc_oprnd1.v.val_unsigned);
+      return;
+    }
+
+  /* Otherwise, just checksum the raw location expression.  */
+  while (loc != NULL)
+    {
+      CHECKSUM_ULEB128 (loc->dw_loc_opc);
+      CHECKSUM (loc->dw_loc_oprnd1);
+      CHECKSUM (loc->dw_loc_oprnd2);
+      loc = loc->dw_loc_next;
+    }
 }
 
 /* Calculate the checksum of an attribute.  */
@@ -7199,46 +7214,84 @@ attr_checksum_ordered (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
   dw_loc_descr_ref loc;
   rtx r;
 
+  if (AT_class (at) == dw_val_class_die_ref)
+    {
+      dw_die_ref die = AT_ref (at);
+
+      /* To avoid infinite recursion.  */
+      if (die->die_mark > 0)
+        {
+          CHECKSUM_ULEB128 ('R');
+          CHECKSUM_ULEB128 (at->dw_attr);
+          CHECKSUM_ULEB128 (die->die_mark);
+        }
+      else
+        {
+          dw_die_ref decl = get_AT_ref (die, DW_AT_specification);
+          if (decl == NULL)
+            decl = die;
+          die->die_mark = ++(*mark);
+          CHECKSUM_ULEB128 ('T');
+          CHECKSUM_ULEB128 (at->dw_attr);
+          if (decl->die_parent != NULL)
+            checksum_die_context (decl->die_parent, ctx);
+          die_checksum_ordered (AT_ref (at), ctx, mark);
+        }
+      return;
+    }
+
+  CHECKSUM_ULEB128 ('A');
   CHECKSUM_ULEB128 (at->dw_attr);
 
   switch (AT_class (at))
     {
     case dw_val_class_const:
+      CHECKSUM_ULEB128 (DW_FORM_sdata);
       CHECKSUM_SLEB128 (at->dw_attr_val.v.val_int);
       break;
+
     case dw_val_class_unsigned_const:
-      CHECKSUM_ULEB128 (at->dw_attr_val.v.val_unsigned);
+      CHECKSUM_ULEB128 (DW_FORM_sdata);
+      CHECKSUM_SLEB128 ((int) at->dw_attr_val.v.val_unsigned);
       break;
+
     case dw_val_class_long_long:
+      CHECKSUM_ULEB128 (DW_FORM_block);
+      CHECKSUM_ULEB128 (sizeof (at->dw_attr_val.v.val_long_long));
       CHECKSUM (at->dw_attr_val.v.val_long_long);
       break;
+
     case dw_val_class_vec:
+      CHECKSUM_ULEB128 (DW_FORM_block);
+      CHECKSUM_ULEB128 (sizeof (at->dw_attr_val.v.val_vec));
       CHECKSUM (at->dw_attr_val.v.val_vec);
       break;
+
     case dw_val_class_flag:
-      CHECKSUM (at->dw_attr_val.v.val_flag);
+      CHECKSUM_ULEB128 (DW_FORM_flag);
+      CHECKSUM_ULEB128 (at->dw_attr_val.v.val_flag ? 1 : 0);
       break;
+
     case dw_val_class_str:
+      CHECKSUM_ULEB128 (DW_FORM_string);
       CHECKSUM_STRING (AT_string (at));
       break;
 
     case dw_val_class_addr:
       r = AT_addr (at);
       gcc_assert (GET_CODE (r) == SYMBOL_REF);
+      CHECKSUM_ULEB128 (DW_FORM_string);
       CHECKSUM_STRING (XSTR (r, 0));
       break;
 
     case dw_val_class_offset:
+      CHECKSUM_ULEB128 (DW_FORM_sdata);
       CHECKSUM_ULEB128 (at->dw_attr_val.v.val_offset);
       break;
 
     case dw_val_class_loc:
       for (loc = AT_loc (at); loc; loc = loc->dw_loc_next)
 	loc_checksum_ordered (loc, ctx);
-      break;
-
-    case dw_val_class_die_ref:
-      die_checksum_ordered (AT_ref (at), ctx, mark);
       break;
 
     case dw_val_class_fde_ref:
@@ -7248,6 +7301,7 @@ attr_checksum_ordered (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
       break;
 
     case dw_val_class_file:
+      CHECKSUM_ULEB128 (DW_FORM_string);
       CHECKSUM_STRING (AT_file (at)->filename);
       break;
 
@@ -7478,13 +7532,8 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
   dw_die_ref decl;
   struct checksum_attributes attrs;
 
-  /* To avoid infinite recursion.  */
-  if (die->die_mark)
-    {
-      CHECKSUM_ULEB128 (die->die_mark);
-      return;
-    }
-  die->die_mark = ++(*mark);
+  CHECKSUM_ULEB128 ('D');
+  CHECKSUM_ULEB128 (die->die_tag);
 
   memset (&attrs, 0, sizeof (attrs));
 
@@ -7493,7 +7542,6 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
     collect_checksum_attributes (&attrs, decl);
   collect_checksum_attributes (&attrs, die);
 
-  CHECKSUM_ULEB128 (die->die_tag);
   CHECKSUM_ATTR (attrs.at_name);
   CHECKSUM_ATTR (attrs.at_accessibility);
   CHECKSUM_ATTR (attrs.at_address_class);
@@ -7561,22 +7609,12 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
               CHECKSUM_ULEB128 (DW_AT_type);
               if (decl->die_parent != NULL)
                 checksum_die_context (decl->die_parent, ctx);
+              CHECKSUM_ULEB128 ('E');
               CHECKSUM_STRING (AT_string (name_attr));
             }
           else
             {
-              if (type_die->die_mark)
-                {
-                  CHECKSUM_ULEB128 ('R');
-                  CHECKSUM_ULEB128 (type_die->die_mark);
-                }
-              else
-                {
-                  CHECKSUM_ULEB128 ('T');
-                  if (decl->die_parent != NULL)
-                    checksum_die_context (decl->die_parent, ctx);
-                  die_checksum_ordered (type_die, ctx, mark);
-                }
+              CHECKSUM_ATTR (attrs.at_type);
             }
         }
     }
@@ -7597,28 +7635,14 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
               CHECKSUM_ULEB128 (DW_AT_friend);
               if (decl->die_parent != NULL)
                 checksum_die_context (decl->die_parent, ctx);
+              CHECKSUM_ULEB128 ('E');
               CHECKSUM_STRING (AT_string (name_attr));
             }
         }
     }
   else if (attrs.at_type != NULL)
     {
-      dw_die_ref type_die = AT_ref (attrs.at_type);
-      dw_die_ref decl = get_AT_ref (type_die, DW_AT_specification);
-      if (decl == NULL)
-        decl = type_die;
-      if (type_die->die_mark)
-        {
-          CHECKSUM_ULEB128 ('R');
-          CHECKSUM_ULEB128 (type_die->die_mark);
-        }
-      else
-        {
-          CHECKSUM_ULEB128 ('T');
-          if (decl->die_parent != NULL)
-            checksum_die_context (decl->die_parent, ctx);
-          die_checksum_ordered (type_die, ctx, mark);
-        }
+      CHECKSUM_ATTR (attrs.at_type);
     }
 
   /* Checksum the child DIEs, except for nested types.  */
@@ -7628,13 +7652,18 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
 
     c = c->die_sib;
     name_attr = get_AT (c, DW_AT_name);
-    if (is_type_die (c) && name_attr != NULL)
+    if ((is_type_die (c) || c->die_tag == DW_TAG_subprogram)
+        && name_attr != NULL)
       {
+        CHECKSUM_ULEB128 ('S');
         CHECKSUM_ULEB128 (c->die_tag);
         CHECKSUM_STRING (AT_string (name_attr));
       }
     else
       {
+        /* Mark this DIE so it gets processed when unmarking.  */
+        if (c->die_mark == 0)
+          c->die_mark = -1;
         die_checksum_ordered (c, ctx, mark);
       }
   } while (c != die->die_child);
@@ -7690,7 +7719,8 @@ generate_type_signature (dw_die_ref die, comdat_type_node *type_node)
   /* Next, compute the complete type signature.  */
 
   md5_init_ctx (&ctx);
-  mark = 0;
+  mark = 1;
+  die->die_mark = mark;
 
   /* Checksum the names of surrounding namespaces and structures.  */
   if (decl != NULL && decl->die_parent != NULL)

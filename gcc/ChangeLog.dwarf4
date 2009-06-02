@@ -1,3 +1,12 @@
+2009-06-01  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (checksum_die_context): Change how signature is computed
+	to match final dwarf of DWARF-4 spec.
+	(loc_checksum_ordered): Likewise.
+	(attr_checksum_ordered): Likewise.
+	(die_checksum_ordered): Likewise.
+	(generate_type_signature): Likewise.
+
 2009-03-06  Cary Coutant  <ccoutant@google.com>
 
 	* dwarf2out.c (CHECKSUM_STRING): Redefine for DWARF-4 to include
