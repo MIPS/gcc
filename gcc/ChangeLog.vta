@@ -1,3 +1,11 @@
+2009-06-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cp/cp-tree.h (TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS): New.
+	* cp/cp-lang.c (cxx_dwarf_name): Pass it.
+	* cp/error.c (count_non_default_template_args): Take flags as
+	argument.  Adjust all callers.  Skip counting of default
+	arguments if the new flag is given.
+
 2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
 
 	* testsuite/lib/gnat.exp (gnat_target_compile): Restore
