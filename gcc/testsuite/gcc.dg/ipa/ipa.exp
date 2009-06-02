@@ -16,6 +16,9 @@
 
 # GCC testsuite that uses the `dg.exp' driver.
 
+# FIXME lto.  Disable for now until clones are handled properly.
+return
+
 # Load support procs.
 load_lib gcc-dg.exp
 

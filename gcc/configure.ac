@@ -781,7 +781,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([lto merged with rev 147098])
+ACX_PKGVERSION([lto merged with rev 147915])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -1497,11 +1497,11 @@ EOF
 changequote([,])dnl
 
 changequote(,)dnl
-gcc_BASEVER=$(cat $srcdir/BASE-VER)
-gcc_DEVPHASE=$(cat $srcdir/DEV-PHASE)
-gcc_DATESTAMP=$(cat $srcdir/DATESTAMP)
+gcc_BASEVER=`cat $srcdir/BASE-VER`
+gcc_DEVPHASE=`cat $srcdir/DEV-PHASE`
+gcc_DATESTAMP=`cat $srcdir/DATESTAMP`
 if test -f $srcdir/REVISION ; then
-	gcc_REVISION=$(cat $srcdir/REVISION)
+	gcc_REVISION=`cat $srcdir/REVISION`
 else
         gcc_REVISION=""
 fi
@@ -2570,6 +2570,22 @@ x:
 	tls_first_major=2
 	tls_first_minor=16
 	tls_as_opt='-32 --fatal-warnings'
+	;;
+  m68k-*-*)
+    conftest_s='
+	.section .tdata,"awT",@progbits
+x:
+	.word 2
+	.text
+foo:
+	move.l x@TLSGD(%a5),%a0
+	move.l x@TLSLDM(%a5),%a0
+	move.l x@TLSLDO(%a5),%a0
+	move.l x@TLSIE(%a5),%a0
+	move.l x@TLSLE(%a5),%a0'
+	tls_first_major=2
+	tls_first_minor=19
+	tls_as_opt='--fatal-warnings'
 	;;
   powerpc-*-*)
     conftest_s='

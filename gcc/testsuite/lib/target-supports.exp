@@ -466,6 +466,11 @@ proc check_profiling_available { test_what } {
 	return 0
     }
 
+    # cygwin does not support -p.
+    if { [istarget *-*-cygwin*] && [lindex $test_what 1] == "-p" } {
+	return 0
+    }
+
     # uClibc does not have gcrt1.o.
     if { [check_effective_target_uclibc]
 	 && ([lindex $test_what 1] == "-p"
@@ -1467,6 +1472,17 @@ proc check_effective_target_arm_neon_ok { } {
 proc check_effective_target_arm_thumb1_ok { } {
     return [check_no_compiler_messages arm_thumb1_ok assembly {
 	#if !defined(__arm__) || !defined(__thumb__) || defined(__thumb2__)
+	#error FOO
+	#endif
+    } "-mthumb"]
+}
+
+# Return 1 is this is an ARM target where -mthumb causes Thumb-2 to be
+# used.
+
+proc check_effective_target_arm_thumb2_ok { } {
+    return [check_no_compiler_messages arm_thumb2_ok assembly {
+	#if !defined(__thumb2__)
 	#error FOO
 	#endif
     } "-mthumb"]
@@ -2933,4 +2949,17 @@ proc check_effective_target_lto { } {
     return [check_no_compiler_messages lto executable {
 	int main (void) { return 0; }
     } "-O0 -flto"]
+}
+
+# Return 1 if the MPC library is integrated with GCC, 0 otherwise.
+
+proc check_effective_target_mpc { } {
+    return [check_no_compiler_messages mpc executable {
+	extern void link_error(void);
+	int main ()
+	{
+	  if (__builtin_csin(0) != 0)
+	    link_error();
+	}
+    }]
 }

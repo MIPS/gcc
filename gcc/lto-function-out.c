@@ -804,7 +804,7 @@ output_eh_region (struct output_block *ob, struct function *fn,
 
   /* If the region may contain a throw, use the '1' variant for TAG.  */
   if (r->may_contain_throw)
-    tag++;
+    tag = (enum LTO_tags)((int)tag + 1);
 
   output_record_start (ob, NULL, NULL, tag);
   output_sleb128 (ob, r->region_number);
@@ -829,15 +829,7 @@ output_eh_region (struct output_block *ob, struct function *fn,
   else
     output_zero (ob);
 
-  if (r->type == ERT_CLEANUP)
-    {
-      eh_region prev_try = r->u.cleanup.prev_try;
-      if (prev_try)
-	output_uleb128 (ob, prev_try->region_number);
-      else
-	output_zero (ob);
-    }
-  else if (r->type == ERT_TRY)
+  if (r->type == ERT_TRY)
     {
       eh_region eh_catch = r->u.eh_try.eh_catch;
       eh_region last_catch = r->u.eh_try.last_catch;
@@ -1779,7 +1771,6 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
     case GIMPLE_GOTO:
     case GIMPLE_PREDICT:
     case GIMPLE_RESX:
-    case GIMPLE_CHANGE_DYNAMIC_TYPE:
       for (i = 0; i < gimple_num_ops (stmt); i++)
 	{
 	  tree op = gimple_op (stmt, i);
@@ -2506,7 +2497,7 @@ lto_output (cgraph_node_set set)
   lto_bitmap_free (output);
 }
 
-struct ipa_opt_pass pass_ipa_lto_gimple_out =
+struct ipa_opt_pass_d pass_ipa_lto_gimple_out =
 {
  {
   IPA_PASS,

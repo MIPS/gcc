@@ -294,11 +294,22 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       LTO_DEBUG_TOKEN ("stack_size");
       lto_output_sleb128_stream (ob->main_stream, 
 				 node->local.inline_summary.estimated_self_stack_size);
-      LTO_DEBUG_TOKEN ("self_insns");
+      LTO_DEBUG_TOKEN ("self_size");
       lto_output_sleb128_stream (ob->main_stream, 
-				 node->local.inline_summary.self_insns);
+				 node->local.inline_summary.self_size);
+      LTO_DEBUG_TOKEN ("size_inlining_benefit");
+      lto_output_sleb128_stream (ob->main_stream, 
+				 node->local.inline_summary.size_inlining_benefit);
+      LTO_DEBUG_TOKEN ("self_time");
+      lto_output_sleb128_stream (ob->main_stream, 
+				 node->local.inline_summary.self_time);
+      LTO_DEBUG_TOKEN ("time_inlining_benefit");
+      lto_output_sleb128_stream (ob->main_stream, 
+				 node->local.inline_summary.time_inlining_benefit);
     }
 
+  /* FIXME: Outputting global info is not neccesary until after inliner was run
+     Global structure holds results of propagation done by inliner.  */
   LTO_DEBUG_TOKEN ("estimated_stack_size");
   lto_output_sleb128_stream (ob->main_stream,
 			     node->global.estimated_stack_size);
@@ -315,8 +326,10 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
     ref = LCC_NOT_FOUND;
   lto_output_sleb128_stream (ob->main_stream, ref);
 
-  LTO_DEBUG_TOKEN ("insns");
-  lto_output_sleb128_stream (ob->main_stream, node->global.insns);
+  LTO_DEBUG_TOKEN ("time");
+  lto_output_sleb128_stream (ob->main_stream, node->global.time);
+  LTO_DEBUG_TOKEN ("size");
+  lto_output_sleb128_stream (ob->main_stream, node->global.size);
   LTO_DEBUG_TOKEN ("estimated_growth");
   lto_output_sleb128_stream (ob->main_stream,
 			     node->global.estimated_growth);
@@ -410,7 +423,7 @@ output_cgraph (cgraph_node_set set)
 
 
 /* Overwrite the information in NODE based on FILE_DATA, TAG, FLAGS,
-   STACK_SIZE and SELF_INSNS.  This is called either to initialize
+   STACK_SIZE, SELF_TIME and SELF_SIZE.  This is called either to initialize
    NODE or to replace the values in it, for instance because the first
    time we saw it, the function body was not available but now it
    is.  */
@@ -421,12 +434,19 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
 		      enum LTO_cgraph_tags tag,
 		      unsigned HOST_WIDEST_INT flags,
 		      unsigned int stack_size,
-		      unsigned int self_insns)
+		      unsigned int self_time,
+		      unsigned int time_inlining_benefit,
+		      unsigned int self_size,
+		      unsigned int size_inlining_benefit)
 {
   node->aux = (void *)tag;
   node->local.inline_summary.estimated_self_stack_size = stack_size;
-  node->local.inline_summary.self_insns = self_insns;
-  node->global.insns = self_insns;
+  node->local.inline_summary.self_time = self_time;
+  node->local.inline_summary.time_inlining_benefit = time_inlining_benefit;
+  node->local.inline_summary.self_size = self_size;
+  node->local.inline_summary.size_inlining_benefit = size_inlining_benefit;
+  node->global.time = self_time;
+  node->global.size = self_size;
   node->local.lto_file_data = file_data;
 
   /* This list must be in the reverse order that they are set in
@@ -457,14 +477,18 @@ input_node (struct lto_file_decl_data *file_data,
   struct cgraph_node *node;
   unsigned int flags;
   int stack_size = 0;
-  int self_insns = 0;
   unsigned decl_index;
   bool clone_p;
   int estimated_stack_size = 0;
   int stack_frame_offset = 0;
   int ref = LCC_NOT_FOUND;
-  int insns = 0;
   int estimated_growth = 0;
+  int time = 0;
+  int size = 0;
+  int self_time = 0;
+  int self_size = 0;
+  int time_inlining_benefit = 0;
+  int size_inlining_benefit = 0;
   bool inlined = false;
 
   LTO_DEBUG_TOKEN ("clone_p");
@@ -486,8 +510,17 @@ input_node (struct lto_file_decl_data *file_data,
       LTO_DEBUG_TOKEN ("stack_size");
       stack_size = lto_input_sleb128 (ib);
 
-      LTO_DEBUG_TOKEN ("self_insns");
-      self_insns = lto_input_sleb128 (ib);
+      LTO_DEBUG_TOKEN ("self_size");
+      self_size = lto_input_sleb128 (ib);
+
+      LTO_DEBUG_TOKEN ("size_inlining_benefit");
+      size_inlining_benefit = lto_input_sleb128 (ib);
+
+      LTO_DEBUG_TOKEN ("self_time");
+      self_time = lto_input_sleb128 (ib);
+
+      LTO_DEBUG_TOKEN ("time_inlining_benefit");
+      time_inlining_benefit = lto_input_sleb128 (ib);
     }
 
   LTO_DEBUG_TOKEN ("estimated_stack_size");
@@ -499,8 +532,11 @@ input_node (struct lto_file_decl_data *file_data,
   LTO_DEBUG_TOKEN ("inlined_to");
   ref = lto_input_sleb128 (ib);
 
-  LTO_DEBUG_TOKEN ("insns");
-  insns = lto_input_sleb128 (ib);
+  LTO_DEBUG_TOKEN ("time");
+  time = lto_input_sleb128 (ib);
+
+  LTO_DEBUG_TOKEN ("size");
+  size = lto_input_sleb128 (ib);
 
   LTO_DEBUG_TOKEN ("estimated_growth");
   estimated_growth = lto_input_sleb128 (ib);
@@ -517,11 +553,13 @@ input_node (struct lto_file_decl_data *file_data,
      flags.  */
   gcc_assert (!node->aux || DECL_IS_BUILTIN (node->decl));
 
-  input_overwrite_node (file_data, node, tag, flags, stack_size, self_insns);
+  input_overwrite_node (file_data, node, tag, flags, stack_size, self_time,
+  			time_inlining_benefit, self_size, size_inlining_benefit);
 
   node->global.estimated_stack_size = estimated_stack_size;
   node->global.stack_frame_offset = stack_frame_offset;
-  node->global.insns = insns;
+  node->global.time = time;
+  node->global.size = size;
 
   /* Store a reference for now, and fix up later to be a pointer.  */
   node->global.inlined_to = (cgraph_node_ptr) (intptr_t) ref;
@@ -740,7 +778,7 @@ input_cgraph (void)
 }
 
 
-struct ipa_opt_pass pass_ipa_lto_cgraph =
+struct ipa_opt_pass_d pass_ipa_lto_cgraph =
 {
  {
   IPA_PASS,

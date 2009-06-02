@@ -1386,7 +1386,7 @@ gate_lto_out (void)
 	  && !(errorcount || sorrycount));
 }
 
-struct ipa_opt_pass pass_ipa_lto_finish_out =
+struct ipa_opt_pass_d pass_ipa_lto_finish_out =
 {
  {
   IPA_PASS,

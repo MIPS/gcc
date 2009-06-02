@@ -217,9 +217,6 @@
     START_EXPR_CASE (CEIL_MOD_EXPR)
     END_EXPR_CASE (CEIL_MOD_EXPR)
       
-    START_EXPR_CASE (CHANGE_DYNAMIC_TYPE_EXPR)
-    END_EXPR_CASE (CHANGE_DYNAMIC_TYPE_EXPR)
-
     START_EXPR_CASE (CLEANUP_POINT_EXPR)
     END_EXPR_CASE (CLEANUP_POINT_EXPR)
       
@@ -310,7 +307,6 @@
       ADD_DECL_FLAG (decl_flag_1)
       ADD_DECL_FLAG (decl_flag_2) 
       ADD_DECL_FLAG (decl_flag_3)
-      ADD_DECL_FLAG (no_tbaa_flag)		/* ??? */
     END_EXPR_CASE (FIELD_DECL)
       
     START_EXPR_CASE (FILTER_EXPR)
@@ -354,7 +350,6 @@
       ADD_DECL_FLAG (preserve_flag)
       ADD_DECL_FLAG (debug_expr_is_from)  	/* ??? */
       ADD_DECL_FLAG (decl_flag_2)
-      ADD_DECL_FLAG (no_tbaa_flag)		/* ??? */
       ADD_VIS_FLAG (weak_flag)
       ADD_VIS_FLAG (comdat_flag)
       ADD_VIS_FLAG_SIZE (visibility, 2);
@@ -550,7 +545,7 @@
       
     START_EXPR_CASE (PARM_DECL)
       ADD_EXPR_FLAG (addressable_flag)
-      ADD_EXPR_FLAG (private_flag)	/* DECL_BY_REFERENCE */
+      ADD_EXPR_FLAG (private_flag)
       ADD_DECL_FLAG (nonlocal_flag)
       ADD_DECL_FLAG (virtual_flag)
       ADD_DECL_FLAG (abstract_flag)
@@ -559,6 +554,7 @@
       ADD_DECL_FLAG (decl_flag_2)
       ADD_DECL_FLAG (decl_flag_3)
       ADD_DECL_FLAG (gimple_reg_flag)
+      ADD_DECL_FLAG (decl_by_reference_flag)
     END_EXPR_CASE (PARM_DECL)
       
     START_EXPR_CASE (PLACEHOLDER_EXPR)
@@ -637,10 +633,8 @@
     END_EXPR_CASE (REFERENCE_TYPE)
       
     START_EXPR_CASE (RESULT_DECL)
-      /* ### Missing flags when used as declaration, not expression. */
-      ADD_EXPR_FLAG (private_flag)	/* DECL_BY_REFERENCE */
+      ADD_DECL_FLAG (decl_by_reference_flag)
       ADD_DECL_FLAG (gimple_reg_flag)
-
     END_EXPR_CASE (RESULT_DECL)
       
     START_EXPR_CASE (RESX_EXPR)
@@ -758,7 +752,6 @@
       ADD_DECL_FLAG (artificial_flag)
       /* ### Do we need  user_align, preserve_flag, debug_expr_is_from ??? */
       ADD_DECL_FLAG (decl_flag_2)
-      ADD_DECL_FLAG (no_tbaa_flag)   /* ??? */
       /* ### Do we need weak_flag, visibility_specified, visibility ??? */
     END_EXPR_CASE (TYPE_DECL)
       
@@ -800,7 +793,7 @@
       ADD_DECL_FLAG (decl_flag_2)
       ADD_DECL_FLAG (decl_flag_3)
       ADD_DECL_FLAG (gimple_reg_flag)
-      /* ### no_tbaa_flag ??? */
+      ADD_DECL_FLAG (decl_by_reference_flag)
       ADD_VIS_FLAG (defer_output)
       ADD_VIS_FLAG (hard_register)
       ADD_VIS_FLAG (thread_local)

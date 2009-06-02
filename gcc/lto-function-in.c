@@ -1244,7 +1244,7 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
   if (tag == LTO_eh_table_shared_region)
     return NULL;
 
-  r = GGC_CNEW (struct eh_region);
+  r = GGC_CNEW (struct eh_region_d);
   r->region_number = lto_input_sleb128 (ib);
   r->aka = input_bitmap (ib, NULL, true);
 
@@ -1272,7 +1272,6 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
       case LTO_eh_table_cleanup0:
       case LTO_eh_table_cleanup1:
 	r->type = ERT_CLEANUP;
-	r->u.cleanup.prev_try = (eh_region) (intptr_t) lto_input_uleb128 (ib);
 	break;
 
       case LTO_eh_table_try0:
@@ -1374,11 +1373,7 @@ fixup_eh_region_pointers (struct function *fn, HOST_WIDE_INT root_region)
       fixup_region (r->inner);
       fixup_region (r->next_peer);
 
-      if (r->type == ERT_CLEANUP)
-	{
-	  fixup_region (r->u.cleanup.prev_try);
-	}
-      else if (r->type == ERT_TRY)
+      if (r->type == ERT_TRY)
 	{
 	  fixup_region (r->u.eh_try.eh_catch);
 	  fixup_region (r->u.eh_try.last_catch);
@@ -1757,8 +1752,6 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     code = GIMPLE_ASSIGN;
   else if (tag == LTO_gimple_call)
     code = GIMPLE_CALL;
-  else if (tag == LTO_gimple_change_dynamic_type)
-    code = GIMPLE_CHANGE_DYNAMIC_TYPE;
   else if (tag == LTO_gimple_cond)
     code = GIMPLE_COND;
   else if (tag == LTO_gimple_goto)
@@ -1958,6 +1951,50 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   LTO_DEBUG_UNDENT();
 }
 
+/* Go through all NODE edges and fixup call_stmt pointers
+   so they point to STMTS.  */
+
+static void
+fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple *stmts)
+{
+  struct cgraph_edge *cedge;
+  for (cedge = node->callees; cedge; cedge = cedge->next_callee)
+    {
+      cedge->call_stmt = stmts[cedge->lto_stmt_uid];
+#ifdef LOCAL_TRACE
+      fprintf (stderr, "fixing up call %d\n", cedge->lto_stmt_uid);
+#endif
+    }
+}
+
+/* Fixup call_stmt pointers in NODE and all clones.  */
+
+static void
+fixup_call_stmt_edges (struct cgraph_node *orig, gimple *stmts)
+{
+  struct cgraph_node *node;
+
+  while (orig->clone_of)
+    orig = orig->clone_of;
+
+  fixup_call_stmt_edges_1 (orig, stmts);
+  if (orig->clones)
+    for (node = orig->clones; node != orig;)
+      {
+	fixup_call_stmt_edges_1 (node, stmts);
+	if (node->clones)
+	  node = node->clones;
+	else if (node->next_sibling_clone)
+	  node = node->next_sibling_clone;
+	else
+	  {
+	    while (node != orig && !node->next_sibling_clone)
+	      node = node->clone_of;
+	    if (node != orig)
+	      node = node->next_sibling_clone;
+	  }
+      }
+}
 
 /* Read the body of function FN_DECL from DATA_IN using input block IB.  */
 
@@ -1968,9 +2005,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   struct function *fn;
   enum LTO_tags tag;
   gimple *stmts;
-  struct cgraph_edge *cedge; 
   basic_block bb;
-  struct cgraph_node *node;
   unsigned HOST_WIDEST_INT flags;
 
   fn = DECL_STRUCT_FUNCTION (fn_decl);
@@ -2065,20 +2100,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   fprintf (stderr, "%s\n", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn_decl)));
 #endif
 
-  /* We need to go through all NODE's clones to fix up call-stmts in
-     edges.  */
-  node = cgraph_node (fn_decl);
-  while (node->prev_clone)
-    node = node->prev_clone;
-
-  for (; node; node = node->next_clone)
-    for (cedge = node->callees; cedge; cedge = cedge->next_callee)
-      {
-	cedge->call_stmt = stmts[cedge->lto_stmt_uid];
-#ifdef LOCAL_TRACE
-	fprintf (stderr, "fixing up call %d\n", cedge->lto_stmt_uid);
-#endif
-      }
+  fixup_call_stmt_edges (cgraph_node (fn_decl), stmts);
 
 #ifdef LOCAL_TRACE
   fprintf (stderr, "\n");

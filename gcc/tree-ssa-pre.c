@@ -2647,6 +2647,36 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	return folded;
       }
       break;
+    case TARGET_MEM_REF:
+      {
+	vn_reference_op_t nextop = VEC_index (vn_reference_op_s, ref->operands,
+					      *operand);
+	pre_expr op0expr;
+	tree genop0 = NULL_TREE;
+	tree baseop = create_component_ref_by_pieces_1 (block, ref, operand,
+							stmts, domstmt);
+	if (!baseop)
+	  return NULL_TREE;
+	if (currop->op0)
+	  {
+	    op0expr = get_or_alloc_expr_for (currop->op0);
+	    genop0 = find_or_generate_expression (block, op0expr,
+						  stmts, domstmt);
+	    if (!genop0)
+	      return NULL_TREE;
+	  }
+	if (DECL_P (baseop))
+	  return build6 (TARGET_MEM_REF, currop->type,
+			 baseop, NULL_TREE,
+			 genop0, currop->op1, currop->op2,
+			 unshare_expr (nextop->op1));
+	else
+	  return build6 (TARGET_MEM_REF, currop->type,
+			 NULL_TREE, baseop,
+			 genop0, currop->op1, currop->op2,
+			 unshare_expr (nextop->op1));
+      }
+      break;
     case ADDR_EXPR:
       if (currop->op0)
 	{
@@ -2902,8 +2932,8 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 			     gimple_seq *stmts, gimple domstmt, tree type)
 {
   tree temp, name;
-  tree folded, newexpr;
-  gimple_seq forced_stmts;
+  tree folded;
+  gimple_seq forced_stmts = NULL;
   unsigned int value_id;
   gimple_stmt_iterator gsi;
   tree exprtype = type ? type : get_expr_type (expr);
@@ -2975,13 +3005,16 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
     default:
       return NULL_TREE;
     }
-  folded = fold_convert (exprtype, folded);
+
+  if (!useless_type_conversion_p (exprtype, TREE_TYPE (folded)))
+    folded = fold_convert (exprtype, folded);
+
   /* Force the generated expression to be a sequence of GIMPLE
      statements.
      We have to call unshare_expr because force_gimple_operand may
      modify the tree we pass to it.  */
-  newexpr = force_gimple_operand (unshare_expr (folded), &forced_stmts,
-				  false, NULL);
+  folded = force_gimple_operand (unshare_expr (folded), &forced_stmts,
+				 false, NULL);
 
   /* If we have any intermediate expressions to the value sets, add them
      to the value sets and chain them in the instruction stream.  */
@@ -3026,7 +3059,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
       || TREE_CODE (exprtype) == VECTOR_TYPE)
     DECL_GIMPLE_REG_P (temp) = 1;
 
-  newstmt = gimple_build_assign (temp, newexpr);
+  newstmt = gimple_build_assign (temp, folded);
   name = make_ssa_name (temp, newstmt);
   gimple_assign_set_lhs (newstmt, name);
   gimple_set_plf (newstmt, NECESSARY, false);
@@ -4136,7 +4169,7 @@ eliminate (void)
 		  /* Changing an indirect call to a direct call may
 		     have exposed different semantics.  This may
 		     require an SSA update.  */
-		  todo |= TODO_update_ssa;
+		  todo |= TODO_update_ssa_only_virtuals;
 		}
 	    }
 	}
@@ -4559,7 +4592,7 @@ struct gimple_opt_pass pass_pre =
   0,					/* static_pass_number */
   TV_TREE_PRE,				/* tv_id */
   PROP_no_crit_edges | PROP_cfg
-    | PROP_ssa | PROP_alias,		/* properties_required */
+    | PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_rebuild_alias,			/* todo_flags_start */
@@ -4594,7 +4627,7 @@ struct gimple_opt_pass pass_fre =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_FRE,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

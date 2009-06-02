@@ -371,16 +371,24 @@ then
 fi
 
 case ${target} in
+i[34567]86-w64-*)
+	tm_file="i386/biarch32.h ${tm_file}"
+	;;
+esac
+
+case ${target} in
 i[34567]86-*-*)
 	if test "x$enable_cld" = xyes; then
 		tm_defines="${tm_defines} USE_IX86_CLD=1"
 	fi
+	tm_file="vxworks-dummy.h ${tm_file}"
 	;;
 x86_64-*-*)
 	tm_file="i386/biarch64.h ${tm_file}"
 	if test "x$enable_cld" = xyes; then
 		tm_defines="${tm_defines} USE_IX86_CLD=1"
 	fi
+	tm_file="vxworks-dummy.h ${tm_file}"
 	;;
 esac
 
@@ -411,6 +419,7 @@ case ${target} in
   extra_objs="darwin.o"
   extra_gcc_objs="darwin-driver.o"
   default_use_cxa_atexit=yes
+  use_gcc_stdint=wrap
   case ${enable_threads} in
     "" | yes | posix) thread_file='posix' ;;
   esac
@@ -1817,7 +1826,7 @@ powerpc-*-eabialtivec*)
 powerpc-xilinx-eabi*)
 	tm_file="${tm_file} dbxelf.h elfos.h usegas.h svr4.h freebsd-spec.h newlib-stdint.h rs6000/sysv4.h rs6000/eabi.h rs6000/singlefp.h rs6000/xfpu.h rs6000/xilinx.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
-	tmake_file="rs6000/t-fprules rs6000/t-fprules-fpbit rs6000/t-ppcgas rs6000/t-ppccomm"
+	tmake_file="rs6000/t-fprules rs6000/t-fprules-fpbit rs6000/t-ppcgas rs6000/t-ppccomm rs6000/t-xilinx"
 	use_gcc_stdint=wrap
 	;;
 powerpc-*-eabi*)
@@ -2867,7 +2876,7 @@ case "${target}" in
 		;;
 
 	mips*-*-*)
-		supported_defaults="abi arch float tune divide llsc mips-plt"
+		supported_defaults="abi arch arch_32 arch_64 float tune tune_32 tune_64 divide llsc mips-plt"
 
 		case ${with_float} in
 		"" | soft | hard)

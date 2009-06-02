@@ -256,7 +256,7 @@ gate_wpa_fixup (void)
   return (flag_wpa || flag_ltrans) && gate_lto_out ();
 }
 
-struct ipa_opt_pass pass_ipa_lto_wpa_fixup =
+struct ipa_opt_pass_d pass_ipa_lto_wpa_fixup =
 {
  {
   IPA_PASS,

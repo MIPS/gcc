@@ -241,7 +241,7 @@ rest_of_type_compilation (tree type, int toplev)
 void
 finish_optimization_passes (void)
 {
-  enum tree_dump_index i;
+  int i;
   struct dump_file_info *dfi;
   char *name;
 
@@ -563,7 +563,11 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
-	  NEXT_PASS (pass_update_address_taken);
+	  /* pass_build_ealias is a dummy pass that ensures that we
+	     execute TODO_rebuild_alias at this point.  Re-building
+	     alias information also rewrites no longer addressed
+	     locals into SSA form if possible.  */
+	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
@@ -583,7 +587,9 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &all_regular_ipa_passes;
-  NEXT_PASS (pass_ipa_cp);
+  /* FIXME lto: ipa-reference was modified to ignore node duplication
+     hook.  This means that we ICE first time real clone is created.  */
+  /*NEXT_PASS (pass_ipa_cp);*/
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_reference);
   NEXT_PASS (pass_ipa_pure_const); 
@@ -614,13 +620,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_forwprop);
-      /* Ideally the function call conditional
-	 dead code elimination phase can be delayed
-	 till later where potentially more opportunities
-	 can be found.  Due to lack of good ways to
-	 update VDEFs associated with the shrink-wrapped
-	 calls, it is better to do the transformation
-	 here where memory SSA is not built yet.  */
       NEXT_PASS (pass_call_cdce);
       /* pass_build_alias is a dummy pass that ensures that we
 	 execute TODO_rebuild_alias at this point.  Re-building
@@ -688,6 +687,7 @@ init_optimization_passes (void)
 	      NEXT_PASS (pass_dce_loop);
 	    }
 	  NEXT_PASS (pass_complete_unroll);
+	  NEXT_PASS (pass_slp_vectorize);
 	  NEXT_PASS (pass_parallelize_loops);
 	  NEXT_PASS (pass_loop_prefetch);
 	  NEXT_PASS (pass_iv_optimize);
@@ -871,7 +871,7 @@ do_per_function (void (*callback) (void *data), void *data)
     {
       struct cgraph_node *node;
       for (node = cgraph_nodes; node; node = node->next)
-	if (node->analyzed)
+	if (node->analyzed && gimple_has_body_p (node->decl))
 	  {
 	    push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	    current_function_decl = node->decl;
@@ -984,7 +984,6 @@ execute_function_todo (void *data)
       if (!(flags & TODO_update_address_taken))
 	execute_update_addresses_taken (true);
       compute_may_aliases ();
-      cfun->curr_properties |= PROP_alias;
     }
   
   if (flags & TODO_remove_unused_locals)
@@ -1187,14 +1186,14 @@ update_properties_after_pass (void *data)
 static void
 add_ipa_transform_pass (void *data)
 {
-  struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *) data;
+  struct ipa_opt_pass_d *ipa_pass = (struct ipa_opt_pass_d *) data;
   VEC_safe_push (ipa_opt_pass, heap, cfun->ipa_transforms_to_apply, ipa_pass);
 }
 
 /* Execute summary generation for all of the passes in IPA_PASS.  */
 
 void
-execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
+execute_ipa_summary_passes (struct ipa_opt_pass_d *ipa_pass)
 {
   while (ipa_pass)
     {
@@ -1219,7 +1218,7 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 
 	  pass_fini_dump_file (pass);
 	}
-      ipa_pass = (struct ipa_opt_pass *)ipa_pass->pass.next;
+      ipa_pass = (struct ipa_opt_pass_d *)ipa_pass->pass.next;
     }
 }
 
@@ -1227,7 +1226,7 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 
 static void
 execute_one_ipa_transform_pass (struct cgraph_node *node,
-				struct ipa_opt_pass *ipa_pass)
+				struct ipa_opt_pass_d *ipa_pass)
 {
   struct opt_pass *pass = &ipa_pass->pass;
   unsigned int todo_after = 0;
@@ -1400,7 +1399,7 @@ ipa_write_summaries_2 (struct opt_pass *pass, cgraph_node_set set,
 {
   while (pass)
     {
-      struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *)pass;
+      struct ipa_opt_pass_d *ipa_pass = (struct ipa_opt_pass_d *)pass;
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
       gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
@@ -1496,7 +1495,7 @@ ipa_read_summaries_1 (struct opt_pass *pass)
 {
   while (pass)
     {
-      struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *) pass;
+      struct ipa_opt_pass_d *ipa_pass = (struct ipa_opt_pass_d *) pass;
 
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
@@ -1585,8 +1584,6 @@ dump_properties (FILE *dump, unsigned int props)
     fprintf (dump, "PROP_no_crit_edges\n");
   if (props & PROP_rtl)
     fprintf (dump, "PROP_rtl\n");
-  if (props & PROP_alias)
-    fprintf (dump, "PROP_alias\n");
   if (props & PROP_gimple_lomp)
     fprintf (dump, "PROP_gimple_lomp\n");
 }

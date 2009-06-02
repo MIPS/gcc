@@ -422,7 +422,6 @@
   MAP_STMT_TAG (GIMPLE_ASM, LTO_gimple_asm)
   MAP_STMT_TAG (GIMPLE_ASSIGN, LTO_gimple_assign)
   MAP_STMT_TAG (GIMPLE_CALL, LTO_gimple_call)
-  MAP_STMT_TAG (GIMPLE_CHANGE_DYNAMIC_TYPE, LTO_gimple_change_dynamic_type)
   MAP_STMT_TAG (GIMPLE_COND, LTO_gimple_cond)
   MAP_STMT_TAG (GIMPLE_GOTO, LTO_gimple_goto)
   MAP_STMT_TAG (GIMPLE_LABEL, LTO_gimple_label)

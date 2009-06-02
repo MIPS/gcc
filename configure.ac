@@ -738,7 +738,7 @@ case "${target}" in
     ;;    
   *-*-cygwin*)
     target_configdirs="$target_configdirs target-libtermcap target-winsup"
-    noconfigdirs="$noconfigdirs target-gperf target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs target-gperf target-libgloss"
     # always build newlib if winsup directory is present.
     if test -d "$srcdir/winsup/cygwin"; then
       skipdirs=`echo " ${skipdirs} " | sed -e 's/ target-newlib / /'`
@@ -1346,7 +1346,7 @@ pplinc=
 
 AC_ARG_WITH(ppl, [  --with-ppl=PATH         Specify prefix directory for the installed PPL package
                           Equivalent to --with-ppl-include=PATH/include
-                          plus --with-ppl-lib=PATH/lib])
+                          plus --with-ppl-lib=PATH/lib],, with_ppl=no)
 AC_ARG_WITH(ppl_include, [  --with-ppl-include=PATH Specify directory for installed PPL include files])
 AC_ARG_WITH(ppl_lib, [  --with-ppl-lib=PATH     Specify the directory for the installed PPL library])
 
@@ -1401,7 +1401,7 @@ clooginc=" -DCLOOG_PPL_BACKEND "
 
 AC_ARG_WITH(cloog, [  --with-cloog=PATH       Specify prefix directory for the installed CLooG-PPL package
                           Equivalent to --with-cloog-include=PATH/include
-                          plus --with-cloog-lib=PATH/lib])
+                          plus --with-cloog-lib=PATH/lib],, with_cloog=no)
 AC_ARG_WITH(cloog_include, [  --with-cloog-include=PATH Specify directory for installed CLooG include files])
 AC_ARG_WITH(cloog_lib, [  --with-cloog-lib=PATH   Specify the directory for the installed CLooG library])
 

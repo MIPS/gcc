@@ -1663,17 +1663,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       is_expr = false;
       break;
 
-    case CHANGE_DYNAMIC_TYPE_EXPR:
-      pp_string (buffer, "<<<change_dynamic_type (");
-      dump_generic_node (buffer, CHANGE_DYNAMIC_TYPE_NEW_TYPE (node), spc + 2,
-			 flags, false);
-      pp_string (buffer, ") ");
-      dump_generic_node (buffer, CHANGE_DYNAMIC_TYPE_LOCATION (node), spc + 2,
-			 flags, false);
-      pp_string (buffer, ")>>>");
-      is_expr = false;
-      break;
-
     case LABEL_EXPR:
       op0 = TREE_OPERAND (node, 0);
       /* If this is for break or continue, don't bother printing it.  */
@@ -2832,6 +2821,7 @@ maybe_init_pretty_print (FILE *file)
     {
       pp_construct (&buffer, /* prefix */NULL, /* line-width */0);
       pp_needs_newline (&buffer) = true;
+      pp_translate_identifiers (&buffer) = false;
       initialized = 1;
     }
 

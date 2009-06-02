@@ -1603,20 +1603,63 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
 	}
       len = i;
 
-      if (!default_case)
-	{
-	  gimple new_default;
-
-	  /* If the switch has no default label, add one, so that we jump
-	     around the switch body.  */
-	  default_case = build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
-	                         NULL_TREE, create_artificial_label ());
-	  new_default = gimple_build_label (CASE_LABEL (default_case));
-	  gimplify_seq_add_stmt (&switch_body_seq, new_default);
-	}
-
       if (!VEC_empty (tree, labels))
 	sort_case_labels (labels);
+
+      if (!default_case)
+	{
+	  tree type = TREE_TYPE (switch_expr);
+
+	  /* If the switch has no default label, add one, so that we jump
+	     around the switch body.  If the labels already cover the whole
+	     range of type, add the default label pointing to one of the
+	     existing labels.  */
+	  if (type == void_type_node)
+	    type = TREE_TYPE (SWITCH_COND (switch_expr));
+	  if (len
+	      && INTEGRAL_TYPE_P (type)
+	      && TYPE_MIN_VALUE (type)
+	      && TYPE_MAX_VALUE (type)
+	      && tree_int_cst_equal (CASE_LOW (VEC_index (tree, labels, 0)),
+				     TYPE_MIN_VALUE (type)))
+	    {
+	      tree low, high = CASE_HIGH (VEC_index (tree, labels, len - 1));
+	      if (!high)
+		high = CASE_LOW (VEC_index (tree, labels, len - 1));
+	      if (tree_int_cst_equal (high, TYPE_MAX_VALUE (type)))
+		{
+		  for (i = 1; i < len; i++)
+		    {
+		      high = CASE_LOW (VEC_index (tree, labels, i));
+		      low = CASE_HIGH (VEC_index (tree, labels, i - 1));
+		      if (!low)
+			low = CASE_LOW (VEC_index (tree, labels, i - 1));
+		      if ((TREE_INT_CST_LOW (low) + 1
+			   != TREE_INT_CST_LOW (high))
+			  || (TREE_INT_CST_HIGH (low)
+			      + (TREE_INT_CST_LOW (high) == 0)
+			      != TREE_INT_CST_HIGH (high)))
+			break;
+		    }
+		  if (i == len)
+		    default_case = build3 (CASE_LABEL_EXPR, void_type_node,
+					   NULL_TREE, NULL_TREE,
+					   CASE_LABEL (VEC_index (tree,
+								  labels, 0)));
+		}
+	    }
+
+	  if (!default_case)
+	    {
+	      gimple new_default;
+
+	      default_case = build3 (CASE_LABEL_EXPR, void_type_node,
+				     NULL_TREE, NULL_TREE,
+				     create_artificial_label ());
+	      new_default = gimple_build_label (CASE_LABEL (default_case));
+	      gimplify_seq_add_stmt (&switch_body_seq, new_default);
+	    }
+	}
 
       gimple_switch = gimple_build_switch_vec (SWITCH_COND (switch_expr), 
                                                default_case, labels);
@@ -3599,14 +3642,11 @@ static enum gimplify_status
 gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			   bool want_value, bool notify_temp_creation)
 {
-  tree object, new_ctor;
-  tree ctor = TREE_OPERAND (*expr_p, 1);
-  tree type = TREE_TYPE (ctor);
+  tree object, ctor, type;
   enum gimplify_status ret;
   VEC(constructor_elt,gc) *elts;
 
-  if (TREE_CODE (ctor) != CONSTRUCTOR)
-    return GS_UNHANDLED;
+  gcc_assert (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == CONSTRUCTOR);
 
   if (!notify_temp_creation)
     {
@@ -3617,8 +3657,10 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     }
 
   object = TREE_OPERAND (*expr_p, 0);
-  new_ctor = optimize_compound_literals_in_ctor (ctor);
-  elts = CONSTRUCTOR_ELTS (new_ctor);
+  ctor = TREE_OPERAND (*expr_p, 1) =
+    optimize_compound_literals_in_ctor (TREE_OPERAND (*expr_p, 1));
+  type = TREE_TYPE (ctor);
+  elts = CONSTRUCTOR_ELTS (ctor);
   ret = GS_ALL_DONE;
 
   switch (TREE_CODE (type))
@@ -5394,8 +5436,8 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
       switch (default_kind)
 	{
 	case OMP_CLAUSE_DEFAULT_NONE:
-	  error ("%qs not specified in enclosing parallel",
-		 IDENTIFIER_POINTER (DECL_NAME (decl)));
+	  error ("%qE not specified in enclosing parallel",
+		 DECL_NAME (decl));
 	  error ("%Henclosing parallel", &ctx->location);
 	  /* FALLTHRU */
 	case OMP_CLAUSE_DEFAULT_SHARED:
@@ -5501,8 +5543,8 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
 	{
 	  if (ctx == gimplify_omp_ctxp)
 	    {
-	      error ("iteration variable %qs should be private",
-		     IDENTIFIER_POINTER (DECL_NAME (decl)));
+	      error ("iteration variable %qE should be private",
+		     DECL_NAME (decl));
 	      n->value = GOVD_PRIVATE;
 	      return true;
 	    }
@@ -5515,11 +5557,11 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
 		       && gimplify_omp_ctxp->outer_context == ctx)))
 	{
 	  if ((n->value & GOVD_FIRSTPRIVATE) != 0)
-	    error ("iteration variable %qs should not be firstprivate",
-		   IDENTIFIER_POINTER (DECL_NAME (decl)));
+	    error ("iteration variable %qE should not be firstprivate",
+		   DECL_NAME (decl));
 	  else if ((n->value & GOVD_REDUCTION) != 0)
-	    error ("iteration variable %qs should not be reduction",
-		   IDENTIFIER_POINTER (DECL_NAME (decl)));
+	    error ("iteration variable %qE should not be reduction",
+		   DECL_NAME (decl));
 	}
       return (ctx == gimplify_omp_ctxp
 	      || (ctx->region_type == ORT_COMBINED_PARALLEL
@@ -5681,8 +5723,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	      && region_type == ORT_WORKSHARE
 	      && omp_check_private (ctx, decl))
 	    {
-	      error ("%s variable %qs is private in outer context",
-		     check_non_private, IDENTIFIER_POINTER (DECL_NAME (decl)));
+	      error ("%s variable %qE is private in outer context",
+		     check_non_private, DECL_NAME (decl));
 	      remove = true;
 	    }
 	  break;
@@ -6726,6 +6768,24 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  }
 	  break;
 
+	case TARGET_MEM_REF:
+	  {
+	    enum gimplify_status r0 = GS_ALL_DONE, r1 = GS_ALL_DONE;
+
+	    if (TMR_SYMBOL (*expr_p))
+	      r0 = gimplify_expr (&TMR_SYMBOL (*expr_p), pre_p,
+				  post_p, is_gimple_lvalue, fb_either);
+	    else if (TMR_BASE (*expr_p))
+	      r0 = gimplify_expr (&TMR_BASE (*expr_p), pre_p,
+				  post_p, is_gimple_val, fb_either);
+	    if (TMR_INDEX (*expr_p))
+	      r1 = gimplify_expr (&TMR_INDEX (*expr_p), pre_p,
+				  post_p, is_gimple_val, fb_rvalue);
+	    /* TMR_STEP and TMR_OFFSET are always integer constants.  */
+	    ret = MIN (r0, r1);
+	  }
+	  break;
+
 	case NON_LVALUE_EXPR:
 	  /* This should have been stripped above.  */
 	  gcc_unreachable ();
@@ -6794,19 +6854,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    ret = GS_ALL_DONE;
 	    break;
 	  }
-
-	case CHANGE_DYNAMIC_TYPE_EXPR:
-	  {
-	    gimple cdt;
-
-	    ret = gimplify_expr (&CHANGE_DYNAMIC_TYPE_LOCATION (*expr_p),
-				 pre_p, post_p, is_gimple_reg, fb_lvalue);
-	    cdt = gimple_build_cdt (CHANGE_DYNAMIC_TYPE_NEW_TYPE (*expr_p),
-				    CHANGE_DYNAMIC_TYPE_LOCATION (*expr_p));
-	    gimplify_seq_add_stmt (pre_p, cdt);
-	    ret = GS_ALL_DONE;
-	  }
-	  break;
 
 	case OBJ_TYPE_REF:
 	  {

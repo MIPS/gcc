@@ -1,3 +1,7 @@
+2009-06-02  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/ipa/ipa.exp: Disable temporarily.
+
 2009-05-21  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/lto.exp: Call check_effective_target_lto.

@@ -425,8 +425,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    fputs (" virtual", file);
 	  if (DECL_PRESERVE_P (node))
 	    fputs (" preserve", file);
-	  if (DECL_NO_TBAA_P (node))
-	    fputs (" no-tbaa", file);
 	  if (DECL_LANG_FLAG_0 (node))
 	    fputs (" decl_0", file);
 	  if (DECL_LANG_FLAG_1 (node))
@@ -447,6 +445,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  mode = DECL_MODE (node);
 	  fprintf (file, " %s", GET_MODE_NAME (mode));
 	}
+
+      if ((code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL)
+	  && DECL_BY_REFERENCE (node))
+	fputs (" passed-by-reference", file);
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS)  && DECL_DEFER_OUTPUT (node))
 	fputs (" defer-output", file);

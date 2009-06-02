@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "c-common.h"
 #include "except.h"
 #include "function.h"
 #include "recog.h"
@@ -1966,9 +1965,11 @@ static int ix86_isa_flags_explicit;
 
 #define OPTION_MASK_ISA_ABM_SET \
   (OPTION_MASK_ISA_ABM | OPTION_MASK_ISA_POPCNT)
+
 #define OPTION_MASK_ISA_POPCNT_SET OPTION_MASK_ISA_POPCNT
 #define OPTION_MASK_ISA_CX16_SET OPTION_MASK_ISA_CX16
 #define OPTION_MASK_ISA_SAHF_SET OPTION_MASK_ISA_SAHF
+#define OPTION_MASK_ISA_MOVBE_SET OPTION_MASK_ISA_MOVBE
 
 /* Define a set of ISAs which aren't available when a given ISA is
    disabled.  MMX and SSE ISAs are handled separately.  */
@@ -2010,6 +2011,7 @@ static int ix86_isa_flags_explicit;
 #define OPTION_MASK_ISA_POPCNT_UNSET OPTION_MASK_ISA_POPCNT
 #define OPTION_MASK_ISA_CX16_UNSET OPTION_MASK_ISA_CX16
 #define OPTION_MASK_ISA_SAHF_UNSET OPTION_MASK_ISA_SAHF
+#define OPTION_MASK_ISA_MOVBE_UNSET OPTION_MASK_ISA_MOVBE
 
 /* Vectorization library interface and handlers.  */
 tree (*ix86_veclib_handler)(enum built_in_function, tree, tree) = NULL;
@@ -2300,6 +2302,19 @@ ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
 	}
       return true;
 
+    case OPT_mmovbe:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_MOVBE_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_MOVBE_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_MOVBE_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_MOVBE_UNSET;
+	}
+      return true;
+
     case OPT_maes:
       if (value)
 	{
@@ -2362,6 +2377,7 @@ ix86_target_string (int isa, int flags, const char *arch, const char *tune,
     { "-mmmx",		OPTION_MASK_ISA_MMX },
     { "-mabm",		OPTION_MASK_ISA_ABM },
     { "-mpopcnt",	OPTION_MASK_ISA_POPCNT },
+    { "-mmovbe",	OPTION_MASK_ISA_MOVBE },
     { "-maes",		OPTION_MASK_ISA_AES },
     { "-mpclmul",	OPTION_MASK_ISA_PCLMUL },
   };
@@ -2578,7 +2594,8 @@ override_options (bool main_args_p)
       PTA_AES = 1 << 17,
       PTA_PCLMUL = 1 << 18,
       PTA_AVX = 1 << 19,
-      PTA_FMA = 1 << 20 
+      PTA_FMA = 1 << 20,
+      PTA_MOVBE = 1 << 21
     };
 
   static struct pta
@@ -2622,7 +2639,7 @@ override_options (bool main_args_p)
 	| PTA_SSSE3 | PTA_CX16},
       {"atom", PROCESSOR_ATOM, CPU_ATOM,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-	| PTA_SSSE3 | PTA_CX16},
+	| PTA_SSSE3 | PTA_CX16 | PTA_MOVBE},
       {"geode", PROCESSOR_GEODE, CPU_GEODE,
 	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A |PTA_PREFETCH_SSE},
       {"k6", PROCESSOR_K6, CPU_K6, PTA_MMX},
@@ -2936,6 +2953,9 @@ override_options (bool main_args_p)
 	if (!(TARGET_64BIT && (processor_alias_table[i].flags & PTA_NO_SAHF))
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_SAHF))
 	  ix86_isa_flags |= OPTION_MASK_ISA_SAHF;
+	if (processor_alias_table[i].flags & PTA_MOVBE
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_MOVBE))
+	  ix86_isa_flags |= OPTION_MASK_ISA_MOVBE;
 	if (processor_alias_table[i].flags & PTA_AES
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_AES))
 	  ix86_isa_flags |= OPTION_MASK_ISA_AES;
@@ -4246,8 +4266,8 @@ ix86_handle_cconv_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -4266,14 +4286,14 @@ ix86_handle_cconv_attribute (tree *node, tree name,
       if (TREE_CODE (cst) != INTEGER_CST)
 	{
 	  warning (OPT_Wattributes,
-		   "%qs attribute requires an integer constant argument",
-		   IDENTIFIER_POINTER (name));
+		   "%qE attribute requires an integer constant argument",
+		   name);
 	  *no_add_attrs = true;
 	}
       else if (compare_tree_int (cst, REGPARM_MAX) > 0)
 	{
-	  warning (OPT_Wattributes, "argument to %qs attribute larger than %d",
-		   IDENTIFIER_POINTER (name), REGPARM_MAX);
+	  warning (OPT_Wattributes, "argument to %qE attribute larger than %d",
+		   name, REGPARM_MAX);
 	  *no_add_attrs = true;
 	}
 
@@ -4284,8 +4304,8 @@ ix86_handle_cconv_attribute (tree *node, tree name,
     {
       /* Do not warn when emulating the MS ABI.  */
       if (TREE_CODE (*node) != FUNCTION_TYPE || ix86_function_type_abi (*node)!=MS_ABI)
-	warning (OPT_Wattributes, "%qs attribute ignored",
-	         IDENTIFIER_POINTER (name));
+	warning (OPT_Wattributes, "%qE attribute ignored",
+	         name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -7413,10 +7433,12 @@ ix86_setup_frame_addresses (void)
   cfun->machine->accesses_prev_frame = 1;
 }
 
-#if (defined(HAVE_GAS_HIDDEN) && (SUPPORTS_ONE_ONLY - 0)) || TARGET_MACHO
-# define USE_HIDDEN_LINKONCE 1
-#else
-# define USE_HIDDEN_LINKONCE 0
+#ifndef USE_HIDDEN_LINKONCE
+# if (defined(HAVE_GAS_HIDDEN) && (SUPPORTS_ONE_ONLY - 0)) || TARGET_MACHO
+#  define USE_HIDDEN_LINKONCE 1
+# else
+#  define USE_HIDDEN_LINKONCE 0
+# endif
 #endif
 
 static int pic_labels_used;
@@ -9091,13 +9113,6 @@ ix86_cannot_force_const_mem (rtx x)
   return !legitimate_constant_p (x);
 }
 
-/* Determine if a given RTX is a valid constant address.  */
-
-bool
-constant_address_p (rtx x)
-{
-  return CONSTANT_P (x) && legitimate_address_p (Pmode, x, 1);
-}
 
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
@@ -9266,17 +9281,17 @@ legitimate_pic_address_disp_p (rtx disp)
   return 0;
 }
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression that is a valid
-   memory address for an instruction.  The MODE argument is the machine mode
-   for the MEM expression that wants to use this address.
+/* Recognizes RTL expressions that are valid memory addresses for an
+   instruction.  The MODE argument is the machine mode for the MEM
+   expression that wants to use this address.
 
    It only recognizes address in canonical form.  LEGITIMIZE_ADDRESS should
    convert common non-canonical forms to canonical form so that they will
    be recognized.  */
 
-int
-legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
-		      rtx addr, int strict)
+static bool
+ix86_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
+		           rtx addr, bool strict)
 {
   struct ix86_address parts;
   rtx base, index, disp;
@@ -9500,6 +9515,14 @@ legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
  report_error:
   return FALSE;
 }
+
+/* Determine if a given RTX is a valid constant address.  */
+
+bool
+constant_address_p (rtx x)
+{
+  return CONSTANT_P (x) && ix86_legitimate_address_p (Pmode, x, 1);
+}
 
 /* Return a unique alias set for the GOT.  */
 
@@ -9527,7 +9550,7 @@ ix86_GOT_alias_set (void)
       differentiate them from global data objects.  The returned
       address is the PIC reg + an unspec constant.
 
-   GO_IF_LEGITIMATE_ADDRESS rejects symbolic references unless the PIC
+   TARGET_LEGITIMATE_ADDRESS_P rejects symbolic references unless the PIC
    reg also appears in the address.  */
 
 static rtx
@@ -10011,9 +10034,6 @@ legitimize_dllimport_symbol (rtx symbol, bool want_reg)
    OLDX is the address as it was before break_out_memory_refs was called.
    In some cases it is useful to look at this to decide what needs to be done.
 
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
    It is always safe for this macro to do nothing.  It exists to recognize
    opportunities to optimize the output.
 
@@ -10155,7 +10175,7 @@ ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	    }
 	}
 
-      if (changed && legitimate_address_p (mode, x, FALSE))
+      if (changed && ix86_legitimate_address_p (mode, x, FALSE))
 	return x;
 
       if (GET_CODE (XEXP (x, 0)) == MULT)
@@ -10181,7 +10201,7 @@ ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  x = legitimize_pic_address (x, 0);
 	}
 
-      if (changed && legitimate_address_p (mode, x, FALSE))
+      if (changed && ix86_legitimate_address_p (mode, x, FALSE))
 	return x;
 
       if (REG_P (XEXP (x, 0)))
@@ -13590,7 +13610,7 @@ ix86_expand_convert_uns_sisf_sse (rtx target, rtx input)
     emit_move_insn (target, fp_hi);
 }
 
-/* A subroutine of ix86_build_signbit_mask_vector.  If VECT is true,
+/* A subroutine of ix86_build_signbit_mask.  If VECT is true,
    then replicate the value for all elements of the vector
    register.  */
 
@@ -13636,7 +13656,7 @@ ix86_build_const_vector (enum machine_mode mode, bool vect, rtx value)
    all elements of the vector register.  If INVERT is true, then create
    a mask excluding the sign bit.  */
 
-rtx
+static rtx
 ix86_build_signbit_mask (enum machine_mode mode, bool vect, bool invert)
 {
   enum machine_mode vec_mode, imode;
@@ -14948,14 +14968,11 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
     emit_label (label);
 }
 
-int
+void
 ix86_expand_setcc (enum rtx_code code, rtx dest)
 {
   rtx ret, tmp, tmpreg, equiv;
   rtx second_test, bypass_test;
-
-  if (GET_MODE (ix86_compare_op0) == (TARGET_64BIT ? TImode : DImode))
-    return 0; /* FAIL */
 
   gcc_assert (GET_MODE (dest) == QImode);
 
@@ -14995,8 +15012,6 @@ ix86_expand_setcc (enum rtx_code code, rtx dest)
 				       ix86_compare_op0, ix86_compare_op1);
       set_unique_reg_note (get_last_insn (), REG_EQUAL, equiv);
     }
-
-  return 1; /* DONE */
 }
 
 /* Expand comparison setting or clearing carry flag.  Return true when
@@ -15144,6 +15159,8 @@ ix86_expand_int_movcc (rtx operands[])
   bool sign_bit_compare_p = false;;
 
   start_sequence ();
+  ix86_compare_op0 = XEXP (operands[1], 0);
+  ix86_compare_op1 = XEXP (operands[1], 1);
   compare_op = ix86_expand_compare (code, &second_test, &bypass_test);
   compare_seq = get_insns ();
   end_sequence ();
@@ -15861,6 +15878,8 @@ ix86_expand_fp_movcc (rtx operands[])
   enum rtx_code code = GET_CODE (operands[1]);
   rtx tmp, compare_op, second_test, bypass_test;
 
+  ix86_compare_op0 = XEXP (operands[1], 0);
+  ix86_compare_op1 = XEXP (operands[1], 1);
   if (TARGET_SSE_MATH && SSE_FLOAT_MODE_P (mode))
     {
       enum machine_mode cmode;
@@ -16388,6 +16407,8 @@ ix86_expand_int_addcc (rtx operands[])
   bool fpcmp = false;
   enum machine_mode mode = GET_MODE (operands[0]);
 
+  ix86_compare_op0 = XEXP (operands[1], 0);
+  ix86_compare_op1 = XEXP (operands[1], 1);
   if (operands[3] != const1_rtx
       && operands[3] != constm1_rtx)
     return 0;
@@ -17215,7 +17236,7 @@ counter_mode (rtx count_exp)
 {
   if (GET_MODE (count_exp) != VOIDmode)
     return GET_MODE (count_exp);
-  if (GET_CODE (count_exp) != CONST_INT)
+  if (!CONST_INT_P (count_exp))
     return Pmode;
   if (TARGET_64BIT && (INTVAL (count_exp) & ~0xffffffff))
     return DImode;
@@ -19127,7 +19148,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
     }
 
   if (ix86_cmodel == CM_LARGE_PIC
-      && GET_CODE (fnaddr) == MEM
+      && MEM_P (fnaddr) 
       && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
       && !local_symbolic_operand (XEXP (fnaddr, 0), VOIDmode))
     fnaddr = gen_rtx_MEM (QImode, construct_plt_address (XEXP (fnaddr, 0)));
@@ -19310,17 +19331,23 @@ memory_address_length (rtx addr)
 
   /* Rule of thumb:
        - esp as the base always wants an index,
-       - ebp as the base always wants a displacement.  */
+       - ebp as the base always wants a displacement,
+       - r12 as the base always wants an index,
+       - r13 as the base always wants a displacement.  */
 
   /* Register Indirect.  */
   if (base && !index && !disp)
     {
       /* esp (for its index) and ebp (for its displacement) need
-	 the two-byte modrm form.  */
-      if (addr == stack_pointer_rtx
-	  || addr == arg_pointer_rtx
-	  || addr == frame_pointer_rtx
-	  || addr == hard_frame_pointer_rtx)
+	 the two-byte modrm form.  Similarly for r12 and r13 in 64-bit
+	 code.  */
+      if (REG_P (addr)
+	  && (addr == arg_pointer_rtx
+	      || addr == frame_pointer_rtx
+	      || REGNO (addr) == SP_REG
+	      || REGNO (addr) == BP_REG
+	      || REGNO (addr) == R12_REG
+	      || REGNO (addr) == R13_REG))
 	len = 1;
     }
 
@@ -19338,16 +19365,18 @@ memory_address_length (rtx addr)
 	  else
 	    len = 4;
 	}
-      /* ebp always wants a displacement.  */
-      else if (base == hard_frame_pointer_rtx)
+      /* ebp always wants a displacement.  Similarly r13.  */
+      else if (REG_P (base)
+	       && (REGNO (base) == BP_REG || REGNO (base) == R13_REG))
         len = 1;
 
       /* An index requires the two-byte modrm form....  */
       if (index
-	  /* ...like esp, which always wants an index.  */
-	  || base == stack_pointer_rtx
+	  /* ...like esp (or r12), which always wants an index.  */
 	  || base == arg_pointer_rtx
-	  || base == frame_pointer_rtx)
+	  || base == frame_pointer_rtx
+	  || (REG_P (base)
+	      && (REGNO (base) == SP_REG || REGNO (base) == R12_REG)))
 	len += 1;
     }
 
@@ -19400,14 +19429,23 @@ ix86_attr_length_address_default (rtx insn)
 
   if (get_attr_type (insn) == TYPE_LEA)
     {
-      rtx set = PATTERN (insn);
+      rtx set = PATTERN (insn), addr;
 
       if (GET_CODE (set) == PARALLEL)
 	set = XVECEXP (set, 0, 0);
 
       gcc_assert (GET_CODE (set) == SET);
 
-      return memory_address_length (SET_SRC (set));
+      addr = SET_SRC (set);
+      if (TARGET_64BIT && get_attr_mode (insn) == MODE_SI)
+	{
+	  if (GET_CODE (addr) == ZERO_EXTEND)
+	    addr = XEXP (addr, 0);
+	  if (GET_CODE (addr) == SUBREG)
+	    addr = SUBREG_REG (addr);
+	}
+
+      return memory_address_length (addr);
     }
 
   extract_insn_cached (insn);
@@ -24048,7 +24086,7 @@ ix86_expand_multi_arg_builtin (enum insn_code icode, tree exp, rtx target,
 
       if (last_arg_constant && i == nargs-1)
 	{
-	  if (GET_CODE (op) != CONST_INT)
+	  if (!CONST_INT_P (op))
 	    {
 	      error ("last argument must be an immediate");
 	      return gen_reg_rtx (tmode);
@@ -26837,15 +26875,15 @@ ix86_handle_abi_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
   if (!TARGET_64BIT)
     {
-      warning (OPT_Wattributes, "%qs attribute only available for 64-bit",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only available for 64-bit",
+	       name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -26892,8 +26930,8 @@ ix86_handle_struct_attribute (tree *node, tree name,
   if (!(type && (TREE_CODE (*type) == RECORD_TYPE
 		 || TREE_CODE (*type) == UNION_TYPE)))
     {
-      warning (OPT_Wattributes, "%qs attribute ignored",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute ignored",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -26902,8 +26940,8 @@ ix86_handle_struct_attribute (tree *node, tree name,
 	   || ((is_attribute_p ("gcc_struct", name)
 		&& lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (*type)))))
     {
-      warning (OPT_Wattributes, "%qs incompatible attribute ignored",
-               IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE incompatible attribute ignored",
+               name);
       *no_add_attrs = true;
     }
 
@@ -27193,6 +27231,7 @@ x86_function_profiler (FILE *file, int labelno ATTRIBUTE_UNUSED)
     }
 }
 
+#ifdef ASM_OUTPUT_MAX_SKIP_PAD
 /* We don't have exact information about the insn sizes, but we may assume
    quite safely that we are informed about all 1 byte insns and memory
    address sizes.  This is enough to eliminate unnecessary padding in
@@ -27210,9 +27249,7 @@ min_insn_size (rtx insn)
   if (GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
       && XINT (PATTERN (insn), 1) == UNSPECV_ALIGN)
     return 0;
-  if (JUMP_P (insn)
-      && (GET_CODE (PATTERN (insn)) == ADDR_VEC
-	  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC))
+  if (JUMP_TABLE_DATA_P(insn))
     return 0;
 
   /* Important case - calls are always 5 bytes.
@@ -27243,7 +27280,7 @@ min_insn_size (rtx insn)
    window.  */
 
 static void
-ix86_avoid_jump_misspredicts (void)
+ix86_avoid_jump_mispredicts (void)
 {
   rtx insn, start = get_insns ();
   int nbytes = 0, njumps = 0;
@@ -27257,15 +27294,52 @@ ix86_avoid_jump_misspredicts (void)
 
      The smallest offset in the page INSN can start is the case where START
      ends on the offset 0.  Offset of INSN is then NBYTES - sizeof (INSN).
-     We add p2align to 16byte window with maxskip 17 - NBYTES + sizeof (INSN).
+     We add p2align to 16byte window with maxskip 15 - NBYTES + sizeof (INSN).
      */
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+  for (insn = start; insn; insn = NEXT_INSN (insn))
     {
+      int min_size;
 
-      nbytes += min_insn_size (insn);
+      if (LABEL_P (insn))
+	{
+	  int align = label_to_alignment (insn);
+	  int max_skip = label_to_max_skip (insn);
+
+	  if (max_skip > 15)
+	    max_skip = 15;
+	  /* If align > 3, only up to 16 - max_skip - 1 bytes can be
+	     already in the current 16 byte page, because otherwise
+	     ASM_OUTPUT_MAX_SKIP_ALIGN could skip max_skip or fewer
+	     bytes to reach 16 byte boundary.  */
+	  if (align <= 0
+	      || (align <= 3 && max_skip != (1 << align) - 1))
+	    max_skip = 0;
+	  if (dump_file)
+	    fprintf (dump_file, "Label %i with max_skip %i\n",
+		     INSN_UID (insn), max_skip);
+	  if (max_skip)
+	    {
+	      while (nbytes + max_skip >= 16)
+		{
+		  start = NEXT_INSN (start);
+		  if ((JUMP_P (start)
+		       && GET_CODE (PATTERN (start)) != ADDR_VEC
+		       && GET_CODE (PATTERN (start)) != ADDR_DIFF_VEC)
+		      || CALL_P (start))
+		    njumps--, isjump = 1;
+		  else
+		    isjump = 0;
+		  nbytes -= min_insn_size (start);
+		}
+	    }
+	  continue;
+	}
+
+      min_size = min_insn_size (insn);
+      nbytes += min_size;
       if (dump_file)
-        fprintf(dump_file, "Insn %i estimated to %i bytes\n",
-		INSN_UID (insn), min_insn_size (insn));
+	fprintf (dump_file, "Insn %i estimated to %i bytes\n",
+		 INSN_UID (insn), min_size);
       if ((JUMP_P (insn)
 	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
 	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
@@ -27289,7 +27363,7 @@ ix86_avoid_jump_misspredicts (void)
       gcc_assert (njumps >= 0);
       if (dump_file)
         fprintf (dump_file, "Interval %i to %i has %i bytes\n",
-		INSN_UID (start), INSN_UID (insn), nbytes);
+		 INSN_UID (start), INSN_UID (insn), nbytes);
 
       if (njumps == 3 && isjump && nbytes < 16)
 	{
@@ -27298,10 +27372,11 @@ ix86_avoid_jump_misspredicts (void)
 	  if (dump_file)
 	    fprintf (dump_file, "Padding insn %i by %i bytes!\n",
 		     INSN_UID (insn), padsize);
-          emit_insn_before (gen_align (GEN_INT (padsize)), insn);
+          emit_insn_before (gen_pad (GEN_INT (padsize)), insn);
 	}
     }
 }
+#endif
 
 /* AMD Athlon works faster
    when RET is not destination of conditional jump or directly preceded
@@ -27361,12 +27436,15 @@ ix86_pad_returns (void)
 static void
 ix86_reorg (void)
 {
-  if (TARGET_PAD_RETURNS && optimize
-      && optimize_function_for_speed_p (cfun))
-    ix86_pad_returns ();
-  if (TARGET_FOUR_JUMP_LIMIT && optimize
-      && optimize_function_for_speed_p (cfun))
-    ix86_avoid_jump_misspredicts ();
+  if (optimize && optimize_function_for_speed_p (cfun))
+    {
+      if (TARGET_PAD_RETURNS)
+	ix86_pad_returns ();
+#ifdef ASM_OUTPUT_MAX_SKIP_PAD
+      if (TARGET_FOUR_JUMP_LIMIT)
+	ix86_avoid_jump_mispredicts ();
+#endif
+    }
 }
 
 /* Return nonzero when QImode register that must be represented via REX prefix
@@ -28871,13 +28949,14 @@ void ix86_emit_i387_log1p (rtx op0, rtx op1)
 
   rtx tmp = gen_reg_rtx (XFmode);
   rtx tmp2 = gen_reg_rtx (XFmode);
+  rtx test;
 
   emit_insn (gen_absxf2 (tmp, op1));
-  emit_insn (gen_cmpxf (tmp,
+  test = gen_rtx_GE (VOIDmode, tmp,
     CONST_DOUBLE_FROM_REAL_VALUE (
        REAL_VALUE_ATOF ("0.29289321881345247561810596348408353", XFmode),
-       XFmode)));
-  emit_jump_insn (gen_bge (label1));
+       XFmode));
+  emit_jump_insn (gen_cbranchxf4 (test, XEXP (test, 0), XEXP (test, 1), label1));
 
   emit_move_insn (tmp2, standard_80387_constant_rtx (4)); /* fldln2 */
   emit_insn (gen_fyl2xp1xf3_i387 (op0, op1, tmp2));
@@ -30265,6 +30344,9 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 
 #undef TARGET_EXPAND_TO_RTL_HOOK
 #define TARGET_EXPAND_TO_RTL_HOOK ix86_maybe_switch_abi
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

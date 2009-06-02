@@ -2704,7 +2704,7 @@ check_bitfield_decl (tree field)
   DECL_INITIAL (field) = NULL_TREE;
 
   /* Detect invalid bit-field type.  */
-  if (!INTEGRAL_TYPE_P (type))
+  if (!INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
       error ("bit-field %q+#D with non-integral type", field);
       w = error_mark_node;
@@ -4863,7 +4863,7 @@ layout_class_type (tree t, tree *virtuals_p)
       if (DECL_C_BIT_FIELD (field)
 	  && INT_CST_LT (TYPE_SIZE (type), DECL_SIZE (field)))
 	{
-	  integer_type_kind itk;
+	  unsigned int itk;
 	  tree integer_type;
 	  bool was_unnamed_p = false;
 	  /* We must allocate the bits as if suitably aligned for the
@@ -6071,6 +6071,9 @@ resolve_address_of_overloaded_function (tree target_type,
       tree target_arg_types;
       tree target_ret_type;
       tree fns;
+      tree *args;
+      unsigned int nargs, ia;
+      tree arg;
 
       if (is_ptrmem)
 	target_fn_type
@@ -6083,6 +6086,14 @@ resolve_address_of_overloaded_function (tree target_type,
       /* Never do unification on the 'this' parameter.  */
       if (TREE_CODE (target_fn_type) == METHOD_TYPE)
 	target_arg_types = TREE_CHAIN (target_arg_types);
+
+      nargs = list_length (target_arg_types);
+      args = XALLOCAVEC (tree, nargs);
+      for (arg = target_arg_types, ia = 0;
+	   arg != NULL_TREE && arg != void_list_node;
+	   arg = TREE_CHAIN (arg), ++ia)
+	args[ia] = TREE_VALUE (arg);
+      nargs = ia;
 
       for (fns = overload; fns; fns = OVL_NEXT (fns))
 	{
@@ -6103,9 +6114,9 @@ resolve_address_of_overloaded_function (tree target_type,
 
 	  /* Try to do argument deduction.  */
 	  targs = make_tree_vec (DECL_NTPARMS (fn));
-	  if (fn_type_unification (fn, explicit_targs, targs,
-				   target_arg_types, target_ret_type,
-				   DEDUCE_EXACT, LOOKUP_NORMAL))
+	  if (fn_type_unification (fn, explicit_targs, targs, args, nargs,
+				   target_ret_type, DEDUCE_EXACT,
+				   LOOKUP_NORMAL))
 	    /* Argument deduction failed.  */
 	    continue;
 
@@ -6146,7 +6157,7 @@ resolve_address_of_overloaded_function (tree target_type,
       if (flags & tf_error)
 	{
 	  error ("no matches converting function %qD to type %q#T",
-		 DECL_NAME (OVL_FUNCTION (overload)),
+		 DECL_NAME (OVL_CURRENT (overload)),
 		 target_type);
 
 	  /* print_candidates expects a chain with the functions in
@@ -6309,13 +6320,8 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
      dependent on overload resolution.  */
   gcc_assert (TREE_CODE (rhs) == ADDR_EXPR
 	      || TREE_CODE (rhs) == COMPONENT_REF
-	      || TREE_CODE (rhs) == COMPOUND_EXPR
-	      || really_overloaded_fn (rhs));
-
-  /* We don't overwrite rhs if it is an overloaded function.
-     Copying it would destroy the tree link.  */
-  if (TREE_CODE (rhs) != OVERLOAD)
-    rhs = copy_node (rhs);
+	      || really_overloaded_fn (rhs)
+	      || (flag_ms_extensions && TREE_CODE (rhs) == FUNCTION_DECL));
 
   /* This should really only be used when attempting to distinguish
      what sort of a pointer to function we have.  For now, any
@@ -6366,19 +6372,6 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 						/*template_only=*/false,
 						/*explicit_targs=*/NULL_TREE,
 						access_path);
-
-    case COMPOUND_EXPR:
-      TREE_OPERAND (rhs, 0)
-	= instantiate_type (lhstype, TREE_OPERAND (rhs, 0), flags);
-      if (TREE_OPERAND (rhs, 0) == error_mark_node)
-	return error_mark_node;
-      TREE_OPERAND (rhs, 1)
-	= instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
-      if (TREE_OPERAND (rhs, 1) == error_mark_node)
-	return error_mark_node;
-
-      TREE_TYPE (rhs) = lhstype;
-      return rhs;
 
     case ADDR_EXPR:
     {

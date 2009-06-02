@@ -1117,7 +1117,7 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
   --with-pkgversion=PKG   Use PKG in the version string in place of "lto
-                          merged with rev 147098"
+                          merged with rev 147915"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-multilib-list    Select multilibs (SH only)
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
@@ -8149,7 +8149,7 @@ echo "$as_me: error: package version not specified" >&2;}
       *)   PKGVERSION="($withval) " ;;
      esac
 else
-  PKGVERSION="(lto merged with rev 147098) "
+  PKGVERSION="(lto merged with rev 147915) "
 
 fi;
 
@@ -13530,11 +13530,11 @@ static const struct {
 } configure_default_options[] = $configure_default_options;
 EOF
 
-gcc_BASEVER=$(cat $srcdir/BASE-VER)
-gcc_DEVPHASE=$(cat $srcdir/DEV-PHASE)
-gcc_DATESTAMP=$(cat $srcdir/DATESTAMP)
+gcc_BASEVER=`cat $srcdir/BASE-VER`
+gcc_DEVPHASE=`cat $srcdir/DEV-PHASE`
+gcc_DATESTAMP=`cat $srcdir/DATESTAMP`
 if test -f $srcdir/REVISION ; then
-	gcc_REVISION=$(cat $srcdir/REVISION)
+	gcc_REVISION=`cat $srcdir/REVISION`
 else
         gcc_REVISION=""
 fi
@@ -22060,6 +22060,22 @@ x:
 	tls_first_major=2
 	tls_first_minor=16
 	tls_as_opt='-32 --fatal-warnings'
+	;;
+  m68k-*-*)
+    conftest_s='
+	.section .tdata,"awT",@progbits
+x:
+	.word 2
+	.text
+foo:
+	move.l x@TLSGD(%a5),%a0
+	move.l x@TLSLDM(%a5),%a0
+	move.l x@TLSLDO(%a5),%a0
+	move.l x@TLSIE(%a5),%a0
+	move.l x@TLSLE(%a5),%a0'
+	tls_first_major=2
+	tls_first_minor=19
+	tls_as_opt='--fatal-warnings'
 	;;
   powerpc-*-*)
     conftest_s='

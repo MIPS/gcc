@@ -1,3 +1,45 @@
+2009-06-02  Jan Hubicka  <jh@suse.cz>
+	    Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @147915.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-06-02  Jan Hubicka  <jh@suse.cz>
+
+	* lto-cgraph.c (output_node): Output new inline summaries;
+	add FIXME about not output global info in LTO files.
+	(output_cgraph): Update comments.
+	(input_overwrite_node): Add new inline plan.
+	(input_node): Likewise.
+	(pass_ipa_lto_cgraph): Change to ipa_opt_pass_d.
+	* lto-function-in.c (input_eh_region): Change to eh_region_d.
+	(fixup_eh_region_pointers): Remove prev_try.
+	(input_gimple_stmt): Remove GIMPLE_CHANGE_DYNAMIC_TYPE.
+	(fixup_call_stmt_edges_1): New function.
+	(fixup_call_stmt_edges): New function.
+	(input_function): Update for new clones.
+	* lto-function-out.c (output_eh_region): Fix C++ compatibility.
+	(output_eh_region): Ignore ERT_CLEANUP.
+	(output_gimple_stmt): Remove GIMPLE_CHANGE_DYNAMIC_TYPE.
+	(pass_ipa_lto_gimple_out): Change to ipa_opt_pass_d.
+	* lto-section-out.c: (pass_ipa_lto_finish_out): Change to
+	ipa_opt_pass_d.
+	* lto-tree-flags.def (CHANGE_DYNAMIC_TYPE_EXPR): Remove;
+	Do not mention no_tbaa_flag.
+	* lto-tree-tags.def (GIMPLE_CHANGE_DYNAMIC_TYPE): Remove.
+	* lto-wpa-fixup.c (pass_ipa_lto_wpa_fixup): Change to ipa_opt_pass_d.
+	* cgraph.c (cgraph_clone_input_node): Update for new clones.
+	(cgraph_is_clone_node): Likewise.
+	* cgraphunit.c (ipa_passes): Update cast to struct ipa_opt_pass_d.
+	(cgraph_emit_thunks): Add FIXME comment.
+	* dwarf2out.c (current_unit_personality): New static var.
+	(output_call_frame_info): Use it.
+	(dwarf2out_begin_prologue): Set it.
+	* passes.c (init_optimization_passes): Temporarily disable
+	ipa-cp.
+
 2009-06-02  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (free_lang_data_in_decl): Do not clear

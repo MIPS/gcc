@@ -139,15 +139,6 @@ int
 dwarf2out_do_cfi_asm (void)
 {
   int enc;
-  tree personality_decl;
-
-  /* FIXME lto: current_function_decl is not set when this function is called,
-     so we cannot find the personality of the current function. For now we
-     return true here to avoid a crash. */
-  if (!current_function_decl)
-    return true;
-
-  personality_decl = DECL_FUNCTION_PERSONALITY (current_function_decl);
 
 #ifdef MIPS_DEBUGGING_INFO
   return false;
@@ -155,7 +146,14 @@ dwarf2out_do_cfi_asm (void)
   if (!flag_dwarf2_cfi_asm || !dwarf2out_do_frame ())
     return false;
 
-  if (saved_do_cfi_asm || !personality_decl)
+  if (saved_do_cfi_asm)
+    return true;
+
+  /* FIXME lto: current_function_decl is not set when this function is called,
+     so we cannot find the personality of the current function. For now we
+     return true here to avoid a crash. */
+  if (current_function_decl
+      && !DECL_FUNCTION_PERSONALITY (current_function_decl))
     return true;
 
   if (!HAVE_GAS_CFI_PERSONALITY_DIRECTIVE)
@@ -208,6 +206,10 @@ static GTY(()) section *debug_pubtypes_section;
 static GTY(()) section *debug_str_section;
 static GTY(()) section *debug_ranges_section;
 static GTY(()) section *debug_frame_section;
+
+/* Personality decl of current unit.  Used only when assembler does not support
+   personality CFI.  */
+static GTY(()) rtx current_unit_personality;
 
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
@@ -2825,7 +2827,7 @@ output_call_frame_info (int for_eh)
   int per_encoding = DW_EH_PE_absptr;
   int lsda_encoding = DW_EH_PE_absptr;
   int return_reg;
-  rtx personality;
+  rtx personality = NULL;
   
   /* Don't emit a CIE if there won't be any FDEs.  */
   if (fde_table_in_use == 0)
@@ -2911,7 +2913,7 @@ output_call_frame_info (int for_eh)
   augmentation[0] = 0;
   augmentation_size = 0;
 
-  personality = get_personality_function (current_function_decl);
+  personality = current_unit_personality;
   if (for_eh)
     {
       char *p;
@@ -3185,6 +3187,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
   char * dup_label;
   dw_fde_ref fde;
+  rtx personality;
 
   current_function_func_begin_label = NULL;
 
@@ -3254,6 +3257,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
     dwarf2out_source_line (line, file);
 #endif
 
+  personality = get_personality_function (current_function_decl);
   if (dwarf2out_do_cfi_asm ())
     {
       int enc;
@@ -3296,6 +3300,14 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
 	  output_addr_const (asm_out_file, ref);
 	  fputc ('\n', asm_out_file);
 	}
+    }
+  else
+    {
+      if (!current_unit_personality || current_unit_personality == personality)
+        current_unit_personality = personality;
+      else
+	sorry ("Multiple EH personalities are supported only with assemblers "
+	       "supporting .cfi.personality dirrective.");
     }
 }
 
@@ -3866,18 +3878,11 @@ new_loc_descr (enum dwarf_location_atom op, unsigned HOST_WIDE_INT oprnd1,
 static inline dw_loc_descr_ref
 new_reg_loc_descr (unsigned int reg,  unsigned HOST_WIDE_INT offset)
 {
-  if (offset)
-    {
-      if (reg <= 31)
-	return new_loc_descr ((enum dwarf_location_atom) (DW_OP_breg0 + reg),
-			      offset, 0);
-      else
-	return new_loc_descr (DW_OP_bregx, reg, offset);
-    }
-  else if (reg <= 31)
-    return new_loc_descr ((enum dwarf_location_atom) (DW_OP_reg0 + reg), 0, 0);
+  if (reg <= 31)
+    return new_loc_descr ((enum dwarf_location_atom) (DW_OP_breg0 + reg),
+			  offset, 0);
   else
-   return new_loc_descr (DW_OP_regx, reg, 0);
+    return new_loc_descr (DW_OP_bregx, reg, offset);
 }
 
 /* Add a location description term to a location description expression.  */
@@ -5117,8 +5122,7 @@ static void output_line_info (void);
 static void output_file_names (void);
 static dw_die_ref base_type_die (tree);
 static int is_base_type (tree);
-static bool is_subrange_type (const_tree);
-static dw_die_ref subrange_type_die (tree, dw_die_ref);
+static dw_die_ref subrange_type_die (tree, tree, tree, dw_die_ref);
 static dw_die_ref modified_type_die (tree, int, int, dw_die_ref);
 static int type_is_enum (const_tree);
 static unsigned int dbx_reg_number (const_rtx);
@@ -9295,6 +9299,11 @@ base_type_die (tree type)
   if (TREE_CODE (type) == ERROR_MARK || TREE_CODE (type) == VOID_TYPE)
     return 0;
 
+  /* If this is a subtype that should not be emitted as a subrange type,
+     use the base type.  See subrange_type_for_debug_p.  */
+  if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != NULL_TREE)
+    type = TREE_TYPE (type);
+
   switch (TREE_CODE (type))
     {
     case INTEGER_TYPE:
@@ -9414,67 +9423,11 @@ simple_type_size_in_bits (const_tree type)
     return TYPE_ALIGN (type);
 }
 
-/* Return true if the debug information for the given type should be
-   emitted as a subrange type.  */
-
-static inline bool
-is_subrange_type (const_tree type)
-{
-  tree subtype = TREE_TYPE (type);
-
-  /* Subrange types are identified by the fact that they are integer
-     types, and that they have a subtype which is either an integer type
-     or an enumeral type.  */
-
-  if (TREE_CODE (type) != INTEGER_TYPE
-      || subtype == NULL_TREE)
-    return false;
-
-  if (TREE_CODE (subtype) != INTEGER_TYPE
-      && TREE_CODE (subtype) != ENUMERAL_TYPE
-      && TREE_CODE (subtype) != BOOLEAN_TYPE)
-    return false;
-
-  if (TREE_CODE (type) == TREE_CODE (subtype)
-      && int_size_in_bytes (type) == int_size_in_bytes (subtype)
-      && TYPE_MIN_VALUE (type) != NULL
-      && TYPE_MIN_VALUE (subtype) != NULL
-      && tree_int_cst_equal (TYPE_MIN_VALUE (type), TYPE_MIN_VALUE (subtype))
-      && TYPE_MAX_VALUE (type) != NULL
-      && TYPE_MAX_VALUE (subtype) != NULL
-      && tree_int_cst_equal (TYPE_MAX_VALUE (type), TYPE_MAX_VALUE (subtype)))
-    {
-      /* The type and its subtype have the same representation.  If in
-	 addition the two types also have the same name, then the given
-	 type is not a subrange type, but rather a plain base type.  */
-      /* FIXME: brobecker/2004-03-22:
-	 Sizetype INTEGER_CSTs nodes are canonicalized.  It should
-	 therefore be sufficient to check the TYPE_SIZE node pointers
-	 rather than checking the actual size.  Unfortunately, we have
-	 found some cases, such as in the Ada "integer" type, where
-	 this is not the case.  Until this problem is solved, we need to
-	 keep checking the actual size.  */
-      tree type_name = TYPE_NAME (type);
-      tree subtype_name = TYPE_NAME (subtype);
-
-      if (type_name != NULL && TREE_CODE (type_name) == TYPE_DECL)
-	type_name = DECL_NAME (type_name);
-
-      if (subtype_name != NULL && TREE_CODE (subtype_name) == TYPE_DECL)
-	subtype_name = DECL_NAME (subtype_name);
-
-      if (type_name == subtype_name)
-	return false;
-    }
-
-  return true;
-}
-
 /*  Given a pointer to a tree node for a subrange type, return a pointer
     to a DIE that describes the given type.  */
 
 static dw_die_ref
-subrange_type_die (tree type, dw_die_ref context_die)
+subrange_type_die (tree type, tree low, tree high, dw_die_ref context_die)
 {
   dw_die_ref subrange_die;
   const HOST_WIDE_INT size_in_bytes = int_size_in_bytes (type);
@@ -9491,12 +9444,10 @@ subrange_type_die (tree type, dw_die_ref context_die)
       add_AT_unsigned (subrange_die, DW_AT_byte_size, size_in_bytes);
     }
 
-  if (TYPE_MIN_VALUE (type) != NULL)
-    add_bound_info (subrange_die, DW_AT_lower_bound,
-		    TYPE_MIN_VALUE (type));
-  if (TYPE_MAX_VALUE (type) != NULL)
-    add_bound_info (subrange_die, DW_AT_upper_bound,
-		    TYPE_MAX_VALUE (type));
+  if (low)
+    add_bound_info (subrange_die, DW_AT_lower_bound, low);
+  if (high)
+    add_bound_info (subrange_die, DW_AT_upper_bound, high);
 
   return subrange_die;
 }
@@ -9513,7 +9464,7 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
   dw_die_ref sub_die = NULL;
   tree item_type = NULL;
   tree qualified_type;
-  tree name;
+  tree name, low, high;
 
   if (code == ERROR_MARK)
     return NULL;
@@ -9583,9 +9534,11 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 		       simple_type_size_in_bits (type) / BITS_PER_UNIT);
       item_type = TREE_TYPE (type);
     }
-  else if (is_subrange_type (type))
+  else if (code == INTEGER_TYPE
+	   && TREE_TYPE (type) != NULL_TREE
+	   && subrange_type_for_debug_p (type, &low, &high))
     {
-      mod_type_die = subrange_type_die (type, context_die);
+      mod_type_die = subrange_type_die (type, low, high, context_die);
       item_type = TREE_TYPE (type);
     }
   else if (is_base_type (type))
@@ -9717,7 +9670,13 @@ reg_loc_descriptor (rtx rtl, enum var_init_status initialized)
 static dw_loc_descr_ref
 one_reg_loc_descriptor (unsigned int regno, enum var_init_status initialized)
 {
-  dw_loc_descr_ref reg_loc_descr = new_reg_loc_descr (regno, 0);
+  dw_loc_descr_ref reg_loc_descr;
+
+  if (regno <= 31)
+    reg_loc_descr
+      = new_loc_descr ((enum dwarf_location_atom) (DW_OP_reg0 + regno), 0, 0);
+  else
+    reg_loc_descr = new_loc_descr (DW_OP_regx, regno, 0);
 
   if (initialized == VAR_INIT_STATUS_UNINITIALIZED)
     add_loc_descr (&reg_loc_descr, new_loc_descr (DW_OP_GNU_uninit, 0, 0));
@@ -11730,9 +11689,34 @@ loc_by_reference (dw_loc_descr_ref loc, tree decl)
 
   if ((TREE_CODE (decl) != PARM_DECL
        && TREE_CODE (decl) != RESULT_DECL
-       && (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl)))
+       && TREE_CODE (decl) != VAR_DECL)
       || !DECL_BY_REFERENCE (decl))
     return loc;
+
+  /* If loc is DW_OP_reg{0...31,x}, don't add DW_OP_deref, instead
+     change it into corresponding DW_OP_breg{0...31,x} 0.  Then the
+     location expression is considered to be address of a memory location,
+     rather than the register itself.  */
+  if (((loc->dw_loc_opc >= DW_OP_reg0 && loc->dw_loc_opc <= DW_OP_reg31)
+       || loc->dw_loc_opc == DW_OP_regx)
+      && (loc->dw_loc_next == NULL
+	  || (loc->dw_loc_next->dw_loc_opc == DW_OP_GNU_uninit
+	      && loc->dw_loc_next->dw_loc_next == NULL)))
+    {
+      if (loc->dw_loc_opc == DW_OP_regx)
+	{
+	  loc->dw_loc_opc = DW_OP_bregx;
+	  loc->dw_loc_oprnd2.v.val_int = 0;
+	}
+      else
+	{
+	  loc->dw_loc_opc
+	    = (enum dwarf_location_atom)
+	      (loc->dw_loc_opc + (DW_OP_breg0 - DW_OP_reg0));
+	  loc->dw_loc_oprnd1.v.val_int = 0;
+	}
+      return loc;
+    }
 
   size = int_size_in_bytes (TREE_TYPE (decl));
   if (size > DWARF2_ADDR_SIZE || size == -1)
@@ -14063,19 +14047,13 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   else
     {
       tree type = TREE_TYPE (decl);
-      bool private_flag_valid = true;
 
       add_name_and_src_coords_attributes (var_die, decl);
       if ((TREE_CODE (decl) == PARM_DECL
 	   || TREE_CODE (decl) == RESULT_DECL
-	   || (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl)))
+	   || TREE_CODE (decl) == VAR_DECL)
 	  && DECL_BY_REFERENCE (decl))
-	{
-	  add_type_attribute (var_die, TREE_TYPE (type), 0, 0, context_die);
-	  /* DECL_BY_REFERENCE uses the same bit as TREE_PRIVATE,
-	     for PARM_DECL, RESULT_DECL or non-static VAR_DECL.  */
-	  private_flag_valid = false;
-	}
+	add_type_attribute (var_die, TREE_TYPE (type), 0, 0, context_die);
       else
 	add_type_attribute (var_die, type, TREE_READONLY (decl),
 			    TREE_THIS_VOLATILE (decl), context_die);
@@ -14088,7 +14066,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 
       if (TREE_PROTECTED (decl))
 	add_AT_unsigned (var_die, DW_AT_accessibility, DW_ACCESS_protected);
-      else if (private_flag_valid && TREE_PRIVATE (decl))
+      else if (TREE_PRIVATE (decl))
 	add_AT_unsigned (var_die, DW_AT_accessibility, DW_ACCESS_private);
     }
 
@@ -14690,6 +14668,12 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 
       /* Prevent broken recursion; we can't hand off to the same type.  */
       gcc_assert (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) != type);
+
+      /* Use the DIE of the containing namespace as the parent DIE of
+         the type description DIE we want to generate.  */
+      if (DECL_CONTEXT (TYPE_NAME (type))
+	  && TREE_CODE (DECL_CONTEXT (TYPE_NAME (type))) == NAMESPACE_DECL)
+	context_die = lookup_decl_die (DECL_CONTEXT (TYPE_NAME (type)));
 
       TREE_ASM_WRITTEN (type) = 1;
       gen_decl_die (TYPE_NAME (type), NULL, context_die);
@@ -15322,8 +15306,7 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
       /* Output any DIEs that are needed to specify the type of this data
 	 object.  */
       if ((TREE_CODE (decl_or_origin) == RESULT_DECL
-	   || (TREE_CODE (decl_or_origin) == VAR_DECL
-	       && !TREE_STATIC (decl_or_origin)))
+	   || TREE_CODE (decl_or_origin) == VAR_DECL)
           && DECL_BY_REFERENCE (decl_or_origin))
 	gen_type_die (TREE_TYPE (TREE_TYPE (decl_or_origin)), context_die);
       else
