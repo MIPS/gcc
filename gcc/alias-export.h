@@ -20,17 +20,16 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_ALIAS_EXPORT_H
 #define GCC_ALIAS_EXPORT_H
 
+extern bool alias_export_may_alias_p (tree, tree);
 extern tree unshare_and_record_pta_info (tree);
-extern void record_escaped_solution (void);
-extern void record_stack_var_partition_for (tree, tree);
+extern void record_stack_var_partition_for (tree, bitmap, tree);
+extern void update_pta_with_stack_partitions (void);
+extern void free_alias_export_info (void);
 
-extern bool alias_export_may_alias_p (const_rtx, const_rtx, tree, tree);
 extern bool ddg_export_may_alias_p (tree, tree, bool);
 extern void replace_var_in_datarefs (tree, tree);
 extern void remove_exported_ddg_data (rtx);
 extern void ddg_export_set_pipelining_completed (bool);
-
-extern void free_alias_export_info (void);
 extern void free_ddg_export_info (void);
 
 #endif /* GCC_ALIAS_EXPORT_H */

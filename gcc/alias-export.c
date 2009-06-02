@@ -46,19 +46,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "statistics.h"
 
-/* The final orig_expr -> pt set map used in RTL.  */
-static struct pointer_map_t *exprs_to_ptas = NULL;
-
 /* The map of decls to stack partitions.  */
-static struct pointer_map_t *decls_to_stack = NULL;
+static struct pointer_map_t *decls_to_partitions = NULL;
 
-/* The map of partition representative decls to bitmaps that are
-   unified points-to sets for pointer decls.  */
-static struct pointer_map_t *part_repr_to_pta = NULL;
-
-/* The map of partition representative decls to bitmaps that have
-   set bits corresponding to decl uids of a partition.  */
-static struct pointer_map_t *part_repr_to_part = NULL;
+/* The map of decls to artificial ssa-names that point to all partition 
+   of the decl.  */
+static struct pointer_map_t *decls_to_pointers = NULL;
 
 /* Alias export statistics counter.  */
 static unsigned int alias_export_disambiguations = 0;
@@ -100,25 +93,6 @@ static struct ddg_info_def *ddg_info;
 static unsigned int ddg_export_disambiguations = 0;
 
 
-/* Replace *PBASE with its stack representative in EXPR, if any.  
-   Return EXPR back.  */
-static tree
-maybe_replace_with_partition (tree expr, tree *pbase)
-{
-  tree *pdecl;
-  
-  if (!decls_to_stack)
-    return expr;
-  pdecl = (tree *) pointer_map_contains (decls_to_stack, *pbase);
-  if (!pdecl
-      || *pdecl == *pbase)
-    return expr;
-  if (*pbase == expr)
-    return *pdecl;
-  *pbase = *pdecl;
-  return expr;
-}
-
 /* If some of PID->PT.VARS variables got partitioned, add all partition 
    vars to that bitmap.  */
 static void
@@ -128,24 +102,41 @@ add_partitioned_vars_to_ptset (struct pt_solution *pi)
     {
       bitmap_iterator bi;
       unsigned i;
-      bitmap temp;
-      tree *pdecl;
+      bitmap *part, temp = NULL;
       
-      temp = BITMAP_ALLOC (NULL);
       EXECUTE_IF_SET_IN_BITMAP (pi->vars, 0, i, bi)
-        if ((pdecl = (tree *) pointer_map_contains (decls_to_stack,
-                                                    referenced_var (i))))
-          bitmap_ior_into (temp, 
-                           *((bitmap *) pointer_map_contains (part_repr_to_part, 
-                                                              *pdecl)));
-      if (! bitmap_empty_p (temp))
+        if ((part = (bitmap *) pointer_map_contains (decls_to_partitions,
+                                                     referenced_var (i))))
+          {
+            if (!temp)
+              temp = BITMAP_GGC_ALLOC ();
+            bitmap_ior_into (temp, *part);
+          }
+      if (temp)
         {
           bitmap_ior_into (temp, pi->vars);
-          pi->vars = BITMAP_GGC_ALLOC ();
-          bitmap_copy (pi->vars, temp);
+          pi->vars = temp;
         }
-      BITMAP_FREE (temp);
     }
+}
+
+/* Fixup stack-partitioned base var in EXPR.  */
+static tree
+rewrite_partitioned_mem_expr (tree expr)
+{
+  tree *pbase, *pname;
+  
+  if (!decls_to_pointers)
+    return expr;
+  
+  pbase = &expr;
+  while (handled_component_p (*pbase))
+    pbase = &TREE_OPERAND (*pbase, 0);
+  if (DECL_P (*pbase)
+      && (pname = (tree *) pointer_map_contains (decls_to_pointers, *pbase)))
+    *pbase = build1 (INDIRECT_REF, TREE_TYPE (*pbase), *pname);
+
+  return expr;
 }
 
 /* Record the final points-to set for EXPR and unshare it.  Returns 
@@ -154,7 +145,7 @@ add_partitioned_vars_to_ptset (struct pt_solution *pi)
 tree
 unshare_and_record_pta_info (tree expr)
 {
-  tree base, old_expr;
+  tree old_expr;
 
   /* No point saving anything for unhandled stuff.  */
   if (! (SSA_VAR_P (expr)
@@ -168,115 +159,44 @@ unshare_and_record_pta_info (tree expr)
   if (flag_ddg_export)
     replace_var_in_datarefs (old_expr, expr);
 
-  /* We can record stack conflicts in points-to sets here instead of
-     postponing this until end of expand, as incomplete stack sharing 
-     information might occur only for stack vars here, not for 
-     indirect-refs.  */
-  if (!decls_to_stack)
-    return expr;
-  
-  base = expr;
-  while (handled_component_p (base))
-    base = TREE_OPERAND (base, 0);
-  if (INDIRECT_REF_P (base))
+  expr = rewrite_partitioned_mem_expr (expr);
+  return expr;
+}
+
+/* Save stack partitions.  DECL is in the partition represented by 
+   PART bitmap.  NAME is a pointer that points to all partition.  */
+void
+record_stack_var_partition_for (tree decl, bitmap part, tree name)
+{
+  if (! decls_to_partitions)
     {
+      decls_to_partitions = pointer_map_create ();
+      decls_to_pointers = pointer_map_create ();
+    }
+  *((bitmap *) pointer_map_insert (decls_to_partitions, decl)) = part;
+  *((tree *) pointer_map_insert (decls_to_pointers, decl)) = name;
+}
+
+/* Update pta info so that stack partitioning is reflected in it.  */
+void
+update_pta_with_stack_partitions (void)
+{
+  unsigned i;
+
+  if (! decls_to_partitions)
+    return;
+  
+  for (i = 1; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
       struct ptr_info_def *pid;
 
-      base = TREE_OPERAND (base, 0);
-      if (TREE_CODE (base) == SSA_NAME
-          && (pid = SSA_NAME_PTR_INFO (base)) != NULL)
+      if (name && ((pid = SSA_NAME_PTR_INFO (name)) != NULL))
         add_partitioned_vars_to_ptset (&pid->pt);
     }
- 
-  return expr;
-}
 
-/* Fixup stack-partitioned base var in EXPR and CONST_MEM.  */
-static tree
-rewrite_partitioned_mem_expr (const_rtx const_mem, tree expr)
-{
-  tree base, *pbase;
-  rtx mem = CONST_CAST_RTX (const_mem);
-  
-  if (!decls_to_stack)
-    return expr;
-  
-  base = expr, pbase = &expr;
-  while (handled_component_p (base))
-    {
-      pbase = &TREE_OPERAND (base, 0);
-      base = TREE_OPERAND (base, 0);
-    }
-  if (DECL_P (base)
-      || TREE_CODE (base) == SSA_NAME)
-    {
-      expr = maybe_replace_with_partition (expr, pbase);
-      set_mem_orig_expr (mem, expr);
-    }
-
-  return expr;
-}
-
-/* Record the DECL mapping to its PART_DECL representative.  */
-static void
-map_decl_to_representative (tree decl, tree part_decl)
-{
-  if (!decls_to_stack)
-    decls_to_stack = pointer_map_create ();
-  *((tree *) pointer_map_insert (decls_to_stack, decl)) = part_decl;
-}
-
-/* Create a bitmap in PMAP associated with DECL and return it.  */
-static bitmap
-map_decl_to_bitmap (struct pointer_map_t **pmap, tree decl)
-{
-  bitmap temp = NULL, *ptemp;
-
-  if (!*pmap)
-    *pmap = pointer_map_create ();
-  ptemp = (bitmap *) pointer_map_contains (*pmap, decl);
-  if (ptemp)
-    {
-      temp = *ptemp;
-      gcc_assert (temp);
-    }
-  else
-    {
-      temp = BITMAP_ALLOC (NULL);
-      *((bitmap *) pointer_map_insert (*pmap, decl)) = temp;
-    }
-
-  return temp;
-}
-
-/* Save stack partitions.  DECL has PART_DECL as a representative.  
-   Also, create pta bitmaps so that alias analysis is not confused later.  */
-void
-record_stack_var_partition_for (tree decl, tree part_decl)
-{
-  bitmap temp;
-  
-  /* First, record that decl has part_decl as a representative.  */
-  map_decl_to_representative (decl, part_decl);
-
-  /* Second, create a bitmap that represents all partition.  */
-  temp = map_decl_to_bitmap (&part_repr_to_part, part_decl);
-  if (DECL_P (part_decl))
-    bitmap_set_bit (temp, DECL_UID (part_decl));
-  if (DECL_P (decl))
-    bitmap_set_bit (temp, DECL_UID (decl));
-}
-
-/* Save the above solution.  */
-void
-record_escaped_solution (void)
-{
-  /* We need to account for stack slot sharing also here.  */
-  if (decls_to_stack)
-    {
-      add_partitioned_vars_to_ptset (&cfun->gimple_df->escaped);
-      add_partitioned_vars_to_ptset (&cfun->gimple_df->callused);
-    }
+  add_partitioned_vars_to_ptset (&cfun->gimple_df->escaped);
+  add_partitioned_vars_to_ptset (&cfun->gimple_df->callused);
 }
 
 /* Functions to be called when needed to use exported information.  */
@@ -284,13 +204,11 @@ record_escaped_solution (void)
 /* Main function to ask saved information about if REF1 and REF2 may
    alias or not.  MEM1 and MEM2 are corresponding mems.  */
 bool
-alias_export_may_alias_p (const_rtx mem1, const_rtx mem2, tree ref1, tree ref2)
+alias_export_may_alias_p (tree ref1, tree ref2)
 {
   if (! dbg_cnt (alias_export))
     return true;
   
-  ref1 = rewrite_partitioned_mem_expr (mem1, ref1);
-  ref2 = rewrite_partitioned_mem_expr (mem2, ref2);
   if (! refs_may_alias_p (ref1, ref2))
     {
       alias_export_disambiguations++;
@@ -308,25 +226,12 @@ free_alias_export_info (void)
                             alias_export_disambiguations);
   alias_export_disambiguations = 0;
 
-  if (exprs_to_ptas)
+  if (decls_to_partitions)
     {
-      pointer_map_destroy (exprs_to_ptas);
-      exprs_to_ptas = NULL;
-    }
-  if (decls_to_stack)
-    {
-      pointer_map_destroy (decls_to_stack);
-      decls_to_stack = NULL;
-    }
-  if (part_repr_to_pta)
-    {
-      pointer_map_destroy (part_repr_to_pta);
-      part_repr_to_pta = NULL;
-    }
-  if (part_repr_to_part)
-    {
-      pointer_map_destroy (part_repr_to_part);
-      part_repr_to_part = NULL;
+      pointer_map_destroy (decls_to_partitions);
+      decls_to_partitions = NULL;
+      pointer_map_destroy (decls_to_pointers);
+      decls_to_pointers = NULL;
     }
 }
 

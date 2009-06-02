@@ -396,6 +396,7 @@ typedef struct
        (ITER).i++)
 
 extern tree referenced_var_lookup (unsigned int);
+extern tree referenced_var_lookup_safe (unsigned int);
 extern bool referenced_var_check_and_insert (tree);
 #define num_referenced_vars htab_elements (gimple_referenced_vars (cfun))
 #define referenced_var(i) referenced_var_lookup (i)

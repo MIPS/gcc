@@ -763,6 +763,57 @@ stack_var_size_cmp (const void *a, const void *b)
   return 0;
 }
 
+/* Update points-to sets based on partition info, so we can use them on RTL.
+   The bitmaps representing stack partitions will be saved until expand,
+   where partitioned decls used as bases in memory expressions will be 
+   rewritten.  */
+
+static void
+update_alias_info_with_stack_vars (void)
+{
+  size_t i, j;
+
+  /* Create bitmaps representing partitions.  */
+  for (i = 0; i < stack_vars_num; i++)
+    {
+      bitmap temp = NULL;
+      tree name, var, type;
+      struct ptr_info_def *pid;
+
+      /* Not interested in partitions with single variable.  */
+      if (stack_vars[i].representative != i
+          || stack_vars[i].next == EOC)
+        continue;
+
+      /* Temp will be used for points-to set later, so use GGC alloc.  */
+      temp = BITMAP_GGC_ALLOC ();
+      for (j = i; j != EOC; j = stack_vars[j].next)
+        if (DECL_P (stack_vars[j].decl)
+            && referenced_var_lookup_safe (DECL_UID (stack_vars[j].decl)))
+          bitmap_set_bit (temp, DECL_UID (stack_vars[j].decl));
+      if (bitmap_empty_p (temp))
+        continue;
+
+      /* Create an SSA_NAME that points to the partition for later 
+         base rewriting.  */
+      type = build_pointer_type (TREE_TYPE (stack_vars[i].decl));
+      var = create_tmp_var (type, NULL);
+      add_referenced_var (var);
+      name = make_ssa_name (var, NULL);
+      pid = get_ptr_info (name);
+      pid->pt.vars = temp;
+
+      for (j = i; j != EOC; j = stack_vars[j].next)
+        if (DECL_P (stack_vars[j].decl)
+            && bitmap_bit_p (temp, DECL_UID (stack_vars[j].decl)))
+          record_stack_var_partition_for (stack_vars[j].decl, temp, name);
+    }
+
+  /* Make all points-to sets that contain one of partition members
+     contain all partition.  */
+  update_pta_with_stack_partitions ();
+}
+
 /* A subroutine of partition_stack_vars.  The UNION portion of a UNION/FIND
    partitioning algorithm.  Partitions A and B are known to be non-conflicting.
    Merge them into a single partition A.
@@ -886,6 +937,9 @@ partition_stack_vars (void)
 	    break;
 	}
     }
+
+  if (flag_alias_export)
+    update_alias_info_with_stack_vars ();
 }
 
 /* A debugging aid for expand_used_vars.  Dump the generated partitions.  */
@@ -916,22 +970,6 @@ dump_stack_var_partition (void)
 	}
     }
 }
-
-/* Save the generated partitions for alias.c, so we can say whether two 
-   vars actually occupy different stack locations.  */
-
-static void
-record_stack_var_partitions (void)
-{
-  size_t i;
-  
-  /* Save all stack_vars partition info in the annotations.  */
-  for (i = 0; i < stack_vars_num; i++)
-    record_stack_var_partition_for (stack_vars[i].decl, 
-                                    stack_vars[stack_vars[i].representative].decl);
-  record_escaped_solution ();
-}
-
 
 /* Assign rtl to DECL at frame offset OFFSET.  */
 
@@ -1212,7 +1250,8 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_register_var (origvar);
     }
-  else if (defer_stack_allocation (var, toplevel))
+  else if (defer_stack_allocation (var, toplevel)
+           /*&& TREE_CODE (origvar) != SSA_NAME*/)
     add_stack_var (origvar);
   else
     {
@@ -1671,9 +1710,6 @@ expand_used_vars (void)
 	}
 
       expand_stack_vars (NULL);
-
-      if (flag_alias_export)
-        record_stack_var_partitions ();
 
       fini_vars_expansion ();
     }

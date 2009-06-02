@@ -502,6 +502,20 @@ referenced_var_lookup (unsigned int uid)
   return h;
 }
 
+/* Same as above, but return NULL in case the variable associated with UID
+   is not in the referenced_vars at all.  */
+
+tree 
+referenced_var_lookup_safe (unsigned int uid)
+{
+  tree h;
+  struct tree_decl_minimal in;
+  in.uid = uid;
+  h = (tree) htab_find_with_hash (gimple_referenced_vars (cfun), &in, uid);
+  return h;
+}
+
+
 /* Check if TO is in the referenced_vars hash table and insert it if not.  
    Return true if it required insertion.  */
 
