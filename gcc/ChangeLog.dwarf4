@@ -1,3 +1,8 @@
+2009-06-02  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (copy_decls_walk): Move use of hash table slot pointer
+	to fix memory corruption problem.
+
 2009-06-01  Cary Coutant  <ccoutant@google.com>
 
 	* dwarf2out.c (checksum_die_context): Change how signature is computed

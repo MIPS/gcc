@@ -8690,6 +8690,15 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
               dw_die_ref parent = unit;
               dw_die_ref copy = clone_tree (targ);
 
+              /* Record in DECL_TABLE that TARG has been copied.
+                 Need to do this now, before the recursive call,
+                 because DECL_TABLE may be expanded and SLOT
+                 would no longer be a valid pointer.  */
+              entry = XCNEW (struct decl_table_entry);
+              entry->orig = targ;
+              entry->copy = copy;
+              *slot = entry;
+
               /* If TARG has surrounding context, copy its ancestor tree
                  into the new type unit.  */
               if (targ->die_parent != NULL
@@ -8700,12 +8709,6 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
 
               add_child_die (parent, copy);
               a->dw_attr_val.v.val_die_ref.die = copy;
-
-              /* Record in DECL_TABLE that TARG has been copied.  */
-              entry = XCNEW (struct decl_table_entry);
-              entry->orig = targ;
-              entry->copy = copy;
-              *slot = entry;
             }
         }
     }
