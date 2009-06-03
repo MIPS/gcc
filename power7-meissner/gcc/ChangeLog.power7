@@ -1,6 +1,6 @@
 2009-06-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Sync up to mainline version 148141.
+	Sync up to mainline version 148152.
 
 	* config/rs6000/vector.md (movmisalign<mode>): Add support for
 	debug -mno-allow-misalign switch.
