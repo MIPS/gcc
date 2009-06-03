@@ -354,8 +354,7 @@ struct asm_name {
   const char *asm_sw;
 };
 
-static const
-struct asm_name asm_names[] = {
+static const struct asm_name asm_names[] = {
 #if defined (_AIX)
   { "power3",	"-m620" },
   { "power4",	"-mpwr4" },
@@ -458,8 +457,8 @@ struct asm_name asm_names[] = {
 
    ARGC and ARGV are set depending on the actual arguments given
    in the spec.  */
-const char
-*host_detect_local_cpu (int argc, const char **argv)
+const char *
+host_detect_local_cpu (int argc, const char **argv)
 {
   const char *cpu = NULL;
   const char *cache = "";
@@ -525,7 +524,8 @@ const char
 
 /* If we aren't compiling with GCC we just provide a minimal
    default value.  */
-const char *host_detect_local_cpu (int argc, const char **argv)
+const char *
+host_detect_local_cpu (int argc, const char **argv)
 {
   const char *cpu;
   bool arch;
