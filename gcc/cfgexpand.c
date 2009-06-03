@@ -773,7 +773,6 @@ update_alias_info_with_stack_vars (void)
 {
   size_t i, j;
 
-  /* Create bitmaps representing partitions.  */
   for (i = 0; i < stack_vars_num; i++)
     {
       bitmap temp = NULL;
@@ -785,7 +784,8 @@ update_alias_info_with_stack_vars (void)
           || stack_vars[i].next == EOC)
         continue;
 
-      /* Temp will be used for points-to set later, so use GGC alloc.  */
+      /* Create bitmaps representing partitions.  They will be used for 
+         points-to sets later, so use GGC alloc.  */
       temp = BITMAP_GGC_ALLOC ();
       for (j = i; j != EOC; j = stack_vars[j].next)
         if (DECL_P (stack_vars[j].decl)
@@ -1250,8 +1250,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_register_var (origvar);
     }
-  else if (defer_stack_allocation (var, toplevel)
-           /*&& TREE_CODE (origvar) != SSA_NAME*/)
+  else if (defer_stack_allocation (var, toplevel))
     add_stack_var (origvar);
   else
     {
@@ -2499,7 +2498,7 @@ gimple_expand_cfg (void)
   rtl_profile_for_bb (ENTRY_BLOCK_PTR);
 
   insn_locators_alloc ();
-  if (!DECL_BUILT_IN (current_function_decl))
+  if (!DECL_IS_BUILTIN (current_function_decl))
     {
       /* Eventually, all FEs should explicitly set function_start_locus.  */
       if (cfun->function_start_locus == UNKNOWN_LOCATION)

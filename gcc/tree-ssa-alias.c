@@ -549,7 +549,6 @@ nonaliasing_component_refs_p (tree ref1, tree type1,
 
   /* Now search for the type1 in the access path of ref2.  This
      would be a common base for doing offset based disambiguation on.  */
-  /* Skip the outermost ref - we would have caught that earlier.  */
   refp = &ref2;
   while (handled_component_p (*refp)
 	 && same_type_for_tbaa (TREE_TYPE (*refp), type1) == 0)

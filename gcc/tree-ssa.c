@@ -804,10 +804,6 @@ void
 delete_tree_ssa (void)
 {
   size_t i;
-#if 0
-  basic_block bb;
-  gimple_stmt_iterator gsi;
-#endif
   referenced_var_iterator rvi;
   tree var;
 
