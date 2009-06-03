@@ -1511,10 +1511,18 @@ find_base_term (rtx x)
 	/* If either operand is known to be a pointer, then use it
 	   to determine the base term.  */
 	if (REG_P (tmp1) && REG_POINTER (tmp1))
-	  return find_base_term (tmp1);
+	  {
+	    rtx base = find_base_term (tmp1);
+	    if (base)
+	      return base;
+	  }
 
 	if (REG_P (tmp2) && REG_POINTER (tmp2))
-	  return find_base_term (tmp2);
+	  {
+	    rtx base = find_base_term (tmp2);
+	    if (base)
+	      return base;
+	  }
 
 	/* Neither operand was known to be a pointer.  Go ahead and find the
 	   base term for both operands.  */
@@ -2372,9 +2380,6 @@ write_dependence_p (const_rtx mem, const_rtx x, int writep)
   if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
       || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
-
-  if (DIFFERENT_ALIAS_SETS_P (x, mem))
-    return 0;
 
   /* A read from read-only memory can't conflict with read-write memory.  */
   if (!writep && MEM_READONLY_P (mem))

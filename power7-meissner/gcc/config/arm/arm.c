@@ -12822,22 +12822,23 @@ arm_get_frame_offsets (void)
 	{
 	  int reg = -1;
 
-	  for (i = 4; i <= (TARGET_THUMB1 ? LAST_LO_REGNUM : 11); i++)
+	  /* If it is safe to use r3, then do so.  This sometimes 
+	     generates better code on Thumb-2 by avoiding the need to
+	     use 32-bit push/pop instructions.  */
+	  if (!crtl->tail_call_emit
+	      && arm_size_return_regs () <= 12)
 	    {
-	      if ((offsets->saved_regs_mask & (1 << i)) == 0)
-		{
-		  reg = i;
-		  break;
-		}
-	    }
-
-	  if (reg == -1 && arm_size_return_regs () <= 12
-	      && !crtl->tail_call_emit)
-	    {
-	      /* Push/pop an argument register (r3) if all callee saved
-	         registers are already being pushed.  */
 	      reg = 3;
 	    }
+	  else
+	    for (i = 4; i <= (TARGET_THUMB1 ? LAST_LO_REGNUM : 11); i++)
+	      {
+		if ((offsets->saved_regs_mask & (1 << i)) == 0)
+		  {
+		    reg = i;
+		    break;
+		  }
+	      }
 
 	  if (reg != -1)
 	    {
@@ -14740,13 +14741,13 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 	return VALID_IWMMXT_REG_MODE (mode);
     }
   
-  /* We allow any value to be stored in the general registers.
+  /* We allow almost any value to be stored in the general registers.
      Restrict doubleword quantities to even register pairs so that we can
-     use ldrd.  Do not allow Neon structure opaque modes in general registers;
-     they would use too many.  */
+     use ldrd.  Do not allow very large Neon structure opaque modes in
+     general registers; they would use too many.  */
   if (regno <= LAST_ARM_REGNUM)
     return !(TARGET_LDRD && GET_MODE_SIZE (mode) > 4 && (regno & 1) != 0)
-      && !VALID_NEON_STRUCT_MODE (mode);
+      && ARM_NUM_REGS (mode) <= 4;
 
   if (regno == FRAME_POINTER_REGNUM
       || regno == ARG_POINTER_REGNUM)
@@ -16984,7 +16985,7 @@ thumb_pushpop (FILE *f, unsigned long mask, int push, int *cfa_offset,
 
   if (push && pushed_words && dwarf2out_do_frame ())
     {
-      char *l = dwarf2out_cfi_label ();
+      char *l = dwarf2out_cfi_label (false);
       int pushed_mask = real_regs;
 
       *cfa_offset += pushed_words * 4;
@@ -17880,7 +17881,7 @@ thumb1_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	 the stack pointer.  */
       if (dwarf2out_do_frame ())
 	{
-	  char *l = dwarf2out_cfi_label ();
+	  char *l = dwarf2out_cfi_label (false);
 
 	  cfa_offset = cfa_offset + crtl->args.pretend_args_size;
 	  dwarf2out_def_cfa (l, SP_REGNUM, cfa_offset);
@@ -17929,7 +17930,7 @@ thumb1_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
       if (dwarf2out_do_frame ())
 	{
-	  char *l = dwarf2out_cfi_label ();
+	  char *l = dwarf2out_cfi_label (false);
 
 	  cfa_offset = cfa_offset + 16;
 	  dwarf2out_def_cfa (l, SP_REGNUM, cfa_offset);

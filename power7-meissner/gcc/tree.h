@@ -1502,6 +1502,11 @@ struct GTY(()) tree_vec {
     _ce___->value = VALUE; \
   } while (0)
 
+/* True if NODE, a FIELD_DECL, is to be processed as a bitfield for
+   constructor output purposes.  */
+#define CONSTRUCTOR_BITFIELD_P(NODE) \
+  (DECL_BIT_FIELD (FIELD_DECL_CHECK (NODE)) && DECL_MODE (NODE) != BLKmode)
+
 /* A single element of a CONSTRUCTOR. VALUE holds the actual value of the
    element. INDEX can optionally design the position of VALUE: in arrays,
    it is the index where VALUE has to be placed; in structures, it is the
@@ -1647,12 +1652,6 @@ extern void protected_set_expr_location (tree, location_t);
 #define EH_FILTER_FAILURE(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 1)
 #define EH_FILTER_MUST_NOT_THROW(NODE) \
   (EH_FILTER_EXPR_CHECK (NODE)->base.static_flag)
-
-/* CHANGE_DYNAMIC_TYPE_EXPR accessors.  */
-#define CHANGE_DYNAMIC_TYPE_NEW_TYPE(NODE) \
-  TREE_OPERAND (CHANGE_DYNAMIC_TYPE_EXPR_CHECK (NODE), 0)
-#define CHANGE_DYNAMIC_TYPE_LOCATION(NODE) \
-  TREE_OPERAND (CHANGE_DYNAMIC_TYPE_EXPR_CHECK (NODE), 1)
 
 /* OBJ_TYPE_REF accessors.  */
 #define OBJ_TYPE_REF_EXPR(NODE)	  TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 0)
@@ -2605,11 +2604,6 @@ struct GTY(()) tree_decl_minimal {
 #define DECL_GIMPLE_REG_P(DECL) \
   DECL_COMMON_CHECK (DECL)->decl_common.gimple_reg_flag
 
-/* For a DECL with pointer type, this is set if Type Based Alias
-   Analysis should not be applied to this DECL.  */
-#define DECL_NO_TBAA_P(DECL) \
-  DECL_COMMON_CHECK (DECL)->decl_common.no_tbaa_flag
-
 struct GTY(()) tree_decl_common {
   struct tree_decl_minimal common;
   tree size;
@@ -2649,12 +2643,10 @@ struct GTY(()) tree_decl_common {
   /* Logically, these two would go in a theoretical base shared by var and
      parm decl. */
   unsigned gimple_reg_flag : 1;
-  /* In a DECL with pointer type, set if no TBAA should be done.  */
-  unsigned no_tbaa_flag : 1;
   /* In VAR_DECL, PARM_DECL and RESULT_DECL, this is DECL_BY_REFERENCE.  */
   unsigned decl_by_reference_flag : 1;
   /* Padding so that 'off_align' can be on a 32-bit boundary.  */
-  unsigned decl_common_unused : 1;
+  unsigned decl_common_unused : 2;
 
   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
   unsigned int off_align : 8;
@@ -3833,6 +3825,7 @@ extern tree maybe_get_identifier (const char *);
 
 extern tree build_nt (enum tree_code, ...);
 extern tree build_nt_call_list (tree, tree);
+extern tree build_nt_call_vec (tree, VEC(tree,gc) *);
 
 extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
@@ -3870,6 +3863,8 @@ extern tree build_one_cst (tree);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
+extern tree build_tree_list_vec_stat (const VEC(tree,gc) * MEM_STAT_DECL);
+#define build_tree_list_vec(v) build_tree_list_vec_stat (v MEM_STAT_INFO)
 extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
 extern tree build_fn_decl (const char *, tree);
 #define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
@@ -3883,7 +3878,8 @@ extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);
 extern tree build_call_list (tree, tree, tree);
 extern tree build_call_nary (tree, tree, int, ...);
 extern tree build_call_valist (tree, tree, int, va_list);
-extern tree build_call_array (tree, tree, int, tree*);
+extern tree build_call_array (tree, tree, int, const tree *);
+extern tree build_call_vec (tree, tree, VEC(tree,gc) *);
 
 /* Construct various nodes representing data types.  */
 
@@ -4309,6 +4305,10 @@ extern bool initializer_zerop (const_tree);
 /* Given a CONSTRUCTOR CTOR, return the elements as a TREE_LIST.  */
 
 extern tree ctor_to_list (tree);
+
+/* Given a CONSTRUCTOR CTOR, return the element values as a vector.  */
+
+extern VEC(tree,gc) *ctor_to_vec (tree);
 
 /* Examine CTOR to discover:
    * how many scalar fields are set to nonzero values,
@@ -5025,7 +5025,7 @@ extern tree tree_overlaps_hard_reg_set (tree, HARD_REG_SET *);
 
 /* Generate a new label for the CFI info to refer to.  */
 
-extern char *dwarf2out_cfi_label (void);
+extern char *dwarf2out_cfi_label (bool);
 
 /* Entry point to update the canonical frame address (CFA).  */
 

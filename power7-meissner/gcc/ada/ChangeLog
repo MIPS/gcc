@@ -1,3 +1,90 @@
+2009-06-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Record_Type>: When
+	adjusting the discriminant nodes in an extension, use the full view
+	of the parent subtype if it is of a private kind.
+
+2009-06-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Record_Type>: Add the
+	_Parent field, if any, to the record before adding the other fields.
+	<E_Record_Subtype>: Put the _Controller field before the other fields
+	except for the _Tag or _Parent fields.
+	(components_to_record): Likewise.  Retrieve the _Parent field from the
+	record type.
+
+2009-06-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (substitution_list): Rename to build_subst_list,
+	remove unused parameter and simplify.
+	(gnat_to_gnu_entity) <E_Record_Type>: Do not set TYPE_FIELDS.  Factor
+	common predicate.  Rewrite loop for clarity.  Use GNU_TYPE directly
+	as context for all discriminants.  Fix formatting nits.
+	<E_Record_Subtype>: Add cosmetic 'break'.  Test Has_Discriminants
+	before Discriminant_Constraint.  Adjust for above renaming.  Do not
+	set GNU_TYPE more than once.
+	(elaborate_entity): Test Has_Discriminants on the entity and use
+	Implementation_Base_Type.
+	(components_to_record): Rename component_list to gnat_component_list.
+	Retrieve the _Parent field from the list.  Fix nits in comments.
+	Clarify logic in loop.  Pass correct arguments to create_field_decl.
+
+2009-06-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/Make-lang.in: Fix formatting.
+
+2009-06-01  Olivier Hainque  <hainque@adacore.com>
+            Eric Botcazou  <ebotcazou@adacore.com>
+	
+	* gcc-interface/utils.c (convert) <CONSTRUCTOR case>: When converting
+	to the packable version of the type, clear TREE_STATIC/TREE_CONSTANT
+	on the result if at least one of the input fields couldn't be output
+	as a static constant any more.
+
+2009-06-01  Olivier Hainque  <hainque@adacore.com>
+            Eric Botcazou  <ebotcazou@adacore.com>
+	
+	* gcc-interface/utils2.c (gnat_build_constructor): Factor
+	out code.  Use initializer_constant_valid_for_bitfield_p and
+	CONSTRUCTOR_BITFIELD_P for bit-fields.
+
+2009-05-26  Ian Lance Taylor  <iant@google.com>
+
+	* gcc-interface/Makefile.in (COMPILER): Define.
+	(COMPILER_FLAGS, ALL_COMPILERFLAGS): Define.
+	(.c.o, cio.o, init.o, initialize.o, targext.o): Use $(COMPILER).
+	(seh_init.o, tracebak.o): Likewise.
+	* gcc-interface/Make-lang.in (ada/targext.o): Likewise.
+	(ada/cio.o, ada/init.o, ada/initialize.o, ada/raise.o): Likewise.
+	(ada/tracebak.o, ada/cuintp.o, ada/decl.o, ada/misc.o): Likewise.
+	(ada/targtyps.o, ada/trans.o, ada/utils.o): Likewise.
+	(ada/utils2.o): Likewise.
+
+2009-05-24  Olivier Hainque  <hainque@adacore.com>
+
+	* switch.adb (Is_Internal_GCC_Switch, Switch_Last): Bodies of ...
+	* switch.ads (Is_Internal_GCC_Switch, Switch_Last): New functions.
+	Add -auxbase variants to the list of recognized internal switches.
+	* back_end.adb (Scan_Back_End_Switches): Use the new functions and
+	adjust comments.
+	* lib.ads: Make comment on internal GCC switches more general.
+	* gcc-interface/lang-specs.h (specs for Ada): Pass -auxbase variants
+	as for C.	
+	
+2009-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/misc.c (gnat_get_subrange_bounds): Fix thinko.
+
+2009-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (set_rm_size): Bypass the check for packed array
+	types.
+
+2009-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <object>: Do not modify the
+	original type because of the alignment when there is an address clause.
+
 2009-05-20  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Record_Subtype>: When

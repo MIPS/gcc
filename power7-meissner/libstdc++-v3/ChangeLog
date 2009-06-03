@@ -1,3 +1,132 @@
+2009-06-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/23_containers/list/cons/6.cc: Adjust test name.
+
+2009-06-02  Richard Sandiford  <r.sandiford@uk.ibm.com>
+
+	* crossconfig.m4 (GLIBCXX_CROSSCONFIG): Handle AIX targets.
+	* configure: Regenerate.
+
+2009-06-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/40299
+	* include/ext/memory: Fully qualify calls with __gnu_cxx.
+	* testsuite/ext/rope/40299.cc: New.
+
+2009-05-28  Tom Tromey  <tromey@redhat.com>
+	    Phil Muldoon  <pmuldoon@redhat.com>
+	    Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* python/Makefile.in, , python/libstdcxx/__init__.py,
+	python/libstdcxx/v6/__init__.py, python/libstdcxx/v6/printers.py,
+	python/hook.in, python/Makefile.am: New files.
+	* configure, Makefile.in: Rebuild.
+	* acinclude.m4 (glibcxx_SUBDIRS): Add python.
+	* Makefile.am (SUBDIRS): Add python.
+
+2009-05-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_allocator.h (check_new, check_delete): Move
+	to ...
+	* testsuite/util/replacement_memory_operators.h: ...here. New.
+	* testsuite/util/testsuite_hooks.h (counter): To object_counter.
+	* testsuite/util/testsuite_hooks.cc: Same.
+
+	* testsuite/ext/mt_allocator/deallocate_local_thread-1.cc: Use
+	replacement_memory_operators.h.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-3.cc: Same.
+	* testsuite/ext/mt_allocator/check_delete.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-5.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-7.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-1.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-3.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local-2.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local-4.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local-6.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local-8.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global-2.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global-4.cc: Same.
+	* testsuite/ext/mt_allocator/check_new.cc: Same.
+	* testsuite/ext/debug_allocator/check_delete.cc: Same.
+	* testsuite/ext/debug_allocator/check_new.cc: Same.
+	* testsuite/ext/new_allocator/deallocate_global.cc: Same.
+	* testsuite/ext/new_allocator/check_delete.cc: Same.
+	* testsuite/ext/new_allocator/check_new.cc: Same.
+	* testsuite/ext/new_allocator/deallocate_local.cc: Same.
+	* testsuite/ext/throw_allocator/deallocate_global.cc: Same.
+	* testsuite/ext/throw_allocator/check_delete.cc: Same.
+	* testsuite/ext/throw_allocator/check_new.cc: Same.
+	* testsuite/ext/throw_allocator/deallocate_local.cc: Same.
+	* testsuite/ext/malloc_allocator/deallocate_global.cc: Same.
+	* testsuite/ext/malloc_allocator/check_delete.cc: Same.
+	* testsuite/ext/malloc_allocator/check_new.cc: Same.
+	* testsuite/ext/malloc_allocator/deallocate_local.cc: Same.
+	* testsuite/ext/pool_allocator/check_delete.cc: Same.
+	* testsuite/ext/pool_allocator/check_new.cc: Same.
+	* testsuite/ext/bitmap_allocator/check_delete.cc: Same.
+	* testsuite/ext/bitmap_allocator/check_new.cc: Same.
+	* testsuite/ext/array_allocator/check_delete.cc: Same.
+	* testsuite/ext/array_allocator/check_new.cc: Same.
+	* testsuite/23_containers/deque/cons/1.cc: Same.
+	* testsuite/23_containers/deque/cons/2.cc: Same.
+
+2009-05-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/initializer_list: Format.
+	* testsuite/18_support/initializer_list/requirements/typedefs.cc: New.
+	* testsuite/18_support/initializer_list/requirements/
+	explicit_instantiation.cc: New.
+
+2009-05-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/40273
+	* include/tr1_impl/functional: Add explicit casts.
+	* testsuite/20_util/function/requirements/
+	explicit_instantiation.cc: New.
+	* testsuite/20_util/function/null_pointer_comparisons.cc: New.
+
+2009-05-24  Eelis van der Weegen  <eelis@eelis.net>
+
+	* libsupc++/initializer_list (initializer_list): Add missing typedefs.
+
+2009-05-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/40221
+	* include/tr1_impl/functional: Add explicit cast.
+
+2009-05-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/40094
+	Revert:
+	2009-05-07  Paolo Carlini  <paolo.carlini@oracle.com>
+	* include/ext/throw_allocator.h (throw_allocator_base): Avoid
+	out of line member functions definitions.
+	(throw_allocator_base::_S_g, _S_map, _S_throw_prob, _S_label):
+	Remove, use static locals instead.
+	(throw_allocator_base::do_check_allocated, print_to_string): Declare.
+	* src/throw_allocator.cc: New.
+	* src/Makefile.am: Add.
+	* config/abi/pre/gnu.ver: Add exports.
+	* src/Makefile.in: Regenerate.
+
+2009-05-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1_impl/functional (function): Use explicit operator bool.
+	* include/bits/shared_ptr.h (__shared_ptr): Same.
+	* include/bits/unique_ptr.h (unique_ptr): Same.
+	* include/std/mutex (unique_lock): Same.
+	* include/std/system_error (error_code): Same.
+	(error_condition): Same.
+	* include/std/ostream (sentry): Same.
+	* include/std/istream (sentry): Same.
+	* testsuite/19_diagnostics/error_condition/operators/bool.cc: Adjust.
+	* testsuite/19_diagnostics/error_condition/operators/bool_neg.cc: Same.
+	* testsuite/19_diagnostics/error_code/operators/bool.cc: Same.
+	* testsuite/19_diagnostics/error_code/operators/bool_neg.cc: Same.
+	* testsuite/20_util/unique_ptr/modifiers/reset_neg.cc: Same.
+	* testsuite/20_util/unique_ptr/assign/assign_neg.cc: Same.
+	* testsuite/20_util/shared_ptr/observers/bool_conv.cc: Same.
+
 2009-05-19  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/23_containers/list/14340.cc: Abstract list type.
@@ -182,7 +311,7 @@
 	* testsuite/26_numerics/random/piecewise_linear_distribution/cons/
 	initlist_fun.cc: Likewise
 	* testsuite/26_numerics/random/piecewise_linear_distribution/cons/
-	num_xbound_fun.cc: Likewise 
+	num_xbound_fun.cc: Likewise
 
 2009-05-14  Paolo Carlini  <paolo.carlini@oracle.com>
 
@@ -200,7 +329,7 @@
 2009-05-14  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* include/bits/random.tcc (cauchy_distribution<>::
-	operator()(_UniformRandomNumberGenerator&, const param_type&)): 
+	operator()(_UniformRandomNumberGenerator&, const param_type&)):
 	Avoid M_PI, a glibc extension.
 
 2009-05-13  Ben Elliston  <bje@au.ibm.com>
@@ -215,7 +344,7 @@
 
 2009-05-12  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
-        * doc/xml/manual/status_cxx200x.xml: Note missing constexpr for
+	* doc/xml/manual/status_cxx200x.xml: Note missing constexpr for
 	random number engines, complex, bitset, array, time utilities, and
 	char_traits.
 

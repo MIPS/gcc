@@ -91,9 +91,10 @@ static GTY(()) tree __pixel_keyword;
 static GTY(()) tree pixel_keyword;
 static GTY(()) tree __bool_keyword;
 static GTY(()) tree bool_keyword;
+static GTY(()) tree _Bool_keyword;
 
 /* Preserved across calls.  */
-static GTY(()) tree expand_bool_pixel;
+static tree expand_bool_pixel;
 
 static cpp_hashnode *
 altivec_categorize_keyword (const cpp_token *tok)
@@ -105,14 +106,14 @@ altivec_categorize_keyword (const cpp_token *tok)
       if (ident == C_CPP_HASHNODE (vector_keyword))
 	return C_CPP_HASHNODE (__vector_keyword);
 
-      if (TARGET_ALTIVEC)
-	{
-	  if (ident == C_CPP_HASHNODE (pixel_keyword))
-	    return C_CPP_HASHNODE (__pixel_keyword);
+      if (ident == C_CPP_HASHNODE (pixel_keyword))
+	return C_CPP_HASHNODE (__pixel_keyword);
 
-	  if (ident == C_CPP_HASHNODE (bool_keyword))
-	    return C_CPP_HASHNODE (__bool_keyword);
-	}
+      if (ident == C_CPP_HASHNODE (bool_keyword))
+	return C_CPP_HASHNODE (__bool_keyword);
+
+      if (ident == C_CPP_HASHNODE (_Bool_keyword))
+	return C_CPP_HASHNODE (__bool_keyword);
 
       return ident;
     }
@@ -130,23 +131,23 @@ init_vector_keywords (void)
   __vector_keyword = get_identifier ("__vector");
   C_CPP_HASHNODE (__vector_keyword)->flags |= NODE_CONDITIONAL;
 
+  __pixel_keyword = get_identifier ("__pixel");
+  C_CPP_HASHNODE (__pixel_keyword)->flags |= NODE_CONDITIONAL;
+
+  __bool_keyword = get_identifier ("__bool");
+  C_CPP_HASHNODE (__bool_keyword)->flags |= NODE_CONDITIONAL;
+
   vector_keyword = get_identifier ("vector");
   C_CPP_HASHNODE (vector_keyword)->flags |= NODE_CONDITIONAL;
 
-  if (TARGET_ALTIVEC)
-    {
-      __pixel_keyword = get_identifier ("__pixel");
-      C_CPP_HASHNODE (__pixel_keyword)->flags |= NODE_CONDITIONAL;
+  pixel_keyword = get_identifier ("pixel");
+  C_CPP_HASHNODE (pixel_keyword)->flags |= NODE_CONDITIONAL;
 
-      __bool_keyword = get_identifier ("__bool");
-      C_CPP_HASHNODE (__bool_keyword)->flags |= NODE_CONDITIONAL;
+  bool_keyword = get_identifier ("bool");
+  C_CPP_HASHNODE (bool_keyword)->flags |= NODE_CONDITIONAL;
 
-      pixel_keyword = get_identifier ("pixel");
-      C_CPP_HASHNODE (pixel_keyword)->flags |= NODE_CONDITIONAL;
-
-      bool_keyword = get_identifier ("bool");
-      C_CPP_HASHNODE (bool_keyword)->flags |= NODE_CONDITIONAL;
-    }
+  _Bool_keyword = get_identifier ("_Bool");
+  C_CPP_HASHNODE (_Bool_keyword)->flags |= NODE_CONDITIONAL;
 }
 
 /* Called to decide whether a conditional macro should be expanded.
@@ -172,12 +173,6 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
       while (tok->type == CPP_PADDING);
       ident = altivec_categorize_keyword (tok);
 
-      /* If the token after __vector is not an identifer, assume the user is
-	 using it as a normal identifier and did not want it expanded as a
-	 keyword.  */
-      if (!ident)
-	return NULL;
-
       if (ident == C_CPP_HASHNODE (__pixel_keyword))
 	{
 	  expand_this = C_CPP_HASHNODE (__vector_keyword);
@@ -188,7 +183,7 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 	  expand_this = C_CPP_HASHNODE (__vector_keyword);
 	  expand_bool_pixel = __bool_keyword;
 	}
-      else
+      else if (ident)
 	{
 	  enum rid rid_code = (enum rid)(ident->rid_code);
 	  if (ident->type == NT_MACRO)
@@ -298,6 +293,7 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__VEC__=10206");
 
       /* Define the AltiVec syntactic elements.  */
+      builtin_define ("__vector=__attribute__((altivec(vector__)))");
       builtin_define ("__pixel=__attribute__((altivec(pixel__))) unsigned short");
       builtin_define ("__bool=__attribute__((altivec(bool__))) unsigned");
 
@@ -306,18 +302,10 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 	  /* Define this when supporting context-sensitive keywords.  */
 	  builtin_define ("__APPLE_ALTIVEC__");
 	  
+	  builtin_define ("vector=vector");
 	  builtin_define ("pixel=pixel");
 	  builtin_define ("bool=bool");
-	}
-    }
-  if (TARGET_ALTIVEC || TARGET_VSX)
-    {
-      /* Define the AltiVec/VSX syntactic elements.  */
-      builtin_define ("__vector=__attribute__((altivec(vector__)))");
-
-      if (!flag_iso)
-	{
-	  builtin_define ("vector=vector");
+	  builtin_define ("_Bool=_Bool");
 	  init_vector_keywords ();
 
 	  /* Enable context-sensitive macros.  */
