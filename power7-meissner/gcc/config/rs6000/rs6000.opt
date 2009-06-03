@@ -139,6 +139,14 @@ mdisallow-float-in-lr-ctr
 Target Undocumented Var(TARGET_DISALLOW_FLOAT_IN_LR_CTR) Init(-1)
 ; Disallow floating point in LR or CTR, causes some reload bugs
 
+mallow-movmisalign
+Target Undocumented Var(TARGET_ALLOW_MOVMISALIGN) Init(-1)
+; Allow/disallow the movmisalign in DF/DI vectors
+
+mallow-df-permute
+Target Undocumented Var(TARGET_ALLOW_DF_PERMUTE) Init(-1)
+; Allow/disallow permutation of DF/DI vectors
+
 mupdate
 Target Report Var(TARGET_UPDATE) Init(1)
 Generate load/store with update instructions

@@ -2851,10 +2851,16 @@ rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
       break;
 
     case V2DFmode:
+      if (!TARGET_ALLOW_DF_PERMUTE)
+	return NULL_TREE;
+
       d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DF];
       break;
 
     case V2DImode:
+      if (!TARGET_ALLOW_DF_PERMUTE)
+	return NULL_TREE;
+
       d = (uns_p
 	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI_UNS]
 	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI]);
