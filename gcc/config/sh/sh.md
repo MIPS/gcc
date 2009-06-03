@@ -1045,7 +1045,7 @@
 	 (match_dup 0)
 	 (match_dup 2)))]
   "TARGET_SHMEDIA && peep2_reg_dead_p (2, operands[0])
-   && (GET_CODE (operands[1]) != REG || GENERAL_REGISTER_P (REGNO (operands[1])))"
+   && (!REG_P (operands[1]) || GENERAL_REGISTER_P (REGNO (operands[1])))"
   [(set (match_dup 2)
 	(if_then_else:SI (match_dup 4) (match_dup 1) (match_dup 2)))]
   "
@@ -1549,7 +1549,7 @@
   ""
   "
 {
-  if (TARGET_SH1 && GET_CODE (operands[1]) == CONST_INT)
+  if (TARGET_SH1 && CONST_INT_P (operands[1]))
     {
       emit_insn (gen_negsi2 (operands[0], operands[2]));
       emit_insn (gen_addsi3 (operands[0], operands[0], operands[1]));
@@ -3055,7 +3055,7 @@ label:
   "
 {
   if (TARGET_SH1
-      && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) == 255)
+      && CONST_INT_P (operands[2]) && INTVAL (operands[2]) == 255)
     {
       emit_insn (gen_zero_extendqisi2 (operands[0],
 				       gen_lowpart (QImode, operands[1])));
@@ -3248,7 +3248,7 @@ label:
       offset = SUBREG_BYTE (operands[0]);
       operands[0] = SUBREG_REG (operands[0]);
     }
-  gcc_assert (GET_CODE (operands[0]) == REG);
+  gcc_assert (REG_P (operands[0]));
   if (! TARGET_LITTLE_ENDIAN)
     offset += 8 - GET_MODE_SIZE (inmode);
   operands[5] = gen_rtx_SUBREG (inmode, operands[0], offset);
@@ -3361,7 +3361,7 @@ label:
 
   int count, choice;
 
-  if (GET_CODE (operands[2]) != CONST_INT)
+  if (!CONST_INT_P (operands[2]))
     FAIL;
   count = INTVAL (operands[2]);
   choice = rot_tab[count];
@@ -3416,7 +3416,7 @@ label:
   "TARGET_SH1"
   "
 {
-  if (GET_CODE (operands[2]) != CONST_INT || INTVAL (operands[2]) != 8)
+  if (!CONST_INT_P (operands[2]) || INTVAL (operands[2]) != 8)
     FAIL;
 }")
 
@@ -3449,7 +3449,7 @@ label:
    #"
   "TARGET_SH3
    && reload_completed
-   && GET_CODE (operands[2]) == CONST_INT
+   && CONST_INT_P (operands[2])
    && ! satisfies_constraint_P27 (operands[2])"
   [(set (match_dup 3) (match_dup 2))
    (parallel
@@ -3523,7 +3523,7 @@ label:
       emit_insn (gen_ashlsi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
-  if (GET_CODE (operands[2]) == CONST_INT
+  if (CONST_INT_P (operands[2])
       && sh_dynamicalize_shift_p (operands[2]))
     operands[2] = force_reg (SImode, operands[2]);
   if (TARGET_SH3)
@@ -3558,7 +3558,7 @@ label:
   "TARGET_SH1"
   "
 {
-  if (GET_CODE (operands[2]) != CONST_INT)
+  if (!CONST_INT_P (operands[2]))
     FAIL;
   /* It may be possible to call gen_ashlhi3 directly with more generic
      operands.  Make sure operands[1] is a HImode register here.  */
@@ -3825,7 +3825,7 @@ label:
       emit_insn (gen_lshrsi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
-  if (GET_CODE (operands[2]) == CONST_INT
+  if (CONST_INT_P (operands[2])
       && sh_dynamicalize_shift_p (operands[2]))
     operands[2] = force_reg (SImode, operands[2]);
   if (TARGET_SH3 && arith_reg_operand (operands[2], GET_MODE (operands[2])))
@@ -3911,13 +3911,13 @@ label:
       emit_insn (gen_ashldi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
-  if (GET_CODE (operands[2]) == CONST_INT
+  if (CONST_INT_P (operands[2])
       && INTVAL (operands[2]) == 1)
     {
       emit_insn (gen_ashldi3_k (operands[0], operands[1]));
       DONE;
     }
-  else if (GET_CODE (operands[2]) == CONST_INT
+  else if (CONST_INT_P (operands[2])
       && INTVAL (operands[2]) < 32)
     {
       emit_insn (gen_ashldi3_std (operands[0], operands[1], operands[2]));
@@ -3945,7 +3945,7 @@ label:
 		     (match_operand:DI 2 "shift_count_operand" "r,n")))]
   "TARGET_SHMEDIA
    && (arith_reg_dest (operands[0], DImode)
-       || (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) > 32))"
+       || (CONST_INT_P (operands[2]) && INTVAL (operands[2]) > 32))"
   "@
 	shlrd	%1, %2, %0
 	shlri	%1, %2, %0"
@@ -3973,7 +3973,7 @@ label:
       emit_insn (gen_lshrdi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
-  if (GET_CODE (operands[2]) != CONST_INT
+  if (!CONST_INT_P (operands[2])
       || INTVAL (operands[2]) != 1)
     FAIL;
 }")
@@ -3996,7 +3996,7 @@ label:
 		     (match_operand:DI 2 "shift_count_operand" "r,n")))]
   "TARGET_SHMEDIA
    && (arith_reg_dest (operands[0], DImode)
-       || (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 32))"
+       || (CONST_INT_P (operands[2]) && INTVAL (operands[2]) >= 32))"
   "@
 	shard	%1, %2, %0
 	shari	%1, %2, %0"
@@ -4042,7 +4042,7 @@ label:
       emit_insn (gen_ashrdi3_media (operands[0], operands[1], operands[2]));
       DONE;
     }
-  if (GET_CODE (operands[2]) != CONST_INT
+  if (!CONST_INT_P (operands[2])
       || INTVAL (operands[2]) != 1)
     FAIL;
 }")
@@ -5092,7 +5092,7 @@ label:
   [(set (match_operand:SI 0 "register_operand" "")
 	(match_operand:SI 1 "immediate_operand" ""))]
   "TARGET_SHMEDIA && reload_completed
-   && ((GET_CODE (operands[1]) == CONST_INT
+   && ((CONST_INT_P (operands[1])
 	&& ! satisfies_constraint_I16 (operands[1]))
        || GET_CODE (operands[1]) == CONST_DOUBLE)"
   [(set (subreg:DI (match_dup 0) 0) (match_dup 1))])
@@ -5280,9 +5280,9 @@ label:
   "TARGET_SH1
    && (arith_reg_operand (operands[0], HImode)
        || arith_reg_operand (operands[1], HImode))
-   && (GET_CODE (operands[0]) != MEM
+   && (!MEM_P (operands[0])
        || GET_CODE (XEXP (operands[0], 0)) != PLUS
-       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != REG
+       || !REG_P (XEXP (XEXP (operands[0], 0), 1))
        || ! refers_to_regno_p (R0_REG, R0_REG + 1, operands[1], (rtx *)0))"
   "@
 	mov.w	%1,%0
@@ -5367,9 +5367,9 @@ label:
 {
   int regno;
 
-  if ((GET_CODE (operands[0]) == MEM
+  if ((MEM_P (operands[0])
        && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC)
-      || (GET_CODE (operands[1]) == MEM
+      || (MEM_P (operands[1])
 	  && GET_CODE (XEXP (operands[1], 0)) == POST_INC))
     FAIL;
 
@@ -5533,7 +5533,7 @@ label:
   [(set (match_operand:DI 0 "ext_dest_operand" "")
 	(match_operand:DI 1 "immediate_operand" ""))]
   "TARGET_SHMEDIA && reload_completed
-   && GET_CODE (operands[1]) == CONST_INT
+   && CONST_INT_P (operands[1])
    && ! satisfies_constraint_I16 (operands[1])"
   [(set (match_dup 0) (match_dup 2))
    (match_dup 1)]
@@ -5765,8 +5765,8 @@ label:
   "TARGET_SH1
    && (! (TARGET_SH4 || TARGET_SH2A_DOUBLE) || reload_completed
        /* ??? We provide some insn so that direct_{load,store}[DFmode] get set */
-       || (GET_CODE (operands[0]) == REG && REGNO (operands[0]) == 3)
-       || (GET_CODE (operands[1]) == REG && REGNO (operands[1]) == 3))
+       || (REG_P (operands[0]) && REGNO (operands[0]) == 3)
+       || (REG_P (operands[1]) && REGNO (operands[1]) == 3))
    && (arith_reg_operand (operands[0], DFmode)
        || arith_reg_operand (operands[1], DFmode))"
   "* return output_movedouble (insn, operands, DFmode);"
@@ -5891,12 +5891,12 @@ label:
     }
   if (GET_CODE (mem) == SUBREG && SUBREG_BYTE (mem) == 0)
     mem = SUBREG_REG (mem);
-  if (GET_CODE (mem) == MEM)
+  if (MEM_P (mem))
     {
       rtx addr = XEXP (mem, 0);
       if (GET_CODE (addr) == PLUS
-	  && GET_CODE (XEXP (addr, 0)) == REG
-	  && GET_CODE (XEXP (addr, 1)) == REG)
+	  && REG_P (XEXP (addr, 0))
+	  && REG_P (XEXP (addr, 1)))
 	{
 	  int offset;
 	  rtx reg0 = gen_rtx_REG (Pmode, 0);
@@ -6116,9 +6116,9 @@ label:
 {
   int regno;
 
-  if ((GET_CODE (operands[0]) == MEM
+  if ((MEM_P (operands[0])
        && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC)
-      || (GET_CODE (operands[1]) == MEM
+      || (MEM_P (operands[1])
 	  && GET_CODE (XEXP (operands[1], 0)) == POST_INC))
     FAIL;
 
@@ -6172,7 +6172,7 @@ label:
 {
   rtx addr, reg, const_int;
 
-  if (GET_CODE (operands[1]) != MEM)
+  if (!MEM_P (operands[1]))
     FAIL;
   addr = XEXP (operands[1], 0);
   if (GET_CODE (addr) != PLUS)
@@ -6180,7 +6180,7 @@ label:
   reg = XEXP (addr, 0);
   const_int = XEXP (addr, 1);
   if (! (BASE_REGISTER_RTX_P (reg) && INDEX_REGISTER_RTX_P (operands[2])
-	 && GET_CODE (const_int) == CONST_INT))
+	 && CONST_INT_P (const_int)))
     FAIL;
   emit_move_insn (operands[2], const_int);
   emit_move_insn (operands[0],
@@ -6200,7 +6200,7 @@ label:
 {
   rtx addr, reg, const_int;
 
-  if (GET_CODE (operands[1]) != MEM)
+  if (!MEM_P (operands[1]))
     FAIL;
   addr = XEXP (operands[1], 0);
   if (GET_CODE (addr) != PLUS)
@@ -6208,7 +6208,7 @@ label:
   reg = XEXP (addr, 0);
   const_int = XEXP (addr, 1);
   if (! (BASE_REGISTER_RTX_P (reg) && INDEX_REGISTER_RTX_P (operands[2])
-	 && GET_CODE (const_int) == CONST_INT))
+	 && CONST_INT_P (const_int)))
     FAIL;
   emit_move_insn (operands[2], const_int);
   emit_move_insn (change_address (operands[1], VOIDmode,
@@ -6334,13 +6334,13 @@ label:
     {
       rtx x, y;
 
-      if (GET_CODE (operands[0]) == MEM)
+      if (MEM_P (operands[0]))
 	x = adjust_address (operands[0], V2SFmode,
 			    i * GET_MODE_SIZE (V2SFmode));
       else
 	x = simplify_gen_subreg (V2SFmode, operands[0], V4SFmode, i * 8);
 
-      if (GET_CODE (operands[1]) == MEM)
+      if (MEM_P (operands[1]))
 	y = adjust_address (operands[1], V2SFmode,
 			    i * GET_MODE_SIZE (V2SFmode));
       else
@@ -6378,7 +6378,7 @@ label:
     {
       rtx x,y;
 
-      if (GET_CODE (operands[0]) == MEM)
+      if (MEM_P (operands[0]))
 	x = adjust_address (operands[0], V2SFmode,
 			    i * GET_MODE_SIZE (V2SFmode));
       else
@@ -6387,7 +6387,7 @@ label:
 	  alter_subreg (&x);
 	}
 
-      if (GET_CODE (operands[1]) == MEM)
+      if (MEM_P (operands[1]))
 	y = adjust_address (operands[1], V2SFmode,
 			    i * GET_MODE_SIZE (V2SFmode));
       else
@@ -6476,8 +6476,8 @@ label:
   "TARGET_SH1
    && (! TARGET_SH2E
        /* ??? We provide some insn so that direct_{load,store}[SFmode] get set */
-       || (GET_CODE (operands[0]) == REG && REGNO (operands[0]) == 3)
-       || (GET_CODE (operands[1]) == REG && REGNO (operands[1]) == 3))
+       || (REG_P (operands[0]) && REGNO (operands[0]) == 3)
+       || (REG_P (operands[1]) && REGNO (operands[1]) == 3))
    && (arith_reg_operand (operands[0], SFmode)
        || arith_reg_operand (operands[1], SFmode))"
   "@
@@ -7401,7 +7401,7 @@ label:
       XEXP (operands[0], 0) = reg;
     }
   if (!flag_pic && TARGET_SH2A
-      && GET_CODE (operands[0]) == MEM
+      && MEM_P (operands[0])
       && GET_CODE (XEXP (operands[0], 0)) == SYMBOL_REF)
     {
       if (sh2a_is_function_vector_call (XEXP (operands[0], 0)))
@@ -7412,7 +7412,7 @@ label:
 	}
     }
   if (flag_pic && TARGET_SH2
-      && GET_CODE (operands[0]) == MEM
+      && MEM_P (operands[0])
       && GET_CODE (XEXP (operands[0], 0)) == SYMBOL_REF)
     {
       emit_call_insn (gen_call_pcrel (XEXP (operands[0], 0), operands[1]));
@@ -7595,7 +7595,7 @@ label:
       XEXP (operands[1], 0) = reg;
     }
   if (!flag_pic && TARGET_SH2A
-      && GET_CODE (operands[1]) == MEM
+      && MEM_P (operands[1])
       && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF)
     {
       if (sh2a_is_function_vector_call (XEXP (operands[1], 0)))
@@ -7606,7 +7606,7 @@ label:
 	}
     }
   if (flag_pic && TARGET_SH2
-      && GET_CODE (operands[1]) == MEM
+      && MEM_P (operands[1])
       && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF)
     {
       emit_call_insn (gen_call_value_pcrel (operands[0], XEXP (operands[1], 0),
@@ -7801,7 +7801,7 @@ label:
       XEXP (operands[0], 0) = reg;
     }
   if (flag_pic && TARGET_SH2
-      && GET_CODE (operands[0]) == MEM
+      && MEM_P (operands[0])
       && GET_CODE (XEXP (operands[0], 0)) == SYMBOL_REF
       /* The PLT needs the PIC register, but the epilogue would have
 	 to restore it, so we can only use PC-relative PIC calls for
@@ -7993,7 +7993,7 @@ label:
       XEXP (operands[1], 0) = reg;
     }
   if (flag_pic && TARGET_SH2
-      && GET_CODE (operands[1]) == MEM
+      && MEM_P (operands[1])
       && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF
       /* The PLT needs the PIC register, but the epilogue would have
 	 to restore it, so we can only use PC-relative PIC calls for
@@ -8124,7 +8124,7 @@ label:
       /* If epilogue clobbers r0, preserve it in macl.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	if ((set = single_set (insn))
-	    && GET_CODE (SET_DEST (set)) == REG
+	    && REG_P (SET_DEST (set))
 	    && REGNO (SET_DEST (set)) == R0_REG)
 	  {
 	    rtx r0 = gen_rtx_REG (SImode, R0_REG);
@@ -9605,7 +9605,7 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SH2E
    && (! reload_completed
        || true_regnum (operands[0]) != FPSCR_REG
-       || GET_CODE (operands[1]) != MEM
+       || !MEM_P (operands[1])
        || GET_CODE (XEXP (operands[1], 0)) != PLUS)"
   "@
 	! precision stays the same
@@ -10863,7 +10863,7 @@ mov.l\\t1f,r0\\n\\
   size = bitsize / 8;
   orig_address = XEXP (operands[0], 0);
   shift_reg = gen_reg_rtx (SImode);
-  if (GET_CODE (x) == CONST_INT)
+  if (CONST_INT_P (x))
     {
       v = INTVAL (x);
       qi_val = force_reg (QImode, GEN_INT (trunc_int_for_mode (v, QImode)));
@@ -10880,7 +10880,7 @@ mov.l\\t1f,r0\\n\\
 
   while (size -= 1)
     {
-      if (GET_CODE (x) == CONST_INT)
+      if (CONST_INT_P (x))
 	qi_val
 	  = force_reg (QImode, GEN_INT (trunc_int_for_mode (v >>= 8, QImode)));
       else
@@ -10940,7 +10940,7 @@ mov.l\\t1f,r0\\n\\
   if (TARGET_SH4A_ARCH
       && INTVAL (operands[2]) == 32
       && INTVAL (operands[3]) == -24 * (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
-      && GET_CODE (operands[1]) == MEM && MEM_ALIGN (operands[1]) < 32)
+      && MEM_P (operands[1]) && MEM_ALIGN (operands[1]) < 32)
     {
       rtx src = adjust_address (operands[1], BLKmode, 0);
       set_mem_size (src, GEN_INT (4));
@@ -10972,7 +10972,7 @@ mov.l\\t1f,r0\\n\\
   if (TARGET_SH4A_ARCH
       && INTVAL (operands[2]) == 32
       && INTVAL (operands[3]) == -24 * (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
-      && GET_CODE (operands[1]) == MEM && MEM_ALIGN (operands[1]) < 32)
+      && MEM_P (operands[1]) && MEM_ALIGN (operands[1]) < 32)
     {
       rtx src = adjust_address (operands[1], BLKmode, 0);
       set_mem_size (src, GEN_INT (4));
@@ -11305,7 +11305,7 @@ mov.l\\t1f,r0\\n\\
    (set (mem:SF (match_dup 0))
 	(match_operand:SF 2 "general_movsrc_operand" ""))]
   "TARGET_SH1 && REGNO (operands[0]) == 0
-   && ((GET_CODE (operands[2]) == REG && REGNO (operands[2]) < 16)
+   && ((REG_P (operands[2]) && REGNO (operands[2]) < 16)
        || (GET_CODE (operands[2]) == SUBREG
 	   && REGNO (SUBREG_REG (operands[2])) < 16))
    && reg_unused_after (operands[0], insn)"
@@ -11318,7 +11318,7 @@ mov.l\\t1f,r0\\n\\
 
 	(mem:SF (match_dup 0)))]
   "TARGET_SH1 && REGNO (operands[0]) == 0
-   && ((GET_CODE (operands[2]) == REG && REGNO (operands[2]) < 16)
+   && ((REG_P (operands[2]) && REGNO (operands[2]) < 16)
        || (GET_CODE (operands[2]) == SUBREG
 	   && REGNO (SUBREG_REG (operands[2])) < 16))
    && reg_unused_after (operands[0], insn)"
@@ -11330,7 +11330,7 @@ mov.l\\t1f,r0\\n\\
    (set (mem:SF (match_dup 0))
 	(match_operand:SF 2 "general_movsrc_operand" ""))]
   "TARGET_SH2E && REGNO (operands[0]) == 0
-   && ((GET_CODE (operands[2]) == REG
+   && ((REG_P (operands[2])
         && FP_OR_XD_REGISTER_P (REGNO (operands[2])))
        || (GET_CODE (operands[2]) == SUBREG
 	   && FP_OR_XD_REGISTER_P (REGNO (SUBREG_REG (operands[2])))))
@@ -11344,7 +11344,7 @@ mov.l\\t1f,r0\\n\\
 
 	(mem:SF (match_dup 0)))]
   "TARGET_SH2E && REGNO (operands[0]) == 0
-   && ((GET_CODE (operands[2]) == REG
+   && ((REG_P (operands[2])
 	&& FP_OR_XD_REGISTER_P (REGNO (operands[2])))
        || (GET_CODE (operands[2]) == SUBREG
 	   && FP_OR_XD_REGISTER_P (REGNO (SUBREG_REG (operands[2])))))
@@ -11433,7 +11433,7 @@ mov.l\\t1f,r0\\n\\
   operands[1] = XVECEXP (operands[1], 0, 0);
   if (unit_size < 2)
     {
-      if (GET_CODE (operands[1]) == CONST_INT && GET_CODE (elt1) == CONST_INT)
+      if (CONST_INT_P (operands[1]) && CONST_INT_P (elt1))
 	operands[1]
 	  = GEN_INT (TARGET_LITTLE_ENDIAN
 		     ? (INTVAL (operands[1]) & 0xff) + (INTVAL (elt1) << 8)
@@ -13195,8 +13195,8 @@ mov.l\\t1f,r0\\n\\
   "
 {
   if (GET_MODE (operands[0]) != Pmode
-      || GET_CODE (operands[1]) != CONST_INT
-      || GET_CODE (operands[2]) != CONST_INT)
+      || !CONST_INT_P (operands[1])
+      || !CONST_INT_P (operands[2]))
     FAIL;
   if (! TARGET_SHMEDIA)
     operands[0] = force_reg (Pmode, operands[0]);

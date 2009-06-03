@@ -1,3 +1,97 @@
+2009-06-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40328
+	* gcc.dg/torture/pr40328.c: New testcase.
+
+2009-06-03  Martin Jambor  <mjambor@suse.cz>
+
+	* g++.dg/torture/pr40323.C: New file.
+
+2009-06-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/root.ads: New test.
+	* gnat.dg/specs/root-level_1.ads: Likewise.
+	* gnat.dg/specs/root-level_2.ads: Likewise.
+	* gnat.dg/specs/root-level_1-level_2.ads: Likewise.
+
+2009-06-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/ref15.C: Require unwrapped targets.
+
+2009-06-02  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist13.C: Remove expected error.
+	* g++.dg/cpp0x/initlist18.C: New.
+	* g++.dg/cpp0x/initlist19.C: New.
+
+	* g++.dg/cpp0x/auto14.C: New.
+
+2009-06-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/alignment6.adb: Remove XFAIL.
+
+2009-06-02  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/38089
+	* g++.dg/template/spec36.C: New test.
+
+2009-06-01  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/cast-qual-3.c: New testcase.
+	* g++.dg/warn/Wcast-qual2.C: New testcase.
+
+2009-06-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* lib/gcc-dg.exp (dg-bogus): Override dg-bogus.
+	(process-message): Expect column numbers.
+	* gcc.dg/va-arg-2.c: Use line 0 to indicate no column.
+	* gcc.dg/pch/counter-2.c: Same.
+	* gcc.dg/pch/valid-2.c: Same.
+	* gcc.dg/pch/warn-1.c: Same.
+	* gcc.dg/pch/valid-1.c: Same.
+	* gcc.dg/cpp/include2a.c: Handle lack of columns.
+	* gcc.dg/cpp/syshdr.c: Same.
+	* gcc.dg/cpp/19940712-1.c: Same.
+	* gcc.dg/cpp/missing-header-1.c: Same.
+	* gcc.dg/cpp/unc4.c: Remove -fno-show-column.
+	* gcc.dg/cpp/tr-warn3.c: Same.
+	* gcc.dg/cpp/pr29612-2.c: Same.
+	* gcc.dg/cpp/tr-warn4.c: Same.
+	* gcc.dg/cpp/Wtrigraphs.c: Same.
+	* gcc.dg/cpp/poison.c: Same.
+	* gcc.dg/cpp/arith-3.c: Same.
+	* gcc.dg/cpp/sysmac2.c: Same.
+	* gcc.dg/cpp/cpp.exp: Same.
+	* gcc.dg/cpp/tr-warn5.c: Same.
+	* gcc.dg/cpp/include2.c: Same.
+	* gcc.dg/cpp/Wmissingdirs.c: Same.
+	* gcc.dg/cpp/Wmissingdirs.c: Same.
+	* gcc.dg/cpp/tr-warn6.c: Same.
+	* gcc.dg/cpp/Wtrigraphs-2.c: Same.
+	* gcc.dg/cpp/macspace1.c: Same.
+	* gcc.dg/cpp/escape-2.c: Same.
+	* gcc.dg/cpp/assert2.c: Same.
+	* gcc.dg/cpp/undef2.c: Same.
+	* gcc.dg/cpp/macspace2.c: Same.
+	* gcc.dg/cpp/tr-warn1.c: Same.
+	* gcc.dg/cpp/extratokens2.c: Same.
+	* gcc.dg/cpp/strify2.c: Same.
+	* gcc.dg/cpp/Wsignprom.c: Same.
+	* gcc.dg/cpp/redef2.c: Same.
+	* gcc.dg/cpp/trad/trad.exp: Same.
+	* gcc.dg/cpp/arith-1.c: Same.
+	* gcc.dg/cpp/extratokens.c: Same.
+	* gcc.dg/cpp/if-mpar.c: Same.
+
+2009-06-01  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/nested_float_packed.ads: New test.
+
+2009-06-01  Olivier Hainque  <hainque@adacore.com>
+	    Eric Botcazou  <botcazou@adacore.com>
+
+	* gnat.dg/oconst[1-6].ad[bs]: New tests. Also support for ...
+	* gnat.dg/test_oconst.adb: New test.
 
 2009-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
@@ -76,8 +170,7 @@
 
 2009-05-28  Kai Tietz  <kai.tietz@onevision.com>
 
-	*  g++.dg/ext/packed6.C (size_t): Use __extension__ and
-	__SIZE_TYPE__.
+	*  g++.dg/ext/packed6.C (size_t): Use __extension__ and __SIZE_TYPE__.
 	* g++.dg/opt/memcpy1.C (size_t): Likewise.
 	* g++.dg/pr37742.C (size_t): Likewise.
 	* g++.dg/torture/pr34850.C (size_t): Likewise.
@@ -236,7 +329,7 @@
 	* gcc.dg/vect/pr40238.c: New test.
 
 2009-05-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-	    Dominique Dhumieres
+	    Dominique Dhumieres  <dominiq@lps.ens.fr>
 
 	PR fortran/35732
 	PR fortran/39872
@@ -502,8 +595,10 @@
 	* gcc.target/i386/align-main-2.c (check): Mark noinline.
 	* gcc.dg/ipa/ipa-4.c: Disable early inlining.
 	* gcc.dg/vect/vect-iv-10.c (main1): Mark noinline.
-	* gcc.dg/vect/costmodel/i386/costmodel-vect-33.c (main1): Mark noinline.
-	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-33.c (main1): Mark noinline.
+	* gcc.dg/vect/costmodel/i386/costmodel-vect-33.c (main1):
+	Mark noinline.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-33.c (main1):
+	Mark noinline.
 	* gcc.dg/vect/pr31699.c (foo): Mark noinline.
 	* gcc.dg/vect/pr18400.c (main1): Mark noinline.
 
@@ -591,8 +686,8 @@
 
 2009-05-12  Jan Hubicka  <jh@suse.cz>
 
-	* gcc.dg/tree-ssa/loop-36.c: Reduce amount of iterations to 2 so unrolling
-	still happens.
+	* gcc.dg/tree-ssa/loop-36.c: Reduce amount of iterations to 2
+	so unrolling still happens.
 	* gcc.dg/ipa/ipacost-1.c: Prevent inlining
 	* gcc.dg/ipa/ipacost-2.c: Likewise.
 	* gcc.dg/vect/slp-3.c: Loop is no longer unrolled.
