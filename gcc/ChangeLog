@@ -1,3 +1,260 @@
+2009-06-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (gimple_expand_cfg): Discard the source location
+	only for builtins that are not overridden.
+
+2009-06-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gengtype.c (adjust_field_rtx_def): Add NOTE_INSN_DELETED_LABEL's
+	label string.
+
+2009-06-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-core.c (df_ref_debug): Honor -fdump-noaddr.
+
+2009-06-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (move_deaths): Compare LUIDs within the same BB only.
+
+2009-06-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fdump-unnumbered-links): New.
+	* doc/invoke.texi (-fdump-unnumbered-links): Document it.
+	* print-rtl.c (flag_dump_unnumbered_links): New.
+	(print_rtx): Test it.
+
+2009-06-02  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_get_frame_offsets): Prefer using r3 for padding a
+	push/pop multiple to 8-byte alignment.
+	
+2009-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (queued_cfa_restores): New static variable.
+	(ix86_add_cfa_restore_note, ix86_add_queued_cfa_restore_notes): New
+	functions.
+	(pro_epilogue_adjust_stack): Call ix86_add_queued_cfa_restore_notes.
+	(ix86_emit_restore_reg_using_pop): Add RED_OFFSET argument.
+	Set RTX_FRAME_RELATED_P immediately after adding a REG_CFA_* note.
+	Call ix86_add_cfa_restore_note instead of adding REG_CFA_OFFSET
+	note unconditionally.
+	(ix86_emit_restore_regs_using_mov): Likewise.
+	(ix86_emit_restore_sse_regs_using_mov): Likewise.
+	(ix86_emit_restore_regs_using_pop): Add RED_OFFSET argument, pass
+	it through to ix86_emit_restore_reg_using_pop.
+	(ix86_emit_leave): Add RED_OFFSET argument.  Call
+	ix86_add_queued_cfa_restore_notes.  Call ix86_add_cfa_restore_note
+	instead of adding REG_CFA_OFFSET note unconditionally.
+	(ix86_expand_epilogue): Compute RED_OFFSET, pass it down to
+	the above functions.  Call ix86_add_queued_cfa_restore_notes when
+	needed.
+
+	* dwarf2out.c (dwarf2out_cfi_label): Add FORCE argument, if true,
+	force output of the label even for dwarf2out_do_cfi_asm.
+	(add_fde_cfi): If -g2 and above and cfi might change CFA,
+	force creation of CFI label and chain DW_CFA_set_loc jumping to it
+	for convert_cfa_to_fb_loc_list.  Adjust other dwarf2out_cfi_label
+	caller.
+	(dwarf2out_stack_adjust, dwarf2out_frame_debug,
+	dwarf2out_begin_epilogue, dwarf2out_frame_debug_restore_state): Adjust
+	dwarf2out_cfi_label callers.
+	* tree.h (dwarf2out_cfi_label): Adjust prototype.
+	* config/arm/arm.c (thumb_pushpop, thumb1_output_function_prologue):
+	Adjust dwarf2out_cfi_label callers.
+	* config/vax/vax.c (vax_output_function_prologue): Likewise.
+
+	* config/i386/i386.h (struct machine_cfa_state,
+	struct machine_function): Guard with ifndef USED_FOR_TARGET
+	instead of not IN_LIBGCC2 and not in IN_TARGET_LIBS.
+
+	PR other/40024
+	* emutls.c (__emutls_get_address): Change arr->size to mean number
+	of allocated arr->data entries instead of # of slots + 1.
+
+	PR middle-end/40316
+	* recog.c (peep2_reinit_state): New function.
+	(peephole2_init_state): Use it at the end of a basic block and also
+	when seeing a RTX_FRAME_RELATED_P insn.
+
+2009-06-01  Steve Ellcey  <sje@cup.hp.com>
+
+	* ia64.md (floatdirf2, fix_truncrfdi, floatunsdirf,
+	fixuns_truncrfdi2): New.
+	(fix_truncxfdi2_alts, fixuns_truncxfdi2_alts,
+	*nmaddsf4_alts, *nmadddf4_alts, *nmadddf4_truncsf_alts,
+	*mulxf3_alts, *mulxf3_truncsf_alts, *mulxf3_truncdf_alts,
+	*maddxf4_alts, *maddxf4_alts_truncsf, *maddxf4_alts_truncdf,
+	*nmaddxf4_alts, *nmaddxf4_truncsf_alts, *nmaddxf4_truncdf_alts,
+	*recip_approx): Remove.
+	(divsi3 modsi3, udivsi3, umodsi3, divsi3_internal, divdi3,
+	moddi3, udivdi3, umoddi3, divdi3_internal_lat, divdi3_internal_thr,
+	divsf3, sqrtsf2, divdf3, sqrtdf2, divxf3, sqrtxf2): Modify and
+	move to div.md.
+	* div.md (fix_truncrfdi2_alts, fixuns_truncrfdi2_alt,
+	setf_exp_rf): New.
+
+2009-06-01  Ian Lance Taylor  <iant@google.com>
+
+	* attribs.c (register_attribute): Use CONST_CAST.
+	* collect2.c (main): Use CONST_CAST2.
+	(scan_prog_file): Likewise.
+	* gcc.c (process_command, main): Likewise.
+	* toplev.c (toplev_main): Likewise.
+
+	* c-typeck.c (handle_warn_cast_qual): New static function,
+	partially broken out of build_c_cast.
+	(build_c_cast): Call handle_warn_cast_qual.
+	* doc/invoke.texi (Warning Options): Document new effect of
+	-Wcast-qual.
+
+2009-06-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* diagnostic.c (diagnostic_build_prefix): Always print columns.
+	(diagnostic_report_current_module): Print columns.
+	* common.opt (flag_show_column): Enable by default.
+
+2009-06-01  Luis Machado  <luisgpm@br.ibm.com>
+
+	* alias.c (find_base_term): Check for NULL term before returning.
+
+2009-06-01  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	Revert due to PR40320:
+	
+	2009-06-01  Maxim Kuvyrkov  <maxim@codesourcery.com>
+	* calls.c (emit_library_call_value_1): Don't force_operand for move
+	and push insns.
+
+2009-06-01  Olivier Hainque  <hainque@adacore.com>
+            Eric Botcazou  <botcazou@adacore.com>
+
+	* tree.h (CONSTRUCTOR_BITFIELD_P): True if NODE, a FIELD_DECL, is
+	to be processed as a bitfield for constructor output purposes.
+	* output.h (initializer_constant_valid_for_bitfield_p): Declare
+	new function.
+	* varasm.c (oc_local_state): New type, output_constructor
+	local state to support communication with helpers.
+	(oc_outer_state): New type, output_constructor outer state of
+	relevance in recursive calls.
+	(output_constructor_array_range): New output_constructor helper,
+	extracted code for an array range element.
+	(output_constructor_regular_field): New output_constructor helper,
+	extracted code for an element that is not a bitfield.
+	(output_constructor_bitfield): New output_constructor helper,
+	extracted code for a bitfield element.  Accept an OUTER state
+	argument for recursive processing.  Recurse on record or array
+	CONSTRUCTOR values, possibly past noop conversions.
+	(initializer_constant_valid_for_bitfield_p): New predicate.  Whether
+	VALUE is a valid constant-valued expression for use in a static
+	bit-field initializer.
+	(output_constructor): Rework to use helpers.  Accept and honor an
+	OUTER state argument for recursive calls.  Return total size.  Be
+	prepared for nested constructors initializing bitfields.
+	(output_constant): Feed OUTER in calls to output_constructor.
+
+2009-06-01  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* calls.c (emit_library_call_value_1): Don't force_operand for move
+	and push insns.
+
+2009-06-01  Nick Clifton  <nickc@redhat.com>
+
+	* doc/invoke.texi (IA-64 Options): Fix typo.
+
+2009-06-01  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39129
+	* tree-vect-loop-manip.c (conservative_cost_threshold): Change the 
+	printed message.
+	(vect_do_peeling_for_loop_bound): Use 
+	LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT and
+	LOOP_REQUIRES_VERSIONING_FOR_ALIAS macros.
+	(vect_loop_versioning): Likewise.
+	(vect_create_cond_for_alias_checks): Fix indentation.
+	* tree-vectorizer.h (struct _loop_vec_info): Fix indentation of the 
+	macros.
+	(LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT): Define.
+	(LOOP_REQUIRES_VERSIONING_FOR_ALIAS): Likewise.
+	* tree-vect-loop.c (vect_analyze_loop_form): Change "too many BBs" to 
+	"control flow in loop".
+	(vect_estimate_min_profitable_iters): Use 
+	LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT and
+	LOOP_REQUIRES_VERSIONING_FOR_ALIAS macros.
+	* tree-vect-data-refs.c (vect_enhance_data_refs_alignment): Likewise.
+	(vect_create_data_ref_ptr): Don't mention array dimension in printing.
+	* tree-vect-stmts.c (vectorizable_store): Replace the check that the 
+	statement belongs to a group of strided accesses with the exact code 
+	check.
+	(vectorizable_load): Likewise.
+	* tree-vect-slp.c (vect_analyze_slp_instance): Spell out "basic block".
+	(vect_slp_analyze_bb, vect_slp_transform_bb): Likewise.
+
+2009-06-01  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* config/freebsd-stdint.h: New file.
+	* config.gcc (*-*-freebsd): Set use_gcc_stdint=wrap.
+	Add freebsd-stdint.h to tm_file.
+
+2009-06-01  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm/thumb2.md (thumb2_zero_extendhidi2): New insn and split.
+	(thumb2_extendhidi2): Likewise.
+
+2009-05-31  Ian Lance Taylor  <iant@google.com>
+
+	* regstat.c (regstat_n_sets_and_refs): Remove duplicate
+	definition.
+
+2009-05-31  Ian Lance Taylor  <iant@google.com>
+
+	* Makefile.in (except.o): Depend upon gt-except.h, not
+	gt-$(EXCEPT_H).
+	(ipa-cp.o): Depend upon $(FIBHEAP_H) and $(PARAMS_H).
+	(ipa-reference.o): Depend upon gt-ipa-reference.h.
+
+2009-05-31  Jason Merrill  <jason@redhat.com>
+
+	* tree-pretty-print.c (print_call_name): Take the callee, not the
+	call itself.  Make non-static.  Use dump_function_name for
+	functions.
+	(dump_generic_node): Adjust.
+	* diagnostic.h: Declare print_call_name.
+	* gimple-pretty-print.c (dump_gimple_call): Use it.
+
+2009-05-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.md (ashldi3_std): New define_expand.
+	(ashldi3): Use it.
+
+2009-05-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/40313
+	* config/sh/sh.c: Include debug.h.
+	(sh_expand_epilogue): Emit a blockage insn before the frame
+	pointer adjustment also when dwarf2out_do_frame returns true.
+
+2009-05-31  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm/thumb2.md (thumb2_extendsidi2): Add a split sub-pattern.
+	(thumb2_extendqidi2): New pattern.
+
+2009-05-31  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vect-loop-manip.c (slpeel_update_phi_nodes_for_guard1): Don't
+	mark phis for renaming.
+	* tree-vectorizer.c (vect_memsyms_to_rename): Remove.
+	(vectorize_loops): Don't allocate and free vect_memsyms_to_rename.
+	Call mark_sym_for_renaming.
+	* tree-vectorizer.h (vect_memsyms_to_rename): Remove.
+	* tree-vect-loop.c (vect_transform_loop): Remove vect_memsyms_to_rename
+	initialization and a call to mark_set_for_renaming.
+
+2009-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40304
+	* config/i386/i386.c (pro_epilogue_adjust_stack): Mark insns
+	frame related even if !set_cfa && style < 0.
+
 2009-05-30  Kai Tietz  <kai.tietz@onevision.com>
 
 	* config/i386/mingw-tls.c: New file.
@@ -638,10 +895,6 @@
 	(Interacting with the GCC Garbage Collector): Added new section.
 	(Giving information about a plugin): Added new section for
 	PLUGIN_INFO.
-	* testsuite/gcc.dg/plugin/plugin.exp: Added ggcplug.c test plugin
-	with ggcplug-test-1.c for testing PLUGIN_GGC_MARKING etc...
-	* testsuite/gcc.dg/plugin/ggcplug-test-1.c: Added new file.
-	* testsuite/gcc.dg/plugin/ggcplug.c: Added new file.
 	* ggc.h (ggc_register_root_tab): Added declaration.
 	* gcc-plugin.h (PLUGIN_GGC_START, PLUGIN_GGC_MARKING)
 	(PLUGIN_GGC_END, PLUGIN_REGISTER_GGC_ROOTS): Added new events.
