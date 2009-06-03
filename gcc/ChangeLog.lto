@@ -1,3 +1,8 @@
+2009-06-03  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-copy.c (replace_exp_1): Only declare OP if
+	ENABLE_CHECKING is defined.
+
 2009-06-02  Jan Hubicka  <jh@suse.cz>
 	    Diego Novillo  <dnovillo@google.com>
 
