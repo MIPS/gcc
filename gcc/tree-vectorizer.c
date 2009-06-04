@@ -520,7 +520,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
       update_phi = gsi_stmt (gsi_update);
 
       /* Virtual phi; Mark it for renaming. We actually want to call
-	 mar_sym_for_renaming, but since all ssa renaming datastructures
+	 mark_sym_for_renaming, but since all ssa renaming datastructures
 	 are going to be freed before we get to call ssa_update, we just
 	 record this name for now in a bitmap, and will mark it for
 	 renaming later.  */
@@ -2788,12 +2788,9 @@ vectorize_loops (void)
 		destroy_loop_vec_info (loop_vinfo, true);
 		loop_vinfo = 0;
 	      }
-	    if (best_arch == (int) cfun->target_arch)
-	      {
-		targetm_pnt = targetm_array[best_arch];
-		loop_vinfo = vect_analyze_loop (loop);
-		target_arch = best_arch;
-	      }
+	    targetm_pnt = targetm_array[best_arch];
+	    loop_vinfo = vect_analyze_loop (loop);
+	    target_arch = best_arch;
 	  }
 	targetm_pnt = targetm_array[cfun->target_arch];
 	loop->aux = loop_vinfo;
@@ -2803,12 +2800,30 @@ vectorize_loops (void)
 
 	if (best_arch != (int) cfun->target_arch)
 	  {
-	    /* This loop should be vectorized for another target.  Since we
-	       might to have more than one thread on this other target, but
-	       do the reduction on the main processor, leave this to
-	       parallelize_loops.  */
+	    /* This loop should be vectorized for another target.
+	       We do the vectorization now because, if required, alias checks
+	       and a loop version for the aliased case should run on the main
+	       target (saving code space on the extra target).
+	       Likewise, peeling to obtain the vectorization factor
+	       (vect_do_peeling_for_loop_bound) should be done for the main
+	       target.  ??? We might want to extend this peeling to do
+	       a bit of looping to work concurrently with the extra target.
+	       ??? This is good for arc-mxp or ppc-spu, but h8300-sh64 would
+	       be better off (at least if power is no object once we activate
+	       the sh64) doing more work on the sh64.
+	       Alignment checks will not be necessary because alignment
+	       mismatch is taken care of during data transfer.
+	       (Might need to modify this aspect if the DMA mechanism for
+		some target architecture pair as alignment restrictions).
+	       Since we might to have more than one thread on this other
+	       target, but do the reduction on the main processor, we leave
+	       the outlining parallelize_loops.
+	       As parallelize_loops will see the vectorized loop, there should
+	       be no trouble with a thread other than on the main target
+	       gettingvector subunits not making up a full vector.
+	       An additional task that vectorization the will have to do now
+	       is to translate pointers to use the appropriate ptr_mode.  */
 	    loop->target_arch = best_arch;
-	    continue;
 	  }
 	vect_transform_loop (loop_vinfo);
 	num_vectorized_loops++;

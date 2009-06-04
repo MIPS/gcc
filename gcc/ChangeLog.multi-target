@@ -1,3 +1,21 @@
+2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (parallelize_loops): Don't check for vector phi
+	nodes when processing a loop that should be executed on a different
+	target than CFUN.
+	* tree-vectorizer.c (vectorize_loops): Also analyze and vectorize
+	loops for different targets than CFUN.
+	* tree-vect-transform.c (vect_transform_loop): If the loop is for a
+	different target than CFUN, don't do alignment peeling.  Switch
+	to loop target during transformation and back afterwards.
+
+	* cfgloop.c (alloc_loop): Initialize target_arch member from CFUN.
+
+	* tree-ssa-loop.c (pass_vectorize): Add TODO_rebuild_alias to
+	todo_flags_finish.
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref): New
+	parameter ptr_alias_set.  Changed all callers.
+
 2009-06-01  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* target.h (struct gcc_target): Add member ptr_mode.

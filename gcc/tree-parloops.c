@@ -1887,12 +1887,12 @@ parallelize_loops (void)
 	  /* And of course, the loop must be parallelizable.  */
 	  || !can_duplicate_loop_p (loop)
 	  || loop_has_blocks_with_irreducible_flag (loop)
-	  /* FIXME: the check for vector phi nodes could be removed.  */
-	  || loop_has_vector_phi_nodes (loop)
 	  || (loop->target_arch != cfun->target_arch
 	      ? !number_of_iterations_exit (loop, single_dom_exit (loop),
 					    &niter_desc, false)
-	      : (flag_tree_parallelize_loops <= 1
+	      /* FIXME: the check for vector phi nodes could be removed.  */
+	      : (loop_has_vector_phi_nodes (loop)
+		 || flag_tree_parallelize_loops <= 1
 		 || !loop_parallel_p (loop, reduction_list, &niter_desc))))
 	continue;
 
