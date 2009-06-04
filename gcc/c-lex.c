@@ -313,7 +313,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
       goto retry;
 
     case CPP_NAME:
-      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
+      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
       break;
 
     case CPP_NUMBER:
@@ -369,7 +369,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 	      break;
 
 	    case CPP_NAME:
-	      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
+	      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
 	      if (objc_is_reserved_word (*value))
 		{
 		  type = CPP_AT_NAME;
@@ -582,13 +582,18 @@ interpret_integer (const cpp_token *token, unsigned int flags)
 	    ? widest_unsigned_literal_type_node
 	    : widest_integer_literal_type_node);
   else
-    type = integer_types[itk];
-
-  if (itk > itk_unsigned_long
-      && (flags & CPP_N_WIDTH) != CPP_N_LARGE
-      && !in_system_header && !flag_isoc99)
-    pedwarn (input_location, 0, "integer constant is too large for %qs type",
-	     (flags & CPP_N_UNSIGNED) ? "unsigned long" : "long");
+    {
+      type = integer_types[itk];
+      if (itk > itk_unsigned_long
+	  && (flags & CPP_N_WIDTH) != CPP_N_LARGE)
+	emit_diagnostic 
+	  ((c_dialect_cxx () ? cxx_dialect == cxx98 : !flag_isoc99)
+	   ? DK_PEDWARN : DK_WARNING,
+	   input_location, OPT_Wlong_long,
+	   (flags & CPP_N_UNSIGNED) 
+	   ? "integer constant is too large for %<unsigned long%> type"
+	   : "integer constant is too large for %<long%> type");
+    }
 
   value = build_int_cst_wide (type, integer.low, integer.high);
 
@@ -612,11 +617,21 @@ interpret_float (const cpp_token *token, unsigned int flags)
   char *copy;
   size_t copylen;
 
-  /* Default (no suffix) is double.  */
+  /* Default (no suffix) depends on whether the FLOAT_CONST_DECIMAL64
+     pragma has been used and is either double or _Decimal64.  Types
+     that are not allowed with decimal float default to double.  */
   if (flags & CPP_N_DEFAULT)
     {
       flags ^= CPP_N_DEFAULT;
       flags |= CPP_N_MEDIUM;
+
+      if (((flags & CPP_N_HEX) == 0) && ((flags & CPP_N_IMAGINARY) == 0))
+	{
+	  warning (OPT_Wunsuffixed_float_constants,
+		   "unsuffixed float constant");
+	  if (float_const_decimal64_p ())
+	    flags |= CPP_N_DFLOAT;
+	}
     }
 
   /* Decode _Fract and _Accum.  */

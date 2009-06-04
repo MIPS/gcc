@@ -1967,7 +1967,8 @@ package body Sem_Prag is
                              (Chars (Arg), Names (Index1))
                         then
                            Error_Msg_Name_1 := Names (Index1);
-                           Error_Msg_N ("\possible misspelling of%", Arg);
+                           Error_Msg_N -- CODEFIX
+                             ("\possible misspelling of%", Arg);
                            exit;
                         end if;
                      end loop;
@@ -3105,7 +3106,7 @@ package body Sem_Prag is
             Prag_Id = Pragma_Import_Valued_Procedure
          then
             if not Is_Imported (Ent) then
-               Error_Pragma
+               Error_Pragma -- CODEFIX???
                  ("pragma Import or Interface must precede pragma%");
             end if;
 
@@ -3531,13 +3532,14 @@ package body Sem_Prag is
             end loop;
 
          --  When the convention is Java or CIL, we also allow Import to be
-         --  given for packages, generic packages, exceptions, and record
-         --  components.
+         --  given for packages, generic packages, exceptions, record
+         --  components, and access to subprograms.
 
          elsif (C = Convention_Java or else C = Convention_CIL)
            and then
              (Is_Package_Or_Generic_Package (Def_Id)
                or else Ekind (Def_Id) = E_Exception
+               or else Ekind (Def_Id) = E_Access_Subprogram_Type
                or else Nkind (Parent (Def_Id)) = N_Component_Declaration)
          then
             Set_Imported (Def_Id);
@@ -3572,6 +3574,49 @@ package body Sem_Prag is
 
                Set_Is_CPP_Class (Def_Id);
                Set_Is_Limited_Record (Def_Id);
+
+               --  Imported CPP types must not have discriminants (because C++
+               --  classes do not have discriminants).
+
+               if Has_Discriminants (Def_Id) then
+                  Error_Msg_N
+                    ("imported 'C'P'P type cannot have discriminants",
+                     First (Discriminant_Specifications
+                             (Declaration_Node (Def_Id))));
+               end if;
+
+               --  Components of imported CPP types must not have default
+               --  expressions because the constructor (if any) is in the
+               --  C++ side.
+
+               declare
+                  Tdef  : constant Node_Id :=
+                            Type_Definition (Declaration_Node (Def_Id));
+                  Clist : Node_Id;
+                  Comp  : Node_Id;
+
+               begin
+                  if Nkind (Tdef) = N_Record_Definition then
+                     Clist := Component_List (Tdef);
+
+                  else
+                     pragma Assert (Nkind (Tdef) = N_Derived_Type_Definition);
+                     Clist := Component_List (Record_Extension_Part (Tdef));
+                  end if;
+
+                  if Present (Clist) then
+                     Comp := First (Component_Items (Clist));
+                     while Present (Comp) loop
+                        if Present (Expression (Comp)) then
+                           Error_Msg_N
+                             ("component of imported 'C'P'P type cannot have" &
+                              " default expression", Expression (Comp));
+                        end if;
+
+                        Next (Comp);
+                     end loop;
+                  end if;
+               end;
             end if;
 
          else
@@ -3928,19 +3973,21 @@ package body Sem_Prag is
 
                if not In_Character_Range (C)
 
-                  --  For all cases except external names on CLI target,
+                  --  For all cases except CLI target,
                   --  commas, spaces and slashes are dubious (in CLI, we use
-                  --  spaces and commas in external names to specify assembly
-                  --  version and public key).
+                  --  commas and backslashes in external names to specify
+                  --  assembly version and public key, while slashes and spaces
+                  --  can be used in names to mark nested classes and
+                  --  valuetypes).
 
                   or else ((not Ext_Name_Case or else VM_Target /= CLI_Target)
-                             and then (Get_Character (C) = ' '
-                                         or else
-                                       Get_Character (C) = ','
-                                         or else
-                                       Get_Character (C) = '/'
+                             and then (Get_Character (C) = ','
                                          or else
                                        Get_Character (C) = '\'))
+                 or else (VM_Target /= CLI_Target
+                            and then (Get_Character (C) = ' '
+                                        or else
+                                      Get_Character (C) = '/'))
                then
                   Error_Msg
                     ("?interface name contains illegal character",
@@ -4180,7 +4227,7 @@ package body Sem_Prag is
                            Error_Msg_String (1 .. Rnm'Length) :=
                              Name_Buffer (1 .. Name_Len);
                            Error_Msg_Strlen := Rnm'Length;
-                           Error_Msg_N
+                           Error_Msg_N -- CODEFIX
                              ("\possible misspelling of ""~""",
                               Get_Pragma_Arg (Arg));
                            exit;
@@ -4934,7 +4981,7 @@ package body Sem_Prag is
             for PN in First_Pragma_Name .. Last_Pragma_Name loop
                if Is_Bad_Spelling_Of (Pname, PN) then
                   Error_Msg_Name_1 := PN;
-                  Error_Msg_N
+                  Error_Msg_N -- CODEFIX
                     ("\?possible misspelling of %!", Pragma_Identifier (N));
                   exit;
                end if;
@@ -6156,6 +6203,62 @@ package body Sem_Prag is
             Set_Is_CPP_Class      (Typ);
             Set_Is_Limited_Record (Typ);
             Set_Convention        (Typ, Convention_CPP);
+
+            --  Imported CPP types must not have discriminants (because C++
+            --  classes do not have discriminants).
+
+            if Has_Discriminants (Typ) then
+               Error_Msg_N
+                 ("imported 'C'P'P type cannot have discriminants",
+                  First (Discriminant_Specifications
+                          (Declaration_Node (Typ))));
+            end if;
+
+            --  Components of imported CPP types must not have default
+            --  expressions because the constructor (if any) is in the
+            --  C++ side.
+
+            if Is_Incomplete_Or_Private_Type (Typ)
+              and then No (Underlying_Type (Typ))
+            then
+               --  It should be an error to apply pragma CPP to a private
+               --  type if the underlying type is not visible (as it is
+               --  for any representation item). For now, for backward
+               --  compatibility we do nothing but we cannot check components
+               --  because they are not available at this stage. All this code
+               --  will be removed when we cleanup this obsolete GNAT pragma???
+
+               null;
+
+            else
+               declare
+                  Tdef  : constant Node_Id :=
+                            Type_Definition (Declaration_Node (Typ));
+                  Clist : Node_Id;
+                  Comp  : Node_Id;
+
+               begin
+                  if Nkind (Tdef) = N_Record_Definition then
+                     Clist := Component_List (Tdef);
+                  else
+                     pragma Assert (Nkind (Tdef) = N_Derived_Type_Definition);
+                     Clist := Component_List (Record_Extension_Part (Tdef));
+                  end if;
+
+                  if Present (Clist) then
+                     Comp := First (Component_Items (Clist));
+                     while Present (Comp) loop
+                        if Present (Expression (Comp)) then
+                           Error_Msg_N
+                             ("component of imported 'C'P'P type cannot have" &
+                              " default expression", Expression (Comp));
+                        end if;
+
+                        Next (Comp);
+                     end loop;
+                  end if;
+               end;
+            end if;
          end CPP_Class;
 
          ---------------------
@@ -6198,13 +6301,8 @@ package body Sem_Prag is
                   Process_Interface_Name (Def_Id, Arg2, Arg3);
                end if;
 
-               if No (Parameter_Specifications (Parent (Def_Id))) then
-                  Set_Has_Completion (Def_Id);
-                  Set_Is_Constructor (Def_Id);
-               else
-                  Error_Pragma_Arg
-                    ("non-default constructors not implemented", Arg1);
-               end if;
+               Set_Has_Completion (Def_Id);
+               Set_Is_Constructor (Def_Id);
 
             else
                Error_Pragma_Arg
@@ -8247,6 +8345,10 @@ package body Sem_Prag is
                  and then
                    (Is_Value_Type (Etype (Def_Id))
                      or else
+                       (Ekind (Etype (Def_Id)) = E_Access_Subprogram_Type
+                         and then
+                          Atree.Convention (Etype (Def_Id)) = Convention)
+                     or else
                        (Ekind (Etype (Def_Id)) in Access_Kind
                          and then
                           (Atree.Convention
@@ -8269,7 +8371,7 @@ package body Sem_Prag is
                      pragma Assert (Convention = Convention_CIL);
                      Error_Pragma_Arg
                        ("pragma% requires function returning a " &
-                        "'CIL access type", Arg1);
+                        "'C'I'L access type", Arg1);
                   end if;
                end if;
 
@@ -9226,9 +9328,10 @@ package body Sem_Prag is
             --  Cases where we must follow a declaration
 
             else
-               if Nkind (Decl) not in N_Declaration
+               if         Nkind (Decl) not in N_Declaration
                  and then Nkind (Decl) not in N_Later_Decl_Item
                  and then Nkind (Decl) not in N_Generic_Declaration
+                 and then Nkind (Decl) not in N_Renaming_Declaration
                then
                   Error_Pragma
                     ("pragma% misplaced, "
@@ -9364,14 +9467,14 @@ package body Sem_Prag is
                else
                   if not Rep_Item_Too_Late (Typ, N) then
                      if VM_Target = No_VM then
-                        Set_Is_Packed (Base_Type (Typ));
+                        Set_Is_Packed            (Base_Type (Typ));
+                        Set_Has_Pragma_Pack      (Base_Type (Typ));
+                        Set_Has_Non_Standard_Rep (Base_Type (Typ));
+
                      elsif not GNAT_Mode then
                         Error_Pragma
                           ("?pragma% ignored in this configuration");
                      end if;
-
-                     Set_Has_Pragma_Pack      (Base_Type (Typ));
-                     Set_Has_Non_Standard_Rep (Base_Type (Typ));
                   end if;
                end if;
 
@@ -9380,13 +9483,13 @@ package body Sem_Prag is
             else pragma Assert (Is_Record_Type (Typ));
                if not Rep_Item_Too_Late (Typ, N) then
                   if VM_Target = No_VM then
-                     Set_Is_Packed (Base_Type (Typ));
+                     Set_Is_Packed            (Base_Type (Typ));
+                     Set_Has_Pragma_Pack      (Base_Type (Typ));
+                     Set_Has_Non_Standard_Rep (Base_Type (Typ));
+
                   elsif not GNAT_Mode then
                      Error_Pragma ("?pragma% ignored in this configuration");
                   end if;
-
-                  Set_Has_Pragma_Pack      (Base_Type (Typ));
-                  Set_Has_Non_Standard_Rep (Base_Type (Typ));
                end if;
             end if;
          end Pack;

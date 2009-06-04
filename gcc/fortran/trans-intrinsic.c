@@ -45,8 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* This maps fortran intrinsic math functions to external library or GCC
    builtin functions.  */
-typedef struct gfc_intrinsic_map_t	GTY(())
-{
+typedef struct GTY(()) gfc_intrinsic_map_t {
   /* The explicit enum is required to work around inadequacies in the
      garbage collection/gengtype parsing mechanism.  */
   enum gfc_isym_id id;
@@ -93,9 +92,11 @@ gfc_intrinsic_map_t;
    except for atan2.  */
 #define DEFINE_MATH_BUILTIN(ID, NAME, ARGTYPE) \
   { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, \
-    BUILT_IN_ ## ID ## L, BUILT_IN_ ## ID ## L, 0, 0, 0, 0, true, \
-    false, true, NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, \
-    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
+    BUILT_IN_ ## ID ## L, BUILT_IN_ ## ID ## L, (enum built_in_function) 0, \
+    (enum built_in_function) 0, (enum built_in_function) 0, \
+    (enum built_in_function) 0, true, false, true, NAME, NULL_TREE, \
+    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, \
+    NULL_TREE},
 
 #define DEFINE_MATH_BUILTIN_C(ID, NAME, ARGTYPE) \
   { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, \
@@ -1489,7 +1490,7 @@ gfc_conv_intrinsic_ttynam (gfc_se * se, gfc_expr * expr)
 /* TODO: Mismatching types can occur when specific names are used.
    These should be handled during resolution.  */
 static void
-gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   tree tmp;
   tree mvar;
@@ -1701,7 +1702,8 @@ gfc_conv_intrinsic_funcall (gfc_se * se, gfc_expr * expr)
 	}
     }
 
-  gfc_conv_function_call (se, sym, expr->value.function.actual, append_args);
+  gfc_conv_procedure_call (se, sym, expr->value.function.actual, expr,
+			  append_args);
   gfc_free (sym);
 }
 
@@ -1725,7 +1727,7 @@ gfc_conv_intrinsic_funcall (gfc_se * se, gfc_expr * expr)
     }
  */
 static void
-gfc_conv_intrinsic_anyall (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_anyall (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   tree resvar;
   stmtblock_t block;
@@ -1880,7 +1882,7 @@ gfc_conv_intrinsic_count (gfc_se * se, gfc_expr * expr)
 
 /* Inline implementation of the sum and product intrinsics.  */
 static void
-gfc_conv_intrinsic_arith (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_arith (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   tree resvar;
   tree type;
@@ -2107,7 +2109,7 @@ gfc_conv_intrinsic_dot_product (gfc_se * se, gfc_expr * expr)
 
 
 static void
-gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   stmtblock_t body;
   stmtblock_t block;
@@ -2312,7 +2314,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 }
 
 static void
-gfc_conv_intrinsic_minmaxval (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_minmaxval (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   tree limit;
   tree type;
@@ -2484,7 +2486,7 @@ gfc_conv_intrinsic_btest (gfc_se * se, gfc_expr * expr)
 
 /* Generate code to perform the specified operation.  */
 static void
-gfc_conv_intrinsic_bitop (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_bitop (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   tree args[2];
 
@@ -2509,7 +2511,7 @@ gfc_conv_intrinsic_singlebitop (gfc_se * se, gfc_expr * expr, int set)
   tree args[2];
   tree type;
   tree tmp;
-  int op;
+  enum tree_code op;
 
   gfc_conv_intrinsic_function_args (se, expr, args, 2);
   type = TREE_TYPE (args[0]);
@@ -2708,53 +2710,51 @@ gfc_conv_intrinsic_leadz (gfc_se * se, gfc_expr * expr)
   tree leadz;
   tree bit_size;
   tree tmp;
-  int arg_kind;
-  int i, n, s;
+  tree func;
+  int s, argsize;
 
   gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
+  argsize = TYPE_PRECISION (TREE_TYPE (arg));
 
   /* Which variant of __builtin_clz* should we call?  */
-  arg_kind = expr->value.function.actual->expr->ts.kind;
-  i = gfc_validate_kind (BT_INTEGER, arg_kind, false);
-  switch (arg_kind)
+  if (argsize <= INT_TYPE_SIZE)
     {
-      case 1:
-      case 2:
-      case 4:
-        arg_type = unsigned_type_node;
-	n = BUILT_IN_CLZ;
-	break;
-
-      case 8:
-        arg_type = long_unsigned_type_node;
-	n = BUILT_IN_CLZL;
-	break;
-
-      case 16:
-        arg_type = long_long_unsigned_type_node;
-	n = BUILT_IN_CLZLL;
-	break;
-
-      default:
-        gcc_unreachable ();
+      arg_type = unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CLZ];
+    }
+  else if (argsize <= LONG_TYPE_SIZE)
+    {
+      arg_type = long_unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CLZL];
+    }
+  else if (argsize <= LONG_LONG_TYPE_SIZE)
+    {
+      arg_type = long_long_unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CLZLL];
+    }
+  else
+    {
+      gcc_assert (argsize == 128);
+      arg_type = gfc_build_uint_type (argsize);
+      func = gfor_fndecl_clz128;
     }
 
-  /* Convert the actual argument to the proper argument type for the built-in
+  /* Convert the actual argument twice: first, to the unsigned type of the
+     same size; then, to the proper argument type for the built-in
      function.  But the return type is of the default INTEGER kind.  */
+  arg = fold_convert (gfc_build_uint_type (argsize), arg);
   arg = fold_convert (arg_type, arg);
   result_type = gfc_get_int_type (gfc_default_integer_kind);
 
   /* Compute LEADZ for the case i .ne. 0.  */
-  s = TYPE_PRECISION (arg_type) - gfc_integer_kinds[i].bit_size;
-  tmp = fold_convert (result_type, build_call_expr (built_in_decls[n], 1, arg));
+  s = TYPE_PRECISION (arg_type) - argsize;
+  tmp = fold_convert (result_type, build_call_expr (func, 1, arg));
   leadz = fold_build2 (MINUS_EXPR, result_type,
 		       tmp, build_int_cst (result_type, s));
 
   /* Build BIT_SIZE.  */
-  bit_size = build_int_cst (result_type, gfc_integer_kinds[i].bit_size);
+  bit_size = build_int_cst (result_type, argsize);
 
-  /* ??? For some combinations of targets and integer kinds, the condition
-	 can be avoided if CLZ_DEFINED_VALUE_AT_ZERO is used.  Later.  */
   cond = fold_build2 (EQ_EXPR, boolean_type_node,
 		      arg, build_int_cst (arg_type, 0));
   se->expr = fold_build3 (COND_EXPR, result_type, cond, bit_size, leadz);
@@ -2775,50 +2775,48 @@ gfc_conv_intrinsic_trailz (gfc_se * se, gfc_expr *expr)
   tree result_type;
   tree trailz;
   tree bit_size;
-  int arg_kind;
-  int i, n;
+  tree func;
+  int argsize;
 
   gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
+  argsize = TYPE_PRECISION (TREE_TYPE (arg));
 
-  /* Which variant of __builtin_clz* should we call?  */
-  arg_kind = expr->value.function.actual->expr->ts.kind;
-  i = gfc_validate_kind (BT_INTEGER, arg_kind, false);
-  switch (expr->ts.kind)
+  /* Which variant of __builtin_ctz* should we call?  */
+  if (argsize <= INT_TYPE_SIZE)
     {
-      case 1:
-      case 2:
-      case 4:
-        arg_type = unsigned_type_node;
-	n = BUILT_IN_CTZ;
-	break;
-
-      case 8:
-        arg_type = long_unsigned_type_node;
-	n = BUILT_IN_CTZL;
-	break;
-
-      case 16:
-        arg_type = long_long_unsigned_type_node;
-	n = BUILT_IN_CTZLL;
-	break;
-
-      default:
-        gcc_unreachable ();
+      arg_type = unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CTZ];
+    }
+  else if (argsize <= LONG_TYPE_SIZE)
+    {
+      arg_type = long_unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CTZL];
+    }
+  else if (argsize <= LONG_LONG_TYPE_SIZE)
+    {
+      arg_type = long_long_unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CTZLL];
+    }
+  else
+    {
+      gcc_assert (argsize == 128);
+      arg_type = gfc_build_uint_type (argsize);
+      func = gfor_fndecl_ctz128;
     }
 
-  /* Convert the actual argument to the proper argument type for the built-in
+  /* Convert the actual argument twice: first, to the unsigned type of the
+     same size; then, to the proper argument type for the built-in
      function.  But the return type is of the default INTEGER kind.  */
+  arg = fold_convert (gfc_build_uint_type (argsize), arg);
   arg = fold_convert (arg_type, arg);
   result_type = gfc_get_int_type (gfc_default_integer_kind);
 
   /* Compute TRAILZ for the case i .ne. 0.  */
-  trailz = fold_convert (result_type, build_call_expr (built_in_decls[n], 1, arg));
+  trailz = fold_convert (result_type, build_call_expr (func, 1, arg));
 
   /* Build BIT_SIZE.  */
-  bit_size = build_int_cst (result_type, gfc_integer_kinds[i].bit_size);
+  bit_size = build_int_cst (result_type, argsize);
 
-  /* ??? For some combinations of targets and integer kinds, the condition
-	 can be avoided if CTZ_DEFINED_VALUE_AT_ZERO is used.  Later.  */
   cond = fold_build2 (EQ_EXPR, boolean_type_node,
 		      arg, build_int_cst (arg_type, 0));
   se->expr = fold_build3 (COND_EXPR, result_type, cond, bit_size, trailz);
@@ -2876,7 +2874,8 @@ conv_generic_with_optional_char_arg (gfc_se* se, gfc_expr* expr,
 
   /* Build the call itself.  */
   sym = gfc_get_symbol_for_expr (expr);
-  gfc_conv_function_call (se, sym, expr->value.function.actual, append_args);
+  gfc_conv_procedure_call (se, sym, expr->value.function.actual, expr,
+			  append_args);
   gfc_free (sym);
 }
 
@@ -3584,7 +3583,7 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
 /* Intrinsic string comparison functions.  */
 
 static void
-gfc_conv_intrinsic_strcmp (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_strcmp (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   tree args[4];
 
@@ -4391,7 +4390,7 @@ gfc_conv_intrinsic_loc (gfc_se * se, gfc_expr * expr)
   if (ss == gfc_ss_terminator)
     gfc_conv_expr_reference (se, arg_expr);
   else
-    gfc_conv_array_parameter (se, arg_expr, ss, 1, NULL, NULL); 
+    gfc_conv_array_parameter (se, arg_expr, ss, 1, NULL, NULL, NULL);
   se->expr= convert (gfc_get_int_type (gfc_index_integer_kind), se->expr);
    
   /* Create a temporary variable for loc return value.  Without this, 

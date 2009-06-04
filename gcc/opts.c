@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "dbgcnt.h"
 #include "debug.h"
+#include "plugin.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -52,9 +53,6 @@ bool sel_sched_switch_set;
 
 /* True if we should exit after parsing options.  */
 bool exit_after_options;
-
-/* Print various extra warnings.  -W/-Wextra.  */
-bool extra_warnings;
 
 /* True to warn about any objects definitions whose size is larger
    than N bytes.  Also want about function definitions whose returned
@@ -338,11 +336,7 @@ enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
 struct visibility_flags visibility_options;
 
 /* What to print when a switch has no documentation.  */
-#ifdef ENABLE_CHECKING
 static const char undocumented_msg[] = N_("This switch lacks documentation");
-#else
-static const char undocumented_msg[] = "";
-#endif
 
 /* Used for bookkeeping on whether user set these flags so
    -fprofile-use/-fprofile-generate does not use them.  */
@@ -375,7 +369,6 @@ unsigned num_in_fnames;
 static int common_handle_option (size_t scode, const char *arg, int value,
 				 unsigned int lang_mask);
 static void handle_param (const char *);
-static void set_Wextra (int);
 static unsigned int handle_option (const char **argv, unsigned int lang_mask);
 static char *write_langs (unsigned int lang_mask);
 static void complain_wrong_lang (const char *, const struct cl_option *,
@@ -855,6 +848,7 @@ decode_options (unsigned int argc, const char **argv)
 #endif
   flag_guess_branch_prob = opt1;
   flag_cprop_registers = opt1;
+  flag_forward_propagate = opt1;
   flag_if_conversion = opt1;
   flag_if_conversion2 = opt1;
   flag_ipa_pure_const = opt1;
@@ -880,7 +874,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_thread_jumps = opt2;
   flag_crossjumping = opt2;
   flag_optimize_sibling_calls = opt2;
-  flag_forward_propagate = opt2;
   flag_cse_follow_jumps = opt2;
   flag_gcse = opt2;
   flag_expensive_optimizations = opt2;
@@ -967,6 +960,27 @@ decode_options (unsigned int argc, const char **argv)
 #endif
 
   handle_options (argc, argv, lang_mask);
+
+  /* Make DUMP_BASE_NAME relative to the AUX_BASE_NAME directory,
+     typically the directory to contain the object file.  */
+  if (aux_base_name && ! IS_ABSOLUTE_PATH (dump_base_name))
+    {
+      const char *aux_base;
+
+      base_of_path (aux_base_name, &aux_base);
+      if (aux_base_name != aux_base)
+	{
+	  int dir_len = aux_base - aux_base_name;
+	  char *new_dump_base_name =
+	    XNEWVEC (char, strlen(dump_base_name) + dir_len + 1);
+
+	  /* Copy directory component from AUX_BASE_NAME.  */
+	  memcpy (new_dump_base_name, aux_base_name, dir_len);
+	  /* Append existing DUMP_BASE_NAME.  */
+	  strcpy (new_dump_base_name + dir_len, dump_base_name);
+	  dump_base_name = new_dump_base_name;
+	}
+    }
 
   /* Handle related options for unit-at-a-time, toplevel-reorder, and
      section-anchors.  */
@@ -1560,8 +1574,8 @@ common_handle_option (size_t scode, const char *arg, int value,
 	break;
       }
 
+    case OPT_fversion:
     case OPT__version:
-      print_version (stderr, "");
       exit_after_options = true;
       break;
 
@@ -1575,17 +1589,8 @@ common_handle_option (size_t scode, const char *arg, int value,
       /* Currently handled in a prescan.  */
       break;
 
-    case OPT_W:
-      /* For backward compatibility, -W is the same as -Wextra.  */
-      set_Wextra (value);
-      break;
-
     case OPT_Werror_:
       enable_warning_as_error (arg, value, lang_mask);
-      break;
-
-    case OPT_Wextra:
-      set_Wextra (value);
       break;
 
     case OPT_Wlarger_than_:
@@ -1764,6 +1769,22 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fpeel_loops:
       flag_peel_loops_set = true;
+      break;
+
+    case OPT_fplugin_:
+#ifdef ENABLE_PLUGIN
+      add_new_plugin (arg);
+#else
+      error ("Plugin support is disabled.  Configure with --enable-plugin.");
+#endif
+      break;
+
+    case OPT_fplugin_arg_:
+#ifdef ENABLE_PLUGIN
+      parse_plugin_arg_opt (arg);
+#else
+      error ("Plugin support is disabled.  Configure with --enable-plugin.");
+#endif
       break;
 
     case OPT_fprofile_arcs:
@@ -2042,6 +2063,7 @@ common_handle_option (size_t scode, const char *arg, int value,
       flag_pedantic_errors = pedantic = 1;
       break;
 
+    case OPT_fcse_skip_blocks:
     case OPT_floop_optimize:
     case OPT_frerun_loop_opt:
     case OPT_fstrength_reduce:
@@ -2086,21 +2108,6 @@ handle_param (const char *carg)
     }
 
   free (arg);
-}
-
-/* Handle -W and -Wextra.  */
-static void
-set_Wextra (int setting)
-{
-  extra_warnings = setting;
-
-  /* We save the value of warn_uninitialized, since if they put
-     -Wuninitialized on the command line, we need to generate a
-     warning about not using it without also specifying -O.  */
-  if (setting == 0)
-    warn_uninitialized = 0;
-  else if (warn_uninitialized != 1)
-    warn_uninitialized = 2;
 }
 
 /* Used to set the level of strict aliasing warnings, 
@@ -2212,15 +2219,17 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
   if (*arg == '\0')
     {
       if (!debug_info_level)
-	debug_info_level = 2;
+	debug_info_level = DINFO_LEVEL_NORMAL;
     }
   else
     {
-      debug_info_level = integral_argument (arg);
-      if (debug_info_level == (unsigned int) -1)
+      int argval = integral_argument (arg);
+      if (argval == -1)
 	error ("unrecognised debug output level \"%s\"", arg);
-      else if (debug_info_level > 3)
+      else if (argval > 3)
 	error ("debug output level %s is too high", arg);
+      else
+	debug_info_level = (enum debug_info_level) argval;
     }
 }
 
@@ -2306,7 +2315,7 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask)
     }
   else
     {
-      int kind = value ? DK_ERROR : DK_WARNING;
+      diagnostic_t kind = value ? DK_ERROR : DK_WARNING;
       diagnostic_classify_diagnostic (global_dc, option_index, kind);
       
       /* -Werror=foo implies -Wfoo.  */

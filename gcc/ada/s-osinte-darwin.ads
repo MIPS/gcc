@@ -7,7 +7,7 @@
 --                                  S p e c                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---          Copyright (C) 1995-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1995-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -117,10 +117,15 @@ package System.OS_Interface is
    type Signal_Set is array (Natural range <>) of Signal;
 
    Unmasked : constant Signal_Set :=
-     (SIGTTIN, SIGTTOU, SIGSTOP, SIGTSTP);
+                (SIGTTIN, SIGTTOU, SIGSTOP, SIGTSTP);
 
    Reserved : constant Signal_Set :=
-     (SIGKILL, SIGSTOP);
+                (SIGKILL, SIGSTOP);
+
+   Exception_Signals : constant Signal_Set :=
+                         (SIGFPE, SIGILL, SIGSEGV, SIGBUS);
+   --  These signals (when runtime or system) will be caught and converted
+   --  into an Ada exception.
 
    type sigset_t is private;
 
@@ -231,10 +236,8 @@ package System.OS_Interface is
    ---------
 
    function lwp_self return System.Address;
-   pragma Import (C, lwp_self, "pthread_self");
-   --  lwp_self does not exist on this thread library, revert to pthread_self
-   --  which is the closest approximation (with getpid). This function is
-   --  needed to share 7staprop.adb across POSIX-like targets.
+   --  Return the mach thread bound to the current thread.  The value is not
+   --  used by the run-time library but made available to debuggers.
 
    -------------
    -- Threads --
@@ -279,10 +282,11 @@ package System.OS_Interface is
    pragma Import (C, sigaltstack, "sigaltstack");
 
    Alternate_Stack : aliased System.Address;
-   --  This is a dummy definition, never used (Alternate_Stack_Size is null)
+   pragma Import (C, Alternate_Stack, "__gnat_alternate_stack");
+   --  The alternate signal stack for stack overflows
 
-   Alternate_Stack_Size : constant := 0;
-   --  No alternate signal stack is used on this platform
+   Alternate_Stack_Size : constant := 32 * 1024;
+   --  This must be in keeping with init.c:__gnat_alternate_stack
 
    Stack_Base_Available : constant Boolean := False;
    --  Indicates whether the stack base is available on this target. This

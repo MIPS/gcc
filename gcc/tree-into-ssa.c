@@ -1,5 +1,5 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -112,14 +112,6 @@ static sbitmap old_ssa_names;
    the operations done on them are presence tests.  */
 static sbitmap new_ssa_names;
 
-
-/* Subset of SYMS_TO_RENAME.  Contains all the GIMPLE register symbols
-   that have been marked for renaming.  */
-static bitmap regs_to_rename;
-
-/* Subset of SYMS_TO_RENAME.  Contains all the memory symbols
-   that have been marked for renaming.  */
-static bitmap mem_syms_to_rename;
 
 /* Set of SSA names that have been marked to be released after they
    were registered in the replacement table.  They will be finally
@@ -318,7 +310,7 @@ get_ssa_name_ann (tree name)
   info = VEC_index (ssa_name_info_p, info_for_ssa_name, ver);
   if (info->age < current_info_for_ssa_name_age)
     {
-      info->need_phi_state = 0;
+      info->need_phi_state = NEED_PHI_STATE_UNKNOWN;
       info->current_def = NULL_TREE;
       info->age = current_info_for_ssa_name_age;
     }
@@ -2272,7 +2264,7 @@ struct gimple_opt_pass pass_build_ssa =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg | PROP_referenced_vars,	/* properties_required */
   PROP_ssa,				/* properties_provided */
   0,					/* properties_destroyed */
@@ -2635,8 +2627,6 @@ init_update_ssa (struct function *fn)
   sbitmap_zero (new_ssa_names);
 
   repl_tbl = htab_create (20, repl_map_hash, repl_map_eq, repl_map_free);
-  regs_to_rename = BITMAP_ALLOC (NULL);
-  mem_syms_to_rename = BITMAP_ALLOC (NULL);
   names_to_release = NULL;
   memset (&update_ssa_stats, 0, sizeof (update_ssa_stats));
   update_ssa_stats.virtual_symbols = BITMAP_ALLOC (NULL);
@@ -2662,8 +2652,6 @@ delete_update_ssa (void)
   repl_tbl = NULL;
 
   bitmap_clear (SYMS_TO_RENAME (update_ssa_initialized_fn));
-  BITMAP_FREE (regs_to_rename);
-  BITMAP_FREE (mem_syms_to_rename);
   BITMAP_FREE (update_ssa_stats.virtual_symbols);
 
   if (names_to_release)
@@ -3151,26 +3139,6 @@ update_ssa (unsigned update_flags)
      mappings include lots of virtual names.  */
   if (insert_phi_p && switch_virtuals_to_full_rewrite_p ())
     switch_virtuals_to_full_rewrite ();
-
-  /* If there are symbols to rename, identify those symbols that are
-     GIMPLE registers into the set REGS_TO_RENAME and those that are
-     memory symbols into the set MEM_SYMS_TO_RENAME.  */
-  if (!bitmap_empty_p (SYMS_TO_RENAME (cfun)))
-    {
-      unsigned i;
-      bitmap_iterator bi;
-
-      EXECUTE_IF_SET_IN_BITMAP (SYMS_TO_RENAME (cfun), 0, i, bi)
-	{
-	  tree sym = referenced_var (i);
-	  if (is_gimple_reg (sym))
-	    bitmap_set_bit (regs_to_rename, i);
-	}
-
-      /* Memory symbols are those not in REGS_TO_RENAME.  */
-      bitmap_and_compl (mem_syms_to_rename,
-			SYMS_TO_RENAME (cfun), regs_to_rename);
-    }
 
   /* If there are names defined in the replacement table, prepare
      definition and use sites for all the names in NEW_SSA_NAMES and

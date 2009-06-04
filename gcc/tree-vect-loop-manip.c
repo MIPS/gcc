@@ -371,7 +371,6 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
   basic_block orig_bb = loop->header;
   edge new_exit_e;
   tree current_new_name;
-  tree name;
   gimple_stmt_iterator gsi_orig, gsi_update;
 
   /* Create new bb between loop and new_merge_bb.  */
@@ -386,15 +385,6 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
     {
       orig_phi = gsi_stmt (gsi_orig);
       update_phi = gsi_stmt (gsi_update);
-
-      /* Virtual phi; Mark it for renaming. We actually want to call
-	 mar_sym_for_renaming, but since all ssa renaming datastructures
-	 are going to be freed before we get to call ssa_update, we just
-	 record this name for now in a bitmap, and will mark it for
-	 renaming later.  */
-      name = PHI_RESULT (orig_phi);
-      if (!is_gimple_reg (SSA_NAME_VAR (name)))
-        bitmap_set_bit (vect_memsyms_to_rename, DECL_UID (SSA_NAME_VAR (name)));
 
       /** 1. Handle new-merge-point phis  **/
 
@@ -1593,7 +1583,8 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
       tree access_fn = NULL;
       tree evolution_part;
       tree init_expr;
-      tree step_expr;
+      tree step_expr, off;
+      tree type;
       tree var, ni, ni_name;
       gimple_stmt_iterator last_gsi;
 
@@ -1623,6 +1614,11 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
 
       access_fn = analyze_scalar_evolution (loop, PHI_RESULT (phi)); 
       gcc_assert (access_fn);
+      /* We can end up with an access_fn like
+           (short int) {(short unsigned int) i_49, +, 1}_1
+	 for further analysis we need to strip the outer cast but we
+	 need to preserve the original type.  */
+      type = TREE_TYPE (access_fn);
       STRIP_NOPS (access_fn);
       evolution_part =
 	 unshare_expr (evolution_part_in_loop_num (access_fn, loop->num));
@@ -1635,22 +1631,19 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
       step_expr = evolution_part;
       init_expr = unshare_expr (initial_condition_in_loop_num (access_fn, 
 							       loop->num));
+      init_expr = fold_convert (type, init_expr);
 
+      off = fold_build2 (MULT_EXPR, TREE_TYPE (step_expr),
+			 fold_convert (TREE_TYPE (step_expr), niters),
+			 step_expr);
       if (POINTER_TYPE_P (TREE_TYPE (init_expr)))
 	ni = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (init_expr), 
-			  init_expr, 
-			  fold_convert (sizetype, 
-					fold_build2 (MULT_EXPR, TREE_TYPE (niters),
-						     niters, step_expr)));
+			  init_expr,
+			  fold_convert (sizetype, off));
       else
 	ni = fold_build2 (PLUS_EXPR, TREE_TYPE (init_expr),
-			  fold_build2 (MULT_EXPR, TREE_TYPE (init_expr),
-				       fold_convert (TREE_TYPE (init_expr),
-						     niters),
-				       step_expr),
-			  init_expr);
-
-
+			  init_expr,
+			  fold_convert (TREE_TYPE (init_expr), off));
 
       var = create_tmp_var (TREE_TYPE (init_expr), "tmp");
       add_referenced_var (var);
@@ -1687,7 +1680,7 @@ conservative_cost_threshold (loop_vec_info loop_vinfo,
     th = (unsigned) min_profitable_iters;
 
   if (th && vect_print_dump_info (REPORT_COST))
-    fprintf (vect_dump, "Vectorization may not be profitable.");
+    fprintf (vect_dump, "Profitability threshold is %u loop iterations.", th);
 
   return th;
 }
@@ -1737,8 +1730,8 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
 
   /* If cost model check not done during versioning and 
      peeling for alignment.  */
-  if (!VEC_length (gimple, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo))
-      && !VEC_length (ddr_p, LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo))
+  if (!LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT (loop_vinfo)
+      && !LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo)
       && !LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo)
       && !cond_expr)
     {
@@ -1926,7 +1919,8 @@ vect_update_init_of_dr (struct data_reference *dr, tree niters)
   niters = fold_build2 (MULT_EXPR, sizetype,
 			fold_convert (sizetype, niters),
 			fold_convert (sizetype, DR_STEP (dr)));
-  offset = fold_build2 (PLUS_EXPR, sizetype, offset, niters);
+  offset = fold_build2 (PLUS_EXPR, sizetype,
+			fold_convert (sizetype, offset), niters);
   DR_OFFSET (dr) = offset;
 }
 
@@ -2286,10 +2280,10 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
       else
 	*cond_expr = part_cond_expr;
     }
-    if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
-      fprintf (vect_dump, "created %u versioning for alias checks.\n",
-               VEC_length (ddr_p, may_alias_ddrs));
 
+  if (vect_print_dump_info (REPORT_VECTORIZED_LOCATIONS))
+    fprintf (vect_dump, "created %u versioning for alias checks.\n",
+             VEC_length (ddr_p, may_alias_ddrs));
 }
 
 
@@ -2345,11 +2339,11 @@ vect_loop_versioning (loop_vec_info loop_vinfo, bool do_versioning,
   *cond_expr = force_gimple_operand (*cond_expr, cond_expr_stmt_list,
 				     false, NULL_TREE);
 
-  if (VEC_length (gimple, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo)))
+  if (LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT (loop_vinfo))
       vect_create_cond_for_align_checks (loop_vinfo, cond_expr,
 					 cond_expr_stmt_list);
 
-  if (VEC_length (ddr_p, LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo)))
+  if (LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo))
     vect_create_cond_for_alias_checks (loop_vinfo, cond_expr,
 				       cond_expr_stmt_list);
 

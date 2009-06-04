@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -129,6 +129,9 @@ struct lang_hooks_for_types
   /* Return TRUE if TYPE uses a hidden descriptor and fills in information
      for the debugger about the array bounds, strides, etc.  */
   bool (*get_array_descr_info) (const_tree, struct array_descr_info *);
+
+  /* Fill in information for the debugger about the bounds of TYPE.  */
+  void (*get_subrange_bounds) (const_tree, tree *, tree *);
 
   /* If we requested a pointer to a vector, build up the pointers that
      we stripped off while looking for the inner type.  Similarly for
@@ -332,7 +335,10 @@ struct lang_hooks
      information will be printed: 0: DECL_NAME, demangled as
      necessary.  1: and scope information.  2: and any other
      information that might be interesting, such as function parameter
-     types in C++.  */
+     types in C++.  The name is in the internal character set and
+     needs to be converted to the locale character set of diagnostics,
+     or to the execution character set for strings such as
+     __PRETTY_FUNCTION__.  */
   const char *(*decl_printable_name) (tree decl, int verbosity);
 
   /* Computes the dwarf-2/3 name for a tree.  VERBOSITY determines what

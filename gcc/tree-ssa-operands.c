@@ -147,12 +147,6 @@ static void get_expr_operands (gimple, tree *, int);
 /* Number of functions with initialized ssa_operands.  */
 static int n_initialized = 0;
 
-/* Stack of statements to change.  Every call to
-   push_stmt_changes pushes the stmt onto the stack.  Calls to
-   pop_stmt_changes pop a stmt off of the stack and compute the set
-   of changes for the popped statement.  */
-static VEC(gimple_p,heap) *scb_stack;
-
 /* Return the DECL_UID of the base variable of T.  */
 
 static inline unsigned
@@ -231,7 +225,6 @@ init_ssa_operands (void)
       build_vuse = NULL_TREE;
       build_vdef = NULL_TREE;
       bitmap_obstack_initialize (&operands_bitmap_obstack);
-      scb_stack = VEC_alloc (gimple_p, heap, 20);
     }
 
   gcc_assert (gimple_ssa_operands (cfun)->operand_memory == NULL);
@@ -257,11 +250,6 @@ fini_ssa_operands (void)
       VEC_free (tree, heap, build_uses);
       build_vdef = NULL_TREE;
       build_vuse = NULL_TREE;
-
-      /* The change buffer stack had better be empty.  */
-      gcc_assert (VEC_length (gimple_p, scb_stack) == 0);
-      VEC_free (gimple_p, heap, scb_stack);
-      scb_stack = NULL;
     }
 
   gimple_ssa_operands (cfun)->free_defs = NULL;
@@ -686,10 +674,13 @@ add_stmt_operand (tree *var_p, gimple stmt, int flags)
     add_virtual_operand (stmt, flags);
 }
 
-/* Add the base address of REF to SET.  */
+/* Mark the base address of REF as having its address taken.
+   REF may be a single variable whose address has been taken or any
+   other valid GIMPLE memory reference (structure reference, array,
+   etc).  */
 
 static void
-add_to_addressable_set (tree ref, bitmap *set)
+mark_address_taken (tree ref)
 {
   tree var;
 
@@ -699,27 +690,8 @@ add_to_addressable_set (tree ref, bitmap *set)
      be referenced using pointer arithmetic.  See PR 21407 and the
      ensuing mailing list discussion.  */
   var = get_base_address (ref);
-  if (var && SSA_VAR_P (var))
-    {
-      if (*set == NULL)
-	*set = BITMAP_ALLOC (&operands_bitmap_obstack);
-
-      bitmap_set_bit (*set, DECL_UID (var));
-      TREE_ADDRESSABLE (var) = 1;
-    }
-}
-
-/* Add the base address of REF to the set of addresses taken by STMT.
-   REF may be a single variable whose address has been taken or any
-   other valid GIMPLE memory reference (structure reference, array,
-   etc).  If the base address of REF is a decl that has sub-variables,
-   also add all of its sub-variables.  */
-
-static void
-gimple_add_to_addresses_taken (gimple stmt, tree ref)
-{
-  gcc_assert (gimple_has_ops (stmt));
-  add_to_addressable_set (ref, gimple_addresses_taken_ptr (stmt));
+  if (var && DECL_P (var))
+    TREE_ADDRESSABLE (var) = 1;
 }
 
 
@@ -763,7 +735,7 @@ get_tmr_operands (gimple stmt, tree expr, int flags)
   get_expr_operands (stmt, &TMR_INDEX (expr), opf_use);
 
   if (TMR_SYMBOL (expr))
-    gimple_add_to_addresses_taken (stmt, TMR_SYMBOL (expr));
+    mark_address_taken (TMR_SYMBOL (expr));
 
   add_virtual_operand (stmt, flags);
 }
@@ -824,7 +796,7 @@ get_asm_expr_operands (gimple stmt)
 	{
 	  tree t = get_base_address (TREE_VALUE (link));
 	  if (t && DECL_P (t))
-	    gimple_add_to_addresses_taken (stmt, t);
+	    mark_address_taken (t);
 	}
 
       get_expr_operands (stmt, &TREE_VALUE (link), opf_def);
@@ -844,7 +816,7 @@ get_asm_expr_operands (gimple stmt)
 	{
 	  tree t = get_base_address (TREE_VALUE (link));
 	  if (t && DECL_P (t))
-	    gimple_add_to_addresses_taken (stmt, t);
+	    mark_address_taken (t);
 	}
 
       get_expr_operands (stmt, &TREE_VALUE (link), 0);
@@ -887,7 +859,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	 reference to it, but the fact that the statement takes its
 	 address will be of interest to some passes (e.g. alias
 	 resolution).  */
-      gimple_add_to_addresses_taken (stmt, TREE_OPERAND (expr, 0));
+      mark_address_taken (TREE_OPERAND (expr, 0));
 
       /* If the address is invariant, there may be no interesting
 	 variable references inside.  */
@@ -932,18 +904,8 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       {
-	tree ref;
-	HOST_WIDE_INT offset, size, maxsize;
-
 	if (TREE_THIS_VOLATILE (expr))
 	  gimple_set_has_volatile_ops (stmt, true);
-
-	ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
-	if (TREE_CODE (ref) == INDIRECT_REF)
-	  {
-	    get_indirect_ref_operands (stmt, ref, flags, false);
-	    flags |= opf_no_vops;
-	  }
 
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 	
@@ -1025,9 +987,6 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
         return;
       }
 
-    case CHANGE_DYNAMIC_TYPE_EXPR:
-      gcc_unreachable ();
-
     case FUNCTION_DECL:
     case LABEL_DECL:
     case CONST_DECL:
@@ -1091,13 +1050,8 @@ parse_ssa_operands (gimple stmt)
 static void
 build_ssa_operands (gimple stmt)
 {
-  /* Initially assume that the statement has no volatile operands and
-     makes no memory references.  */
+  /* Initially assume that the statement has no volatile operands.  */
   gimple_set_has_volatile_ops (stmt, false);
-
-  /* Just clear the bitmap so we don't end up reallocating it over and over.  */
-  if (gimple_addresses_taken (stmt))
-    bitmap_clear (gimple_addresses_taken (stmt));
 
   start_ssa_stmt_operands ();
   parse_ssa_operands (stmt);
@@ -1132,9 +1086,6 @@ free_stmt_operands (gimple stmt)
       gimple_ssa_operands (cfun)->free_uses = uses;
       gimple_set_use_ops (stmt, NULL);
     }
-
-  if (gimple_has_ops (stmt))
-    gimple_set_addresses_taken (stmt, NULL);
 
   if (gimple_has_mem_ops (stmt))
     {
@@ -1355,62 +1306,6 @@ debug_immediate_uses_for (tree var)
   dump_immediate_uses_for (stderr, var);
 }
 
-
-/* Push *STMT_P on the SCB_STACK.  This function is deprecated, do not
-   introduce new uses of it.  */
-
-void
-push_stmt_changes (gimple *stmt_p)
-{
-  gimple stmt = *stmt_p;
-
-  /* It makes no sense to keep track of PHI nodes.  */
-  if (gimple_code (stmt) == GIMPLE_PHI)
-    return;
-
-  VEC_safe_push (gimple_p, heap, scb_stack, stmt_p);
-}
-
-/* Pop the top stmt from SCB_STACK and act on the differences between
-   what was recorded by push_stmt_changes and the current state of
-   the statement.  This function is deprecated, do not introduce
-   new uses of it.  */
-
-void
-pop_stmt_changes (gimple *stmt_p)
-{
-  gimple *stmt2_p, stmt = *stmt_p;
-
-  /* It makes no sense to keep track of PHI nodes.  */
-  if (gimple_code (stmt) == GIMPLE_PHI)
-    return;
-
-  stmt2_p = VEC_pop (gimple_p, scb_stack);
-  gcc_assert (stmt_p == stmt2_p);
-
-  /* Force an operand re-scan on the statement and mark any newly
-     exposed variables.  This also will mark the virtual operand
-     for renaming if necessary.  */
-  update_stmt (stmt);
-}
-
-/* Discard the topmost stmt from SCB_STACK.  This is useful
-   when the caller realized that it did not actually modified the
-   statement.  It avoids the expensive operand re-scan.
-   This function is deprecated, do not introduce new uses of it.  */
-
-void
-discard_stmt_changes (gimple *stmt_p)
-{
-  gimple *stmt2_p, stmt = *stmt_p;
-  
-  /* It makes no sense to keep track of PHI nodes.  */
-  if (gimple_code (stmt) == GIMPLE_PHI)
-    return;
-
-  stmt2_p = VEC_pop (gimple_p, scb_stack);
-  gcc_assert (stmt_p == stmt2_p);
-}
 
 /* Unlink STMTs virtual definition from the IL by propagating its use.  */
 

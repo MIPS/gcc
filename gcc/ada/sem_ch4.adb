@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -127,10 +127,10 @@ package body Sem_Ch4 is
    procedure Check_Misspelled_Selector
      (Prefix : Entity_Id;
       Sel    : Node_Id);
-   --  Give possible misspelling diagnostic if Sel is likely to be
-   --  a misspelling of one of the selectors of the Prefix.
-   --  This is called by Analyze_Selected_Component after producing
-   --  an invalid selector error message.
+   --  Give possible misspelling diagnostic if Sel is likely to be a mis-
+   --  spelling of one of the selectors of the Prefix. This is called by
+   --  Analyze_Selected_Component after producing an invalid selector error
+   --  message.
 
    function Defined_In_Scope (T : Entity_Id; S : Entity_Id) return Boolean;
    --  Verify that type T is declared in scope S. Used to find interpretations
@@ -446,7 +446,7 @@ package body Sem_Ch4 is
                      if Nkind (Constraint (E)) =
                        N_Index_Or_Discriminant_Constraint
                      then
-                        Error_Msg_N
+                        Error_Msg_N -- CODEFIX
                           ("\if qualified expression was meant, " &
                               "use apostrophe", Constraint (E));
                      end if;
@@ -483,7 +483,7 @@ package body Sem_Ch4 is
                     and then Nkind (Constraint (E)) =
                                N_Index_Or_Discriminant_Constraint
                   then
-                     Error_Msg_N
+                     Error_Msg_N -- CODEFIX
                        ("if qualified expression was meant, " &
                            "use apostrophe!", Constraint (E));
                   end if;
@@ -2466,7 +2466,7 @@ package body Sem_Ch4 is
                         Formal := First_Formal (Nam);
                         while Present (Formal) loop
                            if Chars (Left_Opnd (Actual)) = Chars (Formal) then
-                              Error_Msg_N
+                              Error_Msg_N -- CODEFIX
                                 ("possible misspelling of `='>`!", Actual);
                               exit;
                            end if;
@@ -3918,6 +3918,18 @@ package body Sem_Ch4 is
             then
                Add_One_Interp (N, Op_Id, Etype (Op_Id));
 
+               --  If the left operand is overloaded, indicate that the
+               --  current type is a viable candidate. This is redundant
+               --  in most cases, but for equality and comparison operators
+               --  where the context does not impose a type on the operands,
+               --  setting the proper type is necessary to avoid subsequent
+               --  ambiguities during resolution, when both user-defined and
+               --  predefined operators may be candidates.
+
+               if Is_Overloaded (Left_Opnd (N)) then
+                  Set_Etype (Left_Opnd (N), Etype (F1));
+               end if;
+
                if Debug_Flag_E then
                   Write_Str ("user defined operator ");
                   Write_Name (Chars (Op_Id));
@@ -4233,12 +4245,12 @@ package body Sem_Ch4 is
       --  Report at most two suggestions
 
       if Nr_Of_Suggestions = 1 then
-         Error_Msg_NE
+         Error_Msg_NE -- CODEFIX
            ("\possible misspelling of&", Sel, Suggestion_1);
 
       elsif Nr_Of_Suggestions = 2 then
          Error_Msg_Node_2 := Suggestion_2;
-         Error_Msg_NE
+         Error_Msg_NE -- CODEFIX
            ("\possible misspelling of& or&", Sel, Suggestion_1);
       end if;
    end Check_Misspelled_Selector;
@@ -4347,8 +4359,8 @@ package body Sem_Ch4 is
          if Nkind (Parent (N)) = N_Selected_Component
            and then N = Prefix (Parent (N))
          then
-            Error_Msg_N (
-              "\period should probably be semicolon", Parent (N));
+            Error_Msg_N -- CODEFIX
+              ("\period should probably be semicolon", Parent (N));
          end if;
 
       elsif Nkind (N) = N_Procedure_Call_Statement
@@ -4697,17 +4709,19 @@ package body Sem_Ch4 is
       Scop  : Entity_Id := Empty;
 
       procedure Try_One_Interp (T1 : Entity_Id);
-      --  The context of the operator plays no role in resolving the
-      --  arguments,  so that if there is more than one interpretation
-      --  of the operands that is compatible with equality, the construct
-      --  is ambiguous and an error can be emitted now, after trying to
-      --  disambiguate, i.e. applying preference rules.
+      --  The context of the equality operator plays no role in resolving the
+      --  arguments, so that if there is more than one interpretation of the
+      --  operands that is compatible with equality, the construct is ambiguous
+      --  and an error can be emitted now, after trying to disambiguate, i.e.
+      --  applying preference rules.
 
       --------------------
       -- Try_One_Interp --
       --------------------
 
       procedure Try_One_Interp (T1 : Entity_Id) is
+         Bas : constant Entity_Id := Base_Type (T1);
+
       begin
          --  If the operator is an expanded name, then the type of the operand
          --  must be defined in the corresponding scope. If the type is
@@ -4725,7 +4739,7 @@ package body Sem_Ch4 is
               or else T1 = Any_String
               or else T1 = Any_Composite
               or else (Ekind (T1) = E_Access_Subprogram_Type
-                          and then not Comes_From_Source (T1))
+                        and then not Comes_From_Source (T1))
             then
                null;
 
@@ -4739,6 +4753,32 @@ package body Sem_Ch4 is
 
                return;
             end if;
+
+         --  If we have infix notation, the operator must be usable.
+         --  Within an instance, if the type is already established we
+         --  know it is correct.
+         --  In Ada 2005, the equality on anonymous access types is declared
+         --  in Standard, and is always visible.
+
+         elsif In_Open_Scopes (Scope (Bas))
+           or else Is_Potentially_Use_Visible (Bas)
+           or else In_Use (Bas)
+           or else (In_Use (Scope (Bas))
+                     and then not Is_Hidden (Bas))
+           or else (In_Instance
+                     and then First_Subtype (T1) = First_Subtype (Etype (R)))
+           or else Ekind (T1) = E_Anonymous_Access_Type
+         then
+            null;
+
+         else
+            --  Save candidate type for subsquent error message, if any
+
+            if not Is_Limited_Type (T1) then
+               Candidate_Type := T1;
+            end if;
+
+            return;
          end if;
 
          --  Ada 2005 (AI-230): Keep restriction imposed by Ada 83 and 95:
@@ -5198,7 +5238,8 @@ package body Sem_Ch4 is
               and then Valid_Boolean_Arg (Etype (R))
             then
                Error_Msg_N ("invalid operands for concatenation", N);
-               Error_Msg_N ("\maybe AND was meant", N);
+               Error_Msg_N -- CODEFIX
+                 ("\maybe AND was meant", N);
                return;
 
             --  A special case for comparison of access parameter with null
@@ -5212,6 +5253,20 @@ package body Sem_Ch4 is
             then
                Error_Msg_N ("access parameter is not allowed to be null", L);
                Error_Msg_N ("\(call would raise Constraint_Error)", L);
+               return;
+
+            --  Another special case for exponentiation, where the right
+            --  operand must be Natural, independently of the base.
+
+            elsif Nkind (N) = N_Op_Expon
+              and then Is_Numeric_Type (Etype (L))
+              and then not Is_Overloaded (R)
+              and then
+                First_Subtype (Base_Type (Etype (R))) /= Standard_Integer
+              and then Base_Type (Etype (R)) /= Universal_Integer
+            then
+               Error_Msg_NE
+                 ("exponent must be of type Natural, found}", R, Etype (R));
                return;
             end if;
 
@@ -5787,6 +5842,7 @@ package body Sem_Ch4 is
          Call    : Node_Id;
          Subp    : Entity_Id) return Entity_Id
       is
+         Arr_Type  : Entity_Id;
          Comp_Type : Entity_Id;
 
       begin
@@ -5802,6 +5858,7 @@ package body Sem_Ch4 is
          --  If the call may be an indexed call, retrieve component type of
          --  resulting expression, and add possible interpretation.
 
+         Arr_Type  := Empty;
          Comp_Type := Empty;
 
          if Nkind (Call) = N_Function_Call
@@ -5809,19 +5866,50 @@ package body Sem_Ch4 is
            and then Needs_One_Actual (Subp)
          then
             if Is_Array_Type (Etype (Subp)) then
-               Comp_Type := Component_Type (Etype (Subp));
+               Arr_Type := Etype (Subp);
 
             elsif Is_Access_Type (Etype (Subp))
               and then Is_Array_Type (Designated_Type (Etype (Subp)))
             then
-               Comp_Type := Component_Type (Designated_Type (Etype (Subp)));
+               Arr_Type := Designated_Type (Etype (Subp));
             end if;
          end if;
 
-         if Present (Comp_Type)
-           and then Etype (Subprog) /= Comp_Type
-         then
-            Add_One_Interp (Subprog, Subp, Comp_Type);
+         if Present (Arr_Type) then
+
+            --  Verify that the actuals (excluding the object)
+            --  match the types of the indices.
+
+            declare
+               Actual : Node_Id;
+               Index  : Node_Id;
+
+            begin
+               Actual := Next (First_Actual (Call));
+               Index  := First_Index (Arr_Type);
+               while Present (Actual) and then Present (Index) loop
+                  if not Has_Compatible_Type (Actual, Etype (Index)) then
+                     Arr_Type := Empty;
+                     exit;
+                  end if;
+
+                  Next_Actual (Actual);
+                  Next_Index  (Index);
+               end loop;
+
+               if No (Actual)
+                  and then No (Index)
+                  and then Present (Arr_Type)
+               then
+                  Comp_Type := Component_Type (Arr_Type);
+               end if;
+            end;
+
+            if Present (Comp_Type)
+              and then Etype (Subprog) /= Comp_Type
+            then
+               Add_One_Interp (Subprog, Subp, Comp_Type);
+            end if;
          end if;
 
          if Etype (Call) /= Any_Type then
@@ -5986,7 +6074,8 @@ package body Sem_Ch4 is
             if Nkind (Parent (Op)) = N_Full_Type_Declaration then
                Error_Msg_N ("\possible interpretation (inherited)#", N);
             else
-               Error_Msg_N ("\possible interpretation#", N);
+               Error_Msg_N -- CODEFIX
+                 ("\possible interpretation#", N);
             end if;
          end if;
       end Report_Ambiguity;

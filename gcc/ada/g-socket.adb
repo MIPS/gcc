@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2001-2008, AdaCore                     --
+--                     Copyright (C) 2001-2009, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -227,6 +227,13 @@ package body GNAT.Sockets is
    procedure Write
      (Stream : in out Stream_Socket_Stream_Type;
       Item   : Ada.Streams.Stream_Element_Array);
+
+   procedure Stream_Write
+     (Socket : Socket_Type;
+      Item   : Ada.Streams.Stream_Element_Array;
+      To     : access Sock_Addr_Type);
+   --  Common implementation for the Write operation of Datagram_Socket_Stream_
+   --  Type and Stream_Socket_Stream_Type.
 
    procedure Wait_On_Socket
      (Socket    : Socket_Type;
@@ -1267,36 +1274,33 @@ package body GNAT.Sockets is
    ---------------
 
    function Inet_Addr (Image : String) return Inet_Addr_Type is
+      use Interfaces.C;
       use Interfaces.C.Strings;
 
-      Img    : chars_ptr;
+      Img    : aliased char_array := To_C (Image);
+      Cp     : constant chars_ptr := To_Chars_Ptr (Img'Unchecked_Access);
+      Addr   : aliased C.int;
       Res    : C.int;
       Result : Inet_Addr_Type;
 
    begin
-      --  Special case for the all-ones broadcast address: this address has the
-      --  same in_addr_t value as Failure, and thus cannot be properly returned
-      --  by inet_addr(3).
-
-      if Image = "255.255.255.255" then
-         return Broadcast_Inet_Addr;
-
       --  Special case for an empty Image as on some platforms (e.g. Windows)
       --  calling Inet_Addr("") will not return an error.
 
-      elsif Image = "" then
+      if Image = "" then
          Raise_Socket_Error (SOSC.EINVAL);
       end if;
 
-      Img := New_String (Image);
-      Res := C_Inet_Addr (Img);
-      Free (Img);
+      Res := Inet_Pton (SOSC.AF_INET, Cp, Addr'Address);
 
-      if Res = Failure then
+      if Res < 0 then
+         Raise_Socket_Error (Socket_Errno);
+
+      elsif Res = 0 then
          Raise_Socket_Error (SOSC.EINVAL);
       end if;
 
-      To_Inet_Addr (To_In_Addr (Res), Result);
+      To_Inet_Addr (To_In_Addr (Addr), Result);
       return Result;
    end Inet_Addr;
 
@@ -1640,7 +1644,7 @@ package body GNAT.Sockets is
            Item'Address,
            Item'Length,
            To_Int (Flags),
-           Sin'Unchecked_Access,
+           Sin'Address,
            Len'Access);
 
       if Res = Failure then
@@ -1652,6 +1656,41 @@ package body GNAT.Sockets is
       To_Inet_Addr (Sin.Sin_Addr, From.Addr);
       From.Port := Port_Type (Network_To_Short (Sin.Sin_Port));
    end Receive_Socket;
+
+   --------------------
+   -- Receive_Vector --
+   --------------------
+
+   procedure Receive_Vector
+     (Socket : Socket_Type;
+      Vector : Vector_Type;
+      Count  : out Ada.Streams.Stream_Element_Count;
+      Flags  : Request_Flag_Type := No_Request_Flag)
+   is
+      Res : ssize_t;
+
+      Msg : Msghdr :=
+              (Msg_Name       => System.Null_Address,
+               Msg_Namelen    => 0,
+               Msg_Iov        => Vector'Address,
+               Msg_Iovlen     => SOSC.Msg_Iovlen_T (Vector'Length),
+               Msg_Control    => System.Null_Address,
+               Msg_Controllen => 0,
+               Msg_Flags      => 0);
+
+   begin
+      Res :=
+        C_Recvmsg
+          (C.int (Socket),
+           Msg'Address,
+           To_Int (Flags));
+
+      if Res = ssize_t (Failure) then
+         Raise_Socket_Error (Socket_Errno);
+      end if;
+
+      Count := Ada.Streams.Stream_Element_Count (Res);
+   end Receive_Vector;
 
    -------------------
    -- Resolve_Error --
@@ -1673,6 +1712,18 @@ package body GNAT.Sockets is
             when others              => return Cannot_Resolve_Error;
          end case;
       end if;
+
+      --  Special case: EAGAIN may be the same value as EWOULDBLOCK, so we
+      --  can't include it in the case statement below.
+
+      pragma Warnings (Off);
+      --  Condition "EAGAIN /= EWOULDBLOCK" is known at compile time
+
+      if EAGAIN /= EWOULDBLOCK and then Error_Value = EAGAIN then
+         return Resource_Temporarily_Unavailable;
+      end if;
+
+      pragma Warnings (On);
 
       case Error_Value is
          when ENOERROR        => return Success;
@@ -1709,6 +1760,7 @@ package body GNAT.Sockets is
          when ENOTSOCK        => return Socket_Operation_On_Non_Socket;
          when EOPNOTSUPP      => return Operation_Not_Supported;
          when EPFNOSUPPORT    => return Protocol_Family_Not_Supported;
+         when EPIPE           => return Broken_Pipe;
          when EPROTONOSUPPORT => return Protocol_Not_Supported;
          when EPROTOTYPE      => return Protocol_Wrong_Type_For_Socket;
          when ESHUTDOWN       => return
@@ -1717,10 +1769,9 @@ package body GNAT.Sockets is
          when ETIMEDOUT       => return Connection_Timed_Out;
          when ETOOMANYREFS    => return Too_Many_References;
          when EWOULDBLOCK     => return Resource_Temporarily_Unavailable;
-         when others          => null;
-      end case;
 
-      return Cannot_Resolve_Error;
+         when others          => return Cannot_Resolve_Error;
+      end case;
    end Resolve_Error;
 
    -----------------------
@@ -1766,31 +1817,6 @@ package body GNAT.Sockets is
       end if;
    end Resolve_Exception;
 
-   --------------------
-   -- Receive_Vector --
-   --------------------
-
-   procedure Receive_Vector
-     (Socket : Socket_Type;
-      Vector : Vector_Type;
-      Count  : out Ada.Streams.Stream_Element_Count)
-   is
-      Res : C.int;
-
-   begin
-      Res :=
-        C_Readv
-          (C.int (Socket),
-           Vector'Address,
-           Vector'Length);
-
-      if Res = Failure then
-         Raise_Socket_Error (Socket_Errno);
-      end if;
-
-      Count := Ada.Streams.Stream_Element_Count (Res);
-   end Receive_Vector;
-
    -----------------
    -- Send_Socket --
    -----------------
@@ -1801,21 +1827,8 @@ package body GNAT.Sockets is
       Last   : out Ada.Streams.Stream_Element_Offset;
       Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      Res : C.int;
-
    begin
-      Res :=
-        C_Send
-          (C.int (Socket),
-           Item'Address,
-           Item'Length,
-           Set_Forced_Flags (To_Int (Flags)));
-
-      if Res = Failure then
-         Raise_Socket_Error (Socket_Errno);
-      end if;
-
-      Last := Item'First + Ada.Streams.Stream_Element_Offset (Res - 1);
+      Send_Socket (Socket, Item, Last, To => null, Flags => Flags);
    end Send_Socket;
 
    -----------------
@@ -1829,23 +1842,49 @@ package body GNAT.Sockets is
       To     : Sock_Addr_Type;
       Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      Res : C.int;
-      Sin : aliased Sockaddr_In;
-      Len : constant C.int := Sin'Size / 8;
+   begin
+      Send_Socket
+        (Socket, Item, Last, To => To'Unrestricted_Access, Flags => Flags);
+   end Send_Socket;
+
+   -----------------
+   -- Send_Socket --
+   -----------------
+
+   procedure Send_Socket
+     (Socket : Socket_Type;
+      Item   : Ada.Streams.Stream_Element_Array;
+      Last   : out Ada.Streams.Stream_Element_Offset;
+      To     : access Sock_Addr_Type;
+      Flags  : Request_Flag_Type := No_Request_Flag)
+   is
+      Res  : C.int;
+
+      Sin  : aliased Sockaddr_In;
+      C_To : System.Address;
+      Len  : C.int;
 
    begin
-      Set_Family  (Sin.Sin_Family, To.Family);
-      Set_Address (Sin'Unchecked_Access, To_In_Addr (To.Addr));
-      Set_Port
-        (Sin'Unchecked_Access,
-         Short_To_Network (C.unsigned_short (To.Port)));
+      if To /= null then
+         Set_Family  (Sin.Sin_Family, To.Family);
+         Set_Address (Sin'Unchecked_Access, To_In_Addr (To.Addr));
+         Set_Port
+           (Sin'Unchecked_Access,
+            Short_To_Network (C.unsigned_short (To.Port)));
+         C_To := Sin'Address;
+         Len := Sin'Size / 8;
+
+      else
+         C_To := System.Null_Address;
+         Len := 0;
+      end if;
 
       Res := C_Sendto
         (C.int (Socket),
          Item'Address,
          Item'Length,
          Set_Forced_Flags (To_Int (Flags)),
-         Sin'Unchecked_Access,
+         C_To,
          Len);
 
       if Res = Failure then
@@ -1862,11 +1901,16 @@ package body GNAT.Sockets is
    procedure Send_Vector
      (Socket : Socket_Type;
       Vector : Vector_Type;
-      Count  : out Ada.Streams.Stream_Element_Count)
+      Count  : out Ada.Streams.Stream_Element_Count;
+      Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      Res            : C.int;
-      Iov_Count      : C.int;
-      This_Iov_Count : C.int;
+      use SOSC;
+      use Interfaces.C;
+
+      Res            : ssize_t;
+      Iov_Count      : SOSC.Msg_Iovlen_T;
+      This_Iov_Count : SOSC.Msg_Iovlen_T;
+      Msg            : Msghdr;
 
    begin
       Count := 0;
@@ -1884,13 +1928,23 @@ package body GNAT.Sockets is
 
          pragma Warnings (On);
 
-         Res :=
-           C_Writev
-             (C.int (Socket),
-              Vector (Vector'First + Integer (Iov_Count))'Address,
-              This_Iov_Count);
+         Msg :=
+           (Msg_Name       => System.Null_Address,
+            Msg_Namelen    => 0,
+            Msg_Iov        => Vector
+                                (Vector'First + Integer (Iov_Count))'Address,
+            Msg_Iovlen     => This_Iov_Count,
+            Msg_Control    => System.Null_Address,
+            Msg_Controllen => 0,
+            Msg_Flags      => 0);
 
-         if Res = Failure then
+         Res :=
+           C_Sendmsg
+             (C.int (Socket),
+              Msg'Address,
+              Set_Forced_Flags (To_Int (Flags)));
+
+         if Res = ssize_t (Failure) then
             Raise_Socket_Error (Socket_Errno);
          end if;
 
@@ -2093,6 +2147,43 @@ package body GNAT.Sockets is
       S.Socket := Socket;
       return Stream_Access (S);
    end Stream;
+
+   ------------------
+   -- Stream_Write --
+   ------------------
+
+   procedure Stream_Write
+     (Socket : Socket_Type;
+      Item   : Ada.Streams.Stream_Element_Array;
+      To     : access Sock_Addr_Type)
+   is
+      First : Ada.Streams.Stream_Element_Offset;
+      Index : Ada.Streams.Stream_Element_Offset;
+      Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
+
+   begin
+      First := Item'First;
+      Index := First - 1;
+      while First <= Max loop
+         Send_Socket (Socket, Item (First .. Max), Index, To);
+
+         --  Exit when all or zero data sent. Zero means that the socket has
+         --  been closed by peer.
+
+         exit when Index < First or else Index = Max;
+
+         First := Index + 1;
+      end loop;
+
+      --  For an empty array, we have First > Max, and hence Index >= Max (no
+      --  error, the loop above is never executed). After a succesful send,
+      --  Index = Max. The only remaining case, Index < Max, is therefore
+      --  always an actual send failure.
+
+      if Index < Max then
+         Raise_Socket_Error (Socket_Errno);
+      end if;
+   end Stream_Write;
 
    ----------
    -- To_C --
@@ -2315,31 +2406,8 @@ package body GNAT.Sockets is
      (Stream : in out Datagram_Socket_Stream_Type;
       Item   : Ada.Streams.Stream_Element_Array)
    is
-      pragma Warnings (Off, Stream);
-
-      First : Ada.Streams.Stream_Element_Offset          := Item'First;
-      Index : Ada.Streams.Stream_Element_Offset          := First - 1;
-      Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
-
    begin
-      loop
-         Send_Socket
-           (Stream.Socket,
-            Item (First .. Max),
-            Index,
-            Stream.To);
-
-         --  Exit when all or zero data sent. Zero means that the socket has
-         --  been closed by peer.
-
-         exit when Index < First or else Index = Max;
-
-         First := Index + 1;
-      end loop;
-
-      if Index /= Max then
-         raise Socket_Error;
-      end if;
+      Stream_Write (Stream.Socket, Item, To => Stream.To'Unrestricted_Access);
    end Write;
 
    -----------
@@ -2350,27 +2418,8 @@ package body GNAT.Sockets is
      (Stream : in out Stream_Socket_Stream_Type;
       Item   : Ada.Streams.Stream_Element_Array)
    is
-      pragma Warnings (Off, Stream);
-
-      First : Ada.Streams.Stream_Element_Offset          := Item'First;
-      Index : Ada.Streams.Stream_Element_Offset          := First - 1;
-      Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
-
    begin
-      loop
-         Send_Socket (Stream.Socket, Item (First .. Max), Index);
-
-         --  Exit when all or zero data sent. Zero means that the socket has
-         --  been closed by peer.
-
-         exit when Index < First or else Index = Max;
-
-         First := Index + 1;
-      end loop;
-
-      if Index /= Max then
-         raise Socket_Error;
-      end if;
+      Stream_Write (Stream.Socket, Item, To => null);
    end Write;
 
    Sockets_Library_Controller_Object : Sockets_Library_Controller;

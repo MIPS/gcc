@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "opts.h"
+#include "plugin.h"
 
 #define pedantic_warning_kind() (flag_pedantic_errors ? DK_ERROR : DK_WARNING)
 #define permissive_error_kind() (flag_permissive ? DK_WARNING : DK_ERROR)
@@ -161,7 +162,7 @@ diagnostic_build_prefix (diagnostic_info *diagnostic)
   return
     (s.file == NULL
      ? build_message_string ("%s: %s", progname, text)
-     : flag_show_column && s.column != 0
+     : flag_show_column
      ? build_message_string ("%s:%d:%d: %s", s.file, s.line, s.column, text)
      : build_message_string ("%s:%d: %s", s.file, s.line, text));
 }
@@ -243,9 +244,15 @@ diagnostic_report_current_module (diagnostic_context *context)
       if (! MAIN_FILE_P (map))
 	{
 	  map = INCLUDED_FROM (line_table, map);
-	  pp_verbatim (context->printer,
-		       "In file included from %s:%d",
-		       map->to_file, LAST_SOURCE_LINE (map));
+	  if (flag_show_column)
+	    pp_verbatim (context->printer,
+			 "In file included from %s:%d:%d",
+			 map->to_file,
+			 LAST_SOURCE_LINE (map), LAST_SOURCE_COLUMN (map));
+	  else
+	    pp_verbatim (context->printer,
+			 "In file included from %s:%d",
+			 map->to_file, LAST_SOURCE_LINE (map));
 	  while (! MAIN_FILE_P (map))
 	    {
 	      map = INCLUDED_FROM (line_table, map);
@@ -370,6 +377,14 @@ diagnostic_report_diagnostic (diagnostic_context *context,
     }
 
   context->lock++;
+
+  if (diagnostic->kind == DK_ICE && plugins_active_p ())
+    {
+      fnotice (stderr, "*** WARNING *** there are active plugins, do not report"
+	       " this as a bug unless you can reproduce it without enabling"
+	       " any plugins.\n");
+      dump_active_plugins (stderr);
+    }
 
   if (diagnostic->kind == DK_ICE) 
     {

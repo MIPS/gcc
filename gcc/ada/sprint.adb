@@ -961,12 +961,16 @@ package body Sprint is
                if Present (Expressions (Node)) then
                   Sprint_Comma_List (Expressions (Node));
 
-                  if Present (Component_Associations (Node)) then
+                  if Present (Component_Associations (Node))
+                    and then not Is_Empty_List (Component_Associations (Node))
+                  then
                      Write_Str (", ");
                   end if;
                end if;
 
-               if Present (Component_Associations (Node)) then
+               if Present (Component_Associations (Node))
+                 and then not Is_Empty_List (Component_Associations (Node))
+               then
                   Indent_Begin;
 
                   declare
@@ -3719,7 +3723,7 @@ package body Sprint is
 
                      Write_Id (Directly_Designated_Type (Typ));
 
-                     --  Array types and string types
+                  --  Array types and string types
 
                   when E_Array_Type | E_String_Type =>
                      Write_Header;
@@ -3748,7 +3752,8 @@ package body Sprint is
                      Sprint_Node (X);
                      Set_Sloc (X, Old_Sloc);
 
-                     --  Array subtypes and string subtypes
+                     --  Array subtypes and string subtypes.
+                     --  Preserve Sloc of index subtypes, as above.
 
                   when E_Array_Subtype | E_String_Subtype =>
                      Write_Header (False);
@@ -3757,7 +3762,9 @@ package body Sprint is
 
                      X := First_Index (Typ);
                      loop
+                        Old_Sloc := Sloc (X);
                         Sprint_Node (X);
+                        Set_Sloc (X, Old_Sloc);
                         Next_Index (X);
                         exit when No (X);
                         Write_Str (", ");
@@ -3765,11 +3772,13 @@ package body Sprint is
 
                      Write_Char (')');
 
-                     --  Signed integer types, and modular integer subtypes
+                  --  Signed integer types, and modular integer subtypes,
+                  --  and also enumeration subtypes.
 
                   when E_Signed_Integer_Type     |
                        E_Signed_Integer_Subtype  |
-                       E_Modular_Integer_Subtype =>
+                       E_Modular_Integer_Subtype |
+                       E_Enumeration_Subtype     =>
 
                      Write_Header (Ekind (Typ) = E_Signed_Integer_Type);
 
@@ -3821,14 +3830,14 @@ package body Sprint is
                         end if;
                      end;
 
-                     --  Modular integer types
+                  --  Modular integer types
 
                   when E_Modular_Integer_Type =>
                      Write_Header;
                      Write_Str (" mod ");
                      Write_Uint_With_Col_Check (Modulus (Typ), Auto);
 
-                     --  Floating point types and subtypes
+                  --  Floating point types and subtypes
 
                   when E_Floating_Point_Type    |
                        E_Floating_Point_Subtype =>
@@ -4104,8 +4113,8 @@ package body Sprint is
             exit when Spec = Empty;
 
             --  Add semicolon, unless we are printing original tree and the
-            --  next specification is part of a list (but not the first
-            --  element of that list)
+            --  next specification is part of a list (but not the first element
+            --  of that list).
 
             if not Dump_Original_Only or else not Prev_Ids (Spec) then
                Write_Str ("; ");

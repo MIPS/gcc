@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -53,9 +53,9 @@ with Uname;    use Uname;
 package body Errout is
 
    Errors_Must_Be_Ignored : Boolean := False;
-   --  Set to True by procedure Set_Ignore_Errors (True), when calls to
-   --  error message procedures should be ignored (when parsing irrelevant
-   --  text in sources being preprocessed).
+   --  Set to True by procedure Set_Ignore_Errors (True), when calls to error
+   --  message procedures should be ignored (when parsing irrelevant text in
+   --  sources being preprocessed).
 
    Finalize_Called : Boolean := False;
    --  Set True if the Finalize routine has been called
@@ -1681,11 +1681,21 @@ package body Errout is
 
          --  First list extended main source file units with errors
 
-         --  Note: if debug flag d.m is set, only the main source is listed
-
          for U in Main_Unit .. Last_Unit loop
             if In_Extended_Main_Source_Unit (Cunit_Entity (U))
+
+              --  If debug flag d.m is set, only the main source is listed
+
               and then (U = Main_Unit or else not Debug_Flag_Dot_M)
+
+              --  If the unit of the entity does not come from source, it is
+              --  an implicit subprogram declaration for a child subprogram.
+              --  Do not emit errors for it, they are listed with the body.
+
+              and then
+                (No (Cunit_Entity (U))
+                   or else Comes_From_Source (Cunit_Entity (U))
+                   or else not Is_Subprogram (Cunit_Entity (U)))
             then
                declare
                   Sfile : constant Source_File_Index := Source_Index (U);

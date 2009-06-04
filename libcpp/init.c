@@ -160,7 +160,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   CPP_OPTION (pfile, warn_trigraphs) = 2;
   CPP_OPTION (pfile, warn_endif_labels) = 1;
   CPP_OPTION (pfile, warn_deprecated) = 1;
-  CPP_OPTION (pfile, warn_long_long) = !CPP_OPTION (pfile, c99);
+  CPP_OPTION (pfile, warn_long_long) = 0;
   CPP_OPTION (pfile, dollars_in_ident) = 1;
   CPP_OPTION (pfile, warn_dollars) = 1;
   CPP_OPTION (pfile, warn_variadic_macros) = 1;
@@ -381,6 +381,24 @@ mark_named_operators (cpp_reader *pfile)
     }
 }
 
+/* Helper function of cpp_type2name. Return the string associated with
+   named operator TYPE.  */
+const char *
+cpp_named_operator2name (enum cpp_ttype type)
+{
+  const struct builtin_operator *b;
+
+  for (b = operator_array;
+       b < (operator_array + ARRAY_SIZE (operator_array));
+       b++)
+    {
+      if (type == b->value)
+	return (const char *) b->name;
+    }
+
+  return NULL;
+}
+
 void
 cpp_init_special_builtins (cpp_reader *pfile)
 {
@@ -401,7 +419,7 @@ cpp_init_special_builtins (cpp_reader *pfile)
       if (b->always_warn_if_redefined
           || CPP_OPTION (pfile, warn_builtin_macro_redefined))
 	hp->flags |= NODE_WARN;
-      hp->value.builtin = (enum builtin_type) b->value;
+      hp->value.builtin = (enum cpp_builtin_type) b->value;
     }
 }
 

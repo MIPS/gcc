@@ -125,8 +125,7 @@ binding_entry_free (binding_entry entry)
 
 /* The datatype used to implement the mapping from names to types at
    a given scope.  */
-struct binding_table_s GTY(())
-{
+struct GTY(()) binding_table_s {
   /* Array of chains of "binding_entry"s  */
   binding_entry * GTY((length ("%h.chain_count"))) chain;
 
@@ -1008,13 +1007,18 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	      && TREE_PUBLIC (x))
 	    TREE_PUBLIC (name) = 1;
 
+	  /* Don't complain about the parms we push and then pop
+	     while tentatively parsing a function declarator.  */
+	  if (TREE_CODE (x) == PARM_DECL && DECL_CONTEXT (x) == NULL_TREE)
+	    /* Ignore.  */;
+
 	  /* Warn if shadowing an argument at the top level of the body.  */
-	  if (oldlocal != NULL_TREE && !DECL_EXTERNAL (x)
-	      /* Inline decls shadow nothing.  */
-	      && !DECL_FROM_INLINE (x)
-	      && TREE_CODE (oldlocal) == PARM_DECL
-	      /* Don't check the `this' parameter.  */
-	      && !DECL_ARTIFICIAL (oldlocal))
+	  else if (oldlocal != NULL_TREE && !DECL_EXTERNAL (x)
+		   /* Inline decls shadow nothing.  */
+		   && !DECL_FROM_INLINE (x)
+		   && TREE_CODE (oldlocal) == PARM_DECL
+		   /* Don't check the `this' parameter.  */
+		   && !DECL_ARTIFICIAL (oldlocal))
 	    {
 	      bool err = false;
 
@@ -1038,10 +1042,7 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 		    }
 		}
 
-	      if (warn_shadow && !err
-		  /* Don't complain about the parms we push and then pop
-		     while tentatively parsing a function declarator.  */
-		  && !(TREE_CODE (x) == PARM_DECL && DECL_CONTEXT (x) == NULL_TREE))
+	      if (warn_shadow && !err)
 		{
 		  warning (OPT_Wshadow, "declaration of %q#D shadows a parameter", x);
 		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldlocal);
@@ -3554,7 +3555,7 @@ pushdecl_top_level_1 (tree x, tree *init, bool is_friend)
   push_to_top_level ();
   x = pushdecl_namespace_level (x, is_friend);
   if (init)
-    finish_decl (x, *init, NULL_TREE);
+    finish_decl (x, *init, NULL_TREE, NULL_TREE);
   pop_from_top_level ();
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, x);
 }
@@ -4234,7 +4235,7 @@ lookup_name_nonclass (tree name)
 }
 
 tree
-lookup_function_nonclass (tree name, tree args, bool block_p)
+lookup_function_nonclass (tree name, VEC(tree,gc) *args, bool block_p)
 {
   return
     lookup_arg_dependent (name,
@@ -4426,7 +4427,7 @@ lookup_type_current_level (tree name)
 struct arg_lookup
 {
   tree name;
-  tree args;
+  VEC(tree,gc) *args;
   tree namespaces;
   tree classes;
   tree functions;
@@ -4434,6 +4435,7 @@ struct arg_lookup
 
 static bool arg_assoc (struct arg_lookup*, tree);
 static bool arg_assoc_args (struct arg_lookup*, tree);
+static bool arg_assoc_args_vec (struct arg_lookup*, VEC(tree,gc) *);
 static bool arg_assoc_type (struct arg_lookup*, tree);
 static bool add_function (struct arg_lookup *, tree);
 static bool arg_assoc_namespace (struct arg_lookup *, tree);
@@ -4588,13 +4590,13 @@ arg_assoc_namespace (struct arg_lookup *k, tree scope)
 	 classes.  */
       if (hidden_name_p (OVL_CURRENT (value)))
 	{
-	  tree args;
+	  unsigned int ix;
+	  tree arg;
 
-	  for (args = k->args; args; args = TREE_CHAIN (args))
-	    if (friend_of_associated_class_p (TREE_VALUE (args),
-					      OVL_CURRENT (value)))
+	  for (ix = 0; VEC_iterate (tree, k->args, ix, arg); ++ix)
+	    if (friend_of_associated_class_p (arg, OVL_CURRENT (value)))
 	      break;
-	  if (!args)
+	  if (ix >= VEC_length (tree, k->args))
 	    continue;
 	}
 
@@ -4804,6 +4806,21 @@ arg_assoc_args (struct arg_lookup *k, tree args)
   return false;
 }
 
+/* Adds everything associated with an argument vector.  Returns true
+   on error.  */
+
+static bool
+arg_assoc_args_vec (struct arg_lookup *k, VEC(tree,gc) *args)
+{
+  unsigned int ix;
+  tree arg;
+
+  for (ix = 0; VEC_iterate (tree, args, ix, arg); ++ix)
+    if (arg_assoc (k, arg))
+      return true;
+  return false;
+}
+
 /* Adds everything associated with a given tree_node.  Returns 1 on error.  */
 
 static bool
@@ -4883,7 +4900,7 @@ arg_assoc (struct arg_lookup *k, tree n)
    are the functions found in normal lookup.  */
 
 tree
-lookup_arg_dependent (tree name, tree fns, tree args)
+lookup_arg_dependent (tree name, tree fns, VEC(tree,gc) *args)
 {
   struct arg_lookup k;
 
@@ -4906,7 +4923,7 @@ lookup_arg_dependent (tree name, tree fns, tree args)
      picking up later definitions) in the second stage. */
   k.namespaces = NULL_TREE;
 
-  arg_assoc_args (&k, args);
+  arg_assoc_args_vec (&k, args);
 
   fns = k.functions;
   

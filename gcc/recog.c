@@ -1253,11 +1253,15 @@ pop_operand (rtx op, enum machine_mode mode)
 int
 memory_address_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx addr)
 {
+#ifdef GO_IF_LEGITIMATE_ADDRESS
   GO_IF_LEGITIMATE_ADDRESS (mode, addr, win);
   return 0;
 
  win:
   return 1;
+#else
+  return targetm.legitimate_address_p (mode, addr, 0);
+#endif
 }
 
 /* Return 1 if OP is a valid memory reference with mode MODE,
@@ -3052,6 +3056,26 @@ peep2_find_free_register (int from, int to, const char *class_str,
   return NULL_RTX;
 }
 
+/* Forget all currently tracked instructions, only remember current
+   LIVE regset.  */
+
+static void
+peep2_reinit_state (regset live)
+{
+  int i;
+
+  /* Indicate that all slots except the last holds invalid data.  */
+  for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
+    peep2_insn_data[i].insn = NULL_RTX;
+  peep2_current_count = 0;
+
+  /* Indicate that the last slot contains live_after data.  */
+  peep2_insn_data[MAX_INSNS_PER_PEEP2].insn = PEEP2_EOB;
+  peep2_current = MAX_INSNS_PER_PEEP2;
+
+  COPY_REG_SET (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
+}
+
 /* Perform the peephole2 optimization pass.  */
 
 static void
@@ -3075,19 +3099,11 @@ peephole2_optimize (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       rtl_profile_for_bb (bb);
-      /* Indicate that all slots except the last holds invalid data.  */
-      for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
-	peep2_insn_data[i].insn = NULL_RTX;
-      peep2_current_count = 0;
-
-      /* Indicate that the last slot contains live_after data.  */
-      peep2_insn_data[MAX_INSNS_PER_PEEP2].insn = PEEP2_EOB;
-      peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
       bitmap_copy (live, DF_LR_OUT (bb));
       df_simulate_initialize_backwards (bb, live);
-      bitmap_copy (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
+      peep2_reinit_state (live);
 
       for (insn = BB_END (bb); ; insn = prev)
 	{
@@ -3114,7 +3130,7 @@ peephole2_optimize (void)
 		  /* If an insn has RTX_FRAME_RELATED_P set, peephole
 		     substitution would lose the
 		     REG_FRAME_RELATED_EXPR that is attached.  */
-		  peep2_current_count = 0;
+		  peep2_reinit_state (live);
 		  attempt = NULL;
 		}
 	      else
@@ -3500,7 +3516,7 @@ struct rtl_opt_pass pass_split_all_insns =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3530,7 +3546,7 @@ struct rtl_opt_pass pass_split_after_reload =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3574,7 +3590,7 @@ struct rtl_opt_pass pass_split_before_regstack =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3612,7 +3628,7 @@ struct rtl_opt_pass pass_split_before_sched2 =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3644,7 +3660,7 @@ struct rtl_opt_pass pass_split_for_shorten_branches =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3652,5 +3668,3 @@ struct rtl_opt_pass pass_split_for_shorten_branches =
   TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
  }
 };
-
-

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1328,15 +1328,28 @@ package body Exp_Util is
       then
          null;
 
-      --  Nothing to be done for derived types with unknown discriminants if
-      --  the parent type also has unknown discriminants.
+      --  Case of derived type with unknown discriminants where the parent type
+      --  also has unknown discriminants.
 
       elsif Is_Record_Type (Unc_Type)
         and then not Is_Class_Wide_Type (Unc_Type)
         and then Has_Unknown_Discriminants (Unc_Type)
         and then Has_Unknown_Discriminants (Underlying_Type (Unc_Type))
       then
-         null;
+         --  Nothing to be done if no underlying record view available
+
+         if No (Underlying_Record_View (Unc_Type)) then
+            null;
+
+         --  Otherwise use the Underlying_Record_View to create the proper
+         --  constrained subtype for an object of a derived type with unknown
+         --  discriminants.
+
+         else
+            Remove_Side_Effects (Exp);
+            Rewrite (Subtype_Indic,
+              Make_Subtype_From_Expr (Exp, Underlying_Record_View (Unc_Type)));
+         end if;
 
       --  In Ada95, Nothing to be done if the type of the expression is
       --  limited, because in this case the expression cannot be copied,
@@ -3867,7 +3880,7 @@ package body Exp_Util is
             --  initialization itself (and doesn't need or want the
             --  additional intermediate type to handle the assignment).
 
-            if Expander_Active and then VM_Target = No_VM then
+            if Expander_Active and then Tagged_Type_Expansion then
                EQ_Typ := Make_CW_Equivalent_Type (Unc_Typ, E);
             end if;
 

@@ -59,6 +59,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_ABM	OPTION_ISA_ABM
 #define TARGET_POPCNT	OPTION_ISA_POPCNT
 #define TARGET_SAHF	OPTION_ISA_SAHF
+#define TARGET_MOVBE	OPTION_ISA_MOVBE
 #define TARGET_AES	OPTION_ISA_AES
 #define TARGET_PCLMUL	OPTION_ISA_PCLMUL
 #define TARGET_CMPXCHG16B OPTION_ISA_CX16
@@ -1803,12 +1804,12 @@ typedef struct ix86_args {
 #define REG_OK_FOR_BASE_P(X)   REG_OK_FOR_BASE_STRICT_P (X)
 #endif
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
+/* TARGET_LEGITIMATE_ADDRESS_P recognizes an RTL expression
    that is a valid memory address for an instruction.
    The MODE argument is the machine mode for the MEM expression
    that wants to use this address.
 
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS,
+   The other macros defined here are used only in TARGET_LEGITIMATE_ADDRESS_P,
    except for CONSTANT_ADDRESS_P which is usually machine-independent.
 
    See legitimize_pic_address in i386.c for details as to what
@@ -1823,22 +1824,6 @@ typedef struct ix86_args {
 
 #define LEGITIMATE_CONSTANT_P(X)  legitimate_constant_p (X)
 
-#ifdef REG_OK_STRICT
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-do {									\
-  if (legitimate_address_p ((MODE), (X), 1))				\
-    goto ADDR;								\
-} while (0)
-
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-do {									\
-  if (legitimate_address_p ((MODE), (X), 0))				\
-    goto ADDR;								\
-} while (0)
-
-#endif
-
 /* If defined, a C expression to determine the base term of address X.
    This macro is used in only one place: `find_base_term' in alias.c.
 
@@ -1850,34 +1835,6 @@ do {									\
 
 #define FIND_BASE_TERM(X) ix86_find_base_term (X)
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   For the 80386, we handle X+REG by loading X into a register R and
-   using R+REG.  R will go in a general reg and indexing will be used.
-   However, if REG is a broken-out memory address or multiplication,
-   nothing needs to be done because REG can certainly go in a general reg.
-
-   When -fpic is used, special handling is needed for symbolic references.
-   See comments by legitimize_pic_address in i386.c for details.  */
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)				\
-do {									\
-  (X) = legitimize_address ((X), (OLDX), (MODE));			\
-  if (memory_address_p ((MODE), (X)))					\
-    goto WIN;								\
-} while (0)
-
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
    that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
@@ -1888,13 +1845,6 @@ do {									\
   (GET_CODE (X) == SYMBOL_REF						\
    || GET_CODE (X) == LABEL_REF						\
    || (GET_CODE (X) == CONST && symbolic_reference_mentioned_p (X)))
-
-/* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.
-   On the 80386, only postdecrement and postincrement address depend thus
-   (the amount of decrement or increment being the length of the operand).
-   These are now caught in recog.c.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 
 /* Max number of args passed in registers.  If this is more than 3, we will
    have problems with ebx (register #4), since it is a caller save register and
@@ -2226,6 +2176,22 @@ do {									\
 #define ASM_OUTPUT_OPCODE(STREAM, PTR) \
   ASM_OUTPUT_AVX_PREFIX ((STREAM), (PTR))
 
+/* A C statement to output to the stdio stream FILE an assembler
+   command to pad the location counter to a multiple of 1<<LOG
+   bytes if it is within MAX_SKIP bytes.  */
+
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+#undef  ASM_OUTPUT_MAX_SKIP_PAD
+#define ASM_OUTPUT_MAX_SKIP_PAD(FILE, LOG, MAX_SKIP)			\
+  if ((LOG) != 0)							\
+    {									\
+      if ((MAX_SKIP) == 0)						\
+        fprintf ((FILE), "\t.p2align %d\n", (LOG));			\
+      else								\
+        fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP));	\
+    }
+#endif
+
 /* Under some conditions we need jump tables in the text section,
    because the assembler cannot handle label differences between
    sections.  This is the case for x86_64 on Mach-O for example.  */
@@ -2427,8 +2393,16 @@ enum ix86_stack_slot
 
 #define FASTCALL_PREFIX '@'
 
-struct machine_function GTY(())
+/* Machine specific CFA tracking during prologue/epilogue generation.  */
+
+#ifndef USED_FOR_TARGET
+struct GTY(()) machine_cfa_state
 {
+  rtx reg;
+  HOST_WIDE_INT offset;
+};
+
+struct GTY(()) machine_function {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
   int varargs_gpr_size;
@@ -2454,8 +2428,10 @@ struct machine_function GTY(())
   int tls_descriptor_call_expanded_p;
   /* This value is used for amd64 targets and specifies the current abi
      to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
-   enum calling_abi call_abi;
+  enum calling_abi call_abi;
+  struct machine_cfa_state cfa;
 };
+#endif
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
 #define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
@@ -2471,6 +2447,7 @@ struct machine_function GTY(())
    REG_SP is live.  */
 #define ix86_current_function_calls_tls_descriptor \
   (ix86_tls_descriptor_calls_expanded_in_cfun && df_regs_ever_live_p (SP_REG))
+#define ix86_cfa_state (&cfun->machine->cfa)
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false
