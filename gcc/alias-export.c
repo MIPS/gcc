@@ -203,7 +203,8 @@ update_pta_with_stack_partitions (void)
 
 /* Returns false if we shouldn't pass REF to the oracle.  Now only checks
    that INDIRECT_REFs have sensible bases.  */
-static bool handled_by_oracle_p (tree ref)
+static bool 
+handled_by_oracle_p (tree ref)
 {
   tree base = get_base_address (ref);
   return (base
