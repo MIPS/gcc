@@ -225,6 +225,16 @@ int rs6000_debug_reg;		/* debug register classes */
 int rs6000_debug_addr;		/* debug memory addressing */
 int rs6000_debug_cost;		/* debug rtx_costs */
 
+/* Specify the machine mode that pointers have.  After generation of rtl, the
+   compiler makes no further distinction between pointers and any other objects
+   of this machine mode.  The type is unsigned since not all things that
+   include rs6000.h also include machmode.h.  */
+unsigned rs6000_pmode;
+
+/* Width in bits of a pointer.  */
+unsigned rs6000_pointer_size;
+
+
 /* Value is TRUE if register/mode pair is acceptable.  */
 bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
 
@@ -2150,6 +2160,18 @@ rs6000_override_options (const char *default_cpu)
 		     | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP
 		     | MASK_POPCNTD | MASK_VSX | MASK_ISEL)
   };
+
+  /* Set the pointer size.  */
+  if (TARGET_POWERPC64)
+    {
+      rs6000_pmode = (int)DImode;
+      rs6000_pointer_size = 64;
+    }
+  else
+    {
+      rs6000_pmode = (int)SImode;
+      rs6000_pointer_size = 32;
+    }
 
   set_masks = POWER_MASKS | POWERPC_MASKS | MASK_SOFT_FLOAT;
 #ifdef OS_MISSING_POWERPC64

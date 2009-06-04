@@ -1,3 +1,16 @@
+2009-06-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_pmode): Declare new external
+	variable.
+	(rs6000_pointer_size): Ditto.
+	(rs6000_override_options): Initialize both rs6000_pmode and
+	rs6000_pointer_size based on the target pointer size.
+
+	* config/rs6000/rs6000.h (POINTER_SIZE): Rather than expand the ?:
+	at runtime, use an external variable that is filled in at
+	initialization time.
+	(Pmode): Ditto.
+
 2009-06-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/driver-rs6000.c (host_detect_local_cpu): Follow

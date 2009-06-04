@@ -674,7 +674,8 @@ extern int rs6000_vector_align[];
 
 /* Width in bits of a pointer.
    See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE (TARGET_32BIT ? 32 : 64)
+extern unsigned rs6000_pointer_size;
+#define POINTER_SIZE rs6000_pointer_size
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_32BIT ? 32 : 64)
@@ -1993,7 +1994,8 @@ do {								\
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
-#define Pmode (TARGET_32BIT ? SImode : DImode)
+extern unsigned rs6000_pmode;
+#define Pmode ((enum machine_mode)rs6000_pmode)
 
 /* Supply definition of STACK_SIZE_MODE for allocate_dynamic_stack_space.  */
 #define STACK_SIZE_MODE (TARGET_32BIT ? SImode : DImode)
