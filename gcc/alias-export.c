@@ -201,6 +201,16 @@ update_pta_with_stack_partitions (void)
 
 /* Functions to be called when needed to use exported information.  */
 
+/* Returns false if we shouldn't pass REF to the oracle.  Now only checks
+   that INDIRECT_REFs have sensible bases.  */
+static bool handled_by_oracle_p (tree ref)
+{
+  tree base = get_base_address (ref);
+  return (base
+          && (! INDIRECT_REF_P (base)
+              || TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME));
+}
+
 /* Main function to ask saved information about if REF1 and REF2 may
    alias or not.  MEM1 and MEM2 are corresponding mems.  */
 bool
@@ -208,13 +218,13 @@ alias_export_may_alias_p (tree ref1, tree ref2)
 {
   if (! dbg_cnt (alias_export))
     return true;
-  
+  if (! handled_by_oracle_p (ref1) || ! handled_by_oracle_p (ref2))
+    return true;
   if (! refs_may_alias_p (ref1, ref2))
     {
       alias_export_disambiguations++;
       return false;
     }
-
   return true;
 }
 

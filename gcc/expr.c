@@ -7613,9 +7613,14 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	op0 = memory_address (mode, op0);
 	temp = gen_rtx_MEM (mode, op0);
 	set_mem_attributes (temp, TMR_ORIGINAL (exp), 0);
-
-        if (! MEM_ORIG_EXPR (temp))
-          set_mem_orig_expr (temp, TMR_ORIGINAL (exp));
+        /* If TMR_ORIGINAL has INDIRECT_REF as base, we don't 
+           want it to be in MEM_ORIG_EXPR, as this will not add
+           any information to the oracle.  
+           This however may hamper data dependency export when we will 
+           compute dependencies for pointer accesses.  */
+        if (TMR_ORIGINAL (exp)
+            && INDIRECT_REF_P (get_base_address (TMR_ORIGINAL (exp))))
+          set_mem_orig_expr (temp, NULL);
       }
       return temp;
 

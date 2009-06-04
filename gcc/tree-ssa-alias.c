@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "alloc-pool.h"
 #include "tree-ssa-alias.h"
-#include "alias-export.h"
 
 /* Broad overview of how alias analysis on gimple works:
 
@@ -136,6 +135,7 @@ dump_alias_stats (FILE *s)
 	   + alias_stats.call_may_clobber_ref_p_may_alias);
 }
 
+
 /* Return true, if dereferencing PTR may alias with a global variable.  */
 
 bool
@@ -175,20 +175,15 @@ ptr_deref_may_alias_decl_p (tree ptr, tree decl)
       || TREE_CODE (ptr) == INTEGER_CST)
     return true;
 
-  gcc_assert (TREE_CODE (decl) == VAR_DECL
-              || TREE_CODE (decl) == PARM_DECL
-              || TREE_CODE (decl) == RESULT_DECL);
+  gcc_assert (TREE_CODE (ptr) == SSA_NAME
+	      && (TREE_CODE (decl) == VAR_DECL
+		  || TREE_CODE (decl) == PARM_DECL
+		  || TREE_CODE (decl) == RESULT_DECL));
 
   /* Non-aliased variables can not be pointed to.  */
   if (!may_be_aliased (decl))
     return false;
 
-  if (TREE_CODE (ptr) != SSA_NAME)
-    {
-      gcc_assert (current_ir_type () != IR_GIMPLE);
-      return true;
-    }
-  
   /* If we do not have useful points-to information for this pointer
      we cannot disambiguate anything else.  */
   pi = SSA_NAME_PTR_INFO (ptr);
@@ -216,12 +211,8 @@ ptr_derefs_may_alias_p (tree ptr1, tree ptr2)
       || TREE_CODE (ptr2) == INTEGER_CST)
     return true;
 
-  if (TREE_CODE (ptr1) != SSA_NAME
-      || TREE_CODE (ptr2) != SSA_NAME)
-    {
-      gcc_assert (current_ir_type () != IR_GIMPLE);
-      return true;
-    }
+  gcc_assert (TREE_CODE (ptr1) == SSA_NAME
+	      && TREE_CODE (ptr2) == SSA_NAME);
 
   /* We may end up with two empty points-to solutions for two same pointers.
      In this case we still want to say both pointers alias, so shortcut
@@ -233,7 +224,6 @@ ptr_derefs_may_alias_p (tree ptr1, tree ptr2)
      we cannot disambiguate anything else.  */
   pi1 = SSA_NAME_PTR_INFO (ptr1);
   pi2 = SSA_NAME_PTR_INFO (ptr2);
-
   if (!pi1 || !pi2)
     return true;
 
@@ -631,7 +621,7 @@ indirect_ref_may_alias_decl_p (tree ref1, tree ptr1,
     return false;
   if (!ptr_deref_may_alias_decl_p (ptr1, base2))
     return false;
-  
+
   /* Disambiguations that rely on strict aliasing rules follow.  */
   if (!flag_strict_aliasing)
     return true;
