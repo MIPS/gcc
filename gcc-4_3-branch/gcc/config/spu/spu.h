@@ -255,11 +255,6 @@ enum reg_class {
 #define INT_REG_OK_FOR_BASE_P(X,STRICT) \
 	((!(STRICT) || REGNO_OK_FOR_BASE_P (REGNO (X))))
 
-#define REG_ALIGN(X) \
-	(REG_POINTER(X) \
-	 	? REGNO_POINTER_ALIGN (ORIGINAL_REGNO (X)) \
-		: 0)
-
 #define PREFERRED_RELOAD_CLASS(X,CLASS)  (CLASS)
 
 #define CLASS_MAX_NREGS(CLASS, MODE)	\
@@ -384,14 +379,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
          : (MODE) == VOIDmode ? 1 \
 	 : HARD_REGNO_NREGS(CUM,MODE))
 
-
-/* The SPU ABI wants 32/64-bit types at offset 0 in the quad-word on the
-   stack.  8/16-bit types should be at offsets 3/2 respectively.  */
-#define FUNCTION_ARG_OFFSET(MODE, TYPE)					\
-(((TYPE) && INTEGRAL_TYPE_P (TYPE) && GET_MODE_SIZE (MODE) < 4)		\
- ? (4 - GET_MODE_SIZE (MODE))						\
- : 0)
-
 #define FUNCTION_ARG_PADDING(MODE,TYPE) upward
 
 #define PAD_VARARGS_DOWN 0
@@ -453,7 +440,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 #endif
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
-    { if (spu_legitimate_address (MODE, X, REG_OK_STRICT_FLAG, 0))	\
+    { if (spu_legitimate_address (MODE, X, REG_OK_STRICT_FLAG))	\
 	goto ADDR;						\
     }
 
@@ -647,7 +634,33 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 extern GTY(()) rtx spu_compare_op0;
 extern GTY(()) rtx spu_compare_op1;
 
-#define SPLIT_BEFORE_CSE2 1
 
-#define ADDRESSES_NEVER_TRAP 1
+/* Builtins.  */
+
+enum spu_builtin_type
+{
+  B_INSN,
+  B_JUMP,
+  B_BISLED,
+  B_CALL,
+  B_HINT,
+  B_OVERLOAD,
+  B_INTERNAL
+};
+
+struct spu_builtin_description GTY(())
+{
+  int fcode;
+  int icode;
+  const char *name;
+  enum spu_builtin_type type;
+
+  /* The first element of parm is always the return type.  The rest
+     are a zero terminated list of parameters.  */
+  int parm[5];
+
+  tree fndecl;
+};
+
+extern struct spu_builtin_description spu_builtins[];
 
