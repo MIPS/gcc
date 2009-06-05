@@ -104,6 +104,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #include "highlev-plugin-internal.h"
+#include "pass-manager.h"
 
 START_TARGET_SPECIFIC
 
@@ -2295,7 +2296,7 @@ toplev_main (unsigned int argc, const char **argv)
 
   /* Initialize additional passes (such as, for example, ml-feat:
      A Static Program Features Extractor for MILEPOST GCC). */
-  register_pass (&pass_ml_feat);
+  register_pass (&pass_ml_feat.pass);
 
   init_local_tick ();
 

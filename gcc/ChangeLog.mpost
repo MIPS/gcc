@@ -1,3 +1,13 @@
+2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* toplev.c: Include pass-manager.h
+	(toplev.main): Pass proper type to register_pass.
+	* Makefile.in ($(TA)toplev.o): Depend on pass-manager.h .
+	* ml-feat.c (ml_decl_index): Use XNEW.
+	(ml_decl_ref, ml_type_ref, ml_inp_expr): Replace new with is_new.
+	(ml_feat_extract): Use XCNEW.
+	(pass_ml_feat): Cast 0 to timevar_id_t.
+
 2009-06-01  Grigori Fursin  <grigori.fursin@inria.fr>
 	    Cupertino Miranda  <cupertinomiranda@gmail.com>
             Zbigniew Chamski  <zbigniew.chamski@gmail.com>
