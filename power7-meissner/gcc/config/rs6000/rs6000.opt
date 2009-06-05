@@ -144,7 +144,7 @@ Target Undocumented Var(TARGET_ALLOW_MOVMISALIGN) Init(-1)
 ; Allow/disallow the movmisalign in DF/DI vectors
 
 mallow-df-permute
-Target Undocumented Var(TARGET_ALLOW_DF_PERMUTE) Init(-1)
+Target Undocumented Var(TARGET_ALLOW_DF_PERMUTE)
 ; Allow/disallow permutation of DF/DI vectors
 
 mupdate
