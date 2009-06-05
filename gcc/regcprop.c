@@ -654,7 +654,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	    }
 	}
 
-      if (DEBUG_INSN_P (insn) || ! INSN_P (insn))
+      if (!NONDEBUG_INSN_P (insn))
 	{
 	  if (insn == BB_END (bb))
 	    break;

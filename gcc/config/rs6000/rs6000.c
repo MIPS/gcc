@@ -19081,7 +19081,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 static bool
 is_microcoded_insn (rtx insn)
 {
-  if (!insn || !INSN_P (insn) || DEBUG_INSN_P (insn)
+  if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -19109,7 +19109,7 @@ is_microcoded_insn (rtx insn)
 static bool
 is_cracked_insn (rtx insn)
 {
-  if (!insn || !INSN_P (insn) || DEBUG_INSN_P (insn)
+  if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -19137,7 +19137,7 @@ is_cracked_insn (rtx insn)
 static bool
 is_branch_slot_insn (rtx insn)
 {
-  if (!insn || !INSN_P (insn) || DEBUG_INSN_P (insn)
+  if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -19296,7 +19296,7 @@ static bool
 is_nonpipeline_insn (rtx insn)
 {
   enum attr_type type;
-  if (!insn || !INSN_P (insn) || DEBUG_INSN_P (insn)
+  if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -19587,7 +19587,7 @@ get_next_active_insn (rtx insn, rtx tail)
 
       if (CALL_P (insn)
 	  || JUMP_P (insn)
-	  || (NONJUMP_INSN_P (insn) && !DEBUG_INSN_P (insn)
+	  || (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) != USE
 	      && GET_CODE (PATTERN (insn)) != CLOBBER
 	      && INSN_CODE (insn) != CODE_FOR_stack_tie))

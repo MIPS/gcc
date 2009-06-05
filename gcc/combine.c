@@ -921,7 +921,7 @@ create_log_links (void)
     {
       FOR_BB_INSNS_REVERSE (bb, insn)
         {
-          if (!INSN_P (insn) || DEBUG_INSN_P (insn))
+          if (!NONDEBUG_INSN_P (insn))
             continue;
 
 	  /* Log links are created only once.  */
@@ -1129,7 +1129,7 @@ combine_instructions (rtx f, unsigned int nregs)
 	   insn = next ? next : NEXT_INSN (insn))
 	{
 	  next = 0;
-	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	  if (NONDEBUG_INSN_P (insn))
 	    {
 	      /* See if we know about function return values before this
 		 insn based upon SUBREG flags.  */
@@ -12825,7 +12825,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 
 	      for (tem = PREV_INSN (tem); place == 0; tem = PREV_INSN (tem))
 		{
-		  if (! INSN_P (tem) || DEBUG_INSN_P (tem))
+		  if (!NONDEBUG_INSN_P (tem))
 		    {
 		      if (tem == BB_HEAD (bb))
 			break;
@@ -13026,7 +13026,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 			    for (tem = PREV_INSN (place); ;
 				 tem = PREV_INSN (tem))
 			      {
-				if (! INSN_P (tem) || DEBUG_INSN_P (tem))
+				if (!NONDEBUG_INSN_P (tem))
 				  {
 				    if (tem == BB_HEAD (bb))
 			 	      break;

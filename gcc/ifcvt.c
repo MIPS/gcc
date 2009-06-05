@@ -2488,7 +2488,7 @@ check_cond_move_block (basic_block bb, rtx *vals, VEC (int, heap) **regs, rtx co
     {
       rtx set, dest, src;
 
-      if (!INSN_P (insn) || DEBUG_INSN_P (insn) || JUMP_P (insn))
+      if (!NONDEBUG_INSN_P (insn) || JUMP_P (insn))
 	continue;
       set = single_set (insn);
       if (!set)
@@ -2567,7 +2567,7 @@ cond_move_convert_if_block (struct noce_if_info *if_infop,
       unsigned int regno;
 
       /* ??? Maybe emit conditional debug insn?  */
-      if (!INSN_P (insn) || DEBUG_INSN_P (insn) || JUMP_P (insn))
+      if (!NONDEBUG_INSN_P (insn) || JUMP_P (insn))
 	continue;
       set = single_set (insn);
       gcc_assert (set && REG_P (SET_DEST (set)));
@@ -3888,7 +3888,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	{
 	  if (CALL_P (insn))
 	    return FALSE;
-	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	  if (NONDEBUG_INSN_P (insn))
 	    {
 	      if (may_trap_p (PATTERN (insn)))
 		return FALSE;
@@ -3934,7 +3934,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
       FOR_BB_INSNS (merge_bb, insn)
 	{
-	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	  if (NONDEBUG_INSN_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
 	      df_ref *def_rec;

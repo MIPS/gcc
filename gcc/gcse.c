@@ -4742,7 +4742,7 @@ compute_ld_motion_mems (void)
     {
       FOR_BB_INSNS (bb, insn)
 	{
-	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	  if (NONDEBUG_INSN_P (insn))
 	    {
 	      if (GET_CODE (PATTERN (insn)) == SET)
 		{

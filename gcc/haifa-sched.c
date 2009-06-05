@@ -980,12 +980,12 @@ rank_for_schedule (const void *x, const void *y)
   if (DEBUG_INSN_P (last) && last != current_sched_info->prev_head)
     do
       last = PREV_INSN (last);
-    while ((DEBUG_INSN_P (last) || !INSN_P (last))
+    while (!NONDEBUG_INSN_P (last)
 	   && last != current_sched_info->prev_head);
 
   /* Compare insns based on their relation to the last scheduled
      non-debug insn.  */
-  if (INSN_P (last) && !DEBUG_INSN_P (last))
+  if (NONDEBUG_INSN_P (last))
     {
       dep_t dep1;
       dep_t dep2;

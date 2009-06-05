@@ -3096,7 +3096,7 @@ peephole2_optimize (void)
       for (insn = BB_END (bb); ; insn = prev)
 	{
 	  prev = PREV_INSN (insn);
-	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	  if (NONDEBUG_INSN_P (insn))
 	    {
 	      rtx attempt, before_try, x;
 	      int match_len;

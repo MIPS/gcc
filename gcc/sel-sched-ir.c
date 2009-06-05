@@ -3695,7 +3695,7 @@ sel_estimate_number_of_insns (basic_block bb)
   insn_t insn = NEXT_INSN (BB_HEAD (bb)), next_tail = NEXT_INSN (BB_END (bb));
 
   for (; insn != next_tail; insn = NEXT_INSN (insn))
-    if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+    if (NONDEBUG_INSN_P (insn))
       res++;
 
   return res;

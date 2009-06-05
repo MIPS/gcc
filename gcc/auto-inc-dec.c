@@ -1379,7 +1379,7 @@ merge_in_block (int max_reg, basic_block bb)
       unsigned int uid = INSN_UID (insn);
       bool insn_is_add_or_inc = true;
 
-      if (!INSN_P (insn) || DEBUG_INSN_P (insn))
+      if (!NONDEBUG_INSN_P (insn))
 	continue;	
 
       /* This continue is deliberate.  We do not want the uses of the

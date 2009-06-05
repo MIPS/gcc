@@ -166,7 +166,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
       struct df_mw_hardreg **mws_rec;
       rtx link;
  
-      if (!INSN_P (insn) || DEBUG_INSN_P (insn))
+      if (!NONDEBUG_INSN_P (insn))
 	continue;
 
       /* Increment the live_length for all of the registers that
