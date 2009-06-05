@@ -1,6 +1,18 @@
 2009-06-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Sync up to version 148216.
+	Sync up to version 148216.  Pull in patches from both
+	gcc-4_3-branch and power7-meissner.
+
+	PR tree-optimization/40219 (back ported from 4.5)
+	* tree.c (iterative_hash_expr): Make sure the builtin function is
+	a normal builtin function and not a front end or back end builtin
+	before indexing into the built_in_decls array.
+
+	PR tree-optimization/40049 (back ported from 4.5)
+	* tree-vect-transform.c (vectorizable_operation): If the machine
+	has only vector/vector shifts, convert the type of the constant to
+	the appropriate type to avoid building incorrect trees, which
+	eventually have problems with garbage collection.
 
 2009-05-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

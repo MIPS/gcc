@@ -52,7 +52,7 @@
    (UNSPEC_VPKSHUS      101)
    (UNSPEC_VPKUWUS      102)
    (UNSPEC_VPKSWUS      103)
-   (UNSPEC_VRL          104)
+   ;; 104 deleted
    (UNSPEC_VSLV4SI      110)
    (UNSPEC_VSLO         111)
    (UNSPEC_VSR          118)
@@ -551,7 +551,7 @@
    emit_insn (gen_altivec_vspltisw (sixteen,  gen_rtx_CONST_INT (V4SImode, -16)));
  
    swap = gen_reg_rtx (V4SImode);
-   emit_insn (gen_altivec_vrlw (swap, operands[2], sixteen));
+   emit_insn (gen_vrotlv4si3 (swap, operands[2], sixteen));
  
    one = gen_reg_rtx (V8HImode);
    convert_move (one, operands[1], 0);
@@ -1154,11 +1154,10 @@
   "vpkswus %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "altivec_vrl<VI_char>"
+(define_insn "*altivec_vrl<VI_char>"
   [(set (match_operand:VI 0 "register_operand" "=v")
-        (unspec:VI [(match_operand:VI 1 "register_operand" "v")
-                    (match_operand:VI 2 "register_operand" "v")]
-		   UNSPEC_VRL))]
+        (rotate:VI (match_operand:VI 1 "register_operand" "v")
+		   (match_operand:VI 2 "register_operand" "v")))]
   "TARGET_ALTIVEC"
   "vrl<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
@@ -1181,26 +1180,26 @@
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "vashl<mode>3"
+(define_insn "*altivec_vsl<VI_char>"
   [(set (match_operand:VI 0 "register_operand" "=v")
         (ashift:VI (match_operand:VI 1 "register_operand" "v")
-                   (match_operand:VI 2 "register_operand" "v") ))]
+		   (match_operand:VI 2 "register_operand" "v")))]
   "TARGET_ALTIVEC"
   "vsl<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "vlshr<mode>3"
+(define_insn "*altivec_vsr<VI_char>"
   [(set (match_operand:VI 0 "register_operand" "=v")
         (lshiftrt:VI (match_operand:VI 1 "register_operand" "v")
-                    (match_operand:VI 2 "register_operand" "v") ))]
+		     (match_operand:VI 2 "register_operand" "v")))]
   "TARGET_ALTIVEC"
   "vsr<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "vashr<mode>3"
+(define_insn "*altivec_vsra<VI_char>"
   [(set (match_operand:VI 0 "register_operand" "=v")
         (ashiftrt:VI (match_operand:VI 1 "register_operand" "v")
-                    (match_operand:VI 2 "register_operand" "v") ))]
+		     (match_operand:VI 2 "register_operand" "v")))]
   "TARGET_ALTIVEC"
   "vsra<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
@@ -1293,7 +1292,7 @@
   "vspltw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "*altivec_vspltsf"
+(define_insn "altivec_vspltsf"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
 	(vec_duplicate:V4SF
 	 (vec_select:SF (match_operand:V4SF 1 "register_operand" "v")

@@ -679,7 +679,8 @@ extern int rs6000_vector_align[];
 
 /* Width in bits of a pointer.
    See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE (TARGET_32BIT ? 32 : 64)
+extern unsigned rs6000_pointer_size;
+#define POINTER_SIZE rs6000_pointer_size
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_32BIT ? 32 : 64)
@@ -1357,14 +1358,14 @@ extern enum reg_class rs6000_vsx_reg_class;
  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  rs6000_preferred_reload_class (X, CLASS)
+  rs6000_preferred_reload_class_ptr (X, CLASS)
 
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
    NO_REGS is returned.  */
 
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  rs6000_secondary_reload_class (CLASS, MODE, IN)
+  rs6000_secondary_reload_class_ptr (CLASS, MODE, IN)
 
 /* If we are copying between FP or AltiVec registers and anything
    else, we need a memory location.  The exception is when we are
@@ -1372,7 +1373,7 @@ extern enum reg_class rs6000_vsx_reg_class;
    are available.*/
 
 #define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
-  rs6000_secondary_memory_needed (CLASS1, CLASS2, MODE)
+  rs6000_secondary_memory_needed_ptr (CLASS1, CLASS2, MODE)
 
 /* For cpus that cannot load/store SDmode values from the 64-bit
    FP registers without using a full 64-bit load/store, we need
@@ -1392,7 +1393,7 @@ extern enum reg_class rs6000_vsx_reg_class;
 /* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
-  rs6000_cannot_change_mode_class (FROM, TO, CLASS)
+  rs6000_cannot_change_mode_class_ptr (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1919,9 +1920,9 @@ typedef struct rs6000_args
    adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */
 
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
-{ if (rs6000_legitimate_address (MODE, X, REG_OK_STRICT_FLAG))	\
-    goto ADDR;							\
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
+{ if (rs6000_legitimate_address_ptr (MODE, X, REG_OK_STRICT_FLAG))	\
+    goto ADDR;								\
 }
 
 /* Try machine-dependent ways of modifying an illegitimate address
@@ -1948,8 +1949,8 @@ typedef struct rs6000_args
    load the other things into a register and return the sum.  */
 
 #define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)			\
-{  rtx result = rs6000_legitimize_address (X, OLDX, MODE);	\
-   if (result != NULL_RTX)					\
+{  rtx result = rs6000_legitimize_address_ptr (X, OLDX, MODE);	\
+  if (result != NULL_RTX && result != (X))			\
      {								\
        (X) = result;						\
        goto WIN;						\
@@ -1966,7 +1967,7 @@ typedef struct rs6000_args
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	     \
 do {									     \
   int win;								     \
-  (X) = rs6000_legitimize_reload_address ((X), (MODE), (OPNUM),		     \
+  (X) = rs6000_legitimize_reload_address_ptr ((X), (MODE), (OPNUM),	     \
 			(int)(TYPE), (IND_LEVELS), &win);		     \
   if ( win )								     \
     goto WIN;								     \
@@ -1977,7 +1978,7 @@ do {									     \
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)		\
 do {								\
-  if (rs6000_mode_dependent_address (ADDR))			\
+  if (rs6000_mode_dependent_address_ptr (ADDR))			\
     goto LABEL;							\
 } while (0)
 
@@ -2079,7 +2080,8 @@ do {								\
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
-#define Pmode (TARGET_32BIT ? SImode : DImode)
+extern unsigned rs6000_pmode;
+#define Pmode ((enum machine_mode)rs6000_pmode)
 
 /* Supply definition of STACK_SIZE_MODE for allocate_dynamic_stack_space.  */
 #define STACK_SIZE_MODE (TARGET_32BIT ? SImode : DImode)
@@ -2593,12 +2595,16 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VMINSW,
   ALTIVEC_BUILTIN_VMINFP,
   ALTIVEC_BUILTIN_VMULEUB,
+  ALTIVEC_BUILTIN_VMULEUB_UNS,
   ALTIVEC_BUILTIN_VMULESB,
   ALTIVEC_BUILTIN_VMULEUH,
+  ALTIVEC_BUILTIN_VMULEUH_UNS,
   ALTIVEC_BUILTIN_VMULESH,
   ALTIVEC_BUILTIN_VMULOUB,
+  ALTIVEC_BUILTIN_VMULOUB_UNS,
   ALTIVEC_BUILTIN_VMULOSB,
   ALTIVEC_BUILTIN_VMULOUH,
+  ALTIVEC_BUILTIN_VMULOUH_UNS,
   ALTIVEC_BUILTIN_VMULOSH,
   ALTIVEC_BUILTIN_VNMSUBFP,
   ALTIVEC_BUILTIN_VNOR,
@@ -3325,6 +3331,7 @@ enum rs6000_builtins
   VSX_BUILTIN_XVCVDPSXDS,
   VSX_BUILTIN_XVCVDPSXWS,
   VSX_BUILTIN_XVCVDPUXDS,
+  VSX_BUILTIN_XVCVDPUXDS_UNS,
   VSX_BUILTIN_XVCVDPUXWS,
   VSX_BUILTIN_XVCVSPDP,
   VSX_BUILTIN_XVCVSPSXDS,
@@ -3336,6 +3343,7 @@ enum rs6000_builtins
   VSX_BUILTIN_XVCVSXWDP,
   VSX_BUILTIN_XVCVSXWSP,
   VSX_BUILTIN_XVCVUXDDP,
+  VSX_BUILTIN_XVCVUXDDP_UNS,
   VSX_BUILTIN_XVCVUXDSP,
   VSX_BUILTIN_XVCVUXWDP,
   VSX_BUILTIN_XVCVUXWSP,
@@ -3403,6 +3411,10 @@ enum rs6000_builtins
   VSX_BUILTIN_VPERM_16QI_UNS,
   VSX_BUILTIN_XXPERMDI_2DF,
   VSX_BUILTIN_XXPERMDI_2DI,
+  VSX_BUILTIN_XXPERMDI_4SF,
+  VSX_BUILTIN_XXPERMDI_4SI,
+  VSX_BUILTIN_XXPERMDI_8HI,
+  VSX_BUILTIN_XXPERMDI_16QI,
   VSX_BUILTIN_CONCAT_2DF,
   VSX_BUILTIN_CONCAT_2DI,
   VSX_BUILTIN_SET_2DF,

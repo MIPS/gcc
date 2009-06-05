@@ -793,7 +793,7 @@
 (define_expand "movmisalign<mode>"
  [(set (match_operand:VEC_N 0 "vfloat_operand" "")
        (match_operand:VEC_N 1 "vfloat_operand" ""))]
- "VECTOR_MEM_VSX_P (<MODE>mode)"
+ "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_ALLOW_MOVMISALIGN"
  "")
 
 
@@ -802,7 +802,6 @@
 ;; General shift amounts can be supported using vslo + vsl. We're
 ;; not expecting to see these yet (the vectorizer currently
 ;; generates only shifts divisible by byte_size).
-;; TODO, add VSX xxsldwi support for word oriented shifts
 (define_expand "vec_shl_<mode>"
   [(match_operand:VEC_L 0 "vlogical_operand" "")
    (match_operand:VEC_L 1 "vlogical_operand" "")
@@ -811,7 +810,8 @@
   "
 {
   rtx bitshift = operands[2];
-  rtx byteshift = gen_reg_rtx (QImode);
+  rtx shift;
+  rtx insn;
   HOST_WIDE_INT bitshift_val;
   HOST_WIDE_INT byteshift_val;
 
@@ -821,9 +821,20 @@
   if (bitshift_val & 0x7)
     FAIL;
   byteshift_val = bitshift_val >> 3;
-  byteshift = gen_rtx_CONST_INT (QImode, byteshift_val);
-  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
-                                        byteshift));
+  if (TARGET_VSX && (byteshift_val & 0x3) == 0)
+    {
+      shift = gen_rtx_CONST_INT (QImode, byteshift_val >> 2);
+      insn = gen_vsx_xxsldwi_<mode> (operands[0], operands[1], operands[1],
+				     shift);
+    }
+  else
+    {
+      shift = gen_rtx_CONST_INT (QImode, byteshift_val);
+      insn = gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
+					shift);
+    }
+
+  emit_insn (insn);
   DONE;
 }")
 
@@ -832,7 +843,6 @@
 ;; General shift amounts can be supported using vsro + vsr. We're
 ;; not expecting to see these yet (the vectorizer currently
 ;; generates only shifts divisible by byte_size).
-;; TODO, add VSX xxsldwi support for word oriented shifts
 (define_expand "vec_shr_<mode>"
   [(match_operand:VEC_L 0 "vlogical_operand" "")
    (match_operand:VEC_L 1 "vlogical_operand" "")
@@ -841,7 +851,8 @@
   "
 {
   rtx bitshift = operands[2];
-  rtx byteshift = gen_reg_rtx (QImode);
+  rtx shift;
+  rtx insn;
   HOST_WIDE_INT bitshift_val;
   HOST_WIDE_INT byteshift_val;
  
@@ -851,8 +862,51 @@
   if (bitshift_val & 0x7)
     FAIL;
   byteshift_val = 16 - (bitshift_val >> 3);
-  byteshift = gen_rtx_CONST_INT (QImode, byteshift_val);
-  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
-                                        byteshift));
+  if (TARGET_VSX && (byteshift_val & 0x3) == 0)
+    {
+      shift = gen_rtx_CONST_INT (QImode, byteshift_val >> 2);
+      insn = gen_vsx_xxsldwi_<mode> (operands[0], operands[1], operands[1],
+				     shift);
+    }
+  else
+    {
+      shift = gen_rtx_CONST_INT (QImode, byteshift_val);
+      insn = gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
+					shift);
+    }
+
+  emit_insn (insn);
   DONE;
 }")
+
+;; Expanders for rotate each element in a vector
+(define_expand "vrotl<mode>3"
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
+	(rotate:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
+		      (match_operand:VEC_I 2 "vint_operand" "")))]
+  "TARGET_ALTIVEC"
+  "")
+
+;; Expanders for arithmetic shift left on each vector element
+(define_expand "vashl<mode>3"
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
+	(ashift:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
+		      (match_operand:VEC_I 2 "vint_operand" "")))]
+  "TARGET_ALTIVEC"
+  "")
+
+;; Expanders for logical shift right on each vector element
+(define_expand "vlshr<mode>3"
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
+	(lshiftrt:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
+			(match_operand:VEC_I 2 "vint_operand" "")))]
+  "TARGET_ALTIVEC"
+  "")
+
+;; Expanders for arithmetic shift right on each vector element
+(define_expand "vashr<mode>3"
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
+	(ashiftrt:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
+			(match_operand:VEC_I 2 "vint_operand" "")))]
+  "TARGET_ALTIVEC"
+  "")

@@ -2885,6 +2885,23 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { VSX_BUILTIN_VEC_XXPERMDI, VSX_BUILTIN_XXPERMDI_2DI,
     RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI,
     RS6000_BTI_NOT_OPAQUE },
+  { VSX_BUILTIN_VEC_XXPERMDI, VSX_BUILTIN_XXPERMDI_4SF,
+    RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_NOT_OPAQUE },
+  { VSX_BUILTIN_VEC_XXPERMDI, VSX_BUILTIN_XXPERMDI_4SI,
+    RS6000_BTI_V4SI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, RS6000_BTI_NOT_OPAQUE },
+  { VSX_BUILTIN_VEC_XXPERMDI, VSX_BUILTIN_XXPERMDI_4SI,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_NOT_OPAQUE },
+  { VSX_BUILTIN_VEC_XXPERMDI, VSX_BUILTIN_XXPERMDI_8HI,
+    RS6000_BTI_V8HI, RS6000_BTI_V8HI, RS6000_BTI_V8HI, RS6000_BTI_NOT_OPAQUE },
+  { VSX_BUILTIN_VEC_XXPERMDI, VSX_BUILTIN_XXPERMDI_8HI,
+    RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_NOT_OPAQUE },
+  { VSX_BUILTIN_VEC_XXPERMDI, VSX_BUILTIN_XXPERMDI_16QI,
+    RS6000_BTI_V16QI, RS6000_BTI_V16QI, RS6000_BTI_V16QI, RS6000_BTI_NOT_OPAQUE },
+  { VSX_BUILTIN_VEC_XXPERMDI, VSX_BUILTIN_XXPERMDI_16QI,
+    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_NOT_OPAQUE },
 
   /* Predicates.  */
   { ALTIVEC_BUILTIN_VCMPGT_P, ALTIVEC_BUILTIN_VCMPGTUB_P,
@@ -3138,7 +3155,7 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
   tree fnargs = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
   tree types[3], args[3];
   const struct altivec_builtin_types *desc;
-  int n;
+  unsigned int n;
 
   if ((fcode < ALTIVEC_BUILTIN_OVERLOADED_FIRST
        || fcode > ALTIVEC_BUILTIN_OVERLOADED_LAST)
@@ -3230,4 +3247,3 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
   error ("invalid parameter combination for AltiVec intrinsic");
   return error_mark_node;
 }
-

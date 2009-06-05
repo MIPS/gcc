@@ -3961,6 +3961,13 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 		  && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
 		      != CODE_FOR_nothing))
 		fprintf (vect_dump, "vector/vector shift/rotate found.");
+
+	      /* Unlike the other binary operators, shifts/rotates have
+		 the rhs being int, instead of the same type as the lhs,
+		 so make sure the scalar is the right type if we are
+		 dealing with vectors of short/char.  */
+	      if (dt[1] == vect_constant_def)
+		op1 = fold_convert (TREE_TYPE (vectype), op1);
 	    }
 	}
 
