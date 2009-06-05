@@ -173,7 +173,7 @@ So instead we use the macro below and test it against specific values.  */
 /* inline requires special treatment; it's in C99, and GCC >=2.7 supports
    it too, but it's not in C89.  */
 #undef inline
-#if __STDC_VERSION__ > 199901L
+#if __STDC_VERSION__ > 199901L || defined(__cplusplus)
 /* it's a keyword */
 #else
 # if GCC_VERSION >= 2007
@@ -256,13 +256,13 @@ So instead we use the macro below and test it against specific values.  */
 # endif /* GNUC >= 2.96 */
 #endif /* ATTRIBUTE_MALLOC */
 
-/* Attributes on labels were valid as of gcc 2.93. */
+/* Attributes on labels were valid as of gcc 2.93 and as of g++ 4.5. */
 #ifndef ATTRIBUTE_UNUSED_LABEL
-# if (!defined (__cplusplus) && GCC_VERSION >= 2093)
+# if (defined (__cplusplus) ? GCC_VERSION >= 4004 : GCC_VERSION >= 2093)
 #  define ATTRIBUTE_UNUSED_LABEL ATTRIBUTE_UNUSED
 # else
 #  define ATTRIBUTE_UNUSED_LABEL
-# endif /* !__cplusplus && GNUC >= 2.93 */
+# endif
 #endif /* ATTRIBUTE_UNUSED_LABEL */
 
 #ifndef ATTRIBUTE_UNUSED

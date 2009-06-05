@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "df.h"
 #include "addresses.h"
+#include "multi-target.h"
 
 /* Sequence abstraction:
 
@@ -253,6 +254,8 @@ typedef struct hash_elem_def
 } *p_hash_elem;
 typedef const struct hash_elem_def *const_p_hash_elem;
 
+START_TARGET_SPECIFIC
+
 /* The list of same sequence candidates.  */
 static htab_t hash_buckets;
 
@@ -352,6 +355,16 @@ compute_rtx_cost (rtx insn)
   return cost != 0 ? cost : COSTS_N_INSNS (1);
 }
 
+/* Like compute_rtx_cost, but is passed a raw insn with uninitialized
+   PREV and NEXT fields.  We must zero them first lest context checks in
+   ADJUST_INSN_LENGTH segfault.  */
+static int
+compute_dummy_rtx_cost (rtx insn)
+{
+  PREV_INSN (insn) = NULL_RTX;
+  NEXT_INSN (insn) = NULL_RTX;
+  return compute_rtx_cost (insn);
+}
 /* Determines the number of common insns in the sequences ending in INSN1 and
    INSN2. Returns with LEN number of common insns and COST cost of sequence.
 */
@@ -1379,13 +1392,14 @@ compute_init_costs (void)
   rtx_return = gen_jump (label);
 
   /* The cost of jump.  */
-  seq_jump_cost = compute_rtx_cost (make_jump_insn_raw (rtx_jump));
+  seq_jump_cost = compute_dummy_rtx_cost (make_jump_insn_raw (rtx_jump));
 
   /* The cost of calling sequence.  */
-  seq_call_cost = seq_jump_cost + compute_rtx_cost (make_insn_raw (rtx_store));
+  seq_call_cost
+    = seq_jump_cost + compute_dummy_rtx_cost (make_insn_raw (rtx_store));
 
   /* The cost of return.  */
-  seq_return_cost = compute_rtx_cost (make_jump_insn_raw (rtx_return));
+  seq_return_cost = compute_dummy_rtx_cost (make_jump_insn_raw (rtx_return));
 
   /* Simple heuristic for minimal sequence cost.  */
   seq_call_cost   = (int)(seq_call_cost * (double)SEQ_CALL_COST_MULTIPLIER);
@@ -1472,3 +1486,5 @@ struct rtl_opt_pass pass_rtl_seqabstr =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

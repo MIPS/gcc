@@ -21,7 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_OPTABS_H
 #define GCC_OPTABS_H
 
+#include "multi-target.h"
 #include "insn-codes.h"
+#include "target.h"
 
 /* Optabs are tables saying how to generate insn bodies
    for various machine modes and numbers of operands.
@@ -44,29 +46,29 @@ struct optab_handlers
   enum insn_code insn_code;
 };
 
-struct optab
+struct optab_d
 {
   enum rtx_code code;
   const char *libcall_basename;
   char libcall_suffix;
-  void (*libcall_gen)(struct optab *, const char *name, char suffix, enum machine_mode);
+  void (*libcall_gen)(struct optab_d *, const char *name, char suffix, enum machine_mode);
   struct optab_handlers handlers[NUM_MACHINE_MODES];
 };
-typedef struct optab * optab;
+typedef struct optab_d * optab;
 
 /* A convert_optab is for some sort of conversion operation between
    modes.  The first array index is the destination mode, the second
    is the source mode.  */
-struct convert_optab
+struct convert_optab_d
 {
   enum rtx_code code;
   const char *libcall_basename;
-  void (*libcall_gen)(struct convert_optab *, const char *name,
+  void (*libcall_gen)(struct convert_optab_d *, const char *name,
 		      enum machine_mode,
 		      enum machine_mode);
   struct optab_handlers handlers[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 };
-typedef struct convert_optab *convert_optab;
+typedef struct convert_optab_d *convert_optab;
 
 /* Given an enum insn_code, access the function to construct
    the body of that kind of insn.  */
@@ -372,7 +374,9 @@ enum optab_index
   OTI_MAX
 };
 
-extern struct optab optab_table[OTI_MAX];
+START_TARGET_SPECIFIC
+
+extern struct optab_d optab_table[OTI_MAX];
 
 #define ssadd_optab (&optab_table[OTI_ssadd])
 #define usadd_optab (&optab_table[OTI_usadd])
@@ -573,7 +577,7 @@ enum convert_optab_index
   COI_MAX
 };
 
-extern struct convert_optab convert_optab_table[COI_MAX];
+extern struct convert_optab_d convert_optab_table[COI_MAX];
 
 #define sext_optab (&convert_optab_table[COI_sext])
 #define zext_optab (&convert_optab_table[COI_zext])
@@ -728,6 +732,7 @@ extern bool maybe_emit_unop_insn (int, rtx, rtx, enum rtx_code);
 extern void emit_cmp_insn (rtx, rtx, enum rtx_code, rtx, enum machine_mode,
 			   int);
 
+END_TARGET_SPECIFIC
 /* An extra flag to control optab_for_tree_code's behavior.  This is needed to
    distinguish between machines with a vector shift that takes a scalar for the
    shift amount vs. machines that take a vector for the shift amount.  */
@@ -737,11 +742,26 @@ enum optab_subtype
   optab_scalar,
   optab_vector
 };
+START_TARGET_SPECIFIC
 
 /* Return the optab used for computing the given operation on the type given by
    the second argument.  The third argument distinguishes between the types of
    vector shifts and rotates */
-extern optab optab_for_tree_code (enum tree_code, const_tree, enum optab_subtype);
+extern optab optab_for_tree_code_1 (enum tree_code, const_tree,
+				    enum optab_subtype);
+extern optab (*optab_for_tree_code_array[]) (enum tree_code, const_tree,
+					       enum optab_subtype);
+static inline optab
+optab_for_tree_code (enum tree_code code, const_tree type,
+                     enum optab_subtype subtype)
+{
+#if NUM_TARGETS > 1
+  return (*optab_for_tree_code_array[targetm.target_arch]) (code, type,
+							    subtype);
+#else
+  return optab_for_tree_code_1 (code, type, subtype);
+#endif
+}
 
 /* The various uses that a comparison can have; used by can_compare_p:
    jumps, conditional moves, store flag operations.  */
@@ -799,4 +819,6 @@ extern rtx optab_libfunc (optab optab, enum machine_mode mode);
 extern rtx optab_libfunc (optab optab, enum machine_mode mode);
 extern rtx convert_optab_libfunc (convert_optab optab, enum machine_mode mode1,
 			          enum machine_mode mode2);
+END_TARGET_SPECIFIC
+
 #endif /* GCC_OPTABS_H */

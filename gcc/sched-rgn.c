@@ -69,6 +69,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef INSN_SCHEDULING
 
@@ -3336,7 +3339,8 @@ rgn_add_block (basic_block bb, basic_block after)
       /* Now POS is the index of the last block in the region.  */
 
       /* Find index of basic block AFTER.  */
-      for (; rgn_bb_table[pos] != after->index; pos--);
+      for (; rgn_bb_table[pos] != after->index; pos--)
+	;
 
       pos++;
       gcc_assert (pos > ebb_head[i - 1]);
@@ -3383,12 +3387,14 @@ rgn_fix_recovery_cfg (int bbi, int check_bbi, int check_bb_nexti)
   
   for (old_pos = ebb_head[BLOCK_TO_BB (check_bbi) + 1] - 1;
        rgn_bb_table[old_pos] != check_bb_nexti;
-       old_pos--);
+       old_pos--)
+    ;
   gcc_assert (old_pos > ebb_head[BLOCK_TO_BB (check_bbi)]);
 
   for (new_pos = ebb_head[BLOCK_TO_BB (bbi) + 1] - 1;
        rgn_bb_table[new_pos] != bbi;
-       new_pos--);
+       new_pos--)
+    ;
   new_pos++;
   gcc_assert (new_pos > ebb_head[BLOCK_TO_BB (bbi)]);
   
@@ -3519,3 +3525,4 @@ struct rtl_opt_pass pass_sched2 =
  }
 };
 
+END_TARGET_SPECIFIC

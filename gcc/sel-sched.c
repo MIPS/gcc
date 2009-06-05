@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sel-sched-dump.h"
 #include "sel-sched.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
 
 /* Implementation of selective scheduling approach.
    The below implementation follows the original approach with the following
@@ -251,6 +252,8 @@ along with GCC; see the file COPYING3.  If not see
    
 */
 
+START_TARGET_SPECIFIC
+
 /* True when pipelining is enabled.  */
 bool pipelining_p;
 
@@ -448,7 +451,7 @@ struct code_motion_path_driver_info_def *code_motion_path_driver_info;
 
 /* Set of hooks for performing move_op and find_used_regs routines with
    code_motion_path_driver.  */
-struct code_motion_path_driver_info_def move_op_hooks, fur_hooks;
+extern struct code_motion_path_driver_info_def move_op_hooks, fur_hooks;
 
 /* True if/when we want to emulate Haifa scheduler in the common code.  
    This is used in sched_rgn_local_init and in various places in 
@@ -1169,7 +1172,7 @@ static void
 init_hard_regs_data (void)
 {
   int cur_reg = 0;
-  enum machine_mode cur_mode = 0;
+  int cur_mode = 0;
 
   CLEAR_HARD_REG_SET (sel_hrd.regs_ever_used);
   for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
@@ -7331,4 +7334,6 @@ run_selective_scheduling (void)
   sel_global_finish ();
 }
 
-#endif
+END_TARGET_SPECIFIC
+
+#endif /* INSN_SCHEDULING */

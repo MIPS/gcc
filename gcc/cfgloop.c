@@ -338,6 +338,7 @@ alloc_loop (void)
 
   loop->exits = GGC_CNEW (struct loop_exit);
   loop->exits->next = loop->exits->prev = loop->exits;
+  loop->target_arch = cfun->target_arch;
 
   return loop;
 }

@@ -1276,7 +1276,7 @@ gfc_check_interfaces (gfc_namespace *ns)
 {
   gfc_namespace *old_ns, *ns2;
   char interface_name[100];
-  gfc_intrinsic_op i;
+  int iloop;
 
   old_ns = gfc_current_ns;
   gfc_current_ns = ns;
@@ -1285,8 +1285,10 @@ gfc_check_interfaces (gfc_namespace *ns)
 
   gfc_traverse_user_op (ns, check_uop_interfaces);
 
-  for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
+  for (iloop = GFC_INTRINSIC_BEGIN; iloop != GFC_INTRINSIC_END; iloop++)
     {
+      gfc_intrinsic_op i = (gfc_intrinsic_op) iloop;
+
       if (i == INTRINSIC_USER)
 	continue;
 

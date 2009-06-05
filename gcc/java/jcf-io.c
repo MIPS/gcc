@@ -399,9 +399,8 @@ find_class (const char *classname, int classname_length, JCF *jcf)
 
   /* Remember that this class could not be found so that we do not
      have to look again.  */
-  *(const void **)htab_find_slot_with_hash (memoized_class_lookups,
-					    classname, hash, INSERT)
-    = classname;
+  *htab_find_slot_with_hash (memoized_class_lookups, classname, hash, INSERT)
+    = CONST_CAST (char *, classname);
 
   return NULL;
  found:

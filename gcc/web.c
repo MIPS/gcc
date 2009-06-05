@@ -58,7 +58,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 static rtx entry_register (struct web_entry *, df_ref, char *);
 static void replace_ref (df_ref, rtx);
@@ -391,3 +393,4 @@ struct rtl_opt_pass pass_web =
  }
 };
 
+END_TARGET_SPECIFIC

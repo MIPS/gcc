@@ -30,9 +30,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "toplev.h"
 #include "cfgloop.h"
+#include "multi-target.h"
 
-/* A pointer to one of the hooks containers.  */
-static struct cfg_hooks *cfg_hooks;
+/* A pointer to one of the hooks containers.  This is local to this file,
+   but shared across targets.
+   E.g. can_remove_branch_p is called from target-independent sources,
+   but can use target-specific code by going via cfg_hooks.  */
+extern struct cfg_hooks *cfg_hooks;
+
+START_TARGET_SPECIFIC
+
+#ifndef EXTRA_TARGET
+struct cfg_hooks *cfg_hooks;
+#endif /* !EXTRA_TARGET */
 
 /* Initialization of functions specific to the rtl IR.  */
 void
@@ -1093,3 +1103,5 @@ lv_add_condition_to_bb (basic_block first, basic_block second,
   gcc_assert (cfg_hooks->lv_add_condition_to_bb);
   cfg_hooks->lv_add_condition_to_bb (first, second, new_block, cond);
 }
+
+END_TARGET_SPECIFIC

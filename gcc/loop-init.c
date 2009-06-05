@@ -33,8 +33,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "df.h"
 #include "ggc.h"
+#include "multi-target.h"
 
 
+START_TARGET_SPECIFIC
+
 /* Initialize loop structures.  This is used by the tree and RTL loop
    optimizers.  FLAGS specify what properties to compute and/or ensure for
    loops.  */
@@ -400,3 +403,4 @@ struct rtl_opt_pass pass_rtl_doloop =
  }
 };
 
+END_TARGET_SPECIFIC

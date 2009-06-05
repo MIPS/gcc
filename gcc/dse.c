@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "dbgcnt.h"
 #include "target.h"
+#include "multi-target.h"
 
 /* This file contains three techniques for performing Dead Store
    Elimination (dse).  
@@ -198,6 +199,7 @@ along with GCC; see the file COPYING3.  If not see
    that really have constant offsets this size.  */
 #define MAX_OFFSET (64 * 1024)
 
+START_TARGET_SPECIFIC
 
 static bitmap scratch = NULL;
 struct insn_info;
@@ -244,7 +246,7 @@ struct store_info
 	{
 	  /* A bitmap with one bit per byte.  Cleared bit means the position
 	     is needed.  Used if IS_LARGE is false.  */
-	  bitmap bitmap;
+	  bitmap bmap;
 
 	  /* Number of set bits (i.e. unneeded bytes) in BITMAP.  If it is
 	     equal to END - BEGIN, the whole store is unused.  */
@@ -791,7 +793,7 @@ free_store_info (insn_info_t insn_info)
     {
       store_info_t next = store_info->next;
       if (store_info->is_large)
-	BITMAP_FREE (store_info->positions_needed.large.bitmap);
+	BITMAP_FREE (store_info->positions_needed.large.bmap);
       if (store_info->cse_base)
 	pool_free (cse_store_info_pool, store_info);
       else
@@ -826,7 +828,7 @@ replace_inc_dec (rtx *r, void *d)
     case POST_INC:
       {
 	rtx r1 = XEXP (x, 0);
-	rtx c = gen_int_mode (Pmode, data->size);
+	rtx c = gen_int_mode (data->size, Pmode);
 	emit_insn_before (gen_rtx_SET (Pmode, r1, 
 				       gen_rtx_PLUS (Pmode, r1, c)),
 			  data->insn);
@@ -837,7 +839,7 @@ replace_inc_dec (rtx *r, void *d)
     case POST_DEC:
       {
 	rtx r1 = XEXP (x, 0);
-	rtx c = gen_int_mode (Pmode, -data->size);
+	rtx c = gen_int_mode (-data->size, Pmode);
 	emit_insn_before (gen_rtx_SET (Pmode, r1, 
 				       gen_rtx_PLUS (Pmode, r1, c)),
 			  data->insn);
@@ -1213,10 +1215,10 @@ set_position_unneeded (store_info_t s_info, int pos)
 {
   if (__builtin_expect (s_info->is_large, false))
     {
-      if (!bitmap_bit_p (s_info->positions_needed.large.bitmap, pos))
+      if (!bitmap_bit_p (s_info->positions_needed.large.bmap, pos))
 	{
 	  s_info->positions_needed.large.count++;
-	  bitmap_set_bit (s_info->positions_needed.large.bitmap, pos);
+	  bitmap_set_bit (s_info->positions_needed.large.bmap, pos);
 	}
     }
   else
@@ -1233,7 +1235,7 @@ set_all_positions_unneeded (store_info_t s_info)
     {
       int pos, end = s_info->end - s_info->begin;
       for (pos = 0; pos < end; pos++)
-	bitmap_set_bit (s_info->positions_needed.large.bitmap, pos);
+	bitmap_set_bit (s_info->positions_needed.large.bmap, pos);
       s_info->positions_needed.large.count = end;
     }
   else
@@ -1263,7 +1265,7 @@ all_positions_needed_p (store_info_t s_info, int start, int width)
     {
       int end = start + width;
       while (start < end)
-	if (bitmap_bit_p (s_info->positions_needed.large.bitmap, start++))
+	if (bitmap_bit_p (s_info->positions_needed.large.bmap, start++))
 	  return false;
       return true;
     }
@@ -1588,7 +1590,7 @@ record_store (rtx body, bb_info_t bb_info)
     {
       store_info->is_large = true;
       store_info->positions_needed.large.count = 0;
-      store_info->positions_needed.large.bitmap = BITMAP_ALLOC (NULL);
+      store_info->positions_needed.large.bmap = BITMAP_ALLOC (NULL);
     }
   else
     {
@@ -2687,7 +2689,7 @@ dse_step1 (void)
 		  for (s_info = ptr->store_rec; s_info; s_info = s_info->next)
 		    if (s_info->is_large)
 		      {
-			BITMAP_FREE (s_info->positions_needed.large.bitmap);
+			BITMAP_FREE (s_info->positions_needed.large.bmap);
 			s_info->is_large = false;
 		      }
 		}
@@ -3859,3 +3861,5 @@ struct rtl_opt_pass pass_rtl_dse2 =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

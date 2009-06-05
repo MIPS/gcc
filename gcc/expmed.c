@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "df.h"
 #include "target.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static void store_fixed_bit_field (rtx, unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
@@ -208,7 +211,7 @@ init_expmed (void)
   for (speed = 0; speed < 2; speed++)
     {
       crtl->maybe_hot_insn_p = speed;
-      zero_cost[speed] = rtx_cost (const0_rtx, 0, speed);
+      zero_cost[speed] = rtx_cost (const0_rtx, SET, speed);
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
 	   mode != VOIDmode;
@@ -5627,3 +5630,5 @@ do_cmp_and_jump (rtx arg1, rtx arg2, enum rtx_code op, enum machine_mode mode,
   do_compare_rtx_and_jump (arg1, arg2, op, unsignedp, mode,
 			   NULL_RTX, NULL_RTX, label);
 }
+
+END_TARGET_SPECIFIC

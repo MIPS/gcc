@@ -37,13 +37,17 @@ along with GCC; see the file COPYING3.  If not see
    out whether a complex number is degenerate in some way, having only real
    or only complex parts.  */
 
-typedef enum
+enum
 {
   UNINITIALIZED = 0,
   ONLY_REAL = 1,
   ONLY_IMAG = 2,
   VARYING = 3
-} complex_lattice_t;
+};
+
+/* The type complex_lattice_t holds combinations of the above
+   constants.  */
+typedef int complex_lattice_t;
 
 #define PAIR(a, b)  ((a) << 2 | (b))
 
@@ -963,9 +967,11 @@ expand_complex_libcall (gimple_stmt_iterator *gsi, tree ar, tree ai,
   gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
 
   if (code == MULT_EXPR)
-    bcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+    bcode = ((enum built_in_function)
+	     (BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT));
   else if (code == RDIV_EXPR)
-    bcode = BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+    bcode = ((enum built_in_function)
+	     (BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT));
   else
     gcc_unreachable ();
   fn = built_in_decls[bcode];
@@ -1624,7 +1630,7 @@ struct gimple_opt_pass pass_lower_complex =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,                       		/* properties_destroyed */
@@ -1675,7 +1681,7 @@ struct gimple_opt_pass pass_lower_complex_O0 =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

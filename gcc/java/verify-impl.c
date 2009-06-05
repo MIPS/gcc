@@ -1947,7 +1947,7 @@ check_pool_index (int index)
 static type
 check_class_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { void_type, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -1964,7 +1964,7 @@ check_class_constant (int index)
 static type
 check_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { void_type, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -1988,7 +1988,7 @@ check_constant (int index)
 static type
 check_wide_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { void_type, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -3031,7 +3031,7 @@ verify_instructions_0 (void)
 	    if (atype < boolean_type || atype > long_type)
 	      verify_fail_pc ("type not primitive", vfr->start_PC);
 	    pop_type (int_type);
-	    init_type_from_class (&t, construct_primitive_array_type (atype));
+	    init_type_from_class (&t, construct_primitive_array_type ((type_val) atype));
 	    push_type_t (t);
 	  }
 	  break;

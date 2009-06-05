@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_ALIAS_H
 
 #include "coretypes.h"
+#include "multi-target.h"
 
 /* The type of an alias set.  Code currently assumes that variables of
    this type can take the values 0 (the alias set which aliases
@@ -29,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
    that the alias set should be set to a unique value but has not been
    set yet).  */
 typedef int alias_set_type;
+
+START_TARGET_SPECIFIC
 
 extern alias_set_type new_alias_set (void);
 extern alias_set_type get_alias_set (tree);
@@ -49,5 +52,7 @@ extern bool insn_alias_sets_conflict_p (rtx, rtx);
    can move.  Note that there are other legacy ways to create such
    memory barriers, including an address of SCRATCH.  */
 #define ALIAS_SET_MEMORY_BARRIER	((alias_set_type) -1)
+
+END_TARGET_SPECIFIC
 
 #endif /* GCC_ALIAS_H */

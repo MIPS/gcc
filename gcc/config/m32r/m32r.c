@@ -42,6 +42,7 @@
 #include "target.h"
 #include "target-def.h"
 #include "tm-constrs.h"
+#include "df.h"
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -69,7 +70,7 @@ static bool  m32r_handle_option (size_t, const char *, int);
 static void  init_reg_tables (void);
 static void  block_move_call (rtx, rtx, rtx);
 static int   m32r_is_insn (rtx);
-const struct attribute_spec m32r_attribute_table[];
+extern const struct attribute_spec m32r_attribute_table[];
 static tree  m32r_handle_model_attribute (tree *, tree, tree, int, bool *);
 static void  m32r_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void  m32r_output_function_epilogue (FILE *, HOST_WIDE_INT);
@@ -1488,7 +1489,7 @@ pop (int regno)
   x = emit_insn (gen_movsi_pop (gen_rtx_REG (Pmode, regno),
 				stack_pointer_rtx));
   REG_NOTES (x)
-    = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
+    = alloc_reg_note (REG_INC, stack_pointer_rtx, 0);
 }
 
 /* Expand the m32r epilogue as a series of insns.  */
@@ -2183,7 +2184,7 @@ block_move_call (rtx dest_reg, rtx src_reg, rtx bytes_rtx)
       && GET_MODE (bytes_rtx) != Pmode)
     bytes_rtx = convert_to_mode (Pmode, bytes_rtx, 1);
 
-  emit_library_call (m32r_function_symbol ("memcpy"), 0,
+  emit_library_call (m32r_function_symbol ("memcpy"), LCT_NORMAL,
 		     VOIDmode, 3, dest_reg, Pmode, src_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype), bytes_rtx,
 				      TYPE_UNSIGNED (sizetype)),

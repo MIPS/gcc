@@ -39,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "vecprim.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Holds the interesting trailing notes for the function.  */
 rtx cfg_layout_function_footer;
@@ -363,7 +366,7 @@ struct rtl_opt_pass pass_into_cfg_layout_mode =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -382,7 +385,7 @@ struct rtl_opt_pass pass_outof_cfg_layout_mode =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -1429,3 +1432,5 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
 }
 
 #include "gt-cfglayout.h"
+
+END_TARGET_SPECIFIC

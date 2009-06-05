@@ -189,7 +189,7 @@ accessible_base_p (tree t, tree base, bool consider_local_p)
    NULL_TREE is returned.  */
 
 tree
-lookup_base (tree t, tree base, base_access access, base_kind *kind_ptr)
+lookup_base (tree t, tree base, int access, base_kind *kind_ptr)
 {
   tree binfo;
   tree t_binfo;

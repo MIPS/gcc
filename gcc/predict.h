@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_PREDICT_H
 #define GCC_PREDICT_H
 
+#include "multi-target.h"
+
 #define DEF_PREDICTOR(ENUM, NAME, HITRATE, FLAGS) ENUM,
 enum br_predictor
 {
@@ -35,7 +37,9 @@ enum prediction
    TAKEN
 };
 
+START_TARGET_SPECIFIC
 extern void predict_insn_def (rtx, enum br_predictor, enum prediction);
+END_TARGET_SPECIFIC
 extern int counts_to_freqs (void);
 extern void estimate_bb_frequencies (void);
 extern const char *predictor_name (enum br_predictor);

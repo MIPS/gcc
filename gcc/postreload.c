@@ -48,6 +48,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static int reload_cse_noop_set_p (rtx);
 static void reload_cse_simplify (rtx, rtx);
@@ -569,7 +572,8 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		     alternative yet and the operand being replaced is not
 		     a cheap CONST_INT.  */
 		  if (op_alt_regno[i][j] == -1
-		      && reg_fits_class_p (testreg, rclass, 0, mode)
+		      && reg_fits_class_p (testreg, (enum reg_class) rclass,
+					   0, mode)
 		      && (GET_CODE (recog_data.operand[i]) != CONST_INT
 			  || (rtx_cost (recog_data.operand[i], SET,
 			  		optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn)))
@@ -904,6 +908,42 @@ reload_combine (void)
 		    = reload_combine_ruid;
 		  continue;
 		}
+	    }
+	}
+      /* Look for (set (REGX) (CONST A))
+	 ... (MEM (PLUS (REGX) (const_int)))...
+         and convert it to
+         ... (MEM (CONST B))... .  */
+      if (set != NULL_RTX
+	  && REG_P (SET_DEST (set))
+	  && (hard_regno_nregs[REGNO (SET_DEST (set))]
+			      [GET_MODE (SET_DEST (set))]
+	      == 1)
+	  && CONSTANT_P (SET_SRC (set))
+	  && last_label_ruid < reg_state[REGNO (SET_DEST (set))].use_ruid
+	  /* One use maximum - otherwise we'd de-cse.  */
+	  && (reg_state[REGNO (SET_DEST (set))].use_index
+	      == RELOAD_COMBINE_MAX_USES - 1))
+	{
+	  rtx reg = SET_DEST (set);
+	  unsigned int regno = REGNO (reg);
+	  rtx sum
+	    = plus_constant (SET_SRC (set), INTVAL (reg_state[regno].offset));
+
+	  if (GET_CODE (sum) == PLUS)
+	    sum = gen_rtx_CONST (Pmode, sum);
+	   i = RELOAD_COMBINE_MAX_USES - 1;
+	  /* If we wanted to handle JUMP_INSNS, we'd have to fix up JUMP_LABEL.
+	     (e.g. pr21728.c -Os).  Doesn't seem worth the hassle.  */
+	  if (!JUMP_P (reg_state[regno].reg_use[i].insn)
+	      && validate_change (reg_state[regno].reg_use[i].insn,
+				  reg_state[regno].reg_use[i].usep, sum, 0))
+	    {
+	      /* Delete the reg set.  */
+	      delete_insn (insn);
+
+	      reg_state[regno].use_index = RELOAD_COMBINE_MAX_USES;
+	      continue;
 	    }
 	}
 
@@ -1611,3 +1651,4 @@ struct rtl_opt_pass pass_postreload_cse =
  }
 };
 
+END_TARGET_SPECIFIC

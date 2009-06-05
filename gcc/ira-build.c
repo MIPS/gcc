@@ -39,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "sparseset.h"
 #include "ira-int.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static ira_copy_t find_allocno_copy (ira_allocno_t, ira_allocno_t, rtx,
 				     ira_loop_tree_node_t);
@@ -2275,14 +2278,14 @@ setup_min_max_conflict_allocno_ids (void)
   ira_allocno_t a;
 
   live_range_min = (int *) ira_allocate (sizeof (int) * ira_allocnos_num);
-  cover_class = -1;
+  cover_class = LIM_REG_CLASSES;
   first_not_finished = -1;
   for (i = 0; i < ira_allocnos_num; i++)
     {
       a = ira_conflict_id_allocno_map[i];
       if (a == NULL)
 	continue;
-      if (cover_class < 0
+      if (cover_class == LIM_REG_CLASSES
 	  || (flag_ira_algorithm != IRA_ALGORITHM_PRIORITY
 	      && cover_class != (int) ALLOCNO_COVER_CLASS (a)))
 	{
@@ -2311,14 +2314,14 @@ setup_min_max_conflict_allocno_ids (void)
       ALLOCNO_MIN (a) = min;
     }
   last_lived = (int *) ira_allocate (sizeof (int) * ira_max_point);
-  cover_class = -1;
+  cover_class = LIM_REG_CLASSES;
   filled_area_start = -1;
   for (i = ira_allocnos_num - 1; i >= 0; i--)
     {
       a = ira_conflict_id_allocno_map[i];
       if (a == NULL)
 	continue;
-      if (cover_class < 0
+      if (cover_class == LIM_REG_CLASSES
 	  || (flag_ira_algorithm != IRA_ALGORITHM_PRIORITY
 	      && cover_class != (int) ALLOCNO_COVER_CLASS (a)))
 	{
@@ -2394,7 +2397,8 @@ static ira_allocno_t *regno_top_level_allocno_map;
 static bool
 copy_info_to_removed_store_destinations (int regno)
 {
-  ira_allocno_t a, parent_a;
+  ira_allocno_t a;
+  ira_allocno_t parent_a = NULL;
   ira_loop_tree_node_t parent;
   allocno_live_range_t r;
   bool merged_p;
@@ -2850,3 +2854,5 @@ ira_destroy (void)
   finish_cost_vectors ();
   ira_finish_allocno_live_ranges ();
 }
+
+END_TARGET_SPECIFIC

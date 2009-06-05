@@ -252,13 +252,16 @@ void init_c_interop_kinds (void)
 void
 gfc_init_kinds (void)
 {
-  enum machine_mode mode;
+  int mode_loop;
   int i_index, r_index, kind;
   bool saw_i4 = false, saw_i8 = false;
   bool saw_r4 = false, saw_r8 = false, saw_r16 = false;
 
-  for (i_index = 0, mode = MIN_MODE_INT; mode <= MAX_MODE_INT; mode++)
+  for (i_index = 0, mode_loop = MIN_MODE_INT;
+       mode_loop <= MAX_MODE_INT;
+       mode_loop++)
     {
+      enum machine_mode mode = (enum machine_mode) mode_loop;
       int kind, bitsize;
 
       if (!targetm.scalar_mode_supported_p (mode))
@@ -307,8 +310,11 @@ gfc_init_kinds (void)
   /* Set the maximum integer kind.  Used with at least BOZ constants.  */
   gfc_max_integer_kind = gfc_integer_kinds[i_index - 1].kind;
 
-  for (r_index = 0, mode = MIN_MODE_FLOAT; mode <= MAX_MODE_FLOAT; mode++)
+  for (r_index = 0, mode_loop = MIN_MODE_FLOAT;
+       mode_loop <= MAX_MODE_FLOAT;
+       mode_loop++)
     {
+      enum machine_mode mode = (enum machine_mode) mode_loop;
       const struct real_format *fmt = REAL_MODE_FORMAT (mode);
       int kind;
 

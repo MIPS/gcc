@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "df.h"
 #include "diagnostic.h"
+#include "multi-target.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -80,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 
+START_TARGET_SPECIFIC
 /* If this is nonzero, we do not bother generating VOLATILE
    around volatile memory references, and we are willing to
    output indirect addresses.  If cse is to follow, we reject
@@ -87,10 +89,11 @@ along with GCC; see the file COPYING3.  If not see
    if it is used only once, instruction combination will produce
    the same indirect address eventually.  */
 int cse_not_expected;
+END_TARGET_SPECIFIC
 
 /* This structure is used by move_by_pieces to describe the move to
    be performed.  */
-struct move_by_pieces
+struct move_by_pieces_d
 {
   rtx to;
   rtx to_addr;
@@ -108,7 +111,7 @@ struct move_by_pieces
 /* This structure is used by store_by_pieces to describe the clear to
    be performed.  */
 
-struct store_by_pieces
+struct store_by_pieces_d
 {
   rtx to;
   rtx to_addr;
@@ -121,20 +124,21 @@ struct store_by_pieces
   int reverse;
 };
 
+START_TARGET_SPECIFIC
+
 static unsigned HOST_WIDE_INT move_by_pieces_ninsns (unsigned HOST_WIDE_INT,
 						     unsigned int,
 						     unsigned int);
 static void move_by_pieces_1 (rtx (*) (rtx, ...), enum machine_mode,
-			      struct move_by_pieces *);
+			      struct move_by_pieces_d *);
 static bool block_move_libcall_safe_for_call_parm (void);
-static bool emit_block_move_via_movmem (rtx, rtx, rtx, unsigned, unsigned, HOST_WIDE_INT);
 static tree emit_block_move_libcall_fn (int);
 static void emit_block_move_via_loop (rtx, rtx, rtx, unsigned);
 static rtx clear_by_pieces_1 (void *, HOST_WIDE_INT, enum machine_mode);
 static void clear_by_pieces (rtx, unsigned HOST_WIDE_INT, unsigned int);
-static void store_by_pieces_1 (struct store_by_pieces *, unsigned int);
+static void store_by_pieces_1 (struct store_by_pieces_d *, unsigned int);
 static void store_by_pieces_2 (rtx (*) (rtx, ...), enum machine_mode,
-			       struct store_by_pieces *);
+			       struct store_by_pieces_d *);
 static tree clear_storage_libcall_fn (int);
 static rtx compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
@@ -268,7 +272,7 @@ init_expr_target (void)
   reg = gen_rtx_REG (VOIDmode, -1);
 
   insn = rtx_alloc (INSN);
-  pat = gen_rtx_SET (0, NULL_RTX, NULL_RTX);
+  pat = gen_rtx_SET (VOIDmode, NULL_RTX, NULL_RTX);
   PATTERN (insn) = pat;
 
   for (mode = VOIDmode; (int) mode < NUM_MACHINE_MODES;
@@ -868,13 +872,20 @@ convert_modes (enum machine_mode mode, enum machine_mode oldmode, rtx x, int uns
 #define STORE_MAX_PIECES  MIN (MOVE_MAX_PIECES, 2 * sizeof (HOST_WIDE_INT))
 
 /* Determine whether the LEN bytes can be moved by using several move
-   instructions.  Return nonzero if a call to move_by_pieces should
-   succeed.  */
+   instructions.  If consider_movmem is false: Return nonzero if a call
+   to move_by_pieces should should be done for this move.
+   If consider_movmem is true: Return nonzero if we want to do this move
+   in pieces, either via move_by_pieces, or via movmem.  */
 
 int
 can_move_by_pieces (unsigned HOST_WIDE_INT len,
-		    unsigned int align ATTRIBUTE_UNUSED)
+		    unsigned int align ATTRIBUTE_UNUSED,
+		    bool consider_movmem ATTRIBUTE_UNUSED)
 {
+#ifdef CAN_MOVE_BY_PIECES
+  if (consider_movmem)
+    return CAN_MOVE_BY_PIECES (len, align);
+#endif
   return MOVE_BY_PIECES_P (len, align);
 }
 
@@ -894,7 +905,7 @@ rtx
 move_by_pieces (rtx to, rtx from, unsigned HOST_WIDE_INT len,
 		unsigned int align, int endp)
 {
-  struct move_by_pieces data;
+  struct move_by_pieces_d data;
   rtx to_addr, from_addr = XEXP (from, 0);
   unsigned int max_size = MOVE_MAX_PIECES + 1;
   enum machine_mode mode = VOIDmode, tmode;
@@ -1106,7 +1117,7 @@ move_by_pieces_ninsns (unsigned HOST_WIDE_INT l, unsigned int align,
 
 static void
 move_by_pieces_1 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
-		  struct move_by_pieces *data)
+		  struct move_by_pieces_d *data)
 {
   unsigned int size = GET_MODE_SIZE (mode);
   rtx to1 = NULL_RTX, from1;
@@ -1302,7 +1313,7 @@ block_move_libcall_safe_for_call_parm (void)
 /* A subroutine of emit_block_move.  Expand a movmem pattern;
    return true if successful.  */
 
-static bool
+bool
 emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 			    unsigned int expected_align, HOST_WIDE_INT expected_size)
 {
@@ -2380,7 +2391,7 @@ store_by_pieces (rtx to, unsigned HOST_WIDE_INT len,
 		 rtx (*constfun) (void *, HOST_WIDE_INT, enum machine_mode),
 		 void *constfundata, unsigned int align, bool memsetp, int endp)
 {
-  struct store_by_pieces data;
+  struct store_by_pieces_d data;
 
   if (len == 0)
     {
@@ -2432,7 +2443,7 @@ store_by_pieces (rtx to, unsigned HOST_WIDE_INT len,
 static void
 clear_by_pieces (rtx to, unsigned HOST_WIDE_INT len, unsigned int align)
 {
-  struct store_by_pieces data;
+  struct store_by_pieces_d data;
 
   if (len == 0)
     return;
@@ -2460,7 +2471,7 @@ clear_by_pieces_1 (void *data ATTRIBUTE_UNUSED,
    rtx with BLKmode).  ALIGN is maximum alignment we can assume.  */
 
 static void
-store_by_pieces_1 (struct store_by_pieces *data ATTRIBUTE_UNUSED,
+store_by_pieces_1 (struct store_by_pieces_d *data ATTRIBUTE_UNUSED,
 		   unsigned int align ATTRIBUTE_UNUSED)
 {
   rtx to_addr = XEXP (data->to, 0);
@@ -2558,7 +2569,7 @@ store_by_pieces_1 (struct store_by_pieces *data ATTRIBUTE_UNUSED,
 
 static void
 store_by_pieces_2 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
-		   struct store_by_pieces *data)
+		   struct store_by_pieces_d *data)
 {
   unsigned int size = GET_MODE_SIZE (mode);
   rtx to1, cst;
@@ -4945,6 +4956,8 @@ categorize_ctor_elements (const_tree ctor, HOST_WIDE_INT *p_nz_elts,
     categorize_ctor_elements_1 (ctor, p_nz_elts, p_elt_count, p_must_clear);
 }
 
+#ifndef EXTRA_TARGET
+
 /* Count the number of scalars in TYPE.  Return -1 on overflow or
    variable-sized.  If ALLOW_FLEXARR is true, don't count flexible
    array member at the end of the structure.  */
@@ -5032,6 +5045,8 @@ count_type_elements (const_tree type, bool allow_flexarr)
       gcc_unreachable ();
     }
 }
+
+#endif /* !EXTRA_TARGET */
 
 /* Return 1 if EXP contains mostly (3/4)  zeros.  */
 
@@ -6085,6 +6100,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   return exp;
 }
 
+#ifndef EXTRA_TARGET
 /* Given an expression EXP that may be a COMPONENT_REF, an ARRAY_REF or an
    ARRAY_RANGE_REF, look for whether EXP or any nested component-refs within
    EXP is marked as PACKED.  */
@@ -6190,6 +6206,7 @@ array_ref_up_bound (tree exp)
   /* Otherwise fail.  */
   return NULL_TREE;
 }
+#endif /* EXTRA_TARGET */
 
 /* Return a tree representing the offset, in bytes, of the field referenced
    by EXP.  This does not include any offset in DECL_FIELD_BIT_OFFSET.  */
@@ -6219,6 +6236,7 @@ component_ref_field_offset (tree exp)
     return SUBSTITUTE_PLACEHOLDER_IN_EXPR (DECL_FIELD_OFFSET (field), exp);
 }
 
+#ifndef EXTRA_TARGET
 /* Return 1 if T is an expression that get_inner_reference handles.  */
 
 int
@@ -6239,6 +6257,7 @@ handled_component_p (const_tree t)
       return 0;
     }
 }
+#endif /* EXTRA_TARGET */
 
 /* Given an rtx VALUE that may contain additions and multiplications, return
    an equivalent value that just refers to a register, memory, or constant.
@@ -6988,9 +7007,9 @@ expand_constructor (tree exp, rtx target, enum expand_modifier modifier,
 	    && ! (target != 0 && safe_from_p (target, exp, 1)))
 		  || TREE_ADDRESSABLE (exp)
 		  || (host_integerp (TYPE_SIZE_UNIT (type), 1)
-		      && (! MOVE_BY_PIECES_P
+		      && (! can_move_by_pieces
 				     (tree_low_cst (TYPE_SIZE_UNIT (type), 1),
-				      TYPE_ALIGN (type)))
+				      TYPE_ALIGN (type), 1))
 		      && ! mostly_zeros_p (exp))))
       || ((modifier == EXPAND_INITIALIZER || modifier == EXPAND_CONST_ADDRESS)
 	  && TREE_CONSTANT (exp)))
@@ -8495,7 +8514,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  || mode != ptr_mode)
 	{
 	  expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
-			   subtarget, &op0, &op1, 0);
+			   subtarget, &op0, &op1, EXPAND_NORMAL);
 	  if (op0 == const0_rtx)
 	    return op1;
 	  if (op1 == const0_rtx)
@@ -8667,11 +8686,11 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		  if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subexp0, 0))))
 		    expand_operands (TREE_OPERAND (subexp0, 0),
 				     TREE_OPERAND (subexp1, 0),
-				     NULL_RTX, &op0, &op1, 0);
+				     NULL_RTX, &op0, &op1, EXPAND_NORMAL);
 		  else
 		    expand_operands (TREE_OPERAND (subexp0, 0),
 				     TREE_OPERAND (subexp1, 0),
-				     NULL_RTX, &op1, &op0, 0);
+				     NULL_RTX, &op1, &op0, EXPAND_NORMAL);
 
 		  goto binop3;
 		}
@@ -8748,7 +8767,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    }
 	}
       expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
-		       subtarget, &op0, &op1, 0);
+		       subtarget, &op0, &op1, EXPAND_NORMAL);
       return REDUCE_BIT_FIELD (expand_mult (mode, op0, op1, target, unsignedp));
 
     case TRUNC_DIV_EXPR:
@@ -8768,7 +8787,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	 then if the divisor is constant can optimize the case
 	 where some terms of the dividend have coeffs divisible by it.  */
       expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
-		       subtarget, &op0, &op1, 0);
+		       subtarget, &op0, &op1, EXPAND_NORMAL);
       return expand_divmod (0, code, mode, op0, op1, target, unsignedp);
 
     case RDIV_EXPR:
@@ -8781,7 +8800,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (modifier == EXPAND_STACK_PARM)
 	target = 0;
       expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
-		       subtarget, &op0, &op1, 0);
+		       subtarget, &op0, &op1, EXPAND_NORMAL);
       return expand_divmod (1, code, mode, op0, op1, target, unsignedp);
 
     case FIXED_CONVERT_EXPR:
@@ -8858,7 +8877,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	      && REGNO (target) < FIRST_PSEUDO_REGISTER))
 	target = gen_reg_rtx (mode);
       expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
-		       target, &op0, &op1, 0);
+		       target, &op0, &op1, EXPAND_NORMAL);
 
       /* First try to do it with a special MIN or MAX instruction.
 	 If that does not win, use a conditional jump to select the proper
@@ -9366,7 +9385,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
         tree oprnd0 = TREE_OPERAND (exp, 0);
         tree oprnd1 = TREE_OPERAND (exp, 1);
 
-        expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, 0);
+        expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, EXPAND_NORMAL);
         target = expand_widen_pattern_expr (exp, op0, NULL_RTX, op1,
                                             target, unsignedp);
         return target;
@@ -9387,7 +9406,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VEC_EXTRACT_ODD_EXPR:
       {
         expand_operands (TREE_OPERAND (exp, 0),  TREE_OPERAND (exp, 1),
-                         NULL_RTX, &op0, &op1, 0);
+                         NULL_RTX, &op0, &op1, EXPAND_NORMAL);
         this_optab = optab_for_tree_code (code, type, optab_default);
         temp = expand_binop (mode, this_optab, op0, op1, target, unsignedp,
                              OPTAB_WIDEN);
@@ -9399,7 +9418,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VEC_INTERLEAVE_LOW_EXPR:
       {
         expand_operands (TREE_OPERAND (exp, 0),  TREE_OPERAND (exp, 1),
-                         NULL_RTX, &op0, &op1, 0);
+                         NULL_RTX, &op0, &op1, EXPAND_NORMAL);
         this_optab = optab_for_tree_code (code, type, optab_default);
         temp = expand_binop (mode, this_optab, op0, op1, target, unsignedp,
                              OPTAB_WIDEN);
@@ -9447,7 +9466,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	tree oprnd0 = TREE_OPERAND (exp, 0);
 	tree oprnd1 = TREE_OPERAND (exp, 1);
 
-	expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, 0);
+	expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, EXPAND_NORMAL);
 	target = expand_widen_pattern_expr (exp, op0, op1, NULL_RTX,
 					    target, unsignedp);
 	gcc_assert (target);
@@ -9468,7 +9487,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
   /* Here to do an ordinary binary operator.  */
  binop:
   expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
-		   subtarget, &op0, &op1, 0);
+		   subtarget, &op0, &op1, EXPAND_NORMAL);
  binop2:
   this_optab = optab_for_tree_code (code, type, optab_default);
  binop3:
@@ -9882,7 +9901,7 @@ do_store_flag (tree exp, rtx target, enum machine_mode mode, int only_cheap)
       || GET_MODE (subtarget) != operand_mode)
     subtarget = 0;
 
-  expand_operands (arg0, arg1, subtarget, &op0, &op1, 0);
+  expand_operands (arg0, arg1, subtarget, &op0, &op1, EXPAND_NORMAL);
 
   if (target == 0)
     target = gen_reg_rtx (mode);
@@ -10186,3 +10205,5 @@ const_vector_from_tree (tree exp)
   return gen_rtx_CONST_VECTOR (mode, v);
 }
 #include "gt-expr.h"
+
+END_TARGET_SPECIFIC

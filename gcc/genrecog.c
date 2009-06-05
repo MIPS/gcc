@@ -378,7 +378,7 @@ process_define_predicate (rtx desc)
 
   for (i = 0; i < NUM_RTX_CODE; i++)
     if (codes[i] != N)
-      add_predicate_code (pred, i);
+      add_predicate_code (pred, (enum rtx_code) i);
 
   add_predicate (pred);
 }
@@ -791,8 +791,10 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	else if (dmode != smode
 		 && GET_CODE (dest) != PC
 		 && GET_CODE (dest) != CC0
+		 && GET_MODE_CLASS (dmode) != MODE_CC
 		 && GET_CODE (src) != PC
 		 && GET_CODE (src) != CC0
+		 && GET_MODE_CLASS (smode) != MODE_CC
 		 && GET_CODE (src) != CONST_INT)
 	  {
 	    const char *which;
@@ -2478,8 +2480,10 @@ write_header (void)
 #include \"toplev.h\"\n\
 #include \"reload.h\"\n\
 #include \"regs.h\"\n\
+#include \"multi-target.h\"\n\
 #include \"tm-constrs.h\"\n\
-\n");
+\n\
+START_TARGET_SPECIFIC\n");
 
   puts ("\n\
 /* `recog' contains a decision tree that recognizes whether the rtx\n\
@@ -2775,6 +2779,8 @@ main (int argc, char **argv)
   process_tree (&recog_tree, RECOG);
   process_tree (&split_tree, SPLIT);
   process_tree (&peephole2_tree, PEEPHOLE2);
+
+  puts ("END_TARGET_SPECIFIC");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

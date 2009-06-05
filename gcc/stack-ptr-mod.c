@@ -31,6 +31,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "output.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Determine if the stack pointer is constant over the life of the function.
    Only useful before prologues have been emitted.  */
@@ -101,7 +104,7 @@ struct rtl_opt_pass pass_stack_ptr_mod =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -109,3 +112,5 @@ struct rtl_opt_pass pass_stack_ptr_mod =
   0                                     /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

@@ -22,6 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "ira.h"
 #include "alloc-pool.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* To provide consistency in naming, all IRA external variables,
    functions, common typedefs start with prefix ira_.  */
@@ -1235,3 +1238,5 @@ ira_allocate_and_set_or_copy_costs (int **vec, enum reg_class cover_class,
 	reg_costs[i] = val;
     }
 }
+
+END_TARGET_SPECIFIC

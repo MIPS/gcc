@@ -49,13 +49,6 @@ hook_bool_void_true (void)
   return true;
 }
 
-/* Generic hook that takes no arguments and returns NO_REGS.  */
-int
-hook_int_void_no_regs (void)
-{
-  return NO_REGS;
-}
-
 /* Generic hook that takes (bool) and returns false.  */
 bool
 hook_bool_bool_false (bool a ATTRIBUTE_UNUSED)
@@ -82,6 +75,14 @@ hook_bool_mode_const_rtx_false (enum machine_mode mode ATTRIBUTE_UNUSED,
 bool
 hook_bool_mode_const_rtx_true (enum machine_mode mode ATTRIBUTE_UNUSED,
 			       const_rtx value ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
+/* Generic hook that takes (rtx, rtx) and returns true.  */
+bool
+hook_bool_const_rtx_const_rtx_true (const_rtx follower ATTRIBUTE_UNUSED,
+				    const_rtx followee ATTRIBUTE_UNUSED)
 {
   return true;
 }

@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_PASS_H
 #define GCC_TREE_PASS_H 1
 
+#include "timevar.h"
+#include "multi-target.h"
+
 /* In tree-dump.c */
 
 /* Different tree dump places.  When you add new tree dump places,
@@ -76,14 +79,14 @@ enum tree_dump_index
 #define TDF_RHS_ONLY	(1 << 17)	/* a flag to only print the RHS of
 					   a gimple stmt.  */
 
-extern char *get_dump_file_name (enum tree_dump_index);
-extern int dump_enabled_p (enum tree_dump_index);
-extern int dump_initialized_p (enum tree_dump_index);
-extern FILE *dump_begin (enum tree_dump_index, int *);
-extern void dump_end (enum tree_dump_index, FILE *);
+extern char *get_dump_file_name (int);
+extern int dump_enabled_p (int);
+extern int dump_initialized_p (int);
+extern FILE *dump_begin (int, int *);
+extern void dump_end (int, FILE *);
 extern void dump_node (const_tree, int, FILE *);
 extern int dump_switch_p (const char *);
-extern const char *dump_flag_name (enum tree_dump_index);
+extern const char *dump_flag_name (int);
 
 /* Global variables used to communicate with passes.  */
 extern FILE *dump_file;
@@ -91,19 +94,22 @@ extern int dump_flags;
 extern const char *dump_file_name;
 
 /* Return the dump_file_info for the given phase.  */
-extern struct dump_file_info *get_dump_file_info (enum tree_dump_index);
+extern struct dump_file_info *get_dump_file_info (int);
+
+/* The possible types of optimization pass.  */
+enum opt_pass_type {
+  GIMPLE_PASS,
+  RTL_PASS,
+  SIMPLE_IPA_PASS,
+  IPA_PASS
+};
 
 /* Describe one pass; this is the common part shared across different pass
    types.  */
 struct opt_pass
 {
   /* Optimization pass type.  */
-  enum opt_pass_type {
-    GIMPLE_PASS,
-    RTL_PASS,
-    SIMPLE_IPA_PASS,
-    IPA_PASS
-  } type;
+  enum opt_pass_type type;
   /* Terse name of the pass used as a fragment of the dump file
      name.  If the name starts with a star, no dump happens. */
   const char *name;
@@ -128,7 +134,7 @@ struct opt_pass
 
   /* The timevar id associated with this pass.  */
   /* ??? Ideally would be dynamically assigned.  */
-  unsigned int tv_id;
+  timevar_id_t tv_id;
 
   /* Sets of properties input and output from this pass.  */
   unsigned int properties_required;
@@ -152,12 +158,22 @@ struct rtl_opt_pass
   struct opt_pass pass;
 };
 
+#ifdef NUM_TARGETS
+/* Description of RTL pass which dispatches according to the target
+   architecure.  */
+struct rtl_dispatch_pass
+{
+  struct opt_pass pass;
+  struct opt_pass *target_variants[NUM_TARGETS-1];
+};
+#endif
+
 struct varpool_node;
 struct cgraph_node;
 
 /* Description of IPA pass with generate summary, write, execute, read and
    transform stages.  */
-struct ipa_opt_pass
+struct ipa_opt_pass_d
 {
   struct opt_pass pass;
 
@@ -220,12 +236,13 @@ struct dump_file_info
 #define TODO_verify_ssa			(1 << 2) 
 #define TODO_verify_flow		(1 << 3)
 #define TODO_verify_stmts		(1 << 4)
-#define TODO_cleanup_cfg        	(1 << 5)
+#define TODO_cleanup_cfg		(1 << 5)
 #define TODO_verify_loops		(1 << 6)
 #define TODO_dump_cgraph		(1 << 7)
 #define TODO_remove_functions		(1 << 8)
 #define TODO_rebuild_frequencies	(1 << 9)
-#define TODO_verify_rtl_sharing         (1 << 10)
+#define TODO_verify_rtl_sharing		(1 << 10)
+#define TODO_arch_dispatch		(1 << 11)
 
 /* To-do flags for calls to update_ssa.  */
 
@@ -375,7 +392,9 @@ extern struct gimple_opt_pass pass_simple_dse;
 extern struct gimple_opt_pass pass_nrv;
 extern struct gimple_opt_pass pass_mark_used_blocks;
 extern struct gimple_opt_pass pass_rename_ssa_copies;
+START_TARGET_SPECIFIC
 extern struct gimple_opt_pass pass_rest_of_compilation;
+END_TARGET_SPECIFIC
 extern struct gimple_opt_pass pass_sink_code;
 extern struct gimple_opt_pass pass_fre;
 extern struct gimple_opt_pass pass_linear_transform;
@@ -393,10 +412,10 @@ extern struct gimple_opt_pass pass_reset_cc_flags;
 extern struct gimple_opt_pass pass_ml_feat;
 
 /* IPA Passes */
-extern struct ipa_opt_pass pass_ipa_inline;
-extern struct ipa_opt_pass pass_ipa_cp;
-extern struct ipa_opt_pass pass_ipa_reference;
-extern struct ipa_opt_pass pass_ipa_pure_const;
+extern struct ipa_opt_pass_d pass_ipa_inline;
+extern struct ipa_opt_pass_d pass_ipa_cp;
+extern struct ipa_opt_pass_d pass_ipa_reference;
+extern struct ipa_opt_pass_d pass_ipa_pure_const;
 
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;
 extern struct simple_ipa_opt_pass pass_ipa_early_inline;
@@ -414,7 +433,10 @@ extern struct gimple_opt_pass pass_free_datastructures;
 extern struct gimple_opt_pass pass_init_datastructures;
 extern struct gimple_opt_pass pass_fixup_cfg;
 
-extern struct rtl_opt_pass pass_expand;
+extern struct gimple_opt_pass pass_tracer;
+
+START_TARGET_SPECIFIC
+extern struct rtl_dispatch_pass pass_expand;
 extern struct rtl_opt_pass pass_init_function;
 extern struct rtl_opt_pass pass_jump;
 extern struct rtl_opt_pass pass_rtl_eh;
@@ -436,7 +458,6 @@ extern struct rtl_opt_pass pass_gcse;
 extern struct rtl_opt_pass pass_jump_bypass;
 extern struct rtl_opt_pass pass_profiling;
 extern struct rtl_opt_pass pass_rtl_ifcvt;
-extern struct gimple_opt_pass pass_tracer;
 
 extern struct rtl_opt_pass pass_into_cfg_layout_mode;
 extern struct rtl_opt_pass pass_outof_cfg_layout_mode;
@@ -508,6 +529,7 @@ extern struct rtl_opt_pass pass_shorten_branches;
 extern struct rtl_opt_pass pass_set_nothrow_function_flags;
 extern struct rtl_opt_pass pass_final;
 extern struct rtl_opt_pass pass_rtl_seqabstr;
+END_TARGET_SPECIFIC
 extern struct gimple_opt_pass pass_release_ssa_names;
 extern struct gimple_opt_pass pass_early_inline;
 extern struct gimple_opt_pass pass_inline_parameters;

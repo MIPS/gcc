@@ -71,7 +71,6 @@ $(T)crtn.o: $(srcdir)/config/sh/crtn.asm $(GCC_PASSES)
 	$(GCC_FOR_TARGET) $(MULTILIB_CFLAGS) -c -o $(T)crtn.o -x assembler-with-cpp $(srcdir)/config/sh/crtn.asm
 
 $(out_object_file): gt-sh.h
-gt-sh.h : s-gtype ; @true
 
 # These are not suitable for COFF.
 # EXTRA_MULTILIB_PARTS= crt1.o crti.o crtn.o crtbegin.o crtend.o

@@ -1750,7 +1750,7 @@ inline_transform (struct cgraph_node *node)
   return todo | execute_fixup_cfg ();
 }
 
-struct ipa_opt_pass pass_ipa_inline = 
+struct ipa_opt_pass_d pass_ipa_inline = 
 {
  {
   IPA_PASS,

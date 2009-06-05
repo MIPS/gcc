@@ -1035,6 +1035,12 @@ is_late_template_attribute (tree attr, tree decl)
   if (is_attribute_p ("weak", name))
     return true;
 
+  /* The unused attribute on a label must be applied at instantiation
+     time.  */
+  if (TREE_CODE (decl) == LABEL_DECL
+      && is_attribute_p ("unused", name))
+    return true;
+
   /* If any of the arguments are dependent expressions, we can't evaluate
      the attribute until instantiation time.  */
   for (arg = args; arg; arg = TREE_CHAIN (arg))
@@ -1858,7 +1864,7 @@ constrain_visibility (tree decl, int visibility)
   else if (visibility > DECL_VISIBILITY (decl)
 	   && !DECL_VISIBILITY_SPECIFIED (decl))
     {
-      DECL_VISIBILITY (decl) = visibility;
+      DECL_VISIBILITY (decl) = (symbol_visibility) visibility;
       return true;
     }
   return false;

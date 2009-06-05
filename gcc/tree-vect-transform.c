@@ -53,7 +53,7 @@ static tree vect_create_destination_var (tree, tree);
 static tree vect_create_data_ref_ptr 
   (gimple, struct loop*, tree, tree *, gimple *, bool, bool *, tree);
 static tree vect_create_addr_base_for_vector_ref 
-  (gimple, gimple_seq *, tree, struct loop *);
+  (gimple, gimple_seq *, tree, struct loop *, alias_set_type);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, gimple, tree *);
 static tree vect_init_vector (gimple, tree, tree, gimple_stmt_iterator *);
@@ -875,7 +875,8 @@ static tree
 vect_create_addr_base_for_vector_ref (gimple stmt,
 				      gimple_seq *new_stmt_list,
 				      tree offset,
-				      struct loop *loop)
+				      struct loop *loop,
+				      alias_set_type ptr_alias_set)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -944,10 +945,18 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
   /* addr_expr = addr_base */
   addr_expr = vect_get_new_vect_var (vect_ptr_type, vect_pointer_var,
                                      get_name (base_name));
+  if (ptr_alias_set)
+    DECL_POINTER_ALIAS_SET (addr_expr) = ptr_alias_set;
+  /* FIXME: as addr_expr has no memory tag, alias analysis thinks it
+     'points-to anything' .  */
   add_referenced_var (addr_expr);
   vec_stmt = fold_convert (vect_ptr_type, addr_base);
   addr_expr2 = vect_get_new_vect_var (vect_ptr_type, vect_pointer_var,
                                      get_name (base_name));
+  if (ptr_alias_set)
+    DECL_POINTER_ALIAS_SET (addr_expr2) = ptr_alias_set;
+  /* FIXME: as addr_expr2 has no memory tag, alias analysis thinks it
+     'points-to anything' .  */
   add_referenced_var (addr_expr2);
   vec_stmt = force_gimple_operand (vec_stmt, &seq, false, addr_expr2);
   gimple_seq_add_seq (new_stmt_list, seq);
@@ -1034,6 +1043,7 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   tree indx_before_incr, indx_after_incr;
   gimple incr;
   tree step;
+  alias_set_type ptr_alias_set = 0;
 
   /* Check the step (evolution) of the load in LOOP, and record
      whether it's invariant.  */
@@ -1082,7 +1092,7 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
       && TYPE_RESTRICT (TREE_TYPE (DR_BASE_ADDRESS (dr))))
     {
       get_alias_set (base_name);
-      DECL_POINTER_ALIAS_SET (vect_ptr)
+      DECL_POINTER_ALIAS_SET (vect_ptr) = ptr_alias_set
 	= DECL_POINTER_ALIAS_SET (SSA_NAME_VAR (DR_BASE_ADDRESS (dr)));
     }
 
@@ -1141,7 +1151,7 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   /* Create: (&(base[init_val+offset]) in the loop preheader.  */
 
   new_temp = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list,
-                                                   offset, loop);
+                                                   offset, loop, ptr_alias_set);
   pe = loop_preheader_edge (loop);
   if (new_stmt_list)
     {
@@ -2560,7 +2570,7 @@ vect_create_epilog_for_reduction (tree vect_def, gimple stmt,
     }
   else
     {
-      enum tree_code shift_code = 0;
+      enum tree_code shift_code = ERROR_MARK;
       bool have_whole_vector_shift = true;
       int bit_offset;
       int element_bitsize = tree_low_cst (bitsize, 1);
@@ -2828,7 +2838,7 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  enum tree_code code, orig_code, epilog_reduc_code = 0;
+  enum tree_code code, orig_code, epilog_reduc_code = ERROR_MARK;
   enum machine_mode vec_mode;
   int op_type;
   optab optab, reduc_optab;
@@ -3064,13 +3074,13 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "no optab for reduction.");
-      epilog_reduc_code = NUM_TREE_CODES;
+      epilog_reduc_code = (enum tree_code) NUM_TREE_CODES;
     }
   if (optab_handler (reduc_optab, vec_mode)->insn_code == CODE_FOR_nothing)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "reduc op not supported by target.");
-      epilog_reduc_code = NUM_TREE_CODES;
+      epilog_reduc_code = (enum tree_code) NUM_TREE_CODES;
     }
  
   if (!vec_stmt) /* transformation not required.  */
@@ -5659,7 +5669,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 	{
 	  /* Generate the INIT_ADDR computation outside LOOP.  */
 	  init_addr = vect_create_addr_base_for_vector_ref (stmt, &stmts,
-							NULL_TREE, loop);
+							NULL_TREE, loop, 0);
 	  pe = loop_preheader_edge (loop);
 	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
 	  gcc_assert (!new_bb);
@@ -7621,7 +7631,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
     {
       gimple_seq new_stmts = NULL;
       tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt, 
-						&new_stmts, NULL_TREE, loop);
+						&new_stmts, NULL_TREE, loop, 0);
       tree ptr_type = TREE_TYPE (start_addr);
       tree size = TYPE_SIZE (ptr_type);
       tree type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
@@ -7859,7 +7869,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       /* create: addr_tmp = (int)(address_of_first_vector) */
       addr_base =
 	vect_create_addr_base_for_vector_ref (ref_stmt, &new_stmt_list,
-					      NULL_TREE, loop);
+					      NULL_TREE, loop, 0);
       if (new_stmt_list != NULL)
 	gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
 
@@ -8024,10 +8034,10 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
 
       addr_base_a =
         vect_create_addr_base_for_vector_ref (stmt_a, cond_expr_stmt_list,
-					      NULL_TREE, loop);
+					      NULL_TREE, loop, 0);
       addr_base_b =
         vect_create_addr_base_for_vector_ref (stmt_b, cond_expr_stmt_list,
-					      NULL_TREE, loop);
+					      NULL_TREE, loop, 0);
 
       segment_length_a = vect_vfa_segment_size (dr_a, vect_factor);
       segment_length_b = vect_vfa_segment_size (dr_b, vect_factor);
@@ -8328,6 +8338,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   bool strided_store;
   bool slp_scheduled = false;
   unsigned int nunits;
+  bool arch_change = loop->target_arch != cfun->target_arch;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
@@ -8343,7 +8354,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   /* Peel the loop if there are data refs with unknown alignment.
      Only one data ref with unknown store is allowed.  */
 
-  if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
+  if (!arch_change && LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
     vect_do_peeling_for_alignment (loop_vinfo);
   
   /* If the loop has a symbolic number of iterations 'n' (i.e. it's not a
@@ -8368,6 +8379,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   gcc_assert (EDGE_COUNT (loop->header->preds) == 2);
 
   split_edge (loop_preheader_edge (loop));
+
+  targetm_pnt = targetm_array[loop->target_arch];
 
   /* FORNOW: the vectorizer supports only loops which body consist
      of one basic block (header + empty latch). When the vectorizer will 
@@ -8507,6 +8520,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
      have their SSA forms updated.  FIXME, why can't this be delayed
      until all the loops have been transformed?  */
   update_ssa (TODO_update_ssa);
+
+  targetm_pnt = targetm_array[cfun->target_arch];
 
   if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
     fprintf (vect_dump, "LOOP VECTORIZED.");

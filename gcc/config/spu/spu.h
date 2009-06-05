@@ -15,12 +15,13 @@
    <http://www.gnu.org/licenses/>.  */
 
 
+#include "multi-target.h"
+
 /* Run-time Target */
 #define TARGET_CPU_CPP_BUILTINS()	spu_cpu_cpp_builtins(pfile)
 
 #define TARGET_VERSION fprintf (stderr, " (spu %s)", __DATE__);
 
-#define OVERRIDE_OPTIONS spu_override_options()
 #define C_COMMON_OVERRIDE_OPTIONS spu_c_common_override_options()
 
 #define OPTIMIZATION_OPTIONS(level,size) \
@@ -28,6 +29,7 @@
 
 #define INIT_EXPANDERS spu_init_expanders()
 
+START_TARGET_SPECIFIC
 extern int target_flags;
 extern const char *spu_fixed_range_string;
 
@@ -40,6 +42,7 @@ enum processor_type
 
 extern GTY(()) int spu_arch;
 extern GTY(()) int spu_tune;
+END_TARGET_SPECIFIC
 
 /* Support for a compile-time default architecture and tuning.  The rules are:
    --with-arch is ignored if -march is specified.
@@ -617,8 +620,9 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
       }                                                                   \
   } while (0)
 
+START_TARGET_SPECIFIC
 /* These are set by the cmp patterns and used while expanding
    conditional branches. */
 extern GTY(()) rtx spu_compare_op0;
 extern GTY(()) rtx spu_compare_op1;
-
+END_TARGET_SPECIFIC

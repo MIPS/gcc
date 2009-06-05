@@ -61,8 +61,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "multi-target.h"
 
 
+START_TARGET_SPECIFIC
+
 /* Turn STACK_GROWS_DOWNWARD into a boolean.  */
 #ifdef STACK_GROWS_DOWNWARD
 #undef STACK_GROWS_DOWNWARD
@@ -333,9 +336,7 @@ adjust_frame_related_expr (rtx last_sp_set, rtx insn,
   if (note)
     XEXP (note, 0) = new_expr;
   else
-    REG_NOTES (last_sp_set)
-      = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, new_expr,
-			   REG_NOTES (last_sp_set));
+    add_reg_note (last_sp_set, REG_FRAME_RELATED_EXPR, new_expr);
 }
 
 /* Subroutine of combine_stack_adjustments, called for each basic block.  */
@@ -551,7 +552,7 @@ struct rtl_opt_pass pass_stack_adjustments =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -562,3 +563,4 @@ struct rtl_opt_pass pass_stack_adjustments =
  }
 };
 
+END_TARGET_SPECIFIC

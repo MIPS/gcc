@@ -54,24 +54,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfglayout.h"
 #include "basic-block.h"
 #include "tree-iterator.h"
+#include "multi-target.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+START_TARGET_SPECIFIC
 /* The (assembler) name of the first globally-visible object output.  */
 extern GTY(()) const char *first_global_object_name;
 extern GTY(()) const char *weak_global_object_name;
 
 const char *first_global_object_name;
 const char *weak_global_object_name;
+END_TARGET_SPECIFIC
 
 struct addr_const;
 struct constant_descriptor_rtx;
 struct rtx_constant_pool;
 
 #define n_deferred_constants (crtl->varasm.deferred_constants)
+
+extern struct gcc_target *last_arch;
+#ifndef EXTRA_TARGET
+struct gcc_target *last_arch;
+#endif /* !EXTRA_TARGET */
+
+START_TARGET_SPECIFIC
 
 /* Number for making the label on the next
    constant that is stored in memory.  */
@@ -168,8 +178,11 @@ section *in_section;
    at the cold section.  */
 bool in_cold_section_p;
 
-/* A linked list of all the unnamed sections.  */
-static GTY(()) section *unnamed_sections;
+/* A linked list of all the unnamed sections.
+   Must not be garbage collected, because that would cause it to be
+   overwritten when a pch file is loaded, and the data and callback
+   members (can) point to non-ggc memory.  */
+static section *unnamed_sections;
 
 /* Return a nonzero value if DECL has a section attribute.  */
 #ifndef IN_NAMED_SECTION
@@ -518,7 +531,7 @@ get_unnamed_section (unsigned int flags, void (*callback) (const void *),
 {
   section *sect;
 
-  sect = GGC_NEW (section);
+  sect = (section *) xmalloc (sizeof (section));
   sect->unnamed.common.flags = flags | SECTION_UNNAMED;
   sect->unnamed.callback = callback;
   sect->unnamed.data = data;
@@ -535,7 +548,7 @@ get_noswitch_section (unsigned int flags, noswitch_section_callback callback)
 {
   section *sect;
 
-  sect = GGC_NEW (section);
+  sect = (section *) xmalloc (sizeof (section));
   sect->noswitch.common.flags = flags | SECTION_NOSWITCH;
   sect->noswitch.callback = callback;
 
@@ -1619,6 +1632,20 @@ notice_global_symbol (tree decl)
     }
 }
 
+void
+default_target_new_arch (FILE *out_file,
+			 struct gcc_target *last_arch,
+			 struct gcc_target *new_arch)
+{
+#ifndef EXTRA_TARGET
+  if (&targetm != &this_targetm)
+    targetm.asm_out.new_arch (out_file, last_arch, new_arch);
+  else if (last_arch)
+#endif
+    if (last_arch != new_arch)
+      fprintf (out_file, "\t.arch\t\"%s\"\n", new_arch->name);
+}
+
 /* Output assembler code for the constant pool of a function and associated
    with defining the name of the function.  DECL describes the function.
    NAME is the function's name.  For the constant pool, we use the current
@@ -1630,6 +1657,10 @@ assemble_start_function (tree decl, const char *fnname)
   int align;
   char tmp_label[100];
   bool hot_label_written = false;
+
+  /* Give the main target ulitimate control how to handle a target change.  */
+  targetm_array[0]->asm_out.new_arch (asm_out_file, last_arch, &targetm);
+  last_arch = &targetm;
 
   crtl->subsections.unlikely_text_section_name = NULL;
 
@@ -2628,7 +2659,7 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
       enum machine_mode omode, imode;
       unsigned int subalign;
       unsigned int subsize, i;
-      unsigned char mclass;
+      enum mode_class mclass;
 
       subsize = size > UNITS_PER_WORD? UNITS_PER_WORD : 1;
       subalign = MIN (align, subsize * BITS_PER_UNIT);
@@ -3352,6 +3383,7 @@ lookup_constant_def (tree exp)
   return (desc ? desc->rtl : NULL_RTX);
 }
 
+END_TARGET_SPECIFIC
 /* Used in the hash tables to avoid outputting the same constant
    twice.  Unlike 'struct constant_descriptor_tree', RTX constants
    are output once per function, not once per file.  */
@@ -3389,6 +3421,7 @@ struct constant_descriptor_rtx GTY((chain_next ("%h.next")))
   int labelno;
   int mark;
 };
+START_TARGET_SPECIFIC
 
 /* Hash and compare functions for const_rtx_htab.  */
 
@@ -3435,7 +3468,7 @@ const_rtx_hash_1 (rtx *xp, void *data)
       hwi = INTVAL (x);
     fold_hwi:
       {
-	const int shift = sizeof (hashval_t) * CHAR_BIT;
+	int shift = sizeof (hashval_t) * CHAR_BIT;
 	const int n = sizeof (HOST_WIDE_INT) / sizeof (hashval_t);
 	int i;
 
@@ -5600,6 +5633,58 @@ init_varasm_once (void)
     readonly_data_section = text_section;
 }
 
+static GTY(()) section *pickled_in_section;
+
+/* Replace in_section with something that can be restored after reading
+   in a precompiled header file.  */
+void
+pickle_in_section (void)
+{
+  section *p;
+  int i = 0;
+
+  if (!in_section || SECTION_STYLE (in_section) != SECTION_UNNAMED)
+    {
+      pickled_in_section = in_section;
+      return;
+    }
+  for (p = unnamed_sections; p != in_section; p = p->unnamed.next)
+    i++;
+  gcc_assert (p == in_section);
+  pickled_in_section = (section *) GGC_NEW (struct unnamed_section);
+  *pickled_in_section = *in_section;
+  pickled_in_section->unnamed.data = (void *) i;
+  in_section = pickled_in_section;
+}
+
+void
+unpickle_in_section (void)
+{
+  int i;
+  section *p;
+
+  in_section = pickled_in_section;
+  if (!in_section || SECTION_STYLE (in_section) != SECTION_UNNAMED)
+    return;
+  /* When flag_preprocess_only is set, backend_init wasn't called, hence the
+     list is empty.  But as we are not outputting any asm then, it doesn't
+     matter that we can't restore in_section.  */
+  if (!unnamed_sections)
+    {
+      in_section = 0;
+      return;
+    }
+  /* ??? should make section.data a union; we have really stored an int.  */
+  for (p = unnamed_sections, i = (char *) in_section->unnamed.data - (char *) 0;
+       i; i--)
+    {
+      gcc_assert (p);
+      p = p->unnamed.next;
+    }
+  gcc_assert (p);
+  in_section = p;
+}
+
 enum tls_model
 decl_default_tls_model (const_tree decl)
 {
@@ -6788,3 +6873,5 @@ default_elf_asm_output_external (FILE *file ATTRIBUTE_UNUSED,
 }
 
 #include "gt-varasm.h"
+
+END_TARGET_SPECIFIC

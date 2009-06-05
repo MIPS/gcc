@@ -245,6 +245,13 @@ typedef struct access_site_info *access_site_info_p;
 DEF_VEC_P (access_site_info_p);
 DEF_VEC_ALLOC_P (access_site_info_p, heap);
 
+/* See 'free_stmts' in struct matrix_info.  */
+struct free_info
+{
+  gimple stmt;
+  tree func;
+};
+
 /* Information about matrix to flatten.  */
 struct matrix_info
 {
@@ -277,11 +284,7 @@ struct matrix_info
   tree allocation_function_decl;
 
   /* The calls to free for each level of indirection.  */
-  struct free_info
-  {
-    gimple stmt;
-    tree func;
-  } *free_stmts;
+  struct free_info *free_stmts;
 
   /* An array which holds for each dimension its size. where
      dimension 0 is the outer most (one that contains all the others).
@@ -735,7 +738,8 @@ add_allocation_site (struct matrix_info *mi, gimple stmt, int level)
          must be set accordingly.  */
       for (min_malloc_level = 0;
 	   min_malloc_level < mi->max_malloced_level
-	   && mi->malloc_for_level[min_malloc_level]; min_malloc_level++);
+	   && mi->malloc_for_level[min_malloc_level]; min_malloc_level++)
+	;
       if (level < min_malloc_level)
 	{
 	  mi->allocation_function_decl = current_function_decl;
@@ -2419,7 +2423,7 @@ struct simple_ipa_opt_pass pass_ipa_matrix_reorg =
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */
-  0,				/* tv_id */
+  TV_NONE,			/* tv_id */
   0,				/* properties_required */
   PROP_trees,			/* properties_provided */
   0,				/* properties_destroyed */

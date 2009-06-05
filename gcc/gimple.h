@@ -65,7 +65,7 @@ extern void gimple_check_failed (const_gimple, const char *, int,          \
     const_gimple __gs = (GS);						\
     if (gimple_code (__gs) != (CODE))					\
       gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-	  		   (CODE), 0);					\
+	  		   (CODE), ERROR_MARK);				\
   } while (0)
 #else  /* not ENABLE_GIMPLE_CHECKING  */
 #define GIMPLE_CHECK(GS, CODE)			(void)0
@@ -972,7 +972,7 @@ struct gimplify_ctx
 };
 
 extern enum gimplify_status gimplify_expr (tree *, gimple_seq *, gimple_seq *,
-					   bool (*) (tree), fallback_t);
+					   bool (*) (tree), int);
 extern void gimplify_type_sizes (tree, gimple_seq *);
 extern void gimplify_one_sizepos (tree *, gimple_seq *);
 extern bool gimplify_stmt (tree *, gimple_seq *);
@@ -1009,11 +1009,17 @@ extern void insert_field_into_struct (tree, tree);
 /* In gimplify.c.  */
 extern void gimplify_function_tree (tree);
 
+#ifdef EXTRA_TARGET
+namespace EXTRA_TARGET {
+#endif
 /* In cfgexpand.c.  */
 extern tree gimple_assign_rhs_to_tree (gimple);
 
 /* In builtins.c  */
 extern bool validate_gimple_arglist (const_gimple, ...);
+#ifdef EXTRA_TARGET
+} /* Close EXTRA_TARGET namespace.  */
+#endif
 
 /* In tree-ssa-operands.c  */
 extern void gimple_add_to_addresses_taken (gimple, tree);
@@ -2245,7 +2251,7 @@ static inline enum tree_code
 gimple_cond_code (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_COND);
-  return gs->gsbase.subcode;
+  return (enum tree_code) gs->gsbase.subcode;
 }
 
 

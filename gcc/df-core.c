@@ -403,6 +403,9 @@ are write-only operations.
 #include "df.h"
 #include "tree-pass.h"
 #include "params.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static void *df_get_bb_info (struct dataflow *, unsigned int);
 static void df_set_bb_info (struct dataflow *, unsigned int, void *);
@@ -410,18 +413,22 @@ static void df_set_bb_info (struct dataflow *, unsigned int, void *);
 static void df_set_clean_cfg (void);
 #endif
 
+#ifndef EXTRA_TARGET
 /* An obstack for bitmap not related to specific dataflow problems.
    This obstack should e.g. be used for bitmaps with a short life time
    such as temporary bitmaps.  */
 
 bitmap_obstack df_bitmap_obstack;
+#endif /* !EXTRA_TARGET */
 
 
 /*----------------------------------------------------------------------------
   Functions to create, destroy and manipulate an instance of df.
 ----------------------------------------------------------------------------*/
 
-struct df *df;
+#ifndef EXTRA_TARGET
+struct df_d *df;
+#endif /* !EXTRA_TARGET */
 
 /* Add PROBLEM (and any dependent problems) to the DF instance.  */
 
@@ -474,10 +481,10 @@ df_add_problem (struct df_problem *problem)
 /* Set the MASK flags in the DFLOW problem.  The old flags are
    returned.  If a flag is not allowed to be changed this will fail if
    checking is enabled.  */
-enum df_changeable_flags
-df_set_flags (enum df_changeable_flags changeable_flags)
+int
+df_set_flags (int changeable_flags)
 {
-  enum df_changeable_flags old_flags = df->changeable_flags;
+  int old_flags = df->changeable_flags;
   df->changeable_flags |= changeable_flags;
   return old_flags;
 }
@@ -486,10 +493,10 @@ df_set_flags (enum df_changeable_flags changeable_flags)
 /* Clear the MASK flags in the DFLOW problem.  The old flags are
    returned.  If a flag is not allowed to be changed this will fail if
    checking is enabled.  */
-enum df_changeable_flags
-df_clear_flags (enum df_changeable_flags changeable_flags)
+int
+df_clear_flags (int changeable_flags)
 {
-  enum df_changeable_flags old_flags = df->changeable_flags;
+  int old_flags = df->changeable_flags;
   df->changeable_flags &= ~changeable_flags;
   return old_flags;
 }
@@ -712,7 +719,7 @@ static unsigned int
 rest_of_handle_df_initialize (void)
 {
   gcc_assert (!df);
-  df = XCNEW (struct df);
+  df = XCNEW (struct df_d);
   df->changeable_flags = 0;
 
   bitmap_obstack_initialize (&df_bitmap_obstack);
@@ -766,7 +773,7 @@ struct rtl_opt_pass pass_df_initialize_opt =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -793,7 +800,7 @@ struct rtl_opt_pass pass_df_initialize_no_opt =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -842,7 +849,7 @@ struct rtl_opt_pass pass_df_finish =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -2185,3 +2192,5 @@ debug_df_chain (struct df_link *link)
   df_chain_dump (link, stderr);
   fputc ('\n', stderr);
 }
+
+END_TARGET_SPECIFIC

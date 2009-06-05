@@ -17,6 +17,9 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 /* Wrapper function to unify target macros MODE_CODE_BASE_REG_CLASS,
    MODE_BASE_REG_REG_CLASS, MODE_BASE_REG_CLASS and BASE_REG_CLASS.
    Arguments as for the MODE_CODE_BASE_REG_CLASS macro.  */
@@ -78,3 +81,4 @@ regno_ok_for_base_p (unsigned regno, enum machine_mode mode,
 
   return ok_for_base_p_1 (regno, mode, outer_code, index_code);
 }
+END_TARGET_SPECIFIC

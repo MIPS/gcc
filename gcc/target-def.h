@@ -30,6 +30,8 @@
    rather than the .c file, then we need to wrap the default
    definition in a #ifndef, since files include tm.h before this one.  */
 
+/* TARGET_NAME is defined by the Makefile.  */
+
 /* Assembler output.  */
 #ifndef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN "("
@@ -92,6 +94,7 @@
 #define TARGET_ASM_ASSEMBLE_VISIBILITY default_assemble_visibility
 #endif
 
+#define TARGET_ASM_NEW_ARCH default_target_new_arch
 #define TARGET_ASM_FUNCTION_PROLOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_EPILOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_END_PROLOGUE no_asm_to_stream
@@ -269,6 +272,7 @@
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_TTYPE,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
+			TARGET_ASM_NEW_ARCH,			\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
 			TARGET_ASM_FUNCTION_BEGIN_EPILOGUE,	\
@@ -372,6 +376,8 @@
    TARGET_SCHED_SKIP_RTX_P,					\
    TARGET_SCHED_SMS_RES_MII}
 
+#define TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE \
+  default_vectype_for_scalar_type
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
   default_builtin_vectorized_function
@@ -386,6 +392,7 @@
 
 #define TARGET_VECTORIZE                                                \
   {									\
+    TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE,				\
     TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
     TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION,			\
     TARGET_VECTORIZE_BUILTIN_CONVERSION,				\
@@ -479,7 +486,8 @@
 
 /* In hooks.c.  */
 #define TARGET_CANNOT_MODIFY_JUMPS_P hook_bool_void_false
-#define TARGET_BRANCH_TARGET_REGISTER_CLASS hook_int_void_no_regs
+#define TARGET_CAN_FOLLOW_JUMP hook_bool_const_rtx_const_rtx_true
+#define TARGET_BRANCH_TARGET_REGISTER_CLASS default_branch_target_register_class
 #define TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED hook_bool_bool_false
 #define TARGET_CANNOT_FORCE_CONST_MEM hook_bool_rtx_false
 #define TARGET_CANNOT_COPY_INSN_P NULL
@@ -639,6 +647,10 @@
 
 #ifndef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD default_secondary_reload
+#endif
+
+#ifndef TARGET_PRESERVE_RELOAD_P
+#define TARGET_PRESERVE_RELOAD_P hook_bool_rtx_false
 #endif
 
 #ifndef TARGET_EXPAND_TO_RTL_HOOK
@@ -814,6 +826,10 @@
 #define TARGET_OPTION_CAN_INLINE_P default_target_option_can_inline_p
 #endif
 
+#ifndef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS default_override_options
+#endif
+
 #define TARGET_OPTION_HOOKS			\
   {						\
     TARGET_OPTION_VALID_ATTRIBUTE_P,		\
@@ -822,11 +838,15 @@
     TARGET_OPTION_PRINT,			\
     TARGET_OPTION_PRAGMA_PARSE,			\
     TARGET_OPTION_CAN_INLINE_P,			\
+    TARGET_OVERRIDE_OPTIONS,			\
   }
 
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
+  TARGET_NAME,					\
+  TARGET_NUM,					\
+  &ptr_mode,					\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\
@@ -858,6 +878,7 @@
   TARGET_INIT_LIBFUNCS,				\
   TARGET_SECTION_TYPE_FLAGS,			\
   TARGET_CANNOT_MODIFY_JUMPS_P,			\
+  TARGET_CAN_FOLLOW_JUMP,			\
   TARGET_BRANCH_TARGET_REGISTER_CLASS,		\
   TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED,	\
   TARGET_CANNOT_FORCE_CONST_MEM,		\
@@ -915,6 +936,7 @@
   TARGET_INVALID_BINARY_OP,			\
   TARGET_IRA_COVER_CLASSES,			\
   TARGET_SECONDARY_RELOAD,			\
+  TARGET_PRESERVE_RELOAD_P,			\
   TARGET_EXPAND_TO_RTL_HOOK,			\
   TARGET_INSTANTIATE_DECLS,			\
   TARGET_HARD_REGNO_SCRATCH_OK,			\

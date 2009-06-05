@@ -19,6 +19,9 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street - Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct dyn_string
 {
@@ -58,3 +61,7 @@ extern int dyn_string_append_cstr (dyn_string_t, const char *);
 extern int dyn_string_append_char (dyn_string_t, int);
 extern int dyn_string_substring (dyn_string_t,  dyn_string_t, int, int);
 extern int dyn_string_eq (dyn_string_t, dyn_string_t);
+
+#ifdef __cplusplus
+}
+#endif

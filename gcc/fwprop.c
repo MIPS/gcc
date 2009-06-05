@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
+#include "multi-target.h"
 
 
 /* This pass does simple forward propagation and simplification when an
@@ -102,6 +103,8 @@ along with GCC; see the file COPYING3.  If not see
 
    where the first two insns are now dead.  */
 
+
+START_TARGET_SPECIFIC
 
 static int num_changes;
 
@@ -694,7 +697,7 @@ update_df (rtx insn, rtx *loc, df_ref *use_rec, enum df_ref_type type,
       df_ref orig_use = use, new_use;
       int width = -1;
       int offset = -1;
-      enum machine_mode mode = 0;
+      enum machine_mode mode = VOIDmode;
       rtx *new_loc = find_occurrence (loc, DF_REF_REG (orig_use));
       use_rec++;
 
@@ -1143,3 +1146,4 @@ struct rtl_opt_pass pass_rtl_fwprop_addr =
   TODO_dump_func                        /* todo_flags_finish */
  }
 };
+END_TARGET_SPECIFIC

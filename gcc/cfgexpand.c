@@ -42,7 +42,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "value-prof.h"
 #include "target.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 /* Return an expression tree corresponding to the RHS of GIMPLE
    statement STMT.  */
@@ -2456,7 +2458,9 @@ gimple_expand_cfg (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_expand =
+EXTRA_TARGETS_DECL (struct rtl_dispatch_pass pass_expand)
+
+struct rtl_dispatch_pass pass_expand =
 {
  {
   RTL_PASS,
@@ -2471,7 +2475,14 @@ struct rtl_opt_pass pass_expand =
   PROP_gimple_leh | PROP_cfg,           /* properties_required */
   PROP_rtl,                             /* properties_provided */
   PROP_trees,				/* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  TODO_arch_dispatch,                   /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
+ },
+ {
+#ifndef EXTRA_TARGET
+  EXTRA_TARGETS_EXPAND_COMMA (&,pass_expand.pass)
+#endif /* !EXTRA_TARGET */
  }
 };
+
+END_TARGET_SPECIFIC

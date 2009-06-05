@@ -38,7 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef INSN_SCHEDULING
 #include "sel-sched-ir.h"
 #include "sel-sched-dump.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 /* These variables control high-level pretty printing.  */
 static int sel_dump_cfg_flags = SEL_DUMP_CFG_FLAGS;
@@ -943,5 +945,5 @@ debug_mem_addr_value (rtx x)
   debug_rtx (addr);
   return t;
 }
-#endif
-
+END_TARGET_SPECIFIC
+#endif /* INSN_SCHEDULING */
