@@ -2418,7 +2418,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	 additional analysis can modify the generated code.  */
       prev = PREV_INSN (insn);
 
-      if (prev && INSN_P (prev) && !DEBUG_INSN_P (prev))
+      if (prev && NONDEBUG_INSN_P (prev))
 	add_dependence (insn, prev, REG_DEP_ANTI);
     }
   /* If the current insn is conditional, we can't free any

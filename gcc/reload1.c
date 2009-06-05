@@ -800,7 +800,7 @@ reload (rtx first, int global)
 	  && GET_MODE (insn) != VOIDmode)
 	PUT_MODE (insn, VOIDmode);
 
-      if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
 	scan_paradoxical_subregs (PATTERN (insn));
 
       if (set != 0 && REG_P (SET_DEST (set)))

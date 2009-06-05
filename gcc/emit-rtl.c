@@ -3176,7 +3176,6 @@ active_insn_p (const_rtx insn)
 {
   return (CALL_P (insn) || JUMP_P (insn)
 	  || (NONJUMP_INSN_P (insn)
-	      && !DEBUG_INSN_P (insn)
 	      && (! reload_completed
 		  || (GET_CODE (PATTERN (insn)) != USE
 		      && GET_CODE (PATTERN (insn)) != CLOBBER))));

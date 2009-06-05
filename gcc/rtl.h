@@ -391,6 +391,9 @@ struct rtvec_def GTY(()) {
 /* Predicate yielding nonzero iff X is a debug note/insn.  */
 #define DEBUG_INSN_P(X) (GET_CODE (X) == DEBUG_INSN)
 
+/* Predicate yielding nonzero iff X is an insn that is not a debug insn.  */
+#define NONDEBUG_INSN_P(X) (INSN_P (X) && !DEBUG_INSN_P (X))
+
 /* Nonzero if DEBUG_INSN_P may possibly hold.  */
 #define MAY_HAVE_DEBUG_INSNS (flag_var_tracking_assignments)
 

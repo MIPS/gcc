@@ -823,7 +823,7 @@ df_lr_bb_local_compute (unsigned int bb_index)
     {
       unsigned int uid = INSN_UID (insn);
 
-      if (!INSN_P (insn) || DEBUG_INSN_P (insn))
+      if (!NONDEBUG_INSN_P (insn))
 	continue;	
 
       for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
@@ -3850,7 +3850,7 @@ df_simulate_initialize_backwards (basic_block bb, bitmap live)
 void 
 df_simulate_one_insn_backwards (basic_block bb, rtx insn, bitmap live)
 {
-  if (! INSN_P (insn) || DEBUG_INSN_P (insn))
+  if (!NONDEBUG_INSN_P (insn))
     return;	
   
   df_simulate_defs (insn, live);

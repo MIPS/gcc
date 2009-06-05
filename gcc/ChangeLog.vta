@@ -1,3 +1,46 @@
+2009-06-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtl.h (NONDEBUG_INSN_P): New.
+	* caller-save (save_call_clobbered_regs): Use it instead of
+	INSN_P && !DEBUG_INSN_P.
+	* cfgloopanal.c (num_loop_insns): Likewise.
+	(average_num_loop_insns): Likewise.
+	* combine.c (create_log_links): Likewise.
+	(combine_instructions, distribute_notes): Likewise.
+	* gcse.c (compute_ld_motion_mems): Likewise.
+	(alloc_gcse_mem): Likewise.
+	* haifa-sched.c (rank_for_schedule): Likewise.
+	* ifcvt.c (dead_or_predicable): Likewise.
+	* ira-build.c (create_bb_allocnos): Likewise.
+	* ira-conflicts.c (add_copies): Likewise.
+	* modulo-sched.c (const_iteration_count): Likewise.
+	(sms_schedule): Likewise.
+	* recog.c (peephole2_optimize): Likewise.
+	* reload1.c (reload): Likewise.
+	* rtlanal.c (reg_used_between_p): Likewise.
+	* sched-deps.c (sched_analyze_insn): Likewise.
+	* sel-sched-ir.c (sel_estimate_number_of_insns): Likewise.
+	* config/rs6000/rs6000.c (is_microcoded_insn): Likewise.
+	(is_cracked_insn, is_branch_slot_insn): Likewise.
+	(is_nonpipeline_insn): Likewise.
+	(get_next_active_insn): Drop redundant DEBUG_INSN_P.
+	* emit-rtl.c (active_insn_p): Likewise.
+	* auto-inc-dec.c (merge_in_block): Use NONDEBUG_INSN_P.
+	* cfgcleanup.c (flow_find_cross_jump): Likewise.
+	* df-problems.c (df_lr_bb_local_compute): Likewise.
+	(df_simulate_one_insn_backwards): Likewise.
+	* init-regs.c (initialize_uninitialized_regs): Likewise.
+	* ira-costs.c (scan_one_insn): Likewise.
+	(process_bb_node_for_hard_reg_moves): Likewise.
+	* ira.c (memref_used_between_p): Likewise.
+	* loop-invariant.c (find_invariants_bb): Likewise.
+	* regstat.c (regstat_bb_compute_ri): Likewise.
+	* ira-lives.c (process_bb_node_lives): Likewise.
+	* regrename.c (copyprop_hardreg_forward_1): Likewise.
+	* rtl-factoring.c (ABSTRACTABLE_INSN_P): Likewise.
+	(prev_insn_in_block, collect_pattern_seqs): Likewise.
+	(clear_regs_live_in_seq): Likewise.
+
 2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
 
 	* testsuite/lib/gnat.exp (gnat_target_compile): Restore

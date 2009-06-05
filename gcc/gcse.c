@@ -948,7 +948,7 @@ alloc_gcse_mem (void)
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
       {
-	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	if (NONDEBUG_INSN_P (insn))
 	  uid_cuid[INSN_UID (insn)] = i++;
 	else
 	  uid_cuid[INSN_UID (insn)] = i;
@@ -5261,7 +5261,7 @@ compute_ld_motion_mems (void)
     {
       FOR_BB_INSNS (bb, insn)
 	{
-	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	  if (NONDEBUG_INSN_P (insn))
 	    {
 	      if (GET_CODE (PATTERN (insn)) == SET)
 		{

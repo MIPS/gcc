@@ -774,7 +774,7 @@ save_call_clobbered_regs (void)
 
       gcc_assert (!chain->is_caller_save_insn);
 
-      if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
 	{
 	  /* If some registers have been saved, see if INSN references
 	     any of them.  We must restore them before the insn if so.  */
