@@ -1,3 +1,10 @@
+2009-06-05  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @148228.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-06-03  Diego Novillo  <dnovillo@google.com>
 
 	* tree-ssa-copy.c (replace_exp_1): Only declare OP if

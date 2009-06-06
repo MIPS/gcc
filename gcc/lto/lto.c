@@ -1046,7 +1046,7 @@ lto_execute_ltrans (char *const *files)
   const char *env_val;
   const char *extra_cflags = " -fno-wpa -fltrans -xlto";
   struct obstack env_obstack;
-  char **argv;
+  const char **argv;
   const char **argv_ptr;
   const char *errmsg;
   size_t i;
@@ -1058,7 +1058,7 @@ lto_execute_ltrans (char *const *files)
 
   /* Initalize the arguments for the LTRANS driver.  */
   for (i = 0; files[i]; ++i);
-  argv = XNEWVEC (char *, i + 2);
+  argv = XNEWVEC (const char *, i + 2);
 
   /* Open the LTRANS output list.  */
   if (ltrans_output_list)
@@ -1068,7 +1068,7 @@ lto_execute_ltrans (char *const *files)
 	error ("opening LTRANS output list %s: %m", ltrans_output_list);
     }
 
-  argv_ptr = (const char **)argv;
+  argv_ptr = argv;
   *argv_ptr++ = ltrans_driver;
   for (i = 0; files[i]; ++i)
     {
@@ -1143,8 +1143,8 @@ lto_execute_ltrans (char *const *files)
       if (pex == NULL)
 	fatal_error ("pex_init failed: %s", xstrerror (errno));
 
-      errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0], argv, NULL, NULL,
-			&err);
+      errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0],
+			CONST_CAST (char **, argv), NULL, NULL, &err);
       if (errmsg)
 	fatal_error ("%s: %s", errmsg, xstrerror (err));
 

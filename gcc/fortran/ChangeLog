@@ -1,3 +1,77 @@
+2009-06-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* simplify.c (call_mpc_func): Use mpc_realref/mpc_imagref
+	instead of MPC_RE/MPC_IM.
+
+2009-06-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* trans-decl.c (gfc_build_qualified_array): Don't skip generation
+	of range types.
+	* trans.h (struct lang_type): Add base_decls.
+	(GFC_TYPE_ARRAY_BASE_DECL): New.
+	* trans-types.c (gfc_get_array_type_bounds): Initialize base decls
+	proactively and excessively.
+	(gfc_get_array_descr_info): Use existing base decls if available.
+
+2009-06-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/37203
+	* check.c (gfc_check_reshape): Additional checks for the
+	SHAPE and ORDER arguments.
+	* simplify.c (gfc_simplify_reshape): Converted argument checks
+	to asserts.
+
+2009-06-03  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi: Add mixed-language programming, mention
+	varying string lengths, some clean up of introduction parts.
+	* intrinsic.texi (instrinsic modules): Create @menu for subsections.
+	(ISO_C_BINDING): Support ISOCBINDING_INT_FAST128_T.
+	* libgfortran.h: Comment to rember to keep gfortran.texi in sync.
+	* iso-c-binding.def: Support ISOCBINDING_INT_FAST128_T.
+
+2009-06-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* iso-c-binding.def: Use INTMAX_TYPE instead of intmax_type_node.
+	* trans-types.c (init_c_interop_kinds): Remove intmax_type_node.
+
+2009-06-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* module.c (mio_f2k_derived): Initialize cur.
+
+2009-06-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/40309
+	* trans-decl.c (gfc_sym_identifier): Use "MAIN__" for PROGRAM "main".
+	(create_main_function): Set main_identifier_node.
+
+2009-05-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/40019
+	* trans-types.c (gfc_build_uint_type): Make nonstatic.
+	* trans.h (gfor_fndecl_clz128, gfor_fndecl_ctz128): New prototypes.
+	* trans-types.h (gfc_build_uint_type): Add prototype.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Build
+	gfor_fndecl_clz128 and gfor_fndecl_ctz128.
+	* trans-intrinsic.c (gfc_conv_intrinsic_leadz,
+	gfc_conv_intrinsic_trailz): Call the right builtins or library
+	functions, and cast arguments to unsigned types first.
+	* simplify.c (gfc_simplify_leadz): Deal with negative arguments.
+
+2009-05-27  Ian Lance Taylor  <iant@google.com>
+
+	* Make-lang.in (gfortran$(exeext)): Change $(COMPILER) to
+	$(LINKER).
+	(f951$(exeext)): Likewise.
+
+2009-05-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/40270
+	* trans-decl.c (create_main_function): Mark MAIN__ and
+	argc/argv as TREE_USED and push/pop function_decl context
+	if needed.
+
 2009-05-26  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/39178

@@ -1316,7 +1316,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
      template it is specializing.  */
   if (DECL_TEMPLATE_SPECIALIZATION (spec)
       && !check_specialization_namespace (tmpl))
-    DECL_CONTEXT (spec) = FROB_CONTEXT (decl_namespace_context (tmpl));
+    DECL_CONTEXT (spec) = DECL_CONTEXT (tmpl);
 
   if (!optimize_specialization_lookup_p (tmpl))
     DECL_TEMPLATE_SPECIALIZATIONS (tmpl)
@@ -5073,7 +5073,7 @@ convert_template_argument (tree parm,
 	 the typedef, which is confusing if those future uses do not
 	 themselves also use the typedef.  */
       if (TYPE_P (val))
-	val = canonical_type_variant (val);
+	val = strip_typedefs (val);
     }
   else
     {
@@ -13675,7 +13675,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	    return 1;
 
 	  /* Strip typedefs as in convert_template_argument.  */
-	  arg = canonical_type_variant (arg);
+	  arg = strip_typedefs (arg);
 	}
 
       /* If ARG is a parameter pack or an expansion, we cannot unify

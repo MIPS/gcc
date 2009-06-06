@@ -91,7 +91,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 
 #ifdef DWARF2_DEBUGGING_INFO
-static void dwarf2out_source_line (unsigned int, const char *);
+static void dwarf2out_source_line (unsigned int, const char *, int);
 #endif
 
 #ifndef DWARF2_FRAME_INFO
@@ -260,7 +260,8 @@ typedef struct GTY(()) cfa_loc {
   HOST_WIDE_INT offset;
   HOST_WIDE_INT base_offset;
   unsigned int reg;
-  int indirect;            /* 1 if CFA is accessed via a dereference.  */
+  BOOL_BITFIELD indirect : 1;  /* 1 if CFA is accessed via a dereference.  */
+  BOOL_BITFIELD in_use : 1;    /* 1 if a saved cfa is stored here.  */
 } dw_cfa_location;
 
 /* All call frame descriptions (FDE's) in the GCC generated DWARF
@@ -417,7 +418,7 @@ static const char *dwarf_cfi_name (unsigned);
 static dw_cfi_ref new_cfi (void);
 static void add_cfi (dw_cfi_ref *, dw_cfi_ref);
 static void add_fde_cfi (const char *, dw_cfi_ref);
-static void lookup_cfa_1 (dw_cfi_ref, dw_cfa_location *);
+static void lookup_cfa_1 (dw_cfi_ref, dw_cfa_location *, dw_cfa_location *);
 static void lookup_cfa (dw_cfa_location *);
 static void reg_save (const char *, unsigned, unsigned, HOST_WIDE_INT);
 #ifdef DWARF2_UNWIND_INFO
@@ -681,7 +682,10 @@ add_cfi (dw_cfi_ref *list_head, dw_cfi_ref cfi)
 
   /* When DRAP is used, CFA is defined with an expression.  Redefine
      CFA may lead to a different CFA value.   */
-  if (fde && fde->drap_reg != INVALID_REGNUM)
+  /* ??? Of course, this heuristic fails when we're annotating epilogues,
+     because of course we'll always want to redefine the CFA back to the
+     stack pointer on the way out.  Where should we move this check?  */
+  if (0 && fde && fde->drap_reg != INVALID_REGNUM)
     switch (cfi->dw_cfi_opc)
       {
         case DW_CFA_def_cfa_register:
@@ -702,14 +706,15 @@ add_cfi (dw_cfi_ref *list_head, dw_cfi_ref cfi)
   *p = cfi;
 }
 
-/* Generate a new label for the CFI info to refer to.  */
+/* Generate a new label for the CFI info to refer to.  FORCE is true
+   if a label needs to be output even when using .cfi_* directives.  */
 
 char *
-dwarf2out_cfi_label (void)
+dwarf2out_cfi_label (bool force)
 {
   static char label[20];
 
-  if (dwarf2out_do_cfi_asm ())
+  if (!force && dwarf2out_do_cfi_asm ())
     {
       /* In this case, we will be emitting the asm directive instead of
 	 the label, so just return a placeholder to keep the rest of the
@@ -737,11 +742,59 @@ add_fde_cfi (const char *label, dw_cfi_ref cfi)
     {
       if (label)
 	{
-	  output_cfi_directive (cfi);
+	  dw_fde_ref fde = current_fde ();
+
+	  gcc_assert (fde != NULL);
 
 	  /* We still have to add the cfi to the list so that
-	     lookup_cfa works later on.  */
-	  list_head = &current_fde ()->dw_fde_cfi;
+	     lookup_cfa works later on.  When -g2 and above we
+	     even need to force emitting of CFI labels and
+	     add to list a DW_CFA_set_loc for convert_cfa_to_fb_loc_list
+	     purposes.  */
+	  switch (cfi->dw_cfi_opc)
+	    {
+	    case DW_CFA_def_cfa_offset:
+	    case DW_CFA_def_cfa_offset_sf:
+	    case DW_CFA_def_cfa_register:
+	    case DW_CFA_def_cfa:
+	    case DW_CFA_def_cfa_sf:
+	    case DW_CFA_def_cfa_expression:
+	    case DW_CFA_restore_state:
+	      if (write_symbols != DWARF2_DEBUG
+		  && write_symbols != VMS_AND_DWARF2_DEBUG)
+		break;
+	      if (debug_info_level <= DINFO_LEVEL_TERSE)
+		break;
+
+	      if (*label == 0 || strcmp (label, "<do not output>") == 0)
+		label = dwarf2out_cfi_label (true);
+
+	      if (fde->dw_fde_current_label == NULL
+		  || strcmp (label, fde->dw_fde_current_label) != 0)
+		{
+		  dw_cfi_ref xcfi;
+
+		  label = xstrdup (label);
+
+		  /* Set the location counter to the new label.  */
+		  xcfi = new_cfi ();
+		  /* It doesn't metter whether DW_CFA_set_loc
+		     or DW_CFA_advance_loc4 is added here, those aren't
+		     emitted into assembly, only looked up by
+		     convert_cfa_to_fb_loc_list.  */
+		  xcfi->dw_cfi_opc = DW_CFA_set_loc;
+		  xcfi->dw_cfi_oprnd1.dw_cfi_addr = label;
+		  add_cfi (&fde->dw_fde_cfi, xcfi);
+		  fde->dw_fde_current_label = label;
+		}
+	      break;
+	    default:
+	      break;
+	    }
+
+	  output_cfi_directive (cfi);
+
+	  list_head = &fde->dw_fde_cfi;
 	}
       /* ??? If this is a CFI for the CIE, we don't emit.  This
 	 assumes that the standard CIE contents that the assembler
@@ -756,7 +809,7 @@ add_fde_cfi (const char *label, dw_cfi_ref cfi)
       gcc_assert (fde != NULL);
 
       if (*label == 0)
-	label = dwarf2out_cfi_label ();
+	label = dwarf2out_cfi_label (false);
 
       if (fde->dw_fde_current_label == NULL
 	  || strcmp (label, fde->dw_fde_current_label) != 0)
@@ -787,7 +840,7 @@ add_fde_cfi (const char *label, dw_cfi_ref cfi)
 /* Subroutine of lookup_cfa.  */
 
 static void
-lookup_cfa_1 (dw_cfi_ref cfi, dw_cfa_location *loc)
+lookup_cfa_1 (dw_cfi_ref cfi, dw_cfa_location *loc, dw_cfa_location *remember)
 {
   switch (cfi->dw_cfi_opc)
     {
@@ -806,6 +859,18 @@ lookup_cfa_1 (dw_cfi_ref cfi, dw_cfa_location *loc)
     case DW_CFA_def_cfa_expression:
       get_cfa_from_loc_descr (loc, cfi->dw_cfi_oprnd1.dw_cfi_loc);
       break;
+
+    case DW_CFA_remember_state:
+      gcc_assert (!remember->in_use);
+      *remember = *loc;
+      remember->in_use = 1;
+      break;
+    case DW_CFA_restore_state:
+      gcc_assert (remember->in_use);
+      *loc = *remember;
+      remember->in_use = 0;
+      break;
+
     default:
       break;
     }
@@ -818,19 +883,19 @@ lookup_cfa (dw_cfa_location *loc)
 {
   dw_cfi_ref cfi;
   dw_fde_ref fde;
+  dw_cfa_location remember;
 
+  memset (loc, 0, sizeof (*loc));
   loc->reg = INVALID_REGNUM;
-  loc->offset = 0;
-  loc->indirect = 0;
-  loc->base_offset = 0;
+  remember = *loc;
 
   for (cfi = cie_cfi_head; cfi; cfi = cfi->dw_cfi_next)
-    lookup_cfa_1 (cfi, loc);
+    lookup_cfa_1 (cfi, loc, &remember);
 
   fde = current_fde ();
   if (fde)
     for (cfi = fde->dw_fde_cfi; cfi; cfi = cfi->dw_cfi_next)
-      lookup_cfa_1 (cfi, loc);
+      lookup_cfa_1 (cfi, loc, &remember);
 }
 
 /* The current rule for calculating the DWARF2 canonical frame address.  */
@@ -839,6 +904,9 @@ static dw_cfa_location cfa;
 /* The register used for saving registers to the stack, and its offset
    from the CFA.  */
 static dw_cfa_location cfa_store;
+
+/* The current save location around an epilogue.  */
+static dw_cfa_location cfa_remember;
 
 /* The running total of the size of arguments pushed onto the stack.  */
 static HOST_WIDE_INT args_size;
@@ -1225,8 +1293,7 @@ compute_barrier_args_size_1 (rtx insn, HOST_WIDE_INT cur_args_size,
 
   if (! RTX_FRAME_RELATED_P (insn))
     {
-      if (prologue_epilogue_contains (insn)
-	  || sibcall_epilogue_contains (insn))
+      if (prologue_epilogue_contains (insn))
 	/* Nothing */;
       else if (GET_CODE (PATTERN (insn)) == SET)
 	offset = stack_adjust_offset (PATTERN (insn), cur_args_size, 0);
@@ -1399,7 +1466,7 @@ dwarf2out_stack_adjust (rtx insn, bool after_p)
      with this function.  Proper support would require all frame-related
      insns to be marked, and to be able to handle saving state around
      epilogues textually in the middle of the function.  */
-  if (prologue_epilogue_contains (insn) || sibcall_epilogue_contains (insn))
+  if (prologue_epilogue_contains (insn))
     return;
 
   /* If INSN is an instruction from target of an annulled branch, the
@@ -1472,7 +1539,7 @@ dwarf2out_stack_adjust (rtx insn, bool after_p)
   if (offset == 0)
     return;
 
-  label = dwarf2out_cfi_label ();
+  label = dwarf2out_cfi_label (false);
   dwarf2out_args_size_adjust (offset, label);
 }
 
@@ -1672,6 +1739,156 @@ reg_saved_in (rtx reg)
    or setting up the store_reg.  The "offset" field holds the integer
    value, not an offset.  */
 static dw_cfa_location cfa_temp;
+
+/* A subroutine of dwarf2out_frame_debug, process a REG_DEF_CFA note.  */
+
+static void
+dwarf2out_frame_debug_def_cfa (rtx pat, const char *label)
+{
+  memset (&cfa, 0, sizeof (cfa));
+
+  switch (GET_CODE (pat))
+    {
+    case PLUS:
+      cfa.reg = REGNO (XEXP (pat, 0));
+      cfa.offset = INTVAL (XEXP (pat, 1));
+      break;
+
+    case REG:
+      cfa.reg = REGNO (pat);
+      break;
+
+    default:
+      /* Recurse and define an expression.  */
+      gcc_unreachable ();
+    }
+
+  def_cfa_1 (label, &cfa);
+}
+
+/* A subroutine of dwarf2out_frame_debug, process a REG_ADJUST_CFA note.  */
+
+static void
+dwarf2out_frame_debug_adjust_cfa (rtx pat, const char *label)
+{
+  rtx src, dest;
+
+  gcc_assert (GET_CODE (pat) == SET);
+  dest = XEXP (pat, 0);
+  src = XEXP (pat, 1);
+
+  switch (GET_CODE (src))
+    {
+    case PLUS:
+      gcc_assert (REGNO (XEXP (src, 0)) == cfa.reg);
+      cfa.offset -= INTVAL (XEXP (src, 1));
+      break;
+
+    case REG:
+	break;
+
+    default:
+	gcc_unreachable ();
+    }
+
+  cfa.reg = REGNO (dest);
+  gcc_assert (cfa.indirect == 0);
+
+  def_cfa_1 (label, &cfa);
+}
+
+/* A subroutine of dwarf2out_frame_debug, process a REG_CFA_OFFSET note.  */
+
+static void
+dwarf2out_frame_debug_cfa_offset (rtx set, const char *label)
+{
+  HOST_WIDE_INT offset;
+  rtx src, addr, span;
+
+  src = XEXP (set, 1);
+  addr = XEXP (set, 0);
+  gcc_assert (MEM_P (addr));
+  addr = XEXP (addr, 0);
+  
+  /* As documented, only consider extremely simple addresses.  */
+  switch (GET_CODE (addr))
+    {
+    case REG:
+      gcc_assert (REGNO (addr) == cfa.reg);
+      offset = -cfa.offset;
+      break;
+    case PLUS:
+      gcc_assert (REGNO (XEXP (addr, 0)) == cfa.reg);
+      offset = INTVAL (XEXP (addr, 1)) - cfa.offset;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  span = targetm.dwarf_register_span (src);
+
+  /* ??? We'd like to use queue_reg_save, but we need to come up with
+     a different flushing heuristic for epilogues.  */
+  if (!span)
+    reg_save (label, DWARF_FRAME_REGNUM (REGNO (src)), INVALID_REGNUM, offset);
+  else
+    {
+      /* We have a PARALLEL describing where the contents of SRC live.
+   	 Queue register saves for each piece of the PARALLEL.  */
+      int par_index;
+      int limit;
+      HOST_WIDE_INT span_offset = offset;
+
+      gcc_assert (GET_CODE (span) == PARALLEL);
+
+      limit = XVECLEN (span, 0);
+      for (par_index = 0; par_index < limit; par_index++)
+	{
+	  rtx elem = XVECEXP (span, 0, par_index);
+
+	  reg_save (label, DWARF_FRAME_REGNUM (REGNO (elem)),
+		    INVALID_REGNUM, span_offset);
+	  span_offset += GET_MODE_SIZE (GET_MODE (elem));
+	}
+    }
+}
+
+/* A subroutine of dwarf2out_frame_debug, process a REG_CFA_REGISTER note.  */
+
+static void
+dwarf2out_frame_debug_cfa_register (rtx set, const char *label)
+{
+  rtx src, dest;
+  unsigned sregno, dregno;
+
+  src = XEXP (set, 1);
+  dest = XEXP (set, 0);
+
+  if (src == pc_rtx)
+    sregno = DWARF_FRAME_RETURN_COLUMN;
+  else
+    sregno = DWARF_FRAME_REGNUM (REGNO (src));
+
+  dregno = DWARF_FRAME_REGNUM (REGNO (dest));
+
+  /* ??? We'd like to use queue_reg_save, but we need to come up with
+     a different flushing heuristic for epilogues.  */
+  reg_save (label, sregno, dregno, 0);
+}
+
+/* A subroutine of dwarf2out_frame_debug, process a REG_CFA_RESTORE note.  */
+
+static void
+dwarf2out_frame_debug_cfa_restore (rtx reg, const char *label)
+{
+  dw_cfi_ref cfi = new_cfi ();
+  unsigned int regno = DWARF_FRAME_REGNUM (REGNO (reg));
+
+  cfi->dw_cfi_opc = (regno & ~0x3f ? DW_CFA_restore_extended : DW_CFA_restore);
+  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = regno;
+
+  add_fde_cfi (label, cfi);
+}
 
 /* Record call frame debugging information for an expression EXPR,
    which either sets SP or FP (adjusting how we calculate the frame
@@ -2380,7 +2597,8 @@ void
 dwarf2out_frame_debug (rtx insn, bool after_p)
 {
   const char *label;
-  rtx src;
+  rtx note, n;
+  bool handled_one = false;
 
   if (insn == NULL_RTX)
     {
@@ -2424,14 +2642,157 @@ dwarf2out_frame_debug (rtx insn, bool after_p)
       return;
     }
 
-  label = dwarf2out_cfi_label ();
-  src = find_reg_note (insn, REG_FRAME_RELATED_EXPR, NULL_RTX);
-  if (src)
-    insn = XEXP (src, 0);
-  else
-    insn = PATTERN (insn);
+  label = dwarf2out_cfi_label (false);
 
+  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
+    switch (REG_NOTE_KIND (note))
+      {
+      case REG_FRAME_RELATED_EXPR:
+	insn = XEXP (note, 0);
+	goto found;
+
+      case REG_CFA_DEF_CFA:
+	dwarf2out_frame_debug_def_cfa (XEXP (note, 0), label);
+	handled_one = true;
+	break;
+
+      case REG_CFA_ADJUST_CFA:
+	n = XEXP (note, 0);
+	if (n == NULL)
+	  {
+	    n = PATTERN (insn);
+	    if (GET_CODE (n) == PARALLEL)
+	      n = XVECEXP (n, 0, 0);
+	  }
+	dwarf2out_frame_debug_adjust_cfa (n, label);
+	handled_one = true;
+	break;
+
+      case REG_CFA_OFFSET:
+	n = XEXP (note, 0);
+	if (n == NULL)
+	  n = single_set (insn);
+	dwarf2out_frame_debug_cfa_offset (n, label);
+	handled_one = true;
+	break;
+
+      case REG_CFA_REGISTER:
+	n = XEXP (note, 0);
+	if (n == NULL)
+	  {
+	    n = PATTERN (insn);
+	    if (GET_CODE (n) == PARALLEL)
+	      n = XVECEXP (n, 0, 0);
+	  }
+	dwarf2out_frame_debug_cfa_register (n, label);
+	handled_one = true;
+	break;
+
+      case REG_CFA_RESTORE:
+	n = XEXP (note, 0);
+	if (n == NULL)
+	  {
+	    n = PATTERN (insn);
+	    if (GET_CODE (n) == PARALLEL)
+	      n = XVECEXP (n, 0, 0);
+	    n = XEXP (n, 0);
+	  }
+	dwarf2out_frame_debug_cfa_restore (n, label);
+	handled_one = true;
+	break;
+
+      default:
+	break;
+      }
+  if (handled_one)
+    return;
+
+  insn = PATTERN (insn);
+ found:
   dwarf2out_frame_debug_expr (insn, label);
+}
+
+/* Determine if we need to save and restore CFI information around this
+   epilogue.  If SIBCALL is true, then this is a sibcall epilogue.  If
+   we do need to save/restore, then emit the save now, and insert a
+   NOTE_INSN_CFA_RESTORE_STATE at the appropriate place in the stream.  */
+
+void
+dwarf2out_begin_epilogue (rtx insn)
+{
+  bool saw_frp = false;
+  rtx i;
+  dw_cfi_ref cfi;
+
+  /* Scan forward to the return insn, noticing if there are possible
+     frame related insns.  */
+  for (i = NEXT_INSN (insn); i ; i = NEXT_INSN (i))
+    {
+      if (!INSN_P (i))
+	continue;
+
+      /* Look for both regular and sibcalls to end the block.  */
+      if (returnjump_p (i))
+	break;
+      if (CALL_P (i) && SIBLING_CALL_P (i))
+	break;
+
+      if (RTX_FRAME_RELATED_P (i))
+	saw_frp = true;
+    }
+
+  /* If the port doesn't emit epilogue unwind info, we don't need a
+     save/restore pair.  */
+  if (!saw_frp)
+    return;
+
+  /* Otherwise, search forward to see if the return insn was the last
+     basic block of the function.  If so, we don't need save/restore.  */
+  gcc_assert (i != NULL);
+  i = next_real_insn (i);
+  if (i == NULL)
+    return;
+
+  /* Insert the restore before that next real insn in the stream, and before
+     a potential NOTE_INSN_EPILOGUE_BEG -- we do need these notes to be
+     properly nested.  This should be after any label or alignment.  This
+     will be pushed into the CFI stream by the function below.  */
+  while (1)
+    {
+      rtx p = PREV_INSN (i);
+      if (!NOTE_P (p))
+	break;
+      if (NOTE_KIND (p) == NOTE_INSN_BASIC_BLOCK)
+	break;
+      i = p;
+    }
+  emit_note_before (NOTE_INSN_CFA_RESTORE_STATE, i);
+
+  /* Emit the state save.  */
+  cfi = new_cfi (); 
+  cfi->dw_cfi_opc = DW_CFA_remember_state;
+  add_fde_cfi (dwarf2out_cfi_label (false), cfi);
+
+  /* And emulate the state save.  */
+  gcc_assert (!cfa_remember.in_use);
+  cfa_remember = cfa;
+  cfa_remember.in_use = 1;
+}
+
+/* A "subroutine" of dwarf2out_begin_epilogue.  Emit the restore required.  */
+
+void
+dwarf2out_frame_debug_restore_state (void)
+{
+  dw_cfi_ref cfi = new_cfi (); 
+  const char *label = dwarf2out_cfi_label (false);
+
+  cfi->dw_cfi_opc = DW_CFA_restore_state;
+  add_fde_cfi (label, cfi);
+
+  gcc_assert (cfa_remember.in_use);
+  cfa = cfa_remember;
+  cfa_remember.in_use = 0;
 }
 
 #endif
@@ -2447,6 +2808,8 @@ dw_cfi_oprnd1_desc (enum dwarf_call_frame_info cfi)
     {
     case DW_CFA_nop:
     case DW_CFA_GNU_window_save:
+    case DW_CFA_remember_state:
+    case DW_CFA_restore_state:
       return dw_cfi_oprnd_unused;
 
     case DW_CFA_set_loc:
@@ -2461,6 +2824,7 @@ dw_cfi_oprnd1_desc (enum dwarf_call_frame_info cfi)
     case DW_CFA_def_cfa:
     case DW_CFA_offset_extended_sf:
     case DW_CFA_def_cfa_sf:
+    case DW_CFA_restore:
     case DW_CFA_restore_extended:
     case DW_CFA_undefined:
     case DW_CFA_same_value:
@@ -2738,42 +3102,42 @@ output_cfi_directive (dw_cfi_ref cfi)
     case DW_CFA_offset:
     case DW_CFA_offset_extended:
     case DW_CFA_offset_extended_sf:
-      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 0);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
       fprintf (asm_out_file, "\t.cfi_offset %lu, "HOST_WIDE_INT_PRINT_DEC"\n",
 	       r, cfi->dw_cfi_oprnd2.dw_cfi_offset);
       break;
 
     case DW_CFA_restore:
     case DW_CFA_restore_extended:
-      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 0);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
       fprintf (asm_out_file, "\t.cfi_restore %lu\n", r);
       break;
 
     case DW_CFA_undefined:
-      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 0);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
       fprintf (asm_out_file, "\t.cfi_undefined %lu\n", r);
       break;
 
     case DW_CFA_same_value:
-      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 0);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
       fprintf (asm_out_file, "\t.cfi_same_value %lu\n", r);
       break;
 
     case DW_CFA_def_cfa:
     case DW_CFA_def_cfa_sf:
-      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 0);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
       fprintf (asm_out_file, "\t.cfi_def_cfa %lu, "HOST_WIDE_INT_PRINT_DEC"\n",
 	       r, cfi->dw_cfi_oprnd2.dw_cfi_offset);
       break;
 
     case DW_CFA_def_cfa_register:
-      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 0);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
       fprintf (asm_out_file, "\t.cfi_def_cfa_register %lu\n", r);
       break;
 
     case DW_CFA_register:
-      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 0);
-      r2 = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd2.dw_cfi_reg_num, 0);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
+      r2 = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd2.dw_cfi_reg_num, 1);
       fprintf (asm_out_file, "\t.cfi_register %lu, %lu\n", r, r2);
       break;
 
@@ -2782,6 +3146,13 @@ output_cfi_directive (dw_cfi_ref cfi)
       fprintf (asm_out_file, "\t.cfi_def_cfa_offset "
 	       HOST_WIDE_INT_PRINT_DEC"\n",
 	       cfi->dw_cfi_oprnd1.dw_cfi_offset);
+      break;
+
+    case DW_CFA_remember_state:
+      fprintf (asm_out_file, "\t.cfi_remember_state\n");
+      break;
+    case DW_CFA_restore_state:
+      fprintf (asm_out_file, "\t.cfi_restore_state\n");
       break;
 
     case DW_CFA_GNU_args_size:
@@ -3254,7 +3625,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
      prologue case, not the eh frame case.  */
 #ifdef DWARF2_DEBUGGING_INFO
   if (file)
-    dwarf2out_source_line (line, file);
+    dwarf2out_source_line (line, file, 0);
 #endif
 
   personality = get_personality_function (current_function_decl);
@@ -4837,6 +5208,11 @@ static GTY(()) dw_die_ref comp_unit_die;
 
 /* A list of DIEs with a NULL parent waiting to be relocated.  */
 static GTY(()) limbo_die_node *limbo_die_list;
+
+/* A list of DIEs for which we may have to generate
+   DW_AT_MIPS_linkage_name once their DECL_ASSEMBLER_NAMEs are
+   set.  */
+static GTY(()) limbo_die_node *deferred_asm_name;
 
 /* Filenames referenced by this compilation unit.  */
 static GTY((param_is (struct dwarf_file_data))) htab_t file_table;
@@ -12083,6 +12459,7 @@ convert_cfa_to_fb_loc_list (HOST_WIDE_INT offset)
   dw_cfi_ref cfi;
   dw_cfa_location last_cfa, next_cfa;
   const char *start_label, *last_label, *section;
+  dw_cfa_location remember;
 
   fde = current_fde ();
   gcc_assert (fde != NULL);
@@ -12091,17 +12468,16 @@ convert_cfa_to_fb_loc_list (HOST_WIDE_INT offset)
   list_tail = &list;
   list = NULL;
 
+  memset (&next_cfa, 0, sizeof (next_cfa));
   next_cfa.reg = INVALID_REGNUM;
-  next_cfa.offset = 0;
-  next_cfa.indirect = 0;
-  next_cfa.base_offset = 0;
+  remember = next_cfa;
 
   start_label = fde->dw_fde_begin;
 
   /* ??? Bald assumption that the CIE opcode list does not contain
      advance opcodes.  */
   for (cfi = cie_cfi_head; cfi; cfi = cfi->dw_cfi_next)
-    lookup_cfa_1 (cfi, &next_cfa);
+    lookup_cfa_1 (cfi, &next_cfa, &remember);
 
   last_cfa = next_cfa;
   last_label = start_label;
@@ -12128,14 +12504,10 @@ convert_cfa_to_fb_loc_list (HOST_WIDE_INT offset)
 
       case DW_CFA_advance_loc:
 	/* The encoding is complex enough that we should never emit this.  */
-      case DW_CFA_remember_state:
-      case DW_CFA_restore_state:
-	/* We don't handle these two in this function.  It would be possible
-	   if it were to be required.  */
 	gcc_unreachable ();
 
       default:
-	lookup_cfa_1 (cfi, &next_cfa);
+	lookup_cfa_1 (cfi, &next_cfa, &remember);
 	break;
       }
 
@@ -12575,12 +12947,25 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
 
       if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
 	  && TREE_PUBLIC (decl)
-	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
 	  && !DECL_ABSTRACT (decl)
 	  && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
 	  && !is_fortran ())
-	add_AT_string (die, DW_AT_MIPS_linkage_name,
-		       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+	{
+	  /* Defer until we have an assembler name set.  */
+	  if (!DECL_ASSEMBLER_NAME_SET_P (decl))
+	    {
+	      limbo_die_node *asm_name;
+
+	      asm_name = GGC_CNEW (limbo_die_node);
+	      asm_name->die = die;
+	      asm_name->created_for = decl;
+	      asm_name->next = deferred_asm_name;
+	      deferred_asm_name = asm_name;
+	    }
+	  else if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
+	    add_AT_string (die, DW_AT_MIPS_linkage_name,
+			   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+	}
     }
 
 #ifdef VMS_DEBUGGING_INFO
@@ -15867,7 +16252,8 @@ dwarf2out_begin_function (tree fun)
    'line_info_table' for later output of the .debug_line section.  */
 
 static void
-dwarf2out_source_line (unsigned int line, const char *filename)
+dwarf2out_source_line (unsigned int line, const char *filename,
+                       int discriminator ATTRIBUTE_UNUSED)
 {
   if (debug_info_level >= DINFO_LEVEL_NORMAL
       && line != 0)
@@ -15884,7 +16270,12 @@ dwarf2out_source_line (unsigned int line, const char *filename)
       if (DWARF2_ASM_LINE_DEBUG_INFO)
 	{
 	  /* Emit the .loc directive understood by GNU as.  */
-	  fprintf (asm_out_file, "\t.loc %d %d 0\n", file_num, line);
+	  fprintf (asm_out_file, "\t.loc %d %d 0", file_num, line);
+#ifdef HAVE_GAS_DISCRIMINATOR
+	  if (discriminator != 0)
+	    fprintf (asm_out_file, " discriminator %d", discriminator);
+#endif /* HAVE_GAS_DISCRIMINATOR */
+	  fputc ('\n', asm_out_file);
 
 	  /* Indicate that line number info exists.  */
 	  line_info_table_in_use++;
@@ -16478,6 +16869,36 @@ file_table_relative_p (void ** slot, void *param)
   return 1;
 }
 
+/* Move a DW_AT_MIPS_linkage_name attribute just added to dw_die_ref
+   to the location it would have been added, should we know its
+   DECL_ASSEMBLER_NAME when we added other attributes.  This will
+   probably improve compactness of debug info, removing equivalent
+   abbrevs, and hide any differences caused by deferring the
+   computation of the assembler name, triggered by e.g. PCH.  */
+
+static inline void
+move_linkage_attr (dw_die_ref die)
+{
+  unsigned ix = VEC_length (dw_attr_node, die->die_attr);
+  dw_attr_node linkage = *VEC_index (dw_attr_node, die->die_attr, ix - 1);
+
+  gcc_assert (linkage.dw_attr == DW_AT_MIPS_linkage_name);
+
+  while (--ix > 0)
+    {
+      dw_attr_node *prev = VEC_index (dw_attr_node, die->die_attr, ix - 1);
+
+      if (prev->dw_attr == DW_AT_decl_line || prev->dw_attr == DW_AT_name)
+	break;
+    }
+
+  if (ix != VEC_length (dw_attr_node, die->die_attr) - 1)
+    {
+      VEC_pop (dw_attr_node, die->die_attr);
+      VEC_quick_insert (dw_attr_node, die->die_attr, ix, &linkage);
+    }
+}
+
 /* Output stuff that dwarf requires at the end of every file,
    and generate the DWARF-2 debugging info.  */
 
@@ -16565,6 +16986,19 @@ dwarf2out_finish (const char *filename)
     }
 
   limbo_die_list = NULL;
+
+  for (node = deferred_asm_name; node; node = node->next)
+    {
+      tree decl = node->created_for;
+      if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
+	{
+	  add_AT_string (node->die, DW_AT_MIPS_linkage_name,
+			 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+	  move_linkage_attr (node->die);
+	}
+    }
+
+  deferred_asm_name = NULL;
 
   /* Walk through the list of incomplete types again, trying once more to
      emit full debugging info for them.  */

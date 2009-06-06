@@ -178,7 +178,7 @@ fork_execute (char **argv)
 {
   struct pex_obj *pex;
   char *new_argv[3];
-  char *args_name = make_temp_file(".args");
+  char *args_name = make_temp_file (".args");
   char *at_args = concat ("@", args_name, NULL);
   FILE *args = fopen (args_name, "w");
   int status;
@@ -212,16 +212,16 @@ run_gcc (unsigned argc, char *argv[])
 {
   unsigned i;
   unsigned new_argc = argc;
-  char **new_argv;
+  const char **new_argv;
   const char **argv_ptr;
   char *ltrans_output_file = NULL;
   char *flto_out = NULL;
   char *list_option_full = NULL;
 
   new_argc += 8;
-  new_argv = (char **) xcalloc (sizeof (char *), new_argc);
+  new_argv = (const char **) xcalloc (sizeof (char *), new_argc);
 
-  argv_ptr = (const char **) new_argv;
+  argv_ptr = new_argv;
 
   *argv_ptr++ = argv[0];
   *argv_ptr++ = "-combine";
@@ -286,7 +286,7 @@ run_gcc (unsigned argc, char *argv[])
 
   *argv_ptr = NULL;
 
-  fork_execute (new_argv);
+  fork_execute (CONST_CAST (char **, new_argv));
   free (new_argv);
   new_argv = NULL;
 

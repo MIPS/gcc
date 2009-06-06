@@ -2321,7 +2321,8 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
 	  t = get_base_address (t);
-	  if (t && DECL_P (t))
+	  if (t && DECL_P (t)
+              && DECL_MODE (t) != BLKmode)
 	    TREE_ADDRESSABLE (t) = 1;
 	}
 
@@ -2438,7 +2439,7 @@ gimple_expand_cfg (void)
   rtl_profile_for_bb (ENTRY_BLOCK_PTR);
 
   insn_locators_alloc ();
-  if (!DECL_BUILT_IN (current_function_decl))
+  if (!DECL_IS_BUILTIN (current_function_decl))
     {
       /* Eventually, all FEs should explicitly set function_start_locus.  */
       if (cfun->function_start_locus == UNKNOWN_LOCATION)

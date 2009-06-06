@@ -4868,7 +4868,8 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       if (*no_add_attrs == false)
         DECL_DLLIMPORT_P (node) = 1;
     }
-  else if (DECL_DECLARED_INLINE_P (node))
+  else if (TREE_CODE (node) == FUNCTION_DECL
+	   && DECL_DECLARED_INLINE_P (node))
     /* An exported function, even if inline, must be emitted.  */
     DECL_EXTERNAL (node) = 0;
 
@@ -9922,32 +9923,12 @@ block_nonartificial_location (tree block)
 location_t
 tree_nonartificial_location (tree exp)
 {
-  tree block = TREE_BLOCK (exp);
+  location_t *loc = block_nonartificial_location (TREE_BLOCK (exp));
 
-  while (block
-	 && TREE_CODE (block) == BLOCK
-	 && BLOCK_ABSTRACT_ORIGIN (block))
-    {
-      tree ao = BLOCK_ABSTRACT_ORIGIN (block);
-
-      do
-	{
-	  if (TREE_CODE (ao) == FUNCTION_DECL
-	      && DECL_DECLARED_INLINE_P (ao)
-	      && lookup_attribute ("artificial", DECL_ATTRIBUTES (ao)))
-	    return BLOCK_SOURCE_LOCATION (block);
-	  else if (TREE_CODE (ao) == BLOCK
-		   && BLOCK_SUPERCONTEXT (ao) != ao)
-	    ao = BLOCK_SUPERCONTEXT (ao);
-	  else
-	    break;
-	}
-      while (ao);
-
-      block = BLOCK_SUPERCONTEXT (block);
-    }
-
-  return EXPR_LOCATION (exp);
+  if (loc)
+    return *loc;
+  else
+    return EXPR_LOCATION (exp);
 }
 
 

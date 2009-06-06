@@ -2903,7 +2903,9 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   scalar_dest = gimple_assign_lhs (stmt);
   if (TREE_CODE (scalar_dest) != ARRAY_REF
       && TREE_CODE (scalar_dest) != INDIRECT_REF
-      && !STMT_VINFO_STRIDED_ACCESS (stmt_info))
+      && TREE_CODE (scalar_dest) != COMPONENT_REF
+      && TREE_CODE (scalar_dest) != IMAGPART_EXPR
+      && TREE_CODE (scalar_dest) != REALPART_EXPR)
     return false;
 
   gcc_assert (gimple_assign_single_p (stmt));
@@ -3016,7 +3018,6 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 
   alignment_support_scheme = vect_supportable_dr_alignment (first_dr);
   gcc_assert (alignment_support_scheme);
-  gcc_assert (alignment_support_scheme == dr_aligned);  /* FORNOW */
 
   /* In case the vectorization factor (VF) is bigger than the number
      of elements that we can fit in a vectype (nunits), we have to generate
@@ -3155,7 +3156,16 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	       vect_permute_store_chain().  */
 	    vec_oprnd = VEC_index (tree, result_chain, i);
 
-	  data_ref = build_fold_indirect_ref (dataref_ptr);
+          if (aligned_access_p (first_dr))
+            data_ref = build_fold_indirect_ref (dataref_ptr);
+          else
+          {
+            int mis = DR_MISALIGNMENT (first_dr);
+            tree tmis = (mis == -1 ? size_zero_node : size_int (mis));
+            tmis = size_binop (MULT_EXPR, tmis, size_int (BITS_PER_UNIT));
+            data_ref = build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
+           }
+
 	  /* If accesses through a pointer to vectype do not alias the original
 	     memory reference we have a problem.  This should never happen.  */
 	  gcc_assert (alias_sets_conflict_p (get_alias_set (data_ref),
@@ -3285,7 +3295,9 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   code = gimple_assign_rhs_code (stmt);
   if (code != ARRAY_REF
       && code != INDIRECT_REF
-      && !STMT_VINFO_STRIDED_ACCESS (stmt_info))
+      && code != COMPONENT_REF
+      && code != IMAGPART_EXPR
+      && code != REALPART_EXPR)
     return false;
 
   if (!STMT_VINFO_DATA_REF (stmt_info))
