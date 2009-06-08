@@ -1,3 +1,67 @@
+2009-06-08  Martin Jambor  <mjambor@suse.cz>
+
+	* passes.c (init_optimization_passes): Remove references to
+	pass_early_new_sra and pass_new_sra.
+
+	* tree-sra.c: Include cgraph.h, tree-inline.h and ipa-prop.h.
+	(enum sra_mode): Added SRA_MODE_EARLY_IPA.
+	(struct access): Added members bb, stmt, always_safe,
+	grp_maybe_modified and grp_scalar_ptr.
+	(func_param_count): New variable.
+	(encountered_va_start): New variable.
+	(encountered_external_throw): New variable.
+	(no_accesses_representant): New variable.
+	(+no_accesses_p): New function.
+	(dump_access): Dump the new access members.
+	(sra_initialize): Initialize encountered_va_start and
+	encountered_external_throw.
+	(get_ssa_base_param): New function.
+	(create_access): Caring for INIDRECT_REFs and different handling of
+	varialble length accesses in early IPA SRA.  Store tthe basic block and
+	stmt - new parameter - to the new access.
+	(disqualify_base_of_expr): Take care of INDIRECT_REFs and look through
+	SSA_NAMES in IPA_SRA.
+	(disqualify_direct_ptr_params): New function.
+	(disqualify_all_direct_ptr_params): New function.
+	(build_access_from_expr_1): Call disqualify_direct_ptr_params, handle
+	INDIRECT_REFs and ADDR_EXPRs.  New parameter stmt passed to
+	create_access.
+	(disqualify_ops_if_throwing_stmt): Trigger only in intraprocedural
+	passes.
+	(build_accesses_from_assign): Check statements that are not single
+	assignments for disallowed uses of parameters.  Do not create assign
+	links in the interprocedural pass.
+	(scan_phi_nodes): New function.
+	(scan_function): In the interprocedural pass analysis scan phi nodes,
+	check for externally throwing statements and va_start, make sure to
+	disqualify all direct uses in statement types which arew not handled
+	explicitely.
+	(build_ref_for_offset): Not static any more.
+	(find_param_candidates): New function.
+	(mark_maybe_modified): New function.
+	(analyze_modified_params): New function.
+	(process_dominator_bb): New function.
+	(fake_edges_required_p): New function.
+	(analyze_caller_dereference_legality): New function.
+	(unmodified_by_ref_scalar_representative): New function.
+	(splice_param_accesses): New function.
+	(decide_one_param_reduction): New function.
+	(is_unused_scalar_param): New function.
+	(enum ipa_splicing_result): New type.
+	(splice_all_param_accesses): New function.
+	(get_param_index): New function.
+	(turn_representatives_into_notes): New function.
+	(analyze_all_param_acesses): New function.
+	(get_replaced_param_substitute): New function.
+	(replace_removed_params_ssa_names): New function.
+	(sra_ipa_modify_expr): New function.
+	(sra_ipa_modify_assign): New function.
+	(convert_callers): New function.
+	(modify_function): New function.
+	(ipa_early_sra): New function.
+	(ipa_early_sra_gate): New function.
+	(pass_early_ipa_sra): New variable.
+
 2009-06-01  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline.

@@ -560,13 +560,9 @@ init_optimization_passes (void)
 	     alias information also rewrites no longer addressed
 	     locals into SSA form if possible.  */
 	  NEXT_PASS (pass_build_ealias);
-#if 0   /* !!!!!!!!!!!!! */
 	  NEXT_PASS (pass_sra_early);
-#else
-	  NEXT_PASS (pass_early_new_sra);
-#endif
  	  /* After SRA keeps the temporaries used to initialize structure fields:
-	   
+
 	     D.1599_3 = t();
 	     a$a_9 = D.1599_3;
 
@@ -636,11 +632,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_ch);
       NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_lower_complex);
-#if 0   /* !!!!!!!!!!!!! */
       NEXT_PASS (pass_sra);
-#else
-      NEXT_PASS (pass_new_sra);
-#endif
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
