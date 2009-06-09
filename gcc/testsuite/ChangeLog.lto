@@ -1,3 +1,7 @@
+2009-06-09  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/ipa/ipa.exp: Re-enable
+
 2009-06-02  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/ipa/ipa.exp: Disable temporarily.

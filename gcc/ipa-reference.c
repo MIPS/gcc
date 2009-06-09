@@ -70,6 +70,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "lto-section-in.h"
 #include "lto-section-out.h"
+static void add_new_function (struct cgraph_node *node,
+			      void *data ATTRIBUTE_UNUSED);
+static void remove_node_data (struct cgraph_node *node,
+			      void *data ATTRIBUTE_UNUSED);
+static void duplicate_node_data (struct cgraph_node *src,
+				 struct cgraph_node *dst,
+				 void *data ATTRIBUTE_UNUSED);
 
 /* The static variables defined within the compilation unit that are
    loaded or stored directly by function that owns this structure.  */ 
@@ -593,6 +600,13 @@ ipa_init (void)
      since all we would be interested in are the addressof
      operations.  */
   visited_nodes = pointer_set_create ();
+
+  function_insertion_hook_holder =
+      cgraph_add_function_insertion_hook (&add_new_function, NULL);
+  node_removal_hook_holder =
+      cgraph_add_node_removal_hook (&remove_node_data, NULL);
+  node_duplication_hook_holder =
+      cgraph_add_node_duplication_hook (&duplicate_node_data, NULL);
 }
 
 /* Check out the rhs of a static or global initialization VNODE to see
@@ -846,12 +860,6 @@ generate_summary (void)
   bitmap module_statics_readonly;
   bitmap bm_temp;
   
-  function_insertion_hook_holder =
-      cgraph_add_function_insertion_hook (&add_new_function, NULL);
-  node_removal_hook_holder =
-      cgraph_add_node_removal_hook (&remove_node_data, NULL);
-  node_duplication_hook_holder =
-      cgraph_add_node_duplication_hook (&duplicate_node_data, NULL);
   ipa_init ();
   module_statics_readonly = BITMAP_ALLOC (&local_info_obstack);
   bm_temp = BITMAP_ALLOC (&local_info_obstack);

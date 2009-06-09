@@ -1,3 +1,24 @@
+2009-06-09  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-reference.c (add_new_function, remove_node_data,
+	duplicate_node_data): Declare.
+	(ipa_init): Initialize hooks here.
+	(generate_summary): Do not initialize them here.
+	* ipa-pure-const.c (register_hooks): New function.
+	(generate_summary): Use it here instead of registering.
+	(read_summary): Likewise.
+	* passes.c (init_optimization_passes): Re-enable.
+
+	Revert:
+	2008-10-23 Rafael Espindola  <espindola@google.com>
+
+	* ipa-pure-const.c (node_duplication_hook_holder,
+	node_removal_hook_holder): Remove.
+	(get_function_state, set_function_state): Use DECL_UID.
+	(duplicate_node_data, remove_node_data): Remove.
+	(generate_summary): Don't use the removed functions. Iterate over
+	funct_state_vec and free the states.
+
 2009-06-08  Diego Novillo  <dnovillo@google.com>
 
 	* configure.ac: Check $enable_languages instead of
