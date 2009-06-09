@@ -1117,7 +1117,7 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
   --with-pkgversion=PKG   Use PKG in the version string in place of "lto
-                          merged with rev 147915"
+                          merged with rev 148228"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-multilib-list    Select multilibs (SH only)
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
@@ -8149,7 +8149,7 @@ echo "$as_me: error: package version not specified" >&2;}
       *)   PKGVERSION="($withval) " ;;
      esac
 else
-  PKGVERSION="(lto merged with rev 147915) "
+  PKGVERSION="(lto merged with rev 148228) "
 
 fi;
 
@@ -24762,14 +24762,16 @@ do
 	all_compilers="$all_compilers $compilers"
 	all_outputs="$all_outputs $outputs"
 	all_gtfiles="$all_gtfiles [$subdir] $gtfiles"
-
-	if test x"$language" = x"lto" ; then
+        case ",$enable_languages," in
+        	*,lto,*)
 
 cat >>confdefs.h <<\_ACEOF
 #define ENABLE_LTO 1
 _ACEOF
 
-	fi
+		    ;;
+		*) ;;
+	esac
 done
 
 # Pick up gtfiles for c

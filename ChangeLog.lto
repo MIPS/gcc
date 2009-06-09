@@ -1,3 +1,10 @@
+2009-06-08  Diego Novillo  <dnovillo@google.com>
+
+	* configure.ac: Also look for libelf.h in /usr/include/libelf.
+	Only substitute libelflibs and libelfinc after testing
+	which variant is present.
+	* configure: Regenerate.
+
 2009-05-20  Diego Novillo  <dnovillo@google.com>
 
 	* configure.ac (host_libs): Remove lto-plugin.

@@ -3873,10 +3873,12 @@ changequote([,])dnl
 	all_compilers="$all_compilers $compilers"
 	all_outputs="$all_outputs $outputs"
 	all_gtfiles="$all_gtfiles [[$subdir]] $gtfiles"
-
-	if test x"$language" = x"lto" ; then
-	    AC_DEFINE(ENABLE_LTO, 1, [Define to enable LTO support.])
-	fi
+        case ",$enable_languages," in
+        	*,lto,*)
+		    AC_DEFINE(ENABLE_LTO, 1, [Define to enable LTO support.])
+		    ;;
+		*) ;;
+	esac
 done
 
 # Pick up gtfiles for c

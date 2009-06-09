@@ -1,3 +1,9 @@
+2009-06-08  Diego Novillo  <dnovillo@google.com>
+
+	* configure.ac: Check $enable_languages instead of
+	$language when testing if LTO is enabled or not.
+	* configure: Regenerate.
+
 2009-06-05  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @148228.
