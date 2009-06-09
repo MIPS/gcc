@@ -3810,6 +3810,7 @@ mark_used (tree decl)
     {
       error ("deleted function %q+D", decl);
       error ("used here");
+      return;
     }
   /* If we don't need a value, then we don't need to synthesize DECL.  */
   if (skip_evaluation)

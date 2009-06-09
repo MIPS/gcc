@@ -801,7 +801,7 @@ case "${target}" in
     ;;
   powerpc-*-aix*)
     # copied from rs6000-*-* entry
-    noconfigdirs="$noconfigdirs gprof target-libgloss target-libssp ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof target-libgloss target-libssp target-newlib ${libgcj}"
     ;;
   powerpc*-*-winnt* | powerpc*-*-pe* | ppc*-*-pe)
     target_configdirs="$target_configdirs target-winsup"
@@ -828,7 +828,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-newlib gprof ${libgcj}"
     ;;
   rs6000-*-aix*)
-    noconfigdirs="$noconfigdirs gprof target-libgloss target-libssp ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof target-libgloss target-libssp target-newlib ${libgcj}"
     ;;
   rs6000-*-*)
     noconfigdirs="$noconfigdirs gprof ${libgcj}"
@@ -1195,7 +1195,7 @@ ACX_PROG_CMP_IGNORE_INITIAL
 gmplibs="-lmpfr -lgmp"
 gmpinc=
 have_gmp=no
-mpclibs=
+mpclibs=-lmpc
 mpcinc=
 have_mpc=no
 
@@ -1395,6 +1395,11 @@ If you obtained GMP and/or MPFR from a vendor distribution package, make
 sure that you have installed both the libraries and the header files.
 They may be located in separate packages.])
   fi
+fi
+
+if test x$have_mpc != xyes ; then
+  mpcinc=
+  mpclibs=
 fi
 
 gmpinc="$mpcinc $gmpinc"
