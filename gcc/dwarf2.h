@@ -568,6 +568,7 @@ enum dwarf_location_atom
        direct symbol relocation from DW_OP_addr with a dtp-relative
        symbol relocation.  */
     INTERNAL_DW_OP_tls_addr = 0x103
+
   };
 
 /* Type encodings.  */
