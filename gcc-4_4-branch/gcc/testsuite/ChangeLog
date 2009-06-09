@@ -1,3 +1,243 @@
+2009-06-08  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/auto15.C: New.
+
+2009-06-08  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/40334
+	* gfortran.dg/backspace_11.f90: New test.
+
+2009-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40373
+	* g++.dg/template/dtor7.C: New test.
+
+	PR c++/40370
+	PR c++/40372
+	* g++.dg/template/error41.C: New test.
+	* g++.dg/template/error42.C: New test.
+
+2009-06-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40328
+	* gcc.dg/torture/pr40328.c: New testcase.
+
+2009-06-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/32950
+	* g++.dg/torture/pr32950.C: New.
+
+2009-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40340
+	* gcc.dg/pr40340-1.c: New test.
+	* gcc.dg/pr40340-2.c: New test.
+	* gcc.dg/pr40340-3.c: New test.
+	* gcc.dg/pr40340-4.c: New test.
+	* gcc.dg/pr40340-5.c: New test.
+	* gcc.dg/pr40340.h: New file.
+
+2009-06-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/39893
+	* gfortran.dg/assumed_charlen_dummy.f90: New Test.
+
+2009-06-04  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/39371
+	* g++.dg/torture/pr40335.C: New testcase.
+
+2009-06-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/40019
+	* gfortran.dg/leadz_trailz_1.f90: New test.
+	* gfortran.dg/leadz_trailz_2.f90: New test.
+
+2009-06-02  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist13.C: Remove expected error.
+	* g++.dg/cpp0x/initlist18.C: New.
+	* g++.dg/cpp0x/initlist19.C: New.
+
+	* g++.dg/cpp0x/auto14.C: New.
+
+2009-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/template/typedef19.C: XFAIL.
+	* g++.dg/template/typedef20.C: Likewise.
+
+2009-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+
+	2009-05-28  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/39754
+	* g++.dg/template/canon-type-1.C: New test.
+	* g++.dg/template/canon-type-2.C: Likewise.
+	* g++.dg/template/canon-type-3.C: Likewise.
+	* g++.dg/template/canon-type-4.C: Likewise.
+	* g++.dg/template/canon-type-5.C: Likewise.
+	* g++.dg/template/canon-type-6.C: Likewise.
+	* g++.dg/template/canon-type-7.C: Likewise.
+
+	2009-05-28  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40254
+	* gcc.dg/vect/pr40254.c: New test.
+
+	2009-05-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40252
+	* gcc.c-torture/compile/pr40252.c: New testcase.
+
+	2009-05-26  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/40007
+	* g++.dg/template/typedef18.C: New test.
+	* g++.dg/template/typedef19.C: Likewise.
+	* g++.dg/template/typedef20.C: Likewise.
+
+	2009-05-25  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40238
+	* gcc.dg/vect/pr40238.c: New test.
+
+	2009-05-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40233
+	* gcc.c-torture/compile/pr40233.c: New testcase.
+
+2009-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40291
+	* gcc.c-torture/compile/pr40291.c: New test.
+
+	PR target/40017
+	* gcc.target/powerpc/altivec-types-1.c: Don't expect error for
+	__vector _Bool.
+	* gcc.target/powerpc/altivec-30.c: New test.
+	* gcc.target/powerpc/altivec-31.c: New test.
+
+2009-05-27  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist15.C: New.
+	* g++.dg/cpp0x/initlist16.C: New.
+	* g++.dg/cpp0x/initlist17.C: New.
+
+2009-05-28  Kai Tietz  <kai.tietz@onevision.com>
+
+	*  g++.dg/ext/packed6.C (size_t): Use __extension__ and
+	__SIZE_TYPE__.
+	* g++.dg/opt/memcpy1.C (size_t): Likewise.
+	* g++.dg/pr37742.C (size_t): Likewise.
+	* g++.dg/torture/pr34850.C (size_t): Likewise.
+	* g++.dg/torture/20070621-1.C (ptrdiff_t): Use __extension__ and
+	_PTRDIFF_TYPE__.
+	* g++.dg/torture/pr34222.C (ptrdiff_t): Likewise.
+	* g++.dg/tree-ssa/pr22444.C (ptrdiff_t): Likewise.
+	(size_t): Use __extension__ and __SIZE_TYPE__.
+        * gcc.c-torture/compile/20000211-1.c (size_t): Typedef size_t via
+	__SIZE_TYPE__.
+        * gcc.c-torture/compile/20010328-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20030320-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20030405-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20030902-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20060202-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/20080613-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/920428-2.c (size_t): Likewise,
+        * gcc.c-torture/compile/980329-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/980816-1.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr32584.c (size_t): Likewise,
+        * (__ssize_t): Likewise.
+        * gcc.c-torture/compile/pr33173.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr33382.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr34334.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr34688.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr35043.c (size_t): Likewise,
+        * gcc.c-torture/compile/pr37669.c (size_t): Likewise,
+        * gcc.dg/20050629-1.c (size_t): Typedef size_t via __SIZE_TYPE__.
+        * gcc.dg/pr33667.c (size_t): Likewise.
+        * gcc.dg/prefetch-loop-arrays-1.c (size_t): Likewise.
+        * gcc.dg/torture/pr39204.c (size_t): Likewise.
+        * gcc.dg/tree-ssa/20041122-1.c (size_t): Likewise.
+        * gcc.dg/tree-ssa/pr36908.c (size_t): Likewise.
+        * gcc.dg/tree-ssa/pr38250.c (size_t): Likewise.
+        * gcc.dg/tree-ssa/ssa-dse-10.c (size_t): Likewise.
+
+2009-05-27  Kai TIetz  <kai.tietz@onevision.com>
+
+	* g++.old-deja/g++.brendan/array1.C (array): Use __SIZE_TYPE__
+	cast instead of assuming 0ul.
+	* g++.old-deja/g++.brendan/crash64.C (size_t): Define it via
+	__SIZE_TYPE__.
+	(_type_desc): Make first argument const.
+	* g++.old-deja/g++.jason/new3.C (dg-options): Add -Wno-long-long.
+
+2009-05-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38064
+	* g++.dg/cpp0x/enum3.C: New test.
+
+2009-05-22  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/40087
+	* gcc.dg/tree-ssa/pr40087.c: New test.
+
+2009-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40204
+	* gcc.c-torture/compile/pr40204.c: New test.
+
+2009-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/40172
+	* gcc.dg/pr40172-1.c: New.
+	* gcc.dg/pr40172-2.c: Likewise.
+	* gcc.dg/pr40172-3.c: Likewise.
+
+2009-05-19  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/compile/20090519-1.c: New testcase.
+
+2009-05-18  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/40109
+	* g++.dg/debug/dwarf2/nested-1.C: New test.
+
+2009-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/39907
+	* gcc.target/x86_64/abi/asm-support.S (snapshot_ret): Preserve
+	stack alignment.
+
+2009-05-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39999
+	* gcc.c-torture/compile/pr39999.c: New testcase.
+
+2009-05-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40139
+	* g++.dg/template/dtor6.C: New.
+
+2009-05-16  David Billinghurst <billingd@gcc.gnu.org>
+
+	* gfortran.dg/default_format_denormal_1.f90: XFAIL on cygwin.
+	* gfortran.dg/default_format_1.f90: Revert change of 2009-05-12
+
 2009-05-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/39865
