@@ -134,6 +134,20 @@ ipa_populate_param_decls (struct cgraph_node *node,
     }
 }
 
+/* Return how many formal parameters FNDECL has.  */
+
+static inline int
+count_formal_params_1 (tree fndecl)
+{
+  tree parm;
+  int count = 0;
+
+  for (parm = DECL_ARGUMENTS (fndecl); parm; parm = TREE_CHAIN (parm))
+    count++;
+
+  return count;
+}
+
 /* Count number of formal parameters in NOTE. Store the result to the
    appropriate field of INFO.  */
 
@@ -141,16 +155,9 @@ static void
 ipa_count_formal_params (struct cgraph_node *node,
 			 struct ipa_node_params *info)
 {
-  tree fndecl;
-  tree fnargs;
-  tree parm;
   int param_num;
 
-  fndecl = node->decl;
-  fnargs = DECL_ARGUMENTS (fndecl);
-  param_num = 0;
-  for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
-    param_num++;
+  param_num = count_formal_params_1 (node->decl);
   ipa_set_param_count (info, param_num);
 }
 
@@ -1357,20 +1364,6 @@ dump_aggregate (tree t, int indent)
     dump_aggregate_1 (type, indent);
 }
 
-/* Return how many formal parameters FNDECL has.  */
-
-static inline int
-count_formal_parameters (tree fndecl)
-{
-  tree parm;
-  int count = 0;
-
-  for (parm = DECL_ARGUMENTS (fndecl); parm; parm = TREE_CHAIN (parm))
-    count++;
-
-  return count;
-}
-
 /* Return a heap allocated vector containing formal parameters of FNDECL.  */
 
 VEC(tree, heap) *
@@ -1380,7 +1373,7 @@ ipa_get_vector_of_formal_parms (tree fndecl)
   int count;
   tree parm;
 
-  count = count_formal_parameters (fndecl);
+  count = count_formal_params_1 (fndecl);
   args = VEC_alloc (tree, heap, count);
   for (parm = DECL_ARGUMENTS (fndecl); parm; parm = TREE_CHAIN (parm))
     VEC_quick_push (tree, args, parm);

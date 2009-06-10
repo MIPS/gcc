@@ -1,3 +1,9 @@
+2009-06-10  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.c (count_formal_parameters): Moved upwards, renamed to
+	count_formal_params_1.
+	(ipa_count_formal_params): Use count_formal_params_1.
+
 2009-06-08  Martin Jambor  <mjambor@suse.cz>
 
 	* passes.c (init_optimization_passes): Remove references to
