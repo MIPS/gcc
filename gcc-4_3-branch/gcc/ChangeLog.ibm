@@ -1,3 +1,13 @@
+2009-06-10  Ben Elliston  <bje@au.ibm.com>
+
+	Backport from mainline:
+
+	2008-10-04  Anton Blanchard  <anton@samba.org>
+	* config/rs6000/rs6000.c (rs6000_emit_sync): Use gen_lwsync().
+	(rs6000_split_atomic_op): Same.
+	(rs6000_split_compare_and_swap): Same.
+	(rs6000_split_compare_and_swapqhi): Same.
+
 2009-06-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Sync up to version 148216.  Pull in patches from both
