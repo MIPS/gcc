@@ -498,7 +498,7 @@ handle_long_constant (JCF *jcf, CPool *cpool, enum cpool_tag kind,
 static uint16
 handle_constant (JCF *jcf, int index, enum cpool_tag purpose)
 {
-  unsigned int kind;
+  int kind;
   CPool *cpool = cpool_for_class (output_class);
   
   if (index == 0)

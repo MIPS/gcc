@@ -1,3 +1,7 @@
+2009-06-09  Ian Lance Taylor  <ian@airs.com>
+
+	* jcf-parse.c (handle_constant): Change kind to int.
+
 2009-05-31  Ian Lance Taylor  <iant@google.com>
 
 	Revert last patch.
