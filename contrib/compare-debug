@@ -78,7 +78,7 @@ else
   cmp2=
 
   for t in objdump readelf eu-readelf; do
-    if ($t --help) 2>&1 | grep -e '--\[\?section-\]\?headers' > /dev/null; then
+    if ($t --help) 2>&1 | grep -e '--\[*section-\]*headers' > /dev/null; then
       cmd=$t
 
       $cmd --section-headers "$1.$suf1" | grep '\.eh_frame' > /dev/null
