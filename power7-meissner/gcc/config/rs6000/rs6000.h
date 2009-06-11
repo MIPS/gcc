@@ -507,6 +507,7 @@ extern int rs6000_vector_align[];
 #define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
 #define TARGET_IEEEQUAD rs6000_ieeequad
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
+#define TARGET_LDBRX (TARGET_POPCNTD || rs6000_cpu == PROCESSOR_CELL)
 
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0

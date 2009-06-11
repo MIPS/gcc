@@ -5,6 +5,7 @@
 	* gcc.target/powerpc/bswap32.c: Ditto.
 	* gcc.target/powerpc/bswap64-1.c: Ditto.
 	* gcc.target/powerpc/bswap64-2.c: Ditto.
+	* gcc.target/powerpc/bswap64-3.c: Ditto.
 	* gcc.target/powerpc/bswap-run.c: Ditto.
 	
 2009-05-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
