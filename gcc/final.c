@@ -4302,7 +4302,6 @@ rest_of_clean_state (void)
 	      INSN_UID (insn) = CODE_LABEL_NUMBER (insn);
 	    else
 	      INSN_UID (insn) = 0;
-
 	}
     }
 
