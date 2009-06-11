@@ -6841,6 +6841,12 @@ vt_finalize (void)
 unsigned int
 variable_tracking_main (void)
 {
+  if (flag_var_tracking_assignments < 0)
+    {
+      delete_debug_insns ();
+      return 0;
+    }
+
   if (n_basic_blocks > 500 && n_edges / n_basic_blocks >= 20)
     {
       vt_debug_insns_local (true);
