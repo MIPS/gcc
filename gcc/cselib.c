@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "ggc.h"
 #include "hashtab.h"
+#include "tree-pass.h"
 #include "cselib.h"
 #include "params.h"
 #include "alloc-pool.h"
@@ -867,7 +868,7 @@ new_cselib_val (unsigned int value, enum machine_mode mode, rtx x)
   e->locs = 0;
   e->next_containing_mem = 0;
 
-  if (dump_file && flag_verbose_cselib)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "cselib value %u ", value);
       if (flag_dump_noaddr || flag_dump_unnumbered)
@@ -978,7 +979,7 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
       else if (!REG_P (p->loc))
 	{
 	  rtx result, note;
-	  if (dump_file && flag_verbose_cselib)
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      print_inline_rtx (dump_file, p->loc, 0);
 	      fprintf (dump_file, "\n");
@@ -999,7 +1000,7 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
   if (regno != UINT_MAX)
     {
       rtx result;
-      if (dump_file && flag_verbose_cselib)
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "r%d\n", regno);
 
       result = cselib_expand_value_rtx_1 (reg_result, evd, max_depth - 1);
@@ -1007,7 +1008,7 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
 	return result;
     }
 
-  if (dump_file && flag_verbose_cselib)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       if (reg_result)
 	{
@@ -1028,7 +1029,7 @@ check_wrap_constant (enum machine_mode mode, rtx result)
   if (!result || GET_MODE (result) == mode)
     return result;
 
-  if (dump_file && flag_verbose_cselib)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "  wrapping result in const to preserve mode %s\n",
 	     GET_MODE_NAME (mode));
 
@@ -1143,7 +1144,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 
 	      bitmap_set_bit (evd->regs_active, regno);
 
-	      if (dump_file && flag_verbose_cselib)
+	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "expanding: r%d into: ", regno);
 
 	      result = expand_loc (l->elt->locs, evd, max_depth);
@@ -1198,7 +1199,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
     case VALUE:
       {
 	rtx result;
-	if (dump_file && flag_verbose_cselib)
+	if (dump_file && (dump_flags & TDF_DETAILS))
 	  {
 	    fputs ("\nexpanding ", dump_file);
 	    print_rtl_single (dump_file, orig);
@@ -1339,7 +1340,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
     {
       XEXP (copy, 0)
 	= gen_rtx_CONST (GET_MODE (XEXP (orig, 0)), XEXP (copy, 0));
-      if (dump_file && flag_verbose_cselib)
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "  wrapping const_int result in const to preserve mode %s\n",
 		 GET_MODE_NAME (GET_MODE (XEXP (copy, 0))));
     }
@@ -1452,7 +1453,7 @@ cselib_subst_to_values (rtx x)
 static cselib_val *
 cselib_log_lookup (rtx x, cselib_val *ret)
 {
-  if (dump_file && flag_verbose_cselib)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fputs ("cselib lookup ", dump_file);
       print_inline_rtx (dump_file, x, 2);

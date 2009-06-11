@@ -310,7 +310,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-verbose -fsel-sched-dump-cfg -fsel-sched-pipelining-verbose @gol
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -fvar-tracking-assigments  -fvar-tracking-assignments-toggle @gol
--fverbose-cselib  -g  -g@var{level}  -gtoggle @gol
+-g  -g@var{level}  -gtoggle @gol
 -gcoff  -gdwarf-2 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -fno-merge-debug-strings -fno-dwarf2-cfi-asm @gol
 -fdebug-prefix-map=@var{old}=@var{new} @gol
@@ -5393,11 +5393,6 @@ annotations will be created and maintained, but discarded at the end.
 @opindex fno-var-tracking-assignments-toggle
 Toggle @option{-fvar-tracking-assignments}, in the same way that
 @option{-gtoggle} toggles @option{-g}.
-
-@item -fverbose-cselib
-@opindex fverbose-cselib
-Cause cselib to add a lot of information to the dump files of passes
-that use it, if dumping is enabled on such passes.
 
 @item -print-file-name=@var{library}
 @opindex print-file-name
