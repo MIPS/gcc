@@ -1,5 +1,16 @@
 2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
 
+	* doc/invoke.texi (fvar-tracking-assignments): Note that it can be
+	enabled with debug info generation disabled.
+	* toplev.c (flag_var_tracking, flag_var_tracking_assignments):
+	Update comments.
+	(process_options): Don't reset flag_var_tracking_assignments.  Set
+	it along with flag_var_tracking to negative as needed.
+	* var-tracking.c (vt_finalize): Discard debug insns and finish if
+	flag_var_tracking_assignments is negative.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree.h (IS_DEBUG_STMT): Removed.  Replace with is_gimple_debug.
 	(IS_DEBUG_BIND): Removed.  Replace with gimple_debug_bind_p.
 	* doc/gimple.texi (is_gimple_debug): New.
