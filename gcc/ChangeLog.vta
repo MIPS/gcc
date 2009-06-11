@@ -1,5 +1,12 @@
 2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
 
+	* config/ia64/ia64.c (emit_insn_group_barriers): Use
+	NONDEBUG_INSN_P.
+	(emit_all_insn_group_barriers): Likewise.
+	(final_emit_insn_group_barriers): Likewise.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
 	* gcc.c: Include mmap headers.
 	(MAP_FAILED): Define default.
 	(compare_debug, compare_debug_second, compare_debug_opt): Comment.
