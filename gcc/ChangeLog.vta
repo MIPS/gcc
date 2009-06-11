@@ -1,5 +1,21 @@
 2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
 
+	* doc/invoke.texi (bootstrap-debug): More details.
+	(bootstrap-debug-big, bootstrap-debug-lean): Document.
+	(bootstrap-debug-lib): More details.
+	(bootstrap-debug-ckovw): Update.
+	* gcc.c (invoke_as): Call compare-debug-dump-opt for
+	-fdump-final-insns too.
+	(driver_self_specs): Map -fdump-final-insns to
+	-fdump-final-insns=..
+	(compare_debug_dump_opt_spec_function): Test for . argument and
+	compute output name.  Compute temp output spec without flag name.
+	* doc/invoke.texi (fdump-final-insns): Document argument-less use.
+	* toplev.c (process_options): Don't open final insns dump file if
+	we're not going to write to it.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
 	* common.opt (fverbose-cselib): Drop.
 	* doc/invoke.texi: Likewise.
 	* Makefile.in (cselib.o): Depend on $(TREE_PASS_H).

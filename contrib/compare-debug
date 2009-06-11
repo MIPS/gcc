@@ -2,7 +2,7 @@
 
 # Compare stripped copies of two given object files.
 
-# Copyright (C) 2007, 2008 Free Software Foundation
+# Copyright (C) 2007, 2008, 2009 Free Software Foundation
 # Originally by Alexandre Oliva <aoliva@redhat.com>
 
 # This file is part of GCC.
@@ -148,5 +148,13 @@ fi
 $rm "$1.$suf1" "$2.$suf2"
 
 trap "exit $status; exit" 0 1 2 15
+
+if test -f "$1".gkd || test -f "$2".gkd; then
+  if cmp "$1".gkd "$2".gkd; then
+    :
+  else
+    status=$?
+  fi
+fi
 
 exit $status
