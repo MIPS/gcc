@@ -84,6 +84,18 @@ compilation is specified by a string called a "spec".  */
 #include "flags.h"
 #include "opts.h"
 
+#ifdef HAVE_MMAP_FILE
+# include <sys/mman.h>
+# ifdef HAVE_MINCORE
+/* This is on Solaris.  */
+#  include <sys/types.h>
+# endif
+#endif
+
+#ifndef MAP_FAILED
+# define MAP_FAILED ((void *)-1)
+#endif
+
 /* By default there is no special suffix for target executables.  */
 /* FIXME: when autoconf is fixed, remove the host check - dj */
 #if defined(TARGET_EXECUTABLE_SUFFIX) && defined(HOST_EXECUTABLE_SUFFIX)
@@ -3205,9 +3217,21 @@ static struct switchstr *switches;
 
 static int n_switches;
 
+/* Set to zero if -fcompare-debug is disabled, positive if it's
+   enabled and we're running the first compilation, negative if it's
+   enabled and we're running the second compilation.  For most of the
+   time, it's in the range -1..1, but it can be temporarily set to 2
+   or 3 to indicate that the -fcompare-debug flags didn't come from
+   the command-line, but rather from the GCC_COMPARE_DEBUG environment
+   variable, until a synthesized -fcompare-debug flag is added to the
+   command line.  */
 int compare_debug;
+
+/* Set to nonzero if we've seen the -fcompare-debug-second flag.  */
 int compare_debug_second;
 
+/* Set to the flags that should be passed to the second compilation in
+   a -fcompare-debug compilation.  */
 const char *compare_debug_opt;
 
 static struct switchstr *switches_debug_check[2];
@@ -6528,6 +6552,125 @@ fatal_error (int signum)
   kill (getpid (), signum);
 }
 
+/* Compare the contents of the two files named CMPFILE[0] and
+   CMPFILE[1].  Return zero if they're identical, nonzero
+   otherwise.  */
+
+static int
+compare_files (char *cmpfile[])
+{
+  int ret = 0;
+  FILE *temp[2] = { NULL, NULL };
+  int i;
+
+#if HAVE_MMAP_FILE
+  {
+    size_t length[2];
+    void *map[2] = { NULL, NULL };
+
+    for (i = 0; i < 2; i++)
+      {
+	struct stat st;
+
+	if (stat (cmpfile[i], &st) < 0 || !S_ISREG (st.st_mode))
+	  {
+	    error ("%s: could not determine length of compare-debug file %s",
+		   input_filename, cmpfile[i]);
+	    ret = 1;
+	    break;
+	  }
+
+	length[i] = st.st_size;
+      }
+
+    if (!ret && length[0] != length[1])
+      {
+	error ("%s: -fcompare-debug failure (length)", input_filename);
+	ret = 1;
+      }
+
+    if (!ret)
+      for (i = 0; i < 2; i++)
+	{
+	  int fd = open (cmpfile[i], O_RDONLY);
+	  if (fd < 0)
+	    {
+	      error ("%s: could not open compare-debug file %s",
+		     input_filename, cmpfile[i]);
+	      ret = 1;
+	      break;
+	    }
+
+	  map[i] = mmap (NULL, length[i], PROT_READ, MAP_PRIVATE, fd, 0);
+	  close (fd);
+
+	  if (map[i] == (void *) MAP_FAILED)
+	    {
+	      ret = -1;
+	      break;
+	    }
+	}
+
+    if (!ret)
+      {
+	if (memcmp (map[0], map[1], length[0]) != 0)
+	  {
+	    error ("%s: -fcompare-debug failure", input_filename);
+	    ret = 1;
+	  }
+      }
+
+    for (i = 0; i < 2; i++)
+      if (map[i])
+	munmap ((caddr_t) map[i], length[i]);
+
+    if (ret >= 0)
+      return ret;
+
+    ret = 0;
+  }
+#endif
+
+  for (i = 0; i < 2; i++)
+    {
+      temp[i] = fopen (cmpfile[i], "r");
+      if (!temp[i])
+	{
+	  error ("%s: could not open compare-debug file %s",
+		 input_filename, cmpfile[i]);
+	  ret = 1;
+	  break;
+	}
+    }
+
+  if (!ret && temp[0] && temp[1])
+    for (;;)
+      {
+	int c0, c1;
+	c0 = fgetc (temp[0]);
+	c1 = fgetc (temp[1]);
+
+	if (c0 != c1)
+	  {
+	    error ("%s: -fcompare-debug failure",
+		   input_filename);
+	    ret = 1;
+	    break;
+	  }
+
+	if (c0 == EOF)
+	  break;
+      }
+
+  for (i = 1; i >= 0; i--)
+    {
+      if (temp[i])
+	fclose (temp[i]);
+    }
+
+  return ret;
+}
+
 extern int main (int, char **);
 
 int
@@ -7179,13 +7322,9 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      value = do_spec (input_file_compiler->spec);
 	      infiles[i].compiled = true;
 	      if (value < 0)
-		{
-		  this_file_error = 1;
-		}
+		this_file_error = 1;
 	      else if (compare_debug && debug_check_temp_file[0])
 		{
-		  FILE *temp[2];
-
 		  if (verbose_flag)
 		    error ("Recompiling with -fcompare-debug");
 
@@ -7193,7 +7332,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		  n_switches = n_switches_debug_check[1];
 		  switches = switches_debug_check[1];
 
-		  debug_check_temp_file[1] = NULL;
 		  value = do_spec (input_file_compiler->spec);
 
 		  compare_debug = -compare_debug;
@@ -7210,52 +7348,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 			      && strcmp (debug_check_temp_file[0],
 					 debug_check_temp_file[1]));
 
-		  temp[0] = fopen (debug_check_temp_file[0], "r");
-		  if (!temp[0])
-		    {
-		      error ("%s: could not open compare-debug file %s",
-			     input_filename, debug_check_temp_file[0]);
-		      this_file_error = 1;
-		    }
-		  temp[1] = fopen (debug_check_temp_file[1], "r");
-		  if (!temp[1])
-		    {
-		      error ("%s: could not open compare-debug file %s",
-			     input_filename, debug_check_temp_file[1]);
-		      this_file_error = 1;
-		    }
-
-		  free (debug_check_temp_file[1]);
-		  debug_check_temp_file[1] = NULL;
-		  free (debug_check_temp_file[0]);
-		  debug_check_temp_file[0] = NULL;
-
 		  if (verbose_flag)
 		    error ("Comparing final insns dumps");
 
-		  if (!this_file_error && temp[0] && temp[1])
-		    for (;;)
-		      {
-			int c0, c1;
-			c0 = fgetc (temp[0]);
-			c1 = fgetc (temp[1]);
-
-			if (c0 != c1)
-			  {
-			    error ("%s: -fcompare-debug failure",
-				   input_filename);
-			    this_file_error = 1;
-			    break;
-			  }
-
-			if (c0 == EOF)
-			  break;
-		      }
-
-		  if (temp[1])
-		    fclose (temp[1]);
-		  if (temp[0])
-		    fclose (temp[0]);
+		  if (compare_files (debug_check_temp_file))
+		    this_file_error = 1;
 		}
 
 	      if (compare_debug)
