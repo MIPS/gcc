@@ -1,3 +1,10 @@
+2009-06-11  Alan Modra  <amodra@au.ibm.com>
+
+	PR target/25972
+	* config/rs6000/darwin-ldouble.c (longDblUnion): Delete.
+	(pack): New inline function.  Use throughout in place of packing a
+	pair of doubles to long double via union.
+
 2009-06-10  Ben Elliston  <bje@au.ibm.com>
 
 	Backport from mainline:
