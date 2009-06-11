@@ -1801,7 +1801,7 @@ process_options (void)
 	debug_info_level = DINFO_LEVEL_NONE;
     }
 
-  if (flag_dump_final_insns)
+  if (flag_dump_final_insns && !flag_syntax_only && !no_backend)
     {
       FILE *final_output = fopen (flag_dump_final_insns, "w");
       if (!final_output)

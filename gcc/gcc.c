@@ -869,10 +869,10 @@ static const char *asm_options =
 
 static const char *invoke_as =
 #ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
-"%{fcompare-debug=*:%:compare-debug-dump-opt()}\
+"%{fcompare-debug=*|fdump-final-insns=*:%:compare-debug-dump-opt()}\
  %{!S:-o %|.s |\n as %(asm_options) %|.s %A }";
 #else
-"%{fcompare-debug=*:%:compare-debug-dump-opt()}\
+"%{fcompare-debug=*|fdump-final-insns=*:%:compare-debug-dump-opt()}\
  %{!S:-o %|.s |\n as %(asm_options) %m.s %A }";
 #endif
 
@@ -904,6 +904,7 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 #endif
 
 static const char *const driver_self_specs[] = {
+  "%{fdump-final-insns:-fdump-final-insns=.} %<fdump-final-insns",
   DRIVER_SELF_SPECS, GOMP_SELF_SPECS
 };
 
@@ -8518,29 +8519,38 @@ compare_debug_dump_opt_spec_function (int arg,
   if (arg != 0)
     fatal ("too many arguments to %%:compare-debug-dump-opt");
 
-  if (!compare_debug)
-    return NULL;
-
   do_spec_2 ("%{fdump-final-insns=*:%*}");
   do_spec_1 (" ", 0, NULL);
 
-  if (argbuf_index > 0)
+  if (argbuf_index > 0 && strcmp (argv[argbuf_index - 1], "."))
     {
+      if (!compare_debug)
+	return NULL;
+
       name = xstrdup (argv[argbuf_index - 1]);
       ret = NULL;
     }
   else
     {
-#define OPT "-fdump-final-insns="
-      ret = "-fdump-final-insns=%g.gkd";
+      const char *ext = NULL;
 
-      do_spec_2 (ret + sizeof (OPT) - 1);
+      if (argbuf_index > 0)
+	{
+	  do_spec_2 ("%{o*:%*}%{!o:%{!S:%b%O}%{S:%b.s}}");
+	  ext = ".gkd";
+	}
+      else if (!compare_debug)
+	return NULL;
+      else
+	do_spec_2 ("%g.gkd");
+
       do_spec_1 (" ", 0, NULL);
-#undef OPT
 
       gcc_assert (argbuf_index > 0);
 
-      name = xstrdup (argbuf[argbuf_index - 1]);
+      name = concat (argbuf[argbuf_index - 1], ext, NULL);
+
+      ret = concat ("-fdump-final-insns=", name, NULL);
     }
 
   which = compare_debug < 0;

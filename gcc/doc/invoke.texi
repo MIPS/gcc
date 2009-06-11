@@ -4337,9 +4337,12 @@ other options are processed, and it does so only once, no matter how
 many times it is given.  This is mainly intended to be used with
 @option{-fcompare-debug}.
 
-@item -fdump-final-insns=@var{file}
-@opindex fdump-final-insns=
-Dump the final internal representation (RTL) to @var{file}.
+@item -fdump-final-insns@r{[}=@var{file}@r{]}
+@opindex fdump-final-insns
+Dump the final internal representation (RTL) to @var{file}.  If the
+optional argument is omitted (or if @var{file} is @code{.}), the name
+of the dump file will be determined by appending @code{.gkd} to the
+compilation output file name.
 
 @item -fcompare-debug@r{[}=@var{opts}@r{]}
 @opindex fcompare-debug

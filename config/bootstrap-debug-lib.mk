@@ -1,13 +1,12 @@
-# Stage1 compiler may not support this flag.
-# STAGE1_CFLAGS += -fcompare-debug=-gtoggle
-STAGE2_CFLAGS += -gtoggle -fcompare-debug=
-STAGE3_CFLAGS += -fcompare-debug=-gtoggle
-STAGE4_CFLAGS += -fcompare-debug=-fvar-tracking-assignments-toggle
-# This might be enough after testing:
-# TFLAGS += -fcompare-debug=-g0
-# Don't use -gtoggle for target libs, this breaks crtstuff on ppc.
-STAGE1_TFLAGS += -fcompare-debug=
-STAGE2_TFLAGS += -fcompare-debug=-fvar-tracking-assignments-toggle
+# This BUILD_CONFIG option tests that target libraries built during
+# stage3 would have generated the same executable code if they were
+# compiled with -g0.
+
+# It uses -g0 rather than -gtoggle because -g is default on target
+# library builds, and toggling it where it's supposed to be disabled
+# breaks e.g. crtstuff on ppc.
+
+STAGE1_TFLAGS += -g0 -fcompare-debug=
+STAGE2_TFLAGS += -fcompare-debug=
 STAGE3_TFLAGS += -fcompare-debug=-g0
-STAGE4_TFLAGS += -fcompare-debug=-fvar-tracking-assignments-toggle
 do-compare = $(SHELL) $(srcdir)/contrib/compare-debug $$f1 $$f2

@@ -1,3 +1,7 @@
+# This BUILD_CONFIG option is to be used along with
+# bootstrap-debug-lean and bootstrap-debug-lib in a full bootstrap, to
+# check that all host and target files are built with -fcompare-debug.
+
 # These arrange for a simple warning to be issued if -fcompare-debug
 # is not given.
 # BOOT_CFLAGS += -fcompare-debug="-w%n-fcompare-debug not overridden"
