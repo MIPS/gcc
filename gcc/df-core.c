@@ -2126,10 +2126,14 @@ df_ref_debug (df_ref ref, FILE *file)
 	   DF_REF_IS_ARTIFICIAL (ref) ? -1 : DF_REF_INSN_UID (ref),
 	   DF_REF_FLAGS (ref),
 	   DF_REF_TYPE (ref));
-  if (DF_REF_LOC (ref) && !flag_dump_noaddr)
-    fprintf (file, "loc %p(%p) chain ", (void *)DF_REF_LOC (ref), (void *)*DF_REF_LOC (ref));
-  else if (DF_REF_LOC (ref) && flag_dump_noaddr)
-    fprintf (file, "loc #(#) chain ");
+  if (DF_REF_LOC (ref))
+    {
+      if (flag_dump_noaddr)
+	fprintf (file, "loc #(#) chain ");
+      else
+	fprintf (file, "loc %p(%p) chain ", (void *)DF_REF_LOC (ref),
+		 (void *)*DF_REF_LOC (ref));
+    }
   else
     fprintf (file, "chain ");
   df_chain_dump (DF_REF_CHAIN (ref), file);
