@@ -10463,6 +10463,9 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   if (fcode == RS6000_BUILTIN_RSQRTF)
       return rs6000_expand_unop_builtin (CODE_FOR_rsqrtsf2, exp, target);
 
+  if (fcode == RS6000_BUILTIN_BSWAP_HI)
+    return rs6000_expand_unop_builtin (CODE_FOR_bswaphi2, exp, target);
+
   if (fcode == POWER7_BUILTIN_BPERMD)
     return rs6000_expand_binop_builtin (((TARGET_64BIT)
 					 ? CODE_FOR_bpermd_di
@@ -10760,6 +10763,14 @@ rs6000_init_builtins (void)
 					  "__builtin_bpermd");
       def_builtin (MASK_POPCNTD, "__builtin_bpermd", ftype,
 		   POWER7_BUILTIN_BPERMD);
+    }
+  if (TARGET_POWERPC)
+    {
+      tree ftype = builtin_function_type (SImode, SImode, VOIDmode, VOIDmode,
+					  RS6000_BUILTIN_BSWAP_HI,
+					  "__builtin_bswap16");
+      def_builtin (MASK_POWERPC, "__builtin_bswap16", ftype,
+		   RS6000_BUILTIN_BSWAP_HI);
     }
 
 #if TARGET_XCOFF

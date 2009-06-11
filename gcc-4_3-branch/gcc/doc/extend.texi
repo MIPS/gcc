@@ -10757,6 +10757,15 @@ int vec_any_numeric (vector float);
 int vec_any_out (vector float, vector float);
 @end smallexample
 
+GCC provides a few other builtins on Powerpc to access certain instructions:
+@smallexample
+float __builtin_recipdivf (float, float);
+float __builtin_rsqrtf (float);
+double __builtin_recipdiv (double, double);
+long __builtin_bpermd (long, long);
+int __builtin_bswap16 (int);
+@end smallexample
+
 @node SPARC VIS Built-in Functions
 @subsection SPARC VIS Built-in Functions
 
