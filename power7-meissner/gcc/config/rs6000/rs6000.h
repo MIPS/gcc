@@ -3370,6 +3370,7 @@ enum rs6000_builtins
 
   /* Power7 builtins, that aren't VSX instructions.  */
   POWER7_BUILTIN_BPERMD,
+  RS6000_BUILTIN_BSWAP_HI,
 
   RS6000_BUILTIN_COUNT
 };
