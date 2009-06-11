@@ -1373,10 +1373,6 @@ fverbose-asm
 Common Report Var(flag_verbose_asm)
 Add extra commentary to assembler output
 
-fverbose-cselib
-Common Var(flag_verbose_cselib)
-Add a lot of information to dumps of passes that use cselib.
-
 fvisibility=
 Common Joined RejectNegative
 -fvisibility=[default|internal|hidden|protected]	Set the default symbol visibility
