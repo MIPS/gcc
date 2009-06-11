@@ -639,7 +639,7 @@ add_vop (gimple stmt, tree op, int num, voptype_p prev)
   voptype_p new_vop;
   int x;
 
-  gcc_assert (!IS_DEBUG_STMT (stmt));
+  gcc_assert (!is_gimple_debug (stmt));
 
   new_vop = alloc_vop (num);
   for (x = 0; x < num; x++)
@@ -2107,9 +2107,9 @@ parse_ssa_operands (gimple stmt)
 
   if (code == GIMPLE_ASM)
     get_asm_expr_operands (stmt);
-  else if (IS_DEBUG_STMT (stmt))
+  else if (is_gimple_debug (stmt))
     {
-      if (IS_DEBUG_BIND (stmt)
+      if (gimple_debug_bind_p (stmt)
 	  && VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
 	get_expr_operands (stmt, &VAR_DEBUG_VALUE_VALUE (stmt),
 			   opf_use | opf_debug_use | opf_no_vops);

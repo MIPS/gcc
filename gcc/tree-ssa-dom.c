@@ -2644,7 +2644,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 	      discard_stmt_changes (&use_stmt);
 	      continue;
 	    }
-	  else if (IS_DEBUG_BIND (use_stmt))
+	  else if (gimple_debug_bind_p (use_stmt))
 	    check_and_update_debug_stmt (use_stmt, NULL);
 
 	  /* From this point onward we are propagating into a 

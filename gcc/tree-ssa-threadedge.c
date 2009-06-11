@@ -282,7 +282,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
       /* Ignore empty statements and labels.  */
       if (gimple_code (stmt) == GIMPLE_NOP
 	  || gimple_code (stmt) == GIMPLE_LABEL
-	  || IS_DEBUG_STMT (stmt))
+	  || is_gimple_debug (stmt))
 	continue;
 
       /* If the statement has volatile operands, then we assume we

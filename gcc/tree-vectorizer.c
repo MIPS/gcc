@@ -2538,7 +2538,7 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, name)
     {
       gimple use_stmt = USE_STMT (use_p);
-      if (IS_DEBUG_STMT (use_stmt))
+      if (is_gimple_debug (use_stmt))
 	continue;
       if (flow_bb_inside_loop_p (loop, gimple_bb (use_stmt))
 	  && vinfo_for_stmt (use_stmt)
@@ -2582,7 +2582,7 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, name)
     {
       gimple use_stmt = USE_STMT (use_p);
-      if (IS_DEBUG_STMT (use_stmt))
+      if (is_gimple_debug (use_stmt))
 	continue;
       if (flow_bb_inside_loop_p (loop, gimple_bb (use_stmt))
 	  && vinfo_for_stmt (use_stmt)

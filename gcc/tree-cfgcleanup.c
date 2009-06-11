@@ -440,7 +440,7 @@ remove_forwarder_block (basic_block bb)
 	{
 	  label = gsi_stmt (gsi);
 	  gcc_assert (gimple_code (label) == GIMPLE_LABEL
-		      || IS_DEBUG_STMT (label));
+		      || is_gimple_debug (label));
 	  gsi_remove (&gsi, false);
 	  gsi_insert_before (&gsi_to, label, GSI_SAME_STMT);
 	}

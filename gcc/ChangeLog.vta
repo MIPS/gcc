@@ -1,5 +1,50 @@
 2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree.h (IS_DEBUG_STMT): Removed.  Replace with is_gimple_debug.
+	(IS_DEBUG_BIND): Removed.  Replace with gimple_debug_bind_p.
+	* doc/gimple.texi (is_gimple_debug): New.
+	(gimple_debug_bind_p): New.
+	(is_gimple_call, gimple_assign_cast_p): End sentence with period.
+	* gimple.h: Adjust.
+	(is_gimple_debug, gimple_debug_bind_p): New.
+	(gimple_debug_bind_get_var, gimple_debug_bind_get_value): Use them.
+	(gimple_debug_bind_get_value_ptr, gimple_debug_bind_set_var): Ditto.
+	(gimple_debug_bind_set_value): Likewise.
+	* cfgexpand.c: Adjust.
+	* gimple-pretty-print.c: Adjust.
+	* gimple.c: Adjust.
+	* ipa-reference.c: Adjust.
+	* tree-cfg.c: Adjust.
+	* tree-cfgcleanup.c: Adjust.
+	* tree-dfa.c: Adjust.
+	* tree-flow-inline.h: Adjust.
+	* tree-inline.c: Adjust.
+	* tree-into-ssa.c: Adjust.
+	* tree-outof-ssa.c: Adjust.
+	* tree-parloops.c: Adjust.
+	* tree-ssa-forwprop.c: Adjust.
+	* tree-ssa-live.c: Adjust.
+	* tree-ssa-loop-ch.c: Adjust.
+	* tree-ssa-loop-ivopts.c: Adjust.
+	* tree-ssa-loop-manip.c: Adjust.
+	* tree-ssa-operands.c: Adjust.
+	* tree-ssa-phiopt.c: Adjust.
+	* tree-ssa-propagate.c: Adjust.
+	* tree-ssa-sink.c: Adjust.
+	* tree-ssa-ter.c: Adjust.
+	* tree-ssa-threadedge.c: Adjust.
+	* tree-ssa-threadupdate.c: Adjust.
+	* tree-ssa.c: Adjust.
+	* tree-stdarg.c: Adjust.
+	* tree-tailcall.c: Adjust.
+	* tree-vrp.c: Adjust.
+	* tree-if-conv.c: Adjust.
+	* tree-ssa-dce.c: Adjust.
+	* tree-ssa-dom.c: Adjust
+	* rtl.h (MAY_HAVE_DEBUG_INSNS): Alias to MAY_HAVE_DEBUG_STMTS.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
 	Reverted:
 	* df-scan.c (struct df_collection_ref): Add alloc_ members.
 	(vec_SIZE_def, vec_SIZE_use, vec_SIZE_eq_use, vec_SIZE_mw): New.

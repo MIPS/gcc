@@ -1837,7 +1837,7 @@ find_interesting_uses (struct ivopts_data *data)
       for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	find_interesting_uses_stmt (data, gsi_stmt (bsi));
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
-	if (!IS_DEBUG_STMT (gsi_stmt (bsi)))
+	if (!is_gimple_debug (gsi_stmt (bsi)))
 	find_interesting_uses_stmt (data, gsi_stmt (bsi));
     }
 
@@ -5433,7 +5433,7 @@ remove_unused_ivs (struct ivopts_data *data)
 
 	      FOR_EACH_IMM_USE_STMT (stmt, iter, info->iv->ssa_name)
 		{
-		  if (!IS_DEBUG_BIND (stmt))
+		  if (!gimple_debug_bind_p (stmt))
 		    continue;
 
 		  /* ??? We can probably do better than this.  */

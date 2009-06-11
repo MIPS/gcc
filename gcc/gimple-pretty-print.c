@@ -1687,7 +1687,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 	  gimple_stmt_iterator gsi;
 
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	    if (!IS_DEBUG_STMT (gsi_stmt (gsi))
+	    if (!is_gimple_debug (gsi_stmt (gsi))
 		&& get_lineno (gsi_stmt (gsi)) != UNKNOWN_LOCATION)
 	      {
 		pp_string (buffer, ", starting at line ");

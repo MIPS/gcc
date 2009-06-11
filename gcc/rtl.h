@@ -395,7 +395,7 @@ struct rtvec_def GTY(()) {
 #define NONDEBUG_INSN_P(X) (INSN_P (X) && !DEBUG_INSN_P (X))
 
 /* Nonzero if DEBUG_INSN_P may possibly hold.  */
-#define MAY_HAVE_DEBUG_INSNS (flag_var_tracking_assignments)
+#define MAY_HAVE_DEBUG_INSNS MAY_HAVE_DEBUG_STMTS
 
 /* Predicate yielding nonzero iff X is a real insn.  */
 #define INSN_P(X) \

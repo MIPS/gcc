@@ -585,7 +585,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
     {
       stmt = gsi_stmt (bsi);
 
-      if (IS_DEBUG_STMT (stmt))
+      if (is_gimple_debug (stmt))
 	continue;
 
       stmt_replaceable = is_replaceable_p (stmt);

@@ -430,7 +430,7 @@ scan_stmt_for_static_refs (gimple_stmt_iterator *gsip,
   unsigned int i;
   bitmap_iterator bi;
 
-  if (IS_DEBUG_STMT (stmt))
+  if (is_gimple_debug (stmt))
     return NULL;
 
   if (fn)

@@ -880,7 +880,7 @@ forward_propagate_addr_expr (tree name, tree rhs)
 	 there is nothing we can do.  */
       if (gimple_code (use_stmt) != GIMPLE_ASSIGN)
 	{
-	  if (IS_DEBUG_STMT (use_stmt))
+	  if (is_gimple_debug (use_stmt))
 	    debug = true;
 	  else
 	    all = false;

@@ -820,7 +820,7 @@ rewrite_trees (var_map map, gimple *values)
 	    gsi_remove (&gsi, true);
 	  else
 	    {
-	      if (IS_DEBUG_STMT (stmt))
+	      if (is_gimple_debug (stmt))
 		check_and_update_debug_stmt (stmt, not_ssa_name_p);
 	      if (changed)
 		if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
@@ -1142,7 +1142,7 @@ analyze_edges_for_bb (basic_block bb)
 		  /* Punt if it has non-label stmts, or isn't local.  */
 		  if (((!is_label
 			|| DECL_NONLOCAL (gimple_label_label (stmt)))
-		       && !IS_DEBUG_STMT (stmt))
+		       && !is_gimple_debug (stmt))
 		      || !gsi_end_p (gsi))
 		    {
 		      gsi_commit_one_edge_insert (e, NULL);

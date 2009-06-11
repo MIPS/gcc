@@ -399,7 +399,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       stmt = gsi_stmt (gsi);
 
       /* Ignore labels.  */
-      if (gimple_code (stmt) == GIMPLE_LABEL || IS_DEBUG_STMT (stmt))
+      if (gimple_code (stmt) == GIMPLE_LABEL || is_gimple_debug (stmt))
 	continue;
 
       /* Check for a call.  */
@@ -507,7 +507,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       if (gimple_code (stmt) == GIMPLE_RETURN)
 	break;
 
-      if (IS_DEBUG_STMT (stmt))
+      if (is_gimple_debug (stmt))
 	continue;
 
       if (gimple_code (stmt) != GIMPLE_ASSIGN)
