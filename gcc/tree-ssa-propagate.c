@@ -1173,7 +1173,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 
 	      /* Determine what needs to be done to update the SSA form.  */
 	      pop_stmt_changes (gsi_stmt_ptr (&i));
-	      if (!IS_DEBUG_STMT (stmt))
+	      if (!is_gimple_debug (stmt))
 		something_changed = true;
 	    }
 	  else

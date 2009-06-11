@@ -1066,9 +1066,9 @@ parse_ssa_operands (gimple stmt)
 
   if (code == GIMPLE_ASM)
     get_asm_expr_operands (stmt);
-  else if (IS_DEBUG_STMT (stmt))
+  else if (is_gimple_debug (stmt))
     {
-      if (IS_DEBUG_BIND (stmt)
+      if (gimple_debug_bind_p (stmt)
 	  && VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
 	get_expr_operands (stmt, &VAR_DEBUG_VALUE_VALUE (stmt),
 			   opf_use | opf_debug_use | opf_no_vops);

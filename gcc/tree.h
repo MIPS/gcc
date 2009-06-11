@@ -1526,16 +1526,6 @@ struct GTY(()) tree_constructor {
 				 && VOID_TYPE_P (TREE_TYPE (NODE)) \
 				 && integer_zerop (TREE_OPERAND (NODE, 0)))
 
-/* Nonzero if NODE is a debug statement.  */
-#define IS_DEBUG_STMT(NODE)     (gimple_code (NODE) == GIMPLE_DEBUG)
-
-/* Nonzero if NODE is a debug bind statement.  */
-#define IS_DEBUG_BIND(NODE)	(IS_DEBUG_STMT (NODE) && \
-				 (NODE)->gsbase.subcode == VAR_DEBUG_VALUE)
-
-/* Nonzero if IS_DEBUG_STMT may possibly.  */
-#define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
-
 /* In ordinary expression nodes.  */
 #define TREE_OPERAND_LENGTH(NODE) tree_operand_length (NODE)
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
@@ -1547,6 +1537,9 @@ struct GTY(()) tree_constructor {
    that field to avoid infinite recursion in expanding the macros.  */
 #define VL_EXP_OPERAND_LENGTH(NODE) \
   ((int)TREE_INT_CST_LOW (VL_EXP_CHECK (NODE)->exp.operands[0]))
+
+/* Nonzero if is_gimple_debug() may possibly hold.  */
+#define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
 
 /* The second operand of a VAR_DEBUG_VALUE when the value was
    optimized away.  */

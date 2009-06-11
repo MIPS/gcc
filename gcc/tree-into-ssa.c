@@ -763,7 +763,7 @@ mark_def_sites (struct dom_walk_data *walk_data, basic_block bb,
   set_register_defs (stmt, false);
   set_rewrite_uses (stmt, false);
 
-  if (IS_DEBUG_STMT (stmt))
+  if (is_gimple_debug (stmt))
     return;
 
   /* If a variable is used before being set, then the variable is live
@@ -1127,7 +1127,7 @@ adjust_debug_stmts_for_var_def_move (tree var,
       basic_block bb;
       gimple_stmt_iterator si;
 
-      if (!IS_DEBUG_STMT (stmt))
+      if (!is_gimple_debug (stmt))
 	continue;
 
       if (tobb)
@@ -1290,7 +1290,7 @@ check_and_update_debug_stmt (gimple t, bool (*available_p)(tree))
 {
   struct check_debug_predicate p;
 
-  gcc_assert (IS_DEBUG_STMT (t));
+  gcc_assert (is_gimple_debug (t));
 
   if (VAR_DEBUG_VALUE_VALUE (t) == VAR_DEBUG_VALUE_NOVALUE)
     return;
@@ -2211,11 +2211,11 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
   /* Rewrite USES included in OLD_SSA_NAMES and USES whose underlying
      symbol is marked for renaming.  */
-  if (rewrite_uses_p (stmt) && !IS_DEBUG_STMT (stmt))
+  if (rewrite_uses_p (stmt) && !is_gimple_debug (stmt))
     FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
       maybe_replace_use (use_p);
 
-  else if (rewrite_uses_p (stmt) && IS_DEBUG_STMT (stmt))
+  else if (rewrite_uses_p (stmt) && is_gimple_debug (stmt))
     {
       bool failed = false;
 
@@ -2635,7 +2635,7 @@ mark_use_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
     {
       set_rewrite_uses (stmt, true);
 
-      if (IS_DEBUG_STMT (stmt))
+      if (is_gimple_debug (stmt))
 	return;
     }
 

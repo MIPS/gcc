@@ -387,7 +387,7 @@ empty_block_p (basic_block bb)
   gimple_stmt_iterator gsi = gsi_after_labels (bb);
   if (gsi_end_p (gsi))
     return true;
-  if (IS_DEBUG_STMT (gsi_stmt (gsi)))
+  if (is_gimple_debug (gsi_stmt (gsi)))
     gsi_next_nondebug (&gsi);
   return gsi_end_p (gsi);
 }

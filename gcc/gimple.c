@@ -1255,7 +1255,7 @@ empty_body_p (gimple_seq body)
     return true;
   for (i = gsi_start (body); !gsi_end_p (i); gsi_next (&i))
     if (!empty_stmt_p (gsi_stmt (i))
-	&& !IS_DEBUG_STMT (gsi_stmt (i)))
+	&& !is_gimple_debug (gsi_stmt (i)))
       return false;
 
   return true;
@@ -2271,7 +2271,7 @@ gimple_has_side_effects (const_gimple s)
 {
   unsigned i;
 
-  if (IS_DEBUG_STMT (s))
+  if (is_gimple_debug (s))
     return false;
 
   /* We don't have to scan the arguments to check for
@@ -2367,7 +2367,7 @@ gimple_rhs_has_side_effects (const_gimple s)
 	    return true;
 	  }
     }
-  else if (IS_DEBUG_STMT (s))
+  else if (is_gimple_debug (s))
     return false;
   else
     {

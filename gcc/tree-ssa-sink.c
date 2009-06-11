@@ -120,7 +120,7 @@ all_immediate_uses_same_place (gimple stmt)
     {
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)
         {
-	  if (IS_DEBUG_STMT (USE_STMT (use_p)))
+	  if (is_gimple_debug (USE_STMT (use_p)))
 	    continue;
 	  if (firstuse == NULL)
 	    firstuse = USE_STMT (use_p);
@@ -229,7 +229,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 
 	      useblock = gimple_phi_arg_edge (usestmt, idx)->src;
 	    }
-	  else if (IS_DEBUG_STMT (usestmt))
+	  else if (is_gimple_debug (usestmt))
 	    {
 	      *debug_stmts = true;
 	      continue;
@@ -279,7 +279,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
     {
       FOR_EACH_IMM_USE_FAST (one_use, imm_iter, def)
 	{
-	  if (IS_DEBUG_STMT (USE_STMT (one_use)))
+	  if (is_gimple_debug (USE_STMT (one_use)))
 	    continue;
 
 	  break;

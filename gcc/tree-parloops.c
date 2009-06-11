@@ -658,7 +658,7 @@ eliminate_local_variables_stmt (edge entry, gimple stmt,
   dta.decl_address = decl_address;
   dta.changed = false;
 
-  if (IS_DEBUG_BIND (stmt))
+  if (gimple_debug_bind_p (stmt))
     walk_tree (gimple_debug_bind_get_value_ptr (stmt),
 	       eliminate_local_variables_1, &dta.info, NULL);
   else
@@ -1241,7 +1241,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	    {
 	      gimple stmt = gsi_stmt (gsi);
 
-	      if (IS_DEBUG_STMT (stmt))
+	      if (is_gimple_debug (stmt))
 		has_debug_stmt = true;
 	      else
 		separate_decls_in_region_stmt (entry, exit, stmt,
@@ -1258,7 +1258,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	    {
 	      gimple stmt = gsi_stmt (gsi);
 
-	      if (IS_DEBUG_BIND (stmt))
+	      if (gimple_debug_bind_p (stmt))
 		{
 		  if (separate_decls_in_region_debug_bind (stmt,
 							   name_copies,
@@ -1269,7 +1269,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 		    }
 		}
 	      else
-		gcc_assert (!IS_DEBUG_STMT (stmt));
+		gcc_assert (!is_gimple_debug (stmt));
 
 	      gsi_next (&gsi);
 	    }

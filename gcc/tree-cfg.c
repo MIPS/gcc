@@ -2705,7 +2705,7 @@ first_stmt (basic_block bb)
   gimple_stmt_iterator i = gsi_start_bb (bb);
   gimple stmt = NULL;
 
-  while (!gsi_end_p (i) && IS_DEBUG_STMT ((stmt = gsi_stmt (i))))
+  while (!gsi_end_p (i) && is_gimple_debug ((stmt = gsi_stmt (i))))
     {
       gsi_next (&i);
       stmt = NULL;
@@ -2721,7 +2721,7 @@ last_stmt (basic_block bb)
   gimple_stmt_iterator i = gsi_last_bb (bb);
   gimple stmt = NULL;
 
-  while (!gsi_end_p (i) && IS_DEBUG_STMT ((stmt = gsi_stmt (i))))
+  while (!gsi_end_p (i) && is_gimple_debug ((stmt = gsi_stmt (i))))
     {
       gsi_prev (&i);
       stmt = NULL;
@@ -4185,7 +4185,7 @@ verify_stmt (gimple_stmt_iterator *gsi)
 	}
     }
 
-  if (IS_DEBUG_STMT (stmt))
+  if (is_gimple_debug (stmt))
     {
       check_and_update_debug_stmt (stmt, NULL);
       return false;

@@ -476,7 +476,7 @@ redirection_block_p (basic_block bb)
   gsi = gsi_start_bb (bb);
   while (!gsi_end_p (gsi)
          && (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL
-	     || IS_DEBUG_STMT (gsi_stmt (gsi))
+	     || is_gimple_debug (gsi_stmt (gsi))
              || gimple_nop_p (gsi_stmt (gsi))))
     gsi_next (&gsi);
   

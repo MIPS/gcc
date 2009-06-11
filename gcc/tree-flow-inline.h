@@ -374,7 +374,7 @@ has_zero_uses (const_tree var)
 
   start = ptr;
   for (ptr = start->next; ptr != start; ptr = ptr->next)
-    if (!IS_DEBUG_STMT (USE_STMT (ptr)))
+    if (!is_gimple_debug (USE_STMT (ptr)))
       return false;
   return true;
 }
@@ -391,13 +391,13 @@ has_single_use (const_tree var)
   ret = (ptr != ptr->next && ptr == ptr->next->next);
 
   if (ret)
-    return !IS_DEBUG_STMT (USE_STMT (ptr->next));
+    return !is_gimple_debug (USE_STMT (ptr->next));
   else if (!MAY_HAVE_DEBUG_STMTS)
     return ret;
 
   start = ptr;
   for (ptr = start->next; ptr != start; ptr = ptr->next)
-    if (!IS_DEBUG_STMT (USE_STMT (ptr)))
+    if (!is_gimple_debug (USE_STMT (ptr)))
       {
 	if (ret)
 	  return false;
@@ -420,13 +420,13 @@ single_imm_use (const_tree var, use_operand_p *use_p, gimple *stmt)
   ret = ptr != ptr->next && ptr == ptr->next->next;
 
   if (ret)
-    ret = !IS_DEBUG_STMT (USE_STMT (ptr->next));
+    ret = !is_gimple_debug (USE_STMT (ptr->next));
   else if (MAY_HAVE_DEBUG_STMTS)
     {
       const ssa_use_operand_t *start = ptr, *prev = ptr, *single_use_prev = 0;
 
       for (ptr = start->next; ptr != start; prev = ptr, ptr = ptr->next)
-	if (!IS_DEBUG_STMT (USE_STMT (ptr)))
+	if (!is_gimple_debug (USE_STMT (ptr)))
 	  {
 	    if (ret)
 	      {
@@ -464,7 +464,7 @@ num_imm_uses (const_tree var)
       num++;
   else
     for (ptr = start->next; ptr != start; ptr = ptr->next)
-      if (!IS_DEBUG_STMT (USE_STMT (ptr)))
+      if (!is_gimple_debug (USE_STMT (ptr)))
 	num++;
 
   return num;

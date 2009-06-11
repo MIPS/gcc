@@ -1009,7 +1009,7 @@ eliminate_unnecessary_stmts (void)
 	    }
 	  else
 	    {
-	      if (IS_DEBUG_BIND (stmt))
+	      if (gimple_debug_bind_p (stmt))
 		{
 		  if (something_changed
 		      && (VAR_DEBUG_VALUE_VALUE (stmt)

@@ -3191,6 +3191,24 @@ gimple_switch_set_default_label (gimple gs, tree label)
   gimple_switch_set_label (gs, 0, label);
 }
 
+/* Return true if GS is a GIMPLE_DEBUG statement.  */
+
+static inline bool
+is_gimple_debug (const_gimple gs)
+{
+  return gimple_code (gs) == GIMPLE_DEBUG;
+}
+
+/* Return true if S is a GIMPLE_DEBUG BIND statement.  */
+
+static inline bool
+gimple_debug_bind_p (const_gimple s)
+{
+  if (is_gimple_debug (s))
+    return s->gsbase.subcode == VAR_DEBUG_VALUE;
+
+  return false;
+}
 
 /* Return the variable bound in a GIMPLE_DEBUG bind statement.  */
 
@@ -3198,7 +3216,7 @@ static inline tree
 gimple_debug_bind_get_var (gimple dbg)
 {
   GIMPLE_CHECK (dbg, GIMPLE_DEBUG);
-  gcc_assert (dbg->gsbase.subcode == VAR_DEBUG_VALUE);
+  gcc_assert (gimple_debug_bind_p (dbg));
   return gimple_op (dbg, 0);
 }
 
@@ -3209,7 +3227,7 @@ static inline tree
 gimple_debug_bind_get_value (gimple dbg)
 {
   GIMPLE_CHECK (dbg, GIMPLE_DEBUG);
-  gcc_assert (dbg->gsbase.subcode == VAR_DEBUG_VALUE);
+  gcc_assert (gimple_debug_bind_p (dbg));
   return gimple_op (dbg, 1);
 }
 
@@ -3220,7 +3238,7 @@ static inline tree *
 gimple_debug_bind_get_value_ptr (gimple dbg)
 {
   GIMPLE_CHECK (dbg, GIMPLE_DEBUG);
-  gcc_assert (dbg->gsbase.subcode == VAR_DEBUG_VALUE);
+  gcc_assert (gimple_debug_bind_p (dbg));
   return gimple_op_ptr (dbg, 1);
 }
 
@@ -3230,7 +3248,7 @@ static inline void
 gimple_debug_bind_set_var (gimple dbg, tree var)
 {
   GIMPLE_CHECK (dbg, GIMPLE_DEBUG);
-  gcc_assert (dbg->gsbase.subcode == VAR_DEBUG_VALUE);
+  gcc_assert (gimple_debug_bind_p (dbg));
   gimple_set_op (dbg, 0, var);
 }
 
@@ -3241,7 +3259,7 @@ static inline void
 gimple_debug_bind_set_value (gimple dbg, tree value)
 {
   GIMPLE_CHECK (dbg, GIMPLE_DEBUG);
-  gcc_assert (dbg->gsbase.subcode == VAR_DEBUG_VALUE);
+  gcc_assert (gimple_debug_bind_p (dbg));
   gimple_set_op (dbg, 1, value);
 }
 
@@ -4426,7 +4444,7 @@ gsi_next_nondebug (gimple_stmt_iterator *i)
 {
   do
     gsi_next (i);
-  while (!gsi_end_p (*i) && IS_DEBUG_STMT (gsi_stmt (*i)));
+  while (!gsi_end_p (*i) && is_gimple_debug (gsi_stmt (*i)));
 }
 
 /* Advance the iterator to the next non-debug gimple statement.  */
@@ -4436,7 +4454,7 @@ gsi_prev_nondebug (gimple_stmt_iterator *i)
 {
   do
     gsi_prev (i);
-  while (!gsi_end_p (*i) && IS_DEBUG_STMT (gsi_stmt (*i)));
+  while (!gsi_end_p (*i) && is_gimple_debug (gsi_stmt (*i)));
 }
 
 /* Return a new iterator pointing to the first non-debug statement in
@@ -4447,7 +4465,7 @@ gsi_start_nondebug_bb (basic_block bb)
 {
   gimple_stmt_iterator i = gsi_start_bb (bb);
 
-  if (!gsi_end_p (i) && IS_DEBUG_STMT (gsi_stmt (i)))
+  if (!gsi_end_p (i) && is_gimple_debug (gsi_stmt (i)))
     gsi_next_nondebug (&i);
 
   return i;
@@ -4461,7 +4479,7 @@ gsi_last_nondebug_bb (basic_block bb)
 {
   gimple_stmt_iterator i = gsi_last_bb (bb);
 
-  if (!gsi_end_p (i) && IS_DEBUG_STMT (gsi_stmt (i)))
+  if (!gsi_end_p (i) && is_gimple_debug (gsi_stmt (i)))
     gsi_prev_nondebug (&i);
 
   return i;

@@ -111,7 +111,7 @@ set_location_for_edge (edge e)
 	  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
 	    {
 	      gimple stmt = gsi_stmt (gsi);
-	      if (IS_DEBUG_STMT (stmt))
+	      if (is_gimple_debug (stmt))
 		continue;
 	      if (gimple_has_location (stmt) || gimple_block (stmt))
 		{

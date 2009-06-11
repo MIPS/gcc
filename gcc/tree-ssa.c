@@ -632,7 +632,7 @@ verify_ssa (bool check_modified_stmt)
 		  goto err;
 		}
 	    }
-	  else if (IS_DEBUG_BIND (stmt)
+	  else if (gimple_debug_bind_p (stmt)
 		   && VAR_DEBUG_VALUE_VALUE (stmt) == VAR_DEBUG_VALUE_NOVALUE)
 	    continue;
 
@@ -1404,7 +1404,7 @@ warn_uninitialized_vars (bool warn_possibly_uninitialized)
 	{
 	  struct walk_stmt_info wi;
 	  data.stmt = gsi_stmt (gsi);
-	  if (IS_DEBUG_STMT (data.stmt))
+	  if (is_gimple_debug (data.stmt))
 	    continue;
 	  memset (&wi, 0, sizeof (wi));
 	  wi.info = &data;

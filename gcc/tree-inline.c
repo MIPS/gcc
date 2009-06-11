@@ -1316,7 +1316,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	    }
 	}
 
-      if (IS_DEBUG_BIND (stmt))
+      if (gimple_debug_bind_p (stmt))
 	{
 	  copy = gimple_build_debug_bind (VAR_DEBUG_VALUE_VAR (stmt),
 					  VAR_DEBUG_VALUE_VALUE (stmt),
@@ -1343,7 +1343,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
   gimple_set_block (copy, new_block);
 
-  if (IS_DEBUG_BIND (copy))
+  if (gimple_debug_bind_p (copy))
     return copy;
 
   /* Remap all the operands in COPY.  */
@@ -1635,7 +1635,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		add_stmt_to_eh_region (stmt, id->eh_region);
 	    }
 
-	  if (gimple_in_ssa_p (cfun) && !IS_DEBUG_STMT (stmt))
+	  if (gimple_in_ssa_p (cfun) && !is_gimple_debug (stmt))
 	    {
 	      ssa_op_iter i;
 	      tree def;
@@ -1764,7 +1764,7 @@ copy_edges_for_bb (basic_block bb, gcov_type count_scale, basic_block ret_bb)
       bool can_throw, nonlocal_goto;
 
       copy_stmt = gsi_stmt (si);
-      if (!IS_DEBUG_STMT (copy_stmt))
+      if (!is_gimple_debug (copy_stmt))
 	{
 	  update_stmt (copy_stmt);
 	  if (gimple_in_ssa_p (cfun))
@@ -2197,7 +2197,7 @@ insert_init_stmt (copy_body_data *id, basic_block bb, gimple init_stmt)
          from a rhs with a conversion.  Handle that here by forcing the
 	 rhs into a temporary.  gimple_regimplify_operands is not
 	 prepared to do this for us.  */
-      if (!IS_DEBUG_STMT (init_stmt)
+      if (!is_gimple_debug (init_stmt)
 	  && !is_gimple_reg (gimple_assign_lhs (init_stmt))
 	  && is_gimple_reg_type (TREE_TYPE (gimple_assign_lhs (init_stmt)))
 	  && gimple_assign_rhs_class (init_stmt) == GIMPLE_UNARY_RHS)
@@ -2214,7 +2214,7 @@ insert_init_stmt (copy_body_data *id, basic_block bb, gimple init_stmt)
       gimple_regimplify_operands (init_stmt, &si);
       mark_symbols_for_renaming (init_stmt);
 
-      if (!IS_DEBUG_STMT (init_stmt) && MAY_HAVE_DEBUG_STMTS)
+      if (!is_gimple_debug (init_stmt) && MAY_HAVE_DEBUG_STMTS)
 	{
 	  tree var, def = gimple_assign_lhs (init_stmt);
 
