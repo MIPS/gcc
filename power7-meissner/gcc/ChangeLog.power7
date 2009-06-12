@@ -1,3 +1,15 @@
+2009-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__HAVE_BSWAP__ to let people know they can use the bswap
+	builtins.
+
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Make the bswap16
+	builtin take and return unsigned short ints.
+
+	* config/rs6000/rs6000.md (bswaphi2*): Use HImode as argument and
+	return type.
+
 2009-06-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
