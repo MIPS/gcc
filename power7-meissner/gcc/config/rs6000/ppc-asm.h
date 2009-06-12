@@ -333,6 +333,7 @@ GLUE(.L,name): \
 	.size FUNC_NAME(name),GLUE(.L,name)-FUNC_NAME(name)
 #endif
 
+#ifdef IN_GCC
 /* For HAVE_GAS_CFI_DIRECTIVE.  */
 #include "auto-host.h"
 
@@ -348,6 +349,7 @@ GLUE(.L,name): \
 # define CFI_OFFSET(reg, off)
 # define CFI_DEF_CFA_REGISTER(reg)
 # define CFI_RESTORE(reg)
+#endif
 #endif
 
 #if defined __linux__ && !defined __powerpc64__

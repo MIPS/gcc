@@ -5298,6 +5298,17 @@ expand_builtin_trap (void)
   emit_barrier ();
 }
 
+/* Expand a call to __builtin_unreachable.  We do nothing except emit
+   a barrier saying that control flow will not pass here.
+
+   It is the responsibility of the program being compiled to ensure
+   that control flow does never reach __builtin_unreachable.  */
+static void
+expand_builtin_unreachable (void)
+{
+  emit_barrier ();
+}
+
 /* Expand EXP, a call to fabs, fabsf or fabsl.
    Return NULL_RTX if a normal call should be emitted rather than expanding
    the function inline.  If convenient, the result should be placed
@@ -6793,6 +6804,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_TRAP:
       expand_builtin_trap ();
+      return const0_rtx;
+
+    case BUILT_IN_UNREACHABLE:
+      expand_builtin_unreachable ();
       return const0_rtx;
 
     case BUILT_IN_PRINTF:
@@ -13216,21 +13231,21 @@ do_mpc_ckconv (mpc_srcptr m, tree type, int inexact)
   /* Proceed iff we get a normal number, i.e. not NaN or Inf and no
      overflow/underflow occurred.  If -frounding-math, proceed iff the
      result of calling FUNC was exact.  */
-  if (mpfr_number_p (MPC_RE (m)) && mpfr_number_p (MPC_IM (m))
+  if (mpfr_number_p (mpc_realref (m)) && mpfr_number_p (mpc_imagref (m))
       && !mpfr_overflow_p () && !mpfr_underflow_p ()
       && (!flag_rounding_math || !inexact))
     {
       REAL_VALUE_TYPE re, im;
 
-      real_from_mpfr (&re, MPC_RE (m), type, GMP_RNDN);
-      real_from_mpfr (&im, MPC_IM (m), type, GMP_RNDN);
+      real_from_mpfr (&re, mpc_realref (m), type, GMP_RNDN);
+      real_from_mpfr (&im, mpc_imagref (m), type, GMP_RNDN);
       /* Proceed iff GCC's REAL_VALUE_TYPE can hold the MPFR values,
 	 check for overflow/underflow.  If the REAL_VALUE_TYPE is zero
 	 but the mpft_t is not, then we underflowed in the
 	 conversion.  */
       if (real_isfinite (&re) && real_isfinite (&im)
-	  && (re.cl == rvc_zero) == (mpfr_zero_p (MPC_RE (m)) != 0)
-	  && (im.cl == rvc_zero) == (mpfr_zero_p (MPC_IM (m)) != 0))
+	  && (re.cl == rvc_zero) == (mpfr_zero_p (mpc_realref (m)) != 0)
+	  && (im.cl == rvc_zero) == (mpfr_zero_p (mpc_imagref (m)) != 0))
         {
 	  REAL_VALUE_TYPE re_mode, im_mode;
 
@@ -13676,8 +13691,8 @@ do_mpc_arg1 (tree arg, tree type, int (*func)(mpc_ptr, mpc_srcptr, mpc_rnd_t))
 	  mpc_t m;
 	  
 	  mpc_init2 (m, prec);
-	  mpfr_from_real (MPC_RE(m), re, rnd);
-	  mpfr_from_real (MPC_IM(m), im, rnd);
+	  mpfr_from_real (mpc_realref(m), re, rnd);
+	  mpfr_from_real (mpc_imagref(m), im, rnd);
 	  mpfr_clear_flags ();
 	  inexact = func (m, m, crnd);
 	  result = do_mpc_ckconv (m, type, inexact);
