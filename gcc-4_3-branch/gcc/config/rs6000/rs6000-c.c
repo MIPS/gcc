@@ -365,6 +365,9 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__builtin_vsx_xvnmsubmsp=__builtin_vsx_xvnmsubsp");
     }
 
+  /* Tell users they can use __builtin_bswap{16,64}.  */
+  builtin_define ("__HAVE_BSWAP__");
+
   /* May be overridden by target configuration.  */
   RS6000_CPU_CPP_ENDIAN_BUILTINS();
 

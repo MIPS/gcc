@@ -10766,9 +10766,10 @@ rs6000_init_builtins (void)
     }
   if (TARGET_POWERPC)
     {
-      tree ftype = builtin_function_type (SImode, SImode, VOIDmode, VOIDmode,
-					  RS6000_BUILTIN_BSWAP_HI,
-					  "__builtin_bswap16");
+      /* Don't use builtin_function_type here, as it maps HI/QI to SI.  */
+      tree ftype = build_function_type_list (unsigned_intHI_type_node,
+					     unsigned_intHI_type_node,
+					     NULL_TREE);
       def_builtin (MASK_POWERPC, "__builtin_bswap16", ftype,
 		   RS6000_BUILTIN_BSWAP_HI);
     }
