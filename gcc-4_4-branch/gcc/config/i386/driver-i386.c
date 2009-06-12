@@ -378,7 +378,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   /* Extended features */
   unsigned int has_lahf_lm = 0, has_sse4a = 0;
   unsigned int has_longmode = 0, has_3dnowp = 0, has_3dnow = 0;
-  unsigned int has_sse4_1 = 0, has_sse4_2 = 0;
+  unsigned int has_movbe = 0, has_sse4_1 = 0, has_sse4_2 = 0;
   unsigned int has_popcnt = 0, has_aes = 0, has_avx = 0;
   unsigned int has_pclmul = 0;
 
@@ -421,6 +421,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   has_sse4_2 = ecx & bit_SSE4_2;
   has_avx = ecx & bit_AVX;
   has_cmpxchg16b = ecx & bit_CMPXCHG16B;
+  has_movbe = ecx & bit_MOVBE;
   has_popcnt = ecx & bit_POPCNT;
   has_aes = ecx & bit_AES;
   has_pclmul = ecx & bit_PCLMUL;
@@ -610,6 +611,8 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	options = concat (options, "-mcx16 ", NULL);
       if (has_lahf_lm)
 	options = concat (options, "-msahf ", NULL);
+      if (has_movbe)
+	options = concat (options, "-mmovbe ", NULL);
       if (has_aes)
 	options = concat (options, "-maes ", NULL);
       if (has_pclmul)
