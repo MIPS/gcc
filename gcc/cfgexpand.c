@@ -2735,11 +2735,20 @@ expand_debug_expr (tree exp)
       /* ??? Maybe handle some builtins?  */
       return NULL;
 
-      /* SSA names of optimized-away variables can survive un-SSA.  */
     case SSA_NAME:
+      {
+	int part = var_to_partition (SA.map, exp);
+
+	if (part == NO_PARTITION)
+	  return NULL;
+
+	gcc_assert (part >= 0 && (unsigned)part < SA.map->num_partitions);
+
+	return SA.partition_to_pseudo[part];
+      }
+
     case ERROR_MARK:
       return NULL;
-
 
     default:
     flag_unsupported:
