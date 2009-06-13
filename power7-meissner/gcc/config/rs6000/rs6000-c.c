@@ -3151,8 +3151,10 @@ altivec_build_resolved_builtin (tree *args, int n,
    support Altivec's overloaded builtins.  */
 
 tree
-altivec_resolve_overloaded_builtin (tree fndecl, void *passed_arglist)
+altivec_resolve_overloaded_builtin (unsigned int loc, tree fndecl,
+				    void *passed_arglist)
 {
+  location_t input_location = (location_t) loc;
   VEC(tree,gc) *arglist = (VEC(tree,gc) *) passed_arglist;
   unsigned int nargs = VEC_length (tree, arglist);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
@@ -3295,7 +3297,7 @@ altivec_resolve_overloaded_builtin (tree fndecl, void *passed_arglist)
 			      build_int_cst (TREE_TYPE (arg2),
 					     TYPE_VECTOR_SUBPARTS (arg1_type)
 					     - 1), 0);
-      decl = build_decl (VAR_DECL, NULL_TREE, arg1_type);
+      decl = build_decl (input_location, VAR_DECL, NULL_TREE, arg1_type);
       DECL_EXTERNAL (decl) = 0;
       TREE_PUBLIC (decl) = 0;
       DECL_CONTEXT (decl) = current_function_decl;
@@ -3374,7 +3376,7 @@ altivec_resolve_overloaded_builtin (tree fndecl, void *passed_arglist)
 			      build_int_cst (TREE_TYPE (arg2),
 					     TYPE_VECTOR_SUBPARTS (arg1_type)
 					     - 1), 0);
-      decl = build_decl (VAR_DECL, NULL_TREE, arg1_type);
+      decl = build_decl (input_location, VAR_DECL, NULL_TREE, arg1_type);
       DECL_EXTERNAL (decl) = 0;
       TREE_PUBLIC (decl) = 0;
       DECL_CONTEXT (decl) = current_function_decl;
