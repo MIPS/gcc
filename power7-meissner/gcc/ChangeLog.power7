@@ -1,3 +1,19 @@
+2009-06-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.in (HAVE_AS_LWSYNC): Add for configure test.
+
+	* configure.ac (gcc_cv_as_powerpc_lwsync): Prope to see if the
+	assembler supports the lwsync instruction.
+	* configure: Regenerate.
+
+	* config/rs6000/sync.md (lwsync): If the assembler can support
+	lwsync generate it instead of putting in the bit pattern as an
+	integer constant.
+
+	* config/rs6000/rs6000.h (TARGET_LWSYNC_INSTRUCTION): Define as
+	1/0 depending on whether the assembler supports the lwsync
+	instruction.
+
 2009-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define

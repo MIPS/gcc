@@ -3209,6 +3209,19 @@ LCF0:
       [AC_DEFINE(HAVE_AS_POPCNTD, 1,
 	  [Define if your assembler supports POPCNTD instructions.])])
 
+    case $target in
+      *-*-aix*) conftest_s='	.csect .text[[PR]]
+	lwsync';;
+      *) conftest_s='	.text
+	lwsync';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([lwsync support],
+      gcc_cv_as_powerpc_lwsync, [2,19,2], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_LWSYNC, 1,
+	  [Define if your assembler supports LWSYNC instructions.])])
+
     gcc_GAS_CHECK_FEATURE([.gnu_attribute support],
       gcc_cv_as_powerpc_gnu_attribute, [2,18,0],,
       [.gnu_attribute 4,1],,
