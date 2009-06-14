@@ -4189,7 +4189,7 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
 
     arg1_rtx = get_memory_rtx (arg1, len);
     arg2_rtx = get_memory_rtx (arg2, len);
-    arg3_rtx = expand_normal (len);
+    arg3_rtx = expand_normal (fold_convert (sizetype, len));
 
     /* Set MEM_SIZE as appropriate.  */
     if (GET_CODE (arg3_rtx) == CONST_INT)
@@ -5295,6 +5295,17 @@ expand_builtin_trap (void)
   else
 #endif
     emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
+  emit_barrier ();
+}
+
+/* Expand a call to __builtin_unreachable.  We do nothing except emit
+   a barrier saying that control flow will not pass here.
+
+   It is the responsibility of the program being compiled to ensure
+   that control flow does never reach __builtin_unreachable.  */
+static void
+expand_builtin_unreachable (void)
+{
   emit_barrier ();
 }
 
@@ -6793,6 +6804,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_TRAP:
       expand_builtin_trap ();
+      return const0_rtx;
+
+    case BUILT_IN_UNREACHABLE:
+      expand_builtin_unreachable ();
       return const0_rtx;
 
     case BUILT_IN_PRINTF:
@@ -11231,7 +11246,7 @@ validate_gimple_arglist (const_gimple call, ...)
 
   do
     {
-      code = va_arg (ap, enum tree_code);
+      code = (enum tree_code) va_arg (ap, int);
       switch (code)
 	{
 	case 0:
@@ -11282,7 +11297,7 @@ validate_arglist (const_tree callexpr, ...)
 
   do
     {
-      code = va_arg (ap, enum tree_code);
+      code = (enum tree_code) va_arg (ap, int);
       switch (code)
 	{
 	case 0:
@@ -13216,21 +13231,21 @@ do_mpc_ckconv (mpc_srcptr m, tree type, int inexact)
   /* Proceed iff we get a normal number, i.e. not NaN or Inf and no
      overflow/underflow occurred.  If -frounding-math, proceed iff the
      result of calling FUNC was exact.  */
-  if (mpfr_number_p (MPC_RE (m)) && mpfr_number_p (MPC_IM (m))
+  if (mpfr_number_p (mpc_realref (m)) && mpfr_number_p (mpc_imagref (m))
       && !mpfr_overflow_p () && !mpfr_underflow_p ()
       && (!flag_rounding_math || !inexact))
     {
       REAL_VALUE_TYPE re, im;
 
-      real_from_mpfr (&re, MPC_RE (m), type, GMP_RNDN);
-      real_from_mpfr (&im, MPC_IM (m), type, GMP_RNDN);
+      real_from_mpfr (&re, mpc_realref (m), type, GMP_RNDN);
+      real_from_mpfr (&im, mpc_imagref (m), type, GMP_RNDN);
       /* Proceed iff GCC's REAL_VALUE_TYPE can hold the MPFR values,
 	 check for overflow/underflow.  If the REAL_VALUE_TYPE is zero
 	 but the mpft_t is not, then we underflowed in the
 	 conversion.  */
       if (real_isfinite (&re) && real_isfinite (&im)
-	  && (re.cl == rvc_zero) == (mpfr_zero_p (MPC_RE (m)) != 0)
-	  && (im.cl == rvc_zero) == (mpfr_zero_p (MPC_IM (m)) != 0))
+	  && (re.cl == rvc_zero) == (mpfr_zero_p (mpc_realref (m)) != 0)
+	  && (im.cl == rvc_zero) == (mpfr_zero_p (mpc_imagref (m)) != 0))
         {
 	  REAL_VALUE_TYPE re_mode, im_mode;
 
@@ -13676,8 +13691,8 @@ do_mpc_arg1 (tree arg, tree type, int (*func)(mpc_ptr, mpc_srcptr, mpc_rnd_t))
 	  mpc_t m;
 	  
 	  mpc_init2 (m, prec);
-	  mpfr_from_real (MPC_RE(m), re, rnd);
-	  mpfr_from_real (MPC_IM(m), im, rnd);
+	  mpfr_from_real (mpc_realref(m), re, rnd);
+	  mpfr_from_real (mpc_imagref(m), im, rnd);
 	  mpfr_clear_flags ();
 	  inexact = func (m, m, crnd);
 	  result = do_mpc_ckconv (m, type, inexact);

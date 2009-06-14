@@ -899,8 +899,8 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
         }
     }
 
-  ubound = gfc_conv_descriptor_ubound (desc, bound);
-  lbound = gfc_conv_descriptor_lbound (desc, bound);
+  ubound = gfc_conv_descriptor_ubound_get (desc, bound);
+  lbound = gfc_conv_descriptor_lbound_get (desc, bound);
   
   /* Follow any component references.  */
   if (arg->expr->expr_type == EXPR_VARIABLE
@@ -962,7 +962,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
 
   if (as)
     {
-      tree stride = gfc_conv_descriptor_stride (desc, bound);
+      tree stride = gfc_conv_descriptor_stride_get (desc, bound);
 
       cond1 = fold_build2 (GE_EXPR, boolean_type_node, ubound, lbound);
       cond2 = fold_build2 (LE_EXPR, boolean_type_node, ubound, lbound);
@@ -2710,53 +2710,51 @@ gfc_conv_intrinsic_leadz (gfc_se * se, gfc_expr * expr)
   tree leadz;
   tree bit_size;
   tree tmp;
-  int arg_kind;
-  int i, n, s;
+  tree func;
+  int s, argsize;
 
   gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
+  argsize = TYPE_PRECISION (TREE_TYPE (arg));
 
   /* Which variant of __builtin_clz* should we call?  */
-  arg_kind = expr->value.function.actual->expr->ts.kind;
-  i = gfc_validate_kind (BT_INTEGER, arg_kind, false);
-  switch (arg_kind)
+  if (argsize <= INT_TYPE_SIZE)
     {
-      case 1:
-      case 2:
-      case 4:
-        arg_type = unsigned_type_node;
-	n = BUILT_IN_CLZ;
-	break;
-
-      case 8:
-        arg_type = long_unsigned_type_node;
-	n = BUILT_IN_CLZL;
-	break;
-
-      case 16:
-        arg_type = long_long_unsigned_type_node;
-	n = BUILT_IN_CLZLL;
-	break;
-
-      default:
-        gcc_unreachable ();
+      arg_type = unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CLZ];
+    }
+  else if (argsize <= LONG_TYPE_SIZE)
+    {
+      arg_type = long_unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CLZL];
+    }
+  else if (argsize <= LONG_LONG_TYPE_SIZE)
+    {
+      arg_type = long_long_unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CLZLL];
+    }
+  else
+    {
+      gcc_assert (argsize == 128);
+      arg_type = gfc_build_uint_type (argsize);
+      func = gfor_fndecl_clz128;
     }
 
-  /* Convert the actual argument to the proper argument type for the built-in
+  /* Convert the actual argument twice: first, to the unsigned type of the
+     same size; then, to the proper argument type for the built-in
      function.  But the return type is of the default INTEGER kind.  */
+  arg = fold_convert (gfc_build_uint_type (argsize), arg);
   arg = fold_convert (arg_type, arg);
   result_type = gfc_get_int_type (gfc_default_integer_kind);
 
   /* Compute LEADZ for the case i .ne. 0.  */
-  s = TYPE_PRECISION (arg_type) - gfc_integer_kinds[i].bit_size;
-  tmp = fold_convert (result_type, build_call_expr (built_in_decls[n], 1, arg));
+  s = TYPE_PRECISION (arg_type) - argsize;
+  tmp = fold_convert (result_type, build_call_expr (func, 1, arg));
   leadz = fold_build2 (MINUS_EXPR, result_type,
 		       tmp, build_int_cst (result_type, s));
 
   /* Build BIT_SIZE.  */
-  bit_size = build_int_cst (result_type, gfc_integer_kinds[i].bit_size);
+  bit_size = build_int_cst (result_type, argsize);
 
-  /* ??? For some combinations of targets and integer kinds, the condition
-	 can be avoided if CLZ_DEFINED_VALUE_AT_ZERO is used.  Later.  */
   cond = fold_build2 (EQ_EXPR, boolean_type_node,
 		      arg, build_int_cst (arg_type, 0));
   se->expr = fold_build3 (COND_EXPR, result_type, cond, bit_size, leadz);
@@ -2777,50 +2775,48 @@ gfc_conv_intrinsic_trailz (gfc_se * se, gfc_expr *expr)
   tree result_type;
   tree trailz;
   tree bit_size;
-  int arg_kind;
-  int i, n;
+  tree func;
+  int argsize;
 
   gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
+  argsize = TYPE_PRECISION (TREE_TYPE (arg));
 
-  /* Which variant of __builtin_clz* should we call?  */
-  arg_kind = expr->value.function.actual->expr->ts.kind;
-  i = gfc_validate_kind (BT_INTEGER, arg_kind, false);
-  switch (expr->ts.kind)
+  /* Which variant of __builtin_ctz* should we call?  */
+  if (argsize <= INT_TYPE_SIZE)
     {
-      case 1:
-      case 2:
-      case 4:
-        arg_type = unsigned_type_node;
-	n = BUILT_IN_CTZ;
-	break;
-
-      case 8:
-        arg_type = long_unsigned_type_node;
-	n = BUILT_IN_CTZL;
-	break;
-
-      case 16:
-        arg_type = long_long_unsigned_type_node;
-	n = BUILT_IN_CTZLL;
-	break;
-
-      default:
-        gcc_unreachable ();
+      arg_type = unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CTZ];
+    }
+  else if (argsize <= LONG_TYPE_SIZE)
+    {
+      arg_type = long_unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CTZL];
+    }
+  else if (argsize <= LONG_LONG_TYPE_SIZE)
+    {
+      arg_type = long_long_unsigned_type_node;
+      func = built_in_decls[BUILT_IN_CTZLL];
+    }
+  else
+    {
+      gcc_assert (argsize == 128);
+      arg_type = gfc_build_uint_type (argsize);
+      func = gfor_fndecl_ctz128;
     }
 
-  /* Convert the actual argument to the proper argument type for the built-in
+  /* Convert the actual argument twice: first, to the unsigned type of the
+     same size; then, to the proper argument type for the built-in
      function.  But the return type is of the default INTEGER kind.  */
+  arg = fold_convert (gfc_build_uint_type (argsize), arg);
   arg = fold_convert (arg_type, arg);
   result_type = gfc_get_int_type (gfc_default_integer_kind);
 
   /* Compute TRAILZ for the case i .ne. 0.  */
-  trailz = fold_convert (result_type, build_call_expr (built_in_decls[n], 1, arg));
+  trailz = fold_convert (result_type, build_call_expr (func, 1, arg));
 
   /* Build BIT_SIZE.  */
-  bit_size = build_int_cst (result_type, gfc_integer_kinds[i].bit_size);
+  bit_size = build_int_cst (result_type, argsize);
 
-  /* ??? For some combinations of targets and integer kinds, the condition
-	 can be avoided if CTZ_DEFINED_VALUE_AT_ZERO is used.  Later.  */
   cond = fold_build2 (EQ_EXPR, boolean_type_node,
 		      arg, build_int_cst (arg_type, 0));
   se->expr = fold_build3 (COND_EXPR, result_type, cond, bit_size, trailz);
@@ -3480,8 +3476,8 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
       tree ubound, lbound;
 
       arg1 = build_fold_indirect_ref (arg1);
-      ubound = gfc_conv_descriptor_ubound (arg1, argse.expr);
-      lbound = gfc_conv_descriptor_lbound (arg1, argse.expr);
+      ubound = gfc_conv_descriptor_ubound_get (arg1, argse.expr);
+      lbound = gfc_conv_descriptor_lbound_get (arg1, argse.expr);
       se->expr = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 			      ubound, lbound);
       se->expr = fold_build2 (PLUS_EXPR, gfc_array_index_type, se->expr,
@@ -3567,8 +3563,8 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
 	{
 	  tree idx;
 	  idx = gfc_rank_cst[n];
-	  lower = gfc_conv_descriptor_lbound (argse.expr, idx);
-	  upper = gfc_conv_descriptor_ubound (argse.expr, idx);
+	  lower = gfc_conv_descriptor_lbound_get (argse.expr, idx);
+	  upper = gfc_conv_descriptor_ubound_get (argse.expr, idx);
 	  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 			     upper, lower);
 	  tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
@@ -3756,9 +3752,9 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 	  tree idx;
 	  idx = gfc_rank_cst[n];
 	  gfc_add_modify (&argse.pre, source_bytes, tmp);
-	  stride = gfc_conv_descriptor_stride (argse.expr, idx);
-	  lower = gfc_conv_descriptor_lbound (argse.expr, idx);
-	  upper = gfc_conv_descriptor_ubound (argse.expr, idx);
+	  stride = gfc_conv_descriptor_stride_get (argse.expr, idx);
+	  lower = gfc_conv_descriptor_lbound_get (argse.expr, idx);
+	  upper = gfc_conv_descriptor_ubound_get (argse.expr, idx);
 	  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 			     upper, lower);
 	  gfc_add_modify (&argse.pre, extent, tmp);
@@ -4074,7 +4070,7 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 	     present.  */
 	  arg1se.descriptor_only = 1;
 	  gfc_conv_expr_lhs (&arg1se, arg1->expr);
-	  tmp = gfc_conv_descriptor_stride (arg1se.expr,
+	  tmp = gfc_conv_descriptor_stride_get (arg1se.expr,
 					    gfc_rank_cst[arg1->expr->rank - 1]);
 	  nonzero_arraylen = fold_build2 (NE_EXPR, boolean_type_node, tmp,
 					  build_int_cst (TREE_TYPE (tmp), 0));

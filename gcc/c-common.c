@@ -5430,7 +5430,6 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
   splay_tree_node default_node;
   splay_tree_node node;
   tree chain;
-  int saved_warn_switch;
 
   if (!warn_switch && !warn_switch_enum && !warn_switch_default)
     return;
@@ -5444,14 +5443,14 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
   if (!type || TREE_CODE (type) != ENUMERAL_TYPE)
     return;
 
-  /* If the switch expression was an enumerated type, check that
-     exactly all enumeration literals are covered by the cases.
-     The check is made when -Wswitch was specified and there is no
-     default case, or when -Wswitch-enum was specified.  */
-
-  if (!warn_switch_enum
-      && !(warn_switch && !default_node))
+  /* From here on, we only care about -Wswitch and -Wswitch-enum.  */
+  if (!warn_switch_enum && !warn_switch)
     return;
+
+  /* Check the cases.  Warn about case values which are not members of
+     the enumerated type.  For -Wswitch-enum, or for -Wswitch when
+     there is no default case, check that exactly all enumeration
+     literals are covered by the cases.  */
 
   /* Clearing COND if it is not an integer constant simplifies
      the tests inside the loop below.  */
@@ -5503,13 +5502,15 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 	continue;
 
       /* If there is a default_node, the only relevant option is
-	 Wswitch-enum. Otherwise, if both are enabled then we prefer
+	 Wswitch-enum.  Otherwise, if both are enabled then we prefer
 	 to warn using -Wswitch because -Wswitch is enabled by -Wall
 	 while -Wswitch-enum is explicit.  */
-      warning ((default_node || !warn_switch) 
-	       ? OPT_Wswitch_enum : OPT_Wswitch,
-	       "%Henumeration value %qE not handled in switch",
-	       &switch_location, TREE_PURPOSE (chain));
+      warning_at (switch_location,
+		  (default_node || !warn_switch
+		   ? OPT_Wswitch_enum
+		   : OPT_Wswitch),
+		  "enumeration value %qE not handled in switch",
+		  TREE_PURPOSE (chain));
     }
 
   /* Warn if there are case expressions that don't correspond to
@@ -5521,16 +5522,7 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
      every disjoint case label, with CASE_LOW_SEEN and CASE_HIGH_SEEN
      above.  This scan also resets those fields.  */
 
-  /* If there is a default_node, the only relevant option is
-     Wswitch-enum. Otherwise, if both are enabled then we prefer
-     to warn using -Wswitch because -Wswitch is enabled by -Wall
-     while -Wswitch-enum is explicit.  */
-  saved_warn_switch = warn_switch;
-  if (default_node)
-    warn_switch = 0;
   splay_tree_foreach (cases, match_case_to_enum, type);
-  warn_switch = saved_warn_switch;
-
 }
 
 /* Finish an expression taking the address of LABEL (an
@@ -9135,6 +9127,71 @@ is_typedef_decl (tree x)
 {
   return (x && TREE_CODE (x) == TYPE_DECL
           && DECL_ORIGINAL_TYPE (x) != NULL_TREE);
+}
+
+/* The C and C++ parsers both use vectors to hold function arguments.
+   For efficiency, we keep a cache of unused vectors.  This is the
+   cache.  */
+
+typedef VEC(tree,gc)* tree_gc_vec;
+DEF_VEC_P(tree_gc_vec);
+DEF_VEC_ALLOC_P(tree_gc_vec,gc);
+static GTY((deletable)) VEC(tree_gc_vec,gc) *tree_vector_cache;
+
+/* Return a new vector from the cache.  If the cache is empty,
+   allocate a new vector.  These vectors are GC'ed, so it is OK if the
+   pointer is not released..  */
+
+VEC(tree,gc) *
+make_tree_vector (void)
+{
+  if (!VEC_empty (tree_gc_vec, tree_vector_cache))
+    return VEC_pop (tree_gc_vec, tree_vector_cache);
+  else
+    {
+      /* Passing 0 to VEC_alloc returns NULL, and our callers require
+	 that we always return a non-NULL value.  The vector code uses
+	 4 when growing a NULL vector, so we do too.  */
+      return VEC_alloc (tree, gc, 4);
+    }
+}
+
+/* Release a vector of trees back to the cache.  */
+
+void
+release_tree_vector (VEC(tree,gc) *vec)
+{
+  if (vec != NULL)
+    {
+      VEC_truncate (tree, vec, 0);
+      VEC_safe_push (tree_gc_vec, gc, tree_vector_cache, vec);
+    }
+}
+
+/* Get a new tree vector holding a single tree.  */
+
+VEC(tree,gc) *
+make_tree_vector_single (tree t)
+{
+  VEC(tree,gc) *ret = make_tree_vector ();
+  VEC_quick_push (tree, ret, t);
+  return ret;
+}
+
+/* Get a new tree vector which is a copy of an existing one.  */
+
+VEC(tree,gc) *
+make_tree_vector_copy (const VEC(tree,gc) *orig)
+{
+  VEC(tree,gc) *ret;
+  unsigned int ix;
+  tree t;
+
+  ret = make_tree_vector ();
+  VEC_reserve (tree, gc, ret, VEC_length (tree, orig));
+  for (ix = 0; VEC_iterate (tree, orig, ix, t); ++ix)
+    VEC_quick_push (tree, ret, t);
+  return ret;
 }
 
 #include "gt-c-common.h"

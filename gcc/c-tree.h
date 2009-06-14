@@ -611,7 +611,7 @@ extern struct c_expr parser_build_unary_op (enum tree_code, struct c_expr,
 extern struct c_expr parser_build_binary_op (location_t, 
     					     enum tree_code, struct c_expr,
 					     struct c_expr);
-extern tree build_conditional_expr (tree, bool, tree, tree);
+extern tree build_conditional_expr (location_t, tree, bool, tree, tree);
 extern tree build_compound_expr (tree, tree);
 extern tree c_cast_expr (struct c_type_name *, tree, location_t);
 extern tree build_c_cast (tree, tree);
@@ -654,6 +654,7 @@ extern tree c_finish_omp_parallel (tree, tree);
 extern tree c_begin_omp_task (void);
 extern tree c_finish_omp_task (tree, tree);
 extern tree c_finish_omp_clauses (tree);
+extern tree c_build_va_arg (tree, tree, location_t);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */

@@ -1867,17 +1867,6 @@ set_mem_attributes (rtx ref, tree t, int objectp)
   set_mem_attributes_minus_bitpos (ref, t, objectp, 0);
 }
 
-/* Set MEM to the decl that REG refers to.  */
-
-void
-set_mem_attrs_from_reg (rtx mem, rtx reg)
-{
-  MEM_ATTRS (mem)
-    = get_mem_attrs (MEM_ALIAS_SET (mem), REG_EXPR (reg),
-		     GEN_INT (REG_OFFSET (reg)),
-		     MEM_SIZE (mem), MEM_ALIGN (mem), MEM_ADDR_SPACE (mem), GET_MODE (mem));
-}
-
 /* Set the alias set of MEM to SET.  */
 
 void
@@ -3395,6 +3384,10 @@ try_split (rtx pat, rtx trial, int last)
   int probability;
   rtx insn_last, insn;
   int njumps = 0;
+
+  /* We're not good at redistributing frame information.  */
+  if (RTX_FRAME_RELATED_P (trial))
+    return trial;
 
   if (any_condjump_p (trial)
       && (note = find_reg_note (trial, REG_BR_PROB, 0)))
@@ -5110,6 +5103,9 @@ copy_insn_1 (rtx orig)
   int i, j;
   RTX_CODE code;
   const char *format_ptr;
+
+  if (orig == NULL)
+    return NULL;
 
   code = GET_CODE (orig);
 

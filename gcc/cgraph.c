@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
@@ -701,8 +701,9 @@ cgraph_create_edge_including_clones (struct cgraph_node *orig, struct cgraph_nod
 {
   struct cgraph_node *node;
 
-  cgraph_create_edge (orig, callee, stmt, count, freq, loop_depth)->inline_failed =
-    reason;
+  if (!cgraph_edge (orig, stmt))
+     cgraph_create_edge (orig, callee, stmt,
+     			 count, freq, loop_depth)->inline_failed = reason;
 
   if (orig->clones)
     for (node = orig->clones; node != orig;)
@@ -1377,8 +1378,9 @@ void
 dump_cgraph_node (FILE *f, struct cgraph_node *node)
 {
   struct cgraph_edge *edge;
-  fprintf (f, "%s/%i(%i) [%p]:", cgraph_node_name (node), node->uid,
-	   node->pid, (void *) node);
+  fprintf (f, "%s/%i(%i)", cgraph_node_name (node), node->uid,
+	   node->pid);
+  dump_addr (f, " @", (void *)node);
   if (node->global.inlined_to)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),
@@ -1393,11 +1395,18 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   if (node->count)
     fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
 	     (HOST_WIDEST_INT)node->count);
-  if (node->local.inline_summary.self_insns)
-    fprintf (f, " %i insns", node->local.inline_summary.self_insns);
-  if (node->global.insns && node->global.insns
-      != node->local.inline_summary.self_insns)
-    fprintf (f, " (%i after inlining)", node->global.insns);
+  if (node->local.inline_summary.self_time)
+    fprintf (f, " %i time, %i benefit", node->local.inline_summary.self_time,
+    					node->local.inline_summary.time_inlining_benefit);
+  if (node->global.time && node->global.time
+      != node->local.inline_summary.self_time)
+    fprintf (f, " (%i after inlining)", node->global.time);
+  if (node->local.inline_summary.self_size)
+    fprintf (f, " %i size, %i benefit", node->local.inline_summary.self_size,
+    					node->local.inline_summary.size_inlining_benefit);
+  if (node->global.size && node->global.size
+      != node->local.inline_summary.self_size)
+    fprintf (f, " (%i after inlining)", node->global.size);
   if (node->local.inline_summary.estimated_self_stack_size)
     fprintf (f, " %i bytes stack usage", (int)node->local.inline_summary.estimated_self_stack_size);
   if (node->global.estimated_stack_size != node->local.inline_summary.estimated_self_stack_size)
@@ -1859,6 +1868,34 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	pop_cfun ();
 	current_function_decl = NULL;
 	break;
+    }
+}
+
+/* Return true if NODE can be made local for API change.
+   Extern inline functions and C++ COMDAT functions can be made local
+   at the expense of possible code size growth if function is used in multiple
+   compilation units.  */
+bool
+cgraph_node_can_be_local_p (struct cgraph_node *node)
+{
+  return !node->needed;
+}
+
+/* Bring NODE local.  */
+void
+cgraph_make_node_local (struct cgraph_node *node)
+{
+  gcc_assert (cgraph_node_can_be_local_p (node));
+  if (DECL_COMDAT (node->decl) || DECL_EXTERNAL (node->decl))
+    {
+      DECL_COMDAT (node->decl) = 0;
+      DECL_ONE_ONLY (node->decl) = 0;
+      TREE_PUBLIC (node->decl) = 0;
+      DECL_WEAK (node->decl) = 0;
+      DECL_EXTERNAL (node->decl) = 0;
+      node->local.externally_visible = false;
+      node->local.local = true;
+      gcc_assert (cgraph_function_body_availability (node) == AVAIL_LOCAL);
     }
 }
 

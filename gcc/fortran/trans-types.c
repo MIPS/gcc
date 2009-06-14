@@ -285,11 +285,6 @@ static
 void init_c_interop_kinds (void)
 {
   int i;
-  tree intmax_type_node = INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE ?
-			  integer_type_node :
-			  (LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE ?
-			   long_integer_type_node :
-			   long_long_integer_type_node);
 
   /* init all pointers in the list to NULL */
   for (i = 0; i < ISOCBINDING_NUMBER; i++)
@@ -686,7 +681,7 @@ gfc_build_int_type (gfc_integer_info *info)
   return make_signed_type (mode_precision);
 }
 
-static tree
+tree
 gfc_build_uint_type (int size)
 {
   if (size == CHAR_TYPE_SIZE)
@@ -1680,6 +1675,16 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   arraytype = build_pointer_type (arraytype);
   GFC_TYPE_ARRAY_DATAPTR_TYPE (fat_type) = arraytype;
 
+  /* This will generate the base declarations we need to emit debug
+     information for this type.  FIXME: there must be a better way to
+     avoid divergence between compilations with and without debug
+     information.  */
+  {
+    struct array_descr_info info;
+    gfc_get_array_descr_info (fat_type, &info);
+    gfc_get_array_descr_info (build_pointer_type (fat_type), &info);
+  }
+
   return fat_type;
 }
 
@@ -1875,7 +1880,7 @@ tree
 gfc_get_ppc_type (gfc_component* c)
 {
   tree t;
-  if (c->attr.function)
+  if (c->attr.function && !c->attr.dimension)
     t = gfc_typenode_for_spec (&c->ts);
   else
     t = void_type_node;
@@ -1997,7 +2002,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 
       /* This returns an array descriptor type.  Initialization may be
          required.  */
-      if (c->attr.dimension)
+      if (c->attr.dimension && !c->attr.proc_pointer)
 	{
 	  if (c->attr.pointer || c->attr.allocatable)
 	    {
@@ -2403,14 +2408,16 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
   info->ndimensions = rank;
   info->element_type = etype;
   ptype = build_pointer_type (gfc_array_index_type);
-  if (indirect)
+  base_decl = GFC_TYPE_ARRAY_BASE_DECL (type, indirect);
+  if (!base_decl)
     {
-      info->base_decl = build_decl (VAR_DECL, NULL_TREE,
-				    build_pointer_type (ptype));
-      base_decl = build1 (INDIRECT_REF, ptype, info->base_decl);
+      base_decl = build_decl (VAR_DECL, NULL_TREE,
+			      indirect ? build_pointer_type (ptype) : ptype);
+      GFC_TYPE_ARRAY_BASE_DECL (type, indirect) = base_decl;
     }
-  else
-    info->base_decl = base_decl = build_decl (VAR_DECL, NULL_TREE, ptype);
+  info->base_decl = base_decl;
+  if (indirect)
+    base_decl = build1 (INDIRECT_REF, ptype, base_decl);
 
   if (GFC_TYPE_ARRAY_SPAN (type))
     elem_size = GFC_TYPE_ARRAY_SPAN (type);

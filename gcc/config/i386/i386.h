@@ -59,6 +59,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_ABM	OPTION_ISA_ABM
 #define TARGET_POPCNT	OPTION_ISA_POPCNT
 #define TARGET_SAHF	OPTION_ISA_SAHF
+#define TARGET_MOVBE	OPTION_ISA_MOVBE
+#define TARGET_CRC32	OPTION_ISA_CRC32
 #define TARGET_AES	OPTION_ISA_AES
 #define TARGET_PCLMUL	OPTION_ISA_PCLMUL
 #define TARGET_CMPXCHG16B OPTION_ISA_CX16
@@ -1852,20 +1854,22 @@ typedef struct ix86_args {
 
 /* Abi specific values for REGPARM_MAX and SSE_REGPARM_MAX */
 #define X86_64_REGPARM_MAX 6
-#define X64_REGPARM_MAX 4
+#define X86_64_MS_REGPARM_MAX 4
+
 #define X86_32_REGPARM_MAX 3
 
-#define X86_64_SSE_REGPARM_MAX 8
-#define X64_SSE_REGPARM_MAX 4
-#define X86_32_SSE_REGPARM_MAX (TARGET_SSE ? 3 : 0)
-
 #define REGPARM_MAX							\
-  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_REGPARM_MAX		\
+  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X86_64_MS_REGPARM_MAX		\
 		   : X86_64_REGPARM_MAX)				\
    : X86_32_REGPARM_MAX)
 
+#define X86_64_SSE_REGPARM_MAX 8
+#define X86_64_MS_SSE_REGPARM_MAX 4
+
+#define X86_32_SSE_REGPARM_MAX (TARGET_SSE ? 3 : 0)
+
 #define SSE_REGPARM_MAX							\
-  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_SSE_REGPARM_MAX		\
+  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X86_64_MS_SSE_REGPARM_MAX	\
 		   : X86_64_SSE_REGPARM_MAX)				\
    : X86_32_SSE_REGPARM_MAX)
 
@@ -2392,6 +2396,15 @@ enum ix86_stack_slot
 
 #define FASTCALL_PREFIX '@'
 
+/* Machine specific CFA tracking during prologue/epilogue generation.  */
+
+#ifndef USED_FOR_TARGET
+struct GTY(()) machine_cfa_state
+{
+  rtx reg;
+  HOST_WIDE_INT offset;
+};
+
 struct GTY(()) machine_function {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
@@ -2418,8 +2431,10 @@ struct GTY(()) machine_function {
   int tls_descriptor_call_expanded_p;
   /* This value is used for amd64 targets and specifies the current abi
      to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
-   enum calling_abi call_abi;
+  enum calling_abi call_abi;
+  struct machine_cfa_state cfa;
 };
+#endif
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
 #define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
@@ -2435,6 +2450,7 @@ struct GTY(()) machine_function {
    REG_SP is live.  */
 #define ix86_current_function_calls_tls_descriptor \
   (ix86_tls_descriptor_calls_expanded_in_cfun && df_regs_ever_live_p (SP_REG))
+#define ix86_cfa_state (&cfun->machine->cfa)
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false

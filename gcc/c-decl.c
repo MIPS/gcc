@@ -3563,7 +3563,7 @@ void
 finish_decl (tree decl, tree init, tree origtype, tree asmspec_tree)
 {
   tree type;
-  int was_incomplete = (DECL_SIZE (decl) == 0);
+  bool was_incomplete = (DECL_SIZE (decl) == 0);
   const char *asmspec = 0;
 
   /* If a name was specified, get the string.  */
@@ -4246,6 +4246,7 @@ grokdeclarator (const struct c_declarator *declarator,
   tree element_type;
   struct c_arg_info *arg_info = 0;
   addr_space_t as1, as2, address_space;
+  const char *errmsg;
   tree expr_dummy;
   bool expr_const_operands_dummy;
 
@@ -4906,6 +4907,12 @@ grokdeclarator (const struct c_declarator *declarator,
 		  error ("type name declared as function returning an array");
 		type = integer_type_node;
 	      }
+	    errmsg = targetm.invalid_return_type (type);
+	    if (errmsg)
+	      {
+		error (errmsg);
+		type = integer_type_node;
+	      }
 
 	    /* Construct the function type and go to the next
 	       inner layer of declarator.  */
@@ -5502,6 +5509,7 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
     {
       tree parm, type, typelt;
       unsigned int parmno;
+      const char *errmsg;
 
       /* If there is a parameter of incomplete type in a definition,
 	 this is an error.  In a declaration this is valid, and a
@@ -5543,6 +5551,14 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
 		    warning (0, "%Jparameter %u has void type",
 			     parm, parmno);
 		}
+	    }
+
+	  errmsg = targetm.invalid_parameter_type (type);
+	  if (errmsg)
+	    {
+	      error (errmsg);
+	      TREE_VALUE (typelt) = error_mark_node;
+	      TREE_TYPE (parm) = error_mark_node;
 	    }
 
 	  if (DECL_NAME (parm) && TREE_USED (parm))
@@ -7398,7 +7414,6 @@ finish_function (void)
 	      cgraph_add_new_function (fndecl, false);
 	      return;
 	    }
-
 	  cgraph_finalize_function (fndecl, false);
 	}
       else

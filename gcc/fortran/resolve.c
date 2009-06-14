@@ -1584,8 +1584,8 @@ resolve_elemental_actual (gfc_expr *expr, gfc_code *c)
       /* Elemental procedure's array actual arguments must conform.  */
       if (e != NULL)
 	{
-	  if (gfc_check_conformance ("elemental procedure", arg->expr, e)
-	      == FAILURE)
+	  if (gfc_check_conformance (arg->expr, e,
+				     "elemental procedure") == FAILURE)
 	    return FAILURE;
 	}
       else
@@ -4868,6 +4868,8 @@ resolve_expr_ppc (gfc_expr* e)
   e->value.function.isym = NULL;
   e->value.function.actual = e->value.compcall.actual;
   e->ts = comp->ts;
+  if (comp->as != NULL)
+    e->rank = comp->as->rank;
 
   if (!comp->attr.function)
     gfc_add_function (&comp->attr, comp->name, &e->where);
@@ -9414,6 +9416,7 @@ resolve_symbol (gfc_symbol *sym)
 	  || sym->ts.interface->attr.intrinsic)
 	{
 	  gfc_symbol *ifc = sym->ts.interface;
+	  resolve_symbol (ifc);
 
 	  if (ifc->attr.intrinsic)
 	    resolve_intrinsic (ifc, &ifc->declared_at);
@@ -9849,9 +9852,12 @@ values;
 static gfc_try
 next_data_value (void)
 {
-
   while (mpz_cmp_ui (values.left, 0) == 0)
     {
+      if (!gfc_is_constant_expr (values.vnode->expr))
+	gfc_error ("non-constant DATA value at %L",
+		   &values.vnode->expr->where);
+
       if (values.vnode->next == NULL)
 	return FAILURE;
 

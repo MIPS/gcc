@@ -1672,8 +1672,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   /* Skip possible basic block header.  */
   if (LABEL_P (newpos1))
     newpos1 = NEXT_INSN (newpos1);
-
-  if (NOTE_P (newpos1))
+  if (NOTE_INSN_BASIC_BLOCK_P (newpos1))
     newpos1 = NEXT_INSN (newpos1);
 
   redirect_from = split_block (src1, PREV_INSN (newpos1))->src;
@@ -1874,8 +1873,12 @@ try_optimize_cfg (int mode)
 	      edge s;
 	      bool changed_here = false;
 
-	      /* Delete trivially dead basic blocks.  */
-	      if (EDGE_COUNT (b->preds) == 0)
+	      /* Delete trivially dead basic blocks.  This is either
+		 blocks with no predecessors, or empty blocks with no
+		 successors.  Empty blocks may result from expanding
+		 __builtin_unreachable ().  */
+	      if (EDGE_COUNT (b->preds) == 0
+		  || (EDGE_COUNT (b->succs) == 0 && BB_HEAD (b) == BB_END (b)))
 		{
 		  c = b->prev_bb;
 		  if (dump_file)

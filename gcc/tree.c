@@ -1822,6 +1822,23 @@ build_tree_list_stat (tree parm, tree value MEM_STAT_DECL)
   return t;
 }
 
+/* Build a chain of TREE_LIST nodes from a vector.  */
+
+tree
+build_tree_list_vec_stat (const VEC(tree,gc) *vec MEM_STAT_DECL)
+{
+  tree ret = NULL_TREE;
+  tree *pp = &ret;
+  unsigned int i;
+  tree t;
+  for (i = 0; VEC_iterate (tree, vec, i, t); ++i)
+    {
+      *pp = build_tree_list_stat (NULL, t PASS_MEM_STAT);
+      pp = &TREE_CHAIN (*pp);
+    }
+  return ret;
+}
+
 /* Return a newly created TREE_LIST node whose
    purpose and value fields are PURPOSE and VALUE
    and whose TREE_CHAIN is CHAIN.  */
@@ -1864,6 +1881,22 @@ ctor_to_list (tree ctor)
     }
 
   return list;
+}
+
+/* Return the values of the elements of a CONSTRUCTOR as a vector of
+   trees.  */
+
+VEC(tree,gc) *
+ctor_to_vec (tree ctor)
+{
+  VEC(tree, gc) *vec = VEC_alloc (tree, gc, CONSTRUCTOR_NELTS (ctor));
+  unsigned int ix;
+  tree val;
+
+  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (ctor), ix, val)
+    VEC_quick_push (tree, vec, val);
+
+  return vec;
 }
 
 /* Return the size nominally occupied by an object of type TYPE
@@ -3478,6 +3511,23 @@ build_nt_call_list (tree fn, tree arglist)
     CALL_EXPR_ARG (t, i) = TREE_VALUE (arglist);
   return t;
 }
+
+/* Similar to build_nt, but for creating a CALL_EXPR object with a
+   tree VEC.  */
+
+tree
+build_nt_call_vec (tree fn, VEC(tree,gc) *args)
+{
+  tree ret, t;
+  unsigned int ix;
+
+  ret = build_vl_exp (CALL_EXPR, VEC_length (tree, args) + 3);
+  CALL_EXPR_FN (ret) = fn;
+  CALL_EXPR_STATIC_CHAIN (ret) = NULL_TREE;
+  for (ix = 0; VEC_iterate (tree, args, ix, t); ++ix)
+    CALL_EXPR_ARG (ret, ix) = t;
+  return ret;
+}
 
 /* Create a DECL_... node of code CODE, name NAME and data type TYPE.
    We do NOT enter this node in any sort of symbol table.
@@ -4020,6 +4070,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 		      bool *no_add_attrs)
 {
   tree node = *pnode;
+  bool is_dllimport;
 
   /* These attributes may apply to structure and union types being created,
      but otherwise should pass to the declaration involved.  */
@@ -4067,9 +4118,11 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       return NULL_TREE;
     }
 
+  is_dllimport = is_attribute_p ("dllimport", name);
+
   /* Report error on dllimport ambiguities seen now before they cause
      any damage.  */
-  else if (is_attribute_p ("dllimport", name))
+  if (is_dllimport)
     {
       /* Honor any target-specific overrides. */ 
       if (!targetm.valid_dllimport_attribute_p (node))
@@ -4111,6 +4164,10 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       if (*no_add_attrs == false)
         DECL_DLLIMPORT_P (node) = 1;
     }
+  else if (TREE_CODE (node) == FUNCTION_DECL
+	   && DECL_DECLARED_INLINE_P (node))
+    /* An exported function, even if inline, must be emitted.  */
+    DECL_EXTERNAL (node) = 0;
 
   /*  Report error if symbol is not accessible at global scope.  */
   if (!TREE_PUBLIC (node)
@@ -5362,11 +5419,13 @@ iterative_hash_expr (const_tree t, hashval_t val)
 	return val;
       }
     case FUNCTION_DECL:
-      /* When referring to a built-in FUNCTION_DECL, use the
-	 __builtin__ form.  Otherwise nodes that compare equal
-	 according to operand_equal_p might get different
-	 hash codes.  */
-      if (DECL_BUILT_IN (t) && built_in_decls[DECL_FUNCTION_CODE (t)])
+      /* When referring to a built-in FUNCTION_DECL, use the __builtin__ form.
+	 Otherwise nodes that compare equal according to operand_equal_p might
+	 get different hash codes.  However, don't do this for machine specific
+	 or front end builtins, since the function code is overloaded in those
+	 cases.  */
+      if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL
+	  && built_in_decls[DECL_FUNCTION_CODE (t)])
 	{
 	  t = built_in_decls[DECL_FUNCTION_CODE (t)];
 	  code = TREE_CODE (t);
@@ -7405,7 +7464,8 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
 
   {
     tree index = build_int_cst (NULL_TREE, nunits - 1);
-    tree array = build_array_type (innertype, build_index_type (index));
+    tree array = build_array_type (TYPE_MAIN_VARIANT (innertype),
+				   build_index_type (index));
     tree rt = make_node (RECORD_TYPE);
 
     TYPE_FIELDS (rt) = build_decl (FIELD_DECL, get_identifier ("f"), array);
@@ -8257,7 +8317,7 @@ build_call_valist (tree return_type, tree fn, int nargs, va_list args)
    which are specified as a tree array ARGS.  */
 
 tree
-build_call_array (tree return_type, tree fn, int nargs, tree *args)
+build_call_array (tree return_type, tree fn, int nargs, const tree *args)
 {
   tree t;
   int i;
@@ -8270,6 +8330,24 @@ build_call_array (tree return_type, tree fn, int nargs, tree *args)
     CALL_EXPR_ARG (t, i) = args[i];
   process_call_operands (t);
   return t;
+}
+
+/* Like build_call_array, but takes a VEC.  */
+
+tree
+build_call_vec (tree return_type, tree fn, VEC(tree,gc) *args)
+{
+  tree ret, t;
+  unsigned int ix;
+
+  ret = build_vl_exp (CALL_EXPR, VEC_length (tree, args) + 3);
+  TREE_TYPE (ret) = return_type;
+  CALL_EXPR_FN (ret) = fn;
+  CALL_EXPR_STATIC_CHAIN (ret) = NULL_TREE;
+  for (ix = 0; VEC_iterate (tree, args, ix, t); ++ix)
+    CALL_EXPR_ARG (ret, ix) = t;
+  process_call_operands (ret);
+  return ret;
 }
 
 
@@ -8916,10 +8994,6 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len));
       }
 
-    case CHANGE_DYNAMIC_TYPE_EXPR:
-      WALK_SUBTREE (CHANGE_DYNAMIC_TYPE_NEW_TYPE (*tp));
-      WALK_SUBTREE_TAIL (CHANGE_DYNAMIC_TYPE_LOCATION (*tp));
-
     case DECL_EXPR:
       /* If this is a TYPE_DECL, walk into the fields of the type that it's
 	 defining.  We only want to walk into these fields of a type in this
@@ -9179,32 +9253,12 @@ block_nonartificial_location (tree block)
 location_t
 tree_nonartificial_location (tree exp)
 {
-  tree block = TREE_BLOCK (exp);
+  location_t *loc = block_nonartificial_location (TREE_BLOCK (exp));
 
-  while (block
-	 && TREE_CODE (block) == BLOCK
-	 && BLOCK_ABSTRACT_ORIGIN (block))
-    {
-      tree ao = BLOCK_ABSTRACT_ORIGIN (block);
-
-      do
-	{
-	  if (TREE_CODE (ao) == FUNCTION_DECL
-	      && DECL_DECLARED_INLINE_P (ao)
-	      && lookup_attribute ("artificial", DECL_ATTRIBUTES (ao)))
-	    return BLOCK_SOURCE_LOCATION (block);
-	  else if (TREE_CODE (ao) == BLOCK
-		   && BLOCK_SUPERCONTEXT (ao) != ao)
-	    ao = BLOCK_SUPERCONTEXT (ao);
-	  else
-	    break;
-	}
-      while (ao);
-
-      block = BLOCK_SUPERCONTEXT (block);
-    }
-
-  return EXPR_LOCATION (exp);
+  if (loc)
+    return *loc;
+  else
+    return EXPR_LOCATION (exp);
 }
 
 

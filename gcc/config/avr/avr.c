@@ -1,7 +1,7 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008,
    2009 Free Software Foundation, Inc.
-   Contributed by Denis Chertykov (denisc@overta.ru)
+   Contributed by Denis Chertykov (chertykov@gmail.com)
 
    This file is part of GCC.
 
@@ -67,7 +67,7 @@ static int compare_sign_p (rtx insn);
 static tree avr_handle_progmem_attribute (tree *, tree, tree, int, bool *);
 static tree avr_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
 static tree avr_handle_fntype_attribute (tree *, tree, tree, int, bool *);
-const struct attribute_spec avr_attribute_table[];
+EXPORTED_CONST struct attribute_spec avr_attribute_table[];
 static bool avr_assemble_integer (rtx, unsigned int, int);
 static void avr_file_start (void);
 static void avr_file_end (void);

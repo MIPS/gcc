@@ -554,7 +554,11 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
-	  NEXT_PASS (pass_update_address_taken);
+	  /* pass_build_ealias is a dummy pass that ensures that we
+	     execute TODO_rebuild_alias at this point.  Re-building
+	     alias information also rewrites no longer addressed
+	     locals into SSA form if possible.  */
+	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
@@ -644,7 +648,6 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_dce_loop);
 	  NEXT_PASS (pass_lim);
-	  NEXT_PASS (pass_predcom);
 	  NEXT_PASS (pass_tree_unswitch);
 	  NEXT_PASS (pass_scev_cprop);
 	  NEXT_PASS (pass_empty_loop);
@@ -661,7 +664,9 @@ init_optimization_passes (void)
 	      NEXT_PASS (pass_lower_vector_ssa);
 	      NEXT_PASS (pass_dce_loop);
 	    }
+          NEXT_PASS (pass_predcom);
 	  NEXT_PASS (pass_complete_unroll);
+	  NEXT_PASS (pass_slp_vectorize);
 	  NEXT_PASS (pass_parallelize_loops);
 	  NEXT_PASS (pass_loop_prefetch);
 	  NEXT_PASS (pass_iv_optimize);
@@ -839,7 +844,8 @@ do_per_function (void (*callback) (void *data), void *data)
     {
       struct cgraph_node *node;
       for (node = cgraph_nodes; node; node = node->next)
-	if (node->analyzed && gimple_has_body_p (node->decl))
+	if (node->analyzed && gimple_has_body_p (node->decl)
+	    && (!node->clone_of || node->decl != node->clone_of->decl))
 	  {
 	    push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	    current_function_decl = node->decl;

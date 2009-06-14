@@ -272,8 +272,8 @@ gnat_handle_option (size_t scode, const char *arg, int value)
       gnat_argc++;
       break;
 
-    case OPT_gdwarf_:
-      gnat_dwarf_extensions ++;
+    case OPT_gdwarfplus:
+      gnat_dwarf_extensions = 1;
       break;
 
     default:
@@ -661,8 +661,12 @@ gnat_get_subrange_bounds (const_tree gnu_type, tree *lowval, tree *highval)
 {
   tree min = TYPE_MIN_VALUE (gnu_type);
   tree max = TYPE_MAX_VALUE (gnu_type);
-  *lowval = TREE_CONSTANT (min) ? min : TYPE_GCC_MIN_VALUE (gnu_type);
-  *highval = TREE_CONSTANT (max) ? max : TYPE_GCC_MAX_VALUE (gnu_type);
+  /* If the bounds aren't constant, use non-representable constant values
+     to get the same effect on debug info without tree sharing issues.  */
+  *lowval
+    = TREE_CONSTANT (min) ? min : build_int_cstu (integer_type_node, -1);
+  *highval
+    = TREE_CONSTANT (max) ? max : build_int_cstu (integer_type_node, -1);
 }
 
 /* GNU_TYPE is a type. Determine if it should be passed by reference by

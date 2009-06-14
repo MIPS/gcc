@@ -590,6 +590,8 @@ extern GTY(()) tree gfor_fndecl_convert_char4_to_char1;
 extern GTY(()) tree gfor_fndecl_size0;
 extern GTY(()) tree gfor_fndecl_size1;
 extern GTY(()) tree gfor_fndecl_iargc;
+extern GTY(()) tree gfor_fndecl_clz128;
+extern GTY(()) tree gfor_fndecl_ctz128;
 
 /* Implemented in Fortran.  */
 extern GTY(()) tree gfor_fndecl_sc_kind;
@@ -622,6 +624,7 @@ struct GTY(())	lang_type	 {
   tree dtype;
   tree dataptr_type;
   tree span;
+  tree base_decl[2];
 };
 
 struct GTY(()) lang_decl {
@@ -674,6 +677,8 @@ struct GTY(()) lang_decl {
 #define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
 #define GFC_TYPE_ARRAY_SPAN(node) (TYPE_LANG_SPECIFIC(node)->span)
+#define GFC_TYPE_ARRAY_BASE_DECL(node, internal) \
+  (TYPE_LANG_SPECIFIC(node)->base_decl[(internal)])
 
 /* Build an expression with void type.  */
 #define build1_v(code, arg) fold_build1(code, void_type_node, arg)
