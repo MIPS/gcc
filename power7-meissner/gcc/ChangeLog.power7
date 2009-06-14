@@ -2,7 +2,7 @@
 
 	* config.in (HAVE_AS_LWSYNC): Add for configure test.
 
-	* configure.ac (gcc_cv_as_powerpc_lwsync): Prope to see if the
+	* configure.ac (gcc_cv_as_powerpc_lwsync): Probe to see if the
 	assembler supports the lwsync instruction.
 	* configure: Regenerate.
 
