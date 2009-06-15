@@ -5,7 +5,7 @@
 	* tree-parloops.c (gen_parallel_loop): When parallelizing loop
 	for different target architecture, force parallelization, and don't
 	use transform_to_exit_first_loop.
-	* tree-vect-transform.c (vect_create_data_ref_pt): Use ptr_mode for
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Use ptr_mode for
 	loop target architecture.
 	* tree-vect-generic.c: Include cfgloop.h.
 	(expand_vector_operations): Don't operate on bbs in loops for a
