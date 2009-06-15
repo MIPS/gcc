@@ -1278,9 +1278,9 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 	append_to_statement_list (t, stmt_list1);
 
 	memcpy((unsigned char *) le_image + image_offset,
-	       TREE_STRING_POINTER (init), tree_low_cst (decl_size, 1));
+	       TREE_STRING_POINTER (init), TREE_STRING_LENGTH (init));
 	memcpy((unsigned char *) be_image + image_offset,
-	       TREE_STRING_POINTER (init), tree_low_cst (decl_size, 1));
+	       TREE_STRING_POINTER (init), TREE_STRING_LENGTH (init));
       }
     break;
 
