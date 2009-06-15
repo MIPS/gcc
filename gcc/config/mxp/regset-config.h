@@ -49,7 +49,7 @@
    to have exact per-mode lane masks for arithmetic.
    This gives us a total of eight lane sets for non-scalar vector registers.  */
 #define MXP_VEC_LANE_SETS { 0x00, 0x01, 0x10, 0x03, 0x30, 0x0f, 0xf0, 0xff }
-/* We use s smaller set of sets for flags and accumulators.  */
+/* We use a smaller set of sets for flags and accumulators.  */
 #define MXP_FLAG_ACC_LANE_SETS { 0x00, 0x0f, 0xf0, 0xff }
 /* The scalar registers are good for holding 16 and 32 bit values and have
    special cross-lane operations, so we allow all lanes for 16 and 32 bit
