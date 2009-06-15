@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "flags.h"
+#include "cfgloop.h"
 #include "ggc.h"
 
 
@@ -536,6 +537,8 @@ expand_vector_operations (void)
 
   FOR_EACH_BB (bb)
     {
+      if (bb->loop_father && bb->loop_father->target_arch != cfun->target_arch)
+	continue;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  expand_vector_operations_1 (&gsi);

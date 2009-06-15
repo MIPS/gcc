@@ -1,3 +1,17 @@
+2009-06-15  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/multi-target.texi: New file.
+	* tree-ssa-loop.c (pass_vectorize): Undo last change.
+	* tree-parloops.c (gen_parallel_loop): When parallelizing loop
+	for different target architecture, force parallelization, and don't
+	use transform_to_exit_first_loop.
+	* tree-vect-transform.c (vect_create_data_ref_pt): Use ptr_mode for
+	loop target architecture.
+	* tree-vect-generic.c: Include cfgloop.h.
+	(expand_vector_operations): Don't operate on bbs in loops for a
+	different target architecture.
+	* Makefilein (tree-vect-generic.o): Depend on $(CFGLOOP_H).
+
 2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-parloops.c (parallelize_loops): Don't check for vector phi

@@ -1695,6 +1695,8 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   edge entry, exit;
   struct clsn_data clsn_data;
   unsigned prob;
+  bool arch_change = loop->target_arch != cfun->target_arch;
+  bool parallelize_all = arch_change;
 
   /* From
 
@@ -1750,18 +1752,25 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
      remaining iterations.  */
 
   type = TREE_TYPE (niter->niter);
-  nit = force_gimple_operand (unshare_expr (niter->niter), &stmts, true,
-			      NULL_TREE);
+  nit = unshare_expr (niter->niter);
+  if (parallelize_all)
+    nit = fold_build2 (PLUS_EXPR, TREE_TYPE (nit), nit, integer_one_node);
+  nit = force_gimple_operand (nit, &stmts, true, NULL_TREE);
   if (stmts)
     gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
 
-  many_iterations_cond =
-    fold_build2 (GE_EXPR, boolean_type_node,
-		 nit, build_int_cst (type, MIN_PER_THREAD * n_threads));
-  many_iterations_cond
-    = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
-		   invert_truthvalue (unshare_expr (niter->may_be_zero)),
-		   many_iterations_cond);
+  if (!arch_change)
+    {
+      many_iterations_cond =
+	fold_build2 (GE_EXPR, boolean_type_node,
+		     nit, build_int_cst (type, MIN_PER_THREAD * n_threads));
+      many_iterations_cond
+	= fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+		       invert_truthvalue (unshare_expr (niter->may_be_zero)),
+		       many_iterations_cond);
+    }
+  else
+    many_iterations_cond = boolean_true_node;
   many_iterations_cond
     = force_gimple_operand (many_iterations_cond, &stmts, false, NULL_TREE);
   if (stmts)
@@ -1788,7 +1797,8 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   canonicalize_loop_ivs (loop, reduction_list, &nit);
 
   /* Ensure that the exit condition is the first statement in the loop.  */
-  transform_to_exit_first_loop (loop, reduction_list, nit);
+  if (!parallelize_all)
+    transform_to_exit_first_loop (loop, reduction_list, nit);
 
   /* Generate initializations for reductions.  */
   if (htab_elements (reduction_list) > 0)  
@@ -1811,7 +1821,9 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
 			    arg_struct, new_arg_struct, n_threads);
   /* ??? for loop->target_arch != cfun->target_arch, should create another
      function so that a small slice of the loop can be run on the main
-     processor.  */
+     processor.  OTOH, that should not be vectorized or vectorized for
+     cfun->target_arch, so this would have to be anticipated at the
+     vectorization statge.  */
   if (htab_elements (reduction_list) > 0)   
     create_call_for_reduction (loop, reduction_list, &clsn_data);
 

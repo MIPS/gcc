@@ -1044,6 +1044,7 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   gimple incr;
   tree step;
   alias_set_type ptr_alias_set = 0;
+  enum machine_mode tptrmode = *targetm_array[loop->target_arch]->ptr_mode;
 
   /* Check the step (evolution) of the load in LOOP, and record
      whether it's invariant.  */
@@ -1079,9 +1080,9 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
 
   /** (1) Create the new vector-pointer variable:  **/
   if (type)
-    vect_ptr_type = build_pointer_type (type);
+    vect_ptr_type = build_pointer_type_for_mode (type, tptrmode, false);
   else
-    vect_ptr_type = build_pointer_type (vectype);
+    vect_ptr_type = build_pointer_type_for_mode (vectype, tptrmode, false);
 
   if (TREE_CODE (DR_BASE_ADDRESS (dr)) == SSA_NAME
       && TYPE_RESTRICT (TREE_TYPE (DR_BASE_ADDRESS (dr))))
