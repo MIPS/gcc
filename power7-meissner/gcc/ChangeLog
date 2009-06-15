@@ -1,3 +1,61 @@
+2009-06-15  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cgraph.c (cgraph_make_node_local): Use DECL_COMDAT_GROUP.
+
+2009-06-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	* except.c (init_eh): Use BUILTINS_LOCATION when calling build_decl.
+
+2009-06-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-eh.c (lower_try_finally_switch): Initialize tf_loc.
+
+2009-06-15  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cgraphunit.c (cgraph_function_versioning,save_inline_function_body):
+	Use DECL_COMDAT_GROUP instead of DECL_ONE_ONLY.
+	* cgraph.c (cgraph_create_virtual_clone): Use DECL_COMDAT_GROUP.
+	* config/i386/i386.c (ix86_file_end): Compute DECL_COMDAT_GROUP.
+	* dwarf2asm.c(dw2_force_const_mem): Update call to make_decl_one_only.
+	* langhooks-def.h (lhd_comdat_group, LANG_HOOKS_COMDAT_GROUP): Remove.
+	(LANG_HOOKS_DECLS): Remove LANG_HOOKS_COMDAT_GROUP.
+	* langhooks.c (lhd_comdat_group): Remove.
+	* langhooks.h (lang_hooks_for_decls): Remove comdat_group.
+	* tree.h (DECL_COMDAT_GROUP): New.
+	(DECL_ONE_ONLY): Use DECL_COMDAT_GROUP.
+	(tree_decl_with_vis): Add comdat_group. Remove one_only.
+	(make_decl_one_only): Change signature.
+	* varasm.c (get_emutls_init_templ_addr, emutls_decl): Update call to
+	make_decl_one_only.
+	(make_decl_one_only): Change signature.
+	(default_elf_asm_named_section): Use DECL_COMDAT_GROUP.
+
+2009-06-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40439
+	* tree.c (widest_int_cst_value): Fix bootstrap on 32bit HWI hosts.
+
+2009-06-14  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* tree-ssa-math-opts.c: Remove extra divide.
+
+2009-06-14  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("bswap<mode>2"): Only available on z900.
+
+2009-06-14  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* passes.c: Add bswap pass.
+	* tree-pass.h: Add pass_optimize_bswap declaration.
+	* tree-ssa-math-opts.c: Include diagnostics.h for print_gimple_stmt.
+	Include rtl.h, expr.h and optabs.h for optab_handler check.
+	(struct symbolic_number, pass_optimize_bswap): New definition.
+	(do_shift_rotate, verify_symbolic_number_p): New functions.
+	(find_bswap_1, find_bswap, execute_optimize_bswap): New functions.
+	(gate_optimize_bswap): New function.
+	* tree.c (widest_int_cst_value): New function.
+	* tree.h (widest_int_cst_value): Prototype added.
+
 2009-06-14  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* cfgcleanup.c (old_insns_match_p): Remove code to substitute
