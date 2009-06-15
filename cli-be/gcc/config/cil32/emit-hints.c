@@ -225,7 +225,7 @@ dump_branch_probability (unsigned char c)
 /* Emit the custom attribute encoding basic block frequencies.   */
 
 void
-basic_block_frequency_emit (FILE *file)
+basic_block_frequency_emit (FILE *file, struct function *fun)
 {
   int emitted_bbs = n_basic_blocks - 2;
   basic_block bb;
@@ -251,7 +251,7 @@ basic_block_frequency_emit (FILE *file)
 	of fact, in this case no basic block is emitted for
 	a GIMPLE basic block.   */
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       block_stmt_iterator last_bsi = bsi_last (bb);
 
@@ -290,7 +290,7 @@ basic_block_frequency_emit (FILE *file)
 
   /* Emit frequency for each basic block.
      Beware that some GIMPLE blocks are emitted as two blocks!   */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       block_stmt_iterator last_bsi = bsi_last (bb);
       int freq_class;

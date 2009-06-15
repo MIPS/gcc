@@ -36,6 +36,6 @@ Erven Rohou             <erven.rohou@st.com>
 
 void branch_probability_add (FILE *, tree);
 void branch_probability_emit_and_reset (FILE *);
-void basic_block_frequency_emit (FILE *);
+void basic_block_frequency_emit (FILE *, struct function *);
 
 #endif  /* EMIT_HINTS_H */

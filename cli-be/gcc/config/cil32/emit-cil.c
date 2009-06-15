@@ -83,7 +83,7 @@ DEF_VEC_ALLOC_O(var_uses_s, heap);
  * Local function prototypes                                                  *
  ******************************************************************************/
 
-static unsigned int compute_max_stack ( void );
+static unsigned int compute_max_stack (struct function *);
 static void decode_function_attrs (tree, struct fnct_attr *);
 static void emit_enum_decl (FILE *, tree);
 static void emit_array_decl (FILE *, tree);
@@ -119,14 +119,14 @@ static bool emit_builtin_call (FILE *, const_cil_stmt);
 static void emit_call (FILE *, const_cil_stmt);
 static void emit_cil_stmt (FILE *, const_cil_stmt);
 static void emit_referenced_assemblies (FILE *);
-static void emit_start_function (FILE *);
+static void emit_start_function (FILE *, struct function *);
 static void rename_var (tree, const char *, unsigned long);
-static void emit_static_vars (FILE *);
+static void emit_static_vars (FILE *, struct function *);
 static int var_uses_compare (const void *, const void *);
-static void emit_local_vars (FILE *);
-static void emit_function_header (FILE *);
+static void emit_local_vars (FILE *, struct function *);
+static void emit_function_header (FILE *, struct function *);
 static void emit_cil_bb (FILE *, basic_block);
-static void emit_cil_1 (FILE *);
+static void emit_cil_1 (FILE *, struct function *);
 static unsigned int emit_cil (void);
 
 
@@ -209,7 +209,7 @@ emit_cil_decl (FILE *file, tree decl)
 /* Compute and return the maximum stack depth of the current function.  */
 
 static unsigned int
-compute_max_stack (void)
+compute_max_stack (struct function *fun)
 {
   unsigned int *depths;
   unsigned int max_depth = 0;
@@ -220,7 +220,7 @@ compute_max_stack (void)
 
   depths = XCNEWVEC (unsigned int, last_basic_block);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       depth =  cil_seq_stack_depth (cil_bb_seq (bb), depths[bb->index], true);
       max_depth = (depth > max_depth) ? depth : max_depth;
@@ -2022,10 +2022,10 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
 /* Emits the start function used to call C's main() function.  */
 
 static void
-emit_start_function (FILE *file)
+emit_start_function (FILE *file, struct function *fun)
 {
   size_t nargs = 0;
-  tree args = DECL_ARGUMENTS (current_function_decl);
+  tree args = DECL_ARGUMENTS (fun->decl);
 
   while (args)
     {
@@ -2115,9 +2115,9 @@ rename_var (tree var, const char *suffix, unsigned long index)
 /* Emit the static variables of a function, rename them as appropriate.  */
 
 static void
-emit_static_vars (FILE *file)
+emit_static_vars (FILE *file, struct function *fun)
 {
-  tree cell = cfun->unexpanded_var_list;
+  tree cell = fun->unexpanded_var_list;
 
   while (cell != NULL_TREE)
     {
@@ -2158,7 +2158,7 @@ var_uses_compare (const void *t1, const void *t2)
    shorter form for the first 4 locals.  */
 
 static void
-emit_local_vars (FILE *file)
+emit_local_vars (FILE *file, struct function *fun)
 {
   VEC (var_uses_s, heap) *locals;
   var_uses_s entry;
@@ -2173,7 +2173,7 @@ emit_local_vars (FILE *file)
   /* Count and collect all the local variables used in the function, store them
      in a pointer-map, the corresponding slots are left empty.  */
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       for (csi = csi_start_bb (bb); !csi_end_p (csi); csi_next (&csi))
 	{
@@ -2206,7 +2206,7 @@ emit_local_vars (FILE *file)
 
   locals = VEC_alloc (var_uses_s, heap, locals_n);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       for (csi = csi_start_bb (bb); !csi_end_p (csi); csi_next (&csi))
 	{
@@ -2246,7 +2246,7 @@ emit_local_vars (FILE *file)
 
   /* Emit the local variables starting from the most used ones.  */
 
-  if (cfun->machine->locals_init)
+  if (fun->machine->locals_init)
     fprintf (file, "\n\t.locals init (");
   else
     fprintf (file, "\n\t.locals (");
@@ -2290,19 +2290,19 @@ emit_referenced_assemblies (FILE *file)
 /* Emit the prototype of the current function, it's attributes, etc...  */
 
 static void
-emit_function_header (FILE *file)
+emit_function_header (FILE *file, struct function *fun)
 {
   tree args;
   bool varargs = false;
   bool missing = false;
 
-  if (TARGET_OPENSYSTEMC && MAIN_NAME_P (DECL_NAME (current_function_decl)))
-    emit_start_function (file);
+  if (TARGET_OPENSYSTEMC && MAIN_NAME_P (DECL_NAME (fun->decl)))
+    emit_start_function (file, fun);
 
-  emit_static_vars (file);
+  emit_static_vars (file, fun);
 
   {
-    tree args_type = TYPE_ARG_TYPES (TREE_TYPE (current_function_decl));
+    tree args_type = TYPE_ARG_TYPES (TREE_TYPE (fun->decl));
 
     if (args_type != NULL)
       {
@@ -2317,19 +2317,19 @@ emit_function_header (FILE *file)
   }
 
   fprintf (file, "\n.method %s static %s",
-	   TREE_PUBLIC (current_function_decl) ? "public" : "private",
+	   TREE_PUBLIC (fun->decl) ? "public" : "private",
 	   varargs ? "vararg " : "");
-  dump_type (file, TREE_TYPE (TREE_TYPE (current_function_decl)), true, false);
+  dump_type (file, TREE_TYPE (TREE_TYPE (fun->decl)), true, false);
   fprintf (file, " '%s' (",
-	   lang_hooks.decl_printable_name (current_function_decl, 1));
+	   lang_hooks.decl_printable_name (fun->decl, 1));
 
-  args = DECL_ARGUMENTS (current_function_decl);
+  args = DECL_ARGUMENTS (fun->decl);
 
-  if (cfun->static_chain_decl)
+  if (fun->static_chain_decl)
     {
-      dump_type (file, DECL_ARG_TYPE (cfun->static_chain_decl), true, true);
+      dump_type (file, DECL_ARG_TYPE (fun->static_chain_decl), true, true);
       fprintf (file, " ");
-      dump_decl_name (file, cfun->static_chain_decl);
+      dump_decl_name (file, fun->static_chain_decl);
       fprintf (file, "%s", args ? ", " : "");
     }
 
@@ -2362,9 +2362,9 @@ emit_function_header (FILE *file)
 	   ") cil managed"
 	   "\n{");
 
-  emit_local_vars (file);
+  emit_local_vars (file, fun);
 
-  if (DECL_STATIC_CONSTRUCTOR (current_function_decl))
+  if (DECL_STATIC_CONSTRUCTOR (fun->decl))
     {
       /* For the time being this attribute is a String. */
       emit_string_custom_attr (file, "initfun");
@@ -2387,7 +2387,7 @@ emit_function_header (FILE *file)
   {
     struct fnct_attr attributes;
 
-    decode_function_attrs (current_function_decl, &attributes);
+    decode_function_attrs (fun->decl, &attributes);
 
     if (attributes.cusattr_string)
       emit_string_custom_attr (file, attributes.cusattr_string);
@@ -2416,36 +2416,36 @@ emit_cil_bb (FILE *file, basic_block bb)
 }
 
 static void
-emit_cil_1 (FILE *file)
+emit_cil_1 (FILE *file, struct function *fun)
 {
   basic_block bb;
 
   /* Make sure that every bb has a label */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       tree_block_label (bb);
     }
 
   emit_referenced_assemblies (file);
-  emit_function_header (file);
+  emit_function_header (file, fun);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, fun)
     {
       emit_cil_bb (file, bb);
     }
 
   if (TARGET_EMIT_JIT_COMPILATION_HINTS)
     {
-      basic_block_frequency_emit (file);
+      basic_block_frequency_emit (file, fun);
       branch_probability_emit_and_reset (file);
     }
 
   fprintf (file,
 	   "\n\t.maxstack %u\n"
 	   "\n} // %s\n",
-	   compute_max_stack (),
-	   lang_hooks.decl_printable_name (current_function_decl, 1));
-  TREE_ASM_WRITTEN (current_function_decl) = 1;
+	   compute_max_stack (fun),
+	   lang_hooks.decl_printable_name (fun->decl, 1));
+  TREE_ASM_WRITTEN (fun->decl) = 1;
 }
 
 /* Gate function of the CIL assembly emission pass.  */
@@ -2461,7 +2461,7 @@ emit_cil_gate (void)
 static unsigned int
 emit_cil (void)
 {
-  emit_cil_1 (asm_out_file);
+  emit_cil_1 (asm_out_file, cfun);
 
   return 0;
 }
@@ -2567,7 +2567,7 @@ emit_cil_vcg_gate (void)
 static unsigned int
 emit_cil_vcg (void)
 {
-  emit_cil_vcg_1(stdout);
+  emit_cil_vcg_1 (stdout);
 
   return 0;
 }
