@@ -1,5 +1,11 @@
 2009-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.target/powerpc/optimize-bswapsi-2.c: Clone bswap tests from
+	gcc.dg, adding checks for lwbrx/stwbrx/ldbrx/stbrx being generated
+	on the powerpc.
+	* gcc.target/powerpc/optimize-bswapdi-2.c: Ditto.
+	* gcc.target/powerpc/optimize-bswapdi-3.c: Ditto.
+
 	* gcc.dg/optimize-bswapdi-1.c: Enable on powerpc.
 
 2009-06-12  Jakub Jelinek  <jakub@redhat.com>
