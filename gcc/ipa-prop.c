@@ -1632,8 +1632,10 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 	      if (!note->by_ref)
 		expr = fold_build1 (INDIRECT_REF, note->type, expr);
 	    }
-	  expr = force_gimple_operand_gsi (&gsi, expr, true, NULL, true,
-					   GSI_SAME_STMT);
+	  expr = force_gimple_operand_gsi (&gsi, expr,
+					   note->by_ref
+					   || is_gimple_reg_type (note->type),
+					   NULL, true, GSI_SAME_STMT);
 
 	  VEC_quick_push (tree, vargs, expr);
 	}
