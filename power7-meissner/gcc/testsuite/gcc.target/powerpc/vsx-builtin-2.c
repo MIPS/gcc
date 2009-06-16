@@ -17,8 +17,6 @@
 /* { dg-final { scan-assembler "xvnabssp" } } */
 /* { dg-final { scan-assembler "xvresp" } } */
 /* { dg-final { scan-assembler "xvrsqrtesp" } } */
-/* { dg-final { scan-assembler "xvtsqrtsp" } } */
-/* { dg-final { scan-assembler "xvtdivsp" } } */
 
 void use_builtins (__vector float *p, __vector float *q, __vector float *r, __vector float *s)
 {
@@ -37,6 +35,4 @@ void use_builtins (__vector float *p, __vector float *q, __vector float *r, __ve
   p[12] = __builtin_vsx_xvnmsubsp (q[12], r[12], s[12]);
   p[13] = __builtin_vsx_xvresp (q[13]);
   p[14] = __builtin_vsx_xvrsqrtesp (q[14]);
-  p[15] = __builtin_vsx_xvtsqrtsp (q[15]);
-  p[16] = __builtin_vsx_xvtdivsp (q[16], r[16]);
 }

@@ -393,13 +393,41 @@
   [(set_attr "type" "<VStype_div>")
    (set_attr "fp_type" "<VSfptype_div>")])
 
-(define_insn "vsx_tdiv<mode>3"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-		       (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")]
-		      UNSPEC_VSX_TDIV))]
+;; *tdiv* instruction returning the FG flag
+(define_expand "vsx_tdiv<mode>3_fg"
+  [(set (match_dup 3)
+	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "")
+		      (match_operand:VSX_B 2 "vsx_register_operand" "")]
+		     UNSPEC_VSX_TDIV))
+   (set (match_operand:SI 0 "gpc_reg_operand" "")
+	(gt:SI (match_dup 3)
+	       (const_int 0)))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>tdiv<VSs> %x0,%x1,%x2"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+})
+
+;; *tdiv* instruction returning the FE flag
+(define_expand "vsx_tdiv<mode>3_fe"
+  [(set (match_dup 3)
+	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "")
+		      (match_operand:VSX_B 2 "vsx_register_operand" "")]
+		     UNSPEC_VSX_TDIV))
+   (set (match_operand:SI 0 "gpc_reg_operand" "")
+	(eq:SI (match_dup 3)
+	       (const_int 0)))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+})
+
+(define_insn "*vsx_tdiv<mode>3_internal"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=x,x")
+	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
+		      (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")]
+		   UNSPEC_VSX_TDIV))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "x<VSv>tdiv<VSs> %0,%x1,%x2"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
@@ -473,12 +501,38 @@
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
-(define_insn "vsx_tsqrt<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
-		      UNSPEC_VSX_TSQRT))]
+;; *tsqrt* returning the fg flag
+(define_expand "vsx_tsqrt<mode>2_fg"
+  [(set (match_dup 3)
+	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "")]
+		     UNSPEC_VSX_TSQRT))
+   (set (match_operand:SI 0 "gpc_reg_operand" "")
+	(gt:SI (match_dup 3)
+	       (const_int 0)))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>tsqrt<VSs> %x0,%x1"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+})
+
+;; *tsqrt* returning the fe flag
+(define_expand "vsx_tsqrt<mode>2_fe"
+  [(set (match_dup 3)
+	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "")]
+		     UNSPEC_VSX_TSQRT))
+   (set (match_operand:SI 0 "gpc_reg_operand" "")
+	(eq:SI (match_dup 3)
+	       (const_int 0)))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+})
+
+(define_insn "*vsx_tsqrt<mode>2_internal"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=x,x")
+	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+		     UNSPEC_VSX_TSQRT))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "x<VSv>tsqrt<VSs> %0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 

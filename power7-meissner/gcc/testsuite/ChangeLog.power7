@@ -1,3 +1,12 @@
+2009-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-builtin-6.c: New file to test the divide
+	and sqrt test instructions.
+
+	* gcc.target/powerpc/vsx-builtin-1.c (use_builtins): Remove old
+	divide and sqrt test instructions that were incorrectly specified.
+	* gcc.target/powerpc/vsx-builtin-2.c (use_builtins): Ditto.
+
 2009-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/optimize-bswapsi-2.c: Clone bswap tests from
