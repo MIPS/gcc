@@ -1,3 +1,45 @@
+2009-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (bdesc_2arg): Split tdiv/tsqrt patterns
+	into 2 separate patterns, one that returns the FE flag and one
+	that returns FG.
+	(bdesc_1arg): Ditto.
+
+	* config/rs6000/vsx.md (vsx_tdiv<mode>3*): Reimplment tdiv/tsqrt
+	patterns to match the hardware which sets a CR register based on
+	the inputs, not a vector register.  Since two flags are set,
+	provide two separate patterns that returns each flag.  If the
+	instruction is used in a test, it will be optimized to use the
+	normal conditional branch.
+	(vsx_tsqrt<mode>2*): Ditto.
+
+	* config/rs6000/rs6000.h (VSX_BUILTIN_*): Split tdiv/tsqrt
+	patterns into 2 separate patterns, one that returns the FE flag
+	and one that returns FG.
+
+	* config/rs6000/rs6000.md (bswaphi): Use HImode for force_reg
+	call.
+
+2009-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 148504.
+
+2009-06-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.in (HAVE_AS_LWSYNC): Add for configure test.
+
+	* configure.ac (gcc_cv_as_powerpc_lwsync): Probe to see if the
+	assembler supports the lwsync instruction.
+	* configure: Regenerate.
+
+	* config/rs6000/sync.md (lwsync): If the assembler can support
+	lwsync generate it instead of putting in the bit pattern as an
+	integer constant.
+
+	* config/rs6000/rs6000.h (TARGET_LWSYNC_INSTRUCTION): Define as
+	1/0 depending on whether the assembler supports the lwsync
+	instruction.
+
 2009-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define

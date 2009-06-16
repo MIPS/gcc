@@ -139,8 +139,9 @@ mdisallow-float-in-lr-ctr
 Target Undocumented Var(TARGET_DISALLOW_FLOAT_IN_LR_CTR) Init(-1)
 ; Disallow floating point in LR or CTR, causes some reload bugs
 
+; Note, enabling this on GCC 4.3 breaks calculix.  It is ok on GCC 4.5.
 mallow-movmisalign
-Target Undocumented Var(TARGET_ALLOW_MOVMISALIGN) Init(-1)
+Target Undocumented Var(TARGET_ALLOW_MOVMISALIGN)
 ; Allow/disallow the movmisalign in DF/DI vectors
 
 mallow-df-permute

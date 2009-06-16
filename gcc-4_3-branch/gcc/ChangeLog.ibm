@@ -1,3 +1,30 @@
+2009-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mallow-movmisalign): Disable by
+	default in the 4.3 branch, since this seems to cause codegen bugs
+	in the calculix spec benchmark.
+
+	Backport from power7-meissner branch
+	* config/rs6000/rs6000.c (bdesc_2arg): Split tdiv/tsqrt patterns
+	into 2 separate patterns, one that returns the FE flag and one
+	that returns FG.
+	(bdesc_1arg): Ditto.
+
+	* config/rs6000/vsx.md (vsx_tdiv<mode>3*): Reimplment tdiv/tsqrt
+	patterns to match the hardware which sets a CR register based on
+	the inputs, not a vector register.  Since two flags are set,
+	provide two separate patterns that returns each flag.  If the
+	instruction is used in a test, it will be optimized to use the
+	normal conditional branch.
+	(vsx_tsqrt<mode>2*): Ditto.
+
+	* config/rs6000/rs6000.h (VSX_BUILTIN_*): Split tdiv/tsqrt
+	patterns into 2 separate patterns, one that returns the FE flag
+	and one that returns FG.
+
+	* config/rs6000/rs6000.md (bswaphi): Use HImode for force_reg
+	call.
+
 2009-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from power7-meissner branch

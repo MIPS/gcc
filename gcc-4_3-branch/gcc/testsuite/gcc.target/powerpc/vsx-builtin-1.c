@@ -14,11 +14,9 @@
 /* { dg-final { scan-assembler "xvmindp" } } */
 /* { dg-final { scan-assembler "xvsqrtdp" } } */
 /* { dg-final { scan-assembler "xvrsqrtedp" } } */
-/* { dg-final { scan-assembler "xvtsqrtdp" } } */
 /* { dg-final { scan-assembler "xvabsdp" } } */
 /* { dg-final { scan-assembler "xvnabsdp" } } */
 /* { dg-final { scan-assembler "xvredp" } } */
-/* { dg-final { scan-assembler "xvtdivdp" } } */
 
 void use_builtins (__vector double *p, __vector double *q, __vector double *r, __vector double *s)
 {
@@ -37,6 +35,4 @@ void use_builtins (__vector double *p, __vector double *q, __vector double *r, _
   p[12] = __builtin_vsx_xvnmsubdp (q[12], r[12], s[12]);
   p[13] = __builtin_vsx_xvredp (q[13]);
   p[14] = __builtin_vsx_xvrsqrtedp (q[14]);
-  p[15] = __builtin_vsx_xvtsqrtdp (q[15]);
-  p[16] = __builtin_vsx_xvtdivdp (q[16], r[16]);
 }
