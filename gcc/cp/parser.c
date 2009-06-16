@@ -11021,7 +11021,7 @@ cp_parser_explicit_specialization (cp_parser* parser)
 
 static tree
 cp_parser_type_specifier (cp_parser* parser,
-			  int flags,
+			  cp_parser_flags flags,
 			  cp_decl_specifier_seq *decl_specs,
 			  bool is_declaration,
 			  int* declares_class_or_enum,

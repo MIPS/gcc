@@ -1,4 +1,18 @@
-2009-06-09  Ian Lance Taylor  <ian@airs.com>
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* system.h (HAVE_DESIGNATED_INITIALIZERS): Remove duplicate
+	setting for C++.
+	* cp/parser.c (cp_parser_type_specifier): Change flags parameter
+	back to cp_parser_flags.
+
+	Revert the following patches:
+	2009-03-04  Ian Lance Taylor  <iant@google.com>
+	* ipa-struct-reorg.c (create_general_new_stmt): Initialize rhs.
+	2009-02-04  Ian Lance Taylor  <iant@google.com>
+	* ira-build.c (setup_min_max_conflict_allocno_ids): Use
+	LIM_REG_CLASSES instead of -1.
+
+2009-06-09  Ian Lance Taylor  <iant@google.com>
 
 	* jcf-parse.c (handle_constant): Change kind to int.
 
