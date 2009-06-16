@@ -456,7 +456,8 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 #else
 #if !defined(HAVE_DESIGNATED_INITIALIZERS)
 #define HAVE_DESIGNATED_INITIALIZERS \
-  ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
+  (((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L)) \
+   && !defined(__cplusplus))
 #endif
 #endif
 

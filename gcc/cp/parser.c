@@ -6135,7 +6135,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    return error_mark_node;
 
 	  /* Perform the cast.  */
-	  expr = build_c_cast (type, expr);
+	  expr = build_c_cast (input_location, type, expr);
 	  return expr;
 	}
       else 
@@ -7102,7 +7102,7 @@ cp_parser_label_for_labeled_statement (cp_parser* parser)
 	  expr_hi = NULL_TREE;
 
 	if (parser->in_switch_statement_p)
-	  finish_case_label (expr, expr_hi);
+	  finish_case_label (token->location, expr, expr_hi);
 	else
 	  error ("%Hcase label %qE not within a switch statement",
 		 &token->location, expr);
@@ -7114,7 +7114,7 @@ cp_parser_label_for_labeled_statement (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
 
       if (parser->in_switch_statement_p)
-	finish_case_label (NULL_TREE, NULL_TREE);
+	finish_case_label (token->location, NULL_TREE, NULL_TREE);
       else
 	error ("%Hcase label not within a switch statement", &token->location);
       break;
@@ -7335,7 +7335,7 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 	    if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
 	      {
 	        location_t loc = cp_lexer_peek_token (parser->lexer)->location;
-		add_stmt (build_empty_stmt ());
+		add_stmt (build_empty_stmt (loc));
 		cp_lexer_consume_token (parser->lexer);
 	        if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_ELSE))
 		  warning_at (loc, OPT_Wempty_body, "suggest braces around "
@@ -7358,10 +7358,12 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 		/* Parse the else-clause.  */
 	        if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
 	          {
-		    warning_at (cp_lexer_peek_token (parser->lexer)->location,
+		    location_t loc;
+		    loc = cp_lexer_peek_token (parser->lexer)->location;
+		    warning_at (loc,
 				OPT_Wempty_body, "suggest braces around "
 			        "empty body in an %<else%> statement");
-		    add_stmt (build_empty_stmt ());
+		    add_stmt (build_empty_stmt (loc));
 		    cp_lexer_consume_token (parser->lexer);
 		  }
 		else
@@ -7869,8 +7871,9 @@ cp_parser_implicitly_scoped_statement (cp_parser* parser, bool *if_p)
   /* Mark if () ; with a special NOP_EXPR.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
     {
+      location_t loc = cp_lexer_peek_token (parser->lexer)->location;
       cp_lexer_consume_token (parser->lexer);
-      statement = add_stmt (build_empty_stmt ());
+      statement = add_stmt (build_empty_stmt (loc));
     }
   /* if a compound is opened, we simply parse the statement directly.  */
   else if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
@@ -9689,14 +9692,17 @@ cp_parser_template_parameter_list (cp_parser* parser)
       tree parameter;
       bool is_non_type;
       bool is_parameter_pack;
+      location_t parm_loc;
 
       /* Parse the template-parameter.  */
+      parm_loc = cp_lexer_peek_token (parser->lexer)->location;
       parameter = cp_parser_template_parameter (parser, 
                                                 &is_non_type,
                                                 &is_parameter_pack);
       /* Add it to the list.  */
       if (parameter != error_mark_node)
 	parameter_list = process_template_parm (parameter_list,
+						parm_loc,
 						parameter,
 						is_non_type,
                                                 is_parameter_pack);
@@ -13498,8 +13504,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 			  {
 			    error ("%Hinvalid use of constructor as a template",
 				   &declarator_id_start_token->location);
-			    inform (input_location, "use %<%T::%D%> instead "
-				    "of %<%T::%D%> to "
+			    inform (input_location, "use %<%T::%D%> instead of %<%T::%D%> to "
 				    "name the constructor in a qualified name",
 				    class_type,
 				    DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
@@ -13552,6 +13557,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	    if (pack_expansion_p)
 	      maybe_warn_variadic_templates ();
 	  }
+
 	handle_declarator:;
 	  scope = get_scope_of_declarator (declarator);
 	  if (scope)
@@ -15873,7 +15879,8 @@ cp_parser_member_declaration (cp_parser* parser)
 		 know it is an anonymous aggregate.  */
 	      fixup_anonymous_aggr (type);
 	      /* And make the corresponding data member.  */
-	      decl = build_decl (FIELD_DECL, NULL_TREE, type);
+	      decl = build_decl (decl_spec_token_start->location,
+				 FIELD_DECL, NULL_TREE, type);
 	      /* Add it to the class.  */
 	      finish_member_declaration (decl);
 	    }
@@ -19443,6 +19450,7 @@ cp_parser_objc_selector_expression (cp_parser* parser)
   tree sel_seq = NULL_TREE;
   bool maybe_unary_selector_p = true;
   cp_token *token;
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
 
   cp_lexer_consume_token (parser->lexer);  /* Eat '@selector'.  */
   cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
@@ -19494,7 +19502,7 @@ cp_parser_objc_selector_expression (cp_parser* parser)
  finish_selector:
   cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
-  return objc_build_selector_expr (sel_seq);
+  return objc_build_selector_expr (loc, sel_seq);
 }
 
 /* Parse a list of identifiers.
@@ -20267,6 +20275,7 @@ cp_parser_objc_synchronized_statement (cp_parser *parser) {
 static tree
 cp_parser_objc_throw_statement (cp_parser *parser) {
   tree expr = NULL_TREE;
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
 
   cp_parser_require_keyword (parser, RID_AT_THROW, "%<@throw%>");
 
@@ -20275,7 +20284,7 @@ cp_parser_objc_throw_statement (cp_parser *parser) {
 
   cp_parser_consume_semicolon_at_end_of_statement (parser);
 
-  return objc_build_throw_stmt (expr);
+  return objc_build_throw_stmt (loc, expr);
 }
 
 /* Parse an Objective-C statement.  */
@@ -20429,7 +20438,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	cp_parser_name_lookup_error (parser, name, decl, NULL, token->location);
       else if (kind != 0)
 	{
-	  tree u = build_omp_clause (kind);
+	  tree u = build_omp_clause (token->location, kind);
 	  OMP_CLAUSE_DECL (u) = decl;
 	  OMP_CLAUSE_CHAIN (u) = list;
 	  list = u;
@@ -20507,7 +20516,7 @@ cp_parser_omp_clause_collapse (cp_parser *parser, tree list, location_t location
     }
 
   check_no_duplicate_clause (list, OMP_CLAUSE_COLLAPSE, "collapse", location);
-  c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
+  c = build_omp_clause (loc, OMP_CLAUSE_COLLAPSE);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
 
@@ -20565,7 +20574,7 @@ cp_parser_omp_clause_default (cp_parser *parser, tree list, location_t location)
     return list;
 
   check_no_duplicate_clause (list, OMP_CLAUSE_DEFAULT, "default", location);
-  c = build_omp_clause (OMP_CLAUSE_DEFAULT);
+  c = build_omp_clause (location, OMP_CLAUSE_DEFAULT);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_DEFAULT_KIND (c) = kind;
 
@@ -20593,7 +20602,7 @@ cp_parser_omp_clause_if (cp_parser *parser, tree list, location_t location)
 
   check_no_duplicate_clause (list, OMP_CLAUSE_IF, "if", location);
 
-  c = build_omp_clause (OMP_CLAUSE_IF);
+  c = build_omp_clause (location, OMP_CLAUSE_IF);
   OMP_CLAUSE_IF_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
@@ -20611,7 +20620,7 @@ cp_parser_omp_clause_nowait (cp_parser *parser ATTRIBUTE_UNUSED,
 
   check_no_duplicate_clause (list, OMP_CLAUSE_NOWAIT, "nowait", location);
 
-  c = build_omp_clause (OMP_CLAUSE_NOWAIT);
+  c = build_omp_clause (location, OMP_CLAUSE_NOWAIT);
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -20639,7 +20648,7 @@ cp_parser_omp_clause_num_threads (cp_parser *parser, tree list,
   check_no_duplicate_clause (list, OMP_CLAUSE_NUM_THREADS,
 			     "num_threads", location);
 
-  c = build_omp_clause (OMP_CLAUSE_NUM_THREADS);
+  c = build_omp_clause (location, OMP_CLAUSE_NUM_THREADS);
   OMP_CLAUSE_NUM_THREADS_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
@@ -20658,7 +20667,7 @@ cp_parser_omp_clause_ordered (cp_parser *parser ATTRIBUTE_UNUSED,
   check_no_duplicate_clause (list, OMP_CLAUSE_ORDERED,
 			     "ordered", location);
 
-  c = build_omp_clause (OMP_CLAUSE_ORDERED);
+  c = build_omp_clause (location, OMP_CLAUSE_ORDERED);
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -20740,7 +20749,7 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return list;
 
-  c = build_omp_clause (OMP_CLAUSE_SCHEDULE);
+  c = build_omp_clause (location, OMP_CLAUSE_SCHEDULE);
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
@@ -20828,7 +20837,7 @@ cp_parser_omp_clause_untied (cp_parser *parser ATTRIBUTE_UNUSED,
 
   check_no_duplicate_clause (list, OMP_CLAUSE_UNTIED, "untied", location);
 
-  c = build_omp_clause (OMP_CLAUSE_UNTIED);
+  c = build_omp_clause (location, OMP_CLAUSE_UNTIED);
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -21121,7 +21130,7 @@ cp_parser_omp_critical (cp_parser *parser, cp_token *pragma_tok)
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
   stmt = cp_parser_omp_structured_block (parser);
-  return c_finish_omp_critical (stmt, name);
+  return c_finish_omp_critical (input_location, stmt, name);
 }
 
 /* OpenMP 2.5:
@@ -21498,7 +21507,7 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	      {
 		/* Add lastprivate (decl) clause to OMP_FOR_CLAUSES,
 		   change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
-		tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
+		tree l = build_omp_clause (loc, OMP_CLAUSE_LASTPRIVATE);
 		OMP_CLAUSE_DECL (l) = real_decl;
 		OMP_CLAUSE_CHAIN (l) = clauses;
 		CP_OMP_CLAUSE_INFO (l) = CP_OMP_CLAUSE_INFO (*c);
@@ -21536,7 +21545,7 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	    }
 	  if (c == NULL)
 	    {
-	      c = build_omp_clause (OMP_CLAUSE_PRIVATE);
+	      c = build_omp_clause (loc, OMP_CLAUSE_PRIVATE);
 	      OMP_CLAUSE_DECL (c) = decl;
 	      c = finish_omp_clauses (c);
 	      if (c)
@@ -21703,7 +21712,8 @@ static tree
 cp_parser_omp_master (cp_parser *parser, cp_token *pragma_tok)
 {
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  return c_finish_omp_master (cp_parser_omp_structured_block (parser));
+  return c_finish_omp_master (input_location,
+			      cp_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:
@@ -21713,8 +21723,9 @@ cp_parser_omp_master (cp_parser *parser, cp_token *pragma_tok)
 static tree
 cp_parser_omp_ordered (cp_parser *parser, cp_token *pragma_tok)
 {
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  return c_finish_omp_ordered (cp_parser_omp_structured_block (parser));
+  return c_finish_omp_ordered (loc, cp_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:
@@ -21849,6 +21860,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
   tree stmt, clauses, par_clause, ws_clause, block;
   unsigned int mask = OMP_PARALLEL_CLAUSE_MASK;
   unsigned int save;
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
 
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
     {
@@ -21884,12 +21896,12 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
       break;
 
     case PRAGMA_OMP_PARALLEL_FOR:
-      c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
+      c_split_parallel_clauses (loc, clauses, &par_clause, &ws_clause);
       cp_parser_omp_for_loop (parser, ws_clause, &par_clause);
       break;
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:
-      c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
+      c_split_parallel_clauses (loc, clauses, &par_clause, &ws_clause);
       stmt = cp_parser_omp_sections_scope (parser);
       if (stmt)
 	OMP_SECTIONS_CLAUSES (stmt) = ws_clause;
