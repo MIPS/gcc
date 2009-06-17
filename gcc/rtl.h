@@ -920,6 +920,11 @@ extern const char * const reg_note_name[];
 #define VAR_LOC_UNKNOWN_P(X) \
   (GET_CODE (X) == CLOBBER && XEXP ((X), 0) == const0_rtx)
 
+/* 1 if RTX is emitted after a call, but it should take effect before
+   the call returns.  */
+#define NOTE_DURING_CALL_P(RTX)				\
+  (RTL_FLAG_CHECK1("NOTE_VAR_LOCATION_DURING_CALL_P", (RTX), NOTE)->call)
+
 /* Possible initialization status of a variable.   When requested
    by the user, this information is tracked and recorded in the DWARF
    debug information, along with the variable's location.  */

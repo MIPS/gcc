@@ -141,11 +141,14 @@ micro_operation_type_name[] = {
   "MO_ADJUST"
 };
 
-/* Where shall the note be emitted?  BEFORE or AFTER the instruction.  */
+/* Where shall the note be emitted?  BEFORE or AFTER the instruction.
+   Notes emitted as AFTER_CALL are to take effect during the call,
+   rather than after the call.  */
 enum emit_note_where
 {
   EMIT_NOTE_BEFORE_INSN,
-  EMIT_NOTE_AFTER_INSN
+  EMIT_NOTE_AFTER_INSN,
+  EMIT_NOTE_AFTER_CALL_INSN
 };
 
 /* Structure holding information about micro operation.  */
@@ -5930,8 +5933,12 @@ emit_note_insn_var_location (void **varp, void *data)
   if ((unsigned HOST_WIDE_INT) last_limit < TREE_INT_CST_LOW (type_size_unit))
     complete = false;
 
-  if (where == EMIT_NOTE_AFTER_INSN)
-    note = emit_note_after (NOTE_INSN_VAR_LOCATION, insn);
+  if (where != EMIT_NOTE_BEFORE_INSN)
+    {
+      note = emit_note_after (NOTE_INSN_VAR_LOCATION, insn);
+      if (where == EMIT_NOTE_AFTER_CALL_INSN)
+	NOTE_DURING_CALL_P (note) = true;
+    }
   else
     note = emit_note_before (NOTE_INSN_VAR_LOCATION, insn);
 
@@ -6166,7 +6173,7 @@ emit_notes_in_bb (basic_block bb)
 	{
 	  case MO_CALL:
 	    dataflow_set_clear_at_call (&set);
-	    emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN, set.vars);
+	    emit_notes_for_changes (insn, EMIT_NOTE_AFTER_CALL_INSN, set.vars);
 	    break;
 
 	  case MO_USE:
