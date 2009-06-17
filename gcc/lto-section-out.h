@@ -84,14 +84,18 @@ struct lto_tree_ref_encoder
   VEC(tree,heap) *trees;	/* Maps indices to pointers. */
 };
 
-/* The structure that holds all of the vectors of global types and
-   decls used in lto serialization for this file.  */
+
+/* The structure that holds all of the vectors of global types,
+   decls and cgraph nodes used in lto serialization for this file.  */
 
 struct lto_out_decl_state
 {
   /* The buffers contain the sets of decls of various kinds and types we have
      seen so far and the indexes assigned to them.  */
   struct lto_tree_ref_encoder streams[LTO_N_DECL_STREAMS];
+
+  /* Encoder for cgraph nodes.  */
+  lto_cgraph_encoder_t cgraph_node_encoder;
 
   /* If this out-decl state belongs to a function, fn_decl points to that
      function.  Otherwise, it is NULL. */
@@ -222,5 +226,14 @@ void lto_new_extern_inline_states (void);
 void lto_delete_extern_inline_states (void);
 void lto_force_functions_extern_inline (bitmap decls);
 bool lto_forced_extern_inline_p (tree fn_decl);
+
+/* In lto-cgraph.c  */
+struct cgraph_node *lto_cgraph_encoder_deref (lto_cgraph_encoder_t, int);
+int lto_cgraph_encoder_lookup (lto_cgraph_encoder_t, struct cgraph_node *);
+lto_cgraph_encoder_t lto_cgraph_encoder_new (void);
+int lto_cgraph_encoder_encode (lto_cgraph_encoder_t, struct cgraph_node *);
+void lto_cgraph_encoder_delete (lto_cgraph_encoder_t encoder);
+void output_cgraph (cgraph_node_set);
+void input_cgraph (void);
 
 #endif  /* GCC_LTO_SECTION_OUT_H  */

@@ -21,9 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_LTO_SECTION_IN_H
 #define GCC_LTO_SECTION_IN_H
 
-#include "target.h"
-#include "cgraph.h"
-#include "lto-header.h"
+#include "lto-section.h"
 
 struct lto_input_block 
 {
@@ -78,6 +76,9 @@ struct lto_file_decl_data
   /* Decl state corresponding to regions outside of any functions
      in the compilation unit. */
   struct lto_in_decl_state *global_decl_state;
+
+  /* Table of cgraph nodes present in this file.  */
+  lto_cgraph_encoder_t cgraph_node_encoder;
 
   /* Hash table maps lto-related section names to location in file.  */
   htab_t function_decl_states;

@@ -1671,6 +1671,9 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   /* Each pass will set the appropriate timer.  */
   timevar_pop (TV_IPA_LTO_DECL_IO);
 
+  /* Read the callgraph.  */
+  input_cgraph ();
+
   ipa_read_summaries ();
 
   timevar_push (TV_IPA_LTO_DECL_IO);

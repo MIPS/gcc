@@ -2494,6 +2494,13 @@ lto_output (cgraph_node_set set)
 	  lto_record_function_out_decl_state (node->decl, decl_state);
 	}
     }
+
+  /* Emit the callgraph after emitting function bodies.  This needs to
+     be done now to make sure that all the statements in every function
+     have been renumbered so that edges can be associated with call
+     statements using the statement UIDs.  */
+  output_cgraph (set);
+
   lto_bitmap_free (output);
 }
 

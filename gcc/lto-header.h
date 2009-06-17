@@ -23,6 +23,9 @@
 #ifndef GCC_LTO_HEADER_H
 #define GCC_LTO_HEADER_H
 
+#include "target.h"
+#include "cgraph.h"
+
 /* The string that is the prefix on the section names we make for lto.
    For decls the DECL_ASSEMBLER_NAME is appended to make the section
    name for the functions and static_initializers.  For other types of
@@ -178,5 +181,17 @@ extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_
 #define LTO_DEBUG_WIDE(tag,value) (void)0
 #endif
 
+
+/* Encoder data structure used to stream callgraph nodes.  */
+struct lto_cgraph_encoder_d
+{
+  /* Map nodes to reference number. */
+  struct pointer_map_t *map;
+
+  /* Map reference number to node. */
+  VEC(cgraph_node_ptr,heap) *nodes;
+};
+
+typedef struct lto_cgraph_encoder_d *lto_cgraph_encoder_t;
 
 #endif /* lto-header.h */

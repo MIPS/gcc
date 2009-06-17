@@ -584,6 +584,13 @@ propagate_bits (ipa_reference_global_vars_info_t x_global, struct cgraph_node *x
 static void 
 ipa_init (void) 
 {
+  static bool init_p = false;
+
+  if (init_p)
+    return;
+
+  init_p = true;
+
   memory_identifier_string = build_string(7, "memory");
 
   reference_vars_to_consider =
@@ -1011,7 +1018,7 @@ write_node_summary_p (struct cgraph_node *node)
 /* Serialize the ipa info for lto.  */
 
 static void 
-write_summary (cgraph_node_set set)
+ipa_reference_write_summary (cgraph_node_set set)
 {
   struct cgraph_node *node;
   struct lto_simple_output_block *ob
@@ -1035,9 +1042,12 @@ write_summary (cgraph_node_set set)
 	    = get_reference_vars_info (node)->local;
 	  unsigned int index;
 	  bitmap_iterator bi;
+	  lto_cgraph_encoder_t encoder;
+	  int node_ref;
 
-	  lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
-				    node->decl);
+	  encoder = ob->decl_state->cgraph_node_encoder;
+	  node_ref = lto_cgraph_encoder_encode (encoder, node);
+	  lto_output_uleb128_stream (ob->main_stream, node_ref);
 
 	  /* Stream out the statics read.  */
 	  lto_output_uleb128_stream (ob->main_stream,
@@ -1061,7 +1071,7 @@ write_summary (cgraph_node_set set)
 /* Deserialize the ipa info for lto.  */
 
 static void 
-read_summary (void)
+ipa_reference_read_summary (void)
 {
   struct lto_file_decl_data ** file_data_vec 
     = lto_get_file_decl_data ();
@@ -1085,15 +1095,19 @@ read_summary (void)
 
 	  for (i = 0; i < f_count; i++)
 	    {
-	      unsigned int fn_index = lto_input_uleb128 (ib);
-	      tree fn_decl = lto_file_decl_data_get_fn_decl (file_data,
-							     fn_index);
-	      unsigned int j;
-	      struct cgraph_node *node = cgraph_node (fn_decl);
-	      ipa_reference_local_vars_info_t l = init_function_info (node);
+	      unsigned int j, index;
+	      struct cgraph_node *node;
+	      ipa_reference_local_vars_info_t l;
+	      unsigned int v_count;
+	      lto_cgraph_encoder_t encoder;
+
+	      index = lto_input_uleb128 (ib);
+	      encoder = file_data->cgraph_node_encoder;
+	      node = lto_cgraph_encoder_deref (encoder, index);
+	      l = init_function_info (node);
 
 	      /* Set the statics read.  */
-	      unsigned int v_count = lto_input_uleb128 (ib);
+	      v_count = lto_input_uleb128 (ib);
 	      for (j = 0; j < v_count; j++)
 		{
 		  unsigned int var_index = lto_input_uleb128 (ib);
@@ -1408,8 +1422,8 @@ struct ipa_opt_pass_d pass_ipa_reference =
   0                                     /* todo_flags_finish */
  },
  generate_summary,		        /* generate_summary */
- write_summary,				/* write_summary */
- read_summary,				/* read_summary */
+ ipa_reference_write_summary,		/* write_summary */
+ ipa_reference_read_summary,		/* read_summary */
  NULL,					/* function_read_summary */
  0,					/* TODOs */
  NULL,			                /* function_transform */

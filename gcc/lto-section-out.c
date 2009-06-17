@@ -709,8 +709,10 @@ lto_new_out_decl_state (void)
 	  hash_fn = lto_hash_decl_slot_node;
 	  eq_fn = lto_eq_decl_slot_node;
 	}
-    lto_init_tree_ref_encoder (&state->streams[i], hash_fn, eq_fn);
+      lto_init_tree_ref_encoder (&state->streams[i], hash_fn, eq_fn);
     }
+
+  state->cgraph_node_encoder = lto_cgraph_encoder_new ();
 
   return state;
 }
@@ -1330,8 +1332,7 @@ produce_asm_for_decls (cgraph_node_set set)
   header.debug_main_size = ob->debug_main_stream->total_size;
 #endif
 
-  header_stream = ((struct lto_output_stream *)
-		   xcalloc (1, sizeof (struct lto_output_stream)));
+  header_stream = XCNEW (struct lto_output_stream);
   lto_output_data_stream (header_stream, &header, sizeof header);
   lto_write_stream (header_stream);
   free (header_stream);
@@ -1368,10 +1369,10 @@ produce_asm_for_decls (cgraph_node_set set)
   /* Write command line opts.  */
   lto_write_options ();
 
+  /* Deallocate memory and clean up.  */
+  lto_cgraph_encoder_delete (ob->decl_state->cgraph_node_encoder);
   VEC_free (lto_out_decl_state_ptr, heap, lto_function_decl_states);
   lto_function_decl_states = NULL;
-
-  /* Deallocate memory and clean up.  */
   destroy_output_block (ob);
 }
 

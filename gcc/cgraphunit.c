@@ -1320,7 +1320,8 @@ ipa_passes (void)
   execute_ipa_summary_passes ((struct ipa_opt_pass_d *) all_regular_ipa_passes);
   execute_ipa_summary_passes ((struct ipa_opt_pass_d *) all_lto_gen_passes);
 
-  ipa_write_summaries ();
+  if (!in_lto_p)
+    ipa_write_summaries ();
 
   execute_ipa_pass_list (all_regular_ipa_passes);
 

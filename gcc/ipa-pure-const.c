@@ -609,6 +609,13 @@ remove_node_data (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 static void
 register_hooks (void)
 {
+  static bool init_p = false;
+
+  if (init_p)
+    return;
+
+  init_p = true;
+
   node_removal_hook_holder =
       cgraph_add_node_removal_hook (&remove_node_data, NULL);
   node_duplication_hook_holder =
@@ -625,6 +632,7 @@ generate_summary (void)
   struct cgraph_node *node;
 
   register_hooks ();
+
   /* There are some shared nodes, in particular the initializers on
      static declarations.  We do not need to scan them more than once
      since all we would be interested in are the addressof
@@ -649,7 +657,7 @@ generate_summary (void)
 /* Serialize the ipa info for lto.  */
 
 static void
-write_summary (cgraph_node_set set)
+pure_const_write_summary (cgraph_node_set set)
 {
   struct cgraph_node *node;
   struct lto_simple_output_block *ob
@@ -673,10 +681,15 @@ write_summary (cgraph_node_set set)
       if (node->analyzed && get_function_state (node) != NULL)
 	{
 	  unsigned HOST_WIDEST_INT flags = 0;
-	  funct_state fs = get_function_state (node);
+	  funct_state fs;
+	  int node_ref;
+	  lto_cgraph_encoder_t encoder;
+	  
+	  fs = get_function_state (node);
 
-	  lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
-				    node->decl);
+	  encoder = ob->decl_state->cgraph_node_encoder;
+	  node_ref = lto_cgraph_encoder_encode (encoder, node);
+	  lto_output_uleb128_stream (ob->main_stream, node_ref);
 	
 	  /* Note that flags will need to be read in the opposite
 	     order as we are pushing the bitflags into FLAGS.  */
@@ -697,10 +710,10 @@ write_summary (cgraph_node_set set)
 /* Deserialize the ipa info for lto.  */
 
 static void 
-read_summary (void)
+pure_const_read_summary (void)
 {
-  struct lto_file_decl_data ** file_data_vec = lto_get_file_decl_data ();
-  struct lto_file_decl_data * file_data;
+  struct lto_file_decl_data **file_data_vec = lto_get_file_decl_data ();
+  struct lto_file_decl_data *file_data;
   unsigned int j = 0;
 
   register_hooks ();
@@ -719,16 +732,22 @@ read_summary (void)
 
 	  for (i = 0; i < count; i++)
 	    {
-	      unsigned int index = lto_input_uleb128 (ib);
-	      tree fn_decl = lto_file_decl_data_get_fn_decl (file_data, index);
-	      unsigned HOST_WIDEST_INT flags = lto_input_widest_uint_uleb128 (ib);
-	      funct_state fs = XCNEW (struct funct_state_d);
+	      unsigned int index;
+	      struct cgraph_node *node;
+	      unsigned HOST_WIDEST_INT flags;
+	      funct_state fs;
+	      lto_cgraph_encoder_t encoder;
 
-	      set_function_state (cgraph_node (fn_decl), fs);
+	      fs = XCNEW (struct funct_state_d);
+	      index = lto_input_uleb128 (ib);
+	      encoder = file_data->cgraph_node_encoder;
+	      node = lto_cgraph_encoder_deref (encoder, index);
+	      set_function_state (node, fs);
 
 	      /* Note that the flags must be read in the opposite
 		 order in which they were written (the bitflags were
 		 pushed into FLAGS).  */
+	      flags = lto_input_widest_uint_uleb128 (ib);
 	      fs->can_throw = lto_get_flag (&flags);
 	      fs->looping = lto_get_flag (&flags);
 	      fs->looping_previously_known = lto_get_flag (&flags);
@@ -1002,8 +1021,8 @@ struct ipa_opt_pass_d pass_ipa_pure_const =
   0                                     /* todo_flags_finish */
  },
  generate_summary,		        /* generate_summary */
- write_summary,				/* write_summary */
- read_summary,				/* read_summary */
+ pure_const_write_summary,		/* write_summary */
+ pure_const_read_summary,		/* read_summary */
  NULL,					/* function_read_summary */
  0,					/* TODOs */
  NULL,			                /* function_transform */

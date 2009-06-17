@@ -1,3 +1,59 @@
+2009-06-17  Diego Novillo  <dnovillo@google.com>
+
+	* tree-pass.h (pass_ipa_lto_cgraph): Remove.
+	* lto-function-out.c (lto_output): Call output_cgraph.
+	* ipa-reference.c (ipa_init): Prevent multiple initializations.
+	(ipa_reference_write_summary): Rename from write_summary.
+	Update all users.
+	Call lto_cgraph_encoder_encode to get a reference for NODE.
+	(ipa_reference_read_summary): Rename from read_summary.
+	Update all users.
+	Call lto_cgraph_encoder_deref to retrieve NODE from INDEX.
+	* cgraphunit.c (ipa_passes): Prevent lto1 from calling
+	ipa_write_summaries.
+	* lto-cgraph.c: Include lto-tree-out.h.
+	(struct lto_cgraph_encoder_d): Move to lto-tree-out.h
+	(lto_cgraph_encoder_t): Likewise.
+	(lto_cgraph_encoder_new): Make extern.
+	(lto_cgraph_encoder_delete): Likewise.
+	(lto_cgraph_encoder_encode): Likewise.
+	Return REF.
+	(lto_cgraph_encoder_lookup): Make extern.
+	(lto_cgraph_encoder_deref): Likewise.
+	(output_node): Tidy.
+	(output_cgraph): Make extern.
+	Use the cgraph node encoder in OB->DECL_STATE.
+	Do not call lto_cgraph_encoder_delete.
+	(input_cgraph_1): Call lto_cgraph_encoder_encode.
+	(input_cgraph): Call lto_cgraph_encoder_new.
+	(pass_ipa_lto_cgraph): Remove.
+	* lto-header.h: Include target.h and cgraph.h.
+	(struct lto_cgraph_encoder_d): Move from lto-cgraph.c.
+	(lto_cgraph_encoder_t): Likewise.
+	* ipa-pure-const.c (register_hooks): Preven multiple
+	initializations.
+	(generate_summary): Tidy.
+	(pure_const_write_summary): Rename from write_summary.
+	Update all users.
+	Call lto_cgraph_encoder_encode to get a reference for NODE.
+	(pure_const_read_summary): Rename from read_summary.
+	Update all users.
+	Call lto_cgraph_encoder_deref to get NODE from INDEX.
+	* lto-section-in.h: Do not include target.h, cgraph.h and
+	lto-header.h.
+	Include lto-section.h.
+	(struct lto_file_decl_data): Add field cgraph_node_encoder.
+	* Makefile.in (LTO_HEADER_H): New.  Update all references
+	to lto-header.h.
+	* passes.c (init_optimization_passes): Remove 'FIXME lto'
+	marker.
+	Remove reference to pass_ipa_lto_cgraph.
+	* lto-section-out.c (lto_new_out_decl_state): Call
+	lto_cgraph_encoder_new.
+	(produce_asm_for_decls): Call lto_cgraph_encoder_delete.
+	* lto-section-out.h (struct lto_out_decl_state): Add
+	field cgraph_node_encoder.
+
 2009-06-17  Rafael Espindola  <espindola@google.com>
 
 	Partial revert of 145103.

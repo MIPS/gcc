@@ -587,8 +587,6 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &all_regular_ipa_passes;
-  /* FIXME lto: ipa-reference was modified to ignore node duplication
-     hook.  This means that we ICE first time real clone is created.  */
   NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_reference);
@@ -600,7 +598,6 @@ init_optimization_passes (void)
 
   p = &all_lto_gen_passes;
   NEXT_PASS (pass_ipa_lto_gimple_out);
-  NEXT_PASS (pass_ipa_lto_cgraph);
   NEXT_PASS (pass_ipa_lto_wpa_fixup);
   NEXT_PASS (pass_ipa_lto_finish_out);  /* This must be the last IPA_PASS.  */
   *p = NULL;

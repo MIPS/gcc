@@ -52,24 +52,12 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-out.h"
 #include "pointer-set.h"
 #include "lto-tree-in.h"
+#include "lto-tree-out.h"
 #include "lto-utils.h"
-
-/* Encoder data structure used to stream callgraph nodes.  */
-struct lto_cgraph_encoder_d
-{
-  /* Map nodes to reference number. */
-  struct pointer_map_t *map;
-
-  /* Map reference number to node. */
-  VEC(cgraph_node_ptr,heap) *nodes;
-};
-
-typedef struct lto_cgraph_encoder_d *lto_cgraph_encoder_t;
-
 
 /* Create a new cgraph encoder.  */
 
-static lto_cgraph_encoder_t
+lto_cgraph_encoder_t
 lto_cgraph_encoder_new (void)
 {
   lto_cgraph_encoder_t encoder = XCNEW (struct lto_cgraph_encoder_d);
@@ -81,7 +69,7 @@ lto_cgraph_encoder_new (void)
 
 /* Delete ENCODER and its components.  */
 
-static void
+void
 lto_cgraph_encoder_delete (lto_cgraph_encoder_t encoder)
 {
    VEC_free (cgraph_node_ptr, heap, encoder->nodes);
@@ -90,41 +78,47 @@ lto_cgraph_encoder_delete (lto_cgraph_encoder_t encoder)
 }
 
 
-/* Return the existing reference number of NODE in ENCODER or assign one
-   if NODE has not been seen.  */
+/* Return the existing reference number of NODE in the cgraph encoder in
+   output block OB.  Assign a new reference if this is the first time
+   NODE is encoded.  */
 
-static void
+int
 lto_cgraph_encoder_encode (lto_cgraph_encoder_t encoder,
 			   struct cgraph_node *node)
 {
-  void **slot = pointer_map_contains (encoder->map, node);
-
+  int ref;
+  void **slot;
+  
+  slot = pointer_map_contains (encoder->map, node);
   if (!slot)
     {
-      intptr_t ref = VEC_length (cgraph_node_ptr, encoder->nodes);
+      ref = VEC_length (cgraph_node_ptr, encoder->nodes);
       slot = pointer_map_insert (encoder->map, node);
-      *slot = (void *) ref;
+      *slot = (void *) (intptr_t) ref;
       VEC_safe_push (cgraph_node_ptr, heap, encoder->nodes, node);
     }
+  else
+    ref = (int) (intptr_t) *slot;
+
+  return ref;
 }
 
 
 /* Look up NODE in encoder.  Return NODE's reference if it has been encoded
    or LCC_NOT_FOUND if it is not there.  */
 
-static intptr_t
+int
 lto_cgraph_encoder_lookup (lto_cgraph_encoder_t encoder,
 			   struct cgraph_node *node)
 {
   void **slot = pointer_map_contains (encoder->map, node);
-
-  return (slot ? (intptr_t) *slot : LCC_NOT_FOUND);
+  return (slot ? (int) (intptr_t) *slot : LCC_NOT_FOUND);
 }
 
 
 /* Return the cgraph node corresponding to REF using ENCODER.  */
 
-static struct cgraph_node *
+struct cgraph_node *
 lto_cgraph_encoder_deref (lto_cgraph_encoder_t encoder, int ref)
 {
   if (ref == LCC_NOT_FOUND)
@@ -308,8 +302,9 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 				 node->local.inline_summary.time_inlining_benefit);
     }
 
-  /* FIXME: Outputting global info is not neccesary until after inliner was run
-     Global structure holds results of propagation done by inliner.  */
+  /* FIXME lto: Outputting global info is not neccesary until after
+     inliner was run.  Global structure holds results of propagation
+     done by inliner.  */
   LTO_DEBUG_TOKEN ("estimated_stack_size");
   lto_output_sleb128_stream (ob->main_stream,
 			     node->global.estimated_stack_size);
@@ -344,24 +339,25 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 }
 
 
-/* Output the part of the cgraph in SET.  This is a little tricky now
-   as we need to handle clones as well.  To simplify things we first
-   write the nodes and then the edges.  This make the streamed data a
-   bit larger.  */
+/* Output the part of the cgraph in SET.  */
 
-static void
+void
 output_cgraph (cgraph_node_set set)
 {
   struct cgraph_node *node;
   struct lto_simple_output_block *ob;
   cgraph_node_set_iterator csi;
   struct cgraph_edge *edge;
-  lto_cgraph_encoder_t encoder;
   int i, n_nodes;
   bitmap written_decls;
+  lto_cgraph_encoder_t encoder;
 
   ob = lto_create_simple_output_block (LTO_section_cgraph);
-  encoder = lto_cgraph_encoder_new ();
+
+  /* An encoder for cgraph nodes should have been created by
+     ipa_write_summaries_1.  */
+  gcc_assert (ob->decl_state->cgraph_node_encoder);
+  encoder = ob->decl_state->cgraph_node_encoder;
 
   /* The FUNCTION_DECLs for which we have written a node.  The first
      node found is written as the "original" node, the remaining nodes
@@ -418,7 +414,6 @@ output_cgraph (cgraph_node_set set)
   lto_output_uleb128_stream (ob->main_stream, 0);
 
   lto_destroy_simple_output_block (ob);
-  lto_cgraph_encoder_delete (encoder);
 }
 
 
@@ -694,6 +689,7 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 	  gcc_assert (node);
 	  gcc_assert (node->decl);
 	  VEC_safe_push (cgraph_node_ptr, heap, nodes, node);
+	  lto_cgraph_encoder_encode (file_data->cgraph_node_encoder, node);
 	}
 
       LTO_DEBUG_UNDENT();
@@ -733,7 +729,7 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 /* Input and merge the cgraph from each of the .o files passed to
    lto1.  */
 
-static void
+void
 input_cgraph (void)
 {
   struct lto_file_decl_data **file_data_vec = lto_get_file_decl_data ();
@@ -753,7 +749,8 @@ input_cgraph (void)
       struct lto_input_block *ib;
 
       ib = lto_create_simple_input_block (file_data, LTO_section_cgraph, 
-					 &data, &len);
+					  &data, &len);
+      file_data->cgraph_node_encoder = lto_cgraph_encoder_new ();
       input_cgraph_1 (file_data, ib);
       lto_destroy_simple_input_block (file_data, LTO_section_cgraph, 
 				      ib, data, len);
@@ -776,30 +773,3 @@ input_cgraph (void)
 	node->aux = NULL;
     }
 }
-
-
-struct ipa_opt_pass_d pass_ipa_lto_cgraph =
-{
- {
-  IPA_PASS,
-  "lto_cgraph",	                        /* name */
-  gate_lto_out,			        /* gate */
-  NULL,		                        /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_LTO_CGRAPH_IO,	        	/* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,            			/* todo_flags_start */
-  TODO_dump_func                        /* todo_flags_finish */
- },
- NULL,		                        /* generate_summary */
- output_cgraph,				/* write_summary */
- input_cgraph,				/* read_summary */
- NULL,					/* function_read_summary */
- 0,					/* TODOs */
- NULL,			                /* function_transform */
- NULL					/* variable_transform */
-};

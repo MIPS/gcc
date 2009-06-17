@@ -1,3 +1,7 @@
+2009-06-17  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (read_cgraph_and_symbols): Call input_cgraph.
+
 2009-06-02  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (lto_1_to_1_map): Ignore nodes that have not been
