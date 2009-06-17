@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "params.h"
 
 /* Commonly used modes.  */
 
@@ -2322,13 +2323,13 @@ set_new_first_and_last_insn (rtx first, rtx last)
   last_insn = last;
   cur_insn_uid = 0;
 
-  if (flag_min_insn_uid)
+  if (MIN_NONDEBUG_INSN_UID)
     {
-      cur_insn_uid = flag_min_insn_uid - 1;
+      cur_insn_uid = MIN_NONDEBUG_INSN_UID - 1;
       cur_debug_insn_uid = 0;
 
       for (insn = first; insn; insn = NEXT_INSN (insn))
-	if (INSN_UID (insn) < flag_min_insn_uid)
+	if (INSN_UID (insn) < MIN_NONDEBUG_INSN_UID)
 	  cur_debug_insn_uid = MAX (cur_debug_insn_uid, INSN_UID (insn));
 	else
 	  cur_insn_uid = MAX (cur_insn_uid, INSN_UID (insn));
@@ -3592,7 +3593,7 @@ make_debug_insn_raw (rtx pattern)
   rtx insn;
 
   insn = rtx_alloc (DEBUG_INSN);
-  INSN_UID (insn) = cur_debug_insn_uid < flag_min_insn_uid
+  INSN_UID (insn) = cur_debug_insn_uid < MIN_NONDEBUG_INSN_UID
     ? cur_debug_insn_uid++
     : cur_insn_uid++;
 
@@ -5498,8 +5499,8 @@ init_emit (void)
 {
   first_insn = NULL;
   last_insn = NULL;
-  if (flag_min_insn_uid)
-    cur_insn_uid = flag_min_insn_uid;
+  if (MIN_NONDEBUG_INSN_UID)
+    cur_insn_uid = MIN_NONDEBUG_INSN_UID;
   else
     cur_insn_uid = 1;
   cur_debug_insn_uid = 1;
