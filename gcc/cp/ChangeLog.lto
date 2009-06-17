@@ -1,3 +1,16 @@
+2009-06-17  Rafael Espindola  <espindola@google.com>
+
+	Partial revert of 145103:
+
+	2009-03-27  Rafael Avila de Espindola  <espindola@google.com>
+		* cp-objcp-common.h (LANG_HOOKS_COMDAT_GROUP): Remove.
+		* cp-tree.h (lang_identifier): Add abi_warning.
+		(IDENTIFIER_ABI_WARNING): New.
+		* mangle.c (finish_mangling_internal): Don't print warning.  Set
+		ABI_WARNING if one is needed. Update all callers.
+		(mangle_decl): Set IDENTIFIER_ABI_WARNING.
+		* semantics.c (expand_or_defer_fn): Print warning for ABI changes.
+
 2009-04-01  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lang-specs.h: Remove uses of invoke_lto_single.

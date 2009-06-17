@@ -209,12 +209,12 @@ static int discriminator_for_string_literal (tree, tree);
 static void write_discriminator (const int);
 static void write_local_name (const tree, const tree, const tree);
 static void dump_substitution_candidates (void);
-static tree mangle_decl_string (const tree, bool *);
+static tree mangle_decl_string (const tree);
 
 /* Control functions.  */
 
 static inline void start_mangling (const tree);
-static inline const char *finish_mangling (bool *);
+static inline const char *finish_mangling (const bool);
 static tree mangle_special_for_type (const tree, const char *);
 
 /* Foreign language functions.  */
@@ -2722,9 +2722,12 @@ start_mangling (const tree entity)
    warning.  */
 
 static void
-finish_mangling_internal (bool *abi_warning)
+finish_mangling_internal (const bool warn)
 {
-  *abi_warning = G.need_abi_warning;
+  if (warn_abi && warn && G.need_abi_warning)
+    warning (OPT_Wabi, "the mangled name of %qD will change in a future "
+	     "version of GCC",
+	     G.entity);
 
   /* Clear all the substitutions.  */
   VEC_truncate (tree, G.substitutions, 0);
@@ -2737,18 +2740,18 @@ finish_mangling_internal (bool *abi_warning)
 /* Like finish_mangling_internal, but return the mangled string.  */
 
 static inline const char *
-finish_mangling (bool *abi_warning)
+finish_mangling (const bool warn)
 {
-  finish_mangling_internal (abi_warning);
+  finish_mangling_internal (warn);
   return (const char *) obstack_finish (mangle_obstack);
 }
 
 /* Like finish_mangling_internal, but return an identifier.  */
 
 static tree
-finish_mangling_get_identifier (bool *abi_warning)
+finish_mangling_get_identifier (const bool warn)
 {
-  finish_mangling_internal (abi_warning);
+  finish_mangling_internal (warn);
   /* Don't obstack_finish here, and the next start_mangling will
      remove the identifier.  */
   return get_identifier ((const char *) name_base);
@@ -2776,7 +2779,7 @@ init_mangle (void)
 /* Generate the mangled name of DECL.  */
 
 static tree
-mangle_decl_string (const tree decl, bool *abi_warning)
+mangle_decl_string (const tree decl)
 {
   tree result;
 
@@ -2787,7 +2790,7 @@ mangle_decl_string (const tree decl, bool *abi_warning)
   else
     write_mangled_name (decl, true);
 
-  result = finish_mangling_get_identifier (abi_warning);
+  result = finish_mangling_get_identifier (/*warn=*/true);
   if (DEBUG_MANGLE)
     fprintf (stderr, "mangle_decl_string = '%s'\n\n",
 	     IDENTIFIER_POINTER (result));
@@ -2799,11 +2802,9 @@ mangle_decl_string (const tree decl, bool *abi_warning)
 void
 mangle_decl (const tree decl)
 {
-  bool abi_warning;
-  tree id = mangle_decl_string (decl, &abi_warning);
+  tree id = mangle_decl_string (decl);
   id = targetm.mangle_decl_assembler_name (decl, id);
   SET_DECL_ASSEMBLER_NAME (decl, id);
-  IDENTIFIER_EMIT_ABI_WARNING_P (DECL_ASSEMBLER_NAME (decl)) = abi_warning;
 }
 
 /* Generate the mangled representation of TYPE.  */
@@ -2812,11 +2813,10 @@ const char *
 mangle_type_string (const tree type)
 {
   const char *result;
-  bool abi_warning;
 
   start_mangling (type);
   write_type (type);
-  result = finish_mangling (&abi_warning);
+  result = finish_mangling (/*warn=*/false);
   if (DEBUG_MANGLE)
     fprintf (stderr, "mangle_type_string = '%s'\n\n", result);
   return result;
@@ -2830,7 +2830,6 @@ static tree
 mangle_special_for_type (const tree type, const char *code)
 {
   tree result;
-  bool abi_warning;
 
   /* We don't have an actual decl here for the special component, so
      we can't just process the <encoded-name>.  Instead, fake it.  */
@@ -2842,7 +2841,7 @@ mangle_special_for_type (const tree type, const char *code)
 
   /* Add the type.  */
   write_type (type);
-  result = finish_mangling_get_identifier (&abi_warning);
+  result = finish_mangling_get_identifier (/*warn=*/false);
 
   if (DEBUG_MANGLE)
     fprintf (stderr, "mangle_special_for_type = %s\n\n",
@@ -2903,7 +2902,6 @@ tree
 mangle_ctor_vtbl_for_type (const tree type, const tree binfo)
 {
   tree result;
-  bool abi_warning;
 
   start_mangling (type);
 
@@ -2914,7 +2912,7 @@ mangle_ctor_vtbl_for_type (const tree type, const tree binfo)
   write_char ('_');
   write_type (BINFO_TYPE (binfo));
 
-  result = finish_mangling_get_identifier (&abi_warning);
+  result = finish_mangling_get_identifier (/*warn=*/false);
   if (DEBUG_MANGLE)
     fprintf (stderr, "mangle_ctor_vtbl_for_type = %s\n\n",
 	     IDENTIFIER_POINTER (result));
@@ -2961,7 +2959,6 @@ mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
 	      tree virtual_offset)
 {
   tree result;
-  bool abi_warning;
 
   start_mangling (fn_decl);
 
@@ -2994,7 +2991,7 @@ mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
   /* Scoped name.  */
   write_encoding (fn_decl);
 
-  result = finish_mangling_get_identifier (&abi_warning);
+  result = finish_mangling_get_identifier (/*warn=*/false);
   if (DEBUG_MANGLE)
     fprintf (stderr, "mangle_thunk = %s\n\n", IDENTIFIER_POINTER (result));
   return result;
@@ -3069,7 +3066,6 @@ mangle_conv_op_name_for_type (const tree type)
 tree
 mangle_guard_variable (const tree variable)
 {
-  bool abi_warning;
   start_mangling (variable);
   write_string ("_ZGV");
   if (strncmp (IDENTIFIER_POINTER (DECL_NAME (variable)), "_ZGR", 4) == 0)
@@ -3078,7 +3074,7 @@ mangle_guard_variable (const tree variable)
     write_string (IDENTIFIER_POINTER (DECL_NAME (variable)) + 4);
   else
     write_name (variable, /*ignore_local_scope=*/0);
-  return finish_mangling_get_identifier (&abi_warning);
+  return finish_mangling_get_identifier (/*warn=*/false);
 }
 
 /* Return an identifier for the name of a temporary variable used to
@@ -3088,11 +3084,10 @@ mangle_guard_variable (const tree variable)
 tree
 mangle_ref_init_variable (const tree variable)
 {
-  bool abi_warning;
   start_mangling (variable);
   write_string ("_ZGR");
   write_name (variable, /*ignore_local_scope=*/0);
-  return finish_mangling_get_identifier (&abi_warning);
+  return finish_mangling_get_identifier (/*warn=*/false);
 }
 
 /* Return true if decl is templated, along with the associated template info

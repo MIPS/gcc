@@ -1,5 +1,9 @@
 2009-06-17  Rafael Espindola  <espindola@google.com>
 
+	Partial revert of 145103.
+
+2009-06-17  Rafael Espindola  <espindola@google.com>
+
 	Mainline merge @148497.
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.

@@ -225,7 +225,6 @@ struct GTY(()) lang_identifier {
   cxx_binding *bindings;
   tree class_template_info;
   tree label_value;
-  bool abi_warning;
 };
 
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
@@ -389,10 +388,6 @@ typedef enum cp_id_kind
   (LANG_IDENTIFIER_CAST (NODE)->namespace_bindings)
 #define IDENTIFIER_TEMPLATE(NODE)	\
   (LANG_IDENTIFIER_CAST (NODE)->class_template_info)
-
-/* True if we should emit an ABI warning for this identifier. */
-#define IDENTIFIER_EMIT_ABI_WARNING_P(NODE)	\
-  (LANG_IDENTIFIER_CAST (NODE)->abi_warning)
 
 /* The IDENTIFIER_BINDING is the innermost cxx_binding for the
     identifier.  It's PREVIOUS is the next outermost binding.  Each
