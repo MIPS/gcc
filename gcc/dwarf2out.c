@@ -3828,6 +3828,10 @@ dwarf_stack_op_name (unsigned int op)
       return "DW_OP_call4";
     case DW_OP_call_ref:
       return "DW_OP_call_ref";
+    case DW_OP_implicit_value:
+      return "DW_OP_implicit_value";
+    case DW_OP_stack_value:
+      return "DW_OP_stack_value";
     case DW_OP_GNU_push_tls_address:
       return "DW_OP_GNU_push_tls_address";
     case DW_OP_GNU_uninit:
@@ -4029,6 +4033,10 @@ size_of_loc_descr (dw_loc_descr_ref loc)
     case DW_OP_call_ref:
       size += DWARF2_ADDR_SIZE;
       break;
+    case DW_OP_implicit_value:
+      size += size_of_uleb128 (loc->dw_loc_oprnd1.v.val_unsigned)
+	      + loc->dw_loc_oprnd1.v.val_unsigned;
+      break;
     default:
       break;
     }
@@ -4063,6 +4071,10 @@ size_of_locs (dw_loc_descr_ref loc)
 
   return size;
 }
+
+#ifdef DWARF2_DEBUGGING_INFO
+static HOST_WIDE_INT extract_int (const unsigned char *, unsigned);
+#endif
 
 /* Output location description stack opcode's operands (if any).  */
 
@@ -4102,6 +4114,60 @@ output_loc_operands (dw_loc_descr_ref loc)
 	dw2_asm_output_data (2, offset, NULL);
       }
       break;
+    case DW_OP_implicit_value:
+      dw2_asm_output_data_uleb128 (val1->v.val_unsigned, NULL);
+      switch (val2->val_class)
+	{
+	case dw_val_class_const:
+	  dw2_asm_output_data (val1->v.val_unsigned, val2->v.val_int, NULL);
+	  break;
+	case dw_val_class_vec:
+	  {
+	    unsigned int elt_size = val2->v.val_vec.elt_size;
+	    unsigned int len = val2->v.val_vec.length;
+	    unsigned int i;
+	    unsigned char *p;
+
+	    if (elt_size > sizeof (HOST_WIDE_INT))
+	      {
+		elt_size /= 2;
+		len *= 2;
+	      }
+	    for (i = 0, p = val2->v.val_vec.array;
+		 i < len;
+		 i++, p += elt_size)
+	      dw2_asm_output_data (elt_size, extract_int (p, elt_size),
+				   "fp or vector constant word %u", i);
+	  }
+	  break;
+	case dw_val_class_long_long:
+	  {
+	    unsigned HOST_WIDE_INT first, second;
+
+	    if (WORDS_BIG_ENDIAN)
+	      {
+		first = val2->v.val_long_long.hi;
+		second = val2->v.val_long_long.low;
+	      }
+	    else
+	      {
+		first = val2->v.val_long_long.low;
+		second = val2->v.val_long_long.hi;
+	      }
+	    dw2_asm_output_data (HOST_BITS_PER_LONG / HOST_BITS_PER_CHAR,
+				 first, "long long constant");
+	    dw2_asm_output_data (HOST_BITS_PER_LONG / HOST_BITS_PER_CHAR,
+				 second, NULL);
+	  }
+	  break;
+	case dw_val_class_addr:
+	  gcc_assert (val1->v.val_unsigned == DWARF2_ADDR_SIZE);
+	  dw2_asm_output_addr_rtx (DWARF2_ADDR_SIZE, val2->v.val_addr, NULL);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      break;
 #else
     case DW_OP_addr:
     case DW_OP_const2u:
@@ -4112,6 +4178,7 @@ output_loc_operands (dw_loc_descr_ref loc)
     case DW_OP_const8s:
     case DW_OP_skip:
     case DW_OP_bra:
+    case DW_OP_implicit_value:
       /* We currently don't make any attempt to make sure these are
 	 aligned properly like we do for the main unwind info, so
 	 don't support emitting things larger than a byte if we're
@@ -4232,6 +4299,7 @@ output_loc_operands_raw (dw_loc_descr_ref loc)
   switch (loc->dw_loc_opc)
     {
     case DW_OP_addr:
+    case DW_OP_implicit_value:
       /* We cannot output addresses in .cfi_escape, only bytes.  */
       gcc_unreachable ();
 
@@ -5129,7 +5197,8 @@ static dw_loc_descr_ref mem_loc_descriptor (rtx, enum machine_mode mode,
 					    enum var_init_status);
 static dw_loc_descr_ref concat_loc_descriptor (rtx, rtx,
 					       enum var_init_status);
-static dw_loc_descr_ref loc_descriptor (rtx, enum var_init_status);
+static dw_loc_descr_ref loc_descriptor (rtx, enum machine_mode mode,
+					enum var_init_status);
 static dw_loc_descr_ref loc_descriptor_from_tree_1 (tree, int);
 static dw_loc_descr_ref loc_descriptor_from_tree (tree);
 static HOST_WIDE_INT ceiling (HOST_WIDE_INT, unsigned int);
@@ -5143,7 +5212,6 @@ static void add_AT_location_description	(dw_die_ref, enum dwarf_attribute,
 static void add_data_member_location_attribute (dw_die_ref, tree);
 static void add_const_value_attribute (dw_die_ref, rtx);
 static void insert_int (HOST_WIDE_INT, unsigned, unsigned char *);
-static HOST_WIDE_INT extract_int (const unsigned char *, unsigned);
 static void insert_float (const_rtx, unsigned char *);
 static rtx rtl_for_decl_location (tree);
 static void add_location_or_const_value_attribute (dw_die_ref, tree,
@@ -10280,8 +10348,10 @@ static dw_loc_descr_ref
 concat_loc_descriptor (rtx x0, rtx x1, enum var_init_status initialized)
 {
   dw_loc_descr_ref cc_loc_result = NULL;
-  dw_loc_descr_ref x0_ref = loc_descriptor (x0, VAR_INIT_STATUS_INITIALIZED);
-  dw_loc_descr_ref x1_ref = loc_descriptor (x1, VAR_INIT_STATUS_INITIALIZED);
+  dw_loc_descr_ref x0_ref
+    = loc_descriptor (x0, VOIDmode, VAR_INIT_STATUS_INITIALIZED);
+  dw_loc_descr_ref x1_ref
+    = loc_descriptor (x1, VOIDmode, VAR_INIT_STATUS_INITIALIZED);
 
   if (x0_ref == 0 || x1_ref == 0)
     return 0;
@@ -10313,7 +10383,7 @@ concatn_loc_descriptor (rtx concatn, enum var_init_status initialized)
       dw_loc_descr_ref ref;
       rtx x = XVECEXP (concatn, 0, i);
 
-      ref = loc_descriptor (x, VAR_INIT_STATUS_INITIALIZED);
+      ref = loc_descriptor (x, VOIDmode, VAR_INIT_STATUS_INITIALIZED);
       if (ref == NULL)
 	return NULL;
 
@@ -10333,10 +10403,15 @@ concatn_loc_descriptor (rtx concatn, enum var_init_status initialized)
    memory location we provide a Dwarf postfix expression describing how to
    generate the (dynamic) address of the object onto the address stack.
 
+   MODE is mode of the decl if this loc_descriptor is going to be used in
+   .debug_loc section where DW_OP_stack_value and DW_OP_implicit_value are
+   allowed, VOIDmode otherwise.
+
    If we don't know how to describe it, return 0.  */
 
 static dw_loc_descr_ref
-loc_descriptor (rtx rtl, enum var_init_status initialized)
+loc_descriptor (rtx rtl, enum machine_mode mode,
+		enum var_init_status initialized)
 {
   dw_loc_descr_ref loc_result = NULL;
 
@@ -10378,7 +10453,8 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
       /* Single part.  */
       if (GET_CODE (XEXP (rtl, 1)) != PARALLEL)
 	{
-	  loc_result = loc_descriptor (XEXP (XEXP (rtl, 1), 0), initialized);
+	  loc_result = loc_descriptor (XEXP (XEXP (rtl, 1), 0), mode,
+				       initialized);
 	  break;
 	}
 
@@ -10394,7 +10470,7 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
 
 	/* Create the first one, so we have something to add to.  */
 	loc_result = loc_descriptor (XEXP (RTVEC_ELT (par_elems, 0), 0),
-				     initialized);
+				     VOIDmode, initialized);
 	if (loc_result == NULL)
 	  return NULL;
 	mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, 0), 0));
@@ -10404,7 +10480,7 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
 	    dw_loc_descr_ref temp;
 
 	    temp = loc_descriptor (XEXP (RTVEC_ELT (par_elems, i), 0),
-				   initialized);
+				   VOIDmode, initialized);
 	    if (temp == NULL)
 	      return NULL;
 	    add_loc_descr (&loc_result, temp);
@@ -10414,12 +10490,204 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
       }
       break;
 
+    case CONST_INT:
+      if (mode != VOIDmode && mode != BLKmode)
+        {
+          HOST_WIDE_INT i = INTVAL (rtl);
+          int litsize;
+          if (i >= 0)
+            {
+              if (i <= 31)
+		litsize = 1;
+	      else if (i <= 0xff)
+		litsize = 2;
+	      else if (i <= 0xffff)
+		litsize = 3;
+	      else if (HOST_BITS_PER_WIDE_INT == 32
+		       || i <= 0xffffffff)
+		litsize = 5;
+	      else
+		litsize = 1 + size_of_uleb128 ((unsigned HOST_WIDE_INT) i);
+	    }
+	  else
+	    {
+	      if (i >= -0x80)
+		litsize = 2;
+	      else if (i >= -0x8000)
+		litsize = 3;
+	      else if (HOST_BITS_PER_WIDE_INT == 32
+		       || i >= -0x80000000)
+		litsize = 5;
+	      else
+		litsize = 1 + size_of_sleb128 (i);
+	    }
+	  /* Determine if DW_OP_stack_value or DW_OP_implicit_value
+	     is more compact.  For DW_OP_stack_value we need:
+	     litsize + 1 (DW_OP_stack_value) + 1 (DW_OP_bit_size)
+	     + 1 (mode size)
+	     and for DW_OP_implicit_value:
+	     1 (DW_OP_implicit_value) + 1 (length) + mode_size.  */
+	  if (DWARF2_ADDR_SIZE >= GET_MODE_SIZE (mode)
+	      && litsize + 1 + 1 + 1 < 1 + 1 + GET_MODE_SIZE (mode))
+	    {
+	      loc_result = int_loc_descriptor (i);
+	      add_loc_descr (&loc_result,
+			     new_loc_descr (DW_OP_stack_value, 0, 0));
+	      add_loc_descr_op_piece (&loc_result, GET_MODE_SIZE (mode));
+	      return loc_result;
+	    }
+
+	  loc_result = new_loc_descr (DW_OP_implicit_value,
+				      GET_MODE_SIZE (mode), 0);
+	  loc_result->dw_loc_oprnd2.val_class = dw_val_class_const;
+	  loc_result->dw_loc_oprnd2.v.val_int = i;
+	}
+      break;
+
+    case CONST_DOUBLE:
+      if (mode != VOIDmode)
+	{
+	  /* Note that a CONST_DOUBLE rtx could represent either an integer
+	     or a floating-point constant.  A CONST_DOUBLE is used whenever
+	     the constant requires more than one word in order to be
+	     adequately represented.  We output CONST_DOUBLEs as blocks.  */
+	  mode = GET_MODE (rtl);
+
+	  loc_result = new_loc_descr (DW_OP_implicit_value,
+				      GET_MODE_SIZE (mode), 0);
+	  if (SCALAR_FLOAT_MODE_P (mode))
+	    {
+	      unsigned int length = GET_MODE_SIZE (mode);
+	      unsigned char *array = GGC_NEWVEC (unsigned char, length);
+
+	      insert_float (rtl, array);
+	      loc_result->dw_loc_oprnd2.val_class = dw_val_class_vec;
+	      loc_result->dw_loc_oprnd2.v.val_vec.length = length / 4;
+	      loc_result->dw_loc_oprnd2.v.val_vec.elt_size = 4;
+	      loc_result->dw_loc_oprnd2.v.val_vec.array = array;
+	    }
+	  else
+	    {
+	      /* ??? We really should be using HOST_WIDE_INT throughout.  */
+	      gcc_assert (HOST_BITS_PER_LONG == HOST_BITS_PER_WIDE_INT);
+
+	      loc_result->dw_loc_oprnd2.val_class = dw_val_class_long_long;
+	      loc_result->dw_loc_oprnd2.v.val_long_long.hi
+		= CONST_DOUBLE_HIGH (rtl);
+	      loc_result->dw_loc_oprnd2.v.val_long_long.low
+		= CONST_DOUBLE_LOW (rtl);
+	    }
+	}
+      break;
+
+    case CONST_VECTOR:
+      if (mode != VOIDmode)
+	{
+	  unsigned int elt_size = GET_MODE_UNIT_SIZE (GET_MODE (rtl));
+	  unsigned int length = CONST_VECTOR_NUNITS (rtl);
+	  unsigned char *array = GGC_NEWVEC (unsigned char, length * elt_size);
+	  unsigned int i;
+	  unsigned char *p;
+
+	  mode = GET_MODE (rtl);
+	  switch (GET_MODE_CLASS (mode))
+	    {
+	    case MODE_VECTOR_INT:
+	      for (i = 0, p = array; i < length; i++, p += elt_size)
+		{
+		  rtx elt = CONST_VECTOR_ELT (rtl, i);
+		  HOST_WIDE_INT lo, hi;
+
+		  switch (GET_CODE (elt))
+		    {
+		    case CONST_INT:
+		      lo = INTVAL (elt);
+		      hi = -(lo < 0);
+		      break;
+
+		    case CONST_DOUBLE:
+		      lo = CONST_DOUBLE_LOW (elt);
+		      hi = CONST_DOUBLE_HIGH (elt);
+		      break;
+
+		    default:
+		      gcc_unreachable ();
+		    }
+
+		  if (elt_size <= sizeof (HOST_WIDE_INT))
+		    insert_int (lo, elt_size, p);
+		  else
+		    {
+		      unsigned char *p0 = p;
+		      unsigned char *p1 = p + sizeof (HOST_WIDE_INT);
+
+		      gcc_assert (elt_size == 2 * sizeof (HOST_WIDE_INT));
+		      if (WORDS_BIG_ENDIAN)
+			{
+			  p0 = p1;
+			  p1 = p;
+			}
+		      insert_int (lo, sizeof (HOST_WIDE_INT), p0);
+		      insert_int (hi, sizeof (HOST_WIDE_INT), p1);
+		    }
+		}
+	      break;
+
+	    case MODE_VECTOR_FLOAT:
+	      for (i = 0, p = array; i < length; i++, p += elt_size)
+		{
+		  rtx elt = CONST_VECTOR_ELT (rtl, i);
+		  insert_float (elt, p);
+		}
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+
+	  loc_result = new_loc_descr (DW_OP_implicit_value,
+				      length * elt_size, 0);
+	  loc_result->dw_loc_oprnd2.val_class = dw_val_class_vec;
+	  loc_result->dw_loc_oprnd2.v.val_vec.length = length;
+	  loc_result->dw_loc_oprnd2.v.val_vec.elt_size = elt_size;
+	  loc_result->dw_loc_oprnd2.v.val_vec.array = array;
+	}
+      break;
+
     case CONST:
-      loc_result = loc_descriptor (XEXP (rtl, 0), initialized);
+      if (mode == VOIDmode
+	  || GET_CODE (XEXP (rtl, 0)) == CONST_INT
+	  || GET_CODE (XEXP (rtl, 0)) == CONST_DOUBLE
+	  || GET_CODE (XEXP (rtl, 0)) == CONST_VECTOR)
+	{
+	  loc_result = loc_descriptor (XEXP (rtl, 0), mode, initialized);
+	  break;
+	}
+      /* FALLTHROUGH */
+    case SYMBOL_REF:
+    case LABEL_REF:
+      if (mode != VOIDmode && GET_MODE_SIZE (mode) == DWARF2_ADDR_SIZE)
+	{
+	  loc_result = new_loc_descr (DW_OP_implicit_value,
+				      DWARF2_ADDR_SIZE, 0);
+	  loc_result->dw_loc_oprnd2.val_class = dw_val_class_addr;
+	  loc_result->dw_loc_oprnd2.v.val_addr = rtl;
+	  VEC_safe_push (rtx, gc, used_rtx_array, rtl);
+	}
       break;
 
     default:
-      /* Value expression.  */
+      if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE (rtl) == mode)
+	{
+	  /* Value expression.  */
+	  loc_result = mem_loc_descriptor (rtl, VOIDmode, initialized);
+	  if (loc_result)
+	    {
+	      add_loc_descr (&loc_result,
+			     new_loc_descr (DW_OP_stack_value, 0, 0));
+	      add_loc_descr_op_piece (&loc_result, GET_MODE_SIZE (mode));
+	    }
+	}
       break;
     }
 
@@ -10560,7 +10828,8 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 
 	    /* Certain constructs can only be represented at top-level.  */
 	    if (want_address == 2)
-	      return loc_descriptor (rtl, VAR_INIT_STATUS_INITIALIZED);
+	      return loc_descriptor (rtl, VOIDmode,
+				     VAR_INIT_STATUS_INITIALIZED);
 
 	    mode = GET_MODE (rtl);
 	    if (MEM_P (rtl))
@@ -11893,7 +12162,8 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       else
 	initialized = VAR_INIT_STATUS_INITIALIZED;
 
-      descr = loc_by_reference (loc_descriptor (varloc, initialized), decl);
+      descr = loc_by_reference (loc_descriptor (varloc, DECL_MODE (decl),
+						initialized), decl);
       list = new_loc_list (descr, node->label, node->next->label, secname, 1);
       node = node->next;
 
@@ -11905,8 +12175,8 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 	    enum var_init_status initialized =
 	      NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
 	    varloc = NOTE_VAR_LOCATION (node->var_loc_note);
-	    descr = loc_by_reference (loc_descriptor (varloc, initialized),
-				      decl);
+	    descr = loc_by_reference (loc_descriptor (varloc, DECL_MODE (decl),
+				      initialized), decl);
 	    add_loc_descr_to_loc_list (&list, descr,
 				       node->label, node->next->label, secname);
 	  }
@@ -11928,7 +12198,9 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 					   current_function_funcdef_no);
 	      endname = ggc_strdup (label_id);
 	    }
-	  descr = loc_by_reference (loc_descriptor (varloc, initialized),
+	  descr = loc_by_reference (loc_descriptor (varloc,
+						    DECL_MODE (decl),
+						    initialized),
 				    decl);
 	  add_loc_descr_to_loc_list (&list, descr,
 				     node->label, endname, secname);
@@ -11957,7 +12229,15 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       enum var_init_status status;
       node = loc_list->first;
       status = NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
-      descr = loc_descriptor (NOTE_VAR_LOCATION (node->var_loc_note), status);
+      if (CONSTANT_P (NOTE_VAR_LOCATION (node->var_loc_note))
+	  || GET_CODE (NOTE_VAR_LOCATION (node->var_loc_note)) == CONST_STRING)
+	{
+	  add_const_value_attribute (die,
+				     NOTE_VAR_LOCATION (node->var_loc_note));
+	  return;
+	}
+      descr = loc_descriptor (NOTE_VAR_LOCATION (node->var_loc_note),
+			      DECL_MODE (decl), status);
       if (descr)
 	{
 	  descr = loc_by_reference (descr, decl);
