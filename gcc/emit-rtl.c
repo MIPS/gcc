@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "params.h"
 
 /* Commonly used modes.  */
 
@@ -2314,15 +2315,15 @@ set_new_first_and_last_insn (rtx first, rtx last)
   last_insn = last;
   cur_insn_uid = 0;
 
-  if (flag_min_insn_uid || MAY_HAVE_DEBUG_INSNS)
+  if (MIN_NONDEBUG_INSN_UID || MAY_HAVE_DEBUG_INSNS)
     {
       int debug_count = 0;
 
-      cur_insn_uid = flag_min_insn_uid - 1;
+      cur_insn_uid = MIN_NONDEBUG_INSN_UID - 1;
       cur_debug_insn_uid = 0;
 
       for (insn = first; insn; insn = NEXT_INSN (insn))
-	if (INSN_UID (insn) < flag_min_insn_uid)
+	if (INSN_UID (insn) < MIN_NONDEBUG_INSN_UID)
 	  cur_debug_insn_uid = MAX (cur_debug_insn_uid, INSN_UID (insn));
 	else
 	  {
@@ -2332,7 +2333,7 @@ set_new_first_and_last_insn (rtx first, rtx last)
 	  }
 
       if (debug_count)
-	cur_debug_insn_uid = flag_min_insn_uid + debug_count;
+	cur_debug_insn_uid = MIN_NONDEBUG_INSN_UID + debug_count;
       else
 	cur_debug_insn_uid++;
     }
@@ -3032,10 +3033,10 @@ get_max_insn_count (void)
      differences due to debug insns, and not be affected by
      -fmin-insn-uid, to avoid excessive table size and to simplify
      debugging of -fcompare-debug failures.  */
-  if (cur_debug_insn_uid > flag_min_insn_uid)
+  if (cur_debug_insn_uid > MIN_NONDEBUG_INSN_UID)
     n -= cur_debug_insn_uid;
   else
-    n -= flag_min_insn_uid;
+    n -= MIN_NONDEBUG_INSN_UID;
 
   return n;
 }
@@ -3615,7 +3616,7 @@ make_debug_insn_raw (rtx pattern)
 
   insn = rtx_alloc (DEBUG_INSN);
   INSN_UID (insn) = cur_debug_insn_uid++;
-  if (cur_debug_insn_uid > flag_min_insn_uid)
+  if (cur_debug_insn_uid > MIN_NONDEBUG_INSN_UID)
     INSN_UID (insn) = cur_insn_uid++;
 
   PATTERN (insn) = pattern;
@@ -5520,11 +5521,8 @@ init_emit (void)
 {
   first_insn = NULL;
   last_insn = NULL;
-  if (flag_min_insn_uid)
-    {
-      cur_insn_uid = flag_min_insn_uid;
-      gcc_assert (flag_min_insn_uid > 0);
-    }
+  if (MIN_NONDEBUG_INSN_UID)
+    cur_insn_uid = MIN_NONDEBUG_INSN_UID;
   else
     cur_insn_uid = 1;
   cur_debug_insn_uid = 1;
