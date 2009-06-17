@@ -1924,58 +1924,6 @@ round_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
      const1_rtx, const0_rtx);
 }
 
-/* for_each_rtx function that adjusts VAR_LOCATION placeholders for
-   debug string constants.  */
-
-static int
-adjust_debug_string_constant (rtx *x, void *nothing ATTRIBUTE_UNUSED)
-{
-  rtx rtstr, cst;
-  tree exp;
-
-  if (GET_CODE (*x) != VAR_LOCATION)
-    return 0;
-
-  exp = PAT_VAR_LOCATION_DECL (*x);
-  rtstr = PAT_VAR_LOCATION_LOC (*x);
-
-  gcc_assert (TREE_CODE (exp) == STRING_CST && GET_CODE (rtstr) == CONST_STRING
-	      && TREE_STRING_POINTER (exp) == XSTR (rtstr, 0));
-
-  cst = lookup_constant_def (exp);
-  if (cst && MEM_P (cst))
-    *x = XEXP (cst, 0);
-  else
-    *x = rtstr;
-
-  return -1;
-}
-
-/* Set to true when a debug string constant is expanded as a
-   VAR_LOCATION placeholder rather than as regular rtl.  */
-
-static bool debug_string_constants_p = false;
-
-/* Adjust any debug string constants expanded as VAR_LOCATION
-   placeholders (see how STRING_CST is handled in expand_debug_expr)
-   to regular rtx or debug-only CONST_STRINGs.  */
-
-static void
-adjust_debug_string_constants (void)
-{
-  rtx insn;
-
-  if (!debug_string_constants_p)
-    return;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (DEBUG_INSN_P (insn))
-      for_each_rtx (&INSN_VAR_LOCATION_LOC (insn),
-		    adjust_debug_string_constant, NULL);
-
-  debug_string_constants_p = false;
-}
-
 /* Wrap modeless constants in CONST:MODE.  */
 rtx
 wrap_constant (enum machine_mode mode, rtx x)
@@ -2076,9 +2024,6 @@ expand_debug_expr (tree exp)
       if (!lookup_constant_def (exp))
 	{
 	  op0 = gen_rtx_CONST_STRING (Pmode, TREE_STRING_POINTER (exp));
-	  op0 = gen_rtx_VAR_LOCATION (Pmode, exp, op0, 0);
-	  op0 = gen_rtx_MEM (mode, op0);
-	  debug_string_constants_p = true;
 	  return op0;
 	}
       /* Fall through...  */
@@ -2103,11 +2048,13 @@ expand_debug_expr (tree exp)
     case LABEL_DECL:
     case CONST_DECL:
     case RESULT_DECL:
-      /* This decl was optimized away.  */
-      if (!DECL_RTL_SET_P (exp))
+      op0 = DECL_RTL_IF_SET (exp);
+
+      /* This decl was probably optimized away.  */
+      if (!op0)
 	return NULL;
 
-      op0 = DECL_RTL (exp);
+      op0 = copy_rtx (op0);
 
       if (GET_MODE (op0) == BLKmode)
 	{
@@ -2599,12 +2546,55 @@ expand_debug_expr (tree exp)
 
     default:
     flag_unsupported:
-#if 0
-      return NULL;
-#endif
+#ifdef ENABLE_CHECKING
       debug_tree (exp);
       gcc_unreachable ();
+#else
+      return NULL;
+#endif
     }
+}
+
+/* Expand the _LOCs in debug insns.  We run this after expanding all
+   regular insns, so that any variables referenced in the function
+   will have their DECL_RTLs set.  */
+
+static void
+expand_debug_locations (void)
+{
+  rtx insn;
+  rtx last = get_last_insn ();
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (DEBUG_INSN_P (insn))
+      {
+	tree value = (tree)INSN_VAR_LOCATION_LOC (insn);
+	rtx val;
+	enum machine_mode mode;
+
+	if (value == VAR_DEBUG_VALUE_NOVALUE)
+	  val = NULL_RTX;
+	else
+	  {
+	    val = expand_debug_expr (value);
+	    gcc_assert (last == get_last_insn ());
+	  }
+
+	if (!val)
+	  val = gen_rtx_UNKNOWN_VAR_LOC ();
+	else
+	  {
+	    mode = GET_MODE (INSN_VAR_LOCATION (insn));
+
+	    gcc_assert (mode == GET_MODE (val)
+			|| (GET_MODE (val) == VOIDmode
+			    && (GET_CODE (val) == CONST_INT
+				|| GET_CODE (val) == CONST_FIXED
+				|| GET_CODE (val) == CONST_DOUBLE)));
+	  }
+
+	INSN_VAR_LOCATION_LOC (insn) = val;
+      }
 }
 
 /* Expand basic block BB from GIMPLE trees to RTL.  */
@@ -2735,11 +2725,6 @@ expand_gimple_basic_block (basic_block bb)
 
 	      last = get_last_insn ();
 
-	      if (value == VAR_DEBUG_VALUE_NOVALUE)
-		val = NULL_RTX;
-	      else
-		val = expand_debug_expr (value);
-
 	      set_curr_insn_source_location (gimple_location (stmt));
 	      set_curr_insn_block (gimple_block (stmt));
 
@@ -2748,27 +2733,18 @@ expand_gimple_basic_block (basic_block bb)
 	      else
 		mode = TYPE_MODE (TREE_TYPE (var));
 
-	      if (!val)
-		val = gen_rtx_UNKNOWN_VAR_LOC ();
-	      else
-		gcc_assert (mode == GET_MODE (val)
-			    || GET_CODE (val) == CONST_INT
-			    || GET_CODE (val) == CONST_FIXED
-			    || GET_CODE (val) == CONST_DOUBLE);
-
 	      val = gen_rtx_VAR_LOCATION
-		(mode, var, val, VAR_INIT_STATUS_INITIALIZED);
+		(mode, var, (rtx)value, VAR_INIT_STATUS_INITIALIZED);
 
 	      val = emit_debug_insn (val);
 
-	      maybe_dump_rtl_for_gimple_stmt (stmt, last);
-
-	      if (last != PREV_INSN (val))
+	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
-		  debug_gimple_stmt (stmt);
-		  debug_rtx_range (NEXT_INSN (last), get_last_insn ());
-		  internal_error ("debug stmt expanded to too many insns");
-		  gcc_unreachable ();
+		  /* We can't dump the insn with a TREE where an RTX
+		     is expected.  */
+		  INSN_VAR_LOCATION_LOC (val) = const0_rtx;
+		  maybe_dump_rtl_for_gimple_stmt (stmt, last);
+		  INSN_VAR_LOCATION_LOC (val) = (rtx)value;
 		}
 
 	      gsi = nsi;
@@ -3206,12 +3182,13 @@ gimple_expand_cfg (void)
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR, next_bb)
     bb = expand_gimple_basic_block (bb);
 
+  if (MAY_HAVE_DEBUG_INSNS)
+    expand_debug_locations ();
+
   /* Expansion is used by optimization passes too, set maybe_hot_insn_p
      conservatively to true until they are all profile aware.  */
   pointer_map_destroy (lab_rtx_for_bb);
   free_histograms ();
-
-  adjust_debug_string_constants ();
 
   construct_exit_block ();
   set_curr_insn_block (DECL_INITIAL (current_function_decl));

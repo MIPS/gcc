@@ -1,3 +1,17 @@
+2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (adjust_debug_string_constant): Remove.
+	(debug_string_constants_p): Remove.
+	(adjust_debug_string_constants): Remove.
+	(expand_debug_expr): Don't delay expansion of strings without
+	constant pool entries.  Tweak DECL processing.  Fail more
+	verbosely on unrecognized tree nodes, but only when checking
+	is enabled.
+	(expand_debug_locations): New, sort of extracted from...
+	(expand_gimple_basic_block): ... here.
+	(gimple_expand_cfg): Expand debug locations after expanding all
+	basic blocks.  Don't adjust debug string constants any more.
+
 2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
 
 	* doc/invoke.texi (bootstrap-debug): More details.
