@@ -1,3 +1,244 @@
+2009-06-16  Olatunji Ruwase  <tjruwase@google.com>
+
+	* plugin.c(position_pass): Skip newly inserted pass during list
+	traversal to avoid repeated insertion.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* vec.h (VEC_stack_alloc): Define different version if
+	GATHER_STATISTICS is defined, to accept and ignore MEM_STAT.
+	(DEF_VEC_ALLOC_FUNC_P_STACK): Remove MEM_STAT_DECL.
+	(DEF_VEC_ALLOC_FUNC_O_STACK): Likewise.
+	(DEF_VEC_ALLOC_FUNC_I_STACK): Likewise.
+
+2009-06-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config.gcc (extra_headers): Add ia32intrin.h for x86.
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_BSRSI,
+	IX86_BUILTIN_BSRDI.  IX86_BUILTIN_RDPMC, IX86_BUILTIN_RDTSC.
+	IX86_BUILTIN_RDTSCP.  IX86_BUILTIN_ROLQI, IX86_BUILTIN_ROLHI,
+	IX86_BUILTIN_RORQI and IX86_BUILTIN_RORHI.
+	(ix86_special_builtin_type): Add UINT64_FTYPE_VOID,
+	UINT64_FTYPE_PINT, INT_FTYPE_INT, UINT64_FTYPE_INT,
+	INT64_FTYPE_INT64, UINT16_FTYPE_UINT16_INT and
+	UINT8_FTYPE_UINT8_INT
+	(bdesc_special_args): Add __builtin_ia32_rdtsc and
+	__builtin_ia32_rdtscp.
+	(bdesc_args): Add __builtin_ia32_bsrsi, __builtin_ia32_bsrdi,
+	__builtin_ia32_rolqi, __builtin_ia32_rolhi, __builtin_ia32_rorqi
+	and __builtin_ia32_rorhi,
+	(ix86_init_mmx_sse_builtins): Handle UINT64_FTYPE_VOID,
+	UINT64_FTYPE_PINT, INT_FTYPE_INT, UINT64_FTYPE_INT,
+	INT64_FTYPE_INT64, UINT16_FTYPE_UINT16_INT and
+	UINT8_FTYPE_UINT8_INT.
+	(ix86_expand_args_builtin): Likewise.
+	(ix86_expand_special_args_builtin): Likewise.
+
+	* config/i386/i386.md (UNSPECV_RDTSCP): New.
+	(UNSPECV_RDTSC): Likewise.
+	(UNSPECV_RDPMC): Likewise.
+	(*bsr): Removed to ...
+	(bsr): This
+	(*bsr_rex64): Removed to ...
+	(bsr_rex64): This.
+	(rdpmc): New.
+	(*rdpmc): Likewise.
+	(*rdpmc_rex64): Likewise.
+	(rdtsc): Likewise.
+	(*rdtsc): Likewise.
+	(*rdtsc_rex64): Likewise.
+	(rdtscp): Likewise.
+	(*rdtscp): Likewise.
+	(*rdtscp_rex64): Likewise.
+
+	* config/i386/ia32intrin.h: New.
+
+	* config/i386/x86intrin.h: Include <ia32intrin.h>.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* ira-build.c (copy_info_to_removed_store_destinations):
+	Initialize parent_a.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* c-decl.c (grokdeclarator): Change size_varies to bool.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* sel-sched.c: Make forward declarations of move_op_hooks and
+	fur_hooks explicitly extern.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* df-problems.c (df_byte_lr_alloc): Don't set problem_data to
+	itself.
+	* vec.c (vec_gc_o_reserve_1): Don't set alloc to itself.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* resource.c (mark_referenced_resources): Change
+	include_delayed_effects parameter to bool.  Change all callers.
+	(mark_end_of_function_resources): Likewise.
+	* reorg.c (insn_references_resource_p): Likewise.
+	(insn_sets_resource_p): Likewise.
+	* resource.h (mark_referenced_resources): Update declaration.
+	(mark_end_of_function_resources): Update declaration.
+
+2009-06-16  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix.h (LIBSTDCXX_STATIC): Remove -lstdc++.
+
+2009-06-16  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/install.texi (*-*-aix): Update explanation of XLC bootstrap.
+	GCC can bootstrap on AIX with GNU Binutils 2.20.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* Makefile.in (tree-vect-stmts.o): Depend upon $(TOPLEV_H).
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* toplev.h (floor_log2): If GCC_VERSION >= 3004, declare as static
+	inline, not extern inline.
+	(exact_log2): Likewise.
+	* toplev.c (floor_log2): Only define if GCC_VERSION < 3004. Don't
+	test CLZ_HWI.
+	(exact_log2): Likewise, but don't test CTZ_HWI.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* bitmap.c (bitmap_clear): Don't declare as inline.
+	* gimple.c (gimplify_assign): Likewise.
+	* tree-ssa-sccvn.c (vn_nary_op_compute_hash): Likewise.
+	* haifa-sched.c (insn_cost): Don't declare with HAIFA_INLINE.
+	(sched_scan_info): Remove duplicate definition.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* c-common.c (skip_evaluation): Don't define.
+	(c_inhibit_evaluation_warnings): Define global variable.
+	(overflow_warning): Check c_inhibit_evaluation_warnings rather
+	than skip_evaluation.
+	(convert_and_check, warn_for_div_by_zero): Likewise.
+	* c-common.h (skip_evaluation): Don't declare.
+	(c_inhibit_evaluation_warnings): Declare.
+	* c-parser.c (c_parser_typeof_specifier): Set
+	c_inhibit_evaluation_warnings rather than skip_evaluation.
+	(c_parser_conditional_expression): Likewise.
+	(c_parser_binary_expression): Likewise.
+	(c_parser_sizeof_expression): Likewise.
+	(c_parser_alignof_expression): Likewise.
+	* c-typeck.c (build_indirect_ref): Check
+	c_inhibit_evaluation_warnings rather than skip_evaluation.
+	(build_conditional_expr, build_binary_op): Likewise.
+
+2009-06-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (is_escape_site): Remove.
+	* tree-ssa-alias.h (enum escape_type): Remove.
+	(is_escape_site): Likewise.
+	* tree-ssa-structalias.c (find_func_aliases): Handle escapes
+	via casts and asms without deferring to is_escape_site.
+
+2009-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40446
+	* expr.c (expand_expr_real_1) <case VIEW_CONVERT_EXPR>: Don't
+	use gen_lowpart if op0 has complex mode.
+
+2009-06-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (do_ds_constraint): Stores in global
+	variables add them to ESCAPED.
+	(find_func_aliases): Do not make all indirectly stored values
+	escaped.
+
+2009-06-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	* config/i386/winnt.c (i386_pe_encode_section_info): Update call to
+	make_decl_one_only.
+
+2009-06-16  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/40432
+	* tree-sra.c (sra_modify_assign): When creating VIEW_CONVERT_EXPR,
+	check whether we need to force gimple register operand.
+
+2009-06-16  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/40413
+	* tree-sra.c (load_assign_lhs_subreplacements): Pass offset to
+	build_ref_for_offset.
+	(propagate_subacesses_accross_link): Fix a typo in a comment.
+
+2009-06-16  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-parloops.c (loop_parallel_p): Call vect_is_simple_reduction
+	with additional parameter.
+	* tree-vectorizer.h (enum vect_def_type): Add new value 
+	vect_nested_cycle.
+	(enum vect_relevant): Add comments.
+	(vect_is_simple_reduction): Add new argument.
+	* tree-vect-loop.c (vect_analyze_scalar_cycles_1): Add comments.
+	Detect nested cycles.
+	(vect_is_simple_reduction): Update documentation, add an argument to
+	distinguish inner-loop reduction from nested cycle, detect nested
+	cycles, fix printings and indentation, don't swap operands in case
+	of nested cycle.
+	(get_initial_def_for_reduction): Handle subtraction.
+	(vect_create_epilog_for_reduction): Add new argument to specify
+	reduction variable.
+	(vect_finalize_reduction): Handle subtraction, fix comments.
+	(vectorizable_reduction): Handle nested cycles. In case of nested cycle
+	keep track of the reduction variable position. Call 
+	vect_is_simple_reduction with additional parameter. Use original 
+	statement code in reduction epilogue for nested cycle. Call
+	vect_create_epilog_for_reduction with additional parameter.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Assert inner-loop
+	vectorization.
+	(vect_recog_widen_sum_pattern): Likewise.
+	* tree-vect-stmts.c (process_use): Distinguish between nested cycles
+	and reductions.
+	(vect_mark_stmts_to_be_vectorized): Likewise.
+	(vect_get_vec_def_for_operand): Handle nested cycles.
+
+2009-06-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/invoke.texi (Debugging Options): Fix option index entries
+	for -fdump-statistics, -frandom-seed add entries for
+	-fdump-tree-original, -fdump-tree-optimized, -frandom-seed.
+	(FRV Options): Fix entries for -mTLS, -mtls.
+	(HPPA Options): Fix entries for -mgnu-ld, -mhp-ld.
+	(i386 and x86-64 Options): Fix entry for -mno-red-zone.
+	(M68hc1x Options): Fix @itemx for -mnominmax.
+	(MCore Options): Fix entry for -mno-lsim.
+	(MMIX Options): Fix entry for -mabi=mmixware.
+	(PDP-11 Options): Fix entry for -mbcopy-builtin.
+
+2009-06-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* doc/plugins.texi (Interacting with the GCC Garbage Collector):
+	Mention the plugin mode of gengtype.
+	* doc/gty.texi (Source Files Containing Type Information):
+	Likewise.
+	* gengtype.c: Updated copyright.
+	(plugin_files, nb_plugin_files) Added new static variables.
+	(measure_input_list) Care about plugin_files.
+	(write_rtx_next): Added early return in plugin mode.
+	(create_file): Updated copyright year in generated file. Added
+	asserts.
+	(oprintf): Added early return if NULL outf.
+	(get_output_file_with_visibility): Care of plugin_files.
+	(get_output_file_name): May return null.
+	(write_local): Added early return.
+	(put_mangled_filename): Ditto.
+	(finish_root_table): Added check for base_files.
+	(write_roots): Care about null when plugins.
+	(main): Added plugin mode.
+
 2009-06-15  Ian Lance Taylor  <iant@google.com>
 
 	* df-problems.c (df_simulate_one_insn_forwards): Fix braces in

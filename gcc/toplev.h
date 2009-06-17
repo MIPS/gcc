@@ -179,7 +179,9 @@ extern void decode_d_option		(const char *);
 extern bool fast_math_flags_set_p	(void);
 extern bool fast_math_flags_struct_set_p (struct cl_optimization *);
 
-#ifndef __cplusplus
+/* Inline versions of the above for speed.  */
+#if GCC_VERSION < 3004
+
 /* Return log2, or -1 if not exact.  */
 extern int exact_log2                  (unsigned HOST_WIDE_INT);
 
@@ -187,8 +189,8 @@ extern int exact_log2                  (unsigned HOST_WIDE_INT);
 extern int floor_log2                  (unsigned HOST_WIDE_INT);
 #endif
 
-/* Inline versions of the above for speed.  */
-#if GCC_VERSION >= 3004
+#else /* GCC_VERSION >= 3004 */
+
 # if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
 #  define CLZ_HWI __builtin_clzl
 #  define CTZ_HWI __builtin_ctzl
@@ -200,23 +202,18 @@ extern int floor_log2                  (unsigned HOST_WIDE_INT);
 #  define CTZ_HWI __builtin_ctz
 # endif
 
-#ifndef __cplusplus
-extern
-#endif
-inline int
+static inline int
 floor_log2 (unsigned HOST_WIDE_INT x)
 {
   return x ? HOST_BITS_PER_WIDE_INT - 1 - (int) CLZ_HWI (x) : -1;
 }
 
-#ifndef __cplusplus
-extern
-#endif
-inline int
+static inline int
 exact_log2 (unsigned HOST_WIDE_INT x)
 {
   return x == (x & -x) && x ? (int) CTZ_HWI (x) : -1;
 }
+
 #endif /* GCC_VERSION >= 3004 */
 
 /* Functions used to get and set GCC's notion of in what directory

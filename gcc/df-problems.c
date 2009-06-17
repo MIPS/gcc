@@ -2509,7 +2509,7 @@ df_byte_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   unsigned int regno;
   unsigned int index = 0;
   unsigned int max_reg = max_reg_num();
-  struct df_byte_lr_problem_data *problem_data 
+  struct df_byte_lr_problem_data *problem_data
     = XNEW (struct df_byte_lr_problem_data);
 
   df_byte_lr->problem_data = problem_data;
