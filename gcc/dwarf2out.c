@@ -15918,10 +15918,11 @@ dwarf2out_set_name (tree decl, tree name)
 static void
 dwarf2out_var_location (rtx loc_note)
 {
-  char loclabel[MAX_ARTIFICIAL_LABEL_BYTES];
+  char loclabel[MAX_ARTIFICIAL_LABEL_BYTES + 2];
   struct var_loc_node *newloc;
   rtx next_real;
   static const char *last_label;
+  static const char *last_postcall_label;
   static bool last_in_cold_section_p;
   tree decl;
 
@@ -15937,19 +15938,31 @@ dwarf2out_var_location (rtx loc_note)
   newloc = GGC_CNEW (struct var_loc_node);
   /* If there were no real insns between note we processed last time
      and this note, use the label we emitted last time.  */
-  if (last_var_location_insn != NULL_RTX
-      && last_var_location_insn == next_real
-      && last_in_cold_section_p == in_cold_section_p)
-    newloc->label = last_label;
-  else
+  if (last_var_location_insn == NULL_RTX
+      || last_var_location_insn != next_real
+      || last_in_cold_section_p != in_cold_section_p)
     {
       ASM_GENERATE_INTERNAL_LABEL (loclabel, "LVL", loclabel_num);
       ASM_OUTPUT_DEBUG_LABEL (asm_out_file, "LVL", loclabel_num);
       loclabel_num++;
-      newloc->label = ggc_strdup (loclabel);
+      last_label = ggc_strdup (loclabel);
+      if (!NOTE_DURING_CALL_P (loc_note))
+	last_postcall_label = NULL;
     }
   newloc->var_loc_note = loc_note;
   newloc->next = NULL;
+
+  if (!NOTE_DURING_CALL_P (loc_note))
+    newloc->label = last_label;
+  else
+    {
+      if (!last_postcall_label)
+	{
+	  sprintf (loclabel, "%s-1", last_label);
+	  last_postcall_label = ggc_strdup (loclabel);
+	}
+      newloc->label = last_postcall_label;
+    }
 
   if (cfun && in_cold_section_p)
     newloc->section_label = crtl->subsections.cold_section_label;
@@ -15957,7 +15970,6 @@ dwarf2out_var_location (rtx loc_note)
     newloc->section_label = text_section_label;
 
   last_var_location_insn = next_real;
-  last_label = newloc->label;
   last_in_cold_section_p = in_cold_section_p;
   decl = NOTE_VAR_LOCATION_DECL (loc_note);
   add_var_loc_to_decl (decl, newloc);
