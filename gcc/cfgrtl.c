@@ -86,8 +86,16 @@ static void rtl_make_forwarder_block (edge);
 static int
 can_delete_note_p (const_rtx note)
 {
-  return (NOTE_KIND (note) == NOTE_INSN_DELETED
-	  || NOTE_KIND (note) == NOTE_INSN_BASIC_BLOCK);
+  switch (NOTE_KIND (note))
+    {
+    case NOTE_INSN_DELETED:
+    case NOTE_INSN_BASIC_BLOCK:
+    case NOTE_INSN_EPILOGUE_BEG:
+      return true;
+
+    default:
+      return false;
+    }
 }
 
 /* True if a given label can be deleted.  */
@@ -2054,15 +2062,17 @@ rtl_verify_flow_info (void)
 	  rtx insn;
 
 	  /* Ensure existence of barrier in BB with no fallthru edges.  */
-	  for (insn = BB_END (bb); !insn || !BARRIER_P (insn);
-	       insn = NEXT_INSN (insn))
-	    if (!insn
-		|| NOTE_INSN_BASIC_BLOCK_P (insn))
+	  for (insn = NEXT_INSN (BB_END (bb)); ; insn = NEXT_INSN (insn))
+	    {
+	      if (!insn || NOTE_INSN_BASIC_BLOCK_P (insn))
 		{
 		  error ("missing barrier after block %i", bb->index);
 		  err = 1;
 		  break;
 		}
+	      if (BARRIER_P (insn))
+		break;
+	    }
 	}
       else if (e->src != ENTRY_BLOCK_PTR
 	       && e->dest != EXIT_BLOCK_PTR)

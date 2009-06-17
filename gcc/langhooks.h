@@ -130,6 +130,9 @@ struct lang_hooks_for_types
      for the debugger about the array bounds, strides, etc.  */
   bool (*get_array_descr_info) (const_tree, struct array_descr_info *);
 
+  /* Fill in information for the debugger about the bounds of TYPE.  */
+  void (*get_subrange_bounds) (const_tree, tree *, tree *);
+
   /* If we requested a pointer to a vector, build up the pointers that
      we stripped off while looking for the inner type.  Similarly for
      return values from functions.  The argument TYPE is the top of the
@@ -172,15 +175,6 @@ struct lang_hooks_for_decls
 
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (const_tree);
-
-  /* Return the COMDAT group into which this DECL should be placed.
-     It is known that the DECL belongs in *some* COMDAT group when
-     this hook is called.  The return value will be used immediately,
-     but not explicitly deallocated, so implementations should not use
-     xmalloc to allocate the string returned.  (Typically, the return
-     value will be the string already stored in an
-     IDENTIFIER_NODE.)  */
-  const char * (*comdat_group) (tree);
 
   /* True if OpenMP should privatize what this DECL points to rather
      than the DECL itself.  */

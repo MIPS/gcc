@@ -2244,7 +2244,8 @@ get_spill_slot_decl (bool force_build_p)
   if (d || !force_build_p)
     return d;
 
-  d = build_decl (VAR_DECL, get_identifier ("%sfp"), void_type_node);
+  d = build_decl (DECL_SOURCE_LOCATION (current_function_decl),
+		  VAR_DECL, get_identifier ("%sfp"), void_type_node);
   DECL_ARTIFICIAL (d) = 1;
   DECL_IGNORED_P (d) = 1;
   TREE_USED (d) = 1;
@@ -3415,6 +3416,10 @@ try_split (rtx pat, rtx trial, int last)
   int probability;
   rtx insn_last, insn;
   int njumps = 0;
+
+  /* We're not good at redistributing frame information.  */
+  if (RTX_FRAME_RELATED_P (trial))
+    return trial;
 
   if (any_condjump_p (trial)
       && (note = find_reg_note (trial, REG_BR_PROB, 0)))
@@ -5383,6 +5388,9 @@ copy_insn_1 (rtx orig)
   int i, j;
   RTX_CODE code;
   const char *format_ptr;
+
+  if (orig == NULL)
+    return NULL;
 
   code = GET_CODE (orig);
 

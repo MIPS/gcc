@@ -264,7 +264,7 @@ gfc_trans_io_runtime_check (tree cond, tree var, int error_code,
       cond = build_call_expr (built_in_decls[BUILT_IN_EXPECT], 2, cond, tmp);
       cond = fold_convert (boolean_type_node, cond);
 
-      tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());
+      tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt (input_location));
       gfc_add_expr_to_block (pblock, tmp);
     }
 }
@@ -279,7 +279,7 @@ gfc_build_io_library_fndecls (void)
   tree gfc_intio_type_node;
   tree parm_type, dt_parm_type;
   HOST_WIDE_INT pad_size;
-  enum ioparam_type ptype;
+  unsigned int ptype;
 
   types[IOPARM_type_int4] = gfc_int4_type_node = gfc_get_int_type (4);
   types[IOPARM_type_intio] = gfc_intio_type_node
@@ -302,7 +302,7 @@ gfc_build_io_library_fndecls (void)
 		     TYPE_ALIGN (gfc_get_int_type (gfc_intio_kind)));
 
   for (ptype = IOPARM_ptype_common; ptype < IOPARM_ptype_num; ptype++)
-    gfc_build_st_parameter (ptype, types);
+    gfc_build_st_parameter ((enum ioparam_type) ptype, types);
 
   /* Define the transfer functions.  */
 
@@ -469,26 +469,27 @@ set_parameter_value (stmtblock_t *block, tree var, enum iofield type,
   gfc_conv_expr_val (&se, e);
 
   /* If we're storing a UNIT number, we need to check it first.  */
-  if (type == IOPARM_common_unit && e->ts.kind != 4)
+  if (type == IOPARM_common_unit && e->ts.kind > 4)
     {
-      tree cond, max;
+      tree cond, val;
       int i;
 
       /* Don't evaluate the UNIT number multiple times.  */
       se.expr = gfc_evaluate_now (se.expr, &se.pre);
 
-      /* UNIT numbers should be nonnegative.  */
+      /* UNIT numbers should be greater than the min.  */
+      i = gfc_validate_kind (BT_INTEGER, 4, false);
+      val = gfc_conv_mpz_to_tree (gfc_integer_kinds[i].pedantic_min_int, 4);
       cond = fold_build2 (LT_EXPR, boolean_type_node, se.expr,
-			  build_int_cst (TREE_TYPE (se.expr),0));
+			  fold_convert (TREE_TYPE (se.expr), val));
       gfc_trans_io_runtime_check (cond, var, LIBERROR_BAD_UNIT,
-			       "Negative unit number in I/O statement",
+			       "Unit number in I/O statement too small",
 			       &se.pre);
     
       /* UNIT numbers should be less than the max.  */
-      i = gfc_validate_kind (BT_INTEGER, 4, false);
-      max = gfc_conv_mpz_to_tree (gfc_integer_kinds[i].huge, 4);
+      val = gfc_conv_mpz_to_tree (gfc_integer_kinds[i].huge, 4);
       cond = fold_build2 (GT_EXPR, boolean_type_node, se.expr,
-			  fold_convert (TREE_TYPE (se.expr), max));
+			  fold_convert (TREE_TYPE (se.expr), val));
       gfc_trans_io_runtime_check (cond, var, LIBERROR_BAD_UNIT,
 			       "Unit number in I/O statement too large",
 			       &se.pre);
@@ -567,65 +568,57 @@ set_parameter_ref (stmtblock_t *block, stmtblock_t *postblock,
 
 /* Given an array expr, find its address and length to get a string. If the
    array is full, the string's address is the address of array's first element
-   and the length is the size of the whole array. If it is an element, the
+   and the length is the size of the whole array.  If it is an element, the
    string's address is the element's address and the length is the rest size of
-   the array.
-*/
+   the array.  */
 
 static void
 gfc_convert_array_to_string (gfc_se * se, gfc_expr * e)
 {
-  tree tmp;
-  tree array;
-  tree type;
   tree size;
-  int rank;
-  gfc_symbol *sym;
 
-  sym = e->symtree->n.sym;
-  rank = sym->as->rank - 1;
+  if (e->rank == 0)
+    {
+      tree type, array, tmp;
+      gfc_symbol *sym;
+      int rank;
 
-  if (e->ref->u.ar.type == AR_FULL)
-    {
-      se->expr = gfc_get_symbol_decl (sym);
-      se->expr = gfc_conv_array_data (se->expr);
-    }
-  else
-    {
+      /* If it is an element, we need its address and size of the rest.  */
+      gcc_assert (e->expr_type == EXPR_VARIABLE);
+      gcc_assert (e->ref->u.ar.type == AR_ELEMENT);
+      sym = e->symtree->n.sym;
+      rank = sym->as->rank - 1;
       gfc_conv_expr (se, e);
-    }
 
-  array = sym->backend_decl;
-  type = TREE_TYPE (array);
+      array = sym->backend_decl;
+      type = TREE_TYPE (array);
 
-  if (GFC_ARRAY_TYPE_P (type))
-    size = GFC_TYPE_ARRAY_SIZE (type);
-  else
-    {
-      gcc_assert (GFC_DESCRIPTOR_TYPE_P (type));
-      size = gfc_conv_array_stride (array, rank);
-      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
-		gfc_conv_array_ubound (array, rank),
-		gfc_conv_array_lbound (array, rank));
-      tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type, tmp,
-		gfc_index_one_node);
-      size = fold_build2 (MULT_EXPR, gfc_array_index_type, tmp, size);      
-    }
+      if (GFC_ARRAY_TYPE_P (type))
+	size = GFC_TYPE_ARRAY_SIZE (type);
+      else
+	{
+	  gcc_assert (GFC_DESCRIPTOR_TYPE_P (type));
+	  size = gfc_conv_array_stride (array, rank);
+	  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+			     gfc_conv_array_ubound (array, rank),
+			     gfc_conv_array_lbound (array, rank));
+	  tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type, tmp,
+			     gfc_index_one_node);
+	  size = fold_build2 (MULT_EXPR, gfc_array_index_type, tmp, size);
+	}
+      gcc_assert (size);
 
-  gcc_assert (size);
-
-  /* If it is an element, we need the its address and size of the rest.  */
-  if (e->ref->u.ar.type == AR_ELEMENT)
-    {
       size = fold_build2 (MINUS_EXPR, gfc_array_index_type, size,
-		TREE_OPERAND (se->expr, 1));
+			  TREE_OPERAND (se->expr, 1));
       se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
+      tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
+      size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
+			  fold_convert (gfc_array_index_type, tmp));
+      se->string_length = fold_convert (gfc_charlen_type_node, size);
+      return;
     }
 
-  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
-  size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
-		      fold_convert (gfc_array_index_type, tmp));
-
+  gfc_conv_array_parameter (se, e, gfc_walk_expr (e), 1, NULL, NULL, &size);
   se->string_length = fold_convert (gfc_charlen_type_node, size);
 }
 
@@ -654,7 +647,9 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
 		     var, p->field_len, NULL_TREE);
 
   /* Integer variable assigned a format label.  */
-  if (e->ts.type == BT_INTEGER && e->symtree->n.sym->attr.assign == 1)
+  if (e->ts.type == BT_INTEGER
+      && e->rank == 0
+      && e->symtree->n.sym->attr.assign == 1)
     {
       char * msg;
       tree cond;
@@ -680,7 +675,7 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
       if (e->ts.type == BT_CHARACTER && e->rank == 0)
 	gfc_conv_expr (&se, e);
       /* Array assigned Hollerith constant or character array.  */
-      else if (e->symtree && (e->symtree->n.sym->as->rank > 0))
+      else if (e->rank > 0 || (e->symtree && e->symtree->n.sym->as->rank > 0))
 	gfc_convert_array_to_string (&se, e);
       else
 	gcc_unreachable ();
@@ -956,6 +951,10 @@ gfc_trans_open (gfc_code * code)
   if (p->convert)
     mask |= set_string (&block, &post_block, var, IOPARM_open_convert,
 			p->convert);
+			
+  if (p->newunit)
+    mask |= set_parameter_ref (&block, &post_block, var, IOPARM_open_newunit,
+			       p->newunit);
 
   set_parameter_const (&block, var, IOPARM_common_flags, mask);
 
@@ -2149,7 +2148,7 @@ gfc_trans_transfer (gfc_code * code)
   gfc_start_block (&block);
   gfc_init_block (&body);
 
-  expr = code->expr;
+  expr = code->expr1;
   ss = gfc_walk_expr (expr);
 
   ref = NULL;
@@ -2209,7 +2208,7 @@ gfc_trans_transfer (gfc_code * code)
 
       /* Initialize the loop.  */
       gfc_conv_ss_startstride (&loop);
-      gfc_conv_loop_setup (&loop, &code->expr->where);
+      gfc_conv_loop_setup (&loop, &code->expr1->where);
 
       /* The main loop body.  */
       gfc_mark_ss_chain_used (ss, 1);

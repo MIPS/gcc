@@ -49,10 +49,6 @@ int arc_cpu_type;
    cpu (or NULL).  */
 const char *arc_mangle_cpu;
 
-/* Save the operands last given to a compare for use when we
-   generate a scc or bcc insn.  */
-rtx arc_compare_op0, arc_compare_op1;
-
 /* Name of text, data, and rodata sections used in varasm.c.  */
 const char *arc_text_section;
 const char *arc_data_section;
@@ -82,7 +78,7 @@ static bool arc_handle_option (size_t, const char *, int);
 static void record_cc_ref (rtx);
 static void arc_init_reg_tables (void);
 static int get_arc_condition_code (rtx);
-const struct attribute_spec arc_attribute_table[];
+EXPORTED_CONST struct attribute_spec arc_attribute_table[];
 static tree arc_handle_interrupt_attribute (tree *, tree, tree, int, bool *);
 static bool arc_assemble_integer (rtx, unsigned int, int);
 static void arc_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -729,21 +725,14 @@ proper_comparison_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 
 /* Misc. utilities.  */
 
-/* X and Y are two things to compare using CODE.  Emit the compare insn and
-   return the rtx for the cc reg in the proper mode.  */
+/* X and Y are two things to compare using CODE.  Return the rtx
+   for the cc reg in the proper mode.  */
 
 rtx
 gen_compare_reg (enum rtx_code code, rtx x, rtx y)
 {
   enum machine_mode mode = SELECT_CC_MODE (code, x, y);
-  rtx cc_reg;
-
-  cc_reg = gen_rtx_REG (mode, 61);
-
-  emit_insn (gen_rtx_SET (VOIDmode, cc_reg,
-			  gen_rtx_COMPARE (mode, x, y)));
-
-  return cc_reg;
+  return gen_rtx_REG (mode, 61);
 }
 
 /* Return 1 if VALUE, a const_double, will fit in a limm (4 byte number).

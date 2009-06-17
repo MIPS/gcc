@@ -759,6 +759,12 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 
 #define BLOCK_FOR_INSN(INSN) XBBDEF (INSN, 3)
 #define INSN_LOCATOR(INSN) XINT (INSN, 4)
+/* LOCATION of an RTX if relevant.  */
+#define RTL_LOCATION(X) (INSN_P (X) ? \
+			 locator_location (INSN_LOCATOR (x)) \
+			 : UNKNOWN_LOCATION)
+/* LOCATION of current INSN.  */
+#define CURR_INSN_LOCATION (locator_location (curr_insn_locator ()))
 /* The body of an insn.  */
 #define PATTERN(INSN)	XEXP (INSN, 5)
 
@@ -2138,6 +2144,7 @@ extern rtx pc_set (const_rtx);
 extern rtx condjump_label (const_rtx);
 extern int simplejump_p (const_rtx);
 extern int returnjump_p (rtx);
+extern int eh_returnjump_p (rtx);
 extern int onlyjump_p (const_rtx);
 extern int only_sets_cc0_p (const_rtx);
 extern int sets_cc0_p (const_rtx);
@@ -2251,6 +2258,7 @@ extern int prologue_epilogue_contains (const_rtx);
 extern int sibcall_epilogue_contains (const_rtx);
 extern void mark_temp_addr_taken (rtx);
 extern void update_temp_slot_address (rtx, rtx);
+extern void maybe_copy_epilogue_insn (rtx, rtx);
 
 /* In stmt.c */
 extern void expand_null_return (void);

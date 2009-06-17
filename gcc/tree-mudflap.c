@@ -295,7 +295,8 @@ static GTY (()) tree mf_set_options_fndecl;
 static inline tree
 mf_make_builtin (enum tree_code category, const char *name, tree type)
 {
-  tree decl = mf_mark (build_decl (category, get_identifier (name), type));
+  tree decl = mf_mark (build_decl (UNKNOWN_LOCATION,
+				   category, get_identifier (name), type));
   TREE_PUBLIC (decl) = 1;
   DECL_EXTERNAL (decl) = 1;
   lang_hooks.decls.pushdecl (decl);
@@ -315,8 +316,10 @@ mf_make_mf_cache_struct_type (tree field_type)
   /* There is, abominably, no language-independent way to construct a
      RECORD_TYPE.  So we have to call the basic type construction
      primitives by hand.  */
-  tree fieldlo = build_decl (FIELD_DECL, get_identifier ("low"), field_type);
-  tree fieldhi = build_decl (FIELD_DECL, get_identifier ("high"), field_type);
+  tree fieldlo = build_decl (UNKNOWN_LOCATION,
+			     FIELD_DECL, get_identifier ("low"), field_type);
+  tree fieldhi = build_decl (UNKNOWN_LOCATION,
+			     FIELD_DECL, get_identifier ("high"), field_type);
 
   tree struct_type = make_node (RECORD_TYPE);
   DECL_CONTEXT (fieldlo) = struct_type;
@@ -445,6 +448,26 @@ execute_mudflap_function_ops (void)
 
   pop_gimplify_context (NULL);
   return 0;
+}
+
+/* Insert a gimple_seq SEQ on all the outgoing edges out of BB.  Note that
+   if BB has more than one edge, STMT will be replicated for each edge.
+   Also, abnormal edges will be ignored.  */
+
+static void
+insert_edge_copies_seq (gimple_seq seq, basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+  unsigned n_copies = -1;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (!(e->flags & EDGE_ABNORMAL))
+      n_copies++;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (!(e->flags & EDGE_ABNORMAL))
+      gsi_insert_seq_on_edge (e, n_copies-- > 0 ? gimple_seq_copy (seq) : seq);
 }
 
 /* Create and initialize local shadow variables for the lookup cache

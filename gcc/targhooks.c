@@ -68,6 +68,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 
 
+bool
+default_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
+			      rtx addr ATTRIBUTE_UNUSED,
+			      bool strict ATTRIBUTE_UNUSED)
+{
+#ifdef GO_IF_LEGITIMATE_ADDRESS
+  /* Defer to the old implementation using a goto.  */
+  if (strict)
+    return strict_memory_address_p (mode, addr);
+  else
+    return memory_address_p (mode, addr);
+#else
+  gcc_unreachable ();
+#endif
+}
+
 void
 default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 {
@@ -382,7 +398,7 @@ default_invalid_within_doloop (const_rtx insn)
 /* Mapping of builtin functions to vectorized variants.  */
 
 tree
-default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
+default_builtin_vectorized_function (unsigned int fn ATTRIBUTE_UNUSED,
 				     tree type_out ATTRIBUTE_UNUSED,
 				     tree type_in ATTRIBUTE_UNUSED)
 {
@@ -392,7 +408,7 @@ default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
 /* Vectorized conversion.  */
 
 tree
-default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
+default_builtin_vectorized_conversion (unsigned int code ATTRIBUTE_UNUSED,
 				       tree type ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
@@ -401,7 +417,7 @@ default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
 /* Reciprocal.  */
 
 tree
-default_builtin_reciprocal (enum built_in_function fn ATTRIBUTE_UNUSED,
+default_builtin_reciprocal (unsigned int fn ATTRIBUTE_UNUSED,
 			    bool md_fn ATTRIBUTE_UNUSED,
 			    bool sqrt ATTRIBUTE_UNUSED)
 {
@@ -461,7 +477,8 @@ default_stack_protect_guard (void)
 
   if (t == NULL)
     {
-      t = build_decl (VAR_DECL, get_identifier ("__stack_chk_guard"),
+      t = build_decl (UNKNOWN_LOCATION,
+		      VAR_DECL, get_identifier ("__stack_chk_guard"),
 		      ptr_type_node);
       TREE_STATIC (t) = 1;
       TREE_PUBLIC (t) = 1;
@@ -487,7 +504,8 @@ default_external_stack_protect_fail (void)
   if (t == NULL_TREE)
     {
       t = build_function_type_list (void_type_node, NULL_TREE);
-      t = build_decl (FUNCTION_DECL, get_identifier ("__stack_chk_fail"), t);
+      t = build_decl (UNKNOWN_LOCATION,
+		      FUNCTION_DECL, get_identifier ("__stack_chk_fail"), t);
       TREE_STATIC (t) = 1;
       TREE_PUBLIC (t) = 1;
       DECL_EXTERNAL (t) = 1;
@@ -519,7 +537,7 @@ default_hidden_stack_protect_fail (void)
   if (t == NULL_TREE)
     {
       t = build_function_type_list (void_type_node, NULL_TREE);
-      t = build_decl (FUNCTION_DECL,
+      t = build_decl (UNKNOWN_LOCATION, FUNCTION_DECL,
 		      get_identifier ("__stack_chk_fail_local"), t);
       TREE_STATIC (t) = 1;
       TREE_PUBLIC (t) = 1;

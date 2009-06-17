@@ -628,8 +628,9 @@ all:
 	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-host all-target \
 @if gcc-bootstrap
 	    ; \
-	fi
+	fi \
 @endif gcc-bootstrap
+	&& :
 
 .PHONY: all-build
 [+ FOR build_modules +]
@@ -1435,7 +1436,7 @@ do-clean: clean-stage[+id+]
 	  $(do-[+compare-target+]) > /dev/null 2>&1; \
 	  if test $$? -eq 1; then \
 	    case $$file in \
-	      gcc/cc*-checksum$(objext) | ./libgcc/* ) \
+	      gcc/cc*-checksum$(objext) | ./libgcc/* | ./gcc/ada/*tools/*) \
 	        echo warning: $$file differs ;; \
 	      *) \
 	        echo $$file differs >> .bad_compare ;; \

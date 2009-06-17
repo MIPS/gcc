@@ -395,6 +395,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	warn_strict_overflow = value;
       warn_array_bounds = value;
       warn_volatile_register_var = value;
+      if (warn_jump_misses_init == -1)
+	warn_jump_misses_init = value;
 
       /* Only warn about unknown pragmas that are not in system
 	 headers.  */
@@ -445,6 +447,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	 implies -Wenum-compare.  */
       if (warn_enum_compare == -1 && value)
 	warn_enum_compare = value;
+      /* Because C++ always warns about a goto which misses an
+	 initialization, -Wc++-compat turns on -Wgoto-misses-init.  */
+      if (warn_jump_misses_init == -1 && value)
+	warn_jump_misses_init = value;
+      cpp_opts->warn_cxx_operator_names = value;
       break;
 
     case OPT_Wdeprecated:
@@ -1073,8 +1080,6 @@ c_common_post_options (const char **pfilename)
     warn_override_init = extra_warnings;
   if (warn_ignored_qualifiers == -1)
     warn_ignored_qualifiers = extra_warnings;
-  if (warn_logical_op == -1)
-    warn_logical_op = extra_warnings;
 
   /* -Wpointer-sign is disabled by default, but it is enabled if any
      of -Wall or -pedantic are given.  */
@@ -1085,6 +1090,8 @@ c_common_post_options (const char **pfilename)
     warn_strict_aliasing = 0;
   if (warn_strict_overflow == -1)
     warn_strict_overflow = 0;
+  if (warn_jump_misses_init == -1)
+    warn_jump_misses_init = 0;
 
   /* -Woverlength-strings is off by default, but is enabled by -pedantic.
      It is never enabled in C++, as the minimum limit is not normative

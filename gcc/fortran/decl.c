@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
+#include "flags.h"
 
 
 /* Macros to access allocate memory for gfc_data_variable,
@@ -2000,9 +2001,9 @@ kind_expr:
   if (ts->f90_type != BT_UNKNOWN && ts->f90_type != ts->type
       && !((ts->f90_type == BT_REAL && ts->type == BT_COMPLEX)
 	   || (ts->f90_type == BT_COMPLEX && ts->type == BT_REAL)))
-    gfc_error_now ("C kind type parameter is for type %s but type at %L "
-		   "is %s", gfc_basic_typename (ts->f90_type), &where,
-		   gfc_basic_typename (ts->type));
+    gfc_warning_now ("C kind type parameter is for type %s but type at %L "
+		     "is %s", gfc_basic_typename (ts->f90_type), &where,
+		     gfc_basic_typename (ts->type));
 
   gfc_gobble_whitespace ();
   if ((c = gfc_next_ascii_char ()) != ')'
@@ -2815,7 +2816,7 @@ match_attr_spec (void)
 
   locus start, seen_at[NUM_DECL];
   int seen[NUM_DECL];
-  decl_types d;
+  unsigned int d;
   const char *attr;
   match m;
   gfc_try t;
@@ -4708,14 +4709,6 @@ gfc_match_function_decl (void)
 	  || copy_prefix (&sym->attr, &sym->declared_at) == FAILURE)
 	goto cleanup;
 
-      if (current_ts.type != BT_UNKNOWN && sym->ts.type != BT_UNKNOWN
-	  && !sym->attr.implicit_type)
-	{
-	  gfc_error ("Function '%s' at %C already has a type of %s", name,
-		     gfc_basic_typename (sym->ts.type));
-	  goto cleanup;
-	}
-
       /* Delay matching the function characteristics until after the
 	 specification block by signalling kind=-1.  */
       sym->declared_at = old_loc;
@@ -4726,12 +4719,17 @@ gfc_match_function_decl (void)
 
       if (result == NULL)
 	{
-	  sym->ts = current_ts;
+          if (current_ts.type != BT_UNKNOWN
+	      && gfc_add_type (sym, &current_ts, &gfc_current_locus) == FAILURE)
+	    goto cleanup;
 	  sym->result = sym;
 	}
       else
 	{
-	  result->ts = current_ts;
+          if (current_ts.type != BT_UNKNOWN
+	      && gfc_add_type (result, &current_ts, &gfc_current_locus)
+		 == FAILURE)
+	    goto cleanup;
 	  sym->result = result;
 	}
 
@@ -5298,7 +5296,7 @@ set_enum_kind(void)
   if (max_enum == NULL || enum_history == NULL)
     return;
 
-  if (!gfc_option.fshort_enums)
+  if (!flag_short_enums)
     return;
 
   i = 0;
@@ -6814,6 +6812,51 @@ gfc_match_enum (void)
 }
 
 
+/* Returns an initializer whose value is one higher than the value of the
+   LAST_INITIALIZER argument.  If the argument is NULL, the
+   initializers value will be set to zero.  The initializer's kind
+   will be set to gfc_c_int_kind.
+
+   If -fshort-enums is given, the appropriate kind will be selected
+   later after all enumerators have been parsed.  A warning is issued
+   here if an initializer exceeds gfc_c_int_kind.  */
+
+static gfc_expr *
+enum_initializer (gfc_expr *last_initializer, locus where)
+{
+  gfc_expr *result;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_INTEGER;
+  result->ts.kind = gfc_c_int_kind;
+  result->where = where;
+
+  mpz_init (result->value.integer);
+
+  if (last_initializer != NULL)
+    {
+      mpz_add_ui (result->value.integer, last_initializer->value.integer, 1);
+      result->where = last_initializer->where;
+
+      if (gfc_check_integer_range (result->value.integer,
+	     gfc_c_int_kind) != ARITH_OK)
+	{
+	  gfc_error ("Enumerator exceeds the C integer type at %C");
+	  return NULL;
+	}
+    }
+  else
+    {
+      /* Control comes here, if it's the very first enumerator and no
+	 initializer has been given.  It will be initialized to zero.  */
+      mpz_set_si (result->value.integer, 0);
+    }
+
+  return result;
+}
+
+
 /* Match a variable name with an optional initializer.  When this
    subroutine is called, a variable is expected to be parsed next.
    Depending on what is happening at the moment, updates either the
@@ -6874,7 +6917,7 @@ enumerator_decl (void)
      previous enumerator (stored in last_initializer) is incremented
      by 1 and is used to initialize the current enumerator.  */
   if (initializer == NULL)
-    initializer = gfc_enum_initializer (last_initializer, old_locus);
+    initializer = enum_initializer (last_initializer, old_locus);
 
   if (initializer == NULL || initializer->ts.type != BT_INTEGER)
     {

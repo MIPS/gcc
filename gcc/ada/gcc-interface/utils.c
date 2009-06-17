@@ -530,12 +530,14 @@ gnat_init_decl_processing (void)
   set_sizetype (size_type_node);
 
   /* In Ada, we use an unsigned 8-bit type for the default boolean type.  */
-  boolean_type_node = make_node (BOOLEAN_TYPE);
-  TYPE_PRECISION (boolean_type_node) = 1;
-  fixup_unsigned_type (boolean_type_node);
-  TYPE_RM_SIZE (boolean_type_node) = bitsize_int (1);
+  boolean_type_node = make_unsigned_type (8);
+  TREE_SET_CODE (boolean_type_node, BOOLEAN_TYPE);
+  SET_TYPE_RM_MAX_VALUE (boolean_type_node,
+			 build_int_cst (boolean_type_node, 1));
+  SET_TYPE_RM_SIZE (boolean_type_node, bitsize_int (1));
 
   build_common_tree_nodes_2 (0);
+  boolean_true_node = TYPE_MAX_VALUE (boolean_type_node);
 
   ptr_void_type_node = build_pointer_type (void_type_node);
 }
@@ -545,7 +547,8 @@ gnat_init_decl_processing (void)
 void
 record_builtin_type (const char *name, tree type)
 {
-  tree type_decl = build_decl (TYPE_DECL, get_identifier (name), type);
+  tree type_decl = build_decl (input_location,
+			       TYPE_DECL, get_identifier (name), type);
 
   gnat_pushdecl (type_decl, Empty);
 
@@ -1195,6 +1198,42 @@ create_index_type (tree min, tree max, tree index, Node_Id gnat_node)
 
   return type;
 }
+
+/* Return a subtype of TYPE with range MIN to MAX.  If TYPE is NULL,
+   sizetype is used.  */
+
+tree
+create_range_type (tree type, tree min, tree max)
+{
+  tree range_type;
+
+  if (type == NULL_TREE)
+    type = sizetype;
+
+  /* First build a type with the base range.  */
+  range_type
+    = build_range_type (type, TYPE_MIN_VALUE (type), TYPE_MAX_VALUE (type));
+
+  min = convert (type, min);
+  max = convert (type, max);
+
+  /* If this type has the TYPE_RM_{MIN,MAX}_VALUE we want, return it.  */
+  if (TYPE_RM_MIN_VALUE (range_type)
+      && TYPE_RM_MAX_VALUE (range_type)
+      && operand_equal_p (TYPE_RM_MIN_VALUE (range_type), min, 0)
+      && operand_equal_p (TYPE_RM_MAX_VALUE (range_type), max, 0))
+    return range_type;
+
+  /* Otherwise, if TYPE_RM_{MIN,MAX}_VALUE is set, make a copy.  */
+  if (TYPE_RM_MIN_VALUE (range_type) || TYPE_RM_MAX_VALUE (range_type))
+    range_type = copy_type (range_type);
+
+  /* Then set the actual range.  */
+  SET_TYPE_RM_MIN_VALUE (range_type, min);
+  SET_TYPE_RM_MAX_VALUE (range_type, max);
+
+  return range_type;
+}
 
 /* Return a TYPE_DECL node suitable for the TYPE_STUB_DECL field of a type.
    TYPE_NAME gives the name of the type and TYPE is a ..._TYPE node giving
@@ -1206,7 +1245,8 @@ create_type_stub_decl (tree type_name, tree type)
   /* Using a named TYPE_DECL ensures that a type name marker is emitted in
      STABS while setting DECL_ARTIFICIAL ensures that no DW_TAG_typedef is
      emitted in DWARF.  */
-  tree type_decl = build_decl (TYPE_DECL, type_name, type);
+  tree type_decl = build_decl (input_location,
+			       TYPE_DECL, type_name, type);
   DECL_ARTIFICIAL (type_decl) = 1;
   return type_decl;
 }
@@ -1236,7 +1276,8 @@ create_type_decl (tree type_name, tree type, struct attrib *attr_list,
       DECL_NAME (type_decl) = type_name;
     }
   else
-    type_decl = build_decl (TYPE_DECL, type_name, type);
+    type_decl = build_decl (input_location,
+			    TYPE_DECL, type_name, type);
 
   DECL_ARTIFICIAL (type_decl) = artificial_p;
   gnat_pushdecl (type_decl, gnat_node);
@@ -1314,7 +1355,8 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
   /* The actual DECL node.  CONST_DECL was initially intended for enumerals
      and may be used for scalars in general but not for aggregates.  */
   tree var_decl
-    = build_decl ((constant_p && const_decl_allowed_p
+    = build_decl (input_location,
+		  (constant_p && const_decl_allowed_p
 		   && !AGGREGATE_TYPE_P (type)) ? CONST_DECL : VAR_DECL,
 		  var_name, type);
 
@@ -1427,7 +1469,8 @@ tree
 create_field_decl (tree field_name, tree field_type, tree record_type,
                    int packed, tree size, tree pos, int addressable)
 {
-  tree field_decl = build_decl (FIELD_DECL, field_name, field_type);
+  tree field_decl = build_decl (input_location,
+				FIELD_DECL, field_name, field_type);
 
   DECL_CONTEXT (field_decl) = record_type;
   TREE_READONLY (field_decl) = TYPE_READONLY (field_type);
@@ -1568,7 +1611,8 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
 tree
 create_param_decl (tree param_name, tree param_type, bool readonly)
 {
-  tree param_decl = build_decl (PARM_DECL, param_name, param_type);
+  tree param_decl = build_decl (input_location,
+				PARM_DECL, param_name, param_type);
 
   /* Honor TARGET_PROMOTE_PROTOTYPES like the C compiler, as not doing so
      can lead to various ABI violations.  */
@@ -1581,16 +1625,12 @@ create_param_decl (tree param_name, tree param_type, bool readonly)
       if (TREE_CODE (param_type) == INTEGER_TYPE
 	  && TYPE_BIASED_REPRESENTATION_P (param_type))
 	{
-	  tree subtype = make_node (INTEGER_TYPE);
+	  tree subtype
+	    = make_unsigned_type (TYPE_PRECISION (integer_type_node));
 	  TREE_TYPE (subtype) = integer_type_node;
 	  TYPE_BIASED_REPRESENTATION_P (subtype) = 1;
-
-	  TYPE_UNSIGNED (subtype) = 1;
-	  TYPE_PRECISION (subtype) = TYPE_PRECISION (integer_type_node);
-	  TYPE_MIN_VALUE (subtype) = TYPE_MIN_VALUE (param_type);
-	  TYPE_MAX_VALUE (subtype) = TYPE_MAX_VALUE (param_type);
-	  layout_type (subtype);
-
+	  SET_TYPE_RM_MIN_VALUE (subtype, TYPE_MIN_VALUE (param_type));
+	  SET_TYPE_RM_MAX_VALUE (subtype, TYPE_MAX_VALUE (param_type));
 	  param_type = subtype;
 	}
       else
@@ -1752,7 +1792,8 @@ potential_alignment_gap (tree prev_field, tree curr_field, tree offset)
 tree
 create_label_decl (tree label_name)
 {
-  tree label_decl = build_decl (LABEL_DECL, label_name, void_type_node);
+  tree label_decl = build_decl (input_location,
+				LABEL_DECL, label_name, void_type_node);
 
   DECL_CONTEXT (label_decl)     = current_function_decl;
   DECL_MODE (label_decl)        = VOIDmode;
@@ -1776,7 +1817,8 @@ create_subprog_decl (tree subprog_name, tree asm_name,
                      struct attrib *attr_list, Node_Id gnat_node)
 {
   tree return_type  = TREE_TYPE (subprog_type);
-  tree subprog_decl = build_decl (FUNCTION_DECL, subprog_name, subprog_type);
+  tree subprog_decl = build_decl (input_location,
+				  FUNCTION_DECL, subprog_name, subprog_type);
 
   /* If this is a non-inline function nested inside an inlined external
      function, we cannot honor both requests without cloning the nested
@@ -1797,7 +1839,8 @@ create_subprog_decl (tree subprog_name, tree asm_name,
   TREE_SIDE_EFFECTS (subprog_decl) = TYPE_VOLATILE (subprog_type);
   DECL_DECLARED_INLINE_P (subprog_decl) = inline_flag;
   DECL_ARGUMENTS (subprog_decl) = param_decl_list;
-  DECL_RESULT (subprog_decl)    = build_decl (RESULT_DECL, 0, return_type);
+  DECL_RESULT (subprog_decl)    = build_decl (input_location,
+					      RESULT_DECL, 0, return_type);
   DECL_ARTIFICIAL (DECL_RESULT (subprog_decl)) = 1;
   DECL_IGNORED_P (DECL_RESULT (subprog_decl)) = 1;
 
@@ -3945,6 +3988,10 @@ convert (tree type, tree expr)
 	  unsigned HOST_WIDE_INT idx;
 	  tree index, value;
 
+	  /* Whether we need to clear TREE_CONSTANT et al. on the output
+	     constructor when we convert in place.  */
+	  bool clear_constant = false;
+
 	  FOR_EACH_CONSTRUCTOR_ELT(e, idx, index, value)
 	    {
 	      constructor_elt *elt = VEC_quick_push (constructor_elt, v, NULL);
@@ -3953,15 +4000,30 @@ convert (tree type, tree expr)
 		break;
 	      elt->index = field;
 	      elt->value = convert (TREE_TYPE (field), value);
+
+	      /* If packing has made this field a bitfield and the input
+		 value couldn't be emitted statically any more, we need to
+		 clear TREE_CONSTANT on our output.  */
+	      if (!clear_constant && TREE_CONSTANT (expr)
+		  && !CONSTRUCTOR_BITFIELD_P (efield)
+		  && CONSTRUCTOR_BITFIELD_P (field)
+		  && !initializer_constant_valid_for_bitfield_p (value))
+		clear_constant = true;
+
 	      efield = TREE_CHAIN (efield);
 	      field = TREE_CHAIN (field);
 	    }
 
+	  /* If we have been able to match and convert all the input fields
+	     to their output type, convert in place now.  We'll fallback to a
+	     view conversion downstream otherwise.  */
 	  if (idx == len)
 	    {
 	      expr = copy_node (expr);
 	      TREE_TYPE (expr) = type;
 	      CONSTRUCTOR_ELTS (expr) = v;
+	      if (clear_constant)
+		TREE_CONSTANT (expr) = TREE_STATIC (expr) = false;
 	      return expr;
 	    }
 	}
@@ -4288,8 +4350,7 @@ maybe_unconstrained_array (tree exp)
 }
 
 /* Return true if EXPR is an expression that can be folded as an operand
-   of a VIEW_CONVERT_EXPR.  See the head comment of unchecked_convert for
-   the rationale.  */
+   of a VIEW_CONVERT_EXPR.  See ada-tree.h for a complete rationale.  */
 
 static bool
 can_fold_for_view_convert_p (tree expr)
@@ -4337,22 +4398,7 @@ can_fold_for_view_convert_p (tree expr)
 
    we expect the 8 bits at Vbits'Address to always contain Value, while
    their original location depends on the endianness, at Value'Address
-   on a little-endian architecture but not on a big-endian one.
-
-   ??? There is a problematic discrepancy between what is called precision
-   here (and more generally throughout gigi) for integral types and what is
-   called precision in the middle-end.  In the former case it's the RM size
-   as given by TYPE_RM_SIZE (or rm_size) whereas it's TYPE_PRECISION in the
-   latter case, the hitch being that they are not equal when they matter,
-   that is when the number of value bits is not equal to the type's size:
-   TYPE_RM_SIZE does give the number of value bits but TYPE_PRECISION is set
-   to the size.  The sole exception are BOOLEAN_TYPEs for which both are 1.
-
-   The consequence is that gigi must duplicate code bridging the gap between
-   the type's size and its precision that exists for TYPE_PRECISION in the
-   middle-end, because the latter knows nothing about TYPE_RM_SIZE, and be
-   wary of transformations applied in the middle-end based on TYPE_PRECISION
-   because this value doesn't reflect the actual precision for Ada.  */
+   on a little-endian architecture but not on a big-endian one.  */
 
 tree
 unchecked_convert (tree type, tree expr, bool notrunc_p)
@@ -4397,43 +4443,6 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 	  expr = convert (rtype, expr);
 	  expr = build1 (NOP_EXPR, type, expr);
 	}
-
-      /* We have another special case: if we are unchecked converting either
-	 a subtype or a type with limited range into a base type, we need to
-	 ensure that VRP doesn't propagate range information because this
-	 conversion may be done precisely to validate that the object is
-	 within the range it is supposed to have.  */
-      else if (TREE_CODE (expr) != INTEGER_CST
-	       && TREE_CODE (type) == INTEGER_TYPE && !TREE_TYPE (type)
-	       && ((TREE_CODE (etype) == INTEGER_TYPE && TREE_TYPE (etype))
-		   || TREE_CODE (etype) == ENUMERAL_TYPE
-		   || TREE_CODE (etype) == BOOLEAN_TYPE))
-	{
-	  /* The optimization barrier is a VIEW_CONVERT_EXPR node; moreover,
-	     in order not to be deemed an useless type conversion, it must
-	     be from subtype to base type.
-
-	     Therefore we first do the bulk of the conversion to a subtype of
-	     the final type.  And this conversion must itself not be deemed
-	     useless if the source type is not a subtype because, otherwise,
-	     the final VIEW_CONVERT_EXPR will be deemed so as well.  That's
-	     why we toggle the unsigned flag in this conversion, which is
-	     harmless since the final conversion is only a reinterpretation
-	     of the bit pattern.
-
-	     ??? This may raise addressability and/or aliasing issues because
-	     VIEW_CONVERT_EXPR gets gimplified as an lvalue, thus causing the
-	     address of its operand to be taken if it is deemed addressable
-	     and not already in GIMPLE form.  */
-	  tree rtype
-	    = gnat_type_for_mode (TYPE_MODE (type), !TYPE_UNSIGNED (etype));
-	  rtype = copy_type (rtype);
-	  TYPE_MAIN_VARIANT (rtype) = rtype;
-	  TREE_TYPE (rtype) = type;
-	  expr = convert (rtype, expr);
-	  expr = build1 (VIEW_CONVERT_EXPR, type, expr);
-	}
-
       else
 	expr = convert (type, expr);
     }

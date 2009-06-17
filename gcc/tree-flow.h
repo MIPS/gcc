@@ -684,7 +684,6 @@ int loop_depth_of_name (tree);
 tree degenerate_phi_result (gimple);
 
 /* In tree-ssa-copy.c  */
-extern void merge_alias_info (tree, tree);
 extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void propagate_tree_value_into_stmt (gimple_stmt_iterator *, tree);
@@ -867,31 +866,8 @@ void add_to_value (unsigned int, struct pre_expr_d *);
 void debug_value_expressions (unsigned int);
 void print_value_expressions (FILE *, unsigned int);
 
-
-/* In tree-vn.c  */
-tree make_value_handle (tree);
-void set_value_handle (tree, tree);
-bool expressions_equal_p (tree, tree);
-void sort_vuses (VEC (tree, gc) *);
-void sort_vuses_heap (VEC (tree, heap) *);
-tree vn_lookup_or_add (tree);
-tree vn_lookup_or_add_with_stmt (tree, gimple);
-tree vn_lookup_or_add_with_vuses (tree, VEC (tree, gc) *);
-void vn_add (tree, tree);
-void vn_add_with_vuses (tree, tree, VEC (tree, gc) *);
-tree vn_lookup_with_stmt (tree, gimple);
-tree vn_lookup (tree);
-tree vn_lookup_with_vuses (tree, VEC (tree, gc) *);
-
 /* In tree-ssa-sink.c  */
 bool is_hidden_global_store (gimple);
-
-/* In tree-sra.c  */
-void insert_edge_copies_seq (gimple_seq, basic_block);
-void sra_insert_before (gimple_stmt_iterator *, gimple_seq);
-void sra_insert_after (gimple_stmt_iterator *, gimple_seq);
-void sra_init_cache (void);
-bool sra_type_can_be_decomposed_p (tree);
 
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (void);
@@ -923,6 +899,7 @@ void mark_addressable (tree);
 /* In tree-ssa-live.c */
 extern void remove_unused_locals (void);
 extern void dump_scope_blocks (FILE *, int);
+extern void debug_scope_blocks (int);
 
 /* In tree-ssa-address.c  */
 

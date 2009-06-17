@@ -18,6 +18,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+extern bool default_legitimate_address_p (enum machine_mode, rtx, bool);
+
 extern void default_external_libcall (rtx);
 extern rtx default_legitimize_address (rtx, rtx, enum machine_mode);
 
@@ -64,12 +66,11 @@ extern bool default_fixed_point_supported_p (void);
 
 extern const char * default_invalid_within_doloop (const_rtx);
 
-extern tree default_builtin_vectorized_function
-  (enum built_in_function, tree, tree);
+extern tree default_builtin_vectorized_function (unsigned int, tree, tree);
 
-extern tree default_builtin_vectorized_conversion (enum tree_code, tree);
+extern tree default_builtin_vectorized_conversion (unsigned int, tree);
 
-extern tree default_builtin_reciprocal (enum built_in_function, bool, bool);
+extern tree default_builtin_reciprocal (unsigned int, bool, bool);
 
 extern bool default_builtin_vector_alignment_reachable (const_tree, bool);
 

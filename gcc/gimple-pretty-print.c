@@ -508,7 +508,7 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
 
 	  pp_space (buffer);
         }
-      dump_generic_node (buffer, gimple_call_fn (gs), spc, flags, false);
+      print_call_name (buffer, gimple_call_fn (gs));
       pp_string (buffer, " (");
       dump_gimple_call_args (buffer, gs, flags);
       pp_character (buffer, ')');
@@ -1349,27 +1349,6 @@ dump_gimple_omp_atomic_store (pretty_printer *buffer, gimple gs, int spc,
     }
 }
 
-/* Dump a GIMPLE_CHANGE_DYNAMIC_TYPE statement GS.  BUFFER, SPC and
-   FLAGS are as in dump_gimple_stmt.  */
-
-static void
-dump_gimple_cdt (pretty_printer *buffer, gimple gs, int spc, int flags)
-{
-  if (flags & TDF_RAW)
-    dump_gimple_fmt (buffer, spc, flags, "%G <%T, %T>", gs,
-                     gimple_cdt_new_type (gs), gimple_cdt_location (gs));
-  else
-    {
-      pp_string (buffer, "<<<change_dynamic_type (");
-      dump_generic_node (buffer, gimple_cdt_new_type (gs), spc + 2, flags,
-                         false);
-      pp_string (buffer, ") ");
-      dump_generic_node (buffer, gimple_cdt_location (gs), spc + 2, flags,
-                         false);
-      pp_string (buffer, ")>>>");
-    }
-}
-
 
 /* Dump all the memory operands for statement GS.  BUFFER, SPC and
    FLAGS are as in dump_gimple_stmt.  */
@@ -1425,6 +1404,8 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 	  pp_string (buffer, " : ");
 	}
       pp_decimal_int (buffer, xloc.line);
+      pp_string (buffer, ":");
+      pp_decimal_int (buffer, xloc.column);
       pp_string (buffer, "] ");
     }
 
@@ -1533,10 +1514,6 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_omp_critical (buffer, gs, spc, flags);
       break;
 
-    case GIMPLE_CHANGE_DYNAMIC_TYPE:
-      dump_gimple_cdt (buffer, gs, spc, flags);
-      break;
-
     case GIMPLE_CATCH:
       dump_gimple_catch (buffer, gs, spc, flags);
       break;
@@ -1613,6 +1590,12 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 		pp_decimal_int (buffer, get_lineno (gsi_stmt (gsi)));
 		break;
 	      }
+
+          if (bb->discriminator)
+            {
+              pp_string (buffer, ", discriminator ");
+	      pp_decimal_int (buffer, bb->discriminator);
+            }
 	}
       newline_and_indent (buffer, indent);
 
@@ -1779,6 +1762,8 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 	      pp_string (buffer, " : ");
 	    }
 	  pp_decimal_int (buffer, goto_xloc.line);
+	  pp_string (buffer, " : ");
+	  pp_decimal_int (buffer, goto_xloc.column);
 	  pp_string (buffer, "] ");
 	}
 

@@ -1011,7 +1011,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	      STRIP_TYPE_NOPS (value);
 	      if (TREE_CONSTANT (value) || TREE_READONLY (value))
 		{
-		  *tp = build_empty_stmt ();
+		  *tp = build_empty_stmt (EXPR_LOCATION (*tp));
 		  return copy_tree_body_r (tp, walk_subtrees, data);
 		}
 	    }
@@ -1558,11 +1558,14 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		gcc_unreachable ();
 		}
 
+	    edge = cgraph_edge (id->src_node, orig_stmt);
 	    /* Constant propagation on argument done during inlining
 	       may create new direct call.  Produce an edge for it.  */
-	    if (!edge && is_gimple_call (stmt)
-		&& (fn = gimple_call_fndecl (stmt)) != NULL
-		&& !cgraph_edge (id->dst_node, stmt))
+	    if ((!edge 
+		 || (edge->indirect_call
+		     && id->transform_call_graph_edges == CB_CGE_MOVE_CLONES))
+		&& is_gimple_call (stmt)
+		&& (fn = gimple_call_fndecl (stmt)) != NULL)
 	      {
 		struct cgraph_node *dest = cgraph_node (fn);
 
@@ -2817,7 +2820,6 @@ inline_forbidden_p_2 (tree *nodep, int *walk_subtrees,
 static bool
 inline_forbidden_p (tree fndecl)
 {
-  location_t saved_loc = input_location;
   struct function *fun = DECL_STRUCT_FUNCTION (fndecl);
   tree step;
   struct walk_stmt_info wi;
@@ -2860,7 +2862,6 @@ inline_forbidden_p (tree fndecl)
 
 egress:
   pointer_set_destroy (visited_nodes);
-  input_location = saved_loc;
   return forbidden_p;
 }
 
@@ -2955,7 +2956,8 @@ estimate_move_cost (tree type)
 /* Returns cost of operation CODE, according to WEIGHTS  */
 
 static int
-estimate_operator_cost (enum tree_code code, eni_weights *weights)
+estimate_operator_cost (enum tree_code code, eni_weights *weights,
+			tree op1 ATTRIBUTE_UNUSED, tree op2)
 {
   switch (code)
     {
@@ -3065,7 +3067,9 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-      return weights->div_mod_cost;
+      if (TREE_CODE (op2) != INTEGER_CST)
+        return weights->div_mod_cost;
+      return 1;
 
     default:
       /* We expect a copy assignment with no operator.  */
@@ -3102,6 +3106,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
   unsigned cost, i;
   enum gimple_code code = gimple_code (stmt);
   tree lhs;
+  tree rhs;
 
   switch (code)
     {
@@ -3125,16 +3130,35 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	 of moving something into "a", which we compute using the function
 	 estimate_move_cost.  */
       lhs = gimple_assign_lhs (stmt);
+      rhs = gimple_assign_rhs1 (stmt);
+
+      /* EH magic stuff is most probably going to be optimized out.
+         We rarely really need to save EH info for unwinding
+         nested exceptions.  */
+      if (TREE_CODE (lhs) == FILTER_EXPR
+	  || TREE_CODE (lhs) == EXC_PTR_EXPR
+          || TREE_CODE (rhs) == FILTER_EXPR
+	  || TREE_CODE (rhs) == EXC_PTR_EXPR)
+	return 0;
       if (is_gimple_reg (lhs))
 	cost = 0;
       else
 	cost = estimate_move_cost (TREE_TYPE (lhs));
 
-      cost += estimate_operator_cost (gimple_assign_rhs_code (stmt), weights);
+      if (!is_gimple_reg (rhs) && !is_gimple_min_invariant (rhs))
+	cost += estimate_move_cost (TREE_TYPE (rhs));
+
+      cost += estimate_operator_cost (gimple_assign_rhs_code (stmt), weights,
+      				      gimple_assign_rhs1 (stmt),
+				      get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
+				      == GIMPLE_BINARY_RHS
+				      ? gimple_assign_rhs2 (stmt) : NULL);
       break;
 
     case GIMPLE_COND:
-      cost = 1 + estimate_operator_cost (gimple_cond_code (stmt), weights);
+      cost = 1 + estimate_operator_cost (gimple_cond_code (stmt), weights,
+      				         gimple_op (stmt, 0),
+				         gimple_op (stmt, 1));
       break;
 
     case GIMPLE_SWITCH:
@@ -3143,7 +3167,10 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 
 	 TODO: once the switch expansion logic is sufficiently separated, we can
 	 do better job on estimating cost of the switch.  */
-      cost = gimple_switch_num_labels (stmt) * 2;
+      if (weights->time_based)
+        cost = floor_log2 (gimple_switch_num_labels (stmt)) * 2;
+      else
+        cost = gimple_switch_num_labels (stmt) * 2;
       break;
 
     case GIMPLE_CALL:
@@ -3166,8 +3193,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	    case BUILT_IN_CONSTANT_P:
 	      return 0;
 	    case BUILT_IN_EXPECT:
-	      cost = 0;
-	      break;
+	      return 0;
 
 	    /* Prefetch instruction is not expensive.  */
 	    case BUILT_IN_PREFETCH:
@@ -3181,6 +3207,8 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	if (decl)
 	  funtype = TREE_TYPE (decl);
 
+	if (!VOID_TYPE_P (TREE_TYPE (funtype)))
+	  cost += estimate_move_cost (TREE_TYPE (funtype));
 	/* Our cost must be kept in sync with
 	   cgraph_estimate_size_after_inlining that does use function
 	   declaration to figure out the arguments.  */
@@ -3217,7 +3245,6 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
     case GIMPLE_NOP:
     case GIMPLE_PHI:
     case GIMPLE_RETURN:
-    case GIMPLE_CHANGE_DYNAMIC_TYPE:
     case GIMPLE_PREDICT:
     case GIMPLE_DEBUG:
       return 0;
@@ -3302,15 +3329,11 @@ estimate_num_insns_fn (tree fndecl, eni_weights *weights)
 void
 init_inline_once (void)
 {
-  eni_inlining_weights.call_cost = PARAM_VALUE (PARAM_INLINE_CALL_COST);
-  eni_inlining_weights.target_builtin_call_cost = 1;
-  eni_inlining_weights.div_mod_cost = 10;
-  eni_inlining_weights.omp_cost = 40;
-
   eni_size_weights.call_cost = 1;
   eni_size_weights.target_builtin_call_cost = 1;
   eni_size_weights.div_mod_cost = 1;
   eni_size_weights.omp_cost = 40;
+  eni_size_weights.time_based = false;
 
   /* Estimating time for call is difficult, since we have no idea what the
      called function does.  In the current uses of eni_time_weights,
@@ -3320,6 +3343,7 @@ init_inline_once (void)
   eni_time_weights.target_builtin_call_cost = 10;
   eni_time_weights.div_mod_cost = 10;
   eni_time_weights.omp_cost = 40;
+  eni_time_weights.time_based = true;
 }
 
 /* Estimate the number of instructions in a gimple_seq. */
@@ -3574,13 +3598,6 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   /* Declare the return variable for the function.  */
   retvar = declare_return_variable (id, return_slot, modify_dest, &use_retvar);
 
-  if (DECL_IS_OPERATOR_NEW (fn))
-    {
-      gcc_assert (TREE_CODE (retvar) == VAR_DECL
-		  && POINTER_TYPE_P (TREE_TYPE (retvar)));
-      DECL_NO_TBAA_P (retvar) = 1;
-    }
-
   /* Add local vars in this inlined callee to caller.  */
   t_step = id->src_cfun->local_decls;
   for (; t_step; t_step = TREE_CHAIN (t_step))
@@ -3603,6 +3620,13 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
      a self-referential call; if we're calling ourselves, we need to
      duplicate our body before altering anything.  */
   copy_body (id, bb->count, bb->frequency, bb, return_block);
+
+  /* Reset the escaped and callused solutions.  */
+  if (cfun->gimple_df)
+    {
+      pt_solution_reset (&cfun->gimple_df->escaped);
+      pt_solution_reset (&cfun->gimple_df->callused);
+    }
 
   /* Clean up.  */
   if (id->debug_map)
@@ -4345,12 +4369,12 @@ copy_decl_to_var (tree decl, copy_body_data *id)
 
   type = TREE_TYPE (decl);
 
-  copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
+  copy = build_decl (DECL_SOURCE_LOCATION (id->dst_fn),
+		     VAR_DECL, DECL_NAME (decl), type);
   TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
   DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (decl);
-  DECL_NO_TBAA_P (copy) = DECL_NO_TBAA_P (decl);
 
   return copy_decl_for_dup_finish (id, decl, copy);
 }
@@ -4370,14 +4394,14 @@ copy_result_decl_to_var (tree decl, copy_body_data *id)
   if (DECL_BY_REFERENCE (decl))
     type = TREE_TYPE (type);
 
-  copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
+  copy = build_decl (DECL_SOURCE_LOCATION (id->dst_fn),
+		     VAR_DECL, DECL_NAME (decl), type);
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
   if (!DECL_BY_REFERENCE (decl))
     {
       TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
       DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (decl);
-      DECL_NO_TBAA_P (copy) = DECL_NO_TBAA_P (decl);
     }
 
   return copy_decl_for_dup_finish (id, decl, copy);

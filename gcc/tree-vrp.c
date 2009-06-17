@@ -121,7 +121,7 @@ DEF_VEC_ALLOC_O(switch_update, heap);
 static VEC (switch_update, heap) *to_update_switch_stmts;
 
 
-/* Return the maximum value for TYPEs base type.  */
+/* Return the maximum value for TYPE.  */
 
 static inline tree
 vrp_val_max (const_tree type)
@@ -129,24 +129,16 @@ vrp_val_max (const_tree type)
   if (!INTEGRAL_TYPE_P (type))
     return NULL_TREE;
 
-  /* For integer sub-types the values for the base type are relevant.  */
-  if (TREE_TYPE (type))
-    type = TREE_TYPE (type);
-
   return TYPE_MAX_VALUE (type);
 }
 
-/* Return the minimum value for TYPEs base type.  */
+/* Return the minimum value for TYPE.  */
 
 static inline tree
 vrp_val_min (const_tree type)
 {
   if (!INTEGRAL_TYPE_P (type))
     return NULL_TREE;
-
-  /* For integer sub-types the values for the base type are relevant.  */
-  if (TREE_TYPE (type))
-    type = TREE_TYPE (type);
 
   return TYPE_MIN_VALUE (type);
 }
@@ -188,11 +180,7 @@ vrp_val_is_min (const_tree val)
 static inline bool
 needs_overflow_infinity (const_tree type)
 {
-  return (INTEGRAL_TYPE_P (type)
-	  && !TYPE_OVERFLOW_WRAPS (type)
-	  /* Integer sub-types never overflow as they are never
-	     operands of arithmetic operators.  */
-	  && !(TREE_TYPE (type) && TREE_TYPE (type) != type));
+  return INTEGRAL_TYPE_P (type) && !TYPE_OVERFLOW_WRAPS (type);
 }
 
 /* Return whether TYPE can support our overflow infinity
@@ -2702,13 +2690,6 @@ extract_range_from_unary_expr (value_range_t *vr, enum tree_code code,
       tree inner_type = TREE_TYPE (op0);
       tree outer_type = type;
 
-      /* Always use base-types here.  This is important for the
-	 correct signedness.  */
-      if (TREE_TYPE (inner_type))
-	inner_type = TREE_TYPE (inner_type);
-      if (TREE_TYPE (outer_type))
-	outer_type = TREE_TYPE (outer_type);
-
       /* If VR0 is varying and we increase the type precision, assume
 	 a full range for the following transformation.  */
       if (vr0.type == VR_VARYING
@@ -4993,7 +4974,7 @@ insert_range_assertions (void)
    IGNORE_OFF_BY_ONE is true if the ARRAY_REF is inside a ADDR_EXPR.  */
 
 static void
-check_array_ref (tree ref, location_t location, bool ignore_off_by_one)
+check_array_ref (location_t location, tree ref, bool ignore_off_by_one)
 {
   value_range_t* vr = NULL;
   tree low_sub, up_sub;
@@ -5089,7 +5070,7 @@ search_for_addr_array (tree t, location_t location)
   do 
     {
       if (TREE_CODE (t) == ARRAY_REF)
-	check_array_ref (t, location, true /*ignore_off_by_one*/);
+	check_array_ref (location, t, true /*ignore_off_by_one*/);
 
       t = TREE_OPERAND (t, 0);
     }
@@ -5107,16 +5088,24 @@ check_array_bounds (tree *tp, int *walk_subtree, void *data)
 {
   tree t = *tp;
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  const location_t *location = (const location_t *) wi->info;
+  location_t location;
+
+  if (EXPR_HAS_LOCATION (t))
+    location = EXPR_LOCATION (t);
+  else
+    {
+      location_t *locp = (location_t *) wi->info;
+      location = *locp;
+    }
 
   *walk_subtree = TRUE;
 
   if (TREE_CODE (t) == ARRAY_REF)
-    check_array_ref (t, *location, false /*ignore_off_by_one*/);
+    check_array_ref (location, t, false /*ignore_off_by_one*/);
 
   if (TREE_CODE (t) == INDIRECT_REF
       || (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0)))
-    search_for_addr_array (TREE_OPERAND (t, 0), *location);
+    search_for_addr_array (TREE_OPERAND (t, 0), location);
 
   if (TREE_CODE (t) == ADDR_EXPR)
     *walk_subtree = FALSE;

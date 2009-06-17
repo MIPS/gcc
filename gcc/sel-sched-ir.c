@@ -3763,7 +3763,8 @@ get_seqno_of_a_pred (insn_t insn)
   return seqno;
 }
 
-/*  Find the proper seqno for inserting at INSN.  */
+/*  Find the proper seqno for inserting at INSN.  Returns -1 if no predecessors
+    with positive seqno exist.  */
 int
 get_seqno_by_preds (rtx insn)
 {
@@ -3782,7 +3783,6 @@ get_seqno_by_preds (rtx insn)
   for (i = 0, seqno = -1; i < n; i++)
     seqno = MAX (seqno, INSN_SEQNO (preds[i]));
 
-  gcc_assert (seqno > 0);
   return seqno;
 }
 

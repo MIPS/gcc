@@ -81,11 +81,6 @@ enum alpha_fp_rounding_mode alpha_fprm;
 
 enum alpha_fp_trap_mode alpha_fptm;
 
-/* Save information from a "cmpxx" operation until the branch or scc is
-   emitted.  */
-
-struct alpha_compare alpha_compare;
-
 /* Nonzero if inside of a function, because the Alpha asm can't
    handle .files inside of functions.  */
 
@@ -806,8 +801,8 @@ alpha_linkage_symbol_p (const char *symname)
    any of those forms can be surrounded with an AND that clear the
    low-order three bits; this is an "unaligned" access.  */
 
-bool
-alpha_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
+static bool
+alpha_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 {
   /* If this is an ldq_u type address, discard the outer AND.  */
   if (mode == DImode
@@ -2424,19 +2419,20 @@ alpha_emit_floatuns (rtx operands[2])
 
 /* Generate the comparison for a conditional branch.  */
 
-rtx
-alpha_emit_conditional_branch (enum rtx_code code)
+void
+alpha_emit_conditional_branch (rtx operands[], enum machine_mode cmp_mode)
 {
   enum rtx_code cmp_code, branch_code;
-  enum machine_mode cmp_mode, branch_mode = VOIDmode;
-  rtx op0 = alpha_compare.op0, op1 = alpha_compare.op1;
+  enum machine_mode branch_mode = VOIDmode;
+  enum rtx_code code = GET_CODE (operands[0]);
+  rtx op0 = operands[1], op1 = operands[2];
   rtx tem;
 
-  if (alpha_compare.fp_p && GET_MODE (op0) == TFmode)
+  if (cmp_mode == TFmode)
     {
       op0 = alpha_emit_xfloating_compare (&code, op0, op1);
       op1 = const0_rtx;
-      alpha_compare.fp_p = 0;
+      cmp_mode = DImode;
     }
 
   /* The general case: fold the comparison code to the types of compares
@@ -2457,7 +2453,7 @@ alpha_emit_conditional_branch (enum rtx_code code)
 
     case GE:  case GT: case GEU:  case GTU:
       /* For FP, we swap them, for INT, we reverse them.  */
-      if (alpha_compare.fp_p)
+      if (cmp_mode == DFmode)
 	{
 	  cmp_code = swap_condition (code);
 	  branch_code = NE;
@@ -2474,9 +2470,8 @@ alpha_emit_conditional_branch (enum rtx_code code)
       gcc_unreachable ();
     }
 
-  if (alpha_compare.fp_p)
+  if (cmp_mode == DFmode)
     {
-      cmp_mode = DFmode;
       if (flag_unsafe_math_optimizations && cmp_code != UNORDERED)
 	{
 	  /* When we are not as concerned about non-finite values, and we
@@ -2501,8 +2496,6 @@ alpha_emit_conditional_branch (enum rtx_code code)
     }
   else
     {
-      cmp_mode = DImode;
-
       /* The following optimizations are only for signed compares.  */
       if (code != LEU && code != LTU && code != GEU && code != GTU)
 	{
@@ -2544,36 +2537,38 @@ alpha_emit_conditional_branch (enum rtx_code code)
       emit_move_insn (tem, gen_rtx_fmt_ee (cmp_code, cmp_mode, op0, op1));
     }
 
-  /* Zero the operands.  */
-  memset (&alpha_compare, 0, sizeof (alpha_compare));
-
-  /* Return the branch comparison.  */
-  return gen_rtx_fmt_ee (branch_code, branch_mode, tem, CONST0_RTX (cmp_mode));
+  /* Emit the branch instruction.  */
+  tem = gen_rtx_SET (VOIDmode, pc_rtx,
+		     gen_rtx_IF_THEN_ELSE (VOIDmode,
+					   gen_rtx_fmt_ee (branch_code,
+							   branch_mode, tem,
+							   CONST0_RTX (cmp_mode)),
+					   gen_rtx_LABEL_REF (VOIDmode,
+							      operands[3]),
+					   pc_rtx));
+  emit_jump_insn (tem);
 }
 
 /* Certain simplifications can be done to make invalid setcc operations
    valid.  Return the final comparison, or NULL if we can't work.  */
 
-rtx
-alpha_emit_setcc (enum rtx_code code)
+bool
+alpha_emit_setcc (rtx operands[], enum machine_mode cmp_mode)
 {
   enum rtx_code cmp_code;
-  rtx op0 = alpha_compare.op0, op1 = alpha_compare.op1;
-  int fp_p = alpha_compare.fp_p;
+  enum rtx_code code = GET_CODE (operands[1]);
+  rtx op0 = operands[2], op1 = operands[3];
   rtx tmp;
 
-  /* Zero the operands.  */
-  memset (&alpha_compare, 0, sizeof (alpha_compare));
-
-  if (fp_p && GET_MODE (op0) == TFmode)
+  if (cmp_mode == TFmode)
     {
       op0 = alpha_emit_xfloating_compare (&code, op0, op1);
       op1 = const0_rtx;
-      fp_p = 0;
+      cmp_mode = DImode;
     }
 
-  if (fp_p && !TARGET_FIX)
-    return NULL_RTX;
+  if (cmp_mode == DFmode && !TARGET_FIX)
+    return 0;
 
   /* The general case: fold the comparison code to the types of compares
      that we have, choosing the branch as necessary.  */
@@ -2584,12 +2579,12 @@ alpha_emit_setcc (enum rtx_code code)
     case EQ:  case LE:  case LT:  case LEU:  case LTU:
     case UNORDERED:
       /* We have these compares.  */
-      if (fp_p)
+      if (cmp_mode == DFmode)
 	cmp_code = code, code = NE;
       break;
 
     case NE:
-      if (!fp_p && op1 == const0_rtx)
+      if (cmp_mode == DImode && op1 == const0_rtx)
 	break;
       /* FALLTHRU */
 
@@ -2601,10 +2596,10 @@ alpha_emit_setcc (enum rtx_code code)
     case GE:  case GT: case GEU:  case GTU:
       /* These normally need swapping, but for integer zero we have
 	 special patterns that recognize swapped operands.  */
-      if (!fp_p && op1 == const0_rtx)
+      if (cmp_mode == DImode && op1 == const0_rtx)
 	break;
       code = swap_condition (code);
-      if (fp_p)
+      if (cmp_mode == DFmode)
 	cmp_code = code, code = NE;
       tmp = op0, op0 = op1, op1 = tmp;
       break;
@@ -2613,7 +2608,7 @@ alpha_emit_setcc (enum rtx_code code)
       gcc_unreachable ();
     }
 
-  if (!fp_p)
+  if (cmp_mode == DImode)
     {
       if (!register_operand (op0, DImode))
 	op0 = force_reg (DImode, op0);
@@ -2624,18 +2619,18 @@ alpha_emit_setcc (enum rtx_code code)
   /* Emit an initial compare instruction, if necessary.  */
   if (cmp_code != UNKNOWN)
     {
-      enum machine_mode mode = fp_p ? DFmode : DImode;
-
-      tmp = gen_reg_rtx (mode);
+      tmp = gen_reg_rtx (cmp_mode);
       emit_insn (gen_rtx_SET (VOIDmode, tmp,
-			      gen_rtx_fmt_ee (cmp_code, mode, op0, op1)));
+			      gen_rtx_fmt_ee (cmp_code, cmp_mode, op0, op1)));
 
-      op0 = fp_p ? gen_lowpart (DImode, tmp) : tmp;
+      op0 = cmp_mode != DImode ? gen_lowpart (DImode, tmp) : tmp;
       op1 = const0_rtx;
     }
 
-  /* Return the setcc comparison.  */
-  return gen_rtx_fmt_ee (code, DImode, op0, op1);
+  /* Emit the setcc instruction.  */
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+			  gen_rtx_fmt_ee (code, DImode, op0, op1)));
+  return true;
 }
 
 
@@ -2651,20 +2646,17 @@ alpha_emit_conditional_move (rtx cmp, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (cmp);
   enum rtx_code cmov_code = NE;
-  rtx op0 = alpha_compare.op0;
-  rtx op1 = alpha_compare.op1;
-  int fp_p = alpha_compare.fp_p;
+  rtx op0 = XEXP (cmp, 0);
+  rtx op1 = XEXP (cmp, 1);
   enum machine_mode cmp_mode
     = (GET_MODE (op0) == VOIDmode ? DImode : GET_MODE (op0));
-  enum machine_mode cmp_op_mode = fp_p ? DFmode : DImode;
   enum machine_mode cmov_mode = VOIDmode;
   int local_fast_math = flag_unsafe_math_optimizations;
   rtx tem;
 
-  /* Zero the operands.  */
-  memset (&alpha_compare, 0, sizeof (alpha_compare));
+  gcc_assert (cmp_mode == DFmode || cmp_mode == DImode);
 
-  if (fp_p != FLOAT_MODE_P (mode))
+  if (FLOAT_MODE_P (cmp_mode) != FLOAT_MODE_P (mode))
     {
       enum rtx_code cmp_code;
 
@@ -2691,7 +2683,7 @@ alpha_emit_conditional_move (rtx cmp, enum machine_mode mode)
 	case GE: case GT: case GEU: case GTU:
 	  /* These normally need swapping, but for integer zero we have
 	     special patterns that recognize swapped operands.  */
-	  if (!fp_p && op1 == const0_rtx)
+	  if (cmp_mode == DImode && op1 == const0_rtx)
 	    cmp_code = code, code = NE;
 	  else
 	    {
@@ -2705,22 +2697,21 @@ alpha_emit_conditional_move (rtx cmp, enum machine_mode mode)
 	  gcc_unreachable ();
 	}
 
-      tem = gen_reg_rtx (cmp_op_mode);
+      tem = gen_reg_rtx (cmp_mode);
       emit_insn (gen_rtx_SET (VOIDmode, tem,
-			      gen_rtx_fmt_ee (cmp_code, cmp_op_mode,
+			      gen_rtx_fmt_ee (cmp_code, cmp_mode,
 					      op0, op1)));
 
-      cmp_mode = cmp_op_mode = fp_p ? DImode : DFmode;
-      op0 = gen_lowpart (cmp_op_mode, tem);
-      op1 = CONST0_RTX (cmp_op_mode);
-      fp_p = !fp_p;
+      cmp_mode = cmp_mode == DImode ? DFmode : DImode;
+      op0 = gen_lowpart (cmp_mode, tem);
+      op1 = CONST0_RTX (cmp_mode);
       local_fast_math = 1;
     }
 
   /* We may be able to use a conditional move directly.
      This avoids emitting spurious compares.  */
   if (signed_comparison_operator (cmp, VOIDmode)
-      && (!fp_p || local_fast_math)
+      && (cmp_mode == DImode || local_fast_math)
       && (op0 == CONST0_RTX (cmp_mode) || op1 == CONST0_RTX (cmp_mode)))
     return gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
 
@@ -2757,7 +2748,7 @@ alpha_emit_conditional_move (rtx cmp, enum machine_mode mode)
       gcc_unreachable ();
     }
 
-  if (!fp_p)
+  if (cmp_mode == DImode)
     {
       if (!reg_or_0_operand (op0, DImode))
 	op0 = force_reg (DImode, op0);
@@ -2768,12 +2759,12 @@ alpha_emit_conditional_move (rtx cmp, enum machine_mode mode)
   /* ??? We mark the branch mode to be CCmode to prevent the compare
      and cmov from being combined, since the compare insn follows IEEE
      rules that the cmov does not.  */
-  if (fp_p && !local_fast_math)
+  if (cmp_mode == DFmode && !local_fast_math)
     cmov_mode = CCmode;
 
-  tem = gen_reg_rtx (cmp_op_mode);
-  emit_move_insn (tem, gen_rtx_fmt_ee (code, cmp_op_mode, op0, op1));
-  return gen_rtx_fmt_ee (cmov_code, cmov_mode, tem, CONST0_RTX (cmp_op_mode));
+  tem = gen_reg_rtx (cmp_mode);
+  emit_move_insn (tem, gen_rtx_fmt_ee (code, cmp_mode, op0, op1));
+  return gen_rtx_fmt_ee (cmov_code, cmov_mode, tem, CONST0_RTX (cmp_mode));
 }
 
 /* Simplify a conditional move of two constants into a setcc with
@@ -5497,7 +5488,7 @@ alpha_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt,
 
 #ifdef ENABLE_EXECUTE_STACK
   emit_library_call (init_one_libfunc ("__enable_execute_stack"),
-		     0, VOIDmode, 1, tramp, Pmode);
+		     LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
 #endif
 
   if (jmpofs >= 0)
@@ -5800,24 +5791,28 @@ alpha_build_builtin_va_list (void)
     return ptr_type_node;
 
   record = (*lang_hooks.types.make_type) (RECORD_TYPE);
-  type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
+  type_decl = build_decl (BUILTINS_LOCATION,
+			  TYPE_DECL, get_identifier ("__va_list_tag"), record);
   TREE_CHAIN (record) = type_decl;
   TYPE_NAME (record) = type_decl;
 
   /* C++? SET_IS_AGGR_TYPE (record, 1); */
 
   /* Dummy field to prevent alignment warnings.  */
-  space = build_decl (FIELD_DECL, NULL_TREE, integer_type_node);
+  space = build_decl (BUILTINS_LOCATION,
+		      FIELD_DECL, NULL_TREE, integer_type_node);
   DECL_FIELD_CONTEXT (space) = record;
   DECL_ARTIFICIAL (space) = 1;
   DECL_IGNORED_P (space) = 1;
 
-  ofs = build_decl (FIELD_DECL, get_identifier ("__offset"),
+  ofs = build_decl (BUILTINS_LOCATION,
+		    FIELD_DECL, get_identifier ("__offset"),
 		    integer_type_node);
   DECL_FIELD_CONTEXT (ofs) = record;
   TREE_CHAIN (ofs) = space;
 
-  base = build_decl (FIELD_DECL, get_identifier ("__base"),
+  base = build_decl (BUILTINS_LOCATION,
+		     FIELD_DECL, get_identifier ("__base"),
 		     ptr_type_node);
   DECL_FIELD_CONTEXT (base) = record;
   TREE_CHAIN (base) = ofs;
@@ -7343,7 +7338,7 @@ alpha_using_fp (void)
 
 #if TARGET_ABI_OPEN_VMS
 
-const struct attribute_spec vms_attribute_table[] =
+static const struct attribute_spec vms_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "overlaid",   0, 0, true,  false, false, NULL },
@@ -7736,11 +7731,14 @@ alpha_expand_prologue (void)
 
   if (TARGET_ABI_OPEN_VMS)
     {
+      /* Register frame procedures save the fp.  */
       if (alpha_procedure_type == PT_REGISTER)
-	/* Register frame procedures save the fp.
-	   ?? Ought to have a dwarf2 save for this.  */
-	emit_move_insn (gen_rtx_REG (DImode, vms_save_fp_regno),
-			hard_frame_pointer_rtx);
+	{
+	  rtx insn = emit_move_insn (gen_rtx_REG (DImode, vms_save_fp_regno),
+				     hard_frame_pointer_rtx);
+	  add_reg_note (insn, REG_CFA_REGISTER, NULL);
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
 
       if (alpha_procedure_type != PT_NULL && vms_base_regno != REG_PV)
 	emit_insn (gen_force_movdi (gen_rtx_REG (DImode, vms_base_regno),
@@ -8015,12 +8013,6 @@ alpha_output_function_end_prologue (FILE *file)
 
 /* Write function epilogue.  */
 
-/* ??? At some point we will want to support full unwind, and so will
-   need to mark the epilogue as well.  At the moment, we just confuse
-   dwarf2out.  */
-#undef FRP
-#define FRP(exp) exp
-
 void
 alpha_expand_epilogue (void)
 {
@@ -8035,8 +8027,9 @@ alpha_expand_epilogue (void)
   HOST_WIDE_INT reg_offset;
   int fp_is_frame_pointer, fp_offset;
   rtx sa_reg, sa_reg_exp = NULL;
-  rtx sp_adj1, sp_adj2, mem;
+  rtx sp_adj1, sp_adj2, mem, reg, insn;
   rtx eh_ofs;
+  rtx cfa_restores = NULL_RTX;
   int i;
 
   sa_size = alpha_sa_size ();
@@ -8087,7 +8080,7 @@ alpha_expand_epilogue (void)
       if ((TARGET_ABI_OPEN_VMS
 	   && vms_unwind_regno == HARD_FRAME_POINTER_REGNUM)
 	  || (!TARGET_ABI_OPEN_VMS && frame_pointer_needed))
-	FRP (emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx));
+	emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
 
       /* Cope with very large offsets to the register save area.  */
       if (reg_offset + sa_size > 0x8000)
@@ -8103,7 +8096,7 @@ alpha_expand_epilogue (void)
 	  sa_reg = gen_rtx_REG (DImode, 22);
 	  sa_reg_exp = plus_constant (stack_pointer_rtx, bias);
 
-	  FRP (emit_move_insn (sa_reg, sa_reg_exp));
+	  emit_move_insn (sa_reg, sa_reg_exp);
 	}
 
       /* Restore registers in order, excepting a true frame pointer.  */
@@ -8111,7 +8104,9 @@ alpha_expand_epilogue (void)
       mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
       if (! eh_ofs)
         set_mem_alias_set (mem, alpha_sr_alias_set);
-      FRP (emit_move_insn (gen_rtx_REG (DImode, REG_RA), mem));
+      reg = gen_rtx_REG (DImode, REG_RA);
+      emit_move_insn (reg, mem);
+      cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg, cfa_restores);
 
       reg_offset += 8;
       imask &= ~(1UL << REG_RA);
@@ -8125,7 +8120,10 @@ alpha_expand_epilogue (void)
 	      {
 		mem = gen_rtx_MEM (DImode, plus_constant(sa_reg, reg_offset));
 		set_mem_alias_set (mem, alpha_sr_alias_set);
-		FRP (emit_move_insn (gen_rtx_REG (DImode, i), mem));
+		reg = gen_rtx_REG (DImode, i);
+		emit_move_insn (reg, mem);
+		cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg,
+					       cfa_restores);
 	      }
 	    reg_offset += 8;
 	  }
@@ -8135,7 +8133,9 @@ alpha_expand_epilogue (void)
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant(sa_reg, reg_offset));
 	    set_mem_alias_set (mem, alpha_sr_alias_set);
-	    FRP (emit_move_insn (gen_rtx_REG (DFmode, i+32), mem));
+	    reg = gen_rtx_REG (DFmode, i+32);
+	    emit_move_insn (reg, mem);
+	    cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg, cfa_restores);
 	    reg_offset += 8;
 	  }
     }
@@ -8151,7 +8151,9 @@ alpha_expand_epilogue (void)
 	    mem = gen_rtx_MEM (DImode, plus_constant(hard_frame_pointer_rtx,
 						     reg_offset));
 	    set_mem_alias_set (mem, alpha_sr_alias_set);
-	    FRP (emit_move_insn (gen_rtx_REG (DImode, i), mem));
+	    reg = gen_rtx_REG (DImode, i);
+	    emit_move_insn (reg, mem);
+	    cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg, cfa_restores);
 	    reg_offset -= 8;
 	  }
 
@@ -8161,15 +8163,18 @@ alpha_expand_epilogue (void)
 	    mem = gen_rtx_MEM (DFmode, plus_constant(hard_frame_pointer_rtx,
 						     reg_offset));
 	    set_mem_alias_set (mem, alpha_sr_alias_set);
-	    FRP (emit_move_insn (gen_rtx_REG (DFmode, i+32), mem));
+	    reg = gen_rtx_REG (DFmode, i+32);
+	    emit_move_insn (reg, mem);
+	    cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg, cfa_restores);
 	    reg_offset -= 8;
 	  }
 
       /* Restore the return address from the DSIB.  */
-
-      mem = gen_rtx_MEM (DImode, plus_constant(hard_frame_pointer_rtx, -8));
+      mem = gen_rtx_MEM (DImode, plus_constant (hard_frame_pointer_rtx, -8));
       set_mem_alias_set (mem, alpha_sr_alias_set);
-      FRP (emit_move_insn (gen_rtx_REG (DImode, REG_RA), mem));
+      reg = gen_rtx_REG (DImode, REG_RA);
+      emit_move_insn (reg, mem);
+      cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg, cfa_restores);
     }
 
   if (frame_size || eh_ofs)
@@ -8192,7 +8197,7 @@ alpha_expand_epilogue (void)
       else if (TARGET_ABI_UNICOSMK)
 	{
 	  sp_adj1 = gen_rtx_REG (DImode, 23);
-	  FRP (emit_move_insn (sp_adj1, hard_frame_pointer_rtx));
+	  emit_move_insn (sp_adj1, hard_frame_pointer_rtx);
 	  sp_adj2 = const0_rtx;
 	}
       else if (frame_size < 0x40007fffL)
@@ -8205,21 +8210,20 @@ alpha_expand_epilogue (void)
 	  else
 	    {
 	      sp_adj1 = gen_rtx_REG (DImode, 23);
-	      FRP (emit_move_insn (sp_adj1, sp_adj2));
+	      emit_move_insn (sp_adj1, sp_adj2);
 	    }
 	  sp_adj2 = GEN_INT (low);
 	}
       else
 	{
 	  rtx tmp = gen_rtx_REG (DImode, 23);
-	  FRP (sp_adj2 = alpha_emit_set_const (tmp, DImode, frame_size,
-					       3, false));
+	  sp_adj2 = alpha_emit_set_const (tmp, DImode, frame_size, 3, false);
 	  if (!sp_adj2)
 	    {
 	      /* We can't drop new things to memory this late, afaik,
 		 so build it up by pieces.  */
-	      FRP (sp_adj2 = alpha_emit_set_long_const (tmp, frame_size,
-							-(frame_size < 0)));
+	      sp_adj2 = alpha_emit_set_long_const (tmp, frame_size,
+						   -(frame_size < 0));
 	      gcc_assert (sp_adj2);
 	    }
 	}
@@ -8233,46 +8237,58 @@ alpha_expand_epilogue (void)
 	  mem = gen_rtx_MEM (DImode,
 			     plus_constant (hard_frame_pointer_rtx, -16));
 	  set_mem_alias_set (mem, alpha_sr_alias_set);
-	  FRP (emit_move_insn (hard_frame_pointer_rtx, mem));
+	  emit_move_insn (hard_frame_pointer_rtx, mem);
+	  cfa_restores = alloc_reg_note (REG_CFA_RESTORE,
+					 hard_frame_pointer_rtx, cfa_restores);
 	}
       else if (fp_is_frame_pointer)
 	{
 	  emit_insn (gen_blockage ());
 	  mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, fp_offset));
 	  set_mem_alias_set (mem, alpha_sr_alias_set);
-	  FRP (emit_move_insn (hard_frame_pointer_rtx, mem));
+	  emit_move_insn (hard_frame_pointer_rtx, mem);
+	  cfa_restores = alloc_reg_note (REG_CFA_RESTORE,
+					 hard_frame_pointer_rtx, cfa_restores);
 	}
       else if (TARGET_ABI_OPEN_VMS)
 	{
 	  emit_insn (gen_blockage ());
-	  FRP (emit_move_insn (hard_frame_pointer_rtx,
-			       gen_rtx_REG (DImode, vms_save_fp_regno)));
+	  emit_move_insn (hard_frame_pointer_rtx,
+			  gen_rtx_REG (DImode, vms_save_fp_regno));
+	  cfa_restores = alloc_reg_note (REG_CFA_RESTORE,
+					 hard_frame_pointer_rtx, cfa_restores);
 	}
 
       /* Restore the stack pointer.  */
       emit_insn (gen_blockage ());
       if (sp_adj2 == const0_rtx)
-	FRP (emit_move_insn (stack_pointer_rtx, sp_adj1));
+	insn = emit_move_insn (stack_pointer_rtx, sp_adj1);
       else
-	FRP (emit_move_insn (stack_pointer_rtx,
-			     gen_rtx_PLUS (DImode, sp_adj1, sp_adj2)));
+	insn = emit_move_insn (stack_pointer_rtx,
+			       gen_rtx_PLUS (DImode, sp_adj1, sp_adj2));
+      REG_NOTES (insn) = cfa_restores;
+      add_reg_note (insn, REG_CFA_DEF_CFA, stack_pointer_rtx);
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
   else
     {
+      gcc_assert (cfa_restores == NULL);
+
       if (TARGET_ABI_OPEN_VMS && alpha_procedure_type == PT_REGISTER)
         {
           emit_insn (gen_blockage ());
-          FRP (emit_move_insn (hard_frame_pointer_rtx,
-			       gen_rtx_REG (DImode, vms_save_fp_regno)));
+          insn = emit_move_insn (hard_frame_pointer_rtx,
+				 gen_rtx_REG (DImode, vms_save_fp_regno));
+	  add_reg_note (insn, REG_CFA_RESTORE, hard_frame_pointer_rtx);
+	  RTX_FRAME_RELATED_P (insn) = 1;
         }
       else if (TARGET_ABI_UNICOSMK && alpha_procedure_type != PT_STACK)
 	{
 	  /* Decrement the frame pointer if the function does not have a
 	     frame.  */
-
 	  emit_insn (gen_blockage ());
-	  FRP (emit_insn (gen_adddi3 (hard_frame_pointer_rtx,
-				      hard_frame_pointer_rtx, constm1_rtx)));
+	  emit_insn (gen_adddi3 (hard_frame_pointer_rtx,
+				 hard_frame_pointer_rtx, constm1_rtx));
         }
     }
 }
@@ -10256,18 +10272,15 @@ unicosmk_gen_dsib (unsigned long *imaskP)
       emit_insn (gen_blockage ());
 
       /* Set the new frame pointer.  */
-
       FRP (emit_insn (gen_adddi3 (hard_frame_pointer_rtx,
                                   stack_pointer_rtx, GEN_INT (64))));
-
     }
   else
     {
       /* Increment the frame pointer register to indicate that we do not
          have a frame.  */
-
-      FRP (emit_insn (gen_adddi3 (hard_frame_pointer_rtx,
-                                  hard_frame_pointer_rtx, const1_rtx)));
+      emit_insn (gen_adddi3 (hard_frame_pointer_rtx,
+                             hard_frame_pointer_rtx, const1_rtx));
     }
 }
 
@@ -10847,6 +10860,9 @@ alpha_init_libfuncs (void)
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE alpha_mangle_type
 #endif
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P alpha_legitimate_address_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -510,6 +510,7 @@ cgraph_finalize_function (tree decl, bool nested)
   notice_global_symbol (decl);
   node->local.finalized = true;
   node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
+  node->finalized_by_frontend = true;
   record_cdtor_fn (node->decl);
   if (node->nested)
     lower_nested_functions (decl);
@@ -1090,7 +1091,8 @@ cgraph_expand_function (struct cgraph_node *node)
   gcc_assert (node->lowered);
 
   /* Generate RTL for the body of DECL.  */
-  if (lang_hooks.callgraph.emit_associated_thunks)
+  if (lang_hooks.callgraph.emit_associated_thunks
+      && node->finalized_by_frontend)
     lang_hooks.callgraph.emit_associated_thunks (decl);
   tree_rest_of_compilation (decl);
 
@@ -1427,11 +1429,12 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   sprintf (which_buf, "%c_%.5d_%d", which, priority, counter++);
   name = get_file_function_name (which_buf);
 
-  decl = build_decl (FUNCTION_DECL, name,
+  decl = build_decl (input_location, FUNCTION_DECL, name,
 		     build_function_type (void_type_node, void_list_node));
   current_function_decl = decl;
 
-  resdecl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
+  resdecl = build_decl (input_location,
+			RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (resdecl) = 1;
   DECL_RESULT (decl) = resdecl;
   DECL_CONTEXT (resdecl) = decl;
@@ -1613,7 +1616,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
      ??? We cannot use COMDAT linkage because there is no
      ABI support for this.  */
   DECL_EXTERNAL (new_version_node->decl) = 0;
-  DECL_ONE_ONLY (new_version_node->decl) = 0;
+  DECL_COMDAT_GROUP (new_version_node->decl) = NULL_TREE;
   TREE_PUBLIC (new_version_node->decl) = 0;
   DECL_COMDAT (new_version_node->decl) = 0;
   DECL_WEAK (new_version_node->decl) = 0;
@@ -1683,9 +1686,12 @@ save_inline_function_body (struct cgraph_node *node)
   tree_function_versioning (node->decl, first_clone->decl, NULL, true, NULL);
 
   DECL_EXTERNAL (first_clone->decl) = 0;
-  DECL_ONE_ONLY (first_clone->decl) = 0;
+  DECL_COMDAT_GROUP (first_clone->decl) = NULL_TREE;
   TREE_PUBLIC (first_clone->decl) = 0;
   DECL_COMDAT (first_clone->decl) = 0;
+  VEC_free (ipa_opt_pass, heap,
+            DECL_STRUCT_FUNCTION (first_clone->decl)->ipa_transforms_to_apply);
+  DECL_STRUCT_FUNCTION (first_clone->decl)->ipa_transforms_to_apply = NULL;
 
 #ifdef ENABLE_CHECKING
   verify_cgraph_node (first_clone);

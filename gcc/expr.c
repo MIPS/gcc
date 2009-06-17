@@ -1424,7 +1424,7 @@ init_block_move_fn (const char *asmspec)
 				       const_ptr_type_node, sizetype,
 				       NULL_TREE);
 
-      fn = build_decl (FUNCTION_DECL, fn, args);
+      fn = build_decl (UNKNOWN_LOCATION, FUNCTION_DECL, fn, args);
       DECL_EXTERNAL (fn) = 1;
       TREE_PUBLIC (fn) = 1;
       DECL_ARTIFICIAL (fn) = 1;
@@ -2714,7 +2714,7 @@ init_block_clear_fn (const char *asmspec)
 				       integer_type_node, sizetype,
 				       NULL_TREE);
 
-      fn = build_decl (FUNCTION_DECL, fn, args);
+      fn = build_decl (UNKNOWN_LOCATION, FUNCTION_DECL, fn, args);
       DECL_EXTERNAL (fn) = 1;
       TREE_PUBLIC (fn) = 1;
       DECL_ARTIFICIAL (fn) = 1;
@@ -4296,6 +4296,36 @@ expand_assignment (tree to, tree from, bool nontemporal)
       return;
     }
 
+   else if (TREE_CODE (to) == MISALIGNED_INDIRECT_REF)
+     {
+       enum machine_mode mode, op_mode1;
+       enum insn_code icode;
+       rtx reg, addr, mem, insn;
+
+       reg = expand_expr (from, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+       reg = force_not_mem (reg);
+
+       mode = TYPE_MODE (TREE_TYPE (to));
+       addr = expand_expr (TREE_OPERAND (to, 0), NULL_RTX, VOIDmode,
+                         EXPAND_SUM);
+       addr = memory_address (mode, addr);
+       mem = gen_rtx_MEM (mode, addr);
+
+       set_mem_attributes (mem, to, 0);
+
+       icode = movmisalign_optab->handlers[mode].insn_code;
+       gcc_assert (icode != CODE_FOR_nothing);
+
+       op_mode1 = insn_data[icode].operand[1].mode;
+       if (! (*insn_data[icode].operand[1].predicate) (reg, op_mode1)
+           && op_mode1 != VOIDmode)
+         reg = copy_to_mode_reg (op_mode1, reg);
+
+      insn = GEN_FCN (icode) (mem, reg);
+       emit_insn (insn);
+       return;
+     }
+
   /* If the rhs is a function call and its value is not an aggregate,
      call the function before we start to compute the lhs.
      This is needed for correct code for cases such as
@@ -5468,7 +5498,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		    expand_normal (hi_index);
 		    unsignedp = TYPE_UNSIGNED (domain);
 
-		    index = build_decl (VAR_DECL, NULL_TREE, domain);
+		    index = build_decl (EXPR_LOCATION (exp),
+					VAR_DECL, NULL_TREE, domain);
 
 		    index_r
 		      = gen_reg_rtx (promote_mode (domain, DECL_MODE (index),
@@ -6225,6 +6256,45 @@ component_ref_field_offset (tree exp)
   else
     return SUBSTITUTE_PLACEHOLDER_IN_EXPR (DECL_FIELD_OFFSET (field), exp);
 }
+
+/* Alignment in bits the TARGET of an assignment may be assumed to have.  */
+
+static unsigned HOST_WIDE_INT
+target_align (const_tree target)
+{
+  /* We might have a chain of nested references with intermediate misaligning
+     bitfields components, so need to recurse to find out.  */
+
+  unsigned HOST_WIDE_INT this_align, outer_align;
+
+  switch (TREE_CODE (target))
+    {
+    case BIT_FIELD_REF:
+      return 1;
+
+    case COMPONENT_REF:
+      this_align = DECL_ALIGN (TREE_OPERAND (target, 1));
+      outer_align = target_align (TREE_OPERAND (target, 0));
+      return MIN (this_align, outer_align);
+
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+      this_align = TYPE_ALIGN (TREE_TYPE (target));
+      outer_align = target_align (TREE_OPERAND (target, 0));
+      return MIN (this_align, outer_align);
+
+    CASE_CONVERT:
+    case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
+      this_align = TYPE_ALIGN (TREE_TYPE (target));
+      outer_align = target_align (TREE_OPERAND (target, 0));
+      return MAX (this_align, outer_align);
+
+    default:
+      return TYPE_ALIGN (TREE_TYPE (target));
+    }
+}
+
 
 /* Given an rtx VALUE that may contain additions and multiplications, return
    an equivalent value that just refers to a register, memory, or constant.
@@ -6671,14 +6741,10 @@ highest_pow2_factor (const_tree exp)
 static unsigned HOST_WIDE_INT
 highest_pow2_factor_for_target (const_tree target, const_tree exp)
 {
-  unsigned HOST_WIDE_INT target_align, factor;
-
-  factor = highest_pow2_factor (exp);
-  if (TREE_CODE (target) == COMPONENT_REF)
-    target_align = DECL_ALIGN_UNIT (TREE_OPERAND (target, 1));
-  else
-    target_align = TYPE_ALIGN_UNIT (TREE_TYPE (target));
-  return MAX (factor, target_align);
+  unsigned HOST_WIDE_INT talign = target_align (target) / BITS_PER_UNIT;
+  unsigned HOST_WIDE_INT factor = highest_pow2_factor (exp);
+  
+  return MAX (factor, talign);
 }
 
 /* Return &VAR expression for emulated thread local VAR.  */
@@ -7473,7 +7539,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	       with non-BLKmode values.  */
 	    gcc_assert (GET_MODE (ret) != BLKmode);
 
-	    val = build_decl (VAR_DECL, NULL, TREE_TYPE (exp));
+	    val = build_decl (EXPR_LOCATION (exp),
+			      VAR_DECL, NULL, TREE_TYPE (exp));
 	    DECL_ARTIFICIAL (val) = 1;
 	    DECL_IGNORED_P (val) = 1;
 	    TREE_OPERAND (exp, 0) = val;
@@ -7541,9 +7608,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	/* Resolve the misalignment now, so that we don't have to remember
 	   to resolve it later.  Of course, this only works for reads.  */
-	/* ??? When we get around to supporting writes, we'll have to handle
-	   this in store_expr directly.  The vectorizer isn't generating
-	   those yet, however.  */
 	if (code == MISALIGNED_INDIRECT_REF)
 	  {
 	    int icode;
@@ -8249,7 +8313,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       }
 
       if (!op0)
-	op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, mode, modifier);
+	op0 = expand_expr (TREE_OPERAND (exp, 0),
+			   NULL_RTX, VOIDmode, modifier);
 
       /* If the input and output modes are both the same, we are done.  */
       if (mode == GET_MODE (op0))
@@ -8257,7 +8322,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       /* If neither mode is BLKmode, and both modes are the same size
 	 then we can use gen_lowpart.  */
       else if (mode != BLKmode && GET_MODE (op0) != BLKmode
-	       && GET_MODE_SIZE (mode) == GET_MODE_SIZE (GET_MODE (op0)))
+	       && GET_MODE_SIZE (mode) == GET_MODE_SIZE (GET_MODE (op0))
+	       && !COMPLEX_MODE_P (GET_MODE (op0)))
 	{
 	  if (GET_CODE (op0) == SUBREG)
 	    op0 = force_reg (GET_MODE (op0), op0);
@@ -9297,13 +9363,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case EXIT_EXPR:
       /* Lowered by gimplify.c.  */
       gcc_unreachable ();
-
-    case CHANGE_DYNAMIC_TYPE_EXPR:
-      /* This is ignored at the RTL level.  The tree level set
-	 DECL_POINTER_ALIAS_SET of any variable to be 0, which is
-	 overkill for the RTL layer but is all that we can
-	 represent.  */
-      return const0_rtx;
 
     case EXC_PTR_EXPR:
       return get_exception_pointer ();

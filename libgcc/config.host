@@ -84,6 +84,8 @@ fido-*-*)
 	;;
 frv*)	cpu_type=frv
 	;;
+moxie*)	cpu_type=moxie
+	;;
 i[34567]86-*-*)
 	cpu_type=i386
 	;;
@@ -415,6 +417,10 @@ mmix-knuth-mmixware)
 	;;
 mn10300-*-*)
 	;;
+moxie-*-*)
+	tmake_file=${cpu_type}/t-moxie
+	extra_parts="crtbegin.o crtend.o crti.o crtn.o"
+	;;
 pdp11-*-*)
 	;;
 picochip-*-*)
@@ -528,6 +534,8 @@ v850e-*-*)
 	;;
 v850-*-*)
 	;;
+vax-*-linux*)
+	;;
 vax-*-netbsdelf*)
 	;;
 vax-*-netbsd*)
@@ -562,7 +570,8 @@ esac
 case ${host} in
 i[34567]86-*-darwin* | x86_64-*-darwin* | \
   i[34567]86-*-kfreebsd*-gnu | x86_64-*-kfreebsd*-gnu | \
-  i[34567]86-*-linux* | x86_64-*-linux*)
+  i[34567]86-*-linux* | x86_64-*-linux* | \
+  i[34567]86-*-cygwin*)
 	if test "${host_address}" = 32; then
 		tmake_file="${tmake_file} t-softfp i386/${host_address}/t-fprules-softfp"
 	fi

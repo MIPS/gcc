@@ -3722,10 +3722,15 @@ process_command (int argc, const char **argv)
     }
 
   /* Convert new-style -- options to old-style.  */
-  translate_options (&argc, (const char *const **) &argv);
+  translate_options (&argc,
+		     CONST_CAST2 (const char *const **, const char ***,
+				  &argv));
 
   /* Do language-specific adjustment/addition of flags.  */
-  lang_specific_driver (&argc, (const char *const **) &argv, &added_libraries);
+  lang_specific_driver (&argc,
+			CONST_CAST2 (const char *const **, const char ***,
+				     &argv),
+			&added_libraries);
 
   /* Scan argv twice.  Here, the first time, just count how many switches
      there will be in their vector, and how many input files in theirs.
@@ -4589,6 +4594,11 @@ set_collect_gcc_options (void)
 
       /* Ignore elided switches.  */
       if ((switches[i].live_cond & SWITCH_IGNORE) != 0)
+	continue;
+
+      /* Don't use -fwhole-program when compiling the init and fini routines,
+	 since we'd wrongly assume that the routines aren't needed.  */
+      if (strcmp (switches[i].part1, "fwhole-program") == 0)
 	continue;
 
       obstack_grow (&collect_obstack, "'-", 2);
@@ -6799,7 +6809,7 @@ main (int argc, char **argv)
      Make a table of specified input files (infiles, n_infiles).
      Decode switches that are handled locally.  */
 
-  process_command (argc, (const char **) argv);
+  process_command (argc, CONST_CAST2 (const char **, char **, argv));
 
   /* Initialize the vector of specs to just the default.
      This means one element containing 0s, as a terminator.  */

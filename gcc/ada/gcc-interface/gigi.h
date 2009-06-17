@@ -558,6 +558,10 @@ extern tree copy_type (tree type);
 extern tree create_index_type (tree min, tree max, tree index,
 			       Node_Id gnat_node);
 
+/* Return a subtype of TYPE with range MIN to MAX.  If TYPE is NULL,
+   sizetype is used.  */
+extern tree create_range_type (tree type, tree min, tree max);
+
 /* Return a TYPE_DECL node suitable for the TYPE_STUB_DECL field of a type.
    TYPE_NAME gives the name of the type and TYPE is a ..._TYPE node giving
    its data type.  */
@@ -839,13 +843,13 @@ extern tree build_component_ref (tree record_variable, tree component,
    If GNU_OBJ is nonzero, it is an object to deallocate.  Otherwise,
    generate an allocator.
 
-   GNU_SIZE is the size of the object in bytes and ALIGN is the alignment
-   in bits.  GNAT_PROC, if present, is a procedure to call and GNAT_POOL
-   is the storage pool to use.  If not present, malloc and free are used.
-   GNAT_NODE is used to provide an error location for restriction violation
-   messages.  */
+   GNU_SIZE is the number of bytes to allocate and GNU_TYPE is the contained
+   object type, used to determine the to-be-honored address alignment.
+   GNAT_PROC, if present, is a procedure to call and GNAT_POOL is the storage
+   pool to use.  If not present, malloc and free are used.  GNAT_NODE is used
+   to provide an error location for restriction violation messages.  */
 extern tree build_call_alloc_dealloc (tree gnu_obj, tree gnu_size,
-                                      unsigned align, Entity_Id gnat_proc,
+                                      tree gnu_type, Entity_Id gnat_proc,
 				      Entity_Id gnat_pool, Node_Id gnat_node);
 
 /* Build a GCC tree to correspond to allocating an object of TYPE whose

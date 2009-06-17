@@ -1,3 +1,41 @@
+2009-06-12  Ian Lance Taylor  <iant@google.com>
+
+	* include/cpplib.h (struct cpp_options): Add
+	warn_cxx_operator_names field.
+	(NODE_WARN_OPERATOR): Define.
+	(struct cpp_hashnode): Increase flags field to 10 bits, decrease
+	type to 6 bits.
+	* init.c (mark_named_operators): Add flags parameter.
+	(cpp_post_options): Pick flags value to pass to
+	mark_named_operators.
+	* lex.c (lex_identifier): If NODE_WARN_OPERATOR is set, warn that
+	identifier is an operator name in C++.
+
+2009-06-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* include/line-map.h (LAST_SOURCE_COLUMN): New.
+
+2009-06-01  Ian Lance Taylor  <iant@google.com>
+
+	* include/cpp-id-data.h: Add extern "C".
+	* include/line-map.h: Likewise.
+	* include/mkdeps.h: Likewise.
+	* include/symtab.h: Likewise.
+	* internal.h: Likewise.
+
+2009-05-15  Ian Lance Taylor  <iant@google.com>
+
+	* include/cpplib.h (enum cpp_builtin_type): Rename from enum
+	builtin_type.  Change all uses.
+
+2009-05-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR cpp/36674
+	* directives (do_linemarker): Compensate for the increment in
+	location that occurs when we reach the end of line.
+	* files (_cpp_stack_include): Mention _cpp_find_file in the
+	comment.
+
 2009-05-10  Joseph Myers  <joseph@codesourcery.com>
 
 	* include/cpplib.h (enum cpp_token_fld_kind): Add

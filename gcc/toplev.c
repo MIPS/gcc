@@ -544,11 +544,11 @@ read_integral_parameter (const char *p, const char *pname, const int  defval)
   return atoi (p);
 }
 
-/* When compiling with a recent enough GCC, we use the GNU C "extern inline"
-   for floor_log2 and exact_log2; see toplev.h.  That construct, however,
-   conflicts with the ISO C++ One Definition Rule.   */
+#if GCC_VERSION < 3004
 
-#if GCC_VERSION < 3004 || !defined (__cplusplus)
+/* The functions floor_log2 and exact_log2 are defined as inline
+   functions in toplev.h if GCC_VERSION >= 3004.  The definitions here
+   are used for older versions of gcc.  */
 
 /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
    If X is 0, return -1.  */
@@ -561,9 +561,6 @@ floor_log2 (unsigned HOST_WIDE_INT x)
   if (x == 0)
     return -1;
 
-#ifdef CLZ_HWI
-  t = HOST_BITS_PER_WIDE_INT - 1 - (int) CLZ_HWI (x);
-#else
   if (HOST_BITS_PER_WIDE_INT > 64)
     if (x >= (unsigned HOST_WIDE_INT) 1 << (t + 64))
       t += 64;
@@ -580,7 +577,6 @@ floor_log2 (unsigned HOST_WIDE_INT x)
     t += 2;
   if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 1))
     t += 1;
-#endif
 
   return t;
 }
@@ -593,14 +589,10 @@ exact_log2 (unsigned HOST_WIDE_INT x)
 {
   if (x != (x & -x))
     return -1;
-#ifdef CTZ_HWI
-  return x ? CTZ_HWI (x) : -1;
-#else
   return floor_log2 (x);
-#endif
 }
 
-#endif /*  GCC_VERSION < 3004 || !defined (__cplusplus)  */
+#endif /* GCC_VERSION < 3004 */
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
    into ICE messages, which is much more user friendly.  In case the
@@ -1182,8 +1174,13 @@ print_version (FILE *file, const char *indent)
     N_("%s%s%s %sversion %s (%s) compiled by CC, ")
 #endif
     ;
+#ifdef HAVE_mpc
   static const char fmt2[] =
-    N_("GMP version %s, MPFR version %s.\n");
+    N_("GMP version %s, MPFR version %s, MPC version %s\n");
+#else
+  static const char fmt2[] =
+    N_("GMP version %s, MPFR version %s\n");
+#endif
   static const char fmt3[] =
     N_("%s%swarning: %s header version %s differs from library version %s.\n");
   static const char fmt4[] =
@@ -1215,7 +1212,11 @@ print_version (FILE *file, const char *indent)
 #endif
   fprintf (file,
 	   file == stderr ? _(fmt2) : fmt2,
-	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING);
+	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING
+#ifdef HAVE_mpc
+	   , MPC_VERSION_STRING
+#endif
+	   );
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
@@ -1226,6 +1227,13 @@ print_version (FILE *file, const char *indent)
 	     file == stderr ? _(fmt3) : fmt3,
 	     indent, *indent != 0 ? " " : "",
 	     "MPFR", MPFR_VERSION_STRING, mpfr_get_version ());
+#ifdef HAVE_mpc
+  if (strcmp (MPC_VERSION_STRING, mpc_get_version ()))
+    fprintf (file,
+	     file == stderr ? _(fmt3) : fmt3,
+	     indent, *indent != 0 ? " " : "",
+	     "MPC", MPC_VERSION_STRING, mpc_get_version ());
+#endif
   fprintf (file,
 	   file == stderr ? _(fmt4) : fmt4,
 	   indent, *indent != 0 ? " " : "",
@@ -2379,14 +2387,14 @@ toplev_main (int argc, char **argv)
 {
   expandargv (&argc, &argv);
 
-  save_argv = (const char **) argv;
+  save_argv = CONST_CAST2 (const char **, char **, argv);
 
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */
-  decode_options (argc, (const char **) argv);
+  decode_options (argc, CONST_CAST2 (const char **, char **, argv));
 
   init_local_tick ();
 

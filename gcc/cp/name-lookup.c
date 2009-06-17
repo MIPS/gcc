@@ -3491,7 +3491,7 @@ do_using_directive (tree name_space)
   gcc_assert (TREE_CODE (name_space) == NAMESPACE_DECL);
 
   if (building_stmt_tree ())
-    add_stmt (build_stmt (USING_STMT, name_space));
+    add_stmt (build_stmt (input_location, USING_STMT, name_space));
   name_space = ORIGINAL_NAMESPACE (name_space);
 
   if (!toplevel_bindings_p ())
@@ -4235,7 +4235,7 @@ lookup_name_nonclass (tree name)
 }
 
 tree
-lookup_function_nonclass (tree name, tree args, bool block_p)
+lookup_function_nonclass (tree name, VEC(tree,gc) *args, bool block_p)
 {
   return
     lookup_arg_dependent (name,
@@ -4427,7 +4427,7 @@ lookup_type_current_level (tree name)
 struct arg_lookup
 {
   tree name;
-  tree args;
+  VEC(tree,gc) *args;
   tree namespaces;
   tree classes;
   tree functions;
@@ -4435,6 +4435,7 @@ struct arg_lookup
 
 static bool arg_assoc (struct arg_lookup*, tree);
 static bool arg_assoc_args (struct arg_lookup*, tree);
+static bool arg_assoc_args_vec (struct arg_lookup*, VEC(tree,gc) *);
 static bool arg_assoc_type (struct arg_lookup*, tree);
 static bool add_function (struct arg_lookup *, tree);
 static bool arg_assoc_namespace (struct arg_lookup *, tree);
@@ -4589,13 +4590,13 @@ arg_assoc_namespace (struct arg_lookup *k, tree scope)
 	 classes.  */
       if (hidden_name_p (OVL_CURRENT (value)))
 	{
-	  tree args;
+	  unsigned int ix;
+	  tree arg;
 
-	  for (args = k->args; args; args = TREE_CHAIN (args))
-	    if (friend_of_associated_class_p (TREE_VALUE (args),
-					      OVL_CURRENT (value)))
+	  for (ix = 0; VEC_iterate (tree, k->args, ix, arg); ++ix)
+	    if (friend_of_associated_class_p (arg, OVL_CURRENT (value)))
 	      break;
-	  if (!args)
+	  if (ix >= VEC_length (tree, k->args))
 	    continue;
 	}
 
@@ -4805,6 +4806,21 @@ arg_assoc_args (struct arg_lookup *k, tree args)
   return false;
 }
 
+/* Adds everything associated with an argument vector.  Returns true
+   on error.  */
+
+static bool
+arg_assoc_args_vec (struct arg_lookup *k, VEC(tree,gc) *args)
+{
+  unsigned int ix;
+  tree arg;
+
+  for (ix = 0; VEC_iterate (tree, args, ix, arg); ++ix)
+    if (arg_assoc (k, arg))
+      return true;
+  return false;
+}
+
 /* Adds everything associated with a given tree_node.  Returns 1 on error.  */
 
 static bool
@@ -4884,7 +4900,7 @@ arg_assoc (struct arg_lookup *k, tree n)
    are the functions found in normal lookup.  */
 
 tree
-lookup_arg_dependent (tree name, tree fns, tree args)
+lookup_arg_dependent (tree name, tree fns, VEC(tree,gc) *args)
 {
   struct arg_lookup k;
 
@@ -4907,7 +4923,7 @@ lookup_arg_dependent (tree name, tree fns, tree args)
      picking up later definitions) in the second stage. */
   k.namespaces = NULL_TREE;
 
-  arg_assoc_args (&k, args);
+  arg_assoc_args_vec (&k, args);
 
   fns = k.functions;
   
@@ -5303,7 +5319,8 @@ push_to_top_level (void)
   s->bindings = b;
   s->need_pop_function_context = need_pop;
   s->function_decl = current_function_decl;
-  s->skip_evaluation = skip_evaluation;
+  s->unevaluated_operand = cp_unevaluated_operand;
+  s->inhibit_evaluation_warnings = c_inhibit_evaluation_warnings;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
@@ -5311,7 +5328,8 @@ push_to_top_level (void)
   current_lang_name = lang_name_cplusplus;
   current_namespace = global_namespace;
   push_class_stack ();
-  skip_evaluation = 0;
+  cp_unevaluated_operand = 0;
+  c_inhibit_evaluation_warnings = 0;
   timevar_pop (TV_NAME_LOOKUP);
 }
 
@@ -5344,7 +5362,8 @@ pop_from_top_level (void)
   if (s->need_pop_function_context)
     pop_function_context ();
   current_function_decl = s->function_decl;
-  skip_evaluation = s->skip_evaluation;
+  cp_unevaluated_operand = s->unevaluated_operand;
+  c_inhibit_evaluation_warnings = s->inhibit_evaluation_warnings;
   timevar_pop (TV_NAME_LOOKUP);
 }
 
@@ -5399,7 +5418,7 @@ cp_emit_debug_info_for_using (tree t, tree context)
     if (TREE_CODE (t) != TEMPLATE_DECL)
       {
 	if (building_stmt_tree ())
-	  add_stmt (build_stmt (USING_STMT, t));
+	  add_stmt (build_stmt (input_location, USING_STMT, t));
 	else
 	  (*debug_hooks->imported_module_or_decl) (t, NULL_TREE, context, false);
       }

@@ -1843,7 +1843,8 @@ Case_Statement_to_gnu (Node_Id gnat_node)
   /* We build a SWITCH_EXPR that contains the code with interspersed
      CASE_LABEL_EXPRs for each label.  */
 
-  push_stack (&gnu_switch_label_stack, NULL_TREE, create_artificial_label ());
+  push_stack (&gnu_switch_label_stack, NULL_TREE,
+	      create_artificial_label (input_location));
   start_stmt_group ();
   for (gnat_when = First_Non_Pragma (Alternatives (gnat_node));
        Present (gnat_when);
@@ -1908,9 +1909,10 @@ Case_Statement_to_gnu (Node_Id gnat_node)
 	  if ((!gnu_low || TREE_CODE (gnu_low) == INTEGER_CST)
 	      && (!gnu_high || TREE_CODE (gnu_high) == INTEGER_CST))
 	    {
-	      add_stmt_with_node (build3 (CASE_LABEL_EXPR, void_type_node,
-					  gnu_low, gnu_high,
-					  create_artificial_label ()),
+	      add_stmt_with_node (build3
+				  (CASE_LABEL_EXPR, void_type_node,
+				   gnu_low, gnu_high,
+				   create_artificial_label (input_location)),
 				  gnat_choice);
 	      choices_added++;
 	    }
@@ -1953,7 +1955,7 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
 
   TREE_TYPE (gnu_loop_stmt) = void_type_node;
   TREE_SIDE_EFFECTS (gnu_loop_stmt) = 1;
-  LOOP_STMT_LABEL (gnu_loop_stmt) = create_artificial_label ();
+  LOOP_STMT_LABEL (gnu_loop_stmt) = create_artificial_label (input_location);
   set_expr_location_from_node (gnu_loop_stmt, gnat_node);
   Sloc_to_locus (Sloc (End_Label (gnat_node)),
 		 &DECL_SOURCE_LOCATION (LOOP_STMT_LABEL (gnu_loop_stmt)));
@@ -2213,7 +2215,8 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
      properly copies them out.  We do this by making a new block and converting
      any inner return into a goto to a label at the end of the block.  */
   push_stack (&gnu_return_label_stack, NULL_TREE,
-	      gnu_cico_list ? create_artificial_label () : NULL_TREE);
+	      gnu_cico_list ? create_artificial_label (input_location)
+	      : NULL_TREE);
 
   /* Get a tree corresponding to the code for the subprogram.  */
   start_stmt_group ();
@@ -5101,9 +5104,6 @@ gnat_to_gnu (Node_Id gnat_node)
 	  tree gnu_obj_type;
 	  tree gnu_actual_obj_type = 0;
 	  tree gnu_obj_size;
-	  unsigned int align;
-	  unsigned int default_allocator_alignment
-	    = get_target_default_allocator_alignment () * BITS_PER_UNIT;
 
 	  /* If this is a thin pointer, we must dereference it to create
 	     a fat pointer, then go back below to a thin pointer.  The
@@ -5142,7 +5142,6 @@ gnat_to_gnu (Node_Id gnat_node)
 	    gnu_actual_obj_type = gnu_obj_type;
 
 	  gnu_obj_size = TYPE_SIZE_UNIT (gnu_actual_obj_type);
-	  align = TYPE_ALIGN (gnu_obj_type);
 
 	  if (TREE_CODE (gnu_obj_type) == RECORD_TYPE
 	      && TYPE_CONTAINS_TEMPLATE_P (gnu_obj_type))
@@ -5159,42 +5158,11 @@ gnat_to_gnu (Node_Id gnat_node)
 					 gnu_ptr, gnu_byte_offset);
 	    }
 
- 	  /* If the object was allocated from the default storage pool, the
- 	     alignment was greater than what the allocator provides, and this
- 	     is not a fat or thin pointer, what we have in gnu_ptr here is an
- 	     address dynamically adjusted to match the alignment requirement
- 	     (see build_allocator).  What we need to pass to free is the
- 	     initial allocator's return value, which has been stored just in
- 	     front of the block we have.  */
-
- 	  if (No (Procedure_To_Call (gnat_node))
- 	      && align > default_allocator_alignment
- 	      && ! TYPE_FAT_OR_THIN_POINTER_P (gnu_ptr_type))
- 	    {
- 	      /* We set GNU_PTR
- 		 as * (void **)((void *)GNU_PTR - (void *)sizeof(void *))
- 		 in two steps:  */
-
- 	      /* GNU_PTR (void *)
-		 = (void *)GNU_PTR - (void *)sizeof (void *))  */
- 	      gnu_ptr
- 		= build_binary_op
-		    (POINTER_PLUS_EXPR, ptr_void_type_node,
-		     convert (ptr_void_type_node, gnu_ptr),
-		     size_int (-POINTER_SIZE/BITS_PER_UNIT));
-
- 	      /* GNU_PTR (void *) = *(void **)GNU_PTR  */
- 	      gnu_ptr
- 		= build_unary_op
-		    (INDIRECT_REF, NULL_TREE,
-		     convert (build_pointer_type (ptr_void_type_node),
-			      gnu_ptr));
- 	    }
-
-	  gnu_result = build_call_alloc_dealloc (gnu_ptr, gnu_obj_size, align,
-						 Procedure_To_Call (gnat_node),
-						 Storage_Pool (gnat_node),
-						 gnat_node);
+	  gnu_result
+	      = build_call_alloc_dealloc (gnu_ptr, gnu_obj_size, gnu_obj_type,
+					  Procedure_To_Call (gnat_node),
+					  Storage_Pool (gnat_node),
+					  gnat_node);
 	}
       break;
 
@@ -5562,6 +5530,7 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
 	 Note that walk_tree knows how to deal with TYPE_DECL, but neither
 	 VAR_DECL nor CONST_DECL.  This appears to be somewhat arbitrary.  */
       mark_visited (&gnu_stmt);
+
       if (TREE_CODE (gnu_decl) == VAR_DECL
 	  || TREE_CODE (gnu_decl) == CONST_DECL)
 	{
@@ -5569,13 +5538,31 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
 	  mark_visited (&DECL_SIZE_UNIT (gnu_decl));
 	  mark_visited (&DECL_INITIAL (gnu_decl));
 	}
-      /* In any case, we have to deal with our own TYPE_ADA_SIZE field.  */
-      if (TREE_CODE (gnu_decl) == TYPE_DECL
-	  && (TREE_CODE (type) == RECORD_TYPE
-	      || TREE_CODE (type) == UNION_TYPE
-	      || TREE_CODE (type) == QUAL_UNION_TYPE)
-	  && (t = TYPE_ADA_SIZE (type)))
-	mark_visited (&t);
+
+      /* In any case, we have to deal with our own fields.  */
+      else if (TREE_CODE (gnu_decl) == TYPE_DECL)
+	switch (TREE_CODE (type))
+	  {
+	  case RECORD_TYPE:
+	  case UNION_TYPE:
+	  case QUAL_UNION_TYPE:
+	    if ((t = TYPE_ADA_SIZE (type)))
+	      mark_visited (&t);
+	    break;
+
+	  case INTEGER_TYPE:
+	  case ENUMERAL_TYPE:
+	  case BOOLEAN_TYPE:
+	  case REAL_TYPE:
+	    if ((t = TYPE_RM_MIN_VALUE (type)))
+	      mark_visited (&t);
+	    if ((t = TYPE_RM_MAX_VALUE (type)))
+	      mark_visited (&t);
+	    break;
+
+	  default:
+	    break;
+	  }
     }
   else
     add_stmt_with_node (gnu_stmt, gnat_entity);
@@ -5891,7 +5878,7 @@ gnat_gimplify_stmt (tree *stmt_p)
 
     case LOOP_STMT:
       {
-	tree gnu_start_label = create_artificial_label ();
+	tree gnu_start_label = create_artificial_label (input_location);
 	tree gnu_end_label = LOOP_STMT_LABEL (stmt);
 	tree t;
 
@@ -7246,30 +7233,29 @@ protect_multiple_eval (tree exp)
   if (!TREE_SIDE_EFFECTS (exp))
     return exp;
 
-  /* If it is a conversion, protect what's inside the conversion.
+  /* If this is a conversion, protect what's inside the conversion.
      Similarly, if we're indirectly referencing something, we only
-     actually need to protect the address since the data itself can't
-     change in these situations.  */
-  else if (TREE_CODE (exp) == NON_LVALUE_EXPR
-	   || CONVERT_EXPR_P (exp)
-	   || TREE_CODE (exp) == VIEW_CONVERT_EXPR
-	   || TREE_CODE (exp) == INDIRECT_REF
-	   || TREE_CODE (exp) == UNCONSTRAINED_ARRAY_REF)
-    return build1 (TREE_CODE (exp), type,
-		   protect_multiple_eval (TREE_OPERAND (exp, 0)));
+     need to protect the address since the data itself can't change
+     in these situations.  */
+  if (TREE_CODE (exp) == NON_LVALUE_EXPR
+      || CONVERT_EXPR_P (exp)
+      || TREE_CODE (exp) == VIEW_CONVERT_EXPR
+      || TREE_CODE (exp) == INDIRECT_REF
+      || TREE_CODE (exp) == UNCONSTRAINED_ARRAY_REF)
+  return build1 (TREE_CODE (exp), type,
+		 protect_multiple_eval (TREE_OPERAND (exp, 0)));
 
-  /* If EXP is a fat pointer or something that can be placed into a register,
-     just make a SAVE_EXPR.  */
+  /* If this is a fat pointer or something that can be placed into a
+     register, just make a SAVE_EXPR.  */
   if (TYPE_FAT_POINTER_P (type) || TYPE_MODE (type) != BLKmode)
     return save_expr (exp);
 
-  /* Otherwise, dereference, protect the address, and re-reference.  */
-  else
-    return
-      build_unary_op (INDIRECT_REF, type,
-		      save_expr (build_unary_op (ADDR_EXPR,
-						 build_reference_type (type),
-						 exp)));
+  /* Otherwise, reference, protect the address and dereference.  */
+  return
+    build_unary_op (INDIRECT_REF, type,
+		    save_expr (build_unary_op (ADDR_EXPR,
+					       build_reference_type (type),
+					       exp)));
 }
 
 /* This is equivalent to stabilize_reference in tree.c, but we know how to
