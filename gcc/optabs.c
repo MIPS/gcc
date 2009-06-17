@@ -6027,7 +6027,8 @@ libfunc_decl_eq (const void *entry1, const void *entry2)
 tree
 build_libfunc_function (const char *name)
 {
-  tree decl = build_decl (FUNCTION_DECL, get_identifier (name),
+  tree decl = build_decl (UNKNOWN_LOCATION, FUNCTION_DECL,
+			  get_identifier (name),
                           build_function_type (integer_type_node, NULL_TREE));
   /* ??? We don't have any type information except for this is
      a function.  Pretend this is "int foo()".  */

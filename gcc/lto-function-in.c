@@ -975,14 +975,15 @@ input_labels (struct lto_input_block *ib, struct data_in *data_in,
   for (i = 0; i < named_count; i++)
     {
       tree name = input_identifier (data_in, ib);
-      label = build_decl (LABEL_DECL, name, void_type_node);
+      label = build_decl (UNKNOWN_LOCATION, LABEL_DECL, name, void_type_node);
       DECL_CONTEXT (label) = current_function_decl;
       data_in->labels[i] = label;
     }
 
   for (i = 0; i < unnamed_count; i++)
     {
-      label = build_decl (LABEL_DECL, NULL_TREE, void_type_node);
+      label = build_decl (UNKNOWN_LOCATION, LABEL_DECL, NULL_TREE,
+			  void_type_node);
       DECL_CONTEXT (label) = current_function_decl;
       data_in->labels[i + named_count] = label;
     }
@@ -1039,9 +1040,9 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
   gcc_assert (type);
 
   if (is_var)
-    result = build_decl (VAR_DECL, name, type);
+    result = build_decl (UNKNOWN_LOCATION, VAR_DECL, name, type);
   else
-    result = build_decl (PARM_DECL, name, type);
+    result = build_decl (UNKNOWN_LOCATION, PARM_DECL, name, type);
 
   if (assembler_name != NULL_TREE)
     SET_DECL_ASSEMBLER_NAME (result, assembler_name);
