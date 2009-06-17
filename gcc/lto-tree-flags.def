@@ -115,10 +115,10 @@
       ADD_CLASS_EXPR_FLAG (unsigned_flag)
       ADD_CLASS_EXPR_FLAG (nothrow_flag)
       ADD_CLASS_EXPR_FLAG (saturating_flag)
+      ADD_CLASS_EXPR_FLAG (packed_flag)
+      ADD_CLASS_EXPR_FLAG (user_align)
       ADD_CLASS_TYPE_FLAG (needs_constructing_flag)
-      ADD_CLASS_TYPE_FLAG (packed_flag)
       ADD_CLASS_TYPE_FLAG (restrict_flag)
-      ADD_CLASS_TYPE_FLAG (user_align)
     END_CLASS_CASE (tcc_type)
 
     START_CLASS_CASE (tcc_unary)
@@ -247,7 +247,7 @@
     END_EXPR_CASE (CONJ_EXPR)
       
     START_EXPR_CASE (CONST_DECL)
-      ADD_DECL_FLAG (decl_flag_2)
+      ADD_DECL_FLAG (decl_flag_1)
       ADD_EXPR_FLAG (addressable_flag)
       ADD_EXPR_FLAG (public_flag)
       ADD_EXPR_FLAG (readonly_flag)
@@ -296,17 +296,16 @@
       
     START_EXPR_CASE (FIELD_DECL)
       ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (user_align)
       ADD_DECL_FLAG (nonlocal_flag)		/* ??? */
       ADD_DECL_FLAG (virtual_flag)
       ADD_DECL_FLAG (ignored_flag)
       ADD_DECL_FLAG (abstract_flag)
       ADD_DECL_FLAG (artificial_flag)
-      ADD_DECL_FLAG (user_align)
       ADD_DECL_FLAG (preserve_flag)		/* ??? */
       ADD_DECL_FLAG (debug_expr_is_from)	/* ??? */
       ADD_DECL_FLAG (decl_flag_1)
-      ADD_DECL_FLAG (decl_flag_2) 
-      ADD_DECL_FLAG (decl_flag_3)
+      ADD_DECL_FLAG (decl_flag_2)
     END_EXPR_CASE (FIELD_DECL)
       
     START_EXPR_CASE (FILTER_EXPR)
@@ -341,15 +340,15 @@
       ADD_EXPR_FLAG (public_flag)
       ADD_EXPR_FLAG (nothrow_flag)
       ADD_EXPR_FLAG (readonly_flag)
+      ADD_EXPR_FLAG (user_align)
       ADD_DECL_FLAG (nonlocal_flag)
       ADD_DECL_FLAG (virtual_flag)
       ADD_DECL_FLAG (ignored_flag)
       ADD_DECL_FLAG (abstract_flag)
       ADD_DECL_FLAG (artificial_flag)
-      ADD_DECL_FLAG (user_align)
       ADD_DECL_FLAG (preserve_flag)
       ADD_DECL_FLAG (debug_expr_is_from)  	/* ??? */
-      ADD_DECL_FLAG (decl_flag_2)
+      ADD_DECL_FLAG (decl_flag_1)
       ADD_VIS_FLAG (weak_flag)
       ADD_VIS_FLAG (comdat_flag)
       ADD_VIS_FLAG_SIZE (visibility, 2);
@@ -551,8 +550,8 @@
       ADD_DECL_FLAG (abstract_flag)
       ADD_DECL_FLAG (artificial_flag)
       ADD_DECL_FLAG (decl_flag_0)
+      ADD_DECL_FLAG (decl_flag_1)
       ADD_DECL_FLAG (decl_flag_2)
-      ADD_DECL_FLAG (decl_flag_3)
       ADD_DECL_FLAG (gimple_reg_flag)
       ADD_DECL_FLAG (decl_by_reference_flag)
     END_EXPR_CASE (PARM_DECL)
@@ -751,7 +750,7 @@
       ADD_DECL_FLAG (abstract_flag)
       ADD_DECL_FLAG (artificial_flag)
       /* ### Do we need  user_align, preserve_flag, debug_expr_is_from ??? */
-      ADD_DECL_FLAG (decl_flag_2)
+      ADD_DECL_FLAG (decl_flag_1)
       /* ### Do we need weak_flag, visibility_specified, visibility ??? */
     END_EXPR_CASE (TYPE_DECL)
       
@@ -790,8 +789,8 @@
       ADD_DECL_FLAG (abstract_flag)
       ADD_DECL_FLAG (artificial_flag)
       ADD_DECL_FLAG (decl_flag_0)
+      ADD_DECL_FLAG (decl_flag_1)
       ADD_DECL_FLAG (decl_flag_2)
-      ADD_DECL_FLAG (decl_flag_3)
       ADD_DECL_FLAG (gimple_reg_flag)
       ADD_DECL_FLAG (decl_by_reference_flag)
       ADD_VIS_FLAG (defer_output)

@@ -1,3 +1,172 @@
+2009-06-11  David Daney  <ddaney@caviumnetworks.com>
+
+	PR c/39252
+	* gcc.dg/builtin-unreachable-1.c: New test.
+	* gcc.dg/builtin-unreachable-2.c: Same.
+
+2009-06-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/40402
+	* gfortran.dg/data_value_1.f90: New test.
+
+2009-06-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR testsuite/39831
+	* gcc.target/i386/excess-precision-1.c: Use -mfpmath=387, and
+	remove ilp32 requirement.
+	* gcc.target/i386/excess-precision-2.c: Likewise.
+	* gcc.target/i386/excess-precision-3.c: Likewise.
+	* gcc.target/i386/excess-precision-4.c: Likewise.
+	* gcc.target/i386/excess-precision-5.c: Likewise.
+	* gcc.target/i386/excess-precision-6.c: Likewise.
+
+2009-06-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/38718
+	* gfortran.dg/is_iostat_end_eor_2.f90: New test.
+	* gfortran.dg/nan_5.f90: New test.
+
+2009-06-10  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* gcc.target/arm/neon-modes-1.c: New test.
+
+2009-06-10  Kai Tietz  <kai.tietz@onevision.com>
+
+	* g++.dg/torture/pr31579.C: Cast pointer
+	via __SIZE_TYPE__ instead of 'unsigned long'.
+
+2009-06-10  Anthony Green  <green@moxielogic.com>
+
+	* testsuite/lib/target-supports.exp (check_profiling_available):
+	Profiling is not available for testing purposes on moxie.
+
+2009-06-09  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wcxx-compat-12.c: New testcase.
+
+2009-06-09  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/40334
+	* gfortran.dg/backspace_11.f90: New.
+
+2009-06-09  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/defaulted10.C: New.
+
+2009-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	* testsuite/gcc.c-torture/compile/pr40351.c: New file.
+
+2009-06-09  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/align_max.adb: New test.
+
+2009-06-08  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/auto15.C: New.
+
+2009-06-08  Jan Hubicka  <jh@suse.cz>
+
+	PR debug/39834
+	* gcc.dg/torture/pr39834.c
+
+2009-06-08  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/40102
+	* g++.dg/torture/pr40102.C: New testcase.
+
+2009-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/builtin-object-size-2.c (test1): Adjust expected results.
+	* gcc.dg/builtin-object-size-4.c (test1): Adjust expected results.
+	* gcc.dg/builtin-object-size-6.c: New test.
+
+	PR c++/40373
+	* g++.dg/template/dtor7.C: New test.
+
+	PR c++/40370
+	PR c++/40372
+	* g++.dg/template/error41.C: New test.
+	* g++.dg/template/error42.C: New test.
+
+2009-06-08  Revital Eres  <eres@il.ibm.com>
+
+	PR testsuite/40359
+	* gcc.dg/vect/vect-58.c: Change checks to use vect_hw_misalign.
+	* gcc.dg/vect/vect-88.c: Likewise.
+	* gcc.dg/vect/no-section-anchors-vect-66.c: Likewise.
+	* gcc.dg/vect/pr25413.c: Likewise.
+	* lib/target-supports.exp: Add i?86 to vect_hw_misalign.
+
+2009-06-07  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/warn/Wswitch-3.C: New testcase.
+	* gcc.dg/Wswitch.c: Adjust for -Wswitch change.
+	* gcc.dg/Wswitch-enum-error.c: Likewise.
+	* gcc.dg/Wswitch-error.c: Likewise.
+
+2009-06-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/40008
+	* gfortran.dg/negative_unit.f: Update test.
+	* gfortran.dg/negative_unit_int8.f: Update test.
+	* gfortran.dg/newunit_1.f90: New test.
+
+2009-06-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/25104
+	PR fortran/29962
+	* gfortran.dg/spread_init_expr.f03: New.
+	* gfortran.dg/unpack_init_expr.f03: New.
+	* gfortran.dg/intrinsic_argument_conformance_2.f90: Adjusted
+	error message.
+
+2009-06-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/25104
+	PR fortran/29962
+	* gfortran.dg/count_init_expr.f03
+	* gfortran.dg/product_init_expr.f03
+	* gfortran.dg/sum_init_expr.f03
+
+2009-06-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/36874
+	* gfortran.dg/intrinsic_argument_conformance_2.f90: Adjusted error message.
+	* gfortran.dg/zero_sized_1.f90: Removed checks with incompatible shapes.
+	* gfortran.dg/zero_sized_5.f90: Likewise.
+
+2009-06-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/32950
+	* g++.dg/torture/pr32950.C: New.
+
+2009-06-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/25104
+	PR fortran/29962
+	* gfortran.dg/dot_product_1.f03: New.
+	* gfortran.dg/matmul_8.f03: New.
+	* gfortran.dg/transpose_3.f03: New.
+
+2009-06-06  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wunused-label-1.c: New test case.
+	* g++.dg/warn/Wunused-label-1.C: New test case.
+	* g++.dg/warn/Wunused-label-2.C: New test case.
+	* g++.dg/warn/Wunused-label-3.C: New test case.
+
+2009-06-06  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/37203
+	* reshape_zerosize_2.f90: New.
+
+2009-06-06  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32890
+	* gfortran.dg/pack_assign_1.f90: New.
+	* gfortran.dg/pack_vector_1.f90: New.
+
 2009-06-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/40340

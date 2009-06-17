@@ -1202,7 +1202,7 @@ ACX_PROG_CMP_IGNORE_INITIAL
 gmplibs="-lmpfr -lgmp"
 gmpinc=
 have_gmp=no
-mpclibs=
+mpclibs=-lmpc
 mpcinc=
 have_mpc=no
 
@@ -1402,6 +1402,11 @@ If you obtained GMP and/or MPFR from a vendor distribution package, make
 sure that you have installed both the libraries and the header files.
 They may be located in separate packages.])
   fi
+fi
+
+if test x$have_mpc != xyes ; then
+  mpcinc=
+  mpclibs=
 fi
 
 gmpinc="$mpcinc $gmpinc"

@@ -1742,6 +1742,9 @@ save_inline_function_body (struct cgraph_node *node)
   DECL_COMDAT_GROUP (first_clone->decl) = NULL_TREE;
   TREE_PUBLIC (first_clone->decl) = 0;
   DECL_COMDAT (first_clone->decl) = 0;
+  VEC_free (ipa_opt_pass, heap,
+            DECL_STRUCT_FUNCTION (first_clone->decl)->ipa_transforms_to_apply);
+  DECL_STRUCT_FUNCTION (first_clone->decl)->ipa_transforms_to_apply = NULL;
 
 #ifdef ENABLE_CHECKING
   verify_cgraph_node (first_clone);
