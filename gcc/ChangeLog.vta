@@ -1,3 +1,21 @@
+2009-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2.h (enum dwarf_location_atom): Add DW_OP_implicit_value
+	and DW_OP_stack_value.
+	* dwarf2out.c (dwarf_stack_op_name): Handle DW_OP_implicit_value
+	and DW_OP_stack_value.
+	(size_of_loc_descr, output_loc_operands, output_loc_operands_raw):
+	Handle DW_OP_implicit_value.
+	(extract_int): Move prototype earlier.
+	(loc_descriptor): Add MODE argument.  Handle CONST_INT, CONST_DOUBLE,
+	CONST_VECTOR, CONST, LABEL_REF and SYMBOL_REF if mode != VOIDmode,
+	attempt to handle other expressions.
+	(concat_loc_descriptor, concatn_loc_descriptor,
+	loc_descriptor_from_tree_1): Adjust loc_descriptor callers.
+	(add_location_or_const_value_attribute): Likewise.  For single
+	location loc_lists attempt to use add_const_value_attribute
+	for constant decls.
+
 2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
 
 	* rtl.h (NOTE_DURING_CALL_P): New.
