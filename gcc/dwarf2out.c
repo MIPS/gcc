@@ -10284,6 +10284,14 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
       op = DW_OP_mul;
       goto do_binop;
 
+    case DIV:
+      op = DW_OP_div;
+      goto do_binop;
+
+    case MOD:
+      op = DW_OP_mod;
+      goto do_binop;
+
     case ASHIFT:
       op = DW_OP_shl;
       goto do_binop;
@@ -10294,6 +10302,18 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 
     case LSHIFTRT:
       op = DW_OP_shr;
+      goto do_binop;
+
+    case AND:
+      op = DW_OP_and;
+      goto do_binop;
+
+    case IOR:
+      op = DW_OP_or;
+      goto do_binop;
+
+    case XOR:
+      op = DW_OP_xor;
       goto do_binop;
 
     do_binop:
@@ -10312,6 +10332,31 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	break;
       }
 
+    case NOT:
+      op = DW_OP_not;
+      goto do_unop;
+
+    case ABS:
+      op = DW_OP_abs;
+      goto do_unop;
+
+    case NEG:
+      op = DW_OP_neg;
+      goto do_unop;
+
+    do_unop:
+      {
+	dw_loc_descr_ref op0 = mem_loc_descriptor (XEXP (rtl, 0), mode,
+						   VAR_INIT_STATUS_INITIALIZED);
+
+	if (op0 == 0)
+	  break;
+
+	mem_loc_result = op0;
+	add_loc_descr (&mem_loc_result, new_loc_descr (op, 0, 0));
+	break;
+      }
+
     case CONST_INT:
       mem_loc_result = int_loc_descriptor (INTVAL (rtl));
       break;
@@ -10321,6 +10366,61 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 						   VAR_INIT_STATUS_INITIALIZED);
       break;
 
+      /* Conditionals in GCC are supposed to eval to STORE_FLAG_VALUE
+	 or zero, rather than 1 or 0, so leave these alone for now.  */
+    case EQ:
+    case GE:
+    case GT:
+    case LE:
+    case LT:
+    case NE:
+    case COMPARE:
+    case IF_THEN_ELSE:
+    case SMIN:
+    case SMAX:
+    case ROTATE:
+    case ROTATERT:
+    case TRUNCATE:
+      /* In theory, we could implement the above.  */
+      /* DWARF cannot represent the unsigned compare operations
+	 natively.  */
+    case GEU:
+    case GTU:
+    case LEU:
+    case LTU:
+    case SS_MULT:
+    case US_MULT:
+    case SS_DIV:
+    case US_DIV:
+    case UDIV:
+    case UMOD:
+    case UMIN:
+    case UMAX:
+    case UNORDERED:
+    case ORDERED:
+    case UNEQ:
+    case UNGE:
+    case UNLE:
+    case UNLT:
+    case LTGT:
+    case FLOAT_EXTEND:
+    case FLOAT_TRUNCATE:
+    case FLOAT:
+    case UNSIGNED_FLOAT:
+    case FIX:
+    case UNSIGNED_FIX:
+    case FRACT_CONVERT:
+    case UNSIGNED_FRACT_CONVERT:
+    case SAT_FRACT:
+    case UNSIGNED_SAT_FRACT:
+    case SQRT:
+    case BSWAP:
+    case FFS:
+    case CLZ:
+    case CTZ:
+    case POPCOUNT:
+    case PARITY:
+    case ASM_OPERANDS:
     case UNSPEC:
       /* If delegitimize_address couldn't do anything with the UNSPEC, we
 	 can't express it in the debug info.  This can happen e.g. with some
@@ -10332,7 +10432,12 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
       goto symref;
 
     default:
+#ifdef ENABLE_CHECKING
+      print_rtl (stderr, rtl);
       gcc_unreachable ();
+#else
+      break;
+#endif
     }
 
   if (mem_loc_result && initialized == VAR_INIT_STATUS_UNINITIALIZED)
@@ -10677,7 +10782,8 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
       break;
 
     default:
-      if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE (rtl) == mode)
+      if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE (rtl) == mode
+	  && GET_MODE_BITSIZE (GET_MODE (rtl)) <= GET_MODE_BITSIZE (Pmode))
 	{
 	  /* Value expression.  */
 	  loc_result = mem_loc_descriptor (rtl, VOIDmode, initialized);
