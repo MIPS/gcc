@@ -1,5 +1,9 @@
 2009-06-16  Ian Lance Taylor  <iant@google.com>
 
+	* toplev.h: Remove extranous #endif.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
 	* system.h (HAVE_DESIGNATED_INITIALIZERS): Remove duplicate
 	setting for C++.
 	* cp/parser.c (cp_parser_type_specifier): Change flags parameter

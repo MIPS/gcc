@@ -187,7 +187,6 @@ extern int exact_log2                  (unsigned HOST_WIDE_INT);
 
 /* Return floor of log2, with -1 for zero.  */
 extern int floor_log2                  (unsigned HOST_WIDE_INT);
-#endif
 
 #else /* GCC_VERSION >= 3004 */
 
