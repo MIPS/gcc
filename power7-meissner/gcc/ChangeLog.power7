@@ -1,3 +1,7 @@
+2009-06-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to mainline version 148561.
+
 2009-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (bdesc_2arg): Split tdiv/tsqrt patterns

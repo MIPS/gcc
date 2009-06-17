@@ -1,3 +1,81 @@
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/warn/skip-1.C: New testcase.
+
+2009-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40446
+	* g++.dg/other/pr40446.C: New test.
+
+2009-06-16  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/pta-escape-1.c: New testcase.
+	* gcc.dg/tree-ssa/pta-escape-2.c: Likewise.
+	* gcc.dg/tree-ssa/pta-escape-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-27.c: Likewise.
+
+2009-06-16  Martin Jambor  <mjambor@suse.cz>
+
+	* testsuite/gcc.c-torture/compile/pr40432.c: New file.
+
+2009-06-16  Martin Jambor  <mjambor@suse.cz>
+
+	* testsuite/gfortran.fortran-torture/compile/pr40413.f90: New file.
+
+2009-06-16  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/36947
+	PR fortran/40039
+	* gfortran.dg/dummy_procedure_1.f90: Extended test case.
+	* gfortran.dg/interface_20.f90: Modified error messages.
+	* gfortran.dg/interface_21.f90: Ditto.
+	* gfortran.dg/interface_26.f90: Ditto.
+	* gfortran.dg/interface_27.f90: Ditto.
+	* gfortran.dg/interface_28.f90: Extended test case.
+	* gfortran.dg/interface_29.f90: New.
+	* gfortran.dg/proc_decl_7.f90: Modified error messages.
+	* gfortran.dg/proc_decl_8.f90: Ditto.
+	* gfortran.dg/proc_ptr_11.f90: Ditto.
+	* gfortran.dg/proc_ptr_15.f90: Ditto.
+
+2009-06-16  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-outer-4g.c: Don't look for pattern not allowed 
+	printing.
+	* gcc.dg/vect/vect-outer-4k.c, gcc.dg/vect/vect-outer-4l.c,
+	gcc.dg/vect/vect-outer-4f.c: Likewise.
+	* gcc.dg/vect/vect-nest-cycle-1.c: New test.
+	* gcc.dg/vect/vect-nest-cycle-2.c, gcc.dg/vect/vect-nest-cycle-3.c: 
+	Likewise.
+	* gcc.dg/vect/vect-outer-1a.c: Fail because of strided access in outer 
+	loop.
+
+2009-06-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/40383
+	* gfortran.dg/bounds_check_strlen_8.f90: New test.
+
+2009-06-15  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wjump-misses-init-1.c: New testcase.
+	* gcc.dg/Wjump-misses-init-2.c: New testcase.
+	* gcc.dg/c99-vla-jump-5.c: Adjust expected error messages.
+	Recognize new notes.
+	* gcc.dg/stmt-expr-label-2.c: Likewise.
+	* gcc.dg/c99-vla-jump-1.c: Recognize new notes.  Fix column
+	numbers.
+	* gcc.dg/c99-vla-jump-2.c: Recognize new notes.
+	* gcc.dg/c99-vla-jump-3.c: Recognize new notes.
+	* gcc.dg/c99-vla-jump-4.c: Likewise.
+	* gcc.dg/stmt-expr-label-1.c: Likewise.
+	* gcc.dg/stmt-expr-label-3.c: Likewise.
+	* gcc.dg/vla-8.c: Likewise.  Move error message to different
+	line.
+
+2009-06-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-6.c: Robustify and fix clog cases.
+
 2009-06-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/builtin-object-size-7.c: New test.
