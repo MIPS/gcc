@@ -1,3 +1,56 @@
+2009-06-17  Steve Ellcey  <sje@cup.hp.com>
+
+	* expr.c (expand_assignment): Change complex type check.
+
+2009-06-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* doc/plugins.texi (Building GCC plugins): Added new section. 
+
+2009-06-17  Ian Lance Taylor  <iant@google.com>
+
+	* c-pch.c (get_ident): Don't set size of templ array.
+	(pch_init): Don't set size of partial_pch array.
+
+	* c-typeck.c (digest_init): If -Wc++-compat, warn about using a
+	string constant to intialize an array whose size is the length of
+	the string.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40389
+	* tree-ssa-structalias.c (handle_rhs_call): Restrict NRV case
+	to addressable types.
+	* gimple.c (walk_stmt_load_store_addr_ops): Likewise.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40460
+	* tree-chrec.h (build_polynomial_chrec): If we cannot determine
+	if there is no evolution of left in the loop bail out.
+	* tree-chrec.c (chrec_fold_multiply_poly_poly): CSE one
+	chrec_fold_multiply.
+
+2009-06-16  J"orn Rennecke  <joern.rennecke@arc.com>
+	    Janis Johnson  <janis187@us.ibm.com>
+
+	PR target/39254
+	* config/rs6000/rs6000.c (rs6000_emit_move): Don't emit a USE
+	for the symbol ref of a constant that is the source of a move
+	- nor for any other not-obvious-label-ref constants.
+
+2009-06-16  Olatunji Ruwase  <tjruwase@google.com>
+
+	* plugin.c(position_pass): Skip newly inserted pass during list
+	traversal to avoid repeated insertion.
+
+2009-06-16  Ian Lance Taylor  <iant@google.com>
+
+	* vec.h (VEC_stack_alloc): Define different version if
+	GATHER_STATISTICS is defined, to accept and ignore MEM_STAT.
+	(DEF_VEC_ALLOC_FUNC_P_STACK): Remove MEM_STAT_DECL.
+	(DEF_VEC_ALLOC_FUNC_O_STACK): Likewise.
+	(DEF_VEC_ALLOC_FUNC_I_STACK): Likewise.
+
 2009-06-16  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config.gcc (extra_headers): Add ia32intrin.h for x86.

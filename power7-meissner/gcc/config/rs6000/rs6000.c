@@ -6208,17 +6208,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	       && ! legitimate_constant_pool_address_p (operands[1])
 	       && ! toc_relative_expr_p (operands[1]))
 	{
-#if 0
-	  /* Fix 39254 http://gcc.gnu.org/ml/gcc-patches/2009-05/msg01765.html */
-	  /* Emit a USE operation so that the constant isn't deleted if
-	     expensive optimizations are turned on because nobody
-	     references it.  This should only be done for operands that
-	     contain SYMBOL_REFs with CONSTANT_POOL_ADDRESS_P set.
-	     This should not be done for operands that contain LABEL_REFs.
-	     For now, we just handle the obvious case.  */
-	  if (GET_CODE (operands[1]) != LABEL_REF)
-	    emit_use (operands[1]);
-#endif
 
 #if TARGET_MACHO
 	  /* Darwin uses a special PIC legitimizer.  */
@@ -6708,7 +6697,8 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     cum->nargs_prototype--;
 
   if (TARGET_ALTIVEC_ABI
-      && ((ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode))
+      && (ALTIVEC_VECTOR_MODE (mode)
+	  || VSX_VECTOR_MODE (mode)
 	  || (type && TREE_CODE (type) == VECTOR_TYPE
 	      && int_size_in_bytes (type) == 16)))
     {
@@ -6862,8 +6852,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words = align_words + n_words;
 
       if (SCALAR_FLOAT_MODE_P (mode)
-	  && TARGET_HARD_FLOAT && TARGET_FPRS
-	  && ((TARGET_SINGLE_FLOAT && mode == SFmode) || TARGET_DOUBLE_FLOAT))
+	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	{
 	  /* _Decimal128 must be passed in an even/odd float register pair.
 	     This assumes that the register number is odd when fregno is
@@ -7303,7 +7292,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     else
       return gen_rtx_REG (mode, cum->vregno);
   else if (TARGET_ALTIVEC_ABI
-	   && ((ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode))
+	   && (ALTIVEC_VECTOR_MODE (mode)
+	       || VSX_VECTOR_MODE (mode)
 	       || (type && TREE_CODE (type) == VECTOR_TYPE
 		   && int_size_in_bytes (type) == 16)))
     {
