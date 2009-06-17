@@ -1,3 +1,9 @@
+2009-06-17  Ian Lance Taylor  <iant@google.com>
+
+	Revert this patch:
+	2009-02-03  Ian Lance Taylor  <iant@google.com>
+	* gcov.c (read_count_file): Avoid goto.
+
 2009-06-16  Ian Lance Taylor  <iant@google.com>
 
 	* toplev.h: Remove extranous #endif.

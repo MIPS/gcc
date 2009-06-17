@@ -1093,6 +1093,7 @@ read_count_file (void)
 	    ;
 	  else if (gcov_read_unsigned () != fn->checksum)
 	    {
+	    mismatch:;
 	      fnotice (stderr, "%s:profile mismatch for '%s'\n",
 		       da_file_name, fn->name);
 	      goto cleanup;
@@ -1101,11 +1102,7 @@ read_count_file (void)
       else if (tag == GCOV_TAG_FOR_COUNTER (GCOV_COUNTER_ARCS) && fn)
 	{
 	  if (length != GCOV_TAG_COUNTER_LENGTH (fn->num_counts))
-	    {
-	      fnotice (stderr, "%s:profile mismatch for '%s'\n",
-		       da_file_name, fn->name);
-	      goto cleanup;
-	    }
+	    goto mismatch;
 
 	  if (!fn->counts)
 	    fn->counts = XCNEWVEC (gcov_type, fn->num_counts);
