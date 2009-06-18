@@ -234,11 +234,11 @@ Target RejectNegative Joined
 -misel=yes/no	Deprecated option.  Use -misel/-mno-isel instead
 
 mspe
-Target
+Target Mask(SPE)
 Generate SPE SIMD instructions on E500
 
 mpaired
-Target Var(rs6000_paired_float)
+Target Mask(PAIRED_FLOAT)
 Generate PPC750CL paired-single instructions
 
 mspe=

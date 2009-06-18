@@ -1,5 +1,30 @@
 2009-06-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.opt (-mspe): Move from variable to target
+	mask.
+	(-mpaired): Ditto.
+
+	* config/rs6000/rs6000.c (enable_mask_for_builtins): Delete, no
+	longer used since -mspe and -mpaired were moved into target
+	masks.
+	(bdesc_3arg): Change all SPE and PAIRED builtins from having 0 as
+	the target flags, to using target mask now.  Make array const.
+	(bdesc_2arg): Ditto.
+	(bdesc_spe_predicates): Ditto.
+	(bdesc_spe_evsel): Ditto.
+	(bdesc_paired_preds): Ditto.
+	(bdesc_1arg): Ditto.
+	(bdesc_2arg_spe): Ditto.
+	(spe_expand_builtin): Make builtin pointer const.
+	(rs6000_expand_builtin): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(spe_init_builtins): Make builtin pointer const.  Delete code that
+	calls enable_mask_for_builtins to make up for SPE not being a
+	target mask.
+
+	* config/rs6000/rs6000.h (TARGET_SPE): Delete definition here.
+	* config/rs6000/e500.h (TARGET_SPE): Ditto.
+
 	* config/rs6000/rs6000.c (rs6000_emit_move): Remove #if 0'ed code
 	that was deleted upstream.
 	(function_arg_advance): Change some spacing.  Fix a merge error.

@@ -18,7 +18,6 @@
    <http://www.gnu.org/licenses/>.  */
 
 #undef TARGET_SPE_ABI
-#undef TARGET_SPE
 #undef TARGET_E500
 #undef TARGET_FPRS
 #undef TARGET_E500_SINGLE
@@ -26,7 +25,6 @@
 #undef CHECK_E500_OPTIONS
 
 #define TARGET_SPE_ABI rs6000_spe_abi
-#define TARGET_SPE rs6000_spe
 #define TARGET_E500 (rs6000_cpu == PROCESSOR_PPC8540)
 #define TARGET_FPRS (rs6000_float_gprs == 0)
 #define TARGET_E500_SINGLE (TARGET_HARD_FLOAT && rs6000_float_gprs == 1)
