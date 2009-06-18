@@ -22,9 +22,6 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-#undef TARGET_PAIRED_FLOAT
-#define TARGET_PAIRED_FLOAT rs6000_paired_float
-
 #undef ASM_CPU_SPEC 
 #define ASM_CPU_SPEC "-m750cl"
 

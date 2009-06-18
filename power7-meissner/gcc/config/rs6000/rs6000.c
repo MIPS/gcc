@@ -1543,24 +1543,6 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
     return 1;
 
-  /* Don't allow anything but word sized integers (aka pointers) in CTR/LR.
-     You really don't want to spill your floating point values to those
-     registers.  Also do it for the old MQ register in the power.
-
-     While this is desirable in theory, disabling float to go in LR/CTR does
-     cause some regressions, so until they are taken care of, revert to the old
-     behavior by default for most power systems, but enable it for power7.  */
-  if ((TARGET_DISALLOW_FLOAT_IN_LR_CTR > 0
-       || (TARGET_DISALLOW_FLOAT_IN_LR_CTR < 0 && TARGET_VSX))
-      && (regno == CTR_REGNO || regno == LR_REGNO || regno == MQ_REGNO))
-    return (GET_MODE_CLASS (mode) == MODE_INT
-	    && GET_MODE_SIZE (mode) <= UNITS_PER_WORD);
-
-  /* The VRSAVE/VSCR registers are 32-bits (they are fixed, but add this for
-     completeness).  */
-  if (regno == VRSAVE_REGNO || regno == VSCR_REGNO)
-    return (mode == SImode);
-
   /* We cannot put TImode anywhere except general register and it must be able
      to fit within the register set.  In the future, allow TImode in the
      Altivec or VSX registers.  */
@@ -1778,25 +1760,6 @@ rs6000_init_hard_regno_mode_ok (void)
 	= (TARGET_VSX_SCALAR_MEMORY ? VECTOR_VSX : VECTOR_NONE);
     }
 
-  /* TImode.  Until this is debugged, only add it under switch control.  */
-  if (TARGET_ALLOW_TIMODE)
-    {
-      if (float_p && TARGET_VSX)
-	{
-	  rs6000_vector_mem[TImode] = VECTOR_VSX;
-	  rs6000_vector_unit[TImode] = VECTOR_NONE;
-	  rs6000_vector_reg_class[TImode] = vsx_rc;
-	  rs6000_vector_align[TImode] = 64;
-	}
-      else if (TARGET_ALTIVEC)
-	{
-	  rs6000_vector_mem[TImode] = VECTOR_ALTIVEC;
-	  rs6000_vector_unit[TImode] = VECTOR_NONE;
-	  rs6000_vector_reg_class[TImode] = ALTIVEC_REGS;
-	  rs6000_vector_align[TImode] = 128;
-	}
-    }
-
   /* TODO add SPE and paired floating point vector support.  */
 
   /* Set the VSX register classes.  */
@@ -1836,11 +1799,6 @@ rs6000_init_hard_regno_mode_ok (void)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_di_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_di_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_di_load;
-	  if (TARGET_ALLOW_TIMODE)
-	    {
-	      rs6000_vector_reload[TImode][0] = CODE_FOR_reload_ti_di_store;
-	      rs6000_vector_reload[TImode][1] = CODE_FOR_reload_ti_di_load;
-	    }
 	}
       else
 	{
@@ -1856,11 +1814,6 @@ rs6000_init_hard_regno_mode_ok (void)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_si_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_si_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_si_load;
-	  if (TARGET_ALLOW_TIMODE)
-	    {
-	      rs6000_vector_reload[TImode][0] = CODE_FOR_reload_ti_si_store;
-	      rs6000_vector_reload[TImode][1] = CODE_FOR_reload_ti_si_load;
-	    }
 	}
     }
 
@@ -5402,7 +5355,7 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
     return 1;
   if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict))
     return 1;
-  if ((mode != TImode || !VECTOR_MEM_NONE_P (TImode))
+  if (mode != TImode
       && mode != TFmode
       && mode != TDmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
@@ -6261,15 +6214,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TImode:
-      if (VECTOR_MEM_ALTIVEC_OR_VSX_P (TImode))
-	{
-	  if (CONSTANT_P (operands[1])
-	      && !easy_vector_constant (operands[1], mode))
-	    operands[1] = force_const_mem (mode, operands[1]);
-
-	  break;
-	}
-
       rs6000_eliminate_indexed_memrefs (operands);
 
       if (TARGET_POWER)
@@ -20765,7 +20709,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                  || rs6000_cpu_attr == CPU_PPC7450
                  || rs6000_cpu_attr == CPU_POWER4
                  || rs6000_cpu_attr == CPU_POWER5
-		 || (rs6000_cpu_attr == CPU_POWER7 && TARGET_POWER7_ADJUST_COST)
+		 || rs6000_cpu_attr == CPU_POWER7
                  || rs6000_cpu_attr == CPU_CELL)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0))
