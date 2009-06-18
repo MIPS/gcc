@@ -1,3 +1,71 @@
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40460
+	* tree-chrec.h (build_polynomial_chrec): If we cannot determine
+	if there is no evolution of left in the loop bail out.
+	* tree-chrec.c (chrec_fold_multiply_poly_poly): CSE one
+	chrec_fold_multiply.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40389
+	* tree-ssa-operands.c (parse_ssa_operands): Add NRV results
+	to the addresses taken bitmap.
+
+2009-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40446
+	* expr.c (expand_expr_real_1) <case VIEW_CONVERT_EXPR>: Don't
+	use gen_lowpart if op0 has complex mode.
+
+2009-06-14  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("bswap<mode>2"): Only available on z900.
+
+2009-06-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/extend.texi: Add description for __builtin_ia32_crc32di.
+
+2009-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40340
+	* tree-ssa-live.c (remove_unused_scope_block_p): Don't prune
+	inlined_function_outer_scope_p blocks for artificial inlines
+	even at -g0/-g1.
+	* tree.c (tree_nonartificial_location): Rewrite using
+	block_nonartificial_location.
+
+2009-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (output_cfi_directive): Pass 1 instead of
+	0 to second argument of DWARF2_FRAME_REG_OUT macros.
+
+2009-06-02  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2009-05-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.md (ashldi3_std): New define_expand.
+	(ashldi3): Use it.
+
+2009-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf2out_cfi_label): Add FORCE argument, if true,
+	force output of the label even for dwarf2out_do_cfi_asm.
+	(add_fde_cfi): If -g2 and above and cfi might change CFA,
+	force creation of CFI label and chain DW_CFA_set_loc jumping to it
+	for convert_cfa_to_fb_loc_list.  Adjust other dwarf2out_cfi_label
+	caller.
+	(dwarf2out_stack_adjust, dwarf2out_frame_debug): Adjust
+	dwarf2out_cfi_label callers.
+	* tree.h (dwarf2out_cfi_label): Adjust prototype.
+	* config/arm/arm.c (thumb_pushpop, thumb1_output_function_prologue):
+	Adjust dwarf2out_cfi_label callers.
+	* config/vax/vax.c (vax_output_function_prologue): Likewise.
+
 2009-05-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/40291
