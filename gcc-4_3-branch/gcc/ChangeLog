@@ -1,3 +1,113 @@
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/39455
+	* tree-ssa-loop-niter.c (number_of_iterations_lt_to_ne): Fix types
+	mismatches for POINTER_TYPE_P (type).
+	(number_of_iterations_le): Likewise.
+
+	2009-05-19  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/40087
+	* tree-ssa-loop-niter.c (number_of_iterations_ne_max,
+	number_of_iterations_ne): Rename never_infinite argument.
+	(number_of_iterations_lt_to_ne, number_of_iterations_lt,
+	number_of_iterations_le): Handle pointer-type ivs when
+	exit_must_be_taken is false.
+	(number_of_iterations_cond):  Do not always assume that
+	exit_must_be_taken if the control variable is a pointer.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40404
+	* fold-const.c (fold_binary): Verify the type precision of the
+	stripped arguments of the comparison are the same before
+	folding the comparison.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40389
+	* tree-ssa-operands.c (get_modify_stmt_operands): Add NRV
+	results to the addresses taken bitmap.
+	* tree-scalar-evolution.c (scev_const_prop): Do not insert
+	incomplete stmts into the instruction stream.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40460
+	* tree-chrec.h (build_polynomial_chrec): If we cannot determine
+	if there is no evolution of left in the loop bail out.
+	* tree-chrec.c (chrec_fold_multiply_poly_poly): CSE one
+	chrec_fold_multiply.
+
+2009-06-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-11-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/38222
+	* config/i386/i386.md (SWI248): New mode iterator.
+	(popcount<mode>2): Rename from popcounthi2, popcountsi2 and
+	popcounthi2 insn patterns. Macroize pattern using SWI248 mode
+	iterator.  Generate popcnt mnemonic without mode extensions
+	for Darwin x86 targets.
+	(*popcount<mode>2_cmp): Ditto.
+	(*popcountsi2_cmp_zext): Generate popcnt mnemonic without mode
+	extensions for Darwin x86 targets.
+
+
+2009-05-26  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2008-12-12  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/32044
+	* tree-scalar-evolution.h (expression_expensive_p): Declare.
+	* tree-scalar-evolution.c (expression_expensive_p): New function.
+	(scev_const_prop): Avoid introducing expensive expressions.
+	* tree-ssa-loop-ivopts.c (may_eliminate_iv): Ditto.
+
+2009-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/passes.texi: Standardize spelling of RTL, Tree and Tree SSA.
+	Remove outdated reference to flow.c and fix nits.
+	* doc/gccint.texi: Tweak RTL description.
+	* doc/rtl.texi: Likewise.
+
+2009-05-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR rtl-optimization/40105
+	Backport from mainline:
+
+	2009-04-29  Eric Botcazou  <ebotcazou@adacore.com>
+		    Steven Bosscher  <steven@gcc.gnu.org>
+
+	* Makefile.in (cfgrtl.o): Add $(INSN_ATTR_H).
+	* cfgrtl.c: Include insn-attr.h.
+	(rest_of_pass_free_cfg): New function.
+	(pass_free_cfg): Use rest_of_pass_free_cfg as execute function.
+
+	2009-04-27  Richard Sandiford  <rdsandiford@googlemail.com>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	* resource.c (find_basic_block): Use BLOCK_FOR_INSN to look up
+	a label's basic block.
+	(mark_target_live_regs): Tidy and rework obsolete comments.
+	Change back DF problem to LIVE.  If a label starts a basic block,
+	assume that all registers that used to be live then still are.
+	(init_resource_info): If a label starts a basic block, set its
+	BLOCK_FOR_INSN accordingly.
+	(free_resource_info): Undo the setting of BLOCK_FOR_INSN.
+
+2009-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39942
+	* config/i386/x86-64.h (ASM_OUTPUT_MAX_SKIP_ALIGN): Don't emit second
+	.p2align 3 if MAX_SKIP is smaller than 7.
+	* config/i386/linux.h (ASM_OUTPUT_MAX_SKIP_ALIGN): Likewise.
+
 2009-05-18  Dodji Seketeli  <dodji@redhat.com>
 
 	PR debug/40109
