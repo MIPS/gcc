@@ -29,8 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "vecprim.h"
 
-/* The encoding for a function consists of 8 (9 in debugging mode),
-   sections of information.
+/* The encoding for a function consists of the following sections:
 
    1)    The header.
    2)    FIELD_DECLS.
@@ -44,17 +43,13 @@ along with GCC; see the file COPYING3.  If not see
    10-11)Gimple for local decls.
    12)   Gimple for the function.
    13)   Strings.
-   14)   Redundant information to aid in debugging the stream.
-         This is only present if the compiler is built with
-         LTO_STREAM_DEBUGGING defined.
 
    1) THE HEADER.
    2-6) THE GLOBAL DECLS AND TYPES.
 
       The global decls and types are encoded in the same way.  For each
-      entry, there is a pair of words.  The first is the debugging
-      section number and the second is the offset within the section to
-      the entry.
+      entry, there is word with the offset within the section to the
+      entry.
 
    7) THE LABEL NAMES.  
 
@@ -184,25 +179,7 @@ along with GCC; see the file COPYING3.  If not see
    12) STRINGS
 
      String are represented in the table as pairs, a length in ULEB128
-     form followed by the data for the string.
-
-   13) STREAM DEBUGGING
-     
-     If the preprocessor symbol LTO_STREAM_DEBUGGING is defined, the
-     gimple is encoded into .o file as two streams.  The first stream
-     is the normal data stream that is also created when the symbol is
-     undefined.  The second stream is a human readable character
-     string that describes a trace of the operations used to encode
-     the data stream.  This stream is created by calls in the 
-     code to LTO_DEBUG_* functions.
-
-     The lto reader uses the same set of functions when it reads the
-     data stream.  However, it's version of the lowest level compares
-     the debugging stream character by character with the one produced
-     by the writer.  When the reader sees a character that is not the
-     same one as produced by the writer, it dumps the stream to stderr
-     along with a pointer to the offending character.  At this point
-     it is easy to see if the bug is in the encoding or the decoding.  */
+     form followed by the data for the string.  */
 
 /* When we get a strongly typed gimple, this flag should be set to 0
    so we do not waste so much space printing out largely redundant
@@ -222,13 +199,6 @@ along with GCC; see the file COPYING3.  If not see
 #define LTO_DECL_FLAG_SUPPRESS_OUTPUT	(1 << 1)
 
 typedef unsigned char	lto_decl_flags_t;
-
-/* Define this symbol if you want to debug an lto stream.  This causes
-   a set of redundant streams to be written into the .o files that can
-   pinpoint problems where the reader is not in sync with the writers.
-   The cost is a large amount of time and space, but this is the
-   necessary to debug a stream protocol with little redundancy.  */
-/* #define LTO_STREAM_DEBUGGING  */
 
 /* Set of section types that are in an LTO file.  This list will grow
    as the number of IPA passes grows since each IPA pass will need its
@@ -267,22 +237,6 @@ typedef enum ld_plugin_symbol_resolution ld_plugin_symbol_resolution_t;
 DEF_VEC_I(ld_plugin_symbol_resolution_t);
 DEF_VEC_ALLOC_I(ld_plugin_symbol_resolution_t, heap);
 
-
-#ifdef LTO_STREAM_DEBUGGING
-#define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)	\
-do { \
-  ob-> STREAM = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream)); \
-  lto_debug_context. CONTEXT = ob-> STREAM; \
-  lto_debug_context.current_data = ob-> STREAM; \
-  lto_debug_context.stream_name = #CONTEXT; \
-  gcc_assert (lto_debug_context.indent == 0);  \
-} while (0)
-#define LTO_CLEAR_DEBUGGING_STREAM(STREAM) \
-  free (ob-> STREAM)
-#else
-#define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)
-#define LTO_CLEAR_DEBUGGING_STREAM(STREAM)  (void)0
-#endif
 
 /* Macro to define convenience functions for type and decl streams
    in lto_file_decl_data.  */ 
@@ -394,24 +348,6 @@ struct lto_function_header
 
   /* Size of the string table.  */
   int32_t string_size;
-
-  /* Size of local decl index debugging information.  */
-  int32_t debug_decl_index_size;
-
-  /* Size of local decl debugging information.  */
-  int32_t debug_decl_size;
-
-  /* Size of label stream debugging information.  */
-  int32_t debug_label_size;
-
-  /* Size of ssa_names stream debugging information.  */
-  int32_t debug_ssa_names_size;
-
-  /* Size of cfg stream debugging information.  */
-  int32_t debug_cfg_size;
-
-  /* Size of main stream debugging information.  */
-  int32_t debug_main_size;
 };
 
 
@@ -432,9 +368,6 @@ struct lto_decl_header
 
   /* Size of the string table.  */
   int32_t string_size;
-
-  /* Size of region for main stream debugging information.  */
-  int32_t debug_main_size;
 };
 
 
@@ -607,9 +540,6 @@ struct lto_simple_header
   /* Size of main gimple body of function.  */
   int32_t main_size;
 
-  /* Size of main stream debugging information.  */
-  int32_t debug_main_size;
-
   /* Size of main stream when compressed.  */
   int32_t compressed_size;
 };
@@ -623,11 +553,6 @@ struct lto_simple_output_block
 
   /* The stream that the main tree codes are written to.  */
   struct lto_output_stream *main_stream;
-
-#ifdef LTO_STREAM_DEBUGGING
-  /* The stream that contains the gimple debugging information.  */
-  struct lto_output_stream *debug_main_stream;
-#endif
 };
 
 /* Data structure holding all the data and descriptors used when writing
@@ -658,26 +583,6 @@ struct output_block
   /* The stream that contains the cfg.  */
   struct lto_output_stream *cfg_stream;
 
-#ifdef LTO_STREAM_DEBUGGING
-  /* The stream that contains the local decls index debugging information.  */
-  struct lto_output_stream *debug_decl_index_stream;
-
-  /* The stream that contains the local decls debugging information.  */
-  struct lto_output_stream *debug_decl_stream;
-
-  /* The stream that contains the labels debugging information.  */
-  struct lto_output_stream *debug_label_stream;
-
-  /* The stream that contains the ssa_names debugging information.  */
-  struct lto_output_stream *debug_ssa_names_stream;
-
-  /* The stream that contains the cfg debugging information.  */
-  struct lto_output_stream *debug_cfg_stream;
-
-  /* The stream that contains the gimple debugging information.  */
-  struct lto_output_stream *debug_main_stream;
-#endif
-
   /* The hash table that contains the set of labels we have seen so
      far and the indexes assigned to them.  */
   htab_t label_hash_table;
@@ -690,18 +595,13 @@ struct output_block
   struct lto_tree_ref_encoder local_decl_encoder;
 
   /* The local_decls_index and the local_decls_index_d are the indexes
-     in the local var stream and the local var debugging stream where
-     a particular local var is located.  This allows the local vars to
-     be read in random order.  */ 
+     in the local var stream where a particular local var is located.
+     This allows the local vars to be read in random order.  */ 
   VEC(int,heap) *local_decls_index;
 
   /* Index in local_decls so that list can be reconstructed
      properly.  */
   VEC(int,heap) *unexpanded_local_decls_index;
-
-#ifdef LTO_STREAM_DEBUGGING
-  VEC(int,heap) *local_decls_index_d;
-#endif
 
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */
@@ -736,11 +636,6 @@ struct data_in
 
   /* A table to reconstruct the local_decls.  */
   int *local_decl_indexes;  
-
-#ifdef LTO_STREAM_DEBUGGING
-  /* The offsets to decode the local_decls debug info.  */
-  int *local_decls_index_d; 
-#endif
 
   /* The local var_decls and the parm_decls.  */
   tree *local_decls;
@@ -813,10 +708,6 @@ extern hashval_t lto_hash_in_decl_state (const void *);
 extern int lto_eq_in_decl_state (const void *, const void *);
 extern struct lto_in_decl_state *lto_get_function_in_decl_state (
 				      struct lto_file_decl_data *, tree);
-#ifdef LTO_STREAM_DEBUGGING
-extern void lto_debug_in_fun (struct lto_debug_context *, char);
-#endif
-
 
 /* In lto-section-out.c  */
 void lto_set_flag (unsigned HOST_WIDEST_INT *, unsigned int);
@@ -897,9 +788,6 @@ extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 
 /* In lto-streamer-out.c  */
 extern void lto_register_decl_definition (tree, struct lto_file_decl_data *);
-#ifdef LTO_STREAM_DEBUGGING
-void lto_debug_out_fun (struct lto_debug_context *, char);
-#endif
 struct output_block *create_output_block (enum lto_section_type);
 void destroy_output_block (struct output_block *);
 extern void output_constructors_and_inits (struct cgraph_node_set_def *);
@@ -949,78 +837,6 @@ extern const char *lto_section_name[];
 /* Holds all the out decl states of functions output so far in the
    current output file.  */
 extern VEC(lto_out_decl_state_ptr, heap) *lto_function_decl_states;
-
-
-#ifdef LTO_STREAM_DEBUGGING
-struct lto_debug_context;
-
-#define LTO_DEBUG_INDENT(tag) \
-  lto_debug_indent (&lto_debug_context, tag)
-
-#define LTO_DEBUG_INDENT_TOKEN(value) \
-  lto_debug_indent_token (&lto_debug_context, value)
-
-#define LTO_DEBUG_INTEGER(tag,high,low) \
-  lto_debug_integer (&lto_debug_context, tag, high, low)
-
-#define LTO_DEBUG_STRING(value,len) \
-  lto_debug_string (&lto_debug_context, value, len)
-
-#define LTO_DEBUG_TOKEN(value) \
-  lto_debug_token (&lto_debug_context, value)
-
-#define LTO_DEBUG_FN_NAME(value) \
-  lto_debug_fn_name (&lto_debug_context, value)
-
-#define LTO_DEBUG_TREE_FLAGS(code,value) \
-  lto_debug_tree_flags (&lto_debug_context, code, flags)
-
-#define LTO_DEBUG_UNDENT() \
-  lto_debug_undent (&lto_debug_context)
-
-#define LTO_DEBUG_WIDE(tag,value) \
-  lto_debug_wide (&lto_debug_context, tag, value)
-
-typedef void (*lto_debug_out) (struct lto_debug_context *context, char c);
-
-struct lto_debug_context
-{
-  lto_debug_out out;
-  int indent;
-  void *current_data;
-  void *decl_index_data;
-  void *decl_data;
-  void *label_data;
-  void *ssa_names_data;
-  void *cfg_data;
-  void *main_data;
-  const char *stream_name;
-  const char **tag_names;
-};
-
-extern struct lto_debug_context lto_debug_context;
-
-extern void lto_debug_indent (struct lto_debug_context *, int);
-extern void lto_debug_indent_token (struct lto_debug_context *, const char *);
-extern void lto_debug_integer (struct lto_debug_context *, const char *,
-			       HOST_WIDE_INT, HOST_WIDE_INT);
-extern void lto_debug_string (struct lto_debug_context *, const char *, int);
-extern void lto_debug_token (struct lto_debug_context *, const char *);
-extern void lto_debug_fn_name (struct lto_debug_context *, const tree);
-extern void lto_debug_undent (struct lto_debug_context *);
-extern void lto_debug_wide (struct lto_debug_context *, const char *,
-			    HOST_WIDE_INT);
-#else
-#define LTO_DEBUG_INDENT(tag) (void)0
-#define LTO_DEBUG_INDENT_TOKEN(value) (void)0
-#define LTO_DEBUG_INTEGER(tag,high,low) (void)0
-#define LTO_DEBUG_STRING(value,len) (void)0
-#define LTO_DEBUG_TOKEN(value) (void)0
-#define LTO_DEBUG_FN_NAME(value) (void)0
-#define LTO_DEBUG_TREE_FLAGS(code, value) (void)0
-#define LTO_DEBUG_UNDENT() (void)0
-#define LTO_DEBUG_WIDE(tag,value) (void)0
-#endif
 
 /* Return true if FILE needs to be compiled with LTRANS.  */
 static inline bool

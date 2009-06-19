@@ -156,16 +156,8 @@ preload_common_nodes (struct data_in *data_in)
   index_table = htab_create (37, lto_hash_global_slot_node,
 			     lto_eq_global_slot_node, free);
 
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloading all common_nodes.\n");
-#endif
-
   for (i = 0; VEC_iterate (tree, common_nodes, i, node); i++)
     preload_common_node (node, index_table, &data_in->globals_index, NULL);
-
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloaded %u common nodes.\n", i - 1);
-#endif
 
   VEC_free(tree, heap, common_nodes);
   htab_delete (index_table);
@@ -223,26 +215,15 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   const int32_t decl_offset = sizeof (struct lto_decl_header);
   const int32_t main_offset = decl_offset + header->decl_state_size;
   const int32_t string_offset = main_offset + header->main_size;
-#ifdef LTO_STREAM_DEBUGGING
-  int32_t debug_main_offset;
-  struct lto_input_block debug_main;
-#endif
   struct lto_input_block ib_main;
   struct data_in data_in;
   unsigned int i;
   const uint32_t *data_ptr, *data_end;
   uint32_t num_decl_states;
 
-#ifdef LTO_STREAM_DEBUGGING
-  debug_main_offset = string_offset + header->string_size;
-#endif
   
   LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
 			header->main_size);
-#ifdef LTO_STREAM_DEBUGGING
-  LTO_INIT_INPUT_BLOCK (debug_main, (const char *) data + debug_main_offset, 0,
-			header->debug_main_size);
-#endif
 
   memset (&data_in, 0, sizeof (struct data_in));
   data_in.file_data          = decl_data;
@@ -254,13 +235,6 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   /* FIXME: This doesn't belong here.
      Need initialization not done in lto_static_init ().  */
   lto_init_reader ();
-
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.out = lto_debug_in_fun;
-  lto_debug_context.indent = 0;
-  lto_debug_context.tag_names = LTO_tree_tag_names;
-  lto_debug_context.current_data = &debug_main;
-#endif
 
   /* Preload references to well-known trees.  */
   preload_common_nodes (&data_in);

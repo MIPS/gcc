@@ -128,11 +128,6 @@ lto_cgraph_encoder_size (lto_cgraph_encoder_t encoder)
 }
 
 
-#ifdef LTO_STREAM_DEBUGGING
-const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] = 
-{"", "avail", "overwrite", "unavail", "edge"};
-#endif
-
 /* Output the cgraph EDGE to OB using ENCODER.  */
 
 static void
@@ -144,36 +139,24 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   unsigned HOST_WIDEST_INT flags = 0;
 
   lto_output_uleb128_stream (ob->main_stream, LTO_cgraph_edge);
-  LTO_DEBUG_INDENT (LTO_cgraph_edge);
 
-  LTO_DEBUG_TOKEN ("caller");
   ref = lto_cgraph_encoder_lookup (encoder, edge->caller);
   gcc_assert (ref != LCC_NOT_FOUND); 
   lto_output_sleb128_stream (ob->main_stream, ref);
 
-  LTO_DEBUG_TOKEN ("callee");
   ref = lto_cgraph_encoder_lookup (encoder, edge->callee);
   gcc_assert (ref != LCC_NOT_FOUND); 
   lto_output_sleb128_stream (ob->main_stream, ref);
 
-  LTO_DEBUG_TOKEN ("stmt");
   uid = flag_wpa ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt);
   lto_output_uleb128_stream (ob->main_stream, uid);
-
-  LTO_DEBUG_TOKEN ("inline_failed");
   lto_output_uleb128_stream (ob->main_stream, edge->inline_failed);
-
-  LTO_DEBUG_TOKEN ("count");
   lto_output_uleb128_stream (ob->main_stream, edge->count);
-  LTO_DEBUG_TOKEN ("frequency");
   lto_output_uleb128_stream (ob->main_stream, edge->frequency);
-  LTO_DEBUG_TOKEN ("loop_next");
   lto_output_uleb128_stream (ob->main_stream, edge->loop_nest);
-  LTO_DEBUG_TOKEN ("flags");
   lto_set_flag (&flags, edge->indirect_call);
   lto_set_flag (&flags, edge->call_stmt_cannot_inline_p);
   lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
-  LTO_DEBUG_UNDENT();
 }
 
 
@@ -222,7 +205,6 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
     tag = LTO_cgraph_unavail_node;
 
   lto_output_uleb128_stream (ob->main_stream, tag);
-  LTO_DEBUG_INDENT (tag);
 
   local = node->local.local;
   externally_visible = node->local.externally_visible;
@@ -251,7 +233,6 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       inlinable = 1;
     }
 
-  LTO_DEBUG_TOKEN ("clone_p");
   lto_output_uleb128_stream (ob->main_stream, wrote_decl_p);
 
   if (!wrote_decl_p)
@@ -271,24 +252,18 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   lto_set_flag (&flags, node->local.for_functions_valid);
   lto_set_flag (&flags, node->local.vtable_method);
 
-  LTO_DEBUG_TOKEN ("flags");
   lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
 
   if (tag != LTO_cgraph_unavail_node)
     {
-      LTO_DEBUG_TOKEN ("stack_size");
       lto_output_sleb128_stream (ob->main_stream, 
 				 node->local.inline_summary.estimated_self_stack_size);
-      LTO_DEBUG_TOKEN ("self_size");
       lto_output_sleb128_stream (ob->main_stream, 
 				 node->local.inline_summary.self_size);
-      LTO_DEBUG_TOKEN ("size_inlining_benefit");
       lto_output_sleb128_stream (ob->main_stream, 
 				 node->local.inline_summary.size_inlining_benefit);
-      LTO_DEBUG_TOKEN ("self_time");
       lto_output_sleb128_stream (ob->main_stream, 
 				 node->local.inline_summary.self_time);
-      LTO_DEBUG_TOKEN ("time_inlining_benefit");
       lto_output_sleb128_stream (ob->main_stream, 
 				 node->local.inline_summary.time_inlining_benefit);
     }
@@ -296,13 +271,10 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   /* FIXME lto: Outputting global info is not neccesary until after
      inliner was run.  Global structure holds results of propagation
      done by inliner.  */
-  LTO_DEBUG_TOKEN ("estimated_stack_size");
   lto_output_sleb128_stream (ob->main_stream,
 			     node->global.estimated_stack_size);
-  LTO_DEBUG_TOKEN ("stack_frame_offset");
   lto_output_sleb128_stream (ob->main_stream,
 			     node->global.stack_frame_offset);
-  LTO_DEBUG_TOKEN ("inlined_to");
   if (node->global.inlined_to && !boundary_p)
     {
       ref = lto_cgraph_encoder_lookup (encoder, node->global.inlined_to);
@@ -312,21 +284,11 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
     ref = LCC_NOT_FOUND;
   lto_output_sleb128_stream (ob->main_stream, ref);
 
-  LTO_DEBUG_TOKEN ("time");
   lto_output_sleb128_stream (ob->main_stream, node->global.time);
-  LTO_DEBUG_TOKEN ("size");
   lto_output_sleb128_stream (ob->main_stream, node->global.size);
-  LTO_DEBUG_TOKEN ("estimated_growth");
   lto_output_sleb128_stream (ob->main_stream,
 			     node->global.estimated_growth);
-  LTO_DEBUG_TOKEN ("inlined");
   lto_output_uleb128_stream (ob->main_stream, node->global.inlined);
-
-  LTO_DEBUG_UNDENT();
-
-#ifdef LTO_STREAM_DEBUGGING
-  gcc_assert (lto_debug_context.indent == 0);
-#endif
 }
 
 
@@ -354,11 +316,6 @@ output_cgraph (cgraph_node_set set)
      node found is written as the "original" node, the remaining nodes
      are considered its clones.  */
   written_decls = lto_bitmap_alloc ();
-
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.tag_names = LTO_cgraph_tag_names;
-  lto_debug_context.stream_name = "cgraph";
-#endif
 
   /* Go over all the nodes in SET and assign references.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
@@ -477,7 +434,6 @@ input_node (struct lto_file_decl_data *file_data,
   int size_inlining_benefit = 0;
   bool inlined = false;
 
-  LTO_DEBUG_TOKEN ("clone_p");
   clone_p = (lto_input_uleb128 (ib) != 0);
 
   decl_index = lto_input_uleb128 (ib);
@@ -488,46 +444,23 @@ input_node (struct lto_file_decl_data *file_data,
   else
     node = cgraph_node (fn_decl);
 
-  LTO_DEBUG_TOKEN ("flags");
   flags = lto_input_uleb128 (ib);
   
   if (tag != LTO_cgraph_unavail_node)
     {
-      LTO_DEBUG_TOKEN ("stack_size");
       stack_size = lto_input_sleb128 (ib);
-
-      LTO_DEBUG_TOKEN ("self_size");
       self_size = lto_input_sleb128 (ib);
-
-      LTO_DEBUG_TOKEN ("size_inlining_benefit");
       size_inlining_benefit = lto_input_sleb128 (ib);
-
-      LTO_DEBUG_TOKEN ("self_time");
       self_time = lto_input_sleb128 (ib);
-
-      LTO_DEBUG_TOKEN ("time_inlining_benefit");
       time_inlining_benefit = lto_input_sleb128 (ib);
     }
 
-  LTO_DEBUG_TOKEN ("estimated_stack_size");
   estimated_stack_size = lto_input_sleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("stack_frame_offset");
   stack_frame_offset = lto_input_sleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("inlined_to");
   ref = lto_input_sleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("time");
   time = lto_input_sleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("size");
   size = lto_input_sleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("estimated_growth");
   estimated_growth = lto_input_sleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("inlined");
   inlined = lto_input_uleb128 (ib);
 
   /* Make sure that we have not read this node before.  Nodes that
@@ -574,34 +507,20 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   tree prevailing_caller;
   enum ld_plugin_symbol_resolution caller_resolution;
 
-  LTO_DEBUG_TOKEN ("caller");
   caller = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
   gcc_assert (caller);
   gcc_assert (caller->decl);
 
-  LTO_DEBUG_TOKEN ("callee");
   callee = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
   gcc_assert (callee);
   gcc_assert (callee->decl);
 
   caller_resolution = lto_symtab_get_resolution (caller->decl);
-
-  LTO_DEBUG_TOKEN ("stmt");
   stmt_id = lto_input_uleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("inline_failed");
   inline_failed = (cgraph_inline_failed_t) lto_input_uleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("count");
   count = lto_input_uleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("frequency");
   freq = lto_input_uleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("loop_next");
   nest = lto_input_uleb128 (ib);
-
-  LTO_DEBUG_TOKEN ("flags");
   flags = lto_input_widest_uint_uleb128 (ib);
 
   /* If the caller was preempted, don't create the edge.  */
@@ -670,8 +589,6 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
   tag = (enum LTO_cgraph_tags) lto_input_uleb128 (ib);
   while (tag)
     {
-      LTO_DEBUG_INDENT (tag);
-
       if (tag == LTO_cgraph_edge)
         input_edge (ib, nodes);
       else 
@@ -683,7 +600,6 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 	  lto_cgraph_encoder_encode (file_data->cgraph_node_encoder, node);
 	}
 
-      LTO_DEBUG_UNDENT();
       tag = (enum LTO_cgraph_tags) lto_input_uleb128 (ib);
     }
 
@@ -727,11 +643,6 @@ input_cgraph (void)
   struct lto_file_decl_data *file_data;
   unsigned int j = 0;
   struct cgraph_node *node;
-
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.tag_names = LTO_cgraph_tag_names;
-  lto_debug_context.stream_name = "cgraph";
-#endif
 
   while ((file_data = file_data_vec[j++]))
     {

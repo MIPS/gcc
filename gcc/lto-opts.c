@@ -300,9 +300,6 @@ lto_write_options (void)
   
   header.compressed_size = 0;
   header.main_size = stream.total_size;
-#ifdef LTO_STREAM_DEBUGGING
-  header.debug_main_size = -1;
-#endif
 
   header_stream = ((struct lto_output_stream *)
 		   xcalloc (1, sizeof (*header_stream)));

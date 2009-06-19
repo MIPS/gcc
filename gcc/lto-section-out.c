@@ -380,7 +380,6 @@ void
 lto_output_uleb128_stream (struct lto_output_stream *obs,
 			   unsigned HOST_WIDE_INT work)
 {
-  LTO_DEBUG_WIDE ("U", work);
   do
     {
       unsigned int byte = (work & 0x7f);
@@ -403,7 +402,6 @@ void
 lto_output_widest_uint_uleb128_stream (struct lto_output_stream *obs,
 				       unsigned HOST_WIDEST_INT work)
 {
-  LTO_DEBUG_WIDE ("U", work);
   do
     {
       unsigned int byte = (work & 0x7f);
@@ -424,7 +422,7 @@ void
 lto_output_sleb128_stream (struct lto_output_stream *obs, HOST_WIDE_INT work)
 {
   int more, byte;
-  LTO_DEBUG_WIDE ("S", work);
+
   do
     {
       byte = (work & 0x7f);
@@ -461,8 +459,6 @@ lto_output_integer_stream (struct lto_output_stream *obs, tree t)
       lto_output_sleb128_stream (obs, low);
       return;
     }
-
-  LTO_DEBUG_INTEGER ("SS", high, low);
 
   /* This is just a copy of the lto_output_sleb128 code with extra
      operations to transfer the low 7 bits of the high value to the
@@ -601,10 +597,6 @@ lto_output_type_ref_index (struct lto_out_decl_state *decl_state,
 }
 
 
-/*****************************************************************************
-  Convenience routines used by the ipa passes to serialize their information.
-*****************************************************************************/
-
 /* Create the output block and return it.  */
 
 struct lto_simple_output_block *
@@ -618,13 +610,6 @@ lto_create_simple_output_block (enum lto_section_type section_type)
   ob->decl_state = lto_get_out_decl_state ();
   ob->main_stream = ((struct lto_output_stream *)
 		     xcalloc (1, sizeof (struct lto_output_stream)));
-
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.out = lto_debug_out_fun;
-  lto_debug_context.indent = 0;
-#endif
-
-  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
 
   return ob;
 }
@@ -653,29 +638,19 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
   header.compressed_size = 0;
   
   header.main_size = ob->main_stream->total_size;
-#ifdef LTO_STREAM_DEBUGGING
-  header.debug_main_size = ob->debug_main_stream->total_size;
-#else
-  header.debug_main_size = -1;
-#endif
 
-  header_stream = ((struct lto_output_stream *)
-		   xcalloc (1, sizeof (struct lto_output_stream)));
+  header_stream = XCNEW (struct lto_output_stream);
   lto_output_data_stream (header_stream, &header, sizeof header);
   lto_write_stream (header_stream);
   free (header_stream);
 
   lto_write_stream (ob->main_stream);
-#ifdef LTO_STREAM_DEBUGGING
-  lto_write_stream (ob->debug_main_stream);
-#endif
 
   /* Put back the assembly section that was there before we started
      writing lto info.  */
   lto_end_section ();
 
   free (ob->main_stream);
-  LTO_CLEAR_DEBUGGING_STREAM (debug_main_stream);
   free (ob);
 }
 
@@ -922,13 +897,6 @@ preload_common_node (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
 {
   gcc_assert (t);
 
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "Preloading common node: [%s] ",
-	   tree_code_name[TREE_CODE (t)]);
-  print_generic_expr (stderr, t, 0);
-  fprintf (stderr, "\n");
-#endif
-
  get_ref_idx_for (t, h, v, ref_p);
 
  /* The FIELD_DECLs of structures should be shared, so that every
@@ -957,16 +925,8 @@ preload_common_nodes (struct output_block *ob)
   VEC(tree, heap) *common_nodes = lto_get_common_nodes ();
   tree node;
   
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloading all common nodes.\n");
-#endif
-
   for (i = 0; VEC_iterate (tree, common_nodes, i, node); i++)
     preload_common_node (node, ob->main_hash_table, NULL, NULL);
-
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloaded %u common nodes\n", i - 1);
-#endif
 
   VEC_free (tree, heap, common_nodes);
 }
@@ -1289,7 +1249,6 @@ produce_asm_for_decls (cgraph_node_set set)
   lto_output_1_stream (ob->string_stream, 0);
 
   /* Write the global var decls.  */
-  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   num_fns = VEC_length (lto_out_decl_state_ptr, lto_function_decl_states);
   lto_output_decl_state_streams (ob, out_state);
   for (idx = 0; idx < num_fns; idx++)
@@ -1320,9 +1279,6 @@ produce_asm_for_decls (cgraph_node_set set)
 
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
-#ifdef LTO_STREAM_DEBUGGING
-  header.debug_main_size = ob->debug_main_stream->total_size;
-#endif
 
   header_stream = XCNEW (struct lto_output_stream);
   lto_output_data_stream (header_stream, &header, sizeof header);
@@ -1348,10 +1304,6 @@ produce_asm_for_decls (cgraph_node_set set)
 
   lto_write_stream (ob->main_stream);
   lto_write_stream (ob->string_stream);
-
-#ifdef LTO_STREAM_DEBUGGING
-  lto_write_stream (ob->debug_main_stream);
-#endif
 
   lto_end_section ();
 
@@ -1404,17 +1356,3 @@ struct ipa_opt_pass_d pass_ipa_lto_finish_out =
  NULL,			                /* function_transform */
  NULL					/* variable_transform */
 };
-
-#ifdef LTO_STREAM_DEBUGGING
-struct lto_debug_context lto_debug_context;
-
-/* Print character C to the debugging stream in CONTEXT.  */
-
-void
-lto_debug_out_fun (struct lto_debug_context *context, char c)
-{
-  struct lto_output_stream *stream 
-    = (struct lto_output_stream *)context->current_data;
-  lto_output_1_stream (stream, c);
-}
-#endif

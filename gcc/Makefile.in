@@ -1191,7 +1191,6 @@ OBJS-common = \
 	lto-streamer-out.o \
 	lto-section-in.o \
 	lto-section-out.o \
-	lto-stream-debug.o \
 	lto-symtab.o \
 	lto-opts.o \
 	lto-streamer.o \
@@ -2124,9 +2123,6 @@ lto-compress.o: lto-compress.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 	lto-compress.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(ZLIBINC) $< $(OUTPUT_OPTION)
 
-lto-stream-debug.o : lto-stream-debug.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TOPLEV_H) $(FLAGS_H) $(PARAMS_H) input.h debug.h  $(TREE_H) \
-   $(LTO_HEADER_H)
 lto-cgraph.o: lto-cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
    $(TM_H) $(TOPLEV_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) \

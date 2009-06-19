@@ -320,9 +320,4 @@ typedef unsigned HOST_WIDEST_INT 	lto_flags_type;
 #  error "Your host should support integer types wider than 32 bits."
 #endif
 
-#ifdef LTO_STREAM_DEBUGGING
-extern const char * LTO_tree_tag_names[LTO_tree_last_tag];
-extern void lto_debug_tree_flags (struct lto_debug_context *, enum tree_code, lto_flags_type);
-#endif
-
-#endif /* lto-tags.h */
+#endif /* GCC_LTO_TAGS_H  */

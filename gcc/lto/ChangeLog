@@ -1,3 +1,9 @@
+2009-06-19  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c: Remove code guarded by #ifdef LTO_STREAM_DEBUGGING.
+	Remove code guarded by #ifdef GLOBAL_STREAMER_TRACE.
+	Remove code guarded by #ifdef LOCAL_TRACE.
+
 2009-06-18  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c: Update license to GPLv3.

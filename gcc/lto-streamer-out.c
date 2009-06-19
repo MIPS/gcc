@@ -46,10 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 sbitmap lto_flags_needed_for;
 sbitmap lto_types_needed_for;
 
-#ifdef LTO_STREAM_DEBUGGING
-const char *LTO_tree_tag_names[LTO_tree_last_tag];
-#endif
-
 /* Forward declarations to break cyclical dependencies.  */
 static void output_record_start (struct output_block *, tree, tree,
 				 unsigned int);
@@ -168,11 +164,6 @@ create_output_block (enum lto_section_type section_type)
       ob->ssa_names_stream =XCNEW (struct lto_output_stream);
       ob->cfg_stream = XCNEW (struct lto_output_stream);
     }
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.out = lto_debug_out_fun;
-  lto_debug_context.indent = 0;
-  lto_debug_context.tag_names = LTO_tree_tag_names;
-#endif
 
   clear_line_info (ob);
 
@@ -216,24 +207,11 @@ destroy_output_block (struct output_block *ob)
       free (ob->cfg_stream);
     }
 
-  LTO_CLEAR_DEBUGGING_STREAM (debug_main_stream);
-  LTO_CLEAR_DEBUGGING_STREAM (debug_label_stream);
-  if (section_type == LTO_section_function_body)
-    {
-      LTO_CLEAR_DEBUGGING_STREAM (debug_ssa_names_stream);
-      LTO_CLEAR_DEBUGGING_STREAM (debug_cfg_stream);
-      LTO_CLEAR_DEBUGGING_STREAM (debug_decl_stream);
-      LTO_CLEAR_DEBUGGING_STREAM (debug_decl_index_stream);
-    }
-
   VEC_free (tree, heap, ob->named_labels);
   if (section_type == LTO_section_function_body)
     {
       VEC_free (int, heap, ob->local_decls_index);
       VEC_free (int, heap, ob->unexpanded_local_decls_index);
-#ifdef LTO_STREAM_DEBUGGING
-      VEC_free (int, heap, ob->local_decls_index_d);
-#endif
     }
 
   lto_destroy_tree_ref_encoder (&ob->local_decl_encoder);
@@ -285,17 +263,7 @@ output_string_with_length (struct output_block *ob,
       struct string_slot *old_slot = (struct string_slot *)*slot;
       lto_output_uleb128_stream (index_stream, old_slot->slot_num);
       free (string);
-
-      /* From the debugging protocol's point of view, the entry needs
-	 to look the same reguardless of whether this is the first
-	 occurence of this string or not.  Thus, we simulate the same
-	 debugging info as would be output as if this was a new
-	 string.  */
-      LTO_DEBUG_WIDE ("U", len);
     }
-
-  LTO_DEBUG_STRING ((*slot)->s, (*slot)->len);
-
 }
 
 /* Output the '\0' terminated STRING to the string
@@ -306,7 +274,6 @@ output_string (struct output_block *ob,
 	       struct lto_output_stream *index_stream,
 	       const char *string)
 {
-  LTO_DEBUG_TOKEN ("string");
   if (string)
     {
       lto_output_uleb128_stream (index_stream, 0);
@@ -325,7 +292,6 @@ output_string_cst (struct output_block *ob,
 		   struct lto_output_stream *index_stream,
 		   tree string)
 {
-  LTO_DEBUG_TOKEN ("string_cst");
   if (string)
     {
       lto_output_uleb128_stream (index_stream, 0);
@@ -346,7 +312,6 @@ output_identifier (struct output_block *ob,
 		   struct lto_output_stream *index_stream,
 		   tree id)
 {
-  LTO_DEBUG_TOKEN ("identifier");
   if (id)
     {
       lto_output_uleb128_stream (index_stream, 0);
@@ -366,7 +331,6 @@ output_real (struct output_block *ob, tree t)
   static char real_buffer[1000];
   const REAL_VALUE_TYPE *r = &TREE_REAL_CST (t);
 
-  LTO_DEBUG_TOKEN ("real");
   real_to_hexadecimal (real_buffer, r, 1000, 0, 1);
   output_string (ob, ob->main_stream, real_buffer);
 }
@@ -377,7 +341,6 @@ output_real (struct output_block *ob, tree t)
 static void
 output_zero (struct output_block *ob)
 {
-  LTO_DEBUG_WIDE ("U", 0);
   lto_output_1_stream (ob->main_stream, 0);
 }
 
@@ -587,29 +550,23 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
 	    flags |= LTO_SOURCE_COL;
 	}
 
-      LTO_DEBUG_TOKEN ("flags");
       output_widest_uint_uleb128 (ob, flags);
-
-      LTO_DEBUG_TREE_FLAGS (TREE_CODE (expr), flags);
 
       if (flags & LTO_SOURCE_FILE)
 	{
 	  ob->current_file = current_file;
-	  LTO_DEBUG_TOKEN ("file");
 	  output_string (ob, ob->main_stream, current_file);
 	}
 
       if (flags & LTO_SOURCE_LINE)
 	{
 	  ob->current_line = current_line;
-	  LTO_DEBUG_TOKEN ("line");
 	  output_uleb128 (ob, current_line);
 	}
 
       if (flags & LTO_SOURCE_COL)
 	{
 	  ob->current_col = current_col;
-	  LTO_DEBUG_TOKEN ("col");
 	  output_uleb128 (ob, current_col);
 	}
     }
@@ -629,8 +586,6 @@ output_type_ref_1 (struct output_block *ob, tree node)
 
   output_record_start (ob, NULL, NULL, LTO_type_ref);
   lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
-
-  LTO_DEBUG_UNDENT();
 }
 
 
@@ -661,9 +616,6 @@ output_local_decl_ref (struct output_block *ob, tree name, bool write)
     {
       VEC_safe_push (int, heap, ob->local_decls_index, 0);
       VEC_safe_push (int, heap, ob->unexpanded_local_decls_index, -1);
-#ifdef LTO_STREAM_DEBUGGING
-      VEC_safe_push (int, heap, ob->local_decls_index_d, 0);
-#endif
     }
   return index;
 }
@@ -731,7 +683,6 @@ output_record_start (struct output_block *ob, tree expr,
 		     tree value, unsigned int tag)
 {
   lto_output_1_stream (ob->main_stream, tag);
-  LTO_DEBUG_INDENT (tag);
   if (expr)
     {
       enum tree_code code = TREE_CODE (expr);
@@ -873,8 +824,6 @@ output_eh_region (struct output_block *ob, struct function *fn,
     {
       output_type_ref (ob, r->u.eh_throw.type);
     }
-
-  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -904,8 +853,6 @@ output_eh_regions (struct output_block *ob, struct function *fn)
       output_sleb128 (ob, VEC_length (eh_region, fn->eh->region_array));
       for (i = 0; VEC_iterate (eh_region, fn->eh->region_array, i, curr); i++)
 	output_eh_region (ob, fn, curr, i);
-
-      LTO_DEBUG_UNDENT ();
     }
 
   /* The 0 either terminates the record or indicates that there are no
@@ -934,10 +881,7 @@ output_constructor (struct output_block *ob, tree ctor)
 	output_zero (ob);
 
       if (TREE_CODE (value) == CONSTRUCTOR)
-	{
-	  output_constructor (ob, value);
-	  LTO_DEBUG_UNDENT ();
-	}
+	output_constructor (ob, value);
       else 
 	output_expr_operand (ob, value);
     }
@@ -1338,8 +1282,6 @@ output_expr_operand (struct output_block *ob, tree expr)
 	 output.  */
       gcc_unreachable ();
     }
-
-  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -1390,20 +1332,20 @@ output_local_var_decl (struct output_block *ob, int index)
   
   if (is_var)
     {
-      LTO_DEBUG_INDENT_TOKEN ("init");
       if (DECL_INITIAL (decl))
 	output_expr_operand (ob, DECL_INITIAL (decl));
       else
 	output_zero (ob);
+
       /* Index in unexpanded_vars_list.  */
-      LTO_DEBUG_INDENT_TOKEN ("local decl index");
-      output_sleb128 (ob, VEC_index (int, ob->unexpanded_local_decls_index, index));
+      output_sleb128 (ob, VEC_index (int, ob->unexpanded_local_decls_index,
+				     index));
     }
   else
     {
       output_type_ref (ob, DECL_ARG_TYPE (decl));
+
       /* The chain is only necessary for parm_decls.  */
-      LTO_DEBUG_TOKEN ("chain");
       if (TREE_CHAIN (decl))
 	output_expr_operand (ob, TREE_CHAIN (decl));
       else
@@ -1415,11 +1357,9 @@ output_local_var_decl (struct output_block *ob, int index)
 
   gcc_assert (decl_function_context (decl) != NULL_TREE);
 
-  LTO_DEBUG_TOKEN ("align");
   output_uleb128 (ob, DECL_ALIGN (decl));
   
   /* Put out the subtrees.  */
-  LTO_DEBUG_TOKEN ("size");
   /* Note that DECL_SIZE might be NULL_TREE for a
      variably-modified type.  See reset_lang_specific
      and the comment above.  */
@@ -1427,20 +1367,18 @@ output_local_var_decl (struct output_block *ob, int index)
     output_expr_operand (ob, DECL_SIZE (decl));
   else
     output_zero (ob);
+
   if (DECL_ATTRIBUTES (decl)!= NULL_TREE)
-    {
-      LTO_DEBUG_TOKEN ("attributes");
-      output_expr_operand (ob, DECL_ATTRIBUTES (decl));
-    }
+    output_expr_operand (ob, DECL_ATTRIBUTES (decl));
+
   if (DECL_SIZE_UNIT (decl) != NULL_TREE)
     output_expr_operand (ob, DECL_SIZE_UNIT (decl));
+
   if (needs_backing_var)
     output_expr_operand (ob, DECL_DEBUG_EXPR (decl));
 
   if (DECL_HAS_VALUE_EXPR_P (decl))
     output_expr_operand (ob, DECL_VALUE_EXPR (decl));
-
-  LTO_DEBUG_UNDENT();
 }
 
 /* Output the local declaration or type at INDEX to OB.  */
@@ -1451,9 +1389,6 @@ output_local_decl (struct output_block *ob, int index)
   tree decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
 
   VEC_replace (int, ob->local_decls_index, index, ob->main_stream->total_size);
-#ifdef LTO_STREAM_DEBUGGING
-  VEC_replace (int, ob->local_decls_index_d, index, ob->debug_decl_stream->total_size);
-#endif
 
   if (TREE_CODE (decl) == VAR_DECL
       || TREE_CODE (decl) == PARM_DECL)
@@ -1483,7 +1418,6 @@ output_local_vars (struct output_block *ob, struct function *fn)
 
   /* Need to put out the local statics first, to avoid the pointer
      games used for the regular locals.  */
-  LTO_DEBUG_TOKEN ("local statics");
   for (t = fn->local_decls; t; t = TREE_CHAIN (t))
     {
       tree lv = TREE_VALUE (t);
@@ -1525,7 +1459,6 @@ output_local_vars (struct output_block *ob, struct function *fn)
      go into a separate stream because the LTO reader will want to
      process the local variables first, rather than have to back patch
      them.  */
-  LTO_DEBUG_TOKEN ("local vars");
   while (index < lto_tree_ref_encoder_size (&ob->local_decl_encoder))
     output_local_decl (ob, index++);
 
@@ -1546,12 +1479,8 @@ output_local_vars_index (struct output_block *ob)
 
   stop = VEC_length (int, ob->local_decls_index);
   for (index = 0; index < stop; index++)
-    {
-      output_uleb128 (ob, VEC_index (int, ob->local_decls_index, index));
-#ifdef LTO_STREAM_DEBUGGING
-      output_uleb128 (ob, VEC_index (int, ob->local_decls_index_d, index));
-#endif
-    }
+    output_uleb128 (ob, VEC_index (int, ob->local_decls_index, index));
+
   ob->main_stream = tmp_stream;
 }
 
@@ -1617,11 +1546,9 @@ output_cfg (struct output_block *ob, struct function *fn)
 
   ob->main_stream = ob->cfg_stream;
 
-  LTO_DEBUG_TOKEN ("profile_status");
   output_uleb128 (ob, profile_status_for_function (fn));
 
   /* Output the number of the highest basic block.  */
-  LTO_DEBUG_TOKEN ("lastbb");
   output_uleb128 (ob, last_basic_block_for_function (fn));
 
   FOR_ALL_BB_FN (bb, fn)
@@ -1629,39 +1556,28 @@ output_cfg (struct output_block *ob, struct function *fn)
       edge_iterator ei;
       edge e;
 
-      LTO_DEBUG_TOKEN ("bbindex");
       output_sleb128 (ob, bb->index);
 
       /* Output the successors and the edge flags.  */
-      LTO_DEBUG_TOKEN ("edgecount");
       output_uleb128 (ob, EDGE_COUNT (bb->succs));
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  LTO_DEBUG_TOKEN ("dest");
 	  output_uleb128 (ob, e->dest->index);
-
-	  LTO_DEBUG_TOKEN ("probability");
 	  output_sleb128 (ob, e->probability);
-
-	  LTO_DEBUG_TOKEN ("count");
 	  output_sleb128 (ob, e->count);
-
-	  LTO_DEBUG_TOKEN ("eflags");
 	  output_uleb128 (ob, e->flags);
 	}
     }
 
-  LTO_DEBUG_TOKEN ("bbindex");
   output_sleb128 (ob, -1);
 
   bb = ENTRY_BLOCK_PTR;
   while (bb->next_bb)
     {
-      LTO_DEBUG_TOKEN ("bbchain");
       output_sleb128 (ob, bb->next_bb->index);
       bb = bb->next_bb;
     }
-  LTO_DEBUG_TOKEN ("bbchain");
+
   output_sleb128 (ob, -1);
 
   ob->main_stream = tmp_stream;
@@ -1676,7 +1592,6 @@ output_phi (struct output_block *ob, gimple phi)
   unsigned i, len = gimple_phi_num_args (phi);
   
   lto_output_1_stream (ob->main_stream, LTO_gimple_phi);
-  LTO_DEBUG_INDENT (LTO_gimple_phi);
   output_uleb128 (ob, SSA_NAME_VERSION (PHI_RESULT (phi)));
 
   for (i = 0; i < len; i++)
@@ -1684,8 +1599,6 @@ output_phi (struct output_block *ob, gimple phi)
       output_expr_operand (ob, gimple_phi_arg_def (phi, i));
       output_uleb128 (ob, gimple_phi_arg_edge (phi, i)->src->index);
     }
-
-  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -1722,12 +1635,9 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   enum gimple_code code = gimple_code (stmt);
   unsigned int tag = stmt_to_tag[code];
 
-  LTO_DEBUG_INDENT_TOKEN ("stmt");
-
   /* Emit identifying tag.  */
   gcc_assert (tag < UCHAR_MAX);
   lto_output_1_stream (ob->main_stream, (char) tag);
-  LTO_DEBUG_INDENT (tag);
 
   /* Emit the number of operands in the statement.  */
   lto_output_uleb128_stream (ob->main_stream, gimple_num_ops (stmt));
@@ -1772,8 +1682,6 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
     default:
       gcc_unreachable ();
     }
-
-  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -1789,19 +1697,10 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 		        ? LTO_bb1
 			: LTO_bb0);
 
-  LTO_DEBUG_TOKEN ("bbindex");
   output_uleb128 (ob, bb->index);
-
-  LTO_DEBUG_TOKEN ("count");
   output_sleb128 (ob, bb->count);
-
-  LTO_DEBUG_TOKEN ("loop_depth");
   output_sleb128 (ob, bb->loop_depth);
-
-  LTO_DEBUG_TOKEN ("frequency");
   output_sleb128 (ob, bb->frequency);
-
-  LTO_DEBUG_TOKEN ("flags");
   output_sleb128 (ob, bb->flags);
 
   if (!gsi_end_p (bsi) || phi_nodes (bb))
@@ -1826,13 +1725,11 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 		output_sleb128 (ob, region);
 
 	      last_eh_region_seen = region;
-	      LTO_DEBUG_UNDENT ();
 	    }
 	  else
 	    output_zero (ob);
 	}
 
-      LTO_DEBUG_INDENT_TOKEN ("stmt");
       output_zero (ob);
 
       for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
@@ -1843,21 +1740,11 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 	     will be filled in on reading when the SSA form is
 	     updated.  */
 	  if (is_gimple_reg (gimple_phi_result (phi)))
-	    {
-	      LTO_DEBUG_INDENT_TOKEN ("phi");
-	      output_phi (ob, phi);
-	    }
+	    output_phi (ob, phi);
 	}
 
-      LTO_DEBUG_INDENT_TOKEN ("phi");
       output_zero (ob);
     }
-
-  LTO_DEBUG_UNDENT();
-
-#ifdef LTO_STREAM_DEBUGGING
-  gcc_assert (lto_debug_context.indent == 1);
-#endif
 }
 
 /* Create the header in the file using OB.  If the section type is for
@@ -1906,27 +1793,8 @@ produce_asm (struct output_block *ob, tree fn)
     }
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
-#ifdef LTO_STREAM_DEBUGGING
-  header.debug_label_size = ob->debug_label_stream->total_size;
-  if (section_type == LTO_section_function_body)
-    {
-      header.debug_decl_index_size = ob->debug_decl_index_stream->total_size;
-      header.debug_decl_size = ob->debug_decl_stream->total_size;
-      header.debug_ssa_names_size = ob->debug_ssa_names_stream->total_size;
-      header.debug_cfg_size = ob->debug_cfg_stream->total_size;
-    }
-  header.debug_main_size = ob->debug_main_stream->total_size;
-#else
-  header.debug_decl_index_size = -1;
-  header.debug_decl_size = -1;
-  header.debug_label_size = -1;
-  header.debug_ssa_names_size = -1;
-  header.debug_cfg_size = -1;
-  header.debug_main_size = -1;
-#endif
 
-  header_stream = ((struct lto_output_stream *)
-		   xcalloc (1, sizeof (struct lto_output_stream)));
+  header_stream = XCNEW (struct lto_output_stream);
   lto_output_data_stream (header_stream, &header, sizeof header);
   lto_write_stream (header_stream);
   free (header_stream);
@@ -1943,20 +1811,6 @@ produce_asm (struct output_block *ob, tree fn)
     }
   lto_write_stream (ob->main_stream);
   lto_write_stream (ob->string_stream);
-#ifdef LTO_STREAM_DEBUGGING
-  if (section_type == LTO_section_function_body)
-    {
-      lto_write_stream (ob->debug_decl_index_stream);
-      lto_write_stream (ob->debug_decl_stream);
-    }
-  lto_write_stream (ob->debug_label_stream);
-  if (section_type == LTO_section_function_body)
-    {
-      lto_write_stream (ob->debug_ssa_names_stream);
-      lto_write_stream (ob->debug_cfg_stream);
-    }
-  lto_write_stream (ob->debug_main_stream);
-#endif
 
   lto_end_section ();
 }
@@ -2049,14 +1903,6 @@ lto_static_init (void)
   SET_BIT (lto_types_needed_for, VECTOR_CST );
   SET_BIT (lto_types_needed_for, VIEW_CONVERT_EXPR);
 #endif
-
-#ifdef LTO_STREAM_DEBUGGING
-#define LTO_STREAM_DEBUGGING_INIT_NAMES
-#define SET_NAME(index,value) LTO_tree_tag_names[index] = value;
-#include "lto-tree-tags.def"
-#undef SET_NAME
-#undef LTO_STREAM_DEBUGGING_INIT_NAMES
-#endif
 }
 
 
@@ -2104,7 +1950,6 @@ output_function (struct cgraph_node *node)
   basic_block bb;
   struct output_block *ob = create_output_block (LTO_section_function_body);
 
-  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
   ob->cgraph_node = node;
   ob->main_hash_table = htab_create (37, lto_hash_global_slot_node,
@@ -2164,7 +2009,6 @@ output_function (struct cgraph_node *node)
   output_tree (ob, DECL_INITIAL (function));
 
   /* Output the head of the arguments list.  */
-  LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
   if (DECL_ARGUMENTS (function))
     output_expr_operand (ob, DECL_ARGUMENTS (function));
   else
@@ -2182,21 +2026,11 @@ output_function (struct cgraph_node *node)
 
   /* The terminator for this function.  */
   output_zero (ob);
-  LTO_DEBUG_UNDENT();
 
-  LTO_SET_DEBUGGING_STREAM (debug_ssa_names_stream, ssa_names_data);
   output_ssa_names (ob, fn);
-
-  LTO_SET_DEBUGGING_STREAM (debug_cfg_stream, cfg_data);
   output_cfg (ob, fn);
-
-  LTO_SET_DEBUGGING_STREAM (debug_decl_stream, decl_data);
   output_local_vars (ob, fn);
-
-  LTO_SET_DEBUGGING_STREAM (debug_decl_index_stream, decl_index_data);
   output_local_vars_index (ob);
-
-  LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data);
   output_named_labels (ob);
 
   /* Create a section to hold the pickled output of this function.   */
@@ -2215,7 +2049,6 @@ static void
 output_var_init (struct output_block *ob, tree var)
 {
   output_expr_operand (ob, var);
-  LTO_DEBUG_TOKEN ("init");
   if (DECL_INITIAL (var))
     output_expr_operand (ob, DECL_INITIAL (var));
   else
@@ -2353,7 +2186,6 @@ output_constructors_and_inits (cgraph_node_set set)
 
   ob->cgraph_node = NULL;
 
-  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
 
   /* Make string 0 be a NULL string.  */
@@ -2382,13 +2214,11 @@ output_constructors_and_inits (cgraph_node_set set)
       if (output_alias_pair_p (p, set))
 	{
 	  output_expr_operand (ob, p->decl);
-	  LTO_DEBUG_TOKEN ("alias_target");
 	  output_expr_operand (ob, p->target);
 	}
     }
 
   output_zero (ob);
-  LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data);
   output_named_labels (ob);
 
   produce_asm (ob, NULL);
@@ -2519,83 +2349,6 @@ struct ipa_opt_pass_d pass_ipa_lto_gimple_out =
 };
 
 
-#ifdef LTO_STREAM_DEBUGGING
-/* Print the tree flags to the debugging stream.  */
-   
-void 
-lto_debug_tree_flags (struct lto_debug_context *context, 
-		      enum tree_code code, 
-		      lto_flags_type flags)
-{
-#define CLEAROUT (BITS_PER_LTO_FLAGS_TYPE - 1)
-
-#define START_CLASS_SWITCH()              \
-  {                                       \
-                                          \
-    switch (TREE_CODE_CLASS (code))       \
-    {
-
-#define START_CLASS_CASE(klass)    case klass:
-#define ADD_CLASS_DECL_FLAG(flag_name) \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define ADD_CLASS_EXPR_FLAG(flag_name) \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define ADD_CLASS_TYPE_FLAG(flag_name) \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define END_CLASS_CASE(klass)      break;
-#define END_CLASS_SWITCH()                \
-    default:                              \
-      gcc_unreachable ();                 \
-    }
-
-
-#define START_EXPR_SWITCH()               \
-    switch (code)			  \
-    {
-#define START_EXPR_CASE(code)    case code:
-#define ADD_EXPR_FLAG(flag_name) \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define ADD_TYPE_FLAG(flag_name) \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define ADD_DECL_FLAG(flag_name) \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define ADD_VIS_FLAG(flag_name)  \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define ADD_VIS_FLAG_SIZE(flag_name,size)					\
-  { if (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
-#define ADD_TLS_FLAG(flag_name,size)					\
-  { if (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
-#define ADD_FUN_FLAG(flag_name)  \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define END_EXPR_CASE(klass)      break;
-#define END_EXPR_SWITCH()                 \
-    default:                              \
-      gcc_unreachable ();                 \
-    }                                     \
-  }
-
-#include "lto-tree-flags.def"
-
-#undef START_CLASS_SWITCH
-#undef START_CLASS_CASE
-#undef ADD_CLASS_DECL_FLAG
-#undef ADD_CLASS_EXPR_FLAG
-#undef ADD_CLASS_TYPE_FLAG
-#undef END_CLASS_CASE
-#undef END_CLASS_SWITCH
-#undef START_EXPR_SWITCH
-#undef START_EXPR_CASE
-#undef ADD_EXPR_FLAG
-#undef ADD_TYPE_FLAG
-#undef ADD_DECL_FLAG
-#undef ADD_VIS_FLAG
-#undef ADD_FUN_FLAG
-#undef END_EXPR_CASE
-#undef END_EXPR_SWITCH
-}
-#endif
-
-
 /* Serialization of global types and declarations.  */
 
 static void output_tree_with_context (struct output_block *, tree, tree);
@@ -2610,7 +2363,6 @@ output_global_record_start (struct output_block *ob, tree expr,
                             tree value, unsigned int tag)
 {
   lto_output_1_stream (ob->main_stream, tag);
-  LTO_DEBUG_INDENT (tag);
   if (expr)
     {
       enum tree_code code = TREE_CODE (expr);
@@ -2622,19 +2374,6 @@ output_global_record_start (struct output_block *ob, tree expr,
     }
 }
 
-/* Write the current global vector length to the debugging stream.  */
-
-#ifdef LTO_STREAM_DEBUGGING
-static void
-global_vector_debug (struct output_block *ob)
-{
-  LTO_DEBUG_TOKEN ("[");
-  LTO_DEBUG_WIDE ("U", htab_elements(ob->main_hash_table));
-  LTO_DEBUG_TOKEN ("]");
-}
-#else
-#define global_vector_debug(ob)
-#endif
 
 static void
 output_const_decl (struct output_block *ob, tree decl)
@@ -2642,8 +2381,6 @@ output_const_decl (struct output_block *ob, tree decl)
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_const_decl);
   output_tree_flags (ob, ERROR_MARK, decl, true);
-
-  global_vector_debug (ob);
 
   output_tree (ob, decl->decl_minimal.name);
   gcc_assert (decl->decl_minimal.context == NULL_TREE);
@@ -2653,8 +2390,6 @@ output_const_decl (struct output_block *ob, tree decl)
   output_uleb128 (ob, decl->decl_common.align);
   gcc_assert (decl->decl_common.off_align == 0);
   output_tree (ob, decl->decl_common.initial);
-
-  LTO_DEBUG_TOKEN ("end_const_decl");
 }
 
 
@@ -2665,52 +2400,29 @@ output_field_decl (struct output_block *ob, tree decl)
   output_global_record_start (ob, NULL, NULL, LTO_field_decl);
   output_tree_flags (ob, ERROR_MARK, decl, true);
 
-  global_vector_debug (ob);
-
   /* uid and locus are handled specially */
-  LTO_DEBUG_TOKEN ("name");
   output_tree (ob, decl->decl_minimal.name);
-  LTO_DEBUG_TOKEN ("context");
   output_tree (ob, decl->decl_minimal.context);
-
-  LTO_DEBUG_TOKEN ("type");
   output_tree (ob, decl->common.type);
-
-  LTO_DEBUG_TOKEN ("attributes");
   output_tree (ob, decl->decl_common.attributes);
-  LTO_DEBUG_TOKEN ("abstract_origin");
   output_tree (ob, decl->decl_common.abstract_origin);
-
   output_uleb128 (ob, decl->decl_common.mode);
   output_uleb128 (ob, decl->decl_common.align);
   output_uleb128 (ob, decl->decl_common.off_align);
-
-  LTO_DEBUG_TOKEN ("size");
   output_tree (ob, decl->decl_common.size);
-  LTO_DEBUG_TOKEN ("size_unit");
   output_tree (ob, decl->decl_common.size_unit);
-
-  LTO_DEBUG_TOKEN ("offset");
   output_tree (ob, decl->field_decl.offset);
-  LTO_DEBUG_TOKEN ("bit_field_type");
   output_tree (ob, decl->field_decl.bit_field_type);
-  LTO_DEBUG_TOKEN ("qualifier");
   output_tree (ob, decl->field_decl.qualifier);
-  LTO_DEBUG_TOKEN ("bit_offset");
   output_tree (ob, decl->field_decl.bit_offset);
-  LTO_DEBUG_TOKEN ("fcontext");
   output_tree (ob, decl->field_decl.fcontext);
 
   /* lang_specific */
-  LTO_DEBUG_TOKEN ("initial");
   output_tree (ob, decl->decl_common.initial);
 
   /* Write out current field before its siblings,
      so follow the chain last.  */
-  LTO_DEBUG_TOKEN ("chain");
   output_tree (ob, decl->common.chain);
-
-  LTO_DEBUG_TOKEN ("end_field_decl");
 }
 
 
@@ -2720,8 +2432,6 @@ static void
 output_function_decl (struct output_block *ob, tree decl)
 {
   bool saved_external, saved_public;
-
-  global_vector_debug (ob);
 
   /* If DECL is a builtin of class BUILT_IN_MD or BUILT_IN_NORMAL, we
      only need to write its code and class.  If DECL is BUILT_IN_FRONTEND
@@ -2747,7 +2457,7 @@ output_function_decl (struct output_block *ob, tree decl)
 	}
       else
 	output_string (ob, ob->main_stream, NULL);
-      LTO_DEBUG_TOKEN ("end_function_decl");
+
       return;
     }
 
@@ -2820,7 +2530,6 @@ output_function_decl (struct output_block *ob, tree decl)
 	      || DECL_BUILT_IN_CLASS (decl) == BUILT_IN_FRONTEND);
   output_uleb128 (ob, DECL_BUILT_IN_CLASS (decl));
   output_uleb128 (ob, DECL_FUNCTION_CODE (decl));
-  LTO_DEBUG_TOKEN ("end_function_decl");
 }
 
 static void
@@ -2832,7 +2541,6 @@ output_var_decl (struct output_block *ob, tree decl)
   output_tree_flags (ob, ERROR_MARK, decl, true);
 
   /* Additional LTO decl flags. */
-  LTO_DEBUG_TOKEN ("lto_decl_flags");
   if (flag_wpa)
     {
       lto_decl_flags_t flags = lto_get_decl_flags (decl);
@@ -2852,13 +2560,10 @@ output_var_decl (struct output_block *ob, tree decl)
   else
     output_zero (ob);
 
-  global_vector_debug (ob);
-
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
   gcc_assert (decl->decl_minimal.context == NULL_TREE);
 
-  LTO_DEBUG_TOKEN ("var_decl_assembler_name");
   output_tree (ob, decl->decl_with_vis.assembler_name);
   output_tree (ob, decl->decl_with_vis.section_name);
   if (decl->decl_with_vis.comdat_group)
@@ -2868,15 +2573,11 @@ output_var_decl (struct output_block *ob, tree decl)
 
   /* omit chain */
   output_tree (ob, decl->common.type);
-
   output_tree (ob, decl->decl_common.attributes);
   output_tree (ob, decl->decl_common.abstract_origin);
-
   output_uleb128 (ob, decl->decl_common.mode);
   output_uleb128 (ob, decl->decl_common.align);
   gcc_assert (decl->decl_common.off_align == 0);
-
-  LTO_DEBUG_TOKEN ("var_decl_size");
   output_tree (ob, decl->decl_common.size);
   output_tree (ob, decl->decl_common.size_unit);
 
@@ -2886,13 +2587,10 @@ output_var_decl (struct output_block *ob, tree decl)
 
   /* DECL_DEBUG_EXPR is stored in a table on the side,
      not in the VAR_DECL node itself.  */
-  LTO_DEBUG_TOKEN ("var_decl_debug_expr");
   output_tree (ob, DECL_DEBUG_EXPR (decl));
   
   /* Write initial expression last.  */
   output_tree (ob, decl->decl_common.initial);
-
-  LTO_DEBUG_TOKEN ("end_var_decl");
 }
 
 static void
@@ -2901,8 +2599,6 @@ output_parm_decl (struct output_block *ob, tree decl, tree fn)
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_parm_decl);
   output_tree_flags (ob, ERROR_MARK, decl, true);
-
-  global_vector_debug (ob);
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
@@ -2935,8 +2631,6 @@ output_parm_decl (struct output_block *ob, tree decl, tree fn)
   /* omit rtl, incoming_rtl */
 
   output_tree_with_context (ob, decl->common.chain, fn);
-
-  LTO_DEBUG_TOKEN ("end_parm_decl");
 }
 
 static void
@@ -2945,8 +2639,6 @@ output_result_decl (struct output_block *ob, tree decl, tree fn)
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_result_decl);
   output_tree_flags (ob, ERROR_MARK, decl, true);
-
-  global_vector_debug (ob);
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
@@ -2970,8 +2662,6 @@ output_result_decl (struct output_block *ob, tree decl, tree fn)
   /* omit rtl */
 
   gcc_assert (decl->common.chain == NULL_TREE);
-
-  LTO_DEBUG_TOKEN ("end_result_decl");
 }
 
 static void
@@ -2980,8 +2670,6 @@ output_type_decl (struct output_block *ob, tree decl)
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_type_decl);
   output_tree_flags (ob, ERROR_MARK, decl, true);
-
-  global_vector_debug (ob);
 
   /* uid and locus are handled specially */
   /* Must output name before type.  */
@@ -3015,8 +2703,6 @@ output_type_decl (struct output_block *ob, tree decl)
   output_tree (ob, decl->decl_non_common.arguments);
   output_tree (ob, decl->decl_non_common.result);		/* ??? */
   output_tree (ob, decl->decl_non_common.vindex);		/* ??? */
-
-  LTO_DEBUG_TOKEN ("end_type_decl");
 }
 
 static void
@@ -3030,8 +2716,6 @@ output_label_decl (struct output_block *ob, tree decl)
 
   /* tag and flags */
   output_global_record_start (ob, decl, NULL, tag);
-
-  global_vector_debug (ob);
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
@@ -3054,8 +2738,6 @@ output_label_decl (struct output_block *ob, tree decl)
   /* lang_specific */
   /* omit rtl, incoming_rtl */
   /* omit chain */
-
-  LTO_DEBUG_TOKEN ("end_label_decl");
 }
 
 /* Emit IMPORTED_DECL DECL to output block OB.  */
@@ -3065,11 +2747,9 @@ output_imported_decl (struct output_block *ob, tree decl)
 {
   output_global_record_start (ob, NULL, NULL, LTO_imported_decl);
   output_tree_flags (ob, ERROR_MARK, decl, true);
-  global_vector_debug (ob);
   output_tree (ob, IMPORTED_DECL_ASSOCIATED_DECL (decl));
   output_tree (ob, DECL_NAME (decl));
   gcc_assert (TREE_TYPE (decl) == void_type_node);
-  LTO_DEBUG_TOKEN ("end_imported_decl");
 }
 
 static void
@@ -3085,8 +2765,6 @@ output_binfo (struct output_block *ob, tree binfo)
   output_uleb128 (ob, num_base_accesses);
   output_uleb128 (ob, num_base_binfos);
 
-  global_vector_debug (ob);  /* note different location from others */
-
   output_tree (ob, binfo->common.type);
 
   output_tree (ob, binfo->binfo.offset);
@@ -3097,16 +2775,13 @@ output_binfo (struct output_block *ob, tree binfo)
   output_tree (ob, binfo->binfo.vtt_subvtt);
   output_tree (ob, binfo->binfo.vtt_vptr);
 
-  LTO_DEBUG_TOKEN ("base_accesses");
   for (i = 0; i < num_base_accesses; ++i)
     output_tree (ob, VEC_index (tree, binfo->binfo.base_accesses, i));
 
-  LTO_DEBUG_TOKEN ("base_binfos");
   for (i = 0; i < num_base_binfos; ++i)
     output_tree (ob, VEC_index (tree, &binfo->binfo.base_binfos, i));
 
   output_tree (ob, binfo->common.chain);
-  LTO_DEBUG_TOKEN ("end_binfo");
 }
 
 static void
@@ -3116,60 +2791,38 @@ output_type (struct output_block *ob, tree type, enum LTO_tags tag)
   output_global_record_start (ob, NULL, NULL, tag);
   output_tree_flags (ob, ERROR_MARK, type, false);
 
-  global_vector_debug (ob);
-
-  LTO_DEBUG_TOKEN ("type");
   output_tree (ob, type->common.type);
-  LTO_DEBUG_TOKEN ("size");
   output_tree (ob, type->type.size);
-  LTO_DEBUG_TOKEN ("size_unit");
   output_tree (ob, type->type.size_unit);
-  LTO_DEBUG_TOKEN ("attributes");
   output_tree (ob, type->type.attributes);
   /* Do not write UID.  Assign a new one on input.  */
-  LTO_DEBUG_TOKEN ("precision");
   output_uleb128 (ob, type->type.precision);
-  LTO_DEBUG_TOKEN ("mode");
   output_uleb128 (ob, type->type.mode);
-  LTO_DEBUG_TOKEN ("align");
   output_uleb128 (ob, type->type.align);
-  LTO_DEBUG_TOKEN ("pointer_to");
   output_tree (ob, type->type.pointer_to);
-  LTO_DEBUG_TOKEN ("reference_to");
   output_tree (ob, type->type.reference_to);
   /* FIXME: Output symtab here.  Do we need it?  */
-  LTO_DEBUG_TOKEN ("name");
   output_tree (ob, type->type.name);	/* may be a TYPE_DECL */
-  LTO_DEBUG_TOKEN ("minval");
   output_tree (ob, type->type.minval);
-  LTO_DEBUG_TOKEN ("maxval");
   output_tree (ob, type->type.maxval);
-  LTO_DEBUG_TOKEN ("next_variant");
   output_tree (ob, type->type.next_variant);
-  LTO_DEBUG_TOKEN ("main_variant");
   output_tree (ob, type->type.main_variant);
   gcc_assert (type->type.binfo == NULL_TREE
 	      || TREE_CODE (type) == RECORD_TYPE
 	      || TREE_CODE (type) == UNION_TYPE);
-  LTO_DEBUG_TOKEN ("binfo");
   output_tree (ob, type->type.binfo);
 
   /* Should be cleared by pass_ipa_free_lang_data.  */
   gcc_assert (type->type.context == NULL_TREE);
 
-  LTO_DEBUG_TOKEN ("canonical");
   output_tree (ob, type->type.canonical);
 
   /* Slot 'values' may be the structures fields, so do them last,
      after other slots of the structure type have been filled in.  */
   if (tag == LTO_record_type || tag == LTO_union_type)
-    {
-      LTO_DEBUG_TOKEN ("fields");
-      output_tree (ob, TYPE_FIELDS (type));
-    }
+    output_tree (ob, TYPE_FIELDS (type));
   else
     {
-      LTO_DEBUG_TOKEN ("values");
       if (TYPE_CACHED_VALUES_P (type))
 	{
 	  gcc_assert (TREE_CODE (type) != RECORD_TYPE
@@ -3186,9 +2839,7 @@ output_type (struct output_block *ob, tree type, enum LTO_tags tag)
 	output_tree (ob, type->type.values);
     }
 
-  LTO_DEBUG_TOKEN ("chain");
   output_tree (ob, type->common.chain);	   /* overloaded as TYPE_STUB_DECL */
-  LTO_DEBUG_TOKEN ("end_type");
 }
 
 /* Output the start of a record with TAG and possibly flags for EXPR,
@@ -3200,7 +2851,6 @@ output_global_record_start_1 (struct output_block *ob, tree expr,
 			      tree value, unsigned int tag)
 {
   lto_output_1_stream (ob->main_stream, tag);
-  LTO_DEBUG_INDENT (tag);
   if (expr)
     {
       enum tree_code code = TREE_CODE (expr);
@@ -3211,7 +2861,6 @@ output_global_record_start_1 (struct output_block *ob, tree expr,
 	  else
 	    {
 	      /* Allow for null tree type */
-	      LTO_DEBUG_TOKEN ("type");
 	      output_zero (ob);
 	    }
 	}
@@ -3240,10 +2889,7 @@ output_global_constructor (struct output_block *ob, tree ctor)
 	output_zero (ob);
 
       if (TREE_CODE (value) == CONSTRUCTOR)
-	{
-	  output_global_constructor (ob, value);
-	  LTO_DEBUG_UNDENT ();
-	}
+	output_global_constructor (ob, value);
       else 
 	output_tree (ob, value);
     }
@@ -3266,13 +2912,6 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
       output_zero (ob);
       return;
     }
-
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "Emitting tree %p : [%s] ", (void *) expr,
-	   tree_code_name[TREE_CODE (expr)]);
-  print_generic_expr (stderr, expr, 0);
-  fprintf (stderr, "\n");
-#endif
 
   if (TYPE_P (expr)
       || DECL_P (expr)
@@ -3332,18 +2971,11 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
          Otherwise, assign an index for the node we are about to emit.  */
       if (get_ref_idx_for (expr, ob->main_hash_table, NULL, &global_index))
         {
-#ifdef GLOBAL_STREAMER_TRACE
-          fprintf (stderr, "%p -> OLD %d\n", (void *) expr, global_index);
-#endif
           output_global_record_start (ob, NULL, NULL,
 				      LTO_tree_pickle_reference);
           output_uleb128 (ob, global_index);
-          LTO_DEBUG_UNDENT ();
           return;
         }
-#ifdef GLOBAL_STREAMER_TRACE
-    fprintf (stderr, "%p -> NEW %d\n", (void *) expr, global_index);
-#endif
     }
   else
     {
@@ -3354,12 +2986,8 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
       if (slot != NULL)
         {
           struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
-#ifdef GLOBAL_STREAMER_TRACE
-          fprintf (stderr, "%p -> OLD %d\n", (void *) expr, old_slot->slot_num);
-#endif
           output_global_record_start (ob, NULL, NULL, LTO_tree_pickle_reference);
           output_uleb128 (ob, old_slot->slot_num);
-          LTO_DEBUG_UNDENT ();
           return;
         }
     }
@@ -3672,8 +3300,6 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
 	  gcc_unreachable ();
 	}
     }
-
-  LTO_DEBUG_UNDENT ();
 }
 
 /* Emit tree node EXPR to output block OB.  */
@@ -3690,7 +3316,6 @@ output_tree (struct output_block *ob, tree expr)
 void
 output_type_tree (struct output_block *ob, tree type)
 {
-  LTO_DEBUG_TOKEN ("type");
   gcc_assert (type && TYPE_P (type));
   output_tree (ob, type);
 }
