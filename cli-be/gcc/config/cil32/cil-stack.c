@@ -1,6 +1,6 @@
 /* Implementation of the stack information functionality.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #include "config.h"
@@ -34,19 +35,20 @@ Erven Rohou             <erven.rohou@st.com>
 #include "coretypes.h"
 #include "tm.h"
 #include "errors.h"
-#include "ggc.h"
 #include "tree.h"
-#include "tree-flow.h"
-#include "cil-types.h"
+#include "vec.h"
+
 #include "cil-refs.h"
 #include "cil-stack.h"
 #include "cil-stmt.h"
+#include "cil-types.h"
 
 /******************************************************************************
  * Local functions prototypes                                                 *
  ******************************************************************************/
 
 static bool value_type_p (tree);
+static bool vector_type_p (tree);
 static cil_type_t cil_binary_op_type (enum cil_opcode, cil_type_t, cil_type_t);
 
 /******************************************************************************
@@ -129,6 +131,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
     case CIL_STIND_R8:
     case CIL_STIND_I:
     case CIL_STOBJ:
+    case CIL_STVEC:
       VEC_pop (cil_type_t, vstack);
       VEC_pop (cil_type_t, vstack);
       break;
@@ -263,6 +266,15 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       VEC_quick_push (cil_type_t, vstack, CIL_VALUE_TYPE);
       break;
 
+    case CIL_LDVEC:
+      {
+	tree type = cil_type (stmt);
+	cil_type_t cil_type = scalar_to_cil (type);
+	VEC_pop (cil_type_t, vstack);
+	VEC_quick_push (cil_type_t, vstack, cil_type);
+      }
+      break;
+
     case CIL_LDFLDA:
     case CIL_LOCALLOC:
       VEC_pop (cil_type_t, vstack);
@@ -301,6 +313,11 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
 
       if (value_type_p (type))
 	VEC_safe_push (cil_type_t, heap, vstack, CIL_VALUE_TYPE);
+      else if (vector_type_p (type))
+	{
+	  cil_type_t cil_type = scalar_to_cil (type);
+	  VEC_safe_push (cil_type_t, heap, vstack, cil_type);
+	}
       else
 	VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
 
@@ -337,6 +354,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
 
     case CIL_CALL:
     case CIL_JMP:
+    case CIL_NEWOBJ:
       i = cil_call_nargs (stmt) + (cil_call_static_chain (stmt) ? 1 : 0);
 
       while (i-- != 0)
@@ -346,7 +364,9 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
 
       if (!VOID_TYPE_P (type))
 	{
-	  if (value_type_p (type))
+	  if (vector_type_p (type))
+	    VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
+	  else if (value_type_p (type))
 	    VEC_safe_push (cil_type_t, heap, vstack, CIL_VALUE_TYPE);
 	  else
 	    VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
@@ -370,6 +390,19 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
 	    VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
 	}
 
+      break;
+
+    case CIL_VEC_CTOR:
+      {
+	tree type = cil_type (stmt);
+	cil_type_t cil_type = scalar_to_cil (type);
+	unsigned int num_elts = TYPE_VECTOR_SUBPARTS (type);
+
+	while (num_elts-- != 0)
+	  VEC_pop (cil_type_t, vstack);
+
+	VEC_safe_push (cil_type_t, heap, vstack, cil_type);
+      }
       break;
 
     case CIL_ASM:
@@ -466,6 +499,30 @@ cil_float_p (cil_type_t type)
     case CIL_FLOAT:
     case CIL_FLOAT32:
     case CIL_FLOAT64:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/* Return TRUE if the type TYPE is a vector type, FALSE otherwise.  */
+
+bool
+cil_vector_p (cil_type_t type)
+{
+  switch (type)
+    {
+    case CIL_V2SI:
+    case CIL_V4HI:
+    case CIL_V8QI:
+    case CIL_V2SF:
+    case CIL_V2DI:
+    case CIL_V4SI:
+    case CIL_V8HI:
+    case CIL_V16QI:
+    case CIL_V4SF:
+    case CIL_V2DF:
       return true;
 
     default:
@@ -586,6 +643,71 @@ scalar_to_cil (tree type)
     case POINTER_TYPE:
       return CIL_POINTER;
 
+    case VECTOR_TYPE:
+      {
+	cil_type_t ret = CIL_NO_TYPE;
+	tree innertype = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+	HOST_WIDE_INT innersize = tree_low_cst (TYPE_SIZE (innertype), 1);
+	HOST_WIDE_INT vec_size  = tree_low_cst (TYPE_SIZE (type), 1);
+
+	if ((TREE_CODE (innertype) == INTEGER_TYPE) ||
+	    (TREE_CODE (innertype) == POINTER_TYPE))
+	  {
+	    if (vec_size == 128)  /* 16-byte vectors */
+	      {
+		switch (innersize)
+		  {
+		  case  8: ret = CIL_V16QI; break;
+		  case 16: ret = CIL_V8HI;  break;
+		  case 32: ret = CIL_V4SI;  break;
+		  case 64: ret = CIL_V2DI;  break;
+		  default: break;
+		  }
+	      }
+	    else if (vec_size == 64)  /* 8-byte vectors */
+	      {
+		switch (innersize)
+		  {
+		  case  8: ret = CIL_V8QI; break;
+		  case 16: ret = CIL_V4HI;  break;
+		  case 32: ret = CIL_V2SI;  break;
+		  default: break;
+		  }
+	      }
+	    else if (vec_size == 32)  /* 4-byte vectors */
+	      {
+		switch (innersize)
+		  {
+		  case  8: ret = CIL_V4QI; break;
+		  case 16: ret = CIL_V2HI;  break;
+		  default: break;
+		  }
+	      }
+	  }
+	else if (TREE_CODE (innertype) == REAL_TYPE)
+	  {
+	    if (vec_size == 128)
+	      {
+		if (innersize == 32)
+		  ret = CIL_V4SF;
+		else if (innersize == 64)
+		  ret = CIL_V2DF;
+	      }
+	    else if (vec_size == 64)
+	      if (innersize == 32)
+		ret = CIL_V2SF;
+	  }
+	else
+	  {
+	    fprintf (stderr, "Vector of '%s'\n",
+		     tree_code_name[TREE_CODE (innertype)]);
+	  }
+	if (ret == CIL_NO_TYPE)
+	  internal_error ("Unsupported vector type %ld/%ld",
+			  vec_size, innersize);
+	return ret;
+      }
+
     default:
       gcc_unreachable ();
     }
@@ -607,13 +729,24 @@ value_type_p (tree type)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-    case VECTOR_TYPE:
     case COMPLEX_TYPE:
       return true;
 
     default:
       return false;
     }
+}
+
+/* Return TRUE if the type specified by TYPE is loaded on the stack as a
+   vector type, FALSE otherwise.  */
+
+static bool
+vector_type_p (tree type)
+{
+  if (TREE_CODE (type) == VECTOR_TYPE)
+    return true;
+  else
+    return false;
 }
 
 /* Return the result type of a binary operation OP with operands of types
@@ -665,6 +798,8 @@ cil_binary_op_type (enum cil_opcode op, cil_type_t type1, cil_type_t type2)
 	  else
 	    return type1;
 	}
+      else if (cil_vector_p (type1) && (type1 == type2))
+	return type1;
       else
 	gcc_unreachable ();
 

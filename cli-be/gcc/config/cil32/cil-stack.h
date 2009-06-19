@@ -1,6 +1,6 @@
 /* Prototypes for the stack information functionality.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #ifndef CIL_STACK_H
@@ -47,6 +48,7 @@ Erven Rohou             <erven.rohou@st.com>
 
 enum cil_type
 {
+  CIL_NO_TYPE,
   CIL_INT8, /* Signed 8-bit integer */
   CIL_INT16, /* Signed 16-bit integer */
   CIL_INT32, /* Signed 32-bit integer */
@@ -61,7 +63,22 @@ enum cil_type
   CIL_FLOAT32, /* Single precision floating-point */
   CIL_FLOAT64, /* Double precision floating-point */
   CIL_POINTER, /* Generic pointer */
-  CIL_VALUE_TYPE /* Generic value type */
+  CIL_VALUE_TYPE, /* Generic value type */
+  /* 4-byte vector types */
+  CIL_V2HI,    /* Vector of 2 16-bit integers */
+  CIL_V4QI,    /* Vector of 4 8-bit integers */
+  /* 8-byte vector types */
+  CIL_V2SI,    /* Vector of 2 32-bit integers */
+  CIL_V4HI,    /* Vector of 4 16-bit integers */
+  CIL_V8QI,    /* Vector of 8 8-bit integers */
+  CIL_V2SF,    /* Vector of 2 32-bit single precision floats */
+  /* 16-byte vector types */
+  CIL_V2DI,    /* Vector of 2 64-bit integers */
+  CIL_V4SI,    /* Vector of 4 32-bit integers */
+  CIL_V8HI,    /* Vector of 8 16-bit integers */
+  CIL_V16QI,   /* Vector of 16 8-bit integers */
+  CIL_V2DF,    /* Vector of 2 64-bit double precision floats */
+  CIL_V4SF     /* Vector of 4 32-bit single precision floats */
 };
 
 typedef enum cil_type cil_type_t;
@@ -114,6 +131,7 @@ extern void cil_set_stack_for_bb (cil_bb_stacks, basic_block, cil_stack);
 extern bool cil_integer_p (cil_type_t);
 extern bool cil_native_integer_p (cil_type_t);
 extern bool cil_float_p (cil_type_t);
+extern bool cil_vector_p (cil_type_t);
 extern bool cil_pointer_p (cil_type_t);
 extern bool cil_int_or_smaller_p (cil_type_t);
 extern bool cil_long_p (cil_type_t);

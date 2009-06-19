@@ -1,6 +1,6 @@
 /* Inlined functions for manipulating CIL statements.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #ifndef CIL_STMT_INLINE_H
@@ -178,6 +179,15 @@ cil_build_call (tree fdecl)
   return cil_build_call_generic (CIL_CALL, fdecl);
 }
 
+/* Builds a CIL NEWOBJ statement. The FDECL field holds the callee
+   declaration.  */
+
+static inline cil_stmt
+cil_build_newobj (tree fdecl)
+{
+  return cil_build_call_generic (CIL_NEWOBJ, fdecl);
+}
+
 /* Builds a CIL CALLI statement. The FTYPE field holds the callee type.  */
 
 static inline cil_stmt
@@ -257,14 +267,14 @@ cil_build_jmp_mp (tree fdecl, VEC (tree, heap) *arglist)
   return cil_build_call_generic_list (CIL_JMP, false, fdecl, arglist);
 }
 
-/* Return the type of the callee of a CIL CALL, CALLI or JMP statement.  */
+/* Return the type of the callee of a CIL CALL, CALLI, JMP or NEWOBJ
+   statement.  */
 
 static inline tree
 cil_call_ftype (const_cil_stmt stmt)
 {
-  gcc_assert (stmt->opcode == CIL_CALL
-	      || stmt->opcode == CIL_CALLI
-	      || stmt->opcode == CIL_JMP);
+  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_CALLI ||
+	      stmt->opcode == CIL_JMP || stmt->opcode == CIL_NEWOBJ);
 
   return stmt->arg.fcall->ftype;
 }
@@ -275,7 +285,8 @@ cil_call_ftype (const_cil_stmt stmt)
 static inline tree
 cil_call_fdecl (const_cil_stmt stmt)
 {
-  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_JMP);
+  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_JMP ||
+	      stmt->opcode == CIL_NEWOBJ);
 
   return stmt->arg.fcall->fdecl;
 }
@@ -286,20 +297,20 @@ cil_call_fdecl (const_cil_stmt stmt)
 static inline size_t
 cil_call_nargs (const_cil_stmt stmt)
 {
-  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_CALLI);
+  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_CALLI ||
+	      stmt->opcode == CIL_NEWOBJ);
 
   return stmt->arg.fcall->nargs;
 }
 
-/* Return the I-th argument passed to the callee of a CIL CALL, CALLI or JMP
-   statement.  */
+/* Return the I-th argument passed to the callee of a CIL CALL, CALLI, JMP or
+   NEWOBJ statement.  */
 
 static inline tree
 cil_call_arg_type (const_cil_stmt stmt, size_t i)
 {
-  gcc_assert (stmt->opcode == CIL_CALL
-	      || stmt->opcode == CIL_CALLI
-	      || stmt->opcode == CIL_JMP);
+  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_CALLI ||
+	      stmt->opcode == CIL_JMP || stmt->opcode == CIL_NEWOBJ);
   gcc_assert (i < stmt->arg.fcall->nargs);
 
   return stmt->arg.fcall->arguments[i];
@@ -323,9 +334,8 @@ cil_call_set_static_chain (cil_stmt stmt, tree sc_type)
 static inline tree
 cil_call_static_chain (const_cil_stmt stmt)
 {
-  gcc_assert (stmt->opcode == CIL_CALL
-	      || stmt->opcode == CIL_CALLI
-	      || stmt->opcode == CIL_JMP);
+  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_CALLI ||
+	      stmt->opcode == CIL_JMP || stmt->opcode == CIL_NEWOBJ);
 
   if (stmt->arg.fcall->static_chain_p)
     return stmt->arg.fcall->static_chain;
@@ -365,9 +375,8 @@ cil_call_dummy_arg (const_cil_stmt stmt)
 static inline bool
 cil_call_vararg_p (const_cil_stmt stmt)
 {
-  gcc_assert (stmt->opcode == CIL_CALL
-	      || stmt->opcode == CIL_CALLI
-	      || stmt->opcode == CIL_JMP);
+  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_CALLI ||
+	      stmt->opcode == CIL_JMP || stmt->opcode == CIL_NEWOBJ);
 
   return stmt->arg.fcall->vararg_p;
 }

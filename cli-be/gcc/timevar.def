@@ -200,6 +200,7 @@ DEFTIMEVAR (TV_REMOVE_TEMPS          , "remove unnecessary temporaries")
 DEFTIMEVAR (TV_SIMP_COND             , "simplify conditional branches")
 DEFTIMEVAR (TV_EMIT_CIL_VCG          , "emit the VCG for CIL code")
 DEFTIMEVAR (TV_EMIT_CIL              , "CIL assembly emission")
+DEFTIMEVAR (TV_LOWER_CIL             , "CIL lowering")
 
 /* Everything else in rest_of_compilation not included above.  */
 DEFTIMEVAR (TV_REST_OF_COMPILATION   , "rest of compilation")

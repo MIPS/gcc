@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for cil32.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,7 +27,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #define DISABLE_RTL_PASSES 1
@@ -92,7 +93,7 @@ extern int target_flags;
 #define WORDS_BIG_ENDIAN 0
 
 #define UNITS_PER_WORD 4
-#define UNITS_PER_SIMD_WORD 4
+#define UNITS_PER_SIMD_WORD 16
 
 /* Unused by cil32 machine */
 #define PARM_BOUNDARY 32
@@ -109,7 +110,7 @@ extern int target_flags;
 
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
-#define MAX_FIXED_MODE_SIZE 64
+#define MAX_FIXED_MODE_SIZE 128
 
 
 /* Node: Type Layout */
@@ -128,13 +129,13 @@ extern int target_flags;
 
 /* Node: Register Basics */
 
-#define FIRST_PSEUDO_REGISTER (1)
-#define FIXED_REGISTERS {0}
-#define CALL_USED_REGISTERS {1}
+#define FIRST_PSEUDO_REGISTER (32)
+#define FIXED_REGISTERS {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define CALL_USED_REGISTERS {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 /* Node: Allocation Order */
 
-#define REG_ALLOC_ORDER {0}
+/* #define REG_ALLOC_ORDER {0} */
 
 
 /* Node: Values in Registers */
@@ -176,8 +177,8 @@ enum reg_class
 #define REG_CLASS_CONTENTS			\
   {						\
    {0},						\
-   {1},                  			\
-   {1}                                          \
+   {0xffffffff},                                \
+   {0xffffffff}                                 \
   }
 
 #define REGNO_REG_CLASS(REGNO) GENERAL_REGS
@@ -450,7 +451,12 @@ struct cum_args {int regs;};
 
 /* Node: Instruction Output */
 
-#define REGISTER_NAMES {"fake"}
+#define REGISTER_NAMES {                                                       \
+"fake0", "fake1", "fake2", "fake3", "fake4", "fake5", "fake6", "fake7",        \
+"fake8", "fake9", "fake10", "fake11", "fake12", "fake13", "fake14", "fake15",  \
+"fake16", "fake17", "fake18", "fake19", "fake20", "fake21", "fake22", "fake23",\
+"fake24", "fake25", "fake26", "fake27", "fake28", "fake29", "fake30", "fake31",\
+}
 
 #define PRINT_OPERAND(FILE, X, CODE) (gcc_unreachable ())
 
@@ -541,6 +547,7 @@ extern struct tree_opt_pass pass_remove_temps;
 extern struct tree_opt_pass pass_simp_cond;
 extern struct tree_opt_pass pass_emit_cil_vcg;
 extern struct tree_opt_pass pass_emit_cil;
+extern struct tree_opt_pass pass_lower_cil;
 
 /*
  * Local variables:

@@ -1,6 +1,6 @@
 /* Run-time support required by CIL binaries.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
    Contributed by STMicroelectronics
 
 This program is free software; you can redistribute it and/or
@@ -27,7 +27,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 using System;
@@ -563,6 +564,56 @@ namespace gcc4net {
         {
             return (int) ((v.f0 << 24) | (v.f1 << 16) | (v.f2 << 8) | v.f3);
         }
+
+        public static V4QI add(V4QI x, V4QI y)
+        {
+	  V4QI result;
+	  result.f0 = (byte)(x.f0 + y.f0);
+	  result.f1 = (byte)(x.f1 + y.f1);
+	  result.f2 = (byte)(x.f2 + y.f2);
+	  result.f3 = (byte)(x.f3 + y.f3);
+	  return result;
+	}
+
+        public static V4QI sub(V4QI x, V4QI y)
+        {
+	  V4QI result;
+	  result.f0 = (byte)(x.f0 - y.f0);
+	  result.f1 = (byte)(x.f1 - y.f1);
+	  result.f2 = (byte)(x.f2 - y.f2);
+	  result.f3 = (byte)(x.f3 - y.f3);
+	  return result;
+	}
+
+        public static V4QI and(V4QI x, V4QI y)
+        {
+	  V4QI result;
+	  result.f0 = (byte)(x.f0 & y.f0);
+	  result.f1 = (byte)(x.f1 & y.f1);
+	  result.f2 = (byte)(x.f2 & y.f2);
+	  result.f3 = (byte)(x.f3 & y.f3);
+	  return result;
+	}
+
+        public static V4QI or(V4QI x, V4QI y)
+        {
+	  V4QI result;
+	  result.f0 = (byte)(x.f0 | y.f0);
+	  result.f1 = (byte)(x.f1 | y.f1);
+	  result.f2 = (byte)(x.f2 | y.f2);
+	  result.f3 = (byte)(x.f3 | y.f3);
+	  return result;
+	}
+
+        public static V4QI xor(V4QI x, V4QI y)
+        {
+	  V4QI result;
+	  result.f0 = (byte)(x.f0 ^ y.f0);
+	  result.f1 = (byte)(x.f1 ^ y.f1);
+	  result.f2 = (byte)(x.f2 ^ y.f2);
+	  result.f3 = (byte)(x.f3 ^ y.f3);
+	  return result;
+	}
     }
 
 
@@ -594,6 +645,46 @@ namespace gcc4net {
         {
             return (int)((v.f0 << 16) | v.f1);
         }
+
+        public static V2HI add(V2HI x, V2HI y)
+        {
+	  V2HI result;
+	  result.f0 = (ushort)(x.f0 + y.f0);
+	  result.f1 = (ushort)(x.f1 + y.f1);
+	  return result;
+	}
+
+        public static V2HI sub(V2HI x, V2HI y)
+        {
+	  V2HI result;
+	  result.f0 = (ushort)(x.f0 - y.f0);
+	  result.f1 = (ushort)(x.f1 - y.f1);
+	  return result;
+	}
+
+        public static V2HI and(V2HI x, V2HI y)
+        {
+	  V2HI result;
+	  result.f0 = (ushort)(x.f0 & y.f0);
+	  result.f1 = (ushort)(x.f1 & y.f1);
+	  return result;
+	}
+
+        public static V2HI or(V2HI x, V2HI y)
+        {
+	  V2HI result;
+	  result.f0 = (ushort)(x.f0 | y.f0);
+	  result.f1 = (ushort)(x.f1 | y.f1);
+	  return result;
+	}
+
+        public static V2HI xor(V2HI x, V2HI y)
+        {
+	  V2HI result;
+	  result.f0 = (ushort)(x.f0 ^ y.f0);
+	  result.f1 = (ushort)(x.f1 ^ y.f1);
+	  return result;
+	}
     }
 
     // 8-byte int vector types: V8QI, V4HI, V2SI
@@ -643,6 +734,76 @@ namespace gcc4net {
                         ((ulong)v.f4 << 24) | ((ulong)v.f5 << 16) |
                         ((ulong)v.f6 << 8)  |  (ulong)v.f7);
         }
+
+        public static V8QI add(V8QI x, V8QI y)
+        {
+	  V8QI result;
+	  result.f0 = (byte)(x.f0 + y.f0);
+	  result.f1 = (byte)(x.f1 + y.f1);
+	  result.f2 = (byte)(x.f2 + y.f2);
+	  result.f3 = (byte)(x.f3 + y.f3);
+	  result.f4 = (byte)(x.f4 + y.f4);
+	  result.f5 = (byte)(x.f5 + y.f5);
+	  result.f6 = (byte)(x.f6 + y.f6);
+	  result.f7 = (byte)(x.f7 + y.f7);
+	  return result;
+	}
+
+        public static V8QI sub(V8QI x, V8QI y)
+        {
+	  V8QI result;
+	  result.f0 = (byte)(x.f0 - y.f0);
+	  result.f1 = (byte)(x.f1 - y.f1);
+	  result.f2 = (byte)(x.f2 - y.f2);
+	  result.f3 = (byte)(x.f3 - y.f3);
+	  result.f4 = (byte)(x.f4 - y.f4);
+	  result.f5 = (byte)(x.f5 - y.f5);
+	  result.f6 = (byte)(x.f6 - y.f6);
+	  result.f7 = (byte)(x.f7 - y.f7);
+	  return result;
+	}
+
+        public static V8QI and(V8QI x, V8QI y)
+        {
+	  V8QI result;
+	  result.f0 = (byte)(x.f0 & y.f0);
+	  result.f1 = (byte)(x.f1 & y.f1);
+	  result.f2 = (byte)(x.f2 & y.f2);
+	  result.f3 = (byte)(x.f3 & y.f3);
+	  result.f4 = (byte)(x.f4 & y.f4);
+	  result.f5 = (byte)(x.f5 & y.f5);
+	  result.f6 = (byte)(x.f6 & y.f6);
+	  result.f7 = (byte)(x.f7 & y.f7);
+	  return result;
+	}
+
+        public static V8QI or(V8QI x, V8QI y)
+        {
+	  V8QI result;
+	  result.f0 = (byte)(x.f0 | y.f0);
+	  result.f1 = (byte)(x.f1 | y.f1);
+	  result.f2 = (byte)(x.f2 | y.f2);
+	  result.f3 = (byte)(x.f3 | y.f3);
+	  result.f4 = (byte)(x.f4 | y.f4);
+	  result.f5 = (byte)(x.f5 | y.f5);
+	  result.f6 = (byte)(x.f6 | y.f6);
+	  result.f7 = (byte)(x.f7 | y.f7);
+	  return result;
+	}
+
+        public static V8QI xor(V8QI x, V8QI y)
+        {
+	  V8QI result;
+	  result.f0 = (byte)(x.f0 ^ y.f0);
+	  result.f1 = (byte)(x.f1 ^ y.f1);
+	  result.f2 = (byte)(x.f2 ^ y.f2);
+	  result.f3 = (byte)(x.f3 ^ y.f3);
+	  result.f4 = (byte)(x.f4 ^ y.f4);
+	  result.f5 = (byte)(x.f5 ^ y.f5);
+	  result.f6 = (byte)(x.f6 ^ y.f6);
+	  result.f7 = (byte)(x.f7 ^ y.f7);
+	  return result;
+	}
     }
 
 
@@ -679,6 +840,56 @@ namespace gcc4net {
             return (long)(((ulong)v.f0 << 48) | ((ulong)v.f1 << 32) |
                           ((ulong)v.f2 << 16) |  (ulong)v.f3);
         }
+
+        public static V4HI add(V4HI x, V4HI y)
+        {
+	  V4HI result;
+	  result.f0 = (ushort)(x.f0 + y.f0);
+	  result.f1 = (ushort)(x.f1 + y.f1);
+	  result.f2 = (ushort)(x.f2 + y.f2);
+	  result.f3 = (ushort)(x.f3 + y.f3);
+	  return result;
+	}
+
+        public static V4HI sub(V4HI x, V4HI y)
+        {
+	  V4HI result;
+	  result.f0 = (ushort)(x.f0 - y.f0);
+	  result.f1 = (ushort)(x.f1 - y.f1);
+	  result.f2 = (ushort)(x.f2 - y.f2);
+	  result.f3 = (ushort)(x.f3 - y.f3);
+	  return result;
+	}
+
+        public static V4HI and(V4HI x, V4HI y)
+        {
+	  V4HI result;
+	  result.f0 = (ushort)(x.f0 & y.f0);
+	  result.f1 = (ushort)(x.f1 & y.f1);
+	  result.f2 = (ushort)(x.f2 & y.f2);
+	  result.f3 = (ushort)(x.f3 & y.f3);
+	  return result;
+	}
+
+        public static V4HI or(V4HI x, V4HI y)
+        {
+	  V4HI result;
+	  result.f0 = (ushort)(x.f0 | y.f0);
+	  result.f1 = (ushort)(x.f1 | y.f1);
+	  result.f2 = (ushort)(x.f2 | y.f2);
+	  result.f3 = (ushort)(x.f3 | y.f3);
+	  return result;
+	}
+
+        public static V4HI xor(V4HI x, V4HI y)
+        {
+	  V4HI result;
+	  result.f0 = (ushort)(x.f0 ^ y.f0);
+	  result.f1 = (ushort)(x.f1 ^ y.f1);
+	  result.f2 = (ushort)(x.f2 ^ y.f2);
+	  result.f3 = (ushort)(x.f3 ^ y.f3);
+	  return result;
+	}
     }
 
 
@@ -709,6 +920,46 @@ namespace gcc4net {
         {
             return (long)(((ulong)v.f0 << 32) | (ulong)v.f1);
         }
+
+        public static V2SI add(V2SI x, V2SI y)
+        {
+	  V2SI result;
+	  result.f0 = x.f0 + y.f0;
+	  result.f1 = x.f1 + y.f1;
+	  return result;
+	}
+
+        public static V2SI sub(V2SI x, V2SI y)
+        {
+	  V2SI result;
+	  result.f0 = x.f0 - y.f0;
+	  result.f1 = x.f1 - y.f1;
+	  return result;
+	}
+
+        public static V2SI and(V2SI x, V2SI y)
+        {
+	  V2SI result;
+	  result.f0 = x.f0 & y.f0;
+	  result.f1 = x.f1 & y.f1;
+	  return result;
+	}
+
+        public static V2SI or(V2SI x, V2SI y)
+        {
+	  V2SI result;
+	  result.f0 = x.f0 | y.f0;
+	  result.f1 = x.f1 | y.f1;
+	  return result;
+	}
+
+        public static V2SI xor(V2SI x, V2SI y)
+        {
+	  V2SI result;
+	  result.f0 = x.f0 ^ y.f0;
+	  result.f1 = x.f1 ^ y.f1;
+	  return result;
+	}
     }
 
 
@@ -725,6 +976,56 @@ namespace gcc4net {
             result.f3 = b3;
             return result;
         }
+
+        public static V4SI add(V4SI x, V4SI y)
+        {
+	  V4SI result;
+	  result.f0 = x.f0 + y.f0;
+	  result.f1 = x.f1 + y.f1;
+	  result.f2 = x.f2 + y.f2;
+	  result.f3 = x.f3 + y.f3;
+	  return result;
+	}
+
+        public static V4SI sub(V4SI x, V4SI y)
+        {
+	  V4SI result;
+	  result.f0 = x.f0 - y.f0;
+	  result.f1 = x.f1 - y.f1;
+	  result.f2 = x.f2 - y.f2;
+	  result.f3 = x.f3 - y.f3;
+	  return result;
+	}
+
+        public static V4SI and(V4SI x, V4SI y)
+        {
+	  V4SI result;
+	  result.f0 = x.f0 & y.f0;
+	  result.f1 = x.f1 & y.f1;
+	  result.f2 = x.f2 & y.f2;
+	  result.f3 = x.f3 & y.f3;
+	  return result;
+	}
+
+        public static V4SI or(V4SI x, V4SI y)
+        {
+	  V4SI result;
+	  result.f0 = x.f0 | y.f0;
+	  result.f1 = x.f1 | y.f1;
+	  result.f2 = x.f2 | y.f2;
+	  result.f3 = x.f3 | y.f3;
+	  return result;
+	}
+
+        public static V4SI xor(V4SI x, V4SI y)
+        {
+	  V4SI result;
+	  result.f0 = x.f0 ^ y.f0;
+	  result.f1 = x.f1 ^ y.f1;
+	  result.f2 = x.f2 ^ y.f2;
+	  result.f3 = x.f3 ^ y.f3;
+	  return result;
+	}
 
         public unsafe static V4SF V4SI_to_V4SF(V4SI v)
         {
@@ -752,6 +1053,76 @@ namespace gcc4net {
             result.f7 = b7;
             return result;
         }
+
+        public static V8HI add(V8HI x, V8HI y)
+        {
+	  V8HI result;
+	  result.f0 = (ushort)(x.f0 + y.f0);
+	  result.f1 = (ushort)(x.f1 + y.f1);
+	  result.f2 = (ushort)(x.f2 + y.f2);
+	  result.f3 = (ushort)(x.f3 + y.f3);
+	  result.f4 = (ushort)(x.f4 + y.f4);
+	  result.f5 = (ushort)(x.f5 + y.f5);
+	  result.f6 = (ushort)(x.f6 + y.f6);
+	  result.f7 = (ushort)(x.f7 + y.f7);
+	  return result;
+	}
+
+        public static V8HI sub(V8HI x, V8HI y)
+        {
+	  V8HI result;
+	  result.f0 = (ushort)(x.f0 - y.f0);
+	  result.f1 = (ushort)(x.f1 - y.f1);
+	  result.f2 = (ushort)(x.f2 - y.f2);
+	  result.f3 = (ushort)(x.f3 - y.f3);
+	  result.f4 = (ushort)(x.f4 - y.f4);
+	  result.f5 = (ushort)(x.f5 - y.f5);
+	  result.f6 = (ushort)(x.f6 - y.f6);
+	  result.f7 = (ushort)(x.f7 - y.f7);
+	  return result;
+	}
+
+        public static V8HI and(V8HI x, V8HI y)
+        {
+	  V8HI result;
+	  result.f0 = (ushort)(x.f0 & y.f0);
+	  result.f1 = (ushort)(x.f1 & y.f1);
+	  result.f2 = (ushort)(x.f2 & y.f2);
+	  result.f3 = (ushort)(x.f3 & y.f3);
+	  result.f4 = (ushort)(x.f4 & y.f4);
+	  result.f5 = (ushort)(x.f5 & y.f5);
+	  result.f6 = (ushort)(x.f6 & y.f6);
+	  result.f7 = (ushort)(x.f7 & y.f7);
+	  return result;
+	}
+
+        public static V8HI or(V8HI x, V8HI y)
+        {
+	  V8HI result;
+	  result.f0 = (ushort)(x.f0 | y.f0);
+	  result.f1 = (ushort)(x.f1 | y.f1);
+	  result.f2 = (ushort)(x.f2 | y.f2);
+	  result.f3 = (ushort)(x.f3 | y.f3);
+	  result.f4 = (ushort)(x.f4 | y.f4);
+	  result.f5 = (ushort)(x.f5 | y.f5);
+	  result.f6 = (ushort)(x.f6 | y.f6);
+	  result.f7 = (ushort)(x.f7 | y.f7);
+	  return result;
+	}
+
+        public static V8HI xor(V8HI x, V8HI y)
+        {
+	  V8HI result;
+	  result.f0 = (ushort)(x.f0 ^ y.f0);
+	  result.f1 = (ushort)(x.f1 ^ y.f1);
+	  result.f2 = (ushort)(x.f2 ^ y.f2);
+	  result.f3 = (ushort)(x.f3 ^ y.f3);
+	  result.f4 = (ushort)(x.f4 ^ y.f4);
+	  result.f5 = (ushort)(x.f5 ^ y.f5);
+	  result.f6 = (ushort)(x.f6 ^ y.f6);
+	  result.f7 = (ushort)(x.f7 ^ y.f7);
+	  return result;
+	}
     }
 
     public struct V16QI {
@@ -782,6 +1153,116 @@ namespace gcc4net {
             result.f15 = b15;
             return result;
         }
+
+        public static V16QI add(V16QI x, V16QI y)
+        {
+	  V16QI result;
+	  result.f0 = (byte)(x.f0 + y.f0);
+	  result.f1 = (byte)(x.f1 + y.f1);
+	  result.f2 = (byte)(x.f2 + y.f2);
+	  result.f3 = (byte)(x.f3 + y.f3);
+	  result.f4 = (byte)(x.f4 + y.f4);
+	  result.f5 = (byte)(x.f5 + y.f5);
+	  result.f6 = (byte)(x.f6 + y.f6);
+	  result.f7 = (byte)(x.f7 + y.f7);
+	  result.f8 = (byte)(x.f8 + y.f8);
+	  result.f9 = (byte)(x.f9 + y.f9);
+	  result.f10 = (byte)(x.f10 + y.f10);
+	  result.f11 = (byte)(x.f11 + y.f11);
+	  result.f12 = (byte)(x.f12 + y.f12);
+	  result.f13 = (byte)(x.f13 + y.f13);
+	  result.f14 = (byte)(x.f14 + y.f14);
+	  result.f15 = (byte)(x.f15 + y.f15);
+	  return result;
+	}
+
+        public static V16QI sub(V16QI x, V16QI y)
+        {
+	  V16QI result;
+	  result.f0 = (byte)(x.f0 - y.f0);
+	  result.f1 = (byte)(x.f1 - y.f1);
+	  result.f2 = (byte)(x.f2 - y.f2);
+	  result.f3 = (byte)(x.f3 - y.f3);
+	  result.f4 = (byte)(x.f4 - y.f4);
+	  result.f5 = (byte)(x.f5 - y.f5);
+	  result.f6 = (byte)(x.f6 - y.f6);
+	  result.f7 = (byte)(x.f7 - y.f7);
+	  result.f8 = (byte)(x.f8 - y.f8);
+	  result.f9 = (byte)(x.f9 - y.f9);
+	  result.f10 = (byte)(x.f10 - y.f10);
+	  result.f11 = (byte)(x.f11 - y.f11);
+	  result.f12 = (byte)(x.f12 - y.f12);
+	  result.f13 = (byte)(x.f13 - y.f13);
+	  result.f14 = (byte)(x.f14 - y.f14);
+	  result.f15 = (byte)(x.f15 - y.f15);
+	  return result;
+	}
+
+        public static V16QI and(V16QI x, V16QI y)
+        {
+	  V16QI result;
+	  result.f0 = (byte)(x.f0 & y.f0);
+	  result.f1 = (byte)(x.f1 & y.f1);
+	  result.f2 = (byte)(x.f2 & y.f2);
+	  result.f3 = (byte)(x.f3 & y.f3);
+	  result.f4 = (byte)(x.f4 & y.f4);
+	  result.f5 = (byte)(x.f5 & y.f5);
+	  result.f6 = (byte)(x.f6 & y.f6);
+	  result.f7 = (byte)(x.f7 & y.f7);
+	  result.f8 = (byte)(x.f8 & y.f8);
+	  result.f9 = (byte)(x.f9 & y.f9);
+	  result.f10 = (byte)(x.f10 & y.f10);
+	  result.f11 = (byte)(x.f11 & y.f11);
+	  result.f12 = (byte)(x.f12 & y.f12);
+	  result.f13 = (byte)(x.f13 & y.f13);
+	  result.f14 = (byte)(x.f14 & y.f14);
+	  result.f15 = (byte)(x.f15 & y.f15);
+	  return result;
+	}
+
+        public static V16QI or(V16QI x, V16QI y)
+        {
+	  V16QI result;
+	  result.f0 = (byte)(x.f0 | y.f0);
+	  result.f1 = (byte)(x.f1 | y.f1);
+	  result.f2 = (byte)(x.f2 | y.f2);
+	  result.f3 = (byte)(x.f3 | y.f3);
+	  result.f4 = (byte)(x.f4 | y.f4);
+	  result.f5 = (byte)(x.f5 | y.f5);
+	  result.f6 = (byte)(x.f6 | y.f6);
+	  result.f7 = (byte)(x.f7 | y.f7);
+	  result.f8 = (byte)(x.f8 | y.f8);
+	  result.f9 = (byte)(x.f9 | y.f9);
+	  result.f10 = (byte)(x.f10 | y.f10);
+	  result.f11 = (byte)(x.f11 | y.f11);
+	  result.f12 = (byte)(x.f12 | y.f12);
+	  result.f13 = (byte)(x.f13 | y.f13);
+	  result.f14 = (byte)(x.f14 | y.f14);
+	  result.f15 = (byte)(x.f15 | y.f15);
+	  return result;
+	}
+
+        public static V16QI xor(V16QI x, V16QI y)
+        {
+	  V16QI result;
+	  result.f0 = (byte)(x.f0 ^ y.f0);
+	  result.f1 = (byte)(x.f1 ^ y.f1);
+	  result.f2 = (byte)(x.f2 ^ y.f2);
+	  result.f3 = (byte)(x.f3 ^ y.f3);
+	  result.f4 = (byte)(x.f4 ^ y.f4);
+	  result.f5 = (byte)(x.f5 ^ y.f5);
+	  result.f6 = (byte)(x.f6 ^ y.f6);
+	  result.f7 = (byte)(x.f7 ^ y.f7);
+	  result.f8 = (byte)(x.f8 ^ y.f8);
+	  result.f9 = (byte)(x.f9 ^ y.f9);
+	  result.f10 = (byte)(x.f10 ^ y.f10);
+	  result.f11 = (byte)(x.f11 ^ y.f11);
+	  result.f12 = (byte)(x.f12 ^ y.f12);
+	  result.f13 = (byte)(x.f13 ^ y.f13);
+	  result.f14 = (byte)(x.f14 ^ y.f14);
+	  result.f15 = (byte)(x.f15 ^ y.f15);
+	  return result;
+	}
     }
 
     // 8-byte float vector types: V2SF
@@ -802,6 +1283,22 @@ namespace gcc4net {
             uint a1 = *(uint*)&v.f1;
             return (long)(((ulong)a0 << 32) | (ulong)a1);
         }
+
+        public static V2SF add(V2SF x, V2SF y)
+        {
+	  V2SF result;
+	  result.f0 = x.f0 + y.f0;
+	  result.f1 = x.f1 + y.f1;
+	  return result;
+	}
+
+        public static V2SF sub(V2SF x, V2SF y)
+        {
+	  V2SF result;
+	  result.f0 = x.f0 - y.f0;
+	  result.f1 = x.f1 - y.f1;
+	  return result;
+	}
     }
 
     // 16-byte float vector types: V4SF
@@ -817,5 +1314,54 @@ namespace gcc4net {
             result.f3 = b3;
             return result;
         }
+
+        public static V4SF add(V4SF x, V4SF y)
+        {
+	  V4SF result;
+	  result.f0 = x.f0 + y.f0;
+	  result.f1 = x.f1 + y.f1;
+	  result.f2 = x.f2 + y.f2;
+	  result.f3 = x.f3 + y.f3;
+	  return result;
+	}
+
+        public static V4SF sub(V4SF x, V4SF y)
+        {
+	  V4SF result;
+	  result.f0 = x.f0 - y.f0;
+	  result.f1 = x.f1 - y.f1;
+	  result.f2 = x.f2 - y.f2;
+	  result.f3 = x.f3 - y.f3;
+	  return result;
+	}
+    }
+
+    // 16-byte float vector types: V2DF
+    public struct V2DF {
+        private double f0, f1;
+
+        public static V2DF V2DF_ctor1(double b0, double b1)
+        {
+            V2DF result;
+            result.f0 = b0;
+            result.f1 = b1;
+            return result;
+        }
+
+        public static V2DF add(V2DF x, V2DF y)
+        {
+	  V2DF result;
+	  result.f0 = x.f0 + y.f0;
+	  result.f1 = x.f1 + y.f1;
+	  return result;
+	}
+
+        public static V2DF sub(V2DF x, V2DF y)
+        {
+	  V2DF result;
+	  result.f0 = x.f0 - y.f0;
+	  result.f1 = x.f1 - y.f1;
+	  return result;
+	}
     }
 }

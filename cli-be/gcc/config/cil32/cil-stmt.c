@@ -1,6 +1,6 @@
 /* CIL statements, sequences and iterators implementation.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #include "config.h"
@@ -35,10 +36,10 @@ Erven Rohou             <erven.rohou@st.com>
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
-#include "tree-flow.h"
-#include "cil-types.h"
+
 #include "cil-refs.h"
 #include "cil-stmt.h"
+#include "cil-types.h"
 
 /******************************************************************************
  * Globals                                                                    *
@@ -144,7 +145,8 @@ cil_build_call_generic (enum cil_opcode opcode, tree type_or_decl)
   tree arg_types;
   size_t i;
 
-  gcc_assert (opcode == CIL_CALL || opcode == CIL_CALLI || opcode == CIL_JMP);
+  gcc_assert (opcode == CIL_CALL || opcode == CIL_CALLI ||
+	      opcode == CIL_JMP || opcode == CIL_NEWOBJ);
 
   if (opcode != CIL_CALLI)
     {
@@ -240,9 +242,9 @@ cil_build_call_generic_list (enum cil_opcode opcode, bool va,
   return stmt;
 }
 
-/* Return the number of arguments accepted by the callee of a CIL CALL or CALLI
-   statement. This does not include the arguments after the ellipsis in a
-   variable argument call.  */
+/* Return the number of arguments accepted by the callee of a CIL CALL, CALLI,
+   JMP or NEWOBJ statement. This does not include the arguments after the
+   ellipsis in a variable argument call.  */
 
 size_t
 cil_call_nargs_base (const_cil_stmt stmt)
@@ -251,7 +253,8 @@ cil_call_nargs_base (const_cil_stmt stmt)
 
   gcc_assert (stmt->opcode == CIL_CALL
               || stmt->opcode == CIL_CALLI
-              || stmt->opcode == CIL_JMP);
+              || stmt->opcode == CIL_JMP
+              || stmt->opcode == CIL_NEWOBJ);
 
   arg_types = TYPE_ARG_TYPES (stmt->arg.fcall->ftype);
 
@@ -370,6 +373,7 @@ cil_prefix_unaligned (const_cil_stmt stmt)
 {
   gcc_assert ((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
 	      || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
+	      || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
 	      || ((stmt->opcode >= CIL_LDIND_I1) && (stmt->opcode <= CIL_LDIND_I))
 	      || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
 	      || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD));
@@ -385,6 +389,7 @@ cil_set_prefix_unaligned (cil_stmt stmt, int alignment)
 {
   gcc_assert ((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
 	      || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
+	      || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
 	      || ((stmt->opcode >= CIL_LDIND_I1) && (stmt->opcode <= CIL_LDIND_I))
 	      || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
 	      || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD));
@@ -401,6 +406,7 @@ cil_set_prefix_volatile (cil_stmt stmt, bool status)
 {
   gcc_assert ((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
 	      || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
+	      || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
 	      || ((stmt->opcode >= CIL_LDIND_I1) && (stmt->opcode <= CIL_LDIND_I))
 	      || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
 	      || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD)
@@ -417,6 +423,7 @@ cil_prefix_volatile (const_cil_stmt stmt)
 {
   gcc_assert ((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
 	      || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
+	      || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
 	      || ((stmt->opcode >= CIL_LDIND_I1) && (stmt->opcode <= CIL_LDIND_I))
 	      || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
 	      || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD)
@@ -444,6 +451,10 @@ opcode_arg_type (enum cil_opcode opcode)
       case CIL_INITOBJ:
       case CIL_LDOBJ:
       case CIL_STOBJ:
+	/* vector types */
+      case CIL_VEC_CTOR:
+      case CIL_LDVEC:
+      case CIL_STVEC:
 	return CIL_TYPE;
 
       case CIL_LDFLD:
@@ -918,6 +929,7 @@ cil_seq_stack_depth (cil_seq seq, unsigned int init, bool max)
 
 	case CIL_CALL:
 	case CIL_JMP:
+	case CIL_NEWOBJ:
 	  nargs = cil_call_nargs (cs) + (cil_call_static_chain (cs) ? 1 : 0);
 	  gcc_assert (depth >= nargs);
 	  depth -= nargs;

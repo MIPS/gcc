@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for cil32.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,7 +27,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #include "config.h"
@@ -57,6 +58,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "ggc.h"
 #include "optabs.h"
 #include "langhooks.h"
+
 #include "cil32-protos.h"
 #include "cil-builtins.h"
 #include "cil-types.h"
@@ -120,6 +122,7 @@ cil_init_machine_status (void)
   machine->label_id = 0;
   machine->label_addrs = NULL_TREE;
   machine->locals_init = false;
+  machine->has_vec = false;
   machine->bb_seqs = htab_create_ggc (32, cil_basic_block_hash,
 				      cil_basic_block_eq, NULL);
 

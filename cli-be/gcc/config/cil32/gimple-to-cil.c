@@ -1,6 +1,6 @@
 /* GIMPLE to CIL conversion pass.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #include "config.h"
@@ -41,6 +42,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "pointer-set.h"
+
 #include "cil-builtins.h"
 #include "cil-refs.h"
 #include "cil-stmt.h"
@@ -76,7 +78,6 @@ static void gen_modify_expr (cil_stmt_iterator *, tree, tree);
 static void gen_goto_expr (cil_stmt_iterator *, tree);
 static void gen_cond_expr (cil_stmt_iterator *, tree);
 static void gen_switch_expr (cil_stmt_iterator *, tree);
-static void gen_vector_constructor (cil_stmt_iterator *, tree);
 static void gen_builtin_va_start (cil_stmt_iterator *, tree);
 static void gen_builtin_va_end (cil_stmt_iterator *, tree);
 static void gen_builtin_va_copy (cil_stmt_iterator *, tree);
@@ -170,6 +171,8 @@ gen_addr_expr (cil_stmt_iterator *csi, tree node)
 	  stmt = cil_build_stmt (CIL_CONV_I);
 	  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 	}
+      else if (TREE_CODE (TREE_TYPE (node)) == VECTOR_TYPE)
+	cfun->machine->has_vec = true;
 
       break;
 
@@ -191,6 +194,7 @@ gen_addr_expr (cil_stmt_iterator *csi, tree node)
       break;
 
     case INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
       gimple_to_cil_node (csi, GENERIC_TREE_OPERAND (node, 0));
       break;
 
@@ -390,13 +394,48 @@ gen_ldind (cil_stmt_iterator *csi, tree type, bool volat)
 {
   cil_stmt stmt;
 
-  if (AGGREGATE_TYPE_P (type) ||
-      TREE_CODE (type) == COMPLEX_TYPE ||
-      TREE_CODE (type) == VECTOR_TYPE)
+  if (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE)
     {
       stmt = cil_build_stmt_arg (CIL_LDOBJ, type);
       cil_set_prefix_volatile (stmt, volat);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+    }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    {
+      stmt = cil_build_stmt_arg (CIL_LDVEC, type);
+      cil_set_prefix_volatile (stmt, volat);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+      cfun->machine->has_vec = true;
+    }
+  else
+    gen_scalar_ldind (csi, type, true);
+}
+
+/* Generate a misaligned indirect load statement for the type specified by
+   TYPE. The load is made volatile if VOLAT is true. The generated statements
+   are appended to the current function's CIL code using the CSI iterator.  */
+
+static void
+gen_misaligned_ldvec (cil_stmt_iterator *csi, tree type, bool volat)
+{
+  cil_stmt stmt;
+
+  gcc_assert (TREE_CODE (type) == VECTOR_TYPE);
+
+  if (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE)
+    {
+      gcc_assert (0);  /* FIXME: is this reachable? */
+      stmt = cil_build_stmt_arg (CIL_LDOBJ, type);
+      cil_set_prefix_volatile (stmt, volat);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+    }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    {
+      stmt = cil_build_stmt_arg (CIL_LDVEC, type);
+      cil_set_prefix_volatile (stmt, volat);
+      cil_set_prefix_unaligned (stmt, 1);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+      cfun->machine->has_vec = true;
     }
   else
     gen_scalar_ldind (csi, type, true);
@@ -411,13 +450,48 @@ gen_stind (cil_stmt_iterator *csi, tree type, bool volat)
 {
   cil_stmt stmt;
 
-  if (AGGREGATE_TYPE_P (type) ||
-      TREE_CODE (type) == COMPLEX_TYPE ||
-      TREE_CODE (type) == VECTOR_TYPE)
+  if (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE)
     {
       stmt = cil_build_stmt_arg (CIL_STOBJ, type);
       cil_set_prefix_volatile (stmt, volat);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+    }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    {
+      stmt = cil_build_stmt_arg (CIL_STVEC, type);
+      cil_set_prefix_volatile (stmt, volat);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+      cfun->machine->has_vec = true;
+    }
+  else
+    gen_scalar_stind (csi, type, true);
+}
+
+/* Generate a misaligned indirect store statement for the type specified by
+   TYPE. The store is made volatile if VOLAT is true. The generated statements
+   are appended to the current function's CIL code using the CSI iterator.  */
+
+static void
+gen_misaligned_stvec (cil_stmt_iterator *csi, tree type, bool volat)
+{
+  cil_stmt stmt;
+
+  gcc_assert (TREE_CODE (type) == VECTOR_TYPE);
+
+  if (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE)
+    {
+      gcc_assert (0);  /* FIXME: is this reachable? */
+      stmt = cil_build_stmt_arg (CIL_STOBJ, type);
+      cil_set_prefix_volatile (stmt, volat);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+    }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    {
+      stmt = cil_build_stmt_arg (CIL_STVEC, type);
+      cil_set_prefix_volatile (stmt, volat);
+      cil_set_prefix_unaligned (stmt, 1);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+      cfun->machine->has_vec = true;
     }
   else
     gen_scalar_stind (csi, type, true);
@@ -704,6 +778,12 @@ gen_modify_expr (cil_stmt_iterator *csi, tree lhs, tree rhs)
       gen_addr_expr (csi, lhs);
       gimple_to_cil_node (csi, rhs);
       gen_stind (csi, TREE_TYPE (rhs), TREE_THIS_VOLATILE (lhs));
+      break;
+
+    case MISALIGNED_INDIRECT_REF:
+      gen_addr_expr (csi, lhs);
+      gimple_to_cil_node (csi, rhs);
+      gen_misaligned_stvec (csi, TREE_TYPE (rhs), TREE_THIS_VOLATILE (lhs));
       break;
 
     case COMPONENT_REF:
@@ -1006,76 +1086,6 @@ gen_switch_expr (cil_stmt_iterator *csi, tree node)
     }
 }
 
-/* Generates a call to a builtin constructor for initializing a vector of type
-   VECTOR_TYPE.  The generated statements are appended to the current
-   function's CIL code using the CSI iterator.  */
-
-static void
-gen_vector_constructor (cil_stmt_iterator *csi, tree vector_type)
-{
-  tree elem_type = TREE_TYPE (vector_type);
-  unsigned HOST_WIDE_INT elem_num = TYPE_VECTOR_SUBPARTS (vector_type);
-  unsigned HOST_WIDE_INT elem_size = tree_low_cst (TYPE_SIZE (elem_type), 1);
-  enum cil32_builtin builtin;
-  cil_stmt stmt;
-
-  if (INTEGRAL_TYPE_P (elem_type))
-    {
-      switch (elem_size)
-	{
-	case 8:
-	  switch (elem_num)
-	    {
-	    case 4:  builtin = CIL32_V4QI_CTOR;  break;
-	    case 8:  builtin = CIL32_V8QI_CTOR;  break;
-	    case 16: builtin = CIL32_V16QI_CTOR; break;
-	    default: internal_error ("Unsupported vector size\n");
-	    }
-	  break;
-
-	case 16:
-	  switch (elem_num)
-	    {
-	    case 2:  builtin = CIL32_V2HI_CTOR; break;
-	    case 4:  builtin = CIL32_V4HI_CTOR; break;
-	    case 8:  builtin = CIL32_V8HI_CTOR; break;
-	    default: internal_error ("Unsupported vector size\n");
-	    }
-	  break;
-
-	case 32:
-	  switch (elem_num)
-	    {
-	    case 2:  builtin = CIL32_V2SI_CTOR; break;
-	    case 4:  builtin = CIL32_V4SI_CTOR; break;
-	    default: internal_error ("Unsupported vector size\n");
-	    }
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
-    }
-  else
-    {
-      gcc_assert (SCALAR_FLOAT_TYPE_P (elem_type));
-
-      if (elem_size == 32)
-	{
-	  switch (elem_num)
-	    {
-	    case 2:  builtin = CIL32_V2SF_CTOR; break;
-	    case 4:  builtin = CIL32_V4SF_CTOR; break;
-	    default: internal_error ("Unsupported vector size\n");
-	    }
-	}
-      else
-	internal_error ("Vectors with double-typed elements are unsupported\n");
-    }
-
-  stmt = cil_build_call (cil32_builtins[builtin]);
-  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
-}
 
 /* Generate the CIL code associated with the __builtin_va_start() call
    specified by NODE. The generated CIL statements will be appended to CSI.  */
@@ -2373,23 +2383,28 @@ gen_vector_view_convert_expr (cil_stmt_iterator *csi, tree dest_type, tree node)
 	  if (dest_size == 32 && INTEGRAL_TYPE_P (elem_type))
 	    {
 	      if (elem_size == 8 && n_elem == 4)
-		builtin = unsignedp ? CIL32_V4QI_TO_USI : CIL32_V4QI_TO_SI;
+		builtin = unsignedp ? CIL32_GCC_V4QI_TO_USI
+		                    : CIL32_GCC_V4QI_TO_SI;
 	      else if (elem_size == 16 && n_elem == 2)
-		builtin = unsignedp ? CIL32_V2HI_TO_USI : CIL32_V2HI_TO_SI;
+		builtin = unsignedp ? CIL32_GCC_V2HI_TO_USI
+		                    : CIL32_GCC_V2HI_TO_SI;
 	    }
 	  else if (dest_size == 64 && INTEGRAL_TYPE_P (elem_type))
 	    {
 	      if (elem_size == 8 && n_elem == 8)
-		builtin = unsignedp ? CIL32_V8QI_TO_UDI : CIL32_V8QI_TO_DI;
+		builtin = unsignedp ? CIL32_GCC_V8QI_TO_UDI
+		                    : CIL32_GCC_V8QI_TO_DI;
 	      else if (elem_size == 16 && n_elem == 4)
-		builtin = unsignedp ? CIL32_V4HI_TO_UDI : CIL32_V4HI_TO_DI;
+		builtin = unsignedp ? CIL32_GCC_V4HI_TO_UDI
+		                    : CIL32_GCC_V4HI_TO_DI;
 	      else if (elem_size == 32 && n_elem == 2)
-		builtin = unsignedp ? CIL32_V2SI_TO_UDI : CIL32_V2SI_TO_DI;
+		builtin = unsignedp ? CIL32_GCC_V2SI_TO_UDI
+		                    : CIL32_GCC_V2SI_TO_DI;
 	    }
 	  else if (dest_size == 64 && SCALAR_FLOAT_TYPE_P (elem_type))
 	    {
 	      if (elem_size == 32)
-		builtin = CIL32_V2SF_TO_DI;
+		builtin = CIL32_GCC_V2SF_TO_DI;
 	    }
 	}
       else if (TREE_CODE (dest_type) == VECTOR_TYPE)
@@ -2399,7 +2414,7 @@ gen_vector_view_convert_expr (cil_stmt_iterator *csi, tree dest_type, tree node)
 		  && tree_low_cst (TYPE_SIZE (TREE_TYPE (dest_type)), 1) == 32)
 	      && dest_size == src_size)
 	    {
-	      builtin = CIL32_V4SI_TO_V4SF;
+	      builtin = CIL32_GCC_V4SI_TO_V4SF;
 	    }
 	}
     }
@@ -2415,18 +2430,18 @@ gen_vector_view_convert_expr (cil_stmt_iterator *csi, tree dest_type, tree node)
 	  if (src_size == 32)
 	    {
 	      if (elem_size == 8 && n_elem == 4)
-		builtin = CIL32_V4QI_CTOR2;
+		builtin = CIL32_GCC_V4QI_CTOR2;
 	      else if (elem_size == 16 && n_elem == 2)
-		builtin = CIL32_V2HI_CTOR2;
+		builtin = CIL32_GCC_V2HI_CTOR2;
 	    }
 	  else if (src_size == 64)
 	    {
 	      if (elem_size == 8 && n_elem == 8)
-		builtin = CIL32_V8QI_CTOR2;
+		builtin = CIL32_GCC_V8QI_CTOR2;
 	      else if (elem_size == 16 && n_elem == 4)
-		builtin = CIL32_V4HI_CTOR2;
+		builtin = CIL32_GCC_V4HI_CTOR2;
 	      else if (elem_size == 32 && n_elem == 2)
-		builtin = CIL32_V2SI_CTOR2;
+		builtin = CIL32_GCC_V2SI_CTOR2;
 	    }
 	}
     }
@@ -2438,6 +2453,7 @@ gen_vector_view_convert_expr (cil_stmt_iterator *csi, tree dest_type, tree node)
 
   stmt = cil_build_call (cil32_builtins[builtin]);
   csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+  cfun->machine->has_vec = true;
 }
 
 /* Emit the code needed to generate a REALPART_ or IMAGPART_EXPR expression.  */
@@ -2785,6 +2801,30 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 		   TREE_IMAGPART (node));
       break;
 
+    case CONSTRUCTOR:
+      {
+	VEC(constructor_elt,gc) *elts;
+	unsigned HOST_WIDE_INT ix;
+	tree purpose, value;
+	tree vector_type = TREE_TYPE (node);
+
+	if (TREE_CODE (vector_type) != VECTOR_TYPE)
+	  {
+	    internal_error ("Unsupported type in CONSTRUCTOR\n");
+	  }
+
+	elts = CONSTRUCTOR_ELTS (node);
+	FOR_EACH_CONSTRUCTOR_ELT (elts, ix, purpose, value)
+	  {
+	    gimple_to_cil_node (csi, value);
+	  }
+
+	stmt = cil_build_stmt_arg (CIL_VEC_CTOR, vector_type);
+	csi_insert_after (csi,  stmt, CSI_CONTINUE_LINKING);
+	cfun->machine->has_vec = true;
+      }
+      break;
+
     case VECTOR_CST:
       {
 	unsigned int num_elt = 0;
@@ -2816,7 +2856,9 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	    csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
           }
 
-	gen_vector_constructor (csi, vector_type);
+	stmt = cil_build_stmt_arg (CIL_VEC_CTOR, vector_type);
+	csi_insert_after (csi,  stmt, CSI_CONTINUE_LINKING);
+	cfun->machine->has_vec = true;
         break;
       }
 
@@ -2830,7 +2872,9 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       op0 = GENERIC_TREE_OPERAND (node, 0);
       op1 = GENERIC_TREE_OPERAND (node, 1);
 
-      if (TREE_CODE (op1) == CONSTRUCTOR || TREE_CODE (op1) == STRING_CST)
+      if ((TREE_CODE (op1) == CONSTRUCTOR &&
+	   (TREE_CODE (TREE_TYPE (op1)) != VECTOR_TYPE)) ||
+	  TREE_CODE (op1) == STRING_CST)
 	{
 	  tree list = NULL_TREE;
 	  tree_stmt_iterator tsi;
@@ -3074,6 +3118,11 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       gen_ldind (csi, TREE_TYPE (node), TREE_THIS_VOLATILE (node));
       break;
 
+    case MISALIGNED_INDIRECT_REF:
+      gen_addr_expr (csi, node);
+      gen_misaligned_ldvec (csi, TREE_TYPE (node), TREE_THIS_VOLATILE (node));
+      break;
+
     case TARGET_MEM_REF:
       gen_target_mem_ref (csi, node);
       break;
@@ -3168,9 +3217,14 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       break;
 
     case PARM_DECL:
-      mark_referenced_type (TREE_TYPE (node));
-      stmt = cil_build_stmt_arg (CIL_LDARG, node);
-      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+      {
+	tree type = TREE_TYPE (node);
+	mark_referenced_type (type);
+	stmt = cil_build_stmt_arg (CIL_LDARG, node);
+	csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	if (TREE_CODE (type) == VECTOR_TYPE)
+	  cfun->machine->has_vec = true;
+      }
       break;
 
     case FIELD_DECL:

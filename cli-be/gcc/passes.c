@@ -694,6 +694,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_remove_convs);
   NEXT_PASS (pass_remove_temps);
   NEXT_PASS (pass_simp_cond);
+  NEXT_PASS (pass_lower_cil);
   NEXT_PASS (pass_emit_cil_vcg);
   NEXT_PASS (pass_emit_cil);
 #else /* !defined(DISABLE_RTL_PASSES) */

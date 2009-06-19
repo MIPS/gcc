@@ -1,6 +1,6 @@
 /*
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #include "config.h"
@@ -93,6 +94,8 @@ cil_init_builtins (void)
   /* Vector types */
   tree float2_type_node = build_vector_type (float_type_node, 2);
   tree float4_type_node = build_vector_type (float_type_node, 4);
+  tree double2_type_node = build_vector_type (double_type_node, 2);
+  tree intDI2_type_node = build_vector_type (intDI_type_node, 2);
   tree intQI4_type_node = build_vector_type (intQI_type_node, 4);
   tree intHI2_type_node = build_vector_type (intHI_type_node, 2);
   tree intQI8_type_node = build_vector_type (intQI_type_node, 8);
@@ -101,6 +104,13 @@ cil_init_builtins (void)
   tree intSI4_type_node = build_vector_type (intSI_type_node, 4);
   tree intHI8_type_node = build_vector_type (intHI_type_node, 8);
   tree intQI16_type_node = build_vector_type (intQI_type_node, 16);
+
+  tree V2DF_ptr_type_node = build_pointer_type (double2_type_node);
+  tree V4SF_ptr_type_node = build_pointer_type (float4_type_node);
+  tree V2DI_ptr_type_node = build_pointer_type (intDI2_type_node);
+  tree V4SI_ptr_type_node = build_pointer_type (intSI4_type_node);
+  tree V8HI_ptr_type_node = build_pointer_type (intHI8_type_node);
+  tree V16QI_ptr_type_node = build_pointer_type (intQI16_type_node);
 
   /* Complex types */
   tree complex_char_type_node = build_complex_type (char_type_node);

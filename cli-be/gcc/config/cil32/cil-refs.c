@@ -35,19 +35,17 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "coretypes.h"
 #include "tm.h"
 #include "ggc.h"
-#include "debug.h"
 #include "errors.h"
 #include "toplev.h"
 #include "tree.h"
 #include "tree-flow.h"
-#include "tree-gimple.h"
 #include "tree-pass.h"
-#include "function.h"
-#include "hashtab.h"
 #include "vec.h"
+
 #include "cil-builtins.h"
-#include "cil-types.h"
 #include "cil-refs.h"
+#include "cil-stack.h"
+#include "cil-types.h"
 
 /******************************************************************************
  * Local function prototypes                                                  *
@@ -1613,6 +1611,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 	    tree value;
 	    unsigned HOST_WIDE_INT idx;
 	    tree vector_type = TREE_TYPE (init);
+	    cil_type_t cil_vec_type = scalar_to_cil (vector_type);
 	    tree vector_elt_type = TREE_TYPE (vector_type);
 	    unsigned HOST_WIDE_INT elt_size;
 	    unsigned HOST_WIDE_INT num_elt;
@@ -1634,73 +1633,38 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 	      args = tree_cons (NULL, integer_zero_node, args);
 
 	    /* find the right constructor */
-	    if (TREE_CODE (vector_elt_type) == INTEGER_TYPE)
+	    if (simd_backend_str && strcmp (simd_backend_str, "mono") == 0)
 	      {
-		switch (num_elt)
+		switch (cil_vec_type)
 		  {
-		  case 2:
-		    switch (elt_size)
-		      {
-		      case 16: builtin = CIL32_V2HI_CTOR; break;
-		      case 32: builtin = CIL32_V2SI_CTOR; break;
-		      default:
-			internal_error ("V2QI/DI vectors are not supported");
-		      }
-
-		    break;
-
-		  case 4:
-		    switch (elt_size)
-		      {
-		      case 8:  builtin = CIL32_V4QI_CTOR; break;
-		      case 16: builtin = CIL32_V4HI_CTOR; break;
-		      case 32: builtin = CIL32_V4SI_CTOR; break;
-		      default:
-			internal_error ("V4DI vectors are not supported");
-		      }
-
-		    break;
-
-		  case 8:
-		    switch (elt_size)
-		      {
-		      case 8:  builtin = CIL32_V8QI_CTOR; break;
-		      case 16: builtin = CIL32_V8HI_CTOR; break;
-		      default:
-			internal_error ("V8SI/DI vectors are not supported");
-		      }
-
-		    break;
-
-		  case 16:
-		    switch (elt_size)
-		      {
-		      case 8: builtin = CIL32_V16QI_CTOR; break;
-		      default:
-			internal_error ("V16HI/SI/DI vectors are not supported");
-		      }
-
-		    break;
-
+		  case CIL_V16QI: builtin = CIL32_MONO_V16QI_CTOR; break;
+		  case CIL_V8HI:  builtin = CIL32_MONO_V8HI_CTOR; break;
+		  case CIL_V4SI:  builtin = CIL32_MONO_V4SI_CTOR; break;
+		  case CIL_V2DI:  builtin = CIL32_MONO_V2DI_CTOR; break;
+		  case CIL_V4SF:  builtin = CIL32_MONO_V4SF_CTOR; break;
+		  case CIL_V2DF:  builtin = CIL32_MONO_V2DF_CTOR; break;
 		  default:
-		    internal_error (HOST_WIDE_INT_PRINT_UNSIGNED" bit wide "
-				    "vectors are not supported",
-				    num_elt * elt_size);
-		  }
-	      }
-	    else if (TREE_CODE (vector_elt_type) == REAL_TYPE)
-	      {
-		switch (num_elt)
-		  {
-		  case 2: builtin = CIL32_V2SF_CTOR; break;
-		  case 4: builtin = CIL32_V4SF_CTOR; break;
-		  default:
-		    internal_error ("V"HOST_WIDE_INT_PRINT_UNSIGNED
-				    "SF vectors not supported\n", num_elt);
+		    gcc_unreachable ();
 		  }
 	      }
 	    else
-	      gcc_unreachable ();
+	      {
+		switch (cil_vec_type)
+		  {
+		  case CIL_V8QI:  builtin = CIL32_GCC_V8QI_CTOR; break;
+		  case CIL_V4HI:  builtin = CIL32_GCC_V4HI_CTOR; break;
+		  case CIL_V2SI:  builtin = CIL32_GCC_V2SI_CTOR; break;
+		  case CIL_V2SF:  builtin = CIL32_GCC_V2SF_CTOR; break;
+		  case CIL_V16QI: builtin = CIL32_GCC_V16QI_CTOR; break;
+		  case CIL_V8HI:  builtin = CIL32_GCC_V8HI_CTOR; break;
+		  case CIL_V4SI:  builtin = CIL32_GCC_V4SI_CTOR; break;
+		  case CIL_V2DI:  builtin = CIL32_GCC_V2DI_CTOR; break;
+		  case CIL_V4SF:  builtin = CIL32_GCC_V4SF_CTOR; break;
+		  case CIL_V2DF:  builtin = CIL32_GCC_V2DF_CTOR; break;
+		  default:
+		    gcc_unreachable ();
+		  }
+	      }
 
 	    /* Note that the args list must be reversed. Can do better? */
 	    fun = build_function_call_expr (cil32_builtins[builtin],

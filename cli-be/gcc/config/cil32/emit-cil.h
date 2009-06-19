@@ -1,6 +1,6 @@
 /* Prototypes for the CIL dump.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #ifndef EMIT_CIL_H
@@ -45,5 +46,18 @@ void emit_cil_decl (FILE *, tree);
 
 void emit_vcg_init (void);
 void emit_vcg_fini (void);
+
+void emit_ldfld (FILE *, const_cil_stmt);
+void dump_decl_name (FILE *, tree);
+void dump_label_name (FILE *, tree);
+void emit_prefixes (FILE *, const_cil_stmt);
+void dump_string_name (FILE *, tree);
+void dump_string_type (FILE *, tree);
+void emit_stfld (FILE *, const_cil_stmt);
+void emit_stsfld (FILE *, const_cil_stmt);
+void dump_fun_type (FILE *, tree, tree, const char *, bool);
+void dump_type (FILE *, tree, bool, bool);
+unsigned int get_string_cst_id (tree str);
+
 
 #endif /* EMIT_CIL_H */

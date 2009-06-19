@@ -1,6 +1,6 @@
 ; Options for the CIL32 port of the compiler.
 ;
-;    Copyright (C) 2006-2008 Free Software Foundation, Inc.
+;    Copyright (C) 2006-2009 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -27,7 +27,8 @@
 ;
 ; Contact information at STMicroelectronics:
 ; Andrea C. Ornstein   <andrea.ornstein@st.com>
-; Erven Rohou          <erven.rohou@st.com>
+; Contact information at INRIA:
+; Erven Rohou          <erven.rohou@inria.fr>
 
 mgcc4net-linker
 Target Mask(GCC4NET_LINKER)
@@ -72,3 +73,7 @@ Assume target CPU is configured as little endian
 mthreads
 Target Report RejectNegative
 Target supports Threads
+
+msimd=
+Target Joined RejectNegative Var(simd_backend_str)
+-msimd=gcc|mono   Select the SIMD backend

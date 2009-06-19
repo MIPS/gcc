@@ -1,6 +1,6 @@
 /* Dump of CIL code into assembly.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #include "config.h"
@@ -46,6 +47,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "output.h"
 #include "pointer-set.h"
 #include "varray.h"
+
 #include "cil-builtins.h"
 #include "cil-refs.h"
 #include "cil-stmt.h"
@@ -90,15 +92,9 @@ static void emit_array_decl (FILE *, tree);
 static void emit_incomplete_decl (FILE *, const_tree);
 static void emit_struct_union_decl (FILE *, tree);
 static void emit_valuetype_decl (FILE *, tree);
-static void dump_decl_name (FILE *, tree);
-static void dump_string_name (FILE *, tree);
-static void dump_label_name (FILE *, tree);
 static void dump_valuetype_name (FILE *, const_tree);
-static void dump_fun_type (FILE *, tree, tree, const char *, bool);
 static void dump_vector_type (FILE *, tree, bool);
 static void dump_complex_type (FILE *, tree, bool);
-static void dump_type (FILE *, tree, bool, bool);
-static void dump_string_type (FILE *, tree);
 static void dump_string_decl (FILE *, tree);
 static bool dump_type_promoted_type_def (FILE *, tree);
 
@@ -106,13 +102,9 @@ static void emit_referenced_strings (void);
 static void emit_referenced_types (void);
 static void emit_pinvoke_function (FILE *, tree);
 static void emit_referenced_pinvokes (void);
-static void emit_prefixes (FILE *, const_cil_stmt);
 static void emit_ldsfld (FILE *, const_cil_stmt);
 static void emit_ldsflda (FILE *, const_cil_stmt);
-static void emit_ldfld (FILE *, const_cil_stmt);
 static void emit_ldflda (FILE *, const_cil_stmt);
-static void emit_stfld (FILE *, const_cil_stmt);
-static void emit_stsfld (FILE *, const_cil_stmt);
 static void emit_switch (FILE *, const_cil_stmt);
 static void emit_string_custom_attr (FILE *, const char *);
 static bool emit_builtin_call (FILE *, const_cil_stmt);
@@ -280,7 +272,7 @@ decode_function_attrs (tree t, struct fnct_attr *attrs)
 
 /* Dump the name of a _DECL node pointed by NODE into the file FILE.  */
 
-static void
+void
 dump_decl_name (FILE *file, tree node)
 {
   gcc_assert (DECL_P (node));
@@ -307,7 +299,7 @@ dump_decl_name (FILE *file, tree node)
 
 /* Dump the name of a STRING_CST node.  */
 
-static void
+void
 dump_string_name (FILE* file, tree node)
 {
   gcc_assert (TREE_CODE (node) == STRING_CST);
@@ -317,7 +309,7 @@ dump_string_name (FILE* file, tree node)
 
 /* Dump the name of a label pointed by NODE into the file FILE.  */
 
-static void
+void
 dump_label_name (FILE *file, tree node)
 {
   /* Always print the label id. */
@@ -385,7 +377,7 @@ dump_valuetype_name (FILE *file, const_tree t)
    FUN_TYPE must be a FUNCTION_TYPE.
    FUN, if not null, must be a FUNCTION_DECL.   */
 
-static void
+void
 dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
 {
   tree args_type;
@@ -472,38 +464,81 @@ dump_vector_type (FILE *file, tree node, bool full)
 
   gcc_assert (TREE_CODE (node) == VECTOR_TYPE);
 
-  if (full)
-    fprintf (file, "valuetype [gcc4net]gcc4net.");
-
-  fprintf (file, "V"HOST_WIDE_INT_PRINT_UNSIGNED, TYPE_VECTOR_SUBPARTS (node));
-
-  if (TREE_CODE (innertype) == INTEGER_TYPE)
+  if (simd_backend_str && strcmp (simd_backend_str, "mono") == 0)
     {
-      switch (size)
+      /* Mono.Simd types */
+      if (full)
+	fprintf (file, "valuetype [Mono.Simd]Mono.Simd.");
+
+      fprintf (file, "Vector"HOST_WIDE_INT_PRINT_UNSIGNED,
+	       TYPE_VECTOR_SUBPARTS (node));
+
+      if (TREE_CODE (innertype) == INTEGER_TYPE)
 	{
-	case 8:  fprintf (file, "QI"); break;
-	case 16: fprintf (file, "HI"); break;
-	case 32: fprintf (file, "SI"); break;
-	case 64: fprintf (file, "DI"); break;
-	default:
-	  internal_error ("Unsupported integer size"
-			  HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+	  switch (size)
+	    {
+	    case 8:  fprintf (file, "sb"); break;
+	    case 16: fprintf (file, "s"); break;
+	    case 32: fprintf (file, "i"); break;
+	    case 64: fprintf (file, "l"); break;
+	    default:
+	      internal_error ("Unsupported integer size"
+			      HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+	    }
 	}
-    }
-  else if (TREE_CODE (innertype) == REAL_TYPE)
-    {
-      if (size == 32)
-	fprintf (file, "SF");
-      else if (size == 64)
-	fprintf (file, "DF");
+      else if (TREE_CODE (innertype) == REAL_TYPE)
+	{
+	  if (size == 32)
+	    fprintf (file, "f");
+	  else if (size == 64)
+	    fprintf (file, "d");
+	  else
+	    {
+	      internal_error ("Unsupported floating point size"
+			      HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+	    }
+	}
       else
-	{
-	  internal_error ("Unsupported floating point size"
-			  HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	}
+	gcc_unreachable ();
     }
   else
-    gcc_unreachable ();
+    {
+      /* Gcc.Simd types */
+      if (full)
+	fprintf (file, "valuetype [gcc4net]gcc4net.");
+
+      fprintf (file, "V"HOST_WIDE_INT_PRINT_UNSIGNED,
+	       TYPE_VECTOR_SUBPARTS (node));
+
+      if ((TREE_CODE (innertype) == INTEGER_TYPE) ||
+	  (TREE_CODE (innertype) == POINTER_TYPE))
+	{
+	  switch (size)
+	    {
+	    case 8:  fprintf (file, "QI"); break;
+	    case 16: fprintf (file, "HI"); break;
+	    case 32: fprintf (file, "SI"); break;
+	    case 64: fprintf (file, "DI"); break;
+	    default:
+	      internal_error ("Unsupported integer size"
+			      HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+	    }
+	}
+      else if (TREE_CODE (innertype) == REAL_TYPE)
+	{
+	  if (size == 32)
+	    fprintf (file, "SF");
+	  else if (size == 64)
+	    fprintf (file, "DF");
+	  else
+	    {
+	      internal_error ("Unsupported floating point size"
+			      HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+	    }
+	}
+      else
+	gcc_unreachable ();
+    }
 }
 
 static void
@@ -726,7 +761,7 @@ emit_valuetype_decl (FILE *file, tree t)
    QUALIF tells whether to emit C qualifiers (const, restrict, volatile)
    NODE must be a type node.   */
 
-static void
+void
 dump_type (FILE *file, tree type, bool ref, bool qualif)
 {
   unsigned HOST_WIDE_INT size;
@@ -842,7 +877,7 @@ pointer:
     }
 }
 
-static void
+void
 dump_string_type (FILE *file, tree node)
 {
   tree domain;
@@ -1133,7 +1168,7 @@ emit_referenced_pinvokes (void)
 
 /* Emit an indirect access.  */
 
-static void
+void
 emit_prefixes (FILE *file, const_cil_stmt stmt)
 {
   enum cil_opcode opcode = cil_opcode (stmt);
@@ -1223,7 +1258,7 @@ emit_ldsflda (FILE *file, const_cil_stmt stmt)
 
 /* Emit a CIL LDFLD instruction.  */
 
-static void
+void
 emit_ldfld (FILE *file, const_cil_stmt stmt)
 {
   tree field = cil_field (stmt);
@@ -1258,7 +1293,7 @@ emit_ldflda (FILE *file, const_cil_stmt stmt)
 
 /* Emit a CIL STFLD instruction.  */
 
-static void
+void
 emit_stfld (FILE *file, const_cil_stmt stmt)
 {
   tree field = cil_field (stmt);
@@ -1275,7 +1310,7 @@ emit_stfld (FILE *file, const_cil_stmt stmt)
 
 /* Emit a CIL STSFLD instruction.  */
 
-static void
+void
 emit_stsfld (FILE *file, const_cil_stmt stmt)
 {
   tree arg = cil_field (stmt);
@@ -1552,6 +1587,89 @@ emit_call (FILE *file, const_cil_stmt call)
 	fprintf (file, ", ");
 
       if (cil_call_missing_proto_p (call) && cil_pointer_type_p (type))
+	fprintf (file, "native int");
+      else
+	{
+	  type = promote_type_for_vararg (type);
+	  dump_type (file, type, true, false);
+	}
+    }
+
+  fprintf (file, ")");
+}
+
+/* Emit the assembler representing the NEWOBJ instruction into the file pointed
+   by STREAM.  */
+
+static void
+emit_newobj (FILE *file, const_cil_stmt newobj)
+{
+  struct fnct_attr attrs;
+  tree fdecl;
+  size_t nargs_base;
+  size_t nargs;
+  size_t i;
+
+  gcc_assert (cil_opcode (newobj) == CIL_NEWOBJ);
+  fprintf (file, "\n\tnewobj\tinstance void class ");
+
+  fdecl = cil_call_fdecl (newobj);
+  decode_function_attrs (fdecl, &attrs);
+
+  fprintf (file, " ");
+
+  if (DECL_BUILT_IN (fdecl) && DECL_BUILT_IN_CLASS (fdecl) == BUILT_IN_MD)
+    fprintf (file, "%s", IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+  else
+    {
+      if (attrs.assembly_name)
+	fprintf (file, "[%s]", attrs.assembly_name);
+      else if (TARGET_GCC4NET_LINKER
+	       && DECL_EXTERNAL (fdecl)
+	       && TREE_PUBLIC (fdecl))
+	{
+	  fputs ("[ExternalAssembly]", file);
+	  if (!attrs.cil_name)
+	    fputs ("ExternalAssembly::", file);
+	}
+
+      if (attrs.cil_name)
+	fprintf (file, "%s", attrs.cil_name);
+      else
+	dump_decl_name (file, fdecl);
+    }
+
+  fprintf (file, " (");
+  nargs_base = cil_call_nargs_base (newobj);
+  nargs = cil_call_nargs (newobj);
+
+  if (cil_call_static_chain (newobj))
+    {
+      dump_type (file, cil_call_static_chain (newobj), true, true);
+
+      if (nargs_base > 0)
+	fprintf (file, ", ");
+    }
+
+  for (i = 0; i < nargs_base; i++)
+    {
+      if (i != 0)
+	fprintf (file, ", ");
+
+      dump_type (file, cil_call_arg_type (newobj, i), true, true);
+    }
+
+  if (cil_call_vararg_p (newobj) && i < nargs)
+    fprintf (file, ", ..., ");
+
+  for (; i < nargs; i++)
+    {
+      tree type = cil_call_arg_type (newobj, i);
+
+      if (i != nargs_base)
+	fprintf (file, ", ");
+
+      if (cil_call_missing_proto_p (newobj) && cil_pointer_type_p (type))
 	fprintf (file, "native int");
       else
 	{
@@ -1905,6 +2023,10 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
       fprintf (file, "\n\tneg");
       break;
 
+    case CIL_NEWOBJ:
+      emit_newobj (file, stmt);
+      break;
+
     case CIL_NOT:
       fprintf (file, "\n\tnot");
       break;
@@ -1998,6 +2120,12 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
 
     case CIL_SWITCH:
       emit_switch (file, stmt);
+      break;
+
+    case CIL_LDVEC:
+    case CIL_STVEC:
+    case CIL_VEC_CTOR:
+      internal_error ("This opcode should have been lowered");
       break;
 
     case CIL_XOR:
@@ -2246,7 +2374,7 @@ emit_local_vars (FILE *file, struct function *fun)
 
   /* Emit the local variables starting from the most used ones.  */
 
-  if (fun->machine->locals_init)
+  if (fun->machine->locals_init || 1)
     fprintf (file, "\n\t.locals init (");
   else
     fprintf (file, "\n\t.locals (");
@@ -2287,7 +2415,7 @@ emit_referenced_assemblies (FILE *file)
   mark_pending_assemblies ();
 }
 
-/* Emit the prototype of the current function, it's attributes, etc...  */
+/* Emit the prototype of the current function, its attributes, etc.  */
 
 static void
 emit_function_header (FILE *file, struct function *fun)

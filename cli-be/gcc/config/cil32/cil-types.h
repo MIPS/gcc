@@ -1,6 +1,6 @@
 /* Type related function prototypes and declarations.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #ifndef CIL_TYPES_H
@@ -146,9 +147,11 @@ enum cil_opcode
   CIL_LDOBJ, /* Copy a value from an address to the stack */
   CIL_LDSFLD, /* Load static field of a class */
   CIL_LDSFLDA, /* Load static field address */
+  CIL_LDVEC, /* Copy a vector value from an address to the stack */
   CIL_LOCALLOC, /* Allocate space from the local memory pool */
   CIL_MUL, /* Multiply values */
   CIL_NEG, /* Negate value */
+  CIL_NEWOBJ, /* Negate value */
   CIL_NOT, /* Bitwise complement */
   CIL_OR, /* Bitwise or */
   CIL_POP, /* Remove the top element of the stack */
@@ -169,9 +172,11 @@ enum cil_opcode
   CIL_STIND_I, /* Store native int value indirect from stack */
   CIL_STLOC, /* Pop value from stack to local variable */
   CIL_STOBJ, /* Store a value at an address */
+  CIL_STVEC, /* Store a vector value at an address */
   CIL_STSFLD, /* Store static field of a class */
   CIL_SUB, /* Substract numeric value */
   CIL_SWITCH, /* Table switch based on value */
+  CIL_VEC_CTOR, /* New vector */
   CIL_XOR, /* Bitwise exclusive or */
 
   /* Artificial opcodes */
@@ -338,6 +343,11 @@ struct machine_function GTY(())
   unsigned int label_id;
   tree label_addrs;
   bool locals_init;
+
+  /* The field has_vec tracks whether this function manipulates vector types.
+     It is meant to trigger the pass cil-lower only when needed (not
+     implemented yet).  */
+  bool has_vec;
 
   /* Hash table used for mapping CIL sequences to GCC's basic blocks.  */
   struct htab * GTY ((param_is (struct cil_basic_block_d))) bb_seqs;

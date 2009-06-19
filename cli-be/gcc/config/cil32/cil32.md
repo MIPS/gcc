@@ -1,6 +1,6 @@
 ;; GCC machine description for cil32.
 ;;
-;;    Copyright (C) 2006 Free Software Foundation, Inc.
+;;    Copyright (C) 2006, 2009 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -27,7 +27,8 @@
 ;;
 ;; Contact information at STMicroelectronics:
 ;; Andrea C. Ornstein   <andrea.ornstein@st.com>
-;; Erven Rohou          <erven.rohou@st.com>
+;; Contact information at INRIA:
+;; Erven Rohou          <erven.rohou@inria.fr>
 
 ;; See files "md.texi" and "rtl.def" for documentation on define_insn,
 ;; match_*, et. al.
@@ -42,7 +43,9 @@
 (define_mode_iterator ALLEVALMODES [SI DI SF DF])
 (define_mode_iterator ALLINTEVALMODES [SI DI])
 
-(define_mode_iterator VECMODES [V8QI V4HI V2SI V4QI V2HI])
+(define_mode_iterator VECMODES [V16QI V8HI V4SI V2DI V4SF V2DF 
+                                 V8QI V4HI V2SI V2SF])
+
 
 
 ;; Jump and branch insns.
@@ -73,6 +76,13 @@
 	(match_operand:VECMODES 1 "general_operand" ""))]
   ""
   "")
+
+(define_expand "movmisalign<mode>"
+  [(set (match_operand:VECMODES 0 "nonimmediate_operand" "")
+	(match_operand:VECMODES 1 "general_operand" ""))]
+  ""
+)
+
 
 
 ;; Add insns.
@@ -207,6 +217,26 @@
 	 (match_operand:ALLINTEVALMODES 2 "general_operand" "")))]
   ""
   "ashr")
+
+
+
+;; fake arithmetic for VECMODES
+(define_insn "add<mode>3"
+  [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
+       (plus:VECMODES
+        (match_operand:VECMODES 1 "general_operand" "")
+        (match_operand:VECMODES 2 "general_operand" "")))]
+  ""
+  "vec_add")
+
+(define_insn "sub<mode>3"
+  [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
+       (minus:VECMODES
+        (match_operand:VECMODES 1 "general_operand" "")
+        (match_operand:VECMODES 2 "general_operand" "")))]
+  ""
+  "vec_sub")
+
 
 
 ;; Call insns.
