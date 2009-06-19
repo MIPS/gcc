@@ -1,3 +1,7 @@
+2009-06-18  Diego Novillo  <dnovillo@google.com>
+
+	* lto-symtab.h: Add multiple inclusion guards.
+
 2008-11-18  Diego Novillo  <dnovillo@google.com>
 
 	* plugin-api.h (enum ld_plugin_symbol_resolution):

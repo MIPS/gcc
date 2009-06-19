@@ -1,5 +1,6 @@
-/* LTO output code.
-   Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+/* Functions for writing LTO sections.
+
+   Copyright (C) 2009 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -30,30 +31,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "varray.h"
 #include "hashtab.h"
-#include "langhooks.h"
 #include "basic-block.h"
-#include "tree-iterator.h"
-#include "tree-pass.h"
 #include "tree-flow.h"
+#include "tree-pass.h"
 #include "cgraph.h"
 #include "function.h"
 #include "ggc.h"
 #include "diagnostic.h"
 #include "except.h"
-#include "debug.h"
 #include "vec.h"
-#include "tree-vectorizer.h"
-#include "timevar.h"
-#include "lto-section.h"
-#include "lto-section-out.h"
-#include "lto-tree-out.h"
-#include "lto-compress.h"
 #include "pointer-set.h"
-#include "stdint.h"
-#include "lto-symtab.h"
-#include "lto-opts.h"
-#include "lto-utils.h"
 #include "bitmap.h"
+#include "langhooks.h"
+#include "lto-symtab.h"
+#include "lto-streamer.h"
+#include "lto-compress.h"
 
 static VEC(lto_out_decl_state_ptr, heap) *decl_state_stack;
 

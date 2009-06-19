@@ -1,23 +1,22 @@
 /* Top-level LTO routines.
-   Copyright 2006 Free Software Foundation, Inc.
+   Copyright 2009 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
 
-GCC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
 
-GCC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -33,15 +32,6 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-ssa-operands.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "lto.h"
-#include "lto-tree.h"
-#include "lto-section.h"
-#include "lto-section-in.h"
-#include "lto-section-out.h"
-#include "lto-tree-in.h"
-#include "lto-tags.h"
-#include "lto-opts.h"
-#include "lto-utils.h"
 #include "vec.h"
 #include "bitmap.h"
 #include "pointer-set.h"
@@ -49,6 +39,10 @@ Boston, MA 02110-1301, USA.  */
 #include "common.h"
 #include "timevar.h"
 #include "gimple.h"
+#include "lto.h"
+#include "lto-tree.h"
+#include "lto-tags.h"
+#include "lto-streamer.h"
 
 /* This needs to be included after config.h.  Otherwise, _GNU_SOURCE will not
    be defined in time to set __USE_GNU in the system headers, and strsignal
@@ -259,7 +253,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 
   /* FIXME: This doesn't belong here.
      Need initialization not done in lto_static_init ().  */
-  lto_static_init_local ();
+  lto_init_reader ();
 
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.out = lto_debug_in_fun;

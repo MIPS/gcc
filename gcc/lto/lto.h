@@ -22,15 +22,7 @@ Boston, MA 02110-1301, USA.  */
 #ifndef LTO_H
 #define LTO_H
 
-/* Included files.  */
-
 #include "hashtab.h"
-#include "tree.h"
-#include "vec.h"
-#include <inttypes.h>
-#include "lto-header.h"
-#include "lto-section-in.h"
-#include "lto-section-out.h"
 
 /* A file.  */
 typedef struct lto_file_struct

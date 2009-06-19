@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "debug.h"
 #include "plugin.h"
-#include "lto-opts.h"
+#include "lto-streamer.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;

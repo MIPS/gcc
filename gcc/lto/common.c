@@ -1,5 +1,5 @@
 /* Common code for the plugin and lto1.
-   Copyright (C) 2008 Free Software Foundation, Inc.
+   Copyright (C) 2009 Free Software Foundation, Inc.
    Contributed by Rafael Avila de Espindola (espindola@google.com).
 
 This program is free software; you can redistribute it and/or modify
@@ -14,7 +14,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
+Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "common.h"
 

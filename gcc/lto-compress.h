@@ -19,8 +19,12 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#ifndef GCC_LTO_COMPRESS_H
+#define GCC_LTO_COMPRESS_H
+
 struct lto_compression_stream;
 
+/* In lto-compress.c.  */
 extern struct lto_compression_stream
   *lto_start_compression (void (*callback) (const char *, unsigned, void *),
 			  void *opaque);
@@ -34,3 +38,5 @@ extern struct lto_compression_stream
 extern void lto_uncompress_block (struct lto_compression_stream *stream,
 				  const char *base, size_t num_chars);
 extern void lto_end_uncompression (struct lto_compression_stream *stream);
+
+#endif /* GCC_LTO_COMPRESS_H  */

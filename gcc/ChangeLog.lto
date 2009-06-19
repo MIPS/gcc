@@ -1,3 +1,66 @@
+2009-06-18  Diego Novillo  <dnovillo@google.com>
+
+	* lto-tree-flags.def: Update license to GPLv3.
+	* lto-wrapper.c: Likewise.
+	* lto-tree-tags.def: Likewise.
+	* lto-section-in.c: Likewise.
+	* lto-tags.h: Likewise.
+	* lto-stream-debug.c: Likewise.
+	* lto-opts.c: Likewise.
+	* lto-symtab.c: Likewise.
+	Include plugin-api.h.
+	(lto_function_header): Move to lto-streamer.h.
+	* lto-streamer.c: Rename from lto-utils.c.  Update all users.
+	* lto-streamer.h: Rename from lto-utils.h.  Update all users.
+	* cgraph.h (struct cgraph_local_info): Update comment for
+	field lto_file_data.
+	* lto-streamer-out.c: Rename from lto-function-out.c.
+	Update license to GPLv3.
+	Update all users.
+	* lto-streamer-in.c: Rename from lto-function-in.c.
+	Update license to GPLv3.
+	Update all users.
+	(lto_init_reader): Rename from lto_static_init_local.
+	Update all users.
+	* lto-compress.h: Add multiple inclusion guards.
+	* lto-streamer-in.c: Rename from lto-function-in.c.
+	Update all users.
+	* lto-cgraph.c: Update license to GPLv3.
+	Do not include tree-pass.h, debug.h, dwarf2asm.h,
+	dwarf2out.h.
+	(lto_output_edge): Rename from output_edge.
+	Update all users.
+	(lto_output_node): Rename from output_node.
+	Update all users.
+	* lto-streamer.h: Rename from lto-util.h.
+	Update all users.
+	* lto-header.h: Remove.  Move contents to lto-streamer.h.
+	Update all users.
+	* lto-tree-in.h: Likewise.
+	* lto-section.h: Likewise.
+	* lto-section-in.h: Likewise.
+	* lto-tree-out.h: Likewise.
+	* lto-opts.h: Likewise.
+	* lto-section-out.h: Likewise.
+	* lto-wpa-fixup.c: Update license to GPLv3.
+	(lto_output_wpa_fixup): Rename from output_wpa_fixup.
+	Update all users.
+	(lto_input_wpa_fixup_1): Rename from input_wpa_fixup_1.
+	Update all users.
+	(lto_input_wpa_fixup): Rename from input_wpa_fixup.
+	Update all users.
+	* gcc/Makefile.in (LINKER_PLUGIN_API_H): Rename from PLUGIN_API_H.
+	(LTO_SYMTAB_H): Define.
+	(LTO_TAGS_H): Remove.  Update all users.
+	(LTO_HEADER_H): Likewise.
+	(LTO_SECTION_H): Likewise.
+	(LTO_SECTION_IN_H): Likewise.
+	(LTO_SECTION_OUT_H): Likewise.
+	(LTO_TREE_IN_H): Likewise.
+	(LTO_OPTS_H): Likewise.
+	(LTO_STREAMER_H): Define.
+	(LTO_TAGS_H): Define.
+
 2009-06-17  Diego Novillo  <dnovillo@google.com>
 
 	* tree-pass.h (pass_ipa_lto_cgraph): Remove.

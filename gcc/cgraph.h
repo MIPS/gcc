@@ -73,20 +73,7 @@ struct GTY(()) inline_summary
    Available after function is analyzed.  */
 
 struct GTY(()) cgraph_local_info {
-  /* FIXME: It is quite likely that we really want to do better than
-  just having the file name here.  The current api just opens the .o
-  and finds the section index, it then computes the name of the
-  section from the file name sets the file pointer to where the
-  section starts.  We could of course do better than this by putting a
-  start and length field for the section into the
-  lto_function_recovery_info.  However we need to be careful to do
-  this in a way that is .o format independent.  .o files with hundreds
-  of small function are unlikely to do well by this.  
-
-  Also, when this structure is put into the cgraph, the actual section
-  for the function has not been searched for.  So we would want to have
-  offset and length fields for finding the function kept separate from
-  the info about where the file is.  */ 
+  /* File stream where this node is being written to.  */
   struct lto_file_decl_data * GTY ((skip)) lto_file_data;
 
   struct inline_summary inline_summary;

@@ -51,8 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "target.h"
-#include "lto-section-in.h"
-#include "lto-section-out.h"
+#include "lto-streamer.h"
 
 static struct pointer_set_t *visited_nodes;
 

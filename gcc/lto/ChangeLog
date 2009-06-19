@@ -1,3 +1,12 @@
+2009-06-18  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c: Update license to GPLv3.
+	* lto-elf.c: Likewise.
+	* common.c: Likewise.
+	* lto-lang.c: Likewise.
+	* lto.h: Remove superfluous include files.  Update all
+	users.
+
 2009-06-17  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (read_cgraph_and_symbols): Call input_cgraph.

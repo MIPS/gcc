@@ -6,20 +6,19 @@
 
 This file is part of GCC.
 
-GCC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
 
-GCC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -35,25 +34,17 @@ Boston, MA 02110-1301, USA.  */
 #include "hashtab.h"
 #include "langhooks.h"
 #include "basic-block.h"
-#include "tree-pass.h"
 #include "tree-flow.h"
 #include "cgraph.h"
 #include "function.h"
 #include "ggc.h"
 #include "diagnostic.h"
 #include "except.h"
-#include "debug.h"
 #include "vec.h"
 #include "timevar.h"
-#include "dwarf2asm.h"
-#include "dwarf2out.h"
 #include "output.h"
-#include "lto-section-in.h"
-#include "lto-section-out.h"
 #include "pointer-set.h"
-#include "lto-tree-in.h"
-#include "lto-tree-out.h"
-#include "lto-utils.h"
+#include "lto-streamer.h"
 
 /* Create a new cgraph encoder.  */
 
@@ -145,7 +136,7 @@ const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] =
 /* Output the cgraph EDGE to OB using ENCODER.  */
 
 static void
-output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
+lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
 	     lto_cgraph_encoder_t encoder)
 {
   unsigned int uid;
@@ -195,9 +186,9 @@ output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
    determine if NODE is a clone of a previously written node.  */
 
 static void
-output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
-	     lto_cgraph_encoder_t encoder, cgraph_node_set set,
-	     bitmap written_decls)
+lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
+		 lto_cgraph_encoder_t encoder, cgraph_node_set set,
+		 bitmap written_decls)
 {
   unsigned int tag;
   unsigned HOST_WIDEST_INT flags = 0;
@@ -398,7 +389,7 @@ output_cgraph (cgraph_node_set set)
   for (i = 0; i < n_nodes; i++)
     {
       node = lto_cgraph_encoder_deref (encoder, i);
-      output_node (ob, node, encoder, set, written_decls);
+      lto_output_node (ob, node, encoder, set, written_decls);
     }
 
   lto_bitmap_free (written_decls);
@@ -408,7 +399,7 @@ output_cgraph (cgraph_node_set set)
     {
       node = csi_node (csi);
       for (edge = node->callees; edge; edge = edge->next_callee)
-	output_edge (ob, edge, encoder);
+	lto_output_edge (ob, edge, encoder);
     }
 
   lto_output_uleb128_stream (ob->main_stream, 0);
@@ -445,7 +436,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->local.lto_file_data = file_data;
 
   /* This list must be in the reverse order that they are set in
-     output_node.  */
+     lto_output_node.  */
   node->local.vtable_method = lto_get_flag (&flags);
   node->local.for_functions_valid = lto_get_flag (&flags);
   node->local.redefined_extern_inline = lto_get_flag (&flags);
@@ -659,7 +650,7 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   edge->inline_failed = inline_failed;
 
   /* This list must be in the reverse order that they are set in
-     output_edge.  */
+     lto_output_edge.  */
   edge->call_stmt_cannot_inline_p = lto_get_flag (&flags);
   edge->indirect_call = lto_get_flag (&flags);
 }

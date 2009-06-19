@@ -68,8 +68,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "diagnostic.h"
 #include "langhooks.h"
-#include "lto-section-in.h"
-#include "lto-section-out.h"
+#include "lto-streamer.h"
+
 static void add_new_function (struct cgraph_node *node,
 			      void *data ATTRIBUTE_UNUSED);
 static void remove_node_data (struct cgraph_node *node,

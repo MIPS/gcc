@@ -1,25 +1,23 @@
-/* Write the gimple representation of a function and its local
-   variables to a .o file.
+/* Write the GIMPLE representation to a file stream.
 
    Copyright 2009 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
 
-GCC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
 
-GCC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -34,23 +32,16 @@ Boston, MA 02110-1301, USA.  */
 #include "varray.h"
 #include "hashtab.h"
 #include "basic-block.h"
-#include "tree-iterator.h"
-#include "tree-pass.h"
 #include "tree-flow.h"
+#include "tree-pass.h"
 #include "cgraph.h"
 #include "function.h"
 #include "ggc.h"
 #include "diagnostic.h"
 #include "except.h"
-#include "debug.h"
 #include "vec.h"
-#include "tree-vectorizer.h"
-#include "timevar.h"
+#include "lto-streamer.h"
 #include "lto-tags.h"
-#include "lto-section-in.h"
-#include "lto-section-out.h"
-#include "lto-tree-out.h"
-#include "lto-utils.h"
 
 sbitmap lto_flags_needed_for;
 sbitmap lto_types_needed_for;
@@ -156,9 +147,8 @@ clear_line_info (struct output_block *ob)
 }
 
 
-/* Create the output block and return it.  SECTION_TYPE is LTO_section_function_body or
-   lto_static_initializer.  */
-/* FIXME: Now declared in lto-section-out.h.  Move definition to lto-section-out.c ? */
+/* Create the output block and return it.  SECTION_TYPE is
+   LTO_section_function_body or lto_static_initializer.  */
 
 struct output_block *
 create_output_block (enum lto_section_type section_type)
@@ -203,11 +193,9 @@ create_output_block (enum lto_section_type section_type)
 
 
 /* Destroy the output block OB.  */
-/* FIXME: Now declared in lto-section-out.h.  Move definition to
-   lto-section-out.c ? */
 
 void
-destroy_output_block (struct output_block * ob)
+destroy_output_block (struct output_block *ob)
 {
   enum lto_section_type section_type = ob->section_type;
 
@@ -2075,7 +2063,7 @@ lto_static_init (void)
 /* Static initialization for the lto writer.  */
 
 static void
-lto_static_init_local (void)
+lto_init_writer (void)
 {
   if (initialized_local)
     return;
@@ -2474,7 +2462,7 @@ lto_output (cgraph_node_set set)
   cgraph_node_set_iterator csi;
   bitmap output = lto_bitmap_alloc ();
 
-  lto_static_init_local ();
+  lto_init_writer ();
 
   /* Process only the functions with bodies.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))

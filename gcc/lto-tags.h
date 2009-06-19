@@ -1,267 +1,31 @@
 /* Declarations and definitions of codes relating to the
    encoding of gimple into the object files.
 
-   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2009 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
-   This file is part of GCC.
+This file is part of GCC.
 
-   GCC is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
 
-   GCC is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-   License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_LTO_TAGS_H
 #define GCC_LTO_TAGS_H
 
 #include "tree.h"
 #include "sbitmap.h"
-#include "lto-header.h"
-
-/* This file is one header in a collection of files that write the
-   gimple intermediate code for a function into the assembly stream
-   and read it back.
-
-   This comment describes, in rough terms the methods used to encode
-   that gimple stream.  This does not describe gimple itself.
-
-   The encoding for a function consists of 8 (9 in debugging mode),
-   sections of information.
-
-   1)    The header.
-   2)    FIELD_DECLS.
-   3)    FUNCTION_DECLS.
-   4)    global VAR_DECLS.
-   5)    type_decls
-   6)    types.
-   7)    Names for the labels that have names
-   8)    The SSA names.
-   9)    The control flow graph.
-   10-11)Gimple for local decls.
-   12)   Gimple for the function.
-   13)   Strings.
-   14)   Redundant information to aid in debugging the stream.
-         This is only present if the compiler is built with
-         LTO_STREAM_DEBUGGING defined.
-
-   Sections 1-5 are in plain text that can easily be read in the
-   assembly file.  Sections 6-8 will be zlib encoded in the future.
-
-   1) THE HEADER.
-*/
-
-/* The is the first part of the record for a function or constructor
-   in the .o file.  */
-struct lto_function_header
-{
-  struct lto_header lto_header;   /* The header for all types of sections. */
-  int32_t num_local_decls;        /* Number of local VAR_DECLS and
-				     PARM_DECLS.  */
-  int32_t num_named_labels;       /* Number of labels with names.  */
-  int32_t num_unnamed_labels;     /* Number of labels without names.  */
-  int32_t compressed_size;        /* Size compressed or 0 if not compressed.  */
-  int32_t named_label_size;       /* Size of names for named labels.  */
-  int32_t ssa_names_size;         /* Size of the SSA_NAMES table.  */
-  int32_t cfg_size;               /* Size of the cfg.  */
-  int32_t local_decls_index_size; /* Size of local parm and var decl index 
-				     region. */
-  int32_t local_decls_size;       /* Size of local parm and var decl region. */
-  int32_t main_size;              /* Size of main gimple body of function.  */
-  int32_t string_size;            /* Size of the string table.  */
-  int32_t debug_decl_index_size;  /* Size of local decl index debugging 
-				     information.  */
-  int32_t debug_decl_size;        /* Size of local decl debugging 
-				     information.  */
-  int32_t debug_label_size;       /* Size of label stream debugging 
-				     information.  */
-  int32_t debug_ssa_names_size;   /* Size of ssa_names stream debugging 
-				     information.  */
-  int32_t debug_cfg_size;         /* Size of cfg stream debugging 
-				     information.  */
-  int32_t debug_main_size;        /* Size of main stream debugging 
-				     information.  */
-};
-
-/* 2-6) THE GLOBAL DECLS AND TYPES.
-
-      The global decls and types are encoded in the same way.  For each
-      entry, there is a pair of words.  The first is the debugging
-      section number and the second is the offset within the section to
-      the entry.
-
-      FIXME: This encoding may change change so that the first word is
-      a label for the debugging section.  This will cause more work for
-      the linker but will make ln -r work properly.
-
-   7) THE LABEL NAMES.  
-
-      Since most labels do not have names, this section my be of zero
-      length.  It consists of an array of string table references, one
-      per label.  In the lto code, the labels are given either
-      positive or negative indexes.  the positive ones have names and
-      the negative ones do not.  The positive index can be used to
-      find the name in this array.
-
-   8) THE ACTIVE SSA NAMES.  
-
-      The SSA_NAME_VERSION in an SSA_NAME in used as an index into
-      this table.
-
-   9) THE CFG. 
-
-   10) Index into the local decls.  Since local decls can have local
-      decls inside them, they must be read in randomly in order to
-      properly restore them.  
-
-   11-12) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
-
-     The gimple consists of a set of records.
-
-       Each record starts with a "LTO_" tag defined in this file.  The
-       mapping between gimple tree codes and LTO code described in
-       lto-tree-tags.def along with useful macros that allow the
-       simple cases to be processed mechanically.
-
-       For the tree types that can be processed mechanically, the form
-       of the output is:
-         tag          - The LTO_ tag.
-
-	 type         - If the tree code has a bit set in
-                        lto_types_needed_for, a reference to the type
-			is generated.  This reference is an index into
-                        (7).  The index is encoded in uleb128 form.
-
-	 flags        - The set of flags defined for this tree code
-		        packed into a word where the low order 2 bits
-		        are used to encode the presence or absense of
-		        a file and line number respectively. The word
-		        is output in uleb128 form. The encoding and
-		        decoding of the flags is controlled by
-		        lto-tree-flags.def which is designed so that
-		        it is useful on both sides.
-			
-	 file         - If the file of this gimple record is different
-                        from the file of the previous record, the file
-                        is encoded into the string table and the
-                        offset of that entry in uleb128 is output in
-                        the stream.  The flags are ored with 0x2 to
-                        indicate the presence of this.
-
-	 line number  - If the line number of this gimple record is
-                        different from the line number of the previous
-			record, the line number in uleb128 is output
-			in the stream.  The flags are ored with 0x1 to
-			indicate the presence of this.
-
-	 children     - If this gimple record has children defined,
-                        they follow here.  For automaticly generated
-			gimple forms, TREE_CODE_LENGTH sepcifies the
-                        number of children.
-
-     Many gimple forms cannot be automatically processed.  There are
-     two reasons for this: either extra fields must be processed
-     beyond those defined in the gimple core or some of the children
-     are not always there.
-
-     For these cases, the best reference is the code.  The the
-     greatest extent possible, the automatic mechanisms are used to
-     processes the pieces of such trees.  But the spec is really the
-     code and will change as gimple evolves.
-
-     THE FUNCTION
-	
-     At the top level of (8) is the function. It consists of five
-     pieces:
-
-     LTO_function     - The tag.
-     eh tree          - This is all of the exception handling regions
-                        put out in a post order traversial of the
-                        tree.  Siblings are output as lists terminated
-			by a 0.  The set of fields matches the fields
-			defined in except.c.
-
-     last_basic_block - in uleb128 form.
-
-     basic blocks     - This is the set of basic blocks.
-
-     zero             - The termination of the basic blocks.
-
-     FIXME: I am sure that there is a lot of random stuff for a
-     function that needs to be put out and is not here.  This will be
-     fixed if someone steps up and enumerates what is necessary or
-     when we really try to make this work.  I do not know where to
-     look for everything.
-
-     BASIC BLOCKS
-
-     There are two forms of basic blocks depending on if they are
-     empty or not.
-
-     The basic block consists of:
-
-     LTO_bb1 or LTO_bb0 - The tag.
-
-     bb->index          - the index in uleb128 form.
-
-     #succs             - The number of successors un uleb128 form.
-
-     the successors     - For each edge, a pair.  The first of the
-                          pair is the index of the successor in
-                          uleb128 form and the second are the flags in
-                          uleb128 form.
-
-     the statements     - A gimple tree, as described above.
-                          These are only present for LTO_BB1.
-                          Following each statement is an optional
-                          exception handling record LTO_set_eh1 or
-                          LTO_set_eh0 if the exception handling for
-                          this statement differed from the last region
-                          output.  LTO_set_eh0 is a special case that
-                          sets the region to 0. LTO_set_eh1 contains
-			  the region number in sleb128 form.
-			
-     zero               - This is only present for LTO_BB1 and is used
-			  to terminate the statements and exception
-			  regions within this block.
-
-   12) STRINGS
-
-     String are represented in the table as pairs, a length in ULEB128
-     form followed by the data for the string.
-
-   13) STREAM DEBUGGING
-     
-     If the preprocessor symbol LTO_STREAM_DEBUGGING is defined, the
-     gimple is encoded into .o file as two streams.  The first stream
-     is the normal data stream that is also created when the symbol is
-     undefined.  The second stream is a human readable character
-     string that describes a trace of the operations used to encode
-     the data stream.  This stream is created by calls in the 
-     code to LTO_DEBUG_* functions.
-
-     The lto reader uses the same set of functions when it reads the
-     data stream.  However, it's version of the lowest level compares
-     the debugging stream character by character with the one produced
-     by the writer.  When the reader sees a character that is not the
-     same one as produced by the writer, it dumps the stream to stderr
-     along with a pointer to the offending character.  At this point
-     it is easy to see if the bug is in the encoding or the decoding.
-*/
-
-/* When we get a strongly typed gimple, this flag should be set to 0
-   so we do not waste so much space printing out largely redundant
-   type codes.  */
-#define REDUNDANT_TYPE_SYSTEM 1
+#include "lto-streamer.h"
 
 enum LTO_tags 
 {

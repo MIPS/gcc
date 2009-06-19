@@ -29,8 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "langhooks.h"
-#include "lto-header.h"
-#include "lto-section-out.h"
+#include "lto-streamer.h"
 #include "lto-compress.h"
 
 /* Compression stream structure, holds the flush callback and opaque token,

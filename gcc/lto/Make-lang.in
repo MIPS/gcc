@@ -19,27 +19,23 @@
 #the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 #Boston, MA 02110-1301, USA.
 
-########################################################################
 # Variables
-########################################################################
 
 # The name of the LTO compiler.
 LTO_EXE = lto1$(exeext)
 # The LTO-specific object files inclued in $(LTO_EXE).
-LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o \
-	lto/common.o attribs.o
-LTO_H = lto/lto.h lto-header.h $(LTO_SECTION_IN_H) $(LTO_SECTION_OUT_H) \
-	$(HASHTAB_H) $(TREE_H)
+LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o lto/common.o attribs.o
+LTO_H = lto/lto.h $(HASHTAB_H)
+LINKER_PLUGIN_API_H = $(srcdir)/../include/plugin-api.h
+LTO_TREE_H = lto/lto-tree.h $(LINKER_PLUGIN_API_H)
+
 
 LTRANS_DRIVER_EXE := ltrans-driver$(exeext)
 
-########################################################################
 # Rules
-########################################################################
 
 # These hooks are used by the main GCC Makefile.  Consult that
 # Makefile for documentation.
-
 lto.all.cross: $(LTO_EXE) $(LTRANS_DRIVER_EXE)
 lto.start.encap: $(LTO_EXE) $(LTRANS_DRIVER_EXE)
 lto.rest.encap:
@@ -81,23 +77,17 @@ $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 $(LTRANS_DRIVER_EXE): $(srcdir)/lto/ltrans-driver
 	cp $(srcdir)/lto/ltrans-driver $(LTRANS_DRIVER_EXE)
 
-########################################################################
 # Dependencies
-########################################################################
-
-PLUGIN_API_H = $(srcdir)/../include/plugin-api.h
-LTO_TREE_H = lto/lto-tree.h $(PLUGIN_API_H)
-
 lto/lto-lang.o: lto/lto-lang.c $(CONFIG_H) coretypes.h debug.h \
 	flags.h $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(SYSTEM_H) \
-	$(TARGET_H) $(LTO_TREE_H) $(LTO_H) $(GIMPLE_H) \
-	gtype-lto.h gt-lto-lto-lang.h lto/common.h lto-tree-in.h $(EXPR_H)
-lto/lto.o: lto/lto.c $(CONFIG_H) $(CGRAPH_H) coretypes.h \
-	$(GGC_H) opts.h $(SYSTEM_H) toplev.h $(TM_H) $(LTO_H) langhooks.h \
-	$(LTO_TREE_H) dwarf2out.h tree-ssa-operands.h gt-lto-lto.h \
-	lto-section.h $(LTO_SECTION_IN_H) tree-pass.h $(LTO_SECTION_OUT_H) \
-	pointer-set.h vec.h $(BITMAP_H) $(IPA_PROP_H) lto/common.h \
-	diagnostic.h lto-utils.h timevar.h lto-opts.h $(GIMPLE_H)
+	$(TARGET_H) $(LTO_H) $(GIMPLE_H) gtype-lto.h gt-lto-lto-lang.h \
+	lto/common.h $(EXPR_H)
+lto/lto.o: lto/lto.c $(CONFIG_H) $(SYSTEM_H) coretypes.h opts.h \
+	toplev.h $(TREE_H) $(DIAGNOSTIC_H) $(TM_H) $(LIBIBERTY_H) \
+	$(CGRAPH_H) $(GGC_H) tree-ssa-operands.h $(TREE_PASS_H) \
+	langhooks.h vec.h $(BITMAP_H) pointer-set.h $(IPA_PROP_H) \
+	$(COMMON_H) $(TIMEVAR_H) $(GIMPLE_H) $(LTO_H) $(LTO_TREE_H) \
+	$(LTO_TAGS_H) $(LTO_STREAMER_H)
 lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H) \
-	toplev.h $(LTO_H) $(TM_H)
+	toplev.h $(LTO_H) $(TM_H) $(LIBIBERTY_H) $(GGC_H) $(LTO_STREAMER_H)
 lto/common.o: lto/common.h
