@@ -1,6 +1,6 @@
 /* Layout of basic blocks.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,7 +28,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #include "config.h"

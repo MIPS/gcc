@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for cil32.
 
-   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,7 +27,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 extern void cil32_ivdep (struct cpp_reader *);

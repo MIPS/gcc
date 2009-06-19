@@ -1,6 +1,6 @@
 /* Bit-stream emitter definitions for GNU compiler.
 
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -25,7 +25,8 @@ Authors:
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
-Erven Rohou             <erven.rohou@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
 */
 
 #ifndef BIT_STREAM_H
