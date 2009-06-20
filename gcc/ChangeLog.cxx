@@ -1,3 +1,12 @@
+2009-06-19  Ian Lance Taylor  <ian@airs.com>
+
+	Revert these patches:
+	2008-10-06  Tom Tromey  <tromey@redhat.com>
+	* errors.h (progname): Wrap in 'extern "C"'.
+	2008-06-19  Ian Lance Taylor  <iant@google.com>
+	* toplev.h (progname): Declare as extern "C" when compiling with
+	C++.
+
 2009-06-17  Ian Lance Taylor  <iant@google.com>
 
 	Revert this patch:
