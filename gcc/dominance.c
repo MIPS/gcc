@@ -1348,12 +1348,7 @@ iterate_fix_dominators (enum cdi_direction dir, VEC (basic_block, heap) *bbs,
 	}
     }
   for (y = 0; y < g->n_vertices; y++)
-    {
-      /* Strange contortions for C++ compilation.  */
-      bitmap b = (bitmap) g->vertices[y].data;
-      BITMAP_FREE (b);
-      g->vertices[y].data = NULL;
-    }
+    BITMAP_FREE (g->vertices[y].data);
   pointer_map_destroy (map);
 
   /* Find the dominator tree of G.  */

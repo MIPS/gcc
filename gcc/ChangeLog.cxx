@@ -1,4 +1,9 @@
-2009-06-19  Ian Lance Taylor  <ian@airs.com>
+2009-06-19  Ian Lance Taylor  <iant@google.com>
+
+	Revert this patch:
+	2008-10-05  Tom Tromey  <tromey@redhat.com>
+	* dominance.c (iterate_fix_dominators): Cast argument to
+	BITMAP_FREE.
 
 	Revert these patches:
 	2008-10-06  Tom Tromey  <tromey@redhat.com>
