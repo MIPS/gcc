@@ -1829,7 +1829,7 @@ rs6000_init_hard_regno_mode_ok (void)
       if (rs6000_hard_regno_mode_ok (r, (enum machine_mode)m))
 	rs6000_hard_regno_mode_ok_p[m][r] = true;
 
-  /* Precalculate CLASSS_MAX_NREGS sizes.  */
+  /* Precalculate CLASS_MAX_NREGS sizes.  */
   for (c = 0; c < LIM_REG_CLASSES; ++c)
     {
       int reg_size;
@@ -2385,15 +2385,15 @@ rs6000_override_options (const char *default_cpu)
 
   rs6000_always_hint = (rs6000_cpu != PROCESSOR_POWER4
 			&& rs6000_cpu != PROCESSOR_POWER5
-                        && rs6000_cpu != PROCESSOR_POWER6
-                        && rs6000_cpu != PROCESSOR_POWER7
+			&& rs6000_cpu != PROCESSOR_POWER6
+			&& rs6000_cpu != PROCESSOR_POWER7
 			&& rs6000_cpu != PROCESSOR_CELL);
   rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
 			 || rs6000_cpu == PROCESSOR_POWER5);
   rs6000_align_branch_targets = (rs6000_cpu == PROCESSOR_POWER4
                                  || rs6000_cpu == PROCESSOR_POWER5
                                  || rs6000_cpu == PROCESSOR_POWER6
-                                 || rs6000_cpu == PROCESSOR_POWER7);
+				 || rs6000_cpu == PROCESSOR_POWER7);
 
   rs6000_sched_restricted_insns_priority
     = (rs6000_sched_groups ? 1 : 0);

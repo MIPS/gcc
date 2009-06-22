@@ -1,3 +1,30 @@
+2009-06-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vcondu<mode>): Delete a constraint from
+	a define_expand.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Fix
+	typos in comments.
+	(rs6000_override_options): Fix spacing issues.
+
+2009-06-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/750cl.h (TARGET_PAIRED_FLOAT): Delete, paired
+	float is now a target mask.
+
+	* config/rs6000/rs6000.opt (-mpower7-adjust-cost): Delete debug
+	switch.
+	(-mallow-timode): Ditto.
+	(-mdisallow-float-in-lr-ctr): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Delete debug
+	code enabled by -mdisallow-float-in-lr-ctr or -mallow-timode.
+	(rs6000_init_hard_regno_mode_ok): Ditto.
+	(rs6000_legitimate_address_p): Ditto.
+	(rs6000_emit_move): Ditto.
+	(rs6000_adjust_cost): Delete support for debug switch
+	-mpower7-adjust-cost, always adjust the cost, just like power5.
+
 2009-06-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-mspe): Move from variable to target

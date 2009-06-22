@@ -309,7 +309,7 @@
 }")
 
 (define_expand "vcondu<mode>"
-  [(set (match_operand:VEC_I 0 "vint_operand" "=v")
+  [(set (match_operand:VEC_I 0 "vint_operand" "")
 	(if_then_else:VEC_I
 	 (match_operator 3 "comparison_operator"
 			 [(match_operand:VEC_I 4 "vint_operand" "")
