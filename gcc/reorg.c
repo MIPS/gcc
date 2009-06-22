@@ -136,6 +136,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "target.h"
 #include "tree-pass.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef DELAY_SLOTS
 
@@ -174,7 +177,7 @@ static int max_uid;
 static int stop_search_p (rtx, int);
 static int resource_conflicts_p (struct resources *, struct resources *);
 static int insn_references_resource_p (rtx, struct resources *, int);
-static int insn_sets_resource_p (rtx, struct resources *, int);
+static int insn_sets_resource_p (rtx, struct resources *, bool);
 static rtx find_end_label (void);
 static rtx emit_delay_sequence (rtx, rtx, int);
 static rtx add_to_delay_list (rtx, rtx);
@@ -313,12 +316,14 @@ insn_references_resource_p (rtx insn, struct resources *res,
 
 static int
 insn_sets_resource_p (rtx insn, struct resources *res,
-		      int include_delayed_effects)
+		      bool include_delayed_effects)
 {
   struct resources insn_sets;
 
   CLEAR_RESOURCE (&insn_sets);
-  mark_set_resources (insn, &insn_sets, 0, include_delayed_effects);
+  mark_set_resources (insn, &insn_sets, 0,
+		      (include_delayed_effects
+		       ? MARK_SRC_DEST_CALL : MARK_SRC_DEST));
   return resource_conflicts_p (&insn_sets, res);
 }
 
@@ -2494,21 +2499,25 @@ fill_simple_delay_slots (int non_jumps_p)
 #endif
 }
 
-/* Follow any unconditional jump at LABEL;
+/* Follow any unconditional jump at LABEL, for the purpose of refirecting JUMP;
    return the ultimate label reached by any such chain of jumps.
    Return null if the chain ultimately leads to a return instruction.
    If LABEL is not followed by a jump, return LABEL.
    If the chain loops or we can't find end, return LABEL,
-   since that tells caller to avoid changing the insn.  */
+   since that tells caller to avoid changing the insn.
+   If the returned label is obtained by following a REG_CROSSING_JUMP
+   jump, set *cp to (one of) the note(s), otherwise set it to NULL_RTX.  */
 
 static rtx
-follow_jumps (rtx label)
+follow_jumps (rtx label, rtx jump, rtx *cp)
 {
   rtx insn;
   rtx next;
   rtx value = label;
   int depth;
+  rtx crossing = NULL_RTX;
 
+  *cp = 0;
   for (depth = 0;
        (depth < 10
 	&& (insn = next_active_insn (value)) != 0
@@ -2531,10 +2540,15 @@ follow_jumps (rtx label)
 		  || GET_CODE (PATTERN (tem)) == ADDR_DIFF_VEC))
 	break;
 
+      if (!targetm.can_follow_jump (jump, insn))
+	break;
+      if (!crossing)
+	crossing = find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX);
       value = JUMP_LABEL (insn);
     }
   if (depth == 10)
     return label;
+  *cp = crossing;
   return value;
 }
 
@@ -2974,6 +2988,7 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
   if (new_thread != thread)
     {
       rtx label;
+      rtx crossing = NULL_RTX;
 
       gcc_assert (thread_if_true);
 
@@ -2983,7 +2998,7 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
 	  && redirect_with_delay_list_safe_p (insn,
 					      JUMP_LABEL (new_thread),
 					      delay_list))
-	new_thread = follow_jumps (JUMP_LABEL (new_thread));
+	new_thread = follow_jumps (JUMP_LABEL (new_thread), insn, &crossing);
 
       if (new_thread == 0)
 	label = find_end_label ();
@@ -2993,7 +3008,11 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
 	label = get_label_before (new_thread);
 
       if (label)
-	reorg_redirect_jump (insn, label);
+	{
+	  reorg_redirect_jump (insn, label);
+	  if (crossing)
+	    set_unique_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX);
+	}
     }
 
   return delay_list;
@@ -3327,6 +3346,7 @@ relax_delay_slots (rtx first)
   for (insn = first; insn; insn = next)
     {
       rtx other;
+      rtx crossing;
 
       next = next_active_insn (insn);
 
@@ -3337,7 +3357,9 @@ relax_delay_slots (rtx first)
 	  && (condjump_p (insn) || condjump_in_parallel_p (insn))
 	  && (target_label = JUMP_LABEL (insn)) != 0)
 	{
-	  target_label = skip_consecutive_labels (follow_jumps (target_label));
+	  target_label
+	    = skip_consecutive_labels (follow_jumps (target_label, insn,
+						     &crossing));
 	  if (target_label == 0)
 	    target_label = find_end_label ();
 
@@ -3349,7 +3371,11 @@ relax_delay_slots (rtx first)
 	    }
 
 	  if (target_label && target_label != JUMP_LABEL (insn))
-	    reorg_redirect_jump (insn, target_label);
+	    {
+	      reorg_redirect_jump (insn, target_label);
+	      if (crossing)
+		set_unique_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX);
+	    }
 
 	  /* See if this jump conditionally branches around an unconditional
 	     jump.  If so, invert this jump and point it to the target of the
@@ -3486,7 +3512,11 @@ relax_delay_slots (rtx first)
 	{
 	  /* If this jump goes to another unconditional jump, thread it, but
 	     don't convert a jump into a RETURN here.  */
-	  trial = skip_consecutive_labels (follow_jumps (target_label));
+	  rtx crossing;
+
+	  trial
+	    = skip_consecutive_labels (follow_jumps (target_label, delay_insn,
+						     &crossing));
 	  if (trial == 0)
 	    trial = find_end_label ();
 
@@ -3495,6 +3525,8 @@ relax_delay_slots (rtx first)
 	    {
 	      reorg_redirect_jump (delay_insn, trial);
 	      target_label = trial;
+	      if (crossing)
+		set_unique_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX);
 	    }
 
 	  /* If the first insn at TARGET_LABEL is redundant with a previous
@@ -4117,3 +4149,5 @@ struct rtl_opt_pass pass_machine_reorg =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

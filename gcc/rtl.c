@@ -37,8 +37,11 @@ along with GCC; see the file COPYING3.  If not see
 #else
 # include "toplev.h"
 #endif
+#include "multi-target.h"
 
 
+START_TARGET_SPECIFIC
+
 /* Indexed by rtx code, gives number of operands for an rtx with that code.
    Does NOT include rtx header data (code and links).  */
 
@@ -589,3 +592,5 @@ rtl_check_failed_flag (const char *name, const_rtx r, const char *file,
      name, GET_RTX_NAME (GET_CODE (r)), func, trim_filename (file), line);
 }
 #endif /* ENABLE_RTL_FLAG_CHECKING */
+
+END_TARGET_SPECIFIC

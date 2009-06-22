@@ -53,10 +53,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "ira.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
+
+#ifndef EXTRA_TARGET
 /* Maximum register number used in this function, plus one.  */
 
 int max_regno;
+#endif /* !EXTRA_TARGET */
 
 
 /* Register tables used by many passes.  */
@@ -228,6 +233,7 @@ reg_set_to_hard_reg_set (HARD_REG_SET *to, const_bitmap from)
     }
 }
 
+EXTRA_TARGETS_DECL (void init_reg_sets (void));
 /* Function called only once to initialize the above data on reg usage.
    Once this is done, various switches may override.  */
 void
@@ -257,6 +263,7 @@ init_reg_sets (void)
   memcpy (fixed_regs, initial_fixed_regs, sizeof fixed_regs);
   memcpy (call_used_regs, initial_call_used_regs, sizeof call_used_regs);
   memset (global_regs, 0, sizeof global_regs);
+  EXTRA_TARGETS_CALL (init_reg_sets ());
 }
 
 /* Initialize may_move_cost and friends for mode M.  */
@@ -277,7 +284,8 @@ init_move_cost (enum machine_mode m)
 	    cost = 65535;
 	  else
 	    {
-	      cost = REGISTER_MOVE_COST (m, i, j);
+	      cost = REGISTER_MOVE_COST (m, (enum reg_class) i,
+					 (enum reg_class) j);
 	      gcc_assert (cost < 65535);
 	    }
 	  all_match &= (last_move_cost[i][j] == cost);
@@ -316,23 +324,23 @@ init_move_cost (enum machine_mode m)
 
 	      for (p2 = &reg_class_subclasses[j][0];
 		   *p2 != LIM_REG_CLASSES; p2++)
-		if (*p2 != i && contains_reg_of_mode[*p2][m])
+		if ((unsigned int) *p2 != i && contains_reg_of_mode[*p2][m])
 		  cost = MAX (cost, move_cost[m][i][*p2]);
 
 	      for (p1 = &reg_class_subclasses[i][0];
 		   *p1 != LIM_REG_CLASSES; p1++)
-		if (*p1 != j && contains_reg_of_mode[*p1][m])
+		if ((unsigned int) *p1 != j && contains_reg_of_mode[*p1][m])
 		  cost = MAX (cost, move_cost[m][*p1][j]);
 
 	      gcc_assert (cost <= 65535);
 	      move_cost[m][i][j] = cost;
 
-	      if (reg_class_subset_p (i, j))
+	      if (reg_class_subset_p ((enum reg_class) i, (enum reg_class) j))
 		may_move_in_cost[m][i][j] = 0;
 	      else
 		may_move_in_cost[m][i][j] = cost;
 
-	      if (reg_class_subset_p (j, i))
+	      if (reg_class_subset_p ((enum reg_class) j, (enum reg_class) i))
 		may_move_out_cost[m][i][j] = 0;
 	      else
 		may_move_out_cost[m][i][j] = cost;
@@ -589,11 +597,13 @@ init_reg_sets_1 (void)
       HARD_REG_SET ok_regs;
       CLEAR_HARD_REG_SET (ok_regs);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-	if (!fixed_regs [j] && HARD_REGNO_MODE_OK (j, m))
+	if (!fixed_regs [j] && HARD_REGNO_MODE_OK (j, (enum machine_mode) m))
 	  SET_HARD_REG_BIT (ok_regs, j);
       
       for (i = 0; i < N_REG_CLASSES; i++)
-	if ((unsigned) CLASS_MAX_NREGS (i, m) <= reg_class_size[i]
+	if (((unsigned) CLASS_MAX_NREGS ((enum reg_class) i,
+					 (enum machine_mode) m)
+	     <= reg_class_size[i])
 	    && hard_reg_set_intersect_p (ok_regs, reg_class_contents[i]))
 	  {
 	     contains_reg_of_mode [i][m] = 1;
@@ -678,7 +688,7 @@ init_fake_stack_mems (void)
   int i;
   
   for (i = 0; i < MAX_MACHINE_MODE; i++)
-    top_of_stack[i] = gen_rtx_MEM (i, stack_pointer_rtx);
+    top_of_stack[i] = gen_rtx_MEM ((enum machine_mode) i, stack_pointer_rtx);
 }
 
 
@@ -948,7 +958,7 @@ struct rtl_opt_pass pass_reginfo_init =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -1319,9 +1329,8 @@ cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
 			     unsigned int regno)
 {
   struct subregs_of_mode_node dummy, *node;
-  enum machine_mode to;
   unsigned char mask;
-  unsigned int i;
+  unsigned int to, i;
 
   gcc_assert (subregs_of_mode);
   dummy.block = regno & -8;
@@ -1331,11 +1340,11 @@ cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
     return;
 
   mask = 1 << (regno & 7);
-  for (to = VOIDmode; to < NUM_MACHINE_MODES; to++)
+  for (to = 0; to < NUM_MACHINE_MODES; to++)
     if (node->modes[to] & mask)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (!TEST_HARD_REG_BIT (*used, i)
-	    && REG_CANNOT_CHANGE_MODE_P (i, from, to))
+	    && REG_CANNOT_CHANGE_MODE_P (i, from, (enum machine_mode) to))
 	  SET_HARD_REG_BIT (*used, i);
 }
 
@@ -1347,7 +1356,7 @@ invalid_mode_change_p (unsigned int regno,
 		       enum machine_mode from)
 {
   struct subregs_of_mode_node dummy, *node;
-  enum machine_mode to;
+  unsigned int to;
   unsigned char mask;
 
   gcc_assert (subregs_of_mode);
@@ -1360,7 +1369,7 @@ invalid_mode_change_p (unsigned int regno,
   mask = 1 << (regno & 7);
   for (to = VOIDmode; to < NUM_MACHINE_MODES; to++)
     if (node->modes[to] & mask)
-      if (CANNOT_CHANGE_MODE_CLASS (from, to, rclass))
+      if (CANNOT_CHANGE_MODE_CLASS (from, (enum machine_mode) to, rclass))
 	return true;
 
   return false;
@@ -1407,7 +1416,7 @@ struct rtl_opt_pass pass_subregs_of_mode_init =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -1426,7 +1435,7 @@ struct rtl_opt_pass pass_subregs_of_mode_finish =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -1437,3 +1446,5 @@ struct rtl_opt_pass pass_subregs_of_mode_finish =
 
 
 #include "gt-reginfo.h"
+
+END_TARGET_SPECIFIC

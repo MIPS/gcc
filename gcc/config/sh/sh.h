@@ -24,6 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_SH_H
 
 #include "config/vxworks-dummy.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #define TARGET_VERSION \
   fputs (" (Hitachi SH)", stderr);
@@ -534,234 +537,6 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 #define SUBTARGET_OVERRIDE_OPTIONS (void) 0
 
 extern const char *sh_fixed_range_str;
-
-#define OVERRIDE_OPTIONS 						\
-do {									\
-  int regno;								\
-									\
-  SUBTARGET_OVERRIDE_OPTIONS;						\
-  if (flag_finite_math_only == 2)					\
-    flag_finite_math_only						\
-      = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;		\
-  if (TARGET_SH2E && !flag_finite_math_only)				\
-    target_flags |= MASK_IEEE;						\
-  sh_cpu = CPU_SH1;							\
-  assembler_dialect = 0;						\
-  if (TARGET_SH2)							\
-    sh_cpu = CPU_SH2;							\
-  if (TARGET_SH2E)							\
-    sh_cpu = CPU_SH2E;							\
-  if (TARGET_SH2A)							\
-    {									\
-      sh_cpu = CPU_SH2A;						\
-      if (TARGET_SH2A_DOUBLE)						\
-        target_flags |= MASK_FMOVD;					\
-    }									\
-  if (TARGET_SH3)							\
-    sh_cpu = CPU_SH3;							\
-  if (TARGET_SH3E)							\
-    sh_cpu = CPU_SH3E;							\
-  if (TARGET_SH4)							\
-    {									\
-      assembler_dialect = 1;						\
-      sh_cpu = CPU_SH4;							\
-    }									\
-  if (TARGET_SH4A_ARCH)							\
-    {									\
-      assembler_dialect = 1;						\
-      sh_cpu = CPU_SH4A;						\
-    }									\
-  if (TARGET_SH5)							\
-    {									\
-      sh_cpu = CPU_SH5;							\
-      target_flags |= MASK_ALIGN_DOUBLE;				\
-      if (TARGET_SHMEDIA_FPU)						\
-	target_flags |= MASK_FMOVD;					\
-      if (TARGET_SHMEDIA)						\
-	{								\
-	  /* There are no delay slots on SHmedia.  */			\
-	  flag_delayed_branch = 0;					\
-	  /* Relaxation isn't yet supported for SHmedia */		\
-	  target_flags &= ~MASK_RELAX;					\
-	  /* After reload, if conversion does little good but can cause \
-	     ICEs:							\
-	     - find_if_block doesn't do anything for SH because we don't\
-	       have conditional execution patterns.  (We use conditional\
-	       move patterns, which are handled differently, and only	\
-	       before reload).						\
-	     - find_cond_trap doesn't do anything for the SH because we \	
-	       don't have conditional traps.				\
-	     - find_if_case_1 uses redirect_edge_and_branch_force in	\
-	       the only path that does an optimization, and this causes	\
-	       an ICE when branch targets are in registers.		\
-	     - find_if_case_2 doesn't do anything for the SHmedia after	\
-	       reload except when it can redirect a tablejump - and	\
-	       that's rather rare.  */					\
-	  flag_if_conversion2 = 0;					\
-	  if (! strcmp (sh_div_str, "call"))				\
-	    sh_div_strategy = SH_DIV_CALL;				\
-	  else if (! strcmp (sh_div_str, "call2"))			\
-	    sh_div_strategy = SH_DIV_CALL2;				\
-	  if (! strcmp (sh_div_str, "fp") && TARGET_FPU_ANY)		\
-	    sh_div_strategy = SH_DIV_FP;				\
-	  else if (! strcmp (sh_div_str, "inv"))			\
-	    sh_div_strategy = SH_DIV_INV;				\
-	  else if (! strcmp (sh_div_str, "inv:minlat"))			\
-	    sh_div_strategy = SH_DIV_INV_MINLAT;			\
-	  else if (! strcmp (sh_div_str, "inv20u"))			\
-	    sh_div_strategy = SH_DIV_INV20U;				\
-	  else if (! strcmp (sh_div_str, "inv20l"))			\
-	    sh_div_strategy = SH_DIV_INV20L;				\
-	  else if (! strcmp (sh_div_str, "inv:call2"))			\
-	    sh_div_strategy = SH_DIV_INV_CALL2;				\
-	  else if (! strcmp (sh_div_str, "inv:call"))			\
-	    sh_div_strategy = SH_DIV_INV_CALL;				\
-	  else if (! strcmp (sh_div_str, "inv:fp"))			\
-	    {								\
-	      if (TARGET_FPU_ANY)					\
-		sh_div_strategy = SH_DIV_INV_FP;			\
-	      else							\
-		sh_div_strategy = SH_DIV_INV;				\
-	    }								\
-	  TARGET_CBRANCHDI4 = 0;					\
-	  /* Assembler CFI isn't yet fully supported for SHmedia.  */	\
-	  flag_dwarf2_cfi_asm = 0;					\
-	}								\
-    }									\
-  else									\
-    {									\
-       /* Only the sh64-elf assembler fully supports .quad properly.  */\
-       targetm.asm_out.aligned_op.di = NULL;				\
-       targetm.asm_out.unaligned_op.di = NULL;				\
-    }									\
-  if (TARGET_SH1)							\
-    {									\
-      if (! strcmp (sh_div_str, "call-div1"))				\
-	sh_div_strategy = SH_DIV_CALL_DIV1;				\
-      else if (! strcmp (sh_div_str, "call-fp")				\
-	       && (TARGET_FPU_DOUBLE					\
-		   || (TARGET_HARD_SH4 && TARGET_SH2E)			\
-		   || (TARGET_SHCOMPACT && TARGET_FPU_ANY)))		\
-	sh_div_strategy = SH_DIV_CALL_FP;				\
-      else if (! strcmp (sh_div_str, "call-table") && TARGET_SH2)	\
-	sh_div_strategy = SH_DIV_CALL_TABLE;				\
-      else								\
-	/* Pick one that makes most sense for the target in general.	\
-	   It is not much good to use different functions depending	\
-	   on -Os, since then we'll end up with two different functions	\
-	   when some of the code is compiled for size, and some for	\
-	   speed.  */							\
-									\
-	/* SH4 tends to emphasize speed.  */				\
-	if (TARGET_HARD_SH4)						\
-	  sh_div_strategy = SH_DIV_CALL_TABLE;				\
-	/* These have their own way of doing things.  */		\
-	else if (TARGET_SH2A)						\
-	  sh_div_strategy = SH_DIV_INTRINSIC;				\
-	/* ??? Should we use the integer SHmedia function instead?  */	\
-	else if (TARGET_SHCOMPACT && TARGET_FPU_ANY)			\
-	  sh_div_strategy = SH_DIV_CALL_FP;				\
-        /* SH1 .. SH3 cores often go into small-footprint systems, so	\
-	   default to the smallest implementation available.  */	\
-	else if (TARGET_SH2)	/* ??? EXPERIMENTAL */			\
-	  sh_div_strategy = SH_DIV_CALL_TABLE;				\
-	else								\
-	  sh_div_strategy = SH_DIV_CALL_DIV1;				\
-    }									\
-  if (!TARGET_SH1)							\
-    TARGET_PRETEND_CMOVE = 0;						\
-  if (sh_divsi3_libfunc[0])						\
-    ; /* User supplied - leave it alone.  */				\
-  else if (TARGET_DIVIDE_CALL_FP)					\
-    sh_divsi3_libfunc = "__sdivsi3_i4";					\
-  else if (TARGET_DIVIDE_CALL_TABLE)					\
-    sh_divsi3_libfunc = "__sdivsi3_i4i";				\
-  else if (TARGET_SH5)							\
-    sh_divsi3_libfunc = "__sdivsi3_1";					\
-  else									\
-    sh_divsi3_libfunc = "__sdivsi3";					\
-  if (sh_branch_cost == -1)						\
-    sh_branch_cost							\
-      = TARGET_SH5 ? 1 : ! TARGET_SH2 || TARGET_HARD_SH4 ? 2 : 1;	\
-									\
-  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)		\
-    if (! VALID_REGISTER_P (regno))					\
-      sh_register_names[regno][0] = '\0';				\
-									\
-  for (regno = 0; regno < ADDREGNAMES_SIZE; regno++)			\
-    if (! VALID_REGISTER_P (ADDREGNAMES_REGNO (regno)))			\
-      sh_additional_register_names[regno][0] = '\0';			\
-									\
-  if (flag_omit_frame_pointer == 2)					\
-   {									\
-     /* The debugging information is sufficient,			\
-        but gdb doesn't implement this yet */				\
-     if (0)								\
-      flag_omit_frame_pointer						\
-        = (PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);			\
-     else								\
-      flag_omit_frame_pointer = 0;					\
-   }									\
-									\
-  if ((flag_pic && ! TARGET_PREFERGOT)					\
-      || (TARGET_SHMEDIA && !TARGET_PT_FIXED))				\
-    flag_no_function_cse = 1;						\
-									\
-  if (SMALL_REGISTER_CLASSES)						\
-    {									\
-      /* Never run scheduling before reload, since that can		\
-	 break global alloc, and generates slower code anyway due	\
-	 to the pressure on R0.  */					\
-      /* Enable sched1 for SH4; ready queue will be reordered by	\
-	 the target hooks when pressure is high. We can not do this for \
-	 PIC, SH3 and lower as they give spill failures for R0.  */	\
-      if (!TARGET_HARD_SH4 || flag_pic)					\
-        flag_schedule_insns = 0;		 			\
-      /* ??? Current exception handling places basic block boundaries	\
-	 after call_insns.  It causes the high pressure on R0 and gives	\
-	 spill failures for R0 in reload.  See PR 22553 and the thread	\
-	 on gcc-patches							\
-         <http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00816.html>.  */	\
-      else if (flag_exceptions)						\
-	{								\
-	  if (flag_schedule_insns == 1)		 			\
-	    warning (0, "ignoring -fschedule-insns because of exception handling bug");	\
-	  flag_schedule_insns = 0;		 			\
-	}								\
-    }									\
-									\
-  if (align_loops == 0)							\
-    align_loops =  1 << (TARGET_SH5 ? 3 : 2);				\
-  if (align_jumps == 0)							\
-    align_jumps = 1 << CACHE_LOG;					\
-  else if (align_jumps < (TARGET_SHMEDIA ? 4 : 2))			\
-    align_jumps = TARGET_SHMEDIA ? 4 : 2;				\
-									\
-  /* Allocation boundary (in *bytes*) for the code of a function.	\
-     SH1: 32 bit alignment is faster, because instructions are always	\
-     fetched as a pair from a longword boundary.			\
-     SH2 .. SH5 : align to cache line start.  */			\
-  if (align_functions == 0)						\
-    align_functions							\
-      = TARGET_SMALLCODE ? FUNCTION_BOUNDARY/8 : (1 << CACHE_LOG);	\
-  /* The linker relaxation code breaks when a function contains		\
-     alignments that are larger than that at the start of a		\
-     compilation unit.  */						\
-  if (TARGET_RELAX)							\
-    {									\
-      int min_align							\
-	= align_loops > align_jumps ? align_loops : align_jumps;	\
-									\
-      /* Also take possible .long constants / mova tables int account.	*/\
-      if (min_align < 4)						\
-	min_align = 4;							\
-      if (align_functions < min_align)					\
-	align_functions = min_align;					\
-    }									\
-									\
-  if (sh_fixed_range_str)						\
-    sh_fix_range (sh_fixed_range_str);					\
-} while (0)
 
 /* Target machine storage layout.  */
 
@@ -1780,6 +1555,7 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
    Thus NARGREGS or more means all following args should go on the stack.  */
 
 enum sh_arg_class { SH_ARG_INT = 0, SH_ARG_FLOAT = 1 };
+END_TARGET_SPECIFIC
 struct sh_args {
     int arg_count[2];
     int force_mem;
@@ -1869,6 +1645,7 @@ struct sh_args {
      even without the -mrenesas option.  */
     int renesas_abi;
 };
+START_TARGET_SPECIFIC
 
 #define CALL_COOKIE_RET_TRAMP_SHIFT 0
 #define CALL_COOKIE_RET_TRAMP(VAL) ((VAL) << CALL_COOKIE_RET_TRAMP_SHIFT)
@@ -3145,6 +2922,19 @@ struct sh_args {
 extern struct rtx_def *sh_compare_op0;
 extern struct rtx_def *sh_compare_op1;
 
+/* The SH machine description uses "sh_cpu_attr" to find the cpu variant
+   that is being compiled for for use in attributes.  For target compilation
+   performance reasons, this should be a direct variable access.
+   The type of that variable would naturally be enum attr_cpu, alas, that
+   is not possible, because there is no target-controlled headerfile
+   that is guaranteed to be only included after insn-attr.h, hence we
+   can't declare such a variable to be visible inside insn-attrtab.c .
+   If statements expressions were allowed, we could solve this by having
+   an 'extern enum attr_cpu sh_cpu' declaration inside a statement expression
+   to be used inside the sh_attr_cpu definition.
+   But as we have to do without statement expressions, we have to use a
+   different type for the sh_cpu variable.  */
+
 /* Which processor to schedule for.  The elements of the enumeration must
    match exactly the cpu attribute in the sh.md file.  */
 
@@ -3315,5 +3105,7 @@ extern int current_function_interrupt;
 
 /* FIXME: middle-end support for highpart optimizations is missing.  */
 #define high_life_started reload_in_progress
+
+END_TARGET_SPECIFIC
 
 #endif /* ! GCC_SH_H */

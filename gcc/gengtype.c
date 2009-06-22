@@ -964,6 +964,9 @@ write_rtx_next (void)
   int i;
 
   oprintf (f, "\n/* Used to implement the RTX_NEXT macro.  */\n");
+  oprintf (f, "#ifdef __cplusplus\n");
+  oprintf (f, "extern\n");
+  oprintf (f, "#endif\n");
   oprintf (f, "const unsigned char rtx_next[NUM_RTX_CODE] = {\n");
   for (i = 0; i < NUM_RTX_CODE; i++)
     if (rtx_next_new[i] == -1)
@@ -1524,6 +1527,7 @@ open_base_files (void)
   size_t i;
 
   header_file = create_file ("GCC", "gtype-desc.h");
+  oprintf (header_file, "\n#include \"multi-target.h\"\n");
 
   base_files = XNEWVEC (outf_p, num_lang_dirs);
 
@@ -1541,7 +1545,8 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "cfglayout.h", "except.h", "output.h", "gimple.h", "cfgloop.h", NULL
+      "cfglayout.h", "except.h", "output.h", "gimple.h", "cfgloop.h",
+      "multi-target.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -2494,6 +2499,9 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   options_p opt;
   struct walk_type_data d;
 
+#ifdef EXTRA_TARGET /* FIXME */
+  return;
+#endif
   /* This is a hack, and not the good kind either.  */
   for (i = NUM_PARAM - 1; i >= 0; i--)
     if (param && param[i] && param[i]->kind == TYPE_POINTER
@@ -3026,9 +3034,14 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
   {
     size_t fnum;
     for (fnum = 0; fnum < num_lang_dirs; fnum++)
-      oprintf (base_files [fnum],
-	       "const struct %s * const %s[] = {\n",
-	       tname, name);
+      {
+	oprintf (base_files[fnum], "#ifdef __cplusplus\n");
+	oprintf (base_files[fnum], "extern\n");
+	oprintf (base_files[fnum], "#endif\n");
+	oprintf (base_files [fnum],
+		 "const struct %s * const %s[] = {\n",
+		 tname, name);
+      }
   }
 
 
@@ -3038,6 +3051,7 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
 	lang_bitmap bitmap = get_lang_bitmap (fli2->name);
 	int fnum;
 
+	oprintf (fli2->f, "END_TARGET_SPECIFIC\n");
 	fli2->started_p = 0;
 
 	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
@@ -3358,6 +3372,10 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_root_tab gt_ggc_r_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3392,6 +3410,10 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_root_tab gt_ggc_rd_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3436,6 +3458,10 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_cache_tab gt_ggc_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3472,6 +3498,10 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_root_tab gt_pch_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3508,6 +3538,10 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
+	  oprintf (f, "#ifdef __cplusplus\n");
+	  oprintf (f, "extern\n");
+	  oprintf (f, "#endif\n");
 	  oprintf (f, "const struct ggc_root_tab gt_pch_rs_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");

@@ -358,6 +358,9 @@ print_header (void)
 #include \"insn-config.h\"\n\
 #include \"recog.h\"\n\
 #include \"toplev.h\"\n\
+#include \"multi-target.h\"\n\
+\n\
+START_TARGET_SPECIFIC\n\
 \n\
 /* This variable is used as the \"location\" of any missing operand\n\
    whose numbers are skipped by a given pattern.  */\n\
@@ -481,7 +484,7 @@ main (int argc, char **argv)
       puts ("      break;\n");
     }
 
-  puts ("    }\n}");
+  puts ("    }\n}\nEND_TARGET_SPECIFIC");
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
 }

@@ -89,6 +89,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "cgraph.h"
 #include "input.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef DWARF2_DEBUGGING_INFO
 static void dwarf2out_source_line (unsigned int, const char *);
@@ -197,6 +200,8 @@ static GTY(()) section *debug_pubtypes_section;
 static GTY(()) section *debug_str_section;
 static GTY(()) section *debug_ranges_section;
 static GTY(()) section *debug_frame_section;
+
+END_TARGET_SPECIFIC
 
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
@@ -343,6 +348,8 @@ dw_fde_node;
 #define DWARF_CIE_ID DW_CIE_ID
 #endif
 
+START_TARGET_SPECIFIC
+
 /* A pointer to the base of a table that contains frame description
    information for each routine.  */
 static GTY((length ("fde_table_allocated"))) dw_fde_ref fde_table;
@@ -376,13 +383,17 @@ static GTY(()) dw_cfi_ref cie_cfi_head;
 static unsigned current_funcdef_fde;
 #endif
 
+END_TARGET_SPECIFIC
+
 struct indirect_string_node GTY(())
 {
   const char *str;
   unsigned int refcount;
-  unsigned int form;
+  enum dwarf_form form;
   char *label;
 };
+
+START_TARGET_SPECIFIC
 
 static GTY ((param_is (struct indirect_string_node))) htab_t debug_str_hash;
 
@@ -1977,6 +1988,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	      cfa_temp.reg = cfa.reg;
 	      cfa_temp.offset = cfa.offset;
 	    }
+else if (dest == stack_pointer_rtx && src == frame_pointer_rtx) ; /*FIXME*/
 	  else
 	    {
 	      /* Saving a register in a register.  */
@@ -2146,6 +2158,10 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		fde->drap_reg = cfa.reg;
             }
           return;
+
+	case MEM:
+	  /* FIXME.  Need this for epilogues.  */
+	  break;
 
 	default:
 	  gcc_unreachable ();
@@ -2427,7 +2443,7 @@ dwarf2out_frame_debug (rtx insn, bool after_p)
   dwarf2out_frame_debug_expr (insn, label);
 }
 
-#endif
+#endif /* defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO) */
 
 /* Describe for the GTY machinery what parts of dw_cfi_oprnd1 are used.  */
 static enum dw_cfi_oprnd_type dw_cfi_oprnd1_desc
@@ -3382,7 +3398,9 @@ dwarf2out_switch_text_section (void)
   if (cold_text_section != NULL)
     dwarf2out_note_section_used ();
 }
-#endif
+#endif /* defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO) */
+
+END_TARGET_SPECIFIC
 
 /* And now, the subset of the debugging information support code necessary
    for emitting location expressions.  */
@@ -3396,7 +3414,8 @@ struct dwarf_file_data GTY(())
 
 /* We need some way to distinguish DW_OP_addr with a direct symbol
    relocation from DW_OP_addr with a dtp-relative symbol relocation.  */
-#define INTERNAL_DW_OP_tls_addr		(0x100 + DW_OP_addr)
+#define INTERNAL_DW_OP_tls_addr \
+  ((enum dwarf_location_atom) (0x100 + DW_OP_addr))
 
 
 typedef struct dw_val_struct *dw_val_ref;
@@ -3518,6 +3537,8 @@ typedef struct dw_loc_list_struct GTY(())
   const char *section; /* Section this loclist is relative to */
   dw_loc_descr_ref expr;
 } dw_loc_list_node;
+
+START_TARGET_SPECIFIC
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
@@ -3866,12 +3887,13 @@ new_reg_loc_descr (unsigned int reg,  unsigned HOST_WIDE_INT offset)
   if (offset)
     {
       if (reg <= 31)
-	return new_loc_descr (DW_OP_breg0 + reg, offset, 0);
+	return new_loc_descr ((enum dwarf_location_atom) (DW_OP_breg0 + reg),
+			      offset, 0);
       else
 	return new_loc_descr (DW_OP_bregx, reg, offset);
     }
   else if (reg <= 31)
-    return new_loc_descr (DW_OP_reg0 + reg, 0, 0);
+    return new_loc_descr ((enum dwarf_location_atom) (DW_OP_reg0 + reg), 0, 0);
   else
    return new_loc_descr (DW_OP_regx, reg, 0);
 }
@@ -4584,7 +4606,10 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_switch_text_section,
   1                             /* start_end_main_source_file */
 };
-#endif
+#endif /* DWARF2_DEBUGGING_INFO */
+
+END_TARGET_SPECIFIC
+
 
 /* NOTE: In the comments in this file, many references are made to
    "Debugging Information Entries".  This term is abbreviated as `DIE'
@@ -4685,8 +4710,10 @@ typedef struct pubname_struct GTY(())
 }
 pubname_entry;
 
+START_TARGET_SPECIFIC
 DEF_VEC_O(pubname_entry);
 DEF_VEC_ALLOC_O(pubname_entry, gc);
+END_TARGET_SPECIFIC
 
 struct dw_ranges_struct GTY(())
 {
@@ -4783,6 +4810,8 @@ limbo_die_node;
    the beginning of a source statement, because that information
    is not made available by the GCC front-end.  */
 #define	DWARF_LINE_DEFAULT_IS_STMT_START 1
+
+START_TARGET_SPECIFIC
 
 #ifdef DWARF2_DEBUGGING_INFO
 /* This location is used by calc_die_sizes() to keep track
@@ -4975,7 +5004,7 @@ static hashval_t debug_str_do_hash (const void *);
 static int debug_str_eq (const void *, const void *);
 static void add_AT_string (dw_die_ref, enum dwarf_attribute, const char *);
 static inline const char *AT_string (dw_attr_ref);
-static int AT_string_form (dw_attr_ref);
+static enum dwarf_form AT_string_form (dw_attr_ref);
 static void add_AT_die_ref (dw_die_ref, enum dwarf_attribute, dw_die_ref);
 static void add_AT_specification (dw_die_ref, dw_die_ref);
 static inline dw_die_ref AT_ref (dw_attr_ref);
@@ -5969,7 +5998,7 @@ AT_string (dw_attr_ref a)
 /* Find out whether a string should be output inline in DIE
    or out-of-line in .debug_str section.  */
 
-static int
+static enum dwarf_form
 AT_string_form (dw_attr_ref a)
 {
   struct indirect_string_node *node;
@@ -9759,13 +9788,13 @@ int_loc_descriptor (HOST_WIDE_INT i)
   if (i >= 0)
     {
       if (i <= 31)
-	op = DW_OP_lit0 + i;
+	op = (enum dwarf_location_atom) (DW_OP_lit0 + i);
       else if (i <= 0xff)
 	op = DW_OP_const1u;
       else if (i <= 0xffff)
 	op = DW_OP_const2u;
       else if (HOST_BITS_PER_WIDE_INT == 32
-	       || i <= 0xffffffff)
+	       || i <= (HOST_WIDE_INT) 0xffffffff)
 	op = DW_OP_const4u;
       else
 	op = DW_OP_constu;
@@ -9777,7 +9806,7 @@ int_loc_descriptor (HOST_WIDE_INT i)
       else if (i >= -0x8000)
 	op = DW_OP_const2s;
       else if (HOST_BITS_PER_WIDE_INT == 32
-	       || i >= -0x80000000)
+	       || i >= (HOST_WIDE_INT) -0x80000000)
 	op = DW_OP_const4s;
       else
 	op = DW_OP_consts;
@@ -9852,7 +9881,8 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 
   regno = dbx_reg_number (reg);
   if (regno <= 31)
-    result = new_loc_descr (DW_OP_breg0 + regno, offset, 0);
+    result = new_loc_descr ((enum dwarf_location_atom) (DW_OP_breg0 + regno),
+			    offset, 0);
   else
     result = new_loc_descr (DW_OP_bregx, regno, offset);
 
@@ -10267,6 +10297,7 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
       break;
 
     case MEM:
+      rtl = targetm.delegitimize_address (rtl);
       loc_result = mem_loc_descriptor (XEXP (rtl, 0), GET_MODE (rtl),
 				       initialized);
       if (loc_result == NULL)
@@ -10380,8 +10411,8 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       if (DECL_THREAD_LOCAL_P (loc))
 	{
 	  rtx rtl;
-	  unsigned first_op;
-	  unsigned second_op;
+	  enum dwarf_location_atom first_op;
+	  enum dwarf_location_atom second_op;
 
 	  if (targetm.have_tls)
 	    {
@@ -12733,7 +12764,8 @@ add_calling_convention_attribute (dw_die_ref subr_die, tree decl)
 {
   enum dwarf_calling_convention value = DW_CC_normal;
 
-  value = targetm.dwarf_calling_convention (TREE_TYPE (decl));
+  value = ((enum dwarf_calling_convention)
+	   targetm.dwarf_calling_convention (TREE_TYPE (decl)));
 
   /* DWARF doesn't provide a way to identify a program's source-level
      entry point.  DW_AT_calling_convention attributes are only meant
@@ -16679,3 +16711,5 @@ const struct gcc_debug_hooks dwarf2_debug_hooks;
 #endif /* DWARF2_DEBUGGING_INFO */
 
 #include "gt-dwarf2out.h"
+
+END_TARGET_SPECIFIC

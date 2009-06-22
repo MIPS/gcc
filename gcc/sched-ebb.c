@@ -42,8 +42,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "sched-int.h"
 #include "target.h"
 #include "output.h"
+#include "multi-target.h"
 
 
+START_TARGET_SPECIFIC
+
 #ifdef INSN_SCHEDULING
 
 /* The number of insns to be scheduled in total.  */
@@ -703,3 +706,5 @@ ebb_fix_recovery_cfg (int bbi ATTRIBUTE_UNUSED, int jump_bbi,
 }
 
 #endif /* INSN_SCHEDULING */
+
+END_TARGET_SPECIFIC

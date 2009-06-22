@@ -166,7 +166,7 @@ ml_decl_index (htab_t table,
   slot = htab_find_slot (table, &d_slot, INSERT);
   if (*slot == NULL)
     {
-      struct ml_decl *new_slot = xmalloc (sizeof (struct ml_decl));
+      struct ml_decl *new_slot = XNEW (struct ml_decl);
       int index = (*next_index);
 
       new_slot->t = name;
@@ -186,35 +186,33 @@ ml_decl_index (htab_t table,
 static int
 ml_decl_ref (tree node, unsigned int *index)
 {
-  bool new;
+  bool is_new;
 
-  new = ml_decl_index (mls->var_decl_hash_table,
-		       &var_nr, node, index);
+  is_new = ml_decl_index (mls->var_decl_hash_table, &var_nr, node, index);
 
-  if (new)
+  if (is_new)
     {
       fprintf(ml_fp_interf,"var_p(v%d).\n",var_nr++);
       VEC_safe_push (tree, heap, mls->var_decls, node);
     }
 
-  return new;
+  return is_new;
 }
 
 static int
 ml_type_ref (tree node, unsigned int *index)
 {
-  bool new;
+  bool is_new;
 
-  new = ml_decl_index (mls->type_decl_hash_table,
-		       &expr_nr, node, index);
+  is_new = ml_decl_index (mls->type_decl_hash_table, &expr_nr, node, index);
 
-  if (new)
+  if (is_new)
     {
       fprintf(ml_fp_interf,"type_p(e%d).\n",expr_nr++);
       VEC_safe_push (tree, heap, mls->type_decls, node);
     }
 
-  return new;
+  return is_new;
 }
 
 static void
@@ -267,15 +265,15 @@ ml_inp_expr (tree t, int expr_index)
   if (TREE_TYPE (t))
     {
       unsigned int index;
-      bool new;
+      bool is_new;
 
-      new = ml_type_ref (TREE_TYPE (t), &index);
+      is_new = ml_type_ref (TREE_TYPE (t), &index);
 
       fprintf (ml_fp_interf,"expr_type(e%d,e%d). \n",
 		 expr_index,
 		 index);
 
-      if (new)
+      if (is_new)
 	ml_inp_expr (TREE_TYPE (t), index);
     }
 
@@ -343,9 +341,9 @@ ml_inp_expr (tree t, int expr_index)
     case VAR_DECL:
       {
 	unsigned int index;
-	bool new;
+	bool is_new;
 
-	new = ml_decl_ref (t, &index);
+	is_new = ml_decl_ref (t, &index);
 
 	fprintf (ml_fp_interf,"expr_var(e%d,v%d). \n",
      	         expr_index,
@@ -701,7 +699,7 @@ ml_feat_extract (void)
 
   fprintf (ml_fp_interf, "%% fn start\n");
 
-  mls = xcalloc (1, sizeof (struct ml_state));
+  mls = XCNEW (struct ml_state);
   mls->var_decl_hash_table
     = htab_create (37, key_ml_decl_node, eq_ml_decl_node, free);
   mls->type_decl_hash_table
@@ -780,7 +778,7 @@ struct gimple_opt_pass pass_ml_feat =
     NULL,					/* sub */
     NULL,					/* next */
     0,					/* static_pass_number */
-    0,					/* tv_id */
+    (timevar_id_t) 0,			/* tv_id */
     0,	                                /* properties_required */
     0,					/* properties_provided */
     0,					/* properties_destroyed */

@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 
 struct fileloc lexer_line;
 int lexer_toplevel_done;
+int pp_nest, no_extra_nest;
 
 static void 
 update_lineno (const char *l, size_t len)
@@ -108,6 +109,7 @@ EOID	[^[:alnum:]_]
 {WS}				{ update_lineno (yytext, yyleng); }
 \\\n				{ lexer_line.line++; }
 
+TARGET_SCOPE/{EOID}		|
 "const"/{EOID}			/* don't care */
 "GTY"/{EOID}			{ return GTY_TOKEN; }
 "VEC"/{EOID}			{ return VEC_TOKEN; }
@@ -157,7 +159,13 @@ EOID	[^[:alnum:]_]
 "..."				{ return ELLIPSIS; }
 [(){},*:<>;=%|-]		{ return yytext[0]; }
 
-   /* ignore pp-directives */
+^{HWS}"#"{HWS}ifndef{HWS}EXTRA_TARGET[[:alnum:]_][^\n]* {pp_nest++;}
+^{HWS}"#"{HWS}ifndef{HWS}EXTRA_TARGET[^\n]* {no_extra_nest = ++pp_nest;}
+^{HWS}"#"{HWS}if[^\n]* {pp_nest++;}
+
+^{HWS}"#"{HWS}endif[^\n]* {if (pp_nest-- == no_extra_nest) no_extra_nest = 0;}
+
+   /* ignore other pp-directives */
 ^{HWS}"#"{HWS}[a-z_]+[^\n]*\n   {lexer_line.line++;}
 
 .				{

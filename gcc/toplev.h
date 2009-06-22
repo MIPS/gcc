@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TOPLEV_H
 #define GCC_TOPLEV_H
 #include "input.h"
+#include "multi-target.h"
 
 /* If non-NULL, return one past-the-end of the matching SUBPART of
    the WHOLE string.  */
@@ -86,10 +87,12 @@ extern void warning_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,
 extern void warn_deprecated_use (tree);
 extern bool parse_optimize_options (tree, bool);
 
+START_TARGET_SPECIFIC
 #ifdef BUFSIZ
 extern void output_quoted_string	(FILE *, const char *);
 extern void output_file_directive	(FILE *, const char *);
 #endif
+END_TARGET_SPECIFIC
 
 #ifdef BUFSIZ
   /* N.B. Unlike all the others, fnotice is just gettext+fprintf, and
@@ -113,7 +116,17 @@ extern void target_reinit (void);
 /* A unique local time stamp, might be zero if none is available.  */
 extern unsigned local_tick;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* This is used by cpplib and libiberty.  */
 extern const char *progname;
+
+#ifdef __cplusplus
+}
+#endif
+
 extern const char *dump_base_name;
 extern const char *aux_base_name;
 extern const char *aux_info_file_name;
@@ -167,11 +180,13 @@ extern void decode_d_option		(const char *);
 extern bool fast_math_flags_set_p	(void);
 extern bool fast_math_flags_struct_set_p (struct cl_optimization *);
 
+#ifndef __cplusplus
 /* Return log2, or -1 if not exact.  */
 extern int exact_log2                  (unsigned HOST_WIDE_INT);
 
 /* Return floor of log2, with -1 for zero.  */
 extern int floor_log2                  (unsigned HOST_WIDE_INT);
+#endif
 
 /* Inline versions of the above for speed.  */
 #if GCC_VERSION >= 3004
@@ -186,13 +201,19 @@ extern int floor_log2                  (unsigned HOST_WIDE_INT);
 #  define CTZ_HWI __builtin_ctz
 # endif
 
-extern inline int
+#ifndef __cplusplus
+extern
+#endif
+inline int
 floor_log2 (unsigned HOST_WIDE_INT x)
 {
   return x ? HOST_BITS_PER_WIDE_INT - 1 - (int) CLZ_HWI (x) : -1;
 }
 
-extern inline int
+#ifndef __cplusplus
+extern
+#endif
+inline int
 exact_log2 (unsigned HOST_WIDE_INT x)
 {
   return x == (x & -x) && x ? (int) CTZ_HWI (x) : -1;
@@ -207,6 +228,7 @@ extern bool set_src_pwd		       (const char *);
 
 /* Functions used to manipulate the random seed.  */
 
+extern void init_random_seed (void);
 extern const char *get_random_seed (bool);
 extern const char *set_random_seed (const char *);
 

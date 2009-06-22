@@ -1955,7 +1955,7 @@ show_namespace (gfc_namespace *ns)
 {
   gfc_interface *intr;
   gfc_namespace *save;
-  gfc_intrinsic_op op;
+  int op;
   gfc_equiv *eq;
   int i;
 
@@ -2005,7 +2005,7 @@ show_namespace (gfc_namespace *ns)
 
 	  show_indent ();
 	  fprintf (dumpfile, "Operator interfaces for %s:",
-		   gfc_op2string (op));
+		   gfc_op2string ((gfc_intrinsic_op) op));
 
 	  for (; intr; intr = intr->next)
 	    fprintf (dumpfile, " %s", intr->sym->name);

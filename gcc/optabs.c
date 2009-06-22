@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "real.h"
 #include "basic-block.h"
 #include "target.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Each optab contains info on how this target machine
    can perform a particular operation
@@ -54,26 +57,26 @@ along with GCC; see the file COPYING3.  If not see
 
    See expr.h for documentation of these optabs.  */
 
-#if GCC_VERSION >= 4000
-__extension__ struct optab optab_table[OTI_MAX]
+#if GCC_VERSION >= 4000 && HAVE_DESIGNATED_INITIALIZERS
+__extension__ struct optab_d optab_table[OTI_MAX]
   = { [0 ... OTI_MAX - 1].handlers[0 ... NUM_MACHINE_MODES - 1].insn_code
       = CODE_FOR_nothing };
 #else
 /* init_insn_codes will do runtime initialization otherwise.  */
-struct optab optab_table[OTI_MAX];
+struct optab_d optab_table[OTI_MAX];
 #endif
 
 rtx libfunc_table[LTI_MAX];
 
 /* Tables of patterns for converting one mode to another.  */
-#if GCC_VERSION >= 4000
-__extension__ struct convert_optab convert_optab_table[COI_MAX]
+#if GCC_VERSION >= 4000 && HAVE_DESIGNATED_INITIALIZERS
+__extension__ struct convert_optab_d convert_optab_table[COI_MAX]
   = { [0 ... COI_MAX - 1].handlers[0 ... NUM_MACHINE_MODES - 1]
 	[0 ... NUM_MACHINE_MODES - 1].insn_code
       = CODE_FOR_nothing };
 #else
 /* init_convert_optab will do runtime initialization otherwise.  */
-struct convert_optab convert_optab_table[COI_MAX];
+struct convert_optab_d convert_optab_table[COI_MAX];
 #endif
 
 /* Contains the optab used for each rtx code.  */
@@ -334,13 +337,21 @@ widen_operand (rtx op, enum machine_mode mode, enum machine_mode oldmode,
   return result;
 }
 
+#ifndef EXTRA_TARGET
+EXTRA_TARGETS_DECL (optab optab_for_tree_code_1 (enum tree_code, const_tree,
+						 enum optab_subtype));
+optab
+  (*optab_for_tree_code_array[]) (enum tree_code, const_tree, enum optab_subtype)
+    = { optab_for_tree_code_1,
+	EXTRA_TARGETS_EXPAND_COMMA (&, optab_for_tree_code_1) };
+#endif
 /* Return the optab used for computing the operation given by the tree code,
    CODE and the tree EXP.  This function is not always usable (for example, it
    cannot give complete results for multiplication or division) but probably
    ought to be relied on more widely throughout the expander.  */
 optab
-optab_for_tree_code (enum tree_code code, const_tree type,
-		     enum optab_subtype subtype)
+optab_for_tree_code_1 (enum tree_code code, const_tree type,
+		       enum optab_subtype subtype)
 {
   bool trapv;
   switch (code)
@@ -556,10 +567,10 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
                            int unsignedp)
 {   
   tree oprnd0, oprnd1, oprnd2;
-  enum machine_mode wmode = 0, tmode0, tmode1 = 0;
+  enum machine_mode wmode = VOIDmode, tmode0, tmode1 = VOIDmode;
   optab widen_pattern_optab;
   int icode; 
-  enum machine_mode xmode0, xmode1 = 0, wxmode = 0;
+  enum machine_mode xmode0, xmode1 = VOIDmode, wxmode = VOIDmode;
   rtx temp;
   rtx pat;
   rtx xop0, xop1, wxop;
@@ -568,7 +579,7 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
   oprnd0 = TREE_OPERAND (exp, 0);
   tmode0 = TYPE_MODE (TREE_TYPE (oprnd0));
   widen_pattern_optab =
-    optab_for_tree_code (TREE_CODE (exp), TREE_TYPE (oprnd0), optab_default);
+    optab_for_tree_code_1 (TREE_CODE (exp), TREE_TYPE (oprnd0), optab_default);
   icode = (int) optab_handler (widen_pattern_optab, tmode0)->insn_code;
   gcc_assert (icode != CODE_FOR_nothing);
   xmode0 = insn_data[icode].operand[1].mode;
@@ -823,7 +834,7 @@ expand_vec_shift_expr (tree vec_shift_expr, rtx target)
 	gcc_unreachable ();
     }
 
-  icode = (int) optab_handler (shift_optab, mode)->insn_code;
+  icode = optab_handler (shift_optab, mode)->insn_code;
   gcc_assert (icode != CODE_FOR_nothing);
 
   mode1 = insn_data[icode].operand[1].mode;
@@ -2270,7 +2281,7 @@ sign_expand_binop (enum machine_mode mode, optab uoptab, optab soptab,
 {
   rtx temp;
   optab direct_optab = unsignedp ? uoptab : soptab;
-  struct optab wide_soptab;
+  struct optab_d wide_soptab;
 
   /* Do it without widening, if possible.  */
   temp = expand_binop (mode, direct_optab, op0, op1, target,
@@ -4241,7 +4252,7 @@ emit_cmp_and_jump_insn_1 (rtx x, rtx y, enum machine_mode mode,
 	}
 
       /* Handle some compares against zero.  */
-      icode = (int) optab_handler (tst_optab, wider_mode)->insn_code;
+      icode = optab_handler (tst_optab, wider_mode)->insn_code;
       if (y == CONST0_RTX (mode) && icode != CODE_FOR_nothing)
 	{
 	  x = prepare_operand (icode, x, 0, mode, wider_mode, unsignedp);
@@ -4253,7 +4264,7 @@ emit_cmp_and_jump_insn_1 (rtx x, rtx y, enum machine_mode mode,
 
       /* Handle compares for which there is a directly suitable insn.  */
 
-      icode = (int) optab_handler (cmp_optab, wider_mode)->insn_code;
+      icode = optab_handler (cmp_optab, wider_mode)->insn_code;
       if (icode != CODE_FOR_nothing)
 	{
 	  x = prepare_operand (icode, x, 0, mode, wider_mode, unsignedp);
@@ -6169,7 +6180,7 @@ init_optabs (void)
       vcondu_gen_code[i] = CODE_FOR_nothing;
     }
 
-#if GCC_VERSION >= 4000
+#if GCC_VERSION >= 4000 && HAVE_DESIGNATED_INITIALIZERS
   /* We statically initialize the insn_codes with CODE_FOR_nothing.  */
   if (reinit)
     init_insn_codes ();
@@ -6676,7 +6687,7 @@ debug_optab_libfuncs (void)
 	rtx l;
 
 	o = &optab_table[i];
-	l = optab_libfunc (o, j);
+	l = optab_libfunc (o, (enum machine_mode) j);
 	if (l)
 	  {
 	    gcc_assert (GET_CODE (l) == SYMBOL_REF);
@@ -6696,7 +6707,8 @@ debug_optab_libfuncs (void)
 	  rtx l;
 
 	  o = &convert_optab_table[i];
-	  l = convert_optab_libfunc (o, j, k);
+	  l = convert_optab_libfunc (o, (enum machine_mode) j,
+				     (enum machine_mode) k);
 	  if (l)
 	    {
 	      gcc_assert (GET_CODE (l) == SYMBOL_REF);
@@ -7436,3 +7448,5 @@ expand_sync_lock_test_and_set (rtx mem, rtx val, rtx target)
 }
 
 #include "gt-optabs.h"
+
+END_TARGET_SPECIFIC

@@ -547,7 +547,7 @@ set_initial_properties (struct alias_info *ai)
   tree var;
   tree ptr;
   bool any_pt_anything = false;
-  enum escape_type pt_anything_mask = 0;
+  int pt_anything_mask = 0;
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
@@ -3767,7 +3767,7 @@ struct gimple_opt_pass pass_reset_cc_flags =
   NULL,			 /* sub */
   NULL,			 /* next */
   0,			 /* static_pass_number */
-  0,			 /* tv_id */
+  TV_NONE,		 /* tv_id */
   PROP_referenced_vars |PROP_cfg, /* properties_required */
   0,			 /* properties_provided */
   0,			 /* properties_destroyed */
@@ -3789,7 +3789,7 @@ struct gimple_opt_pass pass_build_alias =
   NULL,                     /* sub */
   NULL,                     /* next */
   0,                        /* static_pass_number */
-  0,                        /* tv_id */
+  TV_NONE,                  /* tv_id */
   PROP_cfg | PROP_ssa,      /* properties_required */
   PROP_alias,               /* properties_provided */
   0,                        /* properties_destroyed */

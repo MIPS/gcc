@@ -450,9 +450,14 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 #endif
 
 /* 1 if we have C99 designated initializers.  */
+#ifdef __cplusplus
+#undef HAVE_DESIGNATED_INITIALIZERS
+#define HAVE_DESIGNATED_INITIALIZERS 0
+#else
 #if !defined(HAVE_DESIGNATED_INITIALIZERS)
 #define HAVE_DESIGNATED_INITIALIZERS \
   ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
+#endif
 #endif
 
 #if HAVE_SYS_STAT_H
@@ -786,12 +791,16 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
    change after the fact).  Beyond these uses, most other cases of
    using this macro should be viewed with extreme caution.  */
 
+#ifdef __cplusplus
+#define CONST_CAST2(TOTYPE,FROMTYPE,X) (const_cast<TOTYPE> (X))
+#else
 #if defined(__GNUC__) && GCC_VERSION > 4000
 /* GCC 4.0.x has a bug where it may ICE on this expression,
    so does GCC 3.4.x (PR17436).  */
 #define CONST_CAST2(TOTYPE,FROMTYPE,X) ((__extension__(union {FROMTYPE _q; TOTYPE _nq;})(X))._nq)
 #else
 #define CONST_CAST2(TOTYPE,FROMTYPE,X) ((TOTYPE)(FROMTYPE)(X))
+#endif
 #endif
 #define CONST_CAST(TYPE,X) CONST_CAST2(TYPE, const TYPE, (X))
 #define CONST_CAST_TREE(X) CONST_CAST(union tree_node *, (X))

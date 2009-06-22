@@ -105,6 +105,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "cgraph.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Number of attempts to combine instructions in this function.  */
 
@@ -342,10 +345,12 @@ static int nonzero_sign_valid;
 /* Record one modification to rtl structure
    to be undone by storing old_contents into *where.  */
 
+enum undo_kinds { UNDO_RTX, UNDO_INT, UNDO_MODE };
+
 struct undo
 {
   struct undo *next;
-  enum { UNDO_RTX, UNDO_INT, UNDO_MODE } kind;
+  enum undo_kinds kind;
   union { rtx r; int i; enum machine_mode m; } old_contents;
   union { rtx *r; int *i; } where;
 };
@@ -388,6 +393,7 @@ static int combinable_i3pat (rtx, rtx *, rtx, rtx, int, rtx *);
 static int contains_muldiv (rtx);
 static rtx try_combine (rtx, rtx, rtx, int *);
 static void undo_all (void);
+static void undo_since (struct undo *);
 static void undo_commit (void);
 static rtx *find_split_point (rtx *, rtx);
 static rtx subst (rtx, rtx, rtx, int, int);
@@ -818,14 +824,15 @@ combine_validate_cost (rtx i1, rtx i2, rtx i3, rtx newpat, rtx newi2pat,
 	  old_cost += old_other_cost;
 	  new_cost += new_other_cost;
 	}
-      else
+      else if (i1)
 	old_cost = 0;
     }
 
   /* Disallow this recombination if both new_cost and old_cost are
      greater than zero, and new_cost is greater than old cost.  */
-  if (old_cost > 0
-      && new_cost > old_cost)
+  if ((old_cost > 0 && new_cost > old_cost)
+      /* Also disallow combine-splits that dont reduce insn count or cost.  */
+      || (!i1 && newi2pat && new_cost >= old_cost))
     {
       if (dump_file)
 	{
@@ -2907,7 +2914,12 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      machine-specific method (like when you have an addition of a large
      constant) or by combine in the function find_split_point.  */
 
-  if (i1 && insn_code_number < 0 && GET_CODE (newpat) == SET
+  if ((i1
+       /* Also do this if we have two expensive insns.  */
+       || ((INSN_UID (i2) <= max_uid_known ? INSN_COST (i2) : 0)
+	   + (INSN_UID (i3) <= max_uid_known ? INSN_COST (i3) : 0)
+	   >= COSTS_N_INSNS (3)))
+      && insn_code_number < 0 && GET_CODE (newpat) == SET
       && asm_noperands (newpat) < 0)
     {
       rtx parallel, m_split, *split;
@@ -3578,7 +3590,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
        patterns, move from I1 to I2 then I2 to I3 so that we get the
        proper movement on registers that I2 modifies.  */
 
-    if (newi2pat)
+    if (newi2pat && i1)
       {
 	move_deaths (newi2pat, NULL_RTX, DF_INSN_LUID (i1), i2, &midnotes);
 	move_deaths (newpat, newi2pat, DF_INSN_LUID (i1), i3, &midnotes);
@@ -3621,12 +3633,12 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     if (i3dest_killed)
       {
 	if (newi2pat && reg_set_p (i3dest_killed, newi2pat))
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i3dest_killed,
-					       NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i3dest_killed,
+					    NULL_RTX),
 			    NULL_RTX, i2, NULL_RTX, elim_i2, elim_i1);
 	else
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i3dest_killed,
-					       NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i3dest_killed,
+					    NULL_RTX),
 			    NULL_RTX, i3, newi2pat ? i2 : NULL_RTX,
 			    elim_i2, elim_i1);
       }
@@ -3634,10 +3646,10 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     if (i2dest_in_i2src)
       {
 	if (newi2pat && reg_set_p (i2dest, newi2pat))
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i2dest, NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i2dest, NULL_RTX),
 			    NULL_RTX, i2, NULL_RTX, NULL_RTX, NULL_RTX);
 	else
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i2dest, NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i2dest, NULL_RTX),
 			    NULL_RTX, i3, newi2pat ? i2 : NULL_RTX,
 			    NULL_RTX, NULL_RTX);
       }
@@ -3645,10 +3657,10 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     if (i1dest_in_i1src)
       {
 	if (newi2pat && reg_set_p (i1dest, newi2pat))
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i1dest, NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i1dest, NULL_RTX),
 			    NULL_RTX, i2, NULL_RTX, NULL_RTX, NULL_RTX);
 	else
-	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i1dest, NULL_RTX),
+	  distribute_notes (alloc_reg_note (REG_DEAD, i1dest, NULL_RTX),
 			    NULL_RTX, i3, newi2pat ? i2 : NULL_RTX,
 			    NULL_RTX, NULL_RTX);
       }
@@ -3800,14 +3812,15 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     return newi2pat ? i2 : i3;
 }
 
-/* Undo all the modifications recorded in undobuf.  */
+/* Undo all the modifications recorded in undobuf since SINCE was the
+   latest change.  */
 
 static void
-undo_all (void)
+undo_since (struct undo * since)
 {
   struct undo *undo, *next;
 
-  for (undo = undobuf.undos; undo; undo = next)
+  for (undo = undobuf.undos; undo != since; undo = next)
     {
       next = undo->next;
       switch (undo->kind)
@@ -3829,7 +3842,15 @@ undo_all (void)
       undobuf.frees = undo;
     }
 
-  undobuf.undos = 0;
+  undobuf.undos = undo;
+}
+
+/* Undo all the modifications recorded in undobuf.  */
+
+static void
+undo_all (void)
+{
+  undo_since (0);
 }
 
 /* We've committed to accepting the changes we made.  Move all
@@ -4555,6 +4576,38 @@ subst (rtx x, rtx from, rtx to, int in_dest, int unique_copy)
   return x;
 }
 
+/* If we are testing a single bit, and the upper bits are known to
+   be zero, we generally change ZERO_EXTRACT into LSHIFTRT.  However,
+   in the context of a compare that might not be the right thing to
+   do if the target has bit test instructions.
+   An example is unwind-dw2-fed.c:linear_search_fdes for ARC,
+   where we want to combine btst / b{eq,ne} into bbit.
+   OUTER is an expression that tests if *XP is zero.
+   If OUTER can be made cheaper by changing *XP from an implicit
+   bit test to an explicit bit test, substitute int *XP accordingly, and
+   return the substituted value.  Otherwise, retrun NULL_RTX.  */
+static rtx
+combine_simplify_bittest (rtx outer, rtx *xp)
+{
+  rtx x = *xp;
+
+  if (GET_CODE (x) == LSHIFTRT
+      && CONST_INT_P (XEXP (x, 1))
+      && nonzero_bits (x, GET_MODE (x)) == 1)
+    {
+	      struct undo *latest = undobuf.undos;
+      int old_cost = rtx_cost (outer, SET, optimize_this_for_speed_p);
+      rtx y = gen_rtx_ZERO_EXTRACT (GET_MODE (x), XEXP (x, 0),
+				    const1_rtx, XEXP (x, 1));
+
+      SUBST (*xp, y);
+      if (rtx_cost (outer, SET, optimize_this_for_speed_p) < old_cost)
+	return y;
+      undo_since (latest);
+    }
+  return NULL_RTX;
+}
+
 /* Simplify X, a piece of RTL.  We just operate on the expression at the
    outer level; call `subst' to simplify recursively.  Return the new
    expression.
@@ -4889,8 +4942,8 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 	return gen_lowpart (mode, XEXP (x, 0));
       break;
 
-#ifdef HAVE_cc0
     case COMPARE:
+#ifdef HAVE_cc0
       /* Convert (compare FOO (const_int 0)) to FOO unless we aren't
 	 using cc0, in which case we want to leave it as a COMPARE
 	 so we can distinguish it from a register-register-copy.  */
@@ -4904,9 +4957,13 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 	    && HONOR_SIGN_DEPENDENT_ROUNDING (GET_MODE (XEXP (x, 0))))
 	  && XEXP (x, 1) == CONST0_RTX (GET_MODE (XEXP (x, 0))))
 	return XEXP (x, 0);
-      break;
 #endif
-
+      if (XEXP (x, 1) == const0_rtx
+	  && GET_MODE (x) != CCmode && GET_MODE_CLASS (GET_MODE (x)) == MODE_CC)
+	combine_simplify_bittest (x, &XEXP (x, 0));
+      break;
+      /* As above, check if we have a shift that can be done more cheaply
+	 as a bit test.  */
     case CONST:
       /* (const (const X)) can become (const X).  Do it this way rather than
 	 returning the inner CONST since CONST can be shared with a
@@ -5575,6 +5632,9 @@ simplify_if_then_else (rtx x)
 	  == nonzero_bits (XEXP (cond, 0), mode)
       && (i = exact_log2 (INTVAL (true_rtx) & GET_MODE_MASK (mode))) >= 0)
     return XEXP (cond, 0);
+
+  if (comparison_p && XEXP (XEXP (x, 0), 1) == const0_rtx)
+    combine_simplify_bittest (x, &XEXP (XEXP (x, 0), 0));
 
   return x;
 }
@@ -9848,8 +9908,8 @@ recog_for_combine (rtx *pnewpat, rtx insn, rtx *pnotes)
 	  if (GET_CODE (XEXP (XVECEXP (newpat, 0, i), 0)) != SCRATCH) 
 	    {
 	      gcc_assert (REG_P (XEXP (XVECEXP (newpat, 0, i), 0)));
-	      notes = gen_rtx_EXPR_LIST (REG_UNUSED,
-					 XEXP (XVECEXP (newpat, 0, i), 0), notes);
+	      notes = alloc_reg_note (REG_UNUSED,
+				      XEXP (XVECEXP (newpat, 0, i), 0), notes);
 	    }
 	}
       pat = newpat;
@@ -11374,11 +11434,11 @@ record_value_for_reg (rtx reg, rtx insn, rtx value)
 	rsp->last_set = insn;
 
       rsp->last_set_value = 0;
-      rsp->last_set_mode = 0;
+      rsp->last_set_mode = VOIDmode;
       rsp->last_set_nonzero_bits = 0;
       rsp->last_set_sign_bit_copies = 0;
       rsp->last_death = 0;
-      rsp->truncated_to_mode = 0;
+      rsp->truncated_to_mode = VOIDmode;
     }
 
   /* Mark registers that are being referenced in this value.  */
@@ -11525,11 +11585,11 @@ record_dead_and_set_regs (rtx insn)
 	    rsp->last_set_invalid = 1;
 	    rsp->last_set = insn;
 	    rsp->last_set_value = 0;
-	    rsp->last_set_mode = 0;
+	    rsp->last_set_mode = VOIDmode;
 	    rsp->last_set_nonzero_bits = 0;
 	    rsp->last_set_sign_bit_copies = 0;
 	    rsp->last_death = 0;
-	    rsp->truncated_to_mode = 0;
+	    rsp->truncated_to_mode = VOIDmode;
 	  }
 
       last_call_luid = mem_last_set = DF_INSN_LUID (insn);
@@ -12220,7 +12280,7 @@ move_deaths (rtx x, rtx maybe_kill_insn, int from_luid, rtx to_insn,
 	      *pnotes = note;
 	    }
 	  else
-	    *pnotes = gen_rtx_EXPR_LIST (REG_DEAD, x, *pnotes);
+	    *pnotes = alloc_reg_note (REG_DEAD, x, *pnotes);
 	}
 
       return;
@@ -12790,7 +12850,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 							  PATTERN (place)))
 			    {
 			      rtx new_note
-				= gen_rtx_EXPR_LIST (REG_DEAD, piece, NULL_RTX);
+				= alloc_reg_note (REG_DEAD, piece, NULL_RTX);
 
 			      distribute_notes (new_note, place, place,
 						NULL_RTX, NULL_RTX, NULL_RTX);
@@ -12837,9 +12897,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	}
 
       if (place2)
-	REG_NOTES (place2) 
-	  = gen_rtx_fmt_ee (GET_CODE (note), REG_NOTE_KIND (note),
-			    XEXP (note, 0), REG_NOTES (place2));
+	add_reg_note (place2, REG_NOTE_KIND (note), XEXP (note, 0));
     }
 }
 
@@ -13036,3 +13094,4 @@ struct rtl_opt_pass pass_combine =
  }
 };
 
+END_TARGET_SPECIFIC

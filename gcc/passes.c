@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "df.h"
 #include "predict.h"
+#include "multi-target.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -105,6 +106,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "highlev-plugin-internal.h"
 #include "pass-manager.h"
 
+#ifndef EXTRA_TARGET
 /* This is used for debugging.  It allows the current pass to printed
    from anywhere in compilation.  */
 struct opt_pass *current_pass;
@@ -254,7 +256,7 @@ rest_of_type_compilation (tree type, int toplev)
 void
 finish_optimization_passes (void)
 {
-  enum tree_dump_index i;
+  int i;
   struct dump_file_info *dfi;
   char *name;
 
@@ -290,7 +292,9 @@ finish_optimization_passes (void)
 
   timevar_pop (TV_DUMP);
 }
+#endif /* !EXTRA_TARGET */
 
+START_TARGET_SPECIFIC
 static bool
 gate_rest_of_compilation (void)
 {
@@ -334,7 +338,7 @@ struct rtl_opt_pass pass_postreload =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_rtl,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -515,6 +519,8 @@ next_pass_1 (struct opt_pass **list, struct opt_pass *pass)
 		  tree_rest_of_compilation (DECL (N))  -> all_passes
 */
 
+EXTRA_TARGETS_DECL (void init_optimization_passes (void))
+
 void
 init_optimization_passes (void)
 {
@@ -522,6 +528,7 @@ init_optimization_passes (void)
 
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &((PASS).pass)))
 
+#ifndef EXTRA_TARGET
  /* All passes needed to lower the function into shape optimizers can
     operate on.  These passes are always run first on the function, but
     backend might produce already lowered functions that are not processed
@@ -730,6 +737,10 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mudflap_2);
 
   NEXT_PASS (pass_free_cfg_annotations);
+  EXTRA_TARGETS_CALL (init_optimization_passes ());
+#else /* EXTRA_TARGET */
+  p = &pass_expand.target_variants[TARGET_NUM-1];
+#endif /* EXTRA_TARGET */
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
     {
@@ -835,6 +846,7 @@ init_optimization_passes (void)
 
 #undef NEXT_PASS
 
+#ifndef EXTRA_TARGET
   /* Register the passes with the tree dump code.  */
   register_dump_files (all_lowering_passes, PROP_gimple_any);
   all_lowering_passes->todo_flags_start |= TODO_set_props;
@@ -844,8 +856,10 @@ init_optimization_passes (void)
   register_dump_files (all_passes, 
 		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
 		       | PROP_cfg);
+#endif /* !EXTRA_TARGET */
 }
 
+#ifndef EXTRA_TARGET
 /* If we are in IPA mode (i.e., current_function_decl is NULL), call
    function CALLBACK for every function in the call graph.  Otherwise,
    call CALLBACK on the current function.  */ 
@@ -1164,14 +1178,14 @@ update_properties_after_pass (void *data)
 static void
 add_ipa_transform_pass (void *data)
 {
-  struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *) data;
+  struct ipa_opt_pass_d *ipa_pass = (struct ipa_opt_pass_d *) data;
   VEC_safe_push (ipa_opt_pass, heap, cfun->ipa_transforms_to_apply, ipa_pass);
 }
 
 /* Execute summary generation for all of the passes in IPA_PASS.  */
 
 static void
-execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
+execute_ipa_summary_passes (struct ipa_opt_pass_d *ipa_pass)
 {
   while (ipa_pass)
     {
@@ -1185,7 +1199,7 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 	  ipa_pass->generate_summary ();
 	  pass_fini_dump_file (pass);
 	}
-      ipa_pass = (struct ipa_opt_pass *)ipa_pass->pass.next;
+      ipa_pass = (struct ipa_opt_pass_d *)ipa_pass->pass.next;
     }
 }
 
@@ -1193,7 +1207,7 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 
 static void
 execute_one_ipa_transform_pass (struct cgraph_node *node,
-				struct ipa_opt_pass *ipa_pass)
+				struct ipa_opt_pass_d *ipa_pass)
 {
   struct opt_pass *pass = &ipa_pass->pass;
   unsigned int todo_after = 0;
@@ -1211,16 +1225,14 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   /* Run pre-pass verification.  */
   execute_todo (ipa_pass->function_transform_todo_flags_start);
 
-  /* If a timevar is present, start it.  */
-  if (pass->tv_id)
-    timevar_push (pass->tv_id);
+  /* Start the timevar.  */
+  timevar_push (pass->tv_id);
 
   /* Do it!  */
   todo_after = ipa_pass->function_transform (node);
 
   /* Stop timevar.  */
-  if (pass->tv_id)
-    timevar_pop (pass->tv_id);
+  timevar_pop (pass->tv_id);
 
   /* Run post-pass cleanup and verification.  */
   execute_todo (todo_after);
@@ -1302,9 +1314,8 @@ execute_one_pass (struct opt_pass *pass)
 
   initializing_dump = pass_init_dump_file (pass);
 
-  /* If a timevar is present, start it.  */
-  if (pass->tv_id)
-    timevar_push (pass->tv_id);
+  /* Start the timevar.  */
+  timevar_push (pass->tv_id);
 
   /* Do it!  */
   if (pass->execute)
@@ -1314,8 +1325,7 @@ execute_one_pass (struct opt_pass *pass)
     }
 
   /* Stop timevar.  */
-  if (pass->tv_id)
-    timevar_pop (pass->tv_id);
+  timevar_pop (pass->tv_id);
 
   do_per_function (update_properties_after_pass, pass);
 
@@ -1358,6 +1368,13 @@ execute_pass_list (struct opt_pass *pass)
     {
       gcc_assert (pass->type == GIMPLE_PASS
 		  || pass->type == RTL_PASS);
+      if (pass->todo_flags_start & TODO_arch_dispatch)
+	{
+	  gcc_assert (cfun);
+	  if (cfun->target_arch)
+	  pass = ((struct rtl_dispatch_pass *)pass)->target_variants[cfun->target_arch-1];
+	}
+
       if (execute_one_pass (pass) && pass->sub)
         execute_pass_list (pass->sub);
       pass = pass->next;
@@ -1382,7 +1399,7 @@ execute_ipa_pass_list (struct opt_pass *pass)
 	    {
 	      if (!quiet_flag && !cfun)
 		fprintf (stderr, " <summary generate>");
-	      execute_ipa_summary_passes ((struct ipa_opt_pass *) pass);
+	      execute_ipa_summary_passes ((struct ipa_opt_pass_d *) pass);
 	    }
 	  summaries_generated = true;
 	}
@@ -1405,3 +1422,6 @@ execute_ipa_pass_list (struct opt_pass *pass)
 }
 
 #include "gt-passes.h"
+
+#endif /* !EXTRA_TARGET */
+END_TARGET_SPECIFIC

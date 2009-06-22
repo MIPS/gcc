@@ -895,7 +895,7 @@ static struct label_record
 
 /* Callback for for_each_eh_region.  Helper for cleanup_dead_labels.  */
 static void
-update_eh_label (struct eh_region *region)
+update_eh_label (struct eh_region_d *region)
 {
   tree old_label = get_eh_region_tree_label (region);
   if (old_label)
@@ -2075,7 +2075,7 @@ struct gimple_opt_pass pass_remove_useless_stmts =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_gimple_any,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -4737,7 +4737,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
   gsi = gsi_last_bb (bb);
   stmt = gsi_end_p (gsi) ? NULL : gsi_stmt (gsi);
 
-  switch (stmt ? gimple_code (stmt) : ERROR_MARK)
+  switch (stmt ? gimple_code (stmt) : GIMPLE_ERROR_MARK)
     {
     case GIMPLE_COND:
       /* For COND_EXPR, we only need to redirect the edge.  */
@@ -7126,7 +7126,7 @@ struct gimple_opt_pass pass_warn_function_return =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -7160,7 +7160,7 @@ struct gimple_opt_pass pass_warn_function_noreturn =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

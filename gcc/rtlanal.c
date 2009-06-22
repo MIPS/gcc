@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "df.h"
 #include "tree.h"
+#include "multi-target.h"
 
 /* Information about a subreg of a hard register.  */
 struct subreg_info
@@ -50,6 +51,8 @@ struct subreg_info
      mode.  */
   bool representable_p;
 };
+
+START_TARGET_SPECIFIC
 
 /* Forward declarations */
 static void set_of_1 (rtx, const_rtx, void *);
@@ -1481,6 +1484,55 @@ note_stores (const_rtx x, void (*fun) (rtx, const_rtx, void *), void *data)
       note_stores (XVECEXP (x, 0, i), fun, data);
 }
 
+/* Call FUN on each register or MEM that is stored into or clobbered by X.
+   (X would be the pattern of an insn).  DATA is an arbitrary pointer,
+   ignored by note_stores, but passed to FUN.
+   FUN may alter parts of the RTL.
+
+   FUN receives three arguments:
+   1. the REG, MEM, CC0 or PC being stored in or clobbered,
+   2. the SET or CLOBBER rtx that does the store,
+   3. the pointer DATA provided to note_stores.
+
+  If the item being stored in or clobbered is a SUBREG of a hard register,
+  the SUBREG will be passed.  */
+
+void
+walk_stores (rtx x, void (*fun) (rtx, rtx, void *), void *data)
+{
+  int i;
+
+  if (GET_CODE (x) == COND_EXEC)
+    x = COND_EXEC_CODE (x);
+
+  if (GET_CODE (x) == SET || GET_CODE (x) == CLOBBER)
+    {
+      rtx dest = SET_DEST (x);
+
+      while ((GET_CODE (dest) == SUBREG
+	      && (!REG_P (SUBREG_REG (dest))
+		  || REGNO (SUBREG_REG (dest)) >= FIRST_PSEUDO_REGISTER))
+	     || GET_CODE (dest) == ZERO_EXTRACT
+	     || GET_CODE (dest) == STRICT_LOW_PART)
+	dest = XEXP (dest, 0);
+
+      /* If we have a PARALLEL, SET_DEST is a list of EXPR_LIST expressions,
+	 each of whose first operand is a register.  */
+      if (GET_CODE (dest) == PARALLEL)
+	{
+	  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
+	    if (XEXP (XVECEXP (dest, 0, i), 0) != 0)
+	      (*fun) (XEXP (XVECEXP (dest, 0, i), 0), x, data);
+	}
+      else
+	(*fun) (dest, x, data);
+    }
+
+  else if (GET_CODE (x) == PARALLEL)
+    for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+      walk_stores (XVECEXP (x, 0, i), fun, data);
+}
+
 /* Like notes_stores, but call FUN for each expression that is being
    referenced in PBODY, a pointer to the PATTERN of an insn.  We only call
    FUN for each expression, not any interior subexpressions.  FUN receives a
@@ -1880,10 +1932,11 @@ find_regno_fusage (const_rtx insn, enum rtx_code code, unsigned int regno)
 }
 
 
-/* Add register note with kind KIND and datum DATUM to INSN.  */
+/* Allocate a register note with kind KIND and datum DATUM.  NEXT is
+   stored as the pointer to the next register note.  */
 
-void
-add_reg_note (rtx insn, enum reg_note kind, rtx datum)
+rtx
+alloc_reg_note (enum reg_note kind, rtx datum, rtx list)
 {
   rtx note;
 
@@ -1893,19 +1946,24 @@ add_reg_note (rtx insn, enum reg_note kind, rtx datum)
     case REG_CC_USER:
     case REG_LABEL_TARGET:
     case REG_LABEL_OPERAND:
-      /* These types of register notes use an INSN_LIST rather than an
-	 EXPR_LIST, so that copying is done right and dumps look
-	 better.  */
-      note = alloc_INSN_LIST (datum, REG_NOTES (insn));
+      note = alloc_INSN_LIST (datum, list);
       PUT_REG_NOTE_KIND (note, kind);
       break;
 
     default:
-      note = alloc_EXPR_LIST (kind, datum, REG_NOTES (insn));
+      note = alloc_EXPR_LIST (kind, datum, list);
       break;
     }
 
-  REG_NOTES (insn) = note;
+  return note;
+}
+
+/* Add register note with kind KIND and datum DATUM to INSN.  */
+
+void
+add_reg_note (rtx insn, enum reg_note kind, rtx datum)
+{
+  REG_NOTES (insn) = alloc_reg_note (kind, datum, REG_NOTES (insn));
 }
 
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
@@ -5041,3 +5099,4 @@ constant_pool_constant_p (rtx x)
   return GET_CODE (x) == CONST_DOUBLE;
 }
 
+END_TARGET_SPECIFIC

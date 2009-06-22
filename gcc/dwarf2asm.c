@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "ggc.h"
 #include "tm_p.h"
+#include "multi-target.h"
 
 
 /* How to start an assembler comment.  */
@@ -41,6 +42,8 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 
+START_TARGET_SPECIFIC
+
 /* Output an unaligned integer with the given value and size.  Prefer not
    to print a newline, since the caller may want to add a comment.  */
 
@@ -985,3 +988,5 @@ dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr, bool is_public,
 }
 
 #include "gt-dwarf2asm.h"
+
+END_TARGET_SPECIFIC

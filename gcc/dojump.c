@@ -35,6 +35,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "ggc.h"
 #include "basic-block.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static bool prefer_and_bit_test (enum machine_mode, int);
 static void do_jump_by_parts_greater (tree, int, rtx, rtx);
@@ -1025,3 +1028,5 @@ do_compare_and_jump (tree exp, enum rtx_code signed_code,
 }
 
 #include "gt-dojump.h"
+
+END_TARGET_SPECIFIC

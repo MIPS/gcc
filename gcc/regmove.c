@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static int perhaps_ends_bb_p (rtx);
 static int optimize_reg_copy_1 (rtx, rtx, rtx);
@@ -51,21 +54,26 @@ static void optimize_reg_copy_2 (rtx, rtx, rtx);
 static void optimize_reg_copy_3 (rtx, rtx, rtx);
 static void copy_src_to_dest (rtx, rtx, rtx);
 
+enum match_use_kinds {
+  READ,
+  WRITE,
+  READWRITE
+};
+
 struct match {
   int with[MAX_RECOG_OPERANDS];
-  enum { READ, WRITE, READWRITE } use[MAX_RECOG_OPERANDS];
+  enum match_use_kinds use[MAX_RECOG_OPERANDS];
   int commutative[MAX_RECOG_OPERANDS];
   int early_clobber[MAX_RECOG_OPERANDS];
 };
 
 static int find_matches (rtx, struct match *);
-static int regclass_compatible_p (int, int);
 static int fixup_match_2 (rtx, rtx, rtx, rtx);
 
 /* Return nonzero if registers with CLASS1 and CLASS2 can be merged without
    causing too much register allocation problems.  */
 static int
-regclass_compatible_p (int class0, int class1)
+regclass_compatible_p (enum reg_class class0, enum reg_class class1)
 {
   return (class0 == class1
 	  || (reg_class_subset_p (class0, class1)
@@ -190,7 +198,7 @@ try_auto_increment (rtx insn, rtx inc_insn, rtx inc_insn_set, rtx reg,
 		     changed.  */
 		  rtx note = find_reg_note (insn, REG_DEAD, reg);
 		  if (note)
-		    PUT_MODE (note, REG_UNUSED);
+		    PUT_REG_NOTE_KIND (note, REG_UNUSED);
 
 		  add_reg_note (insn, REG_INC, reg);
 
@@ -1365,3 +1373,4 @@ struct rtl_opt_pass pass_regmove =
  }
 };
 
+END_TARGET_SPECIFIC

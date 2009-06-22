@@ -520,7 +520,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
       update_phi = gsi_stmt (gsi_update);
 
       /* Virtual phi; Mark it for renaming. We actually want to call
-	 mar_sym_for_renaming, but since all ssa renaming datastructures
+	 mark_sym_for_renaming, but since all ssa renaming datastructures
 	 are going to be freed before we get to call ssa_update, we just
 	 record this name for now in a bitmap, and will mark it for
 	 renaming later.  */
@@ -1450,9 +1450,9 @@ vect_set_verbosity_level (const char *val)
 
    vl = atoi (val);
    if (vl < MAX_VERBOSITY_LEVEL)
-     vect_verbosity_level = vl;
+     vect_verbosity_level = (enum verbosity_levels) vl;
    else
-     vect_verbosity_level = MAX_VERBOSITY_LEVEL - 1;
+     vect_verbosity_level = (enum verbosity_levels) (MAX_VERBOSITY_LEVEL - 1);
 }
 
 
@@ -1533,7 +1533,7 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_TYPE (res) = undef_vec_info_type;
   STMT_VINFO_STMT (res) = stmt;
   STMT_VINFO_LOOP_VINFO (res) = loop_vinfo;
-  STMT_VINFO_RELEVANT (res) = 0;
+  STMT_VINFO_RELEVANT (res) = vect_unused_in_loop;
   STMT_VINFO_LIVE_P (res) = false;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
@@ -1555,7 +1555,7 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
   STMT_VINFO_INSIDE_OF_LOOP_COST (res) = 0;
   STMT_VINFO_OUTSIDE_OF_LOOP_COST (res) = 0;
-  STMT_SLP_TYPE (res) = 0;
+  STMT_SLP_TYPE (res) = loop_vect;
   DR_GROUP_FIRST_DR (res) = NULL;
   DR_GROUP_NEXT_DR (res) = NULL;
   DR_GROUP_SIZE (res) = 0;
@@ -1836,54 +1836,6 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 }
 
 
-/* Function get_vectype_for_scalar_type.
-
-   Returns the vector type corresponding to SCALAR_TYPE as supported
-   by the target.  */
-
-tree
-get_vectype_for_scalar_type (tree scalar_type)
-{
-  enum machine_mode inner_mode = TYPE_MODE (scalar_type);
-  int nbytes = GET_MODE_SIZE (inner_mode);
-  int nunits;
-  tree vectype;
-
-  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (inner_mode))
-    return NULL_TREE;
-
-  /* FORNOW: Only a single vector size per mode (UNITS_PER_SIMD_WORD)
-     is expected.  */
-  nunits = UNITS_PER_SIMD_WORD (inner_mode) / nbytes;
-
-  vectype = build_vector_type (scalar_type, nunits);
-  if (vect_print_dump_info (REPORT_DETAILS))
-    {
-      fprintf (vect_dump, "get vectype with %d units of type ", nunits);
-      print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
-    }
-
-  if (!vectype)
-    return NULL_TREE;
-
-  if (vect_print_dump_info (REPORT_DETAILS))
-    {
-      fprintf (vect_dump, "vectype: ");
-      print_generic_expr (vect_dump, vectype, TDF_SLIM);
-    }
-
-  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
-      && !INTEGRAL_MODE_P (TYPE_MODE (vectype)))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "mode not supported by target.");
-      return NULL_TREE;
-    }
-
-  return vectype;
-}
-
-
 /* Function vect_supportable_dr_alignment
 
    Return whether the data reference DR is supported with respect to its
@@ -1895,7 +1847,7 @@ vect_supportable_dr_alignment (struct data_reference *dr)
   gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  enum machine_mode mode = (int) TYPE_MODE (vectype);
+  enum machine_mode mode = TYPE_MODE (vectype);
   struct loop *vect_loop = LOOP_VINFO_LOOP (STMT_VINFO_LOOP_VINFO (stmt_info));
   bool nested_in_vect_loop = nested_in_vect_loop_p (vect_loop, stmt);
   bool invariant_in_outerloop = false;
@@ -2157,7 +2109,7 @@ supportable_widening_operation (enum tree_code code, gimple stmt, tree vectype,
   struct loop *vect_loop = LOOP_VINFO_LOOP (loop_info);
   bool ordered_p;
   enum machine_mode vec_mode;
-  enum insn_code icode1 = 0, icode2 = 0;
+  enum insn_code icode1 = (enum insn_code) 0, icode2 = (enum insn_code) 0;
   optab optab1, optab2;
   tree type = gimple_expr_type (stmt);
   tree wide_vectype = get_vectype_for_scalar_type (type);
@@ -2808,15 +2760,71 @@ vectorize_loops (void)
   FOR_EACH_LOOP (li, loop, 0)
     if (optimize_loop_nest_for_speed_p (loop))
       {
-	loop_vec_info loop_vinfo;
+	loop_vec_info loop_vinfo = 0;
+	int best_factor = -1;
+	int target_arch, best_arch = -1;
 
 	vect_loop_location = find_loop_location (loop);
-	loop_vinfo = vect_analyze_loop (loop);
+	for (target_arch = -1; targetm_pnt = targetm_array[++target_arch]; )
+	  {
+	    if (loop_vinfo)
+	      destroy_loop_vec_info (loop_vinfo, true);
+	    loop_vinfo = vect_analyze_loop (loop);
+	    if (!loop_vinfo)
+	      continue;
+	    /* FIXME: insert some machine learning heuristic here to
+	       better compare the targets.  */
+	    if (LOOP_VINFO_VECTORIZABLE_P (loop_vinfo)
+		&& LOOP_VINFO_VECT_FACTOR (loop_vinfo) > best_factor)
+	      {
+		best_arch = target_arch;
+		best_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+	      }
+	  }
+	if (best_arch >= 0 && target_arch != best_arch)
+	  {
+	    if (loop_vinfo)
+	      {
+		destroy_loop_vec_info (loop_vinfo, true);
+		loop_vinfo = 0;
+	      }
+	    targetm_pnt = targetm_array[best_arch];
+	    loop_vinfo = vect_analyze_loop (loop);
+	    target_arch = best_arch;
+	  }
+	targetm_pnt = targetm_array[cfun->target_arch];
 	loop->aux = loop_vinfo;
 
-	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
+	if (best_arch < 0)
 	  continue;
 
+	if (best_arch != (int) cfun->target_arch)
+	  {
+	    /* This loop should be vectorized for another target.
+	       We do the vectorization now because, if required, alias checks
+	       and a loop version for the aliased case should run on the main
+	       target (saving code space on the extra target).
+	       Likewise, peeling to obtain the vectorization factor
+	       (vect_do_peeling_for_loop_bound) should be done for the main
+	       target.  ??? We might want to extend this peeling to do
+	       a bit of looping to work concurrently with the extra target.
+	       ??? This is good for arc-mxp or ppc-spu, but h8300-sh64 would
+	       be better off (at least if power is no object once we activate
+	       the sh64) doing more work on the sh64.
+	       Alignment checks will not be necessary because alignment
+	       mismatch is taken care of during data transfer.
+	       (Might need to modify this aspect if the DMA mechanism for
+		some target architecture pair as alignment restrictions).
+	       Since we might to have more than one thread on this other
+	       target, but do the reduction on the main processor, we leave
+	       the outlining parallelize_loops.
+	       As parallelize_loops will see the vectorized loop, there should
+	       be no trouble with a thread other than on the main target
+	       gettingvector subunits not making up a full vector.
+	       An additional task that vectorization the will have to do now
+	       is to translate pointers to use the appropriate ptr_mode.  */
+	    loop->target_arch = best_arch;
+	  }
 	vect_transform_loop (loop_vinfo);
 	num_vectorized_loops++;
       }
@@ -2909,7 +2917,7 @@ struct simple_ipa_opt_pass pass_ipa_increase_alignment =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

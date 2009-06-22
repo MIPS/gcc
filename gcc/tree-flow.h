@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
 #include "ipa-reference.h"
+#include "multi-target.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -231,8 +232,10 @@ typedef struct
 /* Aliasing information for SSA_NAMEs representing pointer variables.  */
 struct ptr_info_def GTY(())
 {
-  /* Mask of reasons this pointer's value escapes the function.  */
-  ENUM_BITFIELD (escape_type) escape_mask : 9;
+  /* Mask of reasons this pointer's value escapes the function.  This
+     actually holds enum escape_type values, or'd together.  So, it
+     must be wide enough to hold all values from the enum.  */
+  unsigned int escape_mask : 9;
 
   /* Nonzero if points-to analysis couldn't determine where this pointer
      is pointing to.  */
@@ -380,8 +383,10 @@ struct var_ann_d GTY(())
   ENUM_BITFIELD (noalias_state) noalias_state : 2;
 
   /* Mask of values saying the reasons why this variable has escaped
-     the function.  */
-  ENUM_BITFIELD (escape_type) escape_mask : 9;
+     the function.  This actually holds enum escape_type values, or'd
+     together.  So, it must be wide enough to hold all values from the
+     enum.  */
+  unsigned int escape_mask : 9;
 
   /* Memory partition tag assigned to this symbol.  */
   tree mpt;
@@ -975,7 +980,6 @@ struct tree_niter_desc
 /* In tree-vectorizer.c */
 unsigned vectorize_loops (void);
 extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
-extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
 bool empty_block_p (basic_block);
@@ -1024,6 +1028,7 @@ bool gimple_duplicate_loop_to_header_edge (struct loop *, edge,
 					 unsigned int, sbitmap,
 					 edge, VEC (edge, heap) **,
 					 int);
+bool gimple_can_duplicate_loop_to_header_edge (struct loop *);
 struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *, edge);
 void rename_variables_in_loop (struct loop *);
 void rename_variables_in_bb (basic_block bb);
@@ -1165,11 +1170,13 @@ struct mem_address
 };
 
 struct affine_tree_combination;
+START_TARGET_SPECIFIC
 tree create_mem_ref (gimple_stmt_iterator *, tree, 
 		     struct affine_tree_combination *, bool);
 rtx addr_for_mem_ref (struct mem_address *, bool);
-void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
+END_TARGET_SPECIFIC
+void get_address_description (tree, struct mem_address *);
 
 void init_alias_heapvars (void);
 void delete_alias_heapvars (void);

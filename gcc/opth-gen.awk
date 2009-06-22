@@ -66,11 +66,18 @@ print ""
 print "#ifndef OPTIONS_H"
 print "#define OPTIONS_H"
 print ""
+print "#include " quote "multi-target.h" quote
+print ""
+print "START_TARGET_SPECIFIC"
+print ""
 print "extern int target_flags;"
 print "extern int target_flags_explicit;"
 print ""
+print "END_TARGET_SPECIFIC"
+print ""
 
 have_save = 0;
+target_specific = 0;
 
 for (i = 0; i < n_opts; i++) {
 	if (flag_set_p("Save", flags[i]))
@@ -84,7 +91,22 @@ for (i = 0; i < n_opts; i++) {
 		continue;
 
 	var_seen[name] = 1;
+	if (target_specific == 0 &&
+		(flag_set_p("Target", flags[i]) ||
+		 flag_set_p("AllTarget", flags[i]))) {
+		print "START_TARGET_SPECIFIC"
+		target_specific = 1;
+	} else if (target_specific &&
+		!(flag_set_p("Target", flags[i]) ||
+		  flag_set_p("AllTarget", flags[i]))) {
+		print "END_TARGET_SPECIFIC"
+		target_specific = 0;
+	}
 	print "extern " var_type(flags[i]) name ";"
+}
+if (target_specific) {
+	print "END_TARGET_SPECIFIC"
+	target_specific = 0;
 }
 print ""
 

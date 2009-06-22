@@ -40,6 +40,13 @@ extern void internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_PRIN
 extern const char *trim_filename (const char *);
 
 extern int have_error;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern const char *progname;
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! GCC_ERRORS_H */

@@ -1789,7 +1789,7 @@ insert_automaton_decl (decl_t automaton_decl)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (automaton_decl_table, automaton_decl, 1);
+  entry_ptr = htab_find_slot (automaton_decl_table, automaton_decl, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) automaton_decl;
   return (decl_t) *entry_ptr;
@@ -1888,7 +1888,7 @@ insert_insn_decl (decl_t insn_decl)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (insn_decl_table, insn_decl, 1);
+  entry_ptr = htab_find_slot (insn_decl_table, insn_decl, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) insn_decl;
   return (decl_t) *entry_ptr;
@@ -1989,7 +1989,7 @@ insert_decl (decl_t decl)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (decl_table, decl, 1);
+  entry_ptr = htab_find_slot (decl_table, decl, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) decl;
   return (decl_t) *entry_ptr;
@@ -3722,7 +3722,7 @@ insert_state (state_t state)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (state_table, (void *) state, 1);
+  entry_ptr = htab_find_slot (state_table, (void *) state, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) state;
   return (state_t) *entry_ptr;
@@ -4078,7 +4078,7 @@ automata_list_finish (void)
   if (current_automata_list == NULL)
     return NULL;
   entry_ptr = htab_find_slot (automata_list_table,
-			      (void *) current_automata_list, 1);
+			      (void *) current_automata_list, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) current_automata_list;
   else
@@ -9411,13 +9411,18 @@ main (int argc, char **argv)
 	"#include \"insn-attr.h\"\n"
 	"#include \"toplev.h\"\n"
 	"#include \"flags.h\"\n"
-	"#include \"function.h\"\n");
+	"#include \"function.h\"\n"
+	"#include \"multi-target.h\"\n"
+	"\n"
+	"START_TARGET_SPECIFIC\n");
 
   if (VEC_length (decl_t, decls) > 0)
     {
       expand_automata ();
       write_automata ();
     }
+
+  puts ("END_TARGET_SPECIFIC");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

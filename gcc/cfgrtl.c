@@ -61,6 +61,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static int can_delete_note_p (const_rtx);
 static int can_delete_label_p (const_rtx);
@@ -437,7 +440,7 @@ struct rtl_opt_pass pass_free_cfg =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   PROP_cfg,                             /* properties_destroyed */
@@ -3172,3 +3175,5 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   rtl_extract_cond_bb_edges, /* extract_cond_bb_edges */
   NULL		/* flush_pending_stmts */
 };
+
+END_TARGET_SPECIFIC

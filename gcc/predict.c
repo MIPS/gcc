@@ -60,6 +60,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "cfgloop.h"
 #include "pointer-set.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
 		   1/REG_BR_PROB_BASE, 0.5, BB_FREQ_MAX.  */
@@ -726,7 +729,8 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
 	  int predictor = INTVAL (XEXP (XEXP (*pnote, 0), 0));
 	  int probability = INTVAL (XEXP (XEXP (*pnote, 0), 1));
 
-	  dump_prediction (dump_file, predictor, probability, bb,
+	  dump_prediction (dump_file, (enum br_predictor) predictor,
+			   probability, bb,
 			   !first_match || best_predictor == predictor);
 	  *pnote = XEXP (*pnote, 1);
 	}
@@ -888,12 +892,13 @@ combine_predictions_for_bb (basic_block bb)
     {
       for (pred = (struct edge_prediction *) *preds; pred; pred = pred->ep_next)
 	{
-	  int predictor = pred->ep_predictor;
+	  int predictor = (int) pred->ep_predictor;
 	  int probability = pred->ep_probability;
 
 	  if (pred->ep_edge != EDGE_SUCC (bb, 0))
 	    probability = REG_BR_PROB_BASE - probability;
-	  dump_prediction (dump_file, predictor, probability, bb,
+	  dump_prediction (dump_file, (enum br_predictor) predictor,
+			   probability, bb,
 			   !first_match || best_predictor == predictor);
 	}
     }
@@ -2185,7 +2190,7 @@ build_predict_expr (enum br_predictor predictor, enum prediction taken)
 {
   tree t = build1 (PREDICT_EXPR, void_type_node,
 		   build_int_cst (NULL, predictor));
-  PREDICT_EXPR_OUTCOME (t) = taken;
+  SET_PREDICT_EXPR_OUTCOME (t, taken);
   return t;
 }
 
@@ -2232,3 +2237,5 @@ struct gimple_opt_pass pass_strip_predict_hints =
   TODO_ggc_collect | TODO_verify_ssa			/* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

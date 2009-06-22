@@ -1435,7 +1435,7 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 	  gfc_constructor *ctor = c->initializer->value.constructor;
 
 	  bool first = true;
-	  int first_len;
+	  int first_len = 0;
 
 	  has_ts = (c->initializer->ts.cl
 		    && c->initializer->ts.cl->length_from_typespec);
@@ -2804,7 +2804,7 @@ match_attr_spec (void)
 
   locus start, seen_at[NUM_DECL];
   int seen[NUM_DECL];
-  decl_types d;
+  int d;
   const char *attr;
   match m;
   gfc_try t;
@@ -4516,7 +4516,7 @@ static bool
 add_global_entry (const char *name, int sub)
 {
   gfc_gsymbol *s;
-  unsigned int type;
+  enum gfc_symbol_type type;
 
   s = gfc_get_gsymbol(name);
   type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
@@ -6519,7 +6519,7 @@ gfc_match_derived_decl (void)
    is the case. Since there is no bounds-checking for Cray Pointees,
    this will be okay.  */
 
-gfc_try
+match
 gfc_mod_pointee_as (gfc_array_spec *as)
 {
   as->cray_pointee = true; /* This will be useful to know later.  */

@@ -92,6 +92,7 @@
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "tm_p.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "flags.h"
@@ -106,6 +107,7 @@
 #include "expr.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "multi-target.h"
 
 /* Type of micro operation.  */
 enum micro_operation_type
@@ -270,6 +272,8 @@ typedef const struct variable_def *const_variable;
 
 /* Macro to access MEM_OFFSET as an HOST_WIDE_INT.  Evaluates MEM twice.  */
 #define INT_MEM_OFFSET(mem) (MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0)
+
+START_TARGET_SPECIFIC
 
 /* Alloc pool for struct attrs_def.  */
 static alloc_pool attrs_pool;
@@ -871,13 +875,13 @@ var_reg_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
   set_variable_part (set, loc, decl, offset, initialized, set_src);
 }
 
-static int
+static enum var_init_status
 get_init_value (dataflow_set *set, rtx loc, tree decl)
 {
   void **slot;
   variable var;
   int i;
-  int ret_val = VAR_INIT_STATUS_UNKNOWN;
+  enum var_init_status ret_val = VAR_INIT_STATUS_UNKNOWN;
 
   if (! flag_var_tracking_uninit)
     return VAR_INIT_STATUS_INITIALIZED;
@@ -3446,3 +3450,4 @@ struct rtl_opt_pass pass_variable_tracking =
  }
 };
 
+END_TARGET_SPECIFIC

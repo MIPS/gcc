@@ -25,7 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtlhooks-def.h"
 #include "expr.h"
 #include "recog.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 /* For speed, we will copy the RTX hooks struct member-by-member
    instead of doing indirect calls.  For these reason, we initialize
@@ -166,3 +168,4 @@ gen_lowpart_if_possible (enum machine_mode mode, rtx x)
     return 0;
 }
 
+END_TARGET_SPECIFIC

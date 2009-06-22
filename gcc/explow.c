@@ -40,6 +40,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "target.h"
 #include "output.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static rtx break_out_memory_refs (rtx);
 static void emit_stack_probe (rtx);
@@ -418,8 +421,15 @@ memory_address (enum machine_mode mode, rtx x)
 
   /* By passing constant addresses through registers
      we get a chance to cse them.  */
-  if (! cse_not_expected && CONSTANT_P (x) && CONSTANT_ADDRESS_P (x))
-    x = force_reg (Pmode, x);
+  if (1 && ! cse_not_expected && CONSTANT_P (x) && CONSTANT_ADDRESS_P (x))
+    {
+      /* If the target has offset addressing and a suitable LEGITIMIZE_ADDRESS
+	  definition, that can give much better cse.  */
+#if 1
+      LEGITIMIZE_ADDRESS (x, oldx, mode, done);
+#endif
+      x = force_reg (Pmode, x);
+    }
 
   /* We get better cse by rejecting indirect addressing at this stage.
      Let the combiner create indirect addresses where appropriate.
@@ -1496,6 +1506,7 @@ hard_libcall_value (enum machine_mode mode)
   return LIBCALL_VALUE (mode);
 }
 
+#ifndef EXTRA_TARGET
 /* Look up the tree code for a given rtx code
    to provide the arithmetic operation for REAL_ARITHMETIC.
    The function returns an int because the caller may not know
@@ -1532,5 +1543,8 @@ rtx_to_tree_code (enum rtx_code code)
     }
   return ((int) tcode);
 }
+#endif /* !EXTRA_TARGET */
 
 #include "gt-explow.h"
+
+END_TARGET_SPECIFIC

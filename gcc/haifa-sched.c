@@ -147,6 +147,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "dbgcnt.h"
 #include "cfgloop.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef INSN_SCHEDULING
 
@@ -601,7 +604,7 @@ static rtx last_scheduled_insn;
 /* Compute cost of executing INSN.
    This is the number of cycles between instruction issue and
    instruction results.  */
-HAIFA_INLINE int
+int
 insn_cost (rtx insn)
 {
   int cost;
@@ -1897,7 +1900,7 @@ reemit_notes (rtx insn)
     {
       if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
 	{
-	  enum insn_note note_type = INTVAL (XEXP (note, 0));
+	  enum insn_note note_type = (enum insn_note) INTVAL (XEXP (note, 0));
 
 	  last = emit_note_before (note_type, last);
 	  remove_note (insn, note);
@@ -2131,7 +2134,8 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
 		{
 		  n = privileged_n;
 		  /* Try to find issued privileged insn.  */
-		  while (n && !ready_try[--n]);
+		  while (n && !ready_try[--n])
+		    ;
 		}
 
 	      if (/* If all insns are equally good...  */
@@ -3906,12 +3910,10 @@ sched_create_recovery_edges (basic_block first_bb, basic_block rec,
       /* Rewritten from cfgrtl.c.  */
       if (flag_reorder_blocks_and_partition
 	  && targetm.have_named_sections)
-	/* We don't need the same note for the check because
-	   any_condjump_p (check) == true.  */
 	{
-	  REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP,
-						NULL_RTX,
-						REG_NOTES (jump));
+	  /* We don't need the same note for the check because
+	     any_condjump_p (check) == true.  */
+	  add_reg_note (jump, REG_CROSSING_JUMP, NULL_RTX);
 	}
       edge_flags = EDGE_CROSSING;
     }
@@ -4723,8 +4725,6 @@ check_cfg (rtx head, rtx tail)
 
 #endif /* ENABLE_CHECKING */
 
-const struct sched_scan_info_def *sched_scan_info;
-
 /* Extend per basic block data structures.  */
 static void
 extend_bb (void)
@@ -5009,3 +5009,5 @@ sched_emit_insn (rtx pat)
 }
 
 #endif /* INSN_SCHEDULING */
+
+END_TARGET_SPECIFIC

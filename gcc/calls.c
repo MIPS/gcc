@@ -43,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "dbgcnt.h"
 #include "tree-flow.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -457,6 +460,8 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
     anti_adjust_stack (GEN_INT (n_popped));
 }
 
+#ifndef EXTRA_TARGET
+
 /* Determine if the function identified by NAME and FNDECL is one with
    special properties we wish to know about.
 
@@ -650,6 +655,8 @@ call_expr_flags (const_tree t)
 
   return flags;
 }
+
+#endif /* !EXTRA_TARGET */
 
 /* Precompute all register parameters as described by ARGS, storing values
    into fields within the ARGS array.
@@ -3444,7 +3451,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   for (; count < nargs; count++)
     {
       rtx val = va_arg (p, rtx);
-      enum machine_mode mode = va_arg (p, enum machine_mode);
+      enum machine_mode mode = (enum machine_mode) va_arg (p, int);
 
       /* We cannot convert the arg value to the mode the library wants here;
 	 must do it earlier where we know the signedness of the arg.  */
@@ -4232,7 +4239,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		    - int_size_in_bytes (TREE_TYPE (pval))
 		    + partial);
 	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
-				  NULL_RTX, TYPE_MODE (sizetype), 0);
+				  NULL_RTX, TYPE_MODE (sizetype),
+				  EXPAND_NORMAL);
 	}
 
       parm_align = arg->locate.boundary;
@@ -4393,3 +4401,5 @@ must_pass_in_stack_var_size_or_pad (enum machine_mode mode, const_tree type)
 
   return false;
 }
+
+END_TARGET_SPECIFIC

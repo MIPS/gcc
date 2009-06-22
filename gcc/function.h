@@ -25,6 +25,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "hashtab.h"
 #include "varray.h"
+#include "multi-target.h"
+#ifdef GENERATOR_FILE
+#include "target-gtypes.h"
+#elif 1
+/* ??? We still have clashes of target-defines with enum tags, e.g. mxp
+   insn-constants.h defiens FP_REG, which is an enum tag in arc.h that
+   gets copied into the arc namespace of target-types.h.
+   Using target-gtypes.h is not standards conformant, because the same type
+   has different definitions in different files (albeit all the same size).  */
+#include "target-gtypes.h"
+#else
+#include "target-types.h"
+#endif
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -82,7 +95,6 @@ struct emit_status GTY(())
   unsigned char * GTY((skip)) regno_pointer_align;
 };
 
-
 /* Indexed by pseudo register number, gives the rtx for that pseudo.
    Allocated in parallel with regno_pointer_align.  
    FIXME: We could put it into emit_status struct, but gengtype is not able to deal
@@ -137,7 +149,7 @@ struct expr_status GTY(())
   rtx x_forced_labels;
 };
 
-typedef struct call_site_record *call_site_record;
+typedef struct call_site_record_d *call_site_record;
 DEF_VEC_P(call_site_record);
 DEF_VEC_ALLOC_P(call_site_record, gc);
 
@@ -175,12 +187,12 @@ struct rtl_eh GTY(())
 struct gimple_df;
 struct temp_slot;
 typedef struct temp_slot *temp_slot_p;
-struct call_site_record;
+struct call_site_record_d;
 
 DEF_VEC_P(temp_slot_p);
 DEF_VEC_ALLOC_P(temp_slot_p,gc);
-struct ipa_opt_pass;
-typedef struct ipa_opt_pass *ipa_opt_pass;
+struct ipa_opt_pass_d;
+typedef struct ipa_opt_pass_d *ipa_opt_pass;
 
 DEF_VEC_P(ipa_opt_pass);
 DEF_VEC_ALLOC_P(ipa_opt_pass,heap);
@@ -230,11 +242,23 @@ struct incoming_args GTY(())
 
   /* Quantities of various kinds of registers
      used for the current function's args.  */
-  CUMULATIVE_ARGS info;
+  cumulative_args_u GTY ((desc ("cfun ? cfun->target_arch : -1"))) info;
 
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
 };
+
+#ifdef EXTRA_TARGET
+#define CONCAT_(A,B) A##B
+#define CONCAT(A,B) CONCAT_(A,B)
+#define INCOMING_ARGS_INFO(INCOMING_ARGS) \
+  ((INCOMING_ARGS).info.CONCAT(EXTRA_TARGET,_ca))
+#define MACHINE_FUNCTION(FUNCTION) \
+  ((FUNCTION).machine.CONCAT(EXTRA_TARGET,_mf))
+#else
+#define INCOMING_ARGS_INFO(INCOMING_ARGS) ((INCOMING_ARGS).info._ca)
+#define MACHINE_FUNCTION(FUNCTION) ((FUNCTION).machine._mf)
+#endif
 
 /* Data for function partitioning.  */
 struct function_subsections GTY(())
@@ -253,6 +277,8 @@ struct function_subsections GTY(())
 
   const char *unlikely_text_section_name;
 };
+
+struct initial_value_struct;
 
 /* Datastructures maintained for currently processed function in RTL form.  */
 struct rtl_data GTY(())
@@ -507,7 +533,7 @@ struct function GTY(())
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
-  struct machine_function * GTY ((maybe_undef)) machine;
+  machine_function_u GTY ((desc ("%0.target_arch"))) machine;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;
@@ -600,6 +626,9 @@ struct function GTY(())
      adjusts one of its arguments and forwards to another
      function.  */
   unsigned int is_thunk : 1;
+
+  /* Target architecture to compile this function for.  */
+  unsigned int target_arch : 8;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -615,6 +644,7 @@ extern GTY(()) struct function *cfun;
    push_cfun or set_cfun.  */
 #define cfun (cfun + 0)
 
+START_TARGET_SPECIFIC
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
 
@@ -687,4 +717,5 @@ extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 extern void used_types_insert (tree);
 
 extern int get_next_funcdef_no (void);
+END_TARGET_SPECIFIC
 #endif  /* GCC_FUNCTION_H */

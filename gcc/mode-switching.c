@@ -36,10 +36,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "timevar.h"
 #include "df.h"
+#include "multi-target.h"
 
 /* We want target macros for the mode switching code to be able to refer
    to instruction attribute values.  */
 #include "insn-attr.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef OPTIMIZE_MODE_SWITCHING
 
@@ -775,3 +778,5 @@ struct rtl_opt_pass pass_mode_switching =
   TODO_dump_func                        /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC
