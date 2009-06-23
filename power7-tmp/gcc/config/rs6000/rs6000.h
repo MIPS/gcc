@@ -1201,6 +1201,7 @@ enum reg_class
   GENERAL_REGS,
   FLOAT_REGS,
   ALTIVEC_REGS,
+  VSX_REGS,
   VRSAVE_REGS,
   VSCR_REGS,
   SPE_ACC_REGS,
@@ -1231,6 +1232,7 @@ enum reg_class
   "GENERAL_REGS",							\
   "FLOAT_REGS",								\
   "ALTIVEC_REGS",							\
+  "VSX_REGS",								\
   "VRSAVE_REGS",							\
   "VSCR_REGS",								\
   "SPE_ACC_REGS",                                                       \
@@ -1260,6 +1262,7 @@ enum reg_class
   { 0xffffffff, 0x00000000, 0x00000008, 0x00020000 }, /* GENERAL_REGS */     \
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000 }, /* FLOAT_REGS */       \
   { 0x00000000, 0x00000000, 0xffffe000, 0x00001fff }, /* ALTIVEC_REGS */     \
+  { 0x00000000, 0xffffffff, 0xffffe000, 0x00001fff }, /* VSX_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00002000 }, /* VRSAVE_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00004000 }, /* VSCR_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00008000 }, /* SPE_ACC_REGS */     \
@@ -1341,20 +1344,14 @@ extern enum reg_class rs6000_vector_reg_class[];
  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  ((CONSTANT_P (X)					\
-    && reg_classes_intersect_p ((CLASS), FLOAT_REGS))	\
-   ? NO_REGS 						\
-   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
-      && (CLASS) == NON_SPECIAL_REGS)			\
-   ? GENERAL_REGS					\
-   : (CLASS))
+  rs6000_preferred_reload_class_ptr (X, CLASS)
 
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
    NO_REGS is returned.  */
 
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  rs6000_secondary_reload_class (CLASS, MODE, IN)
+  rs6000_secondary_reload_class_ptr (CLASS, MODE, IN)
 
 /* If we are copying between FP or AltiVec registers and anything
    else, we need a memory location.  The exception is when we are
@@ -1362,18 +1359,7 @@ extern enum reg_class rs6000_vector_reg_class[];
    are available.*/
 
 #define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
- ((CLASS1) != (CLASS2) && (((CLASS1) == FLOAT_REGS			\
-                            && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode)			\
-				    && (MODE != DDmode)			\
-				    && (MODE != DImode))))		\
-			   || ((CLASS2) == FLOAT_REGS			\
-                               && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				   || ((MODE != DFmode)			\
-				       && (MODE != DDmode)		\
-				       && (MODE != DImode))))		\
-			   || (CLASS1) == ALTIVEC_REGS			\
-			   || (CLASS2) == ALTIVEC_REGS))
+  rs6000_secondary_memory_needed_ptr (CLASS1, CLASS2, MODE)
 
 /* For cpus that cannot load/store SDmode values from the 64-bit
    FP registers without using a full 64-bit load/store, we need
@@ -1393,19 +1379,7 @@ extern enum reg_class rs6000_vector_reg_class[];
 /* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
-   ? ((GET_MODE_SIZE (FROM) < 8 || GET_MODE_SIZE (TO) < 8		\
-       || TARGET_IEEEQUAD)						\
-      && reg_classes_intersect_p (FLOAT_REGS, CLASS))			\
-   : (((TARGET_E500_DOUBLE						\
-	&& ((((TO) == DFmode) + ((FROM) == DFmode)) == 1		\
-	    || (((TO) == TFmode) + ((FROM) == TFmode)) == 1		\
-	    || (((TO) == DDmode) + ((FROM) == DDmode)) == 1		\
-	    || (((TO) == TDmode) + ((FROM) == TDmode)) == 1		\
-	    || (((TO) == DImode) + ((FROM) == DImode)) == 1))		\
-       || (TARGET_SPE							\
-	   && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1))	\
-      && reg_classes_intersect_p (GENERAL_REGS, CLASS)))
+  rs6000_cannot_change_mode_class_ptr (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1904,7 +1878,7 @@ typedef struct rs6000_args
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	     \
 do {									     \
   int win;								     \
-  (X) = rs6000_legitimize_reload_address ((X), (MODE), (OPNUM),		     \
+  (X) = rs6000_legitimize_reload_address_ptr ((X), (MODE), (OPNUM),	     \
 			(int)(TYPE), (IND_LEVELS), &win);		     \
   if ( win )								     \
     goto WIN;								     \
@@ -1915,7 +1889,7 @@ do {									     \
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)		\
 do {								\
-  if (rs6000_mode_dependent_address (ADDR))			\
+  if (rs6000_mode_dependent_address_ptr (ADDR))			\
     goto LABEL;							\
 } while (0)
 
@@ -3169,6 +3143,7 @@ enum rs6000_builtins
   RS6000_BUILTIN_RECIP,
   RS6000_BUILTIN_RECIPF,
   RS6000_BUILTIN_RSQRTF,
+  RS6000_BUILTIN_BSWAP_HI,
 
   RS6000_BUILTIN_COUNT
 };
