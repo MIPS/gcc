@@ -1324,7 +1324,7 @@ extern enum reg_class rs6000_regno_regclass[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) rs6000_regno_regclass[(REGNO)]
 #endif
 
-/* VSX register classes.  */
+/* Vector register classes.  */
 extern enum reg_class rs6000_vector_reg_class[];
 extern enum reg_class rs6000_vsx_reg_class;
 

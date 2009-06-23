@@ -20690,15 +20690,15 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
         /* Data dependency; DEP_INSN writes a register that INSN reads
 	   some cycles later.  */
 
-        /* Separate a load from a narrower, dependent store.  */
-        if (rs6000_sched_groups
-            && GET_CODE (PATTERN (insn)) == SET
-            && GET_CODE (PATTERN (dep_insn)) == SET
-            && GET_CODE (XEXP (PATTERN (insn), 1)) == MEM
-            && GET_CODE (XEXP (PATTERN (dep_insn), 0)) == MEM
-            && (GET_MODE_SIZE (GET_MODE (XEXP (PATTERN (insn), 1)))
-                > GET_MODE_SIZE (GET_MODE (XEXP (PATTERN (dep_insn), 0)))))
-          return cost + 14;
+	/* Separate a load from a narrower, dependent store.  */
+	if (rs6000_sched_groups
+	    && GET_CODE (PATTERN (insn)) == SET
+	    && GET_CODE (PATTERN (dep_insn)) == SET
+	    && GET_CODE (XEXP (PATTERN (insn), 1)) == MEM
+	    && GET_CODE (XEXP (PATTERN (dep_insn), 0)) == MEM
+	    && (GET_MODE_SIZE (GET_MODE (XEXP (PATTERN (insn), 1)))
+		> GET_MODE_SIZE (GET_MODE (XEXP (PATTERN (dep_insn), 0)))))
+	  return cost + 14;
 
         attr_type = get_attr_type (insn);
 
@@ -20739,7 +20739,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                 case TYPE_FPCOMPARE:
                 case TYPE_CR_LOGICAL:
                 case TYPE_DELAYED_CR:
-                    return cost + 2;
+		  return cost + 2;
 		default:
 		  break;
 		}
@@ -20784,7 +20784,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                       if (! store_data_bypass_p (dep_insn, insn))
                         return 6;
                       break;
-                      }
+		    }
                   case TYPE_INTEGER:
                   case TYPE_COMPARE:
                   case TYPE_FAST_COMPARE:
@@ -20830,7 +20830,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                     break;
                   }
               }
-              break;
+	    break;
 
           case TYPE_LOAD:
           case TYPE_LOAD_U:
@@ -20925,7 +20925,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
             break;
           }
 
-      /* Fall out to return default cost.  */
+	/* Fall out to return default cost.  */
       }
       break;
 
