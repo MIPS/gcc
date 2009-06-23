@@ -2256,6 +2256,16 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   /* Reset the hard register usage information.  */
   CLEAR_HARD_REG_SET (newpat_used_regs);
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      if (i1)
+	fprintf (dump_file, "\nTrying %d, %d -> %d:\n",
+		 INSN_UID (i1), INSN_UID (i2), INSN_UID (i3));
+      else
+	fprintf (dump_file, "\nTrying %d -> %d:\n",
+		 INSN_UID (i2), INSN_UID (i3));
+    }
+
   /* If I1 and I2 both feed I3, they can be in any order.  To simplify the
      code below, set I1 to be the earlier of the two insns.  */
   if (i1 && DF_INSN_LUID (i1) > DF_INSN_LUID (i2))
@@ -4889,9 +4899,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
       if (GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
 	break;
 
-      if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
-	  && TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
-				    GET_MODE_BITSIZE (GET_MODE (XEXP (x, 0)))))
+      if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
 	SUBST (XEXP (x, 0),
 	       force_to_mode (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
 			      GET_MODE_MASK (mode), 0));
