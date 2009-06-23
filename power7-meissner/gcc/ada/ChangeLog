@@ -1,3 +1,170 @@
+2009-06-23  Olivier Hainque  <hainque@adacore.com>
+
+	* gcc-interface/utils.c (handle_vector_size_attribute): Import from
+	c-common.c and populate in gnat_internal_attribute_table.
+	
+2009-06-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb (Valid_Conversion, Full_Designated_Type): Use
+	Available_View only when designated type of an anonymous access type
+	is  limited view.
+
+2009-06-23  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch10.adb: Minor reformatting
+
+	* ali.ads: Mino reformatting.
+
+	* gnat1drv.adb (Adjust_Global_Switches): New procedure (take care of
+	turning off inlining if ASIS mode active).
+	
+	* switch-c.adb: Remove fiddling with Inspector_Mode and ASIS_Mode
+	This belongs in gnat1drv.adb after switches are scanned.
+
+2009-06-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_attr.adb: Add with and use clauses for Sem_Ch10.
+	(Check_Not_Incomplete_Type): Minor reformatting. Retrieve the root type
+	when dealing with class-wide types. Detect a legal shadow entity and
+	retrieve its non-limited view.
+
+	* sem_ch10.adb (Has_With_Clause): Move the spec and body of the
+	subprogram to top package level from Intall_Limited_Withed_Unit.
+	(Install_Limited_Withed_Unit): Remove spec and body of Has_With_Clause.
+	Add check which prevents the installation of a limited view if the
+	non-limited view is already visible through a with clause.
+	(Is_Legal_Shadow_Entity_In_Body): New routine. Detect a residual, but
+	legal shadow entity which may occur in subprogram formals of anonymous
+	access type.
+
+	* sem_ch10.ads (Is_Legal_Shadow_Entity_In_Body): New routine.
+
+	* sem_ch3.adb (Access_Definition): Remove the propagation of flag
+	From_With_Type from the designated type to the generated anonymous
+	access type. Remove associated comment.
+
+	* sem_res.adb Add with and use clauses for Sem_Ch10.
+	(Full_Designated_Type): Detect a legal shadow entity and retrieve its
+	non-limited view. Since the shadow entity may replace a regular
+	incomplete type, return the available full view.
+
+2009-06-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch10.adb (Remove_Limited_With_Clause): Clean up code that handles
+	incomplete type declarations. Previous code was potentially quadratic
+	in the number of visible declarations in any package appearing in a
+	limited_with_clause.
+
+2009-06-23  Robert Dewar  <dewar@adacore.com>
+
+	* prj-conf.ads, prj-part.adb, prj-proc.adb, prj-proc.ads, sem_ch8.adb,
+	xref_lib.adb: Minor reformatting
+
+2009-06-23  Robert Dewar  <dewar@adacore.com>
+
+	* a-stzhas.adb: Provide dummy body to avoid build problems with old
+	versions which did have a body for this unit.
+
+2009-06-23  Vincent Celier  <celier@adacore.com>
+
+	* prj-attr.adb: Attribute names Initial_Required_Switches and
+	Final_Required_Switches changed to Leading_Required_Switches and
+	Trailing_Required_Switches.
+
+	* prj-nmsc.adb (Process_Compiler): Attribute names
+	Initial_Required_Switches and Final_Required_Switches changed to
+	Leading_Required_Switches and Trailing_Required_Switches.
+
+	* prj.ads (Language_Config): Component Initial_Required_Switches and
+	Final_Required_Switches changed to Leading_Required_Switches and
+	Trailing_Required_Switches.
+
+	* snames.ads-tmpl: Remove standard names Initial_Required_Switches and
+	Final_Required_Switches; add standard names Leading_Required_Switches
+	and Trailing_Required_Switches.
+
+2009-06-23  Thomas Quinot  <quinot@adacore.com>
+
+	* prj-conf.adb: Minor reformatting
+
+	* xref_lib.adb: Minor cleanup
+
+2009-06-23  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-proc.adb, prj-proc.ads, prj-nmsc.adb, prj-nmsc.ads, prj-conf.adb,
+	prj-conf.ads (Check_Configuration): New parameter
+	Compiler_Driver_Mandatory.
+
+2009-06-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch10.adb (Analyze_With_Clause): If a subprogram instance in the
+	context of the current unit has an inline pragma, the instance is not
+	rewritten as the declaration of the package wrapper. Handle both
+	possibilities when retrieving the visible subprogram that renames the
+	instantiation itself.
+
+2009-06-23  Javier Miranda  <miranda@adacore.com>
+
+	* exp_ch4.adb (Displace_Allocator_Pointer, Expand_N_Allocator): Handle
+	designated types referencing entities from the limited view.
+
+2009-06-23  Robert Dewar  <dewar@adacore.com>
+
+	* s-strhas.adb, s-strhas.ads: Restrict to 32-bit modular types
+
+	* s-imgdec.adb (Set_Decimal_Digits): Fix error of too many digits for
+	small values
+
+	* prj-conf.ads: Minor reformatting
+
+	* prj-conf.adb: Minor reformatting
+
+2009-06-23  Vasiliy Fofanov  <fofanov@adacore.com>
+
+	* g-debpoo.adb (Dump_Gnatmem): Output dummy timestamps for allocations
+	to correspond to the log format that gnatmem now expects.
+
+2009-06-23  Vincent Celier  <celier@adacore.com>
+
+	* prj-attr.adb: New attributes Initial_Required_Switches,
+	Final_Required_Switches and Object_File_Switches
+	
+	* prj-nmsc.adb (Process_Compiler): Process new attributes
+	Name_Final_Required_Switches, Name_Initial_Required_Switches and
+	Name_Object_File_Switches.
+
+	* prj.ads (Language_Config): New component
+	Compiler_Initial_Required_Switches (replace Compiler_Required_Switches),
+	Compiler_Final_Required_Switches and Object_File_Switches.
+
+	* snames.ads-tmpl: New standard names Initial_Required_Switches,
+	Final_Required_Switches and Object_File_Switches
+
+2009-06-23  Pascal Obry  <obry@adacore.com>
+
+	* s-strhas.adb, s-strhas.ads: Minor reformatting.
+
+2009-06-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch10.adb (Install_Limited_Withed_Unit): a null procedure does
+	not indicate that the enclosing unit needs a body.
+
+2009-06-23  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-conf.ads, prj-conf.adb: New files part of the project manager.
+
+2009-06-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Derive_Subprogram): If the inherited subprogram is a
+	primitive equality include it with its source name even if the
+	operation is currently invisible, to make sure that the corresponding
+	slot in the dispatch table is reserved for the internal equality
+	subsequently generated during expansion.
+
+2009-06-23  Matthew Gingell  <gingell@adacore.com>
+
+	* Makefile.rtl, a-stwiha.adb: Add a-stwiha.adb back.
+
 2009-06-22  Jose Ruiz  <ruiz@adacore.com>
 
 	* sysdep.c (__gnat_localtime_tzoff for RTX):

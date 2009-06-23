@@ -280,9 +280,13 @@ package body Prj.Nmsc is
    --  Is_Config_File should be True if Project is a config file (.cgpr)
 
    procedure Check_Configuration
-     (Project : Project_Id;
-      In_Tree : Project_Tree_Ref);
+     (Project                   : Project_Id;
+      In_Tree                   : Project_Tree_Ref;
+      Compiler_Driver_Mandatory : Boolean);
    --  Check the configuration attributes for the project
+   --  If Compiler_Driver_Mandatory is true, then a Compiler.Driver attribute
+   --  for each language must be defined, or we will not look for its source
+   --  files.
 
    procedure Check_If_Externally_Built
      (Project : Project_Id;
@@ -622,7 +626,7 @@ package body Prj.Nmsc is
       Suffix   : File_Name_Type) return Boolean
    is
    begin
-      if Suffix = No_File then
+      if Suffix = No_File or else Suffix = Empty_File then
          return False;
       end if;
 
@@ -785,13 +789,14 @@ package body Prj.Nmsc is
    -----------
 
    procedure Check
-     (Project         : Project_Id;
-      In_Tree         : Project_Tree_Ref;
-      Report_Error    : Put_Line_Access;
-      When_No_Sources : Error_Warning;
-      Current_Dir     : String;
-      Proc_Data       : in out Processing_Data;
-      Is_Config_File  : Boolean)
+     (Project                   : Project_Id;
+      In_Tree                   : Project_Tree_Ref;
+      Report_Error              : Put_Line_Access;
+      When_No_Sources           : Error_Warning;
+      Current_Dir               : String;
+      Proc_Data                 : in out Processing_Data;
+      Is_Config_File            : Boolean;
+      Compiler_Driver_Mandatory : Boolean)
    is
       Extending : Boolean := False;
 
@@ -824,7 +829,9 @@ package body Prj.Nmsc is
       --  Check configuration in multi language mode
 
       if Must_Check_Configuration then
-         Check_Configuration (Project, In_Tree);
+         Check_Configuration
+           (Project, In_Tree,
+            Compiler_Driver_Mandatory => Compiler_Driver_Mandatory);
       end if;
 
       --  Library attributes
@@ -1131,8 +1138,9 @@ package body Prj.Nmsc is
    -------------------------
 
    procedure Check_Configuration
-     (Project : Project_Id;
-      In_Tree : Project_Tree_Ref)
+     (Project                   : Project_Id;
+      In_Tree                   : Project_Tree_Ref;
+      Compiler_Driver_Mandatory : Boolean)
    is
       Dot_Replacement : File_Name_Type := No_File;
       Casing          : Casing_Type    := All_Lower_Case;
@@ -1427,9 +1435,18 @@ package body Prj.Nmsc is
                            Lang_Index.Config.Compiler_Driver :=
                              File_Name_Type (Element.Value.Value);
 
-                        when Name_Required_Switches =>
+                        when Name_Required_Switches |
+                             Name_Leading_Required_Switches =>
                            Put (Into_List =>
-                                  Lang_Index.Config.Compiler_Required_Switches,
+                                  Lang_Index.Config.
+                                    Compiler_Leading_Required_Switches,
+                                From_List => Element.Value.Values,
+                                In_Tree   => In_Tree);
+
+                        when Name_Trailing_Required_Switches =>
+                           Put (Into_List =>
+                                  Lang_Index.Config.
+                                    Compiler_Trailing_Required_Switches,
                                 From_List => Element.Value.Values,
                                 In_Tree   => In_Tree);
 
@@ -1459,6 +1476,12 @@ package body Prj.Nmsc is
                               Lang_Index.Config.Object_File_Suffix :=
                                 Element.Value.Value;
                            end if;
+
+                        when Name_Object_File_Switches =>
+                           Put (Into_List =>
+                                  Lang_Index.Config.Object_File_Switches,
+                                From_List => Element.Value.Values,
+                                In_Tree   => In_Tree);
 
                         when Name_Pic_Option =>
 
@@ -2349,9 +2372,13 @@ package body Prj.Nmsc is
       while Lang_Index /= No_Language_Index loop
          Current_Language := Lang_Index.Display_Name;
 
-         --  For all languages, Compiler_Driver needs to be specified
+         --  For all languages, Compiler_Driver needs to be specified. This is
+         --  only necessary if we do intend to compiler (not in GPS for
+         --  instance)
 
-         if Lang_Index.Config.Compiler_Driver = No_File then
+         if Compiler_Driver_Mandatory
+           and then Lang_Index.Config.Compiler_Driver = No_File
+         then
             Error_Msg_Name_1 := Current_Language;
             Error_Msg
               (Project,
@@ -4112,28 +4139,6 @@ package body Prj.Nmsc is
             end if;
          end;
 
-         declare
-            Current : Array_Element_Id;
-            Element : Array_Element;
-
-         begin
-            Current := Project.Naming.Spec_Suffix;
-            while Current /= No_Array_Element loop
-               Element := In_Tree.Array_Elements.Table (Current);
-               Get_Name_String (Element.Value.Value);
-
-               if Name_Len = 0 then
-                  Error_Msg
-                    (Project, In_Tree,
-                     "Spec_Suffix cannot be empty",
-                     Element.Value.Location);
-               end if;
-
-               In_Tree.Array_Elements.Table (Current) := Element;
-               Current := Element.Next;
-            end loop;
-         end;
-
          --  Check Body_Suffix
 
          declare
@@ -4192,28 +4197,6 @@ package body Prj.Nmsc is
 
                Project.Naming.Body_Suffix := Impl_Suffixs;
             end if;
-         end;
-
-         declare
-            Current : Array_Element_Id;
-            Element : Array_Element;
-
-         begin
-            Current := Project.Naming.Body_Suffix;
-            while Current /= No_Array_Element loop
-               Element := In_Tree.Array_Elements.Table (Current);
-               Get_Name_String (Element.Value.Value);
-
-               if Name_Len = 0 then
-                  Error_Msg
-                    (Project, In_Tree,
-                     "Body_Suffix cannot be empty",
-                     Element.Value.Location);
-               end if;
-
-               In_Tree.Array_Elements.Table (Current) := Element;
-               Current := Element.Next;
-            end loop;
          end;
 
          --  Get the exceptions, if any
@@ -5890,21 +5873,19 @@ package body Prj.Nmsc is
          --  No Source_Dirs specified: the single source directory is the one
          --  containing the project file
 
-         String_Element_Table.Increment_Last
-           (In_Tree.String_Elements);
-         Project.Source_Dirs := String_Element_Table.Last
-           (In_Tree.String_Elements);
-         In_Tree.String_Elements.Table (Project.Source_Dirs) :=
+         String_Element_Table.Append (In_Tree.String_Elements,
            (Value         => Name_Id (Project.Directory.Name),
             Display_Value => Name_Id (Project.Directory.Display_Name),
             Location      => No_Location,
             Flag          => False,
             Next          => Nil_String,
-            Index         => 0);
+            Index         => 0));
+         Project.Source_Dirs := String_Element_Table.Last
+                                  (In_Tree.String_Elements);
 
          if Current_Verbosity = High then
             Write_Attr
-              ("Single source directory",
+              ("Default source directory",
                Get_Name_String (Project.Directory.Display_Name));
          end if;
 
@@ -6421,19 +6402,21 @@ package body Prj.Nmsc is
       Suffix_Str : constant String := Get_Name_String (Suffix);
 
    begin
-      if Suffix_Str'Length = 0 or else Index (Suffix_Str, ".") = 0 then
+      if Suffix_Str'Length = 0 then
+         return False;
+      elsif Index (Suffix_Str, ".") = 0 then
          return True;
       end if;
 
-      --  If dot replacement is a single dot, and first character of suffix is
-      --  also a dot
+      --  Case of dot replacement is a single dot, and first character of
+      --  suffix is also a dot.
 
       if Get_Name_String (Dot_Replacement) = "."
         and then Suffix_Str (Suffix_Str'First) = '.'
       then
          for Index in Suffix_Str'First + 1 .. Suffix_Str'Last loop
 
-            --  If there is another dot
+            --  Case of following dot
 
             if Suffix_Str (Index) = '.' then
 
@@ -6784,7 +6767,7 @@ package body Prj.Nmsc is
         (Source_List_File.Kind = Single,
          "Source_List_File is not a single string");
 
-      --  If the user has specified a Sources attribute
+      --  If the user has specified a Source_Files attribute
 
       if not Sources.Default then
          if not Source_List_File.Default then

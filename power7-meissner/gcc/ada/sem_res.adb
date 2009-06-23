@@ -9608,9 +9608,10 @@ package body Sem_Res is
             end if;
          end if;
 
-         --  Need some comments here, and a name for this block ???
+         --  In the presence of limited_with clauses we have to use non-limited
+         --  views, if available.
 
-         declare
+         Check_Limited : declare
             function Full_Designated_Type (T : Entity_Id) return Entity_Id;
             --  Helper function to handle limited views
 
@@ -9619,16 +9620,26 @@ package body Sem_Res is
             --------------------------
 
             function Full_Designated_Type (T : Entity_Id) return Entity_Id is
-               Desig : constant Entity_Id := Designated_Type (T);
+               Desig : Entity_Id := Designated_Type (T);
+
             begin
-               if From_With_Type (Desig)
-                 and then Is_Incomplete_Type (Desig)
+               if Is_Incomplete_Type (Desig)
+                 and then From_With_Type (Desig)
                  and then Present (Non_Limited_View (Desig))
                then
-                  return Non_Limited_View (Desig);
-               else
-                  return Desig;
+                  Desig := Non_Limited_View (Desig);
+
+                  --  The shadow entity's non-limited view may designate an
+                  --  incomplete type.
+
+                  if Is_Incomplete_Type (Desig)
+                    and then Present (Full_View (Desig))
+                  then
+                     Desig := Full_View (Desig);
+                  end if;
                end if;
+
+               return Desig;
             end Full_Designated_Type;
 
             --  Local Declarations
@@ -9639,7 +9650,7 @@ package body Sem_Res is
             Same_Base : constant Boolean :=
                           Base_Type (Target) = Base_Type (Opnd);
 
-         --  Start of processing for ???
+         --  Start of processing for Check_Limited
 
          begin
             if Is_Tagged_Type (Target) then
@@ -9693,7 +9704,7 @@ package body Sem_Res is
                   return False;
                end if;
             end if;
-         end;
+         end Check_Limited;
 
       --  Access to subprogram types. If the operand is an access parameter,
       --  the type has a deeper accessibility that any master, and cannot
