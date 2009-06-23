@@ -1,3 +1,12 @@
+2009-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ext/builtin-object-size1.C: New test.
+	* g++.dg/ext/builtin-object-size2.C: New test.
+
+2009-06-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/builtin-object-size-7.c: New test.
+
 2009-06-22  Matthias Klose  <doko@ubuntu.com>
 
 	PR objc/28050
