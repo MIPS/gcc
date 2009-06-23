@@ -57,19 +57,13 @@ debug_stream (void *is)
   printf ("  read_sem           - %d\n\n", (int)s->read_buffer_index_sem);  
 }
 
-static inline size_t
-next_window (gomp_stream s, size_t index)
-{
-  size_t next = index + s->size_local_buffer;
-  return ((next >= s->capacity) ? 0 : next);
-}
-
 /* Returns a new stream of COUNT * WINDOW_SIZE elements.  Each element
-   is of size SIZE bytes.  Returns NULL when the allocation fails or
-   when COUNT is less than 2.  */
+   is of size ELEMENT_SIZE bytes.  Returns NULL when the allocation
+   fails or when the parameters do not allow for a useable stream (not
+   enough windows or insufficient space).  */
 
 void *
-GOMP_stream_create (size_t size, size_t count, size_t window_size)
+GOMP_stream_create (size_t element_size, size_t count, size_t window_size)
 {
   gomp_stream s;
 
@@ -79,9 +73,9 @@ GOMP_stream_create (size_t size, size_t count, size_t window_size)
 
   s = (gomp_stream) gomp_malloc (sizeof (struct gomp_stream));
 
-  s->capacity = count * window_size;
-  s->size_elt = size;
-  s->size_local_buffer = window_size;
+  s->capacity = count * window_size * element_size;
+  s->size_elt = element_size;
+  s->size_local_buffer = window_size * element_size;
   s->eos_p = false;
   s->read_ready_p = false;
 
@@ -95,6 +89,15 @@ GOMP_stream_create (size_t size, size_t count, size_t window_size)
   s->buffer = (char *) gomp_malloc (s->capacity);
 
   return s;
+}
+
+/* Returns the position of the window following INDEX in stream S.  */
+
+static inline size_t
+next_window (gomp_stream s, size_t index)
+{
+  size_t next = index + s->size_local_buffer;
+  return ((next >= s->capacity) ? 0 : next);
 }
 
 static inline void 
@@ -277,6 +280,44 @@ void
 GOMP_stream_pop (void *s)
 {
   gomp_stream_pop ((gomp_stream) s);
+}
+
+/* Return a pointer to the next windowfull of elements in stream S or
+   NULL if only the last window is left and is not full.  FIXME: use a
+   futex for the eos ?  */
+
+void *
+GOMP_stream_head_window (void *s)
+{
+  gomp_stream stream = (gomp_stream) s;
+
+  /*  If we're in the last and only partially filled window of the
+      stream.  */
+  if (GOMP_stream_eos_p (s) || stream->read_buffer_index == stream->write_buffer_index)
+    return NULL;
+
+  return (void *) stream->buffer + stream->read_buffer_index;
+}
+
+/*  Return a pointer on the next empty window to write to.  */
+
+void *
+GOMP_stream_tail_window (void *s)
+{
+  gomp_stream stream = (gomp_stream) s;
+  return (void *) stream->buffer + stream->write_index;
+}
+
+void
+GOMP_stream_pop_window (void *s)
+{
+  slide_read_window ((gomp_stream) s);
+}
+
+void
+GOMP_stream_push_window (void *s)
+{
+  slide_write_window ((gomp_stream) s);
 }
 
 /* Wrappers for semaphore interface.  */

@@ -178,6 +178,10 @@ GOMP_2.0 {
  	GOMP_stream_destroy;
  	GOMP_stream_align_push;
  	GOMP_stream_align_pop;
+	GOMP_stream_head_window;
+	GOMP_stream_tail_window;
+	GOMP_stream_pop_window;
+	GOMP_stream_push_window;
 	GOMP_sem_create;
 	GOMP_sem_init;
 	GOMP_sem_destroy;

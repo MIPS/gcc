@@ -1,3 +1,9 @@
+2009-06-23  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-builtins.def (BUILT_IN_GOMP_STREAM_TAIL_WINDOW,
+	BUILT_IN_GOMP_STREAM_HEAD_WINDOW, BUILT_IN_GOMP_STREAM_POP_WINDOW,
+	BUILT_IN_GOMP_STREAM_PUSH_WINDOW): New builtins.
+
 2009-01-20  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* omp-low.c (scan_sharing_clauses): Added specific case for tasks,
