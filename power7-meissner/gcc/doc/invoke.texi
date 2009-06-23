@@ -364,7 +364,7 @@ Objective-C and Objective-C++ Dialects}.
 -frounding-math -fsched2-use-superblocks @gol
 -fsched2-use-traces -fsched-spec-load -fsched-spec-load-dangerous @gol
 -fsched-stalled-insns-dep[=@var{n}] -fsched-stalled-insns[=@var{n}] @gol
--fschedule-insns -fschedule-insns2 -fsection-anchors -fsee @gol
+-fschedule-insns -fschedule-insns2 -fsection-anchors @gol
 -fselective-scheduling -fselective-scheduling2 @gol
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fsignaling-nans -fsingle-precision-constant -fsplit-ivs-in-unroller @gol
@@ -443,6 +443,7 @@ Objective-C and Objective-C++ Dialects}.
 -msched-prolog  -mno-sched-prolog @gol
 -mlittle-endian  -mbig-endian  -mwords-little-endian @gol
 -mfloat-abi=@var{name}  -msoft-float  -mhard-float  -mfpe @gol
+-mfp16-format=@var{name}
 -mthumb-interwork  -mno-thumb-interwork @gol
 -mcpu=@var{name}  -march=@var{name}  -mfpu=@var{name}  @gol
 -mstructure-size-boundary=@var{n} @gol
@@ -5094,6 +5095,10 @@ meaningful will be ignored.  The following options are available
 Print the address of each node.  Usually this is not meaningful as it
 changes according to the environment and source file.  Its primary use
 is for tying up a dump file with a debug environment.
+@item asmname
+If @code{DECL_ASSEMBLER_NAME} has been set for a given decl, use that
+in the dump instead of @code{DECL_NAME}.  Its primary use is ease of
+use working backward from mangled names in the assembly file.
 @item slim
 Inhibit dumping of members of a scope or body of a function merely
 because that scope has been reached.  Only dump such items when they
@@ -6220,11 +6225,6 @@ without @option{-fbranch-probabilities} the traces constructed may not
 match the reality and hurt the performance.  This only makes
 sense when scheduling after register allocation, i.e.@: with
 @option{-fschedule-insns2} or at @option{-O2} or higher.
-
-@item -fsee
-@opindex fsee
-Eliminate redundant sign extension instructions and move the non-redundant
-ones to optimal placement using lazy code motion (LCM).
 
 @item -freschedule-modulo-scheduled-loops
 @opindex freschedule-modulo-scheduled-loops
@@ -8128,7 +8128,9 @@ or @option{-nodefaultlibs} is used.
 @item -nodefaultlibs
 @opindex nodefaultlibs
 Do not use the standard system libraries when linking.
-Only the libraries you specify will be passed to the linker.
+Only the libraries you specify will be passed to the linker, options
+specifying linkage of the system libraries, such as @code{-static-libgcc}
+or @code{-shared-libgcc}, will be ignored.
 The standard startup files are used normally, unless @option{-nostartfiles}
 is used.  The compiler may generate calls to @code{memcmp},
 @code{memset}, @code{memcpy} and @code{memmove}.
@@ -8140,7 +8142,9 @@ mechanism when this option is specified.
 @opindex nostdlib
 Do not use the standard system startup files or libraries when linking.
 No startup files and only the libraries you specify will be passed to
-the linker.  The compiler may generate calls to @code{memcmp}, @code{memset},
+the linker, options specifying linkage of the system libraries, such as
+@code{-static-libgcc} or @code{-shared-libgcc}, will be ignored.
+The compiler may generate calls to @code{memcmp}, @code{memset},
 @code{memcpy} and @code{memmove}.
 These entries are usually resolved by entries in
 libc.  These entry points should be supplied through some other
@@ -9302,13 +9306,20 @@ of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @opindex mfp
 This specifies what floating point hardware (or hardware emulation) is
 available on the target.  Permissible names are: @samp{fpa}, @samp{fpe2},
-@samp{fpe3}, @samp{maverick}, @samp{vfp}, @samp{vfpv3}, @samp{vfpv3-d16} and
-@samp{neon}.  @option{-mfp} and @option{-mfpe}
+@samp{fpe3}, @samp{maverick}, @samp{vfp}, @samp{vfpv3}, @samp{vfpv3-d16},
+@samp{neon}, and @samp{neon-fp16}.  @option{-mfp} and @option{-mfpe}
 are synonyms for @option{-mfpu}=@samp{fpe}@var{number}, for compatibility
 with older versions of GCC@.
 
 If @option{-msoft-float} is specified this specifies the format of
 floating point values.
+
+@item -mfp16-format=@var{name}
+@opindex mfp16-format
+Specify the format of the @code{__fp16} half-precision floating-point type.
+Permissible names are @samp{none}, @samp{ieee}, and @samp{alternative}; 
+the default is @samp{none}, in which case the @code{__fp16} type is not 
+defined.  @xref{Half-Precision}, for more information.
 
 @item -mstructure-size-boundary=@var{n}
 @opindex mstructure-size-boundary
@@ -9433,14 +9444,17 @@ not call any other functions.)  The default is @option{-mno-apcs-leaf-frame}.
 Gives all externally visible functions in the file being compiled an ARM
 instruction set header which switches to Thumb mode before executing the
 rest of the function.  This allows these functions to be called from
-non-interworking code.
+non-interworking code. This option is not valid in AAPCS configurations
+because interworking is enabled by default.
 
 @item -mcaller-super-interworking
 @opindex mcaller-super-interworking
 Allows calls via function pointers (including virtual functions) to
 execute correctly regardless of whether the target code has been
 compiled for interworking or not.  There is a small overhead in the cost
-of executing a function pointer if this option is enabled.
+of executing a function pointer if this option is enabled. This option 
+is not valid in AAPCS configurations because interworking is enabled
+by default.
 
 @item -mtp=@var{name}
 @opindex mtp

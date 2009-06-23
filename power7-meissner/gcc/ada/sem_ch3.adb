@@ -2657,24 +2657,9 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      --  Abstract type is never permitted for a variable or constant.
-      --  Note: we inhibit this check for objects that do not come from
-      --  source because there is at least one case (the expansion of
-      --  x'class'input where x is abstract) where we legitimately
-      --  generate an abstract object.
-
-      if Is_Abstract_Type (T) and then Comes_From_Source (N) then
-         Error_Msg_N ("type of object cannot be abstract",
-                      Object_Definition (N));
-
-         if Is_CPP_Class (T) then
-            Error_Msg_NE ("\} may need a cpp_constructor",
-              Object_Definition (N), T);
-         end if;
-
       --  Case of unconstrained type
 
-      elsif Is_Indefinite_Subtype (T) then
+      if Is_Indefinite_Subtype (T) then
 
          --  Nothing to do in deferred constant case
 
@@ -11246,9 +11231,9 @@ package body Sem_Ch3 is
            and then Is_Completely_Hidden (Old_Compon)
          then
             --  This is a shadow discriminant created for a discriminant of
-            --  the parent type that is one of several renamed by the same
-            --  new discriminant. Give the shadow discriminant an internal
-            --  name that cannot conflict with that of visible components.
+            --  the parent type, which needs to be present in the subtype.
+            --  Give the shadow discriminant an internal name that cannot
+            --  conflict with that of visible components.
 
             Set_Chars (New_Compon, New_Internal_Name ('C'));
          end if;
@@ -11351,10 +11336,11 @@ package body Sem_Ch3 is
 
          --  For an untagged derived subtype, the number of discriminants may
          --  be smaller than the number of inherited discriminants, because
-         --  several of them may be renamed by a single new discriminant.
-         --  In this case, add the hidden discriminants back into the subtype,
-         --  because otherwise the size of the subtype is computed incorrectly
-         --  in GCC 4.1.
+         --  several of them may be renamed by a single new discriminant or
+         --  constrained. In this case, add the hidden discriminants back into
+         --  the subtype, because they need to be present if the optimizer of
+         --  the GCC 4.x back-end decides to break apart assignments between
+         --  objects using the parent view into member-wise assignments.
 
          Num_Gird := 0;
 
@@ -11401,8 +11387,15 @@ package body Sem_Ch3 is
                         --  component for the current old discriminant.
 
                         New_C := Create_Component (Old_Discr);
-                        Set_Original_Record_Component  (New_C, Old_Discr);
+                        Set_Original_Record_Component (New_C, Old_Discr);
                      end if;
+
+                  else
+                     --  The constraint has eliminated the old discriminant.
+                     --  Introduce a shadow component.
+
+                     New_C := Create_Component (Old_Discr);
+                     Set_Original_Record_Component (New_C, Old_Discr);
                   end if;
 
                   Next_Elmt (Constr);
@@ -15322,8 +15315,10 @@ package body Sem_Ch3 is
          --  N_Type_Conversion node to force displacement of the pointer to
          --  reference the component containing the secondary dispatch table.
          --  Otherwise a type conversion is not a legal context.
+         --  A return statement for a build-in-place function returning a
+         --  synchronized type also introduces an unchecked conversion.
 
-         when N_Type_Conversion =>
+         when N_Type_Conversion | N_Unchecked_Type_Conversion =>
             return not Comes_From_Source (Exp)
               and then
                 OK_For_Limited_Init_In_05 (Expression (Original_Node (Exp)));
