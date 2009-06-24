@@ -1,6 +1,7 @@
 /* Output routines for GCC for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -52,12 +53,13 @@
 #include "debug.h"
 #include "langhooks.h"
 #include "df.h"
+#include "intl.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
 typedef struct minipool_fixup   Mfix;
 
-const struct attribute_spec arm_attribute_table[];
+EXPORTED_CONST struct attribute_spec arm_attribute_table[];
 
 void (*arm_lang_output_object_attributes_hook)(void);
 
@@ -72,7 +74,10 @@ static int arm_address_register_rtx_p (rtx, int);
 static int arm_legitimate_index_p (enum machine_mode, rtx, RTX_CODE, int);
 static int thumb2_legitimate_index_p (enum machine_mode, rtx, int);
 static int thumb1_base_register_rtx_p (rtx, enum machine_mode, int);
+static rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
+static rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
 inline static int thumb1_index_register_rtx_p (rtx, int);
+static bool arm_legitimate_address_p (enum machine_mode, rtx, bool);
 static int thumb_far_jump_used_p (void);
 static bool thumb_force_lr_save (void);
 static int const_ok_for_op (HOST_WIDE_INT, enum rtx_code);
@@ -125,12 +130,12 @@ static bool arm_function_ok_for_sibcall (tree, tree);
 static void arm_internal_label (FILE *, const char *, unsigned long);
 static void arm_output_mi_thunk (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 				 tree);
-static int arm_rtx_costs_1 (rtx, enum rtx_code, enum rtx_code);
-static bool arm_size_rtx_costs (rtx, int, int, int *);
-static bool arm_slowmul_rtx_costs (rtx, int, int, int *);
-static bool arm_fastmul_rtx_costs (rtx, int, int, int *);
-static bool arm_xscale_rtx_costs (rtx, int, int, int *);
-static bool arm_9e_rtx_costs (rtx, int, int, int *);
+static bool arm_rtx_costs_1 (rtx, enum rtx_code, int*, bool);
+static bool arm_size_rtx_costs (rtx, enum rtx_code, enum rtx_code, int *);
+static bool arm_slowmul_rtx_costs (rtx, enum rtx_code, enum rtx_code, int *, bool);
+static bool arm_fastmul_rtx_costs (rtx, enum rtx_code, enum rtx_code, int *, bool);
+static bool arm_xscale_rtx_costs (rtx, enum rtx_code, enum rtx_code, int *, bool);
+static bool arm_9e_rtx_costs (rtx, enum rtx_code, enum rtx_code, int *, bool);
 static bool arm_rtx_costs (rtx, int, int, int *, bool);
 static int arm_address_cost (rtx, bool);
 static bool arm_memory_load_p (rtx);
@@ -185,6 +190,9 @@ static void arm_cxx_determine_class_data_visibility (tree);
 static bool arm_cxx_class_data_always_comdat (void);
 static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
+static tree arm_build_builtin_va_list (void);
+static void arm_expand_builtin_va_start (tree, rtx);
+static tree arm_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static bool arm_handle_option (size_t, const char *, int);
 static void arm_target_help (void);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
@@ -193,6 +201,11 @@ static bool arm_tls_symbol_p (rtx x);
 static int arm_issue_rate (void);
 static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static bool arm_allocate_stack_slots_for_args (void);
+static const char *arm_invalid_parameter_type (const_tree t);
+static const char *arm_invalid_return_type (const_tree t);
+static tree arm_promoted_type (const_tree t);
+static tree arm_convert_to_type (tree type, tree expr);
+static bool arm_scalar_mode_supported_p (enum machine_mode);
 
 
 /* Initialize the GCC target structure.  */
@@ -200,6 +213,9 @@ static bool arm_allocate_stack_slots_for_args (void);
 #undef  TARGET_MERGE_DECL_ATTRIBUTES
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
 #endif
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS arm_legitimize_address
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
@@ -382,10 +398,35 @@ static bool arm_allocate_stack_slots_for_args (void);
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE arm_mangle_type
 
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST arm_build_builtin_va_list
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START arm_expand_builtin_va_start
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR arm_gimplify_va_arg_expr
+
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL arm_output_dwarf_dtprel
 #endif
+
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P	arm_legitimate_address_p
+
+#undef TARGET_INVALID_PARAMETER_TYPE
+#define TARGET_INVALID_PARAMETER_TYPE arm_invalid_parameter_type
+
+#undef TARGET_INVALID_RETURN_TYPE
+#define TARGET_INVALID_RETURN_TYPE arm_invalid_return_type
+
+#undef TARGET_PROMOTED_TYPE
+#define TARGET_PROMOTED_TYPE arm_promoted_type
+
+#undef TARGET_CONVERT_TO_TYPE
+#define TARGET_CONVERT_TO_TYPE arm_convert_to_type
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P arm_scalar_mode_supported_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -401,10 +442,6 @@ extern FILE * asm_out_file;
 
 /* True if we are currently building a constant table.  */
 int making_const_table;
-
-/* Define the information needed to generate branch insns.  This is
-   stored from the compare operation.  */
-rtx arm_compare_op0, arm_compare_op1;
 
 /* The processor for which instructions should be scheduled.  */
 enum processor_type arm_tune = arm_none;
@@ -423,6 +460,9 @@ enum fputype arm_fpu_tune;
 
 /* Whether to use floating point hardware.  */
 enum float_abi_type arm_float_abi;
+
+/* Which __fp16 format to use.  */
+enum arm_fp16_format_type arm_fp16_format;
 
 /* Which ABI to use.  */
 enum arm_abi_type arm_abi;
@@ -571,10 +611,6 @@ enum machine_mode output_memory_reference_mode;
 /* The register number to be used for the PIC offset register.  */
 unsigned arm_pic_register = INVALID_REGNUM;
 
-/* Set to 1 when a return insn is output, this means that the epilogue
-   is not needed.  */
-int return_used_this_function;
-
 /* Set to 1 after arm_reorg has started.  Reset to start at the start of
    the next function.  */
 static int after_arm_reorg = 0;
@@ -618,7 +654,7 @@ struct processors
   enum processor_type core;
   const char *arch;
   const unsigned long flags;
-  bool (* rtx_costs) (rtx, int, int, int *);
+  bool (* rtx_costs) (rtx, enum rtx_code, enum rtx_code, int *, bool);
 };
 
 /* Not all of these give usefully different compilation alternatives,
@@ -664,6 +700,7 @@ static const struct processors all_architectures[] =
   {"armv7-m", cortexm3,	  "7M",	 FL_CO_PROC |		  FL_FOR_ARCH7M, NULL},
   {"ep9312",  ep9312,     "4T",  FL_LDSCHED | FL_CIRRUS | FL_FOR_ARCH4, NULL},
   {"iwmmxt",  iwmmxt,     "5TE", FL_LDSCHED | FL_STRONG | FL_FOR_ARCH5TE | FL_XSCALE | FL_IWMMXT , NULL},
+  {"iwmmxt2", iwmmxt2,     "5TE", FL_LDSCHED | FL_STRONG | FL_FOR_ARCH5TE | FL_XSCALE | FL_IWMMXT , NULL},
   {NULL, arm_none, NULL, 0 , NULL}
 };
 
@@ -706,22 +743,23 @@ struct fpu_desc
 
 static const struct fpu_desc all_fpus[] =
 {
-  {"fpa",	FPUTYPE_FPA},
-  {"fpe2",	FPUTYPE_FPA_EMU2},
-  {"fpe3",	FPUTYPE_FPA_EMU2},
-  {"maverick",	FPUTYPE_MAVERICK},
-  {"vfp",	FPUTYPE_VFP},
-  {"vfp3",	FPUTYPE_VFP3},
-  {"vfpv3",	FPUTYPE_VFP3},
-  {"vfpv3-d16",	FPUTYPE_VFP3D16},
-  {"neon",	FPUTYPE_NEON}
+  {"fpa",		FPUTYPE_FPA},
+  {"fpe2",		FPUTYPE_FPA_EMU2},
+  {"fpe3",		FPUTYPE_FPA_EMU2},
+  {"maverick",		FPUTYPE_MAVERICK},
+  {"vfp",		FPUTYPE_VFP},
+  {"vfp3",		FPUTYPE_VFP3},
+  {"vfpv3",		FPUTYPE_VFP3},
+  {"vfpv3-d16",		FPUTYPE_VFP3D16},
+  {"neon",		FPUTYPE_NEON},
+  {"neon-fp16",		FPUTYPE_NEON_FP16}
 };
 
 
 /* Floating point models used by the different hardware.
    See fputype in arm.h.  */
 
-static const enum fputype fp_model_for_fpu[] =
+static const enum arm_fp_model fp_model_for_fpu[] =
 {
   /* No FP hardware.  */
   ARM_FP_MODEL_UNKNOWN,		/* FPUTYPE_NONE  */
@@ -732,7 +770,8 @@ static const enum fputype fp_model_for_fpu[] =
   ARM_FP_MODEL_VFP,		/* FPUTYPE_VFP  */
   ARM_FP_MODEL_VFP,		/* FPUTYPE_VFP3D16  */
   ARM_FP_MODEL_VFP,		/* FPUTYPE_VFP3  */
-  ARM_FP_MODEL_VFP		/* FPUTYPE_NEON  */
+  ARM_FP_MODEL_VFP,		/* FPUTYPE_NEON  */
+  ARM_FP_MODEL_VFP		/* FPUTYPE_NEON_FP16  */
 };
 
 
@@ -750,6 +789,23 @@ static const struct float_abi all_float_abis[] =
   {"soft",	ARM_FLOAT_ABI_SOFT},
   {"softfp",	ARM_FLOAT_ABI_SOFTFP},
   {"hard",	ARM_FLOAT_ABI_HARD}
+};
+
+
+struct fp16_format
+{
+  const char *name;
+  enum arm_fp16_format_type fp16_format_type;
+};
+
+
+/* Available values for -mfp16-format=.  */
+
+static const struct fp16_format all_fp16_formats[] =
+{
+  {"none",		ARM_FP16_FORMAT_NONE},
+  {"ieee",		ARM_FP16_FORMAT_IEEE},
+  {"alternative",	ARM_FP16_FORMAT_ALTERNATIVE}
 };
 
 
@@ -910,6 +966,133 @@ arm_init_libfuncs (void)
   set_optab_libfunc (umod_optab, DImode, NULL);
   set_optab_libfunc (smod_optab, SImode, NULL);
   set_optab_libfunc (umod_optab, SImode, NULL);
+
+  /* Half-precision float operations.  The compiler handles all operations
+     with NULL libfuncs by converting the SFmode.  */
+  switch (arm_fp16_format)
+    {
+    case ARM_FP16_FORMAT_IEEE:
+    case ARM_FP16_FORMAT_ALTERNATIVE:
+
+      /* Conversions.  */
+      set_conv_libfunc (trunc_optab, HFmode, SFmode,
+			(arm_fp16_format == ARM_FP16_FORMAT_IEEE
+			 ? "__gnu_f2h_ieee"
+			 : "__gnu_f2h_alternative"));
+      set_conv_libfunc (sext_optab, SFmode, HFmode, 
+			(arm_fp16_format == ARM_FP16_FORMAT_IEEE
+			 ? "__gnu_h2f_ieee"
+			 : "__gnu_h2f_alternative"));
+      
+      /* Arithmetic.  */
+      set_optab_libfunc (add_optab, HFmode, NULL);
+      set_optab_libfunc (sdiv_optab, HFmode, NULL);
+      set_optab_libfunc (smul_optab, HFmode, NULL);
+      set_optab_libfunc (neg_optab, HFmode, NULL);
+      set_optab_libfunc (sub_optab, HFmode, NULL);
+
+      /* Comparisons.  */
+      set_optab_libfunc (eq_optab, HFmode, NULL);
+      set_optab_libfunc (ne_optab, HFmode, NULL);
+      set_optab_libfunc (lt_optab, HFmode, NULL);
+      set_optab_libfunc (le_optab, HFmode, NULL);
+      set_optab_libfunc (ge_optab, HFmode, NULL);
+      set_optab_libfunc (gt_optab, HFmode, NULL);
+      set_optab_libfunc (unord_optab, HFmode, NULL);
+      break;
+
+    default:
+      break;
+    }
+}
+
+/* On AAPCS systems, this is the "struct __va_list".  */
+static GTY(()) tree va_list_type;
+
+/* Return the type to use as __builtin_va_list.  */
+static tree
+arm_build_builtin_va_list (void)
+{
+  tree va_list_name;
+  tree ap_field;
+  
+  if (!TARGET_AAPCS_BASED)
+    return std_build_builtin_va_list ();
+
+  /* AAPCS \S 7.1.4 requires that va_list be a typedef for a type
+     defined as:
+
+       struct __va_list 
+       {
+	 void *__ap;
+       };
+
+     The C Library ABI further reinforces this definition in \S
+     4.1.
+
+     We must follow this definition exactly.  The structure tag
+     name is visible in C++ mangled names, and thus forms a part
+     of the ABI.  The field name may be used by people who
+     #include <stdarg.h>.  */
+  /* Create the type.  */
+  va_list_type = lang_hooks.types.make_type (RECORD_TYPE);
+  /* Give it the required name.  */
+  va_list_name = build_decl (BUILTINS_LOCATION,
+			     TYPE_DECL,
+			     get_identifier ("__va_list"),
+			     va_list_type);
+  DECL_ARTIFICIAL (va_list_name) = 1;
+  TYPE_NAME (va_list_type) = va_list_name;
+  /* Create the __ap field.  */
+  ap_field = build_decl (BUILTINS_LOCATION,
+			 FIELD_DECL, 
+			 get_identifier ("__ap"),
+			 ptr_type_node);
+  DECL_ARTIFICIAL (ap_field) = 1;
+  DECL_FIELD_CONTEXT (ap_field) = va_list_type;
+  TYPE_FIELDS (va_list_type) = ap_field;
+  /* Compute its layout.  */
+  layout_type (va_list_type);
+
+  return va_list_type;
+}
+
+/* Return an expression of type "void *" pointing to the next
+   available argument in a variable-argument list.  VALIST is the
+   user-level va_list object, of type __builtin_va_list.  */
+static tree
+arm_extract_valist_ptr (tree valist)
+{
+  if (TREE_TYPE (valist) == error_mark_node)
+    return error_mark_node;
+
+  /* On an AAPCS target, the pointer is stored within "struct
+     va_list".  */
+  if (TARGET_AAPCS_BASED)
+    {
+      tree ap_field = TYPE_FIELDS (TREE_TYPE (valist));
+      valist = build3 (COMPONENT_REF, TREE_TYPE (ap_field), 
+		       valist, ap_field, NULL_TREE);
+    }
+
+  return valist;
+}
+
+/* Implement TARGET_EXPAND_BUILTIN_VA_START.  */
+static void
+arm_expand_builtin_va_start (tree valist, rtx nextarg)
+{
+  valist = arm_extract_valist_ptr (valist);
+  std_expand_builtin_va_start (valist, nextarg);
+}
+
+/* Implement TARGET_GIMPLIFY_VA_ARG_EXPR.  */
+static tree
+arm_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p, 
+			  gimple_seq *post_p)
+{
+  valist = arm_extract_valist_ptr (valist);
+  return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
 }
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -1037,6 +1220,7 @@ arm_override_options (void)
 {
   unsigned i;
   enum processor_type target_arch_cpu = arm_none;
+  enum processor_type selected_cpu = arm_none;
 
   /* Set up the flags based on the cpu/architecture selected by the user.  */
   for (i = ARRAY_SIZE (arm_select); i--;)
@@ -1069,6 +1253,9 @@ arm_override_options (void)
 		if (i == ARM_OPT_SET_ARCH)
 		  target_arch_cpu = sel->core;
 
+		if (i == ARM_OPT_SET_CPU)
+		  selected_cpu = (enum processor_type) (sel - ptr->processors);
+		  
 		if (i != ARM_OPT_SET_TUNE)
 		  {
 		    /* If we have been given an architecture and a processor
@@ -1099,21 +1286,20 @@ arm_override_options (void)
     {
       const struct processors * sel;
       unsigned int        sought;
-      enum processor_type cpu;
 
-      cpu = TARGET_CPU_DEFAULT;
-      if (cpu == arm_none)
+      selected_cpu = (enum processor_type) TARGET_CPU_DEFAULT;
+      if (selected_cpu == arm_none)
 	{
 #ifdef SUBTARGET_CPU_DEFAULT
 	  /* Use the subtarget default CPU if none was specified by
 	     configure.  */
-	  cpu = SUBTARGET_CPU_DEFAULT;
+	  selected_cpu = (enum processor_type) SUBTARGET_CPU_DEFAULT;
 #endif
 	  /* Default to ARM6.  */
-	  if (cpu == arm_none)
-	    cpu = arm6;
+	  if (selected_cpu == arm_none)
+	    selected_cpu = arm6;
 	}
-      sel = &all_cores[cpu];
+      sel = &all_cores[selected_cpu];
 
       insn_flags = sel->flags;
 
@@ -1188,6 +1374,23 @@ arm_override_options (void)
   gcc_assert (arm_tune != arm_none);
 
   tune_flags = all_cores[(int)arm_tune].flags;
+
+  if (target_fp16_format_name)
+    {
+      for (i = 0; i < ARRAY_SIZE (all_fp16_formats); i++)
+	{
+	  if (streq (all_fp16_formats[i].name, target_fp16_format_name))
+	    {
+	      arm_fp16_format = all_fp16_formats[i].fp16_format_type;
+	      break;
+	    }
+	}
+      if (i == ARRAY_SIZE (all_fp16_formats))
+	error ("invalid __fp16 format option: -mfp16-format=%s",
+	       target_fp16_format_name);
+    }
+  else
+    arm_fp16_format = ARM_FP16_FORMAT_NONE;
 
   if (target_abi_name)
     {
@@ -1406,6 +1609,19 @@ arm_override_options (void)
   if (arm_float_abi == ARM_FLOAT_ABI_HARD && TARGET_VFP)
     sorry ("-mfloat-abi=hard and VFP");
 
+  if (TARGET_AAPCS_BASED
+      && (arm_fp_model == ARM_FP_MODEL_FPA))
+    error ("FPA is unsupported in the AAPCS");
+
+  if (TARGET_AAPCS_BASED)
+    {
+      if (TARGET_CALLER_INTERWORKING)
+	error ("AAPCS does not support -mcaller-super-interworking");
+      else
+	if (TARGET_CALLEE_INTERWORKING)
+	  error ("AAPCS does not support -mcallee-super-interworking");
+    }
+
   /* FPA and iWMMXt are incompatible because the insn encodings overlap.
      VFP and iWMMXt can theoretically coexist, but it's unlikely such silicon
      will ever exist.  GCC makes no attempt to support this combination.  */
@@ -1415,6 +1631,10 @@ arm_override_options (void)
   /* ??? iWMMXt insn patterns need auditing for Thumb-2.  */
   if (TARGET_THUMB2 && TARGET_IWMMXT)
     sorry ("Thumb-2 iWMMXt");
+
+  /* __fp16 support currently assumes the core has ldrh.  */
+  if (!arm_arch4 && arm_fp16_format != ARM_FP16_FORMAT_NONE)
+    sorry ("__fp16 and no ldrh");
 
   /* If soft-float is specified then don't use FPU.  */
   if (TARGET_SOFT_FLOAT)
@@ -1503,6 +1723,15 @@ arm_override_options (void)
 	error ("unable to use '%s' for PIC register", arm_pic_register_string);
       else
 	arm_pic_register = pic_register;
+    }
+
+  /* Enable -mfix-cortex-m3-ldrd by default for Cortex-M3 cores.  */
+  if (fix_cm3_ldrd == 2)
+    {
+      if (selected_cpu == cortexm3)
+	fix_cm3_ldrd = 1;
+      else
+	fix_cm3_ldrd = 0;
     }
 
   /* ??? We might want scheduling for thumb2.  */
@@ -1870,11 +2099,33 @@ const_ok_for_op (HOST_WIDE_INT i, enum rtx_code code)
   switch (code)
     {
     case PLUS:
+    case COMPARE:
+    case EQ:
+    case NE:
+    case GT:
+    case LE:
+    case LT:
+    case GE:
+    case GEU:
+    case LTU:
+    case GTU:
+    case LEU:
+    case UNORDERED:
+    case ORDERED:
+    case UNEQ:
+    case UNGE:
+    case UNLT:
+    case UNGT:
+    case UNLE:
       return const_ok_for_arm (ARM_SIGN_EXTEND (-i));
 
     case MINUS:		/* Should only occur with (MINUS I reg) => rsb */
     case XOR:
+      return 0;
+
     case IOR:
+      if (TARGET_THUMB2)
+	return const_ok_for_arm (ARM_SIGN_EXTEND (~i));
       return 0;
 
     case AND:
@@ -2051,15 +2302,20 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 					     GEN_INT (ARM_SIGN_EXTEND (val))));
 	  return 1;
 	}
+
       if (remainder == 0)
 	{
 	  if (reload_completed && rtx_equal_p (target, source))
 	    return 0;
+
 	  if (generate)
 	    emit_constant_insn (cond,
 				gen_rtx_SET (VOIDmode, target, source));
 	  return 1;
 	}
+
+      if (TARGET_THUMB2)
+	can_invert = 1;
       break;
 
     case AND:
@@ -2147,6 +2403,7 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 
   /* Calculate a few attributes that may be useful for specific
      optimizations.  */
+  /* Count number of leading zeros.  */
   for (i = 31; i >= 0; i--)
     {
       if ((remainder & (1 << i)) == 0)
@@ -2155,6 +2412,7 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 	break;
     }
 
+  /* Count number of leading 1's.  */
   for (i = 31; i >= 0; i--)
     {
       if ((remainder & (1 << i)) != 0)
@@ -2163,6 +2421,7 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 	break;
     }
 
+  /* Count number of trailing zero's.  */
   for (i = 0; i <= 31; i++)
     {
       if ((remainder & (1 << i)) == 0)
@@ -2171,6 +2430,7 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 	break;
     }
 
+  /* Count number of trailing 1's.  */
   for (i = 0; i <= 31; i++)
     {
       if ((remainder & (1 << i)) != 0)
@@ -2358,6 +2618,17 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
       if (code == XOR)
 	break;
 
+      /*  Convert.
+	  x = y | constant ( which is composed of set_sign_bit_copies of leading 1s
+	                     and the remainder 0s for e.g. 0xfff00000)
+	  x = ~(~(y ashift set_sign_bit_copies) lshiftrt set_sign_bit_copies)
+
+	  This can be done in 2 instructions by using shifts with mov or mvn.
+	  e.g. for
+	  x = x | 0xfff00000;
+	  we generate.
+	  mvn	r0, r0, asl #12
+	  mvn	r0, r0, lsr #12  */
       if (set_sign_bit_copies > 8
 	  && (val & (-1 << (32 - set_sign_bit_copies))) == val)
 	{
@@ -2383,6 +2654,16 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 	  return 2;
 	}
 
+      /* Convert
+	  x = y | constant (which has set_zero_bit_copies number of trailing ones).
+	   to
+	  x = ~((~y lshiftrt set_zero_bit_copies) ashift set_zero_bit_copies).
+
+	  For eg. r0 = r0 | 0xfff
+	       mvn	r0, r0, lsr #12
+	       mvn	r0, r0, asl #12
+
+      */
       if (set_zero_bit_copies > 8
 	  && (remainder & ((1 << set_zero_bit_copies) - 1)) == remainder)
 	{
@@ -2408,6 +2689,13 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 	  return 2;
 	}
 
+      /* This will never be reached for Thumb2 because orn is a valid
+	 instruction. This is for Thumb1 and the ARM 32 bit cases.
+
+	 x = y | constant (such that ~constant is a valid constant)
+	 Transform this to
+	 x = ~(~y & ~constant).
+      */
       if (const_ok_for_arm (temp1 = ARM_SIGN_EXTEND (~val)))
 	{
 	  if (generate)
@@ -2517,7 +2805,8 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
     if (remainder & (1 << i))
       num_bits_set++;
 
-  if (code == AND || (can_invert && num_bits_set > 16))
+  if ((code == AND)
+      || (code != IOR && can_invert && num_bits_set > 16))
     remainder = (~remainder) & 0xffffffff;
   else if (code == PLUS && num_bits_set > 16)
     remainder = (-remainder) & 0xffffffff;
@@ -3130,8 +3419,8 @@ arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -3148,8 +3437,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
     {
       if (TREE_CODE (*node) != FUNCTION_DECL)
 	{
-	  warning (OPT_Wattributes, "%qs attribute only applies to functions",
-		   IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qE attribute only applies to functions",
+		   name);
 	  *no_add_attrs = true;
 	}
       /* FIXME: the argument if any is checked for type attributes;
@@ -3162,8 +3451,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	{
 	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
 	    {
-	      warning (OPT_Wattributes, "%qs attribute ignored",
-		       IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qE attribute ignored",
+		       name);
 	      *no_add_attrs = true;
 	    }
 	}
@@ -3190,8 +3479,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	    }
 	  else
 	    {
-	      warning (OPT_Wattributes, "%qs attribute ignored",
-		       IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qE attribute ignored",
+		       name);
 	    }
 	}
     }
@@ -3348,6 +3637,7 @@ arm_is_long_call_p (tree decl)
   /* For "f", be conservative, and only cater for cases in which the
      whole of the current function is placed in the same section.  */
   if (!flag_reorder_blocks_and_partition
+      && TREE_CODE (decl) == FUNCTION_DECL
       && arm_function_in_section_p (decl, current_function_section ()))
     return false;
 
@@ -3433,24 +3723,26 @@ require_pic_register (void)
       gcc_assert (can_create_pseudo_p ());
       if (arm_pic_register != INVALID_REGNUM)
 	{
-	  cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
+	  if (!cfun->machine->pic_reg)
+	    cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
 
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
 	     process.  */
-	  if (current_ir_type () != IR_GIMPLE)
+	  if (current_ir_type () != IR_GIMPLE || currently_expanding_to_rtl)
 	    crtl->uses_pic_offset_table = 1;
 	}
       else
 	{
 	  rtx seq;
 
-	  cfun->machine->pic_reg = gen_reg_rtx (Pmode);
+	  if (!cfun->machine->pic_reg)
+	    cfun->machine->pic_reg = gen_reg_rtx (Pmode);
 
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
 	     process.  */
-	  if (current_ir_type () != IR_GIMPLE)
+	  if (current_ir_type () != IR_GIMPLE || currently_expanding_to_rtl)
 	    {
 	      crtl->uses_pic_offset_table = 1;
 	      start_sequence ();
@@ -3459,7 +3751,11 @@ require_pic_register (void)
 
 	      seq = get_insns ();
 	      end_sequence ();
-	      emit_insn_after (seq, entry_of_function ());
+	      /* We can be called during expansion of PHI nodes, where
+	         we can't yet emit instructions directly in the final
+		 insn stream.  Queue the insns on the entry edge, they will
+		 be committed after everything else is expanded.  */
+	      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
 	    }
 	}
     }
@@ -3659,8 +3955,7 @@ static GTY(()) int pic_labelno;
 void
 arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 {
-  rtx l1, labelno, pic_tmp, pic_tmp2, pic_rtx, pic_reg;
-  rtx global_offset_table;
+  rtx l1, labelno, pic_tmp, pic_rtx, pic_reg;
 
   if (crtl->uses_pic_offset_table == 0 || TARGET_SINGLE_PIC_BASE)
     return;
@@ -3688,20 +3983,11 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
       l1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, labelno), UNSPEC_PIC_LABEL);
       l1 = gen_rtx_CONST (VOIDmode, l1);
 
-      global_offset_table
-	= gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
       /* On the ARM the PC register contains 'dot + 8' at the time of the
 	 addition, on the Thumb it is 'dot + 4'.  */
-      pic_tmp = plus_constant (l1, TARGET_ARM ? 8 : 4);
-      if (GOT_PCREL)
-	{
-	  pic_tmp2 = gen_rtx_PLUS (Pmode, global_offset_table, pc_rtx);
-	  pic_tmp2 = gen_rtx_CONST (VOIDmode, pic_tmp2);
-	}
-      else
-	pic_tmp2 = gen_rtx_CONST (VOIDmode, global_offset_table);
-
-      pic_rtx = gen_rtx_MINUS (Pmode, pic_tmp2, pic_tmp);
+      pic_rtx = plus_constant (l1, TARGET_ARM ? 8 : 4);
+      pic_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, pic_rtx),
+				UNSPEC_GOTSYM_OFF);
       pic_rtx = gen_rtx_CONST (Pmode, pic_rtx);
 
       if (TARGET_ARM)
@@ -3787,8 +4073,8 @@ pcrel_constant_p (rtx x)
 
 /* Return nonzero if X is a valid ARM state address operand.  */
 int
-arm_legitimate_address_p (enum machine_mode mode, rtx x, RTX_CODE outer,
-			  int strict_p)
+arm_legitimate_address_outer_p (enum machine_mode mode, rtx x, RTX_CODE outer,
+			        int strict_p)
 {
   bool use_ldrd;
   enum rtx_code code = GET_CODE (x);
@@ -3842,6 +4128,7 @@ arm_legitimate_address_p (enum machine_mode mode, rtx x, RTX_CODE outer,
       rtx xop1 = XEXP (x, 1);
 
       return ((arm_address_register_rtx_p (xop0, strict_p)
+	       && GET_CODE(xop1) == CONST_INT
 	       && arm_legitimate_index_p (mode, xop1, outer, strict_p))
 	      || (arm_address_register_rtx_p (xop1, strict_p)
 		  && arm_legitimate_index_p (mode, xop0, outer, strict_p)));
@@ -3871,7 +4158,7 @@ arm_legitimate_address_p (enum machine_mode mode, rtx x, RTX_CODE outer,
 }
 
 /* Return nonzero if X is a valid Thumb-2 address operand.  */
-int
+static int
 thumb2_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
 {
   bool use_ldrd;
@@ -3997,6 +4284,7 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, RTX_CODE outer,
   if (GET_MODE_SIZE (mode) <= 4
       && ! (arm_arch4
 	    && (mode == HImode
+		|| mode == HFmode
 		|| (mode == QImode && outer == SIGN_EXTEND))))
     {
       if (code == MULT)
@@ -4025,13 +4313,15 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, RTX_CODE outer,
      load.  */
   if (arm_arch4)
     {
-      if (mode == HImode || (outer == SIGN_EXTEND && mode == QImode))
+      if (mode == HImode
+	  || mode == HFmode
+	  || (outer == SIGN_EXTEND && mode == QImode))
 	range = 256;
       else
 	range = 4096;
     }
   else
-    range = (mode == HImode) ? 4095 : 4096;
+    range = (mode == HImode || mode == HFmode) ? 4095 : 4096;
 
   return (code == CONST_INT
 	  && INTVAL (index) < range
@@ -4092,15 +4382,17 @@ thumb2_legitimate_index_p (enum machine_mode mode, rtx index, int strict_p)
 
   if (mode == DImode || mode == DFmode)
     {
-      HOST_WIDE_INT val = INTVAL (index);
-      /* ??? Can we assume ldrd for thumb2?  */
-      /* Thumb-2 ldrd only has reg+const addressing modes.  */
-      if (code != CONST_INT)
+      if (code == CONST_INT)
+	{
+	  HOST_WIDE_INT val = INTVAL (index);
+	  /* ??? Can we assume ldrd for thumb2?  */
+	  /* Thumb-2 ldrd only has reg+const addressing modes.  */
+	  /* ldrd supports offsets of +-1020.
+	     However the ldr fallback does not.  */
+	  return val > -256 && val < 256 && (val & 3) == 0;
+	}
+      else
 	return 0;
-
-      /* ldrd supports offsets of +-1020.
-         However the ldr fallback does not.  */
-      return val > -256 && val < 256 && (val & 3) == 0;
     }
 
   if (code == MULT)
@@ -4177,7 +4469,7 @@ thumb1_index_register_rtx_p (rtx x, int strict_p)
    addresses based on the frame pointer or arg pointer until the
    reload pass starts.  This is so that eliminating such addresses
    into stack based ones won't produce impossible code.  */
-int
+static int
 thumb1_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
 {
   /* ??? Not clear if this is right.  Experiment.  */
@@ -4202,7 +4494,8 @@ thumb1_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
     return 1;
 
   /* This is PC relative data after arm_reorg runs.  */
-  else if (GET_MODE_SIZE (mode) >= 4 && reload_completed
+  else if ((GET_MODE_SIZE (mode) >= 4 || mode == HFmode)
+	   && reload_completed
 	   && (GET_CODE (x) == LABEL_REF
 	       || (GET_CODE (x) == CONST
 		   && GET_CODE (XEXP (x, 0)) == PLUS
@@ -4289,6 +4582,17 @@ thumb_legitimate_offset_p (enum machine_mode mode, HOST_WIDE_INT val)
 	      && (val + GET_MODE_SIZE (mode)) <= 128
 	      && (val & 3) == 0);
     }
+}
+
+bool
+arm_legitimate_address_p (enum machine_mode mode, rtx x, bool strict_p)
+{
+  if (TARGET_ARM)
+    return arm_legitimate_address_outer_p (mode, x, SET, strict_p);
+  else if (TARGET_THUMB2)
+    return thumb2_legitimate_address_p (mode, x, strict_p);
+  else /* if (TARGET_THUMB1) */
+    return thumb1_legitimate_address_p (mode, x, strict_p);
 }
 
 /* Build the SYMBOL_REF for __tls_get_addr.  */
@@ -4467,6 +4771,14 @@ legitimize_tls_address (rtx x, rtx reg)
 rtx
 arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 {
+  if (!TARGET_ARM)
+    {
+      /* TODO: legitimize_address for Thumb2.  */
+      if (TARGET_THUMB2)
+        return x;
+      return thumb_legitimize_address (x, orig_x, mode);
+    }
+
   if (arm_tls_symbol_p (x))
     return legitimize_tls_address (x, NULL_RTX);
 
@@ -4518,7 +4830,7 @@ arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
     }
 
   /* XXX We don't allow MINUS any more -- see comment in
-     arm_legitimate_address_p ().  */
+     arm_legitimate_address_outer_p ().  */
   else if (GET_CODE (x) == MINUS)
     {
       rtx xop0 = XEXP (x, 0);
@@ -4665,7 +4977,7 @@ thumb_legitimize_reload_address (rtx *x_p,
 
       x = copy_rtx (x);
       push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
-		   Pmode, VOIDmode, 0, 0, opnum, type);
+		   Pmode, VOIDmode, 0, 0, opnum, (enum reload_type) type);
       return x;
     }
 
@@ -4682,7 +4994,7 @@ thumb_legitimize_reload_address (rtx *x_p,
 
       x = copy_rtx (x);
       push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
-		   Pmode, VOIDmode, 0, 0, opnum, type);
+		   Pmode, VOIDmode, 0, 0, opnum, (enum reload_type) type);
       return x;
     }
 
@@ -4877,130 +5189,232 @@ thumb1_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
     }
 }
 
-
-/* Worker routine for arm_rtx_costs.  */
-/* ??? This needs updating for thumb2.  */
-static inline int
-arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
+static inline bool
+arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
 {
   enum machine_mode mode = GET_MODE (x);
   enum rtx_code subcode;
+  rtx operand;
+  enum rtx_code code = GET_CODE (x);
   int extra_cost;
+  *total = 0;
 
   switch (code)
     {
     case MEM:
       /* Memory costs quite a lot for the first word, but subsequent words
 	 load at the equivalent of a single insn each.  */
-      return (10 + 4 * ((GET_MODE_SIZE (mode) - 1) / UNITS_PER_WORD)
-	      + (GET_CODE (x) == SYMBOL_REF
-		 && CONSTANT_POOL_ADDRESS_P (x) ? 4 : 0));
+      *total = COSTS_N_INSNS (2 + ARM_NUM_REGS (mode));
+      return true;
 
     case DIV:
     case MOD:
     case UDIV:
     case UMOD:
-      return optimize_size ? COSTS_N_INSNS (2) : 100;
+      if (TARGET_HARD_FLOAT && mode == SFmode)
+	*total = COSTS_N_INSNS (2);
+      else if (TARGET_HARD_FLOAT && mode == DFmode)
+	*total = COSTS_N_INSNS (4);
+      else
+	*total = COSTS_N_INSNS (20);
+      return false;
 
     case ROTATE:
-      if (mode == SImode && GET_CODE (XEXP (x, 1)) == REG)
-	return 4;
+      if (GET_CODE (XEXP (x, 1)) == REG)
+	*total = COSTS_N_INSNS (1); /* Need to subtract from 32 */
+      else if (GET_CODE (XEXP (x, 1)) != CONST_INT)
+	*total = rtx_cost (XEXP (x, 1), code, speed);
+
       /* Fall through */
     case ROTATERT:
       if (mode != SImode)
-	return 8;
+	{
+	  *total += COSTS_N_INSNS (4);
+	  return true;
+	}
+
       /* Fall through */
     case ASHIFT: case LSHIFTRT: case ASHIFTRT:
+      *total += rtx_cost (XEXP (x, 0), code, speed);
       if (mode == DImode)
-	return (8 + (GET_CODE (XEXP (x, 1)) == CONST_INT ? 0 : 8)
-		+ ((GET_CODE (XEXP (x, 0)) == REG
-		    || (GET_CODE (XEXP (x, 0)) == SUBREG
-			&& GET_CODE (SUBREG_REG (XEXP (x, 0))) == REG))
-		   ? 0 : 8));
+	{
+	  *total += COSTS_N_INSNS (3);
+	  return true;
+	}
 
-      extra_cost = 1;
+      *total += COSTS_N_INSNS (1);
       /* Increase the cost of complex shifts because they aren't any faster,
          and reduce dual issue opportunities.  */
       if (arm_tune_cortex_a9
 	  && outer != SET && GET_CODE (XEXP (x, 1)) != CONST_INT)
-	extra_cost++;
+	++*total;
 
-      return (extra_cost + ((GET_CODE (XEXP (x, 0)) == REG
-		    || (GET_CODE (XEXP (x, 0)) == SUBREG
-			&& GET_CODE (SUBREG_REG (XEXP (x, 0))) == REG))
-		   ? 0 : 4)
-	      + ((GET_CODE (XEXP (x, 1)) == REG
-		  || (GET_CODE (XEXP (x, 1)) == SUBREG
-		      && GET_CODE (SUBREG_REG (XEXP (x, 1))) == REG)
-		  || (GET_CODE (XEXP (x, 1)) == CONST_INT))
-		 ? 0 : 4));
+      return true;
 
     case MINUS:
-      if (GET_CODE (XEXP (x, 1)) == MULT && mode == SImode && arm_arch_thumb2)
+      if (TARGET_THUMB2)
 	{
-	  extra_cost = rtx_cost (XEXP (x, 1), code, true);
-	  if (!REG_OR_SUBREG_REG (XEXP (x, 0)))
-	    extra_cost += 4 * ARM_NUM_REGS (mode);
-	  return extra_cost;
+	  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	    {
+	      if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
+		*total = COSTS_N_INSNS (1);
+	      else
+		*total = COSTS_N_INSNS (20);
+	    }
+	  else
+	    *total = COSTS_N_INSNS (ARM_NUM_REGS (mode));
+	  /* Thumb2 does not have RSB, so all arguments must be
+	     registers (subtracting a constant is canonicalized as
+	     addition of the negated constant).  */
+	  return false;
 	}
 
       if (mode == DImode)
-	return (4 + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 8)
-		+ ((REG_OR_SUBREG_REG (XEXP (x, 0))
-		    || (GET_CODE (XEXP (x, 0)) == CONST_INT
-		       && const_ok_for_arm (INTVAL (XEXP (x, 0)))))
-		   ? 0 : 8));
-
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
-	return (2 + ((REG_OR_SUBREG_REG (XEXP (x, 1))
-		      || (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
-			  && arm_const_double_rtx (XEXP (x, 1))))
-		     ? 0 : 8)
-		+ ((REG_OR_SUBREG_REG (XEXP (x, 0))
-		    || (GET_CODE (XEXP (x, 0)) == CONST_DOUBLE
-			&& arm_const_double_rtx (XEXP (x, 0))))
-		   ? 0 : 8));
-
-      if (((GET_CODE (XEXP (x, 0)) == CONST_INT
-	    && const_ok_for_arm (INTVAL (XEXP (x, 0)))
-	    && REG_OR_SUBREG_REG (XEXP (x, 1))))
-	  || (((subcode = GET_CODE (XEXP (x, 1))) == ASHIFT
-	       || subcode == ASHIFTRT || subcode == LSHIFTRT
-	       || subcode == ROTATE || subcode == ROTATERT
-	       || (subcode == MULT
-		   && GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT
-		   && ((INTVAL (XEXP (XEXP (x, 1), 1)) &
-			(INTVAL (XEXP (XEXP (x, 1), 1)) - 1)) == 0)))
-	      && REG_OR_SUBREG_REG (XEXP (XEXP (x, 1), 0))
-	      && (REG_OR_SUBREG_REG (XEXP (XEXP (x, 1), 1))
-		  || GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT)
-	      && REG_OR_SUBREG_REG (XEXP (x, 0))))
-	return 1;
-      /* Fall through */
-
-    case PLUS:
-      if (arm_arch6 && mode == SImode
-	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
-	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
-	return 1 + (GET_CODE (XEXP (XEXP (x, 0), 0)) == MEM ? 10 : 0)
-		 + (GET_CODE (XEXP (x, 1)) == MEM ? 10 : 0);
-
-      if (GET_CODE (XEXP (x, 0)) == MULT)
 	{
-	  extra_cost = rtx_cost (XEXP (x, 0), code, true);
-	  if (!REG_OR_SUBREG_REG (XEXP (x, 1)))
-	    extra_cost += 4 * ARM_NUM_REGS (mode);
-	  return extra_cost;
+	  *total = COSTS_N_INSNS (ARM_NUM_REGS (mode));
+	  if (GET_CODE (XEXP (x, 0)) == CONST_INT
+	      && const_ok_for_arm (INTVAL (XEXP (x, 0))))
+	    {
+	      *total += rtx_cost (XEXP (x, 1), code, speed);
+	      return true;
+	    }
+
+	  if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	      && const_ok_for_arm (INTVAL (XEXP (x, 1))))
+	    {
+	      *total += rtx_cost (XEXP (x, 0), code, speed);
+	      return true;
+	    }
+
+	  return false;
 	}
 
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
-	return (2 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 8)
-		+ ((REG_OR_SUBREG_REG (XEXP (x, 1))
-		    || (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
-			&& arm_const_double_rtx (XEXP (x, 1))))
-		   ? 0 : 8));
+	{
+	  if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
+	    {
+	      *total = COSTS_N_INSNS (1);
+	      if (GET_CODE (XEXP (x, 0)) == CONST_DOUBLE
+		  && arm_const_double_rtx (XEXP (x, 0)))
+		{
+		  *total += rtx_cost (XEXP (x, 1), code, speed);
+		  return true;
+		}
+
+	      if (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
+		  && arm_const_double_rtx (XEXP (x, 1)))
+		{
+		  *total += rtx_cost (XEXP (x, 0), code, speed);
+		  return true;
+		}
+
+	      return false;
+	    }
+	  *total = COSTS_N_INSNS (20);
+	  return false;
+	}
+
+      *total = COSTS_N_INSNS (1);
+      if (GET_CODE (XEXP (x, 0)) == CONST_INT
+	  && const_ok_for_arm (INTVAL (XEXP (x, 0))))
+	{
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  return true;
+	}
+
+      subcode = GET_CODE (XEXP (x, 1));
+      if (subcode == ASHIFT || subcode == ASHIFTRT
+	  || subcode == LSHIFTRT
+	  || subcode == ROTATE || subcode == ROTATERT)
+	{
+	  *total += rtx_cost (XEXP (x, 0), code, speed);
+	  *total += rtx_cost (XEXP (XEXP (x, 1), 0), subcode, speed);
+	  return true;
+	}
+
+      /* A shift as a part of RSB costs no more than RSB itself.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), code, speed);
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  return true;
+	}
+
+      if (subcode == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 1), 1), SImode))
+	{
+	  *total += rtx_cost (XEXP (x, 0), code, speed);
+	  *total += rtx_cost (XEXP (XEXP (x, 1), 0), subcode, speed);
+	  return true;
+	}
+
+      if (GET_RTX_CLASS (GET_CODE (XEXP (x, 1))) == RTX_COMPARE
+	  || GET_RTX_CLASS (GET_CODE (XEXP (x, 1))) == RTX_COMM_COMPARE)
+	{
+	  *total = COSTS_N_INSNS (1) + rtx_cost (XEXP (x, 0), code, speed);
+	  if (GET_CODE (XEXP (XEXP (x, 1), 0)) == REG
+	      && REGNO (XEXP (XEXP (x, 1), 0)) != CC_REGNUM)
+	    *total += COSTS_N_INSNS (1);
+
+	  return true;
+	}
 
       /* Fall through */
+
+    case PLUS:
+      if (code == PLUS && arm_arch6 && mode == SImode
+	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
+	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
+	{
+	  *total = COSTS_N_INSNS (1);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), GET_CODE (XEXP (x, 0)),
+			      speed);
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  return true;
+	}
+
+      /* MLA: All arguments must be registers.  We filter out
+	 multiplication by a power of two, so that we fall down into
+	 the code below.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT
+	  && !power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  /* The cost comes from the cost of the multiply.  */
+	  return false;
+	}
+
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
+	    {
+	      *total = COSTS_N_INSNS (1);
+	      if (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
+		  && arm_const_double_rtx (XEXP (x, 1)))
+		{
+		  *total += rtx_cost (XEXP (x, 0), code, speed);
+		  return true;
+		}
+
+	      return false;
+	    }
+
+	  *total = COSTS_N_INSNS (20);
+	  return false;
+	}
+
+      if (GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == RTX_COMPARE
+	  || GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == RTX_COMM_COMPARE)
+	{
+	  *total = COSTS_N_INSNS (1) + rtx_cost (XEXP (x, 1), code, speed);
+	  if (GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
+	      && REGNO (XEXP (XEXP (x, 0), 0)) != CC_REGNUM)
+	    *total += COSTS_N_INSNS (1);
+	  return true;
+	}
+
+      /* Fall through */
+
     case AND: case XOR: case IOR:
       extra_cost = 0;
 
@@ -5014,38 +5428,54 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 	   && GET_CODE (XEXP (x, 1)) != CONST_INT)
 	  || (REG_OR_SUBREG_REG (XEXP (x, 0))
 	      && ARM_FRAME_RTX (REG_OR_SUBREG_RTX (XEXP (x, 0)))))
-	extra_cost = 4;
+	*total = 4;
 
       if (mode == DImode)
-	return (4 + extra_cost + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 8)
-		+ ((REG_OR_SUBREG_REG (XEXP (x, 1))
-		    || (GET_CODE (XEXP (x, 1)) == CONST_INT
-			&& const_ok_for_op (INTVAL (XEXP (x, 1)), code)))
-		   ? 0 : 8));
+	{
+	  *total += COSTS_N_INSNS (2);
+	  if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	      && const_ok_for_op (INTVAL (XEXP (x, 1)), code))
+	    {
+	      *total += rtx_cost (XEXP (x, 0), code, speed);
+	      return true;
+	    }
 
-      if (REG_OR_SUBREG_REG (XEXP (x, 0)))
-	return (1 + (GET_CODE (XEXP (x, 1)) == CONST_INT ? 0 : extra_cost)
-		+ ((REG_OR_SUBREG_REG (XEXP (x, 1))
-		    || (GET_CODE (XEXP (x, 1)) == CONST_INT
-			&& const_ok_for_op (INTVAL (XEXP (x, 1)), code)))
-		   ? 0 : 4));
+	  return false;
+	}
 
-      else if (REG_OR_SUBREG_REG (XEXP (x, 1)))
-	return (1 + extra_cost
-		+ ((((subcode = GET_CODE (XEXP (x, 0))) == ASHIFT
-		     || subcode == LSHIFTRT || subcode == ASHIFTRT
-		     || subcode == ROTATE || subcode == ROTATERT
-		     || (subcode == MULT
-			 && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-			 && ((INTVAL (XEXP (XEXP (x, 0), 1)) &
-			      (INTVAL (XEXP (XEXP (x, 0), 1)) - 1)) == 0)))
-		    && (REG_OR_SUBREG_REG (XEXP (XEXP (x, 0), 0)))
-		    && ((REG_OR_SUBREG_REG (XEXP (XEXP (x, 0), 1))
-			 && !arm_tune_cortex_a9)
-			|| GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT))
-		   ? 0 : 4));
+      *total += COSTS_N_INSNS (1);
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && const_ok_for_op (INTVAL (XEXP (x, 1)), code))
+	{
+	  *total += rtx_cost (XEXP (x, 0), code, speed);
+	  return true;
+	}
+      subcode = GET_CODE (XEXP (x, 0));
+      if (subcode == ASHIFT || subcode == ASHIFTRT
+	  || subcode == LSHIFTRT
+	  || subcode == ROTATE || subcode == ROTATERT)
+	{
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
+	  return true;
+	}
 
-      return 8;
+      if (subcode == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
+	  return true;
+	}
+
+      if (subcode == UMIN || subcode == UMAX
+	  || subcode == SMIN || subcode == SMAX)
+	{
+	  *total = COSTS_N_INSNS (3);
+	  return true;
+	}
+
+      return false;
 
     case MULT:
       /* This should have been handled by the CPU specific routines.  */
@@ -5059,108 +5489,286 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 	      == GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1)))
 	  && (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == ZERO_EXTEND
 	      || GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == SIGN_EXTEND))
-	return 8;
-      return 99;
+	{
+	  *total = rtx_cost (XEXP (XEXP (x, 0), 0), LSHIFTRT, speed);
+	  return true;
+	}
+      *total = COSTS_N_INSNS (2); /* Plus the cost of the MULT */
+      return false;
 
     case NEG:
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
-	return 4 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 6);
+	{
+	  if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
+	    {
+	      *total = COSTS_N_INSNS (1);
+	      return false;
+	    }
+	  *total = COSTS_N_INSNS (2);
+	  return false;
+	}
+
       /* Fall through */
     case NOT:
-      if (mode == DImode)
-	return 4 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4);
+      *total = COSTS_N_INSNS (ARM_NUM_REGS(mode));
+      if (mode == SImode && code == NOT)
+	{
+	  subcode = GET_CODE (XEXP (x, 0));
+	  if (subcode == ASHIFT || subcode == ASHIFTRT
+	      || subcode == LSHIFTRT
+	      || subcode == ROTATE || subcode == ROTATERT
+	      || (subcode == MULT
+		  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode)))
+	    {
+	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
+	      /* Register shifts cost an extra cycle.  */
+	      if (GET_CODE (XEXP (XEXP (x, 0), 1)) != CONST_INT)
+		*total += COSTS_N_INSNS (1) + rtx_cost (XEXP (XEXP (x, 0), 1),
+							subcode, speed);
+	      return true;
+	    }
+	}
 
-      return 1 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4);
+      return false;
 
     case IF_THEN_ELSE:
       if (GET_CODE (XEXP (x, 1)) == PC || GET_CODE (XEXP (x, 2)) == PC)
-	return 14;
-      return 2;
+	{
+	  *total = COSTS_N_INSNS (4);
+	  return true;
+	}
 
+      operand = XEXP (x, 0);
+
+      if (!((GET_RTX_CLASS (GET_CODE (operand)) == RTX_COMPARE
+	     || GET_RTX_CLASS (GET_CODE (operand)) == RTX_COMM_COMPARE)
+	    && GET_CODE (XEXP (operand, 0)) == REG
+	    && REGNO (XEXP (operand, 0)) == CC_REGNUM))
+	*total += COSTS_N_INSNS (1);
+      *total += (rtx_cost (XEXP (x, 1), code, speed)
+		 + rtx_cost (XEXP (x, 2), code, speed));
+      return true;
+
+    case NE:
+      if (mode == SImode && XEXP (x, 1) == const0_rtx)
+	{
+	  *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), code, speed);
+	  return true;
+	}
+      goto scc_insn;
+
+    case GE:
+      if ((GET_CODE (XEXP (x, 0)) != REG || REGNO (XEXP (x, 0)) != CC_REGNUM)
+	  && mode == SImode && XEXP (x, 1) == const0_rtx)
+	{
+	  *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), code, speed);
+	  return true;
+	}
+      goto scc_insn;
+
+    case LT:
+      if ((GET_CODE (XEXP (x, 0)) != REG || REGNO (XEXP (x, 0)) != CC_REGNUM)
+	  && mode == SImode && XEXP (x, 1) == const0_rtx)
+	{
+	  *total = COSTS_N_INSNS (1) + rtx_cost (XEXP (x, 0), code, speed);
+	  return true;
+	}
+      goto scc_insn;
+
+    case EQ:
+    case GT:
+    case LE:
+    case GEU:
+    case LTU:
+    case GTU:
+    case LEU:
+    case UNORDERED:
+    case ORDERED:
+    case UNEQ:
+    case UNGE:
+    case UNLT:
+    case UNGT:
+    case UNLE:
+    scc_insn:
+      /* SCC insns.  In the case where the comparison has already been
+	 performed, then they cost 2 instructions.  Otherwise they need
+	 an additional comparison before them.  */
+      *total = COSTS_N_INSNS (2);
+      if (GET_CODE (XEXP (x, 0)) == REG && REGNO (XEXP (x, 0)) == CC_REGNUM)
+	{
+	  return true;
+	}
+
+      /* Fall through */
     case COMPARE:
-      return 1;
+      if (GET_CODE (XEXP (x, 0)) == REG && REGNO (XEXP (x, 0)) == CC_REGNUM)
+	{
+	  *total = 0;
+	  return true;
+	}
+
+      *total += COSTS_N_INSNS (1);
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && const_ok_for_op (INTVAL (XEXP (x, 1)), code))
+	{
+	  *total += rtx_cost (XEXP (x, 0), code, speed);
+	  return true;
+	}
+
+      subcode = GET_CODE (XEXP (x, 0));
+      if (subcode == ASHIFT || subcode == ASHIFTRT
+	  || subcode == LSHIFTRT
+	  || subcode == ROTATE || subcode == ROTATERT)
+	{
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
+	  return true;
+	}
+
+      if (subcode == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total += rtx_cost (XEXP (x, 1), code, speed);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), subcode, speed);
+	  return true;
+	}
+      
+      return false;
+
+    case UMIN:
+    case UMAX:
+    case SMIN:
+    case SMAX:
+      *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), code, speed);
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT
+	  || !const_ok_for_arm (INTVAL (XEXP (x, 1))))
+	*total += rtx_cost (XEXP (x, 1), code, speed);
+      return true;
 
     case ABS:
-      return 4 + (mode == DImode ? 4 : 0);
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
+	    {
+	      *total = COSTS_N_INSNS (1);
+	      return false;
+	    }
+	  *total = COSTS_N_INSNS (20);
+	  return false;
+	}
+      *total = COSTS_N_INSNS (1);
+      if (mode == DImode)
+	*total += COSTS_N_INSNS (3);
+      return false;
 
     case SIGN_EXTEND:
-      if (arm_arch_thumb2 && mode == SImode)
-	return 1 + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0);
+      if (GET_MODE_CLASS (mode) == MODE_INT)
+	{
+	  *total = 0;
+	  if (mode == DImode)
+	    *total += COSTS_N_INSNS (1);
 
-      if (GET_MODE (XEXP (x, 0)) == QImode)
-	return (4 + (mode == DImode ? 4 : 0)
-		+ (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
+	  if (GET_MODE (XEXP (x, 0)) != SImode)
+	    {
+	      if (arm_arch6)
+		{
+		  if (GET_CODE (XEXP (x, 0)) != MEM)
+		    *total += COSTS_N_INSNS (1);
+		}
+	      else if (!arm_arch4 || GET_CODE (XEXP (x, 0)) != MEM)
+		*total += COSTS_N_INSNS (2);
+	    }
+
+	  return false;
+	}
+
       /* Fall through */
     case ZERO_EXTEND:
-      if (arm_arch6 && mode == SImode)
-	return 1 + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0);
+      *total = 0;
+      if (GET_MODE_CLASS (mode) == MODE_INT)
+	{
+	  if (mode == DImode)
+	    *total += COSTS_N_INSNS (1);
+
+	  if (GET_MODE (XEXP (x, 0)) != SImode)
+	    {
+	      if (arm_arch6)
+		{
+		  if (GET_CODE (XEXP (x, 0)) != MEM)
+		    *total += COSTS_N_INSNS (1);
+		}
+	      else if (!arm_arch4 || GET_CODE (XEXP (x, 0)) != MEM)
+		*total += COSTS_N_INSNS (GET_MODE (XEXP (x, 0)) == QImode ?
+					 1 : 2);
+	    }
+
+	  return false;
+	}
 
       switch (GET_MODE (XEXP (x, 0)))
 	{
-	case QImode:
-	  return (1 + (mode == DImode ? 4 : 0)
-		  + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
-
-	case HImode:
-	  return (4 + (mode == DImode ? 4 : 0)
-		  + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
-
-	case SImode:
-	  return (1 + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
-
 	case V8QImode:
 	case V4HImode:
 	case V2SImode:
 	case V4QImode:
 	case V2HImode:
-	    return 1;
+	  *total = COSTS_N_INSNS (1);
+	  return false;
 
 	default:
 	  gcc_unreachable ();
 	}
       gcc_unreachable ();
 
+    case ZERO_EXTRACT:
+    case SIGN_EXTRACT:
+      *total = COSTS_N_INSNS (1) + rtx_cost (XEXP (x, 0), code, speed);
+      return true;
+
     case CONST_INT:
-      if (const_ok_for_arm (INTVAL (x)))
-	return outer == SET ? 2 : -1;
-      else if (outer == AND
-	       && const_ok_for_arm (~INTVAL (x)))
-	return -1;
-      else if ((outer == COMPARE
-		|| outer == PLUS || outer == MINUS)
-	       && const_ok_for_arm (-INTVAL (x)))
-	return -1;
+      if (const_ok_for_arm (INTVAL (x))
+	  || const_ok_for_arm (~INTVAL (x)))
+	*total = COSTS_N_INSNS (1);
       else
-	return 5;
+	*total = COSTS_N_INSNS (arm_gen_constant (SET, mode, NULL_RTX,
+						  INTVAL (x), NULL_RTX,
+						  NULL_RTX, 0, 0));
+      return true;
 
     case CONST:
     case LABEL_REF:
     case SYMBOL_REF:
-      return 6;
+      *total = COSTS_N_INSNS (3);
+      return true;
 
     case HIGH:
+      *total = COSTS_N_INSNS (1);
+      return true;
+
     case LO_SUM:
-      return (outer == SET) ? 1 : -1;
+      *total = COSTS_N_INSNS (1);
+      *total += rtx_cost (XEXP (x, 0), code, speed);
+      return true;
 
     case CONST_DOUBLE:
-      if (arm_const_double_rtx (x) || vfp3_const_double_rtx (x))
-	return outer == SET ? 2 : -1;
-      else if ((outer == COMPARE || outer == PLUS)
-	       && neg_const_double_rtx_ok_for_fpa (x))
-	return -1;
-      return 7;
+      if (TARGET_HARD_FLOAT && vfp3_const_double_rtx (x))
+	*total = COSTS_N_INSNS (1);
+      else
+	*total = COSTS_N_INSNS (4);
+      return true;
 
     default:
-      return 99;
+      *total = COSTS_N_INSNS (4);
+      return false;
     }
 }
 
 /* RTX costs when optimizing for size.  */
 static bool
-arm_size_rtx_costs (rtx x, int code, int outer_code, int *total)
+arm_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
+		    int *total)
 {
   enum machine_mode mode = GET_MODE (x);
-
   if (TARGET_THUMB1)
     {
       /* XXX TBD.  For now, use the standard costs.  */
@@ -5254,6 +5862,16 @@ arm_size_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  return false;
 	}
 
+      /* A shift as a part of ADD costs nothing.  */
+      if (GET_CODE (XEXP (x, 0)) == MULT
+	  && power_of_two_operand (XEXP (XEXP (x, 0), 1), SImode))
+	{
+	  *total = COSTS_N_INSNS (TARGET_THUMB2 ? 2 : 1);
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), code, false);
+	  *total += rtx_cost (XEXP (x, 1), code, false);
+	  return true;
+	}
+
       /* Fall through */
     case AND: case XOR: case IOR:
       if (mode == SImode)
@@ -5279,7 +5897,11 @@ arm_size_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case NEG:
       if (TARGET_HARD_FLOAT && GET_MODE_CLASS (mode) == MODE_FLOAT)
-	*total = COSTS_N_INSNS (1);
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return false;
+	}
+
       /* Fall through */
     case NOT:
       *total = COSTS_N_INSNS (ARM_NUM_REGS (mode));
@@ -5343,7 +5965,10 @@ arm_size_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case CONST_INT:
       if (const_ok_for_arm (INTVAL (x)))
-	*total = COSTS_N_INSNS (outer_code == SET ? 1 : 0);
+	/* A multiplication by a constant requires another instruction
+	   to load the constant to a register.  */
+	*total = COSTS_N_INSNS ((outer_code == SET || outer_code == MULT)
+				? 1 : 0);
       else if (const_ok_for_arm (~INTVAL (x)))
 	*total = COSTS_N_INSNS (outer_code == AND ? 0 : 1);
       else if (const_ok_for_arm (-INTVAL (x)))
@@ -5386,19 +6011,24 @@ arm_size_rtx_costs (rtx x, int code, int outer_code, int *total)
 
 /* RTX costs when optimizing for size.  */
 static bool
-arm_rtx_costs (rtx x, int code, int outer_code, int *total, bool speed)
+arm_rtx_costs (rtx x, int code, int outer_code, int *total,
+	       bool speed)
 {
   if (!speed)
-    return arm_size_rtx_costs (x, code, outer_code, total);
+    return arm_size_rtx_costs (x, (enum rtx_code) code,
+			       (enum rtx_code) outer_code, total);
   else
-    return all_cores[(int)arm_tune].rtx_costs (x, code, outer_code, total);
+    return all_cores[(int)arm_tune].rtx_costs (x, (enum rtx_code) code,
+					       (enum rtx_code) outer_code,
+					       total, speed);
 }
 
 /* RTX costs for cores with a slow MUL implementation.  Thumb-2 is not
    supported on any "slowmul" cores, so it can be ignored.  */
 
 static bool
-arm_slowmul_rtx_costs (rtx x, int code, int outer_code, int *total)
+arm_slowmul_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
+		       int *total, bool speed)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -5414,8 +6044,8 @@ arm_slowmul_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (GET_MODE_CLASS (mode) == MODE_FLOAT
 	  || mode == DImode)
 	{
-	  *total = 30;
-	  return true;
+	  *total = COSTS_N_INSNS (20);
+	  return false;
 	}
 
       if (GET_CODE (XEXP (x, 1)) == CONST_INT)
@@ -5431,20 +6061,19 @@ arm_slowmul_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  for (j = 0; i && j < 32; j += booth_unit_size)
 	    {
 	      i >>= booth_unit_size;
-	      cost += 2;
+	      cost++;
 	    }
 
-	  *total = cost;
+	  *total = COSTS_N_INSNS (cost);
+	  *total += rtx_cost (XEXP (x, 0), code, speed);
 	  return true;
 	}
 
-      *total = 30 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4)
-	          + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 4);
-      return true;
+      *total = COSTS_N_INSNS (20);
+      return false;
 
     default:
-      *total = arm_rtx_costs_1 (x, code, outer_code);
-      return true;
+      return arm_rtx_costs_1 (x, outer_code, total, speed);;
     }
 }
 
@@ -5452,7 +6081,8 @@ arm_slowmul_rtx_costs (rtx x, int code, int outer_code, int *total)
 /* RTX cost for cores with a fast multiply unit (M variants).  */
 
 static bool
-arm_fastmul_rtx_costs (rtx x, int code, int outer_code, int *total)
+arm_fastmul_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
+		       int *total, bool speed)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -5473,16 +6103,15 @@ arm_fastmul_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
 	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
 	{
-	  *total = 8;
-	  return true;
+	  *total = COSTS_N_INSNS(2);
+	  return false;
 	}
 
 
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT
-	  || mode == DImode)
+      if (mode == DImode)
 	{
-	  *total = 30;
-	  return true;
+	  *total = COSTS_N_INSNS (5);
+	  return false;
 	}
 
       if (GET_CODE (XEXP (x, 1)) == CONST_INT)
@@ -5498,20 +6127,34 @@ arm_fastmul_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  for (j = 0; i && j < 32; j += booth_unit_size)
 	    {
 	      i >>= booth_unit_size;
-	      cost += 2;
+	      cost++;
 	    }
 
-	  *total = cost;
-	  return true;
+	  *total = COSTS_N_INSNS(cost);
+	  return false;
 	}
 
-      *total = 8 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4)
-	         + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 4);
-      return true;
+      if (mode == SImode)
+	{
+	  *total = COSTS_N_INSNS (4);
+	  return false;
+	}
+
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
+	    {
+	      *total = COSTS_N_INSNS (1);
+	      return false;
+	    }
+	}
+
+      /* Requires a lib call */
+      *total = COSTS_N_INSNS (20);
+      return false;
 
     default:
-      *total = arm_rtx_costs_1 (x, code, outer_code);
-      return true;
+      return arm_rtx_costs_1 (x, outer_code, total, speed);
     }
 }
 
@@ -5520,7 +6163,7 @@ arm_fastmul_rtx_costs (rtx x, int code, int outer_code, int *total)
    so it can be ignored.  */
 
 static bool
-arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
+arm_xscale_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code, int *total, bool speed)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -5532,6 +6175,15 @@ arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
 
   switch (code)
     {
+    case COMPARE:
+      if (GET_CODE (XEXP (x, 0)) != MULT)
+	return arm_rtx_costs_1 (x, outer_code, total, speed);
+
+      /* A COMPARE of a MULT is slow on XScale; the muls instruction
+	 will stall until the multiplication is complete.  */
+      *total = COSTS_N_INSNS (3);
+      return false;
+
     case MULT:
       /* There is no point basing this on the tuning, since it is always the
 	 fast variant if it exists at all.  */
@@ -5540,60 +6192,58 @@ arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
 	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
 	{
-	  *total = 8;
-	  return true;
+	  *total = COSTS_N_INSNS (2);
+	  return false;
 	}
 
 
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT
-	  || mode == DImode)
+      if (mode == DImode)
 	{
-	  *total = 30;
-	  return true;
+	  *total = COSTS_N_INSNS (5);
+	  return false;
 	}
 
       if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	{
-	  unsigned HOST_WIDE_INT i = (INTVAL (XEXP (x, 1))
-				      & (unsigned HOST_WIDE_INT) 0xffffffff);
-	  int cost, const_ok = const_ok_for_arm (i);
+	  /* If operand 1 is a constant we can more accurately
+	     calculate the cost of the multiply.  The multiplier can
+	     retire 15 bits on the first cycle and a further 12 on the
+	     second.  We do, of course, have to load the constant into
+	     a register first.  */
+	  unsigned HOST_WIDE_INT i = INTVAL (XEXP (x, 1));
+	  /* There's a general overhead of one cycle.  */
+	  int cost = 1;
 	  unsigned HOST_WIDE_INT masked_const;
 
-	  /* The cost will be related to two insns.
-	     First a load of the constant (MOV or LDR), then a multiply.  */
-	  cost = 2;
-	  if (! const_ok)
-	    cost += 1;      /* LDR is probably more expensive because
-			       of longer result latency.  */
+	  if (i & 0x80000000)
+	    i = ~i;
+
+	  i &= (unsigned HOST_WIDE_INT) 0xffffffff;
+
 	  masked_const = i & 0xffff8000;
-	  if (masked_const != 0 && masked_const != 0xffff8000)
+	  if (masked_const != 0)
 	    {
+	      cost++;
 	      masked_const = i & 0xf8000000;
-	      if (masked_const == 0 || masked_const == 0xf8000000)
-		cost += 1;
-	      else
-		cost += 2;
+	      if (masked_const != 0)
+		cost++;
 	    }
-	  *total = cost;
-	  return true;
+	  *total = COSTS_N_INSNS (cost);
+	  return false;
 	}
 
-      *total = 8 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4)
-		 + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 4);
-      return true;
+      if (mode == SImode)
+	{
+	  *total = COSTS_N_INSNS (3);
+	  return false;
+	}
 
-    case COMPARE:
-      /* A COMPARE of a MULT is slow on XScale; the muls instruction
-	 will stall until the multiplication is complete.  */
-      if (GET_CODE (XEXP (x, 0)) == MULT)
-	*total = 4 + rtx_cost (XEXP (x, 0), code, true);
-      else
-	*total = arm_rtx_costs_1 (x, code, outer_code);
-      return true;
+      /* Requires a lib call */
+      *total = COSTS_N_INSNS (20);
+      return false;
 
     default:
-      *total = arm_rtx_costs_1 (x, code, outer_code);
-      return true;
+      return arm_rtx_costs_1 (x, outer_code, total, speed);
     }
 }
 
@@ -5601,11 +6251,10 @@ arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
 /* RTX costs for 9e (and later) cores.  */
 
 static bool
-arm_9e_rtx_costs (rtx x, int code, int outer_code, int *total)
+arm_9e_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
+		  int *total, bool speed)
 {
   enum machine_mode mode = GET_MODE (x);
-  int nonreg_cost;
-  int cost;
 
   if (TARGET_THUMB1)
     {
@@ -5631,35 +6280,37 @@ arm_9e_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
 	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
 	{
-	  *total = 3;
-	  return true;
+	  *total = COSTS_N_INSNS (2);
+	  return false;
 	}
 
+
+      if (mode == DImode)
+	{
+	  *total = COSTS_N_INSNS (5);
+	  return false;
+	}
+
+      if (mode == SImode)
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return false;
+	}
 
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	{
-	  *total = 30;
-	  return true;
-	}
-      if (mode == DImode)
-	{
-	  cost = 7;
-	  nonreg_cost = 8;
-	}
-      else
-	{
-	  cost = 2;
-	  nonreg_cost = 4;
+	  if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
+	    {
+	      *total = COSTS_N_INSNS (1);
+	      return false;
+	    }
 	}
 
-
-      *total = cost + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : nonreg_cost)
-		    + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : nonreg_cost);
-      return true;
+      *total = COSTS_N_INSNS (20);
+      return false;
 
     default:
-      *total = arm_rtx_costs_1 (x, code, outer_code);
-      return true;
+      return arm_rtx_costs_1 (x, outer_code, total, speed);
     }
 }
 /* All address computations that can be done are free, but rtx cost returns
@@ -6029,7 +6680,7 @@ neon_valid_immediate (rtx op, enum machine_mode mode, int inverse,
       break;					\
     }
 
-  unsigned int i, elsize, idx = 0, n_elts = CONST_VECTOR_NUNITS (op);
+  unsigned int i, elsize = 0, idx = 0, n_elts = CONST_VECTOR_NUNITS (op);
   unsigned int innersize = GET_MODE_SIZE (GET_MODE_INNER (mode));
   unsigned char bytes[16];
   int immtype = -1, matches;
@@ -6471,10 +7122,13 @@ arm_coproc_mem_operand (rtx op, bool wb)
 }
 
 /* Return TRUE if OP is a memory operand which we can load or store a vector
-   to/from. If CORE is true, we're moving from ARM registers not Neon
-   registers.  */
+   to/from. TYPE is one of the following values:
+    0 - Vector load/stor (vldr)
+    1 - Core registers (ldm)
+    2 - Element/structure loads (vld1)
+ */
 int
-neon_vector_mem_operand (rtx op, bool core)
+neon_vector_mem_operand (rtx op, int type)
 {
   rtx ind;
 
@@ -6507,23 +7161,15 @@ neon_vector_mem_operand (rtx op, bool core)
     return arm_address_register_rtx_p (ind, 0);
 
   /* Allow post-increment with Neon registers.  */
-  if (!core && GET_CODE (ind) == POST_INC)
+  if (type != 1 && (GET_CODE (ind) == POST_INC || GET_CODE (ind) == PRE_DEC))
     return arm_address_register_rtx_p (XEXP (ind, 0), 0);
 
-#if 0
-  /* FIXME: We can support this too if we use VLD1/VST1.  */
-  if (!core
-      && GET_CODE (ind) == POST_MODIFY
-      && arm_address_register_rtx_p (XEXP (ind, 0), 0)
-      && GET_CODE (XEXP (ind, 1)) == PLUS
-      && rtx_equal_p (XEXP (XEXP (ind, 1), 0), XEXP (ind, 0)))
-    ind = XEXP (ind, 1);
-#endif
+  /* FIXME: vld1 allows register post-modify.  */
 
   /* Match:
      (plus (reg)
           (const)).  */
-  if (!core
+  if (type == 0
       && GET_CODE (ind) == PLUS
       && GET_CODE (XEXP (ind, 0)) == REG
       && REG_MODE_OK_FOR_BASE_P (XEXP (ind, 0), VOIDmode)
@@ -6590,10 +7236,17 @@ arm_eliminable_register (rtx x)
 enum reg_class
 coproc_secondary_reload_class (enum machine_mode mode, rtx x, bool wb)
 {
+  if (mode == HFmode)
+    {
+      if (s_register_operand (x, mode) || neon_vector_mem_operand (x, 2))
+	return NO_REGS;
+      return GENERAL_REGS;
+    }
+
   if (TARGET_NEON
       && (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
           || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
-      && neon_vector_mem_operand (x, FALSE))
+      && neon_vector_mem_operand (x, 0))
      return NO_REGS;
 
   if (arm_coproc_mem_operand (x, wb) || s_register_operand (x, mode))
@@ -6953,7 +7606,7 @@ adjacent_mem_locations (rtx a, rtx b)
       /* Don't accept any offset that will require multiple
 	 instructions to handle, since this would cause the
 	 arith_adjacentmem pattern to output an overlong sequence.  */
-      if (!const_ok_for_op (PLUS, val0) || !const_ok_for_op (PLUS, val1))
+      if (!const_ok_for_op (val0, PLUS) || !const_ok_for_op (val1, PLUS))
 	return 0;
 
       /* Don't allow an eliminable register: register elimination can make
@@ -6993,6 +7646,8 @@ load_multiple_sequence (rtx *operands, int nops, int *regs, int *base,
   /* Can only handle 2, 3, or 4 insns at present,
      though could be easily extended if required.  */
   gcc_assert (nops >= 2 && nops <= 4);
+
+  memset (order, 0, 4 * sizeof (int));
 
   /* Loop over the operands and check that the memory references are
      suitable (i.e. immediate offsets from the same base register).  At
@@ -7220,6 +7875,8 @@ store_multiple_sequence (rtx *operands, int nops, int *regs, int *base,
   /* Can only handle 2, 3, or 4 insns at present, though could be easily
      extended if required.  */
   gcc_assert (nops >= 2 && nops <= 4);
+
+  memset (order, 0, 4 * sizeof (int));
 
   /* Loop over the operands and check that the memory references are
      suitable (i.e. immediate offsets from the same base register).  At
@@ -9755,8 +10412,7 @@ vfp_emit_fstmd (int base_reg, int count)
     }
 
   par = emit_insn (par);
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
   RTX_FRAME_RELATED_P (par) = 1;
 
   return count * 8;
@@ -9979,7 +10635,7 @@ output_move_double (rtx *operands)
 
   if (code0 == REG)
     {
-      int reg0 = REGNO (operands[0]);
+      unsigned int reg0 = REGNO (operands[0]);
 
       otherops[0] = gen_rtx_REG (SImode, 1 + reg0);
 
@@ -9988,7 +10644,8 @@ output_move_double (rtx *operands)
       switch (GET_CODE (XEXP (operands[1], 0)))
 	{
 	case REG:
-	  if (TARGET_LDRD)
+	  if (TARGET_LDRD
+	      && !(fix_cm3_ldrd && reg0 == REGNO(XEXP (operands[1], 0))))
 	    output_asm_insn ("ldr%(d%)\t%0, [%m1]", operands);
 	  else
 	    output_asm_insn ("ldm%(ia%)\t%m1, %M0", operands);
@@ -10020,6 +10677,10 @@ output_move_double (rtx *operands)
 
 	case PRE_MODIFY:
 	case POST_MODIFY:
+	  /* Autoicrement addressing modes should never have overlapping
+	     base and destination registers, and overlapping index registers
+	     are already prohibited, so this doesn't need to worry about
+	     fix_cm3_ldrd.  */
 	  otherops[0] = operands[0];
 	  otherops[1] = XEXP (XEXP (XEXP (operands[1], 0), 1), 0);
 	  otherops[2] = XEXP (XEXP (XEXP (operands[1], 0), 1), 1);
@@ -10034,36 +10695,36 @@ output_move_double (rtx *operands)
 		}
 	      else
 		{
-		  /* IWMMXT allows offsets larger than ldrd can handle,
-		     fix these up with a pair of ldr.  */
-		  if (GET_CODE (otherops[2]) == CONST_INT
-		      && (INTVAL(otherops[2]) <= -256
-			  || INTVAL(otherops[2]) >= 256))
+		  /* Use a single insn if we can.
+		     FIXME: IWMMXT allows offsets larger than ldrd can
+		     handle, fix these up with a pair of ldr.  */
+		  if (TARGET_THUMB2
+		      || GET_CODE (otherops[2]) != CONST_INT
+		      || (INTVAL (otherops[2]) > -256
+			  && INTVAL (otherops[2]) < 256))
+		    output_asm_insn ("ldr%(d%)\t%0, [%1, %2]!", otherops);
+		  else
 		    {
 		      output_asm_insn ("ldr%?\t%0, [%1, %2]!", otherops);
-		      otherops[0] = gen_rtx_REG (SImode, 1 + reg0);
-		      output_asm_insn ("ldr%?\t%0, [%1, #4]", otherops);
+		      output_asm_insn ("ldr%?\t%H0, [%1, #4]", otherops);
 		    }
-		  else
-		    output_asm_insn ("ldr%(d%)\t%0, [%1, %2]!", otherops);
 		}
 	    }
 	  else
 	    {
-	      /* IWMMXT allows offsets larger than ldrd can handle,
+	      /* Use a single insn if we can.
+		 FIXME: IWMMXT allows offsets larger than ldrd can handle,
 		 fix these up with a pair of ldr.  */
-	      if (GET_CODE (otherops[2]) == CONST_INT
-		  && (INTVAL(otherops[2]) <= -256
-		      || INTVAL(otherops[2]) >= 256))
+	      if (TARGET_THUMB2
+		  || GET_CODE (otherops[2]) != CONST_INT
+		  || (INTVAL (otherops[2]) > -256
+		      && INTVAL (otherops[2]) < 256))
+		output_asm_insn ("ldr%(d%)\t%0, [%1], %2", otherops);
+	      else
 		{
-		  otherops[0] = gen_rtx_REG (SImode, 1 + reg0);
-		  output_asm_insn ("ldr%?\t%0, [%1, #4]", otherops);
-		  otherops[0] = operands[0];
+		  output_asm_insn ("ldr%?\t%H0, [%1, #4]", otherops);
 		  output_asm_insn ("ldr%?\t%0, [%1], %2", otherops);
 		}
-	      else
-		/* We only allow constant increments, so this is safe.  */
-		output_asm_insn ("ldr%(d%)\t%0, [%1], %2", otherops);
 	    }
 	  break;
 
@@ -10072,11 +10733,15 @@ output_move_double (rtx *operands)
 	  /* We might be able to use ldrd %0, %1 here.  However the range is
 	     different to ldr/adr, and it is broken on some ARMv7-M
 	     implementations.  */
-	  output_asm_insn ("adr%?\t%0, %1", operands);
+	  /* Use the second register of the pair to avoid problematic
+	     overlap.  */
+	  otherops[1] = operands[1];
+	  output_asm_insn ("adr%?\t%0, %1", otherops);
+	  operands[1] = otherops[0];
 	  if (TARGET_LDRD)
-	    output_asm_insn ("ldr%(d%)\t%0, [%0]", operands);
+	    output_asm_insn ("ldr%(d%)\t%0, [%1]", operands);
 	  else
-	    output_asm_insn ("ldm%(ia%)\t%0, %M0", operands);
+	    output_asm_insn ("ldm%(ia%)\t%1, %M0", operands);
 	  break;
 
 	  /* ??? This needs checking for thumb2.  */
@@ -10109,30 +10774,38 @@ output_move_double (rtx *operands)
 			  return "";
 			}
 		    }
+		  otherops[0] = gen_rtx_REG(SImode, REGNO(operands[0]) + 1);
+		  operands[1] = otherops[0];
 		  if (TARGET_LDRD
 		      && (GET_CODE (otherops[2]) == REG
+			  || TARGET_THUMB2
 			  || (GET_CODE (otherops[2]) == CONST_INT
 			      && INTVAL (otherops[2]) > -256
 			      && INTVAL (otherops[2]) < 256)))
 		    {
-		      if (reg_overlap_mentioned_p (otherops[0],
+		      if (reg_overlap_mentioned_p (operands[0],
 						   otherops[2]))
 			{
+			  rtx tmp;
 			  /* Swap base and index registers over to
 			     avoid a conflict.  */
-			  otherops[1] = XEXP (XEXP (operands[1], 0), 1);
-			  otherops[2] = XEXP (XEXP (operands[1], 0), 0);
+			  tmp = otherops[1];
+			  otherops[1] = otherops[2];
+			  otherops[2] = tmp;
 			}
 		      /* If both registers conflict, it will usually
 			 have been fixed by a splitter.  */
-		      if (reg_overlap_mentioned_p (otherops[0], otherops[2]))
+		      if (reg_overlap_mentioned_p (operands[0], otherops[2])
+			  || (fix_cm3_ldrd && reg0 == REGNO (otherops[1])))
 			{
-			  output_asm_insn ("add%?\t%1, %1, %2", otherops);
-			  output_asm_insn ("ldr%(d%)\t%0, [%1]",
-					   otherops);
+			  output_asm_insn ("add%?\t%0, %1, %2", otherops);
+			  output_asm_insn ("ldr%(d%)\t%0, [%1]", operands);
 			}
 		      else
-			output_asm_insn ("ldr%(d%)\t%0, [%1, %2]", otherops);
+			{
+			  otherops[0] = operands[0];
+			  output_asm_insn ("ldr%(d%)\t%0, [%1, %2]", otherops);
+			}
 		      return "";
 		    }
 
@@ -10150,9 +10823,9 @@ output_move_double (rtx *operands)
 		output_asm_insn ("sub%?\t%0, %1, %2", otherops);
 
 	      if (TARGET_LDRD)
-		return "ldr%(d%)\t%0, [%0]";
+		return "ldr%(d%)\t%0, [%1]";
 
-	      return "ldm%(ia%)\t%0, %M0";
+	      return "ldm%(ia%)\t%1, %M0";
 	    }
 	  else
 	    {
@@ -10218,23 +10891,19 @@ output_move_double (rtx *operands)
 
 	  /* IWMMXT allows offsets larger than ldrd can handle,
 	     fix these up with a pair of ldr.  */
-	  if (GET_CODE (otherops[2]) == CONST_INT
+	  if (!TARGET_THUMB2
+	      && GET_CODE (otherops[2]) == CONST_INT
 	      && (INTVAL(otherops[2]) <= -256
 		  || INTVAL(otherops[2]) >= 256))
 	    {
-	      rtx reg1;
-	      reg1 = gen_rtx_REG (SImode, 1 + REGNO (operands[1]));
 	      if (GET_CODE (XEXP (operands[0], 0)) == PRE_MODIFY)
 		{
 		  output_asm_insn ("ldr%?\t%0, [%1, %2]!", otherops);
-		  otherops[0] = reg1;
-		  output_asm_insn ("ldr%?\t%0, [%1, #4]", otherops);
+		  output_asm_insn ("ldr%?\t%H0, [%1, #4]", otherops);
 		}
 	      else
 		{
-		  otherops[0] = reg1;
-		  output_asm_insn ("ldr%?\t%0, [%1, #4]", otherops);
-		  otherops[0] = operands[1];
+		  output_asm_insn ("ldr%?\t%H0, [%1, #4]", otherops);
 		  output_asm_insn ("ldr%?\t%0, [%1], %2", otherops);
 		}
 	    }
@@ -10269,6 +10938,7 @@ output_move_double (rtx *operands)
 	    }
 	  if (TARGET_LDRD
 	      && (GET_CODE (otherops[2]) == REG
+		  || TARGET_THUMB2
 		  || (GET_CODE (otherops[2]) == CONST_INT
 		      && INTVAL (otherops[2]) > -256
 		      && INTVAL (otherops[2]) < 256)))
@@ -10282,9 +10952,9 @@ output_move_double (rtx *operands)
 
         default:
 	  otherops[0] = adjust_address (operands[0], SImode, 4);
-	  otherops[1] = gen_rtx_REG (SImode, 1 + REGNO (operands[1]));
+	  otherops[1] = operands[1];
 	  output_asm_insn ("str%?\t%1, %0", operands);
-	  output_asm_insn ("str%?\t%1, %0", otherops);
+	  output_asm_insn ("str%?\t%H1, %0", otherops);
 	}
     }
 
@@ -10292,7 +10962,7 @@ output_move_double (rtx *operands)
 }
 
 /* Output a move, load or store for quad-word vectors in ARM registers.  Only
-   handles MEMs accepted by neon_vector_mem_operand with CORE=true.  */
+   handles MEMs accepted by neon_vector_mem_operand with TYPE=1.  */
 
 const char *
 output_move_quad (rtx *operands)
@@ -10488,6 +11158,13 @@ output_move_neon (rtx *operands)
       ops[1] = reg;
       break;
 
+    case PRE_DEC:
+      /* FIXME: We should be using vld1/vst1 here in BE mode?  */
+      templ = "v%smdb%%?\t%%0!, %%h1";
+      ops[0] = XEXP (addr, 0);
+      ops[1] = reg;
+      break;
+    
     case POST_MODIFY:
       /* FIXME: Not currently enabled in neon_vector_mem_operand.  */
       gcc_unreachable ();
@@ -11152,7 +11829,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 
   sprintf (conditional, "%%?%%%c0", reverse ? 'D' : 'd');
 
-  return_used_this_function = 1;
+  cfun->machine->return_used_this_function = 1;
 
   offsets = arm_get_frame_offsets ();
   live_regs_mask = offsets->saved_regs_mask;
@@ -11417,7 +12094,6 @@ arm_output_function_prologue (FILE *f, HOST_WIDE_INT frame_size)
   if (crtl->calls_eh_return)
     asm_fprintf (f, "\t@ Calls __builtin_eh_return.\n");
 
-  return_used_this_function = 0;
 }
 
 const char *
@@ -11438,7 +12114,8 @@ arm_output_epilogue (rtx sibling)
 
   /* If we have already generated the return instruction
      then it is futile to generate anything else.  */
-  if (use_return_insn (FALSE, sibling) && return_used_this_function)
+  if (use_return_insn (FALSE, sibling) && 
+      (cfun->machine->return_used_this_function != 0))
     return "";
 
   func_type = arm_current_func_type ();
@@ -11638,7 +12315,7 @@ arm_output_epilogue (rtx sibling)
 	 (where frame pointer is required to point at first register)
 	 and ARM-non-apcs-frame. Therefore, such change is postponed
 	 until real need arise.  */
-      HOST_WIDE_INT amount;
+      unsigned HOST_WIDE_INT amount;
       int rfe;
       /* Restore stack pointer if necessary.  */
       if (TARGET_ARM && frame_pointer_needed)
@@ -11885,7 +12562,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       /* ??? Probably not safe to set this here, since it assumes that a
 	 function will be emitted as assembly immediately after we generate
 	 RTL for it.  This does not happen for inline functions.  */
-      return_used_this_function = 0;
+      cfun->machine->return_used_this_function = 0;
     }
   else /* TARGET_32BIT */
     {
@@ -11893,7 +12570,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       offsets = arm_get_frame_offsets ();
 
       gcc_assert (!use_return_insn (FALSE, NULL)
-		  || !return_used_this_function
+		  || (cfun->machine->return_used_this_function != 0)
 		  || offsets->saved_regs == offsets->outgoing_args
 		  || frame_pointer_needed);
 
@@ -12025,8 +12702,8 @@ emit_multi_reg_push (unsigned long mask)
   RTX_FRAME_RELATED_P (tmp) = 1;
   XVECEXP (dwarf, 0, 0) = tmp;
 
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
+
   return par;
 }
 
@@ -12092,8 +12769,8 @@ emit_sfm (int base_reg, int count)
   XVECEXP (dwarf, 0, 0) = tmp;
 
   par = emit_insn (par);
-  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				       REG_NOTES (par));
+  add_reg_note (par, REG_FRAME_RELATED_EXPR, dwarf);
+
   return par;
 }
 
@@ -12271,22 +12948,23 @@ arm_get_frame_offsets (void)
 	{
 	  int reg = -1;
 
-	  for (i = 4; i <= (TARGET_THUMB1 ? LAST_LO_REGNUM : 11); i++)
+	  /* If it is safe to use r3, then do so.  This sometimes 
+	     generates better code on Thumb-2 by avoiding the need to
+	     use 32-bit push/pop instructions.  */
+	  if (!crtl->tail_call_emit
+	      && arm_size_return_regs () <= 12)
 	    {
-	      if ((offsets->saved_regs_mask & (1 << i)) == 0)
-		{
-		  reg = i;
-		  break;
-		}
-	    }
-
-	  if (reg == -1 && arm_size_return_regs () <= 12
-	      && !crtl->tail_call_emit)
-	    {
-	      /* Push/pop an argument register (r3) if all callee saved
-	         registers are already being pushed.  */
 	      reg = 3;
 	    }
+	  else
+	    for (i = 4; i <= (TARGET_THUMB1 ? LAST_LO_REGNUM : 11); i++)
+	      {
+		if ((offsets->saved_regs_mask & (1 << i)) == 0)
+		  {
+		    reg = i;
+		    break;
+		  }
+	      }
 
 	  if (reg != -1)
 	    {
@@ -12512,8 +13190,7 @@ thumb_set_frame_pointer (arm_stack_offsets *offsets)
       dwarf = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
 			   plus_constant (stack_pointer_rtx, amount));
       RTX_FRAME_RELATED_P (dwarf) = 1;
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-					    REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
     }
 
   RTX_FRAME_RELATED_P (insn) = 1;
@@ -12576,8 +13253,7 @@ arm_expand_prologue (void)
       dwarf = gen_rtx_SET (VOIDmode, r0, dwarf);
       insn = gen_movsi (r0, stack_pointer_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					    dwarf, REG_NOTES (insn));
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
       emit_insn (insn);
       emit_insn (gen_andsi3 (r1, r0, GEN_INT (~(HOST_WIDE_INT)7)));
       emit_insn (gen_movsi (stack_pointer_rtx, r1));
@@ -12630,10 +13306,10 @@ arm_expand_prologue (void)
 	    insn = emit_set_insn (gen_rtx_REG (SImode, 3), ip_rtx);
 	  else if (args_to_push == 0)
 	    {
+	      rtx dwarf;
+
 	      gcc_assert(arm_compute_static_chain_stack_bytes() == 4);
 	      saved_regs += 4;
-
-	      rtx dwarf;
 
 	      insn = gen_rtx_PRE_DEC (SImode, stack_pointer_rtx);
 	      insn = emit_set_insn (gen_frame_mem (SImode, insn), ip_rtx);
@@ -12644,8 +13320,7 @@ arm_expand_prologue (void)
 				   plus_constant (stack_pointer_rtx,
 						  -fp_offset));
 	      RTX_FRAME_RELATED_P (insn) = 1;
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-						    dwarf, REG_NOTES (insn));
+	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
 	    }
 	  else
 	    {
@@ -13355,6 +14030,49 @@ arm_print_operand (FILE *stream, rtx x, int code)
       }
       return;
 
+    /* Memory operand for vld1/vst1 instruction.  */
+    case 'A':
+      {
+	rtx addr;
+	bool postinc = FALSE;
+	gcc_assert (GET_CODE (x) == MEM);
+	addr = XEXP (x, 0);
+	if (GET_CODE (addr) == POST_INC)
+	  {
+	    postinc = 1;
+	    addr = XEXP (addr, 0);
+	  }
+	asm_fprintf (stream, "[%r]", REGNO (addr));
+	if (postinc)
+	  fputs("!", stream);
+      }
+      return;
+
+    /* Register specifier for vld1.16/vst1.16.  Translate the S register
+       number into a D register number and element index.  */
+    case 'z':
+      {
+        int mode = GET_MODE (x);
+        int regno;
+
+        if (GET_MODE_SIZE (mode) != 2 || GET_CODE (x) != REG)
+          {
+	    output_operand_lossage ("invalid operand for code '%c'", code);
+	    return;
+          }
+
+        regno = REGNO (x);
+        if (!VFP_REGNO_OK_FOR_SINGLE (regno))
+          {
+	    output_operand_lossage ("invalid operand for code '%c'", code);
+	    return;
+          }
+
+	regno = regno - FIRST_VFP_REGNUM;
+	fprintf (stream, "d%d[%d]", regno/2, ((regno % 2) ? 2 : 0));
+      }
+      return;
+      
     default:
       if (x == 0)
 	{
@@ -13388,6 +14106,12 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	default:
 	  gcc_assert (GET_CODE (x) != NEG);
 	  fputc ('#', stream);
+	  if (GET_CODE (x) == HIGH)
+	    {
+	      fputs (":lower16:", stream);
+	      x = XEXP (x, 0);
+	    }
+	    
 	  output_addr_const (stream, x);
 	  break;
 	}
@@ -13555,7 +14279,7 @@ static enum arm_cond_code
 get_arm_condition_code (rtx comparison)
 {
   enum machine_mode mode = GET_MODE (XEXP (comparison, 0));
-  int code;
+  enum arm_cond_code code;
   enum rtx_code comp_code = GET_CODE (comparison);
 
   if (GET_MODE_CLASS (mode) != MODE_CC)
@@ -14152,6 +14876,12 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
       if (mode == DFmode)
 	return VFP_REGNO_OK_FOR_DOUBLE (regno);
 
+      /* VFP registers can hold HFmode values, but there is no point in
+	 putting them there unless we have the NEON extensions for
+	 loading/storing them, too.  */
+      if (mode == HFmode)
+	return TARGET_NEON_FP16 && VFP_REGNO_OK_FOR_SINGLE (regno);
+
       if (TARGET_NEON)
         return (VALID_NEON_DREG_MODE (mode) && VFP_REGNO_OK_FOR_DOUBLE (regno))
                || (VALID_NEON_QREG_MODE (mode)
@@ -14174,13 +14904,13 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 	return VALID_IWMMXT_REG_MODE (mode);
     }
   
-  /* We allow any value to be stored in the general registers.
+  /* We allow almost any value to be stored in the general registers.
      Restrict doubleword quantities to even register pairs so that we can
-     use ldrd.  Do not allow Neon structure opaque modes in general registers;
-     they would use too many.  */
+     use ldrd.  Do not allow very large Neon structure opaque modes in
+     general registers; they would use too many.  */
   if (regno <= LAST_ARM_REGNUM)
     return !(TARGET_LDRD && GET_MODE_SIZE (mode) > 4 && (regno & 1) != 0)
-      && !VALID_NEON_STRUCT_MODE (mode);
+      && ARM_NUM_REGS (mode) <= 4;
 
   if (regno == FRAME_POINTER_REGNUM
       || regno == ARG_POINTER_REGNUM)
@@ -14197,7 +14927,8 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 
 /* For efficiency and historical reasons LO_REGS, HI_REGS and CC_REGS are
    not used in arm mode.  */
-int
+
+enum reg_class
 arm_regno_class (int regno)
 {
   if (TARGET_THUMB1)
@@ -14351,7 +15082,7 @@ static const struct builtin_description bdesc_2arg[] =
 {
 #define IWMMXT_BUILTIN(code, string, builtin) \
   { FL_IWMMXT, CODE_FOR_##code, "__builtin_arm_" string, \
-    ARM_BUILTIN_##builtin, 0, 0 },
+    ARM_BUILTIN_##builtin, UNKNOWN, 0 },
 
   IWMMXT_BUILTIN (addv8qi3, "waddb", WADDB)
   IWMMXT_BUILTIN (addv4hi3, "waddh", WADDH)
@@ -14413,7 +15144,7 @@ static const struct builtin_description bdesc_2arg[] =
   IWMMXT_BUILTIN (iwmmxt_wmaddu, "wmaddu", WMADDU)
 
 #define IWMMXT_BUILTIN2(code, builtin) \
-  { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, 0, 0 },
+  { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, UNKNOWN, 0 },
 
   IWMMXT_BUILTIN2 (iwmmxt_wpackhss, WPACKHSS)
   IWMMXT_BUILTIN2 (iwmmxt_wpackwss, WPACKWSS)
@@ -14810,7 +15541,7 @@ arm_init_tls_builtins (void)
   TREE_READONLY (decl) = 1;
 }
 
-typedef enum {
+enum neon_builtin_type_bits {
   T_V8QI  = 0x0001,
   T_V4HI  = 0x0002,
   T_V2SI  = 0x0004,
@@ -14824,7 +15555,7 @@ typedef enum {
   T_TI	  = 0x0400,
   T_EI	  = 0x0800,
   T_OI	  = 0x1000
-} neon_builtin_type_bits;
+};
 
 #define v8qi_UP  T_V8QI
 #define v4hi_UP  T_V4HI
@@ -14887,7 +15618,7 @@ typedef enum {
 typedef struct {
   const char *name;
   const neon_itype itype;
-  const neon_builtin_type_bits bits;
+  const int bits;
   const enum insn_code codes[T_MAX];
   const unsigned int num_vars;
   unsigned int base_fcode;
@@ -15637,6 +16368,15 @@ arm_init_neon_builtins (void)
 }
 
 static void
+arm_init_fp16_builtins (void)
+{
+  tree fp16_type = make_node (REAL_TYPE);
+  TYPE_PRECISION (fp16_type) = 16;
+  layout_type (fp16_type);
+  (*lang_hooks.types.register_builtin_type) (fp16_type, "__fp16");
+}
+
+static void
 arm_init_builtins (void)
 {
   arm_init_tls_builtins ();
@@ -15646,6 +16386,71 @@ arm_init_builtins (void)
 
   if (TARGET_NEON)
     arm_init_neon_builtins ();
+
+  if (arm_fp16_format)
+    arm_init_fp16_builtins ();
+}
+
+/* Implement TARGET_INVALID_PARAMETER_TYPE.  */
+
+static const char *
+arm_invalid_parameter_type (const_tree t)
+{
+  if (SCALAR_FLOAT_TYPE_P (t) && TYPE_PRECISION (t) == 16)
+    return N_("function parameters cannot have __fp16 type");
+  return NULL;
+}
+
+/* Implement TARGET_INVALID_PARAMETER_TYPE.  */
+
+static const char *
+arm_invalid_return_type (const_tree t)
+{
+  if (SCALAR_FLOAT_TYPE_P (t) && TYPE_PRECISION (t) == 16)
+    return N_("functions cannot return __fp16 type");
+  return NULL;
+}
+
+/* Implement TARGET_PROMOTED_TYPE.  */
+
+static tree
+arm_promoted_type (const_tree t)
+{
+  if (SCALAR_FLOAT_TYPE_P (t) && TYPE_PRECISION (t) == 16)
+    return float_type_node;
+  return NULL_TREE;
+}
+
+/* Implement TARGET_CONVERT_TO_TYPE.
+   Specifically, this hook implements the peculiarity of the ARM
+   half-precision floating-point C semantics that requires conversions between
+   __fp16 to or from double to do an intermediate conversion to float.  */
+
+static tree
+arm_convert_to_type (tree type, tree expr)
+{
+  tree fromtype = TREE_TYPE (expr);
+  if (!SCALAR_FLOAT_TYPE_P (fromtype) || !SCALAR_FLOAT_TYPE_P (type))
+    return NULL_TREE;
+  if ((TYPE_PRECISION (fromtype) == 16 && TYPE_PRECISION (type) > 32)
+      || (TYPE_PRECISION (type) == 16 && TYPE_PRECISION (fromtype) > 32))
+    return convert (type, convert (float_type_node, expr));
+  return NULL_TREE;
+}
+
+/* Implement TARGET_SCALAR_MODE_SUPPORTED_P.
+   This simply adds HFmode as a supported mode; even though we don't
+   implement arithmetic on this type directly, it's supported by
+   optabs conversions, much the way the double-word arithmetic is
+   special-cased in the default hook.  */
+
+static bool
+arm_scalar_mode_supported_p (enum machine_mode mode)
+{
+  if (mode == HFmode)
+    return (arm_fp16_format != ARM_FP16_FORMAT_NONE);
+  else
+    return default_scalar_mode_supported_p (mode);
 }
 
 /* Errors in the source file can cause expand_expr to return const0_rtx
@@ -15804,7 +16609,7 @@ arm_expand_neon_args (rtx target, int icode, int have_retval,
 
   for (;;)
     {
-      builtin_arg thisarg = va_arg (ap, int);
+      builtin_arg thisarg = (builtin_arg) va_arg (ap, int);
 
       if (thisarg == NEON_ARG_STOP)
         break;
@@ -16417,7 +17222,7 @@ thumb_pushpop (FILE *f, unsigned long mask, int push, int *cfa_offset,
 
   if (push && pushed_words && dwarf2out_do_frame ())
     {
-      char *l = dwarf2out_cfi_label ();
+      char *l = dwarf2out_cfi_label (false);
       int pushed_mask = real_regs;
 
       *cfa_offset += pushed_words * 4;
@@ -16725,6 +17530,7 @@ thumb_shiftable_const (unsigned HOST_WIDE_INT val)
   unsigned HOST_WIDE_INT mask = 0xff;
   int i;
 
+  val = val & (unsigned HOST_WIDE_INT)0xffffffffu;
   if (val == 0) /* XXX */
     return 0;
 
@@ -16834,7 +17640,7 @@ thumb_unexpanded_epilogue (void)
   int had_to_push_lr;
   int size;
 
-  if (return_used_this_function)
+  if (cfun->machine->return_used_this_function != 0)
     return "";
 
   if (IS_NAKED (arm_current_func_type ()))
@@ -17158,9 +17964,7 @@ thumb1_expand_prologue (void)
 			       plus_constant (stack_pointer_rtx,
 					      -amount));
 	  RTX_FRAME_RELATED_P (dwarf) = 1;
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
-				 REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
 	}
     }
 
@@ -17315,7 +18119,7 @@ thumb1_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	 the stack pointer.  */
       if (dwarf2out_do_frame ())
 	{
-	  char *l = dwarf2out_cfi_label ();
+	  char *l = dwarf2out_cfi_label (false);
 
 	  cfa_offset = cfa_offset + crtl->args.pretend_args_size;
 	  dwarf2out_def_cfa (l, SP_REGNUM, cfa_offset);
@@ -17364,7 +18168,7 @@ thumb1_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
       if (dwarf2out_do_frame ())
 	{
-	  char *l = dwarf2out_cfi_label ();
+	  char *l = dwarf2out_cfi_label (false);
 
 	  cfa_offset = cfa_offset + 16;
 	  dwarf2out_def_cfa (l, SP_REGNUM, cfa_offset);
@@ -17843,6 +18647,10 @@ arm_file_start (void)
 	      fpu_name = "neon";
 	      set_float_abi_attributes = 1;
 	      break;
+	    case FPUTYPE_NEON_FP16:
+	      fpu_name = "neon-fp16";
+	      set_float_abi_attributes = 1;
+	      break;
 	    default:
 	      abort();
 	    }
@@ -17895,6 +18703,11 @@ arm_file_start (void)
       else
 	val = 6;
       asm_fprintf (asm_out_file, "\t.eabi_attribute 30, %d\n", val);
+
+      /* Tag_ABI_FP_16bit_format.  */
+      if (arm_fp16_format)
+	asm_fprintf (asm_out_file, "\t.eabi_attribute 38, %d\n",
+		     (int)arm_fp16_format);
 
       if (arm_lang_output_object_attributes_hook)
 	arm_lang_output_object_attributes_hook();
@@ -18123,6 +18936,23 @@ arm_emit_vector_const (FILE *file, rtx x)
     }
 
   return 1;
+}
+
+/* Emit a fp16 constant appropriately padded to occupy a 4-byte word.
+   HFmode constant pool entries are actually loaded with ldr.  */
+void
+arm_emit_fp16_const (rtx c)
+{
+  REAL_VALUE_TYPE r;
+  long bits;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (r, c);
+  bits = real_to_target (NULL, &r, HFmode);
+  if (WORDS_BIG_ENDIAN)
+    assemble_zeros (2);
+  assemble_integer (GEN_INT (bits), 2, BITS_PER_WORD, 1);
+  if (!WORDS_BIG_ENDIAN)
+    assemble_zeros (2);
 }
 
 const char *
@@ -18927,7 +19757,7 @@ arm_emit_tls_decoration (FILE *fp, rtx x)
   rtx val;
 
   val = XVECEXP (x, 0, 0);
-  reloc = INTVAL (XVECEXP (x, 0, 1));
+  reloc = (enum tls_reloc) INTVAL (XVECEXP (x, 0, 1));
 
   output_addr_const (fp, val);
 
@@ -18996,6 +19826,16 @@ arm_output_addr_const_extra (FILE *fp, rtx x)
 
       return TRUE;
     }
+  else if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_GOTSYM_OFF)
+    {
+      assemble_name (fp, "_GLOBAL_OFFSET_TABLE_");
+      if (GOT_PCREL)
+	fputs ("+.", fp);
+      fputs ("-(", fp);
+      output_addr_const (fp, XVECEXP (x, 0, 0));
+      fputc (')', fp);
+      return TRUE;
+    }
   else if (GET_CODE (x) == CONST_VECTOR)
     return arm_emit_vector_const (fp, x);
 
@@ -19033,6 +19873,32 @@ arm_output_shift(rtx * operands, int set_flags)
     sprintf (pattern, "mov%%%c\t%%0, %%1%%S3", c);
   output_asm_insn (pattern, operands);
   return "";
+}
+
+/* Output a Thumb-1 casesi dispatch sequence.  */
+const char *
+thumb1_output_casesi (rtx *operands)
+{
+  rtx diff_vec = PATTERN (next_real_insn (operands[0]));
+  addr_diff_vec_flags flags;
+
+  gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
+
+  flags = ADDR_DIFF_VEC_FLAGS (diff_vec);
+
+  switch (GET_MODE(diff_vec))
+    {
+    case QImode:
+      return (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned ? 
+	      "bl\t%___gnu_thumb1_case_uqi" : "bl\t%___gnu_thumb1_case_sqi");
+    case HImode:
+      return (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned ? 
+	      "bl\t%___gnu_thumb1_case_uhi" : "bl\t%___gnu_thumb1_case_shi");
+    case SImode:
+      return "bl\t%___gnu_thumb1_case_si";
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Output a Thumb-2 casesi instruction.  */
@@ -19128,6 +19994,25 @@ const char *
 arm_mangle_type (const_tree type)
 {
   arm_mangle_map_entry *pos = arm_mangle_map;
+
+  /* The ARM ABI documents (10th October 2008) say that "__va_list"
+     has to be managled as if it is in the "std" namespace.  */
+  if (TARGET_AAPCS_BASED 
+      && lang_hooks.types_compatible_p (CONST_CAST_TREE (type), va_list_type))
+    {
+      static bool warned;
+      if (!warned && warn_psabi)
+	{
+	  warned = true;
+	  inform (input_location,
+		  "the mangling of %<va_list%> has changed in GCC 4.4");
+	}
+      return "St9__va_list";
+    }
+
+  /* Half-precision float.  */
+  if (TREE_CODE (type) == REAL_TYPE && TYPE_PRECISION (type) == 16)
+    return "Dh";
 
   if (TREE_CODE (type) != VECTOR_TYPE)
     return NULL;

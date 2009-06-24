@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-skip-if "No stabs" { mmix-*-* *-*-aix* *-*-netware* alpha*-*-* hppa*64*-*-* ia64-*-* } { "*" } { "" } } */
+/* { dg-skip-if "No stabs" { mmix-*-* *-*-aix* *-*-netware* alpha*-*-* hppa*64*-*-* ia64-*-* *-*-vxworks } { "*" } { "" } } */
 /* { dg-options "-gstabs+ -fno-eliminate-unused-debug-types" } */
 
 const int foobar = 4;
@@ -15,4 +15,4 @@ int main()
         return i;
 }
 
-/* { dg-final { scan-assembler ".stabs.*foobar:c=i" } } */
+/* { dg-final { scan-assembler ".stabs.*foobar:(c=i|S)" } } */

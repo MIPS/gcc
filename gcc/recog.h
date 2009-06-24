@@ -1,6 +1,6 @@
 /* Declarations for interface to insn recognizer and insn-output.c.
    Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -72,7 +72,7 @@ struct operand_alternative
 extern void init_recog (void);
 extern void init_recog_no_volatile (void);
 extern int check_asm_operands (rtx);
-extern int asm_operand_ok (rtx, const char *);
+extern int asm_operand_ok (rtx, const char *, const char **);
 extern bool validate_change (rtx, rtx *, rtx, bool);
 extern bool validate_unshare_change (rtx, rtx *, rtx, bool);
 extern bool canonicalize_change_group (rtx insn, rtx x);
@@ -86,6 +86,7 @@ extern int constrain_operands (int);
 extern int constrain_operands_cached (int);
 extern int memory_address_p (enum machine_mode, rtx);
 extern int strict_memory_address_p (enum machine_mode, rtx);
+extern int validate_replace_rtx_subexp (rtx, rtx, rtx, rtx *);
 extern int validate_replace_rtx (rtx, rtx, rtx);
 extern int validate_replace_rtx_part (rtx, rtx, rtx *, rtx);
 extern int validate_replace_rtx_part_nosimplify (rtx, rtx, rtx *, rtx);

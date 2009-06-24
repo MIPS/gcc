@@ -1,5 +1,5 @@
 /* Decompose multiword subregs.
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 		  Ian Lance Taylor <iant@google.com>
 
@@ -922,7 +922,7 @@ find_decomposable_shift_zext (rtx insn)
     }
   else /* left or right shift */
     {
-      if (GET_CODE (XEXP (op, 1)) != CONST_INT
+      if (!CONST_INT_P (XEXP (op, 1))
 	  || INTVAL (XEXP (op, 1)) < BITS_PER_WORD
 	  || GET_MODE_BITSIZE (GET_MODE (op_operand)) != 2 * BITS_PER_WORD)
 	return 0;
@@ -1325,7 +1325,7 @@ struct rtl_opt_pass pass_lower_subreg =
 {
  {
   RTL_PASS,
-  "subreg",	                        /* name */
+  "subreg1",	                        /* name */
   gate_handle_lower_subreg,             /* gate */
   rest_of_handle_lower_subreg,          /* execute */
   NULL,                                 /* sub */

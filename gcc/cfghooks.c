@@ -425,6 +425,7 @@ edge
 split_block (basic_block bb, void *i)
 {
   basic_block new_bb;
+  edge res;
 
   if (!cfg_hooks->split_block)
     internal_error ("%s does not support split_block", cfg_hooks->name);
@@ -450,7 +451,15 @@ split_block (basic_block bb, void *i)
 	bb->loop_father->latch = new_bb;
     }
 
-  return make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
+  res = make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
+
+  if (bb->flags & BB_IRREDUCIBLE_LOOP)
+    {
+      new_bb->flags |= BB_IRREDUCIBLE_LOOP;
+      res->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+
+  return res;
 }
 
 /* Splits block BB just after labels.  The newly created edge is returned.  */
@@ -820,7 +829,7 @@ tidy_fallthru_edge (edge e)
 /* Fix up edges that now fall through, or rather should now fall through
    but previously required a jump around now deleted blocks.  Simplify
    the search by only examining blocks numerically adjacent, since this
-   is how find_basic_blocks created them.  */
+   is how they were created.  */
 
 void
 tidy_fallthru_edges (void)
@@ -843,9 +852,9 @@ tidy_fallthru_edges (void)
 	 a single successor.
 
 	 If we had a conditional branch to the next instruction when
-	 find_basic_blocks was called, then there will only be one
-	 out edge for the block which ended with the conditional
-	 branch (since we do not create duplicate edges).
+	 CFG was built, then there will only be one out edge for the
+	 block which ended with the conditional branch (since we do
+	 not create duplicate edges).
 
 	 Furthermore, the edge will be marked as a fallthru because we
 	 merge the flags for the duplicate edges.  So we do not want to

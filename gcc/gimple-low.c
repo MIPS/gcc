@@ -1,6 +1,7 @@
 /* GIMPLE lowering pass.  Converts High GIMPLE into Low GIMPLE.
 
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -133,6 +134,7 @@ lower_function_body (void)
     {
       x = gimple_build_return (NULL);
       gimple_set_location (x, cfun->function_end_locus);
+      gimple_set_block (x, DECL_INITIAL (current_function_decl));
       gsi_insert_after (&i, x, GSI_CONTINUE_LINKING);
     }
 
@@ -167,7 +169,7 @@ lower_function_body (void)
       tree disp_label, disp_var, arg;
 
       /* Build 'DISP_LABEL:' and insert.  */
-      disp_label = create_artificial_label ();
+      disp_label = create_artificial_label (cfun->function_end_locus);
       /* This mark will create forward edges from every call site.  */
       DECL_NONLOCAL (disp_label) = 1;
       cfun->has_nonlocal_label = 1;
@@ -207,7 +209,7 @@ struct gimple_opt_pass pass_lower_cf =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_gimple_any,			/* properties_required */
   PROP_gimple_lcf,			/* properties_provided */
   0,					/* properties_destroyed */
@@ -215,6 +217,80 @@ struct gimple_opt_pass pass_lower_cf =
   TODO_dump_func			/* todo_flags_finish */
  }
 };
+
+
+/* Verify if the type of the argument matches that of the function
+   declaration.  If we cannot verify this or there is a mismatch,
+   mark the call expression so it doesn't get inlined later.  */
+
+static void
+check_call_args (gimple stmt)
+{
+  tree fndecl, parms, p;
+  unsigned int i, nargs;
+
+  if (gimple_call_cannot_inline_p (stmt))
+    return;
+
+  nargs = gimple_call_num_args (stmt);
+
+  /* Get argument types for verification.  */
+  fndecl = gimple_call_fndecl (stmt);
+  parms = NULL_TREE;
+  if (fndecl)
+    parms = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+  else if (POINTER_TYPE_P (TREE_TYPE (gimple_call_fn (stmt))))
+    parms = TYPE_ARG_TYPES (TREE_TYPE (TREE_TYPE (gimple_call_fn (stmt))));
+
+  /* Verify if the type of the argument matches that of the function
+     declaration.  If we cannot verify this or there is a mismatch,
+     mark the call expression so it doesn't get inlined later.  */
+  if (fndecl && DECL_ARGUMENTS (fndecl))
+    {
+      for (i = 0, p = DECL_ARGUMENTS (fndecl);
+	   i < nargs;
+	   i++, p = TREE_CHAIN (p))
+	{
+	  /* We cannot distinguish a varargs function from the case
+	     of excess parameters, still deferring the inlining decision
+	     to the callee is possible.  */
+	  if (!p)
+	    break;
+	  if (p == error_mark_node
+	      || gimple_call_arg (stmt, i) == error_mark_node
+	      || !fold_convertible_p (DECL_ARG_TYPE (p),
+				      gimple_call_arg (stmt, i)))
+	    {
+	      gimple_call_set_cannot_inline (stmt, true);
+	      break;
+	    }
+	}
+    }
+  else if (parms)
+    {
+      for (i = 0, p = parms; i < nargs; i++, p = TREE_CHAIN (p))
+	{
+	  /* If this is a varargs function defer inlining decision
+	     to callee.  */
+	  if (!p)
+	    break;
+	  if (TREE_VALUE (p) == error_mark_node
+	      || gimple_call_arg (stmt, i) == error_mark_node
+	      || TREE_CODE (TREE_VALUE (p)) == VOID_TYPE
+	      || !fold_convertible_p (TREE_VALUE (p),
+				      gimple_call_arg (stmt, i)))
+	    {
+	      gimple_call_set_cannot_inline (stmt, true);
+	      break;
+	    }
+	}
+    }
+  else
+    {
+      if (nargs != 0)
+	gimple_call_set_cannot_inline (stmt, true);
+    }
+}
 
 
 /* Lower sequence SEQ.  Unlike gimplification the statements are not relowered
@@ -292,7 +368,6 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_PREDICT:
     case GIMPLE_LABEL:
     case GIMPLE_SWITCH:
-    case GIMPLE_CHANGE_DYNAMIC_TYPE:
     case GIMPLE_OMP_FOR:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SECTIONS_SWITCH:
@@ -319,6 +394,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
 	    lower_builtin_setjmp (gsi);
 	    return;
 	  }
+	check_call_args (stmt);
       }
       break;
 
@@ -651,7 +727,7 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
     }
 
   /* Not found.  Create a new label and record the return statement.  */
-  tmp_rs.label = create_artificial_label ();
+  tmp_rs.label = create_artificial_label (cfun->function_end_locus);
   tmp_rs.stmt = stmt;
   VEC_safe_push (return_statements_t, heap, data->return_statements, &tmp_rs);
 
@@ -659,6 +735,7 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
  found:
   t = gimple_build_goto (tmp_rs.label);
   gimple_set_location (t, gimple_location (stmt));
+  gimple_set_block (t, gimple_block (stmt));
   gsi_insert_before (gsi, t, GSI_SAME_STMT);
   gsi_remove (gsi, false);
 }
@@ -720,8 +797,9 @@ static void
 lower_builtin_setjmp (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  tree cont_label = create_artificial_label ();
-  tree next_label = create_artificial_label ();
+  location_t loc = gimple_location (stmt);
+  tree cont_label = create_artificial_label (loc);
+  tree next_label = create_artificial_label (loc);
   tree dest, t, arg;
   gimple g;
 
@@ -736,6 +814,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   t = implicit_built_in_decls[BUILT_IN_SETJMP_SETUP];
   g = gimple_build_call (t, 2, gimple_call_arg (stmt, 0), arg);
   gimple_set_location (g, gimple_location (stmt));
+  gimple_set_block (g, gimple_block (stmt));
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 0' and insert.  */
@@ -744,12 +823,13 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
       g = gimple_build_assign (dest, fold_convert (TREE_TYPE (dest),
 						   integer_zero_node));
       gimple_set_location (g, gimple_location (stmt));
+      gimple_set_block (g, gimple_block (stmt));
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
 
   /* Build 'goto CONT_LABEL' and insert.  */
   g = gimple_build_goto (cont_label);
-  gsi_insert_before (gsi, g, TSI_SAME_STMT);
+  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'NEXT_LABEL:' and insert.  */
   g = gimple_build_label (next_label);
@@ -760,6 +840,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   t = implicit_built_in_decls[BUILT_IN_SETJMP_RECEIVER];
   g = gimple_build_call (t, 1, arg);
   gimple_set_location (g, gimple_location (stmt));
+  gimple_set_block (g, gimple_block (stmt));
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 1' and insert.  */
@@ -768,6 +849,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
       g = gimple_build_assign (dest, fold_convert (TREE_TYPE (dest),
 						   integer_one_node));
       gimple_set_location (g, gimple_location (stmt));
+      gimple_set_block (g, gimple_block (stmt));
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
 
@@ -818,61 +900,3 @@ record_vars (tree vars)
 {
   record_vars_into (vars, current_function_decl);
 }
-
-
-/* Mark BLOCK used if it has a used variable in it, then recurse over its
-   subblocks.  */
-
-static void
-mark_blocks_with_used_vars (tree block)
-{
-  tree var;
-  tree subblock;
-
-  if (!TREE_USED (block))
-    {
-      for (var = BLOCK_VARS (block);
-	   var;
-	   var = TREE_CHAIN (var))
-	{
-	  if (TREE_USED (var))
-	    {
-	      TREE_USED (block) = true;
-	      break;
-	    }
-	}
-    }
-  for (subblock = BLOCK_SUBBLOCKS (block);
-       subblock;
-       subblock = BLOCK_CHAIN (subblock))
-    mark_blocks_with_used_vars (subblock);
-}
-
-/* Mark the used attribute on blocks correctly.  */
-  
-static unsigned int
-mark_used_blocks (void)
-{  
-  mark_blocks_with_used_vars (DECL_INITIAL (current_function_decl));
-  return 0;
-}
-
-
-struct gimple_opt_pass pass_mark_used_blocks = 
-{
- {
-  GIMPLE_PASS,
-  "blocks",				/* name */
-  NULL,					/* gate */
-  mark_used_blocks,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
- }
-};

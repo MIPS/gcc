@@ -1,6 +1,6 @@
 /* Check calls to formatted I/O functions (-Wformat).
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -588,7 +588,7 @@ static const format_char_info gcc_tdiag_char_table[] =
   { "H",   0, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "q",  "",   NULL },
 
   /* These will require a "tree" at runtime.  */
-  { "DFJKT", 0, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "q+", "",   NULL },
+  { "DFJKTE", 0, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "q+", "",   NULL },
 
   { "<>'", 0, STD_C89, NOARGUMENTS, "",      "",   NULL },
   { "m",   0, STD_C89, NOARGUMENTS, "q",     "",   NULL },
@@ -2714,6 +2714,9 @@ extern const format_kind_info TARGET_FORMAT_TYPES[];
 #ifdef TARGET_OVERRIDES_FORMAT_ATTRIBUTES
 extern const target_ovr_attr TARGET_OVERRIDES_FORMAT_ATTRIBUTES[];
 #endif
+#ifdef TARGET_OVERRIDES_FORMAT_INIT
+  extern void TARGET_OVERRIDES_FORMAT_INIT (void);
+#endif
 
 /* Attributes such as "printf" are equivalent to those such as
    "gnu_printf" unless this is overridden by a target.  */
@@ -2738,6 +2741,9 @@ convert_format_name_to_system_name (const char *attr_name)
   if (attr_name == NULL || *attr_name == 0
       || strncmp (attr_name, "gcc_", 4) == 0)
     return attr_name;
+#ifdef TARGET_OVERRIDES_FORMAT_INIT
+  TARGET_OVERRIDES_FORMAT_INIT ();
+#endif
 
 #ifdef TARGET_OVERRIDES_FORMAT_ATTRIBUTES
   /* Check if format attribute is overridden by target.  */
@@ -2859,7 +2865,7 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
     }
 
   /* If this is a custom GCC-internal format type, we have to
-     initialize certain bits a runtime.  */
+     initialize certain bits at runtime.  */
   if (info.format_type == asm_fprintf_format_type
       || info.format_type == gcc_gfc_format_type
       || info.format_type == gcc_diag_format_type

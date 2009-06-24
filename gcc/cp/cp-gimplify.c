@@ -1,6 +1,6 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
@@ -50,7 +50,7 @@ static tree bc_label[2];
 static tree
 begin_bc_block (enum bc_t bc)
 {
-  tree label = create_artificial_label ();
+  tree label = create_artificial_label (input_location);
   TREE_CHAIN (label) = bc_label[bc];
   bc_label[bc] = label;
   return label;
@@ -158,7 +158,7 @@ genericize_eh_spec_block (tree *stmt_p)
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
 static void
-gimplify_if_stmt (tree *stmt_p)
+genericize_if_stmt (tree *stmt_p)
 {
   tree stmt, cond, then_, else_;
   location_t locus = EXPR_LOCATION (*stmt_p);
@@ -169,9 +169,9 @@ gimplify_if_stmt (tree *stmt_p)
   else_ = ELSE_CLAUSE (stmt);
 
   if (!then_)
-    then_ = build_empty_stmt ();
+    then_ = build_empty_stmt (locus);
   if (!else_)
-    else_ = build_empty_stmt ();
+    else_ = build_empty_stmt (locus);
 
   if (integer_nonzerop (cond) && !TREE_SIDE_EFFECTS (else_))
     stmt = then_;
@@ -226,7 +226,7 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 	 back through the main gimplifier to lower it.  Given that we
 	 have to gimplify the loop body NOW so that we can resolve
 	 break/continue stmts, seems easier to just expand to gotos.  */
-      top = gimple_build_label (create_artificial_label ());
+      top = gimple_build_label (create_artificial_label (stmt_locus));
 
       /* If we have an exit condition, then we build an IF with gotos either
 	 out of the loop, or to the top of it.  If there's no exit condition,
@@ -247,7 +247,8 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 	    {
 	      if (incr)
 		{
-		  entry = gimple_build_label (create_artificial_label ());
+		  entry = gimple_build_label 
+		    (create_artificial_label (stmt_locus));
 		  stmt = gimple_build_goto (gimple_label_label (entry));
 		}
 	      else
@@ -334,7 +335,7 @@ gimplify_switch_stmt (tree *stmt_p, gimple_seq *pre_p)
 
   body = SWITCH_STMT_BODY (stmt);
   if (!body)
-    body = build_empty_stmt ();
+    body = build_empty_stmt (stmt_locus);
 
   t = build3 (SWITCH_EXPR, SWITCH_STMT_TYPE (stmt),
 	      SWITCH_STMT_COND (stmt), body, NULL_TREE);
@@ -460,14 +461,6 @@ cp_gimplify_init_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	  if (from != sub)
 	    TREE_TYPE (from) = void_type_node;
 	}
-      else if (TREE_CODE (sub) == INIT_EXPR
-	       && TREE_OPERAND (sub, 0) == slot)
-	{
-	  /* An INIT_EXPR under TARGET_EXPR created by build_value_init,
-	     will be followed by an AGGR_INIT_EXPR.  */
-	  gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
-	  TREE_OPERAND (sub, 0) = to;
-	}
 
       if (t == sub)
 	break;
@@ -508,6 +501,8 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
   int saved_stmts_are_full_exprs_p = 0;
   enum tree_code code = TREE_CODE (*expr_p);
   enum gimplify_status ret;
+  tree block = NULL;
+  VEC(gimple, heap) *bind_expr_stack = NULL;
 
   if (STATEMENT_CODE_P (code))
     {
@@ -574,15 +569,36 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       break;
 
     case USING_STMT:
-      /* Just ignore for now.  Eventually we will want to pass this on to
-	 the debugger.  */
+      /* Get the innermost inclosing GIMPLE_BIND that has a non NULL
+         BLOCK, and append an IMPORTED_DECL to its
+	 BLOCK_VARS chained list.  */
+
+      bind_expr_stack = gimple_bind_expr_stack ();
+      if (bind_expr_stack)
+	{
+	  int i;
+	  for (i = VEC_length (gimple, bind_expr_stack) - 1; i >= 0; i--)
+	    if ((block = gimple_bind_block (VEC_index (gimple,
+						       bind_expr_stack,
+						       i))))
+	      break;
+	}
+      if (block)
+	{
+	  tree using_directive;
+	  gcc_assert (TREE_OPERAND (*expr_p, 0));
+
+	  using_directive = make_node (IMPORTED_DECL);
+	  TREE_TYPE (using_directive) = void_type_node;
+
+	  IMPORTED_DECL_ASSOCIATED_DECL (using_directive)
+	    = TREE_OPERAND (*expr_p, 0);
+	  TREE_CHAIN (using_directive) = BLOCK_VARS (block);
+	  BLOCK_VARS (block) = using_directive;
+	}
+      /* The USING_STMT won't appear in GIMPLE.  */
       *expr_p = NULL;
       ret = GS_ALL_DONE;
-      break;
-
-    case IF_STMT:
-      gimplify_if_stmt (expr_p);
-      ret = GS_OK;
       break;
 
     case FOR_STMT:
@@ -638,7 +654,7 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       break;
 
     default:
-      ret = c_gimplify_expr (expr_p, pre_p, post_p);
+      ret = (enum gimplify_status) c_gimplify_expr (expr_p, pre_p, post_p);
       break;
     }
 
@@ -772,6 +788,45 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 		      CLEANUP_BODY (stmt),
 		      CLEANUP_EXPR (stmt));
 
+  else if (TREE_CODE (stmt) == IF_STMT)
+    {
+      genericize_if_stmt (stmt_p);
+      /* *stmt_p has changed, tail recurse to handle it again.  */
+      return cp_genericize_r (stmt_p, walk_subtrees, data);
+    }
+
+  /* COND_EXPR might have incompatible types in branches if one or both
+     arms are bitfields.  Fix it up now.  */
+  else if (TREE_CODE (stmt) == COND_EXPR)
+    {
+      tree type_left
+	= (TREE_OPERAND (stmt, 1)
+	   ? is_bitfield_expr_with_lowered_type (TREE_OPERAND (stmt, 1))
+	   : NULL_TREE);
+      tree type_right
+	= (TREE_OPERAND (stmt, 2)
+	   ? is_bitfield_expr_with_lowered_type (TREE_OPERAND (stmt, 2))
+	   : NULL_TREE);
+      if (type_left
+	  && !useless_type_conversion_p (TREE_TYPE (stmt),
+					 TREE_TYPE (TREE_OPERAND (stmt, 1))))
+	{
+	  TREE_OPERAND (stmt, 1)
+	    = fold_convert (type_left, TREE_OPERAND (stmt, 1));
+	  gcc_assert (useless_type_conversion_p (TREE_TYPE (stmt),
+						 type_left));
+	}
+      if (type_right
+	  && !useless_type_conversion_p (TREE_TYPE (stmt),
+					 TREE_TYPE (TREE_OPERAND (stmt, 2))))
+	{
+	  TREE_OPERAND (stmt, 2)
+	    = fold_convert (type_right, TREE_OPERAND (stmt, 2));
+	  gcc_assert (useless_type_conversion_p (TREE_TYPE (stmt),
+						 type_right));
+	}
+    }
+
   pointer_set_insert (p_set, *stmt_p);
 
   return NULL;
@@ -885,7 +940,7 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 	  append_to_statement_list (t, &ret);
 	}
 
-      lab = create_artificial_label ();
+      lab = create_artificial_label (input_location);
       t = build1 (LABEL_EXPR, void_type_node, lab);
       append_to_statement_list (t, &ret);
 

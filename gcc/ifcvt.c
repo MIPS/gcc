@@ -1,5 +1,5 @@
 /* If-conversion support.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -61,9 +61,6 @@
 #endif
 #ifndef HAVE_trap
 #define HAVE_trap 0
-#endif
-#ifndef HAVE_conditional_trap
-#define HAVE_conditional_trap 0
 #endif
 
 #ifndef MAX_CONDITIONAL_EXECUTE
@@ -666,7 +663,15 @@ noce_emit_store_flag (struct noce_if_info *if_info, rtx x, int reversep,
      build the store_flag insn directly.  */
 
   if (cond_complex)
-    cond = XEXP (SET_SRC (pc_set (if_info->jump)), 0);
+    {
+      rtx set = pc_set (if_info->jump);
+      cond = XEXP (SET_SRC (set), 0);
+      if (GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
+	  && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (if_info->jump))
+	reversep = !reversep;
+      if (if_info->then_else_reversed)
+	reversep = !reversep;
+    }
 
   if (reversep)
     code = reversed_comparison_code (cond, if_info->jump);
@@ -900,12 +905,12 @@ noce_try_store_flag (struct noce_if_info *if_info)
   int reversep;
   rtx target, seq;
 
-  if (GET_CODE (if_info->b) == CONST_INT
+  if (CONST_INT_P (if_info->b)
       && INTVAL (if_info->b) == STORE_FLAG_VALUE
       && if_info->a == const0_rtx)
     reversep = 0;
   else if (if_info->b == const0_rtx
-	   && GET_CODE (if_info->a) == CONST_INT
+	   && CONST_INT_P (if_info->a)
 	   && INTVAL (if_info->a) == STORE_FLAG_VALUE
 	   && (reversed_comparison_code (if_info->cond, if_info->jump)
 	       != UNKNOWN))
@@ -947,8 +952,8 @@ noce_try_store_flag_constants (struct noce_if_info *if_info)
   int normalize, can_reverse;
   enum machine_mode mode;
 
-  if (GET_CODE (if_info->a) == CONST_INT
-      && GET_CODE (if_info->b) == CONST_INT)
+  if (CONST_INT_P (if_info->a)
+      && CONST_INT_P (if_info->b))
     {
       mode = GET_MODE (if_info->x);
       ifalse = INTVAL (if_info->a);
@@ -1533,7 +1538,7 @@ noce_get_alt_condition (struct noce_if_info *if_info, rtx target,
 	make equivalent types of changes) to get the constants we need
 	if they're off by one in the right direction.  */
 
-  if (GET_CODE (target) == CONST_INT)
+  if (CONST_INT_P (target))
     {
       enum rtx_code code = GET_CODE (if_info->cond);
       rtx op_a = XEXP (if_info->cond, 0);
@@ -1550,14 +1555,14 @@ noce_get_alt_condition (struct noce_if_info *if_info, rtx target,
 	  rtx src = find_reg_equal_equiv_note (prev_insn);
 	  if (!src)
 	    src = SET_SRC (PATTERN (prev_insn));
-	  if (GET_CODE (src) == CONST_INT)
+	  if (CONST_INT_P (src))
 	    {
 	      if (rtx_equal_p (op_a, SET_DEST (PATTERN (prev_insn))))
 		op_a = src;
 	      else if (rtx_equal_p (op_b, SET_DEST (PATTERN (prev_insn))))
 		op_b = src;
 
-	      if (GET_CODE (op_a) == CONST_INT)
+	      if (CONST_INT_P (op_a))
 		{
 		  rtx tmp = op_a;
 		  op_a = op_b;
@@ -1569,7 +1574,7 @@ noce_get_alt_condition (struct noce_if_info *if_info, rtx target,
 
       /* Now, look to see if we can get the right constant by
 	 adjusting the conditional.  */
-      if (GET_CODE (op_b) == CONST_INT)
+      if (CONST_INT_P (op_b))
 	{
 	  HOST_WIDE_INT desired_val = INTVAL (target);
 	  HOST_WIDE_INT actual_val = INTVAL (op_b);
@@ -1968,7 +1973,7 @@ noce_try_bitop (struct noce_if_info *if_info)
   if (GET_CODE (cond) == ZERO_EXTRACT)
     {
       if (XEXP (cond, 1) != const1_rtx
-	  || GET_CODE (XEXP (cond, 2)) != CONST_INT
+	  || !CONST_INT_P (XEXP (cond, 2))
 	  || ! rtx_equal_p (x, XEXP (cond, 0)))
 	return FALSE;
       bitnum = INTVAL (XEXP (cond, 2));
@@ -1986,7 +1991,7 @@ noce_try_bitop (struct noce_if_info *if_info)
     {
       /* Check for "if (X & C) x = x op C".  */
       if (! rtx_equal_p (x, XEXP (a, 0))
-          || GET_CODE (XEXP (a, 1)) != CONST_INT
+          || !CONST_INT_P (XEXP (a, 1))
 	  || (INTVAL (XEXP (a, 1)) & GET_MODE_MASK (mode))
 	     != (unsigned HOST_WIDE_INT) 1 << bitnum)
         return FALSE;
@@ -2012,7 +2017,7 @@ noce_try_bitop (struct noce_if_info *if_info)
     {
       /* Check for "if (X & C) x &= ~C".  */
       if (! rtx_equal_p (x, XEXP (a, 0))
-	  || GET_CODE (XEXP (a, 1)) != CONST_INT
+	  || !CONST_INT_P (XEXP (a, 1))
 	  || (INTVAL (XEXP (a, 1)) & GET_MODE_MASK (mode))
 	     != (~((HOST_WIDE_INT) 1 << bitnum) & GET_MODE_MASK (mode)))
         return FALSE;
@@ -2137,7 +2142,7 @@ noce_mem_write_may_trap_or_fault_p (const_rtx mem)
 	addr = XEXP (addr, 1);
 	break;
       case PLUS:
-	if (GET_CODE (XEXP (addr, 1)) == CONST_INT)
+	if (CONST_INT_P (XEXP (addr, 1)))
 	  addr = XEXP (addr, 0);
 	else
 	  return false;
@@ -2293,8 +2298,8 @@ noce_process_if_block (struct noce_if_info *if_info)
 	return FALSE;
 
       if (GET_CODE (x) == ZERO_EXTRACT
-	  && (GET_CODE (XEXP (x, 1)) != CONST_INT
-	      || GET_CODE (XEXP (x, 2)) != CONST_INT))
+	  && (!CONST_INT_P (XEXP (x, 1))
+	      || !CONST_INT_P (XEXP (x, 2))))
 	return FALSE;
 
       x = gen_reg_rtx (GET_MODE (GET_CODE (x) == STRICT_LOW_PART
@@ -3035,7 +3040,8 @@ find_if_header (basic_block test_bb, int pass)
       && cond_exec_find_if_block (&ce_info))
     goto success;
 
-  if (HAVE_trap && HAVE_conditional_trap
+  if (HAVE_trap
+      && optab_handler (ctrap_optab, word_mode)->insn_code != CODE_FOR_nothing
       && find_cond_trap (test_bb, then_edge, else_edge))
     goto success;
 
@@ -3914,10 +3920,10 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	  if (INSN_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
-	      struct df_ref **def_rec;
+	      df_ref *def_rec;
 	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
 		{
-		  struct df_ref *def = *def_rec;
+		  df_ref def = *def_rec;
 		  bitmap_set_bit (merge_set, DF_REF_REGNO (def));
 		}
 	    }
@@ -3942,13 +3948,13 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       /* The loop below takes the set of live registers 
          after JUMP, and calculates the live set before EARLIEST. */
       bitmap_copy (test_live, df_get_live_in (other_bb));
-      df_simulate_artificial_refs_at_end (test_bb, test_live);
+      df_simulate_initialize_backwards (test_bb, test_live);
       for (insn = jump; ; insn = prev)
 	{
 	  if (INSN_P (insn))
 	    {
 	      df_simulate_find_defs (insn, test_set);
-	      df_simulate_one_insn (test_bb, insn, test_live);
+	      df_simulate_one_insn_backwards (test_bb, insn, test_live);
 	    }
 	  prev = PREV_INSN (insn);
 	  if (insn == earliest)

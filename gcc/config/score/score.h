@@ -1,5 +1,5 @@
 /* score.h for Sunplus S+CORE processor
-   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Sunnorth.
 
    This file is part of GCC.
@@ -215,6 +215,8 @@
 
 /* Default definitions for size_t and ptrdiff_t.  */
 #define SIZE_TYPE                       "unsigned int"
+
+#define UINTPTR_TYPE			"long unsigned int"
 
 /* Register Usage
 
@@ -437,6 +439,18 @@ enum reg_class
    choose a class which is "minimal", meaning that no smaller class
    also contains the register.  */
 #define REGNO_REG_CLASS(REGNO)         score_reg_class (REGNO)
+
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+#define IRA_COVER_CLASSES					\
+{								\
+  G32_REGS, CE_REGS, SP_REGS, LIM_REG_CLASSES			\
+}
 
 /* A macro whose definition is the name of the class to which a
    valid base register must belong.  A base register is one used in
@@ -734,16 +748,6 @@ typedef struct score_args
 /* Maximum number of registers that can appear in a valid memory address.  */
 #define MAX_REGS_PER_ADDRESS            1
 
-#ifdef REG_OK_STRICT
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)   \
-  if (score_address_p (MODE, X, 1))                \
-    goto LABEL;
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)   \
-  if (score_address_p (MODE, X, 0))                \
-    goto LABEL;
-#endif
-
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
    We have two alternate definitions for each of them.
@@ -763,16 +767,6 @@ typedef struct score_args
 #endif
 
 #define REG_OK_FOR_INDEX_P(X) 0
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)   \
-  do {                                           \
-    if (score_legitimize_address (&(X)))         \
-      goto WIN;                                  \
-  } while (0)
-
-/* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)       {}
 
 #define LEGITIMATE_CONSTANT_P(X)        1
 

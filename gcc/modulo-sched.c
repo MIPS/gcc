@@ -353,7 +353,7 @@ const_iteration_count (rtx count_reg, basic_block pre_header,
       {
 	rtx pat = single_set (insn);
 
-	if (GET_CODE (SET_SRC (pat)) == CONST_INT)
+	if (CONST_INT_P (SET_SRC (pat)))
 	  {
 	    *count = INTVAL (SET_SRC (pat));
 	    return insn;
@@ -1832,11 +1832,14 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
                 }
 
               num_splits++;
+              /* The scheduling window is exclusive of 'end'
+                 whereas compute_split_window() expects an inclusive,
+                 ordered range.  */
               if (step == 1)
-                split_row = compute_split_row (sched_nodes, start, end,
+                split_row = compute_split_row (sched_nodes, start, end - 1,
                                                ps->ii, u_node);
               else
-                split_row = compute_split_row (sched_nodes, end, start,
+                split_row = compute_split_row (sched_nodes, end + 1, start,
                                                ps->ii, u_node);
 
               ps_insert_empty_row (ps, split_row, sched_nodes);

@@ -1,7 +1,7 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
    Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "toplev.h"
 #include "hashtab.h"
+#include "langhooks.h"
 #include "ggc.h"
 #include "target.h"
 
@@ -55,8 +56,8 @@ ix86_handle_shared_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != VAR_DECL)
     {
-      warning (OPT_Wattributes, "%qs attribute only applies to variables",
-	       IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qE attribute only applies to variables",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -77,8 +78,8 @@ ix86_handle_selectany_attribute (tree *node, tree name,
      initialization later in encode_section_info.  */
   if (TREE_CODE (*node) != VAR_DECL || !TREE_PUBLIC (*node))
     {	
-      error ("%qs attribute applies only to initialized variables"
-       	     " with external linkage",  IDENTIFIER_POINTER (name));
+      error ("%qE attribute applies only to initialized variables"
+       	     " with external linkage", name);
       *no_add_attrs = true;
     }
 
@@ -258,27 +259,19 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
   switch (TREE_CODE (decl))
     {
     case FUNCTION_DECL:
-      if (first)
+      /* FIXME:  Imported stdcall names are not modified by the Ada frontend.
+	 Check and decorate the RTL name now.  */
+      if  (strcmp (lang_hooks.name, "GNU Ada") == 0)
 	{
-	  /* FIXME: In Ada, and perhaps other language frontends,
-	     imported stdcall names may not yet have been modified.
-	     Check and do it know.  */
-         tree new_id;
-         tree old_id = DECL_ASSEMBLER_NAME (decl);
-     	  const char* asm_str = IDENTIFIER_POINTER (old_id);
-          /* Do not change the identifier if a verbatim asmspec
+	  tree new_id;
+	  tree old_id = DECL_ASSEMBLER_NAME (decl);
+	  const char* asm_str = IDENTIFIER_POINTER (old_id);
+	  /* Do not change the identifier if a verbatim asmspec
 	     or if stdcall suffix already added. */
-      	  if (*asm_str == '*' || strchr (asm_str, '@'))
-            break;
-	  if ((new_id = i386_pe_maybe_mangle_decl_assembler_name (decl, old_id)))
-	    {
-	      /* These attributes must be present on first declaration,
-		 change_decl_assembler_name will warn if they are added
-		 later and the decl has been referenced, but duplicate_decls
-		 should catch the mismatch first.  */
-	      change_decl_assembler_name (decl, new_id);
-	      XSTR (symbol, 0) = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-	    }
+	  if (!(*asm_str == '*' || strchr (asm_str, '@'))
+	      && (new_id = i386_pe_maybe_mangle_decl_assembler_name (decl,
+								     old_id)))
+	    XSTR (symbol, 0) = IDENTIFIER_POINTER (new_id);
 	}
       break;
 
@@ -292,7 +285,7 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
 		 ctor is protected by a link-once guard variable, so that
 		 the object still has link-once semantics,  */
 	      || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
-	    make_decl_one_only (decl);
+	    make_decl_one_only (decl, DECL_ASSEMBLER_NAME (decl));
 	  else
 	    error ("%q+D:'selectany' attribute applies only to "
 		   "initialized objects", decl);
@@ -506,8 +499,11 @@ i386_pe_asm_output_aligned_decl_common (FILE *stream, tree decl,
 {
   HOST_WIDE_INT rounded;
 
-  /* Compute as in assemble_noswitch_variable, since we don't actually
-     support aligned common.  */
+  /* Compute as in assemble_noswitch_variable, since we don't have
+     support for aligned common on older binutils.  We must also
+     avoid emitting a common symbol of size zero, as this is the
+     overloaded representation that indicates an undefined external
+     symbol in the PE object file format.  */
   rounded = size ? size : 1;
   rounded += (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1;
   rounded = (rounded / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
@@ -517,9 +513,13 @@ i386_pe_asm_output_aligned_decl_common (FILE *stream, tree decl,
 
   fprintf (stream, "\t.comm\t");
   assemble_name (stream, name);
-  fprintf (stream, ", " HOST_WIDE_INT_PRINT_DEC "\t" ASM_COMMENT_START
-	   " " HOST_WIDE_INT_PRINT_DEC "\n",
-	   rounded, size);
+  if (use_pe_aligned_common)
+    fprintf (stream, ", " HOST_WIDE_INT_PRINT_DEC ", %d\n",
+	   size ? size : (HOST_WIDE_INT) 1,
+	   exact_log2 (align) - exact_log2 (CHAR_BIT));
+  else
+    fprintf (stream, ", " HOST_WIDE_INT_PRINT_DEC "\t" ASM_COMMENT_START
+	   " " HOST_WIDE_INT_PRINT_DEC "\n", rounded, size);
 }
 
 /* The Microsoft linker requires that every function be marked as
@@ -546,7 +546,7 @@ i386_pe_declare_function_type (FILE *file, const char *name, int pub)
 
 /* Keep a list of external functions.  */
 
-struct extern_list GTY(())
+struct GTY(()) extern_list
 {
   struct extern_list *next;
   tree decl;
@@ -575,7 +575,7 @@ i386_pe_record_external_function (tree decl, const char *name)
 
 /* Keep a list of exported symbols.  */
 
-struct export_list GTY(())
+struct GTY(()) export_list
 {
   struct export_list *next;
   const char *name;

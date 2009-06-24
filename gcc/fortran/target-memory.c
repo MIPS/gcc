@@ -1,5 +1,5 @@
 /* Simulate storage of variables into target memory.
-   Copyright (C) 2007, 2008
+   Copyright (C) 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Paul Thomas and Brooks Moses
 
@@ -158,18 +158,35 @@ encode_integer (int kind, mpz_t integer, unsigned char *buffer,
 static int
 encode_float (int kind, mpfr_t real, unsigned char *buffer, size_t buffer_size)
 {
-  return native_encode_expr (gfc_conv_mpfr_to_tree (real, kind), buffer,
+  return native_encode_expr (gfc_conv_mpfr_to_tree (real, kind, 0), buffer,
 			     buffer_size);
 }
 
 
 static int
-encode_complex (int kind, mpfr_t real, mpfr_t imaginary, unsigned char *buffer,
-		size_t buffer_size)
+encode_complex (int kind,
+#ifdef HAVE_mpc
+		mpc_t cmplx,
+#else
+		mpfr_t real, mpfr_t imaginary,
+#endif
+		unsigned char *buffer, size_t buffer_size)
 {
   int size;
-  size = encode_float (kind, real, &buffer[0], buffer_size);
-  size += encode_float (kind, imaginary, &buffer[size], buffer_size - size);
+  size = encode_float (kind,
+#ifdef HAVE_mpc
+		       mpc_realref (cmplx),
+#else
+		       real,
+#endif
+		       &buffer[0], buffer_size);
+  size += encode_float (kind,
+#ifdef HAVE_mpc
+			mpc_imagref (cmplx),
+#else
+			imaginary,
+#endif
+			&buffer[size], buffer_size - size);
   return size;
 }
 
@@ -220,8 +237,13 @@ encode_derived (gfc_expr *source, unsigned char *buffer, size_t buffer_size)
 	continue;
       ptr = TREE_INT_CST_LOW(DECL_FIELD_OFFSET(cmp->backend_decl))
 	    + TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(cmp->backend_decl))/8;
-      gfc_target_encode_expr (ctr->expr, &buffer[ptr],
-			      buffer_size - ptr);
+
+      if (ctr->expr->expr_type == EXPR_NULL)
+ 	memset (&buffer[ptr], 0,
+		int_size_in_bytes (TREE_TYPE (cmp->backend_decl)));
+      else
+	gfc_target_encode_expr (ctr->expr, &buffer[ptr],
+				buffer_size - ptr);
     }
 
   return int_size_in_bytes (type);
@@ -261,8 +283,14 @@ gfc_target_encode_expr (gfc_expr *source, unsigned char *buffer,
       return encode_float (source->ts.kind, source->value.real, buffer,
 			   buffer_size);
     case BT_COMPLEX:
-      return encode_complex (source->ts.kind, source->value.complex.r,
-			     source->value.complex.i, buffer, buffer_size);
+      return encode_complex (source->ts.kind,
+#ifdef HAVE_mpc
+			     source->value.complex,
+#else
+			     source->value.complex.r,
+			     source->value.complex.i,
+#endif
+			     buffer, buffer_size);
     case BT_LOGICAL:
       return encode_logical (source->ts.kind, source->value.logical, buffer,
 			     buffer_size);
@@ -363,12 +391,28 @@ gfc_interpret_float (int kind, unsigned char *buffer, size_t buffer_size,
 
 int
 gfc_interpret_complex (int kind, unsigned char *buffer, size_t buffer_size,
-		   mpfr_t real, mpfr_t imaginary)
+#ifdef HAVE_mpc
+		       mpc_t complex
+#else
+		       mpfr_t real, mpfr_t imaginary
+#endif
+		       )
 {
   int size;
-  size = gfc_interpret_float (kind, &buffer[0], buffer_size, real);
+  size = gfc_interpret_float (kind, &buffer[0], buffer_size,
+#ifdef HAVE_mpc
+			      mpc_realref (complex)
+#else
+			      real
+#endif
+			      );
   size += gfc_interpret_float (kind, &buffer[size], buffer_size - size,
-			       imaginary);
+#ifdef HAVE_mpc
+			       mpc_imagref (complex)
+#else
+			       imaginary
+#endif
+			       );
   return size;
 }
 
@@ -515,8 +559,13 @@ gfc_target_interpret_expr (unsigned char *buffer, size_t buffer_size,
     case BT_COMPLEX:
       result->representation.length = 
         gfc_interpret_complex (result->ts.kind, buffer, buffer_size,
+#ifdef HAVE_mpc
+			       result->value.complex
+#else
 			       result->value.complex.r,
-			       result->value.complex.i);
+			       result->value.complex.i
+#endif
+			       );
       break;
 
     case BT_LOGICAL:
@@ -717,10 +766,19 @@ gfc_convert_boz (gfc_expr *expr, gfc_typespec *ts)
     }
   else
     {
+#ifdef HAVE_mpc
+      mpc_init2 (expr->value.complex, mpfr_get_default_prec());
+#else
       mpfr_init (expr->value.complex.r);
       mpfr_init (expr->value.complex.i);
+#endif
       gfc_interpret_complex (ts->kind, buffer, buffer_size,
-			     expr->value.complex.r, expr->value.complex.i);
+#ifdef HAVE_mpc
+			     expr->value.complex
+#else
+			     expr->value.complex.r, expr->value.complex.i
+#endif
+			     );
     }
   expr->is_boz = 0;  
   expr->ts.type = ts->type;

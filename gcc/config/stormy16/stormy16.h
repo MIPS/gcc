@@ -191,7 +191,6 @@ enum reg_class
   R8_REGS,
   ICALL_REGS,
   GENERAL_REGS,
-  CARRY_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
 };
@@ -200,7 +199,7 @@ enum reg_class
 
 #define IRA_COVER_CLASSES			\
 {						\
-  GENERAL_REGS, CARRY_REGS, LIM_REG_CLASSES	\
+  GENERAL_REGS, LIM_REG_CLASSES	\
 }
 
 #define REG_CLASS_NAMES				\
@@ -214,7 +213,6 @@ enum reg_class
   "R8_REGS",					\
   "ICALL_REGS",					\
   "GENERAL_REGS",				\
-  "CARRY_REGS",					\
   "ALL_REGS"					\
 }
 
@@ -229,17 +227,15 @@ enum reg_class
   { 0x00100 },					\
   { 0x00300 },					\
   { 0x6FFFF },					\
-  { 0x10000 },					\
   { (1 << FIRST_PSEUDO_REGISTER) - 1 }		\
 }
 
 #define REGNO_REG_CLASS(REGNO) 			\
-  ((REGNO) == 0   ? R0_REGS			\
-   : (REGNO) == 1 ? R1_REGS			\
-   : (REGNO) == 2 ? R2_REGS			\
-   : (REGNO) < 8  ? EIGHT_REGS			\
-   : (REGNO) == 8 ? R8_REGS			\
-   : (REGNO) == 16 ? CARRY_REGS			\
+  (  (REGNO) ==  0 ? R0_REGS			\
+   : (REGNO) ==  1 ? R1_REGS			\
+   : (REGNO) ==  2 ? R2_REGS			\
+   : (REGNO) <   8 ? EIGHT_REGS			\
+   : (REGNO) ==  8 ? R8_REGS			\
    : (REGNO) <= 18 ? GENERAL_REGS		\
    : ALL_REGS)
 
@@ -264,7 +260,6 @@ enum reg_class
   : (CHAR) == 'd' ? R8_REGS			\
   : (CHAR) == 'e' ? EIGHT_REGS			\
   : (CHAR) == 't' ? TWO_REGS			\
-  : (CHAR) == 'y' ? CARRY_REGS			\
   : (CHAR) == 'z' ? ICALL_REGS			\
   : NO_REGS)
 
@@ -357,25 +352,20 @@ enum reg_class
 #define INCOMING_RETURN_ADDR_RTX  \
    gen_rtx_MEM (SImode, gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (-4)))
 
-#define INCOMING_FRAME_SP_OFFSET (xstormy16_interrupt_function_p () ? 6 : 4)
+#define INCOMING_FRAME_SP_OFFSET (xstormy16_interrupt_function_p () ? -6 : -4)
 
 
 /* Register That Address the Stack Frame.  */
 
-#define STACK_POINTER_REGNUM 15
-
-#define FRAME_POINTER_REGNUM 17
-
+#define STATIC_CHAIN_REGNUM	 1
 #define HARD_FRAME_POINTER_REGNUM 13
-
-#define ARG_POINTER_REGNUM 18
-
-#define STATIC_CHAIN_REGNUM 1
+#define STACK_POINTER_REGNUM	15
+#define CARRY_REGNUM		16
+#define FRAME_POINTER_REGNUM	17
+#define ARG_POINTER_REGNUM	18
 
 
 /* Eliminating the Frame Pointer and the Arg Pointer */
-
-#define FRAME_POINTER_REQUIRED 0
 
 #define ELIMINABLE_REGS					\
 {							\
@@ -545,20 +535,6 @@ enum reg_class
 #define CONSTANT_ADDRESS_P(X) CONSTANT_P (X)
 
 #define MAX_REGS_PER_ADDRESS 1
-
-#ifdef REG_OK_STRICT
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)	\
-do {							\
-  if (xstormy16_legitimate_address_p (MODE, X, 1))	\
-    goto LABEL;						\
-} while (0)
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)	\
-do {							\
-  if (xstormy16_legitimate_address_p (MODE, X, 0))	\
-    goto LABEL;						\
-} while (0)
-#endif
 
 #ifdef REG_OK_STRICT
 #define REG_OK_FOR_BASE_P(X) 						   \
@@ -738,7 +714,8 @@ do  {						\
 
 /* Assembler Commands for Exception Regions.  */
 
-#define DWARF2_UNWIND_INFO 0
+#define DWARF2_UNWIND_INFO 		0
+#define DWARF_CIE_DATA_ALIGNMENT	1
 
 /* Don't use __builtin_setjmp for unwinding, since it's tricky to get
    at the high 16 bits of an address.  */
@@ -809,12 +786,5 @@ do  {						\
    number of instructions that can be issued in the current cycle.  This macro
    is responsible for updating the value of MORE (typically by (MORE)--).  */
 /* #define MD_SCHED_VARIABLE_ISSUE (FILE, VERBOSE, INSN, MORE) */
-
-
-/* Define the information needed to generate branch and scc insns.  This is
-   stored from the compare operation.  Note that we can't use "rtx" here
-   since it hasn't been defined!  */
-
-extern struct rtx_def *xstormy16_compare_op0, *xstormy16_compare_op1;
 
 /* End of xstormy16.h */

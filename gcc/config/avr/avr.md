@@ -3,7 +3,7 @@
 ;;   for ATMEL AVR micro controllers.
 ;;   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
 ;;   Free Software Foundation, Inc.
-;;   Contributed by Denis Chertykov (denisc@overta.ru)
+;;   Contributed by Denis Chertykov (chertykov@gmail.com)
 
 ;; This file is part of GCC.
 
@@ -54,7 +54,6 @@
    (UNSPEC_INDEX_JMP	1)
    (UNSPEC_SEI		2)
    (UNSPEC_CLI		3)
-   (UNSPEC_SWAP		4)
 
    (UNSPECV_PROLOGUE_SAVES	0)
    (UNSPECV_EPILOGUE_RESTORES	1)
@@ -1264,7 +1263,7 @@
   return \"bug\";
 }"
   [(set_attr "length" "4,4")
-   (set_attr "cc" "set_n,set_n")])
+   (set_attr "cc" "set_n,clobber")])
 
 (define_peephole2 ; andi
   [(set (match_operand:QI 0 "d_register_operand" "")
@@ -1407,15 +1406,207 @@
   [(set_attr "length" "4")
    (set_attr "cc" "set_n")])
 
+;; swap swap swap swap swap swap swap swap swap swap swap swap swap swap swap
 ;; swap
 
-(define_insn "*swap"
+(define_expand "rotlqi3"
+  [(set (match_operand:QI 0 "register_operand" "")
+	(rotate:QI (match_operand:QI 1 "register_operand" "")
+		   (match_operand:QI 2 "const_int_operand" "")))]
+  ""
+  "
+{
+  if (INTVAL (operands[2]) != 4)
+    FAIL;
+}")
+
+(define_insn "*rotlqi3_4"
   [(set (match_operand:QI 0 "register_operand" "=r")
-	(unspec:QI [(match_operand:QI 1 "register_operand" "0")]
-		   UNSPEC_SWAP))]
+	(rotate:QI (match_operand:QI 1 "register_operand" "0")
+		   (const_int 4)))]
   ""
   "swap %0"
   [(set_attr "length" "1")
+   (set_attr "cc" "none")])
+
+(define_expand "rotlhi3"
+  [(set (match_operand:HI 0 "register_operand" "")
+	(rotate:HI (match_operand:HI 1 "register_operand" "")
+		   (match_operand:HI 2 "const_int_operand" "")))]
+  ""
+  "
+{
+  if (INTVAL (operands[2]) != 8)
+    FAIL;
+}")
+
+(define_insn_and_split "*rotlhi3_8"
+  [(set (match_operand:HI 0 "register_operand" "=r")
+	(rotate:HI (match_operand:HI 1 "register_operand" "r")
+		   (const_int 8)))]
+  ""
+  "mov __tmp_reg__,%A0
+	mov %A0,%B0
+	mov %B0, __tmp_reg__"
+  "reload_completed
+   && REGNO (operands[0]) != REGNO (operands[1])"
+  [(set (match_dup 2) (match_dup 5))
+   (set (match_dup 3) (match_dup 4))]
+  "operands[2] = gen_lowpart (QImode, operands[0]);
+   operands[3] = gen_highpart (QImode, operands[0]);
+
+   operands[4] = gen_lowpart (QImode, operands[1]);
+   operands[5] = gen_highpart (QImode, operands[1]);"
+   [(set_attr "length" "3")
+   (set_attr "cc" "none")])
+
+(define_expand "rotlsi3"
+  [(set (match_operand:SI 0 "register_operand" "")
+	(rotate:SI (match_operand:SI 1 "register_operand" "")
+		   (match_operand:SI 2 "const_int_operand" "")))]
+  ""
+  "
+{
+  if (INTVAL (operands[2]) != 8
+      || INTVAL (operands[2]) != 16
+      || INTVAL (operands[2]) != 24)
+    FAIL;
+}")
+
+(define_insn_and_split "*rotlsi3_16"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(rotate:SI (match_operand:SI 1 "register_operand" "r")
+		   (const_int 16)))]
+  ""
+  "{mov __tmp_reg__,%A1\;mov %A0,%C1\;mov %C0, __tmp_reg__\;mov __tmp_reg__,%B1\;mov %B0,%D1\;mov %D0, __tmp_reg__|movw __tmp_reg__,%A1\;movw %A0,%C1\;movw %C0, __tmp_reg__\;clr __zero_reg__}"
+  "reload_completed
+   && REGNO (operands[0]) != REGNO (operands[1])"
+  [(set (match_dup 2) (match_dup 5))
+   (set (match_dup 3) (match_dup 4))]
+  "unsigned int si_lo_off = subreg_lowpart_offset (HImode, SImode);
+   unsigned int si_hi_off = subreg_highpart_offset (HImode, SImode);
+
+   operands[2] = simplify_gen_subreg (HImode, operands[0], SImode, si_lo_off);
+   operands[3] = simplify_gen_subreg (HImode, operands[0], SImode, si_hi_off);
+
+   operands[4] = simplify_gen_subreg (HImode, operands[1], SImode, si_lo_off);
+   operands[5] = simplify_gen_subreg (HImode, operands[1], SImode, si_hi_off);
+
+   if (REGNO (operands[0]) == REGNO(operands[1]) + 2)
+     {
+       emit_move_insn (operands[3], operands[4]);
+       DONE;
+     }
+   else if (REGNO (operands[0]) == REGNO(operands[1]) - 2)
+     {
+       emit_move_insn (operands[2], operands[5]);
+       DONE;
+     }"
+  [(set (attr "length") (if_then_else (eq_attr "mcu_have_movw" "yes")
+				      (const_int 4)
+				      (const_int 6)))
+   (set (attr "cc") (if_then_else (eq_attr "mcu_have_movw" "yes")
+				  (const_string "clobber")
+				  (const_string "none")))])
+
+(define_insn_and_split "*rotlsi3_8"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(rotate:SI (match_operand:SI 1 "register_operand" "r")
+		   (const_int 8)))]
+  ""
+  "mov __tmp_reg__,%D1
+	mov %D0,%C1
+	mov %C0,%B1
+	mov %B0,%A1
+	mov %A0, __tmp_reg__"
+  "reload_completed
+   && REGNO (operands[0]) != REGNO (operands[1])"
+  [(const_int 0)]
+  "unsigned int si_lo_off = subreg_lowpart_offset (HImode, SImode);
+   unsigned int si_hi_off = subreg_highpart_offset (HImode, SImode);
+   unsigned int hi_lo_off = subreg_lowpart_offset (QImode, HImode);
+   unsigned int hi_hi_off = subreg_highpart_offset (QImode, HImode);
+
+   operands[2] = simplify_gen_subreg (HImode, operands[0], SImode, si_lo_off);
+   operands[4] = simplify_gen_subreg (HImode, operands[0], SImode, si_hi_off);
+   operands[3] = simplify_gen_subreg (QImode, operands[2], HImode, hi_hi_off);
+   operands[2] = simplify_gen_subreg (QImode, operands[2], HImode, hi_lo_off);
+   operands[5] = simplify_gen_subreg (QImode, operands[4], HImode, hi_hi_off);
+   operands[4] = simplify_gen_subreg (QImode, operands[4], HImode, hi_lo_off);
+
+   operands[6] = simplify_gen_subreg (HImode, operands[1], SImode, si_lo_off);
+   operands[8] = simplify_gen_subreg (HImode, operands[1], SImode, si_hi_off);
+   operands[7] = simplify_gen_subreg (QImode, operands[6], HImode, hi_hi_off);
+   operands[6] = simplify_gen_subreg (QImode, operands[6], HImode, hi_lo_off);
+   operands[9] = simplify_gen_subreg (QImode, operands[8], HImode, hi_hi_off);
+   operands[8] = simplify_gen_subreg (QImode, operands[8], HImode, hi_lo_off);
+ 
+   if (REGNO (operands[0]) < REGNO(operands[1]))
+     {
+       emit_move_insn (operands[2], operands[9]);
+       emit_move_insn (operands[3], operands[6]);
+       emit_move_insn (operands[4], operands[7]);
+       emit_move_insn (operands[5], operands[8]);
+     }
+   else
+     {
+       emit_move_insn (operands[5], operands[8]);
+       emit_move_insn (operands[2], operands[9]);
+       emit_move_insn (operands[4], operands[7]);
+       emit_move_insn (operands[3], operands[6]);
+     }
+   DONE;"
+   [(set_attr "length" "5")
+   (set_attr "cc" "none")])
+
+(define_insn_and_split "*rotlsi3_24"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(rotate:SI (match_operand:SI 1 "register_operand" "r")
+		   (const_int 24)))]
+  ""
+  "mov __tmp_reg__,%A1
+	mov %A0,%B1
+	mov %B0,%C1
+	mov %C0,%D1
+	mov %D0, __tmp_reg__"
+  "reload_completed
+   && REGNO (operands[0]) != REGNO (operands[1])"
+  [(const_int 0)]
+  "unsigned int si_lo_off = subreg_lowpart_offset (HImode, SImode);
+   unsigned int si_hi_off = subreg_highpart_offset (HImode, SImode);
+   unsigned int hi_lo_off = subreg_lowpart_offset (QImode, HImode);
+   unsigned int hi_hi_off = subreg_highpart_offset (QImode, HImode);
+
+   operands[2] = simplify_gen_subreg (HImode, operands[0], SImode, si_lo_off);
+   operands[4] = simplify_gen_subreg (HImode, operands[0], SImode, si_hi_off);
+   operands[3] = simplify_gen_subreg (QImode, operands[2], HImode, hi_hi_off);
+   operands[2] = simplify_gen_subreg (QImode, operands[2], HImode, hi_lo_off);
+   operands[5] = simplify_gen_subreg (QImode, operands[4], HImode, hi_hi_off);
+   operands[4] = simplify_gen_subreg (QImode, operands[4], HImode, hi_lo_off);
+
+   operands[6] = simplify_gen_subreg (HImode, operands[1], SImode, si_lo_off);
+   operands[8] = simplify_gen_subreg (HImode, operands[1], SImode, si_hi_off);
+   operands[7] = simplify_gen_subreg (QImode, operands[6], HImode, hi_hi_off);
+   operands[6] = simplify_gen_subreg (QImode, operands[6], HImode, hi_lo_off);
+   operands[9] = simplify_gen_subreg (QImode, operands[8], HImode, hi_hi_off);
+   operands[8] = simplify_gen_subreg (QImode, operands[8], HImode, hi_lo_off);
+
+   if (REGNO (operands[0]) < REGNO(operands[1]))
+     {
+       emit_move_insn (operands[2], operands[7]);
+       emit_move_insn (operands[5], operands[6]);
+       emit_move_insn (operands[3], operands[8]);
+       emit_move_insn (operands[4], operands[9]);
+     }
+   else
+     {
+       emit_move_insn (operands[5], operands[6]);
+       emit_move_insn (operands[4], operands[9]);
+       emit_move_insn (operands[3], operands[8]);
+       emit_move_insn (operands[2], operands[7]);
+     }
+   DONE;"
+   [(set_attr "length" "5")
    (set_attr "cc" "none")])
 
 ;;<< << << << << << << << << << << << << << << << << << << << << << << << << <<
@@ -1433,7 +1624,7 @@
 	(ashift:QI (match_dup 0)
 		   (const_int 4)))]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (and:QI (match_dup 0) (const_int -16)))]
   "")
 
@@ -1442,7 +1633,7 @@
 	(ashift:QI (match_dup 0)
 		   (const_int 5)))]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (ashift:QI (match_dup 0) (const_int 1)))
    (set (match_dup 0) (and:QI (match_dup 0) (const_int -32)))]
   "")
@@ -1452,7 +1643,7 @@
 	(ashift:QI (match_dup 0)
 		   (const_int 6)))]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (ashift:QI (match_dup 0) (const_int 2)))
    (set (match_dup 0) (and:QI (match_dup 0) (const_int -64)))]
   "")
@@ -1492,7 +1683,7 @@
 		   (const_int 4)))
    (match_scratch:QI 1 "d")]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 1) (const_int -16))
    (set (match_dup 0) (and:QI (match_dup 0) (match_dup 1)))]
   "")
@@ -1503,7 +1694,7 @@
 		   (const_int 5)))
    (match_scratch:QI 1 "d")]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (ashift:QI (match_dup 0) (const_int 1)))
    (set (match_dup 1) (const_int -32))
    (set (match_dup 0) (and:QI (match_dup 0) (match_dup 1)))]
@@ -1515,7 +1706,7 @@
 		   (const_int 6)))
    (match_scratch:QI 1 "d")]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (ashift:QI (match_dup 0) (const_int 2)))
    (set (match_dup 1) (const_int -64))
    (set (match_dup 0) (and:QI (match_dup 0) (match_dup 1)))]
@@ -1648,7 +1839,7 @@
 	(lshiftrt:QI (match_dup 0)
 		     (const_int 4)))]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (and:QI (match_dup 0) (const_int 15)))]
   "")
 
@@ -1657,7 +1848,7 @@
 	(lshiftrt:QI (match_dup 0)
 		     (const_int 5)))]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (lshiftrt:QI (match_dup 0) (const_int 1)))
    (set (match_dup 0) (and:QI (match_dup 0) (const_int 7)))]
   "")
@@ -1667,7 +1858,7 @@
 	(lshiftrt:QI (match_dup 0)
 		     (const_int 6)))]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (lshiftrt:QI (match_dup 0) (const_int 2)))
    (set (match_dup 0) (and:QI (match_dup 0) (const_int 3)))]
   "")
@@ -1707,7 +1898,7 @@
 		     (const_int 4)))
    (match_scratch:QI 1 "d")]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 1) (const_int 15))
    (set (match_dup 0) (and:QI (match_dup 0) (match_dup 1)))]
   "")
@@ -1718,7 +1909,7 @@
 		     (const_int 5)))
    (match_scratch:QI 1 "d")]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (lshiftrt:QI (match_dup 0) (const_int 1)))
    (set (match_dup 1) (const_int 7))
    (set (match_dup 0) (and:QI (match_dup 0) (match_dup 1)))]
@@ -1730,7 +1921,7 @@
 		     (const_int 6)))
    (match_scratch:QI 1 "d")]
   ""
-  [(set (match_dup 0) (unspec:QI [(match_dup 0)] UNSPEC_SWAP))
+  [(set (match_dup 0) (rotate:QI (match_dup 0) (const_int 4)))
    (set (match_dup 0) (lshiftrt:QI (match_dup 0) (const_int 2)))
    (set (match_dup 1) (const_int 3))
    (set (match_dup 0) (and:QI (match_dup 0) (match_dup 1)))]
@@ -2011,53 +2202,65 @@
 ;;<=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=>
 ;; compare
 
-(define_insn "tstqi"
+; Optimize negated tests into reverse compare if overflow is undefined.
+(define_insn "*negated_tstqi"
   [(set (cc0)
-        (match_operand:QI 0 "register_operand" "r"))]
-  ""
-  "tst %0"
+        (compare (neg:QI (match_operand:QI 0 "register_operand" "r"))
+		 (const_int 0)))]
+  "(!flag_wrapv && !flag_trapv && flag_strict_overflow)"
+  "cp __zero_reg__,%0"
   [(set_attr "cc" "compare")
    (set_attr "length" "1")])
 
 (define_insn "*reversed_tstqi"
   [(set (cc0)
-        (compare (const_int 0)  
+        (compare (const_int 0)
 		 (match_operand:QI 0 "register_operand" "r")))]
   ""
   "cp __zero_reg__,%0"
-  [(set_attr "cc" "compare")
-   (set_attr "length" "1")])
+[(set_attr "cc" "compare")
+ (set_attr "length" "2")])
 
-(define_insn "tsthi"
+(define_insn "*negated_tsthi"
   [(set (cc0)
-        (match_operand:HI 0 "register_operand" "!w,r"))]
-  ""
-  "* return out_tsthi (insn,NULL);"
-[(set_attr "cc" "compare,compare")
- (set_attr "length" "1,2")])
+        (compare (neg:HI (match_operand:HI 0 "register_operand" "r"))
+		 (const_int 0)))]
+  "(!flag_wrapv && !flag_trapv && flag_strict_overflow)"
+  "cp __zero_reg__,%A0
+	cpc __zero_reg__,%B0"
+[(set_attr "cc" "compare")
+ (set_attr "length" "2")])
 
+;; Leave here the clobber used by the cmphi pattern for simplicity, even
+;; though it is unused, because this pattern is synthesized by avr_reorg.
 (define_insn "*reversed_tsthi"
   [(set (cc0)
         (compare (const_int 0)
-		 (match_operand:HI 0 "register_operand" "r")))]
+		 (match_operand:HI 0 "register_operand" "r")))
+   (clobber (match_scratch:QI 1 "=X"))]
   ""
   "cp __zero_reg__,%A0
 	cpc __zero_reg__,%B0"
 [(set_attr "cc" "compare")
  (set_attr "length" "2")])
 
-(define_insn "tstsi"
+(define_insn "*negated_tstsi"
   [(set (cc0)
-        (match_operand:SI 0 "register_operand" "r"))]
-  ""
-  "* return out_tstsi (insn,NULL);"
+        (compare (neg:SI (match_operand:SI 0 "register_operand" "r"))
+		 (const_int 0)))]
+  "(!flag_wrapv && !flag_trapv && flag_strict_overflow)"
+  "cp __zero_reg__,%A0
+	cpc __zero_reg__,%B0
+	cpc __zero_reg__,%C0
+	cpc __zero_reg__,%D0"
   [(set_attr "cc" "compare")
    (set_attr "length" "4")])
 
 (define_insn "*reversed_tstsi"
   [(set (cc0)
-        (compare (const_int 0)  
-		 (match_operand:SI 0 "register_operand" "r")))]
+        (compare (const_int 0)
+		 (match_operand:SI 0 "register_operand" "r")))
+   (clobber (match_scratch:QI 1 "=X"))]
   ""
   "cp __zero_reg__,%A0
 	cpc __zero_reg__,%B0
@@ -2067,16 +2270,17 @@
    (set_attr "length" "4")])
 
 
-(define_insn "cmpqi"
+(define_insn "*cmpqi"
   [(set (cc0)
-        (compare (match_operand:QI 0 "register_operand"  "r,d")
-		 (match_operand:QI 1 "nonmemory_operand" "r,i")))]
+        (compare (match_operand:QI 0 "register_operand"  "r,r,d")
+		 (match_operand:QI 1 "nonmemory_operand" "L,r,i")))]
   ""
   "@
+	tst %0
 	cp %0,%1
 	cpi %0,lo8(%1)"
-  [(set_attr "cc" "compare,compare")
-   (set_attr "length" "1,1")])
+  [(set_attr "cc" "compare,compare,compare")
+   (set_attr "length" "1,1,1")])
 
 (define_insn "*cmpqi_sign_extend"
   [(set (cc0)
@@ -2088,19 +2292,22 @@
   [(set_attr "cc" "compare")
    (set_attr "length" "1")])
 
-(define_insn "cmphi"
+(define_insn "*cmphi"
   [(set (cc0)
-	(compare (match_operand:HI 0 "register_operand"  "r,d,d,r,r")
-		 (match_operand:HI 1 "nonmemory_operand" "r,M,i,M,i")))
-   (clobber (match_scratch:QI 2 "=X,X,&d,&d,&d"))]
+	(compare (match_operand:HI 0 "register_operand"  "!w,r,r,d,d,r,r")
+		 (match_operand:HI 1 "nonmemory_operand" "L,L,r,M,i,M,i")))
+   (clobber (match_scratch:QI 2 "=X,X,X,X,&d,&d,&d"))]
   ""
   "*{
   switch (which_alternative)
     {
-    case 0:
+    case 0: case 1:
+      return out_tsthi (insn, operands[0], NULL);
+
+    case 2:
       return (AS2 (cp,%A0,%A1) CR_TAB
               AS2 (cpc,%B0,%B1));
-    case 1:
+    case 3:
       if (reg_unused_after (insn, operands[0])
           && INTVAL (operands[1]) >= 0 && INTVAL (operands[1]) <= 63
           && test_hard_reg_class (ADDW_REGS, operands[0]))
@@ -2108,7 +2315,7 @@
        else
         return (AS2 (cpi,%0,%1) CR_TAB
                 AS2 (cpc,%B0,__zero_reg__));
-    case 2:
+    case 4:
       if (reg_unused_after (insn, operands[0]))
         return (AS2 (subi,%0,lo8(%1))  CR_TAB
                 AS2 (sbci,%B0,hi8(%1)));
@@ -2116,12 +2323,12 @@
         return (AS2 (ldi, %2,hi8(%1))  CR_TAB
 	        AS2 (cpi, %A0,lo8(%1)) CR_TAB
 	        AS2 (cpc, %B0,%2));
-   case 3:
+   case 5:
       return (AS2 (ldi, %2,lo8(%1))  CR_TAB
 	      AS2 (cp, %A0,%2) CR_TAB
 	      AS2 (cpc, %B0,__zero_reg__));
 
-   case 4:
+   case 6:
       return (AS2 (ldi, %2,lo8(%1))  CR_TAB
               AS2 (cp, %A0,%2)       CR_TAB
               AS2 (ldi, %2,hi8(%1)) CR_TAB
@@ -2129,25 +2336,28 @@
     }
   return \"bug\";
 }" 
-  [(set_attr "cc" "compare,compare,compare,compare,compare")
-   (set_attr "length" "2,2,3,3,4")])
+  [(set_attr "cc" "compare,compare,compare,compare,compare,compare,compare")
+   (set_attr "length" "1,2,2,2,3,3,4")])
 
 
-(define_insn "cmpsi"
+(define_insn "*cmpsi"
   [(set (cc0)
-	(compare (match_operand:SI 0 "register_operand"  "r,d,d,r,r")
-		 (match_operand:SI 1 "nonmemory_operand" "r,M,i,M,i")))
-   (clobber (match_scratch:QI 2 "=X,X,&d,&d,&d"))]
+	(compare (match_operand:SI 0 "register_operand"  "r,r,d,d,r,r")
+		 (match_operand:SI 1 "nonmemory_operand" "L,r,M,i,M,i")))
+   (clobber (match_scratch:QI 2 "=X,X,X,&d,&d,&d"))]
   ""
   "*{
   switch (which_alternative)
     {
     case 0:
+      return out_tstsi (insn, operands[0], NULL);
+
+    case 1:
       return (AS2 (cp,%A0,%A1) CR_TAB
               AS2 (cpc,%B0,%B1) CR_TAB
 	      AS2 (cpc,%C0,%C1) CR_TAB
 	      AS2 (cpc,%D0,%D1));
-    case 1:
+    case 2:
       if (reg_unused_after (insn, operands[0])
           && INTVAL (operands[1]) >= 0 && INTVAL (operands[1]) <= 63
           && test_hard_reg_class (ADDW_REGS, operands[0]))
@@ -2159,7 +2369,7 @@
                 AS2 (cpc,%B0,__zero_reg__) CR_TAB
                 AS2 (cpc,%C0,__zero_reg__) CR_TAB
                 AS2 (cpc,%D0,__zero_reg__));
-    case 2:
+    case 3:
       if (reg_unused_after (insn, operands[0]))
         return (AS2 (subi,%A0,lo8(%1))  CR_TAB
                 AS2 (sbci,%B0,hi8(%1))  CR_TAB
@@ -2173,13 +2383,13 @@
 	       AS2 (cpc, %C0,%2)       CR_TAB
 	       AS2 (ldi, %2,hhi8(%1)) CR_TAB
 	       AS2 (cpc, %D0,%2));
-    case 3:
+    case 4:
         return (AS2 (ldi,%2,lo8(%1))        CR_TAB
                 AS2 (cp,%A0,%2)            CR_TAB
                 AS2 (cpc,%B0,__zero_reg__) CR_TAB
                 AS2 (cpc,%C0,__zero_reg__) CR_TAB
                 AS2 (cpc,%D0,__zero_reg__));
-    case 4:
+    case 5:
        return (AS2 (ldi, %2,lo8(%1))   CR_TAB
                AS2 (cp, %A0,%2)        CR_TAB
 	       AS2 (ldi, %2,hi8(%1))  CR_TAB
@@ -2191,113 +2401,53 @@
     }
   return \"bug\";
 }"
-  [(set_attr "cc" "compare,compare,compare,compare,compare")
-   (set_attr "length" "4,4,7,5,8")])
+  [(set_attr "cc" "compare,compare,compare,compare,compare,compare")
+   (set_attr "length" "4,4,4,7,5,8")])
 
-; Optimize negated tests into reverse compare if overflow is undefined.
-(define_insn_and_split "negated_tst<mode>"
- [(set (cc0)
-        (neg:QISI (match_operand:QISI 0 "register_operand")))]
-
-  "(!flag_wrapv && !flag_trapv && flag_strict_overflow)"
-  "#"
-  ""
-  [(set (cc0)
-        (compare (const_int 0)  
-		 (match_dup 0)))]
-  "")
 
 ;; ----------------------------------------------------------------------
 ;; JUMP INSTRUCTIONS
 ;; ----------------------------------------------------------------------
 ;; Conditional jump instructions
 
-(define_expand "beq"
-  [(set (pc)
-        (if_then_else (eq (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
+(define_expand "cbranchsi4"
+  [(parallel [(set (cc0)
+	           (compare (match_operand:SI 1 "register_operand" "")
+	                    (match_operand:SI 2 "nonmemory_operand" "")))
+	      (clobber (match_scratch:QI 4 ""))])
+   (set (pc)
+        (if_then_else
+              (match_operator 0 "ordered_comparison_operator" [(cc0)
+                                                               (const_int 0)])
+              (label_ref (match_operand 3 "" ""))
+              (pc)))]
+ "")
 
-(define_expand "bne"
-  [(set (pc)
-        (if_then_else (ne (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
+(define_expand "cbranchhi4"
+  [(parallel [(set (cc0)
+	           (compare (match_operand:HI 1 "register_operand" "")
+	                    (match_operand:HI 2 "nonmemory_operand" "")))
+	      (clobber (match_scratch:QI 4 ""))])
+   (set (pc)
+        (if_then_else
+              (match_operator 0 "ordered_comparison_operator" [(cc0)
+                                                               (const_int 0)])
+              (label_ref (match_operand 3 "" ""))
+              (pc)))]
+ "")
 
-(define_expand "bge"
-  [(set (pc)
-        (if_then_else (ge (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
+(define_expand "cbranchqi4"
+  [(set (cc0)
+        (compare (match_operand:QI 1 "register_operand" "")
+                 (match_operand:QI 2 "nonmemory_operand" "")))
+   (set (pc)
+        (if_then_else
+              (match_operator 0 "ordered_comparison_operator" [(cc0)
+                                                               (const_int 0)])
+              (label_ref (match_operand 3 "" ""))
+              (pc)))]
+ "")
 
-(define_expand "bgeu"
-  [(set (pc)
-        (if_then_else (geu (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
-
-(define_expand "blt"
-  [(set (pc)
-        (if_then_else (lt (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
-
-(define_expand "bltu"
-  [(set (pc)
-        (if_then_else (ltu (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
-
-
-
-/****************************************************************
- AVR not have following conditional jumps: LE,LEU,GT,GTU.
- Convert them all to proper jumps.
-*****************************************************************/
-
-(define_expand "ble"
-  [(set (pc)
-        (if_then_else (le (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
-
-(define_expand "bleu"
-  [(set (pc)
-        (if_then_else (leu (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
-
-(define_expand "bgt"
-  [(set (pc)
-        (if_then_else (gt (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
-
-(define_expand "bgtu"
-  [(set (pc)
-        (if_then_else (gtu (cc0) (const_int 0))
-                      (label_ref (match_operand 0 "" ""))
-                      (pc)))]
-  ""
-  "")
 
 ;; Test a single bit in a QI/HI/SImode register.
 (define_insn "*sbrx_branch"
@@ -2366,7 +2516,8 @@
 
 ;; Convert sign tests to bit 7/15/31 tests that match the above insns.
 (define_peephole2
-  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+  [(set (cc0) (compare (match_operand:QI 0 "register_operand" "")
+		       (const_int 0)))
    (set (pc) (if_then_else (ge (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2380,7 +2531,8 @@
   "")
 
 (define_peephole2
-  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+  [(set (cc0) (compare (match_operand:QI 0 "register_operand" "")
+		       (const_int 0)))
    (set (pc) (if_then_else (lt (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2394,7 +2546,9 @@
   "")
 
 (define_peephole2
-  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
+  [(parallel [(set (cc0) (compare (match_operand:HI 0 "register_operand" "")
+			 	  (const_int 0)))
+	      (clobber (match_operand:HI 2 ""))])
    (set (pc) (if_then_else (ge (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2406,7 +2560,9 @@
   "")
 
 (define_peephole2
-  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
+  [(parallel [(set (cc0) (compare (match_operand:HI 0 "register_operand" "")
+			 	  (const_int 0)))
+	      (clobber (match_operand:HI 2 ""))])
    (set (pc) (if_then_else (lt (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2418,7 +2574,9 @@
   "")
 
 (define_peephole2
-  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
+  [(parallel [(set (cc0) (compare (match_operand:SI 0 "register_operand" "")
+			 	  (const_int 0)))
+	      (clobber (match_operand:SI 2 ""))])
    (set (pc) (if_then_else (ge (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2430,7 +2588,9 @@
   "operands[2] = GEN_INT (-2147483647 - 1);")
 
 (define_peephole2
-  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
+  [(parallel [(set (cc0) (compare (match_operand:SI 0 "register_operand" "")
+			 	  (const_int 0)))
+	      (clobber (match_operand:SI 2 ""))])
    (set (pc) (if_then_else (lt (cc0) (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
@@ -2458,6 +2618,11 @@
    return ret_cond_branch (operands[1], avr_jump_mode (operands[0],insn), 0);"
   [(set_attr "type" "branch")
    (set_attr "cc" "clobber")])
+
+;; ****************************************************************
+;; AVR does not have following conditional jumps: LE,LEU,GT,GTU.
+;; Convert them all to proper jumps.
+;; ****************************************************************/
 
 (define_insn "difficult_branch"
   [(set (pc)
@@ -2959,7 +3124,9 @@
 }")
 
 (define_peephole
-  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+  [(set (cc0)
+	(compare (match_operand:QI 0 "register_operand" "")
+		 (const_int 0)))
    (set (pc)
 	(if_then_else (eq (cc0) (const_int 0))
 		      (label_ref (match_operand 1 "" ""))

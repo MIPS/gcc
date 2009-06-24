@@ -1,3 +1,7 @@
+2009-06-24  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* Merge from mainline (r140737:148901).
+
 2009-06-23  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* omp-builtins.def (BUILT_IN_GOMP_STREAM_TAIL_WINDOW,
