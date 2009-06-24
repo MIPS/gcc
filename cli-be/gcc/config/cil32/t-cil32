@@ -65,17 +65,17 @@ cil-dump.o: $(srcdir)/config/cil32/cil-dump.c \
    $(srcdir)/config/cil32/cil-types.h \
    $(srcdir)/config/cil32/cil-stack.h \
    $(srcdir)/config/cil32/emit-cil.h \
-   $(CONFIG_H) $(SYSTEM_H) $(TREE_H) coretypes.h langhooks.h
+   $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) langhooks.h $(TREE_H)
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 cil-lower.o: $(srcdir)/config/cil32/cil-lower.c \
-             $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) timevar.h \
-             errors.h real.h $(TREE_H) $(TREE_PASS_H) \
-             $(srcdir)/config/cil32/cil-builtins.h \
-             $(srcdir)/config/cil32/cil-refs.h     \
-             $(srcdir)/config/cil32/cil-stack.h    \
-             $(srcdir)/config/cil32/cil-stmt.h     \
-             $(srcdir)/config/cil32/cil-types.h
+   $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) timevar.h \
+   errors.h real.h $(TREE_H) $(TREE_PASS_H) \
+   $(srcdir)/config/cil32/cil-builtins.h \
+   $(srcdir)/config/cil32/cil-refs.h     \
+   $(srcdir)/config/cil32/cil-stack.h    \
+   $(srcdir)/config/cil32/cil-stmt.h     \
+   $(srcdir)/config/cil32/cil-types.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 cil-stack.o : $(srcdir)/config/cil32/cil-stack.c \
