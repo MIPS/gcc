@@ -1,3 +1,45 @@
+2009-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md ("f" constraint): Use
+	rs6000_constraints to hold the precalculated register class.
+	("d" constraint): Ditto.
+	("wd" constraint): Ditto.
+	("wf" constraint): Ditto.
+	("ws" constraint): Ditto.
+	("wa" constraint): Ditto.
+
+	* config/rs6000/rs6000.opt (-mvsx-align-128): Add new debug
+	switch.
+	(-msched-groups): Ditto.
+	(-malways-hint): Ditto.
+	(-malign-branch-targets): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_vector_reg_class): Delete,
+	replacing it with rs6000_constraints.
+	(rs6000_vsx_reg_class): Ditto.
+	(rs6000_constraints): New array to hold the register classes of
+	each of the register constraints that can vary at runtime.
+	(rs6000_hard_regno_mode_ok): For VSX, only check if the VSX memory
+	unit is being used.
+	(rs6000_debug_vector_unit): Move into rs6000_debug_reg_global.
+	(rs6000_debug_reg_global): Move -mdebug=reg statements here.
+	Print several of the scheduling related parameters.
+	(rs6000_init_hard_regno_mode_ok): Switch to putting constraints in
+	rs6000_constraints instead of rs6000_vector_reg_class.  Move
+	-mdebug=reg code to rs6000_debug_reg_global.  Add support for
+	-mvsx-align-128 debug switch.  Drop testing float_p if VSX or
+	Altivec.
+	(rs6000_override_options): Make power7 set the scheduling groups
+	like the power5.  Add support for new debug switches to override
+	the scheduling defaults.
+
+	* config/rs6000/vsx.md (VSr): Use "d" constraint, not "f".
+
+	* config/rs6000/rs6000.h (rs6000_vector_reg_class): Delete.
+	(rs6000_vsx_reg_class): Ditto.
+	(rs6000_constraints): New array to hold the register class for all
+	of the register constraints that vary based on the switches used.
+
 2009-06-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (vcondu<mode>): Delete a constraint from

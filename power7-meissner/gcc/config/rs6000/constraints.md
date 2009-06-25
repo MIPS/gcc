@@ -21,12 +21,10 @@
 
 ;; Register constraints
 
-(define_register_constraint "f" "TARGET_HARD_FLOAT && TARGET_FPRS
-			 	 ? FLOAT_REGS : NO_REGS"
+(define_register_constraint "f" "rs6000_constraints[RS6000_CONSTRAINT_f]"
   "@internal")
 
-(define_register_constraint "d" "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
-			 	 ? FLOAT_REGS : NO_REGS"
+(define_register_constraint "d" "rs6000_constraints[RS6000_CONSTRAINT_d]"
   "@internal")
 
 (define_register_constraint "b" "BASE_REGS"
@@ -58,19 +56,19 @@
 
 ;; Use w as a prefix to add VSX modes
 ;; vector double (V2DF)
-(define_register_constraint "wd" "rs6000_vector_reg_class[V2DFmode]"
+(define_register_constraint "wd" "rs6000_constraints[RS6000_CONSTRAINT_wd]"
   "@internal")
 
 ;; vector float (V4SF)
-(define_register_constraint "wf" "rs6000_vector_reg_class[V4SFmode]"
+(define_register_constraint "wf" "rs6000_constraints[RS6000_CONSTRAINT_wf]"
   "@internal")
 
 ;; scalar double (DF)
-(define_register_constraint "ws" "rs6000_vector_reg_class[DFmode]"
+(define_register_constraint "ws" "rs6000_constraints[RS6000_CONSTRAINT_ws]"
   "@internal")
 
 ;; any VSX register
-(define_register_constraint "wa" "rs6000_vsx_reg_class"
+(define_register_constraint "wa" "rs6000_constraints[RS6000_CONSTRAINT_wa]"
   "@internal")
 
 ;; Altivec style load/store that ignores the bottom bits of the address

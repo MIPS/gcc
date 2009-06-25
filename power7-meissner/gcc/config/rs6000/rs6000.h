@@ -1324,9 +1324,20 @@ extern enum reg_class rs6000_regno_regclass[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) rs6000_regno_regclass[(REGNO)]
 #endif
 
-/* Vector register classes.  */
-extern enum reg_class rs6000_vector_reg_class[];
-extern enum reg_class rs6000_vsx_reg_class;
+/* Register classes for various constraints that are based on the target
+   switches.  */
+enum r6000_reg_class_enum {
+  RS6000_CONSTRAINT_d,		/* fpr registers for double values */
+  RS6000_CONSTRAINT_f,		/* fpr registers for single values */
+  RS6000_CONSTRAINT_v,		/* Altivec registers */
+  RS6000_CONSTRAINT_wa,		/* Any VSX register */
+  RS6000_CONSTRAINT_wd,		/* VSX register for V2DF */
+  RS6000_CONSTRAINT_wf,		/* VSX register for V4SF */
+  RS6000_CONSTRAINT_ws,		/* VSX register for DF */
+  RS6000_CONSTRAINT_MAX
+};
+
+extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS

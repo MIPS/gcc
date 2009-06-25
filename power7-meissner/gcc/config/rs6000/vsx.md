@@ -70,7 +70,7 @@
 			 (V2DI  "wd")
 			 (V2DF  "wd")
 			 (DF    "ws")
-			 (SF	"f")
+			 (SF	"d")
 			 (TI    "wd")])
 
 ;; Map the register class used for float<->int conversions
