@@ -34,10 +34,10 @@ EXEEXT=
 toollib_PROGRAMS = gcc4net.dll
 toollib2_PROGRAMS = gcc4net.dll
 
-gcc4net_dll_SOURCES=gcc4net.cs
+gcc4net_dll_SOURCES= runtime.cs crt.cs cqualifier.cs linker.cs jitsupport.cs complex.cs vector.cs
 
-gcc4net.dll: gcc4net.cs
-	$(MCS) $< -unsafe -target:library -out:$@
+gcc4net.dll: $(gcc4net_dll_SOURCES)
+	$(MCS) $^ -unsafe -target:library -out:$@
 
 # No install-html or install-pdf support in automake yet
 .PHONY: install-html install-pdf

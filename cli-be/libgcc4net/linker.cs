@@ -1,0 +1,81 @@
+/* Attributes to encode file type and information needed by the linker
+
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Contributed by STMicroelectronics
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
+
+Authors:
+   Andrea Bona
+   Roberto Costa
+   Andrea Ornstein
+   Erven Rohou
+   Gabriele Svelto
+
+Contact information at STMicroelectronics:
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
+*/
+
+using System;
+
+namespace gcc4net {
+
+    namespace C_Attributes {
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class CObjectFile : Attribute {
+            public CObjectFile () { }
+        }
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class CExecutable : Attribute {
+            public CExecutable () { }
+        }
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class CStaticLibrary : Attribute {
+            public CStaticLibrary () { }
+        }
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class CDynamicLibrary : Attribute {
+            public CDynamicLibrary () { }
+        }
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class MultiThreaded : Attribute {
+            public MultiThreaded () { }
+        }
+        [AttributeUsage (AttributeTargets.Method)]
+        public sealed class Initializer : Attribute {
+            public Initializer () { }
+        }
+        [AttributeUsage (AttributeTargets.Method)]
+        public sealed class Finalizer : Attribute {
+            public Finalizer () { }
+        }
+        [AttributeUsage (AttributeTargets.Struct)]
+        public sealed class ConstStringType : Attribute {
+            public ConstStringType () { }
+        }
+        [AttributeUsage (AttributeTargets.Struct)]
+        public sealed class ArrayType : Attribute {
+            public ArrayType () { }
+        }
+        [AttributeUsage (AttributeTargets.Struct)]
+        public sealed class IncompleteType : Attribute {
+            public IncompleteType () { }
+        }
+    }
+
+}

@@ -2,7 +2,7 @@
 # 
 # aclocal -I .. -I ../config && autoconf && automake
 
-#   Copyright (C) 2007 Free Software Foundation, Inc.
+#   Copyright (C) 2007-2009 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,7 +31,7 @@
 
 AC_PREREQ(2.59)
 AC_INIT(libgcc4net, 0.1)
-AC_CONFIG_SRCDIR(gcc4net.cs)
+AC_CONFIG_SRCDIR(runtime.cs)
 
 AM_INIT_AUTOMAKE([1.9.5 foreign])
 
