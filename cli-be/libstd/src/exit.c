@@ -65,7 +65,7 @@ LIBSTD_LPROTO_IMPL(void, exit, int status)
      * all open streams are closed,
      * all files created by the tmpfile function are removed.
      */
-    LIBSTD_LNAME(__io_ftable_close_all());
+    LIBSTD_LNAME(__io_ftable_close_all)();
 
     /* Giving control back to host */
     LIBSTD_HNAME(exit)(status);
