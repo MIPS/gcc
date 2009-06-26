@@ -1,6 +1,6 @@
 2009-06-16  Martin Jambor  <mjambor@suse.cz>
 
-	* tree-sra.c (find_param_candidates): Allow TREE_ADDRESSABLE types.
+	* tree-sra.c (find_param_candidates): Allow also TREE_ADDRESSABLE types.
 	* ipa-prop.c (ipa_modify_call_arguments): Make
 	force_gimple_operand_gsi return a register or invariant only for
 	gimple_reg_types.
