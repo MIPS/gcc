@@ -3592,7 +3592,8 @@ target-types.h target-gtypes.h: Makefile
 	echo '  } cumulative_args_u;' >> $@
 	echo 'typedef union GTY (())' >> $@
 	echo '  {' >> $@
-	echo '    struct machine_function GTY ((tag ("TARGET_NUM"))) _mf;' >> $@
+	echo '    struct machine_function *GTY ((tag ("TARGET_NUM"))) _mf;' \
+		>> $@
 	echo '  } machine_function_u;' >> $@
 endif # !EXTRA_TARGETS
 EXTRA_OBJS := $(EXTRA_OBJS) \
