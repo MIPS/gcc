@@ -1709,6 +1709,22 @@ create_function_arglist (gfc_symbol * sym)
 	  gfc_finish_decl (length);
 
 	  /* Remember the passed value.  */
+          if (f->sym->ts.cl->passed_length != NULL)
+            {
+	      /* This can happen if the same type is used for multiple
+		 arguments. We need to copy cl as otherwise
+		 cl->passed_length gets overwritten.  */
+	      gfc_charlen *cl, *cl2;
+	      cl = f->sym->ts.cl;
+	      f->sym->ts.cl = gfc_get_charlen();
+	      f->sym->ts.cl->length = cl->length;
+	      f->sym->ts.cl->backend_decl = cl->backend_decl;
+	      f->sym->ts.cl->length_from_typespec = cl->length_from_typespec;
+	      f->sym->ts.cl->resolved = cl->resolved;
+	      cl2 = f->sym->ts.cl->next;
+	      f->sym->ts.cl->next = cl;
+              cl->next = cl2;
+            }
 	  f->sym->ts.cl->passed_length = length;
 
 	  /* Use the passed value for assumed length variables.  */
@@ -3819,7 +3835,11 @@ add_argument_checking (stmtblock_t *block, gfc_symbol *sym)
 
 	/* For POINTER, ALLOCATABLE and assumed-shape dummy arguments, the
 	   string lengths must match exactly.  Otherwise, it is only required
-	   that the actual string length is *at least* the expected one.  */
+	   that the actual string length is *at least* the expected one.
+	   Sequence association allows for a mismatch of the string length
+	   if the actual argument is (part of) an array, but only if the
+	   dummy argument is an array. (See "Sequence association" in
+	   Section 12.4.1.4 for F95 and 12.4.1.5 for F2003.)  */
 	if (fsym->attr.pointer || fsym->attr.allocatable
 	    || (fsym->as && fsym->as->type == AS_ASSUMED_SHAPE))
 	  {
@@ -3827,6 +3847,8 @@ add_argument_checking (stmtblock_t *block, gfc_symbol *sym)
 	    message = _("Actual string length does not match the declared one"
 			" for dummy argument '%s' (%ld/%ld)");
 	  }
+	else if (fsym->as && fsym->as->rank != 0)
+	  continue;
 	else
 	  {
 	    comparison = LT_EXPR;

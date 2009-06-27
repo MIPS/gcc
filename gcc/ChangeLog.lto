@@ -1,3 +1,10 @@
+2009-06-27  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @148985.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-06-19  Diego Novillo  <dnovillo@google.com>
 
 	* lto-cgraph.c: Remove code guarded by #ifdef LTO_STREAM_DEBUGGING.

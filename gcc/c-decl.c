@@ -126,15 +126,6 @@ static GTY(()) struct stmt_tree_s c_stmt_tree;
 tree c_break_label;
 tree c_cont_label;
 
-/* True if we are currently parsing the fields of a struct or
-   union.  */
-
-static bool in_struct;
-
-/* A list of types defined in the current struct or union.  */
-
-static VEC(tree,heap) *struct_types;
-
 /* Linked list of TRANSLATION_UNIT_DECLS for the translation units
    included in this invocation.  Note that the current translation
    unit is not included in this list.  */
@@ -188,7 +179,7 @@ bool c_override_global_bindings_to_false;
    suppress further errors about that identifier in the current
    function.
 
-   The ->type field stores the type of the declaration in this scope;
+   The ->u.type field stores the type of the declaration in this scope;
    if NULL, the type is the type of the ->decl field.  This is only of
    relevance for objects with external or internal linkage which may
    be redeclared in inner scopes, forming composite types that only
@@ -197,6 +188,9 @@ bool c_override_global_bindings_to_false;
    object, visible or not.  The ->inner_comp field (used only at file
    scope) stores whether an incomplete array type at file scope was
    completed at an inner scope to an array size other than 1.
+
+   The ->u.label field is used for labels.  It points to a structure
+   which stores additional information used for warnings.
 
    The depth field is copied from the scope structure that holds this
    decl.  It is used to preserve the proper ordering of the ->shadowed
@@ -208,8 +202,11 @@ bool c_override_global_bindings_to_false;
    invisible bit true.  */
 
 struct GTY((chain_next ("%h.prev"))) c_binding {
+  union GTY(()) {		/* first so GTY desc can use decl */
+    tree GTY((tag ("0"))) type; /* the type in this scope */
+    struct c_label_vars * GTY((tag ("1"))) label; /* for warnings */
+  } GTY((desc ("TREE_CODE (%0.decl) == LABEL_DECL"))) u;
   tree decl;			/* the decl bound */
-  tree type;			/* the type in this scope */
   tree id;			/* the identifier it's bound to */
   struct c_binding *prev;	/* the previous decl in this scope */
   struct c_binding *shadowed;	/* the innermost decl shadowed by this one */
@@ -217,7 +214,7 @@ struct GTY((chain_next ("%h.prev"))) c_binding {
   BOOL_BITFIELD invisible : 1;  /* normal lookup should ignore this binding */
   BOOL_BITFIELD nested : 1;     /* do not set DECL_CONTEXT when popping */
   BOOL_BITFIELD inner_comp : 1; /* incomplete array completed in inner scope */
-  /* one free bit */
+  BOOL_BITFIELD in_struct : 1;	/* currently defined as struct field */
   location_t locus;		/* location for nested bindings */
 };
 #define B_IN_SCOPE(b1, b2) ((b1)->depth == (b2)->depth)
@@ -264,6 +261,67 @@ union GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
 			desc ("tree_node_structure (&%h)")))
     generic;
   struct lang_identifier GTY ((tag ("1"))) identifier;
+};
+
+/* Track bindings and other things that matter for goto warnings.  For
+   efficiency, we do not gather all the decls at the point of
+   definition.  Instead, we point into the bindings structure.  As
+   scopes are popped, we update these structures and gather the decls
+   that matter at that time.  */
+
+struct GTY(()) c_spot_bindings {
+  /* The currently open scope which holds bindings defined when the
+     label was defined or the goto statement was found.  */
+  struct c_scope *scope;
+  /* The bindings in the scope field which were defined at the point
+     of the label or goto.  This lets us look at older or newer
+     bindings in the scope, as appropriate.  */
+  struct c_binding *bindings_in_scope;
+  /* The number of statement expressions that have started since this
+     label or goto statement was defined.  This is zero if we are at
+     the same statement expression level.  It is positive if we are in
+     a statement expression started since this spot.  It is negative
+     if this spot was in a statement expression and we have left
+     it.  */
+  int stmt_exprs;
+  /* Whether we started in a statement expression but are no longer in
+     it.  This is set to true if stmt_exprs ever goes negative.  */
+  bool left_stmt_expr;
+};
+
+/* This structure is used to keep track of bindings seen when a goto
+   statement is defined.  This is only used if we see the goto
+   statement before we see the label.  */
+
+struct GTY(()) c_goto_bindings {
+  /* The location of the goto statement.  */
+  location_t loc;
+  /* The bindings of the goto statement.  */
+  struct c_spot_bindings goto_bindings;
+};
+
+typedef struct c_goto_bindings *c_goto_bindings_p;
+DEF_VEC_P(c_goto_bindings_p);
+DEF_VEC_ALLOC_P(c_goto_bindings_p,gc);
+
+/* The additional information we keep track of for a label binding.
+   These fields are updated as scopes are popped.  */
+
+struct GTY(()) c_label_vars {
+  /* The shadowed c_label_vars, when one label shadows another (which
+     can only happen using a __label__ declaration).  */
+  struct c_label_vars *shadowed;
+  /* The bindings when the label was defined.  */
+  struct c_spot_bindings label_bindings;
+  /* A list of decls that we care about: decls about which we should
+     warn if a goto branches to this label from later in the function.
+     Decls are added to this list as scopes are popped.  We only add
+     the decls that matter.  */
+  VEC(tree,gc) *decls_in_scope;
+  /* A list of goto statements to this label.  This is only used for
+     goto statements seen before the label was defined, so that we can
+     issue appropriate warnings for them.  */
+  VEC(c_goto_bindings_p,gc) *gotos;
 };
 
 /* Each c_scope structure describes the complete contents of one
@@ -354,6 +412,11 @@ struct GTY((chain_next ("%h.outer"))) c_scope {
 
   /* True means that an unsuffixed float constant is _Decimal64.  */
   BOOL_BITFIELD float_const_decimal64 : 1;
+
+  /* True if this scope has any label bindings.  This is used to speed
+     up searching for labels when popping scopes, particularly since
+     labels are normally only found at function scope.  */
+  BOOL_BITFIELD has_label_bindings : 1;
 };
 
 /* The scope currently in effect.  */
@@ -441,6 +504,34 @@ static bool keep_next_level_flag;
 
 static bool next_is_function_body;
 
+/* A VEC of pointers to c_binding structures.  */
+
+typedef struct c_binding *c_binding_ptr;
+DEF_VEC_P(c_binding_ptr);
+DEF_VEC_ALLOC_P(c_binding_ptr,heap);
+
+/* Information that we keep for a struct or union while it is being
+   parsed.  */
+
+struct c_struct_parse_info
+{
+  /* If warn_cxx_compat, a list of types defined within this
+     struct.  */
+  VEC(tree,heap) *struct_types;
+  /* If warn_cxx_compat, a list of field names which have bindings,
+     and which are defined in this struct, but which are not defined
+     in any enclosing struct.  This is used to clear the in_struct
+     field of the c_bindings structure.  */
+  VEC(c_binding_ptr,heap) *fields;
+  /* If warn_cxx_compat, a list of typedef names used when defining
+     fields in this struct.  */
+  VEC(tree,heap) *typedefs_seen;
+};
+
+/* Information for the struct or union currently being parsed, or
+   NULL if not parsing a struct or union.  */
+static struct c_struct_parse_info *struct_parse_info;
+
 /* Forward declarations.  */
 static tree lookup_name_in_scope (tree, struct c_scope *);
 static tree c_make_fname_decl (location_t, tree, int);
@@ -516,9 +607,10 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible,
   b->invisible = invisible;
   b->nested = nested;
   b->inner_comp = 0;
+  b->in_struct = 0;
   b->locus = locus;
 
-  b->type = 0;
+  b->u.type = NULL;
 
   b->prev = scope->bindings;
   scope->bindings = b;
@@ -569,6 +661,24 @@ free_binding_and_advance (struct c_binding *b)
   return prev;
 }
 
+/* Bind a label.  Like bind, but skip fields which aren't used for
+   labels, and add the LABEL_VARS value.  */
+static void
+bind_label (tree name, tree label, struct c_scope *scope,
+	    struct c_label_vars *label_vars)
+{
+  struct c_binding *b;
+
+  bind (name, label, scope, /*invisible=*/false, /*nested=*/false,
+	UNKNOWN_LOCATION);
+
+  scope->has_label_bindings = true;
+
+  b = scope->bindings;
+  gcc_assert (b->decl == label);
+  label_vars->shadowed = b->u.label;
+  b->u.label = label_vars;
+}
 
 /* Hook called at end of compilation to assume 1 elt
    for a file-scope tentative array defn that wasn't complete before.  */
@@ -639,6 +749,73 @@ check_inline_statics (void)
 	  }
     }
   c_inline_statics = NULL;
+}
+
+/* Fill in a c_spot_bindings structure.  If DEFINING is true, set it
+   for the current state, otherwise set it to uninitialized.  */
+
+static void
+set_spot_bindings (struct c_spot_bindings *p, bool defining)
+{
+  if (defining)
+    {
+      p->scope = current_scope;
+      p->bindings_in_scope = current_scope->bindings;
+    }
+  else
+    {
+      p->scope = NULL;
+      p->bindings_in_scope = NULL;
+    }
+  p->stmt_exprs = 0;
+  p->left_stmt_expr = false;
+}
+
+/* Return true if we will want to say something if a goto statement
+   crosses DECL.  */
+
+static bool
+decl_jump_unsafe (tree decl)
+{
+  if (decl == error_mark_node || TREE_TYPE (decl) == error_mark_node)
+    return false;
+
+  /* Always warn about crossing variably modified types.  */
+  if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == TYPE_DECL)
+      && variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
+    return true;
+
+  /* Otherwise, only warn if -Wgoto-misses-init and this is an
+     initialized automatic decl.  */
+  if (warn_jump_misses_init
+      && TREE_CODE (decl) == VAR_DECL
+      && !TREE_STATIC (decl)
+      && DECL_INITIAL (decl) != NULL_TREE)
+    return true;
+
+  return false;
+}
+
+/* Update spot bindings P as we pop out of SCOPE.  Return true if we
+   should push decls for a label.  */
+
+static bool
+update_spot_bindings (struct c_scope *scope, struct c_spot_bindings *p)
+{
+  if (p->scope != scope)
+    {
+      /* This label or goto is defined in some other scope, or it is a
+	 label which is not yet defined.  There is nothing to
+	 update.  */
+      return false;
+    }
+
+  /* Adjust the spot bindings to refer to the bindings already defined
+     in the enclosing scope.  */
+  p->scope = scope->outer;
+  p->bindings_in_scope = p->scope->bindings;
+
+  return true;
 }
 
 /* The Objective-C front-end often needs to determine the current scope.  */
@@ -784,6 +961,67 @@ push_scope (void)
     }
 }
 
+/* This is called when we are leaving SCOPE.  For each label defined
+   in SCOPE, add any appropriate decls to its decls_in_scope fields.
+   These are the decls whose initialization will be skipped by a goto
+   later in the function.  */
+
+static void
+update_label_decls (struct c_scope *scope)
+{
+  struct c_scope *s;
+
+  s = scope;
+  while (s != NULL)
+    {
+      if (s->has_label_bindings)
+	{
+	  struct c_binding *b;
+
+	  for (b = s->bindings; b != NULL; b = b->prev)
+	    {
+	      struct c_label_vars *label_vars;
+	      struct c_binding *b1;
+	      unsigned int ix;
+	      struct c_goto_bindings *g;
+
+	      if (TREE_CODE (b->decl) != LABEL_DECL)
+		continue;
+	      label_vars = b->u.label;
+
+	      b1 = label_vars->label_bindings.bindings_in_scope;
+	      if (update_spot_bindings (scope, &label_vars->label_bindings))
+		{
+		  /* This label is defined in this scope.  */
+		  for (; b1 != NULL;  b1 = b1->prev)
+		    {
+		      /* A goto from later in the function to this
+			 label will never see the initialization of
+			 B1, if any.  Save it to issue a warning if
+			 needed.  */
+		      if (decl_jump_unsafe (b1->decl))
+			VEC_safe_push (tree, gc, label_vars->decls_in_scope,
+				       b1->decl);
+		    }
+		}
+
+	      /* Update the bindings of any goto statements associated
+		 with this label.  */
+	      for (ix = 0;
+		   VEC_iterate (c_goto_bindings_p, label_vars->gotos, ix, g);
+		   ++ix)
+		update_spot_bindings (scope, &g->goto_bindings);
+	    }
+	}
+
+      /* Don't search beyond the current function.  */
+      if (s == current_function_scope)
+	break;
+
+      s = s->outer;
+    }
+}
+
 /* Set the TYPE_CONTEXT of all of TYPE's variants to CONTEXT.  */
 
 static void
@@ -809,7 +1047,7 @@ pop_scope (void)
   bool functionbody = scope->function_body;
   bool keep = functionbody || scope->keep || scope->bindings;
 
-  c_end_vm_scope (scope->depth);
+  update_label_decls (scope);
 
   /* If appropriate, create a BLOCK to record the decls for the life
      of this function.  */
@@ -874,6 +1112,10 @@ pop_scope (void)
 	  BLOCK_VARS (block) = p;
 	  gcc_assert (I_LABEL_BINDING (b->id) == b);
 	  I_LABEL_BINDING (b->id) = b->shadowed;
+
+	  /* Also pop back to the shadowed label_vars.  */
+	  release_tree_vector (b->u.label->decls_in_scope);
+	  b->u.label = b->u.label->shadowed;
 	  break;
 
 	case ENUMERAL_TYPE:
@@ -999,8 +1241,8 @@ pop_scope (void)
 	    {
 	      gcc_assert (I_SYMBOL_BINDING (b->id) == b);
 	      I_SYMBOL_BINDING (b->id) = b->shadowed;
-	      if (b->shadowed && b->shadowed->type)
-		TREE_TYPE (b->shadowed->decl) = b->shadowed->type;
+	      if (b->shadowed && b->shadowed->u.type)
+		TREE_TYPE (b->shadowed->decl) = b->shadowed->u.type;
 	    }
 	  break;
 
@@ -1087,7 +1329,91 @@ pop_file_scope (void)
   maybe_apply_pending_pragma_weaks ();
   cgraph_finalize_compilation_unit ();
 }
+
+/* Adjust the bindings for the start of a statement expression.  */
 
+void
+c_bindings_start_stmt_expr (struct c_spot_bindings* switch_bindings)
+{
+  struct c_scope *scope;
+
+  for (scope = current_scope; scope != NULL; scope = scope->outer)
+    {
+      struct c_binding *b;
+
+      if (!scope->has_label_bindings)
+	continue;
+
+      for (b = scope->bindings; b != NULL; b = b->prev)
+	{
+	  struct c_label_vars *label_vars;
+	  unsigned int ix;
+	  struct c_goto_bindings *g;
+
+	  if (TREE_CODE (b->decl) != LABEL_DECL)
+	    continue;
+	  label_vars = b->u.label;
+	  ++label_vars->label_bindings.stmt_exprs;
+	  for (ix = 0;
+	       VEC_iterate (c_goto_bindings_p, label_vars->gotos, ix, g);
+	       ++ix)
+	    ++g->goto_bindings.stmt_exprs;
+	}
+    }
+
+  if (switch_bindings != NULL)
+    ++switch_bindings->stmt_exprs;
+}
+
+/* Adjust the bindings for the end of a statement expression.  */
+
+void
+c_bindings_end_stmt_expr (struct c_spot_bindings *switch_bindings)
+{
+  struct c_scope *scope;
+
+  for (scope = current_scope; scope != NULL; scope = scope->outer)
+    {
+      struct c_binding *b;
+
+      if (!scope->has_label_bindings)
+	continue;
+
+      for (b = scope->bindings; b != NULL; b = b->prev)
+	{
+	  struct c_label_vars *label_vars;
+	  unsigned int ix;
+	  struct c_goto_bindings *g;
+
+	  if (TREE_CODE (b->decl) != LABEL_DECL)
+	    continue;
+	  label_vars = b->u.label;
+	  --label_vars->label_bindings.stmt_exprs;
+	  if (label_vars->label_bindings.stmt_exprs < 0)
+	    {
+	      label_vars->label_bindings.left_stmt_expr = true;
+	      label_vars->label_bindings.stmt_exprs = 0;
+	    }
+	  for (ix = 0;
+	       VEC_iterate (c_goto_bindings_p, label_vars->gotos, ix, g);
+	       ++ix)
+	    {
+	      --g->goto_bindings.stmt_exprs;
+	      if (g->goto_bindings.stmt_exprs < 0)
+		{
+		  g->goto_bindings.left_stmt_expr = true;
+		  g->goto_bindings.stmt_exprs = 0;
+		}
+	    }
+	}
+    }
+
+  if (switch_bindings != NULL)
+    {
+      --switch_bindings->stmt_exprs;
+      gcc_assert (switch_bindings->stmt_exprs >= 0);
+    }
+}
 
 /* Push a definition or a declaration of struct, union or enum tag "name".
    "type" should be the type node.
@@ -1665,6 +1991,18 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 
 	  return false;
 	}
+
+      /* C++ does not permit a decl to appear multiple times at file
+	 scope.  */
+      if (warn_cxx_compat
+	  && DECL_FILE_SCOPE_P (newdecl)
+	  && !DECL_EXTERNAL (newdecl)
+	  && !DECL_EXTERNAL (olddecl))
+	warned |= warning_at (DECL_SOURCE_LOCATION (newdecl),
+			      OPT_Wc___compat,
+			      ("duplicate declaration of %qD is "
+			       "invalid in C++"),
+			      newdecl);
     }
 
   /* warnings */
@@ -2017,13 +2355,13 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	}
     }
 
-   extern_changed = DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl);
+  extern_changed = DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl);
 
-   /* Merge the USED information.  */
-   if (TREE_USED (olddecl))
-     TREE_USED (newdecl) = 1;
-   else if (TREE_USED (newdecl))
-     TREE_USED (olddecl) = 1;
+  /* Merge the USED information.  */
+  if (TREE_USED (olddecl))
+    TREE_USED (newdecl) = 1;
+  else if (TREE_USED (newdecl))
+    TREE_USED (olddecl) = 1;
 
   /* Copy most of the decl-specific fields of NEWDECL into OLDDECL.
      But preserve OLDDECL's DECL_UID, DECL_CONTEXT and
@@ -2183,12 +2521,6 @@ pushdecl (tree x)
 	  || DECL_INITIAL (x) || !DECL_EXTERNAL (x)))
     DECL_CONTEXT (x) = current_function_decl;
 
-  /* If this is of variably modified type, prevent jumping into its
-     scope.  */
-  if ((TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == TYPE_DECL)
-      && variably_modified_type_p (TREE_TYPE (x), NULL_TREE))
-    c_begin_vm_scope (scope->depth);
-
   /* Anonymous decls are just inserted in the scope.  */
   if (!name)
     {
@@ -2227,8 +2559,8 @@ pushdecl (tree x)
 	  if (b_ext)
 	    {
 	      b_use = b_ext;
-	      if (b_use->type)
-		TREE_TYPE (b_use->decl) = b_use->type;
+	      if (b_use->u.type)
+		TREE_TYPE (b_use->decl) = b_use->u.type;
 	    }
 	}
       if (duplicate_decls (x, b_use->decl))
@@ -2242,13 +2574,13 @@ pushdecl (tree x)
 		thistype = composite_type (vistype, type);
 	      else
 		thistype = TREE_TYPE (b_use->decl);
-	      b_use->type = TREE_TYPE (b_use->decl);
+	      b_use->u.type = TREE_TYPE (b_use->decl);
 	      if (TREE_CODE (b_use->decl) == FUNCTION_DECL
 		  && DECL_BUILT_IN (b_use->decl))
 		thistype
 		  = build_type_attribute_variant (thistype,
 						  TYPE_ATTRIBUTES
-						  (b_use->type));
+						  (b_use->u.type));
 	      TREE_TYPE (b_use->decl) = thistype;
 	    }
 	  return b_use->decl;
@@ -2299,7 +2631,7 @@ pushdecl (tree x)
 	     their scopes will not have been re-entered.  */
 	  if (DECL_P (b->decl) && DECL_FILE_SCOPE_P (b->decl) && !type_saved)
 	    {
-	      b->type = TREE_TYPE (b->decl);
+	      b->u.type = TREE_TYPE (b->decl);
 	      type_saved = true;
 	    }
 	  if (B_IN_FILE_SCOPE (b)
@@ -2325,8 +2657,8 @@ pushdecl (tree x)
 	 After the consistency checks, it will be reset to the
 	 composite of the visible types only.  */
       if (b && (TREE_PUBLIC (x) || same_translation_unit_p (x, b->decl))
-	  && b->type)
-	TREE_TYPE (b->decl) = b->type;
+	  && b->u.type)
+	TREE_TYPE (b->decl) = b->u.type;
 
       /* The point of the same_translation_unit_p check here is,
 	 we want to detect a duplicate decl for a construct like
@@ -2347,11 +2679,11 @@ pushdecl (tree x)
 	    }
 	  else
 	    thistype = type;
-	  b->type = TREE_TYPE (b->decl);
+	  b->u.type = TREE_TYPE (b->decl);
 	  if (TREE_CODE (b->decl) == FUNCTION_DECL && DECL_BUILT_IN (b->decl))
 	    thistype
 	      = build_type_attribute_variant (thistype,
-					      TYPE_ATTRIBUTES (b->type));
+					      TYPE_ATTRIBUTES (b->u.type));
 	  TREE_TYPE (b->decl) = thistype;
 	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true,
 		locus);
@@ -2501,8 +2833,8 @@ implicitly_declare (location_t loc, tree functionid)
       else
 	{
 	  tree newtype = default_function_type;
-	  if (b->type)
-	    TREE_TYPE (decl) = b->type;
+	  if (b->u.type)
+	    TREE_TYPE (decl) = b->u.type;
 	  /* Implicit declaration of a function already declared
 	     (somehow) in a different scope, or as a built-in.
 	     If this is the first time this has happened, warn;
@@ -2532,7 +2864,7 @@ implicitly_declare (location_t loc, tree functionid)
 		  locate_old_decl (decl);
 		}
 	    }
-	  b->type = TREE_TYPE (decl);
+	  b->u.type = TREE_TYPE (decl);
 	  TREE_TYPE (decl) = newtype;
 	  bind (functionid, decl, current_scope,
 		/*invisible=*/false, /*nested=*/true,
@@ -2604,15 +2936,25 @@ undeclared_variable (location_t loc, tree id)
 }
 
 /* Subroutine of lookup_label, declare_label, define_label: construct a
-   LABEL_DECL with all the proper frills.  */
+   LABEL_DECL with all the proper frills.  Also create a struct
+   c_label_vars initialized for the current scope.  */
 
 static tree
-make_label (location_t location, tree name)
+make_label (location_t location, tree name, bool defining,
+	    struct c_label_vars **p_label_vars)
 {
   tree label = build_decl (location, LABEL_DECL, name, void_type_node);
+  struct c_label_vars *label_vars;
 
   DECL_CONTEXT (label) = current_function_decl;
   DECL_MODE (label) = VOIDmode;
+
+  label_vars = GGC_NEW (struct c_label_vars);
+  label_vars->shadowed = NULL;
+  set_spot_bindings (&label_vars->label_bindings, defining);
+  label_vars->decls_in_scope = make_tree_vector ();
+  label_vars->gotos = VEC_alloc (c_goto_bindings_p, gc, 0);
+  *p_label_vars = label_vars;
 
   return label;
 }
@@ -2626,6 +2968,7 @@ tree
 lookup_label (tree name)
 {
   tree label;
+  struct c_label_vars *label_vars;
 
   if (current_function_decl == 0)
     {
@@ -2643,17 +2986,91 @@ lookup_label (tree name)
       /* If the label has only been declared, update its apparent
 	 location to point here, for better diagnostics if it
 	 turns out not to have been defined.  */
-      if (!TREE_USED (label))
+      if (DECL_INITIAL (label) == NULL_TREE)
 	DECL_SOURCE_LOCATION (label) = input_location;
       return label;
     }
 
   /* No label binding for that identifier; make one.  */
-  label = make_label (input_location, name);
+  label = make_label (input_location, name, false, &label_vars);
 
   /* Ordinary labels go in the current function scope.  */
-  bind (name, label, current_function_scope,
-	/*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
+  bind_label (name, label, current_function_scope, label_vars);
+
+  return label;
+}
+
+/* Issue a warning about DECL for a goto statement at GOTO_LOC going
+   to LABEL.  */
+
+static void
+warn_about_goto (location_t goto_loc, tree label, tree decl)
+{
+  if (variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
+    error_at (goto_loc,
+	      "jump into scope of identifier with variably modified type");
+  else
+    warning_at (goto_loc, OPT_Wjump_misses_init,
+		"jump skips variable initialization");
+  inform (DECL_SOURCE_LOCATION (label), "label %qD defined here", label);
+  inform (DECL_SOURCE_LOCATION (decl), "%qD declared here", decl);
+}
+
+/* Look up a label because of a goto statement.  This is like
+   lookup_label, but also issues any appropriate warnings.  */
+
+tree
+lookup_label_for_goto (location_t loc, tree name)
+{
+  tree label;
+  struct c_label_vars *label_vars;
+  unsigned int ix;
+  tree decl;
+
+  label = lookup_label (name);
+  if (label == NULL_TREE)
+    return NULL_TREE;
+
+  /* If we are jumping to a different function, we can't issue any
+     useful warnings.  */
+  if (DECL_CONTEXT (label) != current_function_decl)
+    {
+      gcc_assert (C_DECLARED_LABEL_FLAG (label));
+      return label;
+    }
+
+  label_vars = I_LABEL_BINDING (name)->u.label;
+
+  /* If the label has not yet been defined, then push this goto on a
+     list for possible later warnings.  */
+  if (label_vars->label_bindings.scope == NULL)
+    {
+      struct c_goto_bindings *g;
+
+      g = GGC_NEW (struct c_goto_bindings);
+      g->loc = loc;
+      set_spot_bindings (&g->goto_bindings, true);
+      VEC_safe_push (c_goto_bindings_p, gc, label_vars->gotos, g);
+      return label;
+    }
+
+  /* If there are any decls in label_vars->decls_in_scope, then this
+     goto has missed the declaration of the decl.  This happens for a
+     case like
+       int i = 1;
+      lab:
+       ...
+       goto lab;
+     Issue a warning or error.  */
+  for (ix = 0; VEC_iterate (tree, label_vars->decls_in_scope, ix, decl); ++ix)
+    warn_about_goto (loc, label, decl);
+
+  if (label_vars->label_bindings.left_stmt_expr)
+    {
+      error_at (loc, "jump into statement expression");
+      inform (DECL_SOURCE_LOCATION (label), "label %qD defined here", label);
+    }
+
   return label;
 }
 
@@ -2666,6 +3083,7 @@ declare_label (tree name)
 {
   struct c_binding *b = I_LABEL_BINDING (name);
   tree label;
+  struct c_label_vars *label_vars;
 
   /* Check to make sure that the label hasn't already been declared
      at this scope */
@@ -2678,13 +3096,72 @@ declare_label (tree name)
       return b->decl;
     }
 
-  label = make_label (input_location, name);
+  label = make_label (input_location, name, false, &label_vars);
   C_DECLARED_LABEL_FLAG (label) = 1;
 
   /* Declared labels go in the current scope.  */
-  bind (name, label, current_scope,
-	/*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
+  bind_label (name, label, current_scope, label_vars);
+
   return label;
+}
+
+/* When we define a label, issue any appropriate warnings if there are
+   any gotos earlier in the function which jump to this label.  */
+
+static void
+check_earlier_gotos (tree label, struct c_label_vars* label_vars)
+{
+  unsigned int ix;
+  struct c_goto_bindings *g;
+
+  for (ix = 0;
+       VEC_iterate (c_goto_bindings_p, label_vars->gotos, ix, g);
+       ++ix)
+    {
+      struct c_binding *b;
+      struct c_scope *scope;
+
+      /* We have a goto to this label.  The goto is going forward.  In
+	 g->scope, the goto is going to skip any binding which was
+	 defined after g->bindings_in_scope.  */
+      for (b = g->goto_bindings.scope->bindings;
+	   b != g->goto_bindings.bindings_in_scope;
+	   b = b->prev)
+	{
+	  if (decl_jump_unsafe (b->decl))
+	    warn_about_goto (g->loc, label, b->decl);
+	}
+
+      /* We also need to warn about decls defined in any scopes
+	 between the scope of the label and the scope of the goto.  */
+      for (scope = label_vars->label_bindings.scope;
+	   scope != g->goto_bindings.scope;
+	   scope = scope->outer)
+	{
+	  gcc_assert (scope != NULL);
+	  if (scope == label_vars->label_bindings.scope)
+	    b = label_vars->label_bindings.bindings_in_scope;
+	  else
+	    b = scope->bindings;
+	  for (; b != NULL; b = b->prev)
+	    {
+	      if (decl_jump_unsafe (b->decl))
+		warn_about_goto (g->loc, label, b->decl);
+	    }
+	}
+
+      if (g->goto_bindings.stmt_exprs > 0)
+	{
+	  error_at (g->loc, "jump into statement expression");
+	  inform (DECL_SOURCE_LOCATION (label), "label %qD defined here",
+		  label);
+	}
+    }
+
+  /* Now that the label is defined, we will issue warnings about
+     subsequent gotos to this label when we see them.  */
+  VEC_truncate (c_goto_bindings_p, label_vars->gotos, 0);
+  label_vars->gotos = NULL;
 }
 
 /* Define a label, specifying the location in the source file.
@@ -2699,7 +3176,6 @@ define_label (location_t location, tree name)
      if there is a containing function with a declared label with
      the same name.  */
   tree label = I_LABEL_DECL (name);
-  struct c_label_list *nlist_se, *nlist_vm;
 
   if (label
       && ((DECL_CONTEXT (label) == current_function_decl
@@ -2713,24 +3189,27 @@ define_label (location_t location, tree name)
     }
   else if (label && DECL_CONTEXT (label) == current_function_decl)
     {
+      struct c_label_vars *label_vars = I_LABEL_BINDING (name)->u.label;
+
       /* The label has been used or declared already in this function,
 	 but not defined.  Update its location to point to this
 	 definition.  */
-      if (C_DECL_UNDEFINABLE_STMT_EXPR (label))
-	error_at (location, "jump into statement expression");
-      if (C_DECL_UNDEFINABLE_VM (label))
-	error_at (location,
-		  "jump into scope of identifier with variably modified type");
       DECL_SOURCE_LOCATION (label) = location;
+      set_spot_bindings (&label_vars->label_bindings, true);
+
+      /* Issue warnings as required about any goto statements from
+	 earlier in the function.  */
+      check_earlier_gotos (label, label_vars);
     }
   else
     {
+      struct c_label_vars *label_vars;
+
       /* No label binding for that identifier; make one.  */
-      label = make_label (location, name);
+      label = make_label (location, name, true, &label_vars);
 
       /* Ordinary labels go in the current function scope.  */
-      bind (name, label, current_function_scope,
-	    /*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
+      bind_label (name, label, current_function_scope, label_vars);
     }
 
   if (!in_system_header && lookup_name (name))
@@ -2738,19 +3217,80 @@ define_label (location_t location, tree name)
 		"traditional C lacks a separate namespace "
 		"for labels, identifier %qE conflicts", name);
 
-  nlist_se = XOBNEW (&parser_obstack, struct c_label_list);
-  nlist_se->next = label_context_stack_se->labels_def;
-  nlist_se->label = label;
-  label_context_stack_se->labels_def = nlist_se;
-
-  nlist_vm = XOBNEW (&parser_obstack, struct c_label_list);
-  nlist_vm->next = label_context_stack_vm->labels_def;
-  nlist_vm->label = label;
-  label_context_stack_vm->labels_def = nlist_vm;
-
   /* Mark label as having been defined.  */
   DECL_INITIAL (label) = error_mark_node;
   return label;
+}
+
+/* Get the bindings for a new switch statement.  This is used to issue
+   warnings as appropriate for jumps from the switch to case or
+   default labels.  */
+
+struct c_spot_bindings *
+c_get_switch_bindings (void)
+{
+  struct c_spot_bindings *switch_bindings;
+
+  switch_bindings = XNEW (struct c_spot_bindings);
+  set_spot_bindings (switch_bindings, true);
+  return switch_bindings;
+}
+
+void
+c_release_switch_bindings (struct c_spot_bindings *bindings)
+{
+  gcc_assert (bindings->stmt_exprs == 0 && !bindings->left_stmt_expr);
+  XDELETE (bindings);
+}
+
+/* This is called at the point of a case or default label to issue
+   warnings about decls as needed.  It returns true if it found an
+   error, not just a warning.  */
+
+bool
+c_check_switch_jump_warnings (struct c_spot_bindings *switch_bindings,
+			      location_t switch_loc, location_t case_loc)
+{
+  bool saw_error;
+  struct c_scope *scope;
+
+  saw_error = false;
+  for (scope = current_scope;
+       scope != switch_bindings->scope;
+       scope = scope->outer)
+    {
+      struct c_binding *b;
+
+      gcc_assert (scope != NULL);
+      for (b = scope->bindings; b != NULL; b = b->prev)
+	{
+	  if (decl_jump_unsafe (b->decl))
+	    {
+	      if (variably_modified_type_p (TREE_TYPE (b->decl), NULL_TREE))
+		{
+		  saw_error = true;
+		  error_at (case_loc,
+			    ("switch jumps into scope of identifier with "
+			     "variably modified type"));
+		}
+	      else
+		warning_at (case_loc, OPT_Wjump_misses_init,
+			    "switch jumps over variable initialization");
+	      inform (switch_loc, "switch starts here");
+	      inform (DECL_SOURCE_LOCATION (b->decl), "%qD declared here",
+		      b->decl);
+	    }
+	}
+    }
+
+  if (switch_bindings->stmt_exprs > 0)
+    {
+      saw_error = true;
+      error_at (case_loc, "switch jumps into statement expression");
+      inform (switch_loc, "switch starts here");
+    }
+
+  return saw_error;
 }
 
 /* Given NAME, an IDENTIFIER_NODE,
@@ -3612,10 +4152,10 @@ finish_decl (tree decl, location_t init_loc, tree init,
 		b_ext = b_ext->shadowed;
 	      if (b_ext)
 		{
-		  if (b_ext->type)
-		    b_ext->type = composite_type (b_ext->type, type);
+		  if (b_ext->u.type)
+		    b_ext->u.type = composite_type (b_ext->u.type, type);
 		  else
-		    b_ext->type = type;
+		    b_ext->u.type = type;
 		}
 	    }
 	  break;
@@ -3823,6 +4363,14 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	  push_cleanup (decl, cleanup, false);
 	}
     }
+
+  if (warn_cxx_compat
+      && TREE_CODE (decl) == VAR_DECL
+      && TREE_READONLY (decl)
+      && !DECL_EXTERNAL (decl)
+      && DECL_INITIAL (decl) == NULL_TREE)
+    warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wc___compat,
+		"uninitialized const %qD is invalid in C++", decl);
 }
 
 /* Given a parsed parameter declaration, decode it into a PARM_DECL.  */
@@ -4204,7 +4752,7 @@ grokdeclarator (const struct c_declarator *declarator,
   tree name = NULL_TREE;
   bool funcdef_flag = false;
   bool funcdef_syntax = false;
-  int size_varies = 0;
+  bool size_varies = false;
   tree decl_attr = declspecs->decl_attr;
   int array_ptr_quals = TYPE_UNQUALIFIED;
   tree array_ptr_attrs = NULL_TREE;
@@ -4298,7 +4846,7 @@ grokdeclarator (const struct c_declarator *declarator,
       type = integer_type_node;
     }
 
-  size_varies = C_TYPE_VARIABLE_SIZE (type);
+  size_varies = C_TYPE_VARIABLE_SIZE (type) != 0;
 
   /* Diagnose defaulting to "int".  */
 
@@ -4631,7 +5179,7 @@ grokdeclarator (const struct c_declarator *declarator,
 				   "variably modified %qE at file scope",
 				   name);
 			else
-			  this_size_varies = size_varies = 1;
+			  this_size_varies = size_varies = true;
 			warn_variable_length_array (name, size);
 		      }
 		  }
@@ -4646,7 +5194,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		    /* Make sure the array size remains visibly
 		       nonconstant even if it is (eg) a const variable
 		       with known value.  */
-		    this_size_varies = size_varies = 1;
+		    this_size_varies = size_varies = true;
 		    warn_variable_length_array (name, size);
 		  }
 
@@ -4718,7 +5266,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		     the field variably modified, not through being
 		     something other than a declaration with function
 		     prototype scope.  */
-		  size_varies = 1;
+		  size_varies = true;
 		else
 		  {
 		    const struct c_declarator *t = declarator;
@@ -4742,7 +5290,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		if (array_parm_vla_unspec_p)
 		  {
 		    itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
-		    size_varies = 1;
+		    size_varies = true;
 		  }
 	      }
 	    else if (decl_context == TYPENAME)
@@ -4756,7 +5304,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		       otherwise be modified below.  */
 		    itype = build_range_type (sizetype, size_zero_node,
 					      NULL_TREE);
-		    size_varies = 1;
+		    size_varies = true;
 		  }
 	      }
 
@@ -4840,7 +5388,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	    if (type == error_mark_node)
 	      continue;
 
-	    size_varies = 0;
+	    size_varies = false;
 
 	    /* Warn about some types functions can't return.  */
 	    if (TREE_CODE (type) == FUNCTION_TYPE)
@@ -4925,7 +5473,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		       "ISO C forbids qualified function types");
 	    if (type_quals)
 	      type = c_build_qualified_type (type, type_quals);
-	    size_varies = 0;
+	    size_varies = false;
 
 	    /* When the pointed-to type involves components of variable size,
 	       care must be taken to ensure that the size evaluation code is
@@ -5111,7 +5659,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	      warning_at (loc, OPT_Wattributes,
 			  "attributes in parameter array declarator ignored");
 
-	    size_varies = 0;
+	    size_varies = false;
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
@@ -5365,6 +5913,19 @@ grokdeclarator (const struct c_declarator *declarator,
   /* This is the earliest point at which we might know the assembler
      name of a variable.  Thus, if it's known before this, die horribly.  */
     gcc_assert (!DECL_ASSEMBLER_NAME_SET_P (decl));
+
+    if (warn_cxx_compat
+	&& TREE_CODE (decl) == VAR_DECL
+	&& TREE_PUBLIC (decl)
+	&& TREE_STATIC (decl)
+	&& (TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE
+	    || TREE_CODE (TREE_TYPE (decl)) == UNION_TYPE
+	    || TREE_CODE (TREE_TYPE (decl)) == ENUMERAL_TYPE)
+	&& TYPE_NAME (TREE_TYPE (decl)) == NULL_TREE)
+      warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wc___compat,
+		  ("non-local variable %qD with anonymous type is "
+		   "questionable in C++"),
+		  decl);
 
     return decl;
   }
@@ -5767,16 +6328,14 @@ xref_tag (enum tree_code code, tree name)
    LOC is the location of the struct's definition.
    CODE says which kind of tag NAME ought to be.
 
-   This stores the current value of the file static IN_STRUCT in
-   *ENCLOSING_IN_STRUCT, and sets IN_STRUCT to true.  Similarly, this
-   sets STRUCT_TYPES in *ENCLOSING_STRUCT_TYPES, and sets STRUCT_TYPES
-   to an empty vector.  The old values are restored in
-   finish_struct.  */
+   This stores the current value of the file static STRUCT_PARSE_INFO
+   in *ENCLOSING_STRUCT_PARSE_INFO, and points STRUCT_PARSE_INFO at a
+   new c_struct_parse_info structure.  The old value of
+   STRUCT_PARSE_INFO is restored in finish_struct.  */
 
 tree
 start_struct (location_t loc, enum tree_code code, tree name,
-    	      bool *enclosing_in_struct,
-	      VEC(tree,heap) **enclosing_struct_types)
+	      struct c_struct_parse_info **enclosing_struct_parse_info)
 {
   /* If there is already a tag defined at this scope
      (as a forward reference), just return it.  */
@@ -5824,10 +6383,11 @@ start_struct (location_t loc, enum tree_code code, tree name,
   C_TYPE_BEING_DEFINED (ref) = 1;
   TYPE_PACKED (ref) = flag_pack_struct;
 
-  *enclosing_in_struct = in_struct;
-  *enclosing_struct_types = struct_types;
-  in_struct = true;
-  struct_types = VEC_alloc(tree, heap, 0);
+  *enclosing_struct_parse_info = struct_parse_info;
+  struct_parse_info = XNEW (struct c_struct_parse_info);
+  struct_parse_info->struct_types = VEC_alloc (tree, heap, 0);
+  struct_parse_info->fields = VEC_alloc (c_binding_ptr, heap, 0);
+  struct_parse_info->typedefs_seen = VEC_alloc (tree, heap, 0);
 
   /* FIXME: This will issue a warning for a use of a type defined
      within a statement expr used within sizeof, et. al.  This is not
@@ -5915,6 +6475,25 @@ grokfield (location_t loc,
   finish_decl (value, loc, NULL_TREE, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
 
+  if (warn_cxx_compat && DECL_NAME (value) != NULL_TREE)
+    {
+      /* If we currently have a binding for this field, set the
+	 in_struct field in the binding, so that we warn about lookups
+	 which find it.  */
+      struct c_binding *b = I_SYMBOL_BINDING (DECL_NAME (value));
+      if (b != NULL)
+	{
+	  /* If the in_struct field is not yet set, push it on a list
+	     to be cleared when this struct is finished.  */
+	  if (!b->in_struct)
+	    {
+	      VEC_safe_push (c_binding_ptr, heap,
+			     struct_parse_info->fields, b);
+	      b->in_struct = 1;
+	    }
+	}
+    }
+
   return value;
 }
 
@@ -5975,25 +6554,80 @@ detect_field_duplicates (tree fieldlist)
     }
 }
 
+/* Finish up struct info used by -Wc++-compat.  */
+
+static void
+warn_cxx_compat_finish_struct (tree fieldlist)
+{
+  unsigned int ix;
+  tree x;
+  struct c_binding *b;
+
+  /* Set the C_TYPE_DEFINED_IN_STRUCT flag for each type defined in
+     the current struct.  We do this now at the end of the struct
+     because the flag is used to issue visibility warnings, and we
+     only want to issue those warnings if the type is referenced
+     outside of the struct declaration.  */
+  for (ix = 0; VEC_iterate (tree, struct_parse_info->struct_types, ix, x); ++ix)
+    C_TYPE_DEFINED_IN_STRUCT (x) = 1;
+
+  /* The TYPEDEFS_SEEN field of STRUCT_PARSE_INFO is a list of
+     typedefs used when declaring fields in this struct.  If the name
+     of any of the fields is also a typedef name then the struct would
+     not parse in C++, because the C++ lookup rules say that the
+     typedef name would be looked up in the context of the struct, and
+     would thus be the field rather than the typedef.  */
+  if (!VEC_empty (tree, struct_parse_info->typedefs_seen)
+      && fieldlist != NULL_TREE)
+    {
+      /* Use a pointer_set using the name of the typedef.  We can use
+	 a pointer_set because identifiers are interned.  */
+      struct pointer_set_t *tset = pointer_set_create ();
+
+      for (ix = 0;
+	   VEC_iterate (tree, struct_parse_info->typedefs_seen, ix, x);
+	   ++ix)
+	pointer_set_insert (tset, DECL_NAME (x));
+
+      for (x = fieldlist; x != NULL_TREE; x = TREE_CHAIN (x))
+	{
+	  if (pointer_set_contains (tset, DECL_NAME (x)))
+	    {
+	      warning_at (DECL_SOURCE_LOCATION (x), OPT_Wc___compat,
+			  ("using %qD as both field and typedef name is "
+			   "invalid in C++"),
+			  x);
+	      /* FIXME: It would be nice to report the location where
+		 the typedef name is used.  */
+	    }
+	}
+
+      pointer_set_destroy (tset);
+    }
+
+  /* For each field which has a binding and which was not defined in
+     an enclosing struct, clear the in_struct field.  */
+  for (ix = 0;
+       VEC_iterate (c_binding_ptr, struct_parse_info->fields, ix, b);
+       ++ix)
+    b->in_struct = 0;
+}
+
 /* Fill in the fields of a RECORD_TYPE or UNION_TYPE node, T.
    LOC is the location of the RECORD_TYPE or UNION_TYPE's definition.
    FIELDLIST is a chain of FIELD_DECL nodes for the fields.
    ATTRIBUTES are attributes to be applied to the structure.
 
-   ENCLOSING_IN_STRUCT is the value of IN_STRUCT, and
-   ENCLOSING_STRUCT_TYPES is the value of STRUCT_TYPES, when the
-   struct was started.  This sets the C_TYPE_DEFINED_IN_STRUCT flag
-   for any type defined in the current struct.  */
+   ENCLOSING_STRUCT_PARSE_INFO is the value of STRUCT_PARSE_INFO when
+   the struct was started.  */
 
 tree
 finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
-	       bool enclosing_in_struct,
-	       VEC(tree,heap) *enclosing_struct_types)
+	       struct c_struct_parse_info *enclosing_struct_parse_info)
 {
   tree x;
   bool toplevel = file_scope == current_scope;
   int saw_named_field;
-  unsigned int ix;
 
   /* If this type was previously laid out as a forward reference,
      make sure we lay it out again.  */
@@ -6251,23 +6885,22 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
     add_stmt (build_stmt (loc,
 			  DECL_EXPR, build_decl (loc, TYPE_DECL, NULL, t)));
 
-  /* Set the C_TYPE_DEFINED_IN_STRUCT flag for each type defined in
-     the current struct.  We do this now at the end of the struct
-     because the flag is used to issue visibility warnings when using
-     -Wc++-compat, and we only want to issue those warnings if the
-     type is referenced outside of the struct declaration.  */
-  for (ix = 0; VEC_iterate (tree, struct_types, ix, x); ++ix)
-    C_TYPE_DEFINED_IN_STRUCT (x) = 1;
+  if (warn_cxx_compat)
+    warn_cxx_compat_finish_struct (fieldlist);
 
-  VEC_free (tree, heap, struct_types);
+  VEC_free (tree, heap, struct_parse_info->struct_types);
+  VEC_free (c_binding_ptr, heap, struct_parse_info->fields);
+  VEC_free (tree, heap, struct_parse_info->typedefs_seen);
+  XDELETE (struct_parse_info);
 
-  in_struct = enclosing_in_struct;
-  struct_types = enclosing_struct_types;
+  struct_parse_info = enclosing_struct_parse_info;
 
   /* If this struct is defined inside a struct, add it to
-     STRUCT_TYPES.  */
-  if (in_struct && !in_sizeof && !in_typeof && !in_alignof)
-    VEC_safe_push (tree, heap, struct_types, t);
+     struct_types.  */
+  if (warn_cxx_compat
+      && struct_parse_info != NULL
+      && !in_sizeof && !in_typeof && !in_alignof)
+    VEC_safe_push (tree, heap, struct_parse_info->struct_types, t);
 
   return t;
 }
@@ -6481,9 +7114,11 @@ finish_enum (tree enumtype, tree values, tree attributes)
   rest_of_type_compilation (enumtype, toplevel);
 
   /* If this enum is defined inside a struct, add it to
-     STRUCT_TYPES.  */
-  if (in_struct && !in_sizeof && !in_typeof && !in_alignof)
-    VEC_safe_push (tree, heap, struct_types, enumtype);
+     struct_types.  */
+  if (warn_cxx_compat
+      && struct_parse_info != NULL
+      && !in_sizeof && !in_typeof && !in_alignof)
+    VEC_safe_push (tree, heap, struct_parse_info->struct_types, enumtype);
 
   return enumtype;
 }
@@ -6609,8 +7244,6 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 {
   tree decl1, old_decl;
   tree restype, resdecl;
-  struct c_label_context_se *nstack_se;
-  struct c_label_context_vm *nstack_vm;
   location_t loc;
 
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
@@ -6618,19 +7251,6 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   c_switch_stack = NULL;
-
-  nstack_se = XOBNEW (&parser_obstack, struct c_label_context_se);
-  nstack_se->labels_def = NULL;
-  nstack_se->labels_used = NULL;
-  nstack_se->next = label_context_stack_se;
-  label_context_stack_se = nstack_se;
-
-  nstack_vm = XOBNEW (&parser_obstack, struct c_label_context_vm);
-  nstack_vm->labels_def = NULL;
-  nstack_vm->labels_used = NULL;
-  nstack_vm->scope = 0;
-  nstack_vm->next = label_context_stack_vm;
-  label_context_stack_vm = nstack_vm;
 
   /* Indicate no valid break/continue context by setting these variables
      to some non-null, non-label value.  We'll notice and emit the proper
@@ -6643,11 +7263,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
   if (decl1 == 0)
-    {
-      label_context_stack_se = label_context_stack_se->next;
-      label_context_stack_vm = label_context_stack_vm->next;
-      return 0;
-    }
+    return 0;
 
   loc = DECL_SOURCE_LOCATION (decl1);
 
@@ -6729,7 +7345,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 	    {
 	      tree ext_decl, ext_type;
 	      ext_decl = b->decl;
-	      ext_type = b->type ? b->type : TREE_TYPE (ext_decl);
+	      ext_type = b->u.type ? b->u.type : TREE_TYPE (ext_decl);
 	      if (TREE_CODE (ext_type) == FUNCTION_TYPE
 		  && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
 				TREE_TYPE (ext_type)))
@@ -7281,9 +7897,6 @@ finish_function (void)
 {
   tree fndecl = current_function_decl;
 
-  label_context_stack_se = label_context_stack_se->next;
-  label_context_stack_vm = label_context_stack_vm->next;
-
   if (TREE_CODE (fndecl) == FUNCTION_DECL
       && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))
     {
@@ -7767,7 +8380,8 @@ declspecs_add_qual (struct c_declspecs *specs, tree qual)
    returning SPECS.  */
 
 struct c_declspecs *
-declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
+declspecs_add_type (location_t loc, struct c_declspecs *specs,
+		    struct c_typespec spec)
 {
   tree type = spec.spec;
   specs->non_sc_seen_p = true;
@@ -7784,7 +8398,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
       enum rid i = C_RID_CODE (type);
       if (specs->type)
 	{
-	  error ("two or more data types in declaration specifiers");
+	  error_at (loc, "two or more data types in declaration specifiers");
 	  return specs;
 	}
       if ((int) i <= (int) RID_LAST_MODIFIER)
@@ -7796,203 +8410,257 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	    case RID_LONG:
 	      if (specs->long_long_p)
 		{
-		  error ("%<long long long%> is too long for GCC");
+		  error_at (loc, "%<long long long%> is too long for GCC");
 		  break;
 		}
 	      if (specs->long_p)
 		{
 		  if (specs->typespec_word == cts_double)
 		    {
-		      error ("both %<long long%> and %<double%> in "
-			     "declaration specifiers");
+		      error_at (loc,
+				("both %<long long%> and %<double%> in "
+				 "declaration specifiers"));
 		      break;
 		    }
-		  pedwarn_c90 (input_location, OPT_Wlong_long, 
+		  pedwarn_c90 (loc, OPT_Wlong_long,
 			       "ISO C90 does not support %<long long%>");
 		  specs->long_long_p = 1;
 		  break;
 		}
 	      if (specs->short_p)
-		error ("both %<long%> and %<short%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<short%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
-		error ("both %<long%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_bool)
-		error ("both %<long%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_char)
-		error ("both %<long%> and %<char%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<char%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_float)
-		error ("both %<long%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat32)
-		error ("both %<long%> and %<_Decimal32%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<_Decimal32%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat64)
-		error ("both %<long%> and %<_Decimal64%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<_Decimal64%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat128)
-		error ("both %<long%> and %<_Decimal128%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<_Decimal128%> in "
+			   "declaration specifiers"));
 	      else
 		specs->long_p = true;
 	      break;
 	    case RID_SHORT:
 	      dupe = specs->short_p;
 	      if (specs->long_p)
-		error ("both %<long%> and %<short%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<short%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
-		error ("both %<short%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_bool)
-		error ("both %<short%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_char)
-		error ("both %<short%> and %<char%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<char%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_float)
-		error ("both %<short%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_double)
-		error ("both %<short%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<double%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat32)
-                error ("both %<short%> and %<_Decimal32%> in "
-		       "declaration specifiers");
+                error_at (loc,
+			  ("both %<short%> and %<_Decimal32%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat64)
-		error ("both %<short%> and %<_Decimal64%> in "
-		                        "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<_Decimal64%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat128)
-		error ("both %<short%> and %<_Decimal128%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<_Decimal128%> in "
+			   "declaration specifiers"));
 	      else
 		specs->short_p = true;
 	      break;
 	    case RID_SIGNED:
 	      dupe = specs->signed_p;
 	      if (specs->unsigned_p)
-		error ("both %<signed%> and %<unsigned%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<unsigned%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
-		error ("both %<signed%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_bool)
-		error ("both %<signed%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_float)
-		error ("both %<signed%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_double)
-		error ("both %<signed%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<double%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat32)
-		error ("both %<signed%> and %<_Decimal32%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<_Decimal32%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat64)
-		error ("both %<signed%> and %<_Decimal64%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<_Decimal64%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat128)
-		error ("both %<signed%> and %<_Decimal128%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<_Decimal128%> in "
+			   "declaration specifiers"));
 	      else
 		specs->signed_p = true;
 	      break;
 	    case RID_UNSIGNED:
 	      dupe = specs->unsigned_p;
 	      if (specs->signed_p)
-		error ("both %<signed%> and %<unsigned%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<unsigned%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
-		error ("both %<unsigned%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_bool)
-		error ("both %<unsigned%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_float)
-		error ("both %<unsigned%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_double)
-		error ("both %<unsigned%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<double%> in "
+			   "declaration specifiers"));
               else if (specs->typespec_word == cts_dfloat32)
-		error ("both %<unsigned%> and %<_Decimal32%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<_Decimal32%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat64)
-		error ("both %<unsigned%> and %<_Decimal64%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<_Decimal64%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat128)
-		error ("both %<unsigned%> and %<_Decimal128%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<_Decimal128%> in "
+			   "declaration specifiers"));
 	      else
 		specs->unsigned_p = true;
 	      break;
 	    case RID_COMPLEX:
 	      dupe = specs->complex_p;
 	      if (!flag_isoc99 && !in_system_header)
-		pedwarn (input_location, OPT_pedantic, "ISO C90 does not support complex types");
+		pedwarn (loc, OPT_pedantic,
+			 "ISO C90 does not support complex types");
 	      if (specs->typespec_word == cts_void)
-		error ("both %<complex%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_bool)
-		error ("both %<complex%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<_Bool%> in "
+			   "declaration specifiers"));
               else if (specs->typespec_word == cts_dfloat32)
-		error ("both %<complex%> and %<_Decimal32%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<_Decimal32%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat64)
-		error ("both %<complex%> and %<_Decimal64%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<_Decimal64%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat128)
-		error ("both %<complex%> and %<_Decimal128%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<_Decimal128%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_fract)
-		error ("both %<complex%> and %<_Fract%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<_Fract%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_accum)
-		error ("both %<complex%> and %<_Accum%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<_Accum%> in "
+			   "declaration specifiers"));
 	      else if (specs->saturating_p)
-		error ("both %<complex%> and %<_Sat%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<_Sat%> in "
+			   "declaration specifiers"));
 	      else
 		specs->complex_p = true;
 	      break;
 	    case RID_SAT:
 	      dupe = specs->saturating_p;
-	      pedwarn (input_location, OPT_pedantic, "ISO C does not support saturating types");
+	      pedwarn (loc, OPT_pedantic,
+		       "ISO C does not support saturating types");
 	      if (specs->typespec_word == cts_void)
-		error ("both %<_Sat%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_bool)
-		error ("both %<_Sat%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_char)
-		error ("both %<_Sat%> and %<char%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<char%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_int)
-		error ("both %<_Sat%> and %<int%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<int%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_float)
-		error ("both %<_Sat%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_double)
-		error ("both %<_Sat%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<double%> in "
+			   "declaration specifiers"));
               else if (specs->typespec_word == cts_dfloat32)
-		error ("both %<_Sat%> and %<_Decimal32%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<_Decimal32%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat64)
-		error ("both %<_Sat%> and %<_Decimal64%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<_Decimal64%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_dfloat128)
-		error ("both %<_Sat%> and %<_Decimal128%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<_Decimal128%> in "
+			   "declaration specifiers"));
 	      else if (specs->complex_p)
-		error ("both %<_Sat%> and %<complex%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<complex%> in "
+			   "declaration specifiers"));
 	      else
 		specs->saturating_p = true;
 	      break;
@@ -8001,7 +8669,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	    }
 
 	  if (dupe)
-	    error ("duplicate %qE", type);
+	    error_at (loc, "duplicate %qE", type);
 
 	  return specs;
 	}
@@ -8011,110 +8679,137 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	     "_Decimal64", "_Decimal128", "_Fract" or "_Accum".  */
 	  if (specs->typespec_word != cts_none)
 	    {
-	      error ("two or more data types in declaration specifiers");
+	      error_at (loc,
+			"two or more data types in declaration specifiers");
 	      return specs;
 	    }
 	  switch (i)
 	    {
 	    case RID_VOID:
 	      if (specs->long_p)
-		error ("both %<long%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->short_p)
-		error ("both %<short%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->signed_p)
-		error ("both %<signed%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->unsigned_p)
-		error ("both %<unsigned%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->complex_p)
-		error ("both %<complex%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<void%> in "
+			   "declaration specifiers"));
 	      else if (specs->saturating_p)
-		error ("both %<_Sat%> and %<void%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<void%> in "
+			   "declaration specifiers"));
 	      else
 		specs->typespec_word = cts_void;
 	      return specs;
 	    case RID_BOOL:
 	      if (specs->long_p)
-		error ("both %<long%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->short_p)
-		error ("both %<short%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->signed_p)
-		error ("both %<signed%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->unsigned_p)
-		error ("both %<unsigned%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->complex_p)
-		error ("both %<complex%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<complex%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else if (specs->saturating_p)
-		error ("both %<_Sat%> and %<_Bool%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<_Bool%> in "
+			   "declaration specifiers"));
 	      else
 		specs->typespec_word = cts_bool;
 	      return specs;
 	    case RID_CHAR:
 	      if (specs->long_p)
-		error ("both %<long%> and %<char%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<char%> in "
+			   "declaration specifiers"));
 	      else if (specs->short_p)
-		error ("both %<short%> and %<char%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<char%> in "
+			   "declaration specifiers"));
 	      else if (specs->saturating_p)
-		error ("both %<_Sat%> and %<char%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<char%> in "
+			   "declaration specifiers"));
 	      else
 		specs->typespec_word = cts_char;
 	      return specs;
 	    case RID_INT:
 	      if (specs->saturating_p)
-		error ("both %<_Sat%> and %<int%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<int%> in "
+			   "declaration specifiers"));
 	      else
 		specs->typespec_word = cts_int;
 	      return specs;
 	    case RID_FLOAT:
 	      if (specs->long_p)
-		error ("both %<long%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->short_p)
-		error ("both %<short%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->signed_p)
-		error ("both %<signed%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->unsigned_p)
-		error ("both %<unsigned%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<float%> in "
+			   "declaration specifiers"));
 	      else if (specs->saturating_p)
-		error ("both %<_Sat%> and %<float%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<float%> in "
+			   "declaration specifiers"));
 	      else
 		specs->typespec_word = cts_float;
 	      return specs;
 	    case RID_DOUBLE:
 	      if (specs->long_long_p)
-		error ("both %<long long%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<long long%> and %<double%> in "
+			   "declaration specifiers"));
 	      else if (specs->short_p)
-		error ("both %<short%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<short%> and %<double%> in "
+			   "declaration specifiers"));
 	      else if (specs->signed_p)
-		error ("both %<signed%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<signed%> and %<double%> in "
+			   "declaration specifiers"));
 	      else if (specs->unsigned_p)
-		error ("both %<unsigned%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<unsigned%> and %<double%> in "
+			   "declaration specifiers"));
 	      else if (specs->saturating_p)
-		error ("both %<_Sat%> and %<double%> in "
-		       "declaration specifiers");
+		error_at (loc,
+			  ("both %<_Sat%> and %<double%> in "
+			   "declaration specifiers"));
 	      else
 		specs->typespec_word = cts_double;
 	      return specs;
@@ -8130,26 +8825,40 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		else
 		  str = "_Decimal128";
 		if (specs->long_long_p)
-		  error ("both %<long long%> and %<%s%> in "
-			 "declaration specifiers", str);
+		  error_at (loc,
+			    ("both %<long long%> and %<%s%> in "
+			     "declaration specifiers"),
+			    str);
 		if (specs->long_p)
-		  error ("both %<long%> and %<%s%> in "
-			 "declaration specifiers", str);
+		  error_at (loc,
+			    ("both %<long%> and %<%s%> in "
+			     "declaration specifiers"),
+			    str);
 		else if (specs->short_p)
-		  error ("both %<short%> and %<%s%> in "
-			 "declaration specifiers", str);
+		  error_at (loc,
+			    ("both %<short%> and %<%s%> in "
+			     "declaration specifiers"),
+			    str);
 		else if (specs->signed_p)
-		  error ("both %<signed%> and %<%s%> in "
-			 "declaration specifiers", str);
+		  error_at (loc,
+			    ("both %<signed%> and %<%s%> in "
+			     "declaration specifiers"),
+			    str);
 		else if (specs->unsigned_p)
-		  error ("both %<unsigned%> and %<%s%> in "
-			 "declaration specifiers", str);
+		  error_at (loc,
+			    ("both %<unsigned%> and %<%s%> in "
+			     "declaration specifiers"),
+			    str);
                 else if (specs->complex_p)
-                  error ("both %<complex%> and %<%s%> in "
-                         "declaration specifiers", str);
+                  error_at (loc,
+			    ("both %<complex%> and %<%s%> in "
+			     "declaration specifiers"),
+			    str);
                 else if (specs->saturating_p)
-                  error ("both %<_Sat%> and %<%s%> in "
-                         "declaration specifiers", str);
+                  error_at (loc,
+			    ("both %<_Sat%> and %<%s%> in "
+			     "declaration specifiers"),
+			    str);
 		else if (i == RID_DFLOAT32)
 		  specs->typespec_word = cts_dfloat32;
 		else if (i == RID_DFLOAT64)
@@ -8158,8 +8867,10 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		  specs->typespec_word = cts_dfloat128;
 	      }
 	      if (!targetm.decimal_float_supported_p ())
-		error ("decimal floating point not supported for this target");
-	      pedwarn (input_location, OPT_pedantic, 
+		error_at (loc,
+			  ("decimal floating point not supported "
+			   "for this target"));
+	      pedwarn (loc, OPT_pedantic,
 		       "ISO C does not support decimal floating point");
 	      return specs;
 	    case RID_FRACT:
@@ -8171,16 +8882,19 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		else
 		  str = "_Accum";
                 if (specs->complex_p)
-                  error ("both %<complex%> and %<%s%> in "
-                         "declaration specifiers", str);
+                  error_at (loc,
+			    ("both %<complex%> and %<%s%> in "
+			     "declaration specifiers"),
+			    str);
 		else if (i == RID_FRACT)
 		    specs->typespec_word = cts_fract;
 		else
 		    specs->typespec_word = cts_accum;
 	      }
 	      if (!targetm.fixed_point_supported_p ())
-		error ("fixed-point types not supported for this target");
-	      pedwarn (input_location, OPT_pedantic, 
+		error_at (loc,
+			  "fixed-point types not supported for this target");
+	      pedwarn (loc, OPT_pedantic,
 		       "ISO C does not support fixed-point types");
 	      return specs;
 	    default:
@@ -8198,7 +8912,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
   if (specs->type || specs->typespec_word != cts_none
       || specs->long_p || specs->short_p || specs->signed_p
       || specs->unsigned_p || specs->complex_p)
-    error ("two or more data types in declaration specifiers");
+    error_at (loc, "two or more data types in declaration specifiers");
   else if (TREE_CODE (type) == TYPE_DECL)
     {
       if (TREE_TYPE (type) == error_mark_node)
@@ -8209,13 +8923,26 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	  specs->decl_attr = DECL_ATTRIBUTES (type);
 	  specs->typedef_p = true;
 	  specs->explicit_signed_p = C_TYPEDEF_EXPLICITLY_SIGNED (type);
+
+	  /* If this typedef name is defined in a struct, then a C++
+	     lookup would return a different value.  */
+	  if (warn_cxx_compat
+	      && I_SYMBOL_BINDING (DECL_NAME (type))->in_struct)
+	    warning_at (loc, OPT_Wc___compat,
+			"C++ lookup of %qD would return a field, not a type",
+			type);
+
+	  /* If we are parsing a struct, record that a struct field
+	     used a typedef.  */
+	  if (warn_cxx_compat && struct_parse_info != NULL)
+	    VEC_safe_push (tree, heap, struct_parse_info->typedefs_seen, type);
 	}
     }
   else if (TREE_CODE (type) == IDENTIFIER_NODE)
     {
       tree t = lookup_name (type);
       if (!t || TREE_CODE (t) != TYPE_DECL)
-	error ("%qE fails to be a typedef or built in type", type);
+	error_at (loc, "%qE fails to be a typedef or built in type", type);
       else if (TREE_TYPE (t) == error_mark_node)
 	;
       else

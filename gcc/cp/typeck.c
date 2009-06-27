@@ -2019,7 +2019,7 @@ build_class_member_access_expr (tree object, tree member,
       if (null_object_p && warn_invalid_offsetof
 	  && CLASSTYPE_NON_POD_P (object_type)
 	  && !DECL_FIELD_IS_BASE (member)
-	  && !skip_evaluation
+	  && cp_unevaluated_operand == 0
 	  && (complain & tf_warning))
 	{
 	  warning (OPT_Winvalid_offsetof, 
@@ -3559,13 +3559,15 @@ cp_build_binary_op (location_t location,
 	    {
 	      if (tree_int_cst_lt (op1, integer_zero_node))
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning)
+		      && c_inhibit_evaluation_warnings == 0)
 		    warning (0, "right shift count is negative");
 		}
 	      else
 		{
 		  if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0
-		      && (complain & tf_warning))
+		      && (complain & tf_warning)
+		      && c_inhibit_evaluation_warnings == 0)
 		    warning (0, "right shift count >= width of type");
 		}
 	    }
@@ -3586,12 +3588,14 @@ cp_build_binary_op (location_t location,
 	    {
 	      if (tree_int_cst_lt (op1, integer_zero_node))
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning)
+		      && c_inhibit_evaluation_warnings == 0)
 		    warning (0, "left shift count is negative");
 		}
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning)
+		      && c_inhibit_evaluation_warnings == 0)
 		    warning (0, "left shift count >= width of type");
 		}
 	    }
@@ -4014,10 +4018,13 @@ cp_build_binary_op (location_t location,
 
       if ((short_compare || code == MIN_EXPR || code == MAX_EXPR)
 	  && warn_sign_compare
+	  && !TREE_NO_WARNING (orig_op0)
+	  && !TREE_NO_WARNING (orig_op1)
 	  /* Do not warn until the template is instantiated; we cannot
 	     bound the ranges of the arguments until that point.  */
 	  && !processing_template_decl
-          && (complain & tf_warning))
+          && (complain & tf_warning)
+	  && c_inhibit_evaluation_warnings == 0)
 	{
 	  warn_for_sign_compare (location, orig_op0, orig_op1, op0, op1, 
 				 result_type, resultcode);

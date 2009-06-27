@@ -420,8 +420,7 @@ static int generating_instance_variables = 0;
    is compiled as part of obj-c++.  */
 
 static bool objc_building_struct;
-static bool objc_in_struct ATTRIBUTE_UNUSED;
-static VEC(tree,heap) *objc_struct_types ATTRIBUTE_UNUSED;
+static struct c_struct_parse_info *objc_struct_info ATTRIBUTE_UNUSED;
 
 /* Start building a struct for objc.  */
 
@@ -430,8 +429,7 @@ objc_start_struct (tree name)
 {
   gcc_assert (!objc_building_struct);
   objc_building_struct = true;
-  return start_struct (input_location, RECORD_TYPE, 
-		       name, &objc_in_struct, &objc_struct_types);
+  return start_struct (input_location, RECORD_TYPE, name, &objc_struct_info);
 }
 
 /* Finish building a struct for objc.  */
@@ -442,7 +440,7 @@ objc_finish_struct (tree type, tree fieldlist)
   gcc_assert (objc_building_struct);
   objc_building_struct = false;
   return finish_struct (input_location, type, fieldlist, NULL_TREE,
-			objc_in_struct, objc_struct_types);
+			objc_struct_info);
 }
 
 /* Some platforms pass small structures through registers versus
@@ -6271,7 +6269,7 @@ objc_build_message_expr (tree mess)
 #endif
   tree method_params = NULL_TREE;
 
-  if (TREE_CODE (receiver) == ERROR_MARK)
+  if (TREE_CODE (receiver) == ERROR_MARK || TREE_CODE (args) == ERROR_MARK)
     return error_mark_node;
 
   if (CAN_HAVE_LOCATION_P (receiver))
@@ -8633,19 +8631,6 @@ objc_start_function (tree name, tree type, tree attrs,
   cplus_decl_attributes (&fndecl, attrs, 0);
   start_preparsed_function (fndecl, attrs, /*flags=*/SF_DEFAULT);
 #else
-  struct c_label_context_se *nstack_se;
-  struct c_label_context_vm *nstack_vm;
-  nstack_se = XOBNEW (&parser_obstack, struct c_label_context_se);
-  nstack_se->labels_def = NULL;
-  nstack_se->labels_used = NULL;
-  nstack_se->next = label_context_stack_se;
-  label_context_stack_se = nstack_se;
-  nstack_vm = XOBNEW (&parser_obstack, struct c_label_context_vm);
-  nstack_vm->labels_def = NULL;
-  nstack_vm->labels_used = NULL;
-  nstack_vm->scope = 0;
-  nstack_vm->next = label_context_stack_vm;
-  label_context_stack_vm = nstack_vm;
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;
 
