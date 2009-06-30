@@ -1,0 +1,200 @@
+<h1><a name="ICG_A_new_code_generator_for_gcc"> </a> ICG: A new code generator for gcc </h1>
+<p>
+This wiki describes ICG, a new code generator for gcc.
+</p><p>
+We had a number of new ideas about code generation for CISC machines, like the x86 and x86-64.
+Our goal was to explore these ideas in the context of <a href="http://www.google.com/url?sa=D&amp;q=http%3A%2F%2Fgcc.gnu.org%2Fwiki" target="_top">GCC</a>.
+Our initial target was the <a href="http://www.google.com/url?sa=D&amp;q=http%3A%2F%2Fen.wikipedia.org%2Fwiki%2FX86-64" target="_top">x86-64</a>, the 64-bit version of the x86 architecture.
+</p><p>
+</p><p>
+</p><h2><a name="Status"> </a> Status </h2>
+<p>
+ICG produces correct code in most cases, though our level of correctness testing is still minimal. It also produces <em>good</em> code in most cases.
+
+
+</p><h2><a name="The_big_picture"> </a> The big picture </h2>
+<p>
+    <img src="icg.jpg" alt="icg.jpg" height="538" width="840">
+</p><p>
+</p><p>
+Pretty isn't it? Please see the <a href="DescriptionOfTheBigPicture.html">DescriptionOfTheBigPicture</a>.
+</p><p>
+</p><p>
+</p><p>
+</p><h2><a name="_http_gcc_gnu_org_onlinedocs_gcc"> </a> <a href="http://www.google.com/url?sa=D&amp;q=http%3A%2F%2Fgcc.gnu.org%2Fonlinedocs%2Fgccint%2FRTL.html%23RTL" target="_top">RTL</a> for Expression Trees </h2>
+<p>
+Our approach is to hook into gcc at the <a href="http://www.google.com/url?sa=D&amp;q=http%3A%2F%2Fgcc.gnu.org%2Fonlinedocs%2Fgccint%2FRTL.html%23RTL" target="_top">RTL</a> level.
+RTL instructions currently roughly match machine instructions.  We want the patterns to be as large as possible, 
+to make burg work better.  We use the techniques used by combine to pull related RTL insns together into large RTL patterns.
+</p><p>
+</p><p>
+</p><h2><a name="An_Example"> </a> An Example </h2>
+<p>
+Here's an example, in made up notation.
+Imagine an RTL tree like this
+</p><pre>(set (reg V)
+     (mult (reg Z)
+           (plus (reg Y)
+                 (plus (reg X)
+                       (reg W)))))
+</pre>
+where everything is 64-bit ints and we're aiming at
+an x86-64.  Thanks to the miracle of data-flow analysis,
+we know that reg W has no more uses (but reg X and reg Y are still live). So the SU numbering
+organizes the tree as above and burg figures out that it
+would be cool to generate the following sequence
+<pre>rW += rX
+rW += rY
+AX = rW
+AX *= rZ
+rV = AX
+</pre>
+but it doesn't actually rewriting the tree, 'cause that would
+be expensive.  Instead, when we build the IG, we notice that
+AX (the hardware register) must interfere with rZ
+and rW must interfere with rY and rZ.  Furthermore,
+we'd like to coalesce AX with rV and or rW.
+And there's some other interferences, depending on
+what's alive across the whole tree.
+<p>
+All normal stuff.
+</p><p>
+Then we try to allocate.  For my example, imagine
+we have to spill rW and rX.  We rewrite the tree
+to show the loads from the stack frame, then
+give this tree back to SU numbering, yielding
+</p><pre>(set (reg V)
+     (mult (reg Z)
+           (plus (load (plus (reg FP)
+                             (const Woffset)))
+                 (plus (load (plus (reg FP)
+                                   (const Xoffset)))
+                       (reg Y))))
+</pre>
+Notice the SU-numbering has reorganized things so that we can do
+the adds directly from memory.  Then we redo the burg labelling,
+effectively finding the sequence
+<pre>rT = rY  -- because rY is still live
+rT += Xoffset[FP]
+rT += Woffset[FP]
+AX = rT
+AX *= rZ
+rV = AX
+</pre>
+Again, we note interferences and potential coalesces,
+and try to color.  If we're lucky, we end up with
+something like
+<pre>AX += Xoffset[FP]
+AX += Woffset[FP]
+AX *= rZ
+</pre>
+Of course, we aren't always be so lucky, but that's ok.
+The main thing is that the SU-numbering scheduled the
+evaluation to minimize register usage and the BURG
+stuff found a minimal instruction sequence, including
+spill code.
+<p>
+</p><p>
+</p><p>
+</p><h2><a name="Benefits"> </a> Benefits </h2>
+<p>
+The main benefits arise around spill code.
+When we spill, we do a better job, so code footprint is smaller and less registers are required,
+leading to further savings.
+</p><p>
+All the spill code is inserted in a machine-independent form,
+extending the expression trees, and is then exposed to burg so that it
+fits, more-or-less optimally, into the instruction-selection process.
+An especially good thing for ciscy machines.
+</p><p>
+By reconsidering instruction selection across the entire expression
+tree after inserting spill code, we're able to get register usage
+exactly correct; that is, no temporary registers are allocated where they
+aren't necessary and no registers need to be reserved, "just in case".
+This sort of thing is easy to get right on a RISC machine; CISC machines
+are usually harder.
+</p><p>
+</p><p>
+</p><p>Finally, assuming it can all be described neatly and cleanly,
+having a neat and clean description will benefit future maintainers
+(versus the current, situation where some passes (e.g., reload) are
+considered so scary that maintainers aren't able to work on them
+effectively).
+</p><p>
+</p><p>
+</p><p>
+</p><h2><a name="What_does_gcc_do_today_"> </a> What does gcc do today? </h2>
+<p>
+The RTL passes of <a href="http://wiki.corp.google.com/twiki/bin/view/Main/GCC">GCC</a> are described <a href="http://wiki.corp.google.com/twiki/bin/view/Main/ICGPreReloadPasses">here</a> (pre-reload) and <a href="http://wiki.corp.google.com/twiki/bin/view/Main/ICGPostReloadPasses">here</a> (post-reload).
+</p><p>
+</p><h2><a name="Extended_Sethi_Ullman_numbering"> </a> Extended Sethi-Ullman numbering </h2>
+<p>
+Part of our scheme is to use an extended form of Sethi-Ullman numbering to schedule evaluation of each RTL tree.  See <a href="ExtendedSUNumbering.html">ExtendedSUNumbering</a>.
+</p><p>
+</p><h2><a name="A_Preprocessor_for_Burg"> </a> A Preprocessor for Burg </h2>
+<p>Burg and iburg share an input language, but the input language isn't
+really designed for use by humans. Instead, burg was envisioned as a
+server with some sort of preprocessor. I built such a thing, called <a href="BurgProcessor.html">plug</a>.
+</p><p>
+</p><h2><a name="Register_allocation_for_byte_siz"> </a> Register allocation for byte-sized values </h2>
+<p>
+Vijay Menon reminded me that, on the x86-64, it's possible to
+manipulate bytes in the AH, BH, CH, and DH registers and wondered if I
+had a plan for them. After some thought, I remembered that I do have a
+plan; it's right <a href="http://wiki.corp.google.com/twiki/bin/view/Main/RegisterPairs">here</a>.
+</p><p>
+</p><p>
+</p><h2><a name="References"> </a> References </h2>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/codegen.pdf" target="_top">codegen.pdf</a>: slides for Preston's initial presentation on ideas for the new code generator
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/iburg.pdf" target="_top">iburg.pdf</a>: iburg paper
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/fraser91burg.pdf" target="_top">burg.pdf</a>: paper describing burg
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/p461-proebsting.pdf" target="_top">proebsting.pdf</a>: paper about how to implement burg
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/appel87concise.pdf" target="_top">appel.pdf</a>: how to use tools like burg, with lots of examples
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/ertl.pdf" target="_top">ertl.pdf</a>: a way to do burg-like matching on DAGs
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/sethi-ullman.pdf" target="_top">sethi-ullman.pdf</a>: sethi-ulman numbering
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/aho-johnson.pdf" target="_top">aho-johnson.pdf</a>: how to spill within expression trees
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/coloring.pdf" target="_top">briggs-cooper-torczon.pdf</a>: Improvements to Graph Coloring Register Allocation
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/p300-george.pdf" target="_top">george-appel.pdf</a>: Iterated Register Coalescing
+</li>
+</ul>
+<p>
+</p><ul>
+<li> <a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/p571-hailperin.pdf" target="_top">hailperin.pdf</a>: Comparing Conservative Coalescing Criteria

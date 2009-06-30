@@ -1,0 +1,65 @@
+#
+# Copyright © 2008 Google Inc. All rights reserved.
+#
+# $Header: $
+#
+This table combines the gcc register number (1st col)
+with the register name (2nd column)
+with the register usage from table 3.4 in the ABI.
+(The table was produced semi-auutomatically by joining data from
+several places, and so may not be 100% accurate).
+#
+
+  0	ax	temporary register; with variable arguments passes information about the number of SSE registers used; 1st return register
+  1	dx	used to pass 3rd argument to functions; 2nd return register
+  2	cx	used to pass 4th integer argument to functions
+  3	bx	callee-saved register; optionally used as base pointer
+  4	si	used to pass 2nd argument to functions
+  5	di	used to pass 1st argument to functions
+  6	bp	HARD_FRAME_POINTER_REGNUM; callee-saved reg; optionally used as fp
+  7	sp	STACK_POINTER_REGNUM; stack pointer
+  8	st0	temporary register; used to return long double arguments
+  9	st1	temporary register; used to return long double arguments
+ 10	st2	temporary register
+ 11	st3	temporary register
+ 12	st4	temporary register
+ 13	st5	temporary register
+ 14	st6	temporary register
+ 15	st7	temporary register
+ 16	argp	ARG_POINTER_REGNUM; used to address arguments before ICG
+ 17	flags	no usage known
+ 18	fpsr	no usage known
+ 19	fpcr	no usage known
+ 20	frame	FRAME_POINTER_REGNUM; used to address local variables before ICG
+ 21	xmm0	used to pass and return floating point arguments
+ 22	xmm1	used to pass and return floating point arguments
+ 23	xmm2	used to pass floating point arguments
+ 24	xmm3	used to pass floating point arguments
+ 25	xmm4	used to pass floating point arguments
+ 26	xmm5	used to pass floating point arguments
+ 27	xmm6	used to pass floating point arguments
+ 28	xmm7	used to pass floating point arguments
+ 29	mmx0	temporary register
+ 30	mmx1	temporary register
+ 31	mmx2	temporary register
+ 32	mmx3	temporary register
+ 33	mmx4	temporary register
+ 34	mmx5	temporary register
+ 35	mmx6	temporary register
+ 36	mmx7	temporary register
+ 37	r8	used to pass 5th argument to functions
+ 38	r9	used to pass 6th argument to functions
+ 39	r10	temporary register, used for passing a function's static chain pointer
+ 40	r11	temporary register
+ 41	r12	callee-saved register
+ 42	r13	callee-saved register
+ 43	r14	callee-saved register
+ 44	r15	callee-saved register
+ 45	xmm8	temporary register
+ 46	xmm9	temporary register
+ 47	xmm10	temporary register
+ 48	xmm11	temporary register
+ 49	xmm12	temporary register
+ 50	xmm13	temporary register
+ 51	xmm14	temporary register
+ 52	xmm15	temporary register

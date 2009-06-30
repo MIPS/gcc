@@ -1,0 +1,171 @@
+#line 19 "x86-64.asm.py"
+stmt: ASM_NULLARY [0, 0]
+#line 22 "x86-64.asm.py"
+  debug {
+    icg_analyze_asm(p->rtl, ICG_ASM_PHASE_DEBUG);
+  },
+  emit {
+  }
+  ;
+#line 38 "x86-64.asm.py"
+r64x: ASM_BINARY_RRR_DI(r64, r64) [0, 0]
+#line 42 "x86-64.asm.py"
+  names {
+    $$->rx = new_reg();
+  },
+  kinds {
+    icg_reg_vector[$$->rx].kind = INT_REGISTER;
+    icg_reg_vector[$1->rx].kind = INT_REGISTER;
+    icg_reg_vector[$2->rx].kind = INT_REGISTER;
+  },
+  supairs {
+    /* TODO */
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_clear_bit(live, rd);
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    forgettable($2->r);
+  },
+  debug {
+    const rtx rtx = p->rtl;
+    dumpasmRRR(ASM_OPERANDS_TEMPLATE(rtx),
+      $1->r, 'q',
+      $2->r, 'q',
+      $$->rx, 'q');
+  },
+  final {
+    $$->rx = icg_reg_vector[find($$->rx)].color;
+  },
+  emit {
+    static int doit = 1;
+    if (doit) {
+      const rtx expr = p->rtl;
+      rtx src1 = gen_rtx_REG(DImode, $1->r);
+      rtx src2 = gen_rtx_REG(DImode, $2->r);
+      rtx dst  = gen_rtx_REG(DImode, $$->rx);
+      /*
+	0   ASM_OPERANDS_TEMPLATE
+	1   ASM_OPERANDS_OUTPUT_CONSTRAINT
+	2   ASM_OPERANDS_OUTPUT_IDX
+	3   ASM_OPERANDS_INPUT_VEC
+	4   ASM_OPERANDS_INPUT_CONSTRAINT_VEC
+	3,N ASM_OPERANDS_INPUT
+	3   ASM_OPERANDS_INPUT_LENGTH
+	4,N ASM_OPERANDS_INPUT_CONSTRAINT_EXP
+	4,N ASM_OPERANDS_INPUT_CONSTRAINT
+	4,N ASM_OPERANDS_INPUT_MODE
+	5,  ASM_OPERANDS_SOURCE_LOCATION
+	1,  ASM_INPUT_SOURCE_LOCATION
+      */
+      /*
+       * TODO: how is the output register $$ tied up into the asm rtx?
+       */
+      rtx asm_rtx  = gen_rtx_ASM_OPERANDS(DImode,
+	/*0*/ASM_OPERANDS_TEMPLATE(expr),
+	/*1*/ASM_OPERANDS_OUTPUT_CONSTRAINT(expr),
+	/*2*/ASM_OPERANDS_OUTPUT_IDX(expr),
+	/*3*/gen_rtvec(2, src1, src2),
+	/*4*/ASM_OPERANDS_INPUT_CONSTRAINT_VEC(expr),
+	/*5*/ASM_OPERANDS_SOURCE_LOCATION(expr)
+      );
+      rtx set_rtx = gen_rtx_SET(VOIDmode, dst, asm_rtx);
+      rtvec vect = gen_rtvec(3,
+        set_rtx,
+	gen_rtx_CLOBBER(VOIDmode, gen_rtx_REG(CCmode, FPSR_REG)),
+	gen_rtx_CLOBBER(VOIDmode, gen_rtx_REG(CCmode, FLAGS_REG))
+      );
+      rtx parallel = gen_rtx_PARALLEL(VOIDmode, vect);
+      icg_emit_plain(parallel);
+    }
+  }
+  ;
+#line 39 "x86-64.asm.py"
+r32x: ASM_BINARY_RRR_SI(r32, r32) [0, 0]
+#line 42 "x86-64.asm.py"
+  names {
+    $$->rx = new_reg();
+  },
+  kinds {
+    icg_reg_vector[$$->rx].kind = INT_REGISTER;
+    icg_reg_vector[$1->rx].kind = INT_REGISTER;
+    icg_reg_vector[$2->rx].kind = INT_REGISTER;
+  },
+  supairs {
+    /* TODO */
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_clear_bit(live, rd);
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    forgettable($2->r);
+  },
+  debug {
+    const rtx rtx = p->rtl;
+    dumpasmRRR(ASM_OPERANDS_TEMPLATE(rtx),
+      $1->r, 'l',
+      $2->r, 'l',
+      $$->rx, 'l');
+  },
+  final {
+    $$->rx = icg_reg_vector[find($$->rx)].color;
+  },
+  emit {
+    static int doit = 1;
+    if (doit) {
+      const rtx expr = p->rtl;
+      rtx src1 = gen_rtx_REG(SImode, $1->r);
+      rtx src2 = gen_rtx_REG(SImode, $2->r);
+      rtx dst  = gen_rtx_REG(SImode, $$->rx);
+      /*
+	0   ASM_OPERANDS_TEMPLATE
+	1   ASM_OPERANDS_OUTPUT_CONSTRAINT
+	2   ASM_OPERANDS_OUTPUT_IDX
+	3   ASM_OPERANDS_INPUT_VEC
+	4   ASM_OPERANDS_INPUT_CONSTRAINT_VEC
+	3,N ASM_OPERANDS_INPUT
+	3   ASM_OPERANDS_INPUT_LENGTH
+	4,N ASM_OPERANDS_INPUT_CONSTRAINT_EXP
+	4,N ASM_OPERANDS_INPUT_CONSTRAINT
+	4,N ASM_OPERANDS_INPUT_MODE
+	5,  ASM_OPERANDS_SOURCE_LOCATION
+	1,  ASM_INPUT_SOURCE_LOCATION
+      */
+      /*
+       * TODO: how is the output register $$ tied up into the asm rtx?
+       */
+      rtx asm_rtx  = gen_rtx_ASM_OPERANDS(SImode,
+	/*0*/ASM_OPERANDS_TEMPLATE(expr),
+	/*1*/ASM_OPERANDS_OUTPUT_CONSTRAINT(expr),
+	/*2*/ASM_OPERANDS_OUTPUT_IDX(expr),
+	/*3*/gen_rtvec(2, src1, src2),
+	/*4*/ASM_OPERANDS_INPUT_CONSTRAINT_VEC(expr),
+	/*5*/ASM_OPERANDS_SOURCE_LOCATION(expr)
+      );
+      rtx set_rtx = gen_rtx_SET(VOIDmode, dst, asm_rtx);
+      rtvec vect = gen_rtvec(3,
+        set_rtx,
+	gen_rtx_CLOBBER(VOIDmode, gen_rtx_REG(CCmode, FPSR_REG)),
+	gen_rtx_CLOBBER(VOIDmode, gen_rtx_REG(CCmode, FLAGS_REG))
+      );
+      rtx parallel = gen_rtx_PARALLEL(VOIDmode, vect);
+      icg_emit_plain(parallel);
+    }
+  }
+  ;

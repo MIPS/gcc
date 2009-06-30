@@ -1,0 +1,258 @@
+<p>
+</p><h1><a name="Plug_a_Preprocessor_for_Burg"> </a> Plug, a Preprocessor for Burg </h1>
+<p>
+Burg and iburg take a common input language that's designed to be
+produced by another tool, a preprocessor. Plug is a tool I designed to
+act as such a preprocessor. Its main addition to the burg input
+language is a way to specify semantic actions to be carried out during
+the reduce phase. Actually, I envision many possible reduce phases, so
+plug allows us to specify many different named actions for each rule.
+In addition, plug performs a variety of consistency checks on the
+input.
+</p><p>
+</p><h2><a name="The_Command_Line"> </a> The Command Line </h2>
+<p>
+By default, plug reads from <code>stdin</code> and writes to <code>stdout</code>.
+This default behavior can be overridden at the command line.
+</p><p>
+<code>plug</code> [ <code>-o</code> <em>output-pathname</em> ] [ <em>input_pathname</em> ]
+</p><p>
+</p><p>
+</p><h2><a name="Syntax"> </a> Syntax </h2>
+<p>
+A machine description looks like
+</p><p>
+[ <em>prologue</em> ] <code>%%</code> <em>decls</em>  <em>rules</em> [ <code>%%</code> <em>epilogue</em> ]
+</p><p>
+where the prologue and epilogue are simply lines of C code and 
+the <code>%%</code> token must appear on a line by itself.
+Typically, the prologue contains declarations and the epilogue
+will consist of C routines.
+</p><p>
+</p><p>
+</p><p>
+<table border="0" cellpadding="2" cellspacing="1">
+<tbody><tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>decls</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> { <em>decl</em>  <code>;</code> } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>decl</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> <code>start</code> <em>nonterm-id</em> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td align="center" bgcolor="#f4f4f4"> | </td><td bgcolor="#f4f4f4"> <code>nonterm</code> <em>nonterm-id</em>    { <code>,</code> <em>nonterm-id</em> } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td align="center" bgcolor="#eeeeee"> | </td><td bgcolor="#eeeeee"> <code>term</code>    <em>term-equate</em>   { <code>,</code> <em>term-equate</em> } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td align="center" bgcolor="#f4f4f4"> | </td><td bgcolor="#f4f4f4"> <code>reduce</code>  <em>reduce-equate</em> { <code>,</code> <em>reduce-equate</em> } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#f4f4f4"> <em>term-equate</em> </td><td align="center" bgcolor="#f4f4f4"> = </td><td bgcolor="#f4f4f4"> <em>term-id</em> [ <code>=</code>  <em>number</em>  ] </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td align="center" bgcolor="#eeeeee"> | </td><td bgcolor="#eeeeee"> <code>term_align</code>  <code>(</code> <em>number</em> <code>)</code> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td align="center" bgcolor="#f4f4f4"> | </td><td bgcolor="#f4f4f4"> <code>term_incr</code>   <code>(</code> <em>number</em> <code>)</code> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#f4f4f4"> <em>reduce-equate</em> </td><td align="center" bgcolor="#f4f4f4"> = </td><td bgcolor="#f4f4f4"> <em>reduce-id</em> <code>=</code> <em>path</em> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#f4f4f4"> <em>rules</em> </td><td align="center" bgcolor="#f4f4f4"> = </td><td bgcolor="#f4f4f4"> { <em>rule</em> | <em>include</em> } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#f4f4f4"> <em>include</em> </td><td align="center" bgcolor="#f4f4f4"> = </td><td bgcolor="#f4f4f4"> <code>include</code> <em>path</em> <code>;</code> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#f4f4f4"> <em>rule</em> </td><td align="center" bgcolor="#f4f4f4"> = </td><td bgcolor="#f4f4f4"> <em>specs</em> [ <em>reductions</em> ] <code>;</code> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#f4f4f4"> <em>specs</em> </td><td align="center" bgcolor="#f4f4f4"> = </td><td bgcolor="#f4f4f4"> <em>spec</em> { <code>,</code> spec } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#f4f4f4"> <em>spec</em> </td><td align="center" bgcolor="#f4f4f4"> = </td><td bgcolor="#f4f4f4"> <em>nonterm-id</em> <code>:</code> <em>pattern</em>  <em>cost</em> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td><td bgcolor="#eeeeee"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#f4f4f4"> <em>pattern</em> </td><td align="center" bgcolor="#f4f4f4"> = </td><td bgcolor="#f4f4f4"> <em>nonterm-id</em> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td align="center" bgcolor="#eeeeee"> | </td><td bgcolor="#eeeeee"> <em>term-id</em> [ <code>(</code> <em>patterns</em> <code>)</code> ] </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>patterns</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> <em>pattern</em> [ <code>,</code> <em>pattern</em> ] </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td align="center" bgcolor="#f4f4f4"> | </td><td bgcolor="#f4f4f4"> <em>pattern</em> { <code>|</code> <em>pattern</em> } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#eeeeee"> &nbsp; </td><td align="center" bgcolor="#eeeeee"> | </td><td bgcolor="#eeeeee"> <em>pattern</em> [ <code>@</code> <em>pattern</em> ] </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>cost</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> [ <code>[</code> <em>number</em> <code>,</code> <em>number</em> <code>]</code> ] </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>reductions</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> <em>reduction</em> { <code>,</code> <em>reduction</em> } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>reduction</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> <em>reduce-id</em> <code>{</code> <em>code</em> <code>}</code> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>id</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> <em>alpha</em> { <em>alphanum</em> | <code>_</code> } </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>path</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> <code>"</code> { <em>char</em> } <code>"</code> </td></tr>
+<tr><td class="twikiFirstCol" bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td><td bgcolor="#f4f4f4"> &nbsp; </td></tr>
+<tr><td class="twikiFirstCol" align="right" bgcolor="#eeeeee"> <em>number</em> </td><td align="center" bgcolor="#eeeeee"> = </td><td bgcolor="#eeeeee"> <em>digit</em> { <em>digit</em> } </td></tr>
+</tbody></table>
+</p><p>
+where code is C code with balanced curly braces.
+</p><p>
+Comments are started by <code>//</code> and extend to the end of line.
+</p><p>
+There are six keywords: <code>reduce</code>, <code>term</code>, <code>term_align</code>, <code>term_incr</code>, <code>nonterm</code>, and <code>start</code>.
+</p><p>
+Other tokens
+</p><pre>      ; , = : ( ) [ ] { } |
+      path id number
+      done
+</pre>
+<p>
+</p><h2><a name="Checking"> </a> Checking </h2>
+<p>
+Make sure all id's are declared and used appropriately.
+</p><p>
+Make sure term numbers (in the term-equates) are unique.
+</p><p>
+Make sure file names (in reduce-equates) are unique.
+</p><p>
+Make sure each use of a particular term-id has the same number of children (0, 1, or 2).
+</p><p>
+Make sure there aren't too many leaves (limit is 9).
+</p><p>
+</p><p>
+</p><p>
+</p><h2><a name="An_Example"> </a> An Example </h2>
+<p>
+You'll need to understand the input language for burg and iburg.
+The tool, plug, lets us write patterns using a similar syntax to drive the <em>label</em> phase
+and specify a number of reductions (or actions) to be performed during (potentially multiple) <em>reduce</em> phases.
+</p><p>
+Here's a simple example specifying how to implement the plus:DI operation from gcc's RTL on the Opteron.
+</p><pre>regx : PLUS_DI(regx, reg) [1, 3]
+  name {
+    $$-&gt;reg = $1-&gt;reg;
+  },
+  debug {
+    dumpRR("addq", $2-&gt;reg, $$-&gt;reg);
+  };
+</pre>
+<code>PLUS_DI</code> is a terminal;
+<code>reg</code> and <code>regx</code> are non-terminals. 
+All need to be declared appropriately.
+My intention is that both <code>reg</code> and <code>regx</code> indicate registers,
+with <code>regx</code> indicating a register whose value need not be preserved.
+The cost <code>[1, 3]</code> shows that the instruction has a 1-cycle latency 
+and will require 3-bytes to encode.
+<p>
+In this case, there are two reductions. The first, <code>name</code>, causes the reg
+field associated with the result to be set to the reg field associated with 
+the first leaf (they are numbered left to right in the pattern, starting from 1).
+The 2nd reduction calls a routine to print out the desired assembly.
+Generally, the reductions can contain any arbitrary C code.
+<code>$$</code> refers to the result and <code>$1</code>, <code>$2</code>, ... refer to the leaves.
+</p><p>
+When we run this through plug (along with appropriate declarations),
+it'll spit out (at least) 3 different file.  The main result is intended
+for burg (or iburg) and is written to <code>stdout</code> (may be redirected via <code>-o</code>).
+In this case, plug will spit out a line something like
+</p><pre>regx : PLUS_DI(regx, reg) = 1 (259);
+</pre>
+where the <code>1</code> is the rule number and <code>259</code> is the cost = 256*latency + bytes.
+<p>
+In the file <code>name.cases</code>, it would add the lines
+</p><pre>case 1: {
+    p-&gt;reg = p-&gt;kid[0]-&gt;reg;
+  }
+  break;
+</pre>
+The idea is that the appropriate reduce pass would include this file
+into a case statement, switching on the label of a node.  The iburg paper
+has a pretty nice example.
+<p>
+</p><h2><a name="Fancier_Patterns"> </a> Fancier Patterns </h2>
+<p>
+I've found it useful to extend the basic style in a couple of ways.
+First, I noticed that several patterns might share the same set of reductions.
+For example, consider the rules
+</p><pre>r64x : imm32 [1, 3]
+  names {
+    $$-&gt;rx = new_reg();
+  },
+  debug {
+    dumpIR("movq", $1-&gt;val, $$-&gt;rx);
+  };
+</pre>
+and
+<pre>r64x : imm64 [1, 2]
+  names {
+    $$-&gt;rx = new_reg();
+  },
+  debug {
+    dumpIR("movq", $1-&gt;val, $$-&gt;rx);
+  };
+</pre>
+In both cases we're loading a constant into a register, but the cost
+of doing so depends on the size of the constant. Since the reductions in each case are identical,
+we can combine them into a single rule, like so
+<pre>r64x : imm32 [1, 3],
+r64x : imm64 [1, 2]
+  names {
+    $$-&gt;rx = new_reg();
+  },
+  debug {
+    dumpIR("movq", $1-&gt;val, $$-&gt;rx);
+  };
+</pre>
+Second, I added a way to take advantage of operations that commute and associate to reduce
+the size of the specification. For example, instead of two rules
+<pre>regx : PLUS_DI(regx, reg) [1, 3]
+  name {
+    $$-&gt;reg = $1-&gt;reg;
+  },
+  debug {
+    dumpRR("addq", $2-&gt;reg, $$-&gt;reg);
+  };
+</pre>
+and
+<pre>regx : PLUS_DI(reg, regx) [1, 3]
+  name {
+    $$-&gt;reg = $2-&gt;reg;
+  },
+  debug {
+    dumpRR("addq", $1-&gt;reg, $$-&gt;reg);
+  };
+</pre>
+we can achieve exactly the same effect like this
+<pre>regx : PLUS_DI(regx | reg) [1, 3]
+  name {
+    $$-&gt;reg = $1-&gt;reg;
+  },
+  debug {
+    dumpRR("addq", $2-&gt;reg, $$-&gt;reg);
+  };
+</pre>
+In this case, it was only a small savings in initial typing and ongoing maintenance (factor of 2);
+in some case, the savings is really substantial.  Consider the pattern
+<pre>rx : plus(r | mem(plus(base | index | imm)))
+</pre>
+describing an add-from-memory instruction on the Opteron.
+In this case, plug expands it into 24 cases.
+<pre>rx : plus(r,mem(plus(plus(base,index),imm)))
+rx : plus(r,mem(plus(plus(base,imm),index)))
+rx : plus(r,mem(plus(plus(index,base),imm)))
+rx : plus(r,mem(plus(plus(index,imm),base)))
+rx : plus(r,mem(plus(plus(imm,base),index)))
+rx : plus(r,mem(plus(plus(imm,index),base)))
+rx : plus(r,mem(plus(base,plus(index,imm))))
+rx : plus(r,mem(plus(base,plus(imm,index))))
+rx : plus(r,mem(plus(index,plus(base,imm))))
+rx : plus(r,mem(plus(index,plus(imm,base))))
+rx : plus(r,mem(plus(imm,plus(base,index))))
+rx : plus(r,mem(plus(imm,plus(index,base))))
+rx : plus(mem(plus(plus(base,index),imm)),r)
+rx : plus(mem(plus(plus(base,imm),index)),r)
+rx : plus(mem(plus(plus(index,base),imm)),r)
+rx : plus(mem(plus(plus(index,imm),base)),r)
+rx : plus(mem(plus(plus(imm,base),index)),r)
+rx : plus(mem(plus(plus(imm,index),base)),r)
+rx : plus(mem(plus(base,plus(index,imm))),r)
+rx : plus(mem(plus(base,plus(imm,index))),r)
+rx : plus(mem(plus(index,plus(base,imm))),r)
+rx : plus(mem(plus(index,plus(imm,base))),r)
+rx : plus(mem(plus(imm,plus(base,index))),r)
+rx : plus(mem(plus(imm,plus(index,base))),r)
+</pre>
+This last extension was surprisingly hard to implement, so please take advantage!
+<p>
+</p><h2><a name="Ideas_for_the_future"> </a> Ideas for the future </h2>
+<p>
+I'd like to redesign the plug language a bit, aiming for more error checking.
+In my experience to date, the biggest source of errors
+is the inconsistent use of attributes between reductions.
+One scheme might reply on C's type system so that inconsistent
+uses are detected as type errors.
+</p><p>
+This area wants some thought.
+</p><p>
+</p><hr>
+<p>

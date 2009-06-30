@@ -1,0 +1,35 @@
+<h1><a name="Tricky_Reassociation_of_Addressi"> </a> Tricky Reassociation of Addressing Modes </h1>
+<p>
+Given an expression like
+</p><pre>r1 + 2*(r2 + 1234)
+</pre>
+we can reorganize it to fit in a single addressing mode, like this
+<pre>r1 + 2*r2 + 2*1234
+</pre>
+Currently, I use four grammar rules to catch all the feasible cases:
+<pre>addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm8)  | mcon))
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm32) | mcon))
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm8),  scon))
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm32), scon))
+</pre>
+where mcon = 1, 2, 4, or 8 and scon = 0, 1, 2, or 3.
+<p>
+This is a little sloppy, since a imm32*mcon may overflow it's 4-byte encoding.
+To avoid this problem, we need to introduce 3 new non-terminals: imm29, imm30, and imm31, with associated rules
+</p><pre>addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm29) | CONST_P8))
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm30) | CONST_P4))
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm31) | CONST_P2))
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm29), CONST_P3))
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm30), CONST_P2))
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm31), CONST_P1))
+</pre>
+We'll need to do something analogous for the imm8. While it can't
+really overflow, the cost (size in bytes) can become incorrect if we're
+not careful. Therefore, need to introduce 3 more non-terminals: imm5,
+imm6, and imm7, with associated rules
+<pre>addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm5) | CONST_P8))
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm6) | CONST_P4))
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm7) | CONST_P2))
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm5), CONST_P3))
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm6), CONST_P2))
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm7), CONST_P1))

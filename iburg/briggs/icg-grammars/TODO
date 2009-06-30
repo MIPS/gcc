@@ -1,0 +1,86 @@
+Fri Oct 10 10:58:19 PDT 2008
+  testvector.cc loop bottom comparision uses cmpl(icg), not cmpq (ira).
+  The index is an int, subregs occur.
+
+Fri Oct 17 14:28:41 PDT 2008
+  gcc prefers movapd over movsd for moving xmm registers around
+
+Thu Oct 30 12:48:14 PDT 2008
+  Unary {negate,complement,update} of memory (update of memory,
+    requires semantic analysis before syntactic matching)
+
+Get plug to accept \n inside of string constants used directly in printf statements
+
+Fortran integer(1) operations produce operators such as IDIV_QI and related.
+
+Rename find to icg_find, and implement as a function that can be called.
+
+06Nov2008
+  need to add "leave" instruction and tidy up the entry/exit sequence
+
+Fri Nov  7 14:31:36 PST 2008 
+  need to handle generation of "js" instead of "jl", which requires tracking
+  CCGOCmode (garbage overflow/carry) somehow, which might require a new NT
+  to parallel rcc and its friends.  This turned up in code that converts
+  a uint64 to a double.
+
+Thu Dec  4 10:27:50 PST 2008
+  zippy compiled -O3 stumbles across UNSPEC_ADD_CARRY,
+  but I don't see an addc in the ira output
+
+Sun Dec  7 09:35:47 PST 2008
+  both IRA and IG fail to find the code "cmpb ...; adcl $0, *(addr)",
+  eg a mem update form of an existing idiom for doing conditional increments.
+
+Thu Dec  4 10:27:50 PST 2008
+  In examining diffs between ira and icg, here are some new ones to
+  add to the gallery; I'm omitting existing well-known differences
+  such as wiffing associative operators.
+
+  IRA:
+	  testq	%rax, %rax
+	  jns	.L30
+
+  ICG:
+	  movabsq	$9223372036854775807, %rcx
+	  cmpq	%rcx, %rax
+	  jbe	.L30
+  (That's 0x7fffffffffffffff, eg MAX_INT64)
+  -------------------------
+  IRA:
+	  cmpq	%rdx, %rax
+	  je	.L84
+	  cmpq	%rdx, %rax
+	  ja	.L85
+
+  ICG:
+	  cmpq	%rdx, %rax
+	  je	.L84
+	  ja	.L85
+  -----------------------------
+
+  IRA:
+	  testb	$4, %dil
+  ICG:
+	  testl	$4, %edi
+
+
+  -----------------------------
+  IRA:
+	  testb	$1, %al
+  ICG:
+	  andl	$1, $eax	; # %eax is dead
+
+  ------------------
+  ICG seems to have an extra move to set up actual argument 0
+  to a function call, but at the same call site saves a move of the return value.
+
+  -------------------
+  Our code surrounding __builtin_strlen is different/wrong, but that instruction
+  sequence involving "repnz scasb" isn't fully debugged.
+
+  ------------------------
+  I'm seeing additional register to register moves in ICG.
+
+  -------------------
+

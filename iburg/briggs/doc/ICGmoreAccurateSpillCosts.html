@@ -1,0 +1,139 @@
+<h1><a name="More_Accurate_Spill_Costs"> </a> More Accurate Spill Costs </h1>
+<p>
+There are a couple of new ideas we should explore
+for computing more accurate spill costs.
+</p><p>
+</p><h2><a name="Looking_ahead"> </a> Looking ahead </h2>
+<p>
+While working on spilling, I wrote a simple test case,
+my favorite kind.  Looks like this
+</p><pre>long zap(long *x, long i) {
+  long a0 = x[0];
+  long a1 = x[1];
+  long a2 = x[2];
+  long a3 = x[3];
+  long a4 = x[4];
+  long a5 = x[5];
+  long a6 = x[6];
+  long a7 = x[7];
+  long a8 = x[8];
+  long a9 = x[9];
+  long a10= x[10];
+  long a11= x[11];
+  long a12= x[12];
+  long a13= x[13];
+
+  x[i] = 0;
+
+  x[100] = a0;
+  x[101] = a1;
+  x[102] = a2;
+  x[103] = a3;
+  x[104] = a4;
+  x[105] = a5;
+  x[106] = a6;
+  x[107] = a7;
+  x[108] = a8;
+  x[109] = a9;
+  x[110] = a10;
+  x[111] = a11;
+  x[112] = a12;
+  x[113] = a13;
+}
+</pre>
+Needs 17 integer registers ( <code>a0</code>, ..., <code>a13</code>, <code>x</code>, <code>i</code>, plus the stack pointer),
+so we must spill one.  Chaitin taught us to choose based on
+spill cost and degree.  He computed spill costs by counting uses and defs,
+weighted by some estimate of execution frequency.
+<p>
+He also had a few tricks for better spilling within a single basic blocks,
+but we'll ignore those here.
+</p><p>
+So, for all the live ranges, we count the number of defs and uses.
+<code>x</code> has 1 def and many uses.  Each of the others have exactly 1 def
+and 1 use.
+</p><p>
+Looking at degree, we see that they all interfere with each other,
+so they all have the same degree.
+</p><p>
+Therefore, when it comes time to choose 1 register to spill,
+Chaitin will choose, arbitrarily, one of the registers from { <code>a0</code>, ..., <code>a13</code>, <code>i</code> }
+(but not <code>x</code>, 'cause it's expensive) because they all seem identical.
+</p><p>
+But this is wrong.  In this case, it's certainly worse to spill <code>i</code> or <code>a13</code>.
+Why?  Spilling either of those makes no progress; we'll have to spill
+something else in addition.    Consider what happens it we spill <code>a13</code>.
+We make code something like
+</p><pre>long zap(long *x, long i) {
+  long a0 = x[0];
+  long a1 = x[1];
+  long a2 = x[2];
+  long a3 = x[3];
+  long a4 = x[4];
+  long a5 = x[5];
+  long a6 = x[6];
+  long a7 = x[7];
+  long a8 = x[8];
+  long a9 = x[9];
+  long a10= x[10];
+  long a11= x[11];
+  long a12= x[12];
+  long a13_1 = x[13];
+  *sp = a13_1;
+
+  x[i] = 0;
+
+  x[100] = a0;
+  x[101] = a1;
+  x[102] = a2;
+  x[103] = a3;
+  x[104] = a4;
+  x[105] = a5;
+  x[106] = a6;
+  x[107] = a7;
+  x[108] = a8;
+  x[109] = a9;
+  x[110] = a10;
+  x[111] = a11;
+  x[112] = a12;
+  a13_2 = *sp;
+  x[113] = a13_2;
+}
+</pre>
+Now we'll be able to allocate a register to <code>a13_1</code> because it
+because it has no interferences.  But <code>a13_1</code> has exactly the same
+set of interferences as the original <code>a13</code>.  We've made no progress at all.  Damn!
+(Not exactly true.  We've simplified other areas of the code, but we're going to have to 
+spill something else.)
+<p>
+So, what to do?  My idea is that we should examine all the spill points
+for each live range (defs and uses) and note how many other live ranges are
+live across each of those spill points.  Keep the max for each live range.
+</p><p>
+So for our example, we note that the def point of <code>i</code> interferes with 2 things
+(<code>x</code> and <code>sp</code>) and the use of <code>i</code> interferes with 16 things ( <code>x</code>, <code>sp</code>, <code>a0</code>, ..., <code>a13</code> ).
+So the max for <code>i</code> is 16.  But consider, say, <code>a4</code>.  The def of <code>a4</code> interferes
+with 7 things and the use of <code>a4</code> interferes with 11 things, so the max is 11.
+My argument is that it's much better to spill <code>a4</code> than <code>i</code> and that the max we've
+computed for each gives us the necessary clue.
+</p><p>
+I'm not sure of all the answers though.  Should this just be a differentiator of last resort,
+after examining spill cost and degree?  Or perhaps, if the max is &gt;= number of registers,
+should I just make the spill cost infinite?  (I think that's wrong)  Or what?
+</p><p>
+I'll ponder some more.
+</p><p>
+</p><h2><a name="Looking_at_the_grammar"> </a> Looking at the grammar </h2>
+<p>
+This was inspired by conversation with David Li.
+</p><p>
+The basic idea is to note the difference between
+</p><pre>r64x : ADD_DI(r64x | MEM_DI(addr))
+</pre>
+and
+<pre>r64x : ADD_DI(r64x | r64)
+</pre>
+In the first case, spilling the source register
+will require a separate load instruction and an intermediate register.
+In the second case, the add instruction can be modified to load from memory
+and no intermediate register will be required.

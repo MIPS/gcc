@@ -1,0 +1,424 @@
+<h1><a name="Results_of_Assembly_Comparisons"> </a> Results of Assembly Comparisons </h1>
+<p>
+For these comparisons, we are always using the same basic compiler, gcc
+4.4, but with different register allocators. X refers to the
+allocator used in X; Y refers to the allocator that will be used in
+Y (aka IRA).
+</p><p>I've been comparing the assembly code produced by ICG with that
+produced by Y, based on many of the hottest Google3 routines. In
+many, many cases, the code is basically identical. Where there are
+differences, I've tried to figure out why the differences arise. Where
+Y is making inferior code, I've tried to describe the problem
+carefully so that the maintainers of Y can perhaps fix the problem.
+Where the ICG code looks inferior, I've tried to figure out how it
+could be made better. In many of these latter cases, it may be worth
+instrumenting ICG itself to look for these possibilities before going
+to the effort of fixing them.
+</p><p>
+</p><h2><a name="ICG_Wins"> </a> ICG Wins </h2>
+<p>
+</p><h3><a name="Handling_of_memset"> </a> Handling of memset </h3>
+<p>For some reason, Y mis-handles the inlined version of memset.
+Here's an example, with ICG code on the left and Y code on the right
+</p><pre>movl   12(%rbx), %edx             movl   12(%rbx), %edx
+salq   $2, %rdx                   salq   $2, %rdx
+movq   40(%rbx), %rdi             movq   40(%rbx), %rdi
+xorl   %esi, %esi                 xorl   %esi, %esi
+call   memset                     call   memset
+movl   28(%rbx), %ecx             movl   28(%rbx), %ecx
+movl   $4, %edx                   movl   $4, %eax
+                           &gt;      movq   %rax, %rdx
+salq   %cl, %rdx                  salq   %cl, %rdx
+movq   32(%rbx), %rdi             movq   32(%rbx), %rdi
+xorl   %esi, %esi                 xorl   %esi, %esi
+call   memset                     call   memset
+xorl   %eax, %eax                 xorl   %eax, %eax
+movl   $512, %ecx                 movl   $512, %ecx
+leaq   4144(%rbx), %rdi    |      leaq   4144(%rbx), %rdx
+                           &gt;      movq   %rdx, %rdi
+rep stosq                         rep stosq
+movw   $512, %cx                  movw   $512, %cx
+leaq   48(%rbx), %rdi      |      addq   $48, %rbx
+                           &gt;      movq   %rbx, %rdi
+rep stosq                         rep stosq
+</pre>In these cases (a series of 4 memsets, where two have been
+inlined), we see Y repeatedly computing a value into 1 register, then
+moving immediately into another. It's the sort of problem normally
+avoided by coalescing. The first case may be an example of Y
+mis-handling the shift by a variable amount. Perhaps more experiments
+will shed more light.
+<p>
+</p><h3><a name="Handling_of_variable_shift"> </a> Handling of variable shift </h3>
+<p>OK, here's another example of Y messing up a variable shift, this
+time without the distraction of a memset. Again, the ICG code is on the
+left, Y code on the right.
+</p><pre>pushq   %r15                      pushq   %r15
+pushq   %r14                      pushq   %r14
+pushq   %r13                      pushq   %r13
+pushq   %r12                      pushq   %r12
+pushq   %rbp                      pushq   %rbp
+pushq   %rbx                      pushq   %rbx
+subq    $8, %rsp           |      subq    $24, %rsp
+movq    %rdi, %r13         |      movq    %rdi, %rbx
+movl    12380(%r13), %ecx  |      movl    12380(%rdi), %ecx
+                           &gt;      movl    %esi, %ebp
+sall    %cl, %esi          |      sall    %cl, %ebp
+</pre>Sometimes there seem to be 2 extra copies in this area.
+Note also that Y is reserving more stack space; that's because it
+spills a register in this routine (beyond those mentioned in the
+prologue), whereas ICG doesn't.
+<p>
+</p><h3><a name="Missed_coalesce_provokes_extra_s"> </a> Missed coalesce provokes extra spill </h3>
+<p>In the case above, I mentioned that Y spills a register. Looking
+at the code, I discovered that another unnecessary mov instruction,
+such that two copies of a value are carried of several basic blocks and
+a call. ICG coalesces the two values, saving a register and avoid the
+spill. I can't see why Y would miss it; doesn't look unusual.
+</p><p>
+</p><h3><a name="Updating_spilled_values_in_memor"> </a> Updating spilled values in memory </h3>
+<p>
+It appears that Y missed some opportunities to update spilled values directly in memory,
+versus loading, updating, storing.
+</p><pre>movl    $-1, %edx          |      movl    24(%rsp), %eax
+subl    %r13d, %edx        |      subl    $1, %eax
+addl    %edx, 40(%rsp)     |      subl    %r13d, %eax
+                           &gt;      movl    %eax, 24(%rsp)
+</pre>
+I can't promise this is a fair criticism; I need to look for other examples.
+<p>
+</p><p>
+</p><h3><a name="Poor_instruction_selection_aroun"> </a> Poor instruction selection around spilled values </h3>
+<p>
+Here's a particularly good one:
+</p><pre>cmpl   $0, 64(%rsp)     |      movl    64(%rsp), %edx
+                        &gt;      testl   %edx, %edx
+je     .L494            |      je      .L494
+</pre>
+This illustrates exactly the sort of problem that ICG was designed to avoid.
+Here Y has wasted an instruction and chewed an extra register.
+Now, we wonder if this happens a lot, or it it somehow particular to conditional branches.
+<p>
+</p><p>
+</p><h3><a name="Stupid_spilling_around_calls"> </a> Stupid spilling around calls </h3>
+<p>
+When I see calls in the code produced by ICG, it seems that registers are spilled around in the in a remarkably naive fashion.
+Here's an example:
+</p><pre>movl    %ecx, 16(%rsp)
+movq    %r8, 8(%rsp)
+movl    %r9d, 24(%rsp)
+movl    %r10d, 40(%rsp)
+movl    %r11d, 32(%rsp)
+call    *16(%rax)
+testb   %al, %al
+movl    16(%rsp), %ecx
+movq    8(%rsp), %r8
+movl    24(%rsp), %r9d
+movl    40(%rsp), %r10d
+movl    32(%rsp), %r11d
+je      .L813
+</pre>
+I was surprised to see each value reloaded back into its original register.
+Now this can happen, of course, especially in loops, but it seems as though every example I see has this same form.
+Makes me wonder...
+<p>
+Here's a more complex example where they seem to be doing the same thing and getting bit:
+</p><pre>movq    %rax, 32(%rsp)
+movq    %rdx, 40(%rsp)
+movq    %rcx, 24(%rsp)
+movq    %r8, 48(%rsp)
+movl    %r9d, 56(%rsp)
+call    _ZL9nextchainPN12_GLOBAL__N_16ChainsEi
+movl    56(%rsp), %r9d   ******* dumb move
+movl    %r9d, %esi       ******* dumb move
+movq    %rbx, %rdi
+call    _ZL9nextchainPN12_GLOBAL__N_16ChainsEi
+movq    48(%rsp), %r8
+movb    $0, 7(%r8)
+movq    24(%rsp), %rcx
+movq    40(%rsp), %rdx
+movq    32(%rsp), %rax
+</pre>
+The instructions marked <code>dumb move</code> should have been a simple load into <code>%esi</code>.
+Looking at the same code as handled by ICG, I see nothing like this pattern.
+Gives me hope that they are indeed beatable.
+<p>
+See <a href="ICGOurFirstBigWin.html">ICGOurFirstBigWin</a> for more discussion.
+</p><p>
+</p><h2><a name="ICG_Loses"> </a> ICG Loses </h2>
+<p>
+</p><h3><a name="Imperfect_handling_of_commutativ"> </a> Imperfect handling of commutative, two-address operations </h3>
+<p>
+Described <a href="ICGawkwardness.html">here</a>.  Most of the observed instances are simple and could be handled trivially after register allocation.
+</p><p>
+</p><h3><a name="Parameter_passing"> </a> Parameter passing </h3>
+<p>
+Here's an example where coalescing isn't adequate to clean up all the register-register copies around procedure calls
+</p><pre>movq    %rbx, -16(%rsp)
+movq    %rbp, -8(%rsp)
+subq    $24, %rsp
+movq    %rdi, %rbx
+movl    %edx, %ebp       -- we copy the parameter in %edx into %ebp
+testl   %ebp, %ebp
+je      .L10
+movq    12392(%rbx), %rdi
+testq   %rdi, %rdi
+je      .L10
+movl    %ebp, %edx       -- this copy is unnecessary, since %edx hasn't changed
+movq    (%rdi), %rax
+call    *16(%rax)        -- as part of the call, %edx is killed
+testb   %al, %al
+je      .L12
+movslq  %ebp,%rax        -- %ebp is still live
+...
+</pre>
+We can't simply coalesce %ebp and %edx because %edx is killed across the call, and we need the value after the call.
+<p>Variations of this seem to happen a lot. The observed instances are
+simple and could be handled trivially after register allocation. I
+don't see a way to handle it naturally as part of the existing ICG
+framework.
+</p><p>
+</p><h3><a name="Addressing_modes_for_memory_upda"> </a> Addressing modes for memory updates </h3>
+<p>
+We've planned for this from the beginning, but haven't yet finished the implementation.
+</p><p>
+</p><h3><a name="Another_DAG"> </a> Another DAG </h3>
+<p>
+The need to handle updates to memory was anticipated from the beginning;
+the following disaster was a surprise.
+</p><pre>leal    -8(%ebp), %eax      &lt;
+movl    %eax, %edx          &lt;
+andl    $-8, %edx           &lt;
+negl    %edx                &lt;
+leal    (%eax,%edx), %ebp   |    andl    $7, %r13d
+</pre>
+Can this be true?  It is!  What happened?
+Here's the provoking IL:
+<pre>insn 66: SET_ALL
+             REGX_SI:79
+             PLUS_SI
+                 REGX_SI:61
+                 CONST5N:-8
+insn 72: SET_ALL 
+             REGX_SI:61
+             PLUS_SI
+                 REG_SI:79
+                 NEG_SI
+                     ASHIFT_SI
+                         LSHIFTRT_SI
+                             REG_SI:79
+                             CONST_P3:3
+                         CONST_P3:3
+</pre>While we're doing something right (recognizing that the
+right-shift, left-shift sequence can be replaced by an and-immediate),
+there are many things going wrong. The basic problem is that we've got
+a DAG, with r79 being used in two places in the 2nd expression; burg
+patterns only describe trees. We ran into the same problem with updates
+to memory and added a couple of passes to recognize them
+systematically. Seems a basic weakness of our approach. I'd hate to add
+a new pass for every new pattern, but perhaps it's justified in this
+case? Certainly more study is required first.
+<p>
+Looking at the assembly, other questions arise, primarily: <em>Why the final</em> <code>leal</code> <em>over a negate instead of a simple subtract?</em>Again,
+this is related to the DAGness of the problem. We see two uses of r79
+in the 2nd expression, and since we're uncertain of the order of
+evaluation, we don't mark either as the "last use" (i.e., a REGX). And
+since burg doesn't see a last use, it must carefully preserve r79 (if
+we'd used a subtract instruction, r79 would be overwritten). Of course,
+we could make a copy and then subtract, but the cost would be the same.
+</p><p>We can do a better job here, even if we don't handle the DAG.
+Given the structure of the expression tree, we can be certain that the
+"deeper" reference to r79 will be complete before the subtract.
+Therefore, we could safely mark the outer reference to r79 as a last
+use and burg would choose the subtract, saving an instruction. I'll
+have to see if this insight can be easily implemented. <em>Is this really true?  Think carefully!</em>
+</p><p>
+And the source code for this slop?  Well, there's actually nothing particularly interesting; it's just the epilogue of a loop.
+I believe there's been some strength reduction going on and the optimizer has inserted this
+code to recover a final value from an induction variable.  I further speculate that gcc developers
+added this as a special peephole optimization to clean a commonly occurring ugliness.
+</p><p>
+</p><h3><a name="Rematerialization"> </a> Rematerialization </h3>
+<p>
+When spilling, ICG should pay attention to <em>rematerializable values</em>
+(e.g., constants) that don't need to be stored in memory, but can
+instead be loaded immediately when they are needed. Here's an example:
+</p><pre>movl    $715827883, 32(%rsp)  &lt;
+jmp     .L33                       jmp     .L33
+...
+addl    16(%rsp), %r13d       |    movl    28(%rsp), %ebx
+movl    %r13d, %ebx           |    addl    %r13d, %ebx
+cmpl    $1, 40(%rsp)          |    cmpl    $1, 24(%rsp)
+jle     .L32                       jle     .L32
+cmpl    $10, 40(%rsp)         |    cmpl    $10, 24(%rsp)
+jle     .L15                       jle     .L15
+movslq  40(%rsp),%rcx         |    movl    $715827883, %eax
+</pre>
+I know how to do this, but there's some implementation effort required.
+I believe it will fit in nicely with the overall structure.
+<p>
+</p><h3><a name="Need_more_local_smarts_when_spil"> </a> Need more local smarts when spilling </h3>
+<p>
+Here's an embarrassment:
+</p><pre>movq    24(%rsp), %rdx
+movzwl  (%rdx), %edx
+movq    24(%rsp), %rcx
+</pre>
+If we were more careful, this could be expressed
+<pre>movq    24(%rsp), %rcx
+movzwl  (%rcx), %edx
+</pre>
+One of Chaitin's refinements was to exercise a little care when spilling (and computing spill costs)
+and avoid situations like this.  We've been lazy about implementing this detail; I should fix it.
+<p>
+</p><p>
+</p><h3><a name="Avoiding_a_zero_extension"> </a> Avoiding a zero extension </h3>
+<p>
+We do some work to avoid unnecessary sign- and zero-extensions within expression trees.
+Nevertheless, here's a mistake:
+</p><pre>movzbl  %cl, %ecx     |    movzbl  %sil, %esi
+movzbl  %al, %eax     &lt;
+sall    $24, %eax     |    sall    $24, %ecx
+orl     %ecx, %eax    |    orl     %ecx, %esi
+</pre>Clearly the left shift by 24 of a 32-bit value means that we
+don't care about anything but the lowest 8 bits. We ought to be able to
+catch these with burg patterns. <em>Fixed</em>
+<p>
+</p><h3><a name="Unnecessary_test_instruction"> </a> Unnecessary test instruction </h3>
+<p>
+We work hard to avoid these and appear to be successful for the most part; nevertheless, this one crept in.
+</p><pre>subl    %r12d, %r15d  |    subl    %r15d, %ecx
+testl   %r15d, %r15d  &lt;
+je      .L112         |    je      .L112
+</pre>
+This turns out to be beyond our scheme because <code>r15</code> is live downstream (burg's expression trees have only a single result).
+It's clearly an easy peephole for a later pass.  A more sophisticated matcher based on Ertl's work could also catch it, I think.
+<p>
+</p><h3><a name="Missed_peephole_optimization"> </a> Missed peephole optimization </h3>
+<p>
+There are many peephole optimizations that can be expressed via burg grammar rules.
+Here's one we missed
+</p><pre>addq    $1, %rax       |    leaq    4(,%rax,4), %rax
+salq    $2, %rax       &lt;
+</pre>
+I'm afraid there will be many of these and they'll only be revealed over a long, tedious tuning period.
+I have ideas about collecting semi or even fully automatically, but it'll still take a while to implement.
+<p>
+Hmmm, this actually is not a problem.  On the Opteron, both sequences have exactly the same cost, latency and size.
+But it does remind me that I should specify the correct target machine for these comparisons.
+</p><p>
+</p><h3><a name="Another_missed_peephole_optimiza"> </a> Another missed peephole optimization </h3>
+<p>
+The addressing modes are a source of all kinds of surprising
+opportunities. Here's another that happens to show up twice in a row:
+</p><pre>movslq  %ebx,%r8              |         movslq  %r14d,%rsi
+leaq    60(%r8), %r9          &lt;
+movl    %edi, 32(%rsp,%r9,4)  |         movl    %edi, 272(%rsp,%rsi,4)
+leaq    696(%r8), %rdi        &lt;
+movw    %si, 32(%rsp,%rdi,2)  |         movw    %cx, 1424(%rsp,%rsi,2)
+</pre>
+Basically, we want to rewrite <code>A*(rX + B) + rY + C</code> as <code>A*rX + rY + (A*B + C)</code>.
+It's easy enough to recognize the opportunity using grammar rules, but care is required.
+For this to work in a single addressing mode (and therefore be worth doing),
+the constant <code>A*B + C</code> must fit within 4 bytes.  This generally isn't the sort of thing we can
+recognize in a context-free fashion.
+<p>
+There are a couple of ways we can deal with this.
+</p><ol>
+<li> Add a fancy cost function that's called with the values A, B, and
+C. If the resulting constant doesn't fit in 32 bits, returns an
+infinite cost; otherwise, returns the appropriate finite cost. We'd
+have to extend plug and iburg to handle this sort of thing, but there's
+no theoretical reason we can't manage.
+</li>
+<li> Since A is limited to the small constants 2, 4, or 8, we can
+conservatively limit the size of B and C and be able to manage within
+the context of the current implementations of plug and iburg. While it
+won't catch as much as the more aggressive solution above, it'll get
+all the small cases and degrade gracefully.
+</li>
+</ol>
+<p>
+Thinking more about it, I believe approach 2 can be very good.
+Since we want A*B + C to be less than 2^31, we can ensure (syntactically)
+that both A*B and C are less than 2^30.  While it won't catch quite every case,
+it will be quite good.  Looking at it, I think I can express it (and all its variations,
+accounting for different integer types and such) as 42 plug rules, which will expand by
+another factor of 48 to yield over 2300 iburg rules.  Cool!  This idea <em>doubles</em> the the number of iburg
+rules in one fell swoop.
+</p><p>
+While it helps show the power of the tools, it also helps illustrate their weakness.
+Doing all this recognition in a pure syntactic fashion requires a <em>lot</em> of syntax.
+It may be that a fairly small amount of clever C could achieve the same effect
+in a much simpler fashion, perhaps by normalizing the expression somehow. 
+</p><p>
+For completeness, here's the basic pattern we need to recognize.
+</p><pre>r64x : PLUS_DI(MULT_DI(PLUS_DI(r64.index | imm29.const1) | CONST_P4) | imm31.const2 | r64.base)
+</pre>
+Here <code>imm29</code> indicates some constant (named <code>const1</code>) that can be represented in 29 bits or less, <code>imm31</code>
+is some constant that can be represented in 31 bits or less, <code>CONST_P4</code> is the constant 4, and <code>r64</code> indicates a 64-bit register.
+<p>
+Plug will take this one rule and generate the 48 variations implied by the commutativity and associativity of
+addition and multiplication.  By hand, I'll produce the 42 variations that account for different integer types,
+shift instead of multiplication, the three possible shift amounts, and the different costs for 1-byte and 32-byte displacements.
+</p><p>
+In any case, <em>Fixed</em>
+</p><p>
+</p><h2><a name="A_mixed_bag"> </a> A mixed bag </h2>
+<p>
+Here's a sequence of blocks where both appear to be making mistakes, though ICG gets the better result:
+</p><pre>movswl  (%rax,%r8),%ecx                         |    movswl  (%r9,%rax),%ecx
+testl   %ecx, %ecx                                   testl   %ecx, %ecx
+je      .L77                                         je      .L77
+movslq  %ecx,%rsi                               |    movslq  %ecx,%rdi
+movl    0(%rsp,%rsi,4), %edi                    |    movl    16(%rsp,%rdi,4), %r8d
+movl    %edi, %r9d                              |    movl    %r10d, %r11d
+negl    %ecx                                    |    subl    %ecx, %r11d               (1)
+leal    (%edx,%ecx), %ecx                       |    movl    %r11d, %ecx
+                                                &gt;    movl    %r8d, %r13d               (2)
+sall    %cl, %r9d                               |    sall    %cl, %r13d
+                                                &gt;    movl    %r13d, %ecx
+testl   $-65536, %r9d                           |    testl   $-65536, %r13d
+jne     .L73                                         jne     .L73
+addl    $1, %edi                                |    addl    $1, %r8d
+movl    %edi, 0(%rsp,%rsi,4)                    |    movl    %r8d, 16(%rsp,%rdi,4)
+movl    %r9d, %ecx                              |    movzbl  %r13b, %edi               (3)
+andl    $255, %ecx                              &lt;
+movzbl  _ZN12_GLOBAL__N_1L6revtabE(%rcx), %ecx  |    movzbl  _ZN12_GLOBAL__N_1L6revtabE(%rdi), %edi
+sall    $8, %ecx                                |    sall    $8, %edi
+shrl    $8, %r9d                                |    shrl    $8, %ecx
+                                                &gt;    mov     %ecx, %ecx                (4)
+movzbl  _ZN12_GLOBAL__N_1L6revtabE(%r9), %esi   |    movzbl  _ZN12_GLOBAL__N_1L6revtabE(%rcx), %ecx
+orw     %cx, %si                                |    orl     %edi, %ecx                (5)
+movw    %si, 2(%r8,%rax)                        |    movw    %cx, 2(%r9,%rax)
+</pre>
+I'm not completely confident of my explanations; some things will bear closer investigation.
+<ol>
+<li> ICG will sometimes emit the sequence <code>negate-lea</code> instead of <code>move-subtract</code>; in this case, preserving <code>rdx</code>.  But I'm not certain <code>rdx</code> is actually live (I get lost in the control flow); if not, then a simple subtract would be better.  Should be examined.
+</li>
+<li> Y has the usual mistake of an extra move instruction before the
+variable shift. But this time there might be one after the shift too.
+</li>
+<li> ICG uses a <code>movl-and</code> sequence instead of a <code>movzbl</code>.  I expect this is an easy peephole-like pattern to express in burg. <em>Fixed</em>
+</li>
+<li> Why does Y do this? It has the effect of zeroing the upper 32
+bits of the register, but they're already zero as a side effect of the
+previous instruction.
+</li>
+<li> ICG should have used <code>orl</code> here, to save a byte in the instruction coding. We usually get these; there may be a typo to fix. <em>Fixed</em>
+</li>
+</ol>
+<p>
+</p><h2><a name="Comparing_to_X"> </a> Comparing to X </h2>
+<p>
+X is our name for the register allocator gcc was using when we started, just before IRA was introduced.
+Looking in a limited way
+</p><ul>
+<li> it appears to generate slightly bulkier code than Y
+</li>
+<li> it avoids some of the small mistakes Y made (extra copies around variable shifts and calls to memset)
+</li>
+<li> has the same approach to (mis)handling caller-saves registers.
+</li>
+</ul>
+This last point is a little scary.  Implies that they may be handled in reload versus the allocator proper.
+While it won't matter to ICG, it suggests that it won't be so easy to fix Y

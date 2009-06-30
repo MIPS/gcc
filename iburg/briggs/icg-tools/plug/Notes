@@ -1,0 +1,86 @@
+plug - a burg (or iburg) preprocessor
+
+experimental, so I can gain some experience
+
+
+A machine description looks like
+
+[prologue]
+%%
+decls
+rules
+[%%
+ epilogue]
+
+
+where the prologue and epilogue are simply lines of C code.
+Typically, the prologue contains declarations and the epilogue
+will consist of C routines.
+
+
+decls = { decl ";" }
+
+decl = "start"   nonterm-id
+     | "nonterm" nonterm-id    { "," nonterm-id }
+     | "term"    term-equate   { "," term-equate }
+     | "reduce"  reduce-equate { "," reduce-equate }
+
+term-equate = term-id "=" number
+
+reduce-equate = reduce-id "=" path
+
+rules = { rule | include }
+
+include = "include" path ";"
+
+rule = specs [ reductions ] ";"
+
+specs = spec { "," spec }
+
+spec = nonterm-id ":" pattern cost
+
+pattern = nonterm-id
+        | term-id [ "(" patterns ")" ]
+
+patterns = pattern [ "," pattern ]
+         | pattern { "|" pattern }
+
+cost = [ "[" number "," number "]" ]
+
+reductions = reduction { "," reduction }
+
+reduction = reduce-id "{" code "}"
+
+  where code is C code with balanced curly braces
+
+
+id = alpha { alphanum | '_' }
+
+path = '"' { char } '"'
+
+number = digit { digit }
+
+
+
+comments are started by "--" and extend to EOL
+
+
+
+5 keywords: reduce, term, nonterm, start, include
+
+other tokens
+
+      ; , = : ( ) [ ] { } |
+      path id number
+      done
+
+
+Make sure term numbers (in the term-equates) are unique.
+Make sure file names (in reduce-equates) are unique
+Make sure each use of a particular term-id has the same
+number of children. 
+
+Maybe make the cost model fancier, allowing function calls
+
+
+-o filename to redirect output

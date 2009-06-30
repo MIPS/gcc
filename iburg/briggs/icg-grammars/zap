@@ -1,0 +1,189 @@
+# A translation of builtin_memset comes
+# to us as a parallel tree that encodes all
+# of the side effects on registers that are expected from
+# executing a "rep stosq" (repeat store string quad) instruction sequence.
+#
+# For example, this is the GCC IL that appears for memset:
+#  (parallel [
+#      (set (reg:DI 92)
+#	  (const_int 0 [0x0]))
+#      (set (reg/f:DI 84 [ D.83744 ])
+#	  (plus:DI (ashift:DI (reg:DI 91)
+#		  (const_int 3 [0x3]))
+#	      (reg/f:DI 84 [ D.83744 ])))
+#      (set (mem:BLK (reg/f:DI 84 [ D.83744 ]) [0 A8])
+#	  (const_int 0 [0x0]))
+#      (use (reg:DI 87))
+#      (use (reg:DI 91))
+#  ]) 854 {*rep_stosdi_rex64}
+#  (expr_list:REG_DEAD (reg:DI 91)
+#  (expr_list:REG_DEAD (reg:DI 87)
+#  (expr_list:REG_UNUSED (reg:DI 92)
+#  (nil))))
+
+#
+# (reg:DI 91) presumably holds the initial value of the C register, which is the count in uint64 words
+# (reg:DI 92) maps to the rcx (count) register; when done, the C register is 0
+# (reg:DI 84) maps to the rdi (dst  ) register; when done, it has value rdi += r91<<3
+# and then there's a final use of r87 and r91
+#
+# The assignment to the C register (set (reg:DI 92) (const_int 0))
+# appears to be elided by something upstream of us possibly from icg-ssa.c?
+#
+# The stosq instruction does (here from the manual):
+#  Copies a quadword from the RAX register to the memory locations pointed
+#  to by RDI and increments/decrements RDI by 8 according to the value of DF.
+#
+# Alas, but the RTL backend to gcc has a pattern that only allows
+# constant 0 to be the source operand to the block move,
+# not some arbitrary value held in a register (rax).
+#
+
+"""
+Presumably memset
+  This comes from RE::TryMatch
+  Constants have been(?) forwarded propagated by icg-ssa.c.
+  PARALLEL_ALL <iburg handle 0x933ec98> {node 0x93082f4}
+      SET_ALL <iburg handle 0x933e6d8> {node 0x9308378}
+	  MEMB_DI <iburg handle 0x933e568> {node 0x93083fc}
+	      REG_DI:65 <iburg handle 0x9077400> {node 0x9308480}
+	  CONST_0:0 <iburg handle 0x9067b00> {node 0x9308504}
+      PARALLEL_ALL <iburg handle 0x933eb28> {node 0x93080f0}
+	  USE_ALL <iburg handle 0x933e848> {node 0x9308174}
+	      CONST_0:0 <iburg handle 0x9067b00> {node 0x9308270}
+	  USE_ALL <iburg handle 0x933e9b8> {node 0x9307fe8}
+	      CONST5P:11 <iburg handle 0x9067080> {node 0x930806c}
+  The original rtx tree is:
+    (insn 58 57 60 8 util/regexp/regexp.cc:412 (parallel [
+		(set (reg:DI 100)
+		    (const_int 0 [0x0]))
+		(set (reg:DI 97)
+		    (plus:DI (ashift:DI (reg:DI 100)
+			    (const_int 3 [0x3]))
+			(reg:DI 97)))
+		(set (mem/s/c:BLK (reg:DI 97) [0 extra+0 S48 A64])
+		    (const_int 0 [0x0]))
+		(use (reg:DI 98))
+		(use (reg:DI 100))
+	    ]) 854 {*rep_stosdi_rex64} (nil))
+
+"""
+
+plug.plugrule3("memset0", [
+  ["rule", "cost"],
+  ["""stmt:
+      PARALLEL_ALL(
+	  SET_ALL(lhs64.dst_rdi, PLUS_DI(ASHIFT_DI(r64.src1_rcx, CONST_P3), r64.src1_rdi)),
+	PARALLEL_ALL(
+	  SET_ALL(MEMB_DI(r64.src2_rdi), r64.src1_rax),
+	  PARALLEL_ALL(
+	    USE_ALL(r64.src3_rcx),
+	    USE_ALL(r64.src2_rax)
+	  )
+	)
+      )
+    """,
+    [10, 10]	# TODO: bogus cost
+  ],
+], """
+  $rule $cost
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $src1_rcx->r, REG_RCX);
+    coalesces += attempt_coalesce(pass, $src1_rdi->r, REG_RDI);
+    coalesces += attempt_coalesce(pass, $src1_rax->r, REG_RAX);
+    if (!$dst_rdi->spilled)
+      coalesces += attempt_coalesce(pass, $dst_rdi->r,  REG_RDI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($dst_rdi->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $dst_rdi);
+    }
+    else
+      add_copy_edges(/*dst*/$dst_rdi->r, /*src*/REG_RDI, live);
+
+    add_edges(REG_RCX, live);
+    add_edges(REG_RDI, live);
+    add_edges(REG_RAX, live);
+
+    add_copy_edges(/*dst*/REG_RAX, /*src*/$src1_rax->r, live);
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$src1_rdi->r, live);
+    add_copy_edges(/*dst*/REG_RCX, /*src*/$src1_rcx->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($src1_rcx->r, REG_RCX);
+    cost_copy($src1_rdi->r, REG_RDI);
+    cost_copy($src1_rax->r, REG_RAX);
+    forgettable($src1_rax->r);
+    forgettable($src1_rdi->r);
+    forgettable($src1_rcx->r);
+    if (!$dst_rdi->spilled)
+      cost_copy($dst_rdi->r, REG_RDI);
+  },
+  debug {
+    /*
+     * by construction upstream of icg: $src1_rcx, $src3_rcx           should be identical
+     * by construction upstream of icg: $src1_rax, $src2_rax           should be identical
+     * by construction upstream of icg: $dst_rdi, $src1_rdi, $src2_rdi should be identical
+     */
+    dump_copy("movq", $src1_rcx->r, REG_RCX, 'q');
+    dump_copy("movq", $src1_rdi->r, REG_RDI, 'q');
+    dump_copy("movq", $src1_rax->r, REG_RAX, 'q');
+    dump("rep stosq");
+    if ($dst_rdi->spilled)
+      dumpRM("movq", REG_RDI, 'q', $dst_rdi);
+    else
+      dump_copy("movq", REG_RDI, $dst_rdi->r, 'q');
+  },
+  emit {
+    #if 0
+      We want something like this; ordering of parallel kids is evidently important:
+	 (parallel [
+            (set (reg:DI 2 cx [92])
+                (const_int 0 [0x0]))
+            (set (reg/f:DI 5 di [orig:84 D.83744 ] [84])
+                (plus:DI (ashift:DI (reg:DI 2 cx [91])
+                        (const_int 3 [0x3]))
+                    (reg/f:DI 5 di [orig:84 D.83744 ] [84])))
+            (set (mem:BLK (reg/f:DI 5 di [orig:84 D.83744 ] [84]) [0 A8])
+                (const_int 0 [0x0]))
+            (use (reg:DI 0 ax [87]))
+            (use (reg:DI 2 cx [91]))
+	  ]) 854 {*rep_stosdi_rex64} (nil)
+    #endif
+
+    const rtx src1_rcx = gen_rtx_REG(DImode, $src1_rcx->r);
+    const rtx src1_rax = gen_rtx_REG(DImode, $src1_rax->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $src1_rdi->r);
+    const rtx dst_rdi  = $dst_rdi->spilled
+      ? gen_rtx_MEM(DImode, $dst_rdi->rtl)
+      : gen_rtx_REG(DImode, $dst_rdi->r);
+
+    const rtx three    = gen_rtx_CONST_INT(DImode, 3);
+    const rtx rax      = gen_rtx_REG(DImode, REG_RAX);
+    const rtx rdi      = gen_rtx_REG(DImode, REG_RDI);
+    const rtx rcx      = gen_rtx_REG(DImode, REG_RCX);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rcx, src1_rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rax, src1_rax));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(5,
+	gen_rtx_SET(VOIDmode, rcx, gen_rtx_CONST_INT(DImode, 0)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, gen_rtx_ASHIFT(DImode, rcx, three), rdi)),
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(BLKmode, rdi), gen_rtx_CONST_INT(DImode, 0)),
+	gen_rtx_USE(VOIDmode, rax),	/* must be 1st use */
+	gen_rtx_USE(VOIDmode, rcx)	/* must be 2nd use */
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  }
+  ;
+""")

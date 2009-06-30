@@ -1,0 +1,5978 @@
+#line 19 "x86-64.misc.py"
+addr : PLUS_DI(base64 | index64 | disp) [0, 0]
+#line 22 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->a.index;
+    $$->a.scale  = $2->a.scale;
+    $$->a.disp   = $3->a.disp;
+    $$->a.string = $3->a.string;
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->a.index;
+  },
+  emit {
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl, $2->rtl, $3->rtl);
+  };
+#line 45 "x86-64.misc.py"
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm5)  | CONST_P8)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 8;
+    $$->a.disp   = $3->val * 8;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(8)),
+			   GEN_INT($3->val * 8));
+  };
+#line 46 "x86-64.misc.py"
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm29) | CONST_P8)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 8;
+    $$->a.disp   = $3->val * 8;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(8)),
+			   GEN_INT($3->val * 8));
+  };
+#line 47 "x86-64.misc.py"
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm6)  | CONST_P4)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 4;
+    $$->a.disp   = $3->val * 4;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(4)),
+			   GEN_INT($3->val * 4));
+  };
+#line 48 "x86-64.misc.py"
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm30) | CONST_P4)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 4;
+    $$->a.disp   = $3->val * 4;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(4)),
+			   GEN_INT($3->val * 4));
+  };
+#line 49 "x86-64.misc.py"
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm7)  | CONST_P2)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 2;
+    $$->a.disp   = $3->val * 2;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(2)),
+			   GEN_INT($3->val * 2));
+  };
+#line 50 "x86-64.misc.py"
+addr : PLUS_DI(base64 | MULT_DI(PLUS_DI(r64 | imm31) | CONST_P2)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 2;
+    $$->a.disp   = $3->val * 2;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(2)),
+			   GEN_INT($3->val * 2));
+  };
+#line 52 "x86-64.misc.py"
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm5),  CONST_P3)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 8;
+    $$->a.disp   = $3->val * 8;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(8)),
+			   GEN_INT($3->val * 8));
+  };
+#line 53 "x86-64.misc.py"
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm29), CONST_P3)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 8;
+    $$->a.disp   = $3->val * 8;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(8)),
+			   GEN_INT($3->val * 8));
+  };
+#line 54 "x86-64.misc.py"
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm6),  CONST_P2)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 4;
+    $$->a.disp   = $3->val * 4;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(4)),
+			   GEN_INT($3->val * 4));
+  };
+#line 55 "x86-64.misc.py"
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm30), CONST_P2)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 4;
+    $$->a.disp   = $3->val * 4;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(4)),
+			   GEN_INT($3->val * 4));
+  };
+#line 56 "x86-64.misc.py"
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm7),  CONST_P1)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 2;
+    $$->a.disp   = $3->val * 2;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(2)),
+			   GEN_INT($3->val * 2));
+  };
+#line 57 "x86-64.misc.py"
+addr : PLUS_DI(base64 | ASHIFT_DI(PLUS_DI(r64 | imm31), CONST_P1)) [0, 1]
+#line 61 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->r;
+    $$->a.scale  = 2;
+    $$->a.disp   = $3->val * 2;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $2->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(2)),
+			   GEN_INT($3->val * 2));
+  };
+#line 93 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm7  | MULT_DI(PLUS_DI(r64 | imm4)  | CONST_P8)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 8;
+    $$->a.disp   = $2->val + $4->val * 8;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(8)),
+			   GEN_INT($2->val + $4->val * 8));
+  };
+#line 94 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm31 | MULT_DI(PLUS_DI(r64 | imm28) | CONST_P8)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 8;
+    $$->a.disp   = $2->val + $4->val * 8;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(8)),
+			   GEN_INT($2->val + $4->val * 8));
+  };
+#line 95 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm7  | MULT_DI(PLUS_DI(r64 | imm5)  | CONST_P4)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 4;
+    $$->a.disp   = $2->val + $4->val * 4;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(4)),
+			   GEN_INT($2->val + $4->val * 4));
+  };
+#line 96 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm31 | MULT_DI(PLUS_DI(r64 | imm29) | CONST_P4)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 4;
+    $$->a.disp   = $2->val + $4->val * 4;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(4)),
+			   GEN_INT($2->val + $4->val * 4));
+  };
+#line 97 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm7  | MULT_DI(PLUS_DI(r64 | imm6)  | CONST_P2)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 2;
+    $$->a.disp   = $2->val + $4->val * 2;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(2)),
+			   GEN_INT($2->val + $4->val * 2));
+  };
+#line 98 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm31 | MULT_DI(PLUS_DI(r64 | imm30) | CONST_P2)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 2;
+    $$->a.disp   = $2->val + $4->val * 2;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(2)),
+			   GEN_INT($2->val + $4->val * 2));
+  };
+#line 100 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm7  | ASHIFT_DI(PLUS_DI(r64 | imm4),  CONST_P3)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 8;
+    $$->a.disp   = $2->val + $4->val * 8;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(8)),
+			   GEN_INT($2->val + $4->val * 8));
+  };
+#line 101 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm31 | ASHIFT_DI(PLUS_DI(r64 | imm28), CONST_P3)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 8;
+    $$->a.disp   = $2->val + $4->val * 8;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(8)),
+			   GEN_INT($2->val + $4->val * 8));
+  };
+#line 102 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm7  | ASHIFT_DI(PLUS_DI(r64 | imm5),  CONST_P2)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 4;
+    $$->a.disp   = $2->val + $4->val * 4;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(4)),
+			   GEN_INT($2->val + $4->val * 4));
+  };
+#line 103 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm31 | ASHIFT_DI(PLUS_DI(r64 | imm29), CONST_P2)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 4;
+    $$->a.disp   = $2->val + $4->val * 4;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(4)),
+			   GEN_INT($2->val + $4->val * 4));
+  };
+#line 104 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm7  | ASHIFT_DI(PLUS_DI(r64 | imm6),  CONST_P1)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 2;
+    $$->a.disp   = $2->val + $4->val * 2;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(2)),
+			   GEN_INT($2->val + $4->val * 2));
+  };
+#line 105 "x86-64.misc.py"
+addr : PLUS_DI(base64 | imm31 | ASHIFT_DI(PLUS_DI(r64 | imm30), CONST_P1)) [0, 0]
+#line 109 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $3, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $3->r;
+    $$->a.scale  = 2;
+    $$->a.disp   = $2->val + $4->val * 2;
+    $$->a.string = NULL;
+  },
+  costs {
+    forgettable($3->r);
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $3->r;
+  },
+  emit {
+    rtx src2 = gen_rtx_REG(DImode, $3->r);
+    $$->rtl = gen_rtx_addr(DImode, $1->rtl,
+			   gen_rtx_MULT(DImode, src2, GEN_INT(2)),
+			   GEN_INT($2->val + $4->val * 2));
+  };
+#line 137 "x86-64.misc.py"
+addr : PLUS_DI(base64 | index64) [0, 0]
+#line 140 "x86-64.misc.py"
+  supairs {
+    suOrder2($$, $1, $2, kid, kids);
+  },
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = $2->a.index;
+    $$->a.scale  = $2->a.scale;
+    $$->a.disp   = 0;
+    $$->a.string = NULL;
+  },
+  final {
+    $$->a.base  = $1->a.base;
+    $$->a.index = $2->a.index;
+  },
+  emit {
+    $$->rtl = gen_rtx_PLUS(DImode, $1->rtl, $2->rtl);
+  };
+#line 162 "x86-64.misc.py"
+addr : PLUS_DI(base64 | disp) [0, 0]
+#line 165 "x86-64.misc.py"
+  names {
+    $$->a.base   = $1->a.base;
+    $$->a.base_valid  = $1->a.base_valid;
+    $$->a.index  = 0;
+    $$->a.scale  = 0;
+    $$->a.disp   = $2->a.disp;
+    $$->a.string = $2->a.string;
+  },
+  final {
+    $$->a.base  = $1->a.base;
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_PLUS(DImode, $1->rtl, $2->rtl);
+  };
+#line 187 "x86-64.misc.py"
+addr : PLUS_DI(index64 | imm32) [0, 1]
+#line 190 "x86-64.misc.py"
+  names {
+    $$->a.base_valid = 0;
+    $$->a.index  = $1->a.index;
+    $$->a.scale  = $1->a.scale;
+    $$->a.disp   = $2->val;
+    $$->a.string = $2->a.string;
+  },
+  final {
+    $$->a.index = $1->a.index;
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_PLUS(DImode,
+      $1->rtl,
+      gen_rtx_imm_constant($2->val, $2->a.string, $2->rtl));
+  };
+#line 213 "x86-64.misc.py"
+addr : base64 [0, 0]
+#line 216 "x86-64.misc.py"
+  names {
+    $$->a.index  = 0;
+    $$->a.scale  = 0;
+    $$->a.disp   = 0;
+    $$->a.string = NULL;
+  },
+  emit {
+    $$->rtl = $1->rtl;
+  };
+#line 229 "x86-64.misc.py"
+addr : index64 [0, 5]
+#line 232 "x86-64.misc.py"
+  names {
+    $$->a.base_valid  = 0;
+    $$->a.disp   = 0;
+    $$->a.string = NULL;
+  },
+  emit {
+    $$->rtl = $1->rtl;
+  };
+#line 249 "x86-64.misc.py"
+addr : symbol32 [0, 1]
+#line 253 "x86-64.misc.py"
+  names {
+    $$->a = $1->a;	/* preserve all semantic info */
+  },
+  emit {
+    rtx expr = $$->rtl;	/* RTL from original tree (thin ice!) */
+    $$->rtl = gen_rtx_imm_constant($$->a.disp, $$->a.string, expr);
+  };
+#line 250 "x86-64.misc.py"
+addr : symbol64 [0, 1]
+#line 253 "x86-64.misc.py"
+  names {
+    $$->a = $1->a;	/* preserve all semantic info */
+  },
+  emit {
+    rtx expr = $$->rtl;	/* RTL from original tree (thin ice!) */
+    $$->rtl = gen_rtx_imm_constant($$->a.disp, $$->a.string, expr);
+  };
+#line 264 "x86-64.misc.py"
+addr : imm32 [0, 1]
+#line 267 "x86-64.misc.py"
+  names {
+    $$->a.base_valid = 0;
+    $$->a.index = 0;
+    $$->a.scale = 0;
+    $$->a.disp  = $1->val;
+  },
+  emit {
+    rtx expr = $$->rtl;	/* RTL from original tree (thin ice!) */
+    $$->rtl = gen_rtx_imm_constant($$->a.disp, $$->a.string, expr);
+  };
+#line 281 "x86-64.misc.py"
+disp : imm8 [0, 0]
+#line 285 "x86-64.misc.py"
+  names {
+    $$->a.disp = $1->val;
+  },
+  emit {
+    $$->rtl = gen_rtx_imm_constant($$->a.disp, $$->a.string, $$->rtl);
+  };
+#line 282 "x86-64.misc.py"
+disp : imm32 [0, 0]
+#line 285 "x86-64.misc.py"
+  names {
+    $$->a.disp = $1->val;
+  },
+  emit {
+    $$->rtl = gen_rtx_imm_constant($$->a.disp, $$->a.string, $$->rtl);
+  };
+#line 295 "x86-64.misc.py"
+base64 : r64 [0, 1]
+#line 301 "x86-64.misc.py"
+  names {
+    $$->a.base = $1->r;
+    $$->a.base_valid = 1;
+    $$->a.base_rip = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  final {
+    $$->a.base = $1->r;
+  },
+  emit {
+    $$->rtl = gen_rtx_REG(DImode, $1->r);
+  };
+#line 296 "x86-64.misc.py"
+base32 : r32 [0, 1]
+#line 301 "x86-64.misc.py"
+  names {
+    $$->a.base = $1->r;
+    $$->a.base_valid = 1;
+    $$->a.base_rip = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  final {
+    $$->a.base = $1->r;
+  },
+  emit {
+    $$->rtl = gen_rtx_REG(SImode, $1->r);
+  };
+#line 297 "x86-64.misc.py"
+base16 : r16 [0, 1]
+#line 301 "x86-64.misc.py"
+  names {
+    $$->a.base = $1->r;
+    $$->a.base_valid = 1;
+    $$->a.base_rip = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  final {
+    $$->a.base = $1->r;
+  },
+  emit {
+    $$->rtl = gen_rtx_REG(SImode, $1->r);
+  };
+#line 298 "x86-64.misc.py"
+base8  : r8 [0, 1]
+#line 301 "x86-64.misc.py"
+  names {
+    $$->a.base = $1->r;
+    $$->a.base_valid = 1;
+    $$->a.base_rip = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  final {
+    $$->a.base = $1->r;
+  },
+  emit {
+    $$->rtl = gen_rtx_REG(SImode, $1->r);
+  };
+#line 319 "x86-64.misc.py"
+index64 : r64 [0, 1]
+#line 325 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  emit {
+    $$->rtl = gen_rtx_REG(DImode, $1->r);
+  };
+#line 320 "x86-64.misc.py"
+index32 : r32 [0, 1]
+#line 325 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  emit {
+    $$->rtl = gen_rtx_REG(SImode, $1->r);
+  };
+#line 321 "x86-64.misc.py"
+index16 : r16 [0, 1]
+#line 325 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  emit {
+    $$->rtl = gen_rtx_REG(SImode, $1->r);
+  };
+#line 322 "x86-64.misc.py"
+index8  : r8 [0, 1]
+#line 325 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  emit {
+    $$->rtl = gen_rtx_REG(SImode, $1->r);
+  };
+#line 343 "x86-64.misc.py"
+index64 : ASHIFT_DI(r64, scon) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(DImode,
+      gen_rtx_REG(DImode, $1->r),
+      GEN_INT(1 ? (1 << $2->val) : $2->val));
+  };
+#line 344 "x86-64.misc.py"
+index32 : ASHIFT_SI(r32, scon) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(SImode,
+      gen_rtx_REG(SImode, $1->r),
+      GEN_INT(1 ? (1 << $2->val) : $2->val));
+  };
+#line 345 "x86-64.misc.py"
+index16 : ASHIFT_HI(r16, scon) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(HImode,
+      gen_rtx_REG(HImode, $1->r),
+      GEN_INT(1 ? (1 << $2->val) : $2->val));
+  };
+#line 346 "x86-64.misc.py"
+index8  : ASHIFT_QI(r8,  scon) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(QImode,
+      gen_rtx_REG(QImode, $1->r),
+      GEN_INT(1 ? (1 << $2->val) : $2->val));
+  };
+#line 348 "x86-64.misc.py"
+index64 : MULT_DI(r64 | mcon) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 0 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(DImode,
+      gen_rtx_REG(DImode, $1->r),
+      GEN_INT(0 ? (1 << $2->val) : $2->val));
+  };
+#line 349 "x86-64.misc.py"
+index32 : MULT_SI(r32 | mcon) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 0 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(SImode,
+      gen_rtx_REG(SImode, $1->r),
+      GEN_INT(0 ? (1 << $2->val) : $2->val));
+  };
+#line 350 "x86-64.misc.py"
+index16 : MULT_HI(r16 | mcon) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 0 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(HImode,
+      gen_rtx_REG(HImode, $1->r),
+      GEN_INT(0 ? (1 << $2->val) : $2->val));
+  };
+#line 351 "x86-64.misc.py"
+index8  : MULT_QI(r8  | mcon) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 0 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(QImode,
+      gen_rtx_REG(QImode, $1->r),
+      GEN_INT(0 ? (1 << $2->val) : $2->val));
+  };
+#line 353 "x86-64.misc.py"
+index16 : SUBREG_HI(ASHIFT_SI(SIGN_EXTEND_SI(r16), scon), CONST_0) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(HImode,
+      gen_rtx_REG(HImode, $1->r),
+      GEN_INT(1 ? (1 << $2->val) : $2->val));
+  };
+#line 354 "x86-64.misc.py"
+index16 : SUBREG_HI(ASHIFT_SI(ZERO_EXTEND_SI(r16), scon), CONST_0) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(HImode,
+      gen_rtx_REG(HImode, $1->r),
+      GEN_INT(1 ? (1 << $2->val) : $2->val));
+  };
+#line 355 "x86-64.misc.py"
+index8  : SUBREG_QI(ASHIFT_SI(SIGN_EXTEND_SI(r8),  scon), CONST_0) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(QImode,
+      gen_rtx_REG(QImode, $1->r),
+      GEN_INT(1 ? (1 << $2->val) : $2->val));
+  };
+#line 356 "x86-64.misc.py"
+index8  : SUBREG_QI(ASHIFT_SI(ZERO_EXTEND_SI(r8),  scon), CONST_0) [0, 1]
+#line 360 "x86-64.misc.py"
+  names {
+    $$->a.index = $1->r;
+    $$->a.scale = 1 ? (1 << $2->val) : $2->val;
+  },
+  final {
+    $$->a.index = $1->r;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  supairs {
+    $$->extra = $1->extra;
+    $$->freed = $1->freed;
+  },
+  emit {
+    $$->rtl = gen_rtx_MULT(QImode,
+      gen_rtx_REG(QImode, $1->r),
+      GEN_INT(1 ? (1 << $2->val) : $2->val));
+  };
+#line 387 "x86-64.misc.py"
+scon : CONST_0 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 388 "x86-64.misc.py"
+scon : CONST_P1 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 389 "x86-64.misc.py"
+scon : CONST_P2 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 390 "x86-64.misc.py"
+scon : CONST_P3 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 392 "x86-64.misc.py"
+mcon : CONST_P1 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 393 "x86-64.misc.py"
+mcon : CONST_P2 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 394 "x86-64.misc.py"
+mcon : CONST_P4 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 395 "x86-64.misc.py"
+mcon : CONST_P8 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 397 "x86-64.misc.py"
+imm4 : CONST_N1 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 398 "x86-64.misc.py"
+imm4 : CONST_0 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 399 "x86-64.misc.py"
+imm4 : CONST_P1 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 400 "x86-64.misc.py"
+imm4 : CONST_P2 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 401 "x86-64.misc.py"
+imm4 : CONST_P3 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 402 "x86-64.misc.py"
+imm4 : CONST_P4 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 403 "x86-64.misc.py"
+imm4 : CONST4P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 404 "x86-64.misc.py"
+imm4 : CONST4N [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 406 "x86-64.misc.py"
+imm5 : imm4 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 407 "x86-64.misc.py"
+imm5 : CONST_P8 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 408 "x86-64.misc.py"
+imm5 : CONST_P15 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 409 "x86-64.misc.py"
+imm5 : CONST5P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 410 "x86-64.misc.py"
+imm5 : CONST5N [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 412 "x86-64.misc.py"
+imm6 : imm5 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 413 "x86-64.misc.py"
+imm5 : CONST_P16 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 414 "x86-64.misc.py"
+imm5 : CONST_P24 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 415 "x86-64.misc.py"
+imm5 : CONST_P31 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 416 "x86-64.misc.py"
+imm6 : CONST_P32 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 417 "x86-64.misc.py"
+imm6 : CONST6P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 418 "x86-64.misc.py"
+imm6 : CONST6N [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 420 "x86-64.misc.py"
+imm7 : imm6 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 421 "x86-64.misc.py"
+imm6 : CONST_P48 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 422 "x86-64.misc.py"
+imm6 : CONST_P56 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 423 "x86-64.misc.py"
+imm6 : CONST_P63 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 424 "x86-64.misc.py"
+imm7 : CONST7P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 425 "x86-64.misc.py"
+imm7 : CONST7N [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 427 "x86-64.misc.py"
+imm8 : imm7 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 428 "x86-64.misc.py"
+imm8 : CONST8P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 429 "x86-64.misc.py"
+imm8 : CONST8N [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 431 "x86-64.misc.py"
+imm12 : imm8 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 432 "x86-64.misc.py"
+imm12 : CONST_P255 [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 433 "x86-64.misc.py"
+imm12 : CONST12P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 434 "x86-64.misc.py"
+imm12 : CONST12N [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 436 "x86-64.misc.py"
+imm13 : imm12 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 437 "x86-64.misc.py"
+imm13 : CONST13P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 438 "x86-64.misc.py"
+imm13 : CONST13N [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 440 "x86-64.misc.py"
+imm14 : imm13 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 441 "x86-64.misc.py"
+imm14 : CONST14P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 442 "x86-64.misc.py"
+imm14 : CONST14N [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 444 "x86-64.misc.py"
+imm15 : imm14 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 445 "x86-64.misc.py"
+imm15 : CONST15P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 446 "x86-64.misc.py"
+imm15 : CONST15N [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 448 "x86-64.misc.py"
+imm16 : imm15 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 449 "x86-64.misc.py"
+imm16 : CONST16P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 450 "x86-64.misc.py"
+imm16 : CONST16N [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 452 "x86-64.misc.py"
+imm28 : imm16 [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 453 "x86-64.misc.py"
+imm28 : CONST28P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 454 "x86-64.misc.py"
+imm28 : CONST28N [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 456 "x86-64.misc.py"
+imm29 : imm28 [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 457 "x86-64.misc.py"
+imm29 : CONST29P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 458 "x86-64.misc.py"
+imm29 : CONST29N [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 460 "x86-64.misc.py"
+imm30 : imm29 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 461 "x86-64.misc.py"
+imm30 : CONST30P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 462 "x86-64.misc.py"
+imm30 : CONST30N [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 464 "x86-64.misc.py"
+imm31 : imm30 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 465 "x86-64.misc.py"
+imm31 : CONST31P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 466 "x86-64.misc.py"
+imm31 : CONST31N [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 468 "x86-64.misc.py"
+imm32 : pureimm32 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 469 "x86-64.misc.py"
+pureimm32 : imm31 [0, 0]
+#line 501 "x86-64.misc.py"
+  ;
+#line 470 "x86-64.misc.py"
+pureimm32 : CONST32P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 471 "x86-64.misc.py"
+pureimm32 : CONST32N [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 472 "x86-64.misc.py"
+pureimm32 : CONSTIEEE32 [0, 8]
+#line 501 "x86-64.misc.py"
+  ;
+#line 474 "x86-64.misc.py"
+imm64 : imm32 [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 475 "x86-64.misc.py"
+imm64 : CONST64P [0, 8]
+#line 501 "x86-64.misc.py"
+  ;
+#line 476 "x86-64.misc.py"
+imm64 : CONST64N [0, 8]
+#line 501 "x86-64.misc.py"
+  ;
+#line 477 "x86-64.misc.py"
+imm64 : CONSTIEEE64 [0, 8]
+#line 501 "x86-64.misc.py"
+  ;
+#line 479 "x86-64.misc.py"
+pos8  : mcon [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 480 "x86-64.misc.py"
+pos8  : scon [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 481 "x86-64.misc.py"
+pos8  : CONST4P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 482 "x86-64.misc.py"
+pos8  : CONST5P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 483 "x86-64.misc.py"
+pos8  : CONST6P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 484 "x86-64.misc.py"
+pos8  : CONST7P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 485 "x86-64.misc.py"
+pos8  : CONST8P [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 486 "x86-64.misc.py"
+pos16 : pos8 [0, 1]
+#line 501 "x86-64.misc.py"
+  ;
+#line 487 "x86-64.misc.py"
+pos16 : CONST12P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 488 "x86-64.misc.py"
+pos16 : CONST13P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 489 "x86-64.misc.py"
+pos16 : CONST14P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 490 "x86-64.misc.py"
+pos16 : CONST15P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 491 "x86-64.misc.py"
+pos16 : CONST16P [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 492 "x86-64.misc.py"
+pos32 : pos16 [0, 2]
+#line 501 "x86-64.misc.py"
+  ;
+#line 493 "x86-64.misc.py"
+pos32 : CONST28P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 494 "x86-64.misc.py"
+pos32 : CONST29P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 495 "x86-64.misc.py"
+pos32 : CONST30P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 496 "x86-64.misc.py"
+pos32 : CONST31P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 497 "x86-64.misc.py"
+pos32 : CONST32P [0, 4]
+#line 501 "x86-64.misc.py"
+  ;
+#line 510 "x86-64.misc.py"
+symbol32 : SYMBOL_REF_32 [0, 0]
+#line 514 "x86-64.misc.py"
+  names {
+    $$->a.base_rip = 1;		/* %rip usage */
+  };
+#line 511 "x86-64.misc.py"
+symbol64 : SYMBOL_REF_64 [0, 0]
+#line 514 "x86-64.misc.py"
+  names {
+    $$->a.base_rip = 1;		/* %rip usage */
+  };
+#line 521 "x86-64.misc.py"
+symbol32 : LABEL_REF_DI [0, 0]
+#line 524 "x86-64.misc.py"
+  names {
+    $$->a.base_rip = 1;		/* %rip usage(?) */
+  };
+#line 532 "x86-64.misc.py"
+symbol : symbol32 [0, 0]
+#line 536 "x86-64.misc.py"
+  ;
+#line 533 "x86-64.misc.py"
+symbol : symbol64 [0, 0]
+#line 536 "x86-64.misc.py"
+  ;
+#line 541 "x86-64.misc.py"
+symbol32 : pureimm32 [0, 0]
+#line 545 "x86-64.misc.py"
+  ;
+#line 542 "x86-64.misc.py"
+symbol64 : pureimm32 [0, 0]
+#line 545 "x86-64.misc.py"
+  ;
+#line 554 "x86-64.misc.py"
+symbol32 : CONST_DI(symbol32) [0, 0]
+#line 558 "x86-64.misc.py"
+  names {
+    $$->a.string = $1->a.string;
+    $$->val = $1->val;
+    $$->a.base_rip = 1;	/* %rip usage */
+  };
+#line 555 "x86-64.misc.py"
+symbol64 : CONST_DI(symbol64) [0, 0]
+#line 558 "x86-64.misc.py"
+  names {
+    $$->a.string = $1->a.string;
+    $$->val = $1->val;
+    $$->a.base_rip = 1;	/* %rip usage */
+  };
+#line 567 "x86-64.misc.py"
+symbol32 : PLUS_DI(symbol32 | pureimm32) [0, 0]
+#line 571 "x86-64.misc.py"
+  names {
+    $$->a.string = $1->a.string;
+    $$->val = $1->val + $2->val;
+    $$->a.base_rip = 1;	/* %rip usage */
+  };
+#line 568 "x86-64.misc.py"
+symbol64 : PLUS_DI(symbol64 | pureimm32) [0, 0]
+#line 571 "x86-64.misc.py"
+  names {
+    $$->a.string = $1->a.string;
+    $$->val = $1->val + $2->val;
+    $$->a.base_rip = 1;	/* %rip usage */
+  };
+#line 580 "x86-64.misc.py"
+symbol32 : MINUS_DI(symbol32, pureimm32) [0, 0]
+#line 584 "x86-64.misc.py"
+  names {
+    $$->a.string = $1->a.string;
+    $$->val = $1->val - $2->val;
+    $$->a.base_rip = 1;	/* %rip usage */
+  };
+#line 581 "x86-64.misc.py"
+symbol64 : MINUS_DI(symbol64, pureimm32) [0, 0]
+#line 584 "x86-64.misc.py"
+  names {
+    $$->a.string = $1->a.string;
+    $$->val = $1->val - $2->val;
+    $$->a.base_rip = 1;	/* %rip usage */
+  };
+#line 593 "x86-64.misc.py"
+imm32 : symbol32 [0, 4]
+#line 597 "x86-64.misc.py"
+  names {
+    /* this transfers the "a" attribute from src to dst */
+  }
+  ;
+#line 594 "x86-64.misc.py"
+imm64 : symbol64 [0, 8]
+#line 597 "x86-64.misc.py"
+  names {
+    /* this transfers the "a" attribute from src to dst */
+  }
+  ;
+#line 624 "x86-64.misc.py"
+label : LABEL_REF_DI [0, 0]
+#line 627 "x86-64.misc.py"
+  ;
+#line 636 "x86-64.misc.py"
+stmt : SET_ALL(PC_ALL, label) [0, 0]
+#line 639 "x86-64.misc.py"
+  debug {
+    dump_jump("jmp", $1);
+  },
+  emit {
+    rtx label = XEXP ($1->rtl, 0);
+    rtx new_jump = emit_jump_insn (gen_jump (label));
+    LABEL_NUSES (label) += 1;
+    JUMP_LABEL (new_jump) = label;
+  };
+#line 656 "x86-64.misc.py"
+stmt : PARALLEL_ALL(SET_ALL(PC_ALL, r64), USE_ALL(label)) [0, 0]
+#line 659 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dump_jumpR("jmp", $1->r, 'q');
+  },
+  emit {
+    rtx label = XEXP ($2->rtl, 0);
+    rtx new_jump = emit_jump_insn(
+      gen_rtx_PARALLEL(VOIDmode,
+                       gen_rtvec(2,
+                                 gen_rtx_SET(VOIDmode,
+                                             gen_rtx_PC(VOIDmode),
+                                             gen_rtx_REG(DImode, $1->r)),
+                                 gen_rtx_USE(VOIDmode,
+                                             $2->rtl))));
+    LABEL_NUSES (label) += 1;
+    JUMP_LABEL (new_jump) = label;
+  };
+#line 746 "x86-64.misc.py"
+stmt : SET_ALL(PC_ALL, COND_MOVE(condition, PAIR_ALL(label, PC_ALL))) [0, 0]
+#line 749 "x86-64.misc.py"
+  debug {
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    case UNEQ:			/* unordered equality testing */
+      dump_jump("je", $2);
+      dump_jump("jp", $2);	/* jump if unordered */
+      break;
+    case LTGT:			/* unordered inequality testing */
+      dump_jump("jne", $2);
+      dump_jump("jp", $2);	/* jump if unordered */
+      break;
+    case UNGE:      dump_jump("jae", $2); break;
+    case UNGT:      dump_jump("ja",  $2); break;
+    case UNLE:      dump_jump("jbe", $2); break;
+    case UNLT:      dump_jump("jb",  $2); break;
+    case UNORDERED: dump_jump("jp",  $2); break;
+    case   ORDERED: dump_jump("jnp", $2); break;
+
+    case EQ:        dump_jump("je",  $2); break;
+    case NE:        dump_jump("jne", $2); break;
+    case GE:        dump_jump("jge", $2); break;
+    case GT:        dump_jump("jg",  $2); break;
+    case LE:        dump_jump("jle", $2); break;
+    case LT:        dump_jump("jl",  $2); break;
+
+    case GEU:       dump_jump("jae", $2); break;
+    case GTU:       dump_jump("ja",  $2); break;
+    case LEU:       dump_jump("jbe", $2); break;
+    case LTU:       dump_jump("jb",  $2); break;
+
+    default:
+      icg_nyi("unrecognized condition code %d for jump", code);
+    }
+  };
+#line 794 "x86-64.misc.py"
+r64x : COND_MOVE(condition, PAIR_ALL(r64x, r64)) [1, 4]
+#line 801 "x86-64.misc.py"
+  names {
+    $$->rx = $2->rx;
+    if (1) {
+      /*
+       * set the order the children are visited;
+       * when su ordering is working, this will force a Sethi-Ullman traversal.
+       */
+      p->perm[0] = 1;
+      p->perm[1] = 2;
+      p->perm[2] = 0; /* ensuring that condition is evaluated last */
+    }
+  },
+  final {
+    $$->rx = $2->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+    sparseset_set_bit(live, find($3->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->rx);
+    memorable($3->r);
+  },
+  debug {
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    /*
+     * NOTE A:
+     * There is empirical evidence suggesting that the conditions and the cmov opcodes
+     * must be inverted relative to each other.  This will make the icg+asm
+     * path produce identical asm code to the icg+rtl path.
+     * 03Nov08: After 4 hours of searching, rrh does not have an explanation for this.
+     * Alternatively, try swapping the fsrc and tsrc args to gen_rtx_IF_THEN_ELSE
+     * perhaps this is because of the evaluation permutation that is induced?
+     * By swapping fsrc and tsrc to the gen_rtx_IF_THEN_ELSE
+     * we get identical code icg+asm and icg+rtl.
+     */
+    case EQ:   dumpRR("cmove",  $3->r, 'q', $$->rx, 'q'); break;
+    case NE:   dumpRR("cmovne", $3->r, 'q', $$->rx, 'q'); break;
+    case GE:   dumpRR("cmovge", $3->r, 'q', $$->rx, 'q'); break;
+    case GT:   dumpRR("cmovg",  $3->r, 'q', $$->rx, 'q'); break;
+    case LE:   dumpRR("cmovle", $3->r, 'q', $$->rx, 'q'); break;
+    case LT:   dumpRR("cmovl",  $3->r, 'q', $$->rx, 'q'); break;
+    case GEU:  dumpRR("cmovae", $3->r, 'q', $$->rx, 'q'); break;
+    case GTU:  dumpRR("cmova",  $3->r, 'q', $$->rx, 'q'); break;
+    case LEU:  dumpRR("cmovbe", $3->r, 'q', $$->rx, 'q'); break;
+    case LTU:  dumpRR("cmovb",  $3->r, 'q', $$->rx, 'q'); break;
+    case UNLE: dumpRR("cmovbe", $3->r, 'q', $$->rx, 'q'); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+  },
+  emit {
+    rtx cond, src;
+    rtx tsrc = gen_rtx_REG(DImode, $2->rx);
+    rtx fsrc = gen_rtx_REG(DImode, $3->r);
+    rtx dst = tsrc;
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    case EQ:   cond = gen_rtx_EQ  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case NE:   cond = gen_rtx_NE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GE:   cond = gen_rtx_GE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GT:   cond = gen_rtx_GT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LE:   cond = gen_rtx_LE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LT:   cond = gen_rtx_LT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GEU:  cond = gen_rtx_GEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GTU:  cond = gen_rtx_GTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LEU:  cond = gen_rtx_LEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTU:  cond = gen_rtx_LTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLE: cond = gen_rtx_UNLE(VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+    src = gen_rtx_IF_THEN_ELSE(DImode, cond, tsrc, fsrc);
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst, src));
+  };
+#line 795 "x86-64.misc.py"
+r32x : COND_MOVE(condition, PAIR_ALL(r32x, r32)) [1, 3]
+#line 801 "x86-64.misc.py"
+  names {
+    $$->rx = $2->rx;
+    if (1) {
+      /*
+       * set the order the children are visited;
+       * when su ordering is working, this will force a Sethi-Ullman traversal.
+       */
+      p->perm[0] = 1;
+      p->perm[1] = 2;
+      p->perm[2] = 0; /* ensuring that condition is evaluated last */
+    }
+  },
+  final {
+    $$->rx = $2->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+    sparseset_set_bit(live, find($3->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->rx);
+    memorable($3->r);
+  },
+  debug {
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    /*
+     * NOTE A:
+     * There is empirical evidence suggesting that the conditions and the cmov opcodes
+     * must be inverted relative to each other.  This will make the icg+asm
+     * path produce identical asm code to the icg+rtl path.
+     * 03Nov08: After 4 hours of searching, rrh does not have an explanation for this.
+     * Alternatively, try swapping the fsrc and tsrc args to gen_rtx_IF_THEN_ELSE
+     * perhaps this is because of the evaluation permutation that is induced?
+     * By swapping fsrc and tsrc to the gen_rtx_IF_THEN_ELSE
+     * we get identical code icg+asm and icg+rtl.
+     */
+    case EQ:   dumpRR("cmove",  $3->r, 'd', $$->rx, 'd'); break;
+    case NE:   dumpRR("cmovne", $3->r, 'd', $$->rx, 'd'); break;
+    case GE:   dumpRR("cmovge", $3->r, 'd', $$->rx, 'd'); break;
+    case GT:   dumpRR("cmovg",  $3->r, 'd', $$->rx, 'd'); break;
+    case LE:   dumpRR("cmovle", $3->r, 'd', $$->rx, 'd'); break;
+    case LT:   dumpRR("cmovl",  $3->r, 'd', $$->rx, 'd'); break;
+    case GEU:  dumpRR("cmovae", $3->r, 'd', $$->rx, 'd'); break;
+    case GTU:  dumpRR("cmova",  $3->r, 'd', $$->rx, 'd'); break;
+    case LEU:  dumpRR("cmovbe", $3->r, 'd', $$->rx, 'd'); break;
+    case LTU:  dumpRR("cmovb",  $3->r, 'd', $$->rx, 'd'); break;
+    case UNLE: dumpRR("cmovbe", $3->r, 'd', $$->rx, 'd'); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+  },
+  emit {
+    rtx cond, src;
+    rtx tsrc = gen_rtx_REG(SImode, $2->rx);
+    rtx fsrc = gen_rtx_REG(SImode, $3->r);
+    rtx dst = tsrc;
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    case EQ:   cond = gen_rtx_EQ  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case NE:   cond = gen_rtx_NE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GE:   cond = gen_rtx_GE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GT:   cond = gen_rtx_GT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LE:   cond = gen_rtx_LE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LT:   cond = gen_rtx_LT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GEU:  cond = gen_rtx_GEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GTU:  cond = gen_rtx_GTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LEU:  cond = gen_rtx_LEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTU:  cond = gen_rtx_LTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLE: cond = gen_rtx_UNLE(VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+    src = gen_rtx_IF_THEN_ELSE(SImode, cond, tsrc, fsrc);
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst, src));
+  };
+#line 796 "x86-64.misc.py"
+r16x : COND_MOVE(condition, PAIR_ALL(r16x, r16)) [1, 3]
+#line 801 "x86-64.misc.py"
+  names {
+    $$->rx = $2->rx;
+    if (1) {
+      /*
+       * set the order the children are visited;
+       * when su ordering is working, this will force a Sethi-Ullman traversal.
+       */
+      p->perm[0] = 1;
+      p->perm[1] = 2;
+      p->perm[2] = 0; /* ensuring that condition is evaluated last */
+    }
+  },
+  final {
+    $$->rx = $2->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+    sparseset_set_bit(live, find($3->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->rx);
+    memorable($3->r);
+  },
+  debug {
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    /*
+     * NOTE A:
+     * There is empirical evidence suggesting that the conditions and the cmov opcodes
+     * must be inverted relative to each other.  This will make the icg+asm
+     * path produce identical asm code to the icg+rtl path.
+     * 03Nov08: After 4 hours of searching, rrh does not have an explanation for this.
+     * Alternatively, try swapping the fsrc and tsrc args to gen_rtx_IF_THEN_ELSE
+     * perhaps this is because of the evaluation permutation that is induced?
+     * By swapping fsrc and tsrc to the gen_rtx_IF_THEN_ELSE
+     * we get identical code icg+asm and icg+rtl.
+     */
+    case EQ:   dumpRR("cmove",  $3->r, 'd', $$->rx, 'd'); break;
+    case NE:   dumpRR("cmovne", $3->r, 'd', $$->rx, 'd'); break;
+    case GE:   dumpRR("cmovge", $3->r, 'd', $$->rx, 'd'); break;
+    case GT:   dumpRR("cmovg",  $3->r, 'd', $$->rx, 'd'); break;
+    case LE:   dumpRR("cmovle", $3->r, 'd', $$->rx, 'd'); break;
+    case LT:   dumpRR("cmovl",  $3->r, 'd', $$->rx, 'd'); break;
+    case GEU:  dumpRR("cmovae", $3->r, 'd', $$->rx, 'd'); break;
+    case GTU:  dumpRR("cmova",  $3->r, 'd', $$->rx, 'd'); break;
+    case LEU:  dumpRR("cmovbe", $3->r, 'd', $$->rx, 'd'); break;
+    case LTU:  dumpRR("cmovb",  $3->r, 'd', $$->rx, 'd'); break;
+    case UNLE: dumpRR("cmovbe", $3->r, 'd', $$->rx, 'd'); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+  },
+  emit {
+    rtx cond, src;
+    rtx tsrc = gen_rtx_REG(SImode, $2->rx);
+    rtx fsrc = gen_rtx_REG(SImode, $3->r);
+    rtx dst = tsrc;
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    case EQ:   cond = gen_rtx_EQ  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case NE:   cond = gen_rtx_NE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GE:   cond = gen_rtx_GE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GT:   cond = gen_rtx_GT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LE:   cond = gen_rtx_LE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LT:   cond = gen_rtx_LT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GEU:  cond = gen_rtx_GEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GTU:  cond = gen_rtx_GTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LEU:  cond = gen_rtx_LEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTU:  cond = gen_rtx_LTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLE: cond = gen_rtx_UNLE(VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+    src = gen_rtx_IF_THEN_ELSE(SImode, cond, tsrc, fsrc);
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst, src));
+  };
+#line 797 "x86-64.misc.py"
+r8x  : COND_MOVE(condition, PAIR_ALL(r8x,  r8)) [1, 3]
+#line 801 "x86-64.misc.py"
+  names {
+    $$->rx = $2->rx;
+    if (1) {
+      /*
+       * set the order the children are visited;
+       * when su ordering is working, this will force a Sethi-Ullman traversal.
+       */
+      p->perm[0] = 1;
+      p->perm[1] = 2;
+      p->perm[2] = 0; /* ensuring that condition is evaluated last */
+    }
+  },
+  final {
+    $$->rx = $2->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+    sparseset_set_bit(live, find($3->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->rx);
+    memorable($3->r);
+  },
+  debug {
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    /*
+     * NOTE A:
+     * There is empirical evidence suggesting that the conditions and the cmov opcodes
+     * must be inverted relative to each other.  This will make the icg+asm
+     * path produce identical asm code to the icg+rtl path.
+     * 03Nov08: After 4 hours of searching, rrh does not have an explanation for this.
+     * Alternatively, try swapping the fsrc and tsrc args to gen_rtx_IF_THEN_ELSE
+     * perhaps this is because of the evaluation permutation that is induced?
+     * By swapping fsrc and tsrc to the gen_rtx_IF_THEN_ELSE
+     * we get identical code icg+asm and icg+rtl.
+     */
+    case EQ:   dumpRR("cmove",  $3->r, 'd', $$->rx, 'd'); break;
+    case NE:   dumpRR("cmovne", $3->r, 'd', $$->rx, 'd'); break;
+    case GE:   dumpRR("cmovge", $3->r, 'd', $$->rx, 'd'); break;
+    case GT:   dumpRR("cmovg",  $3->r, 'd', $$->rx, 'd'); break;
+    case LE:   dumpRR("cmovle", $3->r, 'd', $$->rx, 'd'); break;
+    case LT:   dumpRR("cmovl",  $3->r, 'd', $$->rx, 'd'); break;
+    case GEU:  dumpRR("cmovae", $3->r, 'd', $$->rx, 'd'); break;
+    case GTU:  dumpRR("cmova",  $3->r, 'd', $$->rx, 'd'); break;
+    case LEU:  dumpRR("cmovbe", $3->r, 'd', $$->rx, 'd'); break;
+    case LTU:  dumpRR("cmovb",  $3->r, 'd', $$->rx, 'd'); break;
+    case UNLE: dumpRR("cmovbe", $3->r, 'd', $$->rx, 'd'); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+  },
+  emit {
+    rtx cond, src;
+    rtx tsrc = gen_rtx_REG(SImode, $2->rx);
+    rtx fsrc = gen_rtx_REG(SImode, $3->r);
+    rtx dst = tsrc;
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    case EQ:   cond = gen_rtx_EQ  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case NE:   cond = gen_rtx_NE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GE:   cond = gen_rtx_GE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GT:   cond = gen_rtx_GT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LE:   cond = gen_rtx_LE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LT:   cond = gen_rtx_LT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GEU:  cond = gen_rtx_GEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GTU:  cond = gen_rtx_GTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LEU:  cond = gen_rtx_LEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTU:  cond = gen_rtx_LTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLE: cond = gen_rtx_UNLE(VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+    src = gen_rtx_IF_THEN_ELSE(SImode, cond, tsrc, fsrc);
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst, src));
+  };
+#line 891 "x86-64.misc.py"
+r64x : COND_MOVE(condition, PAIR_ALL(r64x, MEM_DI(addr))) [4, 3]
+#line 897 "x86-64.misc.py"
+  names {
+    $$->rx = $2->rx;
+    p->perm[0] = 1;
+    p->perm[1] = 2;
+    p->perm[2] = 0; /* ensuring that condition is evaluated last */
+  },
+  final {
+    $$->rx = $2->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+    add_addr(live, $3);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->rx);
+  },
+  debug {
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    /*
+     * See
+     * NOTE A
+     * above
+     */
+    case EQ:   dumpMR("cmove",  $3, $$->rx, 'q'); break;
+    case NE:   dumpMR("cmovne", $3, $$->rx, 'q'); break;
+    case GE:   dumpMR("cmovge", $3, $$->rx, 'q'); break;
+    case GT:   dumpMR("cmovg",  $3, $$->rx, 'q'); break;
+    case LE:   dumpMR("cmovle", $3, $$->rx, 'q'); break;
+    case LT:   dumpMR("cmovl",  $3, $$->rx, 'q'); break;
+    case GEU:  dumpMR("cmovae", $3, $$->rx, 'q'); break;
+    case GTU:  dumpMR("cmova",  $3, $$->rx, 'q'); break;
+    case LEU:  dumpMR("cmovbe", $3, $$->rx, 'q'); break;
+    case LTU:  dumpMR("cmovb",  $3, $$->rx, 'q'); break;
+    case UNLE: dumpMR("cmovbe",  $3, $$->rx, 'q'); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+  },
+  emit {
+    rtx cond, src;
+    rtx tsrc = gen_rtx_REG(DImode, $2->rx);
+    rtx fsrc = gen_rtx_MEM(DImode, $3->rtl);
+    rtx dst = tsrc;
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    case EQ:   cond = gen_rtx_EQ  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case NE:   cond = gen_rtx_NE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GE:   cond = gen_rtx_GE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GT:   cond = gen_rtx_GT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LE:   cond = gen_rtx_LE  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LT:   cond = gen_rtx_LT  (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GEU:  cond = gen_rtx_GEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GTU:  cond = gen_rtx_GTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LEU:  cond = gen_rtx_LEU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTU:  cond = gen_rtx_LTU (VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLE: cond = gen_rtx_UNLE(VOIDmode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    default:
+      icg_nyi("unrecognized condition code %d for cmov", code);
+    }
+    src = gen_rtx_IF_THEN_ELSE(DImode, cond, tsrc, fsrc);
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst, src));
+  };
+#line 976 "x86-64.misc.py"
+r8x : condition [1, 3]
+#line 979 "x86-64.misc.py"
+  names {
+    $$->rx = new_reg();
+  },
+  kinds {
+    icg_reg_vector[$$->rx].kind = INT_REGISTER;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_clear_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  final {
+    $$->rx = icg_reg_vector[find($$->rx)].color;
+  },
+  debug {
+    const enum rtx_code code = $1->code;
+    const enum machine_mode cc_code = $1->cc_code;
+    switch (code) {
+    case EQ:  dumpR("sete",  $$->rx, 'b'); break;
+    case NE:  dumpR("setne", $$->rx, 'b'); break;
+    case GE:  dumpR(cc_code == CCFPUmode ? "setae" : "setge", $$->rx, 'b'); break;
+    case GT:  dumpR(cc_code == CCFPUmode ? "seta"  : "setg",  $$->rx, 'b'); break;
+    case LE:  dumpR(cc_code == CCFPUmode ? "setbe" : "setle", $$->rx, 'b'); break;
+    case LT:  dumpR(cc_code == CCFPUmode ? "setb"  : "setl",  $$->rx, 'b'); break;
+
+    case GEU: dumpR("setae", $$->rx, 'b'); break;
+    case GTU: dumpR("seta",  $$->rx, 'b'); break;
+    case LEU: dumpR("setbe", $$->rx, 'b'); break;
+    case LTU: dumpR("setb",  $$->rx, 'b'); break;
+
+    /*
+     * UNEQ (unordered ==) and LTGT (unordered !=) are problematic
+     * LTGT in flow context will generate 2 conditional jumps,
+     * one for jne and the other jp (jump unordered)
+     * Empirically, when we see LTGT in value context it
+     * is as a child of an IOR, where the other child
+     * is a test of UNORDERED, so we can just handle the jne case here.
+     */
+    case UNEQ:      dumpR("sete",  $$->rx, 'b'); break;
+    case LTGT:      dumpR("setne", $$->rx, 'b'); break;
+
+    case UNGE:      dumpR("setae", $$->rx, 'b'); break;
+    case UNGT:      dumpR("seta",  $$->rx, 'b'); break;
+    case UNLE:      dumpR("setbe", $$->rx, 'b'); break;
+    case UNLT:      dumpR("setb",  $$->rx, 'b'); break;
+    case UNORDERED: dumpR("setp",  $$->rx, 'b'); break;
+    case ORDERED:   dumpR("setnp", $$->rx, 'b'); break;
+
+    default:
+      icg_nyi("unrecognized condition code %d for set", code);
+    }
+  },
+  emit {
+    rtx src;
+    rtx dst = gen_rtx_REG(QImode, $$->rx);
+    const enum rtx_code code = $1->code;
+    switch (code) {
+    case EQ:  src = gen_rtx_EQ (QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case NE:  src = gen_rtx_NE (QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GE:  src = gen_rtx_GE (QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GT:  src = gen_rtx_GT (QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LE:  src = gen_rtx_LE (QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LT:  src = gen_rtx_LT (QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+
+    case GEU: src = gen_rtx_GEU(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case GTU: src = gen_rtx_GTU(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LEU: src = gen_rtx_LEU(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTU: src = gen_rtx_LTU(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+
+    case UNEQ: src = gen_rtx_UNEQ(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTGT: src = gen_rtx_LTGT(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNGE: src = gen_rtx_UNGE(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNGT: src = gen_rtx_UNGT(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLE: src = gen_rtx_UNLE(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLT: src = gen_rtx_UNLT(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNORDERED: src = gen_rtx_UNORDERED(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+    case   ORDERED: src =   gen_rtx_ORDERED(QImode, gen_rtx_REG($1->cc_code, REG_CC), GEN_INT(0)); break;
+
+    default:
+      icg_nyi("unrecognized condition code %d for set", code);
+    }
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst, src));
+  };
+#line 1069 "x86-64.misc.py"
+stmt : SET_ALL(MEM_QI(addr), condition) [3, 2]
+#line 1072 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    const enum rtx_code code = $2->code;
+    const enum machine_mode cc_code = $2->cc_code;
+    switch (code) {
+    case EQ:  dumpM("sete",  $1); break;
+    case NE:  dumpM("setne", $1); break;
+    case GE:  dumpM(cc_code == CCFPUmode ? "setae" : "setge", $1); break;
+    case GT:  dumpM(cc_code == CCFPUmode ? "seta"  : "setg",  $1); break;
+    case LE:  dumpM(cc_code == CCFPUmode ? "setbe" : "setle", $1); break;
+    case LT:  dumpM(cc_code == CCFPUmode ? "setb"  : "setl",  $1); break;
+
+    case GEU: dumpM("setae", $1); break;
+    case GTU: dumpM("seta",  $1); break;
+    case LEU: dumpM("setbe", $1); break;
+    case LTU: dumpM("setb",  $1); break;
+
+    case UNEQ:      dumpM("sete",  $1); break;
+    case LTGT:      dumpM("setne", $1); break;
+    case UNGE:      dumpM("setae", $1); break;
+    case UNGT:      dumpM("seta",  $1); break;
+    case UNLE:      dumpM("setbe", $1); break;
+    case UNLT:      dumpM("setb",  $1); break;
+    case UNORDERED: dumpM("setp",  $1); break;
+    case ORDERED:   dumpM("setnp", $1); break;
+
+    default:
+      icg_nyi("unrecognized condition code %d for set", code);
+    }
+  },
+  emit {
+    rtx src;
+    rtx dst = gen_rtx_MEM(QImode, $1->rtl);
+    const enum rtx_code code = $2->code;
+    switch (code) {
+    case EQ:  src = gen_rtx_EQ (QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case NE:  src = gen_rtx_NE (QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case GE:  src = gen_rtx_GE (QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case GT:  src = gen_rtx_GT (QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case LE:  src = gen_rtx_LE (QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case LT:  src = gen_rtx_LT (QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+
+    case GEU: src = gen_rtx_GEU(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case GTU: src = gen_rtx_GTU(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case LEU: src = gen_rtx_LEU(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTU: src = gen_rtx_LTU(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+
+    case UNEQ: src = gen_rtx_UNEQ(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case LTGT: src = gen_rtx_LTGT(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNGE: src = gen_rtx_UNGE(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNGT: src = gen_rtx_UNGT(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLE: src = gen_rtx_UNLE(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNLT: src = gen_rtx_UNLT(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case UNORDERED: src = gen_rtx_UNORDERED(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+    case   ORDERED: src =   gen_rtx_ORDERED(QImode, gen_rtx_REG($2->cc_code, REG_CC), GEN_INT(0)); break;
+
+    default:
+      icg_nyi("unrecognized condition code %d for set", code);
+    }
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst, src));
+  };
+#line 1152 "x86-64.misc.py"
+r64x : PLUS_DI(r64x | NEG_DI(PLUS_DI(LTU_ALL(rcc, CONST_0), CONST_N1))) [1, 4]
+#line 1164 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("sbbq", $$->rx, 'q');
+  },
+  emit {
+    rtx ltu = gen_rtx_LTU(DImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus = gen_rtx_PLUS(DImode, ltu, GEN_INT(-1));
+    rtx minus = gen_rtx_MINUS(DImode, gen_rtx_REG(DImode, $1->rx), plus);
+    rtx dst = gen_rtx_REG(DImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, minus));
+  };
+#line 1153 "x86-64.misc.py"
+r32x : PLUS_SI(r32x | NEG_SI(PLUS_SI(LTU_ALL(rcc, CONST_0), CONST_N1))) [1, 3]
+#line 1164 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("sbbl", $$->rx, 'd');
+  },
+  emit {
+    rtx ltu = gen_rtx_LTU(SImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus = gen_rtx_PLUS(SImode, ltu, GEN_INT(-1));
+    rtx minus = gen_rtx_MINUS(SImode, gen_rtx_REG(SImode, $1->rx), plus);
+    rtx dst = gen_rtx_REG(SImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, minus));
+  };
+#line 1154 "x86-64.misc.py"
+r16x : PLUS_HI(r16x | NEG_HI(PLUS_HI(LTU_ALL(rcc, CONST_0), CONST_N1))) [1, 4]
+#line 1164 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("sbbw", $$->rx, 'w');
+  },
+  emit {
+    rtx ltu = gen_rtx_LTU(HImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus = gen_rtx_PLUS(HImode, ltu, GEN_INT(-1));
+    rtx minus = gen_rtx_MINUS(HImode, gen_rtx_REG(HImode, $1->rx), plus);
+    rtx dst = gen_rtx_REG(HImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, minus));
+  };
+#line 1155 "x86-64.misc.py"
+r8x  : PLUS_QI(r8x  | NEG_QI(PLUS_QI(LTU_ALL(rcc, CONST_0), CONST_N1))) [1, 4]
+#line 1164 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("sbbb", $$->rx, 'b');
+  },
+  emit {
+    rtx ltu = gen_rtx_LTU(QImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus = gen_rtx_PLUS(QImode, ltu, GEN_INT(-1));
+    rtx minus = gen_rtx_MINUS(QImode, gen_rtx_REG(QImode, $1->rx), plus);
+    rtx dst = gen_rtx_REG(QImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, minus));
+  };
+#line 1157 "x86-64.misc.py"
+r64x : PLUS_DI(r64x | NEG_DI(PLUS_DI(LTU_ALL(rcc, CONST_0),  CONST_0))) [1, 4]
+#line 1164 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("sbbq", $$->rx, 'q');
+  },
+  emit {
+    rtx ltu = gen_rtx_LTU(DImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus = gen_rtx_PLUS(DImode, ltu, GEN_INT(0));
+    rtx minus = gen_rtx_MINUS(DImode, gen_rtx_REG(DImode, $1->rx), plus);
+    rtx dst = gen_rtx_REG(DImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, minus));
+  };
+#line 1158 "x86-64.misc.py"
+r32x : PLUS_SI(r32x | NEG_SI(PLUS_SI(LTU_ALL(rcc, CONST_0),  CONST_0))) [1, 3]
+#line 1164 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("sbbl", $$->rx, 'd');
+  },
+  emit {
+    rtx ltu = gen_rtx_LTU(SImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus = gen_rtx_PLUS(SImode, ltu, GEN_INT(0));
+    rtx minus = gen_rtx_MINUS(SImode, gen_rtx_REG(SImode, $1->rx), plus);
+    rtx dst = gen_rtx_REG(SImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, minus));
+  };
+#line 1159 "x86-64.misc.py"
+r16x : PLUS_HI(r16x | NEG_HI(PLUS_HI(LTU_ALL(rcc, CONST_0),  CONST_0))) [1, 4]
+#line 1164 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("sbbw", $$->rx, 'w');
+  },
+  emit {
+    rtx ltu = gen_rtx_LTU(HImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus = gen_rtx_PLUS(HImode, ltu, GEN_INT(0));
+    rtx minus = gen_rtx_MINUS(HImode, gen_rtx_REG(HImode, $1->rx), plus);
+    rtx dst = gen_rtx_REG(HImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, minus));
+  };
+#line 1160 "x86-64.misc.py"
+r8x  : PLUS_QI(r8x  | NEG_QI(PLUS_QI(LTU_ALL(rcc, CONST_0),  CONST_0))) [1, 4]
+#line 1164 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("sbbb", $$->rx, 'b');
+  },
+  emit {
+    rtx ltu = gen_rtx_LTU(QImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus = gen_rtx_PLUS(QImode, ltu, GEN_INT(0));
+    rtx minus = gen_rtx_MINUS(QImode, gen_rtx_REG(QImode, $1->rx), plus);
+    rtx dst = gen_rtx_REG(QImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, minus));
+  };
+#line 1196 "x86-64.misc.py"
+r64x : PLUS_DI(r64x | LTU_ALL(rcc, CONST_0) |  CONST_0) [1, 4]
+#line 1208 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("adcq", $$->rx, 'q');
+  },
+  emit {
+    /* careflly reassemble a tree canonicalized for what the downstream ICG+RTL wants */
+    rtx ltu = gen_rtx_LTU(DImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus0 = gen_rtx_PLUS(DImode, ltu, gen_rtx_REG(DImode, $1->rx));
+    rtx plus1 = gen_rtx_PLUS(DImode, plus0, GEN_INT(0));
+    rtx dst = gen_rtx_REG(DImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, plus1));
+  };
+#line 1197 "x86-64.misc.py"
+r32x : PLUS_SI(r32x | LTU_ALL(rcc, CONST_0) |  CONST_0) [1, 3]
+#line 1208 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("adcl", $$->rx, 'd');
+  },
+  emit {
+    /* careflly reassemble a tree canonicalized for what the downstream ICG+RTL wants */
+    rtx ltu = gen_rtx_LTU(SImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus0 = gen_rtx_PLUS(SImode, ltu, gen_rtx_REG(SImode, $1->rx));
+    rtx plus1 = gen_rtx_PLUS(SImode, plus0, GEN_INT(0));
+    rtx dst = gen_rtx_REG(SImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, plus1));
+  };
+#line 1198 "x86-64.misc.py"
+r16x : PLUS_HI(r16x | LTU_ALL(rcc, CONST_0) |  CONST_0) [1, 4]
+#line 1208 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("adcw", $$->rx, 'w');
+  },
+  emit {
+    /* careflly reassemble a tree canonicalized for what the downstream ICG+RTL wants */
+    rtx ltu = gen_rtx_LTU(HImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus0 = gen_rtx_PLUS(HImode, ltu, gen_rtx_REG(HImode, $1->rx));
+    rtx plus1 = gen_rtx_PLUS(HImode, plus0, GEN_INT(0));
+    rtx dst = gen_rtx_REG(HImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, plus1));
+  };
+#line 1199 "x86-64.misc.py"
+r8x  : PLUS_QI(r8x  | LTU_ALL(rcc, CONST_0) |  CONST_0) [1, 4]
+#line 1208 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("adcb", $$->rx, 'b');
+  },
+  emit {
+    /* careflly reassemble a tree canonicalized for what the downstream ICG+RTL wants */
+    rtx ltu = gen_rtx_LTU(QImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus0 = gen_rtx_PLUS(QImode, ltu, gen_rtx_REG(QImode, $1->rx));
+    rtx plus1 = gen_rtx_PLUS(QImode, plus0, GEN_INT(0));
+    rtx dst = gen_rtx_REG(QImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, plus1));
+  };
+#line 1201 "x86-64.misc.py"
+r64x : PLUS_DI(r64x | LTU_ALL(rcc, CONST_0) | CONST_N1) [1, 4]
+#line 1208 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("adcq", $$->rx, 'q');
+  },
+  emit {
+    /* careflly reassemble a tree canonicalized for what the downstream ICG+RTL wants */
+    rtx ltu = gen_rtx_LTU(DImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus0 = gen_rtx_PLUS(DImode, ltu, gen_rtx_REG(DImode, $1->rx));
+    rtx plus1 = gen_rtx_PLUS(DImode, plus0, GEN_INT(-1));
+    rtx dst = gen_rtx_REG(DImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, plus1));
+  };
+#line 1202 "x86-64.misc.py"
+r32x : PLUS_SI(r32x | LTU_ALL(rcc, CONST_0) | CONST_N1) [1, 3]
+#line 1208 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("adcl", $$->rx, 'd');
+  },
+  emit {
+    /* careflly reassemble a tree canonicalized for what the downstream ICG+RTL wants */
+    rtx ltu = gen_rtx_LTU(SImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus0 = gen_rtx_PLUS(SImode, ltu, gen_rtx_REG(SImode, $1->rx));
+    rtx plus1 = gen_rtx_PLUS(SImode, plus0, GEN_INT(-1));
+    rtx dst = gen_rtx_REG(SImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, plus1));
+  };
+#line 1203 "x86-64.misc.py"
+r16x : PLUS_HI(r16x | LTU_ALL(rcc, CONST_0) | CONST_N1) [1, 4]
+#line 1208 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("adcw", $$->rx, 'w');
+  },
+  emit {
+    /* careflly reassemble a tree canonicalized for what the downstream ICG+RTL wants */
+    rtx ltu = gen_rtx_LTU(HImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus0 = gen_rtx_PLUS(HImode, ltu, gen_rtx_REG(HImode, $1->rx));
+    rtx plus1 = gen_rtx_PLUS(HImode, plus0, GEN_INT(-1));
+    rtx dst = gen_rtx_REG(HImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, plus1));
+  };
+#line 1204 "x86-64.misc.py"
+r8x  : PLUS_QI(r8x  | LTU_ALL(rcc, CONST_0) | CONST_N1) [1, 4]
+#line 1208 "x86-64.misc.py"
+  names {
+    $$->rx = $1->rx;
+  },
+  final {
+    $$->rx = $1->rx;
+  },
+  build {
+    unsigned rd = find($$->rx);
+    sparseset_set_bit(live, rd);
+    add_edges(rd, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->rx);
+  },
+  debug {
+    dumpIRm1("adcb", $$->rx, 'b');
+  },
+  emit {
+    /* careflly reassemble a tree canonicalized for what the downstream ICG+RTL wants */
+    rtx ltu = gen_rtx_LTU(QImode, gen_rtx_REG(CCmode, REG_CC), GEN_INT(0));
+    rtx plus0 = gen_rtx_PLUS(QImode, ltu, gen_rtx_REG(QImode, $1->rx));
+    rtx plus1 = gen_rtx_PLUS(QImode, plus0, GEN_INT(-1));
+    rtx dst = gen_rtx_REG(QImode, $$->rx);
+    icg_emit_clobber(gen_rtx_SET(VOIDmode, dst, plus1));
+  };
+#line 1250 "x86-64.misc.py"
+condition : EQ_ALL ( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = EQ;
+    $$->cc_code = CCmode;
+  };
+#line 1251 "x86-64.misc.py"
+condition : NE_ALL ( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = NE;
+    $$->cc_code = CCmode;
+  };
+#line 1252 "x86-64.misc.py"
+condition : GE_ALL ( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = GE;
+    $$->cc_code = CCmode;
+  };
+#line 1253 "x86-64.misc.py"
+condition : GT_ALL ( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = GT;
+    $$->cc_code = CCmode;
+  };
+#line 1254 "x86-64.misc.py"
+condition : LE_ALL ( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = LE;
+    $$->cc_code = CCmode;
+  };
+#line 1255 "x86-64.misc.py"
+condition : LT_ALL ( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = LT;
+    $$->cc_code = CCmode;
+  };
+#line 1256 "x86-64.misc.py"
+condition : GEU_ALL( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = GEU;
+    $$->cc_code = CCmode;
+  };
+#line 1257 "x86-64.misc.py"
+condition : GTU_ALL( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = GTU;
+    $$->cc_code = CCmode;
+  };
+#line 1258 "x86-64.misc.py"
+condition : LEU_ALL( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = LEU;
+    $$->cc_code = CCmode;
+  };
+#line 1259 "x86-64.misc.py"
+condition : LTU_ALL( rcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = LTU;
+    $$->cc_code = CCmode;
+  };
+#line 1273 "x86-64.misc.py"
+condition : EQ_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = EQ;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1274 "x86-64.misc.py"
+condition : NE_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = NE;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1275 "x86-64.misc.py"
+condition : GE_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = GE;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1276 "x86-64.misc.py"
+condition : GT_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = GT;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1277 "x86-64.misc.py"
+condition : LE_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = LE;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1278 "x86-64.misc.py"
+condition : LT_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = LT;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1284 "x86-64.misc.py"
+condition :      UNEQ_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = UNEQ;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1285 "x86-64.misc.py"
+condition :      UNGE_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = UNGE;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1286 "x86-64.misc.py"
+condition :      UNGT_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = UNGT;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1287 "x86-64.misc.py"
+condition :      UNLE_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = UNLE;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1288 "x86-64.misc.py"
+condition :      UNLT_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = UNLT;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1289 "x86-64.misc.py"
+condition :      LTGT_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = LTGT;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1290 "x86-64.misc.py"
+condition : UNORDERED_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = UNORDERED;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1291 "x86-64.misc.py"
+condition :   ORDERED_ALL(urcc, CONST_0) [0, 0]
+#line 1295 "x86-64.misc.py"
+  names {
+    $$->code = ORDERED;
+    $$->cc_code = CCFPUmode;
+  };
+#line 1343 "x86-64.misc.py"
+stmt : SET_ALL(REGCCX_DI, rcc) [20, 20]
+#line 1347 "x86-64.misc.py"
+  ;
+#line 1344 "x86-64.misc.py"
+stmt : SET_ALL(REGCCFPUX_DI, urcc) [20, 20]
+#line 1347 "x86-64.misc.py"
+  ;
+#line 1358 "x86-64.misc.py"
+rcc  : REGCCX_DI [0, 0]
+#line 1371 "x86-64.misc.py"
+  costs {
+    /*forgettable($src->rx);*/
+  };
+#line 1359 "x86-64.misc.py"
+rcc  : REGCC_DI [0, 0]
+#line 1371 "x86-64.misc.py"
+  costs {
+    /*forgettable($src->rx);*/
+  };
+#line 1367 "x86-64.misc.py"
+urcc  : REGCCFPUX_DI [0, 0]
+#line 1371 "x86-64.misc.py"
+  costs {
+    /*forgettable($src->rx);*/
+  };
+#line 1368 "x86-64.misc.py"
+urcc  : REGCCFPU_DI [0, 0]
+#line 1371 "x86-64.misc.py"
+  costs {
+    /*forgettable($src->rx);*/
+  };
+#line 1383 "x86-64.misc.py"
+rcc  : COMPARE_CC(ccr64x,  CONST_0) [0, 0]
+#line 1389 "x86-64.misc.py"
+  debug {
+    /* fprintf(dump_file, "; IMPLICIT USE OF PREVIOUSLY SET CONDITION CODE\n"); */
+  };
+#line 1384 "x86-64.misc.py"
+rcc  : COMPARE_CC(ccr32x,  CONST_0) [0, 0]
+#line 1389 "x86-64.misc.py"
+  debug {
+    /* fprintf(dump_file, "; IMPLICIT USE OF PREVIOUSLY SET CONDITION CODE\n"); */
+  };
+#line 1385 "x86-64.misc.py"
+rcc  : COMPARE_CC(ccr16x,  CONST_0) [0, 0]
+#line 1389 "x86-64.misc.py"
+  debug {
+    /* fprintf(dump_file, "; IMPLICIT USE OF PREVIOUSLY SET CONDITION CODE\n"); */
+  };
+#line 1386 "x86-64.misc.py"
+rcc  : COMPARE_CC(ccr8x,   CONST_0) [0, 0]
+#line 1389 "x86-64.misc.py"
+  debug {
+    /* fprintf(dump_file, "; IMPLICIT USE OF PREVIOUSLY SET CONDITION CODE\n"); */
+  };
+#line 1397 "x86-64.misc.py"
+urcc : COMPARE_CC(rd, rd) [1, 3]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("ucomisd", $2->r, 'x', $1->r, 'x');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCFPUmode, REG_CC),
+      gen_rtx_COMPARE_assist(0, CCFPUmode, DFmode,
+	gen_rtx_REG(DFmode, $1->r),
+	gen_rtx_REG(DFmode, $2->r))));
+  };
+#line 1398 "x86-64.misc.py"
+urcc : COMPARE_CC(rf, rf) [1, 3]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("ucomiss", $2->r, 'x', $1->r, 'x');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCFPUmode, REG_CC),
+      gen_rtx_COMPARE_assist(0, CCFPUmode, SFmode,
+	gen_rtx_REG(SFmode, $1->r),
+	gen_rtx_REG(SFmode, $2->r))));
+  };
+#line 1400 "x86-64.misc.py"
+rcc  : COMPARE_CC(r64, r64) [1, 3]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("cmpq", $2->r, 'q', $1->r, 'q');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCmode, REG_CC),
+      gen_rtx_COMPARE_assist(0, CCmode, DImode,
+	gen_rtx_REG(DImode, $1->r),
+	gen_rtx_REG(DImode, $2->r))));
+  };
+#line 1401 "x86-64.misc.py"
+rcc  : COMPARE_CC(r32, r32) [1, 2]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("cmpl", $2->r, 'd', $1->r, 'd');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCmode, REG_CC),
+      gen_rtx_COMPARE_assist(0, CCmode, SImode,
+	gen_rtx_REG(SImode, $1->r),
+	gen_rtx_REG(SImode, $2->r))));
+  };
+#line 1402 "x86-64.misc.py"
+rcc  : COMPARE_CC(r16, r16) [1, 2]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("cmpw", $2->r, 'w', $1->r, 'w');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCmode, REG_CC),
+      gen_rtx_COMPARE_assist(0, CCmode, HImode,
+	gen_rtx_REG(HImode, $1->r),
+	gen_rtx_REG(HImode, $2->r))));
+  };
+#line 1403 "x86-64.misc.py"
+rcc  : COMPARE_CC(r8, r8) [1, 2]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("cmpb", $2->r, 'b', $1->r, 'b');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCmode, REG_CC),
+      gen_rtx_COMPARE_assist(0, CCmode, QImode,
+	gen_rtx_REG(QImode, $1->r),
+	gen_rtx_REG(QImode, $2->r))));
+  };
+#line 1408 "x86-64.misc.py"
+rcc  : COMPARE_CC(AND_DI(r64, r64), CONST_0) [1, 3]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("testq", $2->r, 'q', $1->r, 'q');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCZmode, REG_CC),
+      gen_rtx_COMPARE_assist(1, CCZmode, DImode,
+	gen_rtx_REG(DImode, $1->r),
+	gen_rtx_REG(DImode, $2->r))));
+  };
+#line 1409 "x86-64.misc.py"
+rcc  : COMPARE_CC(AND_SI(r32, r32), CONST_0) [1, 2]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("testq", $2->r, 'd', $1->r, 'd');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCZmode, REG_CC),
+      gen_rtx_COMPARE_assist(1, CCZmode, SImode,
+	gen_rtx_REG(SImode, $1->r),
+	gen_rtx_REG(SImode, $2->r))));
+  };
+#line 1410 "x86-64.misc.py"
+rcc  : COMPARE_CC(AND_HI(r16, r16), CONST_0) [1, 2]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("testq", $2->r, 'w', $1->r, 'w');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCZmode, REG_CC),
+      gen_rtx_COMPARE_assist(1, CCZmode, HImode,
+	gen_rtx_REG(HImode, $1->r),
+	gen_rtx_REG(HImode, $2->r))));
+  };
+#line 1411 "x86-64.misc.py"
+rcc  : COMPARE_CC(AND_QI(r8,  r8),  CONST_0) [1, 2]
+#line 1415 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("testq", $2->r, 'b', $1->r, 'b');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+      gen_rtx_REG(CCZmode, REG_CC),
+      gen_rtx_COMPARE_assist(1, CCZmode, QImode,
+	gen_rtx_REG(QImode, $1->r),
+	gen_rtx_REG(QImode, $2->r))));
+  };
+#line 1441 "x86-64.misc.py"
+rcc : COMPARE_CC(r64, imm32) [1, 3]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("cmpq", $2, $1->r, 'q');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, DImode,
+					  gen_rtx_REG(DImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1442 "x86-64.misc.py"
+rcc : COMPARE_CC(r64, imm8) [1, 3]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("cmpq", $2, $1->r, 'q');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, DImode,
+					  gen_rtx_REG(DImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1443 "x86-64.misc.py"
+rcc : COMPARE_CC(r32, imm32) [1, 2]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("cmpl", $2, $1->r, 'd');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, SImode,
+					  gen_rtx_REG(SImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1444 "x86-64.misc.py"
+rcc : COMPARE_CC(r32, imm8) [1, 2]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("cmpl", $2, $1->r, 'd');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, SImode,
+					  gen_rtx_REG(SImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1445 "x86-64.misc.py"
+rcc : COMPARE_CC(r16, imm16) [1, 3]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("cmpw", $2, $1->r, 'w');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, HImode,
+					  gen_rtx_REG(HImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1446 "x86-64.misc.py"
+rcc : COMPARE_CC(r16, imm8) [1, 3]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("cmpw", $2, $1->r, 'w');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, HImode,
+					  gen_rtx_REG(HImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1447 "x86-64.misc.py"
+rcc : COMPARE_CC(r8,  imm8) [1, 2]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("cmpb", $2, $1->r, 'b');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, QImode,
+					  gen_rtx_REG(QImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1452 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_DI(r64, imm32), CONST_0) [1, 3]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("testq", $2, $1->r, 'q');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(1, CCZmode, DImode,
+					  gen_rtx_REG(DImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1453 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_SI(r32, imm32), CONST_0) [1, 2]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("testl", $2, $1->r, 'd');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(1, CCZmode, SImode,
+					  gen_rtx_REG(SImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1454 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_HI(r16, imm16), CONST_0) [1, 3]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("testw", $2, $1->r, 'w');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(1, CCZmode, HImode,
+					  gen_rtx_REG(HImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1455 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_QI(r8,  imm8), CONST_0) [1, 2]
+#line 1459 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpIR("testb", $2, $1->r, 'b');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(1, CCZmode, QImode,
+					  gen_rtx_REG(QImode, $1->r),
+					  GEN_INT($2->val))));
+  };
+#line 1488 "x86-64.misc.py"
+rcc : COMPARE_CC(r64, CONST_0) [1, 3]
+#line 1495 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpRR("testq", $1->r, 'q', $1->r, 'q');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCNOmode, REG_CC),
+			  gen_rtx_COMPARE(CCNOmode,
+                                          gen_rtx_REG(DImode, $1->r),
+                                          GEN_INT(0))));
+  };
+#line 1489 "x86-64.misc.py"
+rcc : COMPARE_CC(r32, CONST_0) [1, 2]
+#line 1495 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpRR("testl", $1->r, 'd', $1->r, 'd');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCNOmode, REG_CC),
+			  gen_rtx_COMPARE(CCNOmode,
+                                          gen_rtx_REG(SImode, $1->r),
+                                          GEN_INT(0))));
+  };
+#line 1490 "x86-64.misc.py"
+rcc : COMPARE_CC(r16, CONST_0) [1, 3]
+#line 1495 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpRR("testw", $1->r, 'w', $1->r, 'w');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCNOmode, REG_CC),
+			  gen_rtx_COMPARE(CCNOmode,
+                                          gen_rtx_REG(HImode, $1->r),
+                                          GEN_INT(0))));
+  };
+#line 1491 "x86-64.misc.py"
+rcc : COMPARE_CC(r8,  CONST_0) [1, 2]
+#line 1495 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+  },
+  debug {
+    dumpRR("testb", $1->r, 'b', $1->r, 'b');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCNOmode, REG_CC),
+			  gen_rtx_COMPARE(CCNOmode,
+                                          gen_rtx_REG(QImode, $1->r),
+                                          GEN_INT(0))));
+  };
+#line 1523 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_DI(addr), imm32) [4, 3]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("cmpq", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, DImode,
+					  gen_rtx_MEM(DImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1524 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_DI(addr), imm8) [4, 3]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("cmpq", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, DImode,
+					  gen_rtx_MEM(DImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1525 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_SI(addr), imm32) [4, 2]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("cmpl", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, SImode,
+					  gen_rtx_MEM(SImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1526 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_SI(addr), imm8) [4, 2]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("cmpl", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, SImode,
+					  gen_rtx_MEM(SImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1527 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_HI(addr), imm16) [4, 3]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("cmpw", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, HImode,
+					  gen_rtx_MEM(HImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1528 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_HI(addr), imm8) [4, 3]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("cmpw", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, HImode,
+					  gen_rtx_MEM(HImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1529 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_QI(addr), imm8) [4, 2]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("cmpb", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, QImode,
+					  gen_rtx_MEM(QImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1534 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_DI(MEM_DI(addr), imm32), CONST_0) [4, 3]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("testq", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCZmode, DImode,
+					  gen_rtx_MEM(DImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1535 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_SI(MEM_SI(addr), imm32), CONST_0) [4, 2]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("testl", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCZmode, SImode,
+					  gen_rtx_MEM(SImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1536 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_HI(MEM_HI(addr), imm16), CONST_0) [4, 3]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("testw", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCZmode, HImode,
+					  gen_rtx_MEM(HImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1537 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_QI(MEM_QI(addr), imm8),  CONST_0) [4, 2]
+#line 1541 "x86-64.misc.py"
+  build {
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    dumpIM("testb", $2, $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCZmode, QImode,
+					  gen_rtx_MEM(QImode, $1->rtl),
+					  GEN_INT($2->val))));
+  };
+#line 1562 "x86-64.misc.py"
+urcc : COMPARE_CC(rd,  MEM_DF(addr)) [4, 2]
+#line 1572 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    add_addr(live, $2);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  debug {
+    dumpMR("ucomisd", $2, $1->r, 'x');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCFPUmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCFPUmode, DFmode,
+					  gen_rtx_REG(DFmode, $1->r),
+					  gen_rtx_MEM(DFmode, $2->rtl))));
+  };
+#line 1563 "x86-64.misc.py"
+urcc : COMPARE_CC(rf,  MEM_SF(addr)) [4, 2]
+#line 1572 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    add_addr(live, $2);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  debug {
+    dumpMR("ucomiss", $2, $1->r, 'x');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCFPUmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCFPUmode, SFmode,
+					  gen_rtx_REG(SFmode, $1->r),
+					  gen_rtx_MEM(SFmode, $2->rtl))));
+  };
+#line 1565 "x86-64.misc.py"
+rcc :  COMPARE_CC(r64, MEM_DI(addr)) [4, 2]
+#line 1572 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    add_addr(live, $2);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  debug {
+    dumpMR("cmpq", $2, $1->r, 'q');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, DImode,
+					  gen_rtx_REG(DImode, $1->r),
+					  gen_rtx_MEM(DImode, $2->rtl))));
+  };
+#line 1566 "x86-64.misc.py"
+rcc :  COMPARE_CC(r32, MEM_SI(addr)) [4, 1]
+#line 1572 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    add_addr(live, $2);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  debug {
+    dumpMR("cmpl", $2, $1->r, 'd');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, SImode,
+					  gen_rtx_REG(SImode, $1->r),
+					  gen_rtx_MEM(SImode, $2->rtl))));
+  };
+#line 1567 "x86-64.misc.py"
+rcc :  COMPARE_CC(r16, MEM_HI(addr)) [4, 2]
+#line 1572 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    add_addr(live, $2);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  debug {
+    dumpMR("cmpw", $2, $1->r, 'w');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, HImode,
+					  gen_rtx_REG(HImode, $1->r),
+					  gen_rtx_MEM(HImode, $2->rtl))));
+  };
+#line 1568 "x86-64.misc.py"
+rcc :  COMPARE_CC(r8,  MEM_QI(addr)) [4, 1]
+#line 1572 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+    add_addr(live, $2);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($1->r);
+  },
+  debug {
+    dumpMR("cmpb", $2, $1->r, 'b');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, QImode,
+					  gen_rtx_REG(QImode, $1->r),
+					  gen_rtx_MEM(QImode, $2->rtl))));
+  };
+#line 1597 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_DI(addr), r64) [4, 2]
+#line 1612 "x86-64.misc.py"
+
+  build {
+    sparseset_set_bit(live, find($2->r));
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  debug {
+    dumpRM("cmpq", $2->r, 'q', $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, DImode,
+					  gen_rtx_MEM(DImode, $1->rtl),
+					  gen_rtx_REG(DImode, $2->r))));
+  };
+#line 1598 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_SI(addr), r32) [4, 1]
+#line 1612 "x86-64.misc.py"
+
+  build {
+    sparseset_set_bit(live, find($2->r));
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  debug {
+    dumpRM("cmpl", $2->r, 'd', $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, SImode,
+					  gen_rtx_MEM(SImode, $1->rtl),
+					  gen_rtx_REG(SImode, $2->r))));
+  };
+#line 1599 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_HI(addr), r16) [4, 2]
+#line 1612 "x86-64.misc.py"
+
+  build {
+    sparseset_set_bit(live, find($2->r));
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  debug {
+    dumpRM("cmpw", $2->r, 'w', $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, HImode,
+					  gen_rtx_MEM(HImode, $1->rtl),
+					  gen_rtx_REG(HImode, $2->r))));
+  };
+#line 1600 "x86-64.misc.py"
+rcc : COMPARE_CC(MEM_QI(addr),  r8) [4, 1]
+#line 1612 "x86-64.misc.py"
+
+  build {
+    sparseset_set_bit(live, find($2->r));
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  debug {
+    dumpRM("cmpb", $2->r, 'b', $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCmode, REG_CC),
+			  gen_rtx_COMPARE_assist(0, CCmode, QImode,
+					  gen_rtx_MEM(QImode, $1->rtl),
+					  gen_rtx_REG(QImode, $2->r))));
+  };
+#line 1605 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_DI(MEM_DI(addr), r64), CONST_0) [4, 2]
+#line 1612 "x86-64.misc.py"
+
+  build {
+    sparseset_set_bit(live, find($2->r));
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  debug {
+    dumpRM("testq", $2->r, 'q', $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(1, CCZmode, DImode,
+					  gen_rtx_MEM(DImode, $1->rtl),
+					  gen_rtx_REG(DImode, $2->r))));
+  };
+#line 1606 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_SI(MEM_SI(addr), r32), CONST_0) [4, 1]
+#line 1612 "x86-64.misc.py"
+
+  build {
+    sparseset_set_bit(live, find($2->r));
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  debug {
+    dumpRM("testl", $2->r, 'd', $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(1, CCZmode, SImode,
+					  gen_rtx_MEM(SImode, $1->rtl),
+					  gen_rtx_REG(SImode, $2->r))));
+  };
+#line 1607 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_HI(MEM_HI(addr), r16), CONST_0) [4, 2]
+#line 1612 "x86-64.misc.py"
+
+  build {
+    sparseset_set_bit(live, find($2->r));
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  debug {
+    dumpRM("testw", $2->r, 'w', $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(1, CCZmode, HImode,
+					  gen_rtx_MEM(HImode, $1->rtl),
+					  gen_rtx_REG(HImode, $2->r))));
+  };
+#line 1608 "x86-64.misc.py"
+rcc : COMPARE_CC(AND_QI(MEM_QI(addr),  r8), CONST_0) [4, 1]
+#line 1612 "x86-64.misc.py"
+
+  build {
+    sparseset_set_bit(live, find($2->r));
+    add_addr(live, $1);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    forgettable($2->r);
+  },
+  debug {
+    dumpRM("testb", $2->r, 'b', $1);
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCZmode, REG_CC),
+			  gen_rtx_COMPARE_assist(1, CCZmode, QImode,
+					  gen_rtx_MEM(QImode, $1->rtl),
+					  gen_rtx_REG(QImode, $2->r))));
+  };
+#line 1656 "x86-64.misc.py"
+stmt : SET_ALL(r64,      CALL_ALL(PAIR_ALL(MEM_QI(r64),          imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (0 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (0 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (0 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (0 == 0) {
+      dump_callR($2->r);
+    } else if (0 == 1) {
+      dump_callM($2->a);
+    } else if (0 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (0 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (0 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (0 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1657 "x86-64.misc.py"
+stmt : SET_ALL(r64,      CALL_ALL(PAIR_ALL(MEM_QI(MEM_DI(addr)), imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (1 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (1 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (1 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (1 == 0) {
+      dump_callR($2->r);
+    } else if (1 == 1) {
+      dump_callM($2->a);
+    } else if (1 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (1 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (1 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (1 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1658 "x86-64.misc.py"
+stmt : SET_ALL(r64,      CALL_ALL(PAIR_ALL(MEM_QI(symbol),       imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (2 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (2 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (2 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (2 == 0) {
+      dump_callR($2->r);
+    } else if (2 == 1) {
+      dump_callM($2->a);
+    } else if (2 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (2 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (2 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (2 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1660 "x86-64.misc.py"
+stmt : SET_ALL(r32,      CALL_ALL(PAIR_ALL(MEM_QI(r64),          imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (0 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (0 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (0 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (0 == 0) {
+      dump_callR($2->r);
+    } else if (0 == 1) {
+      dump_callM($2->a);
+    } else if (0 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (0 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (0 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (0 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1661 "x86-64.misc.py"
+stmt : SET_ALL(r32,      CALL_ALL(PAIR_ALL(MEM_QI(MEM_DI(addr)), imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (1 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (1 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (1 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (1 == 0) {
+      dump_callR($2->r);
+    } else if (1 == 1) {
+      dump_callM($2->a);
+    } else if (1 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (1 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (1 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (1 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1662 "x86-64.misc.py"
+stmt : SET_ALL(r32,      CALL_ALL(PAIR_ALL(MEM_QI(symbol),       imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (2 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (2 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (2 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (2 == 0) {
+      dump_callR($2->r);
+    } else if (2 == 1) {
+      dump_callM($2->a);
+    } else if (2 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (2 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (2 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (2 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1664 "x86-64.misc.py"
+stmt : SET_ALL(r16,      CALL_ALL(PAIR_ALL(MEM_QI(r64),          imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (0 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (0 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (0 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (0 == 0) {
+      dump_callR($2->r);
+    } else if (0 == 1) {
+      dump_callM($2->a);
+    } else if (0 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (0 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (0 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (0 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1665 "x86-64.misc.py"
+stmt : SET_ALL(r16,      CALL_ALL(PAIR_ALL(MEM_QI(MEM_DI(addr)), imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (1 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (1 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (1 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (1 == 0) {
+      dump_callR($2->r);
+    } else if (1 == 1) {
+      dump_callM($2->a);
+    } else if (1 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (1 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (1 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (1 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1666 "x86-64.misc.py"
+stmt : SET_ALL(r16,      CALL_ALL(PAIR_ALL(MEM_QI(symbol),       imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (2 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (2 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (2 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (2 == 0) {
+      dump_callR($2->r);
+    } else if (2 == 1) {
+      dump_callM($2->a);
+    } else if (2 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (2 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (2 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (2 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1668 "x86-64.misc.py"
+stmt : SET_ALL(r8,       CALL_ALL(PAIR_ALL(MEM_QI(r64),          imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (0 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (0 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (0 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (0 == 0) {
+      dump_callR($2->r);
+    } else if (0 == 1) {
+      dump_callM($2->a);
+    } else if (0 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (0 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (0 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (0 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1669 "x86-64.misc.py"
+stmt : SET_ALL(r8,       CALL_ALL(PAIR_ALL(MEM_QI(MEM_DI(addr)), imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (1 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (1 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (1 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (1 == 0) {
+      dump_callR($2->r);
+    } else if (1 == 1) {
+      dump_callM($2->a);
+    } else if (1 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (1 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (1 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (1 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1670 "x86-64.misc.py"
+stmt : SET_ALL(r8,       CALL_ALL(PAIR_ALL(MEM_QI(symbol),       imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (2 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (2 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (2 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (2 == 0) {
+      dump_callR($2->r);
+    } else if (2 == 1) {
+      dump_callM($2->a);
+    } else if (2 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (2 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (2 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (2 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DImode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1672 "x86-64.misc.py"
+stmt : SET_ALL(rf,       CALL_ALL(PAIR_ALL(MEM_QI(r64),          imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (0 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (0 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (0 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (0 == 0) {
+      dump_callR($2->r);
+    } else if (0 == 1) {
+      dump_callM($2->a);
+    } else if (0 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (0 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (0 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (0 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(SFmode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1673 "x86-64.misc.py"
+stmt : SET_ALL(rf,       CALL_ALL(PAIR_ALL(MEM_QI(MEM_DI(addr)), imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (1 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (1 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (1 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (1 == 0) {
+      dump_callR($2->r);
+    } else if (1 == 1) {
+      dump_callM($2->a);
+    } else if (1 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (1 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (1 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (1 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(SFmode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1674 "x86-64.misc.py"
+stmt : SET_ALL(rf,       CALL_ALL(PAIR_ALL(MEM_QI(symbol),       imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (2 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (2 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (2 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (2 == 0) {
+      dump_callR($2->r);
+    } else if (2 == 1) {
+      dump_callM($2->a);
+    } else if (2 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (2 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (2 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (2 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DFmode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1676 "x86-64.misc.py"
+stmt : SET_ALL(rd,       CALL_ALL(PAIR_ALL(MEM_QI(r64),          imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (0 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (0 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (0 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (0 == 0) {
+      dump_callR($2->r);
+    } else if (0 == 1) {
+      dump_callM($2->a);
+    } else if (0 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (0 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (0 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (0 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DFmode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1677 "x86-64.misc.py"
+stmt : SET_ALL(rd,       CALL_ALL(PAIR_ALL(MEM_QI(MEM_DI(addr)), imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (1 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (1 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (1 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (1 == 0) {
+      dump_callR($2->r);
+    } else if (1 == 1) {
+      dump_callM($2->a);
+    } else if (1 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (1 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (1 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (1 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DFmode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1678 "x86-64.misc.py"
+stmt : SET_ALL(rd,       CALL_ALL(PAIR_ALL(MEM_QI(symbol),       imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (2 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (2 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (2 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (2 == 0) {
+      dump_callR($2->r);
+    } else if (2 == 1) {
+      dump_callM($2->a);
+    } else if (2 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (2 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (2 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (2 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (1 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (1 == 1) {	/* scalar return */
+      # if (1 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(SFmode, $1->r);
+      # endif
+    } else if (1 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (1 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1687 "x86-64.misc.py"
+stmt : SET_ALL(def_list, CALL_ALL(PAIR_ALL(MEM_QI(r64),          imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (0 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (0 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (0 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (0 == 0) {
+      dump_callR($2->r);
+    } else if (0 == 1) {
+      dump_callM($2->a);
+    } else if (0 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (0 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (0 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (0 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (2 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (2 == 1) {	/* scalar return */
+      # if (2 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DFmode, $1->r);
+      # endif
+    } else if (2 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (2 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1688 "x86-64.misc.py"
+stmt : SET_ALL(def_list, CALL_ALL(PAIR_ALL(MEM_QI(MEM_DI(addr)), imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (1 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (1 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (1 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (1 == 0) {
+      dump_callR($2->r);
+    } else if (1 == 1) {
+      dump_callM($2->a);
+    } else if (1 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (1 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (1 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (1 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (2 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (2 == 1) {	/* scalar return */
+      # if (2 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(DFmode, $1->r);
+      # endif
+    } else if (2 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (2 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1689 "x86-64.misc.py"
+stmt : SET_ALL(def_list, CALL_ALL(PAIR_ALL(MEM_QI(symbol),       imm64), use_list)) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (2 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($2->r));
+    } else if (2 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $2);
+    } else if (2 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (2 == 0) {
+      dump_callR($2->r);
+    } else if (2 == 1) {
+      dump_callM($2->a);
+    } else if (2 == 2) {
+      dump_call($2->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (2 == 0) {
+      addr = gen_rtx_REG(DImode, $2->r);
+    } else if (2 == 1) {
+      addr = gen_rtx_MEM(DImode, $2->rtl);
+    } else if (2 == 2) {
+      addr = $2->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (2 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (2 == 1) {	/* scalar return */
+      # if (2 == 1)		/* $1 otherwise undefined */
+      dst = gen_rtx_REG(SFmode, $1->r);
+      # endif
+    } else if (2 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($3->val));
+      rtx dst_call = (2 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1695 "x86-64.misc.py"
+stmt :                       CALL_ALL(PAIR_ALL(MEM_QI(r64),          imm64), use_list) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (0 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($1->r));
+    } else if (0 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $1);
+    } else if (0 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (0 == 0) {
+      dump_callR($1->r);
+    } else if (0 == 1) {
+      dump_callM($1->a);
+    } else if (0 == 2) {
+      dump_call($1->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (0 == 0) {
+      addr = gen_rtx_REG(DImode, $1->r);
+    } else if (0 == 1) {
+      addr = gen_rtx_MEM(DImode, $1->rtl);
+    } else if (0 == 2) {
+      addr = $1->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (0 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (0 == 1) {	/* scalar return */
+      # if (0 == 1)		/* $dst otherwise undefined */
+      dst = gen_rtx_REG(DFmode, $dst->r);
+      # endif
+    } else if (0 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($2->val));
+      rtx dst_call = (0 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1696 "x86-64.misc.py"
+stmt :                       CALL_ALL(PAIR_ALL(MEM_QI(MEM_DI(addr)), imm64), use_list) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (1 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($1->r));
+    } else if (1 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $1);
+    } else if (1 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (1 == 0) {
+      dump_callR($1->r);
+    } else if (1 == 1) {
+      dump_callM($1->a);
+    } else if (1 == 2) {
+      dump_call($1->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (1 == 0) {
+      addr = gen_rtx_REG(DImode, $1->r);
+    } else if (1 == 1) {
+      addr = gen_rtx_MEM(DImode, $1->rtl);
+    } else if (1 == 2) {
+      addr = $1->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (0 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (0 == 1) {	/* scalar return */
+      # if (0 == 1)		/* $dst otherwise undefined */
+      dst = gen_rtx_REG(DFmode, $dst->r);
+      # endif
+    } else if (0 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($2->val));
+      rtx dst_call = (0 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1697 "x86-64.misc.py"
+stmt :                       CALL_ALL(PAIR_ALL(MEM_QI(symbol),       imm64), use_list) [0, 0]
+#line 1701 "x86-64.misc.py"
+  build {
+    handle_call_kills(add_edges, live);
+    if (2 == 0) {
+      /* indirect call to an address held in a register */
+      sparseset_set_bit(live, find($1->r));
+    } else if (2 == 1) {
+      /* indirect call to an address held in a symbol */
+      add_addr(live, $1);
+    } else if (2 == 2) {
+      /* direct call to an immediate address (normal) */
+    } else {
+      gcc_assert(0);
+    }
+  },
+  remat {
+    flags = 0;
+  },
+  debug {
+    if (2 == 0) {
+      dump_callR($1->r);
+    } else if (2 == 1) {
+      dump_callM($1->a);
+    } else if (2 == 2) {
+      dump_call($1->a.string);
+    } else {
+      gcc_assert(0);
+    }
+  },
+  emit {
+    rtx call_fusage = CALL_INSN_FUNCTION_USAGE($$->insn);
+    rtx addr = 0;
+    rtx dst = 0;
+    if (2 == 0) {
+      addr = gen_rtx_REG(DImode, $1->r);
+    } else if (2 == 1) {
+      addr = gen_rtx_MEM(DImode, $1->rtl);
+    } else if (2 == 2) {
+      addr = $1->rtl;
+    } else {
+      gcc_assert(0);
+    }
+    if (0 == 0) {		/* no value return */
+      dst = 0;				/* unused */
+    } else if (0 == 1) {	/* scalar return */
+      # if (0 == 1)		/* $dst otherwise undefined */
+      dst = gen_rtx_REG(SFmode, $dst->r);
+      # endif
+    } else if (0 == 2) {	/* structure return */
+      dst = SET_DEST($$->rtl);
+    } else {
+      gcc_assert(0);
+    }
+    {
+      rtx pure_call = gen_rtx_CALL(VOIDmode,
+	gen_rtx_MEM(QImode, addr),		/* call to a byte address */
+	GEN_INT($2->val));
+      rtx dst_call = (0 == 0)
+	? pure_call				/* void return value */
+	: gen_rtx_SET(VOIDmode, dst, pure_call)	/* scalar or structure */
+      ;
+      rtx call_insn = emit_call_insn(dst_call);
+      add_function_usage_to(call_insn, call_fusage);
+    }
+  };
+#line 1774 "x86-64.misc.py"
+use_list : LIST_ALL(use, use_list) [0, 0]
+#line 1778 "x86-64.misc.py"
+  ;
+#line 1775 "x86-64.misc.py"
+def_list : LIST_ALL(def, def_list) [0, 0]
+#line 1778 "x86-64.misc.py"
+  ;
+#line 1783 "x86-64.misc.py"
+use_list : END_OF_LIST [0, 0]
+#line 1787 "x86-64.misc.py"
+  ;
+#line 1784 "x86-64.misc.py"
+def_list : END_OF_LIST [0, 0]
+#line 1787 "x86-64.misc.py"
+  ;
+#line 1792 "x86-64.misc.py"
+stmt : use [0, 0]
+#line 1796 "x86-64.misc.py"
+  ;
+#line 1793 "x86-64.misc.py"
+stmt : def [0, 0]
+#line 1796 "x86-64.misc.py"
+  ;
+#line 1801 "x86-64.misc.py"
+use : USE_ALL(r64) [0, 0]
+#line 1809 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  emit {
+    $$->rtl = gen_rtx_USE(VOIDmode, gen_rtx_REG(DImode, $1->r));
+  };
+#line 1802 "x86-64.misc.py"
+use : USE_ALL(r32) [0, 0]
+#line 1809 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  emit {
+    $$->rtl = gen_rtx_USE(VOIDmode, gen_rtx_REG(DImode, $1->r));
+  };
+#line 1803 "x86-64.misc.py"
+use : USE_ALL(r16) [0, 0]
+#line 1809 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  emit {
+    $$->rtl = gen_rtx_USE(VOIDmode, gen_rtx_REG(DImode, $1->r));
+  };
+#line 1804 "x86-64.misc.py"
+use : USE_ALL(r8) [0, 0]
+#line 1809 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  emit {
+    $$->rtl = gen_rtx_USE(VOIDmode, gen_rtx_REG(DImode, $1->r));
+  };
+#line 1805 "x86-64.misc.py"
+use : USE_ALL(rd) [0, 0]
+#line 1809 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  emit {
+    $$->rtl = gen_rtx_USE(VOIDmode, gen_rtx_REG(DImode, $1->r));
+  };
+#line 1806 "x86-64.misc.py"
+use : USE_ALL(rf) [0, 0]
+#line 1809 "x86-64.misc.py"
+  build {
+    sparseset_set_bit(live, find($1->r));
+  },
+  remat {
+    flags = 0;
+  },
+  emit {
+    $$->rtl = gen_rtx_USE(VOIDmode, gen_rtx_REG(DImode, $1->r));
+  };
+#line 1827 "x86-64.misc.py"
+def : DEF_ALL(r64) [0, 0]
+#line 1835 "x86-64.misc.py"
+  ;
+#line 1828 "x86-64.misc.py"
+def : DEF_ALL(r32) [0, 0]
+#line 1835 "x86-64.misc.py"
+  ;
+#line 1829 "x86-64.misc.py"
+def : DEF_ALL(r16) [0, 0]
+#line 1835 "x86-64.misc.py"
+  ;
+#line 1830 "x86-64.misc.py"
+def : DEF_ALL(r8) [0, 0]
+#line 1835 "x86-64.misc.py"
+  ;
+#line 1831 "x86-64.misc.py"
+def : DEF_ALL(rd) [0, 0]
+#line 1835 "x86-64.misc.py"
+  ;
+#line 1832 "x86-64.misc.py"
+def : DEF_ALL(rf) [0, 0]
+#line 1835 "x86-64.misc.py"
+  ;
+#line 1851 "x86-64.misc.py"
+condition : EQ_ALL(rd, rd) [1, 3]
+#line 1857 "x86-64.misc.py"
+  names {
+    $$->code = UNEQ;
+    $$->cc_code = CCFPUmode;
+  },
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("ucomisd", $2->r, 'x', $1->r, 'x');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCFPUmode, REG_CC),
+			  gen_rtx_COMPARE_assist(/*is_test_variant*/0, CCFPUmode, DFmode,
+					  gen_rtx_REG(DFmode, $1->r),
+					  gen_rtx_REG(DFmode, $2->r))));
+  };
+#line 1852 "x86-64.misc.py"
+condition : NE_ALL(rd, rd) [1, 3]
+#line 1857 "x86-64.misc.py"
+  names {
+    $$->code = LTGT;
+    $$->cc_code = CCFPUmode;
+  },
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("ucomisd", $2->r, 'x', $1->r, 'x');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCFPUmode, REG_CC),
+			  gen_rtx_COMPARE_assist(/*is_test_variant*/0, CCFPUmode, DFmode,
+					  gen_rtx_REG(DFmode, $1->r),
+					  gen_rtx_REG(DFmode, $2->r))));
+  };
+#line 1853 "x86-64.misc.py"
+condition : EQ_ALL(rf, rf) [1, 3]
+#line 1857 "x86-64.misc.py"
+  names {
+    $$->code = UNEQ;
+    $$->cc_code = CCFPUmode;
+  },
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("ucomiss", $2->r, 'x', $1->r, 'x');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCFPUmode, REG_CC),
+			  gen_rtx_COMPARE_assist(/*is_test_variant*/0, CCFPUmode, SFmode,
+					  gen_rtx_REG(SFmode, $1->r),
+					  gen_rtx_REG(SFmode, $2->r))));
+  };
+#line 1854 "x86-64.misc.py"
+condition : NE_ALL(rf, rf) [1, 3]
+#line 1857 "x86-64.misc.py"
+  names {
+    $$->code = LTGT;
+    $$->cc_code = CCFPUmode;
+  },
+  build {
+    sparseset_set_bit(live, find($1->r));
+    sparseset_set_bit(live, find($2->r));
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    memorable($1->r);
+    memorable($2->r);
+  },
+  debug {
+    dumpRR("ucomiss", $2->r, 'x', $1->r, 'x');
+  },
+  emit {
+    emit_insn(gen_rtx_SET(VOIDmode,
+			  gen_rtx_REG(CCFPUmode, REG_CC),
+			  gen_rtx_COMPARE_assist(/*is_test_variant*/0, CCFPUmode, SFmode,
+					  gen_rtx_REG(SFmode, $1->r),
+					  gen_rtx_REG(SFmode, $2->r))));
+  };

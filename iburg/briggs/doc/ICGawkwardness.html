@@ -1,0 +1,143 @@
+<h1><a name="An_awkwardness"> </a> An awkwardness </h1>
+<p>
+Consider the following contrived example
+</p><pre>int zip(int);
+
+int zap(int a, int b) {
+  return a * zip(a) * b;
+}
+</pre>
+When we compile it, we get
+<pre>movq    %rbx, -16(%rsp)
+movq    %rbp, -8(%rsp)
+subq    $24, %rsp
+movl    %edi, %ebx
+movl    %esi, %ebp
+call    zip
+imull   %ebx, %eax
+imull   %eax, %ebp      -- these two lines
+movl    %ebp, %eax      -- are interesting
+movq    8(%rsp), %rbx
+movq    16(%rsp), %rbp
+addq    $24, %rsp
+ret
+</pre>
+The problem is that the multiply could be rewritten as
+<pre>        imull   %ebp, %eax
+</pre>
+saving the copy.  Why didn't coalescing or something fix it?  How did his happen?
+<p>
+Coming into icg, the relevant expressions look like this
+</p><pre>SET_ALL
+    REGX_SI:55
+    REGX_SI:0[ax]
+SET_ALL
+    REGX_SI:56
+    MULT_SI
+        MULT_SI
+            REGX_SI:53
+            REGX_SI:55
+        REGX_SI:54
+SET_ALL
+    REGX_SI:0[ax]
+    REGX_SI:56
+</pre>
+After instruction selection, we see
+<pre>movl %eax,%r55d     -- copy 1
+imull %r53,%r55
+imull %r55,%r54
+movl %r54d,%r56d    -- copy 2
+movl %r56d,%eax     -- copy 3
+</pre>
+At this point, we're already stuck. Coalescing can either remove copies 1 and 2 or copies 2 and 3, but not all three.
+To get all three, we need to rewrite the second multiply as
+<pre>imull %r54,%r55
+</pre>
+which is legal.  Iburg <em>arbitrarily</em> selected r54 *= r55, but it could just as well have selected r55 *= r54. 
+Unfortunately, there was no information to guide it.
+The question is: How can we guide iburg to prefer this choice?
+Or how can we fix it later?
+<p>
+I originally noted this problem with integer addition.
+Luckily, the x86 has a 3-address form of integer addition (using the <code>lea</code> instruction),
+so I used that to avoid the entire issue.  That is, I generate something like r100 = r99 + r98.
+Then, if r100 happens to be coalesced with either r99 or r98, or nothing at all, I always have 
+a plausible alternative.
+</p><p>
+The IBM guys used to handle this sort of situation by pretending the multiply was
+a 3-address instruction. Then, during coalescing, they'd try to coalesce the destination
+with either of the sources.  If that worked, great. If not, they'd introduce a copy
+at the last minute.
+</p><p>
+This approach may work for us too. I need to ponder it a bit more, but I guess I'd try 
+recognizing the pattern
+</p><pre>stmt : SET_ALL(r32d, MULT_SI(r32x, r32x))
+</pre>
+and attempting to coalesce the destination with either of the sources.
+Hmmm, I think this will work.  Well, maybe.  What if this is the very first coalesce we try?
+Then we might choose the wrong one, unluckily, and be stuck again.  We could do better,
+perhaps, by deferring these sorts of coalesces, since we have a choice.
+So have 2 stages of coalescing (1 for copies, 1 for these things)?
+<p>
+This will require careful testing as there are a number of cases to cover.
+</p><p>
+</p><h3><a name="Targeting"> </a> Targeting </h3>
+<p>
+The ideas above are inadequate for complex expressions.
+Consider
+</p><pre>SET_ALL
+    REGX_SI:0
+    MULT_SI
+        MULT_SI
+            REGX_SI:0
+            REGX_SI:1
+        MULT_SI
+            REGX_SI:2
+            REGX_SI:3
+</pre>
+There are 4 ways we can implement this expression tree using 2-address
+multiply instructions, but only one of the ways avoids the need for a
+copy.
+Clearly we want to find that particular implementation. I propose to do
+this in a single iburg reduction, very late in the code generation
+process (just before emit).
+I think it can be accomplished by percolating the required register top
+down, through instructions that can be commuted. Similar transforms are
+sometimes called <em>targeting</em>,
+so I'll steal that name here. On the other hand, I've never seen the
+problem discussed this thoroughly, so perhaps we've got something new.
+<p>
+I'm still not entirely happy.  I'll continue to play with it.
+</p><p>
+</p><h3><a name="Better"> </a> Better </h3>
+<p>
+Rather than look for identical registers, it's more general to look for opportunities
+to coalesce.  For example, given
+</p><pre>SET_ALL
+    REGX_SI:100
+    MULT_SI
+        MULT_SI
+            REGX_SI:101
+            REGX_SI:102
+        MULT_SI
+            REGX_SI:103
+            REGX_SI:104
+</pre>
+we want to try coalescing r100 with the entire set of r101 through r104.
+If any succeed, then we need to commute to make it work out.
+This suggests perhaps traversing each expression tree, bottom up,
+collecting a set of <em>coalescing candidates</em>.  Then, as part of normal coalescing,
+try coalescing the target of the copy with each of the candidates.
+<p>
+I'll ponder this idea.
+</p><p>
+</p><h3><a name="A_simpler_exampler_for_later"> </a> A simpler exampler for later </h3>
+<p>
+</p><pre>int zap(int a, int b) {
+  return a*b;
+}
+</pre>
+yields
+<pre>imull   %esi, %edi
+movl    %edi, %eax
+ret

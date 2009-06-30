@@ -1,0 +1,72 @@
+/* -*- mode: c -*- */
+/*
+ * Copyright (c) 2008 Google Inc. All rights reserved.
+ *
+ * $Header: $
+ */
+#include <stdio.h>
+#include <assert.h>
+
+#include "obstack.h"
+#include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
+#include "rtl.h"
+#include "basic-block.h"
+#include "hard-reg-set.h"
+#include "insn-config.h"
+#include "recog.h"
+#include "icg.h"
+
+#define NODEPTR_TYPE icg_nodes
+#define STATE_TYPE icg_state_type
+
+#define OP_LABEL(p)     ((p)->op)
+#define STATE_LABEL(p)  ((p)->state_label)
+#define LEFT_CHILD(p)   ((p)->left)
+#define RIGHT_CHILD(p)  ((p)->right)
+#define PANIC           printf
+
+#define ALLOC xmalloc
+
+/*
+ * Undefine the fancy abort so the burg output will compile.
+ * Later, maybe modify burg.
+ */
+#undef abort
+
+STATE_TYPE icg_burm_state(int, STATE_TYPE, STATE_TYPE);
+int icg_burm_op_label(NODEPTR_TYPE);
+STATE_TYPE icg_burm_state_label(NODEPTR_TYPE);
+NODEPTR_TYPE icg_burm_child(NODEPTR_TYPE, int);
+
+
+static int trace = -1;
+
+/* burm_trace - print trace message for matching p; decrement trace */
+static void icg_burm_trace(NODEPTR_TYPE p, int eruleno,
+    float cost, float bestcost) {
+  if (trace < 0) {
+    fprintf(stderr, "%p matched %s = %d with cost %g vs. %g\n",
+	    (void *)p, icg_burm_string[eruleno], eruleno, cost, bestcost);
+  } else if (trace > 0 && cost < bestcost) {
+    --trace;
+    fprintf(stderr, "%p matched %s = %d with cost %g\n",
+	    (void *)p, icg_burm_string[eruleno], eruleno, cost);
+  }
+  (void) icg_burm_trace; /* dummy reference to hush compiler warning */
+}
+
+
+%%
+
+//The following includes are done by the Makefile;
+//   native plug can't handle includes at this place in the input.
+//
+//include "x86-64.gr.pyout";
+//include "x86-64.int.pyout";
+//include "x86-64.float.pyout";
+//include "x86-64.misc.pyout";
+//include "x86-64.string.pyout";
+

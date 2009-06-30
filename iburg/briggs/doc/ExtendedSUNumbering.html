@@ -1,0 +1,404 @@
+<h1><a name="Extended_Sethi_Ullman_Numbering"> </a> Extended Sethi-Ullman Numbering </h1>
+<p>
+<a href="http://wiki.corp.google.com/twiki/pub/Main/NewCodeGenForGCC/sethi-ullman.pdf" target="_top">Sethi-Ullman numbering</a>
+is a technique for scheduling the evaluation of expression trees for
+minimum register usage. We all learned it in our first optimizer class
+'cause it's so simple and clean. However, it's not really adequate for
+an optimizing compiler. Classical SU-numbering assumes all the values
+(the leaves of the expression tree) are in memory locations. While it's
+possible to simply assert that the leaves may be in registers, the
+traditional formulation misses an important opportunity, namely the
+chance to reuse registers after they've gone dead.
+</p><p>
+Let's consider this example from the paper:
+</p><pre>a/(b + c) - d*(e + f)
+</pre>
+The expression tree for this expression looks like
+<p>
+    <img src="ExtendedSUNumbering_files/tree0.jpg" alt="tree0.jpg" height="364" width="408">
+</p><p>
+Assigning classical SU numbers to this tree yields
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree1.jpg" alt="tree1.jpg" height="364" width="415">
+</p><p>
+Here we're assuming that <code>a</code> through <code>f</code>
+are all values in registers that must be preserved and that the machine
+has 2-address instructions rather like the x86. The numbers associated
+with each node indicate the number of additional registers required to
+evaluate the associated subtree. In this case, we can evaluate the
+entire tree with 3 temporary registers, emitting code like this
+</p><pre>r0  = ra
+r1  = rb
+r1 += rc
+r0 /= r1
+r1  = rd
+r2  = re
+r2 += rf
+r1 *= r2
+r0 -= r1
+</pre>
+While other code sequences are feasible, none are cheaper, in terms of instructions or registers.
+<p>Note that we had to make copies of many of the source registers;
+since they must all be preserved, we need to be careful to avoid
+overwriting them. We number the tree during a depth-first walk
+according to the following rules
+</p><ul>
+<li> If a node is a left leaf, it is numbered 1.
+</li>
+<li> If a node is a right leaf, it is number 0.
+</li>
+<li> If a non-leaf node has children with equal numbers <em>n</em>, it is numbered <em>n+1</em>
+</li>
+<li> If a non-leaf node has children with non-equal numbers <em>m</em> and <em>n</em>, it is numbered <em>max(m, n)</em>
+</li>
+</ul>Sethi and Ullman give extensions for handling commutative and
+associative operators and it's easy to imagine extensions for
+load-store architectures. Here, we explore a different idea: <em>How do we take advantage of leaf values in registers that need not be preserved?</em>
+<p>
+</p><p>
+</p><h2><a name="The_problem"> </a> The problem </h2>
+<p>
+Let's reconsider our example tree, but with a few modifications.
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree2.jpg" alt="tree2.jpg" height="364" width="408">
+</p><p>
+Here I've introduced a new bit of notation, an apostrophe after a
+register name to indicate that the register need not be preserved; in
+other words, this expression is the last use of <code>a</code> and <code>b</code>.  After this expression, they will be <em>dead</em> in a data-flow sense. 
+</p><p>
+Since we're allowed to overwrite some registers, we can achieve a
+shorter schedule, using fewer temporaries. For instance, we might
+evaluate the entire tree like this
+</p><pre>rb += rc
+ra /= rb
+r0  = rd
+rb  = re
+rb += rf
+r0 *= rb
+ra -= r0
+</pre>
+So, the problem is: <em>Given an expression tree with leaf
+values in registers, where some of the registers must be preserved and
+others may be overwritten, find an order of evaluation that minimizes
+the number of extra registers required.</em>
+<p>
+</p><p>
+</p><h2><a name="Names"> </a> Names </h2>
+<p>
+We're going to be a bit less abstract than Sethi and Ullman, so I'd like to start afresh and define a some useful names.
+We'll be manipulating expression trees.  Nodes in the trees will have one or two children.  If a node has two children,
+we'll distinguish between the left and right child.
+</p><p>
+We'll further distinguish certain nodes as <em>r-nodes</em> (where the <em>r</em> might stand for <em>right</em> or <em>restricted</em>).  These nodes
+</p><ul>
+<li> constants
+</li>
+<li> loads (memory references)
+</li>
+<li> references to registers that must be preserved
+</li>
+</ul>
+are all r-nodes and we will <em>prefer</em> to have them as right children (while they can appear as left children, 
+it  will cost an extra register). This notion is machine dependent, since many machines won't allow, for instance,
+adding directly from a memory location.
+<p>
+Other nodes (including register references that may be overwritten) may
+appear as either the left or right child of another node without
+penalty.
+</p><p>
+</p><h2><a name="SU_pairs"> </a> SU-pairs </h2>
+<p>
+While I'm not completely sure of this result, my approach for now is as as follows...
+</p><p>
+We'll compute two non-negative integers at each node, a pair: the number of extra registers required, <code>extra</code>, and the number last uses, <code>freed</code>. The <code>extra</code> value corresponds to the traditional SU-number, though it won't always have the same value.  We can call them <em>SU-pairs</em> and they'll have the form <code>(extra, freed)</code>. Our example tree would be labeled like this
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree3.jpg" alt="tree3.jpg" height="364" width="427">
+</p><p>
+In this case, I've labeled the tree by inspection. We want an algorithm to achieve the same result.
+</p><p>
+</p><h2><a name="Leaves"> </a> Leaves </h2>
+<p>
+We number leaves as follows:
+</p><ul>
+<li> Constants get the pair <code>(0,0)</code>
+</li>
+<li> Registers which must be preserved get the pair <code>(0,0)</code>
+</li>
+<li> Registers which may be overwritten get the pair <code>(0,1)</code>
+</li>
+</ul>
+<p>
+</p><h2><a name="Unary_operations"> </a> Unary operations </h2>
+<p>
+Before we can determine the SU-pair for a unary operation, we must examine its child. If it's an r-node with the SU-pair <code>(0,0)</code>,
+we adjust it to <code>(1,0)</code>. After any necessary adjustment, the SU-pair for a unary operation equals the SU-pair of its operand.
+</p><p>
+</p><h2><a name="Binary_operations"> </a> Binary operations </h2>
+<p>
+Before we can determine the SU-pair for a binary operation, we must examine its <em>left</em> child. 
+If it's an r-node with the SU-pair <code>(0,0)</code>, we adjust it to <code>(1,0)</code>.
+</p><p>
+Next, we need to choose which subtree (the <code>left</code> or <code>right</code>)
+to evaluate first, then compute the associated SU-pair. To find this,
+we consider the cost of the entire tree assuming the left subtree is
+evaluated first versus the cost of evaluating the entire tree if the
+right subtree is evaluated first.
+</p><pre>cost.left  = left.extra  + left.freed  &gt; right.extra ? left.extra  : right.extra - left.freed  + 1
+cost.right = right.extra + right.freed &gt; left.extra  ? right.extra : left.extra  - right.freed + 1
+</pre>
+The result's SU-pair will equal <code>(min(cost.left, cost.right), left.freed + right.freed)</code>.
+<p>
+<em>A challenge is to simplify the computation of costs.  Another challenge is to prove that it's correct!</em>
+</p><p>
+Consider the computation of <code>const.left</code>.  There are two cases:
+</p><ol>
+<li> The number of registers free after the evaluation of the left
+subtree is enough to evaluate the right subtree; that is, we won't need
+any more registers than <code>left.extra</code> if <pre>left.extra + left.freed - 1 &gt;= right.extra</pre> 
+</li>
+<li> The number of registers free after evaluation of the left subtree
+is inadequate to cover the needs of the right subtree, so more will be
+required. In this case, we need <pre>right.extra - (left.extra + left.free - 1) + left.extra</pre> which simplifies to <pre>right.extra - left.freed + 1</pre>
+</li>
+</ol>
+<p>
+A way to start the proof of correctness is to compare with ordinary SU
+numbering for examples where it applies (i.e., none of the input
+registers are freed).
+</p><p>
+</p><h2><a name="Commutative_operations"> </a> Commutative operations </h2>
+<p>For operations that are commutative but not associative (such as
+floating-point addition or multiplications), it's sometimes worthwhile
+to interchange the operands. Consider the example above. If we notice
+that the left child of the multiply operation is an r-node, we can
+interchange the left and right children and achieve a better result
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree9.jpg" alt="tree9.jpg" height="364" width="473">
+</p><p>
+which yields the following code
+</p><pre>rb += rc
+ra /= rb
+rb  = re
+rb += rf
+rb *= rd
+ra -= rb
+</pre>Generally, if we have a commutative operation where the left
+child is an r-node and the right child is not, we should interchange
+the children, then compute the SU-pair in the same way as other binary
+operations.
+<p>
+</p><h2><a name="Associative_operations"> </a> Associative operations </h2>
+<p>While I know of operations that are associative but not commutative
+(matrix multiplication and quaternion multiplication), few machines
+have such things. Though the Tera MTA does have a bitwise
+matrix-multiplication instruction. Perhaps I should think about this
+problem in the future.
+</p><p>
+</p><h2><a name="Operations_that_are_associative_"> </a> Operations that are associative and commutative </h2>
+<p>
+Suppose we're given a more interesting tree, like this
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree4.jpg" alt="tree4.jpg" height="540" width="768">
+</p><p>It's useful to note and take advantage of operations that are
+associative and commutative (e.g., integer multiplication and
+addition). In this case, we can note the 4 subexpressions that are
+summed and rewrite the tree, temporarily, with a special operator for
+easier manipulation.
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree5.jpg" alt="tree5.jpg" height="436" width="724">
+</p><p>
+I will call this form an <em>associative tree</em>. That is, we start with a binary tree and rewrite it as an associative tree.
+Later, we'll rewrite it again as a binary tree.
+</p><p>
+Since we're going to focus on the sum, I'll abstract away the details, like this
+</p><p>
+   <img src="ExtendedSUNumbering_files/tree6.jpg" alt="tree6.jpg" height="168" width="378">
+</p><p>The opportunity here is that we might implement the summation in
+any one of a number of ways, with different register requirements.
+My solution (I hope it's a solution) proceeds in two steps:
+</p><ol>
+<li> <em>Sorting</em>, and
+</li>
+<li> <em>Placement</em>.
+</li>
+</ol>
+We begin by computing SU-pairs for all the subexpressions, as shown above.  Then we <em>sort</em> all the subexpressions, first by <code>extra</code> (ascending), resolving ties by <code>freed</code> (descending).  In our example, we'd get
+<p>
+    <img src="ExtendedSUNumbering_files/tree7.jpg" alt="tree7.jpg" height="168" width="442">
+</p><p>
+Next, we do <em>placement</em>. The key here is that we've
+sorted so that the subexpression with the greatest need for extra
+registers (Y), is on the right. We look at all the subexpressions to
+its left (W, X, and Z). If none of them free any registers, we'll move
+our right-most subexpression to the left end, where it will be
+evaluated first. On the other hand, if some registers are freed during
+the evaluation of the other subexpressions, then we'll leave the
+rightmost expression in place, where the maximum number of registers
+will be available for its evaluation. In this second case, we need to
+recursively consider the placement of the rest of the subexpressions.
+</p><p>In our example, since the evaluation of W will free some
+registers, consideration of Y, Z, and X leaves each in place and the
+summation would be implemented like this
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree8.jpg" alt="tree8.jpg" height="380" width="358">
+</p><p>
+</p><h3><a name="Placement_examples"> </a> Placement examples </h3>
+<p>
+Here are a few more exampes to help illustrate the <em>placement</em> step.
+In each case, I'll show the associative tree after sorting and after placement.
+</p><p>
+</p><hr>
+<h4><a name="Example_1"> </a> Example 1 </h4>
+<p>
+    <img src="ExtendedSUNumbering_files/tree10.jpg" alt="tree10.jpg" height="168" width="376">
+</p><p>
+We consider the right-most subtree, D. Looking at all the subtrees to its left, we see that none free any registers,
+so we move D to the left-most position where it will be evaluated first and we're done.
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree11.jpg" alt="tree11.jpg" height="168" width="439">
+</p><p>
+</p><hr>
+<h4><a name="Example_2"> </a> Example 2 </h4>
+<p>
+    <img src="ExtendedSUNumbering_files/tree12.jpg" alt="tree12.jpg" height="168" width="439">
+</p><p>We consider the right-most subtree, H. Looking at all the
+subtree to its left, we see that they free some registers, so we leave
+it in place.
+</p><p>
+Next, we consider G.  Looking at all the subtrees to its left, we see that none free any registers,
+so we move G to the left-most position where it will be evaluated first and we're done.
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree13.jpg" alt="tree13.jpg" height="168" width="439">
+</p><p>
+</p><p>
+</p><hr>
+<h4><a name="Example_3"> </a> Example 3 </h4>
+<p>
+    <img src="ExtendedSUNumbering_files/tree14.jpg" alt="tree14.jpg" height="168" width="439">
+</p><p>We consider the right-most subtree, L. Looking at all the
+subtree to its left, we see that they free some registers, so we leave
+it in place.
+</p><p>Next, we consider the right-most subtree, K. Looking at all the
+subtree to its left, we see that they free some registers, so we leave
+it in place.
+</p><p>
+Finally, we consider J.  Looking at all the subtrees to its left, we see that none free any registers,
+so we move J to the left-most position where it will be evaluated first and we're done. 
+Note that it's unimportant that J freed some registers.
+</p><p>
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree15.jpg" alt="tree15.jpg" height="168" width="439">
+</p><p>
+</p><h2><a name="Subtraction"> </a> Subtraction </h2>
+<p>
+While subtraction is not commutative or associative, it sometimes presents opportunities.
+If we rewrite subtraction operations as addition and negation (where negate will be an r-node),
+then we can perhaps reassociate. Furthermore, we can collapse pairs of negates.
+</p><p>
+The opportunity to collapse pairs of negates makes this worth doing for floating-point computation.
+</p><p>
+<em>What about division?</em>
+</p><p>
+</p><h2><a name="Optimality"> </a> Optimality </h2>
+<p>This approach doesn't give an optimal scheduling, at least in terms
+of register usage. Here's an example (thanks to Mark) where any
+contiguous evaluation is not optimal.
+</p><p>
+    <img src="ExtendedSUNumbering_files/tree16.jpg" alt="tree16.jpg" height="446" width="792">
+</p><p>
+My approach to this tree would require 1 extra register for evaluation; better than Sethi-Ullman but not perfect.
+Mark pointed out that it's better to evaluate <code>a + b</code> and <code>f + g</code> first, since each will free a register.
+Given a spare free register, we can evaluate the rest of the expression in any convenient order, with no additional registers.
+</p><p>
+</p><h2><a name="Loads_and_stores"> </a> Loads and stores </h2>
+<p>I'm not entirely sure what to do here. Complex addressing modes
+allow more to be done with fewer registers, so my scheme will tend to
+overestimate register requirements and will, as a result, get some of
+the ordering incorrect. This may not be important.
+</p><p>
+</p><h2><a name="Very_complex_expression_trees"> </a> Very complex expression trees </h2>
+<p>A very complex expression tree will require more registers than
+we've got. This scheme doesn't account for that possibility. Given 16
+integer registers and 16 floating-point registers, I don't think it'll
+be a problem very often, but it would be smart to have a fallback
+position.
+</p><p>
+</p><p>
+</p><p>
+</p><h2><a name="Questions"> </a> Questions </h2>
+<p>
+<em>Prove that this is the best way to handle operations that are associative and commutative.</em>
+</p><p>
+<em>Is there a simpler approach to achieve the same effect?</em>
+</p><p>
+<em>Can we describe, precisely, the effect we're trying to achieve?</em>
+</p><p>
+</p><p>
+<em>What about a value that appears in, for example, two leaves and then goes dead?</em>
+</p><p>
+<em>Can we express this approach in a BURG grammar, so that it's handled at the same time as instruction selection?</em>
+</p><p>
+</p><p>
+</p><h1><a name="Remember"> </a> Remember </h1>
+<p>ideas about using burg (iburg really) to run after extended SU
+numbering to do a more precise job. Still need SU numbering to do the
+reassociation. Here's my email note
+</p><p>Recall that I've been talking about SU numbering. One of the
+open questions wondered about what's lost by doing SU-numbering before
+running BURG. That is, we recognized that there would be some
+imprecision caused by running BURG late, since the SU numbering would
+be slightly off on it's register requirements.
+</p><p>The latest idea recognizes that it's possible to do some parts
+of SU numbering during the label pass of BURG. Thinking about it, I
+think I need to run the extended SU numbering first, 'cause I want to
+be able to reassociate where it helps. But then, during the label pass,
+pay attention to register usage and my extended cost accounting for
+dead registers, and choose the correct ordering for subtree evaluation.
+It might be the same as the order picked during the initial SU
+numbering, but it might be improved due to refined info about actual
+register requirements.
+</p><p>
+The cool part is that it's very easy to express using BURG (well, almost easy).
+Imagine the grammar rule
+</p><p>
+    reg : ADD(reg, reg)
+</p><p>So here's a simple rule saying that the non-terminal reg can be
+defined by an ADD of two other regs. To do SU numbering at the same
+time, we just provide two rules that look identical, but may have
+different costs, where one evaluated the left subtree first and the
+other evaluates the right subtree first.
+</p><p>
+<em>It's not actually easy because the BURG input language doesn't
+allow us to express this. Perhaps we could fix it using some
+combination of hacking on iburg and plug. I'm going to leave this for
+future work.</em>
+</p><p>
+Recall also that Robert asked about the costs we assign to each rule.
+Well (!), BURG allows us to have a vector of costs for each rules. I'm
+thinking 3 components: The first is the number of extra registers, the
+2nd is an estimate of the bytes of instructions, and the 3rd is the
+number of registers freed. I'll use the extra and freed components as
+the SU pairs, as described in my wiki page. We'd make burg resolve
+decisions based on minimizing extra registers as the 1st priority,
+resolving ties by minimizing instruction size. If it's possible to get
+cycle estimates (and sometimes it is), then maybe that should be the
+most important criteria.
+</p><p>
+I hope this is clear, but I understand that it may not be.  I'll recap.
+</p><p>
+1st, do extended SU numbering, because this is our opportunity to reassociate.
+2nd, do BURG, with extra rules to to extended SU numbering (though not reassociation).
+</p><p>Return a vector of costs for each rule reflecting the SU pairs,
+total instruction size, and total cycle count and resolve ties using
+some formula that might be tunable.
+</p><p>
+To handle the more interesting costs, we'll probably have to use IBURG, since it's more flexible in this area.
+</p><p>
+</p><hr>
+<p>
+The above note is a crock.
+</p><p>
+Well, there's the germ of a good idea.  The good idea is to use burg to do a normal labeling,
+then write a reduce pass that does SU numbering (over the actual instructions)
+and establishes the order of evaluation for the other reduce passes.
+We'll still want the ordinary SU numbering to do reassociation.

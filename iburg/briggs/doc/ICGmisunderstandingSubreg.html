@@ -1,0 +1,104 @@
+<h1><a name="Misunderstanding_Subreg"> </a> Misunderstanding Subreg </h1>
+<p>
+I don't understand all the details of the <a href="http://www.google.com/url?sa=D&amp;q=http%3A%2F%2Fgcc.gnu.org%2Fonlinedocs%2Fgccint%2FRTL.html%23RTL" target="_top">RTL</a> 
+operation <a href="http://www.google.com/url?sa=D&amp;q=http%3A%2F%2Fgcc.gnu.org%2Fonlinedocs%2Fgccint%2FRegs-and-Memory.html%23Regs-and-Memory" target="_top">subreg</a>.
+</p><p>
+To date, the only subreg operations I've seen (for the x86-64) look something like this
+</p><pre>(subreg:SI (reg:DI 63) 0)
+</pre>
+indicating that we're interested in the lower four bytes (a signed integer) of the 
+8-byte quantity (a double integer) in register 63.
+<p>
+This sort of cast may be the only sort of usage we'll ever see for the x86-64;
+however, when I went to the gcc summit, many people pointed out that subreg is oh-so-much-more than
+just a cast.  At least it is on some processors.
+</p><p>
+The general form is 
+</p><pre>(subreg:<em>m1</em> reg:<em>m2 bytenum</em>)
+</pre>
+The sort I've seen so far are <em>normal</em> subregs (where the mode of the first operand is wider than the mode of the subreg).
+Furthermore, all the ones I've seen have bytenum=0.
+<p>
+</p><h2><a name="Possible_problems"> </a> Possible problems </h2>
+<p>
+Currently, the translation to side-tree form handles subreg incorrectly,
+dropping the <em>bytenum</em>.
+</p><p>
+Nothing in the grammar refers to the (missing) <em>bytenum</em>.
+</p><p>
+Need to be able to handle a subreg as an l-value.
+Does this ever occur for the x86-64?  If it does, then it's a sort of update instruction,
+modifying part of the destination.  Need to handle this correctly when computing SSA.
+</p><p>
+Paradoxical subregs?
+</p><p>
+</p><p>
+</p><h2><a name="Understanding_Subreg"> </a> Understanding Subreg </h2>
+<p>
+Mark plowed through the existing documentation and came up with a better schema for
+organizing the 4 interesting cases.  We'll adopt it here.
+</p><p>
+</p><p>
+</p><h3><a name="RHS_subregs"> </a> RHS subregs </h3>
+<p>
+These occur in expression trees, effectively on the right-hand-side of assignment statements.
+Here's an example:
+</p><pre>(set (reg:SI 56)
+   (plus:SI (reg:SI 70)
+      (subreg:SI (reg:DI 83) 0)))
+</pre>
+In this case, we assign the 32-bit sum of <code>r70</code> and the lower 32-bits of <code>r83</code>
+to <code>r56</code>.
+<p>
+When we compare the modes of the <code>subreg</code> and its enclosed <code>reg</code>, there are two cases to be considered: <em>normal</em> and <em>paradoxical</em>.
+</p><p>
+</p><h5><a name="Normal_subregs"> </a> Normal subregs </h5>
+<p>
+The general format of a normal RHS subreg is
+</p><pre>(subreg:<em>narrow</em> (reg:<em>wide n</em>) <em>bytenum</em>)
+</pre>
+This case is fairly straightforward.
+<p>
+</p><p>
+</p><h5><a name="Paradoxical_subregs"> </a> Paradoxical subregs </h5>
+<p>
+The general format of a paradoxical RHS subreg is
+</p><pre>(subreg:<em>wide</em> (reg:<em>narrow n</em>) 0)
+</pre>
+Note that the <em>bytenum</em> for paradoxical subregs is always 0.
+<p>
+Despite the name, paradoxical subregs are pretty straightforward.
+The bits of register <em>n</em> are extended in some undefined fashion to
+the width specified by <em>wide</em>.
+</p><p>
+</p><p>
+</p><p>
+</p><h3><a name="LHS_subregs"> </a> LHS subregs </h3>
+<p>
+These occur as the target of <code>set</code> forms, effectively on the left-hand-side of assignment statements.
+Here's an example:
+</p><pre>(set (subreg:DI (reg:SI 56) 0)
+   (plus:DI (reg:DI 70)
+      (reg:DI 83)))
+</pre>
+As above, there are two cases.
+<p>
+</p><h5><a name="Normal_subregs"> </a> Normal subregs </h5>
+<p>
+The general format of a normal LHS subreg is
+</p><pre>(set (subreg:<em>narrow</em> (reg:<em>wide n</em>) <em>bytenum</em>)
+   <em>expr</em>)
+</pre>
+In this case the register is updated: a subset of bits of the register are written.
+<p>
+</p><h5><a name="Paradoxical_subregs"> </a> Paradoxical subregs </h5>
+<p>
+The general format of an paradoxical LHS subreg is
+</p><pre>(set (subreg:<em>wide</em> (reg:<em>narrow n</em>) 0)
+   <em>expr</em>)
+</pre>
+Remember that the <em>bytenum</em> for paradoxical subregs is always 0.
+<p>
+Again, the paradoxical subreg is straightforward.
+The low-order bits of <em>expr</em> overwrite register <em>n</em>;
+the high-order bits of <em>expr</em> are ignored.

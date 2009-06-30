@@ -1,0 +1,123 @@
+<h1><a name="ICG_handles_calling_conventions_"> </a> ICG handles calling conventions <em>much</em> better than IRA </h1>
+<p>
+So here's a place where IRA seems to fall down badly.
+Faced with code that has lots of live registers and lots of procedure calls,
+they handle the caller-saves registers in a very naive fashion.
+Here's an extended example
+</p><pre>    subl    40(%rsp), %r9d
+    je    .L252
+    movq    12392(%rbx), %rdi
+    testq    %rdi, %rdi
+    je    .L252
+    movq    (%rdi), %rax
+    movl    %r9d, %edx
+    movq    %r8, %rsi
+    movl    %ecx, 8(%rsp)
+    movq    %r8, 16(%rsp)
+    movl    %r9d, 24(%rsp)
+    call    *16(%rax)
+    testb    %al, %al
+    movl    8(%rsp), %ecx
+    movq    16(%rsp), %r8
+    movl    24(%rsp), %r9d
+    je    .L302
+    movslq    %r9d,%r9
+    addq    %r9, 12408(%rbx)
+.L252:
+    movq    %r8, 12360(%rbx)
+    movq    %r8, %r9
+    jmp    .L251
+.L298:
+    subl    40(%rsp), %r9d
+    je    .L270
+    movq    12392(%rbx), %rdi
+    testq    %rdi, %rdi
+    je    .L270
+    movq    (%rdi), %rax
+    movl    %r9d, %edx
+    movq    %r8, %rsi
+    movl    %ecx, 8(%rsp)
+    movq    %r8, 16(%rsp)
+    movl    %r9d, 24(%rsp)
+    call    *16(%rax)
+    testb    %al, %al
+    movl    8(%rsp), %ecx
+    movq    16(%rsp), %r8
+    movl    24(%rsp), %r9d
+    je    .L303
+</pre>
+The only thing really interesting here is the pattern of spills and reloads
+around each call.  It looks like it was inserted at the last minute,
+not as an integral part of register allocation.
+<p>
+I think the right way to handle caller-saves registers in a coloring allocator is to treat
+them as <em>callee-killed</em> registers.  It's an old idea for me, and I'm certain
+others (e.g., Callahan and Koblenz had the same idea); I probably
+should have written more clearly about this in my thesis.
+</p><p>
+Anyway, when I come across a call, I treat it like any other instruction.
+It references some registers (the parameters) and kills some registers
+(those not guaranteed to be preserved across the call).  In this fashion,
+the interference graph will reflect the needs of each call and the
+code will be globally adapted to avoid keeping values in those registers
+across calls.
+</p><p>
+Here's what ICG makes for the same two calls:
+</p><pre>    subl    40(%rsp), %r15d
+    testl    %r15d, %r15d           ****
+    je    .L251
+    movq    12392(%rbx), %rdi
+    testq    %rdi, %rdi
+    je    .L251
+    movl    %r15d, %edx
+    movq    40(%rsp), %rsi
+    movq    (%rdi), %rax
+    call    *16(%rax)
+    testb    %al, %al
+    je    .L300
+    movslq    %r15d,%rdx
+    addq    %rdx, 12408(%rbx)
+.L251:
+    movq    40(%rsp), %rdx
+    movq    %rdx, 12360(%rbx)
+    movq    40(%rsp), %r15           ****
+    jmp    .L250
+.L299:
+    subl    40(%rsp), %r15d
+    testl    %r15d, %r15d            ****
+    je    .L269
+    movq    12392(%rbx), %rdi
+    testq    %rdi, %rdi
+    je    .L269
+    movl    %r15d, %edx
+    movq    40(%rsp), %rsi
+    movq    (%rdi), %rax
+    call    *16(%rax)
+    testb    %al, %al
+    je    .L301
+</pre>
+30 instructions versus 39, which is a nice savings.
+Now, there are some obvious problems with the ICG code too,
+marked with stars.  But all three are easily fixed with a peephole
+pass.  The problems with IRA's codes aren't so easily cleaned up.
+<p>
+(After making fixups, we see ICG with 27 instructions, versus IRA's 39.
+More importantly, ICG would have 11 memory refs versus IRA's 20.)
+</p><p>
+I should say that two of ICG's extra refs should have been handled as part
+of the ordinary process of allocation.  Chaitin taught us how to avoid them,
+and it's better to avoid them up front, because such things affect spill costs
+and therefore the decisions about which registers to spill.
+</p><p>
+So maybe the headroom calculation should be ICG + cleanup phase,
+MAO or something else.  ICG is getting things in pretty good shape globally,
+but has some locally rough spots.
+</p><p>
+Another idea that should probably be done in any case is to write
+Vladamir, the guy who wrote most of IRA, and show him our idea.
+I met him last year and I think he'd be amenable.  It may take a while
+for changes to percolate through the whole gcc process, but I don't think
+they'd be that difficult for him to make and it's bound to be faster than
+trying to replace the entire code generator.
+
+Heh!  He was not ammenable.

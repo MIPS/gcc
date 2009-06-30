@@ -1,0 +1,1221 @@
+#line 73 "x86-64.string.py"
+stmt:
+#line 77 "x86-64.string.py"
+      PARALLEL_ALL(
+	  SET_ALL(lhs64, PLUS_DI(ASHIFT_DI(r64, CONST_P3), r64)),
+        PARALLEL_ALL(
+	  SET_ALL(lhs64, PLUS_DI(ASHIFT_DI(r64, CONST_P3), r64)),
+	  PARALLEL_ALL(
+	    SET_ALL(MEMB_DI(r64), MEMB_DI(r64)),
+	    USE_ALL(r64)
+	  )
+	)
+      )
+     [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $2->r, REG_RCX);
+    coalesces += attempt_coalesce(pass, $3->r, REG_RDI);
+    coalesces += attempt_coalesce(pass, $6->r, REG_RSI);
+    if (!$1->spilled)
+      coalesces += attempt_coalesce(pass, $1->r,  REG_RDI);
+    if (!$4->spilled)
+      coalesces += attempt_coalesce(pass, $4->r,  REG_RSI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($4->spilled) {
+      sparseset_set_bit(live, REG_RSI);
+      add_addr(live, $4);
+    }
+    else
+      add_copy_edges(/*dst*/$4->r, /*src*/REG_RSI, live);
+    if ($1->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $1);
+    }
+    else
+      add_copy_edges(/*dst*/$1->r, /*src*/REG_RDI, live);
+
+    add_edges(REG_RCX, live);
+    add_edges(REG_RDI, live);
+    add_edges(REG_RSI, live);
+
+    add_copy_edges(/*dst*/REG_RSI, /*src*/$6->r, live);
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$3->r, live);
+    add_copy_edges(/*dst*/REG_RCX, /*src*/$2->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($6->r, REG_RSI);
+    cost_copy($3->r, REG_RDI);
+    cost_copy($2->r, REG_RCX);
+    forgettable($6->r);
+    forgettable($3->r);
+    forgettable($2->r);
+    if (!$4->spilled)
+      cost_copy($4->r, REG_RSI);
+    if (!$1->spilled)
+      cost_copy($1->r, REG_RDI);
+  },
+  debug {
+    /*
+     * by construction upstream of icg: $2, $5           should be identical
+     * by construction upstream of icg: $1, $3, $7 should be identical
+     * by construction upstream of icg: $4, $6, $8 should be identical
+     */
+    dump_copy("movq", $6->r, REG_RSI, 'q');
+    dump_copy("movq", $3->r, REG_RDI, 'q');
+    dump_copy("movq", $2->r, REG_RCX, 'q');
+    dump("rep movsq");
+    if ($4->spilled)
+      dumpRM("movq", REG_RSI, 'q', $4);
+    else
+      dump_copy("movq", REG_RSI, $4->r, 'q');
+    if ($1->spilled)
+      dumpRM("movq", REG_RDI, 'q', $1);
+    else
+      dump_copy("movq", REG_RDI, $1->r, 'q');
+  },
+  emit {
+    const rtx src1_rcx = gen_rtx_REG(DImode, $2->r);
+    const rtx src1_rsi = gen_rtx_REG(DImode, $6->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $3->r);
+    const rtx dst_rdi  = $1->spilled
+      ? gen_rtx_MEM(DImode, $1->rtl)
+      : gen_rtx_REG(DImode, $1->r);
+    const rtx dst_rsi  = $4->spilled
+      ? gen_rtx_MEM(DImode, $4->rtl)
+      : gen_rtx_REG(DImode, $4->r);
+
+    const rtx three    = gen_rtx_CONST_INT(DImode, 3);
+    const rtx rsi      = gen_rtx_REG(DImode, REG_RSI);
+    const rtx rdi      = gen_rtx_REG(DImode, REG_RDI);
+    const rtx rcx      = gen_rtx_REG(DImode, REG_RCX);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rcx, src1_rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rsi, src1_rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(5,
+	gen_rtx_SET(VOIDmode, rcx, gen_rtx_CONST_INT(DImode, 0)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, gen_rtx_ASHIFT(DImode, rcx, three), rdi)),
+	gen_rtx_SET(VOIDmode, rsi, gen_rtx_PLUS(DImode, gen_rtx_ASHIFT(DImode, rcx, three), rsi)),
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(BLKmode, rdi), gen_rtx_MEM(BLKmode, rsi)),
+	gen_rtx_USE(VOIDmode, rcx)
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rsi, rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  }
+  ;
+#line 193 "x86-64.string.py"
+stmt:
+#line 197 "x86-64.string.py"
+    PARALLEL_ALL(
+      SET_ALL(MEMB_DI(r64), MEMB_DI(r64)),
+      USE_ALL(r64)
+    )
+     [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $3->r, REG_RCX);
+    coalesces += attempt_coalesce(pass, $1->r, REG_RDI);
+    coalesces += attempt_coalesce(pass, $2->r, REG_RSI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    add_edges(REG_RCX, live);
+    add_edges(REG_RDI, live);
+    add_edges(REG_RSI, live);
+
+    add_copy_edges(/*dst*/REG_RSI, /*src*/$2->r, live);
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$1->r, live);
+    add_copy_edges(/*dst*/REG_RCX, /*src*/$3->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($2->r, REG_RSI);
+    cost_copy($1->r, REG_RDI);
+    cost_copy($3->r, REG_RCX);
+    forgettable($2->r);
+    forgettable($1->r);
+    forgettable($3->r);
+  },
+  debug {
+    /*
+     * by construction upstream of icg: $src1_rcx, $src2_rcx           should be identical
+     * by construction upstream of icg: $dst_rdi, $src1_rdi, $src2_rdi should be identical
+     * by construction upstream of icg: $dst_rsi, $src1_rsi, $src2_rsi should be identical
+     */
+    dump_copy("movq", $2->r, REG_RSI, 'q');
+    dump_copy("movq", $1->r, REG_RDI, 'q');
+    dump_copy("movq", $3->r, REG_RCX, 'q');
+    dump("rep movsq");
+  },
+  emit {
+    const rtx src_rsi = gen_rtx_REG(DImode, $2->r);
+    const rtx src_rdi = gen_rtx_REG(DImode, $1->r);
+    const rtx src_rcx = gen_rtx_REG(DImode, $3->r);
+
+    const rtx three    = gen_rtx_CONST_INT(DImode, 3);
+    const rtx rcx      = gen_rtx_REG(DImode, REG_RCX);
+    const rtx rsi      = gen_rtx_REG(DImode, REG_RSI);
+    const rtx rdi      = gen_rtx_REG(DImode, REG_RDI);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rcx, src_rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rsi, src_rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src_rdi));
+    /* here we take a short cut and generate the rtx for the memcpy0 pattern */
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(5,
+	gen_rtx_SET(VOIDmode, rcx, gen_rtx_CONST_INT(DImode, 0)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, gen_rtx_ASHIFT(DImode, rcx, three), rdi)),
+	gen_rtx_SET(VOIDmode, rsi, gen_rtx_PLUS(DImode, gen_rtx_ASHIFT(DImode, rcx, three), rsi)),
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(BLKmode, rdi), gen_rtx_MEM(BLKmode, rsi)),
+	gen_rtx_USE(VOIDmode, rcx)
+      )
+    ));
+    /*icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rsi, rsi));*/
+    /*icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));*/
+  }
+  ;
+#line 300 "x86-64.string.py"
+stmt:
+#line 306 "x86-64.string.py"
+      PARALLEL_ALL(
+	SET_ALL(MEM_QI(r64), MEM_QI(r64)),
+        PARALLEL_ALL(
+	  SET_ALL(lhs64, PLUS_DI(r64, CONST_P1)),
+	  SET_ALL(lhs64, PLUS_DI(r64, CONST_P1))
+	)
+      )
+     [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $6->r, REG_RDI);
+    coalesces += attempt_coalesce(pass, $4->r, REG_RSI);
+    if (!$5->spilled)
+      coalesces += attempt_coalesce(pass, $5->r,  REG_RDI);
+    if (!$3->spilled)
+      coalesces += attempt_coalesce(pass, $3->r,  REG_RSI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($3->spilled) {
+      sparseset_set_bit(live, REG_RSI);
+      add_addr(live, $3);
+    }
+    else
+      add_copy_edges(/*dst*/$3->r, /*src*/REG_RSI, live);
+    if ($5->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $5);
+    }
+    else
+      add_copy_edges(/*dst*/$5->r, /*src*/REG_RDI, live);
+
+    add_edges(REG_RDI, live);
+    add_edges(REG_RSI, live);
+
+    add_copy_edges(/*dst*/REG_RSI, /*src*/$4->r, live);
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$6->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($4->r, REG_RSI);
+    cost_copy($6->r, REG_RDI);
+    forgettable($4->r);
+    forgettable($6->r);
+    if (!$3->spilled)
+      cost_copy($3->r, REG_RSI);
+    if (!$5->spilled)
+      cost_copy($5->r, REG_RDI);
+  },
+  debug {
+    /*
+     * by construction upstream of icg: $5, $6, $1 should be identical
+     * by construction upstream of icg: $3, $4, $2 should be identical
+     */
+    dump_copy("movq", $4->r, REG_RSI, 'q');
+    dump_copy("movq", $6->r, REG_RDI, 'q');
+    dump("movsb");
+    if ($3->spilled)
+      dumpRM("movq", REG_RSI, 'q', $3);
+    else
+      dump_copy("movq", REG_RSI, $3->r, 'q');
+    if ($5->spilled)
+      dumpRM("movq", REG_RDI, 'q', $5);
+    else
+      dump_copy("movq", REG_RDI, $5->r, 'q');
+  },
+  emit {
+    const rtx src1_rsi = gen_rtx_REG(DImode, $4->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $6->r);
+    const rtx dst_rdi  = $5->spilled
+      ? gen_rtx_MEM(DImode, $5->rtl)
+      : gen_rtx_REG(DImode, $5->r);
+    const rtx dst_rsi  = $3->spilled
+      ? gen_rtx_MEM(DImode, $3->rtl)
+      : gen_rtx_REG(DImode, $3->r);
+
+    const rtx incr     = gen_rtx_CONST_INT(DImode, 1);
+    const rtx rsi      = gen_rtx_REG(DImode, REG_RSI);
+    const rtx rdi      = gen_rtx_REG(DImode, REG_RDI);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rsi, src1_rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(3,
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(QImode, rdi), gen_rtx_MEM(QImode, rsi)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, rdi, incr)),
+	gen_rtx_SET(VOIDmode, rsi, gen_rtx_PLUS(DImode, rsi, incr))
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rsi, rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  }
+  ;
+#line 300 "x86-64.string.py"
+stmt:
+#line 306 "x86-64.string.py"
+      PARALLEL_ALL(
+	SET_ALL(MEM_HI(r64), MEM_HI(r64)),
+        PARALLEL_ALL(
+	  SET_ALL(lhs64, PLUS_DI(r64, CONST_P2)),
+	  SET_ALL(lhs64, PLUS_DI(r64, CONST_P2))
+	)
+      )
+     [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $6->r, REG_RDI);
+    coalesces += attempt_coalesce(pass, $4->r, REG_RSI);
+    if (!$5->spilled)
+      coalesces += attempt_coalesce(pass, $5->r,  REG_RDI);
+    if (!$3->spilled)
+      coalesces += attempt_coalesce(pass, $3->r,  REG_RSI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($3->spilled) {
+      sparseset_set_bit(live, REG_RSI);
+      add_addr(live, $3);
+    }
+    else
+      add_copy_edges(/*dst*/$3->r, /*src*/REG_RSI, live);
+    if ($5->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $5);
+    }
+    else
+      add_copy_edges(/*dst*/$5->r, /*src*/REG_RDI, live);
+
+    add_edges(REG_RDI, live);
+    add_edges(REG_RSI, live);
+
+    add_copy_edges(/*dst*/REG_RSI, /*src*/$4->r, live);
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$6->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($4->r, REG_RSI);
+    cost_copy($6->r, REG_RDI);
+    forgettable($4->r);
+    forgettable($6->r);
+    if (!$3->spilled)
+      cost_copy($3->r, REG_RSI);
+    if (!$5->spilled)
+      cost_copy($5->r, REG_RDI);
+  },
+  debug {
+    /*
+     * by construction upstream of icg: $5, $6, $1 should be identical
+     * by construction upstream of icg: $3, $4, $2 should be identical
+     */
+    dump_copy("movq", $4->r, REG_RSI, 'q');
+    dump_copy("movq", $6->r, REG_RDI, 'q');
+    dump("movsw");
+    if ($3->spilled)
+      dumpRM("movq", REG_RSI, 'q', $3);
+    else
+      dump_copy("movq", REG_RSI, $3->r, 'q');
+    if ($5->spilled)
+      dumpRM("movq", REG_RDI, 'q', $5);
+    else
+      dump_copy("movq", REG_RDI, $5->r, 'q');
+  },
+  emit {
+    const rtx src1_rsi = gen_rtx_REG(DImode, $4->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $6->r);
+    const rtx dst_rdi  = $5->spilled
+      ? gen_rtx_MEM(DImode, $5->rtl)
+      : gen_rtx_REG(DImode, $5->r);
+    const rtx dst_rsi  = $3->spilled
+      ? gen_rtx_MEM(DImode, $3->rtl)
+      : gen_rtx_REG(DImode, $3->r);
+
+    const rtx incr     = gen_rtx_CONST_INT(DImode, 2);
+    const rtx rsi      = gen_rtx_REG(DImode, REG_RSI);
+    const rtx rdi      = gen_rtx_REG(DImode, REG_RDI);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rsi, src1_rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(3,
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(HImode, rdi), gen_rtx_MEM(HImode, rsi)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, rdi, incr)),
+	gen_rtx_SET(VOIDmode, rsi, gen_rtx_PLUS(DImode, rsi, incr))
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rsi, rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  }
+  ;
+#line 300 "x86-64.string.py"
+stmt:
+#line 306 "x86-64.string.py"
+      PARALLEL_ALL(
+	SET_ALL(MEM_SI(r64), MEM_SI(r64)),
+        PARALLEL_ALL(
+	  SET_ALL(lhs64, PLUS_DI(r64, CONST_P4)),
+	  SET_ALL(lhs64, PLUS_DI(r64, CONST_P4))
+	)
+      )
+     [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $6->r, REG_RDI);
+    coalesces += attempt_coalesce(pass, $4->r, REG_RSI);
+    if (!$5->spilled)
+      coalesces += attempt_coalesce(pass, $5->r,  REG_RDI);
+    if (!$3->spilled)
+      coalesces += attempt_coalesce(pass, $3->r,  REG_RSI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($3->spilled) {
+      sparseset_set_bit(live, REG_RSI);
+      add_addr(live, $3);
+    }
+    else
+      add_copy_edges(/*dst*/$3->r, /*src*/REG_RSI, live);
+    if ($5->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $5);
+    }
+    else
+      add_copy_edges(/*dst*/$5->r, /*src*/REG_RDI, live);
+
+    add_edges(REG_RDI, live);
+    add_edges(REG_RSI, live);
+
+    add_copy_edges(/*dst*/REG_RSI, /*src*/$4->r, live);
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$6->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($4->r, REG_RSI);
+    cost_copy($6->r, REG_RDI);
+    forgettable($4->r);
+    forgettable($6->r);
+    if (!$3->spilled)
+      cost_copy($3->r, REG_RSI);
+    if (!$5->spilled)
+      cost_copy($5->r, REG_RDI);
+  },
+  debug {
+    /*
+     * by construction upstream of icg: $5, $6, $1 should be identical
+     * by construction upstream of icg: $3, $4, $2 should be identical
+     */
+    dump_copy("movq", $4->r, REG_RSI, 'q');
+    dump_copy("movq", $6->r, REG_RDI, 'q');
+    dump("movsl");
+    if ($3->spilled)
+      dumpRM("movq", REG_RSI, 'q', $3);
+    else
+      dump_copy("movq", REG_RSI, $3->r, 'q');
+    if ($5->spilled)
+      dumpRM("movq", REG_RDI, 'q', $5);
+    else
+      dump_copy("movq", REG_RDI, $5->r, 'q');
+  },
+  emit {
+    const rtx src1_rsi = gen_rtx_REG(DImode, $4->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $6->r);
+    const rtx dst_rdi  = $5->spilled
+      ? gen_rtx_MEM(DImode, $5->rtl)
+      : gen_rtx_REG(DImode, $5->r);
+    const rtx dst_rsi  = $3->spilled
+      ? gen_rtx_MEM(DImode, $3->rtl)
+      : gen_rtx_REG(DImode, $3->r);
+
+    const rtx incr     = gen_rtx_CONST_INT(DImode, 4);
+    const rtx rsi      = gen_rtx_REG(DImode, REG_RSI);
+    const rtx rdi      = gen_rtx_REG(DImode, REG_RDI);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rsi, src1_rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(3,
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(SImode, rdi), gen_rtx_MEM(SImode, rsi)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, rdi, incr)),
+	gen_rtx_SET(VOIDmode, rsi, gen_rtx_PLUS(DImode, rsi, incr))
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rsi, rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  }
+  ;
+#line 488 "x86-64.string.py"
+stmt:
+#line 493 "x86-64.string.py"
+      PARALLEL_ALL(
+          SET_ALL(lhs64, CONST_0),
+          PARALLEL_ALL(
+	      SET_ALL(lhs64, PLUS_DI(ASHIFT_DI(r64, CONST_P3), r64)),
+	      PARALLEL_ALL(
+	          SET_ALL(MEMB_DI(r64), CONST_0),
+	          PARALLEL_ALL(
+	              USE_ALL(r64),
+	              USE_ALL(r64))))) [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $6->r, REG_RAX);
+    coalesces += attempt_coalesce(pass, $3->r, REG_RCX);
+    coalesces += attempt_coalesce(pass, $4->r, REG_RDI);
+    if (!$2->spilled)
+      coalesces += attempt_coalesce(pass, $2->r,  REG_RDI);
+    if (!$1->spilled)
+      coalesces += attempt_coalesce(pass, $1->r,  REG_RCX);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($2->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $2);
+    }
+    else
+      add_copy_edges(/*dst*/$2->r, /*src*/REG_RDI, live);
+    if ($1->spilled) {
+      sparseset_set_bit(live, REG_RCX);
+      add_addr(live, $1);
+    }
+    else
+      add_copy_edges(/*dst*/$1->r, /*src*/REG_RCX, live);
+
+    add_edges(REG_RCX, live);
+    add_edges(REG_RDI, live);
+
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$4->r, live);
+    add_copy_edges(/*dst*/REG_RCX, /*src*/$3->r, live);
+    add_copy_edges(/*dst*/REG_RAX, /*src*/$6->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($6->r, REG_RAX);
+    cost_copy($3->r, REG_RCX);
+    cost_copy($4->r, REG_RDI);
+    forgettable($6->r);
+    forgettable($4->r);
+    forgettable($3->r);
+    if (!$2->spilled)
+      cost_copy($2->r, REG_RDI);
+    if (!$1->spilled)
+      cost_copy($1->r, REG_RCX);
+  },
+  debug {
+    dump_copy("movq", $6->r, REG_RAX, 'q'); /* get zero into rax    */
+    dump_copy("movq", $3->r, REG_RCX, 'q'); /* get count into rcx   */
+    dump_copy("movq", $4->r, REG_RDI, 'q'); /* get address into rdi */
+    dump("rep stosq");
+    if ($1->spilled)
+      dumpRM("movq", REG_RCX, 'q', $1);
+    else
+      dump_copy("movq", REG_RCX, $1->r, 'q');
+    if ($2->spilled)
+      dumpRM("movq", REG_RDI, 'q', $2);
+    else
+      dump_copy("movq", REG_RDI, $2->r, 'q');
+  },
+  emit {
+    #if 0
+      We want something like this; ordering of parallel kids is evidently important:
+	 (parallel [
+            (set (reg:DI 2 cx [92])
+                (const_int 0 [0x0]))
+            (set (reg/f:DI 5 di [orig:84 D.83744 ] [84])
+                (plus:DI (ashift:DI (reg:DI 2 cx [91])
+                        (const_int 3 [0x3]))
+                    (reg/f:DI 5 di [orig:84 D.83744 ] [84])))
+            (set (mem:BLK (reg/f:DI 5 di [orig:84 D.83744 ] [84]) [0 A8])
+                (const_int 0 [0x0]))
+            (use (reg:DI 0 ax [87]))
+            (use (reg:DI 2 cx [91]))
+	  ]) 854 {*rep_stosdi_rex64} (nil)
+    #endif
+
+    const rtx src1_rcx = gen_rtx_REG(DImode, $3->r);
+    const rtx src1_rax = gen_rtx_REG(DImode, $6->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $4->r);
+    const rtx dst_rdi  = $2->spilled
+      ? gen_rtx_MEM(DImode, $2->rtl)
+      : gen_rtx_REG(DImode, $2->r);
+    const rtx dst_rcx  = $1->spilled
+      ? gen_rtx_MEM(DImode, $1->rtl)
+      : gen_rtx_REG(DImode, $1->r);
+
+    const rtx shift = gen_rtx_CONST_INT(DImode, 3);
+    const rtx rax   = gen_rtx_REG(DImode, REG_RAX);
+    const rtx rdi   = gen_rtx_REG(DImode, REG_RDI);
+    const rtx rcx   = gen_rtx_REG(DImode, REG_RCX);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rax, src1_rax));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rcx, src1_rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(5,
+	gen_rtx_SET(VOIDmode, rcx, gen_rtx_CONST_INT(DImode, 0)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, gen_rtx_ASHIFT(DImode, rcx, shift), rdi)),
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(BLKmode, rdi), gen_rtx_CONST_INT(DImode, 0)),
+	gen_rtx_USE(VOIDmode, rax),	/* must be 1st use */
+	gen_rtx_USE(VOIDmode, rcx)	/* must be 2nd use */
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rcx, rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  };
+#line 488 "x86-64.string.py"
+stmt:
+#line 493 "x86-64.string.py"
+      PARALLEL_ALL(
+          SET_ALL(lhs64, CONST_0),
+          PARALLEL_ALL(
+	      SET_ALL(lhs64, PLUS_DI(ASHIFT_DI(r64, CONST_P2), r64)),
+	      PARALLEL_ALL(
+	          SET_ALL(MEMB_DI(r64), CONST_0),
+	          PARALLEL_ALL(
+	              USE_ALL(r32),
+	              USE_ALL(r64))))) [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $6->r, REG_RAX);
+    coalesces += attempt_coalesce(pass, $3->r, REG_RCX);
+    coalesces += attempt_coalesce(pass, $4->r, REG_RDI);
+    if (!$2->spilled)
+      coalesces += attempt_coalesce(pass, $2->r,  REG_RDI);
+    if (!$1->spilled)
+      coalesces += attempt_coalesce(pass, $1->r,  REG_RCX);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($2->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $2);
+    }
+    else
+      add_copy_edges(/*dst*/$2->r, /*src*/REG_RDI, live);
+    if ($1->spilled) {
+      sparseset_set_bit(live, REG_RCX);
+      add_addr(live, $1);
+    }
+    else
+      add_copy_edges(/*dst*/$1->r, /*src*/REG_RCX, live);
+
+    add_edges(REG_RCX, live);
+    add_edges(REG_RDI, live);
+
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$4->r, live);
+    add_copy_edges(/*dst*/REG_RCX, /*src*/$3->r, live);
+    add_copy_edges(/*dst*/REG_RAX, /*src*/$6->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($6->r, REG_RAX);
+    cost_copy($3->r, REG_RCX);
+    cost_copy($4->r, REG_RDI);
+    forgettable($6->r);
+    forgettable($4->r);
+    forgettable($3->r);
+    if (!$2->spilled)
+      cost_copy($2->r, REG_RDI);
+    if (!$1->spilled)
+      cost_copy($1->r, REG_RCX);
+  },
+  debug {
+    dump_copy("movq", $6->r, REG_RAX, 'q'); /* get zero into rax    */
+    dump_copy("movq", $3->r, REG_RCX, 'q'); /* get count into rcx   */
+    dump_copy("movq", $4->r, REG_RDI, 'q'); /* get address into rdi */
+    dump("rep stosq");
+    if ($1->spilled)
+      dumpRM("movq", REG_RCX, 'q', $1);
+    else
+      dump_copy("movq", REG_RCX, $1->r, 'q');
+    if ($2->spilled)
+      dumpRM("movq", REG_RDI, 'q', $2);
+    else
+      dump_copy("movq", REG_RDI, $2->r, 'q');
+  },
+  emit {
+    #if 0
+      We want something like this; ordering of parallel kids is evidently important:
+	 (parallel [
+            (set (reg:DI 2 cx [92])
+                (const_int 0 [0x0]))
+            (set (reg/f:DI 5 di [orig:84 D.83744 ] [84])
+                (plus:DI (ashift:DI (reg:DI 2 cx [91])
+                        (const_int 3 [0x3]))
+                    (reg/f:DI 5 di [orig:84 D.83744 ] [84])))
+            (set (mem:BLK (reg/f:DI 5 di [orig:84 D.83744 ] [84]) [0 A8])
+                (const_int 0 [0x0]))
+            (use (reg:DI 0 ax [87]))
+            (use (reg:DI 2 cx [91]))
+	  ]) 854 {*rep_stosdi_rex64} (nil)
+    #endif
+
+    const rtx src1_rcx = gen_rtx_REG(DImode, $3->r);
+    const rtx src1_rax = gen_rtx_REG(SImode, $6->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $4->r);
+    const rtx dst_rdi  = $2->spilled
+      ? gen_rtx_MEM(DImode, $2->rtl)
+      : gen_rtx_REG(DImode, $2->r);
+    const rtx dst_rcx  = $1->spilled
+      ? gen_rtx_MEM(DImode, $1->rtl)
+      : gen_rtx_REG(DImode, $1->r);
+
+    const rtx shift = gen_rtx_CONST_INT(DImode, 2);
+    const rtx rax   = gen_rtx_REG(SImode, REG_RAX);
+    const rtx rdi   = gen_rtx_REG(DImode, REG_RDI);
+    const rtx rcx   = gen_rtx_REG(DImode, REG_RCX);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rax, src1_rax));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rcx, src1_rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(5,
+	gen_rtx_SET(VOIDmode, rcx, gen_rtx_CONST_INT(DImode, 0)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, gen_rtx_ASHIFT(DImode, rcx, shift), rdi)),
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(BLKmode, rdi), gen_rtx_CONST_INT(DImode, 0)),
+	gen_rtx_USE(VOIDmode, rax),	/* must be 1st use */
+	gen_rtx_USE(VOIDmode, rcx)	/* must be 2nd use */
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rcx, rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  };
+#line 620 "x86-64.string.py"
+stmt: PARALLEL_ALL(
+#line 626 "x86-64.string.py"
+              SET_ALL(MEM_SI(r64), SUBREG_SI(r64, CONST_0)),
+              SET_ALL(lhs64, PLUS_DI(r64, CONST_P4))) [1, 1]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $2->r, REG_RAX);
+    coalesces += attempt_coalesce(pass, $1->r, REG_RDI);
+    if (!$3->spilled)
+      coalesces += attempt_coalesce(pass, $3->r,  REG_RDI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($3->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $3);
+    }
+    else
+      add_copy_edges(/*dst*/$3->r, /*src*/REG_RDI, live);
+
+    add_edges(REG_RDI, live);
+
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$1->r, live);
+    add_copy_edges(/*dst*/REG_RAX, /*src*/$2->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($2->r, REG_RAX);
+    cost_copy($1->r, REG_RDI);
+    forgettable($2->r);
+    forgettable($1->r);
+    if (!$3->spilled)
+      cost_copy($3->r, REG_RDI);
+  },
+  debug {
+    dump_copy("movq", $2->r, REG_RAX, 'q');
+    dump_copy("movq", $1->r, REG_RDI, 'q');
+    dump("stosl");
+    if ($3->spilled)
+      dumpRM("movq", REG_RDI, 'q', $3);
+    else
+      dump_copy("movq", REG_RDI, $3->r, 'q');
+  },
+  emit {
+    const rtx src_rax = gen_rtx_REG(DImode, $2->r);
+    const rtx src_rdi = gen_rtx_REG(DImode, $1->r);
+    const rtx dst_rdi  = $3->spilled
+      ? gen_rtx_MEM(DImode, $3->rtl)
+      : gen_rtx_REG(DImode, $3->r);
+
+    const rtx stride = gen_rtx_CONST_INT(DImode, 4);
+    const rtx rax    = gen_rtx_REG(DImode, REG_RAX);
+    const rtx rdi    = gen_rtx_REG(DImode, REG_RDI);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rax, src_rax));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(2,
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(SImode, rdi), gen_rtx_SUBREG(SImode, rax, 0)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, rdi, stride))
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  };
+#line 620 "x86-64.string.py"
+stmt: PARALLEL_ALL(
+#line 626 "x86-64.string.py"
+              SET_ALL(MEM_HI(r64), SUBREG_HI(r64, CONST_0)),
+              SET_ALL(lhs64, PLUS_DI(r64, CONST_P2))) [1, 1]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $2->r, REG_RAX);
+    coalesces += attempt_coalesce(pass, $1->r, REG_RDI);
+    if (!$3->spilled)
+      coalesces += attempt_coalesce(pass, $3->r,  REG_RDI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($3->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $3);
+    }
+    else
+      add_copy_edges(/*dst*/$3->r, /*src*/REG_RDI, live);
+
+    add_edges(REG_RDI, live);
+
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$1->r, live);
+    add_copy_edges(/*dst*/REG_RAX, /*src*/$2->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($2->r, REG_RAX);
+    cost_copy($1->r, REG_RDI);
+    forgettable($2->r);
+    forgettable($1->r);
+    if (!$3->spilled)
+      cost_copy($3->r, REG_RDI);
+  },
+  debug {
+    dump_copy("movq", $2->r, REG_RAX, 'q');
+    dump_copy("movq", $1->r, REG_RDI, 'q');
+    dump("stosl");
+    if ($3->spilled)
+      dumpRM("movq", REG_RDI, 'q', $3);
+    else
+      dump_copy("movq", REG_RDI, $3->r, 'q');
+  },
+  emit {
+    const rtx src_rax = gen_rtx_REG(DImode, $2->r);
+    const rtx src_rdi = gen_rtx_REG(DImode, $1->r);
+    const rtx dst_rdi  = $3->spilled
+      ? gen_rtx_MEM(DImode, $3->rtl)
+      : gen_rtx_REG(DImode, $3->r);
+
+    const rtx stride = gen_rtx_CONST_INT(DImode, 2);
+    const rtx rax    = gen_rtx_REG(DImode, REG_RAX);
+    const rtx rdi    = gen_rtx_REG(DImode, REG_RDI);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rax, src_rax));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(2,
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(HImode, rdi), gen_rtx_SUBREG(HImode, rax, 0)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, rdi, stride))
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  };
+#line 620 "x86-64.string.py"
+stmt: PARALLEL_ALL(
+#line 626 "x86-64.string.py"
+              SET_ALL(MEM_QI(r64), SUBREG_QI(r64, CONST_0)),
+              SET_ALL(lhs64, PLUS_DI(r64, CONST_P1))) [1, 1]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $2->r, REG_RAX);
+    coalesces += attempt_coalesce(pass, $1->r, REG_RDI);
+    if (!$3->spilled)
+      coalesces += attempt_coalesce(pass, $3->r,  REG_RDI);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($3->spilled) {
+      sparseset_set_bit(live, REG_RDI);
+      add_addr(live, $3);
+    }
+    else
+      add_copy_edges(/*dst*/$3->r, /*src*/REG_RDI, live);
+
+    add_edges(REG_RDI, live);
+
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$1->r, live);
+    add_copy_edges(/*dst*/REG_RAX, /*src*/$2->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($2->r, REG_RAX);
+    cost_copy($1->r, REG_RDI);
+    forgettable($2->r);
+    forgettable($1->r);
+    if (!$3->spilled)
+      cost_copy($3->r, REG_RDI);
+  },
+  debug {
+    dump_copy("movq", $2->r, REG_RAX, 'q');
+    dump_copy("movq", $1->r, REG_RDI, 'q');
+    dump("stosl");
+    if ($3->spilled)
+      dumpRM("movq", REG_RDI, 'q', $3);
+    else
+      dump_copy("movq", REG_RDI, $3->r, 'q');
+  },
+  emit {
+    const rtx src_rax = gen_rtx_REG(DImode, $2->r);
+    const rtx src_rdi = gen_rtx_REG(DImode, $1->r);
+    const rtx dst_rdi  = $3->spilled
+      ? gen_rtx_MEM(DImode, $3->rtl)
+      : gen_rtx_REG(DImode, $3->r);
+
+    const rtx stride = gen_rtx_CONST_INT(DImode, 1);
+    const rtx rax    = gen_rtx_REG(DImode, REG_RAX);
+    const rtx rdi    = gen_rtx_REG(DImode, REG_RDI);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rax, src_rax));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src_rdi));
+    icg_emit_plain(gen_rtx_PARALLEL(VOIDmode,
+      gen_rtvec(2,
+	gen_rtx_SET(VOIDmode, gen_rtx_MEM(QImode, rdi), gen_rtx_SUBREG(QImode, rax, 0)),
+	gen_rtx_SET(VOIDmode, rdi, gen_rtx_PLUS(DImode, rdi, stride))
+      )
+    ));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst_rdi, rdi));
+  };
+#line 738 "x86-64.string.py"
+r64:
+#line 742 "x86-64.string.py"
+      ICG_UNSPEC_SCAS(
+        MEMB_DI(r64),
+	ICG_UNSPEC_SCAS(
+	  r8,
+	  ICG_UNSPEC_SCAS(
+	    imm5,
+	    r64
+	  )
+	)
+      )
+     [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $4->r, REG_RCX);
+    coalesces += attempt_coalesce(pass, $1->r, REG_RDI);
+    coalesces += attempt_coalesce(pass, $2->r, REG_RAX);
+    if (!$$->spilled)
+      coalesces += attempt_coalesce(pass, $$->r, REG_RCX);
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    if ($$->spilled) {
+      sparseset_set_bit(live, REG_RCX);
+      add_addr(live, $$);
+    }
+    else
+      add_copy_edges(/*dst*/$$->r, /*src*/REG_RCX, live);
+
+    add_edges(REG_RCX, live);
+    add_edges(REG_RDI, live);
+    add_edges(REG_RAX, live);
+
+    add_copy_edges(/*dst*/REG_RAX, /*src*/$2->r, live);
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$1->r, live);
+    add_copy_edges(/*dst*/REG_RCX, /*src*/$4->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($4->r, REG_RCX);
+    cost_copy($1->r, REG_RDI);
+    cost_copy($2->r, REG_RAX);
+    forgettable($2->r);
+    forgettable($1->r);
+    forgettable($4->r);
+    if (!$$->spilled)
+      cost_copy($$->r, REG_RCX);
+  },
+  debug {
+    dump_copy("movq", $4->r, REG_RCX, 'q');
+    dump_copy("movq", $1->r, REG_RDI, 'q');
+    dump_copy("movb", $2->r, REG_RAX, 'b');	/* comparand */
+    dump("repnz scasb");
+    if ($$->spilled)
+      dumpRM("movq", REG_RCX, 'q', $$);
+    else
+      dump_copy("movq", REG_RCX, $$->r, 'q');
+  },
+  emit {
+    #if 0
+      We want something like this
+       (unspec:DI [
+	  (mem:BLK (reg/v/f:DI 71 [ names ]) [0 A8])
+	  (const_int 0 [0x0])
+	  (const_int 1 [0x1])
+	  (const_int -1 [0xffffffffffffffff])
+       ] 30 )
+
+    The i386.md file contains this pattern; we have to make a tree that exactly matches this:
+	(define_insn "*strlenqi_rex_1"
+	  [(set (match_operand:DI 0 "register_operand" "=&c")
+		(unspec:DI [(mem:BLK (match_operand:DI 5 "register_operand" "1"))
+			    (match_operand:QI 2 "register_operand" "a")
+			    (match_operand:DI 3 "immediate_operand" "i")
+			    (match_operand:DI 4 "register_operand" "0")] UNSPEC_SCAS))
+	   (clobber (match_operand:DI 1 "register_operand" "=D"))
+	   (clobber (reg:CC FLAGS_REG))]
+	  "TARGET_64BIT"
+	  "repnz scasb"
+	  [(set_attr "type" "str")
+	   (set_attr "mode" "QI")
+	   (set_attr "prefix_rep" "1")])
+
+    #endif
+
+    const rtx src1_rcx = gen_rtx_REG(DImode, $4->r);
+    const rtx src1_rax = gen_rtx_REG(QImode, $2->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $1->r);
+    const rtx dst1_rcx = $$->spilled
+      ? gen_rtx_MEM(DImode, $$->rtl)
+      : gen_rtx_REG(DImode, $$->r);
+
+    const rtx rax      = gen_rtx_REG(QImode, REG_RAX);
+    const rtx rdi      = gen_rtx_REG(DImode, REG_RDI);
+    const rtx rcx      = gen_rtx_REG(DImode, REG_RCX);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rcx, src1_rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rax, src1_rax));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    icg_emit_plain(
+      gen_rtx_PARALLEL(VOIDmode,
+	gen_rtvec(3,
+	  gen_rtx_SET(VOIDmode,
+	    rcx,
+	    gen_rtx_UNSPEC(DImode,
+	      gen_rtvec(4,
+		gen_rtx_MEM(BLKmode, rdi),
+		1 ? rax : gen_rtx_CONST_INT(DImode, 0),
+		gen_rtx_CONST_INT(DImode, 1),
+		1 ? rcx : gen_rtx_CONST_INT(DImode, ~0ULL)
+	      ),
+	    UNSPEC_SCAS
+	    )),
+	  gen_rtx_CLOBBER(VOIDmode, rdi),
+	  gen_rtx_CLOBBER(VOIDmode, gen_rtx_REG(CCmode, FLAGS_REG))
+	)
+      )
+    );
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst1_rcx, rcx));
+  }
+  ;
+#line 890 "x86-64.string.py"
+stmt:
+#line 894 "x86-64.string.py"
+      PARALLEL_ALL(
+	SET_ALL(rcc,
+	  COND_MOVE(
+	    NE_ALL(r64, CONST_0),
+	    PAIR_ALL(
+	      COMPARE_CC(MEMB_DI(r64), MEMB_DI(r64)),
+	      CONST_0
+	    )
+	  )),
+	PARALLEL_ALL(
+	  USE_ALL(CONST_P1),
+	  USE_ALL(COMPARE_CC(r64, r64))
+	)
+      )
+     [10, 10]
+  supairs {
+    /* TODO */
+  },
+  coalesce {
+    coalesces += attempt_coalesce(pass, $2->r, REG_RCX);
+    coalesces += attempt_coalesce(pass, $5->r, REG_RCX); /* TODO: redundant? */
+    coalesces += attempt_coalesce(pass, $6->r, REG_RCX); /* TODO: redundant? */
+    coalesces += attempt_coalesce(pass, $3->r, REG_RDI);
+    coalesces += attempt_coalesce(pass, $4->r, REG_RSI);
+    #if 0
+    if (!$dst1_rcx->spilled)
+      coalesces += attempt_coalesce(pass, $dst1_rcx->r, REG_RCX);
+    #endif
+  },
+  build {
+    /* start at back, working forward (reverse order from things are emitted) */
+    #if 0
+    if ($dst1_rcx->spilled) {
+      sparseset_set_bit(live, REG_RCX);
+      add_addr(live, $dst1_rcx);
+    }
+    else
+      add_copy_edges(/*dst*/$dst1_rcx->r, /*src*/REG_RCX, live);
+    #endif
+
+    add_edges(REG_RCX, live);
+    add_edges(REG_RDI, live);
+    add_edges(REG_RSI, live);
+
+    add_copy_edges(/*dst*/REG_RSI, /*src*/$4->r, live);
+    add_copy_edges(/*dst*/REG_RDI, /*src*/$3->r, live);
+    add_copy_edges(/*dst*/REG_RCX, /*src*/$2->r, live);
+  },
+  remat {
+    flags = 0;
+  },
+  costs {
+    cost_copy($2->r, REG_RCX);
+    cost_copy($3->r, REG_RDI);
+    cost_copy($4->r, REG_RSI);
+    forgettable($4->r);
+    forgettable($3->r);
+    forgettable($2->r);
+    #if 0
+    if (!$dst1_rcx->spilled)
+      cost_copy($dst1_rcx->r, REG_RCX);
+    #endif
+  },
+  debug {
+    dump_copy("movq", $2->r, REG_RCX, 'q');
+    dump_copy("movq", $3->r, REG_RDI, 'q');
+    dump_copy("movq", $4->r, REG_RSI, 'q');
+    dump("repz cmpsb");
+    #if 0
+    if ($dst1_rcx->spilled)
+      dumpRM("movq", REG_RCX, 'q', $dst1_rcx);
+    else
+      dump_copy("movq", REG_RCX, $dst1_rcx->r, 'q');
+    #endif
+  },
+  emit {
+    #if 0
+      We want something like this
+       (unspec:DI [
+	  (mem:BLK (reg/v/f:DI 71 [ names ]) [0 A8])
+	  (const_int 0 [0x0])
+	  (const_int 1 [0x1])
+	  (const_int -1 [0xffffffffffffffff])
+       ] 30 )
+
+    The i386.md file contains this pattern; we have to make a tree that exactly matches this:
+
+	(define_insn "*cmpstrnqi_rex_1"
+	  [(set (reg:CC FLAGS_REG)
+		(if_then_else:CC (ne (match_operand:DI 6 "register_operand" "2")
+				     (const_int 0))
+		  (compare:CC (mem:BLK (match_operand:DI 4 "register_operand" "0"))
+			      (mem:BLK (match_operand:DI 5 "register_operand" "1")))
+		  (const_int 0)))
+	   (use (match_operand:SI 3 "immediate_operand" "i"))
+	   (use (reg:CC FLAGS_REG))
+	   (clobber (match_operand:DI 0 "register_operand" "=S"))
+	   (clobber (match_operand:DI 1 "register_operand" "=D"))
+	   (clobber (match_operand:DI 2 "register_operand" "=c"))]
+	  "TARGET_64BIT"
+	  "repz cmpsb"
+	  [(set_attr "type" "str")
+	   (set_attr "mode" "QI")
+	   (set_attr "prefix_rep" "1")])
+
+    #endif
+
+    const rtx src1_rcx = gen_rtx_REG(DImode, $2->r);
+    const rtx src1_rsi = gen_rtx_REG(DImode, $4->r);
+    const rtx src1_rdi = gen_rtx_REG(DImode, $3->r);
+    #if 0
+    const rtx dst1_rcx = $dst1_rcx->spilled
+      ? gen_rtx_MEM(DImode, $dst1_rcx->rtl)
+      : gen_rtx_REG(DImode, $dst1_rcx->r);
+    #endif
+
+    const rtx rcx      = gen_rtx_REG(DImode, REG_RCX);
+    const rtx rdi      = gen_rtx_REG(DImode, REG_RDI);
+    const rtx rsi      = gen_rtx_REG(DImode, REG_RSI);
+
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rcx, src1_rcx));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rsi, src1_rsi));
+    icg_emit_plain(gen_rtx_SET(VOIDmode, rdi, src1_rdi));
+    #if 0
+     TODO
+    icg_emit_plain(
+      gen_rtx_PARALLEL(VOIDmode,
+	gen_rtvec(3,
+	  gen_rtx_SET(VOIDmode,
+	    rcx,
+	    gen_rtx_UNSPEC(DImode,
+	      gen_rtvec(4,
+		gen_rtx_MEM(BLKmode, rdi),
+		1 ? rax : gen_rtx_CONST_INT(DImode, 0),
+		gen_rtx_CONST_INT(DImode, 1),
+		1 ? rcx : gen_rtx_CONST_INT(DImode, ~0ULL)
+	      ),
+	    UNSPEC_SCAS
+	    )),
+	  gen_rtx_CLOBBER(VOIDmode, rdi),
+	  gen_rtx_CLOBBER(VOIDmode, gen_rtx_REG(CCmode, FLAGS_REG))
+	)
+      )
+    );
+    #endif
+    #if 0
+    icg_emit_plain(gen_rtx_SET(VOIDmode, dst1_rcx, rcx));
+    #endif
+  }
+  ;
