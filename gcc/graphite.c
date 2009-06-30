@@ -50,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
-#include "domwalk.h"
 #include "value-prof.h"
 #include "pointer-set.h"
 #include "gimple.h"
@@ -3224,7 +3223,7 @@ add_conditions_to_domain (graphite_bb_p gb)
               }
           break;
           }
-        case SWITCH_EXPR:
+        case GIMPLE_SWITCH:
           /* Switch statements are not supported right know.  */
           gcc_unreachable ();
           break;

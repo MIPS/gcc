@@ -1,6 +1,7 @@
 /* Output routines for GCC for CRX.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -45,6 +46,7 @@
 #include "optabs.h"
 #include "toplev.h"
 #include "basic-block.h"
+#include "df.h"
 #include "target.h"
 #include "target-def.h"
 
@@ -118,13 +120,6 @@ static int size_for_adjusting_sp;
 static enum machine_mode output_memory_reference_mode;
 
 /*****************************************************************************/
-/* GLOBAL VARIABLES							     */
-/*****************************************************************************/
-
-/* Table of machine attributes.  */
-const struct attribute_spec crx_attribute_table[];
-
-/*****************************************************************************/
 /* TARGETM FUNCTION PROTOTYPES						     */
 /*****************************************************************************/
 
@@ -169,7 +164,7 @@ static bool crx_legitimate_address_p (enum machine_mode, rtx, bool);
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE		crx_attribute_table
 
-const struct attribute_spec crx_attribute_table[] = {
+static const struct attribute_spec crx_attribute_table[] = {
   /* ISRs have special prologue and epilogue requirements. */
   {"interrupt", 0, 0, false, true, true, NULL},
   {NULL, 0, 0, false, false, false, NULL}
@@ -1435,4 +1430,3 @@ crx_expand_epilogue (void)
   else
     emit_jump_insn (gen_pop_and_popret_return (GEN_INT (sum_regs)));
 }
-

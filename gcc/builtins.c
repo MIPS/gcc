@@ -1169,7 +1169,7 @@ get_memory_rtx (tree exp, tree len)
 	  gcc_assert (TREE_CODE (inner) == COMPONENT_REF);
 
 	  if (MEM_OFFSET (mem)
-	      && GET_CODE (MEM_OFFSET (mem)) == CONST_INT)
+	      && CONST_INT_P (MEM_OFFSET (mem)))
 	    offset = INTVAL (MEM_OFFSET (mem));
 
 	  if (offset >= 0 && len && host_integerp (len, 0))
@@ -1533,7 +1533,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
 
   dest = virtual_outgoing_args_rtx;
 #ifndef STACK_GROWS_DOWNWARD
-  if (GET_CODE (argsize) == CONST_INT)
+  if (CONST_INT_P (argsize))
     dest = plus_constant (dest, -INTVAL (argsize));
   else
     dest = gen_rtx_PLUS (Pmode, dest, negate_rtx (Pmode, argsize));
@@ -1877,8 +1877,8 @@ expand_errno_check (tree exp, rtx target)
 
   /* Test the result; if it is NaN, set errno=EDOM because
      the argument was not in the domain.  */
-  emit_cmp_and_jump_insns (target, target, EQ, 0, GET_MODE (target),
-			   0, lab);
+  do_compare_rtx_and_jump (target, target, EQ, 0, GET_MODE (target),
+                           NULL_RTX, NULL_RTX, lab);
 
 #ifdef TARGET_EDOM
   /* If this built-in doesn't throw an exception, set errno directly.  */
@@ -1976,6 +1976,8 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
       /* Else fallthrough and expand as rint.  */
     CASE_FLT_FN (BUILT_IN_RINT):
       builtin_optab = rint_optab; break;
+    CASE_FLT_FN (BUILT_IN_SIGNIFICAND):
+      builtin_optab = significand_optab; break;
     default:
       gcc_unreachable ();
     }
@@ -3402,7 +3404,7 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 	 by pieces, we can avoid loading the string from memory
 	 and only stored the computed constants.  */
       if (src_str
-	  && GET_CODE (len_rtx) == CONST_INT
+	  && CONST_INT_P (len_rtx)
 	  && (unsigned HOST_WIDE_INT) INTVAL (len_rtx) <= strlen (src_str) + 1
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
 				  CONST_CAST (char *, src_str),
@@ -3520,7 +3522,7 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len, tree type,
 	 by pieces, we can avoid loading the string from memory
 	 and only stored the computed constants.  */
       if (src_str
-	  && GET_CODE (len_rtx) == CONST_INT
+	  && CONST_INT_P (len_rtx)
 	  && (unsigned HOST_WIDE_INT) INTVAL (len_rtx) <= strlen (src_str) + 1
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
 				  CONST_CAST (char *, src_str),
@@ -3537,7 +3539,7 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len, tree type,
 	  return dest_mem;
 	}
 
-      if (GET_CODE (len_rtx) == CONST_INT
+      if (CONST_INT_P (len_rtx)
 	  && can_move_by_pieces (INTVAL (len_rtx),
 				 MIN (dest_align, src_align)))
 	{
@@ -3785,7 +3787,7 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 	{
 	  rtx len_rtx = expand_normal (len);
 
-	  if (GET_CODE (len_rtx) == CONST_INT)
+	  if (CONST_INT_P (len_rtx))
 	    {
 	      ret = expand_builtin_strcpy_args (get_callee_fndecl (exp),
 						dst, src, target, mode);
@@ -4193,7 +4195,7 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
     arg3_rtx = expand_normal (fold_convert (sizetype, len));
 
     /* Set MEM_SIZE as appropriate.  */
-    if (GET_CODE (arg3_rtx) == CONST_INT)
+    if (CONST_INT_P (arg3_rtx))
       {
 	set_mem_size (arg1_rtx, arg3_rtx);
 	set_mem_size (arg2_rtx, arg3_rtx);
@@ -4976,6 +4978,8 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
   tree valist = TREE_OPERAND (*expr_p, 0);
   tree type = TREE_TYPE (*expr_p);
   tree t;
+  location_t loc = EXPR_HAS_LOCATION (*expr_p) ? EXPR_LOCATION (*expr_p) :
+    UNKNOWN_LOCATION;
 
   /* Verify that valist is of the proper type.  */
   have_va_type = TREE_TYPE (valist);
@@ -4985,7 +4989,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
   if (have_va_type == NULL_TREE)
     {
-      error ("first argument to %<va_arg%> not of type %<va_list%>");
+      error_at (loc, "first argument to %<va_arg%> not of type %<va_list%>");
       return GS_ERROR;
     }
 
@@ -5000,19 +5004,20 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       /* Unfortunately, this is merely undefined, rather than a constraint
 	 violation, so we cannot make this an error.  If this call is never
 	 executed, the program is still strictly conforming.  */
-      warned = warning (0, "%qT is promoted to %qT when passed through %<...%>",
-			type, promoted_type);
+      warned = warning_at (loc, 0,
+	  		   "%qT is promoted to %qT when passed through %<...%>",
+			   type, promoted_type);
       if (!gave_help && warned)
 	{
 	  gave_help = true;
-	  inform (input_location, "(so you should pass %qT not %qT to %<va_arg%>)",
-		   promoted_type, type);
+	  inform (loc, "(so you should pass %qT not %qT to %<va_arg%>)",
+		  promoted_type, type);
 	}
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
       if (warned)
-	inform (input_location, "if this code is reached, the program will abort");
+	inform (loc, "if this code is reached, the program will abort");
       /* Before the abort, allow the evaluation of the va_list
 	 expression to exit or longjmp.  */
       gimplify_and_add (valist, pre_p);
@@ -5178,10 +5183,8 @@ expand_builtin_alloca (tree exp, rtx target)
   rtx op0;
   rtx result;
 
-  /* In -fmudflap-instrumented code, alloca() and __builtin_alloca()
-     should always expand to function calls.  These can be intercepted
-     in libmudflap.  */
-  if (flag_mudflap)
+  /* Emit normal call if marked not-inlineable.  */
+  if (CALL_CANNOT_INLINE_P (exp)) 
     return NULL_RTX;
 
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
@@ -5296,6 +5299,17 @@ expand_builtin_trap (void)
   else
 #endif
     emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
+  emit_barrier ();
+}
+
+/* Expand a call to __builtin_unreachable.  We do nothing except emit
+   a barrier saying that control flow will not pass here.
+
+   It is the responsibility of the program being compiled to ensure
+   that control flow does never reach __builtin_unreachable.  */
+static void
+expand_builtin_unreachable (void)
+{
   emit_barrier ();
 }
 
@@ -5974,7 +5988,8 @@ expand_builtin_fork_or_exec (tree fn, tree exp, rtx target, int ignore)
       gcc_unreachable ();
     }
 
-  decl = build_decl (FUNCTION_DECL, id, TREE_TYPE (fn));
+  decl = build_decl (DECL_SOURCE_LOCATION (fn),
+		     FUNCTION_DECL, id, TREE_TYPE (fn));
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
@@ -6040,6 +6055,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 {
   rtx val, mem;
   enum machine_mode old_mode;
+  location_t loc = EXPR_LOCATION (exp);
 
   if (code == NOT && warn_sync_nand)
     {
@@ -6060,8 +6076,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 	    break;
 
 	  fndecl = implicit_built_in_decls[BUILT_IN_FETCH_AND_NAND_N];
-	  inform (input_location,
-		  "%qD changed semantics in GCC 4.4", fndecl);
+	  inform (loc, "%qD changed semantics in GCC 4.4", fndecl);
 	  warned_f_a_n = true;
 	  break;
 
@@ -6075,8 +6090,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 	    break;
 
 	  fndecl = implicit_built_in_decls[BUILT_IN_NAND_AND_FETCH_N];
-	  inform (input_location,
-		  "%qD changed semantics in GCC 4.4", fndecl);
+	  inform (loc, "%qD changed semantics in GCC 4.4", fndecl);
 	  warned_n_a_f = true;
 	  break;
 
@@ -6319,6 +6333,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     CASE_FLT_FN (BUILT_IN_ASIN):
     CASE_FLT_FN (BUILT_IN_ACOS):
     CASE_FLT_FN (BUILT_IN_ATAN):
+    CASE_FLT_FN (BUILT_IN_SIGNIFICAND):
       /* Treat these like sqrt only if unsafe math optimizations are allowed,
 	 because of possible accuracy problems.  */
       if (! flag_unsafe_math_optimizations)
@@ -6794,6 +6809,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_TRAP:
       expand_builtin_trap ();
+      return const0_rtx;
+
+    case BUILT_IN_UNREACHABLE:
+      expand_builtin_unreachable ();
       return const0_rtx;
 
     case BUILT_IN_PRINTF:
@@ -13217,21 +13236,21 @@ do_mpc_ckconv (mpc_srcptr m, tree type, int inexact)
   /* Proceed iff we get a normal number, i.e. not NaN or Inf and no
      overflow/underflow occurred.  If -frounding-math, proceed iff the
      result of calling FUNC was exact.  */
-  if (mpfr_number_p (MPC_RE (m)) && mpfr_number_p (MPC_IM (m))
+  if (mpfr_number_p (mpc_realref (m)) && mpfr_number_p (mpc_imagref (m))
       && !mpfr_overflow_p () && !mpfr_underflow_p ()
       && (!flag_rounding_math || !inexact))
     {
       REAL_VALUE_TYPE re, im;
 
-      real_from_mpfr (&re, MPC_RE (m), type, GMP_RNDN);
-      real_from_mpfr (&im, MPC_IM (m), type, GMP_RNDN);
+      real_from_mpfr (&re, mpc_realref (m), type, GMP_RNDN);
+      real_from_mpfr (&im, mpc_imagref (m), type, GMP_RNDN);
       /* Proceed iff GCC's REAL_VALUE_TYPE can hold the MPFR values,
 	 check for overflow/underflow.  If the REAL_VALUE_TYPE is zero
 	 but the mpft_t is not, then we underflowed in the
 	 conversion.  */
       if (real_isfinite (&re) && real_isfinite (&im)
-	  && (re.cl == rvc_zero) == (mpfr_zero_p (MPC_RE (m)) != 0)
-	  && (im.cl == rvc_zero) == (mpfr_zero_p (MPC_IM (m)) != 0))
+	  && (re.cl == rvc_zero) == (mpfr_zero_p (mpc_realref (m)) != 0)
+	  && (im.cl == rvc_zero) == (mpfr_zero_p (mpc_imagref (m)) != 0))
         {
 	  REAL_VALUE_TYPE re_mode, im_mode;
 
@@ -13677,8 +13696,8 @@ do_mpc_arg1 (tree arg, tree type, int (*func)(mpc_ptr, mpc_srcptr, mpc_rnd_t))
 	  mpc_t m;
 	  
 	  mpc_init2 (m, prec);
-	  mpfr_from_real (MPC_RE(m), re, rnd);
-	  mpfr_from_real (MPC_IM(m), im, rnd);
+	  mpfr_from_real (mpc_realref(m), re, rnd);
+	  mpfr_from_real (mpc_imagref(m), im, rnd);
 	  mpfr_clear_flags ();
 	  inexact = func (m, m, crnd);
 	  result = do_mpc_ckconv (m, type, inexact);

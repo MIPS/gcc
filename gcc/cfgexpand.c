@@ -456,6 +456,28 @@ set_rtl (tree t, rtx x)
       SA.partition_to_pseudo[var_to_partition (SA.map, t)] = x;
       if (x && !MEM_P (x))
 	set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (t), x);
+      /* For the benefit of debug information at -O0 (where vartracking
+         doesn't run) record the place also in the base DECL if it's
+	 a normal variable (not a parameter).  */
+      if (x && x != pc_rtx && TREE_CODE (SSA_NAME_VAR (t)) == VAR_DECL)
+	{
+	  tree var = SSA_NAME_VAR (t);
+	  /* If we don't yet have something recorded, just record it now.  */
+	  if (!DECL_RTL_SET_P (var))
+	    SET_DECL_RTL (var, x);
+	  /* If we have it set alrady to "multiple places" don't
+	     change this.  */
+	  else if (DECL_RTL (var) == pc_rtx)
+	    ;
+	  /* If we have something recorded and it's not the same place
+	     as we want to record now, we have multiple partitions for the
+	     same base variable, with different places.  We can't just
+	     randomly chose one, hence we have to say that we don't know.
+	     This only happens with optimization, and there var-tracking
+	     will figure out the right thing.  */
+	  else if (DECL_RTL (var) != x)
+	    SET_DECL_RTL (var, pc_rtx);
+	}
     }
   else
     SET_DECL_RTL (t, x);
@@ -543,8 +565,8 @@ get_decl_align_unit (tree decl)
      So here we only make sure stack_alignment_needed >= align.  */
   if (crtl->stack_alignment_needed < align)
     crtl->stack_alignment_needed = align;
-  if (crtl->max_used_stack_slot_alignment < crtl->stack_alignment_needed)
-    crtl->max_used_stack_slot_alignment = crtl->stack_alignment_needed;
+  if (crtl->max_used_stack_slot_alignment < align)
+    crtl->max_used_stack_slot_alignment = align;
 
   return align / BITS_PER_UNIT;
 }
@@ -1220,7 +1242,6 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 		  || (!DECL_EXTERNAL (var)
 		      && !DECL_HAS_VALUE_EXPR_P (var)
 		      && !TREE_STATIC (var)
-		      && !DECL_RTL_SET_P (var)
 		      && TREE_TYPE (var) != error_mark_node
 		      && !DECL_HARD_REGISTER (var)
 		      && really_expand));
@@ -1233,7 +1254,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
     ;
   else if (TREE_STATIC (var))
     ;
-  else if (DECL_RTL_SET_P (var))
+  else if (TREE_CODE (origvar) != SSA_NAME && DECL_RTL_SET_P (var))
     ;
   else if (TREE_TYPE (var) == error_mark_node)
     {
@@ -1448,7 +1469,8 @@ add_stack_protection_conflicts (void)
 static void
 create_stack_guard (void)
 {
-  tree guard = build_decl (VAR_DECL, NULL, ptr_type_node);
+  tree guard = build_decl (DECL_SOURCE_LOCATION (current_function_decl),
+			   VAR_DECL, NULL, ptr_type_node);
   TREE_THIS_VOLATILE (guard) = 1;
   TREE_USED (guard) = 1;
   expand_one_stack_var (guard);
@@ -1620,7 +1642,11 @@ expand_used_vars (void)
 
       /* Expanded above already.  */
       if (is_gimple_reg (var))
-	;
+	{
+	  TREE_USED (var) = 0;
+	  ggc_free (t);
+	  continue;
+	}
       /* We didn't set a block for static or extern because it's hard
 	 to tell the difference between a global variable (re)declared
 	 in a local scope, and one that's really declared there to
@@ -2382,7 +2408,7 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 	  t = get_base_address (t);
 	  if (t && DECL_P (t)
               && DECL_MODE (t) != BLKmode)
-            TREE_ADDRESSABLE (t) = 1;
+	    TREE_ADDRESSABLE (t) = 1;
 	}
 
       *walk_subtrees = 0;
@@ -2553,6 +2579,12 @@ gimple_expand_cfg (void)
 	  && !SA.partition_to_pseudo[i])
 	SA.partition_to_pseudo[i] = DECL_RTL_IF_SET (var);
       gcc_assert (SA.partition_to_pseudo[i]);
+
+      /* If this decl was marked as living in multiple places, reset
+         this now to NULL.  */
+      if (DECL_RTL_IF_SET (var) == pc_rtx)
+	SET_DECL_RTL (var, NULL);
+
       /* Some RTL parts really want to look at DECL_RTL(x) when x
          was a decl marked in REG_ATTR or MEM_ATTR.  We could use
 	 SET_DECL_RTL here making this available, but that would mean

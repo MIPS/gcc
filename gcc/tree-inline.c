@@ -119,7 +119,6 @@ eni_weights eni_time_weights;
 /* Prototypes.  */
 
 static tree declare_return_variable (copy_body_data *, tree, tree, tree *);
-static bool inlinable_function_p (tree);
 static void remap_block (tree *, copy_body_data *);
 static void copy_bind_expr (tree *, int *, copy_body_data *);
 static tree mark_local_for_remap_r (tree *, int *, void *);
@@ -974,7 +973,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	      STRIP_TYPE_NOPS (value);
 	      if (TREE_CONSTANT (value) || TREE_READONLY (value))
 		{
-		  *tp = build_empty_stmt ();
+		  *tp = build_empty_stmt (EXPR_LOCATION (*tp));
 		  return copy_tree_body_r (tp, walk_subtrees, data);
 		}
 	    }
@@ -1508,11 +1507,14 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		gcc_unreachable ();
 		}
 
+	    edge = cgraph_edge (id->src_node, orig_stmt);
 	    /* Constant propagation on argument done during inlining
 	       may create new direct call.  Produce an edge for it.  */
-	    if (!edge && is_gimple_call (stmt)
-		&& (fn = gimple_call_fndecl (stmt)) != NULL
-		&& !cgraph_edge (id->dst_node, stmt))
+	    if ((!edge 
+		 || (edge->indirect_call
+		     && id->transform_call_graph_edges == CB_CGE_MOVE_CLONES))
+		&& is_gimple_call (stmt)
+		&& (fn = gimple_call_fndecl (stmt)) != NULL)
 	      {
 		struct cgraph_node *dest = cgraph_node (fn);
 
@@ -2433,26 +2435,32 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
   return var;
 }
 
-/* Returns nonzero if a function can be inlined as a tree.  */
-
-bool
-tree_inlinable_function_p (tree fn)
-{
-  return inlinable_function_p (fn);
-}
-
-static const char *inline_forbidden_reason;
-
-/* A callback for walk_gimple_seq to handle tree operands.  Returns
-   NULL_TREE if a function can be inlined, otherwise sets the reason
-   why not and returns a tree representing the offending operand. */
+/* Callback through walk_tree.  Determine if a DECL_INITIAL makes reference
+   to a local label.  */
 
 static tree
-inline_forbidden_p_op (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
-                         void *fnp ATTRIBUTE_UNUSED)
+has_label_address_in_static_1 (tree *nodep, int *walk_subtrees, void *fnp)
 {
   tree node = *nodep;
-  tree t;
+  tree fn = (tree) fnp;
+
+  if (TREE_CODE (node) == LABEL_DECL && DECL_CONTEXT (node) == fn)
+    return node;
+
+  if (TYPE_P (node))
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
+/* Callback through walk_tree.  Determine if we've got an aggregate
+   type that we can't support; return non-null if so.  */
+
+static tree
+cannot_copy_type_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
+                    void *data ATTRIBUTE_UNUSED)
+{
+  tree t, node = *nodep;
 
   if (TREE_CODE (node) == RECORD_TYPE || TREE_CODE (node) == UNION_TYPE)
     {
@@ -2471,21 +2479,78 @@ inline_forbidden_p_op (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	 cycle to try to find out.  This should be checked for 4.1.  */
       for (t = TYPE_FIELDS (node); t; t = TREE_CHAIN (t))
 	if (variably_modified_type_p (TREE_TYPE (t), NULL))
-	  {
-	    inline_forbidden_reason
-	      = G_("function %q+F can never be inlined "
-		   "because it uses variable sized variables");
-	    return node;
-	  }
+	  return node;
     }
 
   return NULL_TREE;
 }
 
 
-/* A callback for walk_gimple_seq to handle statements.  Returns
-   non-NULL iff a function can not be inlined.  Also sets the reason
-   why. */
+/* Determine if the function can be copied.  If so return NULL.  If
+   not return a string describng the reason for failure.  */
+
+static const char *
+copy_forbidden (struct function *fun, tree fndecl)
+{
+  const char *reason = fun->cannot_be_copied_reason;
+  tree step;
+
+  /* Only examine the function once.  */
+  if (fun->cannot_be_copied_set)
+    return reason;
+
+  /* We cannot copy a function that receives a non-local goto
+     because we cannot remap the destination label used in the
+     function that is performing the non-local goto.  */
+  /* ??? Actually, this should be possible, if we work at it.
+     No doubt there's just a handful of places that simply
+     assume it doesn't happen and don't substitute properly.  */
+  if (fun->has_nonlocal_label)
+    {
+      reason = G_("function %q+F can never be copied "
+		  "because it receives a non-local goto");
+      goto fail;
+    }
+
+  for (step = fun->local_decls; step; step = TREE_CHAIN (step))
+    {
+      tree decl = TREE_VALUE (step);
+
+      if (TREE_CODE (decl) == VAR_DECL
+	  && TREE_STATIC (decl)
+	  && !DECL_EXTERNAL (decl)
+	  && DECL_INITIAL (decl)
+	  && walk_tree_without_duplicates (&DECL_INITIAL (decl),
+					   has_label_address_in_static_1,
+					   fndecl))
+	{
+	  reason = G_("function %q+F can never be copied because it saves "
+		      "address of local label in a static variable");
+	  goto fail;
+	}
+
+      if (!TREE_STATIC (decl) && !DECL_EXTERNAL (decl)
+	  && variably_modified_type_p (TREE_TYPE (decl), NULL)
+	  && walk_tree_without_duplicates (&TREE_TYPE (decl),
+					   cannot_copy_type_1, NULL))
+	{
+	  reason = G_("function %q+F can never be copied "
+		      "because it uses variable sized variables");
+	  goto fail;
+	}
+    }
+
+ fail:
+  fun->cannot_be_copied_reason = reason;
+  fun->cannot_be_copied_set = true;
+  return reason;
+}
+
+
+static const char *inline_forbidden_reason;
+
+/* A callback for walk_gimple_seq to handle statements.  Returns non-null
+   iff a function can not be inlined.  Also sets the reason why. */
 
 static tree
 inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
@@ -2594,48 +2659,11 @@ inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	}
       break;
 
-    case GIMPLE_LABEL:
-      t = gimple_label_label (stmt);
-      if (DECL_NONLOCAL (t))
-	{
-	  /* We cannot inline a function that receives a non-local goto
-	     because we cannot remap the destination label used in the
-	     function that is performing the non-local goto.  */
-	  inline_forbidden_reason
-	    = G_("function %q+F can never be inlined "
-		 "because it receives a non-local goto");
-	  *handled_ops_p = true;
-	  return t;
-	}
-      break;
-
     default:
       break;
     }
 
   *handled_ops_p = false;
-  return NULL_TREE;
-}
-
-
-static tree
-inline_forbidden_p_2 (tree *nodep, int *walk_subtrees,
-		      void *fnp)
-{
-  tree node = *nodep;
-  tree fn = (tree) fnp;
-
-  if (TREE_CODE (node) == LABEL_DECL && DECL_CONTEXT (node) == fn)
-    {
-      inline_forbidden_reason
-	= G_("function %q+F can never be inlined "
-	     "because it saves address of local label in a static variable");
-      return node;
-    }
-
-  if (TYPE_P (node))
-    *walk_subtrees = 0;
-
   return NULL_TREE;
 }
 
@@ -2645,14 +2673,19 @@ inline_forbidden_p_2 (tree *nodep, int *walk_subtrees,
 static bool
 inline_forbidden_p (tree fndecl)
 {
-  location_t saved_loc = input_location;
   struct function *fun = DECL_STRUCT_FUNCTION (fndecl);
-  tree step;
   struct walk_stmt_info wi;
   struct pointer_set_t *visited_nodes;
   basic_block bb;
   bool forbidden_p = false;
 
+  /* First check for shared reasons not to copy the code.  */
+  inline_forbidden_reason = copy_forbidden (fun, fndecl);
+  if (inline_forbidden_reason != NULL)
+    return true;
+
+  /* Next, walk the statements of the function looking for
+     constraucts we can't handle, or are non-optimal for inlining.  */
   visited_nodes = pointer_set_create ();
   memset (&wi, 0, sizeof (wi));
   wi.info = (void *) fndecl;
@@ -2662,41 +2695,21 @@ inline_forbidden_p (tree fndecl)
     {
       gimple ret;
       gimple_seq seq = bb_seq (bb);
-      ret = walk_gimple_seq (seq, inline_forbidden_p_stmt,
-			     inline_forbidden_p_op, &wi);
+      ret = walk_gimple_seq (seq, inline_forbidden_p_stmt, NULL, &wi);
       forbidden_p = (ret != NULL);
       if (forbidden_p)
-	goto egress;
+	break;
     }
 
-  for (step = fun->local_decls; step; step = TREE_CHAIN (step))
-    {
-      tree decl = TREE_VALUE (step);
-      if (TREE_CODE (decl) == VAR_DECL
-	  && TREE_STATIC (decl)
-	  && !DECL_EXTERNAL (decl)
-	  && DECL_INITIAL (decl))
-        {
-	  tree ret;
-	  ret = walk_tree_without_duplicates (&DECL_INITIAL (decl),
-					      inline_forbidden_p_2, fndecl);
-	  forbidden_p = (ret != NULL);
-	  if (forbidden_p)
-	    goto egress;
-        }
-    }
-
-egress:
   pointer_set_destroy (visited_nodes);
-  input_location = saved_loc;
   return forbidden_p;
 }
 
 /* Returns nonzero if FN is a function that does not have any
    fundamental inline blocking properties.  */
 
-static bool
-inlinable_function_p (tree fn)
+bool
+tree_inlinable_function_p (tree fn)
 {
   bool inlinable = true;
   bool do_warning;
@@ -4180,7 +4193,8 @@ copy_decl_to_var (tree decl, copy_body_data *id)
 
   type = TREE_TYPE (decl);
 
-  copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
+  copy = build_decl (DECL_SOURCE_LOCATION (id->dst_fn),
+		     VAR_DECL, DECL_NAME (decl), type);
   TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
@@ -4204,7 +4218,8 @@ copy_result_decl_to_var (tree decl, copy_body_data *id)
   if (DECL_BY_REFERENCE (decl))
     type = TREE_TYPE (type);
 
-  copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
+  copy = build_decl (DECL_SOURCE_LOCATION (id->dst_fn),
+		     VAR_DECL, DECL_NAME (decl), type);
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
   if (!DECL_BY_REFERENCE (decl))
@@ -4301,17 +4316,11 @@ copy_static_chain (tree static_chain, copy_body_data * id)
 
 /* Return true if the function is allowed to be versioned.
    This is a guard for the versioning functionality.  */
+
 bool
 tree_versionable_function_p (tree fndecl)
 {
-  if (fndecl == NULL_TREE)
-    return false;
-  /* ??? There are cases where a function is
-     uninlinable but can be versioned.  */
-  if (!tree_inlinable_function_p (fndecl))
-    return false;
-  
-  return true;
+  return copy_forbidden (DECL_STRUCT_FUNCTION (fndecl), fndecl) == NULL;
 }
 
 /* Delete all unreachable basic blocks and update callgraph.
@@ -4417,7 +4426,8 @@ delete_unreachable_blocks_update_callgraph (copy_body_data *id)
    trees. If UPDATE_CLONES is set, the call_stmt fields
    of edges of clones of the function will be updated.  */
 void
-tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc)* tree_map,
+tree_function_versioning (tree old_decl, tree new_decl,
+			  VEC(ipa_replace_map_p,gc)* tree_map,
 			  bool update_clones, bitmap args_to_skip)
 {
   struct cgraph_node *old_version_node;
@@ -4544,7 +4554,8 @@ tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc
       }
   
   /* Copy the Function's body.  */
-  copy_body (&id, old_entry_block->count, old_entry_block->frequency, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR);
+  copy_body (&id, old_entry_block->count, old_entry_block->frequency,
+	     ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR);
   
   if (DECL_RESULT (old_decl) != NULL_TREE)
     {
@@ -4561,6 +4572,16 @@ tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc
       basic_block bb = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
       while (VEC_length (gimple, init_stmts))
 	insert_init_stmt (bb, VEC_pop (gimple, init_stmts));
+    }
+
+  /* Remap the nonlocal_goto_save_area, if any.  */
+  if (cfun->nonlocal_goto_save_area)
+    {
+      struct walk_stmt_info wi;
+
+      memset (&wi, 0, sizeof (wi));
+      wi.info = &id;
+      walk_tree (&cfun->nonlocal_goto_save_area, remap_gimple_op_r, &wi, NULL);
     }
 
   /* Clean up.  */

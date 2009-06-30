@@ -1628,15 +1628,15 @@ gfc_set_interface_mapping_bounds (stmtblock_t * block, tree type, tree desc)
       if (GFC_TYPE_ARRAY_LBOUND (type, n) == NULL_TREE)
 	{
 	  GFC_TYPE_ARRAY_LBOUND (type, n)
-		= gfc_conv_descriptor_lbound (desc, dim);
+		= gfc_conv_descriptor_lbound_get (desc, dim);
 	  GFC_TYPE_ARRAY_UBOUND (type, n)
-		= gfc_conv_descriptor_ubound (desc, dim);
+		= gfc_conv_descriptor_ubound_get (desc, dim);
 	}
       else if (GFC_TYPE_ARRAY_UBOUND (type, n) == NULL_TREE)
 	{
 	  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
-			     gfc_conv_descriptor_ubound (desc, dim),
-			     gfc_conv_descriptor_lbound (desc, dim));
+			     gfc_conv_descriptor_ubound_get (desc, dim),
+			     gfc_conv_descriptor_lbound_get (desc, dim));
 	  tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
 			     GFC_TYPE_ARRAY_LBOUND (type, n),
 			     tmp);
@@ -2646,7 +2646,9 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 		  if (fsym && e->expr_type != EXPR_NULL
 		      && ((fsym->attr.pointer
 			   && fsym->attr.flavor != FL_PROCEDURE)
-			  || fsym->attr.proc_pointer))
+			  || (fsym->attr.proc_pointer
+			      && !(e->expr_type == EXPR_VARIABLE
+			      && e->symtree->n.sym->attr.dummy))))
 		    {
 		      /* Scalar pointer dummy args require an extra level of
 			 indirection. The null pointer already contains
@@ -2737,6 +2739,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	 dealt with in trans-array.c(gfc_conv_array_parameter).  */
       if (e && e->ts.type == BT_DERIVED
 	    && e->ts.derived->attr.alloc_comp
+	    && !(e->symtree && e->symtree->n.sym->attr.pointer)
 	    && (e->expr_type != EXPR_VARIABLE && !e->rank))
         {
 	  int parm_rank;
@@ -2768,6 +2771,48 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 
 	  gfc_add_expr_to_block (&se->post, tmp);
         }
+
+      /* Add argument checking of passing an unallocated/NULL actual to
+         a nonallocatable/nonpointer dummy.  */
+
+      if (gfc_option.rtcheck & GFC_RTCHECK_POINTER)
+        {
+	  gfc_symbol *sym;
+	  char *msg;
+	  tree cond;
+
+	  if (e->expr_type == EXPR_VARIABLE)
+	    sym = e->symtree->n.sym;
+	  else if (e->expr_type == EXPR_FUNCTION)
+	    sym = e->symtree->n.sym->result;
+	  else
+	    goto end_pointer_check;
+
+	  if (sym->attr.allocatable
+	      && (fsym == NULL || !fsym->attr.allocatable))
+	    asprintf (&msg, "Allocatable actual argument '%s' is not "
+		      "allocated", sym->name);
+	  else if (sym->attr.pointer
+	      && (fsym == NULL || !fsym->attr.pointer))
+	    asprintf (&msg, "Pointer actual argument '%s' is not "
+		      "associated", sym->name);
+          else if (sym->attr.proc_pointer
+	      && (fsym == NULL || !fsym->attr.proc_pointer))
+	    asprintf (&msg, "Proc-pointer actual argument '%s' is not "
+		      "associated", sym->name);
+	  else
+	    goto end_pointer_check;
+
+	  cond  = fold_build2 (EQ_EXPR, boolean_type_node, parmse.expr,
+			       fold_convert (TREE_TYPE (parmse.expr),
+					     null_pointer_node));
+ 
+	  gfc_trans_runtime_check (true, false, cond, &se->pre, &e->where,
+				   msg);
+	  gfc_free (msg);
+        }
+      end_pointer_check:
+
 
       /* Character strings are passed as two parameters, a length and a
          pointer - except for Bind(c) which only passes the pointer.  */
@@ -3052,7 +3097,8 @@ fill_with_spaces (tree start, tree type, tree size)
   cond = fold_build2 (LE_EXPR, boolean_type_node, i,
 		      fold_convert (sizetype, integer_zero_node));
   tmp = build1_v (GOTO_EXPR, exit_label);
-  tmp = fold_build3 (COND_EXPR, void_type_node, cond, tmp, build_empty_stmt ());
+  tmp = fold_build3 (COND_EXPR, void_type_node, cond, tmp,
+		     build_empty_stmt (input_location));
   gfc_add_expr_to_block (&loop, tmp);
 
   /* Assignment.  */
@@ -3205,7 +3251,8 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
 
   /* The whole copy_string function is there.  */
   tmp = fold_build3 (COND_EXPR, void_type_node, cond2, tmp2, tmp3);
-  tmp = fold_build3 (COND_EXPR, void_type_node, cond, tmp, build_empty_stmt ());
+  tmp = fold_build3 (COND_EXPR, void_type_node, cond, tmp,
+		     build_empty_stmt (input_location));
   gfc_add_expr_to_block (block, tmp);
 }
 
@@ -3620,7 +3667,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
 
 	  /* Shift the lbound and ubound of temporaries to being unity, rather
 	     than zero, based.  Calculate the offset for all cases.  */
-	  offset = gfc_conv_descriptor_offset (dest);
+	  offset = gfc_conv_descriptor_offset_get (dest);
 	  gfc_add_modify (&block, offset, gfc_index_zero_node);
 	  tmp2 =gfc_create_var (gfc_array_index_type, NULL);
 	  for (n = 0; n < expr->rank; n++)
@@ -3629,24 +3676,24 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
 		    && expr->expr_type != EXPR_CONSTANT)
 		{
 		  tree span;
-		  tmp = gfc_conv_descriptor_ubound (dest, gfc_rank_cst[n]);
+		  tmp = gfc_conv_descriptor_ubound_get (dest, gfc_rank_cst[n]);
 		  span = fold_build2 (MINUS_EXPR, gfc_array_index_type, tmp,
-			    gfc_conv_descriptor_lbound (dest, gfc_rank_cst[n]));
-		  gfc_add_modify (&block, tmp,
-				       fold_build2 (PLUS_EXPR,
-						    gfc_array_index_type,
-						    span, gfc_index_one_node));
-		  tmp = gfc_conv_descriptor_lbound (dest, gfc_rank_cst[n]);
-		  gfc_add_modify (&block, tmp, gfc_index_one_node);
+			    gfc_conv_descriptor_lbound_get (dest, gfc_rank_cst[n]));
+		  tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
+				     span, gfc_index_one_node);
+		  gfc_conv_descriptor_ubound_set (&block, dest, gfc_rank_cst[n],
+						  tmp);
+		  gfc_conv_descriptor_lbound_set (&block, dest, gfc_rank_cst[n],
+						  gfc_index_one_node);
 		}
 	      tmp = fold_build2 (MULT_EXPR, gfc_array_index_type,
-				 gfc_conv_descriptor_lbound (dest,
+				 gfc_conv_descriptor_lbound_get (dest,
 							     gfc_rank_cst[n]),
-				 gfc_conv_descriptor_stride (dest,
+				 gfc_conv_descriptor_stride_get (dest,
 							     gfc_rank_cst[n]));
 	      gfc_add_modify (&block, tmp2, tmp);
 	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type, offset, tmp2);
-	      gfc_add_modify (&block, offset, tmp);
+	      gfc_conv_descriptor_offset_set (&block, dest, tmp);
 	    }
 
 	  if (expr->expr_type == EXPR_FUNCTION
@@ -3999,7 +4046,8 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
     {
       tree tmp = se->expr;
       STRIP_TYPE_NOPS (tmp);
-      var = build_decl (CONST_DECL, NULL, TREE_TYPE (tmp));
+      var = build_decl (input_location,
+			CONST_DECL, NULL, TREE_TYPE (tmp));
       DECL_INITIAL (var) = tmp;
       TREE_STATIC (var) = 1;
       pushdecl (var);
@@ -4246,7 +4294,8 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
 	  tmp = gfc_evaluate_now (lse->expr, &lse->pre);
 	  tmp = gfc_deallocate_alloc_comp (ts.derived, tmp, 0);
 	  if (r_is_var)
-	    tmp = build3_v (COND_EXPR, cond, build_empty_stmt (), tmp);
+	    tmp = build3_v (COND_EXPR, cond, build_empty_stmt (input_location),
+			    tmp);
 	  gfc_add_expr_to_block (&lse->post, tmp);
 	}
 
@@ -4261,7 +4310,8 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
       if (r_is_var)
 	{
 	  tmp = gfc_copy_alloc_comp (ts.derived, rse->expr, lse->expr, 0);
-	  tmp = build3_v (COND_EXPR, cond, build_empty_stmt (), tmp);
+	  tmp = build3_v (COND_EXPR, cond, build_empty_stmt (input_location),
+			  tmp);
 	  gfc_add_expr_to_block (&block, tmp);
 	}
     }
@@ -4292,6 +4342,7 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
   gfc_ss *ss;
   gfc_ref * ref;
   bool seen_array_ref;
+  bool c = false;
   gfc_component *comp = NULL;
 
   /* The caller has already checked rank>0 and expr_type == EXPR_FUNCTION.  */
@@ -4301,6 +4352,10 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
   /* Elemental functions don't need a temporary anyway.  */
   if (expr2->value.function.esym != NULL
       && expr2->value.function.esym->attr.elemental)
+    return NULL;
+
+  /* Fail if rhs is not FULL or a contiguous section.  */
+  if (expr1->ref && !(gfc_full_array_ref_p (expr1->ref, &c) || c))
     return NULL;
 
   /* Fail if EXPR1 can't be expressed as a descriptor.  */
@@ -4400,10 +4455,10 @@ is_zero_initializer_p (gfc_expr * expr)
       return expr->value.logical == 0;
 
     case BT_COMPLEX:
-      return mpfr_zero_p (expr->value.complex.r)
-	     && MPFR_SIGN (expr->value.complex.r) >= 0
-             && mpfr_zero_p (expr->value.complex.i)
-	     && MPFR_SIGN (expr->value.complex.i) >= 0;
+      return mpfr_zero_p (mpc_realref (expr->value.complex))
+	     && MPFR_SIGN (mpc_realref (expr->value.complex)) >= 0
+             && mpfr_zero_p (mpc_imagref (expr->value.complex))
+	     && MPFR_SIGN (mpc_imagref (expr->value.complex)) >= 0;
 
     default:
       break;
@@ -4777,7 +4832,7 @@ copyable_array_p (gfc_expr * expr)
   if (expr->rank < 1 || !expr->ref || expr->ref->next)
     return false;
 
-  if (!gfc_full_array_ref_p (expr->ref))
+  if (!gfc_full_array_ref_p (expr->ref, NULL))
     return false;
 
   /* Next check that it's of a simple enough type.  */
