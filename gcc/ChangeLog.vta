@@ -1,5 +1,29 @@
 2009-07-01  Jakub Jelinek  <jakub@redhat.com>
 
+	* var-tracking.c (unshare_variable): Force initialized to
+	be VAR_INIT_STATUS_INITIALIZED unless flag_var_tracking_uninit.
+	(set_slot_part): Likewise.
+	(struct variable_union_info): Remove pos_src field.
+	(vui_vec, vui_allocated): New variables.
+	(variable_union): Pass VAR_INIT_STATUS_UNKNOWN to unshare_variable
+	unconditionally.  Avoid XCVECNEW/free for every sorting, for dst_l
+	== 1 use a simpler sorting algorithm.  Compute pos field right
+	away, don't fill in pos_src.  For dst_l == 2 avoid qsort.
+	Avoid quadratic comparison if !flag_var_tracking_uninit.
+	(variable_canonicalize): Pass VAR_INIT_STATUS_UNKNOWN to
+	unshare_variable unconditionally.   
+	(dataflow_set_different_2): Removed.
+	(dataflow_set_different): Don't traverse second hash table.
+	(compute_bb_dataflow): Pass VAR_INIT_STATUS_UNINITIALIZED
+	unconditionally to var_reg_set or var_mem_set.
+	(emit_notes_in_bb): Likewise.
+	(delete_slot_part): Pass VAR_INIT_STATUS_UNKNOWN to
+	unshare_variable.
+	(emit_note_insn_var_location): Don't set initialized to
+	VAR_INIT_STATUS_INITIALIZED early.
+	(vt_finalize): Free vui_vec if needed, clear vui_vec and
+	vui_allocated.
+
 	* var-tracking.c (decl_or_value): Change from struct to just void *
 	typedef.
 	(struct shared_hash_def, shared_hash): New types.

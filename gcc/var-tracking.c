@@ -407,7 +407,6 @@ static bool variable_part_different_p (variable_part *, variable_part *);
 static bool onepart_variable_different_p (variable, variable);
 static bool variable_different_p (variable, variable, bool);
 static int dataflow_set_different_1 (void **, void *);
-static int dataflow_set_different_2 (void **, void *);
 static bool dataflow_set_different (dataflow_set *, dataflow_set *);
 static void dataflow_set_destroy (dataflow_set *);
 
@@ -1122,6 +1121,9 @@ unshare_variable (dataflow_set *set, void **slot, variable var,
   var->refcount--;
   new_var->n_var_parts = var->n_var_parts;
 
+  if (! flag_var_tracking_uninit)
+    initialized = VAR_INIT_STATUS_INITIALIZED;
+
   for (i = 0; i < var->n_var_parts; i++)
     {
       location_chain node;
@@ -1651,10 +1653,13 @@ struct variable_union_info
   /* The sum of positions in the input chains.  */
   int pos;
 
-  /* The position in the chains of SRC and DST dataflow sets.  */
-  int pos_src;
+  /* The position in the chain of DST dataflow set.  */
   int pos_dst;
 };
+
+/* Buffer for location list sorting and its allocated size.  */
+static struct variable_union_info *vui_vec;
+static int vui_allocated;
 
 /* Compare function for qsort, order the structures by POS element.  */
 
@@ -1717,14 +1722,7 @@ variable_union (void **slot, void *data)
 	    }
 	}
       if (k < src->n_var_parts)
-	{
-	  enum var_init_status status = VAR_INIT_STATUS_UNKNOWN;
-	  
-	  if (! flag_var_tracking_uninit)
-	    status = VAR_INIT_STATUS_INITIALIZED;
-
-	  unshare_variable (set, dstp, src, status);
-	}
+	unshare_variable (set, dstp, src, VAR_INIT_STATUS_UNKNOWN);
 
       /* Continue traversing the hash table.  */
       return 1;
@@ -1814,13 +1812,7 @@ variable_union (void **slot, void *data)
 
   if ((dst->refcount > 1 || shared_hash_shared (set->vars))
       && dst->n_var_parts != k)
-    {
-      enum var_init_status status = VAR_INIT_STATUS_UNKNOWN;
-      
-      if (! flag_var_tracking_uninit)
-	status = VAR_INIT_STATUS_INITIALIZED;
-      dst = unshare_variable (set, dstp, dst, status);
-    }
+    dst = unshare_variable (set, dstp, dst, VAR_INIT_STATUS_UNKNOWN);
 
   i = src->n_var_parts - 1;
   j = dst->n_var_parts - 1;
@@ -1870,70 +1862,152 @@ variable_union (void **slot, void *data)
 	  dst_l = 0;
 	  for (node = dst->var_part[j].loc_chain; node; node = node->next)
 	    dst_l++;
-	  vui = XCNEWVEC (struct variable_union_info, src_l + dst_l);
 
-	  /* Fill in the locations from DST.  */
-	  for (node = dst->var_part[j].loc_chain, jj = 0; node;
-	       node = node->next, jj++)
+	  if (dst_l == 1)
 	    {
-	      vui[jj].lc = node;
-	      vui[jj].pos_dst = jj;
-
-	      /* Value larger than a sum of 2 valid positions.  */
-	      vui[jj].pos_src = src_l + dst_l;
-	    }
-
-	  /* Fill in the locations from SRC.  */
-	  n = dst_l;
-	  for (node = src->var_part[i].loc_chain, ii = 0; node;
-	       node = node->next, ii++)
-	    {
-	      /* Find location from NODE.  */
-	      for (jj = 0; jj < dst_l; jj++)
-		{
-		  if ((REG_P (vui[jj].lc->loc)
+	      /* The most common case, much simpler, no qsort is needed.  */
+	      location_chain dstnode = dst->var_part[j].loc_chain;
+	      dst->var_part[k].loc_chain = dstnode;
+	      dst->var_part[k].offset = dst->var_part[j].offset;
+	      node2 = dstnode;
+	      for (node = src->var_part[i].loc_chain; node; node = node->next)
+		if (!((REG_P (dstnode->loc)
 		       && REG_P (node->loc)
-		       && REGNO (vui[jj].lc->loc) == REGNO (node->loc))
-		      || rtx_equal_p (vui[jj].lc->loc, node->loc))
+		       && REGNO (dstnode->loc) == REGNO (node->loc))
+		      || rtx_equal_p (dstnode->loc, node->loc)))
+		  {
+		    location_chain new_node;
+
+		    /* Copy the location from SRC.  */
+		    new_node = (location_chain) pool_alloc (loc_chain_pool);
+		    new_node->loc = node->loc;
+		    new_node->init = node->init;
+		    if (!node->set_src || MEM_P (node->set_src))
+		      new_node->set_src = NULL;
+		    else
+		      new_node->set_src = node->set_src;
+		    node2->next = new_node;
+		    node2 = new_node;
+		  }
+	      node2->next = NULL;
+	    }
+	  else
+	    {
+	      if (src_l + dst_l > vui_allocated)
+		{
+		  vui_allocated = MAX (vui_allocated * 2, src_l + dst_l);
+		  vui_vec = XRESIZEVEC (struct variable_union_info, vui_vec,
+					vui_allocated);
+		}
+	      vui = vui_vec;
+
+	      /* Fill in the locations from DST.  */
+	      for (node = dst->var_part[j].loc_chain, jj = 0; node;
+		   node = node->next, jj++)
+		{
+		  vui[jj].lc = node;
+		  vui[jj].pos_dst = jj;
+
+		  /* Pos plus value larger than a sum of 2 valid positions.  */
+		  vui[jj].pos = jj + src_l + dst_l;
+		}
+
+	      /* Fill in the locations from SRC.  */
+	      n = dst_l;
+	      for (node = src->var_part[i].loc_chain, ii = 0; node;
+		   node = node->next, ii++)
+		{
+		  /* Find location from NODE.  */
+		  for (jj = 0; jj < dst_l; jj++)
 		    {
-		      vui[jj].pos_src = ii;
-		      break;
+		      if ((REG_P (vui[jj].lc->loc)
+			   && REG_P (node->loc)
+			   && REGNO (vui[jj].lc->loc) == REGNO (node->loc))
+			  || rtx_equal_p (vui[jj].lc->loc, node->loc))
+			{
+			  vui[jj].pos = jj + ii;
+			  break;
+			}
+		    }
+		  if (jj >= dst_l)	/* The location has not been found.  */
+		    {
+		      location_chain new_node;
+
+		      /* Copy the location from SRC.  */
+		      new_node = (location_chain) pool_alloc (loc_chain_pool);
+		      new_node->loc = node->loc;
+		      new_node->init = node->init;
+		      if (!node->set_src || MEM_P (node->set_src))
+			new_node->set_src = NULL;
+		      else
+			new_node->set_src = node->set_src;
+		      vui[n].lc = new_node;
+		      vui[n].pos_dst = src_l + dst_l;
+		      vui[n].pos = ii + src_l + dst_l;
+		      n++;
 		    }
 		}
-	      if (jj >= dst_l)	/* The location has not been found.  */
+
+	      if (dst_l == 2)
 		{
-		  location_chain new_node;
-
-		  /* Copy the location from SRC.  */
-		  new_node = (location_chain) pool_alloc (loc_chain_pool);
-		  new_node->loc = node->loc;
-		  new_node->init = node->init;
-		  if (!node->set_src || MEM_P (node->set_src))
-		    new_node->set_src = NULL;
+		  /* Special case still very common case.  For dst_l == 2
+		     all entries dst_l ... n-1 are sorted, with for i >= dst_l
+		     vui[i].pos == i + src_l + dst_l.  */
+		  if (vui[0].pos > vui[1].pos)
+		    {
+		      /* Order should be 1, 0, 2... */
+		      dst->var_part[k].loc_chain = vui[1].lc;
+		      vui[1].lc->next = vui[0].lc;
+		      if (n >= 3)
+			{
+			  vui[0].lc->next = vui[2].lc;
+			  vui[n - 1].lc->next = NULL;
+			}
+		      else
+			vui[0].lc->next = NULL;
+		      ii = 3;
+		    }
 		  else
-		    new_node->set_src = node->set_src;
-		  vui[n].lc = new_node;
-		  vui[n].pos_src = ii;
-		  vui[n].pos_dst = src_l + dst_l;
-		  n++;
+		    {
+		      dst->var_part[k].loc_chain = vui[0].lc;
+		      if (n >= 3 && vui[2].pos < vui[1].pos)
+			{
+			  /* Order should be 0, 2, 1, 3... */
+			  vui[0].lc->next = vui[2].lc;
+			  vui[2].lc->next = vui[1].lc;
+			  if (n >= 4)
+			    {
+			      vui[1].lc->next = vui[3].lc;
+			      vui[n - 1].lc->next = NULL;
+			    }
+			  else
+			    vui[1].lc->next = NULL;
+			  ii = 4;
+			}
+		      else
+			{
+			  /* Order should be 0, 1, 2... */
+			  ii = 1;
+			  vui[n - 1].lc->next = NULL;
+			}
+		    }
+		  for (; ii < n; ii++)
+		    vui[ii - 1].lc->next = vui[ii].lc;
 		}
+	      else
+		{
+		  qsort (vui, n, sizeof (struct variable_union_info),
+			 variable_union_info_cmp_pos);
+
+		  /* Reconnect the nodes in sorted order.  */
+		  for (ii = 1; ii < n; ii++)
+		    vui[ii - 1].lc->next = vui[ii].lc;
+		  vui[n - 1].lc->next = NULL;
+		  dst->var_part[k].loc_chain = vui[0].lc;
+		}
+
+	      dst->var_part[k].offset = dst->var_part[j].offset;
 	    }
-
-	  for (ii = 0; ii < src_l + dst_l; ii++)
-	    vui[ii].pos = vui[ii].pos_src + vui[ii].pos_dst;
-
-	  qsort (vui, n, sizeof (struct variable_union_info),
-		 variable_union_info_cmp_pos);
-
-	  /* Reconnect the nodes in sorted order.  */
-	  for (ii = 1; ii < n; ii++)
-	    vui[ii - 1].lc->next = vui[ii].lc;
-	  vui[n - 1].lc->next = NULL;
-
-	  dst->var_part[k].loc_chain = vui[0].lc;
-	  dst->var_part[k].offset = dst->var_part[j].offset;
-
-	  XDELETEVEC (vui);
 	  i--;
 	  j--;
 	}
@@ -1981,17 +2055,18 @@ variable_union (void **slot, void *data)
 	dst->var_part[k].cur_loc = NULL;
     }
 
-  for (i = 0; i < src->n_var_parts && i < dst->n_var_parts; i++)
-    {
-      location_chain node, node2;
-      for (node = src->var_part[i].loc_chain; node; node = node->next)
-	for (node2 = dst->var_part[i].loc_chain; node2; node2 = node2->next)
-	  if (rtx_equal_p (node->loc, node2->loc))
-	    {
-	      if (node->init > node2->init)
-		node2->init = node->init;
-	    }
-    }
+  if (flag_var_tracking_uninit)
+    for (i = 0; i < src->n_var_parts && i < dst->n_var_parts; i++)
+      {
+	location_chain node, node2;
+	for (node = src->var_part[i].loc_chain; node; node = node->next)
+	  for (node2 = dst->var_part[i].loc_chain; node2; node2 = node2->next)
+	    if (rtx_equal_p (node->loc, node2->loc))
+	      {
+		if (node->init > node2->init)
+		  node2->init = node->init;
+	      }
+      }
 
   /* Continue traversing the hash table.  */
   return 1;
@@ -2026,14 +2101,7 @@ variable_canonicalize (void **slot, void *data)
 	}
     }
   if (k < src->n_var_parts)
-    {
-      enum var_init_status status = VAR_INIT_STATUS_UNKNOWN;
-
-      if (! flag_var_tracking_uninit)
-	status = VAR_INIT_STATUS_INITIALIZED;
-
-      unshare_variable (set, slot, src, status);
-    }
+    unshare_variable (set, slot, src, VAR_INIT_STATUS_UNKNOWN);
   return 1;
 }
 
@@ -3839,40 +3907,6 @@ dataflow_set_different_1 (void **slot, void *data)
   return 1;
 }
 
-/* Compare variable *SLOT with the same variable in hash table DATA
-   and set DATAFLOW_SET_DIFFERENT_VALUE if they are different.  */
-
-static int
-dataflow_set_different_2 (void **slot, void *data)
-{
-  htab_t htab = (htab_t) data;
-  variable var1, var2;
-
-  var1 = (variable) *slot;
-  var2 = (variable) htab_find_with_hash (htab, var1->dv,
-					 dv_htab_hash (var1->dv));
-  if (!var2)
-    {
-      dataflow_set_different_value = true;
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "dataflow difference found: addition of:\n");
-	  dump_variable (var1);
-	}
-
-      /* Stop traversing the hash table.  */
-      return 0;
-    }
-
-  /* If both variables are defined they have been already checked for
-     equivalence.  */
-  gcc_assert (!variable_different_p (var1, var2, false));
-
-  /* Continue traversing the hash table.  */
-  return 1;
-}
-
 /* Return true if dataflow sets OLD_SET and NEW_SET differ.  */
 
 static bool
@@ -3889,14 +3923,9 @@ dataflow_set_different (dataflow_set *old_set, dataflow_set *new_set)
 
   htab_traverse (shared_hash_htab (old_set->vars), dataflow_set_different_1,
 		 shared_hash_htab (new_set->vars));
-  if (!dataflow_set_different_value)
-    {
-      /* We have compared the variables which are in both hash tables
-	 so now only check whether there are some variables in NEW_SET->VARS
-	 which are not in OLD_SET->VARS.  */
-      htab_traverse (shared_hash_htab (new_set->vars), dataflow_set_different_2,
-		     shared_hash_htab (old_set->vars));
-    }
+  /* No need to traverse the second hashtab, if both have the same number
+     of elements and the second one had all entries found in the first one,
+     then it can't have any extra entries.  */
   return dataflow_set_different_value;
 }
 
@@ -4969,15 +4998,11 @@ compute_bb_dataflow (basic_block bb)
 	  case MO_USE:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
-	      enum var_init_status status = VAR_INIT_STATUS_UNINITIALIZED;
-
-	      if (! flag_var_tracking_uninit)
-		status = VAR_INIT_STATUS_INITIALIZED;
 
 	      if (GET_CODE (loc) == REG)
-		var_reg_set (out, loc, status, NULL);
+		var_reg_set (out, loc, VAR_INIT_STATUS_UNINITIALIZED, NULL);
 	      else if (GET_CODE (loc) == MEM)
-		var_mem_set (out, loc, status, NULL);
+		var_mem_set (out, loc, VAR_INIT_STATUS_UNINITIALIZED, NULL);
 	    }
 	    break;
 
@@ -5032,15 +5057,12 @@ compute_bb_dataflow (basic_block bb)
 
 	      if (VAL_HOLDS_TRACK_EXPR (loc))
 		{
-		  enum var_init_status status = VAR_INIT_STATUS_UNINITIALIZED;
-
-		  if (! flag_var_tracking_uninit)
-		    status = VAR_INIT_STATUS_INITIALIZED;
-
 		  if (GET_CODE (uloc) == REG)
-		    var_reg_set (out, uloc, status, NULL);
+		    var_reg_set (out, uloc, VAR_INIT_STATUS_UNINITIALIZED,
+				 NULL);
 		  else if (GET_CODE (uloc) == MEM)
-		    var_mem_set (out, uloc, status, NULL);
+		    var_mem_set (out, uloc, VAR_INIT_STATUS_UNINITIALIZED,
+				 NULL);
 		}
 	    }
 	    break;
@@ -5102,10 +5124,12 @@ compute_bb_dataflow (basic_block bb)
 		      if (copied_p)
 			{
 			  if (flag_var_tracking_uninit)
-			    status = find_src_status (in, set_src);
+			    {
+			      status = find_src_status (in, set_src);
 
-			  if (status == VAR_INIT_STATUS_UNKNOWN)
-			    status = find_src_status (out, set_src);
+			      if (status == VAR_INIT_STATUS_UNKNOWN)
+				status = find_src_status (out, set_src);
+			    }
 
 			  set_src = find_src_set_src (in, set_src);
 			}
@@ -5160,10 +5184,12 @@ compute_bb_dataflow (basic_block bb)
 	      if (! flag_var_tracking_uninit)
 		src_status = VAR_INIT_STATUS_INITIALIZED;
 	      else
-		src_status = find_src_status (in, set_src);
+		{
+		  src_status = find_src_status (in, set_src);
 
-	      if (src_status == VAR_INIT_STATUS_UNKNOWN)
-		src_status = find_src_status (out, set_src);
+		  if (src_status == VAR_INIT_STATUS_UNKNOWN)
+		    src_status = find_src_status (out, set_src);
+		}
 
 	      set_src = find_src_set_src (in, set_src);
 
@@ -5635,6 +5661,9 @@ set_slot_part (dataflow_set *set, rtx loc, void **slot,
 
   var = (variable) *slot;
 
+  if (! flag_var_tracking_uninit)
+    initialized = VAR_INIT_STATUS_INITIALIZED;
+
   if (!var)
     {
       /* Create new variable information.  */
@@ -5906,10 +5935,8 @@ delete_slot_part (dataflow_set *set, rtx loc, void **slot, HOST_WIDE_INT offset)
 		   && REGNO (node->loc) == REGNO (loc))
 		  || rtx_equal_p (node->loc, loc))
 		{
-		  enum var_init_status status = VAR_INIT_STATUS_UNKNOWN;
-		  if (! flag_var_tracking_uninit)
-		    status = VAR_INIT_STATUS_INITIALIZED;
-		  var = unshare_variable (set, slot, var, status);
+		  var = unshare_variable (set, slot, var,
+					  VAR_INIT_STATUS_UNKNOWN);
 		  break;
 		}
 	    }
@@ -6066,9 +6093,6 @@ emit_note_insn_var_location (void **varp, void *data)
   decl = dv_as_decl (var->dv);
 
   gcc_assert (decl);
-
-  if (! flag_var_tracking_uninit)
-    initialized = VAR_INIT_STATUS_INITIALIZED;
 
   complete = true;
   last_limit = 0;
@@ -6408,14 +6432,11 @@ emit_notes_in_bb (basic_block bb)
 	  case MO_USE:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
-	      enum var_init_status status = VAR_INIT_STATUS_UNINITIALIZED;
 
-	      if (! flag_var_tracking_uninit)
-		status = VAR_INIT_STATUS_INITIALIZED;
 	      if (GET_CODE (loc) == REG)
-		var_reg_set (&set, loc, status, NULL);
+		var_reg_set (&set, loc, VAR_INIT_STATUS_UNINITIALIZED, NULL);
 	      else
-		var_mem_set (&set, loc, status, NULL);
+		var_mem_set (&set, loc, VAR_INIT_STATUS_UNINITIALIZED, NULL);
 
 	      emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN, set.vars);
 	    }
@@ -6474,15 +6495,12 @@ emit_notes_in_bb (basic_block bb)
 
 	      if (VAL_HOLDS_TRACK_EXPR (loc))
 		{
-		  enum var_init_status status = VAR_INIT_STATUS_UNINITIALIZED;
-
-		  if (! flag_var_tracking_uninit)
-		    status = VAR_INIT_STATUS_INITIALIZED;
-
 		  if (GET_CODE (uloc) == REG)
-		    var_reg_set (&set, uloc, status, NULL);
+		    var_reg_set (&set, uloc, VAR_INIT_STATUS_UNINITIALIZED,
+				 NULL);
 		  else if (GET_CODE (uloc) == MEM)
-		    var_mem_set (&set, uloc, status, NULL);
+		    var_mem_set (&set, uloc, VAR_INIT_STATUS_UNINITIALIZED,
+				 NULL);
 		}
 
 	      emit_notes_for_changes (insn, EMIT_NOTE_BEFORE_INSN, set.vars);
@@ -7079,6 +7097,11 @@ vt_finalize (void)
       BITMAP_FREE (scratch_regs);
       scratch_regs = NULL;
     }
+
+  if (vui_vec)
+    XDELETEVEC (vui_vec);
+  vui_vec = NULL;
+  vui_allocated = 0;
 }
 
 /* The entry point to variable tracking pass.  */
