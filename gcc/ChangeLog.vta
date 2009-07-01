@@ -1,5 +1,10 @@
 2009-07-01  Jakub Jelinek  <jakub@redhat.com>
 
+	* var-tracking.c (tie_break_pointers): Move earlier.
+	(canon_value_cmp): Likewise.  Add inline keyword.
+	(variable_union): Guard expensive assert with ENABLE_CHECKING.
+	(set_slot_part): Optimize search for onepart location in the chain.
+
 	* var-tracking.c (unshare_variable): Force initialized to
 	be VAR_INIT_STATUS_INITIALIZED unless flag_var_tracking_uninit.
 	(set_slot_part): Likewise.

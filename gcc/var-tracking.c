@@ -1104,6 +1104,41 @@ shared_hash_find (shared_hash vars, decl_or_value dv)
   return shared_hash_find_1 (vars, dv, dv_htab_hash (dv));
 }
 
+/* Determine a total order between two distinct pointers.  Compare the
+   pointers as integral types if size_t is wide enough, otherwise
+   resort to bitwise memory compare.  The actual order does not
+   matter, we just need to be consistent, so endianness is
+   irrelevant.  */
+
+static int
+tie_break_pointers (const void *p1, const void *p2)
+{
+  gcc_assert (p1 != p2);
+
+  if (sizeof (size_t) >= sizeof (void*))
+    return (size_t)p1 < (size_t)p2 ? -1 : 1;
+  else
+    return memcmp (&p1, &p2, sizeof (p1));
+}
+
+/* Return true if TVAL is better than CVAL as a canonival value.  We
+   choose lowest-numbered VALUEs, using the RTX address as a
+   tie-breaker.  The idea is to arrange them into a star topology,
+   such that all of them are at most one step away from the canonical
+   value, and the canonical value has backlinks to all of them, in
+   addition to all the actual locations.  We don't enforce this
+   topology throughout the entire dataflow analysis, though.
+ */
+
+static inline bool
+canon_value_cmp (rtx tval, rtx cval)
+{
+  return !cval
+    || CSELIB_VAL_PTR (tval)->value < CSELIB_VAL_PTR (cval)->value
+    || (CSELIB_VAL_PTR (tval)->value == CSELIB_VAL_PTR (cval)->value
+	&& tie_break_pointers (tval, cval) < 0);
+}
+
 static bool dst_can_be_shared;
 
 /* Return a copy of a variable VAR and insert it to dataflow set SET.  */
@@ -1774,8 +1809,10 @@ variable_union (void **slot, void *data)
 	      nnode->next = dnode;
 	      dnode = nnode;
 	    }
+#ifdef ENABLE_CHECKING
 	  else if (r == 0)
 	    gcc_assert (rtx_equal_p (dnode->loc, snode->loc));
+#endif
 
 	  if (r >= 0)
 	    snode = snode->next;
@@ -2317,41 +2354,6 @@ intersect_loc_chains (rtx val, location_chain *dest, struct dfset_merge *dsm,
 
 
     }
-}
-
-/* Determine a total order between two distinct pointers.  Compare the
-   pointers as integral types if size_t is wide enough, otherwise
-   resort to bitwise memory compare.  The actual order does not
-   matter, we just need to be consistent, so endianness is
-   irrelevant.  */
-
-static int
-tie_break_pointers (const void *p1, const void *p2)
-{
-  gcc_assert (p1 != p2);
-
-  if (sizeof (size_t) >= sizeof (void*))
-    return (size_t)p1 < (size_t)p2 ? -1 : 1;
-  else
-    return memcmp (&p1, &p2, sizeof (p1));
-}
-
-/* Return true if TVAL is better than CVAL as a canonival value.  We
-   choose lowest-numbered VALUEs, using the RTX address as a
-   tie-breaker.  The idea is to arrange them into a star topology,
-   such that all of them are at most one step away from the canonical
-   value, and the canonical value has backlinks to all of them, in
-   addition to all the actual locations.  We don't enforce this
-   topology throughout the entire dataflow analysis, though.
- */
-
-static bool
-canon_value_cmp (rtx tval, rtx cval)
-{
-  return !cval
-    || CSELIB_VAL_PTR (tval)->value < CSELIB_VAL_PTR (cval)->value
-    || (CSELIB_VAL_PTR (tval)->value == CSELIB_VAL_PTR (cval)->value
-	&& tie_break_pointers (tval, cval) < 0);
 }
 
 /* Return -1 if X should be before Y in a location list for a 1-part
@@ -5686,12 +5688,82 @@ set_slot_part (dataflow_set *set, rtx loc, void **slot,
 
       pos = 0;
 
-      for (nextp = &var->var_part[0].loc_chain; (node = *nextp);
-	   nextp = &node->next)
-	if ((r = loc_cmp (node->loc, loc)) >= 0)
-	  break;
-	else
-	  c++;
+      if (GET_CODE (loc) == VALUE)
+	{
+	  for (nextp = &var->var_part[0].loc_chain; (node = *nextp);
+	       nextp = &node->next)
+	    if (GET_CODE (node->loc) == VALUE)
+	      {
+		if (node->loc == loc)
+		  {
+		    r = 0;
+		    break;
+		  }
+		if (canon_value_cmp (node->loc, loc))
+		  c++;
+		else
+		  {
+		    r = 1;
+		    break;
+		  }
+	      }
+	    else if (REG_P (node->loc) || MEM_P (node->loc))
+	      c++;
+	    else
+	      {
+		r = 1;
+		break;
+	      }
+	}
+      else if (REG_P (loc))
+	{
+	  for (nextp = &var->var_part[0].loc_chain; (node = *nextp);
+	       nextp = &node->next)
+	    if (REG_P (node->loc))
+	      {
+		if (REGNO (node->loc) < REGNO (loc))
+		  c++;
+		else
+		  {
+		    if (REGNO (node->loc) == REGNO (loc))
+		      r = 0;
+		    else
+		      r = 1;
+		    break;
+		  }
+	      }
+	    else
+	      {
+		r = 1;
+		break;
+	      }
+	}
+      else if (MEM_P (loc))
+	{
+	  for (nextp = &var->var_part[0].loc_chain; (node = *nextp);
+	       nextp = &node->next)
+	    if (REG_P (node->loc))
+	      c++;
+	    else if (MEM_P (node->loc))
+	      {
+		if ((r = loc_cmp (XEXP (node->loc, 0), XEXP (loc, 0))) >= 0)
+		  break;
+		else
+		  c++;
+	      }
+	    else
+	      {
+		r = 1;
+		break;
+	      }
+	}
+      else
+	for (nextp = &var->var_part[0].loc_chain; (node = *nextp);
+	     nextp = &node->next)
+	  if ((r = loc_cmp (node->loc, loc)) >= 0)
+	    break;
+	  else
+	    c++;
 
       if (r == 0)
 	return;
