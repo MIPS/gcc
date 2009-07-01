@@ -1,6 +1,218 @@
+2009-06-25  Ian Lance Taylor  <iant@google.com>
+
+	* doc/invoke.texi (Option Summary): Mention -static-libstdc++.
+	(Link Options): Document -static-libstdc++.
+
+2009-06-25  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR target/38731
+	* config/rs6000/rs6000.c (LOCAL_ALIGNMENT): Redefine to just use
+	DATA_ALIGNMENT instead.
+
+2009-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1): Disambiguate
+	indirect references against the callused/escaped solutions.
+	(call_may_clobber_ref_p_1): Likewise.
+
+2009-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/40493
+	* tree-sra.c (sra_modify_expr): Correct BIT_FIELD_REF argument numbers.
+	(enum unscalarized_data_handling): New type.
+	(handle_unscalarized_data_in_subtree): Return what has been done.
+	(load_assign_lhs_subreplacements): Handle left flushes differently.
+	(sra_modify_assign): Use unscalarized_data_handling, simplified
+	condition determining whether to remove the statement.
+
+2009-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* doc/plugins.texi (Building GCC plugins): Correct typo in Makefile
+	excerpt - @ should be doubled for texinfo.
+
+2009-06-24  Ian Lance Taylor  <iant@google.com>
+
+	* config/arc/arc.c: Include "df.h".
+	(arc_attribute_table): Make static.  Move higher in file.
+	(arc_address_cost): Call SMALL_INT on INTVAL, not rtx.
+	(output_shift): Initialize n later to avoid warning.
+	* config/arm/arm.c (arm_attribute_table): Make static.  Move
+	higher in file.
+	* config/avr/avr.c (avr_attribute_table): Make static.  Move
+	higher in file.
+	(reg_class_tab): Change array type from int to enum reg_class.
+	(avr_jump_mode): Change GET_MODE to GET_CODE when checking for
+	LABEL_REF.
+	(out_tsthi, ashlhi3_out): Don't use AS2 with "or" or "and".
+	(lshrhi3_out): Likewise.
+	(class_likely_spilled_p): Change return type to bool.
+	(avr_rtx_costs): Use local code variable with enum type.
+	* config/avr/avr.md (movmemhi): Use add_reg_note.
+	(andhi3, andsi3): Don't use AS2 with "and".
+	(iorhi3, iorsi3): Don't use AS2 with "or".
+	* config/avr/avr-protos.h (class_likely_spilled_p): Update
+	declaration.
+	* config/crx/crx.c: Include "df.h".
+	(crx_attribute_table): Make static.
+	* config/m32r/m32r.c: Include "df.h".
+	(m32r_attribute_table): Make static.  Move higher in file.
+	(pop): Use add_reg_note.
+	(block_move_call): Change 0 to LCT_NORMAL in function call.
+	* config/m32r/m32r.md (movsi_insn): Remove unused local value.
+	* config/m32r/m32r.h (INITIALIZE_TRAMPOLINE): Likewise.
+	* config/m32r/m32r-protos.h (m32r_compute_function_type): Always
+	declare, not just when TREE_CODE is defined.
+	* config/m68hc11/m68hc11.c: Include "expr.h".
+	(m68hc11_attribute_table): Make static.  Move higher in file.
+	(m68hc11_small_indexed_indirect_p): Change 0 to VOIDmode in
+	function call.
+	(m68hc11_register_indirect_p): Likewise.
+	(m68hc11_function_arg_padding): Change return type to enum
+	direction.
+	(emit_move_after_reload): Use add_reg_note.
+	(m68hc11_emit_logical): Change code parameter to enum rtx_code.
+	(m68hc11_split_logical): Likewise.
+	(m68hc11_rtx_costs): Add local code_and outer_code variables with
+	enum type.
+	* config/m68hc11/predicates.md (reg_or_some_mem_operand): Change 0
+	to VOIDmode in function call.
+	* config/m68hc11/m68hc11-protos.h: Don't check TREE_CODE to see if
+	tree is defined.
+	(m68hc11_split_logical): Update declaration.
+	(m68hc11_function_arg_padding): Update declaration.
+	* config/mcore/mcore.c (regno_reg_class): Change form array of int
+	to array of enum reg_class.
+	(mcore_attribute_table): Make static.  Move higher in file.
+	(mcore_rtx_costs): Add cast to enum type.
+	* config/mcore/mcore.h (regno_reg_class): Update declaration.
+	(GO_IF_LEGITIMATE_INDEX): Add cast to avoid warning.
+	* config/sh/sh.c (sh_attribute_table): Make static.  Move higher
+	in file.
+	* config/sh/predicates.md (trapping_target_operand): Rename and to
+	and_expr.
+	* config/sparc/sparc.c (sparc_attribute_table): Make static.  Move
+	higher in file.
+	* config/spu/spu.c (spu_attribute_table): Make static.  Move
+	higher in file.
+	* config/v850/v850.c (v850_attribute_table): Make static.  Move
+	higher in file.
+	(v850_rtx_costs): Use local code with enum type.
+	(expand_epilogue): Add cast.
+	* config/v850/v850-c.c (ghs_pragma_section): Initialize repeat.
+
+2009-06-23  Takashi YOSHII  <yoshii.takashi@renesas.com>
+
+	PR target/40515
+	* doc/invoke.texi (SH Options): Document -m2a, -m2a-single,
+	-m2a-single-only and -m2a-nofpu.
+	* config/sh/sh.opt: Document m2a generates FPU code.  
+
+2009-06-24  Anatoly Sokolov  <aesok@post.ru>
+
+	* defaults.h (CAN_ELIMINATE): Provide default.
+	* doc/tm.texi (CAN_ELIMINATE): Revise documentation.
+	* config/alpha/alpha.h (CAN_ELIMINATE): Delete.
+	* config/m32c/m32c.h (CAN_ELIMINATE): Delete.
+	* config/spu/spu.h (CAN_ELIMINATE): Delete.
+	* config/xtensa/xtensa.h (CAN_ELIMINATE): Delete.
+	* config/moxie/moxie.h (CAN_ELIMINATE): Delete.
+	* config/cris/cris.h (CAN_ELIMINATE): Delete.
+	* config/mn10300/mn10300.h (CAN_ELIMINATE): Delete.
+	* config/pa/pa64-linux.h (CAN_ELIMINATE): Delete.
+	* config/mmix/mmix.h (CAN_ELIMINATE): Delete.
+
+2009-06-24  DJ Delorie  <dj@redhat.com>
+
+	* mep-ext-cop.cpu: Fix copyright notice.
+	* mep-default: Fix copyright notice.
+	* mep-core: Fix copyright notice.
+	* mep: Fix copyright notice.
+	* mep-ivc2: Fix copyright notice.
+	* mep-c5: Fix copyright notice.
+
+2009-06-24  Denis Chertykov  <chertykov@gmail.com>
+
+	* doc/contrib.texi (Contributors): 
+
+2009-06-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+	
+	PR middle-end/40501
+	* tree-ssa-math-opts.c (execute_optimize_bswap): Convert the bswap
+	src and dst operands if necessary.
+
+2009-06-23  DJ Delorie  <dj@redhat.com>
+
+	Add MeP port.
+	* config.gcc: Add mep support.
+	* recog.c: Resurrect validate_replace_rtx_subexp().
+	* recog.h: Likewise.
+	* config/mep/: Add new port:
+	* config/mep/constraints.md: New file.
+	* config/mep/default.h: New file.
+	* config/mep/intrinsics.h: New file.
+	* config/mep/intrinsics.md: New file.
+	* config/mep/ivc2-template.h: New file.
+	* config/mep/mep-c5.cpu: New file.
+	* config/mep/mep-core.cpu: New file.
+	* config/mep/mep-default.cpu: New file.
+	* config/mep/mep-ext-cop.cpu: New file.
+	* config/mep/mep-intrin.h: New file.
+	* config/mep/mep-ivc2.cpu: New file.
+	* config/mep/mep-lib1.asm: New file.
+	* config/mep/mep-lib2.c: New file.
+	* config/mep/mep-pragma.c: New file.
+	* config/mep/mep-protos.h: New file.
+	* config/mep/mep-tramp.c: New file.
+	* config/mep/mep.c: New file.
+	* config/mep/mep.cpu: New file.
+	* config/mep/mep.h: New file.
+	* config/mep/mep.md: New file.
+	* config/mep/mep.opt: New file.
+	* config/mep/predicates.md: New file.
+	* config/mep/t-mep: New file.
+
+2009-06-23  Ian Lance Taylor  <iant@google.com>
+
+	* configure.ac: Invoke AC_PROG_CXX.  Separate C specific warnings
+	from loose_warn into c_loose_warn and from strict_warn into
+	c_strict_warn.  Set and substitute warn_cxxflags.  Check for
+	--enable-build-with-cxx.  Set and substitute
+	ENABLE_BUILD_WITH_CXX.  Set and substitute HOST_LIBS.
+	* Makefile.in (CXXFLAGS): New variable.
+	(C_LOOSE_WARN, C_STRICT_WARN): New variables.
+	(GCC_WARN_CFLAGS): Add $(C_LOOSE_WARN).  Add $(C_STRICT_WARN) if
+	the default is the same as $(STRICT_WARN).
+	(GCC_WARN_CXXFLAGS, WARN_CXXFLAGS): New variables.
+	(CXX): New variable.
+	(COMPILER): New value if ENABLE_BUILD_WITH_CXX.
+	(COMPILER_FLAGS, LINKER, LINKER_FLAGS): Likewise.
+	(ALL_COMPILERFLAGS, ALL_LINKERFLAGS): Likewise.
+	(HOST_LIBS): New variable.
+	(GCC_CFLAGS): Add $(C_LOOSE_WARN).
+	(ALL_CXXFLAGS): New variable.
+	(LIBS, BACKENDLIBS): Add $(HOST_LIBS).
+	* doc/install.texi (Configuration): Document
+	--enable-build-with-cxx, --with-stage1-ldflags,
+	--with-stage1-libs, --with-boot-ldflags, --with-boot-libs.
+	* configure: Rebuild.
+
+2009-06-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.c (arm_override_options): Fix braces and formatting
+	from previous commit.
+
+2009-06-23  Ian Lance Taylor  <iant@google.com>
+
+	* Makefile.in ($(out_object_file)): Depend upon $(DF_H).
+
+2009-06-23  Ian Lance Taylor  <iant@google.com>
+
+	* reload.c (alternative_allows_const_pool_ref): Mark mem parameter
+	with ATTRIBUTE_UNUSED.
+
 2009-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Pat Haugen  <pthaugen@us.ibm.com>
-	    Revital1 Eres <ERES@il.ibm.com>
+	    Revital Eres  <eres@il.ibm.com>
 
 	* config.in (HAVE_AS_POPCNTD): Add default definition.
 	(HAVE_AS_LWSYNC): Ditto.
@@ -551,7 +763,7 @@
 	32 bits.
 	* config/arm/arm.md: Likewise.
 
-2009-06-19  Ian Lance Taylor  <ian@airs.com>
+2009-06-19  Ian Lance Taylor  <iant@google.com>
 
 	* tree-cfg.c (gimple_redirect_edge_and_branch): Change ERROR_MARK
 	to GIMPLE_ERROR_MARK.

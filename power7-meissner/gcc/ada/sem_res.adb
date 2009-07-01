@@ -3979,9 +3979,17 @@ package body Sem_Res is
          Check_Unset_Reference (Expression (E));
 
          --  A qualified expression requires an exact match of the type,
-         --  class-wide matching is not allowed.
+         --  class-wide matching is not allowed. We skip this test in a call
+         --  to a CPP constructor because in such case, although the function
+         --  profile indicates that it returns a class-wide type, the object
+         --  returned by the C++ constructor has a concrete type.
 
-         if (Is_Class_Wide_Type (Etype (Expression (E)))
+         if Is_Class_Wide_Type (Etype (Expression (E)))
+           and then Is_CPP_Constructor_Call (Expression (E))
+         then
+            null;
+
+         elsif (Is_Class_Wide_Type (Etype (Expression (E)))
               or else Is_Class_Wide_Type (Etype (E)))
            and then Base_Type (Etype (Expression (E))) /= Base_Type (Etype (E))
          then
@@ -9620,26 +9628,19 @@ package body Sem_Res is
             --------------------------
 
             function Full_Designated_Type (T : Entity_Id) return Entity_Id is
-               Desig : Entity_Id := Designated_Type (T);
+               Desig : constant Entity_Id := Designated_Type (T);
 
             begin
+               --  Handle the limited view of a type
+
                if Is_Incomplete_Type (Desig)
                  and then From_With_Type (Desig)
                  and then Present (Non_Limited_View (Desig))
                then
-                  Desig := Non_Limited_View (Desig);
-
-                  --  The shadow entity's non-limited view may designate an
-                  --  incomplete type.
-
-                  if Is_Incomplete_Type (Desig)
-                    and then Present (Full_View (Desig))
-                  then
-                     Desig := Full_View (Desig);
-                  end if;
+                  return Available_View (Desig);
+               else
+                  return Desig;
                end if;
-
-               return Desig;
             end Full_Designated_Type;
 
             --  Local Declarations

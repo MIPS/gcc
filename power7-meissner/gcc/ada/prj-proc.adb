@@ -84,11 +84,15 @@ package body Prj.Proc is
       Current_Dir               : String;
       When_No_Sources           : Error_Warning;
       Is_Config_File            : Boolean;
-      Compiler_Driver_Mandatory : Boolean);
+      Compiler_Driver_Mandatory : Boolean;
+      Allow_Duplicate_Basenames : Boolean);
    --  Set all projects to not checked, then call Recursive_Check for the
    --  main project Project. Project is set to No_Project if errors occurred.
    --  Current_Dir is for optimization purposes, avoiding extra system calls.
    --  Is_Config_File should be True if Project is a config file (.cgpr).
+   --  If Allow_Duplicate_Basenames, then files with the same base names are
+   --  authorized within a project for source-based languages (never for unit
+   --  based languages)
 
    procedure Copy_Package_Declarations
      (From              : Declarations;
@@ -154,6 +158,7 @@ package body Prj.Proc is
       Proc_Data                 : Processing_Data;
       Is_Config_File            : Boolean;
       Compiler_Driver_Mandatory : Boolean;
+      Allow_Duplicate_Basenames : Boolean;
    end record;
    --  Data passed to Recursive_Check
    --  Current_Dir is for optimization purposes, avoiding extra system calls.
@@ -280,12 +285,13 @@ package body Prj.Proc is
    -----------
 
    procedure Check
-     (In_Tree         : Project_Tree_Ref;
-      Project         : Project_Id;
-      Current_Dir     : String;
-      When_No_Sources : Error_Warning;
-      Is_Config_File  : Boolean;
-      Compiler_Driver_Mandatory : Boolean)
+     (In_Tree                   : Project_Tree_Ref;
+      Project                   : Project_Id;
+      Current_Dir               : String;
+      When_No_Sources           : Error_Warning;
+      Is_Config_File            : Boolean;
+      Compiler_Driver_Mandatory : Boolean;
+      Allow_Duplicate_Basenames : Boolean)
    is
       Dir : aliased String := Current_Dir;
 
@@ -300,6 +306,7 @@ package body Prj.Proc is
       Data.When_No_Sources           := When_No_Sources;
       Data.Is_Config_File            := Is_Config_File;
       Data.Compiler_Driver_Mandatory := Compiler_Driver_Mandatory;
+      Data.Allow_Duplicate_Basenames := Allow_Duplicate_Basenames;
 
       Initialize (Data.Proc_Data);
 
@@ -321,9 +328,8 @@ package body Prj.Proc is
             Source1 := Prj.Element (Iter);
             exit when Source1 = No_Source;
 
-            Name := Source1.Unit;
-
-            if Name /= No_Name then
+            if Source1.Unit /= No_Unit_Index then
+               Name := Source1.Unit.Name;
                Source2 := Unit_Htable.Get (Name);
 
                if Source2 = No_Source then
@@ -331,8 +337,6 @@ package body Prj.Proc is
 
                else
                   Unit_Htable.Remove (Name);
-                  Source1.Other_Part := Source2;
-                  Source2.Other_Part := Source1;
                end if;
             end if;
 
@@ -1255,16 +1259,17 @@ package body Prj.Proc is
 
       if not Is_Config_File then
          Process_Project_Tree_Phase_2
-           (In_Tree                => In_Tree,
-            Project                => Project,
-            Success                => Success,
-            From_Project_Node      => From_Project_Node,
-            From_Project_Node_Tree => From_Project_Node_Tree,
-            Report_Error           => Report_Error,
-            When_No_Sources        => When_No_Sources,
-            Current_Dir            => Current_Dir,
+           (In_Tree                   => In_Tree,
+            Project                   => Project,
+            Success                   => Success,
+            From_Project_Node         => From_Project_Node,
+            From_Project_Node_Tree    => From_Project_Node_Tree,
+            Report_Error              => Report_Error,
+            When_No_Sources           => When_No_Sources,
+            Current_Dir               => Current_Dir,
             Compiler_Driver_Mandatory => True,
-            Is_Config_File         => Is_Config_File);
+            Allow_Duplicate_Basenames => False,
+            Is_Config_File            => Is_Config_File);
       end if;
    end Process;
 
@@ -2319,7 +2324,8 @@ package body Prj.Proc is
       When_No_Sources           : Error_Warning := Error;
       Current_Dir               : String;
       Is_Config_File            : Boolean;
-      Compiler_Driver_Mandatory : Boolean)
+      Compiler_Driver_Mandatory : Boolean;
+      Allow_Duplicate_Basenames : Boolean)
    is
       Obj_Dir    : Path_Name_Type;
       Extending  : Project_Id;
@@ -2330,12 +2336,14 @@ package body Prj.Proc is
 
    begin
       Error_Report := Report_Error;
+
       Success := True;
 
       if Project /= No_Project then
          Check (In_Tree, Project, Current_Dir, When_No_Sources,
                 Is_Config_File            => Is_Config_File,
-                Compiler_Driver_Mandatory => Compiler_Driver_Mandatory);
+                Compiler_Driver_Mandatory => Compiler_Driver_Mandatory,
+                Allow_Duplicate_Basenames => Allow_Duplicate_Basenames);
       end if;
 
       --  If main project is an extending all project, set the object
@@ -2460,7 +2468,8 @@ package body Prj.Proc is
         (Project, Data.In_Tree, Error_Report, Data.When_No_Sources,
          Data.Current_Dir.all, Data.Proc_Data,
          Compiler_Driver_Mandatory => Data.Compiler_Driver_Mandatory,
-         Is_Config_File            => Data.Is_Config_File);
+         Is_Config_File            => Data.Is_Config_File,
+         Allow_Duplicate_Basenames => Data.Allow_Duplicate_Basenames);
    end Recursive_Check;
 
    -----------------------
@@ -2573,7 +2582,7 @@ package body Prj.Proc is
                return;
             end if;
 
-            Project := new Project_Data'(Empty_Project (In_Tree));
+            Project := new Project_Data'(Empty_Project);
             In_Tree.Projects := new Project_List_Element'
               (Project => Project,
                Next    => In_Tree.Projects);

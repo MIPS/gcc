@@ -1,3 +1,45 @@
+2009-06-25  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/warn/Wsign-compare-3.C: New testcase.
+
+2009-06-25  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/warn/Wunused-16.C: New testcase.
+
+2009-06-25  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/warn/skip-2.C: New testcase.
+
+2009-06-25  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.c-torture/execute/20090618-1.c: add dg-run and
+	dg-skip-if and move to ...
+	* gcc.dg/torture/20090618-1.c.
+
+2009-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/40493
+	* testsuite/gcc.c-torture/execute/pr40493.c: New test.
+
+2009-06-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40342
+	* g++.dg/template/overload10.C: New.
+
+2009-06-24  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/40427
+	* gfortran.dg/proc_ptr_comp_11.f90: New.
+
+2009-06-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/pr40501.c: New testcase.
+
+2009-06-23  DJ Delorie  <dj@redhat.com>
+
+	Add MeP port.
+	* lib/target-supports.exp: Add mep support (no profiling).
+
 2009-06-23  Steve Ellcey  <sje@cup.hp.com>
 
 	PR testsuite/39297
