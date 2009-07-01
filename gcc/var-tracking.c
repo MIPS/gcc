@@ -684,12 +684,8 @@ adjust_stack_reference (rtx mem, HOST_WIDE_INT adjustment)
 static inline bool
 dv_is_decl_p (decl_or_value dv)
 {
-  tree decl;
-
   if (!dv.ptr)
     return false;
-
-  decl = (tree)dv.ptr;
 
   if (GET_CODE ((rtx)dv.ptr) == VALUE)
     return false;
@@ -784,10 +780,9 @@ dv_from_value (rtx value)
   return dv;
 }
 
-static hashval_t
+static inline hashval_t
 dv_htab_hash (decl_or_value dv)
 {
-  gcc_assert (dv.ptr);
   if (dv_is_value_p (dv))
     return -(hashval_t)(CSELIB_VAL_PTR (dv_as_value (dv))->value);
   else
@@ -1882,6 +1877,33 @@ dataflow_set_union (dataflow_set *dst, dataflow_set *src)
 /* Whether the value is currently being expanded.  */
 #define VALUE_RECURSED_INTO(x) \
   (RTL_FLAG_CHECK1 ("VALUE_RECURSED_INTO", (x), VALUE)->used)
+/* Whether the value is in changed_variables hash table.  */
+#define VALUE_CHANGED(x) \
+  (RTL_FLAG_CHECK1 ("VALUE_CHANGED", (x), VALUE)->frame_related)
+/* Whether the decl is in changed_variables hash table.  */
+#define DECL_CHANGED(x) TREE_VISITED (x)
+
+/* Record that DV has been added into resp. removed from changed_variables
+   hashtable.  */
+
+static inline void
+set_dv_changed (decl_or_value dv, bool newv)
+{
+  if (dv_is_value_p (dv))
+    VALUE_CHANGED (dv_as_value (dv)) = newv;
+  else
+    DECL_CHANGED (dv_as_decl (dv)) = newv;
+}
+
+/* Return true if DV is present in changed_variables hash table.  */
+
+static inline bool
+dv_changed_p (decl_or_value dv)
+{
+  return (dv_is_value_p (dv)
+	  ? VALUE_CHANGED (dv_as_value (dv))
+	  : DECL_CHANGED (dv_as_decl (dv)));
+}
 
 /* Return a location list node whose loc is rtx_equal to LOC, in the
    location list of a one-part variable or value VAR, or in that of
@@ -3774,6 +3796,8 @@ track_expr_p (tree expr, bool need_rtl)
 	return 0;
     }
 
+  DECL_CHANGED (expr) = 0;
+  DECL_CHANGED (realdecl) = 0;
   return 1;
 }
 
@@ -5314,6 +5338,9 @@ variable_was_changed (variable var, htab_t htab)
     {
       void **slot;
 
+      /* Remember this decl or VALUE has been added to changed_variables.  */
+      set_dv_changed (var->dv, true);
+
       slot = htab_find_slot_with_hash (changed_variables,
 				       &var->dv,
 				       hash, INSERT);
@@ -5975,6 +6002,7 @@ emit_note_insn_var_location (void **varp, void *data)
     }
 
  clear:
+  set_dv_changed (var->dv, false);
   htab_clear_slot (changed_variables, varp);
 
   /* When there are no location parts the variable has been already
@@ -5997,14 +6025,11 @@ check_changed_value (rtx *loc, void *data)
 {
   rtx x = *loc;
   bool *changedp = (bool *)data;
-  decl_or_value dv;
 
   if (GET_CODE (x) != VALUE)
     return 0;
 
-  dv = dv_from_value (x);
-  if (!htab_find_slot_with_hash (changed_variables, &dv, dv_htab_hash (dv),
-				 NO_INSERT))
+  if (!VALUE_CHANGED (x))
     return 0;
 
   *changedp = true;
@@ -6025,8 +6050,7 @@ check_changed_var (void **slot, void *data)
   if (var->n_var_parts != 1 || !dv_onepart_p (var->dv))
     return 1;
 
-  if (htab_find_slot_with_hash (changed_variables, &var->dv,
-				dv_htab_hash (var->dv), NO_INSERT))
+  if (dv_changed_p (var->dv))
     return 1;
 
   if (!dv_is_value_p (var->dv)

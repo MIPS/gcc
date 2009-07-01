@@ -1,3 +1,16 @@
+2009-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (VALUE_CHANGED, DECL_CHANGED): Define.
+	(set_dv_changed, dv_changed_p): New static inlines.
+	(track_expr_p): Clear DECL_CHANGED.
+	(variable_was_changed): Call set_dv_changed.
+	(emit_note_insn_var_location): Likewise.
+	(check_changed_value): Use VALUE_CHANGED instead of hash table lookup.
+	(check_changed_var): Use dv_changed_p instead of hash table lookup.
+
+	(dv_is_decl_p): Remove useless decl variable.
+	(dv_htab_hash): Add inline keyword, remove useless assert.
+
 2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
 
 	Merged with trunk@148582.
