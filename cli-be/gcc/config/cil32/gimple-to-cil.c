@@ -42,6 +42,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "pointer-set.h"
+#include "c-common.h"
 
 #include "cil-builtins.h"
 #include "cil-refs.h"
@@ -244,6 +245,10 @@ gen_addr_expr (cil_stmt_iterator *csi, tree node)
 
 	csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
       }
+      break;
+
+    case COMPOUND_LITERAL_EXPR:
+      gen_addr_expr (csi, COMPOUND_LITERAL_EXPR_DECL (node));
       break;
 
     default:
@@ -2864,6 +2869,10 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 
     case LABEL_DECL:
       gcc_unreachable ();
+      break;
+
+    case COMPOUND_LITERAL_EXPR:
+      gimple_to_cil_node (csi, COMPOUND_LITERAL_EXPR_DECL (node));
       break;
 
     case INIT_EXPR:
