@@ -917,7 +917,11 @@ dump_string_decl (FILE *file, tree t)
 	{
 	case '\n': fprintf (file, "\\n"); break;
 	case '"':  fprintf (file, "\"");  break;
-	default:   fputc (str[i], file);  break;
+	default:
+	  if (ISPRINT (str[i]))
+	    fputc (str[i], file);
+	  else
+	    fprintf (file, "\\x%x", str[i]);
 	}
     }
 
