@@ -1,3 +1,185 @@
+2009-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (value_chain, const_value_chain): New typedefs.
+	(value_chain_pool, value_chains): New variables.
+	(value_chain_htab_hash, value_chain_htab_eq, add_value_chain,
+	add_value_chains, add_cselib_value_chains, remove_value_chain,
+	remove_value_chains, remove_cselib_value_chains): New functions.
+	(dataflow_set_preserve_mem_locs, dataflow_set_remove_mem_locs,
+	set_slot_part, delete_slot_part, emit_notes_for_differences_1,
+	emit_notes_for_differences_2): Call
+	{add,remove}_{,cselib_}_value_chain* when needed.
+	(check_changed_value, check_changed_var): Removed.
+	(changed_variables_stack): New variable.
+	(check_changed_vars_1, check_changed_vars_2): New functions.
+	(emit_notes_for_changes): Do nothing if changed_variables is
+	empty.  Traverse changed_variables with check_changed_vars_1
+	instead of htab with check_changed_var, call check_changed_vars_2
+	on each changed_variables_stack entry.
+	(emit_notes_in_bb): Add SET argument.  Just clear it at the
+	beginning, use it instead of local &set, don't destroy it at the
+	end.
+	(vt_emit_notes): Call dataflow_set_clear early on all
+	VTI(bb)->out sets, never use them, instead use emit_notes_in_bb
+	computed set, dataflow_set_clear also VTI(bb)->in when we are
+	done with the basic block.  Initialize changed_variables_stack,
+	free it afterwards.  If ENABLE_CHECKING verify that after noting
+	differences to an empty set value_chains hash table is empty.
+	(vt_initialize): Initialize value_chains and value_chain_pool.
+	(vt_finalize): Delete value_chains htab, free value_chain_pool.
+	(variable_tracking_main): Call dump_dataflow_sets before calling
+	vt_emit_notes, not after it.
+
+	* var-tracking.c (tie_break_pointers): Move earlier.
+	(canon_value_cmp): Likewise.  Add inline keyword.
+	(variable_union): Guard expensive assert with ENABLE_CHECKING.
+	(set_slot_part): Optimize search for onepart location in the chain.
+
+	* var-tracking.c (unshare_variable): Force initialized to
+	be VAR_INIT_STATUS_INITIALIZED unless flag_var_tracking_uninit.
+	(set_slot_part): Likewise.
+	(struct variable_union_info): Remove pos_src field.
+	(vui_vec, vui_allocated): New variables.
+	(variable_union): Pass VAR_INIT_STATUS_UNKNOWN to unshare_variable
+	unconditionally.  Avoid XCVECNEW/free for every sorting, for dst_l
+	== 1 use a simpler sorting algorithm.  Compute pos field right
+	away, don't fill in pos_src.  For dst_l == 2 avoid qsort.
+	Avoid quadratic comparison if !flag_var_tracking_uninit.
+	(variable_canonicalize): Pass VAR_INIT_STATUS_UNKNOWN to
+	unshare_variable unconditionally.   
+	(dataflow_set_different_2): Removed.
+	(dataflow_set_different): Don't traverse second hash table.
+	(compute_bb_dataflow): Pass VAR_INIT_STATUS_UNINITIALIZED
+	unconditionally to var_reg_set or var_mem_set.
+	(emit_notes_in_bb): Likewise.
+	(delete_slot_part): Pass VAR_INIT_STATUS_UNKNOWN to
+	unshare_variable.
+	(emit_note_insn_var_location): Don't set initialized to
+	VAR_INIT_STATUS_INITIALIZED early.
+	(vt_finalize): Free vui_vec if needed, clear vui_vec and
+	vui_allocated.
+
+	* var-tracking.c (decl_or_value): Change from struct to just void *
+	typedef.
+	(struct shared_hash_def, shared_hash): New types.
+	(dataflow_set): Change vars type from htab_t to shared_hash.
+	Add traversed_vars.
+	(shared_hash_pool, empty_shared_hash): New variables.
+	(dv_is_decl_p, dv_is_value_p, dv_as_decl, dv_as_value,
+	dv_as_opaque, dv_from_decl, dv_from_value): Adjust for decl_or_value
+	changes.
+	(variable_htab_eq): Don't expect y to be a pointer to decl_or_value,
+	but decl_or_value itself.
+	(vars_clear): Removed.
+	(shared_hash_shared, shared_hash_htab, shared_hash_copy,
+	shared_hash_find_slot_unshare, shared_hash_find_slot,
+	shared_hash_find_slot_noinsert, shared_hash_find,
+	shared_hash_find_slot_unshare_1, shared_hash_find_slot_1,
+	shared_hash_find_slot_noinsert_1, shared_hash_find_1): New
+	static inlines.
+	(shared_hash_unshare, shared_hash_destroy): New functions.
+	(dst_can_be_shared): New variable.
+	(unshare_variable): Add set argument.  Unshare set->vars if shared,
+	use shared_hash_*.  Clear dst_can_be_shared.  If set->traversed_vars
+	is non-NULL and different from set->vars, look up slot again instead
+	of using the passed in slot.
+	(vars_copy_1): Pass src->dv to htab_find* instead of &src->dv.
+	(vars_copy): Use htab_traverse_noresize instead of htab_traverse.
+	(get_init_value, find_src_set_src, dump_dataflow_set,
+	clobber_variable_part, emit_notes_for_differences, val_reset): Use
+	shared_hash_*.
+	(dataflow_set_init): Remove second argument, set vars to
+	empty_shared_hash instead of creating a new htab.
+	(dataflow_set_clear): Call shared_hash_destroy and set vars
+	to empty_shared_hash instead of calling vars_clear.
+	(dataflow_set_copy): Don't call vars_copy, instead just share
+	the src htab with dst.
+	(variable_union): Use shared_hash_*, use initially NO_INSERT
+	lookup if set->vars is shared.  Don't keep slot cleared before
+	calling unshare_variable.  Unshare set->vars if needed.  Adjust
+	unshare_variable callers.  Clear dst_can_be_shared if needed.
+	Even ->refcount == 1 vars must be unshared if set->vars is shared
+	and var needs to be modified.
+	(variable_canonicalize): New function.
+	(dataflow_set_union): If dst->vars is empty, just share src->vars
+	with dst->vars and traverse with variable_canonicalize to canonicalize
+	and unshare what is needed.
+	(find_loc_in_1pdv, find_mem_expr_in_1pdv, vt_expand_loc_callback): Use
+	htab_find_with_hash instead of htab_find_slot_with_hash, pass dv to
+	it instead of &dv.
+	(struct dfset_merge): Add src_onepart_cnt field.
+	(intersect_loc_chains, canonicalize_values_mark,
+	canonicalize_values_star): Use shared_hash_*.
+	(variable_merge_over_cur): Likewise.  Clear dst_can_be_shared if
+	needed.  Decrement dsm->src_onepart_cnt if s2var found.  Prefer
+	s2var over s1var when not different.
+	(variable_merge_over_src): Call variable_canonicalize after inserting
+	the var into the hashtable instead of calling variable_union.
+	For onepart dv increment dsm->src_onepart_cnt.
+	(dataflow_set_merge): Create a new unshared empty hashtab for src,
+	traverse first with variable_merge_over_src and then with
+	variable_merge_over_cur, set dst_can_be_shared if dsm.src_onepart_cnt
+	is non-zero.
+	(dataflow_set_equiv_regs, variable_post_merge_perm_vals,
+	dataflow_post_merge_adjust): Use shared_hash_*.
+	(variable_post_merge_new_vals): Likewise.  Adjust unshare_variable and
+	dataflow_set_init callers.
+	(dataflow_set_preserve_mem_locs, dataflow_set_remove_mem_locs): Use
+	shared_hash_*.  Adjust unshare_variable and variable_was_changed
+	callers.
+	(dataflow_set_clear_at_call): Use shared_hash_*.
+	(dataflow_set_different_1): Pass var1->dv instead of &var1->dv to
+	htab_find_with_hash.
+	(dataflow_set_different): If old_set and new_set use the same shared
+	htab, they aren't different.  If number of htab elements is different,
+	htabs are different.  Use shared_hash_*.
+	(dataflow_set_destroy): Call shared_hash_destroy instead of
+	htab_delete.
+	(compute_bb_dataflow, emit_notes_in_bb, vt_emit_notes): Don't pass
+	second argument to dataflow_set_init.
+	(vt_initialize): Likewise.  Initialize shared_hash_pool and
+	empty_shared_hash, move bb in/out initialization afterwards.
+	Use variable_htab_free instead of NULL as changed_variables del hook.
+	(vt_find_locations): Use shared_hash_*.  Use htab_size
+	and htab_elements instead of ->size and ->n_elements.  Remove code
+	to print out differences with -fdump-rtl-vartrack-details.  Initialize
+	dst_can_be_shared, if it is true after merges and adjust, share
+	in->vars with first_out->out->vars.
+	(variable_was_changed): Change type of second argument to pointer to
+	dataflow_set.  When inserting var into changed_variables, bump
+	refcount.  Unshare set->vars if set is shared htab and slot needs to
+	be cleared.  Call htab_find_slot_with_hash with var->dv instead of
+	&var->dv.
+	(set_slot_part): Use shared_hash_*.  Unshare set->vars if needed.
+	Even ->refcount == 1 vars must be unshared if set->vars is shared
+	and var needs to be modified.  Adjust variable_was_changed caller.
+	(set_variable_part): Use shared_hash_*.  If iopt is INSERT, unshare
+	set->vars if shared and dv hasn't been found.
+	(delete_slot_part): Use shared_hash_*.  Even ->refcount == 1
+	vars must be unshared if set->vars is shared and var needs to be
+	modified.  Adjust variable_was_changed caller.
+	(delete_variable_part): Use shared_hash_*.
+	(emit_note_insn_var_location): Don't pool_free var.
+	(emit_notes_for_changes): Change last argument to shared_hash.
+	(emit_notes_for_differences_1): Initialize empty_var->refcount to 0
+	instead of 1.  Pass old_var->dv instead of &old_var->dv to
+	htab_find_with_hash.
+	(emit_notes_for_differences_2): Pass new_var->dv instead of
+	&new_var->dv to htab_find_with_hash.
+	(vt_finalize): Call htab_delete on empty_shared_hash->htab and
+	free_alloc_pool on shared_hash_pool.
+
+	* var-tracking.c (VALUE_CHANGED, DECL_CHANGED): Define.
+	(set_dv_changed, dv_changed_p): New static inlines.
+	(track_expr_p): Clear DECL_CHANGED.
+	(variable_was_changed): Call set_dv_changed.
+	(emit_note_insn_var_location): Likewise.
+	(check_changed_value): Use VALUE_CHANGED instead of hash table lookup.
+	(check_changed_var): Use dv_changed_p instead of hash table lookup.
+
+	(dv_is_decl_p): Remove useless decl variable.
+	(dv_htab_hash): Add inline keyword, remove useless assert.
+
 2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
 
 	Merged with gcc-4_4-branch@148582.
