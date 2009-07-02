@@ -2707,7 +2707,7 @@ find_param_candidates (void)
 }
 
 static bool
-mark_maybe_modified (tree ref ATTRIBUTE_UNUSED, tree vdef ATTRIBUTE_UNUSED,
+mark_maybe_modified (ao_ref *ao_ref ATTRIBUTE_UNUSED, tree ref ATTRIBUTE_UNUSED,
 		     void *data)
 {
   struct access *repr = (struct access *) data;
@@ -2745,9 +2745,10 @@ analyze_modified_params (VEC (access_p, heap) *representatives)
       for (j = 0; j < access_count; j++)
 	{
 	  struct access *access;
+          ao_ref refd;
 	  access = VEC_index (access_p, access_vec, j);
-
-	  walk_aliased_vdefs (access->expr, gimple_vuse (access->stmt),
+	  ao_ref_init (&refd, access->expr);
+	  walk_aliased_vdefs (&refd, gimple_vuse (access->stmt),
 			      mark_maybe_modified, repr, NULL);
 	  if (repr->grp_maybe_modified)
 	    break;
