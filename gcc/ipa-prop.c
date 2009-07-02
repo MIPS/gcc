@@ -1474,7 +1474,7 @@ ipa_modify_formal_parameters (tree fndecl, VEC (ipa_parm_note_t, heap) *notes,
 	  if (care_for_types)
 	    new_arg_types = tree_cons (NULL_TREE, ptype, new_arg_types);
 
-	  new_parm = build_decl (PARM_DECL, NULL_TREE, ptype);
+	  new_parm = build_decl (UNKNOWN_LOCATION, PARM_DECL, NULL_TREE, ptype);
 	  DECL_NAME (new_parm) = create_tmp_var_name (synth_parm_prefix);
 
 	  DECL_ARTIFICIAL (new_parm) = 1;

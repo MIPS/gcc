@@ -278,7 +278,6 @@ function_and_variable_visibility (void)
 	  TREE_PUBLIC (node->decl) = 0;
 	  DECL_COMDAT (node->decl) = 0;
 	  DECL_WEAK (node->decl) = 0;
-	  DECL_ONE_ONLY (node->decl) = 0;
 	}
       node->local.local = (!node->needed
 			   && node->analyzed
