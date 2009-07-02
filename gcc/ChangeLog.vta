@@ -1,3 +1,13 @@
+2009-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): For SUBREG punt if inner
+	mode size is wider than DWARF2_ADDR_SIZE.  Handle SIGN_EXTEND
+	and ZERO_EXTEND by DW_OP_shl and DW_OP_shr{a,}.  Handle
+	EQ, NE, GT, GE, LT, LE, GTU, GEU, LTU, LEU, SMIN, SMAX, UMIN
+	and UMAX.
+	(loc_descriptor): Compare mode size with DWARF2_ADDR_SIZE
+	instead of Pmode size.
+
 2009-07-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* var-tracking.c (value_chain, const_value_chain): New typedefs.
