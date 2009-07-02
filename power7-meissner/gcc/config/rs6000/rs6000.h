@@ -3175,6 +3175,7 @@ enum rs6000_builtins
   RS6000_BUILTIN_RECIP,
   RS6000_BUILTIN_RECIPF,
   RS6000_BUILTIN_RSQRTF,
+  RS6000_BUILTIN_BSWAP_HI,
 
   /* VSX builtins.  */
   VSX_BUILTIN_LXSDUX,
@@ -3388,7 +3389,6 @@ enum rs6000_builtins
 
   /* Power7 builtins, that aren't VSX instructions.  */
   POWER7_BUILTIN_BPERMD,
-  RS6000_BUILTIN_BSWAP_HI,
 
   RS6000_BUILTIN_COUNT
 };
