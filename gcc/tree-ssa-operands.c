@@ -639,7 +639,7 @@ add_virtual_operand (gimple stmt ATTRIBUTE_UNUSED, int flags)
     return;
 
   gcc_assert ((flags & opf_debug_use) == 0);
-  
+
   if (flags & opf_def)
     append_vdef (gimple_vop (cfun));
   else

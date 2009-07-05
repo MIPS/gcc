@@ -497,7 +497,7 @@ stack_adjust_offset_pre_post (rtx pattern, HOST_WIDE_INT *pre,
       code = GET_CODE (src);
       if (! (code == PLUS || code == MINUS)
 	  || XEXP (src, 0) != stack_pointer_rtx
-	  || GET_CODE (XEXP (src, 1)) != CONST_INT)
+	  || !CONST_INT_P (XEXP (src, 1)))
 	return;
 
       if (code == MINUS)
@@ -520,7 +520,7 @@ stack_adjust_offset_pre_post (rtx pattern, HOST_WIDE_INT *pre,
 	      rtx val = XEXP (XEXP (src, 1), 1);
 	      /* We handle only adjustments by constant amount.  */
 	      gcc_assert (GET_CODE (XEXP (src, 1)) == PLUS &&
-			  GET_CODE (val) == CONST_INT);
+			  CONST_INT_P (val));
 	      
 	      if (code == PRE_MODIFY)
 		*pre -= INTVAL (val);
@@ -5197,9 +5197,9 @@ compute_bb_dataflow (basic_block bb)
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
 
-	      if (GET_CODE (loc) == REG)
+	      if (REG_P (loc))
 		var_reg_set (out, loc, VAR_INIT_STATUS_UNINITIALIZED, NULL);
-	      else if (GET_CODE (loc) == MEM)
+	      else if (MEM_P (loc))
 		var_mem_set (out, loc, VAR_INIT_STATUS_UNINITIALIZED, NULL);
 	    }
 	    break;
@@ -6434,17 +6434,16 @@ emit_note_insn_var_location (void **varp, void *data)
 	    }
 	  else if (MEM_P (loc[n_var_parts])
 		   && GET_CODE (XEXP (loc2, 0)) == PLUS
-		   && GET_CODE (XEXP (XEXP (loc2, 0), 0)) == REG
-		   && GET_CODE (XEXP (XEXP (loc2, 0), 1)) == CONST_INT)
+		   && REG_P (XEXP (XEXP (loc2, 0), 0))
+		   && CONST_INT_P (XEXP (XEXP (loc2, 0), 1)))
 	    {
-	      if ((GET_CODE (XEXP (loc[n_var_parts], 0)) == REG
+	      if ((REG_P (XEXP (loc[n_var_parts], 0))
 		   && rtx_equal_p (XEXP (loc[n_var_parts], 0),
 				   XEXP (XEXP (loc2, 0), 0))
 		   && INTVAL (XEXP (XEXP (loc2, 0), 1))
 		      == GET_MODE_SIZE (mode))
 		  || (GET_CODE (XEXP (loc[n_var_parts], 0)) == PLUS
-		      && GET_CODE (XEXP (XEXP (loc[n_var_parts], 0), 1))
-			 == CONST_INT
+		      && CONST_INT_P (XEXP (XEXP (loc[n_var_parts], 0), 1))
 		      && rtx_equal_p (XEXP (XEXP (loc[n_var_parts], 0), 0),
 				      XEXP (XEXP (loc2, 0), 0))
 		      && INTVAL (XEXP (XEXP (loc[n_var_parts], 0), 1))
@@ -6753,7 +6752,7 @@ emit_notes_in_bb (basic_block bb, dataflow_set *set)
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
 
-	      if (GET_CODE (loc) == REG)
+	      if (REG_P (loc))
 		var_reg_set (set, loc, VAR_INIT_STATUS_UNINITIALIZED, NULL);
 	      else
 		var_mem_set (set, loc, VAR_INIT_STATUS_UNINITIALIZED, NULL);
@@ -6918,10 +6917,10 @@ emit_notes_in_bb (basic_block bb, dataflow_set *set)
 		}
 
 	      if (REG_P (loc))
-		var_reg_delete_and_set (set, loc, true, VAR_INIT_STATUS_INITIALIZED, 
+		var_reg_delete_and_set (set, loc, true, VAR_INIT_STATUS_INITIALIZED,
 					set_src);
 	      else
-		var_mem_delete_and_set (set, loc, true, VAR_INIT_STATUS_INITIALIZED, 
+		var_mem_delete_and_set (set, loc, true, VAR_INIT_STATUS_INITIALIZED,
 					set_src);
 
 	      emit_notes_for_changes (NEXT_INSN (insn), EMIT_NOTE_BEFORE_INSN,

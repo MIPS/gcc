@@ -276,7 +276,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
   rtx x = CONST_CAST_RTX ((const_rtx)x_arg);
   enum machine_mode mode = GET_MODE (x);
 
-  gcc_assert (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
+  gcc_assert (!CONST_INT_P (x) && GET_CODE (x) != CONST_FIXED
 	      && (mode != VOIDmode || GET_CODE (x) != CONST_DOUBLE));
   
   if (mode != GET_MODE (v->val_rtx))
@@ -284,7 +284,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
 
   /* Unwrap X if necessary.  */
   if (GET_CODE (x) == CONST
-      && (GET_CODE (XEXP (x, 0)) == CONST_INT
+      && (CONST_INT_P (XEXP (x, 0))
 	  || GET_CODE (XEXP (x, 0)) == CONST_FIXED
 	  || GET_CODE (XEXP (x, 0)) == CONST_DOUBLE))
     x = XEXP (x, 0);
@@ -1205,7 +1205,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 	    print_rtl_single (dump_file, orig);
 	    fputs (" into...", dump_file);
 	  }
-	
+
 	if (!evd->callback)
 	  result = NULL;
 	else

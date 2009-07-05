@@ -6287,6 +6287,13 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
       /* We used the operator token.  */
       cp_lexer_consume_token (parser->lexer);
 
+      /* For "false && x" or "true || x", x will never be executed;
+	 disable warnings while evaluating it.  */
+      if (tree_type == TRUTH_ANDIF_EXPR)
+	c_inhibit_evaluation_warnings += lhs == truthvalue_false_node;
+      else if (tree_type == TRUTH_ORIF_EXPR)
+	c_inhibit_evaluation_warnings += lhs == truthvalue_true_node;
+
       /* Extract another operand.  It may be the RHS of this expression
 	 or the LHS of a new, higher priority expression.  */
       rhs = cp_parser_simple_cast_expression (parser);
@@ -6331,6 +6338,12 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
 	  lhs = sp->lhs;
 	  lhs_type = sp->lhs_type;
 	}
+
+      /* Undo the disabling of warnings done above.  */
+      if (tree_type == TRUTH_ANDIF_EXPR)
+	c_inhibit_evaluation_warnings -= lhs == truthvalue_false_node;
+      else if (tree_type == TRUTH_ORIF_EXPR)
+	c_inhibit_evaluation_warnings -= lhs == truthvalue_true_node;
 
       overloaded_p = false;
       /* ??? Currently we pass lhs_type == ERROR_MARK and rhs_type ==
@@ -14098,6 +14111,7 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
   tree parameters = NULL_TREE;
   tree *tail = &parameters; 
   bool saved_in_unbraced_linkage_specification_p;
+  int index = 0;
 
   /* Assume all will go well.  */
   *is_error = false;
@@ -14148,6 +14162,12 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 			       0);
       if (DECL_NAME (decl))
 	decl = pushdecl (decl);
+
+      if (decl != error_mark_node)
+	{
+	  retrofit_lang_decl (decl);
+	  DECL_PARM_INDEX (decl) = ++index;
+	}
 
       /* Add the new parameter to the list.  */
       *tail = build_tree_list (parameter->default_argument, decl);

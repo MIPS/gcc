@@ -392,14 +392,6 @@ fconserve-stack
 Common Var(flag_conserve_stack) Optimization
 Do not perform optimizations increasing noticeably stack usage
 
-fcompare-debug=
-Common JoinedOrMissing RejectNegative Var(flag_compare_debug_opt)
--fcompare-debug[=<opts>] Compile with and without e.g. -gtoggle, and compare the final-insns dump
-
-fcompare-debug-second
-Common RejectNegative Var(flag_compare_debug)
-Run only the second compilation of -fcompare-debug
-
 fcprop-registers
 Common Report Var(flag_cprop_registers) Optimization
 Perform a register copy-propagation optimization pass
@@ -485,10 +477,6 @@ Suppress output of previous and next insn numbers in debugging dumps
 fdwarf2-cfi-asm
 Common Report Var(flag_dwarf2_cfi_asm) Init(HAVE_GAS_CFI_DIRECTIVE)
 Enable CFI tables via GAS assembler directives.
-
-fdump-unnumbered-links
-Common Report Var(flag_dump_unnumbered_links) VarExists
-Suppress output of previous and next insn numbers in debugging dumps
 
 fearly-inlining
 Common Report Var(flag_early_inlining) Init(1) Optimization
@@ -1077,8 +1065,8 @@ Common Report Var(flag_section_anchors) Optimization
 Access data in the same section from shared anchor points
 
 fsee
-Common Report Var(flag_see) Init(0)
-Eliminate redundant sign extensions using LCM.
+Common
+Does nothing.  Preserved for backward compatibility.
 
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)

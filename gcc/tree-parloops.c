@@ -1255,7 +1255,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 
   if (has_debug_stmt)
     for (i = 0; VEC_iterate (basic_block, body, i, bb); i++)
-      if (bb != entry_bb && bb != exit_bb) 
+      if (bb != entry_bb && bb != exit_bb)
 	{
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	    {

@@ -401,6 +401,11 @@ statement_sink_location (gimple stmt, basic_block frombb,
 	  || sinkbb->loop_father != frombb->loop_father)
 	return false;
 
+      /* Move the expression to a post dominator can't reduce the number of
+         executions.  */
+      if (dominated_by_p (CDI_POST_DOMINATORS, frombb, sinkbb))
+        return false;
+
       *togsi = gsi_for_stmt (use);
 
       adjust_debug_stmts_for_move (stmt, sinkbb, togsi);
@@ -429,6 +434,11 @@ statement_sink_location (gimple stmt, basic_block frombb,
     return false;
   if (sinkbb == frombb || sinkbb->loop_depth > frombb->loop_depth
       || sinkbb->loop_father != frombb->loop_father)
+    return false;
+
+  /* Move the expression to a post dominator can't reduce the number of
+     executions.  */
+  if (dominated_by_p (CDI_POST_DOMINATORS, frombb, sinkbb))
     return false;
 
   *togsi = gsi_after_labels (sinkbb);

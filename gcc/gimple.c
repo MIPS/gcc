@@ -839,7 +839,7 @@ gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
 {
   gimple p = gimple_build_with_ops_stat (GIMPLE_DEBUG, VAR_DEBUG_VALUE, 2
 					 PASS_MEM_STAT);
-  
+
   gimple_debug_bind_set_var (p, var);
   gimple_debug_bind_set_value (p, value);
   if (stmt)
@@ -850,7 +850,7 @@ gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
 
   return p;
 }
-   
+
 
 /* Build a GIMPLE_OMP_CRITICAL statement.
 
@@ -3295,7 +3295,7 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
       if (visit_addr
 	  && gimple_call_return_slot_opt_p (stmt)
 	  && gimple_call_lhs (stmt) != NULL_TREE
-	  && TREE_ADDRESSABLE (gimple_call_lhs (stmt)))
+	  && TREE_ADDRESSABLE (TREE_TYPE (gimple_call_lhs (stmt))))
 	ret |= visit_addr (stmt, gimple_call_lhs (stmt), data);
     }
   else if (gimple_code (stmt) == GIMPLE_ASM)

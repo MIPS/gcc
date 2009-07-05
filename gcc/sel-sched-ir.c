@@ -2530,7 +2530,7 @@ setup_id_lhs_rhs (idata_t id, insn_t insn, bool force_unique_p)
 {
   rtx pat = PATTERN (insn);
   
-  if (GET_CODE (insn) == INSN
+  if (NONJUMP_INSN_P (insn)
       && GET_CODE (pat) == SET 
       && !force_unique_p)
     {

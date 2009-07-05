@@ -2098,7 +2098,7 @@ round_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
 rtx
 wrap_constant (enum machine_mode mode, rtx x)
 {
-  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
+  if (!CONST_INT_P (x) && GET_CODE (x) != CONST_FIXED
       && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
     return x;
   gcc_assert (mode != VOIDmode);
@@ -2115,7 +2115,7 @@ unwrap_constant (rtx x)
     return x;
 
   x = XEXP (x, 0);
-  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
+  if (!CONST_INT_P (x) && GET_CODE (x) != CONST_FIXED
       && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
     return orig;
 

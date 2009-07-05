@@ -873,7 +873,7 @@ push_local_name (tree decl)
 	{
 	  if (!DECL_LANG_SPECIFIC (decl))
 	    retrofit_lang_decl (decl);
-	  DECL_LANG_SPECIFIC (decl)->decl_flags.u2sel = 1;
+	  DECL_LANG_SPECIFIC (decl)->u.base.u2sel = 1;
 	  if (DECL_LANG_SPECIFIC (t))
 	    DECL_DISCRIMINATOR (decl) = DECL_DISCRIMINATOR (t) + 1;
 	  else
@@ -915,6 +915,17 @@ decls_match (tree newdecl, tree olddecl)
       tree f2 = TREE_TYPE (olddecl);
       tree p1 = TYPE_ARG_TYPES (f1);
       tree p2 = TYPE_ARG_TYPES (f2);
+
+      /* Specializations of different templates are different functions
+	 even if they have the same type.  */
+      tree t1 = (DECL_USE_TEMPLATE (newdecl)
+		 ? DECL_TI_TEMPLATE (newdecl)
+		 : NULL_TREE);
+      tree t2 = (DECL_USE_TEMPLATE (olddecl)
+		 ? DECL_TI_TEMPLATE (olddecl)
+		 : NULL_TREE);
+      if (t1 != t2)
+	return 0;
 
       if (CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl)
 	  && ! (DECL_EXTERN_C_P (newdecl)
@@ -1098,7 +1109,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   unsigned olddecl_uid = DECL_UID (olddecl);
   int olddecl_friend = 0, types_match = 0, hidden_friend = 0;
   int new_defines_function = 0;
-  tree new_template;
+  tree new_template_info;
 
   if (newdecl == olddecl)
     return olddecl;
@@ -1775,9 +1786,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 	  DECL_SOURCE_LOCATION (newdecl) = DECL_SOURCE_LOCATION (olddecl);
-	  if (CAN_HAVE_FULL_LANG_DECL_P (newdecl)
-	      && DECL_LANG_SPECIFIC (newdecl)
-	      && DECL_LANG_SPECIFIC (olddecl))
+	  if (TREE_CODE (newdecl) == FUNCTION_DECL)
 	    {
 	      DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
 	      DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
@@ -1844,7 +1853,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   if (! DECL_EXTERNAL (olddecl))
     DECL_EXTERNAL (newdecl) = 0;
 
-  new_template = NULL_TREE;
+  new_template_info = NULL_TREE;
   if (DECL_LANG_SPECIFIC (newdecl) && DECL_LANG_SPECIFIC (olddecl))
     {
       bool new_redefines_gnu_inline = false;
@@ -1883,24 +1892,27 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* Don't really know how much of the language-specific
 	 values we should copy from old to new.  */
       DECL_IN_AGGR_P (newdecl) = DECL_IN_AGGR_P (olddecl);
-      DECL_LANG_SPECIFIC (newdecl)->decl_flags.u2 =
-	DECL_LANG_SPECIFIC (olddecl)->decl_flags.u2;
-      DECL_NONCONVERTING_P (newdecl) = DECL_NONCONVERTING_P (olddecl);
       DECL_REPO_AVAILABLE_P (newdecl) = DECL_REPO_AVAILABLE_P (olddecl);
-      if (DECL_TEMPLATE_INFO (newdecl))
-	new_template = DECL_TI_TEMPLATE (newdecl);
-      DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
       DECL_INITIALIZED_IN_CLASS_P (newdecl)
 	|= DECL_INITIALIZED_IN_CLASS_P (olddecl);
-      olddecl_friend = DECL_FRIEND_P (olddecl);
-      hidden_friend = (DECL_ANTICIPATED (olddecl)
-		       && DECL_HIDDEN_FRIEND_P (olddecl)
-		       && newdecl_is_friend);
 
-      /* Only functions have DECL_BEFRIENDING_CLASSES.  */
+      if (LANG_DECL_HAS_MIN (newdecl))
+	{
+	  DECL_LANG_SPECIFIC (newdecl)->u.min.u2 =
+	    DECL_LANG_SPECIFIC (olddecl)->u.min.u2;
+	  if (DECL_TEMPLATE_INFO (newdecl))
+	    new_template_info = DECL_TEMPLATE_INFO (newdecl);
+	  DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
+	}
+      /* Only functions have these fields.  */
       if (TREE_CODE (newdecl) == FUNCTION_DECL
 	  || DECL_FUNCTION_TEMPLATE_P (newdecl))
 	{
+	  DECL_NONCONVERTING_P (newdecl) = DECL_NONCONVERTING_P (olddecl);
+	  olddecl_friend = DECL_FRIEND_P (olddecl);
+	  hidden_friend = (DECL_ANTICIPATED (olddecl)
+			   && DECL_HIDDEN_FRIEND_P (olddecl)
+			   && newdecl_is_friend);
 	  DECL_BEFRIENDING_CLASSES (newdecl)
 	    = chainon (DECL_BEFRIENDING_CLASSES (newdecl),
 		       DECL_BEFRIENDING_CLASSES (olddecl));
@@ -2067,11 +2079,11 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       ggc_free (DECL_LANG_SPECIFIC (olddecl));
     }
 
-   /* Merge the USED information.  */
-   if (TREE_USED (olddecl))
-     TREE_USED (newdecl) = 1;
-   else if (TREE_USED (newdecl))
-     TREE_USED (olddecl) = 1;
+  /* Merge the USED information.  */
+  if (TREE_USED (olddecl))
+    TREE_USED (newdecl) = 1;
+  else if (TREE_USED (newdecl))
+    TREE_USED (olddecl) = 1;
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
@@ -2086,7 +2098,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 	      (char *) newdecl + sizeof (struct tree_decl_common),
 	      sizeof (struct tree_function_decl) - sizeof (struct tree_decl_common));
-      if (new_template)
+      if (new_template_info)
 	/* If newdecl is a template instantiation, it is possible that
 	   the following sequence of events has occurred:
 
@@ -2109,7 +2121,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	   instantiations so that if we try to do the instantiation
 	   again we won't get the clobbered declaration.  */
 	reregister_specialization (newdecl,
-				   new_template,
+				   new_template_info,
 				   olddecl);
     }
   else
@@ -3448,6 +3460,7 @@ cxx_init_decl_processing (void)
   /* Perform other language dependent initializations.  */
   init_class_processing ();
   init_rtti_processing ();
+  init_template_processing ();
 
   if (flag_exceptions)
     init_exception_processing ();
@@ -5880,15 +5893,6 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
     mark_decl_referenced (decl);
 }
 
-/* This is here for a midend callback from c-common.c.  */
-
-void
-finish_decl (tree decl, tree init, tree origtype ATTRIBUTE_UNUSED,
-	     tree asmspec_tree)
-{
-  cp_finish_decl (decl, init, /*init_const_expr_p=*/false, asmspec_tree, 0);
-}
-
 /* Returns a declaration for a VAR_DECL as if:
 
      extern "C" TYPE NAME;
@@ -5911,7 +5915,7 @@ declare_global_var (tree name, tree type)
      library), then it is possible that our declaration will be merged
      with theirs by pushdecl.  */
   decl = pushdecl (decl);
-  finish_decl (decl, NULL_TREE, NULL_TREE, NULL_TREE);
+  cp_finish_decl (decl, NULL_TREE, false, NULL_TREE, 0);
   pop_from_top_level ();
 
   return decl;
@@ -12523,7 +12527,7 @@ start_method (cp_decl_specifier_seq *declspecs,
 	}
     }
 
-  finish_decl (fndecl, NULL_TREE, NULL_TREE, NULL_TREE);
+  cp_finish_decl (fndecl, NULL_TREE, false, NULL_TREE, 0);
 
   /* Make a place for the parms.  */
   begin_scope (sk_function_parms, fndecl);
@@ -12578,16 +12582,6 @@ finish_method (tree decl)
   poplevel (0, 0, 0);
 
   DECL_INITIAL (fndecl) = old_initial;
-
-  /* We used to check if the context of FNDECL was different from
-     current_class_type as another way to get inside here.  This didn't work
-     for String.cc in libg++.  */
-  if (DECL_FRIEND_P (fndecl))
-    {
-      VEC_safe_push (tree, gc, CLASSTYPE_INLINE_FRIENDS (current_class_type),
-		     fndecl);
-      decl = void_type_node;
-    }
 
   return decl;
 }

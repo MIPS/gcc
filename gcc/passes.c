@@ -651,7 +651,6 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_lim);
 	  NEXT_PASS (pass_tree_unswitch);
 	  NEXT_PASS (pass_scev_cprop);
-	  NEXT_PASS (pass_empty_loop);
 	  NEXT_PASS (pass_record_bounds);
 	  NEXT_PASS (pass_check_data_deps);
 	  NEXT_PASS (pass_loop_distribution);
@@ -768,7 +767,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_df_initialize_no_opt);
       NEXT_PASS (pass_stack_ptr_mod);
       NEXT_PASS (pass_mode_switching);
-      NEXT_PASS (pass_see);
       NEXT_PASS (pass_match_asm_constraints);
       NEXT_PASS (pass_sms);
       NEXT_PASS (pass_sched);

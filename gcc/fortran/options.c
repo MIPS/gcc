@@ -242,9 +242,6 @@ gfc_post_options (const char **pfilename)
   if (flag_whole_program)
     gfc_option.flag_whole_file = 1;
 
-  if (flag_compare_debug)
-    gfc_option.dump_parse_tree = 0;
-
   /* -fbounds-check is equivalent to -fcheck=bounds */
   if (flag_bounds_check)
     gfc_option.rtcheck |= GFC_RTCHECK_BOUNDS;
@@ -474,10 +471,11 @@ gfc_handle_runtime_check_option (const char *arg)
 {
   int result, pos = 0, n;
   static const char * const optname[] = { "all", "bounds", "array-temps",
-					  "recursion", "do", NULL };
+					  "recursion", "do", "pointer", NULL };
   static const int optmask[] = { GFC_RTCHECK_ALL, GFC_RTCHECK_BOUNDS,
 				 GFC_RTCHECK_ARRAY_TEMPS,
 				 GFC_RTCHECK_RECURSION, GFC_RTCHECK_DO,
+				 GFC_RTCHECK_POINTER,
 				 0 };
  
   while (*arg)

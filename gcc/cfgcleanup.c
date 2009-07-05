@@ -2075,9 +2075,7 @@ delete_dead_jumptables (void)
 	  next = NEXT_INSN (insn);
 	  if (LABEL_P (insn)
 	      && LABEL_NUSES (insn) == LABEL_PRESERVE_P (insn)
-	      && JUMP_P (next)
-	      && (GET_CODE (PATTERN (next)) == ADDR_VEC
-		  || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
+	      && JUMP_TABLE_DATA_P (next))
 	    {
 	      rtx label = insn, jump = next;
 
