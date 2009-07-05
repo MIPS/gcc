@@ -1,3 +1,146 @@
+2009-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/maxloc_1.f90: New test.
+
+2009-07-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-07-03  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40640
+	* gcc.c-torture/compile/pr40640.c: New testcase.
+
+2009-07-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/40587
+	* gfortran.dg/pr40587.f: New test.
+	
+2009-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/40638
+	* gfortran.dg/unit_1.f90: New test.
+
+2009-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40566
+	* g++.dg/parse/cond5.C: New test.
+
+2009-06-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40595
+	* g++.dg/cpp0x/variadic94.C: New.
+
+2009-06-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-30  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/40576
+	* gfortran.dg/internal_write_1.f90:  New testcase.
+
+	2009-06-30  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/40594
+	* gfortran.dg/derived_pointer_recursion_2.f90: New.
+
+2009-06-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-30  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/40582
+	* gcc.c-torture/compile/pr40582.c: New test.
+
+	2009-06-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40274
+	* g++.dg/template/debug1.C: New.
+
+	2009-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/40493
+	* gcc.c-torture/execute/pr40493.c: New test.
+
+2009-06-30  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40542
+	* gcc.dg/vect/pr40542.c: New test.
+
+2009-06-29  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39902
+	* gcc.dg/dfp/pr39902.c: New test.
+
+2009-06-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/40443
+	* gfortran.dg/generic_18.f90: New test.
+
+2009-06-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40579
+	* gcc.c-torture/execute/pr40579.c: New testcase.
+
+2009-06-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/40550
+	* gcc.dg/pr40550.c: New test.
+
+2009-06-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40342
+	* g++.dg/template/overload10.C: New.
+
+2009-06-22  Matthias Klose  <doko@ubuntu.com>
+
+	PR objc/28050
+	* pr28050.m: New testcase.
+
+2009-06-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-22  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/40492
+	* g++.dg/torture/pr40492.C: New test.
+
+2009-06-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39800
+	* gfortran.dg/private_type_13.f90: New test.
+	* gfortran.dg/private_type_2.f90: Add option -std=f95.
+
+2009-06-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/40402
+	* gfortran.dg/data_value_1.f90: New test.
+
+2009-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/40470
+	* gcc.dg/torture/pr40470-1.c: New.
+	* gcc.dg/torture/pr40470-2.c: Likewise.
+	* gcc.dg/torture/pr40470-3.c: Likewise.
+	* gcc.dg/torture/pr40470-4.c: Likewise.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40404
+	* gcc.c-torture/execute/pr40404.c: New testcase.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40460
+	* g++.dg/torture/pr40460.C: New testcase.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40389
+	* g++.dg/torture/pr40389.C: New testcase.
+
 2009-06-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/40446
@@ -160,33 +303,33 @@
 	* g++.dg/torture/pr34222.C (ptrdiff_t): Likewise.
 	* g++.dg/tree-ssa/pr22444.C (ptrdiff_t): Likewise.
 	(size_t): Use __extension__ and __SIZE_TYPE__.
-        * gcc.c-torture/compile/20000211-1.c (size_t): Typedef size_t via
+	* gcc.c-torture/compile/20000211-1.c (size_t): Typedef size_t via
 	__SIZE_TYPE__.
-        * gcc.c-torture/compile/20010328-1.c (size_t): Likewise,
-        * gcc.c-torture/compile/20030320-1.c (size_t): Likewise,
-        * gcc.c-torture/compile/20030405-1.c (size_t): Likewise,
-        * gcc.c-torture/compile/20030902-1.c (size_t): Likewise,
-        * gcc.c-torture/compile/20060202-1.c (size_t): Likewise,
-        * gcc.c-torture/compile/20080613-1.c (size_t): Likewise,
-        * gcc.c-torture/compile/920428-2.c (size_t): Likewise,
-        * gcc.c-torture/compile/980329-1.c (size_t): Likewise,
-        * gcc.c-torture/compile/980816-1.c (size_t): Likewise,
-        * gcc.c-torture/compile/pr32584.c (size_t): Likewise,
-        * (__ssize_t): Likewise.
-        * gcc.c-torture/compile/pr33173.c (size_t): Likewise,
-        * gcc.c-torture/compile/pr33382.c (size_t): Likewise,
-        * gcc.c-torture/compile/pr34334.c (size_t): Likewise,
-        * gcc.c-torture/compile/pr34688.c (size_t): Likewise,
-        * gcc.c-torture/compile/pr35043.c (size_t): Likewise,
-        * gcc.c-torture/compile/pr37669.c (size_t): Likewise,
-        * gcc.dg/20050629-1.c (size_t): Typedef size_t via __SIZE_TYPE__.
-        * gcc.dg/pr33667.c (size_t): Likewise.
-        * gcc.dg/prefetch-loop-arrays-1.c (size_t): Likewise.
-        * gcc.dg/torture/pr39204.c (size_t): Likewise.
-        * gcc.dg/tree-ssa/20041122-1.c (size_t): Likewise.
-        * gcc.dg/tree-ssa/pr36908.c (size_t): Likewise.
-        * gcc.dg/tree-ssa/pr38250.c (size_t): Likewise.
-        * gcc.dg/tree-ssa/ssa-dse-10.c (size_t): Likewise.
+	* gcc.c-torture/compile/20010328-1.c (size_t): Likewise,
+	* gcc.c-torture/compile/20030320-1.c (size_t): Likewise,
+	* gcc.c-torture/compile/20030405-1.c (size_t): Likewise,
+	* gcc.c-torture/compile/20030902-1.c (size_t): Likewise,
+	* gcc.c-torture/compile/20060202-1.c (size_t): Likewise,
+	* gcc.c-torture/compile/20080613-1.c (size_t): Likewise,
+	* gcc.c-torture/compile/920428-2.c (size_t): Likewise,
+	* gcc.c-torture/compile/980329-1.c (size_t): Likewise,
+	* gcc.c-torture/compile/980816-1.c (size_t): Likewise,
+	* gcc.c-torture/compile/pr32584.c (size_t): Likewise,
+	* (__ssize_t): Likewise.
+	* gcc.c-torture/compile/pr33173.c (size_t): Likewise,
+	* gcc.c-torture/compile/pr33382.c (size_t): Likewise,
+	* gcc.c-torture/compile/pr34334.c (size_t): Likewise,
+	* gcc.c-torture/compile/pr34688.c (size_t): Likewise,
+	* gcc.c-torture/compile/pr35043.c (size_t): Likewise,
+	* gcc.c-torture/compile/pr37669.c (size_t): Likewise,
+	* gcc.dg/20050629-1.c (size_t): Typedef size_t via __SIZE_TYPE__.
+	* gcc.dg/pr33667.c (size_t): Likewise.
+	* gcc.dg/prefetch-loop-arrays-1.c (size_t): Likewise.
+	* gcc.dg/torture/pr39204.c (size_t): Likewise.
+	* gcc.dg/tree-ssa/20041122-1.c (size_t): Likewise.
+	* gcc.dg/tree-ssa/pr36908.c (size_t): Likewise.
+	* gcc.dg/tree-ssa/pr38250.c (size_t): Likewise.
+	* gcc.dg/tree-ssa/ssa-dse-10.c (size_t): Likewise.
 
 2009-05-27  Kai TIetz  <kai.tietz@onevision.com>
 
@@ -759,7 +902,7 @@
 
 2009-04-06  Laurent GUERBY  <laurent@guerby.net>
 
-        * lib/gnat.exp: Handle multilib.
+	* lib/gnat.exp: Handle multilib.
 	
 2009-04-06  Jason Merrill  <jason@redhat.com>
 
