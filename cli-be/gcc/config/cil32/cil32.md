@@ -46,7 +46,13 @@
 (define_mode_iterator VECMODES [V16QI V8HI V4SI V2DI V4SF V2DF 
                                  V8QI V4HI V2SI V2SF])
 
+;; NOP
 
+(define_insn "nop"
+  [(const_int 0)]
+  ""
+  ""
+  [])
 
 ;; Jump and branch insns.
 
