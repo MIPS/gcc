@@ -1,4 +1,4 @@
-/* { dg-options "{-flto -funsigned-char}" } */
+/* { dg-lto-options {{-flto -funsigned-char}} } */
 
 extern void abort ();
 

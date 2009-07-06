@@ -1,5 +1,5 @@
-// { dg-do link }
-// { dg-options "{-flto -shared}" }
+// { dg-lto-do link }
+// { dg-lto-options {{-flto -shared}} }
 template < typename > struct Foo
 {
  inline void rdstate() {

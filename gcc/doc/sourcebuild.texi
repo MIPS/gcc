@@ -820,6 +820,7 @@ here; FIXME: document the others.
 * Ada Tests::       The Ada language testsuites.
 * C Tests::         The C language testsuites.
 * libgcj Tests::    The Java library testsuites.
+* LTO Testing::     Support for testing link-time optimizations.
 * gcov Testing::    Support for testing gcov.
 * profopt Testing:: Support for testing profile-directed optimizations.
 * compat Testing::  Support for testing binary compatibility.
@@ -1345,6 +1346,42 @@ Update this file when adding new failing tests to Mauve, or when fixing
 bugs in libgcj that had caused Mauve test failures.
 
 We encourage developers to contribute test cases to Mauve.
+
+@node LTO Testing
+@subsection Support for testing link-time optimizations
+
+Tests for link-time optimizations usually require multiple source files
+that are compiled separately, perhaps with different sets of options.
+There are several special-purpose test directives used for these tests.
+
+@table @code
+@item @{ dg-lto-do @var{do-what-keyword} @}
+@var{do-what-keyword} specifies how the test is compiled and whether
+it is executed.  It is one of:
+
+@table @code
+@item assemble
+Compile with @option{-c} to produce a relocatable object file.
+@item link
+Compile, assemble, and link to produce an executable file.
+@item run
+Produce and run an executable file, which is expected to return
+an exit code of 0.
+@end table
+
+The default is @code{assemble}.  That can be overridden for a set of
+tests by redefining @code{dg-do-what-default} within the @code{.exp}
+file for those tests.
+
+Unlike @code{dg-do}, @code{dg-lto-do} does not support an optional
+@samp{target} or @samp{xfail} list.  Use @code{dg-skip-if},
+@code{dg-xfail-if}, or @code{dg-xfail-run-if}.
+
+@item @{ dg-lto-options @{ @{ @var{options} @} [@{ @var{options} @}] @} [@{ target @var{selector} @}]@}
+This directive provides a list of one or more sets of compiler options
+to override @var{LTO_OPTIONS}.  Each test will be compiled and run with
+each of these sets of options.
+@end table
 
 @node gcov Testing
 @subsection Support for testing @command{gcov}

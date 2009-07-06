@@ -1,3 +1,82 @@
+2009-07-07  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/lto.exp (proc_lto_obj): Use assemble, not compile.
+	(lto-get-options-main): Handle dg-lto-options instead of dg-options
+	and dg-lto-do instead of dg-do.  Use "assemble" instead of "compile"
+	with dg-lto-do.
+	* lib/gcc-dg.exp (gcc-dg-runtest): Use less confusing syntax for
+	an empty list.
+	* gcc.dg/lto/README: Use assemble instead of compile.
+	* gcc.dg/lto/20090206-1_0.c: Use dg-lto-link, dg-lto-options; add
+	dg-skip-if.
+	* gcc.dg/lto/20090206-2_0.c: Ditto.
+	* gcc.dg/lto/20081115_0.c: Use renamed option.
+	* gcc.dg/lto/20081118_0.c: Ditto.
+	* gcc.dg/lto/20080908_0.c: Ditto.
+	* gcc.dg/lto/20081120-1_0.c: Ditto.
+	* gcc.dg/lto/20081201-1_0.c: Ditto.
+	* gcc.dg/lto/20081120-2_0.c: Ditto.
+	* gcc.dg/lto/20081201-2_0.c: Ditto.
+	* gcc.dg/lto/20090312_0.c: Ditto.
+	* gcc.dg/lto/20090116_0.c: Ditto.
+	* gcc.dg/lto/20081126_0.c: Use renamed options and dg-skip-if.
+	* gcc.dg/lto/20080917_0.c: Use renamed option.
+	* gcc.dg/lto/20090120_0.c: Ditto.
+	* gcc.dg/lto/20081212-1_0.c: Ditto.
+	* gcc.dg/lto/20090126-1_0.c: Ditto.
+	* gcc.dg/lto/20090126-2_0.c: Ditto.
+	* gcc.dg/lto/20080924_0.c: Ditto.
+	* gcc.dg/lto/20081202-1_0.c: Ditto.
+	* gcc.dg/lto/20090210_0.c: Ditto.
+	* gcc.dg/lto/20081202-2_0.c: Ditto.
+	* gcc.dg/lto/20081204-1_0.c: Ditto.
+	* gcc.dg/lto/20081204-2_0.c: Use renamed options and dg-skip-if.
+	* gcc.dg/lto/20090213_0.c: Use renamed option.
+	* gcc.dg/lto/20081024_0.c: Ditto.
+	* gcc.dg/lto/20081224_0.c: Ditto.
+	* gcc.dg/lto/20081109_0.c: Ditto.
+	* gcc.dg/lto/20090219_0.c: Ditto.
+	* g++.dg/lto/20081120-1_0.C: Ditto.
+	* g++.dg/lto/20081120-2_0.C: Ditto.
+	* g++.dg/lto/20090311-1_0.C: Ditto.
+	* g++.dg/lto/20090112_0.C: Ditto.
+	* g++.dg/lto/20081123_0.C: Ditto.
+	* g++.dg/lto/20080910-1_0.C: Ditto.
+	* g++.dg/lto/20090313_0.C: Ditto.
+	* g++.dg/lto/20081125_0.C: Ditto.
+	* g++.dg/lto/20081008_0.C: Ditto.
+	* g++.dg/lto/20081109-1_0.C: Ditto.
+	* g++.dg/lto/20080912-1_0.C: Ditto.
+	* g++.dg/lto/20081109-2_0.C: Ditto.
+	* g++.dg/lto/20090315_0.C: Ditto.
+	* g++.dg/lto/20081209_0.C: Ditto.
+	* g++.dg/lto/20080912_0.C: Ditto.
+	* g++.dg/lto/20080915_0.C: Ditto.
+	* g++.dg/lto/20080916_0.C: Ditto.
+	* g++.dg/lto/20080917_0.C: Ditto.
+	* g++.dg/lto/20081118-1_0.C: Ditto.
+	* g++.dg/lto/20090128_0.C: Ditto.
+	* g++.dg/lto/20081219_0.C: Ditto.
+	* g++.dg/lto/20080924_0.C: Ditto.
+	* g++.dg/lto/20080908-1_0.C: Ditto.
+	* g++.dg/lto/20080908-2_0.C: Ditto.
+	* g++.dg/lto/20080926_0.C: Ditto.
+	* g++.dg/lto/20080908-3_0.C: Ditto.
+	* g++.dg/lto/20081204-1_0.C: Ditto.
+	* g++.dg/lto/20081204-2_0.C: Ditto.
+	* g++.dg/lto/20081023_0.C: Ditto.
+	* g++.dg/lto/20090221_0.C: Ditto.
+	* g++.dg/lto/20090302_0.C: Ditto.
+	* g++.dg/lto/20090303_0.C: Ditto.
+	* g++.dg/lto/20090106_0.C: Ditto.
+	* g++.dg/lto/20081119-1_0.C: Ditto.
+	* g++.dg/lto/20081118_0.C: Ditto.
+	* g++.dg/lto/20080904_0.C: Ditto.
+	* g++.dg/lto/20080909-1_0.C: Ditto.
+	* g++.dg/lto/20080907_0.C: Ditto.
+	* g++.dg/lto/20080709_0.C: Ditto.
+	* g++.dg/lto/20080829_0.C: Ditto.
+
 2009-06-09  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.dg/ipa/ipa.exp: Re-enable

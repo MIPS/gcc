@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-lto-do assemble } */
 
 enum _Ios_Fmtflags     {
  _S_boolalpha };

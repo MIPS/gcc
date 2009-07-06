@@ -1,4 +1,4 @@
-// { dg-do link }
+// { dg-lto-do link }
 typedef long unsigned int size_t;
 namespace std __attribute__ ((__visibility__ ("default"))) {
   using ::size_t;

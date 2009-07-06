@@ -1,3 +1,7 @@
+2009-07-07  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (LTO Testing): New.
+
 2009-07-06  Diego Novillo  <dnovillo@google.com>
 
 	* lto-streamer.c (bp_get_next_word): Fix off by one in

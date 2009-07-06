@@ -1,4 +1,4 @@
-/* { dg-do run }  */
+/* { dg-lto-do run }  */
 #include "20090311-1.h"
 bool flag;
 

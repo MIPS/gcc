@@ -1,4 +1,4 @@
-/* { dg-do link } */
+/* { dg-lto-do link } */
 extern int **foo (void);
 extern void mumble (char*, char*, char*);
 

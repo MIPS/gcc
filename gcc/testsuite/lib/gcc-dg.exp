@@ -256,7 +256,7 @@ proc gcc-dg-runtest { testcases default-extra-flags } {
     if { $existing_torture_options == 0 } {
 	global DG_TORTURE_OPTIONS LTO_TORTURE_OPTIONS
 	torture-init
-	set-torture-options $DG_TORTURE_OPTIONS {{}} $LTO_TORTURE_OPTIONS
+	set-torture-options $DG_TORTURE_OPTIONS [list {}] $LTO_TORTURE_OPTIONS
     }
     dump-torture-options
 

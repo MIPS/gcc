@@ -1,5 +1,5 @@
-/* { dg-do "link" } */
-/* { dg-options "{-fPIC -fwhopr -shared}" } */
+/* { dg-lto-do link } */
+/* { dg-lto-options {{-fPIC -fwhopr -shared}} } */
 struct Foo {
   bool Mumble();
   static void Bar() { if (foo_->Mumble()) foo_ = 0; }

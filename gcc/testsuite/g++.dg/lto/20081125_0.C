@@ -1,5 +1,5 @@
-// { dg-do link }
-// { dg-options "{-fwhopr}" }
+// { dg-lto-do link }
+// { dg-lto-options {{-fwhopr}} }
 #include "20081125.h"
 
 object::object (int x)

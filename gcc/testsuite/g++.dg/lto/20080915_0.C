@@ -1,4 +1,4 @@
-// { dg-do compile }
+// { dg-lto-do assemble }
 struct Foo {
  static const int dummy;
 

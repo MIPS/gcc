@@ -1,5 +1,5 @@
-/* { dg-do run } */
-/* { dg-options "{-fwhopr -fPIC}" } */
+/* { dg-lto-do run } */
+/* { dg-lto-options {{-fwhopr -fPIC}} } */
 /* { dg-suppress-ld-options {-fPIC} }  */
 void foobar(int *, int* __x)    ;
 int test_ints[30];

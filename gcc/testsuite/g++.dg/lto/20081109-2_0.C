@@ -1,4 +1,4 @@
-/* { dg-do compile }  */
+/* { dg-lto-do assemble }  */
 extern void func(int);
 
 struct Foo

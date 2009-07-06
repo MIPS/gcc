@@ -1,4 +1,4 @@
-/* { dg-do run }  */
+/* { dg-lto-do run }  */
 extern "C" { extern void *memcpy (void *, const void *, unsigned); }
 
 inline int

@@ -1,5 +1,5 @@
-// { dg-do compile }
-// { dg-options "-flto" }
+// { dg-lto-do assemble }
+// { dg-lto-options {{-flto}} }
 
 struct Foo
 {

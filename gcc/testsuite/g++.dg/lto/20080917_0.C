@@ -1,5 +1,5 @@
-// { dg-do compile }
-// { dg-options "{-O2 -flto -funsigned-char}" }
+// { dg-lto-do assemble }
+// { dg-lto-options {{-O2 -flto -funsigned-char}} }
 int
 foo (char *s, int flag)
 {

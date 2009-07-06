@@ -87,7 +87,7 @@ proc lto-obj { source dest optall optfile optstr xfaildata } {
 
     set compiler_conditional_xfail_data $xfaildata
     set comp_output [${tool}_target_compile "$source" "$dest" object $options]
-    ${tool}_check_compile "$testcase $dest compile" $optstr $dest $comp_output
+    ${tool}_check_compile "$testcase $dest assemble" $optstr $dest $comp_output
 }
 
 # lto-link-and-maybe-run -- link the object files and run the executable
@@ -171,8 +171,7 @@ proc lto-get-options-main { src } {
     foreach op $tmp {
 	set cmd [lindex $op 0]
 	verbose "cmd is $cmd"
-	if { ![string compare "dg-options" $cmd] \
-	     || [string match "dg-skip-if" $cmd] \
+	if { [string match "dg-skip-if" $cmd] \
 	     || [string match "dg-require-*" $cmd] } {
 	    set status [catch "$op" errmsg]
 	    if { $status != 0 } {
@@ -180,19 +179,28 @@ proc lto-get-options-main { src } {
 		unresolved "$src: $errmsg for \"$op\""
 		return
 	    }
-	} elseif { ![string compare "dg-xfail-if" $cmd] } {
+	} elseif { [string match "dg-lto-options" $cmd] } {
+	    set op [lreplace $op 0 0 "dg-options"]
+	    set status [catch "$op" errmsg]
+	    if { $status != 0 } {
+		perror "src: $errmsg for \"$op\"\n"
+		unresolved "$src: $errmsg for \"$op\""
+		return
+	    }
+	} elseif { ![string compare "dg-xfail-if" $cmd] \
+		   || ![string compare "dg-options" $cmd] } {
 	    warning "lto.exp does not support $cmd in primary source file"
-	} elseif { ![string compare "dg-do" $cmd] } {
+	} elseif { ![string compare "dg-lto-do" $cmd] } {
 	    set dgdo [lindex $op 2]
-	    verbose "dg-do command for \"$op\" is $dgdo"
-	    if { ![string compare "compile" $dgdo] } {
-		set compile_type "compile"
+	    verbose "dg-lto-do command for \"$op\" is $dgdo"
+	    if { ![string compare "assemble" $dgdo] } {
+		set compile_type "assemble"
 	    } elseif { ![string compare "run" $dgdo] } {
 		set compile_type "run"
 	    } elseif { ![string compare "link" $dgdo] } {
 		set compile_type "link"
 	    } else {
-		warning "lto.exp does not support dg-do $dgdo"
+		warning "lto.exp does not support dg-lto-do $dgdo"
 	    }
 	} elseif { ![string compare "dg-extra-ld-options" $cmd] } {
 	    set dg-extra-ld-options [lindex $op 2]

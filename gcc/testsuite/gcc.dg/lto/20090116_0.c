@@ -1,5 +1,5 @@
-/* { dg-do link } */
-/* { dg-options "{-O1 -fwhopr -fPIC}" } */
+/* { dg-lto-do link } */
+/* { dg-lto-options {{-O1 -fwhopr -fPIC}} } */
 /* { dg-extra-ld-options {-shared -O0} } */
 
 int foo(void) {

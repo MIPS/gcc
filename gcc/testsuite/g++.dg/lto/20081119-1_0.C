@@ -1,5 +1,5 @@
-/* { dg-do "link" } */
-/* { dg-options "{-fPIC -fwhopr -shared}" } */
+/* { dg-lto-do link } */
+/* { dg-lto-options {{-fPIC -fwhopr -shared}} } */
 
 #include "20081119-1.h"
 

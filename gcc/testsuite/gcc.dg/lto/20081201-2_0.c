@@ -1,4 +1,4 @@
-/* { dg-options "{-O3 -fwhopr}" } */
+/* { dg-lto-options {{-O3 -fwhopr}} } */
 
 /* Test that cross-TU inlining works.  */
 

@@ -1,5 +1,5 @@
-// { dg-do "link" }
-// { dg-options "{-fPIC -fwhopr -O2}" }
+// { dg-lto-do link }
+// { dg-lto-options {{-fPIC -fwhopr -O2}} }
 // { dg-extra-ld-options "-O2 -fPIC -fwhopr -shared" }
 
 typedef long int ptrdiff_t;

@@ -1,4 +1,4 @@
-/* { dg-do run }  */
+/* { dg-lto-do run }  */
 
 int foo()
 {

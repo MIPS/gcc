@@ -1,4 +1,4 @@
-// { dg-do compile }
+// { dg-lto-do assemble }
 extern void some_function (const char *);
 extern bool some_other_function ();
 

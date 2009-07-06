@@ -1,4 +1,4 @@
-// { dg-do compile }
+// { dg-lto-do assemble }
 
 /* The replacement of cos+sin with __builtin_cexpi done by
    pass_cse_sincos was using a builtin for which we had no attributes.

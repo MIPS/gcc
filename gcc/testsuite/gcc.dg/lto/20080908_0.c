@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-lto-do assemble } */
 void foo(void) {
  char *bar;
  int baz;

@@ -1,4 +1,4 @@
-/* { dg-options "{-O2 -DOPTIMIZE -fwhopr} {-O0 -fwhopr}" } */
+/* { dg-lto-options {{-O2 -DOPTIMIZE -fwhopr} {-O0 -fwhopr}} } */
 
 extern void abort (void);
 

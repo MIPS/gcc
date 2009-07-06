@@ -1,4 +1,4 @@
-/* { dg-do "link" } */
+/* { dg-lto-do link } */
 
 class C {
  public:

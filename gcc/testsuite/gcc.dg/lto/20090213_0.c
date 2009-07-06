@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-lto-do run } */
 #include <stdio.h>
 
 extern int foo (int);

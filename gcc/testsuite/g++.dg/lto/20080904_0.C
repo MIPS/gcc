@@ -1,4 +1,4 @@
-// { dg-do run }
+// { dg-lto-do run }
 
 /* This test will fail to link if the vtable for Derived is not emitted.  */
 
