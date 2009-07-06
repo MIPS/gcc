@@ -5,7 +5,7 @@
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -13,19 +13,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 //  shared_count.hpp
 //  Copyright (c) 2001, 2002, 2003 Peter Dimov and Multi Media Ltd.
@@ -50,6 +45,9 @@
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+#ifndef _SHARED_PTR_H
+#define _SHARED_PTR_H 1
 
 #ifndef __GXX_EXPERIMENTAL_CXX0X__
 # include <c++0x_warning.h>
@@ -818,13 +816,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       get() const // never throws
       { return _M_ptr; }
 
-      // Implicit conversion to "bool"
-    private:
-      typedef _Tp* __shared_ptr::*__unspecified_bool_type;
-
-    public:
-      operator __unspecified_bool_type() const // never throws
-      { return _M_ptr == 0 ? 0 : &__shared_ptr::_M_ptr; }
+      explicit operator bool() const // never throws
+      { return _M_ptr == 0 ? false : true; }
 
       bool
       unique() const // never throws
@@ -835,7 +828,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       { return _M_refcount._M_get_use_count(); }
 
       void
-      swap(__shared_ptr<_Tp, _Lp>&& __other) // never throws
+      swap(__shared_ptr<_Tp, _Lp>& __other) // never throws
       {
 	std::swap(_M_ptr, __other._M_ptr);
 	_M_refcount._M_swap(__other._M_refcount);
@@ -943,16 +936,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _Tp, _Lock_policy _Lp>
     inline void
     swap(__shared_ptr<_Tp, _Lp>& __a, __shared_ptr<_Tp, _Lp>& __b)
-    { __a.swap(__b); }
-
-  template<typename _Tp, _Lock_policy _Lp>
-    inline void
-    swap(__shared_ptr<_Tp, _Lp>&& __a, __shared_ptr<_Tp, _Lp>& __b)
-    { __a.swap(__b); }
-
-  template<typename _Tp, _Lock_policy _Lp>
-    inline void
-    swap(__shared_ptr<_Tp, _Lp>& __a, __shared_ptr<_Tp, _Lp>&& __b)
     { __a.swap(__b); }
 
   // 2.2.3.9 shared_ptr casts
@@ -1374,16 +1357,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     swap(shared_ptr<_Tp>& __a, shared_ptr<_Tp>& __b)
     { __a.swap(__b); }
 
-  template<typename _Tp>
-    inline void
-    swap(shared_ptr<_Tp>&& __a, shared_ptr<_Tp>& __b)
-    { __a.swap(__b); }
-
-  template<typename _Tp>
-    inline void
-    swap(shared_ptr<_Tp>& __a, shared_ptr<_Tp>&& __b)
-    { __a.swap(__b); }
-
   // 20.8.13.2.10 shared_ptr casts.
   template<typename _Tp, typename _Tp1>
     inline shared_ptr<_Tp>
@@ -1589,3 +1562,5 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // @} group pointer_abstractions
 
 _GLIBCXX_END_NAMESPACE
+
+#endif // _SHARED_PTR_H

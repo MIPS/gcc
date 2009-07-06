@@ -975,7 +975,7 @@ set_reg_attrs_from_value (rtx reg, rtx x)
   offset = byte_lowpart_offset (GET_MODE (reg), GET_MODE (x));
   if (MEM_P (x))
     {
-      if (MEM_OFFSET (x) && GET_CODE (MEM_OFFSET (x)) == CONST_INT)
+      if (MEM_OFFSET (x) && CONST_INT_P (MEM_OFFSET (x)))
 	REG_ATTRS (reg)
 	  = get_reg_attrs (MEM_EXPR (x), INTVAL (MEM_OFFSET (x)) + offset);
       if (MEM_POINTER (x))
@@ -1028,7 +1028,7 @@ set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
 /* Set the REG_ATTRS for registers in value X, given that X represents
    decl T.  */
 
-static void
+void
 set_reg_attrs_for_decl_rtl (tree t, rtx x)
 {
   if (GET_CODE (x) == SUBREG)
@@ -1181,7 +1181,7 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
   /* Unfortunately, this routine doesn't take a parameter for the mode of X,
      so we have to make one up.  Yuk.  */
   innermode = GET_MODE (x);
-  if (GET_CODE (x) == CONST_INT
+  if (CONST_INT_P (x)
       && msize * BITS_PER_UNIT <= HOST_BITS_PER_WIDE_INT)
     innermode = mode_for_size (HOST_BITS_PER_WIDE_INT, MODE_INT, 0);
   else if (innermode == VOIDmode)
@@ -1226,7 +1226,7 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
     }
   else if (GET_CODE (x) == SUBREG || REG_P (x)
 	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
-	   || GET_CODE (x) == CONST_DOUBLE || GET_CODE (x) == CONST_INT)
+	   || GET_CODE (x) == CONST_DOUBLE || CONST_INT_P (x))
     return simplify_gen_subreg (mode, x, innermode, offset);
 
   /* Otherwise, we can't do this.  */
@@ -1449,7 +1449,10 @@ component_ref_for_mem_expr (tree ref)
 	inner = NULL_TREE;
     }
 
-  if (inner == TREE_OPERAND (ref, 0))
+  if (inner == TREE_OPERAND (ref, 0)
+      /* Don't leak SSA-names in the third operand.  */
+      && (!TREE_OPERAND (ref, 2)
+	  || TREE_CODE (TREE_OPERAND (ref, 2)) != SSA_NAME))
     return ref;
   else
     return build3 (COMPONENT_REF, TREE_TYPE (ref), inner,
@@ -1495,7 +1498,7 @@ mem_expr_equal_p (const_tree expr1, const_tree expr2)
    -1 if not known.  */
 
 int
-get_mem_align_offset (rtx mem, int align)
+get_mem_align_offset (rtx mem, unsigned int align)
 {
   tree expr;
   unsigned HOST_WIDE_INT offset;
@@ -1856,17 +1859,6 @@ void
 set_mem_attributes (rtx ref, tree t, int objectp)
 {
   set_mem_attributes_minus_bitpos (ref, t, objectp, 0);
-}
-
-/* Set MEM to the decl that REG refers to.  */
-
-void
-set_mem_attrs_from_reg (rtx mem, rtx reg)
-{
-  MEM_ATTRS (mem)
-    = get_mem_attrs (MEM_ALIAS_SET (mem), REG_EXPR (reg),
-		     GEN_INT (REG_OFFSET (reg)),
-		     MEM_SIZE (mem), MEM_ALIGN (mem), GET_MODE (mem));
 }
 
 /* Set the alias set of MEM to SET.  */
@@ -2250,7 +2242,8 @@ get_spill_slot_decl (bool force_build_p)
   if (d || !force_build_p)
     return d;
 
-  d = build_decl (VAR_DECL, get_identifier ("%sfp"), void_type_node);
+  d = build_decl (DECL_SOURCE_LOCATION (current_function_decl),
+		  VAR_DECL, get_identifier ("%sfp"), void_type_node);
   DECL_ARTIFICIAL (d) = 1;
   DECL_IGNORED_P (d) = 1;
   TREE_USED (d) = 1;
@@ -2288,7 +2281,7 @@ set_mem_attrs_for_spill (rtx mem)
   addr = XEXP (mem, 0);
   offset = const0_rtx;
   if (GET_CODE (addr) == PLUS
-      && GET_CODE (XEXP (addr, 1)) == CONST_INT)
+      && CONST_INT_P (XEXP (addr, 1)))
     offset = XEXP (addr, 1);
 
   MEM_ATTRS (mem) = get_mem_attrs (alias, expr, offset,
@@ -2392,7 +2385,7 @@ struct rtl_opt_pass pass_unshare_all_rtl =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3342,6 +3335,10 @@ try_split (rtx pat, rtx trial, int last)
   int probability;
   rtx insn_last, insn;
   int njumps = 0;
+
+  /* We're not good at redistributing frame information.  */
+  if (RTX_FRAME_RELATED_P (trial))
+    return trial;
 
   if (any_condjump_p (trial)
       && (note = find_reg_note (trial, REG_BR_PROB, 0)))
@@ -5057,6 +5054,9 @@ copy_insn_1 (rtx orig)
   int i, j;
   RTX_CODE code;
   const char *format_ptr;
+
+  if (orig == NULL)
+    return NULL;
 
   code = GET_CODE (orig);
 

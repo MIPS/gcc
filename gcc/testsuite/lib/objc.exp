@@ -95,6 +95,8 @@ proc objc_init { args } {
     global OBJC_UNDER_TEST
     global TOOL_EXECUTABLE
     global objc_libgcc_s_path
+    global gcc_warning_prefix
+    global gcc_error_prefix
 
     # We set LC_ALL and LANG to C so that we get the same error messages as expected.
     setenv LC_ALL C
@@ -114,9 +116,12 @@ proc objc_init { args } {
 	set tmpdir /tmp
     }
 
+    set gcc_warning_prefix "warning:"
+    set gcc_error_prefix "error:"
+
     objc_maybe_build_wrapper "${tmpdir}/objc-testglue.o"
 
-    set objc_libgcc_s_path [gcc-set-multilib-library-path $OBJC_UNDER_TEST]
+    set objc_libgcc_s_path [find_libgcc_s $OBJC_UNDER_TEST]
 }
 
 proc objc_target_compile { source dest type options } {
@@ -130,7 +135,7 @@ proc objc_target_compile { source dest type options } {
     global objc_libgcc_s_path
     global shlib_ext
 
-    set ld_library_path ".:${objc_libgcc_s_path}"
+    set ld_library_path ${objc_libgcc_s_path}
     lappend options "libs=-lobjc"
     set shlib_ext [get_shlib_extension]
     verbose "shared lib extension: $shlib_ext"
@@ -186,7 +191,7 @@ proc objc_target_compile { source dest type options } {
 	set libobjc_dir [file dirname ${libobjc_dir}]
 	set objc_link_flags "-L${libobjc_dir}"
 	lappend options "additional_flags=${objc_link_flags}"
-	append ld_library_path ":${libobjc_dir}"
+	add_path ld_library_path ${libobjc_dir}
     }
     if { $type == "precompiled_header" } {
 	# If we generating a precompiled header, we have say this is an

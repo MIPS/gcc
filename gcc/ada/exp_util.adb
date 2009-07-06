@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,7 @@ with Opt;      use Opt;
 with Restrict; use Restrict;
 with Rident;   use Rident;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
@@ -133,6 +134,12 @@ package body Exp_Util is
    --        Literal_Type'Val
    --          (Literal_Type'Pos (Low_Bound (Literal_Type))
    --             + (Length (Literal_Typ) -1))
+
+   function Make_Non_Empty_Check
+     (Loc : Source_Ptr;
+      N   : Node_Id) return Node_Id;
+   --  Produce a boolean expression checking that the unidimensional array
+   --  node N is not empty.
 
    function New_Class_Wide_Subtype
      (CW_Typ : Entity_Id;
@@ -1321,15 +1328,28 @@ package body Exp_Util is
       then
          null;
 
-      --  Nothing to be done for derived types with unknown discriminants if
-      --  the parent type also has unknown discriminants.
+      --  Case of derived type with unknown discriminants where the parent type
+      --  also has unknown discriminants.
 
       elsif Is_Record_Type (Unc_Type)
         and then not Is_Class_Wide_Type (Unc_Type)
         and then Has_Unknown_Discriminants (Unc_Type)
         and then Has_Unknown_Discriminants (Underlying_Type (Unc_Type))
       then
-         null;
+         --  Nothing to be done if no underlying record view available
+
+         if No (Underlying_Record_View (Unc_Type)) then
+            null;
+
+         --  Otherwise use the Underlying_Record_View to create the proper
+         --  constrained subtype for an object of a derived type with unknown
+         --  discriminants.
+
+         else
+            Remove_Side_Effects (Exp);
+            Rewrite (Subtype_Indic,
+              Make_Subtype_From_Expr (Exp, Underlying_Record_View (Unc_Type)));
+         end if;
 
       --  In Ada95, Nothing to be done if the type of the expression is
       --  limited, because in this case the expression cannot be copied,
@@ -1377,6 +1397,74 @@ package body Exp_Util is
            Make_Subtype_From_Expr (Exp, Unc_Type));
       end if;
    end Expand_Subtype_From_Expr;
+
+   --------------------
+   -- Find_Init_Call --
+   --------------------
+
+   function Find_Init_Call
+     (Var        : Entity_Id;
+      Rep_Clause : Node_Id) return Node_Id
+   is
+      Typ : constant Entity_Id := Etype (Var);
+
+      Init_Proc : Entity_Id;
+      --  Initialization procedure for Typ
+
+      function Find_Init_Call_In_List (From : Node_Id) return Node_Id;
+      --  Look for init call for Var starting at From and scanning the
+      --  enclosing list until Rep_Clause or the end of the list is reached.
+
+      ----------------------------
+      -- Find_Init_Call_In_List --
+      ----------------------------
+
+      function Find_Init_Call_In_List (From : Node_Id) return Node_Id is
+         Init_Call : Node_Id;
+      begin
+         Init_Call := From;
+
+         while Present (Init_Call) and then Init_Call /= Rep_Clause loop
+            if Nkind (Init_Call) = N_Procedure_Call_Statement
+                 and then Is_Entity_Name (Name (Init_Call))
+                 and then Entity (Name (Init_Call)) = Init_Proc
+            then
+               return Init_Call;
+            end if;
+            Next (Init_Call);
+         end loop;
+
+         return Empty;
+      end Find_Init_Call_In_List;
+
+      Init_Call : Node_Id;
+
+   --  Start of processing for Find_Init_Call
+
+   begin
+      if not Has_Non_Null_Base_Init_Proc (Typ) then
+         --  No init proc for the type, so obviously no call to be found
+
+         return Empty;
+      end if;
+
+      Init_Proc := Base_Init_Proc (Typ);
+
+      --  First scan the list containing the declaration of Var
+
+      Init_Call := Find_Init_Call_In_List (From => Next (Parent (Var)));
+
+      --  If not found, also look on Var's freeze actions list, if any, since
+      --  the init call may have been moved there (case of an address clause
+      --  applying to Var).
+
+      if No (Init_Call) and then Present (Freeze_Node (Var)) then
+         Init_Call := Find_Init_Call_In_List
+                        (First (Actions (Freeze_Node (Var))));
+      end if;
+
+      return Init_Call;
+   end Find_Init_Call;
 
    ------------------------
    -- Find_Interface_ADT --
@@ -3741,6 +3829,25 @@ package body Exp_Util is
              High_Bound => Hi);
    end Make_Literal_Range;
 
+   --------------------------
+   -- Make_Non_Empty_Check --
+   --------------------------
+
+   function Make_Non_Empty_Check
+     (Loc : Source_Ptr;
+      N   : Node_Id) return Node_Id
+   is
+   begin
+      return
+        Make_Op_Ne (Loc,
+          Left_Opnd =>
+            Make_Attribute_Reference (Loc,
+              Attribute_Name => Name_Length,
+              Prefix => Duplicate_Subexpr_No_Checks (N, Name_Req => True)),
+          Right_Opnd =>
+            Make_Integer_Literal (Loc, 0));
+   end Make_Non_Empty_Check;
+
    ----------------------------
    -- Make_Subtype_From_Expr --
    ----------------------------
@@ -3841,7 +3948,7 @@ package body Exp_Util is
             --  initialization itself (and doesn't need or want the
             --  additional intermediate type to handle the assignment).
 
-            if Expander_Active and then VM_Target = No_VM then
+            if Expander_Active and then Tagged_Type_Expansion then
                EQ_Typ := Make_CW_Equivalent_Type (Unc_Typ, E);
             end if;
 
@@ -4842,6 +4949,14 @@ package body Exp_Util is
       then
          return True;
 
+      --  If the expression has an access type (object or subprogram) we
+      --  assume that the conversion is safe, because the size of the target
+      --  is safe, even if it is a record (which might be treated as having
+      --  unknown size at this point).
+
+      elsif Is_Access_Type (Ityp) then
+         return True;
+
       --  If the size of output type is known at compile time, there is
       --  never a problem.  Note that unconstrained records are considered
       --  to be of known size, but we can't consider them that way here,
@@ -5107,6 +5222,10 @@ package body Exp_Util is
    --  that constraint error is raised. The reason is that the NOT is bound
    --  to cause CE in this case, and we will not otherwise catch it.
 
+   --  No such check is required for AND and OR, since for both these cases
+   --  False op False = False, and True op True = True. For the XOR case,
+   --  see Silly_Boolean_Array_Xor_Test.
+
    --  Believe it or not, this was reported as a bug. Note that nearly
    --  always, the test will evaluate statically to False, so the code will
    --  be statically removed, and no extra overhead caused.
@@ -5116,19 +5235,34 @@ package body Exp_Util is
       CT  : constant Entity_Id  := Component_Type (T);
 
    begin
+      --  The check we install is
+
+      --    constraint_error when
+      --      component_type'first = component_type'last
+      --        and then array_type'Length /= 0)
+
+      --  We need the last guard because we don't want to raise CE for empty
+      --  arrays since no out of range values result. (Empty arrays with a
+      --  component type of True .. True -- very useful -- even the ACATS
+      --  does not test that marginal case!)
+
       Insert_Action (N,
         Make_Raise_Constraint_Error (Loc,
           Condition =>
-            Make_Op_Eq (Loc,
+            Make_And_Then (Loc,
               Left_Opnd =>
-                Make_Attribute_Reference (Loc,
-                  Prefix         => New_Occurrence_Of (CT, Loc),
-                  Attribute_Name => Name_First),
+                Make_Op_Eq (Loc,
+                  Left_Opnd =>
+                    Make_Attribute_Reference (Loc,
+                      Prefix         => New_Occurrence_Of (CT, Loc),
+                      Attribute_Name => Name_First),
 
-              Right_Opnd =>
-                Make_Attribute_Reference (Loc,
-                  Prefix         => New_Occurrence_Of (CT, Loc),
-                  Attribute_Name => Name_Last)),
+                  Right_Opnd =>
+                    Make_Attribute_Reference (Loc,
+                      Prefix         => New_Occurrence_Of (CT, Loc),
+                      Attribute_Name => Name_Last)),
+
+              Right_Opnd => Make_Non_Empty_Check (Loc, Right_Opnd (N))),
           Reason => CE_Range_Check_Failed));
    end Silly_Boolean_Array_Not_Test;
 
@@ -5139,42 +5273,49 @@ package body Exp_Util is
    --  This procedure implements an odd and silly test. We explicitly check
    --  for the XOR case where the component type is True .. True, since this
    --  will raise constraint error. A special check is required since CE
-   --  will not be required otherwise (cf Expand_Packed_Not).
+   --  will not be generated otherwise (cf Expand_Packed_Not).
 
    --  No such check is required for AND and OR, since for both these cases
-   --  False op False = False, and True op True = True.
+   --  False op False = False, and True op True = True, and no check is
+   --  required for the case of False .. False, since False xor False = False.
+   --  See also Silly_Boolean_Array_Not_Test
 
    procedure Silly_Boolean_Array_Xor_Test (N : Node_Id; T : Entity_Id) is
       Loc : constant Source_Ptr := Sloc (N);
       CT  : constant Entity_Id  := Component_Type (T);
-      BT  : constant Entity_Id  := Base_Type (CT);
 
    begin
+      --  The check we install is
+
+      --    constraint_error when
+      --      Boolean (component_type'First)
+      --        and then Boolean (component_type'Last)
+      --        and then array_type'Length /= 0)
+
+      --  We need the last guard because we don't want to raise CE for empty
+      --  arrays since no out of range values result (Empty arrays with a
+      --  component type of True .. True -- very useful -- even the ACATS
+      --  does not test that marginal case!).
+
       Insert_Action (N,
         Make_Raise_Constraint_Error (Loc,
           Condition =>
-            Make_Op_And (Loc,
+            Make_And_Then (Loc,
               Left_Opnd =>
-                Make_Op_Eq (Loc,
+                Make_And_Then (Loc,
                   Left_Opnd =>
-                    Make_Attribute_Reference (Loc,
-                      Prefix         => New_Occurrence_Of (CT, Loc),
-                      Attribute_Name => Name_First),
+                    Convert_To (Standard_Boolean,
+                      Make_Attribute_Reference (Loc,
+                        Prefix         => New_Occurrence_Of (CT, Loc),
+                        Attribute_Name => Name_First)),
 
                   Right_Opnd =>
-                    Convert_To (BT,
-                      New_Occurrence_Of (Standard_True, Loc))),
+                    Convert_To (Standard_Boolean,
+                      Make_Attribute_Reference (Loc,
+                        Prefix         => New_Occurrence_Of (CT, Loc),
+                        Attribute_Name => Name_Last))),
 
-              Right_Opnd =>
-                Make_Op_Eq (Loc,
-                  Left_Opnd =>
-                    Make_Attribute_Reference (Loc,
-                      Prefix         => New_Occurrence_Of (CT, Loc),
-                      Attribute_Name => Name_Last),
-
-                  Right_Opnd =>
-                    Convert_To (BT,
-                      New_Occurrence_Of (Standard_True, Loc)))),
+              Right_Opnd => Make_Non_Empty_Check (Loc, Right_Opnd (N))),
           Reason => CE_Range_Check_Failed));
    end Silly_Boolean_Array_Xor_Test;
 

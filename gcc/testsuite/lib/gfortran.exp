@@ -27,6 +27,7 @@ load_lib prune.exp
 load_lib gcc-defs.exp
 load_lib timeout.exp
 load_lib target-libpath.exp
+load_lib target-supports.exp
 
 #
 # GFORTRAN_UNDER_TEST is the compiler under test.
@@ -83,7 +84,7 @@ proc gfortran_link_flags { paths } {
     set gccpath ${paths}
     set libio_dir ""
     set flags ""
-    set ld_library_path "."
+    set ld_library_path ""
     set shlib_ext [get_shlib_extension]
     verbose "shared lib extension: $shlib_ext"
 
@@ -93,11 +94,11 @@ proc gfortran_link_flags { paths } {
           # for uninstalled testing.
           append flags "-B${gccpath}/libgfortran/.libs "
           append flags "-L${gccpath}/libgfortran/.libs "
-          append ld_library_path ":${gccpath}/libgfortran/.libs"
+	  add_path ld_library_path "${gccpath}/libgfortran/.libs"
       }
       if [file exists "${gccpath}/libgfortran/.libs/libgfortran.${shlib_ext}"] {
 	  append flags "-L${gccpath}/libgfortran/.libs "
-	  append ld_library_path ":${gccpath}/libgfortran/.libs"
+	  add_path ld_library_path "${gccpath}/libgfortran/.libs"
       }
       if [file exists "${gccpath}/libgfortran/libgforbegin.a"] {
           append flags "-L${gccpath}/libgfortran "
@@ -105,8 +106,7 @@ proc gfortran_link_flags { paths } {
       if [file exists "${gccpath}/libiberty/libiberty.a"] {
           append flags "-L${gccpath}/libiberty "
       }
-      append ld_library_path \
-	[gcc-set-multilib-library-path $GFORTRAN_UNDER_TEST]
+      add_path ld_library_path [find_libgcc_s $GFORTRAN_UNDER_TEST]
     }
 
     set_ld_library_path_env_vars
@@ -175,6 +175,13 @@ proc gfortran_init { args } {
 
     if [info exists TOOL_OPTIONS] {
 	lappend ALWAYS_GFORTRANFLAGS "additional_flags=$TOOL_OPTIONS"
+    }
+
+    # On the SPU, most of the fortran test cases exceed local store size.
+    # Use automatic overlay support to make them fit.
+    if { [check_effective_target_spu_auto_overlay] } {
+	lappend ALWAYS_GFORTRANFLAGS "ldflags=-Wl,--auto-overlay"
+	lappend ALWAYS_GFORTRANFLAGS "ldflags=-Wl,--reserved-space=131072"
     }
 
     verbose -log "ALWAYS_GFORTRANFLAGS set to $ALWAYS_GFORTRANFLAGS"

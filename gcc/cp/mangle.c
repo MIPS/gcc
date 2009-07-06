@@ -90,8 +90,7 @@ along with GCC; see the file COPYING3.  If not see
 	   && (PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (NODE))))))
 
 /* Things we only need one of.  This module is not reentrant.  */
-typedef struct globals GTY(())
-{
+typedef struct GTY(()) globals {
   /* An array of the current substitution candidates, in the order
      we've seen them.  */
   VEC(tree,gc) *substitutions;
@@ -339,9 +338,14 @@ canonicalize_for_substitution (tree node)
   /* For a TYPE_DECL, use the type instead.  */
   if (TREE_CODE (node) == TYPE_DECL)
     node = TREE_TYPE (node);
-  if (TYPE_P (node))
-    node = canonical_type_variant (node);
-
+  if (TYPE_P (node)
+      && TYPE_CANONICAL (node) != node
+      && TYPE_MAIN_VARIANT (node) != node)
+      /* Here we want to strip the topmost typedef only.
+         We need to do that so is_std_substitution can do proper
+         name matching.  */
+    node = cp_build_qualified_type (TYPE_MAIN_VARIANT (node),
+                                    cp_type_quals (node));
   return node;
 }
 
@@ -1084,43 +1088,54 @@ write_unqualified_name (const tree decl)
 {
   MANGLE_TRACE_TREE ("unqualified-name", decl);
 
-  if (DECL_LANG_SPECIFIC (decl) != NULL && DECL_CONSTRUCTOR_P (decl))
-    write_special_name_constructor (decl);
-  else if (DECL_LANG_SPECIFIC (decl) != NULL && DECL_DESTRUCTOR_P (decl))
-    write_special_name_destructor (decl);
-  else if (DECL_NAME (decl) == NULL_TREE)
+  if (DECL_NAME (decl) == NULL_TREE)
     {
       gcc_assert (DECL_ASSEMBLER_NAME_SET_P (decl));
       write_source_name (DECL_ASSEMBLER_NAME (decl));
+      return;
     }
-  else if (DECL_CONV_FN_P (decl))
+  else if (DECL_DECLARES_FUNCTION_P (decl))
     {
-      /* Conversion operator. Handle it right here.
-	   <operator> ::= cv <type>  */
-      tree type;
-      if (decl_is_template_id (decl, NULL))
+      bool found = true;
+      if (DECL_CONSTRUCTOR_P (decl))
+	write_special_name_constructor (decl);
+      else if (DECL_DESTRUCTOR_P (decl))
+	write_special_name_destructor (decl);
+      else if (DECL_CONV_FN_P (decl))
 	{
-	  tree fn_type;
-	  fn_type = get_mostly_instantiated_function_type (decl);
-	  type = TREE_TYPE (fn_type);
+	  /* Conversion operator. Handle it right here.
+	     <operator> ::= cv <type>  */
+	  tree type;
+	  if (decl_is_template_id (decl, NULL))
+	    {
+	      tree fn_type;
+	      fn_type = get_mostly_instantiated_function_type (decl);
+	      type = TREE_TYPE (fn_type);
+	    }
+	  else
+	    type = DECL_CONV_FN_TYPE (decl);
+	  write_conversion_operator_name (type);
+	}
+      else if (DECL_OVERLOADED_OPERATOR_P (decl))
+	{
+	  operator_name_info_t *oni;
+	  if (DECL_ASSIGNMENT_OPERATOR_P (decl))
+	    oni = assignment_operator_name_info;
+	  else
+	    oni = operator_name_info;
+
+	  write_string (oni[DECL_OVERLOADED_OPERATOR_P (decl)].mangled_name);
 	}
       else
-	type = DECL_CONV_FN_TYPE (decl);
-      write_conversion_operator_name (type);
-    }
-  else if (DECL_OVERLOADED_OPERATOR_P (decl))
-    {
-      operator_name_info_t *oni;
-      if (DECL_ASSIGNMENT_OPERATOR_P (decl))
-	oni = assignment_operator_name_info;
-      else
-	oni = operator_name_info;
+	found = false;
 
-      write_string (oni[DECL_OVERLOADED_OPERATOR_P (decl)].mangled_name);
+      if (found)
+	return;
     }
-  else if (VAR_OR_FUNCTION_DECL_P (decl) && ! TREE_PUBLIC (decl)
-	   && DECL_NAMESPACE_SCOPE_P (decl)
-	   && decl_linkage (decl) == lk_internal)
+
+  if (VAR_OR_FUNCTION_DECL_P (decl) && ! TREE_PUBLIC (decl)
+      && DECL_NAMESPACE_SCOPE_P (decl)
+      && decl_linkage (decl) == lk_internal)
     {
       MANGLE_TRACE_TREE ("local-source-name", decl);
       write_char ('L');
@@ -1680,9 +1695,9 @@ write_type (tree type)
                 write_char ('t');
               else
                 write_char ('T');
-	      ++skip_evaluation;
+	      ++cp_unevaluated_operand;
               write_expression (DECLTYPE_TYPE_EXPR (type));
-	      --skip_evaluation;
+	      --cp_unevaluated_operand;
               write_char ('E');
               break;
 
@@ -2143,27 +2158,6 @@ write_expression (tree expr)
 {
   enum tree_code code = TREE_CODE (expr);
 
-  /* Inside decltype we can simplify some expressions, since we're only
-     interested in the type.  */
-  if (skip_evaluation)
-    {
-      tree type = describable_type (expr);
-      if (type == NULL_TREE)
-	;
-      else if (TREE_CODE (type) == REFERENCE_TYPE)
-	{
-	  write_string ("sT");
-	  write_type (TREE_TYPE (type));
-	  return;
-	}
-      else
-	{
-	  write_string ("sR");
-	  write_type (type);
-	  return;
-	}
-    }
-
   /* Skip NOP_EXPRs.  They can occur when (say) a pointer argument
      is converted (via qualification conversions) to another
      type.  */
@@ -2177,12 +2171,6 @@ write_expression (tree expr)
   if (code == BASELINK)
     {
       expr = BASELINK_FUNCTIONS (expr);
-      code = TREE_CODE (expr);
-    }
-
-  if (code == OVERLOAD)
-    {
-      expr = OVL_FUNCTION (expr);
       code = TREE_CODE (expr);
     }
 
@@ -2210,10 +2198,13 @@ write_expression (tree expr)
     write_template_arg_literal (expr);
   else if (code == PARM_DECL)
     {
-      /* A function parameter used under decltype in a late-specified
-	 return type.  Represented with a type placeholder.  */
-      write_string ("sT");
-      write_type (non_reference (TREE_TYPE (expr)));
+      /* A function parameter used in a late-specified return type.  */
+      int index = DECL_PARM_INDEX (expr);
+      gcc_assert (index >= 1);
+      write_string ("fp");
+      if (index > 1)
+	write_unsigned_number (index - 2);
+      write_char ('_');
     }
   else if (DECL_P (expr))
     {
@@ -2229,6 +2220,12 @@ write_expression (tree expr)
 	   && TYPE_P (TREE_OPERAND (expr, 0)))
     {
       write_string ("st");
+      write_type (TREE_OPERAND (expr, 0));
+    }
+  else if (TREE_CODE (expr) == ALIGNOF_EXPR
+	   && TYPE_P (TREE_OPERAND (expr, 0)))
+    {
+      write_string ("at");
       write_type (TREE_OPERAND (expr, 0));
     }
   else if (abi_version_at_least (2) && TREE_CODE (expr) == SCOPE_REF)
@@ -2298,9 +2295,16 @@ write_expression (tree expr)
 	    write_template_args (template_args);
 	}
     }
+  else if (TREE_CODE (expr) == INDIRECT_REF
+	   && TREE_TYPE (TREE_OPERAND (expr, 0))
+	   && TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) == REFERENCE_TYPE)
+    {
+      write_expression (TREE_OPERAND (expr, 0));
+    }
   else
     {
       int i;
+      const char *name;
 
       /* When we bind a variable or function to a non-type template
 	 argument with reference type, we create an ADDR_EXPR to show
@@ -2338,12 +2342,37 @@ write_expression (tree expr)
 	}
 
       /* If it wasn't any of those, recursively expand the expression.  */
-      write_string (operator_name_info[(int) code].mangled_name);
+      name = operator_name_info[(int) code].mangled_name;
+      if (name == NULL)
+	{
+	  sorry ("mangling %C", code);
+	  return;
+	}
+      else
+	write_string (name);	
 
       switch (code)
 	{
 	case CALL_EXPR:
-	  write_expression (CALL_EXPR_FN (expr));
+	  {
+	    tree fn = CALL_EXPR_FN (expr);
+
+	    if (TREE_CODE (fn) == ADDR_EXPR)
+	      fn = TREE_OPERAND (fn, 0);
+
+	    /* Mangle a dependent name as the name, not whatever happens to
+	       be the first function in the overload set.  */
+	    if ((TREE_CODE (fn) == FUNCTION_DECL
+		 || TREE_CODE (fn) == OVERLOAD)
+		&& type_dependent_expression_p_push (expr))
+	      fn = DECL_NAME (get_first_fn (fn));
+
+	    if (TREE_CODE (fn) == IDENTIFIER_NODE)
+	      write_source_name (fn);
+	    else
+	      write_expression (fn);
+	  }
+
 	  for (i = 0; i < call_expr_nargs (expr); ++i)
 	    write_expression (CALL_EXPR_ARG (expr, i));
 	  write_char ('E');
@@ -2351,21 +2380,27 @@ write_expression (tree expr)
 
 	case CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
-	  /* There is no way to mangle a zero-operand cast like
-	     "T()".  */
-	  if (!TREE_OPERAND (expr, 0))
-	    sorry ("zero-operand casts cannot be mangled due to a defect "
-		   "in the C++ ABI");
-	  else if (list_length (TREE_OPERAND (expr, 0)) > 1)
-	    sorry ("mangling function-style cast with more than one argument");
-	  else
+	  if (list_length (TREE_OPERAND (expr, 0)) == 1)	  
 	    write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
+	  else
+	    {
+	      tree args = TREE_OPERAND (expr, 0);
+	      write_char ('_');
+	      for (; args; args = TREE_CHAIN (args))
+		write_expression (TREE_VALUE (args));
+	      write_char ('E');
+	    }
 	  break;
 
+	  /* FIXME these should have a distinct mangling.  */
 	case STATIC_CAST_EXPR:
 	case CONST_CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
 	  write_expression (TREE_OPERAND (expr, 0));
+	  break;
+
+	case NEW_EXPR:
+	  sorry ("mangling new-expression");
 	  break;
 
 	/* Handle pointers-to-members specially.  */

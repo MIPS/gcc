@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -133,8 +133,7 @@ package body Switch.C is
                elsif
                  RTS_Specified.all /= Switch_Chars (Ptr + 4 .. Max)
                then
-                  Osint.Fail
-                    ("--RTS cannot be specified multiple times");
+                  Osint.Fail ("--RTS cannot be specified multiple times");
                end if;
 
                --  Valid --RTS switch
@@ -229,10 +228,6 @@ package body Switch.C is
                Ptr := Ptr + 1;
                Operating_Mode := Check_Semantics;
 
-               if Tree_Output then
-                  ASIS_Mode := True;
-               end if;
-
             --  Processing for d switch
 
             when 'd' =>
@@ -278,6 +273,13 @@ package body Switch.C is
 
             when 'D' =>
                Ptr := Ptr + 1;
+
+               --  Scan optional integer line limit value
+
+               if Nat_Present (Switch_Chars, Max, Ptr) then
+                  Scan_Nat (Switch_Chars, Max, Ptr, Sprint_Line_Limit, 'D');
+                  Sprint_Line_Limit := Nat'Max (Sprint_Line_Limit, 40);
+               end if;
 
                --  Note: -gnatD also sets -gnatx (to turn off cross-reference
                --  generation in the ali file) since otherwise this generation
@@ -522,6 +524,13 @@ package body Switch.C is
                Ptr := Ptr + 1;
                Print_Generated_Code := True;
 
+               --  Scan optional integer line limit value
+
+               if Nat_Present (Switch_Chars, Max, Ptr) then
+                  Scan_Nat (Switch_Chars, Max, Ptr, Sprint_Line_Limit, 'G');
+                  Sprint_Line_Limit := Nat'Max (Sprint_Line_Limit, 40);
+               end if;
+
             --  Processing for h switch
 
             when 'h' =>
@@ -569,13 +578,6 @@ package body Switch.C is
 
             when 'j' =>
                Ptr := Ptr + 1;
-
-               --  There may be an equal sign between -gnatj and the value
-
-               if Ptr <= Max and then Switch_Chars (Ptr) = '=' then
-                  Ptr := Ptr + 1;
-               end if;
-
                Scan_Nat (Switch_Chars, Max, Ptr, Error_Msg_Line_Length, C);
 
             --  Processing for k switch
@@ -613,14 +615,7 @@ package body Switch.C is
 
             when 'm' =>
                Ptr := Ptr + 1;
-
-               --  There may be an equal sign between -gnatm and the value
-
-               if Ptr <= Max and then Switch_Chars (Ptr) = '=' then
-                  Ptr := Ptr + 1;
-               end if;
-
-               Scan_Nat (Switch_Chars, Max, Ptr, Maximum_Errors, C);
+               Scan_Nat (Switch_Chars, Max, Ptr, Maximum_Messages, C);
 
             --  Processing for n switch
 
@@ -743,11 +738,6 @@ package body Switch.C is
             when 't' =>
                Ptr := Ptr + 1;
                Tree_Output := True;
-
-               if Operating_Mode = Check_Semantics then
-                  ASIS_Mode := True;
-               end if;
-
                Back_Annotate_Rep_Info := True;
 
             --  Processing for T switch

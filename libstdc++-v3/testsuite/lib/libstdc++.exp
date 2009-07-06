@@ -5,7 +5,7 @@
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 # 
 # This program is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
+# along with this program; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 
 # Define callbacks and load other libraries.  This file is loaded relatively
@@ -133,7 +132,6 @@ proc libstdc++_init { testfile } {
     set gccdir [lookfor_file $tool_root_dir gcc/libgcc.a]
     if {$gccdir != ""} {
         set gccdir [file dirname $gccdir]
-	append ld_library_path_tmp ":${gccdir}"
     }
     v3track gccdir 3
 
@@ -143,7 +141,7 @@ proc libstdc++_init { testfile } {
     if {$libgompdir != ""} {
 	set v3-libgomp 1
         set libgompdir [file dirname $libgompdir]
-	append ld_library_path_tmp ":${libgompdir}"
+	add_path ld_library_path_tmp ${libgompdir}
 	verbose -log "libgomp support detected"
     }
     v3track libgompdir 3
@@ -163,22 +161,8 @@ proc libstdc++_init { testfile } {
     if {$gccdir != ""} {
 	set compiler ${gccdir}/g++
 	set ld_library_path ${ld_library_path_tmp}
-	append ld_library_path ":${blddir}/src/.libs"
-
-	if { [is_remote host] == 0 && [which $compiler] != 0 } {
-	  foreach i "[exec $compiler --print-multi-lib]" {
-	    set mldir ""
-	    regexp -- "\[a-z0-9=_/\.-\]*;" $i mldir
-	    set mldir [string trimright $mldir "\;@"]
-	    if { "$mldir" == "." } {
-	      continue
-	    }
-	    if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] >= 1 } {
-	      append ld_library_path ":${gccdir}/${mldir}"
-	    }
-	  }
-	}
-
+	add_path ld_library_path "${blddir}/src/.libs"
+	add_path ld_library_path [find_libgcc_s $compiler]
 	set_ld_library_path_env_vars
 	if [info exists env(LD_LIBRARY_PATH)] {
 	  verbose -log "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
@@ -403,8 +387,7 @@ proc v3_target_compile { source dest type options } {
     # Flag setting based on type argument.
     if { $type == "executable" } {
 	# Link the support objects into executables.
-        set cxx_final [concat $cxx_final $cxxldflags]
-	lappend options "additional_flags=./libtestc++.a"
+	lappend options "additional_flags=./libtestc++.a $cxxldflags"
     } else {
 	if { $type == "sharedlib" } {
 	    # Don't link in anything.

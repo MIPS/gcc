@@ -109,14 +109,14 @@ set sid "cp_compat"
 # are different.
 set use_alt 0
 set same_alt 0
-set alt_ld_library_path "."
+set alt_ld_library_path ""
 if [info exists ALT_CXX_UNDER_TEST] then {
     set use_alt 1
     if [string match "same" $ALT_CXX_UNDER_TEST] then {
 	set same_alt 1
     } else {
 	if [info exists ALT_LD_LIBRARY_PATH] then {
-	    append alt_ld_library_path ":${ALT_LD_LIBRARY_PATH}"
+	    set alt_ld_library_path $ALT_LD_LIBRARY_PATH
 	}
     }
 }
@@ -129,20 +129,11 @@ set generator_src "$generator_src $srcdir/$subdir/../../gcc.dg/compat/generate-r
 set generator_src "$generator_src $srcdir/$subdir/../../gcc.dg/compat/generate-random_r.c"
 set generator_cmd "-o $generator $generator_src"
 
-# Temporarily unset GCC_EXEC_PREFIX from environment, as that might
-# confuse the $HOSTCC.
-set orig_gcc_exec_prefix_saved 0
-if [info exists env(GCC_EXEC_PREFIX)] {
-     set orig_gcc_exec_prefix "$env(GCC_EXEC_PREFIX)"
-     set orig_gcc_exec_prefix_saved 1
-     unsetenv GCC_EXEC_PREFIX
-}
+# Temporarily switch to the environment of the host compiler.
+restore_ld_library_path_env_vars
 set status [remote_exec build "$HOSTCC $HOSTCFLAGS $generator_cmd"]
 set status [lindex $status 0]
-if { $orig_gcc_exec_prefix_saved } {
-     set orig_gcc_exec_prefix_saved 0
-     setenv GCC_EXEC_PREFIX "$orig_gcc_exec_prefix"
-}
+set_ld_library_path_env_vars
 if { $status == 0 } then {
     file delete -force $tstobjdir
     file mkdir $tstobjdir
