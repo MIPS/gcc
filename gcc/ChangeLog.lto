@@ -1,5 +1,10 @@
 2009-07-06  Diego Novillo  <dnovillo@google.com>
 
+	* lto-streamer.c (bp_get_next_word): Fix off by one in
+	accounting of used bits.
+
+2009-07-06  Diego Novillo  <dnovillo@google.com>
+
 	* lto-tree-flags.def: Remove.  Update all users.
 	* lto-cgraph.c (lto_output_edge): Use a bitpack to encode
 	all the edge flags.

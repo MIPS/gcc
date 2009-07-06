@@ -309,12 +309,15 @@ bp_get_next_word (struct bitpack_d *bp, unsigned nbits)
 
   /* All the encoded bit patterns in BP are contiguous, therefore if
      the next NBITS would straddle over two different words, move the
-     index to the next word.  */
-  last = bp->first_unused_bit + nbits;
-  if (last > BITS_PER_BITPACK_WORD)
+     index to the next word and update the number of encoded bits
+     by adding up the hole of unused bits created by this move.  */
+  bp->first_unused_bit %= BITS_PER_BITPACK_WORD;
+  last = bp->first_unused_bit + nbits - 1;
+  if (last >= BITS_PER_BITPACK_WORD)
     {
-      bp->first_unused_bit = 0;
       ix++;
+      bp->num_bits += (BITS_PER_BITPACK_WORD - bp->first_unused_bit);
+      bp->first_unused_bit = 0;
     }
 
   return ix;
