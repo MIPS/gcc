@@ -136,10 +136,10 @@ lto_symtab_maybe_init_hash_tables (void)
     {
       lto_symtab_identifiers =
 	htab_create_ggc (1021, lto_symtab_identifier_hash,
-			 lto_symtab_identifier_eq, ggc_free);
+			 lto_symtab_identifier_eq, NULL);
       lto_symtab_decls =
 	htab_create_ggc (1021, lto_symtab_decl_hash,
-			 lto_symtab_decl_eq, ggc_free);
+			 lto_symtab_decl_eq, NULL);
     }
 }
 
@@ -697,12 +697,12 @@ lto_symtab_clear_resolution (tree decl)
     return;
 
   /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
- if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
     return;
 
- lto_symtab_maybe_init_hash_tables ();
- temp.base.node = decl;
- htab_remove_elt (lto_symtab_decls, &temp);
+  lto_symtab_maybe_init_hash_tables ();
+  temp.base.node = decl;
+  htab_remove_elt (lto_symtab_decls, &temp);
 }
 
 #include "gt-lto-symtab.h"

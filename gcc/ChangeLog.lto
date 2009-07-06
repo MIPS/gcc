@@ -1,3 +1,9 @@
+2009-07-06  Diego Novillo  <dnovillo@google.com>
+
+	* lto-symtab.c (lto_symtab_maybe_init_hash_tables): Do
+	not use ggc_free for lto_symtab_identifiers and
+	lto_symtab_decls.
+
 2009-06-27  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @148985.
