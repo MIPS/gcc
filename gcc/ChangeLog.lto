@@ -1,5 +1,300 @@
 2009-07-06  Diego Novillo  <dnovillo@google.com>
 
+	* lto-tree-flags.def: Remove.  Update all users.
+	* lto-cgraph.c (lto_output_edge): Use a bitpack to encode
+	all the edge flags.
+	(lto_output_node): Use a bitpack to encode all the node
+	flags.
+	(input_overwrite_node): Likewise.
+	(input_node): Likewise.
+	(input_edge): Likewise.
+	* ipa-pure-const.c (pure_const_write_summary): Use a
+	bitpack to encode function state flags.
+	(pure_const_read_summary): Likewise.
+	* lto-streamer-out.c: Include lto-symtab.h.
+	(lto_flags_needed_for): Remove.
+	(lto_types_needed_for): Remove.
+	(output_record_start): Remove.
+	(output_expr_operand): Remove.
+	(expr_to_tag): Remove.
+	(stmt_to_tag): Remove.
+	(eq_label_slot_node, string_slot, eq_string_slot_node,
+	string_slot_free): Tidy.
+	(create_output_block): Call lto_streamer_cache_create.
+	(destroy_output_block): Call lto_streamer_cache_delete.
+	(lto_output_bitpack): New.
+	(output_real): Remove.
+	(output_widest_uint_uleb128): Remove.
+	(output_integer): Remove.
+	(output_tree_flags): Remove.
+	(output_record_start): Remove arguments EXPR and VALUE.
+	Update all users.
+	(output_type_ref_1): Move into output_type_ref.
+	(output_local_decl_ref): Remove.
+	(output_label_ref): Tidy.
+	(pack_ts_base_value_fields): New.
+	(pack_ts_real_cst_value_fields): New.
+	(pack_ts_fixed_cst_value_fields): New.
+	(pack_ts_decl_common_value_fields): New.
+	(pack_ts_decl_wrtl_value_fields): New.
+	(pack_ts_decl_with_vis_value_fields): New.
+	(output_constructor): Remove.
+	(pack_ts_function_decl_value_fields): New.
+	(pack_ts_type_value_fields): New.
+	(output_block_or_decl): Remove.
+	(pack_ts_block_value_fields): New.
+	(output_tree_block): Remove.
+	(pack_value_fields): New.
+	(output_expr_operand): Remove.
+	(lto_output_location): New.
+	(tree_is_indexable): New.
+	(lto_output_tree_ref): New.
+	(lto_output_tree_or_ref): New.
+	(lto_output_chain): New.
+	(lto_output_ts_common_tree_pointers): New.
+	(lto_output_ts_vector_tree_pointers): New.
+	(output_local_var_decl): Remove.
+	(lto_output_ts_complex_tree_pointers): New.
+	(lto_output_ts_decl_minimal_tree_pointers): New.
+	(lto_output_ts_decl_common_tree_pointers): New.
+	(lto_output_ts_decl_non_common_tree_pointers): New.
+	(lto_output_ts_decl_with_vis_tree_pointers): New.
+	(lto_output_ts_field_decl_tree_pointers): New.
+	(lto_output_ts_function_decl_tree_pointers): New.
+	(lto_output_ts_type_tree_pointers): New.
+	(lto_output_ts_list_tree_pointers): New.
+	(lto_output_ts_vec_tree_pointers): New.
+	(lto_output_ts_exp_tree_pointers): New.
+	(lto_output_ts_block_tree_pointers): New.
+	(output_local_vars): Remove.
+	(lto_output_ts_binfo_tree_pointers): Remove.
+	(lto_output_ts_constructor_tree_pointers): Remove.
+	(lto_output_tree_pointers): New.
+	(lto_output_tree_header): New.
+	(lto_output_builtin_tree): New.
+	(lto_write_tree): New.
+	(lto_output_integer_cst): New.
+	(lto_output_tree): New.
+	(output_local_vars_index): Remove.
+	(output_stmt_location): Remove.
+	(initialized): Remove.
+	(initialized_local): Remove.
+	(lto_static_init): Remove.
+	(lto_init_writer): Remove.
+	(output_function): Use a bitpack to encode the function
+	flags.
+	(output_var_init): Remove.
+	(output_inits_in_decl_state): Remove.
+	(output_used_constructors_and_inits): Remove.
+	(output_remaining_constructors_and_inits): Remove.
+	(output_all_constructors_and_inits): Remove.
+	(output_unreferenced_globals): Rename from
+	output_constructors_and_inits.
+	Traverse varpool nodes, emit references to all public
+	VAR_DECLs.
+	(lto_writer_init): New.
+	(lto_output): Call it.
+	(output_global_record_start): Remove.
+	(output_const_decl): Remove.
+	(output_field_decl): Remove.
+	(output_function_decl): Remove.
+	(write_global_stream): In WPA mode, do not write the same
+	symbol more than once.  Mark subsequent symbols as weak.
+	(output_var_decl): Remove.
+	(output_parm_decl): Remove.
+	(output_result_decl): Remove.
+	(output_type_decl): Remove.
+	(output_label_decl): Remove.
+	(output_imported_decl): Remove.
+	(output_binfo): Remove.
+	(output_type): Remove.
+	(output_global_record_start_1): Remove.
+	(output_global_constructor): Remove.
+	(output_tree_with_context): Remove.
+	(output_tree): Remove.
+	(output_type_tree): Remove.
+	* lto-tree-tags.def: Remove.
+	* lto-streamer-in.c (input_tree_operand): Remove.
+	(input_local_decl): Remove.
+	(input_expr_operand): Remove.
+	(tag_to_expr): Remove.
+	(flags_length_for_code): Remove.
+	(input_real): Remove.
+	(input_record_start): Read tag calling lto_input_uleb128.
+	(get_label_decl): Remove IB argument.  Add argument IX.
+	(input_tree_flags): Remove.
+	(process_tree_flags): Remove.
+	(input_line_info): Remove.
+	(set_line_info): Remove.
+	(input_expr_operand): Remove.
+	(input_local_vars_index): Remove.
+	(input_local_var_decl): Remove.
+	(lto_input_tree_ref): New.
+	(input_local_decl): Remove.
+	(input_local_vars): Remove.
+	(input_stmt_location): Remove.
+	(lto_input_location): New.
+	(input_gimple_stmt): Call lto_tag_to_gimple_code.
+	(input_function_tree): Use a bitpack to read function
+	flags.
+	Call input_ssa_names.
+	(input_alias_pairs): Rename from input_constructors_or_inits.
+	(lto_init_reader): Remove.
+	(lto_read_body): Remove ib_ssa_names, ib_local_decls_index
+	and ib_local_decls.
+	(global_vector_enter): Remove.
+	(input_tree_with_context): Remove.
+	(input_field_decl): Remove.
+	(input_const_decl): Remove.
+	(input_function_decl): Remove.
+	(unpack_ts_base_value_fields): New.
+	(unpack_ts_real_cst_value_fields): New.
+	(unpack_ts_fixed_cst_value_fields): New.
+	(unpack_ts_decl_common_value_fields): New.
+	(unpack_ts_decl_wrtl_value_fields): New.
+	(unpack_ts_decl_with_vis_value_fields): New.
+	(unpack_ts_function_decl_value_fields): New.
+	(input_var_decl): Remove.
+	(unpack_ts_type_value_fields): New.
+	(unpack_ts_block_value_fields): New.
+	(unpack_value_fields): New.
+	(input_parm_decl): Remove.
+	(lto_input_bitpack): New.
+	(input_result_decl): Remove.
+	(input_type_decl): Remove.
+	(lto_input_chain): New.
+	(lto_input_ts_common_tree_pointers): New.
+	(input_label_decl): Remove.
+	(lto_input_ts_vector_tree_pointers): New.
+	(lto_input_ts_complex_tree_pointers): New.
+	(lto_input_ts_decl_minimal_tree_pointers): New.
+	(input_imported_decl): Remove.
+	(lto_input_ts_decl_common_tree_pointers): New.
+	(lto_input_ts_decl_non_common_tree_pointers): New.
+	(lto_input_ts_decl_with_vis_tree_pointers): New.
+	(input_binfo): Remove.
+	(lto_input_ts_field_decl_tree_pointers): New.
+	(lto_input_ts_function_decl_tree_pointers): New.
+	(lto_input_ts_type_tree_pointers): New.
+	(lto_input_ts_list_tree_pointers): New.
+	(input_type): Remove.
+	(lto_input_ts_vec_tree_pointers): New.
+	(lto_input_ts_exp_tree_pointers): New.
+	(input_type_tree): Remove.
+	(lto_input_ts_block_tree_pointers): New.
+	(input_block_or_decl): Remove.
+	(lto_input_ts_binfo_tree_pointers): New.
+	(input_tree_block): Remove.
+	(lto_input_ts_constructor_tree_pointers): New.
+	(lto_input_tree_pointers): New.
+	(lto_register_var_decl_in_symtab): New.
+	(input_tree_operand): Remove.
+	(lto_register_function_decl_in_symtab): New.
+	(lto_get_pickled_tree): New.
+	(lto_get_builtin_tree): New.
+	(lto_read_tree): New.
+	(lto_input_integer_cst): New.
+	(lto_input_tree): New.
+	(input_tree): Remove.
+	(lto_init_reader): New.
+	(lto_data_in_create): New.
+	(lto_data_in_delete): New.
+	* lto-section-in.c (lto_get_flag): Remove.
+	(lto_get_flags): Remove.
+	(lto_input_integer): Remove.
+	* lto-tags.h: Remove.
+	* lto-streamer.c: Include flags.h, tree-flow.h and
+	diagnostic.h
+	(lto_decl_flags): Remove.
+	(lto_tag_name): New.
+	(lto_get_decl_flags): Remove.
+	(lto_set_decl_flags): Remove.
+	(bitpack_create): New.
+	(bitpack_delete): New.
+	(bp_get_next_word): New.
+	(bp_pack_value): New.
+	(bp_unpack_value): New.
+	(check_handled_ts_structures): New.
+	(lto_streamer_cache_insert_1): New.
+	(lto_streamer_cache_insert): New.
+	(lto_streamer_cache_insert_at): New.
+	(lto_streamer_cache_lookup): New.
+	(lto_streamer_cache_get): New.
+	(lto_record_common_node): New.
+	(lto_get_common_nodes): New.
+	(preload_common_node): New.
+	(lto_streamer_cache_create): New.
+	(lto_streamer_cache_delete): New.
+	(lto_streamer_init): New.
+	(gate_lto_out): New.
+	(lto_orig_address_map): New.
+	(lto_orig_address_get): New.
+	(lto_orig_address_remove): New.
+	* lto-streamer.h: Include tree.h and gimple.h.  Update
+	main comment on data structures.
+	(REDUNDANT_TYPE_SYSTEM): Remove.
+	(LTO_DECL_FLAG_DEFINED): Remove.
+	(LTO_DECL_FLAG_SUPPRESS_OUTPUT): Remove.
+	(BITS_PER_BITPACK_WORD): New.
+	(bitpack_word_t): New type.
+	(struct bitpack_d): Define.
+	(enum LTO_tags): Move from lto-tags.h.  Add values
+	LTO_builtin_decl, LTO_field_decl_ref,
+	LTO_function_decl_ref, LTO_local_label_decl,
+	LTO_global_label_decl, LTO_result_decl_ref,
+	LTO_ssa_name_ref, LTO_type_decl_ref, LTO_type_ref and
+	LTO_global_decl_ref.
+	(struct lto_streamer_cache_d): New.
+	(struct lto_function_header): Remove fields
+	num_local_decls, ssa_name_size, local_decls_index_size,
+	local_decls_size, local_decl_index_stream,
+	local_decl_stream, ssa_names_stream.
+	(struct output_block): Remove fields local_decl_encoder,
+	local_decls_index, unexpanded_local_decls_index and
+	main_hash_table.
+	(struct output_block): Remove fields local_decl_encoder,
+	local_decls_index, unexpanded_local_decls_index and
+	main_hash_table.
+	Add field writer_cache.
+	(struct data_in): Remove fields local_decls_index,
+	local_decl_indexes, local_decls and globals_index.
+	Add field reader_cache.
+	(lto_tag_is_tree_code_p): New.
+	(lto_tag_is_gimple_code_p): New.
+	(lto_gimple_code_to_tag): New.
+	(lto_tag_to_gimple_code): New.
+	(lto_tree_code_to_tag): New.
+	(lto_tag_to_tree_code): New.
+	(lto_stream_as_builtin_p): New.
+	* varasm.c (default_binds_local_p_1): Ignore DECL_WEAK in
+	LTRANS mode.
+	* passes.c (init_optimization_passes): Tidy.
+	* lto-section-out.c: Do not include diagnostic.h nor
+	lto-symtab.h.
+	(lto_set_flag): Remove.
+	(lto_set_flags): Remove.
+	(lto_hash_global_slot_node): Remove.
+	(lto_eq_global_slot_node): Remove.
+	(lto_output_integer_stream): Remove.
+	(get_ref_idx_for): Remove.
+	(lto_record_common_node): Remove.
+	(lto_get_common_nodes): Move to lto-streamer.c.
+	(preload_common_node): Move to lto-streamer.c.
+	(preload_common_nodes): Remove.
+	(write_global_stream): Move to lto-streamer-out.c.
+	(write_global_references): Likewise.
+	(lto_output_decl_state_streams): Likewise.
+	(lto_output_decl_state_refs): Likewise.
+	(lto_out_decl_state_written_size): Likewise.
+	(write_symbol_vec): Likewise.
+	(write_symbols_of_kind): Likewise.
+	(produce_symtab): Likewise.
+	(produce_asm_for_decls): Likewise.
+	(gate_lto_out): Likewise.
+	(pass_ipa_lto_finish_out): Likewise.
+
+2009-07-06  Diego Novillo  <dnovillo@google.com>
+
 	* tree-dfa.c (dump_variable): Write DECL_INITIAL for VAR
 	if it has one.  Handle cases where VAR does not have an
 	annotation or cfun is NULL.

@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_LTO_STREAMER_H
 
 #include "plugin-api.h"
+#include "tree.h"
+#include "gimple.h"
 #include "target.h"
 #include "cgraph.h"
 #include "vec.h"
@@ -60,11 +62,6 @@ along with GCC; see the file COPYING3.  If not see
       the negative ones do not.  The positive index can be used to
       find the name in this array.
 
-   8) THE ACTIVE SSA NAMES.  
-
-      The SSA_NAME_VERSION in an SSA_NAME in used as an index into
-      this table.
-
    9) THE CFG. 
 
    10) Index into the local decls.  Since local decls can have local
@@ -74,57 +71,6 @@ along with GCC; see the file COPYING3.  If not see
    11-12) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
 
      The gimple consists of a set of records.
-
-       Each record starts with a "LTO_" tag defined in this file.  The
-       mapping between gimple tree codes and LTO code described in
-       lto-tree-tags.def along with useful macros that allow the
-       simple cases to be processed mechanically.
-
-       For the tree types that can be processed mechanically, the form
-       of the output is:
-         tag          - The LTO_ tag.
-
-	 type         - If the tree code has a bit set in
-                        lto_types_needed_for, a reference to the type
-			is generated.  This reference is an index into
-                        (7).  The index is encoded in uleb128 form.
-
-	 flags        - The set of flags defined for this tree code
-		        packed into a word where the low order 2 bits
-		        are used to encode the presence or absense of
-		        a file and line number respectively. The word
-		        is output in uleb128 form. The encoding and
-		        decoding of the flags is controlled by
-		        lto-tree-flags.def which is designed so that
-		        it is useful on both sides.
-			
-	 file         - If the file of this gimple record is different
-                        from the file of the previous record, the file
-                        is encoded into the string table and the
-                        offset of that entry in uleb128 is output in
-                        the stream.  The flags are ored with 0x2 to
-                        indicate the presence of this.
-
-	 line number  - If the line number of this gimple record is
-                        different from the line number of the previous
-			record, the line number in uleb128 is output
-			in the stream.  The flags are ored with 0x1 to
-			indicate the presence of this.
-
-	 children     - If this gimple record has children defined,
-                        they follow here.  For automaticly generated
-			gimple forms, TREE_CODE_LENGTH sepcifies the
-                        number of children.
-
-     Many gimple forms cannot be automatically processed.  There are
-     two reasons for this: either extra fields must be processed
-     beyond those defined in the gimple core or some of the children
-     are not always there.
-
-     For these cases, the best reference is the code.  The the
-     greatest extent possible, the automatic mechanisms are used to
-     processes the pieces of such trees.  But the spec is really the
-     code and will change as gimple evolves.
 
      THE FUNCTION
 	
@@ -181,11 +127,6 @@ along with GCC; see the file COPYING3.  If not see
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.  */
 
-/* When we get a strongly typed gimple, this flag should be set to 0
-   so we do not waste so much space printing out largely redundant
-   type codes.  */
-#define REDUNDANT_TYPE_SYSTEM 1
-
 /* The string that is the prefix on the section names we make for lto.
    For decls the DECL_ASSEMBLER_NAME is appended to make the section
    name for the functions and static_initializers.  For other types of
@@ -195,10 +136,113 @@ along with GCC; see the file COPYING3.  If not see
 #define LTO_major_version 1
 #define LTO_minor_version 0
 
-#define LTO_DECL_FLAG_DEFINED		(1 << 0)
-#define LTO_DECL_FLAG_SUPPRESS_OUTPUT	(1 << 1)
-
 typedef unsigned char	lto_decl_flags_t;
+
+
+/* Data structures used to pack values and bitflags into a vector of
+   words.  Used to stream values of a fixed number of bits in a space
+   efficient way.  */
+static unsigned const BITS_PER_BITPACK_WORD = HOST_BITS_PER_WIDE_INT;
+
+typedef unsigned HOST_WIDE_INT bitpack_word_t;
+DEF_VEC_I(bitpack_word_t);
+DEF_VEC_ALLOC_I(bitpack_word_t, heap);
+
+struct bitpack_d
+{
+  /* Total number of bits packed/unpacked so far.  */
+  size_t num_bits;
+
+  /* Values are stored contiguously, so there may be internal
+     fragmentation (words with unused bits).  Therefore, we need to
+     keep track of the first available bit in the last word of the
+     bitpack.  */
+  size_t first_unused_bit;
+
+  /* Vector of words holding the packed values.  */
+  VEC(bitpack_word_t, heap) *values;
+};
+
+/* Tags representing the various IL objects written to the bytecode file
+   (GIMPLE statements, basic blocks, EH regions, tree nodes, etc).
+
+   NOTE, when adding new LTO tags, also update lto_tag_name.  */
+enum LTO_tags 
+{
+  LTO_null = 0,
+
+  /* Reserve enough entries to fit all the tree and gimple codes handled
+     by the streamer.  This guarantees that:
+
+     1- Given a tree code C:
+     		enum LTO_tags tag == C + 1
+
+     2- Given a gimple code C:
+		enum LTO_tags tag == C + NUM_TREE_CODES + 1
+
+     Conversely, to map between LTO tags and tree/gimple codes, the
+     reverse operation must be applied.  */
+  LTO_bb0 = 1 + NUM_TREE_CODES + LAST_AND_UNUSED_GIMPLE_CODE,
+  LTO_bb1,
+
+  /* Variant 1 is used to set region to a nonzero value.  */
+  LTO_set_eh0,
+  LTO_set_eh1,
+
+  /* An MD or NORMAL builtin.  Only the code and class are streamed out.  */
+  LTO_builtin_decl,
+
+  /* Function body.  */
+  LTO_function,
+
+  /* EH table.  */
+  LTO_eh_table,
+
+  /* There are 2 variants for each EH region type.  Variant 0 is for
+     may_contain_throw == false, variant 1 is for may_contain_throw ==
+     true.  */
+  LTO_eh_table_cleanup0,
+  LTO_eh_table_cleanup1,
+  LTO_eh_table_try0,
+  LTO_eh_table_try1,
+  LTO_eh_table_catch0,
+  LTO_eh_table_catch1,
+  LTO_eh_table_allowed0,
+  LTO_eh_table_allowed1,
+  LTO_eh_table_must_not_throw0,
+  LTO_eh_table_must_not_throw1,
+  LTO_eh_table_throw0,
+  LTO_eh_table_throw1,
+  LTO_eh_table_shared_region,
+
+  /* Special for global streamer. Reference to previously-streamed node.  */
+  LTO_tree_pickle_reference,
+
+  /* References to indexable tree nodes.  These objects are stored in
+     tables that are written separately from the function bodies that
+     reference them.  This way they can be instantiated even when the
+     referencing functions aren't (e.g., during WPA) and it also allows
+     functions to be copied from one file to another without having
+     to unpickle the body first (the references are location
+     independent).
+
+     NOTE, do not regroup these values as the grouping is exposed
+     in the range checks done in lto_input_tree.  */
+  LTO_field_decl_ref,			/* Do not change.  */
+  LTO_function_decl_ref,
+  LTO_local_label_decl,
+  LTO_global_label_decl,
+  LTO_namespace_decl_ref,
+  LTO_result_decl_ref,
+  LTO_ssa_name_ref,
+  LTO_type_decl_ref,
+  LTO_type_ref,
+  LTO_global_decl_ref,			/* Do not change.  */
+
+  /* This tag must always be last.  */
+  LTO_NUM_TAGS
+};
+
 
 /* Set of section types that are in an LTO file.  This list will grow
    as the number of IPA passes grows since each IPA pass will need its
@@ -278,6 +322,39 @@ typedef void (lto_free_section_data_f) (struct lto_file_decl_data *,
 					const char *,
 					size_t);
 
+/* Cache of pickled nodes.  Used to avoid writing the same node more
+   than once.  The first time a tree node is streamed out, it is
+   entered in this cache.  Subsequent references to the same node are
+   resolved by looking it up in this cache.
+
+   This is used in two ways:
+
+   - On the writing side, the first time T is added to STREAMER_CACHE,
+     a new reference index is created for T and T is emitted on the
+     stream.  If T needs to be emitted again to the stream, instead of
+     pickling it again, the reference index is emitted.
+
+   - On the reading side, the first time T is read from the stream, it
+     is reconstructed in memory and a new reference index created for
+     T.  The reconstructed T is inserted in some array so that when
+     the reference index for T is found in the input stream, it can be
+     used to look up into the array to get the reconstructed T.  */
+struct lto_streamer_cache_d
+{
+  /* The mapping between tree nodes and slots into the nodes array.  */
+  htab_t node_map;
+
+  /* Next available slot in the nodes and offsets arrays.  */
+  unsigned next_slot;
+
+  /* The nodes pickled so far.  */
+  VEC(tree,gc) *nodes;
+
+  /* Offset into the stream where the nodes have been written.  */
+  VEC(unsigned,heap) *offsets;
+};
+
+
 /* Structure used as buffer for reading an LTO file.  */
 struct lto_input_block 
 {
@@ -316,9 +393,6 @@ struct lto_function_header
   /* The header for all types of sections. */
   struct lto_header lto_header;
 
-  /* Number of local VAR_DECLS and PARM_DECLS.  */
-  int32_t num_local_decls;
-
   /* Number of labels with names.  */
   int32_t num_named_labels;
 
@@ -331,17 +405,8 @@ struct lto_function_header
   /* Size of names for named labels.  */
   int32_t named_label_size;
 
-  /* Size of the SSA_NAMES table.  */
-  int32_t ssa_names_size;
-
   /* Size of the cfg.  */
   int32_t cfg_size;
-
-  /* Size of local parm and var decl index region. */
-  int32_t local_decls_index_size;
-
-  /* Size of local parm and var decl region. */
-  int32_t local_decls_size;
 
   /* Size of main gimple body of function.  */
   int32_t main_size;
@@ -565,20 +630,11 @@ struct output_block
   /* The stream that the main tree codes are written to.  */
   struct lto_output_stream *main_stream;
 
-  /* The stream that contains the indexes for the local name table.  */
-  struct lto_output_stream *local_decl_index_stream;
-
-  /* The stream that contains the local name table.  */
-  struct lto_output_stream *local_decl_stream;
-
   /* The stream that contains the names for the named_labels.  */
   struct lto_output_stream *named_label_stream;
 
   /* The stream that contains the string table.  */
   struct lto_output_stream *string_stream;
-
-  /* The stream that contains the ssa_names table.  */
-  struct lto_output_stream *ssa_names_stream;
 
   /* The stream that contains the cfg.  */
   struct lto_output_stream *cfg_stream;
@@ -589,19 +645,6 @@ struct output_block
   int next_named_label_index;
   int next_unnamed_label_index;
   VEC(tree,heap) *named_labels;
-
-  /* The out decl buffer that contains the set of local parm and var decls
-     we have seen so far and the indexes assigned to them.  */
-  struct lto_tree_ref_encoder local_decl_encoder;
-
-  /* The local_decls_index and the local_decls_index_d are the indexes
-     in the local var stream where a particular local var is located.
-     This allows the local vars to be read in random order.  */ 
-  VEC(int,heap) *local_decls_index;
-
-  /* Index in local_decls so that list can be reconstructed
-     properly.  */
-  VEC(int,heap) *unexpanded_local_decls_index;
 
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */
@@ -621,9 +664,10 @@ struct output_block
   /* True if writing globals and types.  */
   bool global;
 
-  /* Map global decls and types to indices in the main stream.  */
-  htab_t main_hash_table;
+  /* Cache of nodes written in this section.  */
+  struct lto_streamer_cache_d *writer_cache;
 };
+
 
 /* Data and descriptors used when reading from an LTO file.  */
 struct data_in
@@ -631,20 +675,11 @@ struct data_in
   /* The global decls and types.  */
   struct lto_file_decl_data *file_data;
 
-  /* The offsets to decode the local_decls.  */
-  int *local_decls_index;
-
-  /* A table to reconstruct the local_decls.  */
-  int *local_decl_indexes;  
-
-  /* The local var_decls and the parm_decls.  */
-  tree *local_decls;
-
   /* All of the labels.  */
   tree *labels;
 
   /* The string table.  */
-  const char * strings;
+  const char *strings;
 
   /* The length of the string table.  */
   unsigned int strings_len;
@@ -660,14 +695,11 @@ struct data_in
   int current_line;
   int current_col;
 
-  /* Context for reading global variables and types.
-     When a new variable or type is read in from the stream,
-     it is pushed onto this vector.  Subsequent references
-     to the variable or type specify the vector index.  */
-  VEC(tree,heap) *globals_index;
-
   /* Maps each reference number to the resolution done by the linker. */
   VEC(ld_plugin_symbol_resolution_t,heap) *globals_resolution;
+
+  /* Cache of pickled nodes.  */
+  struct lto_streamer_cache_d *reader_cache;
 };
 
 
@@ -679,8 +711,6 @@ extern void
 lto_destroy_simple_input_block (struct lto_file_decl_data *, 
 				enum lto_section_type,
 				struct lto_input_block *, const char *, size_t);
-extern unsigned int lto_get_flag (unsigned HOST_WIDEST_INT *);
-extern unsigned int lto_get_flags (unsigned HOST_WIDEST_INT *, unsigned int);
 extern void lto_set_in_hooks (struct lto_file_decl_data **, 
 			      lto_get_section_data_f *,
 			      lto_free_section_data_f *);
@@ -696,7 +726,6 @@ extern unsigned HOST_WIDE_INT lto_input_uleb128 (struct lto_input_block *);
 extern unsigned HOST_WIDEST_INT lto_input_widest_uint_uleb128 (
 						struct lto_input_block *);
 extern HOST_WIDE_INT lto_input_sleb128 (struct lto_input_block *);
-extern tree lto_input_integer (struct lto_input_block *, tree);
 extern htab_t lto_create_renaming_table (void);
 extern void lto_record_renamed_decl (struct lto_file_decl_data *,
 				     const char *, const char *);
@@ -710,66 +739,77 @@ extern struct lto_in_decl_state *lto_get_function_in_decl_state (
 				      struct lto_file_decl_data *, tree);
 
 /* In lto-section-out.c  */
-void lto_set_flag (unsigned HOST_WIDEST_INT *, unsigned int);
-void lto_set_flags (unsigned HOST_WIDEST_INT *, unsigned int, unsigned int);
-hashval_t lto_hash_decl_slot_node (const void *);
-int lto_eq_decl_slot_node (const void *, const void *);
-hashval_t lto_hash_type_slot_node (const void *);
-int lto_eq_type_slot_node (const void *, const void *);
-hashval_t lto_hash_global_slot_node (const void *);
-int lto_eq_global_slot_node (const void *, const void *);
-void lto_begin_section (const char *);
-void lto_end_section (void);
-void lto_write_stream (struct lto_output_stream *);
-void lto_output_1_stream (struct lto_output_stream *, char);
-void lto_output_data_stream (struct lto_output_stream *, const void *, size_t);
-void lto_output_uleb128_stream (struct lto_output_stream *,
-				unsigned HOST_WIDE_INT);
-void lto_output_widest_uint_uleb128_stream (struct lto_output_stream *,
-					    unsigned HOST_WIDEST_INT);
-void lto_output_sleb128_stream (struct lto_output_stream *, HOST_WIDE_INT);
-void lto_output_integer_stream (struct lto_output_stream *, tree);
-bool lto_output_decl_index (struct lto_output_stream *,
+extern hashval_t lto_hash_decl_slot_node (const void *);
+extern int lto_eq_decl_slot_node (const void *, const void *);
+extern hashval_t lto_hash_type_slot_node (const void *);
+extern int lto_eq_type_slot_node (const void *, const void *);
+extern void lto_begin_section (const char *);
+extern void lto_end_section (void);
+extern void lto_write_stream (struct lto_output_stream *);
+extern void lto_output_1_stream (struct lto_output_stream *, char);
+extern void lto_output_data_stream (struct lto_output_stream *, const void *,
+				    size_t);
+extern void lto_output_uleb128_stream (struct lto_output_stream *,
+       				       unsigned HOST_WIDE_INT);
+extern void lto_output_widest_uint_uleb128_stream (struct lto_output_stream *,
+       					           unsigned HOST_WIDEST_INT);
+extern void lto_output_sleb128_stream (struct lto_output_stream *,
+				       HOST_WIDE_INT);
+extern bool lto_output_decl_index (struct lto_output_stream *,
 			    struct lto_tree_ref_encoder *,
 			    tree, unsigned int *);
-void lto_output_field_decl_index (struct lto_out_decl_state *,
+extern void lto_output_field_decl_index (struct lto_out_decl_state *,
 				  struct lto_output_stream *, tree);
-void lto_output_fn_decl_index (struct lto_out_decl_state *,
+extern void lto_output_fn_decl_index (struct lto_out_decl_state *,
 			       struct lto_output_stream *, tree);
-void lto_output_namespace_decl_index (struct lto_out_decl_state *,
+extern void lto_output_namespace_decl_index (struct lto_out_decl_state *,
 				      struct lto_output_stream *, tree);
-void lto_output_var_decl_index (struct lto_out_decl_state *,
+extern void lto_output_var_decl_index (struct lto_out_decl_state *,
 				struct lto_output_stream *, tree);
-void lto_output_type_decl_index (struct lto_out_decl_state *,
+extern void lto_output_type_decl_index (struct lto_out_decl_state *,
 				 struct lto_output_stream *, tree);
-void lto_output_type_ref_index (struct lto_out_decl_state *,
+extern void lto_output_type_ref_index (struct lto_out_decl_state *,
 				struct lto_output_stream *, tree);
-struct lto_simple_output_block *lto_create_simple_output_block (
+extern struct lto_simple_output_block *lto_create_simple_output_block (
 				enum lto_section_type);
-void lto_destroy_simple_output_block (struct lto_simple_output_block *ob);
-struct lto_out_decl_state *lto_new_out_decl_state (void);
-void lto_delete_out_decl_state (struct lto_out_decl_state *);
-struct lto_out_decl_state *lto_get_out_decl_state (void);
-void lto_push_out_decl_state (struct lto_out_decl_state *);
-struct lto_out_decl_state *lto_pop_out_decl_state (void);
-void lto_record_function_out_decl_state (tree, struct lto_out_decl_state*);
-VEC(tree,heap)* lto_get_common_nodes (void);
-bool gate_lto_out (void);
-void preload_common_node (tree, htab_t, VEC(tree, heap) **, unsigned *);
-bool get_ref_idx_for (tree, htab_t, VEC(tree, heap) **, unsigned *);
-void lto_new_extern_inline_states (void);
-void lto_delete_extern_inline_states (void);
-void lto_force_functions_extern_inline (bitmap decls);
-bool lto_forced_extern_inline_p (tree fn_decl);
+extern void lto_destroy_simple_output_block (struct lto_simple_output_block *);
+extern struct lto_out_decl_state *lto_new_out_decl_state (void);
+extern void lto_delete_out_decl_state (struct lto_out_decl_state *);
+extern struct lto_out_decl_state *lto_get_out_decl_state (void);
+extern void lto_push_out_decl_state (struct lto_out_decl_state *);
+extern struct lto_out_decl_state *lto_pop_out_decl_state (void);
+extern void lto_record_function_out_decl_state (tree,
+						struct lto_out_decl_state *);
+extern void lto_new_extern_inline_states (void);
+extern void lto_delete_extern_inline_states (void);
+extern void lto_force_functions_extern_inline (bitmap decls);
+extern bool lto_forced_extern_inline_p (tree fn_decl);
 
 
 /* In lto-streamer.c.  */
+extern const char *lto_tag_name (enum LTO_tags);
 extern bitmap lto_bitmap_alloc (void);
 extern void lto_bitmap_free (bitmap);
-extern lto_decl_flags_t lto_get_decl_flags (tree);
-extern void lto_set_decl_flags (tree, lto_decl_flags_t);
 extern char *lto_get_section_name (int, const char *);
 extern void print_lto_report (void);
+extern struct bitpack_d *bitpack_create (void);
+extern void bitpack_delete (struct bitpack_d *);
+extern void bp_pack_value (struct bitpack_d *, bitpack_word_t, unsigned);
+extern bitpack_word_t bp_unpack_value (struct bitpack_d *, unsigned);
+extern bool lto_streamer_cache_insert (struct lto_streamer_cache_d *, tree,
+				       int *, unsigned *);
+extern bool lto_streamer_cache_insert_at (struct lto_streamer_cache_d *, tree,
+					  int);
+extern bool lto_streamer_cache_lookup (struct lto_streamer_cache_d *, tree,
+				       int *);
+extern tree lto_streamer_cache_get (struct lto_streamer_cache_d *, int);
+extern struct lto_streamer_cache_d *lto_streamer_cache_create (void);
+extern void lto_streamer_cache_delete (struct lto_streamer_cache_d *);
+extern void lto_streamer_init (void);
+extern bool gate_lto_out (void);
+extern void lto_orig_address_map (tree, intptr_t);
+extern intptr_t lto_orig_address_get (tree);
+extern void lto_orig_address_remove (tree);
 
 
 /* In lto-streamer-in.c */
@@ -779,19 +819,25 @@ extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 					      const char *);
 extern void lto_input_cgraph (struct lto_file_decl_data *, const char *);
 extern void lto_init_reader (void);
-extern tree input_tree (struct lto_input_block *, struct data_in *);
+extern tree lto_input_tree (struct lto_input_block *, struct data_in *);
 extern void lto_input_function_body (struct lto_file_decl_data *, tree,
 				     const char *);
 extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 					      const char *);
+extern struct bitpack_d *lto_input_bitpack (struct lto_input_block *);
+extern void lto_init_reader (void);
+extern struct data_in *lto_data_in_create (struct lto_file_decl_data *,
+				    const char *, unsigned,
+				    VEC(ld_plugin_symbol_resolution_t,heap) *);
+extern void lto_data_in_delete (struct data_in *);
 
 
 /* In lto-streamer-out.c  */
 extern void lto_register_decl_definition (tree, struct lto_file_decl_data *);
-struct output_block *create_output_block (enum lto_section_type);
-void destroy_output_block (struct output_block *);
-extern void output_constructors_and_inits (struct cgraph_node_set_def *);
-extern void output_tree (struct output_block *, tree);
+extern struct output_block *create_output_block (enum lto_section_type);
+extern void destroy_output_block (struct output_block *);
+extern void lto_output_tree (struct output_block *, tree, bool);
+extern void lto_output_bitpack (struct lto_output_stream *, struct bitpack_d *);
 
 
 /* In lto-cgraph.c  */
@@ -837,6 +883,61 @@ extern const char *lto_section_name[];
 /* Holds all the out decl states of functions output so far in the
    current output file.  */
 extern VEC(lto_out_decl_state_ptr, heap) *lto_function_decl_states;
+
+/* Return true if LTO tag TAG corresponds to a tree code.  */
+static inline bool
+lto_tag_is_tree_code_p (enum LTO_tags tag)
+{
+  return tag > LTO_null && (unsigned) tag <= NUM_TREE_CODES;
+}
+
+
+/* Return true if LTO tag TAG corresponds to a gimple code.  */
+static inline bool
+lto_tag_is_gimple_code_p (enum LTO_tags tag)
+{
+  return (unsigned) tag >= NUM_TREE_CODES + 1
+	 && (unsigned) tag < 1 + NUM_TREE_CODES + LAST_AND_UNUSED_GIMPLE_CODE;
+}
+
+
+/* Return the LTO tag corresponding to gimple code CODE.  See enum
+   LTO_tags for details on the conversion.  */
+static inline enum LTO_tags
+lto_gimple_code_to_tag (enum gimple_code code)
+{
+  return (enum LTO_tags) ((unsigned) code + NUM_TREE_CODES + 1);
+}
+
+
+/* Return the GIMPLE code corresponding to TAG.  See enum LTO_tags for
+   details on the conversion.  */
+static inline enum gimple_code
+lto_tag_to_gimple_code (enum LTO_tags tag)
+{
+  gcc_assert (lto_tag_is_gimple_code_p (tag));
+  return (enum gimple_code) ((unsigned) tag - NUM_TREE_CODES - 1);
+}
+
+
+/* Return the LTO tag corresponding to tree code CODE.  See enum
+   LTO_tags for details on the conversion.  */
+static inline enum LTO_tags
+lto_tree_code_to_tag (enum tree_code code)
+{
+  return (enum LTO_tags) ((unsigned) code + 1);
+}
+
+
+/* Return the tree code corresponding to TAG.  See enum LTO_tags for
+   details on the conversion.  */
+static inline enum tree_code
+lto_tag_to_tree_code (enum LTO_tags tag)
+{
+  gcc_assert (lto_tag_is_tree_code_p (tag));
+  return (enum tree_code) ((unsigned) tag - 1);
+}
+
 
 /* Return true if FILE needs to be compiled with LTRANS.  */
 static inline bool
@@ -914,6 +1015,17 @@ emit_label_in_global_context_p (tree label)
   return DECL_NONLOCAL (label) || FORCED_LABEL (label);
 }
 
+/* Return true if tree node EXPR should be streamed as a builtin.  For
+   these nodes, we just emit the class and function code.  */
+static inline bool
+lto_stream_as_builtin_p (tree expr)
+{
+  return (TREE_CODE (expr) == FUNCTION_DECL
+	  && DECL_IS_BUILTIN (expr)
+	  && (DECL_BUILT_IN_CLASS (expr) == BUILT_IN_NORMAL
+	      || DECL_BUILT_IN_CLASS (expr) == BUILT_IN_MD));
+}
+
 DEFINE_DECL_STREAM_FUNCS (TYPE, type)
 DEFINE_DECL_STREAM_FUNCS (FIELD_DECL, field_decl)
 DEFINE_DECL_STREAM_FUNCS (FN_DECL, fn_decl)
@@ -922,4 +1034,4 @@ DEFINE_DECL_STREAM_FUNCS (TYPE_DECL, type_decl)
 DEFINE_DECL_STREAM_FUNCS (NAMESPACE_DECL, namespace_decl)
 DEFINE_DECL_STREAM_FUNCS (LABEL_DECL, label_decl)
 
-#endif /* !GCC_LTO_STREAMER_H */
+#endif /* GCC_LTO_STREAMER_H  */

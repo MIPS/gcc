@@ -132,11 +132,11 @@ lto_cgraph_encoder_size (lto_cgraph_encoder_t encoder)
 
 static void
 lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
-	     lto_cgraph_encoder_t encoder)
+		 lto_cgraph_encoder_t encoder)
 {
   unsigned int uid;
   intptr_t ref;
-  unsigned HOST_WIDEST_INT flags = 0;
+  struct bitpack_d *bp;
 
   lto_output_uleb128_stream (ob->main_stream, LTO_cgraph_edge);
 
@@ -154,9 +154,11 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   lto_output_uleb128_stream (ob->main_stream, edge->count);
   lto_output_uleb128_stream (ob->main_stream, edge->frequency);
   lto_output_uleb128_stream (ob->main_stream, edge->loop_nest);
-  lto_set_flag (&flags, edge->indirect_call);
-  lto_set_flag (&flags, edge->call_stmt_cannot_inline_p);
-  lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
+  bp = bitpack_create ();
+  bp_pack_value (bp, edge->indirect_call, 1);
+  bp_pack_value (bp, edge->call_stmt_cannot_inline_p, 1);
+  lto_output_bitpack (ob->main_stream, bp);
+  bitpack_delete (bp);
 }
 
 
@@ -174,7 +176,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 		 bitmap written_decls)
 {
   unsigned int tag;
-  unsigned HOST_WIDEST_INT flags = 0;
+  struct bitpack_d *bp;
   unsigned local, externally_visible, inlinable;
   bool boundary_p, wrote_decl_p;
   intptr_t ref;
@@ -240,19 +242,20 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 
   lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
 
-  lto_set_flag (&flags, node->lowered);
-  lto_set_flag (&flags, node->analyzed);
-  lto_set_flag (&flags, node->needed);
-  lto_set_flag (&flags, local);
-  lto_set_flag (&flags, externally_visible);
-  lto_set_flag (&flags, node->local.finalized);
-  lto_set_flag (&flags, inlinable);
-  lto_set_flag (&flags, node->local.disregard_inline_limits);
-  lto_set_flag (&flags, node->local.redefined_extern_inline);
-  lto_set_flag (&flags, node->local.for_functions_valid);
-  lto_set_flag (&flags, node->local.vtable_method);
-
-  lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
+  bp = bitpack_create ();
+  bp_pack_value (bp, node->lowered, 1);
+  bp_pack_value (bp, node->analyzed, 1);
+  bp_pack_value (bp, node->needed, 1);
+  bp_pack_value (bp, local, 1);
+  bp_pack_value (bp, externally_visible, 1);
+  bp_pack_value (bp, node->local.finalized, 1);
+  bp_pack_value (bp, inlinable, 1);
+  bp_pack_value (bp, node->local.disregard_inline_limits, 1);
+  bp_pack_value (bp, node->local.redefined_extern_inline, 1);
+  bp_pack_value (bp, node->local.for_functions_valid, 1);
+  bp_pack_value (bp, node->local.vtable_method, 1);
+  lto_output_bitpack (ob->main_stream, bp);
+  bitpack_delete (bp);
 
   if (tag != LTO_cgraph_unavail_node)
     {
@@ -375,14 +378,14 @@ static void
 input_overwrite_node (struct lto_file_decl_data *file_data,
 		      struct cgraph_node *node,
 		      enum LTO_cgraph_tags tag,
-		      unsigned HOST_WIDEST_INT flags,
+		      struct bitpack_d *bp,
 		      unsigned int stack_size,
 		      unsigned int self_time,
 		      unsigned int time_inlining_benefit,
 		      unsigned int self_size,
 		      unsigned int size_inlining_benefit)
 {
-  node->aux = (void *)tag;
+  node->aux = (void *) tag;
   node->local.inline_summary.estimated_self_stack_size = stack_size;
   node->local.inline_summary.self_time = self_time;
   node->local.inline_summary.time_inlining_benefit = time_inlining_benefit;
@@ -392,19 +395,17 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->global.size = self_size;
   node->local.lto_file_data = file_data;
 
-  /* This list must be in the reverse order that they are set in
-     lto_output_node.  */
-  node->local.vtable_method = lto_get_flag (&flags);
-  node->local.for_functions_valid = lto_get_flag (&flags);
-  node->local.redefined_extern_inline = lto_get_flag (&flags);
-  node->local.disregard_inline_limits = lto_get_flag (&flags);
-  node->local.inlinable = lto_get_flag (&flags);
-  node->local.finalized = lto_get_flag (&flags);
-  node->local.externally_visible = lto_get_flag (&flags);
-  node->local.local = lto_get_flag (&flags);
-  node->needed = lto_get_flag (&flags);
-  node->analyzed = lto_get_flag (&flags);
-  node->lowered = lto_get_flag (&flags);
+  node->lowered = bp_unpack_value (bp, 1);
+  node->analyzed = bp_unpack_value (bp, 1);
+  node->needed = bp_unpack_value (bp, 1);
+  node->local.local = bp_unpack_value (bp, 1);
+  node->local.externally_visible = bp_unpack_value (bp, 1);
+  node->local.finalized = bp_unpack_value (bp, 1);
+  node->local.inlinable = bp_unpack_value (bp, 1);
+  node->local.disregard_inline_limits = bp_unpack_value (bp, 1);
+  node->local.redefined_extern_inline = bp_unpack_value (bp, 1);
+  node->local.for_functions_valid = bp_unpack_value (bp, 1);
+  node->local.vtable_method = bp_unpack_value (bp, 1);
 }
 
 
@@ -418,7 +419,7 @@ input_node (struct lto_file_decl_data *file_data,
 {
   tree fn_decl;
   struct cgraph_node *node;
-  unsigned int flags;
+  struct bitpack_d *bp;
   int stack_size = 0;
   unsigned decl_index;
   bool clone_p;
@@ -444,7 +445,7 @@ input_node (struct lto_file_decl_data *file_data,
   else
     node = cgraph_node (fn_decl);
 
-  flags = lto_input_uleb128 (ib);
+  bp = lto_input_bitpack (ib);
   
   if (tag != LTO_cgraph_unavail_node)
     {
@@ -472,8 +473,10 @@ input_node (struct lto_file_decl_data *file_data,
      flags.  */
   gcc_assert (!node->aux || DECL_IS_BUILTIN (node->decl));
 
-  input_overwrite_node (file_data, node, tag, flags, stack_size, self_time,
-  			time_inlining_benefit, self_size, size_inlining_benefit);
+  input_overwrite_node (file_data, node, tag, bp, stack_size, self_time,
+  			time_inlining_benefit, self_size,
+			size_inlining_benefit);
+  bitpack_delete (bp);
 
   node->global.estimated_stack_size = estimated_stack_size;
   node->global.stack_frame_offset = stack_frame_offset;
@@ -502,7 +505,7 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   unsigned int freq;
   unsigned int nest;
   cgraph_inline_failed_t inline_failed;
-  unsigned HOST_WIDEST_INT flags;
+  struct bitpack_d *bp;
   tree prevailing_callee;
   tree prevailing_caller;
   enum ld_plugin_symbol_resolution caller_resolution;
@@ -521,7 +524,7 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   count = lto_input_uleb128 (ib);
   freq = lto_input_uleb128 (ib);
   nest = lto_input_uleb128 (ib);
-  flags = lto_input_widest_uint_uleb128 (ib);
+  bp = lto_input_bitpack (ib);
 
   /* If the caller was preempted, don't create the edge.  */
   if (caller_resolution == LDPR_PREEMPTED_REG
@@ -570,8 +573,9 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
 
   /* This list must be in the reverse order that they are set in
      lto_output_edge.  */
-  edge->call_stmt_cannot_inline_p = lto_get_flag (&flags);
-  edge->indirect_call = lto_get_flag (&flags);
+  edge->indirect_call = bp_unpack_value (bp, 1);
+  edge->call_stmt_cannot_inline_p = bp_unpack_value (bp, 1);
+  bitpack_delete (bp);
 }
 
 

@@ -924,8 +924,7 @@ IRA_INT_H = ira.h ira-int.h $(CFGLOOP_H) alloc-pool.h
 DBGCNT_H = dbgcnt.h dbgcnt.def
 EBIMAP_H = ebitmap.h sbitmap.h
 LTO_STREAMER_H = lto-streamer.h $(LINKER_PLUGIN_API_H) $(TARGET_H) \
-		$(CGRAPH_H) vec.h vecprim.h
-LTO_TAGS_H = lto-tags.h tree.h sbitmap.h $(LTO_STREAMER_H)
+		$(CGRAPH_H) vec.h vecprim.h $(TREE_H) $(GIMPLE_H)
 TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
 IPA_PROP_H = ipa-prop.h $(TREE_H) vec.h $(CGRAPH_H)
 GSTAB_H = gstab.h stab.def
@@ -2163,23 +2162,22 @@ lto-streamer-in.o: lto-streamer-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TOPLEV_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h $(VARRAY_H) \
    $(HASHTAB_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) $(TREE_PASS_H) $(CGRAPH_H) \
    $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) libfuncs.h $(EXCEPT_H) debug.h \
-   $(TIMEVAR_H) output.h $(IPA_UTILS_H) $(LTO_TAGS_H) $(LTO_STREAMER_H) \
-   lto-tree-flags.def
+   $(TIMEVAR_H) output.h $(IPA_UTILS_H) $(LTO_STREAMER_H)
 lto-streamer-out.o : lto-streamer-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) $(BASIC_BLOCK_H) tree-iterator.h \
    $(TREE_FLOW_H) $(TREE_PASS_H) $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) \
-   $(DIAGNOSTIC_H) except.h $(LTO_STREAMER_H) $(LTO_TAGS_H) lto-tree-flags.def
+   $(DIAGNOSTIC_H) except.h $(LTO_STREAMER_H)
 lto-section-in.o: lto-section-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TOPLEV_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h $(VARRAY_H) \
    $(HASHTAB_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) $(CGRAPH_H) $(FUNCTION_H) \
    $(GGC_H) $(DIAGNOSTIC_H) except.h $(TIMEVAR_H) output.h \
    $(LTO_STREAMER_H) lto-compress.h
 lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
+   $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) $(TREE_PASS_H) \
-   $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) except.h pointer-set.h \
-   $(BITMAP_H) langhooks.h $(LTO_SYMTAB_H) $(LTO_STREAMER_H) lto-compress.h
+   $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) except.h pointer-set.h \
+   $(BITMAP_H) langhooks.h $(LTO_STREAMER_H) lto-compress.h
 lto-symtab.o: lto-symtab.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    toplev.h $(TREE_H) $(GIMPLE_H) $(GGC_H) $(LAMBDA_H) $(HASHTAB_H) \
    $(LTO_STREAMER_H) $(LINKER_PLUGIN_API_H) gt-lto-symtab.h
@@ -2187,7 +2185,8 @@ lto-opts.o: lto-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
    $(HASHTAB_H) $(GGC_H) $(BITMAP_H) $(FLAGS_H) opts.h options.h \
    $(TARGET_H) $(TOPLEV_H) $(LTO_STREAMER_H)
 lto-streamer.o: lto-streamer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
-   $(TM_H) $(TREE_H) $(GIMPLE_H) $(BITMAP_H) $(LTO_STREAMER_H)
+   $(TM_H) $(TREE_H) $(GIMPLE_H) $(BITMAP_H) $(LTO_STREAMER_H) $(FLAGS_H) \
+   $(TREE_FLOW_H) $(DIAGNOSTIC_H) $(LTO_SYMTAB_H)
 lto-wpa-fixup.o: lto-wpa-fixup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
    $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) $(CGRAPH_H) \
    $(FUNCTION_H) $(DIAGNOSTIC_H) $(BITMAP_H) $(TIMEVAR_H) \
@@ -2201,7 +2200,7 @@ tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(TOPLEV_H) $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h \
    $(REAL_H) gt-tree.h tree-iterator.h $(BASIC_BLOCK_H) $(TREE_FLOW_H) \
    $(OBSTACK_H) pointer-set.h fixed-value.h tree-pass.h langhooks-def.h \
-   $(DIAGNOSTIC_H) $(CGRAPH_H) $(TIMEVAR_H) except.h
+   $(DIAGNOSTIC_H) $(CGRAPH_H) $(TIMEVAR_H) except.h debug.h
 tree-dump.o: tree-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(TOPLEV_H) $(SPLAY_TREE_H) $(TREE_DUMP_H) \
    tree-iterator.h $(TREE_PASS_H) $(DIAGNOSTIC_H) $(REAL_H) fixed-value.h
@@ -2649,7 +2648,7 @@ varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    output.h $(TOPLEV_H) xcoffout.h debug.h $(GGC_H) $(TM_P_H) \
    $(HASHTAB_H) $(TARGET_H) langhooks.h gt-varasm.h $(BASIC_BLOCK_H) \
    $(CFGLAYOUT_H) $(CGRAPH_H) targhooks.h tree-mudflap.h $(REAL_H) \
-   tree-iterator.h lto-streamer.h
+   tree-iterator.h
 function.o : function.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(CFGLAYOUT_H) $(GIMPLE_H) $(FLAGS_H) $(FUNCTION_H) $(EXPR_H) \
    $(OPTABS_H) libfuncs.h $(REGS_H) hard-reg-set.h insn-config.h $(RECOG_H) \

@@ -1,3 +1,15 @@
+2009-07-06  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (preload_common_nodes): Remove.
+	(lto_read_in_decl_state): Call lto_streamer_cache_get.
+	(lto_read_decls): Call lto_data_in_create and
+	lto_data_in_delete.
+	(free_decl): Do not call ggc_free.
+	(lto_main): Call lto_init_reader.
+	* lto-lang.c (lto_type_for_size): Handle intTI_type_node.
+	(lto_init): Initialize main_identifier_node if needed.
+	Make ptrdiff_type_node be integer_type_node.
+
 2009-06-19  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c: Remove code guarded by #ifdef LTO_STREAM_DEBUGGING.

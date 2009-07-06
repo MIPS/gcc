@@ -679,7 +679,7 @@ pure_const_write_summary (cgraph_node_set set)
       node = csi_node (csi);
       if (node->analyzed && get_function_state (node) != NULL)
 	{
-	  unsigned HOST_WIDEST_INT flags = 0;
+	  struct bitpack_d *bp;
 	  funct_state fs;
 	  int node_ref;
 	  lto_cgraph_encoder_t encoder;
@@ -692,13 +692,14 @@ pure_const_write_summary (cgraph_node_set set)
 	
 	  /* Note that flags will need to be read in the opposite
 	     order as we are pushing the bitflags into FLAGS.  */
-	  lto_set_flags (&flags, fs->pure_const_state, 2);
-	  lto_set_flags (&flags, fs->state_previously_known, 2);
-	  lto_set_flag (&flags, fs->looping_previously_known);
-	  lto_set_flag (&flags, fs->looping);
-	  lto_set_flag (&flags, fs->can_throw);
-
-	  lto_output_widest_uint_uleb128_stream (ob->main_stream, flags);
+	  bp = bitpack_create ();
+	  bp_pack_value (bp, fs->pure_const_state, 2);
+	  bp_pack_value (bp, fs->state_previously_known, 2);
+	  bp_pack_value (bp, fs->looping_previously_known, 1);
+	  bp_pack_value (bp, fs->looping, 1);
+	  bp_pack_value (bp, fs->can_throw, 1);
+	  lto_output_bitpack (ob->main_stream, bp);
+	  bitpack_delete (bp);
 	}
     }
 
@@ -733,7 +734,7 @@ pure_const_read_summary (void)
 	    {
 	      unsigned int index;
 	      struct cgraph_node *node;
-	      unsigned HOST_WIDEST_INT flags;
+	      struct bitpack_d *bp;
 	      funct_state fs;
 	      lto_cgraph_encoder_t encoder;
 
@@ -746,14 +747,15 @@ pure_const_read_summary (void)
 	      /* Note that the flags must be read in the opposite
 		 order in which they were written (the bitflags were
 		 pushed into FLAGS).  */
-	      flags = lto_input_widest_uint_uleb128 (ib);
-	      fs->can_throw = lto_get_flag (&flags);
-	      fs->looping = lto_get_flag (&flags);
-	      fs->looping_previously_known = lto_get_flag (&flags);
-	      fs->state_previously_known
-			= (enum pure_const_state_e) lto_get_flags (&flags, 2);
+	      bp = lto_input_bitpack (ib);
 	      fs->pure_const_state
-			= (enum pure_const_state_e) lto_get_flags (&flags, 2);
+			= (enum pure_const_state_e) bp_unpack_value (bp, 2);
+	      fs->state_previously_known
+			= (enum pure_const_state_e) bp_unpack_value (bp, 2);
+	      fs->looping_previously_known = bp_unpack_value (bp, 1);
+	      fs->looping = bp_unpack_value (bp, 1);
+	      fs->can_throw = bp_unpack_value (bp, 1);
+	      bitpack_delete (bp);
 	    }
 
 	  lto_destroy_simple_input_block (file_data, 

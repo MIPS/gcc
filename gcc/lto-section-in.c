@@ -59,31 +59,6 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
   "opts"
 };
 
-/* Return 0 or 1 based on the last bit of FLAGS and right shift FLAGS
-   by 1.  */
-
-unsigned int
-lto_get_flag (unsigned HOST_WIDEST_INT *flags)
-{
-  unsigned int result = *flags & 1;
-  *flags = *flags >> 1;
-  return result;
-}
-
-
-/* Return an integer based on the last WIDTH bits of FLAGS and right
-   shift FLAGS by WIDTH.  */
-
-unsigned int
-lto_get_flags (unsigned HOST_WIDEST_INT *flags, unsigned int width)
-{
-  unsigned HOST_WIDEST_INT mask = (((unsigned HOST_WIDEST_INT) 1) << width) - 1;
-  unsigned int result = *flags & mask;
-  *flags = *flags >> width;
-  return result;
-}
-
-
 unsigned char 
 lto_input_1_unsigned (struct lto_input_block *ib)
 {
@@ -151,53 +126,6 @@ lto_input_sleb128 (struct lto_input_block *ib)
 	    result |= - ((HOST_WIDE_INT)1 << shift);
 
 	  return result;
-	}
-    }
-}
-
-
-/* Input the next integer constant of TYPE in IB.  */
-
-tree
-lto_input_integer (struct lto_input_block *ib, tree type)
-{
-  HOST_WIDE_INT low = 0;
-  HOST_WIDE_INT high = 0;
-  int shift = 0;
-  unsigned HOST_WIDE_INT byte;
-
-  while (true)
-    {
-      byte = lto_input_1_unsigned (ib);
-      if (shift < HOST_BITS_PER_WIDE_INT - 7)
-	/* Working on the low part.  */
-	low |= (byte & 0x7f) << shift;
-      else if (shift >= HOST_BITS_PER_WIDE_INT)
-	/* Working on the high part.  */
-	high |= (byte & 0x7f) << (shift - HOST_BITS_PER_WIDE_INT);
-      else
-	{
-	  /* Working on the transition between the low and high parts.  */
-	  low |= (byte & 0x7f) << shift;
-	  high |= (byte & 0x7f) >> (HOST_BITS_PER_WIDE_INT - shift);
-	}
-
-      shift += 7;
-      if ((byte & 0x80) == 0)
-	{
-	  if (byte & 0x40)
-	    {
-	      /* The number is negative.  */
-	      if (shift < HOST_BITS_PER_WIDE_INT)
-		{
-		  low |= - ((HOST_WIDE_INT)1 << shift);
-		  high = -1;
-		}
-	      else if (shift < (2 * HOST_BITS_PER_WIDE_INT))
-		high |= - ((HOST_WIDE_INT)1 << (shift - HOST_BITS_PER_WIDE_INT));
-	    }
-
-	  return build_int_cst_wide (type, low, high);
 	}
     }
 }

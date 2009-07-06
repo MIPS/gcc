@@ -53,7 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfglayout.h"
 #include "basic-block.h"
 #include "tree-iterator.h"
-#include "lto-streamer.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -2102,15 +2101,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   /* Do nothing for global register variables.  */
   if (DECL_RTL_SET_P (decl) && REG_P (DECL_RTL (decl)))
-    {
-      TREE_ASM_WRITTEN (decl) = 1;
-      return;
-    }
-
-  /* Do nothing if we are running in LTRANS mode and we are told to
-     suppress output.  */
-  if (flag_ltrans
-      && (lto_get_decl_flags (decl) & LTO_DECL_FLAG_SUPPRESS_OUTPUT))
     {
       TREE_ASM_WRITTEN (decl) = 1;
       return;
@@ -6541,7 +6531,15 @@ default_binds_local_p_1 (const_tree exp, int shlib)
     local_p = true;
   /* Default visibility weak data can be overridden by a strong symbol
      in another module and so are not local.  */
-  else if (DECL_WEAK (exp))
+  /* FIXME lto.  Symbols are marked weak by WPA to avoid multiple
+     definition errors during linking.  This means that LTRANS cannot
+     optimize references like folding DECL_INITIAL of non-static
+     strings (e.g., gcc.c-torture/execute/builtins/sprintf-chk.c).
+     To fix this, the non-weak version of the symbol should be emitted
+     by WPA in the same file that references it (however, multiple
+     references from different LTRANS files will have to use the
+     weak references).  */
+  else if (DECL_WEAK (exp) && !flag_ltrans)
     local_p = false;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules, unless we are compiling with

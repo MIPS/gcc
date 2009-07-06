@@ -766,9 +766,9 @@ lto_type_for_size (unsigned precision, int unsignedp)
     return unsignedp ? long_unsigned_type_node : long_integer_type_node;
 
   if (precision == TYPE_PRECISION (long_long_integer_type_node))
-    return (unsignedp
-	    ? long_long_unsigned_type_node
-	    : long_long_integer_type_node);
+    return unsignedp
+	   ? long_long_unsigned_type_node
+	   : long_long_integer_type_node;
 
   if (precision <= TYPE_PRECISION (intQI_type_node))
     return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
@@ -781,6 +781,9 @@ lto_type_for_size (unsigned precision, int unsignedp)
 
   if (precision <= TYPE_PRECISION (intDI_type_node))
     return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
+
+  if (precision <= TYPE_PRECISION (intTI_type_node))
+    return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
 
   return NULL_TREE;
 }
@@ -1116,6 +1119,21 @@ lto_init (void)
     }
   else
     gcc_unreachable();
+
+  /* The global tree for the main identifier is filled in by
+     language-specific front-end initialization that is not run in the
+     LTO back-end.  It appears that all languages that perform such
+     initialization currently do so in the same way, so we do it here.  */
+  if (main_identifier_node == NULL_TREE)
+    main_identifier_node = get_identifier ("main");
+
+  /* In the C++ front-end, fileptr_type_node is defined as a variant
+     copy of of ptr_type_node, rather than ptr_node itself.  The
+     distinction should only be relevant to the front-end, so we
+     always use the C definition here in lto1.  */
+  gcc_assert (fileptr_type_node == ptr_type_node);
+
+  ptrdiff_type_node = integer_type_node;
 
   /* Create other basic types.  */
   build_common_tree_nodes_2 (/*short_double=*/false);

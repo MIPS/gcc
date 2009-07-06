@@ -598,7 +598,7 @@ init_optimization_passes (void)
   p = &all_lto_gen_passes;
   NEXT_PASS (pass_ipa_lto_gimple_out);
   NEXT_PASS (pass_ipa_lto_wpa_fixup);
-  NEXT_PASS (pass_ipa_lto_finish_out);  /* This must be the last IPA_PASS.  */
+  NEXT_PASS (pass_ipa_lto_finish_out);  /* This must be the last LTO pass.  */
   *p = NULL;
 
   /* These passes are run after IPA passes on every function that is being

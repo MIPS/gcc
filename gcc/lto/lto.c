@@ -41,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "lto.h"
 #include "lto-tree.h"
-#include "lto-tags.h"
 #include "lto-streamer.h"
 
 /* This needs to be included after config.h.  Otherwise, _GNU_SOURCE will not
@@ -127,56 +126,20 @@ lto_materialize_function (struct cgraph_node *node)
 }
 
 
-/* Initialize the globals vector with pointers to well-known trees.  */
-
-static void
-preload_common_nodes (struct data_in *data_in)
-{
-  unsigned i;
-  htab_t index_table;
-  VEC(tree, heap) *common_nodes;
-  tree node;
-
-  /* The global tree for the main identifier is filled in by language-specific
-     front-end initialization that is not run in the LTO back-end.  It appears
-     that all languages that perform such initialization currently do so in the
-     same way, so we do it here.  */
-  if (!main_identifier_node)
-    main_identifier_node = get_identifier ("main");
-
-  ptrdiff_type_node = integer_type_node;
-
-  common_nodes = lto_get_common_nodes ();
-  /* FIXME lto.  In the C++ front-end, fileptr_type_node is defined as a
-     variant copy of of ptr_type_node, rather than ptr_node itself.  The
-     distinction should only be relevant to the front-end, so we always
-     use the C definition here in lto1.  */
-  gcc_assert (fileptr_type_node == ptr_type_node);
-
-  index_table = htab_create (37, lto_hash_global_slot_node,
-			     lto_eq_global_slot_node, free);
-
-  for (i = 0; VEC_iterate (tree, common_nodes, i, node); i++)
-    preload_common_node (node, index_table, &data_in->globals_index, NULL);
-
-  VEC_free(tree, heap, common_nodes);
-  htab_delete (index_table);
-}
-
 /* Decode the content of memory pointed to by DATA in the the
    in decl state object STATE. DATA_IN points to a data_in structure for
    decoding. Return the address after the decoded object in the input.  */
 
-static const uint32_t*
+static const uint32_t *
 lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
 			struct lto_in_decl_state *state)
 {
-  uint32_t fn_decl_index;
+  uint32_t ix;
   tree decl;
   uint32_t i, j;
   
-  fn_decl_index = *data++;
-  decl = VEC_index (tree, data_in->globals_index, fn_decl_index);
+  ix = *data++;
+  decl = lto_streamer_cache_get (data_in->reader_cache, (int) ix);
   if (TREE_CODE (decl) != FUNCTION_DECL)
     {
       gcc_assert (decl == void_type_node);
@@ -191,7 +154,7 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
 
       for (j = 0; j < size; j++)
 	{
-	  decls[j] = VEC_index (tree, data_in->globals_index, data[j]);
+	  decls[j] = lto_streamer_cache_get (data_in->reader_cache, data[j]);
 
 	  /* Register every type in the global type table.  If the
 	     type existed already, use the existing type.  */
@@ -216,39 +179,25 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   const int32_t main_offset = decl_offset + header->decl_state_size;
   const int32_t string_offset = main_offset + header->main_size;
   struct lto_input_block ib_main;
-  struct data_in data_in;
+  struct data_in *data_in;
   unsigned int i;
   const uint32_t *data_ptr, *data_end;
   uint32_t num_decl_states;
 
-  
   LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
 			header->main_size);
 
-  memset (&data_in, 0, sizeof (struct data_in));
-  data_in.file_data          = decl_data;
-  data_in.strings            = (const char *) data + string_offset;
-  data_in.strings_len        = header->string_size;
-  data_in.globals_index	     = NULL;
-  data_in.globals_resolution = resolutions;
-
-  /* FIXME: This doesn't belong here.
-     Need initialization not done in lto_static_init ().  */
-  lto_init_reader ();
-
-  /* Preload references to well-known trees.  */
-  preload_common_nodes (&data_in);
+  data_in = lto_data_in_create (decl_data, (const char *) data + string_offset,
+				header->string_size, resolutions);
 
   /* Read the global declarations and types.  */
-  /* FIXME: We should be a bit more graceful regarding truncated files. */
   while (ib_main.p < ib_main.len)
     {
-      input_tree (&ib_main, &data_in);
-      gcc_assert (ib_main.p <= ib_main.len);
+      tree t = lto_input_tree (&ib_main, data_in);
+      gcc_assert (t && ib_main.p <= ib_main.len);
     }
 
-  /* Read in lto_in_decl_state objects. */
-
+  /* Read in lto_in_decl_state objects.  */
   data_ptr = (const uint32_t *) ((const char*) data + decl_offset); 
   data_end =
      (const uint32_t *) ((const char*) data_ptr + header->decl_state_size);
@@ -256,7 +205,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   
   gcc_assert (num_decl_states > 0);
   decl_data->global_decl_state = lto_new_in_decl_state ();
-  data_ptr = lto_read_in_decl_state (&data_in, data_ptr,
+  data_ptr = lto_read_in_decl_state (data_in, data_ptr,
 				     decl_data->global_decl_state);
 
   /* Read in per-function decl states and enter them in hash table.  */
@@ -268,7 +217,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
       struct lto_in_decl_state *state = lto_new_in_decl_state ();
       void **slot;
 
-      data_ptr = lto_read_in_decl_state (&data_in, data_ptr, state);
+      data_ptr = lto_read_in_decl_state (data_in, data_ptr, state);
       slot = htab_find_slot (decl_data->function_decl_states, state, INSERT);
       gcc_assert (*slot == NULL);
       *slot = state;
@@ -278,10 +227,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   /* Set the current decl state to be the global state. */
   decl_data->current_decl_state = decl_data->global_decl_state;
 
-  /* The globals index vector is needed only while reading.  */
-
-  VEC_free (tree, heap, data_in.globals_index);
-  VEC_free (ld_plugin_symbol_resolution_t, heap, data_in.globals_resolution);
+  lto_data_in_delete (data_in);
 }
 
 /* Read resolution for file named FILE_NAME. The resolution is read from
@@ -375,13 +321,6 @@ lto_file_read (lto_file *file, FILE *resolution_file)
   return file_data;
 }
 
-/****************************************************************************
-  Input routines for reading sections from .o files.
-
-  FIXME: These routines may need to be generalized.  They assume that
-  the .o file can be read into memory and the secions just mapped.
-  This may not be true if the .o file is in some form of archive.
-****************************************************************************/
 
 /* Page size of machine is used for mmap and munmap calls.  */
 static size_t page_mask;
@@ -1471,7 +1410,7 @@ free_decl (const void *p, void *data ATTRIBUTE_UNUSED)
   tree t = CONST_CAST_TREE (ct);
 
   lto_symtab_clear_resolution (t);
-  ggc_free (t);
+
   return true;
 }
 
@@ -1820,9 +1759,7 @@ do_whole_program_analysis (void)
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
-  /* Initialize stats counters.  */
-  memset (&lto_stats, 0, sizeof (lto_stats));
-  bitmap_obstack_initialize (NULL);
+  lto_init_reader ();
 
   /* Read all the symbols and call graph from all the files in the
      command line.  */
