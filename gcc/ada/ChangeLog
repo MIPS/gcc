@@ -1,3 +1,119 @@
+2009-07-07  Gary Dismukes  <dismukes@adacore.com>
+
+	* checks.adb (Generate_Range_Check): Replace type conversions with
+	unchecked conversions to support the case of performing range checks
+	on Enum'Val (permits integer values to be converted to enumeration).
+
+	* exp_attr.adb (Expand_N_Attribute_Reference, cases Attribute_Pred,
+	Attribute_Succ): Set Do_Range_Check to False before calling
+	Expand_Pred_Succ, to prevent gigi from generating any range checks.
+	(Expand_N_Attribute_Reference, case Attribute_Val):
+	Generate a range check when needed (and set Do_Range_Check to False).
+
+	* exp_ch3.adb (Expand_N_Object_Declaration): Generate a range check on
+	scalar object initialization if needed.
+
+	* exp_ch4.adb (Expand_Allocator_Expression): Generate range checks
+	when needed on scalar allocators.
+	(Expand_N_Qualified_Expression): Generate range check when needed.
+	(Expand_N_Slice): Remove call to Enable_Range_Check on slice ranges.
+	Checks on slice ranges handled in Resolve_Slice.
+
+	* exp_ch5.adb (Expand_N_Assignment_Statement): Generate a range check,
+	when needed, for all scalar assignments, not just discrete.
+	(Expand_Simple_Function_Return): Resolve the conversion created for a
+	scalar function return so that the conversion will get expanded to
+	generate a possible constraint check.
+
+	* exp_ch6.adb (Expand_Actuals): Call Add_Call_By_Copy_Code for out and
+	in out scalar actuals when subtypes don't match, to ensure generation
+	of return checks (and set Do_Range_Check to False).
+	(Expand_Call): Uncomment code to perform range checks, but make it apply
+	only to in and in out parameters (checks on parameter returns are
+	handled in Expand_Actuals). If a scalar actual for a call to a derived
+	subprogram is marked as needing a range check, peform it here (and set
+	Do_Range_Check to False).
+
+	* sem_aggr.adb (Resolve_*_Aggregate.Resolve_Aggr_Expr): Generate a
+	range check on scalar component associations when needed.
+
+	* sem_eval.adb (In_Subrange_Of): Return False when the first type has
+	infinities but the second type does not, as these aren't compatible
+	floating-point types.
+
+	* sem_res.adb (Resolve_Slice): In the case where the prefix of the
+	slice is itself a slice, pick up the Etype of the prefix. This handles
+	the case where the prefix was an Image attribute expanded to a slice,
+	and ensures that we get the subtype with the slice constraint rather
+	than the unconstrained subbtype of the 'Image.
+
+2009-07-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch4.adb (Analyze_Conditional_Expression): handle properly
+	overloaded expressions in a conditional expressions.
+
+	* sem_res.adb (Resolve): Handle properly overloaded conditional
+	expressions.
+
+2009-07-07  Robert Dewar  <dewar@adacore.com>
+
+	* scng.adb: Minor reformattting
+
+	* par-ch2.adb (Scan_Pragma_Argument_Association): Pragma argument
+	association allows conditional expression without parens.
+
+	* par-ch4.adb (P_Name): Attribute arguments can be conditional
+	expressions without enclosing parentheses, and also as parameters,
+	indexing expressions etc.
+	(P_Conditional_Expression): New procedure
+	(P_Expression_If_OK): New procedure
+
+	* par.adb (P_Conditional_Expression): New procedure
+	(P_Expression_If_OK): New procedure
+
+	* sem_ch4.adb (Analyze_Conditional_Expression): Allow for two argument
+	form of conditional expression.
+
+	* sem_res.adb (Resolve_Conditional_Expression): Deal with supplying
+	missing True argument if ELSE argument missing.
+
+	* sinfo.adb (Is_Elsif): New flag
+
+	* sinfo.ads (N_Conditional_Expression): This node is now a syntactic
+	part of the language, and the documentation is modified accordingly.
+	(Is_Elsif): New flag
+
+2009-07-06  Olivier Hainque  <hainque@adacore.com>
+
+	* gcc-interface/trans.c (Handled_Sequence_Of_Statements_to_gnu,
+	setjmp_longjmp): Attach the exception propagation reraise fallback
+	to the sequence	end label location when we have it.
+
+2009-07-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR ada/40608
+	* init.c (APPLE): Include <mach/mach_init.h>.
+	(__gnat_error_handler, APPLE): Add ATTRIBUTE_UNUSED marker.
+
+2009-07-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada-tree.h (SET_TYPE_LANG_SPECIFIC): Rewrite.
+	(SET_DECL_LANG_SPECIFIC): Likewise.
+	(TYPE_RM_VALUE): New macro.
+	(SET_TYPE_RM_VALUE): Likewise.
+	(TYPE_RM_SIZE): Rewrite in terms of TYPE_RM_VALUE.
+	(TYPE_RM_MIN_VALUE): Likewise.
+	(TYPE_RM_MAX_VALUE): Likewise.
+	(SET_TYPE_RM_SIZE): Rewrite in terms of SET_TYPE_RM_VALUE.
+	(SET_TYPE_RM_MIN_VALUE): Likewise.
+	(SET_TYPE_RM_MAX_VALUE): Likewise.
+	* decl.c (gnat_to_gnu_entity) <E_Array_Subtype>: Remove kludge.
+
+2009-07-04  Laurent GUERBY  <laurent@guerby.net>
+
+	PR ada/40631
+	* tracebak.c (__gnat_backtrace): Fix old-style definition.
+
 2009-07-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* tracebak.c [i386 && sun] (IS_BAD_PTR): Use -1UL in comparison.

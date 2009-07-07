@@ -622,6 +622,19 @@ mark_all_reaching_defs_necessary (gimple stmt)
 		      mark_all_reaching_defs_necessary_1, NULL, &visited);
 }
 
+/* Return true for PHI nodes with one or identical arguments
+   can be removed.  */
+static bool
+degenerate_phi_p (gimple phi)
+{
+  unsigned int i;
+  tree op = gimple_phi_arg_def (phi, 0);
+  for (i = 1; i < gimple_phi_num_args (phi); i++)
+    if (gimple_phi_arg_def (phi, i) != op)
+      return false;
+  return true;
+}
+
 /* Propagate necessity using the operands of necessary statements.
    Process the uses on each statement in the worklist, and add all
    feeding statements which contribute to the calculation of this
@@ -684,7 +697,7 @@ propagate_necessity (struct edge_list *el)
 		mark_operand_necessary (arg);
 	    }
 
-	  if (aggressive)
+	  if (aggressive && !degenerate_phi_p (stmt))
 	    {
 	      for (k = 0; k < gimple_phi_num_args (stmt); k++)
 		{
@@ -874,23 +887,13 @@ remove_dead_phis (basic_block bb)
          very simple dead PHI removal here.  */
       if (!is_gimple_reg (gimple_phi_result (phi)))
 	{
-	  unsigned i;
-	  tree vuse;
-
 	  /* Virtual PHI nodes with one or identical arguments
 	     can be removed.  */
-	  vuse = gimple_phi_arg_def (phi, 0);
-	  for (i = 1; i < gimple_phi_num_args (phi); ++i)
-	    {
-	      if (gimple_phi_arg_def (phi, i) != vuse)
-		{
-		  vuse = NULL_TREE;
-		  break;
-		}
-	    }
-	  if (vuse != NULL_TREE)
+	  if (degenerate_phi_p (phi))
 	    {
 	      tree vdef = gimple_phi_result (phi);
+	      tree vuse = gimple_phi_arg_def (phi, 0);
+
 	      use_operand_p use_p;
 	      imm_use_iterator iter;
 	      gimple use_stmt;
@@ -926,6 +929,7 @@ remove_dead_phis (basic_block bb)
 
 /* Find first live post dominator of BB.  */
 
+<<<<<<< .working
 static basic_block
 get_live_post_dom (basic_block bb)
 {
@@ -1007,6 +1011,94 @@ forward_edge_to_pdom (edge e, basic_block post_dom_bb)
   return e;
 }
 
+=======
+static basic_block
+get_live_post_dom (basic_block bb)
+{
+  basic_block post_dom_bb;
+
+
+  /* The post dominance info has to be up-to-date.  */
+  gcc_assert (dom_info_state (CDI_POST_DOMINATORS) == DOM_OK);
+
+  /* Get the immediate post dominator of bb.  */
+  post_dom_bb = get_immediate_dominator (CDI_POST_DOMINATORS, bb);
+  /* And look for first live one.  */
+  while (post_dom_bb != EXIT_BLOCK_PTR
+	 && !TEST_BIT (bb_contains_live_stmts, post_dom_bb->index))
+    post_dom_bb = get_immediate_dominator (CDI_POST_DOMINATORS, post_dom_bb);
+
+  return post_dom_bb;
+}
+
+/* Forward edge E to respective POST_DOM_BB and update PHIs.  */
+
+static edge
+forward_edge_to_pdom (edge e, basic_block post_dom_bb)
+{
+  gimple_stmt_iterator gsi;
+  edge e2 = NULL;
+  edge_iterator ei;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Redirecting edge %i->%i to %i\n", e->src->index,
+	     e->dest->index, post_dom_bb->index);
+
+  e2 = redirect_edge_and_branch (e, post_dom_bb);
+  cfg_altered = true;
+
+  /* If edge was already around, no updating is neccesary.  */
+  if (e2 != e)
+    return e2;
+
+  if (phi_nodes (post_dom_bb))
+    {
+      /* We are sure that for every live PHI we are seeing control dependent BB.
+         This means that we can look up the end of control dependent path leading
+         to the PHI itself.  */
+      FOR_EACH_EDGE (e2, ei, post_dom_bb->preds)
+	if (e2 != e && dominated_by_p (CDI_POST_DOMINATORS, e->src, e2->src))
+	  break;
+      for (gsi = gsi_start_phis (post_dom_bb); !gsi_end_p (gsi);)
+	{
+	  gimple phi = gsi_stmt (gsi);
+	  tree op;
+
+	  /* Dead PHI do not imply control dependency.  */
+          if (!gimple_plf (phi, STMT_NECESSARY)
+	      && is_gimple_reg (gimple_phi_result (phi)))
+	    {
+	      gsi_next (&gsi);
+	      continue;
+	    }
+	  if (gimple_phi_arg_def (phi, e->dest_idx))
+	    {
+	      gsi_next (&gsi);
+	      continue;
+	    }
+
+	  /* We didn't find edge to update.  This can happen for PHIs on virtuals
+	     since there is no control dependency relation on them.  We are lost
+	     here and must force renaming of the symbol.  */
+	  if (!is_gimple_reg (gimple_phi_result (phi)))
+	    {
+	      mark_virtual_phi_result_for_renaming (phi);
+	      remove_phi_node (&gsi, true);
+	      continue;
+	    }
+	  if (!e2)
+	    op = gimple_phi_arg_def (phi, e->dest_idx == 0 ? 1 : 0);
+	  else
+	    op = gimple_phi_arg_def (phi, e2->dest_idx);
+	  add_phi_arg (phi, op, e);
+	  gcc_assert (e2 || degenerate_phi_p (phi));
+	  gsi_next (&gsi);
+	}
+    }
+  return e;
+}
+
+>>>>>>> .merge-right.r149318
 /* Remove dead statement pointed to by iterator I.  Receives the basic block BB
    containing I so that we don't have to look it up.  */
 
@@ -1284,8 +1376,12 @@ perform_tree_ssa_dce (bool aggressive)
   struct edge_list *el = NULL;
   bool something_changed = 0;
 
+  /* Preheaders are needed for SCEV to work.
+     Simple lateches and recorded exits improve chances that loop will
+     proved to be finite in testcases such as in loop-15.c and loop-24.c  */
   if (aggressive)
-    loop_optimizer_init (LOOPS_HAVE_PREHEADERS);
+    loop_optimizer_init (LOOPS_NORMAL
+			 | LOOPS_HAVE_RECORDED_EXITS);
 
   tree_dce_init (aggressive);
 
