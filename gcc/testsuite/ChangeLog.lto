@@ -1,3 +1,32 @@
+2009-07-07  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.c-torture/execute/builtins/lib/strcat.c: Declare
+	functions with __attribute__ ((__noinline__))
+	* gcc.c-torture/execute/builtins/lib/strstr.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strncpy.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/printf.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/abs.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/memmove.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strchr.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strlen.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strcmp.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/fprintf.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/mempcpy.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/memchr.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strncat.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/memcmp.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/bzero.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/stpcpy.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strcpy.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/sprintf.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strncmp.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strpbrk.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strrchr.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/bfill.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strspn.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/memset.c: Likewise.
+	* gcc.c-torture/execute/builtins/lib/strcspn.c: Likewise.
+
 2009-07-06  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/20090706-1_0.c: New test.
