@@ -1828,7 +1828,10 @@ resolve_specific_f0 (gfc_symbol *sym, gfc_expr *expr)
 found:
   gfc_procedure_use (sym, &expr->value.function.actual, &expr->where);
 
-  expr->ts = sym->ts;
+  if (sym->result)
+    expr->ts = sym->result->ts;
+  else
+    expr->ts = sym->ts;
   expr->value.function.name = sym->name;
   expr->value.function.esym = sym;
   if (sym->as != NULL)
@@ -4400,7 +4403,7 @@ check_host_association (gfc_expr *e)
 	    }
 
 	  /* Give the symbol a symtree in the right place!  */
-	  gfc_get_sym_tree (sym->name, gfc_current_ns, &st);
+	  gfc_get_sym_tree (sym->name, gfc_current_ns, &st, false);
 	  st->n.sym = sym;
 
 	  if (old_sym->attr.flavor == FL_PROCEDURE)
@@ -4815,8 +4818,8 @@ resolve_compcall (gfc_expr* e)
 
   e->value.function.actual = newactual;
   e->value.function.name = e->value.compcall.name;
+  e->value.function.esym = target->n.sym;
   e->value.function.isym = NULL;
-  e->value.function.esym = NULL;
   e->symtree = target;
   e->ts = target->n.sym->ts;
   e->expr_type = EXPR_FUNCTION;
@@ -9550,6 +9553,11 @@ resolve_symbol (gfc_symbol *sym)
     {
       if (sym->attr.flavor == FL_VARIABLE || sym->attr.flavor == FL_PARAMETER)
 	gfc_set_default_type (sym, 1, NULL);
+
+      if (sym->attr.flavor == FL_PROCEDURE && sym->attr.external
+	  && !sym->attr.function && !sym->attr.subroutine
+	  && gfc_get_default_type (sym->name, sym->ns)->type == BT_UNKNOWN)
+	gfc_add_subroutine (&sym->attr, sym->name, &sym->declared_at);
 
       if (sym->attr.flavor == FL_PROCEDURE && sym->attr.function)
 	{

@@ -1493,7 +1493,13 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
   DECL_ALIGN (expr) = (unsigned) bp_unpack_value (bp, HOST_BITS_PER_INT);
 
   if (TREE_CODE (expr) == LABEL_DECL)
-    DECL_ERROR_ISSUED (expr) = (unsigned) bp_unpack_value (bp, 1);
+    {
+      DECL_ERROR_ISSUED (expr) = (unsigned) bp_unpack_value (bp, 1);
+
+      /* Always assume an initial value of -1 for LABEL_DECL_UID to
+	 force gimple_set_bb to recreate label_to_block_map.  */
+      LABEL_DECL_UID (expr) = -1;
+    }
 
   if (TREE_CODE (expr) == FIELD_DECL)
     {
@@ -1545,7 +1551,6 @@ unpack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
     {
       DECL_HARD_REGISTER (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_IN_TEXT_SECTION (expr) = (unsigned) bp_unpack_value (bp, 1);
-      DECL_BASED_ON_RESTRICT_P (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_TLS_MODEL (expr) = (enum tls_model) bp_unpack_value (bp,  3);
     }
 

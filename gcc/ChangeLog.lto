@@ -1,4 +1,21 @@
-2009-07-07  Janis Johnson  <janis187@us.ibm.com>
+2009-07-06  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @149291.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-07-06  Diego Novillo  <dnovillo@google.com>
+
+	* lto-streamer-out.c (pack_ts_decl_common_value_fields):
+	Document lack of handling for LABEL_DECL_UID.
+	(pack_ts_decl_with_vis_value_fields): Remove handling of
+	DECL_BASED_ON_RESTRICT_P.
+	* lto-streamer-in.c (unpack_ts_decl_common_value_fields):
+	Always set LABEL_DECL_UID to -1.
+	(unpack_ts_decl_with_vis_value_fields): Corresponding changes.
+
+2009-07-06  Janis Johnson  <janis187@us.ibm.com>
 
 	* doc/sourcebuild.texi (LTO Testing): New.
 

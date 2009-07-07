@@ -1,4 +1,4 @@
-2009-07-07  Janis Johnson  <janis187@us.ibm.com>
+2009-07-06  Janis Johnson  <janis187@us.ibm.com>
 
 	* lib/lto.exp (proc_lto_obj): Use assemble, not compile.
 	(lto-get-options-main): Handle dg-lto-options instead of dg-options

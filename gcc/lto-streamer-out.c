@@ -533,7 +533,12 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, DECL_ALIGN (expr), HOST_BITS_PER_INT);
 
   if (TREE_CODE (expr) == LABEL_DECL)
-    bp_pack_value (bp, DECL_ERROR_ISSUED (expr), 1);
+    {
+      /* Note that we do not write LABEL_DECL_UID.  The reader will
+	 always assume an initial value of -1 so that the
+	 label_to_block_map is recreated by gimple_set_bb.  */
+      bp_pack_value (bp, DECL_ERROR_ISSUED (expr), 1);
+    }
 
   if (TREE_CODE (expr) == FIELD_DECL)
     {
@@ -583,7 +588,6 @@ pack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
     {
       bp_pack_value (bp, DECL_HARD_REGISTER (expr), 1);
       bp_pack_value (bp, DECL_IN_TEXT_SECTION (expr), 1);
-      bp_pack_value (bp, DECL_BASED_ON_RESTRICT_P (expr), 1);
       bp_pack_value (bp, DECL_TLS_MODEL (expr),  3);
     }
 

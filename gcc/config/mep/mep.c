@@ -2525,6 +2525,13 @@ mep_interrupt_saved_reg (int r)
   /* Functions we call might clobber these.  */
   if (call_used_regs[r] && !fixed_regs[r])
     return true;
+  /* Additional registers that need to be saved for IVC2.  */
+  if (TARGET_IVC2
+      && (r == FIRST_CCR_REGNO + 1
+	  || (r >= FIRST_CCR_REGNO + 8 && r <= FIRST_CCR_REGNO + 11)
+	  || (r >= FIRST_CCR_REGNO + 16 && r <= FIRST_CCR_REGNO + 31)))
+    return true;
+
   return false;
 }
 
@@ -6925,6 +6932,8 @@ mep_bundle_insns (rtx insns)
      VOIDmode.  After this function, the first has VOIDmode and the
      rest have BImode.  */
 
+  /* Note: this doesn't appear to be true for JUMP_INSNs.  */
+
   /* First, move any NOTEs that are within a bundle, to the beginning
      of the bundle.  */
   for (insn = insns; insn ; insn = NEXT_INSN (insn))
@@ -6932,10 +6941,10 @@ mep_bundle_insns (rtx insns)
       if (NOTE_P (insn) && first)
 	/* Don't clear FIRST.  */;
 
-      else if (INSN_P (insn) && GET_MODE (insn) == TImode)
+      else if (NONJUMP_INSN_P (insn) && GET_MODE (insn) == TImode)
 	first = insn;
 
-      else if (INSN_P (insn) && GET_MODE (insn) == VOIDmode && first)
+      else if (NONJUMP_INSN_P (insn) && GET_MODE (insn) == VOIDmode && first)
 	{
 	  rtx note, prev;
 
@@ -6968,7 +6977,7 @@ mep_bundle_insns (rtx insns)
 	    }
 	}
 
-      else if (!INSN_P (insn))
+      else if (!NONJUMP_INSN_P (insn))
 	first = 0;
     }
 
@@ -6978,7 +6987,7 @@ mep_bundle_insns (rtx insns)
       if (NOTE_P (insn))
 	continue;
 
-      if (!INSN_P (insn))
+      if (!NONJUMP_INSN_P (insn))
 	{
 	  last = 0;
 	  continue;
@@ -7001,14 +7010,14 @@ mep_bundle_insns (rtx insns)
 	     The IVC2 assembler can insert whatever NOPs are needed,
 	     and allows a COP insn to be first.  */
 
-	  if (INSN_P (insn)
+	  if (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) != USE
 	      && GET_MODE (insn) == TImode)
 	    {
 	      for (last = insn;
 		   NEXT_INSN (last)
 		     && GET_MODE (NEXT_INSN (last)) == VOIDmode
-		     && INSN_P (NEXT_INSN (last));
+		     && NONJUMP_INSN_P (NEXT_INSN (last));
 		   last = NEXT_INSN (last))
 		{
 		  if (core_insn_p (last))
@@ -7225,19 +7234,6 @@ mep_handle_option (size_t code,
 	call_used_regs[i+48] = 1;
       for (i=6; i<8; i++)
 	call_used_regs[i+48] = 0;
-
-      call_used_regs[FIRST_CCR_REGNO + 1] = 0;
-      fixed_regs[FIRST_CCR_REGNO + 1] = 0;
-      for (i=8; i<=11; i++)
-	{
-	  call_used_regs[FIRST_CCR_REGNO + i] = 0;
-	  fixed_regs[FIRST_CCR_REGNO + i] = 0;
-	}
-      for (i=16; i<=31; i++)
-	{
-	  call_used_regs[FIRST_CCR_REGNO + i] = 0;
-	  fixed_regs[FIRST_CCR_REGNO + i] = 0;
-	}
 
 #define RN(n,s) reg_names[FIRST_CCR_REGNO + n] = s
       RN (0, "$csar0");
