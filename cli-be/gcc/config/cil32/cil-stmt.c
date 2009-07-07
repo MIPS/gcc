@@ -37,9 +37,9 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "ggc.h"
 #include "tree.h"
 
+#include "cil-types.h"
 #include "cil-refs.h"
 #include "cil-stmt.h"
-#include "cil-types.h"
 
 /******************************************************************************
  * Globals                                                                    *
@@ -252,9 +252,9 @@ cil_call_nargs_base (const_cil_stmt stmt)
   tree arg_types;
 
   gcc_assert (stmt->opcode == CIL_CALL
-              || stmt->opcode == CIL_CALLI
-              || stmt->opcode == CIL_JMP
-              || stmt->opcode == CIL_NEWOBJ);
+	      || stmt->opcode == CIL_CALLI
+	      || stmt->opcode == CIL_JMP
+	      || stmt->opcode == CIL_NEWOBJ);
 
   arg_types = TYPE_ARG_TYPES (stmt->arg.fcall->ftype);
 
@@ -771,13 +771,14 @@ cil_set_bb_seq (basic_block bb, cil_seq seq)
     ((cil_basic_block) *slot)->seq = seq;
 }
 
-/* Computes the stack depth at the end of the sequence pointed by SEQ.  INIT
-   specifies the initial stack depth of the sequence.  If MAX is true then the
-   maximum stack depth is returned, otherwise the depth at the end of the
-   sequence is returned.  */
+/* Computes the stack depth at the end of the sequence pointed by SEQ.  RET
+   indicates whether the function to which this sequence belongs has non-VOID
+   return type or not. INIT specifies the initial stack depth of the sequence.
+   If MAX is true then the maximum stack depth is returned, otherwise the depth
+   at the end of the sequence is returned.  */
 
 unsigned int
-cil_seq_stack_depth (cil_seq seq, unsigned int init, bool max)
+cil_seq_stack_depth (cil_seq seq, bool ret, unsigned int init, bool max)
 {
   cil_stmt_iterator i;
   unsigned int max_depth = init;
@@ -885,7 +886,7 @@ cil_seq_stack_depth (cil_seq seq, unsigned int init, bool max)
 	case CIL_LDIND_I:
 	case CIL_LDOBJ:
 	case CIL_LOCALLOC:
-        case CIL_NEG:
+	case CIL_NEG:
 	case CIL_NOT:
 	  gcc_assert (depth >= 1);
 	  break;
@@ -917,7 +918,7 @@ cil_seq_stack_depth (cil_seq seq, unsigned int init, bool max)
 	  break;
 
 	case CIL_RET:
-	  if (!VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
+	  if (ret)
 	    {
 	      gcc_assert (depth == 1);
 	      depth--;

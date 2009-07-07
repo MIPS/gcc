@@ -114,7 +114,9 @@ extern tree get_label_addrs ( void );
  ******************************************************************************/
 
 extern void record_ctor (tree);
-extern void create_init_method (void);
-extern void expand_init_to_stmt_list (tree, tree, tree *);
+extern VEC(tree, gc) *pending_ctors_vec ( void );
+extern cil_seq expand_init_to_cil_seq (tree, tree);
+extern void cil_lower_init (cil_seq);
+
 
 #endif /* !CIL_REFS_H */

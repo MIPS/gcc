@@ -408,6 +408,45 @@ lower_cil_vector_xor (cil_type_t type)
 }
 
 /******************************************************************************
+ * Helper functions used in other passes                                      *
+ ******************************************************************************/
+
+void
+cil_lower_init (cil_seq init_seq)
+{
+  cil_stmt_iterator csi = csi_start (init_seq);
+
+  while (!csi_end_p (csi))
+    {
+      cil_stmt stmt = csi_stmt (csi);
+      enum cil_opcode opcode = cil_opcode (stmt);
+
+      switch (opcode)
+        {
+	case CIL_VEC_CTOR:
+	  stmt = lower_cil_vector_ctor (stmt);
+	  csi_replace (&csi, stmt);
+	  break;
+
+        case CIL_LDVEC:
+	  stmt = lower_cil_ldvec (stmt);
+	  csi_replace (&csi, stmt);
+	  break;
+
+        case CIL_STVEC:
+	  stmt = lower_cil_stvec (stmt);
+	  csi_replace (&csi, stmt);
+	  break;
+
+	default:
+	  ;
+	}
+
+      csi_next (&csi);
+    }
+}
+
+/******************************************************************************
  * Entry point of the CIL lowering pass.                                      *
  ******************************************************************************/
 

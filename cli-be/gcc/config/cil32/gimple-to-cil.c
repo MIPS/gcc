@@ -48,6 +48,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "cil-refs.h"
 #include "cil-stmt.h"
 #include "cil-types.h"
+#include "cil-stack.h"
 #include "emit-cil.h"
 
 /******************************************************************************
@@ -63,13 +64,23 @@ static tree res_var;
  ******************************************************************************/
 
 static void gen_integer_cst (cil_stmt_iterator *, tree);
+static void gen_real_cst (cil_stmt_iterator *, tree);
+static void gen_vector_cst (cil_stmt_iterator *, tree);
 static void gen_addr_expr (cil_stmt_iterator *, tree);
 static void gen_array_ref_addr_expr (cil_stmt_iterator *, tree);
+static void gen_initblk (cil_stmt_iterator *, tree, tree, tree);
+static void gen_cpblk (cil_stmt_iterator *, tree, tree, tree);
 static void gen_scalar_ld_st_ind (cil_stmt_iterator *, tree, bool, bool);
 static inline void gen_scalar_stind (cil_stmt_iterator *, tree, bool);
 static inline void gen_scalar_ldind (cil_stmt_iterator *, tree, bool);
 static void gen_ldind (cil_stmt_iterator *, tree, bool);
 static void gen_stind (cil_stmt_iterator *, tree, bool);
+static bool mostly_zeros_p (tree);
+static bool all_zeros_p (tree);
+static void write_cst_image (char *, char *, tree, unsigned HOST_WIDE_INT);
+static void expand_init_to_cil_seq1 (tree, tree, cil_seq, bool, cil_seq,
+				     char *, char *);
+static size_t cil_seq_num_instr (cil_seq);
 static void gen_bit_field_modify_expr (cil_stmt_iterator *, tree, tree);
 static void gen_target_mem_ref_modify_expr (cil_stmt_iterator *, tree, tree);
 static void gen_bitfield_ref_modify_expr (cil_stmt_iterator *, tree, tree);
@@ -96,6 +107,7 @@ static void gen_vector_bitfield_ref (cil_stmt_iterator *, tree);
 static void gen_bit_field_ref (cil_stmt_iterator *, tree);
 static void gen_truth_expr (cil_stmt_iterator *, tree);
 static void gen_target_mem_ref (cil_stmt_iterator *, tree);
+static void gen_vector_ctor (cil_stmt_iterator *, tree);
 static void gen_vector_view_convert_expr (cil_stmt_iterator *, tree, tree);
 static void gen_complex_part_expr (cil_stmt_iterator *, tree);
 static void gen_complex (cil_stmt_iterator *, tree, tree, tree);
@@ -113,7 +125,7 @@ static void process_initializers (void);
 
 /* Load the value of the integer constant CST on the stack.  The constant will
    be 32-bits or 64-bits wide depending on the type of CST.  The generated
-   statement will be appended to the current function's CIL code using the CSI
+   statements will be appended to the current function's CIL code using the CSI
    iterator.  */
 
 static void
@@ -126,6 +138,62 @@ gen_integer_cst (cil_stmt_iterator *csi, tree cst)
   opcode = (size <= 32) ? CIL_LDC_I4 : CIL_LDC_I8;
   stmt = cil_build_stmt_arg (opcode, cst);
   csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+}
+
+/* Load the value of the real constant CST on the stack.  The constant will
+   be 32-bits or 64-bits wide depending on the type of CST.  The generated
+   statements will be appended to the current function CIL code using the CSI
+   iterator.  */
+
+static void
+gen_real_cst (cil_stmt_iterator *csi, tree cst)
+{
+  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (TREE_TYPE (cst)), 1);
+  enum cil_opcode opcode;
+  cil_stmt stmt;
+
+  opcode = (size == 32) ? CIL_LDC_R4 : CIL_LDC_R8;
+  stmt = cil_build_stmt_arg (opcode, cst);
+  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+}
+
+/* Load the value of a vector constant CST on the stack.  The generated
+   statements will be appended to the current function CIL code using the CSI
+   iterator.  */
+
+static void
+gen_vector_cst (cil_stmt_iterator *csi, tree cst)
+{
+  unsigned HOST_WIDE_INT num_elt = 0;
+  tree vector_type = TREE_TYPE (cst);
+  tree elt_type = TREE_TYPE (vector_type);
+  tree zero, elt;
+  cil_type_t cil_type = scalar_to_cil (elt_type);
+  cil_stmt stmt;
+
+  if (cil_float_p (cil_type))
+    zero = build_real_from_int_cst (elt_type, integer_zero_node);
+  else if (cil_int_or_smaller_p (cil_type))
+    zero = integer_zero_node;
+  else /* 64-bit integers */
+    zero = build_int_cst (intDI_type_node, 0);
+
+  for (elt = TREE_VECTOR_CST_ELTS (cst); elt; elt = TREE_CHAIN (elt))
+    {
+      tree elt_val = TREE_VALUE (elt);
+      gimple_to_cil_node (csi, elt_val);
+      ++num_elt;
+    }
+
+  /* Fill in the missing initializers, if any */
+  for ( ; num_elt < TYPE_VECTOR_SUBPARTS (vector_type); ++num_elt)
+    gimple_to_cil_node (csi, zero);
+
+  stmt = cil_build_stmt_arg (CIL_VEC_CTOR, vector_type);
+  csi_insert_after (csi,  stmt, CSI_CONTINUE_LINKING);
+
+  if (cfun)
+    cfun->machine->has_vec = true;
 }
 
 /* Generates a sequence which computes the address of the object described by
@@ -248,6 +316,7 @@ gen_addr_expr (cil_stmt_iterator *csi, tree node)
       break;
 
     case COMPOUND_LITERAL_EXPR:
+      /* HACK: We should find a way to avoid front-end nodes */
       gen_addr_expr (csi, COMPOUND_LITERAL_EXPR_DECL (node));
       break;
 
@@ -306,6 +375,39 @@ gen_array_ref_addr_expr (cil_stmt_iterator *csi, tree node)
       stmt = cil_build_stmt (CIL_ADD);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
     }
+}
+
+/* Generates a CIL INITBLK instruction with the destination address specified
+   by PTR, the value specified by VALUE and the size specified by SIZE.  */
+
+static void
+gen_initblk (cil_stmt_iterator *csi, tree ptr, tree value, tree size)
+{
+  cil_stmt stmt;
+
+  gimple_to_cil_node (csi, ptr);
+  gimple_to_cil_node (csi, value);
+  gimple_to_cil_node (csi, size);
+  stmt = cil_build_stmt (CIL_INITBLK);
+  cil_set_prefix_unaligned (stmt, 1);
+  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+}
+
+/* Generates a CIL CPBLK instruction with the destination address specified
+   by DST, the source address specified by SRC and the size specified by SIZE.
+ */
+
+static void
+gen_cpblk (cil_stmt_iterator *csi, tree dst, tree src, tree size)
+{
+  cil_stmt stmt;
+
+  gimple_to_cil_node (csi, dst);
+  gimple_to_cil_node (csi, src);
+  gimple_to_cil_node (csi, size);
+  stmt = cil_build_stmt (CIL_CPBLK);
+  cil_set_prefix_unaligned (stmt, 1);
+  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 }
 
 /* Generates a load/store indirect statement for the scalar type specified by
@@ -440,7 +542,9 @@ gen_misaligned_ldvec (cil_stmt_iterator *csi, tree type, bool volat)
       cil_set_prefix_volatile (stmt, volat);
       cil_set_prefix_unaligned (stmt, 1);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
-      cfun->machine->has_vec = true;
+
+      if (cfun)
+	cfun->machine->has_vec = true;
     }
   else
     gen_scalar_ldind (csi, type, true);
@@ -466,7 +570,9 @@ gen_stind (cil_stmt_iterator *csi, tree type, bool volat)
       stmt = cil_build_stmt_arg (CIL_STVEC, type);
       cil_set_prefix_volatile (stmt, volat);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
-      cfun->machine->has_vec = true;
+
+      if (cfun)
+	cfun->machine->has_vec = true;
     }
   else
     gen_scalar_stind (csi, type, true);
@@ -500,6 +606,556 @@ gen_misaligned_stvec (cil_stmt_iterator *csi, tree type, bool volat)
     }
   else
     gen_scalar_stind (csi, type, true);
+}
+
+/* Return TRUE if EXP contains mostly (3/4)  zeros.  */
+
+static bool
+mostly_zeros_p (tree exp)
+{
+  HOST_WIDE_INT nz_elts, count, elts;
+  bool must_clear;
+
+  gcc_assert (TREE_CODE (exp) == CONSTRUCTOR);
+
+  categorize_ctor_elements (exp, &nz_elts, &count, &must_clear);
+
+  if (must_clear)
+    return TRUE;
+
+  elts = count_type_elements (TREE_TYPE (exp), false);
+
+  return (nz_elts < elts / 4);
+}
+
+/* Return TRUE if EXP contains all zeros. */
+
+static bool
+all_zeros_p (tree exp)
+{
+  HOST_WIDE_INT nz_elts, count;
+  bool must_clear;
+
+  gcc_assert (TREE_CODE (exp) == CONSTRUCTOR);
+
+  categorize_ctor_elements (exp, &nz_elts, &count, &must_clear);
+
+  return (nz_elts == 0);
+}
+
+/* Write the value of size SIZE bits held by the tree CST into the
+   little-endian image LE_IMAGE and big-endian image BE_IMAGE.  */
+
+static void
+write_cst_image (char *le_image, char *be_image, tree value,
+		 unsigned HOST_WIDE_INT size)
+{
+  char b0 = TREE_INT_CST_LOW (value);
+  char b1 = TREE_INT_CST_LOW (value) >> 8;
+  char b2 = TREE_INT_CST_LOW (value) >> 16;
+  char b3 = TREE_INT_CST_LOW (value) >> 24;
+
+  switch (size)
+    {
+    case 8:
+      le_image[0] |= b0;
+      be_image[0] |= b0;
+      break;
+
+    case 16:
+      le_image[0] |= b0;
+      le_image[1] |= b1;
+      be_image[0] |= b1;
+      be_image[1] |= b0;
+      break;
+
+    case 32:
+      le_image[0] |= b0;
+      le_image[1] |= b1;
+      le_image[2] |= b2;
+      le_image[3] |= b3;
+      be_image[0] |= b3;
+      be_image[1] |= b2;
+      be_image[2] |= b1;
+      be_image[3] |= b0;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Expand the initializer INIT for the declaration DECL into two CIL sequences
+   held by SEQ1 and SEQ2, also write the constant values encountered in
+   little-endian format in LE_IMAGE and in big-endian format in BE_IMAGE.  */
+
+static void
+expand_init_to_cil_seq1 (tree decl, tree init, cil_seq seq1, bool cleared,
+			 cil_seq seq2, char *le_image, char *be_image)
+{
+  tree decl_size = TYPE_SIZE_UNIT (TREE_TYPE (decl));
+  unsigned HOST_WIDE_INT size = tree_low_cst (decl_size, 1);
+  bool need_to_clear = FALSE;
+  cil_stmt_iterator csi;
+
+  if (TREE_CODE (init) == CONST_DECL)
+    {
+      init = DECL_INITIAL (init);
+      gcc_assert (init && init != error_mark_node);
+    }
+
+  if (!cleared && TREE_CODE (init) == CONSTRUCTOR && all_zeros_p (init))
+    {
+      csi = csi_last (seq1);
+      gen_initblk (&csi, build_fold_addr_expr (decl), integer_zero_node,
+		   decl_size);
+      return;
+    }
+
+  switch (TREE_CODE (init))
+    {
+    case STRING_CST:
+      {
+	if (TREE_STRING_LENGTH (init) < size)
+	  size = TREE_STRING_LENGTH (init);
+
+	csi = csi_last (seq1);
+	gen_cpblk (&csi, build_fold_addr_expr (decl),
+		   build_fold_addr_expr (init), decl_size);
+	memcpy(le_image, TREE_STRING_POINTER (init), size);
+	memcpy(be_image, TREE_STRING_POINTER (init), size);
+      }
+    break;
+
+    case CONSTRUCTOR:
+      switch (TREE_CODE (TREE_TYPE (init)))
+	{
+	case RECORD_TYPE:
+	case UNION_TYPE:
+	case QUAL_UNION_TYPE:
+	  {
+	    unsigned HOST_WIDE_INT idx;
+	    tree init_type = TREE_TYPE (init);
+	    tree field, value;
+
+	    /* If size is zero or the target is already cleared, do nothing */
+	    if (size == 0 || cleared)
+	      {
+		need_to_clear = FALSE;
+		cleared = TRUE;
+	      }
+	    /* We either clear the aggregate or indicate the value is dead.  */
+	    else if ((TREE_CODE (init_type) == UNION_TYPE
+		      || TREE_CODE (init_type) == QUAL_UNION_TYPE)
+		     && !CONSTRUCTOR_ELTS (init))
+	      {
+		/* If the constructor is empty, clear the union.  */
+		need_to_clear = TRUE;
+	      }
+	    /* If the constructor has fewer fields than the structure or
+	       if we are initializing the structure to mostly zeros, clear
+	       the whole structure first. */
+	    else if (size > 0
+		     && (((int) VEC_length (constructor_elt,
+					    CONSTRUCTOR_ELTS (init))
+			  != fields_length (init_type))
+			 || mostly_zeros_p (init)))
+	      {
+		need_to_clear = TRUE;
+	      }
+
+	    if (need_to_clear && size > 0)
+	      {
+		csi = csi_last (seq1);
+		gen_initblk (&csi, build_fold_addr_expr (decl),
+			     integer_zero_node, decl_size);
+		cleared = TRUE;
+	      }
+
+	    /* Store each element of the constructor into the
+	       corresponding field of TARGET.  */
+	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), idx,
+				      field, value)
+	      {
+		tree ltarget;
+
+		/* Just ignore missing fields.  We cleared the whole
+		   structure, above, if any fields are missing.  */
+		if (field == 0)
+		  continue;
+
+		if (cleared && initializer_zerop (value))
+		  continue;
+
+		ltarget = build3 (COMPONENT_REF, TREE_TYPE (field), decl,
+				  field, NULL);
+
+		if (le_image != NULL && !DECL_BIT_FIELD (field))
+		  {
+		    unsigned HOST_WIDE_INT offset = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
+		    unsigned HOST_WIDE_INT bit_offset = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
+		    gcc_assert (bit_offset % BITS_PER_UNIT == 0);
+		    offset += (bit_offset / BITS_PER_UNIT);
+
+		    expand_init_to_cil_seq1 (ltarget, value, seq1, cleared,
+					     seq2, le_image + offset,
+					     be_image + offset);
+		  }
+		else if (le_image != NULL && DECL_BIT_FIELD (field)
+			 && (TARGET_LITTLE_ENDIAN || TARGET_BIG_ENDIAN))
+		  {
+		    unsigned HOST_WIDE_INT offset = 0;
+		    HOST_WIDE_INT bit_size = 0;
+		    HOST_WIDE_INT bit_pos = 0;
+		    HOST_WIDE_INT cont_off;
+		    HOST_WIDE_INT cont_size = 8;
+		    enum machine_mode mode;
+		    int unsignedp = 0;
+		    int volatilep = 0;
+		    tree cont_type;
+		    tree shift_cst;
+		    tree tmp;
+
+		    get_inner_reference (ltarget, &bit_size, &bit_pos,
+					 &tmp, &mode, &unsignedp,
+					 &volatilep, false);
+
+		    /* Calculate the container size.  */
+		    while ((bit_pos % cont_size + bit_size) > cont_size)
+		      cont_size *= 2;
+
+		    if (cont_size > 32)
+		      {
+			expand_init_to_cil_seq1 (ltarget, value,
+						 seq1, cleared,
+						 seq2, NULL, NULL);
+		      }
+		    else
+		      {
+			csi = csi_last (seq1);
+			gen_modify_expr (&csi, ltarget, value);
+
+			cont_type = get_integer_type (cont_size, true);
+			cont_off = bit_pos % cont_size;
+
+			/* Calculate the container offset.  */
+			if ((bit_pos - cont_off) / BITS_PER_UNIT != 0)
+			  {
+			    tmp = build_int_cst (intSI_type_node,
+						 (bit_pos - cont_off)
+						 / BITS_PER_UNIT);
+			    offset = tree_low_cst (tmp, 1);
+			  }
+
+			shift_cst = build_int_cst (intSI_type_node, cont_off);
+			tmp = fold_binary_to_constant (LSHIFT_EXPR, cont_type,
+						       fold_convert (cont_type,
+								     value),
+						       shift_cst);
+			write_cst_image (le_image, be_image, tmp, cont_size);
+		      }
+		  }
+		else
+		  {
+		    expand_init_to_cil_seq1 (ltarget, value, seq1, cleared,
+					     seq2, NULL, NULL);
+		  }
+	      }
+	  }
+	  break;
+
+	case ARRAY_TYPE:
+	  {
+	    tree value, index;
+	    unsigned HOST_WIDE_INT i;
+	    tree domain;
+	    tree elttype = TREE_TYPE (TREE_TYPE (init));
+	    int const_bounds_p;
+	    HOST_WIDE_INT minelt = 0;
+	    HOST_WIDE_INT maxelt = 0;
+
+	    domain = TYPE_DOMAIN (TREE_TYPE (init));
+	    const_bounds_p = (TYPE_MIN_VALUE (domain)
+			      && TYPE_MAX_VALUE (domain)
+			      && host_integerp (TYPE_MIN_VALUE (domain), 0)
+			      && host_integerp (TYPE_MAX_VALUE (domain), 0));
+
+	    /* If we have constant bounds for the range
+	       of the type, get them.  */
+	    if (const_bounds_p)
+	      {
+		minelt = tree_low_cst (TYPE_MIN_VALUE (domain), 0);
+		maxelt = tree_low_cst (TYPE_MAX_VALUE (domain), 0);
+	      }
+
+	    /* If the constructor has fewer elements than the array, clear
+	       the whole array first. */
+	    if (cleared)
+	      need_to_clear = FALSE;
+	    else
+	      {
+		unsigned HOST_WIDE_INT idx;
+		tree index, value;
+		HOST_WIDE_INT count = 0;
+		HOST_WIDE_INT zero_count = 0;
+		need_to_clear = !const_bounds_p;
+
+		/* This loop is a more accurate version of the loop in
+		   mostly_zeros_p (it handles RANGE_EXPR in an index).  It
+		   is also needed to check for missing elements.  */
+		FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), idx,
+					  index, value)
+		  {
+		    HOST_WIDE_INT this_node_count;
+
+		    if (need_to_clear)
+		      break;
+
+		    if (index != NULL_TREE && TREE_CODE (index) == RANGE_EXPR)
+		      {
+			tree lo_index = TREE_OPERAND (index, 0);
+			tree hi_index = TREE_OPERAND (index, 1);
+
+			if (!host_integerp (lo_index, 1)
+			    || !host_integerp (hi_index, 1))
+			  {
+			    need_to_clear = TRUE;
+			    break;
+			  }
+
+			this_node_count = tree_low_cst (hi_index, 1)
+					  - tree_low_cst (lo_index, 1) + 1;
+		      }
+		    else
+		      this_node_count = 1;
+
+		    count += this_node_count;
+		    if (TREE_CODE (value) == CONSTRUCTOR
+			&& mostly_zeros_p (value))
+		      {
+			zero_count += this_node_count;
+		      }
+		  }
+
+		/* Clear the entire array first if there are any missing
+		   elements, or if the incidence of zero elements is >= 75%.  */
+		if (!need_to_clear
+		    && (count < maxelt - minelt + 1
+			|| 4 * zero_count >= 3 * count))
+		  {
+		    need_to_clear = TRUE;
+		  }
+	      }
+
+	    if (need_to_clear && size > 0)
+	      {
+		csi = csi_last (seq1);
+		gen_initblk (&csi, build_fold_addr_expr (decl),
+			     integer_zero_node, decl_size);
+		cleared = TRUE;
+	      }
+
+	    /* Store each element of the constructor into the
+	       corresponding element of TARGET, determined by counting the
+	       elements.  */
+	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), i, index, value)
+	      {
+		tree t;
+		tree elsize;
+
+		if (initializer_zerop (value))
+		  continue;
+
+		gcc_assert (index == NULL_TREE
+			    || TREE_CODE (index) != RANGE_EXPR);
+
+		if (minelt)
+		  index = fold_convert (ssizetype,
+					fold_build2 (MINUS_EXPR,
+						     TREE_TYPE (index),
+						     index,
+						     TYPE_MIN_VALUE (domain)));
+
+		t = build4 (ARRAY_REF, elttype, decl, index, NULL, NULL);
+
+		elsize = array_ref_element_size (t);
+
+		if (le_image != NULL
+		    && TREE_CODE (index)  == INTEGER_CST
+		    && TREE_CODE (elsize) == INTEGER_CST)
+		  {
+		    unsigned HOST_WIDE_INT offset;
+
+		    offset = tree_low_cst (index, 1) * tree_low_cst (elsize, 1);
+		    expand_init_to_cil_seq1 (t, value, seq1, cleared, seq2,
+					     le_image + offset,
+					     be_image + offset);
+		  }
+		else
+		  {
+		    expand_init_to_cil_seq1 (t, value, seq1, cleared, seq2,
+					     NULL, NULL);
+		  }
+	      }
+	  }
+	  break;
+
+	case VECTOR_TYPE:
+	  csi = csi_last (seq1);
+	  gen_modify_expr (&csi, decl, init);
+	  csi = csi_last (seq2);
+	  gen_modify_expr (&csi, decl, init);
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	  break;
+	}
+      break;
+
+    case INTEGER_CST:
+      {
+	unsigned HOST_WIDE_INT type_size = tree_low_cst (decl_size, 1);
+	tree t = fold_build2 (MODIFY_EXPR, TREE_TYPE (decl), decl, init);
+
+	csi = csi_last (seq1);
+	gimple_to_cil_node (&csi, t);
+
+	if (le_image != NULL && type_size <= 4)
+	  write_cst_image (le_image, be_image, init, type_size * BITS_PER_UNIT);
+	else
+	  {
+	    csi = csi_last (seq2);
+	    gimple_to_cil_node (&csi, t);
+	  }
+      }
+      break;
+
+    case REAL_CST:
+      /* Missing optimization, fall through for now */
+    default:
+      csi = csi_last (seq1);
+      gen_modify_expr (&csi, decl, init);
+      csi = csi_last (seq2);
+      gen_modify_expr (&csi, decl, init);
+    }
+}
+
+static size_t
+cil_seq_num_instr (cil_seq seq)
+{
+  cil_stmt_iterator csi;
+  size_t i = 0;
+
+  for (csi = csi_start (seq); !csi_end_p (csi); csi_next (&csi))
+    i++;
+
+  return i;
+}
+
+static bool
+cil_choose_init_method (size_t n1, size_t n2, size_t size, bool same)
+{
+  size_t c1, c2;
+
+  if (same)
+    {
+      c1 = n1 * 2;
+      c2 = (n2 + 5) * 2 + size;
+    }
+  else
+    {
+      c1 = n1 * 2;
+      c2 = (n2 + 8) * 2 + size * 2;
+    }
+
+  if (size < 100)
+    {
+      if (c1 < c2 / 2)
+	return false;
+      else
+	return true;
+    }
+  else
+    {
+      if (c1 < c2 / 10)
+	return false;
+      else
+	return true;
+    }
+}
+
+cil_seq
+expand_init_to_cil_seq (tree decl, tree init)
+{
+  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (decl)), 1);
+  char *le_image = (char *) alloca (size);
+  char *be_image = (char *) alloca (size);
+  cil_stmt_iterator csi;
+  cil_seq seq, seq1, seq2;
+  cil_stmt stmt;
+  unsigned int num_seq1, num_seq2;
+  bool same;
+
+  seq = cil_seq_alloc ();
+  csi = csi_start (seq);
+
+  if (size == 0)
+    return seq;
+
+  seq1 = cil_seq_alloc ();
+  seq2 = cil_seq_alloc ();
+  memset (le_image, 0, size);
+  memset (be_image, 0, size);
+
+  expand_init_to_cil_seq1 (decl, init, seq1, FALSE, seq2, le_image, be_image);
+
+  num_seq1 = cil_seq_num_instr (seq1);
+  num_seq2 = cil_seq_num_instr (seq2);
+  same = (memcmp (le_image, be_image, size) == 0)
+	 || TARGET_BIG_ENDIAN || TARGET_LITTLE_ENDIAN;
+
+  /* Decide what to do */
+  if (cil_choose_init_method (num_seq1, num_seq2, size, same))
+    {
+      tree sconst_le, sconst_be;
+
+      gimple_to_cil_node (&csi, build_fold_addr_expr (decl));
+
+      if (!same)
+	{
+	  sconst_le = build_string_literal (size, le_image);
+	  gimple_to_cil_node (&csi, sconst_le);
+
+	  sconst_be = build_string_literal (size, be_image);
+	  gimple_to_cil_node (&csi, sconst_be);
+
+	  stmt = cil_build_call (cil32_builtins[CIL32_BUILT_IN_ENDIAN_SELECT]);
+	  csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
+	}
+      else if (TARGET_BIG_ENDIAN)
+	{
+	  sconst_be = build_string_literal (size, be_image);
+	  gimple_to_cil_node (&csi, sconst_be);
+	}
+      else /* TARGET_LITTLE_ENDIAN */
+	{
+	  sconst_le = build_string_literal (size, le_image);
+	  gimple_to_cil_node (&csi, sconst_le);
+	}
+
+      gimple_to_cil_node (&csi, size_int (size));
+      stmt = cil_build_stmt (CIL_CPBLK);
+      cil_set_prefix_unaligned (stmt, 1);
+      csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
+      csi_insert_seq_after (&csi, seq2, CSI_CONTINUE_LINKING);
+    }
+  else
+    csi_insert_seq_after (&csi, seq1, CSI_CONTINUE_LINKING);
+
+  cil_lower_init (seq);
+
+  return seq;
 }
 
 /* Generates a GIMPLE_MODIFY_STMT, MODIFY_EXPR or INIT_EXPR with a bit field as
@@ -1370,42 +2026,37 @@ gen_call_builtin (cil_stmt_iterator *csi, tree node, tree fdecl)
 	case BUILT_IN_EXPECT:
 	  /* TODO: __builtin_expect(exp,val) evalutes exp and tells the
 	     compiler that it most likely gives val.  We just evaluate exp
-             but we could flag it for JIT hints emission.  */
+	     but we could flag it for JIT hints emission.  */
 	  gimple_to_cil_node (csi, CALL_EXPR_ARG (node, 0));
 	  return true;
 
-        case BUILT_IN_PREFETCH:
+	case BUILT_IN_PREFETCH:
 	  if (TREE_SIDE_EFFECTS (CALL_EXPR_ARG (node, 0)))
 	    gimple_to_cil_node (csi, CALL_EXPR_ARG (node, 0));
 
 	  return true;
 
-        case BUILT_IN_FRAME_ADDRESS:
-        case BUILT_IN_RETURN_ADDRESS:
-          {
-            /* Supported (sort of) only for non-zero parameter, when it is ok
-               to return NULL.  */
+	case BUILT_IN_FRAME_ADDRESS:
+	case BUILT_IN_RETURN_ADDRESS:
+	  {
+	    /* Supported (sort of) only for non-zero parameter, when it is ok
+	       to return NULL.  */
 	    tree arg = CALL_EXPR_ARG (node, 0);
 	    int  int_arg = tree_low_cst (arg, 0);
 
 	    if (int_arg == 0)
 	      internal_error ("__builtin_{return,frame}_address not implemented\n");
-            else
+	    else
 	      gen_integer_cst (csi, integer_zero_node);
-          }
-          return true;
+	  }
+	  return true;
 
 	case BUILT_IN_BZERO:
 	  {
 	    tree ptr   = CALL_EXPR_ARG (node, 0);
 	    tree size  = CALL_EXPR_ARG (node, 1);
 
-	    gimple_to_cil_node (csi, ptr);
-	    gen_integer_cst (csi, build_int_cst (intSI_type_node, 0));
-	    gimple_to_cil_node (csi, size);
-	    stmt = cil_build_stmt (CIL_INITBLK);
-	    cil_set_prefix_unaligned (stmt, 1);
-	    csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	    gen_initblk (csi, ptr, integer_zero_node, size);
 	    return true;
 	  }
 
@@ -1415,12 +2066,7 @@ gen_call_builtin (cil_stmt_iterator *csi, tree node, tree fdecl)
 	    tree ptr_dst = CALL_EXPR_ARG (node, 1);
 	    tree size    = CALL_EXPR_ARG (node, 2);
 
-	    gimple_to_cil_node (csi, ptr_dst);
-	    gimple_to_cil_node (csi, ptr_src);
-	    gimple_to_cil_node (csi, size);
-	    stmt = cil_build_stmt (CIL_CPBLK);
-	    cil_set_prefix_unaligned (stmt, 1);
-	    csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	    gen_cpblk (csi, ptr_dst, ptr_src, size);
 	    return true;
 	  }
 
@@ -1451,12 +2097,7 @@ gen_call_builtin (cil_stmt_iterator *csi, tree node, tree fdecl)
 	    tree ptr_src = CALL_EXPR_ARG (node, 1);
 	    tree size    = CALL_EXPR_ARG (node, 2);
 
-	    gimple_to_cil_node (csi, ptr_dst);
-	    gimple_to_cil_node (csi, ptr_src);
-	    gimple_to_cil_node (csi, size);
-	    stmt = cil_build_stmt (CIL_CPBLK);
-	    cil_set_prefix_unaligned (stmt, 1);
-	    csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	    gen_cpblk (csi, ptr_dst, ptr_src, size);
 	    return true;
 	  }
 
@@ -1466,12 +2107,7 @@ gen_call_builtin (cil_stmt_iterator *csi, tree node, tree fdecl)
 	    tree value = CALL_EXPR_ARG (node, 1);
 	    tree size  = CALL_EXPR_ARG (node, 2);
 
-	    gimple_to_cil_node (csi, ptr);
-	    gimple_to_cil_node (csi, value);
-	    gimple_to_cil_node (csi, size);
-	    stmt = cil_build_stmt (CIL_INITBLK);
-	    cil_set_prefix_unaligned (stmt, 1);
-	    csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	    gen_initblk (csi, ptr, value, size);
 	    return true;
 	  }
 
@@ -1519,7 +2155,7 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
   if (direct && DECL_BUILT_IN (fdecl))
     {
       if (gen_call_builtin (csi, node, fdecl))
-        return;
+	return;
     }
 
   arg_types = TYPE_ARG_TYPES (ftype);
@@ -2389,22 +3025,22 @@ gen_vector_view_convert_expr (cil_stmt_iterator *csi, tree dest_type, tree node)
 	    {
 	      if (elem_size == 8 && n_elem == 4)
 		builtin = unsignedp ? CIL32_GCC_V4QI_TO_USI
-		                    : CIL32_GCC_V4QI_TO_SI;
+				    : CIL32_GCC_V4QI_TO_SI;
 	      else if (elem_size == 16 && n_elem == 2)
 		builtin = unsignedp ? CIL32_GCC_V2HI_TO_USI
-		                    : CIL32_GCC_V2HI_TO_SI;
+				    : CIL32_GCC_V2HI_TO_SI;
 	    }
 	  else if (dest_size == 64 && INTEGRAL_TYPE_P (elem_type))
 	    {
 	      if (elem_size == 8 && n_elem == 8)
 		builtin = unsignedp ? CIL32_GCC_V8QI_TO_UDI
-		                    : CIL32_GCC_V8QI_TO_DI;
+				    : CIL32_GCC_V8QI_TO_DI;
 	      else if (elem_size == 16 && n_elem == 4)
 		builtin = unsignedp ? CIL32_GCC_V4HI_TO_UDI
-		                    : CIL32_GCC_V4HI_TO_DI;
+				    : CIL32_GCC_V4HI_TO_DI;
 	      else if (elem_size == 32 && n_elem == 2)
 		builtin = unsignedp ? CIL32_GCC_V2SI_TO_UDI
-		                    : CIL32_GCC_V2SI_TO_DI;
+				    : CIL32_GCC_V2SI_TO_DI;
 	    }
 	  else if (dest_size == 64 && SCALAR_FLOAT_TYPE_P (elem_type))
 	    {
@@ -2459,6 +3095,29 @@ gen_vector_view_convert_expr (cil_stmt_iterator *csi, tree dest_type, tree node)
   stmt = cil_build_call (cil32_builtins[builtin]);
   csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
   cfun->machine->has_vec = true;
+}
+
+/* Generates the code for a vector CONSTRUCTOR node CTOR.  The generated
+   statements are appended to the current function's CIL code using the CSI
+   iterator.  */
+
+static void
+gen_vector_ctor (cil_stmt_iterator *csi, tree ctor)
+{
+  VEC (constructor_elt, gc) *elts = CONSTRUCTOR_ELTS (ctor);
+  unsigned HOST_WIDE_INT i;
+  tree purpose, value;
+  tree vector_type = TREE_TYPE (ctor);
+  cil_stmt stmt;
+
+  FOR_EACH_CONSTRUCTOR_ELT (elts, i, purpose, value)
+    gimple_to_cil_node (csi, value);
+
+  stmt = cil_build_stmt_arg (CIL_VEC_CTOR, vector_type);
+  csi_insert_after (csi,  stmt, CSI_CONTINUE_LINKING);
+
+  if (cfun)
+    cfun->machine->has_vec = true;
 }
 
 /* Emit the code needed to generate a REALPART_ or IMAGPART_EXPR expression.  */
@@ -2615,7 +3274,7 @@ gen_integral_conv (cil_stmt_iterator *csi, tree dst, tree src)
   gcc_assert (INTEGRAL_TYPE_P (src) || POINTER_TYPE_P (src));
   gcc_assert (TYPE_PRECISION (dst) <= 64);
   gcc_assert (TYPE_PRECISION (dst) <= TYPE_PRECISION (src)
-              || TYPE_UNSIGNED (dst) == TYPE_UNSIGNED (src));
+	      || TYPE_UNSIGNED (dst) == TYPE_UNSIGNED (src));
 
   /* Get the precision of the output and input types and the size
      of the output type container */
@@ -2650,7 +3309,7 @@ gen_integral_conv (cil_stmt_iterator *csi, tree dst, tree src)
 	  gen_integer_cst (csi, mask);
 	  stmt = cil_build_stmt (CIL_AND);
 	  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
-        }
+	}
       else
 	{
 	  tree shift;
@@ -2687,11 +3346,11 @@ gen_conv (cil_stmt_iterator *csi, bool is_nop, tree dst, tree src)
 		     ? unsigned_type_for (dst)
 		     : signed_type_for (dst);
 
-          gen_integral_conv (csi, tmp, src);
-          gen_integral_conv (csi, dst, tmp);
-        }
+	  gen_integral_conv (csi, tmp, src);
+	  gen_integral_conv (csi, dst, tmp);
+	}
       else
-        gen_integral_conv (csi, dst, src);
+	gen_integral_conv (csi, dst, src);
     }
 
   /* Special case for conversion to float type are not orthogonal
@@ -2788,16 +3447,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       break;
 
     case REAL_CST:
-      if (tree_low_cst (TYPE_SIZE (TREE_TYPE (node)), 1) == 32)
-	opcode = CIL_LDC_R4;
-      else
-        {
-          gcc_assert (tree_low_cst (TYPE_SIZE (TREE_TYPE (node)), 1) == 64);
-	  opcode = CIL_LDC_R8;
-	}
-
-      stmt = cil_build_stmt_arg (opcode, node);
-      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+      gen_real_cst (csi, node);
       break;
 
     case COMPLEX_CST:
@@ -2807,71 +3457,23 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       break;
 
     case CONSTRUCTOR:
-      {
-	VEC(constructor_elt,gc) *elts;
-	unsigned HOST_WIDE_INT ix;
-	tree purpose, value;
-	tree vector_type = TREE_TYPE (node);
+      if (TREE_CODE (TREE_TYPE (node)) == VECTOR_TYPE)
+	gen_vector_ctor (csi, node);
+      else
+	internal_error ("Unsupported type in CONSTRUCTOR\n");
 
-	if (TREE_CODE (vector_type) != VECTOR_TYPE)
-	  {
-	    internal_error ("Unsupported type in CONSTRUCTOR\n");
-	  }
-
-	elts = CONSTRUCTOR_ELTS (node);
-	FOR_EACH_CONSTRUCTOR_ELT (elts, ix, purpose, value)
-	  {
-	    gimple_to_cil_node (csi, value);
-	  }
-
-	stmt = cil_build_stmt_arg (CIL_VEC_CTOR, vector_type);
-	csi_insert_after (csi,  stmt, CSI_CONTINUE_LINKING);
-	cfun->machine->has_vec = true;
-      }
       break;
 
     case VECTOR_CST:
-      {
-	unsigned int num_elt = 0;
-	tree elt;
-	tree vector_type = TREE_TYPE (node);
-	tree unit_type = TREE_TYPE (vector_type);
-
-	for (elt = TREE_VECTOR_CST_ELTS (node); elt; elt = TREE_CHAIN (elt))
-	  {
-	    tree elt_val = TREE_VALUE (elt);
-	    gimple_to_cil_node (csi, elt_val);
-	    ++num_elt;
-	  }
-	/* Fill in the missing initializers, if any */
-	for ( ; num_elt < TYPE_VECTOR_SUBPARTS (vector_type); ++num_elt)
-	  {
-	    if (GET_MODE_CLASS (TYPE_MODE (unit_type)) == MODE_INT)
-	      stmt = cil_build_stmt_arg (CIL_LDC_I4, integer_zero_node);
-	    else if (GET_MODE_CLASS (TYPE_MODE (unit_type)) == MODE_FLOAT)
-              {
-		tree cst = build_real_from_int_cst (float_type_node,
-						    integer_zero_node);
-
-	        stmt = cil_build_stmt_arg (CIL_LDC_R4, cst);
-	      }
-	    else
-	      gcc_unreachable ();
-
-	    csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
-          }
-
-	stmt = cil_build_stmt_arg (CIL_VEC_CTOR, vector_type);
-	csi_insert_after (csi,  stmt, CSI_CONTINUE_LINKING);
-	cfun->machine->has_vec = true;
-        break;
-      }
+      gen_vector_cst (csi, node);
+      break;
 
     case LABEL_DECL:
       gcc_unreachable ();
       break;
 
     case COMPOUND_LITERAL_EXPR:
+      /* HACK: We should find a way to avoid front-end nodes */
       gimple_to_cil_node (csi, COMPOUND_LITERAL_EXPR_DECL (node));
       break;
 
@@ -2885,13 +3487,8 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	   (TREE_CODE (TREE_TYPE (op1)) != VECTOR_TYPE)) ||
 	  TREE_CODE (op1) == STRING_CST)
 	{
-	  tree list = NULL_TREE;
-	  tree_stmt_iterator tsi;
-
-	  expand_init_to_stmt_list (op0, op1, &list);
-
-	  for (tsi = tsi_start (list); !tsi_end_p (tsi); tsi_next (&tsi))
-	    gimple_to_cil_node (csi, tsi_stmt (tsi));
+	  csi_insert_seq_after (csi, expand_init_to_cil_seq (op0, op1),
+				CSI_CONTINUE_LINKING);
 	}
       else
 	gen_modify_expr (csi, op0, op1);
@@ -2964,22 +3561,22 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	gimple_to_cil_node (csi, op1);
 
       switch (TREE_CODE (node))
-        {
-        case MULT_EXPR:         opcode = CIL_MUL; break;
-        case POINTER_PLUS_EXPR:
-        case PLUS_EXPR:         opcode = CIL_ADD; break;
-        case MINUS_EXPR:        opcode = CIL_SUB; break;
-        case RDIV_EXPR:         opcode = CIL_DIV; break;
-        case LSHIFT_EXPR:       opcode = CIL_SHL; break;
-        default:
-          gcc_unreachable ();
-        }
+	{
+	case MULT_EXPR:         opcode = CIL_MUL; break;
+	case POINTER_PLUS_EXPR:
+	case PLUS_EXPR:         opcode = CIL_ADD; break;
+	case MINUS_EXPR:        opcode = CIL_SUB; break;
+	case RDIV_EXPR:         opcode = CIL_DIV; break;
+	case LSHIFT_EXPR:       opcode = CIL_SHL; break;
+	default:
+	  gcc_unreachable ();
+	}
 
       stmt = cil_build_stmt (opcode);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 
       /* Values with precision smaller than the one used
-         on the evaluation stack require an explicit conversion.   */
+	 on the evaluation stack require an explicit conversion.   */
       if (INTEGRAL_TYPE_P (TREE_TYPE (node)))
 	gen_integral_conv (csi, TREE_TYPE (node), TREE_TYPE (node));
       break;
@@ -3001,9 +3598,9 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	}
 
       /* No need for conversions even in case of values with precision
-         smaller than the one used on the evaluation stack,
-         since for these operations the output is
-         always less or equal than both operands.   */
+	 smaller than the one used on the evaluation stack,
+	 since for these operations the output is
+	 always less or equal than both operands.   */
 
       stmt = cil_build_stmt (opcode);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
@@ -3053,7 +3650,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	case RSHIFT_EXPR:    opcode = uns ? CIL_SHR_UN : CIL_SHR; break;
 	default:
 	  gcc_unreachable ();
-        }
+	}
 
       stmt = cil_build_stmt (opcode);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
@@ -3113,10 +3710,10 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 
       /* Values with precision smaller than the one used
-         on the evaluation stack require an explicit conversion.
-         Unfortunately this is true for the negation as well just
-         for the case in which the operand is the smallest negative value.
-         Example: 8-bit negation of -128 gives 0 and not 128.   */
+	 on the evaluation stack require an explicit conversion.
+	 Unfortunately this is true for the negation as well just
+	 for the case in which the operand is the smallest negative value.
+	 Example: 8-bit negation of -128 gives 0 and not 128.   */
       if (INTEGRAL_TYPE_P (TREE_TYPE (node)))
 	gen_integral_conv (csi, TREE_TYPE (node), TREE_TYPE (node));
       break;
@@ -3160,7 +3757,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 
     case LABEL_EXPR:
       /* Skip this expression, labels are emitted later. TODO: Check that the
-         labels appear only at the beginning of a basic-block?  */
+	 labels appear only at the beginning of a basic-block?  */
       break;
 
     case RETURN_EXPR:
@@ -3196,7 +3793,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	  /* Flag the function so that the emission phase will emit an 'init'
 	     directive in the local variables declaration.  */
 	  cfun->machine->locals_init = true;
-        }
+	}
 
       stmt = cil_build_stmt (CIL_RET);
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
@@ -3231,6 +3828,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	mark_referenced_type (type);
 	stmt = cil_build_stmt_arg (CIL_LDARG, node);
 	csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+
 	if (TREE_CODE (type) == VECTOR_TYPE)
 	  cfun->machine->has_vec = true;
       }
@@ -3333,12 +3931,12 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       internal_error ("gen_cil_node does not support TYPE nodes, "
-                      "to dump Type name use dump_type.\n");
+		      "to dump Type name use dump_type.\n");
       break;
 
     default:
       internal_error ("\n\nUnsupported tree in CIL generation: '%s'\n",
-                      tree_code_name[TREE_CODE (node)]);
+		      tree_code_name[TREE_CODE (node)]);
       break;
     }
 }
@@ -3358,18 +3956,18 @@ process_labels (void)
   FOR_EACH_BB (bb)
     {
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-        {
-          stmt = bsi_stmt (bsi);
+	{
+	  stmt = bsi_stmt (bsi);
 
-          /* Record the address taken labels.  */
-          if (TREE_CODE (stmt) == LABEL_EXPR)
-            {
-              tree label = LABEL_EXPR_LABEL (stmt);
-              /* Check if the label has its address taken.  */
-              if (FORCED_LABEL (label))
+	  /* Record the address taken labels.  */
+	  if (TREE_CODE (stmt) == LABEL_EXPR)
+	    {
+	      tree label = LABEL_EXPR_LABEL (stmt);
+	      /* Check if the label has its address taken.  */
+	      if (FORCED_LABEL (label))
 		record_addr_taken_label (label);
-            }
-        }
+	    }
+	}
     }
 
   /* Make sure that every bb has a label */
@@ -3394,17 +3992,13 @@ process_initializers (void)
 
   for (cell = cfun->unexpanded_var_list; cell; cell = TREE_CHAIN (cell))
     {
-      tree_stmt_iterator tsi;
       tree var = TREE_VALUE (cell);
       tree init = DECL_INITIAL (var);
-      tree list = NULL_TREE;
 
       if (!TREE_STATIC (var) && init && init != error_mark_node)
-        {
-	  expand_init_to_stmt_list (var, init, &list);
-
-	  for (tsi = tsi_start (list); !tsi_end_p (tsi); tsi_next (&tsi))
-	    gimple_to_cil_node (&csi, tsi_stmt (tsi));
+	{
+	  csi_insert_seq_after (&csi, expand_init_to_cil_seq (var, init),
+				CSI_CONTINUE_LINKING);
 	}
     }
 
@@ -3502,8 +4096,8 @@ gimple_to_cil (void)
 	      cil_set_locus (stmt,
 			     node ? EXPR_LOCATION (node) : UNKNOWN_LOCATION);
 	      csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
-            }
-        }
+	    }
+	}
       else if (EDGE_COUNT (bb->succs) == 0)
 	{
 	  bsi = bsi_last (bb);
@@ -3526,13 +4120,13 @@ gimple_to_cil (void)
 	      csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
 
 	      /* Flag the function so that the emission phase will emit an
-	         'init' directive in the local variables declaration.  */
+		 'init' directive in the local variables declaration.  */
 	      cfun->machine->locals_init = true;
 
 	      /* FIXME: Is this really needed? */
 	      make_single_succ_edge (bb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
 	    }
-        }
+	}
     }
 
   /* Add the initializers to the entry block */

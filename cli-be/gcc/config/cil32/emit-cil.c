@@ -98,6 +98,7 @@ static void dump_complex_type (FILE *, tree, bool);
 static void dump_string_decl (FILE *, tree);
 static bool dump_type_promoted_type_def (FILE *, tree);
 
+static void emit_init_method (FILE *);
 static void emit_referenced_strings (void);
 static void emit_referenced_types (void);
 static void emit_pinvoke_function (FILE *, tree);
@@ -120,7 +121,6 @@ static void emit_function_header (FILE *, struct function *);
 static void emit_cil_bb (FILE *, basic_block);
 static void emit_cil_1 (FILE *, struct function *);
 static unsigned int emit_cil (void);
-
 
 static void emit_cil_vcg_1 (FILE *);
 static bool emit_cil_vcg_gate (void);
@@ -165,7 +165,7 @@ emit_cil_init (void)
 void
 emit_cil_fini (void)
 {
-  create_init_method ();
+  emit_init_method (asm_out_file);
   emit_referenced_strings ();
   emit_referenced_types ();
   emit_referenced_pinvokes ();
@@ -206,6 +206,7 @@ compute_max_stack (struct function *fun)
   unsigned int *depths;
   unsigned int max_depth = 0;
   unsigned int depth;
+  bool ret = !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fun->decl)));
   basic_block bb;
   edge e;
   edge_iterator ei;
@@ -214,9 +215,11 @@ compute_max_stack (struct function *fun)
 
   FOR_EACH_BB_FN (bb, fun)
     {
-      depth =  cil_seq_stack_depth (cil_bb_seq (bb), depths[bb->index], true);
+      depth =  cil_seq_stack_depth (cil_bb_seq (bb), ret, depths[bb->index],
+				    true);
       max_depth = (depth > max_depth) ? depth : max_depth;
-      depth = cil_seq_stack_depth (cil_bb_seq (bb), depths[bb->index], false);
+      depth = cil_seq_stack_depth (cil_bb_seq (bb), ret, depths[bb->index],
+				    false);
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
@@ -253,18 +256,18 @@ decode_function_attrs (tree t, struct fnct_attr *attrs)
       tree params = TREE_VALUE (tmp);
 
       if (strcmp (attr_name, "assembly_name") == 0)
-        attrs->assembly_name = TREE_STRING_POINTER (TREE_VALUE (params));
+	attrs->assembly_name = TREE_STRING_POINTER (TREE_VALUE (params));
       else if (strcmp (attr_name, "cil_name") == 0)
-        attrs->cil_name = TREE_STRING_POINTER (TREE_VALUE (params));
+	attrs->cil_name = TREE_STRING_POINTER (TREE_VALUE (params));
       else if (strcmp (attr_name, "cil_strattr") == 0)
-        attrs->cusattr_string = TREE_STRING_POINTER (TREE_VALUE (params));
+	attrs->cusattr_string = TREE_STRING_POINTER (TREE_VALUE (params));
       else if (strcmp (attr_name, "pinvoke") == 0)
-        {
-          attrs->pinvoke_assembly = TREE_STRING_POINTER (TREE_VALUE (params));
+	{
+	  attrs->pinvoke_assembly = TREE_STRING_POINTER (TREE_VALUE (params));
 
-          if (TREE_CHAIN (params))
-            attrs->pinvoke_fname = TREE_STRING_POINTER (TREE_VALUE (TREE_CHAIN (params)));
-        }
+	  if (TREE_CHAIN (params))
+	    attrs->pinvoke_fname = TREE_STRING_POINTER (TREE_VALUE (TREE_CHAIN (params)));
+	}
 
       tmp = TREE_CHAIN (tmp);
     }
@@ -285,9 +288,9 @@ dump_decl_name (FILE *file, tree node)
       const char *tname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node));
 
       if (tname[0] == '*')
-        fprintf (file, tname + 1);
+	fprintf (file, tname + 1);
       else
-        fprintf (file, tname);
+	fprintf (file, tname);
     }
   else if (DECL_NAME (node))
     fprintf (file, IDENTIFIER_POINTER (DECL_NAME (node)));
@@ -358,9 +361,9 @@ dump_valuetype_name (FILE *file, const_tree t)
       for (i = 0; i < strlen (str); i++)
 	{
 	  if (str[i] == '.' && !builtin_p)
-            fprintf (file, "?");
+	    fprintf (file, "?");
 	  else
-            fprintf (file, "%c", str[i]);
+	    fprintf (file, "%c", str[i]);
 	}
     }
   else
@@ -402,13 +405,13 @@ dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
       last_arg_type = args_type;
 
       while (TREE_CHAIN (last_arg_type))
-        last_arg_type = TREE_CHAIN (last_arg_type);
+	last_arg_type = TREE_CHAIN (last_arg_type);
 
       if (TREE_VALUE (last_arg_type) != void_type_node)
-        {
-          last_arg_type = NULL;
-          varargs = TRUE;
-        }
+	{
+	  last_arg_type = NULL;
+	  varargs = TRUE;
+	}
     }
 
   fprintf (file, "%s", varargs ? "vararg " : "");
@@ -603,8 +606,8 @@ emit_enum_decl (FILE *file, tree t)
   fprintf (file, "sealed serializable ansi ");
   dump_valuetype_name (file, t);
   fprintf (file,
-           " extends ['mscorlib']System.Enum\n"
-           "{\n");
+	   " extends ['mscorlib']System.Enum\n"
+	   "{\n");
   snprintf (base_type_str + 3, 5, HOST_WIDE_INT_PRINT_UNSIGNED, size);
   fprintf (file, "\t.field public specialname rtspecialname %s%s 'value__'\n",
 	   !TYPE_UNSIGNED (t) ? "unsigned " : "",
@@ -781,7 +784,7 @@ dump_type (FILE *file, tree type, bool ref, bool qualif)
        they must be dealt with as such.   */
     case ARRAY_TYPE:
       if (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
-        goto pointer;
+	goto pointer;
 
     case ENUMERAL_TYPE:
     case RECORD_TYPE:
@@ -789,7 +792,7 @@ dump_type (FILE *file, tree type, bool ref, bool qualif)
     case QUAL_UNION_TYPE:
       /* Reference the type if told to do so */
       if (ref)
-        mark_referenced_type (TYPE_MAIN_VARIANT (type));
+	mark_referenced_type (TYPE_MAIN_VARIANT (type));
 
       /* Print the name of the structure.  */
       fprintf (file, "valuetype ");
@@ -812,7 +815,7 @@ dump_type (FILE *file, tree type, bool ref, bool qualif)
 	  case 64: fprintf (file, "int64"); break;
 	  default:
 	    internal_error ("Unsupported integer size "
-                            HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+			    HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
 	}
       break;
 
@@ -1017,6 +1020,79 @@ dump_type_promoted_type_def (FILE *file, tree node)
     }
 
   return result;
+}
+
+/* Emit a per-compilation unit initialization method used for initalizing
+   global and static variables.  The function is emitted in the file
+   specified by FILE.  */
+
+static void
+emit_init_method (FILE *file)
+{
+  VEC (tree, gc) *pending_ctors = pending_ctors_vec ();
+  cil_stmt_iterator csi;
+  cil_stmt stmt;
+  cil_seq seq;
+  size_t i;
+
+  if (VEC_length (tree, pending_ctors) != 0)
+    {
+      seq = cil_seq_alloc ();
+      csi = csi_start (seq);
+
+      /* Emit the initializer function header.  We assume that the function
+	 doesn't use any local variable.  */
+      fprintf (file,
+	       "\n.method private static void 'COBJ?init' () cil managed"
+	       "\n{"
+	       "\n\t.locals ()\n");
+      emit_string_custom_attr (file, "initfun");
+
+      if (TARGET_GCC4NET_LINKER)
+	{
+	  fprintf (file,
+		   "\n\t.custom instance "
+		   "void [gcc4net]gcc4net.C_Attributes.Initializer::.ctor() "
+		   "= (01 00 00 00)");
+	}
+      else if (TARGET_OPENSYSTEMC)
+	{
+	  fprintf (file,
+		   "\n\t.custom instance "
+		   "void ['OpenSystem.C']'OpenSystem.C'.InitializerAttribute::.ctor() "
+		   "= (01 00 00 00)");
+	}
+
+      fprintf(file,
+	      "\n"
+	      "\n?L0:");
+
+      for (i = 0; i < VEC_length (tree, pending_ctors); i++)
+	{
+	  tree decl = VEC_index (tree, pending_ctors, i);
+	  tree init = DECL_INITIAL (decl);
+
+	  DECL_INITIAL (decl) = NULL_TREE;
+	  csi_insert_seq_after (&csi, expand_init_to_cil_seq (decl, init),
+				CSI_CONTINUE_LINKING);
+	}
+
+      stmt = cil_build_stmt (CIL_RET);
+      csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
+
+      /* Output the actual code.  */
+      for (csi = csi_start (seq); !csi_end_p (csi); csi_next (&csi))
+	{
+	  stmt = csi_stmt (csi);
+	  emit_cil_stmt (file, stmt);
+	}
+
+      /* Output the maximum stack size.  */
+      fprintf (file,
+	       "\n\t.maxstack %u"
+	       "\n} // COBJ?init",
+	       cil_seq_stack_depth (seq, false, 0, true));
+    }
 }
 
 /* Emit all the strings referenced in this compilation unit.  */
@@ -1254,7 +1330,7 @@ emit_ldsflda (FILE *file, const_cil_stmt stmt)
 	  fprintf (file, "native int ");
 	  /* Global Variable with incomplete type, consider it an External definition */
 	  if (TARGET_GCC4NET_LINKER)
-            fprintf (file, "[ExternalAssembly]ExternalAssembly::");
+	    fprintf (file, "[ExternalAssembly]ExternalAssembly::");
 	  dump_decl_name (file, field);
 	}
     }
@@ -1350,7 +1426,7 @@ emit_switch (FILE *file, const_cil_stmt stmt)
   else
     {
       /* If the switch contains only one case, it's the default label. If the
-         default label is artificial then this is an empty switch we created
+	 default label is artificial then this is an empty switch we created
 	 for a computed GOTO expression. */
       if (DECL_ARTIFICIAL (CASE_LABEL (cil_switch_default (stmt))))
 	range = 0;

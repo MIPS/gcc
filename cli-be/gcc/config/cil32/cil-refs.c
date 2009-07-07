@@ -44,7 +44,6 @@ Erven Rohou             <erven.rohou@inria.fr>
 
 #include "cil-builtins.h"
 #include "cil-refs.h"
-#include "cil-stack.h"
 #include "cil-types.h"
 
 /******************************************************************************
@@ -70,12 +69,6 @@ static int pinvoke_eq (const void *, const void *);
 static hashval_t label_addr_hash (const void *);
 static int label_addr_eq (const void *, const void *);
 static int fill_label_addrs (void **, void *);
-
-static bool mostly_zeros_p (tree);
-static bool all_zeros_p (tree);
-static void expand_init_to_stmt_list1 (tree, tree, tree *, bool, tree *,
-                                       void *, void *, unsigned HOST_WIDE_INT);
-static int statement_list_num_instr (tree);
 
 /******************************************************************************
  * Globals                                                                    *
@@ -212,7 +205,7 @@ void mark_pending_assemblies ( void )
 /* Warning: these strings are not null-terminated */
 static char *
 append_string (char *str, const char *to_append, size_t *len,
-               size_t *max_len)
+	       size_t *max_len)
 {
   size_t i, orig_len = *len;
   size_t append_len = strlen (to_append);
@@ -222,7 +215,7 @@ append_string (char *str, const char *to_append, size_t *len,
   if (*len > *max_len)
     {
       while (*len > *max_len)
-        *max_len *= 2;
+	*max_len *= 2;
 
       str = XRESIZEVEC (char, str, *max_len);
     }
@@ -236,7 +229,7 @@ append_string (char *str, const char *to_append, size_t *len,
 /* Warning: these strings are not null-terminated */
 static char *
 append_coded_type (char *str, tree type,
-                   size_t *len, size_t *max_len)
+		   size_t *len, size_t *max_len)
 {
   unsigned HOST_WIDE_INT size;
   enum tree_code type_code;
@@ -540,7 +533,7 @@ make_valuetype_identifier (tree t)
 					IDENTIFIER_POINTER (DECL_NAME (tmp)),
 					&tmp_name_len, &tmp_name_max_len);
 	    }
-          else
+	  else
 	    {
 	      /* Unnamed bit-fields or unions */
 	      tmp_name = append_string (tmp_name, "?unnamed",
@@ -646,7 +639,7 @@ mark_referenced_type (tree t)
 
       gcc_assert (type_name != 0);
       gcc_assert (DECL_P (type_name)
-                  || TREE_CODE (type_name) == IDENTIFIER_NODE);
+	          || TREE_CODE (type_name) == IDENTIFIER_NODE);
 
       if (TREE_CODE (type_name) == IDENTIFIER_NODE)
 	orig_name = IDENTIFIER_POINTER (type_name);
@@ -689,7 +682,7 @@ mark_referenced_type (tree t)
 	      mark_referenced_type (TREE_TYPE (tmp));
 
 	    tmp = TREE_CHAIN (tmp);
-          }
+	  }
       }
       break;
 
@@ -774,7 +767,7 @@ promote_type_for_vararg (tree type)
 pointer:
     case POINTER_TYPE:
       /* FIXME: cil32 is a 32-bit machine, in case we support 64-bit model
-         changes are needed.  */
+	 changes are needed.  */
       return unsigned_intSI_type_node;
 
     default:
@@ -1110,716 +1103,10 @@ record_ctor (tree decl)
   VEC_safe_push (tree, gc, pending_ctors, decl);
 }
 
-void
-create_init_method (void)
+VEC(tree, gc) *
+pending_ctors_vec ( void )
 {
-  struct function *current_cfun = cfun;
-  tree fun_type;
-  tree fun_decl;
-  tree init_expr = NULL;
-  tree result;
-  size_t i;
-
-  if (VEC_length (tree, pending_ctors) != 0)
-    {
-      fun_type = build_function_type (void_type_node, void_list_node);
-      fun_decl = build_decl (FUNCTION_DECL, get_identifier ("COBJ?init"),
-			     fun_type);
-
-      result = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
-      DECL_ARTIFICIAL (result) = 1;
-      DECL_IGNORED_P (result) = 1;
-      DECL_RESULT (fun_decl) = result;
-
-      /* Allocate memory for the function structure.  The call to
-	 allocate_struct_function clobbers CFUN, so we need to restore
-	 it afterward.  */
-      allocate_struct_function (fun_decl, false);
-
-      TREE_STATIC (fun_decl) = 1;
-      TREE_USED (fun_decl) = 1;
-      DECL_ARTIFICIAL (fun_decl) = 1;
-      DECL_IGNORED_P (fun_decl) = 0;
-      TREE_PUBLIC (fun_decl) = 0;
-      DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (fun_decl) = 1;
-      DECL_UNINLINABLE (fun_decl) = 1;
-      DECL_EXTERNAL (fun_decl) = 0;
-      DECL_STATIC_CONSTRUCTOR (fun_decl) = 1;
-      DECL_CONTEXT (fun_decl) = NULL_TREE;
-      DECL_INITIAL (fun_decl) = make_node (BLOCK);
-
-      for (i = 0; i < VEC_length (tree, pending_ctors); i++)
-	{
-	  tree decl = VEC_index (tree, pending_ctors, i);
-	  tree init = DECL_INITIAL (decl);
-
-	  DECL_INITIAL (decl) = NULL_TREE;
-	  expand_init_to_stmt_list (decl, init, &init_expr);
-	}
-
-      DECL_SAVED_TREE (fun_decl) = init_expr;
-
-      gimplify_function_tree (fun_decl);
-      tree_lowering_passes (fun_decl);
-      tree_rest_of_compilation (fun_decl);
-
-      /* Restore the current function */
-      set_cfun (current_cfun);
-  }
-}
-
-/* Return TRUE if EXP contains mostly (3/4)  zeros.  */
-
-static bool
-mostly_zeros_p (tree exp)
-{
-  HOST_WIDE_INT nz_elts, count, elts;
-  bool must_clear;
-
-  gcc_assert (TREE_CODE (exp) == CONSTRUCTOR);
-
-  categorize_ctor_elements (exp, &nz_elts, &count, &must_clear);
-
-  if (must_clear)
-    return TRUE;
-
-  elts = count_type_elements (TREE_TYPE (exp), false);
-
-  return (nz_elts < elts / 4);
-}
-
-/* Return TRUE if EXP contains all zeros. */
-
-static bool
-all_zeros_p (tree exp)
-{
-  HOST_WIDE_INT nz_elts, count;
-  bool must_clear;
-
-  gcc_assert (TREE_CODE (exp) == CONSTRUCTOR);
-
-  categorize_ctor_elements (exp, &nz_elts, &count, &must_clear);
-
-  return (nz_elts == 0);
-}
-
-/* Expand the initialization of tree DECL to tree INIT
-   into the statement list pointed by STMT_LIST.
-   Beware that statements inserted into the list cannot be assumed
-   to be in GIMPLE form and/or simplified for CIL.
-   If GIMPLE CIL-simplified statements are required, explicit
-   gimplification and CIL simplification have to be performed on them.
-   CLEARED tells whether unmentioned fields in the initializer
-   statement may be considered already initialized to zero or not.
-   The expansion is especially meant to expand a CONSTRUCTOR into
-   an equivalent statement sequence; anyway, any initialization
-   is properly handled: in case of no expansion, a simple MODIFY_EXPR
-   is appended to STMT_LIST.
-   STMT_LIST may be NULL; in this case a statement list is allocated.
-*/
-
-static void
-expand_init_to_stmt_list1 (tree decl, tree init,
-			   tree *stmt_list1, bool cleared,
-			   tree *stmt_list2, void *le_image, void *be_image,
-			   unsigned HOST_WIDE_INT image_offset)
-{
-  tree decl_size = TYPE_SIZE_UNIT (TREE_TYPE (decl));
-  unsigned HOST_WIDE_INT size = tree_low_cst (decl_size, 1);
-  bool need_to_clear = FALSE;
-
-  gcc_assert (TREE_CODE (*stmt_list1) == STATEMENT_LIST);
-  gcc_assert (TREE_CODE (*stmt_list2) == STATEMENT_LIST);
-
-  if (TREE_CODE (init) == CONST_DECL)
-    {
-      init = DECL_INITIAL (init);
-      gcc_assert (init && init != error_mark_node);
-    }
-
-  if (!cleared && TREE_CODE (init) == CONSTRUCTOR && all_zeros_p (init))
-    {
-      tree args, t, decl_ptr;
-
-      args = tree_cons (NULL, decl_size, NULL);
-      args = tree_cons (NULL, integer_zero_node, args);
-      decl_ptr = build_fold_addr_expr (decl);
-      args = tree_cons (NULL, decl_ptr, args);
-      t = cil32_builtins[CIL32_BUILT_IN_INITBLK];
-      t = build_function_call_expr (t, args);
-
-      append_to_statement_list (t, stmt_list1);
-
-      return;
-    }
-
-  switch (TREE_CODE (init))
-    {
-    case STRING_CST:
-      {
-	tree args, t, to_ptr, from_ptr;
-
-	gcc_assert (TREE_CODE (TREE_TYPE (init)) == ARRAY_TYPE);
-
-	args = tree_cons (NULL, decl_size, NULL);
-
-	from_ptr = build_fold_addr_expr (init);
-	args = tree_cons (NULL, from_ptr, args);
-
-	to_ptr = build_fold_addr_expr (decl);
-	args = tree_cons (NULL, to_ptr, args);
-
-	/* We know they do not overlap */
-	t = cil32_builtins[CIL32_BUILT_IN_CPBLK];
-	t = build_function_call_expr (t, args);
-
-	append_to_statement_list (t, stmt_list1);
-
-	memcpy((unsigned char *) le_image + image_offset,
-	       TREE_STRING_POINTER (init), TREE_STRING_LENGTH (init));
-	memcpy((unsigned char *) be_image + image_offset,
-	       TREE_STRING_POINTER (init), TREE_STRING_LENGTH (init));
-      }
-    break;
-
-    case CONSTRUCTOR:
-      switch (TREE_CODE (TREE_TYPE (init)))
-	{
-	case RECORD_TYPE:
-	case UNION_TYPE:
-	case QUAL_UNION_TYPE:
-	  {
-	    unsigned HOST_WIDE_INT idx;
-	    tree init_type = TREE_TYPE (init);
-	    tree field, value;
-
-	    /* If size is zero or the target is already cleared, do nothing */
-	    if (size == 0 || cleared)
-	      {
-		need_to_clear = FALSE;
-		cleared = TRUE;
-	      }
-
-	    /* We either clear the aggregate or indicate the value is dead.  */
-	    else if ((TREE_CODE (init_type) == UNION_TYPE
-		      || TREE_CODE (init_type) == QUAL_UNION_TYPE)
-		     && !CONSTRUCTOR_ELTS (init))
-	      /* If the constructor is empty, clear the union.  */
-	      need_to_clear = TRUE;
-
-	    /* If the constructor has fewer fields than the structure or
-	       if we are initializing the structure to mostly zeros, clear
-	       the whole structure first. */
-	    else if (size > 0
-		     && (((int)VEC_length (constructor_elt,
-					   CONSTRUCTOR_ELTS (init))
-			  != fields_length (init_type))
-			 || mostly_zeros_p (init)))
-		need_to_clear = TRUE;
-
-	    if (need_to_clear && size > 0)
-	      {
-		tree args, t, decl_ptr;
-
-		args = tree_cons (NULL, decl_size, NULL);
-		args = tree_cons (NULL, integer_zero_node, args);
-		decl_ptr = build_fold_addr_expr (decl);
-		args = tree_cons (NULL, decl_ptr, args);
-		t = cil32_builtins[CIL32_BUILT_IN_INITBLK];
-		t = build_function_call_expr (t, args);
-
-		append_to_statement_list (t, stmt_list1);
-
-		cleared = TRUE;
-	      }
-
-	    /* Store each element of the constructor into the
-	       corresponding field of TARGET.  */
-	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), idx,
-				      field, value)
-	      {
-		tree ltarget;
-
-		/* Just ignore missing fields.  We cleared the whole
-		   structure, above, if any fields are missing.  */
-		if (field == 0)
-		  continue;
-
-		if (cleared && initializer_zerop (value))
-		  continue;
-
-		ltarget = build3 (COMPONENT_REF, TREE_TYPE (field), decl, field, NULL);
-
-		if (le_image != NULL && !DECL_BIT_FIELD (field))
-		  {
-		    unsigned HOST_WIDE_INT offset = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
-		    unsigned HOST_WIDE_INT bit_offset = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
-		    gcc_assert (bit_offset % BITS_PER_UNIT == 0);
-		    offset += (bit_offset / BITS_PER_UNIT) + image_offset;
-
-		    expand_init_to_stmt_list1 (ltarget, value,
-					       stmt_list1, cleared,
-					       stmt_list2,
-					       le_image, be_image, offset);
-		  }
-		else if (le_image != NULL && DECL_BIT_FIELD (field)
-			 && (TARGET_LITTLE_ENDIAN || TARGET_BIG_ENDIAN))
-		  {
-		    unsigned char b0, b1, b2, b3;
-		    unsigned HOST_WIDE_INT offset = 0;
-		    HOST_WIDE_INT bit_size = 0;
-		    HOST_WIDE_INT bit_pos = 0;
-		    HOST_WIDE_INT cont_off;
-		    HOST_WIDE_INT cont_size = 8;
-		    enum machine_mode mode;
-		    int unsignedp = 0;
-		    int volatilep = 0;
-		    tree cont_type;
-		    tree shift_cst;
-		    tree tmp;
-
-		    get_inner_reference (ltarget, &bit_size, &bit_pos,
-					 &tmp, &mode, &unsignedp,
-					 &volatilep, false);
-
-		    /* Calculate the container size.  */
-		    while ((bit_pos % cont_size + bit_size) > cont_size)
-		      cont_size *= 2;
-
-		    if (cont_size > 32)
-		      {
-			expand_init_to_stmt_list1 (ltarget, value,
-						   stmt_list1, cleared,
-						   stmt_list2, NULL, NULL, 0);
-		      }
-		    else
-		      {
-			cont_type = get_integer_type (cont_size, true);
-			cont_off = bit_pos % cont_size;
-
-			/* Calculate the container offset.  */
-			if ((bit_pos - cont_off) / BITS_PER_UNIT != 0)
-			  {
-			    tmp = build_int_cst (intSI_type_node,
-						 (bit_pos - cont_off)
-						 / BITS_PER_UNIT);
-			    offset = tree_low_cst (tmp, 1);
-			  }
-
-			shift_cst = build_int_cst (intSI_type_node, cont_off);
-			tmp = fold_binary_to_constant (LSHIFT_EXPR, cont_type,
-						       fold_convert (cont_type,
-								     value),
-						       shift_cst);
-
-			b0 = tree_low_cst (tmp, 1);
-			b1 = tree_low_cst (tmp, 1) >> 8;
-			b2 = tree_low_cst (tmp, 1) >> 16;
-			b3 = tree_low_cst (tmp, 1) >> 24;
-
-			switch (cont_size)
-			  {
-			  case 8:
-			    *((unsigned char *) le_image + offset) |= b0;
-			    *((unsigned char *) be_image + offset) |= b0;
-			    break;
-
-			  case 16:
-			    *((unsigned char *) le_image + offset + 0) |= b0;
-			    *((unsigned char *) le_image + offset + 1) |= b1;
-			    *((unsigned char *) be_image + offset + 0) |= b1;
-			    *((unsigned char *) be_image + offset + 1) |= b0;
-			    break;
-
-			  case 32:
-			    *((unsigned char *) le_image + offset + 0) |= b0;
-			    *((unsigned char *) le_image + offset + 1) |= b1;
-			    *((unsigned char *) le_image + offset + 2) |= b2;
-			    *((unsigned char *) le_image + offset + 3) |= b3;
-			    *((unsigned char *) be_image + offset + 0) |= b3;
-			    *((unsigned char *) be_image + offset + 1) |= b2;
-			    *((unsigned char *) be_image + offset + 2) |= b1;
-			    *((unsigned char *) be_image + offset + 3) |= b0;
-			    break;
-
-		          default:
-			    gcc_unreachable ();
-		          }
-		      }
-		  }
-		else
-		  {
-		    expand_init_to_stmt_list1 (ltarget, value,
-					       stmt_list1, cleared,
-					       stmt_list2, NULL, NULL, 0);
-		  }
-	      }
-	  }
-	  break;
-
-	case ARRAY_TYPE:
-	  {
-	    tree value, index;
-	    unsigned HOST_WIDE_INT i;
-	    tree domain;
-	    tree elttype = TREE_TYPE (TREE_TYPE (init));
-	    int const_bounds_p;
-	    HOST_WIDE_INT minelt = 0;
-	    HOST_WIDE_INT maxelt = 0;
-
-	    domain = TYPE_DOMAIN (TREE_TYPE (init));
-	    const_bounds_p = (TYPE_MIN_VALUE (domain)
-			      && TYPE_MAX_VALUE (domain)
-			      && host_integerp (TYPE_MIN_VALUE (domain), 0)
-			      && host_integerp (TYPE_MAX_VALUE (domain), 0));
-
-	    /* If we have constant bounds for the range
-	       of the type, get them.  */
-	    if (const_bounds_p)
-	      {
-		minelt = tree_low_cst (TYPE_MIN_VALUE (domain), 0);
-		maxelt = tree_low_cst (TYPE_MAX_VALUE (domain), 0);
-	      }
-
-	    /* If the constructor has fewer elements than the array, clear
-	       the whole array first. */
-	    if (cleared)
-	      need_to_clear = FALSE;
-	    else
-	      {
-		unsigned HOST_WIDE_INT idx;
-		tree index, value;
-		HOST_WIDE_INT count = 0;
-		HOST_WIDE_INT zero_count = 0;
-		need_to_clear = !const_bounds_p;
-
-		/* This loop is a more accurate version of the loop in
-		   mostly_zeros_p (it handles RANGE_EXPR in an index).  It
-		   is also needed to check for missing elements.  */
-		FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), idx,
-					  index, value)
-		  {
-		    HOST_WIDE_INT this_node_count;
-
-		    if (need_to_clear)
-		      break;
-
-		    if (index != NULL_TREE && TREE_CODE (index) == RANGE_EXPR)
-		      {
-			tree lo_index = TREE_OPERAND (index, 0);
-			tree hi_index = TREE_OPERAND (index, 1);
-
-			if (!host_integerp (lo_index, 1)
-			    || !host_integerp (hi_index, 1))
-			  {
-			    need_to_clear = TRUE;
-			    break;
-			  }
-
-			this_node_count = tree_low_cst (hi_index, 1)
-					  - tree_low_cst (lo_index, 1) + 1;
-		      }
-		    else
-		      this_node_count = 1;
-
-		    count += this_node_count;
-		    if (TREE_CODE (value) == CONSTRUCTOR
-		        && mostly_zeros_p (value))
-		      {
-			zero_count += this_node_count;
-		      }
-		  }
-
-		/* Clear the entire array first if there are any missing
-		   elements, or if the incidence of zero elements is >= 75%.  */
-		if (!need_to_clear
-		    && (count < maxelt - minelt + 1
-			|| 4 * zero_count >= 3 * count))
-		  {
-		    need_to_clear = TRUE;
-		  }
-	      }
-
-	    if (need_to_clear && size > 0)
-	      {
-		tree args, t, decl_ptr;
-
-		args = tree_cons (NULL, decl_size, NULL);
-		args = tree_cons (NULL, integer_zero_node, args);
-		decl_ptr = build_fold_addr_expr (decl);
-		args = tree_cons (NULL, decl_ptr, args);
-		t = cil32_builtins[CIL32_BUILT_IN_INITBLK];
-		t = build_function_call_expr (t, args);
-
-		append_to_statement_list (t, stmt_list1);
-
-		cleared = TRUE;
-	      }
-
-	    /* Store each element of the constructor into the
-	       corresponding element of TARGET, determined by counting the
-	       elements.  */
-	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), i, index, value)
-	      {
-		tree t;
-		tree elsize;
-
-		if (initializer_zerop (value))
-		  continue;
-
-		gcc_assert (index == NULL_TREE
-			    || TREE_CODE (index) != RANGE_EXPR);
-
-		if (minelt)
-		  index = fold_convert (ssizetype,
-					fold_build2 (MINUS_EXPR,
-						     TREE_TYPE (index),
-						     index,
-						     TYPE_MIN_VALUE (domain)));
-
-		t = build4 (ARRAY_REF, elttype, decl, index, NULL, NULL);
-
-		elsize = array_ref_element_size (t);
-
-		if (le_image != NULL
-		    && TREE_CODE (index)  == INTEGER_CST
-		    && TREE_CODE (elsize) == INTEGER_CST)
-		  {
-		    unsigned HOST_WIDE_INT offset;
-
-		    offset = tree_low_cst (index, 1) * tree_low_cst (elsize, 1)
-		             + image_offset;
-		    expand_init_to_stmt_list1 (t, value,
-					       stmt_list1, cleared,
-					       stmt_list2,
-					       le_image, be_image, offset);
-		  }
-		else
-		  {
-		    expand_init_to_stmt_list1 (t, value,
-					       stmt_list1, cleared,
-					       stmt_list2, NULL, NULL, 0);
-		  }
-	      }
-	  }
-	  break;
-
-	case VECTOR_TYPE:
-	  {
-	    tree fun, stmt;
-	    tree args = NULL;
-	    tree value;
-	    unsigned HOST_WIDE_INT idx;
-	    tree vector_type = TREE_TYPE (init);
-	    cil_type_t cil_vec_type = scalar_to_cil (vector_type);
-	    tree vector_elt_type = TREE_TYPE (vector_type);
-	    unsigned HOST_WIDE_INT elt_size;
-	    unsigned HOST_WIDE_INT num_elt;
-	    unsigned HOST_WIDE_INT i, num_args = 0;
-	    enum cil32_builtin builtin;
-
-	    elt_size = tree_low_cst (TYPE_SIZE (vector_elt_type), 1);
-	    num_elt = TYPE_VECTOR_SUBPARTS (vector_type);
-
-	    /* Build the list of args. */
-	    FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, value)
-	      {
-		args = tree_cons (NULL, value, args);
-		++num_args;
-	      }
-
-	    /* The constructor might not initialize all args.  */
-	    for (i = num_args; i < num_elt; i++)
-	      args = tree_cons (NULL, integer_zero_node, args);
-
-	    /* find the right constructor */
-	    if (simd_backend_str && strcmp (simd_backend_str, "mono") == 0)
-	      {
-		switch (cil_vec_type)
-		  {
-		  case CIL_V16QI: builtin = CIL32_MONO_V16QI_CTOR; break;
-		  case CIL_V8HI:  builtin = CIL32_MONO_V8HI_CTOR; break;
-		  case CIL_V4SI:  builtin = CIL32_MONO_V4SI_CTOR; break;
-		  case CIL_V2DI:  builtin = CIL32_MONO_V2DI_CTOR; break;
-		  case CIL_V4SF:  builtin = CIL32_MONO_V4SF_CTOR; break;
-		  case CIL_V2DF:  builtin = CIL32_MONO_V2DF_CTOR; break;
-		  default:
-		    gcc_unreachable ();
-		  }
-	      }
-	    else
-	      {
-		switch (cil_vec_type)
-		  {
-		  case CIL_V8QI:  builtin = CIL32_GCC_V8QI_CTOR; break;
-		  case CIL_V4HI:  builtin = CIL32_GCC_V4HI_CTOR; break;
-		  case CIL_V2SI:  builtin = CIL32_GCC_V2SI_CTOR; break;
-		  case CIL_V2SF:  builtin = CIL32_GCC_V2SF_CTOR; break;
-		  case CIL_V16QI: builtin = CIL32_GCC_V16QI_CTOR; break;
-		  case CIL_V8HI:  builtin = CIL32_GCC_V8HI_CTOR; break;
-		  case CIL_V4SI:  builtin = CIL32_GCC_V4SI_CTOR; break;
-		  case CIL_V2DI:  builtin = CIL32_GCC_V2DI_CTOR; break;
-		  case CIL_V4SF:  builtin = CIL32_GCC_V4SF_CTOR; break;
-		  case CIL_V2DF:  builtin = CIL32_GCC_V2DF_CTOR; break;
-		  default:
-		    gcc_unreachable ();
-		  }
-	      }
-
-	    /* Note that the args list must be reversed. Can do better? */
-	    fun = build_function_call_expr (cil32_builtins[builtin],
-					    nreverse (args));
-	    stmt = build_gimple_modify_stmt(decl, fun);
-	    append_to_statement_list (stmt, stmt_list1);
-	    append_to_statement_list (stmt, stmt_list2);
-	  }
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	  break;
-	}
-      break;
-
-    case INTEGER_CST:
-      {
-	unsigned HOST_WIDE_INT type_size = tree_low_cst (decl_size, 1);
-	tree t = build_gimple_modify_stmt(decl, init);
-	append_to_statement_list (t, stmt_list1);
-
-	if (le_image != NULL)
-	  {
-	    unsigned char b0 = TREE_INT_CST_LOW (init);
-	    unsigned char b1 = TREE_INT_CST_LOW (init) >> 8;
-	    unsigned char b2 = TREE_INT_CST_LOW (init) >> 16;
-	    unsigned char b3 = TREE_INT_CST_LOW (init) >> 24;
-
-            gcc_assert (be_image != NULL);
-	    switch (type_size)
-	      {
-	      case 1:
-		*((unsigned char *) le_image + image_offset) = b0;
-		*((unsigned char *) be_image + image_offset) = b0;
-		break;
-
-	      case 2:
-		*((unsigned char *) le_image + image_offset + 0) = b0;
-		*((unsigned char *) le_image + image_offset + 1) = b1;
-		*((unsigned char *) be_image + image_offset + 0) = b1;
-		*((unsigned char *) be_image + image_offset + 1) = b0;
-		break;
-
-	      case 4:
-		*((unsigned char *) le_image + image_offset + 0) = b0;
-		*((unsigned char *) le_image + image_offset + 1) = b1;
-		*((unsigned char *) le_image + image_offset + 2) = b2;
-		*((unsigned char *) le_image + image_offset + 3) = b3;
-		*((unsigned char *) be_image + image_offset + 0) = b3;
-		*((unsigned char *) be_image + image_offset + 1) = b2;
-		*((unsigned char *) be_image + image_offset + 2) = b1;
-		*((unsigned char *) be_image + image_offset + 3) = b0;
-		break;
-
-	      default:
-		append_to_statement_list (t, stmt_list2);
-		break;
-	      }
-	  }
-	else
-	  {
-	    append_to_statement_list (t, stmt_list2);
-	  }
-      }
-      break;
-
-    case REAL_CST:
-      /* Missing optimization, fall through for now */
-    default:
-      {
-	tree t = build_gimple_modify_stmt(decl, init);
-	append_to_statement_list (t, stmt_list1);
-	append_to_statement_list (t, stmt_list2);
-      }
-      break;
-    }
-}
-
-static int
-statement_list_num_instr (tree stmt_list)
-{
-  int i = 0;
-  tree_stmt_iterator it = tsi_start (stmt_list);
-  while (!tsi_end_p (it))
-    {
-      ++i;
-      tsi_next (&it);
-    }
-  return i;
-}
-
-void
-expand_init_to_stmt_list (tree decl, tree init, tree *stmt_list)
-{
-  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (decl)), 1);
-  void *le_image = alloca (size);
-  void *be_image = alloca (size);
-  tree stmt_list1 = alloc_stmt_list ();
-  int num_list1;
-  tree stmt_list2 = alloc_stmt_list ();
-  int num_list2;
-
-  memset (le_image, 0, size);
-  memset (be_image, 0, size);
-
-  expand_init_to_stmt_list1 (decl, init,
-			     &stmt_list1, FALSE,
-			     &stmt_list2, le_image, be_image, 0);
-
-  num_list1 = statement_list_num_instr (stmt_list1);
-  num_list2 = statement_list_num_instr (stmt_list2);
-
-
-  /* Decide what to do */
-  if (TARGET_BIG_ENDIAN || TARGET_LITTLE_ENDIAN
-      || ( (num_list2 + 2) < num_list1))
-    {
-      tree mem_cpy;
-      tree args;
-      tree from_ptr;
-      tree to_ptr = build_fold_addr_expr (decl);
-
-      if (TARGET_LITTLE_ENDIAN || (memcmp (le_image, be_image, size) == 0))
-	{
-	  from_ptr = build_string_literal (size, le_image);
-	}
-      else if (TARGET_BIG_ENDIAN)
-	{
-	  from_ptr = build_string_literal (size, be_image);
-	}
-      else
-	{
-	  tree sconst = build_string_literal (size, le_image);
-	  tree sconst2 = build_string_literal (size, be_image);
-
-	  gcc_assert (TREE_TYPE (sconst) == TREE_TYPE (sconst2));
-
-	  args = tree_cons (NULL, sconst2, NULL);
-	  args = tree_cons (NULL, sconst, args);
-	  from_ptr = build_function_call_expr (cil32_builtins[CIL32_BUILT_IN_ENDIAN_SELECT], args);
-	}
-
-      args = tree_cons (NULL, size_int (size), NULL);
-      args = tree_cons (NULL, from_ptr, args);
-      args = tree_cons (NULL, to_ptr,   args);
-
-      mem_cpy = build_function_call_expr (cil32_builtins[CIL32_BUILT_IN_CPBLK],
-					  args);
-
-      append_to_statement_list (mem_cpy,    stmt_list);
-      append_to_statement_list (stmt_list2, stmt_list);
-    }
-  else
-    append_to_statement_list (stmt_list1, stmt_list);
+  return pending_ctors;
 }
 
 #include "gt-cil-refs.h"
