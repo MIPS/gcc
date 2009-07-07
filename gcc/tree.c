@@ -4150,20 +4150,6 @@ free_lang_data_in_type (tree type)
   TREE_LANG_FLAG_5 (type) = 0;
   TREE_LANG_FLAG_6 (type) = 0;
 
-  if (TREE_CODE (type) == ARRAY_TYPE
-      || TREE_CODE (type) == RECORD_TYPE)
-    {
-      tree unit_size = TYPE_SIZE_UNIT (type);
-      tree size = TYPE_SIZE (type);
-
-      if ((unit_size && TREE_CODE (unit_size) != INTEGER_CST)
-	  || (size && TREE_CODE (size) != INTEGER_CST))
-	{
-	  TYPE_SIZE_UNIT (type) = NULL_TREE;
-	  TYPE_SIZE (type) = NULL_TREE;
-	}
-    }
-
   if (TREE_CODE (type) == FUNCTION_TYPE)
     {
       /* Remove the const and volatile qualifiers from arguments.  The
@@ -4230,23 +4216,6 @@ free_lang_data_in_type (tree type)
 
       TYPE_METHODS (type)  = NULL_TREE;
       TYPE_BINFO (type)  = NULL_TREE;
-    }
-
-  if (TREE_CODE (type) == INTEGER_TYPE)
-    {
-      tree old_max = TYPE_MAX_VALUE (type);
-      tree old_min = TYPE_MIN_VALUE (type);
-
-      if ((old_max && TREE_CODE (old_max) != INTEGER_CST)
-	  || (old_min && TREE_CODE (old_min) != INTEGER_CST))
-	  set_min_and_max_values_for_integral_type (type,
-						    TYPE_PRECISION (type),
-				 		    TYPE_UNSIGNED (type));
-
-      if (old_max && TREE_CODE (old_max) == INTEGER_CST)
-	TYPE_MAX_VALUE (type) = old_max;
-      if (old_min && TREE_CODE (old_min) == INTEGER_CST)
-	TYPE_MIN_VALUE (type) = old_min;
     }
 
   /* Overloads TYPE_BINFO for non-record, non-union types.  */

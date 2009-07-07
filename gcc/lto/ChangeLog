@@ -1,5 +1,10 @@
 2009-07-06  Diego Novillo  <dnovillo@google.com>
 
+	* lto.c (lto_fixup_type): Fixup TYPE_SIZE and
+	TYPE_SIZE_UNIT.
+
+2009-07-06  Diego Novillo  <dnovillo@google.com>
+
 	* lto.c (preload_common_nodes): Remove.
 	(lto_read_in_decl_state): Call lto_streamer_cache_get.
 	(lto_read_decls): Call lto_data_in_create and

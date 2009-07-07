@@ -1204,8 +1204,8 @@ lto_fixup_type (tree t, void *data)
 {
   lto_fixup_common (t, data);
   LTO_FIXUP_SUBTREE (TYPE_CACHED_VALUES (t));
-  gcc_assert (no_fixup_p (TYPE_SIZE (t)));
-  gcc_assert (no_fixup_p (TYPE_SIZE_UNIT (t)));
+  LTO_FIXUP_SUBTREE (TYPE_SIZE (t));
+  LTO_FIXUP_SUBTREE (TYPE_SIZE_UNIT (t));
   LTO_FIXUP_SUBTREE (TYPE_ATTRIBUTES (t));
   LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_POINTER_TO (t));
   LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_REFERENCE_TO (t));

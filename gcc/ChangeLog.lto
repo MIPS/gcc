@@ -1,5 +1,15 @@
 2009-07-06  Diego Novillo  <dnovillo@google.com>
 
+	* tree.c (free_lang_data_in_type): Do not reset
+	TYPE_SIZE, TYPE_SIZE_UNIT, TYPE_MIN_VALUE and
+	TYPE_MAX_VALUE.
+	* gimple.c (gimple_compare_types): Do not assume that
+	TYPE_MIN_VALUE and TYPE_MAX_VALUE are constants.
+	(iterative_hash_gimple_type): Do not assume that
+	TYPE_SIZE and TYPE_SIZE_UNIT are constants.
+
+2009-07-06  Diego Novillo  <dnovillo@google.com>
+
 	Mainline merge @149291.
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.

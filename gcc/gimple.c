@@ -3278,16 +3278,28 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 	 represented in GIMPLE and have each front end lower to that.  */
       if (TREE_CODE (t1) != ENUMERAL_TYPE)
 	{
+	  tree min1 = TYPE_MIN_VALUE (t1);
+	  tree max1 = TYPE_MAX_VALUE (t1);
+	  tree min2 = TYPE_MIN_VALUE (t2);
+	  tree max2 = TYPE_MAX_VALUE (t2);
+	  bool min_equal_p = false;
+	  bool max_equal_p = false;
+
 	  /* If either type has a minimum value, the other type must
 	     have the same.  */
-	  if ((TYPE_MIN_VALUE (t1) || TYPE_MIN_VALUE (t2))
-	      && !tree_int_cst_equal (TYPE_MIN_VALUE (t1), TYPE_MIN_VALUE (t2)))
-	    goto different_types;
+	  if (min1 == NULL_TREE && min2 == NULL_TREE)
+	    min_equal_p = true;
+	  else if (min1 && min2 && operand_equal_p (min1, min2, 0))
+	    min_equal_p = true;
 
 	  /* Likewise, if either type has a maximum value, the other
 	     type must have the same.  */
-	  if ((TYPE_MAX_VALUE (t1) || TYPE_MAX_VALUE (t2))
-	      && !tree_int_cst_equal (TYPE_MAX_VALUE (t1), TYPE_MAX_VALUE (t2)))
+	  if (max1 == NULL_TREE && max2 == NULL_TREE)
+	    max_equal_p = true;
+	  else if (max1 && max2 && operand_equal_p (max1, max2, 0))
+	    max_equal_p = true;
+
+	  if (!min_equal_p || !max_equal_p)
 	    goto different_types;
 	}
 
@@ -3331,49 +3343,34 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 	      tree min2 = TYPE_MIN_VALUE (i2);
 	      tree max1 = TYPE_MAX_VALUE (i1);
 	      tree max2 = TYPE_MAX_VALUE (i2);
+	      bool min_equal_p = false;
+	      bool max_equal_p = false;
 
-	      /* If the array types both have unspecified bounds, then
-		 MAX{1,2} will be NULL_TREE.  */
-	      if (min1 && min2 && !max1 && !max2)
-		{
-		  if (integer_zerop (min1) && integer_zerop (min2))
-		    goto same_types;
-		  else
-		    goto different_types;
-		}
+	      /* For variable-sized arrays, use the same notion as in the C
+		 front end.  If either domain is variable, consider the types
+		 compatible.  */
+	      if (min1 == NULL_TREE && min2 == NULL_TREE)
+		min_equal_p = true;
+	      else if (min1 && TREE_CODE (min1) != INTEGER_CST)
+		min_equal_p = true;
+	      else if (min2 && TREE_CODE (min2) != INTEGER_CST)
+		min_equal_p = true;
+	      else if (min1 && min2 && operand_equal_p (min1, min2, 0))
+		min_equal_p = true;
+	      
+	      if (max1 == NULL_TREE && max2 == NULL_TREE)
+		max_equal_p = true;
+	      else if (max1 && TREE_CODE (max1) != INTEGER_CST)
+		max_equal_p = true;
+	      else if (max2 && TREE_CODE (max2) != INTEGER_CST)
+		max_equal_p = true;
+	      else if (max1 && max2 && operand_equal_p (max1, max2, 0))
+		max_equal_p = true;
 
-	      /* Otherwise, we need the bounds to be fully specified.  */
-	      if (!min1 || !min2 || !max1 || !max2)
-		goto different_types;
-	      else if (TREE_CODE (min1) != INTEGER_CST
-		       || TREE_CODE (min2) != INTEGER_CST
-		       || TREE_CODE (max1) != INTEGER_CST
-		       || TREE_CODE (max2) != INTEGER_CST)
-		goto different_types;
-	      else if (tree_int_cst_equal (min1, min2))
-		{
-		  if (tree_int_cst_equal (max1, max2))
-		    goto same_types;
-		  else
-		    goto different_types;
-		}
+	      if (min_equal_p && max_equal_p)
+		goto same_types;
 	      else
-		{
-		  tree nelts1 = array_type_nelts (t1);
-		  tree nelts2 = array_type_nelts (t2);
-
-		  if (!nelts1 || !nelts2)
-		    goto different_types;
-
-		  if (TREE_CODE (nelts1) != INTEGER_CST
-		      || TREE_CODE (nelts2) != INTEGER_CST)
-		    goto different_types;
-
-		  if (tree_int_cst_equal (nelts1, nelts2))
-		    goto same_types;
-		  else
-		    goto different_types;
-		}
+		goto different_types;
 	    }
 	}
 
@@ -3553,10 +3550,8 @@ iterative_hash_gimple_type (const_tree type, hashval_t val, unsigned level)
      checked.  */
   v = iterative_hash_hashval_t (TREE_CODE (type), val);
   v = iterative_hash_hashval_t (TYPE_QUALS (type), v);
-  if (TYPE_SIZE (type))
-    v = iterative_hash_host_wide_int (int_cst_value (TYPE_SIZE (type)), v);
-  if (TYPE_SIZE_UNIT (type))
-    v = iterative_hash_hashval_t (int_cst_value (TYPE_SIZE_UNIT (type)), v);
+  v = iterative_hash_expr (TYPE_SIZE (type), v);
+  v = iterative_hash_expr (TYPE_SIZE_UNIT (type), v);
   v = iterative_hash_hashval_t (TREE_ADDRESSABLE (type), v);
 
   /* Incorporate common features of numerical types.  */
