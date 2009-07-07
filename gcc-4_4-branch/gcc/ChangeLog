@@ -1,3 +1,36 @@
+2009-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/40596
+	* dwarf2out.c (based_loc_descr): For crtl->stack_realign_tried
+	don't check cfa.reg.  Instead of cfa.indirect use
+	fde && fde->drap_reg != INVALID_REGNUM test.
+
+2009-07-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34163
+	* tree-chrec.c (chrec_convert_1): Fold (T2)(t +- x) to
+	(T2)t +- (T2)x if t +- x is known to not overflow and
+	the conversion widens the operation.
+	* Makefile.in (tree-chrec.o): Add $(FLAGS_H) dependency.
+
+2009-07-01  Richard Henderson  <rth@redhat.com>
+
+	PR bootstrap/40347
+	* function.c (reposition_prologue_and_epilogue_notes): If epilogue
+	contained no insns, reposition note before last insn.
+
+2009-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/40462
+	* jump.c (returnjump_p): Revert last patch.
+	* dwarf2out.c (dwarf2out_begin_epilogue): Handle SEQUENCEs.
+
+2009-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/40573
+	* dwarf2out.c (gen_formal_parameter_die): Call
+	equate_decl_number_to_die if node is different from origin.
+
 2009-07-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/40669
