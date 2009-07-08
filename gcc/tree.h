@@ -279,6 +279,12 @@ enum omp_clause_code
   /* OpenMP clause: lastprivate (variable_list).  */
   OMP_CLAUSE_LASTPRIVATE,
 
+  /* OpenMP clause: firstprivate (variable_list).  */
+  OMP_CLAUSE_INPUT,
+
+  /* OpenMP clause: lastprivate (variable_list).  */
+  OMP_CLAUSE_OUTPUT,
+
   /* OpenMP clause: reduction (operator:variable_list).
      OMP_CLAUSE_REDUCTION_CODE: The tree_code of the operator.
      Operand 1: OMP_CLAUSE_REDUCTION_INIT: Stmt-list to initialize the var.

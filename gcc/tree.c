@@ -222,6 +222,8 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_SHARED  */
   1, /* OMP_CLAUSE_FIRSTPRIVATE  */
   2, /* OMP_CLAUSE_LASTPRIVATE  */
+  1, /* OMP_CLAUSE_INPUT  */
+  1, /* OMP_CLAUSE_OUTPUT  */
   4, /* OMP_CLAUSE_REDUCTION  */
   1, /* OMP_CLAUSE_COPYIN  */
   1, /* OMP_CLAUSE_COPYPRIVATE  */
@@ -242,6 +244,8 @@ const char * const omp_clause_code_name[] =
   "shared",
   "firstprivate",
   "lastprivate",
+  "input",
+  "output",
   "reduction",
   "copyin",
   "copyprivate",
@@ -9048,6 +9052,8 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
 	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_INPUT:
+	case OMP_CLAUSE_OUTPUT:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_IF:

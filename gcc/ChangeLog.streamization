@@ -1,3 +1,39 @@
+2009-07-08  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-low.c (var_stream, htab_var_stream, hash_var_stream,
+	eq_var_stream, lookup_stream): New structure, hash table and the
+	accessor functions.
+	(stmt_location, stmt_loc, htab_stmt_loc, hash_stmt_loc,
+	eq_stmt_loc, get_stmt_loc, lookup_stmt_loc, set_stmt_loc,
+	set_stmt_loc_if_none): New structure, hash table and the
+	accessor functions.
+	(scan_sharing_clauses, lower_rec_input_clauses,
+	lower_send_clauses, create_task_copyfn, lower_omp_taskreg,
+	execute_lower_omp, expand_omp_taskreg, expand_omp_single):
+	Implement streamization of INPUT/OUTPUT clauses.
+	(stream_create_calls): New, callback function for htab_traverse.
+
+	* c-parser.c (c_parser_omp_clause_name, c_parser_omp_all_clauses,
+	OMP_TASK_CLAUSE_MASK): Added OMP_CLAUSE_INPUT and
+	OMP_CLAUSE_OUTPUT cases.	
+	(c_parser_omp_clause_input, c_parser_omp_clause_output): New.
+	
+	* tree-flow.h (omp_region): Added streamization_init_bb and
+	streamization_exit_bb fields.
+	* c-pragma.h (pragma_omp_clause): Add OMP_CLAUSE_INPUT
+	OMP_CLAUSE_OUTPUT clauses.
+	* c-typeck.c (c_finish_omp_clauses): Added OMP_CLAUSE_INPUT and
+	OMP_CLAUSE_OUTPUT cases.
+	* gimplify.c (gimplify_scan_omp_clauses,
+	gimplify_adjust_omp_clauses): Added OMP_CLAUSE_INPUT and
+	OMP_CLAUSE_OUTPUT cases.	
+	* tree.c (omp_clause_num_ops, omp_clause_code_name, walk_tree_1):
+	Add and handle OMP_CLAUSE_INPUT and OMP_CLAUSE_OUTPUT cases.
+	* tree.h (omp_clause_code): Add OMP_CLAUSE_INPUT
+	OMP_CLAUSE_OUTPUT clauses.
+	* tree-pretty-print.c (dump_omp_clause): Added OMP_CLAUSE_INPUT
+	and OMP_CLAUSE_OUTPUT cases.
+
 2009-07-06  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* Merge from mainline (r144639:149276).

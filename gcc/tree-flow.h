@@ -442,6 +442,13 @@ struct omp_region
   /* Block containing the OMP_CONTINUE as its last stmt.  */
   basic_block cont;
 
+  /* Those blocks are needed as placeholders for streamization code
+     generation.  */
+  /* Block used to issue streamization initialization calls.  */
+  basic_block streamization_init_bb;
+  /* Block used to issue streamization finalization calls.  */
+  basic_block streamization_exit_bb;
+
   /* If this is a combined parallel+workshare region, this is a list
      of additional arguments needed by the combined parallel+workshare
      library call.  */

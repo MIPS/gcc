@@ -279,6 +279,12 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
     case OMP_CLAUSE_LASTPRIVATE:
       name = "lastprivate";
       goto print_remap;
+    case OMP_CLAUSE_INPUT:
+      name = "input";
+      goto print_remap;
+    case OMP_CLAUSE_OUTPUT:
+      name = "output";
+      goto print_remap;
     case OMP_CLAUSE_COPYIN:
       name = "copyin";
       goto print_remap;
