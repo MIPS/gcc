@@ -1141,8 +1141,8 @@ static void
 lto_fixup_decl_common (tree t, void *data)
 {
   lto_fixup_decl_minimal (t, data);
-  gcc_assert (no_fixup_p (DECL_SIZE (t)));
-  gcc_assert (no_fixup_p (DECL_SIZE_UNIT (t)));
+  LTO_FIXUP_SUBTREE (DECL_SIZE (t));
+  LTO_FIXUP_SUBTREE (DECL_SIZE_UNIT (t));
   LTO_FIXUP_SUBTREE (DECL_INITIAL (t));
   LTO_FIXUP_SUBTREE (DECL_ATTRIBUTES (t));
   LTO_FIXUP_SUBTREE (DECL_ABSTRACT_ORIGIN (t));
