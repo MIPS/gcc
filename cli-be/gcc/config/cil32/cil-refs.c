@@ -146,10 +146,12 @@ static hashval_t assembly_hash (const void *ptr)
 
 static int assembly_eq (const void *ptr1, const void *ptr2)
 {
-  const char *str1 = TREE_STRING_POINTER ((const_tree) ptr1);
-  const char *str2 = TREE_STRING_POINTER ((const_tree) ptr2);
+  const_tree str1 = ((const_tree) ptr1);
+  const_tree str2 = ((const_tree) ptr2);
 
-  return str1 == str2;
+  return (TREE_STRING_LENGTH (str1) == TREE_STRING_LENGTH (str2))
+	 && ! memcmp (TREE_STRING_POINTER (str1), TREE_STRING_POINTER (str2),
+		      TREE_STRING_LENGTH (str1));
 }
 
 /* Add a referenced assembly to the list of pending assemblies if it is not
@@ -880,10 +882,12 @@ str_ref_hash (const void *ptr)
 static int
 str_ref_eq (const void *ptr1, const void *ptr2)
 {
-  const char *str1 = TREE_STRING_POINTER (((const_str_ref) ptr1)->cst);
-  const char *str2 = TREE_STRING_POINTER (((const_str_ref) ptr2)->cst);
+  const_tree str1 = ((const_str_ref) ptr1)->cst;
+  const_tree str2 = ((const_str_ref) ptr2)->cst;
 
-  return str1 == str2;
+  return (TREE_STRING_LENGTH (str1) == TREE_STRING_LENGTH (str2))
+	 && ! memcmp (TREE_STRING_POINTER (str1), TREE_STRING_POINTER (str2),
+		      TREE_STRING_LENGTH (str1));
 }
 
 /* Mark the string represented by tree STR as referenced.  If an identical

@@ -716,10 +716,20 @@ expand_init_to_cil_seq1 (tree decl, tree init, cil_seq seq1, bool cleared,
     {
     case STRING_CST:
       {
-	if (TREE_STRING_LENGTH (init) < size)
-	  size = TREE_STRING_LENGTH (init);
-
 	csi = csi_last (seq1);
+
+	if ((unsigned HOST_WIDE_INT) TREE_STRING_LENGTH (init) < size)
+	  {
+	    size = TREE_STRING_LENGTH (init);
+	    decl_size = build_int_cst (TREE_TYPE (decl_size), size);
+
+	    if (! cleared)
+	      {
+		gen_initblk (&csi, build_fold_addr_expr (decl),
+			     integer_zero_node, decl_size);
+	      }
+	  }
+
 	gen_cpblk (&csi, build_fold_addr_expr (decl),
 		   build_fold_addr_expr (init), decl_size);
 	memcpy(le_image, TREE_STRING_POINTER (init), size);
