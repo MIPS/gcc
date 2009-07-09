@@ -416,7 +416,7 @@ free_section_data (struct lto_file_decl_data *file_data,
   diff = (intptr_t) offset - computed_offset;
   computed_len = len + diff;
 
-  munmap ((void *) computed_offset, computed_len);
+  munmap ((caddr_t) computed_offset, computed_len);
 }
 
 /* Vector of all cgraph node sets. */
