@@ -47,7 +47,6 @@ Erven Rohou             <erven.rohou@inria.fr>
  * Local functions prototypes                                                 *
  ******************************************************************************/
 
-static bool value_type_p (tree);
 static bool vector_type_p (tree);
 static cil_type_t cil_binary_op_type (enum cil_opcode, cil_type_t, cil_type_t);
 
@@ -407,7 +406,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
 
     case CIL_ASM:
       /* TODO: Specify a way for asm statements to tell the compiler how
-         many stack slots they need.  */
+	 many stack slots they need.  */
       break;
 
     default:
@@ -607,7 +606,7 @@ cil_unsigned_int_p (cil_type_t type)
 /* Return the CIL stack representation for scalar type TYPE.  */
 
 cil_type_t
-scalar_to_cil (tree type)
+scalar_to_cil (const_tree type)
 {
   unsigned HOST_WIDE_INT size;
 
@@ -627,7 +626,7 @@ scalar_to_cil (tree type)
 	  case 64: return TYPE_UNSIGNED (type) ? CIL_UNSIGNED_INT64 : CIL_INT64;
 	  default:
 	    internal_error ("Unsupported integer size "
-                            HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+			    HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
 	}
 
     case REAL_TYPE:
@@ -716,14 +715,14 @@ scalar_to_cil (tree type)
 /* Return TRUE if the type specified by TYPE is loaded on the stack as a
    value type, FALSE otherwise.  */
 
-static bool
-value_type_p (tree type)
+bool
+value_type_p (const_tree type)
 {
   switch (TREE_CODE (type))
     {
     case ARRAY_TYPE:
       if (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
-        return false; /* Incomplete array types are treated life pointers.  */
+	return false; /* Incomplete array types are treated life pointers.  */
 
       /* FALLTHROUGH */
     case RECORD_TYPE:

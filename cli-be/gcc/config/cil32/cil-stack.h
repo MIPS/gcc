@@ -48,37 +48,10 @@ Erven Rohou             <erven.rohou@inria.fr>
 
 enum cil_type
 {
-  CIL_NO_TYPE,
-  CIL_INT8, /* Signed 8-bit integer */
-  CIL_INT16, /* Signed 16-bit integer */
-  CIL_INT32, /* Signed 32-bit integer */
-  CIL_INT64, /* Signed 64-bit integer */
-  CIL_NATIVE_INT, /* Signed native integer */
-  CIL_UNSIGNED_INT8, /* Unsigned 8-bit integer */
-  CIL_UNSIGNED_INT16, /* Unsigned 16-bit integer */
-  CIL_UNSIGNED_INT32, /* Unsigned 32-bit integer */
-  CIL_UNSIGNED_INT64, /* Unsigned 64-bit integer */
-  CIL_NATIVE_UNSIGNED_INT, /* Unsigned native integer */
-  CIL_FLOAT,   /* On-stack floating-point type*/
-  CIL_FLOAT32, /* Single precision floating-point */
-  CIL_FLOAT64, /* Double precision floating-point */
-  CIL_POINTER, /* Generic pointer */
-  CIL_VALUE_TYPE, /* Generic value type */
-  /* 4-byte vector types */
-  CIL_V2HI,    /* Vector of 2 16-bit integers */
-  CIL_V4QI,    /* Vector of 4 8-bit integers */
-  /* 8-byte vector types */
-  CIL_V2SI,    /* Vector of 2 32-bit integers */
-  CIL_V4HI,    /* Vector of 4 16-bit integers */
-  CIL_V8QI,    /* Vector of 8 8-bit integers */
-  CIL_V2SF,    /* Vector of 2 32-bit single precision floats */
-  /* 16-byte vector types */
-  CIL_V2DI,    /* Vector of 2 64-bit integers */
-  CIL_V4SI,    /* Vector of 4 32-bit integers */
-  CIL_V8HI,    /* Vector of 8 16-bit integers */
-  CIL_V16QI,   /* Vector of 16 8-bit integers */
-  CIL_V2DF,    /* Vector of 2 64-bit double precision floats */
-  CIL_V4SF     /* Vector of 4 32-bit single precision floats */
+#define CIL_TYPEDEF(A,B) A,
+#include "cil-types.def"
+#undef CIL_TYPEDEF
+CIL_NUM_STACKTYPES
 };
 
 typedef enum cil_type cil_type_t;
@@ -136,6 +109,7 @@ extern bool cil_pointer_p (cil_type_t);
 extern bool cil_int_or_smaller_p (cil_type_t);
 extern bool cil_long_p (cil_type_t);
 extern bool cil_unsigned_int_p (cil_type_t);
-extern cil_type_t scalar_to_cil (tree);
+extern cil_type_t scalar_to_cil (const_tree);
+extern bool value_type_p (const_tree);
 
 #endif /* CIL_STACK_H */
