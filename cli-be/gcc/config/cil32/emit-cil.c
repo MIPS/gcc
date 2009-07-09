@@ -81,6 +81,12 @@ typedef struct var_uses var_uses_s;
 DEF_VEC_O(var_uses_s);
 DEF_VEC_ALLOC_O(var_uses_s, heap);
 
+static const char* const cil_names[] = {
+#define CIL_INSTRDEF(A,B,C,D) C,
+#include "cil-instr.def"
+#undef CIL_INSTRDEF
+};
+
 /******************************************************************************
  * Local function prototypes                                                  *
  ******************************************************************************/
@@ -92,7 +98,14 @@ static void emit_array_decl (FILE *, tree);
 static void emit_incomplete_decl (FILE *, const_tree);
 static void emit_struct_union_decl (FILE *, tree);
 static void emit_valuetype_decl (FILE *, tree);
+static void dump_type (FILE *, tree, bool, bool);
 static void dump_valuetype_name (FILE *, const_tree);
+static void dump_fun_type (FILE *, tree, tree, const char *, bool);
+static void dump_decl_name (FILE *, tree);
+static void dump_method_name(FILE *, tree);
+static void dump_string_name (FILE *, tree);
+static void dump_string_type (FILE *, tree);
+static void dump_label_name (FILE *, tree);
 static void dump_vector_type (FILE *, tree, bool);
 static void dump_complex_type (FILE *, tree, bool);
 static void dump_string_decl (FILE *, tree);
@@ -103,13 +116,14 @@ static void emit_referenced_strings (void);
 static void emit_referenced_types (void);
 static void emit_pinvoke_function (FILE *, tree);
 static void emit_referenced_pinvokes (void);
-static void emit_ldsfld (FILE *, const_cil_stmt);
-static void emit_ldsflda (FILE *, const_cil_stmt);
-static void emit_ldflda (FILE *, const_cil_stmt);
-static void emit_switch (FILE *, const_cil_stmt);
+static void emit_prefixes (FILE *, const_cil_stmt);
+static void emit_sfld (FILE *, tree);
+static void emit_ldsflda (FILE *, tree);
+static void emit_fld (FILE *, tree);
+static void emit_switch_labels (FILE *, const_cil_stmt);
 static void emit_string_custom_attr (FILE *, const char *);
 static bool emit_builtin_call (FILE *, const_cil_stmt);
-static void emit_call (FILE *, const_cil_stmt);
+static void emit_call_arg (FILE *, const_cil_stmt);
 static void emit_cil_stmt (FILE *, const_cil_stmt);
 static void emit_referenced_assemblies (FILE *);
 static void emit_start_function (FILE *, struct function *);
@@ -275,7 +289,7 @@ decode_function_attrs (tree t, struct fnct_attr *attrs)
 
 /* Dump the name of a _DECL node pointed by NODE into the file FILE.  */
 
-void
+static void
 dump_decl_name (FILE *file, tree node)
 {
   gcc_assert (DECL_P (node));
@@ -300,9 +314,38 @@ dump_decl_name (FILE *file, tree node)
   fprintf (file, "'");
 }
 
+/* Dump the name of a method node the file FILE.  */
+
+static void
+dump_method_name(FILE *file, tree method)
+{
+  struct fnct_attr attrs;
+
+  decode_function_attrs (method, &attrs);
+
+  if (DECL_BUILT_IN (method) && DECL_BUILT_IN_CLASS (method) == BUILT_IN_MD)
+    fprintf (file, "%s", IDENTIFIER_POINTER (DECL_NAME (method)));
+  else
+    {
+      if (attrs.assembly_name)
+	fprintf (file, "[%s]", attrs.assembly_name);
+      else if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (method) && TREE_PUBLIC (method))
+	{
+	  fputs ("[ExternalAssembly]", file);
+	  if (!attrs.cil_name)
+	    fputs ("ExternalAssembly::", file);
+	}
+
+      if (attrs.cil_name)
+	fprintf (file, "%s", attrs.cil_name);
+      else
+	dump_decl_name (file, method);
+    }
+}
+
 /* Dump the name of a STRING_CST node.  */
 
-void
+static void
 dump_string_name (FILE* file, tree node)
 {
   gcc_assert (TREE_CODE (node) == STRING_CST);
@@ -312,7 +355,7 @@ dump_string_name (FILE* file, tree node)
 
 /* Dump the name of a label pointed by NODE into the file FILE.  */
 
-void
+static void
 dump_label_name (FILE *file, tree node)
 {
   /* Always print the label id. */
@@ -380,7 +423,7 @@ dump_valuetype_name (FILE *file, const_tree t)
    FUN_TYPE must be a FUNCTION_TYPE.
    FUN, if not null, must be a FUNCTION_DECL.   */
 
-void
+static void
 dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
 {
   tree args_type;
@@ -419,25 +462,7 @@ dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
   fprintf (file, " ");
 
   if (fun)
-    {
-      struct fnct_attr attrs;
-
-      decode_function_attrs (fun, &attrs);
-
-      if (attrs.assembly_name)
-	fprintf (file, "[%s]", attrs.assembly_name);
-      else if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (fun) && TREE_PUBLIC (fun))
-	{
-	  fputs ("[ExternalAssembly]", file);
-	  if (!attrs.cil_name)
-	    fputs ("ExternalAssembly::", file);
-	}
-
-      if (attrs.cil_name)
-	fprintf (file, "%s", attrs.cil_name);
-      else
-	dump_decl_name (file, fun);
-    }
+    dump_method_name(file, fun);
 
   fprintf (file, "%s(", name ? name : "");
 
@@ -764,7 +789,7 @@ emit_valuetype_decl (FILE *file, tree t)
    QUALIF tells whether to emit C qualifiers (const, restrict, volatile)
    NODE must be a type node.   */
 
-void
+static void
 dump_type (FILE *file, tree type, bool ref, bool qualif)
 {
   unsigned HOST_WIDE_INT size;
@@ -880,7 +905,7 @@ pointer:
     }
 }
 
-void
+static void
 dump_string_type (FILE *file, tree node)
 {
   tree domain;
@@ -1248,43 +1273,41 @@ emit_referenced_pinvokes (void)
 
 /* Emit an indirect access.  */
 
-void
+static void
 emit_prefixes (FILE *file, const_cil_stmt stmt)
 {
   enum cil_opcode opcode = cil_opcode (stmt);
 
-  if ((opcode == CIL_CALL) || (opcode == CIL_CALLI))
+  if (cil_prefix_tail (stmt))
     {
-      if (cil_prefix_tail (stmt))
-	fprintf (file, "\n\ttail.");
+      gcc_assert ((opcode == CIL_CALL) || (opcode == CIL_CALLI));
+      fprintf (file, "\n\ttail.");
     }
-  else if ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
-	   || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
-	   || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
-	   || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD))
+
+  if (cil_prefix_unaligned (stmt) != 0)
     {
-      if (cil_prefix_unaligned (stmt) != 0)
-	fprintf (file, "\n\tunaligned. %d", cil_prefix_unaligned (stmt));
+      gcc_assert ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
+		  || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
+		  || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
+		  || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD));
+      fprintf (file, "\n\tunaligned. %d", cil_prefix_unaligned (stmt));
     }
-  else if ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
-	   || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
-	   || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
-	   || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD)
-	   || (opcode == CIL_LDSFLD) || (opcode == CIL_STSFLD))
+  if (cil_prefix_volatile (stmt))
     {
-      if (cil_prefix_volatile (stmt))
-	fprintf (file, "\n\tvolatile.");
+      gcc_assert ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
+		  || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
+		  || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
+		  || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD)
+		  || (opcode == CIL_LDSFLD) || (opcode == CIL_STSFLD));
+      fprintf (file, "\n\tvolatile.");
     }
 }
 
-/* Emit a CIL LDSFLD instruction.  */
+/* Emit a CIL LDSFLD/STSFLD instruction argument.  */
 
 static void
-emit_ldsfld (FILE *file, const_cil_stmt stmt)
+emit_sfld (FILE *file, tree arg)
 {
-  tree arg = cil_field (stmt);
-
-  fprintf (file, "\n\tldsfld\t");
   dump_type (file, TREE_TYPE (arg), true, false);
   fprintf (file, " ");
 
@@ -1294,15 +1317,13 @@ emit_ldsfld (FILE *file, const_cil_stmt stmt)
   dump_decl_name (file, arg);
 }
 
-/* Emit a CIL LDSFLDA instruction.  This instruction is used for obtaining the
-   addresses of global variables but also string constants.  */
+/* Emit a CIL LDSFLDA instruction argument. This instruction is used for
+   obtaining the addresses of global variables but also string constants. */
 
 static void
-emit_ldsflda (FILE *file, const_cil_stmt stmt)
+emit_ldsflda (FILE *file, tree field)
 {
-  tree field = cil_field (stmt);
-
-  fprintf (file, "\n\tldsflda\t");
+  gcc_assert (TREE_CODE (field) == STRING_CST || TREE_CODE (field) == VAR_DECL);
 
   if (TREE_CODE (field) == STRING_CST)
     {
@@ -1310,105 +1331,40 @@ emit_ldsflda (FILE *file, const_cil_stmt stmt)
       fprintf (file, " ");
       dump_string_name (file, field);
     }
+  else if (COMPLETE_TYPE_P (TREE_TYPE (field)))
+    {
+      emit_sfld (file, field);
+    }
   else
     {
-      gcc_assert (TREE_CODE (field) == VAR_DECL);
-
-      if (COMPLETE_TYPE_P (TREE_TYPE (field)))
-	{
-	  dump_type (file, TREE_TYPE (field), true, false);
-
-	  fprintf (file, " ");
-
-	  if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (field) && TREE_PUBLIC (field))
-	    fprintf (file, "[ExternalAssembly]ExternalAssembly::");
-
-	  dump_decl_name (file, field);
-	}
-      else
-	{
-	  fprintf (file, "native int ");
-	  /* Global Variable with incomplete type, consider it an External definition */
-	  if (TARGET_GCC4NET_LINKER)
-	    fprintf (file, "[ExternalAssembly]ExternalAssembly::");
-	  dump_decl_name (file, field);
-	}
+      fprintf (file, "native int ");
+      /* Global Variable with incomplete type, consider it an External definition */
+      if (TARGET_GCC4NET_LINKER)
+	fprintf (file, "[ExternalAssembly]ExternalAssembly::");
+      dump_decl_name (file, field);
     }
 }
 
-/* Emit a CIL LDFLD instruction.  */
-
-void
-emit_ldfld (FILE *file, const_cil_stmt stmt)
-{
-  tree field = cil_field (stmt);
-  tree obj_type = DECL_FIELD_CONTEXT (field);
-
-  mark_referenced_type (obj_type);
-  fprintf (file, "\n\tldfld\t");
-  dump_type (file, TREE_TYPE (field), true, false);
-  fprintf (file, " ");
-  mark_referenced_type (obj_type);
-  dump_valuetype_name (file, obj_type);
-  fprintf (file, "::");
-  dump_decl_name (file, field);
-}
-
-/* Emit a CIL LDFLDA instruction.  */
+/* Emit a CIL LDFLD/LDFLDA/STFLD instruction argument.  */
 
 static void
-emit_ldflda (FILE *file, const_cil_stmt stmt)
+emit_fld (FILE *file, tree field)
 {
-  tree field = cil_field (stmt);
   tree obj_type = DECL_FIELD_CONTEXT (field);
 
   mark_referenced_type (obj_type);
-  fprintf (file, "\n\tldflda\t");
   dump_type (file, TREE_TYPE (field), true, false);
   fprintf (file, " ");
-  dump_valuetype_name (file, obj_type);
-  fprintf (file, "::");
-  dump_decl_name (file, field);
-}
-
-/* Emit a CIL STFLD instruction.  */
-
-void
-emit_stfld (FILE *file, const_cil_stmt stmt)
-{
-  tree field = cil_field (stmt);
-  tree obj_type = DECL_FIELD_CONTEXT (field);
-
   mark_referenced_type (obj_type);
-  fprintf (file, "\n\tstfld\t");
-  dump_type (file, TREE_TYPE (field), true, false);
-  fprintf (file, " ");
   dump_valuetype_name (file, obj_type);
   fprintf (file, "::");
   dump_decl_name (file, field);
-}
-
-/* Emit a CIL STSFLD instruction.  */
-
-void
-emit_stsfld (FILE *file, const_cil_stmt stmt)
-{
-  tree arg = cil_field (stmt);
-
-  fprintf (file, "\n\tstsfld\t");
-  dump_type (file, TREE_TYPE (arg), true, false);
-  fprintf (file, " ");
-
-  if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (arg) && TREE_PUBLIC (arg))
-    fprintf (file, "[ExternalAssembly]ExternalAssembly::");
-
-  dump_decl_name (file, arg);
 }
 
 /* Emit a SWITCH instruction.  */
 
 static void
-emit_switch (FILE *file, const_cil_stmt stmt)
+emit_switch_labels (FILE *file, const_cil_stmt stmt)
 {
   unsigned HOST_WIDE_INT i, range;
   unsigned int n_cases = cil_switch_ncases (stmt);
@@ -1457,7 +1413,7 @@ emit_switch (FILE *file, const_cil_stmt stmt)
 	labels[i] = CASE_LABEL (cil_switch_default (stmt));
     }
 
-  fprintf (file, "\n\tswitch\t(");
+  fprintf (file, "(");
 
   for (i = 0 ; i < range; i++)
     {
@@ -1570,194 +1526,78 @@ emit_builtin_call (FILE *file, const_cil_stmt call)
    by STREAM.  */
 
 static void
-emit_call (FILE *file, const_cil_stmt call)
+emit_call_arg (FILE *file, const_cil_stmt call)
 {
-  bool direct = cil_opcode (call) == CIL_CALLI ? false : true;
-  tree ftype = cil_call_ftype (call);
-  tree fdecl;
-  size_t nargs_base;
-  size_t nargs;
-  size_t i;
+  enum cil_opcode opcode = cil_opcode (call);
 
-  switch (cil_opcode (call))
-    {
-    case CIL_CALL:
-      if (DECL_BUILT_IN (cil_call_fdecl (call)))
-	if (emit_builtin_call (file, call))
-	  return;
+  gcc_assert (opcode == CIL_CALL
+	      || opcode == CIL_CALLI
+	      || opcode == CIL_JMP
+	      || opcode == CIL_NEWOBJ);
 
-      fprintf (file, "\n\tcall\t");
-      break;
-
-    case CIL_CALLI:
-      fprintf (file, "\n\tcalli\t");
-      break;
-
-    case CIL_JMP:
-      fprintf (file, "\n\tjmp\t");
-      break;
-
-    default:
-      gcc_unreachable ();
-    }
-
-  fprintf (file, "%s", cil_call_vararg_p (call) ? "vararg " : "");
   /* Dump the return type.  */
-  dump_type (file, TREE_TYPE (ftype), true, false);
-
-  if (direct)
-    {
-      struct fnct_attr attrs;
-
-      fdecl = cil_call_fdecl (call);
-      decode_function_attrs (fdecl, &attrs);
-
-      fprintf (file, " ");
-
-      if (DECL_BUILT_IN (fdecl) && DECL_BUILT_IN_CLASS (fdecl) == BUILT_IN_MD)
-	fprintf (file, "%s", IDENTIFIER_POINTER (DECL_NAME (fdecl)));
-      else
-      	{
-	  if (attrs.assembly_name)
-	    fprintf (file, "[%s]", attrs.assembly_name);
-	  else if (TARGET_GCC4NET_LINKER
-		   && DECL_EXTERNAL (fdecl)
-		   && TREE_PUBLIC (fdecl))
-	    {
-	      fputs ("[ExternalAssembly]", file);
-	      if (!attrs.cil_name)
-		fputs ("ExternalAssembly::", file);
-	    }
-
-	  if (attrs.cil_name)
-	    fprintf (file, "%s", attrs.cil_name);
-	  else
-	    dump_decl_name (file, fdecl);
-	}
-    }
-
-  fprintf (file, " (");
-  nargs_base = cil_call_nargs_base (call);
-  nargs = cil_call_nargs (call);
-
-  if (cil_call_static_chain (call))
-    {
-      dump_type (file, cil_call_static_chain (call), true, true);
-
-      if (nargs_base > 0)
-	fprintf (file, ", ");
-    }
-
-  for (i = 0; i < nargs_base; i++)
-    {
-      if (i != 0)
-	fprintf (file, ", ");
-
-      dump_type (file, cil_call_arg_type (call, i), true, true);
-    }
-
-  if (cil_call_vararg_p (call) && i < nargs)
-    fprintf (file, ", ..., ");
-
-  for (; i < nargs; i++)
-    {
-      tree type = cil_call_arg_type (call, i);
-
-      if (i != nargs_base)
-	fprintf (file, ", ");
-
-      if (cil_call_missing_proto_p (call) && cil_pointer_type_p (type))
-	fprintf (file, "native int");
-      else
-	{
-	  type = promote_type_for_vararg (type);
-	  dump_type (file, type, true, false);
-	}
-    }
-
-  fprintf (file, ")");
-}
-
-/* Emit the assembler representing the NEWOBJ instruction into the file pointed
-   by STREAM.  */
-
-static void
-emit_newobj (FILE *file, const_cil_stmt newobj)
-{
-  struct fnct_attr attrs;
-  tree fdecl;
-  size_t nargs_base;
-  size_t nargs;
-  size_t i;
-
-  gcc_assert (cil_opcode (newobj) == CIL_NEWOBJ);
-  fprintf (file, "\n\tnewobj\tinstance void class ");
-
-  fdecl = cil_call_fdecl (newobj);
-  decode_function_attrs (fdecl, &attrs);
-
-  fprintf (file, " ");
-
-  if (DECL_BUILT_IN (fdecl) && DECL_BUILT_IN_CLASS (fdecl) == BUILT_IN_MD)
-    fprintf (file, "%s", IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+  if (opcode == CIL_NEWOBJ)
+    fprintf (file, "instance void class");
   else
     {
-      if (attrs.assembly_name)
-	fprintf (file, "[%s]", attrs.assembly_name);
-      else if (TARGET_GCC4NET_LINKER
-	       && DECL_EXTERNAL (fdecl)
-	       && TREE_PUBLIC (fdecl))
-	{
-	  fputs ("[ExternalAssembly]", file);
-	  if (!attrs.cil_name)
-	    fputs ("ExternalAssembly::", file);
-	}
-
-      if (attrs.cil_name)
-	fprintf (file, "%s", attrs.cil_name);
-      else
-	dump_decl_name (file, fdecl);
+      tree ftype = cil_call_ftype (call);
+      if (cil_call_vararg_p (call))
+	fprintf (file, "vararg ");
+      dump_type (file, TREE_TYPE (ftype), true, false);
     }
 
+  /* If Direct Call Dump the called method name.  */
+  if (opcode != CIL_CALLI)
+    {
+      fprintf (file, " ");
+      dump_method_name(file, cil_call_fdecl (call));
+    }
+
+  /* Dump the call arguments.  */
   fprintf (file, " (");
-  nargs_base = cil_call_nargs_base (newobj);
-  nargs = cil_call_nargs (newobj);
+  {
+    size_t nargs_base;
+    size_t nargs;
+    size_t i;
 
-  if (cil_call_static_chain (newobj))
-    {
-      dump_type (file, cil_call_static_chain (newobj), true, true);
+    nargs_base = cil_call_nargs_base (call);
+    nargs = cil_call_nargs (call);
 
-      if (nargs_base > 0)
-	fprintf (file, ", ");
-    }
+    if (cil_call_static_chain (call))
+      {
+	dump_type (file, cil_call_static_chain (call), true, true);
 
-  for (i = 0; i < nargs_base; i++)
-    {
-      if (i != 0)
-	fprintf (file, ", ");
+	if (nargs_base > 0)
+	  fprintf (file, ", ");
+      }
 
-      dump_type (file, cil_call_arg_type (newobj, i), true, true);
-    }
+    for (i = 0; i < nargs_base; i++)
+      {
+	if (i != 0)
+	  fprintf (file, ", ");
 
-  if (cil_call_vararg_p (newobj) && i < nargs)
-    fprintf (file, ", ..., ");
+	dump_type (file, cil_call_arg_type (call, i), true, true);
+      }
 
-  for (; i < nargs; i++)
-    {
-      tree type = cil_call_arg_type (newobj, i);
+    if (cil_call_vararg_p (call) && i < nargs)
+      fprintf (file, ", ..., ");
 
-      if (i != nargs_base)
-	fprintf (file, ", ");
+    for (; i < nargs; i++)
+      {
+	tree type = cil_call_arg_type (call, i);
 
-      if (cil_call_missing_proto_p (newobj) && cil_pointer_type_p (type))
-	fprintf (file, "native int");
-      else
-	{
-	  type = promote_type_for_vararg (type);
-	  dump_type (file, type, true, false);
-	}
-    }
+	if (i != nargs_base)
+	  fprintf (file, ", ");
 
+	if (cil_call_missing_proto_p (call) && cil_pointer_type_p (type))
+	  fprintf (file, "native int");
+	else
+	  {
+	    type = promote_type_for_vararg (type);
+	    dump_type (file, type, true, false);
+	  }
+      }
+  }
   fprintf (file, ")");
 }
 
@@ -1766,453 +1606,123 @@ emit_newobj (FILE *file, const_cil_stmt newobj)
 static void
 emit_cil_stmt (FILE *file, const_cil_stmt stmt)
 {
+  enum cil_opcode opcode = cil_opcode (stmt);
+
+  gcc_assert (opcode != CIL_LDVEC
+	      && opcode != CIL_STVEC
+	      && opcode != CIL_VEC_CTOR);
+
+  if (opcode == CIL_CALL
+      && DECL_BUILT_IN (cil_call_fdecl (stmt))
+      && emit_builtin_call (file, stmt))
+    return;
+
   emit_prefixes (file, stmt);
 
-  switch (cil_opcode (stmt))
+  fprintf (file, "\n\t");
+  fprintf (file, "%s", cil_names[opcode]);
+
+  switch (opcode_arg_type (opcode))
     {
-    case CIL_ADD:
-      fprintf (file, "\n\tadd");
+    case CIL_NONE:
       break;
 
-    case CIL_AND:
-      fprintf (file, "\n\tand");
+    case CIL_VAR:
+      fprintf (file, "\t");
+      dump_decl_name (file, cil_var (stmt));
       break;
 
-    case CIL_ARGLIST:
-      fprintf (file, "\n\targlist");
-      break;
-
-    case CIL_BEQ:
-      fprintf (file, "\n\tbeq\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BGE:
-      fprintf (file, "\n\tbge\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BGE_UN:
-      fprintf (file, "\n\tbge.un\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BGT:
-      fprintf (file, "\n\tbgt\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BGT_UN:
-      fprintf (file, "\n\tbgt.un\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BLE:
-      fprintf (file, "\n\tble\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BLE_UN:
-      fprintf (file, "\n\tble.un\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BLT:
-      fprintf (file, "\n\tblt\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BLT_UN:
-      fprintf (file, "\n\tblt.un\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BNE_UN:
-      fprintf (file, "\n\tbne.un\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BR:
-      fprintf (file, "\n\tbr\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BREAK:
-      fprintf (file, "\n\tbreak");
-      break;
-
-    case CIL_BRFALSE:
-      fprintf (file, "\n\tbrfalse\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_BRTRUE:
-      fprintf (file, "\n\tbrtrue\t");
-      dump_label_name (file, cil_label (stmt));
-      break;
-
-    case CIL_CALL:
-    case CIL_CALLI:
-      emit_call (file, stmt);
-      break;
-
-    case CIL_CEQ:
-      fprintf (file, "\n\tceq");
-      break;
-
-    case CIL_CGT:
-      fprintf (file, "\n\tcgt");
-      break;
-
-    case CIL_CGT_UN:
-      fprintf (file, "\n\tcgt.un");
-      break;
-
-    case CIL_CKFINITE:
-      fprintf (file, "\n\tckfinite");
-      break;
-
-    case CIL_CLT:
-      fprintf (file, "\n\tclt");
-      break;
-
-    case CIL_CLT_UN:
-      fprintf (file, "\n\tclt.un");
-      break;
-
-    case CIL_CONV_I1:
-      fprintf (file, "\n\tconv.i1");
-      break;
-
-    case CIL_CONV_I2:
-      fprintf (file, "\n\tconv.i2");
-      break;
-
-    case CIL_CONV_I4:
-      fprintf (file, "\n\tconv.i4");
-      break;
-
-    case CIL_CONV_I8:
-      fprintf (file, "\n\tconv.i8");
-      break;
-
-    case CIL_CONV_R4:
-      fprintf (file, "\n\tconv.r4");
-      break;
-
-    case CIL_CONV_R8:
-      fprintf (file, "\n\tconv.r8");
-      break;
-
-    case CIL_CONV_U1:
-      fprintf (file, "\n\tconv.u1");
-      break;
-
-    case CIL_CONV_U2:
-      fprintf (file, "\n\tconv.u2");
-      break;
-
-    case CIL_CONV_U4:
-      fprintf (file, "\n\tconv.u4");
-      break;
-
-    case CIL_CONV_U8:
-      fprintf (file, "\n\tconv.u8");
-      break;
-
-    case CIL_CONV_I:
-      fprintf (file, "\n\tconv.i");
-      break;
-
-    case CIL_CONV_U:
-      fprintf (file, "\n\tconv.u");
-      break;
-
-    case CIL_CONV_R_UN:
-      fprintf (file, "\n\tconv.r.un");
-      break;
-
-    case CIL_CPBLK:
-      fprintf (file, "\n\tcpblk");
-      break;
-
-    case CIL_DIV:
-      fprintf (file, "\n\tdiv");
-      break;
-
-    case CIL_DIV_UN:
-      fprintf (file, "\n\tdiv.un");
-      break;
-
-    case CIL_DUP:
-      fprintf (file, "\n\tdup");
-      break;
-
-    case CIL_INITBLK:
-      fprintf (file, "\n\tinitblk");
-      break;
-
-    case CIL_INITOBJ:
-      fprintf (file, "\n\tinitobj\t");
+    case CIL_TYPE:
+      fprintf (file, "\t");
       dump_type (file, cil_type (stmt), true, false);
       break;
 
-    case CIL_JMP:
-      emit_call (file, stmt);
+    case CIL_FIELD:
+      fprintf (file, "\t");
+      switch (opcode)
+	{
+	case CIL_LDFLD:
+	case CIL_LDFLDA:
+	case CIL_STFLD:
+	  emit_fld (file, cil_field (stmt));
+	  break;
+
+	case CIL_LDSFLD:
+	case CIL_STSFLD:
+	  emit_sfld (file, cil_field (stmt));
+	  break;
+
+	case CIL_LDSFLDA:
+	  emit_ldsflda (file, cil_field (stmt));
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
       break;
 
-    case CIL_LDARG:
-      fprintf (file, "\n\tldarg\t");
-      dump_decl_name (file, cil_var (stmt));
+    case CIL_LABEL:
+      fprintf (file, "\t");
+      dump_label_name (file, cil_label (stmt));
       break;
 
-    case CIL_LDARGA:
-      fprintf (file, "\n\tldarga\t");
-      dump_decl_name (file, cil_var (stmt));
+    case CIL_LABELS:
+      fprintf (file, "\t");
+      emit_switch_labels (file, stmt);
       break;
 
-    case CIL_LDC_I4:
-      fprintf (file, "\n\tldc.i4\t");
-      dump_double_int (file, TREE_INT_CST (cil_cst (stmt)), false);
-      break;
-
-    case CIL_LDC_I8:
-      fprintf (file, "\n\tldc.i8\t");
-      dump_double_int (file, TREE_INT_CST (cil_cst (stmt)), false);
-      break;
-
-    case CIL_LDC_R4:
-      {
-	REAL_VALUE_TYPE d = TREE_REAL_CST (cil_cst (stmt));
-	tree type = TYPE_MAIN_VARIANT (TREE_TYPE (cil_cst (stmt)));
-	char string[100];
-	long buf;
-
-	real_to_target (&buf, &d, TYPE_MODE (type));
-	real_to_decimal (string, &d, sizeof (string), 0, 1);
-	fprintf (file, "\n\tldc.r4\tfloat32(%#08lx)\t/* %s */",
-		 buf, string);
-      }
-      break;
-
-    case CIL_LDC_R8:
-      {
-	REAL_VALUE_TYPE d = TREE_REAL_CST (cil_cst (stmt));
-	tree type = TYPE_MAIN_VARIANT (TREE_TYPE (cil_cst (stmt)));
-	char string[100];
-	long buf[2];
-
-	real_to_target (buf, &d, TYPE_MODE (type));
-	real_to_decimal (string, &d, sizeof (string), 0, 1);
-	fprintf (file, "\n\tldc.r8\tfloat64(%#08lx%08lx)\t/* %s */",
-		 buf[1], buf[0], string);
-      }
-      break;
-
-    case CIL_LDFLD:
-      emit_ldfld (file, stmt);
-      break;
-
-    case CIL_LDFLDA:
-      emit_ldflda (file, stmt);
-      break;
-
-    case CIL_LDFTN:
-      fprintf (file, "\n\tldftn\t");
-      /* FIXME: We shouldn't print the vararg ellipsis */
+    case CIL_FUNC:
+      fprintf (file, "\t");
       dump_fun_type (file, TREE_TYPE (cil_func (stmt)),
 		     cil_func (stmt), NULL, true);
       break;
 
-    case CIL_LDIND_I1:
-      fprintf (file, "\n\tldind.i1");
+    case CIL_FCALL:
+      fprintf (file, "\t");
+      emit_call_arg (file, stmt);
       break;
 
-    case CIL_LDIND_I2:
-      fprintf (file, "\n\tldind.i2");
-      break;
+    case CIL_CST:
+      fprintf (file, "\t");
+      switch (opcode)
+	{
+	case CIL_LDC_I4:
+	case CIL_LDC_I8:
+	  dump_double_int (file, TREE_INT_CST (cil_cst (stmt)), false);
+	  break;
 
-    case CIL_LDIND_I4:
-      fprintf (file, "\n\tldind.i4");
-      break;
+	case CIL_LDC_R4:
+	  {
+	    REAL_VALUE_TYPE d = TREE_REAL_CST (cil_cst (stmt));
+	    tree type = TYPE_MAIN_VARIANT (TREE_TYPE (cil_cst (stmt)));
+	    char string[100];
+	    long buf;
 
-    case CIL_LDIND_I8:
-      fprintf (file, "\n\tldind.i8");
-      break;
+	    real_to_target (&buf, &d, TYPE_MODE (type));
+	    real_to_decimal (string, &d, sizeof (string), 0, 1);
+	    fprintf (file, "float32(%#08lx)\t/* %s */",
+		     buf, string);
+	  }
+	  break;
+	case CIL_LDC_R8:
+	  {
+	    REAL_VALUE_TYPE d = TREE_REAL_CST (cil_cst (stmt));
+	    tree type = TYPE_MAIN_VARIANT (TREE_TYPE (cil_cst (stmt)));
+	    char string[100];
+	    long buf[2];
 
-    case CIL_LDIND_U1:
-      fprintf (file, "\n\tldind.u1");
-      break;
+	    real_to_target (buf, &d, TYPE_MODE (type));
+	    real_to_decimal (string, &d, sizeof (string), 0, 1);
+	    fprintf (file, "float64(%#08lx%08lx)\t/* %s */",
+		     buf[1], buf[0], string);
+	  }
+	  break;
 
-    case CIL_LDIND_U2:
-      fprintf (file, "\n\tldind.u2");
+	default:
+	  gcc_unreachable ();
+	}
       break;
-
-    case CIL_LDIND_U4:
-      fprintf (file, "\n\tldind.u4");
-      break;
-
-    case CIL_LDIND_U8:
-      fprintf (file, "\n\tldind.u8");
-      break;
-
-    case CIL_LDIND_R4:
-      fprintf (file, "\n\tldind.r4");
-      break;
-
-    case CIL_LDIND_R8:
-      fprintf (file, "\n\tldind.r8");
-      break;
-
-    case CIL_LDIND_I:
-      fprintf (file, "\n\tldind.i");
-      break;
-
-    case CIL_LDLOC:
-      fprintf (file, "\n\tldloc\t");
-      dump_decl_name (file, cil_var (stmt));
-      break;
-
-    case CIL_LDLOCA:
-      fprintf (file, "\n\tldloca\t");
-      dump_decl_name (file, cil_var (stmt));
-      break;
-
-    case CIL_LDOBJ:
-      fprintf (file, "\n\tldobj\t");
-      dump_type (file, cil_type (stmt), true, false);
-      break;
-
-    case CIL_LDSFLD:
-      emit_ldsfld (file, stmt);
-      break;
-
-    case CIL_LDSFLDA:
-      emit_ldsflda (file, stmt);
-      break;
-
-    case CIL_LOCALLOC:
-      fprintf (file, "\n\tlocalloc");
-      break;
-
-    case CIL_MUL:
-      fprintf (file, "\n\tmul");
-      break;
-
-    case CIL_NEG:
-      fprintf (file, "\n\tneg");
-      break;
-
-    case CIL_NEWOBJ:
-      emit_newobj (file, stmt);
-      break;
-
-    case CIL_NOT:
-      fprintf (file, "\n\tnot");
-      break;
-
-    case CIL_OR:
-      fprintf (file, "\n\tor");
-      break;
-
-    case CIL_POP:
-      fprintf (file, "\n\tpop");
-      break;
-
-    case CIL_REM:
-      fprintf (file, "\n\trem");
-      break;
-
-    case CIL_REM_UN:
-      fprintf (file, "\n\trem.un");
-      break;
-
-    case CIL_RET:
-      fprintf (file, "\n\tret");
-      break;
-
-    case CIL_SHL:
-      fprintf (file, "\n\tshl");
-      break;
-
-    case CIL_SHR:
-      fprintf (file, "\n\tshr");
-      break;
-
-    case CIL_SHR_UN:
-      fprintf (file, "\n\tshr.un");
-      break;
-
-    case CIL_STARG:
-      fprintf (file, "\n\tstarg\t");
-      dump_decl_name (file, cil_var (stmt));
-      break;
-
-    case CIL_STFLD:
-      emit_stfld (file, stmt);
-      break;
-
-    case CIL_STIND_I1:
-      fprintf (file, "\n\tstind.i1");
-      break;
-
-    case CIL_STIND_I2:
-      fprintf (file, "\n\tstind.i2");
-      break;
-
-    case CIL_STIND_I4:
-      fprintf (file, "\n\tstind.i4");
-      break;
-
-    case CIL_STIND_I8:
-      fprintf (file, "\n\tstind.i8");
-      break;
-
-    case CIL_STIND_R4:
-      fprintf (file, "\n\tstind.r4");
-      break;
-
-    case CIL_STIND_R8:
-      fprintf (file, "\n\tstind.r8");
-      break;
-
-    case CIL_STIND_I:
-      fprintf (file, "\n\tstind.i");
-      break;
-
-    case CIL_STLOC:
-      fprintf (file, "\n\tstloc\t");
-      dump_decl_name (file, cil_var (stmt));
-      break;
-
-    case CIL_STOBJ:
-      fprintf (file, "\n\tstobj\t");
-      dump_type (file, cil_type (stmt), true, false);
-      break;
-
-    case CIL_STSFLD:
-      emit_stsfld (file, stmt);
-      break;
-
-    case CIL_SUB:
-      fprintf (file, "\n\tsub");
-      break;
-
-    case CIL_SWITCH:
-      emit_switch (file, stmt);
-      break;
-
-    case CIL_LDVEC:
-    case CIL_STVEC:
-    case CIL_VEC_CTOR:
-      internal_error ("This opcode should have been lowered");
-      break;
-
-    case CIL_XOR:
-      fprintf (file, "\n\txor");
-      break;
-
-    case CIL_ASM:
+    case CIL_STRING:
       fprintf (file,
 	       "\n\t// BEGIN ASM"
 	       "\n\t%s"
@@ -2223,7 +1733,6 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
     default:
       gcc_unreachable ();
     }
-
 }
 
 
