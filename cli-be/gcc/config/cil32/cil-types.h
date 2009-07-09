@@ -77,129 +77,28 @@ typedef const struct label_addr_d *const_label_addr;
 
 enum cil_opcode
 {
-  CIL_ADD, /* Add numeric values */
-  CIL_AND, /* Logical and */
-  CIL_ARGLIST, /* Get argument list */
-  CIL_BEQ, /* Branch on equal */
-  CIL_BGE, /* Branch on greater or equal */
-  CIL_BGE_UN, /* Branch on greater or equal, unsigned or unordered */
-  CIL_BGT, /* Branch on greater than */
-  CIL_BGT_UN, /* Branch on greater than, unsigned or unordered */
-  CIL_BLE, /* Branch on less or equal */
-  CIL_BLE_UN, /* Branch on less or equal, unsigned or unordered */
-  CIL_BLT, /* Branch on less than */
-  CIL_BLT_UN, /* Branch on less than, unsigned or unordered */
-  CIL_BNE_UN, /* Branch on not equal, unsigned or unordered */
-  CIL_BR, /* Branch unconditional */
-  CIL_BREAK, /* Breakpoint instruction */
-  CIL_BRFALSE, /* Branch on false, null or zero */
-  CIL_BRTRUE, /* Branch on non-false, non-null, or non-zero */
-  CIL_CALL, /* Method call */
-  CIL_CALLI, /* Indirect method call */
-  CIL_CEQ, /* Compare equal */
-  CIL_CGT, /* Compare greater than */
-  CIL_CGT_UN, /* Compare greater than, unsigned or unordered */
-  CIL_CKFINITE, /* Check for a finite real number */
-  CIL_CLT, /* Compare less than */
-  CIL_CLT_UN, /* Compare less than unordered */
-  CIL_CONV_I1, /* Convert to int8 */
-  CIL_CONV_I2, /* Convert to int16 */
-  CIL_CONV_I4, /* Convert to int32 */
-  CIL_CONV_I8, /* Convert to int64 */
-  CIL_CONV_R4, /* Convert to float32 */
-  CIL_CONV_R8, /* Convert to float64 */
-  CIL_CONV_U1, /* Convert to unsigned int8 */
-  CIL_CONV_U2, /* Convert to unsigned int16 */
-  CIL_CONV_U4, /* Convert to unsigned int32 */
-  CIL_CONV_U8, /* Convert to unsigned int64 */
-  CIL_CONV_I, /* Convert to native int */
-  CIL_CONV_U, /* Convert to unsigned native int */
-  CIL_CONV_R_UN, /* Convert unsigned integer to floating-point */
-  CIL_CPBLK, /* Copy data from memory to memory */
-  CIL_DIV, /* Divide values */
-  CIL_DIV_UN, /* Divide values, unsigned */
-  CIL_DUP, /* Duplicate the value on top of the stack */
-  CIL_INITBLK, /* Set all bytes in a block of memory to a given byte value */
-  CIL_INITOBJ, /* Initialize the value at an address */
-  CIL_JMP, /* Jump to method */
-  CIL_LDARG, /* Load an argument on the operand stack */
-  CIL_LDARGA, /* Load an argument's address */
-  CIL_LDC_I4, /* Load an int32 numeric constant on the stack */
-  CIL_LDC_I8, /* Load an int64 numeric constant on the stack */
-  CIL_LDC_R4, /* Load a float32 numeric constant on the stack */
-  CIL_LDC_R8, /* Load a float64 numeric constant on the stack */
-  CIL_LDFLD, /* Load field of an object */
-  CIL_LDFLDA, /* Load field address */
-  CIL_LDFTN, /* Load method pointer */
-  CIL_LDIND_I1, /* Indirect load value of type int8 */
-  CIL_LDIND_I2, /* Indirect load value of type int16 */
-  CIL_LDIND_I4, /* Indirect load value of type int32 */
-  CIL_LDIND_I8, /* Indirect load value of type int64 */
-  CIL_LDIND_U1, /* Indirect load value of type unsigned int8 */
-  CIL_LDIND_U2, /* Indirect load value of type unsigned int16 */
-  CIL_LDIND_U4, /* Indirect load value of type unsigned int32 */
-  CIL_LDIND_U8, /* Indirect load value of type unsigned int64 */
-  CIL_LDIND_R4, /* Indirect load value of type float32 */
-  CIL_LDIND_R8, /* Indirect load value of type float64 */
-  CIL_LDIND_I, /* Indirect load value of type native int */
-  CIL_LDLOC, /* Load local variable onto the stack */
-  CIL_LDLOCA, /* Load local variable address */
-  CIL_LDOBJ, /* Copy a value from an address to the stack */
-  CIL_LDSFLD, /* Load static field of a class */
-  CIL_LDSFLDA, /* Load static field address */
-  CIL_LDVEC, /* Copy a vector value from an address to the stack */
-  CIL_LOCALLOC, /* Allocate space from the local memory pool */
-  CIL_MUL, /* Multiply values */
-  CIL_NEG, /* Negate value */
-  CIL_NEWOBJ, /* Negate value */
-  CIL_NOT, /* Bitwise complement */
-  CIL_OR, /* Bitwise or */
-  CIL_POP, /* Remove the top element of the stack */
-  CIL_REM, /* Compute remainder */
-  CIL_REM_UN, /* Compute integer remainder, unsigned */
-  CIL_RET, /* Return from method */
-  CIL_SHL, /* Shift integer left */
-  CIL_SHR, /* Shift integer right */
-  CIL_SHR_UN, /* Shift integer right, unsigned */
-  CIL_STARG, /* Store a value in an argument slot */
-  CIL_STFLD, /* Store field of an object */
-  CIL_STIND_I1, /* Store int8 value indirect from stack */
-  CIL_STIND_I2, /* Store int16 value indirect from stack */
-  CIL_STIND_I4, /* Store int32 value indirect from stack */
-  CIL_STIND_I8, /* Store int64 value indirect from stack */
-  CIL_STIND_R4, /* Store float32 value indirect from stack */
-  CIL_STIND_R8, /* Store float64 value indirect from stack */
-  CIL_STIND_I, /* Store native int value indirect from stack */
-  CIL_STLOC, /* Pop value from stack to local variable */
-  CIL_STOBJ, /* Store a value at an address */
-  CIL_STVEC, /* Store a vector value at an address */
-  CIL_STSFLD, /* Store static field of a class */
-  CIL_SUB, /* Substract numeric value */
-  CIL_SWITCH, /* Table switch based on value */
-  CIL_VEC_CTOR, /* New vector */
-  CIL_XOR, /* Bitwise exclusive or */
-
-  /* Artificial opcodes */
-  CIL_ASM /* Artificial opcode representing ASM_EXPR statements */
+#define CIL_INSTRDEF(A,B,C,D) A,
+#include "cil-instr.def"
+#undef CIL_INSTRDEF
+CIL_NUM_INSTRS
 };
 
 /* CIL statement argument type, used by the garbage collector.  */
 
 enum cil_arg_type
 {
-  CIL_VAR, /* Variable declaration */
-  CIL_TYPE, /* Type declaration */
-  CIL_FIELD, /* Field declaration */
-  CIL_LABEL, /* Label declaration */
-  CIL_LABELS, /* Switch case labels */
-  CIL_FUNC, /* Function declaration */
-  CIL_FCALL, /* Function call description */
-  CIL_CST, /* Integer or real constant */
-  CIL_STRING, /* A string (held in a tree, not a char *) */
-  CIL_NONE /* No argument */
+#define CIL_ARGTYPE(A) A,
+#include "cil-argdef.def"
+#undef CIL_ARGTYPE
+CIL_NUM_ARGTYPE
 };
 
-extern enum cil_arg_type opcode_arg_type (enum cil_opcode);
+extern enum cil_arg_type opcode_arg_types[];
+
+static inline enum cil_arg_type opcode_arg_type (enum cil_opcode cil_opcode)
+{
+    return opcode_arg_types[cil_opcode];
+}
 
 /* Represents the information provided by a CALL_EXPR when converted to a CIL
    CALL or CALLI instruction. The FTYPE fields points to the called function

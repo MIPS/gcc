@@ -49,6 +49,16 @@ Erven Rohou             <erven.rohou@inria.fr>
    often so it's better to keep the fred ones around.  */
 static GTY ((deletable)) struct cil_seq_d *cil_seq_cache = NULL;
 
+
+/* Returns the type of argument of the opcode specified by the OPCODE
+   argument. */
+
+enum cil_arg_type opcode_arg_types[] = {
+#define CIL_INSTRDEF(A,B,C,D) B,
+#include "cil-instr.def"
+#undef CIL_INSTRDEF
+};
+
 /******************************************************************************
  * Local function prototypes                                                  *
  ******************************************************************************/
@@ -145,8 +155,7 @@ cil_build_call_generic (enum cil_opcode opcode, tree type_or_decl)
   tree arg_types;
   size_t i;
 
-  gcc_assert (opcode == CIL_CALL || opcode == CIL_CALLI ||
-	      opcode == CIL_JMP || opcode == CIL_NEWOBJ);
+  gcc_assert (opcode_arg_type (opcode) == CIL_FCALL);
 
   if (opcode != CIL_CALLI)
     {
@@ -251,10 +260,7 @@ cil_call_nargs_base (const_cil_stmt stmt)
 {
   tree arg_types;
 
-  gcc_assert (stmt->opcode == CIL_CALL
-	      || stmt->opcode == CIL_CALLI
-	      || stmt->opcode == CIL_JMP
-	      || stmt->opcode == CIL_NEWOBJ);
+  gcc_assert (opcode_arg_type (stmt->opcode) == CIL_FCALL);
 
   arg_types = TYPE_ARG_TYPES (stmt->arg.fcall->ftype);
 
@@ -314,7 +320,7 @@ cil_copy_stmt (const_cil_stmt stmt)
   new_stmt = GGC_NEW (struct cil_stmt_d);
   memcpy (new_stmt, stmt, sizeof (struct cil_stmt_d));
 
-  if (stmt->opcode == CIL_SWITCH)
+  if (opcode_arg_type (stmt->opcode) == CIL_LABELS)
     {
       cil_switch_arg arg = GGC_NEW (struct cil_switch_arg_d);
       unsigned int ncases = stmt->arg.labels->ncases;
@@ -324,9 +330,7 @@ cil_copy_stmt (const_cil_stmt stmt)
       memcpy (arg->cases, stmt->arg.labels->cases, sizeof (tree) * ncases);
       new_stmt->arg.labels = arg;
     }
-  else if (stmt->opcode == CIL_CALL
-	   || stmt->opcode == CIL_CALLI
-	   || stmt->opcode == CIL_JMP)
+  else if (opcode_arg_type (stmt->opcode) == CIL_FCALL)
     {
       cil_call_arg arg = GGC_NEW (struct cil_call_arg_d);
       unsigned int nargs = stmt->arg.fcall->nargs;
@@ -349,9 +353,8 @@ cil_copy_stmt (const_cil_stmt stmt)
 bool
 cil_prefix_tail (const_cil_stmt stmt)
 {
-  gcc_assert ((stmt->opcode == CIL_CALL) || (stmt->opcode == CIL_CALLI));
-
-  return stmt->prefix_tail;
+  return (((stmt->opcode == CIL_CALL) || (stmt->opcode == CIL_CALLI))
+	  && stmt->prefix_tail);
 }
 
 /* Sets the tail. prefix to STATUS in the CIL statment pointed by STMT.  */
@@ -371,14 +374,17 @@ cil_set_prefix_tail (cil_stmt stmt, bool status)
 int
 cil_prefix_unaligned (const_cil_stmt stmt)
 {
-  gcc_assert ((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
-	      || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
-	      || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
-	      || ((stmt->opcode >= CIL_LDIND_I1) && (stmt->opcode <= CIL_LDIND_I))
-	      || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
-	      || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD));
+  int result = 0;
+  if (((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
+       || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
+       || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
+       || ((stmt->opcode >= CIL_LDIND_I1) && (stmt->opcode <= CIL_LDIND_I))
+       || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
+       || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD))
+      && stmt->prefix_unaligned)
+  result = stmt->alignment;
 
-  return stmt->prefix_unaligned ? stmt->alignment : 0;
+  return result;
 }
 
 /* Sets the unaligned. prefix in the CIL statement pointed by STMT. The actual
@@ -421,90 +427,15 @@ cil_set_prefix_volatile (cil_stmt stmt, bool status)
 bool
 cil_prefix_volatile (const_cil_stmt stmt)
 {
-  gcc_assert ((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
-	      || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
-	      || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
-	      || ((stmt->opcode >= CIL_LDIND_I1) && (stmt->opcode <= CIL_LDIND_I))
-	      || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
-	      || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD)
-	      || (stmt->opcode == CIL_LDSFLD) || (stmt->opcode == CIL_STSFLD));
-
-  return stmt->prefix_volatile;
+  return (((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
+	   || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
+	   || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
+	   || ((stmt->opcode >= CIL_LDIND_I1) && (stmt->opcode <= CIL_LDIND_I))
+	   || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
+	   || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD)
+	   || (stmt->opcode == CIL_LDSFLD) || (stmt->opcode == CIL_STSFLD))
+	  && stmt->prefix_volatile);
 }
-
-/* Returns the type of argument of the opcode specified by the OPCODE
-   argument. */
-
-enum cil_arg_type
-opcode_arg_type (enum cil_opcode opcode)
-{
-  switch (opcode)
-    {
-      case CIL_LDARG:
-      case CIL_LDARGA:
-      case CIL_LDLOC:
-      case CIL_LDLOCA:
-      case CIL_STARG:
-      case CIL_STLOC:
-	return CIL_VAR;
-
-      case CIL_INITOBJ:
-      case CIL_LDOBJ:
-      case CIL_STOBJ:
-	/* vector types */
-      case CIL_VEC_CTOR:
-      case CIL_LDVEC:
-      case CIL_STVEC:
-	return CIL_TYPE;
-
-      case CIL_LDFLD:
-      case CIL_LDFLDA:
-      case CIL_LDSFLD:
-      case CIL_LDSFLDA:
-      case CIL_STFLD:
-      case CIL_STSFLD:
-	return CIL_FIELD;
-
-      case CIL_BEQ:
-      case CIL_BGE:
-      case CIL_BGE_UN:
-      case CIL_BGT:
-      case CIL_BGT_UN:
-      case CIL_BLE:
-      case CIL_BLE_UN:
-      case CIL_BLT:
-      case CIL_BLT_UN:
-      case CIL_BNE_UN:
-      case CIL_BR:
-      case CIL_BRFALSE:
-      case CIL_BRTRUE:
-	return CIL_LABEL;
-
-      case CIL_SWITCH:
-	return CIL_LABELS;
-
-      case CIL_LDFTN:
-	return CIL_FUNC;
-
-      case CIL_CALL:
-      case CIL_CALLI:
-      case CIL_JMP:
-	return CIL_FCALL;
-
-      case CIL_LDC_I4:
-      case CIL_LDC_I8:
-      case CIL_LDC_R4:
-      case CIL_LDC_R8:
-	return CIL_CST;
-
-      case CIL_ASM:
-	return CIL_STRING;
-
-      default:
-	return CIL_NONE;
-    }
-}
-
 /* Returns TRUE if the CIL stsatement STMT represents a conversion, FALSE
    otherwise.  */
 
