@@ -31,6 +31,13 @@
 # Contact information at INRIA:
 # Erven Rohou           <erven.rohou@inria.fr>
 
+$(srcdir)/config/cil32/cil-types.h: $(srcdir)/config/cil32/cil-argdef.def $(srcdir)/config/cil32/cil-instr.def
+
+$(srcdir)/config/cil32/cil-stack.h: $(srcdir)/config/cil32/cil-types.def
+
+$(srcdir)/config/cil32/cil-builtins.h: $(srcdir)/config/cil32/cil-builtins.def
+
+
 bit-stream.o: $(srcdir)/config/cil32/bit-stream.c \
    $(srcdir)/config/cil32/bit-stream.h $(CONFIG_H) $(SYSTEM_H) coretypes.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
@@ -44,9 +51,6 @@ cil-refs.o : $(srcdir)/config/cil32/cil-refs.c \
    $(TREE_H) $(TREE_PASS_H) coretypes.h errors.h \
    gt-cil-refs.h toplev.h vec.h tree-flow.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
-
-$(srcdir)/config/cil32/cil-builtins.h: $(srcdir)/config/cil32/cil-builtins.def
-	#-
 
 cil-builtins.o : $(srcdir)/config/cil32/cil-builtins.c \
    $(srcdir)/config/cil32/cil-builtins.h   \
@@ -62,9 +66,11 @@ emit-hints.o: $(srcdir)/config/cil32/emit-hints.c \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 cil-dump.o: $(srcdir)/config/cil32/cil-dump.c \
+   $(srcdir)/config/cil32/cil-builtins.h \
+   $(srcdir)/config/cil32/cil-refs.h \
    $(srcdir)/config/cil32/cil-types.h \
    $(srcdir)/config/cil32/cil-stack.h \
-   $(srcdir)/config/cil32/emit-cil.h \
+   $(srcdir)/config/cil32/cil-types.def $(srcdir)/config/cil32/cil-instr.def \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) langhooks.h $(TREE_H)
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
@@ -111,6 +117,7 @@ gimple-to-cil.o : $(srcdir)/config/cil32/gimple-to-cil.c \
 emit-cil.o : $(srcdir)/config/cil32/emit-cil.c \
    $(srcdir)/config/cil32/emit-cil.h \
    $(srcdir)/config/cil32/emit-hints.h \
+   $(srcdir)/config/cil32/cil-instr.def \
    $(srcdir)/config/cil32/cil-refs.h \
    $(srcdir)/config/cil32/cil-stmt.h \
    $(srcdir)/config/cil32/cil-stmt-inline.h \
