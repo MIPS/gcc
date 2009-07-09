@@ -485,15 +485,14 @@ package body Checks is
       if Inside_A_Generic then
          return;
 
-      --  Only apply the run-time check if the access parameter
-      --  has an associated extra access level parameter and
-      --  when the level of the type is less deep than the level
-      --  of the access parameter.
+      --  Only apply the run-time check if the access parameter has an
+      --  associated extra access level parameter and when the level of the
+      --  type is less deep than the level of the access parameter, and
+      --  accessibility checks are not suppressed.
 
       elsif Present (Param_Ent)
          and then Present (Extra_Accessibility (Param_Ent))
-         and then UI_Gt (Object_Access_Level (N),
-                         Type_Access_Level (Typ))
+         and then UI_Gt (Object_Access_Level (N), Type_Access_Level (Typ))
          and then not Accessibility_Checks_Suppressed (Param_Ent)
          and then not Accessibility_Checks_Suppressed (Typ)
       then
@@ -5458,6 +5457,10 @@ package body Checks is
       Set_Etype (R_Cno, Typ);
       Set_Raises_Constraint_Error (R_Cno);
       Set_Is_Static_Expression (R_Cno, Stat);
+
+      --  Now deal with possible local raise handling
+
+      Possible_Local_Raise (R_Cno, Standard_Constraint_Error);
    end Install_Static_Check;
 
    ---------------------
