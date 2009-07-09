@@ -1751,7 +1751,6 @@ if test -d ${srcdir}/gcc; then
     if test "${ENABLE_GOLD}" = "yes" ; then
       configdirs="$configdirs lto-plugin"
     fi
-    configdirs="$configdirs lto-plugin"
   fi
 
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
