@@ -167,24 +167,24 @@ dump_type (const_tree type)
     {
       printf ("void");
     }
-  else if (value_type_p(type))
-    {
-      if (TREE_CODE (type) == COMPLEX_TYPE)
-	{
-	  printf ("complex_type ");
-	  dump_type (TREE_TYPE (type));
-	}
-      else
-	{
-	  printf ("value_type ");
-	  dump_valuetype_name (TYPE_MAIN_VARIANT (type));
-	}
-    }
   else
     {
       cil_type_t cil_type = scalar_to_cil (type);
-      if (cil_type == CIL_POINTER)
+      switch (cil_type)
 	{
+	case CIL_VALUE_TYPE:
+	  if (TREE_CODE (type) == COMPLEX_TYPE)
+	    {
+	      printf ("complex_type ");
+	      dump_type (TREE_TYPE (type));
+	    }
+	  else
+	    {
+	      printf ("value_type ");
+	      dump_valuetype_name (TYPE_MAIN_VARIANT (type));
+	    }
+	  break;
+	case CIL_POINTER:
 	  if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
 	    {
 	      printf ("method_pointer");
@@ -194,9 +194,11 @@ dump_type (const_tree type)
 	      dump_type (TREE_TYPE (type));
 	      printf (" *");
 	    }
+	  break;
+	default:
+	  printf ("%s", cil_type_names [cil_type]);
+	  break;
 	}
-      else
-	printf ("%s", cil_type_names [cil_type]);
     }
 }
 

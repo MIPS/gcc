@@ -47,7 +47,8 @@ Erven Rohou             <erven.rohou@inria.fr>
  * Local functions prototypes                                                 *
  ******************************************************************************/
 
-static bool vector_type_p (tree);
+static bool value_type_p (const_tree);
+static bool vector_type_p (const_tree);
 static cil_type_t cil_binary_op_type (enum cil_opcode, cil_type_t, cil_type_t);
 
 /******************************************************************************
@@ -219,10 +220,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       if (opcode == CIL_LDFLD)
 	VEC_pop (cil_type_t, vstack);
 
-      if (value_type_p (type))
-	VEC_safe_push (cil_type_t, heap, vstack, CIL_VALUE_TYPE);
-      else
-	VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
+      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
 
       break;
 
@@ -268,7 +266,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
     case CIL_LDVEC:
       {
 	tree type = cil_type (stmt);
-	cil_type_t cil_type = scalar_to_cil (type);
+	cil_type_t cil_type = vector_to_cil (type);
 	VEC_pop (cil_type_t, vstack);
 	VEC_quick_push (cil_type_t, vstack, cil_type);
       }
@@ -304,22 +302,13 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       break;
 
     case CIL_LDARG:
+      type = DECL_ARG_TYPE (cil_var (stmt));
+      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
+      break;
+
     case CIL_LDLOC:
-      if (opcode == CIL_LDARG)
-	type = DECL_ARG_TYPE (cil_var (stmt));
-      else
-	type = TREE_TYPE (cil_var (stmt));
-
-      if (value_type_p (type))
-	VEC_safe_push (cil_type_t, heap, vstack, CIL_VALUE_TYPE);
-      else if (vector_type_p (type))
-	{
-	  cil_type_t cil_type = scalar_to_cil (type);
-	  VEC_safe_push (cil_type_t, heap, vstack, cil_type);
-	}
-      else
-	VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
-
+      type = TREE_TYPE (cil_var (stmt));
+      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
       break;
 
     case CIL_LDARGA:
@@ -362,14 +351,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       type = TREE_TYPE (cil_call_ftype (stmt));
 
       if (!VOID_TYPE_P (type))
-	{
-	  if (vector_type_p (type))
-	    VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
-	  else if (value_type_p (type))
-	    VEC_safe_push (cil_type_t, heap, vstack, CIL_VALUE_TYPE);
-	  else
-	    VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
-	}
+	VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
 
       break;
 
@@ -382,19 +364,14 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       type = TREE_TYPE (cil_call_ftype (stmt));
 
       if (!VOID_TYPE_P (type))
-	{
-	  if (value_type_p (type))
-	    VEC_safe_push (cil_type_t, heap, vstack, CIL_VALUE_TYPE);
-	  else
-	    VEC_safe_push (cil_type_t, heap, vstack, scalar_to_cil (type));
-	}
+	VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
 
       break;
 
     case CIL_VEC_CTOR:
       {
 	tree type = cil_type (stmt);
-	cil_type_t cil_type = scalar_to_cil (type);
+	cil_type_t cil_type = vector_to_cil (type);
 	unsigned int num_elts = TYPE_VECTOR_SUBPARTS (type);
 
 	while (num_elts-- != 0)
@@ -642,74 +619,96 @@ scalar_to_cil (const_tree type)
     case POINTER_TYPE:
       return CIL_POINTER;
 
-    case VECTOR_TYPE:
-      {
-	cil_type_t ret = CIL_NO_TYPE;
-	tree innertype = TYPE_MAIN_VARIANT (TREE_TYPE (type));
-	HOST_WIDE_INT innersize = tree_low_cst (TYPE_SIZE (innertype), 1);
-	HOST_WIDE_INT vec_size  = tree_low_cst (TYPE_SIZE (type), 1);
-
-	if ((TREE_CODE (innertype) == INTEGER_TYPE) ||
-	    (TREE_CODE (innertype) == POINTER_TYPE))
-	  {
-	    if (vec_size == 128)  /* 16-byte vectors */
-	      {
-		switch (innersize)
-		  {
-		  case  8: ret = CIL_V16QI; break;
-		  case 16: ret = CIL_V8HI;  break;
-		  case 32: ret = CIL_V4SI;  break;
-		  case 64: ret = CIL_V2DI;  break;
-		  default: break;
-		  }
-	      }
-	    else if (vec_size == 64)  /* 8-byte vectors */
-	      {
-		switch (innersize)
-		  {
-		  case  8: ret = CIL_V8QI; break;
-		  case 16: ret = CIL_V4HI;  break;
-		  case 32: ret = CIL_V2SI;  break;
-		  default: break;
-		  }
-	      }
-	    else if (vec_size == 32)  /* 4-byte vectors */
-	      {
-		switch (innersize)
-		  {
-		  case  8: ret = CIL_V4QI; break;
-		  case 16: ret = CIL_V2HI;  break;
-		  default: break;
-		  }
-	      }
-	  }
-	else if (TREE_CODE (innertype) == REAL_TYPE)
-	  {
-	    if (vec_size == 128)
-	      {
-		if (innersize == 32)
-		  ret = CIL_V4SF;
-		else if (innersize == 64)
-		  ret = CIL_V2DF;
-	      }
-	    else if (vec_size == 64)
-	      if (innersize == 32)
-		ret = CIL_V2SF;
-	  }
-	else
-	  {
-	    fprintf (stderr, "Vector of '%s'\n",
-		     tree_code_name[TREE_CODE (innertype)]);
-	  }
-	if (ret == CIL_NO_TYPE)
-	  internal_error ("Unsupported vector type %ld/%ld",
-			  vec_size, innersize);
-	return ret;
-      }
-
     default:
       gcc_unreachable ();
     }
+}
+
+/* Return the CIL stack representation for vector type TYPE.  */
+
+cil_type_t
+vector_to_cil (const_tree type)
+{
+  cil_type_t ret = CIL_NO_TYPE;
+  tree innertype;
+  HOST_WIDE_INT innersize;
+  HOST_WIDE_INT vec_size;
+
+  gcc_assert (TREE_CODE (type) == VECTOR_TYPE);
+
+  innertype = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+  innersize = tree_low_cst (TYPE_SIZE (innertype), 1);
+  vec_size  = tree_low_cst (TYPE_SIZE (type), 1);
+
+  if ((TREE_CODE (innertype) == INTEGER_TYPE) ||
+      (TREE_CODE (innertype) == POINTER_TYPE))
+    {
+      if (vec_size == 128)  /* 16-byte vectors */
+	{
+	  switch (innersize)
+	    {
+	    case  8: ret = CIL_V16QI; break;
+	    case 16: ret = CIL_V8HI;  break;
+	    case 32: ret = CIL_V4SI;  break;
+	    case 64: ret = CIL_V2DI;  break;
+	    default: break;
+	    }
+	}
+      else if (vec_size == 64)  /* 8-byte vectors */
+	{
+	  switch (innersize)
+	    {
+	    case  8: ret = CIL_V8QI; break;
+	    case 16: ret = CIL_V4HI;  break;
+	    case 32: ret = CIL_V2SI;  break;
+	    default: break;
+	    }
+	}
+      else if (vec_size == 32)  /* 4-byte vectors */
+	{
+	  switch (innersize)
+	    {
+	    case  8: ret = CIL_V4QI; break;
+	    case 16: ret = CIL_V2HI;  break;
+	    default: break;
+	    }
+	}
+    }
+  else if (TREE_CODE (innertype) == REAL_TYPE)
+    {
+      if (vec_size == 128)
+	{
+	  if (innersize == 32)
+	    ret = CIL_V4SF;
+	  else if (innersize == 64)
+	    ret = CIL_V2DF;
+	}
+      else if (vec_size == 64)
+	if (innersize == 32)
+	  ret = CIL_V2SF;
+    }
+  else
+    {
+      fprintf (stderr, "Vector of '%s'\n",
+	       tree_code_name[TREE_CODE (innertype)]);
+    }
+  if (ret == CIL_NO_TYPE)
+    internal_error ("Unsupported vector type %ld/%ld",
+		    vec_size, innersize);
+  return ret;
+}
+
+/* Return the CIL stack representation for type TYPE.  */
+
+cil_type_t
+type_to_cil (const_tree type)
+{
+  if (value_type_p (type))
+    return CIL_VALUE_TYPE;
+  else if (vector_type_p  (type))
+    return vector_to_cil(type);
+  else
+    return scalar_to_cil(type);
 }
 
 /* Return TRUE if the type specified by TYPE is loaded on the stack as a
@@ -740,7 +739,7 @@ value_type_p (const_tree type)
    vector type, FALSE otherwise.  */
 
 static bool
-vector_type_p (tree type)
+vector_type_p (const_tree type)
 {
   if (TREE_CODE (type) == VECTOR_TYPE)
     return true;
@@ -886,3 +885,9 @@ cil_set_stack_for_bb (cil_bb_stacks bbs, basic_block bb, cil_stack stack)
 
   bbs->stacks[bb->index] = cil_stack_copy (stack);
 }
+
+/*
+ * Local variables:
+ * eval: (c-set-style "gnu")
+ * End:
+ */

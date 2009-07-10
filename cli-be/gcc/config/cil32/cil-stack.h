@@ -110,6 +110,7 @@ extern bool cil_int_or_smaller_p (cil_type_t);
 extern bool cil_long_p (cil_type_t);
 extern bool cil_unsigned_int_p (cil_type_t);
 extern cil_type_t scalar_to_cil (const_tree);
-extern bool value_type_p (const_tree);
+extern cil_type_t vector_to_cil (const_tree);
+extern cil_type_t type_to_cil (const_tree);
 
 #endif /* CIL_STACK_H */

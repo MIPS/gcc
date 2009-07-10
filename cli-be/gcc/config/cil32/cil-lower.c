@@ -86,7 +86,7 @@ lower_cil_vector_ctor (const_cil_stmt ctor)
 {
   enum cil32_builtin builtin;
   tree type = cil_type (ctor);
-  cil_type_t cil_type = scalar_to_cil (type);
+  cil_type_t cil_type = vector_to_cil (type);
 
   /* Depending on the chosen back end, a VEC_CTOR node translates to different
      constructs. In the case of GCC_SIMD, it is a call to the static method,
@@ -140,7 +140,7 @@ lower_cil_ldvec (const_cil_stmt stmt)
 {
   enum cil32_builtin builtin;
   tree type = cil_type (stmt);
-  cil_type_t cil_type = scalar_to_cil (type);
+  cil_type_t cil_type = vector_to_cil (type);
 
   /* The MONO_SIMD back end has support for aligned accesses.  */
   if ((backend == MONO_SIMD) && (cil_prefix_unaligned (stmt) == 0))
@@ -171,7 +171,7 @@ lower_cil_stvec (const_cil_stmt stmt)
 {
   enum cil32_builtin builtin;
   tree type = cil_type (stmt);
-  cil_type_t cil_type = scalar_to_cil (type);
+  cil_type_t cil_type = vector_to_cil (type);
 
   /* The MONO_SIMD back end has support for aligned accesses.  */
   if ((backend == MONO_SIMD) && (cil_prefix_unaligned (stmt) == 0))
@@ -422,18 +422,18 @@ cil_lower_init (cil_seq init_seq)
       enum cil_opcode opcode = cil_opcode (stmt);
 
       switch (opcode)
-        {
+	{
 	case CIL_VEC_CTOR:
 	  stmt = lower_cil_vector_ctor (stmt);
 	  csi_replace (&csi, stmt);
 	  break;
 
-        case CIL_LDVEC:
+	case CIL_LDVEC:
 	  stmt = lower_cil_ldvec (stmt);
 	  csi_replace (&csi, stmt);
 	  break;
 
-        case CIL_STVEC:
+	case CIL_STVEC:
 	  stmt = lower_cil_stvec (stmt);
 	  csi_replace (&csi, stmt);
 	  break;
@@ -597,3 +597,9 @@ struct tree_opt_pass pass_lower_cil =
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
 };
+
+/*
+ * Local variables:
+ * eval: (c-set-style "gnu")
+ * End:
+ */
