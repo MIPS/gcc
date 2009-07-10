@@ -817,6 +817,12 @@ lto_output_tree_ref (struct output_block *ob, tree expr)
       lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
+    case CONST_DECL:
+      gcc_assert (decl_function_context (expr) == NULL);
+      output_record_start (ob, LTO_const_decl_ref);
+      lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
+      break;
+
     case TYPE_DECL:
       output_record_start (ob, LTO_type_decl_ref);
       lto_output_type_decl_index (ob->decl_state, ob->main_stream, expr);

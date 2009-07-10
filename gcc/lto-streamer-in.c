@@ -379,9 +379,10 @@ lto_input_tree_ref (struct lto_input_block *ib, struct data_in *data_in,
 
     case LTO_global_decl_ref:
     case LTO_result_decl_ref:
+    case LTO_const_decl_ref:
       ix_u = lto_input_uleb128 (ib);
       result = lto_file_decl_data_get_var_decl (data_in->file_data, ix_u);
-      if (tag != LTO_result_decl_ref)
+      if (tag == LTO_global_decl_ref)
 	varpool_mark_needed_node (varpool_node (result));
       break;
 
@@ -1135,7 +1136,7 @@ input_function (tree fn_decl, struct data_in *data_in,
       DECL_INITIAL (fn_decl) = make_node (BLOCK);
       BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
     }
-  DECL_SAVED_TREE (fn_decl) = DECL_INITIAL (fn_decl);
+  DECL_SAVED_TREE (fn_decl) = NULL_TREE;
 
   DECL_ARGUMENTS (fn_decl) = lto_input_tree (ib, data_in); 
 
