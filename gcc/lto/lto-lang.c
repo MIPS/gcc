@@ -1102,6 +1102,7 @@ lto_init (void)
 
   /* Initialize libcpp line maps for gcc_assert to work.  */
   linemap_add (line_table, LC_RENAME, 0, NULL, 0);
+  linemap_add (line_table, LC_RENAME, 0, NULL, 0);
 
   /* Create the basic integer types.  */
   build_common_tree_nodes (flag_signed_char, /*signed_sizetype=*/false);
