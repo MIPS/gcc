@@ -1723,11 +1723,21 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
 	}
       break;
     case CIL_STRING:
-      fprintf (file,
-	       "\n\t// BEGIN ASM"
-	       "\n\t%s"
-	       "\n\t// END ASM",
-	       TREE_STRING_POINTER (cil_string (stmt)));
+      {
+	tree t = cil_string (stmt);
+	const char *str;
+	const char *str2;
+	unsigned int len;
+
+	str = TREE_STRING_POINTER (t);
+	len = TREE_STRING_LENGTH (t);
+
+	fprintf (file, "\n\t// BEGIN ASM");
+	for (str2 = str; str2[0] && ISSPACE(str2[0]); ++str2)
+	  ;
+	fprintf (file, "\n\t%s%s", (str2[0] == '#') ? "//" : "", str);
+	fprintf (file,"\n\t// END ASM");
+      }
       break;
 
     default:
