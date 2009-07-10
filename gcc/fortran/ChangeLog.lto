@@ -1,3 +1,7 @@
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	* f95-lang.c (gfc_init_decl_processing): Set input_location.
+
 2009-01-12  Diego Novillo  <dnovillo@google.com>
 
 	* f95-lang.c: Remove const qualifier.
