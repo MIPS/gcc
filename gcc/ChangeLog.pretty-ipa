@@ -1,3 +1,7 @@
+2009-07-10  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-dce.c: Fix merge error.
+
 2009-06-16  Martin Jambor  <mjambor@suse.cz>
 
 	* tree-sra.c (find_param_candidates): Allow also TREE_ADDRESSABLE types.
