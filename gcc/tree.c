@@ -4744,6 +4744,22 @@ free_lang_data (void)
      a variant copy of ptr_type_node for front-end purposes.  */
   fileptr_type_node = ptr_type_node;
 
+  /* FIXME lto.  This is a hack.  boolean_type_node is set to
+     a frontend-specific mode by Fortran and Java at least.  */
+  if (TREE_CODE (boolean_type_node) != BOOLEAN_TYPE
+      || (TYPE_MODE (boolean_type_node)
+	  != mode_for_size (BOOL_TYPE_SIZE, MODE_INT, 0))
+      || TYPE_PRECISION (boolean_type_node) != 1
+      || !TYPE_UNSIGNED (boolean_type_node))
+    {
+      boolean_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
+      TREE_SET_CODE (boolean_type_node, BOOLEAN_TYPE);
+      TYPE_MAX_VALUE (boolean_type_node) = build_int_cst (boolean_type_node, 1);
+      TYPE_PRECISION (boolean_type_node) = 1;
+      boolean_false_node = TYPE_MIN_VALUE (boolean_type_node);
+      boolean_true_node = TYPE_MAX_VALUE (boolean_type_node);
+    }
+
   /* Reset some langhooks.  */
   lang_hooks.callgraph.analyze_expr = NULL;
   lang_hooks.types_compatible_p = gimple_types_compatible_p;
