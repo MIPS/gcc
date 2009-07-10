@@ -862,21 +862,8 @@ cil_seq_stack_depth (cil_seq seq, bool ret, unsigned int init, bool max)
 	case CIL_CALL:
 	case CIL_JMP:
 	case CIL_NEWOBJ:
-	  nargs = cil_call_nargs (cs) + (cil_call_static_chain (cs) ? 1 : 0);
-	  gcc_assert (depth >= nargs);
-	  depth -= nargs;
-
-	  if (!VOID_TYPE_P (TREE_TYPE (cil_call_ftype (cs))))
-	    {
-	      depth++;
-	      max_depth = (depth > max_depth) ? depth : max_depth;
-	    }
-
-	  break;
-
 	case CIL_CALLI:
-	  nargs = cil_call_nargs (cs) + 1
-		  + (cil_call_static_chain (cs) ? 1 : 0);
+	  nargs = cil_call_nargs_full (cs);
 	  gcc_assert (depth >= nargs);
 	  depth -= nargs;
 

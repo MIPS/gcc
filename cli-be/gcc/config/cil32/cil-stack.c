@@ -343,20 +343,8 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
     case CIL_CALL:
     case CIL_JMP:
     case CIL_NEWOBJ:
-      i = cil_call_nargs (stmt) + (cil_call_static_chain (stmt) ? 1 : 0);
-
-      while (i-- != 0)
-	VEC_pop (cil_type_t, vstack);
-
-      type = TREE_TYPE (cil_call_ftype (stmt));
-
-      if (!VOID_TYPE_P (type))
-	VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
-
-      break;
-
     case CIL_CALLI:
-      i = cil_call_nargs (stmt) + 1 + (cil_call_static_chain (stmt) ? 1 : 0);
+      i = cil_call_nargs_full (stmt);
 
       while (i-- != 0)
 	VEC_pop (cil_type_t, vstack);

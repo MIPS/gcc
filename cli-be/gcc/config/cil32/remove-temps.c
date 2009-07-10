@@ -313,17 +313,8 @@ remove_matching_ldloc (cil_stmt_iterator csi, cil_stack stack, tree var,
 
 	case CIL_CALL:
 	case CIL_JMP:
-	  nargs = cil_call_nargs (stmt)
-		  + (cil_call_static_chain (stmt) ? 1 : 0);
-
-	  if (cil_stack_depth (stack) - nargs < min_depth)
-	    return false;
-
-	  break;
-
 	case CIL_CALLI:
-	  nargs = cil_call_nargs (stmt) + 1
-		  + (cil_call_static_chain (stmt) ? 1 : 0);
+	  nargs = cil_call_nargs_full (stmt);
 
 	  if (cil_stack_depth (stack) - nargs < min_depth)
 	    return false;
