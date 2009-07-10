@@ -1,5 +1,10 @@
 2009-07-10  Richard Guenther  <rguenther@suse.de>
 
+	* c.opt (flto, fwhopr): Move ...
+	* common.opt (flto, fwhopr): ... here.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
 	* lto-streamer.h (enum LTO_tags): Add LTO_const_decl_ref.
 	* lto-streamer-out.c (lto_output_tree_ref): Deal with CONST_DECLs.
 	* lto-streamer-in.c (lto_input_tree_ref): Handle LTO_const_decl_ref.
