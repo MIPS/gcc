@@ -1292,13 +1292,15 @@ emit_prefixes (FILE *file, const_cil_stmt stmt)
 		  || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD));
       fprintf (file, "\n\tunaligned. %d", cil_prefix_unaligned (stmt));
     }
+
   if (cil_prefix_volatile (stmt))
     {
       gcc_assert ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
 		  || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
 		  || ((opcode >= CIL_STIND_I1) && (opcode <= CIL_STIND_I))
 		  || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD)
-		  || (opcode == CIL_LDSFLD) || (opcode == CIL_STSFLD));
+		  || (opcode == CIL_LDSFLD) || (opcode == CIL_STSFLD)
+		  || (opcode == CIL_LDOBJ) || (opcode == CIL_STOBJ));
       fprintf (file, "\n\tvolatile.");
     }
 }
