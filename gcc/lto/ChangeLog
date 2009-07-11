@@ -1,3 +1,7 @@
+2009-07-11  Richard Guenther  <rguenther@suse.de>
+
+	* lto-lang.c (lto_write_globals): Wrapup global decls.
+
 2009-07-10  Richard Guenther  <rguenther@suse.de>
 
 	* lto-lang.c (lto_init): Allocate one more location to make

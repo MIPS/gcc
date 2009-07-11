@@ -1032,6 +1032,7 @@ lto_write_globals (void)
 {
   tree *vec = VEC_address (tree, lto_global_var_decls);
   int len = VEC_length (tree, lto_global_var_decls);
+  wrapup_global_declarations (vec, len);
   emit_debug_global_declarations (vec, len);
   VEC_free (tree, gc, lto_global_var_decls);
 }
