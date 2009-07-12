@@ -114,7 +114,9 @@ enum gf_mask {
     GF_OMP_RETURN_NOWAIT	= 1 << 0,
 
     GF_OMP_SECTION_LAST		= 1 << 0,
-    GF_PREDICT_TAKEN		= 1 << 15
+    GF_PREDICT_TAKEN		= 1 << 15,
+
+    GIMPLE_DEBUG_BIND		= 0
 };
 
 /* Masks for selecting a pass local flag (PLF) to work on.  These
@@ -3177,7 +3179,7 @@ static inline bool
 gimple_debug_bind_p (const_gimple s)
 {
   if (is_gimple_debug (s))
-    return s->gsbase.subcode == VAR_DEBUG_VALUE;
+    return s->gsbase.subcode == GIMPLE_DEBUG_BIND;
 
   return false;
 }
@@ -3234,6 +3236,34 @@ gimple_debug_bind_set_value (gimple dbg, tree value)
   gcc_assert (gimple_debug_bind_p (dbg));
   gimple_set_op (dbg, 1, value);
 }
+
+/* The second operand of a GIMPLE_DEBUG_BIND, when the value was
+   optimized away.  */
+#define GIMPLE_DEBUG_BIND_NOVALUE NULL_TREE /* error_mark_node */
+
+/* Remove the value bound to the variable in a GIMPLE_DEBUG bind
+   statement.  */
+
+static inline void
+gimple_debug_bind_reset_value (gimple dbg)
+{
+  GIMPLE_CHECK (dbg, GIMPLE_DEBUG);
+  gcc_assert (gimple_debug_bind_p (dbg));
+  gimple_set_op (dbg, 1, GIMPLE_DEBUG_BIND_NOVALUE);
+}
+
+/* Return true if the GIMPLE_DEBUG bind statement is bound to a
+   value.  */
+
+static inline bool
+gimple_debug_bind_has_value_p (gimple dbg)
+{
+  GIMPLE_CHECK (dbg, GIMPLE_DEBUG);
+  gcc_assert (gimple_debug_bind_p (dbg));
+  return gimple_op (dbg, 1) != GIMPLE_DEBUG_BIND_NOVALUE;
+}
+
+#undef GIMPLE_DEBUG_BIND_NOVALUE
 
 /* Return the body for the OMP statement GS.  */
 
@@ -4390,7 +4420,9 @@ static inline void
 gsi_next_nondebug (gimple_stmt_iterator *i)
 {
   do
-    gsi_next (i);
+    {
+      gsi_next (i);
+    }
   while (!gsi_end_p (*i) && is_gimple_debug (gsi_stmt (*i)));
 }
 
@@ -4400,7 +4432,9 @@ static inline void
 gsi_prev_nondebug (gimple_stmt_iterator *i)
 {
   do
-    gsi_prev (i);
+    {
+      gsi_prev (i);
+    }
   while (!gsi_end_p (*i) && is_gimple_debug (gsi_stmt (*i)));
 }
 

@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
@@ -1062,16 +1062,6 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
   release_defs (stmt); 
 }
 
-/* Predicate used by check_and_update_debug_stmt.  Return TRUE if the
-   T's definition is not about to be removed.  T is assumed to be an
-   SSA_NAME.  */
-
-static bool
-necessary_p (tree t)
-{
-  return gimple_plf (SSA_NAME_DEF_STMT (t), STMT_NECESSARY);
-}
-
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
 
@@ -1089,10 +1079,32 @@ eliminate_unnecessary_stmts (void)
 
   clear_special_calls ();
 
-  FOR_EACH_BB (bb)
+  /* Walking basic blocks and statements in reverse order avoids
+     releasing SSA names before any other DEFs that refer to them are
+     released.  This helps avoid loss of debug information, as we get
+     a chance to propagate all RHSs of removed SSAs into debug uses,
+     rather than only the latest ones.  E.g., consider:
+
+     x_3 = y_1 + z_2;
+     a_5 = x_3 - b_4;
+     # DEBUG a => a_5
+
+     If we were to release x_3 before a_5, when we reached a_5 and
+     tried to substitute it into the debug stmt, we'd see x_3 there,
+     but x_3's DEF, type, etc would have already been disconnected.
+     By going backwards, the debug stmt first changes to:
+
+     # DEBUG a => x_3 - b_4
+
+     and then to:
+
+     # DEBUG a => y_1 + z_2 - b_4
+
+     as desired.  */
+  FOR_EACH_BB_REVERSE (bb)
     {
       /* Remove dead statements.  */
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
+      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi);)
 	{
 	  stmt = gsi_stmt (gsi);
 
@@ -1103,6 +1115,14 @@ eliminate_unnecessary_stmts (void)
 	    {
 	      remove_dead_stmt (&gsi, bb);
 	      something_changed = true;
+
+	      /* If stmt was the last stmt in the block, we want to
+		 move gsi to the stmt that became the last stmt, but
+		 gsi_prev would crash.  */
+	      if (gsi_end_p (gsi))
+		gsi = gsi_last_bb (bb);
+	      else
+		gsi_prev (&gsi);
 	    }
 	  else if (is_gimple_call (stmt))
 	    {
@@ -1132,19 +1152,10 @@ eliminate_unnecessary_stmts (void)
 		    }
 		  notice_special_calls (stmt);
 		}
-	      gsi_next (&gsi);
+	      gsi_prev (&gsi);
 	    }
 	  else
-	    {
-	      if (gimple_debug_bind_p (stmt))
-		{
-		  if (something_changed
-		      && (VAR_DEBUG_VALUE_VALUE (stmt)
-			  != VAR_DEBUG_VALUE_NOVALUE))
-		    check_and_update_debug_stmt (stmt, necessary_p);
-		}
-	      gsi_next (&gsi);
-	    }
+	    gsi_prev (&gsi);
 	}
     }
   /* Since we don't track liveness of virtual PHI nodes, it is possible that we

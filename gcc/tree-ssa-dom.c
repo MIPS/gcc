@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -2523,6 +2523,11 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 	 be successful would be if the use occurs in an ASM_EXPR.  */
       FOR_EACH_IMM_USE_STMT (use_stmt, iter, lhs)
 	{
+	  /* Leave debug stmts alone.  If we succeed in propagating
+	     all non-debug uses, we'll drop the DEF, and propagation
+	     into debug stmts will occur then.  */
+	  if (gimple_debug_bind_p (use_stmt))
+	    continue;
 	
 	  /* It's not always safe to propagate into an ASM_EXPR.  */
 	  if (gimple_code (use_stmt) == GIMPLE_ASM
@@ -2575,8 +2580,6 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 
 	      continue;
 	    }
-	  else if (gimple_debug_bind_p (use_stmt))
-	    check_and_update_debug_stmt (use_stmt, NULL);
 
 	  /* From this point onward we are propagating into a 
 	     real statement.  Folding may (or may not) be possible,

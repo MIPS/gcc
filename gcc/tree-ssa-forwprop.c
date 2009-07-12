@@ -984,7 +984,7 @@ forward_propagate_addr_expr (tree name, tree rhs)
     }
 
   if (all && debug)
-    adjust_debug_stmts_for_var_def_move (name, NULL, NULL);
+    propagate_var_def_into_debug_stmts (name, NULL, NULL);
 
   return all;
 }

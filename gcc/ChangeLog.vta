@@ -1,3 +1,75 @@
+2009-07-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Enclose CONST_STRINGs in MEMs.
+	(expand_debug_locations): Use NULL trees for no bind value.
+	(expand_gimple_basic_block): Likewise.
+	* gimple.h (GIMPLE_DEBUG_BIND): New.  Replaces all uses of
+	VAR_DEBUG_VALUE tree code.
+	(GIMPLE_DEBUG_BIND_NOVALUE): New.
+	(gimple_debug_bind_reset_value): New.  Replace all assignments to
+	VAR_DEBUG_VALUE_VALUE from VAR_DEBUG_VALUE_NOVALUE with it.
+	(gimple_debug_bind_has_value_p): New.  Replace all compares of
+	VAR_DEBUG_VALUE_VALUE and VAR_DEBUG_VALUE_NOVALUE with it.
+	(gsi_next_nondebug, gsi_prev_nondebug): Embrace do/while body.
+	* tree-if-conv.c (tree_if_convert_stmt): Adjust.
+	* tree-inline.c: Adjust.
+	(copy_debug_stmt, copy_debug_stmts): Add comments.
+	(insert_init_debug_bind): Use the var returned by
+	target_for_debug_bind, renamed from...
+	* tree-into-ssa.c (var_debug_value_for_decl): ... this.
+	(insert_phi_nodes_for, rewrite_stmt): Likewise.
+	(check_and_update_debug_stmt_1): Removed.
+	(check_and_update_debug_stmt): Removed.  Drop all callers.
+	(maybe_replace_use_in_debug_insn): Renamed to...
+	(maybe_replace_use_in_debug_stmt): ... this.  Adjust all callers.
+	Don't keep non-current SSA names.  Don't assume default DEFs.
+	(rewrite_update_stmt): Rearrange logic.
+	(adjust_debug_stmts_for_var_def_move,
+	adjust_debug_stmts_for_move): Moved to...
+	* tree-ssa.c (propagate_var_def_into_debug_stmts,
+	propagate_defs_into_debug_stmts): ... this.
+	(target_for_debug_bind): Moved and renamed from
+	var_debug_value_for_decl.  Support DECL_HAS_VALUE_EXPR_P rather
+	than ABSTRACT_ORIGINs.
+	(verify_ssa): Adjust.
+	* tree-parloops.c: Adjust.
+	(separate_decls_in_region): Add comments.  Drop unnecessary
+	assertion check.
+	* tree-ssa-dce.c (necessary_p): Remove.
+	(eliminate_unnecessary_stmts): Iterate backwards.  Adjust.
+	* tree-ssa-loop-ivopts.c: Adjust.
+	* tree.h (VAR_DEBUG_VALUE_NOVALUE): Removed.
+	(VAR_DEBUG_VALUE_SET_VAR): Removed.  Changed all callers to use
+	gimple_debug_bind_set_var.
+	(VAR_DEBUG_VALUE_VAR): Removed.  Changed all callers to use
+	gimple_debug_bind_get_var.
+	(VAR_DEBUG_VALUE_VALUE): Removed.  Changed all callers to use
+	gimple_debug_bind_get_value, gimple_debug_bind_get_value_ptr,
+	gimple_debug_bind_set_value, gimple_debug_bind_reset_value or
+	gimple_debug_bind_has_value_p.
+	(target_for_debug_bind): Declare.
+	(var_debug_value_for_decl): Remove.
+	* expr.c (expand_expr_real_1): Drop VAR_DEBUG_VALUE handling.
+	* gimple-pretty-print.c (dump_gimple_debug): Adjust.
+	* gimple.c (gimple_build_wtih_ops_stat): Take unsigned subcode.
+	(gimple_build_assign_with_ops_stat): Type-cast subcode.
+	(gimple_build_debug_bind_stat): Document stmt parameter.
+	Use GIMPLE_DEBUG_BIND.
+	* tree-flow.h: Rename and remove declarations.
+	* tree-ssa-operands.c Adjust.
+	(opf_debug_use): Removed.  Test is_gimple_debug instead.
+	(get_indirect_ref_operands): Pass down opf_no_vops.
+	(get_expr_operands): Drop VAR_DEBUG_VALUE handling.
+	* tree.def: Drop VAR_DEBUG_VALUE.
+	* var-tracking.c: Adjust.
+	* tree-cfg.c: Adjust.
+	(remove_bb): Walk stmts backwards.
+	(remove_edge_and_dominated_blocks): Visit blocks backwards.
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Simplify handling of
+	debug stmts.
+	* tree-ssa-forwprop.c, tree-ssa-loop-im.c: Adjust.
+	* tree-ssa-reassoc.c, tree-ssa-sink.c, tree-ssanames.c: Adjust.
+
 2009-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (add_location_or_const_value_attribute): Add

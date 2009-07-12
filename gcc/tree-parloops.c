@@ -883,7 +883,7 @@ separate_decls_in_region_debug_bind (gimple stmt,
     slot = htab_find_slot_with_hash (name_copies, &elt, elt.version, NO_INSERT);
     if (!slot)
       {
-	gimple_debug_bind_set_value (stmt, VAR_DEBUG_VALUE_NOVALUE);
+	gimple_debug_bind_reset_value (stmt);
 	update_stmt (stmt);
 	break;
       }
@@ -1253,6 +1253,12 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	}
     }
 
+  /* Now process debug bind stmts.  We must not create decls while
+     processing debug stmts, so we defer their processing so as to
+     make sure we will have debug info for as many variables as
+     possible (all of those that were dealt with in the loop above),
+     and discard those for which we know there's nothing we can
+     do.  */
   if (has_debug_stmt)
     for (i = 0; VEC_iterate (basic_block, body, i, bb); i++)
       if (bb != entry_bb && bb != exit_bb)
@@ -1271,8 +1277,6 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 		      continue;
 		    }
 		}
-	      else
-		gcc_assert (!is_gimple_debug (stmt));
 
 	      gsi_next (&gsi);
 	    }

@@ -126,9 +126,6 @@ static struct
    clobbering sites like function calls or ASM_EXPRs.  */
 #define opf_implicit	(1 << 2)
 
-/* Operand is a use only for purposes of debug information.  */
-#define opf_debug_use   (1 << 3)
-
 /* Array for building all the def operands.  */
 static VEC(tree,heap) *build_defs;
 
@@ -638,7 +635,7 @@ add_virtual_operand (gimple stmt ATTRIBUTE_UNUSED, int flags)
   if (flags & opf_no_vops)
     return;
 
-  gcc_assert ((flags & opf_debug_use) == 0);
+  gcc_assert (!is_gimple_debug (stmt));
 
   if (flags & opf_def)
     append_vdef (gimple_vop (cfun));
@@ -727,7 +724,8 @@ get_indirect_ref_operands (gimple stmt, tree expr, int flags,
 
   /* If requested, add a USE operand for the base pointer.  */
   if (recurse_on_base)
-    get_expr_operands (stmt, pptr, opf_use);
+    get_expr_operands (stmt, pptr,
+		       opf_use | (flags & opf_no_vops));
 }
 
 
@@ -856,8 +854,8 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
   if (expr == NULL)
     return;
 
-  if ((flags & opf_debug_use) != 0)
-    uflags |= (flags & (opf_debug_use | opf_no_vops));
+  if (is_gimple_debug (stmt))
+    uflags |= (flags & opf_no_vops);
 
   code = TREE_CODE (expr);
   codeclass = TREE_CODE_CLASS (code);
@@ -869,7 +867,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	 reference to it, but the fact that the statement takes its
 	 address will be of interest to some passes (e.g. alias
 	 resolution).  */
-      if (!(flags & opf_debug_use))
+      if (!is_gimple_debug (stmt))
 	mark_address_taken (TREE_OPERAND (expr, 0));
 
       /* If the address is invariant, there may be no interesting
@@ -948,12 +946,6 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), uflags);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
-      return;
-
-    case VAR_DEBUG_VALUE:
-      if (VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
-	get_expr_operands (stmt, &VAR_DEBUG_VALUE_VALUE (stmt),
-			   opf_use | opf_debug_use | opf_no_vops);
       return;
 
     case CONSTRUCTOR:
@@ -1045,9 +1037,9 @@ parse_ssa_operands (gimple stmt)
   else if (is_gimple_debug (stmt))
     {
       if (gimple_debug_bind_p (stmt)
-	  && VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
-	get_expr_operands (stmt, &VAR_DEBUG_VALUE_VALUE (stmt),
-			   opf_use | opf_debug_use | opf_no_vops);
+	  && gimple_debug_bind_has_value_p (stmt))
+	get_expr_operands (stmt, gimple_debug_bind_get_value_ptr (stmt),
+			   opf_use | opf_no_vops);
     }
   else
     {

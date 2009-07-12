@@ -779,7 +779,7 @@ dv_onepart_p (decl_or_value dv)
   if (!decl)
     return true;
 
-  return var_debug_value_for_decl (decl);
+  return (target_for_debug_bind (decl) != NULL_TREE);
 }
 
 /* Return the variable pool to be used for dv, depending on whether it
@@ -4490,7 +4490,7 @@ use_type (rtx *loc, struct count_use_info *cui, enum machine_mode *modep)
 
       if (!expr)
 	return MO_USE_NO_VAR;
-      else if (var_debug_value_for_decl (var_debug_decl (expr)))
+      else if (target_for_debug_bind (var_debug_decl (expr)))
 	return MO_CLOBBER;
       else if (track_loc_p (*loc, expr, REG_OFFSET (*loc),
 			    false, modep, NULL))
@@ -4504,7 +4504,7 @@ use_type (rtx *loc, struct count_use_info *cui, enum machine_mode *modep)
 
       if (!expr)
 	return MO_CLOBBER;
-      else if (var_debug_value_for_decl (var_debug_decl (expr)))
+      else if (target_for_debug_bind (var_debug_decl (expr)))
 	return MO_CLOBBER;
       else if (track_loc_p (*loc, expr, INT_MEM_OFFSET (*loc),
 			    false, modep, NULL))
@@ -7124,7 +7124,7 @@ vt_add_function_parameters (void)
 
       dv = dv_from_decl (parm);
 
-      if (var_debug_value_for_decl (parm)
+      if (target_for_debug_bind (parm)
 	  /* We can't deal with these right now, because this kind of
 	     variable is single-part.  ??? We could handle parallels
 	     that describe multiple locations for the same single

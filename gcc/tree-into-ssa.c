@@ -1054,244 +1054,6 @@ mark_phi_for_rewrite (basic_block bb, gimple phi)
   VEC_replace (gimple_vec, phis_to_rewrite, idx, phis);
 }
 
-/* Decide whether to emit a VAR_DEBUG_VALUE annotation for VAR.  */
-
-bool
-var_debug_value_for_decl (tree var)
-{
-  if (TREE_CODE (var) != VAR_DECL
-      && TREE_CODE (var) != PARM_DECL)
-    return false;
-
-  if (DECL_IGNORED_P (var))
-    return false;
-
-  if (!DECL_NAME (var))
-    {
-      tree origin = DECL_ABSTRACT_ORIGIN (var);
-
-      if (!origin)
-	return false;
-
-      if (!DECL_P (origin))
-	return false;
-
-      if (!DECL_NAME (origin))
-	return false;
-    }
-
-  if (!MAY_HAVE_DEBUG_STMTS)
-    return false;
-
-  if (!is_gimple_reg (var))
-    return false;
-
-  return true;
-}
-
-/* Given a VAR whose definition STMT is to be moved to the iterator
-   position TOGSIP in the TOBB basic block, verify whether we're
-   moving it across any of the debug statements that use it, and
-   adjust them as needed.  If TOBB is NULL, then the definition is
-   understood as being removed, and TOGSIP is unused.  */
-void
-adjust_debug_stmts_for_var_def_move (tree var,
-				     basic_block tobb,
-				     const gimple_stmt_iterator *togsip)
-{
-  imm_use_iterator imm_iter;
-  gimple stmt;
-  use_operand_p use_p;
-  tree value = NULL;
-  bool no_value = false;
-
-  if (!MAY_HAVE_DEBUG_STMTS)
-    return;
-
-  FOR_EACH_IMM_USE_STMT (stmt, imm_iter, var)
-    {
-      basic_block bb;
-      gimple_stmt_iterator si;
-
-      if (!is_gimple_debug (stmt))
-	continue;
-
-      if (tobb)
-	{
-	  bb = gimple_bb (stmt);
-
-	  if (bb != tobb)
-	    {
-	      if (dominated_by_p (CDI_DOMINATORS, bb, tobb))
-		continue;
-	    }
-	  else
-	    {
-	      si = *togsip;
-
-	      if (gsi_end_p (si))
-		continue;
-
-	      do
-		{
-		  gsi_prev (&si);
-		  if (gsi_end_p (si))
-		    break;
-		}
-	      while (gsi_stmt (si) != stmt);
-
-	      if (gsi_end_p (si))
-		continue;
-	    }
-	}
-
-      if (!value && !no_value)
-	{
-	  if (SSA_NAME_VALUE (var))
-	    value = SSA_NAME_VALUE (var);
-	  else
-	    {
-	      gimple def_stmt = SSA_NAME_DEF_STMT (var);
-
-	      if (gimple_code (def_stmt) == GIMPLE_ASSIGN
-		  && TREE_TYPE (gimple_assign_rhs1 (def_stmt))
-		  && gimple_assign_rhs2 (def_stmt)
-		  && TREE_TYPE (gimple_assign_rhs2 (def_stmt)))
-		value = gimple_assign_rhs_to_tree (def_stmt);
-	    }
-
-	  if (!value)
-	    no_value = true;
-	}
-
-      if (no_value)
-	VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
-      else
-	FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
-	  SET_USE (use_p, unshare_expr (value));
-
-      update_stmt (stmt);
-    }
-}
-
-
-/* Given a STMT to be moved to the iterator position TOBSIP in the
-   TOBB basic block, verify whether we're moving it across any of the
-   debug statements that use it.  If TOBB is NULL, then the definition
-   is understood as being removed, and TOBSIP is unused.  */
-
-void
-adjust_debug_stmts_for_move (gimple def, basic_block tobb,
-			     const gimple_stmt_iterator *togsip)
-{
-  ssa_op_iter op_iter;
-  def_operand_p def_p;
-
-  if (!MAY_HAVE_DEBUG_STMTS)
-    return;
-
-  FOR_EACH_SSA_DEF_OPERAND (def_p, def, op_iter, SSA_OP_ALL_DEFS)
-    {
-      tree var = DEF_FROM_PTR (def_p);
-
-      if (TREE_CODE (var) != SSA_NAME)
-	continue;
-
-      adjust_debug_stmts_for_var_def_move (var, tobb, togsip);
-    }
-}
-
-/* Wrapper struct for the function predicate passed to
-   check_and_update_debug_stmt_1 ().  */
-
-struct check_debug_predicate
-{
-  bool (*available_p)(tree);
-  gimple stmt;
-};
-
-/* Look for an SSA_NAME in the expression *TP whose definition was
-   removed, or is about to be removed, per the available_p predicate
-   given by the check_debug_predicate *DATA.  */
-
-static tree
-check_and_update_debug_stmt_1 (tree *tp, int *walk_subtrees,
-			       void *data)
-{
-  tree t = *tp;
-
-  if (EXPR_P (t))
-    return NULL_TREE;
-
-  *walk_subtrees = 0;
-
-  if (TREE_CODE (t) == SSA_NAME)
-    {
-      struct check_debug_predicate *p = (struct check_debug_predicate *)data;
-
-      if (SSA_NAME_IN_FREE_LIST (t))
-	return t;
-
-      if (!SSA_NAME_DEF_STMT (t))
-	{
-	  /* Default definitions are never removed.  */
-	  if (SSA_NAME_IS_DEFAULT_DEF (t))
-	    return NULL_TREE;
-	  else
-	    return t;
-	}
-
-      if (gimple_nop_p (SSA_NAME_DEF_STMT (t)))
-	{
-	  if (SSA_NAME_IS_DEFAULT_DEF (t))
-	    return NULL_TREE;
-	  else
-	    return t;
-	}
-
-      if (p->available_p && !p->available_p (t))
-	return t;
-
-      if (dom_info_available_p (CDI_DOMINATORS))
-	{
-	  basic_block bbuse = gimple_bb (p->stmt);
-	  basic_block bbdef = gimple_bb (SSA_NAME_DEF_STMT (t));
-
-	  if (bbuse != bbdef
-	      && !dominated_by_p (CDI_DOMINATORS, bbuse, bbdef))
-	    return t;
-	}
-    }
-
-  return NULL_TREE;
-}
-
-/* Look for any SSA_NAMEs in the VALUE of a VAR_DEBUG_VALUE statement
-   T that have become or are about to become unavailable.
-   AVAILABLE_P, if non-NULL, is used to determine whether the variable
-   is about to become unavailable.  */
-
-void
-check_and_update_debug_stmt (gimple t, bool (*available_p)(tree))
-{
-  struct check_debug_predicate p;
-
-  gcc_assert (is_gimple_debug (t));
-
-  if (VAR_DEBUG_VALUE_VALUE (t) == VAR_DEBUG_VALUE_NOVALUE)
-    return;
-
-  p.available_p = available_p;
-  p.stmt = t;
-  if (walk_tree (&VAR_DEBUG_VALUE_VALUE (t), check_and_update_debug_stmt_1,
-		 &p, NULL))
-    {
-      /* ??? Can we do better?  */
-      VAR_DEBUG_VALUE_VALUE (t) = VAR_DEBUG_VALUE_NOVALUE;
-      update_stmt (t);
-    }
-}
-
 /* Insert PHI nodes for variable VAR using the iterated dominance
    frontier given in PHI_INSERTION_POINTS.  If UPDATE_P is true, this
    function assumes that the caller is incrementally updating the
@@ -1358,11 +1120,13 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	}
       else
 	{
+	  tree tracked_var;
 	  gcc_assert (DECL_P (var));
 	  phi = create_phi_node (var, bb);
-	  if (!update_p && var_debug_value_for_decl (var))
+	  if (!update_p && (tracked_var = target_for_debug_bind (var)))
 	    {
-	      gimple note = gimple_build_debug_bind (var, PHI_RESULT (phi),
+	      gimple note = gimple_build_debug_bind (tracked_var,
+						     PHI_RESULT (phi),
 						     phi);
 	      gimple_stmt_iterator si = gsi_after_labels (bb);
 	      gsi_insert_before (&si, note, GSI_SAME_STMT);
@@ -1540,15 +1304,19 @@ rewrite_stmt (gimple_stmt_iterator si)
   if (register_defs_p (stmt))
     FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
       {
-	tree var = DEF_FROM_PTR (def_p), name;
+	tree var = DEF_FROM_PTR (def_p);
+	tree name = make_ssa_name (var, stmt);
+	tree tracked_var;
 	gcc_assert (DECL_P (var));
-	SET_DEF (def_p, name = make_ssa_name (var, stmt));
-	if (var_debug_value_for_decl (var))
+	SET_DEF (def_p, name);
+	register_new_def (DEF_FROM_PTR (def_p), var);
+
+	tracked_var = target_for_debug_bind (var);
+	if (tracked_var)
 	  {
-	    gimple note = gimple_build_debug_bind (var, name, stmt);
+	    gimple note = gimple_build_debug_bind (tracked_var, name, stmt);
 	    gsi_insert_after (&si, note, GSI_SAME_STMT);
 	  }
-	register_new_def (DEF_FROM_PTR (def_p), var);
       }
 }
 
@@ -2013,7 +1781,7 @@ maybe_replace_use (use_operand_p use_p)
    returning false to indicate a need to do so.  */
 
 static inline bool
-maybe_replace_use_in_debug_insn (use_operand_p use_p)
+maybe_replace_use_in_debug_stmt (use_operand_p use_p)
 {
   tree rdef = NULL_TREE;
   tree use = USE_FROM_PTR (use_p);
@@ -2024,11 +1792,15 @@ maybe_replace_use_in_debug_insn (use_operand_p use_p)
   else if (is_old_name (use))
     {
       rdef = get_current_def (use);
-      if (!rdef && SSA_NAME_DEF_STMT (use))
-	return true;
+      /* We can't assume that, if there's no current definition, the
+	 default one should be used.  It could be the case that we've
+	 rearranged blocks so that the earlier definition no longer
+	 dominates the use.  */
+      if (!rdef && SSA_NAME_IS_DEFAULT_DEF (use))
+	rdef = use;
     }
   else
-    return true;
+    rdef = use;
 
   if (rdef && rdef != use)
     SET_USE (use_p, rdef);
@@ -2102,37 +1874,41 @@ rewrite_update_stmt (gimple stmt)
 
   /* Rewrite USES included in OLD_SSA_NAMES and USES whose underlying
      symbol is marked for renaming.  */
-  if (rewrite_uses_p (stmt) && !is_gimple_debug (stmt))
-    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
-      maybe_replace_use (use_p);
-
-  else if (rewrite_uses_p (stmt) && is_gimple_debug (stmt))
+  if (rewrite_uses_p (stmt))
     {
-      bool failed = false;
-
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
-	if (!maybe_replace_use_in_debug_insn (use_p))
-	  {
-	    failed = true;
-	    break;
-	  }
-
-      if (failed)
+      if (is_gimple_debug (stmt))
 	{
-	  /* DOM sometimes threads jumps in such a way that a debug
-	     stmt ends up referencing a SSA variable that no longer
-	     dominates the debug stmt, but such that all incoming
-	     definitions refer to the same definition in an earlier
-	     dominator.  We could try to recover that definition
-	     somehow, but this will have to do for now.
+	  bool failed = false;
 
-	     Introducing a default definition, which is what
-	     maybe_replace_use() would do in such cases, may modify
-	     code generation, for the otherwise-unused default
-	     definition would never go away, modifying SSA version
-	     numbers all over.  */
-	  VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
-	  update_stmt (stmt);
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+	    if (!maybe_replace_use_in_debug_stmt (use_p))
+	      {
+		failed = true;
+		break;
+	      }
+
+	  if (failed)
+	    {
+	      /* DOM sometimes threads jumps in such a way that a
+		 debug stmt ends up referencing a SSA variable that no
+		 longer dominates the debug stmt, but such that all
+		 incoming definitions refer to the same definition in
+		 an earlier dominator.  We could try to recover that
+		 definition somehow, but this will have to do for now.
+
+		 Introducing a default definition, which is what
+		 maybe_replace_use() would do in such cases, may
+		 modify code generation, for the otherwise-unused
+		 default definition would never go away, modifying SSA
+		 version numbers all over.  */
+	      gimple_debug_bind_reset_value (stmt);
+	      update_stmt (stmt);
+	    }
+	}
+      else
+	{
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
+	    maybe_replace_use (use_p);
 	}
     }
 

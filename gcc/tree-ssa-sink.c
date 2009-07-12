@@ -388,7 +388,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
       *togsi = gsi_after_labels (commondom);
 
       if (debug_stmts)
-	adjust_debug_stmts_for_move (stmt, commondom, togsi);
+	propagate_defs_into_debug_stmts (stmt, commondom, togsi);
 
       return true;
     }
@@ -408,7 +408,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
 
       *togsi = gsi_for_stmt (use);
 
-      adjust_debug_stmts_for_move (stmt, sinkbb, togsi);
+      propagate_defs_into_debug_stmts (stmt, sinkbb, togsi);
 
       return true;
     }
@@ -443,7 +443,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
 
   *togsi = gsi_after_labels (sinkbb);
 
-  adjust_debug_stmts_for_move (stmt, sinkbb, togsi);
+  propagate_defs_into_debug_stmts (stmt, sinkbb, togsi);
 
   return true;
 }

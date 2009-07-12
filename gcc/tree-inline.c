@@ -159,7 +159,7 @@ insert_debug_decl_map (copy_body_data *id, tree key, tree value)
   if (!MAY_HAVE_DEBUG_STMTS)
     return;
 
-  if (!var_debug_value_for_decl (key))
+  if (!target_for_debug_bind (key))
     return;
 
   gcc_assert (TREE_CODE (key) == PARM_DECL);
@@ -1323,8 +1323,8 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
       if (gimple_debug_bind_p (stmt))
 	{
-	  copy = gimple_build_debug_bind (VAR_DEBUG_VALUE_VAR (stmt),
-					  VAR_DEBUG_VALUE_VALUE (stmt),
+	  copy = gimple_build_debug_bind (gimple_debug_bind_get_var (stmt),
+					  gimple_debug_bind_get_value (stmt),
 					  stmt);
 	  VARRAY_PUSH_GENERIC_PTR (id->debug_stmts, copy);
 	  return copy;
@@ -2052,6 +2052,12 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   return new_fndecl;
 }
 
+/* Copy the debug STMT using ID.  We deal with these statements in a
+   special way: if any variable in their VALUE expression wasn't
+   remapped yet, we won't remap it, because that would get decl uids
+   out of sync, causing codegen differences between -g and -g0.  If
+   this arises, we drop the VALUE expression altogether.  */
+
 static void
 copy_debug_stmt (gimple stmt, copy_body_data *id)
 {
@@ -2074,7 +2080,7 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
 
   processing_debug_stmt = 1;
 
-  t = VAR_DEBUG_VALUE_VAR (stmt);
+  t = gimple_debug_bind_get_var (stmt);
 
   if (TREE_CODE (t) == PARM_DECL && id->debug_map
       && (n = (tree *) pointer_map_contains (id->debug_map, t)))
@@ -2085,14 +2091,15 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
   else
     walk_tree (&t, remap_gimple_op_r, &wi, NULL);
 
-  VAR_DEBUG_VALUE_SET_VAR (stmt, t);
+  gimple_debug_bind_set_var (stmt, t);
 
-  if (VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
-    walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), remap_gimple_op_r, &wi, NULL);
+  if (gimple_debug_bind_has_value_p (stmt))
+    walk_tree (gimple_debug_bind_get_value_ptr (stmt),
+	       remap_gimple_op_r, &wi, NULL);
 
   /* Punt if any decl couldn't be remapped.  */
   if (processing_debug_stmt < 0)
-    VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
+    gimple_debug_bind_reset_value (stmt);
 
   processing_debug_stmt = 0;
 
@@ -2100,6 +2107,10 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
   if (gimple_in_ssa_p (cfun))
     mark_symbols_for_renaming (stmt);
 }
+
+/* Process deferred debug stmts.  In order to give values better odds
+   of being successfully remapped, we delay the processing of debug
+   stmts.  */
 
 static void
 copy_debug_stmts (copy_body_data *id)
@@ -2174,6 +2185,7 @@ insert_init_debug_bind (copy_body_data *id,
 {
   gimple note;
   gimple_stmt_iterator gsi;
+  tree tracked_var;
 
   if (!gimple_in_ssa_p (id->src_cfun))
     return NULL;
@@ -2181,7 +2193,8 @@ insert_init_debug_bind (copy_body_data *id,
   if (!MAY_HAVE_DEBUG_STMTS)
     return NULL;
 
-  if (!var_debug_value_for_decl (var))
+  tracked_var = target_for_debug_bind (var);
+  if (!tracked_var)
     return NULL;
 
   if (bb)
@@ -2191,7 +2204,7 @@ insert_init_debug_bind (copy_body_data *id,
 	base_stmt = gsi_stmt (gsi);
     }
 
-  note = gimple_build_debug_bind (var, value, base_stmt);
+  note = gimple_build_debug_bind (tracked_var, value, base_stmt);
 
   if (bb)
     {

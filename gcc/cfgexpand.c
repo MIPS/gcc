@@ -2194,6 +2194,8 @@ expand_debug_expr (tree exp)
       if (!lookup_constant_def (exp))
 	{
 	  op0 = gen_rtx_CONST_STRING (Pmode, TREE_STRING_POINTER (exp));
+	  op0 = gen_rtx_MEM (BLKmode, op0);
+	  set_mem_attributes (op0, exp, 0);
 	  return op0;
 	}
       /* Fall through...  */
@@ -2751,7 +2753,7 @@ expand_debug_locations (void)
 	rtx val;
 	enum machine_mode mode;
 
-	if (value == VAR_DEBUG_VALUE_NOVALUE)
+	if (value == NULL_TREE)
 	  val = NULL_RTX;
 	else
 	  {
@@ -2883,10 +2885,15 @@ expand_gimple_basic_block (basic_block bb)
 
 	  for (;;)
 	    {
-	      tree var = VAR_DEBUG_VALUE_VAR (stmt);
-	      tree value = VAR_DEBUG_VALUE_VALUE (stmt);
+	      tree var = gimple_debug_bind_get_var (stmt);
+	      tree value;
 	      rtx val;
 	      enum machine_mode mode;
+
+	      if (gimple_debug_bind_has_value_p (stmt))
+		value = gimple_debug_bind_get_value (stmt);
+	      else
+		value = NULL_TREE;
 
 	      last = get_last_insn ();
 

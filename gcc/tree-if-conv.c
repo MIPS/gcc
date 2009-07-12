@@ -240,10 +240,10 @@ tree_if_convert_stmt (struct loop *  loop, gimple t, tree cond,
       break;
 
     case GIMPLE_DEBUG:
-      /* ??? Should there be conditional VAR_DEBUG_VALUEs?  */
+      /* ??? Should there be conditional GIMPLE_DEBUG_BINDs?  */
       if (gimple_debug_bind_p (gsi_stmt (*gsi)))
 	{
-	  VAR_DEBUG_VALUE_VALUE (gsi_stmt (*gsi)) = VAR_DEBUG_VALUE_NOVALUE;
+	  gimple_debug_bind_reset_value (gsi_stmt (*gsi));
 	  update_stmt (gsi_stmt (*gsi));
 	}
       break;

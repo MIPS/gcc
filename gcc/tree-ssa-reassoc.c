@@ -1405,7 +1405,7 @@ rewrite_expr_tree (gimple stmt, unsigned int opindex,
 	    {
 	      stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt1));
 	      gsirhs1 = gsi_for_stmt (stmt2);
-	      adjust_debug_stmts_for_move (stmt2, gimple_bb (stmt), &gsinow);
+	      propagate_defs_into_debug_stmts (stmt2, gimple_bb (stmt), &gsinow);
 	      gsi_move_before (&gsirhs1, &gsinow);
 	      gsi_prev (&gsinow);
 	      stmt1 = stmt2;
@@ -1452,7 +1452,7 @@ linearize_expr (gimple stmt)
 
   gsinow = gsi_for_stmt (stmt);
   gsirhs = gsi_for_stmt (binrhs);
-  adjust_debug_stmts_for_move (binrhs, gimple_bb (stmt), &gsinow);
+  propagate_defs_into_debug_stmts (binrhs, gimple_bb (stmt), &gsinow);
   gsi_move_before (&gsirhs, &gsinow);
 
   gimple_assign_set_rhs2 (stmt, gimple_assign_rhs1 (binrhs));
