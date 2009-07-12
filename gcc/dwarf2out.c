@@ -12547,11 +12547,13 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       enum var_init_status status;
       node = loc_list->first;
       status = NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
-      if (CONSTANT_P (NOTE_VAR_LOCATION (node->var_loc_note))
-	  || GET_CODE (NOTE_VAR_LOCATION (node->var_loc_note)) == CONST_STRING)
+      rtl = NOTE_VAR_LOCATION (node->var_loc_note);
+      if (GET_CODE (rtl) == VAR_LOCATION
+	  && GET_CODE (XEXP (rtl, 1)) != PARALLEL)
+	rtl = XEXP (XEXP (rtl, 1), 0);
+      if (CONSTANT_P (rtl) || GET_CODE (rtl) == CONST_STRING)
 	{
-	  add_const_value_attribute (die,
-				     NOTE_VAR_LOCATION (node->var_loc_note));
+	  add_const_value_attribute (die, rtl);
 	  return;
 	}
       descr = loc_descriptor (NOTE_VAR_LOCATION (node->var_loc_note),
