@@ -1,5 +1,6 @@
 /* Convert a program in SSA form into Normal form.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Andrew Macleod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -785,6 +786,34 @@ rewrite_trees (var_map map, gimple *values)
 	      num_uses++;
 	    }
 
+	  /* A replaceable expression may be used in only one
+	     non-debug stmt, but it may also be present in debug
+	     stmts, and in debug stmts, other SSA names in them may
+	     not have been turned into non-SSA form.  Deal with them
+	     here.  */
+	  if (changed && is_gimple_debug (stmt))
+	    {
+	      while (1)
+		{
+		  bool changed_again = false;
+
+		  update_stmt (stmt);
+
+		  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+		    {
+		      if (TREE_CODE (USE_FROM_PTR (use_p)) != SSA_NAME)
+			continue;
+		      if (replace_use_variable (map, use_p, values))
+			changed_again = true;
+		    }
+
+		  if (!changed_again)
+		    break;
+		}
+
+	      num_uses = 0;
+	    }
+
 	  if (num_uses != 1)
 	    is_copy = false;
 
@@ -820,8 +849,6 @@ rewrite_trees (var_map map, gimple *values)
 	    gsi_remove (&gsi, true);
 	  else
 	    {
-	      if (is_gimple_debug (stmt))
-		check_and_update_debug_stmt (stmt, not_ssa_name_p);
 	      if (changed)
 		if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
 		  gimple_purge_dead_eh_edges (bb);

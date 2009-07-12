@@ -203,7 +203,7 @@ release_ssa_name (tree var)
       use_operand_p imm = &(SSA_NAME_IMM_USE_NODE (var));
 
       if (MAY_HAVE_DEBUG_STMTS)
-	adjust_debug_stmts_for_var_def_move (var, NULL, NULL);
+	propagate_var_def_into_debug_stmts (var, NULL, NULL);
 
 #ifdef ENABLE_CHECKING
       verify_imm_links (stderr, var);

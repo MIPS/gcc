@@ -585,6 +585,10 @@ typedef struct
        !end_referenced_vars_p (&(ITER)); \
        (VAR) = next_referenced_var (&(ITER))) 
 
+void propagate_defs_into_debug_stmts (gimple, basic_block,
+				  const gimple_stmt_iterator *);
+void propagate_var_def_into_debug_stmts (tree, basic_block,
+					  const gimple_stmt_iterator *);
 
 typedef struct
 {
@@ -888,11 +892,6 @@ void mark_sym_for_renaming (tree);
 void mark_set_for_renaming (bitmap);
 tree get_current_def (tree);
 void set_current_def (tree, tree);
-void adjust_debug_stmts_for_move (gimple, basic_block,
-				  const gimple_stmt_iterator *);
-void adjust_debug_stmts_for_var_def_move (tree, basic_block,
-					  const gimple_stmt_iterator *);
-void check_and_update_debug_stmt (gimple, bool (*)(tree));
 
 /* In tree-ssanames.c  */
 extern void init_ssanames (struct function *, int);

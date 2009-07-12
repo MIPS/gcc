@@ -9236,10 +9236,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	return const0_rtx;
       }
 
-    case VAR_DEBUG_VALUE:
-      /* Expanded by expand_gimple_basic_block only.  */
-      gcc_unreachable ();
-
     case RETURN_EXPR:
       if (!TREE_OPERAND (exp, 0))
 	expand_null_return ();

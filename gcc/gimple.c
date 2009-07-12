@@ -257,7 +257,7 @@ gimple_set_subcode (gimple g, unsigned subcode)
   gimple_build_with_ops_stat (c, s, n MEM_STAT_INFO)
 
 static gimple
-gimple_build_with_ops_stat (enum gimple_code code, enum tree_code subcode,
+gimple_build_with_ops_stat (enum gimple_code code, unsigned subcode,
 		            unsigned num_ops MEM_STAT_DECL)
 {
   gimple s = gimple_alloc_stat (code, num_ops PASS_MEM_STAT);
@@ -430,7 +430,7 @@ gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
      code).  */
   num_ops = get_gimple_rhs_num_ops (subcode) + 1;
   
-  p = gimple_build_with_ops_stat (GIMPLE_ASSIGN, subcode, num_ops
+  p = gimple_build_with_ops_stat (GIMPLE_ASSIGN, (unsigned)subcode, num_ops
   			          PASS_MEM_STAT);
   gimple_assign_set_lhs (p, lhs);
   gimple_assign_set_rhs1 (p, op1);
@@ -833,12 +833,13 @@ gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
 
 /* Build a new GIMPLE_DEBUG_BIND statement.
 
-   VAR is bound to VALUE.  */
+   VAR is bound to VALUE; block and location are taken from STMT.  */
 
 gimple
 gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
 {
-  gimple p = gimple_build_with_ops_stat (GIMPLE_DEBUG, VAR_DEBUG_VALUE, 2
+  gimple p = gimple_build_with_ops_stat (GIMPLE_DEBUG,
+					 (unsigned)GIMPLE_DEBUG_BIND, 2
 					 PASS_MEM_STAT);
   
   gimple_debug_bind_set_var (p, var);

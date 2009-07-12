@@ -1560,13 +1560,6 @@ struct tree_constructor GTY(())
 /* Nonzero if is_gimple_debug() may possibly hold.  */
 #define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
 
-/* The second operand of a VAR_DEBUG_VALUE when the value was
-   optimized away.  */
-#define VAR_DEBUG_VALUE_NOVALUE NULL_TREE /* error_mark_node */
-#define VAR_DEBUG_VALUE_SET_VAR(T, V) (gimple_debug_bind_set_var ((T), (V)))
-#define VAR_DEBUG_VALUE_VAR(T) (gimple_debug_bind_get_var (T))
-#define VAR_DEBUG_VALUE_VALUE(T) (*gimple_debug_bind_get_value_ptr (T))
-
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
 
@@ -5250,6 +5243,10 @@ struct tree_priority_map GTY(())
 #define tree_priority_map_hash tree_map_base_hash
 #define tree_priority_map_marked_p tree_map_base_marked_p
 
+/* In tree-ssa.c */
+
+tree target_for_debug_bind (tree);
+
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
@@ -5387,9 +5384,5 @@ more_const_call_expr_args_p (const const_call_expr_arg_iterator *iter)
 #define FOR_EACH_CONST_CALL_EXPR_ARG(arg, iter, call)			\
   for ((arg) = first_const_call_expr_arg ((call), &(iter)); (arg);	\
        (arg) = next_const_call_expr_arg (&(iter)))
-
-/* Determines whether the given TREE is subject to debug tracking.  */
-
-bool var_debug_value_for_decl (tree);
 
 #endif  /* GCC_TREE_H  */

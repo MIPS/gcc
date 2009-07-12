@@ -5437,7 +5437,7 @@ remove_unused_ivs (struct ivopts_data *data)
 		    continue;
 
 		  /* ??? We can probably do better than this.  */
-		  VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
+		  gimple_debug_bind_reset_value (stmt);
 		  update_stmt (stmt);
 		}
 	    }
