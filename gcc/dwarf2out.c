@@ -3723,7 +3723,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
         current_unit_personality = personality;
       else
 	sorry ("Multiple EH personalities are supported only with assemblers "
-	       "supporting .cfi.personality dirrective.");
+	       "supporting .cfi.personality directive.");
     }
 }
 
