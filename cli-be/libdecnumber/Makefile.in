@@ -1,7 +1,7 @@
 # @configure_input@
 # Makefile for libdecnumber.  Run 'configure' to generate Makefile from Makefile.in
 
-# Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+# Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -44,6 +44,7 @@ PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 SHELL = @SHELL@
 
+datarootdir = @datarootdir@
 datadir = @datadir@
 exec_prefix = @prefix@
 libdir = @libdir@
@@ -95,7 +96,7 @@ $(srcdir)/configure: @MAINT@ $(srcdir)/aclocal.m4
 	cd $(srcdir) && $(AUTOCONF)
 
 $(srcdir)/aclocal.m4: @MAINT@ $(srcdir)/../config/stdint.m4 \
-	$(srcdir)/../config/warnings.m4 \
+	$(srcdir)/../config/warnings.m4 $(srcdir)/../config/override.m4 \
 	$(srcdir)/configure.ac
 	cd $(srcdir) && $(ACLOCAL) -I ../config
 
@@ -146,12 +147,12 @@ mostlyclean:
 	-rm -f *.o
 
 clean: mostlyclean
-	-rm -rf makedepend$(EXEEXT) libdecnumber.a $(srcdir)/autom4te.cache
+	-rm -rf libdecnumber.a $(srcdir)/autom4te.cache
 
 distclean: clean
 	-rm -f config.h stamp-h1 config.status config.cache config.log \
 	  configure.lineno configure.status.lineno Makefile localedir.h \
-	  localedir.hs
+	  localedir.hs gstdint.h
 
 maintainer-clean: distclean
 	@echo "This command is intended for maintainers to use"

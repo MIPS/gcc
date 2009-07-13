@@ -46,8 +46,30 @@
 
 #include <cwchar> // For mbstate_t
 
-#ifdef _GLIBCXX_HAVE_STDINT_H
+// XXX If <stdint.h> is really needed, make sure to define the macros
+// before including it, in order not to break <tr1/cstdint> (and <cstdint>
+// in C++0x).  Reconsider all this as soon as possible...
+#if (defined(_GLIBCXX_HAVE_INT64_T) && !defined(_GLIBCXX_HAVE_INT64_T_LONG) \
+     && !defined(_GLIBCXX_HAVE_INT64_T_LONG_LONG))
+
+#ifndef __STDC_LIMIT_MACROS
+# define _UNDEF__STDC_LIMIT_MACROS
+# define __STDC_LIMIT_MACROS
+#endif
+#ifndef __STDC_CONSTANT_MACROS
+# define _UNDEF__STDC_CONSTANT_MACROS
+# define __STDC_CONSTANT_MACROS
+#endif
 #include <stdint.h> // For int64_t
+#ifdef _UNDEF__STDC_LIMIT_MACROS
+# undef __STDC_LIMIT_MACROS
+# undef _UNDEF__STDC_LIMIT_MACROS
+#endif
+#ifdef _UNDEF__STDC_CONSTANT_MACROS
+# undef __STDC_CONSTANT_MACROS
+# undef _UNDEF__STDC_CONSTANT_MACROS
+#endif
+
 #endif
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
@@ -67,7 +89,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  Note: In versions of GCC up to and including GCC 3.3, streamoff
    *  was typedef long.
   */  
-#ifdef _GLIBCXX_HAVE_INT64_T
+#ifdef _GLIBCXX_HAVE_INT64_T_LONG
+  typedef long          streamoff;
+#elif defined(_GLIBCXX_HAVE_INT64_T_LONG_LONG)
+  typedef long long     streamoff;
+#elif defined(_GLIBCXX_HAVE_INT64_T) 
   typedef int64_t       streamoff;
 #else
   typedef long long     streamoff;
@@ -207,6 +233,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   typedef fpos<mbstate_t> streampos;
   /// File position for wchar_t streams.
   typedef fpos<mbstate_t> wstreampos;
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  /// File position for char16_t streams.
+  typedef fpos<mbstate_t> u16streampos;
+  /// File position for char32_t streams.
+  typedef fpos<mbstate_t> u32streampos;
+#endif
 
 _GLIBCXX_END_NAMESPACE
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1997-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,7 +61,7 @@ package System.Tasking.Debug is
    --  task specific state.
 
    function Get_User_State return Long_Integer;
-   --  Return the user state for the current task.
+   --  Return the user state for the current task
 
    -------------------------
    -- General GDB support --

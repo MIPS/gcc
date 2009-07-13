@@ -1,5 +1,5 @@
 /* Vector API for GNU compiler.
-   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Nathan Sidwell <nathan@codesourcery.com>
 
 This file is part of GCC.
@@ -429,7 +429,12 @@ extern void *vec_heap_p_reserve_exact (void *, int MEM_STAT_DECL);
 extern void *vec_heap_o_reserve (void *, int, size_t, size_t MEM_STAT_DECL);
 extern void *vec_heap_o_reserve_exact (void *, int, size_t, size_t
 				       MEM_STAT_DECL);
+extern void dump_vec_loc_statistics (void);
+#ifdef GATHER_STATISTICS
+void vec_heap_free (void *);
+#else
 #define vec_heap_free(V) free (V)
+#endif
 
 #if ENABLE_CHECKING
 #define VEC_CHECK_INFO ,__FILE__,__LINE__,__FUNCTION__
@@ -480,6 +485,12 @@ typedef struct VEC(T,A) GTY						  \
   VEC(T,B) base;							  \
 } VEC(T,A)
 
+#define VEC_TA(T,B,A)							  \
+typedef struct VEC(T,A)							  \
+{									  \
+  VEC(T,B) base;							  \
+} VEC(T,A)
+
 /* Convert to base type.  */
 #define VEC_BASE(P)  ((P) ? &(P)->base : 0)
 
@@ -491,11 +502,11 @@ static inline void VEC_OP (T,must_be,integral_type) (void) 		  \
 }									  \
 									  \
 VEC_T(T,base);								  \
-VEC_TA_GTY(T,base,none,);						  \
+VEC_TA(T,base,none);							  \
 DEF_VEC_FUNC_P(T)							  \
 struct vec_swallow_trailing_semi
 #define DEF_VEC_ALLOC_I(T,A)						  \
-VEC_TA_GTY(T,base,A,);							  \
+VEC_TA(T,base,A);							  \
 DEF_VEC_ALLOC_FUNC_I(T,A)						  \
 struct vec_swallow_trailing_semi
 
@@ -507,11 +518,11 @@ static inline void VEC_OP (T,must_be,pointer_type) (void) 		  \
 }									  \
 									  \
 VEC_T_GTY(T,base);							  \
-VEC_TA_GTY(T,base,none,);						  \
+VEC_TA(T,base,none);							  \
 DEF_VEC_FUNC_P(T)							  \
 struct vec_swallow_trailing_semi
 #define DEF_VEC_ALLOC_P(T,A)						  \
-VEC_TA_GTY(T,base,A,);							  \
+VEC_TA(T,base,A);							  \
 DEF_VEC_ALLOC_FUNC_P(T,A)						  \
 struct vec_swallow_trailing_semi
 
@@ -797,11 +808,11 @@ static inline T *VEC_OP (T,A,safe_insert)		     	  	  \
 /* Vector of object.  */
 #define DEF_VEC_O(T)							  \
 VEC_T_GTY(T,base);							  \
-VEC_TA_GTY(T,base,none,);						  \
+VEC_TA(T,base,none);						  \
 DEF_VEC_FUNC_O(T)							  \
 struct vec_swallow_trailing_semi
 #define DEF_VEC_ALLOC_O(T,A)						  \
-VEC_TA_GTY(T,base,A,);							  \
+VEC_TA(T,base,A);							  \
 DEF_VEC_ALLOC_FUNC_O(T,A)						  \
 struct vec_swallow_trailing_semi
 

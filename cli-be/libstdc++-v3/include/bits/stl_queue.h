@@ -1,6 +1,6 @@
 // Queue implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -70,8 +70,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   /**
    *  @brief  A standard container giving FIFO behavior.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  Meets many of the requirements of a
    *  <a href="tables.html#65">container</a>,
@@ -220,16 +219,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  to it.  The time complexity of the operation depends on the
        *  underlying sequence.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push(const value_type& __x)
       { c.push_back(__x); }
-#else
-      // NB: DR 756.
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      push(value_type&& __x)
+      { c.push_back(std::move(__x)); }
+
       template<typename... _Args>
         void
-        push(_Args&&... __args)
-	{ c.push_back(std::forward<_Args>(__args)...); }
+        emplace(_Args&&... __args)
+	{ c.emplace_back(std::forward<_Args>(__args)...); }
 #endif
 
       /**
@@ -335,8 +337,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   /**
    *  @brief  A standard container automatically sorting its contents.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  This is not a true container, but an @e adaptor.  It holds
    *  another container, and provides a wrapper interface to that
@@ -429,7 +430,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  the copy according to @a x.
        *
        *  For more information on function objects, see the
-       *  documentation on @link s20_3_1_base functor base
+       *  documentation on @link functors functor base
        *  classes@endlink.
        */
 #ifndef __GXX_EXPERIMENTAL_CXX0X__
@@ -509,20 +510,26 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  The time complexity of the operation depends on the underlying
        *  sequence.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push(const value_type& __x)
       {
 	c.push_back(__x);
 	std::push_heap(c.begin(), c.end(), comp);
       }
-#else
-      // NB: DR 756.
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      push(value_type&& __x)
+      {
+	c.push_back(std::move(__x));
+	std::push_heap(c.begin(), c.end(), comp);
+      }
+
       template<typename... _Args>
         void
-        push(_Args&&... __args)
-	{ 
-	  c.push_back(std::forward<_Args>(__args)...);
+        emplace(_Args&&... __args)
+	{
+	  c.emplace_back(std::forward<_Args>(__args)...);
 	  std::push_heap(c.begin(), c.end(), comp);
 	}
 #endif

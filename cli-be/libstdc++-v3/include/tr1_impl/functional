@@ -1,6 +1,6 @@
 // TR1 functional header -*- C++ -*-
 
-// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -426,6 +426,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
     : binary_function<const volatile _T1*, _T2, _Res>
     { };
 
+  /// reference_wrapper
   template<typename _Tp>
     class reference_wrapper
     : public _Reference_wrapper_base<typename remove_cv<_Tp>::type>
@@ -826,9 +827,13 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
   /// The type of placeholder objects defined by libstdc++.
   template<int _Num> struct _Placeholder { };
 
-  // Define a large number of placeholders. There is no way to
-  // simplify this with variadic templates, because we're introducing
-  // unique names for each.
+  /** @namespace std::placeholders
+   *  @brief ISO C++ 0x entities sub namespace for functional.
+   *
+   *  Define a large number of placeholders. There is no way to
+   *  simplify this with variadic templates, because we're introducing
+   *  unique names for each.
+   */
   namespace placeholders 
   { 
     namespace 
@@ -942,7 +947,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
    *  function object [TR1 3.6.3/5]. Only the first parameter should
    *  be specified: the rest are used to determine among the various
    *  implementations. Note that, although this class is a function
-   *  object, isn't not entirely normal because it takes only two
+   *  object, it isn't entirely normal because it takes only two
    *  parameters regardless of the number of parameters passed to the
    *  bind expression. The first parameter is the bound argument and
    *  the second parameter is a tuple containing references to the
@@ -1336,6 +1341,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
   template<typename _Result, typename _Signature>
     const bool is_bind_expression<_Bind_result<_Result, _Signature> >::value;
 
+  /// bind
   template<typename _Functor, typename... _ArgTypes>
     inline
     _Bind<typename _Maybe_wrap_member_pointer<_Functor>::type(_ArgTypes...)>
@@ -1529,10 +1535,11 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 	{
 	  switch (__op)
 	    {
+#ifdef __GXX_RTTI
 	    case __get_type_info:
 	      __dest._M_access<const type_info*>() = &typeid(_Functor);
 	      break;
-
+#endif
 	    case __get_functor_ptr:
 	      __dest._M_access<_Functor*>() = _M_get_pointer(__source);
 	      break;
@@ -1594,10 +1601,11 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 	{
 	  switch (__op)
 	    {
+#ifdef __GXX_RTTI
 	    case __get_type_info:
 	      __dest._M_access<const type_info*>() = &typeid(_Functor);
 	      break;
-	      
+#endif
 	    case __get_functor_ptr:
 	      __dest._M_access<_Functor*>() = *_Base::_M_get_pointer(__source);
 	      return is_const<_Functor>::value;
@@ -1728,10 +1736,11 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       {
         switch (__op)
 	  {
+#ifdef __GXX_RTTI
 	  case __get_type_info:
 	    __dest._M_access<const type_info*>() = &typeid(_Functor);
 	    break;
-	    
+#endif	    
 	  case __get_functor_ptr:
 	    __dest._M_access<_Functor*>() =
 	      &_Base::_M_get_pointer(__source)->__value;
@@ -1751,6 +1760,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       }
     };
 
+  /// class function
   template<typename _Res, typename... _ArgTypes>
     class function<_Res(_ArgTypes...)>
     : public _Maybe_unary_or_binary_function<_Res, _ArgTypes...>,
@@ -1932,7 +1942,8 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
        *  stored by @c this.
        */
       _Res operator()(_ArgTypes... __args) const;
-      
+
+#ifdef __GXX_RTTI
       // [3.7.2.5] function target access
       /**
        *  @brief Determine the type of the target of this function object
@@ -1958,7 +1969,8 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       
       /// @overload
       template<typename _Functor> const _Functor* target() const;
-      
+#endif
+
     private:
       // [3.7.2.6] undefined operators
       template<typename _Function>
@@ -2017,6 +2029,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       return _M_invoker(_M_functor, __args...);
     }
 
+#ifdef __GXX_RTTI
   template<typename _Res, typename... _ArgTypes>
     const type_info&
     function<_Res(_ArgTypes...)>::
@@ -2066,6 +2079,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 	else
 	  return 0;
       }
+#endif
 
   // [3.7.2.7] null pointer comparisons
 

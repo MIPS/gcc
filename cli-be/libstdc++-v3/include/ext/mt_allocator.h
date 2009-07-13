@@ -1,6 +1,7 @@
 // MT-optimized allocator -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,7 +39,7 @@
 #include <cstdlib>
 #include <bits/functexcept.h>
 #include <ext/atomicity.h>
-#include <bits/stl_move.h>
+#include <bits/move.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -47,7 +48,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   typedef void (*__destroy_handler)(void*);
 
-  /// @brief  Base class for pool object.
+  /// Base class for pool object.
   struct __pool_base
   {
     // Using short int as type for the binmap implies we are never
@@ -455,7 +456,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     };
 #endif
 
-  /// @brief  Policy for shared __pool objects.
+  /// Policy for shared __pool objects.
   template<template <bool> class _PoolTp, bool _Thread>
     struct __common_pool_policy : public __common_pool_base<_PoolTp, _Thread>
     {
@@ -550,7 +551,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     };
 #endif
 
-  /// @brief  Policy for individual __pool objects.
+  /// Policy for individual __pool objects.
   template<typename _Tp, template <bool> class _PoolTp, bool _Thread>
     struct __per_type_pool_policy 
     : public __per_type_pool_base<_Tp, _PoolTp, _Thread>
@@ -565,7 +566,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   };
 
 
-  /// @brief  Base class for _Tp dependent member functions.
+  /// Base class for _Tp dependent member functions.
   template<typename _Tp>
     class __mt_alloc_base 
     {
@@ -619,9 +620,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
    *  size per thread plus a "global" one. Steps are taken to limit
    *  the per thread freelist sizes (by returning excess back to
    *  the "global" list).
+   *  @ingroup allocators
    *
    *  Further details:
-   *  http://gcc.gnu.org/onlinedocs/libstdc++/ext/mt_allocator.html
+   *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt12ch32.html
    */
   template<typename _Tp, 
 	   typename _Poolp = __common_pool_policy<__pool, __thread_default> >

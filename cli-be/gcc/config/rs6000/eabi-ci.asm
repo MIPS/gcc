@@ -1,5 +1,5 @@
 /* crti.s for eabi
-   Copyright (C) 1996, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 2000, 2008 Free Software Foundation, Inc.
    Written By Michael Meissner
 
 This file is free software; you can redistribute it and/or modify it
@@ -36,7 +36,6 @@ Boston, MA 02110-1301, USA.
 /* This file just supplies labeled starting points for the .got* and other
    special sections.  It is linked in first before other modules.  */
  
-	.file	"crti.s"
 	.ident	"GNU C crti.s"
 
 #include <ppc-asm.h>

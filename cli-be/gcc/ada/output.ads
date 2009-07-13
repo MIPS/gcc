@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -139,7 +139,7 @@ package Output is
 
    procedure Restore_Output_Buffer (S : Saved_Output_Buffer);
    --  Restore previously saved output buffer. The value in S is not affected
-   --  so it is legtimate to restore a buffer more than once.
+   --  so it is legitimate to restore a buffer more than once.
 
    --------------------------
    -- Debugging Procedures --

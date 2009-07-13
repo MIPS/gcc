@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 2005, Free Software Foundation, Inc.            --
+--         Copyright (C) 2005-2008, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,7 +38,7 @@
 
 --  Accessing vector contents with direct memory overlays should be avoided
 --  because actual vector representations may vary across configurations, for
---  instance to accomodate different target endianness.
+--  instance to accommodate different target endianness.
 
 --  The natural representation of a vector is an array indexed by vector
 --  component number, which is materialized by the Varray type definitions

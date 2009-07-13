@@ -1,8 +1,7 @@
 // { dg-options "-std=gnu++0x" }
-// { dg-do run { xfail *-*-* } }
 // 2007-05-29 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,6 +25,6 @@
 int main()
 {
   typedef std::system_error test_type;
-  __gnu_test::diamond_derivation<test_type, false>::test();
+  __gnu_test::diamond_derivation<test_type, true>::test();
   return 0;
 }

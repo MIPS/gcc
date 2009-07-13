@@ -1,6 +1,7 @@
 ## Makefile for the src subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
+## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+## 2006, 2007, 2008, 2009
 ## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
@@ -134,6 +135,7 @@ endif
 
 # Sources present in the src directory.
 sources = \
+	atomic.cc \
 	bitmap_allocator.cc \
 	pool_allocator.cc \
 	mt_allocator.cc \
@@ -153,12 +155,15 @@ sources = \
 	ios_init.cc \
 	ios_locale.cc \
 	limits.cc \
+	limits_c++0x.cc \
 	list.cc \
 	debug_list.cc \
 	locale.cc \
 	locale_init.cc \
 	locale_facets.cc \
 	localename.cc \
+	math_stubs_float.cc \
+	math_stubs_long_double.cc \
 	stdexcept.cc \
 	strstream.cc \
 	system_error.cc \
@@ -181,6 +186,10 @@ sources = \
 	valarray-inst.cc \
 	wlocale-inst.cc \
 	wstring-inst.cc \
+	mutex.cc \
+	condition_variable.cc \
+	chrono.cc \
+	thread.cc \
 	${host_sources} \
 	${host_sources_extra} 
 
@@ -190,10 +199,12 @@ vpath % $(top_srcdir)
 libstdc___la_SOURCES = $(sources)
 
 libstdc___la_LIBADD = \
-	$(top_builddir)/libmath/libmath.la \
+	$(GLIBCXX_LIBS) \
 	$(top_builddir)/libsupc++/libsupc++convenience.la
 
-libstdc___la_DEPENDENCIES = ${version_dep} $(libstdc___la_LIBADD)
+libstdc___la_DEPENDENCIES = \
+	${version_dep} \
+	$(top_builddir)/libsupc++/libsupc++convenience.la
 
 libstdc___la_LDFLAGS = \
 	-version-info $(libtool_VERSION) ${version_arg} -lm 
@@ -227,9 +238,24 @@ parallel_settings.o: parallel_settings.cc
 	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
 
 # Use special rules for the C++0x sources so that the proper flags are passed.
+functexcept.lo: functexcept.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+functexcept.o: functexcept.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
 system_error.lo: system_error.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 system_error.o: system_error.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+mutex.lo: mutex.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+mutex.o: mutex.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+condition_variable.lo: condition_variable.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+condition_variable.o: condition_variable.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 hash_c++0x.lo: hash_c++0x.cc
@@ -240,6 +266,36 @@ hash_c++0x.o: hash_c++0x.cc
 hashtable_c++0x.lo: hashtable_c++0x.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 hashtable_c++0x.o: hashtable_c++0x.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+limits_c++0x.lo: limits_c++0x.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+limits_c++0x.o: limits_c++0x.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+atomic.lo: atomic.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+atomic.o: atomic.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+string-inst.lo: string-inst.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+string-inst.o: string-inst.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+wstring-inst.lo: wstring-inst.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+wstring-inst.o: wstring-inst.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+chrono.lo: chrono.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+chrono.o: chrono.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+thread.lo: thread.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+thread.o: thread.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 if GLIBCXX_LDBL_COMPAT

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2001-2007, Free Software Foundation, Inc.        --
+--           Copyright (C) 2001-2008, Free Software Foundation, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,14 +30,12 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Exceptions;
 with Interfaces.C;
 with System;
 with GNAT.Directory_Operations;
 
 package body GNAT.Registry is
 
-   use Ada;
    use System;
 
    ------------------------------
@@ -156,9 +154,8 @@ package body GNAT.Registry is
       use type LONG;
    begin
       if Result /= ERROR_SUCCESS then
-         Exceptions.Raise_Exception
-           (Registry_Error'Identity,
-            Message & " (" & LONG'Image (Result) & ')');
+         raise Registry_Error with
+           Message & " (" & LONG'Image (Result) & ')';
       end if;
    end Check_Result;
 
@@ -187,8 +184,8 @@ package body GNAT.Registry is
 
       REG_OPTION_NON_VOLATILE : constant := 16#0#;
 
-      C_Sub_Key : constant String := Sub_Key & ASCII.Nul;
-      C_Class   : constant String := "" & ASCII.Nul;
+      C_Sub_Key : constant String := Sub_Key & ASCII.NUL;
+      C_Class   : constant String := "" & ASCII.NUL;
       C_Mode    : constant REGSAM := To_C_Mode (Mode);
 
       New_Key : aliased HKEY;
@@ -217,7 +214,7 @@ package body GNAT.Registry is
    ----------------
 
    procedure Delete_Key (From_Key : HKEY; Sub_Key : String) is
-      C_Sub_Key : constant String := Sub_Key & ASCII.Nul;
+      C_Sub_Key : constant String := Sub_Key & ASCII.NUL;
       Result    : LONG;
    begin
       Result := RegDeleteKey (From_Key, C_Sub_Key (C_Sub_Key'First)'Address);
@@ -229,7 +226,7 @@ package body GNAT.Registry is
    ------------------
 
    procedure Delete_Value (From_Key : HKEY; Sub_Key : String) is
-      C_Sub_Key : constant String := Sub_Key & ASCII.Nul;
+      C_Sub_Key : constant String := Sub_Key & ASCII.NUL;
       Result    : LONG;
    begin
       Result := RegDeleteValue (From_Key, C_Sub_Key (C_Sub_Key'First)'Address);
@@ -342,7 +339,7 @@ package body GNAT.Registry is
    is
       use type REGSAM;
 
-      C_Sub_Key : constant String := Sub_Key & ASCII.Nul;
+      C_Sub_Key : constant String := Sub_Key & ASCII.NUL;
       C_Mode    : constant REGSAM := To_C_Mode (Mode);
 
       New_Key : aliased HKEY;
@@ -380,7 +377,7 @@ package body GNAT.Registry is
       Size_Value : aliased ULONG;
       Type_Value : aliased DWORD;
 
-      C_Sub_Key : constant String := Sub_Key & ASCII.Nul;
+      C_Sub_Key : constant String := Sub_Key & ASCII.NUL;
       Result    : LONG;
 
    begin
@@ -415,8 +412,8 @@ package body GNAT.Registry is
        Value    : String;
        Expand   : Boolean := False)
    is
-      C_Sub_Key : constant String := Sub_Key & ASCII.Nul;
-      C_Value   : constant String := Value & ASCII.Nul;
+      C_Sub_Key : constant String := Sub_Key & ASCII.NUL;
+      C_Value   : constant String := Value & ASCII.NUL;
 
       Value_Type : DWORD;
       Result     : LONG;

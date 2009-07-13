@@ -50,7 +50,7 @@ maxloc0_4_r8 (gfc_array_i4 * const restrict retarray,
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride;
   const GFC_REAL_8 *base;
-  GFC_INTEGER_4 *dest;
+  GFC_INTEGER_4 * restrict dest;
   index_type rank;
   index_type n;
 
@@ -69,7 +69,7 @@ maxloc0_4_r8 (gfc_array_i4 * const restrict retarray,
     }
   else
     {
-      if (compile_options.bounds_check)
+      if (unlikely (compile_options.bounds_check))
 	{
 	  int ret_rank;
 	  index_type ret_extent;
@@ -193,7 +193,7 @@ mmaxloc0_4_r8 (gfc_array_i4 * const restrict retarray,
     }
   else
     {
-      if (compile_options.bounds_check)
+      if (unlikely (compile_options.bounds_check))
 	{
 	  int ret_rank, mask_rank;
 	  index_type ret_extent;
@@ -353,7 +353,7 @@ smaxloc0_4_r8 (gfc_array_i4 * const restrict retarray,
     }
   else
     {
-      if (compile_options.bounds_check)
+      if (unlikely (compile_options.bounds_check))
 	{
 	  int ret_rank;
 	  index_type ret_extent;

@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2004, 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -80,13 +80,14 @@ __gthrw(pthread_create)
 __gthrw(pthread_cancel)
 __gthrw(pthread_self)
 
+__gthrw(pthread_mutex_init)
+__gthrw(pthread_mutex_destroy)
 __gthrw(pthread_mutex_lock)
 __gthrw(pthread_mutex_trylock)
 __gthrw(pthread_mutex_unlock)
 __gthrw(pthread_mutexattr_init)
 __gthrw(pthread_mutexattr_destroy)
 
-__gthrw(pthread_mutex_init)
 __gthrw(pthread_cond_broadcast)
 __gthrw(pthread_cond_wait)
 
@@ -96,7 +97,6 @@ __gthrw(pthread_cond_destroy)
 __gthrw(pthread_cond_init)
 __gthrw(pthread_cond_signal)
 __gthrw(pthread_exit)
-__gthrw(pthread_mutex_destroy)
 #ifdef _POSIX_PRIORITY_SCHEDULING
 #ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
 __gthrw(sched_get_priority_max)
@@ -121,9 +121,12 @@ __gthrw(pthread_setschedparam)
    it is passed so we cannot pretend that the interface is active if -pthreads
    is not specified.  On Solaris 2.5.1, the interface is not exposed at all so
    we need to play the usual game with weak symbols.  On Solaris 10 and up, a
-   working interface is always exposed.  */
+   working interface is always exposed.  On FreeBSD 6 and later, libc also
+   exposes a dummy POSIX threads interface, similar to what Solaris 2.6 up
+   to 9 does.  FreeBSD >= 700014 even provides a pthread_cancel stub in libc,
+   which means the alternate __gthread_active_p below cannot be used there.  */
 
-#if defined(__sun) && defined(__svr4__)
+#if defined(__FreeBSD__) || (defined(__sun) && defined(__svr4__))
 
 static volatile int __gthread_active = -1;
 
@@ -166,7 +169,7 @@ __gthread_active_p (void)
   return __gthread_active_latest_value != 0;
 }
 
-#else /* not Solaris */
+#else /* neither FreeBSD nor Solaris */
 
 static inline int
 __gthread_active_p (void)
@@ -176,7 +179,7 @@ __gthread_active_p (void)
   return __gthread_active_ptr != 0;
 }
 
-#endif /* Solaris */
+#endif /* FreeBSD or Solaris */
 
 #else /* not SUPPORTS_WEAK */
 
@@ -607,141 +610,150 @@ __gthread_objc_condition_signal (objc_condition_t condition)
 #else /* _LIBOBJC */
 
 static inline int
-__gthread_once (__gthread_once_t *once, void (*func) (void))
+__gthread_once (__gthread_once_t *__once, void (*__func) (void))
 {
   if (__gthread_active_p ())
-    return __gthrw_(pthread_once) (once, func);
+    return __gthrw_(pthread_once) (__once, __func);
   else
     return -1;
 }
 
 static inline int
-__gthread_key_create (__gthread_key_t *key, void (*dtor) (void *))
+__gthread_key_create (__gthread_key_t *__key, void (*__dtor) (void *))
 {
-  return __gthrw_(pthread_key_create) (key, dtor);
+  return __gthrw_(pthread_key_create) (__key, __dtor);
 }
 
 static inline int
-__gthread_key_delete (__gthread_key_t key)
+__gthread_key_delete (__gthread_key_t __key)
 {
-  return __gthrw_(pthread_key_delete) (key);
+  return __gthrw_(pthread_key_delete) (__key);
 }
 
 static inline void *
-__gthread_getspecific (__gthread_key_t key)
+__gthread_getspecific (__gthread_key_t __key)
 {
-  return __gthrw_(pthread_getspecific) (key);
+  return __gthrw_(pthread_getspecific) (__key);
 }
 
 static inline int
-__gthread_setspecific (__gthread_key_t key, const void *ptr)
+__gthread_setspecific (__gthread_key_t __key, const void *__ptr)
 {
-  return __gthrw_(pthread_setspecific) (key, ptr);
+  return __gthrw_(pthread_setspecific) (__key, __ptr);
 }
 
 static inline int
-__gthread_mutex_lock (__gthread_mutex_t *mutex)
+__gthread_mutex_destroy (__gthread_mutex_t *__mutex)
 {
   if (__gthread_active_p ())
-    return __gthrw_(pthread_mutex_lock) (mutex);
+    return __gthrw_(pthread_mutex_destroy) (__mutex);
   else
     return 0;
 }
 
 static inline int
-__gthread_mutex_trylock (__gthread_mutex_t *mutex)
+__gthread_mutex_lock (__gthread_mutex_t *__mutex)
 {
   if (__gthread_active_p ())
-    return __gthrw_(pthread_mutex_trylock) (mutex);
+    return __gthrw_(pthread_mutex_lock) (__mutex);
   else
     return 0;
 }
 
 static inline int
-__gthread_mutex_unlock (__gthread_mutex_t *mutex)
+__gthread_mutex_trylock (__gthread_mutex_t *__mutex)
 {
   if (__gthread_active_p ())
-    return __gthrw_(pthread_mutex_unlock) (mutex);
+    return __gthrw_(pthread_mutex_trylock) (__mutex);
   else
     return 0;
 }
 
 static inline int
-__gthread_recursive_mutex_init_function (__gthread_recursive_mutex_t *mutex)
+__gthread_mutex_unlock (__gthread_mutex_t *__mutex)
 {
-  mutex->depth = 0;
-  mutex->owner = (pthread_t) 0;
-  return __gthrw_(pthread_mutex_init) (&mutex->actual, NULL);
+  if (__gthread_active_p ())
+    return __gthrw_(pthread_mutex_unlock) (__mutex);
+  else
+    return 0;
 }
 
 static inline int
-__gthread_recursive_mutex_lock (__gthread_recursive_mutex_t *mutex)
+__gthread_recursive_mutex_init_function (__gthread_recursive_mutex_t *__mutex)
+{
+  __mutex->depth = 0;
+  __mutex->owner = (pthread_t) 0;
+  return __gthrw_(pthread_mutex_init) (&__mutex->actual, NULL);
+}
+
+static inline int
+__gthread_recursive_mutex_lock (__gthread_recursive_mutex_t *__mutex)
 {
   if (__gthread_active_p ())
     {
-      pthread_t me = __gthrw_(pthread_self) ();
+      pthread_t __me = __gthrw_(pthread_self) ();
 
-      if (mutex->owner != me)
+      if (__mutex->owner != __me)
 	{
-	  __gthrw_(pthread_mutex_lock) (&mutex->actual);
-	  mutex->owner = me;
+	  __gthrw_(pthread_mutex_lock) (&__mutex->actual);
+	  __mutex->owner = __me;
 	}
 
-      mutex->depth++;
+      __mutex->depth++;
     }
   return 0;
 }
 
 static inline int
-__gthread_recursive_mutex_trylock (__gthread_recursive_mutex_t *mutex)
+__gthread_recursive_mutex_trylock (__gthread_recursive_mutex_t *__mutex)
 {
   if (__gthread_active_p ())
     {
-      pthread_t me = __gthrw_(pthread_self) ();
+      pthread_t __me = __gthrw_(pthread_self) ();
 
-      if (mutex->owner != me)
+      if (__mutex->owner != __me)
 	{
-	  if (__gthrw_(pthread_mutex_trylock) (&mutex->actual))
+	  if (__gthrw_(pthread_mutex_trylock) (&__mutex->actual))
 	    return 1;
-	  mutex->owner = me;
+	  __mutex->owner = __me;
 	}
 
-      mutex->depth++;
+      __mutex->depth++;
     }
   return 0;
 }
 
 static inline int
-__gthread_recursive_mutex_unlock (__gthread_recursive_mutex_t *mutex)
+__gthread_recursive_mutex_unlock (__gthread_recursive_mutex_t *__mutex)
 {
   if (__gthread_active_p ())
     {
-      if (--mutex->depth == 0)
+      if (--__mutex->depth == 0)
 	{
-	   mutex->owner = (pthread_t) 0;
-	   __gthrw_(pthread_mutex_unlock) (&mutex->actual);
+	   __mutex->owner = (pthread_t) 0;
+	   __gthrw_(pthread_mutex_unlock) (&__mutex->actual);
 	}
     }
   return 0;
 }
 
 static inline int
-__gthread_cond_broadcast (__gthread_cond_t *cond)
+__gthread_cond_broadcast (__gthread_cond_t *__cond)
 {
-  return __gthrw_(pthread_cond_broadcast) (cond);
+  return __gthrw_(pthread_cond_broadcast) (__cond);
 }
 
 static inline int
-__gthread_cond_wait (__gthread_cond_t *cond, __gthread_mutex_t *mutex)
+__gthread_cond_wait (__gthread_cond_t *__cond, __gthread_mutex_t *__mutex)
 {
-  return __gthrw_(pthread_cond_wait) (cond, mutex);
+  return __gthrw_(pthread_cond_wait) (__cond, __mutex);
 }
 
 static inline int
-__gthread_cond_wait_recursive (__gthread_cond_t *cond,
-			       __gthread_recursive_mutex_t *mutex)
+__gthread_cond_wait_recursive (__gthread_cond_t *__cond,
+			       __gthread_recursive_mutex_t *__mutex)
 {
-  return __gthrw_(pthread_cond_wait) (cond, mutex->actual);
+  return __gthrw_(pthread_cond_wait) (__cond, &__mutex->actual);
 }
 
 #endif /* _LIBOBJC */

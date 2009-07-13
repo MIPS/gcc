@@ -1,5 +1,6 @@
 /* Header file for the ARM EABI unwinder
-   Copyright (C) 2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Paul Brook
 
    This file is free software; you can redistribute it and/or modify it
@@ -232,11 +233,11 @@ extern "C" {
       if (!tmp)
 	return 0;
 
-#if defined(linux) || defined(__NetBSD__)
+#if (defined(linux) && !defined(__uClinux__)) || defined(__NetBSD__)
       /* Pc-relative indirect.  */
       tmp += ptr;
       tmp = *(_Unwind_Word *) tmp;
-#elif defined(__symbian__)
+#elif defined(__symbian__) || defined(__uClinux__)
       /* Absolute pointer.  Nothing more to do.  */
 #else
       /* Pc-relative pointer.  */

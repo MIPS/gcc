@@ -1,6 +1,6 @@
 // <regex> -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,14 +31,14 @@
  *  This is a Standard C++ Library header.
  */
 
-#ifndef _GLIBCXX_CXX0X_REGEX
-#define _GLIBCXX_CXX0X_REGEX 1
+#ifndef _GLIBCXX_REGEX
+#define _GLIBCXX_REGEX 1
 
 #pragma GCC system_header
 
 #ifndef __GXX_EXPERIMENTAL_CXX0X__
 # include <c++0x_warning.h>
-#endif
+#else
 
 #if defined(_GLIBCXX_INCLUDE_AS_TR1)
 #  error C++0x header cannot be included from TR1 header
@@ -52,6 +52,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <sstream>
 
 #if defined(_GLIBCXX_INCLUDE_AS_CXX0X)
 #  include <tr1_impl/regex>
@@ -67,4 +68,6 @@
 #  undef _GLIBCXX_INCLUDE_AS_CXX0X
 #endif
 
-#endif // _GLIBCXX_CXX0X_REGEX
+#endif // __GXX_EXPERIMENTAL_CXX0X__
+
+#endif // _GLIBCXX_REGEX

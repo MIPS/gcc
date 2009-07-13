@@ -1,6 +1,6 @@
 /*  Special support for trampolines
  *
- *   Copyright (C) 1996, 1997, 2000, 2007 Free Software Foundation, Inc.
+ *   Copyright (C) 1996, 1997, 2000, 2007, 2008 Free Software Foundation, Inc.
  *   Written By Michael Meissner
  * 
  * This file is free software; you can redistribute it and/or modify it
@@ -35,7 +35,6 @@
 
 /* Set up trampolines.  */
 
-	.file	"tramp.asm"
 	.section ".text"
 #include "ppc-asm.h"
 #include "config.h"

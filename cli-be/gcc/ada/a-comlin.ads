@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -110,7 +110,7 @@ private
    Failure : constant Exit_Status := 1;
 
    --  The following locations support the operation of the package
-   --  Ada.Command_Line.Remove, whih provides facilities for logically
+   --  Ada.Command_Line.Remove, which provides facilities for logically
    --  removing arguments from the command line. If one of the remove
    --  procedures is called in this unit, then Remove_Args/Remove_Count
    --  are set to indicate which arguments are removed. If no such calls

@@ -1,6 +1,6 @@
 // Internal policy header for TR1 unordered_set and unordered_map -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -99,6 +99,13 @@ namespace __detail
       _Value       _M_v;
       std::size_t  _M_hash_code;
       _Hash_node*  _M_next;
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      template<typename... _Args>
+        _Hash_node(_Args&&... __args)
+	  : _M_v(std::forward<_Args>(__args)...),
+	    _M_hash_code(), _M_next() { }
+#endif
     };
 
   template<typename _Value>
@@ -106,6 +113,13 @@ namespace __detail
     {
       _Value       _M_v;
       _Hash_node*  _M_next;
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      template<typename... _Args>
+        _Hash_node(_Args&&... __args)
+	  : _M_v(std::forward<_Args>(__args)...),
+	    _M_next() { }
+#endif
     };
 
   // Local iterators, used to iterate within a bucket but not between
@@ -530,12 +544,22 @@ namespace __detail
     };
 
   template<typename _Key, typename _Pair, typename _Hashtable>
-  struct _Map_base<_Key, _Pair, std::_Select1st<_Pair>, true, _Hashtable>
+    struct _Map_base<_Key, _Pair, std::_Select1st<_Pair>, true, _Hashtable>
     {
       typedef typename _Pair::second_type mapped_type;
       
       mapped_type&
       operator[](const _Key& __k);
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 761. unordered_map needs an at() member function.
+      mapped_type&
+      at(const _Key& __k);
+
+      const mapped_type&
+      at(const _Key& __k) const;
+#endif
     };
 
   template<typename _Key, typename _Pair, typename _Hashtable>
@@ -556,6 +580,44 @@ namespace __detail
 				     __n, __code)->second;
       return (__p->_M_v).second;
     }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+  template<typename _Key, typename _Pair, typename _Hashtable>
+    typename _Map_base<_Key, _Pair, std::_Select1st<_Pair>,
+		       true, _Hashtable>::mapped_type&
+    _Map_base<_Key, _Pair, std::_Select1st<_Pair>, true, _Hashtable>::
+    at(const _Key& __k)
+    {
+      _Hashtable* __h = static_cast<_Hashtable*>(this);
+      typename _Hashtable::_Hash_code_type __code = __h->_M_hash_code(__k);
+      std::size_t __n = __h->_M_bucket_index(__k, __code,
+					     __h->_M_bucket_count);
+
+      typename _Hashtable::_Node* __p =
+	__h->_M_find_node(__h->_M_buckets[__n], __k, __code);
+      if (!__p)
+	__throw_out_of_range(__N("_Map_base::at"));
+      return (__p->_M_v).second;
+    }
+
+  template<typename _Key, typename _Pair, typename _Hashtable>
+    const typename _Map_base<_Key, _Pair, std::_Select1st<_Pair>,
+			     true, _Hashtable>::mapped_type&
+    _Map_base<_Key, _Pair, std::_Select1st<_Pair>, true, _Hashtable>::
+    at(const _Key& __k) const
+    {
+      const _Hashtable* __h = static_cast<const _Hashtable*>(this);
+      typename _Hashtable::_Hash_code_type __code = __h->_M_hash_code(__k);
+      std::size_t __n = __h->_M_bucket_index(__k, __code,
+					     __h->_M_bucket_count);
+
+      typename _Hashtable::_Node* __p =
+	__h->_M_find_node(__h->_M_buckets[__n], __k, __code);
+      if (!__p)
+	__throw_out_of_range(__N("_Map_base::at"));
+      return (__p->_M_v).second;
+    }
+#endif
 
   // class template _Rehash_base.  Give hashtable the max_load_factor
   // functions iff the rehash policy is _Prime_rehash_policy.

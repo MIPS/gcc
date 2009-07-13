@@ -1,6 +1,6 @@
 /* File format for coverage information
    Copyright (C) 1996, 1997, 1998, 2000, 2002,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -467,6 +467,9 @@ extern void __gcov_merge_single (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
    consecutive values.  */
 extern void __gcov_merge_delta (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 
+/* The merge function that just ors the counters together.  */
+extern void __gcov_merge_ior (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
+
 /* The profiler functions.  */
 extern void __gcov_interval_profiler (gcov_type *, gcov_type, int, unsigned); 
 extern void __gcov_pow2_profiler (gcov_type *, gcov_type);
@@ -474,14 +477,13 @@ extern void __gcov_one_value_profiler (gcov_type *, gcov_type);
 extern void __gcov_indirect_call_profiler (gcov_type *, gcov_type, void *, void *);
 extern void __gcov_average_profiler (gcov_type *, gcov_type);
 extern void __gcov_ior_profiler (gcov_type *, gcov_type);
-extern void __gcov_merge_ior (gcov_type *, unsigned);
 
 #ifndef inhibit_libc
 /* The wrappers around some library functions..  */
-extern pid_t __gcov_fork (void);
-extern int __gcov_execl (const char *, const char *, ...) ATTRIBUTE_HIDDEN;
-extern int __gcov_execlp (const char *, const char *, ...) ATTRIBUTE_HIDDEN;
-extern int __gcov_execle (const char *,  const char *, ...) ATTRIBUTE_HIDDEN;
+extern pid_t __gcov_fork (void) ATTRIBUTE_HIDDEN;
+extern int __gcov_execl (const char *, char *, ...) ATTRIBUTE_HIDDEN;
+extern int __gcov_execlp (const char *, char *, ...) ATTRIBUTE_HIDDEN;
+extern int __gcov_execle (const char *, char *, ...) ATTRIBUTE_HIDDEN;
 extern int __gcov_execv (const char *, char *const []) ATTRIBUTE_HIDDEN;
 extern int __gcov_execvp (const char *, char *const []) ATTRIBUTE_HIDDEN;
 extern int __gcov_execve (const char *, char  *const [], char *const [])

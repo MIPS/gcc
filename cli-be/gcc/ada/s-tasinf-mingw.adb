@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2007, Free Software Foundation, Inc.            --
+--         Copyright (C) 2007-2008, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,6 +33,12 @@
 
 --  This is the Windows (native) version of this module
 
+with System.OS_Interface;
+pragma Unreferenced (System.OS_Interface);
+--  System.OS_Interface is not used today, but the protocol between the
+--  run-time and the binder is that any tasking application uses
+--  System.OS_Interface, so notify the binder with this "with" clause.
+
 package body System.Task_Info is
 
    N_CPU : Natural := 0;
@@ -48,9 +54,9 @@ package body System.Task_Info is
    begin
       if N_CPU = 0 then
          declare
-            SI : aliased System.OS_Interface.SYSTEM_INFO;
+            SI : aliased Win32.SYSTEM_INFO;
          begin
-            System.OS_Interface.GetSystemInfo (SI'Access);
+            Win32.GetSystemInfo (SI'Access);
             N_CPU := Positive (SI.dwNumberOfProcessors);
          end;
       end if;

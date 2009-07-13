@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2006-2007, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2008, Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1194,7 +1194,7 @@ package body Ada.Numerics.Generic_Complex_Arrays is
             Info     => Info'Access);
 
          if Info /= 0 then
-            raise Constraint_Error with "inverting non-Hermetian matrix";
+            raise Constraint_Error with "inverting non-Hermitian matrix";
          end if;
 
          for J in Values'Range loop

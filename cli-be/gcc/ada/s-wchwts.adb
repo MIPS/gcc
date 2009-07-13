@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -88,37 +88,37 @@ package body System.WCh_WtS is
      (S  : Wide_String;
       EM : WC_Encoding_Method) return String
    is
-      R  : String (1 .. 5 * S'Length); -- worst case length!
+      R  : String (S'First .. S'First + 5 * S'Length); -- worst case length!
       RP : Natural;
 
    begin
-      RP := 0;
+      RP := R'First - 1;
       for SP in S'Range loop
          Store_UTF_32_Character (Wide_Character'Pos (S (SP)), R, RP, EM);
       end loop;
 
-      return R (1 .. RP);
+      return R (R'First .. RP);
    end Wide_String_To_String;
 
    --------------------------------
-   -- Wide_Wide_Sring_To_String --
+   -- Wide_Wide_String_To_String --
    --------------------------------
 
    function Wide_Wide_String_To_String
      (S  : Wide_Wide_String;
       EM : WC_Encoding_Method) return String
    is
-      R  : String (1 .. 7 * S'Length); -- worst case length!
+      R  : String (S'First .. S'First + 7 * S'Length); -- worst case length!
       RP : Natural;
 
    begin
-      RP := 0;
+      RP := R'First - 1;
 
       for SP in S'Range loop
          Store_UTF_32_Character (Wide_Wide_Character'Pos (S (SP)), R, RP, EM);
       end loop;
 
-      return R (1 .. RP);
+      return R (R'First .. RP);
    end Wide_Wide_String_To_String;
 
 end System.WCh_WtS;

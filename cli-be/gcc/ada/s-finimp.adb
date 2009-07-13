@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -100,7 +100,7 @@ package body System.Finalization_Implementation is
       --  Subtract the offset to the pointer
 
       procedure Reverse_Adjust (P : Finalizable_Ptr);
-      --  Ajust the components in the reverse order in which they are stored
+      --  Adjust the components in the reverse order in which they are stored
       --  on the finalization list. (Adjust and Finalization are not done in
       --  the same order)
 
@@ -139,7 +139,7 @@ package body System.Finalization_Implementation is
 
       First_Comp := Object.F;
       Object.F := null;               --  nothing adjusted yet.
-      Ptr_Adjust (First_Comp);        --  set addresss of first component.
+      Ptr_Adjust (First_Comp);        --  set address of first component.
       Reverse_Adjust (First_Comp);
 
       --  Then Adjust the controller itself
@@ -412,7 +412,7 @@ package body System.Finalization_Implementation is
       --  At this stage, we know that the controller is part of the
       --  ancestor corresponding to the tag "The_Tag" and that its parent
       --  is variable sized. We assume that the _controller is the first
-      --  compoment right after the parent.
+      --  component right after the parent.
 
       --  ??? note that it may not be true if there are new discriminants
 

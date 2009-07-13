@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -22,15 +22,6 @@
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
-
-/* Ada language-specific GC tree codes.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
-enum gnat_tree_code {
-  __DUMMY = LAST_AND_UNUSED_TREE_CODE,
-#include "ada-tree.def"
-  LAST_GNAT_TREE_CODE
-};
-#undef DEFTREECODE
 
 /* Ada uses the lang_decl and lang_type fields to hold a tree.  */
 union lang_tree_node
@@ -48,7 +39,7 @@ struct lang_type GTY(()) {tree t; };
 #define SET_TYPE_LANG_SPECIFIC(NODE, X)	\
  (TYPE_LANG_SPECIFIC (NODE)			\
   = (TYPE_LANG_SPECIFIC (NODE)			\
-     ? TYPE_LANG_SPECIFIC (NODE) : ggc_alloc (sizeof (struct lang_type))))   \
+     ? TYPE_LANG_SPECIFIC (NODE) : GGC_NEW (struct lang_type)))   \
  ->t = X;
 
 #define GET_DECL_LANG_SPECIFIC(NODE) \
@@ -56,7 +47,7 @@ struct lang_type GTY(()) {tree t; };
 #define SET_DECL_LANG_SPECIFIC(NODE, VALUE)	\
  (DECL_LANG_SPECIFIC (NODE)			\
   = (DECL_LANG_SPECIFIC (NODE)			\
-     ? DECL_LANG_SPECIFIC (NODE) : ggc_alloc (sizeof (struct lang_decl))))   \
+     ? DECL_LANG_SPECIFIC (NODE) : GGC_NEW (struct lang_decl)))   \
  ->t = VALUE;
 
 /* Flags added to GCC type nodes.  */
@@ -69,8 +60,9 @@ struct lang_type GTY(()) {tree t; };
 #define TYPE_FAT_POINTER_P(NODE)  \
   (TREE_CODE (NODE) == RECORD_TYPE && TYPE_IS_FAT_POINTER_P (NODE))
 
-/* For integral types and array types, nonzero if this is a packed array type.
-   Such types should not be extended to a larger size.  */
+/* For integral types and array types, nonzero if this is a packed array type
+   used for bit-packed types.  Such types should not be extended to a larger
+   size or validated against a specified size.  */
 #define TYPE_PACKED_ARRAY_TYPE_P(NODE) TYPE_LANG_FLAG_0 (NODE)
 
 #define TYPE_IS_PACKED_ARRAY_TYPE_P(NODE) \
@@ -242,12 +234,12 @@ struct lang_type GTY(()) {tree t; };
    is needed to access the object.  */
 #define DECL_BY_REF_P(NODE) DECL_LANG_FLAG_1 (NODE)
 
-/* Nonzero if this decl is a PARM_DECL for an Ada array being passed to a
-   foreign convention subprogram.  */
-#define DECL_BY_COMPONENT_PTR_P(NODE) DECL_LANG_FLAG_2 (PARM_DECL_CHECK (NODE))
-
 /* Nonzero in a FIELD_DECL that is a dummy built for some internal reason.  */
 #define DECL_INTERNAL_P(NODE) DECL_LANG_FLAG_3 (FIELD_DECL_CHECK (NODE))
+
+/* Nonzero if this decl is a PARM_DECL for an Ada array being passed to a
+   foreign convention subprogram.  */
+#define DECL_BY_COMPONENT_PTR_P(NODE) DECL_LANG_FLAG_3 (PARM_DECL_CHECK (NODE))
 
 /* Nonzero in a FUNCTION_DECL that corresponds to an elaboration procedure.  */
 #define DECL_ELABORATION_PROC_P(NODE) \
@@ -288,6 +280,12 @@ struct lang_type GTY(()) {tree t; };
   GET_DECL_LANG_SPECIFIC (VAR_DECL_CHECK (NODE))
 #define SET_DECL_RENAMED_OBJECT(NODE, X) \
   SET_DECL_LANG_SPECIFIC (VAR_DECL_CHECK (NODE), X)
+
+/* In a TYPE_DECL, points to the parallel type if any, otherwise 0.  */
+#define DECL_PARALLEL_TYPE(NODE) \
+  GET_DECL_LANG_SPECIFIC (TYPE_DECL_CHECK (NODE))
+#define SET_DECL_PARALLEL_TYPE(NODE, X) \
+  SET_DECL_LANG_SPECIFIC (TYPE_DECL_CHECK (NODE), X)
 
 /* In a FUNCTION_DECL, points to the stub associated with the function
    if any, otherwise 0.  */

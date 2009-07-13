@@ -87,7 +87,6 @@ __time_1 (long *user_sec, long *user_usec, long *system_sec, long *system_usec)
   } kernel_time,  user_time;
 
   FILETIME unused1, unused2;
-  unsigned long long total_time;
 
   /* No support for Win9x.  The high order bit of the DWORD
      returned by GetVersion is 0 for NT and higher. */
@@ -104,10 +103,10 @@ __time_1 (long *user_sec, long *user_usec, long *system_sec, long *system_usec)
               	   &kernel_time.ft, &user_time.ft);
 
   *user_sec = user_time.ulltime / 10000000;
-  *user_usec = user_time.ulltime % 10000000;
+  *user_usec = (user_time.ulltime % 10000000) / 10;
 
   *system_sec = kernel_time.ulltime / 10000000;
-  *system_usec = kernel_time.ulltime % 10000000;
+  *system_usec = (kernel_time.ulltime % 10000000) / 10;
   return 0;
 }
 

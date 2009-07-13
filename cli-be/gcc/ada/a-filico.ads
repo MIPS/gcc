@@ -6,7 +6,7 @@
 --                                                                          --
 --                                S p e c                                   --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -58,7 +58,7 @@ package Ada.Finalization.List_Controller is
    -- List_Controller --
    ---------------------
 
-   --  Management of a bidirectional linked heterogenous list of
+   --  Management of a bidirectional linked heterogeneous list of
    --  dynamically Allocated objects. To simplify the management of the
    --  linked list, the First and Last elements are statically part of the
    --  original List controller:

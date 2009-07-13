@@ -48,7 +48,7 @@ internal_unpack_'rtype_ccode` ('rtype` * d, const 'rtype_name` * src)
   index_type stride0;
   index_type dim;
   index_type dsize;
-  'rtype_name` *dest;
+  'rtype_name` * restrict dest;
   int n;
 
   dest = d->data;
@@ -63,12 +63,12 @@ internal_unpack_'rtype_ccode` ('rtype` * d, const 'rtype_name` * src)
       stride[n] = d->dim[n].stride;
       extent[n] = d->dim[n].ubound + 1 - d->dim[n].lbound;
       if (extent[n] <= 0)
-        abort ();
+	return;
 
       if (dsize == stride[n])
-        dsize *= extent[n];
+	dsize *= extent[n];
       else
-        dsize = 0;
+	dsize = 0;
     }
 
   if (dsize != 0)

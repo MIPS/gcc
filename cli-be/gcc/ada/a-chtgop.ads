@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                       A D A . C O N T A I N E R S .                      --
---       H A S H _ T A B L E S . G E N E R I C _ O P E R A T I O N S        --
+--              ADA.CONTAINERS.HASH_TABLES.GENERIC_OPERATIONS               --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -165,11 +164,11 @@ package Ada.Containers.Hash_Tables.Generic_Operations is
 
    function New_Buckets (Length : Hash_Type) return Buckets_Access;
    pragma Inline (New_Buckets);
-   --  Allocate a new Buckets_Type array with bounds 0..Length-1.
+   --  Allocate a new Buckets_Type array with bounds 0..Length-1
 
    procedure Free_Buckets (Buckets : in out Buckets_Access);
    pragma Inline (Free_Buckets);
-   --  Unchecked_Deallocate Buckets.
+   --  Unchecked_Deallocate Buckets
 
    --  Note: New_Buckets and Free_Buckets are needed because Buckets_Access has
    --  an empty pool.

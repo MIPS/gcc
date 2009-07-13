@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -134,9 +134,9 @@ package body System.Interrupt_Management.Operations is
       null;
    end Empty_Interrupt_Mask;
 
-   -----------------------
-   -- Add_To_Sigal_Mask --
-   -----------------------
+   ---------------------------
+   -- Add_To_Interrupt_Mask --
+   ---------------------------
 
    procedure Add_To_Interrupt_Mask
      (Mask      : access Interrupt_Mask;

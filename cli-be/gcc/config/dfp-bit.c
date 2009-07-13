@@ -1,5 +1,5 @@
 /* This is a software decimal floating point library.
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,7 +27,7 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-/* This implements IEEE 754R decimal floating point arithmetic, but
+/* This implements IEEE 754 decimal floating point arithmetic, but
    does not provide a mechanism for setting the rounding mode, or for
    generating or handling exceptions.  Conversions between decimal
    floating point types and other types depend on C library functions.
@@ -536,7 +536,7 @@ DFP_TO_INT (DFP_C_TYPE x)
   /* Rescale if the exponent is less than zero.  */
   decNumberToIntegralValue (&n2, &n1, &context);
   /* Get a value to use for the quantize call.  */
-  decNumberFromString (&qval, (char *) "1.", &context);
+  decNumberFromString (&qval, "1.", &context);
   /* Force the exponent to zero.  */
   decNumberQuantize (&n1, &n2, &qval, &context);
   /* Get a string, which at this point will not include an exponent.  */

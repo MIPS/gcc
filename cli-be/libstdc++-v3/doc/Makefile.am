@@ -79,7 +79,6 @@ xml_sources = \
 	${xml_srcdir}/manual/auto_ptr.xml \
 	${xml_srcdir}/manual/backwards_compatibility.xml \
 	${xml_srcdir}/manual/bitmap_allocator.xml \
-	${xml_srcdir}/manual/build.xml \
 	${xml_srcdir}/manual/build_hacking.xml \
 	${xml_srcdir}/manual/codecvt.xml \
 	${xml_srcdir}/manual/concurrency.xml \
@@ -101,6 +100,7 @@ xml_sources = \
 	${xml_srcdir}/manual/mt_allocator.xml \
 	${xml_srcdir}/manual/numerics.xml \
 	${xml_srcdir}/manual/parallel_mode.xml \
+	${xml_srcdir}/manual/prerequisites.xml \
 	${xml_srcdir}/manual/internals.xml \
 	${xml_srcdir}/manual/shared_ptr.xml \
 	${xml_srcdir}/manual/spine.xml \
@@ -226,14 +226,7 @@ doc-pdf-prince: $(xml_sources) ${glibcxx_builddir}/doc/pdf
 	$(PRINCE) $(PRINCE_FLAGS) ${top_srcdir}/doc/xml/spine.xml
 
 
-# No install-pdf, install-html support in automake yet
-install-pdf:
-install-html:
-
-# Installation of distribution html documentation not yet supported
-# TODO: Write custom install-html rule.
-.PHONY: install-html install-pdf \
-	doc-doxygen-html doc-doxygen-man doc-performance
+.PHONY: doc-doxygen-html doc-doxygen-man doc-performance
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = *.log

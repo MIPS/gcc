@@ -1,5 +1,5 @@
 /* crtn.s for eabi
-   Copyright (C) 1996, 2000, 2007 Free Software Foundation, Inc.
+   Copyright (C) 1996, 2000, 2007, 2008 Free Software Foundation, Inc.
    Written By Michael Meissner
 
 This file is free software; you can redistribute it and/or modify it
@@ -36,7 +36,6 @@ Boston, MA 02110-1301, USA.
 /* This file just supplies labeled ending points for the .got* and other
    special sections.  It is linked in last after other modules.  */
  
-	.file	"crtn.s"
 	.ident	"GNU C crtn.s"
 
 #ifndef __powerpc64__

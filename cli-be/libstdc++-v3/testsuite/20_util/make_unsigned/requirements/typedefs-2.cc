@@ -1,4 +1,5 @@
 // { dg-options "-std=gnu++0x -funsigned-char -fshort-enums" }
+// { dg-options "-std=gnu++0x -funsigned-char -fshort-enums -Wl,--no-enum-size-warning" { target arm*-*-linux*eabi } }
 
 // 2007-05-03  Benjamin Kosnik  <bkoz@redhat.com>
 //
@@ -23,7 +24,8 @@
 #include <type_traits>
 #include <testsuite_hooks.h>
 
-enum test_enum { first_selection };
+// Ensure that this enum has "short" as its underlying type.
+enum test_enum { first_selection = ((unsigned char)-1) + 1 };
 
 void test01()
 {

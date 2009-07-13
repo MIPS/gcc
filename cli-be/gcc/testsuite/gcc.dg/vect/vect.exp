@@ -1,4 +1,5 @@
-# Copyright (C) 1997, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+# Copyright (C) 1997, 2004, 2005, 2006, 2007, 2008
+# Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -63,7 +64,11 @@ if  [istarget "powerpc-*paired*"]  {
    set dg-do-what-default run
 } elseif { [istarget "i?86-*-*"] || [istarget "x86_64-*-*"] } {
     lappend DEFAULT_VECTCFLAGS "-msse2"
-    set dg-do-what-default run
+    if [check_sse2_hw_available] {
+	set dg-do-what-default run
+    } else {
+	set dg-do-what-default compile
+    }
 } elseif { [istarget "mips*-*-*"]
 	   && [check_effective_target_mpaired_single]
 	   && [check_effective_target_nomips16] } {
@@ -238,10 +243,19 @@ lappend DEFAULT_VECTCFLAGS "-Os"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/Os-vect-*.\[cS\]]]  \
         "" $DEFAULT_VECTCFLAGS
 
+# With --param ggc-min-expand=0 --param ggc-min-heapsize=0 
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "--param" "ggc-min-expand=0" "--param" "ggc-min-heapsize=0"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/ggc-*.\[cS\]]]  \
+        "" $DEFAULT_VECTCFLAGS
+
 # With -O3
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
 lappend DEFAULT_VECTCFLAGS "-O3"
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/O3-vect-*.\[cS\]]]  \
+if  [istarget "spu-*-*"] {
+  lappend DEFAULT_VECTCFLAGS "-funroll-loops"
+}
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/O3-*.\[cS\]]]  \
         "" $DEFAULT_VECTCFLAGS
 
 # With -O1

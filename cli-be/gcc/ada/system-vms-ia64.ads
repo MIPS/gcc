@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --            (OpenVMS 64bit Itanium GCC_ZCX DEC Threads Version)           --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -250,7 +250,7 @@ private
 
    ADA_GNAT : constant Boolean := True;
    pragma Export_Object (ADA_GNAT, "ADA$GNAT");
-   --  Uniquitous global symbol identifing a GNAT compiled image to VMS Debug.
+   --  Ubiquitous global symbol identifying a GNAT compiled image to VMS Debug.
    --  Do not remove!
 
 end System;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -59,7 +59,7 @@ package body System.Pool_Size is
 
       --  Embedded pool that manages allocation of variable-size data
 
-      --  This pool is used as soon as the Elmt_sizS of the pool object is 0
+      --  This pool is used as soon as the Elmt_Size of the pool object is 0
 
       --  Allocation is done on the first chunk long enough for the request.
       --  Deallocation just puts the freed chunk at the beginning of the list.
@@ -261,7 +261,7 @@ package body System.Pool_Size is
             raise Storage_Error;
          end if;
 
-         --  When the chunk is bigger than what is needed, take appropraite
+         --  When the chunk is bigger than what is needed, take appropriate
          --  amount and build a new shrinked chunk with the remainder.
 
          if Size (Pool, Chunk) - Align_Size  > Minimum_Size then

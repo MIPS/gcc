@@ -1,6 +1,6 @@
 ! crti.s for solaris 2.0.
 
-!   Copyright (C) 1992 Free Software Foundation, Inc.
+!   Copyright (C) 1992, 2008 Free Software Foundation, Inc.
 !   Written By David Vinayak Henkel-Wallace, June 1992
 ! 
 ! This file is free software; you can redistribute it and/or modify it
@@ -40,8 +40,6 @@
 ! This file is linked in before the Values-Xx.o files and also before
 ! crtbegin, with which perhaps it should be merged.
  
-	.file		"crti.s"
-
 	.section	".init"
 	.proc	022
 	.global	_init

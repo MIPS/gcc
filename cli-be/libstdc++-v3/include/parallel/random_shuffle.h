@@ -249,7 +249,7 @@ template<typename T>
     if (x <= 1)
       return 1;
     else
-      return (T)1 << (log2(x - 1) + 1);
+      return (T)1 << (__log2(x - 1) + 1);
   }
 
 /** @brief Main parallel random shuffle step.
@@ -333,6 +333,7 @@ template<typename RandomAccessIterator, typename RandomNumberGenerator>
 
 #   pragma omp parallel num_threads(num_threads)
       {
+        thread_index_t num_threads = omp_get_num_threads();
 #       pragma omp single
           {
             pus = new DRSSorterPU<RandomAccessIterator, random_number>
@@ -351,7 +352,7 @@ template<typename RandomAccessIterator, typename RandomNumberGenerator>
             starts = sd.starts = new difference_type[num_threads + 1];
             int bin_cursor = 0;
             sd.num_bins = num_bins;
-            sd.num_bits = log2(num_bins);
+            sd.num_bits = __log2(num_bins);
 
             difference_type chunk_length = n / num_threads,
                             split = n % num_threads, start = 0;
@@ -375,9 +376,9 @@ template<typename RandomAccessIterator, typename RandomNumberGenerator>
               }
             starts[num_threads] = start;
           } //single
-      // Now shuffle in parallel.
-      parallel_random_shuffle_drs_pu(pus);
-    }
+        // Now shuffle in parallel.
+        parallel_random_shuffle_drs_pu(pus);
+      }  // parallel
 
     delete[] starts;
     delete[] sd.bin_proc;
@@ -449,7 +450,7 @@ template<typename RandomAccessIterator, typename RandomNumberGenerator>
       }
 #endif
 
-    int num_bits = log2(num_bins);
+    int num_bits = __log2(num_bins);
 
     if (num_bins > 1)
       {
@@ -490,6 +491,9 @@ template<typename RandomAccessIterator, typename RandomNumberGenerator>
                                       rng);
           }
 
+        // Copy elements back.
+        std::copy(target, target + n, begin);
+
         delete[] dist0;
         delete[] dist1;
         delete[] oracles;
@@ -518,4 +522,4 @@ template<typename RandomAccessIterator, typename RandomNumberGenerator>
 
 }
 
-#endif
+#endif /* _GLIBCXX_PARALLEL_RANDOM_SHUFFLE_H */

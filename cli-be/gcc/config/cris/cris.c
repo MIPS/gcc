@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+   2008  Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -112,8 +112,8 @@ static void cris_asm_output_mi_thunk
 static void cris_file_start (void);
 static void cris_init_libfuncs (void);
 
-static bool cris_rtx_costs (rtx, int, int, int *);
-static int cris_address_cost (rtx);
+static bool cris_rtx_costs (rtx, int, int, int *, bool);
+static int cris_address_cost (rtx, bool);
 static bool cris_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    const_tree, bool);
 static int cris_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
@@ -412,13 +412,13 @@ cris_conditional_register_usage (void)
     reg_names[CRIS_CC0_REGNUM] = "ccr";
 }
 
-/* Return current_function_uses_pic_offset_table.  For use in cris.md,
+/* Return crtl->uses_pic_offset_table.  For use in cris.md,
    since some generated files do not include function.h.  */
 
 int
 cris_cfun_uses_pic_table (void)
 {
-  return current_function_uses_pic_offset_table;
+  return crtl->uses_pic_offset_table;
 }
 
 /* Given an rtx, return the text string corresponding to the CODE of X.
@@ -604,7 +604,7 @@ cris_reg_saved_in_regsave_area (unsigned int regno, bool got_really_used)
 		  && !call_used_regs[regno + 1]))))
      && (regno != FRAME_POINTER_REGNUM || !frame_pointer_needed)
      && regno != CRIS_SRP_REGNUM)
-    || (current_function_calls_eh_return
+    || (crtl->calls_eh_return
 	&& (regno == EH_RETURN_DATA_REGNO (0)
 	    || regno == EH_RETURN_DATA_REGNO (1)
 	    || regno == EH_RETURN_DATA_REGNO (2)
@@ -684,7 +684,7 @@ cris_print_operand (FILE *file, rtx x, int code)
       /* Print the unsigned supplied integer as if it were signed
 	 and < 0, i.e print 255 or 65535 as -1, 254, 65534 as -2, etc.  */
       if (!CONST_INT_P (x)
-	  || ! CONST_OK_FOR_LETTER_P (INTVAL (x), 'O'))
+	  || !CRIS_CONST_OK_FOR_LETTER_P (INTVAL (x), 'O'))
 	LOSE_AND_RETURN ("invalid operand for 'b' modifier", x);
       fprintf (file, HOST_WIDE_INT_PRINT_DEC,
 	       INTVAL (x)| (INTVAL (x) <= 255 ? ~255 : ~65535));
@@ -1188,7 +1188,7 @@ cris_initial_frame_pointer_offset (void)
   int offs = 0;
   bool got_really_used = false;
 
-  if (current_function_uses_pic_offset_table)
+  if (crtl->uses_pic_offset_table)
     {
       push_topmost_sequence ();
       got_really_used
@@ -1206,7 +1206,7 @@ cris_initial_frame_pointer_offset (void)
   offs += get_frame_size ();
 
   /* And more; the accumulated args size.  */
-  offs += current_function_outgoing_args_size;
+  offs += crtl->outgoing_args_size;
 
   /* Then round it off, in case we use aligned stack.  */
   if (TARGET_STACK_ALIGN)
@@ -1503,8 +1503,8 @@ cris_normal_notice_update_cc (rtx exp, rtx insn)
 			   > CRIS_LAST_GENERAL_REGISTER))
 		   || (TARGET_V32
 		       && GET_CODE (SET_SRC (exp)) == CONST_INT
-		       && CONST_OK_FOR_LETTER_P (INTVAL (SET_SRC (exp)),
-						 'I')))
+		       && CRIS_CONST_OK_FOR_LETTER_P (INTVAL (SET_SRC (exp)),
+						      'I')))
 	    {
 	      /* There's no CC0 change for this case.  Just check
 		 for overlap.  */
@@ -1700,10 +1700,10 @@ cris_simple_epilogue (void)
   if (! reload_completed
       || frame_pointer_needed
       || get_frame_size () != 0
-      || current_function_pretend_args_size
-      || current_function_args_size
-      || current_function_outgoing_args_size
-      || current_function_calls_eh_return
+      || crtl->args.pretend_args_size
+      || crtl->args.size
+      || crtl->outgoing_args_size
+      || crtl->calls_eh_return
 
       /* If we're not supposed to emit prologue and epilogue, we must
 	 not emit return-type instructions.  */
@@ -1714,7 +1714,7 @@ cris_simple_epilogue (void)
   if (TARGET_V32 && cris_return_address_on_stack ())
     return false;
 
-  if (current_function_uses_pic_offset_table)
+  if (crtl->uses_pic_offset_table)
     {
       push_topmost_sequence ();
       got_really_used
@@ -1756,7 +1756,8 @@ cris_expand_return (bool on_stack)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-cris_rtx_costs (rtx x, int code, int outer_code, int *total)
+cris_rtx_costs (rtx x, int code, int outer_code, int *total,
+		bool speed)
 {
   switch (code)
     {
@@ -1795,6 +1796,21 @@ cris_rtx_costs (rtx x, int code, int outer_code, int *total)
       return true;
 
     case MULT:
+      /* If we have one arm of an ADDI, make sure it gets the cost of
+	 one insn, i.e. zero cost for this operand, and just the cost
+	 of the PLUS, as the insn is created by combine from a PLUS
+	 and an ASHIFT, and the MULT cost below would make the
+	 combined value be larger than the separate insns.  The insn
+	 validity is checked elsewhere by combine.
+
+	 FIXME: this case is a stop-gap for 4.3 and 4.4, this whole
+	 function should be rewritten.  */
+      if (outer_code == PLUS && BIAP_INDEX_P (x))
+	{
+	  *total = 0;
+	  return true;
+	}
+
       /* Identify values that are no powers of two.  Powers of 2 are
          taken care of already and those values should not be changed.  */
       if (!CONST_INT_P (XEXP (x, 1))
@@ -1831,16 +1847,16 @@ cris_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (CONST_INT_P (XEXP (x, 1))
           /* Two constants may actually happen before optimization.  */
           && !CONST_INT_P (XEXP (x, 0))
-          && !CONST_OK_FOR_LETTER_P (INTVAL (XEXP (x, 1)), 'I'))
+          && !CRIS_CONST_OK_FOR_LETTER_P (INTVAL (XEXP (x, 1)), 'I'))
 	{
-	  *total = (rtx_cost (XEXP (x, 0), outer_code) + 2
+	  *total = (rtx_cost (XEXP (x, 0), outer_code, speed) + 2
 		    + 2 * GET_MODE_NUNITS (GET_MODE (XEXP (x, 0))));
 	  return true;
 	}
       return false;
 
     case ZERO_EXTEND: case SIGN_EXTEND:
-      *total = rtx_cost (XEXP (x, 0), outer_code);
+      *total = rtx_cost (XEXP (x, 0), outer_code, speed);
       return true;
 
     default:
@@ -1851,7 +1867,7 @@ cris_rtx_costs (rtx x, int code, int outer_code, int *total)
 /* The ADDRESS_COST worker.  */
 
 static int
-cris_address_cost (rtx x)
+cris_address_cost (rtx x, bool speed ATTRIBUTE_UNUSED)
 {
   /* The metric to use for the cost-macros is unclear.
      The metric used here is (the number of cycles needed) / 2,
@@ -1883,7 +1899,12 @@ cris_address_cost (rtx x)
       rtx tem1 = XEXP (x, 0);
       rtx tem2 = XEXP (x, 1);
 
-      /* We'll "assume" canonical RTX.  */
+      /* Local extended canonicalization rule: the first operand must
+	 be REG, unless it's an operation (MULT).  */
+      if (!REG_P (tem1) && GET_CODE (tem1) != MULT)
+	tem1 = tem2, tem2 = XEXP (x, 0);
+
+      /* We'll "assume" we have canonical RTX now.  */
       gcc_assert (REG_P (tem1) || GET_CODE (tem1) == MULT);
 
       /* A BIAP is 2 extra bytes for the prefix insn, nothing more.  We
@@ -1900,7 +1921,8 @@ cris_address_cost (rtx x)
 
       /* A BDAP -32768 .. 32767 is like BDAP quick, but with 2 extra
 	 bytes.  */
-      if (CONST_INT_P (tem2) && CONST_OK_FOR_LETTER_P (INTVAL (tem2), 'L'))
+      if (CONST_INT_P (tem2)
+	  && CRIS_CONST_OK_FOR_LETTER_P (INTVAL (tem2), 'L'))
 	return (2 + 2) / 2;
 
       /* A BDAP with some other constant is 2 bytes extra.  */
@@ -2528,7 +2550,7 @@ cris_init_expanders (void)
 static struct machine_function *
 cris_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return GGC_CNEW (struct machine_function);
 }
 
 /* Split a 2 word move (DI or presumably DF) into component parts.
@@ -2731,14 +2753,14 @@ cris_expand_prologue (void)
   int regno;
   int size = get_frame_size ();
   /* Shorten the used name for readability.  */
-  int cfoa_size = current_function_outgoing_args_size;
+  int cfoa_size = crtl->outgoing_args_size;
   int last_movem_reg = -1;
   int framesize = 0;
   rtx mem, insn;
   int return_address_on_stack = cris_return_address_on_stack ();
   int got_really_used = false;
   int n_movem_regs = 0;
-  int pretend = current_function_pretend_args_size;
+  int pretend = crtl->args.pretend_args_size;
 
   /* Don't do anything if no prologues or epilogues are wanted.  */
   if (!TARGET_PROLOGUE_EPILOGUE)
@@ -2746,7 +2768,7 @@ cris_expand_prologue (void)
 
   CRIS_ASSERT (size >= 0);
 
-  if (current_function_uses_pic_offset_table)
+  if (crtl->uses_pic_offset_table)
     {
       /* A reference may have been optimized out (like the abort () in
 	 fde_split in unwind-dw2-fde.c, at least 3.2.1) so check that
@@ -2765,7 +2787,7 @@ cris_expand_prologue (void)
     {
       /* See also cris_setup_incoming_varargs where
 	 cfun->machine->stdarg_regs is set.  There are other setters of
-	 current_function_pretend_args_size than stdarg handling, like
+	 crtl->args.pretend_args_size than stdarg handling, like
 	 for an argument passed with parts in R13 and stack.  We must
 	 not store R13 into the pretend-area for that case, as GCC does
 	 that itself.  "Our" store would be marked as redundant and GCC
@@ -2799,7 +2821,7 @@ cris_expand_prologue (void)
 	     get confused.  */
 	}
 
-      /* For other setters of current_function_pretend_args_size, we
+      /* For other setters of crtl->args.pretend_args_size, we
 	 just adjust the stack by leaving the remaining size in
 	 "pretend", handled below.  */
     }
@@ -2997,7 +3019,7 @@ cris_expand_prologue (void)
 	 the GOT register load as maybe-dead.  To see this, remove the
 	 line below and try libsupc++/vec.cc or a trivial
 	 "static void y (); void x () {try {y ();} catch (...) {}}".  */
-      emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+      emit_use (pic_offset_table_rtx);
     }
 
   if (cris_max_stackframe && framesize > cris_max_stackframe)
@@ -3012,8 +3034,8 @@ cris_expand_epilogue (void)
   int regno;
   int size = get_frame_size ();
   int last_movem_reg = -1;
-  int argspace_offset = current_function_outgoing_args_size;
-  int pretend =	 current_function_pretend_args_size;
+  int argspace_offset = crtl->outgoing_args_size;
+  int pretend =	 crtl->args.pretend_args_size;
   rtx mem;
   bool return_address_on_stack = cris_return_address_on_stack ();
   /* A reference may have been optimized out
@@ -3025,7 +3047,7 @@ cris_expand_epilogue (void)
   if (!TARGET_PROLOGUE_EPILOGUE)
     return;
 
-  if (current_function_uses_pic_offset_table)
+  if (crtl->uses_pic_offset_table)
     {
       /* A reference may have been optimized out (like the abort () in
 	 fde_split in unwind-dw2-fde.c, at least 3.2.1) so check that
@@ -3168,7 +3190,7 @@ cris_expand_epilogue (void)
      the return address on the stack.  */
   if (return_address_on_stack && pretend == 0)
     {
-      if (TARGET_V32 || current_function_calls_eh_return)
+      if (TARGET_V32 || crtl->calls_eh_return)
 	{
 	  rtx mem;
 	  rtx insn;
@@ -3184,7 +3206,7 @@ cris_expand_epilogue (void)
 	  REG_NOTES (insn)
 	    = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
 
-	  if (current_function_calls_eh_return)
+	  if (crtl->calls_eh_return)
 	    emit_insn (gen_addsi3 (stack_pointer_rtx,
 				   stack_pointer_rtx,
 				   gen_rtx_raw_REG (SImode,
@@ -3226,7 +3248,7 @@ cris_expand_epilogue (void)
     }
 
   /* Perform the "physical" unwinding that the EH machinery calculated.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     emit_insn (gen_addsi3 (stack_pointer_rtx,
 			   stack_pointer_rtx,
 			   gen_rtx_raw_REG (SImode,
@@ -3479,7 +3501,7 @@ cris_expand_pic_call_address (rtx *opp)
 		 for v32.  */
 	      rtx tem, rm, ro;
 	      gcc_assert (can_create_pseudo_p ());
-	      current_function_uses_pic_offset_table = 1;
+	      crtl->uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
 				    TARGET_V32
 				    ? CRIS_UNSPEC_PLT_PCREL
@@ -3514,7 +3536,7 @@ cris_expand_pic_call_address (rtx *opp)
 	      rtx tem, mem, rm, ro;
 
 	      gcc_assert (can_create_pseudo_p ());
-	      current_function_uses_pic_offset_table = 1;
+	      crtl->uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
 				    CRIS_UNSPEC_PLTGOTREAD);
 	      rm = gen_reg_rtx (Pmode);
@@ -3543,14 +3565,15 @@ cris_expand_pic_call_address (rtx *opp)
 }
 
 /* Make sure operands are in the right order for an addsi3 insn as
-   generated by a define_split.  A MEM as the first operand isn't
-   recognized by addsi3 after reload.  OPERANDS contains the operands,
-   with the first at OPERANDS[N] and the second at OPERANDS[N+1].  */
+   generated by a define_split.  Nothing but REG_P as the first
+   operand is recognized by addsi3 after reload.  OPERANDS contains
+   the operands, with the first at OPERANDS[N] and the second at
+   OPERANDS[N+1].  */
 
 void
 cris_order_for_addsi3 (rtx *operands, int n)
 {
-  if (MEM_P (operands[n]))
+  if (!REG_P (operands[n]))
     {
       rtx tem = operands[n];
       operands[n] = operands[n + 1];
@@ -3586,7 +3609,7 @@ cris_asm_output_symbol_ref (FILE *file, rtx x)
      assemble_name (file, str);
 
      /* Sanity check.  */
-     if (!TARGET_V32 && !current_function_uses_pic_offset_table)
+     if (!TARGET_V32 && !crtl->uses_pic_offset_table)
        output_operand_lossage ("PIC register isn't set up");
     }
   else
@@ -3603,7 +3626,7 @@ cris_asm_output_label_ref (FILE *file, char *buf)
       assemble_name (file, buf);
 
       /* Sanity check.  */
-      if (!TARGET_V32 && !current_function_uses_pic_offset_table)
+      if (!TARGET_V32 && !crtl->uses_pic_offset_table)
 	internal_error ("emitting PIC operand, but PIC register isn't set up");
     }
   else

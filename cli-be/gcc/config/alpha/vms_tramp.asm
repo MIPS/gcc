@@ -1,5 +1,5 @@
 /* VMS trampoline for nested functions
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2008 Free Software Foundation, Inc.
    Contributed by Douglas B. Rupp (rupp@gnat.com).
 
 This file is part of GCC.
@@ -33,7 +33,6 @@ Boston, MA 02110-1301, USA.  */
 	.set noreorder
 	.set volatile
 	.set noat
-	.file 1 "vms_tramp.asm"
 .text
 	.align 3
 	.globl __tramp

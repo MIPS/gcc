@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -178,7 +178,7 @@ package Freeze is
    procedure Expand_Atomic_Aggregate (E : Entity_Id; Typ : Entity_Id);
    --  If an atomic object is initialized with an aggregate or is assigned
    --  an aggregate, we have to prevent a piecemeal access or assignment
-   --  to the object, even if the aggregate is to be expanded. we create
+   --  to the object, even if the aggregate is to be expanded. We create
    --  a temporary for the aggregate, and assign the temporary instead,
    --  so that the back end can generate an atomic move for it.
 

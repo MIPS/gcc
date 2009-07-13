@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1999-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -138,7 +138,7 @@ package body System.OS_Interface is
    --------------------------
 
    --  For all the following functions, LynxOS threads has the POSIX Draft 4
-   --  begavior; it sets errno but the standard Posix requires it to be
+   --  behavior; it sets errno but the standard Posix requires it to be
    --  returned.
 
    function pthread_mutexattr_init

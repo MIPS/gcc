@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -229,7 +229,7 @@ package body Interfaces.C_Streams is
       --  In order for the above fwrite hack to work, we must always buffer
       --  stdout and stderr. Is_regular_file on VMS cannot detect when
       --  these are redirected to a file, so checking for that condition
-      --  doesnt help.
+      --  doesn't help.
 
       if mode = IONBF
         and then (stream = stdout or else stream = stderr)

@@ -25,9 +25,11 @@ main ()
   if (str.a != res)
     abort ();
 
-  return str.a;
+  /* POSIX ignores all but the 8 low-order bits, but other
+     environments may not.  */
+  return (str.a & 255);
 }
 
 /*--------------------------------------------------------------------------*/
-/* { dg-final { scan-ipa-dump "No structures to transform" "ipa_struct_reorg" } } */
+/* { dg-final { scan-ipa-dump "No structures to transform" "ipa_struct_reorg" { xfail { "avr-*-*" } } } } */
 /* { dg-final { cleanup-ipa-dump "*" } } */

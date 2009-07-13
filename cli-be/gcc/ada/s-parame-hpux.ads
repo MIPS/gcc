@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -123,7 +123,7 @@ package System.Parameters is
 
    --      The system releases all storage on program termination only,
    --      but not other garbage collection occurs, so finalization calls
-   --      are ommitted only for outer level onjects can be omitted if
+   --      are omitted only for outer level objects can be omitted if
    --      pragma Finalize_Storage_Only is used.
 
    --    Garbage_Collected = True

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,7 +61,7 @@ package System.Finalization_Root is
    procedure Finalize   (Object : in out Root_Controlled);
    procedure Adjust     (Object : in out Root_Controlled);
 
-   --  Stream-oriented attibutes for Root_Controlled. These must be empty so
+   --  Stream-oriented attributes for Root_Controlled. These must be empty so
    --  as to not copy the finalization chain pointers. They are declared in
    --  a nested package so that they do not create primitive operations of
    --  Root_Controlled. Otherwise this would add unwanted primitives to (the

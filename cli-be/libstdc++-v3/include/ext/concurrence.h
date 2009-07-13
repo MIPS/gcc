@@ -240,7 +240,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       { return &_M_mutex; }
   };
 
-  /// @brief  Scoped lock idiom.
+  /// Scoped lock idiom.
   // Acquire the mutex here with a constructor call, then release with
   // the destructor call in accordance with RAII style.
   class __scoped_lock
@@ -281,7 +281,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	  __gthread_cond_t __tmp = __GTHREAD_COND_INIT;
 	  _M_cond = __tmp;
 #else
-	  __GTHREAD_MUTEX_INIT_FUNCTION(&_M_cond);
+	  __GTHREAD_COND_INIT_FUNCTION(&_M_cond);
 #endif
 	}
 #endif 

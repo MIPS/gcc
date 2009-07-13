@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---         Copyright (C) 2004-2007, Free Software Foundation, Inc.          --
+--         Copyright (C) 2004-2008, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,10 +41,6 @@ package System.Stack_Usage is
 
    package SSE renames System.Storage_Elements;
 
-   --  The alignment clause seems dubious, what about architectures where
-   --  the maximum alignment is less than 4???
-   --  Anyway, why not use Interfaces.Unsigned_32???
-
    subtype Stack_Address is SSE.Integer_Address;
    --  Address on the stack
 
@@ -53,9 +49,8 @@ package System.Stack_Usage is
       renames System.Storage_Elements.To_Integer;
 
    type Stack_Analyzer is private;
-   --  Type of the stack analyzer tool. It is used to fill a portion of
-   --  the stack with Pattern, and to compute the stack used after some
-   --  execution.
+   --  Type of the stack analyzer tool. It is used to fill a portion of the
+   --  stack with Pattern, and to compute the stack used after some execution.
 
    --  Usage:
 
@@ -90,9 +85,9 @@ package System.Stack_Usage is
    --  Errors:
    --
    --  We are instrumenting the code to measure the stack used by the user
-   --  code. This method has a number of systematic errors, but several
-   --  methods can be used to evaluate or reduce those errors. Here are
-   --  those errors and the strategy that we use to deal with them:
+   --  code. This method has a number of systematic errors, but several methods
+   --  can be used to evaluate or reduce those errors. Here are those errors
+   --  and the strategy that we use to deal with them:
 
    --  Bottom offset:
 
@@ -112,7 +107,7 @@ package System.Stack_Usage is
    --       appear as used in the final measure.
 
    --     Strategy: As the user passes the value of the bottom of stack to
-   --       the instrumentation to deal with the bottom offset error, and as as
+   --       the instrumentation to deal with the bottom offset error, and as
    --       the instrumentation procedure knows where the pattern filling start
    --       on the stack, the difference between the two values is the minimum
    --       stack usage that the method can measure. If, when the results are
@@ -127,7 +122,7 @@ package System.Stack_Usage is
    --      this point, it will increase the measured stack size.
 
    --    Strategy: We could augment this stack frame and see if it changes the
-   --      measure. However, this error should be negligeable.
+   --      measure. However, this error should be negligible.
 
    --   Pattern zone overflow:
 
@@ -164,8 +159,8 @@ package System.Stack_Usage is
    --     Description: The pattern zone does not fit on the stack. This may
    --       lead to an erroneous execution.
 
-   --    Strategy: Specify a storage size that is bigger than the size of the
-   --      pattern. 2 times bigger should be enough.
+   --     Strategy: Specify a storage size that is bigger than the size of the
+   --       pattern. 2 times bigger should be enough.
 
    --   Augmentation of the user stack frames:
 
@@ -211,21 +206,24 @@ package System.Stack_Usage is
    --                                            Analyzer.Top_Pattern_Mark
 
    procedure Initialize_Analyzer
-     (Analyzer       : in out Stack_Analyzer;
-      Task_Name      : String;
-      Size           : Natural;
-      Overflow_Guard : Natural;
-      Bottom         : Stack_Address;
-      Pattern        : Interfaces.Unsigned_32 := 16#DEAD_BEEF#);
+     (Analyzer         : in out Stack_Analyzer;
+      Task_Name        : String;
+      Stack_Size       : Natural;
+      Max_Pattern_Size : Natural;
+      Bottom           : Stack_Address;
+      Pattern          : Interfaces.Unsigned_32 := 16#DEAD_BEEF#);
    --  Should be called before any use of a Stack_Analyzer, to initialize it.
-   --  Size is the size of the pattern zone. Bottom should be a close
-   --  approximation of the caller base frame address.
+   --  Max_Pattern_Size is the size of the pattern zone, might be smaller than
+   --  the full stack size in order to take into account e.g. the secondary
+   --  stack and a guard against overflow. The actual size taken will be
+   --  readjusted with data already used at the time the stack is actually
+   --  filled.
 
    Is_Enabled : Boolean := False;
    --  When this flag is true, then stack analysis is enabled
 
    procedure Compute_Result (Analyzer : in out Stack_Analyzer);
-   --  Read the patern zone and deduce the stack usage. It should be called
+   --  Read the pattern zone and deduce the stack usage. It should be called
    --  from the same frame as Fill_Stack. If Analyzer.Probe is not null, an
    --  array of Unsigned_32 with Analyzer.Probe elements is allocated on
    --  Compute_Result's stack frame. Probe can be used to detect  the error:
@@ -249,7 +247,7 @@ package System.Stack_Usage is
    procedure Report_Result (Analyzer : Stack_Analyzer);
    --  Store the results of the computation in memory, at the address
    --  corresponding to the symbol __gnat_stack_usage_results. This is not
-   --  done inside Compute_Resuls in order to use as less stack as possible
+   --  done inside Compute_Result in order to use as less stack as possible
    --  within a task.
 
    procedure Output_Results;
@@ -274,14 +272,17 @@ private
       Task_Name : String (1 .. Task_Name_Length);
       --  Name of the task
 
-      Size : Natural;
+      Stack_Size : Natural;
+      --  Entire size of the analyzed stack
+
+      Pattern_Size : Natural;
       --  Size of the pattern zone
 
       Pattern : Pattern_Type;
       --  Pattern used to recognize untouched memory
 
       Bottom_Pattern_Mark : Stack_Address;
-      --  Bound of the pattern area on the stack clostest to the bottom
+      --  Bound of the pattern area on the stack closest to the bottom
 
       Top_Pattern_Mark : Stack_Address;
       --  Topmost bound of the pattern area on the stack
@@ -303,10 +304,6 @@ private
       Result_Id : Positive;
       --  Id of the result. If less than value given to gnatbind -u corresponds
       --  to the location in the result array of result for the current task.
-
-      Overflow_Guard : Natural;
-      --  The amount of bytes that won't be analyzed in order to prevent
-      --  writing out of the stack
    end record;
 
    Environment_Task_Analyzer : Stack_Analyzer;
@@ -314,10 +311,16 @@ private
    Compute_Environment_Task  : Boolean;
 
    type Task_Result is record
-      Task_Name      : String (1 .. Task_Name_Length);
-      Measure        : Natural;
-      Max_Size       : Natural;
-      Overflow_Guard : Natural;
+      Task_Name : String (1 .. Task_Name_Length);
+
+      Min_Measure : Natural;
+      --  Minimum value for the measure
+
+      Max_Measure : Natural;
+      --  Maximum value for the measure, taking into account the actual size
+      --  of the pattern filled.
+
+      Max_Size : Natural;
    end record;
 
    type Result_Array_Type is array (Positive range <>) of Task_Result;
@@ -334,7 +337,7 @@ private
      (SP_Low  : Stack_Address;
       SP_High : Stack_Address) return Natural;
    pragma Inline (Stack_Size);
-   --  Return the size of a portion of stack delimeted by SP_High and SP_Low
+   --  Return the size of a portion of stack delimited by SP_High and SP_Low
    --  (), i.e. the difference between SP_High and SP_Low. The storage element
    --  pointed by SP_Low is not included in the size. Inlined to reduce the
    --  size of the stack used by the instrumentation code.

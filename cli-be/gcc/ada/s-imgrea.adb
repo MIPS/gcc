@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -87,7 +87,7 @@ package body System.Img_Real is
       pragma Assert (S'First = 1);
 
    begin
-      --  Decide wether a blank should be prepended before the call to
+      --  Decide whether a blank should be prepended before the call to
       --  Set_Image_Real. We generate a blank for positive values, and
       --  also for positive zeroes. For negative zeroes, we generate a
       --  space only if Signed_Zeroes is True (the RM only permits the

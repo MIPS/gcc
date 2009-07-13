@@ -48,10 +48,11 @@
 // { dg-require-time "" }
 
 #include <regression/rand/assoc/rand_regression_test.hpp>
-#include <regression/assoc/common_type.hpp>
+#include <regression/common_type.hpp>
 
 // This can take long on simulators, timing out the test.
 // { dg-options "-DPB_DS_REGRESSION -DITERATIONS=5" { target simulator } }
+// { dg-timeout-factor 2.0 }
 #ifndef ITERATIONS
 #define ITERATIONS 5000
 #endif

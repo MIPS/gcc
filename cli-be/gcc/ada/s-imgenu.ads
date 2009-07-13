@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2000-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,8 +39,8 @@
 --  Note: this is an obsolete package, replaced by System.Img_Enum_New, which
 --  provides procedures instead of functions for these enumeration image calls.
 --  The reason we maintain this package is that when bootstrapping with old
---  compilers, the old compiler will search for this unit, expectinng to find
---  these functions. The new commpiler will search for procedures in the new
+--  compilers, the old compiler will search for this unit, expecting to find
+--  these functions. The new compiler will search for procedures in the new
 --  version of the unit.
 
 pragma Warnings (Off);

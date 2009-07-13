@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -129,7 +129,7 @@ package Nlists is
    --  returned. It is an error to call First_Non_Pragma with a Node_Id value
    --  or No_List (No_List is not considered to be the same as an empty list).
    --  This function also skips N_Null nodes which can result from rewriting
-   --  unrecognized or incorrrect pragmas.
+   --  unrecognized or incorrect pragmas.
 
    function Last (List : List_Id) return Node_Id;
    pragma Inline (Last);
@@ -172,7 +172,7 @@ package Nlists is
 
    function Prev (Node : Node_Id) return Node_Id;
    pragma Inline (Prev);
-   --  This function returns the previous node on a node list list, or Empty
+   --  This function returns the previous node on a node list, or Empty
    --  if Node is the first element of the node list. The argument must be
    --  a member of a node list. Note: the implementation does maintain back
    --  pointers, so this function executes quickly in constant time.
@@ -201,7 +201,7 @@ package Nlists is
    function Is_Empty_List (List : List_Id) return Boolean;
    pragma Inline (Is_Empty_List);
    --  This function determines if a given list id references a node list that
-   --  contains no items. No_List is a not a legitimate argument.
+   --  contains no items. No_List as an argument returns True.
 
    function Is_Non_Empty_List (List : List_Id) return Boolean;
    pragma Inline (Is_Non_Empty_List);

@@ -1,5 +1,5 @@
 /* crtend object for windows32 targets.
-   Copyright (C) 2007  Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008  Free Software Foundation, Inc.
 
    Contributed by Danny Smith <dannysmith@users.sourceforge.net>
 
@@ -65,22 +65,29 @@ static void *__JCR_END__[1]
    = { 0 };
 #endif
 
-
 extern void __gcc_register_frame (void); 
 extern void __gcc_deregister_frame (void);
 
 static void register_frame_ctor (void) __attribute__ ((constructor (0)));
-static void deregister_frame_dtor (void) __attribute__ ((destructor (0)));
-
 
 static void
 register_frame_ctor (void)
 {
   __gcc_register_frame ();
+#if DEFAULT_USE_CXA_ATEXIT
+  /* If we use the __cxa_atexit method to register C++ dtors
+     at object construction,  also use atexit to register eh frame
+     info cleanup.  */
+  atexit (__gcc_deregister_frame);
+#endif
 }
+
+#if !DEFAULT_USE_CXA_ATEXIT
+static void deregister_frame_dtor (void) __attribute__ ((destructor (0)));
 
 static void
 deregister_frame_dtor (void)
 {
   __gcc_deregister_frame ();
 }
+#endif

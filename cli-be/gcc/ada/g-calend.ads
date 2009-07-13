@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1999-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,7 +39,7 @@
 --  Ada.Calendar. It provides Split and Time_Of to build and split a Time
 --  data. And it provides accessor functions to get only one of Hour, Minute,
 --  Second, Second_Duration. Other functions are to access more advanced
---  valueas like Day_Of_Week, Day_In_Year and Week_In_Year.
+--  values like Day_Of_Week, Day_In_Year and Week_In_Year.
 
 with Ada.Calendar;
 with Interfaces.C;
@@ -64,7 +64,7 @@ package GNAT.Calendar is
    function Minute     (Date : Ada.Calendar.Time) return Minute_Number;
    function Second     (Date : Ada.Calendar.Time) return Second_Number;
    function Sub_Second (Date : Ada.Calendar.Time) return Second_Duration;
-   --  Hour, Minute, Sedond and Sub_Second returns the complete time data for
+   --  Hour, Minute, Second and Sub_Second returns the complete time data for
    --  the Date (H:M:S.SS). See Ada.Calendar for Year, Month, Day accessors.
    --  Second_Duration precision depends on the target clock precision.
 

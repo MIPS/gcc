@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                      A D A . C O N T A I N E R S .                       --
---              I N D E F I N I T E _ O R D E R E D _ S E T S               --
+--                 ADA.CONTAINERS.INDEFINITE_ORDERED_SETS                   --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1177,7 +1176,7 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
       T : Tree_Type renames Container.Tree'Unrestricted_Access.all;
       B : Natural renames T.Busy;
 
-   --  Start of prccessing for Iterate
+   --  Start of processing for Iterate
 
    begin
       B := B + 1;

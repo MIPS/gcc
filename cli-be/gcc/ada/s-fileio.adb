@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,10 +33,12 @@
 
 with Ada.Finalization;            use Ada.Finalization;
 with Ada.IO_Exceptions;           use Ada.IO_Exceptions;
+with Interfaces.C;
 with Interfaces.C_Streams;        use Interfaces.C_Streams;
 
 with System.CRTL;
 with System.Case_Util;            use System.Case_Util;
+with System.OS_Lib;
 with System.Soft_Links;
 
 with Ada.Unchecked_Deallocation;
@@ -47,6 +49,7 @@ package body System.File_IO is
 
    package SSL renames System.Soft_Links;
 
+   use type Interfaces.C.int;
    use type System.CRTL.size_t;
 
    ----------------------
@@ -206,9 +209,10 @@ package body System.File_IO is
    -- Close --
    -----------
 
-   procedure Close (File : in out AFCB_Ptr) is
+   procedure Close (File_Ptr : access AFCB_Ptr) is
       Close_Status : int := 0;
       Dup_Strm     : Boolean := False;
+      File         : AFCB_Ptr renames File_Ptr.all;
 
    begin
       --  Take a task lock, to protect the global data value Open_Files
@@ -296,7 +300,8 @@ package body System.File_IO is
    -- Delete --
    ------------
 
-   procedure Delete (File : in out AFCB_Ptr) is
+   procedure Delete (File_Ptr : access AFCB_Ptr) is
+      File : AFCB_Ptr renames File_Ptr.all;
    begin
       Check_File_Open (File);
 
@@ -308,7 +313,7 @@ package body System.File_IO is
          Filename : aliased constant String := File.Name.all;
 
       begin
-         Close (File);
+         Close (File_Ptr);
 
          --  Now unlink the external file. Note that we use the full name
          --  in this unlink, because the working directory may have changed
@@ -354,7 +359,7 @@ package body System.File_IO is
    procedure Finalize (V : in out File_IO_Clean_Up_Type) is
       pragma Warnings (Off, V);
 
-      Fptr1   : AFCB_Ptr;
+      Fptr1   : aliased AFCB_Ptr;
       Fptr2   : AFCB_Ptr;
 
       Discard : int;
@@ -371,7 +376,7 @@ package body System.File_IO is
       Fptr1 := Open_Files;
       while Fptr1 /= null loop
          Fptr2 := Fptr1.Next;
-         Close (Fptr1);
+         Close (Fptr1'Access);
          Fptr1 := Fptr2;
       end loop;
 
@@ -823,13 +828,13 @@ package body System.File_IO is
       if Stream /= NULL_Stream then
          Full_Name_Len := Name'Length + 1;
          Fullname (1 .. Full_Name_Len - 1) := Name;
-         Fullname (Full_Name_Len) := ASCII.Nul;
+         Fullname (Full_Name_Len) := ASCII.NUL;
 
       --  Normal case of Open or Create
 
       else
-         --  If temporary file case, get temporary file name and add
-         --  to the list of temporary files to be deleted on exit.
+         --  If temporary file case, get temporary file name and add to the
+         --  list of temporary files to be deleted on exit.
 
          if Tempfile then
             if not Creat then
@@ -963,7 +968,7 @@ package body System.File_IO is
             --  mode returned by Fopen_Mode is not "r" or "r+", then we first
             --  make sure that the file exists as required by Ada semantics.
 
-            if Creat = False and then Fopstr (1) /= 'r' then
+            if not Creat and then Fopstr (1) /= 'r' then
                if file_exists (Namestr'Address) = 0 then
                   raise Name_Error;
                end if;
@@ -982,11 +987,33 @@ package body System.File_IO is
             Stream := fopen (Namestr'Address, Fopstr'Address, Encoding);
 
             if Stream = NULL_Stream then
-               if file_exists (Namestr'Address) = 0 then
-                  raise Name_Error;
-               else
-                  raise Use_Error;
-               end if;
+
+               --  Raise Name_Error if trying to open a non-existent file.
+               --  Otherwise raise Use_Error.
+
+               --  Should we raise Device_Error for ENOSPC???
+
+               declare
+                  subtype Cint is Interfaces.C.int;
+
+                  function Is_File_Not_Found_Error
+                    (Errno_Value : Cint) return Cint;
+                  --  Non-zero when the given errno value indicates a non-
+                  --  existing file.
+
+                  pragma Import
+                    (C, Is_File_Not_Found_Error,
+                     "__gnat_is_file_not_found_error");
+
+               begin
+                  if
+                    Is_File_Not_Found_Error (Cint (System.OS_Lib.Errno)) /= 0
+                  then
+                     raise Name_Error;
+                  else
+                     raise Use_Error;
+                  end if;
+               end;
             end if;
          end if;
       end if;
@@ -1058,29 +1085,33 @@ package body System.File_IO is
 
    --  The reset which does not change the mode simply does a rewind
 
-   procedure Reset (File : in out AFCB_Ptr) is
+   procedure Reset (File_Ptr : access AFCB_Ptr) is
+      File : AFCB_Ptr renames File_Ptr.all;
    begin
       Check_File_Open (File);
-      Reset (File, File.Mode);
+      Reset (File_Ptr, File.Mode);
    end Reset;
 
    --  The reset with a change in mode is done using freopen, and is
    --  not permitted except for regular files (since otherwise there
    --  is no name for the freopen, and in any case it seems meaningless)
 
-   procedure Reset (File : in out AFCB_Ptr; Mode : File_Mode) is
+   procedure Reset (File_Ptr : access AFCB_Ptr; Mode : File_Mode) is
+      File   : AFCB_Ptr renames File_Ptr.all;
       Fopstr : aliased Fopen_String;
 
    begin
       Check_File_Open (File);
 
-      --  Change of mode not allowed for shared file or file with no name
-      --  or file that is not a regular file, or for a system file.
+      --  Change of mode not allowed for shared file or file with no name or
+      --  file that is not a regular file, or for a system file. Note that we
+      --  allow the "change" of mode if it is not in fact doing a change.
 
-      if File.Shared_Status = Yes
-        or else File.Name'Length <= 1
-        or else File.Is_System_File
-        or else not File.Is_Regular_File
+      if Mode /= File.Mode
+        and then (File.Shared_Status = Yes
+                   or else File.Name'Length <= 1
+                   or else File.Is_System_File
+                   or else not File.Is_Regular_File)
       then
          raise Use_Error;
 
@@ -1104,7 +1135,7 @@ package body System.File_IO is
            (File.Name.all'Address, Fopstr'Address, File.Stream, File.Encoding);
 
          if File.Stream = NULL_Stream then
-            Close (File);
+            Close (File_Ptr);
             raise Use_Error;
 
          else

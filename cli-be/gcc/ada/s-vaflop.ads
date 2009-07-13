@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1997-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -143,6 +143,20 @@ package System.Vax_Float_Operations is
    function Ne_G (X, Y : G) return Boolean;
    --  Compares for X /= Y
 
+   ----------------------
+   -- Return Functions --
+   ----------------------
+
+   function Return_D (X : D) return D;
+   function Return_F (X : F) return F;
+   function Return_G (X : G) return G;
+   --  Deal with returned value for an imported function where the function
+   --  result is of VAX Float type. Usually nothing needs to be done, and these
+   --  functions return their argument unchanged. But for the case of VMS Alpha
+   --  the return value is already in $f0, so we need to trick the compiler
+   --  into thinking that we are moving X to $f0. See bodies for this case
+   --  for the Asm sequence generated to achieve this.
+
    ----------------------------------
    -- Routines for Valid Attribute --
    ----------------------------------
@@ -175,7 +189,7 @@ package System.Vax_Float_Operations is
    --  These routines return a decimal C string image of their argument.
    --  They are provided for implicit use by the debugger, in response to
    --  the special encoding used for Vax floating-point types (see Exp_Dbug
-   --  for details). They supercede the above Debug_Output_D/F/G routines
+   --  for details). They supersede the above Debug_Output_D/F/G routines
    --  which didn't work properly with GDBTK.
 
    procedure pd (Arg : D);
@@ -190,43 +204,46 @@ package System.Vax_Float_Operations is
    --  types, and are retained for backwards compatibility.
 
 private
-   pragma Inline (D_To_G);
-   pragma Inline (F_To_G);
-   pragma Inline (F_To_Q);
-   pragma Inline (F_To_S);
-   pragma Inline (G_To_D);
-   pragma Inline (G_To_F);
-   pragma Inline (G_To_Q);
-   pragma Inline (G_To_T);
-   pragma Inline (Q_To_F);
-   pragma Inline (Q_To_G);
-   pragma Inline (S_To_F);
-   pragma Inline (T_To_G);
+   pragma Inline_Always (D_To_G);
+   pragma Inline_Always (F_To_G);
+   pragma Inline_Always (F_To_Q);
+   pragma Inline_Always (F_To_S);
+   pragma Inline_Always (G_To_D);
+   pragma Inline_Always (G_To_F);
+   pragma Inline_Always (G_To_Q);
+   pragma Inline_Always (G_To_T);
+   pragma Inline_Always (Q_To_F);
+   pragma Inline_Always (Q_To_G);
+   pragma Inline_Always (S_To_F);
+   pragma Inline_Always (T_To_G);
 
-   pragma Inline (Abs_F);
-   pragma Inline (Abs_G);
-   pragma Inline (Add_F);
-   pragma Inline (Add_G);
-   pragma Inline (Div_G);
-   pragma Inline (Div_F);
-   pragma Inline (Mul_F);
-   pragma Inline (Mul_G);
-   pragma Inline (Neg_G);
-   pragma Inline (Neg_F);
-   pragma Inline (Sub_F);
-   pragma Inline (Sub_G);
+   pragma Inline_Always (Abs_F);
+   pragma Inline_Always (Abs_G);
+   pragma Inline_Always (Add_F);
+   pragma Inline_Always (Add_G);
+   pragma Inline_Always (Div_G);
+   pragma Inline_Always (Div_F);
+   pragma Inline_Always (Mul_F);
+   pragma Inline_Always (Mul_G);
+   pragma Inline_Always (Neg_G);
+   pragma Inline_Always (Neg_F);
+   pragma Inline_Always (Return_D);
+   pragma Inline_Always (Return_F);
+   pragma Inline_Always (Return_G);
+   pragma Inline_Always (Sub_F);
+   pragma Inline_Always (Sub_G);
 
-   pragma Inline (Eq_F);
-   pragma Inline (Eq_G);
-   pragma Inline (Le_F);
-   pragma Inline (Le_G);
-   pragma Inline (Lt_F);
-   pragma Inline (Lt_G);
-   pragma Inline (Ne_F);
-   pragma Inline (Ne_G);
+   pragma Inline_Always (Eq_F);
+   pragma Inline_Always (Eq_G);
+   pragma Inline_Always (Le_F);
+   pragma Inline_Always (Le_G);
+   pragma Inline_Always (Lt_F);
+   pragma Inline_Always (Lt_G);
+   pragma Inline_Always (Ne_F);
+   pragma Inline_Always (Ne_G);
 
-   pragma Inline (Valid_D);
-   pragma Inline (Valid_F);
-   pragma Inline (Valid_G);
+   pragma Inline_Always (Valid_D);
+   pragma Inline_Always (Valid_F);
+   pragma Inline_Always (Valid_G);
 
 end System.Vax_Float_Operations;

@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -60,26 +60,29 @@
 #include <utility>
 #include <tr1/random>
 #include <bits/functexcept.h>
-#include <bits/stl_move.h>
+#include <bits/move.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   class twister_rand_gen
-  {
+  {    
+  private:
+    std::tr1::mt19937 _M_generator;
+
   public:
-    twister_rand_gen(unsigned int seed = 
-		     static_cast<unsigned int>(std::time(0)));
+    twister_rand_gen(unsigned int s = static_cast<unsigned int>(std::time(0)));
     
     void
     init(unsigned int);
     
     double
     get_prob();
-    
-  private:
-    std::tr1::mt19937 _M_generator;
   };
 
+  /** 
+   *  @brief Thown by throw_allocator.
+   *  @ingroup exceptions
+   */
   struct forced_exception_error : public std::exception
   { };
 
@@ -94,6 +97,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 #endif
   }
 
+  /// Base class.
   class throw_allocator_base
   {
   public:
@@ -114,8 +118,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
     struct group_throw_prob_adjustor
     {
-      group_throw_prob_adjustor(size_t size) 
-      : _M_throw_prob_orig(_S_throw_prob)
+      group_throw_prob_adjustor(size_t size) : _M_throw_prob_orig(_S_throw_prob)
       {
 	_S_throw_prob =
 	  1 - std::pow(double(1 - _S_throw_prob), double(0.5 / (size + 1)));
@@ -184,7 +187,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     static size_t 		_S_label;
   };
 
-
+  /** 
+   *  @brief Allocator class with logging and exception control.
+   *  @ingroup allocators
+   */
   template<typename T>
     class throw_allocator : public throw_allocator_base
     {
@@ -295,21 +301,17 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   twister_rand_gen::
   get_prob()
   {
-    const double eng_min = _M_generator.min();
-    const double eng_range =
-      static_cast<const double>(_M_generator.max() - eng_min);
-
-    const double eng_res =
-      static_cast<const double>(_M_generator() - eng_min);
-
-    const double ret = eng_res / eng_range;
+    const double min = _M_generator.min();
+    const double res = static_cast<const double>(_M_generator() - min);
+    const double range = static_cast<const double>(_M_generator.max() - min);
+    const double ret = res / range;
     _GLIBCXX_DEBUG_ASSERT(ret >= 0 && ret <= 1);
     return ret;
   }
 
   twister_rand_gen throw_allocator_base::_S_g;
 
-  throw_allocator_base::map_type
+  throw_allocator_base::map_type 
   throw_allocator_base::_S_map;
 
   double throw_allocator_base::_S_throw_prob;
@@ -395,7 +397,9 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     while (it != _S_map.end())
       {
 	if (it->second.first == label)
-	  print_to_string(found, *it);
+	  {
+	    print_to_string(found, *it);
+	  }
 	++it;
       }
 

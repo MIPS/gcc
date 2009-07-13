@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -186,7 +186,7 @@ package body Exception_Data is
    function Basic_Exception_Traceback
      (X : Exception_Occurrence) return String;
    --  Returns an image of the complete call chain associated with an
-   --  exception occurence in its most basic form, that is as a raw sequence
+   --  exception occurrence in its most basic form, that is as a raw sequence
    --  of hexadecimal binary addresses.
 
    function Tailored_Exception_Traceback
@@ -327,7 +327,7 @@ package body Exception_Data is
       Ptr  : in out Natural)
    is
       Name : String (1 .. Exception_Name_Length (X));
-      --  Bufer in which to fetch the exception name, in order to check
+      --  Buffer in which to fetch the exception name, in order to check
       --  whether this is an internal _ABORT_SIGNAL or a regular occurrence.
 
       Name_Ptr : Natural := Name'First - 1;

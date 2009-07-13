@@ -71,8 +71,7 @@
   version may also impact the resulting library ABI. The available
   configure options, and their impact on the library ABI, are
   documented
-<ulink url="http://gcc.gnu.org/onlinedocs/libstdc++/configopts.html">
-here</ulink>.
+<link linkend="manual.intro.setup.configure">here</link>.
 </para>
 
 <para> Putting all of these ideas together results in the C++ Standard
@@ -99,7 +98,7 @@ given compiler ABI. In a nutshell:
 
 <para>
   To use a specific version of the C++ ABI, one must use a
-  corresponding GNU C++ toolchain (Ie, g++ and libstdc++) that
+  corresponding GNU C++ toolchain (i.e., g++ and libstdc++) that
   implements the C++ ABI in question.
 </para>
 
@@ -116,13 +115,20 @@ as to give distinct versions to the C++ interface.
   <sect3 id="abi.versioning.goals" xreflabel="abi.versioning.goals">
     <title>Goals</title>
 
-<para>Extending existing, stable ABIs. Versioning gives subsequent stable
-releases series libraries the ability to add new symbols and add
-functionality, all the while retaining backwards compatibility with
-the previous releases in the series. Note: the reverse is not true. It
-is not possible to take binaries linked with the latest version of a
-release series (if symbols have been added) and expect the initial
-release of the series to remain link compatible.
+<para>Extending existing, stable ABIs. Versioning gives subsequent
+releases of library binaries the ability to add new symbols and add
+functionality, all the while retaining compatibility with the previous
+releases in the series. Thus, program binaries linked with the initial
+release of a library binary will still link correctly if the library
+binary is replaced by carefully-managed subsequent library
+binaries. This is called forward compatibility.
+</para>
+<para>
+The reverse (backwards compatibility) is not true. It is not possible
+to take program binaries linked with the latest version of a library
+binary in a release series (with additional symbols added), substitute
+in the initial release of the library binary, and remain link
+compatible.
 </para>
 
 <para>Allows multiple, incompatible ABIs to coexist at the same time.
@@ -149,8 +155,9 @@ release of the series to remain link compatible.
 
     <listitem><para>Release versioning on the libgcc_s.so binary. </para>
 
-    <para>This is implemented via file names and the ELF DT_SONAME
-    mechanism (at least on ELF systems). It is versioned as follows:
+    <para>This is implemented via file names and the ELF
+    <constant>DT_SONAME</constant> mechanism (at least on ELF
+    systems). It is versioned as follows:
     </para>
 
     <itemizedlist>
@@ -169,7 +176,7 @@ release of the series to remain link compatible.
     <listitem><para>gcc-3.3.1: libgcc_s.so.1</para></listitem>
     <listitem><para>gcc-3.3.2: libgcc_s.so.1</para></listitem>
     <listitem><para>gcc-3.3.3: libgcc_s.so.1</para></listitem>
-    <listitem><para>gcc-3.4.x, gcc-4.0.x, gcc-4.1.x, gcc-4.2.x: on m68k-linux and
+    <listitem><para>gcc-3.4.x, gcc-4.[0-3].x: on m68k-linux and
     hppa-linux this is either libgcc_s.so.1 (when configuring
     <code>--with-sjlj-exceptions</code>) or libgcc_s.so.2. For all
     others, this is libgcc_s.so.1.  </para>
@@ -183,7 +190,7 @@ release of the series to remain link compatible.
     <para>It is versioned with the following labels and version
    definitions, where the version definition is the maximum for a
    particular release. Labels are cumulative. If a particular release
-   is not listed, it has the same version labels as the preceeding
+   is not listed, it has the same version labels as the preceding
    release.</para>
 
     <para>This corresponds to the mapfile: gcc/libgcc-std.ver</para>
@@ -199,10 +206,23 @@ release of the series to remain link compatible.
     <listitem><para>gcc-4.0.0: GCC_4.0.0</para></listitem>
     <listitem><para>gcc-4.1.0: GCC_4.1.0</para></listitem>
     <listitem><para>gcc-4.2.0: GCC_4.2.0</para></listitem>
+    <listitem><para>gcc-4.3.0: GCC_4.3.0</para></listitem>
     </itemizedlist>
     </listitem>
 
-    <listitem><para>Release versioning on the libstdc++.so binary, implemented in the same was as the libgcc_s.so binary, above.</para>
+    <listitem>
+      <para>
+	Release versioning on the libstdc++.so binary, implemented in
+	the same was as the libgcc_s.so binary above. Listed is the
+	filename: <constant>DT_SONAME</constant> can be deduced from
+	the filename by removing the last two period-delimited numbers. For
+	example, filename <filename>libstdc++.so.5.0.4</filename>
+	corresponds to a <constant>DT_SONAME</constant> of
+	<constant>libstdc++.so.5</constant>. Binaries with equivalent
+	<constant>DT_SONAME</constant>s are forward-compatibile: in
+	the table below, releases incompatible with the previous
+	one are explicitly noted.
+      </para>
 
     <para>It is versioned as follows:
     </para>
@@ -210,19 +230,19 @@ release of the series to remain link compatible.
     <listitem><para>gcc-3.0.0: libstdc++.so.3.0.0</para></listitem>
     <listitem><para>gcc-3.0.1: libstdc++.so.3.0.1</para></listitem>
     <listitem><para>gcc-3.0.2: libstdc++.so.3.0.2</para></listitem>
-    <listitem><para>gcc-3.0.3: libstdc++.so.3.0.2 (Error should be libstdc++.so.3.0.3)</para></listitem>
+    <listitem><para>gcc-3.0.3: libstdc++.so.3.0.2 (See Note 1)</para></listitem>
     <listitem><para>gcc-3.0.4: libstdc++.so.3.0.4</para></listitem>
-    <listitem><para>gcc-3.1.0: libstdc++.so.4.0.0</para></listitem>
+    <listitem><para>gcc-3.1.0: libstdc++.so.4.0.0 <emphasis>(Incompatible with previous)</emphasis></para></listitem>
     <listitem><para>gcc-3.1.1: libstdc++.so.4.0.1</para></listitem>
-    <listitem><para>gcc-3.2.0: libstdc++.so.5.0.0</para></listitem>
+    <listitem><para>gcc-3.2.0: libstdc++.so.5.0.0 <emphasis>(Incompatible with previous)</emphasis></para></listitem>
     <listitem><para>gcc-3.2.1: libstdc++.so.5.0.1</para></listitem>
     <listitem><para>gcc-3.2.2: libstdc++.so.5.0.2</para></listitem>
-    <listitem><para>gcc-3.2.3: libstdc++.so.5.0.3 (Not strictly required)</para></listitem>
+    <listitem><para>gcc-3.2.3: libstdc++.so.5.0.3 (See Note 2)</para></listitem>
     <listitem><para>gcc-3.3.0: libstdc++.so.5.0.4</para></listitem>
     <listitem><para>gcc-3.3.1: libstdc++.so.5.0.5</para></listitem>
     <listitem><para>gcc-3.3.2: libstdc++.so.5.0.5</para></listitem>
     <listitem><para>gcc-3.3.3: libstdc++.so.5.0.5</para></listitem>
-    <listitem><para>gcc-3.4.0: libstdc++.so.6.0.0</para></listitem>
+    <listitem><para>gcc-3.4.0: libstdc++.so.6.0.0 <emphasis>(Incompatible with previous)</emphasis></para></listitem>
     <listitem><para>gcc-3.4.1: libstdc++.so.6.0.1</para></listitem>
     <listitem><para>gcc-3.4.2: libstdc++.so.6.0.2</para></listitem>
     <listitem><para>gcc-3.4.3: libstdc++.so.6.0.3</para></listitem>
@@ -237,7 +257,26 @@ release of the series to remain link compatible.
     <listitem><para>gcc-4.1.1: libstdc++.so.6.0.8</para></listitem>
     <listitem><para>gcc-4.1.2: libstdc++.so.6.0.8</para></listitem>
     <listitem><para>gcc-4.2.0: libstdc++.so.6.0.9</para></listitem>
+    <listitem><para>gcc-4.2.1: libstdc++.so.6.0.9 (See Note 3)</para></listitem>
+    <listitem><para>gcc-4.2.2: libstdc++.so.6.0.9</para></listitem>
+    <listitem><para>gcc-4.2.3: libstdc++.so.6.0.9</para></listitem>
+    <listitem><para>gcc-4.2.4: libstdc++.so.6.0.9</para></listitem>
+    <listitem><para>gcc-4.3.0: libstdc++.so.6.0.10</para></listitem>
+    <listitem><para>gcc-4.3.1: libstdc++.so.6.0.10</para></listitem>
+    <listitem><para>gcc-4.3.2: libstdc++.so.6.0.10</para></listitem>
     </itemizedlist>
+    <para>
+      Note 1: Error should be libstdc++.so.3.0.3.
+    </para>
+    <para>
+      Note 2: Not strictly required.
+    </para>
+    <para>
+      Note 3: This release (but not previous or subsequent) has one
+      known incompatibility, see <ulink
+      url="http://gcc.gnu.org/bugzilla/show_bug.cgi?id=33678">33678</ulink>
+      in the GCC bug database.
+    </para>
     </listitem>
 
     <listitem><para>Symbol versioning on the libstdc++.so binary.</para>
@@ -252,7 +291,7 @@ release of the series to remain link compatible.
    gcc-3.2.1 release, which has GLIBCPP_3.2.1 for new symbols and
    GLIBCPP_3.2 for symbols that were introduced in the gcc-3.2.0
    release.) If a particular release is not listed, it has the same
-   version labels as the preceeding release.
+   version labels as the preceding release.
    </para>
     <itemizedlist>
     <listitem><para>gcc-3.0.0: (Error, not versioned)</para></listitem>
@@ -280,6 +319,7 @@ release of the series to remain link compatible.
     <listitem><para>gcc-4.0.3: GLIBCXX_3.4.7</para></listitem>
     <listitem><para>gcc-4.1.1: GLIBCXX_3.4.8</para></listitem>
     <listitem><para>gcc-4.2.0: GLIBCXX_3.4.9</para></listitem>
+    <listitem><para>gcc-4.3.0: GLIBCXX_3.4.10, CXXABI_1.3.2</para></listitem>
     </itemizedlist>
     </listitem>
   
@@ -306,9 +346,9 @@ release of the series to remain link compatible.
     <listitem><para>gcc-3.1.x: 100 (Error, should be 101)</para></listitem>
     <listitem><para>gcc-3.2.x: 102</para></listitem>
     <listitem><para>gcc-3.3.x: 102</para></listitem>
-    <listitem><para>gcc-3.4.x, gcc-4.0.x, gcc-4.1.x, gcc-4.2.x: 102 (when n=1)</para></listitem>
-    <listitem><para>gcc-3.4.x, gcc-4.0.x, gcc-4.1.x, gcc-4.2.x: 1000 + n (when n&gt;1)</para></listitem>
-    <listitem><para>gcc-3.4.x, gcc-4.0.x, gcc-4.1.x, gcc-4.2.x: 999999 (when n=0)</para></listitem>
+    <listitem><para>gcc-3.4.x, gcc-4.[0-3].x: 102 (when n=1)</para></listitem>
+    <listitem><para>gcc-3.4.x, gcc-4.[0-3].x: 1000 + n (when n&gt;1) </para></listitem>
+    <listitem><para>gcc-3.4.x, gcc-4.[0-3].x: 999999 (when n=0)</para></listitem>
     </itemizedlist>
     <para></para>
     </listitem>
@@ -325,7 +365,7 @@ release of the series to remain link compatible.
     <listitem><para>gcc-3.1.x: (Error, not versioned) </para></listitem>
     <listitem><para>gcc-3.2.x: <code>-fabi-version=1</code></para></listitem>
     <listitem><para>gcc-3.3.x: <code>-fabi-version=1</code></para></listitem>
-    <listitem><para>gcc-3.4.x, gcc-4.0.x, gcc-4.1.x, gcc-4.2.x: <code>-fabi-version=2</code></para></listitem>
+    <listitem><para>gcc-3.4.x, gcc-4.[0-3].x: <code>-fabi-version=2</code> <emphasis>(Incompatible with previous)</emphasis></para></listitem>
     </itemizedlist>
     <para></para>
     </listitem>
@@ -379,6 +419,13 @@ release of the series to remain link compatible.
     <listitem><para>gcc-4.1.1: 20060524</para></listitem>
     <listitem><para>gcc-4.1.2: 20070214</para></listitem>
     <listitem><para>gcc-4.2.0: 20070514</para></listitem>
+    <listitem><para>gcc-4.2.1: 20070719</para></listitem>
+    <listitem><para>gcc-4.2.2: 20071007</para></listitem>
+    <listitem><para>gcc-4.2.3: 20080201</para></listitem>
+    <listitem><para>gcc-4.2.4: 20080519</para></listitem>
+    <listitem><para>gcc-4.3.0: 20080306</para></listitem>
+    <listitem><para>gcc-4.3.1: 20080606</para></listitem>
+    <listitem><para>gcc-4.3.2: 20080827</para></listitem>
     </itemizedlist>
     <para></para>
     </listitem>
@@ -419,9 +466,7 @@ release of the series to remain link compatible.
     <listitem><para>gcc-3.3.2: "3.3.2"</para></listitem>
     <listitem><para>gcc-3.3.3: "3.3.3"</para></listitem>
     <listitem><para>gcc-3.4.x: "version-unused"</para></listitem>
-    <listitem><para>gcc-4.0.x: "version-unused"</para></listitem>
-    <listitem><para>gcc-4.1.x: "version-unused"</para></listitem>
-    <listitem><para>gcc-4.2.x: "version-unused"</para></listitem>
+    <listitem><para>gcc-4.[0-3].x: "version-unused"</para></listitem>
     </itemizedlist>
     <para></para>
     </listitem>
@@ -473,6 +518,13 @@ release of the series to remain link compatible.
     <listitem><para>gcc-4.1.1: include/c++/4.1.1</para></listitem>
     <listitem><para>gcc-4.1.2: include/c++/4.1.2</para></listitem>
     <listitem><para>gcc-4.2.0: include/c++/4.2.0</para></listitem>
+    <listitem><para>gcc-4.2.1: include/c++/4.2.1</para></listitem>
+    <listitem><para>gcc-4.2.2: include/c++/4.2.2</para></listitem>
+    <listitem><para>gcc-4.2.3: include/c++/4.2.3</para></listitem>
+    <listitem><para>gcc-4.2.4: include/c++/4.2.4</para></listitem>
+    <listitem><para>gcc-4.3.0: include/c++/4.3.0</para></listitem>
+    <listitem><para>gcc-4.3.1: include/c++/4.3.1</para></listitem>
+    <listitem><para>gcc-4.3.2: include/c++/4.3.2</para></listitem>
     </itemizedlist>
     <para></para>
     </listitem>
@@ -737,7 +789,7 @@ class in registers, the compiler will be forced to use memory. See <ulink url="h
   <varlistentry>
 <term><code>namespace std</code></term>
 <listitem><para> Defaults to exporting all symbols in label
-<code>GLIBCXX</code> that do not begin with an underscore, ie
+<code>GLIBCXX</code> that do not begin with an underscore, i.e.,
 <code>__test_func</code> would not be exported by default. Select
 exceptional symbols are allowed to be visible.</para></listitem>
   </varlistentry>
@@ -972,7 +1024,7 @@ gcc test.c -g -O2 -L. -lone -ltwo /usr/lib/libstdc++.so.5 /usr/lib/libstdc++.so.
   difficult. In particular, compiler generated constructs such as
   implicit instantiations for templates, typeinfo information, and
   virtual tables all may cause ABI leakage across shared library
-  boundaries. Because of this, mixing C++ ABI's is not recommended at
+  boundaries. Because of this, mixing C++ ABIs is not recommended at
   this time.
 </para>
 

@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++0x" }
 
-// Copyright (C) 2007 Free Software Foundation
+// Copyright (C) 2007, 2008 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,6 +22,7 @@
 #include <sstream>
 #include <system_error>
 #include <algorithm>
+#include <cstdio>
 #include <testsuite_hooks.h>
 
 //   Effects: os << ec.category().name() << ':' << ec.value();
@@ -32,7 +33,7 @@ void test()
 
   char buf[64];
   error_code e1;
-  error_code e2(posix_error::bad_address);
+  error_code e2(errc::bad_address);
   string s, s1, s2;
 
   {

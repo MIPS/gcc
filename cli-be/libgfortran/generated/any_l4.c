@@ -57,6 +57,7 @@ any_l4 (gfc_array_l4 * const restrict retarray,
   index_type delta;
   index_type dim;
   int src_kind;
+  int continue_loop;
 
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
@@ -65,6 +66,9 @@ any_l4 (gfc_array_l4 * const restrict retarray,
   src_kind = GFC_DESCRIPTOR_SIZE (array);
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
+  if (len < 0)
+    len = 0;
+
   delta = array->dim[dim].stride * src_kind;
 
   for (n = 0; n < dim; n++)
@@ -119,10 +123,11 @@ any_l4 (gfc_array_l4 * const restrict retarray,
     {
       if (rank != GFC_DESCRIPTOR_RANK (retarray))
 	runtime_error ("rank of return array incorrect in"
-		       " ANY intrinsic: is %d, should be %d",
-		       GFC_DESCRIPTOR_RANK (retarray), rank);
+		       " ANY intrinsic: is %ld, should be %ld",
+		       (long int) GFC_DESCRIPTOR_RANK (retarray),
+		       (long int) rank);
 
-      if (compile_options.bounds_check)
+      if (unlikely (compile_options.bounds_check))
 	{
 	  for (n=0; n < rank; n++)
 	    {
@@ -133,7 +138,7 @@ any_l4 (gfc_array_l4 * const restrict retarray,
 	      if (extent[n] != ret_extent)
 		runtime_error ("Incorrect extent in return value of"
 			       " ANY intrinsic in dimension %d:"
-			       " is %ld, should be %ld", n + 1,
+			       " is %ld, should be %ld", (int) n + 1,
 			       (long int) ret_extent, (long int) extent[n]);
 	    }
 	}
@@ -163,7 +168,8 @@ any_l4 (gfc_array_l4 * const restrict retarray,
 
   dest = retarray->data;
 
-  while (base)
+  continue_loop = 1;
+  while (continue_loop)
     {
       const GFC_LOGICAL_1 * restrict src;
       GFC_LOGICAL_4 result;
@@ -206,7 +212,7 @@ any_l4 (gfc_array_l4 * const restrict retarray,
           if (n == rank)
             {
               /* Break out of the look.  */
-              base = NULL;
+              continue_loop = 0;
               break;
             }
           else

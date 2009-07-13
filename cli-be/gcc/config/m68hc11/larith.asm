@@ -1,5 +1,6 @@
 /* libgcc routines for M68HC11 & M68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,8 +33,6 @@ Boston, MA 02110-1301, USA.  */
    to be covered by the GNU General Public License.
    This exception does not however invalidate any other reasons why
    the executable file might be covered by the GNU General Public License.  */
-
-	.file "larith.asm"
 
 #ifdef __HAVE_SHORT_INT__
 	.mode mshort

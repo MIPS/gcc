@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++0x" }
 // 2007-08-22 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -20,24 +20,7 @@
 // USA.
 
 #include <system_error>
-#include <testsuite_hooks.h>
-
-namespace __gnu_test
-{
-  struct test_category : public std::error_category
-  { 
-    virtual std::posix_error::posix_errno 
-    posix(int __v) const
-    { return std::posix_error::posix_errno(__v); }
-
-    virtual const std::string& 
-    name() const 
-    { 
-      static std::string s("__gnu_test::test_category");
-      return s;
-    }
-  };
-}
+#include <testsuite_error.h>
 
 int main()
 {
@@ -46,7 +29,7 @@ int main()
   // 1
   std::error_code e1;
   VERIFY( e1.value() == 0 );
-  VERIFY( e1.category() == std::system_category );
+  VERIFY( e1.category() == std::system_category() );
 
   // 2
   const __gnu_test::test_category cat;
@@ -55,9 +38,9 @@ int main()
   VERIFY( e2.category() == cat );
 
   // 3
-  std::error_code e3(std::posix_error::operation_not_supported);
-  VERIFY( e3.value() == int(std::posix_error::operation_not_supported) );
-  VERIFY( e3.category() == std::system_category );
+  std::error_code e3(std::errc::operation_not_supported);
+  VERIFY( e3.value() == int(std::errc::operation_not_supported) );
+  VERIFY( e3.category() == std::generic_category() );
 
   return 0;
 }

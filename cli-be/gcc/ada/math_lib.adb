@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -93,7 +93,7 @@ package body Math_Lib is
      (Y    : Real;
       A    : Real := 1.0)
       return Real;
-   --  Common code for arc tangent after cyele reduction
+   --  Common code for arc tangent after cycle reduction
 
    function Log_Inverse_Epsilon return Real;
    --  Function to provide constant: Log (1.0 / Epsilon)

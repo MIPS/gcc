@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -73,7 +73,7 @@ package System.HIE_Back_End is
    --  This entity controls whether the front end allows generation of
    --  long shift instructions, i.e. shifts that operate on 64-bit values.
    --  Such shifts are required for the implementation of fixed-point
-   --  types longer than 32 bits. This can safetly be set as High_Integrity
+   --  types longer than 32 bits. This can safely be set as High_Integrity
    --  on 64-bit machines that provide this operation at the hardware level,
    --  but on some 32-bit machines a run time call is required. If there
    --  is a certifiable version available of the relevant run-time routines,

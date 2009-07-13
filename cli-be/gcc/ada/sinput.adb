@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -221,8 +221,6 @@ package body Sinput is
       Ptr : Source_Ptr;
 
    begin
-      Name_Len := 0;
-
       --  Loop through instantiations
 
       Ptr := Loc;
@@ -651,7 +649,7 @@ package body Sinput is
       Chr : constant Character := Source (P);
 
    begin
-      if  Chr = CR then
+      if Chr = CR then
          if Source (P + 1) = LF then
             P := P + 2;
          else
@@ -659,7 +657,7 @@ package body Sinput is
          end if;
 
       elsif Chr = LF then
-         if Source (P) = CR then
+         if Source (P + 1) = CR then
             P := P + 2;
          else
             P := P + 1;
@@ -765,17 +763,20 @@ package body Sinput is
                   null;
 
                else
+                  --  Free the buffer, we use Free here, because we used malloc
+                  --  or realloc directly to allocate the tables. That is
+                  --  because we were playing the big array trick. We need to
+                  --  suppress the warning for freeing from an empty pool!
+
                   --  We have to recreate a proper pointer to the actual array
                   --  from the zero origin pointer stored in the source table.
 
                   Tmp1 :=
                     To_Source_Buffer_Ptr
                       (S.Source_Text (S.Source_First)'Address);
+                  pragma Warnings (Off);
                   Free_Ptr (Tmp1);
-
-                  --  Note: we are using free here, because we used malloc
-                  --  or realloc directly to allocate the tables. That is
-                  --  because we were playing the big array trick.
+                  pragma Warnings (On);
 
                   if S.Lines_Table /= null then
                      Memory.Free (To_Address (S.Lines_Table));

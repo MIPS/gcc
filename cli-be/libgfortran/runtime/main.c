@@ -45,10 +45,9 @@ stupid_function_name_for_static_linking (void)
   return;
 }
 
-/* This is the offset (in bytes) required to cast from logical(8)* to
-   logical(4)*. and still get the same result.  Will be 0 for little-endian
-   machines and 4 for big-endian machines.  */
-int l8_to_l4_offset = 0;
+/* This will be 0 for little-endian
+   machines and 1 for big-endian machines.  */
+int big_endian = 0;
 
 
 /* Figure out endianness for this machine.  */
@@ -64,9 +63,9 @@ determine_endianness (void)
 
   u.l8 = 1;
   if (u.l4[0])
-    l8_to_l4_offset = 0;
+    big_endian = 0;
   else if (u.l4[1])
-    l8_to_l4_offset = 1;
+    big_endian = 1;
   else
     runtime_error ("Unable to determine machine endianness");
 }
@@ -112,7 +111,8 @@ store_exe_path (const char * argv0)
 
   char buf[PATH_MAX], *cwd, *path;
 
-  if (argv0[0] == '/')
+  /* On the simulator argv is not set.  */
+  if (argv0 == NULL || argv0[0] == '/')
     {
       exe_path = argv0;
       please_free_exe_path_when_done = 0;

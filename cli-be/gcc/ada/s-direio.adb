@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -251,15 +251,25 @@ package body System.Direct_IO is
    -----------
 
    procedure Reset (File : in out File_Type; Mode : FCB.File_Mode) is
+      pragma Warnings (Off, File);
+      --  File is actually modified via Unrestricted_Access below, but
+      --  GNAT will generate a warning anyway.
+      --  Note that we do not use pragma Unmodified here, since in -gnatc
+      --  mode, GNAT will complain that File is modified for
+      --  "File.Index := 1;"
+
    begin
-      FIO.Reset (AP (File), Mode);
+      FIO.Reset (AP (File)'Unrestricted_Access, Mode);
       File.Index := 1;
       File.Last_Op := Op_Read;
    end Reset;
 
    procedure Reset (File : in out File_Type) is
+      pragma Warnings (Off, File);
+      --  See above (other Reset procedure) for explanations on this pragma
+
    begin
-      FIO.Reset (AP (File));
+      FIO.Reset (AP (File)'Unrestricted_Access);
       File.Index := 1;
       File.Last_Op := Op_Read;
    end Reset;

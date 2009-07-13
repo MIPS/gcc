@@ -1,5 +1,5 @@
 /* libgcc routines for 68000 w/o floating-point hardware.
-   Copyright (C) 1994, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1996, 1997, 1998, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -129,27 +129,11 @@ Boston, MA 02110-1301, USA.  */
 
 #else /* __PIC__ */
 
-	/* Common for -mid-shared-libary and -msep-data */
+# if defined (__uClinux__)
 
-	.macro PICCALL addr
-#if defined (__mcoldfire__) && !defined (__mcfisab__)
-	lea	\addr-.-8,a0
-	jsr	pc@(a0)
-#else
-	bsr	\addr
-#endif
-	.endm
+	/* Versions for uClinux */
 
-	.macro PICJUMP addr
-#if defined (__mcoldfire__) && !defined (__mcfisab__)
-	lea	\addr-.-8,a0
-	jmp	pc@(a0)
-#else
-	bra	\addr
-#endif
-	.endm
-
-# if defined(__ID_SHARED_LIBRARY__)
+#  if defined(__ID_SHARED_LIBRARY__)
 
 	/* -mid-shared-library versions  */
 
@@ -163,7 +147,17 @@ Boston, MA 02110-1301, USA.  */
 	movel	\sym@GOT(\areg), sp@-
 	.endm
 
-# else /* !__ID_SHARED_LIBRARY__ */
+	.macro PICCALL addr
+	PICLEA	\addr,a0
+	jsr	a0@
+	.endm
+
+	.macro PICJUMP addr
+	PICLEA	\addr,a0
+	jmp	a0@
+	.endm
+
+#  else /* !__ID_SHARED_LIBRARY__ */
 
 	/* Versions for -msep-data */
 
@@ -175,7 +169,67 @@ Boston, MA 02110-1301, USA.  */
 	movel	\sym@GOT(a5), sp@-
 	.endm
 
-# endif /* !__ID_SHARED_LIBRARY__ */
+	.macro PICCALL addr
+#if defined (__mcoldfire__) && !defined (__mcfisab__) && !defined (__mcfisac__)
+	lea	\addr-.-8,a0
+	jsr	pc@(a0)
+#else
+	bsr	\addr
+#endif
+	.endm
+
+	.macro PICJUMP addr
+	/* ISA C has no bra.l instruction, and since this assembly file
+	   gets assembled into multiple object files, we avoid the
+	   bra instruction entirely.  */
+#if defined (__mcoldfire__) && !defined (__mcfisab__)
+	lea	\addr-.-8,a0
+	jmp	pc@(a0)
+#else
+	bra	\addr
+#endif
+	.endm
+
+#  endif
+
+# else /* !__uClinux__ */
+
+	/* Versions for Linux */
+
+	.macro PICLEA sym, reg
+	movel	#_GLOBAL_OFFSET_TABLE_@GOTPC, \reg
+	lea	(-6, pc, \reg), \reg
+	movel	\sym@GOT(\reg), \reg
+	.endm
+
+	.macro PICPEA sym, areg
+	movel	#_GLOBAL_OFFSET_TABLE_@GOTPC, \areg
+	lea	(-6, pc, \areg), \areg
+	movel	\sym@GOT(\areg), sp@-
+	.endm
+
+	.macro PICCALL addr
+#if defined (__mcoldfire__) && !defined (__mcfisab__) && !defined (__mcfisac__)
+	lea	\addr-.-8,a0
+	jsr	pc@(a0)
+#else
+	bsr	\addr
+#endif
+	.endm
+
+	.macro PICJUMP addr
+	/* ISA C has no bra.l instruction, and since this assembly file
+	   gets assembled into multiple object files, we avoid the
+	   bra instruction entirely.  */
+#if defined (__mcoldfire__) && !defined (__mcfisab__)
+	lea	\addr-.-8,a0
+	jmp	pc@(a0)
+#else
+	bra	\addr
+#endif
+	.endm
+
+# endif
 #endif /* __PIC__ */
 
 
@@ -622,6 +676,7 @@ ROUND_TO_MINUS    = 3 | round result towards minus infinity
 	.globl SYM (__negdf2)
 	.globl SYM (__cmpdf2)
 	.globl SYM (__cmpdf2_internal)
+	.hidden SYM (__cmpdf2_internal)
 
 	.text
 	.even
@@ -2384,7 +2439,7 @@ SYM (__cmpdf2):
 	movl	a6@(16),sp@-
 	movl	a6@(12),sp@-
 	movl	a6@(8),sp@-
-	bsr	SYM (__cmpdf2_internal)
+	PICCALL	SYM (__cmpdf2_internal)
 	unlk	a6
 	rts
 
@@ -2536,6 +2591,7 @@ ROUND_TO_MINUS    = 3 | round result towards minus infinity
 	.globl SYM (__negsf2)
 	.globl SYM (__cmpsf2)
 	.globl SYM (__cmpsf2_internal)
+	.hidden SYM (__cmpsf2_internal)
 
 | These are common routines to return and signal exceptions.	
 
@@ -3790,7 +3846,7 @@ SYM (__cmpsf2):
 	pea	1
 	movl	a6@(12),sp@-
 	movl	a6@(8),sp@-
-	bsr (__cmpsf2_internal)
+	PICCALL SYM (__cmpsf2_internal)
 	unlk	a6
 	rts
 
@@ -4063,3 +4119,8 @@ SYM (__lesf2):
 	unlk	a6
 	rts
 #endif /* L_lesf2 */
+
+#if defined (__ELF__) && defined (__linux__)
+	/* Make stack non-executable for ELF linux targets.  */
+	.section	.note.GNU-stack,"",@progbits
+#endif

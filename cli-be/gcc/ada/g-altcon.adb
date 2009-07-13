@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2005-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2005-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,7 +37,7 @@ with System; use System;
 
 package body GNAT.Altivec.Conversions is
 
-   --  All the vector/view conversions operate similarily: bare unchecked
+   --  All the vector/view conversions operate similarly: bare unchecked
    --  conversion on big endian targets, and elements permutation on little
    --  endian targets. We call "Mirroring" the elements permutation process.
 

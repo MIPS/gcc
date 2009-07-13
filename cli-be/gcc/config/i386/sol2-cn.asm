@@ -1,6 +1,6 @@
 ! crtn.s for Solaris 2, x86.
 
-!   Copyright (C) 1993 Free Software Foundation, Inc.
+!   Copyright (C) 1993, 2008 Free Software Foundation, Inc.
 !   Written By Fred Fish, Nov 1992
 ! 
 ! This file is free software; you can redistribute it and/or modify it
@@ -36,7 +36,6 @@
 ! This file just supplies returns for the .init and .fini sections.  It is
 ! linked in after all other files.
 
-	.file	"crtn.o"
 	.ident	"GNU C crtn.o"
 
 	.section .init

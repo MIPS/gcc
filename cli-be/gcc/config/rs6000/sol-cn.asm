@@ -1,6 +1,6 @@
 # crtn.s for sysv4
 
-#   Copyright (C) 1996, 2007 Free Software Foundation, Inc.
+#   Copyright (C) 1996, 2007, 2008 Free Software Foundation, Inc.
 #   Written By Michael Meissner
 # 
 # This file is free software; you can redistribute it and/or modify it
@@ -36,7 +36,6 @@
 # This file just supplies labeled ending points for the .got* and other
 # special sections.  It is linked in last after other modules.
  
-	.file	"scrtn.s"
 	.ident	"GNU C scrtn.s"
 
 #ifndef __powerpc64__

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -64,7 +64,7 @@ private
    type Controlled is abstract new SFR.Root_Controlled with null record;
 
    function "=" (A, B : Controlled) return Boolean;
-   --  Need to be defined explictly because we don't want to compare the
+   --  Need to be defined explicitly because we don't want to compare the
    --  hidden pointers
 
    type Limited_Controlled is

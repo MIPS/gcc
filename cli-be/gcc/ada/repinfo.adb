@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1095,7 +1095,7 @@ package body Repinfo is
       --  Bit_And_Expr, for which there is no direct support in uintp. Uint
       --  values out of the Int range are expected to be seen in such
       --  expressions only with overflowing byte sizes around, introducing
-      --  inherent unreliabilties in computations anyway.
+      --  inherent unreliabilities in computations anyway.
 
       -------
       -- B --

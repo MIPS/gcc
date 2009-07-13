@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -55,7 +55,7 @@ package body Namet is
    Hash_Num : constant Int := 2**12;
    --  Number of headers in the hash table. Current hash algorithm is closely
    --  tailored to this choice, so it can only be changed if a corresponding
-   --  change is made to the hash alogorithm.
+   --  change is made to the hash algorithm.
 
    Hash_Max : constant Int := Hash_Num - 1;
    --  Indexes in the hash header table run from 0 to Hash_Num - 1

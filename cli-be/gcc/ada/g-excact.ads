@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2002-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2002-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,7 +35,7 @@
 
 --  These callbacks are called immediately when either a specific exception,
 --  or any exception, is raised, before any other actions taken by raise, in
---  particular before any unwinding of the stack occcurs.
+--  particular before any unwinding of the stack occurs.
 
 --  Callbacks for specific exceptions are registered through calls to
 --  Register_Id_Action. Here is an example of code that uses this package to

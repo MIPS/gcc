@@ -87,7 +87,8 @@ namespace __gnu_parallel
 
       __gnu_parallel::binder2nd<Comparator, value_type, value_type, bool>
         pred(comp, pivot);
-      difference_type split = parallel_partition(begin, end, pred, num_threads);
+      difference_type split =
+          parallel_partition(begin, end, pred, num_threads);
 
       ::operator delete(samples);
 
@@ -137,7 +138,7 @@ namespace __gnu_parallel
 				_Settings::get().sort_qs_num_samples_preset,
 				num_threads);
 
-#pragma omp parallel sections
+#pragma omp parallel sections num_threads(2)
       {
 #pragma omp section
 	parallel_sort_qs_conquer(begin, begin + split,
@@ -154,7 +155,6 @@ namespace __gnu_parallel
    *  @param begin Begin iterator of input sequence.
    *  @param end End iterator input sequence, ignored.
    *  @param comp Comparator.
-   *  @param n Length of input sequence.
    *  @param num_threads Number of threads that are allowed to work on
    *  this part.
    */
@@ -162,9 +162,8 @@ namespace __gnu_parallel
     void
     parallel_sort_qs(RandomAccessIterator begin,
 		     RandomAccessIterator end,
-		     Comparator comp, typename std::iterator_traits
-		     <RandomAccessIterator>::difference_type n,
-		     int num_threads)
+		     Comparator comp,
+		     thread_index_t num_threads)
     {
       _GLIBCXX_CALL(n)
 
@@ -172,19 +171,15 @@ namespace __gnu_parallel
       typedef typename traits_type::value_type value_type;
       typedef typename traits_type::difference_type difference_type;
 
-      if (n == 0)
-	return;
+      difference_type n = end - begin;
 
       // At least one element per processor.
       if (num_threads > n)
-	num_threads = static_cast<thread_index_t>(n);
-
-      // Hard to avoid.
-      omp_set_num_threads(num_threads);
+        num_threads = static_cast<thread_index_t>(n);
 
       parallel_sort_qs_conquer(begin, begin + n, comp, num_threads);
     }
 
 } //namespace __gnu_parallel
 
-#endif
+#endif /* _GLIBCXX_PARALLEL_QUICKSORT_H */

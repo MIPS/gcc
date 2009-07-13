@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2002-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2002-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,8 +47,8 @@ package body GNAT.Array_Split is
    function Count
      (Source  : Element_Sequence;
       Pattern : Element_Set) return Natural;
-   --  Returns the number of occurences of Pattern elements in Source, 0 is
-   --  returned if no occurence is found in Source.
+   --  Returns the number of occurrences of Pattern elements in Source, 0 is
+   --  returned if no occurrence is found in Source.
 
    ------------
    -- Adjust --

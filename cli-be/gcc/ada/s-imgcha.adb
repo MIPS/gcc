@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -159,7 +159,7 @@ package body System.Img_Char is
             end;
          end if;
 
-      --  Normal characters yield the character enlosed in quotes (RM 3.5(32))
+      --  Normal characters yield the character enclosed in quotes (RM 3.5(32))
 
       else
          S (1) := ''';

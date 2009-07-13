@@ -1,6 +1,6 @@
 ! crti.s for Solaris 2, x86.
 
-!   Copyright (C) 1993 Free Software Foundation, Inc.
+!   Copyright (C) 1993, 2008 Free Software Foundation, Inc.
 !   Written By Fred Fish, Nov 1992
 ! 
 ! This file is free software; you can redistribute it and/or modify it
@@ -37,7 +37,6 @@
 ! sections.  It is linked in before the values-Xx.o files and also before
 ! crtbegin.o.
  
-	.file	"crti.s"
 	.ident	"GNU C crti.s"
 
 	.section .init

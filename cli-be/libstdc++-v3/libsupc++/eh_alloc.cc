@@ -1,5 +1,5 @@
 // -*- C++ -*- Allocate exception objects.
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of GCC.
@@ -89,6 +89,9 @@ typedef char one_buffer[EMERGENCY_OBJ_SIZE] __attribute__((aligned));
 static one_buffer emergency_buffer[EMERGENCY_OBJ_COUNT];
 static bitmask_type emergency_used;
 
+static __cxa_dependent_exception dependents_buffer[EMERGENCY_OBJ_COUNT];
+static bitmask_type dependents_used;
+
 namespace
 {
   // A single mutex controlling emergency allocations.
@@ -100,7 +103,7 @@ __cxxabiv1::__cxa_allocate_exception(std::size_t thrown_size) throw()
 {
   void *ret;
 
-  thrown_size += sizeof (__cxa_exception);
+  thrown_size += sizeof (__cxa_refcounted_exception);
   ret = malloc (thrown_size);
 
   if (! ret)
@@ -134,9 +137,9 @@ __cxxabiv1::__cxa_allocate_exception(std::size_t thrown_size) throw()
   __cxa_eh_globals *globals = __cxa_get_globals ();
   globals->uncaughtExceptions += 1;
 
-  memset (ret, 0, sizeof (__cxa_exception));
+  memset (ret, 0, sizeof (__cxa_refcounted_exception));
 
-  return (void *)((char *)ret + sizeof (__cxa_exception));
+  return (void *)((char *)ret + sizeof (__cxa_refcounted_exception));
 }
 
 
@@ -155,5 +158,68 @@ __cxxabiv1::__cxa_free_exception(void *vptr) throw()
       emergency_used &= ~((bitmask_type)1 << which);
     }
   else
-    free (ptr - sizeof (__cxa_exception));
+    free (ptr - sizeof (__cxa_refcounted_exception));
+}
+
+
+extern "C" __cxa_dependent_exception*
+__cxxabiv1::__cxa_allocate_dependent_exception() throw()
+{
+  __cxa_dependent_exception *ret;
+
+  ret = static_cast<__cxa_dependent_exception*>
+    (malloc (sizeof (__cxa_dependent_exception)));
+
+  if (!ret)
+    {
+      __gnu_cxx::__scoped_lock sentry(emergency_mutex);
+
+      bitmask_type used = dependents_used;
+      unsigned int which = 0;
+
+      while (used & 1)
+	{
+	  used >>= 1;
+	  if (++which >= EMERGENCY_OBJ_COUNT)
+	    goto failed;
+	}
+
+      dependents_used |= (bitmask_type)1 << which;
+      ret = &dependents_buffer[which];
+
+    failed:;
+
+      if (!ret)
+	std::terminate ();
+    }
+
+  // We have an uncaught exception as soon as we allocate memory.  This
+  // yields uncaught_exception() true during the copy-constructor that
+  // initializes the exception object.  See Issue 475.
+  __cxa_eh_globals *globals = __cxa_get_globals ();
+  globals->uncaughtExceptions += 1;
+
+  memset (ret, 0, sizeof (__cxa_dependent_exception));
+
+  return ret;
+}
+
+
+extern "C" void
+__cxxabiv1::__cxa_free_dependent_exception
+  (__cxa_dependent_exception *vptr) throw()
+{
+  char *base = (char *) dependents_buffer;
+  char *ptr = (char *) vptr;
+  if (ptr >= base
+      && ptr < base + sizeof (dependents_buffer))
+    {
+      const unsigned int which
+	= (unsigned) (ptr - base) / sizeof (__cxa_dependent_exception);
+
+      __gnu_cxx::__scoped_lock sentry(emergency_mutex);
+      dependents_used &= ~((bitmask_type)1 << which);
+    }
+  else
+    free (vptr);
 }

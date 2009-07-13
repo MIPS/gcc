@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,7 +32,7 @@
 ------------------------------------------------------------------------------
 
 --  This package contains the routine used to convert wide strings and wide
---  wide stringsto strings for use by wide and wide wide character attributes
+--  wide strings to strings for use by wide and wide wide character attributes
 --  (value, image etc.) and also by the numeric IO subpackages of
 --  Ada.Text_IO.Wide_Text_IO and Ada.Text_IO.Wide_Wide_Text_IO.
 
@@ -54,7 +54,8 @@ package System.WCh_WtS is
    --  that normal (non-wide character) mode holds at the start and end of
    --  the result string. EM indicates the wide character encoding method.
    --  Note: in the WCEM_Brackets case, we only use the brackets encoding
-   --  for characters greater than 16#FF#.
+   --  for characters greater than 16#FF#. The lowest index of the returned
+   --  String is equal to S'First.
 
    function Wide_Wide_String_To_String
      (S  : Wide_Wide_String;
