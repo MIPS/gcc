@@ -568,15 +568,17 @@ lto_symtab_merge_decl (tree new_decl,
   if (resolution == LDPR_PREVAILING_DEF
       || resolution == LDPR_PREVAILING_DEF_IRONLY)
     {
-      if (old_resolution == LDPR_PREVAILING_DEF
-	  || old_resolution == LDPR_PREVAILING_DEF_IRONLY)
+      if ((old_resolution == LDPR_PREVAILING_DEF
+	   || old_resolution == LDPR_PREVAILING_DEF_IRONLY)
+	  && (old_resolution != resolution || flag_no_common))
 	{
 	  error ("%J%qD has already been defined", new_decl, new_decl);
 	  error ("%Jpreviously defined here", old_decl);
 	  return;
 	}
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR
-		  || old_resolution ==  LDPR_RESOLVED_IR);
+		  || old_resolution ==  LDPR_RESOLVED_IR
+		  || (old_resolution == resolution && !flag_no_common));
       lto_symtab_set_identifier_decl (name, new_decl);
       return;
     }

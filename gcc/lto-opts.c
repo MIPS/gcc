@@ -209,7 +209,9 @@ static bool
 register_user_option_p (size_t code, int type)
 {
   return type == CL_TARGET
-         || (type == CL_COMMON && code == OPT_fPIC);
+         || (type == CL_COMMON
+	     && (code == OPT_fPIC
+		 || code == OPT_fcommon));
 }
 
 /* Note command line option with the given TYPE and CODE, ARG, and VALUE.
@@ -369,6 +371,10 @@ handle_common_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
     {
     case OPT_fPIC:
       flag_pic = !!value;
+      break;
+
+    case OPT_fcommon:
+      flag_no_common = !value;
       break;
 
     default:
