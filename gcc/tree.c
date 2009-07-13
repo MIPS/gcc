@@ -4277,6 +4277,29 @@ need_assembler_name_p (tree decl)
 }
 
 
+/* Remove all the non-variable decls from BLOCK.  LOCALS is the set of
+   variables in DECL_STRUCT_FUNCTION (FN)->local_decls.  Every decl
+   in BLOCK that is not in LOCALS is removed.  */
+
+static void
+free_lang_data_in_block (tree fn, tree block, struct pointer_set_t *locals)
+{
+  tree *tp, t;
+
+  tp = &BLOCK_VARS (block);
+  while (*tp)
+    {
+      if (!pointer_set_contains (locals, *tp))
+	*tp = TREE_CHAIN (*tp);
+      else
+	tp = &TREE_CHAIN (*tp);
+    }
+
+  for (t = BLOCK_SUBBLOCKS (block); t; t = BLOCK_CHAIN (t))
+    free_lang_data_in_block (fn, t, locals);
+}
+
+
 /* Reset all language specific information still present in symbol
    DECL.  */
 
@@ -4308,7 +4331,8 @@ free_lang_data_in_decl (tree decl)
   if (TREE_CODE (decl) != FIELD_DECL)
     DECL_CONTEXT (decl) = decl_function_context (decl);
 
-  if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+  if (DECL_CONTEXT (decl)
+      && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
     DECL_CONTEXT (decl) = NULL_TREE;
 
  if (TREE_CODE (decl) == VAR_DECL)
@@ -4345,37 +4369,45 @@ free_lang_data_in_decl (tree decl)
     }
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      tree t;
-
-      /* An weakref to an external function is DECL_EXTERNAL but not
-	 TREE_PUBLIC. FIXME lto: This is confusing, why does it need to be
-	 DECL_EXTERNAL? */
+      /* A weakref to an external function is DECL_EXTERNAL but not
+	 TREE_PUBLIC.  */
       if (DECL_EXTERNAL (decl)
 	  && !lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
 	TREE_PUBLIC (decl) = true;
 
-      /* If DECL has a gimple body, then the context for its arguments
-	 must be DECL.  Otherwise, it doesn't really matter, as we
-	 will not be emitting any code for DECL.  In general, there
-	 may be other instances of DECL created by the front end and
-	 since PARM_DECLs are generally shared, their DECL_CONTEXT
-	 changes as the replicas of DECL are created.  The only time
-	 where DECL_CONTEXT is important is for the FUNCTION_DECLs
-	 that have a gimple body (since the PARM_DECL will be used in
-	 the function's body).  */
       if (gimple_has_body_p (decl))
-	for (t = DECL_ARGUMENTS (decl); t ; t = TREE_CHAIN (t))
-	  DECL_CONTEXT (t) = decl;
-
-      /* All the local symbols should have DECL as their context.  */
-      if (DECL_STRUCT_FUNCTION (decl))
 	{
 	  tree t;
-	  struct function *fn;
-	  
-	  fn = DECL_STRUCT_FUNCTION (decl);
-	  for (t = fn->local_decls; t; t = TREE_CHAIN (t))
-	    DECL_CONTEXT (TREE_VALUE (t)) = decl;
+	  struct pointer_set_t *locals;
+
+	  /* If DECL has a gimple body, then the context for its
+	     arguments must be DECL.  Otherwise, it doesn't really
+	     matter, as we will not be emitting any code for DECL.  In
+	     general, there may be other instances of DECL created by
+	     the front end and since PARM_DECLs are generally shared,
+	     their DECL_CONTEXT changes as the replicas of DECL are
+	     created.  The only time where DECL_CONTEXT is important
+	     is for the FUNCTION_DECLs that have a gimple body (since
+	     the PARM_DECL will be used in the function's body).  */
+	  for (t = DECL_ARGUMENTS (decl); t; t = TREE_CHAIN (t))
+	    DECL_CONTEXT (t) = decl;
+
+	  /* Collect all the symbols declared in DECL.  */
+	  locals = pointer_set_create ();
+	  t = DECL_STRUCT_FUNCTION (decl)->local_decls;
+	  for (; t; t = TREE_CHAIN (t))
+	    {
+	      pointer_set_insert (locals, TREE_VALUE (t));
+
+	      /* All the local symbols should have DECL as their
+		 context.  */
+	      DECL_CONTEXT (TREE_VALUE (t)) = decl;
+	    }
+
+	  /* Get rid of any decl not in local_decls.  */
+	  free_lang_data_in_block (decl, DECL_INITIAL (decl), locals);
+
+	  pointer_set_destroy (locals);
 	}
     }
   else if (TREE_CODE (decl) == VAR_DECL)

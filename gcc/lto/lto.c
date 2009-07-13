@@ -1327,6 +1327,7 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
     case CONST_DECL:
     case PARM_DECL:
     case RESULT_DECL:
+    case IMPORTED_DECL:
       lto_fixup_decl_common (t, data);
       break;
 

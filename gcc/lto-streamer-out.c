@@ -823,6 +823,12 @@ lto_output_tree_ref (struct output_block *ob, tree expr)
       lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
+    case IMPORTED_DECL:
+      gcc_assert (decl_function_context (expr) == NULL);
+      output_record_start (ob, LTO_imported_decl_ref);
+      lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
+      break;
+
     case TYPE_DECL:
       output_record_start (ob, LTO_type_decl_ref);
       lto_output_type_decl_index (ob->decl_state, ob->main_stream, expr);
@@ -975,7 +981,10 @@ lto_output_ts_decl_common_tree_pointers (struct output_block *ob, tree expr,
 {
   lto_output_tree_or_ref (ob, DECL_SIZE (expr), ref_p);
   lto_output_tree_or_ref (ob, DECL_SIZE_UNIT (expr), ref_p);
-  lto_output_tree_or_ref (ob, DECL_INITIAL (expr), ref_p);
+
+  if (TREE_CODE (expr) != FUNCTION_DECL)
+    lto_output_tree_or_ref (ob, DECL_INITIAL (expr), ref_p);
+
   lto_output_tree_or_ref (ob, DECL_ATTRIBUTES (expr), ref_p);
   lto_output_tree_or_ref (ob, DECL_ABSTRACT_ORIGIN (expr), ref_p);
 
@@ -1149,14 +1158,13 @@ lto_output_ts_block_tree_pointers (struct output_block *ob, tree expr,
   unsigned i;
   tree t;
 
+  /* Lexical scopes are only emitted with their corresponding function
+     body.  Otherwise it makes no sense to emit the local variables
+     and the tree of scopes.  */
+  gcc_assert (ref_p && current_function_decl);
+
   lto_output_location (ob, BLOCK_SOURCE_LOCATION (expr));
-  /* FIXME lto.  Disabled for now.  This is causing regressions in
-     libstdc++ testsuite
-     (testsuite/23_containers/list/check_construct_destroy.cc).  */
-  if (0)
-    lto_output_chain (ob, BLOCK_VARS (expr), ref_p);
-  else
-    output_zero (ob);
+  lto_output_chain (ob, BLOCK_VARS (expr), ref_p);
 
   output_uleb128 (ob, VEC_length (tree, BLOCK_NONLOCALIZED_VARS (expr)));
   for (i = 0; VEC_iterate (tree, BLOCK_NONLOCALIZED_VARS (expr), i, t); i++)
@@ -1166,7 +1174,7 @@ lto_output_ts_block_tree_pointers (struct output_block *ob, tree expr,
   lto_output_tree_or_ref (ob, BLOCK_ABSTRACT_ORIGIN (expr), ref_p);
   lto_output_tree_or_ref (ob, BLOCK_FRAGMENT_ORIGIN (expr), ref_p);
   lto_output_tree_or_ref (ob, BLOCK_FRAGMENT_CHAIN (expr), ref_p);
-  lto_output_tree_or_ref (ob, BLOCK_SUBBLOCKS (expr), ref_p);
+  lto_output_chain (ob, BLOCK_SUBBLOCKS (expr), ref_p);
 }
 
 
@@ -1981,7 +1989,7 @@ output_function (struct cgraph_node *node)
   lto_output_tree_ref (ob, fn->nonlocal_goto_save_area);
 
   /* Output all the local variables in the function.  */
-  lto_output_tree (ob, fn->local_decls, true);
+  lto_output_tree_ref (ob, fn->local_decls);
 
   /* Output all the SSA names used in the function.  */
   output_ssa_names (ob, fn);

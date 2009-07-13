@@ -1,5 +1,42 @@
 2009-07-13  Diego Novillo  <dnovillo@google.com>
 
+	* tree.c (free_lang_data_in_block): New.
+	(free_lang_data_in_decl): Call it.
+	* lto-streamer-out.c (lto_output_tree_ref): Handle
+	IMPORTED_DECL.
+	(lto_output_ts_decl_common_tree_pointers): Do not output
+	DECL_INITIAL for FUNCTION_DECLs.
+	(lto_output_ts_block_tree_pointers): Assert that REF_P is
+	true and current_function_decl is set.
+	Remove FIXME note.
+	Call lto_output_chain to emit BLOCK_SUBBLOCKS.
+	(output_function): Call lto_output_tree_ref to emit
+	FN->LOCAL_DECLS.
+	* lto-streamer-in.c (lto_input_tree_ref): Handle
+	LTO_imported_decl_ref.
+	(input_bb): Do not call gimple_set_block.
+	(input_function): Assert that FN_DECL has DECL_INITIAL
+	set.
+	(lto_input_ts_decl_common_tree_pointers): Do not read
+	DECL_INITIAL for FUNCTION_DECLs.
+	(lto_input_ts_block_tree_pointers): Call lto_input_chain
+	to read BLOCK_SUBBLOCKS.
+	(lto_read_tree): Move call to lto_orig_address_remove
+	later in the function.
+	* lto-streamer.c (lto_streamer_cache_add_to_node_array):
+	Factor out of ...
+	(lto_streamer_cache_insert_1): ... here.
+	Call it.
+	Handle builtin functions that are stored in different
+	cache slots when reading.
+	(lto_streamer_cache_lookup): Tidy.
+	(lto_get_common_nodes): Tidy.
+	(preload_common_node): Tidy.
+	(lto_streamer_cache_create): Tidy.
+	* lto-streamer.h (enum LTO_tags): Add LTO_imported_decl_ref.
+
+2009-07-13  Diego Novillo  <dnovillo@google.com>
+
 	* tree-ssa-live.c (debug_scope_block): New.
 	* tree-flow.h (debug_scope_block): Declare it.
 

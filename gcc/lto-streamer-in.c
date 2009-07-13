@@ -380,6 +380,7 @@ lto_input_tree_ref (struct lto_input_block *ib, struct data_in *data_in,
     case LTO_global_decl_ref:
     case LTO_result_decl_ref:
     case LTO_const_decl_ref:
+    case LTO_imported_decl_ref:
       ix_u = lto_input_uleb128 (ib);
       result = lto_file_decl_data_get_var_decl (data_in->file_data, ix_u);
       if (tag == LTO_global_decl_ref)
@@ -1001,7 +1002,6 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
     {
       gimple stmt = input_gimple_stmt (ib, data_in, fn, tag);
       find_referenced_vars_in (stmt);
-      gimple_set_block (stmt, DECL_INITIAL (fn->decl));
       gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
 
       /* After the statement, expect a 0 delimiter or the EH region
@@ -1131,13 +1131,10 @@ input_function (tree fn_decl, struct data_in *data_in,
 
   /* Read the tree of lexical scopes for the function.  */
   DECL_INITIAL (fn_decl) = lto_input_tree (ib, data_in);
-  if (DECL_INITIAL (fn_decl) == NULL_TREE)
-    {
-      DECL_INITIAL (fn_decl) = make_node (BLOCK);
-      BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
-    }
+  gcc_assert (DECL_INITIAL (fn_decl));
   DECL_SAVED_TREE (fn_decl) = NULL_TREE;
 
+  /* Read all function arguments.  */
   DECL_ARGUMENTS (fn_decl) = lto_input_tree (ib, data_in); 
 
   /* Read all the basic blocks.  */
@@ -1892,7 +1889,10 @@ lto_input_ts_decl_common_tree_pointers (struct lto_input_block *ib,
 {
   DECL_SIZE (expr) = lto_input_tree (ib, data_in);
   DECL_SIZE_UNIT (expr) = lto_input_tree (ib, data_in);
-  DECL_INITIAL (expr) = lto_input_tree (ib, data_in);
+
+  if (TREE_CODE (expr) != FUNCTION_DECL)
+    DECL_INITIAL (expr) = lto_input_tree (ib, data_in);
+
   DECL_ATTRIBUTES (expr) = lto_input_tree (ib, data_in);
   DECL_ABSTRACT_ORIGIN (expr) = lto_input_tree (ib, data_in);
 
@@ -2089,7 +2089,7 @@ lto_input_ts_block_tree_pointers (struct lto_input_block *ib,
   BLOCK_ABSTRACT_ORIGIN (expr) = lto_input_tree (ib, data_in);
   BLOCK_FRAGMENT_ORIGIN (expr) = lto_input_tree (ib, data_in);
   BLOCK_FRAGMENT_CHAIN (expr) = lto_input_tree (ib, data_in);
-  BLOCK_SUBBLOCKS (expr) = lto_input_tree (ib, data_in);
+  BLOCK_SUBBLOCKS (expr) = lto_input_chain (ib, data_in);
 }
 
 
@@ -2442,10 +2442,6 @@ lto_read_tree (struct lto_input_block *ib, struct data_in *data_in,
   /* Read all the pointer fields in RESULT.  */
   lto_input_tree_pointers (ib, data_in, result);
 
-  /* Remove the mapping to RESULT's original address set by
-     lto_materialize_tree.  */
-  lto_orig_address_remove (result);
-
   /* We should never try to instantiate an MD or NORMAL builtin here.  */
   if (TREE_CODE (result) == FUNCTION_DECL)
     gcc_assert (!lto_stream_as_builtin_p (result));
@@ -2457,6 +2453,10 @@ lto_read_tree (struct lto_input_block *ib, struct data_in *data_in,
 
   end_marker = lto_input_1_unsigned (ib);
   gcc_assert (end_marker == 0);
+
+  /* Remove the mapping to RESULT's original address set by
+     lto_materialize_tree.  */
+  lto_orig_address_remove (result);
 
   return result;
 }
