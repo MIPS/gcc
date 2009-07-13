@@ -148,15 +148,16 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   gcc_assert (ref != LCC_NOT_FOUND); 
   lto_output_sleb128_stream (ob->main_stream, ref);
 
-  uid = flag_wpa ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt);
-  lto_output_uleb128_stream (ob->main_stream, uid);
-  lto_output_uleb128_stream (ob->main_stream, edge->inline_failed);
-  lto_output_uleb128_stream (ob->main_stream, edge->count);
-  lto_output_uleb128_stream (ob->main_stream, edge->frequency);
-  lto_output_uleb128_stream (ob->main_stream, edge->loop_nest);
   bp = bitpack_create ();
+  uid = flag_wpa ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt);
+  bp_pack_value (bp, uid, HOST_BITS_PER_INT);
+  bp_pack_value (bp, edge->inline_failed, HOST_BITS_PER_INT);
+  bp_pack_value (bp, edge->count, HOST_BITS_PER_WIDEST_INT);
+  bp_pack_value (bp, edge->frequency, HOST_BITS_PER_INT);
+  bp_pack_value (bp, edge->loop_nest, 30);
   bp_pack_value (bp, edge->indirect_call, 1);
   bp_pack_value (bp, edge->call_stmt_cannot_inline_p, 1);
+  bp_pack_value (bp, edge->can_throw_external, 1);
   lto_output_bitpack (ob->main_stream, bp);
   bitpack_delete (bp);
 }
@@ -501,8 +502,8 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   struct cgraph_node *caller, *callee;
   struct cgraph_edge *edge;
   unsigned int stmt_id;
-  unsigned int count;
-  unsigned int freq;
+  gcov_type count;
+  int freq;
   unsigned int nest;
   cgraph_inline_failed_t inline_failed;
   struct bitpack_d *bp;
@@ -519,17 +520,19 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   gcc_assert (callee->decl);
 
   caller_resolution = lto_symtab_get_resolution (caller->decl);
-  stmt_id = lto_input_uleb128 (ib);
-  inline_failed = (cgraph_inline_failed_t) lto_input_uleb128 (ib);
-  count = lto_input_uleb128 (ib);
-  freq = lto_input_uleb128 (ib);
-  nest = lto_input_uleb128 (ib);
+
   bp = lto_input_bitpack (ib);
+  stmt_id = (unsigned int) bp_unpack_value (bp, HOST_BITS_PER_INT);
+  inline_failed = (cgraph_inline_failed_t) bp_unpack_value (bp,
+							    HOST_BITS_PER_INT);
+  count = (gcov_type) bp_unpack_value (bp, HOST_BITS_PER_WIDEST_INT);
+  freq = (int) bp_unpack_value (bp, HOST_BITS_PER_INT);
+  nest = (unsigned) bp_unpack_value (bp, 30);
 
   /* If the caller was preempted, don't create the edge.  */
   if (caller_resolution == LDPR_PREEMPTED_REG
       || caller_resolution == LDPR_PREEMPTED_IR)
-      return;
+    return;
 
   prevailing_callee = lto_symtab_prevailing_decl (callee->decl);
 
@@ -570,11 +573,9 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   edge = cgraph_create_edge (caller, callee, NULL, count, freq, nest);
   edge->lto_stmt_uid = stmt_id;
   edge->inline_failed = inline_failed;
-
-  /* This list must be in the reverse order that they are set in
-     lto_output_edge.  */
   edge->indirect_call = bp_unpack_value (bp, 1);
   edge->call_stmt_cannot_inline_p = bp_unpack_value (bp, 1);
+  edge->can_throw_external = bp_unpack_value (bp, 1);
   bitpack_delete (bp);
 }
 

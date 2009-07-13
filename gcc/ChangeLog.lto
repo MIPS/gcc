@@ -1,3 +1,9 @@
+2009-07-13  Diego Novillo  <dnovillo@google.com>
+
+	* lto-cgraph.c (lto_output_edge): Use BP to pack all
+	fields in EDGE.
+	(input_edge): Corresponding changes.
+
 2009-07-13  Ben Elliston  <bje@au.ibm.com>
 
 	* Makefile.in (BACKENDLIBS): Change LIBELFLIB to LIBELFLIBS.
