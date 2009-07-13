@@ -28,8 +28,6 @@ set environment variables (examples with bash sintax):
   export PATH=/home.local/work-gcc/dotgnu/usr/bin/:$PATH
 - define OPENSYSTEM_C_DLL as the library used by the DotGnu linker
   export OPENSYSTEM_C_DLL=<...>/usr/lib/cscc/lib/OpenSystem.C.dll
-- to specify where to find the runtime libraries (mscorlib.dll, ...) to link with, define CLISTDDIR 
-  export CLISTDDIR=/usr/lib/mono/1.0
 
 build and install binutils:
 cd <...>/gcc-build/binutils
