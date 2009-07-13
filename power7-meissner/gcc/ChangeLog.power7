@@ -1,3 +1,19 @@
+2009-07-10  Revital Eres <ERES@il.ibm.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mvectorize-builtins): Add new debug
+	switch.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Vectorize the functions that we can on Altivec and VSX.
+	(TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION): Define target
+	hook.
+	(bdesc_2arg): Add __builtin_vsx_cpsgndp and
+	__builtin_vsx_cpsgnsp.
+
+	* config/rs6000/rs6000.h (enum rs6000_builtins): Add copysign
+	builtins.
+
 2009-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 149437.

@@ -675,6 +675,7 @@ package body Sem_Res is
 
       elsif Ada_Version >= Ada_05
         and then Is_Entity_Name (Pref)
+        and then Is_Access_Type (Etype (Pref))
         and then Ekind (Directly_Designated_Type (Etype (Pref))) =
                                                        E_Incomplete_Type
         and then Is_Tagged_Type (Directly_Designated_Type (Etype (Pref)))
@@ -2492,7 +2493,7 @@ package body Sem_Res is
 
             when N_Allocator => Resolve_Allocator                (N, Ctx_Type);
 
-            when N_And_Then | N_Or_Else
+            when N_Short_Circuit
                              => Resolve_Short_Circuit            (N, Ctx_Type);
 
             when N_Attribute_Reference
@@ -3982,17 +3983,9 @@ package body Sem_Res is
          Check_Unset_Reference (Expression (E));
 
          --  A qualified expression requires an exact match of the type,
-         --  class-wide matching is not allowed. We skip this test in a call
-         --  to a CPP constructor because in such case, although the function
-         --  profile indicates that it returns a class-wide type, the object
-         --  returned by the C++ constructor has a concrete type.
+         --  class-wide matching is not allowed.
 
-         if Is_Class_Wide_Type (Etype (Expression (E)))
-           and then Is_CPP_Constructor_Call (Expression (E))
-         then
-            null;
-
-         elsif (Is_Class_Wide_Type (Etype (Expression (E)))
+         if (Is_Class_Wide_Type (Etype (Expression (E)))
                  or else Is_Class_Wide_Type (Etype (E)))
            and then Base_Type (Etype (Expression (E))) /= Base_Type (Etype (E))
          then

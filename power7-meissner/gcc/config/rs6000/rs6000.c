@@ -839,6 +839,7 @@ static rtx rs6000_emit_stack_reset (rs6000_stack_t *, rtx, rtx, int, bool);
 static rtx rs6000_make_savres_rtx (rs6000_stack_t *, rtx, int,
 				   enum machine_mode, bool, bool, bool);
 static bool rs6000_reg_live_or_pic_offset_p (int);
+static tree rs6000_builtin_vectorized_function (unsigned int, tree, tree);
 static int rs6000_savres_strategy (rs6000_stack_t *, bool, int, int);
 static void rs6000_restore_saved_cr (rtx, int);
 static void rs6000_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -1394,6 +1395,10 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION rs6000_handle_option
+
+#undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
+  rs6000_builtin_vectorized_function
 
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS \
@@ -3012,6 +3017,178 @@ rs6000_parse_fpu_option (const char *option)
   error("unknown value %s for -mfpu", option);
   return FPU_NONE;
 }
+
+/* Returns a function decl for a vectorized version of the builtin function
+   with builtin function code FN and the result vector type TYPE, or NULL_TREE
+   if it is not available.  */
+
+static tree
+rs6000_builtin_vectorized_function (unsigned int fn, tree type_out,
+				    tree type_in)
+{
+  enum machine_mode in_mode, out_mode;
+  int in_n, out_n;
+
+  if (TREE_CODE (type_out) != VECTOR_TYPE
+      || TREE_CODE (type_in) != VECTOR_TYPE
+      || !TARGET_VECTORIZE_BUILTINS)
+    return NULL_TREE;
+
+  out_mode = TYPE_MODE (TREE_TYPE (type_out));
+  out_n = TYPE_VECTOR_SUBPARTS (type_out);
+  in_mode = TYPE_MODE (TREE_TYPE (type_in));
+  in_n = TYPE_VECTOR_SUBPARTS (type_in);
+
+  switch (fn)
+    {
+    case BUILT_IN_COPYSIGN:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_CPSGNDP];
+      break;
+    case BUILT_IN_COPYSIGNF:
+      if (VECTOR_UNIT_VSX_P (V4SFmode)
+	  && out_mode == SFmode && out_n == 4
+	  && in_mode == SFmode && in_n == 4)
+	return rs6000_builtin_decls[VSX_BUILTIN_CPSGNSP];
+      break;
+    case BUILT_IN_SQRT:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVSQRTDP];
+      break;
+    case BUILT_IN_SQRTF:
+      if (VECTOR_UNIT_VSX_P (V4SFmode)
+	  && out_mode == SFmode && out_n == 4
+	  && in_mode == SFmode && in_n == 4)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVSQRTSP];
+      break;
+    case BUILT_IN_CEIL:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIP];
+      break;
+    case BUILT_IN_CEILF:
+      if (out_mode != SFmode || out_n != 4
+	  || in_mode != SFmode || in_n != 4)
+	break;
+      if (VECTOR_UNIT_VSX_P (V4SFmode))
+	return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIP];
+      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIP];
+      break;
+    case BUILT_IN_FLOOR:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIM];
+      break;
+    case BUILT_IN_FLOORF:
+      if (out_mode != SFmode || out_n != 4
+	  || in_mode != SFmode || in_n != 4)
+	break;
+      if (VECTOR_UNIT_VSX_P (V4SFmode))
+	return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIM];
+      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIM];
+      break;
+    case BUILT_IN_TRUNC:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIZ];
+      break;
+    case BUILT_IN_TRUNCF:
+      if (out_mode != SFmode || out_n != 4
+	  || in_mode != SFmode || in_n != 4)
+	break;
+      if (VECTOR_UNIT_VSX_P (V4SFmode))
+	return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIZ];
+      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIZ];
+      break;
+    case BUILT_IN_NEARBYINT:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && flag_unsafe_math_optimizations
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVRDPI];
+      break;
+    case BUILT_IN_NEARBYINTF:
+      if (VECTOR_UNIT_VSX_P (V4SFmode)
+	  && flag_unsafe_math_optimizations
+	  && out_mode == SFmode && out_n == 4
+	  && in_mode == SFmode && in_n == 4)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVRSPI];
+      break;
+    case BUILT_IN_RINT:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && !flag_trapping_math
+          && out_mode == DFmode && out_n == 2
+          && in_mode == DFmode && in_n == 2)
+        return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIC];
+      break;
+    case BUILT_IN_RINTF:
+      if (VECTOR_UNIT_VSX_P (V4SFmode)
+	  && !flag_trapping_math
+          && out_mode == SFmode && out_n == 4
+          && in_mode == SFmode && in_n == 4)
+        return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIC];
+      break;
+    case BUILT_IN_FABS:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVABSDP];
+      break;
+    case BUILT_IN_FABSF:
+      if (out_mode != SFmode || out_n != 4
+	  || in_mode != SFmode || in_n != 4)
+	break;
+      if (VECTOR_UNIT_VSX_P (V4SFmode))
+	return rs6000_builtin_decls[VSX_BUILTIN_XVABSSP];
+      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	return rs6000_builtin_decls[ALTIVEC_BUILTIN_ABS_V4SF];
+      break;
+    case BUILT_IN_FMAX:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVMAXDP];
+      break;
+    case BUILT_IN_FMAXF:
+      if (out_mode != SFmode || out_n != 4
+	  || in_mode != SFmode || in_n != 4)
+	break;
+      if (VECTOR_UNIT_VSX_P (V4SFmode))
+	return rs6000_builtin_decls[VSX_BUILTIN_XVMAXSP];
+      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VMAXFP];
+      break;
+    case BUILT_IN_FMIN:
+      if (VECTOR_UNIT_VSX_P (V2DFmode)
+	  && out_mode == DFmode && out_n == 2
+	  && in_mode == DFmode && in_n == 2)
+	return rs6000_builtin_decls[VSX_BUILTIN_XVMINDP];
+      break;
+    case BUILT_IN_FMINF:
+      if (out_mode != SFmode || out_n != 4
+	  || in_mode != SFmode || in_n != 4)
+	break;
+      if (VECTOR_UNIT_VSX_P (V4SFmode))
+	return rs6000_builtin_decls[VSX_BUILTIN_XVMINSP];
+      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VMINFP];
+      break;
+    default:
+      ;
+    }
+  return NULL_TREE;
+}
+
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -8521,6 +8698,8 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_VSX, CODE_FOR_smaxdf3, "__builtin_vsx_xsmaxdp", VSX_BUILTIN_XSMAXDP },
   { MASK_VSX, CODE_FOR_vsx_tdivdf3_fe, "__builtin_vsx_xstdivdp_fe", VSX_BUILTIN_XSTDIVDP_FE },
   { MASK_VSX, CODE_FOR_vsx_tdivdf3_fg, "__builtin_vsx_xstdivdp_fg", VSX_BUILTIN_XSTDIVDP_FG },
+  { MASK_VSX, CODE_FOR_vsx_copysignv2df3, "__builtin_vsx_cpsgndp", VSX_BUILTIN_CPSGNDP },
+  { MASK_VSX, CODE_FOR_vsx_copysignv4sf3, "__builtin_vsx_cpsgnsp", VSX_BUILTIN_CPSGNSP },
 
   { MASK_VSX, CODE_FOR_vsx_concat_v2df, "__builtin_vsx_concat_2df", VSX_BUILTIN_CONCAT_2DF },
   { MASK_VSX, CODE_FOR_vsx_concat_v2di, "__builtin_vsx_concat_2di", VSX_BUILTIN_CONCAT_2DI },

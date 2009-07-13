@@ -580,8 +580,7 @@ package body Exp_Ch4 is
             --  Allocate the object with no expression
 
             Node := Relocate_Node (N);
-            Set_Expression (Node,
-              New_Reference_To (Root_Type (Etype (Exp)), Loc));
+            Set_Expression (Node, New_Reference_To (Etype (Exp), Loc));
 
             --  Avoid its expansion to avoid generating a call to the default
             --  C++ constructor
@@ -615,7 +614,7 @@ package body Exp_Ch4 is
                    Id_Ref =>
                      Make_Explicit_Dereference (Loc,
                        Prefix => New_Reference_To (Temp, Loc)),
-                   Typ => Root_Type (Etype (Exp)),
+                   Typ => Etype (Exp),
                    Constructor_Ref => Exp));
             end;
 
@@ -3988,8 +3987,7 @@ package body Exp_Ch4 is
 
          else pragma Assert (Expr_Value_E (Right) = Standard_False);
             Remove_Side_Effects (Left);
-            Rewrite
-              (N, New_Occurrence_Of (Standard_False, Loc));
+            Rewrite (N, New_Occurrence_Of (Standard_False, Loc));
          end if;
       end if;
 
@@ -4028,6 +4026,21 @@ package body Exp_Ch4 is
       --      end if;
 
       --  and replace the conditional expression by a reference to Cnn
+
+      --  ??? Note: this expansion is wrong for limited types, since it does
+      --  a copy of a limited value. The proper fix would be to do the
+      --  following expansion:
+
+      --      Cnn : access typ;
+      --      if cond then
+      --         <<then actions>>
+      --         Cnn := then-expr'Unrestricted_Access;
+      --      else
+      --         <<else actions>>
+      --         Cnn := else-expr'Unrestricted_Access;
+      --      end if;
+
+      --  and replace the conditional expresion by a reference to Cnn.all ???
 
       if Present (Then_Actions (N)) or else Present (Else_Actions (N)) then
          Cnn := Make_Defining_Identifier (Loc, New_Internal_Name ('C'));
@@ -7519,6 +7532,11 @@ package body Exp_Ch4 is
       --  assignment to temporary. If there is no change of representation,
       --  then the conversion node is unchanged.
 
+      procedure Raise_Accessibility_Error;
+      --  Called when we know that an accessibility check will fail. Rewrites
+      --  node N to an appropriate raise statement and outputs warning msgs.
+      --  The Etype of the raise node is set to Target_Type.
+
       procedure Real_Range_Check;
       --  Handles generation of range check for real target value
 
@@ -7647,6 +7665,22 @@ package body Exp_Ch4 is
             return;
          end if;
       end Handle_Changed_Representation;
+
+      -------------------------------
+      -- Raise_Accessibility_Error --
+      -------------------------------
+
+      procedure Raise_Accessibility_Error is
+      begin
+         Rewrite (N,
+           Make_Raise_Program_Error (Sloc (N),
+             Reason => PE_Accessibility_Check_Failed));
+         Set_Etype (N, Target_Type);
+
+         Error_Msg_N ("?accessibility check failure", N);
+         Error_Msg_NE
+           ("\?& will be raised at run time", N, Standard_Program_Error);
+      end Raise_Accessibility_Error;
 
       ----------------------
       -- Real_Range_Check --
@@ -7884,10 +7918,7 @@ package body Exp_Ch4 is
            and then Type_Access_Level (Operand_Type) >
                     Type_Access_Level (Target_Type)
          then
-            Rewrite (N,
-              Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Accessibility_Check_Failed));
-            Set_Etype (N, Target_Type);
+            Raise_Accessibility_Error;
 
          --  When the operand is a selected access discriminant the check needs
          --  to be made against the level of the object denoted by the prefix
@@ -7901,11 +7932,7 @@ package body Exp_Ch4 is
            and then Object_Access_Level (Operand) >
                       Type_Access_Level (Target_Type)
          then
-            Rewrite (N,
-              Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Accessibility_Check_Failed));
-            Set_Etype (N, Target_Type);
-
+            Raise_Accessibility_Error;
             return;
          end if;
       end if;

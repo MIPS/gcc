@@ -3090,9 +3090,9 @@ package body Make is
             end if;
          end if;
 
-         if Create_Mapping_File then
+         if Create_Mapping_File and then Mapping_File_Arg /= null then
             Comp_Last := Comp_Last + 1;
-            Comp_Args (Comp_Last) := Mapping_File_Arg;
+            Comp_Args (Comp_Last) := new String'(Mapping_File_Arg.all);
          end if;
 
          Get_Name_String (S);
@@ -6051,9 +6051,10 @@ package body Make is
                if Main_Project /= No_Project then
 
                   --  Put all the source directories in ADA_INCLUDE_PATH,
-                  --  and all the object directories in ADA_OBJECTS_PATH.
+                  --  and all the object directories in ADA_OBJECTS_PATH,
+                  --  except those of library projects.
 
-                  Prj.Env.Set_Ada_Paths (Main_Project, Project_Tree, True);
+                  Prj.Env.Set_Ada_Paths (Main_Project, Project_Tree, False);
 
                   --  If switch -C was specified, create a binder mapping file
 
