@@ -35,7 +35,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 
 #include "coretypes.h"
 
-void branch_probability_add (FILE *, tree);
+void branch_probability_add (FILE *, tree, edge);
 void branch_probability_emit_and_reset (FILE *);
 void basic_block_frequency_emit (FILE *, struct function *);
 

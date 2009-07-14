@@ -64,9 +64,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "tree.h"
 #include "cfghooks.h"
-#include "tree-flow.h"
 #include "timevar.h"
 #include "cfgloop.h"
+#include "gimple.h"
 #include "tree-pass.h"
 #include "splay-tree.h"
 
@@ -417,7 +417,7 @@ location_profile_info_add_bb_exec_count (const char *file, int bb_line, int coun
 static int 
 location_profile_info_dump_edge (splay_tree_node n, void *d)
 {
-  FILE *f = d;
+  FILE *f = (FILE *) d;
   int v = (int) n->value;
   fprintf (f, "-> %x: %d\n", (int) n->key, v);
   return 0;
@@ -426,7 +426,7 @@ location_profile_info_dump_edge (splay_tree_node n, void *d)
 static int 
 location_profile_info_dump_location (splay_tree_node n, void *d)
 {
-  FILE *f = d;
+  FILE *f = (FILE *) d;
   struct location_profile_info *v = (struct location_profile_info *) n->value;
   fprintf (f, "%x\n", (int) n->key);
   splay_tree_foreach (v->edges, location_profile_info_dump_edge, f);  
@@ -436,7 +436,7 @@ location_profile_info_dump_location (splay_tree_node n, void *d)
 static int 
 location_profile_info_dump_file (splay_tree_node n, void *d)
 {
-  FILE *f = d;
+  FILE *f = (FILE *) d;
   struct location_profile_info_file *v = (struct location_profile_info_file *) n->value;
   fprintf (f, "File: '%s'\n", (const char *) n->key);
   splay_tree_foreach (v->locations, location_profile_info_dump_location, f);  
@@ -454,27 +454,22 @@ basic_block_get_location (basic_block bb)
 {
   while (bb)
     {
-      if (bb_stmt_list (bb))
-        {
-          tree_stmt_iterator i = tsi_start (bb_stmt_list (bb));
-          while (!tsi_end_p (i))
-            {
-              if (EXPR_HAS_LOCATION (tsi_stmt (i)))
-                {
-                  return EXPR_LOCATION (tsi_stmt (i));
-                }
-              tsi_next (&i);
-            }
-        }
+      gimple_stmt_iterator gsi = gsi_start_bb (bb);
+
+      while (!gsi_end_p (gsi))
+	{
+	  if (gimple_has_location (gsi_stmt (gsi)))
+	    return gimple_location (gsi_stmt (gsi));
+
+	  gsi_next (&gsi);
+	}
+
       if (single_succ_p (bb))
-        {
-          bb = single_succ_edge (bb)->dest;
-        }
+	bb = single_succ_edge (bb)->dest;
       else
-        {
-          break;
-        }
+	return UNKNOWN_LOCATION;
     }
+
   return UNKNOWN_LOCATION;
 }
 

@@ -359,7 +359,8 @@ static void
 dump_label_name (FILE *file, tree node)
 {
   /* Always print the label id. */
-  fprintf (file, "?L" HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+  fprintf (file, "?L" HOST_WIDE_INT_PRINT_DEC,
+	   (HOST_WIDE_INT) LABEL_DECL_UID (node));
 
   /* For convenience, also print the identifier when available.  Note that the
      identifier alone is incorrect: in case of inlining, several labels can
@@ -1169,7 +1170,7 @@ emit_incomplete_type (const void *elem, void *data)
 {
   const_tree type = (const_tree) elem;
   tree type_name = TYPE_NAME (type);
-  struct pointer_set_t *emitted_types = data;
+  struct pointer_set_t *emitted_types = (struct pointer_set_t *) data;
 
   gcc_assert (DECL_P (type_name)
 	      || TREE_CODE (type_name) == IDENTIFIER_NODE);
@@ -1846,7 +1847,7 @@ rename_var (tree var, const char *suffix, unsigned long index)
 static void
 emit_static_vars (FILE *file, struct function *fun)
 {
-  tree cell = fun->unexpanded_var_list;
+  tree cell = fun->local_decls;
 
   while (cell != NULL_TREE)
     {
@@ -1872,8 +1873,8 @@ emit_static_vars (FILE *file, struct function *fun)
 static int
 var_uses_compare (const void *t1, const void *t2)
 {
-  const var_uses_s *vu1 = t1;
-  const var_uses_s *vu2 = t2;
+  const var_uses_s *vu1 = (const var_uses_s *) t1;
+  const var_uses_s *vu2 = (const var_uses_s *) t2;
 
   if (vu1->uses == vu2->uses)
     return DECL_UID (vu1->var) - DECL_UID (vu2->var);
@@ -1975,6 +1976,7 @@ emit_local_vars (FILE *file, struct function *fun)
 
   /* Emit the local variables starting from the most used ones.  */
 
+  /* FIXME: We shouldn't always set init */
   if (fun->machine->locals_init || 1)
     fprintf (file, "\n\t.locals init (");
   else
@@ -2127,12 +2129,12 @@ static void
 emit_cil_bb (FILE *file, basic_block bb)
 {
   cil_stmt_iterator csi;
-  block_stmt_iterator bsi = bsi_start (bb);
+  gimple_stmt_iterator gsi = gsi_start_bb (bb);
   tree label;
   cil_stmt stmt = NULL;
 
   /* Dump this block label */
-  label = LABEL_EXPR_LABEL (bsi_stmt (bsi));
+  label = gimple_label_label (gsi_stmt (gsi));
   fprintf (file, "\n");
   dump_label_name (file, label);
   fprintf (file, ":");
@@ -2152,7 +2154,7 @@ emit_cil_1 (FILE *file, struct function *fun)
   /* Make sure that every bb has a label */
   FOR_EACH_BB_FN (bb, fun)
     {
-      tree_block_label (bb);
+      gimple_block_label (bb);
     }
 
   emit_referenced_assemblies (file);
@@ -2171,7 +2173,7 @@ emit_cil_1 (FILE *file, struct function *fun)
 
   fprintf (file,
 	   "\n\t.maxstack %u\n"
-	   "\n} // %s\n",
+	   "} // %s\n",
 	   compute_max_stack (fun),
 	   lang_hooks.decl_printable_name (fun->decl, 1));
   TREE_ASM_WRITTEN (fun->decl) = 1;
@@ -2197,8 +2199,10 @@ emit_cil (void)
 
 /* Define the parameters of the CIL assembly emission pass.  */
 
-struct tree_opt_pass pass_emit_cil =
+struct gimple_opt_pass pass_emit_cil =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "emitcil",                            /* name */
   emit_cil_gate,                        /* gate */
   emit_cil,                             /* execute */
@@ -2209,9 +2213,9 @@ struct tree_opt_pass pass_emit_cil =
   PROP_cfg,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  0                                    /* todo_flags_finish */
+ }
 };
 
 /* This function is mostly a copy of the last part of 'gen_cil'. */
@@ -2303,8 +2307,10 @@ emit_cil_vcg (void)
 
 /* Define the parameters of the CIL_VCG pass.  */
 
-struct tree_opt_pass pass_emit_cil_vcg =
+struct gimple_opt_pass pass_emit_cil_vcg =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "emit_cil_vcg",                       /* name */
   emit_cil_vcg_gate,                    /* gate */
   emit_cil_vcg,                         /* execute */
@@ -2315,9 +2321,9 @@ struct tree_opt_pass pass_emit_cil_vcg =
   PROP_cfg,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 

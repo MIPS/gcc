@@ -581,8 +581,10 @@ lower_cil_gate (void)
 
 /* Define the parameters of the CIL lowering pass.  */
 
-struct tree_opt_pass pass_lower_cil =
+struct gimple_opt_pass pass_lower_cil =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "lowercil",                           /* name */
   lower_cil_gate,                       /* gate */
   lower_cil,                            /* execute */
@@ -593,9 +595,9 @@ struct tree_opt_pass pass_lower_cil =
   PROP_cfg,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 /*

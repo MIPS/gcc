@@ -1053,9 +1053,9 @@ get_addr_taken_label_id (tree label)
 static int
 fill_label_addrs (void **slot, void *data)
 {
-  tree addrs = data;
+  tree addrs = (tree) data;
   tree case_label;
-  label_addr addr = *slot;
+  label_addr addr = (label_addr) *slot;
 
   if (DECL_CONTEXT (addr->label) == current_function_decl)
     {

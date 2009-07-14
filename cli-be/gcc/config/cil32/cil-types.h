@@ -97,7 +97,7 @@ extern enum cil_arg_type opcode_arg_types[];
 
 static inline enum cil_arg_type opcode_arg_type (enum cil_opcode cil_opcode)
 {
-    return opcode_arg_types[cil_opcode];
+  return opcode_arg_types[cil_opcode];
 }
 
 /* Represents the information provided by a CALL_EXPR when converted to a CIL

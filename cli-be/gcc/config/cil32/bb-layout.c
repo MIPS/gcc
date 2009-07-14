@@ -186,8 +186,10 @@ bblayout_gate (void)
 
 /* Define the parameters of the bb layout pass.  */
 
-struct tree_opt_pass pass_bb_layout =
+struct gimple_opt_pass pass_bb_layout =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "bblayout",                           /* name */
   bblayout_gate,                        /* gate */
   bblayout,                             /* execute */
@@ -199,9 +201,9 @@ struct tree_opt_pass pass_bb_layout =
   0,                                    /* properties_provided */
   /* ??? If TER is enabled, we also kill gimple.  */
   0,                                    /* properties_destroyed */
-  0,
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 /*

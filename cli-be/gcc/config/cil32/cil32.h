@@ -93,7 +93,7 @@ extern int target_flags;
 #define WORDS_BIG_ENDIAN 0
 
 #define UNITS_PER_WORD 4
-#define UNITS_PER_SIMD_WORD 16
+#define UNITS_PER_SIMD_WORD(mode) 16
 
 /* Unused by cil32 machine */
 #define PARM_BOUNDARY 32
@@ -537,17 +537,17 @@ struct cum_args {int regs;};
 
 #define NO_IMPLICIT_EXTERN_C
 
-extern struct tree_opt_pass pass_simp_cil_early;
-extern struct tree_opt_pass pass_bb_layout;
-extern struct tree_opt_pass pass_gimple_to_cil;
-extern struct tree_opt_pass pass_missing_protos;
-extern struct tree_opt_pass pass_cil_peephole;
-extern struct tree_opt_pass pass_remove_convs;
-extern struct tree_opt_pass pass_remove_temps;
-extern struct tree_opt_pass pass_simp_cond;
-extern struct tree_opt_pass pass_emit_cil_vcg;
-extern struct tree_opt_pass pass_emit_cil;
-extern struct tree_opt_pass pass_lower_cil;
+extern struct gimple_opt_pass pass_simp_cil_early;
+extern struct gimple_opt_pass pass_bb_layout;
+extern struct gimple_opt_pass pass_gimple_to_cil;
+extern struct gimple_opt_pass pass_missing_protos;
+extern struct gimple_opt_pass pass_cil_peephole;
+extern struct gimple_opt_pass pass_remove_convs;
+extern struct gimple_opt_pass pass_remove_temps;
+extern struct gimple_opt_pass pass_simp_cond;
+extern struct gimple_opt_pass pass_lower_cil;
+extern struct gimple_opt_pass pass_emit_cil_vcg;
+extern struct gimple_opt_pass pass_emit_cil;
 
 /*
  * Local variables:

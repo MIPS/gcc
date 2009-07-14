@@ -809,8 +809,10 @@ remove_temps_gate (void)
 
 /* Define the parameters of the remove-temps pass.  */
 
-struct tree_opt_pass pass_remove_temps =
+struct gimple_opt_pass pass_remove_temps =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "remove_temps",                       /* name */
   remove_temps_gate,                    /* gate */
   remove_temps,                         /* execute */
@@ -821,9 +823,9 @@ struct tree_opt_pass pass_remove_temps =
   PROP_cfg,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 /*

@@ -63,7 +63,7 @@ cil_set_bb (cil_stmt stmt, basic_block bb)
 
 /* Return locus information for statement STMT. */
 
-static inline source_locus
+static inline source_location
 cil_locus (const_cil_stmt stmt)
 {
   return stmt->locus;
@@ -72,7 +72,7 @@ cil_locus (const_cil_stmt stmt)
 /* Set locus information for statement STMT. */
 
 static inline void
-cil_set_locus (cil_stmt stmt, source_locus locus)
+cil_set_locus (cil_stmt stmt, source_location locus)
 {
   stmt->locus = locus;
 }

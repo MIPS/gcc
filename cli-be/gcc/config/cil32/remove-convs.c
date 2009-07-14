@@ -309,8 +309,10 @@ remove_convs_gate (void)
 
 /* Define the parameters of the remove-temps pass.  */
 
-struct tree_opt_pass pass_remove_convs =
+struct gimple_opt_pass pass_remove_convs =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "remove_convs",                       /* name */
   remove_convs_gate,                    /* gate */
   remove_convs,                         /* execute */
@@ -321,9 +323,9 @@ struct tree_opt_pass pass_remove_convs =
   PROP_cfg,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 /*

@@ -173,7 +173,3 @@ bb-layout.o: $(srcdir)/config/cil32/bb-layout.c \
    $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) \
    coretypes.h tree-pass.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
-
-gt-cil-refs.h : s-gtype ; @true
-gt-cil-stmt.h : s-gtype ; @true
-gt-cil-builtins.h : s-gtype ; @true

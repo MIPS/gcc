@@ -96,13 +96,18 @@ set_expr_location_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
 }
 
 
+/* This prototypes are needed as we made gimple_to_tree() and
+   release_stmt_tree() non-static.  */
+extern tree gimple_to_tree (gimple);
+extern void release_stmt_tree (gimple, tree);
+
 /* RTL expansion has traditionally been done on trees, so the
    transition to doing it on GIMPLE tuples is very invasive to the RTL
    expander.  To facilitate the transition, this function takes a
    GIMPLE tuple STMT and returns the same statement in the form of a
    tree.  */
 
-static tree
+tree
 gimple_to_tree (gimple stmt)
 {
   tree t;
@@ -341,7 +346,7 @@ gimple_to_tree (gimple stmt)
 
 /* Release back to GC memory allocated by gimple_to_tree.  */
 
-static void
+void
 release_stmt_tree (gimple stmt, tree stmt_tree)
 {
   tree_ann_common_t ann;

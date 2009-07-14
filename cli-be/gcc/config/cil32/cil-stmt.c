@@ -375,6 +375,7 @@ int
 cil_prefix_unaligned (const_cil_stmt stmt)
 {
   int result = 0;
+
   if (((stmt->opcode == CIL_CPBLK) || (stmt->opcode == CIL_INITBLK)
        || (stmt->opcode == CIL_LDOBJ) || (stmt->opcode == CIL_STOBJ)
        || (stmt->opcode == CIL_LDVEC) || (stmt->opcode == CIL_STVEC)
@@ -382,7 +383,9 @@ cil_prefix_unaligned (const_cil_stmt stmt)
        || ((stmt->opcode >= CIL_STIND_I1) && (stmt->opcode <= CIL_STIND_I))
        || (stmt->opcode == CIL_LDFLD) || (stmt->opcode == CIL_STFLD))
       && stmt->prefix_unaligned)
-  result = stmt->alignment;
+    {
+      result = stmt->alignment;
+    }
 
   return result;
 }
@@ -436,6 +439,7 @@ cil_prefix_volatile (const_cil_stmt stmt)
 	   || (stmt->opcode == CIL_LDSFLD) || (stmt->opcode == CIL_STSFLD))
 	  && stmt->prefix_volatile);
 }
+
 /* Returns TRUE if the CIL stsatement STMT represents a conversion, FALSE
    otherwise.  */
 

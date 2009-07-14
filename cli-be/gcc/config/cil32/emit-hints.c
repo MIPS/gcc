@@ -113,30 +113,21 @@ static struct branch_prob_list_node *branch_prob_list_head = NULL;
 static struct branch_prob_list_node *branch_prob_list_tail = NULL;
 
 
-/* Given COND_EXPR statement NODE, register the probability that is taken.
+/* Given COND_EXPR statement NODE, and its true edge TRUE_EDGE and register the
+   probability that is taken.
    Also dump a comment with such a probability to FILE.   */
 
 void
-branch_probability_add (FILE *file ATTRIBUTE_UNUSED, tree node)
+branch_probability_add (FILE *file ATTRIBUTE_UNUSED, tree node, edge true_edge)
 {
-  edge e;
   struct branch_prob_list_node *n;
 
   gcc_assert (TREE_CODE (node) == COND_EXPR);
 
-  {
-    edge true_edge;
-    edge false_edge;
-    basic_block src_bb = get_stmt_ann (node)->bb;
-    extract_true_false_edges_from_block (src_bb, &true_edge, &false_edge);
-    e = true_edge;
-    gcc_assert (e);
-  }
-
   /* Initialize new branch probability node */
   n = XNEW (struct branch_prob_list_node);
   n->next = NULL;
-  n->branch_prob = e->probability;
+  n->branch_prob = true_edge->probability;
 
   /* Update branch probability list */
   if (branch_prob_list_head)
@@ -254,15 +245,15 @@ basic_block_frequency_emit (FILE *file, struct function *fun)
 
   FOR_EACH_BB_FN (bb, fun)
     {
-      block_stmt_iterator last_bsi = bsi_last (bb);
+      gimple_stmt_iterator last_gsi = gsi_last_bb (bb);
 
-      if (bsi_end_p (last_bsi))
+      if (gsi_end_p (last_gsi))
 	--emitted_bbs;
       else
 	{
-	  tree last = bsi_stmt (last_bsi);
+	  gimple last = gsi_stmt (last_gsi);
 
-	  if (TREE_CODE (last) == COND_EXPR)
+	if (gimple_code (last) == GIMPLE_COND)
 	    {
 	      edge true_edge;
 	      edge false_edge;
@@ -293,11 +284,11 @@ basic_block_frequency_emit (FILE *file, struct function *fun)
      Beware that some GIMPLE blocks are emitted as two blocks!   */
   FOR_EACH_BB_FN (bb, fun)
     {
-      block_stmt_iterator last_bsi = bsi_last (bb);
+      gimple_stmt_iterator last_gsi = gsi_last_bb (bb);
       int freq_class;
 
       /* Frequency is not emitted for an empty basic block */
-      if (bsi_end_p (last_bsi))
+      if (gsi_end_p (last_gsi))
         continue;
 
       fprintf (file, "%02x ", bb->frequency * 100 / BB_FREQ_MAX);
@@ -308,8 +299,7 @@ basic_block_frequency_emit (FILE *file, struct function *fun)
 				    coding[freq_class].num_bits,
 				    coding[freq_class].code);
 
-      if (TREE_CODE (bsi_stmt (last_bsi)) == COND_EXPR)
-	{
+      if (gimple_code (gsi_stmt (last_gsi)) == GIMPLE_COND) {
 	  edge true_edge;
 	  edge false_edge;
 	  basic_block dest_bb;
@@ -323,8 +313,8 @@ basic_block_frequency_emit (FILE *file, struct function *fun)
 	      int new_bb_frequency;
 
 	      gcc_assert (split_edge);
-	      new_bb_frequency =
-		(bb->frequency * split_edge->probability) / REG_BR_PROB_BASE;
+	      new_bb_frequency = (bb->frequency * split_edge->probability)
+				 / REG_BR_PROB_BASE;
 	      fprintf (file, "%02x ",
 		       new_bb_frequency * 100 / BB_FREQ_MAX);
 
@@ -370,9 +360,8 @@ basic_block_frequency_emit (FILE *file, struct function *fun)
 
   for (n = branch_prob_list_head; n; n = n->next)
     {
-      int prob_class =
-	((n->branch_prob * 256 - REG_BR_PROB_BASE * 256 / 16)
-	 * 7 / REG_BR_PROB_BASE) / 256;
+      int prob_class = ((n->branch_prob * 256 - REG_BR_PROB_BASE * 256 / 16)
+	                * 7 / REG_BR_PROB_BASE) / 256;
 
       gcc_assert (prob_class >= -1 && prob_class <= 7);
 

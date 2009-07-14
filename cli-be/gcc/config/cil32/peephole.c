@@ -126,8 +126,10 @@ cil_peephole_gate (void)
 
 /* Define the parameters of the peephole-optimizations pass.  */
 
-struct tree_opt_pass pass_cil_peephole =
+struct gimple_opt_pass pass_cil_peephole =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "cil_peephole",                       /* name */
   cil_peephole_gate,                    /* gate */
   cil_peephole,                         /* execute */
@@ -138,9 +140,9 @@ struct tree_opt_pass pass_cil_peephole =
   PROP_cfg,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 /*

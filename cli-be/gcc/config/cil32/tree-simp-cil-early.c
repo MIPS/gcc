@@ -36,9 +36,8 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "coretypes.h"
 #include "tm.h"
 #include "timevar.h"
+#include "gimple.h"
 #include "tree.h"
-#include "tree-gimple.h"
-#include "tree-iterator.h"
 #include "tree-pass.h"
 #include "pointer-set.h"
 
@@ -59,21 +58,19 @@ struct eqv_label_entry_t
 
 /* Label manipulation functions */
 static bool is_eqv_label (tree, tree);
-static void group_labels (tree);
+static void group_labels (void);
 static bool eqv_label_dispose (const void *, void **, void *data);
 
 /* Switch-conversion functions */
-static void merge_cases_into_ranges (tree);
-static void case_to_cond_expr (tree, tree, tree *);
-static void case_range_to_cond_expr (tree, tree, tree *);
-static void cases_to_switch (tree, unsigned int, unsigned int, tree *);
-static tree simp_cil_switch (tree);
-
-/* Misc functionality */
-static void set_statement_list_location (tree, location_t);
+static void merge_cases_into_ranges (gimple);
+static void case_to_cond_expr (gimple, tree, tree, gimple_stmt_iterator *);
+static void case_range_to_cond_expr (gimple, tree, tree,
+				     gimple_stmt_iterator *);
+static void cases_to_switch (gimple, unsigned int, unsigned int,
+			     tree, gimple_stmt_iterator *);
+static gimple_seq simp_cil_switch (gimple);
 
 /* Top-level functionality */
-static tree simp_cil_stmt (tree);
 static unsigned int simp_cil_early (void);
 static bool simp_cil_early_gate (void);
 
@@ -89,25 +86,6 @@ static bool simp_cil_early_gate (void);
 static struct pointer_map_t *eqv_labels = NULL;
 
 /******************************************************************************
- * Misc functions                                                             *
- ******************************************************************************/
-
-/* Set the location of the statements in the statement list pointed by LIST to
-   the location passed in LOCUS */
-
-static void
-set_statement_list_location (tree list, location_t locus)
-{
-  tree_stmt_iterator tsi = tsi_start (list);
-
-  while (!tsi_end_p (tsi))
-    {
-      SET_EXPR_LOCATION (tsi_stmt (tsi), locus);
-      tsi_next (&tsi);
-    }
-}
-
-/******************************************************************************
  * Label manipulation functions                                               *
  ******************************************************************************/
 
@@ -118,8 +96,8 @@ is_eqv_label (tree label1, tree label2)
 {
   struct eqv_label_entry_t *t1, *t2;
 
-  t1 = *pointer_map_contains (eqv_labels, label1);
-  t2 = *pointer_map_contains (eqv_labels, label2);
+  t1 = (struct eqv_label_entry_t *) *pointer_map_contains (eqv_labels, label1);
+  t2 = (struct eqv_label_entry_t *) *pointer_map_contains (eqv_labels, label2);
 
   if (t1 == NULL || t2 == NULL)
     return false;
@@ -135,28 +113,28 @@ is_eqv_label (tree label1, tree label2)
    not group equivalent labels which are non-adjacent. */
 
 static void
-group_labels (tree func)
+group_labels (void)
 {
-  tree_stmt_iterator tsi;
-  tree t = NULL_TREE;
+  gimple_stmt_iterator gsi;
+  gimple stmt = NULL;
   unsigned int value = 0;
   bool prev_label = false;
   struct eqv_label_entry_t *entry;
 
-  tsi = tsi_start (func);
+  gsi = gsi_start (gimple_body (current_function_decl));
 
-  while (!tsi_end_p (tsi))
+  while (!gsi_end_p (gsi))
     {
-      t = tsi_stmt (tsi);
-      tsi_next (&tsi);
+      stmt = gsi_stmt (gsi);
+      gsi_next (&gsi);
 
-      if (TREE_CODE (t) == LABEL_EXPR)
+      if (gimple_code (stmt) == GIMPLE_LABEL)
 	{
 	  /* Insert the label in the hash-table */
 	  entry = XCNEW (struct eqv_label_entry_t);
-	  entry->label = LABEL_EXPR_LABEL (t);
+	  entry->label = gimple_label_label (stmt);
 	  entry->val = value;
-	  *pointer_map_insert (eqv_labels, LABEL_EXPR_LABEL (t)) = entry;
+	  *pointer_map_insert (eqv_labels, gimple_label_label (stmt)) = entry;
 	  prev_label = true;
 	}
       else if (prev_label)
@@ -186,49 +164,41 @@ eqv_label_dispose (const void *key ATTRIBUTE_UNUSED, void **value,
    case 1: case 2: case 3: -> case 1 ... 3: */
 
 static void
-merge_cases_into_ranges (tree switch_stmt)
+merge_cases_into_ranges (gimple switch_stmt)
 {
-  tree labels = SWITCH_LABELS (switch_stmt);
-  unsigned int old_size = TREE_VEC_LENGTH (labels);
+  unsigned int old_size = gimple_switch_num_labels (switch_stmt);
   unsigned int i, j, new_size = old_size;
-  tree default_case = TREE_VEC_ELT (labels, old_size - 1);
-  tree default_label;
+  tree default_case = gimple_switch_default_label (switch_stmt);
+  tree default_label = CASE_LABEL (default_case);
 
-  /* The default label is always the last case in a switch
-     statement after gimplification.  */
-  default_label = CASE_LABEL (default_case);
+  /* Look for possible opportunities to merge cases.  Ignore the first label
+     of the switch because it is the default case.  */
+  i = 1;
 
-  /* Look for possible opportunities to merge cases.
-     Ignore the last element of the label vector because it
-     must be the default case.  */
-  i = 0;
-  while (i < old_size - 1)
+  while (i < old_size)
     {
       tree base_case, base_label, base_high;
-      base_case = TREE_VEC_ELT (labels, i);
-
-      gcc_assert (base_case);
+      base_case = gimple_switch_label (switch_stmt, i);
       base_label = CASE_LABEL (base_case);
 
-      /* Discard cases that have the same destination as the
-	 default case.  */
+      /* Discard cases that have the same destination as the default case.  */
       if (is_eqv_label (base_label, default_label))
 	{
-	  TREE_VEC_ELT (labels, i) = NULL_TREE;
+	  gimple_switch_set_label (switch_stmt, i, NULL_TREE);
 	  i++;
 	  new_size--;
 	  continue;
 	}
 
-      base_high = CASE_HIGH (base_case) ?
-	CASE_HIGH (base_case) : CASE_LOW (base_case);
+      base_high = CASE_HIGH (base_case) ? CASE_HIGH (base_case)
+					: CASE_LOW (base_case);
       i++;
       /* Try to merge case labels.  Break out when we reach the end
 	 of the label vector or when we cannot merge the next case
 	 label with the current one.  */
-      while (i < old_size - 1)
+      while (i < old_size)
 	{
-	  tree merge_case = TREE_VEC_ELT (labels, i);
+	  tree merge_case = gimple_switch_label (switch_stmt, i);
           tree merge_label = CASE_LABEL (merge_case);
 	  tree t = int_const_binop (PLUS_EXPR, base_high,
 				    integer_one_node, 1);
@@ -238,10 +208,10 @@ merge_cases_into_ranges (tree switch_stmt)
 	  if (is_eqv_label (merge_label, base_label)
 	      && tree_int_cst_equal (CASE_LOW (merge_case), t))
 	    {
-	      base_high = CASE_HIGH (merge_case) ?
-		CASE_HIGH (merge_case) : CASE_LOW (merge_case);
+	      base_high = CASE_HIGH (merge_case) ? CASE_HIGH (merge_case)
+						 : CASE_LOW (merge_case);
 	      CASE_HIGH (base_case) = base_high;
-	      TREE_VEC_ELT (labels, i) = NULL_TREE;
+	      gimple_switch_set_label (switch_stmt, i, NULL_TREE);
 	      new_size--;
 	      i++;
 	    }
@@ -254,114 +224,87 @@ merge_cases_into_ranges (tree switch_stmt)
      length of the vector.  */
   for (i = 0, j = 0; i < new_size; i++)
     {
-      while (!TREE_VEC_ELT (labels, j))
-	j++;
+      while ((j < gimple_switch_num_labels (switch_stmt))
+	     && (gimple_switch_label (switch_stmt, j) == NULL_TREE))
+	{
+	  j++;
+	}
 
-      TREE_VEC_ELT (labels, i) = TREE_VEC_ELT (labels, j++);
+      gimple_switch_set_label (switch_stmt, i,
+			       gimple_switch_label (switch_stmt, j++));
     }
 
-  TREE_VEC_LENGTH (labels) = new_size;
+  gimple_switch_set_num_labels (switch_stmt, new_size);
 }
 
 /* Turn a single isolated case into a COND_EXPR */
 
 static void
-case_to_cond_expr (tree switch_stmt, tree single_case, tree *list)
+case_to_cond_expr (gimple switch_stmt, tree single_case, tree deft,
+		   gimple_stmt_iterator *gsi)
 {
-  tree cmp_stmt, label;
-  tree label_decl = create_artificial_label ();
+  gimple cmp_stmt;
 
-  /* Build the COND_EXPR */
-  cmp_stmt = build3 (COND_EXPR, void_type_node,
-		     build2 (EQ_EXPR, boolean_type_node,
-			     SWITCH_COND (switch_stmt),
-			     CASE_LOW (single_case)),
-		     build1 (GOTO_EXPR, void_type_node,
-			     CASE_LABEL (single_case)),
-		     build1 (GOTO_EXPR, void_type_node, label_decl));
-
-  /* Append the COND_EXPR to the list */
-  append_to_statement_list (cmp_stmt, list);
-
-  /* Create the label to the next statement and append it to the list */
-  label = build1 (LABEL_EXPR, void_type_node, label_decl);
-  append_to_statement_list (label, list);
+  /* Build the GIMPLE_COND statement and append it */
+  cmp_stmt = gimple_build_cond (EQ_EXPR, gimple_switch_index (switch_stmt),
+				CASE_LOW (single_case),
+				CASE_LABEL (single_case), deft);
+  gsi_insert_after (gsi, cmp_stmt, GSI_CONTINUE_LINKING);
 }
 
 /* Turn a case range into a couple of COND_EXPRs */
 
 static void
-case_range_to_cond_expr (tree switch_stmt, tree case_range, tree *list)
+case_range_to_cond_expr (gimple switch_stmt, tree case_range, tree deft,
+			 gimple_stmt_iterator *gsi)
 {
-  tree label_decl1 = create_artificial_label ();
-  tree label_decl2 = create_artificial_label ();
-  tree cmp1_stmt, cmp2_stmt, label;
+  tree label_decl = create_artificial_label ();
+  gimple cmp1_stmt, cmp2_stmt, label_stmt;
 
   gcc_assert (CASE_HIGH (case_range) != NULL_TREE
               && CASE_LOW (case_range) != NULL_TREE);
 
-  /* Build the 1st COND_EXPR */
-  cmp1_stmt = build3 (COND_EXPR, void_type_node,
-		      build2 (GE_EXPR, boolean_type_node,
-			      SWITCH_COND (switch_stmt),
-			      CASE_LOW (case_range)),
-		      build1 (GOTO_EXPR, void_type_node,
-			      label_decl1),
-		      build1 (GOTO_EXPR, void_type_node,
-			      label_decl2));
+  /* Build and append the 1st GIMPLE_COND */
+  cmp1_stmt = gimple_build_cond (GE_EXPR, gimple_switch_index (switch_stmt),
+				 CASE_LOW (case_range), label_decl, deft);
+  gsi_insert_after (gsi, cmp1_stmt, GSI_CONTINUE_LINKING);
 
-  /* Append the 1st COND_EXPR to the list */
-  append_to_statement_list (cmp1_stmt, list);
+  /* Create a new label and append it */
+  label_stmt = gimple_build_label (label_decl);
+  gsi_insert_after (gsi, label_stmt, GSI_CONTINUE_LINKING);
 
-  /* Create a new label and append it to the list */
-  label = build1 (LABEL_EXPR, void_type_node, label_decl1);
-  append_to_statement_list (label, list);
-
-  /* Build the 2nd COND_EXPR */
-  cmp2_stmt = build3 (COND_EXPR, void_type_node,
-		      build2 (LE_EXPR, boolean_type_node,
-			      SWITCH_COND (switch_stmt),
-			      CASE_HIGH (case_range)),
-		      build1 (GOTO_EXPR, void_type_node,
-			      CASE_LABEL (case_range)),
-		      build1 (GOTO_EXPR, void_type_node,
-			      label_decl2));
-
-  /* Append the 2nd COND_EXPR to the list */
-  append_to_statement_list (cmp2_stmt, list);
-
-  /* Create the label to the next statement and append it */
-  label = build1 (LABEL_EXPR, void_type_node, label_decl2);
-  append_to_statement_list (label, list);
+  /* Build and append the 2nd GIMPLE_COND */
+  cmp2_stmt = gimple_build_cond (LE_EXPR, gimple_switch_index (switch_stmt),
+				 CASE_HIGH (case_range),
+				 CASE_LABEL (case_range), deft);
+  gsi_insert_after (gsi, cmp2_stmt, GSI_CONTINUE_LINKING);
 }
 
-/* Turn the cases between <start> and <end> (included) into a new switch
+/* Turn the cases between START and END (included) into a new switch
    statement */
 
 static void
-cases_to_switch (tree switch_stmt, unsigned int start, unsigned int end,
-                 tree *list)
+cases_to_switch (gimple switch_stmt, unsigned int start, unsigned int end,
+		 tree deft, gimple_stmt_iterator *gsi)
 {
-  tree label_decl;
-  tree labels = SWITCH_LABELS (switch_stmt);
-  tree stmt, label, vec, deft, elt;
+  gimple stmt;
+  VEC (tree, heap) *vec;
+  tree type, elt;
   unsigned int i, len;
   tree low, high, range, limit;
-  tree type;
 
-  type = TREE_TYPE (CASE_LOW (TREE_VEC_ELT (labels, start)));
+  type = TREE_TYPE (CASE_LOW (gimple_switch_label (switch_stmt, start)));
   limit = build_int_cst (type, 8192);
 
   while (start <= end)
     {
-      label_decl = create_artificial_label ();
-      elt = TREE_VEC_ELT (labels, start);
+      elt = gimple_switch_label (switch_stmt, start);
       low = CASE_LOW (elt);
       len = 1;
 
       while (start + len <= end)
         {
-	  elt = TREE_VEC_ELT (labels, start + len);
+	  elt = gimple_switch_label (switch_stmt, start + len);
           high = CASE_HIGH (elt) ? CASE_HIGH (elt) : CASE_LOW (elt);
 	  range = size_binop (MINUS_EXPR, high, low);
 
@@ -372,92 +315,90 @@ cases_to_switch (tree switch_stmt, unsigned int start, unsigned int end,
         }
 
       /* Build the switch cases */
-      vec = make_tree_vec (len + 1);
+      vec = VEC_alloc (tree, heap, len);
 
       for (i = 0; i < len; i++)
-	TREE_VEC_ELT (vec, i) = TREE_VEC_ELT (labels, start + i);
+	{
+	  VEC_quick_push (tree, vec,
+			  gimple_switch_label (switch_stmt, start + i));
+	}
 
-      /* Create the new default label */
-      deft = build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE,
-		     label_decl);
-      TREE_VEC_ELT (vec, len) = deft;
+      /* Build and append the new switch statement */
+      stmt = gimple_build_switch_vec (gimple_switch_index (switch_stmt),
+				      build3 (CASE_LABEL_EXPR, void_type_node,
+				              NULL_TREE, NULL_TREE, deft),
+				      vec);
+      gsi_insert_after (gsi, stmt, GSI_CONTINUE_LINKING);
+      VEC_free (tree, heap, vec);
 
-      /* Build the switch statement */
-      stmt = build3 (SWITCH_EXPR, TREE_TYPE (switch_stmt),
-		     SWITCH_COND (switch_stmt), NULL, vec);
-
-      /* Append the SWITCH to the list */
-      append_to_statement_list (stmt, list);
-
-      /* Create a new label and append it to the list */
-      label = build1 (LABEL_EXPR, void_type_node, label_decl);
-      append_to_statement_list (label, list);
-
-      /* Move ahead in the labels vector */
+      /* Move ahead in the labels */
       start += len;
     }
 }
 
-/* Break a switch statement pointed by SWITCH_STMT into multiple expressions in
-   order to produce better/smaller code in the CIL back-end. Large case ranges
-   or isolated cases are turned into COND_EXPRs, large 'holes' inside the switch
-   are removed replacing a single switch with two or more distinct switches. The
-   list holding the replacement is returned. If no replacement is needed
-   NULL_TREE is returned instead */
+/* Break a switch statement pointed by GIMPLE_SWITCH into multiple expressions
+   in order to produce better/smaller code in the CIL back-end. Large case
+   ranges or isolated cases are turned into GIMPLE_CONDs, large 'holes' inside
+   the switch are removed replacing a single switch with two or more distinct
+   switches. The sequence holding the replacement is returned. If no
+   replacement is needed NULL is returned instead */
 
-static tree
-simp_cil_switch (tree switch_stmt)
+static gimple_seq
+simp_cil_switch (gimple switch_stmt)
 {
   tree curr, next;
-  tree labels = SWITCH_LABELS (switch_stmt);
-  tree list = NULL_TREE;
+  gimple stmt;
+  gimple_seq seq = gimple_seq_alloc ();
+  gimple_stmt_iterator gsi = gsi_start (seq);
   tree range_size, hole_size, curr_high, next_low;
-  tree type;
-  unsigned int i = 0;
-  unsigned int base_idx = 0;
+  tree type, label_decl;
+  unsigned int i = 1;
+  unsigned int base_idx = 1;
 
   merge_cases_into_ranges (switch_stmt);
 
-  if (TREE_VEC_LENGTH (labels) == 1)
+  if (gimple_switch_num_labels (switch_stmt) == 1)
     {
       /* Only the default statement, nothing to do as this will be optimized
          out later by the subsequent passes */
-      return NULL_TREE;
+      gimple_seq_free (seq);
+      return NULL;
     }
 
-  type = TREE_TYPE (CASE_LOW (TREE_VEC_ELT (labels, 0)));
+  type = TREE_TYPE (CASE_LOW (gimple_switch_label (switch_stmt, 1)));
   range_size = build_int_cst (type, SIMP_SWITCH_RANGE_SIZE);
   hole_size = build_int_cst (type, SIMP_SWITCH_HOLE_SIZE);
 
   while (true)
     {
-      curr = TREE_VEC_ELT (labels, i);
-      next = TREE_VEC_ELT (labels, i + 1);
+      curr = gimple_switch_label (switch_stmt, i);
 
-      if (CASE_LOW (next) == NULL_TREE)
+      if (i == gimple_switch_num_labels (switch_stmt) - 1)
 	{
-	  /* This is the last case, the next one is the default label, emit the
-	     previous cases if needed. If base_idx != i and base_idx is 0 then
-	     the original switch has been left untouched and it is not
-	     replaced */
+	  /* This is the last case, emit the previous cases if needed.
+	     If base_idx != i and base_idx is 0 then the original switch has
+	     been left untouched and it is not replaced */
+          label_decl = CASE_LABEL (gimple_switch_default_label (switch_stmt));
+
 	  if (base_idx != i)
 	    {
-	      if (base_idx == 0)
-		return NULL_TREE;
+	      if (base_idx == 1)
+		{
+		  gimple_seq_free (seq);
+		  return NULL;
+		}
 	      else
-		cases_to_switch (switch_stmt, base_idx, i, &list);
+		cases_to_switch (switch_stmt, base_idx, i, label_decl, &gsi);
 	    }
 	  else if (CASE_HIGH (curr) != NULL_TREE)
-	    case_range_to_cond_expr (switch_stmt, curr, &list);
+	    case_range_to_cond_expr (switch_stmt, curr, label_decl, &gsi);
 	  else
-	    case_to_cond_expr (switch_stmt, curr, &list);
+	    case_to_cond_expr (switch_stmt, curr, label_decl, &gsi);
 
-	  /* Add a label which jumps to the default label. */
-	  append_to_statement_list (build1 (GOTO_EXPR, void_type_node,
-				    CASE_LABEL (next)),
-				    &list);
 	  break;
 	}
+
+      next = gimple_switch_label (switch_stmt, i + 1);
 
       if (CASE_HIGH (curr) != NULL_TREE)
 	{
@@ -471,8 +412,14 @@ simp_cil_switch (tree switch_stmt)
 	  /* if (low + SIMP_SWITCH_RANGE_SIZE > high) */
 	  if (tree_int_cst_compare (low, high) == 1)
 	    {
+	      label_decl = create_artificial_label ();
+
 	      gcc_assert (i == base_idx);
-	      case_range_to_cond_expr (switch_stmt, curr, &list);
+	      case_range_to_cond_expr (switch_stmt, curr, label_decl, &gsi);
+
+	      /* Create the label to the next statement and append it */
+	      stmt = gimple_build_label (label_decl);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
 	      i++;
 	      base_idx = i;
@@ -490,12 +437,18 @@ simp_cil_switch (tree switch_stmt)
 	  /* if (low + SIMP_SWITCH_RANGE_SIZE > high) */
 	  if (tree_int_cst_compare (low, high) == 1)
 	    {
+	      label_decl = create_artificial_label ();
+
 	      if (base_idx != i)
-		cases_to_switch (switch_stmt, base_idx, i, &list);
+		cases_to_switch (switch_stmt, base_idx, i, label_decl, &gsi);
 	      else if (CASE_HIGH (curr) != NULL_TREE)
-		case_range_to_cond_expr (switch_stmt, curr, &list);
+		case_range_to_cond_expr (switch_stmt, curr, label_decl, &gsi);
 	      else
-		case_to_cond_expr (switch_stmt, curr, &list);
+		case_to_cond_expr (switch_stmt, curr, label_decl, &gsi);
+
+	      /* Create the label to the next statement and append it */
+	      stmt = gimple_build_label (label_decl);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
 	      i++;
 	      base_idx = i;
@@ -516,12 +469,18 @@ simp_cil_switch (tree switch_stmt)
 	/* if (curr_high + SIMP_SWITCH_HOLE_SIZE < next_low) */
 	if (tree_int_cst_lt (curr_high, next_low))
 	  {
+            label_decl = create_artificial_label ();
+
 	    if (base_idx != i)
-	      cases_to_switch (switch_stmt, base_idx, i, &list);
+	      cases_to_switch (switch_stmt, base_idx, i, label_decl, &gsi);
 	    else if (CASE_HIGH (curr) != NULL_TREE)
-	      case_range_to_cond_expr (switch_stmt, curr, &list);
+	      case_range_to_cond_expr (switch_stmt, curr, label_decl, &gsi);
 	    else
-	      case_to_cond_expr (switch_stmt, curr, &list);
+	      case_to_cond_expr (switch_stmt, curr, label_decl, &gsi);
+
+	    /* Create the label to the next statement and append it */
+	    stmt = gimple_build_label (label_decl);
+	    gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
 	    i++;
 	    base_idx = i;
@@ -531,61 +490,48 @@ simp_cil_switch (tree switch_stmt)
       i++;
     }
 
-  return list;
+  return seq;
 }
 
 /******************************************************************************
  * Top-level functionality                                                    *
  ******************************************************************************/
 
-/* Simplify a GIMPLE statement. */
-
-static tree
-simp_cil_stmt (tree stmt)
-{
-  tree list = NULL_TREE; /* Replacement list for the current statement */
-
-  switch (TREE_CODE (stmt))
-    {
-    case SWITCH_EXPR:
-      list = simp_cil_switch (stmt);
-      break;
-
-    default:
-      break;
-    }
-
-    return list;
-}
-
-/* Main function of this pass. */
+/* Main function of this pass.  */
 
 static unsigned int
 simp_cil_early (void)
 {
-  tree_stmt_iterator tsi;
+  gimple_stmt_iterator gsi;
+  gimple_seq seq;
+  gimple stmt;
 
   /* Create the structures used by the pass */
   eqv_labels = pointer_map_create ();
 
-  group_labels (DECL_SAVED_TREE (current_function_decl));
+  group_labels ();
 
-  tsi = tsi_start (DECL_SAVED_TREE (current_function_decl));
+  gsi = gsi_start (gimple_body (current_function_decl));
 
-  while (!tsi_end_p (tsi))
+  while (!gsi_end_p (gsi))
     {
-      tree list = simp_cil_stmt (tsi_stmt (tsi));
+      stmt = gsi_stmt (gsi);
 
-      if (list != NULL_TREE)
+      if (gimple_code (stmt) == GIMPLE_SWITCH)
 	{
-	  location_t locus = EXPR_LOCATION (tsi_stmt (tsi));
+	  seq = simp_cil_switch (stmt);
 
-	  set_statement_list_location (list, locus);
-	  tsi_link_before (&tsi, list, TSI_SAME_STMT);
-	  tsi_delink (&tsi);
+	  if (seq != NULL)
+	    {
+	      annotate_all_with_location (seq, gimple_location (stmt));
+	      gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
+	      gsi_remove (&gsi, true);
+	    }
+	  else
+	    gsi_next (&gsi);
 	}
       else
-	tsi_next (&tsi);
+        gsi_next (&gsi);
     }
 
   /* Dispose of the structures created by the pass */
@@ -603,7 +549,9 @@ simp_cil_early_gate (void)
   return true;
 }
 
-struct tree_opt_pass pass_simp_cil_early = {
+struct gimple_opt_pass pass_simp_cil_early = {
+ {
+  GIMPLE_PASS,              /* type */
   "simpcilearly",           /* name */
   simp_cil_early_gate,      /* gate */
   simp_cil_early,           /* execute */
@@ -616,6 +564,6 @@ struct tree_opt_pass pass_simp_cil_early = {
   0,                        /* properties_destroyed */
   0,                        /* todo_flags_start */
   TODO_dump_func
-  | TODO_ggc_collect,       /* todo_flags_finish */
-  0                         /* letter */
+  | TODO_ggc_collect        /* todo_flags_finish */
+ }
 };

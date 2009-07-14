@@ -201,8 +201,10 @@ missing_protos_gate (void)
 
 /* Define the parameters of the missing-protos pass.  */
 
-struct tree_opt_pass pass_missing_protos =
+struct gimple_opt_pass pass_missing_protos =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "missing_protos",                     /* name */
   missing_protos_gate,                  /* gate */
   missing_protos,                       /* execute */
@@ -213,9 +215,9 @@ struct tree_opt_pass pass_missing_protos =
   PROP_cfg,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 /*

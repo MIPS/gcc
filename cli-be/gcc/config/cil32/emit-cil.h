@@ -40,11 +40,11 @@ Erven Rohou             <erven.rohou@inria.fr>
  * Function prototypes                                                        *
  ******************************************************************************/
 
-void emit_cil_init (void);
-void emit_cil_fini (void);
-void emit_cil_decl (FILE *, tree);
+extern void emit_cil_init (void);
+extern void emit_cil_fini (void);
+extern void emit_cil_decl (FILE *, tree);
 
-void emit_vcg_init (void);
-void emit_vcg_fini (void);
+extern void emit_vcg_init (void);
+extern void emit_vcg_fini (void);
 
 #endif /* EMIT_CIL_H */

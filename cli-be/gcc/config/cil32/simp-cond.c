@@ -69,8 +69,8 @@ simplify_cond_branch (cil_stmt_iterator *csi, cil_stack stack)
 
   /* Extract the condition's edges.  */
   extract_true_false_edges_from_block (csi_bb (*csi), &true_edge, &false_edge);
-  label_then = tree_block_label (true_edge->dest);
-  label_else = tree_block_label (false_edge->dest);
+  label_then = gimple_block_label (true_edge->dest);
+  label_else = gimple_block_label (false_edge->dest);
 
   then_bb = label_to_block (label_then);
 
@@ -174,8 +174,10 @@ simp_cond_gate (void)
 
 /* Define the parameters of the cond-simp pass.  */
 
-struct tree_opt_pass pass_simp_cond =
+struct gimple_opt_pass pass_simp_cond =
 {
+ {
+  GIMPLE_PASS,                          /* type */
   "cond_simp",                          /* name */
   simp_cond_gate,                       /* gate */
   simp_cond,                            /* execute */
@@ -186,9 +188,9 @@ struct tree_opt_pass pass_simp_cond =
   PROP_cfg,                             /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  0                                     /* letter */
+  0,                                    /* todo_flags_start */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 /*

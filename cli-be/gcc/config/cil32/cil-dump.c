@@ -35,7 +35,6 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "tm.h"
 #include "real.h"
 #include "tree.h"
-#include "tree-pass.h"
 #include "langhooks.h"
 #include "pointer-set.h"
 
@@ -72,7 +71,7 @@ static const char* const cil_type_names[] = {
 static void
 dump_label_name (const_tree label)
 {
-  printf ("?L" HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (label));
+  printf ("?L" HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) LABEL_DECL_UID (label));
 }
 
 /* Dump the name of a _DECL node pointed by NODE.  */
@@ -364,6 +363,7 @@ dump_cil_stmt (const_cil_stmt stmt, cil_stack stack)
 	  gcc_unreachable ();
 	}
       break;
+
     case CIL_STRING:
       gcc_assert (opcode == CIL_ASM);
       printf ("\n\t// BEGIN ASM"
@@ -371,8 +371,10 @@ dump_cil_stmt (const_cil_stmt stmt, cil_stack stack)
 	      "\n\t// END ASM",
 	      TREE_STRING_POINTER (cil_string (stmt)));
       break;
+
     case CIL_NONE:
       break;
+
     default:
       gcc_unreachable ();
     }
@@ -386,12 +388,11 @@ static void
 dump_cil_bb (basic_block bb, cil_stack stack)
 {
   cil_stmt_iterator csi;
-  block_stmt_iterator bsi = bsi_start (bb);
-  tree label;
   cil_stmt stmt = NULL;
+  tree label;
 
   /* Dump this block label */
-  label = LABEL_EXPR_LABEL (bsi_stmt (bsi));
+  label = gimple_block_label (bb);
   printf ("\n");
   dump_label_name (label);
   printf (":\n");
