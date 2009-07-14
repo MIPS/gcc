@@ -1,5 +1,10 @@
 2009-07-14  Ben Elliston  <bje@au.ibm.com>
 
+	* lib/lto.exp (lto-execute): Allow second and subsequent source
+	files in a test to have any filename extension.
+
+2009-07-14  Ben Elliston  <bje@au.ibm.com>
+
 	* gfortran.dg/lto/lto.exp: Match {f,F}{,90,95,03,08}, not just .f.
 
 2009-07-14  Ben Elliston  <bje@au.ibm.com>

@@ -314,7 +314,6 @@ proc lto-execute { src1 sid } {
 
     # Set up the names of the other source files.
     set dir [file dirname $src1]
-    set ext [file extension $src1]
     set base [file rootname $src1]
     set base [string range $base [string length $dir] end]
     regsub "_0" $base "" base
@@ -323,9 +322,12 @@ proc lto-execute { src1 sid } {
     set i 1
     set done 0
     while { !$done } {
-	set name "${dir}/${base}_${i}${ext}"
-	if { [file exists ${name}] } {
-	    lappend src_list ${name}
+	set names [glob -nocomplain -types f -- "${dir}/${base}_${i}.*"]
+	if { [llength ${names}] > 1 } {
+	    warning "lto-execute: more than one file matched ${dir}/${base}_${i}.*"
+	}
+	if { [llength ${names}] == 1 } {
+	    lappend src_list [lindex ${names} 0]
 	    incr i
 	} else {
 	    set num_srcs ${i}
