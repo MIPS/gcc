@@ -148,11 +148,12 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   gcc_assert (ref != LCC_NOT_FOUND); 
   lto_output_sleb128_stream (ob->main_stream, ref);
 
+  lto_output_sleb128_stream (ob->main_stream, edge->count);
+
   bp = bitpack_create ();
   uid = flag_wpa ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt);
   bp_pack_value (bp, uid, HOST_BITS_PER_INT);
   bp_pack_value (bp, edge->inline_failed, HOST_BITS_PER_INT);
-  bp_pack_value (bp, edge->count, HOST_BITS_PER_WIDEST_INT);
   bp_pack_value (bp, edge->frequency, HOST_BITS_PER_INT);
   bp_pack_value (bp, edge->loop_nest, 30);
   bp_pack_value (bp, edge->indirect_call, 1);
@@ -521,11 +522,12 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
 
   caller_resolution = lto_symtab_get_resolution (caller->decl);
 
+  count = (gcov_type) lto_input_sleb128 (ib);
+
   bp = lto_input_bitpack (ib);
   stmt_id = (unsigned int) bp_unpack_value (bp, HOST_BITS_PER_INT);
   inline_failed = (cgraph_inline_failed_t) bp_unpack_value (bp,
 							    HOST_BITS_PER_INT);
-  count = (gcov_type) bp_unpack_value (bp, HOST_BITS_PER_WIDEST_INT);
   freq = (int) bp_unpack_value (bp, HOST_BITS_PER_INT);
   nest = (unsigned) bp_unpack_value (bp, 30);
 
