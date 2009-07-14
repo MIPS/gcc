@@ -240,14 +240,18 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	{
 	case VAR_DECL:
 	  gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL);
-	  error ("%Jfunction %qD redeclared as variable", new_decl, new_decl);
-	  error ("%Jpreviously declared here", old_decl);
+	  error_at (DECL_SOURCE_LOCATION (new_decl),
+		    "function %qD redeclared as variable", new_decl);
+	  error_at (DECL_SOURCE_LOCATION (old_decl),
+		    "previously declared here");
 	  return false;
 
 	case FUNCTION_DECL:
 	  gcc_assert (TREE_CODE (old_decl) == VAR_DECL);
-	  error ("%Jvariable %qD redeclared as function", new_decl, new_decl);
-	  error ("%Jpreviously declared here", old_decl);
+	  error_at (DECL_SOURCE_LOCATION (new_decl),
+		    "variable %qD redeclared as function", new_decl);
+	  error_at (DECL_SOURCE_LOCATION (old_decl),
+		    "previously declared here");
 	  return false;
 
 	default:
@@ -317,18 +321,21 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 
       if (!merged_type)
 	{
-	  error ("%Jtype of %qD does not match original declaration",
-		 new_decl, new_decl);
-	  error ("%Jpreviously declared here", old_decl);
+	  error_at (DECL_SOURCE_LOCATION (new_decl),
+		    "type of %qD does not match original declaration",
+		    new_decl);
+	  error_at (DECL_SOURCE_LOCATION (old_decl),
+		    "previously declared here");
 	  return false;
 	}
     }
 
   if (DECL_UNSIGNED (old_decl) != DECL_UNSIGNED (new_decl))
     {
-      error ("%Jsignedness of %qD does not match original declaration",
-	     new_decl, new_decl);
-      error ("%Jpreviously declared here", old_decl);
+      error_at (DECL_SOURCE_LOCATION (new_decl),
+		"signedness of %qD does not match original declaration",
+		new_decl);
+      error_at (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
       return false;
     }
 
@@ -360,9 +367,11 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 		|| (external_aggregate_decl_p (new_decl)
 		    && DECL_SIZE (new_decl) == NULL_TREE))))
 	{
-	  error ("%Jsize of %qD does not match original declaration",
-		 new_decl, new_decl);
-	  error ("%Jpreviously declared here", old_decl);
+	  error_at (DECL_SOURCE_LOCATION (new_decl),
+		    "size of %qD does not match original declaration",
+		    new_decl);
+	  error_at (DECL_SOURCE_LOCATION (old_decl),
+		    "previously declared here");
 	  return false;
 	}
     }
@@ -371,9 +380,10 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
   if ((DECL_USER_ALIGN (old_decl) && DECL_USER_ALIGN (new_decl))
       && DECL_ALIGN (old_decl) != DECL_ALIGN (new_decl))
     {
-      error ("%Jalignment of %qD does not match original declaration",
-	     new_decl, new_decl);
-      error ("%Jpreviously declared here", old_decl);
+      error_at (DECL_SOURCE_LOCATION (new_decl),
+		"alignment of %qD does not match original declaration",
+		new_decl);
+      error_at (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
       return false;
     }
 
@@ -396,9 +406,11 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	;
       else
 	{
-	  error ("%Jmachine mode of %qD does not match original declaration",
-	         new_decl, new_decl);
-	  error ("%Jpreviously declared here", old_decl);
+	  error_at (DECL_SOURCE_LOCATION (new_decl),
+		    "machine mode of %qD does not match original declaration",
+		    new_decl);
+	  error_at (DECL_SOURCE_LOCATION (old_decl),
+		    "previously declared here");
 	  return false;
 	}
     }
@@ -407,9 +419,10 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 				    DECL_ATTRIBUTES (old_decl),
 				    DECL_ATTRIBUTES (new_decl)))
     {
-      error ("%Jattributes applied to %qD are incompatible with original "
-	     "declaration", new_decl, new_decl);
-      error ("%Jpreviously declared here", old_decl);
+      error_at (DECL_SOURCE_LOCATION (new_decl),
+		"attributes applied to %qD are incompatible with original "
+		"declaration", new_decl);
+      error_at (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
       return false;
     }
 
@@ -572,8 +585,10 @@ lto_symtab_merge_decl (tree new_decl,
 	   || old_resolution == LDPR_PREVAILING_DEF_IRONLY)
 	  && (old_resolution != resolution || flag_no_common))
 	{
-	  error ("%J%qD has already been defined", new_decl, new_decl);
-	  error ("%Jpreviously defined here", old_decl);
+	  error_at (DECL_SOURCE_LOCATION (new_decl),
+		    "%qD has already been defined", new_decl);
+	  error_at (DECL_SOURCE_LOCATION (old_decl),
+		    "previously defined here");
 	  return;
 	}
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR

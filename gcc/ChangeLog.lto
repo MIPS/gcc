@@ -1,3 +1,16 @@
+2009-07-14  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @149625.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-07-14  Diego Novillo  <dnovillo@google.com>
+
+	* lto-symtab.c (lto_symtab_compatible): Replace uses of
+	%J in calls to error with calls to error_at and a
+	specific location.
+
 2009-07-13  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (free_lang_data_in_block): New.
