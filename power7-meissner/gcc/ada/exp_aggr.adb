@@ -2996,13 +2996,11 @@ package body Exp_Aggr is
                      --  will be used to capture the aggregate assignments.
 
                      TmpE : constant Entity_Id :=
-                              Make_Defining_Identifier (Loc,
-                                New_Internal_Name ('A'));
+                              Make_Temporary (Loc, New_Internal_Name ('A'), N);
 
                      TmpD : constant Node_Id :=
                               Make_Object_Declaration (Loc,
-                                Defining_Identifier =>
-                                  TmpE,
+                                Defining_Identifier => TmpE,
                                 Object_Definition   =>
                                   New_Reference_To (SubE, Loc));
 
@@ -3588,7 +3586,7 @@ package body Exp_Aggr is
          Rewrite (Parent (N), Make_Null_Statement (Loc));
 
       else
-         Temp := Make_Defining_Identifier (Loc, New_Internal_Name ('A'));
+         Temp := Make_Temporary (Loc, New_Internal_Name ('A'), N);
 
          --  If the type inherits unknown discriminants, use the view with
          --  known discriminants if available.
@@ -5203,7 +5201,7 @@ package body Exp_Aggr is
 
       else
          Maybe_In_Place_OK := False;
-         Tmp := Make_Defining_Identifier (Loc, New_Internal_Name ('A'));
+         Tmp := Make_Temporary (Loc, New_Internal_Name ('A'), N);
          Tmp_Decl :=
            Make_Object_Declaration
              (Loc,
@@ -5475,11 +5473,9 @@ package body Exp_Aggr is
       --  an atomic move for it.
 
       if Is_Atomic (Typ)
-        and then Nkind_In (Parent (N), N_Object_Declaration,
-                                       N_Assignment_Statement)
         and then Comes_From_Source (Parent (N))
+        and then Is_Atomic_Aggregate (N, Typ)
       then
-         Expand_Atomic_Aggregate (N, Typ);
          return;
 
       --  No special management required for aggregates used to initialize

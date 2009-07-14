@@ -2637,7 +2637,7 @@ package body Sem_Ch6 is
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => New_List (Make_Null_Statement (Loc))));
 
-         --  Create new entities for body and formals.
+         --  Create new entities for body and formals
 
          Set_Defining_Unit_Name (Specification (Null_Body),
            Make_Defining_Identifier (Loc, Chars (Defining_Entity (N))));
@@ -7175,6 +7175,7 @@ package body Sem_Ch6 is
                  or else not Is_Overloadable (Subp)
                  or else not Is_Primitive (Subp)
                  or else not Is_Dispatching_Operation (Subp)
+                 or else not Present (Find_Dispatching_Type (Subp))
                  or else not Is_Interface (Find_Dispatching_Type (Subp))
                then
                   null;
