@@ -1158,11 +1158,6 @@ lto_output_ts_block_tree_pointers (struct output_block *ob, tree expr,
   unsigned i;
   tree t;
 
-  /* Lexical scopes are only emitted with their corresponding function
-     body.  Otherwise it makes no sense to emit the local variables
-     and the tree of scopes.  */
-  gcc_assert (ref_p && current_function_decl);
-
   lto_output_location (ob, BLOCK_SOURCE_LOCATION (expr));
   lto_output_chain (ob, BLOCK_VARS (expr), ref_p);
 
