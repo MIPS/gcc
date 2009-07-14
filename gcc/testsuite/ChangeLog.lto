@@ -1,3 +1,9 @@
+2009-07-14  Ben Elliston  <bje@au.ibm.com>
+
+	* gfortran.dg/lto/lto.exp: New.
+	* gfortran.dg/lto/pr40724_0.f: Likewise.
+	* gfortran.dg/lto/pr40724_1.f: Likewise.
+
 2009-07-10  Diego Novillo  <dnovillo@google.com>
 
 	* lib/gfortran-dg.exp: Add LTO torture options.
