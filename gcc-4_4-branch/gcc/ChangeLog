@@ -1,3 +1,69 @@
+2009-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40747
+	* fold-const.c (fold_cond_expr_with_comparison): When folding
+	< and <= to MIN, make sure the MIN uses the same type as the
+	comparison's operands.
+
+2009-07-12  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/cygming.h (TARGET_OS_CPP_BUILTINS): Define _X86_
+	just for 32-bit case.
+
+2009-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/40667
+	* defaults.h (MINIMUM_ALIGNMENT): Define if not defined.
+	* doc/tm.texi (MINIMUM_ALIGNMENT): Document it.
+	* config/i386/i386.h (MINIMUM_ALIGNMENT): Define.
+	* config/i386/i386.c (ix86_minimum_alignment): New function.
+	* config/i386/i386-protos.h (ix86_minimum_alignment): New prototype.
+	* cfgexpand.c (expand_one_var): Use MINIMIM_ALIGNMENT.
+	* emit-rtl.c (gen_reg_rtx): Likewise.
+	* function.c (assign_parms): Likewise.  If nominal_type needs
+	bigger alignment than FUNCTION_ARG_BOUNDARY, use its alignment
+	rather than passed_type's alignment.
+
+	PR target/40668
+	* function.c (assign_parm_setup_stack): Adjust
+	MEM_OFFSET (data->stack_parm) if promoted_mode is different
+	from nominal_mode on big endian.
+
+2009-07-08  Richard Henderson  <rth@redhat.com>
+
+	PR target/38900
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Move to i386.c.
+	(enum reg_class): Add CLOBBERED_REGS.
+	(REG_CLASS_NAMES, REG_CLASS_CONTENTS): Likewise.
+	* config/i386/i386.c (ix86_conditional_register_usage): Moved
+	from CONDITIONAL_REGISTER_USAGE; build CLOBBERED_REGS for 64-bit.
+	(ix86_function_ok_for_sibcall): Tidy.  Disallow MS->SYSV sibcalls.
+	(ix86_expand_call): Use sibcall_insn_operand when needed.  Don't
+	force 64-bit sibcalls into R11.
+	* config/i386/constraints.md (U): New constraint.
+	* config/i386/i386.md (sibcall_1, sibcall_value_1): Use it.
+	(sibcall_1_rex64, sibcall_value_1_rex64): Likewise.
+	(sibcall_1_rex64_v, sibcall_value_1_rex64_v): Remove.
+
+2009-07-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR debug/40666
+	* dbxout.c (dbxout_symbol) <PARM_DECL>: Deal with parameters pointing
+	to variables for debugging purposes.
+
+2009-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40669
+	* tree-tailcall.c (adjust_return_value_with_ops,
+	create_tailcall_accumulator): Set DECL_GIMPLE_REG_P on the temporary
+	if it has complex or vector type.
+
+	Backport from mainline:
+	2009-06-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40328
+	* fold-const.c (fold_convert): Fold the build COMPLEX_EXPR.
+
 2009-07-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR target/40587
