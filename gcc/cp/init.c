@@ -2502,7 +2502,10 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 						  fold_convert (ptype, base),
 						  virtual_size),
 				     tf_warning_or_error);
-  DECL_REGISTER (tbase) = 1;
+  /* FIXME lto.  We removed a DECL_REGISTER (tbase) = 1 here
+     which triggers errors like
+       error: register name not specified for 'D.5943'
+     which happen to be streamed in without DECL_CONTEXT set.  */
   controller = build3 (BIND_EXPR, void_type_node, tbase,
 		       NULL_TREE, NULL_TREE);
   TREE_SIDE_EFFECTS (controller) = 1;
