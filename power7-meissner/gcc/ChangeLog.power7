@@ -1,3 +1,75 @@
+2009-07-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	the vector extensions added with VSX.
+
+	* config/rs6000/vector.md (vector_ceil<mode>2): Add vector
+	expander for vectorized math functions.
+	(vector_floor<mode>2): Ditto.
+	(vector_btrunc<mode>2): Ditto.
+	(vector_copysign<mode>2): Ditto.
+
+	* config/rs6000/predicates.md (easy_vector_constant_msb): New
+	predicate for a vector constant with only the most significant bit
+	set.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	support for VSX vector and vectorized math builtins.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function): Add
+	Altivec copysign builtin.
+	(vspltis_constant): Add support for loading up the most
+	significant bit.
+	(rs6000_expand_vector_init): If the vector init is all constant,
+	but it isn't an easy_vector_constant, just load up the vector
+	constant from the constant pool, instead of creating it on the
+	stack and loading it up.
+	(bdesc_2args): Add support for vectorized math builtins, and
+	switch builtins that generated straight Altivec code, to builtins
+	that can generate either Altivec or VSX.  Fill in some missing VSX
+	builtins.
+	(bdesc_1arg): Ditto.
+	(bdesc_3arg); Ditto.
+	(rs6000_init_builtins): Handle vector bool long correctly.
+	(rs6000_handle_altivec_attribute): Ditto.
+	(rs6000_vector_mode_supported_p): Use whether memory patterns
+	exist, not whether the arithmetic unit exists for the type, so
+	that we can support vector long and vector bool long.
+
+	* config/rs6000/vsx.md (vsx_ftrunc<mode>2): Delete.
+	(vsx_btrunc<mode>2): Define as a FIX operation instead of using an
+	UNSPEC.
+
+	* config/rs6000/rs6000.h (EASY_VECTOR_MSB): New macro for
+	recognizing vector constants of the most significant bit.
+	(enum rs6000_builtins): Add vectorized math builtins.
+	(ALTIVEC_BUILTIN*): Add support for vectorized math libraries.
+
+	* config/rs6000/altivec.md (UNSPEC_VRFIP): Delete.
+	(UNSPEC_VRFIM): Ditto.
+	(split of easy constant with most significant bit): Add new
+	define_split to handle loading vector constants that are the most
+	significant bit.
+	(altivec_vrfiz): Rename from altivec_ftruncv4sf2.
+	(altivec_vrfip): Use the UNSPEC value rs6000.md uses, not a new
+	one.
+	(altivec_vrfim): Ditto.
+	(altivec_copysignv4sf2): New insn for copysign support on
+	Altivec.
+
+	* config/rs6000/altivec.h (vec_div): Define if VSX.
+	(vec_mul): Ditto.
+	(vec_msub): Ditto.
+	(vec_nmadd): Ditto.
+	(vec_nearbyint): Ditto.
+	(vec_rint): Ditto.
+	(vec_sqrt): Ditto.
+	(vector predicate macros): Use the generic __builtin_vec_cmp*_p
+	instead of the Altivec __builtin_altivec_cmp*fp_p functions, so
+	that VSX vector double will work.
+	(vec_all*): Ditto.
+	(vec_any*): Ditto.
+
 2009-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 149630.

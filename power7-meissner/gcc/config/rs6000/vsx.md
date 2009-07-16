@@ -912,14 +912,6 @@
 ;; the fprs because we don't want to add the altivec registers to movdi/movsi.
 ;; For the unsigned tests, there isn't a generic double -> unsigned conversion
 ;; in rs6000.md so don't test VECTOR_UNIT_VSX_P, just test against VSX.
-(define_insn "vsx_ftrunc<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-  	(fix:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>r<VSs>iz %x0,%x1"
-  [(set_attr "type" "<VStype_simple>")
-   (set_attr "fp_type" "<VSfptype_simple>")])
-
 (define_insn "vsx_float<VSi><mode>2"
   [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
 	(float:VSX_B (match_operand:<VSI> 1 "vsx_register_operand" "<VSr2>,<VSr3>")))]
@@ -973,8 +965,7 @@
 
 (define_insn "vsx_btrunc<mode>2"
   [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
-		      UNSPEC_FRIZ))]
+	(fix:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>r<VSs>iz %x0,%x1"
   [(set_attr "type" "<VStype_simple>")

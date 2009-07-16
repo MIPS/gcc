@@ -10074,6 +10074,8 @@ vector signed char vec_vavgsb (vector signed char, vector signed char);
 vector unsigned char vec_vavgub (vector unsigned char,
                                  vector unsigned char);
 
+vector float vec_copysign (vector float);
+
 vector float vec_ceil (vector float);
 
 vector signed int vec_cmpb (vector float, vector float);
@@ -11674,6 +11676,83 @@ int vec_any_nlt (vector float, vector float);
 int vec_any_numeric (vector float);
 
 int vec_any_out (vector float, vector float);
+@end smallexample
+
+If the vector/scalar (VSX) instruction set is available, the following
+additional functions are available:
+
+@smallexample
+vector double vec_abs (vector double);
+vector double vec_add (vector double, vector double);
+vector double vec_and (vector double, vector double);
+vector double vec_and (vector double, vector bool long);
+vector double vec_and (vector bool long, vector double);
+vector double vec_andc (vector double, vector double);
+vector double vec_andc (vector double, vector bool long);
+vector double vec_andc (vector bool long, vector double);
+vector double vec_ceil (vector double);
+vector bool long vec_cmpeq (vector double, vector double);
+vector bool long vec_cmpge (vector double, vector double);
+vector bool long vec_cmpgt (vector double, vector double);
+vector bool long vec_cmple (vector double, vector double);
+vector bool long vec_cmplt (vector double, vector double);
+vector float vec_div (vector float, vector float);
+vector double vec_div (vector double, vector double);
+vector double vec_floor (vector double);
+vector double vec_madd (vector double, vector double, vector double);
+vector double vec_max (vector double, vector double);
+vector double vec_min (vector double, vector double);
+vector float vec_msub (vector float, vector float, vector float);
+vector double vec_msub (vector double, vector double, vector double);
+vector float vec_mul (vector float, vector float);
+vector double vec_mul (vector double, vector double);
+vector float vec_nearbyint (vector float);
+vector double vec_nearbyint (vector double);
+vector float vec_nmadd (vector float, vector float, vector float);
+vector double vec_nmadd (vector double, vector double, vector double);
+vector double vec_nmsub (vector double, vector double, vector double);
+vector double vec_nor (vector double, vector double);
+vector double vec_or (vector double, vector double);
+vector double vec_or (vector double, vector bool long);
+vector double vec_or (vector bool long, vector double);
+vector double vec_perm (vector double,
+                        vector double,
+                        vector unsigned char);
+vector float vec_rint (vector float);
+vector double vec_rint (vector double);
+vector double vec_sel (vector double, vector double, vector bool long);
+vector double vec_sel (vector double, vector double, vector unsigned long);
+vector double vec_sub (vector double, vector double);
+vector float vec_sqrt (vector float);
+vector double vec_sqrt (vector double);
+vector double vec_trunc (vector double);
+vector double vec_xor (vector double, vector double);
+vector double vec_xor (vector double, vector bool long);
+vector double vec_xor (vector bool long, vector double);
+int vec_all_eq (vector double, vector double);
+int vec_all_ge (vector double, vector double);
+int vec_all_gt (vector double, vector double);
+int vec_all_le (vector double, vector double);
+int vec_all_lt (vector double, vector double);
+int vec_all_nan (vector double);
+int vec_all_ne (vector double, vector double);
+int vec_all_nge (vector double, vector double);
+int vec_all_ngt (vector double, vector double);
+int vec_all_nle (vector double, vector double);
+int vec_all_nlt (vector double, vector double);
+int vec_all_numeric (vector double);
+int vec_any_eq (vector double, vector double);
+int vec_any_ge (vector double, vector double);
+int vec_any_gt (vector double, vector double);
+int vec_any_le (vector double, vector double);
+int vec_any_lt (vector double, vector double);
+int vec_any_nan (vector double);
+int vec_any_ne (vector double, vector double);
+int vec_any_nge (vector double, vector double);
+int vec_any_ngt (vector double, vector double);
+int vec_any_nle (vector double, vector double);
+int vec_any_nlt (vector double, vector double);
+int vec_any_numeric (vector double);
 @end smallexample
 
 GCC provides a few other builtins on Powerpc to access certain instructions:

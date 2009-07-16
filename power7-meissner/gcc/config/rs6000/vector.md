@@ -270,6 +270,44 @@
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
+(define_expand "vector_ceil<mode>2"
+  [(set (match_operand:VEC_F 0 "vfloat_operand" "")
+	(unspec:VEC_F [(match_operand:VEC_F 1 "vfloat_operand" "")]
+		      UNSPEC_FRIP))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+(define_expand "vector_floor<mode>2"
+  [(set (match_operand:VEC_F 0 "vfloat_operand" "")
+	(unspec:VEC_F [(match_operand:VEC_F 1 "vfloat_operand" "")]
+		      UNSPEC_FRIM))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+(define_expand "vector_btrunc<mode>2"
+  [(set (match_operand:VEC_F 0 "vfloat_operand" "")
+	(fix:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "")
+
+(define_expand "vector_copysign<mode>3"
+  [(set (match_operand:VEC_F 0 "vfloat_operand" "")
+	(if_then_else:VEC_F
+	 (ge:VEC_F (match_operand:VEC_F 2 "vfloat_operand" "")
+		   (const_int 0))
+	 (abs:VEC_F (match_operand:VEC_F 1 "vfloat_operand" ""))
+	 (neg:VEC_F (abs:VEC_F (match_dup 1)))))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "
+{
+  if (<MODE>mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (<MODE>mode))
+    {
+      emit_insn (gen_altivec_copysign_v4sf3 (operands[0], operands[1],
+					     operands[2]));
+      DONE;
+    }
+}")
+
 
 ;; Vector comparisons
 (define_expand "vcond<mode>"
