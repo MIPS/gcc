@@ -867,7 +867,7 @@ cil_seq_stack_depth (cil_seq seq, bool ret, unsigned int init, bool max)
 	case CIL_JMP:
 	case CIL_NEWOBJ:
 	case CIL_CALLI:
-	  nargs = cil_call_nargs_full (cs);
+	  nargs = cil_call_nargs (cs);
 	  gcc_assert (depth >= nargs);
 	  depth -= nargs;
 

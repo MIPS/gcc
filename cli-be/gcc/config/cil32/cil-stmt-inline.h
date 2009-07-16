@@ -291,24 +291,12 @@ cil_call_fdecl (const_cil_stmt stmt)
   return stmt->arg.fcall->fdecl;
 }
 
-/* Return the number of arguments passed to the callee of a CIL CALL, CALLI,
-   JMP or NEWOBJ statement.  */
-
-static inline size_t
-cil_call_nargs (const_cil_stmt stmt)
-{
-  gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_CALLI ||
-	      stmt->opcode == CIL_JMP || stmt->opcode == CIL_NEWOBJ);
-
-  return stmt->arg.fcall->nargs;
-}
-
 /* Return the total number of arguments passed to the callee of a CIL CALL,
-   CALLI, JMP or NEWOBJ statement. Includes STatic_chain if present and
+   CALLI, JMP or NEWOBJ statement. Includes static_chain if present and
    function pointer if indirect call */
 
 static inline size_t
-cil_call_nargs_full (const_cil_stmt stmt)
+cil_call_nargs (const_cil_stmt stmt)
 {
   size_t result = 0;
   gcc_assert (stmt->opcode == CIL_CALL || stmt->opcode == CIL_CALLI ||

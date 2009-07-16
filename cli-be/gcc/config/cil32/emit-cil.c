@@ -1535,11 +1535,16 @@ static void
 emit_call_arg (FILE *file, const_cil_stmt call)
 {
   enum cil_opcode opcode = cil_opcode (call);
+  size_t nargs_base;
+  size_t nargs;
 
   gcc_assert (opcode == CIL_CALL
 	      || opcode == CIL_CALLI
 	      || opcode == CIL_JMP
 	      || opcode == CIL_NEWOBJ);
+
+  nargs_base = cil_call_nargs_base (call);
+  nargs = cil_call_nargs (call);
 
   /* Dump the return type.  */
   if (opcode == CIL_NEWOBJ)
@@ -1552,9 +1557,11 @@ emit_call_arg (FILE *file, const_cil_stmt call)
       dump_type (file, TREE_TYPE (ftype), true, false);
     }
 
-  /* If Direct Call Dump the called method name.  */
-  if (opcode != CIL_CALLI)
+  if (opcode == CIL_CALLI)
+      --nargs;
+  else
     {
+      /* If Direct Call Dump the called method name.  */
       fprintf (file, " ");
       dump_method_name(file, cil_call_fdecl (call));
     }
@@ -1562,16 +1569,12 @@ emit_call_arg (FILE *file, const_cil_stmt call)
   /* Dump the call arguments.  */
   fprintf (file, " (");
   {
-    size_t nargs_base;
-    size_t nargs;
     size_t i;
-
-    nargs_base = cil_call_nargs_base (call);
-    nargs = cil_call_nargs (call);
 
     if (cil_call_static_chain (call))
       {
 	dump_type (file, cil_call_static_chain (call), true, true);
+	--nargs;
 
 	if (nargs_base > 0)
 	  fprintf (file, ", ");

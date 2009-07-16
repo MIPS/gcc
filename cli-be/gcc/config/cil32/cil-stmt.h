@@ -85,7 +85,6 @@ static inline cil_stmt cil_build_jmp_mp (tree, VEC (tree, heap) *);
 static inline tree cil_call_ftype (const_cil_stmt);
 static inline tree cil_call_fdecl (const_cil_stmt);
 static inline size_t cil_call_nargs (const_cil_stmt);
-static inline size_t cil_call_nargs_full (const_cil_stmt);
 static inline tree cil_call_arg_type (const_cil_stmt, size_t);
 static inline void cil_call_set_static_chain (cil_stmt, tree);
 static inline tree cil_call_static_chain (const_cil_stmt);

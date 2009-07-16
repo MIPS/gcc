@@ -240,7 +240,7 @@ remove_matching_ldloc (cil_stmt_iterator csi, cil_stack stack, tree var,
       if ((cil_opcode (stmt) == CIL_STLOC) && (cil_var (stmt) == var))
 	break;
       else if ((cil_opcode (stmt) == CIL_LDLOC)
-      	       && (cil_var (stmt) == var)
+	       && (cil_var (stmt) == var)
 	       && (cil_stack_depth (stack) == min_depth))
 	{
 	  csi_remove (&csi);
@@ -314,7 +314,7 @@ remove_matching_ldloc (cil_stmt_iterator csi, cil_stack stack, tree var,
 	case CIL_CALL:
 	case CIL_JMP:
 	case CIL_CALLI:
-	  nargs = cil_call_nargs_full (stmt);
+	  nargs = cil_call_nargs (stmt);
 
 	  if (cil_stack_depth (stack) - nargs < min_depth)
 	    return false;
@@ -364,7 +364,7 @@ stloc_ldloc_to_dup (void)
 
       for (csi = csi_start_bb (bb); !csi_end_p (csi); csi_next (&csi))
 	{
-          stmt = csi_stmt (csi);
+	  stmt = csi_stmt (csi);
 
 	  if (cil_opcode (stmt) == CIL_STLOC)
 	    {
@@ -402,10 +402,10 @@ stloc_ldloc_to_dup (void)
 	    }
 
 	  cil_stack_after_stmt (stack, stmt);
-        }
+	}
 
       /* We're done with this basic block.  Copy the stack at the end of the
-         block into the successors so that they will be able to access it and
+	 block into the successors so that they will be able to access it and
 	 then free the current stack as we're done with it.  */
 
       FOR_EACH_EDGE (e, ei, bb->succs)

@@ -344,7 +344,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
     case CIL_JMP:
     case CIL_NEWOBJ:
     case CIL_CALLI:
-      i = cil_call_nargs_full (stmt);
+      i = cil_call_nargs (stmt);
 
       while (i-- != 0)
 	VEC_pop (cil_type_t, vstack);
