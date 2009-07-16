@@ -571,6 +571,16 @@ dump_complex_type (FILE *file, tree node)
     case CIL_FLOAT32: fprintf (file, "float");  break;
     case CIL_FLOAT64: fprintf (file, "double"); break;
 
+    case CIL_FLOAT:
+      {
+	unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (elem_type), 1);
+	gcc_assert (size == 32 || size == 64);
+
+	if (size == 32) fprintf (file, "float");
+	else            fprintf (file, "double");
+      }
+      break;
+
     default:
       gcc_unreachable ();
       break;
