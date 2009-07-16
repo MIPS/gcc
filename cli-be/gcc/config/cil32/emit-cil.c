@@ -156,6 +156,9 @@ emit_cil_init (void)
       add_referenced_assembly ("ExternalAssembly");
     }
 
+  if (simd_type == MONO_SIMD)
+    add_referenced_assembly ("Mono.Simd");
+
   emit_referenced_assemblies (file);
 
   if (TARGET_GCC4NET_LINKER)
@@ -319,14 +322,14 @@ dump_decl_name (FILE *file, tree node)
 static void
 dump_method_name(FILE *file, tree method)
 {
-  struct fnct_attr attrs;
-
-  decode_function_attrs (method, &attrs);
-
   if (DECL_BUILT_IN (method) && DECL_BUILT_IN_CLASS (method) == BUILT_IN_MD)
     fprintf (file, "%s", IDENTIFIER_POINTER (DECL_NAME (method)));
   else
     {
+      struct fnct_attr attrs;
+
+      decode_function_attrs (method, &attrs);
+
       if (attrs.assembly_name)
 	fprintf (file, "[%s]", attrs.assembly_name);
       else if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (method) && TREE_PUBLIC (method))
@@ -493,7 +496,7 @@ dump_vector_type (FILE *file, tree node, bool full)
 
   gcc_assert (TREE_CODE (node) == VECTOR_TYPE);
 
-  if (simd_backend_str && strcmp (simd_backend_str, "mono") == 0)
+  if (simd_type == MONO_SIMD)
     {
       /* Mono.Simd types */
       if (full)

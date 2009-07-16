@@ -50,12 +50,7 @@ Erven Rohou             <erven.rohou@inria.fr>
  * Globals                                                                    *
  ******************************************************************************/
 
-enum simd_backend {
-  GCC_SIMD,
-  MONO_SIMD
-};
-
-static enum simd_backend backend = GCC_SIMD;
+enum simd_backend simd_type = UNDEF_SIMD;
 
 /******************************************************************************
  * Local function prototypes                                                  *
@@ -92,7 +87,7 @@ lower_cil_vector_ctor (const_cil_stmt ctor)
      constructs. In the case of GCC_SIMD, it is a call to the static method,
      in the case of MONO_SIMD, it is a newobj statement.  */
 
-  if (backend == GCC_SIMD)
+  if (simd_type == GCC_SIMD)
     {
       switch (cil_type)
 	{
@@ -143,7 +138,7 @@ lower_cil_ldvec (const_cil_stmt stmt)
   cil_type_t cil_type = vector_to_cil (type);
 
   /* The MONO_SIMD back end has support for aligned accesses.  */
-  if ((backend == MONO_SIMD) && (cil_prefix_unaligned (stmt) == 0))
+  if ((simd_type == MONO_SIMD) && (cil_prefix_unaligned (stmt) == 0))
     {
       switch (cil_type)
 	{
@@ -174,7 +169,7 @@ lower_cil_stvec (const_cil_stmt stmt)
   cil_type_t cil_type = vector_to_cil (type);
 
   /* The MONO_SIMD back end has support for aligned accesses.  */
-  if ((backend == MONO_SIMD) && (cil_prefix_unaligned (stmt) == 0))
+  if ((simd_type == MONO_SIMD) && (cil_prefix_unaligned (stmt) == 0))
     {
       switch (cil_type)
 	{
@@ -212,28 +207,28 @@ lower_cil_vector_add (cil_type_t type)
     case CIL_V8QI: builtin = CIL32_GCC_V8QI_ADD; break;
 
     case CIL_V2DF:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V2DF_ADD
-				     : CIL32_MONO_V2DF_ADD);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DF_ADD
+                                       : CIL32_MONO_V2DF_ADD);
       break;
     case CIL_V4SF:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V4SF_ADD
-				     : CIL32_MONO_V4SF_ADD);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SF_ADD
+				       : CIL32_MONO_V4SF_ADD);
       break;
     case CIL_V2DI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V2DI_ADD
-				     : CIL32_MONO_V2DI_ADD);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_ADD
+				       : CIL32_MONO_V2DI_ADD);
       break;
     case CIL_V4SI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V4SI_ADD
-				     : CIL32_MONO_V4SI_ADD);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_ADD
+				       : CIL32_MONO_V4SI_ADD);
       break;
     case CIL_V8HI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V8HI_ADD
-				     : CIL32_MONO_V8HI_ADD);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_ADD
+				       : CIL32_MONO_V8HI_ADD);
       break;
     case CIL_V16QI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V16QI_ADD
-				     : CIL32_MONO_V16QI_ADD);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_ADD
+				       : CIL32_MONO_V16QI_ADD);
       break;
     default:
       gcc_unreachable ();
@@ -260,28 +255,28 @@ lower_cil_vector_sub (cil_type_t type)
     case CIL_V8QI: builtin = CIL32_GCC_V8QI_SUB; break;
 
     case CIL_V2DF:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V2DF_SUB
-				     : CIL32_MONO_V2DF_SUB);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DF_SUB
+				       : CIL32_MONO_V2DF_SUB);
       break;
     case CIL_V4SF:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V4SF_SUB
-				     : CIL32_GCC_V4SF_SUB);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SF_SUB
+				       : CIL32_GCC_V4SF_SUB);
       break;
     case CIL_V2DI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V2DI_SUB
-				     : CIL32_MONO_V2DI_SUB);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_SUB
+				       : CIL32_MONO_V2DI_SUB);
       break;
     case CIL_V4SI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V4SI_SUB
-				     : CIL32_MONO_V4SI_SUB);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_SUB
+				       : CIL32_MONO_V4SI_SUB);
       break;
     case CIL_V8HI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V8HI_SUB
-				     : CIL32_MONO_V8HI_SUB);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_SUB
+				       : CIL32_MONO_V8HI_SUB);
       break;
     case CIL_V16QI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V16QI_SUB
-				     : CIL32_MONO_V16QI_SUB);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_SUB
+				       : CIL32_MONO_V16QI_SUB);
       break;
     default:
       gcc_unreachable ();
@@ -307,20 +302,20 @@ lower_cil_vector_and (cil_type_t type)
     case CIL_V8QI: builtin = CIL32_GCC_V8QI_AND; break;
 
     case CIL_V2DI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V2DI_AND
-				     : CIL32_MONO_V2DI_AND);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_AND
+				       : CIL32_MONO_V2DI_AND);
       break;
     case CIL_V4SI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V4SI_AND
-				     : CIL32_MONO_V4SI_AND);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_AND
+				       : CIL32_MONO_V4SI_AND);
       break;
     case CIL_V8HI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V8HI_AND
-				     : CIL32_MONO_V8HI_AND);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_AND
+				       : CIL32_MONO_V8HI_AND);
       break;
     case CIL_V16QI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V16QI_AND
-				     : CIL32_MONO_V16QI_AND);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_AND
+				       : CIL32_MONO_V16QI_AND);
       break;
     default:
       gcc_unreachable ();
@@ -346,20 +341,20 @@ lower_cil_vector_or (cil_type_t type)
     case CIL_V8QI: builtin = CIL32_GCC_V8QI_OR; break;
 
     case CIL_V2DI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V2DI_OR
-				     : CIL32_MONO_V2DI_OR);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_OR
+				       : CIL32_MONO_V2DI_OR);
       break;
     case CIL_V4SI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V4SI_OR
-				     : CIL32_MONO_V4SI_OR);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_OR
+				       : CIL32_MONO_V4SI_OR);
       break;
     case CIL_V8HI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V8HI_OR
-				     : CIL32_MONO_V8HI_OR);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_OR
+				       : CIL32_MONO_V8HI_OR);
       break;
     case CIL_V16QI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V16QI_OR
-				     : CIL32_MONO_V16QI_OR);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_OR
+				       : CIL32_MONO_V16QI_OR);
       break;
     default:
       gcc_unreachable ();
@@ -385,20 +380,20 @@ lower_cil_vector_xor (cil_type_t type)
     case CIL_V8QI: builtin = CIL32_GCC_V8QI_XOR; break;
 
     case CIL_V2DI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V2DI_XOR
-				     : CIL32_MONO_V2DI_XOR);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_XOR
+				       : CIL32_MONO_V2DI_XOR);
       break;
     case CIL_V4SI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V4SI_XOR
-				     : CIL32_MONO_V4SI_XOR);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_XOR
+				       : CIL32_MONO_V4SI_XOR);
       break;
     case CIL_V8HI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V8HI_XOR
-				     : CIL32_MONO_V8HI_XOR);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_XOR
+				       : CIL32_MONO_V8HI_XOR);
       break;
     case CIL_V16QI:
-      builtin = (backend == GCC_SIMD ? CIL32_GCC_V16QI_XOR
-				     : CIL32_MONO_V16QI_XOR);
+      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_XOR
+				       : CIL32_MONO_V16QI_XOR);
       break;
     default:
       gcc_unreachable ();
@@ -461,20 +456,6 @@ lower_cil (void)
   cil_bb_stacks bbs;
   cil_stack stack;
   cil_type_t top;
-
-  if (simd_backend_str)
-    {
-      if (strcmp (simd_backend_str, "mono") == 0)
-	{
-	  backend = MONO_SIMD;
-	  add_referenced_assembly ("Mono.Simd");
-	}
-      else if (strcmp (simd_backend_str, "gcc") != 0)
-	{
-	  fprintf (stderr, "Unknown SIMD backend '%s', using GCC\n",
-		   simd_backend_str);
-	}
-    }
 
   /* We need to compute the stack to be able to catch arithmetic nodes
      operating on vector types.  */

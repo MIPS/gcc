@@ -252,4 +252,16 @@ struct machine_function GTY(())
   struct htab * GTY ((param_is (struct cil_basic_block_d))) bb_seqs;
 };
 
+/******************************************************************************
+ * Vector SIMD Type Selection                                                 *
+ ******************************************************************************/
+
+enum simd_backend {
+  UNDEF_SIMD,
+  GCC_SIMD,
+  MONO_SIMD
+};
+
+extern enum simd_backend simd_type;
+
 #endif /* !CIL_TYPES_H */

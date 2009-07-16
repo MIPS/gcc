@@ -133,6 +133,21 @@ void
 cil_override_options (void)
 {
   init_machine_status = cil_init_machine_status;
+
+  if (simd_backend_str)
+    {
+      if (strcmp (simd_backend_str, "mono") == 0)
+	simd_type = MONO_SIMD;
+      else if (strcmp (simd_backend_str, "gcc") == 0)
+        simd_type = GCC_SIMD;
+      else
+	{
+	  fprintf (stderr, "Unknown SIMD backend '%s', using GCC\n",
+		   simd_backend_str);
+	}
+    }
+  else
+    simd_type = GCC_SIMD;
 }
 
 /* Hash value calculation function for CIL basic blocks.  */
