@@ -562,7 +562,7 @@ dump_complex_type (FILE *file, tree node)
     case CIL_INT16: fprintf (file, "short"); break;
     case CIL_INT32: fprintf (file, "int");   break;
     case CIL_INT64: fprintf (file, "long");  break;
-      
+
     case CIL_UNSIGNED_INT8:  fprintf (file, "uchar");  break;
     case CIL_UNSIGNED_INT16: fprintf (file, "ushort"); break;
     case CIL_UNSIGNED_INT32: fprintf (file, "uint");   break;
@@ -758,7 +758,7 @@ emit_valuetype_decl (FILE *file, tree t)
 static void
 dump_type (FILE *file, tree type, bool ref, bool qualif)
 {
-  unsigned HOST_WIDE_INT size;
+  cil_type_t cil_type;
 
   if (type == NULL_TREE || type == error_mark_node)
     return;
@@ -768,92 +768,70 @@ dump_type (FILE *file, tree type, bool ref, bool qualif)
       fprintf (file, "valuetype [mscorlib]System.ArgIterator");
       return;
     }
-
-  switch (TREE_CODE (type))
+  else if (TREE_CODE (type) == VOID_TYPE)
     {
-    /* Incomplete and variable-length arrays are pointers and
-       they must be dealt with as such.   */
-    case ARRAY_TYPE:
-      if (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
-	goto pointer;
-
-    case ENUMERAL_TYPE:
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      /* Reference the type if told to do so */
-      if (ref)
-	mark_referenced_type (TYPE_MAIN_VARIANT (type));
-
-      /* Print the name of the structure.  */
-      fprintf (file, "valuetype ");
-      dump_valuetype_name (file, TYPE_MAIN_VARIANT (type));
-      break;
-
-    case VOID_TYPE:
       fprintf (file, "void");
-      break;
-
-    case INTEGER_TYPE:
-      fprintf (file, "%s", TYPE_UNSIGNED (type) ? "unsigned " : "");
-      size = tree_low_cst (TYPE_SIZE (type), 1);
-
-      switch (size)
-	{
-	  case 8:  fprintf (file, "int8");  break;
-	  case 16: fprintf (file, "int16"); break;
-	  case 32: fprintf (file, "int32"); break;
-	  case 64: fprintf (file, "int64"); break;
-	  default:
-	    internal_error ("Unsupported integer size "
-			    HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	}
-      break;
-
-    case REAL_TYPE:
-      size = tree_low_cst (TYPE_SIZE (type), 1);
-
-      gcc_assert (size == 32 || size == 64);
-      fprintf (file, "float" HOST_WIDE_INT_PRINT_UNSIGNED, size);
-      break;
-
-    case BOOLEAN_TYPE:
-      fprintf (file, "int8");
-      break;
-
-pointer:
-    case POINTER_TYPE:
-      if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
-	{
-	  fprintf (file, "method ");
-	  dump_fun_type (file, TREE_TYPE (type), NULL, " * ", ref);
-	}
-      else
-	{
-	  dump_type (file, TREE_TYPE (type), ref, qualif);
-	  fprintf (file, " *");
-	}
-      break;
-
-    case FUNCTION_TYPE:
-/*    FIXME?
-      dump_fun_type (file, node, NULL, NULL, ref); */
-      gcc_unreachable ();
-      break;
-
-    case VECTOR_TYPE:
-      dump_vector_type (file, type);
-      break;
-
-    case COMPLEX_TYPE:
-      dump_complex_type (file, type);
-      break;
-
-    case REFERENCE_TYPE:
-
-    default:
-      gcc_unreachable ();
+      return;
     }
+
+  cil_type = type_to_cil (type);
+
+  if (cil_vector_p (cil_type))
+    dump_vector_type (file, type);
+  else if (TREE_CODE (type) == COMPLEX_TYPE)
+    dump_complex_type (file, type);
+  else
+    switch (cil_type)
+      {
+      case CIL_VALUE_TYPE:
+	/* Reference the type if told to do so */
+	if (ref)
+	  mark_referenced_type (TYPE_MAIN_VARIANT (type));
+
+	/* Print the name of the structure.  */
+	fprintf (file, "valuetype ");
+	dump_valuetype_name (file, TYPE_MAIN_VARIANT (type));
+	break;
+
+      case CIL_INT8:  fprintf (file, "int8");  break;
+      case CIL_INT16: fprintf (file, "int16"); break;
+      case CIL_INT32: fprintf (file, "int32"); break;
+      case CIL_INT64: fprintf (file, "int64"); break;
+
+      case CIL_UNSIGNED_INT8:  fprintf (file, "unsigned int8");  break;
+      case CIL_UNSIGNED_INT16: fprintf (file, "unsigned int16"); break;
+      case CIL_UNSIGNED_INT32: fprintf (file, "unsigned int32"); break;
+      case CIL_UNSIGNED_INT64: fprintf (file, "unsigned int64"); break;
+
+      case CIL_FLOAT32: fprintf (file, "float32"); break;
+      case CIL_FLOAT64: fprintf (file, "float64"); break;
+
+      case CIL_FLOAT:
+	{
+	  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (type), 1);
+
+	  gcc_assert (size == 32 || size == 64);
+	  fprintf (file, "float" HOST_WIDE_INT_PRINT_UNSIGNED, size);
+	}
+	break;
+
+      case CIL_POINTER:
+	if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
+	  {
+	    fprintf (file, "method ");
+	    dump_fun_type (file, TREE_TYPE (type), NULL, " * ", ref);
+	  }
+	else
+	  {
+	    dump_type (file, TREE_TYPE (type), ref, qualif);
+	    fprintf (file, " *");
+	  }
+	break;
+
+      default:
+	gcc_unreachable ();
+	break;
+      }
 
   if (qualif)
     {

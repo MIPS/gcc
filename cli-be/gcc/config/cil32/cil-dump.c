@@ -168,7 +168,7 @@ dump_type (const_tree type)
     }
   else
     {
-      cil_type_t cil_type = scalar_to_cil (type);
+      cil_type_t cil_type = type_to_cil (type);
       switch (cil_type)
 	{
 	case CIL_VALUE_TYPE:
