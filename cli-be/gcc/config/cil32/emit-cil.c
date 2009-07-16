@@ -50,6 +50,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 
 #include "cil-builtins.h"
 #include "cil-refs.h"
+#include "cil-stack.h"
 #include "cil-stmt.h"
 #include "cil-types.h"
 #include "emit-hints.h"
@@ -106,8 +107,8 @@ static void dump_method_name(FILE *, tree);
 static void dump_string_name (FILE *, tree);
 static void dump_string_type (FILE *, tree);
 static void dump_label_name (FILE *, tree);
-static void dump_vector_type (FILE *, tree, bool);
-static void dump_complex_type (FILE *, tree, bool);
+static void dump_vector_type (FILE *, tree);
+static void dump_complex_type (FILE *, tree);
 static void dump_string_decl (FILE *, tree);
 static bool dump_type_promoted_type_def (FILE *, tree);
 
@@ -484,135 +485,96 @@ dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
 
 /* Dump vector type TYPE.
 
-   FULL tells whether the type must be qualified with the 'valuetype' keyword,
-   assembly and namespace.
    TYPE must be a type node of type VECTOR_TYPE.   */
 
 static void
-dump_vector_type (FILE *file, tree node, bool full)
+dump_vector_type (FILE *file, tree node)
 {
-  tree innertype = TYPE_MAIN_VARIANT (TREE_TYPE (node));
-  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (innertype), 1);
+  cil_type_t cil_type;
 
-  gcc_assert (TREE_CODE (node) == VECTOR_TYPE);
+  cil_type = vector_to_cil (node);
 
   if (simd_type == MONO_SIMD)
     {
       /* Mono.Simd types */
-      if (full)
-	fprintf (file, "valuetype [Mono.Simd]Mono.Simd.");
+      fprintf (file, "valuetype [Mono.Simd]Mono.Simd.Vector");
 
-      fprintf (file, "Vector"HOST_WIDE_INT_PRINT_UNSIGNED,
-	       TYPE_VECTOR_SUBPARTS (node));
-
-      if (TREE_CODE (innertype) == INTEGER_TYPE)
+      switch (cil_type)
 	{
-	  switch (size)
-	    {
-	    case 8:  fprintf (file, "sb"); break;
-	    case 16: fprintf (file, "s"); break;
-	    case 32: fprintf (file, "i"); break;
-	    case 64: fprintf (file, "l"); break;
-	    default:
-	      internal_error ("Unsupported integer size"
-			      HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	    }
+	case CIL_V2HI: fprintf (file, "2s");  break;
+	case CIL_V4QI: fprintf (file, "4sb"); break;
+	case CIL_V2SI: fprintf (file, "2i");  break;
+	case CIL_V4HI: fprintf (file, "4s");  break;
+	case CIL_V8QI: fprintf (file, "8sb"); break;
+	case CIL_V2SF: fprintf (file, "2f");  break;
+	case CIL_V2DI: fprintf (file, "2l");  break;
+	case CIL_V4SI: fprintf (file, "4i");  break;
+	case CIL_V8HI: fprintf (file, "8s");  break;
+	case CIL_V16QI:fprintf (file, "16sb");break;
+	case CIL_V2DF: fprintf (file, "2d");  break;
+	case CIL_V4SF: fprintf (file, "4f");  break;
+	default:
+	  gcc_unreachable ();
+	  break;
 	}
-      else if (TREE_CODE (innertype) == REAL_TYPE)
-	{
-	  if (size == 32)
-	    fprintf (file, "f");
-	  else if (size == 64)
-	    fprintf (file, "d");
-	  else
-	    {
-	      internal_error ("Unsupported floating point size"
-			      HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	    }
-	}
-      else
-	gcc_unreachable ();
     }
   else
     {
       /* Gcc.Simd types */
-      if (full)
-	fprintf (file, "valuetype [gcc4net]gcc4net.");
+      fprintf (file, "valuetype [gcc4net]gcc4net.");
 
-      fprintf (file, "V"HOST_WIDE_INT_PRINT_UNSIGNED,
-	       TYPE_VECTOR_SUBPARTS (node));
+      switch (cil_type)
+	{
+	case CIL_V2HI: fprintf (file, "V2HI"); break;
+	case CIL_V4QI: fprintf (file, "V4QI"); break;
+	case CIL_V2SI: fprintf (file, "V2SI"); break;
+	case CIL_V4HI: fprintf (file, "V4HI"); break;
+	case CIL_V8QI: fprintf (file, "V8QI"); break;
+	case CIL_V2SF: fprintf (file, "V2SF"); break;
+	case CIL_V2DI: fprintf (file, "V2DI"); break;
+	case CIL_V4SI: fprintf (file, "V4SI"); break;
+	case CIL_V8HI: fprintf (file, "V8HI"); break;
+	case CIL_V16QI:fprintf (file, "V16QI");break;
+	case CIL_V2DF: fprintf (file, "V2DF"); break;
+	case CIL_V4SF: fprintf (file, "V4SF"); break;
+	  break;
 
-      if ((TREE_CODE (innertype) == INTEGER_TYPE) ||
-	  (TREE_CODE (innertype) == POINTER_TYPE))
-	{
-	  switch (size)
-	    {
-	    case 8:  fprintf (file, "QI"); break;
-	    case 16: fprintf (file, "HI"); break;
-	    case 32: fprintf (file, "SI"); break;
-	    case 64: fprintf (file, "DI"); break;
-	    default:
-	      internal_error ("Unsupported integer size"
-			      HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	    }
+	default:
+	  gcc_unreachable ();
+	  break;
 	}
-      else if (TREE_CODE (innertype) == REAL_TYPE)
-	{
-	  if (size == 32)
-	    fprintf (file, "SF");
-	  else if (size == 64)
-	    fprintf (file, "DF");
-	  else
-	    {
-	      internal_error ("Unsupported floating point size"
-			      HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	    }
-	}
-      else
-	gcc_unreachable ();
     }
 }
 
 static void
-dump_complex_type (FILE *file, tree node, bool full)
+dump_complex_type (FILE *file, tree node)
 {
-  tree elem_type = TYPE_MAIN_VARIANT (TREE_TYPE (node));
-  const char *name = NULL;
-  const char *prefix = full ? "valuetype [gcc4net]gcc4net." : "";
-  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (elem_type), 1);
-  bool unsignedp;
+  tree elem_type;
 
   gcc_assert (TREE_CODE (node) == COMPLEX_TYPE);
 
-  if (INTEGRAL_TYPE_P (elem_type))
-    {
-      unsignedp = TYPE_UNSIGNED (elem_type);
+  elem_type = TYPE_MAIN_VARIANT (TREE_TYPE (node));
 
-      switch (size)
-	{
-	case 8:  name = unsignedp ? "uchar" : "char";   break;
-	case 16: name = unsignedp ? "ushort" : "short"; break;
-	case 32: name = unsignedp ? "uint" : "int";     break;
-	case 64: name = unsignedp ? "ulong" : "long";   break;
-	default:
-	  internal_error ("Unsupported integer size"
-			  HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	}
-    }
-  else if (SCALAR_FLOAT_TYPE_P (elem_type))
+  fprintf (file, "valuetype [gcc4net]gcc4net.complex_");
+  switch (scalar_to_cil (elem_type))
     {
-      if (size == 32)
-	name = "float";
-      else if (size == 64)
-	name = "double";
-      else
-	{
-	  internal_error ("Unsupported floating point size"
-			  HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	}
-    }
+    case CIL_INT8:  fprintf (file, "char");  break;
+    case CIL_INT16: fprintf (file, "short"); break;
+    case CIL_INT32: fprintf (file, "int");   break;
+    case CIL_INT64: fprintf (file, "long");  break;
+      
+    case CIL_UNSIGNED_INT8:  fprintf (file, "uchar");  break;
+    case CIL_UNSIGNED_INT16: fprintf (file, "ushort"); break;
+    case CIL_UNSIGNED_INT32: fprintf (file, "uint");   break;
+    case CIL_UNSIGNED_INT64: fprintf (file, "ulong");  break;
 
-  fprintf (file, "%scomplex_%s", prefix, name);
+    case CIL_FLOAT32: fprintf (file, "float");  break;
+    case CIL_FLOAT64: fprintf (file, "double"); break;
+
+    default:
+      gcc_unreachable ();
+      break;
+    }
 }
 
 static void
@@ -880,11 +842,11 @@ pointer:
       break;
 
     case VECTOR_TYPE:
-      dump_vector_type (file, type, true);
+      dump_vector_type (file, type);
       break;
 
     case COMPLEX_TYPE:
-      dump_complex_type (file, type, true);
+      dump_complex_type (file, type);
       break;
 
     case REFERENCE_TYPE:
@@ -1012,7 +974,7 @@ dump_type_promoted_type_def (FILE *file, tree node)
       break;
 
     case COMPLEX_TYPE:
-      dump_complex_type (file, node, true);
+      dump_complex_type (file, node);
       break;
 
     case ENUMERAL_TYPE:
