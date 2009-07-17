@@ -3538,18 +3538,133 @@ gimple_types_compatible_p (tree t1, tree t2)
 }
 
 
-/* Returning a hash value for gimple type TYPE combined with VAL.  */
+/* Per pointer state for the SCC finding.  The on_sccstack flag
+   is not strictly required, it is true when there is no hash value
+   recorded for the type and false otherwise.  But querying that
+   is slower.  */
+
+struct sccs
+{
+  unsigned int dfsnum;
+  unsigned int low;
+  bool on_sccstack;
+  hashval_t hash;
+};
+
+static unsigned int next_dfs_num;
 
 static hashval_t
-iterative_hash_gimple_type (const_tree type, hashval_t val, unsigned level)
+iterative_hash_gimple_type (tree, hashval_t, VEC(tree, heap) **,
+			    struct pointer_map_t *, struct obstack *);
+
+/* DFS visit the edge from the callers type with state *STATE to T.
+   Update the callers type hash V with the hash for T if it is not part
+   of the SCC containing the callers type and return it.
+   SCCSTACK, SCCSTATE and SCCSTATE_OBSTACK are state for the DFS walk done.  */
+
+static hashval_t
+visit (tree t, struct sccs *state, hashval_t v,
+       VEC (tree, heap) **sccstack,
+       struct pointer_map_t *sccstate,
+       struct obstack *sccstate_obstack)
+{
+  struct sccs *cstate = NULL;
+  void **slot;
+
+  /* If there is a hash value recorded for this type then it can't
+     possibly be part of our parent SCC.  Simply mix in its hash.  */
+  if ((slot = pointer_map_contains (type_hash_cache, t)))
+    {
+#ifdef ENABLE_CHECKING
+      void **slot2;
+      /* If we have visited the type during the DFS walk then it
+	 should not be on the SCC stack anymore.  */
+      if ((slot2 = pointer_map_contains (sccstate, t)) != NULL)
+	gcc_assert (!((struct sccs *)*slot2)->on_sccstack);
+#endif
+      return iterative_hash_hashval_t ((hashval_t) (size_t) *slot, v);
+    }
+
+  if ((slot = pointer_map_contains (sccstate, t)) != NULL)
+    cstate = (struct sccs *)*slot;
+  if (!cstate)
+    {
+      hashval_t tem;
+      /* Not yet visited.  DFS recurse.  */
+      tem = iterative_hash_gimple_type (t, v,
+					sccstack, sccstate, sccstate_obstack);
+      if (!cstate)
+	cstate = (struct sccs *)* pointer_map_contains (sccstate, t);
+      state->low = MIN (state->low, cstate->low);
+      /* If the type is no longer on the SCC stack and thus is not part
+         of the parents SCC mix in its hash value.  Otherwise we will
+	 ignore the type for hashing purposes and return the unaltered
+	 hash value.  */
+      if (!cstate->on_sccstack)
+	{
+#ifdef ENABLE_CHECKING
+	  /* If we are not on the stack we should have a hash value
+	     recorded.  */
+	  gcc_assert (pointer_map_contains (type_hash_cache, t));
+#endif
+	  return tem;
+	}
+    }
+  if (cstate->dfsnum < state->dfsnum
+      && cstate->on_sccstack)
+    state->low = MIN (cstate->dfsnum, state->low);
+
+#ifdef ENABLE_CHECKING
+  /* As we are part of an SCC that is still in processing we should
+     not have a hash value recorded.  */
+  gcc_assert (!pointer_map_contains (type_hash_cache, t));
+#endif
+
+  /* We are part of our parents SCC, skip this type during hashing
+     and return the unaltered hash value.  */
+  return v;
+}
+
+/* Returning a hash value for gimple type TYPE combined with VAL.
+   SCCSTACK, SCCSTATE and SCCSTATE_OBSTACK are state for the DFS walk done.
+
+   To hash a type we end up hashing in types that are reachable.
+   Through pointers we can end up with cycles which messes up the
+   required property that we need to compute the same hash value
+   for structurally equivalent types.  To avoid this we have to
+   hash all types in a cycle (the SCC) in a commutative way.  The
+   easiest way is to not mix in the hashes of the SCC members at
+   all.  To make this work we have to delay setting the hash
+   values of the SCC until it is complete.  */
+
+static hashval_t
+iterative_hash_gimple_type (tree type, hashval_t val,
+			    VEC(tree, heap) **sccstack,
+			    struct pointer_map_t *sccstate,
+			    struct obstack *sccstate_obstack)
 {
   hashval_t v;
+  void **slot;
+  struct sccs *state;
+
+#ifdef ENABLE_CHECKING
+  /* Not visited during this DFS walk nor during previous walks.  */
+  gcc_assert (!pointer_map_contains (type_hash_cache, type)
+	      && !pointer_map_contains (sccstate, type));
+#endif
+  state = XOBNEW (sccstate_obstack, struct sccs);
+  *pointer_map_insert (sccstate, type) = state;
+
+  VEC_safe_push (tree, heap, *sccstack, type);
+  state->dfsnum = next_dfs_num++;
+  state->low = state->dfsnum;
+  state->on_sccstack = true;
 
   /* Combine a few common features of types so that types are grouped into
      smaller sets; when searching for existing matching types to merge,
      only existing types having the same features as the new type will be
      checked.  */
-  v = iterative_hash_hashval_t (TREE_CODE (type), val);
+  v = iterative_hash_hashval_t (TREE_CODE (type), 0);
   v = iterative_hash_hashval_t (TYPE_QUALS (type), v);
   v = iterative_hash_expr (TYPE_SIZE (type), v);
   v = iterative_hash_expr (TYPE_SIZE_UNIT (type), v);
@@ -3568,25 +3683,33 @@ iterative_hash_gimple_type (const_tree type, hashval_t val, unsigned level)
   /* Incorporate function return and argument types.  */
   if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == METHOD_TYPE)
     {
+      unsigned na;
       tree p;
 
       /* For method types also incorporate their parent class.  */
       if (TREE_CODE (type) == METHOD_TYPE)
-	v = iterative_hash_gimple_type (TYPE_METHOD_BASETYPE (type), v, level);
+	v = visit (TYPE_METHOD_BASETYPE (type), state, v,
+		   sccstack, sccstate, sccstate_obstack);
 
-      v = iterative_hash_gimple_type (TREE_TYPE (type), v, level);
+      v = visit (TREE_TYPE (type), state, v,
+		 sccstack, sccstate, sccstate_obstack);
 
-      for (p = TYPE_ARG_TYPES (type); p; p = TREE_CHAIN (p))
-	v = iterative_hash_gimple_type (TREE_VALUE (p), v, level);
+      for (p = TYPE_ARG_TYPES (type), na = 0; p; p = TREE_CHAIN (p))
+	{
+	  v = visit (TREE_VALUE (p), state, v,
+		     sccstack, sccstate, sccstate_obstack);
+	  na++;
+	}
+
+      v = iterative_hash_hashval_t (na, v);
     }
 
   /* For pointer and reference types, fold in information about the type
      pointed to.  */
   if (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
-    v = iterative_hash_gimple_type (TREE_TYPE (type), v, level);
+    v = visit (TREE_TYPE (type), state, v,
+	       sccstack, sccstate, sccstate_obstack);
 
-  /* For aggregate types, incorporate types signatures up to 5 levels
-     (to prevent infinite recursion in self-referential types).  */
   if (TREE_CODE (type) == RECORD_TYPE
       || TREE_CODE (type) == UNION_TYPE
       || TREE_CODE (type) == QUAL_UNION_TYPE)
@@ -3596,15 +3719,37 @@ iterative_hash_gimple_type (const_tree type, hashval_t val, unsigned level)
 
       for (f = TYPE_FIELDS (type), nf = 0; f; f = TREE_CHAIN (f))
 	{
-	  if (level < 5)
-	    v = iterative_hash_gimple_type (TREE_TYPE (f), v, level + 1);
+	  v = visit (TREE_TYPE (f), state, v,
+		     sccstack, sccstate, sccstate_obstack);
 	  nf++;
 	}
 
       v = iterative_hash_hashval_t (nf, v);
     }
 
-  return v;
+  /* Record hash for us.  */
+  state->hash = v;
+
+  /* See if we found an SCC.  */
+  if (state->low == state->dfsnum)
+    {
+      tree x;
+
+      /* Pop off the SCC and set its hash values.  */
+      do
+	{
+	  struct sccs *cstate;
+	  x = VEC_pop (tree, *sccstack);
+	  gcc_assert (!pointer_map_contains (type_hash_cache, x));
+	  cstate = (struct sccs *)*pointer_map_contains (sccstate, x);
+	  cstate->on_sccstack = false;
+	  slot = pointer_map_insert (type_hash_cache, x);
+	  *slot = (void *) (size_t) cstate->hash;
+	}
+      while (x != type);
+    }
+
+  return iterative_hash_hashval_t (v, val);
 }
 
 
@@ -3619,29 +3764,29 @@ iterative_hash_gimple_type (const_tree type, hashval_t val, unsigned level)
 static hashval_t
 gimple_type_hash (const void *p)
 {
-  const_tree type;
+  VEC(tree, heap) *sccstack = NULL;
+  struct pointer_map_t *sccstate;
+  struct obstack sccstate_obstack;
+  hashval_t val;
   void **slot;
-  hashval_t v;
-
-  type = (const_tree) p;
 
   if (type_hash_cache == NULL)
-    {
-      type_hash_cache = pointer_map_create ();
-      slot = NULL;
-    }
-  else
-    slot = pointer_map_contains (type_hash_cache, type);
+    type_hash_cache = pointer_map_create ();
 
-  if (slot)
-    v = (hashval_t) (size_t) *slot;
-  else
-    {
-      v = iterative_hash_gimple_type (type, 0, 0);
-      *pointer_map_insert (type_hash_cache, type) = (void *) (size_t) v;
-    }
+  if ((slot = pointer_map_contains (type_hash_cache, p)) != NULL)
+    return iterative_hash_hashval_t ((hashval_t) (size_t) *slot, 0);
 
-  return v;
+  /* Perform a DFS walk and pre-hash all reachable types.  */
+  next_dfs_num = 1;
+  sccstate = pointer_map_create ();
+  gcc_obstack_init (&sccstate_obstack);
+  val = iterative_hash_gimple_type (CONST_CAST2 (tree, const void *, p), 0,
+				    &sccstack, sccstate, &sccstate_obstack);
+  VEC_free (tree, heap, sccstack);
+  pointer_map_destroy (sccstate);
+  obstack_free (&sccstate_obstack, NULL);
+
+  return val;
 }
 
 
