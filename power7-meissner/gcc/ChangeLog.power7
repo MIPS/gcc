@@ -1,3 +1,7 @@
+2009-07-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to version 149758.
+
 2009-07-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
