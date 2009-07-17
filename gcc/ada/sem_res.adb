@@ -119,6 +119,11 @@ package body Sem_Res is
    --  initialization of individual components within the init proc itself.
    --  Could be optimized away perhaps?
 
+   procedure Check_No_Direct_Boolean_Operators (N : Node_Id);
+   --  N is the node for a comparison or logical operator. If the operator
+   --  is predefined, and the root type of the operands is Standard.Boolean,
+   --  then a check is made for restriction No_Direct_Boolean_Operators.
+
    function Is_Definite_Access_Type (E : Entity_Id) return Boolean;
    --  Determine whether E is an access type declared by an access
    --  declaration, and not an (anonymous) allocator type.
@@ -670,6 +675,7 @@ package body Sem_Res is
 
       elsif Ada_Version >= Ada_05
         and then Is_Entity_Name (Pref)
+        and then Is_Access_Type (Etype (Pref))
         and then Ekind (Directly_Designated_Type (Etype (Pref))) =
                                                        E_Incomplete_Type
         and then Is_Tagged_Type (Directly_Designated_Type (Etype (Pref)))
@@ -925,6 +931,38 @@ package body Sem_Res is
          Establish_Transient_Scope (First_Actual (N), Sec_Stack => True);
       end if;
    end Check_Initialization_Call;
+
+   ---------------------------------------
+   -- Check_No_Direct_Boolean_Operators --
+   ---------------------------------------
+
+   procedure Check_No_Direct_Boolean_Operators (N : Node_Id) is
+   begin
+      if Scope (Entity (N)) = Standard_Standard
+        and then Root_Type (Etype (Left_Opnd (N))) = Standard_Boolean
+      then
+         --  Restriction does not apply to generated code
+
+         if not Comes_From_Source (N) then
+            null;
+
+         --  Restriction does not apply for A=False, A=True
+
+         elsif Nkind (N) = N_Op_Eq
+           and then (Is_Entity_Name (Right_Opnd (N))
+                      and then (Entity (Right_Opnd (N)) = Standard_True
+                                 or else
+                                Entity (Right_Opnd (N)) = Standard_False))
+         then
+            null;
+
+         --  Otherwise restriction applies
+
+         else
+            Check_Restriction (No_Direct_Boolean_Operators, N);
+         end if;
+      end if;
+   end Check_No_Direct_Boolean_Operators;
 
    ------------------------------
    -- Check_Parameterless_Call --
@@ -2109,6 +2147,9 @@ package body Sem_Res is
                elsif Nkind (N) = N_Character_Literal then
                   Set_Etype (N, Expr_Type);
 
+               elsif Nkind (N) = N_Conditional_Expression then
+                  Set_Etype (N, Expr_Type);
+
                --  For an explicit dereference, attribute reference, range,
                --  short-circuit form (which is not an operator node), or call
                --  with a name that is an explicit dereference, there is
@@ -2452,7 +2493,7 @@ package body Sem_Res is
 
             when N_Allocator => Resolve_Allocator                (N, Ctx_Type);
 
-            when N_And_Then | N_Or_Else
+            when N_Short_Circuit
                              => Resolve_Short_Circuit            (N, Ctx_Type);
 
             when N_Attribute_Reference
@@ -3945,7 +3986,7 @@ package body Sem_Res is
          --  class-wide matching is not allowed.
 
          if (Is_Class_Wide_Type (Etype (Expression (E)))
-              or else Is_Class_Wide_Type (Etype (E)))
+                 or else Is_Class_Wide_Type (Etype (E)))
            and then Base_Type (Etype (Expression (E))) /= Base_Type (Etype (E))
          then
             Wrong_Type (Expression (E), Etype (E));
@@ -5431,6 +5472,8 @@ package body Sem_Res is
       T : Entity_Id;
 
    begin
+      Check_No_Direct_Boolean_Operators (N);
+
       --  If this is an intrinsic operation which is not predefined, use the
       --  types of its declared arguments to resolve the possibly overloaded
       --  operands. Otherwise the operands are unambiguous and specify the
@@ -5483,11 +5526,32 @@ package body Sem_Res is
    procedure Resolve_Conditional_Expression (N : Node_Id; Typ : Entity_Id) is
       Condition : constant Node_Id := First (Expressions (N));
       Then_Expr : constant Node_Id := Next (Condition);
-      Else_Expr : constant Node_Id := Next (Then_Expr);
+      Else_Expr : Node_Id := Next (Then_Expr);
+
    begin
-      Resolve (Condition, Standard_Boolean);
+      Resolve (Condition, Any_Boolean);
       Resolve (Then_Expr, Typ);
-      Resolve (Else_Expr, Typ);
+
+      --  If ELSE expression present, just resolve using the determined type
+
+      if Present (Else_Expr) then
+         Resolve (Else_Expr, Typ);
+
+      --  If no ELSE expression is present, root type must be Standard.Boolean
+      --  and we provide a Standard.True result converted to the appropriate
+      --  Boolean type (in case it is a derived boolean type).
+
+      elsif Root_Type (Typ) = Standard_Boolean then
+         Else_Expr :=
+           Convert_To (Typ, New_Occurrence_Of (Standard_True, Sloc (N)));
+         Analyze_And_Resolve (Else_Expr, Typ);
+         Append_To (Expressions (N), Else_Expr);
+
+      else
+         Error_Msg_N ("can only omit ELSE expression in Boolean case", N);
+         Append_To (Expressions (N), Error);
+      end if;
+
       Set_Etype (N, Typ);
       Eval_Conditional_Expression (N);
    end Resolve_Conditional_Expression;
@@ -6154,6 +6218,8 @@ package body Sem_Res is
    --  Start of processing for Resolve_Equality_Op
 
    begin
+      Check_No_Direct_Boolean_Operators (N);
+
       Set_Etype (N, Base_Type (Typ));
       Generate_Reference (T, N, ' ');
 
@@ -6609,9 +6675,10 @@ package body Sem_Res is
 
    procedure Resolve_Logical_Op (N : Node_Id; Typ : Entity_Id) is
       B_Typ : Entity_Id;
-      N_Opr : constant Node_Kind := Nkind (N);
 
    begin
+      Check_No_Direct_Boolean_Operators (N);
+
       --  Predefined operations on scalar types yield the base type. On the
       --  other hand, logical operations on arrays yield the type of the
       --  arguments (and the context).
@@ -6654,15 +6721,6 @@ package body Sem_Res is
       Set_Etype (N, B_Typ);
       Generate_Operator_Reference (N, B_Typ);
       Eval_Logical_Op (N);
-
-      --  Check for violation of restriction No_Direct_Boolean_Operators
-      --  if the operator was not eliminated by the Eval_Logical_Op call.
-
-      if Nkind (N) = N_Opr
-        and then Root_Type (Etype (Left_Opnd (N))) = Standard_Boolean
-      then
-         Check_Restriction (No_Direct_Boolean_Operators, N);
-      end if;
    end Resolve_Logical_Op;
 
    ---------------------------
@@ -6676,16 +6734,52 @@ package body Sem_Res is
    procedure Resolve_Membership_Op (N : Node_Id; Typ : Entity_Id) is
       pragma Warnings (Off, Typ);
 
-      L : constant Node_Id := Left_Opnd (N);
+      L : constant Node_Id := Left_Opnd  (N);
       R : constant Node_Id := Right_Opnd (N);
       T : Entity_Id;
+
+      procedure Resolve_Set_Membership;
+      --  Analysis has determined a unique type for the left operand.
+      --  Use it to resolve the disjuncts.
+
+      ----------------------------
+      -- Resolve_Set_Membership --
+      ----------------------------
+
+      procedure Resolve_Set_Membership is
+         Alt : Node_Id;
+
+      begin
+         Resolve (L, Etype (L));
+
+         Alt := First (Alternatives (N));
+         while Present (Alt) loop
+
+            --  Alternative is an expression, a range
+            --  or a subtype mark.
+
+            if not Is_Entity_Name (Alt)
+              or else not Is_Type (Entity (Alt))
+            then
+               Resolve (Alt, Etype (L));
+            end if;
+
+            Next (Alt);
+         end loop;
+      end Resolve_Set_Membership;
+
+   --  Start of processing for Resolve_Membership_Op
 
    begin
       if L = Error or else R = Error then
          return;
       end if;
 
-      if not Is_Overloaded (R)
+      if Present (Alternatives (N)) then
+         Resolve_Set_Membership;
+         return;
+
+      elsif not Is_Overloaded (R)
         and then
           (Etype (R) = Universal_Integer or else
            Etype (R) = Universal_Real)
@@ -7542,7 +7636,7 @@ package body Sem_Res is
 
       --  Generate cross-reference. We needed to wait until full overloading
       --  resolution was complete to do this, since otherwise we can't tell if
-      --  we are an Lvalue of not.
+      --  we are an lvalue or not.
 
       if May_Be_Lvalue (N) then
          Generate_Reference (Entity (S), S, 'm');
@@ -7822,6 +7916,16 @@ package body Sem_Res is
             Insert_Action (N, Act_Decl);
             Array_Type := Defining_Identifier (Act_Decl);
          end;
+
+      --  Maybe this should just be "else", instead of checking for the
+      --  specific case of slice??? This is needed for the case where
+      --  the prefix is an Image attribute, which gets expanded to a
+      --  slice, and so has a constrained subtype which we want to use
+      --  for the slice range check applied below (the range check won't
+      --  get done if the unconstrained subtype of the 'Image is used).
+
+      elsif Nkind (Name) = N_Slice then
+         Array_Type := Etype (Name);
       end if;
 
       --  If name was overloaded, set slice type correctly now
@@ -9575,9 +9679,10 @@ package body Sem_Res is
             end if;
          end if;
 
-         --  Need some comments here, and a name for this block ???
+         --  In the presence of limited_with clauses we have to use non-limited
+         --  views, if available.
 
-         declare
+         Check_Limited : declare
             function Full_Designated_Type (T : Entity_Id) return Entity_Id;
             --  Helper function to handle limited views
 
@@ -9587,12 +9692,15 @@ package body Sem_Res is
 
             function Full_Designated_Type (T : Entity_Id) return Entity_Id is
                Desig : constant Entity_Id := Designated_Type (T);
+
             begin
-               if From_With_Type (Desig)
-                 and then Is_Incomplete_Type (Desig)
+               --  Handle the limited view of a type
+
+               if Is_Incomplete_Type (Desig)
+                 and then From_With_Type (Desig)
                  and then Present (Non_Limited_View (Desig))
                then
-                  return Non_Limited_View (Desig);
+                  return Available_View (Desig);
                else
                   return Desig;
                end if;
@@ -9606,7 +9714,7 @@ package body Sem_Res is
             Same_Base : constant Boolean :=
                           Base_Type (Target) = Base_Type (Opnd);
 
-         --  Start of processing for ???
+         --  Start of processing for Check_Limited
 
          begin
             if Is_Tagged_Type (Target) then
@@ -9660,7 +9768,7 @@ package body Sem_Res is
                   return False;
                end if;
             end if;
-         end;
+         end Check_Limited;
 
       --  Access to subprogram types. If the operand is an access parameter,
       --  the type has a deeper accessibility that any master, and cannot

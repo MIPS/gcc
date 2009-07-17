@@ -60,6 +60,9 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 #ifdef HAVE_mpc
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
+#ifdef HAVE_mpc_pow
+static tree do_mpc_arg2 (tree, tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_srcptr, mpc_rnd_t));
+#endif
 #endif
 
 /* Define the names of the builtin function types and codes.  */
@@ -344,6 +347,16 @@ get_object_alignment (tree exp, unsigned int align, unsigned int max_align)
   return MIN (align, max_align);
 }
 
+/* Returns true iff we can trust that alignment information has been
+   calculated properly.  */
+
+bool
+can_trust_pointer_alignment (void)
+{
+  /* We rely on TER to compute accurate alignment information.  */
+  return (optimize && flag_tree_ter);
+}
+
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
    The alignment returned is, by default, the alignment of the thing that
@@ -357,8 +370,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 {
   unsigned int align, inner;
 
-  /* We rely on TER to compute accurate alignment information.  */
-  if (!(optimize && flag_tree_ter))
+  if (!can_trust_pointer_alignment ())
     return 0;
 
   if (!POINTER_TYPE_P (TREE_TYPE (exp)))
@@ -1170,7 +1182,7 @@ get_memory_rtx (tree exp, tree len)
 	  gcc_assert (TREE_CODE (inner) == COMPONENT_REF);
 
 	  if (MEM_OFFSET (mem)
-	      && GET_CODE (MEM_OFFSET (mem)) == CONST_INT)
+	      && CONST_INT_P (MEM_OFFSET (mem)))
 	    offset = INTVAL (MEM_OFFSET (mem));
 
 	  if (offset >= 0 && len && host_integerp (len, 0))
@@ -1533,7 +1545,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
 
   dest = virtual_outgoing_args_rtx;
 #ifndef STACK_GROWS_DOWNWARD
-  if (GET_CODE (argsize) == CONST_INT)
+  if (CONST_INT_P (argsize))
     dest = plus_constant (dest, -INTVAL (argsize));
   else
     dest = gen_rtx_PLUS (Pmode, dest, negate_rtx (Pmode, argsize));
@@ -1877,8 +1889,8 @@ expand_errno_check (tree exp, rtx target)
 
   /* Test the result; if it is NaN, set errno=EDOM because
      the argument was not in the domain.  */
-  emit_cmp_and_jump_insns (target, target, EQ, 0, GET_MODE (target),
-			   0, lab);
+  do_compare_rtx_and_jump (target, target, EQ, 0, GET_MODE (target),
+                           NULL_RTX, NULL_RTX, lab);
 
 #ifdef TARGET_EDOM
   /* If this built-in doesn't throw an exception, set errno directly.  */
@@ -1976,6 +1988,8 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
       /* Else fallthrough and expand as rint.  */
     CASE_FLT_FN (BUILT_IN_RINT):
       builtin_optab = rint_optab; break;
+    CASE_FLT_FN (BUILT_IN_SIGNIFICAND):
+      builtin_optab = significand_optab; break;
     default:
       gcc_unreachable ();
     }
@@ -3402,7 +3416,7 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 	 by pieces, we can avoid loading the string from memory
 	 and only stored the computed constants.  */
       if (src_str
-	  && GET_CODE (len_rtx) == CONST_INT
+	  && CONST_INT_P (len_rtx)
 	  && (unsigned HOST_WIDE_INT) INTVAL (len_rtx) <= strlen (src_str) + 1
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
 				  CONST_CAST (char *, src_str),
@@ -3520,7 +3534,7 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len, tree type,
 	 by pieces, we can avoid loading the string from memory
 	 and only stored the computed constants.  */
       if (src_str
-	  && GET_CODE (len_rtx) == CONST_INT
+	  && CONST_INT_P (len_rtx)
 	  && (unsigned HOST_WIDE_INT) INTVAL (len_rtx) <= strlen (src_str) + 1
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
 				  CONST_CAST (char *, src_str),
@@ -3537,7 +3551,7 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len, tree type,
 	  return dest_mem;
 	}
 
-      if (GET_CODE (len_rtx) == CONST_INT
+      if (CONST_INT_P (len_rtx)
 	  && can_move_by_pieces (INTVAL (len_rtx),
 				 MIN (dest_align, src_align)))
 	{
@@ -3785,7 +3799,7 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 	{
 	  rtx len_rtx = expand_normal (len);
 
-	  if (GET_CODE (len_rtx) == CONST_INT)
+	  if (CONST_INT_P (len_rtx))
 	    {
 	      ret = expand_builtin_strcpy_args (get_callee_fndecl (exp),
 						dst, src, target, mode);
@@ -4193,7 +4207,7 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
     arg3_rtx = expand_normal (fold_convert (sizetype, len));
 
     /* Set MEM_SIZE as appropriate.  */
-    if (GET_CODE (arg3_rtx) == CONST_INT)
+    if (CONST_INT_P (arg3_rtx))
       {
 	set_mem_size (arg1_rtx, arg3_rtx);
 	set_mem_size (arg2_rtx, arg3_rtx);
@@ -4976,6 +4990,8 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
   tree valist = TREE_OPERAND (*expr_p, 0);
   tree type = TREE_TYPE (*expr_p);
   tree t;
+  location_t loc = EXPR_HAS_LOCATION (*expr_p) ? EXPR_LOCATION (*expr_p) :
+    UNKNOWN_LOCATION;
 
   /* Verify that valist is of the proper type.  */
   have_va_type = TREE_TYPE (valist);
@@ -4985,7 +5001,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
   if (have_va_type == NULL_TREE)
     {
-      error ("first argument to %<va_arg%> not of type %<va_list%>");
+      error_at (loc, "first argument to %<va_arg%> not of type %<va_list%>");
       return GS_ERROR;
     }
 
@@ -5000,19 +5016,20 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       /* Unfortunately, this is merely undefined, rather than a constraint
 	 violation, so we cannot make this an error.  If this call is never
 	 executed, the program is still strictly conforming.  */
-      warned = warning (0, "%qT is promoted to %qT when passed through %<...%>",
-			type, promoted_type);
+      warned = warning_at (loc, 0,
+	  		   "%qT is promoted to %qT when passed through %<...%>",
+			   type, promoted_type);
       if (!gave_help && warned)
 	{
 	  gave_help = true;
-	  inform (input_location, "(so you should pass %qT not %qT to %<va_arg%>)",
-		   promoted_type, type);
+	  inform (loc, "(so you should pass %qT not %qT to %<va_arg%>)",
+		  promoted_type, type);
 	}
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
       if (warned)
-	inform (input_location, "if this code is reached, the program will abort");
+	inform (loc, "if this code is reached, the program will abort");
       /* Before the abort, allow the evaluation of the va_list
 	 expression to exit or longjmp.  */
       gimplify_and_add (valist, pre_p);
@@ -5178,10 +5195,8 @@ expand_builtin_alloca (tree exp, rtx target)
   rtx op0;
   rtx result;
 
-  /* In -fmudflap-instrumented code, alloca() and __builtin_alloca()
-     should always expand to function calls.  These can be intercepted
-     in libmudflap.  */
-  if (flag_mudflap)
+  /* Emit normal call if marked not-inlineable.  */
+  if (CALL_CANNOT_INLINE_P (exp)) 
     return NULL_RTX;
 
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
@@ -5296,6 +5311,17 @@ expand_builtin_trap (void)
   else
 #endif
     emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
+  emit_barrier ();
+}
+
+/* Expand a call to __builtin_unreachable.  We do nothing except emit
+   a barrier saying that control flow will not pass here.
+
+   It is the responsibility of the program being compiled to ensure
+   that control flow does never reach __builtin_unreachable.  */
+static void
+expand_builtin_unreachable (void)
+{
   emit_barrier ();
 }
 
@@ -5974,7 +6000,8 @@ expand_builtin_fork_or_exec (tree fn, tree exp, rtx target, int ignore)
       gcc_unreachable ();
     }
 
-  decl = build_decl (FUNCTION_DECL, id, TREE_TYPE (fn));
+  decl = build_decl (DECL_SOURCE_LOCATION (fn),
+		     FUNCTION_DECL, id, TREE_TYPE (fn));
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
@@ -6040,6 +6067,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 {
   rtx val, mem;
   enum machine_mode old_mode;
+  location_t loc = EXPR_LOCATION (exp);
 
   if (code == NOT && warn_sync_nand)
     {
@@ -6060,8 +6088,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 	    break;
 
 	  fndecl = implicit_built_in_decls[BUILT_IN_FETCH_AND_NAND_N];
-	  inform (input_location,
-		  "%qD changed semantics in GCC 4.4", fndecl);
+	  inform (loc, "%qD changed semantics in GCC 4.4", fndecl);
 	  warned_f_a_n = true;
 	  break;
 
@@ -6075,8 +6102,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 	    break;
 
 	  fndecl = implicit_built_in_decls[BUILT_IN_NAND_AND_FETCH_N];
-	  inform (input_location,
-		  "%qD changed semantics in GCC 4.4", fndecl);
+	  inform (loc, "%qD changed semantics in GCC 4.4", fndecl);
 	  warned_n_a_f = true;
 	  break;
 
@@ -6319,6 +6345,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     CASE_FLT_FN (BUILT_IN_ASIN):
     CASE_FLT_FN (BUILT_IN_ACOS):
     CASE_FLT_FN (BUILT_IN_ATAN):
+    CASE_FLT_FN (BUILT_IN_SIGNIFICAND):
       /* Treat these like sqrt only if unsafe math optimizations are allowed,
 	 because of possible accuracy problems.  */
       if (! flag_unsafe_math_optimizations)
@@ -6794,6 +6821,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_TRAP:
       expand_builtin_trap ();
+      return const0_rtx;
+
+    case BUILT_IN_UNREACHABLE:
+      expand_builtin_unreachable ();
       return const0_rtx;
 
     case BUILT_IN_PRINTF:
@@ -10620,6 +10651,16 @@ fold_builtin_2 (tree fndecl, tree arg0, tree arg1, bool ignore)
     CASE_FLT_FN (BUILT_IN_HYPOT):
       return fold_builtin_hypot (fndecl, arg0, arg1, type);
 
+#ifdef HAVE_mpc_pow
+    CASE_FLT_FN (BUILT_IN_CPOW):
+      if (validate_arg (arg0, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE
+	  && validate_arg (arg1, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg1))) == REAL_TYPE) 
+	return do_mpc_arg2 (arg0, arg1, type, mpc_pow);
+    break;
+#endif
+
     CASE_FLT_FN (BUILT_IN_LDEXP):
       return fold_builtin_load_exponent (arg0, arg1, type, /*ldexp=*/true);
     CASE_FLT_FN (BUILT_IN_SCALBN):
@@ -13217,21 +13258,21 @@ do_mpc_ckconv (mpc_srcptr m, tree type, int inexact)
   /* Proceed iff we get a normal number, i.e. not NaN or Inf and no
      overflow/underflow occurred.  If -frounding-math, proceed iff the
      result of calling FUNC was exact.  */
-  if (mpfr_number_p (MPC_RE (m)) && mpfr_number_p (MPC_IM (m))
+  if (mpfr_number_p (mpc_realref (m)) && mpfr_number_p (mpc_imagref (m))
       && !mpfr_overflow_p () && !mpfr_underflow_p ()
       && (!flag_rounding_math || !inexact))
     {
       REAL_VALUE_TYPE re, im;
 
-      real_from_mpfr (&re, MPC_RE (m), type, GMP_RNDN);
-      real_from_mpfr (&im, MPC_IM (m), type, GMP_RNDN);
+      real_from_mpfr (&re, mpc_realref (m), type, GMP_RNDN);
+      real_from_mpfr (&im, mpc_imagref (m), type, GMP_RNDN);
       /* Proceed iff GCC's REAL_VALUE_TYPE can hold the MPFR values,
 	 check for overflow/underflow.  If the REAL_VALUE_TYPE is zero
 	 but the mpft_t is not, then we underflowed in the
 	 conversion.  */
       if (real_isfinite (&re) && real_isfinite (&im)
-	  && (re.cl == rvc_zero) == (mpfr_zero_p (MPC_RE (m)) != 0)
-	  && (im.cl == rvc_zero) == (mpfr_zero_p (MPC_IM (m)) != 0))
+	  && (re.cl == rvc_zero) == (mpfr_zero_p (mpc_realref (m)) != 0)
+	  && (im.cl == rvc_zero) == (mpfr_zero_p (mpc_imagref (m)) != 0))
         {
 	  REAL_VALUE_TYPE re_mode, im_mode;
 
@@ -13677,8 +13718,8 @@ do_mpc_arg1 (tree arg, tree type, int (*func)(mpc_ptr, mpc_srcptr, mpc_rnd_t))
 	  mpc_t m;
 	  
 	  mpc_init2 (m, prec);
-	  mpfr_from_real (MPC_RE(m), re, rnd);
-	  mpfr_from_real (MPC_IM(m), im, rnd);
+	  mpfr_from_real (mpc_realref(m), re, rnd);
+	  mpfr_from_real (mpc_imagref(m), im, rnd);
 	  mpfr_clear_flags ();
 	  inexact = func (m, m, crnd);
 	  result = do_mpc_ckconv (m, type, inexact);
@@ -13688,6 +13729,64 @@ do_mpc_arg1 (tree arg, tree type, int (*func)(mpc_ptr, mpc_srcptr, mpc_rnd_t))
 
   return result;
 }
+
+/* If arguments ARG0 and ARG1 are a COMPLEX_CST, call the two-argument
+   mpc function FUNC on it and return the resulting value as a tree
+   with type TYPE.  The mpfr precision is set to the precision of
+   TYPE.  We assume that function FUNC returns zero if the result
+   could be calculated exactly within the requested precision.  */
+
+#ifdef HAVE_mpc_pow
+static tree
+do_mpc_arg2 (tree arg0, tree arg1, tree type,
+	     int (*func)(mpc_ptr, mpc_srcptr, mpc_srcptr, mpc_rnd_t))
+{
+  tree result = NULL_TREE;
+  
+  STRIP_NOPS (arg0);
+  STRIP_NOPS (arg1);
+
+  /* To proceed, MPFR must exactly represent the target floating point
+     format, which only happens when the target base equals two.  */
+  if (TREE_CODE (arg0) == COMPLEX_CST && !TREE_OVERFLOW (arg0)
+      && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE
+      && TREE_CODE (arg1) == COMPLEX_CST && !TREE_OVERFLOW (arg1)
+      && TREE_CODE (TREE_TYPE (TREE_TYPE (arg1))) == REAL_TYPE
+      && REAL_MODE_FORMAT (TYPE_MODE (TREE_TYPE (TREE_TYPE (arg0))))->b == 2)
+    {
+      const REAL_VALUE_TYPE *const re0 = TREE_REAL_CST_PTR (TREE_REALPART (arg0));
+      const REAL_VALUE_TYPE *const im0 = TREE_REAL_CST_PTR (TREE_IMAGPART (arg0));
+      const REAL_VALUE_TYPE *const re1 = TREE_REAL_CST_PTR (TREE_REALPART (arg1));
+      const REAL_VALUE_TYPE *const im1 = TREE_REAL_CST_PTR (TREE_IMAGPART (arg1));
+
+      if (real_isfinite (re0) && real_isfinite (im0)
+	  && real_isfinite (re1) && real_isfinite (im1))
+        {
+	  const struct real_format *const fmt =
+	    REAL_MODE_FORMAT (TYPE_MODE (TREE_TYPE (type)));
+	  const int prec = fmt->p;
+	  const mp_rnd_t rnd = fmt->round_towards_zero ? GMP_RNDZ : GMP_RNDN;
+	  const mpc_rnd_t crnd = fmt->round_towards_zero ? MPC_RNDZZ : MPC_RNDNN;
+	  int inexact;
+	  mpc_t m0, m1;
+	  
+	  mpc_init2 (m0, prec);
+	  mpc_init2 (m1, prec);
+	  mpfr_from_real (mpc_realref(m0), re0, rnd);
+	  mpfr_from_real (mpc_imagref(m0), im0, rnd);
+	  mpfr_from_real (mpc_realref(m1), re1, rnd);
+	  mpfr_from_real (mpc_imagref(m1), im1, rnd);
+	  mpfr_clear_flags ();
+	  inexact = func (m0, m0, m1, crnd);
+	  result = do_mpc_ckconv (m0, type, inexact);
+	  mpc_clear (m0);
+	  mpc_clear (m1);
+	}
+    }
+
+  return result;
+}
+# endif
 #endif /* HAVE_mpc */
 
 /* FIXME tuples.

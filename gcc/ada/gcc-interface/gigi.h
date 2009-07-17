@@ -135,6 +135,13 @@ extern tree maybe_pad_type (tree type, tree size, unsigned int align,
    the value passed against the list of choices.  */
 extern tree choices_to_gnu (tree operand, Node_Id choices);
 
+/* Given GNAT_ENTITY, an object (constant, variable, parameter, exception)
+   and GNU_TYPE, its corresponding GCC type, set Esize and Alignment to the
+   size and alignment used by Gigi.  Prefer SIZE over TYPE_SIZE if non-null.
+   BY_REF is true if the object is used by reference.  */
+extern void annotate_object (Entity_Id gnat_entity, tree gnu_type, tree size,
+			     bool by_ref);
+
 /* Given a type T, a FIELD_DECL F, and a replacement value R, return a new
    type with all size expressions that contain F updated by replacing F
    with R.  If F is NULL_TREE, always make a new RECORD_TYPE, even if
@@ -843,13 +850,13 @@ extern tree build_component_ref (tree record_variable, tree component,
    If GNU_OBJ is nonzero, it is an object to deallocate.  Otherwise,
    generate an allocator.
 
-   GNU_SIZE is the size of the object in bytes and ALIGN is the alignment
-   in bits.  GNAT_PROC, if present, is a procedure to call and GNAT_POOL
-   is the storage pool to use.  If not present, malloc and free are used.
-   GNAT_NODE is used to provide an error location for restriction violation
-   messages.  */
+   GNU_SIZE is the number of bytes to allocate and GNU_TYPE is the contained
+   object type, used to determine the to-be-honored address alignment.
+   GNAT_PROC, if present, is a procedure to call and GNAT_POOL is the storage
+   pool to use.  If not present, malloc and free are used.  GNAT_NODE is used
+   to provide an error location for restriction violation messages.  */
 extern tree build_call_alloc_dealloc (tree gnu_obj, tree gnu_size,
-                                      unsigned align, Entity_Id gnat_proc,
+                                      tree gnu_type, Entity_Id gnat_proc,
 				      Entity_Id gnat_pool, Node_Id gnat_node);
 
 /* Build a GCC tree to correspond to allocating an object of TYPE whose

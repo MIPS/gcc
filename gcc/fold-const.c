@@ -992,7 +992,7 @@ fold_undefer_overflow_warnings (bool issue, const_gimple stmt, int code)
     locus = input_location;
   else
     locus = gimple_location (stmt);
-  warning (OPT_Wstrict_overflow, "%H%s", &locus, warnmsg);
+  warning_at (locus, OPT_Wstrict_overflow, "%s", warnmsg);
 }
 
 /* Stop deferring overflow warnings, ignoring any deferred
@@ -2671,9 +2671,10 @@ fold_convert (tree type, tree arg)
 	case POINTER_TYPE: case REFERENCE_TYPE:
 	case REAL_TYPE:
 	case FIXED_POINT_TYPE:
-	  return build2 (COMPLEX_EXPR, type,
-			 fold_convert (TREE_TYPE (type), arg),
-			 fold_convert (TREE_TYPE (type), integer_zero_node));
+	  return fold_build2 (COMPLEX_EXPR, type,
+			      fold_convert (TREE_TYPE (type), arg),
+			      fold_convert (TREE_TYPE (type),
+					    integer_zero_node));
 	case COMPLEX_TYPE:
 	  {
 	    tree rpart, ipart;
@@ -5331,36 +5332,42 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
     switch (comp_code)
       {
       case EQ_EXPR:
+	if (TREE_CODE (arg1) == INTEGER_CST)
+	  break;
 	/* We can replace A with C1 in this case.  */
 	arg1 = fold_convert (type, arg01);
 	return fold_build3 (COND_EXPR, type, arg0, arg1, arg2);
 
       case LT_EXPR:
-	/* If C1 is C2 + 1, this is min(A, C2).  */
+	/* If C1 is C2 + 1, this is min(A, C2), but use ARG00's type for
+	   MIN_EXPR, to preserve the signedness of the comparison.  */
 	if (! operand_equal_p (arg2, TYPE_MAX_VALUE (type),
 			       OEP_ONLY_CONST)
 	    && operand_equal_p (arg01,
 				const_binop (PLUS_EXPR, arg2,
 					     build_int_cst (type, 1), 0),
 				OEP_ONLY_CONST))
-	  return pedantic_non_lvalue (fold_build2 (MIN_EXPR,
-						   type,
-						   fold_convert (type, arg1),
-						   arg2));
+	  {
+	    tem = fold_build2 (MIN_EXPR, TREE_TYPE (arg00), arg00,
+			       fold_convert (TREE_TYPE (arg00), arg2));
+	    return pedantic_non_lvalue (fold_convert (type, tem));
+	  }
 	break;
 
       case LE_EXPR:
-	/* If C1 is C2 - 1, this is min(A, C2).  */
+	/* If C1 is C2 - 1, this is min(A, C2), with the same care
+	   as above.  */
 	if (! operand_equal_p (arg2, TYPE_MIN_VALUE (type),
 			       OEP_ONLY_CONST)
 	    && operand_equal_p (arg01,
 				const_binop (MINUS_EXPR, arg2,
 					     build_int_cst (type, 1), 0),
 				OEP_ONLY_CONST))
-	  return pedantic_non_lvalue (fold_build2 (MIN_EXPR,
-						   type,
-						   fold_convert (type, arg1),
-						   arg2));
+	  {
+	    tem = fold_build2 (MIN_EXPR, TREE_TYPE (arg00), arg00,
+			       fold_convert (TREE_TYPE (arg00), arg2));
+	    return pedantic_non_lvalue (fold_convert (type, tem));
+	  }
 	break;
 
       case GT_EXPR:
@@ -5372,11 +5379,11 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
 				const_binop (MINUS_EXPR, arg2,
 					     build_int_cst (type, 1), 0),
 				OEP_ONLY_CONST))
-	  return pedantic_non_lvalue (fold_convert (type,
-				      fold_build2 (MAX_EXPR, TREE_TYPE (arg00),
-						   arg00,
-						   fold_convert (TREE_TYPE (arg00),
-							         arg2))));
+	  {
+	    tem = fold_build2 (MAX_EXPR, TREE_TYPE (arg00), arg00,
+			       fold_convert (TREE_TYPE (arg00), arg2));
+	    return pedantic_non_lvalue (fold_convert (type, tem));
+	  }
 	break;
 
       case GE_EXPR:
@@ -5387,11 +5394,11 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
 				const_binop (PLUS_EXPR, arg2,
 					     build_int_cst (type, 1), 0),
 				OEP_ONLY_CONST))
-	  return pedantic_non_lvalue (fold_convert (type,
-				      fold_build2 (MAX_EXPR, TREE_TYPE (arg00),
-						   arg00,
-						   fold_convert (TREE_TYPE (arg00),
-							         arg2))));
+	  {
+	    tem = fold_build2 (MAX_EXPR, TREE_TYPE (arg00), arg00,
+			       fold_convert (TREE_TYPE (arg00), arg2));
+	    return pedantic_non_lvalue (fold_convert (type, tem));
+	  }
 	break;
       case NE_EXPR:
 	break;
@@ -8319,13 +8326,14 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	  && TREE_CODE (op0) == BIT_AND_EXPR
 	  && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST)
 	{
-	  tree and = op0;
-	  tree and0 = TREE_OPERAND (and, 0), and1 = TREE_OPERAND (and, 1);
+	  tree and_expr = op0;
+	  tree and0 = TREE_OPERAND (and_expr, 0);
+	  tree and1 = TREE_OPERAND (and_expr, 1);
 	  int change = 0;
 
-	  if (TYPE_UNSIGNED (TREE_TYPE (and))
+	  if (TYPE_UNSIGNED (TREE_TYPE (and_expr))
 	      || (TYPE_PRECISION (type)
-		  <= TYPE_PRECISION (TREE_TYPE (and))))
+		  <= TYPE_PRECISION (TREE_TYPE (and_expr))))
 	    change = 1;
 	  else if (TYPE_PRECISION (TREE_TYPE (and1))
 		   <= HOST_BITS_PER_WIDE_INT
@@ -13283,35 +13291,36 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
     } /* switch (code) */
 }
 
-/* Callback for walk_tree, looking for LABEL_EXPR.
-   Returns tree TP if it is LABEL_EXPR. Otherwise it returns NULL_TREE.
-   Do not check the sub-tree of GOTO_EXPR.  */
+/* Callback for walk_tree, looking for LABEL_EXPR.  Return *TP if it is
+   a LABEL_EXPR; otherwise return NULL_TREE.  Do not check the subtrees
+   of GOTO_EXPR.  */
 
 static tree
-contains_label_1 (tree *tp,
-                  int *walk_subtrees,
-                  void *data ATTRIBUTE_UNUSED)
+contains_label_1 (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   switch (TREE_CODE (*tp))
     {
     case LABEL_EXPR:
       return *tp;
+
     case GOTO_EXPR:
       *walk_subtrees = 0;
-    /* no break */
+
+      /* ... fall through ...  */
+
     default:
       return NULL_TREE;
     }
 }
 
-/* Checks whether the sub-tree ST contains a label LABEL_EXPR which is
-   accessible from outside the sub-tree. Returns NULL_TREE if no
-   addressable label is found.  */
+/* Return whether the sub-tree ST contains a label which is accessible from
+   outside the sub-tree.  */
 
 static bool
 contains_label_p (tree st)
 {
-  return (walk_tree (&st, contains_label_1 , NULL, NULL) != NULL_TREE);
+  return
+   (walk_tree_without_duplicates (&st, contains_label_1 , NULL) != NULL_TREE);
 }
 
 /* Fold a ternary expression of code CODE and type TYPE with operands

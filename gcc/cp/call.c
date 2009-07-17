@@ -197,7 +197,6 @@ static conversion *direct_reference_binding (tree, conversion *);
 static bool promoted_arithmetic_type_p (tree);
 static conversion *conditional_conversion (tree, tree);
 static char *name_as_c_string (tree, tree, bool *);
-static tree call_builtin_trap (void);
 static tree prep_operand (tree);
 static void add_candidates (tree, const VEC(tree,gc) *, tree, bool, tree, tree,
 			    int, struct z_candidate **);
@@ -242,7 +241,7 @@ check_dtor_name (tree basetype, tree name)
       return false;
     }
 
-  if (!name)
+  if (!name || name == error_mark_node)
     return false;
   return same_type_p (TYPE_MAIN_VARIANT (basetype), TYPE_MAIN_VARIANT (name));
 }
@@ -4045,10 +4044,32 @@ add_candidates (tree fns, const VEC(tree,gc) *args,
     }
 }
 
+/* Even unsigned enum types promote to signed int.  We don't want to
+   issue -Wsign-compare warnings for this case.  Here ORIG_ARG is the
+   original argument and ARG is the argument after any conversions
+   have been applied.  We set TREE_NO_WARNING if we have added a cast
+   from an unsigned enum type to a signed integer type.  */
+
+static void
+avoid_sign_compare_warnings (tree orig_arg, tree arg)
+{
+  if (orig_arg != NULL_TREE
+      && arg != NULL_TREE
+      && orig_arg != arg
+      && TREE_CODE (TREE_TYPE (orig_arg)) == ENUMERAL_TYPE
+      && TYPE_UNSIGNED (TREE_TYPE (orig_arg))
+      && INTEGRAL_TYPE_P (TREE_TYPE (arg))
+      && !TYPE_UNSIGNED (TREE_TYPE (arg)))
+    TREE_NO_WARNING (arg) = 1;
+}
+
 tree
 build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	      bool *overloaded_p, tsubst_flags_t complain)
 {
+  tree orig_arg1 = arg1;
+  tree orig_arg2 = arg2;
+  tree orig_arg3 = arg3;
   struct z_candidate *candidates = 0, *cand;
   VEC(tree,gc) *arglist;
   tree fnname;
@@ -4350,6 +4371,10 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     return result;
 
  builtin:
+  avoid_sign_compare_warnings (orig_arg1, arg1);
+  avoid_sign_compare_warnings (orig_arg2, arg2);
+  avoid_sign_compare_warnings (orig_arg3, arg3);
+
   switch (code)
     {
     case MODIFY_EXPR:
@@ -4398,7 +4423,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
       return cp_build_unary_op (code, arg1, candidates != 0, complain);
 
     case ARRAY_REF:
-      return build_array_ref (arg1, arg2, input_location);
+      return build_array_ref (input_location, arg1, arg2);
 
     case COND_EXPR:
       return build_conditional_expr (arg1, arg2, arg3, complain);
@@ -5016,18 +5041,6 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   return expr;
 }
 
-/* Build a call to __builtin_trap.  */
-
-static tree
-call_builtin_trap (void)
-{
-  tree fn = implicit_built_in_decls[BUILT_IN_TRAP];
-
-  gcc_assert (fn != NULL);
-  fn = build_call_n (fn, 0);
-  return fn;
-}
-
 /* ARG is being passed to a varargs function.  Perform any conversions
    required.  Return the converted value.  */
 
@@ -5056,20 +5069,23 @@ convert_arg_to_ellipsis (tree arg)
   arg = require_complete_type (arg);
 
   if (arg != error_mark_node
-      && !pod_type_p (TREE_TYPE (arg)))
+      && (type_has_nontrivial_copy_init (TREE_TYPE (arg))
+	  || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (arg))))
     {
-      /* Undefined behavior [expr.call] 5.2.2/7.  We used to just warn
-	 here and do a bitwise copy, but now cp_expr_size will abort if we
-	 try to do that.
+      /* [expr.call] 5.2.2/7:
+	 Passing a potentially-evaluated argument of class type (Clause 9)
+	 with a non-trivial copy constructor or a non-trivial destructor
+	 with no corresponding parameter is conditionally-supported, with
+	 implementation-defined semantics.
+
+	 We used to just warn here and do a bitwise copy, but now
+	 cp_expr_size will abort if we try to do that.
+
 	 If the call appears in the context of a sizeof expression,
-	 there is no need to emit a warning, since the expression won't be
-	 evaluated. We keep the builtin_trap just as a safety check.  */
-      if (!skip_evaluation)
-	warning (0, "cannot pass objects of non-POD type %q#T through %<...%>; "
-		 "call will abort at runtime", TREE_TYPE (arg));
-      arg = call_builtin_trap ();
-      arg = build2 (COMPOUND_EXPR, integer_type_node, arg,
-		    integer_zero_node);
+	 it is not potentially-evaluated.  */
+      if (cp_unevaluated_operand == 0)
+	error ("cannot pass objects of non-trivially-copyable "
+	       "type %q#T through %<...%>", TREE_TYPE (arg));
     }
 
   return arg;
@@ -5088,21 +5104,21 @@ build_x_va_arg (tree expr, tree type)
   if (expr == error_mark_node || !type)
     return error_mark_node;
 
-  if (! pod_type_p (type))
+  if (type_has_nontrivial_copy_init (type)
+      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+      || TREE_CODE (type) == REFERENCE_TYPE)
     {
       /* Remove reference types so we don't ICE later on.  */
       tree type1 = non_reference (type);
-      /* Undefined behavior [expr.call] 5.2.2/7.  */
-      warning (0, "cannot receive objects of non-POD type %q#T through %<...%>; "
-	       "call will abort at runtime", type);
+      /* conditionally-supported behavior [expr.call] 5.2.2/7.  */
+      error ("cannot receive objects of non-trivially-copyable type %q#T "
+	     "through %<...%>; ", type);
       expr = convert (build_pointer_type (type1), null_node);
-      expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
-		     call_builtin_trap (), expr);
       expr = cp_build_indirect_ref (expr, NULL, tf_warning_or_error);
       return expr;
     }
 
-  return build_va_arg (expr, type);
+  return build_va_arg (input_location, expr, type);
 }
 
 /* TYPE has been given to va_arg.  Apply the default conversions which
@@ -5643,11 +5659,11 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	  arg1 = arg;
 	  arg0 = cp_build_unary_op (ADDR_EXPR, to, 0, complain);
 
-	  if (!(optimize && flag_tree_ter))
+	  if (!can_trust_pointer_alignment ())
 	    {
-	      /* When TER is off get_pointer_alignment returns 0, so a call
+	      /* If we can't be sure about pointer alignment, a call
 		 to __builtin_memcpy is expanded as a call to memcpy, which
-		 is invalid with identical args.  When TER is on it is
+		 is invalid with identical args.  Otherwise it is
 		 expanded as a block move, which should be safe.  */
 	      arg0 = save_expr (arg0);
 	      arg1 = save_expr (arg1);
@@ -7596,7 +7612,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	expr = error_mark_node;
       else
 	{
-	  if (!real_lvalue_p (expr))
+	  if (!lvalue_or_rvalue_with_address_p (expr))
 	    {
 	      tree init;
 	      var = set_up_extended_ref_temp (decl, expr, cleanup, &init);

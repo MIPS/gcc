@@ -272,8 +272,8 @@ gnat_handle_option (size_t scode, const char *arg, int value)
       gnat_argc++;
       break;
 
-    case OPT_gdwarf_:
-      gnat_dwarf_extensions ++;
+    case OPT_gdwarfplus:
+      gnat_dwarf_extensions = 1;
       break;
 
     default:
@@ -470,17 +470,17 @@ gnat_print_decl (FILE *file, tree node, int indent)
   switch (TREE_CODE (node))
     {
     case CONST_DECL:
-      print_node (file, "const_corresponding_var",
+      print_node (file, "corresponding var",
 		  DECL_CONST_CORRESPONDING_VAR (node), indent + 4);
       break;
 
     case FIELD_DECL:
-      print_node (file, "original_field", DECL_ORIGINAL_FIELD (node),
+      print_node (file, "original field", DECL_ORIGINAL_FIELD (node),
 		  indent + 4);
       break;
 
     case VAR_DECL:
-      print_node (file, "renamed_object", DECL_RENAMED_OBJECT (node),
+      print_node (file, "renamed object", DECL_RENAMED_OBJECT (node),
 		  indent + 4);
       break;
 
@@ -497,7 +497,7 @@ gnat_print_type (FILE *file, tree node, int indent)
   switch (TREE_CODE (node))
     {
     case FUNCTION_TYPE:
-      print_node (file, "ci_co_list", TYPE_CI_CO_LIST (node), indent + 4);
+      print_node (file, "ci/co list", TYPE_CI_CO_LIST (node), indent + 4);
       break;
 
     case INTEGER_TYPE:
@@ -729,10 +729,11 @@ must_pass_by_ref (tree gnu_type)
 void
 enumerate_modes (void (*f) (int, int, int, int, int, int, unsigned int))
 {
-  enum machine_mode i;
+  int iloop;
 
-  for (i = 0; i < NUM_MACHINE_MODES; i++)
+  for (iloop = 0; iloop < NUM_MACHINE_MODES; iloop++)
     {
+      enum machine_mode i = (enum machine_mode) iloop;
       enum machine_mode j;
       bool float_p = 0;
       bool complex_p = 0;

@@ -455,6 +455,28 @@ set_rtl (tree t, rtx x)
       SA.partition_to_pseudo[var_to_partition (SA.map, t)] = x;
       if (x && !MEM_P (x))
 	set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (t), x);
+      /* For the benefit of debug information at -O0 (where vartracking
+         doesn't run) record the place also in the base DECL if it's
+	 a normal variable (not a parameter).  */
+      if (x && x != pc_rtx && TREE_CODE (SSA_NAME_VAR (t)) == VAR_DECL)
+	{
+	  tree var = SSA_NAME_VAR (t);
+	  /* If we don't yet have something recorded, just record it now.  */
+	  if (!DECL_RTL_SET_P (var))
+	    SET_DECL_RTL (var, x);
+	  /* If we have it set alrady to "multiple places" don't
+	     change this.  */
+	  else if (DECL_RTL (var) == pc_rtx)
+	    ;
+	  /* If we have something recorded and it's not the same place
+	     as we want to record now, we have multiple partitions for the
+	     same base variable, with different places.  We can't just
+	     randomly chose one, hence we have to say that we don't know.
+	     This only happens with optimization, and there var-tracking
+	     will figure out the right thing.  */
+	  else if (DECL_RTL (var) != x)
+	    SET_DECL_RTL (var, pc_rtx);
+	}
     }
   else
     SET_DECL_RTL (t, x);
@@ -542,8 +564,8 @@ get_decl_align_unit (tree decl)
      So here we only make sure stack_alignment_needed >= align.  */
   if (crtl->stack_alignment_needed < align)
     crtl->stack_alignment_needed = align;
-  if (crtl->max_used_stack_slot_alignment < crtl->stack_alignment_needed)
-    crtl->max_used_stack_slot_alignment = crtl->stack_alignment_needed;
+  if (crtl->max_used_stack_slot_alignment < align)
+    crtl->max_used_stack_slot_alignment = align;
 
   return align / BITS_PER_UNIT;
 }
@@ -762,6 +784,133 @@ stack_var_size_cmp (const void *a, const void *b)
   return 0;
 }
 
+
+/* If the points-to solution *PI points to variables that are in a partition
+   together with other variables add all partition members to the pointed-to
+   variables bitmap.  */
+
+static void
+add_partitioned_vars_to_ptset (struct pt_solution *pt,
+			       struct pointer_map_t *decls_to_partitions,
+			       struct pointer_set_t *visited, bitmap temp)
+{
+  bitmap_iterator bi;
+  unsigned i;
+  bitmap *part;
+
+  if (pt->anything
+      || pt->vars == NULL
+      /* The pointed-to vars bitmap is shared, it is enough to
+	 visit it once.  */
+      || pointer_set_insert(visited, pt->vars))
+    return;
+
+  bitmap_clear (temp);
+
+  /* By using a temporary bitmap to store all members of the partitions
+     we have to add we make sure to visit each of the partitions only
+     once.  */
+  EXECUTE_IF_SET_IN_BITMAP (pt->vars, 0, i, bi)
+    if ((!temp
+	 || !bitmap_bit_p (temp, i))
+	&& (part = (bitmap *) pointer_map_contains (decls_to_partitions,
+						    (void *)(size_t) i)))
+      bitmap_ior_into (temp, *part);
+  if (!bitmap_empty_p (temp))
+    bitmap_ior_into (pt->vars, temp);
+}
+
+/* Update points-to sets based on partition info, so we can use them on RTL.
+   The bitmaps representing stack partitions will be saved until expand,
+   where partitioned decls used as bases in memory expressions will be
+   rewritten.  */
+
+static void
+update_alias_info_with_stack_vars (void)
+{
+  struct pointer_map_t *decls_to_partitions = NULL;
+  size_t i, j;
+  tree var = NULL_TREE;
+
+  for (i = 0; i < stack_vars_num; i++)
+    {
+      bitmap part = NULL;
+      tree name;
+      struct ptr_info_def *pi;
+
+      /* Not interested in partitions with single variable.  */
+      if (stack_vars[i].representative != i
+          || stack_vars[i].next == EOC)
+        continue;
+
+      if (!decls_to_partitions)
+	{
+	  decls_to_partitions = pointer_map_create ();
+	  cfun->gimple_df->decls_to_pointers = pointer_map_create ();
+	}
+
+      /* Create an SSA_NAME that points to the partition for use
+         as base during alias-oracle queries on RTL for bases that
+	 have been partitioned.  */
+      if (var == NULL_TREE)
+	var = create_tmp_var (ptr_type_node, NULL);
+      name = make_ssa_name (var, NULL);
+
+      /* Create bitmaps representing partitions.  They will be used for
+         points-to sets later, so use GGC alloc.  */
+      part = BITMAP_GGC_ALLOC ();
+      for (j = i; j != EOC; j = stack_vars[j].next)
+	{
+	  tree decl = stack_vars[j].decl;
+	  unsigned int uid = DECL_UID (decl);
+	  /* We should never end up partitioning SSA names (though they
+	     may end up on the stack).  Neither should we allocate stack
+	     space to something that is unused and thus unreferenced.  */
+	  gcc_assert (DECL_P (decl)
+		      && referenced_var_lookup (uid));
+	  bitmap_set_bit (part, uid);
+	  *((bitmap *) pointer_map_insert (decls_to_partitions,
+					   (void *)(size_t) uid)) = part;
+	  *((tree *) pointer_map_insert (cfun->gimple_df->decls_to_pointers,
+					 decl)) = name;
+	}
+
+      /* Make the SSA name point to all partition members.  */
+      pi = get_ptr_info (name);
+      pt_solution_set (&pi->pt, part);
+    }
+
+  /* Make all points-to sets that contain one member of a partition
+     contain all members of the partition.  */
+  if (decls_to_partitions)
+    {
+      unsigned i;
+      struct pointer_set_t *visited = pointer_set_create ();
+      bitmap temp = BITMAP_ALLOC (NULL);
+
+      for (i = 1; i < num_ssa_names; i++)
+	{
+	  tree name = ssa_name (i);
+	  struct ptr_info_def *pi;
+
+	  if (name
+	      && POINTER_TYPE_P (TREE_TYPE (name))
+	      && ((pi = SSA_NAME_PTR_INFO (name)) != NULL))
+	    add_partitioned_vars_to_ptset (&pi->pt, decls_to_partitions,
+					   visited, temp);
+	}
+
+      add_partitioned_vars_to_ptset (&cfun->gimple_df->escaped,
+				     decls_to_partitions, visited, temp);
+      add_partitioned_vars_to_ptset (&cfun->gimple_df->callused,
+				     decls_to_partitions, visited, temp);
+
+      pointer_set_destroy (visited);
+      pointer_map_destroy (decls_to_partitions);
+      BITMAP_FREE (temp);
+    }
+}
+
 /* A subroutine of partition_stack_vars.  The UNION portion of a UNION/FIND
    partitioning algorithm.  Partitions A and B are known to be non-conflicting.
    Merge them into a single partition A.
@@ -881,6 +1030,9 @@ partition_stack_vars (void)
 	    break;
 	}
     }
+
+  if (optimize)
+    update_alias_info_with_stack_vars ();
 }
 
 /* A debugging aid for expand_used_vars.  Dump the generated partitions.  */
@@ -1142,9 +1294,11 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 	 variables, which won't be on stack, we collect alignment of
 	 type and ignore user specified alignment.  */
       if (TREE_STATIC (var) || DECL_EXTERNAL (var))
-	align = TYPE_ALIGN (TREE_TYPE (var));
+	align = MINIMUM_ALIGNMENT (TREE_TYPE (var),
+				   TYPE_MODE (TREE_TYPE (var)),
+				   TYPE_ALIGN (TREE_TYPE (var)));
       else
-	align = DECL_ALIGN (var);
+	align = MINIMUM_ALIGNMENT (var, DECL_MODE (var), DECL_ALIGN (var));
 
       if (crtl->stack_alignment_estimated < align)
         {
@@ -1161,7 +1315,6 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 		  || (!DECL_EXTERNAL (var)
 		      && !DECL_HAS_VALUE_EXPR_P (var)
 		      && !TREE_STATIC (var)
-		      && !DECL_RTL_SET_P (var)
 		      && TREE_TYPE (var) != error_mark_node
 		      && !DECL_HARD_REGISTER (var)
 		      && really_expand));
@@ -1174,7 +1327,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
     ;
   else if (TREE_STATIC (var))
     ;
-  else if (DECL_RTL_SET_P (var))
+  else if (TREE_CODE (origvar) != SSA_NAME && DECL_RTL_SET_P (var))
     ;
   else if (TREE_TYPE (var) == error_mark_node)
     {
@@ -1389,7 +1542,8 @@ add_stack_protection_conflicts (void)
 static void
 create_stack_guard (void)
 {
-  tree guard = build_decl (VAR_DECL, NULL, ptr_type_node);
+  tree guard = build_decl (DECL_SOURCE_LOCATION (current_function_decl),
+			   VAR_DECL, NULL, ptr_type_node);
   TREE_THIS_VOLATILE (guard) = 1;
   TREE_USED (guard) = 1;
   expand_one_stack_var (guard);
@@ -1561,7 +1715,11 @@ expand_used_vars (void)
 
       /* Expanded above already.  */
       if (is_gimple_reg (var))
-	;
+	{
+	  TREE_USED (var) = 0;
+	  ggc_free (t);
+	  continue;
+	}
       /* We didn't set a block for static or extern because it's hard
 	 to tell the difference between a global variable (re)declared
 	 in a local scope, and one that's really declared there to
@@ -2321,7 +2479,8 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
 	  t = get_base_address (t);
-	  if (t && DECL_P (t))
+	  if (t && DECL_P (t)
+              && DECL_MODE (t) != BLKmode)
 	    TREE_ADDRESSABLE (t) = 1;
 	}
 
@@ -2494,6 +2653,12 @@ gimple_expand_cfg (void)
 	  && !SA.partition_to_pseudo[i])
 	SA.partition_to_pseudo[i] = DECL_RTL_IF_SET (var);
       gcc_assert (SA.partition_to_pseudo[i]);
+
+      /* If this decl was marked as living in multiple places, reset
+         this now to NULL.  */
+      if (DECL_RTL_IF_SET (var) == pc_rtx)
+	SET_DECL_RTL (var, NULL);
+
       /* Some RTL parts really want to look at DECL_RTL(x) when x
          was a decl marked in REG_ATTR or MEM_ATTR.  We could use
 	 SET_DECL_RTL here making this available, but that would mean

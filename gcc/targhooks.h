@@ -66,12 +66,11 @@ extern bool default_fixed_point_supported_p (void);
 
 extern const char * default_invalid_within_doloop (const_rtx);
 
-extern tree default_builtin_vectorized_function
-  (enum built_in_function, tree, tree);
+extern tree default_builtin_vectorized_function (unsigned int, tree, tree);
 
-extern tree default_builtin_vectorized_conversion (enum tree_code, tree);
+extern tree default_builtin_vectorized_conversion (unsigned int, tree);
 
-extern tree default_builtin_reciprocal (enum built_in_function, bool, bool);
+extern tree default_builtin_reciprocal (unsigned int, bool, bool);
 
 extern bool default_builtin_vector_alignment_reachable (const_tree, bool);
 
@@ -108,5 +107,5 @@ extern tree default_emutls_var_init (tree, tree, tree);
 extern bool default_hard_regno_scratch_ok (unsigned int);
 extern bool default_target_option_valid_attribute_p (tree, tree, tree, int);
 extern bool default_target_option_pragma_parse (tree, tree);
-extern bool default_target_option_can_inline_p (tree, tree);
+extern bool default_target_can_inline_p (tree, tree);
 extern unsigned int default_case_values_threshold (void);

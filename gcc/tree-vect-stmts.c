@@ -300,19 +300,24 @@ process_use (gimple stmt, tree use, loop_vec_info loop_vinfo, bool live_p,
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "outer-loop def-stmt defining inner-loop stmt.");
+
       switch (relevant)
 	{
 	case vect_unused_in_scope:
-	  relevant = (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def) ?
-			vect_used_by_reduction : vect_unused_in_scope;
+	  relevant = (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_nested_cycle) ?
+		      vect_used_in_scope : vect_unused_in_scope;
 	  break;
+
 	case vect_used_in_outer_by_reduction:
+          gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def);
 	  relevant = vect_used_by_reduction;
 	  break;
+
 	case vect_used_in_outer:
+          gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def);
 	  relevant = vect_used_in_scope;
 	  break;
-	case vect_used_by_reduction: 
+
 	case vect_used_in_scope:
 	  break;
 
@@ -326,21 +331,19 @@ process_use (gimple stmt, tree use, loop_vec_info loop_vinfo, bool live_p,
 		...
 	inner-loop:
 		d = def_stmt
-	outer-loop-tail-bb:
+	outer-loop-tail-bb (or outer-loop-exit-bb in double reduction):
 		stmt # use (d)		*/
   else if (flow_loop_nested_p (bb->loop_father, def_bb->loop_father))
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "inner-loop def-stmt defining outer-loop stmt.");
+
       switch (relevant)
         {
         case vect_unused_in_scope:
-          relevant = (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def) ?
+          relevant = (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def 
+            || STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_double_reduction_def) ?
                       vect_used_in_outer_by_reduction : vect_unused_in_scope;
-          break;
-
-        case vect_used_in_outer_by_reduction:
-        case vect_used_in_outer:
           break;
 
         case vect_used_by_reduction:
@@ -391,7 +394,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   basic_block bb;
   gimple phi;
   bool live_p;
-  enum vect_relevant relevant;
+  enum vect_relevant relevant, tmp_relevant;
+  enum vect_def_type def_type;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_mark_stmts_to_be_vectorized ===");
@@ -461,52 +465,68 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	 those that are used by a reduction computation, and those that are 
 	 (also) used by a regular computation. This allows us later on to 
 	 identify stmts that are used solely by a reduction, and therefore the 
-	 order of the results that they produce does not have to be kept.
+	 order of the results that they produce does not have to be kept.  */
 
-	 Reduction phis are expected to be used by a reduction stmt, or by
-	 in an outer loop;  Other reduction stmts are expected to be
-	 in the loop, and possibly used by a stmt in an outer loop. 
-	 Here are the expected values of "relevant" for reduction phis/stmts:
-
-	 relevance:				phi	stmt
-	 vect_unused_in_scope				ok
-	 vect_used_in_outer_by_reduction	ok	ok
-	 vect_used_in_outer			ok	ok
-	 vect_used_by_reduction			ok
-	 vect_used_in_scope				              */
-
-      if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def)
+      def_type = STMT_VINFO_DEF_TYPE (stmt_vinfo);
+      tmp_relevant = relevant;
+      switch (def_type)
         {
-	  enum vect_relevant tmp_relevant = relevant;
-	  switch (tmp_relevant)
-	    {
-	    case vect_unused_in_scope:
-	      gcc_assert (gimple_code (stmt) != GIMPLE_PHI);
-	      relevant = vect_used_by_reduction;
-	      break;
+          case vect_reduction_def:
+	    switch (tmp_relevant)
+	      {
+	        case vect_unused_in_scope:
+	          relevant = vect_used_by_reduction;
+	          break;
 
-	    case vect_used_in_outer_by_reduction:
-	    case vect_used_in_outer:
-	      gcc_assert (gimple_code (stmt) != GIMPLE_ASSIGN
-                          || (gimple_assign_rhs_code (stmt) != WIDEN_SUM_EXPR
-                              && (gimple_assign_rhs_code (stmt)
-                                  != DOT_PROD_EXPR)));
-	      break;
+	        case vect_used_by_reduction:
+	          if (gimple_code (stmt) == GIMPLE_PHI)
+                    break;
+  	          /* fall through */
 
-	    case vect_used_by_reduction:
-	      if (gimple_code (stmt) == GIMPLE_PHI)
-		break;
-	      /* fall through */
-	    case vect_used_in_scope:
-	    default:
-	      if (vect_print_dump_info (REPORT_DETAILS))
-	        fprintf (vect_dump, "unsupported use of reduction.");
-	      VEC_free (gimple, heap, worklist);
-	      return false;
-	    }
-	  live_p = false;	
-	}
+	        default:
+	          if (vect_print_dump_info (REPORT_DETAILS))
+	            fprintf (vect_dump, "unsupported use of reduction.");
 
+  	          VEC_free (gimple, heap, worklist);
+	          return false;
+	      }
+
+	    live_p = false;	
+	    break;
+ 
+          case vect_nested_cycle:
+            if (tmp_relevant != vect_unused_in_scope
+                && tmp_relevant != vect_used_in_outer_by_reduction
+                && tmp_relevant != vect_used_in_outer)
+              {
+                if (vect_print_dump_info (REPORT_DETAILS))
+                  fprintf (vect_dump, "unsupported use of nested cycle.");
+
+                VEC_free (gimple, heap, worklist);
+                return false;
+              }
+
+            live_p = false; 
+            break; 
+      
+          case vect_double_reduction_def:
+            if (tmp_relevant != vect_unused_in_scope
+                && tmp_relevant != vect_used_by_reduction)
+              {
+                if (vect_print_dump_info (REPORT_DETAILS))
+                  fprintf (vect_dump, "unsupported use of double reduction.");
+
+                VEC_free (gimple, heap, worklist);
+                return false;
+              }
+
+            live_p = false;
+            break; 
+
+          default:
+            break;
+        }
+ 
       FOR_EACH_PHI_OR_STMT_USE (use_p, stmt, iter, SSA_OP_USE)
 	{
 	  tree op = USE_FROM_PTR (use_p);
@@ -971,6 +991,8 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
 
     /* Case 4: operand is defined by a loop header phi - reduction  */
     case vect_reduction_def:
+    case vect_double_reduction_def:
+    case vect_nested_cycle:
       {
 	struct loop *loop;
 
@@ -3018,7 +3040,6 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 
   alignment_support_scheme = vect_supportable_dr_alignment (first_dr);
   gcc_assert (alignment_support_scheme);
-  gcc_assert (alignment_support_scheme == dr_aligned);  /* FORNOW */
 
   /* In case the vectorization factor (VF) is bigger than the number
      of elements that we can fit in a vectype (nunits), we have to generate
@@ -3157,7 +3178,16 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	       vect_permute_store_chain().  */
 	    vec_oprnd = VEC_index (tree, result_chain, i);
 
-	  data_ref = build_fold_indirect_ref (dataref_ptr);
+          if (aligned_access_p (first_dr))
+            data_ref = build_fold_indirect_ref (dataref_ptr);
+          else
+          {
+            int mis = DR_MISALIGNMENT (first_dr);
+            tree tmis = (mis == -1 ? size_zero_node : size_int (mis));
+            tmis = size_binop (MULT_EXPR, tmis, size_int (BITS_PER_UNIT));
+            data_ref = build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
+           }
+
 	  /* If accesses through a pointer to vectype do not alias the original
 	     memory reference we have a problem.  This should never happen.  */
 	  gcc_assert (alias_sets_conflict_p (get_alias_set (data_ref),
@@ -3898,6 +3928,14 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
       print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
     }
 
+  if (gimple_has_volatile_ops (stmt))
+    {    
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
+        fprintf (vect_dump, "not vectorized: stmt has volatile operands");
+
+      return false;
+    }
+ 
   /* Skip stmts that do not need to be vectorized. In loops this is expected 
      to include:
      - the COND_EXPR which is the loop exit condition
@@ -3921,6 +3959,7 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
         break;
 
       case vect_reduction_def:
+      case vect_nested_cycle:
          gcc_assert (!bb_vinfo && (relevance == vect_used_in_outer
                      || relevance == vect_used_in_outer_by_reduction
                      || relevance == vect_unused_in_scope));

@@ -1204,9 +1204,9 @@ package body Sem_Type is
       --  for special handling of expressions with universal operands, see
       --  comments to Has_Abstract_Interpretation below.
 
-      ------------------------
-      --  In_Generic_Actual --
-      ------------------------
+      -----------------------
+      -- In_Generic_Actual --
+      -----------------------
 
       function In_Generic_Actual (Exp : Node_Id) return Boolean is
          Par : constant Node_Id := Parent (Exp);
@@ -2147,9 +2147,8 @@ package body Sem_Type is
    -------------------------
 
    function Has_Compatible_Type
-     (N    : Node_Id;
-      Typ  : Entity_Id)
-      return Boolean
+     (N   : Node_Id;
+      Typ : Entity_Id) return Boolean
    is
       I  : Interp_Index;
       It : Interp;
@@ -2367,8 +2366,10 @@ package body Sem_Type is
    --  Start of processing for Interface_Present_In_Ancestor
 
    begin
+      --  Iface might be a class-wide subtype, so we have to apply Base_Type
+
       if Is_Class_Wide_Type (Iface) then
-         Iface_Typ := Etype (Iface);
+         Iface_Typ := Etype (Base_Type (Iface));
       else
          Iface_Typ := Iface;
       end if;
@@ -2595,9 +2596,8 @@ package body Sem_Type is
    ---------------------------
 
    function Is_Invisible_Operator
-     (N    : Node_Id;
-      T    : Entity_Id)
-      return Boolean
+     (N : Node_Id;
+      T : Entity_Id) return Boolean
    is
       Orig_Node : constant Node_Id := Original_Node (N);
 
@@ -2807,9 +2807,8 @@ package body Sem_Type is
               and then Base_Type (T1) = Base_Type (T)
               and then Is_Numeric_Type (T);
 
-         --  for division and multiplication, a user-defined function does
-         --  not match the predefined universal_fixed operation, except in
-         --  Ada83 mode.
+         --  For division and multiplication, a user-defined function does not
+         --  match the predefined universal_fixed operation, except in Ada 83.
 
          elsif Op_Name = Name_Op_Divide then
             return (Base_Type (T1) = Base_Type (T2)
@@ -2890,7 +2889,7 @@ package body Sem_Type is
       II : Interp_Index;
 
    begin
-      --  Find end of Interp list and copy downward to erase the discarded one
+      --  Find end of interp list and copy downward to erase the discarded one
 
       II := I + 1;
       while Present (All_Interp.Table (II).Typ) loop
@@ -2901,7 +2900,7 @@ package body Sem_Type is
          All_Interp.Table (J - 1) := All_Interp.Table (J);
       end loop;
 
-      --  Back up interp. index to insure that iterator will pick up next
+      --  Back up interp index to insure that iterator will pick up next
       --  available interpretation.
 
       I := I - 1;

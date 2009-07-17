@@ -249,6 +249,9 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
   /* Expected frequency.  Normalized to be in range 0 to BB_FREQ_MAX.  */
   int frequency;
 
+  /* The discriminator for this block.  */
+  int discriminator;
+
   /* Various flags.  See BB_* below.  */
   int flags;
 };
@@ -488,7 +491,8 @@ extern bitmap_obstack reg_obstack;
 #define BB_HEAD(B)      (B)->il.rtl->head_
 #define BB_END(B)       (B)->il.rtl->end_
 
-/* Special block numbers [markers] for entry and exit.  */
+/* Special block numbers [markers] for entry and exit.
+   Neither of them is supposed to hold actual statements.  */
 #define ENTRY_BLOCK (0)
 #define EXIT_BLOCK (1)
 
@@ -853,8 +857,6 @@ extern bool br_prob_note_reliable_p (const_rtx);
 extern bool predictable_edge_p (edge);
 
 /* In cfg.c  */
-extern void dump_regset (regset, FILE *);
-extern void debug_regset (regset);
 extern void init_flow (struct function *);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);

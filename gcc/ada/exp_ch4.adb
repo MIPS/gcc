@@ -386,7 +386,7 @@ package body Exp_Ch4 is
         and then Nkind (Orig_Node) = N_Allocator);
 
       PtrT := Etype (Orig_Node);
-      Dtyp := Designated_Type (PtrT);
+      Dtyp := Available_View (Designated_Type (PtrT));
       Etyp := Etype (Expression (Orig_Node));
 
       if Is_Class_Wide_Type (Dtyp)
@@ -571,6 +571,57 @@ package body Exp_Ch4 is
 
    begin
       if Is_Tagged_Type (T) or else Needs_Finalization (T) then
+
+         if Is_CPP_Constructor_Call (Exp) then
+
+            --  Generate:
+            --  Pnnn : constant ptr_T := new (T); Init (Pnnn.all,...); Pnnn
+
+            --  Allocate the object with no expression
+
+            Node := Relocate_Node (N);
+            Set_Expression (Node, New_Reference_To (Etype (Exp), Loc));
+
+            --  Avoid its expansion to avoid generating a call to the default
+            --  C++ constructor
+
+            Set_Analyzed (Node);
+
+            Temp := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
+
+            Insert_Action (N,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Temp,
+                Constant_Present    => True,
+                Object_Definition   => New_Reference_To (PtrT, Loc),
+                Expression          => Node));
+
+            Apply_Accessibility_Check (Temp);
+
+            --  Locate the enclosing list and insert the C++ constructor call
+
+            declare
+               P : Node_Id;
+
+            begin
+               P := Parent (Node);
+               while not Is_List_Member (P) loop
+                  P := Parent (P);
+               end loop;
+
+               Insert_List_After_And_Analyze (P,
+                 Build_Initialization_Call (Loc,
+                   Id_Ref =>
+                     Make_Explicit_Dereference (Loc,
+                       Prefix => New_Reference_To (Temp, Loc)),
+                   Typ => Etype (Exp),
+                   Constructor_Ref => Exp));
+            end;
+
+            Rewrite (N, New_Reference_To (Temp, Loc));
+            Analyze_And_Resolve (N, PtrT);
+            return;
+         end if;
 
          --  Ada 2005 (AI-318-02): If the initialization expression is a call
          --  to a build-in-place function, then access to the allocated object
@@ -986,6 +1037,11 @@ package body Exp_Ch4 is
 
          Apply_Constraint_Check (Exp, T, No_Sliding => True);
 
+         if Do_Range_Check (Exp) then
+            Set_Do_Range_Check (Exp, False);
+            Generate_Range_Check (Exp, DesigT, CE_Range_Check_Failed);
+         end if;
+
          --  A check is also needed in cases where the designated subtype is
          --  constrained and differs from the subtype given in the qualified
          --  expression. Note that the check on the qualified expression does
@@ -996,6 +1052,11 @@ package body Exp_Ch4 is
          then
             Apply_Constraint_Check
               (Exp, DesigT, No_Sliding => False);
+
+            if Do_Range_Check (Exp) then
+               Set_Do_Range_Check (Exp, False);
+               Generate_Range_Check (Exp, DesigT, CE_Range_Check_Failed);
+            end if;
          end if;
 
          --  For an access to unconstrained packed array, GIGI needs to see an
@@ -2999,7 +3060,7 @@ package body Exp_Ch4 is
 
    procedure Expand_N_Allocator (N : Node_Id) is
       PtrT  : constant Entity_Id  := Etype (N);
-      Dtyp  : constant Entity_Id  := Designated_Type (PtrT);
+      Dtyp  : constant Entity_Id  := Available_View (Designated_Type (PtrT));
       Etyp  : constant Entity_Id  := Etype (Expression (N));
       Loc   : constant Source_Ptr := Sloc (N);
       Desig : Entity_Id;
@@ -3926,8 +3987,7 @@ package body Exp_Ch4 is
 
          else pragma Assert (Expr_Value_E (Right) = Standard_False);
             Remove_Side_Effects (Left);
-            Rewrite
-              (N, New_Occurrence_Of (Standard_False, Loc));
+            Rewrite (N, New_Occurrence_Of (Standard_False, Loc));
          end if;
       end if;
 
@@ -3967,8 +4027,23 @@ package body Exp_Ch4 is
 
       --  and replace the conditional expression by a reference to Cnn
 
+      --  ??? Note: this expansion is wrong for limited types, since it does
+      --  a copy of a limited value. The proper fix would be to do the
+      --  following expansion:
+
+      --      Cnn : access typ;
+      --      if cond then
+      --         <<then actions>>
+      --         Cnn := then-expr'Unrestricted_Access;
+      --      else
+      --         <<else actions>>
+      --         Cnn := else-expr'Unrestricted_Access;
+      --      end if;
+
+      --  and replace the conditional expresion by a reference to Cnn.all ???
+
       if Present (Then_Actions (N)) or else Present (Else_Actions (N)) then
-         Cnn := Make_Defining_Identifier (Loc, New_Internal_Name ('C'));
+         Cnn := Make_Temporary (Loc, 'C', N);
 
          New_If :=
            Make_Implicit_If_Statement (N,
@@ -3984,8 +4059,8 @@ package body Exp_Ch4 is
                  Name => New_Occurrence_Of (Cnn, Sloc (Elsex)),
                  Expression => Relocate_Node (Elsex))));
 
-         --  Move the SLOC of the parent If statement to the newly created
-         --  one and change it to the SLOC of the expression which, after
+         --  Move the SLOC of the parent If statement to the newly created one
+         --  and change it to the SLOC of the expression which, after
          --  expansion, will correspond to what is being evaluated.
 
          if Present (Parent (N))
@@ -4042,6 +4117,67 @@ package body Exp_Ch4 is
       Rop    : constant Node_Id    := Right_Opnd (N);
       Static : constant Boolean    := Is_OK_Static_Expression (N);
 
+      procedure Expand_Set_Membership;
+      --  For each disjunct we create a simple equality or membership test.
+      --  The whole membership is rewritten as a short-circuit disjunction.
+
+      ---------------------------
+      -- Expand_Set_Membership --
+      ---------------------------
+
+      procedure Expand_Set_Membership is
+         Alt  : Node_Id;
+         Res  : Node_Id;
+
+         function Make_Cond (Alt : Node_Id) return Node_Id;
+         --  If the alternative is a subtype mark, create a simple membership
+         --  test. Otherwise create an equality test for it.
+
+         ---------------
+         -- Make_Cond --
+         ---------------
+
+         function Make_Cond (Alt : Node_Id) return Node_Id is
+            Cond : Node_Id;
+            L    : constant Node_Id := New_Copy (Lop);
+            R    : constant Node_Id := Relocate_Node (Alt);
+
+         begin
+            if Is_Entity_Name (Alt)
+              and then Is_Type (Entity (Alt))
+            then
+               Cond :=
+                 Make_In (Sloc (Alt),
+                   Left_Opnd  => L,
+                   Right_Opnd => R);
+            else
+               Cond := Make_Op_Eq (Sloc (Alt),
+                 Left_Opnd  => L,
+                 Right_Opnd => R);
+            end if;
+
+            return Cond;
+         end Make_Cond;
+
+      --  Start of proessing for Expand_N_In
+
+      begin
+         Alt := Last (Alternatives (N));
+         Res := Make_Cond (Alt);
+
+         Prev (Alt);
+         while Present (Alt) loop
+            Res :=
+              Make_Or_Else (Sloc (Alt),
+                Left_Opnd  => Make_Cond (Alt),
+                Right_Opnd => Res);
+            Prev (Alt);
+         end loop;
+
+         Rewrite (N, Res);
+         Analyze_And_Resolve (N, Standard_Boolean);
+      end Expand_Set_Membership;
+
       procedure Substitute_Valid_Check;
       --  Replaces node N by Lop'Valid. This is done when we have an explicit
       --  test for the left operand being in range of its subtype.
@@ -4067,6 +4203,13 @@ package body Exp_Ch4 is
    --  Start of processing for Expand_N_In
 
    begin
+
+      if Present (Alternatives (N)) then
+         Remove_Side_Effects (Lop);
+         Expand_Set_Membership;
+         return;
+      end if;
+
       --  Check case of explicit test for an expression in range of its
       --  subtype. This is suspicious usage and we replace it with a 'Valid
       --  test and give a warning.
@@ -4653,6 +4796,10 @@ package body Exp_Ch4 is
             Make_In (Loc,
               Left_Opnd  => Left_Opnd (N),
               Right_Opnd => Right_Opnd (N))));
+
+      --  If this is a set membership, preserve list of alternatives
+
+      Set_Alternatives (Right_Opnd (N), Alternatives (Original_Node (N)));
 
       --  We want this to appear as coming from source if original does (see
       --  transformations in Expand_N_In).
@@ -7021,6 +7168,11 @@ package body Exp_Ch4 is
       --  Apply possible constraint check
 
       Apply_Constraint_Check (Operand, Target_Type, No_Sliding => True);
+
+      if Do_Range_Check (Operand) then
+         Set_Do_Range_Check (Operand, False);
+         Generate_Range_Check (Operand, Target_Type, CE_Range_Check_Failed);
+      end if;
    end Expand_N_Qualified_Expression;
 
    ---------------------------------
@@ -7377,32 +7529,6 @@ package body Exp_Ch4 is
          Make_Build_In_Place_Call_In_Anonymous_Context (Pfx);
       end if;
 
-      --  Range checks are potentially also needed for cases involving a slice
-      --  indexed by a subtype indication, but Do_Range_Check can currently
-      --  only be set for expressions ???
-
-      if not Index_Checks_Suppressed (Ptp)
-        and then (not Is_Entity_Name (Pfx)
-                   or else not Index_Checks_Suppressed (Entity (Pfx)))
-        and then Nkind (Discrete_Range (N)) /= N_Subtype_Indication
-
-         --  Do not enable range check to nodes associated with the frontend
-         --  expansion of the dispatch table. We first check if Ada.Tags is
-         --  already loaded to avoid the addition of an undesired dependence
-         --  on such run-time unit.
-
-        and then
-          (not Tagged_Type_Expansion
-            or else not
-             (RTU_Loaded (Ada_Tags)
-               and then Nkind (Prefix (N)) = N_Selected_Component
-               and then Present (Entity (Selector_Name (Prefix (N))))
-               and then Entity (Selector_Name (Prefix (N))) =
-                                  RTE_Record_Component (RE_Prims_Ptr)))
-      then
-         Enable_Range_Check (Discrete_Range (N));
-      end if;
-
       --  The remaining case to be handled is packed slices. We can leave
       --  packed slices as they are in the following situations:
 
@@ -7473,6 +7599,11 @@ package body Exp_Ch4 is
       --  and what this procedure does is rewrite node N conversion as an
       --  assignment to temporary. If there is no change of representation,
       --  then the conversion node is unchanged.
+
+      procedure Raise_Accessibility_Error;
+      --  Called when we know that an accessibility check will fail. Rewrites
+      --  node N to an appropriate raise statement and outputs warning msgs.
+      --  The Etype of the raise node is set to Target_Type.
 
       procedure Real_Range_Check;
       --  Handles generation of range check for real target value
@@ -7602,6 +7733,22 @@ package body Exp_Ch4 is
             return;
          end if;
       end Handle_Changed_Representation;
+
+      -------------------------------
+      -- Raise_Accessibility_Error --
+      -------------------------------
+
+      procedure Raise_Accessibility_Error is
+      begin
+         Rewrite (N,
+           Make_Raise_Program_Error (Sloc (N),
+             Reason => PE_Accessibility_Check_Failed));
+         Set_Etype (N, Target_Type);
+
+         Error_Msg_N ("?accessibility check failure", N);
+         Error_Msg_NE
+           ("\?& will be raised at run time", N, Standard_Program_Error);
+      end Raise_Accessibility_Error;
 
       ----------------------
       -- Real_Range_Check --
@@ -7765,9 +7912,14 @@ package body Exp_Ch4 is
 
    begin
       --  Nothing at all to do if conversion is to the identical type so remove
-      --  the conversion completely, it is useless.
+      --  the conversion completely, it is useless, except that it may carry
+      --  an Assignment_OK attribute, which must be propagated to the operand.
 
       if Operand_Type = Target_Type then
+         if Assignment_OK (N) then
+            Set_Assignment_OK (Operand);
+         end if;
+
          Rewrite (N, Relocate_Node (Operand));
          return;
       end if;
@@ -7839,10 +7991,7 @@ package body Exp_Ch4 is
            and then Type_Access_Level (Operand_Type) >
                     Type_Access_Level (Target_Type)
          then
-            Rewrite (N,
-              Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Accessibility_Check_Failed));
-            Set_Etype (N, Target_Type);
+            Raise_Accessibility_Error;
 
          --  When the operand is a selected access discriminant the check needs
          --  to be made against the level of the object denoted by the prefix
@@ -7856,10 +8005,8 @@ package body Exp_Ch4 is
            and then Object_Access_Level (Operand) >
                       Type_Access_Level (Target_Type)
          then
-            Rewrite (N,
-              Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Accessibility_Check_Failed));
-            Set_Etype (N, Target_Type);
+            Raise_Accessibility_Error;
+            return;
          end if;
       end if;
 
@@ -7953,9 +8100,13 @@ package body Exp_Ch4 is
 
          begin
             if Is_Access_Type (Target_Type) then
-               Actual_Op_Typ   := Designated_Type (Operand_Type);
-               Actual_Targ_Typ := Designated_Type (Target_Type);
 
+               --  Handle entities from the limited view
+
+               Actual_Op_Typ :=
+                 Available_View (Designated_Type (Operand_Type));
+               Actual_Targ_Typ :=
+                 Available_View (Designated_Type (Target_Type));
             else
                Actual_Op_Typ   := Operand_Type;
                Actual_Targ_Typ := Target_Type;
@@ -7976,6 +8127,7 @@ package body Exp_Ch4 is
                --  conversion.
 
                if Is_Class_Wide_Type (Actual_Op_Typ)
+                 and then Actual_Op_Typ /= Actual_Targ_Typ
                  and then Root_Op_Typ /= Actual_Targ_Typ
                  and then Is_Ancestor (Root_Op_Typ, Actual_Targ_Typ)
                then
@@ -8355,6 +8507,19 @@ package body Exp_Ch4 is
       Operand_Type : constant Entity_Id := Etype (Operand);
 
    begin
+      --  Nothing at all to do if conversion is to the identical type so remove
+      --  the conversion completely, it is useless, except that it may carry
+      --  an Assignment_OK indication which must be proprgated to the operand.
+
+      if Operand_Type = Target_Type then
+         if Assignment_OK (N) then
+            Set_Assignment_OK (Operand);
+         end if;
+
+         Rewrite (N, Relocate_Node (Operand));
+         return;
+      end if;
+
       --  If we have a conversion of a compile time known value to a target
       --  type and the value is in range of the target type, then we can simply
       --  replace the construct by an integer literal of the correct type. We
@@ -9484,8 +9649,10 @@ package body Exp_Ch4 is
       Obj_Tag    : Node_Id;
 
    begin
-      Left_Type  := Etype (Left);
-      Right_Type := Etype (Right);
+      --  Handle entities from the limited view
+
+      Left_Type  := Available_View (Etype (Left));
+      Right_Type := Available_View (Etype (Right));
 
       if Is_Class_Wide_Type (Left_Type) then
          Left_Type := Root_Type (Left_Type);
