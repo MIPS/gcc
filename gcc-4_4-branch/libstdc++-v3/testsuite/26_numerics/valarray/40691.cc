@@ -1,7 +1,4 @@
-// { dg-options "-std=gnu++0x" }
-// { dg-do compile }
-
-// Copyright (C) 2008, 2009 Free Software Foundation, Inc.
+// Copyright (C) 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,11 +15,25 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
+// { dg-do compile }
 
-#include <cstdatomic>
+#include <valarray>
+
+// PR libstdc++/40691
+void test01()
+{
+  const std::valarray<int> vi(12);
+  std::valarray<bool> vb1(12);
+  std::valarray<bool> vb2(3);
+  std::slice s(0,3,4);
+
+  vb1 = !vi;
+  vb2 = !(std::valarray<int>)vi[s];
+  vb2 = !vi[s];
+}
 
 int main()
 {
-  std::atomic_address a = { { NULL } };
+  test01();
   return 0;
 }
