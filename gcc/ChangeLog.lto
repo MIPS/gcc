@@ -1,5 +1,11 @@
 2009-07-17  Richard Guenther  <rguenther@suse.de>
 
+	PR lto/40765
+	* lto-symtab.c (lto_symtab_merge_decl): Merge TREE_ADDRESSABLE
+	state.
+
+2009-07-17  Richard Guenther  <rguenther@suse.de>
+
 	* gimple.c (struct sccs): New structure for the SCC finding state.
 	(next_dfs_num): New static global.
 	(visit): New helper function for iterative_hash_gimple_type.
