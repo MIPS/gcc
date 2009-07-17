@@ -3300,7 +3300,8 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   if (code == POINTER_PLUS_EXPR && arg0 && arg1 && tt)
     gcc_assert (POINTER_TYPE_P (tt) && POINTER_TYPE_P (TREE_TYPE (arg0))
 		&& INTEGRAL_TYPE_P (TREE_TYPE (arg1))
-		&& useless_type_conversion_p (sizetype, TREE_TYPE (arg1)));
+		&& useless_type_conversion_p (targetm.sizetype,
+					      TREE_TYPE (arg1)));
 
   t = make_node_stat (code PASS_MEM_STAT);
   TREE_TYPE (t) = tt;
@@ -5547,7 +5548,7 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_pointer_type (tree to_type)
 {
-  return build_pointer_type_for_mode (to_type, ptr_mode, false);
+  return build_pointer_type_for_mode (to_type, *targetm.ptr_mode, false);
 }
 
 /* Same as build_pointer_type_for_mode, but for REFERENCE_TYPE.  */
@@ -8980,6 +8981,28 @@ get_name (tree t)
 	  return get_name (TREE_OPERAND (stripped_decl, 0));
 	default:
 	  return NULL;
+	}
+    }
+}
+
+/* Return the declaration belonging to the return value of decl_name.  */
+tree
+get_get_name_decl (tree t)
+{
+  tree stripped_decl;
+
+  stripped_decl = t;
+  STRIP_NOPS (stripped_decl);
+  if (DECL_P (stripped_decl) && DECL_NAME (stripped_decl))
+    return stripped_decl;
+  else
+    {
+      switch (TREE_CODE (stripped_decl))
+	{
+	case ADDR_EXPR:
+	  return get_get_name_decl (TREE_OPERAND (stripped_decl, 0));
+	default:
+	  return NULL_TREE;
 	}
     }
 }

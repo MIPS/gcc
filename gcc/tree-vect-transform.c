@@ -969,6 +969,108 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
   return vec_stmt;
 }
 
+/* Function vect_decompose_addr_base_for_vector_ref.
+
+   Decompose the address of the first memory location
+   that will be accessed for a data reference.
+
+   Input:
+   STMT: The statement containing the data reference.
+   OFFSET: Optional. If supplied, it is be added to the initial address.
+   LOOP:    Specify relative to which loop-nest should the address be computed.
+            For example, when the dataref is in an inner-loop nested in an
+	    outer-loop that is now being vectorized, LOOP can be either the
+	    outer-loop, or the inner-loop. The first memory location accessed
+	    by the following dataref ('in' points to short):
+
+		for (i=0; i<N; i++)
+		   for (j=0; j<M; j++)
+		     s += in[i+j]
+
+	    is as follows:
+	    if LOOP=i_loop:	&in		(relative to i_loop)
+	    if LOOP=j_loop: 	&in+i*2B	(relative to j_loop)
+
+   Output:
+   1. Return a GENERIC expression whose value is the address derived from the
+      base address derived from the declaration of the array / variable in
+      the memory access.
+   2. Decompose the offset from there to the address of the memory
+      location of the first vector of the data reference into a constant part
+      *coffset and a variable part *voffset.
+
+   FORNOW: We are only handling array accesses with step 1.  */
+
+static tree
+vect_decompose_addr_base_for_vector_ref (gimple stmt, tree offset,
+					 struct loop *loop,
+					 tree *coffset, tree *voffset)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
+  struct loop *containing_loop = (gimple_bb (stmt))->loop_father;
+  tree data_ref_base = unshare_expr (DR_BASE_ADDRESS (dr));
+  tree base_name;
+  tree base_offset = unshare_expr (DR_OFFSET (dr));
+  tree init = unshare_expr (DR_INIT (dr));
+  tree step = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr)));
+  tree tmp_var, tmp_off;
+
+  gcc_assert (loop);
+  if (loop != containing_loop)
+    {
+      loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+      struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+
+      gcc_assert (nested_in_vect_loop_p (loop, stmt));
+
+      data_ref_base = unshare_expr (STMT_VINFO_DR_BASE_ADDRESS (stmt_info));
+      base_offset = unshare_expr (STMT_VINFO_DR_OFFSET (stmt_info));
+      init = unshare_expr (STMT_VINFO_DR_INIT (stmt_info));
+    }
+
+  /* Create data_ref_base */
+  base_name = build_fold_indirect_ref (data_ref_base);
+
+  init = fold_convert (sizetype, init);
+  if (offset)
+    {
+      gcc_assert (really_constant_p (offset));
+      offset = fold_build2 (MULT_EXPR, sizetype,
+			    fold_convert (sizetype, offset), step);
+      init = size_binop (PLUS_EXPR, init, offset);
+    }
+
+  split_constant_offset (base_offset, &tmp_var, &tmp_off);
+  base_offset = fold_convert (sizetype, tmp_var);
+  init = size_binop (PLUS_EXPR, init, fold_convert (sizetype, tmp_off));
+
+  *coffset = init;
+  *voffset = base_offset;
+
+  /* We rely here on get_name only accepting a variable declaration or its
+     address, not any PLUS_EXPR with some other offset.  */
+  gcc_assert (get_name (base_name));
+
+  return base_name;
+}
+
+static unsigned int
+param_array_hash (const void *p)
+{
+  param_array elem = (param_array) p;
+
+  return htab_hash_pointer (elem->decl);
+}
+
+static int
+param_array_eq (const void *p0, const void *p1)
+{
+  param_array e0 = (param_array) p0;
+  param_array e1 = (param_array) p1;
+
+  return e0->decl == e1->decl;
+}
 
 /* Function vect_create_data_ref_ptr.
 
@@ -1044,6 +1146,8 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   gimple incr;
   tree step;
   alias_set_type ptr_alias_set = 0;
+  bool numa = !((*targetm_array[cfun->target_arch]->common_data_with_target)
+		 (targetm_array[loop->target_arch]));
   enum machine_mode tptrmode = *targetm_array[loop->target_arch]->ptr_mode;
 
   /* Check the step (evolution) of the load in LOOP, and record
@@ -1113,6 +1217,74 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
     {
       set_symbol_mem_tag (vect_ptr, tag);
       mark_sym_for_renaming (tag);
+    }
+
+  if (numa)
+    {
+      tree decl;
+      void **slot;
+      param_array new_a;
+      int stride;
+      bool load_p = at_loop != NULL;
+      tree base, coffset, voffset;
+      struct tree_range *rangep;
+      struct tree_map *m;
+
+      if (!loop->param_arrays)
+	{
+	  loop->param_arrays
+	    = htab_create (10, param_array_hash, param_array_eq, free);
+	  loop->vect_vars
+	    = htab_create (10, tree_map_hash, tree_map_eq, free);
+	}
+
+      /* If we want to handle vectorizing outer loops, we need a more
+	 complex model of the to-be-transferred arrays than an index range
+	 and a single stride.  I.e. we'd have to consider that the entire
+	 access range of the inner loop must be present, and write overlap with
+	 a following simulatanously processed range must be avoided.  */
+      gcc_assert (!nested_in_vect_loop);
+      /* Moreover, if the address is initialized inside the loop (in the
+	 preheader of the inner loop), we'd need to arrange for the DMA
+	 to be somewhere else.  */
+      gcc_assert (!at_loop || at_loop == loop);
+      gcc_assert (!*inv_p);
+      stride = tree_low_cst (TYPE_SIZE_UNIT (vectype), 1);
+      base = vect_decompose_addr_base_for_vector_ref (stmt, offset, loop,
+						      &coffset, &voffset);
+      decl = get_get_name_decl (base);
+      slot = htab_find_slot (loop->param_arrays, &decl, INSERT);
+      new_a = *(param_array *) slot;
+      if (!new_a)
+	{
+	  new_a = XCNEW (struct param_array_d);
+	  *slot = new_a;
+	  new_a->decl = decl;
+	  new_a->caller_base = base;
+	  new_a->stride = stride;
+	  new_a->invar_offset = voffset;
+	  rangep = load_p ? &new_a->read_offset : &new_a->write_offset;
+	  rangep->min = rangep->max = coffset;
+	}
+      else
+	{
+	  gcc_assert (operand_equal_p (new_a->caller_base, base, 0));
+	  gcc_assert (new_a->stride == stride);
+	  gcc_assert (operand_equal_p (new_a->invar_offset, voffset, 0));
+
+	  rangep = load_p ? &new_a->read_offset : &new_a->write_offset;
+	  if (!rangep->min || tree_int_cst_lt (coffset, rangep->min))
+	    rangep->min = coffset;
+	  if (!rangep->max || tree_int_cst_lt (rangep->max, coffset))
+	    rangep->max = coffset;
+	}
+      m = XCNEW (struct tree_map);
+      m->hash = DECL_UID (vect_ptr);
+      m->base.from = vect_ptr;
+      m->to = decl;
+      slot = htab_find_slot_with_hash (loop->vect_vars, m, m->hash, INSERT);
+      gcc_assert (*slot == NULL);
+      *slot = m;
     }
 
   /** Note: If the dataref is in an inner-loop nested in LOOP, and we are

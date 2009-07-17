@@ -145,6 +145,7 @@
    (CC_REG 61)
    (LP_START 144)
    (LP_END 145)
+   (SDM 146)
   ]
 )
 
@@ -667,8 +668,8 @@
   "if (prepare_move_operands (operands, HImode)) DONE;")
 
 (define_insn "*movhi_insn"
-  [(set (match_operand:HI 0 "move_dest_operand" "=Rcq,Rcq#q,w, w,w,???w,Rcq#q,w,Rcq,S,r,m,???m,VUsc")
-	(match_operand:HI 1 "move_src_operand"   "cL,cP,Rcq#q,cL,I,?Rac,  ?i,?i,T,Rcq,m,c,?Rac,i"))]
+  [(set (match_operand:HI 0 "move_dest_operand" "=Rcq,Rcq#q,w, w,w,???w,Rcq#q,w,Rcq,S,r,m,???m,VUsc,v")
+	(match_operand:HI 1 "move_src_operand"   "cL,cP,Rcq#q,cL,I,?Rac,  ?i,?i,T,Rcq,m,c,?Rac,i,c"))]
   "register_operand (operands[0], HImode)
    || register_operand (operands[1], HImode)
    || (CONSTANT_P (operands[1])
@@ -690,10 +691,11 @@
    ldw%U1%V1 %0,%1
    stw%U0%V0 %1,%0
    stw%U0%V0 %1,%0
-   stw%U0%V0 %S1,%0"
-  [(set_attr "type" "move,move,move,move,move,move,move,move,load,store,load,store,store,store")
-   (set_attr "iscompact" "maybe,maybe,maybe,false,false,false,maybe_limm,false,true,true,false,false,false,false")
-   (set_attr "cond" "canuse,canuse_limm,canuse,canuse,canuse_limm,canuse,canuse,canuse,nocond,nocond,nocond,nocond,nocond,nocond")])
+   stw%U0%V0 %S1,%0
+   vmovw %0,%1,1"
+  [(set_attr "type" "move,move,move,move,move,move,move,move,load,store,load,store,store,store,move")
+   (set_attr "iscompact" "maybe,maybe,maybe,false,false,false,maybe_limm,false,true,true,false,false,false,false,false")
+   (set_attr "cond" "canuse,canuse_limm,canuse,canuse,canuse_limm,canuse,canuse,canuse,nocond,nocond,nocond,nocond,nocond,nocond,nocond")])
 
 (define_expand "movsi"
   [(set (match_operand:SI 0 "move_dest_operand" "")

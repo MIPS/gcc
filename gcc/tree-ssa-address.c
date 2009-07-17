@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "ggc.h"
 #include "tree-affine.h"
+#include "target.h"
 #include "multi-target.h"
 
 /* TODO -- handling of symbols (according to Richard Hendersons
@@ -247,6 +248,20 @@ addr_for_mem_ref (struct mem_address *addr, bool really_expand)
 }
 
 #ifndef EXTRA_TARGET
+EXTRA_TARGETS_DECL (rtx addr_for_mem_ref (struct mem_address *, bool));
+
+/* Like addr_for_mem_ref, but dispatch according to targetm, so this is
+   suitable for tree optimizers that don't have target-specific variants.  */
+
+rtx
+tree_addr_for_mem_ref (struct mem_address *addr, bool really_expand)
+{
+  rtx (*addr_for_mem_ref_array[]) (struct mem_address *, bool)
+    = { &addr_for_mem_ref, EXTRA_TARGETS_EXPAND_COMMA (&,addr_for_mem_ref) };
+
+  return (*addr_for_mem_ref_array[targetm.target_arch]) (addr, really_expand);
+}
+
 /* Returns address of MEM_REF in TYPE.  */
 
 tree
@@ -698,6 +713,23 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 }
 
 #ifndef EXTRA_TARGET
+EXTRA_TARGETS_DECL (tree create_mem_ref (gimple_stmt_iterator *gsi, tree type,
+					 aff_tree *addr, bool speed));
+
+/* Like create_mem_ref, but dispatch according to targetm, so this is
+   suitable for tree optimizers that don't have target-specific variants.  */
+
+tree
+tree_create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
+		     bool speed)
+{
+  tree (*create_mem_ref_array[]) (gimple_stmt_iterator *, tree, aff_tree *,
+				  bool)
+    = { &create_mem_ref, EXTRA_TARGETS_EXPAND_COMMA (&,create_mem_ref) };
+
+  return (*create_mem_ref_array[targetm.target_arch]) (gsi, type, addr, speed);
+}
+
 /* Copies components of the address from OP to ADDR.  */
 
 void

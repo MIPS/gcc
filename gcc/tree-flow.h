@@ -1176,6 +1176,8 @@ tree create_mem_ref (gimple_stmt_iterator *, tree,
 rtx addr_for_mem_ref (struct mem_address *, bool);
 tree maybe_fold_tmr (tree);
 END_TARGET_SPECIFIC
+tree tree_create_mem_ref (gimple_stmt_iterator *, tree, 
+			  struct affine_tree_combination *, bool);
 void get_address_description (tree, struct mem_address *);
 
 void init_alias_heapvars (void);

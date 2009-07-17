@@ -84,6 +84,6 @@ $(T)profil-uclibc.o: $(srcdir)/config/arc/gmon/profil-uclibc.c $(GCC_PASSES)
 $(T)libgmon.a: $(T)mcount.o $(T)gmon.o $(T)dcache_linesz.o $(PROFILE_OSDEP)
 	$(AR_CREATE_FOR_TARGET) $@ $^
 
-$(out_object_file): gt-arc.h
+$(out_object_file): gt-arc.h $(GIMPLE_H) $(TREE_FLOW_H)
 
 EXTRA_MULTILIB_PARTS = crtend.o crtbegin.o crtendS.o crtbeginS.o crti.o crtn.o libgmon.a crtg.o crtgend.o

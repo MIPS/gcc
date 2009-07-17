@@ -758,3 +758,18 @@
     (match_test "INTVAL (op) >= 0")
     (and (match_test "const_double_operand (op, mode)")
 	 (match_test "CONST_DOUBLE_HIGH (op) == 0"))))
+
+(define_predicate "simd_arg_vector"
+  (match_code "parallel")
+{
+  int i = XVECLEN (op, 0) - 1;
+
+  for (;i >= 0; i--)
+    {
+      rtx arg = XVECEXP (op, 0, i);
+	
+      if (!REG_P (arg) || REGNO (arg) < 66 || REGNO (arg) >= 66 + 8)
+	return false;
+    }
+  return true;
+})

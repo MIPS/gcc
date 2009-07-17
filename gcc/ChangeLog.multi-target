@@ -1,3 +1,109 @@
+2009-07-17  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_common_data_with_target): New function.
+	(default_get_pmode): Likewise.
+	* targhooks.h (default_common_data_with_target): Declare.
+	(default_get_pmode): Likewise.
+	* tree.c (build2_stat): Use targetm.sizetype.
+	(build_pointer_type_for_mode): Use *targetm.ptr_mode.
+	(get_get_name_decl): New function.
+	* tree.h (enum omp_clause_schedule_kind): New value
+	OMP_CLAUSE_SCHEDULE_MASTER.
+	(tree sizetype_tab): Now target specific.
+	(get_get_name_decl): Declare.
+	(lookup_attr_target): Declare.
+	* target.h (struct gimple_stmt_iterator_d): Forward delcaration.
+	(struct gcc_target): New members get_pmode, sizetype_tab,
+	common_data_with_target, copy_to_target, copy_from_target,
+	build_call_on_target.
+	* omp-low.c (expand_parallel_call): If child function has target_arch
+	attribute, use targetm.build_call_on_target hook.
+	(expand_omp_taskreg): Also check for
+	gimple_omp_taskreg_data_arg (entry_stmt) being an INDIRECT_REF.
+	(expand_numa_for_static_nochunk): New function.
+	(expand_omp_for): Check for OMP_CLAUSE_SCHEDULE_MASTER.
+	* toplev.c (lang_dependent_init) [!EXTRA_TARGET]:
+	Do an EXTRA_TARGETS_CALL of initialize_sizetypes.
+	(lang_dependent_init) [EXTRA_TARGET]: Fix up size_type_node.
+	* tree-ssa-loop-ivopts.c (produce_memory_decl_rtl):
+	Use *targetm.get_pmode.
+	(computation_cost): Use tree_expand_expr.
+	(force_expr_to_var_cost): Use targetm.sizetype.
+	(rewrite_use_address ): Use tree_create_mem_ref.
+	* expr.c [!EXTRA_TARGET] (tree_expand_expr): New function.
+	expr.h (tree_expand_expr): Declare.
+	* tree-parloops.c (separate_decls_in_region_name): New parameter
+	new_target.  Changed all callers.
+	(separate_decls_in_region_stmt): Likewise.
+	(add_size_for_param_array): New function.
+	(struct clsn_data): New members result_seq and loop.
+	(create_loads_and_stores_for_name): If array contents have to be
+	copied, insert statements to copy to/from the callee target.
+	(separate_decls_in_region): Likewise.  Emit statements to allocate 
+	parameter array area for this purpose.
+	Change last parameter from usinged to loop.  Changed caller.
+	(canonicalize_loop_ivs): Use sizetype for the callee target.
+	(create_parallel_loop): If target has data memory separate from
+	caller, use OMP_CLAUSE_SCHEDULE_MASTER.
+	(gen_parallel_loop): Set targetm_pnt to the callee target during
+	the canonicalize_loop_ivs call.
+	* tree-ssa-address.c (target.h): Include.
+	[!EXTRA_TARGET] (tree_mem_ref_addr, tree_create_mem_ref): New functions.
+	* function.c (lookup_attr_target): New function, broken out of:
+	(allocate_struct_function).
+	* tree-affine.c (target.h): Include.
+	(add_elt_to_tree): Use targetm.sizetype.
+	(aff_combination_to_tree): Likewise.
+	* target-def.h (TARGET_GET_PMODE): Define.
+	(TARGET_COMMON_DATA_WITH_TARGET, TARGET_COPY_TO_TARGET): Likewise.
+	(TARGET_COPY_FROM_TARGET, TARGET_BUILD_CALL_ON_TARGET): Likewise.
+	(TARGET_INITIALIZER): Initialize new members.
+	* tree-vect-transform.c (vect_decompose_addr_base_for_vector_ref):
+	New function.
+	(param_array_hash, param_array_eq): Likewise.
+	(vect_create_data_ref_ptr): If target has data memory separate from
+	caller, create hash table of parameter arrays with information on
+	accesses.
+	* cfgloop.h (struct tree_range, struct param_array_d): New struct.
+	(param_array): New typedef.
+	(struct loop): New members param_arrays, vect_vars.
+	* tree-flow.h (tree_create_mem_ref): Declare.
+	* gimple.h (struct gimple_stmt_iterator_d): New struct tag.
+	* Makefile.in (tree-ssa-address.o): Depend on $(TARGET_H).
+	(tree-affine.o): Likewise.
+	* config/arc/predicates.md (simd_arg_vector): New predicate.
+	* config/arc/arc.c (gimple.h, tree-flow.h): Include.
+	(enum arc_builtins): Reduce value range.
+	New values ARC_SIMD_BUILTIN_CALL, ARC_SIMD_BUILTIN_DMA_IN,
+	ARC_SIMD_BUILTIN_DMA_OUT.
+	New tag ARC_BUILTIN_END.
+	(arc_copy_to_target, arc_copy_from_target): New functions.
+	(arc_build_call_on_target): New function.
+	(TARGET_COPY_TO_TARGET, TARGET_COPY_FROM_TARGET): Override.
+	(TARGET_BUILD_CALL_ON_TARGET): Likewise.
+	(arc_builtin_decls): New array.
+	(def_mbuiltin): Update arc_builtin_decls.
+	(arc_expand_builtin): Handle ARC_SIMD_BUILTIN_CALL.
+	(enum simd_insn_args_type): Add void_Ra_Rb_Rc and void_Ra.
+	(arc_simd_builtin_desc_list): Add simd_dma_in, simd_dma_out, simd_call.
+	(arc_init_simd_builtins): Process void_Ra_Rb_Rc and void_Ra.
+	(arc_expand_simd_builtin): Handle void_Ra_Rb_Rc and void_Ra.
+	* config/arc/arc.h: (FIRST_PSEUDO_REGISTER): Change to 147.
+	(FIXED_REGISTERS): SDM is fixed.
+	(CALL_USED_REGISTERS): SDM is call used.
+	(REGISTER_NAMES): Add SDM name.
+	* config/arc/arc.md (SDM): Define as 146.
+	(*movhi_insn): Add v/c alternative.
+	* config/arc/t-arc ($(out_object_file)):
+	Depend on $(GIMPLE_H) and $(TREE_FLOW_H).
+	* config/arc/arc-modes.def: Add CC_BLK.
+	* config/arc/simdext.md (UNSPEC_ARC_SIMD_DMA): Define.
+	(simd_dma_in, simd_dma_out, simd_call): New patterns.
+
+	* config/arc/arc.c (arc_encode_section_info): If a function_decl has
+	a target_arch attribute, dispatch to the encode_section_info hook
+	of that target.
+
 2009-06-27  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* Makefile.in [!EXTRA_TARGETS] (target-types.h target-gtypes.h)

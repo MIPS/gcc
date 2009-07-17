@@ -58,6 +58,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm-constrs.h"
 #include "reload.h" /* For operands_match_p */
 #include "df.h"
+#include "gimple.h"
+#include "tree-flow.h"
 #include "multi-target.h"
 
 START_TARGET_SPECIFIC
@@ -181,131 +183,136 @@ enum arc_builtins {
   ARC_BUILTIN_TRAP_S     =   20,
   ARC_BUILTIN_UNIMP_S    =   21,
 
+  ARC_SIMD_BUILTIN_CALL,
   /* Sentinel to mark start of simd builtins */
-  ARC_SIMD_BUILTIN_BEGIN      = 1000,
+  ARC_SIMD_BUILTIN_BEGIN      = 100,
 
-  ARC_SIMD_BUILTIN_VADDAW     = 1001,
-  ARC_SIMD_BUILTIN_VADDW      = 1002,
-  ARC_SIMD_BUILTIN_VAVB       = 1003,
-  ARC_SIMD_BUILTIN_VAVRB      = 1004,
-  ARC_SIMD_BUILTIN_VDIFAW     = 1005,
-  ARC_SIMD_BUILTIN_VDIFW      = 1006,
-  ARC_SIMD_BUILTIN_VMAXAW     = 1007,
-  ARC_SIMD_BUILTIN_VMAXW      = 1008,
-  ARC_SIMD_BUILTIN_VMINAW     = 1009,
-  ARC_SIMD_BUILTIN_VMINW      = 1010,
-  ARC_SIMD_BUILTIN_VMULAW     = 1011,
-  ARC_SIMD_BUILTIN_VMULFAW    = 1012,
-  ARC_SIMD_BUILTIN_VMULFW     = 1013,
-  ARC_SIMD_BUILTIN_VMULW      = 1014,
-  ARC_SIMD_BUILTIN_VSUBAW     = 1015,
-  ARC_SIMD_BUILTIN_VSUBW      = 1016,
-  ARC_SIMD_BUILTIN_VSUMMW     = 1017,
-  ARC_SIMD_BUILTIN_VAND       = 1018,
-  ARC_SIMD_BUILTIN_VANDAW     = 1019,
-  ARC_SIMD_BUILTIN_VBIC       = 1020,
-  ARC_SIMD_BUILTIN_VBICAW     = 1021,
-  ARC_SIMD_BUILTIN_VOR        = 1022,
-  ARC_SIMD_BUILTIN_VXOR       = 1023,
-  ARC_SIMD_BUILTIN_VXORAW     = 1024,
-  ARC_SIMD_BUILTIN_VEQW       = 1025,
-  ARC_SIMD_BUILTIN_VLEW       = 1026,
-  ARC_SIMD_BUILTIN_VLTW       = 1027,
-  ARC_SIMD_BUILTIN_VNEW       = 1028,
-  ARC_SIMD_BUILTIN_VMR1AW     = 1029,
-  ARC_SIMD_BUILTIN_VMR1W      = 1030,
-  ARC_SIMD_BUILTIN_VMR2AW     = 1031,
-  ARC_SIMD_BUILTIN_VMR2W      = 1032,
-  ARC_SIMD_BUILTIN_VMR3AW     = 1033,
-  ARC_SIMD_BUILTIN_VMR3W      = 1034,
-  ARC_SIMD_BUILTIN_VMR4AW     = 1035,
-  ARC_SIMD_BUILTIN_VMR4W      = 1036,
-  ARC_SIMD_BUILTIN_VMR5AW     = 1037,
-  ARC_SIMD_BUILTIN_VMR5W      = 1038,
-  ARC_SIMD_BUILTIN_VMR6AW     = 1039,
-  ARC_SIMD_BUILTIN_VMR6W      = 1040,
-  ARC_SIMD_BUILTIN_VMR7AW     = 1041,
-  ARC_SIMD_BUILTIN_VMR7W      = 1042,
-  ARC_SIMD_BUILTIN_VMRB       = 1043,
-  ARC_SIMD_BUILTIN_VH264F     = 1044,
-  ARC_SIMD_BUILTIN_VH264FT    = 1045,
-  ARC_SIMD_BUILTIN_VH264FW    = 1046,
-  ARC_SIMD_BUILTIN_VVC1F      = 1047,
-  ARC_SIMD_BUILTIN_VVC1FT     = 1048,
+  ARC_SIMD_BUILTIN_VADDAW     = 101,
+  ARC_SIMD_BUILTIN_VADDW      = 102,
+  ARC_SIMD_BUILTIN_VAVB       = 103,
+  ARC_SIMD_BUILTIN_VAVRB      = 104,
+  ARC_SIMD_BUILTIN_VDIFAW     = 105,
+  ARC_SIMD_BUILTIN_VDIFW      = 106,
+  ARC_SIMD_BUILTIN_VMAXAW     = 107,
+  ARC_SIMD_BUILTIN_VMAXW      = 108,
+  ARC_SIMD_BUILTIN_VMINAW     = 109,
+  ARC_SIMD_BUILTIN_VMINW      = 110,
+  ARC_SIMD_BUILTIN_VMULAW     = 111,
+  ARC_SIMD_BUILTIN_VMULFAW    = 112,
+  ARC_SIMD_BUILTIN_VMULFW     = 113,
+  ARC_SIMD_BUILTIN_VMULW      = 114,
+  ARC_SIMD_BUILTIN_VSUBAW     = 115,
+  ARC_SIMD_BUILTIN_VSUBW      = 116,
+  ARC_SIMD_BUILTIN_VSUMMW     = 117,
+  ARC_SIMD_BUILTIN_VAND       = 118,
+  ARC_SIMD_BUILTIN_VANDAW     = 119,
+  ARC_SIMD_BUILTIN_VBIC       = 120,
+  ARC_SIMD_BUILTIN_VBICAW     = 121,
+  ARC_SIMD_BUILTIN_VOR        = 122,
+  ARC_SIMD_BUILTIN_VXOR       = 123,
+  ARC_SIMD_BUILTIN_VXORAW     = 124,
+  ARC_SIMD_BUILTIN_VEQW       = 125,
+  ARC_SIMD_BUILTIN_VLEW       = 126,
+  ARC_SIMD_BUILTIN_VLTW       = 127,
+  ARC_SIMD_BUILTIN_VNEW       = 128,
+  ARC_SIMD_BUILTIN_VMR1AW     = 129,
+  ARC_SIMD_BUILTIN_VMR1W      = 130,
+  ARC_SIMD_BUILTIN_VMR2AW     = 131,
+  ARC_SIMD_BUILTIN_VMR2W      = 132,
+  ARC_SIMD_BUILTIN_VMR3AW     = 133,
+  ARC_SIMD_BUILTIN_VMR3W      = 134,
+  ARC_SIMD_BUILTIN_VMR4AW     = 135,
+  ARC_SIMD_BUILTIN_VMR4W      = 136,
+  ARC_SIMD_BUILTIN_VMR5AW     = 137,
+  ARC_SIMD_BUILTIN_VMR5W      = 138,
+  ARC_SIMD_BUILTIN_VMR6AW     = 139,
+  ARC_SIMD_BUILTIN_VMR6W      = 140,
+  ARC_SIMD_BUILTIN_VMR7AW     = 141,
+  ARC_SIMD_BUILTIN_VMR7W      = 142,
+  ARC_SIMD_BUILTIN_VMRB       = 143,
+  ARC_SIMD_BUILTIN_VH264F     = 144,
+  ARC_SIMD_BUILTIN_VH264FT    = 145,
+  ARC_SIMD_BUILTIN_VH264FW    = 146,
+  ARC_SIMD_BUILTIN_VVC1F      = 147,
+  ARC_SIMD_BUILTIN_VVC1FT     = 148,
 
   /* Va, Vb, rlimm instructions */
-  ARC_SIMD_BUILTIN_VBADDW     = 1050,
-  ARC_SIMD_BUILTIN_VBMAXW     = 1051,
-  ARC_SIMD_BUILTIN_VBMINW     = 1052,
-  ARC_SIMD_BUILTIN_VBMULAW    = 1053,
-  ARC_SIMD_BUILTIN_VBMULFW    = 1054,
-  ARC_SIMD_BUILTIN_VBMULW     = 1055,
-  ARC_SIMD_BUILTIN_VBRSUBW    = 1056,
-  ARC_SIMD_BUILTIN_VBSUBW     = 1057,
+  ARC_SIMD_BUILTIN_VBADDW     = 150,
+  ARC_SIMD_BUILTIN_VBMAXW     = 151,
+  ARC_SIMD_BUILTIN_VBMINW     = 152,
+  ARC_SIMD_BUILTIN_VBMULAW    = 153,
+  ARC_SIMD_BUILTIN_VBMULFW    = 154,
+  ARC_SIMD_BUILTIN_VBMULW     = 155,
+  ARC_SIMD_BUILTIN_VBRSUBW    = 156,
+  ARC_SIMD_BUILTIN_VBSUBW     = 157,
 
   /* Va, Vb, Ic instructions */
-  ARC_SIMD_BUILTIN_VASRW      = 1060,
-  ARC_SIMD_BUILTIN_VSR8       = 1061,
-  ARC_SIMD_BUILTIN_VSR8AW     = 1062,
+  ARC_SIMD_BUILTIN_VASRW      = 160,
+  ARC_SIMD_BUILTIN_VSR8       = 161,
+  ARC_SIMD_BUILTIN_VSR8AW     = 162,
 
   /* Va, Vb, u6 instructions */
-  ARC_SIMD_BUILTIN_VASRRWi    = 1065,
-  ARC_SIMD_BUILTIN_VASRSRWi   = 1066,
-  ARC_SIMD_BUILTIN_VASRWi     = 1067,
-  ARC_SIMD_BUILTIN_VASRPWBi   = 1068,
-  ARC_SIMD_BUILTIN_VASRRPWBi  = 1069,
-  ARC_SIMD_BUILTIN_VSR8AWi    = 1070,
-  ARC_SIMD_BUILTIN_VSR8i      = 1071,
+  ARC_SIMD_BUILTIN_VASRRWi    = 165,
+  ARC_SIMD_BUILTIN_VASRSRWi   = 166,
+  ARC_SIMD_BUILTIN_VASRWi     = 167,
+  ARC_SIMD_BUILTIN_VASRPWBi   = 168,
+  ARC_SIMD_BUILTIN_VASRRPWBi  = 169,
+  ARC_SIMD_BUILTIN_VSR8AWi    = 170,
+  ARC_SIMD_BUILTIN_VSR8i      = 171,
 
   /* Va, Vb, u8 (simm) instructions*/
-  ARC_SIMD_BUILTIN_VMVAW      = 1075,
-  ARC_SIMD_BUILTIN_VMVW       = 1076,
-  ARC_SIMD_BUILTIN_VMVZW      = 1077,
-  ARC_SIMD_BUILTIN_VD6TAPF    = 1078,
+  ARC_SIMD_BUILTIN_VMVAW      = 175,
+  ARC_SIMD_BUILTIN_VMVW       = 176,
+  ARC_SIMD_BUILTIN_VMVZW      = 177,
+  ARC_SIMD_BUILTIN_VD6TAPF    = 178,
 
   /* Va, rlimm, u8 (simm) instructions*/
-  ARC_SIMD_BUILTIN_VMOVAW     = 1080,
-  ARC_SIMD_BUILTIN_VMOVW      = 1081,
-  ARC_SIMD_BUILTIN_VMOVZW     = 1082,
+  ARC_SIMD_BUILTIN_VMOVAW     = 180,
+  ARC_SIMD_BUILTIN_VMOVW      = 181,
+  ARC_SIMD_BUILTIN_VMOVZW     = 182,
 
   /* Va, Vb instructions */
-  ARC_SIMD_BUILTIN_VABSAW     = 1085,
-  ARC_SIMD_BUILTIN_VABSW      = 1086,
-  ARC_SIMD_BUILTIN_VADDSUW    = 1087,
-  ARC_SIMD_BUILTIN_VSIGNW     = 1088,
-  ARC_SIMD_BUILTIN_VEXCH1     = 1089,
-  ARC_SIMD_BUILTIN_VEXCH2     = 1090,
-  ARC_SIMD_BUILTIN_VEXCH4     = 1091,
-  ARC_SIMD_BUILTIN_VUPBAW     = 1092,
-  ARC_SIMD_BUILTIN_VUPBW      = 1093,
-  ARC_SIMD_BUILTIN_VUPSBAW    = 1094,
-  ARC_SIMD_BUILTIN_VUPSBW     = 1095,
+  ARC_SIMD_BUILTIN_VABSAW     = 185,
+  ARC_SIMD_BUILTIN_VABSW      = 186,
+  ARC_SIMD_BUILTIN_VADDSUW    = 187,
+  ARC_SIMD_BUILTIN_VSIGNW     = 188,
+  ARC_SIMD_BUILTIN_VEXCH1     = 189,
+  ARC_SIMD_BUILTIN_VEXCH2     = 190,
+  ARC_SIMD_BUILTIN_VEXCH4     = 191,
+  ARC_SIMD_BUILTIN_VUPBAW     = 192,
+  ARC_SIMD_BUILTIN_VUPBW      = 193,
+  ARC_SIMD_BUILTIN_VUPSBAW    = 194,
+  ARC_SIMD_BUILTIN_VUPSBW     = 195,
 
-  ARC_SIMD_BUILTIN_VDIRUN     = 1100,
-  ARC_SIMD_BUILTIN_VDORUN     = 1101,
-  ARC_SIMD_BUILTIN_VDIWR      = 1102,
-  ARC_SIMD_BUILTIN_VDOWR      = 1103,
+  ARC_SIMD_BUILTIN_VDIRUN     = 200,
+  ARC_SIMD_BUILTIN_VDORUN     = 201,
+  ARC_SIMD_BUILTIN_VDIWR      = 202,
+  ARC_SIMD_BUILTIN_VDOWR      = 203,
 
-  ARC_SIMD_BUILTIN_VREC       = 1105,
-  ARC_SIMD_BUILTIN_VRUN       = 1106,
-  ARC_SIMD_BUILTIN_VRECRUN    = 1107,
-  ARC_SIMD_BUILTIN_VENDREC    = 1108,
+  ARC_SIMD_BUILTIN_VREC       = 205,
+  ARC_SIMD_BUILTIN_VRUN       = 206,
+  ARC_SIMD_BUILTIN_VRECRUN    = 207,
+  ARC_SIMD_BUILTIN_VENDREC    = 208,
 
-  ARC_SIMD_BUILTIN_VLD32WH    = 1110,
-  ARC_SIMD_BUILTIN_VLD32WL    = 1111,
-  ARC_SIMD_BUILTIN_VLD64      = 1112,
-  ARC_SIMD_BUILTIN_VLD32      = 1113,
-  ARC_SIMD_BUILTIN_VLD64W     = 1114,
-  ARC_SIMD_BUILTIN_VLD128     = 1115,
-  ARC_SIMD_BUILTIN_VST128     = 1116,
-  ARC_SIMD_BUILTIN_VST64      = 1117,
+  ARC_SIMD_BUILTIN_VLD32WH    = 210,
+  ARC_SIMD_BUILTIN_VLD32WL    = 211,
+  ARC_SIMD_BUILTIN_VLD64      = 212,
+  ARC_SIMD_BUILTIN_VLD32      = 213,
+  ARC_SIMD_BUILTIN_VLD64W     = 214,
+  ARC_SIMD_BUILTIN_VLD128     = 215,
+  ARC_SIMD_BUILTIN_VST128     = 216,
+  ARC_SIMD_BUILTIN_VST64      = 217,
 
-  ARC_SIMD_BUILTIN_VST16_N    = 1120,
-  ARC_SIMD_BUILTIN_VST32_N    = 1121,
+  ARC_SIMD_BUILTIN_VST16_N    = 220,
+  ARC_SIMD_BUILTIN_VST32_N    = 221,
 
-  ARC_SIMD_BUILTIN_VINTI      = 1201,
+  ARC_SIMD_BUILTIN_VINTI,
 
-  ARC_SIMD_BUILTIN_END
+  ARC_SIMD_BUILTIN_DMA_IN,
+  ARC_SIMD_BUILTIN_DMA_OUT,
+
+  ARC_SIMD_BUILTIN_END,
+  ARC_BUILTIN_END = ARC_SIMD_BUILTIN_END
 };
 
 /* A nop is needed between a 4 byte insn that sets the condition codes and
@@ -400,6 +407,13 @@ arc_vector_mode_supported_p (enum machine_mode mode)
 static bool arc_preserve_reload_p (rtx in);
 static rtx arc_delegitimize_address (rtx);
 static bool arc_can_follow_jump (const_rtx follower, const_rtx followee);
+
+static void arc_copy_to_target (gimple_stmt_iterator *, struct gcc_target *,
+				tree, tree, tree);
+static void arc_copy_from_target (gimple_stmt_iterator *, struct gcc_target *,
+				  tree, tree, tree);
+static void arc_build_call_on_target (gimple_stmt_iterator *,
+				      struct gcc_target *, int, tree *);
 
 static rtx frame_insn (rtx);
 
@@ -516,6 +530,13 @@ static rtx frame_insn (rtx);
 #define TARGET_MIN_ANCHOR_OFFSET (-1024)
 #undef TARGET_MAX_ANCHOR_OFFSET
 #define TARGET_MAX_ANCHOR_OFFSET (1020)
+
+#undef TARGET_COPY_TO_TARGET
+#define TARGET_COPY_TO_TARGET arc_copy_to_target
+#undef TARGET_COPY_FROM_TARGET
+#define TARGET_COPY_FROM_TARGET arc_copy_from_target
+#undef TARGET_BUILD_CALL_ON_TARGET
+#define TARGET_BUILD_CALL_ON_TARGET arc_build_call_on_target
 
 extern enum reg_class arc_secondary_reload (bool, rtx, enum reg_class,
 					    enum machine_mode,
@@ -4512,11 +4533,14 @@ arc_encode_section_info (tree decl, rtx rtl, int first)
      attribute specified */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
+      int target_ix = lookup_attr_target (decl);
       tree attr = (TREE_TYPE (decl) != error_mark_node
 		   ? TYPE_ATTRIBUTES (TREE_TYPE (decl)) : NULL_TREE);
       tree long_call_attr = lookup_attribute ("long_call", attr);
       tree short_call_attr = lookup_attribute ("short_call", attr);
 
+      if (target_ix != TARGET_NUM)
+	return targetm_array[target_ix]->encode_section_info (decl, rtl, first);
       if (long_call_attr != NULL_TREE)
 	arc_encode_symbol (decl, LONG_CALL_FLAG_CHAR);
       else if (short_call_attr != NULL_TREE)
@@ -5544,12 +5568,16 @@ arc_cannot_force_const_mem (rtx x)
 }
 
 
+static tree arc_builtin_decls[ARC_BUILTIN_END];
+
 /* Generic function to define a builtin */
 #define def_mbuiltin(MASK, NAME, TYPE, CODE)				\
   do									\
     {									\
        if (MASK)                                                        \
-          add_builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD, NULL, NULL_TREE); \
+	arc_builtin_decls[(CODE)] 					\
+	  = add_builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
+				  NULL, NULL_TREE);			\
     }									\
   while (0)
 
@@ -5870,6 +5898,37 @@ arc_expand_builtin (tree exp,
 	icode = CODE_FOR_unimp_s;
 	emit_insn (gen_unimp_s (const1_rtx));
 	return NULL_RTX;
+
+    case ARC_SIMD_BUILTIN_CALL:
+      int nargs, i;
+
+      icode = CODE_FOR_simd_call;
+      arg0 = CALL_EXPR_ARG (exp, 0); /* Ra */
+      mode0 =  insn_data[icode].operand[0].mode;
+      op0 = expand_expr (arg0, NULL_RTX, mode0, EXPAND_NORMAL);
+      if (mode0 == VOIDmode)
+	mode0 = GET_MODE (op0);
+
+      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
+	op0 = copy_to_mode_reg (mode0, op0);
+      nargs = call_expr_nargs (exp) - 1;
+      op1 = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (nargs));
+      for (i = 0; i < nargs; i++)
+	{
+	  rtx reg;
+
+	  arg0 = CALL_EXPR_ARG (exp, 1+i);
+	  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	  mode0 = GET_MODE (op0);
+	  if (mode0 == VOIDmode)
+	    mode0 = SImode;
+	  reg = gen_rtx_REG (mode0, 66+i);
+	  emit_move_insn (reg, op0);
+	  XVECEXP (op1, 0, i) = reg;
+	}
+
+      emit_insn (gen_simd_call (op0, op1));
+      return NULL_RTX;
 
     default:
 	break;
@@ -6905,7 +6964,10 @@ enum simd_insn_args_type {
   void_Va_Ib_u8,
 
   Va_Vb_Ic_u8,
-  void_Va_u3_Ib_u8
+  void_Va_u3_Ib_u8,
+
+  void_Ra_Rb_Rc,
+  void_Ra
 };
 
 struct builtin_description
@@ -6914,8 +6976,6 @@ struct builtin_description
   const enum insn_code     icode;
   const char * const       name;
   const enum arc_builtins  code;
-  const enum rtx_code      comparison;
-  const unsigned int       flag;
 };
 
 static const struct builtin_description arc_simd_builtin_desc_list[] =
@@ -6923,7 +6983,7 @@ static const struct builtin_description arc_simd_builtin_desc_list[] =
   /* VVV builtins go first */
 #define SIMD_BUILTIN(type,code, string, builtin) \
   { type,CODE_FOR_##code, "__builtin_arc_" string, \
-    ARC_SIMD_BUILTIN_##builtin, UNKNOWN, 0 },
+    ARC_SIMD_BUILTIN_##builtin, },
 
   SIMD_BUILTIN (Va_Vb_Vc,    vaddaw_insn,   "vaddaw",     VADDAW)
   SIMD_BUILTIN (Va_Vb_Vc,     vaddw_insn,    "vaddw",      VADDW)
@@ -7051,6 +7111,10 @@ static const struct builtin_description arc_simd_builtin_desc_list[] =
   SIMD_BUILTIN (void_Va_u3_Ib_u8,  vst32_n_insn,  "vst32_n",   VST32_N)
 
   SIMD_BUILTIN (void_u6,  vinti_insn,  "vinti",   VINTI)
+
+  SIMD_BUILTIN (void_Ra_Rb_Rc,  simd_dma_in,  "simd_dma_in",   DMA_IN)
+  SIMD_BUILTIN (void_Ra_Rb_Rc,  simd_dma_out,  "simd_dma_out",   DMA_OUT)
+  SIMD_BUILTIN (void_Ra,  simd_call,  "simd_call",   CALL)
 };
 
 static void
@@ -7104,6 +7168,17 @@ arc_init_simd_builtins (void)
 
   tree v8hi_ftype_v8hi
     = build_function_type (V8HI_type_node, tree_cons (NULL_TREE, V8HI_type_node,endlink));
+
+  tree void_ftype_ptr_ptr_int
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, ptr_type_node,
+				      tree_cons (NULL_TREE, ptr_type_node,
+						 tree_cons (NULL_TREE,
+							    integer_type_node,
+							    endlink))));
+  tree void_ftype_fn
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, ptr_type_node, endlink));
 
   /* These asserts have been introduced to ensure that the order of builtins
      does not get messed up, else the initialization goes wrong */
@@ -7166,6 +7241,16 @@ arc_init_simd_builtins (void)
   gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_u6);
   for (; arc_simd_builtin_desc_list [i].args_type == void_u6; i++)
     def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list [i].name,  void_ftype_int, arc_simd_builtin_desc_list [i].code);
+
+  gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_Ra_Rb_Rc);
+  for (; arc_simd_builtin_desc_list [i].args_type == void_Ra_Rb_Rc; i++)
+    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
+		  void_ftype_ptr_ptr_int, arc_simd_builtin_desc_list[i].code);
+
+  gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_Ra);
+  for (; arc_simd_builtin_desc_list [i].args_type == void_Ra; i++)
+    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
+		  void_ftype_fn, arc_simd_builtin_desc_list[i].code);
 
   gcc_assert(i == ARRAY_SIZE (arc_simd_builtin_desc_list));
 }
@@ -7612,6 +7697,60 @@ arc_expand_simd_builtin (tree exp,
 	     d->name);
 
     pat = GEN_FCN (icode) (op0, op1, op2, op3, op4);
+    if (! pat)
+      return 0;
+  
+    emit_insn (pat);
+    return NULL_RTX;
+
+  case void_Ra_Rb_Rc:
+    icode = d->icode;
+    arg0 = CALL_EXPR_ARG (exp, 0); /* Ra */
+    arg1 = CALL_EXPR_ARG (exp, 1); /* Rb */
+    arg2 = CALL_EXPR_ARG (exp, 2); /* Rc */
+
+    mode0 =  insn_data[icode].operand[0].mode;
+    mode1 =  insn_data[icode].operand[1].mode;
+    mode2 =  insn_data[icode].operand[2].mode;
+
+    op0 = expand_expr (arg0, NULL_RTX, mode0, EXPAND_NORMAL);
+    if (mode0 == VOIDmode)
+      mode0 = GET_MODE (op0);
+    op1 = expand_expr (arg1, NULL_RTX, mode1, EXPAND_NORMAL);
+    if (mode1 == VOIDmode)
+      mode1 = GET_MODE (op1);
+    op2 = expand_expr (arg2, NULL_RTX, mode2, EXPAND_NORMAL);
+    if (mode2 == VOIDmode)
+      mode2 = GET_MODE (op2);
+
+    if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
+      op0 = copy_to_mode_reg (mode0, op0);
+    if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
+      op1 = copy_to_mode_reg (mode1, op1);
+    if (! (*insn_data[icode].operand[2].predicate) (op2, mode2))
+      op2 = copy_to_mode_reg (mode2, op2);
+
+    pat = GEN_FCN (icode) (op0, op1, op2);
+    if (! pat)
+      return 0;
+  
+    emit_insn (pat);
+    return NULL_RTX;
+
+  case void_Ra:
+    icode = d->icode;
+    arg0 = CALL_EXPR_ARG (exp, 0); /* Ra */
+
+    mode0 =  insn_data[icode].operand[0].mode;
+
+    op0 = expand_expr (arg0, NULL_RTX, mode0, EXPAND_NORMAL);
+    if (mode0 == VOIDmode)
+      mode0 = GET_MODE (op0);
+
+    if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
+      op0 = copy_to_mode_reg (mode0, op0);
+
+    pat = GEN_FCN (icode) (op0);
     if (! pat)
       return 0;
   
@@ -8884,6 +9023,45 @@ arc_dead_or_set_postreload_p (const_rtx insn, const_rtx reg)
 	return 1;
     }
   return 1;
+}
+
+static void
+arc_copy_to_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+		    tree dst, tree src, tree size)
+{
+  tree fn, t;
+
+  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  fn = build_fold_addr_expr (arc_builtin_decls[ARC_SIMD_BUILTIN_DMA_IN]);
+  t = build_call_nary (void_type_node, fn, 3, dst, src, size);
+  force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+			    GSI_CONTINUE_LINKING);
+}
+
+static void
+arc_copy_from_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+		      tree dst, tree src, tree size)
+{
+  tree fn, t;
+
+  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  fn = build_fold_addr_expr (arc_builtin_decls[ARC_SIMD_BUILTIN_DMA_OUT]);
+  t = build_call_nary (void_type_node, fn, 3, dst, src, size);
+  force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+			    GSI_CONTINUE_LINKING);
+}
+
+static void
+arc_build_call_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+			  int nargs, tree *args)
+{
+  tree fn, t;
+
+  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  fn = build_fold_addr_expr (arc_builtin_decls[ARC_SIMD_BUILTIN_CALL]);
+  t = build_call_array (void_type_node, fn, nargs, args);
+  force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+			    GSI_CONTINUE_LINKING);
 }
 
 #include "gt-arc.h"

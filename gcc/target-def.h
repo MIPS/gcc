@@ -32,6 +32,8 @@
 
 /* TARGET_NAME is defined by the Makefile.  */
 
+#define TARGET_GET_PMODE default_get_pmode
+
 /* Assembler output.  */
 #ifndef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN "("
@@ -444,6 +446,22 @@
 #define TARGET_STRIP_NAME_ENCODING default_strip_name_encoding
 #endif
 
+#ifndef TARGET_COMMON_DATA_WITH_TARGET
+#define TARGET_COMMON_DATA_WITH_TARGET default_common_data_with_target
+#endif
+
+#ifndef TARGET_COPY_TO_TARGET
+#define TARGET_COPY_TO_TARGET 0
+#endif
+
+#ifndef TARGET_COPY_FROM_TARGET
+#define TARGET_COPY_FROM_TARGET 0
+#endif
+
+#ifndef TARGET_BUILD_CALL_ON_TARGET
+#define TARGET_BUILD_CALL_ON_TARGET 0
+#endif
+
 #ifndef TARGET_BINDS_LOCAL_P
 #define TARGET_BINDS_LOCAL_P default_binds_local_p
 #endif
@@ -847,6 +865,8 @@
   TARGET_NAME,					\
   TARGET_NUM,					\
   &ptr_mode,					\
+  TARGET_GET_PMODE,				\
+  &sizetype_tab[0],				\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\
@@ -896,6 +916,10 @@
   TARGET_MANGLE_DECL_ASSEMBLER_NAME,		\
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
+  TARGET_COMMON_DATA_WITH_TARGET,		\
+  TARGET_COPY_TO_TARGET,			\
+  TARGET_COPY_FROM_TARGET,			\
+  TARGET_BUILD_CALL_ON_TARGET,			\
   TARGET_SHIFT_TRUNCATION_MASK,			\
   TARGET_MIN_DIVISIONS_FOR_RECIP_MUL,		\
   TARGET_MODE_REP_EXTENDED,			\

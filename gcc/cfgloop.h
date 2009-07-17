@@ -100,6 +100,41 @@ enum loop_estimation
   EST_AVAILABLE
 };
 
+struct tree_range GTY (()) { tree min, max; } ;
+
+typedef struct param_array_d GTY (())
+{
+  /* The declaration of the base variable, as obtained with get_name_decl.
+     Its name is used to compute the hash key.  */
+  tree decl;
+  /* The expression how this variable actually forms the base address for
+     the access, in the calling context.  */
+  tree caller_base;
+  /* The expression to initialize the variable on the callee side.  */
+  tree callee_base;
+  /* All accesses to this array should agree on stride, because otherwise it
+     is not straightforward to slice this array into separate index ranges.  */
+  int stride;
+  /* Likewise, all accesses should agree on the non-constant offset.  */
+  tree invar_offset;
+  /* max_{read,write}_offset includes the size of the access mode, and thus
+    points to the first not-accessed byte.
+    max_write_offset - min_write_offset must not be larger than stride to
+    allow vectorized operation.
+    forward iteration: the index range is divided into monotonically
+    increasing slices such that the inputs of a slice and all preceding slices
+    have been fully read before its output is written; when operating on a
+    slice, the biv is incremented.
+    backward iteration: likewise, with decreasing index ranges and bivs.
+    max_write_offset - min_read_offset must not be larger than stride to
+    allow forward iteration.
+    max_read_offset - min_write_offset must not be larger than stride to
+    allow backward iteration.  */
+  struct tree_range read_offset;
+  struct tree_range write_offset;
+  tree size;
+} *param_array;
+
 /* Structure to hold information for each natural loop.  */
 struct loop GTY ((chain_next ("%h.next")))
 {
@@ -164,6 +199,16 @@ struct loop GTY ((chain_next ("%h.next")))
 
   /* Head of the cyclic list of the exits of the loop.  */
   struct loop_exit *exits;
+
+  /* arrays that are passed from a calling context left on another target
+     architecture.
+     We could use a separate array, hash table or similar to map loop index
+     to the relevant param_array pointer to save compile-time space when
+     this feature is not used (e.g. only a single architecture configured),
+     but that'll require some care to keep keep the mapping in sync when
+     the loop array is resized.  */
+  htab_t GTY ((param_is (struct param_array_d))) param_arrays;
+  htab_t GTY ((param_is (struct tree_map))) vect_vars;
 };
 
 /* Flags for state of loop structure.  */

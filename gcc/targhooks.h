@@ -119,6 +119,8 @@ extern int /*enum reg_class*/ default_secondary_reload (bool, rtx,
 						secondary_reload_info *);
 extern bool default_override_options (bool);
 extern tree default_vectype_for_scalar_type (tree, FILE *);
+extern bool default_common_data_with_target (struct gcc_target *);
+extern enum machine_mode default_get_pmode (void);
 END_TARGET_SPECIFIC
 extern void hook_void_bitmap (bitmap);
 extern bool default_handle_c_option (size_t, const char *, int);

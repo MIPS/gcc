@@ -2582,7 +2582,7 @@ produce_memory_decl_rtl (tree obj, int *regno)
   if (TREE_STATIC (obj) || DECL_EXTERNAL (obj))
     {
       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (obj));
-      x = gen_rtx_SYMBOL_REF (Pmode, name);
+      x = gen_rtx_SYMBOL_REF ((*targetm.get_pmode) (), name);
       SET_SYMBOL_REF_DECL (x, obj);
       x = gen_rtx_MEM (DECL_MODE (obj), x);
       targetm.encode_section_info (obj, x, true);
@@ -2670,7 +2670,7 @@ computation_cost (tree expr, bool speed)
   crtl->maybe_hot_insn_p = speed;
   walk_tree (&expr, prepare_decl_rtl, &regno, NULL);
   start_sequence ();
-  rslt = expand_expr (expr, NULL_RTX, TYPE_MODE (type), EXPAND_NORMAL);
+  rslt = tree_expand_expr (expr, NULL_RTX, TYPE_MODE (type), EXPAND_NORMAL);
   seq = get_insns ();
   end_sequence ();
   default_rtl_profile ();
@@ -3280,9 +3280,9 @@ force_expr_to_var_cost (tree expr, bool speed)
 	  symbol_cost[i] = computation_cost (addr, i) + 1;
 
 	  address_cost[i]
-	    = computation_cost (build2 (POINTER_PLUS_EXPR, type,
-					addr,
-					build_int_cst (sizetype, 2000)), i) + 1;
+	    = computation_cost (build2 (POINTER_PLUS_EXPR, type, addr,
+					build_int_cst (targetm.sizetype, 2000)),
+					i) + 1;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "force_expr_to_var_cost %s costs:\n", i ? "speed" : "size");
@@ -5487,7 +5487,7 @@ rewrite_use_address (struct ivopts_data *data,
   gcc_assert (ok);
   unshare_aff_combination (&aff);
 
-  ref = create_mem_ref (&bsi, TREE_TYPE (*use->op_p), &aff, data->speed);
+  ref = tree_create_mem_ref (&bsi, TREE_TYPE (*use->op_p), &aff, data->speed);
   copy_ref_info (ref, *use->op_p);
   *use->op_p = ref;
 }

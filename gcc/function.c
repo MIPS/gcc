@@ -4083,6 +4083,27 @@ static void (* const allocate_struct_function_1_array[]) (tree, bool)
       EXTRA_TARGETS_EXPAND_COMMA (&,allocate_struct_function_1)
     };
 
+/* If FNDECL has a target _arch attribute, return the index of that target
+   architecture in targetm_array; otherwise, return 0.  */
+int
+lookup_attr_target (tree fndecl)
+{
+  int i = 0;
+#if NUM_TARGETS > 1
+  const char *arch_name = targetm.name;
+  tree attr = NULL_TREE;
+
+  if (fndecl)
+    attr = lookup_attribute ("target_arch", DECL_ATTRIBUTES (fndecl));
+  if (attr)
+    arch_name = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+  for (; targetm_array[i]; i++)
+    if (strcmp (targetm_array[i]->name, arch_name) == 0)
+      break;
+#endif
+  return i;
+}
+
 /* Allocate a function structure for FNDECL and set its contents
    to the defaults.  Set cfun to the newly-allocated object.
    Some of the helper functions invoked during initialization assume
@@ -4099,19 +4120,7 @@ static void (* const allocate_struct_function_1_array[]) (tree, bool)
 void
 allocate_struct_function (tree fndecl, bool abstract_p)
 {
-  int i = 0;
-#if NUM_TARGETS > 1
-  const char *arch_name = targetm.name;
-  tree attr = NULL_TREE;
-
-  if (fndecl)
-    attr = lookup_attribute ("target_arch", DECL_ATTRIBUTES (fndecl));
-  if (attr)
-    arch_name = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
-  for (; targetm_array[i]; i++)
-    if (strcmp (targetm_array[i]->name, arch_name) == 0)
-      break;
-#endif
+  int i = lookup_attr_target (fndecl);
   cfun = GGC_CNEW (struct function);
   cfun->target_arch = i;
   targetm_pnt = targetm_array[i];

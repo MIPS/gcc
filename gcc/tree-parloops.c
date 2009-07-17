@@ -736,7 +736,7 @@ expr_invariant_in_region_p (edge entry, edge exit, tree expr)
 static tree
 separate_decls_in_region_name (tree name,
 			       htab_t name_copies, htab_t decl_copies,
-			       bool copy_name_p)
+			       bool copy_name_p, int new_target)
 {
   tree copy, var, var_copy;
   unsigned idx, uid, nuid;
@@ -760,7 +760,14 @@ separate_decls_in_region_name (tree name,
   dslot = htab_find_slot_with_hash (decl_copies, &ielt, uid, INSERT);
   if (!*dslot)
     {
-      var_copy = create_tmp_var (TREE_TYPE (var), get_name (var));
+      tree type = TREE_TYPE (var);
+
+      if (new_target != targetm.target_arch && POINTER_TYPE_P (type))
+	type
+	  = ((TREE_CODE (type) == POINTER_TYPE
+	      ? build_pointer_type_for_mode : build_reference_type_for_mode)
+	     (TREE_TYPE (type), *targetm_array[new_target]->ptr_mode, false));
+      var_copy = create_tmp_var (type, get_name (var));
       DECL_GIMPLE_REG_P (var_copy) = DECL_GIMPLE_REG_P (var);
       add_referenced_var (var_copy);
       nielt = XNEW (struct int_tree_map);
@@ -810,7 +817,8 @@ separate_decls_in_region_name (tree name,
 
 static void
 separate_decls_in_region_stmt (edge entry, edge exit, gimple stmt,
-			       htab_t name_copies, htab_t decl_copies)
+			       htab_t name_copies, htab_t decl_copies,
+			       unsigned new_target)
 {
   use_operand_p use;
   def_operand_p def;
@@ -825,7 +833,7 @@ separate_decls_in_region_stmt (edge entry, edge exit, gimple stmt,
     name = DEF_FROM_PTR (def);
     gcc_assert (TREE_CODE (name) == SSA_NAME);
     copy = separate_decls_in_region_name (name, name_copies, decl_copies,
-					  false);
+					  false, new_target);
     gcc_assert (copy == name);
   }
 
@@ -837,7 +845,7 @@ separate_decls_in_region_stmt (edge entry, edge exit, gimple stmt,
 
     copy_name_p = expr_invariant_in_region_p (entry, exit, name);
     copy = separate_decls_in_region_name (name, name_copies, decl_copies,
-					  copy_name_p);
+					  copy_name_p, new_target);
     SET_USE (use, copy);
   }
 }
@@ -876,6 +884,41 @@ add_field_for_name (void **slot, void *data)
   insert_field_into_struct (type, field);
   elt->field = field;
 
+  return 1;
+}
+
+/* Called by the NUMA case of separate_decls_in_region via htab_traverse.
+   Computes the callee target start address and size of a parameter array
+   described by *SLOT and updates the size description of the parameter area;
+   DATA points to the parameter area description SIZES_ADDR[0..2].
+   SIZES_ADDR[0] tallies the per-iteration size, and SIZES_ADDR[1] the
+   iteration-independent constant size.
+   SIZES_ADDR[2] contains the callee target start address of the parameter
+   area.  */
+static int
+add_size_for_param_array (void **slot, void *data)
+{
+  param_array elt = (param_array) *slot;
+  tree *sizes_addr = (tree *) data;
+  tree min, max, offset, size, stride_tree;
+
+  stride_tree = build_int_cst (size_type_node, elt->stride);
+  min = elt->read_offset.min ? elt->read_offset.min : elt->write_offset.min;
+  if (elt->write_offset.min && tree_int_cst_lt (elt->write_offset.min, min))
+    min = elt->write_offset.min;
+  max = elt->read_offset.max ? elt->read_offset.max : elt->write_offset.max;
+  if (elt->write_offset.max && tree_int_cst_lt (max, elt->write_offset.max))
+    max = elt->write_offset.max;
+  offset = size_binop (MULT_EXPR, sizes_addr[2], sizes_addr[0]);
+  offset = size_binop (PLUS_EXPR, offset, sizes_addr[1]);
+  sizes_addr[0] = size_binop (PLUS_EXPR, sizes_addr[0], stride_tree);
+  sizes_addr[1]
+    = size_binop (PLUS_EXPR, sizes_addr[1], size_binop (MINUS_EXPR, max, min));
+  elt->callee_base
+    = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (sizes_addr[3]), sizes_addr[3],
+		   size_binop (MINUS_EXPR, offset, min));
+  size = size_binop (MULT_EXPR, sizes_addr[2], stride_tree);
+  elt->size = size_binop (PLUS_EXPR, size, size_binop (MINUS_EXPR, max, min));
   return 1;
 }
 
@@ -930,6 +973,8 @@ struct clsn_data
 
   basic_block store_bb;
   basic_block load_bb;
+  gimple_seq result_seq;
+  struct loop *loop;
 };
 
 /* Callback for htab_traverse.  Create an atomic instruction for the
@@ -1102,10 +1147,67 @@ create_loads_and_stores_for_name (void **slot, void *data)
   tree type = TREE_TYPE (elt->new_name);
   tree struct_type = TREE_TYPE (TREE_TYPE (clsn_data->load));
   tree load_struct;
+  tree src;
+  struct loop *loop = clsn_data->loop;
 
   gsi = gsi_last_bb (clsn_data->store_bb);
   t = build3 (COMPONENT_REF, type, clsn_data->store, elt->field, NULL_TREE);
-  stmt = gimple_build_assign (t, ssa_name (elt->version));
+  src = ssa_name (elt->version);
+  if (loop->param_arrays)
+    {
+      tree var = SSA_NAME_VAR (src), dst;
+      struct tree_map *m, m_in;
+      param_array a;
+      struct gcc_target *loop_target = targetm_array[loop->target_arch];
+      tree src_param = src;
+
+      m_in.base.from = var;
+      m = (struct tree_map *) htab_find_with_hash (loop->vect_vars, &m_in,
+						   DECL_UID (var));
+      if (m)
+	var = m->to;
+      a = (param_array) htab_find (loop->param_arrays, &var);
+
+      gcc_assert (a);
+      gcc_assert (operand_equal_p (a->caller_base, var, 0));
+      dst = a->callee_base;
+      gcc_assert (TYPE_MODE (TREE_TYPE (src)) == TYPE_MODE (TREE_TYPE (dst)));
+      if (TREE_CODE (TREE_TYPE (src)) == POINTER_TYPE
+	  && TYPE_MODE (TREE_TYPE (src)) != ptr_mode)
+	{
+	  tree param_type;
+
+	  param_type = build_pointer_type (TREE_TYPE (TREE_TYPE (src)));
+	  src_param = fold_convert (param_type, src);
+	  param_type = build_pointer_type (TREE_TYPE (TREE_TYPE (dst)));
+	  dst = fold_convert (param_type, dst);
+	}
+      if (!is_gimple_val (src))
+	{
+	  var = create_tmp_var (TREE_TYPE (src_param),
+				IDENTIFIER_POINTER (DECL_NAME (var)));
+	  var = make_ssa_name (var, NULL);
+	  stmt = gimple_build_assign (var, src_param);
+	  SSA_NAME_DEF_STMT (var) = stmt;
+	  mark_virtual_ops_for_renaming (stmt);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	  src_param = var;
+	}
+      if (a->read_offset.min)
+	(*targetm.copy_to_target) (&gsi, loop_target, dst, src_param, a->size);
+      if (a->write_offset.min)
+	{
+          gimple_stmt_iterator i;
+
+	  if (!clsn_data->result_seq)
+	    clsn_data->result_seq = gimple_seq_alloc ();
+          i = gsi_last (clsn_data->result_seq);
+	  (*targetm.copy_from_target) (&i, loop_target, dst, src_param,
+				       a->size);
+	}
+      src = dst;
+    }
+  stmt = gimple_build_assign (t, src);
   mark_virtual_ops_for_renaming (stmt);
   gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
 
@@ -1156,9 +1258,10 @@ create_loads_and_stores_for_name (void **slot, void *data)
 static void
 separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 			  tree *arg_struct, tree *new_arg_struct, 
-			  struct clsn_data *ld_st_data, unsigned new_target)
+			  struct clsn_data *ld_st_data, struct loop *loop)
 
 {
+  int new_target = loop->target_arch;
   basic_block bb1 = split_edge (entry);
   basic_block bb0 = single_pred (bb1);
   htab_t name_copies = htab_create (10, name_to_copy_elt_hash,
@@ -1173,6 +1276,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
   basic_block bb;
   basic_block entry_bb = bb1;
   basic_block exit_bb = exit->dest;
+  tree copy_base_var, copy_base;
 
   entry = single_succ_edge (entry_bb);
   gather_blocks_in_sese_region (entry_bb, exit_bb, &body);
@@ -1183,11 +1287,13 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	{
 	  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    separate_decls_in_region_stmt (entry, exit, gsi_stmt (gsi),
-					   name_copies, decl_copies);
+					   name_copies, decl_copies,
+					   new_target);
 
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    separate_decls_in_region_stmt (entry, exit, gsi_stmt (gsi),
-					   name_copies, decl_copies);
+					   name_copies, decl_copies,
+					   new_target);
 	}
     }
 
@@ -1208,6 +1314,9 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 			      type);
       TYPE_NAME (type) = type_name;
 
+      /* ??? For ARCompact / mxp, we should be able to transfer most or all
+	 values directly from ARCompact core to mxp vector register.
+	 OTOH, who is willing to fund the development work?  */
       htab_traverse (name_copies, add_field_for_name, type);
       if (reduction_list && htab_elements (reduction_list) > 0)
 	{
@@ -1216,6 +1325,47 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
                          type);
 	}
       layout_type (type);
+      bool numa
+	= !(*targetm.common_data_with_target) (targetm_array[new_target]);
+
+      if (numa)
+	{
+	  /* Calculate how much memory we need on the new_target side.  */
+	  tree sizes_addr[4];
+	  tree size;
+	  tree niter;
+	  tree ptype, fn_type, fn;
+	  gimple_stmt_iterator gsi;
+	  gimple stmt;
+
+	  ptype = (build_pointer_type_for_mode
+		    (void_type_node, *targetm_array[new_target]->ptr_mode,
+		     false));
+	  copy_base_var = create_tmp_var (ptype, "copy_base");
+	  add_referenced_var (copy_base_var);
+	  niter = number_of_latch_executions (loop);
+	  sizes_addr[0] = size_zero_node;
+	  sizes_addr[1] = size_in_bytes (type);
+	  sizes_addr[2] = niter;
+	  copy_base = make_ssa_name (copy_base_var, 0);
+	  sizes_addr[3] = copy_base;
+	  htab_traverse (loop->param_arrays, add_size_for_param_array,
+			 sizes_addr);
+	  size = size_binop (PLUS_EXPR,
+			     size_binop (MULT_EXPR, niter, sizes_addr[0]),
+			     sizes_addr[1]);
+	  /* Emit gimple to allocate SIZE bytes, assign to copy_base */
+	  fn_type = build_function_type_list (integer_type_node,
+					      integer_type_node, NULL_TREE);
+	  fn = get_identifier ("__simd_malloc");
+	  fn = build_decl (FUNCTION_DECL, fn, fn_type);
+	  stmt = gimple_build_call (fn, 1, size);
+	  SSA_NAME_DEF_STMT (copy_base) = stmt;
+	  gimple_call_set_lhs (stmt, copy_base);
+	  mark_virtual_ops_for_renaming (stmt);
+	  gsi = gsi_last_bb (bb0);
+	  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+	}
  
       /* Create the loads and stores.  */
       *arg_struct = create_tmp_var (type, ".paral_data_store");
@@ -1231,9 +1381,19 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
       ld_st_data->load = *new_arg_struct;
       ld_st_data->store_bb = bb0;
       ld_st_data->load_bb = bb1;
+      ld_st_data->result_seq = NULL;
+      ld_st_data->loop = loop;
 
       htab_traverse (name_copies, create_loads_and_stores_for_name,
 		     ld_st_data);
+      if (numa)
+	{
+	  gsi = gsi_last_bb (bb0);
+	  (*targetm.copy_to_target) (&gsi, targetm_array[new_target], copy_base,
+				     build_fold_addr_expr (*arg_struct),
+				     size_in_bytes (type));
+	  *arg_struct = build_fold_indirect_ref (copy_base);
+	}
 
       /* Load the calculation from memory (after the join of the threads).  */
 
@@ -1242,10 +1402,12 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	  htab_traverse (reduction_list, create_stores_for_reduction,
                         ld_st_data); 
 	  clsn_data.load = make_ssa_name (nvar, NULL);
-	  clsn_data.load_bb = exit->dest;
+	  clsn_data.load_bb = exit_bb;
 	  clsn_data.store = ld_st_data->store;
 	  create_final_loads_for_reduction (reduction_list, &clsn_data);
 	}
+      gsi = gsi_after_labels (split_edge (exit));
+      gsi_insert_seq_before (&gsi, ld_st_data->result_seq, GSI_NEW_STMT);
     }
 
   htab_delete (decl_copies);
@@ -1410,7 +1572,9 @@ canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree *nit)
       remove_phi_node (&psi, false);
 
       atype = TREE_TYPE (res);
-      mtype = POINTER_TYPE_P (atype) ? sizetype : atype;
+      mtype = (POINTER_TYPE_P (atype)
+	       ? targetm_array[loop->target_arch]->sizetype_tab[SIZETYPE]
+	       : atype);
       val = fold_build2 (MULT_EXPR, mtype, unshare_expr (iv.step),
 			 fold_convert (mtype, var_before));
       val = fold_build2 (POINTER_TYPE_P (atype)
@@ -1572,6 +1736,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   gimple stmt, for_stmt, phi, cond_stmt;
   tree cvar, cvar_init, initvar, cvar_next, cvar_base, type;
   edge exit, nexit, guard, end, e;
+  bool numa
+    = !(*targetm.common_data_with_target) (targetm_array[loop->target_arch]);
 
   /* Prepare the GIMPLE_OMP_PARALLEL statement.  */
   bb = loop_preheader_edge (loop)->src;
@@ -1650,7 +1816,10 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   gimple_cond_set_lhs (cond_stmt, cvar_base);
   type = TREE_TYPE (cvar);
   t = build_omp_clause (OMP_CLAUSE_SCHEDULE);
-  OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_STATIC;
+  if (numa)
+    OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_MASTER;
+  else
+    OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_STATIC;
 
   for_stmt = gimple_build_omp_for (NULL, t, 1, NULL);
   gimple_omp_for_set_index (for_stmt, 0, initvar);
@@ -1697,6 +1866,7 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   unsigned prob;
   bool arch_change = loop->target_arch != cfun->target_arch;
   bool parallelize_all = arch_change;
+  struct gcc_target *save_target;
 
   /* From
 
@@ -1794,7 +1964,10 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   free_original_copy_tables ();
 
   /* Base all the induction variables in LOOP on a single control one.  */
+  save_target = targetm_pnt;
+  targetm_pnt = targetm_array[loop->target_arch];
   canonicalize_loop_ivs (loop, reduction_list, &nit);
+  targetm_pnt = save_target;
 
   /* Ensure that the exit condition is the first statement in the loop.  */
   if (!parallelize_all)
@@ -1813,7 +1986,7 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   /* In the old loop, move all variables non-local to the loop to a structure
      and back, and create separate decls for the variables used in loop.  */
   separate_decls_in_region (entry, exit, reduction_list, &arg_struct, 
-			    &new_arg_struct, &clsn_data, loop->target_arch);
+			    &new_arg_struct, &clsn_data, loop);
 
   /* Create the parallel constructs.  */
   parallel_head

@@ -561,6 +561,9 @@ expand_expr (tree exp, rtx target, enum machine_mode mode,
   return expand_expr_real (exp, target, mode, modifier, NULL);
 }
 
+extern rtx tree_expand_expr (tree, rtx, enum machine_mode,
+			     enum expand_modifier);
+
 static inline rtx
 expand_normal (tree exp)
 {

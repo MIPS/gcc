@@ -688,6 +688,8 @@ struct target_option_hooks
   bool (*override) (bool main_target);
 };
 
+struct gimple_stmt_iterator_d;
+
 /* ??? the use of the target vector makes it necessary to cast
    target-specific enums from/to int, since we expose the function
    signatures of target specific hooks that operate e.g. on enum reg_class
@@ -704,6 +706,11 @@ struct gcc_target
 
   /* Points to the ptr_mode variable for this target.  */
   enum machine_mode *ptr_mode;
+
+  enum machine_mode (*get_pmode) (void);
+
+  /* The sizetype table for this target.  */
+  tree *sizetype_tab;
 
   /* Functions that output assembler for the target.  */
   struct asm_out asm_out;
@@ -883,6 +890,21 @@ struct gcc_target
 
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) (const char *);
+
+  /* Say if the target OTHER shares its data memory with this target.  */
+  bool (*common_data_with_target) (struct gcc_target *other);
+  /* Emit gimple to copy SIZE bytes from SRC on this target to DEST on
+     TARGET.  */
+  void (*copy_to_target) (struct gimple_stmt_iterator_d *,
+			  struct gcc_target *, tree, tree, tree);
+  /* Emit gimple to copy SIZE bytes from SRC on TARGET to DEST on this
+     target.  */
+  void (*copy_from_target) (struct gimple_stmt_iterator_d *,
+			    struct gcc_target *, tree, tree, tree);
+  /* Generate gimple for a call to fn with NARGS arguments ARGS
+     on target OTHER.  */
+  void (*build_call_on_target) (struct gimple_stmt_iterator_d *,
+				struct gcc_target *, int nargs, tree *args);
 
   /* If shift optabs for MODE are known to always truncate the shift count,
      return the mask that they apply.  Return 0 otherwise.  */

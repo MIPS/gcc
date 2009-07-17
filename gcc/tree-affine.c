@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-affine.h"
 #include "gimple.h"
 #include "flags.h"
+#include "target.h"
 
 /* Extends CST as appropriate for the affine combinations COMB.  */
 
@@ -352,7 +353,7 @@ add_elt_to_tree (tree expr, tree type, tree elt, double_int scale,
   enum tree_code code;
   tree type1 = type;
   if (POINTER_TYPE_P (type))
-    type1 = sizetype;
+    type1 = targetm.sizetype;
 
   scale = double_int_ext_for_comb (scale, comb);
   elt = fold_convert (type1, elt);
@@ -415,7 +416,7 @@ aff_combination_to_tree (aff_tree *comb)
   double_int off, sgn;
   tree type1 = type;
   if (POINTER_TYPE_P (type))
-    type1 = sizetype;
+    type1 = targetm.sizetype;
 
   gcc_assert (comb->n == MAX_AFF_ELTS || comb->rest == NULL_TREE);
 

@@ -241,7 +241,7 @@ set_bb_seq (basic_block bb, gimple_seq seq)
 
 /* Iterator object for GIMPLE statement sequences.  */
 
-typedef struct
+typedef struct gimple_stmt_iterator_d
 {
   /* Sequence node holding the current statement.  */
   gimple_seq_node ptr;

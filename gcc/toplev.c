@@ -2117,12 +2117,14 @@ lang_dependent_init_target (void)
 }
 
 EXTRA_TARGETS_DECL (int lang_dependent_init (const char *));
+EXTRA_TARGETS_DECL (int initialize_sizetypes (bool));
 
 /* Language-dependent initialization.  Returns nonzero on success.  */
 int
 lang_dependent_init (const char *name)
 {
   location_t save_loc ATTRIBUTE_UNUSED;
+  bool signed_sizetype ATTRIBUTE_UNUSED;
 
   targetm_pnt = &this_targetm;
 #ifndef EXTRA_TARGET
@@ -2135,11 +2137,18 @@ lang_dependent_init (const char *name)
   if (lang_hooks.init () == 0)
     return 0;
   input_location = save_loc;
+  signed_sizetype = !TYPE_UNSIGNED (sizetype);
+  EXTRA_TARGETS_CALL (initialize_sizetypes (signed_sizetype));
   EXTRA_TARGETS_CALL (lang_dependent_init (name));
   targetm_pnt = &this_targetm;
 
   init_asm_output (name);
-#endif /* !EXTRA_TARGET */
+#else /* EXTRA_TARGET */
+  if (TYPE_MODE (sizetype) != ptr_mode)
+    sizetype
+      = lang_hooks.types.type_for_mode (ptr_mode, TYPE_UNSIGNED (sizetype));
+  set_sizetype (size_type_node);
+#endif /* EXTRA_TARGET */
 
   /* This creates various _DECL nodes, so needs to be called after the
      front end is initialized.  */

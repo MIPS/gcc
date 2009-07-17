@@ -131,6 +131,8 @@
 
   (UNSPEC_ARC_SIMD_VCAST     1200)
   (UNSPEC_ARC_SIMD_VINTI     1201)
+
+  (UNSPEC_ARC_SIMD_DMA       1202)
    ]
 )
 
@@ -1311,3 +1313,41 @@
   [(set_attr "type" "simd_vcontrol")
    (set_attr "length" "4")
    (set_attr "cond" "nocond")])
+
+;; DMA in/out for ARCompact / mxp interworking
+;; These are emitted on the ARCompact side.
+
+;; copy main memory starting at operand 0 to SDM starting at operand 1;
+;; transfer size is operand 2.
+(define_insn "simd_dma_in"
+  [(set (reg:CC_BLK SDM)
+	(unspec [(reg:CC_BLK SDM)
+		 (mem:BLK (match_operand:SI 1 "nonmemory_operand"))
+		 (match_operand 0 "nonmemory_operand")
+		 (match_operand:SI 2 "nonmemory_operand")]
+	 UNSPEC_ARC_SIMD_DMA))]
+  "TARGET_SIMD_SET"
+  "` dma_in %0 %1 %2"
+  [(set_attr "length" "42")])
+
+;; copy SDM starting at operand 0 to main memory starting at operand 1;
+;; transfer size is operand 2.
+(define_insn "simd_dma_out"
+  [(set (mem:BLK (match_operand:SI 1 "nonmemory_operand"))
+	(unspec [(reg:CC_BLK SDM)
+		 (match_operand 0 "nonmemory_operand")
+		 (match_operand:SI 2 "nonmemory_operand")]
+	 UNSPEC_ARC_SIMD_DMA))]
+  "TARGET_SIMD_SET"
+  "` dma_out %0 %1 %2"
+  [(set_attr "length" "42")])
+
+(define_insn "simd_call"
+  [(set (reg:CC_BLK SDM)
+	(unspec [(match_operand 0 "nonmemory_operand")
+		 (match_operand 1 "simd_arg_vector")
+		 (reg:CC_BLK SDM)]
+	 UNSPEC_ARC_SIMD_DMA))]
+  "TARGET_SIMD_SET"
+  "` simd call"
+  [(set_attr "length" "42")])

@@ -2867,6 +2867,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
   gimple_stmt_iterator gsi;
   gimple stmt;
   int start_ix;
+  tree child_fn, attr;
 
   clauses = gimple_omp_parallel_clauses (entry_stmt);
 
@@ -2989,7 +2990,21 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
     t1 = null_pointer_node;
   else
     t1 = build_fold_addr_expr (t);
-  t2 = build_fold_addr_expr (gimple_omp_parallel_child_fn (entry_stmt));
+  child_fn = gimple_omp_parallel_child_fn (entry_stmt);
+  t2 = build_fold_addr_expr (child_fn);
+
+  attr = lookup_attribute ("target_arch", DECL_ATTRIBUTES (child_fn));
+  if (attr)
+    {
+      tree args[2];
+
+      args[0] = t2;
+      args[1] = force_gimple_operand_gsi (&gsi, t1, true, NULL_TREE, false,
+					  GSI_CONTINUE_LINKING);
+      struct gcc_target *tgt = targetm_array[lookup_attr_target (child_fn)];
+      targetm.build_call_on_target (&gsi, tgt, 2, args);
+      return;
+    }
 
   if (ws_args)
     {
@@ -3004,12 +3019,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
   force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 			    false, GSI_CONTINUE_LINKING);
 
-  t = gimple_omp_parallel_data_arg (entry_stmt);
-  if (t == NULL)
-    t = null_pointer_node;
-  else
-    t = build_fold_addr_expr (t);
-  t = build_call_expr (gimple_omp_parallel_child_fn (entry_stmt), 1, t);
+  t = build_call_expr (child_fn, 1, t1);
   force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 			    false, GSI_CONTINUE_LINKING);
 
@@ -3344,7 +3354,9 @@ expand_omp_taskreg (struct omp_region *region)
 	 a function call that has been inlined, the original PARM_DECL
 	 .OMP_DATA_I may have been converted into a different local
 	 variable.  In which case, we need to keep the assignment.  */
-      if (gimple_omp_taskreg_data_arg (entry_stmt))
+      tree data_arg = gimple_omp_taskreg_data_arg (entry_stmt);
+
+      if (data_arg)
 	{
 	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  gimple_stmt_iterator gsi;
@@ -3367,9 +3379,10 @@ expand_omp_taskreg (struct omp_region *region)
 		  /* We're ignore the subcode because we're
 		     effectively doing a STRIP_NOPS.  */
 
-		  if (TREE_CODE (arg) == ADDR_EXPR
-		      && TREE_OPERAND (arg, 0)
-		        == gimple_omp_taskreg_data_arg (entry_stmt))
+		  if ((TREE_CODE (arg) == ADDR_EXPR
+		       && TREE_OPERAND (arg, 0) == data_arg)
+		      || (TREE_CODE (data_arg) == INDIRECT_REF
+			  && TREE_OPERAND (data_arg, 0) == arg))
 		    {
 		      parcopy_stmt = stmt;
 		      break;
@@ -4202,6 +4215,170 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 			   recompute_dominator (CDI_DOMINATORS, fin_bb));
 }
 
+/* Like expand_omp_for_static_nochunk, but don't emit code for iteration
+   space partitioning - that is supposed to be done on the main processor.  */
+static void
+expand_numa_for_static_nochunk (struct omp_region *region,
+				struct omp_for_data *fd)
+{
+  tree n, q, s0, e0, e, t, nthreads, threadid;
+  tree type, itype, vmain, vback;
+  basic_block entry_bb, exit_bb, seq_start_bb, body_bb, cont_bb;
+  basic_block fin_bb;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+
+  itype = type = TREE_TYPE (fd->loop.v);
+  if (POINTER_TYPE_P (type))
+    itype = lang_hooks.types.type_for_size (TYPE_PRECISION (type), 0);
+
+  entry_bb = region->entry;
+  cont_bb = region->cont;
+  gcc_assert (EDGE_COUNT (entry_bb->succs) == 2);
+  gcc_assert (BRANCH_EDGE (entry_bb)->dest == FALLTHRU_EDGE (cont_bb)->dest);
+  seq_start_bb = split_edge (FALLTHRU_EDGE (entry_bb));
+  body_bb = single_succ (seq_start_bb);
+  gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb);
+  gcc_assert (EDGE_COUNT (cont_bb->succs) == 2);
+  fin_bb = FALLTHRU_EDGE (cont_bb)->dest;
+  exit_bb = region->exit;
+
+  /* Iteration space partitioning goes in ENTRY_BB.  */
+  gsi = gsi_last_bb (entry_bb);
+  gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_FOR);
+
+#if 0
+  t = build_call_expr (built_in_decls[BUILT_IN_OMP_GET_NUM_THREADS], 0);
+#else
+  t = size_one_node;
+#endif
+  t = fold_convert (itype, t);
+  nthreads = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
+				       true, GSI_SAME_STMT);
+  
+#if 0
+  t = build_call_expr (built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM], 0);
+#else
+  t = size_zero_node;
+#endif
+  t = fold_convert (itype, t);
+  threadid = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
+				       true, GSI_SAME_STMT);
+
+  fd->loop.n1
+    = force_gimple_operand_gsi (&gsi, fold_convert (type, fd->loop.n1),
+				true, NULL_TREE, true, GSI_SAME_STMT);
+  fd->loop.n2
+    = force_gimple_operand_gsi (&gsi, fold_convert (itype, fd->loop.n2),
+				true, NULL_TREE, true, GSI_SAME_STMT);
+  fd->loop.step
+    = force_gimple_operand_gsi (&gsi, fold_convert (itype, fd->loop.step),
+				true, NULL_TREE, true, GSI_SAME_STMT);
+
+  t = build_int_cst (itype, (fd->loop.cond_code == LT_EXPR ? -1 : 1));
+  t = fold_build2 (PLUS_EXPR, itype, fd->loop.step, t);
+  t = fold_build2 (PLUS_EXPR, itype, t, fd->loop.n2);
+  t = fold_build2 (MINUS_EXPR, itype, t, fold_convert (itype, fd->loop.n1));
+  if (TYPE_UNSIGNED (itype) && fd->loop.cond_code == GT_EXPR)
+    t = fold_build2 (TRUNC_DIV_EXPR, itype,
+		     fold_build1 (NEGATE_EXPR, itype, t),
+		     fold_build1 (NEGATE_EXPR, itype, fd->loop.step));
+  else
+    t = fold_build2 (TRUNC_DIV_EXPR, itype, t, fd->loop.step);
+  t = fold_convert (itype, t);
+  n = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, true, GSI_SAME_STMT);
+
+  t = fold_build2 (TRUNC_DIV_EXPR, itype, n, nthreads);
+  q = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, true, GSI_SAME_STMT);
+
+  t = fold_build2 (MULT_EXPR, itype, q, nthreads);
+  t = fold_build2 (NE_EXPR, itype, t, n);
+  t = fold_build2 (PLUS_EXPR, itype, q, t);
+  q = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, true, GSI_SAME_STMT);
+
+  t = build2 (MULT_EXPR, itype, q, threadid);
+  s0 = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, true, GSI_SAME_STMT);
+
+  t = fold_build2 (PLUS_EXPR, itype, s0, q);
+  t = fold_build2 (MIN_EXPR, itype, t, n);
+  e0 = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, true, GSI_SAME_STMT);
+
+  t = build2 (GE_EXPR, boolean_type_node, s0, e0);
+  gsi_insert_before (&gsi, gimple_build_cond_empty (t), GSI_SAME_STMT);
+
+  /* Remove the GIMPLE_OMP_FOR statement.  */
+  gsi_remove (&gsi, true);
+
+  /* Setup code for sequential iteration goes in SEQ_START_BB.  */
+  gsi = gsi_start_bb (seq_start_bb);
+
+  t = fold_convert (itype, s0);
+  t = fold_build2 (MULT_EXPR, itype, t, fd->loop.step);
+  if (POINTER_TYPE_P (type))
+    t = fold_build2 (POINTER_PLUS_EXPR, type, fd->loop.n1,
+		     fold_convert (sizetype, t));
+  else
+    t = fold_build2 (PLUS_EXPR, type, t, fd->loop.n1);
+  t = force_gimple_operand_gsi (&gsi, t, false, NULL_TREE,
+				false, GSI_CONTINUE_LINKING);
+  stmt = gimple_build_assign (fd->loop.v, t);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+ 
+  t = fold_convert (itype, e0);
+  t = fold_build2 (MULT_EXPR, itype, t, fd->loop.step);
+  if (POINTER_TYPE_P (type))
+    t = fold_build2 (POINTER_PLUS_EXPR, type, fd->loop.n1,
+		     fold_convert (sizetype, t));
+  else
+    t = fold_build2 (PLUS_EXPR, type, t, fd->loop.n1);
+  e = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
+				false, GSI_CONTINUE_LINKING);
+
+  /* The code controlling the sequential loop replaces the
+     GIMPLE_OMP_CONTINUE.  */
+  gsi = gsi_last_bb (cont_bb);
+  stmt = gsi_stmt (gsi);
+  gcc_assert (gimple_code (stmt) == GIMPLE_OMP_CONTINUE);
+  vmain = gimple_omp_continue_control_use (stmt);
+  vback = gimple_omp_continue_control_def (stmt);
+
+  if (POINTER_TYPE_P (type))
+    t = fold_build2 (POINTER_PLUS_EXPR, type, vmain,
+		     fold_convert (sizetype, fd->loop.step));
+  else
+    t = fold_build2 (PLUS_EXPR, type, vmain, fd->loop.step);
+  t = force_gimple_operand_gsi (&gsi, t, false, NULL_TREE,
+				true, GSI_SAME_STMT);
+  stmt = gimple_build_assign (vback, t);
+  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+
+  t = build2 (fd->loop.cond_code, boolean_type_node, vback, e);
+  gsi_insert_before (&gsi, gimple_build_cond_empty (t), GSI_SAME_STMT);
+
+  /* Remove the GIMPLE_OMP_CONTINUE statement.  */
+  gsi_remove (&gsi, true);
+
+  /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
+  gsi = gsi_last_bb (exit_bb);
+  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
+    force_gimple_operand_gsi (&gsi, build_omp_barrier (), false, NULL_TREE,
+			      false, GSI_SAME_STMT);
+  gsi_remove (&gsi, true);
+
+  /* Connect all the blocks.  */
+  find_edge (entry_bb, seq_start_bb)->flags = EDGE_FALSE_VALUE;
+  find_edge (entry_bb, fin_bb)->flags = EDGE_TRUE_VALUE;
+
+  find_edge (cont_bb, body_bb)->flags = EDGE_TRUE_VALUE;
+  find_edge (cont_bb, fin_bb)->flags = EDGE_FALSE_VALUE;
+ 
+  set_immediate_dominator (CDI_DOMINATORS, seq_start_bb, entry_bb);
+  set_immediate_dominator (CDI_DOMINATORS, body_bb,
+			   recompute_dominator (CDI_DOMINATORS, body_bb));
+  set_immediate_dominator (CDI_DOMINATORS, fin_bb,
+			   recompute_dominator (CDI_DOMINATORS, fin_bb));
+}
+
 
 /* A subroutine of expand_omp_for.  Generate code for a parallel
    loop with static schedule and a specified chunk size.  Given
@@ -4533,6 +4710,8 @@ expand_omp_for (struct omp_region *region)
       else
 	expand_omp_for_static_chunk (region, &fd);
     }
+  else if (fd.sched_kind == OMP_CLAUSE_SCHEDULE_MASTER)
+    expand_numa_for_static_nochunk (region, &fd);
   else
     {
       int fn_index, start_ix, next_ix;

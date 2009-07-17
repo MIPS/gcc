@@ -9499,6 +9499,26 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
   return REDUCE_BIT_FIELD (temp);
 }
 #undef REDUCE_BIT_FIELD
+
+#ifndef EXTRA_TARGET
+EXTRA_TARGETS_DECL (rtx expand_expr_real (tree, rtx, enum machine_mode,
+		    enum expand_modifier, rtx *));
+/* Like expand_expr, but dispatch according to targetm, so this is suitable
+   for tree optimizers that don't have target-specific variants.  */
+rtx
+tree_expand_expr (tree exp, rtx target, enum machine_mode mode,
+		  enum expand_modifier modifier)
+{
+
+  rtx (*expand_expr_array[]) (tree, rtx, enum machine_mode,
+                                    enum expand_modifier, rtx *)
+    = { &expand_expr_real, EXTRA_TARGETS_EXPAND_COMMA (&,expand_expr_real) };
+
+  return ((*expand_expr_array[targetm.target_arch])
+	  (exp, target, mode, modifier, NULL));
+}
+
+#endif /* EXTRA_TARGET */
 
 /* Subroutine of above: reduce EXP to the precision of TYPE (in the
    signedness of TYPE), possibly returning the result in TARGET.  */

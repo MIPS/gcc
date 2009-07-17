@@ -467,8 +467,10 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 
 /* r63 is pc, r64-r127 = simd vregs, r128-r143 = simd dma config regs
    r144, r145 = lp_start, lp_end
-   and therefore the pseudo registers start from r146 */
-#define FIRST_PSEUDO_REGISTER 146
+   r146 = SDM (not really a register, but we pretend it is for dam_in / dma_out
+   patterns)
+   and therefore the pseudo registers start from r147 */
+#define FIRST_PSEUDO_REGISTER 147
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
@@ -529,7 +531,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 				\
   0, 0, 0, 0, 0, 0, 0, 0,       \
   0, 0, 0, 0, 0, 0, 0, 0,	\
-  1, 1}
+  1, 1, 1}
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -565,7 +567,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 				\
   0, 0, 0, 0, 0, 0, 0, 0,       \
   0, 0, 0, 0, 0, 0, 0, 0,	\
-  1, 1}
+  1, 1, 1}
 
 /* Macro to conditionally modify fixed_regs/call_used_regs.  */
 
@@ -1654,7 +1656,7 @@ extern char rname56[], rname57[], rname58[], rname59[];
  "vr56", "vr57", "vr58", "vr59",     "vr60",   "vr61",   "vr62",  "vr63",	\
   "dr0",  "dr1",  "dr2",  "dr3",      "dr4",    "dr5",    "dr6",   "dr7",	\
   "dr0",  "dr1",  "dr2",  "dr3",      "dr4",    "dr5",    "dr6",   "dr7",	\
-  "lp_start", "lp_end" \
+  "lp_start", "lp_end", "SDM" \
 }
 
 /* Entry to the insn conditionalizer.  */

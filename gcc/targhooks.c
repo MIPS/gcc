@@ -874,6 +874,18 @@ default_vectype_for_scalar_type (tree scalar_type, FILE *vect_dump)
   return vectype;
 }
 
+bool
+default_common_data_with_target (struct gcc_target *other)
+{
+  return &this_targetm == other;
+}
+
+enum machine_mode
+default_get_pmode (void)
+{
+  return Pmode;
+}
+
 #include "gt-targhooks.h"
 
 END_TARGET_SPECIFIC
