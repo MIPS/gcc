@@ -1,3 +1,10 @@
+2009-07-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/40724
+	PR lto/40725
+	* lto-streamer.c (lto_get_common_nodes): Initialize
+	main_identifier_node if it is not initialized already.
+
 2009-07-17  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/40765

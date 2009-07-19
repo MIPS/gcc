@@ -705,6 +705,8 @@ lto_get_common_nodes (void)
       const char *main_name = IDENTIFIER_POINTER (main_identifier_node);
       gcc_assert (strcmp (main_name, "main") == 0);
     }
+  else
+    main_identifier_node = get_identifier ("main");
 
   gcc_assert (ptrdiff_type_node == integer_type_node);
 
