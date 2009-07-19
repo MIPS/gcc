@@ -77,7 +77,6 @@ namespace gcc4cli.util {
                                                        FieldAttributes.Private
                                                        | FieldAttributes.Static
                                                        | FieldAttributes.SpecialName
-                                                       | FieldAttributes.RTSpecialName
                                                        );
             MainType.Fields.Add (fld);
             def_symbols[InitCountName] = fld;
@@ -85,8 +84,7 @@ namespace gcc4cli.util {
             MethodDefinition myinit = new MethodDefinition (InitFunctionName,
                                                             MethodAttributes.Public
                                                             | MethodAttributes.Static
-                                                            | MethodAttributes.SpecialName
-                                                            | MethodAttributes.RTSpecialName,
+                                                            | MethodAttributes.SpecialName,
                                                             Module.Import (typeof (void)));
             myinit.Body.CilWorker.Emit (OpCodes.Ret);
 
@@ -97,8 +95,7 @@ namespace gcc4cli.util {
             MethodDefinition myfini = new MethodDefinition (FiniFunctionName,
                                                             MethodAttributes.Public
                                                             | MethodAttributes.Static
-                                                            | MethodAttributes.SpecialName
-                                                            | MethodAttributes.RTSpecialName,
+                                                            | MethodAttributes.SpecialName,
                                                             Module.Import (typeof (void)));
             myfini.Body.CilWorker.Emit (OpCodes.Ret);
 
@@ -236,8 +233,7 @@ namespace gcc4cli.util {
             MethodDefinition mystart = new MethodDefinition (StartFunctionName,
                                                              MethodAttributes.Public
                                                              | MethodAttributes.Static
-                                                             | MethodAttributes.SpecialName
-                                                             | MethodAttributes.RTSpecialName,
+                                                             | MethodAttributes.SpecialName,
                                                              Module.Import (typeof (void)));
             // Add arguments
             ParameterDefinition myargs = new ParameterDefinition ("args",
