@@ -1,17 +1,200 @@
+2009-07-20  Bob Duff  <duff@adacore.com>
+
+	* sem_ch13.adb (Analyze_Record_Representation_Clause): Use "and then"
+	instead of "and", because otherwise Parent_Last_Bit is read
+	uninitialized in the case where it's not a tagged type, or the tagged
+	parent does not have a complete rep clause.
+
+2009-07-20  Robert Dewar  <dewar@adacore.com>
+
+	* stylesw.ads: Minor documentation change.
+
+	* types.ads: Minor reformatting
+
+2009-07-20  Javier Miranda  <miranda@adacore.com>
+
+	* exp_disp.ads (Apply_Access_Checks): New subprogram that takes care of
+	generating the tag checks associated with dispatching calls.
+	* exp_disp.adb (Apply_Access_Checks): New subprogram.
+	(New_Value): This routine was previously local to expand dispatching
+	calls but it is now used also by Apply_Access_Checks.
+	(Expand_Dispatching_Calls): Cleanup code because the functionality of
+	tag checks is now provided by Apply_Access_Checks. 
+	* exp_ch6.adb (Expand_Call): Incorporate generation of tag checks in
+	case of dispatching calls.
+
+2009-07-20  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb (Gnat1drv): Also disable Elaboration_Check in
+	CodePeer_Mode.
+
+2009-07-20  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_prag.adb (Expand_Pragma_Import_Export_Exception): When compiling
+	for VMS, only rewrite the first component of the associated exception's
+	aggregate init (as 'V'), and eliminate the bogus rewrites of the second
+	and third components  that were being replaced with 'M' and 'S'.
+
+2009-07-20  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb (Gnat1drv): Suppress access checks in CodePeer mode.
+	Also do not generate error when parsing a spec in CodePeer mode.
+
+2009-07-20  Javier Miranda  <miranda@adacore.com>
+
+	* checks.adb (Apply_Access_Check): Avoid checks on availability of
+	runtime function Offset_To_Top_Ptr when compiling with no tagged
+	types expansion.
+	* exp_ch3.adb (Build_Init_Procedure): Leave open the possibility of
+	adding code to the init proc when compiling for VM backends.
+
+2009-07-20  Vincent Celier  <celier@adacore.com>
+
+	* switch-m.ads, switch-m.adb (Normalize_Compiler_Switches): Take into
+	account switches -gnatw.?
+
+2009-07-20  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_dist.adb, exp_dist.adb: Minor reformatting
+
+	* Make-generated.in: New file.
+
+	* gcc-interface/Make-lang.in: Use Make-generated.in fragment.
+
+2009-07-20  Javier Miranda  <miranda@adacore.com>
+
+	* sem_util.ads, sem_util.adb (Check_Dynamically_Tagged_Expression): New
+	subprogram.
+	* sem_aggr.adb (Resolve_Array_Aggregate): Check incorrect use of
+	dynamically tagged expression.
+	* sem_ch3.adb (Analyze_Object_Declaration): Call new routine that
+	factorizes code.
+	* sem_ch6.adb (Analyze_Function_Return, Process_Formals): Ditto.
+	* sem_ch8.adb (Analyze_Object_Renaming): Ditto.
+
+2009-07-20  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb (Gnat1drv): Set operating mode to Generate_Code when
+	CodePeer_Mode is set, to benefit from full front-end expansion
+	(e.g. generics).
+
+2009-07-20  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb: Add guard.
+
+	* exp_disp.adb, sem_disp.adb (Make_DT): Check underlying view of type
+	for possible attribute definition of External_Tag, in case clause
+	appears in the private part of a package.
+
+2009-07-20  Jerome Guitton  <guitton@adacore.com>
+
+	* gcc-interface/Makefile.in: cleanup powerpc linux target pairs.
+
+2009-07-20  Vadim Godunko  <godunko@adacore.com>
+
+	* a-coorma.adb: Minor reformatting.
+
+2009-07-20  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3 (Build_Itype_Reference): Make public, for use on non-null
+	access return types.
+	* sem_ch6.adb (Analyze_Return_Type): If return is a not null subtype,
+	provide an itype reference to gigi to force elaboration of the subtype
+	at the proper point.
+
+2009-07-20  Tristan Gingold  <gingold@adacore.com>
+
+	* g-expect.adb: Avoid closeing already closed handle.
+
+2009-07-20  Robert Dewar  <dewar@adacore.com>
+
+	* sprint.adb (Write_Subprogram_Name): New procedure to output
+	subprogram name with possible preceding $ (replaces
+	Note_Implicit_Run_Time_Call).
+
+2009-07-20  Robert Dewar  <dewar@adacore.com>
+
+	* vms_data.ads: Minor reformatting
+
+	* einfo.ads, einfo.adb (Parent_Subtype): Now allowed on record subtype,
+	applies to base type.
+	(Parent_Subtype): Now allowed on record subtype, applies to base type
+	* exp_ch5.adb (Expand_Assign_Record): Handle Componentwise_Assignment
+	for case of fully repped tagged type.
+	(Make_Tag_Ctrl_Assignment): Set Componentwise_Assignment and avoid
+	tag save/restore for fully repped tagged type case.
+	* exp_util.ads, exp_util.adb (Is_Fully_Repped_Tagged_Type): New function
+	* fe.h (Is_Fully_Repped_Tagged_Type): New function
+	* sem_ch13.adb (Analyze_Recorrd_Representation_Clause): Check for
+	overlap of tagged type components with parent type if parent type is
+	fully repped.
+	* sinfo.ads, sinfo.adb (Componentwise_Assignment): New flag
+
+	* sem_res.adb (Check_No_Direct_Boolean_Operators): Remove handling of
+	comparisons.
+	(Resolve_Comparison_Operators): Remove No_Direct_Boolean_Operators check
+	(Resolve_Equality_Op): Remove No_Direct_Boolean_Operators check
+
+	* gnat_rm.texi: Restriction No_Direct_Boolean_Operators includes only
+	logical operators (AND/OR/XOR), not comparison operators.
+
+	* sprint.ads: Minor reformatting
+
+2009-07-20  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_intr.adb (Check_Intrinsic_Call): For Import_Value and related
+	intrinsics, check that argument is a string literal, rather than
+	checking for staticness.
+
+2009-07-20  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch13.adb: Minor reformatting
+
+	* einfo.ads: Minor reformatting
+	Component_Bit_Offset is no longer considered obsolescent
+
+2009-07-20  Nicolas Roche  <roche@adacore.com>
+
+	* a-calend.adb: Redefine time_t as signed integer with same size as
+	Address type.
+	* s-os_lib.ads: Redefine OS_Time as signed integer with same size as
+	Address type
+	* adaint.h: On Windows 64bits declare OS_Time as long long instead of
+	long
+
+2009-07-20  Javier Miranda  <miranda@adacore.com>
+
+	* exp_tss.adb (Init_Proc): Add missing support for non-default C++
+	constructors that have anonymous access type formals.
+
+	* sem_res.adb (Resolve_Actuals): Disable checks associated with Ada
+	class-wide arguments in case of imported C++ subprograms.
+
+	* exp_ch3.adb (Build_Initialization_Call): Add assertion.
+
+2009-07-20  Sergey Rybin  <rybin@adacore.com>
+
+	* vms_data.ads: Update qualifiers.
+
+2009-07-20  Robert Dewar  <dewar@adacore.com>
+
+	* einfo.ads, switch.adb, gnatls.adb, inline.adb, sem_ch13.adb: Minor
+	reformatting
+
 2009-07-17  Richard Guenther  <rguenther@suse.de>
 
 	PR c/40401
-	* utils.c (end_subprog_body): Revert to pre-tuples state.  Remove
-	unused parameter.
+	* gcc-interface/utils.c (end_subprog_body): Revert to pre-tuples
+	state.  Remove unused parameter.
 	(gnat_gimplify_function): Do not gimplify here.
 	Fold into its only caller and remove.
 	(gnat_builtin_function): Adjust for end_subprog_body signature change.
 	(gnat_write_global_declarations): Also finalize the CU.
-	* misc.c (gnat_parse_file): Do not finalize the CU here.
-	* trans.c (gigi): Revert to pre-tuples state.
+	* gcc-interface/misc.c (gnat_parse_file): Do not finalize the CU here.
+	* gcc-interface/trans.c (gigi): Revert to pre-tuples state.
 	(Subprogram_Body_to_gnu): Adjust for end_subprog_body signature
 	change.
-	* gigi.h (end_subprog_body): Remove unused parameter.
+	* gcc-interface/gigi.h (end_subprog_body): Remove unused parameter.
 
 2009-07-15  Arnaud Charlet  <charlet@adacore.com>
 

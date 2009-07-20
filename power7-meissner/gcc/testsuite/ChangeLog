@@ -1,3 +1,87 @@
+2009-07-20  Olatunji Ruwase  <tjruwase@google.com>
+
+	* gcc.dg/plugin/finish_unit_plugin.c: New test.
+	* gcc.dg/plugin/finish_unit-test-1.c: New test.
+	* gcc.dg/plugin/plugin.exp: Added finish_unit_plugin.c test.
+
+2009-07-20  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/ext-3.c: New test.
+
+2009-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/builtin-object-size-6.c: Adjust expected values. 
+	* gcc.dg/builtin-object-size-8.c: New test. 
+	* g++.dg/ext/builtin-object-size1.C: Adjust expected values.
+	* g++.dg/ext/builtin-object-size2.C: Likewise.
+
+	PR tree-optimization/40792
+	* gcc.dg/pr40792.c: New test.
+
+2009-07-20  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-cond-1.c, gcc.dg/vect/vect-cond-2.c,
+	gcc.dg/vect/vect-cond-3.c, gcc.dg/vect/vect-cond-4.c,
+	gcc.dg/vect/vect-cond-5.c, gcc.dg/vect/vect-cond-6.c: New tests.
+
+2009-07-20  Christian Bruel  <christian.bruel@st.com>
+	
+	* gcc.target/sh/mfmovd.c: New test.
+	
+2009-07-19  Janne Blomqvist  <jb@gcc.gnu.org>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/40714
+	* gfortran.dg/eof_3.f90: New test.
+
+2009-07-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/40727
+	* gfortran.dg/intrinsic_cmplx.f90: New test.
+
+2009-07-19   Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34670
+	PR libfortran/36874
+	* gfortran.dg/cshift_bounds_1.f90:  New test.
+	* gfortran.dg/cshift_bounds_2.f90:  New test.
+	* gfortran.dg/cshift_bounds_3.f90:  New test.
+	* gfortran.dg/cshift_bounds_4.f90:  New test.
+	* gfortran.dg/eoshift_bounds_1.f90:  New test.
+	* gfortran.dg/maxloc_bounds_4.f90:  Correct typo in error message.
+	* gfortran.dg/maxloc_bounds_5.f90:  Correct typo in error message.
+	* gfortran.dg/maxloc_bounds_7.f90:  Correct typo in error message.
+
+2009-07-19  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/40676
+	* gcc.c-torture/compile/pr40676.c: New testcase.
+
+2009-07-18  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/ext-2.c: New test.
+
+2009-07-18  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/octeon-exts-7.c: New test.
+	* gcc.target/mips/octeon-exts-2.c: Revert previous change.
+	* gcc.target/mips/octeon-exts-5.c: Likewise.
+
+2009-07-18  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/40798
+	* gcc.dg/tree-ssa/loop-2.c: Tighten pattern.
+
+2009-07-18  Richard Guenther  <rguenther@suse.de>
+
+	PR c/40787
+	* gcc.dg/pr35899.c: Adjust.
+
+2009-07-18  Richard Sandiford  <r.sandiford@uk.ibm.com>
+
+	* gcc.target/powerpc/asm-es-1.c: New test.
+	* gcc.target/powerpc/asm-es-2.c: Likewise.
+
 2009-07-17  Richard Guenther  <rguenther@suse.de>
 
 	PR c/40401

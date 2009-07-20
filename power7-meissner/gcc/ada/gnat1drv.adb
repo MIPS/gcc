@@ -158,17 +158,22 @@ procedure Gnat1drv is
 
          ASIS_Mode := False;
 
-         --  Turn off dynamic elaboration checks: generates inconsitencies in
+         --  Suppress overflow checks and access checks since they are handled
+         --  implicitely by CodePeer.
+
+         --  Turn off dynamic elaboration checks: generates inconsistencies in
          --  trees between specs compiled as part of a main unit or as part of
          --  a with-clause.
 
-         Dynamic_Elaboration_Checks := False;
+         --  Enable all other language checks
 
-         --  Suppress overflow checks since this is handled implicitely by
-         --  CodePeer. Enable all other language checks.
-
-         Suppress_Options       := (Overflow_Check => True, others => False);
+         Suppress_Options :=
+           (Overflow_Check    => True,
+            Access_Check      => True,
+            Elaboration_Check => True,
+            others            => False);
          Enable_Overflow_Checks := False;
+         Dynamic_Elaboration_Checks := False;
 
          --  Kill debug of generated code, since it messes up sloc values
 
@@ -184,11 +189,10 @@ procedure Gnat1drv is
 
          Polling_Required := False;
 
-         --  Set operating mode to check semantics with full front-end
-         --  expansion, but no back-end code generation.
+         --  Set operating mode to Generate_Code to benefit from full
+         --  front-end expansion (e.g. generics).
 
-         Operating_Mode := Check_Semantics;
-         Debug_Flag_X   := True;
+         Operating_Mode := Generate_Code;
 
          --  We need SCIL generation of course
 
@@ -748,6 +752,11 @@ begin
       --  so we can generate code for them.
 
       elsif Main_Kind in N_Generic_Renaming_Declaration then
+         Back_End_Mode := Generate_Object;
+
+      --  It's not an error to generate SCIL for e.g. a spec which has a body
+
+      elsif CodePeer_Mode then
          Back_End_Mode := Generate_Object;
 
       --  In all other cases (specs which have bodies, generics, and bodies
