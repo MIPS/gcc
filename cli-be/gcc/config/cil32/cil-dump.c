@@ -59,7 +59,6 @@ static const char* const cil_names[] = {
 #undef CIL_INSTRDEF
 };
 
-
 static const char* const cil_type_names[] = {
 #define CIL_TYPEDEF(A,B) B,
 #include "cil-types.def"
@@ -166,22 +165,19 @@ dump_type (const_tree type)
     {
       printf ("void");
     }
+  else if (TREE_CODE (type) == COMPLEX_TYPE)
+    {
+      printf ("complex_type ");
+      dump_type (TREE_TYPE (type));
+    }
   else
     {
       cil_type_t cil_type = type_to_cil (type);
       switch (cil_type)
 	{
 	case CIL_VALUE_TYPE:
-	  if (TREE_CODE (type) == COMPLEX_TYPE)
-	    {
-	      printf ("complex_type ");
-	      dump_type (TREE_TYPE (type));
-	    }
-	  else
-	    {
 	      printf ("value_type ");
 	      dump_valuetype_name (TYPE_MAIN_VARIANT (type));
-	    }
 	  break;
 	case CIL_POINTER:
 	  if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)

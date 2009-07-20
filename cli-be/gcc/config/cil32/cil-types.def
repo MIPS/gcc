@@ -34,6 +34,7 @@ Erven Rohou             <erven.rohou@inria.fr>
    CIL_TYPEDEF(CIL_symbol,printable name)
 
    Where symbol is the enumeration name without the ``CIL_''.
+   The printable name is used in the emit-cil pass.
 */
 
 
@@ -45,10 +46,10 @@ CIL_TYPEDEF(CIL_INT32,"int32")           /* Signed 32-bit integer */
 CIL_TYPEDEF(CIL_INT64,"int64")           /* Signed 64-bit integer */
 CIL_TYPEDEF(CIL_NATIVE_INT,"native_int") /* Signed native integer */
 
-CIL_TYPEDEF(CIL_UNSIGNED_INT8,"uint8")             /* Unsigned 8-bit integer */
-CIL_TYPEDEF(CIL_UNSIGNED_INT16,"uint16")           /* Unsigned 16-bit integer */
-CIL_TYPEDEF(CIL_UNSIGNED_INT32,"uint32")           /* Unsigned 32-bit integer */
-CIL_TYPEDEF(CIL_UNSIGNED_INT64,"uint64")           /* Unsigned 64-bit integer */
+CIL_TYPEDEF(CIL_UNSIGNED_INT8,"unsigned int8")     /* Unsigned 8-bit integer */
+CIL_TYPEDEF(CIL_UNSIGNED_INT16,"unsigned int16")   /* Unsigned 16-bit integer */
+CIL_TYPEDEF(CIL_UNSIGNED_INT32,"unsigned int32")   /* Unsigned 32-bit integer */
+CIL_TYPEDEF(CIL_UNSIGNED_INT64,"unsigned int64")   /* Unsigned 64-bit integer */
 CIL_TYPEDEF(CIL_NATIVE_UNSIGNED_INT,"native_uint") /* Unsigned native integer */
 
 CIL_TYPEDEF(CIL_FLOAT,"float")     /* On-stack floating-point type*/
@@ -60,19 +61,19 @@ CIL_TYPEDEF(CIL_POINTER,"pointer") /* Generic pointer */
 CIL_TYPEDEF(CIL_VALUE_TYPE,"value_type") /* Generic value type */
 
 /* 4-byte vector types */
-CIL_TYPEDEF(CIL_V2HI,"v2hi")    /* Vector of 2 16-bit integers */
-CIL_TYPEDEF(CIL_V4QI,"v4qi")    /* Vector of 4 8-bit integers */
+CIL_TYPEDEF(CIL_V2HI,"V2HI")    /* Vector of 2 16-bit integers */
+CIL_TYPEDEF(CIL_V4QI,"V4QI")    /* Vector of 4 8-bit integers */
 
 /* 8-byte vector types */
-CIL_TYPEDEF(CIL_V2SI,"v2si")    /* Vector of 2 32-bit integers */
-CIL_TYPEDEF(CIL_V4HI,"v4hi")    /* Vector of 4 16-bit integers */
-CIL_TYPEDEF(CIL_V8QI,"v8qi")    /* Vector of 8 8-bit integers */
-CIL_TYPEDEF(CIL_V2SF,"v2sf")    /* Vector of 2 32-bit single precision floats */
+CIL_TYPEDEF(CIL_V2SI,"V2SI")    /* Vector of 2 32-bit integers */
+CIL_TYPEDEF(CIL_V4HI,"V4HI")    /* Vector of 4 16-bit integers */
+CIL_TYPEDEF(CIL_V8QI,"V8QI")    /* Vector of 8 8-bit integers */
+CIL_TYPEDEF(CIL_V2SF,"V2SF")    /* Vector of 2 32-bit single precision floats */
 
 /* 16-byte vector types */
-CIL_TYPEDEF(CIL_V2DI,"v2di")    /* Vector of 2 64-bit integers */
-CIL_TYPEDEF(CIL_V4SI,"v4si")    /* Vector of 4 32-bit integers */
-CIL_TYPEDEF(CIL_V8HI,"v8hi")    /* Vector of 8 16-bit integers */
-CIL_TYPEDEF(CIL_V16QI,"v16qi")  /* Vector of 16 8-bit integers */
-CIL_TYPEDEF(CIL_V2DF,"v2df")    /* Vector of 2 64-bit double precision floats */
-CIL_TYPEDEF(CIL_V4SF,"v4sf")    /* Vector of 4 32-bit single precision floats */
+CIL_TYPEDEF(CIL_V2DI,"V2DI")    /* Vector of 2 64-bit integers */
+CIL_TYPEDEF(CIL_V4SI,"V4SI")    /* Vector of 4 32-bit integers */
+CIL_TYPEDEF(CIL_V8HI,"V8HI")    /* Vector of 8 16-bit integers */
+CIL_TYPEDEF(CIL_V16QI,"V16QI")  /* Vector of 16 8-bit integers */
+CIL_TYPEDEF(CIL_V2DF,"V2DF")    /* Vector of 2 64-bit double precision floats */
+CIL_TYPEDEF(CIL_V4SF,"V4SF")    /* Vector of 4 32-bit single precision floats */

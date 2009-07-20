@@ -70,7 +70,8 @@ cil-dump.o: $(srcdir)/config/cil32/cil-dump.c \
    $(srcdir)/config/cil32/cil-refs.h \
    $(srcdir)/config/cil32/cil-types.h \
    $(srcdir)/config/cil32/cil-stack.h \
-   $(srcdir)/config/cil32/cil-types.def $(srcdir)/config/cil32/cil-instr.def \
+   $(srcdir)/config/cil32/cil-instr.def \
+   $(srcdir)/config/cil32/cil-types.def \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) langhooks.h $(TREE_H)
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
@@ -118,6 +119,7 @@ emit-cil.o : $(srcdir)/config/cil32/emit-cil.c \
    $(srcdir)/config/cil32/emit-cil.h \
    $(srcdir)/config/cil32/emit-hints.h \
    $(srcdir)/config/cil32/cil-instr.def \
+   $(srcdir)/config/cil32/cil-types.def \
    $(srcdir)/config/cil32/cil-refs.h \
    $(srcdir)/config/cil32/cil-stack.h \
    $(srcdir)/config/cil32/cil-stmt.h \
