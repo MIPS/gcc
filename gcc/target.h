@@ -901,6 +901,13 @@ struct gcc_target
      target.  */
   void (*copy_from_target) (struct gimple_stmt_iterator_d *,
 			    struct gcc_target *, tree, tree, tree);
+  /* Generate gimple to allocate SIZE bytes of data on TARGET and assign
+     the base address to COPY, for the purpose of passing data to/from
+     FUNCTION on TARGET.  Return a value that is passed to the
+     build_call_on_target hook.  */
+  tree (*alloc_task_on_target) (struct gimple_stmt_iterator_d *,
+				struct gcc_target *, tree copy, tree size,
+				tree function);
   /* Generate gimple for a call to fn with NARGS arguments ARGS
      on target OTHER.  */
   void (*build_call_on_target) (struct gimple_stmt_iterator_d *,

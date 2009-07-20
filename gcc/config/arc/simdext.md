@@ -1324,10 +1324,11 @@
 	(unspec [(reg:CC_BLK SDM)
 		 (mem:BLK (match_operand:SI 1 "nonmemory_operand"))
 		 (match_operand 0 "nonmemory_operand")
-		 (match_operand:SI 2 "nonmemory_operand")]
+		 (match_operand 2 "immediate_operand")
+		 (match_operand 3 "immediate_operand")]
 	 UNSPEC_ARC_SIMD_DMA))]
   "TARGET_SIMD_SET"
-  "` dma_in %0 %1 %2"
+  "*arc_output_sdma (operands, 'i');"
   [(set_attr "length" "42")])
 
 ;; copy SDM starting at operand 0 to main memory starting at operand 1;
@@ -1336,18 +1337,21 @@
   [(set (mem:BLK (match_operand:SI 1 "nonmemory_operand"))
 	(unspec [(reg:CC_BLK SDM)
 		 (match_operand 0 "nonmemory_operand")
-		 (match_operand:SI 2 "nonmemory_operand")]
+		 (match_operand 2 "immediate_operand")
+		 (match_operand 3 "immediate_operand")]
 	 UNSPEC_ARC_SIMD_DMA))]
   "TARGET_SIMD_SET"
-  "` dma_out %0 %1 %2"
+  "*return arc_output_sdma (operands, 'o'),\"vdmawait\";"
   [(set_attr "length" "42")])
 
 (define_insn "simd_call"
   [(set (reg:CC_BLK SDM)
-	(unspec [(match_operand 0 "nonmemory_operand")
-		 (match_operand 1 "simd_arg_vector")
+	(unspec [(match_operand 0 "nonmemory_operand" "ci")
+		 (match_operand 1 "nonmemory_operand" "ci")
+		 (match_operand 2 "simd_arg_vector")
 		 (reg:CC_BLK SDM)]
-	 UNSPEC_ARC_SIMD_DMA))]
+	 UNSPEC_ARC_SIMD_DMA))
+   (clobber (reg:SI 0))]
   "TARGET_SIMD_SET"
-  "` simd call"
+  "vrec %0\;bl %1\;vdmawait\;vrun %0"
   [(set_attr "length" "42")])

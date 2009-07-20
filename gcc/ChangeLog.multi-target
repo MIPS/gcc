@@ -1,3 +1,42 @@
+2009-07-20  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* target.h (alloc_task_on_target): New hook.
+	* omp-low.c (expand_parallel_call): Look for caller_arch attribute
+	instead of target_arch attribute.  Pass value of that attribute to
+	call_on_target hook.
+	* tree-parloops.c (separate_decls_in_region):
+	Use alloc_task_on_target hook, and return its result.
+	(create_loop_fn): Replace target_arch with fn_attrib hook.
+	Changed caller.
+	(gen_parallel_loop): Set caller_arch attribute on loop_fn.
+	* target-def.h (TARGET_ALLOC_TASK_ON_TARGET): Define.
+	(TARGET_INITIALIZER): Initialize new member.
+	* c-common.c (handle_caller_arch_attribute): New function.
+	(c_common_attribute_table): Add caller_arch entry.
+	* config/mxp/mxp.md (return): If caller_arch attribute is present,
+	use j.d [blink] / vendrec.
+	* config/arc/arc-protos.h (arc_output_sdma): Declare.
+	* config/arc/arc.c (arc_alloc_task_on_target): New function.
+	(TARGET_ALLOC_TASK_ON_TARGET): Override.
+	(arc_expand_builtin) <ARC_SIMD_BUILTIN_CALL>:
+	Expect SCM location argument.
+	Use separate variables for expanding target function arguments,
+	and use modes obtained from trees.
+	(enum simd_insn_args_type, arc_simd_builtin_desc_list)
+	Replace void_Ra_Rb_Rc with void_Ra_Rb_u8_u8.
+	(arc_init_simd_builtins, arc_expand_simd_builtin): Likewise.
+	(build_sdma_op): New function.
+	(arc_copy_to_target, arc_copy_from_target): Use it.
+	(arc_output_sdma): New function.
+	* config/arc/arc.opt: (msdma-xalign=): New option.
+	(msdma-xalign-threshold=): Likewise.
+	* config/arc/simdext.md (simd_dma_in, simd_dma_out):
+	Take four operands.  Use arc_output_sdma.
+	(simd_call): Add SCM location operand, and r0 clobber.
+	Change output template to actual assembler.
+
+	* config/mxp/mxp.md (addhi3): Add default case.
+
 2009-07-17  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* targhooks.c (default_common_data_with_target): New function.

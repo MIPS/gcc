@@ -1255,10 +1255,11 @@ create_loads_and_stores_for_name (void **slot, void *data)
    needs this information.  REDUCTION_LIST describes the reductions 
    in LOOP.  */
 
-static void
+static tree
 separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 			  tree *arg_struct, tree *new_arg_struct, 
-			  struct clsn_data *ld_st_data, struct loop *loop)
+			  struct clsn_data *ld_st_data, struct loop *loop,
+			  tree loop_fn)
 
 {
   int new_target = loop->target_arch;
@@ -1277,6 +1278,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
   basic_block entry_bb = bb1;
   basic_block exit_bb = exit->dest;
   tree copy_base_var, copy_base;
+  tree fn_memory = NULL_TREE;
 
   entry = single_succ_edge (entry_bb);
   gather_blocks_in_sese_region (entry_bb, exit_bb, &body);
@@ -1334,9 +1336,8 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	  tree sizes_addr[4];
 	  tree size;
 	  tree niter;
-	  tree ptype, fn_type, fn;
+	  tree ptype;
 	  gimple_stmt_iterator gsi;
-	  gimple stmt;
 
 	  ptype = (build_pointer_type_for_mode
 		    (void_type_node, *targetm_array[new_target]->ptr_mode,
@@ -1354,17 +1355,11 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	  size = size_binop (PLUS_EXPR,
 			     size_binop (MULT_EXPR, niter, sizes_addr[0]),
 			     sizes_addr[1]);
-	  /* Emit gimple to allocate SIZE bytes, assign to copy_base */
-	  fn_type = build_function_type_list (integer_type_node,
-					      integer_type_node, NULL_TREE);
-	  fn = get_identifier ("__simd_malloc");
-	  fn = build_decl (FUNCTION_DECL, fn, fn_type);
-	  stmt = gimple_build_call (fn, 1, size);
-	  SSA_NAME_DEF_STMT (copy_base) = stmt;
-	  gimple_call_set_lhs (stmt, copy_base);
-	  mark_virtual_ops_for_renaming (stmt);
 	  gsi = gsi_last_bb (bb0);
-	  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+	  /* Emit gimple to allocate SIZE bytes, assign to copy_base */
+	  fn_memory
+	    = targetm.alloc_task_on_target (&gsi, targetm_array[new_target],
+					    copy_base, size, loop_fn);
 	}
  
       /* Create the loads and stores.  */
@@ -1412,6 +1407,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 
   htab_delete (decl_copies);
   htab_delete (name_copies);
+  return fn_memory;
 }
 
 /* Bitmap containing uids of functions created by parallelization.  We cannot
@@ -1435,7 +1431,7 @@ parallelized_function_p (tree fn)
    a parallelized loop.  */
 
 static tree
-create_loop_fn (unsigned int target_arch)
+create_loop_fn (tree fn_attrib)
 {
   char buf[100];
   char *tname;
@@ -1477,15 +1473,8 @@ create_loop_fn (unsigned int target_arch)
   TREE_USED (t) = 1;
   DECL_ARGUMENTS (decl) = t;
 
-  if (target_arch)
-    {
-      const char *target_name = targetm_array[target_arch]->name;
-
-      tree value = build_string (strlen (target_name), target_name);
-      decl_attributes (&decl, build_tree_list (get_identifier ("target_arch"),
-					       build_tree_list (NULL, value)),
-		       0);
-    }
+  if (fn_attrib)
+    decl_attributes (&decl, fn_attrib, 0);
   allocate_struct_function (decl, false);
 
   /* The call to allocate_struct_function clobbers CFUN, so we need to restore
@@ -1867,6 +1856,8 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   bool arch_change = loop->target_arch != cfun->target_arch;
   bool parallelize_all = arch_change;
   struct gcc_target *save_target;
+  tree fn_attrib = NULL_TREE;
+  tree loop_fn, fn_memory;
 
   /* From
 
@@ -1983,15 +1974,34 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   exit = single_dom_exit (loop);
 
   eliminate_local_variables (entry, exit);
+  if (loop->target_arch)
+    {
+      const char *target_name = targetm_array[loop->target_arch]->name;
+      tree value = build_string (strlen (target_name), target_name);
+
+      fn_attrib = build_tree_list (get_identifier ("target_arch"),
+				   build_tree_list (NULL, value));
+    }
+  loop_fn = create_loop_fn (fn_attrib);
   /* In the old loop, move all variables non-local to the loop to a structure
      and back, and create separate decls for the variables used in loop.  */
-  separate_decls_in_region (entry, exit, reduction_list, &arg_struct, 
-			    &new_arg_struct, &clsn_data, loop);
+  fn_memory = separate_decls_in_region (entry, exit, reduction_list,
+					&arg_struct, &new_arg_struct,
+					&clsn_data, loop, loop_fn);
+  if (loop->target_arch)
+    {
+
+      const char *target_name = targetm.name;
+      tree purpose = build_string (strlen (target_name), target_name);
+
+      fn_attrib = build_tree_list (get_identifier ("caller_arch"),
+				   build_tree_list (purpose, fn_memory));
+      decl_attributes (&loop_fn, fn_attrib, 0);
+    }
 
   /* Create the parallel constructs.  */
-  parallel_head
-    = create_parallel_loop (loop, create_loop_fn (loop->target_arch),
-			    arg_struct, new_arg_struct, n_threads);
+  parallel_head = create_parallel_loop (loop, loop_fn, arg_struct,
+					new_arg_struct, n_threads);
   /* ??? for loop->target_arch != cfun->target_arch, should create another
      function so that a small slice of the loop can be run on the main
      processor.  OTOH, that should not be vectorized or vectorized for

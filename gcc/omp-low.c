@@ -2993,16 +2993,17 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
   child_fn = gimple_omp_parallel_child_fn (entry_stmt);
   t2 = build_fold_addr_expr (child_fn);
 
-  attr = lookup_attribute ("target_arch", DECL_ATTRIBUTES (child_fn));
+  attr = lookup_attribute ("caller_arch", DECL_ATTRIBUTES (child_fn));
   if (attr)
     {
-      tree args[2];
+      tree args[3];
 
-      args[0] = t2;
-      args[1] = force_gimple_operand_gsi (&gsi, t1, true, NULL_TREE, false,
+      args[0] = TREE_VALUE (TREE_VALUE (attr));
+      args[1] = t2;
+      args[2] = force_gimple_operand_gsi (&gsi, t1, true, NULL_TREE, false,
 					  GSI_CONTINUE_LINKING);
       struct gcc_target *tgt = targetm_array[lookup_attr_target (child_fn)];
-      targetm.build_call_on_target (&gsi, tgt, 2, args);
+      targetm.build_call_on_target (&gsi, tgt, 3, args);
       return;
     }
 

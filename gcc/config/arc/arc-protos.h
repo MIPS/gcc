@@ -157,3 +157,4 @@ extern int arc_text_label (rtx);
 extern int arc_decl_pretend_args (tree decl);
 extern int arc_dead_or_set_postreload_p (const_rtx insn, const_rtx reg);
 extern rtx arc_legitimize_address (rtx x, rtx oldx, int mode);
+extern const char *arc_output_sdma (rtx *, char);

@@ -424,6 +424,7 @@
 	}
       else
 	return "vim %0,%1,%i2";
+    default: gcc_unreachable ();
     }
 })
 
@@ -720,8 +721,31 @@ vmr4w.240 %0,%4,%4")
 (define_insn "return"
   [(return)]
   ""
-  "vjb vr31,pcl%#"
-  [(set_attr "type" "jump")])
+  "*
+{
+  tree attr = lookup_attribute (\"caller_arch\",
+				DECL_ATTRIBUTES (current_function_decl));
+  if (attr)
+    {
+      gcc_assert
+	(strstr (TREE_STRING_POINTER (TREE_PURPOSE (TREE_VALUE (attr))),
+		 \"arc-\"));
+      asm_fprintf (asm_out_file, \"\tj.d [blink]\n\");
+      asm_fprintf (asm_out_file, \"\tvendrec r0\"
+				 \" ` return control to %s / SCQ\n\",
+		   TREE_STRING_POINTER (TREE_PURPOSE (TREE_VALUE (attr))));
+      return \"\";
+    }
+  return \"vjb vr31,pcl%#\";
+}"
+  [(set (attr "type")
+	(cond [(ne (symbol_ref
+		    "lookup_attribute
+		    (\"caller_arch\",
+		     DECL_ATTRIBUTES (current_function_decl))")
+		   (const_int 0))
+	       (const_string "other")]
+	      (const_string "jump")))])
 
 (define_expand "epilogue"
   [(return)]

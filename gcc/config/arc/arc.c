@@ -412,6 +412,8 @@ static void arc_copy_to_target (gimple_stmt_iterator *, struct gcc_target *,
 				tree, tree, tree);
 static void arc_copy_from_target (gimple_stmt_iterator *, struct gcc_target *,
 				  tree, tree, tree);
+static tree arc_alloc_task_on_target (gimple_stmt_iterator *gsi,
+				      struct gcc_target *, tree, tree, tree);
 static void arc_build_call_on_target (gimple_stmt_iterator *,
 				      struct gcc_target *, int, tree *);
 
@@ -535,6 +537,8 @@ static rtx frame_insn (rtx);
 #define TARGET_COPY_TO_TARGET arc_copy_to_target
 #undef TARGET_COPY_FROM_TARGET
 #define TARGET_COPY_FROM_TARGET arc_copy_from_target
+#undef TARGET_ALLOC_TASK_ON_TARGET
+#define TARGET_ALLOC_TASK_ON_TARGET arc_alloc_task_on_target
 #undef TARGET_BUILD_CALL_ON_TARGET
 #define TARGET_BUILD_CALL_ON_TARGET arc_build_call_on_target
 
@@ -5901,33 +5905,47 @@ arc_expand_builtin (tree exp,
 
     case ARC_SIMD_BUILTIN_CALL:
       int nargs, i;
+      rtx op2;
 
       icode = CODE_FOR_simd_call;
-      arg0 = CALL_EXPR_ARG (exp, 0); /* Ra */
+      arg0 = CALL_EXPR_ARG (exp, 0); /* SCM location.  */
+      arg1 = CALL_EXPR_ARG (exp, 1); /* Function.  */
       mode0 =  insn_data[icode].operand[0].mode;
+      mode1 =  insn_data[icode].operand[1].mode;
       op0 = expand_expr (arg0, NULL_RTX, mode0, EXPAND_NORMAL);
       if (mode0 == VOIDmode)
 	mode0 = GET_MODE (op0);
+      op1 = expand_expr (arg1, NULL_RTX, mode1, EXPAND_NORMAL);
+      if (mode1 == VOIDmode)
+	mode1 = GET_MODE (op1);
 
       if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
-      nargs = call_expr_nargs (exp) - 1;
-      op1 = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (nargs));
+      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
+	op1 = copy_to_mode_reg (mode1, op1);
+      nargs = call_expr_nargs (exp) - 2;
+      op2 = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (nargs));
       for (i = 0; i < nargs; i++)
 	{
-	  rtx reg;
+	  tree arg;
+	  rtx op, reg;
+	  enum machine_mode mode;
 
-	  arg0 = CALL_EXPR_ARG (exp, 1+i);
-	  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-	  mode0 = GET_MODE (op0);
-	  if (mode0 == VOIDmode)
-	    mode0 = SImode;
-	  reg = gen_rtx_REG (mode0, 66+i);
-	  emit_move_insn (reg, op0);
-	  XVECEXP (op1, 0, i) = reg;
+	  arg = CALL_EXPR_ARG (exp, 2+i);
+	  mode = TYPE_MODE (TREE_TYPE (arg));
+	  if (mode == VOIDmode)
+	    mode = SImode;
+	  op = expand_expr (arg, NULL_RTX, mode, EXPAND_NORMAL);
+	  if (GET_MODE (op) != mode)
+	    op = force_operand (convert_modes (mode, GET_MODE (op), op,
+					       TYPE_UNSIGNED (TREE_TYPE (arg))),
+				NULL_RTX);
+	  reg = gen_rtx_REG (mode, 66+i);
+	  emit_move_insn (reg, op);
+	  XVECEXP (op2, 0, i) = reg;
 	}
 
-      emit_insn (gen_simd_call (op0, op1));
+      emit_insn (gen_simd_call (op0, op1, op2));
       return NULL_RTX;
 
     default:
@@ -6966,7 +6984,7 @@ enum simd_insn_args_type {
   Va_Vb_Ic_u8,
   void_Va_u3_Ib_u8,
 
-  void_Ra_Rb_Rc,
+  void_Ra_Rb_u8_u8,
   void_Ra
 };
 
@@ -7112,8 +7130,8 @@ static const struct builtin_description arc_simd_builtin_desc_list[] =
 
   SIMD_BUILTIN (void_u6,  vinti_insn,  "vinti",   VINTI)
 
-  SIMD_BUILTIN (void_Ra_Rb_Rc,  simd_dma_in,  "simd_dma_in",   DMA_IN)
-  SIMD_BUILTIN (void_Ra_Rb_Rc,  simd_dma_out,  "simd_dma_out",   DMA_OUT)
+  SIMD_BUILTIN (void_Ra_Rb_u8_u8,  simd_dma_in,  "simd_dma_in",   DMA_IN)
+  SIMD_BUILTIN (void_Ra_Rb_u8_u8,  simd_dma_out,  "simd_dma_out",   DMA_OUT)
   SIMD_BUILTIN (void_Ra,  simd_call,  "simd_call",   CALL)
 };
 
@@ -7169,13 +7187,15 @@ arc_init_simd_builtins (void)
   tree v8hi_ftype_v8hi
     = build_function_type (V8HI_type_node, tree_cons (NULL_TREE, V8HI_type_node,endlink));
 
-  tree void_ftype_ptr_ptr_int
+  tree void_ftype_ptr_ptr_int_int
     = build_function_type (void_type_node,
 			   tree_cons (NULL_TREE, ptr_type_node,
 				      tree_cons (NULL_TREE, ptr_type_node,
-						 tree_cons (NULL_TREE,
-							    integer_type_node,
-							    endlink))));
+						 (tree_cons
+						  (NULL_TREE, integer_type_node,
+						   tree_cons (NULL_TREE,
+							      integer_type_node,
+							      endlink))))));
   tree void_ftype_fn
     = build_function_type (void_type_node,
 			   tree_cons (NULL_TREE, ptr_type_node, endlink));
@@ -7242,10 +7262,11 @@ arc_init_simd_builtins (void)
   for (; arc_simd_builtin_desc_list [i].args_type == void_u6; i++)
     def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list [i].name,  void_ftype_int, arc_simd_builtin_desc_list [i].code);
 
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_Ra_Rb_Rc);
-  for (; arc_simd_builtin_desc_list [i].args_type == void_Ra_Rb_Rc; i++)
+  gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_Ra_Rb_u8_u8);
+  for (; arc_simd_builtin_desc_list [i].args_type == void_Ra_Rb_u8_u8; i++)
     def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  void_ftype_ptr_ptr_int, arc_simd_builtin_desc_list[i].code);
+		  void_ftype_ptr_ptr_int_int,
+		  arc_simd_builtin_desc_list[i].code);
 
   gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_Ra);
   for (; arc_simd_builtin_desc_list [i].args_type == void_Ra; i++)
@@ -7703,15 +7724,17 @@ arc_expand_simd_builtin (tree exp,
     emit_insn (pat);
     return NULL_RTX;
 
-  case void_Ra_Rb_Rc:
+  case void_Ra_Rb_u8_u8:
     icode = d->icode;
     arg0 = CALL_EXPR_ARG (exp, 0); /* Ra */
     arg1 = CALL_EXPR_ARG (exp, 1); /* Rb */
-    arg2 = CALL_EXPR_ARG (exp, 2); /* Rc */
+    arg2 = CALL_EXPR_ARG (exp, 2); /* u8 */
+    arg3 = CALL_EXPR_ARG (exp, 3); /* u8 */
 
     mode0 =  insn_data[icode].operand[0].mode;
     mode1 =  insn_data[icode].operand[1].mode;
     mode2 =  insn_data[icode].operand[2].mode;
+    mode3 =  insn_data[icode].operand[3].mode;
 
     op0 = expand_expr (arg0, NULL_RTX, mode0, EXPAND_NORMAL);
     if (mode0 == VOIDmode)
@@ -7720,17 +7743,16 @@ arc_expand_simd_builtin (tree exp,
     if (mode1 == VOIDmode)
       mode1 = GET_MODE (op1);
     op2 = expand_expr (arg2, NULL_RTX, mode2, EXPAND_NORMAL);
-    if (mode2 == VOIDmode)
-      mode2 = GET_MODE (op2);
+    op3 = expand_expr (arg3, NULL_RTX, mode3, EXPAND_NORMAL);
 
     if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
       op0 = copy_to_mode_reg (mode0, op0);
     if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
       op1 = copy_to_mode_reg (mode1, op1);
-    if (! (*insn_data[icode].operand[2].predicate) (op2, mode2))
-      op2 = copy_to_mode_reg (mode2, op2);
+    gcc_assert ((*insn_data[icode].operand[2].predicate) (op2, mode2));
+    gcc_assert ((*insn_data[icode].operand[3].predicate) (op3, mode3));
 
-    pat = GEN_FCN (icode) (op0, op1, op2);
+    pat = GEN_FCN (icode) (op0, op1, op2, op3);
     if (! pat)
       return 0;
   
@@ -9026,29 +9048,193 @@ arc_dead_or_set_postreload_p (const_rtx insn, const_rtx reg)
 }
 
 static void
+build_sdma_op (gimple_stmt_iterator *gsi, tree fn,
+	       tree sdm_addr, tree main_addr, tree size)
+{
+  tree t;
+  HOST_WIDE_INT size_i = tree_low_cst (size, 1);
+  int n, m = 0;
+
+  gcc_assert (arc_sdma_xalign >= 1 && arc_sdma_xalign <= 128);
+  gcc_assert (size_i > 0 && size_i <= 255*256);
+  /* We want to express size_i as n*m, with n being divisible by
+     arc_sdma_align, and as large as possible.  */
+  /* First, try to find an exact fit without misalignment.  */
+  if (size_i <= 255 || size_i % arc_sdma_xalign == 0)
+    {
+      int min_n, max_n;
+
+      min_n = (size_i + 254) / 255;
+      if (min_n < arc_sdma_xalign)
+	min_n = arc_sdma_xalign;
+      max_n = size_i <= 255 ? size_i : 255 - 255 % arc_sdma_xalign;
+      for (n = max_n; n >= min_n; n -= arc_sdma_xalign)
+	{
+	  if (size_i % n == 0)
+	    {
+	      m = size_i / n;
+	      break;
+	    }
+	}
+    }
+  /* If that failed, try to find an exact fit with misalignment.  */
+  if (!m && arc_sdma_xalign > 1)
+    {
+      int min_m, max_m;
+
+      gcc_assert (size_i > 255);
+      min_m = (size_i + 254) / 255;
+      /* If n ends up being divisible by arc_sdma_xalign/2, only every
+	 second line is misaligned.  */
+      max_m = 2 * arc_sdma_xalign_threshold + 1;
+      if (max_m > 255)
+	max_m = 255;
+      for (n = 0, m = min_m; m <= max_m; m++)
+	{
+	  if (size_i % m == 0)
+	    {
+	      int i, s;
+
+	      n = size_i / n;
+	      /* Calculate how many lines have to be aggregated to
+		 get alignment.  */
+	      for (i = 1, s = n; s % arc_sdma_xalign; i++, s += n);
+	      if (m - (m + (i - 1)) / i > arc_sdma_xalign_threshold)
+		n = 0;
+	      else
+		break;
+	    }
+	}
+    }
+  if (!n || !m)
+    {
+      gcc_assert (size_i > 255);
+      n = 255 - 255 % arc_sdma_xalign;
+      m = size_i / n;
+    }
+  t = build_call_nary (void_type_node, fn, 4, sdm_addr, main_addr,
+		       build_int_cst (integer_type_node, n),
+		       build_int_cst (integer_type_node, m));
+  force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+			    GSI_CONTINUE_LINKING);
+  size_i -= n * m;
+  if (size_i > n * m)
+    {
+      gcc_assert (size_i <= 255);
+      t = (build_call_nary
+	   (void_type_node, fn, 4,
+	    fold_build2 (PLUS_EXPR, TREE_TYPE (sdm_addr), sdm_addr,
+			 size_int (n * m)),
+	    fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (main_addr), main_addr,
+			 size_int (n * m)),
+	    build_int_cst (integer_type_node, n), 1));
+      force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+				GSI_CONTINUE_LINKING);
+    }
+}
+
+static void
 arc_copy_to_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
 		    tree dst, tree src, tree size)
 {
-  tree fn, t;
+  tree fn;
 
   gcc_assert (strcmp (target->name, "mxp-elf") == 0);
   fn = build_fold_addr_expr (arc_builtin_decls[ARC_SIMD_BUILTIN_DMA_IN]);
-  t = build_call_nary (void_type_node, fn, 3, dst, src, size);
-  force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
-			    GSI_CONTINUE_LINKING);
+  build_sdma_op (gsi, fn, dst, src, size);
 }
 
 static void
 arc_copy_from_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
-		      tree dst, tree src, tree size)
+		      tree src, tree dst, tree size)
 {
-  tree fn, t;
+  tree fn;
 
   gcc_assert (strcmp (target->name, "mxp-elf") == 0);
   fn = build_fold_addr_expr (arc_builtin_decls[ARC_SIMD_BUILTIN_DMA_OUT]);
-  t = build_call_nary (void_type_node, fn, 3, dst, src, size);
-  force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
-			    GSI_CONTINUE_LINKING);
+  build_sdma_op (gsi, fn, src, dst, size);
+}
+
+const char *
+arc_output_sdma (rtx *operands, char c)
+{
+  char buf[240];
+  rtx xop[6];
+
+  int n = INTVAL (operands[2]);
+  int m = INTVAL (operands[3]);
+
+  gcc_assert (1 <= n && n <= 255);
+  gcc_assert (1 <= m && m <= 255);
+  sprintf (buf,
+	   "vdma%cset dr0,%%0\n\t"
+	   "vdma%cset dr1,%%1\n\t"
+	   "vdma%cset dr2,%%2 ` %%4 * %%5 bytes\n\t"
+	   "vdma%cset dr4,%%3\n\t"
+	   "vdma%cset dr5,%%4\n\t"
+	   "vdma%crun I0,I0",
+	   c, c, c, c, c, c);
+  xop[0] = operands[0];
+  xop[1] = operands[2];
+  xop[2] = GEN_INT (31 << 16 | m << 8 | n);
+  xop[3] = operands[1];
+  xop[4] = operands[2];
+  xop[5] = operands[3];
+  output_asm_insn (buf, xop);
+  return "";
+}
+
+static tree
+arc_alloc_task_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+			  tree copy, tree size ATTRIBUTE_UNUSED,
+			  tree fn ATTRIBUTE_UNUSED)
+{
+  const char *section_name;
+  tree ct, t, pt;
+  gimple stmt;
+
+  ct = TREE_TYPE (copy);
+  gcc_assert (TREE_CODE (ct) == POINTER_TYPE);
+  /* The types used for the 'variables' here do not mean anything -
+     it doesn't seem worth the hassle to build meaningful types.  */
+  t = build_decl (VAR_DECL, get_identifier ("__simd_task_sdm"), TREE_TYPE (ct));
+  /* Set DECL_SECTION_NAME so this won't get put into small data.  */
+  section_name = ".sdm";
+  DECL_SECTION_NAME (t) = build_string (strlen (section_name), section_name);
+  /* ??? cribbed from default_stack_protect_guard.  Check what is needed and
+     what is cargo cult.  */
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+  add_referenced_var (t);
+  t = build1 (ADDR_EXPR, ct, t);
+  /* For deadlock-free allocation of tasks in a multi-simd environment, should
+     allocate SDM, SCM and execution engine tuple together.
+     The latter two can be packaged together in a TREE_LIST.
+     FORNOW: just name a statically determined start address to record the
+     function to.  */
+  t = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+				GSI_CONTINUE_LINKING);
+  stmt = gimple_build_assign (copy, t);
+  gsi_insert_after (gsi, stmt, GSI_CONTINUE_LINKING);
+  t = build_decl (VAR_DECL, get_identifier ("__simd_task_scm"),
+		  ct);
+  section_name = ".scm";
+  DECL_SECTION_NAME (t) = build_string (strlen (section_name), section_name);
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+  add_referenced_var (t);
+  t = build1 (ADDR_EXPR, ct, t);
+  t = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+				GSI_CONTINUE_LINKING);
+  return t;
 }
 
 static void
