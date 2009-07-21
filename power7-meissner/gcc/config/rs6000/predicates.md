@@ -1402,19 +1402,3 @@
 
   return 1;
 })
-
-;; Return true if the operand is a legitimate parallel for vec_init
-(define_predicate "vec_init_operand"
-  (match_code "parallel")
-{
-  /* Disallow V2DF mode with MEM's unless both are the same under VSX.  */
-  if (mode == V2DFmode && VECTOR_UNIT_VSX_P (mode))
-    {
-      rtx op0 = XVECEXP (op, 0, 0);
-      rtx op1 = XVECEXP (op, 0, 1);
-      if ((MEM_P (op0) || MEM_P (op1)) && !rtx_equal_p (op0, op1))
-	return 0;
-    }
-
-  return 1;
-})

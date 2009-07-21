@@ -971,6 +971,15 @@
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
+(define_insn "*vsx_b2trunc<mode>2"
+  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
+	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+		      UNSPEC_FRIZ))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "x<VSv>r<VSs>iz %x0,%x1"
+  [(set_attr "type" "<VStype_simple>")
+   (set_attr "fp_type" "<VSfptype_simple>")])
+
 (define_insn "vsx_floor<mode>2"
   [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
 	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
@@ -1239,12 +1248,12 @@
 }
   [(set_attr "type" "vecperm")])
 
-;; V2DF splat
+;; V2DF/V2DI splat
 (define_insn "vsx_splat_<mode>"
   [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?wa,?wa,?wa")
 	(vec_duplicate:VSX_D
 	 (match_operand:<VS_scalar> 1 "input_operand" "ws,f,Z,wa,wa,Z")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
    xxpermdi %x0,%x1,%x1,0
