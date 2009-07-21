@@ -20,7 +20,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.
 
 Author:
+   Andrea C. Ornstein
    Erven Rohou
+   Gabriele Svelto
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -113,6 +115,8 @@ lower_cil_vector_ctor (const_cil_stmt ctor)
     {
       switch (cil_type)
 	{
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
+
 	case CIL_V2DI: builtin = CIL32_MONO_V2DI_CTOR; break;
 	case CIL_V4SI: builtin = CIL32_MONO_V4SI_CTOR; break;
 	case CIL_V8HI: builtin = CIL32_MONO_V8HI_CTOR; break;
@@ -198,41 +202,37 @@ lower_cil_vector_add (cil_type_t type)
 {
   enum cil32_builtin builtin;
 
-  switch (type)
-    {
-    /* No 8-byte support in Mono.Simd. Error/warning?  */
-    case CIL_V2SF: builtin = CIL32_GCC_V2SF_ADD; break;
-    case CIL_V2SI: builtin = CIL32_GCC_V2SI_ADD; break;
-    case CIL_V4HI: builtin = CIL32_GCC_V4HI_ADD; break;
-    case CIL_V8QI: builtin = CIL32_GCC_V8QI_ADD; break;
+  if (simd_type == GCC_SIMD)
+    switch (type)
+      {
+      case CIL_V2SF: builtin = CIL32_GCC_V2SF_ADD; break;
+      case CIL_V2SI: builtin = CIL32_GCC_V2SI_ADD; break;
+      case CIL_V4HI: builtin = CIL32_GCC_V4HI_ADD; break;
+      case CIL_V8QI: builtin = CIL32_GCC_V8QI_ADD; break;
 
-    case CIL_V2DF:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DF_ADD
-                                       : CIL32_MONO_V2DF_ADD);
-      break;
-    case CIL_V4SF:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SF_ADD
-				       : CIL32_MONO_V4SF_ADD);
-      break;
-    case CIL_V2DI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_ADD
-				       : CIL32_MONO_V2DI_ADD);
-      break;
-    case CIL_V4SI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_ADD
-				       : CIL32_MONO_V4SI_ADD);
-      break;
-    case CIL_V8HI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_ADD
-				       : CIL32_MONO_V8HI_ADD);
-      break;
-    case CIL_V16QI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_ADD
-				       : CIL32_MONO_V16QI_ADD);
-      break;
-    default:
-      gcc_unreachable ();
-    }
+      case CIL_V2DF: builtin = CIL32_GCC_V2DF_ADD; break;
+      case CIL_V4SF: builtin = CIL32_GCC_V4SF_ADD; break;
+      case CIL_V2DI: builtin = CIL32_GCC_V2DI_ADD; break;
+      case CIL_V4SI: builtin = CIL32_GCC_V4SI_ADD; break;
+      case CIL_V8HI: builtin = CIL32_GCC_V8HI_ADD; break;
+      case CIL_V16QI: builtin = CIL32_GCC_V16QI_ADD; break;
+      default:
+        gcc_unreachable ();
+      }
+  else
+    switch (type)
+      {
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
+
+      case CIL_V2DF: builtin = CIL32_MONO_V2DF_ADD; break;
+      case CIL_V4SF: builtin = CIL32_MONO_V4SF_ADD; break;
+      case CIL_V2DI: builtin = CIL32_MONO_V2DI_ADD; break;
+      case CIL_V4SI: builtin = CIL32_MONO_V4SI_ADD; break;
+      case CIL_V8HI: builtin = CIL32_MONO_V8HI_ADD; break;
+      case CIL_V16QI: builtin = CIL32_MONO_V16QI_ADD; break;
+      default:
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -246,41 +246,37 @@ lower_cil_vector_sub (cil_type_t type)
 {
   enum cil32_builtin builtin;
 
-  switch (type)
-    {
-    /* No 8-byte support in Mono.Simd. Error/warning?  */
-    case CIL_V2SF: builtin = CIL32_GCC_V2SF_SUB; break;
-    case CIL_V2SI: builtin = CIL32_GCC_V2SI_SUB; break;
-    case CIL_V4HI: builtin = CIL32_GCC_V4HI_SUB; break;
-    case CIL_V8QI: builtin = CIL32_GCC_V8QI_SUB; break;
+  if (simd_type == GCC_SIMD)
+    switch (type)
+      {
+      case CIL_V2SF: builtin = CIL32_GCC_V2SF_SUB; break;
+      case CIL_V2SI: builtin = CIL32_GCC_V2SI_SUB; break;
+      case CIL_V4HI: builtin = CIL32_GCC_V4HI_SUB; break;
+      case CIL_V8QI: builtin = CIL32_GCC_V8QI_SUB; break;
 
-    case CIL_V2DF:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DF_SUB
-				       : CIL32_MONO_V2DF_SUB);
-      break;
-    case CIL_V4SF:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SF_SUB
-				       : CIL32_GCC_V4SF_SUB);
-      break;
-    case CIL_V2DI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_SUB
-				       : CIL32_MONO_V2DI_SUB);
-      break;
-    case CIL_V4SI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_SUB
-				       : CIL32_MONO_V4SI_SUB);
-      break;
-    case CIL_V8HI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_SUB
-				       : CIL32_MONO_V8HI_SUB);
-      break;
-    case CIL_V16QI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_SUB
-				       : CIL32_MONO_V16QI_SUB);
-      break;
-    default:
-      gcc_unreachable ();
-  }
+      case CIL_V2DF: builtin = CIL32_GCC_V2DF_SUB; break;
+      case CIL_V4SF: builtin = CIL32_GCC_V4SF_SUB; break;
+      case CIL_V2DI: builtin = CIL32_GCC_V2DI_SUB; break;
+      case CIL_V4SI: builtin = CIL32_GCC_V4SI_SUB; break;
+      case CIL_V8HI: builtin = CIL32_GCC_V8HI_SUB; break;
+      case CIL_V16QI: builtin = CIL32_GCC_V16QI_SUB; break;
+      default:
+        gcc_unreachable ();
+      }
+  else
+    switch (type)
+      {
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
+
+      case CIL_V2DF: builtin = CIL32_MONO_V2DF_SUB; break;
+      case CIL_V4SF: builtin = CIL32_MONO_V4SF_SUB; break;
+      case CIL_V2DI: builtin = CIL32_MONO_V2DI_SUB; break;
+      case CIL_V4SI: builtin = CIL32_MONO_V4SI_SUB; break;
+      case CIL_V8HI: builtin = CIL32_MONO_V8HI_SUB; break;
+      case CIL_V16QI: builtin = CIL32_MONO_V16QI_SUB; break;
+      default:
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -294,32 +290,32 @@ lower_cil_vector_and (cil_type_t type)
 {
   enum cil32_builtin builtin;
 
-  switch (type)
-    {
-    /* No 8-byte support in Mono.Simd. Error/warning?  */
-    case CIL_V2SI: builtin = CIL32_GCC_V2SI_AND; break;
-    case CIL_V4HI: builtin = CIL32_GCC_V4HI_AND; break;
-    case CIL_V8QI: builtin = CIL32_GCC_V8QI_AND; break;
+  if (simd_type == GCC_SIMD)
+    switch (type)
+      {
+      case CIL_V2SI: builtin = CIL32_GCC_V2SI_AND; break;
+      case CIL_V4HI: builtin = CIL32_GCC_V4HI_AND; break;
+      case CIL_V8QI: builtin = CIL32_GCC_V8QI_AND; break;
 
-    case CIL_V2DI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_AND
-				       : CIL32_MONO_V2DI_AND);
-      break;
-    case CIL_V4SI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_AND
-				       : CIL32_MONO_V4SI_AND);
-      break;
-    case CIL_V8HI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_AND
-				       : CIL32_MONO_V8HI_AND);
-      break;
-    case CIL_V16QI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_AND
-				       : CIL32_MONO_V16QI_AND);
-      break;
-    default:
-      gcc_unreachable ();
-    }
+      case CIL_V2DI: builtin = CIL32_GCC_V2DI_AND; break;
+      case CIL_V4SI: builtin = CIL32_GCC_V4SI_AND; break;
+      case CIL_V8HI: builtin = CIL32_GCC_V8HI_AND; break;
+      case CIL_V16QI: builtin = CIL32_GCC_V16QI_AND; break;
+      default:
+        gcc_unreachable ();
+      }
+  else
+    switch (type)
+      {
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
+
+      case CIL_V2DI: builtin = CIL32_MONO_V2DI_AND; break;
+      case CIL_V4SI: builtin = CIL32_MONO_V4SI_AND; break;
+      case CIL_V8HI: builtin = CIL32_MONO_V8HI_AND; break;
+      case CIL_V16QI: builtin = CIL32_MONO_V16QI_AND; break;
+      default:
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -333,32 +329,32 @@ lower_cil_vector_or (cil_type_t type)
 {
   enum cil32_builtin builtin;
 
-  switch (type)
-    {
-    /* No 8-byte support in Mono.Simd. Error/warning?  */
-    case CIL_V2SI: builtin = CIL32_GCC_V2SI_OR; break;
-    case CIL_V4HI: builtin = CIL32_GCC_V4HI_OR; break;
-    case CIL_V8QI: builtin = CIL32_GCC_V8QI_OR; break;
+  if (simd_type == GCC_SIMD)
+    switch (type)
+      {
+      case CIL_V2SI: builtin = CIL32_GCC_V2SI_OR; break;
+      case CIL_V4HI: builtin = CIL32_GCC_V4HI_OR; break;
+      case CIL_V8QI: builtin = CIL32_GCC_V8QI_OR; break;
 
-    case CIL_V2DI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_OR
-				       : CIL32_MONO_V2DI_OR);
-      break;
-    case CIL_V4SI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_OR
-				       : CIL32_MONO_V4SI_OR);
-      break;
-    case CIL_V8HI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_OR
-				       : CIL32_MONO_V8HI_OR);
-      break;
-    case CIL_V16QI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_OR
-				       : CIL32_MONO_V16QI_OR);
-      break;
-    default:
-      gcc_unreachable ();
-    }
+      case CIL_V2DI: builtin = CIL32_GCC_V2DI_OR; break;
+      case CIL_V4SI: builtin = CIL32_GCC_V4SI_OR; break;
+      case CIL_V8HI: builtin = CIL32_GCC_V8HI_OR; break;
+      case CIL_V16QI: builtin = CIL32_GCC_V16QI_OR; break;
+      default:
+        gcc_unreachable ();
+      }
+  else
+    switch (type)
+      {
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
+
+      case CIL_V2DI: builtin = CIL32_MONO_V2DI_OR; break;
+      case CIL_V4SI: builtin = CIL32_MONO_V4SI_OR; break;
+      case CIL_V8HI: builtin = CIL32_MONO_V8HI_OR; break;
+      case CIL_V16QI: builtin = CIL32_MONO_V16QI_OR; break;
+      default:
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -372,32 +368,32 @@ lower_cil_vector_xor (cil_type_t type)
 {
   enum cil32_builtin builtin;
 
-  switch (type)
-    {
-    /* No 8-byte support in Mono.Simd. Error/warning?  */
-    case CIL_V2SI: builtin = CIL32_GCC_V2SI_XOR; break;
-    case CIL_V4HI: builtin = CIL32_GCC_V4HI_XOR; break;
-    case CIL_V8QI: builtin = CIL32_GCC_V8QI_XOR; break;
+  if (simd_type == GCC_SIMD)
+    switch (type)
+      {
+      case CIL_V2SI: builtin = CIL32_GCC_V2SI_XOR; break;
+      case CIL_V4HI: builtin = CIL32_GCC_V4HI_XOR; break;
+      case CIL_V8QI: builtin = CIL32_GCC_V8QI_XOR; break;
 
-    case CIL_V2DI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V2DI_XOR
-				       : CIL32_MONO_V2DI_XOR);
-      break;
-    case CIL_V4SI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V4SI_XOR
-				       : CIL32_MONO_V4SI_XOR);
-      break;
-    case CIL_V8HI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V8HI_XOR
-				       : CIL32_MONO_V8HI_XOR);
-      break;
-    case CIL_V16QI:
-      builtin = (simd_type == GCC_SIMD ? CIL32_GCC_V16QI_XOR
-				       : CIL32_MONO_V16QI_XOR);
-      break;
-    default:
-      gcc_unreachable ();
-    }
+      case CIL_V2DI: builtin = CIL32_GCC_V2DI_XOR; break;
+      case CIL_V4SI: builtin = CIL32_GCC_V4SI_XOR; break;
+      case CIL_V8HI: builtin = CIL32_GCC_V8HI_XOR; break;
+      case CIL_V16QI: builtin = CIL32_GCC_V16QI_XOR; break;
+      default:
+        gcc_unreachable ();
+      }
+  else
+    switch (type)
+      {
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
+
+      case CIL_V2DI: builtin = CIL32_MONO_V2DI_XOR; break;
+      case CIL_V4SI: builtin = CIL32_MONO_V4SI_XOR; break;
+      case CIL_V8HI: builtin = CIL32_MONO_V8HI_XOR; break;
+      case CIL_V16QI: builtin = CIL32_MONO_V16QI_XOR; break;
+      default:
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
