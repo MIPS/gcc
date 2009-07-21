@@ -2149,12 +2149,14 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
   bool missing = false;
   size_t nargs_base;
   size_t nargs;
+  size_t max_nargs;
   size_t i;
   cil_stmt stmt;
 
   gcc_assert (TREE_CODE (node) == CALL_EXPR);
   fdecl = get_callee_fndecl (node);
   nargs = call_expr_nargs (node);
+  max_nargs = nargs;
 
   if (fdecl != NULL_TREE)
     ftype = TREE_TYPE (fdecl);
@@ -2177,10 +2179,36 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
     {
       if (direct)
 	{
-	  warning (OPT_Wcil_missing_prototypes,
-		   "Missing function %s prototype, guessing it, you should fix "
-		   "the code",
-		   IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+	  if (TREE_ASM_WRITTEN (fdecl))
+	    {
+	      tree c_args;
+	      max_nargs = 0;
+	      for (c_args = DECL_ARGUMENTS (fdecl);
+		   c_args != NULL_TREE;
+		   c_args = TREE_CHAIN (c_args))
+		{
+		  ++max_nargs;
+		}
+	      if (max_nargs < nargs)
+		{
+		  warning (OPT_Wcil_missing_prototypes,
+			   "Too many arguments calling %s, ignoring extra ones",
+                           IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+		}
+	      else if (max_nargs > nargs)
+                {
+                  internal_error ("Less arguments than needed in call to %s, "
+                                  "fix your code",
+                                  IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+                }
+	    }
+          else
+            {
+              warning (OPT_Wcil_missing_prototypes,
+                       "Missing function %s prototype, guessing it, "
+                       "you should fix the code",
+                       IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+            }
 	}
       else
 	{
@@ -2204,7 +2232,7 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
 	nargs_base--;
     }
 
-  arglist = VEC_alloc (tree, heap, nargs - nargs_base);
+  arglist = VEC_alloc (tree, heap, max_nargs - nargs_base);
 
   /* If static chain present, it will be the first argument.  */
   static_chain = CALL_EXPR_STATIC_CHAIN (node);
@@ -2222,13 +2250,21 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
       tree arg_type = TREE_TYPE (arg);
 
       gimple_to_cil_node (csi, arg);
-      VEC_quick_insert (tree, arglist, i - nargs_base, arg_type);
-
-      if (TREE_CODE (arg_type) == POINTER_TYPE
-	  || (TREE_CODE (arg_type) == ARRAY_TYPE
-	      && (!TYPE_DOMAIN (arg_type) || ARRAY_TYPE_VARLENGTH (arg_type))))
+      if (i < max_nargs)
 	{
-	  stmt = cil_build_stmt (CIL_CONV_I);
+	  VEC_quick_insert (tree, arglist, i - nargs_base, arg_type);
+	  if (TREE_CODE (arg_type) == POINTER_TYPE
+	      || (TREE_CODE (arg_type) == ARRAY_TYPE
+		  && (!TYPE_DOMAIN (arg_type)
+		      || ARRAY_TYPE_VARLENGTH (arg_type))))
+	    {
+	      stmt = cil_build_stmt (CIL_CONV_I);
+	      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	    }
+	}
+      else
+	{
+	  stmt = cil_build_stmt (CIL_POP);
 	  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 	}
     }
