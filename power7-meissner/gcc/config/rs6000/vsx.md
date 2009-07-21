@@ -322,7 +322,7 @@
 
 ;; Load/store with update
 ;; Define insns that do load or store with update.  Because VSX only has
-;; reg+reg addressing, pre-decrement or pre-inrement is unlikely to be
+;; reg+reg addressing, pre-decrement or pre-increment is unlikely to be
 ;; generated.
 ;;
 ;; In all these cases, we use operands 0 and 1 for the register being
