@@ -103,14 +103,17 @@ extern void cil_set_stack_for_bb (cil_bb_stacks, basic_block, cil_stack);
 
 extern bool cil_integer_p (cil_type_t);
 extern bool cil_native_integer_p (cil_type_t);
+extern bool cil_complex_p (cil_type_t);
 extern bool cil_float_p (cil_type_t);
 extern bool cil_vector_p (cil_type_t);
 extern bool cil_pointer_p (cil_type_t);
 extern bool cil_int_or_smaller_p (cil_type_t);
 extern bool cil_long_p (cil_type_t);
 extern bool cil_unsigned_int_p (cil_type_t);
+extern cil_type_t complex_to_cil (const_tree);
 extern cil_type_t scalar_to_cil (const_tree);
 extern cil_type_t vector_to_cil (const_tree);
 extern cil_type_t type_to_cil (const_tree);
+extern cil_type_t type_to_cil_on_stack (const_tree);
 
 #endif /* CIL_STACK_H */

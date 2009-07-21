@@ -113,8 +113,7 @@ static void dump_method_name(FILE *, tree);
 static void dump_string_name (FILE *, tree);
 static void dump_string_type (FILE *, tree);
 static void dump_label_name (FILE *, tree);
-static void dump_vector_type (FILE *, tree);
-static void dump_complex_type (FILE *, tree);
+static void dump_vector_type (FILE *, cil_type_t);
 static void dump_string_decl (FILE *, tree);
 static bool dump_type_promoted_type_def (FILE *, tree);
 
@@ -492,14 +491,9 @@ dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
 /* Dump vector type TYPE.
 
    TYPE must be a type node of type VECTOR_TYPE.   */
-
 static void
-dump_vector_type (FILE *file, tree node)
+dump_vector_type (FILE *file, cil_type_t cil_type)
 {
-  cil_type_t cil_type;
-
-  cil_type = vector_to_cil (node);
-
   if (simd_type == MONO_SIMD)
     {
       /* Mono.Simd types */
@@ -526,48 +520,6 @@ dump_vector_type (FILE *file, tree node)
     }
   else /* Gcc.Simd types */
     fprintf (file, "valuetype [gcc4net]gcc4net.%s", cil_type_names [cil_type]);
-}
-
-static void
-dump_complex_type (FILE *file, tree node)
-{
-  tree elem_type;
-  const char* suffix;
-
-  gcc_assert (TREE_CODE (node) == COMPLEX_TYPE);
-
-  elem_type = TYPE_MAIN_VARIANT (TREE_TYPE (node));
-
-  switch (scalar_to_cil (elem_type))
-    {
-    case CIL_INT8:  suffix = "char";  break;
-    case CIL_INT16: suffix = "short"; break;
-    case CIL_INT32: suffix = "int";   break;
-    case CIL_INT64: suffix = "long";  break;
-
-    case CIL_UNSIGNED_INT8:  suffix = "uchar";  break;
-    case CIL_UNSIGNED_INT16: suffix = "ushort"; break;
-    case CIL_UNSIGNED_INT32: suffix = "uint";   break;
-    case CIL_UNSIGNED_INT64: suffix = "ulong";  break;
-
-    case CIL_FLOAT32: suffix = "float";  break;
-    case CIL_FLOAT64: suffix = "double"; break;
-
-    case CIL_FLOAT:
-      {
-	unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (elem_type), 1);
-	gcc_assert (size == 32 || size == 64);
-
-	if (size == 32) suffix = "float";
-	else            suffix = "double";
-      }
-      break;
-
-    default:
-      gcc_unreachable ();
-      break;
-    }
-  fprintf (file, "valuetype [gcc4net]gcc4net.complex_%s", suffix);
 }
 
 static void
@@ -756,23 +708,10 @@ dump_type (FILE *file, tree type, bool ref, bool qualif)
   if (type == NULL_TREE || type == error_mark_node)
     return;
 
-  if (TYPE_MAIN_VARIANT (type) == cil32_arg_iterator_type)
-    {
-      fprintf (file, "valuetype [mscorlib]System.ArgIterator");
-      return;
-    }
-  else if (TREE_CODE (type) == VOID_TYPE)
-    {
-      fprintf (file, "void");
-      return;
-    }
-
   cil_type = type_to_cil (type);
 
   if (cil_vector_p (cil_type))
-    dump_vector_type (file, type);
-  else if (TREE_CODE (type) == COMPLEX_TYPE)
-    dump_complex_type (file, type);
+    dump_vector_type (file, cil_type);
   else
     switch (cil_type)
       {
@@ -784,15 +723,6 @@ dump_type (FILE *file, tree type, bool ref, bool qualif)
 	/* Print the name of the structure.  */
 	fprintf (file, "valuetype ");
 	dump_valuetype_name (file, TYPE_MAIN_VARIANT (type));
-	break;
-
-      case CIL_FLOAT:
-	{
-	  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (type), 1);
-
-	  gcc_assert (size == 32 || size == 64);
-	  fprintf (file, "float" HOST_WIDE_INT_PRINT_UNSIGNED, size);
-	}
 	break;
 
       case CIL_POINTER:
@@ -913,7 +843,9 @@ dump_type_promoted_type_def (FILE *file, tree node)
 
   cil_type = type_to_cil (node);
 
-  if (cil_type == CIL_VALUE_TYPE)
+  if (cil_vector_p (cil_type))
+    dump_vector_type (file, cil_type);
+  else if (cil_type == CIL_VALUE_TYPE || cil_complex_p (cil_type))
     dump_type (file, node, true, false);
   else if (cil_int_or_smaller_p(cil_type))
     fprintf (file, "class [mscorlib]System.UInt32");
@@ -1617,16 +1549,11 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
       break;
     case CIL_STRING:
       {
-	tree t = cil_string (stmt);
-	const char *str;
-	const char *str2;
-	unsigned int len;
-
-	str = TREE_STRING_POINTER (t);
-	len = TREE_STRING_LENGTH (t);
+	const char *str = TREE_STRING_POINTER (cil_string (stmt));
+	const char *str2 = str;
 
 	fprintf (file, "\n\t// BEGIN ASM");
-	for (str2 = str; str2[0] && ISSPACE(str2[0]); ++str2)
+	for (;str2[0] && ISSPACE(str2[0]); ++str2)
 	  ;
 	fprintf (file, "\n\t%s%s", (str2[0] == '#') ? "//" : "", str);
 	fprintf (file,"\n\t// END ASM");

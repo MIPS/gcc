@@ -38,6 +38,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "tree.h"
 #include "vec.h"
 
+#include "cil-builtins.h"
 #include "cil-refs.h"
 #include "cil-stack.h"
 #include "cil-stmt.h"
@@ -220,7 +221,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       if (opcode == CIL_LDFLD)
 	VEC_pop (cil_type_t, vstack);
 
-      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
+      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil_on_stack (type));
 
       break;
 
@@ -303,12 +304,12 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
 
     case CIL_LDARG:
       type = DECL_ARG_TYPE (cil_var (stmt));
-      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
+      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil_on_stack (type));
       break;
 
     case CIL_LDLOC:
       type = TREE_TYPE (cil_var (stmt));
-      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
+      VEC_safe_push (cil_type_t, heap, vstack, type_to_cil_on_stack (type));
       break;
 
     case CIL_LDARGA:
@@ -352,7 +353,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       type = TREE_TYPE (cil_call_ftype (stmt));
 
       if (!VOID_TYPE_P (type))
-	VEC_safe_push (cil_type_t, heap, vstack, type_to_cil (type));
+	VEC_safe_push (cil_type_t, heap, vstack, type_to_cil_on_stack (type));
 
       break;
 
@@ -463,6 +464,30 @@ cil_float_p (cil_type_t type)
     case CIL_FLOAT:
     case CIL_FLOAT32:
     case CIL_FLOAT64:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/* Return TRUE if the type TYPE is a complex type, FALSE otherwise.  */
+
+bool
+cil_complex_p (cil_type_t type)
+{
+  switch (type)
+    {
+    case CIL_CMPLXI8:
+    case CIL_CMPLXI16:
+    case CIL_CMPLXI32:
+    case CIL_CMPLXI64:
+    case CIL_CMPLXU8:
+    case CIL_CMPLXU16:
+    case CIL_CMPLXU32:
+    case CIL_CMPLXU64:
+    case CIL_CMPLXF32:
+    case CIL_CMPLXF64:
       return true;
 
     default:
@@ -595,7 +620,16 @@ scalar_to_cil (const_tree type)
 	}
 
     case REAL_TYPE:
-      return CIL_FLOAT;
+      size = tree_low_cst (TYPE_SIZE (type), 1);
+
+      switch (size)
+	{
+	  case 32: return CIL_FLOAT32;
+	  case 64: return CIL_FLOAT64;
+	  default:
+	    internal_error ("Unsupported float size "
+			    HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+	}
 
     case BOOLEAN_TYPE:
       return CIL_INT8;
@@ -606,6 +640,37 @@ scalar_to_cil (const_tree type)
 
     case POINTER_TYPE:
       return CIL_POINTER;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Return the CIL stack representation for scalar type TYPE.  */
+
+cil_type_t
+complex_to_cil (const_tree type)
+{
+  tree elem_type;
+
+  gcc_assert (TREE_CODE (type) == COMPLEX_TYPE);
+
+  elem_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+
+  switch (scalar_to_cil (elem_type))
+    {
+    case CIL_INT8:  return CIL_CMPLXI8;
+    case CIL_INT16: return CIL_CMPLXI16;
+    case CIL_INT32: return CIL_CMPLXI32;
+    case CIL_INT64: return CIL_CMPLXI64;
+
+    case CIL_UNSIGNED_INT8:  return CIL_CMPLXU8;
+    case CIL_UNSIGNED_INT16: return CIL_CMPLXU16;
+    case CIL_UNSIGNED_INT32: return CIL_CMPLXU32;
+    case CIL_UNSIGNED_INT64: return CIL_CMPLXU64;
+
+    case CIL_FLOAT32: return CIL_CMPLXF32;
+    case CIL_FLOAT64: return CIL_CMPLXF64;
 
     default:
       gcc_unreachable ();
@@ -689,9 +754,37 @@ vector_to_cil (const_tree type)
 /* Return the CIL stack representation for type TYPE.  */
 
 cil_type_t
+type_to_cil_on_stack (const_tree type)
+{
+  cil_type_t cil_type;
+
+  if (value_type_p (type))
+    cil_type = CIL_VALUE_TYPE;
+  else if (vector_type_p  (type))
+    cil_type = vector_to_cil(type);
+  else
+    {
+      cil_type = scalar_to_cil(type);
+
+      if (cil_type == CIL_FLOAT32 || cil_type == CIL_FLOAT64)
+	cil_type = CIL_FLOAT;
+    }
+
+  return cil_type;
+}
+
+/* Return the CIL representation for type TYPE.  */
+
+cil_type_t
 type_to_cil (const_tree type)
 {
-  if (value_type_p (type))
+  if (TYPE_MAIN_VARIANT (type) == cil32_arg_iterator_type)
+    return CIL_ARGITER;
+  else if (TREE_CODE (type) == VOID_TYPE)
+    return CIL_VOID;
+  else if (TREE_CODE (type) == COMPLEX_TYPE)
+    return complex_to_cil(type);
+  else if (value_type_p (type))
     return CIL_VALUE_TYPE;
   else if (vector_type_p  (type))
     return vector_to_cil(type);

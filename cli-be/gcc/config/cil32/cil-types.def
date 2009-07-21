@@ -40,6 +40,12 @@ Erven Rohou             <erven.rohou@inria.fr>
 
 CIL_TYPEDEF(CIL_NO_TYPE,"no type??")
 
+/* Void type */
+CIL_TYPEDEF(CIL_VOID,"void")
+
+/* Valuetype Argiterator */
+CIL_TYPEDEF(CIL_ARGITER,"valuetype [mscorlib]System.ArgIterator")
+
 CIL_TYPEDEF(CIL_INT8,"int8")             /* Signed 8-bit integer */
 CIL_TYPEDEF(CIL_INT16,"int16")           /* Signed 16-bit integer */
 CIL_TYPEDEF(CIL_INT32,"int32")           /* Signed 32-bit integer */
@@ -77,3 +83,28 @@ CIL_TYPEDEF(CIL_V8HI,"V8HI")    /* Vector of 8 16-bit integers */
 CIL_TYPEDEF(CIL_V16QI,"V16QI")  /* Vector of 16 8-bit integers */
 CIL_TYPEDEF(CIL_V2DF,"V2DF")    /* Vector of 2 64-bit double precision floats */
 CIL_TYPEDEF(CIL_V4SF,"V4SF")    /* Vector of 4 32-bit single precision floats */
+
+/* Integer Complex Types*/
+/* Complex of Signed 8-bit integer */
+CIL_TYPEDEF(CIL_CMPLXI8,"valuetype [gcc4net]gcc4net.complex_char")
+/* Complex of Signed 16-bit integer */
+CIL_TYPEDEF(CIL_CMPLXI16,"valuetype [gcc4net]gcc4net.complex_short")
+/* Complex of Signed 32-bit integer */
+CIL_TYPEDEF(CIL_CMPLXI32,"valuetype [gcc4net]gcc4net.complex_int")
+/* Complex of Signed 64-bit integer */
+CIL_TYPEDEF(CIL_CMPLXI64,"valuetype [gcc4net]gcc4net.complex_long")
+
+/* Complex of Unsigned 8-bit integer */
+CIL_TYPEDEF(CIL_CMPLXU8,"valuetype [gcc4net]gcc4net.complex_uchar")
+/* Complex of Unsigned 16-bit integer */
+CIL_TYPEDEF(CIL_CMPLXU16,"valuetype [gcc4net]gcc4net.complex_ushort")
+/* Complex of Unsigned 32-bit integer */
+CIL_TYPEDEF(CIL_CMPLXU32,"valuetype [gcc4net]gcc4net.complex_uint")
+/* Complex of Unsigned 64-bit integer */
+CIL_TYPEDEF(CIL_CMPLXU64,"valuetype [gcc4net]gcc4net.complex_ulong")
+
+/* floating-point Complex Types*/
+/* Complex of Single precision floating-point */
+CIL_TYPEDEF(CIL_CMPLXF32,"valuetype [gcc4net]gcc4net.complex_float")
+/* Complex of Double precision floating-point */
+CIL_TYPEDEF(CIL_CMPLXF64,"valuetype [gcc4net]gcc4net.complex_double")

@@ -120,6 +120,7 @@ emit-cil.o : $(srcdir)/config/cil32/emit-cil.c \
    $(srcdir)/config/cil32/emit-hints.h \
    $(srcdir)/config/cil32/cil-instr.def \
    $(srcdir)/config/cil32/cil-types.def \
+   $(srcdir)/config/cil32/cil-builtins.h \
    $(srcdir)/config/cil32/cil-refs.h \
    $(srcdir)/config/cil32/cil-stack.h \
    $(srcdir)/config/cil32/cil-stmt.h \

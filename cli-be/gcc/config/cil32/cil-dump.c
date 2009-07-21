@@ -157,43 +157,27 @@ dump_fun (const_tree fun)
 static void
 dump_type (const_tree type)
 {
-  if (TYPE_MAIN_VARIANT (type) == cil32_arg_iterator_type)
+  cil_type_t cil_type = type_to_cil (type);
+  switch (cil_type)
     {
-      printf ("valuetype ArgIterator");
-    }
-  else if (TREE_CODE (type) == VOID_TYPE)
-    {
-      printf ("void");
-    }
-  else if (TREE_CODE (type) == COMPLEX_TYPE)
-    {
-      printf ("complex_type ");
-      dump_type (TREE_TYPE (type));
-    }
-  else
-    {
-      cil_type_t cil_type = type_to_cil (type);
-      switch (cil_type)
-	{
-	case CIL_VALUE_TYPE:
-	      printf ("value_type ");
-	      dump_valuetype_name (TYPE_MAIN_VARIANT (type));
-	  break;
-	case CIL_POINTER:
-	  if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
-	    {
-	      printf ("method_pointer");
-	    }
-	  else
-	    {
-	      dump_type (TREE_TYPE (type));
-	      printf (" *");
-	    }
-	  break;
-	default:
-	  printf ("%s", cil_type_names [cil_type]);
-	  break;
-	}
+    case CIL_VALUE_TYPE:
+      printf ("value_type ");
+      dump_valuetype_name (TYPE_MAIN_VARIANT (type));
+      break;
+    case CIL_POINTER:
+      if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
+        {
+          printf ("method_pointer");
+        }
+      else
+        {
+          dump_type (TREE_TYPE (type));
+          printf (" *");
+        }
+      break;
+    default:
+      printf ("%s", cil_type_names [cil_type]);
+      break;
     }
 }
 
