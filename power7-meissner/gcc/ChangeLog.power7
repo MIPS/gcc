@@ -1,5 +1,9 @@
 2009-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (vsx_expand_builtin): Delete stub until
+	we have specific VSX work.
+	((rs6000_expand_builtin): Delete call to vsx_expand_builtin.
+
 	Merge up to version 149953.
 
 2009-07-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
