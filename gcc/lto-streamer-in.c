@@ -977,7 +977,6 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   unsigned int index;
   basic_block bb;
   gimple_stmt_iterator bsi;
-  HOST_WIDE_INT curr_eh_region;
 
   /* This routine assumes that CFUN is set to FN, as it needs to call
      basic GIMPLE routines that use CFUN.  */
@@ -995,7 +994,6 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   if (tag == LTO_bb0)
     return;
 
-  curr_eh_region = -1;
   bsi = gsi_start_bb (bb);
   tag = input_record_start (ib);
   while (tag)
@@ -1007,23 +1005,13 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
       /* After the statement, expect a 0 delimiter or the EH region
 	 that the previous statement belongs to.  */
       tag = input_record_start (ib);
-      gcc_assert (tag == LTO_set_eh1 || tag == LTO_set_eh0 || tag == LTO_null);
+      gcc_assert (tag == LTO_eh_region || tag == LTO_null);
 
-      if (tag == LTO_set_eh1 || tag == LTO_set_eh0)
+      if (tag == LTO_eh_region)
 	{
-	  HOST_WIDE_INT region = 0;
-
-	  if (tag == LTO_set_eh1)
-	    region = lto_input_sleb128 (ib);
-
-	  if (region != curr_eh_region)
-	    curr_eh_region = region;
-	}
-
-      if (curr_eh_region >= 0)
-	{
-	  gcc_assert (curr_eh_region <= num_eh_regions ());
-	  add_stmt_to_eh_region (stmt, curr_eh_region);
+	  HOST_WIDE_INT region = lto_input_uleb128 (ib);
+	  gcc_assert (region <= num_eh_regions ());
+	  add_stmt_to_eh_region (stmt, region);
 	}
 
       tag = input_record_start (ib);

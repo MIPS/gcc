@@ -1,5 +1,15 @@
 2009-07-22  Diego Novillo  <dnovillo@google.com>
 
+	* lto-streamer-out.c (last_eh_region_seen): Remove.
+	Update all users.
+	(output_bb): Fix emission of EH region numbers.
+	* lto-streamer-in.c (input_bb): Corresponding changes.
+	* lto-streamer.h (enum LTO_tags): Remove LTO_set_eh0.
+	Rename LTO_set_eh1 to LTO_eh_region.
+	Update all users.
+
+2009-07-22  Diego Novillo  <dnovillo@google.com>
+
 	* tree-pass.h (TDF_EH): Define.
 	* gimple-pretty-print.c (dump_gimple_stmt): If FLAGS
 	contains TDF_EH, print the EH region number holding GS.

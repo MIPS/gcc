@@ -111,13 +111,10 @@ along with GCC; see the file COPYING3.  If not see
      the statements     - A gimple tree, as described above.
                           These are only present for LTO_BB1.
                           Following each statement is an optional
-                          exception handling record LTO_set_eh1 or
-                          LTO_set_eh0 if the exception handling for
-                          this statement differed from the last region
-                          output.  LTO_set_eh0 is a special case that
-                          sets the region to 0. LTO_set_eh1 contains
-			  the region number in sleb128 form.
-			
+                          exception handling record LTO_eh_region
+			  which contains the region number (for
+			  regions >= 0).
+
      zero               - This is only present for LTO_BB1 and is used
 			  to terminate the statements and exception
 			  regions within this block.
@@ -185,9 +182,8 @@ enum LTO_tags
   LTO_bb0 = 1 + NUM_TREE_CODES + LAST_AND_UNUSED_GIMPLE_CODE,
   LTO_bb1,
 
-  /* Variant 1 is used to set region to a nonzero value.  */
-  LTO_set_eh0,
-  LTO_set_eh1,
+  /* EH region holding the previous statement.  */
+  LTO_eh_region,
 
   /* An MD or NORMAL builtin.  Only the code and class are streamed out.  */
   LTO_builtin_decl,

@@ -69,10 +69,8 @@ lto_tag_name (enum LTO_tags tag)
       return "LTO_bb0";
     case LTO_bb1:
       return "LTO_bb1";
-    case LTO_set_eh0:
-      return "LTO_set_eh0";
-    case LTO_set_eh1:
-      return "LTO_set_eh1";
+    case LTO_eh_region:
+      return "LTO_eh_region";
     case LTO_function:
       return "LTO_function";
     case LTO_eh_table:

@@ -44,11 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-symtab.h"
 #include "lto-streamer.h"
 
-/* The index of the last eh_region seen for an instruction.  The
-   eh_region for an instruction is only emitted if it is different
-   from the last instruction.  */
-static int last_eh_region_seen;
-
 /* Returns nonzero if P1 and P2 are equal.  */
 
 static int
@@ -1839,16 +1834,12 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 
 	  output_gimple_stmt (ob, stmt);
 	
-	  /* Emit the EH region holding STMT.  If the EH region is the
-	     same as the previous statement, emit a 0 for brevity.  */
+	  /* Emit the EH region holding STMT.  */
 	  region = lookup_stmt_eh_region_fn (fn, stmt);
-	  if (region != last_eh_region_seen)
+	  if (region >= 0)
 	    {
-	      output_record_start (ob, (region) ? LTO_set_eh1 : LTO_set_eh0);
-	      if (region)
-		output_sleb128 (ob, region);
-
-	      last_eh_region_seen = region;
+	      output_record_start (ob, LTO_eh_region);
+	      output_uleb128 (ob, region);
 	    }
 	  else
 	    output_zero (ob);
@@ -1954,8 +1945,6 @@ output_function (struct cgraph_node *node)
 
   /* Make string 0 be a NULL string.  */
   lto_output_1_stream (ob->string_stream, 0);
-
-  last_eh_region_seen = 0;
 
   output_record_start (ob, LTO_function);
 
