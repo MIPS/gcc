@@ -66,6 +66,7 @@ gcc -c          ^ GNAT COMPILE
 -gnateG         ^ /GENERATE_PROCESSED_SOURCE
 -gnatem         ^ /MAPPING_FILE
 -gnatep         ^ /DATA_PREPROCESSING
+-gnateS         ^ /SCO_OUTPUT
 -gnatE          ^ /CHECKS=ELABORATION
 -gnatf          ^ /REPORT_ERRORS=FULL
 -gnatF          ^ /UPPERCASE_EXTERNALS
@@ -148,6 +149,8 @@ gcc -c          ^ GNAT COMPILE
 -gnatwL         ^ /WARNINGS=NOELABORATION
 -gnatwm         ^ /WARNINGS=MODIFIED_UNREF
 -gnatwM         ^ /WARNINGS=NOMODIFIED_UNREF
+-gnatw.m        ^ /WARNINGS=SUSPICIOUS_MODULUES
+-gnatw.M        ^ /WARNINGS=NOSUSPICIOUS_MODULUES
 -gnatwn         ^ /WARNINGS=NORMAL
 -gnatwo         ^ /WARNINGS=OVERLAYS
 -gnatwO         ^ /WARNINGS=NOOVERLAYS

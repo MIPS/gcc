@@ -808,6 +808,7 @@ package body Einfo is
 
    function Directly_Designated_Type (Id : E) return E is
    begin
+      pragma Assert (Is_Access_Type (Id));
       return Node20 (Id);
    end Directly_Designated_Type;
 
@@ -2364,8 +2365,8 @@ package body Einfo is
 
    function Parent_Subtype (Id : E) return E is
    begin
-      pragma Assert (Ekind (Id) = E_Record_Type);
-      return Node19 (Id);
+      pragma Assert (Is_Record_Type (Id));
+      return Node19 (Base_Type (Id));
    end Parent_Subtype;
 
    function Postcondition_Proc (Id : E) return E is
