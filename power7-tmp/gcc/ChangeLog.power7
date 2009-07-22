@@ -1,5 +1,13 @@
 2009-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (vec_init<mode>): Change to use whether
+	loads/stores of the vector type are supported instead of the
+	arithmetic type.  Eliminate vec_init_operand predicate.
+	(vec_set<mode>): Ditto.
+	(vec_extract<mode>): Ditto.
+
+	* config/rs6000/predicates.md (vec_init_operand): Delete.
+
 	Merge up to version 149953.
 
 2009-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
