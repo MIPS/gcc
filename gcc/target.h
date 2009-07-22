@@ -681,7 +681,7 @@ struct target_option_hooks
      global options like flag_pic or flag_finite_math_only allowed to be
      tampered with.  Return true if code can be genarated for this target
      (e.g. if flag_pic is set and main_taget is false, and the target can't
-      return pic code, return false.  */
+      generate code that is suitable to include in pic code, return false.  */
   /* ??? should add another hook elsewhere if code can sometimes be
      generated, depending on the tree in question.  E.g. might be able to
      do pic if no statically allocated data is involved.  */

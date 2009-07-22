@@ -269,13 +269,23 @@
    a1 / a2 / status etc, symbols are preceded by '@'.  */
 #define ASM_OUTPUT_SYMBOL_REF(FILE,SYM) \
   ASM_OUTPUT_LABEL_REF ((FILE), XSTR ((SYM), 0))
-#define ASM_OUTPUT_LABEL_REF(FILE,STR)                  \
-  do                                                    \
-    {                                                   \
-      fputc ('@', file);                                \
-      assemble_name ((FILE), (STR));                    \
-    }                                                   \
+#define ASM_OUTPUT_LABEL_REF(FILE,STR)			\
+  do							\
+    {							\
+      if (TARGET_HALFPIC_R0)				\
+	{						\
+	  fputs ("r12", file);				\
+	}						\
+      else						\
+	{						\
+	  fputc ('@', file);				\
+	  assemble_name ((FILE), (STR));		\
+	}						\
+    }							\
   while (0)
+
+#define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS) \
+  mxp_final_prescan_insn (INSN, OPVEC, NOPERANDS)
 
 struct simple_bitmap_def;
 START_TARGET_SPECIFIC

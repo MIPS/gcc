@@ -1139,6 +1139,65 @@ OBJS-rtl = \
 	vmsdbgout.o \
 	web.o
 
+# EXTRA_TARGET_RULES includes the extra target's T-extra(s), which is/are
+# needed for OBJS-common.  OTOH we need OBJS-rtl to be defined beforehand.
+
+define EXTRA_TARGET_RULES
+
+THIS-TARGET/config.status THIS-TARGET/T-extra: intl/config.intl
+	-mkdir THIS-TARGET
+	cd THIS-TARGET \
+	&& $(srcdir:.%=../.%)/configure --target=THIS-TARGET
+
+CURRENT_TARGET=THIS-TARGET-
+-include THIS-TARGET/T-extra
+
+THIS-TARGET/Makefile: THIS-TARGET/config.status Makefile
+	$(info THIS-TARGET/Makefile will be remade when needed.)
+#	$(MAKE) -C THIS-TARGET Makefile
+
+# Wo don't want a stamp file for the recursive make invocation, because
+# only the recursive make understands all the dependencies for THIS-TARGET,
+# and besides, stamp file can get out-of-sync with what they stand for
+# when individual files are deleted manually or due interrupts / error
+# conditions.  Just say that each file is up-to-date if we have used
+# a recursive make to update it.
+$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) $(THIS-TARGET-out_object_file)) \
+$(addprefix THIS-TARGET/,$(THIS-TARGET-EXTRA_OBJS)) : make-THIS-TARGET ;
+
+# Use a single recursive make invokation to update all files of THIS-TARGET.
+# Having more than one would not merely cost more time, but cause serious
+# synchronization issues for parallel make.
+XTGT_COPY_FILES=\
+  $(addprefix THIS-TARGET/,extra-modes.h target-types.h)
+.PHONY: make-THIS-TARGET
+make-THIS-TARGET : THIS-TARGET/Makefile $(XTGT_COPY_FILES) \
+  THIS-TARGET/target-gtypes.h $(COMMON_ABI)
+	$(MAKE) -C THIS-TARGET make-OBJS-rtl \
+	EXTRA_TARGET='THIS_TARGET' TA='THIS-TARGET-' \
+	TARGET_NUM=THIS-TARGET-NUM \
+	toplevel_builddir='$(toplevel_builddir:.%=../.%)' \
+	GMPLIBS='$(GMPLIBS)' GMPINC='$(GMPINC)'
+$(XTGT_COPY_FILES): THIS-TARGET/% : %
+	cp $< $@
+THIS-TARGET/target-gtypes.h: target-gtypes.h
+	sed 's/\(_ca\|_mf\)/THIS_TARGET&/' < $< > $@
+
+endef
+# EXTRA_TARGET_RULES
+
+.PHONY: make-OBJS-rtl
+make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) $(out_object_file)) $(EXTRA_OBJS);
+
+enumerate=$(if $(1),$(call enumerate,$(wordlist 2,999,$(1))) $(words $(1)))
+
+ifndef EXTRA_TARGET
+$(eval $(foreach num,$(call enumerate,$(EXTRA_TARGETS)),\
+$(subst THIS_TARGET,$(subst -,_,$(word $(num),$(EXTRA_TARGETS))),\
+$(subst THIS-TARGET,$(word $(num),$(EXTRA_TARGETS)),\
+$(subst THIS-TARGET-NUM,$(num),$(value EXTRA_TARGET_RULES))))))
+endif
+
 OBJS-common = \
 	$(OBJS-rtl) \
 	$(foreach TA,$(EXTRA_TARGETS),$(addprefix $(TA)/$(TA)-,$(OBJS-rtl) $($(TA)-out_object_file))) \
@@ -3483,62 +3542,6 @@ COMMON_ABI=target-types.h target-gtypes.h
 #configure checks for ../intl/config.intl
 intl/config.intl: ../intl/config.intl
 	-$(LN) -s ../intl .
-
-define EXTRA_TARGET_RULES
-
-THIS-TARGET/config.status THIS-TARGET/T-extra: intl/config.intl
-	-mkdir THIS-TARGET
-	cd THIS-TARGET \
-	&& $(srcdir:.%=../.%)/configure --target=THIS-TARGET
-
-CURRENT_TARGET=THIS-TARGET-
--include THIS-TARGET/T-extra
-
-THIS-TARGET/Makefile: THIS-TARGET/config.status Makefile
-	$(info THIS-TARGET/Makefile will be remade when needed.)
-#	$(MAKE) -C THIS-TARGET Makefile
-
-# Wo don't want a stamp file for the recursive make invocation, because
-# only the recursive make understands all the dependencies for THIS-TARGET,
-# and besides, stamp file can get out-of-sync with what they stand for
-# when individual files are deleted manually or due interrupts / error
-# conditions.  Just say that each file is up-to-date if we have used
-# a recursive make to update it.
-$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) $(THIS-TARGET-out_object_file)) \
-$(addprefix THIS-TARGET/,$(THIS-TARGET-EXTRA_OBJS)) : make-THIS-TARGET ;
-
-# Use a single recursive make invokation to update all files of THIS-TARGET.
-# Having more than one would not merely cost more time, but cause serious
-# synchronization issues for parallel make.
-XTGT_COPY_FILES=\
-  $(addprefix THIS-TARGET/,extra-modes.h target-types.h)
-.PHONY: make-THIS-TARGET
-make-THIS-TARGET : THIS-TARGET/Makefile $(XTGT_COPY_FILES) \
-  THIS-TARGET/target-gtypes.h $(COMMON_ABI)
-	$(MAKE) -C THIS-TARGET make-OBJS-rtl \
-	EXTRA_TARGET='THIS_TARGET' TA='THIS-TARGET-' \
-	TARGET_NUM=THIS-TARGET-NUM \
-	toplevel_builddir='$(toplevel_builddir:.%=../.%)' \
-	GMPLIBS='$(GMPLIBS)' GMPINC='$(GMPINC)'
-$(XTGT_COPY_FILES): THIS-TARGET/% : %
-	cp $< $@
-THIS-TARGET/target-gtypes.h: target-gtypes.h
-	sed 's/\(_ca\|_mf\)/THIS_TARGET&/' < $< > $@
-
-endef
-# EXTRA_TARGET_RULES
-
-.PHONY: make-OBJS-rtl
-make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) $(out_object_file)) $(EXTRA_OBJS);
-
-enumerate=$(if $(1),$(call enumerate,$(wordlist 2,999,$(1))) $(words $(1)))
-
-ifndef EXTRA_TARGET
-$(eval $(foreach num,$(call enumerate,$(EXTRA_TARGETS)),\
-$(subst THIS_TARGET,$(subst -,_,$(word $(num),$(EXTRA_TARGETS))),\
-$(subst THIS-TARGET,$(word $(num),$(EXTRA_TARGETS)),\
-$(subst THIS-TARGET-NUM,$(num),$(value EXTRA_TARGET_RULES))))))
-endif
 
 ifndef TA
 extra-modes.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra)

@@ -282,3 +282,11 @@ Attempt to make the SDM DMA x transfer size a multiple of this value.
 msdam-xalign-threshold=
 Target RejectNegative Joined UInteger Var(arc_sdma_xalign_threshold) Init(7)
 Number of misaligned lines to tolerate before adding a second transfer for the sake of avoiding misalignment.
+
+mvdmawait-arg0=
+Target RejectNegative Joined UInteger Var(arc_vdmawait_arg0) Init(666)
+The meaning of this parameter is unknown.  Use incorrect values at your peril.
+
+mvdmawait-arg1=
+Target RejectNegative Joined UInteger Var(arc_vdmawait_arg1) Init(666)
+The meaning of this parameter is unknown.  Use incorrect values at your peril.

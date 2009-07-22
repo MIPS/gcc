@@ -419,6 +419,8 @@ static void arc_build_call_on_target (gimple_stmt_iterator *,
 
 static rtx frame_insn (rtx);
 
+static void arc_asm_new_arch (FILE *, struct gcc_target *, struct gcc_target *);
+
 /* initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
@@ -541,6 +543,9 @@ static rtx frame_insn (rtx);
 #define TARGET_ALLOC_TASK_ON_TARGET arc_alloc_task_on_target
 #undef TARGET_BUILD_CALL_ON_TARGET
 #define TARGET_BUILD_CALL_ON_TARGET arc_build_call_on_target
+
+#undef TARGET_ASM_NEW_ARCH
+#define TARGET_ASM_NEW_ARCH arc_asm_new_arch
 
 extern enum reg_class arc_secondary_reload (bool, rtx, enum reg_class,
 					    enum machine_mode,
@@ -5905,22 +5910,17 @@ arc_expand_builtin (tree exp,
 
     case ARC_SIMD_BUILTIN_CALL:
       int nargs, i;
-      rtx op2;
+      rtx r0, op2;
 
       icode = CODE_FOR_simd_call;
       arg0 = CALL_EXPR_ARG (exp, 0); /* SCM location.  */
       arg1 = CALL_EXPR_ARG (exp, 1); /* Function.  */
       mode0 =  insn_data[icode].operand[0].mode;
       mode1 =  insn_data[icode].operand[1].mode;
-      op0 = expand_expr (arg0, NULL_RTX, mode0, EXPAND_NORMAL);
-      if (mode0 == VOIDmode)
-	mode0 = GET_MODE (op0);
       op1 = expand_expr (arg1, NULL_RTX, mode1, EXPAND_NORMAL);
       if (mode1 == VOIDmode)
 	mode1 = GET_MODE (op1);
 
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
       if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
 	op1 = copy_to_mode_reg (mode1, op1);
       nargs = call_expr_nargs (exp) - 2;
@@ -5944,8 +5944,19 @@ arc_expand_builtin (tree exp,
 	  emit_move_insn (reg, op);
 	  XVECEXP (op2, 0, i) = reg;
 	}
+      r0 = NULL_RTX;
+      if (mode0 != VOIDmode)
+	r0 = gen_rtx_REG (mode0, 0);
+      op0 = expand_expr (arg0, r0, mode0, EXPAND_NORMAL);
+      if (mode0 == VOIDmode)
+	{
+	  mode0 = GET_MODE (op0);
+	  r0 = gen_rtx_REG (mode0, 0);
+	}
+      if (!rtx_equal_p (op0, r0))
+	emit_move_insn (r0, op0);
 
-      emit_insn (gen_simd_call (op0, op1, op2));
+      emit_insn (gen_simd_call (r0, op1, op2));
       return NULL_RTX;
 
     default:
@@ -9169,7 +9180,7 @@ arc_output_sdma (rtx *operands, char c)
   sprintf (buf,
 	   "vdma%cset dr0,%%0\n\t"
 	   "vdma%cset dr1,%%1\n\t"
-	   "vdma%cset dr2,%%2 ` %%4 * %%5 bytes\n\t"
+	   "vdma%cset dr2,%%2 ; %%4 * %%5 bytes\n\t"
 	   "vdma%cset dr4,%%3\n\t"
 	   "vdma%cset dr5,%%4\n\t"
 	   "vdma%crun I0,I0",
@@ -9187,11 +9198,21 @@ arc_output_sdma (rtx *operands, char c)
 static tree
 arc_alloc_task_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
 			  tree copy, tree size ATTRIBUTE_UNUSED,
-			  tree fn ATTRIBUTE_UNUSED)
+			  tree fn)
 {
   const char *section_name;
-  tree ct, t, pt;
+  tree ct, t;
   gimple stmt;
+  const char *attrib_name = "halfpic-r0";
+  tree fn_attrib;
+
+  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  fn_attrib =
+    build_tree_list (get_identifier ("target"),
+                     build_tree_list (NULL_TREE,
+                                      build_string (strlen (attrib_name),
+						    attrib_name)));
+  decl_attributes (&fn, fn_attrib, 0);
 
   ct = TREE_TYPE (copy);
   gcc_assert (TREE_CODE (ct) == POINTER_TYPE);
@@ -9248,6 +9269,17 @@ arc_build_call_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
   t = build_call_array (void_type_node, fn, nargs, args);
   force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
 			    GSI_CONTINUE_LINKING);
+}
+
+static void
+arc_asm_new_arch (FILE *out_file, struct gcc_target *last_arch,
+                  struct gcc_target *new_arch)
+{
+  gcc_assert (strstr (new_arch->name, "arc-")
+	      || strcmp (new_arch->name, "mxp-elf") == 0);
+  if (last_arch)
+    fprintf (out_file, "; Output architecture was: %s.\n", last_arch->name);
+  fprintf (out_file, "; New output architecture: %s.\n", new_arch->name);
 }
 
 #include "gt-arc.h"

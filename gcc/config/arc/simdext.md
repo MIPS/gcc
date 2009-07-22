@@ -1341,17 +1341,30 @@
 		 (match_operand 3 "immediate_operand")]
 	 UNSPEC_ARC_SIMD_DMA))]
   "TARGET_SIMD_SET"
-  "*return arc_output_sdma (operands, 'o'),\"vdmawait\";"
+  "*
+{
+  arc_output_sdma (operands, 'o');
+  asm_fprintf (asm_out_file, \"\tvdmawait %d,%d\n\",
+	       arc_vdmawait_arg0, arc_vdmawait_arg1);
+  return \"\";
+}"
   [(set_attr "length" "42")])
 
 (define_insn "simd_call"
   [(set (reg:CC_BLK SDM)
-	(unspec [(match_operand 0 "nonmemory_operand" "ci")
+	(unspec [(match_operand 0 "nonmemory_operand" "x")
 		 (match_operand 1 "nonmemory_operand" "ci")
 		 (match_operand 2 "simd_arg_vector")
 		 (reg:CC_BLK SDM)]
 	 UNSPEC_ARC_SIMD_DMA))
-   (clobber (reg:SI 0))]
+   (clobber (reg:SI 0))
+   (clobber (reg:SI 12))]
   "TARGET_SIMD_SET"
-  "vrec %0\;bl %1\;vdmawait\;vrun %0"
+  "*
+{
+  output_asm_insn (\"vrec %0\;bl %1\", operands);
+  asm_fprintf (asm_out_file, \"\tvdmawait %d,%d\n\",
+	       arc_vdmawait_arg0, arc_vdmawait_arg1);
+  return \"vrun %0\";
+}"
   [(set_attr "length" "42")])

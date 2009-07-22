@@ -784,8 +784,13 @@ default_target_option_valid_attribute_p (tree ARG_UNUSED (fndecl),
 					 tree ARG_UNUSED (args),
 					 int ARG_UNUSED (flags))
 {
+  const char *where = "this machine";
+  int i = lookup_attr_target (fndecl);
+
+  if (i)
+    where = targetm_array[i]->name;
   warning (OPT_Wattributes,
-	   "target attribute is not supported on this machine");
+	   "target attribute is not supported on %s", where);
 
   return false;
 }

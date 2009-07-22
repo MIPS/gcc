@@ -7036,12 +7036,13 @@ handle_target_attribute (tree *node, tree name, tree args, int flags,
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
-  /* ??? should look for a target_arch attribute to find relevant target
-     vector.  */
-  else if (! targetm.target_option.valid_attribute_p (*node, name, args,
-						      flags))
-    *no_add_attrs = true;
+  else
+    {
+      struct gcc_target *tgtp = targetm_array[lookup_attr_target (*node)];
 
+      if (! tgtp->target_option.valid_attribute_p (*node, name, args, flags))
+	*no_add_attrs = true;
+    }
   return NULL_TREE;
 }
 

@@ -13,3 +13,7 @@ Don't output vim with a label operand.
 mno-vld-label
 Target Report Mask(NO_VLD_LABEL)
 Don't output vld with a label operand.
+
+mhalfpic-r0
+Target Report Mask(HALFPIC_R0)
+Emit jumps relative to the ARCompact core register r0.

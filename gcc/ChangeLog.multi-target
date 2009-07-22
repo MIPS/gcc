@@ -1,3 +1,40 @@
+2009-07-22  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/tm.texi (TARGET_VALID_OPTION_ATTRIBUTE_P): Change to:
+	(TARGET_OPTION_VALID_ATTRIBUTE_P).
+
+	* targhooks.c (default_target_option_valid_attribute_p):
+	Indicate the target for which the target attribute is not implemented.
+	* c-common.c (handle_target_attribute):
+	Call hook on appropriate target.
+	* Makefile.in (EXTRA_TARGET_RULES):
+	Move up definitionto be before OBJS-common.
+	* config/mxp/mxp.md (return): Fix comment character.
+	* config/mxp/mxp.c (mxp_valid_target_attribute_p): New function.
+	(mxp_override_options, mxp_asm_function_prologue): Likewise.
+	(mxp_internal_label, mxp_valid_target_attribute_inner_p): Likewise.
+	(mxp_valid_target_attribute_tree, mxp_override_options_1): Likewise.
+	(mxp_final_prescan_insn): Likewise.
+	(TARGET_OPTION_VALID_ATTRIBUTE_P, TARGET_OVERRIDE_OPTIONS): Override.
+	(TARGET_ASM_FUNCTION_PROLOGUE, TARGET_ASM_INTERNAL_LABEL): Likewise.
+	(mxp_scm_offset): New static variable.
+	* config/mxp/mxp.opt (mhalfpic-r0): New option.
+	* config/mxp/mxp.h (ASM_OUTPUT_LABEL_REF): Handle TARGET_HALFPIC_R0.
+	(FINAL_PRESCAN_INSN): Define.
+	* config/mxp/mxp-protos.h (mxp_final_prescan_insn): Declare.
+	* config/arc/arc.c (arc_asm_new_arch): New function.
+	(TARGET_ASM_NEW_ARCH): Override.
+	(arc_expand_builtin) <ARC_SIMD_BUILTIN_CALL>: Pass first operand in r0.
+	(arc_output_sdma): Fix comment character.
+	(arc_alloc_task_on_target): Verify that callee target is mxp-elf.
+	Add target halfpic-r0 attribute to callee function.
+	* config/arc/arc.opt (mvdmawait-arg0, -mvdmawait-arg1): New options.
+	* config/arc/simdext.md (simd_dma_out): Output vdmawait with two
+	arguments.
+	(simd_call): Likewise.
+	Use 'x' constraint for operand 0.
+	Add clobber of r12.
+
 2009-07-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* target.h (alloc_task_on_target): New hook.

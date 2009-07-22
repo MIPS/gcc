@@ -61,6 +61,10 @@ mxp_init_machine_status (void)
 }
 
 static void mxp_init_libfuncs (void);
+static bool mxp_valid_target_attribute_p (tree, tree, tree, int);
+static bool mxp_override_options (bool main_target);
+static void mxp_asm_function_prologue (FILE *file, HOST_WIDE_INT size);
+static void mxp_internal_label (FILE *, const char *, unsigned long);
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS mxp_init_libfuncs
@@ -76,6 +80,18 @@ static bool mxp_vector_mode_supported_p (enum machine_mode mode);
 
 #undef TARGET_PROMOTE_FUNCTION_RETURN
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
+
+#undef TARGET_OPTION_VALID_ATTRIBUTE_P
+#define TARGET_OPTION_VALID_ATTRIBUTE_P mxp_valid_target_attribute_p
+
+#undef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS mxp_override_options
+
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE mxp_asm_function_prologue
+
+#undef TARGET_ASM_INTERNAL_LABEL
+#define TARGET_ASM_INTERNAL_LABEL mxp_internal_label
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -686,6 +702,156 @@ static bool
 mxp_vector_mode_supported_p (enum machine_mode mode)
 {
   return mov_optab->handlers[mode].insn_code != CODE_FOR_nothing;
+}
+
+/* Inner function to process the attribute((target(...))), take an argument and
+   set the current options from the argument. If we have a list, recursively go
+   over the list.  */
+
+static bool
+mxp_valid_target_attribute_inner_p (tree arg,
+				    char *p_strings[] ATTRIBUTE_UNUSED)
+{
+  const char *name;
+
+  gcc_assert (TREE_CODE (arg) == STRING_CST);
+  name = TREE_STRING_POINTER (arg);
+  if (strcmp (name, "halfpic-r0") == 0)
+    {
+      target_flags |= MASK_HALFPIC_R0;
+      return true;
+    }
+  return false;
+}
+
+/* Return a TARGET_OPTION_NODE tree of the target options listed or NULL.  */
+
+static tree
+mxp_valid_target_attribute_tree (tree args)
+{
+  tree arg;
+  tree t = NULL_TREE;
+  struct cl_target_option *def
+    = TREE_TARGET_OPTION (target_option_default_node);
+  char *option_strings[] = {};
+
+  /* Process each of the options on the chain.  */
+  for (arg = args; arg; arg = TREE_CHAIN (arg))
+    {
+      gcc_assert (TREE_CODE (arg) == TREE_LIST);
+      if (! mxp_valid_target_attribute_inner_p (TREE_VALUE (arg),
+						option_strings))
+	return NULL_TREE;
+    }
+  /* If the changed options are different from the default, rerun override_options,
+     and then save the options away.  The string options are are attribute options,
+     and will be undone when we copy the save structure.  */
+  if (target_flags != def->target_flags)
+    {
+      /* Save the current options unless we are validating options for
+	 #pragma.  */
+      t = build_target_option_node ();
+    }
+  return t;
+}
+/* Hook to validate attribute((target("string"))).  */
+
+static bool
+mxp_valid_target_attribute_p (tree fndecl,
+                               tree ARG_UNUSED (name),
+                               tree args,
+                               int ARG_UNUSED (flags))
+{
+  struct cl_target_option cur_target;
+  bool ret = true;
+  tree old_optimize = build_optimization_node ();
+  tree new_target, new_optimize;
+  tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
+
+  /* If the function changed the optimization levels as well as setting target
+     options, start with the optimizations specified.  */
+  if (func_optimize && func_optimize != old_optimize)
+    cl_optimization_restore (TREE_OPTIMIZATION (func_optimize));
+
+  /* The target attributes may also change some optimization flags, so update
+     the optimization options if necessary.  */
+  cl_target_option_save (&cur_target);
+  new_target = mxp_valid_target_attribute_tree (args);
+  new_optimize = build_optimization_node ();
+
+  if (!new_target)
+    ret = false;
+
+  else if (fndecl)
+    {
+      DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = new_target;
+
+      if (old_optimize != new_optimize)
+        DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl) = new_optimize;
+    }
+
+  cl_target_option_restore (&cur_target);
+
+  if (old_optimize != new_optimize)
+    cl_optimization_restore (TREE_OPTIMIZATION (old_optimize));
+
+  return ret;
+}
+
+static bool
+mxp_override_options_1 (bool main_target ATTRIBUTE_UNUSED, bool main_args_p)
+{
+  if (main_args_p)
+    target_option_default_node = target_option_current_node
+      = build_target_option_node ();
+  return true;
+}
+
+static bool
+mxp_override_options (bool main_target)
+{
+  return mxp_override_options_1 (main_target, true);
+}
+
+static int mxp_scm_offset;
+
+void
+mxp_final_prescan_insn (rtx insn, rtx *, int)
+{
+  if (TARGET_HALFPIC_R0 && JUMP_LABEL (insn))
+    {
+      char buf[256];
+      rtx x = JUMP_LABEL (insn);
+
+      fprintf (asm_out_file, "\tadd r12,r0,@");
+      ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
+      assemble_name (asm_out_file, buf);
+      fprintf (asm_out_file, "\n");
+    }
+  mxp_scm_offset += get_attr_length (insn);
+}
+
+static void
+mxp_asm_function_prologue (FILE *file ATTRIBUTE_UNUSED,
+			   HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+{
+  mxp_scm_offset = 0;
+}
+
+static void
+mxp_internal_label (FILE *stream, const char *prefix, unsigned long labelno)
+{
+  if (TARGET_HALFPIC_R0)
+    {
+      char *const buf = (char *) alloca (40 + strlen (prefix));
+
+      ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
+      fputs (" .set ", stream);                      \
+      assemble_name_raw (stream, buf);         \
+      fprintf (stream, ",%d\n", mxp_scm_offset);                      \
+      return;
+    }
+  default_internal_label (stream, prefix, labelno);
 }
 
 #include "gt-mxp.h"
