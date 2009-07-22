@@ -1,3 +1,43 @@
+2009-07-22  Doug Kwan  <dougkwan@google.com>
+
+	* config/arm/arm.md (subdi3) Copy non-reg values to DImode registers.
+
+2009-07-22  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/35229
+	PR tree-optimization/39300
+
+	* tree-ssa-pre.c (includes): Include tree-scalar-evolution.h.
+	(inhibit_phi_insertion): New function.
+	(insert_into_preds_of_block): Call it for REFERENCEs.
+	(init_pre): Initialize and finalize scalar evolutions.
+	* Makefile.in (tree-ssa-pre.o): Depend on tree-scalar-evolution.h .
+
+2009-07-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (zero_extended_scalar_load_operand):
+	Use CONST_VECTOR_NUNITS to determine number of elements.
+
+2009-07-22  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/constraints.md (ZQ, ZR, ZS, ZT): New constraints.
+	(U, W): Constraints are now deprecated and will be removed if we
+	run out of letters.	
+	* config/s390/s390.md (U, W): Replaced with ZQZR, ZSZT throughout
+	the file.
+	("prefetch"): Add the stcmh instruction for prefetching.
+	* config/s390/s390.c (s390_symref_operand_p): Function moved. No
+	changes.
+	(s390_short_displacement): Return always true if compiling for
+	machines not providing the long displacement facility.
+	(s390_mem_constraint): Support the new constraint letter Z.
+	(s390_check_qrst_address): New function.
+
+2009-07-21  DJ Delorie  <dj@redhat.com>
+
+	* config/mep/mep.c (mep_legitimize_arg): Leave control registers
+	alone too.
+
 2009-07-21  Jason Merrill  <jason@redhat.com>
 
 	* c-common.c (max_tinst_depth): Increase default to 1024.
@@ -90,7 +130,8 @@
 	combined_args_to_skip and args_to_skip.
 	* tree-inline.c (update_clone_info): New function.
 	(tree_function_versioning): Call update_clone_info.
-	* cgraphunit.c: (cgraph_materialize_clone): Dump materialized functions.
+	* cgraphunit.c: (cgraph_materialize_clone): Dump materialized
+	functions.
 	(cgraph_materialize_all_clones): More extensive dumping, working
 	with combined_args_to_skip rather than args_to_skip.
 
