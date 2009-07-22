@@ -963,7 +963,6 @@ static rtx altivec_expand_stv_builtin (enum insn_code, tree);
 static rtx altivec_expand_vec_init_builtin (tree, tree, rtx);
 static rtx altivec_expand_vec_set_builtin (tree);
 static rtx altivec_expand_vec_ext_builtin (tree, rtx);
-static rtx vsx_expand_builtin (tree, rtx, bool *);
 static int get_element_number (tree, tree);
 static bool rs6000_handle_option (size_t, const char *, int);
 static void rs6000_parse_tls_size_option (void);
@@ -9791,26 +9790,6 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
 /* Expand the builtin in EXP and store the result in TARGET.  Store
    true in *EXPANDEDP if we found a builtin to expand.  */
 static rtx
-vsx_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED, bool *expandedp)
-{
-  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
-
-  if (fcode >= VSX_BUILTIN_OVERLOADED_FIRST
-      && fcode <= VSX_BUILTIN_OVERLOADED_LAST)
-    {
-      *expandedp = true;
-      error ("unresolved overload for vsx builtin %qF", fndecl);
-      return const0_rtx;
-    }
-
-  *expandedp = false;
-  return NULL_RTX;
-}
-
-/* Expand the builtin in EXP and store the result in TARGET.  Store
-   true in *EXPANDEDP if we found a builtin to expand.  */
-static rtx
 paired_expand_builtin (tree exp, rtx target, bool * expandedp)
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
@@ -10321,13 +10300,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   if (TARGET_ALTIVEC)
     {
       ret = altivec_expand_builtin (exp, target, &success);
-
-      if (success)
-	return ret;
-    }
-  if (TARGET_VSX)
-    {
-      ret = vsx_expand_builtin (exp, target, &success);
 
       if (success)
 	return ret;
