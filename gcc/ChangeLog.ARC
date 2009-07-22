@@ -1,3 +1,16 @@
+2009-07-22  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/mxp.md (MXP_UNSPEC_CORE_REG): Define constant.
+	* config/mxp/mxp.c (mxp_prescan_data): New struct.
+	(mxp_prescan_operand): New function.
+	(mxp_final_prescan_insn): Use it to replace labels in the operands
+	with an MXP_UNSPEC_CORE_REG.
+	(mxp_output_addr_const_extra): New function.
+	* mxp.h (OUTPUT_ADDR_CONST_EXTRA): Define.
+	(ASM_OUTPUT_LABEL_REF): Undo last change,
+	i.e. no TARGET_HALFPIC_R0 handling.
+	* config/mxp/mxp-protos.h (mxp_output_addr_const_extra): Declare.
+
 2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/rs6000/rs6000.md (doloop_end): Accept extra operand.

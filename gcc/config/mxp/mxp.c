@@ -815,18 +815,80 @@ mxp_override_options (bool main_target)
 
 static int mxp_scm_offset;
 
-void
-mxp_final_prescan_insn (rtx insn, rtx *, int)
+struct mxp_prescan_data
 {
-  if (TARGET_HALFPIC_R0 && JUMP_LABEL (insn))
-    {
-      char buf[256];
-      rtx x = JUMP_LABEL (insn);
+  int reg;
+  int mreg;
+};
 
-      fprintf (asm_out_file, "\tadd r12,r0,@");
-      ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
-      assemble_name (asm_out_file, buf);
-      fprintf (asm_out_file, "\n");
+static rtx
+mxp_prescan_operand (rtx op, mxp_prescan_data *data)
+{
+  rtx orig_op = op;
+
+  if (GET_CODE (op) == LABEL_REF
+      || GET_CODE (op) == CODE_LABEL
+      || (GET_CODE (op) == PLUS
+	  && GET_CODE (XEXP (op, 0)) == LABEL_REF)
+	  && CONSTANT_P (XEXP (op, 1)))
+    {
+      rtx xop[2];
+
+      gcc_assert (data->reg <= data->mreg);
+      xop[0] = gen_rtx_UNSPEC (GET_MODE (op),
+			       gen_rtvec (1, GEN_INT (data->reg++)),
+			       MXP_UNSPEC_CORE_REG);
+      xop[1] = op;
+      output_asm_insn ("add %0,r0,%1", xop);
+      op = xop[0];
+    }
+  else if (GET_CODE (op) == MINUS
+	   && GET_CODE (XEXP (op, 0)) == LABEL_REF
+	   && GET_CODE (XEXP (op, 1)) == LABEL_REF)
+    ; /* Do nothing.  */
+  else
+    {
+      int i;
+      const char *fmt;
+
+      fmt = GET_RTX_FORMAT (GET_CODE (op));
+      for  (i = GET_RTX_LENGTH (GET_CODE (op)) - 1; i >= 0; i--)
+	if (fmt[i] == 'e')
+	  {
+	    rtx op_i = mxp_prescan_operand (XEXP (op, i), data);
+
+	    if (op_i != XEXP (op, i) && op == orig_op)
+	      op = copy_rtx (op);
+	    XEXP (op, i) = op_i;
+	  }
+	else if (fmt[i] == 'E')
+	  {
+	    int j;
+	    for (j = 0; j < XVECLEN (op, i); j++)
+	      {
+		rtx op_ij = mxp_prescan_operand (XVECEXP (op, i, j), data);
+
+		if (op_ij != XVECEXP (op, i, j) && op == orig_op)
+		  op = copy_rtx (op);
+		XVECEXP (op, i, j) = op_ij;
+	      }
+	  }
+    }
+  return op;
+}
+
+void
+mxp_final_prescan_insn (rtx insn, rtx *opvec, int noperands)
+{
+  if (TARGET_HALFPIC_R0)
+    {
+      int i;
+      struct mxp_prescan_data prescan_data;
+
+      prescan_data.reg = 12;
+      prescan_data.mreg = 12;
+      for (i = 0; i < noperands; i++)
+	opvec[i] = mxp_prescan_operand (opvec[i], &prescan_data);
     }
   mxp_scm_offset += get_attr_length (insn);
 }
@@ -852,6 +914,20 @@ mxp_internal_label (FILE *stream, const char *prefix, unsigned long labelno)
       return;
     }
   default_internal_label (stream, prefix, labelno);
+}
+
+bool
+mxp_output_addr_const_extra (FILE *file, rtx x)
+{
+  switch (GET_CODE (x))
+    {
+    case UNSPEC:
+      gcc_assert (XINT (x, 1) == MXP_UNSPEC_CORE_REG);
+      fprintf (file, "r%d", INTVAL (XVECEXP (x, 0, 0)));
+      return true;
+    default:
+      return false;
+    }
 }
 
 #include "gt-mxp.h"

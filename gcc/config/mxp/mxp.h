@@ -236,6 +236,9 @@
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR) == '#')
 
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, fail) \
+  if (!mxp_output_addr_const_extra ((FILE), (X))) goto fail;
+
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) gcc_unreachable ()
 
 #define MODES_TIEABLE_P(MODE1, MODE2) \
@@ -272,15 +275,8 @@
 #define ASM_OUTPUT_LABEL_REF(FILE,STR)			\
   do							\
     {							\
-      if (TARGET_HALFPIC_R0)				\
-	{						\
-	  fputs ("r12", file);				\
-	}						\
-      else						\
-	{						\
-	  fputc ('@', file);				\
-	  assemble_name ((FILE), (STR));		\
-	}						\
+      fputc ('@', file);				\
+      assemble_name ((FILE), (STR));			\
     }							\
   while (0)
 

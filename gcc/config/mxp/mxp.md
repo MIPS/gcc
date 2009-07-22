@@ -21,6 +21,10 @@
 (include ("predicates.md"))
 (include ("constraints.md"))
 
+(define_constants
+  [(MXP_UNSPEC_CORE_REG 0)
+   ])
+
 (define_attr "type" "jump,load,store,other" (const_string "other"))
 
 ;; instruction lengths are in words.  Actual machine instructions are always
