@@ -170,7 +170,7 @@ simp-cond.o : $(srcdir)/config/cil32/simp-cond.c \
 
 tree-simp-cil-early.o: $(srcdir)/config/cil32/tree-simp-cil-early.c \
    $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) coretypes.h \
-   toplev.h tree-gimple.h tree-pass.h pointer-set.h
+   toplev.h tree-pass.h pointer-set.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 bb-layout.o: $(srcdir)/config/cil32/bb-layout.c \
