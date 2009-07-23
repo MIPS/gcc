@@ -99,7 +99,7 @@ static const char* const cil_type_names[] = {
  ******************************************************************************/
 
 static unsigned int compute_max_stack (struct function *);
-static void decode_function_attrs (tree, struct fnct_attr *);
+static struct fnct_attr decode_function_attrs (tree);
 static void emit_enum_decl (FILE *, tree);
 static void emit_array_decl (FILE *, tree);
 static void emit_incomplete_decl (FILE *, const_tree);
@@ -137,6 +137,7 @@ static void rename_var (tree, const char *, unsigned long);
 static void emit_static_vars (FILE *, struct function *);
 static int var_uses_compare (const void *, const void *);
 static void emit_local_vars (FILE *, struct function *);
+static void emit_function_attributes (FILE *, bool, struct fnct_attr);
 static void emit_function_header (FILE *, struct function *);
 static void emit_cil_bb (FILE *, basic_block);
 static void emit_cil_1 (FILE *, struct function *);
@@ -258,18 +259,19 @@ compute_max_stack (struct function *fun)
 /* Given the FUNCTION_DECL tree T, decode its CIL-specific function
    attributes and record them in ATTRS.   */
 
-static void
-decode_function_attrs (tree t, struct fnct_attr *attrs)
+static struct fnct_attr
+decode_function_attrs (tree t)
 {
   tree tmp;
+  struct fnct_attr attrs;
 
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
 
-  attrs->assembly_name    = 0;
-  attrs->cil_name         = 0;
-  attrs->cusattr_string   = 0;
-  attrs->pinvoke_assembly = 0;
-  attrs->pinvoke_fname    = 0;
+  attrs.assembly_name    = 0;
+  attrs.cil_name         = 0;
+  attrs.cusattr_string   = 0;
+  attrs.pinvoke_assembly = 0;
+  attrs.pinvoke_fname    = 0;
 
   tmp = DECL_ATTRIBUTES (t);
 
@@ -279,21 +281,22 @@ decode_function_attrs (tree t, struct fnct_attr *attrs)
       tree params = TREE_VALUE (tmp);
 
       if (strcmp (attr_name, "assembly_name") == 0)
-	attrs->assembly_name = TREE_STRING_POINTER (TREE_VALUE (params));
+	attrs.assembly_name = TREE_STRING_POINTER (TREE_VALUE (params));
       else if (strcmp (attr_name, "cil_name") == 0)
-	attrs->cil_name = TREE_STRING_POINTER (TREE_VALUE (params));
+	attrs.cil_name = TREE_STRING_POINTER (TREE_VALUE (params));
       else if (strcmp (attr_name, "cil_strattr") == 0)
-	attrs->cusattr_string = TREE_STRING_POINTER (TREE_VALUE (params));
+	attrs.cusattr_string = TREE_STRING_POINTER (TREE_VALUE (params));
       else if (strcmp (attr_name, "pinvoke") == 0)
 	{
-	  attrs->pinvoke_assembly = TREE_STRING_POINTER (TREE_VALUE (params));
+	  attrs.pinvoke_assembly = TREE_STRING_POINTER (TREE_VALUE (params));
 
 	  if (TREE_CHAIN (params))
-	    attrs->pinvoke_fname = TREE_STRING_POINTER (TREE_VALUE (TREE_CHAIN (params)));
+	    attrs.pinvoke_fname = TREE_STRING_POINTER (TREE_VALUE (TREE_CHAIN (params)));
 	}
 
       tmp = TREE_CHAIN (tmp);
     }
+  return attrs;
 }
 
 /* Dump the name of a _DECL node pointed by NODE into the file FILE.  */
@@ -332,9 +335,7 @@ dump_method_name(FILE *file, tree method)
     fprintf (file, "%s", IDENTIFIER_POINTER (DECL_NAME (method)));
   else
     {
-      struct fnct_attr attrs;
-
-      decode_function_attrs (method, &attrs);
+      struct fnct_attr attrs = decode_function_attrs (method);
 
       if (attrs.assembly_name)
 	fprintf (file, "[%s]", attrs.assembly_name);
@@ -882,6 +883,7 @@ emit_init_method (FILE *file)
 
   if (VEC_length (tree, pending_ctors) != 0)
     {
+      struct fnct_attr attributes = { NULL, NULL, NULL, NULL, NULL };
       seq = cil_seq_alloc ();
       csi = csi_start (seq);
 
@@ -891,22 +893,9 @@ emit_init_method (FILE *file)
 	       "\n.method private static void 'COBJ?init' () cil managed"
 	       "\n{"
 	       "\n\t.locals ()\n");
-      emit_string_custom_attr (file, "initfun");
 
-      if (TARGET_GCC4NET_LINKER)
-	{
-	  fprintf (file,
-		   "\n\t.custom instance "
-		   "void [gcc4net]gcc4net.C_Attributes.Initializer::.ctor() "
-		   "= (01 00 00 00)");
-	}
-      else if (TARGET_OPENSYSTEMC)
-	{
-	  fprintf (file,
-		   "\n\t.custom instance "
-		   "void ['OpenSystem.C']'OpenSystem.C'.InitializerAttribute::.ctor() "
-		   "= (01 00 00 00)");
-	}
+
+      emit_function_attributes (file, true, attributes);
 
       fprintf(file,
 	      "\n"
@@ -1059,9 +1048,7 @@ static void
 emit_pinvoke_function (FILE *file, tree fun)
 {
   tree fun_type = TREE_TYPE (fun);
-  struct fnct_attr attributes;
-
-  decode_function_attrs (fun, &attributes);
+  struct fnct_attr attributes = decode_function_attrs (fun);
 
   fprintf (file, ".method %s static pinvokeimpl(\"%s\"",
 	   TREE_PUBLIC (fun) ? "public" : "private",
@@ -1835,7 +1822,36 @@ emit_referenced_assemblies (FILE *file)
   mark_pending_assemblies ();
 }
 
-/* Emit the prototype of the current function, its attributes, etc.  */
+/* Emit the attributes of a function  */
+
+static void
+emit_function_attributes (FILE *file, bool is_init, struct fnct_attr attributes)
+{
+  if (is_init)
+    {
+      /* For the time being this attribute is a String. */
+      emit_string_custom_attr (file, "initfun");
+
+      if (TARGET_GCC4NET_LINKER)
+	{
+	  fputs ("\t.custom instance "
+		 "void [gcc4net]gcc4net.C_Attributes.Initializer::.ctor() "
+		 "= (01 00 00 00)\n", file);
+	}
+      else if (TARGET_OPENSYSTEMC)
+	{
+	  fprintf (file,
+		   "\t.custom instance "
+		   "void ['OpenSystem.C']'OpenSystem.C'.InitializerAttribute::.ctor() "
+		   "= (01 00 00 00)\n");
+	}
+    }
+
+  if (attributes.cusattr_string)
+    emit_string_custom_attr (file, attributes.cusattr_string);
+}
+
+/* Emit the prototype of the current function */
 
 static void
 emit_function_header (FILE *file, struct function *fun)
@@ -1843,11 +1859,6 @@ emit_function_header (FILE *file, struct function *fun)
   tree args;
   bool varargs = false;
   bool missing = false;
-
-  if (TARGET_OPENSYSTEMC && MAIN_NAME_P (DECL_NAME (fun->decl)))
-    emit_start_function (file, fun);
-
-  emit_static_vars (file, fun);
 
   {
     tree args_type = TYPE_ARG_TYPES (TREE_TYPE (fun->decl));
@@ -1909,37 +1920,6 @@ emit_function_header (FILE *file, struct function *fun)
   fprintf (file,
 	   ") cil managed"
 	   "\n{");
-
-  emit_local_vars (file, fun);
-
-  if (DECL_STATIC_CONSTRUCTOR (fun->decl))
-    {
-      /* For the time being this attribute is a String. */
-      emit_string_custom_attr (file, "initfun");
-
-      if (TARGET_GCC4NET_LINKER)
-	{
-	  fputs ("\t.custom instance "
-		 "void [gcc4net]gcc4net.C_Attributes.Initializer::.ctor() "
-		 "= (01 00 00 00)\n", file);
-	}
-      else if (TARGET_OPENSYSTEMC)
-	{
-	  fprintf (file,
-		   "\t.custom instance "
-		   "void ['OpenSystem.C']'OpenSystem.C'.InitializerAttribute::.ctor() "
-		   "= (01 00 00 00)\n");
-	}
-    }
-
-  {
-    struct fnct_attr attributes;
-
-    decode_function_attrs (fun->decl, &attributes);
-
-    if (attributes.cusattr_string)
-      emit_string_custom_attr (file, attributes.cusattr_string);
-  }
 }
 
 static void
@@ -1968,14 +1948,25 @@ emit_cil_1 (FILE *file, struct function *fun)
 {
   basic_block bb;
 
+  emit_referenced_assemblies (file);
+
+  if (TARGET_OPENSYSTEMC && MAIN_NAME_P (DECL_NAME (fun->decl)))
+    emit_start_function (file, fun);
+
+  emit_static_vars (file, fun);
+
+  emit_function_header (file, fun);
+
+  emit_local_vars (file, fun);
+
+  emit_function_attributes (file, DECL_STATIC_CONSTRUCTOR (fun->decl),
+                            decode_function_attrs (fun->decl));
+
   /* Make sure that every bb has a label */
   FOR_EACH_BB_FN (bb, fun)
     {
       gimple_block_label (bb);
     }
-
-  emit_referenced_assemblies (file);
-  emit_function_header (file, fun);
 
   FOR_EACH_BB_FN (bb, fun)
     {
