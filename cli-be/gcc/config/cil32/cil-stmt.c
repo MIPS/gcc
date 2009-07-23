@@ -220,10 +220,7 @@ cil_build_call_generic_list (enum cil_opcode opcode, bool va,
 
   arg_types = TYPE_ARG_TYPES (arg->ftype);
 
-  if (arg_types == NULL)
-    nargs_base = 0;
-  else
-    nargs_base = list_length (arg_types);
+  nargs_base = list_length (arg_types);
 
   arg->nargs = nargs_base + VEC_length (tree, arglist);
 

@@ -120,18 +120,12 @@ dump_fun (const_tree fun)
 
   args_type = TYPE_ARG_TYPES (fun_type);
 
-  if (args_type != NULL)
+  last_arg_type = tree_last (args_type);
+
+  if (last_arg_type && TREE_VALUE (last_arg_type) != void_type_node)
     {
-      last_arg_type = args_type;
-
-      while (TREE_CHAIN (last_arg_type))
-	last_arg_type = TREE_CHAIN (last_arg_type);
-
-      if (TREE_VALUE (last_arg_type) != void_type_node)
-	{
-	  last_arg_type = NULL;
-	  varargs = TRUE;
-	}
+      last_arg_type = NULL;
+      varargs = true;
     }
 
   printf ("%s", varargs ? "vararg " : "");

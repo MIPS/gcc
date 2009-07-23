@@ -454,18 +454,13 @@ dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
 	       "Missing function %s prototype, guessing it, you should fix the "
 	       "code", fun ? IDENTIFIER_POINTER (DECL_NAME (fun)) : "");
     }
-  else
+
+  last_arg_type = tree_last (args_type);
+
+  if (last_arg_type && TREE_VALUE (last_arg_type) != void_type_node)
     {
-      last_arg_type = args_type;
-
-      while (TREE_CHAIN (last_arg_type))
-	last_arg_type = TREE_CHAIN (last_arg_type);
-
-      if (TREE_VALUE (last_arg_type) != void_type_node)
-	{
-	  last_arg_type = NULL;
-	  varargs = TRUE;
-	}
+      last_arg_type = NULL;
+      varargs = true;
     }
 
   fprintf (file, "%s", varargs ? "vararg " : "");
@@ -1558,14 +1553,7 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
 static void
 emit_start_function (FILE *file, struct function *fun)
 {
-  size_t nargs = 0;
-  tree args = DECL_ARGUMENTS (fun->decl);
-
-  while (args)
-    {
-      args = TREE_CHAIN (args);
-      nargs++;
-    }
+  size_t nargs = list_length (DECL_ARGUMENTS (fun->decl));
 
   fprintf (file,
 	   "\n.method public static void '.start'(class [mscorlib]System.String[] 'args') cil managed"
@@ -1865,10 +1853,9 @@ emit_function_header (FILE *file, struct function *fun)
 
     if (args_type != NULL)
       {
-	while (TREE_CHAIN (args_type))
-	  args_type = TREE_CHAIN (args_type);
+        tree last_args_type = tree_last (args_type);
 
-	if (TREE_VALUE (args_type) != void_type_node)
+	if (TREE_VALUE (last_args_type) != void_type_node)
 	  varargs = true;
       }
     else

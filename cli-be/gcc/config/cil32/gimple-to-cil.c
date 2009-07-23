@@ -2181,14 +2181,7 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
 	{
 	  if (TREE_ASM_WRITTEN (fdecl))
 	    {
-	      tree c_args;
-	      max_nargs = 0;
-	      for (c_args = DECL_ARGUMENTS (fdecl);
-		   c_args != NULL_TREE;
-		   c_args = TREE_CHAIN (c_args))
-		{
-		  ++max_nargs;
-		}
+	      max_nargs = list_length (DECL_ARGUMENTS (fdecl));
 	      if (max_nargs < nargs)
 		{
 		  warning (OPT_Wcil_missing_prototypes,
