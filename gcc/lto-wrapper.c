@@ -272,12 +272,13 @@ run_gcc (unsigned argc, char *argv[])
       if (strcmp (s, "-flto") == 0 || strcmp (s, "-fwhopr") == 0)
 	/* We've handled this LTO option, don't pass it on.  */
 	;
-      else if (strcmp (s, "-o") == 0)
+      else if (*s == '-' && s[1] == 'o')
 	{
 	  /* Drop `-o' and its filename argument.  We will use a
 	     temporary file for the LTO output.  The `-o' option
 	     will be interpreted by the linker.  */
-	  i++;
+	  if (s[2] == '\0')
+	    i++;
 	}
       else
 	/* Pass the option or argument to LTO.  */
