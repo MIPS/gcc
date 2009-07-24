@@ -1,3 +1,7 @@
+2009-07-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to gcc-4_3-branch, id 150030.
+
 2009-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-mallow-movmisalign): Disable by
