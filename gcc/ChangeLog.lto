@@ -1,3 +1,23 @@
+2009-07-24  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @149863.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-07-24  Diego Novillo  <dnovillo@google.com>
+
+	* cgraph.h (cgraph_optimize): Declare.
+	* cgraphunit.c (cgraph_optimize): Make extern.
+	* lto-streamer-in.c (lto_input_ts_decl_non_common_tree_pointers):
+	Do not read DECL_SAVED_TREE.
+	* lto-streamer.h (lto_is_streamable): New.
+	* lto-streamer-out.c (lto_output_tree_header): Call it.
+	(lto_output_ts_decl_non_common_tree_pointers): Assert that
+	* tree.c (free_lang_data_in_decl): Clear out DECL_INITIAL if
+	DECL has an abstract context.
+	Clear out DECL_SAVED_TREE.
+
 2009-06-13  Ryan Mansfield  <rmansfield@qnx.com>
 
 	PR lto/40429

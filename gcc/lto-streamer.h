@@ -1024,6 +1024,29 @@ lto_stream_as_builtin_p (tree expr)
 	      || DECL_BUILT_IN_CLASS (expr) == BUILT_IN_MD));
 }
 
+/* Return true if EXPR is a tree node that can be written to disk.  */
+static inline bool
+lto_is_streamable (tree expr)
+{
+  enum tree_code code = TREE_CODE (expr);
+
+  /* Notice that we reject SSA_NAMEs as well.  We only emit the SSA
+     name version in lto_output_tree_ref (see output_ssa_names).  */
+  return code < NUM_TREE_CODES
+	 && code != SSA_NAME
+	 && code != CALL_EXPR
+	 && code != LANG_TYPE
+	 && code != MODIFY_EXPR
+	 && code != INIT_EXPR
+	 && code != TARGET_EXPR
+	 && code != BIND_EXPR
+	 && code != WITH_CLEANUP_EXPR
+	 && code != STATEMENT_LIST
+	 && (code == CASE_LABEL_EXPR
+	     || code == DECL_EXPR
+	     || TREE_CODE_CLASS (code) != tcc_statement);
+}
+
 DEFINE_DECL_STREAM_FUNCS (TYPE, type)
 DEFINE_DECL_STREAM_FUNCS (FIELD_DECL, field_decl)
 DEFINE_DECL_STREAM_FUNCS (FN_DECL, fn_decl)
@@ -1032,4 +1055,5 @@ DEFINE_DECL_STREAM_FUNCS (TYPE_DECL, type_decl)
 DEFINE_DECL_STREAM_FUNCS (NAMESPACE_DECL, namespace_decl)
 DEFINE_DECL_STREAM_FUNCS (LABEL_DECL, label_decl)
 
+  
 #endif /* GCC_LTO_STREAMER_H  */

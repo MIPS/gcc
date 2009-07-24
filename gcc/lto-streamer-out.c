@@ -998,7 +998,11 @@ lto_output_ts_decl_non_common_tree_pointers (struct output_block *ob,
 {
   if (TREE_CODE (expr) == FUNCTION_DECL)
     {
-      lto_output_tree_or_ref (ob, DECL_SAVED_TREE (expr), ref_p);
+      /* DECL_SAVED_TREE holds the GENERIC representation for DECL.
+	 At this point, it should not exist.  Either because it was
+	 converted to gimple or because DECL didn't have a GENERIC
+	 representation in this TU.  */
+      gcc_assert (DECL_SAVED_TREE (expr) == NULL_TREE);
       lto_output_tree_or_ref (ob, DECL_ARGUMENTS (expr), ref_p);
       lto_output_tree_or_ref (ob, DECL_RESULT (expr), ref_p);
     }
@@ -1321,13 +1325,14 @@ lto_output_tree_header (struct output_block *ob, tree expr, int ix)
   enum LTO_tags tag;
   enum tree_code code;
 
-  /* We should not see any language tree codes here.  */
+  /* We should not see any non-GIMPLE tree nodes here.  */
   code = TREE_CODE (expr);
-  gcc_assert (code < NUM_TREE_CODES);
-
-  /* SSA_NAMEs are never pickled.  We only emit the SSA name version
-     in lto_output_tree_ref (see output_ssa_names).  */
-  gcc_assert (code != SSA_NAME);
+  if (!lto_is_streamable (expr))
+    {
+      error ("Tree code %qs is not supported in gimple streams",
+	     tree_code_name[code]);
+      gcc_unreachable ();
+    }
 
   /* The header of a tree node consists of its tag, the size of
      the node, and any other information needed to instantiate

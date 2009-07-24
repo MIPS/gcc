@@ -1,5 +1,475 @@
+2009-07-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (vec_unpacku_float_hi_v4si): New expander.
+	(vec_unpacku_float_lo_v4si): Ditto.
+
+2009-07-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/40811
+	* config/i386/sse.md (sse2_cvtudq2ps): New expander.
+	(enum ix86_builtins): Add IX86_BUILTIN_CVTUDQ2PS.
+	(builtin_description): Add __builtin_ia32_cvtudq2ps.
+	(ix86_vectorize_builtin_conversion): Handle IX86_BUILTIN_CVTUDQ2PS.
+
+2009-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/40813
+	* tree-inline.c (copy_bb): Regimplify RHS after last stmt, not before
+	it.
+
+2009-07-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_gimplify_va_arg_expr): Wrap the result
+	with a NOP_EXPR if needed.
+
+2009-07-21  Paul Brook <paul@codesourcery.com>
+
+	* tree-vectorizer.c (increase_alignment): Handle nested arrays.
+	Terminate debug dump with newline.
+
+2009-07-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (compute_zdepwi_operands): Limit deposit length to 32 - lsb.
+	Cast "1" to unsigned HOST_WIDE_INT.
+	(compute_zdepdi_operands): Limit maximum length to 64 bits.  Limit
+	deposit length to the maximum length - lsb.  Extend length if
+	HOST_BITS_PER_WIDE_INT is 32.
+
+2009-07-20  Olatunji Ruwase <tjruwase@google.com>
+
+	* cgraph.h (constant_pool_htab): New function.
+	(constant_descriptor_tree): Move from varasm.c.
+	* varasm.c (constant_pool_htab): New function.
+	(constant_descriptor_tree): Move to cgraph.h.
+
+2009-07-20  Olatunji Ruwase  <tjruwase@google.com>
+
+	* toplev.c: Invoke FINISH_UNIT callbacks before call to finalize().
+
+2009-07-20  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* Makefile.in (TREE_INLINE_H, tree-inline.o, cgraph.o): Remove
+	$(VARRAY_H).
+
+2009-07-20  Xinliang David Li  <davidxl@google.com>
+
+	* dbgcnt.c (dbg_cnt_set_limit_by_name): Add length check.
+
+2009-07-20  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips.md (move_type): Add arith.
+	(type): Handle arith.
+	(zero_extendsidi2): Rename this into ...
+	(*zero_extendsidi2): ... this.  Don't match if ISA_HAS_EXT_INS.
+	(zero_extendsidi2): New expander.
+	(*zero_extendsidi2_dext): New pattern.
+
+2009-07-20  Nick Clifton  <nickc@redhat.com>
+
+	* config.gcc (mips64-*-*): Add definition of tm_defines in order
+	to set MIPS_ABI_DEFAULT.
+	* config/mips/vr.h (MIPS_ABI_DEFAULT): Remove definition.
+
+2009-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-object-size.c (addr_object_size): Handle unions with
+	array in it as last field of structs in __bos (, 1) as __bos (, 0).
+
+	PR tree-optimization/40792
+	* tree.c (build_function_type_skip_args): Remove bogus assert.
+
+2009-07-20  Jan Hubicka  <jh@suse.cz>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* cgraph.h (combined_args_to_skip): New field.
+	* cgraph.c (cgraph_create_virtual_clone): Properly handle
+	combined_args_to_skip and args_to_skip.
+	* tree-inline.c (update_clone_info): New function.
+	(tree_function_versioning): Call update_clone_info.
+	* cgraphunit.c: (cgraph_materialize_clone): Dump materialized functions.
+	(cgraph_materialize_all_clones): More extensive dumping, working
+	with combined_args_to_skip rather than args_to_skip.
+
+2009-07-20  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.h (vectorizable_condition): Add parameters.
+	* tree-vect-loop.c (vect_is_simple_reduction): Support COND_EXPR.
+	(get_initial_def_for_reduction): Likewise.
+	(vectorizable_reduction): Skip the check of first operand in case
+	of COND_EXPR. Add check that it is outer loop vectorization if
+	nested cycle was detected. Call vectorizable_condition() for 
+	COND_EXPR. If reduction epilogue cannot be created do not fail for
+	nested cycles (if it is not double reduction). Assert that there
+	is only one type in the loop in case of COND_EXPR. Call
+	vectorizable_condition() to vectorize COND_EXPR.
+	* tree-vect-stmts.c (vectorizable_condition): Update comment.
+	Add parameters. Allow nested cycles if called from 
+	vectorizable_reduction(). Use reduction vector variable if provided.
+	(vect_analyze_stmt): Call vectorizable_reduction() before
+	vectorizable_condition().
+	(vect_transform_stmt): Update call to vectorizable_condition().
+
+2009-07-20  Christian Bruel  <christian.bruel@st.com>
+	
+	* config/sh/sh.opt (-mfmovd): Resurrect and document.
+	* doc/invoke.texi (-mfmovd): Likewise.
+	* config/sh/sh.h (TARGET_FMOVD, MASK_FMOVD): Remove default setting.
+	
+2009-07-20  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-dce.c (remove_dead_phis): Only look for abnormal PHIs
+	when handling SSA name.
+
+2009-07-19  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/40676
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Do renaming on all
+	virtual PHIs in empty BBs.
+
+2009-07-18  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* combine.c (make_compound_operation) <SUBREG>: If force_to_mode
+	re-expanded the compound use gen_lowpart instead to convert to the
+	desired mode.
+
+2009-07-18  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* combine.c (try_widen_shift_mode): Add COUNT, OUTER_CODE and
+	OUTER_CONST arguments.
+	<LSHIFTRT>: Use them to allow widening if the bits shifted in from
+	the new wider mode will be masked off.
+	(simplify_shift_const_1): Adjust calls to try_widen_shift_mode.
+
+2009-07-18  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* combine.c (try_widen_shift_mode) <LSHIFTRT>: Allow widening if the
+	high-order bits are zero.
+
+2009-07-18  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* combine.c (simplify_shift_const_1): Split code to determine
+	shift_mode into ...
+	(try_widen_shift_mode): ... here.  Allow widening for ASHIFTRT if the
+	new bits shifted in are identical to the old sign bit.
+
+2009-07-18  Richard Guenther  <rguenther@suse.de>
+
+	PR c/40787
+	* gimplify.c (gimplify_call_expr): Reject code using results from
+	functions returning void.
+
+2009-07-18  Richard Sandiford  <r.sandiford@uk.ibm.com>
+
+	* doc/md.texi: Document the new PowerPC "es" constraint.
+	Document that "m" can include automodified addresses on this target,
+	and explain how %U must be used.  Extend the "Q" and "Z" documentation
+	to suggest "es" as well as "m".
+	* config/rs6000/constraints.md (es): New memory constraint.
+	(Q, Z): Update strings to match new documentation.
+
+2009-07-18  Richard Sandiford  <r.sandiford@uk.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_mode_dependent_address): Allow any
+	offset from virtual_stack_vars_rtx and arg_pointer_rtx.
+	* config/rs6000/predicates.md (volatile_mem_operand): Use
+	offsettable_nonstrict_memref_p.
+	* config/rs6000/rs6000.md (*floatsidf2_internal): Remove split check.
+	(*floatunssidf2_internal): Likewise.
+	(*fix_truncdfsi2_internal): Likewise.
+	(*fix_trunctfsi2_internal): Likewise.
+
+2009-07-17  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr-devices.c (avr_mcu_t): Add atmega8u2, atmega16u2 and
+	atmega32u2 devices.
+	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.).
+
+2009-07-17  Richard Guenther  <rguenther@suse.de>
+
+	PR c/40401
+	* tree-pass.h (pass_diagnose_omp_blocks): Declare.
+	(pass_warn_unused_result): Likewise.
+	(TODO_set_props): Remove.
+	* omp-low.c (diagnose_omp_structured_block_errors): Change to
+	run as a pass.
+	(pass_diagnose_omp_blocks): Define.
+	* c-decl.c (pop_file_scope): Do not finalize the CU here.
+	(c_gimple_diagnostics_recursively): Remove.
+	(finish_function): Do not call it.
+	(c_write_global_declarations): Continue after errors.
+	Finalize the CU here.
+	* c-gimplify.c (c_genericize): Do not gimplify here.
+	* c-common.c (c_warn_unused_result): Move ...
+	* tree-cfg.c (do_warn_unused_result): ... here.
+	(run_warn_unused_result): New function.
+	(gate_warn_unused_result): New function.
+	(pass_warn_unused_result): New pass.
+	* c-common.h (c_warn_unused_result): Remove.
+	* flags.h (flag_warn_unused_result): Declare.
+	* c-opts.c (c_common_init_options): Enable flag_warn_unused_result.
+	* opts.c (flag_warn_unused_result): Initialize to false.
+	* toplev.c (compile_file): Add comment.
+	* omp-low.c (create_omp_child_function): Do not register
+	the function with the frontend.
+	(diagnose_omp_structured_block_errors): Prepare to be
+	called as optimization pass.
+	(gate_diagnose_omp_blocks): New function.
+	(pass_diagnose_omp_blocks): New pass.
+	* cgraph.h (cgraph_optimize): Remove.
+	(cgraph_analyze_function): Likewise.
+	* cgraph.c (cgraph_add_new_function): Gimplify C++ thunks.
+	* cgraphunit.c (cgraph_lower_function): Lower nested functions
+	before their parents here.
+	(cgraph_finalize_function): Not here.
+	(cgraph_analyze_function): Gimplify functions here.
+	(cgraph_finalize_compilation_unit): Continue after errors.
+	Optimize the callgraph from here.
+	(cgraph_optimize): Make static.
+	* langhooks.c (write_global_declarations): Finalize the CU.
+	* gimplify.c (gimplify_asm_expr): Do not emit ASMs with errors.
+	(gimplify_function_tree): Assert we gimplify only once.
+	Set PROP_gimple_any property.
+	* tree-nested.c (gimplify_all_functions): New function.
+	(lower_nested_functions): Gimplify all nested functions.
+	* gimple.h (diagnose_omp_structured_block_errors): Remove.
+	* passes.c (init_optimization_passes): Add pass_warn_unused_result
+	and pass_diagnose_omp_blocks after gimplification.  Do not
+	set TODO_set_props on all_lowering_passes.
+	(execute_one_pass): Do not handle TODO_set_props.
+	* Makefile.in (cgraphunit.o): Add $(TREE_DUMP_H) dependency.
+	(gimplify.o): Add tree-pass.h dependency.
+	* tree-inline.c (copy_statement_list): Properly copy STATEMENT_LIST.
+	(copy_tree_body_r): Properly handle TARGET_EXPR like SAVE_EXPR.
+	(unsave_r): Likewise.
+	* c-omp.c (c_finish_omp_atomic): Set DECL_CONTEXT on the
+	temporary variable.
+
+2009-07-17  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/service.texi (Service): Restore previously removed link,
+	which isn't broken after all.
+
+2009-07-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40321
+	* tree-ssa-pre.c (add_to_exp_gen): Also add names defined by
+	PHI nodes to the maximal set.
+	(make_values_for_phi): Add PHI arguments to the maximal set.
+	(execute_pre): Dump PHI_GEN and the maximal set.
+
+2009-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40780
+	* gimplify.c (gimplify_conversion): Don't change non-conversions into
+	VIEW_CONVERT_EXPR.
+
+2009-07-16  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/extend.texi (Nested Functions): Replace broken link with
+	textual reference.
+	* doc/service.texi (Service): Remove broken link.
+
+2009-07-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/40781
+	* builtins.c (expand_builtin_memcmp): Use loc instead of
+	EXPR_LOCATION (exp).
+	(expand_builtin_strncmp): Likewise.
+
+2009-07-17  Aldy Hernandez  <aldyh@redhat.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 40435 
+	* tree-complex.c, tree-loop-distribution.c, tree.c, tree.h,
+	builtins.c, fold-const.c, omp-low.c, cgraphunit.c, tree-ssa-ccp.c,
+	tree-ssa-dom.c, gimple-low.c, expr.c, tree-ssa-ifcombine.c,
+	c-decl.c, stor-layout.c, tree-if-conv.c, c-typeck.c, gimplify.c,
+	calls.c, tree-sra.c, tree-mudflap.c, tree-ssa-copy.c,
+	tree-ssa-forwprop.c, c-convert.c, c-omp.c, varasm.c,
+	tree-inline.c, c-common.c, c-common.h, gimple.c,
+	tree-switch-conversion.c, gimple.h, tree-cfg.c, c-parser.c,
+	convert.c: Add location argument to fold_{unary,binary,ternary},
+	fold_build[123], build_call_expr, build_size_arg,
+	build_fold_addr_expr, build_call_array, non_lvalue, size_diffop,
+	fold_build1_initializer, fold_build2_initializer,
+	fold_build3_initializer, fold_build_call_array,
+	fold_build_call_array_initializer, fold_single_bit_test,
+	omit_one_operand, omit_two_operands, invert_truthvalue,
+	fold_truth_not_expr, build_fold_indirect_ref, fold_indirect_ref,
+	combine_comparisons, fold_builtin_*, fold_call_expr,
+	build_range_check, maybe_fold_offset_to_address, round_up,
+	round_down.
+
+2009-07-16  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/37907
+	* c-common.c (c_common_reswords): Add __is_standard_layout
+	and __is_trivial.
+	* c-common.h (enum rid): Add RID_IS_STD_LAYOUT and RID_IS_TRIVIAL.
+	* doc/implement-cxx.texi: New.
+	* doc/gcc.texi: Include it.
+
+2009-07-16  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.c (m32c_compare_redundant): Avoid removing
+	compares that may be indirectly affected by previous instructions.
+
+2009-07-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (do_mpc_arg2): New.
+	(fold_builtin_2): Fold builtin cpow.
+	* real.h (HAVE_mpc_pow): New.
+
+2009-07-16  Bingfeng Mei  <bmei@broadcom.com>
+
+	* modulo-sched.c (sms_schedule): stage_count <= 1 as correct
+	comparison to skip unprofitable schedule
+
+2009-07-16  Simon Baldwin  <simonb@google.com>
+
+	* gcc.c (option_map): New flag -no-canonical-prefixes.
+	* (display_help): Print help text for new flag.
+	* (process_command): Move options translation and language specifics
+	and handle new flag early.  Use it to set a function pointer to a
+	prefix builder.  Replace make_relative_prefix calls with calls to
+	the function pointed to.  Ignore new flag in regular options handling.
+	* doc/invoke.texi (Overall Options): Documented -no-canonical-prefixes.
+
+2009-07-15  DJ Delorie  <dj@redhat.com>
+
+	* config/mep/mep.md (sibcall_internal): Change register to avoid
+	argument registers.
+	(sibcall_value_internal): Likewise.
+
+2009-07-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/40710
+	* resource.c (mark_target_live_regs): Reset DF problem to LR.
+
+2009-07-15  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips.md (*extenddi_truncate<mode>,
+	*extendsi_truncate<mode>): Change type attribute to move_type
+	with shift_shift.  Split out code handling exts from here ...
+	(*extend<GPR:mode>_truncate<SHORT:mode>_exts): ... to this new
+	pattern.
+	(*extendhi_truncateqi): Change type attribute to move_type with
+	shift_shift.  Split out code handling exts from here ...
+	(*extendhi_truncateqi_exts): ... to this new pattern.
+
+2009-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (copysign<mode>3): Use "and-not" SSE instruction
+	instead of "and" with inverted sign bit mask value.  Use
+	"nonimmediate_operand" for operand 1 and operand 2 predicate.
+	Allocate registers only for operand 4 and operand 5.
+
+2009-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40747
+	* fold-const.c (fold_cond_expr_with_comparison): When folding
+	< and <= to MIN, make sure the MIN uses the same type as the
+	comparison's operands.
+
+2009-07-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (ior_xor): New code iterator.
+	(split for ior/xor with shift and zero-extend): New split pattern.
+	* arm/predicates.md (subreg_lowpart_operator): New special predicate.
+
+2009-07-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (make_constraint_from_heapvar): Initialize
+	offset member.
+
+2009-07-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40753
+	* alias.c (ao_ref_from_mem): Reject FUNCTION_DECL and LABEL_DECL bases.
+
+2009-07-15  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config/m68k/linux-unwind.h (m68k_fallback_frame_state): Update to
+	handle 2.6.30 kernel.
+
+2009-07-15  DJ Delorie  <dj@redhat.com>
+
+	* config/mep/mep.md (sibcall_internal): Change register to allow
+	for 24-bit addresses.
+	(sibcall_value_internal): Likewise.
+
+2009-07-14  Ghassan Shobaki  <ghassan.shobaki@amd.com>
+	
+	* doc/invoke.texi: Added descriptions of the  scheduling heuristics
+	that are enabled/disabled by the flags introduced by a previous patch.
+	
+2009-07-14  DJ Delorie  <dj@redhat.com>
+
+	* config/mep/mep.md (sibcall_internal): Include non-toggling
+	non-jmp case.
+	(sibcall_value_internal): Likewise.
+
+2009-07-14  Taras Glek  <tglek@mozilla.com>
+	    Rafael Espindola  <espindola@google.com>
+
+	* doc/sourcebuild.texi: Document install-plugin target.
+	* configure.ac: Added install-plugin target to language makefiles.
+	* configure: Regenerate.
+	* Makefile.in: (install-plugin): Install more headers,
+	depend on lang.install-plugin.
+
+2009-07-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* tree-vrp.c (vrp_evaluate_conditional): Mark strings for
+	translation.
+	
+2009-07-14  DJ Delorie  <dj@redhat.com>
+
+	* config/mep/mep.c (mep_vliw_jmp_match): New function.
+	* config/mep/mep-protos.h (mep_vliw_jmp_match): Prototype it.
+	* config/mep/mep.md (sibcall_internal): Change test from
+	mep_vliw_mode_match to mep_vliw_jmp_match.
+	(sibcall_value_internal): Likewise.
+
+2009-07-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (copysign<mode>3): New expander.
+	* config/i386/i386-protos.h (ix86_build_signbit_mask): New prototype.
+	* config/i386/i386.c (ix86_build_signbit_mask): Make public.
+	Use ix86_build_const_vector.
+	(enum ix86_builtins): Add IX86_BUILTIN_CPYSGNPS and
+	IX86_BUILTIN_CPYSGNPD.
+	(builtin_description): Add __builtin_ia32_copysignps and
+	__builtin_ia32_copysignpd.
+	(ix86_builtin_vectorized_function): Handle BUILT_IN_COPYSIGN
+	and BUILT_IN_COPYSIGNF.
+
+2009-07-13  Jason Merrill  <jason@redhat.com>
+
+	* builtins.c (can_trust_pointer_alignment): New fn.
+	(get_pointer_alignment): Factor it out from here.
+	* tree.h: Declare it.
+
+2009-07-14  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/predicates.md (offsettable_mem_operand): Test
+	RTX_AUTOINC class.
+
+2009-07-14  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/40705
+	PR c++/403057
+	* dwarf2.out.c (gen_type_die_with_usage): Added comment.
+
 2009-07-14  Richard Guenther  <rguenther@suse.de>
-	Andrey Belevantsev <abel@ispras.ru>
+	    Andrey Belevantsev <abel@ispras.ru>
+
+	PR middle-end/40745
+	* cfgexpand.c (partition_stack_vars): Do not bother to update
+	alias information when not optimizing.
+
+2009-07-14  Richard Guenther  <rguenther@suse.de>
+	    Andrey Belevantsev <abel@ispras.ru>
 
 	* tree-ssa-alias.h (refs_may_alias_p_1): Declare.
 	(pt_solution_set): Likewise.
@@ -43,13 +513,12 @@
 
 2009-07-13  Ghassan Shobaki  <ghassan.shobaki@amd.com>
 	
-	* haifa-sched.c 
-	(rank_for_schedule): Introduced flags to enable/disable 
-	individual scheduling heuristics.
-	* common.opt: Introduced flags to enable/disable
-        individual heuristics in the scheduler.	
-	* doc/invoke.texi: Introduced flags to enable/disable
-        individual heuristics in the scheduler.
+	* haifa-sched.c (rank_for_schedule): Introduced flags to
+	enable/disable individual scheduling heuristics.
+	* common.opt: Introduced flags to enable/disable individual
+	heuristics in the scheduler.	
+	* doc/invoke.texi: Introduced flags to enable/disable individual
+	heuristics in the scheduler.
 	
 2009-07-13  Kai Tietz  <kai.tietz@onevision.com>
 

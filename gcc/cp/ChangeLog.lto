@@ -1,3 +1,7 @@
+2009-07-24  Diego Novillo  <dnovillo@google.com>
+
+	* semantics.c (expand_or_defer_fn): Clear DECL_SAVED_TREE from FN.
+
 2009-07-16  Richard Guenther  <rguenther@suse.de>
 
 	* init.c (build_vec_delete_1): Do not set DECL_REGISTER on the

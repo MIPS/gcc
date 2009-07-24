@@ -2612,12 +2612,14 @@ package body Exp_Ch6 is
 
             return;
 
-         --  Expansion of a dispatching call results in an indirect call, which
-         --  in turn causes current values to be killed (see Resolve_Call), so
-         --  on VM targets we do the call here to ensure consistent warnings
-         --  between VM and non-VM targets.
-
          else
+            Apply_Tag_Checks (N);
+
+            --  Expansion of a dispatching call results in an indirect call,
+            --  which in turn causes current values to be killed (see
+            --  Resolve_Call), so on VM targets we do the call here to ensure
+            --  consistent warnings between VM and non-VM targets.
+
             Kill_Current_Values;
          end if;
       end if;
@@ -3097,10 +3099,17 @@ package body Exp_Ch6 is
 
       --  Functions returning controlled objects need special attention:
       --  if the return type is limited, the context is an initialization
-      --  and different processing applies.
+      --  and different processing applies. If the call is to a protected
+      --  function, the expansion above will call Expand_Call recusively.
+      --  To prevent a double attachment, check that the current call is
+      --  not a rewriting of a protected function call.
 
       if Needs_Finalization (Etype (Subp))
         and then not Is_Inherently_Limited_Type (Etype (Subp))
+        and then
+          (No (First_Formal (Subp))
+            or else
+              not Is_Concurrent_Record_Type (Etype (First_Formal (Subp))))
       then
          Expand_Ctrl_Function_Call (N);
       end if;

@@ -795,7 +795,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([lto merged with rev 149625])
+ACX_PKGVERSION([lto merged with rev 149863])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -3949,7 +3949,7 @@ touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
 	install-common install-man install-info install-pdf dvi pdf \
 	html uninstall info man srcextra srcman srcinfo \
-	mostlyclean clean distclean maintainer-clean"
+	mostlyclean clean distclean maintainer-clean install-plugin"
 
 for t in $target_list
 do
