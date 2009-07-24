@@ -51,6 +51,7 @@ lto.man:
 lto.srcextra:
 lto.srcman:
 lto.srcinfo:
+lto.install-plugin:
 
 lto.mostlyclean:
 	rm -f $(LTO_OBJS) $(LTO_EXE) $(LTRANS_DRIVER_EXE)
