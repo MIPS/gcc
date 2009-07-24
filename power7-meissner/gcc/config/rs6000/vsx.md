@@ -1201,9 +1201,9 @@
 }
   [(set_attr "type" "vecperm")])
 
-;; Extract a DF element from V2DF
+;; Extract a DF/DI element from V2DF/V2DI
 (define_insn "vsx_extract_<mode>"
-  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,f,?wa")
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
 	(vec_select:<VS_scalar> (match_operand:VSX_D 1 "vsx_register_operand" "wd,wd,wa")
 		       (parallel
 			[(match_operand:QI 2 "u5bit_cint_operand" "i,i,i")])))]
@@ -1214,6 +1214,29 @@
   return \"xxpermdi %x0,%x1,%x1,%3\";
 }
   [(set_attr "type" "vecperm")])
+
+;; Optimize extracting element 0 from memory
+(define_insn "*vsx_extract_<mode>_zero"
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "indexed_or_indirect_operand" "Z,Z,Z")
+	 (parallel [(const_int 0)])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && WORDS_BIG_ENDIAN"
+  "lxsd%U1x %x0,%y1"
+  [(set_attr "type" "fpload")
+   (set_attr "length" "4")])  
+
+;; Optimize element 1 for a single pointer reference using the traditional
+;; offsetable memory load
+(define_insn "*vsx_extract_<mode>_one"
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=d")
+	(vec_select:<VS_scalar>
+	 (mem:VSX_D (match_operand:P 1 "gpc_reg_operand" "b"))
+	 (parallel [(const_int 1)])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && WORDS_BIG_ENDIAN"
+  "lfd %0,4(%1)"
+  [(set_attr "type" "fpload")
+   (set_attr "length" "4")])  
 
 ;; General double word oriented permute, allow the other vector types for
 ;; optimizing the permute instruction.

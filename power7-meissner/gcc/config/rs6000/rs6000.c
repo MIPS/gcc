@@ -4200,7 +4200,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     {
       if (all_same)
 	{
-	  rtx element = copy_to_reg (XVECEXP (vals, 0, 0));
+	  rtx element = XVECEXP (vals, 0, 0);
 	  if (mode == V2DFmode)
 	    emit_insn (gen_vsx_splat_v2df (target, element));
 	  else
@@ -22793,19 +22793,24 @@ rs6000_handle_altivec_attribute (tree *node,
   mode = TYPE_MODE (type);
 
   /* Check for invalid AltiVec type qualifiers.  */
-  if ((type == long_unsigned_type_node || type == long_integer_type_node)
-      && !TARGET_VSX)
+  if (!TARGET_VSX)
     {
-    if (TARGET_64BIT)
-      error ("use of %<long%> in AltiVec types is invalid for 64-bit code");
-    else if (rs6000_warn_altivec_long)
-      warning (0, "use of %<long%> in AltiVec types is deprecated; use %<int%>");
+      if (type == long_unsigned_type_node || type == long_integer_type_node)
+	{
+	  if (TARGET_64BIT)
+	    error ("use of %<long%> in AltiVec types is invalid for "
+		   "64-bit code without -mvsx");
+	  else if (rs6000_warn_altivec_long)
+	    warning (0, "use of %<long%> in AltiVec types is deprecated; "
+		     "use %<int%>");
+	}
+      else if (type == long_long_unsigned_type_node
+	       || type == long_long_integer_type_node)
+	error ("use of %<long long%> in AltiVec types is invalid without "
+	       "-mvsx");
+      else if (type == double_type_node)
+	error ("use of %<double%> in AltiVec types is invalid without -mvsx");
     }
-  else if (type == long_long_unsigned_type_node
-           || type == long_long_integer_type_node)
-    error ("use of %<long long%> in AltiVec types is invalid");
-  else if (type == double_type_node && !TARGET_VSX)
-    error ("use of %<double%> in AltiVec types is invalid without -mvsx");
   else if (type == long_double_type_node)
     error ("use of %<long double%> in AltiVec types is invalid");
   else if (type == boolean_type_node)
