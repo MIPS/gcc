@@ -1,3 +1,195 @@
+2009-07-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/40809
+	* gcc.target/i386/pr40809.c: New test.
+
+	Backport from mainline:
+	2009-04-29  Richard Guenther  <rguenther@suse.de>
+
+	PR target/39943
+	* lib/target-supports.exp (check_effective_target_vect_uintfloat_cvt):
+	New.
+	(check_effective_target_vect_floatuint_cvt): Likewise.
+	* gcc.dg/vect/slp-10.c: Adjust.
+	* gcc.dg/vect/slp-11.c: Adjust.
+	* gcc.dg/vect/slp-12b.c: Adjust.
+	* gcc.dg/vect/slp-33.c: Adjust.
+	* gcc.c-torture/compile/pr39943.c: New testcase.
+
+2009-07-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-recip-vec.c: Move arrays out of test
+	function to enable vectorization.
+	* gcc.target/i386/sse2-lrint-vec.c: Ditto.
+	* gcc.target/i386/sse2-lrintf-vec.c: Ditto.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40566
+	* g++.dg/parse/cond5.C: New test.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40291
+	* gcc.c-torture/compile/pr40291.c: New test.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/38934
+	* gcc.dg/pr38934.c: New test.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-09  John F. Carr  <jfc@mit.edu>
+
+	PR c++/37877
+	* g++.dg/parse/linkage3.C: New test.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2008-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+ 	PR c++/37561
+	PR c++/36089
+	* g++.dg/template/init8.C: New test.
+
+2009-07-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40328
+	PR tree-optimization/40669
+	* gcc.dg/pr40669.c: New testcase.
+	* gcc.dg/torture/pr40328.c: Likewise.
+
+2009-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/40638
+	* gfortran.dg/unit_1.f90: New test.
+
+2009-06-30  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40542
+	* gcc.dg/vect/pr40542.c: New test.
+
+2009-06-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40579
+	* gcc.c-torture/execute/pr40579.c: New testcase.
+
+2009-06-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/40550
+	* gcc.dg/pr40550.c: New test.
+
+2009-06-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/32041
+	* gcc.dg/pr32041.c: New test.
+	* g++.dg/parse/offsetof9.C: New test.
+
+	2008-09-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+		Kaushal Kantawala  <kaushal_kantawala@playstation.sony.com>
+
+	PR tree-optimization/36891
+	* gcc.dg/torture/pr36891.c: New testcase.
+
+2009-06-22  Matthias Klose  <doko@ubuntu.com>
+
+	PR objc/28050
+	* pr28050.m: New testcase.
+
+2009-06-19  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2009-02-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/36607
+	* g++.dg/expr/cast10.C: New test.
+
+	2009-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40204
+	* gcc.c-torture/compile/pr40204.c: New test.
+
+	2009-02-03  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR target/35318
+	* gcc.c-torture/compile/pr35318.c: New test.
+
+2009-06-19  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2009-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39240
+	* gcc.c-torture/execute/pr39240.c: New test.
+
+2009-06-19  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2009-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39013
+	* gcc.target/i386/pr39013-1.c: New test.
+	* gcc.target/i386/pr39013-2.c: New test.
+
+	2009-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39855
+	* gcc.dg/torture/pr39855.c: New test.
+
+2009-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/40470
+	* gcc.dg/torture/pr40470-1.c: New.
+	* gcc.dg/torture/pr40470-2.c: Likewise.
+	* gcc.dg/torture/pr40470-3.c: Likewise.
+	* gcc.dg/torture/pr40470-4.c: Likewise.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/39455
+	* gcc.dg/pr39455.c: New test.
+
+	2009-05-19  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/40087
+	* gcc.dg/tree-ssa/pr40087.c: New test.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40404
+	* gcc.c-torture/execute/pr40404.c: New testcase.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40389
+	* g++.dg/torture/pr40389.C: New testcase.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40460
+	* g++.dg/torture/pr40460.C: New testcase.
+
 2009-06-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/40373

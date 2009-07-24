@@ -1,3 +1,30 @@
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-09  John F. Carr  <jfc@mit.edu>
+
+	PR c++/37877
+	* parser.c (cp_parser_class_specifier): Clear
+	parser->in_unbraced_linkage_specification_p while parsing class
+	specifiers.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2008-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36089
+	* init.c (constant_value_1): Handle TREE_LIST init.
+
+2009-06-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/32041
+	* parser.c (cp_parser_builtin_offsetof): Allow `->' in
+	offsetof member-designator, handle it as `[0].'.
+
 2009-06-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/40373

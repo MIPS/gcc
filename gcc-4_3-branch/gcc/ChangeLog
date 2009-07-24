@@ -1,3 +1,275 @@
+2009-07-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/40832
+	* config/i386/i386.c (output_387_ffreep): Rewrite to return
+	ASM_SHORT instead of .word.
+	* config/i386/i386.md (*tls_global_dynamic_64): Use ASM_SHORT
+	instead of .word in asm template.
+
+2009-07-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-04-29  Richard Guenther  <rguenther@suse.de>
+  
+	PR target/39943
+	* config/i386/i386.c (ix86_vectorize_builtin_conversion): Only
+	allow conversion to signed integers.
+
+2009-07-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/40710
+	* resource.c (mark_target_live_regs): Reset DF problem to LR.
+
+2009-07-14  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-02-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/39110
+	* rtlanal.c (rtx_addr_can_trap_p_1): Shortcut unaligned
+	addresses, not aligned ones.
+
+	2009-02-04  Paolo Bonzini  <bonzini@gnu.org>
+	    Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/37889
+	* rtlanal.c (rtx_addr_can_trap_p_1): Add offset and size arguments.
+	Move offset handling from PLUS to before the switch.  Use new
+	arguments when considering SYMBOL_REFs too.
+	(rtx_addr_can_trap_p): Pass dummy offset and size.
+	(enum may_trap_p_flags): Remove.
+	(may_trap_p_1): Pass size from MEM_SIZE.
+
+	PR rtl-optimization/38921
+	* loop-invariant.c (find_invariant_insn): Use may_trap_or_fault_p.
+	* rtl.h (may_trap_after_code_motion_p): Delete prototype.
+	* rtlanal.c (may_trap_after_code_motion_p): Delete.
+	(may_trap_p, may_trap_or_fault_p): Pass 0/1 as flags.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40566
+	* convert.c (convert_to_integer) <case COND_EXPR>: Don't convert
+	to type arguments that have void type.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40291
+	* builtins.c (expand_builtin_memcmp): Convert len to sizetype
+	before expansion.
+
+2009-07-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/38934
+	* tree-vrp.c (extract_range_from_assert): For LE_EXPR and LT_EXPR
+	set to varying whenever max has TREE_OVERFLOW set, similarly
+	for GE_EXPR and GT_EXPR and TREE_OVERFLOW min.
+
+2009-07-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40328
+	PR tree-optimization/40669
+	* tree-tailcall.c (adjust_accumulator_values): Properly
+	set DECL_GIMPLE_REG_P.
+	(adjust_return_value): Likewise.
+	(tree_optimize_tail_calls_1): Likewise.
+	* fold-const.c (fold_convert): Fold the built COMPLEX_EXPR.
+
+2009-07-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40585
+	* tree-cfg.c (gimple_can_duplicate_bb_p): Disallow duplicating
+	basic blocks with GIMPLE_RESX.
+
+2009-07-01  Ben Elliston  <bje@au.ibm.com>
+
+	Backport from mainline:
+
+	2008-10-04  Anton Blanchard  <anton@samba.org>
+
+	* config/rs6000/rs6000.c (rs6000_emit_sync): Use gen_lwsync().
+	(rs6000_split_atomic_op): Same.
+	(rs6000_split_compare_and_swap): Same.
+	(rs6000_split_compare_and_swapqhi): Same.
+
+2009-06-30  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40542
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Don't 
+	vectorize volatile types.
+
+2009-06-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40579
+	* tree-vrp.c (vrp_evaluate_conditional_warnv): Bail out early if
+	the IL to simplify has constants that overflowed.
+
+2009-06-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/40550
+	* tree-vect-generic.c (expand_vector_operations_1): Compute in
+	vector_compute_type only when the size of vector_compute_type is
+	less than the size of type.
+
+2009-06-27  Kai Tietz  <kai.tietz@onevision.com>
+
+	Merged from trunk rev/148061
+	2009-06-01  Jakub Jelinek  <jakub@redhat.com>
+	PR other/40024
+	* emutls.c (__emutls_get_address): Change arr->size to mean number
+	of allocated arr->data entries instead of # of slots + 1.
+
+2009-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* c-parser.c (c_parser_postfix_expression): Fix merge glitch.
+
+2009-06-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/38751
+	* fold-const.c (extract_muldiv): Remove obsolete comment.
+	(fold_plusminus_mult_expr): Undo MINUS_EXPR
+	to PLUS_EXPR canonicalization for the canonicalization.
+
+2009-06-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/32041
+	* c-parser.c (c_parser_postfix_expression): Allow `->' in
+	offsetof member-designator, handle it as `[0].'.
+
+	2008-09-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+		Kaushal Kantawala  <kaushal_kantawala@playstation.sony.com>
+
+	PR tree-optimization/36891
+	* tree-ssa-loop-im.c (rewrite_reciprocal): Set DECL_GIMPLE_REG_P on
+	the newly created variable.
+	Create a VECTOR_CST of all 1s for vector types.
+
+2009-06-22  Steven Bosscher  <steven@gcc.gnu.org>
+	    Matthias Klose  <doko@ubuntu.com>
+
+	PR objc/28050
+	* c-parser.c (c_parser_objc_message_args): Return error_mark_node
+	instead of NULL if a parser error occurs.
+
+2009-06-19  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2009-02-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/36607
+	* convert.c (convert_to_integer): Treat OFFSET_TYPE like INTEGER_TYPE.
+
+	2009-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40204
+	* fold-const.c (fold_binary) <case BIT_AND_EXPR>: Avoid infinite
+	recursion if build_int_cst_type returns the same INTEGER_CST as
+	arg1.
+
+	2009-02-03  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR target/35318
+	* function.c (match_asm_constraints_1): Skip over
+	initial optional % in the constraint.
+ 
+2009-06-19  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2009-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39240
+	* calls.c (expand_call): Clear try_tail_call if caller and callee
+	disagree in promotion of function return value.
+
+2009-06-19  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2009-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39013
+	* c-decl.c (pop_scope): Set DECL_EXTERNAL for functions declared
+	inline but never defined.
+
+	2009-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39855
+	* fold-const.c (fold_binary) <case LSHIFT_EXPR>: When optimizing
+	into 0, use omit_one_operand.
+
+2009-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/40470
+	* config/i386/i386.h (CLASS_LIKELY_SPILLED_P): Add SSE_FIRST_REG.
+
+2009-06-18  Tobias Burnus  <burnus@net-b.de>
+	    Mikael Pettersson  <mikpe@it.uu.se>
+
+	PR debug/40061
+	* dwarf2out.c (add_subscript_info): Fix build for
+	MIPS_DEBUGGING_INFO.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/39455
+	* tree-ssa-loop-niter.c (number_of_iterations_lt_to_ne): Fix types
+	mismatches for POINTER_TYPE_P (type).
+	(number_of_iterations_le): Likewise.
+
+	2009-05-19  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/40087
+	* tree-ssa-loop-niter.c (number_of_iterations_ne_max,
+	number_of_iterations_ne): Rename never_infinite argument.
+	(number_of_iterations_lt_to_ne, number_of_iterations_lt,
+	number_of_iterations_le): Handle pointer-type ivs when
+	exit_must_be_taken is false.
+	(number_of_iterations_cond):  Do not always assume that
+	exit_must_be_taken if the control variable is a pointer.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40404
+	* fold-const.c (fold_binary): Verify the type precision of the
+	stripped arguments of the comparison are the same before
+	folding the comparison.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40389
+	* tree-ssa-operands.c (get_modify_stmt_operands): Add NRV
+	results to the addresses taken bitmap.
+	* tree-scalar-evolution.c (scev_const_prop): Do not insert
+	incomplete stmts into the instruction stream.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40460
+	* tree-chrec.h (build_polynomial_chrec): If we cannot determine
+	if there is no evolution of left in the loop bail out.
+	* tree-chrec.c (chrec_fold_multiply_poly_poly): CSE one
+	chrec_fold_multiply.
+
 2009-06-11  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline:

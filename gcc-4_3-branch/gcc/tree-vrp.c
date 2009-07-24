@@ -1253,7 +1253,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	 all should be optimized away above us.  */
       if ((cond_code == LT_EXPR
 	   && compare_values (max, min) == 0)
-	  || is_overflow_infinity (max))
+	  || (CONSTANT_CLASS_P (max) && TREE_OVERFLOW (max)))
 	set_value_range_to_varying (vr_p);
       else
 	{
@@ -1288,7 +1288,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	 all should be optimized away above us.  */
       if ((cond_code == GT_EXPR
 	   && compare_values (min, max) == 0)
-	  || is_overflow_infinity (min))
+	  || (CONSTANT_CLASS_P (min) && TREE_OVERFLOW (min)))
 	set_value_range_to_varying (vr_p);
       else
 	{
@@ -4988,6 +4988,14 @@ vrp_evaluate_conditional_warnv (tree cond, bool use_equiv_p,
     {
       tree op0 = TREE_OPERAND (cond, 0);
       tree op1 = TREE_OPERAND (cond, 1);
+
+      /* Some passes and foldings leak constants with overflow flag set
+	 into the IL.  Avoid doing wrong things with these and bail out.  */
+      if ((TREE_CODE (op0) == INTEGER_CST
+	   && TREE_OVERFLOW (op0))
+	  || (TREE_CODE (op1) == INTEGER_CST
+	      && TREE_OVERFLOW (op1)))
+	return NULL_TREE;
 
       /* We only deal with integral and pointer types.  */
       if (!INTEGRAL_TYPE_P (TREE_TYPE (op0))
