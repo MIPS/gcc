@@ -2366,8 +2366,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
       ifbody2 = gfc_finish_block (&ifblock2);
       cond = fold_build2 (EQ_EXPR, boolean_type_node, pos,
 			  gfc_index_zero_node);
-      tmp = build3_v (COND_EXPR, cond, ifbody2,
-		      build_empty_stmt (input_location));
+      tmp = build3_v (COND_EXPR, cond, ifbody2, build_empty_stmt ());
       gfc_add_expr_to_block (&block, tmp);
     }
 
@@ -2388,8 +2387,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
       else
 	cond = fold_build2 (op, boolean_type_node, arrayse.expr, limit);
 
-      ifbody = build3_v (COND_EXPR, cond, ifbody,
-			 build_empty_stmt (input_location));
+      ifbody = build3_v (COND_EXPR, cond, ifbody, build_empty_stmt ());
     }
   gfc_add_expr_to_block (&block, ifbody);
 
@@ -2398,8 +2396,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
       /* We enclose the above in if (mask) {...}.  */
       tmp = gfc_finish_block (&block);
 
-      tmp = build3_v (COND_EXPR, maskse.expr, tmp,
-		      build_empty_stmt (input_location));
+      tmp = build3_v (COND_EXPR, maskse.expr, tmp, build_empty_stmt ());
     }
   else
     tmp = gfc_finish_block (&block);
@@ -2414,8 +2411,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 	  if (nonempty != NULL)
 	    {
 	      ifbody = build2_v (MODIFY_EXPR, pos, gfc_index_one_node);
-	      tmp = build3_v (COND_EXPR, nonempty, ifbody,
-			      build_empty_stmt (input_location));
+	      tmp = build3_v (COND_EXPR, nonempty, ifbody, build_empty_stmt ());
 	      gfc_add_expr_to_block (&loop.code[0], tmp);
 	    }
 	}
@@ -2469,8 +2465,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 
       cond = fold_build2 (op, boolean_type_node, arrayse.expr, limit);
 
-      tmp = build3_v (COND_EXPR, cond, ifbody,
-		      build_empty_stmt (input_location));
+      tmp = build3_v (COND_EXPR, cond, ifbody, build_empty_stmt ());
       gfc_add_expr_to_block (&block, tmp);
 
       if (maskss)
@@ -2478,8 +2473,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 	  /* We enclose the above in if (mask) {...}.  */
 	  tmp = gfc_finish_block (&block);
 
-	  tmp = build3_v (COND_EXPR, maskse.expr, tmp,
-			  build_empty_stmt (input_location));
+	  tmp = build3_v (COND_EXPR, maskse.expr, tmp, build_empty_stmt ());
 	}
       else
 	tmp = gfc_finish_block (&block);
