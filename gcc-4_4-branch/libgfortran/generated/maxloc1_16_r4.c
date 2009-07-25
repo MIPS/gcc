@@ -155,9 +155,13 @@ maxloc1_16_r4 (gfc_array_i16 * const restrict retarray,
       src = base;
       {
 
-  GFC_REAL_4 maxval;
-  maxval = -GFC_REAL_4_HUGE;
-  result = 0;
+	GFC_REAL_4 maxval;
+#if defined (GFC_REAL_4_INFINITY)
+	maxval = -GFC_REAL_4_INFINITY;
+#else
+	maxval = -GFC_REAL_4_HUGE;
+#endif
+	result = 1;
         if (len <= 0)
 	  *dest = 0;
 	else
@@ -165,11 +169,22 @@ maxloc1_16_r4 (gfc_array_i16 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta)
 	      {
 
-  if (*src > maxval || !result)
-    {
-      maxval = *src;
-      result = (GFC_INTEGER_16)n + 1;
-    }
+#if defined (GFC_REAL_4_QUIET_NAN)
+		if (*src >= maxval)
+		  {
+		    maxval = *src;
+		    result = (GFC_INTEGER_16)n + 1;
+		    break;
+		  }
+	      }
+	    for (; n < len; n++, src += delta)
+	      {
+#endif
+		if (*src > maxval)
+		  {
+		    maxval = *src;
+		    result = (GFC_INTEGER_16)n + 1;
+		  }
           }
 	    *dest = result;
 	  }
@@ -362,9 +377,16 @@ mmaxloc1_16_r4 (gfc_array_i16 * const restrict retarray,
       msrc = mbase;
       {
 
-  GFC_REAL_4 maxval;
-  maxval = -GFC_REAL_4_HUGE;
-  result = 0;
+	GFC_REAL_4 maxval;
+#if defined (GFC_REAL_4_INFINITY)
+	maxval = -GFC_REAL_4_INFINITY;
+#else
+	maxval = -GFC_REAL_4_HUGE;
+#endif
+#if defined (GFC_REAL_4_QUIET_NAN)
+	GFC_INTEGER_16 result2 = 0;
+#endif
+	result = 0;
         if (len <= 0)
 	  *dest = 0;
 	else
@@ -372,11 +394,32 @@ mmaxloc1_16_r4 (gfc_array_i16 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
 	      {
 
-  if (*msrc && (*src > maxval || !result))
-    {
-      maxval = *src;
-      result = (GFC_INTEGER_16)n + 1;
-    }
+		if (*msrc)
+		  {
+#if defined (GFC_REAL_4_QUIET_NAN)
+		    if (!result2)
+		      result2 = (GFC_INTEGER_16)n + 1;
+		    if (*src >= maxval)
+#endif
+		      {
+			maxval = *src;
+			result = (GFC_INTEGER_16)n + 1;
+			break;
+		      }
+		  }
+	      }
+#if defined (GFC_REAL_4_QUIET_NAN)
+	    if (unlikely (n >= len))
+	      result = result2;
+	    else
+#endif
+	    for (; n < len; n++, src += delta, msrc += mdelta)
+	      {
+		if (*msrc && *src > maxval)
+		  {
+		    maxval = *src;
+		    result = (GFC_INTEGER_16)n + 1;
+		  }
               }
 	    *dest = result;
 	  }

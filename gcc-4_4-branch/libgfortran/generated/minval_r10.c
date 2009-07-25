@@ -154,7 +154,11 @@ minval_r10 (gfc_array_r10 * const restrict retarray,
       src = base;
       {
 
-  result = GFC_REAL_10_HUGE;
+#if defined (GFC_REAL_10_INFINITY)
+	result = GFC_REAL_10_INFINITY;
+#else
+	result = GFC_REAL_10_HUGE;
+#endif
         if (len <= 0)
 	  *dest = GFC_REAL_10_HUGE;
 	else
@@ -162,8 +166,17 @@ minval_r10 (gfc_array_r10 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta)
 	      {
 
-  if (*src < result)
-    result = *src;
+#if defined (GFC_REAL_10_QUIET_NAN)
+		if (*src <= result)
+		  break;
+	      }
+	    if (unlikely (n >= len))
+	      result = GFC_REAL_10_QUIET_NAN;
+	    else for (; n < len; n++, src += delta)
+	      {
+#endif
+		if (*src < result)
+		  result = *src;
           }
 	    *dest = result;
 	  }
@@ -356,7 +369,14 @@ mminval_r10 (gfc_array_r10 * const restrict retarray,
       msrc = mbase;
       {
 
-  result = GFC_REAL_10_HUGE;
+#if defined (GFC_REAL_10_INFINITY)
+	result = GFC_REAL_10_INFINITY;
+#else
+	result = GFC_REAL_10_HUGE;
+#endif
+#if defined (GFC_REAL_10_QUIET_NAN)
+	int non_empty_p = 0;
+#endif
         if (len <= 0)
 	  *dest = GFC_REAL_10_HUGE;
 	else
@@ -364,8 +384,29 @@ mminval_r10 (gfc_array_r10 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
 	      {
 
-  if (*msrc && *src < result)
-    result = *src;
+#if defined (GFC_REAL_10_INFINITY) || defined (GFC_REAL_10_QUIET_NAN)
+		if (*msrc)
+		  {
+#if defined (GFC_REAL_10_QUIET_NAN)
+		    non_empty_p = 1;
+		    if (*src <= result)
+#endif
+		      break;
+		  }
+	      }
+	    if (unlikely (n >= len))
+	      {
+#if defined (GFC_REAL_10_QUIET_NAN)
+		result = non_empty_p ? GFC_REAL_10_QUIET_NAN : GFC_REAL_10_HUGE;
+#else
+		result = GFC_REAL_10_HUGE;
+#endif
+	      }
+	    else for (; n < len; n++, src += delta, msrc += mdelta)
+	      {
+#endif
+		if (*msrc && *src < result)
+		  result = *src;
               }
 	    *dest = result;
 	  }

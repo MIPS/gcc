@@ -154,7 +154,11 @@ maxval_i16 (gfc_array_i16 * const restrict retarray,
       src = base;
       {
 
-  result = (-GFC_INTEGER_16_HUGE-1);
+#if defined (GFC_INTEGER_16_INFINITY)
+	result = -GFC_INTEGER_16_INFINITY;
+#else
+	result = (-GFC_INTEGER_16_HUGE-1);
+#endif
         if (len <= 0)
 	  *dest = (-GFC_INTEGER_16_HUGE-1);
 	else
@@ -162,8 +166,17 @@ maxval_i16 (gfc_array_i16 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta)
 	      {
 
-  if (*src > result)
-    result = *src;
+#if defined (GFC_INTEGER_16_QUIET_NAN)
+		if (*src >= result)
+		  break;
+	      }
+	    if (unlikely (n >= len))
+	      result = GFC_INTEGER_16_QUIET_NAN;
+	    else for (; n < len; n++, src += delta)
+	      {
+#endif
+		if (*src > result)
+		  result = *src;
           }
 	    *dest = result;
 	  }
@@ -356,7 +369,14 @@ mmaxval_i16 (gfc_array_i16 * const restrict retarray,
       msrc = mbase;
       {
 
-  result = (-GFC_INTEGER_16_HUGE-1);
+#if defined (GFC_INTEGER_16_INFINITY)
+	result = -GFC_INTEGER_16_INFINITY;
+#else
+	result = (-GFC_INTEGER_16_HUGE-1);
+#endif
+#if defined (GFC_INTEGER_16_QUIET_NAN)
+	int non_empty_p = 0;
+#endif
         if (len <= 0)
 	  *dest = (-GFC_INTEGER_16_HUGE-1);
 	else
@@ -364,8 +384,29 @@ mmaxval_i16 (gfc_array_i16 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
 	      {
 
-  if (*msrc && *src > result)
-    result = *src;
+#if defined (GFC_INTEGER_16_INFINITY) || defined (GFC_INTEGER_16_QUIET_NAN)
+		if (*msrc)
+		  {
+#if defined (GFC_INTEGER_16_QUIET_NAN)
+		    non_empty_p = 1;
+		    if (*src >= result)
+#endif
+		      break;
+		  }
+	      }
+	    if (unlikely (n >= len))
+	      {
+#if defined (GFC_INTEGER_16_QUIET_NAN)
+		result = non_empty_p ? GFC_INTEGER_16_QUIET_NAN : (-GFC_INTEGER_16_HUGE-1);
+#else
+		result = (-GFC_INTEGER_16_HUGE-1);
+#endif
+	      }
+	    else for (; n < len; n++, src += delta, msrc += mdelta)
+	      {
+#endif
+		if (*msrc && *src > result)
+		  result = *src;
               }
 	    *dest = result;
 	  }

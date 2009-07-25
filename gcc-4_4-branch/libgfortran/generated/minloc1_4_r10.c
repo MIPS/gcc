@@ -155,9 +155,13 @@ minloc1_4_r10 (gfc_array_i4 * const restrict retarray,
       src = base;
       {
 
-  GFC_REAL_10 minval;
-  minval = GFC_REAL_10_HUGE;
-  result = 0;
+	GFC_REAL_10 minval;
+#if defined (GFC_REAL_10_INFINITY)
+	minval = GFC_REAL_10_INFINITY;
+#else
+	minval = GFC_REAL_10_HUGE;
+#endif
+	result = 1;
         if (len <= 0)
 	  *dest = 0;
 	else
@@ -165,11 +169,22 @@ minloc1_4_r10 (gfc_array_i4 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta)
 	      {
 
-  if (*src < minval || !result)
-    {
-      minval = *src;
-      result = (GFC_INTEGER_4)n + 1;
-    }
+#if defined (GFC_REAL_10_QUIET_NAN)
+		if (*src <= minval)
+		  {
+		    minval = *src;
+		    result = (GFC_INTEGER_4)n + 1;
+		    break;
+		  }
+	      }
+	    for (; n < len; n++, src += delta)
+	      {
+#endif
+		if (*src < minval)
+		  {
+		    minval = *src;
+		    result = (GFC_INTEGER_4)n + 1;
+		  }
           }
 	    *dest = result;
 	  }
@@ -362,9 +377,16 @@ mminloc1_4_r10 (gfc_array_i4 * const restrict retarray,
       msrc = mbase;
       {
 
-  GFC_REAL_10 minval;
-  minval = GFC_REAL_10_HUGE;
-  result = 0;
+	GFC_REAL_10 minval;
+#if defined (GFC_REAL_10_INFINITY)
+	minval = GFC_REAL_10_INFINITY;
+#else
+	minval = GFC_REAL_10_HUGE;
+#endif
+#if defined (GFC_REAL_10_QUIET_NAN)
+	GFC_INTEGER_4 result2 = 0;
+#endif
+	result = 0;
         if (len <= 0)
 	  *dest = 0;
 	else
@@ -372,11 +394,32 @@ mminloc1_4_r10 (gfc_array_i4 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
 	      {
 
-  if (*msrc && (*src < minval || !result))
-    {
-      minval = *src;
-      result = (GFC_INTEGER_4)n + 1;
-    }
+		if (*msrc)
+		  {
+#if defined (GFC_REAL_10_QUIET_NAN)
+		    if (!result2)
+		      result2 = (GFC_INTEGER_4)n + 1;
+		    if (*src <= minval)
+#endif
+		      {
+			minval = *src;
+			result = (GFC_INTEGER_4)n + 1;
+			break;
+		      }
+		  }
+	      }
+#if defined (GFC_REAL_10_QUIET_NAN)
+	    if (unlikely (n >= len))
+	      result = result2;
+	    else
+#endif
+	    for (; n < len; n++, src += delta, msrc += mdelta)
+	      {
+		if (*msrc && *src < minval)
+		  {
+		    minval = *src;
+		    result = (GFC_INTEGER_4)n + 1;
+		  }
               }
 	    *dest = result;
 	  }
