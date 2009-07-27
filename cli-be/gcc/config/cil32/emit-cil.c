@@ -230,7 +230,6 @@ compute_max_stack (struct function *fun)
   unsigned int *depths;
   unsigned int max_depth = 0;
   unsigned int depth;
-  bool ret = !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fun->decl)));
   basic_block bb;
   edge e;
   edge_iterator ei;
@@ -239,11 +238,9 @@ compute_max_stack (struct function *fun)
 
   FOR_EACH_BB_FN (bb, fun)
     {
-      depth =  cil_seq_stack_depth (cil_bb_seq (bb), ret, depths[bb->index],
-				    true);
+      depth =  cil_seq_stack_depth (cil_bb_seq (bb), depths[bb->index], true);
       max_depth = (depth > max_depth) ? depth : max_depth;
-      depth = cil_seq_stack_depth (cil_bb_seq (bb), ret, depths[bb->index],
-				    false);
+      depth = cil_seq_stack_depth (cil_bb_seq (bb), depths[bb->index], false);
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
@@ -830,35 +827,34 @@ dump_string_decl (FILE *file, tree t)
 static bool
 dump_type_promoted_type_def (FILE *file, tree node)
 {
-  cil_type_t cil_type;
-
   bool result = false;
 
   if (node == NULL_TREE || node == error_mark_node)
     return false;
 
-  cil_type = type_to_cil (node);
-
-  if (cil_vector_p (cil_type))
-    dump_vector_type (file, cil_type);
-  else if (cil_type == CIL_VALUE_TYPE || cil_complex_p (cil_type))
+  if (cil_value_type_p (node) || cil_vector_type_p (node))
     dump_type (file, node, true, false);
-  else if (cil_int_or_smaller_p(cil_type))
-    fprintf (file, "class [mscorlib]System.UInt32");
-  else if (cil_long_p(cil_type))
-    fprintf (file, "class [mscorlib]System.UInt64");
-  else if (cil_float_p(cil_type))
-    fprintf (file, "class [mscorlib]System.Double");
-  else if (cil_pointer_p(cil_type))
-    {
-      /* cil32 is a 32bit machine, in case we support 64bit model
-       * changes are needed
-       */
-      fprintf (file, "class [mscorlib]System.UInt32");
-      result = true;
-    }
   else
-    gcc_unreachable ();
+    {
+      cil_type_t cil_type = type_to_cil (node);
+
+      if (cil_int_or_smaller_p(cil_type))
+        fprintf (file, "class [mscorlib]System.UInt32");
+      else if (cil_long_p(cil_type))
+        fprintf (file, "class [mscorlib]System.UInt64");
+      else if (cil_float_p(cil_type))
+        fprintf (file, "class [mscorlib]System.Double");
+      else if (cil_pointer_p(cil_type))
+        {
+          /* cil32 is a 32bit machine, in case we support 64bit model
+           * changes are needed
+           */
+          fprintf (file, "class [mscorlib]System.UInt32");
+          result = true;
+        }
+      else
+        gcc_unreachable ();
+    }
 
   return result;
 }
@@ -920,7 +916,7 @@ emit_init_method (FILE *file)
       fprintf (file,
 	       "\n\t.maxstack %u"
 	       "\n} // COBJ?init",
-	       cil_seq_stack_depth (seq, false, 0, true));
+	       cil_seq_stack_depth (seq, 0, true));
     }
 }
 

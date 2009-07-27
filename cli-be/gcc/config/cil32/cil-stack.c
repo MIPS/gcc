@@ -48,8 +48,6 @@ Erven Rohou             <erven.rohou@inria.fr>
  * Local functions prototypes                                                 *
  ******************************************************************************/
 
-static bool value_type_p (const_tree);
-static bool vector_type_p (const_tree);
 static cil_type_t cil_binary_op_type (enum cil_opcode, cil_type_t, cil_type_t);
 
 /******************************************************************************
@@ -215,14 +213,12 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       break;
 
     case CIL_LDFLD:
+      VEC_pop (cil_type_t, vstack);
+      /* FALLTHROUGH */
+
     case CIL_LDSFLD:
       type = TREE_TYPE (cil_field (stmt));
-
-      if (opcode == CIL_LDFLD)
-	VEC_pop (cil_type_t, vstack);
-
       VEC_safe_push (cil_type_t, heap, vstack, type_to_cil_on_stack (type));
-
       break;
 
     case CIL_LDIND_I1:
@@ -336,9 +332,10 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       break;
 
     case CIL_RET:
-      if (!VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
-	VEC_pop (cil_type_t, vstack);
+      break;
 
+    case CIL_RET_VAL:
+	VEC_pop (cil_type_t, vstack);
       break;
 
     case CIL_CALL:
@@ -600,16 +597,19 @@ scalar_to_cil (const_tree type)
 {
   unsigned HOST_WIDE_INT size;
 
-  switch (TREE_CODE (type))
-    {
-    case ENUMERAL_TYPE:
-      return CIL_INT32;
+  if (cil_pointer_type_p (type))
+      return CIL_POINTER;
+  else
+    switch (TREE_CODE (type))
+      {
+      case ENUMERAL_TYPE:
+        return CIL_INT32;
 
-    case INTEGER_TYPE:
-      size = tree_low_cst (TYPE_SIZE (type), 1);
+      case INTEGER_TYPE:
+        size = tree_low_cst (TYPE_SIZE (type), 1);
 
-      switch (size)
-	{
+        switch (size)
+          {
 	  case 8:  return TYPE_UNSIGNED (type) ? CIL_UNSIGNED_INT8 : CIL_INT8;
 	  case 16: return TYPE_UNSIGNED (type) ? CIL_UNSIGNED_INT16 : CIL_INT16;
 	  case 32: return TYPE_UNSIGNED (type) ? CIL_UNSIGNED_INT32 : CIL_INT32;
@@ -617,33 +617,26 @@ scalar_to_cil (const_tree type)
 	  default:
 	    internal_error ("Unsupported integer size "
 			    HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	}
+          }
 
-    case REAL_TYPE:
-      size = tree_low_cst (TYPE_SIZE (type), 1);
+      case REAL_TYPE:
+        size = tree_low_cst (TYPE_SIZE (type), 1);
 
-      switch (size)
-	{
+        switch (size)
+          {
 	  case 32: return CIL_FLOAT32;
 	  case 64: return CIL_FLOAT64;
 	  default:
 	    internal_error ("Unsupported float size "
 			    HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
-	}
+          }
 
-    case BOOLEAN_TYPE:
-      return CIL_INT8;
+      case BOOLEAN_TYPE:
+        return CIL_INT8;
 
-    case ARRAY_TYPE:
-      gcc_assert (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type));
-      /* FALLTHROUGH */
-
-    case POINTER_TYPE:
-      return CIL_POINTER;
-
-    default:
-      gcc_unreachable ();
-    }
+      default:
+        gcc_unreachable ();
+      }
 }
 
 /* Return the CIL stack representation for scalar type TYPE.  */
@@ -758,9 +751,9 @@ type_to_cil_on_stack (const_tree type)
 {
   cil_type_t cil_type;
 
-  if (value_type_p (type))
+  if (cil_value_type_p (type))
     cil_type = CIL_VALUE_TYPE;
-  else if (vector_type_p  (type))
+  else if (cil_vector_type_p  (type))
     cil_type = vector_to_cil(type);
   else
     {
@@ -784,9 +777,9 @@ type_to_cil (const_tree type)
     return CIL_VOID;
   else if (TREE_CODE (type) == COMPLEX_TYPE)
     return complex_to_cil(type);
-  else if (value_type_p (type))
+  else if (cil_value_type_p (type))
     return CIL_VALUE_TYPE;
-  else if (vector_type_p  (type))
+  else if (cil_vector_type_p  (type))
     return vector_to_cil(type);
   else
     return scalar_to_cil(type);
@@ -796,7 +789,7 @@ type_to_cil (const_tree type)
    value type, FALSE otherwise.  */
 
 bool
-value_type_p (const_tree type)
+cil_value_type_p (const_tree type)
 {
   switch (TREE_CODE (type))
     {
@@ -819,13 +812,29 @@ value_type_p (const_tree type)
 /* Return TRUE if the type specified by TYPE is loaded on the stack as a
    vector type, FALSE otherwise.  */
 
-static bool
-vector_type_p (const_tree type)
+bool
+cil_vector_type_p (const_tree type)
 {
   if (TREE_CODE (type) == VECTOR_TYPE)
     return true;
   else
     return false;
+}
+
+/* Return true if we treat the type TYPE as a pointer, false otherwise.  */
+
+bool
+cil_pointer_type_p (const_tree type)
+{
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      if (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
+	return true;
+    }
+  else if (POINTER_TYPE_P (type))
+    return true;
+
+  return false;
 }
 
 /* Return the result type of a binary operation OP with operands of types

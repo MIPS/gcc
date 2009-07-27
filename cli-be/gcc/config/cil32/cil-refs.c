@@ -45,6 +45,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "cil-builtins.h"
 #include "cil-refs.h"
 #include "cil-types.h"
+#include "cil-stack.h"
 
 /******************************************************************************
  * Local function prototypes                                                  *
@@ -735,45 +736,30 @@ referenced_types_htab ( void )
 tree
 promote_type_for_vararg (tree type)
 {
-  unsigned HOST_WIDE_INT size;
-
   if (type == NULL_TREE || type == error_mark_node)
     return type;
 
-  switch (TREE_CODE (type))
+  if (cil_value_type_p (type) || cil_vector_type_p (type))
+    return TYPE_MAIN_VARIANT (type);
+  else
     {
-    /* Incomplete and variable-length arrays are pointers and
-       they must be dealt with as such.   */
-    case ARRAY_TYPE:
-      if (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
-	goto pointer;
+      cil_type_t cil_type = type_to_cil (type);
 
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      return TYPE_MAIN_VARIANT (type);
-
-    case COMPLEX_TYPE:
-      return type;
-
-    case ENUMERAL_TYPE:
-    case INTEGER_TYPE:
-    case BOOLEAN_TYPE:
-      size = tree_low_cst (TYPE_SIZE (type), 1);
-      gcc_assert (size <= 64);
-      return (size <= 32) ? unsigned_intSI_type_node : unsigned_intDI_type_node;
-
-    case REAL_TYPE:
-      return double_type_node;
-
-pointer:
-    case POINTER_TYPE:
-      /* FIXME: cil32 is a 32-bit machine, in case we support 64-bit model
-	 changes are needed.  */
-      return unsigned_intSI_type_node;
-
-    default:
-      internal_error ("%s: %s\n", __func__, tree_code_name[TREE_CODE (type)]);
+      if (cil_int_or_smaller_p(cil_type))
+        return unsigned_intSI_type_node;
+      else if (cil_long_p(cil_type))
+        return unsigned_intDI_type_node;
+      else if (cil_float_p(cil_type))
+        return double_type_node;
+      else if (cil_pointer_p(cil_type))
+        {
+          /* cil32 is a 32bit machine, in case we support 64bit model
+           * changes are needed
+           */
+          return unsigned_intSI_type_node;
+        }
+      else
+        internal_error ("%s: %s\n", __func__, tree_code_name[TREE_CODE (type)]);
     }
 }
 
@@ -813,22 +799,6 @@ promote_local_var_type (tree var)
     }
   else
     return type;
-}
-
-/* Return true if we treat the type TYPE as a pointer, false otherwise.  */
-
-bool
-cil_pointer_type_p (tree type)
-{
-  if (TREE_CODE (type) == ARRAY_TYPE)
-    {
-      if (!TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
-	return true;
-    }
-  else if (POINTER_TYPE_P (type))
-    return true;
-
-  return false;
 }
 
 /* Return an integer type of SIZE bits, unsigned if UNSIGNEDP is set, signed
@@ -1114,3 +1084,9 @@ pending_ctors_vec ( void )
 }
 
 #include "gt-cil-refs.h"
+
+/*
+ * Local variables:
+ * eval: (c-set-style "gnu")
+ * End:
+ */

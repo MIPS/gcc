@@ -151,14 +151,13 @@ dump_fun (const_tree fun)
 static void
 dump_type (const_tree type)
 {
-  cil_type_t cil_type = type_to_cil (type);
-  switch (cil_type)
+  if (cil_value_type_p (type))
     {
-    case CIL_VALUE_TYPE:
       printf ("value_type ");
       dump_valuetype_name (TYPE_MAIN_VARIANT (type));
-      break;
-    case CIL_POINTER:
+    }
+  else if (cil_pointer_type_p (type))
+    {
       if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
         {
           printf ("method_pointer");
@@ -168,10 +167,11 @@ dump_type (const_tree type)
           dump_type (TREE_TYPE (type));
           printf (" *");
         }
-      break;
-    default:
+    }
+  else
+    {
+      cil_type_t cil_type = type_to_cil (type);
       printf ("%s", cil_type_names [cil_type]);
-      break;
     }
 }
 

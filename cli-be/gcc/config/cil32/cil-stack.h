@@ -115,5 +115,8 @@ extern cil_type_t scalar_to_cil (const_tree);
 extern cil_type_t vector_to_cil (const_tree);
 extern cil_type_t type_to_cil (const_tree);
 extern cil_type_t type_to_cil_on_stack (const_tree);
+extern bool cil_pointer_type_p (const_tree);
+extern bool cil_value_type_p (const_tree);
+extern bool cil_vector_type_p (const_tree);
 
 #endif /* CIL_STACK_H */

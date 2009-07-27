@@ -3810,6 +3810,9 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	    op0 = TREE_OPERAND (op0, 1);
 
 	  gimple_to_cil_node (csi, op0);
+
+          stmt = cil_build_stmt (CIL_RET_VAL);
+          csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 	}
       else if (!VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
 	{
@@ -3830,13 +3833,18 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
 	  stmt = cil_build_stmt_arg (CIL_LDLOC, res_var);
 	  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 
+          stmt = cil_build_stmt (CIL_RET_VAL);
+          csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+
 	  /* Flag the function so that the emission phase will emit an 'init'
 	     directive in the local variables declaration.  */
 	  cfun->machine->locals_init = true;
 	}
-
-      stmt = cil_build_stmt (CIL_RET);
-      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+      else
+        {
+          stmt = cil_build_stmt (CIL_RET);
+          csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+        }
       break;
 
     case ASM_EXPR:
@@ -4159,10 +4167,12 @@ gimple_to_cil (void)
 		{
 		  stmt = cil_build_stmt_arg (CIL_LDLOC, res_var);
 		  csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
-		}
 
-	      stmt = cil_build_stmt (CIL_RET);
-	      csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
+                  stmt = cil_build_stmt (CIL_RET_VAL);
+		}
+              else
+                stmt = cil_build_stmt (CIL_RET);
+              csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
 
 	      /* Flag the function so that the emission phase will emit an
 		 'init' directive in the local variables declaration.  */

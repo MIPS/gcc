@@ -703,14 +703,13 @@ cil_set_bb_seq (basic_block bb, cil_seq seq)
     ((cil_basic_block) *slot)->seq = seq;
 }
 
-/* Computes the stack depth at the end of the sequence pointed by SEQ.  RET
-   indicates whether the function to which this sequence belongs has non-VOID
-   return type or not. INIT specifies the initial stack depth of the sequence.
+/* Computes the stack depth at the end of the sequence pointed by SEQ.
+   INIT specifies the initial stack depth of the sequence.
    If MAX is true then the maximum stack depth is returned, otherwise the depth
    at the end of the sequence is returned.  */
 
 unsigned int
-cil_seq_stack_depth (cil_seq seq, bool ret, unsigned int init, bool max)
+cil_seq_stack_depth (cil_seq seq, unsigned int init, bool max)
 {
   cil_stmt_iterator i;
   unsigned int max_depth = init;
@@ -718,7 +717,7 @@ cil_seq_stack_depth (cil_seq seq, bool ret, unsigned int init, bool max)
   unsigned int nargs;
 
   if (cil_seq_empty_p (seq))
-    return max_depth;
+    return init;
 
   for (i = csi_start (seq); !csi_end_p (i); csi_next (&i))
     {
@@ -850,14 +849,12 @@ cil_seq_stack_depth (cil_seq seq, bool ret, unsigned int init, bool max)
 	  break;
 
 	case CIL_RET:
-	  if (ret)
-	    {
-	      gcc_assert (depth == 1);
-	      depth--;
-	    }
-	  else
 	    gcc_assert (depth == 0);
+	  break;
 
+	case CIL_RET_VAL:
+          gcc_assert (depth == 1);
+          depth--;
 	  break;
 
 	case CIL_CALL:

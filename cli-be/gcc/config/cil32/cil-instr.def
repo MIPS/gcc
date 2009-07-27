@@ -197,8 +197,10 @@ CIL_INSTRDEF(CIL_POP,CIL_NONE,"pop","POP")
 CIL_INSTRDEF(CIL_REM,CIL_NONE,"rem","REM")
 /* Compute integer remainder, unsigned */
 CIL_INSTRDEF(CIL_REM_UN,CIL_NONE,"rem.un","REM_UN")
-/* Return from method */
+/* Return from void method */
 CIL_INSTRDEF(CIL_RET,CIL_NONE,"ret","RET")
+/* Return from non void method */
+CIL_INSTRDEF(CIL_RET_VAL,CIL_NONE,"ret","RET_VAL")
 /* Shift integer left */
 CIL_INSTRDEF(CIL_SHL,CIL_NONE,"shl","SHL")
 /* Shift integer right */

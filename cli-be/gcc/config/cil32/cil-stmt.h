@@ -119,7 +119,7 @@ extern void cil_seq_add_seq (cil_seq *, cil_seq);
 extern cil_seq cil_seq_deep_copy (cil_seq);
 extern cil_seq cil_bb_seq (basic_block);
 extern void cil_set_bb_seq (basic_block, cil_seq);
-extern unsigned int cil_seq_stack_depth (cil_seq, bool, unsigned int, bool);
+extern unsigned int cil_seq_stack_depth (cil_seq, unsigned int, bool);
 
 /******************************************************************************
  * CIL statement iterator declaration & interface                             *

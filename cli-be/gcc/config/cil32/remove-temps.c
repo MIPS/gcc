@@ -140,7 +140,7 @@ build_conversion (cil_type_t dst, cil_type_t src)
 {
   enum cil_opcode opcode;
 
- switch (dst)
+  switch (dst)
     {
     case CIL_INT8:
       switch (src)
@@ -493,7 +493,7 @@ propagate_copy_1 (basic_block bb, tree dst, tree src, bool arg)
 	{
 	  return;
 	}
-      else if (opcode == CIL_RET)
+      else if (opcode == CIL_RET || opcode == CIL_RET_VAL)
 	return;
     }
 
@@ -543,7 +543,7 @@ propagate_copy (cil_stmt store, tree dst, tree src, bool arg)
 	{
 	  return;
 	}
-      else if (opcode == CIL_RET)
+      else if (opcode == CIL_RET || opcode == CIL_RET_VAL)
 	return;
 
       csi_next (&csi);
@@ -630,7 +630,7 @@ dead_store_1 (basic_block bb, tree var)
 	return false;
       else if ((opcode == CIL_STLOC) && (cil_var (stmt) == var))
 	return true;
-      else if (opcode == CIL_RET)
+      else if (opcode == CIL_RET || opcode == CIL_RET_VAL)
 	return true;
     }
 
@@ -674,7 +674,7 @@ dead_store_p (cil_stmt store)
 	return false;
       else if ((opcode == CIL_STLOC) && (cil_var (stmt) == var))
 	return true;
-      else if (opcode == CIL_RET)
+      else if (opcode == CIL_RET || opcode == CIL_RET_VAL)
 	return true;
 
       csi_next (&csi);

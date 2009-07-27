@@ -83,7 +83,6 @@ extern void mark_referenced_type (tree);
 extern htab_t referenced_types_htab ( void );
 extern tree promote_type_for_vararg (tree);
 extern tree promote_local_var_type (tree);
-extern bool cil_pointer_type_p (tree);
 extern tree get_integer_type (unsigned int, bool);
 
 /******************************************************************************
