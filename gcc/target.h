@@ -712,6 +712,9 @@ struct gcc_target
   /* The sizetype table for this target.  */
   tree *sizetype_tab;
 
+  /* The optab table for this target*/
+  struct optab_d *optab_table;
+
   /* Functions that output assembler for the target.  */
   struct asm_out asm_out;
 

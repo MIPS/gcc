@@ -2087,8 +2087,8 @@ parallelize_loops (void)
 					    &niter_desc, false)
 	      /* FIXME: the check for vector phi nodes could be removed.  */
 	      : (loop_has_vector_phi_nodes (loop)
-		 || flag_tree_parallelize_loops <= 1
-		 || !loop_parallel_p (loop, reduction_list, &niter_desc))))
+		 || flag_tree_parallelize_loops <= 1))
+	  || !loop_parallel_p (loop, reduction_list, &niter_desc))
 	continue;
 
       changed = true;

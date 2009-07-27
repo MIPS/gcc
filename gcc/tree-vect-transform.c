@@ -916,21 +916,21 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
 
   /* Create base_offset */
   base_offset = size_binop (PLUS_EXPR,
-			    fold_convert (sizetype, base_offset),
-			    fold_convert (sizetype, init));
-  dest = create_tmp_var (sizetype, "base_off");
+			    fold_convert (targetm.sizetype, base_offset),
+			    fold_convert (targetm.sizetype, init));
+  dest = create_tmp_var (targetm.sizetype, "base_off");
   add_referenced_var (dest);
   base_offset = force_gimple_operand (base_offset, &seq, true, dest);
   gimple_seq_add_seq (new_stmt_list, seq);
 
   if (offset)
     {
-      tree tmp = create_tmp_var (sizetype, "offset");
+      tree tmp = create_tmp_var (targetm.sizetype, "offset");
 
       add_referenced_var (tmp);
-      offset = fold_build2 (MULT_EXPR, sizetype,
-			    fold_convert (sizetype, offset), step);
-      base_offset = fold_build2 (PLUS_EXPR, sizetype,
+      offset = fold_build2 (MULT_EXPR, targetm.sizetype,
+			    fold_convert (targetm.sizetype, offset), step);
+      base_offset = fold_build2 (PLUS_EXPR, targetm.sizetype,
 				 base_offset, offset);
       base_offset = force_gimple_operand (base_offset, &seq, false, tmp);
       gimple_seq_add_seq (new_stmt_list, seq);
@@ -6579,7 +6579,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 
   /* FORNOW. In some cases can vectorize even if data-type not supported
     (e.g. - data copies).  */
-  if (optab_handler (mov_optab, mode)->insn_code == CODE_FOR_nothing)
+  if (optab_handler (&targetm.optab_table[OTI_mov], mode)->insn_code
+      == CODE_FOR_nothing)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "Aligned load, but unsupported type.");

@@ -871,6 +871,7 @@
   &ptr_mode,					\
   TARGET_GET_PMODE,				\
   &sizetype_tab[0],				\
+  &optab_table[0],				\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\

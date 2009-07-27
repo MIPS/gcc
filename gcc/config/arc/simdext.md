@@ -1345,7 +1345,7 @@
 {
   arc_output_sdma (operands, 'o');
   asm_fprintf (asm_out_file, \"\tvdmawait %d,%d\n\",
-	       arc_vdmawait_arg0, arc_vdmawait_arg1);
+	       15, arc_vdmawait_arg1);
   return \"\";
 }"
   [(set_attr "length" "42")])
@@ -1364,7 +1364,7 @@
 {
   output_asm_insn (\"vrec %0\;bl %1\", operands);
   asm_fprintf (asm_out_file, \"\tvdmawait %d,%d\n\",
-	       arc_vdmawait_arg0, arc_vdmawait_arg1);
+	       arc_vdmawait_arg0, 15);
   return \"vrun %0\";
 }"
   [(set_attr "length" "42")])
