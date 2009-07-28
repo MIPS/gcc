@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "Tool " `basename $0` " not provided"
+exit 1

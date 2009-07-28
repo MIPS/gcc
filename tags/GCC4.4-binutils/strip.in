@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "Nothing to be stripped"
+exit 0
