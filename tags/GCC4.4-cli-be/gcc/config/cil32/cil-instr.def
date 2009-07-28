@@ -1,0 +1,247 @@
+/* 
+
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
+
+Authors:
+   Andrea Ornstein
+   Erven Rohou
+   Gabriele Svelto
+
+Contact information at STMicroelectronics:
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
+*/
+
+/* The format of this file is
+   CIL_INSTRDEF(CIL_symbol,argtype,emit-cli name,printable name)
+
+   Where symbol is the enumeration name without the ``CIL_'',
+   argtype specifies the argument type the instruction uses in the IR
+*/
+
+/* Add numeric values */
+CIL_INSTRDEF(CIL_ADD,CIL_NONE,"add","ADD")
+/* Logical and */
+CIL_INSTRDEF(CIL_AND,CIL_NONE,"and","AND")
+/* Get argument list */
+CIL_INSTRDEF(CIL_ARGLIST,CIL_NONE,"arglist","ARGLIST")
+/* Branch on equal */
+CIL_INSTRDEF(CIL_BEQ,CIL_LABEL,"beq","BEQ")
+/* Branch on greater or equal */
+CIL_INSTRDEF(CIL_BGE,CIL_LABEL,"bge","BGE")
+/* Branch on greater or equal, unsigned or unordered */
+CIL_INSTRDEF(CIL_BGE_UN,CIL_LABEL,"bge.un","BGE_UN")
+/* Branch on greater than */
+CIL_INSTRDEF(CIL_BGT,CIL_LABEL,"bgt","BGT")
+/* Branch on greater than, unsigned or unordered */
+CIL_INSTRDEF(CIL_BGT_UN,CIL_LABEL,"bgt.un","BGT_UN")
+/* Branch on less or equal */
+CIL_INSTRDEF(CIL_BLE,CIL_LABEL,"ble","BLE")
+/* Branch on less or equal, unsigned or unordered */
+CIL_INSTRDEF(CIL_BLE_UN,CIL_LABEL,"ble.un","NLE_UN")
+/* Branch on less than */
+CIL_INSTRDEF(CIL_BLT,CIL_LABEL,"blt","BLT")
+/* Branch on less than, unsigned or unordered */
+CIL_INSTRDEF(CIL_BLT_UN,CIL_LABEL,"blt.un","BLT_UN")
+/* Branch on not equal, unsigned or unordered */
+CIL_INSTRDEF(CIL_BNE_UN,CIL_LABEL,"bne.un","BNE_UN")
+/* Branch unconditional */
+CIL_INSTRDEF(CIL_BR,CIL_LABEL,"br","BR")
+/* Breakpoint instruction */
+CIL_INSTRDEF(CIL_BREAK,CIL_NONE,"break","BREAK")
+/* Branch on false, null or zero */
+CIL_INSTRDEF(CIL_BRFALSE,CIL_LABEL,"brfalse","BRFALSE")
+/* Branch on non-false, non-null, or non-zero */
+CIL_INSTRDEF(CIL_BRTRUE,CIL_LABEL,"brtrue","BRTRUE")
+/* Method call */
+CIL_INSTRDEF(CIL_CALL,CIL_FCALL,"call","CALL")
+/* Indirect method call */
+CIL_INSTRDEF(CIL_CALLI,CIL_FCALL,"calli","CALLI")
+/* Compare equal */
+CIL_INSTRDEF(CIL_CEQ,CIL_NONE,"ceq","CEQ")
+/* Compare greater than */
+CIL_INSTRDEF(CIL_CGT,CIL_NONE,"cgt","CGT")
+/* Compare greater than, unsigned or unordered */
+CIL_INSTRDEF(CIL_CGT_UN,CIL_NONE,"cgt.un","CGT_UN")
+/* Check for a finite real number */
+CIL_INSTRDEF(CIL_CKFINITE,CIL_NONE,"ckfinite","CKFINITE")
+/* Compare less than */
+CIL_INSTRDEF(CIL_CLT,CIL_NONE,"clt","CLT")
+/* Compare less than unordered */
+CIL_INSTRDEF(CIL_CLT_UN,CIL_NONE,"clt.un","CLT_UN")
+/* Convert to int8 */
+CIL_INSTRDEF(CIL_CONV_I1,CIL_NONE,"conv.i1","CONV_I1")
+/* Convert to int16 */
+CIL_INSTRDEF(CIL_CONV_I2,CIL_NONE,"conv.i2","CONV_I2")
+/* Convert to int32 */
+CIL_INSTRDEF(CIL_CONV_I4,CIL_NONE,"conv.i4","CONV_I4")
+/* Convert to int64 */
+CIL_INSTRDEF(CIL_CONV_I8,CIL_NONE,"conv.i8","CONV_I8")
+/* Convert to float32 */
+CIL_INSTRDEF(CIL_CONV_R4,CIL_NONE,"conv.r4","CONV_R4")
+/* Convert to float64 */
+CIL_INSTRDEF(CIL_CONV_R8,CIL_NONE,"conv.r8","CONV_R8")
+/* Convert to unsigned int8 */
+CIL_INSTRDEF(CIL_CONV_U1,CIL_NONE,"conv.u1","CONV_U1")
+/* Convert to unsigned int16 */
+CIL_INSTRDEF(CIL_CONV_U2,CIL_NONE,"conv.u2","CONV_U2")
+/* Convert to unsigned int32 */
+CIL_INSTRDEF(CIL_CONV_U4,CIL_NONE,"conv.u4","CONV_U4")
+/* Convert to unsigned int64 */
+CIL_INSTRDEF(CIL_CONV_U8,CIL_NONE,"conv.u8","CONV_U8")
+/* Convert to native int */
+CIL_INSTRDEF(CIL_CONV_I,CIL_NONE,"conv.i","CONV_I")
+/* Convert to unsigned native int */
+CIL_INSTRDEF(CIL_CONV_U,CIL_NONE,"conv.u","CONV_U")
+/* Convert unsigned integer to floating-point */
+CIL_INSTRDEF(CIL_CONV_R_UN,CIL_NONE,"conv.r.un","CONV_R_UN")
+/* Copy data from memory to memory */
+CIL_INSTRDEF(CIL_CPBLK,CIL_NONE,"cpblk","CPBLK")
+/* Divide values */
+CIL_INSTRDEF(CIL_DIV,CIL_NONE,"div","DIV")
+/* Divide values, unsigned */
+CIL_INSTRDEF(CIL_DIV_UN,CIL_NONE,"div.un","DIV_UN")
+/* Duplicate the value on top of the stack */
+CIL_INSTRDEF(CIL_DUP,CIL_NONE,"dup","DUP")
+/* Set all bytes in a block of memory to a given byte value */
+CIL_INSTRDEF(CIL_INITBLK,CIL_NONE,"initblk","INITBLK")
+/* Initialize the value at an address */
+CIL_INSTRDEF(CIL_INITOBJ,CIL_TYPE,"initobj","INITOBJ")
+/* Jump to method */
+CIL_INSTRDEF(CIL_JMP,CIL_FCALL,"jmp","JMP")
+/* Load an argument on the operand stack */
+CIL_INSTRDEF(CIL_LDARG,CIL_VAR,"ldarg","LDARG")
+/* Load an argument's address */
+CIL_INSTRDEF(CIL_LDARGA,CIL_VAR,"ldarga","LDARGA")
+/* Load an int32 numeric constant on the stack */
+CIL_INSTRDEF(CIL_LDC_I4,CIL_CST,"ldc.i4","LDC_I4")
+/* Load an int64 numeric constant on the stack */
+CIL_INSTRDEF(CIL_LDC_I8,CIL_CST,"ldc.i8","LDC_I8")
+/* Load a float32 numeric constant on the stack */
+CIL_INSTRDEF(CIL_LDC_R4,CIL_CST,"ldc.r4","LDC_R4")
+/* Load a float64 numeric constant on the stack */
+CIL_INSTRDEF(CIL_LDC_R8,CIL_CST,"ldc.r8","LDC_R8")
+/* Load field of an object */
+CIL_INSTRDEF(CIL_LDFLD,CIL_FIELD,"ldfld","LDFLD")
+/* Load field address */
+CIL_INSTRDEF(CIL_LDFLDA,CIL_FIELD,"ldflda","LDFLDA")
+/* Load method pointer */
+CIL_INSTRDEF(CIL_LDFTN,CIL_FUNC,"ldftn","LDFTN")
+/* Indirect load value of type int8 */
+CIL_INSTRDEF(CIL_LDIND_I1,CIL_NONE,"ldind.i1","LDIND_I1")
+/* Indirect load value of type int16 */
+CIL_INSTRDEF(CIL_LDIND_I2,CIL_NONE,"ldind.i2","LDIND_I2")
+/* Indirect load value of type int32 */
+CIL_INSTRDEF(CIL_LDIND_I4,CIL_NONE,"ldind.i4","LDIND_I4")
+/* Indirect load value of type int64 */
+CIL_INSTRDEF(CIL_LDIND_I8,CIL_NONE,"ldind.i8","LDIND_I8")
+/* Indirect load value of type unsigned int8 */
+CIL_INSTRDEF(CIL_LDIND_U1,CIL_NONE,"ldind.u1","LDIND_U1")
+/* Indirect load value of type unsigned int16 */
+CIL_INSTRDEF(CIL_LDIND_U2,CIL_NONE,"ldind.u2","LDIND_U2")
+/* Indirect load value of type unsigned int32 */
+CIL_INSTRDEF(CIL_LDIND_U4,CIL_NONE,"ldind.u4","LDIND_U4")
+/* Indirect load value of type unsigned int64 */
+CIL_INSTRDEF(CIL_LDIND_U8,CIL_NONE,"ldind.u8","LDIND_U8")
+/* Indirect load value of type float32 */
+CIL_INSTRDEF(CIL_LDIND_R4,CIL_NONE,"ldind.r4","LDIND_R4")
+/* Indirect load value of type float64 */
+CIL_INSTRDEF(CIL_LDIND_R8,CIL_NONE,"ldind.r8","LDIND_R8")
+/* Indirect load value of type native int */
+CIL_INSTRDEF(CIL_LDIND_I,CIL_NONE,"ldind.i","LDIND_I")
+/* Load local variable onto the stack */
+CIL_INSTRDEF(CIL_LDLOC,CIL_VAR,"ldloc","LDLOC")
+/* Load local variable address */
+CIL_INSTRDEF(CIL_LDLOCA,CIL_VAR,"ldloca","LDLOCA")
+/* Copy a value from an address to the stack */
+CIL_INSTRDEF(CIL_LDOBJ,CIL_TYPE,"ldobj","LDOBJ")
+/* Load static field of a class */
+CIL_INSTRDEF(CIL_LDSFLD,CIL_FIELD,"ldsfld","LDSFLD")
+/* Load static field address */
+CIL_INSTRDEF(CIL_LDSFLDA,CIL_FIELD,"ldsflda","LDSFLDA")
+/* Copy a vector value from an address to the stack */
+CIL_INSTRDEF(CIL_LDVEC,CIL_TYPE,"","LDVEC")
+/* Allocate space from the local memory pool */
+CIL_INSTRDEF(CIL_LOCALLOC,CIL_NONE,"localloc","LOCALLOC")
+/* Multiply values */
+CIL_INSTRDEF(CIL_MUL,CIL_NONE,"mul","MUL")
+/* Negate value */
+CIL_INSTRDEF(CIL_NEG,CIL_NONE,"neg","NEG")
+/* Negate value */
+CIL_INSTRDEF(CIL_NEWOBJ,CIL_FCALL,"newobj","NEWOBJ")
+/* Bitwise complement */
+CIL_INSTRDEF(CIL_NOT,CIL_NONE,"not","NOT")
+/* Bitwise or */
+CIL_INSTRDEF(CIL_OR,CIL_NONE,"or","OR")
+/* Remove the top element of the stack */
+CIL_INSTRDEF(CIL_POP,CIL_NONE,"pop","POP")
+/* Compute remainder */
+CIL_INSTRDEF(CIL_REM,CIL_NONE,"rem","REM")
+/* Compute integer remainder, unsigned */
+CIL_INSTRDEF(CIL_REM_UN,CIL_NONE,"rem.un","REM_UN")
+/* Return from void method */
+CIL_INSTRDEF(CIL_RET,CIL_NONE,"ret","RET")
+/* Return from non void method */
+CIL_INSTRDEF(CIL_RET_VAL,CIL_NONE,"ret","RET_VAL")
+/* Shift integer left */
+CIL_INSTRDEF(CIL_SHL,CIL_NONE,"shl","SHL")
+/* Shift integer right */
+CIL_INSTRDEF(CIL_SHR,CIL_NONE,"shr","SHR")
+/* Shift integer right, unsigned */
+CIL_INSTRDEF(CIL_SHR_UN,CIL_NONE,"shr.un","SHR_UN")
+/* Store a value in an argument slot */
+CIL_INSTRDEF(CIL_STARG,CIL_VAR,"starg","STARG")
+/* Store field of an object */
+CIL_INSTRDEF(CIL_STFLD,CIL_FIELD,"stfld","STFLD")
+/* Store int8 value indirect from stack */
+CIL_INSTRDEF(CIL_STIND_I1,CIL_NONE,"stind.i1","STIND_I1")
+/* Store int16 value indirect from stack */
+CIL_INSTRDEF(CIL_STIND_I2,CIL_NONE,"stind.i2","STIND_I2")
+/* Store int32 value indirect from stack */
+CIL_INSTRDEF(CIL_STIND_I4,CIL_NONE,"stind.i4","STIND_I4")
+/* Store int64 value indirect from stack */
+CIL_INSTRDEF(CIL_STIND_I8,CIL_NONE,"stind.i8","STIND_I8")
+/* Store float32 value indirect from stack */
+CIL_INSTRDEF(CIL_STIND_R4,CIL_NONE,"stind.r4","STIND_R4")
+/* Store float64 value indirect from stack */
+CIL_INSTRDEF(CIL_STIND_R8,CIL_NONE,"stind.r8","STIND_R8")
+/* Store native int value indirect from stack */
+CIL_INSTRDEF(CIL_STIND_I,CIL_NONE,"stind.i","STIND_I")
+/* Pop value from stack to local variable */
+CIL_INSTRDEF(CIL_STLOC,CIL_VAR,"stloc","STLOC")
+/* Store a value at an address */
+CIL_INSTRDEF(CIL_STOBJ,CIL_TYPE,"stobj","STOBJ")
+/* Store a vector value at an address */
+CIL_INSTRDEF(CIL_STVEC,CIL_TYPE,"","STVEC")
+/* Store static field of a class */
+CIL_INSTRDEF(CIL_STSFLD,CIL_FIELD,"stsfld","STSFLD")
+/* Substract numeric value */
+CIL_INSTRDEF(CIL_SUB,CIL_NONE,"sub","SUB")
+/* Table switch based on value */
+CIL_INSTRDEF(CIL_SWITCH,CIL_LABELS,"switch","SWITCH")
+/* New vector */
+CIL_INSTRDEF(CIL_VEC_CTOR,CIL_TYPE,"","VEC_CTOR")
+/* Bitwise exclusive or */
+CIL_INSTRDEF(CIL_XOR,CIL_NONE,"xor","XOR")
+
+/* Artificial opcode representing ASM_EXPR statements */
+CIL_INSTRDEF(CIL_ASM,CIL_STRING,"","ASM")
+
