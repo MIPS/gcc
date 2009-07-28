@@ -752,7 +752,11 @@ package body Exp_Ch3 is
          Set_Init_Proc (A_Type, Proc_Id);
 
          if List_Length (Body_Stmts) = 1
-           and then Nkind (First (Body_Stmts)) = N_Null_Statement
+
+           --  We must skip SCIL nodes because they may have been added to this
+           --  list by Insert_Actions.
+
+           and then Nkind (First_Non_SCIL_Node (Body_Stmts)) = N_Null_Statement
          then
             Set_Is_Null_Init_Proc (Proc_Id);
 
@@ -763,7 +767,7 @@ package body Exp_Ch3 is
 
             Set_Static_Initialization
               (Proc_Id,
-                Build_Equivalent_Array_Aggregate (First_Subtype (A_Type)));
+               Build_Equivalent_Array_Aggregate (First_Subtype (A_Type)));
          end if;
       end if;
    end Build_Array_Init_Proc;
@@ -1240,8 +1244,9 @@ package body Exp_Ch3 is
    ---------------------------------------
 
    function Build_Equivalent_Record_Aggregate (T : Entity_Id) return Node_Id is
-      Agg  : Node_Id;
-      Comp : Entity_Id;
+      Agg       : Node_Id;
+      Comp      : Entity_Id;
+      Comp_Type : Entity_Id;
 
       --  Start of processing for Build_Equivalent_Record_Aggregate
 
@@ -1269,38 +1274,40 @@ package body Exp_Ch3 is
          --  aggregate with static components.
 
          if Is_Array_Type (Etype (Comp)) then
-            declare
-               Comp_Type : constant Entity_Id := Component_Type (Etype (Comp));
+            Comp_Type := Component_Type (Etype (Comp));
 
-            begin
-               if Nkind (Parent (Comp)) /= N_Component_Declaration
-                 or else No (Expression (Parent (Comp)))
-                 or else Nkind (Expression (Parent (Comp))) /= N_Aggregate
-               then
-                  Initialization_Warning (T);
-                  return Empty;
+            if Nkind (Parent (Comp)) /= N_Component_Declaration
+              or else No (Expression (Parent (Comp)))
+              or else Nkind (Expression (Parent (Comp))) /= N_Aggregate
+            then
+               Initialization_Warning (T);
+               return Empty;
 
-               elsif Is_Scalar_Type (Component_Type (Etype (Comp)))
-                  and then
-                    (not Compile_Time_Known_Value (Type_Low_Bound (Comp_Type))
-                      or else not Compile_Time_Known_Value
-                          (Type_High_Bound (Comp_Type)))
-               then
-                  Initialization_Warning (T);
-                  return Empty;
+            elsif Is_Scalar_Type (Component_Type (Etype (Comp)))
+               and then
+                 (not Compile_Time_Known_Value (Type_Low_Bound (Comp_Type))
+                   or else
+                  not Compile_Time_Known_Value (Type_High_Bound (Comp_Type)))
+            then
+               Initialization_Warning (T);
+               return Empty;
 
-               elsif
-                 not Static_Array_Aggregate (Expression (Parent (Comp)))
-               then
-                  Initialization_Warning (T);
-                  return Empty;
-               end if;
-            end;
+            elsif
+              not Static_Array_Aggregate (Expression (Parent (Comp)))
+            then
+               Initialization_Warning (T);
+               return Empty;
+            end if;
 
          elsif Is_Scalar_Type (Etype (Comp)) then
+            Comp_Type := Etype (Comp);
+
             if Nkind (Parent (Comp)) /= N_Component_Declaration
               or else No (Expression (Parent (Comp)))
               or else not Compile_Time_Known_Value (Expression (Parent (Comp)))
+              or else not Compile_Time_Known_Value (Type_Low_Bound (Comp_Type))
+              or else not
+                Compile_Time_Known_Value (Type_High_Bound (Comp_Type))
             then
                Initialization_Warning (T);
                return Empty;
@@ -1409,7 +1416,8 @@ package body Exp_Ch3 is
 
       if (Is_Null_Init_Proc (Proc) and then not Init_Or_Norm_Scalars)
         or else Is_Value_Type (Typ)
-        or else Is_Value_Type (Component_Type (Typ))
+        or else
+          (Is_Array_Type (Typ) and then Is_Value_Type (Component_Type (Typ)))
       then
          return Empty_List;
       end if;
@@ -1935,6 +1943,7 @@ package body Exp_Ch3 is
             D := First_Discriminant (Rec_Type);
 
             while Present (D) loop
+
                --  Don't generate the assignment for discriminants in derived
                --  tagged types if the discriminant is a renaming of some
                --  ancestor discriminant. This initialization will be done
@@ -2322,6 +2331,22 @@ package body Exp_Ch3 is
                   New_Reference_To
                     (Node (First_Elmt (Access_Disp_Table (Rec_Type))), Loc)));
 
+            --  Generate the SCIL node associated with the initialization of
+            --  the tag component.
+
+            if Generate_SCIL then
+               declare
+                  New_Node : Node_Id;
+
+               begin
+                  New_Node :=
+                    Make_SCIL_Tag_Init (Sloc (First (Init_Tags_List)));
+                  Set_SCIL_Related_Node (New_Node, First (Init_Tags_List));
+                  Set_SCIL_Entity (New_Node, Rec_Type);
+                  Prepend_To (Init_Tags_List, New_Node);
+               end;
+            end if;
+
             --  Ada 2005 (AI-251): Initialize the secondary tags components
             --  located at fixed positions (tags whose position depends on
             --  variable size components are initialized later ---see below).
@@ -2481,7 +2506,11 @@ package body Exp_Ch3 is
          Set_Init_Proc (Rec_Type, Proc_Id);
 
          if List_Length (Body_Stmts) = 1
-           and then Nkind (First (Body_Stmts)) = N_Null_Statement
+
+           --  We must skip SCIL nodes because they are currently implemented
+           --  as special N_Null_Statement nodes.
+
+           and then Nkind (First_Non_SCIL_Node (Body_Stmts)) = N_Null_Statement
            and then VM_Target = No_VM
          then
             --  Even though the init proc may be null at this time it might get
@@ -4509,7 +4538,18 @@ package body Exp_Ch3 is
          then
             pragma Assert (Is_Class_Wide_Type (Typ));
 
-            if Tagged_Type_Expansion then
+            --  If the object is a return object of an inherently limited type,
+            --  which implies build-in-place treatment, bypass the special
+            --  treatment of class-wide interface initialization below. In this
+            --  case, the expansion of the return statement will take care of
+            --  creating the object (via allocator) and initializing it.
+
+            if Is_Return_Object (Def_Id)
+              and then Is_Inherently_Limited_Type (Typ)
+            then
+               null;
+
+            elsif Tagged_Type_Expansion then
                declare
                   Iface    : constant Entity_Id := Root_Type (Typ);
                   Expr_N   : Node_Id := Expr;
