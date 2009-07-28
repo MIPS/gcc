@@ -20,8 +20,8 @@
 ;; <http://www.gnu.org/licenses/>.
 
 (define_constants
-  [(UNSPEC_VCMPBFP       50)
    ;; 51-62 deleted
+  [(UNSPEC_VCMPBFP       64)
    (UNSPEC_VMSUMU        65)
    (UNSPEC_VMSUMM        66)
    (UNSPEC_VMSUMSHM      68)

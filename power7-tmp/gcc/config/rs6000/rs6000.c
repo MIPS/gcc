@@ -1876,17 +1876,11 @@ rs6000_init_hard_regno_mode_ok (void)
 	}
     }
 
-  /* V2DImode, prefer vsx over altivec, since the main use will be for
-     vectorized floating point conversions.  */
+  /* V2DImode, only allow under VSX, which can do V2DI insert/splat/extract.
+     Altivec doesn't have 64-bit support.  */
   if (TARGET_VSX)
     {
       rs6000_vector_mem[V2DImode] = VECTOR_VSX;
-      rs6000_vector_unit[V2DImode] = VECTOR_NONE;
-      rs6000_vector_align[V2DImode] = align64;
-    }
-  else if (TARGET_ALTIVEC)
-    {
-      rs6000_vector_mem[V2DImode] = VECTOR_ALTIVEC;
       rs6000_vector_unit[V2DImode] = VECTOR_NONE;
       rs6000_vector_align[V2DImode] = align64;
     }
@@ -4201,7 +4195,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     {
       if (all_same)
 	{
-	  rtx element = copy_to_reg (XVECEXP (vals, 0, 0));
+	  rtx element = XVECEXP (vals, 0, 0);
 	  if (mode == V2DFmode)
 	    emit_insn (gen_vsx_splat_v2df (target, element));
 	  else
@@ -4253,8 +4247,9 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       return;
     }
 
-  /* Store value to stack temp.  Load vector element.  Splat.  */
-  if (all_same)
+  /* Store value to stack temp.  Load vector element.  Splat.  However, splat
+     of 64-bit items is not supported on Altivec.  */
+  if (all_same && GET_MODE_SIZE (mode) <= 4)
     {
       mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode), 0);
       emit_move_insn (adjust_address_nv (mem, inner_mode, 0),
@@ -4312,11 +4307,10 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
   int width = GET_MODE_SIZE (inner_mode);
   int i;
 
-  if (mode == V2DFmode || mode == V2DImode)
+  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
     {
       rtx (*set_func) (rtx, rtx, rtx, rtx)
 	= ((mode == V2DFmode) ? gen_vsx_set_v2df : gen_vsx_set_v2di);
-      gcc_assert (TARGET_VSX);
       emit_insn (set_func (target, target, val, GEN_INT (elt)));
       return;
     }
@@ -4358,11 +4352,10 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
   enum machine_mode inner_mode = GET_MODE_INNER (mode);
   rtx mem, x;
 
-  if (mode == V2DFmode || mode == V2DImode)
+  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
     {
       rtx (*extract_func) (rtx, rtx, rtx)
 	= ((mode == V2DFmode) ? gen_vsx_extract_v2df : gen_vsx_extract_v2di);
-      gcc_assert (TARGET_VSX);
       emit_insn (extract_func (target, vec, GEN_INT (elt)));
       return;
     }
@@ -22855,19 +22848,24 @@ rs6000_handle_altivec_attribute (tree *node,
   mode = TYPE_MODE (type);
 
   /* Check for invalid AltiVec type qualifiers.  */
-  if ((type == long_unsigned_type_node || type == long_integer_type_node)
-      && !TARGET_VSX)
+  if (!TARGET_VSX)
     {
-    if (TARGET_64BIT)
-      error ("use of %<long%> in AltiVec types is invalid for 64-bit code");
-    else if (rs6000_warn_altivec_long)
-      warning (0, "use of %<long%> in AltiVec types is deprecated; use %<int%>");
+      if (type == long_unsigned_type_node || type == long_integer_type_node)
+	{
+	  if (TARGET_64BIT)
+	    error ("use of %<long%> in AltiVec types is invalid for "
+		   "64-bit code without -mvsx");
+	  else if (rs6000_warn_altivec_long)
+	    warning (0, "use of %<long%> in AltiVec types is deprecated; "
+		     "use %<int%>");
+	}
+      else if (type == long_long_unsigned_type_node
+	       || type == long_long_integer_type_node)
+	error ("use of %<long long%> in AltiVec types is invalid without "
+	       "-mvsx");
+      else if (type == double_type_node)
+	error ("use of %<double%> in AltiVec types is invalid without -mvsx");
     }
-  else if (type == long_long_unsigned_type_node
-           || type == long_long_integer_type_node)
-    error ("use of %<long long%> in AltiVec types is invalid");
-  else if (type == double_type_node && !TARGET_VSX)
-    error ("use of %<double%> in AltiVec types is invalid without -mvsx");
   else if (type == long_double_type_node)
     error ("use of %<long double%> in AltiVec types is invalid");
   else if (type == boolean_type_node)

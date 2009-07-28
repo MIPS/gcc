@@ -294,7 +294,7 @@
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(if_then_else:VEC_F
 	 (ge:VEC_F (match_operand:VEC_F 2 "vfloat_operand" "")
-		   (const_int 0))
+		   (match_dup 3))
 	 (abs:VEC_F (match_operand:VEC_F 1 "vfloat_operand" ""))
 	 (neg:VEC_F (abs:VEC_F (match_dup 1)))))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
@@ -306,6 +306,8 @@
 					     operands[2]));
       DONE;
     }
+
+  operands[3] = CONST0_RTX (<MODE>mode);
 }")
 
 

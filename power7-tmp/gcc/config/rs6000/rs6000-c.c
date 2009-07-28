@@ -3259,9 +3259,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	  && !INTEGRAL_TYPE_P (type))
 	goto bad;
       unsigned_p = TYPE_UNSIGNED (type);
-      if (type == long_long_unsigned_type_node
-          || type == long_long_integer_type_node)
-	goto bad;
       switch (TYPE_MODE (type))
 	{
 	  case DImode:
@@ -3328,7 +3325,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
       /* If we can use the VSX xxpermdi instruction, use that for extract.  */
       mode = TYPE_MODE (arg1_type);
-      if ((mode == V2DFmode || mode == V2DImode) && VECTOR_UNIT_VSX_P (mode)
+      if ((mode == V2DFmode || mode == V2DImode) && VECTOR_MEM_VSX_P (mode)
 	  && TREE_CODE (arg2) == INTEGER_CST
 	  && TREE_INT_CST_HIGH (arg2) == 0
 	  && (TREE_INT_CST_LOW (arg2) == 0 || TREE_INT_CST_LOW (arg2) == 1))
