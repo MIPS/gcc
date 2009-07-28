@@ -1,3 +1,25 @@
+2009-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vector_copysign<mode>3): Use
+	CONST0_RTX, not integer constant 0 in RTL expansion.
+	* config/rs6000/vsx.md (vsx_copysign<mode>3): Ditto.
+	* config/rs6000/rs6000.md (copysigndf3): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Do not
+	allow V2DImode under Altivec, since it doesn't have vector set,
+	extract, or splat support.
+	(rs6000_expand_vector_init): Ditto.
+	(rs6000_expand_vector_set): Ditto.
+	(rs6000_expand_vector_extract): Ditto.
+	
+	* config/rs6000/vsx.md (vsx_copysign<mode>3): Use CONST0_RTX, not
+	constant 0 in comparison.
+	(vsx_extract_<mode>_one): Delete, because it wasn't being
+	recognized.
+
+	* config/rs6000/altivec.md (UNSPEC_VCMPBFP): Move to 64 to avoid
+	overlap with rs6000.md.
+
 2009-07-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):

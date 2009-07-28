@@ -1875,17 +1875,11 @@ rs6000_init_hard_regno_mode_ok (void)
 	}
     }
 
-  /* V2DImode, prefer vsx over altivec, since the main use will be for
-     vectorized floating point conversions.  */
+  /* V2DImode, only allow under VSX, which can do V2DI insert/splat/extract.
+     Altivec doesn't have 64-bit support.  */
   if (TARGET_VSX)
     {
       rs6000_vector_mem[V2DImode] = VECTOR_VSX;
-      rs6000_vector_unit[V2DImode] = VECTOR_NONE;
-      rs6000_vector_align[V2DImode] = align64;
-    }
-  else if (TARGET_ALTIVEC)
-    {
-      rs6000_vector_mem[V2DImode] = VECTOR_ALTIVEC;
       rs6000_vector_unit[V2DImode] = VECTOR_NONE;
       rs6000_vector_align[V2DImode] = align64;
     }
@@ -4252,8 +4246,9 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       return;
     }
 
-  /* Store value to stack temp.  Load vector element.  Splat.  */
-  if (all_same)
+  /* Store value to stack temp.  Load vector element.  Splat.  However, splat
+     of 64-bit items is not supported on Altivec.  */
+  if (all_same && GET_MODE_SIZE (mode) <= 4)
     {
       mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode), 0);
       emit_move_insn (adjust_address_nv (mem, inner_mode, 0),
@@ -4311,11 +4306,10 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
   int width = GET_MODE_SIZE (inner_mode);
   int i;
 
-  if (mode == V2DFmode || mode == V2DImode)
+  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
     {
       rtx (*set_func) (rtx, rtx, rtx, rtx)
 	= ((mode == V2DFmode) ? gen_vsx_set_v2df : gen_vsx_set_v2di);
-      gcc_assert (TARGET_VSX);
       emit_insn (set_func (target, target, val, GEN_INT (elt)));
       return;
     }
@@ -4357,11 +4351,10 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
   enum machine_mode inner_mode = GET_MODE_INNER (mode);
   rtx mem, x;
 
-  if (mode == V2DFmode || mode == V2DImode)
+  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
     {
       rtx (*extract_func) (rtx, rtx, rtx)
 	= ((mode == V2DFmode) ? gen_vsx_extract_v2df : gen_vsx_extract_v2di);
-      gcc_assert (TARGET_VSX);
       emit_insn (extract_func (target, vec, GEN_INT (elt)));
       return;
     }
