@@ -28,10 +28,6 @@ along with this program; see the file COPYING3.  If not see
 #include "symtab.h"
 #include "line-map.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct cpp_reader cpp_reader;
 typedef struct cpp_buffer cpp_buffer;
 typedef struct cpp_options cpp_options;
@@ -546,9 +542,6 @@ struct cpp_dir
   dev_t dev;
 };
 
-/* Name under which this program was invoked.  */
-extern const char *progname;
-
 /* The structure of a node in the hash table.  The hash table has
    entries for all identifiers: either macros defined by #define
    commands (type NT_MACRO), assertions created with #assert
@@ -935,9 +928,5 @@ extern int cpp_valid_state (cpp_reader *, const char *, int);
 extern void cpp_prepare_state (cpp_reader *, struct save_macro_data **);
 extern int cpp_read_state (cpp_reader *, const char *, FILE *,
 			   struct save_macro_data *);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* ! LIBCPP_CPPLIB_H */

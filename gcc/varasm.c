@@ -239,24 +239,28 @@ default_emutls_var_fields (tree type, tree *name ATTRIBUTE_UNUSED)
 {
   tree word_type_node, field, next_field;
   
-  field = build_decl (FIELD_DECL, get_identifier ("__templ"), ptr_type_node);
+  field = build_decl (UNKNOWN_LOCATION,
+		      FIELD_DECL, get_identifier ("__templ"), ptr_type_node);
   DECL_CONTEXT (field) = type;
   next_field = field;
     
-  field = build_decl (FIELD_DECL, get_identifier ("__offset"),
+  field = build_decl (UNKNOWN_LOCATION,
+		      FIELD_DECL, get_identifier ("__offset"),
 		      ptr_type_node);
   DECL_CONTEXT (field) = type;
   TREE_CHAIN (field) = next_field;
   next_field = field;
   
   word_type_node = lang_hooks.types.type_for_mode (word_mode, 1);
-  field = build_decl (FIELD_DECL, get_identifier ("__align"),
+  field = build_decl (UNKNOWN_LOCATION,
+		      FIELD_DECL, get_identifier ("__align"),
 		      word_type_node);
   DECL_CONTEXT (field) = type;
   TREE_CHAIN (field) = next_field;
   next_field = field;
   
-  field = build_decl (FIELD_DECL, get_identifier ("__size"), word_type_node);
+  field = build_decl (UNKNOWN_LOCATION,
+		      FIELD_DECL, get_identifier ("__size"), word_type_node);
   DECL_CONTEXT (field) = type;
   TREE_CHAIN (field) = next_field;
 
@@ -280,7 +284,8 @@ get_emutls_object_type (void)
   field = targetm.emutls.var_fields (type, &type_name);
   if (!type_name)
     type_name = get_identifier ("__emutls_object");
-  type_name = build_decl (TYPE_DECL, type_name, type);
+  type_name = build_decl (UNKNOWN_LOCATION,
+			  TYPE_DECL, type_name, type);
   TYPE_NAME (type) = type_name;
   TYPE_FIELDS (type) = field;
   layout_type (type);
@@ -309,7 +314,8 @@ get_emutls_init_templ_addr (tree decl)
       name = prefix_name (prefix, name);
     }
 
-  to = build_decl (VAR_DECL, name, TREE_TYPE (decl));
+  to = build_decl (DECL_SOURCE_LOCATION (decl),
+		   VAR_DECL, name, TREE_TYPE (decl));
   SET_DECL_ASSEMBLER_NAME (to, DECL_NAME (to));
   DECL_TLS_MODEL (to) = TLS_MODEL_EMULATED;
   DECL_ARTIFICIAL (to) = 1;
@@ -322,7 +328,7 @@ get_emutls_init_templ_addr (tree decl)
   DECL_WEAK (to) = DECL_WEAK (decl);
   if (DECL_ONE_ONLY (decl))
     {
-      make_decl_one_only (to);
+      make_decl_one_only (to, DECL_ASSEMBLER_NAME (to));
       TREE_STATIC (to) = TREE_STATIC (decl);
       TREE_PUBLIC (to) = TREE_PUBLIC (decl);
       DECL_VISIBILITY (to) = DECL_VISIBILITY (decl);
@@ -369,7 +375,8 @@ emutls_decl (tree decl)
     to = h->to;
   else
     {
-      to = build_decl (VAR_DECL, get_emutls_object_name (name),
+      to = build_decl (DECL_SOURCE_LOCATION (decl),
+		       VAR_DECL, get_emutls_object_name (name),
 		       get_emutls_object_type ());
 
       h = GGC_NEW (struct tree_map);
@@ -384,7 +391,7 @@ emutls_decl (tree decl)
       TREE_READONLY (to) = 0;
       SET_DECL_ASSEMBLER_NAME (to, DECL_NAME (to));
       if (DECL_ONE_ONLY (decl))
-	make_decl_one_only (to);
+	make_decl_one_only (to, DECL_ASSEMBLER_NAME (to));
       DECL_CONTEXT (to) = DECL_CONTEXT (decl);
       if (targetm.emutls.var_align_fixed)
 	/* If we're not allowed to change the proxy object's
@@ -438,7 +445,7 @@ emutls_common_1 (void **loc, void *xstmts)
   args = tree_cons (NULL, x, args);
 
   x = built_in_decls[BUILT_IN_EMUTLS_REGISTER_COMMON];
-  x = build_function_call_expr (x, args);
+  x = build_function_call_expr (UNKNOWN_LOCATION, x, args);
 
   append_to_statement_list (x, pstmts);
   return 1;
@@ -2788,28 +2795,20 @@ decode_addr_const (tree exp, struct addr_const *value)
   value->offset = offset;
 }
 
-/* Uniquize all constants that appear in memory.
-   Each constant in memory thus far output is recorded
-   in `const_desc_table'.  */
-
-struct GTY(()) constant_descriptor_tree {
-  /* A MEM for the constant.  */
-  rtx rtl;
-
-  /* The value of the constant.  */
-  tree value;
-
-  /* Hash of value.  Computing the hash from value each time
-     hashfn is called can't work properly, as that means recursive
-     use of the hash table during hash table expansion.  */
-  hashval_t hash;
-};
 
 static GTY((param_is (struct constant_descriptor_tree)))
      htab_t const_desc_htab;
 
 static struct constant_descriptor_tree * build_constant_desc (tree);
 static void maybe_output_constant_def_contents (struct constant_descriptor_tree *, int);
+
+/* Constant pool accessor function.  */
+
+htab_t 
+constant_pool_htab (void)
+{
+  return const_desc_htab;
+}
 
 /* Compute a hash code for a constant expression.  */
 
@@ -3214,6 +3213,10 @@ build_constant_desc (tree exp)
   set_mem_alias_set (rtl, 0);
   set_mem_alias_set (rtl, const_alias_set);
 
+  /* We cannot share RTX'es in pool entries.
+     Mark this piece of RTL as required for unsharing.  */
+  RTX_FLAG (rtl, used) = 1;
+
   /* Set flags or add text to the name to record information, such as
      that it is a local symbol.  If the name is changed, the macro
      ASM_OUTPUT_LABELREF will have to know how to strip this
@@ -3451,7 +3454,7 @@ const_rtx_hash_1 (rtx *xp, void *data)
       hwi = INTVAL (x);
     fold_hwi:
       {
-	const int shift = sizeof (hashval_t) * CHAR_BIT;
+	int shift = sizeof (hashval_t) * CHAR_BIT;
 	const int n = sizeof (HOST_WIDE_INT) / sizeof (hashval_t);
 	int i;
 
@@ -5282,7 +5285,8 @@ weak_finish (void)
 
 	  if (! decl)
 	    {
-	      decl = build_decl (TREE_CODE (alias_decl), target,
+	      decl = build_decl (DECL_SOURCE_LOCATION (alias_decl),
+				 TREE_CODE (alias_decl), target,
 				 TREE_TYPE (alias_decl));
 
 	      DECL_EXTERNAL (decl) = 1;
@@ -5470,7 +5474,8 @@ do_assemble_alias (tree decl, tree target)
 #else
       if (!SUPPORTS_WEAK)
 	{
-	  error ("%Jweakref is not supported in this configuration", decl);
+	  error_at (DECL_SOURCE_LOCATION (decl),
+		    "weakref is not supported in this configuration");
 	  return;
 	}
 #endif
@@ -5610,12 +5615,14 @@ assemble_alias (tree decl, tree target)
     {
 #if !defined (ASM_OUTPUT_DEF)
 # if !defined(ASM_OUTPUT_WEAK_ALIAS) && !defined (ASM_WEAKEN_DECL)
-      error ("%Jalias definitions not supported in this configuration", decl);
+      error_at (DECL_SOURCE_LOCATION (decl),
+		"alias definitions not supported in this configuration");
       return;
 # else
       if (!DECL_WEAK (decl))
 	{
-	  error ("%Jonly weak aliases are supported in this configuration", decl);
+	  error_at (DECL_SOURCE_LOCATION (decl),
+		    "only weak aliases are supported in this configuration");
 	  return;
 	}
 # endif
@@ -5713,7 +5720,7 @@ supports_one_only (void)
    translation units without generating a linker error.  */
 
 void
-make_decl_one_only (tree decl)
+make_decl_one_only (tree decl, tree comdat_group)
 {
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == FUNCTION_DECL);
@@ -5725,7 +5732,7 @@ make_decl_one_only (tree decl)
 #ifdef MAKE_DECL_ONE_ONLY
       MAKE_DECL_ONE_ONLY (decl);
 #endif
-      DECL_ONE_ONLY (decl) = 1;
+      DECL_COMDAT_GROUP (decl) = comdat_group;
     }
   else if (TREE_CODE (decl) == VAR_DECL
       && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
@@ -5986,7 +5993,7 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
 	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
       if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
 	fprintf (asm_out_file, ",%s,comdat",
-		 lang_hooks.decls.comdat_group (decl));
+		 IDENTIFIER_POINTER (DECL_COMDAT_GROUP (decl)));
     }
 
   putc ('\n', asm_out_file);

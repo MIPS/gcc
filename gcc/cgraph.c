@@ -1710,12 +1710,37 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
      ??? We cannot use COMDAT linkage because there is no
      ABI support for this.  */
   DECL_EXTERNAL (new_node->decl) = 0;
-  DECL_ONE_ONLY (new_node->decl) = 0;
+  DECL_COMDAT_GROUP (new_node->decl) = 0;
   TREE_PUBLIC (new_node->decl) = 0;
   DECL_COMDAT (new_node->decl) = 0;
   DECL_WEAK (new_node->decl) = 0;
   new_node->clone.tree_map = tree_map;
   new_node->clone.args_to_skip = args_to_skip;
+  if (!args_to_skip)
+    new_node->clone.combined_args_to_skip = old_node->clone.combined_args_to_skip;
+  else if (old_node->clone.combined_args_to_skip)
+    {
+      int newi = 0, oldi = 0;
+      tree arg;
+      bitmap new_args_to_skip = BITMAP_GGC_ALLOC ();
+      struct cgraph_node *orig_node;
+      for (orig_node = old_node; orig_node->clone_of; orig_node = orig_node->clone_of)
+        ;
+      for (arg = DECL_ARGUMENTS (orig_node->decl); arg; arg = TREE_CHAIN (arg), oldi++)
+	{
+	  if (bitmap_bit_p (old_node->clone.combined_args_to_skip, oldi))
+	    {
+	      bitmap_set_bit (new_args_to_skip, oldi);
+	      continue;
+	    }
+	  if (bitmap_bit_p (args_to_skip, newi))
+	    bitmap_set_bit (new_args_to_skip, oldi);
+	  newi++;
+	}
+      new_node->clone.combined_args_to_skip = new_args_to_skip;
+    }
+  else
+    new_node->clone.combined_args_to_skip = args_to_skip;
   new_node->local.externally_visible = 0;
   new_node->local.local = 1;
   new_node->lowered = true;
@@ -1836,6 +1861,9 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	    push_cfun (DECL_STRUCT_FUNCTION (fndecl));
 	    current_function_decl = fndecl;
 	    gimple_register_cfg_hooks ();
+	    /* C++ Thunks are emitted late via this function, gimplify them.  */
+	    if (!gimple_body (fndecl))
+	      gimplify_function_tree (fndecl);
 	    tree_lowering_passes (fndecl);
 	    bitmap_obstack_initialize (NULL);
 	    if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
@@ -1889,7 +1917,7 @@ cgraph_make_node_local (struct cgraph_node *node)
   if (DECL_COMDAT (node->decl) || DECL_EXTERNAL (node->decl))
     {
       DECL_COMDAT (node->decl) = 0;
-      DECL_ONE_ONLY (node->decl) = 0;
+      DECL_COMDAT_GROUP (node->decl) = 0;
       TREE_PUBLIC (node->decl) = 0;
       DECL_WEAK (node->decl) = 0;
       DECL_EXTERNAL (node->decl) = 0;

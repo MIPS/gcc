@@ -277,17 +277,17 @@ class StdMapPrinter:
     def __init__ (self, typename, val):
         self.typename = typename
         self.val = val
-        self.iter = RbtreeIterator (val)
 
     def to_string (self):
-        return '%s with %d elements' % (self.typename, len (self.iter))
+        return '%s with %d elements' % (self.typename,
+                                        len (RbtreeIterator (self.val)))
 
     def children (self):
         keytype = self.val.type.template_argument(0).const()
         valuetype = self.val.type.template_argument(1)
         nodetype = gdb.lookup_type('std::_Rb_tree_node< std::pair< %s, %s > >' % (keytype, valuetype))
         nodetype = nodetype.pointer()
-        return self._iter (self.iter, nodetype)
+        return self._iter (RbtreeIterator (self.val), nodetype)
 
     def display_hint (self):
         return 'map'
@@ -317,15 +317,15 @@ class StdSetPrinter:
     def __init__ (self, typename, val):
         self.typename = typename
         self.val = val
-        self.iter = RbtreeIterator (val)
 
     def to_string (self):
-        return '%s with %d elements' % (self.typename, len (self.iter))
+        return '%s with %d elements' % (self.typename,
+                                        len (RbtreeIterator (self.val)))
 
     def children (self):
         keytype = self.val.type.template_argument(0)
         nodetype = gdb.lookup_type('std::_Rb_tree_node< %s >' % keytype).pointer()
-        return self._iter (self.iter, nodetype)
+        return self._iter (RbtreeIterator (self.val), nodetype)
 
 class StdBitsetPrinter:
     "Print a std::bitset"
@@ -452,7 +452,21 @@ class StdStringPrinter:
             encoding = gdb.parameter('target-charset')
         elif encoding == 1:
             encoding = gdb.parameter('target-wide-charset')
-        return self.val['_M_dataplus']['_M_p'].string(encoding)
+
+        # Make sure &string works, too.
+        type = self.val.type
+        if type.code == gdb.TYPE_CODE_REF:
+            type = type.target ()
+
+        # Calculate the length of the string so that to_string returns
+        # the string according to length, not according to first null
+        # encountered.
+        ptr = self.val ['_M_dataplus']['_M_p']
+        realtype = type.unqualified ().strip_typedefs ()
+        reptype = gdb.lookup_type (str (realtype) + '::_Rep').pointer ()
+        header = ptr.cast(reptype) - 1
+        len = header.dereference ()['_M_length']
+        return self.val['_M_dataplus']['_M_p'].string (encoding, length = len)
 
     def display_hint (self):
         return 'string'

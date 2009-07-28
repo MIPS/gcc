@@ -1349,7 +1349,7 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
       return value;
     }
 
-  return c_sizeof_or_alignof_type (complete_type (type),
+  return c_sizeof_or_alignof_type (input_location, complete_type (type),
 				   op == SIZEOF_EXPR,
 				   complain);
 }
@@ -2017,9 +2017,9 @@ build_class_member_access_expr (tree object, tree member,
 	 in various testsuite cases where a null object is passed where a
 	 vtable access is required.  */
       if (null_object_p && warn_invalid_offsetof
-	  && CLASSTYPE_NON_POD_P (object_type)
+	  && CLASSTYPE_NON_STD_LAYOUT (object_type)
 	  && !DECL_FIELD_IS_BASE (member)
-	  && !skip_evaluation
+	  && cp_unevaluated_operand == 0
 	  && (complain & tf_warning))
 	{
 	  warning (OPT_Winvalid_offsetof, 
@@ -2429,7 +2429,8 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
 			  /*want_type=*/false);
   member_type = cp_build_qualified_type (TREE_TYPE (member),
 					 cp_type_quals (ptrmem_type));
-  return fold_build3 (COMPONENT_REF, member_type,
+  return fold_build3_loc (input_location,
+		      COMPONENT_REF, member_type,
 		      ptrmem, member, NULL_TREE);
 }
 
@@ -2573,7 +2574,7 @@ cp_build_indirect_ref (tree ptr, const char *errorstring,
    LOC is the location to use in building the array reference.  */
 
 tree
-build_array_ref (tree array, tree idx, location_t loc)
+build_array_ref (location_t loc, tree array, tree idx)
 {
   tree ret;
 
@@ -2593,7 +2594,7 @@ build_array_ref (tree array, tree idx, location_t loc)
     {
     case COMPOUND_EXPR:
       {
-	tree value = build_array_ref (TREE_OPERAND (array, 1), idx, loc);
+	tree value = build_array_ref (loc, TREE_OPERAND (array, 1), idx);
 	ret = build2 (COMPOUND_EXPR, TREE_TYPE (value),
 		      TREE_OPERAND (array, 0), value);
 	SET_EXPR_LOCATION (ret, loc);
@@ -2603,9 +2604,9 @@ build_array_ref (tree array, tree idx, location_t loc)
     case COND_EXPR:
       ret = build_conditional_expr
 	      (TREE_OPERAND (array, 0),
-	      build_array_ref (TREE_OPERAND (array, 1), idx, loc),
-	      build_array_ref (TREE_OPERAND (array, 2), idx, loc),
-	      tf_warning_or_error);
+	       build_array_ref (loc, TREE_OPERAND (array, 1), idx),
+	       build_array_ref (loc, TREE_OPERAND (array, 2), idx),
+	       tf_warning_or_error);
       protected_set_expr_location (ret, loc);
       return ret;
 
@@ -2836,7 +2837,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       TREE_NO_WARNING (vtbl) = 1;
 
       /* Finally, extract the function pointer from the vtable.  */
-      e2 = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl,
+      e2 = fold_build2_loc (input_location,
+			POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl,
 			fold_convert (sizetype, idx));
       e2 = cp_build_indirect_ref (e2, NULL, tf_warning_or_error);
       TREE_CONSTANT (e2) = 1;
@@ -2864,14 +2866,16 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 
 /* Used by the C-common bits.  */
 tree
-build_function_call (tree function, tree params)
+build_function_call (location_t loc ATTRIBUTE_UNUSED, 
+		     tree function, tree params)
 {
   return cp_build_function_call (function, params, tf_warning_or_error);
 }
 
 /* Used by the C-common bits.  */
 tree
-build_function_call_vec (tree function, VEC(tree,gc) *params,
+build_function_call_vec (location_t loc ATTRIBUTE_UNUSED,
+			 tree function, VEC(tree,gc) *params,
 			 VEC(tree,gc) *origtypes ATTRIBUTE_UNUSED)
 {
   VEC(tree,gc) *orig_params = params;
@@ -3132,7 +3136,7 @@ convert_arguments (tree typelist, VEC(tree,gc) **values, tree fndecl,
 	  if (fndecl && DECL_BUILT_IN (fndecl)
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CONSTANT_P)
 	    /* Don't do ellipsis conversion for __built_in_constant_p
-	       as this will result in spurious warnings for non-POD
+	       as this will result in spurious errors for non-trivial
 	       types.  */
 	    val = require_complete_type (val);
 	  else
@@ -3417,7 +3421,6 @@ cp_build_binary_op (location_t location,
 
   /* If an error was already reported for one of the arguments,
      avoid reporting another error.  */
-
   if (code0 == ERROR_MARK || code1 == ERROR_MARK)
     return error_mark_node;
 
@@ -3427,6 +3430,25 @@ cp_build_binary_op (location_t location,
       error (invalid_op_diag);
       return error_mark_node;
     }
+
+  /* Issue warnings about peculiar, but valid, uses of NULL.  */
+  if ((orig_op0 == null_node || orig_op1 == null_node)
+      /* It's reasonable to use pointer values as operands of &&
+	 and ||, so NULL is no exception.  */
+      && code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR 
+      && ( /* Both are NULL (or 0) and the operation was not a
+	      comparison or a pointer subtraction.  */
+	  (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1) 
+	   && code != EQ_EXPR && code != NE_EXPR && code != MINUS_EXPR) 
+	  /* Or if one of OP0 or OP1 is neither a pointer nor NULL.  */
+	  || (!null_ptr_cst_p (orig_op0)
+	      && !TYPE_PTR_P (type0) && !TYPE_PTR_TO_MEMBER_P (type0))
+	  || (!null_ptr_cst_p (orig_op1) 
+	      && !TYPE_PTR_P (type1) && !TYPE_PTR_TO_MEMBER_P (type1)))
+      && (complain & tf_warning))
+    /* Some sort of arithmetic operation involving NULL was
+       performed.  */
+    warning (OPT_Wpointer_arith, "NULL used in arithmetic");
 
   switch (code)
     {
@@ -3557,13 +3579,15 @@ cp_build_binary_op (location_t location,
 	    {
 	      if (tree_int_cst_lt (op1, integer_zero_node))
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning)
+		      && c_inhibit_evaluation_warnings == 0)
 		    warning (0, "right shift count is negative");
 		}
 	      else
 		{
 		  if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0
-		      && (complain & tf_warning))
+		      && (complain & tf_warning)
+		      && c_inhibit_evaluation_warnings == 0)
 		    warning (0, "right shift count >= width of type");
 		}
 	    }
@@ -3584,12 +3608,14 @@ cp_build_binary_op (location_t location,
 	    {
 	      if (tree_int_cst_lt (op1, integer_zero_node))
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning)
+		      && c_inhibit_evaluation_warnings == 0)
 		    warning (0, "left shift count is negative");
 		}
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning)
+		      && c_inhibit_evaluation_warnings == 0)
 		    warning (0, "left shift count >= width of type");
 		}
 	    }
@@ -4012,34 +4038,18 @@ cp_build_binary_op (location_t location,
 
       if ((short_compare || code == MIN_EXPR || code == MAX_EXPR)
 	  && warn_sign_compare
+	  && !TREE_NO_WARNING (orig_op0)
+	  && !TREE_NO_WARNING (orig_op1)
 	  /* Do not warn until the template is instantiated; we cannot
 	     bound the ranges of the arguments until that point.  */
 	  && !processing_template_decl
-          && (complain & tf_warning))
+          && (complain & tf_warning)
+	  && c_inhibit_evaluation_warnings == 0)
 	{
 	  warn_for_sign_compare (location, orig_op0, orig_op1, op0, op1, 
 				 result_type, resultcode);
 	}
     }
-
-  /* Issue warnings about peculiar, but valid, uses of NULL.  */
-  if ((orig_op0 == null_node || orig_op1 == null_node)
-      /* It's reasonable to use pointer values as operands of &&
-	 and ||, so NULL is no exception.  */
-      && code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR 
-      && ( /* Both are NULL (or 0) and the operation was not a comparison.  */
-	  (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1) 
-	   && code != EQ_EXPR && code != NE_EXPR) 
-	  /* Or if one of OP0 or OP1 is neither a pointer nor NULL.  */
-	  || (!null_ptr_cst_p (orig_op0) && TREE_CODE (TREE_TYPE (op0)) != POINTER_TYPE)
-	  || (!null_ptr_cst_p (orig_op1) && TREE_CODE (TREE_TYPE (op1)) != POINTER_TYPE))
-      && (complain & tf_warning))
-    /* Some sort of arithmetic operation involving NULL was
-       performed.  Note that pointer-difference and pointer-addition
-       have already been handled above, and so we don't end up here in
-       that case.  */
-    warning (OPT_Wpointer_arith, "NULL used in arithmetic");
-  
 
   /* If CONVERTED is zero, both args will be converted to type RESULT_TYPE.
      Then the expression will be built.
@@ -4067,7 +4077,7 @@ cp_build_binary_op (location_t location,
   if (TREE_OVERFLOW_P (result) 
       && !TREE_OVERFLOW_P (op0) 
       && !TREE_OVERFLOW_P (op1))
-    overflow_warning (result);
+    overflow_warning (location, result);
 
   return result;
 }
@@ -4087,7 +4097,7 @@ cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      pointer_int_sum() anyway.  */
   complete_type (TREE_TYPE (res_type));
 
-  return pointer_int_sum (resultcode, ptrop,
+  return pointer_int_sum (input_location, resultcode, ptrop,
 			  fold_if_not_in_template (intop));
 }
 
@@ -4385,7 +4395,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
     case TRUTH_NOT_EXPR:
       arg = perform_implicit_conversion (boolean_type_node, arg,
 					 complain);
-      val = invert_truthvalue (arg);
+      val = invert_truthvalue_loc (input_location, arg);
       if (arg != error_mark_node)
 	return val;
       errstring = "in argument to unary !";
@@ -5079,7 +5089,7 @@ build_x_compound_expr (tree op1, tree op2, tsubst_flags_t complain)
 /* Like cp_build_compound_expr, but for the c-common bits.  */
 
 tree
-build_compound_expr (tree lhs, tree rhs)
+build_compound_expr (location_t loc ATTRIBUTE_UNUSED, tree lhs, tree rhs)
 {
   return cp_build_compound_expr (lhs, rhs, tf_warning_or_error);
 }
@@ -5193,7 +5203,8 @@ convert_ptrmem (tree type, tree expr, bool allow_inverse_p,
 				    PLUS_EXPR, op1, delta,
 				    tf_warning_or_error);
 
-	  expr = fold_build3 (COND_EXPR, ptrdiff_type_node, cond, op1, op2);
+	  expr = fold_build3_loc (input_location,
+			      COND_EXPR, ptrdiff_type_node, cond, op1, op2);
 			 
 	}
 
@@ -5836,7 +5847,7 @@ build_const_cast (tree type, tree expr, tsubst_flags_t complain)
 /* Like cp_build_c_cast, but for the c-common bits.  */
 
 tree
-build_c_cast (tree type, tree expr)
+build_c_cast (location_t loc ATTRIBUTE_UNUSED, tree type, tree expr)
 {
   return cp_build_c_cast (type, expr, tf_warning_or_error);
 }
@@ -5953,7 +5964,8 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
 tree
 build_modify_expr (location_t location ATTRIBUTE_UNUSED,
 		   tree lhs, tree lhs_origtype ATTRIBUTE_UNUSED,
-		   enum tree_code modifycode, tree rhs,
+		   enum tree_code modifycode, 
+		   location_t rhs_location ATTRIBUTE_UNUSED, tree rhs,
 		   tree rhs_origtype ATTRIBUTE_UNUSED)
 {
   return cp_build_modify_expr (lhs, modifycode, rhs, tf_warning_or_error);
@@ -6193,8 +6205,11 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
     {
       int from_array;
 
-      if (!same_or_base_type_p (TYPE_MAIN_VARIANT (lhstype),
-				TYPE_MAIN_VARIANT (TREE_TYPE (rhs))))
+      if (BRACE_ENCLOSED_INITIALIZER_P (rhs))
+	rhs = digest_init (lhstype, rhs);
+
+      else if (!same_or_base_type_p (TYPE_MAIN_VARIANT (lhstype),
+				     TYPE_MAIN_VARIANT (TREE_TYPE (rhs))))
 	{
 	  if (complain & tf_error)
 	    error ("incompatible types in assignment of %qT to %qT",
@@ -6203,7 +6218,8 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	}
 
       /* Allow array assignment in compiler-generated code.  */
-      if (!current_function_decl || !DECL_ARTIFICIAL (current_function_decl))
+      else if (!current_function_decl
+	       || !DECL_ARTIFICIAL (current_function_decl))
 	{
           /* This routine is used for both initialization and assignment.
              Make sure the diagnostic message differentiates the context.  */
@@ -6371,7 +6387,8 @@ get_delta_difference (tree from, tree to,
 	result = get_delta_difference_1 (to, from, c_cast_p);
 
 	if (result)
-	  result = size_diffop (size_zero_node, result);
+	  result = size_diffop_loc (input_location,
+				size_zero_node, result);
 	else
 	  {
 	    error_not_base_type (from, to);
@@ -6501,7 +6518,7 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p)
   /* Handle null pointer to member function conversions.  */
   if (integer_zerop (pfn))
     {
-      pfn = build_c_cast (type, integer_zero_node);
+      pfn = build_c_cast (input_location, type, integer_zero_node);
       return build_ptrmemfunc1 (to_type,
 				integer_zero_node,
 				pfn);

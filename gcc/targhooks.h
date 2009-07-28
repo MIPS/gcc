@@ -107,7 +107,7 @@ extern tree default_emutls_var_init (tree, tree, tree);
 extern bool default_hard_regno_scratch_ok (unsigned int);
 extern bool default_target_option_valid_attribute_p (tree, tree, tree, int);
 extern bool default_target_option_pragma_parse (tree, tree);
-extern bool default_target_option_can_inline_p (tree, tree);
+extern bool default_target_can_inline_p (tree, tree);
 extern bool default_valid_pointer_mode (enum machine_mode);
 extern enum machine_mode default_addr_space_pointer_mode (addr_space_t);
 extern tree default_addr_space_minus_type (addr_space_t, addr_space_t);

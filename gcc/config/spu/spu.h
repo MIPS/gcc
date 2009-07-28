@@ -326,8 +326,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
   {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},				\
   {FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
 
-#define CAN_ELIMINATE(FROM,TO) 1 
-
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
   ((OFFSET) = spu_initial_elimination_offset((FROM),(TO)))
 
@@ -612,14 +610,17 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
       }                                                                   \
   } while (0)
 
-/* Address spaces */
+
+/* Address spaces.  */
 #define ADDR_SPACE_GENERIC	0
 #define ADDR_SPACE_EA		1
 
 /* Named address space keywords.  */
-#define TARGET_ADDR_SPACE_KEYWORDS  ADDR_SPACE_KEYWORD("__ea", ADDR_SPACE_EA)
+#define TARGET_ADDR_SPACE_KEYWORDS ADDR_SPACE_KEYWORD ("__ea", ADDR_SPACE_EA)
+
 
 /* Builtins.  */
+
 enum spu_builtin_type
 {
   B_INSN,
@@ -646,3 +647,4 @@ struct GTY(()) spu_builtin_description
 };
 
 extern struct spu_builtin_description spu_builtins[];
+

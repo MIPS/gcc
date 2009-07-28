@@ -107,6 +107,10 @@ i386_pe_determine_dllexport_p (tree decl)
   if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != FUNCTION_DECL)
     return false;
 
+  /* Don't export local clones of dllexports.  */
+  if (!TREE_PUBLIC (decl))
+    return false;
+
   if (lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl)))
     return true;
 
@@ -285,7 +289,7 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
 		 ctor is protected by a link-once guard variable, so that
 		 the object still has link-once semantics,  */
 	      || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
-	    make_decl_one_only (decl);
+	    make_decl_one_only (decl, DECL_ASSEMBLER_NAME (decl));
 	  else
 	    error ("%q+D:'selectany' attribute applies only to "
 		   "initialized objects", decl);
@@ -600,6 +604,8 @@ i386_pe_maybe_record_exported_symbol (tree decl, const char *name, int is_data)
   gcc_assert (GET_CODE (symbol) == SYMBOL_REF);
   if (!SYMBOL_REF_DLLEXPORT_P (symbol))
     return;
+
+  gcc_assert (TREE_PUBLIC (decl));
 
   p = (struct export_list *) ggc_alloc (sizeof *p);
   p->next = export_head;

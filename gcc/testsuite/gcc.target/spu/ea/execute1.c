@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-do compile } */
 /* { dg-options "-O2 -std=gnu99 -g -pedantic-errors -mea32" } */
 
 #include <stdlib.h>
