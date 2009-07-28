@@ -127,17 +127,9 @@ mvsx-scalar-memory
 Target Undocumented Report Var(TARGET_VSX_SCALAR_MEMORY)
 ; If -mvsx, use VSX scalar memory reference instructions for scalar double (off by default)
 
-mpower7-adjust-cost
-Target Undocumented Var(TARGET_POWER7_ADJUST_COST) Init(-1)
-; Add extra cost for setting CR registers before a branch like is done for Power5
-
-mallow-timode
-Target Undocumented Var(TARGET_ALLOW_TIMODE)
-; Allow VSX/Altivec to target loading TImode variables.
-
-mdisallow-float-in-lr-ctr
-Target Undocumented Var(TARGET_DISALLOW_FLOAT_IN_LR_CTR) Init(-1)
-; Disallow floating point in LR or CTR, causes some reload bugs
+mvsx-align-128
+Target Undocumented Report Var(TARGET_VSX_ALIGN_128)
+; If -mvsx, set alignment to 128 bits instead of 32/64
 
 ; Note, enabling this on GCC 4.3 breaks calculix.  It is ok on GCC 4.5.
 mallow-movmisalign
@@ -147,6 +139,26 @@ Target Undocumented Var(TARGET_ALLOW_MOVMISALIGN)
 mallow-df-permute
 Target Undocumented Var(TARGET_ALLOW_DF_PERMUTE)
 ; Allow/disallow permutation of DF/DI vectors
+
+msched-groups
+Target Undocumented Report Var(TARGET_SCHED_GROUPS) Init(-1)
+; Explicitly set/unset whether rs6000_sched_groups is set
+
+malways-hint
+Target Undocumented Report Var(TARGET_ALWAYS_HINT) Init(-1)
+; Explicitly set/unset whether rs6000_always_hint is set
+
+malign-branch-targets
+Target Undocumented Report Var(TARGET_ALIGN_BRANCH_TARGETS) Init(-1)
+; Explicitly set/unset whether rs6000_align_branch_targets is set
+
+; This should be enabled in the AT branch, but until we get all the bugs in
+; compiling gamess, cactusADM, calculix, and wrf, don't define it.
+; (gamess, cactusADM, and calculix fail in vectorizing sqrt on VSX)
+; (wrf is fails for some other builtin, probably copysignf on both VSX/Altivec).
+mvectorize-builtins
+Target Undocumented Report Var(TARGET_VECTORIZE_BUILTINS)
+; Explicitly control whether we vectorize the builtins or not.
 
 mupdate
 Target Report Var(TARGET_UPDATE) Init(1)
@@ -164,12 +176,12 @@ mtls-markers
 Target Report Var(tls_markers) Init(1)
 Mark __tls_get_addr calls with argument info
 
-msched-prolog
-Target Report Var(TARGET_SCHED_PROLOG) Init(1)
-Schedule the start and end of the procedure
-
 msched-epilog
-Target Undocumented Var(TARGET_SCHED_PROLOG) VarExists
+Target Undocumented Var(TARGET_SCHED_PROLOG) Init(1)
+
+msched-prolog
+Target Report Var(TARGET_SCHED_PROLOG) VarExists
+Schedule the start and end of the procedure
 
 maix-struct-return
 Target Report RejectNegative Var(aix_struct_return)

@@ -7,6 +7,8 @@
 
 /* Make sure double extract doesn't use a store instruction.  */
 
+#include <altivec.h>
+
 double d0(__vector double v){ return __builtin_vec_extract (v, 0); }
 double d1(__vector double v){ return __builtin_vec_extract (v, 1); }
 

@@ -1,3 +1,304 @@
+2009-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vector_copysign<mode>3): Use
+	CONST0_RTX, not integer constant 0 in RTL expansion.
+	* config/rs6000/vsx.md (vsx_copysign<mode>3): Ditto.
+	* config/rs6000/rs6000.md (copysigndf3): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Do not
+	allow V2DImode under Altivec, since it doesn't have vector set,
+	extract, or splat support.
+	(rs6000_expand_vector_init): Ditto.
+	(rs6000_expand_vector_set): Ditto.
+	(rs6000_expand_vector_extract): Ditto.
+	
+	* config/rs6000/vsx.md (vsx_copysign<mode>3): Use CONST0_RTX, not
+	constant 0 in comparison.
+	(vsx_extract_<mode>_one): Delete, because it wasn't being
+	recognized.
+
+	* config/rs6000/altivec.md (UNSPEC_VCMPBFP): Move to 64 to avoid
+	overlap with rs6000.md.
+
+2009-07-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Delete test for long long type and key off of using VSX memory
+	instructions instead of the VSX arithmetic unit to allow V2DI
+	builtins.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Don't move
+	splat of V2DI/V2DF operands to be in a register.
+	(rs6000_handle_altivec_attribute): Allow long long vectors in VSX
+	mode.  Move all VSX tests under one if.
+
+	* config/rs6000/vsx.md (vsx_extract_<mode>): Use 'd' constraint to
+	load double, not 'f'.
+	(vsx_extract_<mode>_zero): Add optimization for extracting
+	constant elements memory.
+	(vsx_extract_<mode>_one): Ditto.
+
+	* config/rs6000/rs6000.md (btruncdf2_fpr): Be consistant with
+	other names in using _fpr suffix, not _fprs.
+	(ceildf2_fpr): Ditto.
+	(floordf2_fpr): Ditto.
+	(movdf_hardfloat32): Eliminate extra spaces in set_attr.
+	(movdf_hardfloat64_mfpgpr): Ditto.
+	(movdf_hardfloat64): Ditto.
+
+2009-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (movdf_hardfloat32): Delete extra spaces
+	in set_attr.
+	(movdf_hardfloat64_mfpgpr): Ditto.
+	(movdf_hardfloat64): Ditto.
+	(btruncdf2_fpr): Rename for consistancy.
+	(ceildf2_fpr): Ditto.
+	(floordf2_fpr): Ditto.
+
+	* config/rs6000/rs6000.c (vsx_expand_builtin): Delete stub until
+	we have specific VSX work.
+	((rs6000_expand_builtin): Delete call to vsx_expand_builtin.
+
+	Merge up to version 149953.
+
+2009-07-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_init<mode>): Change to use whether
+	loads/stores of the vector type are supported instead of the
+	arithmetic type.  Eliminate vec_init_operand predicate.
+	(vec_set<mode>): Ditto.
+	(vec_extract<mode>): Ditto.
+
+	* config/rs6000/predicates.md (vec_init_operand): Delete.
+
+	* config/rs6000/vsx.md: (vsx_b2turnc): Add alternative FRIZ
+	recognizer.
+	(vsx_splat_<mode>): Change to use whether VSX load/stores are done
+	on V2DImode/V2DFmode instead of whether arithmetic operations are
+	done to allow V2DImode.
+
+2009-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to version 14983.
+
+2009-07-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to version 149758.
+
+2009-07-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	the vector extensions added with VSX.
+
+	* config/rs6000/vector.md (vector_ceil<mode>2): Add vector
+	expander for vectorized math functions.
+	(vector_floor<mode>2): Ditto.
+	(vector_btrunc<mode>2): Ditto.
+	(vector_copysign<mode>2): Ditto.
+
+	* config/rs6000/predicates.md (easy_vector_constant_msb): New
+	predicate for a vector constant with only the most significant bit
+	set.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	support for VSX vector and vectorized math builtins.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function): Add
+	Altivec copysign builtin.
+	(vspltis_constant): Add support for loading up the most
+	significant bit.
+	(rs6000_expand_vector_init): If the vector init is all constant,
+	but it isn't an easy_vector_constant, just load up the vector
+	constant from the constant pool, instead of creating it on the
+	stack and loading it up.
+	(bdesc_2args): Add support for vectorized math builtins, and
+	switch builtins that generated straight Altivec code, to builtins
+	that can generate either Altivec or VSX.  Fill in some missing VSX
+	builtins.
+	(bdesc_1arg): Ditto.
+	(bdesc_3arg); Ditto.
+	(rs6000_init_builtins): Handle vector bool long correctly.
+	(rs6000_handle_altivec_attribute): Ditto.
+	(rs6000_vector_mode_supported_p): Use whether memory patterns
+	exist, not whether the arithmetic unit exists for the type, so
+	that we can support vector long and vector bool long.
+
+	* config/rs6000/vsx.md (vsx_ftrunc<mode>2): Delete.
+	(vsx_btrunc<mode>2): Define as a FIX operation instead of using an
+	UNSPEC.
+
+	* config/rs6000/rs6000.h (EASY_VECTOR_MSB): New macro for
+	recognizing vector constants of the most significant bit.
+	(enum rs6000_builtins): Add vectorized math builtins.
+	(ALTIVEC_BUILTIN*): Add support for vectorized math libraries.
+
+	* config/rs6000/altivec.md (UNSPEC_VRFIP): Delete.
+	(UNSPEC_VRFIM): Ditto.
+	(split of easy constant with most significant bit): Add new
+	define_split to handle loading vector constants that are the most
+	significant bit.
+	(altivec_vrfiz): Rename from altivec_ftruncv4sf2.
+	(altivec_vrfip): Use the UNSPEC value rs6000.md uses, not a new
+	one.
+	(altivec_vrfim): Ditto.
+	(altivec_copysignv4sf2): New insn for copysign support on
+	Altivec.
+
+	* config/rs6000/altivec.h (vec_div): Define if VSX.
+	(vec_mul): Ditto.
+	(vec_msub): Ditto.
+	(vec_nmadd): Ditto.
+	(vec_nearbyint): Ditto.
+	(vec_rint): Ditto.
+	(vec_sqrt): Ditto.
+	(vector predicate macros): Use the generic __builtin_vec_cmp*_p
+	instead of the Altivec __builtin_altivec_cmp*fp_p functions, so
+	that VSX vector double will work.
+	(vec_all*): Ditto.
+	(vec_any*): Ditto.
+
+2009-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 149630.
+
+2009-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 149602.
+
+2009-07-10  Revital Eres <ERES@il.ibm.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mvectorize-builtins): Add new debug
+	switch.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Vectorize the functions that we can on Altivec and VSX.
+	(TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION): Define target
+	hook.
+	(bdesc_2arg): Add __builtin_vsx_cpsgndp and
+	__builtin_vsx_cpsgnsp.
+
+	* config/rs6000/rs6000.h (enum rs6000_builtins): Add copysign
+	builtins.
+
+2009-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 149437.
+
+2009-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to mainline revision 149378
+
+2009-07-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR bootstrap/40558
+	* config/rs6000/rs6000.c (print_operand): Undo change that breaks
+	darwin9 for printing reg addresses with %y.
+
+2009-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md ("f" constraint): Use
+	rs6000_constraints to hold the precalculated register class.
+	("d" constraint): Ditto.
+	("wd" constraint): Ditto.
+	("wf" constraint): Ditto.
+	("ws" constraint): Ditto.
+	("wa" constraint): Ditto.
+
+	* config/rs6000/rs6000.opt (-mvsx-align-128): Add new debug
+	switch.
+	(-msched-groups): Ditto.
+	(-malways-hint): Ditto.
+	(-malign-branch-targets): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_vector_reg_class): Delete,
+	replacing it with rs6000_constraints.
+	(rs6000_vsx_reg_class): Ditto.
+	(rs6000_constraints): New array to hold the register classes of
+	each of the register constraints that can vary at runtime.
+	(rs6000_hard_regno_mode_ok): For VSX, only check if the VSX memory
+	unit is being used.
+	(rs6000_debug_vector_unit): Move into rs6000_debug_reg_global.
+	(rs6000_debug_reg_global): Move -mdebug=reg statements here.
+	Print several of the scheduling related parameters.
+	(rs6000_init_hard_regno_mode_ok): Switch to putting constraints in
+	rs6000_constraints instead of rs6000_vector_reg_class.  Move
+	-mdebug=reg code to rs6000_debug_reg_global.  Add support for
+	-mvsx-align-128 debug switch.  Drop testing float_p if VSX or
+	Altivec.
+	(rs6000_override_options): Make power7 set the scheduling groups
+	like the power5.  Add support for new debug switches to override
+	the scheduling defaults.
+
+	* config/rs6000/vsx.md (VSr): Use "d" constraint, not "f".
+
+	* config/rs6000/rs6000.h (rs6000_vector_reg_class): Delete.
+	(rs6000_vsx_reg_class): Ditto.
+	(rs6000_constraints): New array to hold the register class for all
+	of the register constraints that vary based on the switches used.
+
+2009-06-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vcondu<mode>): Delete a constraint from
+	a define_expand.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Fix
+	typos in comments.
+	(rs6000_override_options): Fix spacing issues.
+
+2009-06-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/750cl.h (TARGET_PAIRED_FLOAT): Delete, paired
+	float is now a target mask.
+
+	* config/rs6000/rs6000.opt (-mpower7-adjust-cost): Delete debug
+	switch.
+	(-mallow-timode): Ditto.
+	(-mdisallow-float-in-lr-ctr): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Delete debug
+	code enabled by -mdisallow-float-in-lr-ctr or -mallow-timode.
+	(rs6000_init_hard_regno_mode_ok): Ditto.
+	(rs6000_legitimate_address_p): Ditto.
+	(rs6000_emit_move): Ditto.
+	(rs6000_adjust_cost): Delete support for debug switch
+	-mpower7-adjust-cost, always adjust the cost, just like power5.
+
+2009-06-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mspe): Move from variable to target
+	mask.
+	(-mpaired): Ditto.
+
+	* config/rs6000/rs6000.c (enable_mask_for_builtins): Delete, no
+	longer used since -mspe and -mpaired were moved into target
+	masks.
+	(bdesc_3arg): Change all SPE and PAIRED builtins from having 0 as
+	the target flags, to using target mask now.  Make array const.
+	(bdesc_2arg): Ditto.
+	(bdesc_spe_predicates): Ditto.
+	(bdesc_spe_evsel): Ditto.
+	(bdesc_paired_preds): Ditto.
+	(bdesc_1arg): Ditto.
+	(bdesc_2arg_spe): Ditto.
+	(spe_expand_builtin): Make builtin pointer const.
+	(rs6000_expand_builtin): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(spe_init_builtins): Make builtin pointer const.  Delete code that
+	calls enable_mask_for_builtins to make up for SPE not being a
+	target mask.
+
+	* config/rs6000/rs6000.h (TARGET_SPE): Delete definition here.
+	* config/rs6000/e500.h (TARGET_SPE): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_emit_move): Remove #if 0'ed code
+	that was deleted upstream.
+	(function_arg_advance): Change some spacing.  Fix a merge error.
+	(function_arg): Ditto.
+
+	Merge up to mainline version 148561.
+
 2009-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (bdesc_2arg): Split tdiv/tsqrt patterns

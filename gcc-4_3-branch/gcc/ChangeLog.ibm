@@ -1,6 +1,12 @@
-2009-07-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2009-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to gcc-4_3-branch, id 150030.
+	* config/rs6000/rs6000.opt (-mvectorize-buitlins): Disable this by
+	default until the 4.3 related bugs are fixed.
+
+	Merge up to power7-meissner branch, id 150174.  See
+	ChangeLog.power7 for more details.
+
+	Import changes from gcc-4_3-branch branch, id 150056.
 
 2009-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

@@ -21,8 +21,10 @@
 
 ;; Register constraints
 
-(define_register_constraint "f" "TARGET_HARD_FLOAT && TARGET_FPRS
-			 	 ? FLOAT_REGS : NO_REGS"
+(define_register_constraint "f" "rs6000_constraints[RS6000_CONSTRAINT_f]"
+  "@internal")
+
+(define_register_constraint "d" "rs6000_constraints[RS6000_CONSTRAINT_d]"
   "@internal")
 
 (define_register_constraint "b" "BASE_REGS"
@@ -54,19 +56,19 @@
 
 ;; Use w as a prefix to add VSX modes
 ;; vector double (V2DF)
-(define_register_constraint "wd" "rs6000_vector_reg_class[V2DFmode]"
+(define_register_constraint "wd" "rs6000_constraints[RS6000_CONSTRAINT_wd]"
   "@internal")
 
 ;; vector float (V4SF)
-(define_register_constraint "wf" "rs6000_vector_reg_class[V4SFmode]"
+(define_register_constraint "wf" "rs6000_constraints[RS6000_CONSTRAINT_wf]"
   "@internal")
 
 ;; scalar double (DF)
-(define_register_constraint "ws" "rs6000_vector_reg_class[DFmode]"
+(define_register_constraint "ws" "rs6000_constraints[RS6000_CONSTRAINT_ws]"
   "@internal")
 
 ;; any VSX register
-(define_register_constraint "wa" "rs6000_vsx_reg_class"
+(define_register_constraint "wa" "rs6000_constraints[RS6000_CONSTRAINT_wa]"
   "@internal")
 
 ;; Altivec style load/store that ignores the bottom bits of the address
@@ -133,8 +135,17 @@
 
 ;; Memory constraints
 
+(define_memory_constraint "es"
+  "A ``stable'' memory operand; that is, one which does not include any
+automodification of the base register.  Unlike @samp{m}, this constraint
+can be used in @code{asm} statements that might access the operand
+several times, or that might not access it at all."
+  (and (match_code "mem")
+       (match_test "GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) != RTX_AUTOINC")))
+
 (define_memory_constraint "Q"
-  "Memory operand that is just an offset from a reg"
+  "Memory operand that is an offset from a register (it is usually better
+to use @samp{m} or @samp{es} in @code{asm} statements)"
   (and (match_code "mem")
        (match_test "GET_CODE (XEXP (op, 0)) == REG")))
 
@@ -143,7 +154,8 @@
   (match_operand 0 "word_offset_memref_operand"))
 
 (define_memory_constraint "Z"
-  "Indexed or indirect memory operand"
+  "Memory operand that is an indexed or indirect from a register (it is
+usually better to use @samp{m} or @samp{es} in @code{asm} statements)"
   (match_operand 0 "indexed_or_indirect_operand"))
 
 ;; Address constraints

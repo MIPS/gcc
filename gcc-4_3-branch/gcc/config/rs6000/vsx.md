@@ -70,7 +70,7 @@
 			 (V2DI  "wd")
 			 (V2DF  "wd")
 			 (DF    "ws")
-			 (SF	"f")
+			 (SF	"d")
 			 (TI    "wd")])
 
 ;; Map the register class used for float<->int conversions
@@ -322,7 +322,7 @@
 
 ;; Load/store with update
 ;; Define insns that do load or store with update.  Because VSX only has
-;; reg+reg addressing, pre-decrement or pre-inrement is unlikely to be
+;; reg+reg addressing, pre-decrement or pre-increment is unlikely to be
 ;; generated.
 ;;
 ;; In all these cases, we use operands 0 and 1 for the register being
@@ -900,7 +900,7 @@
   [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
 	(if_then_else:VSX_B
 	 (ge:VSX_B (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")
-		   (const_int 0))
+		   (match_operand:VSX_B 3 "zero_constant" "j,j"))
 	 (abs:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa"))
 	 (neg:VSX_B (abs:VSX_B (match_dup 1)))))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
@@ -912,14 +912,6 @@
 ;; the fprs because we don't want to add the altivec registers to movdi/movsi.
 ;; For the unsigned tests, there isn't a generic double -> unsigned conversion
 ;; in rs6000.md so don't test VECTOR_UNIT_VSX_P, just test against VSX.
-(define_insn "vsx_ftrunc<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-  	(fix:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>r<VSs>iz %x0,%x1"
-  [(set_attr "type" "<VStype_simple>")
-   (set_attr "fp_type" "<VSfptype_simple>")])
-
 (define_insn "vsx_float<VSi><mode>2"
   [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
 	(float:VSX_B (match_operand:<VSI> 1 "vsx_register_operand" "<VSr2>,<VSr3>")))]
@@ -972,6 +964,14 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_btrunc<mode>2"
+  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
+	(fix:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "x<VSv>r<VSs>iz %x0,%x1"
+  [(set_attr "type" "<VStype_simple>")
+   (set_attr "fp_type" "<VSfptype_simple>")])
+
+(define_insn "*vsx_b2trunc<mode>2"
   [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
 	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
 		      UNSPEC_FRIZ))]
@@ -1201,9 +1201,9 @@
 }
   [(set_attr "type" "vecperm")])
 
-;; Extract a DF element from V2DF
+;; Extract a DF/DI element from V2DF/V2DI
 (define_insn "vsx_extract_<mode>"
-  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,f,?wa")
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
 	(vec_select:<VS_scalar> (match_operand:VSX_D 1 "vsx_register_operand" "wd,wd,wa")
 		       (parallel
 			[(match_operand:QI 2 "u5bit_cint_operand" "i,i,i")])))]
@@ -1214,6 +1214,17 @@
   return \"xxpermdi %x0,%x1,%x1,%3\";
 }
   [(set_attr "type" "vecperm")])
+
+;; Optimize extracting element 0 from memory
+(define_insn "*vsx_extract_<mode>_zero"
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "indexed_or_indirect_operand" "Z,Z,Z")
+	 (parallel [(const_int 0)])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && WORDS_BIG_ENDIAN"
+  "lxsd%U1x %x0,%y1"
+  [(set_attr "type" "fpload")
+   (set_attr "length" "4")])  
 
 ;; General double word oriented permute, allow the other vector types for
 ;; optimizing the permute instruction.
@@ -1248,12 +1259,12 @@
 }
   [(set_attr "type" "vecperm")])
 
-;; V2DF splat
+;; V2DF/V2DI splat
 (define_insn "vsx_splat_<mode>"
   [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?wa,?wa,?wa")
 	(vec_duplicate:VSX_D
 	 (match_operand:<VS_scalar> 1 "input_operand" "ws,f,Z,wa,wa,Z")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
    xxpermdi %x0,%x1,%x1,0

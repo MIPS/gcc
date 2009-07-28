@@ -377,6 +377,16 @@
   return EASY_VECTOR_15_ADD_SELF (val);
 })
 
+;; Same as easy_vector_constant but only for EASY_VECTOR_MSB.
+(define_predicate "easy_vector_constant_msb"
+  (and (match_code "const_vector")
+       (and (match_test "TARGET_ALTIVEC")
+	    (match_test "easy_altivec_constant (op, mode)")))
+{
+  HOST_WIDE_INT val = const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
+  return EASY_VECTOR_MSB (val, GET_MODE_INNER (mode));
+})
+
 ;; Return 1 if operand is constant zero (scalars and vectors).
 (define_predicate "zero_constant"
   (and (match_code "const_int,const_double,const_vector")
@@ -405,9 +415,7 @@
 ;; Return 1 if the operand is an offsettable memory operand.
 (define_predicate "offsettable_mem_operand"
   (and (match_operand 0 "memory_operand")
-       (match_test "GET_CODE (XEXP (op, 0)) != PRE_INC
-		    && GET_CODE (XEXP (op, 0)) != PRE_DEC
-		    && GET_CODE (XEXP (op, 0)) != PRE_MODIFY")))
+       (match_test "offsettable_nonstrict_memref_p (op)")))
 
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"
@@ -1389,22 +1397,6 @@
 	return 0;
       if (REGNO (addr_reg) != base_regno
 	  || newoffset != offset + 4 * i)
-	return 0;
-    }
-
-  return 1;
-})
-
-;; Return true if the operand is a legitimate parallel for vec_init
-(define_predicate "vec_init_operand"
-  (match_code "parallel")
-{
-  /* Disallow V2DF mode with MEM's unless both are the same under VSX.  */
-  if (mode == V2DFmode && VECTOR_UNIT_VSX_P (mode))
-    {
-      rtx op0 = XVECEXP (op, 0, 0);
-      rtx op1 = XVECEXP (op, 0, 1);
-      if ((MEM_P (op0) || MEM_P (op1)) && !rtx_equal_p (op0, op1))
 	return 0;
     }
 

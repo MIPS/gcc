@@ -16,8 +16,13 @@
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
    License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING3.  If not see
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
 /* Note that some other tm.h files include this one and then override
@@ -254,6 +259,14 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #ifndef HAVE_AS_POPCNTD
 #undef  TARGET_POPCNTD
 #define TARGET_POPCNTD 0
+#endif
+
+/* Define TARGET_LWSYNC_INSTRUCTION if the assembler knows about lwsync.  If
+   not, generate the lwsync code as an integer constant.  */
+#ifdef HAVE_AS_LWSYNC
+#define TARGET_LWSYNC_INSTRUCTION 1
+#else
+#define TARGET_LWSYNC_INSTRUCTION 0
 #endif
 
 /* Define TARGET_TLS_MARKERS if the target assembler does not support
@@ -701,14 +714,7 @@ extern unsigned rs6000_pointer_size;
    local store.  TYPE is the data type, and ALIGN is the alignment
    that the object would ordinarily have.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
-  (((TARGET_ALTIVEC || TARGET_VSX)				\
-    && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :			\
-    (TARGET_E500_DOUBLE						\
-     && TYPE_MODE (TYPE) == DFmode) ? 64 :			\
-    ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE		\
-     && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) || (TARGET_PAIRED_FLOAT \
-        && TREE_CODE (TYPE) == VECTOR_TYPE \
-        && PAIRED_VECTOR_MODE (TYPE_MODE (TYPE)))) ? 64 : ALIGN)
+  DATA_ALIGNMENT (TYPE, ALIGN)
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
@@ -1328,9 +1334,20 @@ extern enum reg_class rs6000_regno_regclass[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) rs6000_regno_regclass[(REGNO)]
 #endif
 
-/* VSX register classes.  */
-extern enum reg_class rs6000_vector_reg_class[];
-extern enum reg_class rs6000_vsx_reg_class;
+/* Register classes for various constraints that are based on the target
+   switches.  */
+enum r6000_reg_class_enum {
+  RS6000_CONSTRAINT_d,		/* fpr registers for double values */
+  RS6000_CONSTRAINT_f,		/* fpr registers for single values */
+  RS6000_CONSTRAINT_v,		/* Altivec registers */
+  RS6000_CONSTRAINT_wa,		/* Any VSX register */
+  RS6000_CONSTRAINT_wd,		/* VSX register for V2DF */
+  RS6000_CONSTRAINT_wf,		/* VSX register for V4SF */
+  RS6000_CONSTRAINT_ws,		/* VSX register for DF */
+  RS6000_CONSTRAINT_MAX
+};
+
+extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
@@ -1868,6 +1885,10 @@ typedef struct rs6000_args
 #define EASY_VECTOR_15_ADD_SELF(n) (!EASY_VECTOR_15((n))	\
 				    && EASY_VECTOR_15((n) >> 1) \
 				    && ((n) & 1) == 0)
+
+#define EASY_VECTOR_MSB(n,mode)						\
+  (((unsigned HOST_WIDE_INT)n) ==					\
+   ((((unsigned HOST_WIDE_INT)GET_MODE_MASK (mode)) + 1) >> 1))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2758,6 +2779,7 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_EXT_V8HI,
   ALTIVEC_BUILTIN_VEC_EXT_V16QI,
   ALTIVEC_BUILTIN_VEC_EXT_V4SF,
+  ALTIVEC_BUILTIN_COPYSIGN_V4SF,
 
   /* Altivec overloaded builtins.  */
   ALTIVEC_BUILTIN_VCMPEQ_P,
@@ -2783,6 +2805,7 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_CMPGT,
   ALTIVEC_BUILTIN_VEC_CMPLE,
   ALTIVEC_BUILTIN_VEC_CMPLT,
+  ALTIVEC_BUILTIN_VEC_COPYSIGN,
   ALTIVEC_BUILTIN_VEC_CTF,
   ALTIVEC_BUILTIN_VEC_CTS,
   ALTIVEC_BUILTIN_VEC_CTU,
@@ -2825,6 +2848,7 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_MTVSCR,
   ALTIVEC_BUILTIN_VEC_MULE,
   ALTIVEC_BUILTIN_VEC_MULO,
+  ALTIVEC_BUILTIN_VEC_NEARBYINT,
   ALTIVEC_BUILTIN_VEC_NMSUB,
   ALTIVEC_BUILTIN_VEC_NOR,
   ALTIVEC_BUILTIN_VEC_OR,
@@ -2835,6 +2859,7 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_PERM,
   ALTIVEC_BUILTIN_VEC_RE,
   ALTIVEC_BUILTIN_VEC_RL,
+  ALTIVEC_BUILTIN_VEC_RINT,
   ALTIVEC_BUILTIN_VEC_ROUND,
   ALTIVEC_BUILTIN_VEC_RSQRTE,
   ALTIVEC_BUILTIN_VEC_SEL,
@@ -2852,6 +2877,7 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_SPLTB,
   ALTIVEC_BUILTIN_VEC_SPLTH,
   ALTIVEC_BUILTIN_VEC_SPLTW,
+  ALTIVEC_BUILTIN_VEC_SQRT,
   ALTIVEC_BUILTIN_VEC_SR,
   ALTIVEC_BUILTIN_VEC_SRA,
   ALTIVEC_BUILTIN_VEC_SRL,
@@ -3256,6 +3282,7 @@ enum rs6000_builtins
   RS6000_BUILTIN_RECIP,
   RS6000_BUILTIN_RECIPF,
   RS6000_BUILTIN_RSQRTF,
+  RS6000_BUILTIN_BSWAP_HI,
 
   /* VSX builtins.  */
   VSX_BUILTIN_LXSDUX,
@@ -3308,6 +3335,8 @@ enum rs6000_builtins
   VSX_BUILTIN_XSRSQRTEDP,
   VSX_BUILTIN_XSSQRTDP,
   VSX_BUILTIN_XSSUBDP,
+  VSX_BUILTIN_CPSGNDP,
+  VSX_BUILTIN_CPSGNSP,
   VSX_BUILTIN_XSTDIVDP_FE,
   VSX_BUILTIN_XSTDIVDP_FG,
   VSX_BUILTIN_XSTSQRTDP_FE,
@@ -3469,7 +3498,6 @@ enum rs6000_builtins
 
   /* Power7 builtins, that aren't VSX instructions.  */
   POWER7_BUILTIN_BPERMD,
-  RS6000_BUILTIN_BSWAP_HI,
 
   RS6000_BUILTIN_COUNT
 };

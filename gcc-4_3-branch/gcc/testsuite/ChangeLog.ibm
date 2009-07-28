@@ -1,3 +1,12 @@
+2009-07-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-builtin-5.c: Include altivec.h, since GCC
+	4.3 doesn't have the automatic vector -> __vector like GCC 4.5
+	does.
+
+	Merge up to power7-meissner branch, id 15066.  See
+	ChangeLog.power7 for more details.
+
 2009-05-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/altivec-6.c: Make sure the result of vec_add
