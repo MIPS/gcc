@@ -2471,6 +2471,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
   gimple_stmt_iterator si;
   edge e;
   edge_iterator ei;
+  bool rename = syms_to_rename && !bitmap_empty_p (syms_to_rename);
 
   mark_block_for_update (bb);
 
@@ -2483,7 +2484,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
       lhs_sym = DECL_P (lhs) ? lhs : SSA_NAME_VAR (lhs);
 
-      if (!symbol_marked_for_renaming (lhs_sym))
+      if (!rename || !symbol_marked_for_renaming (lhs_sym))
 	continue;
 
       mark_def_interesting (lhs_sym, phi, bb, insert_phi_p);
@@ -2509,11 +2510,17 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
       
       stmt = gsi_stmt (si);
 
+      /* If we've turned an addressable name into a gimple reg, we
+	 won't have an USEs of it in debug stmts to mark the stmt for
+	 renaming.  */
+      if (rename && gimple_debug_bind_p (stmt))
+	update_stmt (stmt);
+
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_ALL_USES)
 	{
 	  tree use = USE_FROM_PTR (use_p);
 	  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
-	  if (symbol_marked_for_renaming (sym))
+	  if (rename && symbol_marked_for_renaming (sym))
 	    mark_use_interesting (sym, stmt, bb, insert_phi_p);
 	}
 
@@ -2521,7 +2528,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	{
 	  tree def = DEF_FROM_PTR (def_p);
 	  tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
-	  if (symbol_marked_for_renaming (sym))
+	  if (rename && symbol_marked_for_renaming (sym))
 	    mark_def_interesting (sym, stmt, bb, insert_phi_p);
 	}
     }
