@@ -2020,12 +2020,8 @@ common_handle_option (size_t scode, const char *arg, int value,
       set_debug_level (SDB_DEBUG, false, arg);
       break;
 
-    case OPT_gdwarf_:
-      if (value < 2 || value > 3)
-	error ("dwarf version %d is not supported", value);
-      else
-	dwarf_version = value;
-      set_debug_level (DWARF2_DEBUG, false, "");
+    case OPT_gdwarf_2:
+      set_debug_level (DWARF2_DEBUG, false, arg);
       break;
 
     case OPT_ggdb:

@@ -3347,10 +3347,6 @@ try_split (rtx pat, rtx trial, int last)
   rtx insn_last, insn;
   int njumps = 0;
 
-  /* We're not good at redistributing frame information.  */
-  if (RTX_FRAME_RELATED_P (trial))
-    return trial;
-
   if (any_condjump_p (trial)
       && (note = find_reg_note (trial, REG_BR_PROB, 0)))
     split_branch_probability = INTVAL (XEXP (note, 0));
@@ -5065,9 +5061,6 @@ copy_insn_1 (rtx orig)
   int i, j;
   RTX_CODE code;
   const char *format_ptr;
-
-  if (orig == NULL)
-    return NULL;
 
   code = GET_CODE (orig);
 

@@ -14,11 +14,6 @@
 	* gcc-interface/Makefile.in (aix LIBGNAT_TARGET_PAIRS): Use the
 	64bit system.ads for ppc64 multilib variants.
 
-2009-06-11  Richard Henderson  <rth@redhat.com>
-
-	* gcc-interface/misc.c (gnat_handle_option): Rename
-	OPT_gdwarf_ to OPT_gdwarfplus.
-
 2009-04-22  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/utils2.c (build_binary_op) <PLUS_EXPR>: If operation's

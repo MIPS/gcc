@@ -2399,15 +2399,6 @@ enum ix86_stack_slot
 
 #define FASTCALL_PREFIX '@'
 
-/* Machine specific CFA tracking during prologue/epilogue generation.  */
-
-#ifndef USED_FOR_TARGET
-struct machine_cfa_state GTY(())
-{
-  rtx reg;
-  HOST_WIDE_INT offset;
-};
-
 struct machine_function GTY(())
 {
   struct stack_local_entry *stack_locals;
@@ -2436,9 +2427,7 @@ struct machine_function GTY(())
   /* This value is used for amd64 targets and specifies the current abi
      to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
   int call_abi;
-  struct machine_cfa_state cfa;
 };
-#endif
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
 #define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
@@ -2454,7 +2443,6 @@ struct machine_function GTY(())
    REG_SP is live.  */
 #define ix86_current_function_calls_tls_descriptor \
   (ix86_tls_descriptor_calls_expanded_in_cfun && df_regs_ever_live_p (SP_REG))
-#define ix86_cfa_state (&cfun->machine->cfa)
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false

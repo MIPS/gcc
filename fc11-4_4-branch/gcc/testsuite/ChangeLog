@@ -328,15 +328,6 @@
 	PR c++/40342
 	* g++.dg/template/overload10.C: New.
 
-2009-06-23  Jakub Jelinek  <jakub@redhat.com>
-
-	* g++.dg/ext/builtin-object-size1.C: New test.
-	* g++.dg/ext/builtin-object-size2.C: New test.
-
-2009-06-15  Jakub Jelinek  <jakub@redhat.com>
-
-	* gcc.dg/builtin-object-size-7.c: New test.
-
 2009-06-22  Matthias Klose  <doko@ubuntu.com>
 
 	PR objc/28050
@@ -392,16 +383,6 @@
 	PR middle-end/40446
 	* g++.dg/other/pr40446.C: New test.
 
-2009-06-15  Jakub Jelinek  <jakub@redhat.com>
-
-	PR testsuite/40426
-	* lib/gcc-dg.exp (gcc-dg-debug-runtest): For type -gdwarf-2 and
-	level != "" use separate -gdwarf-2 -g${level} options instead of
-	-gdwarf-2${level}.
-	* lib/gfortran-dg.exp (gfortran-dg-debug-runtest): Likewise.
-	* gfortran.dg/debug/pr37738.f: Also skip if -gdwarf-2 -g1.
-	* gfortran.dg/debug/pr35154-dwarf2.f: Likewise.
-
 2009-06-14  Richard Guenther  <rguenther@suse.de>
 
 	Backport from mainline
@@ -414,12 +395,6 @@
 
 	* gcc.target/i386/crc32-1.c: New.
 	* gcc.target/i386/crc32-2.c: Likewise.
-
-2009-06-08  Jakub Jelinek  <jakub@redhat.com>
-
-	* gcc.dg/builtin-object-size-2.c (test1): Adjust expected results.
-	* gcc.dg/builtin-object-size-4.c (test1): Adjust expected results.
-	* gcc.dg/builtin-object-size-6.c: New test.
 
 2009-05-21  H.J. Lu  <hongjiu.lu@intel.com>
 

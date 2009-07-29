@@ -124,11 +124,13 @@ struct machine_function * (*init_machine_status) (void);
 /* The currently compiled function.  */
 struct function *cfun = 0;
 
-/* These hashes record the prologue and epilogue insns.  */
-static GTY((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
-  htab_t prologue_insn_hash;
-static GTY((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
-  htab_t epilogue_insn_hash;
+/* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
+static VEC(int,heap) *prologue;
+static VEC(int,heap) *epilogue;
+
+/* Array of INSN_UIDs to hold the INSN_UIDs for each sibcall epilogue
+   in this function.  */
+static VEC(int,heap) *sibcall_epilogue;
 
 /* Forward declarations.  */
 
@@ -141,8 +143,8 @@ static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
 /* We always define `record_insns' even if it's not used so that we
    can always export `prologue_epilogue_contains'.  */
-static void record_insns (rtx, rtx, htab_t *) ATTRIBUTE_UNUSED;
-static bool contains (const_rtx, htab_t);
+static void record_insns (rtx, VEC(int,heap) **) ATTRIBUTE_UNUSED;
+static int contains (const_rtx, VEC(int,heap) **);
 #ifdef HAVE_return
 static void emit_return_into_block (basic_block);
 #endif
@@ -205,9 +207,9 @@ free_after_parsing (struct function *f)
 void
 free_after_compilation (struct function *f)
 {
-  prologue_insn_hash = NULL;
-  epilogue_insn_hash = NULL;
-
+  VEC_free (int, heap, prologue);
+  VEC_free (int, heap, epilogue);
+  VEC_free (int, heap, sibcall_epilogue);
   if (crtl->emit.regno_pointer_align)
     free (crtl->emit.regno_pointer_align);
 
@@ -4208,11 +4210,18 @@ init_function_start (tree subr)
     warning (OPT_Waggregate_return, "function returns an aggregate");
 }
 
-/* Make sure all values used by the optimization passes have sane defaults.  */
+/* Make sure all values used by the optimization passes have sane
+   defaults.  */
 unsigned int
 init_function_for_compilation (void)
 {
   reg_renumber = 0;
+
+  /* No prologue/epilogue insns yet.  Make sure that these vectors are
+     empty.  */
+  gcc_assert (VEC_length (int, prologue) == 0);
+  gcc_assert (VEC_length (int, epilogue) == 0);
+  gcc_assert (VEC_length (int, sibcall_epilogue) == 0);
   return 0;
 }
 
@@ -4878,42 +4887,16 @@ get_arg_pointer_save_area (void)
   return ret;
 }
 
-/* Add a list of INSNS to the hash HASHP, possibly allocating HASHP
-   for the first time.  */
+/* Extend a vector that records the INSN_UIDs of INSNS
+   (a list of one or more insns).  */
 
 static void
-record_insns (rtx insns, rtx end, htab_t *hashp)
+record_insns (rtx insns, VEC(int,heap) **vecp)
 {
   rtx tmp;
-  htab_t hash = *hashp;
 
-  if (hash == NULL)
-    *hashp = hash
-      = htab_create_ggc (17, htab_hash_pointer, htab_eq_pointer, NULL);
-
-  for (tmp = insns; tmp != end; tmp = NEXT_INSN (tmp))
-    {
-      void **slot = htab_find_slot (hash, tmp, INSERT);
-      gcc_assert (*slot == NULL);
-      *slot = tmp;
-    }
-}
-
-/* INSN has been duplicated as COPY, as part of duping a basic block.
-   If INSN is an epilogue insn, then record COPY as epilogue as well.  */
-
-void
-maybe_copy_epilogue_insn (rtx insn, rtx copy)
-{
-  void **slot;
-
-  if (epilogue_insn_hash == NULL
-      || htab_find (epilogue_insn_hash, insn) == NULL)
-    return;
-
-  slot = htab_find_slot (epilogue_insn_hash, copy, INSERT);
-  gcc_assert (*slot == NULL);
-  *slot = copy;
+  for (tmp = insns; tmp != NULL_RTX; tmp = NEXT_INSN (tmp))
+    VEC_safe_push (int, heap, *vecp, INSN_UID (tmp));
 }
 
 /* Set the locator of the insn chain starting at INSN to LOC.  */
@@ -4928,34 +4911,49 @@ set_insn_locators (rtx insn, int loc)
     }
 }
 
-/* Determine if any INSNs in HASH are, or are part of, INSN.  Because
-   we can be running after reorg, SEQUENCE rtl is possible.  */
+/* Determine how many INSN_UIDs in VEC are part of INSN.  Because we can
+   be running after reorg, SEQUENCE rtl is possible.  */
 
-static bool
-contains (const_rtx insn, htab_t hash)
+static int
+contains (const_rtx insn, VEC(int,heap) **vec)
 {
-  if (hash == NULL)
-    return false;
+  int i, j;
 
-  if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
+  if (NONJUMP_INSN_P (insn)
+      && GET_CODE (PATTERN (insn)) == SEQUENCE)
     {
-      int i;
+      int count = 0;
       for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
-	if (htab_find (hash, XVECEXP (PATTERN (insn), 0, i)))
-	  return true;
-      return false;
+	for (j = VEC_length (int, *vec) - 1; j >= 0; --j)
+	  if (INSN_UID (XVECEXP (PATTERN (insn), 0, i))
+	      == VEC_index (int, *vec, j))
+	    count++;
+      return count;
     }
-
-  return htab_find (hash, insn) != NULL;
+  else
+    {
+      for (j = VEC_length (int, *vec) - 1; j >= 0; --j)
+	if (INSN_UID (insn) == VEC_index (int, *vec, j))
+	  return 1;
+    }
+  return 0;
 }
 
 int
 prologue_epilogue_contains (const_rtx insn)
 {
-  if (contains (insn, prologue_insn_hash))
+  if (contains (insn, &prologue))
     return 1;
-  if (contains (insn, epilogue_insn_hash))
+  if (contains (insn, &epilogue))
     return 1;
+  return 0;
+}
+
+int
+sibcall_epilogue_contains (const_rtx insn)
+{
+  if (sibcall_epilogue)
+    return contains (insn, &sibcall_epilogue);
   return 0;
 }
 
@@ -5001,7 +4999,7 @@ thread_prologue_and_epilogue_insns (void)
 	emit_use (hard_frame_pointer_rtx);
 
       /* Retain a map of the prologue insns.  */
-      record_insns (seq, NULL, &prologue_insn_hash);
+      record_insns (seq, &prologue);
       emit_note (NOTE_INSN_PROLOGUE_END);
  
 #ifndef PROFILE_BEFORE_PROLOGUE
@@ -5133,38 +5131,6 @@ thread_prologue_and_epilogue_insns (void)
 	}
     }
 #endif
-
-  /* A small fib -- epilogue is not yet completed, but we wish to re-use
-     this marker for the splits of EH_RETURN patterns, and nothing else
-     uses the flag in the meantime.  */
-  epilogue_completed = 1;
-
-#ifdef HAVE_eh_return
-  /* Find non-fallthru edges that end with EH_RETURN instructions.  On
-     some targets, these get split to a special version of the epilogue
-     code.  In order to be able to properly annotate these with unwind
-     info, try to split them now.  If we get a valid split, drop an
-     EPILOGUE_BEG note and mark the insns as epilogue insns.  */
-  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
-    {
-      rtx prev, last, trial;
-
-      if (e->flags & EDGE_FALLTHRU)
-	continue;
-      last = BB_END (e->src);
-      if (!eh_returnjump_p (last))
-	continue;
-
-      prev = PREV_INSN (last);
-      trial = try_split (PATTERN (last), last, 1);
-      if (trial == last)
-	continue;
-
-      record_insns (NEXT_INSN (prev), NEXT_INSN (trial), &epilogue_insn_hash);
-      emit_note_after (NOTE_INSN_EPILOGUE_BEG, prev);
-    }
-#endif
-
   /* Find the edge that falls through to EXIT.  Other edges may exist
      due to RETURN instructions, but those don't need epilogues.
      There really shouldn't be a mixture -- either all should have
@@ -5185,7 +5151,7 @@ thread_prologue_and_epilogue_insns (void)
       emit_jump_insn (seq);
 
       /* Retain a map of the epilogue insns.  */
-      record_insns (seq, NULL, &epilogue_insn_hash);
+      record_insns (seq, &epilogue);
       set_insn_locators (seq, epilogue_locator);
 
       seq = get_insns ();
@@ -5247,7 +5213,6 @@ epilogue_done:
 	}
 
       start_sequence ();
-      emit_note (NOTE_INSN_EPILOGUE_BEG);
       emit_insn (gen_sibcall_epilogue ());
       seq = get_insns ();
       end_sequence ();
@@ -5255,7 +5220,7 @@ epilogue_done:
       /* Retain a map of the epilogue insns.  Used in life analysis to
 	 avoid getting rid of sibcall epilogue insns.  Do this before we
 	 actually emit the sequence.  */
-      record_insns (seq, NULL, &epilogue_insn_hash);
+      record_insns (seq, &sibcall_epilogue);
       set_insn_locators (seq, epilogue_locator);
 
       emit_insn_before (seq, insn);
@@ -5289,29 +5254,23 @@ epilogue_done:
   df_update_entry_exit_and_calls ();
 }
 
-/* Reposition the prologue-end and epilogue-begin notes after
-   instruction scheduling.  */
+/* Reposition the prologue-end and epilogue-begin notes after instruction
+   scheduling and delayed branch scheduling.  */
 
 void
 reposition_prologue_and_epilogue_notes (void)
 {
-#if defined (HAVE_prologue) || defined (HAVE_epilogue) \
-    || defined (HAVE_sibcall_epilogue)
+#if defined (HAVE_prologue) || defined (HAVE_epilogue)
   rtx insn, last, note;
-  basic_block bb;
+  int len;
 
-  /* Since the hash table is created on demand, the fact that it is
-     non-null is a signal that it is non-empty.  */
-  if (prologue_insn_hash != NULL)
+  if ((len = VEC_length (int, prologue)) > 0)
     {
-      size_t len = htab_elements (prologue_insn_hash);
       last = 0, note = 0;
 
-      /* Scan from the beginning until we reach the last prologue insn.  */
-      /* ??? While we do have the CFG intact, there are two problems:
-	 (1) The prologue can contain loops (typically probing the stack),
-	     which means that the end of the prologue isn't in the first bb.
-	 (2) Sometimes the PROLOGUE_END note gets pushed into the next bb.  */
+      /* Scan from the beginning until we reach the last prologue insn.
+	 We apparently can't depend on basic_block_{head,end} after
+	 reorg has run.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
 	  if (NOTE_P (insn))
@@ -5319,7 +5278,7 @@ reposition_prologue_and_epilogue_notes (void)
 	      if (NOTE_KIND (insn) == NOTE_INSN_PROLOGUE_END)
 		note = insn;
 	    }
-	  else if (contains (insn, prologue_insn_hash))
+	  else if (contains (insn, &prologue))
 	    {
 	      last = insn;
 	      if (--len == 0)
@@ -5329,17 +5288,14 @@ reposition_prologue_and_epilogue_notes (void)
 
       if (last)
 	{
-	  if (note == NULL)
+	  /* Find the prologue-end note if we haven't already, and
+	     move it to just after the last prologue insn.  */
+	  if (note == 0)
 	    {
-	      /* Scan forward looking for the PROLOGUE_END note.  It should
-		 be right at the beginning of the block, possibly with other
-		 insn notes that got moved there.  */
-	      for (note = NEXT_INSN (last); ; note = NEXT_INSN (note))
-		{
-		  if (NOTE_P (note)
-		      && NOTE_KIND (note) == NOTE_INSN_PROLOGUE_END)
-		    break;
-		}
+	      for (note = last; (note = NEXT_INSN (note));)
+		if (NOTE_P (note)
+		    && NOTE_KIND (note) == NOTE_INSN_PROLOGUE_END)
+		  break;
 	    }
 
 	  /* Avoid placing note between CODE_LABEL and BASIC_BLOCK note.  */
@@ -5349,39 +5305,41 @@ reposition_prologue_and_epilogue_notes (void)
 	}
     }
 
-  if (epilogue_insn_hash != NULL)
+  if ((len = VEC_length (int, epilogue)) > 0)
     {
-      edge_iterator ei;
-      edge e;
+      last = 0, note = 0;
 
-      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+      /* Scan from the end until we reach the first epilogue insn.
+	 We apparently can't depend on basic_block_{head,end} after
+	 reorg has run.  */
+      for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
 	{
-	  last = 0, note = 0;
-	  bb = e->src;
-
-	  /* Scan from the beginning until we reach the first epilogue insn.
-	     Take the cue for whether this is a plain or sibcall epilogue
-	     from the kind of note we find first.  */
-	  FOR_BB_INSNS (bb, insn)
+	  if (NOTE_P (insn))
 	    {
-	      if (NOTE_P (insn))
-		{
-		  if (NOTE_KIND (insn) == NOTE_INSN_EPILOGUE_BEG)
-		    {
-		      note = insn;
-		      if (last)
-			break;
-		    }
-		}
-	      else if (contains (insn, epilogue_insn_hash))
-		{
-		  last = insn;
-		  if (note != NULL)
-		    break;
-		}
+	      if (NOTE_KIND (insn) == NOTE_INSN_EPILOGUE_BEG)
+		note = insn;
 	    }
-	     
-	  if (last && note && PREV_INSN (last) != note)
+	  else if (contains (insn, &epilogue))
+	    {
+	      last = insn;
+	      if (--len == 0)
+		break;
+	    }
+	}
+
+      if (last)
+	{
+	  /* Find the epilogue-begin note if we haven't already, and
+	     move it to just before the first epilogue insn.  */
+	  if (note == 0)
+	    {
+	      for (note = insn; (note = PREV_INSN (note));)
+		if (NOTE_P (note)
+		    && NOTE_KIND (note) == NOTE_INSN_EPILOGUE_BEG)
+		  break;
+	    }
+
+	  if (PREV_INSN (last) != note)
 	    reorder_insns (note, note, PREV_INSN (last));
 	}
     }

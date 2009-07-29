@@ -869,52 +869,16 @@ returnjump_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
 {
   rtx x = *loc;
 
-  if (x == NULL)
-    return false;
-
-  switch (GET_CODE (x))
-    {
-    case RETURN:
-    case EH_RETURN:
-      return true;
-
-    case SET:
-      return SET_IS_RETURN_P (x);
-
-    default:
-      return false;
-    }
+  return x && (GET_CODE (x) == RETURN
+	       || (GET_CODE (x) == SET && SET_IS_RETURN_P (x)));
 }
-
-/* Return TRUE if INSN is a return jump.  */
 
 int
 returnjump_p (rtx insn)
 {
-  /* Handle delayed branches.  */
-  if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
-    insn = XVECEXP (PATTERN (insn), 0, 0);
-
   if (!JUMP_P (insn))
     return 0;
-
   return for_each_rtx (&PATTERN (insn), returnjump_p_1, NULL);
-}
-
-/* Return true if INSN is a (possibly conditional) return insn.  */
-
-static int
-eh_returnjump_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
-{
-  return *loc && GET_CODE (*loc) == EH_RETURN;
-}
-
-int
-eh_returnjump_p (rtx insn)
-{
-  if (!JUMP_P (insn))
-    return 0;
-  return for_each_rtx (&PATTERN (insn), eh_returnjump_p_1, NULL);
 }
 
 /* Return true if INSN is a jump that only transfers control and

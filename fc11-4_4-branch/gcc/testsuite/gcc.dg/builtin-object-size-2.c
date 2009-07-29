@@ -130,15 +130,15 @@ test1 (void *q, int x)
     abort ();    
   if (__builtin_object_size (&vara[5], 1) != (size_t) -1)
     abort ();
-  if (__builtin_object_size (&vara[0].a, 1) != sizeof (vara[0].a))
+  if (__builtin_object_size (&vara[0].a, 1) != (size_t) -1)
     abort ();
-  if (__builtin_object_size (&vara[10].a[0], 1) != sizeof (vara[0].a))
+  if (__builtin_object_size (&vara[10].a[0], 1) != (size_t) -1)
     abort ();
-  if (__builtin_object_size (&vara[5].a[4], 1) != sizeof (vara[0].a) - 4)
+  if (__builtin_object_size (&vara[5].a[4], 1) != (size_t) -1)
     abort ();
-  if (__builtin_object_size (&vara[5].b, 1) != sizeof (vara[0].b))
+  if (__builtin_object_size (&vara[5].b, 1) != (size_t) -1)
     abort ();
-  if (__builtin_object_size (&vara[7].c[7], 1) != sizeof (vara[0].c) - 7)
+  if (__builtin_object_size (&vara[7].c[7], 1) != (size_t) -1)
     abort ();
   if (__builtin_object_size (zerol, 1) != 0)
     abort ();
