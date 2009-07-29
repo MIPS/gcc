@@ -347,6 +347,37 @@ reserve_phi_args_for_new_edge (basic_block bb)
     }
 }
 
+/* Reserve PHI arguments for BB being duplicated by
+   duplicate_loop_to_header_edge.  */
+
+void
+reserve_phi_args_for_duplication (basic_block bb)
+{
+  /* copy_bbs can duplicate the number of incoming edges.  Independent of that,
+     duplicate_loop_to_header_edge also calls redirect_edge_and_branch_force
+     with the loop header as destination.  */
+  size_t len = 2 * EDGE_COUNT (bb->preds) + 1;
+  size_t cap = ideal_phi_node_len (len + 4);
+  gimple_stmt_iterator gsi;
+
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple *loc = gsi_stmt_ptr (&gsi);
+
+      if (len > gimple_phi_capacity (*loc))
+	{
+	  gimple old_phi = *loc;
+
+	  resize_phi_node (loc, cap);
+
+	  /* The result of the PHI is defined by this PHI node.  */
+	  SSA_NAME_DEF_STMT (gimple_phi_result (*loc)) = *loc;
+
+	  release_phi_node (old_phi);
+	}
+    }
+}
+
 /* Adds PHI to BB.  */
 
 void 

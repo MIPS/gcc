@@ -280,6 +280,10 @@ loop_parallel_p (struct loop *loop, htab_t reduction_list,
   vect_dump = NULL;
   simple_loop_info = vect_analyze_loop_form (loop);
 
+  /* Make sure that the phis that we'll use below as hash keys won't be
+     changed during loop duplication.  */
+  reserve_phi_args_for_duplication (loop->header);
+
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);

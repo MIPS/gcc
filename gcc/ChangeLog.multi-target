@@ -1,3 +1,9 @@
+2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-phinodes.c (reserve_phi_args_for_duplication): New function.
+	* tree-parloops.c (loop_parallel_p): Call it.
+	* tree-flow.h (reserve_phi_args_for_duplication): Declare.
+
 2009-07-27  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* target.h (struct gcc_target): New member optab_table.
