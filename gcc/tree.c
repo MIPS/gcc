@@ -4332,7 +4332,8 @@ free_lang_data_in_decl (tree decl)
 	 enum tree_code code = TREE_CODE (context);
 	 if (code == FUNCTION_DECL && DECL_ABSTRACT (context))
 	   {
-	     DECL_CONTEXT (decl) = NULL_TREE;
+	     /* Do not clear the decl context here, that will promote
+	        all vars to global ones.  */
 	     DECL_INITIAL (decl) = NULL_TREE;
 	   }
 

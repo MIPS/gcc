@@ -1,3 +1,10 @@
+2009-07-29  Richard Guenther  <rguenther@suse.de>
+
+	* tree.c (free_lang_data_in_decl): Do not clear DECL_CONTEXT
+	of variables with abstract function context.
+	* lto-streamer-out.c (lto_output_ts_decl_minimal_tree_pointers):
+	Do not assign names to FIELD_DECLs.
+
 2009-07-24  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @149863.
