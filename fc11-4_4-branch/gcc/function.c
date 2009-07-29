@@ -5297,12 +5297,15 @@ reposition_prologue_and_epilogue_notes (void)
 {
 #if defined (HAVE_prologue) || defined (HAVE_epilogue) \
     || defined (HAVE_sibcall_epilogue)
+  rtx insn, last, note;
+  basic_block bb;
+
   /* Since the hash table is created on demand, the fact that it is
      non-null is a signal that it is non-empty.  */
   if (prologue_insn_hash != NULL)
     {
       size_t len = htab_elements (prologue_insn_hash);
-      rtx insn, last = NULL, note = NULL;
+      last = 0, note = 0;
 
       /* Scan from the beginning until we reach the last prologue insn.  */
       /* ??? While we do have the CFG intact, there are two problems:
@@ -5353,10 +5356,12 @@ reposition_prologue_and_epilogue_notes (void)
 
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
-	  rtx insn, first = NULL, note = NULL;
-	  basic_block bb = e->src;
+	  last = 0, note = 0;
+	  bb = e->src;
 
-	  /* Scan from the beginning until we reach the first epilogue insn. */
+	  /* Scan from the beginning until we reach the first epilogue insn.
+	     Take the cue for whether this is a plain or sibcall epilogue
+	     from the kind of note we find first.  */
 	  FOR_BB_INSNS (bb, insn)
 	    {
 	      if (NOTE_P (insn))
@@ -5364,33 +5369,20 @@ reposition_prologue_and_epilogue_notes (void)
 		  if (NOTE_KIND (insn) == NOTE_INSN_EPILOGUE_BEG)
 		    {
 		      note = insn;
-		      if (first != NULL)
+		      if (last)
 			break;
 		    }
 		}
-	      else if (first == NULL && contains (insn, epilogue_insn_hash))
+	      else if (contains (insn, epilogue_insn_hash))
 		{
-		  first = insn;
+		  last = insn;
 		  if (note != NULL)
 		    break;
 		}
 	    }
-
-	  if (note)
-	    {
-	      /* If the function has a single basic block, and no real
-		 epilogue insns (e.g. sibcall with no cleanup), the 
-		 epilogue note can get scheduled before the prologue
-		 note.  If we have frame related prologue insns, having
-		 them scanned during the epilogue will result in a crash.
-		 In this case re-order the epilogue note to just before
-		 the last insn in the block.  */
-	      if (first == NULL)
-		first = BB_END (bb);
-
-	      if (PREV_INSN (first) != note)
-		reorder_insns (note, note, PREV_INSN (first));
-	    }
+	     
+	  if (last && note && PREV_INSN (last) != note)
+	    reorder_insns (note, note, PREV_INSN (last));
 	}
     }
 #endif /* HAVE_prologue or HAVE_epilogue */

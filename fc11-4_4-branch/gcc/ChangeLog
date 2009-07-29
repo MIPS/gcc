@@ -1,20 +1,3 @@
-2009-07-25  Jakub Jelinek  <jakub@redhat.com>
-
-	PR rtl-optimization/34999
-	* dwarf2out.c (struct dw_fde_struct): Add dw_fde_switch_cfi
-	and dw_fde_switched_cold_to_hot fields.
-	(output_cfi_p): New function.
-	(output_call_frame_info): If fde->dw_fde_switched_sections,
-	output 2 FDEs instead of one with corrupted header.
-	(dwarf2out_do_cfi_startproc): New function.
-	(dwarf2out_begin_prologue): Use it.  Initialize fde->dw_fde_switch_cfi
-	and fde->dw_fde_switched_cold_to_hot.
-	(dwarf2out_switch_text_section): Compute
-	fde->dw_fde_switched_cold_to_hot.  Switch to new text section here.
-	If dwarf2out_do_cfi_asm, emit .cfi_endproc before it and call
-	dwarf2out_do_cfi_startproc plus emit again currently active CFI insns.
-	Otherwise, compute fde->dw_fde_switch_cfi.
-
 2009-07-23  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/40832
@@ -78,9 +61,6 @@
 
 2009-07-20  Jakub Jelinek  <jakub@redhat.com>
 
-	* tree-object-size.c (addr_object_size): Handle unions with
-	array in it as last field of structs in __bos (, 1) as __bos (, 0).
-
 	PR tree-optimization/40792
 	* tree.c (build_function_type_skip_args): Remove bogus assert.
 
@@ -128,14 +108,6 @@
 	MEM_OFFSET (data->stack_parm) if promoted_mode is different
 	from nominal_mode on big endian.
 
-2009-07-08  Mark Wielaard  <mjw@redhat.com>
-
-	PR debug/40659
-	* dwarf2out.c (add_data_member_location_attribute): When we have
-	only a constant offset don't emit a new location description using
-	DW_OP_plus_uconst, but just add the constant with add_AT_int, when
-	dwarf_version > 2.
-
 2009-07-08  Richard Henderson  <rth@redhat.com>
 
 	PR target/38900
@@ -158,13 +130,6 @@
 	* dbxout.c (dbxout_symbol) <PARM_DECL>: Deal with parameters pointing
 	to variables for debugging purposes.
 
-2009-07-04  Jakub Jelinek  <jakub@redhat.com>
-
-	PR debug/40596
-	* dwarf2out.c (based_loc_descr): For crtl->stack_realign_tried
-	don't check cfa.reg.  Instead of cfa.indirect use
-	fde && fde->drap_reg != INVALID_REGNUM test.
-
 2009-07-03  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/34163
@@ -172,18 +137,6 @@
 	(T2)t +- (T2)x if t +- x is known to not overflow and
 	the conversion widens the operation.
 	* Makefile.in (tree-chrec.o): Add $(FLAGS_H) dependency.
-
-2009-07-01  Richard Henderson  <rth@redhat.com>
-
-	PR bootstrap/40347
-	* function.c (reposition_prologue_and_epilogue_notes): If epilogue
-	contained no insns, reposition note before last insn.
-
-2009-07-01  Jakub Jelinek  <jakub@redhat.com>
-
-	PR debug/40462
-	* jump.c (returnjump_p): Revert last patch.
-	* dwarf2out.c (dwarf2out_begin_epilogue): Handle SEQUENCEs.
 
 2009-06-30  Jakub Jelinek  <jakub@redhat.com>
 

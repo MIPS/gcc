@@ -4302,7 +4302,6 @@ extern void adjust_clone_args			(tree);
 /* decl.c */
 extern tree poplevel				(int, int, int);
 extern void insert_block			(tree);
-extern tree get_anonymous_namespace_name	(void);
 extern tree pushdecl				(tree);
 extern tree pushdecl_maybe_friend		(tree, bool);
 extern void cxx_init_decl_processing		(void);
@@ -5032,7 +5031,7 @@ extern tree merge_exception_specifiers		(tree, tree);
 /* in mangle.c */
 extern void init_mangle				(void);
 extern void mangle_decl				(tree);
-extern const char *mangle_type_string_for_rtti	(tree);
+extern const char *mangle_type_string		(tree);
 extern tree mangle_typeinfo_for_type		(tree);
 extern tree mangle_typeinfo_string_for_type	(tree);
 extern tree mangle_vtbl_for_type		(tree);
