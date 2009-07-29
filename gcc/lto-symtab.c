@@ -572,8 +572,10 @@ lto_symtab_merge_decl (tree new_decl,
   if (!lto_symtab_compatible (old_decl, new_decl))
     return;
 
-  /* Merge decl state.  */
+  /* Merge decl state in both directions, we may still end up using
+     the new decl.  */
   TREE_ADDRESSABLE (old_decl) |= TREE_ADDRESSABLE (new_decl);
+  TREE_ADDRESSABLE (new_decl) |= TREE_ADDRESSABLE (old_decl);
 
   old_resolution = lto_symtab_get_resolution (old_decl);
   gcc_assert (resolution != LDPR_UNKNOWN
