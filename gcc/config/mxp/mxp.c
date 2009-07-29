@@ -721,6 +721,11 @@ mxp_valid_target_attribute_inner_p (tree arg,
       target_flags |= MASK_HALFPIC_R0;
       return true;
     }
+  if (strcmp (name, "no-immediate") == 0)
+    {
+      target_flags |= MASK_NO_IMMEDIATE;
+      return true;
+    }
   return false;
 }
 
@@ -846,6 +851,34 @@ mxp_prescan_operand (rtx op, mxp_prescan_data *data)
 	   && GET_CODE (XEXP (op, 0)) == LABEL_REF
 	   && GET_CODE (XEXP (op, 1)) == LABEL_REF)
     ; /* Do nothing.  */
+  else if (GET_CODE (op) == MEM)
+    ; /* Do nothing.  */
+  else if (GET_CODE (op) == SYMBOL_REF
+	   || GET_CODE (op) == CONST_DOUBLE
+	   || ((GET_CODE (op) == PLUS || GET_CODE (op) == MINUS)
+	       && (GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+		   || GET_CODE (XEXP (op, 0)) == CONST_DOUBLE)
+	       && CONSTANT_P (XEXP (op, 1)))
+	   || (GET_CODE (op) == CONST_INT
+	       && (INTVAL (op) < -1 << 14
+		   || INTVAL (op) > 1 << 14 - 1
+		   || (TARGET_NO_IMMEDIATE && INTVAL (op) != 0))))
+    {
+      rtx xop[2];
+      int regno;
+      const char *tmpl;
+
+      gcc_assert (data->reg <= data->mreg);
+      regno = data->reg++;
+      xop[0] = gen_rtx_UNSPEC (GET_MODE (op), gen_rtvec (1, GEN_INT (regno)),
+			       MXP_UNSPEC_CORE_REG);
+      xop[1] = op;
+      tmpl = "mov %0, %1";
+      if (regno <= 7 || regno == 12)
+	tmpl = "mov_s %0,%1";
+      output_asm_insn (tmpl, xop);
+      op = xop[0];
+    }
   else
     {
       int i;

@@ -1322,8 +1322,8 @@
 (define_insn "simd_dma_in"
   [(set (reg:CC_BLK SDM)
 	(unspec [(reg:CC_BLK SDM)
-		 (mem:BLK (match_operand:SI 1 "nonmemory_operand"))
-		 (match_operand 0 "nonmemory_operand")
+		 (mem:BLK (match_operand:SI 1 "mxp_addr_operand"))
+		 (match_operand 0 "mxp_addr_operand")
 		 (match_operand 2 "immediate_operand")
 		 (match_operand 3 "immediate_operand")]
 	 UNSPEC_ARC_SIMD_DMA))]
@@ -1334,9 +1334,9 @@
 ;; copy SDM starting at operand 0 to main memory starting at operand 1;
 ;; transfer size is operand 2.
 (define_insn "simd_dma_out"
-  [(set (mem:BLK (match_operand:SI 1 "nonmemory_operand"))
+  [(set (mem:BLK (match_operand:SI 1 "mxp_addr_operand"))
 	(unspec [(reg:CC_BLK SDM)
-		 (match_operand 0 "nonmemory_operand")
+		 (match_operand 0 "mxp_addr_operand")
 		 (match_operand 2 "immediate_operand")
 		 (match_operand 3 "immediate_operand")]
 	 UNSPEC_ARC_SIMD_DMA))]
@@ -1358,7 +1358,8 @@
 		 (reg:CC_BLK SDM)]
 	 UNSPEC_ARC_SIMD_DMA))
    (clobber (reg:SI 0))
-   (clobber (reg:SI 12))]
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 31))]
   "TARGET_SIMD_SET"
   "*
 {

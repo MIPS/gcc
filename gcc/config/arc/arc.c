@@ -9212,7 +9212,16 @@ arc_alloc_task_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
                      build_tree_list (NULL_TREE,
                                       build_string (strlen (attrib_name),
 						    attrib_name)));
+  /* ??? The assembler doesn't work right.  */
+  attrib_name = "no-immediate";
   decl_attributes (&fn, fn_attrib, 0);
+  fn_attrib =
+    build_tree_list (get_identifier ("target"),
+                     build_tree_list (NULL_TREE,
+                                      build_string (strlen (attrib_name),
+						    attrib_name)));
+  decl_attributes (&fn, fn_attrib, 0);
+
 
   ct = TREE_TYPE (copy);
   gcc_assert (TREE_CODE (ct) == POINTER_TYPE);

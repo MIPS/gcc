@@ -773,3 +773,12 @@
     }
   return true;
 })
+
+(define_special_predicate "mxp_addr_operand"
+  (match_code "reg,subreg,const,const_int,plus,symbol_ref")
+{
+  if (TARGET_MXP_LIMM)
+    return nonmemory_operand (op, mode);
+  else
+    return register_operand (op, mode);
+})

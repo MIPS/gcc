@@ -1,3 +1,17 @@
+2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/mxp.c (mxp_valid_target_attribute_inner_p):
+	Accept no-immediate attribute.
+	(mxp_prescan_operand): Also handle constants.  Skip MEMs.
+	* config/mxp/mxp.opt (-mno-immediate): New option.
+	* config/arc/predicates.md (mxp_addr_operand): New special predicate.
+	* config/arc/arc.c (arc_alloc_task_on_target):
+	Add no-immediate attribute.
+	* config/arc/arc.opt (mxp-limm): New option.
+	* config/arc/simdext.md (simd_dma_in): Use mxp_addr_operand predicate.
+	(simd_dma_out): Likewise.
+	(simd_call): Add clobber of blink.
+
 2009-07-22  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.md (MXP_UNSPEC_CORE_REG): Define constant.

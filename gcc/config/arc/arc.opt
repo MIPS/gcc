@@ -290,3 +290,7 @@ Use incorrect values at your peril.
 mvdmawait-arg1=
 Target RejectNegative Joined UInteger Var(arc_vdmawait_arg1) Init(1)
 Use incorrect values at your peril.
+
+mxp-limm
+Target Var(TARGET_MXP_LIMM)
+Allow immediate values for mxp instructions.
