@@ -130,8 +130,6 @@ typedef struct GTY(()) machine_function
      64-bits wide and is allocated early enough so that the offset
      does not overflow the 16-bit load/store offset field.  */
   rtx sdmode_stack_slot;
-  /* Whether an indirect jump or table jump was generated.  */
-  bool indirect_jump_p;
 } machine_function;
 
 /* Target cpu type */
@@ -3134,57 +3132,11 @@ rs6000_builtin_vectorized_function (unsigned int fn, tree type_out,
           && in_mode == SFmode && in_n == 4)
         return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIC];
       break;
-    case BUILT_IN_FABS:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVABSDP];
-      break;
-    case BUILT_IN_FABSF:
-      if (out_mode != SFmode || out_n != 4
-	  || in_mode != SFmode || in_n != 4)
-	break;
-      if (VECTOR_UNIT_VSX_P (V4SFmode))
-	return rs6000_builtin_decls[VSX_BUILTIN_XVABSSP];
-      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
-	return rs6000_builtin_decls[ALTIVEC_BUILTIN_ABS_V4SF];
-      break;
-    case BUILT_IN_FMAX:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVMAXDP];
-      break;
-    case BUILT_IN_FMAXF:
-      if (out_mode != SFmode || out_n != 4
-	  || in_mode != SFmode || in_n != 4)
-	break;
-      if (VECTOR_UNIT_VSX_P (V4SFmode))
-	return rs6000_builtin_decls[VSX_BUILTIN_XVMAXSP];
-      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
-	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VMAXFP];
-      break;
-    case BUILT_IN_FMIN:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVMINDP];
-      break;
-    case BUILT_IN_FMINF:
-      if (out_mode != SFmode || out_n != 4
-	  || in_mode != SFmode || in_n != 4)
-	break;
-      if (VECTOR_UNIT_VSX_P (V4SFmode))
-	return rs6000_builtin_decls[VSX_BUILTIN_XVMINSP];
-      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
-	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VMINFP];
-      break;
     default:
-      ;
+      break;
     }
   return NULL_TREE;
 }
-
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -8851,6 +8803,18 @@ static const struct builtin_description bdesc_2arg[] =
 
   { MASK_VSX, CODE_FOR_nothing, "__builtin_vec_mul", VSX_BUILTIN_VEC_MUL },
   { MASK_VSX, CODE_FOR_nothing, "__builtin_vec_div", VSX_BUILTIN_VEC_DIV },
+
+  { 0, CODE_FOR_divv2sf3, "__builtin_paired_divv2sf3", PAIRED_BUILTIN_DIVV2SF3 },
+  { 0, CODE_FOR_addv2sf3, "__builtin_paired_addv2sf3", PAIRED_BUILTIN_ADDV2SF3 },
+  { 0, CODE_FOR_subv2sf3, "__builtin_paired_subv2sf3", PAIRED_BUILTIN_SUBV2SF3 },
+  { 0, CODE_FOR_mulv2sf3, "__builtin_paired_mulv2sf3", PAIRED_BUILTIN_MULV2SF3 },
+  { 0, CODE_FOR_paired_muls0, "__builtin_paired_muls0", PAIRED_BUILTIN_MULS0 },
+  { 0, CODE_FOR_paired_muls1, "__builtin_paired_muls1", PAIRED_BUILTIN_MULS1 },
+  { 0, CODE_FOR_paired_merge00, "__builtin_paired_merge00", PAIRED_BUILTIN_MERGE00 },
+  { 0, CODE_FOR_paired_merge01, "__builtin_paired_merge01", PAIRED_BUILTIN_MERGE01 },
+  { 0, CODE_FOR_paired_merge10, "__builtin_paired_merge10", PAIRED_BUILTIN_MERGE10 },
+  { 0, CODE_FOR_paired_merge11, "__builtin_paired_merge11", PAIRED_BUILTIN_MERGE11 },
+>>>>>>> .merge-right.r150272
 
   { MASK_PAIRED_FLOAT, CODE_FOR_divv2sf3, "__builtin_paired_divv2sf3", PAIRED_BUILTIN_DIVV2SF3 },
   { MASK_PAIRED_FLOAT, CODE_FOR_addv2sf3, "__builtin_paired_addv2sf3", PAIRED_BUILTIN_ADDV2SF3 },
@@ -25187,26 +25151,6 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 		    "emitting conditional microcode insn %s\t[%s] #%d",
 		    temp, insn_data[INSN_CODE (insn)].name, INSN_UID (insn));
     }
-}
-
-/* Return true if the function has an indirect jump or a table jump.  The compiler
-   prefers the ctr register for such jumps, which interferes with using the decrement
-   ctr register and branch.  */
-
-bool
-rs6000_has_indirect_jump_p (void)
-{
-  gcc_assert (cfun && cfun->machine);
-  return cfun->machine->indirect_jump_p;
-}
-
-/* Remember when we've generated an indirect jump.  */
-
-void
-rs6000_set_indirect_jump (void)
-{
-  gcc_assert (cfun && cfun->machine);
-  cfun->machine->indirect_jump_p = true;
 }
 
 #include "gt-rs6000.h"

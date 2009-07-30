@@ -32,7 +32,6 @@ with Errout;   use Errout;
 with Exp_Aggr; use Exp_Aggr;
 with Exp_Ch6;  use Exp_Ch6;
 with Exp_Ch7;  use Exp_Ch7;
-with Exp_Disp; use Exp_Disp;
 with Inline;   use Inline;
 with Itypes;   use Itypes;
 with Lib;      use Lib;
@@ -44,6 +43,7 @@ with Rident;   use Rident;
 with Sem;      use Sem;
 with Sem_Aux;  use Sem_Aux;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_SCIL; use Sem_SCIL;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Type; use Sem_Type;
@@ -1321,12 +1321,14 @@ package body Exp_Util is
          Rewrite (Subtype_Indic, New_Reference_To (T, Loc));
 
       --  nothing needs to be done for private types with unknown discriminants
-      --  if the underlying type is not an unconstrained composite type.
+      --  if the underlying type is not an unconstrained composite type or it
+      --  is an unchecked union.
 
       elsif Is_Private_Type (Unc_Type)
         and then Has_Unknown_Discriminants (Unc_Type)
         and then (not Is_Composite_Type (Underlying_Type (Unc_Type))
-                    or else Is_Constrained (Underlying_Type (Unc_Type)))
+                  or else Is_Constrained (Underlying_Type (Unc_Type))
+                  or else Is_Unchecked_Union (Underlying_Type (Unc_Type)))
       then
          null;
 

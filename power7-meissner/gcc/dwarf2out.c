@@ -97,11 +97,19 @@ static rtx last_var_location_insn;
 #endif
 
 #ifdef VMS_DEBUGGING_INFO
+int vms_file_stats_name (const char *, long long *, long *, char *, int *);
+
 /* Define this macro to be a nonzero value if the directory specifications
     which are output in the debug info should end with a separator.  */
 #define DWARF2_DIR_SHOULD_END_WITH_SEPARATOR 1
+/* Define this macro to evaluate to a nonzero value if GCC should refrain
+   from generating indirect strings in DWARF2 debug information, for instance
+   if your target is stuck with an old version of GDB that is unable to
+   process them properly or uses VMS Debug.  */
+#define DWARF2_INDIRECT_STRING_SUPPORT_MISSING_ON_TARGET 1
 #else
 #define DWARF2_DIR_SHOULD_END_WITH_SEPARATOR 0
+#define DWARF2_INDIRECT_STRING_SUPPORT_MISSING_ON_TARGET 0
 #endif
 
 #ifndef DWARF2_FRAME_INFO
@@ -6705,8 +6713,9 @@ AT_string_form (dw_attr_ref a)
   /* If we cannot expect the linker to merge strings in .debug_str
      section, only put it into .debug_str if it is worth even in this
      single module.  */
-  if ((debug_str_section->common.flags & SECTION_MERGE) == 0
-      && (len - DWARF_OFFSET_SIZE) * node->refcount <= len)
+  if (DWARF2_INDIRECT_STRING_SUPPORT_MISSING_ON_TARGET
+      || ((debug_str_section->common.flags & SECTION_MERGE) == 0
+      && (len - DWARF_OFFSET_SIZE) * node->refcount <= len))
     return node->form = DW_FORM_string;
 
   ASM_GENERATE_INTERNAL_LABEL (label, "LASF", dw2_string_counter);
@@ -9629,6 +9638,42 @@ output_file_names (void)
       int file_idx = backmap[i];
       int dir_idx = dirs[files[file_idx].dir_idx].dir_idx;
 
+#ifdef VMS_DEBUGGING_INFO
+#define MAX_VMS_VERSION_LEN 6 /* ";32768" */
+
+      /* Setting these fields can lead to debugger miscomparisons,
+         but VMS Debug requires them to be set correctly.  */
+
+      int ver;
+      long long cdt;
+      long siz;
+      int maxfilelen = strlen (files[file_idx].path)
+			       + dirs[dir_idx].length
+			       + MAX_VMS_VERSION_LEN + 1;
+      char *filebuf = XALLOCAVEC (char, maxfilelen);
+
+      vms_file_stats_name (files[file_idx].path, 0, 0, 0, &ver);
+      snprintf (filebuf, maxfilelen, "%s;%d",
+	        files[file_idx].path + dirs[dir_idx].length, ver);
+
+      dw2_asm_output_nstring
+	(filebuf, -1, "File Entry: 0x%x", (unsigned) i + 1);
+
+      /* Include directory index.  */
+      dw2_asm_output_data_uleb128 (dir_idx + idx_offset, NULL);
+
+      /* Modification time.  */
+      dw2_asm_output_data_uleb128
+        ((vms_file_stats_name (files[file_idx].path, &cdt, 0, 0, 0) == 0)
+	  ? cdt : 0,
+	 NULL);
+
+      /* File length in bytes.  */
+      dw2_asm_output_data_uleb128
+        ((vms_file_stats_name (files[file_idx].path, 0, &siz, 0, 0) == 0)
+      	  ? siz : 0,
+	 NULL);
+#else
       dw2_asm_output_nstring (files[file_idx].path + dirs[dir_idx].length, -1,
 			      "File Entry: 0x%x", (unsigned) i + 1);
 
@@ -9640,6 +9685,7 @@ output_file_names (void)
 
       /* File length in bytes.  */
       dw2_asm_output_data_uleb128 (0, NULL);
+#endif
     }
 
   dw2_asm_output_data (1, 0, "End file name table");
@@ -13302,7 +13348,7 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
     {
       add_AT_addr (die, DW_AT_VMS_rtnbeg_pd_address,
 		   XEXP (DECL_RTL (decl), 0));
-      VEC_safe_push (tree, gc, used_rtx_array, XEXP (DECL_RTL (decl), 0));
+      VEC_safe_push (rtx, gc, used_rtx_array, XEXP (DECL_RTL (decl), 0));
     }
 #endif
 }

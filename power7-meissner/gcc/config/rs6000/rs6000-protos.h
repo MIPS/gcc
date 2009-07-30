@@ -177,8 +177,6 @@ extern int rs6000_register_move_cost (enum machine_mode,
 				      enum reg_class, enum reg_class);
 extern int rs6000_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern bool rs6000_tls_referenced_p (rtx);
-extern bool rs6000_has_indirect_jump_p (void);
-extern void rs6000_set_indirect_jump (void);
 extern void rs6000_conditional_register_usage (void);
 
 /* Declare functions in rs6000-c.c */

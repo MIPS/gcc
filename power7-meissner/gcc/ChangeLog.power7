@@ -1,3 +1,23 @@
+2009-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Sync up to mainline, id 150272 (which includes all of the power7
+	work to date).
+
+	* config/rs6000/rs6000.md (indirect_jump): Eliminate code which
+	disabled using branch on CTR registers if there was a switch
+	statement or indirect jump.
+	(tablejump): Ditto.
+	(doloop_end): Ditto.
+
+	* config/rs6000/rs6000-protos.h (rs6000_has_indirect_jump_p):
+	Delete, no longer used.
+	(rs6000_set_indirect_jump): Ditto.
+
+	* config/rs6000/rs6000.c (struct machine_function): Eliminate
+	indirect_jump_p field.
+	(rs6000_has_indirect_jump_p): Delete, no longer used.
+	(rs6000_set_indirect_jump): Ditto.
+
 2009-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Sync up to mainline, id 150177.
