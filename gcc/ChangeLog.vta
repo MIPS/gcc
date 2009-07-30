@@ -1,3 +1,8 @@
+2009-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (add_const_value_attribute): If CONST wraps
+	a constant, tail recurse.
+
 2009-07-30  Alexandre Oliva  <aoliva@redhat.com>
 
 	Merged with trunk@150235.

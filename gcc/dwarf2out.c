@@ -12608,9 +12608,15 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
       add_AT_string (die, DW_AT_const_value, XSTR (rtl, 0));
       break;
 
+    case CONST:
+      if (CONSTANT_P (XEXP (rtl, 0)))
+	{
+	  add_const_value_attribute (die, XEXP (rtl, 0));
+	  return;
+	}
+      /* FALLTHROUGH */
     case SYMBOL_REF:
     case LABEL_REF:
-    case CONST:
       add_AT_addr (die, DW_AT_const_value, rtl);
       VEC_safe_push (rtx, gc, used_rtx_array, rtl);
       break;
