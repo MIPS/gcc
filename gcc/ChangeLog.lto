@@ -1,5 +1,15 @@
 2009-07-30  Richard Guenther  <rguenther@suse.de>
 
+	PR lto/40903
+	* lto-symtab.c (lto_symtab_compatible): Only warn for mismatched
+	types.
+	(lto_symtab_merge_decl): For decls we cannot merge chain them
+	appropriately in the symtab entry.
+	(lto_symtab_prevailing_decl): Return a matching entry from the
+	symtab chain.
+
+2009-07-30  Richard Guenther  <rguenther@suse.de>
+
 	* lto-symtab.c (lto_symtab_compatible): Use inform for printing
 	the previous declaration location.
 	(lto_symtab_merge_decl): Move error on incompatible symbol types

@@ -1588,6 +1588,53 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 
   lto_fixup_decls (all_file_decl_data);
 
+  /* See if we have multiple decls for a symbol and choose the largest
+     one to generate the common.  */
+  for (i = 0; i < VEC_length (tree, lto_global_var_decls); ++i)
+    {
+      tree decl = VEC_index (tree, lto_global_var_decls, i);
+      tree prev_decl = NULL_TREE;
+      tree size;
+
+      if (TREE_CODE (decl) != VAR_DECL
+	  || !TREE_CHAIN (decl))
+	continue;
+
+      /* Find the preceeding decl of the largest one.  */
+      size = DECL_SIZE (decl);
+      do
+	{
+	  if (tree_int_cst_lt (size, DECL_SIZE (TREE_CHAIN (decl))))
+	    {
+	      size = DECL_SIZE (TREE_CHAIN (decl));
+	      prev_decl = decl;
+	    }
+	  decl = TREE_CHAIN (decl);
+	}
+      while (TREE_CHAIN (decl));
+
+      /* If necessary move the largest decl to the front of the
+	 chain.  */
+      if (prev_decl != NULL_TREE)
+	{
+	  decl = TREE_CHAIN (prev_decl);
+	  TREE_CHAIN (prev_decl) = TREE_CHAIN (decl);
+	  TREE_CHAIN (decl) = VEC_index (tree, lto_global_var_decls, i);
+	  VEC_replace (tree, lto_global_var_decls, i, decl);
+	}
+
+      /* Mark everything apart from the first var as written out and
+         unlink the chain.  */
+      decl = VEC_index (tree, lto_global_var_decls, i);
+      while (TREE_CHAIN (decl))
+	{
+	  tree next = TREE_CHAIN (decl);
+	  TREE_CHAIN (decl) = NULL_TREE;
+	  decl = next;
+	  TREE_ASM_WRITTEN (decl) = true;
+	}
+    }
+
   /* FIXME lto. This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */
   if (!errorcount)

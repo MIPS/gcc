@@ -1,3 +1,10 @@
+2009-07-30  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/40903
+	* lto.c (read_cgraph_and_symbols): After fixing up decls choose
+	the largest decl for output and free TREE_CHAIN for further
+	use.
+
 2009-07-24  Diego Novillo  <dnovillo@google.com>
 
 	* Make-lang.in: Add empty lto.install-plugin target.

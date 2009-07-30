@@ -229,7 +229,7 @@ external_aggregate_decl_p (tree decl)
 /* Check if OLD_DECL and NEW_DECL are compatible. */
 
 static bool
-lto_symtab_compatible (tree old_decl, tree new_decl)
+lto_symtab_compatible (tree old_decl, tree new_decl, bool do_warn)
 {
   tree merged_type = NULL_TREE;
   tree merged_result = NULL_TREE;
@@ -321,11 +321,14 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 
       if (!merged_type)
 	{
-	  error_at (DECL_SOURCE_LOCATION (new_decl),
-		    "type of %qD does not match original declaration",
-		    new_decl);
-	  inform (DECL_SOURCE_LOCATION (old_decl),
-		  "previously declared here");
+	  if (do_warn)
+	    {
+	      warning_at (DECL_SOURCE_LOCATION (new_decl), 0,
+			  "type of %qD does not match original declaration",
+			  new_decl);
+	      inform (DECL_SOURCE_LOCATION (old_decl),
+		      "previously declared here");
+	    }
 	  return false;
 	}
     }
@@ -542,6 +545,8 @@ lto_symtab_merge_decl (tree new_decl,
 
   gcc_assert (TREE_PUBLIC (new_decl));
 
+  gcc_assert (TREE_CHAIN (new_decl) == NULL_TREE);
+
   /* Check that declarations reaching this function do not have
      properties inconsistent with having external linkage.  If any of
      these asertions fail, then the object file reader has failed to
@@ -585,9 +590,20 @@ lto_symtab_merge_decl (tree new_decl,
 	}
     }
 
-  /* The linker may ask us to combine two incompatible symbols. */
-  if (!lto_symtab_compatible (old_decl, new_decl))
-    return;
+  /* The linker may ask us to combine two incompatible symbols.
+     Find a decl we can merge with or chain it in the list of decls
+     for that symbol.  */
+  while (old_decl
+	 && !lto_symtab_compatible (old_decl, new_decl, true))
+    old_decl = TREE_CHAIN (old_decl);
+  if (!old_decl)
+    {
+      old_decl = lto_symtab_get_identifier_decl (name);
+      while (TREE_CHAIN (old_decl) != NULL_TREE)
+	old_decl = TREE_CHAIN (old_decl);
+      TREE_CHAIN (old_decl) = new_decl;
+      return;
+    }
 
   /* Merge decl state in both directions, we may still end up using
      the new decl.  */
@@ -602,10 +618,21 @@ lto_symtab_merge_decl (tree new_decl,
   if (resolution == LDPR_PREVAILING_DEF
       || resolution == LDPR_PREVAILING_DEF_IRONLY)
     {
+      tree decl;
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR
 		  || old_resolution ==  LDPR_RESOLVED_IR
 		  || (old_resolution == resolution && !flag_no_common));
-      lto_symtab_set_identifier_decl (name, new_decl);
+      TREE_CHAIN (new_decl) = TREE_CHAIN (old_decl);
+      TREE_CHAIN (old_decl) = NULL_TREE;
+      decl = lto_symtab_get_identifier_decl (name);
+      if (decl == old_decl)
+	{
+	  lto_symtab_set_identifier_decl (name, new_decl);
+	  return;
+	}
+      while (TREE_CHAIN (decl) != old_decl)
+	decl = TREE_CHAIN (decl);
+      TREE_CHAIN (decl) = new_decl;
       return;
     }
 
@@ -665,9 +692,23 @@ lto_symtab_prevailing_decl (tree decl)
   /* Ensure DECL_ASSEMBLER_NAME will not set assembler name.  */
   gcc_assert (DECL_ASSEMBLER_NAME_SET_P (decl));
 
+  /* Walk through the list of candidates and return the one we merged to.  */
   ret = lto_symtab_get_identifier_decl (DECL_ASSEMBLER_NAME (decl));
+  if (!ret
+      || TREE_CHAIN (ret) == NULL_TREE)
+    return ret;
 
-  return ret;
+  /* If there are multiple decls to choose from find the one we merged
+     with and return that.  */
+  while (ret)
+    {
+      if (lto_symtab_compatible (decl, ret, false))
+	return ret;
+
+      ret = TREE_CHAIN (ret);
+    }
+
+  gcc_unreachable ();
 }
 
 /* Return the hash table entry of DECL. */
