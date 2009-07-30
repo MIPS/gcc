@@ -1227,6 +1227,14 @@ One use of this macro is to increase alignment of medium-size data to
 make it all fit in fewer cache lines.
 @end defmac
 
+@defmac MINIMUM_ALIGNMENT (@var{exp}, @var{mode}, @var{align})
+If defined, a C expression to compute the minimum required alignment
+for dynamic stack realignment purposes for @var{exp} (a type or decl),
+@var{mode}, assuming normal alignment @var{align}.
+
+If this macro is not defined, then @var{align} will be used.
+@end defmac
+
 @defmac EMPTY_FIELD_BOUNDARY
 Alignment in bits to be given to a structure bit-field that follows an
 empty field such as @code{int : 0;}.
@@ -2904,6 +2912,10 @@ classes covering all hard registers used for register allocation
 purposes.  If a move between two registers in the same cover class is
 possible, it should be cheaper than a load or store of the registers.
 The array is terminated by a @code{LIM_REG_CLASSES} element.
+
+The order of cover classes in the array is important.  If two classes
+have the same cost of usage for a pseudo, the class occurred first in
+the array is chosen for the pseudo.
 
 This hook is called once at compiler startup, after the command-line
 options have been processed. It is then re-examined by every call to

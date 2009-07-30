@@ -64,6 +64,11 @@ package Sem_Ch3 is
    --  the signature of the implicit type works like the profile of a regular
    --  subprogram.
 
+   procedure Add_Internal_Interface_Entities (Tagged_Type : Entity_Id);
+   --  Add to the list of primitives of Tagged_Type the internal entities
+   --  associated with covered interface primitives. These entities link the
+   --  interface primitives with the tagged type primitives that cover them.
+
    procedure Analyze_Declarations (L : List_Id);
    --  Called to analyze a list of declarations (in what context ???). Also
    --  performs necessary freezing actions (more description needed ???)
@@ -78,6 +83,21 @@ package Sem_Ch3 is
 
    procedure Access_Type_Declaration (T : Entity_Id; Def : Node_Id);
    --  Process an access type declaration
+
+   procedure Build_Itype_Reference
+     (Ityp : Entity_Id;
+      Nod  : Node_Id);
+   --  Create a reference to an internal type, for use by Gigi. The back-end
+   --  elaborates itypes on demand, i.e. when their first use is seen. This
+   --  can lead to scope anomalies if the first use is within a scope that is
+   --  nested within the scope that contains  the point of definition of the
+   --  itype. The Itype_Reference node forces the elaboration of the itype
+   --  in the proper scope. The node is inserted after Nod, which is the
+   --  enclosing declaration that generated Ityp.
+   --
+   --  A related mechanism is used during expansion, for itypes created in
+   --  branches of conditionals. See Ensure_Defined in exp_util.
+   --  Could both mechanisms be merged ???
 
    procedure Check_Abstract_Overriding (T : Entity_Id);
    --  Check that all abstract subprograms inherited from T's parent type

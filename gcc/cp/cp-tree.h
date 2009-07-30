@@ -494,6 +494,8 @@ typedef enum cp_trait_kind
   CPTK_IS_ENUM,
   CPTK_IS_POD,
   CPTK_IS_POLYMORPHIC,
+  CPTK_IS_STD_LAYOUT,
+  CPTK_IS_TRIVIAL,
   CPTK_IS_UNION
 } cp_trait_kind;
 
@@ -1124,6 +1126,7 @@ struct GTY(()) lang_type_class {
   unsigned non_aggregate : 1;
   unsigned has_complex_dflt : 1;
   unsigned has_list_ctor : 1;
+  unsigned non_std_layout : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1132,7 +1135,7 @@ struct GTY(()) lang_type_class {
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 10;
+  unsigned dummy : 9;
 
   tree primary_base;
   VEC(tree_pair_s,gc) *vcall_indices;
@@ -1385,8 +1388,14 @@ struct GTY(()) lang_type {
 #define CLASSTYPE_HAS_MUTABLE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_mutable)
 #define TYPE_HAS_MUTABLE_P(NODE) (cp_has_mutable_p (NODE))
 
-/* Nonzero means that this class type is a non-POD class.  */
-#define CLASSTYPE_NON_POD_P(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->non_pod_class)
+/* Nonzero means that this class type is not POD for the purpose of layout
+   (as defined in the ABI).  This is different from the language's POD.  */
+#define CLASSTYPE_NON_LAYOUT_POD_P(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->non_pod_class)
+
+/* Nonzero means that this class type is a non-standard-layout class.  */
+#define CLASSTYPE_NON_STD_LAYOUT(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->non_std_layout)
 
 /* Nonzero means that this class contains pod types whose default
    initialization is not a zero initialization (namely, pointers to
@@ -3509,9 +3518,10 @@ enum tag_types {
 enum cp_lvalue_kind_flags {
   clk_none = 0,     /* Things that are not an lvalue.  */
   clk_ordinary = 1, /* An ordinary lvalue.  */
-  clk_class = 2,    /* An rvalue of class-type.  */
-  clk_bitfield = 4, /* An lvalue for a bit-field.  */
-  clk_packed = 8    /* An lvalue for a packed field.  */
+  clk_rvalueref = 2,/* An rvalue formed using an rvalue reference */
+  clk_class = 4,    /* An rvalue of class-type.  */
+  clk_bitfield = 8, /* An lvalue for a bit-field.  */
+  clk_packed = 16   /* An lvalue for a packed field.  */
 };
 
 /* This type is used for parameters and variables which hold
@@ -3606,6 +3616,8 @@ enum tsubst_flags {
 				    conversion.  */
   tf_no_access_control = 1 << 7, /* Do not perform access checks, even
 				    when issuing other errors.   */
+  /* Do not instantiate classes (used by count_non_default_template_args). */
+  tf_no_class_instantiations = 1 << 8,
   /* Convenient substitution flags combinations.  */
   tf_warning_or_error = tf_warning | tf_error
 };
@@ -4338,6 +4350,7 @@ extern tree type_promotes_to			(tree);
 extern tree perform_qualification_conversions	(tree, tree);
 
 /* in name-lookup.c */
+extern tree get_anonymous_namespace_name	(void);
 extern tree pushdecl				(tree);
 extern tree pushdecl_maybe_friend		(tree, bool);
 extern void maybe_push_cleanup_level		(tree);
@@ -4879,7 +4892,12 @@ extern void stabilize_aggr_init			(tree, tree *);
 extern bool stabilize_init			(tree, tree *);
 extern tree add_stmt_to_compound		(tree, tree);
 extern void init_tree				(void);
-extern int pod_type_p				(const_tree);
+extern bool pod_type_p				(const_tree);
+extern bool layout_pod_type_p			(const_tree);
+extern bool std_layout_type_p			(const_tree);
+extern bool trivial_type_p			(const_tree);
+extern bool type_has_nontrivial_default_init	(const_tree);
+extern bool type_has_nontrivial_copy_init	(const_tree);
 extern bool class_tmpl_impl_spec_p		(const_tree);
 extern int zero_init_p				(const_tree);
 extern tree strip_typedefs			(tree);
@@ -4887,6 +4905,7 @@ extern tree copy_binfo				(tree, tree, tree,
 						 tree *, int);
 extern int member_p				(const_tree);
 extern cp_lvalue_kind real_lvalue_p		(tree);
+extern bool lvalue_or_rvalue_with_address_p	(const_tree);
 extern bool builtin_valid_in_constant_expr_p    (const_tree);
 extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt			(enum tree_code, ...);
@@ -5082,7 +5101,7 @@ extern tree merge_exception_specifiers		(tree, tree);
 /* in mangle.c */
 extern void init_mangle				(void);
 extern void mangle_decl				(tree);
-extern const char *mangle_type_string		(tree);
+extern const char *mangle_type_string_for_rtti	(tree);
 extern tree mangle_typeinfo_for_type		(tree);
 extern tree mangle_typeinfo_string_for_type	(tree);
 extern tree mangle_vtbl_for_type		(tree);

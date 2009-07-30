@@ -1258,9 +1258,7 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 	      int clen;
 	      /* If there are multiple CHARACTER variables declared on the
 		 same line, we don't want them to share the same length.  */
-	      sym->ts.cl = gfc_get_charlen ();
-	      sym->ts.cl->next = gfc_current_ns->cl_list;
-	      gfc_current_ns->cl_list = sym->ts.cl;
+	      sym->ts.cl = gfc_new_charlen (gfc_current_ns);
 
 	      if (sym->attr.flavor == FL_PARAMETER)
 		{
@@ -1292,9 +1290,7 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 		{
 		  /* Build a new charlen to prevent simplification from
 		     deleting the length before it is resolved.  */
-		  init->ts.cl = gfc_get_charlen ();
-		  init->ts.cl->next = gfc_current_ns->cl_list;
-		  gfc_current_ns->cl_list = sym->ts.cl;
+		  init->ts.cl = gfc_new_charlen (gfc_current_ns);
 		  init->ts.cl->length = gfc_copy_expr (sym->ts.cl->length);
 
 		  for (p = init->value.constructor; p; p = p->next)
@@ -1597,9 +1593,7 @@ variable_decl (int elem)
       switch (match_char_length (&char_len))
 	{
 	case MATCH_YES:
-	  cl = gfc_get_charlen ();
-	  cl->next = gfc_current_ns->cl_list;
-	  gfc_current_ns->cl_list = cl;
+	  cl = gfc_new_charlen (gfc_current_ns);
 
 	  cl->length = char_len;
 	  break;
@@ -1611,9 +1605,7 @@ variable_decl (int elem)
 	      && (current_ts.cl->length == NULL
 		  || current_ts.cl->length->expr_type != EXPR_CONSTANT))
 	    {
-	      cl = gfc_get_charlen ();
-	      cl->next = gfc_current_ns->cl_list;
-	      gfc_current_ns->cl_list = cl;
+	      cl = gfc_new_charlen (gfc_current_ns);
 	      cl->length = gfc_copy_expr (current_ts.cl->length);
 	    }
 	  else
@@ -2235,9 +2227,7 @@ done:
     }
 
   /* Do some final massaging of the length values.  */
-  cl = gfc_get_charlen ();
-  cl->next = gfc_current_ns->cl_list;
-  gfc_current_ns->cl_list = cl;
+  cl = gfc_new_charlen (gfc_current_ns);
 
   if (seen_length == 0)
     cl->length = gfc_int_expr (1);
@@ -2611,9 +2601,7 @@ gfc_match_implicit (void)
 	      if (ts.type == BT_CHARACTER && !ts.cl)
 		{
 		  ts.kind = gfc_default_character_kind;
-		  ts.cl = gfc_get_charlen ();
-		  ts.cl->next = gfc_current_ns->cl_list;
-		  gfc_current_ns->cl_list = ts.cl;
+		  ts.cl = gfc_new_charlen (gfc_current_ns);
 		  ts.cl->length = gfc_int_expr (1);
 		}
 
@@ -4156,9 +4144,12 @@ static match
 match_procedure_interface (gfc_symbol **proc_if)
 {
   match m;
+  gfc_symtree *st;
   locus old_loc, entry_loc;
-  old_loc = entry_loc = gfc_current_locus;
+  gfc_namespace *old_ns = gfc_current_ns;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
 
+  old_loc = entry_loc = gfc_current_locus;
   gfc_clear_ts (&current_ts);
 
   if (gfc_match (" (") != MATCH_YES)
@@ -4177,13 +4168,25 @@ match_procedure_interface (gfc_symbol **proc_if)
   if (m == MATCH_ERROR)
     return m;
 
+  /* Procedure interface is itself a procedure.  */
   gfc_current_locus = old_loc;
+  m = gfc_match_name (name);
 
-  /* Get the name of the procedure or abstract interface
-  to inherit the interface from.  */
-  m = gfc_match_symbol (proc_if, 1);
-  if (m != MATCH_YES)
-    return m;
+  /* First look to see if it is already accessible in the current
+     namespace because it is use associated or contained.  */
+  st = NULL;
+  if (gfc_find_sym_tree (name, NULL, 0, &st))
+    return MATCH_ERROR;
+
+  /* If it is still not found, then try the parent namespace, if it
+     exists and create the symbol there if it is still not found.  */
+  if (gfc_current_ns->parent)
+    gfc_current_ns = gfc_current_ns->parent;
+  if (st == NULL && gfc_get_ha_sym_tree (name, &st))
+    return MATCH_ERROR;
+
+  gfc_current_ns = old_ns;
+  *proc_if = st->n.sym;
 
   /* Various interface checks.  */
   if (*proc_if)
@@ -4408,14 +4411,6 @@ match_ppc_decl (void)
   if (m == MATCH_ERROR)
     return m;
 
-  /* TODO: Implement PASS.  */
-  if (!tb->nopass)
-    {
-      gfc_error ("Procedure Pointer Component with PASS at %C "
-		 "not yet implemented");
-      return MATCH_ERROR;
-    }
-
   gfc_clear_attr (&current_attr);
   current_attr.procedure = 1;
   current_attr.proc_pointer = 1;
@@ -4458,6 +4453,8 @@ match_ppc_decl (void)
 
       if (gfc_add_proc (&c->attr, name, NULL) == FAILURE)
 	return MATCH_ERROR;
+
+      c->tb = tb;
 
       /* Set interface.  */
       if (proc_if != NULL)
@@ -7025,7 +7022,7 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
 {
   bool found_passing = false;
   bool seen_ptr = false;
-  match m;
+  match m = MATCH_YES;
 
   /* Intialize to defaults.  Do so even before the MATCH_NO check so that in
      this case the defaults are in there.  */
@@ -7035,13 +7032,12 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
   ba->nopass = 0;
   ba->non_overridable = 0;
   ba->deferred = 0;
+  ba->ppc = ppc;
 
   /* If we find a comma, we believe there are binding attributes.  */
-  if (gfc_match_char (',') == MATCH_NO)
-    {
-      ba->access = gfc_typebound_default_access;
-      return MATCH_NO;
-    }
+  m = gfc_match_char (',');
+  if (m == MATCH_NO)
+    goto done;
 
   do
     {
@@ -7118,7 +7114,7 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
 	      if (m == MATCH_ERROR)
 		goto error;
 	      if (m == MATCH_YES)
-		ba->pass_arg = xstrdup (arg);
+		ba->pass_arg = gfc_get_string (arg);
 	      gcc_assert ((m == MATCH_YES) == (ba->pass_arg != NULL));
 
 	      found_passing = true;
@@ -7141,7 +7137,6 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
 		    }
 
 		  seen_ptr = true;
-		  /*ba->ppc = 1;*/
         	  continue;
 		}
 	    }
@@ -7198,6 +7193,9 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
       goto error;
     }
 
+  m = MATCH_YES;
+
+done:
   if (ba->access == ACCESS_UNKNOWN)
     ba->access = gfc_typebound_default_access;
 
@@ -7208,10 +7206,9 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
       goto error;
     }
 
-  return MATCH_YES;
+  return m;
 
 error:
-  gfc_free (ba->pass_arg);
   return MATCH_ERROR;
 }
 

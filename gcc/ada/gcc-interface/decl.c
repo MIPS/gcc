@@ -905,6 +905,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			  mark_visited (&gnu_decl);
 			save_gnu_tree (gnat_entity, gnu_decl, true);
 			saved = true;
+			annotate_object (gnat_entity, gnu_type, NULL_TREE,
+					 false);
 			break;
 		      }
 
@@ -1382,32 +1384,15 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    && Exception_Mechanism != Back_End_Exceptions)
 	  TREE_ADDRESSABLE (gnu_decl) = 1;
 
-	gnu_type = TREE_TYPE (gnu_decl);
-
-	/* Back-annotate Alignment and Esize of the object if not already
-	   known, except for when the object is actually a pointer to the
-	   real object, since alignment and size of a pointer don't have
-	   anything to do with those of the designated object.  Note that
-	   we pick the values of the type, not those of the object, to
-	   shield ourselves from low-level platform-dependent adjustments
-	   like alignment promotion.  This is both consistent with all the
-	   treatment above, where alignment and size are set on the type of
-	   the object and not on the object directly, and makes it possible
-	   to support confirming representation clauses in all cases.  */
-
-	if (!used_by_ref && Unknown_Alignment (gnat_entity))
-	  Set_Alignment (gnat_entity,
-			 UI_From_Int (TYPE_ALIGN (gnu_type) / BITS_PER_UNIT));
-
-	if (!used_by_ref && Unknown_Esize (gnat_entity))
-	  {
-	    if (TREE_CODE (gnu_type) == RECORD_TYPE
-		&& TYPE_CONTAINS_TEMPLATE_P (gnu_type))
-	      gnu_object_size
-		= TYPE_SIZE (TREE_TYPE (TREE_CHAIN (TYPE_FIELDS (gnu_type))));
-
-	    Set_Esize (gnat_entity, annotate_value (gnu_object_size));
-	  }
+	/* Back-annotate Esize and Alignment of the object if not already
+	   known.  Note that we pick the values of the type, not those of
+	   the object, to shield ourselves from low-level platform-dependent
+	   adjustments like alignment promotion.  This is both consistent with
+	   all the treatment above, where alignment and size are set on the
+	   type of the object and not on the object directly, and makes it
+	   possible to support all confirming representation clauses.  */
+	annotate_object (gnat_entity, TREE_TYPE (gnu_decl), gnu_object_size,
+			 used_by_ref);
       }
       break;
 
@@ -6527,17 +6512,21 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 
   if (Present (Component_Clause (gnat_field)))
     {
+      Entity_Id gnat_parent
+	= Parent_Subtype (Underlying_Type (Scope (gnat_field)));
+
       gnu_pos = UI_To_gnu (Component_Bit_Offset (gnat_field), bitsizetype);
       gnu_size = validate_size (Esize (gnat_field), gnu_field_type,
 				gnat_field, FIELD_DECL, false, true);
 
-      /* Ensure the position does not overlap with the parent subtype,
-	 if there is one.  */
-      if (Present (Parent_Subtype (Underlying_Type (Scope (gnat_field)))))
+      /* Ensure the position does not overlap with the parent subtype, if there
+	 is one.  This test is omitted if the parent of the tagged type has a
+	 full rep clause since, in this case, component clauses are allowed to
+	 overlay the space allocated for the parent type and the front-end has
+	 checked that there are no overlapping components.  */
+      if (Present (gnat_parent) && !Is_Fully_Repped_Tagged_Type (gnat_parent))
 	{
-	  tree gnu_parent
-	    = gnat_to_gnu_type (Parent_Subtype
-				(Underlying_Type (Scope (gnat_field))));
+	  tree gnu_parent = gnat_to_gnu_type (gnat_parent);
 
 	  if (TREE_CODE (TYPE_SIZE (gnu_parent)) == INTEGER_CST
 	      && tree_int_cst_lt (gnu_pos, TYPE_SIZE (gnu_parent)))
@@ -7223,6 +7212,39 @@ annotate_value (tree gnu_size)
   return ret;
 }
 
+/* Given GNAT_ENTITY, an object (constant, variable, parameter, exception)
+   and GNU_TYPE, its corresponding GCC type, set Esize and Alignment to the
+   size and alignment used by Gigi.  Prefer SIZE over TYPE_SIZE if non-null.
+   BY_REF is true if the object is used by reference.  */
+
+void
+annotate_object (Entity_Id gnat_entity, tree gnu_type, tree size, bool by_ref)
+{
+  if (by_ref)
+    {
+      if (TYPE_FAT_POINTER_P (gnu_type))
+	gnu_type = TYPE_UNCONSTRAINED_ARRAY (gnu_type);
+      else
+	gnu_type = TREE_TYPE (gnu_type);
+    }
+
+  if (Unknown_Esize (gnat_entity))
+    {
+      if (TREE_CODE (gnu_type) == RECORD_TYPE
+	  && TYPE_CONTAINS_TEMPLATE_P (gnu_type))
+	size = TYPE_SIZE (TREE_TYPE (TREE_CHAIN (TYPE_FIELDS (gnu_type))));
+      else if (!size)
+	size = TYPE_SIZE (gnu_type);
+
+      if (size)
+	Set_Esize (gnat_entity, annotate_value (size));
+    }
+
+  if (Unknown_Alignment (gnat_entity))
+    Set_Alignment (gnat_entity,
+		   UI_From_Int (TYPE_ALIGN (gnu_type) / BITS_PER_UNIT));
+}
+
 /* Given GNAT_ENTITY, a record type, and GNU_TYPE, its corresponding
    GCC type, set Component_Bit_Offset and Esize to the position and size
    used by Gigi.  */
@@ -7656,9 +7678,19 @@ validate_alignment (Uint alignment, Entity_Id gnat_entity, unsigned int align)
   if (Error_Posted (gnat_entity) && !Has_Alignment_Clause (gnat_entity))
     return align;
 
-  /* Post the error on the alignment clause if any.  */
+  /* Post the error on the alignment clause if any.  Note, for the implicit
+     base type of an array type, the alignment clause is on the first
+     subtype.  */
   if (Present (Alignment_Clause (gnat_entity)))
     gnat_error_node = Expression (Alignment_Clause (gnat_entity));
+
+  else if (Is_Itype (gnat_entity)
+           && Is_Array_Type (gnat_entity)
+           && Etype (gnat_entity) == gnat_entity
+           && Present (Alignment_Clause (First_Subtype (gnat_entity))))
+    gnat_error_node =
+      Expression (Alignment_Clause (First_Subtype (gnat_entity)));
+
   else
     gnat_error_node = gnat_entity;
 
