@@ -14,6 +14,9 @@
 	(build_rep_vector): Declare.
 	* omp-low.c (omp_reduction_init) <MAX_EXPR>: Handle VECTOR_INT_TYPE_P.
 
+	* tree-parloops.c (add_size_for_param_array): Round up sizes_addr[1]
+	to multiple of stride.
+
 2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-phinodes.c (reserve_phi_args_for_duplication): New function.

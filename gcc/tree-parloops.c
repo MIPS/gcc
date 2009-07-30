@@ -914,6 +914,12 @@ add_size_for_param_array (void **slot, void *data)
   if (elt->write_offset.max && tree_int_cst_lt (max, elt->write_offset.max))
     max = elt->write_offset.max;
   offset = size_binop (MULT_EXPR, sizes_addr[2], sizes_addr[0]);
+  /* Round to stride to avoid misalignment.  */
+  sizes_addr[1]
+    = build_int_cst (TREE_TYPE (sizes_addr[1]),
+		     (tree_low_cst (sizes_addr[1], 1)
+		      + (unsigned HOST_WIDE_INT) (elt->stride - 1))
+		     & -(unsigned HOST_WIDE_INT) elt->stride);
   offset = size_binop (PLUS_EXPR, offset, sizes_addr[1]);
   sizes_addr[0] = size_binop (PLUS_EXPR, sizes_addr[0], stride_tree);
   sizes_addr[1]
