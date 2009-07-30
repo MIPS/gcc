@@ -1348,7 +1348,7 @@
   arc_output_sdma (operands, 'o');
   output_asm_insn (\"vdmawait 15,1\n\"
 		   \"0: lr %4,[0xa2]; ve_stat\n\t\"
-		   \"bbit1 %4,16,0b; branch if VEB set: vector engine busy\",
+		   \"bbit1 %4,6,0b; branch if VEB set: vector engine busy\",
 		   operands);
   return \"\";
 }"
