@@ -3500,16 +3500,6 @@ enum dw_val_class
   dw_val_class_file
 };
 
-/* Describe a double word constant value.  */
-/* ??? Every instance of long_long in the code really means CONST_DOUBLE.  */
-
-typedef struct dw_long_long_struct GTY(())
-{
-  unsigned long hi;
-  unsigned long low;
-}
-dw_long_long_const;
-
 /* Describe a floating point constant value, or a vector constant value.  */
 
 typedef struct dw_vec_struct GTY(())
@@ -3534,7 +3524,7 @@ typedef struct dw_val_struct GTY(())
       dw_loc_descr_ref GTY ((tag ("dw_val_class_loc"))) val_loc;
       HOST_WIDE_INT GTY ((default)) val_int;
       unsigned HOST_WIDE_INT GTY ((tag ("dw_val_class_unsigned_const"))) val_unsigned;
-      dw_long_long_const GTY ((tag ("dw_val_class_long_long"))) val_long_long;
+      rtx GTY ((tag ("dw_val_class_long_long"))) val_long_long;
       dw_vec_const GTY ((tag ("dw_val_class_vec"))) val_vec;
       struct dw_val_die_union
 	{
@@ -4125,7 +4115,7 @@ output_loc_operands (dw_loc_descr_ref loc)
       break;
     case DW_OP_const8u:
     case DW_OP_const8s:
-      gcc_assert (HOST_BITS_PER_LONG >= 64);
+      gcc_assert (HOST_BITS_PER_WIDE_INT >= 64);
       dw2_asm_output_data (8, val1->v.val_int, NULL);
       break;
     case DW_OP_skip:
@@ -4171,17 +4161,17 @@ output_loc_operands (dw_loc_descr_ref loc)
 
 	    if (WORDS_BIG_ENDIAN)
 	      {
-		first = val2->v.val_long_long.hi;
-		second = val2->v.val_long_long.low;
+		first = CONST_DOUBLE_HIGH (val2->v.val_long_long);
+		second = CONST_DOUBLE_LOW (val2->v.val_long_long);
 	      }
 	    else
 	      {
-		first = val2->v.val_long_long.low;
-		second = val2->v.val_long_long.hi;
+		first = CONST_DOUBLE_LOW (val2->v.val_long_long);
+		second = CONST_DOUBLE_HIGH (val2->v.val_long_long);
 	      }
-	    dw2_asm_output_data (HOST_BITS_PER_LONG / HOST_BITS_PER_CHAR,
+	    dw2_asm_output_data (HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR,
 				 first, "long long constant");
-	    dw2_asm_output_data (HOST_BITS_PER_LONG / HOST_BITS_PER_CHAR,
+	    dw2_asm_output_data (HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR,
 				 second, NULL);
 	  }
 	  break;
@@ -4351,7 +4341,7 @@ output_loc_operands_raw (dw_loc_descr_ref loc)
 
     case DW_OP_const8u:
     case DW_OP_const8s:
-      gcc_assert (HOST_BITS_PER_LONG >= 64);
+      gcc_assert (HOST_BITS_PER_WIDE_INT >= 64);
       fputc (',', asm_out_file);
       dw2_asm_output_data_raw (8, val1->v.val_int);
       break;
@@ -5099,8 +5089,7 @@ static void add_AT_int (dw_die_ref, enum dwarf_attribute, HOST_WIDE_INT);
 static inline HOST_WIDE_INT AT_int (dw_attr_ref);
 static void add_AT_unsigned (dw_die_ref, enum dwarf_attribute, unsigned HOST_WIDE_INT);
 static inline unsigned HOST_WIDE_INT AT_unsigned (dw_attr_ref);
-static void add_AT_long_long (dw_die_ref, enum dwarf_attribute, unsigned long,
-			      unsigned long);
+static void add_AT_long_long (dw_die_ref, enum dwarf_attribute, rtx);
 static inline void add_AT_vec (dw_die_ref, enum dwarf_attribute, unsigned int,
 			       unsigned int, unsigned char *);
 static hashval_t debug_str_do_hash (const void *);
@@ -6016,14 +6005,13 @@ AT_unsigned (dw_attr_ref a)
 
 static inline void
 add_AT_long_long (dw_die_ref die, enum dwarf_attribute attr_kind,
-		  long unsigned int val_hi, long unsigned int val_low)
+		  rtx val_const_double)
 {
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_long_long;
-  attr.dw_attr_val.v.val_long_long.hi = val_hi;
-  attr.dw_attr_val.v.val_long_long.low = val_low;
+  attr.dw_attr_val.v.val_long_long = val_const_double;
   add_dwarf_attr (die, &attr);
 }
 
@@ -6882,9 +6870,10 @@ print_die (dw_die_ref die, FILE *outfile)
 	  fprintf (outfile, HOST_WIDE_INT_PRINT_UNSIGNED, AT_unsigned (a));
 	  break;
 	case dw_val_class_long_long:
-	  fprintf (outfile, "constant (%lu,%lu)",
-		   a->dw_attr_val.v.val_long_long.hi,
-		   a->dw_attr_val.v.val_long_long.low);
+	  fprintf (outfile, "constant (" HOST_WIDE_INT_PRINT_UNSIGNED
+			    "," HOST_WIDE_INT_PRINT_UNSIGNED ")",
+		   CONST_DOUBLE_HIGH (a->dw_attr_val.v.val_long_long),
+		   CONST_DOUBLE_LOW (a->dw_attr_val.v.val_long_long));
 	  break;
 	case dw_val_class_vec:
 	  fprintf (outfile, "floating-point or vector constant");
@@ -7038,7 +7027,8 @@ attr_checksum (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
       CHECKSUM (at->dw_attr_val.v.val_unsigned);
       break;
     case dw_val_class_long_long:
-      CHECKSUM (at->dw_attr_val.v.val_long_long);
+      CHECKSUM (CONST_DOUBLE_HIGH (at->dw_attr_val.v.val_long_long));
+      CHECKSUM (CONST_DOUBLE_LOW (at->dw_attr_val.v.val_long_long));
       break;
     case dw_val_class_vec:
       CHECKSUM (at->dw_attr_val.v.val_vec);
@@ -7138,8 +7128,10 @@ same_dw_val_p (const dw_val_node *v1, const dw_val_node *v2, int *mark)
     case dw_val_class_unsigned_const:
       return v1->v.val_unsigned == v2->v.val_unsigned;
     case dw_val_class_long_long:
-      return v1->v.val_long_long.hi == v2->v.val_long_long.hi
-	     && v1->v.val_long_long.low == v2->v.val_long_long.low;
+      return CONST_DOUBLE_HIGH (v1->v.val_long_long)
+	     == CONST_DOUBLE_HIGH (v2->v.val_long_long)
+	     && CONST_DOUBLE_LOW (v1->v.val_long_long)
+		== CONST_DOUBLE_LOW (v2->v.val_long_long);
     case dw_val_class_vec:
       if (v1->v.val_vec.length != v2->v.val_vec.length
 	  || v1->v.val_vec.elt_size != v2->v.val_vec.elt_size)
@@ -7749,7 +7741,7 @@ size_of_die (dw_die_ref die)
 	  size += constant_size (AT_unsigned (a));
 	  break;
 	case dw_val_class_long_long:
-	  size += 1 + 2*HOST_BITS_PER_LONG/HOST_BITS_PER_CHAR; /* block */
+	  size += 1 + 2*HOST_BITS_PER_WIDE_INT/HOST_BITS_PER_CHAR; /* block */
 	  break;
 	case dw_val_class_vec:
 	  size += constant_size (a->dw_attr_val.v.val_vec.length
@@ -8229,23 +8221,24 @@ output_die (dw_die_ref die)
 	    unsigned HOST_WIDE_INT first, second;
 
 	    dw2_asm_output_data (1,
-				 2 * HOST_BITS_PER_LONG / HOST_BITS_PER_CHAR,
+				 2 * HOST_BITS_PER_WIDE_INT
+				 / HOST_BITS_PER_CHAR,
 				 "%s", name);
 
 	    if (WORDS_BIG_ENDIAN)
 	      {
-		first = a->dw_attr_val.v.val_long_long.hi;
-		second = a->dw_attr_val.v.val_long_long.low;
+		first = CONST_DOUBLE_HIGH (a->dw_attr_val.v.val_long_long);
+		second = CONST_DOUBLE_LOW (a->dw_attr_val.v.val_long_long);
 	      }
 	    else
 	      {
-		first = a->dw_attr_val.v.val_long_long.low;
-		second = a->dw_attr_val.v.val_long_long.hi;
+		first = CONST_DOUBLE_LOW (a->dw_attr_val.v.val_long_long);
+		second = CONST_DOUBLE_HIGH (a->dw_attr_val.v.val_long_long);
 	      }
 
-	    dw2_asm_output_data (HOST_BITS_PER_LONG / HOST_BITS_PER_CHAR,
+	    dw2_asm_output_data (HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR,
 				 first, "long long constant");
-	    dw2_asm_output_data (HOST_BITS_PER_LONG / HOST_BITS_PER_CHAR,
+	    dw2_asm_output_data (HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR,
 				 second, NULL);
 	  }
 	  break;
@@ -10886,7 +10879,8 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 	     or a floating-point constant.  A CONST_DOUBLE is used whenever
 	     the constant requires more than one word in order to be
 	     adequately represented.  We output CONST_DOUBLEs as blocks.  */
-	  mode = GET_MODE (rtl);
+	  if (GET_MODE (rtl) != VOIDmode)
+	    mode = GET_MODE (rtl);
 
 	  loc_result = new_loc_descr (DW_OP_implicit_value,
 				      GET_MODE_SIZE (mode), 0);
@@ -10903,14 +10897,8 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 	    }
 	  else
 	    {
-	      /* ??? We really should be using HOST_WIDE_INT throughout.  */
-	      gcc_assert (HOST_BITS_PER_LONG == HOST_BITS_PER_WIDE_INT);
-
 	      loc_result->dw_loc_oprnd2.val_class = dw_val_class_long_long;
-	      loc_result->dw_loc_oprnd2.v.val_long_long.hi
-		= CONST_DOUBLE_HIGH (rtl);
-	      loc_result->dw_loc_oprnd2.v.val_long_long.low
-		= CONST_DOUBLE_LOW (rtl);
+	      loc_result->dw_loc_oprnd2.v.val_long_long = rtl;
 	    }
 	}
       break;
@@ -11880,13 +11868,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	    add_AT_vec (die, DW_AT_const_value, length / 4, 4, array);
 	  }
 	else
-	  {
-	    /* ??? We really should be using HOST_WIDE_INT throughout.  */
-	    gcc_assert (HOST_BITS_PER_LONG == HOST_BITS_PER_WIDE_INT);
-
-	    add_AT_long_long (die, DW_AT_const_value,
-			      CONST_DOUBLE_HIGH (rtl), CONST_DOUBLE_LOW (rtl));
-	  }
+	  add_AT_long_long (die, DW_AT_const_value, rtl);
       }
       break;
 

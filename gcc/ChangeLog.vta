@@ -1,5 +1,21 @@
 2009-07-30  Jakub Jelinek  <jakub@redhat.com>
 
+	* dwarf2out.c (dw_long_long_const): Remove.
+	(struct dw_val_struct): Change val_long_long type to rtx.
+	(print_die, attr_checksum, same_dw_val_p, loc_descriptor): Adjust for
+	val_long_long change to CONST_DOUBLE rtx from a long hi/lo pair.
+	(output_die): Likewise.  Use HOST_BITS_PER_WIDE_INT size of each
+	component instead of HOST_BITS_PER_LONG.
+	(output_loc_operands): Likewise.   For const8* assert
+	HOST_BITS_PER_WIDE_INT rather than HOST_BITS_PER_LONG is >= 64.
+	(output_loc_operands_raw): For const8* assert HOST_BITS_PER_WIDE_INT
+	rather than HOST_BITS_PER_LONG is >= 64.
+	(add_AT_long_long): Remove val_hi and val_lo arguments, add
+	val_const_double.
+	(size_of_die): Use HOST_BITS_PER_WIDE_INT size multiplier instead of
+	HOST_BITS_PER_LONG for dw_val_class_long_long.
+	(add_const_value_attribute): Adjust add_AT_long_long caller.
+
 	* dwarf2out.c (add_const_value_attribute): If CONST wraps
 	a constant, tail recurse.
 
