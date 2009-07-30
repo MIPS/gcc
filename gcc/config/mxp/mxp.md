@@ -735,7 +735,7 @@ vmr4w.240 %0,%4,%4")
 	(strstr (TREE_STRING_POINTER (TREE_PURPOSE (TREE_VALUE (attr))),
 		 \"arc-\"));
       asm_fprintf (asm_out_file, \"\tj.d [blink]\n\");
-      asm_fprintf (asm_out_file, \"\tvendrec r0\"
+      asm_fprintf (asm_out_file, \"\tvendrec blink\"
 				 \" ; return control to %s / SCQ\n\",
 		   TREE_STRING_POINTER (TREE_PURPOSE (TREE_VALUE (attr))));
       return \"\";

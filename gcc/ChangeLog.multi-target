@@ -6,6 +6,9 @@
 	* config/arc/simdext.md (simd_dma_in): Add a (clobber (match_scratch)).
 	(simd_dma_out): Likewise.  Wait for vector engine being not busy.
 
+	* config/mpx/mxp.md (return) <caller_arch>:
+	Place recording end into blink.
+
 	* tree.c (build_rep_vector): New function.
 	* tree.h (VECTOR_INT_TYPE_P): Define.
 	(build_rep_vector): Declare.
