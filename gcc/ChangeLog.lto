@@ -1,3 +1,10 @@
+2009-07-30  Richard Guenther  <rguenther@suse.de>
+
+	* lto-symtab.c (lto_symtab_compatible): Use inform for printing
+	the previous declaration location.
+	(lto_symtab_merge_decl): Move error on incompatible symbol types
+	first.  Use inform for printing the previous declaration location.
+
 2009-07-29  Richard Guenther  <rguenther@suse.de>
 
 	* lto-symtab.c (lto_symtab_merge_decl): Merge decl state in

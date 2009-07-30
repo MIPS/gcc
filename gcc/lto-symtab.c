@@ -242,16 +242,16 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	  gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL);
 	  error_at (DECL_SOURCE_LOCATION (new_decl),
 		    "function %qD redeclared as variable", new_decl);
-	  error_at (DECL_SOURCE_LOCATION (old_decl),
-		    "previously declared here");
+	  inform (DECL_SOURCE_LOCATION (old_decl),
+		  "previously declared here");
 	  return false;
 
 	case FUNCTION_DECL:
 	  gcc_assert (TREE_CODE (old_decl) == VAR_DECL);
 	  error_at (DECL_SOURCE_LOCATION (new_decl),
 		    "variable %qD redeclared as function", new_decl);
-	  error_at (DECL_SOURCE_LOCATION (old_decl),
-		    "previously declared here");
+	  inform (DECL_SOURCE_LOCATION (old_decl),
+		  "previously declared here");
 	  return false;
 
 	default:
@@ -324,8 +324,8 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	  error_at (DECL_SOURCE_LOCATION (new_decl),
 		    "type of %qD does not match original declaration",
 		    new_decl);
-	  error_at (DECL_SOURCE_LOCATION (old_decl),
-		    "previously declared here");
+	  inform (DECL_SOURCE_LOCATION (old_decl),
+		  "previously declared here");
 	  return false;
 	}
     }
@@ -335,7 +335,7 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
       error_at (DECL_SOURCE_LOCATION (new_decl),
 		"signedness of %qD does not match original declaration",
 		new_decl);
-      error_at (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
+      inform (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
       return false;
     }
 
@@ -370,8 +370,8 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	  error_at (DECL_SOURCE_LOCATION (new_decl),
 		    "size of %qD does not match original declaration",
 		    new_decl);
-	  error_at (DECL_SOURCE_LOCATION (old_decl),
-		    "previously declared here");
+	  inform (DECL_SOURCE_LOCATION (old_decl),
+		  "previously declared here");
 	  return false;
 	}
     }
@@ -383,7 +383,7 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
       error_at (DECL_SOURCE_LOCATION (new_decl),
 		"alignment of %qD does not match original declaration",
 		new_decl);
-      error_at (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
+      inform (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
       return false;
     }
 
@@ -409,8 +409,8 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	  error_at (DECL_SOURCE_LOCATION (new_decl),
 		    "machine mode of %qD does not match original declaration",
 		    new_decl);
-	  error_at (DECL_SOURCE_LOCATION (old_decl),
-		    "previously declared here");
+	  inform (DECL_SOURCE_LOCATION (old_decl),
+		  "previously declared here");
 	  return false;
 	}
     }
@@ -422,7 +422,7 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
       error_at (DECL_SOURCE_LOCATION (new_decl),
 		"attributes applied to %qD are incompatible with original "
 		"declaration", new_decl);
-      error_at (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
+      inform (DECL_SOURCE_LOCATION (old_decl), "previously declared here");
       return false;
     }
 
@@ -568,21 +568,8 @@ lto_symtab_merge_decl (tree new_decl,
       return;
     }
 
-  /* The linker may ask us to combine two incompatible symbols. */
-  if (!lto_symtab_compatible (old_decl, new_decl))
-    return;
-
-  /* Merge decl state in both directions, we may still end up using
-     the new decl.  */
-  TREE_ADDRESSABLE (old_decl) |= TREE_ADDRESSABLE (new_decl);
-  TREE_ADDRESSABLE (new_decl) |= TREE_ADDRESSABLE (old_decl);
-
+  /* Give ODR violation errors.  */
   old_resolution = lto_symtab_get_resolution (old_decl);
-  gcc_assert (resolution != LDPR_UNKNOWN
-	      && resolution != LDPR_UNDEF
-	      && old_resolution != LDPR_UNKNOWN
-	      && old_resolution != LDPR_UNDEF);
-
   if (resolution == LDPR_PREVAILING_DEF
       || resolution == LDPR_PREVAILING_DEF_IRONLY)
     {
@@ -592,10 +579,29 @@ lto_symtab_merge_decl (tree new_decl,
 	{
 	  error_at (DECL_SOURCE_LOCATION (new_decl),
 		    "%qD has already been defined", new_decl);
-	  error_at (DECL_SOURCE_LOCATION (old_decl),
-		    "previously defined here");
+	  inform (DECL_SOURCE_LOCATION (old_decl),
+		  "previously defined here");
 	  return;
 	}
+    }
+
+  /* The linker may ask us to combine two incompatible symbols. */
+  if (!lto_symtab_compatible (old_decl, new_decl))
+    return;
+
+  /* Merge decl state in both directions, we may still end up using
+     the new decl.  */
+  TREE_ADDRESSABLE (old_decl) |= TREE_ADDRESSABLE (new_decl);
+  TREE_ADDRESSABLE (new_decl) |= TREE_ADDRESSABLE (old_decl);
+
+  gcc_assert (resolution != LDPR_UNKNOWN
+	      && resolution != LDPR_UNDEF
+	      && old_resolution != LDPR_UNKNOWN
+	      && old_resolution != LDPR_UNDEF);
+
+  if (resolution == LDPR_PREVAILING_DEF
+      || resolution == LDPR_PREVAILING_DEF_IRONLY)
+    {
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR
 		  || old_resolution ==  LDPR_RESOLVED_IR
 		  || (old_resolution == resolution && !flag_no_common));
