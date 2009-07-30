@@ -1,21 +1,6 @@
-2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
+2009-07-22  Release Manager
 
-	* Makefile.tpl (all): Avoid harmless warning in make all when
-	gcc-bootstrap is enabled but stage_last does not exist.
-	* Makefile.in: Rebuilt.
-
-2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
-
-	PR other/40159
-	* Makefile.tpl (all): Don't assume gcc-bootstrap and
-	gcc-no-bootstrap are mutually exclusive.
-	* Makefile.in: Rebuilt.
-
-2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
-
-	PR other/40159
-	* Makefile.tpl (all): Don't end with unconditional success.
-	* Makefile.in: Rebuilt.
+	* GCC 4.4.1 released.
 
 2009-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 

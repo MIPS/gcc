@@ -8059,8 +8059,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
     case TEMPLATE_DECL:
       {
 	/* We can get here when processing a member function template,
-	   member class template, and template template parameter of
-	   a template class.  */
+	   member class template, or template template parameter.  */
 	tree decl = DECL_TEMPLATE_RESULT (t);
 	tree spec;
 	tree tmpl_args;
@@ -8103,10 +8102,10 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (full_args == error_mark_node)
 	  return error_mark_node;
 
-	/* tsubst_template_args doesn't copy the vector if
-	   nothing changed.  But, *something* should have
-	   changed.  */
-	gcc_assert (full_args != tmpl_args);
+	/* If this is a default template template argument,
+	   tsubst might not have changed anything.  */
+	if (full_args == tmpl_args)
+	  return t;
 
 	spec = retrieve_specialization (t, full_args,
 					/*class_specializations_p=*/true);
@@ -12601,8 +12600,9 @@ type_unification_real (tree tparms,
 	     to explicitly check cxx_dialect here.  */
           if (TREE_PURPOSE (TREE_VEC_ELT (tparms, i)))
             {
-              tree arg = tsubst (TREE_PURPOSE (TREE_VEC_ELT (tparms, i)), 
-                                 targs, tf_none, NULL_TREE);
+              tree arg = tsubst_template_arg
+				(TREE_PURPOSE (TREE_VEC_ELT (tparms, i)),
+				 targs, tf_none, NULL_TREE);
               if (arg == error_mark_node)
                 return 1;
               else

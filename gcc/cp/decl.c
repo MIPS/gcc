@@ -4345,13 +4345,6 @@ grok_reference_init (tree decl, tree type, tree init, tree *cleanup)
       return NULL_TREE;
     }
 
-  if (TREE_CODE (init) == CONSTRUCTOR)
-    {
-      error ("ISO C++ forbids use of initializer list to "
-	     "initialize reference %qD", decl);
-      return NULL_TREE;
-    }
-
   if (TREE_CODE (init) == TREE_LIST)
     init = build_x_compound_expr_from_list (init, "initializer");
 
@@ -7618,7 +7611,6 @@ grokdeclarator (const cp_declarator *declarator,
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   bool type_was_error_mark_node = false;
   bool parameter_pack_p = declarator? declarator->parameter_pack_p : false;
-  bool set_no_warning = false;
   bool template_type_arg = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
@@ -8297,7 +8289,6 @@ grokdeclarator (const cp_declarator *declarator,
 		/* We now know that the TYPE_QUALS don't apply to the
 		   decl, but to its return type.  */
 		type_quals = TYPE_UNQUALIFIED;
-		set_no_warning = true;
 	      }
 
 	    /* Error about some types functions can't return.  */
@@ -9498,9 +9489,6 @@ grokdeclarator (const cp_declarator *declarator,
        for the instantiated declaration based on the type of DECL.  */
     if (!processing_template_decl)
       cp_apply_type_quals_to_decl (type_quals, decl);
-
-    if (set_no_warning)
-        TREE_NO_WARNING (decl) = 1;
 
     return decl;
   }
@@ -11014,7 +11002,7 @@ start_enum (tree name, tree underlying_type, bool scoped_enum_p)
           TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (underlying_type);
           ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;
         }
-      else
+      else if (!dependent_type_p (underlying_type))
         error ("underlying type %<%T%> of %<%T%> must be an integral type", 
                underlying_type, enumtype);
     }
@@ -11060,6 +11048,8 @@ finish_enum (tree enumtype)
 	TREE_TYPE (TREE_VALUE (values)) = enumtype;
       if (at_function_scope_p ())
 	add_stmt (build_min (TAG_DEFN, enumtype));
+      if (SCOPED_ENUM_P (enumtype))
+	finish_scope ();
       return;
     }
 
@@ -11375,7 +11365,7 @@ build_enumerator (tree name, tree value, tree enumtype)
   TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
 
-  if (context && context == current_class_type)
+  if (context && context == current_class_type && !SCOPED_ENUM_P (enumtype))
     /* In something like `struct S { enum E { i = 7 }; };' we put `i'
        on the TYPE_FIELDS list for `S'.  (That's so that you can say
        things like `S::i' later.)  */

@@ -14,6 +14,25 @@
 
 	* contrib/compare-debug: Use * rather than \? in portable regexp.
 
+2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (all): Avoid harmless warning in make all when
+	gcc-bootstrap is enabled but stage_last does not exist.
+	* Makefile.in: Rebuilt.
+
+2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/40159
+	* Makefile.tpl (all): Don't assume gcc-bootstrap and
+	gcc-no-bootstrap are mutually exclusive.
+	* Makefile.in: Rebuilt.
+
+2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/40159
+	* Makefile.tpl (all): Don't end with unconditional success.
+	* Makefile.in: Rebuilt.
+
 2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	* libdecnumber/dpd/decimal128.c (decimal128ToNumber): Use memcpy
