@@ -1280,6 +1280,29 @@ build_complex (tree type, tree real, tree imag)
   return t;
 }
 
+/* Construct a vector of vector type TYPE, repeating ELEM.  */
+/* ??? could be used by:
+   build_zero_vector (tree type)
+   build_one_cst (tree type)
+   rewrite_reciprocal (gimple_stmt_iterator *bsi)
+   get_initial_def_for_induction (gimple iv_phi)
+   vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def),
+   get_initial_def_for_reduction and
+   vect_create_mask_and_perm.  */
+
+tree
+build_rep_vector (tree type, tree elem)
+{
+  tree list;
+  int i, units;
+
+  units = TYPE_VECTOR_SUBPARTS (type);
+  list = NULL_TREE;
+  for (i = 0; i < units; i++)
+    list = tree_cons (NULL_TREE, elem, list);
+  return build_vector (type, list);
+}
+
 /* Return a constant of arithmetic type TYPE which is the
    multiplicative identity of the set TYPE.  */
 

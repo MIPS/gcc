@@ -9169,28 +9169,32 @@ arc_copy_from_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
 const char *
 arc_output_sdma (rtx *operands, char c)
 {
-  char buf[240];
-  rtx xop[6];
+  char buf[280];
+  rtx xop[7];
 
   int n = INTVAL (operands[2]);
   int m = INTVAL (operands[3]);
+  int scratchno = REGNO (operands[4]);
+  bool creg_p = scratchno < 4 || scratchno == 12;
 
   gcc_assert (1 <= n && n <= 255);
   gcc_assert (1 <= m && m <= 255);
   sprintf (buf,
 	   "vdma%cset dr0,%%0\n\t"
 	   "vdma%cset dr1,%%1\n\t"
-	   "vdma%cset dr2,%%2 ; %%4 * %%5 bytes\n\t"
+	   "mov%s %%6,%%2 ; %%4 * %%5 bytes\n\t"
+	   "vdma%cset dr2,%%6 ; %%4 * %%5 bytes\n\t"
 	   "vdma%cset dr4,%%3\n\t"
 	   "vdma%cset dr5,%%4\n\t"
 	   "vdma%crun I0,I0",
-	   c, c, c, c, c, c);
+	   c, c, creg_p ? "_s" : "", c, c, c, c);
   xop[0] = operands[0];
   xop[1] = operands[2];
   xop[2] = GEN_INT (31 << 16 | m << 8 | n);
   xop[3] = operands[1];
   xop[4] = operands[2];
   xop[5] = operands[3];
+  xop[6] = operands[4];
   output_asm_insn (buf, xop);
   return "";
 }

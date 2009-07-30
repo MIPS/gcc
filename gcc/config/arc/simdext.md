@@ -1326,7 +1326,8 @@
 		 (match_operand 0 "mxp_addr_operand")
 		 (match_operand 2 "immediate_operand")
 		 (match_operand 3 "immediate_operand")]
-	 UNSPEC_ARC_SIMD_DMA))]
+	 UNSPEC_ARC_SIMD_DMA))
+   (clobber (match_scratch:SI 4 "=&r"))]
   "TARGET_SIMD_SET"
   "*arc_output_sdma (operands, 'i');"
   [(set_attr "length" "42")])
@@ -1339,13 +1340,16 @@
 		 (match_operand 0 "mxp_addr_operand")
 		 (match_operand 2 "immediate_operand")
 		 (match_operand 3 "immediate_operand")]
-	 UNSPEC_ARC_SIMD_DMA))]
+	 UNSPEC_ARC_SIMD_DMA))
+   (clobber (match_scratch:SI 4 "=&r"))]
   "TARGET_SIMD_SET"
   "*
 {
   arc_output_sdma (operands, 'o');
-  asm_fprintf (asm_out_file, \"\tvdmawait %d,%d\n\",
-	       15, arc_vdmawait_arg1);
+  output_asm_insn (\"vdmawait 15,1\n\"
+		   \"0: lr %4,[0xa2]; ve_stat\n\t\"
+		   \"bbit1 %4,16,0b; branch if VEB set: vector engine busy\",
+		   operands);
   return \"\";
 }"
   [(set_attr "length" "42")])
@@ -1363,9 +1367,8 @@
   "TARGET_SIMD_SET"
   "*
 {
-  output_asm_insn (\"vrec %0\;bl %1\", operands);
-  asm_fprintf (asm_out_file, \"\tvdmawait %d,%d\n\",
-	       arc_vdmawait_arg0, 15);
-  return \"vrun %0\";
+  return (\"vrec %0\;bl %1\;\"
+	  \"vdmawait 1,15\;\"
+	  \"vrun %0\");
 }"
   [(set_attr "length" "42")])

@@ -1,5 +1,18 @@
 2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* config/arc/arc.c (arc_output_sdma): Use scratch register to
+	load large immediate.
+	* config/arc/arc.opt (mvdmawait-arg0=, mvdmawait-arg1=): Delete.
+	* config/arc/simdext.md (simd_dma_in): Add a (clobber (match_scratch)).
+	(simd_dma_out): Likewise.  Wait for vector engine being not busy.
+
+	* tree.c (build_rep_vector): New function.
+	* tree.h (VECTOR_INT_TYPE_P): Define.
+	(build_rep_vector): Declare.
+	* omp-low.c (omp_reduction_init) <MAX_EXPR>: Handle VECTOR_INT_TYPE_P.
+
+2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
+
 	* tree-phinodes.c (reserve_phi_args_for_duplication): New function.
 	* tree-parloops.c (loop_parallel_p): Call it.
 	* tree-flow.h (reserve_phi_args_for_duplication): Declare.

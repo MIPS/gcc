@@ -2161,10 +2161,12 @@ omp_reduction_init (tree clause, tree type)
 	    real_maxval (&min, 1, TYPE_MODE (type));
 	  return build_real (type, min);
 	}
+      else if (INTEGRAL_TYPE_P (type))
+	return TYPE_MIN_VALUE (type);
       else
 	{
-	  gcc_assert (INTEGRAL_TYPE_P (type));
-	  return TYPE_MIN_VALUE (type);
+	  gcc_assert (VECTOR_INT_TYPE_P (type));
+	  return build_rep_vector (type, TYPE_MIN_VALUE (TREE_TYPE (type)));
 	}
 
     case MIN_EXPR:
