@@ -1,3 +1,177 @@
+2009-07-31  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips.md (*clear_upper32_dext): New pattern.
+
+2009-07-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/bsd.h (ASM_BYTE): New define.
+	* config/i386/darwin.h (ASM_BYTE): Rename from ASM_BYTE_OP.
+	* config/i386/att.h (ASM_BYTE): New define. Use ASM_BYTE instead of
+	.byte.  Use fputs or putc instead of fprintf where appropriate.
+	* config/i386/i386-interix.h: Use ASM_BYTE instead of .byte.  Use
+	fputs or putc instead of fprintf where appropriate.
+	* config/i386/i386elf.h: Ditto.
+	* config/i386/sysv4.h: Ditto.
+	
+	* config/i386/i386.c (TARGET_ASM_BYTE_OP): New define.
+	* config/i386/i386.md (x86_sahf_1): Use ASM_BYTE instead of .byte.
+	(*tls_global_dynamic_64): Ditto.
+
+2009-07-31  Christian Bruel  <christian.bruel@st.com>	
+
+	* gcc/config.gcc (sh*-*-elf): test with_libgloss.
+	
+2009-07-31  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.c (arm_arm_address_cost): Fix typo. 
+	Remove dead code for MINUS.
+
+2009-07-31  Anthony Green  <green@moxielogic.com>
+
+	* config/moxie/moxie.c (moxie_expand_prologue): Use $r5 instead of
+	$r12 in prologue.
+	(moxie_expand_epilogue): Ditto for epilogue.
+	(moxie_setup_incoming_varargs): ABI change.  Use 5 registers for
+	incoming arguments.
+	(moxie_function_arg): Ditto.
+	(moxie_pass_by_reference): Ditto.
+	(moxie_arg_partial_bytes): Ditto.
+	* config/moxie/moxie.h (CALL_USED_REGISTERS): Ditto.
+	(FUNCTION_ARG_ADVANCE) Ditto.
+	(REG_PARM_STACK_SPACE) Ditto.
+	(FUNCTION_ARG_REGNO_P) Dito.
+
+	* config.gcc: Add moxie linux config support.
+	* gcc/config/moxie/uclinux.h: New file.
+
+2009-07-31  DJ Delorie  <dj@redhat.com>
+
+	* config/sh/sh.md (UNSPECV_SP_SWITCH_B): New.
+	(UNSPECV_SP_SWITCH_E): New.
+	(sp_switch_1): Change to an unspec.
+	(sp_switch_2): Change to an unspec.  Don't use post-inc when we
+	replace $r15.
+	* config/sh/sh.c (sh_expand_prologue): Use the constant pool to
+	reference the new stack's address
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* Makefile.in (OBJS-common): Added dependence on graphite-blocking.o,
+	graphite-clast-to-gimple.o, graphite-dependences.o,
+	graphite-interchange.o, graphite-poly.o, graphite-ppl.o,
+	graphite-scop-detection.o, graphite-sese-to-poly.o, and sese.o.
+	(graphite-blocking.o,
+	graphite-clast-to-gimple.o, graphite-dependences.o,
+	graphite-interchange.o, graphite-poly.o, graphite-ppl.o,
+	graphite-scop-detection.o, graphite-sese-to-poly.o, and sese.o): New.
+	* cfgloop.c (alloc_loop): Set loop->can_be_parallel to false.
+	* cfgloop.h (struct loop): Add can_be_parallel field.
+	* common.opt (fgraphite-identity): Moved up.
+	(fgraphite-force-parallel): New flag.
+	* graphite.c: Rewrite.
+	* graphite.h: Rewrite.
+	* passes.c (init_optimization_passes): Schedule a pass of DCE and LIM
+	after Graphite.
+	* toplev.c (graphite_out_file): New file descriptor.
+	(graphite_in_file): New.
+	(process_options): flag_graphite_force_parallel cannot be used without
+	Graphite.
+	* tree-ssa-loop.c: Include toplev.h.
+	(gate_graphite_transforms): Enable flag_graphite for
+	flag_graphite_force_parallel.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* ChangeLog.graphite: New.
+	* graphite-blocking.c: New.
+	* graphite-clast-to-gimple.c: New.
+	* graphite-clast-to-gimple.h: New.
+	* graphite-dependences.c: New.
+	* graphite-dependences.h: New.
+	* graphite-interchange.c: New.
+	* graphite-poly.c: New.
+	* graphite-poly.h: New.
+	* graphite-ppl.c: New.
+	* graphite-ppl.h: New.
+	* graphite-scop-detection.c: New.
+	* graphite-scop-detection.h: New.
+	* graphite-sese-to-poly.c: New.
+	* graphite-sese-to-poly.h: New.
+	* sese.c: New.
+	* sese.h: New.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-chrec.c (evolution_function_right_is_integer_cst): New.
+	* tree-chrec.h (evolution_function_right_is_integer_cst): Declared.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-chrec.c (operator_is_linear): Handle BIT_NOT_EXPR.
+	(scev_is_linear_expression): Return false if the evolution is not
+	affine multivariate.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-data-ref.c (graphite_find_data_references_in_stmt): New.
+	* tree-data-ref.h (graphite_find_data_references_in_stmt): Declared.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-data-ref.c (debug_data_references): New.
+	(debug_data_reference): New.
+	* tree-data-ref.h (debug_data_references): Declared.
+	(debug_data_reference): Declared.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-data-ref.c (stmt_simple_memref_p: Removed.
+	* tree-data-ref.h (scop_p): Removed.
+	(struct data_reference): Remove field scop.
+	(DR_SCOP): Removed.
+	(stmt_simple_memref_p): Removed.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* cfgloop.h (create_empty_loop_on_edge): Pass an extra argument.
+	* cfgloopmanip.c (create_empty_loop_on_edge): Leave the loop_latch
+	basic block empty.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* doc/invoke.texi (-fgraphite-force-parallel): Documented.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* doc/invoke.texi (-fgraphite-identity): Documented.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-scalar-evolution.c: Fix comment.
+	(instantiate_scev_1): Return unknow from scev instantiation if the
+	result is not above instantiate_below.
+
+2009-07-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-scalar-evolution.c (compute_overall_effect_of_inner_loop): Not
+	static anymore.  Instantiate the symbols that may have been introduced
+	by chrec_apply.
+	* tree-scalar-evolution.h (compute_overall_effect_of_inner_loop):
+	Declared.
+
+2009-07-30  DJ Delorie  <dj@redhat.com>
+
+	* config/mep/mep.c (mep_asm_init_sections): Add section flags and
+	.vliw directive to VLIW sections.
+
+2009-07-30  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Makefile.in (AUTOCONF, ACLOCAL, ACLOCAL_AMFLAGS, aclocal_deps):
+	New variables.
+	($(srcdir)/configure, $(srcdir)/aclocal.m4): New rules.
+	(AUTOHEADER): New variable.
+	($(srcdir)/cstamp-h.in): Use it.
+
 2009-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Pat Haugen  <pthaugen@us.ibm.com>
 	    Revital Eres <ERES@il.ibm.com>
@@ -68,8 +242,7 @@
 	(vector_copysign<mode>3): Ditto.
 
 	* config/rs6000/predicates.md (easy_vector_constant_msb): New
-	predicate for setting the high bit in each word, used for
-	copysign.
+	predicate for setting the high bit in each word, used for copysign.
 
 	* config/rs6000/ppc-asm.h (f19): Whitespace.
 	(f32-f63): Define if VSX.
@@ -81,8 +254,7 @@
 	* config/rs6000/power7.md: New file, provide tuning parameters for
 	-mcpu=power7.
 
-	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Add VSX
-	support.
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Add VSX support.
 	(rs6000_cpu_cpp_builtins): Ditto.
 	(altivec_overloaded_builtins): Ditto.
 	(altivec_resolve_overloaded_builtin): Ditto.
@@ -133,8 +305,7 @@
 	splitter for vectorizing copysign.
 	(altivec_vrfiz): Rename from altivec_fturncv4sf2.  Add support for
 	vectorizing simple math functions.
-	(altivec_vrfip): Add support for vectorizing simple math
-	functions.
+	(altivec_vrfip): Add support for vectorizing simple math functions.
 	(altivec_vrfim): Ditto.
 	(altivec_copysign_v4sf3): New insn for Altivec copysign support.
 
@@ -182,9 +353,8 @@
 	(vec_nearbyint): Ditto.
 	(vec_rint): Ditto.
 	(vec_sqrt): Ditto.
-	(all predicates): Use the generic builtin function, and not the
-	V4SF specific function so that the predicates will work with
-	VSX's V2DF.
+	(all predicates): Use the generic builtin function, and not the V4SF
+	specific function so that the predicates will work with VSX's V2DF.
 	(vec_all_*): Ditto.
 	(vec_any_*): Ditto.
 
