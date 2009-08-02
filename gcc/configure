@@ -1130,7 +1130,7 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
   --with-pkgversion=PKG   Use PKG in the version string in place of "lto
-                          merged with rev 149863"
+                          merged with rev 150345"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-multilib-list    Select multilibs (SH only)
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
@@ -8667,7 +8667,7 @@ echo "$as_me: error: package version not specified" >&2;}
       *)   PKGVERSION="($withval) " ;;
      esac
 else
-  PKGVERSION="(lto merged with rev 149863) "
+  PKGVERSION="(lto merged with rev 150345) "
 
 fi;
 

@@ -1233,6 +1233,8 @@ cgraph_decide_inlining (void)
 	      && !node->needed
 	      && node->local.inlinable
 	      && node->callers->inline_failed
+	      && node->callers->caller != node
+	      && node->callers->caller->global.inlined_to != node
 	      && !node->callers->call_stmt_cannot_inline_p
 	      && !DECL_EXTERNAL (node->decl)
 	      && !DECL_COMDAT (node->decl))

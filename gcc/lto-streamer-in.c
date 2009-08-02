@@ -798,7 +798,8 @@ input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
 	    break;
 	  }
 
-      add_phi_arg (result, def, e); 
+      /* FIXME lto: we need to properly stream phi argument locations.  */
+      add_phi_arg (result, def, e, UNKNOWN_LOCATION); 
     }
 
   return result;

@@ -1822,7 +1822,8 @@ process_options (void)
       || flag_loop_block
       || flag_loop_interchange
       || flag_loop_strip_mine
-      || flag_graphite_identity)
+      || flag_graphite_identity
+      || flag_loop_parallelize_all)
     sorry ("Graphite loop optimizations cannot be used");
 #endif
 
@@ -2067,7 +2068,7 @@ process_options (void)
   if (flag_signaling_nans)
     flag_trapping_math = 1;
 
-  /* We cannot reassociate if we want traps or signed zeros.  */
+  /* We cannot reassociate if we want traps or signed zeros.  */
   if (flag_associative_math && (flag_trapping_math || flag_signed_zeros))
     {
       warning (0, "-fassociative-math disabled; other options take precedence");
