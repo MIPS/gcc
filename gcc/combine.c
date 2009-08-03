@@ -2172,13 +2172,35 @@ reg_subword_p (rtx x, rtx reg)
 static rtx
 cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
 {
-  rtx x = src, n, o;
+  rtx x = src;
   const RTX_CODE code = GET_CODE (x);
   int i;
   const char *fmt;
 
   switch (code)
     {
+    case REG:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_FIXED:
+    case CONST_VECTOR:
+    case SYMBOL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+    case SCRATCH:
+      /* SCRATCH must be shared because they represent distinct values.  */
+      return x;
+    case CLOBBER:
+      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
+	return x;
+      break;
+
+    case CONST:
+      if (shared_const_p (x))
+	return x;
+      break;
+
     case MEM:
       mem_mode = GET_MODE (x);
       break;
@@ -2189,13 +2211,14 @@ cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
     case POST_DEC:
       gcc_assert (mem_mode != VOIDmode && mem_mode != BLKmode);
       if (after == (code == PRE_INC || code == PRE_DEC))
-	x = XEXP (x, 0);
+	x = cleanup_auto_inc_dec (XEXP (x, 0), after, mem_mode);
       else
-	x = gen_rtx_PLUS (GET_MODE (x), XEXP (x, 0),
+	x = gen_rtx_PLUS (GET_MODE (x),
+			  cleanup_auto_inc_dec (XEXP (x, 0), after, mem_mode),
 			  GEN_INT ((code == PRE_INC || code == POST_INC)
 				   ? GET_MODE_SIZE (mem_mode)
 				   : -GET_MODE_SIZE (mem_mode)));
-      return cleanup_auto_inc_dec (x, after, mem_mode);
+      return x;
 
     case PRE_MODIFY:
     case POST_MODIFY:
@@ -2209,33 +2232,31 @@ cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
       break;
     }
 
+  /* Copy the various flags, fields, and other information.  We assume
+     that all fields need copying, and then clear the fields that should
+     not be copied.  That is the sensible default behavior, and forces
+     us to explicitly document why we are *not* copying a flag.  */
+  x = shallow_copy_rtx (x);
+
+  /* We do not copy the USED flag, which is used as a mark bit during
+     walks over the RTL.  */
+  RTX_FLAG (x, used) = 0;
+
+  /* We do not copy FRAME_RELATED for INSNs.  */
+  if (INSN_P (x))
+    RTX_FLAG (x, frame_related) = 0;
+
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     if (fmt[i] == 'e')
-      {
-	o = XEXP (x, i);
-	n = cleanup_auto_inc_dec (o, after, mem_mode);
-	if (o != n)
-	  {
-	    if (x == src)
-	      x = shallow_copy_rtx (x);
-	    XEXP (x, i) = n;
-	  }
-      }
-    else if (fmt[i] == 'E')
+      XEXP (x, i) = cleanup_auto_inc_dec (XEXP (x, i), after, mem_mode);
+    else if (fmt[i] == 'E' || fmt[i] == 'V')
       {
 	int j;
+	XVEC (x, i) = rtvec_alloc (XVECLEN (x, i));
 	for (j = 0; j < XVECLEN (x, i); j++)
-	  {
-	    o = XVECEXP (x, i, j);
-	    n = cleanup_auto_inc_dec (o, after, mem_mode);
-	    if (o != n)
-	      {
-		if (x == src)
-		  x = shallow_copy_rtx (x);
-		XVECEXP (x, i, j) = n;
-	      }
-	  }
+	  XVECEXP (x, i, j)
+	    = cleanup_auto_inc_dec (XVECEXP (src, i, j), after, mem_mode);
       }
 
   return x;
