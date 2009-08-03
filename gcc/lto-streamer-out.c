@@ -1753,6 +1753,7 @@ output_phi (struct output_block *ob, gimple phi)
     {
       lto_output_tree_ref (ob, gimple_phi_arg_def (phi, i));
       output_uleb128 (ob, gimple_phi_arg_edge (phi, i)->src->index);
+      lto_output_location (ob, gimple_phi_arg_location (phi, i));
     }
 }
 

@@ -761,6 +761,35 @@ input_cfg (struct lto_input_block *ib, struct function *fn)
 }
 
 
+/* Read a location from input block IB.  */
+
+static location_t
+lto_input_location (struct lto_input_block *ib, struct data_in *data_in)
+{
+  expanded_location xloc;
+  location_t loc;
+
+  xloc.file = input_string (data_in, ib);
+  if (xloc.file == NULL)
+    return UNKNOWN_LOCATION;
+
+  xloc.line = lto_input_sleb128 (ib);
+  xloc.column = lto_input_sleb128 (ib);
+
+  if (data_in->current_file)
+    linemap_add (line_table, LC_LEAVE, false, NULL, 0);
+
+  data_in->current_file = canon_file_name (xloc.file);
+  data_in->current_line = xloc.line;
+  data_in->current_col = xloc.column;
+
+  linemap_add (line_table, LC_ENTER, false, data_in->current_file, xloc.line);
+  LINEMAP_POSITION_FOR_COLUMN (loc, line_table, xloc.column);
+
+  return loc;
+}
+
+
 /* Read a PHI function for basic block BB in function FN.  DATA_IN is
    the file being read.  IB is the input block to use for reading.  */
 
@@ -786,6 +815,7 @@ input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
     {
       tree def = lto_input_tree (ib, data_in);
       int src_index = lto_input_uleb128 (ib);
+      location_t arg_loc = lto_input_location (ib, data_in);
       basic_block sbb = BASIC_BLOCK_FOR_FUNCTION (fn, src_index);
       
       edge e = NULL;
@@ -798,8 +828,7 @@ input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
 	    break;
 	  }
 
-      /* FIXME lto: we need to properly stream phi argument locations.  */
-      add_phi_arg (result, def, e, UNKNOWN_LOCATION); 
+      add_phi_arg (result, def, e, arg_loc); 
     }
 
   return result;
@@ -837,35 +866,6 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
 
       i = lto_input_uleb128 (ib);
     } 
-}
-
-
-/* Read a location from input block IB.  */
-
-static location_t
-lto_input_location (struct lto_input_block *ib, struct data_in *data_in)
-{
-  expanded_location xloc;
-  location_t loc;
-
-  xloc.file = input_string (data_in, ib);
-  if (xloc.file == NULL)
-    return UNKNOWN_LOCATION;
-
-  xloc.line = lto_input_sleb128 (ib);
-  xloc.column = lto_input_sleb128 (ib);
-
-  if (data_in->current_file)
-    linemap_add (line_table, LC_LEAVE, false, NULL, 0);
-
-  data_in->current_file = canon_file_name (xloc.file);
-  data_in->current_line = xloc.line;
-  data_in->current_col = xloc.column;
-
-  linemap_add (line_table, LC_ENTER, false, data_in->current_file, xloc.line);
-  LINEMAP_POSITION_FOR_COLUMN (loc, line_table, xloc.column);
-
-  return loc;
 }
 
 
