@@ -1,3 +1,8 @@
+2009-08-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (cleanup_auto_inc_dec): Make sure the return value is
+	always unshared.
+
 2009-07-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (dw_long_long_const): Remove.
