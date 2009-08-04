@@ -2181,8 +2181,7 @@ remove_bb (basic_block bb)
 	     since this way we lose warnings for gotos in the original
 	     program that are indeed unreachable.  */
 	  if (gimple_code (stmt) != GIMPLE_GOTO
-	      && gimple_has_location (stmt)
-	      && !loc)
+	      && gimple_has_location (stmt))
 	    loc = gimple_location (stmt);
 	}
     }
