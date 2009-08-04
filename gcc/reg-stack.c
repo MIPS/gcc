@@ -2965,7 +2965,7 @@ convert_regs_1 (basic_block block)
 		 died before and the reference in the debug insn
 		 should have been removed so as to avoid changing code
 		 generation.  */
-	      gcc_assert (!REG_NOTES (insn));
+	      gcc_assert (!find_reg_note (insn, REG_DEAD, NULL));
 	    }
 	}
       else if (stack_regs_mentioned (insn)

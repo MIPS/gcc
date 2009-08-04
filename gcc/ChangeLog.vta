@@ -1,5 +1,9 @@
 2009-08-04  Alexandre Oliva  <aoliva@redhat.com>
 
+	* reg-stack.c (convert_regs_1): Reject only REG_DEAD notes.
+
+2009-08-04  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgexpand.c (wrap_constant): Wrap VOIDmode LABEL_REFs.
 	(unwrap_constant): Unwrap them.
 	(expand_debug_locations): Accept them.
