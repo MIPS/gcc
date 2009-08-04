@@ -1,3 +1,9 @@
+2009-08-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Handle ZERO_EXTRACT and
+	SIGN_EXTRACT.  Fix up DW_OP_sh{l,r,ra} uses in {SIGN,ZERO}_EXTEND,
+	do_scompare and {U,S}{MIN,MAX}.
+
 2009-08-04  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cfgexpand.c (expand_debug_expr): Handle promoted modes in
