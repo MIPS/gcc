@@ -1,3 +1,8 @@
+2009-08-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* Makefile.in (tree-ssa-address.o): Change to:
+	$(TA)tree-ssa-address.o.
+
 2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/arc/arc.c (arc_output_sdma): Use scratch register to
