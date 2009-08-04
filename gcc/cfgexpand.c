@@ -1930,28 +1930,40 @@ round_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
 rtx
 wrap_constant (enum machine_mode mode, rtx x)
 {
-  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
-      && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
+  if (GET_MODE (x) != VOIDmode)
     return x;
-  gcc_assert (mode != VOIDmode);
-  return gen_rtx_CONST (mode, x);
+
+  if (GET_CODE (x) == CONST_INT
+      || GET_CODE (x) == CONST_FIXED
+      || GET_CODE (x) == CONST_DOUBLE
+      || GET_CODE (x) == LABEL_REF)
+    {
+      gcc_assert (mode != VOIDmode);
+
+      x = gen_rtx_CONST (mode, x);
+    }
+
+  return x;
 }
 
 /* Remove CONST wrapper added by wrap_constant().  */
 rtx
 unwrap_constant (rtx x)
 {
-  rtx orig = x;
+  rtx ret = x;
 
   if (GET_CODE (x) != CONST)
     return x;
 
   x = XEXP (x, 0);
-  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
-      && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
-    return orig;
 
-  return x;
+  if (GET_CODE (x) == CONST_INT
+      || GET_CODE (x) == CONST_FIXED
+      || GET_CODE (x) == CONST_DOUBLE
+      || GET_CODE (x) == LABEL_REF)
+    ret = x;
+
+  return ret;
 }
 
 /* Return an RTX equivalent to the value of the tree expression
@@ -2594,7 +2606,8 @@ expand_debug_locations (void)
 			|| (GET_MODE (val) == VOIDmode
 			    && (GET_CODE (val) == CONST_INT
 				|| GET_CODE (val) == CONST_FIXED
-				|| GET_CODE (val) == CONST_DOUBLE)));
+				|| GET_CODE (val) == CONST_DOUBLE
+				|| GET_CODE (val) == LABEL_REF)));
 	  }
 
 	INSN_VAR_LOCATION_LOC (insn) = val;
