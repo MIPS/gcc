@@ -7131,8 +7131,16 @@ vt_add_function_parameters (void)
 	     value, but ATM we don't.  */
 	  && GET_CODE (incoming) != PARALLEL)
 	{
-	  cselib_val *val = cselib_lookup (var_lowpart (mode, incoming),
-					   mode, true);
+	  cselib_val *val;
+
+	  /* ??? We shouldn't ever hit this, but it may happen because
+	     arguments passed by invisible reference aren't dealt with
+	     above: incoming-rtl will have Pmode rather than the
+	     expected mode for the type.  */
+	  if (offset)
+	    continue;
+
+	  val = cselib_lookup (var_lowpart (mode, incoming), mode, true);
 
 	  /* ??? Float-typed values in memory are not handled by
 	     cselib.  */
