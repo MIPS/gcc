@@ -124,6 +124,7 @@
    (UNSPEC_PROF 18) ; profile callgraph counter
    (UNSPEC_LP 19) ; to set LP_END
    (UNSPEC_CASESI 20)
+   (UNSPEC_CACHE_OP 21)
    (VUNSPEC_RTIE 17) ; blockage insn for rtie generation
    (VUNSPEC_SYNC 18) ; blockage insn for sync generation
    (VUNSPEC_BRK 19) ; blockage insn for brk generation
@@ -136,6 +137,10 @@
    (VUNSPEC_SR 26) ; blockage insn for writing to an auxillary register 
    (VUNSPEC_TRAP_S 27) ; blockage insn for trap_s generation
    (VUNSPEC_UNIMP_S 28) ; blockage insn for unimp_s generation
+
+   ; auxilary register addresses for cache operations
+   (CACHE_OP_INVALIDATE 0x4a)
+   (CACHE_OP_FLUSH 0x4c)
 
    (SP_REG 28)
    (ILINK1_REGNUM 29)
@@ -6063,6 +6068,33 @@
 ;; to synthesyze nagate by flipping the sign bit.
 
 	      
+;; Flush cache for memory starting at operand 0 with size operand 1.
+(define_insn "cache_block_op"
+  [(set (mem:BLK (and:SI (match_operand:SI 0 "register_operand" "+Rcq#q,r")
+			 (const_int -32)))
+	(unspec [(mem:BLK (match_dup 0))
+		 (match_operand 2 "immediate_operand" "i,i")] UNSPEC_CACHE_OP))
+   (use (match_operand 1 "immediate_operand" "i,i"))
+   (clobber (match_dup 0))
+   (clobber (reg:SI LP_COUNT))]
+  "TARGET_ARC700"
+  "*
+{
+  arc_clear_unalign ();
+  return \"mov lp_count,(%1+31)/32\n\t\"
+	 \".balign 4\n\t\"
+	 \"lp 0f\n\t\"
+	 \"sr %0,[%2]\n\t\"
+	 \"add%? %0,%0,32\n0:\";
+}"
+  [(set_attr "iscompact" "maybe,false")
+   (set_attr_alternative "length"
+     [(cond
+	[(eq_attr "verify_short" "yes")
+	 (const_int 22)]
+	(const_int 24))
+      (const_int 24)])])
+
 ;; include the arc-FPX instructions
 (include "fpx.md")
 

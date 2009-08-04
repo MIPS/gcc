@@ -1172,9 +1172,11 @@ arc_conditional_register_usage (void)
       else if (i < 60)
 	arc_regno_reg_class[i]
 	  = (fixed_regs[i]
-	      ? (TEST_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], i)
-		 ? CHEAP_CORE_REGS : ALL_CORE_REGS)
-	      : WRITABLE_CORE_REGS);
+	     ? (TEST_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], i)
+		? CHEAP_CORE_REGS : ALL_CORE_REGS)
+	     : ((TARGET_ARC700
+		 && TEST_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], i))
+		? CHEAP_CORE_REGS : WRITABLE_CORE_REGS));
       else
         {
           arc_regno_reg_class[i] = NO_REGS;
@@ -9166,6 +9168,28 @@ arc_copy_from_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
   build_sdma_op (gsi, fn, src, dst, size);
 }
 
+static void
+arc_output_sdma_1 (char c, char dma_reg_c, rtx op, rtx scratch,
+		   const char *comment)
+{
+  char buf[40];
+
+  if (CONST_INT_P (op) && (INTVAL (op) >= 1<<14 || /* assembler is broken */ 1))
+    {
+      int scratchno = REGNO (scratch);
+      bool creg_p = scratchno < 4 || scratchno == 12;
+      rtx xop[2];
+
+      sprintf (buf, "mov%s %%0,%%1%s", creg_p ? "_s" : "", comment);
+      xop[0] = scratch;
+      xop[1] = op;
+      output_asm_insn (buf, xop);
+      op = scratch;
+    }
+  sprintf (buf, "vdma%cset dr%c,%%0%s", c, dma_reg_c, comment);
+  output_asm_insn (buf, &op);
+}
+
 const char *
 arc_output_sdma (rtx *operands, char c)
 {
@@ -9174,27 +9198,17 @@ arc_output_sdma (rtx *operands, char c)
 
   int n = INTVAL (operands[2]);
   int m = INTVAL (operands[3]);
-  int scratchno = REGNO (operands[4]);
-  bool creg_p = scratchno < 4 || scratchno == 12;
+  rtx scratch = operands[4];
 
   gcc_assert (1 <= n && n <= 255);
   gcc_assert (1 <= m && m <= 255);
-  sprintf (buf,
-	   "vdma%cset dr0,%%0\n\t"
-	   "vdma%cset dr1,%%1\n\t"
-	   "mov%s %%6,%%2 ; %%4 * %%5 bytes\n\t"
-	   "vdma%cset dr2,%%6 ; %%4 * %%5 bytes\n\t"
-	   "vdma%cset dr4,%%3\n\t"
-	   "vdma%cset dr5,%%4\n\t"
-	   "vdma%crun I0,I0",
-	   c, c, creg_p ? "_s" : "", c, c, c, c);
-  xop[0] = operands[0];
-  xop[1] = operands[2];
-  xop[2] = GEN_INT (31 << 16 | m << 8 | n);
-  xop[3] = operands[1];
-  xop[4] = operands[2];
-  xop[5] = operands[3];
-  xop[6] = operands[4];
+  arc_output_sdma_1 (c, '0', operands[0], scratch, "");
+  arc_output_sdma_1 (c, '1', operands[2], scratch, "");
+  sprintf (buf, " ; %d * %d bytes", n, m);
+  arc_output_sdma_1 (c, '2', GEN_INT (31 << 16 | m << 8 | n), scratch, buf);
+  arc_output_sdma_1 (c, '4', operands[1], scratch, "");
+  arc_output_sdma_1 (c, '5', operands[2], scratch, "");
+  sprintf (buf, "vdma%crun I0,I0", c);
   output_asm_insn (buf, xop);
   return "";
 }

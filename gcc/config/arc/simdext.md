@@ -1317,9 +1317,30 @@
 ;; DMA in/out for ARCompact / mxp interworking
 ;; These are emitted on the ARCompact side.
 
-;; copy main memory starting at operand 0 to SDM starting at operand 1;
-;; transfer size is operand 2.
-(define_insn "simd_dma_in"
+;; copy main memory starting at operand 1 to SDM starting at operand 0;
+;; transfer size is operands[2] * operands[3].
+(define_expand "simd_dma_in"
+  [(set (reg:CC_BLK SDM)
+	(unspec [(reg:CC_BLK SDM)
+		 (mem:BLK (match_operand:SI 1 "mxp_addr_operand"))
+		 (match_operand 0 "mxp_addr_operand")
+		 (match_operand 2 "immediate_operand")
+		 (match_operand 3 "immediate_operand")]
+	 UNSPEC_ARC_SIMD_DMA))]
+  "TARGET_SIMD_SET"
+  "
+{
+  HOST_WIDE_INT size = INTVAL (operands[2]) * INTVAL (operands[3]);
+  emit_insn (gen_cache_block_op (copy_to_mode_reg (SImode, operands[1]),
+				 GEN_INT (size), GEN_INT (CACHE_OP_FLUSH)));
+  emit_insn (gen_simd_dma_in_i (operands[0], operands[1], operands[2],
+				operands[3]));
+  DONE;
+}")
+
+;; copy main memory starting at operand 1 to SDM starting at operand 0;
+;; transfer size is operands[2] * operands[3].
+(define_insn "simd_dma_in_i"
   [(set (reg:CC_BLK SDM)
 	(unspec [(reg:CC_BLK SDM)
 		 (mem:BLK (match_operand:SI 1 "mxp_addr_operand"))
@@ -1332,9 +1353,32 @@
   "*arc_output_sdma (operands, 'i');"
   [(set_attr "length" "42")])
 
-;; copy SDM starting at operand 0 to main memory starting at operand 1;
-;; transfer size is operand 2.
-(define_insn "simd_dma_out"
+;; copy SDM starting at operand 1 to main memory starting at operand 0;
+;; transfer size is operands[2] * operands[3].
+(define_expand "simd_dma_out"
+  [(set (mem:BLK (match_operand:SI 1 "mxp_addr_operand"))
+	(unspec [(reg:CC_BLK SDM)
+		 (match_operand 0 "mxp_addr_operand")
+		 (match_operand 2 "immediate_operand")
+		 (match_operand 3 "immediate_operand")]
+	 UNSPEC_ARC_SIMD_DMA))]
+  "TARGET_SIMD_SET"
+  "
+{
+  HOST_WIDE_INT size = INTVAL (operands[2]) * INTVAL (operands[3]);
+  /* We assume IM = 1, i.e. any dirty cache lines will be flushed before
+     invalidation.  That can be important for the first and last cache line.  */
+  emit_insn (gen_cache_block_op (copy_to_mode_reg (SImode, operands[1]),
+				 GEN_INT (size),
+				 GEN_INT (CACHE_OP_INVALIDATE)));
+  emit_insn (gen_simd_dma_out_i (operands[0], operands[1], operands[2],
+				operands[3]));
+  DONE;
+}")
+
+;; copy SDM starting at operand 1 to main memory starting at operand 0;
+;; transfer size is operands[2] * operands[3].
+(define_insn "simd_dma_out_i"
   [(set (mem:BLK (match_operand:SI 1 "mxp_addr_operand"))
 	(unspec [(reg:CC_BLK SDM)
 		 (match_operand 0 "mxp_addr_operand")

@@ -1,3 +1,17 @@
+2009-08-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/arc.c (arc_conditional_register_usage): Fix
+	regno_reg_class for ilink[12] on ARC700.
+
+	* config/arc/arc.c (arc_output_sdma_1): New function, broken out of:
+	(arc_output_sdma).  Put constants in registers.
+	* config/arc/arc.md (UNSPEC_CACHE_OP, CACHE_OP_INVALIDATE): Define.
+	(CACHE_OP_FLUSH): Likewise.
+	(cache_block_op): New pattern.
+	* config/arc/simdext.md (simd_dma_in, simd_dma_out): Rename to:
+	(simd_dma_in_i, simd_dma_out_i).
+	(simd_dma_in, simd_dma_out): New expanders.
+
 2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.c (mxp_valid_target_attribute_inner_p):
