@@ -10208,8 +10208,10 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	  else
 	    op = DW_OP_shr;
 	  mem_loc_result = op0;
-	  add_loc_descr (&mem_loc_result, new_loc_descr (DW_OP_shl, shift, 0));
-	  add_loc_descr (&mem_loc_result, new_loc_descr (op, shift, 0));
+	  add_loc_descr (&mem_loc_result, int_loc_descriptor (shift));
+	  add_loc_descr (&mem_loc_result, new_loc_descr (DW_OP_shl, 0, 0));
+	  add_loc_descr (&mem_loc_result, int_loc_descriptor (shift));
+	  add_loc_descr (&mem_loc_result, new_loc_descr (op, 0, 0));
 	}
       break;
 
@@ -10463,11 +10465,15 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	  int shift = DWARF2_ADDR_SIZE
 		      - GET_MODE_SIZE (GET_MODE (XEXP (rtl, 0)));
 	  shift *= BITS_PER_UNIT;
-	  add_loc_descr (&op0, new_loc_descr (DW_OP_shl, shift, 0));
+	  add_loc_descr (&op0, int_loc_descriptor (shift));
+	  add_loc_descr (&op0, new_loc_descr (DW_OP_shl, 0, 0));
 	  if (CONST_INT_P (XEXP (rtl, 1)))
 	    op1 = int_loc_descriptor (INTVAL (XEXP (rtl, 1)) << shift);
 	  else
-	    add_loc_descr (&op1, new_loc_descr (DW_OP_shl, shift, 0));
+	    {
+	      add_loc_descr (&op1, int_loc_descriptor (shift));
+	      add_loc_descr (&op1, new_loc_descr (DW_OP_shl, 0, 0));
+	    }
 	}
 
     do_compare:
@@ -10581,8 +10587,10 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	  int shift = DWARF2_ADDR_SIZE
 		      - GET_MODE_SIZE (GET_MODE (XEXP (rtl, 0)));
 	  shift *= BITS_PER_UNIT;
-	  add_loc_descr (&op0, new_loc_descr (DW_OP_shl, shift, 0));
-	  add_loc_descr (&op1, new_loc_descr (DW_OP_shl, shift, 0));
+	  add_loc_descr (&op0, int_loc_descriptor (shift));
+	  add_loc_descr (&op0, new_loc_descr (DW_OP_shl, 0, 0));
+	  add_loc_descr (&op1, int_loc_descriptor (shift));
+	  add_loc_descr (&op1, new_loc_descr (DW_OP_shl, 0, 0));
 	}
 
       if (GET_CODE (rtl) == SMIN || GET_CODE (rtl) == UMIN)
@@ -10603,6 +10611,40 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	bra_node->dw_loc_oprnd1.val_class = dw_val_class_loc;
 	bra_node->dw_loc_oprnd1.v.val_loc = drop_node;
       }
+      break;
+
+    case ZERO_EXTRACT:
+    case SIGN_EXTRACT:
+      if (CONST_INT_P (XEXP (rtl, 1))
+	  && CONST_INT_P (XEXP (rtl, 2))
+	  && ((unsigned) INTVAL (XEXP (rtl, 1))
+	      + (unsigned) INTVAL (XEXP (rtl, 2))
+	      <= GET_MODE_BITSIZE (GET_MODE (rtl)))
+	  && GET_MODE_BITSIZE (GET_MODE (rtl)) <= DWARF2_ADDR_SIZE
+	  && GET_MODE_BITSIZE (GET_MODE (XEXP (rtl, 0))) <= DWARF2_ADDR_SIZE)
+	{
+	  int shift, size;
+	  op0 = mem_loc_descriptor (XEXP (rtl, 0), mode,
+				    VAR_INIT_STATUS_INITIALIZED);
+	  if (op0 == 0)
+	    break;
+	  if (GET_CODE (rtl) == SIGN_EXTRACT)
+	    op = DW_OP_shra;
+	  else
+	    op = DW_OP_shr;
+	  mem_loc_result = op0;
+	  size = INTVAL (XEXP (rtl, 1));
+	  shift = INTVAL (XEXP (rtl, 2));
+	  if (BITS_BIG_ENDIAN)
+	    shift = GET_MODE_BITSIZE (GET_MODE (XEXP (rtl, 0)))
+		    - shift - size;
+	  add_loc_descr (&mem_loc_result,
+			 int_loc_descriptor (DWARF2_ADDR_SIZE - shift - size));
+	  add_loc_descr (&mem_loc_result, new_loc_descr (DW_OP_shl, 0, 0));
+	  add_loc_descr (&mem_loc_result,
+			 int_loc_descriptor (DWARF2_ADDR_SIZE - size));
+	  add_loc_descr (&mem_loc_result, new_loc_descr (op, 0, 0));
+	}
       break;
 
     case COMPARE:
