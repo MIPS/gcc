@@ -1,3 +1,8 @@
+2009-08-05  Alexandre Oliva  <aoliva@redhat.com>,  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (try_combine): If there were any REG mode changes,
+	adjust DEBUG_INSNs.
+
 2009-08-04  Alexandre Oliva  <aoliva@redhat.com>
 
 	* reg-stack.c (convert_regs_1): Reject only REG_DEAD notes.
