@@ -1,3 +1,8 @@
+2009-08-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Fail gracefully when computing
+	address one-past-the-end of array made non-addressable.
+
 2009-08-05  Alexandre Oliva  <aoliva@redhat.com>,  Jakub Jelinek  <jakub@redhat.com>
 
 	* combine.c (try_combine): If there were any REG mode changes,
