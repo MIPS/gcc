@@ -8556,8 +8556,12 @@ break_out_comdat_types (dw_die_ref die)
         if (replacement != NULL)
           c = replacement;
       }
-    else if (c->die_tag == DW_TAG_namespace)
+    else if (c->die_tag == DW_TAG_namespace
+             || c->die_tag == DW_TAG_class_type
+             || c->die_tag == DW_TAG_structure_type
+             || c->die_tag == DW_TAG_union_type)
       {
+        /* Look for nested types that can be broken out.  */
         break_out_comdat_types (c);
       }
   } while (next != NULL);
