@@ -2237,10 +2237,26 @@ expand_debug_expr (tree exp)
 
 	if ((bitpos % BITS_PER_UNIT) == 0
 	    && bitsize == GET_MODE_BITSIZE (mode1))
-	  return simplify_gen_subreg (mode, op0,
-				      GET_MODE (op0) != VOIDmode
-				      ? GET_MODE (op0) : mode1,
-				      bitpos / BITS_PER_UNIT);
+	  {
+	    enum machine_mode opmode = GET_MODE (op0);
+
+	    gcc_assert (opmode != BLKmode);
+
+	    if (opmode == VOIDmode)
+	      opmode = mode1;
+
+	    /* This condition may hold if we're expanding the address
+	       right past the end of an array that turned out not to
+	       be addressable (i.e., the address was only computed in
+	       debug stmts).  The gen_subreg below would rightfully
+	       crash, and the address doesn't really exist, so just
+	       drop it.  */
+	    if (bitpos >= GET_MODE_BITSIZE (opmode))
+	      return NULL;
+
+	    return simplify_gen_subreg (mode, op0, opmode,
+					bitpos / BITS_PER_UNIT);
+	  }
 
 	return simplify_gen_ternary (SCALAR_INT_MODE_P (GET_MODE (op0))
 				     && TYPE_UNSIGNED (TREE_TYPE (exp))
