@@ -133,7 +133,7 @@ emit-cil.o : $(srcdir)/config/cil32/emit-cil.c \
 
 missing-protos.o : $(srcdir)/config/cil32/missing-protos.c \
    $(srcdir)/config/cil32/cil-refs.h $(srcdir)/config/cil32/cil-stmt.h \
-   $(srcdir)/config/cil32/cil-stmt-inline.h \
+   $(srcdir)/config/cil32/cil-stmt-inline.h $(srcdir)/config/cil32/cil-stack.h \
    $(srcdir)/config/cil32/cil-types.h $(CONFIG_H) $(FLAGS_H) $(SYSTEM_H) \
    $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_PASS_H) coretypes.h errors.h \
    pointer-set.h

@@ -41,6 +41,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "tree-pass.h"
 #include "pointer-set.h"
 #include "cil-refs.h"
+#include "cil-stack.h"
 #include "cil-stmt.h"
 #include "cil-types.h"
 #include "emit-cil.h"
