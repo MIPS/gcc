@@ -1,0 +1,25 @@
+
+# Load the generic configuration for this board. This will define a basic
+# set of routines used to communicate with the board.
+load_generic_config "sim"
+
+set default_cil_sim "@cilbindir@/cil32-mono"
+
+# Command to invoke the simulator
+if {[info exists CIL32SIM]} {
+    set_board_info sim $CIL32SIM
+} else {
+    set_board_info sim default_cil_sim
+    warning "CIL32SIM undefined, no user simulator defined, using: $default_cil_sim"
+}
+
+# No multilib flags needed by default.
+process_multilib_options ""
+# This board doesn't use a linker script.
+set_board_info ldscript ""
+
+set_board_info gcc,no_label_values 1
+set_board_info gcc,no_trampolines  1
+
+# Avoid cil missing prototype warning
+set_board_info cflags "-Wno-cil-missing-prototypes"

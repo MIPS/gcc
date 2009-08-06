@@ -177,3 +177,15 @@ bb-layout.o: $(srcdir)/config/cil32/bb-layout.c \
    $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) \
    coretypes.h tree-pass.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+site.exp: cil-dejagnurc cil32.exp
+
+cil-dejagnurc: $(srcdir)/config/cil32/cil-dejagnurc.in
+	cat $< | sed 's,@cilsrcdir@,$(objdir),g' > $@
+
+cil32.exp: $(srcdir)/config/cil32/cil32.exp.in
+	cat $< | sed 's,@cilbindir@,$(bindir),g' > $@
+
+DEJAGNU=$(objdir)/cil-dejagnurc
+
+export DEJAGNU
