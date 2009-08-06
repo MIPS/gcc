@@ -739,8 +739,8 @@ vector_to_cil (const_tree type)
 	       tree_code_name[TREE_CODE (innertype)]);
     }
   if (ret == CIL_NO_TYPE)
-    internal_error ("Unsupported vector type %ld/%ld",
-		    vec_size, innersize);
+    internal_error ("Unsupported vector type %ld/%ld", vec_size, innersize);
+
   return ret;
 }
 

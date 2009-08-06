@@ -519,7 +519,7 @@ gen_ldind (cil_stmt_iterator *csi, tree type, bool volat)
       cfun->machine->has_vec = true;
     }
   else
-    gen_scalar_ldind (csi, type, true);
+    gen_scalar_ldind (csi, type, volat);
 }
 
 /* Generate a misaligned indirect load statement for the type specified by
@@ -551,7 +551,7 @@ gen_misaligned_ldvec (cil_stmt_iterator *csi, tree type, bool volat)
 	cfun->machine->has_vec = true;
     }
   else
-    gen_scalar_ldind (csi, type, true);
+    gen_scalar_ldind (csi, type, volat);
 }
 
 /* Generate a store indirect statement for the type specified by TYPE. The
@@ -579,7 +579,7 @@ gen_stind (cil_stmt_iterator *csi, tree type, bool volat)
 	cfun->machine->has_vec = true;
     }
   else
-    gen_scalar_stind (csi, type, true);
+    gen_scalar_stind (csi, type, volat);
 }
 
 /* Generate a misaligned indirect store statement for the type specified by
@@ -609,7 +609,7 @@ gen_misaligned_stvec (cil_stmt_iterator *csi, tree type, bool volat)
       cfun->machine->has_vec = true;
     }
   else
-    gen_scalar_stind (csi, type, true);
+    gen_scalar_stind (csi, type, volat);
 }
 
 /* Return TRUE if EXP contains mostly (3/4)  zeros.  */
