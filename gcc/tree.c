@@ -4127,6 +4127,11 @@ free_lang_data_in_type (tree type)
 {
   gcc_assert (TYPE_P (type));
 
+  /* Fill in the alias-set.  We need to at least track zeroness here
+     for correctness.  */
+  if (lang_hooks.get_alias_set (type) == 0)
+    TYPE_ALIAS_SET (type) = 0;
+
   /* Give the FE a chance to remove its own data first.  */
   lang_hooks.free_lang_data (type);
 

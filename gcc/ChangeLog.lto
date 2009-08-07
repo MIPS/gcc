@@ -1,3 +1,12 @@
+2009-08-07  Richard Guenther  <rguenther@suse.de>
+
+	* lto-streamer-out.c (pack_ts_type_value_fields): Stream out
+	the alias-set if it is zero, else stream out -1.
+	* lto-streamer-in.c (unpack_ts_type_value_fields): Stream in
+	the alias-set.
+	* tree.c (free_lang_data_in_type): Ask the frontend about the
+	alias-set of the type and record it if it is zero.
+
 2009-08-03  Richard Guenther  <rguenther@suse.de>
 
 	* lto-streamer-out.c (output_phi): Output phi argument locations.

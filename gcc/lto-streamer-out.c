@@ -641,6 +641,7 @@ pack_ts_type_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, TYPE_USER_ALIGN (expr), 1);
   bp_pack_value (bp, TYPE_READONLY (expr), 1);
   bp_pack_value (bp, TYPE_ALIGN (expr), HOST_BITS_PER_INT);
+  bp_pack_value (bp, TYPE_ALIAS_SET (expr) == 0 ? 0 : -1, HOST_BITS_PER_INT);
 }
 
 
