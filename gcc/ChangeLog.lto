@@ -1,5 +1,12 @@
 2009-08-07  Richard Guenther  <rguenther@suse.de>
 
+	Mainline merge @150572.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-08-07  Richard Guenther  <rguenther@suse.de>
+
 	* lto-streamer-out.c (pack_ts_type_value_fields): Stream out
 	the alias-set if it is zero, else stream out -1.
 	* lto-streamer-in.c (unpack_ts_type_value_fields): Stream in

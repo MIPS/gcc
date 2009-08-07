@@ -777,7 +777,8 @@ promote_function_mode (const_tree type, enum machine_mode mode, int *punsignedp,
    to show what signedness to use on extension operations.  */
 
 enum machine_mode
-promote_mode (const_tree type, enum machine_mode mode, int *punsignedp)
+promote_mode (const_tree type ATTRIBUTE_UNUSED, enum machine_mode mode,
+	      int *punsignedp ATTRIBUTE_UNUSED)
 {
   /* FIXME: this is the same logic that was there until GCC 4.4, but we
      probably want to test POINTERS_EXTEND_UNSIGNED even if PROMOTE_MODE
@@ -1528,9 +1529,9 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
    in which a scalar value of mode MODE was returned by a library call.  */
 
 rtx
-hard_libcall_value (enum machine_mode mode)
+hard_libcall_value (enum machine_mode mode, rtx fun)
 {
-  return LIBCALL_VALUE (mode);
+  return targetm.calls.libcall_value (mode, fun);
 }
 
 /* Look up the tree code for a given rtx code

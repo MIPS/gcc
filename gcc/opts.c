@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "debug.h"
 #include "plugin.h"
+#include "except.h"
 #include "lto-streamer.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
@@ -1069,10 +1070,15 @@ decode_options (unsigned int argc, const char **argv)
      generating unwind info.  If flag_exceptions is turned on we need to
      turn off the partitioning optimization.  */
 
-  if (flag_exceptions && flag_reorder_blocks_and_partition)
+  if (flag_exceptions && flag_reorder_blocks_and_partition
+      && (USING_SJLJ_EXCEPTIONS
+#ifdef TARGET_UNWIND_INFO
+	  || 1
+#endif
+	 ))
     {
       inform (input_location, 
-	      "-freorder-blocks-and-partition does not work with exceptions");
+	      "-freorder-blocks-and-partition does not work with exceptions on this architecture");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
@@ -1081,9 +1087,15 @@ decode_options (unsigned int argc, const char **argv)
      optimization.  */
 
   if (flag_unwind_tables && ! targetm.unwind_tables_default
-      && flag_reorder_blocks_and_partition)
+      && flag_reorder_blocks_and_partition
+      && (USING_SJLJ_EXCEPTIONS
+#ifdef TARGET_UNWIND_INFO
+	  || 1
+#endif
+	 ))
     {
-      inform (input_location, "-freorder-blocks-and-partition does not support unwind info");
+      inform (input_location,
+	      "-freorder-blocks-and-partition does not support unwind info on this architecture");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
@@ -1094,7 +1106,12 @@ decode_options (unsigned int argc, const char **argv)
 
   if (flag_reorder_blocks_and_partition
       && (!targetm.have_named_sections
-	  || (flag_unwind_tables && targetm.unwind_tables_default)))
+	  || (flag_unwind_tables && targetm.unwind_tables_default
+	      && (USING_SJLJ_EXCEPTIONS
+#ifdef TARGET_UNWIND_INFO
+		  || 1
+#endif
+		 ))))
     {
       inform (input_location,
 	      "-freorder-blocks-and-partition does not work on this architecture");
