@@ -1,3 +1,10 @@
+2009-08-07  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (copy_ancestor_tree): Mark the new DIEs when
+	copying to a type unit.
+	(copy_decls_walk): Mark the new DIEs.  Make sure newly-copied
+	DIEs are walked when inserted earlier into the tree.
+
 2009-08-05  Cary Coutant  <ccoutant@google.com>
 
 	* dwarf2out.c (break_out_comdat_types): Look for nested types

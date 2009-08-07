@@ -8643,6 +8643,10 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
   copy = clone_as_declaration (die);
   add_child_die (new_parent, copy);
 
+  /* Make sure the copy is marked as part of the type unit.  */
+  if (decl_table != NULL)
+    copy->die_mark = 1;
+
   if (slot != NULL)
     {
       /* Record in DECL_TABLE that DIE has been copied to UNIT.  */
@@ -8651,7 +8655,6 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
       entry->copy = copy;
       *slot = entry;
     }
-
 
   return copy;
 }
@@ -8694,6 +8697,10 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
               dw_die_ref parent = unit;
               dw_die_ref copy = clone_tree (targ);
 
+              /* Make sure the cloned tree is marked as part of the
+                 type unit.  */
+              mark_dies (copy);
+
               /* Record in DECL_TABLE that TARG has been copied.
                  Need to do this now, before the recursive call,
                  because DECL_TABLE may be expanded and SLOT
@@ -8713,6 +8720,12 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
 
               add_child_die (parent, copy);
               a->dw_attr_val.v.val_die_ref.die = copy;
+
+              /* Make sure the newly-copied DIE is walked.  If it was
+                 installed in a previously-added context, it won't
+                 get visited otherwise.  */
+              if (parent != unit)
+                copy_decls_walk (unit, parent, decl_table);
             }
         }
     }
