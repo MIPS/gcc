@@ -170,6 +170,8 @@ struct reduction_info
   enum tree_code reduction_code;/* code for the reduction operation.  */
   gimple keep_res;		/* The PHI_RESULT of this phi is the resulting value 
 				   of the reduction variable when existing the loop. */
+  tree keep_res_name;		/* If keep_res is zero, keep_res_name should
+				   hold the ssa_name of the resulting value.  */
   tree initial_value;		/* The initial value of the reduction var before entering the loop.  */
   tree field;			/*  the name of the field in the parloop data structure intended for reduction.  */
   tree init;			/* reduction initialization value.  */
@@ -1079,11 +1081,17 @@ create_loads_for_reductions (void **slot, void *data)
 			NULL_TREE);
 
   x = load_struct;
-  name = PHI_RESULT (red->keep_res);
+  if (red->keep_res)
+    name = PHI_RESULT (red->keep_res);
+  else
+    name = red->keep_res_name;
   stmt = gimple_build_assign (name, x);
   SSA_NAME_DEF_STMT (name) = stmt;
 
   gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+
+  if (!red->keep_res)
+    return 1;
 
   for (gsi = gsi_start_phis (gimple_bb (red->keep_res));
        !gsi_end_p (gsi); gsi_next (&gsi))
@@ -1604,6 +1612,64 @@ canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree *nit)
   return var_before;
 }
 
+/* For LOOP, set the keep_res_name fields for reductions in REDUCTION_LIST.  */
+static tree
+compute_reduction_results (struct loop *loop, htab_t reduction_list)
+{
+  edge exit;
+  tree control_name, res;
+  gimple phi;
+  gimple_stmt_iterator gsi;
+
+  /* Other than reductions, the only gimple reg that should be copied 
+     out of the loop is the control variable.  */
+
+  control_name = NULL_TREE;
+  for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); )
+    {
+      phi = gsi_stmt (gsi);
+      res = PHI_RESULT (phi);
+      if (!is_gimple_reg (res))
+	{
+	  gsi_next (&gsi);
+	  continue;
+	}
+
+      /* Check if it is a part of reduction.  If it is,
+         keep the phi at the reduction's keep_res field.  The  
+         PHI_RESULT of this phi is the resulting value of the reduction 
+         variable when exiting the loop.  */
+
+      exit = single_dom_exit (loop);
+
+      if (htab_elements (reduction_list) > 0) 
+	{
+	  struct reduction_info *red = reduction_phi (reduction_list, phi);
+
+	  if (red)
+	    {
+	      if (dominated_by_p (CDI_DOMINATORS, exit->src,
+				  gimple_bb (red->reduc_stmt)))
+		red->keep_res_name = gimple_assign_lhs (red->reduc_stmt);
+	      else if (dominated_by_p (CDI_DOMINATORS,
+				       gimple_bb (red->reduc_stmt), exit->src))
+		red->keep_res_name = res;
+	      else
+		gcc_unreachable ();
+	      gcc_assert (red->keep_res == NULL);
+	      gsi_next (&gsi);
+	      continue;
+	    }
+	}
+      gcc_assert (control_name == NULL_TREE);
+
+      control_name = res;
+      gsi_next (&gsi);
+    }
+  gcc_assert (control_name != NULL_TREE);
+  return control_name;
+}
+
 /* Moves the exit condition of LOOP to the beginning of its header, and
    duplicates the part of the last iteration that gets disabled to the
    exit of the loop.  NIT is the number of iterations of the loop
@@ -1971,7 +2037,9 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   targetm_pnt = save_target;
 
   /* Ensure that the exit condition is the first statement in the loop.  */
-  if (!parallelize_all)
+  if (parallelize_all)
+    compute_reduction_results (loop, reduction_list);
+  else
     transform_to_exit_first_loop (loop, reduction_list, nit);
 
   /* Generate initializations for reductions.  */

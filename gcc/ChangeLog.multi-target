@@ -1,3 +1,11 @@
+2009-08-07  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (struct reduction_info): New member keep_res_name.
+	(create_loads_for_reductions): If keep_res is not set,
+	use keep_res_name instead.
+	(compute_reduction_results): New function.
+	(gen_parallel_loop): Use it.
+
 2009-08-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* Makefile.in (tree-ssa-address.o): Change to:
