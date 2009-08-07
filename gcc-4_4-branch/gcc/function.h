@@ -162,7 +162,7 @@ struct rtl_eh GTY(())
   varray_type ehspec_data;
   varray_type action_record_data;
 
-  VEC(call_site_record,gc) *call_site_record;
+  VEC(call_site_record,gc) *call_site_record[2];
 };
 
 #define pending_stack_adjust (crtl->expr.x_pending_stack_adjust)
