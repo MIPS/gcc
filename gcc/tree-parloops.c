@@ -1674,6 +1674,9 @@ compute_reduction_results (struct loop *loop, htab_t reduction_list)
       gsi_next (&gsi);
     }
   gcc_assert (control_name != NULL_TREE);
+  /* Create an empty block where the reduction loads can be placed -
+     before any phis from joins with paths skipping the loop.  */
+  split_edge (single_dom_exit (loop));
   return control_name;
 }
 
