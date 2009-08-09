@@ -53,7 +53,8 @@ static tree vect_create_destination_var (tree, tree);
 static tree vect_create_data_ref_ptr 
   (gimple, struct loop*, tree, tree *, gimple *, bool, bool *, tree);
 static tree vect_create_addr_base_for_vector_ref 
-  (gimple, gimple_seq *, tree, struct loop *, alias_set_type);
+  (gimple, gimple_seq *, tree, struct loop *, alias_set_type,
+   struct gcc_target *);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, gimple, tree *);
 static tree vect_init_vector (gimple, tree, tree, gimple_stmt_iterator *);
@@ -876,7 +877,8 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
 				      gimple_seq *new_stmt_list,
 				      tree offset,
 				      struct loop *loop,
-				      alias_set_type ptr_alias_set)
+				      alias_set_type ptr_alias_set,
+				      struct gcc_target *ins_target)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -892,7 +894,9 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
   tree init = unshare_expr (DR_INIT (dr));
   tree vect_ptr_type, addr_expr2;
   tree step = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr)));
+  struct gcc_target *save_target = &targetm;
 
+  targetm_pnt = ins_target;
   gcc_assert (loop);
   if (loop != containing_loop)
     {
@@ -916,21 +920,21 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
 
   /* Create base_offset */
   base_offset = size_binop (PLUS_EXPR,
-			    fold_convert (targetm.sizetype, base_offset),
-			    fold_convert (targetm.sizetype, init));
-  dest = create_tmp_var (targetm.sizetype, "base_off");
+			    fold_convert (ins_target->sizetype, base_offset),
+			    fold_convert (ins_target->sizetype, init));
+  dest = create_tmp_var (ins_target->sizetype, "base_off");
   add_referenced_var (dest);
   base_offset = force_gimple_operand (base_offset, &seq, true, dest);
   gimple_seq_add_seq (new_stmt_list, seq);
 
   if (offset)
     {
-      tree tmp = create_tmp_var (targetm.sizetype, "offset");
+      tree tmp = create_tmp_var (ins_target->sizetype, "offset");
 
       add_referenced_var (tmp);
-      offset = fold_build2 (MULT_EXPR, targetm.sizetype,
-			    fold_convert (targetm.sizetype, offset), step);
-      base_offset = fold_build2 (PLUS_EXPR, targetm.sizetype,
+      offset = fold_build2 (MULT_EXPR, ins_target->sizetype,
+			    fold_convert (ins_target->sizetype, offset), step);
+      base_offset = fold_build2 (PLUS_EXPR, ins_target->sizetype,
 				 base_offset, offset);
       base_offset = force_gimple_operand (base_offset, &seq, false, tmp);
       gimple_seq_add_seq (new_stmt_list, seq);
@@ -966,6 +970,7 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
       fprintf (vect_dump, "created ");
       print_generic_expr (vect_dump, vec_stmt, TDF_SLIM);
     }
+  targetm_pnt = save_target;
   return vec_stmt;
 }
 
@@ -1149,6 +1154,7 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   bool numa = !((*targetm_array[cfun->target_arch]->common_data_with_target)
 		 (targetm_array[loop->target_arch]));
   enum machine_mode tptrmode = *targetm_array[loop->target_arch]->ptr_mode;
+  struct gcc_target *ins_target;
 
   /* Check the step (evolution) of the load in LOOP, and record
      whether it's invariant.  */
@@ -1323,9 +1329,11 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
 
   /* Create: (&(base[init_val+offset]) in the loop preheader.  */
 
-  new_temp = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list,
-                                                   offset, loop, ptr_alias_set);
   pe = loop_preheader_edge (loop);
+  ins_target = targetm_array[pe->src->loop_father->target_arch];
+  new_temp
+    = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list, offset, loop,
+					    ptr_alias_set, ins_target);
   if (new_stmt_list)
     {
       new_bb = gsi_insert_seq_on_edge_immediate (pe, new_stmt_list);
@@ -5841,8 +5849,9 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
       else
 	{
 	  /* Generate the INIT_ADDR computation outside LOOP.  */
-	  init_addr = vect_create_addr_base_for_vector_ref (stmt, &stmts,
-							NULL_TREE, loop, 0);
+	  init_addr
+	    = vect_create_addr_base_for_vector_ref (stmt, &stmts, NULL_TREE,
+						    loop, 0, &targetm);
 	  pe = loop_preheader_edge (loop);
 	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
 	  gcc_assert (!new_bb);
@@ -7804,8 +7813,9 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   else
     {
       gimple_seq new_stmts = NULL;
-      tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt, 
-						&new_stmts, NULL_TREE, loop, 0);
+      tree start_addr
+	= vect_create_addr_base_for_vector_ref (dr_stmt, &new_stmts, NULL_TREE,
+						loop, 0, &targetm);
       tree ptr_type = TREE_TYPE (start_addr);
       tree size = TYPE_SIZE (ptr_type);
       tree type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
@@ -8043,7 +8053,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       /* create: addr_tmp = (int)(address_of_first_vector) */
       addr_base =
 	vect_create_addr_base_for_vector_ref (ref_stmt, &new_stmt_list,
-					      NULL_TREE, loop, 0);
+					      NULL_TREE, loop, 0, &targetm);
       if (new_stmt_list != NULL)
 	gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
 
@@ -8208,10 +8218,10 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
 
       addr_base_a =
         vect_create_addr_base_for_vector_ref (stmt_a, cond_expr_stmt_list,
-					      NULL_TREE, loop, 0);
+					      NULL_TREE, loop, 0, &targetm);
       addr_base_b =
         vect_create_addr_base_for_vector_ref (stmt_b, cond_expr_stmt_list,
-					      NULL_TREE, loop, 0);
+					      NULL_TREE, loop, 0, &targetm);
 
       segment_length_a = vect_vfa_segment_size (dr_a, vect_factor);
       segment_length_b = vect_vfa_segment_size (dr_b, vect_factor);
