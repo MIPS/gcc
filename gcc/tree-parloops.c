@@ -1023,6 +1023,8 @@ create_call_for_reduction_1 (void **slot, void *data)
   new_bb = e->dest;
 
   tmp_load = create_tmp_var (TREE_TYPE (TREE_TYPE (addr)), NULL);
+  if (TREE_CODE (TREE_TYPE (tmp_load)) == VECTOR_TYPE)
+    DECL_GIMPLE_REG_P (tmp_load) = 1;
   add_referenced_var (tmp_load);
   tmp_load = make_ssa_name (tmp_load, NULL);
   load = gimple_build_omp_atomic_load (tmp_load, addr);

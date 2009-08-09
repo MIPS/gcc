@@ -8,6 +8,9 @@
 	Make sure store of reduction value is insterted after its
 	calculation, rather than inside.
 
+	* tree-parloops.c (create_call_for_reduction_1): If the reduction
+	is for a vector type, set the DECL_GIMPLE_REG_P of tmp_load.
+
 2009-08-07  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-parloops.c (struct reduction_info): New member keep_res_name.
