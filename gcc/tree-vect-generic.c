@@ -116,9 +116,6 @@ do_unop (gimple_stmt_iterator *gsi, tree inner_type, tree a,
 	 enum tree_code code)
 {
   a = tree_vec_extract (gsi, inner_type, a, bitsize, bitpos);
-  if (TREE_CODE (inner_type) != VECTOR_TYPE
-      && (code == REDUC_MAX_EXPR || code == REDUC_MIN_EXPR))
-    return a;
   return gimplify_build1 (gsi, code, inner_type, a);
 }
 
@@ -221,6 +218,52 @@ expand_vector_piecewise (gimple_stmt_iterator *gsi, elem_op_func f,
       constructor_elt *ce = VEC_quick_push (constructor_elt, v, NULL);
       ce->index = NULL_TREE;
       ce->value = result;
+    }
+
+  return build_constructor (type, v);
+}
+
+/* Expand a vector reduction operation to scalars, by using many operations
+   whose type is the vector type's inner type.  */
+static tree
+expand_reduction_piecewise (gimple_stmt_iterator *gsi,
+			 tree type, tree inner_type,
+			 tree a, enum tree_code code)
+{
+  VEC(constructor_elt,gc) *v;
+  tree part_width = TYPE_SIZE (inner_type);
+  tree index = bitsize_int (0);
+  int nunits = TYPE_VECTOR_SUBPARTS (type);
+  int delta = tree_low_cst (part_width, 1)
+	      / tree_low_cst (TYPE_SIZE (TREE_TYPE (type)), 1);
+  int i;
+  enum tree_code inner_code;
+  tree result;
+
+  gcc_assert (TREE_CODE (inner_type) == INTEGER_TYPE);
+  switch (code)
+    {
+    case REDUC_MAX_EXPR: inner_code = MAX_EXPR; break;
+    case REDUC_MIN_EXPR: inner_code = MIN_EXPR; break;
+    case REDUC_PLUS_EXPR: inner_code = PLUS_EXPR; break;
+    default: gcc_unreachable ();
+    }
+  v = VEC_alloc(constructor_elt, gc, (nunits + delta - 1) / delta);
+  for (i = 0, result = NULL_TREE; i < nunits;
+       i += delta, index = int_const_binop (PLUS_EXPR, index, part_width, 0))
+    {
+      tree elem = tree_vec_extract (gsi, inner_type, a, part_width, index);
+
+      result = (result
+		? gimplify_build2 (gsi, inner_code, inner_type, elem, result)
+		: elem);
+    }
+  for (i = 0; i < nunits;
+       i += delta, index = int_const_binop (PLUS_EXPR, index, part_width, 0))
+    {
+      constructor_elt *ce = VEC_quick_push (constructor_elt, v, NULL);
+      ce->index = NULL_TREE;
+      ce->value = i ? integer_zero_node : result;
     }
 
   return build_constructor (type, v);
@@ -338,7 +381,13 @@ expand_vector_operation (gimple_stmt_iterator *gsi, tree type, tree compute_type
 	break;
       }
 
-  if (TREE_CODE_CLASS (code) == tcc_unary)
+  if (TREE_CODE_CLASS (code) == tcc_unary
+      && (code == REDUC_MAX_EXPR || code == REDUC_MIN_EXPR
+	  || code == REDUC_PLUS_EXPR))
+    return expand_reduction_piecewise (gsi, type, compute_type,
+				       gimple_assign_rhs1 (assign),
+				       code);
+  else if (TREE_CODE_CLASS (code) == tcc_unary)
     return expand_vector_piecewise (gsi, do_unop, type, compute_type,
 				    gimple_assign_rhs1 (assign),
 				    NULL_TREE, code);

@@ -17,8 +17,8 @@
 	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref):
 	New parameter ins_target.  Changed call callers.
 
-	* tree-vect-generic.c (do_unop): Don't use REDUC_M{AX,IN}_EXPR on
-	non-vector types.
+	* tree-vect-generic.c (expand_reduction_piecewise): New function.
+	(expand_vector_operation): Use it.
 
 2009-08-07  J"orn Rennecke  <joern.rennecke@arc.com>
 
