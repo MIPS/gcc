@@ -232,7 +232,7 @@ pre_expr_hash (const void *p1)
 
 
 /* Next global expression id number.  */
-static unsigned int next_expression_id;
+static unsigned int next_expression_id = 1;
 
 /* Mapping from expression to id number we can use in bitmap sets.  */
 DEF_VEC_P (pre_expr);
@@ -3966,6 +3966,10 @@ eliminate (void)
 
 	      if (gimple_assign_single_p (stmt))
 		rhs = gimple_assign_rhs1 (stmt);
+
+	      /* FIXME: this should not happen.  */
+	      if (!get_expr_value_id (lhsexpr))
+		continue;
 
 	      sprimeexpr = bitmap_find_leader (AVAIL_OUT (b),
 					       get_expr_value_id (lhsexpr),
