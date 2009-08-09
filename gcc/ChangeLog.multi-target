@@ -1,3 +1,13 @@
+2009-08-09  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-pretty-print.c (dump_omp_clause):
+	Handle OMP_CLAUSE_SCHEDULE_MASTER.
+
+	* tree-parloops.c (create_call_for_reduction_1):
+	Handle case where clsn_data->load_bb has statements.
+	Make sure store of reduction value is insterted after its
+	calculation, rather than inside.
+
 2009-08-07  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-parloops.c (struct reduction_info): New member keep_res_name.

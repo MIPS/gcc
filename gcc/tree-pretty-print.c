@@ -369,6 +369,9 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       case OMP_CLAUSE_SCHEDULE_AUTO:
 	pp_string (buffer, "auto");
 	break;
+      case OMP_CLAUSE_SCHEDULE_MASTER:
+	pp_string (buffer, "master");
+	break;
       default:
 	gcc_unreachable ();
 	}

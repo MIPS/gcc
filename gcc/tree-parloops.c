@@ -1019,7 +1019,7 @@ create_call_for_reduction_1 (void **slot, void *data)
   /* Create phi node.  */
   bb = clsn_data->load_bb;
 
-  e = split_block (bb, t);
+  e = split_block (bb, NULL);
   new_bb = e->dest;
 
   tmp_load = create_tmp_var (TREE_TYPE (TREE_TYPE (addr)), NULL);
@@ -1028,17 +1028,22 @@ create_call_for_reduction_1 (void **slot, void *data)
   load = gimple_build_omp_atomic_load (tmp_load, addr);
   SSA_NAME_DEF_STMT (tmp_load) = load;
   gsi = gsi_start_bb (new_bb);
-  gsi_insert_after (&gsi, load, GSI_NEW_STMT);
+  gsi_insert_before (&gsi, load, GSI_NEW_STMT);
 
   e = split_block (new_bb, load);
   new_bb = e->dest;
+  if (last_stmt (new_bb))
+    split_block (new_bb, NULL);
   gsi = gsi_start_bb (new_bb);
   ref = tmp_load;
   x = fold_build2 (reduc->reduction_code,
 		   TREE_TYPE (PHI_RESULT (reduc->new_phi)), ref,
 		   PHI_RESULT (reduc->new_phi));
 
-  name = force_gimple_operand_gsi (&gsi, x, true, NULL_TREE, true,
+  /* N.B. instert direction doesn't make a difference for this insertion,
+     but it is vital to properly update the iterator in case there is more
+     than one statement inseted here.  */
+  name = force_gimple_operand_gsi (&gsi, x, true, NULL_TREE, false,
 				   GSI_CONTINUE_LINKING);
 
   gsi_insert_after (&gsi, gimple_build_omp_atomic_store (name), GSI_NEW_STMT);
