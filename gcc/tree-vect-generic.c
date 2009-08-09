@@ -116,6 +116,9 @@ do_unop (gimple_stmt_iterator *gsi, tree inner_type, tree a,
 	 enum tree_code code)
 {
   a = tree_vec_extract (gsi, inner_type, a, bitsize, bitpos);
+  if (TREE_CODE (inner_type) != VECTOR_TYPE
+      && (code == REDUC_MAX_EXPR || code == REDUC_MIN_EXPR))
+    return a;
   return gimplify_build1 (gsi, code, inner_type, a);
 }
 
