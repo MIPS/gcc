@@ -840,7 +840,13 @@ separate_decls_in_region_stmt (edge entry, edge exit, gimple stmt,
     gcc_assert (TREE_CODE (name) == SSA_NAME);
     copy = separate_decls_in_region_name (name, name_copies, decl_copies,
 					  false, new_target);
-    gcc_assert (copy == name);
+    if (copy != name)
+      {
+	gcc_assert (new_target);
+	gcc_assert (SSA_NAME_DEF_STMT (copy) == 0);
+	SET_DEF (def, copy);
+	SSA_NAME_DEF_STMT (copy) = stmt;
+      }
   }
 
   FOR_EACH_PHI_OR_STMT_USE (use, stmt, oi, SSA_OP_USE)
@@ -854,6 +860,44 @@ separate_decls_in_region_stmt (edge entry, edge exit, gimple stmt,
 					  copy_name_p, new_target);
     SET_USE (use, copy);
   }
+}
+
+struct separate_reduction_decl_data
+{
+  int target;
+  htab_t name_copies;
+  htab_t decl_copies;
+};
+
+/* Callbacks for htab_traverse.  */
+static int
+separate_reduction_decl (void **slot, void *data)
+{
+  struct reduction_info *const red = (struct reduction_info *) *slot;
+  struct separate_reduction_decl_data *srdd
+    = (struct separate_reduction_decl_data *) data;
+  tree name = red->keep_res_name;
+
+  if (name)
+    separate_decls_in_region_name (name, srdd->name_copies, srdd->decl_copies,
+				   true, srdd->target);
+  return 1;
+}
+
+static int
+remove_reduction_decl_from_name_htab (void **slot, void *data)
+{
+  struct reduction_info *const red = (struct reduction_info *) *slot;
+  struct separate_reduction_decl_data *srdd
+    = (struct separate_reduction_decl_data *) data;
+  tree name = red->keep_res_name;
+  unsigned idx;
+  struct name_to_copy_elt elt;
+
+  idx = SSA_NAME_VERSION (name);
+  elt.version = idx;
+  htab_remove_elt_with_hash (srdd->name_copies, &elt, idx);
+  return 1;
 }
 
 /* Callback for htab_traverse.  Adds a field corresponding to the reduction
@@ -1304,7 +1348,16 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
   basic_block exit_bb = exit->dest;
   tree copy_base_var, copy_base;
   tree fn_memory = NULL_TREE;
+  bool numa = !(*targetm.common_data_with_target) (targetm_array[new_target]);
+  struct separate_reduction_decl_data srd_data;
 
+  if (numa && reduction_list && htab_elements (reduction_list) > 0)
+    {
+      srd_data.name_copies = name_copies;
+      srd_data.decl_copies = decl_copies;
+      srd_data.target = new_target;
+      htab_traverse (reduction_list, separate_reduction_decl, &srd_data);
+    }
   entry = single_succ_edge (entry_bb);
   gather_blocks_in_sese_region (entry_bb, exit_bb, &body);
 
@@ -1323,6 +1376,9 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 					   new_target);
 	}
     }
+  if (numa && reduction_list && htab_elements (reduction_list) > 0)
+    htab_traverse (reduction_list, remove_reduction_decl_from_name_htab,
+		   &srd_data);
 
   VEC_free (basic_block, heap, body);
 
@@ -1352,8 +1408,6 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
                          type);
 	}
       layout_type (type);
-      bool numa
-	= !(*targetm.common_data_with_target) (targetm_array[new_target]);
 
       if (numa)
 	{

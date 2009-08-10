@@ -1,8 +1,14 @@
 2009-08-10  J"orn Rennecke  <joern.rennecke@arc.com>
 
-	FIXME:
 	* tree-ssa-pre.c (next_expression_id): Initialize to 1.
-	(eliminate): Skip lhsexpr with id 0.
+	(eliminate): Check that lhsexpr has id > 0.
+
+	* tree-parloops.c (separate_reduction_decl_data): New struct.
+	(separate_reduction_decl): New function.
+	(remove_reduction_decl_from_name_htab): Likewise.
+	(separate_decls_in_region): Call separate_reduction_decl and
+	remove_reduction_decl_from_name_htab via htab_traverse.
+	(separate_decls_in_region_stmt): Handle copy != name.
 
 2009-08-09  J"orn Rennecke  <joern.rennecke@arc.com>
 

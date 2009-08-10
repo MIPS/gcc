@@ -3963,17 +3963,19 @@ eliminate (void)
 	      tree sprime = NULL;
 	      pre_expr lhsexpr = get_or_alloc_expr_for_name (lhs);
 	      pre_expr sprimeexpr;
+	      unsigned value_id;
 
 	      if (gimple_assign_single_p (stmt))
 		rhs = gimple_assign_rhs1 (stmt);
 
-	      /* FIXME: this should not happen.  */
-	      if (!get_expr_value_id (lhsexpr))
-		continue;
+	      value_id = get_expr_value_id (lhsexpr);
+	      if (!value_id)
+		{
+		  gcc_unreachable ();
+		  continue;
+		}
 
-	      sprimeexpr = bitmap_find_leader (AVAIL_OUT (b),
-					       get_expr_value_id (lhsexpr),
-					       NULL);
+	      sprimeexpr = bitmap_find_leader (AVAIL_OUT (b), value_id, NULL);
 
 	      if (sprimeexpr)
 		{
