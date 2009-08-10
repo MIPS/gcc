@@ -1,3 +1,30 @@
+2009-08-11  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/mxp.c (mxp_print_operand) <MEM>: Handle UNSPEC like
+	CONSTANT_P.
+	(mxp_prescan_operand): Rewrite MEM addresses that use
+	constant pool symbols.
+	(mxp_in_constant_pool): New variable.
+	(mxp_internal_label): USe default output if mxp_in_constant_pool
+	is set - irrespective of TARGET_HALFPIC_R0.
+	(mxp_asm_output_pool_prologue): New function.
+	(mxp_asm_output_pool_epilogue): Likewise.
+	* config/mxp/mxp.h (ASM_OUTPUT_POOL_PROLOGUE): Define.
+	(ASM_OUTPUT_POOL_EPILOGUE): Likewise.
+	* config/mxp/mxp-protos.h (mxp_asm_output_pool_prologue): Declare.
+	(mxp_asm_output_pool_epilogue) : Likewise.
+	* config/arc/arc-protos.h (arc_output_sdma_1): Declare.
+	* config/arc/arc.c (arc_expand_builtin) <ARC_SIMD_BUILTIN_CALL>:
+	Copy emit code to copy constant pool to sdm, and pass constant
+	pool start address in r1 to simd_call pattern.
+	(arc_output_sdma_1): No longer static.
+	(arc_alloc_task_on_target): Pass constant pool start address in
+	return value (now a tree list).
+	(arc_build_call_on_target): Expand tree list argument into two
+	separate arguments.
+	* config/arc/simdext.md (simd_dma_in_data): New pattern.
+	(simd_call): Add use of r1.
+
 2009-08-10  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.c (mxp_prescan_operand):

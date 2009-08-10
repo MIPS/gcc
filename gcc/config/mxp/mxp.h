@@ -283,6 +283,13 @@
 #define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS) \
   mxp_final_prescan_insn (INSN, OPVEC, NOPERANDS)
 
+/* Define output to appear before the constant pool.  */
+#define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, FUNDECL, SIZE) \
+  mxp_asm_output_pool_prologue ((FILE), (FUNNAME), (FUNDECL), (SIZE))
+
+#define ASM_OUTPUT_POOL_EPILOGUE(FILE, FUNNAME, FUNDECL, SIZE) \
+  mxp_asm_output_pool_epilogue ((FILE), (FUNNAME), (FUNDECL), (SIZE))
+
 struct simple_bitmap_def;
 START_TARGET_SPECIFIC
 extern rtx mxp_compare_op0, mxp_compare_op1;

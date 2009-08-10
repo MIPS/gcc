@@ -15,3 +15,7 @@ extern int mxp_register_move_cost (enum machine_mode mode,
 				   enum reg_class from, enum reg_class to);
 extern int mxp_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern int peep2_regno_mode_dead_p (int ofs, int regno, enum machine_mode mode);
+extern void mxp_asm_output_pool_prologue (FILE *, const char *, tree,
+					  HOST_WIDE_INT);
+extern void mxp_asm_output_pool_epilogue (FILE *, const char *, tree,
+					  HOST_WIDE_INT);

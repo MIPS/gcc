@@ -281,7 +281,7 @@ mxp_print_operand (FILE *file, rtx x, int code)
 	rtx offs = const0_rtx;
 	int r = BSS_BASE_REGNUM;
 
-	if (CONSTANT_P (addr))
+	if (CONSTANT_P (addr) || GET_CODE (addr) == UNSPEC)
 	  offs = addr;
 	else if (GET_CODE (addr) == PLUS)
 	  {
@@ -852,10 +852,40 @@ mxp_prescan_operand (rtx op, mxp_prescan_data *data)
 	   && GET_CODE (XEXP (op, 1)) == LABEL_REF)
     ; /* Do nothing.  */
   else if (GET_CODE (op) == MEM)
-    ; /* Do nothing.  */
+    {
+      rtx *adp, ad, pool;
+      rtx xop[2];
+      const char *name;
+      int len;
+      char *buf;
+
+      if ((GET_CODE (ad = *(adp = &XEXP (op, 0))) == SYMBOL_REF
+	   || (GET_CODE (ad) == PLUS
+	       && (GET_CODE (ad = *(adp = &XEXP (ad, 1))) == SYMBOL_REF)))
+	  && !SYMBOL_REF_FUNCTION_P (ad))
+	{
+	  gcc_assert (data->reg <= data->mreg);
+	  name = IDENTIFIER_POINTER (DECL_NAME (current_function_decl));
+	  len = strlen (name);
+	  buf = (char *) alloca (len+40);
+	  strcpy (buf, name);
+	  strcpy (buf+len, "_data");
+	  pool = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+
+	  xop[0] = gen_rtx_UNSPEC (GET_MODE (ad),
+				   gen_rtvec (1, GEN_INT (data->reg++)),
+				   MXP_UNSPEC_CORE_REG);
+	  xop[1] = gen_rtx_MINUS (Pmode, ad, pool);
+	  output_asm_insn ("add %0,r1,%1", xop);
+	  *adp = xop[0];
+	  op = copy_rtx (op);
+	  *adp = ad;
+	}
+      /* Else do nothing.  */
+    }
   else if (GET_CODE (op) == PARALLEL
 	   && GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_INT)
-    ; /* occurs in score_sscalars; do nothing.  */
+    ; /* occurs in store_scalars; do nothing.  */
   else if (GET_CODE (op) == SYMBOL_REF
 	   || GET_CODE (op) == CONST_DOUBLE
 	   || ((GET_CODE (op) == PLUS || GET_CODE (op) == MINUS)
@@ -936,10 +966,12 @@ mxp_asm_function_prologue (FILE *file ATTRIBUTE_UNUSED,
   mxp_scm_offset = 0;
 }
 
+static bool mxp_in_constant_pool = false;
+
 static void
 mxp_internal_label (FILE *stream, const char *prefix, unsigned long labelno)
 {
-  if (TARGET_HALFPIC_R0)
+  if (TARGET_HALFPIC_R0 && !mxp_in_constant_pool)
     {
       char *const buf = (char *) alloca (40 + strlen (prefix));
 
@@ -964,6 +996,27 @@ mxp_output_addr_const_extra (FILE *file, rtx x)
     default:
       return false;
     }
+}
+
+/* Define output to appear before the constant pool.  */
+void
+mxp_asm_output_pool_prologue (FILE *file, const char *fn_name,
+			      tree fndecl ATTRIBUTE_UNUSED,
+			      HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+{
+  mxp_in_constant_pool = true;
+  if (TARGET_NUM && DECL_ARTIFICIAL (fndecl))
+    fprintf (file, "%s_data\n", fn_name);
+}
+
+void
+mxp_asm_output_pool_epilogue (FILE *file, const char *fn_name,
+			      tree fndecl ATTRIBUTE_UNUSED,
+			      HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+{
+  mxp_in_constant_pool = false;
+  if (TARGET_NUM && DECL_ARTIFICIAL (fndecl))
+    fprintf (file, "%s_data_end\n", fn_name);
 }
 
 #include "gt-mxp.h"
