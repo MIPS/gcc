@@ -19,6 +19,12 @@
 	numa is set.
 	(gen_parallel_loop): Set numa field.
 
+	* tree-parloops.c (separate_decls_in_region): Call copy_from_target
+	hook for reduction results.
+
+	* config/arc/simdext.md (simd_call): Use +x / match_dup instead of
+	hard register clobber of r0.
+
 2009-08-09  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-pretty-print.c (dump_omp_clause):

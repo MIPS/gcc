@@ -1400,12 +1400,12 @@
 
 (define_insn "simd_call"
   [(set (reg:CC_BLK SDM)
-	(unspec [(match_operand 0 "nonmemory_operand" "x")
+	(unspec [(match_operand 0 "nonmemory_operand" "+x")
 		 (match_operand 1 "nonmemory_operand" "ci")
 		 (match_operand 2 "simd_arg_vector")
 		 (reg:CC_BLK SDM)]
 	 UNSPEC_ARC_SIMD_DMA))
-   (clobber (reg:SI 0))
+   (clobber (match_dup 0))
    (clobber (reg:SI 12))
    (clobber (reg:SI 31))]
   "TARGET_SIMD_SET"

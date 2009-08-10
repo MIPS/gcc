@@ -1497,6 +1497,14 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	  clsn_data.load_bb = exit_bb;
 	  clsn_data.store = ld_st_data->store;
 	  create_final_loads_for_reduction (reduction_list, &clsn_data);
+	  if (numa)
+	    {
+	      gsi = gsi_after_labels (exit_bb);
+	      (*targetm.copy_from_target)
+		(&gsi, targetm_array[new_target], copy_base,
+		 build_fold_addr_expr (ld_st_data->store),
+		 size_in_bytes (type));
+	    }
 	}
       gsi = gsi_after_labels (split_edge (exit));
       gsi_insert_seq_before (&gsi, ld_st_data->result_seq, GSI_NEW_STMT);
