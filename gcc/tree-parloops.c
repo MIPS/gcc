@@ -1031,12 +1031,18 @@ struct clsn_data
   basic_block load_bb;
   gimple_seq result_seq;
   struct loop *loop;
+  bool numa;
 };
 
 /* Callback for htab_traverse.  Create an atomic instruction for the
    reduction described in SLOT.  
    DATA annotates the place in memory the atomic operation relates to,
-   and the basic block it needs to be generated in.  */
+   and the basic block it needs to be generated in.
+   If the numa flag is set in clsn_data, we assume that no atomic operation
+   is wanted; each processor / data memory tuple should use its own memory
+   area to accumulate reductions.  If there is more than one processor
+   on which simd processing is done, the fimal join of the reductions will
+   have do be done under control of the main processor.  */
 
 static int
 create_call_for_reduction_1 (void **slot, void *data)
@@ -1052,7 +1058,7 @@ create_call_for_reduction_1 (void **slot, void *data)
   edge e;
   tree t, addr, addr_type, ref, x;
   tree tmp_load, name;
-  gimple load;
+  gimple load, store;
 
   load_struct = fold_build1 (INDIRECT_REF, struct_type, clsn_data->load);
   t = build3 (COMPONENT_REF, type, load_struct, reduc->field, NULL_TREE);
@@ -1065,18 +1071,26 @@ create_call_for_reduction_1 (void **slot, void *data)
 
   e = split_block (bb, NULL);
   new_bb = e->dest;
+  e = split_block (new_bb, NULL);
+  gsi = gsi_start_bb (new_bb);
 
   tmp_load = create_tmp_var (TREE_TYPE (TREE_TYPE (addr)), NULL);
   if (TREE_CODE (TREE_TYPE (tmp_load)) == VECTOR_TYPE)
     DECL_GIMPLE_REG_P (tmp_load) = 1;
   add_referenced_var (tmp_load);
   tmp_load = make_ssa_name (tmp_load, NULL);
-  load = gimple_build_omp_atomic_load (tmp_load, addr);
+  if (clsn_data->numa)
+    {
+      addr = force_gimple_operand_gsi (&gsi, addr, true, NULL_TREE, false,
+				       GSI_CONTINUE_LINKING);
+      load = gimple_build_assign (tmp_load,
+				  fold_build1 (INDIRECT_REF, type, addr));
+    }
+  else
+    load = gimple_build_omp_atomic_load (tmp_load, addr);
   SSA_NAME_DEF_STMT (tmp_load) = load;
-  gsi = gsi_start_bb (new_bb);
-  gsi_insert_before (&gsi, load, GSI_NEW_STMT);
+  gsi_insert_after (&gsi, load, GSI_NEW_STMT);
 
-  e = split_block (new_bb, load);
   new_bb = e->dest;
   if (last_stmt (new_bb))
     split_block (new_bb, NULL);
@@ -1088,11 +1102,15 @@ create_call_for_reduction_1 (void **slot, void *data)
 
   /* N.B. insert direction doesn't make a difference for this insertion,
      but it is vital to properly update the iterator in case there is more
-     than one statement inseted here.  */
+     than one statement inserted here.  */
   name = force_gimple_operand_gsi (&gsi, x, true, NULL_TREE, false,
 				   GSI_CONTINUE_LINKING);
 
-  gsi_insert_after (&gsi, gimple_build_omp_atomic_store (name), GSI_NEW_STMT);
+  if (clsn_data->numa)
+    store = gimple_build_assign (fold_build1 (INDIRECT_REF, type, addr), name);
+  else
+    store = gimple_build_omp_atomic_store (name);
+  gsi_insert_after (&gsi, store, GSI_NEW_STMT);
   return 1;
 }
 
@@ -1994,6 +2012,7 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   struct clsn_data clsn_data;
   unsigned prob;
   bool arch_change = loop->target_arch != cfun->target_arch;
+  bool numa = false;
   bool parallelize_all = arch_change;
   struct gcc_target *save_target;
   tree fn_attrib = NULL_TREE;
@@ -2071,7 +2090,12 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
 		       many_iterations_cond);
     }
   else
-    many_iterations_cond = boolean_true_node;
+    {
+      many_iterations_cond = boolean_true_node;
+      numa = !(targetm_array[cfun->target_arch]->common_data_with_target)
+		(targetm_array[loop->target_arch]);
+    }
+  clsn_data.numa = numa;
   many_iterations_cond
     = force_gimple_operand (many_iterations_cond, &stmts, false, NULL_TREE);
   if (stmts)
