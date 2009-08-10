@@ -1040,6 +1040,8 @@ execute_function_todo (void *data)
   cfun->last_verified = flags & TODO_verify_all;
 }
 
+EXTRA_TARGETS_DECL (void df_finish_pass (bool));
+
 /* Perform all TODO actions.  */
 static void
 execute_todo (unsigned int flags)
@@ -1079,7 +1081,13 @@ execute_todo (unsigned int flags)
   /* Now that the dumping has been done, we can get rid of the optional 
      df problems.  */
   if (flags & TODO_df_finish)
-    df_finish_pass ((flags & TODO_df_verify) != 0);
+    {
+      void (*df_finish_pass_array[]) (bool)
+	= { &df_finish_pass, EXTRA_TARGETS_EXPAND_COMMA (&,df_finish_pass) };
+
+      (*df_finish_pass_array[targetm.target_arch])
+	((flags & TODO_df_verify) != 0);
+    }
 }
 
 /* Verify invariants that should hold between passes.  This is a place

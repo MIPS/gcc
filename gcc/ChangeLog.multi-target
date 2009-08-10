@@ -10,6 +10,10 @@
 	remove_reduction_decl_from_name_htab via htab_traverse.
 	(separate_decls_in_region_stmt): Handle copy != name.
 
+	* passes.c <!EXTRA_TARGETS>:
+	Do an EXTRA_TARGETS_CALL of df_finish_pass.
+	(execute_todo): Dispatch to target-specific df_finish_pass function.
+
 2009-08-09  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-pretty-print.c (dump_omp_clause):
