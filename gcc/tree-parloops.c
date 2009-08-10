@@ -1086,7 +1086,7 @@ create_call_for_reduction_1 (void **slot, void *data)
 		   TREE_TYPE (PHI_RESULT (reduc->new_phi)), ref,
 		   PHI_RESULT (reduc->new_phi));
 
-  /* N.B. instert direction doesn't make a difference for this insertion,
+  /* N.B. insert direction doesn't make a difference for this insertion,
      but it is vital to properly update the iterator in case there is more
      than one statement inseted here.  */
   name = force_gimple_operand_gsi (&gsi, x, true, NULL_TREE, false,
