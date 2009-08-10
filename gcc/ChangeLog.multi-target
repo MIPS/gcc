@@ -25,6 +25,9 @@
 	* config/arc/simdext.md (simd_call): Use +x / match_dup instead of
 	hard register clobber of r0.
 
+	* tree.c (build2_stat): Allow POINTER_PLUS_EXPR to match sizetype
+	of cfun instead of current sizetype.
+
 2009-08-09  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-pretty-print.c (dump_omp_clause):
