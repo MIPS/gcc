@@ -853,6 +853,9 @@ mxp_prescan_operand (rtx op, mxp_prescan_data *data)
     ; /* Do nothing.  */
   else if (GET_CODE (op) == MEM)
     ; /* Do nothing.  */
+  else if (GET_CODE (op) == PARALLEL
+	   && GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_INT)
+    ; /* occurs in score_sscalars; do nothing.  */
   else if (GET_CODE (op) == SYMBOL_REF
 	   || GET_CODE (op) == CONST_DOUBLE
 	   || ((GET_CODE (op) == PLUS || GET_CODE (op) == MINUS)

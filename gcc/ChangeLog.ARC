@@ -1,3 +1,8 @@
+2009-08-10  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/mxp.c (mxp_prescan_operand):
+	Ignore MODE_VECTOR_INT PARALLELs.
+
 2009-08-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/arc/arc.c (arc_conditional_register_usage): Fix
