@@ -33,6 +33,9 @@
 	vectorization factor to features.
 	Print message about override to dump file instead of to stdout.
 
+	* tree-vectorizer.c (vectorize_loops): If override requests unsuitable
+	target, don't vectorize.
+
 2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* toplev.c: Include pass-manager.h

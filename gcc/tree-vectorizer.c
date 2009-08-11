@@ -2811,6 +2811,12 @@ vectorize_loops (void)
 	    targetm_pnt = targetm_array[best_arch];
 	    loop_vinfo = vect_analyze_loop (loop);
 	    target_arch = best_arch;
+	    if (override_arch >= 0 && !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
+	      {
+		if (vect_print_dump_info (REPORT_DETAILS))
+		  fprintf (vect_dump, "Override failed\n");
+		best_arch = -1;
+	      }
 	  }
 	targetm_pnt = targetm_array[cfun->target_arch];
 	loop->aux = loop_vinfo;
