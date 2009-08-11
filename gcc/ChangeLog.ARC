@@ -1,3 +1,16 @@
+2009-08-12  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/mxp.md (*mov<mode>_i) <alternative 5>: Use vldr if
+	the address is in an ARCompact core register.
+	* config/mxp/mxp.c (mxp_select_rtx_section): New function.
+	(TARGET_ASM_SELECT_RTX_SECTION): Redefine.
+	(mxp_print_operand): Don't emit i9, for UNSPEC.
+	(mxp_asm_output_pool_prologue): Switch to readonly section before
+	emitting label.
+	(mxp_asm_output_pool_epilogue): Define label for pool size.
+	* config/arc/simdext.md (simd_dma_in_data): Work around assembler
+	bug affecting forward references.
+
 2009-08-11  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.c (mxp_print_operand) <MEM>: Handle UNSPEC like

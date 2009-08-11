@@ -1378,7 +1378,13 @@
 
   arc_output_sdma_1 ('i', '0', operands[0], scratch, \"\");
   arc_output_sdma_1 ('i', '1', GEN_INT (32), scratch, \"\");
+  /* The assembler is seriously messed up.  */
+#if 0
   output_asm_insn (\"mov %3,31 << 16 | 32 << 8 | ((%2)+31)/32\", operands);
+#else
+  output_asm_insn (\"mov %3,1\", operands);
+  output_asm_insn (\"mpyu %3,31 << 16 | 32 << 8 | ((%2)+31)/32,%3\", operands);
+#endif
   arc_output_sdma_1 ('i', '2', scratch, NULL_RTX, \"\");
   arc_output_sdma_1 ('i', '4', operands[1], scratch, \"\");
   arc_output_sdma_1 ('i', '5', GEN_INT (32), scratch, \"\");

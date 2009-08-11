@@ -270,6 +270,8 @@
     case 5:
       if (TARGET_NO_VLD_LABEL && ! REG_P (XEXP (operands[1], 0)))
 	return  \"vld%N0 %v0,[i9,0]; ??? SHOULD BE: %1\";
+      if (GET_CODE (operands[1]) == UNSPEC)
+	return \"vldr%N0 %v0,%1\";
       return \"vld%N0 %v0,%1\";
     case 6:
       {

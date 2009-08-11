@@ -65,6 +65,8 @@ static bool mxp_valid_target_attribute_p (tree, tree, tree, int);
 static bool mxp_override_options (bool main_target);
 static void mxp_asm_function_prologue (FILE *file, HOST_WIDE_INT size);
 static void mxp_internal_label (FILE *, const char *, unsigned long);
+static section *mxp_select_rtx_section (enum machine_mode, rtx,
+                                        unsigned HOST_WIDE_INT);
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS mxp_init_libfuncs
@@ -92,6 +94,9 @@ static bool mxp_vector_mode_supported_p (enum machine_mode mode);
 
 #undef TARGET_ASM_INTERNAL_LABEL
 #define TARGET_ASM_INTERNAL_LABEL mxp_internal_label
+
+#undef TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION mxp_select_rtx_section
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -281,8 +286,15 @@ mxp_print_operand (FILE *file, rtx x, int code)
 	rtx offs = const0_rtx;
 	int r = BSS_BASE_REGNUM;
 
-	if (CONSTANT_P (addr) || GET_CODE (addr) == UNSPEC)
+	if (CONSTANT_P (addr))
 	  offs = addr;
+	else if (GET_CODE (addr) == UNSPEC)
+	  {
+	    fputc ('[', file);
+	    mxp_print_operand (file, addr, 'i');
+	    fputc (']', file);
+	    break;
+	  }
 	else if (GET_CODE (addr) == PLUS)
 	  {
 	    r = REGNO (XEXP (addr, 0));
@@ -1006,17 +1018,34 @@ mxp_asm_output_pool_prologue (FILE *file, const char *fn_name,
 {
   mxp_in_constant_pool = true;
   if (TARGET_NUM && DECL_ARTIFICIAL (fndecl))
-    fprintf (file, "%s_data\n", fn_name);
+    {
+      switch_to_section (readonly_data_section);
+      fprintf (file, "%s_data:\n", fn_name);
+    }
 }
 
 void
 mxp_asm_output_pool_epilogue (FILE *file, const char *fn_name,
 			      tree fndecl ATTRIBUTE_UNUSED,
-			      HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+			      HOST_WIDE_INT size)
 {
   mxp_in_constant_pool = false;
   if (TARGET_NUM && DECL_ARTIFICIAL (fndecl))
-    fprintf (file, "%s_data_end\n", fn_name);
+    {
+      fprintf (file, "%s_data_end:\n", fn_name);
+      fprintf (file, "\t.set %s_data_size,%ld\n", fn_name, (long) size);
+    }
+}
+
+/* Keep the constant pool for outlined functions contigous, so that we
+   can copy it on one go.  */
+static section *
+mxp_select_rtx_section (enum machine_mode mode, rtx x,
+                        unsigned HOST_WIDE_INT align)
+{
+  if (TARGET_NUM && DECL_ARTIFICIAL (current_function_decl))
+    return readonly_data_section;
+  return default_elf_select_rtx_section (mode, x, align);
 }
 
 #include "gt-mxp.h"
