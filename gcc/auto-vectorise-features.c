@@ -71,7 +71,8 @@ Features_init (Features * features)
 Features *
 alloc_features (void)
 {
-  features = (Features *) ggc_alloc (sizeof *features);
+  Features *features = (Features *) ggc_alloc (sizeof *features);
+
   Features_init (features);
   return features;
 }
@@ -80,6 +81,7 @@ void
 update_features (Features * features, int code, ...)
 {
   int target_arch, factor;
+  va_list ap;
 
   gcc_assert (code == UPDATE_FEATURE_VECTORIZATION_FACTOR);
   va_start (ap, code);
@@ -568,20 +570,18 @@ AutoVectorise_Features_printHeader (FILE * file,
 }
 
 void
-AutoVectorise_Features_printLoop (FILE * file, struct loop *loop,
-				  const char *benchmarkId,
+AutoVectorise_Features_printLoop (FILE *file, Features *features,
+				  struct loop *loop, const char *benchmarkId,
 				  AutoVectorise_Features_OutputMethod
 				  outputMethod)
 {
-  Features features;
   assert (file);
   assert (loop);
   assert (benchmarkId);
 
-  Features_init (&features);
-  Features_compute (&features, loop);
-  Features_print (&features, file, loop, benchmarkId, outputMethod);
-  Features_destroy (&features);
+  Features_compute (features, loop);
+  Features_print (features, file, loop, benchmarkId, outputMethod);
+  Features_destroy (features);
 }
 
 void
@@ -623,7 +623,7 @@ AutoVectorise_Features_setup (void)
 }
 
 void
-AutoVectorise_Features_print (struct loop *loop, Features * features)
+AutoVectorise_Features_print (struct loop *loop, Features *features)
 {
   const char *filename = getenv (AUTOVECTORISE_FEATURES_ENVNAME);
   if (filename != NULL)
@@ -641,7 +641,8 @@ AutoVectorise_Features_print (struct loop *loop, Features * features)
 	benchmarkId = "@benchmark";
 
       AutoVectorise_Features_printLoop
-	(file, loop, benchmarkId, AUTOVECTORISE_FEATURES_SQL_VERBOSECOMMENTS);
+	(file, features, loop, benchmarkId,
+	 AUTOVECTORISE_FEATURES_SQL_VERBOSECOMMENTS);
 
       fclose (file);
     }

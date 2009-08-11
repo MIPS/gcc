@@ -108,5 +108,10 @@ ARRAY_COLUMN( tree_code_counts, int, "%d", "bigint", NUM_TREE_CODES, "tree_count
 /* A count for each gimple code found */
 ARRAY_COLUMN( gimple_code_counts, int, "%d", "bigint", LAST_AND_UNUSED_GIMPLE_CODE, "gimple_count_%s", gimple_code_name[ i ] )
 
+/* The vectorization factor obtainable for each target.
+   For the column name we could use targetm_array[i]->name,
+   but the '-' characters could cause trouble.  */
+ARRAY_COLUMN (vectorization_factor, int, "%d", "bigint", NUM_TARGETS, "vectorization_factor_%d", i)
+
 #undef COLUMN
 #undef ARRAY_COLUMN

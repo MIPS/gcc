@@ -2767,6 +2767,7 @@ vectorize_loops (void)
 	int best_factor = -1;
 	int target_arch, best_arch = -1;
 	int override_arch = -1;
+	features_d *features = alloc_features ();
 
 	vect_loop_location = find_loop_location (loop);
 	for (target_arch = -1; targetm_pnt = targetm_array[++target_arch]; )
@@ -2776,8 +2777,10 @@ vectorize_loops (void)
 	    loop_vinfo = vect_analyze_loop (loop);
 	    if (!loop_vinfo)
 	      continue;
-	    /* FIXME: insert some machine learning heuristic here to
-	       better compare the targets.  */
+	    if (LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
+	      update_features (features, UPDATE_FEATURE_VECTORIZATION_FACTOR,
+			       target_arch,
+			       LOOP_VINFO_VECT_FACTOR (loop_vinfo));
 	    if (LOOP_VINFO_VECTORIZABLE_P (loop_vinfo)
 		&& LOOP_VINFO_VECT_FACTOR (loop_vinfo) > best_factor)
 	      {
@@ -2787,11 +2790,14 @@ vectorize_loops (void)
 	  }
 
 	/* Print features.  */
-	AutoVectorise_Features_print (loop);
+	AutoVectorise_Features_print (loop, features);
 	/* Check to see if the user wants to override.  -2 means use the
 	   default heuristic.  -1 means don't override */
 	override_arch = AutoVectorise_Override_getTarget (loop);
-	printf ("OVERRIDE %d\n", override_arch);
+	if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
+	  {
+	    fprintf (vect_dump, "OVERRIDE %d\n", override_arch);
+	  }
 	if (override_arch != AUTOVECTORISE_OVERRIDE_DEFAULT)
 	  best_arch = override_arch;
 

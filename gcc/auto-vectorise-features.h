@@ -22,12 +22,20 @@ struct loop;
  * Setup
  */
 void AutoVectorise_Features_setup( void );
+
+struct features_d;
+extern struct features_d *alloc_features (void);
+
+#define UPDATE_FEATURE_VECTORIZATION_FACTOR 0
+
+extern void update_features (struct features_d *, int, ...);
+
 /**
  * Print the features for a particular loop.
  *
  * @param loop the loop to print features for; may not be NULL
  */
-void AutoVectorise_Features_print( struct loop* loop );
+void AutoVectorise_Features_print (struct loop *loop, struct features_d *);
 /**
  * Shutdown
  */

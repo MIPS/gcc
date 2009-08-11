@@ -21,6 +21,17 @@
 	(tree-vectorizer.o): Likewise.
 
 	* auto-vectorise-features.c: Re-indent.
+	(alloc_features, update_features): New functions.
+	(AutoVectorise_Features_print): New parameter features.
+	(AutoVectorise_Features_printHeader): Likewise.
+	* auto-vectorise-features-columns.h (vectorization_factor):
+	New ARRAY_COLUMN.
+	* auto-vectorise-features.h (alloc_features, update_features): Declare.
+	(UPDATE_FEATURE_VECTORIZATION_FACTOR): Define.
+	(AutoVectorise_Features_print): Update prototype.
+	* tree-vectorizer.c (vectorize_loops): Add each targets
+	vectorization factor to features.
+	Print message about override to dump file instead of to stdout.
 
 2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
