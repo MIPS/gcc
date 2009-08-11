@@ -149,6 +149,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "langhooks.h"
 
+#include "auto-vectorise-override.h"
+#include "auto-vectorise-features.h"
+
 /*************************************************************************
   General Vectorization Utilities
  *************************************************************************/
@@ -2763,6 +2766,7 @@ vectorize_loops (void)
 	loop_vec_info loop_vinfo = 0;
 	int best_factor = -1;
 	int target_arch, best_arch = -1;
+	int override_arch = -1;
 
 	vect_loop_location = find_loop_location (loop);
 	for (target_arch = -1; targetm_pnt = targetm_array[++target_arch]; )
@@ -2781,6 +2785,16 @@ vectorize_loops (void)
 		best_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
 	      }
 	  }
+
+	/* Print features.  */
+	AutoVectorise_Features_print (loop);
+	/* Check to see if the user wants to override.  -2 means use the
+	   default heuristic.  -1 means don't override */
+	override_arch = AutoVectorise_Override_getTarget (loop);
+	printf ("OVERRIDE %d\n", override_arch);
+	if (override_arch != AUTOVECTORISE_OVERRIDE_DEFAULT)
+	  best_arch = override_arch;
+
 	if (best_arch >= 0 && target_arch != best_arch)
 	  {
 	    if (loop_vinfo)

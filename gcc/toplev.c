@@ -106,6 +106,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "highlev-plugin-internal.h"
 #include "pass-manager.h"
 
+#include "auto-vectorise-override.h"
+#include "auto-vectorise-features.h"
+
 START_TARGET_SPECIFIC
 
 void process_options (void);
@@ -2302,6 +2305,10 @@ toplev_main (unsigned int argc, const char **argv)
 
   /* Loads ICI plugin */
   load_ici_plugin ();
+  /* Do cheeky auto-vectorisation hacks which should be in plugins */
+  AutoVectorise_Override_setup ();
+  AutoVectorise_Features_setup ();
+
 
   /* Initialize additional passes (such as, for example, ml-feat:
      A Static Program Features Extractor for MILEPOST GCC). */
@@ -2316,8 +2323,12 @@ toplev_main (unsigned int argc, const char **argv)
   /* Unloads ICI plugin */
   unload_ici_plugin ();
 
-  if (warningcount || errorcount) 
+  if (warningcount || errorcount)
     print_ignored_options ();
+
+  /* Close down cheeky auto-vectorisation hacks */
+  AutoVectorise_Override_shutdown ();
+  AutoVectorise_Features_shutdown ();
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);
