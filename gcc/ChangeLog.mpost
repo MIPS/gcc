@@ -20,6 +20,8 @@
 	and auto-vectorise-features.h.
 	(tree-vectorizer.o): Likewise.
 
+	* auto-vectorise-features.c: Re-indent.
+
 2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* toplev.c: Include pass-manager.h
