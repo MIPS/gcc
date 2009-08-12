@@ -1,6 +1,6 @@
 2009-08-12  J"orn Rennecke  <joern.rennecke@arc.com>
 
-	* config/mxp/mxp.md (*mov<mode>_i) <alternative 5>: Use vldr if
+	* config/mxp/mxp.md (*mov<mode>_i) <alternative 5>: Use vld%N0r if
 	the address is in an ARCompact core register.
 	* config/mxp/mxp.c (mxp_select_rtx_section): New function.
 	(TARGET_ASM_SELECT_RTX_SECTION): Redefine.
