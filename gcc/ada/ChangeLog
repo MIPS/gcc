@@ -1,3 +1,34 @@
+2009-08-10  Laurent GUERBY  <laurent@guerby.net>
+
+        * make.adb: Handle multilib
+	
+2009-08-10  Vincent Celier  <celier@adacore.com>
+
+	* prj-env.adb (Create_Config_Pragmas_File.Write_Temp_File): Do not use
+	the temporary file name in the error message when the temporary file
+	cannot be created.
+
+2009-08-10  Yannick Moy  <moy@adacore.com>
+
+	* gnat_ugn.texi: Fix typo
+
+2009-08-10  Robert Dewar  <dewar@adacore.com>
+
+	* exp_ch7.adb: Add ??? comment for last change
+
+2009-08-10  Vincent Celier  <celier@adacore.com>
+
+	* prj-env.adb (Add_To_Buffer): New procedure
+	(Create_Config_Pragmas_File): Write to temporary file in one shot
+	(Create_Mapping_File): Ditto
+	(Set_Ada_Paths): Ditto
+
+2009-08-10  Vincent Celier  <celier@adacore.com>
+
+	PR ada/17566
+	* xref_lib.adb (Print_Xref): Make sure that there is at least one space
+	between a declaration name and its type.
+
 2009-08-07  Javier Miranda  <miranda@adacore.com>
 
 	* exp_ch7.adb (Wrap_Transient_Expression): Add missing adjustment of

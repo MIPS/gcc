@@ -1,3 +1,529 @@
+2009-08-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41011
+	* ipa-cp.c (ipcp_lattice_from_jfunc): Deal with failing fold
+	and reference constructing.
+
+2009-08-12  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/41012
+	* tree-flow.h : New external interface.
+	* gimple-low.c (check_call_arg): Change to public function.
+	Remove argument mismatch check in lowering.
+	* tree-inline.h (tree_can_inline_p): Interface change.
+	* tree-inline.c (tree_can_inline_p): Fold argument mismatch check
+	into this function.
+	* ipa-inline.c (cgraph_decide_inlining_of_small_functions): 
+	Call change to tree_can_inline_p function.
+	(cgraph_decide_inlining_incrementally): Ditto.
+
+2009-08-12  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR tree-optimization/41031
+	* tree-outof-ssa.c (insert_value_copy_on_edge): Use promote_decl_mode
+	on the partition variable rather than promote_mode on the source
+	type.  Assert that the partition variable's type has the same
+	mode as the source value's.
+
+2009-08-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	* doc/tm.texi (TARGET_PROMOTE_FUNCTION_MODE): Add documentation
+	for for_return == 2.
+	* function.c (assign_parm_setup_reg): Use for_return == 2, improve
+	comments.
+	* calls.c (expand_call): Fix typo.
+	* explow.c (promote_decl_mode): Use for_return == 2 for RESULT_DECL
+	and PARM_DECL.
+	* stmt.c (expand_value_return): Use promote_function_mode to copy out
+	of pseudo.
+	* targhooks.c (default_promote_function_mode): Handle for_return == 2.
+	* config/cris/cris.c (cris_promote_function_mode): Likewise.
+	* config/mmix/mmix.c (mmix_promote_function_mode): Likewise.
+	* config/pa/pa.c (pa_promote_function_mode): Likewise.
+
+2009-08-11  Andrew Haley  <aph@redhat.com>
+
+	* config/arm/arm.c (arm_init_libfuncs): Add __sync_synchronize.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR bootstrap/40103
+	* graphite.c: Remove pragma GCC diagnostic warning "-Wc++-compat".
+
+2009-08-12  Richard Guenther  <rguenther@suse.de>
+
+	* alias.c (get_alias_set): Honor TYPE_STRUCTURAL_EQUALITY_P.
+	* gimplify.c (gimplify_modify_expr): Do not use
+	lang_hooks.types_compatible_p.
+	* tree-ssa.c (useless_type_conversion_p): For aggregates
+	just return false if the canonical types differ.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/40980
+	* sese.c (convert_for_phi_arg): New.
+	(add_guard_exit_phis): Use convert_for_phi_arg.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-sese-to-poly.c (pdr_add_data_dimensions): Dont add
+	unknown subscript upper bounds.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+	    Pranav Garg  <pranav.garg2107@gmail.com>
+
+	* graphite-interchange.c (gather_access_strides): Removed.
+	(ppl_max_for_le): New.
+	(build_linearized_memory_access): New.
+	(memory_stride_in_loop): New.
+	(pbb_interchange_profitable_p): Reimplemented.
+	* graphite-ppl.h (ppl_new_id_map): New.
+	(ppl_interchange): New.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-interchange.c (compute_subscript): Removed.
+	(compute_array_size_cstr): Removed.
+	(compute_array_size_poly): Removed.
+	(compute_array_size): Removed.
+	(gather_access_strides_poly): Removed.
+	(gather_access_strides): Empty.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-dependences.c (dependence_polyhedron_1): Replace
+	pdr_nb_subscripts with PDR_NB_SUBSCRIPTS.
+	(graphite_legal_transform_dr): Same.
+	(graphite_carried_dependence_level_k): Same.
+	* graphite-poly.c (new_poly_dr): Add a parameter nb_subscripts.
+	Initialize PDR_NB_SUBSCRIPTS.
+	(print_pdr_access_layout): Replace pdr_nb_subscripts with
+	PDR_NB_SUBSCRIPTS.
+	* graphite-poly.h (struct poly_dr): Add nb_subscripts field.
+	(PDR_NB_SUBSCRIPTS): New.
+	(pdr_nb_subscripts): Removed.
+	(pdr_dim): Simplified.
+	* graphite-sese-to-poly.c (build_poly_dr): Replace pdr_nb_subscripts
+	with PDR_NB_SUBSCRIPTS.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-interchange.c (compute_array_size): Remove use of
+	PDR_DATA_CONTAINER.
+	* graphite-poly.c (new_poly_dr): Remove argument data_container.
+	Do not initialize PDR_DATA_CONTAINER.
+	(print_pdr): Do not print PDR_DATA_CONTAINER.
+	* graphite-poly.h (struct poly_dr): Remove data_container field.
+	(PDR_DATA_CONTAINER): Removed.
+	* graphite-sese-to-poly.c (pdr_add_data_dimensions): Remove use of
+	PDR_DATA_CONTAINER.
+	(build_poly_dr): Same.
+
+2009-08-12  Konrad Trifunovic  <konrad.trifunovic@gmail.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-dependences.c (graphite_legal_transform_dr): Work on a
+	copy of the dependence polyhedron.  Free the temporary objects.
+	(graphite_carried_dependence_level_k): Free unused objects before
+	returning.
+
+	* testsuite/gcc.dg/graphite/interchange-1.c: XFAILed.
+	* testsuite/gcc.dg/graphite/interchange-2.c: XFAILed.
+	* testsuite/gcc.dg/graphite/interchange-3.c: XFAILed.
+	* testsuite/gcc.dg/graphite/interchange-4.c: XFAILed.
+	* testsuite/gcc.dg/graphite/interchange-7.c: XFAILed.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-blocking.c (scop_do_strip_mine): Call store_scattering.
+	Early return without analyzing the data dependences if no
+	transform has been done.  Call restore_scattering if the transform
+	is not legal.
+	(graphite-interchange.c): Same.
+	* graphite-poly.c (print_scattering_function): Test for PBB_TRANSFORMED.
+	(graphite_read_transforms): Initialize PBB_TRANSFORMED.
+	(apply_poly_transforms): Do not gcc_assert that
+	the transform is legal.
+	(new_poly_bb): Initialize PBB_TRANSFORMED, PBB_SAVED, and PBB_ORIGINAL.
+	Do not initialize PBB_NB_SCATTERING_TRANSFORM, PBB_NB_LOCAL_VARIABLES,
+	PBB_TRANSFORMED_SCATTERING, and PBB_ORIGINAL_SCATTERING.
+	(free_poly_dr): Free PBB_TRANSFORMED, PBB_SAVED, and PBB_ORIGINAL.
+	* graphite-poly.h (struct poly_scattering): New.
+	(struct poly_bb): Add original, transformed, and saved fields.
+	Remove transformed_scattering, original_scattering, nb_local_variables,
+	and nb_scattering_transform fields.
+	(PBB_ORIGINAL, PBB_TRANSFORMED, PBB_SAVED): New.
+	(poly_scattering_new): New.
+	(poly_scattering_free): New.
+	(poly_scattering_copy): New.
+	(store_scattering_pbb): New.
+	(store_scattering): New.
+	(restore_scattering_pbb): New.
+	(restore_scattering): New.
+	* graphite-sese-to-poly.c (build_pbb_scattering_polyhedrons):
+	Initialize PBB_TRANSFORMED and PBB_ORIGINAL.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-poly.c (print_pbb): Add parentheses in the pretty print.
+	(print_scop): Same.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* Makefile.in (graphite.o): Depends on PREDICT_H.
+	* graphite.c: Include predict.h.
+	(graphite_finalize): Call tree_estimate_probability.
+	* predict.c (predict_loops): Do not call scev_initialize and
+	scev_finalize.
+	(tree_estimate_probability_bb): New.
+	(tree_estimate_probability): Do not initialize loops: move that
+	code to the driver.  Call tree_estimate_probability_bb.
+	(tree_estimate_probability_driver): New.
+	(pass_profile): Use tree_estimate_probability_driver.
+	* predict.h (tree_estimate_probability): Declared.
+
+2009-08-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-clast-to-gimple.c (gloog): Add time to TV_GRAPHITE_CODE_GEN.
+	* graphite-dependences.c (graphite_legal_transform): Add time to
+	TV_GRAPHITE_DATA_DEPS.
+	(dependency_between_pbbs_p): Same.
+	* timevar.def (TV_GRAPHITE_DATA_DEPS, TV_GRAPHITE_CODE_GEN): New.
+
+2009-08-12  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/41033
+	* alias.c (nonoverlapping_component_refs_p): Punt when strict 
+	aliasing is disabled.
+
+2009-08-11  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/predicates.md (qi_mask_operand, hi_mask_operand,
+	si_mask_operand, and_load_operand, low_bitmask_operand,
+	and_reg_operand, and_operand): New predicates.
+	* config/mips/constraints.md (Yb, Yh, Yw, Yz): New constraints.
+	* config/mips/mips.c (and_operands_ok): New function.
+	* config/mips/mips-protos.h (and_operands_ok): Declare it.
+	* config/mips/mips.md (move_type): Add ext_ins and logical.
+	(type): Handle them.
+	(and<mode>3): Use and_reg_operand as the second operand's
+	predicate.
+	(*and<mode>3): Add alternatives for lbu, lhu, lwu, <d>ext and
+	shift_shift.  Remove commutative constraint modifier.
+	(*and<mode>3_mips16): Add alternatives for lbu, lhu, lwu and
+	shift_shift.
+	(*clear_upper32_dext): Remove define_insn_and_split.
+	(*clear_upper32): Turn this define_insn_and_split ...
+	(splitter for ANDing register with 0xffff_ffff): .. into this.
+
+2009-08-11  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* combine.c (try_widen_shift_mode): Factor out code to check if an
+        integer constant is a low-order bitmask from here ...
+	* rtlanal.c (low_bitmask_len): ... to here.
+	* rtl.h (low_bitmask_len): Declare.
+
+2009-08-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/8603
+	* config/alpha/alpha.md (addsi3): Remove expander.
+	(addsi3): Rename from *addsi3_internal insn pattern.
+	(subsi3): Remove expander.
+	(subsi3): Rename from *subsi3_internal insn pattern.
+
+2009-08-11  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (alpha_init_builtins): Nullify FWRITE and
+	FWRITE_UNLOCKED.
+
+2009-08-11  Vasiliy Fofanov  <fofanov@adacore.com>
+	    Eric Botcazou  <botcazou@adacore.com>
+	    Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (alpha_return_in_memory): On VMS, ensure
+	that records that fit in 64 bits are returned by immediate value,
+	as required by OpenVMS Calling Standard.
+	(function_value): Adjust for above modification.
+	(alpha_va_start) <TARGET_ABI_OPEN_VMS>: Use
+	virtual_incoming_args_rtx as base object, not next_arg.
+	* config/alpha/vms.h: (DEFAULT_PCC_STRUCT_RETURN): Define as 0.
+
+2009-08-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* reload.c (find_reloads_subreg_address): Check the original
+	req_equiv_mem address to detect the case where an address is
+	not valid in the outer mode.
+
+2009-08-11  Richard Guenther  <rguenther@suse.de>
+	
+	PR bootstrap/40788
+	* builtins.c (gimplify_va_arg_expr): Do not call SET_EXPR_LOCATION.
+
+2009-08-10  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/vms.h (OPTIMIZATION_OPTIONS): Remove
+	(OVERRIDE_OPTIONS): Incorporate removed OPTIMIZATION_OPTIONS.
+
+2009-08-10  Olivier Hainque  <hainqueu@adacore.com>
+	    Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (alpha_sa_size): Force procedure type to
+	PT_STACK when frame_pointer_needed on OpenVMS.
+	(alpha_pv_save_size, alpha_using_fp): Remove.
+	(alpha_vms_can_eliminate): New function. Support for CAN_ELIMINATE
+	with proper processing for PT_NULL.
+	(alpha_vms_initial_elimination_offset): New function. Support for
+	INITIAL_ELIMINATION_OFFSET with proper processing for PT_NULL.
+	(alpha_sa_size): Force procedure type to PT_STACK when
+	frame_pointer_needed on OpenVMS.
+	* config/alpha/alpha-protos.h (alpha_pv_save_size): Remove prototype.
+	(alpha_using_fp): Likewise.
+	(alpha_vms_can_eliminate): Add prototype.
+	(alpha_vms_initial_elimination_offset): Likewise.
+	* config/alpha/vms.h (CAN_ELIMINATE, INITIAL_ELIMINATION_OFFSET):
+	Call alpha_vms_can_eliminate and alpha_vms_initial_elimination_offset.
+
+2009-08-10  Eric Botcazou  <botcazou@adacore.com>
+	    Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (common_object_handler): New function.
+	(vms_attribute_table): Declare a single attribute "common_object".
+	(vms_output_aligned_decl_common): New global function.
+	(SECTION_VMS_OVERLAY): Delete.
+	(SECTION_VMS_GLOBAL): Likewise.
+	(SECTION_VMS_INITIALIZE): Likewise.
+	(vms_asm_named_section): Remove support for above flags.
+	(vms_section_type_flags): Delete.
+	(TARGET_SECTION_TYPE_FLAGS): Likewise.
+	* config/alpha/alpha-protos.h (vms_output_aligned_decl_common): New.
+	* config/alpha/vms.h (ASM_OUTPUT_ALIGNED_COMMON): Delete.
+	(ASM_OUTPUT_ALIGNED_DECL_COMMON): New macro.
+
+2009-08-10  SUGIOKA Toshinobu  <sugioka@itonet.co.jp>
+
+	PR target/41015
+	* longlong.h [__sh__] (udiv_qrnnd): Add T register to clobber list.
+	(sub_ddmmss): Likewise.
+
+2009-08-10  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR bootstrap/41018
+	* config/rs6000/freebsd.h: Define SVR4_ASM_SPEC. Adjust copyright
+	year.
+
+2009-08-10  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR target/37053
+	* reload1.c (reload_as_needed): Use cancel_changes to completely
+	undo a failed replacement attempt.
+
+2009-08-10  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41006
+	* tree-ssa.c (useless_type_conversion_p_1): Fold into ...
+	(useless_type_conversion_p): ... here.  Require pointer targets
+	to be compatible.
+
+2009-08-10  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/40866
+	* tree-inline.c (copy_statement_list): The resulting copy shouldn't
+	loose the original type of the statement list.
+
+2009-08-09  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c: Include libfuncs.h
+	(avms_asm_output_extern): New function.
+	(alpha_init_libfuncs): Init some decc libfuncs.
+	* config/alpha/alpha-protos.h (avms_asm_output_external): Declare.
+	* config/alpha/vms.h (ASM_OUTPUT_EXTERNAL): Define.
+	(DO_CRTL_NAMES): Define.
+	(LIB_SPEC): Remove.
+	* config/alpha/vms64.h: (POINTERS_EXTEND_UNSIGNED): Remove undef.
+	(LONG_TYPE_SIZE): Define.
+	(TARGET_OS_CPP_BUILTINS): Define with __LONG_POINTERS=1
+	(SUBTARGET_SWITCHES): Define malloc64 switch.
+	(TARGET_DEFAULT): Default MASK_MALLOC64 set.
+	(MASK_RETURN_ADDR): Define.
+	doc/invoke.texi (mmalloc64): Document switch.
+
+2009-08-09  Olivier Hainque  <hainque@adacore.com>
+	    Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (struct machine_function): New flag for VMS,
+	uses_condition_handler.
+	(alpha_expand_builtin_establish_vms_condition_handler): New expander.
+	(alpha_expand_builtin_revert_vms_condition_handler): New expander.
+	(enum alpha_builtin): New ALPHA_BUILTIN_REVERT_VMS_CONDITION_HANDLER
+	and ALPHA_BUILTIN_ESTABLISH_VMS_CONDITION_HANDLER values.
+	(code_for_builtin): New insn codes for the new alpha_builtins.
+	(alpha_init_builtins): Register the new functions as BUILT_IN_MD.
+	(alpha_sa_size): Account for uses_condition_handler.
+	(alpha_expand_prologue): Likewise.
+	(alpha_start_function): Likewise.
+	(alpha_expand_epilogue): Likewise.
+	* config/alpha/alpha-protos.h: Prototype the new alpha.c builtin
+	establish/revert expanders.
+	* config/alpha/alpha.h (DWARF_FRAME_REGNUM): Define.
+	* config/alpha/alpha.md	(builtin_establish_vms_condition_handler):
+	New expander, resorting to the alpha.c associated function.
+	(builtin_revert_vms_condition_handler): Likewise.
+	* config/alpha/vms-gcc_shell_handler.c: New file. Implements
+	__gcc_shell_handler, the static VMS condition handler used as
+	an indirection wrapper to the current dynamically established
+	handler.
+	* config/alpha/vms-unwind.h: Complete rewrite.
+	* config/alpha/t-vms (LIB2FUNCS_EXTRA): Add vms-gcc_shell_handler.c
+	* config/alpha/vms.h (MD_UNWIND_SUPPORT):
+	
+2009-08-09  Eric Botcazou  <botcazou@adacore.com>
+	    Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (alpha_links): Add 'target' field.
+	(alpha_need_linkage): Handle aliases.  Return function symbol.
+	(alpha_use_linkage): Rename 'linkage' argument to 'func'.
+	Use ultimate alias target for the linkage name.
+	* config/alpha/alpha.md (movmemdi): Use the symbol returned
+	by alpha_need_linkage for the function symbol.
+	(setmemdi): Likewise.
+
+2009-08-09  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (TARGET_ASM_UNALIGNED_*_OP): Define if on VMS.
+	* config/alpha/vms.h (OBJECT_FORMAT_ELF): Define.
+	(ASM_WEAKEN_LABEL): Define.
+	(CRT_CALL_STATIC_FUNCTION): Define.
+	(STARTFILE_SPEC): Add crtbegin.o crtbeginS.o.
+	(ENDFILE_SPEC): Define.
+	(INIT_SECTION_ASM_OP): Define.
+	* config/alpha/vms-dwarf2eh.asm (__EH_FRAME_BEGIN__): Remove.
+	* config/alpha/t-vms (EXTRA_PARTS): Add crtbegin.o crtbeginS.o
+	crtend.o crtendS.o.
+	(MULTILIB_OSDIRNAMES): Define.
+	(shlib_version): Define.
+	(SHLIB_EXT): Define.
+	(SHLIB_OBJS): Define.
+	(SHLIB_NAME): Define.
+	(SHLIB_MULTILIB): Define.
+	(SHLIB_INSTALL): Define.
+	(SHLIB_SYMVEC): Define.
+	(SHLIB_SYMVECX2): Define.
+	(SHLIB_LINK): Define.
+
+2009-08-09  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (alpha_initialize_trampoline):
+	Initialize VMS trampoline IAW ABI for bounded procedure calls.
+	(alpha_start_function): Emit transfer address on nested functions
+	for VMS trampoline call.
+	* config/alpha/t-vms (LIB2FUNCS_EXTRA): Remove vms_tramp.asm
+	since no longer used.
+	* config/alpha/vms-tramp.asm: Remove.
+	* config/alpha/vms.h (TRAMPOLINE_TEMPLATE): Leave undefined
+	since now only data initialized at runtime.
+
+2009-08-09  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/vms.h (HANDLE_SYSV_PRAGMA): Define.
+	(LINK_GCC_C_SEQUENCE_SPEC): Define.
+	(MD_EXEC_PREFIX): Remove, no longer used.
+	(MD_STARTFILE_PREFIX): Likewise.
+	(INCLUDE_DEFAULTS): Likewise.
+	* config/alpha/t-vms:
+	(vms-dwarf2.o, vms-dwarf2eh.o): Use GCC_FOR_TARGET to compile.
+
+2009-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41016
+	* tree-ssa-ifcombine.c (get_name_for_bit_test): Fix tuplification bug.
+	(operand_precision): Remove.
+	(integral_operand_p): Likewise.
+	(recognize_single_bit_test): Adjust.
+
+2009-08-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c (c_fully_fold_internal): Issue a warning if a binary
+	operation overflows.  Likewise non-cast unary arithmetic.
+	If one arm of a conditional expression is always taken,
+	inhibit evaluation warnings for the other arm.  Likewise inhibit
+	evaluation warnings for the second && or || operand if the first
+	operand is enough to determine the result.
+	* c-typeck.c (build_conditional_expr): Apply the same inhibition
+	rules here.
+	(build_binary_op): Prevent duplicate evaluation warnings.
+
+2009-08-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* tree-out-of-ssa.c (insert_value_copy_on_edge): If the source
+	and destination have different modes, Use promote_mode to
+	determine the signedness of the conversion.  Assert that the
+	promoted source mode matches the destination mode.  Don't pass
+	the destination and destination mode to expand_expr if the source
+	mode is different.  Simplify conversion logic.
+
+2009-08-09  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/41008
+	* tree-vect-loop.c (vect_is_simple_reduction): Get operands
+	from condition only in case it's a comparison. Adjust checks.	
+
+2009-08-09  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* tree-dfa.c (renumber_gimple_stmt_uids_in_blocks): New function.
+	* tree-flow.h (renumber_gimple_stmt_uids_in_blocks): Declare it.
+	* tree-ssa-loop-ivopts.c (comp_cost): Make COST an integer.
+	(enum iv_position): Add IP_AFTER_USE and IP_BEFORE_USE.
+	(dump_cand): Handle them.
+	(struct iv_cand): New members COST_STEP and AINC_USE.
+	(stmt_after_increment): Likewise.
+	(stmt_after_inc_pos): Renamed from stmt_after_ip_original_pos.  All
+	callers changed.  Use gimple_uid comparison instead of scanning.
+	(add_candidate_1): When looking for identical candidates, take
+	AINC_USE into account.  Set it for new candidates.
+	(force_expr_to_var_cost): Cast target_spill_cost to int.
+	(get_address_cost): New arguments STMT_AFTER_INC and MAY_AUTOINC.
+	All callers changed.  Check for availability of autoinc addressing
+	modes, both in general for a given mode, and in the specific use case.
+	(get_computation_cost_at): New argument CAN_AUTOINC.  All callers
+	changed.
+	(get_computation_cost): Likewise.
+	(autoinc_possible_for_pair, set_autoinc_for_original_candidates,
+	add_autoinc_candidates): New static functions.
+	(add_candidate): Call add_autoinc_candidates for candidates based on
+	a USE_ADDRESS use.
+	(find_iv_candidates): Call set_autoinc_for_original_candidates.
+	(determine_use_iv_cost_address): If we have an autoinc candidate at
+	the matching use, verify autoinc is possible and subtract the cost
+	of the candidate's step from the cost.
+	(determine_iv_cost): Record the cost of the increment in the COST_STEP
+	member of the candidate.
+	(tree_ssa_iv_optimize_loop): Swap the calls to determine_iv_costs and
+	determine_use_iv_costs.  Call renumber_gimple_stmt_uids_in_blocks.
+
+2009-08-09  Douglas B Rupp  <rupp@gnat.com>
+
+	* config.build (ia64-hp-*vms*): New target.
+	(alpha64-dec-*vms*,alpha*-dec-*vms*): Fix for config/vms and unify
+	with ia64-hp-*vms*.
+	* config.gcc (ia64-hp-*vms*): New target.
+	(alpha64-dec-*vms*,alpha*-dec-*vms*): Fix for config/vms and unify
+	with ia64-hp-*vms*.
+	* config.host (ia64-hp-*vms*): New target.
+	(alpha64-dec-*vms*,alpha*-dec-*vms*): Fix for config/vms and unify
+	with ia64-hp-*vms*.
+
+2009-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40991
+	* tree-ssa-pre.c (eliminate): Delay purging EH edges.
+
+2009-08-08  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* combine.c (gen_lowpart_or_truncate): Exclude CONST_INTs from
+	mode check.  Do truncations in an integer mode.
+	(force_to_mode): Handle subregs for all mode types.  Only do
+	arithmetic simplifications on integer modes.
+
 2009-08-07  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/40999
@@ -87,6 +613,10 @@
 	* tree-sra.c: Include ipa-prop.c.
 	(build_ref_for_offset): Make public. 
 
+2009-08-06  Neil Vachharajani  <nvachhar@gmail.com>
+
+	* value-prof.c (init_pid_map): Replace xmalloc with XCNEWVEC.
+	
 2009-08-06  Thomas Schwinge  <tschwinge@gnu.org>
 
 	* gcc/doc/extend.texi (__builtin_extract_return_address)
