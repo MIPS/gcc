@@ -143,60 +143,6 @@ lto_symtab_maybe_init_hash_tables (void)
     }
 }
 
-/* Transfer qualifiers between TYPE_1 and TYPE_2 so that qualifiers
-   for both types are conservatively correct with respect to
-   optimization done before the merge.  */
-
-static void
-lto_merge_qualifiers (tree type_1, tree type_2)
-{
-  /* If one is volatile, the other should also be.  */
-  if (TYPE_VOLATILE (type_2))
-    TYPE_VOLATILE (type_1) = 1;
-  else if (TYPE_VOLATILE (type_1))
-    TYPE_VOLATILE (type_2) = 1;
-
-  /* If one type is writable, the other should also be.  */
-  if (!TYPE_READONLY (type_2))
-    TYPE_READONLY (type_1) = 0;
-  else if (!TYPE_READONLY (type_1))
-    TYPE_READONLY (type_2) = 0;
-
-  /* If one type does not have the restrict qualifier, the other
-     should not have it either.  */
-  if (!TYPE_RESTRICT (type_2))
-    TYPE_RESTRICT (type_1) = 0;
-  else if (!TYPE_RESTRICT (type_1))
-    TYPE_RESTRICT (type_2) = 0;
-}
-
-/* If TYPE_1 and TYPE_2 can be merged to form a common type, do it.
-   Specifically, if they are both array types that have the same element
-   type and one of them is a complete array type and the other isn't,
-   return the complete array type.  Otherwise return NULL_TREE. */
-
-static tree
-lto_merge_types (tree type_1, tree type_2)
-{
-  if (TREE_CODE (type_1) == ARRAY_TYPE
-      && TREE_CODE (type_2) == ARRAY_TYPE
-      && !TYPE_ATTRIBUTES (type_1)
-      && !TYPE_ATTRIBUTES (type_2)
-      && gimple_types_compatible_p (TREE_TYPE (type_1), TREE_TYPE (type_2)))
-    {
-      lto_merge_qualifiers (type_1, type_2);
-
-      if (COMPLETE_TYPE_P (type_1) && !COMPLETE_TYPE_P (type_2))
-	return type_1;
-      else if (COMPLETE_TYPE_P (type_2) && !COMPLETE_TYPE_P (type_1))
-	return type_2;
-      else
-	return type_1;
-    }
-
-  return NULL_TREE;
-}
-
 /* Returns true iff the union of ATTRIBUTES_1 and ATTRIBUTES_2 can be
    applied to DECL.  */
 static bool
@@ -226,13 +172,63 @@ external_aggregate_decl_p (tree decl)
 	  && AGGREGATE_TYPE_P (TREE_TYPE (decl)));
 }
 
+static bool maybe_merge_incomplete_and_complete_type (tree, tree);
+
+/* Try to merge an incomplete type INCOMPLETE with a complete type
+   COMPLETE of same kinds.
+   Return true if they were merged, false otherwise.  */
+
+static bool
+merge_incomplete_and_complete_type (tree incomplete, tree complete)
+{
+  /* For merging array types do some extra sanity checking.  */
+  if (TREE_CODE (incomplete) == ARRAY_TYPE
+      && !maybe_merge_incomplete_and_complete_type (TREE_TYPE (incomplete),
+						    TREE_TYPE (complete))
+      && !gimple_types_compatible_p (TREE_TYPE (incomplete),
+				     TREE_TYPE (complete)))
+    return false;
+
+  /* ??? Ideally we would do this by means of a common canonical type, but
+     that's difficult as we do not have links from the canonical type
+     back to all its children.  */
+  memcpy (incomplete, complete, tree_size (incomplete));
+
+  return true;
+}
+
+/* Try to merge a maybe complete / incomplete type pair TYPE1 and TYPE2.
+   Return true if they were merged, false otherwise.  */
+
+static bool
+maybe_merge_incomplete_and_complete_type (tree type1, tree type2)
+{
+  bool res = false;
+
+  if (TREE_CODE (type1) != TREE_CODE (type2))
+    return false;
+
+  if (!COMPLETE_TYPE_P (type1) && COMPLETE_TYPE_P (type2))
+    res = merge_incomplete_and_complete_type (type1, type2);
+  else if (COMPLETE_TYPE_P (type1) && !COMPLETE_TYPE_P (type2))
+    res = merge_incomplete_and_complete_type (type2, type1);
+
+  /* Recurse on pointer targets.  */
+  if (!res
+      && POINTER_TYPE_P (type1)
+      && POINTER_TYPE_P (type2))
+    res = maybe_merge_incomplete_and_complete_type (TREE_TYPE (type1),
+						    TREE_TYPE (type2));
+
+  return res;
+}
+
 /* Check if OLD_DECL and NEW_DECL are compatible. */
 
 static bool
-lto_symtab_compatible (tree old_decl, tree new_decl, bool do_warn)
+lto_symtab_compatible (tree old_decl, tree new_decl)
 {
   tree merged_type = NULL_TREE;
-  tree merged_result = NULL_TREE;
 
   if (TREE_CODE (old_decl) != TREE_CODE (new_decl))
     {
@@ -259,16 +255,68 @@ lto_symtab_compatible (tree old_decl, tree new_decl, bool do_warn)
 	}
     }
 
+  /* Handle external declarations with incomplete type or pointed-to
+     incomplete types by forcefully merging the types.
+     ???  In principle all types involved in the two decls should
+     be merged forcefully, for example without considering type or
+     field names.  */
+  if (TREE_CODE (old_decl) == VAR_DECL)
+    {
+      tree old_type = TREE_TYPE (old_decl);
+      tree new_type = TREE_TYPE (new_decl);
+
+      if (DECL_EXTERNAL (old_decl) || DECL_EXTERNAL (new_decl))
+	maybe_merge_incomplete_and_complete_type (old_type, new_type);
+      else if (POINTER_TYPE_P (old_type)
+	       && POINTER_TYPE_P (new_type))
+	maybe_merge_incomplete_and_complete_type (TREE_TYPE (old_type),
+						  TREE_TYPE (new_type));
+
+      /* For array types we have to accept external declarations with
+	 different sizes than the actual definition (164.gzip).
+	 ???  We could emit a warning here.  */
+      if (TREE_CODE (old_type) == TREE_CODE (new_type)
+	  && TREE_CODE (old_type) == ARRAY_TYPE
+	  && COMPLETE_TYPE_P (old_type)
+	  && COMPLETE_TYPE_P (new_type)
+	  && tree_int_cst_compare (TYPE_SIZE (old_type),
+				   TYPE_SIZE (new_type)) != 0
+	  && gimple_types_compatible_p (TREE_TYPE (old_type),
+					TREE_TYPE (new_type)))
+	{
+	  /* If only one is external use the type of the non-external decl.
+	     Else use the larger one and also adjust the decl size.
+	     ???  Directional merging would allow us to simply pick the
+	     larger one instead of rewriting it.  */
+	  if (DECL_EXTERNAL (old_decl) ^ DECL_EXTERNAL (new_decl))
+	    {
+	      if (DECL_EXTERNAL (old_decl))
+		TREE_TYPE (old_decl) = new_type;
+	      else if (DECL_EXTERNAL (new_decl))
+		TREE_TYPE (new_decl) = old_type;
+	    }
+	  else
+	    {
+	      if (tree_int_cst_compare (TYPE_SIZE (old_type),
+					TYPE_SIZE (new_type)) < 0)
+		{
+		  TREE_TYPE (old_type) = new_type;
+		  DECL_SIZE (old_decl) = DECL_SIZE (new_decl);
+		  DECL_SIZE_UNIT (old_decl) = DECL_SIZE_UNIT (new_decl);
+		}
+	      else
+		{
+		  TREE_TYPE (new_type) = old_type;
+		  DECL_SIZE (new_decl) = DECL_SIZE (old_decl);
+		  DECL_SIZE_UNIT (new_decl) = DECL_SIZE_UNIT (old_decl);
+		}
+	    }
+	}
+    }
+
   if (!gimple_types_compatible_p (TREE_TYPE (old_decl), TREE_TYPE (new_decl)))
     {
-      /* Allow an array type with unspecified bounds to
-	 be merged with an array type whose bounds are specified, so
-	 as to allow "extern int i[];" in one file to be combined with
-	 "int i[3];" in another.  */
-      if (TREE_CODE (new_decl) == VAR_DECL)
-	merged_type = lto_merge_types (TREE_TYPE (old_decl),
-				       TREE_TYPE (new_decl));
-      else if (TREE_CODE (new_decl) == FUNCTION_DECL)
+      if (TREE_CODE (new_decl) == FUNCTION_DECL)
 	{
 	  if (!merged_type
 	      /* We want either of the types to have argument types,
@@ -289,12 +337,10 @@ lto_symtab_compatible (tree old_decl, tree new_decl, bool do_warn)
 	      if (TYPE_ARG_TYPES (TREE_TYPE (old_decl)))
 		{
 		  merged_type = TREE_TYPE (old_decl);
-		  merged_result = DECL_RESULT (old_decl);
 		}
 	      else
 		{
 		  merged_type = TREE_TYPE (new_decl);
-		  merged_result = DECL_RESULT (new_decl);
 		}
 	    }
 
@@ -309,26 +355,21 @@ lto_symtab_compatible (tree old_decl, tree new_decl, bool do_warn)
 	      if (!DECL_EXTERNAL (new_decl))
 		{
 		  merged_type = TREE_TYPE (new_decl);
-		  merged_result = DECL_RESULT (new_decl);
 		}
 	      else
 		{
 		  merged_type = TREE_TYPE (old_decl);
-		  merged_result = DECL_RESULT (old_decl);
 		}
 	    }
 	}
 
       if (!merged_type)
 	{
-	  if (do_warn)
-	    {
-	      warning_at (DECL_SOURCE_LOCATION (new_decl), 0,
+	  if (warning_at (DECL_SOURCE_LOCATION (new_decl), 0,
 			  "type of %qD does not match original declaration",
-			  new_decl);
-	      inform (DECL_SOURCE_LOCATION (old_decl),
-		      "previously declared here");
-	    }
+			  new_decl))
+	    inform (DECL_SOURCE_LOCATION (old_decl),
+		    "previously declared here");
 	  return false;
 	}
     }
@@ -390,33 +431,8 @@ lto_symtab_compatible (tree old_decl, tree new_decl, bool do_warn)
       return false;
     }
 
-  if (DECL_MODE (old_decl) != DECL_MODE (new_decl))
-    {
-      /* We can arrive here when we are merging 'extern char foo[]' and
-	 'char foo[SMALLNUM]'; the former is probably BLKmode and the
-	 latter is not.  In such a case, we should have merged the types
-	 already; detect it and don't complain.  We also need to handle
-	 external aggregate declaration specially.  */
-      if ((TREE_CODE (TREE_TYPE (old_decl))
-	   == TREE_CODE (TREE_TYPE (new_decl)))
-	  && (((TREE_CODE (TREE_TYPE (old_decl)) != ARRAY_TYPE)
-	       && ((external_aggregate_decl_p (old_decl)
-		    && DECL_MODE (old_decl) == VOIDmode)
-		   || (external_aggregate_decl_p (new_decl)
-		       && DECL_MODE (new_decl) == VOIDmode)))
-	      || ((TREE_CODE (TREE_TYPE (old_decl)) == ARRAY_TYPE)
-		  && merged_type)))
-	;
-      else
-	{
-	  error_at (DECL_SOURCE_LOCATION (new_decl),
-		    "machine mode of %qD does not match original declaration",
-		    new_decl);
-	  inform (DECL_SOURCE_LOCATION (old_decl),
-		  "previously declared here");
-	  return false;
-	}
-    }
+  /* Do not compare the modes of the decls.  The type compatibility
+     checks or the completing of types has properly dealt with all issues.  */
 
   if (!lto_compatible_attributes_p (old_decl,
 				    DECL_ATTRIBUTES (old_decl),
@@ -594,7 +610,7 @@ lto_symtab_merge_decl (tree new_decl,
      Find a decl we can merge with or chain it in the list of decls
      for that symbol.  */
   while (old_decl
-	 && !lto_symtab_compatible (old_decl, new_decl, true))
+	 && !lto_symtab_compatible (old_decl, new_decl))
     old_decl = TREE_CHAIN (old_decl);
   if (!old_decl)
     {
@@ -702,7 +718,7 @@ lto_symtab_prevailing_decl (tree decl)
      with and return that.  */
   while (ret)
     {
-      if (lto_symtab_compatible (decl, ret, false))
+      if (gimple_types_compatible_p (TREE_TYPE (decl), TREE_TYPE (ret)))
 	return ret;
 
       ret = TREE_CHAIN (ret);

@@ -1,3 +1,8 @@
+2009-08-13  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41032
+	* lto-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Define to NULL.
+
 2009-07-30  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/40903

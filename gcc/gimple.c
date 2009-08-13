@@ -43,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 static htab_t gimple_types;
 static struct pointer_map_t *type_hash_cache;
 
+/* Global type comparison cache.  */
+static htab_t gtc_visited;
+
 #define DEFGSCODE(SYM, NAME, STRUCT)	NAME,
 const char *const gimple_code_name[] = {
 #include "gimple.def"
@@ -3081,7 +3084,7 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 
 
 /* Structure used to maintain a cache of some type pairs compared by
-   gimple_compare_types when comparing aggregate types.  There are
+   gimple_types_compatible_p when comparing aggregate types.  There are
    four possible values for SAME_P:
 
    	-2: The pair (T1, T2) has just been inserted in the table.
@@ -3199,14 +3202,46 @@ compare_type_names_p (tree t1, tree t2)
   return false;
 }
 
-/* Recursive helper for gimple_types_compatible_p.  Return 1 iff T1
-   and T2 are structurally identical.  Otherwise, return 0.
-   VISITED_P points to a hash table of type pairs that have been
-   visited while comparing aggregate types.  This prevents infinite
-   recursion when comparing aggregates with self-referential fields.  */
+/* Return true if the field decls F1 and F2 are at the same offset.  */
 
-static int
-gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
+static bool
+compare_field_offset (tree f1, tree f2)
+{
+  if (DECL_OFFSET_ALIGN (f1) == DECL_OFFSET_ALIGN (f2))
+    return (operand_equal_p (DECL_FIELD_OFFSET (f1),
+			     DECL_FIELD_OFFSET (f2), 0)
+	    && tree_int_cst_equal (DECL_FIELD_BIT_OFFSET (f1),
+				   DECL_FIELD_BIT_OFFSET (f2)));
+
+  /* Fortran and C do not always agree on what DECL_OFFSET_ALIGN
+     should be, so handle differing ones specially by decomposing
+     the offset into a byte and bit offset manually.  */
+  if (host_integerp (DECL_FIELD_OFFSET (f1), 0)
+      && host_integerp (DECL_FIELD_OFFSET (f2), 0))
+    {
+      unsigned HOST_WIDE_INT byte_offset1, byte_offset2;
+      unsigned HOST_WIDE_INT bit_offset1, bit_offset2;
+      bit_offset1 = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (f1));
+      byte_offset1 = (TREE_INT_CST_LOW (DECL_FIELD_OFFSET (f1))
+		      + bit_offset1 / BITS_PER_UNIT);
+      bit_offset2 = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (f2));
+      byte_offset2 = (TREE_INT_CST_LOW (DECL_FIELD_OFFSET (f2))
+		      + bit_offset2 / BITS_PER_UNIT);
+      if (byte_offset1 != byte_offset2)
+	return false;
+      return bit_offset1 % BITS_PER_UNIT == bit_offset2 % BITS_PER_UNIT;
+    }
+
+  return false;
+}
+
+static hashval_t gimple_type_hash (const void *);
+
+/* Return 1 iff T1 and T2 are structurally identical.
+   Otherwise, return 0.  */
+
+int
+gimple_types_compatible_p (tree t1, tree t2)
 {
   type_pair_t p = NULL;
 
@@ -3230,9 +3265,15 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
   if (TYPE_QUALS (t1) != TYPE_QUALS (t2))
     goto different_types;
 
+  /* If the hash values of t1 and t2 are different the types can't
+     possibly be the same.  This helps keeping the type-pair hashtable
+     small, only tracking comparisons for hash collisions.  */
+  if (gimple_type_hash (t1) != gimple_type_hash (t2))
+    return 0;
+
   /* If we've visited this type pair before (in the case of aggregates
-     with self-referntial types), and we made a decision, return it.  */
-  p = lookup_type_pair (t1, t2, visited_p);
+     with self-referential types), and we made a decision, return it.  */
+  p = lookup_type_pair (t1, t2, &gtc_visited);
   if (p->same_p == 0 || p->same_p == 1)
     {
       /* We have already decided whether T1 and T2 are the
@@ -3248,11 +3289,11 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 
   gcc_assert (p->same_p == -2);
 
+  /* Mark the (T1, T2) comparison in progress.  */
+  p->same_p = -1;
+
   /* If their attributes are not the same they can't be the same type.  */
   if (!attribute_list_equal (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2)))
-    goto different_types;
-
-  if (!targetm.comp_type_attributes (t1, t2))
     goto different_types;
 
   /* For numerical types, the bounds must coincide.  */
@@ -3326,7 +3367,7 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
     case ARRAY_TYPE:
       /* Array types are the same if the element types are the same and
 	 the number of elements are the same.  */
-      if (!gimple_compare_types (TREE_TYPE (t1), TREE_TYPE (t2), visited_p)
+      if (!gimple_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2))
 	  || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2))
 	goto different_types;
       else
@@ -3340,37 +3381,25 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 	    goto same_types;
 	  else if (i1 == NULL_TREE || i2 == NULL_TREE)
 	    goto different_types;
+	  /* If for a complete array type the possibly gimplified sizes
+	     are different the types are different.  */
+	  else if (((TYPE_SIZE (i1) != NULL) ^ (TYPE_SIZE (i2) != NULL))
+		   || (TYPE_SIZE (i1)
+		       && TYPE_SIZE (i2)
+		       && !operand_equal_p (TYPE_SIZE (i1), TYPE_SIZE (i2), 0)))
+	    goto different_types;
 	  else
 	    {
 	      tree min1 = TYPE_MIN_VALUE (i1);
 	      tree min2 = TYPE_MIN_VALUE (i2);
 	      tree max1 = TYPE_MAX_VALUE (i1);
 	      tree max2 = TYPE_MAX_VALUE (i2);
-	      bool min_equal_p = false;
-	      bool max_equal_p = false;
 
-	      /* For variable-sized arrays, use the same notion as in the C
-		 front end.  If either domain is variable, consider the types
-		 compatible.  */
-	      if (min1 == NULL_TREE && min2 == NULL_TREE)
-		min_equal_p = true;
-	      else if (min1 && TREE_CODE (min1) != INTEGER_CST)
-		min_equal_p = true;
-	      else if (min2 && TREE_CODE (min2) != INTEGER_CST)
-		min_equal_p = true;
-	      else if (min1 && min2 && operand_equal_p (min1, min2, 0))
-		min_equal_p = true;
-	      
-	      if (max1 == NULL_TREE && max2 == NULL_TREE)
-		max_equal_p = true;
-	      else if (max1 && TREE_CODE (max1) != INTEGER_CST)
-		max_equal_p = true;
-	      else if (max2 && TREE_CODE (max2) != INTEGER_CST)
-		max_equal_p = true;
-	      else if (max1 && max2 && operand_equal_p (max1, max2, 0))
-		max_equal_p = true;
-
-	      if (min_equal_p && max_equal_p)
+	      /* The minimum/maximum values have to be the same.  */
+	      if ((min1 == min2
+		   || (min1 && min2 && operand_equal_p (min1, min2, 0)))
+		  && (max1 == max2
+		      || (max1 && max2 && operand_equal_p (max1, max2, 0))))
 		goto same_types;
 	      else
 		goto different_types;
@@ -3379,9 +3408,8 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 
     case METHOD_TYPE:
       /* Method types should belong to the same class.  */
-      if (!gimple_compare_types (TYPE_METHOD_BASETYPE (t1),
-				 TYPE_METHOD_BASETYPE (t2),
-				 visited_p))
+      if (!gimple_types_compatible_p (TYPE_METHOD_BASETYPE (t1),
+				 TYPE_METHOD_BASETYPE (t2)))
 	goto different_types;
 
       /* Fallthru  */
@@ -3389,10 +3417,13 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
     case FUNCTION_TYPE:
       /* Function types are the same if the return type and arguments types
 	 are the same.  */
-      if (!gimple_compare_types (TREE_TYPE (t1), TREE_TYPE (t2), visited_p))
+      if (!gimple_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	goto different_types;
       else
 	{
+	  if (!targetm.comp_type_attributes (t1, t2))
+	    goto different_types;
+
 	  if (TYPE_ARG_TYPES (t1) == TYPE_ARG_TYPES (t2))
 	    goto same_types;
 	  else
@@ -3403,9 +3434,8 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 		   parms1 && parms2;
 		   parms1 = TREE_CHAIN (parms1), parms2 = TREE_CHAIN (parms2))
 		{
-		  if (!gimple_compare_types (TREE_VALUE (parms1),
-					     TREE_VALUE (parms2),
-					     visited_p))
+		  if (!gimple_types_compatible_p (TREE_VALUE (parms1),
+					     TREE_VALUE (parms2)))
 		    goto different_types;
 		}
 
@@ -3424,9 +3454,24 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 	  if (TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2))
 	    goto different_types;
 
+	  /* If one pointer points to an incomplete type variant of
+	     the other pointed-to type they are the same.  */
+	  if (TREE_CODE (TREE_TYPE (t1)) == TREE_CODE (TREE_TYPE (t2))
+	      && (!COMPLETE_TYPE_P (TREE_TYPE (t1))
+		  || !COMPLETE_TYPE_P (TREE_TYPE (t2)))
+	      && compare_type_names_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+	    {
+	      /* If t2 is complete we want to choose it instead of t1.
+		 There's no other way than copying t2 to t1 in this case.
+		 Yuck.  We'll just call this "completing" t1.  */
+	      if (COMPLETE_TYPE_P (TREE_TYPE (t2)))
+		memcpy (t1, t2, tree_size (t1));
+	      goto same_types;
+	    }
+
 	  /* Otherwise, pointer and reference types are the same if the
 	     pointed-to types are the same.  */
-	  if (gimple_compare_types (TREE_TYPE (t1), TREE_TYPE (t2), visited_p))
+	  if (gimple_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	    goto same_types;
 	  
 	  goto different_types;
@@ -3472,27 +3517,16 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 	  /* For aggregate types, all the fields must be the same.  */
 	  tree f1, f2;
 
-	  /* Mark the (T1, T2) comparison in progress.  */
-	  p->same_p = -1;
-
-	  /* If either structure is empty, they should at least have
-	     the same name.  */
-	  if ((!TYPE_SIZE (t1) || !TYPE_SIZE (t2))
-	      && compare_type_names_p (t1, t2))
-	    goto same_types;
-
-	  /* Otherwise, compare every field.  */
+	  /* Compare every field.  */
 	  for (f1 = TYPE_FIELDS (t1), f2 = TYPE_FIELDS (t2);
 	       f1 && f2;
 	       f1 = TREE_CHAIN (f1), f2 = TREE_CHAIN (f2))
 	    {
 	      /* The fields must have the same name, offset and type.  */
 	      if (DECL_NAME (f1) != DECL_NAME (f2)
-		  || !tree_int_cst_equal (DECL_FIELD_OFFSET (f1),
-				          DECL_FIELD_OFFSET (f2))
-		  || !gimple_compare_types (TREE_TYPE (f1),
-					    TREE_TYPE (f2),
-					    visited_p))
+		  || !compare_field_offset (f1, f2)
+		  || !gimple_types_compatible_p (TREE_TYPE (f1),
+					    TREE_TYPE (f2)))
 		goto different_types;
 	    }
 
@@ -3522,22 +3556,6 @@ same_types:
 }
 
 
-/* Return 1 iff T1 and T2 are structurally identical.  Otherwise,
-   return 0.  */
-
-int
-gimple_types_compatible_p (tree t1, tree t2)
-{
-  int same_p;
-  htab_t visited = NULL;
-
-  same_p = gimple_compare_types (t1, t2, &visited);
-
-  if (visited)
-    htab_delete (visited);
-
-  return same_p;
-}
 
 
 /* Per pointer state for the SCC finding.  The on_sccstack flag
@@ -3627,6 +3645,22 @@ visit (tree t, struct sccs *state, hashval_t v,
   return v;
 }
 
+/* Hash the name of TYPE with the previous hash value V and return it.  */
+
+static hashval_t
+iterative_hash_type_name (tree type, hashval_t v)
+{
+  tree name = TYPE_NAME (TYPE_MAIN_VARIANT (type));
+  if (!name)
+    return v;
+  if (TREE_CODE (name) == TYPE_DECL)
+    name = DECL_NAME (name);
+  if (!name)
+    return v;
+  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  return iterative_hash_object (IDENTIFIER_HASH_VALUE (name), v);
+}
+
 /* Returning a hash value for gimple type TYPE combined with VAL.
    SCCSTACK, SCCSTATE and SCCSTATE_OBSTACK are state for the DFS walk done.
 
@@ -3668,9 +3702,10 @@ iterative_hash_gimple_type (tree type, hashval_t val,
      checked.  */
   v = iterative_hash_hashval_t (TREE_CODE (type), 0);
   v = iterative_hash_hashval_t (TYPE_QUALS (type), v);
-  v = iterative_hash_expr (TYPE_SIZE (type), v);
-  v = iterative_hash_expr (TYPE_SIZE_UNIT (type), v);
   v = iterative_hash_hashval_t (TREE_ADDRESSABLE (type), v);
+
+  /* Do not hash the types size as this will cause differences in
+     hash values for the complete vs. the incomplete type variant.  */
 
   /* Incorporate common features of numerical types.  */
   if (INTEGRAL_TYPE_P (type)
@@ -3681,6 +3716,28 @@ iterative_hash_gimple_type (tree type, hashval_t val,
       v = iterative_hash_hashval_t (TYPE_MODE (type), v);
       v = iterative_hash_hashval_t (TYPE_UNSIGNED (type), v);
     }
+
+  /* For pointer and reference types, fold in information about the type
+     pointed to but do not recurse into possibly incomplete types to
+     avoid hash differences for complete vs. incomplete types.  */
+  if (POINTER_TYPE_P (type))
+    {
+      if (AGGREGATE_TYPE_P (TREE_TYPE (type)))
+	{
+	  v = iterative_hash_hashval_t (TREE_CODE (TREE_TYPE (type)), v);
+	  v = iterative_hash_type_name (type, v);
+	}
+      else
+	v = visit (TREE_TYPE (type), state, v,
+		   sccstack, sccstate, sccstate_obstack);
+    }
+
+  /* Recurse for aggregates with a single element.  */
+  if (TREE_CODE (type) == ARRAY_TYPE
+      || TREE_CODE (type) == COMPLEX_TYPE
+      || TREE_CODE (type) == VECTOR_TYPE)
+    v = visit (TREE_TYPE (type), state, v,
+	       sccstack, sccstate, sccstate_obstack);
 
   /* Incorporate function return and argument types.  */
   if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == METHOD_TYPE)
@@ -3706,18 +3763,14 @@ iterative_hash_gimple_type (tree type, hashval_t val,
       v = iterative_hash_hashval_t (na, v);
     }
 
-  /* For pointer and reference types, fold in information about the type
-     pointed to.  */
-  if (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
-    v = visit (TREE_TYPE (type), state, v,
-	       sccstack, sccstate, sccstate_obstack);
-
   if (TREE_CODE (type) == RECORD_TYPE
       || TREE_CODE (type) == UNION_TYPE
       || TREE_CODE (type) == QUAL_UNION_TYPE)
     {
       unsigned nf;
       tree f;
+
+      v = iterative_hash_type_name (type, v);
 
       for (f = TYPE_FIELDS (type), nf = 0; f; f = TREE_CHAIN (f))
 	{
@@ -3866,6 +3919,16 @@ print_gimple_types_stats (void)
 	     htab_collisions (gimple_types));
   else
     fprintf (stderr, "GIMPLE type table is empty\n");
+  if (gtc_visited)
+    fprintf (stderr, "GIMPLE type comparison table: size %ld, %ld elements, "
+	     "%ld searches, %ld collisions (ratio: %f)\n",
+	     (long) htab_size (gtc_visited),
+	     (long) htab_elements (gtc_visited),
+	     (long) gtc_visited->searches,
+	     (long) gtc_visited->collisions,
+	     htab_collisions (gtc_visited));
+  else
+    fprintf (stderr, "GIMPLE type comparison table is empty\n");
 }
 
 

@@ -1,3 +1,29 @@
+2009-08-13  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41032
+	* tree.c (free_lang_data): NULL the types_compatible_p langhook.
+	* gimple.c (gtc_visited): Global type compatibility hashtable.
+	(compare_field_offset): New helper function.
+	(gimple_compare_types): Fold into ...
+	(gimple_types_compatible_p): ... here.  Types with differing
+	hash values are not compatible.  Adjust function now that it
+	is no longer used as types_compatible_p langhook.  Complete
+	incomplete pointer targets.
+	(iterative_hash_type_name): New helper function.
+	(iterative_hash_gimple_type): Do not hash type sizes.  Do not
+	recurse into aggregate pointer targets.  Properly hash
+	complex and vector types.  Hash the name of record types.
+	(print_gimple_types_stats): Print stats of gtc_visited.
+	* lto-symtab.c (lto_merge_qualifiers): Remove.
+	(lto_merge_types): Likewise.
+	(merge_incomplete_and_complete_type): New helper function.
+	(maybe_merge_incomplete_and_complete_type): Likewise.
+	(lto_symtab_compatible): Remove do_warn arg.  Complete types
+	during decl merging.  Forcefully merge more types than
+	elsewhere.  Do not compare DECL_MODE.
+	(lto_symtab_prevailing_decl): Use gimple_types_compatible_p, not
+	lto_symtab_compatible for finding the decl we merged with.
+
 2009-08-12  Richard Guenther  <rguenther@suse.de>
 
 	Mainline merge @150705.

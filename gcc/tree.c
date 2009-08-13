@@ -4796,7 +4796,7 @@ free_lang_data (void)
 
   /* Reset some langhooks.  */
   lang_hooks.callgraph.analyze_expr = NULL;
-  lang_hooks.types_compatible_p = gimple_types_compatible_p;
+  lang_hooks.types_compatible_p = NULL;
 
   /* FIXME lto: We have to compute these names early.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
