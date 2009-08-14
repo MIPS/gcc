@@ -1,5 +1,13 @@
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cselib.c (cselib_expand_value_rtx, cselib_expand_value_rtx_cb):
+	Don't wrap constant values.
+	(check_wrap_constant): Moved to...
+	* var-tracking.c: ... this file.
+	(vt_expand_loc_callback, vt_expand_loc): Wrap here instead.
+
+2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
+
 	* function.h (emit-status::x_cur_debug_insn_uid): Update flag
 	name in comments.
 	* haifa-sched.c (nondebug_dep_list_size): Rename to...
