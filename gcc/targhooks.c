@@ -760,24 +760,14 @@ default_addr_space_pointer_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
   return ptr_mode;
 }
 
-/* Return the integer mode for subtracting two pointers to named address
-   spaces.  */
+/* Return the mode for an address in a given ADDRSPACE, defaulting to Pmode
+   for the generic address space only.  */
 
-tree
-default_addr_space_minus_type (addr_space_t as1 ATTRIBUTE_UNUSED,
-			       addr_space_t as2 ATTRIBUTE_UNUSED)
+enum machine_mode
+default_addr_space_address_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 {
-  gcc_assert (as1 == 0 && as2 == 0);
-  return ptrdiff_type_node;
-}
-
-/* The default hook for TARGET_ADDR_SPACE_NAME.  This hook should
-   never be called for targets with only a generic address space.  */
-
-const char *
-default_addr_space_name (addr_space_t addrspace ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
+  gcc_assert (addrspace == 0);
+  return Pmode;
 }
 
 /* Named address space version of legitimate_address_p.  */
@@ -795,12 +785,13 @@ default_addr_space_legitimate_address_p (enum machine_mode mode, rtx mem,
 /* Named address space version of LEGITIMIZE_ADDRESS.  */
 
 rtx
-default_addr_space_legitimize_address (rtx x ATTRIBUTE_UNUSED,
-				       rtx oldx ATTRIBUTE_UNUSED,
-				       enum machine_mode mode ATTRIBUTE_UNUSED,
-				       addr_space_t as ATTRIBUTE_UNUSED)
+default_addr_space_legitimize_address (rtx x, rtx oldx,
+				       enum machine_mode mode, addr_space_t as)
 {
-  return x;
+  if (as)
+    return x;
+
+  return targetm.legitimize_address (x, oldx, mode);
 }
 
 /* The default hook for determining if one named address space is a subset of
@@ -813,27 +804,6 @@ default_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
   return (subset == superset);
 }
 
-/* The default hook for determining whether you can convert from one address
-   space to another.  */
-
-bool
-default_addr_space_can_convert_p (tree from_type, tree to_type)
-{
-  addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (from_type));
-  addr_space_t to_as = TYPE_ADDR_SPACE (TREE_TYPE (to_type));
-
-  if (to_as == from_as)
-    return true;
-
-  /* If the from named address is a subset of the to named address, it should
-     be legal to do the conversion.  */
-  else if (targetm.addr_space.subset_p (from_as, to_as))
-    return true;
-
-  else
-    return false;
-}
-
 /* The default hook for TARGET_ADDR_SPACE_CONVERT. This hook should never be
    called for targets with only a generic address space.  */
 
@@ -843,28 +813,6 @@ default_addr_space_convert (rtx op ATTRIBUTE_UNUSED,
 			    tree to_type ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
-}
-
-/* The default hook for returning the section name to be used for static and
-   global items in a named address space.  This hook should never be called for
-   targets with only a generic address space.  */
-
-tree
-default_addr_space_section_name (addr_space_t addrspace ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
-/* The default hook for determining if a static initialization inside of or
-   pointing to a named address space is ok.  */
-
-bool
-default_addr_space_static_init_ok_p (tree ARG_UNUSED (type),
-				     tree ARG_UNUSED (init),
-				     addr_space_t as,
-				     addr_space_t as_ptr)
-{
-  return (as == 0 && as_ptr == 0);
 }
 
 bool

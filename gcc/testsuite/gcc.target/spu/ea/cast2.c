@@ -16,24 +16,59 @@
 
 /* { dg-do run } */
 
-#include <stdlib.h>
+extern void abort (void);
+
+int array[128];
+
+__ea int *ea;
+int *lm;
+
+void verify_ea (void) __attribute__ ((noinline));
+void
+verify_ea (void)
+{
+  if (ea != (__ea int *)lm)
+    abort ();
+}
+
+void verify_lm (void) __attribute__ ((noinline));
+void
+verify_lm (void)
+{
+  if ((int *)ea != lm)
+    abort ();
+}
+
+void verify_diff (int x) __attribute__ ((noinline));
+void
+verify_diff (int x)
+{
+  if (ea - lm != x)
+    abort ();
+}
 
 int
-main (void)
+main (int argc, char **argv)
 {
-  __ea char *p = (__ea char *)"abc";
+  ea = 0;
+  lm = 0;
+  verify_ea ();
+  verify_lm ();
+  verify_diff (0);
 
-  if (*p++ != 'a')
-    abort ();
+  ea = &array[64];
+  lm = &array[64];
+  verify_ea ();
+  verify_lm ();
+  verify_diff (0);
 
-  if (*p++ != 'b')
-    abort ();
+  ea = &array[0];
+  lm = &array[64];
+  verify_diff (-64);
 
-  if (*p++ != 'c')
-    abort ();
-
-  if (*p++ != '\0')
-    abort ();
+  ea = &array[64];
+  lm = &array[0];
+  verify_diff (64);
 
   return 0;
 }

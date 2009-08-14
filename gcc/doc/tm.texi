@@ -9795,7 +9795,7 @@ visibility or perform any other required target modifications).
 @section Adding support for named address spaces
 @cindex named address spaces
 
-The draft technical report of the ISO/IEC JTC1 S22 WG14 N1169
+The draft technical report of the ISO/IEC JTC1 S22 WG14 N1275
 standards committee, @cite{Programming Languages - C - Extensions to
 support embedded processors}, specifies a syntax for embedded
 processors to specify alternate address spaces.  You can configure a
@@ -9819,12 +9819,6 @@ Internally, address spaces are represented as a small integer in the
 range 0 to 15 with address space 0 being reserved for the generic
 address space.
 
-@deftypefn {Target Hook} {enum machine_mode} TARGET_ADDR_SPACE_POINTER_MODE (addr_space_t @var{address_space})
-Define this to return a pointer mode for a given @var{address_space} if
-the target supports named address spaces.  The default version of this
-hook returns @code{ptr_mode} for the generic address space only.
-@end deftypefn
-
 @defmac TARGET_ADDR_SPACE_KEYWORDS
 A list of @code{ADDR_SPACE_KEYWORD} macros to define each named
 address keyword.  The @code{ADDR_SPACE_KEYWORD} macro takes two
@@ -9833,22 +9827,22 @@ space.  For example, the SPU port uses the following to declare
 @code{__ea} as the keyword for named address space #1:
 @smallexample
 #define ADDR_SPACE_EA 1
-#define TARGET_ADDR_SPACE_KEYWORDS ADDR_SPACE_KEYWORD("__ea", ADDR_SPACE_EA)
+#define TARGET_ADDR_SPACE_KEYWORDS ADDR_SPACE_KEYWORD ("__ea", ADDR_SPACE_EA)
 @end smallexample
-
 @end defmac
 
-@deftypefn {Target Hook} {tree} TARGET_ADDR_SPACE_MINUS_TYPE (addr_space_t @var{asl}, addr_space_t @var{asr})
-Define this to return the @code{tree} type to use for the subtraction
-of two pointers to named address spaces (@var{asl} and @var{asr}).
-The default version of this hook returns @code{ptrdiff_type}.
+@deftypefn {Target Hook} {enum machine_mode} TARGET_ADDR_SPACE_POINTER_MODE (addr_space_t @var{address_space})
+Define this to return the machine mode to use for pointers to
+@var{address_space} if the target supports named address spaces.
+The default version of this hook returns @code{ptr_mode} for the
+generic address space only.
 @end deftypefn
 
-@deftypefn {Target Hook} {const char *} TARGET_ADDR_SPACE_NAME (addr_space_t @var{address_space})
-Define this to return a string that describes the @var{address_space}.
-As this hook should never be called for targets that do not support
-named address spaces, the default version of this hook will cause the
-compiler to abort.
+@deftypefn {Target Hook} {enum machine_mode} TARGET_ADDR_SPACE_ADDRESS_MODE (addr_space_t @var{address_space})
+Define this to return the machine mode to use for addresses in
+@var{address_space} if the target supports named address spaces.
+The default version of this hook returns @code{Pmode} for the
+generic address space only.
 @end deftypefn
 
 @deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P (enum machine_mode @var{mode}, rtx @var{exp}, bool @var{strict}, addr_space_t @var{as})
@@ -9868,43 +9862,21 @@ that it includes explicit named address space support.
 @end deftypefn
 
 @deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_SUBSET_P (addr_space_t @var{superset}, addr_space_t @var{subset})
-Define this to return the @var{subset} named address space is
+Define this to return whether the @var{subset} named address space is
 contained within the @var{superset} named address space.  Pointers to
-a named addresses that is a subset of another named address space will
-be converted automatically without a cast if used together in
-arithmetic operations.
-@end deftypefn
-
-@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_CAN_CONVERT_P (tree @var{from_type}, tree @var{to_type})
-Define this to return whether a pointer with type @var{from_type} that
-points to one named address space can be converted to a pointer with
-the type @var{to_type} which points to a different named address
-space.  if @code{TARGET_ADDR_SPACE_SUBSET_P} would return true,
-@code{TARGET_ADDR_SPACE_CAN_CONVERT_P} should also return true.
-@code{TARGET_ADDR_SPACE_CAN_CONVERT_P} is used where the user issues
-an explicit cast.
+a named address space that is a subset of another named address space
+will be converted automatically without a cast if used together in
+arithmetic operations.  Pointers to a superset address space can be
+converted to pointer to a subset address space via explict casts.
 @end deftypefn
 
 @deftypefn {Target Hook} {rtx} TARGET_ADDR_SPACE_CONVERT (rtx @var{op}, tree @var{from_type}, tree @var{to_type})
 Define this to convert the pointer expression represented by the RTL
 @var{op} with type @var{from_type} that points to a named address
 space to a new pointer expression with type @var{to_type} that points
-to a different the named address space.  As this hook should never be
-called for targets that do not support named address spaces, the
-default version of this hook will cause the compiler to abort.
-@end deftypefn
-
-@deftypefn {Target Hook} {tree} TARGET_ADDR_SPACE_SECTION_NAME (addr_space_t @var{address_space})
-Define this to return the section name to put static and global
-variables
-@end deftypefn
-
-@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_STATIC_INIT_OK_P (tree @var{type}, tree @var{init}, addr_space_t @var{as_var}, addr_space_t @var{as_init})
-Define this to return whether a static initialization of the type
-@var{type} should be allowed for the expression @var{init} to be
-stored in the @var{as_var} named address space.  If @var{init} is a
-pointer or reference, @var{as_init} describes the named address space
-that the pointer points to.
+to a different named address space.  The hook needs to support conversion
+between any pair of address spaces, but if neither of the two is subset
+of the other, only null pointers have to be handled.
 @end deftypefn
 
 @node Misc

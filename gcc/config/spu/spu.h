@@ -144,12 +144,6 @@ extern GTY(()) int spu_tune;
 
 #define STDINT_LONG32 0
 
-/* Type used for ptrdiff_t, as a string used in a declaration.  */
-#define PTRDIFF_TYPE "long int"
-
-/* Type used for size_t, as a string used in a declaration.  */
-#define SIZE_TYPE "long unsigned int"
-
 
 /* Register Basics */
 
@@ -436,9 +430,9 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 /* Sections */
 
-#define TEXT_SECTION_ASM_OP "\t.text"
+#define TEXT_SECTION_ASM_OP ".text"
 
-#define DATA_SECTION_ASM_OP "\t.data"
+#define DATA_SECTION_ASM_OP ".data"
 
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
@@ -480,14 +474,14 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
   asm_fprintf (FILE, "%U%s", default_strip_name_encoding (NAME))
 
 #define ASM_OUTPUT_SYMBOL_REF(FILE, X) \
-  do									\
-    {									\
-      tree decl;							\
-      assemble_name (FILE, XSTR (X, 0));				\
-      if ((decl = SYMBOL_REF_DECL (X)) != 0				\
-	  && TREE_CODE (decl) == VAR_DECL				\
-	  && TYPE_ADDR_SPACE (strip_array_types (TREE_TYPE (decl))))	\
-	fputs ("@ppu", FILE);					\
+  do							\
+    {							\
+      tree decl;					\
+      assemble_name (FILE, XSTR ((X), 0));		\
+      if ((decl = SYMBOL_REF_DECL ((X))) != 0		\
+	  && TREE_CODE (decl) == VAR_DECL		\
+	  && TYPE_ADDR_SPACE (TREE_TYPE (decl)))	\
+	fputs ("@ppu", FILE);				\
     } while (0)
 
 

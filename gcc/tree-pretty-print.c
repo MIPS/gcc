@@ -36,8 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "fixed-value.h"
 #include "value-prof.h"
 #include "predict.h"
-#include "target.h"
-#include "target-def.h"
 
 /* Local functions, macros and variables.  */
 static const char *op_symbol (const_tree);
@@ -659,9 +657,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	if (TYPE_ADDR_SPACE (node))
 	  {
-	    const char *as = targetm.addr_space.name (TYPE_ADDR_SPACE (node));
-	    pp_string (buffer, as);
-	    pp_space (buffer);
+	    pp_string (buffer, "<address-space-");
+	    pp_decimal_int (buffer, TYPE_ADDR_SPACE (node));
+	    pp_string (buffer, "> ");
 	  }
 
 	tclass = TREE_CODE_CLASS (TREE_CODE (node));
@@ -764,11 +762,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	  if (TYPE_ADDR_SPACE (node))
 	    {
-	      const char *as = targetm.addr_space.name (TYPE_ADDR_SPACE (node));
-	      pp_string (buffer, as);
-	      pp_space (buffer);
+	      pp_string (buffer, " <address-space-");
+	      pp_decimal_int (buffer, TYPE_ADDR_SPACE (node));
+	      pp_string (buffer, ">");
 	    }
-	  
+
 	  if (TYPE_REF_CAN_ALIAS_ALL (node))
 	    pp_string (buffer, " {ref-all}");
 	}

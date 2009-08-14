@@ -62,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "langhooks-def.h"
 #include "pointer-set.h"
-#include "targhooks.h"
 #include "gimple.h"
 #include "plugin.h"
 
@@ -1761,16 +1760,16 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		  if (!new_addr)
 		    error ("conflicting named address spaces (generic vs %s) "
 			   "for %q+D",
-			   targetm.addr_space.name (old_addr), newdecl);
+			   c_addr_space_name (old_addr), newdecl);
 		  else if (!old_addr)
 		    error ("conflicting named address spaces (%s vs generic) "
 			   "for %q+D",
-			   targetm.addr_space.name (new_addr), newdecl);
+			   c_addr_space_name (new_addr), newdecl);
 		  else
 		    error ("conflicting named address spaces (%s vs %s) "
 			   "for %q+D",
-			   targetm.addr_space.name (new_addr),
-			   targetm.addr_space.name (old_addr),
+			   c_addr_space_name (new_addr),
+			   c_addr_space_name (old_addr),
 			   newdecl);
 		}
 
@@ -3895,7 +3894,6 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   tree tem;
   tree expr = NULL_TREE;
   enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
-  addr_space_t addrspace;
 
   /* An object declared as __attribute__((deprecated)) suppresses
      warnings of uses of other deprecated items.  */
@@ -4005,17 +4003,6 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
       && !DECL_THREAD_LOCAL_P (decl)
       && !flag_no_common)
     DECL_COMMON (decl) = 1;
-
-  if (TREE_CODE (decl) == VAR_DECL
-      && TREE_TYPE (decl) != error_mark_node
-      && (addrspace = TYPE_ADDR_SPACE (TREE_TYPE (decl)))
-      && targetm.have_named_sections
-      && (declspecs->storage_class == csc_static
-	  || (declspecs->storage_class == csc_none
-	      && !current_function_scope)
-	  || (declspecs->storage_class == csc_extern
-	      && initialized)))
-    DECL_SECTION_NAME (decl) = targetm.addr_space.section_name (addrspace);
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   decl_attributes (&decl, attributes, 0);
@@ -4956,14 +4943,14 @@ grokdeclarator (const struct c_declarator *declarator,
     {
       if (!as1)
 	error ("conflicting named address spaces (generic vs %s)",
-	       targetm.addr_space.name (as1));
+	       c_addr_space_name (as1));
       else if (!as2)
 	error ("conflicting named address spaces (%s vs generic),",
-	       targetm.addr_space.name (as2));
+	       c_addr_space_name (as2));
       else
 	error ("conflicting named address spaces (%s vs %s)",
-	       targetm.addr_space.name (as1),
-	       targetm.addr_space.name (as2));
+	       c_addr_space_name (as1),
+	       c_addr_space_name (as2));
     }
   
   if (!flag_gen_aux_info && (TYPE_QUALS (element_type)))
@@ -5504,7 +5491,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	      {
 		type_quals = CLEAR_QUAL_ADDR_SPACE (type_quals);
 		error ("%qs specified for function %qE",
-		       targetm.addr_space.name (address_space), name);
+		       c_addr_space_name (address_space), name);
 	      }
 
 	    /* Type qualifiers before the return type of the function
@@ -5620,17 +5607,17 @@ grokdeclarator (const struct c_declarator *declarator,
 	    {
 	    case csc_auto:
 	      error ("%qs combined with %<auto%> qualifier for %qE",
-		     targetm.addr_space.name (address_space), name);
+		     c_addr_space_name (address_space), name);
 	      break;
 	    case csc_register:
 	      error ("%qs combined with %<register%> qualifier for %qE",
-		     targetm.addr_space.name (address_space), name);
+		     c_addr_space_name (address_space), name);
 	      break;
 	    case csc_none:
 	      if (current_function_scope)
 		{
 		  error ("%qs specified for auto variable %qE",
-			 targetm.addr_space.name (address_space), name);
+			 c_addr_space_name (address_space), name);
 		  break;
 		}
 	      break;
@@ -5644,10 +5631,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	}
       else if (decl_context == PARM && TREE_CODE (type) != ARRAY_TYPE)
 	error ("%qs specified for parameter %qE",
-	       targetm.addr_space.name (address_space), name);
+	       c_addr_space_name (address_space), name);
       else if (decl_context == FIELD)
 	error ("%qs specified for structure field %qE",
-	       targetm.addr_space.name (address_space), name);
+	       c_addr_space_name (address_space), name);
     }
 
   /* Check the type and width of a bit-field.  */
@@ -8457,8 +8444,8 @@ declspecs_add_addrspace (struct c_declspecs *specs, addr_space_t as)
 
   if (specs->address_space > 0 && specs->address_space != as)
     error ("incompatible address space qualifiers %qs and %qs",
-	   targetm.addr_space.name (as),
-	   targetm.addr_space.name (specs->address_space));
+	   c_addr_space_name (as),
+	   c_addr_space_name (specs->address_space));
   else
     specs->address_space = as;
   return specs;

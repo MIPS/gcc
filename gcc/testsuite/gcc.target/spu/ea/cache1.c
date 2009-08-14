@@ -1,38 +1,31 @@
+/* Copyright (C) 2009 Free Software Foundation, Inc.
+
+   This file is free software; you can redistribute it and/or modify it under
+   the terms of the GNU General Public License as published by the Free
+   Software Foundation; either version 3 of the License, or (at your option)
+   any later version.
+
+   This file is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this file; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
+
+/* { dg-do run } */
+/* { dg-require-effective-target "ealib" } */
+
 #include <stdlib.h>
 #include <string.h>
+#include <ea.h>
 #include <spu_cache.h>
-extern void *malloc (__SIZE_TYPE__);
-extern void *memset (void *, int, __SIZE_TYPE__);
-extern void abort (void);
 
 #ifdef __EA64__
 #define addr unsigned long long
 #else
 #define addr unsigned long
-#endif
-
-#ifdef __EA64__
-#define malloc_ea __malloc_ea64
-#define memset_ea __memset_ea64
-#define memcpy_ea __memcpy_ea64
-
-typedef unsigned long long size_ea_t;
-
-__ea void *__malloc_ea64 (size_ea_t);
-__ea void *__memset_ea64 (__ea void *, int, size_ea_t);
-__ea void *__memcpy_ea64 (__ea void *, __ea const void *, size_ea_t);
-#define LINE_SIZE 128LL
-#else
-#define malloc_ea __malloc_ea32
-#define memset_ea __memset_ea32
-#define memcpy_ea __memcpy_ea32
-
-typedef unsigned long size_ea_t;
-
-__ea void *__malloc_ea32 (size_ea_t size);
-__ea void *__memset_ea32 (__ea void *, int, size_ea_t);
-__ea void *__memcpy_ea32 (__ea void *, __ea const void *, size_ea_t);
-#define LINE_SIZE 128
 #endif
 
 static __ea void *bigblock;
@@ -41,6 +34,7 @@ static int *ls_block;
 
 extern char __cache_tag_array_size[];
 #define CACHE_SIZE (4 * (int) &__cache_tag_array_size[0])
+#define LINE_SIZE ((addr)128)
 
 void
 init_mem (void)

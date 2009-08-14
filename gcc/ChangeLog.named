@@ -1,3 +1,208 @@
+2008-08-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* doc/tm.texi (Named Address Spaces): Refer to N1275 instead of N1169.
+	(TARGET_ADDR_SPACE_MINUS_TYPE): Remove documentation.
+	(TARGET_ADDR_SPACE_NAME): Likewise.
+	(TARGET_ADDR_SPACE_CAN_CONVERT_P): Likewise.
+	(TARGET_ADDR_SPACE_SECTION_NAME): Likewise.
+	(TARGET_ADDR_SPACE_STATIC_INIT_OK_P): Likewise.
+	(TARGET_ADDR_SPACE_SUBSET_P): Update documentation.
+	(TARGET_ADDR_SPACE_CONVERT): Likewise.
+	(TARGET_ADDR_SPACE_ADDRESS_MODE): Add documentation.
+	* doc/invoke.texi (-mea-to-generic-conversion): Remove.
+	(-mno-ea-to-generic-conversion): Likewise.
+	Minor formatting / wording changes.
+
+	* target.h (struct gcc_target): Remove addr_space.minus_type,
+	addr_space.name, addr_space.can_convert_p, addr_space.section_name,
+	and addr_space.static_init_ok_p.  Add addr_space.address_mode.
+	* target-def.h (TARGET_ADDR_SPACE_MINUS_TYPE): Remove.
+	(TARGET_ADDR_SPACE_NAME): Likewise.
+	(TARGET_ADDR_SPACE_CAN_CONVERT_P): Likewise.
+	(TARGET_ADDR_SPACE_SECTION_NAME): Likewise.
+	(TARGET_ADDR_SPACE_STATIC_INIT_OK_P): Likewise.
+	(TARGET_ADDR_SPACE_ADDRESS_MODE): New macro.
+	(TARGET_ADDR_SPACE_HOOKS): Update.
+	* targhooks.c (default_addr_space_minus_type): Remove.
+	(default_addr_space_name): Likewise.
+	(default_addr_space_can_convert_p): Likewise.
+	(default_addr_space_section_name): Likewise.
+	(default_addr_space_static_init_ok_p): Likewise.
+	(default_addr_space_address_mode): New function.
+	(default_addr_space_legitimize_address): Call non-address-space
+	variant of target hook when appropriate.
+	* targhooks.h (default_addr_space_minus_type): Remove.
+	(default_addr_space_name): Remove.
+	(default_addr_space_can_convert_p): Remove.
+	(default_addr_space_section_name): Remove.
+	(default_addr_space_static_init_ok_p): Remove.
+	(default_addr_space_address_mode): Add prototype.
+	* output.h (default_valid_pointer_mode): Remove duplicate prototype.
+	(default_addr_space_pointer_mode): Likewise.
+
+	* tree-pretty-print.c: Do not include "target.h" or "target-def.h".
+	(dump_generic_node): Do not call targetm.addr_space.name.
+	* tree.c (check_qualified_type): Revert local change.
+	(build_pointer_type): Simplify.
+	(build_reference_type): Likewise.
+	(int_or_pointer_precision): Likewise.
+	(tree_nop_conversion): Preserve conversions between pointers
+	to different address spaces
+	* builtins.c (get_memory_rtx): Preserve conversions between pointers
+	to different address spaces.
+	* fold-const.c: Do not include "target.h".
+	(fold_convert_const): Preserve conversions between pointers
+	to different address spaces.
+	(fold_unary_loc): Likewise.
+	* convert.c (convert_to_pointer): Do not issue error messages; do not
+	call targetm.addr_space.can_convert_p.  Fix merge errors.
+	(convert_to_integer): Simplify.  Fix merge errors.
+	* tree-ssa.c (useless_type_conversion_p_1): Fix merge error.
+	* cp/typeck.c (cp_type_quals): Revert local change.
+	* langhooks.c (lhd_tree_dump_dump_tree): Likewise.
+
+	* rtl.c (rtx_equal_p_cb): MEMs refering to different address
+	spaces are not equivalent.
+	(rtx_equal_p): Likewise.
+	* reload.c (operands_match_p): Likewise.
+	* cse.c (exp_equiv_p): Likewise.
+	* jump.c (rtx_renumbered_equal_p): Likewise.
+	* alias.c (nonoverlapping_memrefs_p): MEMs refering to different
+	address spaces may alias.
+	(true_dependence): Likewise.
+	(canon_true_dependence): Likewise.
+	(write_dependence_p): Likewise.
+
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Fix formatting.
+	(set_mem_alias_set): Likewise.
+	(set_mem_addr_space): Likewise.
+	(set_mem_align): Likewise.
+	(set_mem_expr): Likewise.
+	(set_mem_offset): Likewise.
+	(set_mem_size): Likewise.
+	(widen_memory_access): Likewise.
+	(adjust_address_1): Use targetm.addr_space.address_mode.
+	(offset_address): Likewise.
+	* stor-layout.c (internal_reference_types): Use
+	targetm.addr_space.address_mode.
+	(reference_types_internal): Update comment.
+	* expr.c (expand_assignment): Handle MISALIGNED_INDIRECT_REF to
+	non-generic address spaces.  Do not use memmove libcall with
+	non-generic address spaces.
+	(expand_expr_addr_expr): Use targetm.addr_space.address_mode.
+	(expand_expr_real_1): Likewise.
+	* explow.c (memory_address_addr_space): Revert local change.
+	Use targetm.addr_space.address_mode.
+	(validize_mem): Simplify.
+	(promote_mode): Use targetm.addr_space.address_mode.
+	* varasm.c (get_variable_section): Variables in non-generic
+	address spaces cannot be common.
+	(make_decl_rtl): Use targetm.addr_space.address_mode.
+	(narrowing_initializer_constant_valid_p): Preserve conversions
+	between pointers to different address spaces.
+	(initializer_constant_valid_p): Likewise.
+
+	* c-common.c (c_addr_space_name): New function.
+	* c-common.h (c_addr_space_name): Add prototype.
+	* c-decl.c: Do not include "targhooks.h".
+	(diagnose_mismatched_decls): Call c_addr_space_name instead of
+	targetm.addr_space.name.
+	(grokdeclarator): Likewise.
+	(declspecs_add_addrspace): Likewise.
+	(start_decl): Do not call targetm.addr_space.section_name.
+	* c-pretty-print.c: Do not include "targhooks.h".
+	(pp_c_type_qualifier_list): Call c_addr_space_name instead of
+	targetm.addr_space.name.
+	* c-typeck.c (addr_space_superset): Remove prototype.  Simplify.
+	(digest_init_addr_space_ok_p): Remove function.
+	(digest_init): Revert local changes.
+	(store_init_value): Likewise.
+	(output_init_element): Likewise.
+	(null_pointer_constant_p): Likewise.
+	(comptypes_internal): Likewise.
+	(common_pointer_type): Simplify.
+	(comp_target_types): Likewise.
+	(pointer_diff): Do not use targetm.addr_space.minus_type.  Convert
+	pointers to common address space before converting to integer type.
+	Use intermediate integer type that is large enough.
+	(build_conditional_expr): Simplify.  Clarify null pointer handling.
+	(build_binary_op): Likewise.
+	(build_c_cast): Do not use targetm.addr_space.can_convert_p.  Emit
+	warnings instead of errors.
+	(convert_for_assignment): Correctly handle asymmetry.  Update
+	error messages.
+
+	* Makefile.in (c-decl.o): Update dependencies.
+	(c-pretty-print.o): Likewise.
+	(convert.o): Likewise.
+	(tree-pretty-print.o): Likewise.
+	(fold-const.o): Likewise.
+
+	* config/spu/spu.opt (mea-to-generic-conversion): Remove.
+	(mno-ea-to-generic-conversion): Likewise.
+	Some documentation updates.
+	* config/spu/t-spu-elf: Remove commented-out macros.
+	* config/spu/spu.c (spu_no_relocation): Remove.
+	(spu_addr_space_minus_type): Likewise.
+	(spu_addr_space_name): Likewise.
+	(spu_addr_space_can_convert_p): Likewise.
+	(spu_addr_space_section_name): Likewise.
+	(spu_addr_space_static_init_ok_p): Likewise.
+	(spu_addr_space_address_mode): New function.
+	(spu_select_section): Likewise.
+	(spu_unique_section): Likewise.
+	(TARGET_ADDR_SPACE_MINUS_TYPE): Do not override.
+	(TARGET_ADDR_SPACE_NAME): Likewise.
+	(TARGET_ADDR_SPACE_CAN_CONVERT_P): Likewise.
+	(TARGET_ADDR_SPACE_SECTION_NAME): Likewise.
+	(TARGET_ADDR_SPACE_STATIC_INIT_OK_P): Likewise.
+	(TARGET_ADDR_SPACE_ADDRESS_MODE): Override.
+	(TARGET_ASM_SELECT_SECTION): Likewise.
+	(TARGET_ASM_UNIQUE_SECTION): Likewise.
+	(spu_addr_space_subset_p): Update comment.
+	(spu_addr_space_convert): Inline conversion routines from spu.md.
+	Correctly handle null pointer conversions.
+	Handle TARGET_NO_ADDRESS_SPACE_CONVERSION.
+	* config/spu/spu.h (PTRDIFF_TYPE): Revert local change.
+	(SIZE_TYPE): Likewise.
+	(TEXT_SECTION_ASM_OP): Likewise.
+	(DATA_SECTION_ASM_OP): Likewise.
+	(ASM_OUTPUT_SYMBOL_REF): Do not call strip_array_types.
+	* config/spu/spu.md ("to_ea"): Remove.
+	("from_ea"): Likewise.
+
+	* testsuite/spu/ea/ea.exp (check_effective_target_ea64): Remove, ...
+	(check_effective_target_ea32): Remove, ...
+	(check_effective_target_ealib): ... and replace by this procedure.
+	Run all tests in both -mea32 and -mea64 mode.
+	Do not use global DEFAULT_CFLAGS.
+	* testsuite/spu/ea/cache32.c: Remove, ...
+	* testsuite/spu/ea/cache64.c: Remove, ...
+	* testsuite/spu/ea/cache-common.h: Remove, ...
+	* testsuite/spu/ea/cache1.c: ... and replace by this file.
+	* testsuite/spu/ea/cppdefine32.c: Remove, ...
+	* testsuite/spu/ea/cppdefine64.c: Remove, ...
+	* testsuite/spu/ea/cppdefine.c: ... and replace by this file.
+	* testsuite/spu/ea/test-sizes.c: Support both -mea32 and -mea64.
+	* testsuite/spu/ea/errors.c: Rename to ...
+	* testsuite/spu/ea/errors1.c: ... this.
+	* testsuite/spu/ea/errors2.c: Remove.
+	* testsuite/spu/ea/errors3.c: Remove.
+	* testsuite/spu/ea/errors4.c: Rename to ...
+	* testsuite/spu/ea/errors2.c: ... this.
+	* testsuite/spu/ea/compile.c: Rename to ...
+	* testsuite/spu/ea/compile1.c: ... this.
+	* testsuite/spu/ea/compile2.c: Remove.
+	* testsuite/spu/ea/compile3.c: Remove.
+	* testsuite/spu/ea/compile4.c: Rename to ...
+	* testsuite/spu/ea/compile2.c: ... this.
+	* testsuite/spu/ea/execute1-m64.c: Remove.
+	* testsuite/spu/ea/execute2-m64.c: Remove.
+	* testsuite/spu/ea/execute3-m64.c: Remove.
+	* testsuite/spu/ea/cast2.c: New test.
+	* testsuite/spu/ea/ops1.c: New test.
+	* testsuite/spu/ea/ops2.c: New test.
+
 2009-07-28  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	Merge up to mainline revision 150048.

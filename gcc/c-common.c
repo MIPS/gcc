@@ -840,6 +840,19 @@ const struct attribute_spec c_common_format_attribute_table[] =
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
+/* Return identifier for address space AS.  */
+const char *
+c_addr_space_name (addr_space_t as)
+{
+  unsigned int i;
+
+  for (i = 0; i < num_c_common_reswords; i++)
+    if (c_common_reswords[i].rid == RID_FIRST_ADDR_SPACE + as)
+      return c_common_reswords[i].word;
+
+  gcc_unreachable ();
+}
+
 /* Push current bindings for the function name VAR_DECLS.  */
 
 void

@@ -4300,9 +4300,13 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
    else if (TREE_CODE (to) == MISALIGNED_INDIRECT_REF)
      {
+       addr_space_t as = 0;
        enum machine_mode mode, op_mode1;
        enum insn_code icode;
        rtx reg, addr, mem, insn;
+
+       if (POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (to, 0))))
+	 as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (to, 0))));
 
        reg = expand_expr (from, NULL_RTX, VOIDmode, EXPAND_NORMAL);
        reg = force_not_mem (reg);
@@ -4310,10 +4314,11 @@ expand_assignment (tree to, tree from, bool nontemporal)
        mode = TYPE_MODE (TREE_TYPE (to));
        addr = expand_expr (TREE_OPERAND (to, 0), NULL_RTX, VOIDmode,
                          EXPAND_SUM);
-       addr = memory_address (mode, addr);
+       addr = memory_address_addr_space (mode, addr, as);
        mem = gen_rtx_MEM (mode, addr);
 
        set_mem_attributes (mem, to, 0);
+       set_mem_addr_space (mem, as);
 
        icode = movmisalign_optab->handlers[mode].insn_code;
        gcc_assert (icode != CODE_FOR_nothing);
@@ -4402,6 +4407,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
      the place the value is being stored, use a safe function when copying
      a value through a pointer into a structure value return block.  */
   if (TREE_CODE (to) == RESULT_DECL && TREE_CODE (from) == INDIRECT_REF
+      && TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (from, 0)))) == 0
       && cfun->returns_struct
       && !cfun->returns_pcc_struct)
     {
@@ -6976,28 +6982,27 @@ static rtx
 expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 		       enum expand_modifier modifier)
 {
+  enum machine_mode address_mode = Pmode;
+  enum machine_mode pointer_mode = ptr_mode;
   enum machine_mode rmode;
-  enum machine_mode addrmode;
-  enum machine_mode local_ptr_mode = ptr_mode;
   rtx result;
 
   /* Target mode of VOIDmode says "whatever's natural".  */
   if (tmode == VOIDmode)
     tmode = TYPE_MODE (TREE_TYPE (exp));
 
-  addrmode = Pmode;
   if (POINTER_TYPE_P (TREE_TYPE (exp)))
     {
-      addr_space_t addr_space = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
-      if (addr_space)
-	local_ptr_mode = addrmode = targetm.addr_space.pointer_mode (addr_space);
+      addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
+      address_mode = targetm.addr_space.address_mode (as);
+      pointer_mode = targetm.addr_space.pointer_mode (as);
     }
 
   /* We can get called with some Weird Things if the user does silliness
      like "(short) &a".  In that case, convert_memory_address won't do
      the right thing, so ignore the given target mode.  */
-  if (tmode != addrmode && tmode != local_ptr_mode)
-    tmode = addrmode;
+  if (tmode != address_mode && tmode != pointer_mode)
+    tmode = address_mode;
 
   result = expand_expr_addr_expr_1 (TREE_OPERAND (exp, 0), target,
 				    tmode, modifier);
@@ -7602,7 +7607,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       {
 	tree exp1 = TREE_OPERAND (exp, 0);
 	addr_space_t as = 0;
-	enum machine_mode mem_Pmode = Pmode;
+	enum machine_mode address_mode = Pmode;
 
 	if (modifier != EXPAND_WRITE)
 	  {
@@ -7616,8 +7621,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	if (POINTER_TYPE_P (TREE_TYPE (exp1)))
 	  {
 	    as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp1)));
-	    if (as)
-	      mem_Pmode = targetm.addr_space.pointer_mode (as);
+	    address_mode = targetm.addr_space.address_mode (as);
 	  }
 
 	op0 = expand_expr (exp1, NULL_RTX, VOIDmode, EXPAND_SUM);
@@ -7626,16 +7630,14 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	if (code == ALIGN_INDIRECT_REF)
 	  {
 	    int align = TYPE_ALIGN_UNIT (type);
-	    op0 = gen_rtx_AND (mem_Pmode, op0, GEN_INT (-align));
+	    op0 = gen_rtx_AND (address_mode, op0, GEN_INT (-align));
 	    op0 = memory_address_addr_space (mode, op0, as);
 	  }
 
 	temp = gen_rtx_MEM (mode, op0);
 
 	set_mem_attributes (temp, exp, 0);
-
-	if (as)
-	  set_mem_addr_space (temp, as);
+	set_mem_addr_space (temp, as);
 
 	/* Resolve the misalignment now, so that we don't have to remember
 	   to resolve it later.  Of course, this only works for reads.  */

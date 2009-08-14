@@ -14,9 +14,23 @@
    along with this file; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-/* Test -mcache-size.  */
+/* Test default __EA32__/__EA64__ define.  */
 
 /* { dg-do compile } */
-/* { dg-options "-mcache-size=128" } */
 
-int x;
+#if !defined (__EA32__) && !defined (__EA64__)
+#error both __EA32__ and __EA64__ undefined
+#endif
+
+#if defined (__EA32__) && defined (__EA64__)
+#error both __EA32__ and __EA64__ defined
+#endif
+
+#ifdef __EA32__
+int x [ sizeof (__ea char *) == 4 ? 1 : -1 ];
+#endif
+
+#ifdef __EA64__
+int x [ sizeof (__ea char *) == 8 ? 1 : -1 ];
+#endif
+

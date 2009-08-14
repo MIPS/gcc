@@ -30,8 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-tree.h"
 #include "tree-iterator.h"
 #include "diagnostic.h"
-#include "target.h"
-#include "target-def.h"
 
 /* Translate if being used for diagnostics, but not for dump files or
    __PRETTY_FUNCTION.  */
@@ -254,7 +252,7 @@ pp_c_type_qualifier_list (c_pretty_printer *pp, tree t)
 
   if (TYPE_ADDR_SPACE (t))
     {
-      const char *as = targetm.addr_space.name (TYPE_ADDR_SPACE (t));
+      const char *as = c_addr_space_name (TYPE_ADDR_SPACE (t));
       pp_c_identifier (pp, as);
     }
 }

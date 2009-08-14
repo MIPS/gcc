@@ -257,7 +257,7 @@ lhd_tree_dump_dump_tree (void *di ATTRIBUTE_UNUSED, tree t ATTRIBUTE_UNUSED)
 int
 lhd_tree_dump_type_quals (const_tree t)
 {
-  return TYPE_QUALS (CONST_CAST_TREE (t));
+  return TYPE_QUALS (t);
 }
 
 /* lang_hooks.expr_size: Determine the size of the value of an expression T

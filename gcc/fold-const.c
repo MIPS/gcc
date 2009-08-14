@@ -65,7 +65,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "langhooks.h"
 #include "md5.h"
-#include "target.h"
 #include "gimple.h"
 
 /* Nonzero if we are folding constants inside an initializer; zero
@@ -2452,9 +2451,15 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
   if (TREE_TYPE (arg1) == type)
     return arg1;
 
-  if (POINTER_TYPE_P (type) && TYPE_ADDR_SPACE (TREE_TYPE (type)))
+  /* Conversions between non-NULL pointers to different
+     address spaces must be preserved.  */
+  if (POINTER_TYPE_P (type) && POINTER_TYPE_P (TREE_TYPE (arg1))
+      && TYPE_ADDR_SPACE (TREE_TYPE (type))
+	 != TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (arg1)))
+      && !integer_zerop (arg1))
     return NULL_TREE;
-  else if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type)
+
+  if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type)
       || TREE_CODE (type) == OFFSET_TYPE)
     {
       if (TREE_CODE (arg1) == INTEGER_CST)
@@ -8419,7 +8424,9 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	     - the initial type is a pointer type and the precisions of the
 	       intermediate and final types differ, or
 	     - the final type is a pointer type and the precisions of the
-	       initial and intermediate types differ.  */
+	       initial and intermediate types differ, or
+	     - (at least) one of the conversions is between pointers to
+	       different address spaces.  */
 	  if (! inside_float && ! inter_float && ! final_float
 	      && ! inside_vec && ! inter_vec && ! final_vec
 	      && (inter_prec >= inside_prec || inter_prec >= final_prec)
@@ -8431,7 +8438,13 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	      && ! (inside_ptr && inter_prec != final_prec)
 	      && ! (final_ptr && inside_prec != inter_prec)
 	      && ! (final_prec != GET_MODE_BITSIZE (TYPE_MODE (type))
-		    && TYPE_MODE (type) == TYPE_MODE (inter_type)))
+		    && TYPE_MODE (type) == TYPE_MODE (inter_type))
+	      && ! (final_ptr && inter_ptr
+		    && TYPE_ADDR_SPACE (TREE_TYPE (type))
+		       != TYPE_ADDR_SPACE (TREE_TYPE (inter_type)))
+	      && ! (inter_ptr && inside_ptr
+		    && TYPE_ADDR_SPACE (TREE_TYPE (inter_type))
+		       != TYPE_ADDR_SPACE (TREE_TYPE (inside_type))))
 	    return fold_build1_loc (loc, code, type, TREE_OPERAND (op0, 0));
 	}
 

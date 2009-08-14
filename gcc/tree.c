@@ -4528,7 +4528,7 @@ set_type_quals (tree type, int type_quals)
 bool
 check_qualified_type (const_tree cand, const_tree base, int type_quals)
 {
-  return (TYPE_QUALS (CONST_CAST_TREE (cand)) == type_quals
+  return (TYPE_QUALS (cand) == type_quals
 	  && TYPE_NAME (cand) == TYPE_NAME (base)
 	  /* Apparently this is needed for Objective-C.  */
 	  && TYPE_CONTEXT (cand) == TYPE_CONTEXT (base)
@@ -5839,17 +5839,9 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_pointer_type (tree to_type)
 {
-  addr_space_t addr_space;
-  enum machine_mode mode;
-
-  if (to_type == error_mark_node)
-    return error_mark_node;
-
-  addr_space = TYPE_ADDR_SPACE (to_type);
-  mode = ((addr_space)
-	  ? targetm.addr_space.pointer_mode (addr_space)
-	  : ptr_mode);
-  return build_pointer_type_for_mode (to_type, mode, false);
+  addr_space_t as = to_type == error_mark_node? 0 : TYPE_ADDR_SPACE (to_type);
+  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
+  return build_pointer_type_for_mode (to_type, pointer_mode, false);
 }
 
 /* Same as build_pointer_type_for_mode, but for REFERENCE_TYPE.  */
@@ -5913,17 +5905,9 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_reference_type (tree to_type)
 {
-  addr_space_t addr_space;
-  enum machine_mode mode;
-
-  if (to_type == error_mark_node)
-    return error_mark_node;
-
-  addr_space = TYPE_ADDR_SPACE (to_type);
-  mode = ((addr_space)
-	  ? targetm.addr_space.pointer_mode (addr_space)
-	  : ptr_mode);
-  return build_reference_type_for_mode (to_type, mode, false);
+  addr_space_t as = to_type == error_mark_node? 0 : TYPE_ADDR_SPACE (to_type);
+  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
+  return build_reference_type_for_mode (to_type, pointer_mode, false);
 }
 
 /* Build a type that is compatible with t but has no cv quals anywhere
@@ -9674,17 +9658,13 @@ int_or_pointer_precision (const_tree type)
   if (POINTER_TYPE_P (type))
     {
       addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
-      if (!as)
-	prec = POINTER_SIZE;
-      else
-	prec = GET_MODE_BITSIZE (targetm.addr_space.pointer_mode (as));
-
+      prec = GET_MODE_BITSIZE (targetm.addr_space.pointer_mode (as));
       gcc_assert (prec == TYPE_PRECISION (type));
     }
   else if (TREE_CODE (type) == OFFSET_TYPE)
     {
       prec = POINTER_SIZE;
-      gcc_assert (prec == POINTER_SIZE);
+      gcc_assert (prec == TYPE_PRECISION (type));
     }
   else
     {
@@ -9772,6 +9752,12 @@ tree_nop_conversion (const_tree exp)
 
   outer_type = TREE_TYPE (exp);
   inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
+
+  /* Keep conversions between pointers to different address spaces.  */
+  if (POINTER_TYPE_P (outer_type) && POINTER_TYPE_P (inner_type)
+      && TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
+	 != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
+    return false;
 
   /* Use precision rather then machine mode when we can, which gives
      the correct answer even for submode (bit-field) types.  */

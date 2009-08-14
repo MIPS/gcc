@@ -828,9 +828,8 @@ See RS/6000 and PowerPC Options.
 -msmall-mem -mlarge-mem -mstdmain @gol
 -mfixed-range=@var{register-range} @gol
 -mea32 -mea64 @gol
+-maddress-space-conversion -mno-address-space-conversion @gol
 -mcache-size=@var{cache-size} @gol
--mea-to-generic-conversion -mno-ea-to-generic-conversion @gol
--maddress-space-conversion -maddress-space-conversion @gol
 -matomic-updates -mno-atomic-updates}
 
 @emph{System V Options}
@@ -15837,32 +15836,24 @@ specified separated by a comma.
 @itemx -mea64
 @opindex mea32
 @opindex mea64
-
 Compile code assuming that pointers to the @code{__ea} address space are
-either 32 or 64 bits wide. The default is 32 bits.  The @code{__ea}
+either 32 or 64 bits wide.  The default is 32 bits.  The @code{__ea}
 address space qualifier specifies that variables reside in the PPU
 address space.  As this is an ABI changing option, all object code in an
 executable must be compiled with the same option.
-
-@item -mea-to-generic-conversion
-@itemx -mno-ea-to-generic-conversion
-@opindex mea-to-generic-conversion
-@opindex mno-ea-to-generic-conversion
-
-Allow/disallow pointers to the @code{__ea} address space to be
-converted local pointers.
 
 @item -maddress-space-conversion
 @itemx -mno-address-space-conversion
 @opindex maddress-space-conversion
 @opindex mno-address-space-conversion
-
-Allow/disallow automatically converting pointers to different named
-address spaces (@code{__ea} and generic) to the other address space.
+Allow/disallow treating the @code{__ea} address space as superset
+of the generic address space.  This enables explicit type casts
+between @code{__ea} and generic pointer as well as implicit
+conversions of generic pointers to @code{__ea} pointers.  The
+default is to allow address space pointer conversions. 
 
 @item -mcache-size=@var{cache-size}
 @opindex mcache-size
-
 This option controls the version of libgcc that the compiler links to an
 executable and selects a software-managed cache for accessing variables
 in the PPU address space with a particular cache size.  Possible options
@@ -15873,7 +15864,6 @@ for @var{cache-size} are @samp{8}, @samp{16}, @samp{32}, @samp{64} and
 @itemx -mno-atomic-updates
 @opindex matomic-updates
 @opindex mno-atomic-updates
-
 This option controls the version of libgcc that the compiler links to an
 executable and selects whether atomic updates to the software-managed
 cache of PPU-side variables are used.  The default behavior is to use

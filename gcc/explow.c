@@ -413,17 +413,16 @@ rtx
 memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
 {
   rtx oldx = x;
-  enum machine_mode mem_Pmode = ((!as)
-				 ? Pmode
-				 : targetm.addr_space.pointer_mode (as));
+  enum machine_mode address_mode = targetm.addr_space.address_mode (as);
+  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
 
-  if (MEM_P (x) && GET_MODE (x) != mem_Pmode)
-    x = convert_memory_address (mem_Pmode, x);
+  if (address_mode != pointer_mode)
+    x = convert_memory_address (address_mode, x);
 
   /* By passing constant addresses through registers
      we get a chance to cse them.  */
   if (! cse_not_expected && CONSTANT_P (x) && CONSTANT_ADDRESS_P (x))
-    x = force_reg (mem_Pmode, x);
+    x = force_reg (address_mode, x);
 
   /* We get better cse by rejecting indirect addressing at this stage.
      Let the combiner create indirect addresses where appropriate.
@@ -450,13 +449,12 @@ memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
 	 in certain cases.  This is not necessary since the code
 	 below can handle all possible cases, but machine-dependent
 	 transformations can make better code.  */
-      if (!as)
-        x = targetm.legitimize_address (x, oldx, mode);
-      else
+      {
+	rtx orig_x = x;
 	x = targetm.addr_space.legitimize_address (x, oldx, mode, as);
-
-      if (oldx != x && memory_address_addr_space_p (mode, x, as))
-	goto done;
+	if (orig_x != x && memory_address_addr_space_p (mode, x, as))
+	  goto done;
+      }
 
       /* PLUS and MULT can appear in special ways
 	 as the result of attempts to make an address usable for indexing.
@@ -494,7 +492,8 @@ memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
 
       /* Last resort: copy the value to a register, since
 	 the register is a valid address.  */
-      x = force_reg (mem_Pmode, x);
+      else
+	x = force_reg (address_mode, x);
     }
 
  done:
@@ -524,21 +523,15 @@ memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
 rtx
 validize_mem (rtx ref)
 {
-  addr_space_t as;
-  enum machine_mode mode;
-  rtx mem;
-
   if (!MEM_P (ref))
     return ref;
   ref = use_anchored_address (ref);
-  mode = GET_MODE (ref);
-  mem = XEXP (ref, 0);
-  as = MEM_ADDR_SPACE (ref);
-  if (memory_address_addr_space_p (mode, mem, as))
+  if (memory_address_addr_space_p (GET_MODE (ref), XEXP (ref, 0),
+				   MEM_ADDR_SPACE (ref)))
     return ref;
 
   /* Don't alter REF itself, since that is probably a stack slot.  */
-  return replace_equiv_address (ref, mem);
+  return replace_equiv_address (ref, XEXP (ref, 0));
 }
 
 /* If X is a memory reference to a member of an object block, try rewriting
@@ -805,7 +798,8 @@ promote_mode (const_tree type, enum machine_mode mode, int *punsignedp,
 #ifdef POINTERS_EXTEND_UNSIGNED
     case REFERENCE_TYPE:
     case POINTER_TYPE:
-      mode = Pmode;
+      mode = targetm.addr_space.address_mode
+	       (TREE_ADDR_SPACE (TREE_TYPE (type)));
       unsignedp = POINTERS_EXTEND_UNSIGNED;
       break;
 #endif

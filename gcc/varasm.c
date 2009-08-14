@@ -1168,11 +1168,16 @@ align_variable (tree decl, bool dont_output_data)
 static section *
 get_variable_section (tree decl, bool prefer_noswitch_p)
 {
+  addr_space_t as = 0;
   int reloc;
 
-  /* If the decl has been given an explicit section name, then it
-     isn't common, and shouldn't be handled as such.  */
-  if (DECL_COMMON (decl) && DECL_SECTION_NAME (decl) == NULL)
+  if (TREE_TYPE (decl) != error_mark_node)
+    as = TYPE_ADDR_SPACE (TREE_TYPE (decl));
+
+  /* If the decl has been given an explicit section name, or it resides
+     in a non-generic address space, then it isn't common, and shouldn't
+     be handled as such.  */
+  if (DECL_COMMON (decl) && DECL_SECTION_NAME (decl) == NULL && as == 0)
     {
       if (DECL_THREAD_LOCAL_P (decl))
 	return tls_comm_section;
@@ -1196,7 +1201,8 @@ get_variable_section (tree decl, bool prefer_noswitch_p)
   if (IN_NAMED_SECTION (decl))
     return get_named_section (decl, NULL, reloc);
 
-  if (!DECL_THREAD_LOCAL_P (decl)
+  if (as == 0
+      && !DECL_THREAD_LOCAL_P (decl)
       && !(prefer_noswitch_p && targetm.have_switchable_bss_sections)
       && bss_initializer_p (decl))
     {
@@ -1296,7 +1302,6 @@ make_decl_rtl (tree decl)
   const char *name = 0;
   int reg_number;
   rtx x;
-  enum machine_mode addrmode;
 
   /* Check that we are not being given an automatic variable.  */
   gcc_assert (TREE_CODE (decl) != PARM_DECL
@@ -1442,17 +1447,13 @@ make_decl_rtl (tree decl)
     x = create_block_symbol (name, get_block_for_decl (decl), -1);
   else
     {
-      if (TREE_TYPE (decl) == error_mark_node)
-	addrmode = Pmode;
-      else
+      enum machine_mode address_mode = Pmode;
+      if (TREE_TYPE (decl) != error_mark_node)
 	{
 	  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (decl));
-	  addrmode = ((as == 0)
-		      ? Pmode
-		      : targetm.addr_space.pointer_mode (as));
+	  address_mode = targetm.addr_space.address_mode (as);
 	}
-
-      x = gen_rtx_SYMBOL_REF (addrmode, name);
+      x = gen_rtx_SYMBOL_REF (address_mode, name);
     }
   SYMBOL_REF_WEAK (x) = DECL_WEAK (decl);
   SET_SYMBOL_REF_DECL (x, decl);
@@ -4122,6 +4123,14 @@ narrowing_initializer_constant_valid_p (tree value, tree endtype)
 	  || (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))
 	      > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
 	break;
+
+      /* Keep conversions between pointers to different address spaces.  */
+      if (POINTER_TYPE_P (TREE_TYPE (op0))
+	  && POINTER_TYPE_P (TREE_TYPE (inner))
+	  && TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0)))
+	     != TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (inner))))
+	break;
+
       op0 = inner;
     }
 
@@ -4134,6 +4143,14 @@ narrowing_initializer_constant_valid_p (tree value, tree endtype)
 	  || (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op1)))
 	      > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
 	break;
+
+      /* Keep conversions between pointers to different address spaces.  */
+      if (POINTER_TYPE_P (TREE_TYPE (op0))
+	  && POINTER_TYPE_P (TREE_TYPE (inner))
+	  && TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0)))
+	     != TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (inner))))
+	break;
+
       op1 = inner;
     }
 
@@ -4268,9 +4285,11 @@ initializer_constant_valid_p (tree value, tree endtype)
 	tree src_type = TREE_TYPE (src);
 	tree dest_type = TREE_TYPE (value);
 
-	/* Allow conversions between pointer types, floating-point
-	   types, and offset types.  */
-	if ((POINTER_TYPE_P (dest_type) && POINTER_TYPE_P (src_type))
+	/* Allow conversions between pointer types to the same address space,
+	   floating-point types, and offset types.  */
+	if ((POINTER_TYPE_P (dest_type) && POINTER_TYPE_P (src_type)
+	     && TYPE_ADDR_SPACE (TREE_TYPE (dest_type))
+		== TYPE_ADDR_SPACE (TREE_TYPE (src_type)))
 	    || (FLOAT_TYPE_P (dest_type) && FLOAT_TYPE_P (src_type))
 	    || (TREE_CODE (dest_type) == OFFSET_TYPE
 		&& TREE_CODE (src_type) == OFFSET_TYPE))

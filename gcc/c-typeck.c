@@ -95,10 +95,7 @@ static void push_member_name (tree);
 static int spelling_length (void);
 static char *print_spelling (char *);
 static void warning_init (int, const char *);
-static bool addr_space_superset (addr_space_t, addr_space_t, addr_space_t *);
-static bool digest_init_addr_space_ok_p (tree, tree, addr_space_t);
-static tree digest_init (location_t, tree, tree, tree,
-			 bool, bool, int, addr_space_t);
+static tree digest_init (location_t, tree, tree, tree, bool, bool, int);
 static void output_init_element (tree, tree, bool, tree, tree, int, bool);
 static void output_pending_init_elements (int);
 static int set_designator (int);
@@ -113,9 +110,7 @@ static int lvalue_or_else (const_tree, enum lvalue_use);
 static void record_maybe_used_decl (tree);
 static int comptypes_internal (const_tree, const_tree, bool *);
 
-/* Return true if EXP is a null pointer constant, false otherwise.  If
-   different named address spaces are available, a null pointer to one address
-   space can be converted as a null pointer to another address space.  */
+/* Return true if EXP is a null pointer constant, false otherwise.  */
 
 static bool
 null_pointer_constant_p (const_tree expr)
@@ -129,8 +124,7 @@ null_pointer_constant_p (const_tree expr)
 	  && (INTEGRAL_TYPE_P (type)
 	      || (TREE_CODE (type) == POINTER_TYPE
 		  && VOID_TYPE_P (TREE_TYPE (type))
-		  && (TYPE_QUALS_NO_ADDR_SPACE (TREE_TYPE (type))
-		      == TYPE_UNQUALIFIED))));
+		  && TYPE_QUALS (TREE_TYPE (type)) == TYPE_UNQUALIFIED)));
 }
 
 /* EXPR may appear in an unevaluated part of an integer constant
@@ -321,27 +315,23 @@ addr_space_superset (addr_space_t as1, addr_space_t as2, addr_space_t *common)
 static tree
 qualify_type (tree type, tree like)
 {
-  int quals = (TYPE_QUALS_NO_ADDR_SPACE (type)
-	       | TYPE_QUALS_NO_ADDR_SPACE (like));
   addr_space_t as_type = TYPE_ADDR_SPACE (type);
   addr_space_t as_like = TYPE_ADDR_SPACE (like);
   addr_space_t as_common;
 
-  if (as_type == as_like)
-    as_common = as_type;
-
-  /* Two different named address spaces, check for one being a subset of the
-     other, and if there isn't a common superset address space, raise an
-     error.  */
-  else if (!addr_space_superset (as_type, as_like, &as_common))
+  /* If the two named address spaces are different, determine the common
+     superset address space.  If there isn't one, raise an error.  */
+  if (!addr_space_superset (as_type, as_like, &as_common))
     {
-      as_common = 0;
-      error ("%qT and %qT are in different named address spaces",
+      as_common = as_type;
+      error ("%qT and %qT are in disjoint named address spaces",
 	     type, like);
     }
 
   return c_build_qualified_type (type,
-				 quals | ENCODE_QUAL_ADDR_SPACE (as_common));
+				 TYPE_QUALS_NO_ADDR_SPACE (type)
+				 | TYPE_QUALS_NO_ADDR_SPACE (like)
+				 | ENCODE_QUAL_ADDR_SPACE (as_common));
 }
 
 /* Return true iff the given tree T is a variable length array.  */
@@ -677,14 +667,12 @@ common_pointer_type (tree t1, tree t2)
   else
     target_quals = (quals1 | quals2);
 
-  /* Determine the address space to use if the pointers point to different
-     named address spaces and if so, whether one address space is a subset of
-     the other.  */
+  /* If the two named address spaces are different, determine the common
+     superset address space.  This is guaranteed to exist due to the
+     assumption that comp_target_type returned non-zero.  */
   as1 = TYPE_ADDR_SPACE (pointed_to_1);
   as2 = TYPE_ADDR_SPACE (pointed_to_2);
-  if (as1 == as2)
-    as_common = as1;
-  else if (!addr_space_superset (as1, as2, &as_common))
+  if (!addr_space_superset (as1, as2, &as_common))
     gcc_unreachable ();
 
   target_quals |= ENCODE_QUAL_ADDR_SPACE (as_common);
@@ -1066,7 +1054,7 @@ comptypes_internal (const_tree type1, const_tree type2, bool *enum_and_int_p)
 
   /* Qualifiers must match. C99 6.7.3p9 */
 
-  if (TYPE_QUALS (CONST_CAST_TREE (t1)) != TYPE_QUALS (CONST_CAST_TREE (t2)))
+  if (TYPE_QUALS (t1) != TYPE_QUALS (t2))
     return 0;
 
   /* Allow for two different type nodes which have essentially the same
@@ -1188,8 +1176,8 @@ comp_target_types (location_t location, tree ttl, tree ttr)
   addr_space_t as_common;
   bool enum_and_int_p;
 
-  /* See if the pointers point to different address spaces.  */
-  if (asl != asr && !addr_space_superset (asl, asr, &as_common))
+  /* Fail if pointers point to incompatible address spaces.  */
+  if (!addr_space_superset (asl, asr, &as_common))
     return 0;
 
   /* Do not lose qualifiers on element types of array types that are
@@ -3139,15 +3127,43 @@ parser_build_binary_op (location_t location, enum tree_code code,
 static tree
 pointer_diff (location_t loc, tree op0, tree op1)
 {
+  tree restype = ptrdiff_type_node;
+  tree result, inttype;
+
   addr_space_t as0 = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0)));
   addr_space_t as1 = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op1)));
-  tree restype = ((as0 == 0 && as1 == 0)
-		  ? ptrdiff_type_node
-		  : targetm.addr_space.minus_type (as0, as1));
-
   tree target_type = TREE_TYPE (TREE_TYPE (op0));
   tree con0, con1, lit0, lit1;
   tree orig_op1 = op1;
+
+  /* If the operands point into different address spaces, we need to
+     explicitly convert them to pointers into the common address space
+     before we can subtract the numerical address values.  */
+  if (as0 != as1)
+    {
+      addr_space_t as_common;
+      tree common_type;
+
+      /* Determine the common superset address space.  This is guaranteed
+	 to exist because the caller verified that comp_target_types
+	 returned non-zero.  */
+      if (!addr_space_superset (as0, as1, &as_common))
+	gcc_unreachable ();
+
+      common_type = common_pointer_type (TREE_TYPE (op0), TREE_TYPE (op1));
+      op0 = convert (common_type, op0);
+      op1 = convert (common_type, op1);
+    }
+
+  /* Determine integer type to perform computations in.  This will usually
+     be the same as the result type (ptrdiff_t), but may need to be a wider
+     type if pointers for the address space are wider than ptrdiff_t.  */
+  if (TYPE_PRECISION (restype) < TYPE_PRECISION (TREE_TYPE (op0)))
+    inttype = lang_hooks.types.type_for_size
+		(TYPE_PRECISION (TREE_TYPE (op0)), 0);
+  else
+    inttype = restype;
+
 
   if (TREE_CODE (target_type) == VOID_TYPE)
     pedwarn (loc, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
@@ -3165,12 +3181,18 @@ pointer_diff (location_t loc, tree op0, tree op1)
      So first try to find a common term here 'by hand'; we want to cover
      at least the cases that occur in legal static initializers.  */
   if (CONVERT_EXPR_P (op0)
+      && (!POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (op0, 0)))
+          || TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0))) ==
+             TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 0)))))
       && (TYPE_PRECISION (TREE_TYPE (op0))
 	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))))
     con0 = TREE_OPERAND (op0, 0);
   else
     con0 = op0;
   if (CONVERT_EXPR_P (op1)
+      && (!POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (op1, 0)))
+          || TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op1))) ==
+             TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op1, 0)))))
       && (TYPE_PRECISION (TREE_TYPE (op1))
 	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op1, 0)))))
     con1 = TREE_OPERAND (op1, 0);
@@ -3206,8 +3228,8 @@ pointer_diff (location_t loc, tree op0, tree op1)
      in case restype is a short type.  */
 
   op0 = build_binary_op (loc,
-			 MINUS_EXPR, convert (restype, op0),
-			 convert (restype, op1), 0);
+			 MINUS_EXPR, convert (inttype, op0),
+			 convert (inttype, op1), 0);
   /* This generates an error if op1 is pointer to incomplete type.  */
   if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (TREE_TYPE (orig_op1))))
     error_at (loc, "arithmetic on pointer to an incomplete type");
@@ -3216,8 +3238,11 @@ pointer_diff (location_t loc, tree op0, tree op1)
   op1 = c_size_in_bytes (target_type);
 
   /* Divide by the size, in easiest possible way.  */
-  return fold_build2_loc (loc, EXACT_DIV_EXPR, restype,
-			  op0, convert (restype, op1));
+  result = fold_build2_loc (loc, EXACT_DIV_EXPR, inttype,
+			    op0, convert (inttype, op1));
+
+  /* Convert to final result type if necessary.  */
+  return convert (restype, result);
 }
 
 /* Construct and perhaps optimize a tree representation
@@ -4038,20 +4063,20 @@ build_conditional_expr (location_t colon_loc, tree ifexp, bool ifexp_bcp,
     {
       addr_space_t as1 = TYPE_ADDR_SPACE (TREE_TYPE (type1));
       addr_space_t as2 = TYPE_ADDR_SPACE (TREE_TYPE (type2));
-      addr_space_t as_common = as1;
+      addr_space_t as_common;
 
-      if (as1 != as2 && !addr_space_superset (as1, as2, &as_common))
-	{
-	  error ("pointers to incompatible address spaces used in conditional "
-		 "expression");
-	  return error_mark_node;
-	}
       if (comp_target_types (colon_loc, type1, type2))
 	result_type = common_pointer_type (type1, type2);
       else if (null_pointer_constant_p (orig_op1))
-	result_type = qualify_type (type2, type1);
+	result_type = type2;
       else if (null_pointer_constant_p (orig_op2))
-	result_type = qualify_type (type1, type2);
+	result_type = type1;
+      else if (!addr_space_superset (as1, as2, &as_common))
+	{
+	  error_at (colon_loc, "pointers to disjoint address spaces "
+		    "used in conditional expression");
+	  return error_mark_node;
+	}
       else if (VOID_TYPE_P (TREE_TYPE (type1)))
 	{
 	  if (TREE_CODE (TREE_TYPE (type2)) == FUNCTION_TYPE)
@@ -4392,7 +4417,7 @@ build_c_cast (location_t loc, tree type, tree expr)
 	  pedwarn (loc, OPT_pedantic, "ISO C forbids casts to union type");
 	  t = digest_init (loc, type,
 			   build_constructor_single (type, field, value),
-			   NULL_TREE, false, true, 0, 0);
+			   NULL_TREE, false, true, 0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
 	  return t;
 	}
@@ -4418,34 +4443,33 @@ build_c_cast (location_t loc, tree type, tree expr)
 	  && TREE_CODE (otype) == POINTER_TYPE)
 	handle_warn_cast_qual (type, otype);
 
-      /* Determine whether a pointer to one named address space can be
-	 converted to a pointer to another named address. */
+      /* Warn about conversions between pointers to disjoint
+	 address spaces.  */
       if (TREE_CODE (type) == POINTER_TYPE
-	  && TREE_CODE (otype) == POINTER_TYPE)
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && !null_pointer_constant_p (value))
 	{
 	  addr_space_t as_to = TYPE_ADDR_SPACE (TREE_TYPE (type));
 	  addr_space_t as_from = TYPE_ADDR_SPACE (TREE_TYPE (otype));
+	  addr_space_t as_common;
 
-	  if (as_to != as_from
-	      && !targetm.addr_space.can_convert_p (otype, type))
+	  if (!addr_space_superset (as_to, as_from, &as_common))
 	    {
 	      if (!as_from)
-		error ("cast to %s address space pointer from generic address "
-		       "space pointer",
-		       targetm.addr_space.name (as_to));
+		warning_at (loc, 0, "cast to %s address space pointer "
+			    "from disjoint generic address space pointer",
+			    c_addr_space_name (as_to));
 
 	      else if (!as_to)
-		error ("cast to generic address space pointer from %s address "
-		       "space pointer",
-		       targetm.addr_space.name (as_from));
+		warning_at (loc, 0, "cast to generic address space pointer "
+			    "from disjoint %s address space pointer",
+			    c_addr_space_name (as_from));
 
 	      else
-		error ("cast to %s address space pointer from %s address "
-		       "space pointer",
-		       targetm.addr_space.name (as_to),
-		       targetm.addr_space.name (as_from));
-
-	      return error_mark_node;
+		warning_at (loc, 0, "cast to %s address space pointer "
+			    "from disjoint %s address space pointer",
+			    c_addr_space_name (as_to),
+			    c_addr_space_name (as_from));
 	    }
 	}
 
@@ -5094,7 +5118,6 @@ convert_for_assignment (location_t location, tree type, tree rhs,
       int target_cmp = 0;   /* Cache comp_target_types () result.  */
       addr_space_t asl;
       addr_space_t asr;
-      addr_space_t as_common;
 
       if (TREE_CODE (mvl) != ARRAY_TYPE)
 	mvl = TYPE_MAIN_VARIANT (mvl);
@@ -5118,32 +5141,32 @@ convert_for_assignment (location_t location, tree type, tree rhs,
       /* See if the pointers point to incompatible address spaces.  */
       asl = TYPE_ADDR_SPACE (ttl);
       asr = TYPE_ADDR_SPACE (ttr);
-      if (asl != asr
-	  && !null_pointer_constant_p (rhs)
-	  && !addr_space_superset (asl, asr, &as_common))
+      if (!null_pointer_constant_p (rhs)
+	  && asr != asl && !targetm.addr_space.subset_p (asr, asl))
 	{
 	  switch (errtype)
 	    {
 	    case ic_argpass:
-	      error ("passing argument %d of %qE is a pointer to an "
-		     "incompatible address space", parmnum, rname);
+	      error_at (location, "passing argument %d of %qE from pointer to "
+			"non-enclosed address space", parmnum, rname);
 	      break;
 	    case ic_assign:
-	      error ("assignment to a pointer to an incompatible address "
-		     "space");
+	      error_at (location, "assignment from pointer to "
+			"non-enclosed address space");
 	      break;
 	    case ic_init:
-	      error ("initialization of a pointer to an incompatible address "
-		     "space");
+	      error_at (location, "initialization from pointer to "
+			"non-enclosed address space");
 	      break;
 	    case ic_return:
-	      error ("return of a pointer to an incompatible address space");
+	      error_at (location, "return from pointer to "
+			"non-enclosed address space");
 	      break;
 	    default:
 	      gcc_unreachable ();
 	    }
 	  return error_mark_node;
-      }
+	}
 
       /* Check if the right-hand side has a format attribute but the
 	 left-hand side doesn't.  */
@@ -5400,8 +5423,8 @@ store_init_value (location_t init_loc, tree decl, tree init, tree origtype)
 
   if (init)
     npc = null_pointer_constant_p (init);
-  value = digest_init (init_loc, type, init, origtype, npc, true,
-		       TREE_STATIC (decl), TYPE_ADDR_SPACE (TREE_TYPE (decl)));
+  value = digest_init (init_loc, type, init, origtype, npc,
+      		       true, TREE_STATIC (decl));
 
   /* Store the expression if valid; else report error.  */
 
@@ -5631,41 +5654,6 @@ maybe_warn_string_init (tree type, struct c_expr expr)
 		  "array initialized from parenthesized string constant");
 }
 
-/* Subroutine of digest_init to allow the backend to restrict what type of
-   static initializations are allowed for named address spaces.  Return true if
-   the initialization is valid.  */
-
-static bool
-digest_init_addr_space_ok_p (tree type, tree init, addr_space_t as)
-{
-  addr_space_t ptr_as = 0;
-
-  if (init == error_mark_node)
-    return false;
-
-  if (POINTER_TYPE_P (TREE_TYPE (init)))
-    ptr_as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (init)));
-
-  /* See if initializing elements in a named address space is ok.  */
-  if (as && !targetm.addr_space.static_init_ok_p (type, init, as, ptr_as))
-    {
-      error_init ("initializer element is not allowed in named address space");
-      return false;
-    }
-
-  /* Check for initializing pointers to a named address space.  */
-  else if (ptr_as
-	   && !targetm.addr_space.static_init_ok_p (type, init, as, ptr_as))
-    {
-      error_init ("initializer element pointing to a named address space "
-		  "is not allowed");
-      return false;
-    }
-
-  else
-    return true;
-}
-
 /* Digest the parser output INIT as an initializer for type TYPE.
    Return a C expression of type TYPE to represent the initial value.
 
@@ -5680,14 +5668,12 @@ digest_init_addr_space_ok_p (tree type, tree init, addr_space_t as)
    INIT_LOC is the location of the INIT.
 
    REQUIRE_CONSTANT requests an error if non-constant initializers or
-   elements are seen.
-
-   AS is non-zero if the declaration is in a named address space.  */
+   elements are seen.  */
 
 static tree
 digest_init (location_t init_loc, tree type, tree init, tree origtype,
     	     bool null_pointer_constant, bool strict_string,
-	     int require_constant, addr_space_t as)
+	     int require_constant)
 {
   enum tree_code code = TREE_CODE (type);
   tree inside_init = init;
@@ -5735,10 +5721,6 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
 	  expr.original_code = (strict_string ? STRING_CST : ERROR_MARK);
 	  expr.original_type = NULL;
 	  maybe_warn_string_init (type, expr);
-
-	  if (require_constant
-	      && !digest_init_addr_space_ok_p (type, inside_init, as))
-	    return error_mark_node;
 
 	  if (TYPE_DOMAIN (type) && !TYPE_MAX_VALUE (TYPE_DOMAIN (type)))
 	    pedwarn_init (init_loc, OPT_pedantic,
@@ -5814,10 +5796,6 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
       && vector_types_convertible_p (TREE_TYPE (inside_init), type, true)
       && TREE_CONSTANT (inside_init))
     {
-      if (require_constant
-	  && !digest_init_addr_space_ok_p (type, inside_init, as))
-	return error_mark_node;
-
       if (TREE_CODE (inside_init) == VECTOR_CST
 	  && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
 			TYPE_MAIN_VARIANT (type)))
@@ -5926,9 +5904,6 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
 	  error_init ("initializer element is not constant");
 	  inside_init = error_mark_node;
 	}
-      else if (require_constant
-	       && !digest_init_addr_space_ok_p (type, inside_init, as))
-	inside_init = error_mark_node;
       else if (require_constant && !maybe_const)
 	pedwarn_init (init_loc, 0,
 		      "initializer element is not a constant expression");
@@ -5975,9 +5950,6 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
 	  error_init ("initializer element is not computable at load time");
 	  inside_init = error_mark_node;
 	}
-      else if (require_constant
-	       && !digest_init_addr_space_ok_p (type, inside_init, as))
-	inside_init = error_mark_node;
       else if (require_constant && !maybe_const)
 	pedwarn_init (init_loc, 0,
 		      "initializer element is not a constant expression");
@@ -7465,8 +7437,7 @@ output_init_element (tree value, tree origtype, bool strict_string, tree type,
   if (semantic_type)
     value = build1 (EXCESS_PRECISION_EXPR, semantic_type, value);
   value = digest_init (input_location, type, value, origtype, npc,
-      		       strict_string, require_constant_value,
-		       TYPE_ADDR_SPACE (type));
+      		       strict_string, require_constant_value);
   if (value == error_mark_node)
     {
       constructor_erroneous = 1;
@@ -9407,32 +9378,32 @@ build_binary_op (location_t location, enum tree_code code,
 	  tree tt1 = TREE_TYPE (type1);
 	  addr_space_t as0 = TYPE_ADDR_SPACE (tt0);
 	  addr_space_t as1 = TYPE_ADDR_SPACE (tt1);
-	  addr_space_t as_common = as0;
-
-	  if (as0 != as1 && !addr_space_superset (as0, as1, &as_common))
-	    {
-	      error ("comparison of pointers to incompatible address spaces");
-	      return error_mark_node;
-	    }
+	  addr_space_t as_common;
 
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
 	  if (comp_target_types (location, type0, type1))
 	    result_type = common_pointer_type (type0, type1);
+	  else if (null_pointer_constant_p (orig_op0))
+	    result_type = type1;
+	  else if (null_pointer_constant_p (orig_op1))
+	    result_type = type0;
+	  else if (!addr_space_superset (as0, as1, &as_common))
+	    {
+	      error_at (location, "comparison of pointers to "
+			"disjoint address spaces");
+	      return error_mark_node;
+	    }
 	  else if (VOID_TYPE_P (tt0))
 	    {
-	      /* op0 != orig_op0 detects the case of something
-		 whose value is 0 but which isn't a valid null ptr const.  */
-	      if (pedantic && !null_pointer_constant_p (orig_op0)
-		  && TREE_CODE (tt1) == FUNCTION_TYPE)
+	      if (pedantic && TREE_CODE (tt1) == FUNCTION_TYPE)
 		pedwarn (location, OPT_pedantic, "ISO C forbids "
 			 "comparison of %<void *%> with function pointer");
 	    }
 	  else if (VOID_TYPE_P (tt1))
 	    {
-	      if (pedantic && !null_pointer_constant_p (orig_op1)
-		  && TREE_CODE (tt0) == FUNCTION_TYPE)
+	      if (pedantic && TREE_CODE (tt0) == FUNCTION_TYPE)
 		pedwarn (location, OPT_pedantic, "ISO C forbids "
 			 "comparison of %<void *%> with function pointer");
 	    }
@@ -9493,13 +9464,7 @@ build_binary_op (location_t location, enum tree_code code,
 	{
 	  addr_space_t as0 = TYPE_ADDR_SPACE (TREE_TYPE (type0));
 	  addr_space_t as1 = TYPE_ADDR_SPACE (TREE_TYPE (type1));
-	  addr_space_t as_common = as0;
-
-	  if (as0 != as1 && !addr_space_superset (as0, as1, &as_common))
-	    {
-	      error ("comparison of pointers to incompatible address spaces");
-	      return error_mark_node;
-	    }
+	  addr_space_t as_common;
 
 	  if (comp_target_types (location, type0, type1))
 	    {
@@ -9511,6 +9476,12 @@ build_binary_op (location_t location, enum tree_code code,
 	      else if (TREE_CODE (TREE_TYPE (type0)) == FUNCTION_TYPE)
 		pedwarn (location, OPT_pedantic, "ISO C forbids "
 			 "ordered comparisons of pointers to functions");
+	    }
+	  else if (!addr_space_superset (as0, as1, &as_common))
+	    {
+	      error_at (location, "comparison of pointers to "
+			"disjoint address spaces");
+	      return error_mark_node;
 	    }
 	  else
 	    {
