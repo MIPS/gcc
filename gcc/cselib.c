@@ -1022,23 +1022,6 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
 }
 
 
-/* Wrap result in CONST:MODE if needed to preserve the mode.  */
-static rtx
-check_wrap_constant (enum machine_mode mode, rtx result)
-{
-  if (!result || GET_MODE (result) == mode)
-    return result;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "  wrapping result in const to preserve mode %s\n",
-	     GET_MODE_NAME (mode));
-
-  result = wrap_constant (mode, result);
-  gcc_assert (GET_MODE (result) == mode);
-
-  return result;
-}
-
 /* Forward substitute and expand an expression out to its roots.
    This is the opposite of common subexpression.  Because local value
    numbering is such a weak optimization, the expanded expression is
@@ -1066,9 +1049,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
   evd.callback = NULL;
   evd.callback_arg = NULL;
 
-  return check_wrap_constant (GET_MODE (orig),
-			      cselib_expand_value_rtx_1 (orig, &evd,
-							 max_depth));
+  return cselib_expand_value_rtx_1 (orig, &evd, max_depth);
 }
 
 /* Same as cselib_expand_value_rtx, but using a callback to try to
@@ -1084,9 +1065,7 @@ cselib_expand_value_rtx_cb (rtx orig, bitmap regs_active, int max_depth,
   evd.callback = cb;
   evd.callback_arg = data;
 
-  return check_wrap_constant (GET_MODE (orig),
-			      cselib_expand_value_rtx_1 (orig, &evd,
-							 max_depth));
+  return cselib_expand_value_rtx_1 (orig, &evd, max_depth);
 }
 
 static rtx
