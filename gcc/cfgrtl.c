@@ -531,7 +531,26 @@ rtl_split_block (basic_block bb, void *insnp)
       insn = first_insn_after_basic_block_note (bb);
 
       if (insn)
-	insn = PREV_INSN (insn);
+	{
+	  rtx next = insn;
+
+	  insn = PREV_INSN (insn);
+
+	  /* If the block contains only debug insns, insn would have
+	     been NULL in a non-debug compilation, and then we'd end
+	     up emitting a DELETED note.  For -fcompare-debug
+	     stability, emit the note too.  */
+	  if (insn != BB_END (bb)
+	      && DEBUG_INSN_P (next)
+	      && DEBUG_INSN_P (BB_END (bb)))
+	    {
+	      while (next != BB_END (bb) && DEBUG_INSN_P (next))
+		next = NEXT_INSN (next);
+
+	      if (next == BB_END (bb))
+		emit_note_after (NOTE_INSN_DELETED, next);
+	    }
+	}
       else
 	insn = get_last_insn ();
     }

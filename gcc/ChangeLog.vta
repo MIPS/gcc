@@ -1,5 +1,10 @@
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgrtl.c (rtl_split_block): Emit DELETED note for compare-debug
+	stability.
+
+2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
+
 	* common.opt (fmin-insn-uid=): Complete removal.
 
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
