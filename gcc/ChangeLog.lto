@@ -1,3 +1,9 @@
+2009-08-14  Richard Guenther  <rguenther@suse.de>
+
+	* lto-symtab.c (lto_symtab_merge_decl): Exchange TREE_CHAIN use
+	for DECL_LANG_SPECIFIC.
+	(lto_symtab_prevailing_decl): Likewise.
+
 2009-08-14  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (free_lang_data): Reset lang_hooks.expr_size.

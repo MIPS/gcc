@@ -561,7 +561,7 @@ lto_symtab_merge_decl (tree new_decl,
 
   gcc_assert (TREE_PUBLIC (new_decl));
 
-  gcc_assert (TREE_CHAIN (new_decl) == NULL_TREE);
+  gcc_assert (DECL_LANG_SPECIFIC (new_decl) == NULL);
 
   /* Check that declarations reaching this function do not have
      properties inconsistent with having external linkage.  If any of
@@ -611,13 +611,13 @@ lto_symtab_merge_decl (tree new_decl,
      for that symbol.  */
   while (old_decl
 	 && !lto_symtab_compatible (old_decl, new_decl))
-    old_decl = TREE_CHAIN (old_decl);
+    old_decl = (tree) DECL_LANG_SPECIFIC (old_decl);
   if (!old_decl)
     {
       old_decl = lto_symtab_get_identifier_decl (name);
-      while (TREE_CHAIN (old_decl) != NULL_TREE)
-	old_decl = TREE_CHAIN (old_decl);
-      TREE_CHAIN (old_decl) = new_decl;
+      while (DECL_LANG_SPECIFIC (old_decl) != NULL)
+	old_decl = (tree) DECL_LANG_SPECIFIC (old_decl);
+      DECL_LANG_SPECIFIC (old_decl) = (struct lang_decl *) new_decl;
       return;
     }
 
@@ -638,17 +638,17 @@ lto_symtab_merge_decl (tree new_decl,
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR
 		  || old_resolution ==  LDPR_RESOLVED_IR
 		  || (old_resolution == resolution && !flag_no_common));
-      TREE_CHAIN (new_decl) = TREE_CHAIN (old_decl);
-      TREE_CHAIN (old_decl) = NULL_TREE;
+      DECL_LANG_SPECIFIC (new_decl) = DECL_LANG_SPECIFIC (old_decl);
+      DECL_LANG_SPECIFIC (old_decl) = NULL;
       decl = lto_symtab_get_identifier_decl (name);
       if (decl == old_decl)
 	{
 	  lto_symtab_set_identifier_decl (name, new_decl);
 	  return;
 	}
-      while (TREE_CHAIN (decl) != old_decl)
-	decl = TREE_CHAIN (decl);
-      TREE_CHAIN (decl) = new_decl;
+      while ((tree) DECL_LANG_SPECIFIC (decl) != old_decl)
+	decl = (tree) DECL_LANG_SPECIFIC (decl);
+      DECL_LANG_SPECIFIC (decl) = (struct lang_decl *) new_decl;
       return;
     }
 
@@ -711,7 +711,7 @@ lto_symtab_prevailing_decl (tree decl)
   /* Walk through the list of candidates and return the one we merged to.  */
   ret = lto_symtab_get_identifier_decl (DECL_ASSEMBLER_NAME (decl));
   if (!ret
-      || TREE_CHAIN (ret) == NULL_TREE)
+      || DECL_LANG_SPECIFIC (ret) == NULL)
     return ret;
 
   /* If there are multiple decls to choose from find the one we merged
@@ -721,7 +721,7 @@ lto_symtab_prevailing_decl (tree decl)
       if (gimple_types_compatible_p (TREE_TYPE (decl), TREE_TYPE (ret)))
 	return ret;
 
-      ret = TREE_CHAIN (ret);
+      ret = (tree) DECL_LANG_SPECIFIC (ret);
     }
 
   gcc_unreachable ();
