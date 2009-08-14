@@ -1,0 +1,7 @@
+2009-08-14  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from FSF 4.3 branch.
+	2009-08-13  Janis Johnson  <janis187@us.ibm.com>
+	PR c/41046
+	* decCommon.c ( decFloatShow): Define function only for DECCHECK
+	or DECTRACE.
