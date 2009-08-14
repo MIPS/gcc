@@ -1,3 +1,11 @@
+2009-08-15  Richard Guenther  <rguenther@suse.de>
+
+	* lto-symtab.c (merge_incomplete_and_complete_type): Use
+	gimple_force_type_merge.
+	* gimple.c (gimple_force_type_merge): New function.
+	(gimple_types_compatible_p): Use it.
+	* gimple.h (gimple_force_type_merge): Declare.
+
 2009-08-14  Richard Guenther  <rguenther@suse.de>
 
 	* lto-symtab.c (lto_symtab_merge_decl): Exchange TREE_CHAIN use

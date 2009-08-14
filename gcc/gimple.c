@@ -3083,6 +3083,30 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 }
 
 
+static hashval_t gimple_type_hash (const void *);
+
+/* Force merging the type T2 into the type T1.  */
+
+void
+gimple_force_type_merge (tree t1, tree t2)
+{
+  void **slot;
+
+  /* There's no other way than copying t2 to t1 in this case.
+     Yuck.  We'll just call this "completing" t1.  */
+  memcpy (t1, t2, tree_size (t1));
+
+  /* Adjust the hash value of T1 if it was computed already.  Otherwise
+     we would be forced to not hash fields of structs to match the
+     hash value of an incomplete struct.  */
+  if (type_hash_cache
+      && (slot = pointer_map_contains (type_hash_cache, t1)) != NULL)
+    {
+      gimple_type_hash (t2);
+      *slot = *pointer_map_contains (type_hash_cache, t2);
+    }
+}
+
 /* Structure used to maintain a cache of some type pairs compared by
    gimple_types_compatible_p when comparing aggregate types.  There are
    four possible values for SAME_P:
@@ -3234,8 +3258,6 @@ compare_field_offset (tree f1, tree f2)
 
   return false;
 }
-
-static hashval_t gimple_type_hash (const void *);
 
 /* Return 1 iff T1 and T2 are structurally identical.
    Otherwise, return 0.  */
@@ -3461,11 +3483,9 @@ gimple_types_compatible_p (tree t1, tree t2)
 		  || !COMPLETE_TYPE_P (TREE_TYPE (t2)))
 	      && compare_type_names_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	    {
-	      /* If t2 is complete we want to choose it instead of t1.
-		 There's no other way than copying t2 to t1 in this case.
-		 Yuck.  We'll just call this "completing" t1.  */
+	      /* If t2 is complete we want to choose it instead of t1.  */
 	      if (COMPLETE_TYPE_P (TREE_TYPE (t2)))
-		memcpy (t1, t2, tree_size (t1));
+		gimple_force_type_merge (TREE_TYPE (t1), TREE_TYPE (t2));
 	      goto same_types;
 	    }
 

@@ -192,7 +192,7 @@ merge_incomplete_and_complete_type (tree incomplete, tree complete)
   /* ??? Ideally we would do this by means of a common canonical type, but
      that's difficult as we do not have links from the canonical type
      back to all its children.  */
-  memcpy (incomplete, complete, tree_size (incomplete));
+  gimple_force_type_merge (incomplete, complete);
 
   return true;
 }
