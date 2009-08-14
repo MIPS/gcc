@@ -1,3 +1,8 @@
+2009-08-14  Richard Guenther  <rguenther@suse.de>
+
+	* lto-streamer.c (lto_get_common_nodes): Register the common
+	types.
+
 2009-08-13  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/41032

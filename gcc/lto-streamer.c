@@ -686,7 +686,8 @@ lto_record_common_node (tree node, VEC(tree, heap) **common_nodes,
 }
 
 
-/* Generate a vector of common nodes. */
+/* Generate a vector of common nodes and register them in the gimple
+   type table as merge targets. */
 
 static VEC(tree,heap) *
 lto_get_common_nodes (void)
@@ -718,15 +719,35 @@ lto_get_common_nodes (void)
   gcc_assert (TYPE_MAIN_VARIANT (fileptr_type_node) == ptr_type_node);
   
   seen_nodes = pointer_set_create ();
-  
+
+  /* char_type_node is special, we have to prefer merging the other
+     char variants into it because the middle-end has pointer comparisons
+     with it.  */
+  gimple_register_type (char_type_node);
+
   for (i = 0; i < TI_MAX; i++)
-    lto_record_common_node (global_trees[i], &common_nodes, seen_nodes);
+    {
+      tree t = global_trees[i];
+      if (t && TYPE_P (t))
+	gimple_register_type (t);
+      lto_record_common_node (global_trees[i], &common_nodes, seen_nodes);
+    }
 
   for (i = 0; i < itk_none; i++)
-    lto_record_common_node (integer_types[i], &common_nodes, seen_nodes);
+    {
+      tree t = integer_types[i];
+      if (t && TYPE_P (t))
+	gimple_register_type (t);
+      lto_record_common_node (integer_types[i], &common_nodes, seen_nodes);
+    }
 
   for (i = 0; i < TYPE_KIND_LAST; i++)
-    lto_record_common_node (sizetype_tab[i], &common_nodes, seen_nodes);
+    {
+      tree t = sizetype_tab[i];
+      if (t && TYPE_P (t))
+	gimple_register_type (t);
+      lto_record_common_node (sizetype_tab[i], &common_nodes, seen_nodes);
+    }
 
   pointer_set_destroy (seen_nodes);
 
