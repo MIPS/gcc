@@ -1107,8 +1107,10 @@ regmove_backward_pass (void)
 		  if (pset && SET_DEST (pset) == src)
 		    {
 		      /* We use validate_replace_rtx, in case there
-			 are multiple identical source operands.  All of
-			 them have to be changed at the same time.  */
+			 are multiple identical source operands.  All
+			 of them have to be changed at the same time:
+			 when validate_replace_rtx() calls
+			 apply_change_group().  */
 		      validate_change (p, &SET_DEST (pset), dst, 1);
 		      if (validate_replace_rtx (src, dst, insn))
 			success = 1;

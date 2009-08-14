@@ -450,10 +450,7 @@ replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx insn,
 	fprintf (dump_file, "insn %u: replaced reg %u with %u\n",
 		 INSN_UID (insn), REGNO (*loc), REGNO (new_rtx));
 
-      if (DEBUG_INSN_P (insn))
-	*loc = new_rtx;
-      else
-	validate_change (insn, loc, new_rtx, 1);
+      validate_change (insn, loc, new_rtx, 1);
       return true;
     }
   return false;
@@ -641,21 +638,23 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
       bool replaced[MAX_RECOG_OPERANDS];
       bool changed = false;
 
-      if (DEBUG_INSN_P (insn))
-	{
-	  rtx loc = INSN_VAR_LOCATION_LOC (insn);
-	  if (!VAR_LOC_UNKNOWN_P (loc)
-	      && replace_oldest_value_addr (&INSN_VAR_LOCATION_LOC (insn),
-					    ALL_REGS, GET_MODE (loc),
-					    insn, vd))
-	    {
-	      df_insn_rescan (insn);
-	      anything_changed = true;
-	    }
-	}
-
       if (!NONDEBUG_INSN_P (insn))
 	{
+	  if (DEBUG_INSN_P (insn))
+	    {
+	      rtx loc = INSN_VAR_LOCATION_LOC (insn);
+	      if (!VAR_LOC_UNKNOWN_P (loc)
+		  && replace_oldest_value_addr (&INSN_VAR_LOCATION_LOC (insn),
+						ALL_REGS, GET_MODE (loc),
+						insn, vd))
+		{
+		  changed = apply_change_group ();
+		  gcc_assert (changed);
+		  df_insn_rescan (insn);
+		  anything_changed = true;
+		}
+	    }
+
 	  if (insn == BB_END (bb))
 	    break;
 	  else

@@ -811,11 +811,16 @@ extern VEC(haifa_deps_insn_data_def, heap) *h_d_i_d;
 #define DEBUG_INSN_SCHED_P(insn) \
   (RTL_FLAG_CHECK1("DEBUG_INSN_SCHED_P", (insn), DEBUG_INSN)->unchanging)
 
-/* Convenience predicates.  */
-#define SCHEDULE_DEBUG_INSN_P(insn) \
-  (DEBUG_INSN_P (insn) && DEBUG_INSN_SCHED_P (insn))
+/* True if INSN is a debug insn that is next to a basic block
+   boundary, i.e., it is to be handled by the scheduler like a
+   note.  */
 #define BOUNDARY_DEBUG_INSN_P(insn) \
   (DEBUG_INSN_P (insn) && !DEBUG_INSN_SCHED_P (insn))
+/* True if INSN is a debug insn that is not next to a basic block
+   boundary, i.e., it is to be handled by the scheduler like an
+   insn.  */
+#define SCHEDULE_DEBUG_INSN_P(insn) \
+  (DEBUG_INSN_P (insn) && DEBUG_INSN_SCHED_P (insn))
 
 /* Dep status (aka ds_t) of the link encapsulates information, that is needed
    for speculative scheduling.  Namely, it is 4 integers in the range

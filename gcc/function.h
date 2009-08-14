@@ -65,7 +65,7 @@ struct GTY(()) emit_status {
   int x_cur_insn_uid;
 
   /* INSN_UID for next debug insn emitted.  Only used if
-     -fmin-debug-insn-uid=<value> is given with nonzero value.  */
+     --param min-nondebug-insn-uid=<value> is given with nonzero value.  */
   int x_cur_debug_insn_uid;
 
   /* Location the last line-number NOTE emitted.
