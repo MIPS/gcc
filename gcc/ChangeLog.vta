@@ -1,3 +1,25 @@
+2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* function.h (emit-status::x_cur_debug_insn_uid): Update flag
+	name in comments.
+	* haifa-sched.c (nondebug_dep_list_size): Rename to...
+	(dep_list_size): ... this.
+	(priority, add_jump_dependencies): Adjust.
+	(rank_for_schedule): Simplify with dep_list_size.
+	(SCHED_DEBUG_INSNS_BEFORE_REORDER): Remove.  Drop all references.
+	* sched-int.h (BOUNDARY_DEBUG_INSN_P, SCHEDULE_DEBUG_INSN_P):
+	Add more detailed comments.
+	* dse.c (scan_insn): Remove excess line break.
+	* final.c (get_attr_length_1): Remove impossible test for
+	DEBUG_INSN_P, add case to handle it.
+	* ifcvt.c (check_cond_move_block): Don't expect debug insns after
+	jump insns.
+	* regrename.c (replace_oldest_value_reg): Don't special-case debug
+	insns.
+	(copyprop_hardreg_forward_1): Simplify handling of debug insns.
+	Apply change group.
+	* regmove.c (regmove_backward_pass): Adjust comment.
+
 2009-08-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (loc_descriptor, add_const_value_attribute): Don't
