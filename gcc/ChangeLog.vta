@@ -1,5 +1,9 @@
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
+	* common.opt (fmin-insn-uid=): Complete removal.
+
+2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
+
 	* final.c (rest_of_clean_state): Don't dump CFA_RESTORE_STATE
 	notes for compare-debug.
 
