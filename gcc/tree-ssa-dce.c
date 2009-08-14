@@ -221,7 +221,7 @@ mark_stmt_necessary (gimple stmt, bool add_to_worklist)
   gimple_set_plf (stmt, STMT_NECESSARY, true);
   if (add_to_worklist)
     VEC_safe_push (gimple, heap, worklist, stmt);
-  if (bb_contains_live_stmts)
+  if (bb_contains_live_stmts && !is_gimple_debug (stmt))
     SET_BIT (bb_contains_live_stmts, gimple_bb (stmt)->index);
 }
 
@@ -1161,11 +1161,11 @@ eliminate_unnecessary_stmts (void)
      Mark them for renaming.  */
   if (cfg_altered)
     {
-      basic_block next_bb;
+      basic_block prev_bb;
       find_unreachable_blocks ();
-      for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; bb = next_bb)
+      for (bb = EXIT_BLOCK_PTR->prev_bb; bb != ENTRY_BLOCK_PTR; bb = prev_bb)
 	{
-	  next_bb = bb->next_bb;
+	  prev_bb = bb->prev_bb;
 	  if (!TEST_BIT (bb_contains_live_stmts, bb->index)
 	      || !(bb->flags & BB_REACHABLE))
 	    {
