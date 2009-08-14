@@ -1,3 +1,7 @@
+2009-08-14  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (free_lang_data): Reset lang_hooks.expr_size.
+
 2009-08-14  Richard Guenther  <rguenther@suse.de>
 
 	* lto-streamer.c (lto_get_common_nodes): Register the common

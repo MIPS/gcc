@@ -4797,6 +4797,7 @@ free_lang_data (void)
   /* Reset some langhooks.  */
   lang_hooks.callgraph.analyze_expr = NULL;
   lang_hooks.types_compatible_p = NULL;
+  lang_hooks.expr_size = lhd_expr_size;
 
   /* FIXME lto: We have to compute these names early.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
