@@ -1,5 +1,10 @@
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
+	* final.c (rest_of_clean_state): Don't dump CFA_RESTORE_STATE
+	notes for compare-debug.
+
+2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-ssa-dce.c (mark_stmt_necessary): Don't mark block as
 	containing live stmts because of debug insn.
 	(eliminate_unnecessary_stmts): Walk blocks backwards.
