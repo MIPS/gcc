@@ -1,5 +1,10 @@
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
+	* diagnostic.c (diagnostic_report_diagnostic): Skip notes during
+	the second compare-debug compilation.
+
+2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cselib.c (cselib_expand_value_rtx, cselib_expand_value_rtx_cb):
 	Don't wrap constant values.
 	(check_wrap_constant): Moved to...
