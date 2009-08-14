@@ -766,10 +766,6 @@ fmessage-length=
 Common RejectNegative Joined UInteger
 -fmessage-length=<number>	Limit diagnostics to <number> characters per line.  0 suppresses line-wrapping
 
-fmin-insn-uid=
-Common RejectNegative Var(flag_min_insn_uid) Init(0) Joined UInteger
-Use insn uids above the given value for non-debug insns.
-
 fmodulo-sched
 Common Report Var(flag_modulo_sched) Optimization
 Perform SMS based modulo scheduling before the first scheduling pass
