@@ -1,5 +1,10 @@
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgcleanup.c (delete_unreachable_blocks): Walk blocks in
+	reverse order.
+
+2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
+
 	* diagnostic.c (diagnostic_report_diagnostic): Skip notes during
 	the second compare-debug compilation.
 
