@@ -1,5 +1,13 @@
 2009-08-15  Richard Guenther  <rguenther@suse.de>
 
+	PR lto/41069
+	* gimple.c (gimple_types_compatible_p): Handle vector and complex
+	types.
+	* lto-streamer-out.c (lto_output_ts_decl_minimal_tree_pointers):
+	Do not give names to unnamed things.
+
+2009-08-15  Richard Guenther  <rguenther@suse.de>
+
 	* lto-symtab.c (merge_incomplete_and_complete_type): Use
 	gimple_force_type_merge.
 	* gimple.c (gimple_force_type_merge): New function.

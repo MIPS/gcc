@@ -3558,6 +3558,16 @@ gimple_types_compatible_p (tree t1, tree t2)
 	  goto same_types;
 	}
 
+    case VECTOR_TYPE:
+      if (TYPE_VECTOR_SUBPARTS (t1) != TYPE_VECTOR_SUBPARTS (t2))
+	goto different_types;
+
+      /* Fallthru  */
+    case COMPLEX_TYPE:
+      if (!gimple_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+	goto different_types;
+      goto same_types;
+
     default:
       goto different_types;
     }

@@ -47,7 +47,7 @@ if { ![check_effective_target_lto] } {
 }
 
 # Main loop.
-foreach src [lsort [glob -nocomplain $srcdir/$subdir/*.\[fF\]{,90,95,03,08} ]] {
+foreach src [lsort [glob -nocomplain $srcdir/$subdir/*_0.\[fF\]{,90,95,03,08} ]] {
     # If we're only testing specific files and this isn't one of them, skip it.
     if ![runtest_file_p $runtests $src] then {
 	continue
