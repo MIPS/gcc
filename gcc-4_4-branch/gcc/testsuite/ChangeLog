@@ -1,3 +1,119 @@
+2009-08-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-08-14  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41070
+	* gfortran.dg/structure_constructor_10.f90: New.
+
+	2009-08-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/40934
+	* gcc.target/i386/pr40934.c: New.
+
+	2009-08-13  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/40995
+	* gfortran.dg/intrinsic_4.f90: New.
+
+	2009-08-13  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41047
+	* gcc.dg/tree-ssa/ssa-ccp-27.c: New testcase.
+
+	2009-08-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41011
+	* gfortran.dg/pr41011.f: New testcase.
+
+	2009-08-10  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41006
+	* gcc.c-torture/compile/pr41006-1.c: New testcase.
+	* gcc.c-torture/compile/pr41006-2.c: Likewise.
+
+	2009-08-10  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/40866
+	* g++.dg/expr/stmt-expr-1.C: New test.
+
+	2009-08-09  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/41008
+	* gcc.dg/vect/O1-pr41008.c: New test.
+
+	2009-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40991
+	* g++.dg/torture/pr40991.C: New testcase.
+
+	2009-08-06  Uros Bizjak  <ubizjak@gmail.com>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/40957
+	* gcc.target/i386/pr40957.c: New test.
+
+	2009-08-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40964
+	* gcc.c-torture/compile/pr40964.c: New testcase.
+
+2009-08-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/40847
+	* gfortran.dg/transfer_resolve_1.f90 : New test.
+
+2009-08-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41019
+	* gcc.target/i386/pr41019.c: New test.
+
+2009-08-16  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/37801
+	* gcc/testsuite/gcc.dg/debug/20020224-1.c: Adjust the comment.
+	Make sure to trigger inlining optimizations.
+	* gcc/testsuite/gcc.dg/debug/dwarf2/inline2.c: New test.
+
+2009-08-12  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/41033
+	* gcc.dg/pr41033.c: New test.
+
+2009-08-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2009-04-30  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.dg/ssp-1.c (__stack_chk_fail): Remove static.
+
+2009-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41016
+	* gcc.c-torture/compile/pr41016.c: New testcase.
+
+2009-08-08  Laurent GUERBY  <laurent@guerby.net>
+
+        * ada/acats/support/impdef.a: Tweak timing constants. Add
+        Long_Minimum_Task_Switch and Long_Switch_To_New_Task.
+        * ada/acats/tests/c9/c940005.a: Use new timing constants.
+        * ada/acats/tests/c9/c940007.a: Likewise.
+        * ada/acats/tests/c9/c94001c.ada: Likewise.
+        * ada/acats/tests/c9/c94006a.ada: Likewise.
+        * ada/acats/tests/c9/c94008c.ada: Likewise.
+        * ada/acats/tests/c9/c951002.a: Likewise.
+        * ada/acats/tests/c9/c954a01.a: Likewise.
+        * ada/acats/tests/c9/c96001a.ada: Likewise.
+        * ada/acats/tests/c9/c97307a.ada: Likewise.
+
+2009-08-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40948
+	* g++.dg/ext/complit12.C: Expand.
+
 2009-08-05  Uros Bizjak  <ubizjak@gmail.com>
 	    Mikulas Patocka  <mikulas@artax.karlin.mff.cuni.cz>
 
@@ -63,7 +179,7 @@
 
 	PR c/39902
 	* gcc.dg/dfp/pr39902.c: Fix typos in constant suffixes.
-	
+
 2009-07-29  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/40851
@@ -366,7 +482,7 @@
 
 	PR target/40587
 	* gfortran.dg/pr40587.f: New test.
-	
+
 2009-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/40638
@@ -753,7 +869,7 @@
 2009-05-14  Ben Elliston  <bje@au.ibm.com>
 
 	Backport from mainline:
-	2009-05-14  Ben Elliston  <bje@au.ibm.com> 
+	2009-05-14  Ben Elliston  <bje@au.ibm.com>
 
 	PR middle-end/40035
 	* gcc.c-torture/compile/pr40035.c: New test.
@@ -1229,7 +1345,7 @@
 
 	PR objc/27377
 	* objc.dg/conditional-1.m: New tests.
-	
+
 2009-04-08  Dodji Seketeli  <dodji@redhat.com>
 
 	PR c++/39637
@@ -1255,7 +1371,7 @@
 2009-04-06  Laurent GUERBY  <laurent@guerby.net>
 
 	* lib/gnat.exp: Handle multilib.
-	
+
 2009-04-06  Jason Merrill  <jason@redhat.com>
 
 	PR c++/35146
@@ -1513,7 +1629,7 @@
 2009-03-23  Jason Merrill  <jason@redhat.com>
 
 	* g++.dg/cpp0x/auto12.C: Add variadic test.
-	
+
 	PR c++/39526
 	* g++.dg/warn/Wshadow-4.C: New test.
 
@@ -1848,8 +1964,8 @@
 	* gcc.dg/vect/vect-complex-1.c: Add attribute aligned to the arrays.
 	* gcc.dg/vect/vect-iv-6.c: Don't expect to fail to vectorize
 	on targets without vector misalignment support.
-	* lib/target-supports.exp 
-	(check_effective_target_vect_short_mult): Add 
+	* lib/target-supports.exp
+	(check_effective_target_vect_short_mult): Add
 	check_effective_target_arm32.
 
 2009-03-02  Sebastian Pop  <sebastian.pop@amd.com>
@@ -2195,7 +2311,7 @@
 2009-02-15  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.dg/struct/w_prof_single_str_global.c: Mask return value.
-	
+
 2009-02-13  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* gcc.target/spu/intrinsics-sr.c: New test.
@@ -2535,7 +2651,7 @@
 	PR middle-end/35854
 	* gcc.dg/lower-subreg-1.c: Renamed dump pass from "subreg"
 	to "subreg1".
-	
+
 2009-01-29  Steve Ellcey  <sje@cup.hp.com>
 
 	PR middle-end/38857
@@ -3009,7 +3125,7 @@
 	* g++.dg/eh/check-vect.h (sig_ill_handler): Remove AltiVec runtime
 	check.
 	* g++.dg/ext/altivec_check.h: Delete.
-	
+
 2009-01-13  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* gcc.target/powerpc/altivec-macros.c: Require a powerpc_altivec_ok
@@ -3405,7 +3521,7 @@
 	dg-timeout-factor.
 	* gcc.dg/20020425-1.c: Likewise.
 	* gcc.dg/pch/pch.exp: Likewise.
-	
+
 2009-01-05  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/38657
@@ -3420,7 +3536,7 @@
 
 	PR fortran/38669
 	PR fortran/38726
-	* gfortran.dg/elemental_subroutine_7.f90: 
+	* gfortran.dg/elemental_subroutine_7.f90:
 	Fix p values so that it can be used as vector subscript.
 
 2009-01-05  Jason Merrill  <jason@redhat.com>
