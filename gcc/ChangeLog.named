@@ -110,7 +110,7 @@
 	Handle named address spaces.
 	(propagate_rtx_1): Update call.
 
-	* ifcvt.c (noce_try_cmove_arith): Handle named address spaces.
+	* ifcvt.c (noce_try_cmove_arith): Handle named address spaces.
 
 	* sched-deps.c: Include "target.h".
 	(sched_analyze_1): Handle named address spaces.
