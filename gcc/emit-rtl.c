@@ -1390,7 +1390,9 @@ operand_subword (rtx op, unsigned int offset, int validate_address, enum machine
 
       else if (reload_completed)
 	{
-	  if (! strict_memory_address_p (word_mode, XEXP (new_rtx, 0)))
+	  if (! strict_memory_address_addr_space_p (word_mode,
+						    XEXP (new_rtx, 0),
+						    MEM_ADDR_SPACE (op)))
 	    return 0;
 	}
       else

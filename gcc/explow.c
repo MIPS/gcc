@@ -312,21 +312,21 @@ break_out_memory_refs (rtx x)
   return x;
 }
 
-/* Given X, a memory address in ptr_mode, convert it to an address
-   in Pmode, or vice versa (TO_MODE says which way).  We take advantage of
-   the fact that pointers are not allowed to overflow by commuting arithmetic
-   operations over conversions so that address arithmetic insns can be
-   used.  */
+/* Given X, a memory address in address space AS' pointer mode, convert it to
+   an address in the address space's address mode, or vice versa (TO_MODE says
+   which way).  We take advantage of the fact that pointers are not allowed to
+   overflow by commuting arithmetic operations over conversions so that address
+   arithmetic insns can be used.  */
 
 rtx
-convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED, 
-			rtx x)
+convert_memory_address_addr_space (enum machine_mode to_mode ATTRIBUTE_UNUSED, 
+				   rtx x, addr_space_t as ATTRIBUTE_UNUSED)
 {
 #ifndef POINTERS_EXTEND_UNSIGNED
   gcc_assert (GET_MODE (x) == to_mode || GET_MODE (x) == VOIDmode);
   return x;
 #else /* defined(POINTERS_EXTEND_UNSIGNED) */
-  enum machine_mode from_mode;
+  enum machine_mode pointer_mode, address_mode, from_mode;
   rtx temp;
   enum rtx_code code;
 
@@ -334,7 +334,9 @@ convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED,
   if (GET_MODE (x) == to_mode)
     return x;
 
-  from_mode = to_mode == ptr_mode ? Pmode : ptr_mode;
+  pointer_mode = targetm.addr_space.pointer_mode (as);
+  address_mode = targetm.addr_space.address_mode (as);
+  from_mode = to_mode == pointer_mode ? address_mode : pointer_mode;
 
   /* Here we handle some special cases.  If none of them apply, fall through
      to the default case.  */
@@ -375,7 +377,8 @@ convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED,
 
     case CONST:
       return gen_rtx_CONST (to_mode,
-			    convert_memory_address (to_mode, XEXP (x, 0)));
+			    convert_memory_address_addr_space
+			      (to_mode, XEXP (x, 0), as));
       break;
 
     case PLUS:
@@ -389,10 +392,12 @@ convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED,
       if (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode)
 	  || (GET_CODE (x) == PLUS
 	      && CONST_INT_P (XEXP (x, 1))
-	      && (XEXP (x, 1) == convert_memory_address (to_mode, XEXP (x, 1))
+	      && (XEXP (x, 1) == convert_memory_address_addr_space
+				   (to_mode, XEXP (x, 1), as)
                  || POINTERS_EXTEND_UNSIGNED < 0)))
 	return gen_rtx_fmt_ee (GET_CODE (x), to_mode,
-			       convert_memory_address (to_mode, XEXP (x, 0)),
+			       convert_memory_address_addr_space
+				 (to_mode, XEXP (x, 0), as),
 			       XEXP (x, 1));
       break;
 
@@ -414,10 +419,8 @@ memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
 {
   rtx oldx = x;
   enum machine_mode address_mode = targetm.addr_space.address_mode (as);
-  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
 
-  if (address_mode != pointer_mode)
-    x = convert_memory_address (address_mode, x);
+  x = convert_memory_address_addr_space (address_mode, x, as);
 
   /* By passing constant addresses through registers
      we get a chance to cse them.  */

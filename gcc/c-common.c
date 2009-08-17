@@ -6418,9 +6418,10 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
       if (POINTER_TYPE_P (type))
 	{
+	  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
 	  tree (*fn)(tree, enum machine_mode, bool);
 
-	  if (!targetm.valid_pointer_mode (mode))
+	  if (!targetm.addr_space.valid_pointer_mode (mode, as))
 	    {
 	      error ("invalid pointer mode %qs", p);
 	      return NULL_TREE;

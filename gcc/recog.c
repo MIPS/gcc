@@ -376,7 +376,9 @@ verify_changes (int num)
 
       if (MEM_P (object))
 	{
-	  if (! memory_address_p (GET_MODE (object), XEXP (object, 0)))
+	  if (! memory_address_addr_space_p (GET_MODE (object),
+					     XEXP (object, 0),
+					     MEM_ADDR_SPACE (object)))
 	    break;
 	}
       else if (REG_P (changes[i].old)
@@ -975,7 +977,7 @@ general_operand (rtx op, enum machine_mode mode)
 	return 0;
 
       /* Use the mem's mode, since it will be reloaded thus.  */
-      if (memory_address_p (GET_MODE (op), y))
+      if (memory_address_addr_space_p (GET_MODE (op), y, MEM_ADDR_SPACE (op)))
 	return 1;
     }
 
@@ -1259,31 +1261,23 @@ pop_operand (rtx op, enum machine_mode mode)
   return XEXP (op, 0) == stack_pointer_rtx;
 }
 
-/* Return 1 if ADDR is a valid memory address for mode MODE.  */
+/* Return 1 if ADDR is a valid memory address
+   for mode MODE in address space AS.  */
 
 int
-memory_address_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx addr)
+memory_address_addr_space_p (enum machine_mode mode ATTRIBUTE_UNUSED,
+			     rtx addr, addr_space_t as)
 {
 #ifdef GO_IF_LEGITIMATE_ADDRESS
+  gcc_assert (as == 0);
   GO_IF_LEGITIMATE_ADDRESS (mode, addr, win);
   return 0;
 
  win:
   return 1;
 #else
-  return targetm.legitimate_address_p (mode, addr, 0);
+  return targetm.addr_space.legitimate_address_p (mode, addr, 0, as);
 #endif
-}
-
-/* Like memory_address_p, expect for a distinct named address space.  */
-
-int
-memory_address_addr_space_p (enum machine_mode mode, rtx addr, addr_space_t as)
-{
-  if (!as)
-    return memory_address_p (mode, addr);
-  else
-    return targetm.addr_space.legitimate_address_p (mode, addr, 0, as);
 }
 
 /* Return 1 if OP is a valid memory reference with mode MODE,
@@ -1881,7 +1875,8 @@ int
 offsettable_memref_p (rtx op)
 {
   return ((MEM_P (op))
-	  && offsettable_address_p (1, GET_MODE (op), XEXP (op, 0)));
+	  && offsettable_address_addr_space_p (1, GET_MODE (op), XEXP (op, 0),
+					       MEM_ADDR_SPACE (op)));
 }
 
 /* Similar, but don't require a strictly valid mem ref:
@@ -1891,12 +1886,13 @@ int
 offsettable_nonstrict_memref_p (rtx op)
 {
   return ((MEM_P (op))
-	  && offsettable_address_p (0, GET_MODE (op), XEXP (op, 0)));
+	  && offsettable_address_addr_space_p (0, GET_MODE (op), XEXP (op, 0),
+					       MEM_ADDR_SPACE (op)));
 }
 
 /* Return 1 if Y is a memory address which contains no side effects
-   and would remain valid after the addition of a positive integer
-   less than the size of that mode.
+   and would remain valid for address space AS after the addition of
+   a positive integer less than the size of that mode.
 
    We assume that the original address is valid and do not check it.
    We do check that it is valid for narrower modes.
@@ -1905,14 +1901,16 @@ offsettable_nonstrict_memref_p (rtx op)
    for the sake of use in reload.c.  */
 
 int
-offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
+offsettable_address_addr_space_p (int strictp, enum machine_mode mode, rtx y,
+				  addr_space_t as)
 {
   enum rtx_code ycode = GET_CODE (y);
   rtx z;
   rtx y1 = y;
   rtx *y2;
-  int (*addressp) (enum machine_mode, rtx) =
-    (strictp ? strict_memory_address_p : memory_address_p);
+  int (*addressp) (enum machine_mode, rtx, addr_space_t) =
+    (strictp ? strict_memory_address_addr_space_p
+	     : memory_address_addr_space_p);
   unsigned int mode_sz = GET_MODE_SIZE (mode);
 
   if (CONSTANT_ADDRESS_P (y))
@@ -1942,7 +1940,7 @@ offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
       *y2 = plus_constant (*y2, mode_sz - 1);
       /* Use QImode because an odd displacement may be automatically invalid
 	 for any wider mode.  But it should be valid for a single byte.  */
-      good = (*addressp) (QImode, y);
+      good = (*addressp) (QImode, y, as);
 
       /* In any case, restore old contents of memory.  */
       *y2 = y1;
@@ -1967,7 +1965,7 @@ offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
 
   /* Use QImode because an odd displacement may be automatically invalid
      for any wider mode.  But it should be valid for a single byte.  */
-  return (*addressp) (QImode, z);
+  return (*addressp) (QImode, z, as);
 }
 
 /* Return 1 if ADDR is an address-expression whose effect depends
@@ -2511,11 +2509,14 @@ constrain_operands (int strict)
 		if (MEM_P (op))
 		  {
 		    if (strict > 0
-			&& !strict_memory_address_p (GET_MODE (op),
-						     XEXP (op, 0)))
+			&& !strict_memory_address_addr_space_p
+			     (GET_MODE (op), XEXP (op, 0),
+			      MEM_ADDR_SPACE (op)))
 		      break;
 		    if (strict == 0
-			&& !memory_address_p (GET_MODE (op), XEXP (op, 0)))
+			&& !memory_address_addr_space_p
+			     (GET_MODE (op), XEXP (op, 0),
+			      MEM_ADDR_SPACE (op)))
 		      break;
 		    win = 1;
 		  }

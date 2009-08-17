@@ -863,7 +863,12 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	return rtl_hooks.gen_lowpart_no_emit (mode, op);
 
 #if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
-      if (! POINTERS_EXTEND_UNSIGNED
+      /* As we do not know which address space the pointer is refering to,
+	 we can do this only if the target does not support different pointer
+	 or address modes depending on the address space.  */
+      if (targetm.addr_space.address_mode == default_addr_space_address_mode
+	  && targetm.addr_space.pointer_mode == default_addr_space_pointer_mode
+	  && ! POINTERS_EXTEND_UNSIGNED
 	  && mode == Pmode && GET_MODE (op) == ptr_mode
 	  && (CONSTANT_P (op)
 	      || (GET_CODE (op) == SUBREG
@@ -885,7 +890,12 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	return rtl_hooks.gen_lowpart_no_emit (mode, op);
 
 #if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
-      if (POINTERS_EXTEND_UNSIGNED > 0
+      /* As we do not know which address space the pointer is refering to,
+	 we can do this only if the target does not support different pointer
+	 or address modes depending on the address space.  */
+      if (targetm.addr_space.address_mode == default_addr_space_address_mode
+	  && targetm.addr_space.pointer_mode == default_addr_space_pointer_mode
+	  && POINTERS_EXTEND_UNSIGNED > 0
 	  && mode == Pmode && GET_MODE (op) == ptr_mode
 	  && (CONSTANT_P (op)
 	      || (GET_CODE (op) == SUBREG

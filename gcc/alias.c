@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "pointer-set.h"
 #include "tree-flow.h"
+#include "targhooks.h"
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -1040,6 +1041,12 @@ find_base_value (rtx src)
       return 0;
 
     case TRUNCATE:
+      /* As we do not know which address space the pointer is refering to, we can
+	 handle this only if the target does not support different pointer or
+	 address modes depending on the address space.  */
+      if (targetm.addr_space.address_mode != default_addr_space_address_mode
+          || targetm.addr_space.pointer_mode != default_addr_space_pointer_mode)
+	break;
       if (GET_MODE_SIZE (GET_MODE (src)) < GET_MODE_SIZE (Pmode))
 	break;
       /* Fall through.  */
@@ -1054,6 +1061,12 @@ find_base_value (rtx src)
 
     case ZERO_EXTEND:
     case SIGN_EXTEND:	/* used for NT/Alpha pointers */
+      /* As we do not know which address space the pointer is refering to, we can
+	 handle this only if the target does not support different pointer or
+	 address modes depending on the address space.  */
+      if (targetm.addr_space.address_mode != default_addr_space_address_mode
+          || targetm.addr_space.pointer_mode != default_addr_space_pointer_mode)
+	break;
       {
 	rtx temp = find_base_value (XEXP (src, 0));
 
@@ -1446,6 +1459,12 @@ find_base_term (rtx x)
       return REG_BASE_VALUE (x);
 
     case TRUNCATE:
+      /* As we do not know which address space the pointer is refering to, we can
+	 handle this only if the target does not support different pointer or
+	 address modes depending on the address space.  */
+      if (targetm.addr_space.address_mode != default_addr_space_address_mode
+          || targetm.addr_space.pointer_mode != default_addr_space_pointer_mode)
+	return 0;
       if (GET_MODE_SIZE (GET_MODE (x)) < GET_MODE_SIZE (Pmode))
 	return 0;
       /* Fall through.  */
@@ -1460,6 +1479,12 @@ find_base_term (rtx x)
 
     case ZERO_EXTEND:
     case SIGN_EXTEND:	/* Used for Alpha/NT pointers */
+      /* As we do not know which address space the pointer is refering to, we can
+	 handle this only if the target does not support different pointer or
+	 address modes depending on the address space.  */
+      if (targetm.addr_space.address_mode != default_addr_space_address_mode
+          || targetm.addr_space.pointer_mode != default_addr_space_pointer_mode)
+	return 0;
       {
 	rtx temp = find_base_term (XEXP (x, 0));
 

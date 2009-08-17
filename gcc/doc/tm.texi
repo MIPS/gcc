@@ -9845,6 +9845,16 @@ The default version of this hook returns @code{Pmode} for the
 generic address space only.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_ADDR_SPACE_VALID_POINTER_MODE (enum machine_mode @var{mode}, addr_space_t @var{as})
+Define this to return nonzero if the port can handle pointers
+with machine mode @var{mode} to address space @var{as}.  This target
+hook is the same as the @code{TARGET_VALID_POINTER_MODE} target hook,
+except that it includes explicit named address space support.  The default
+version of this hook returns true for the modes returned by either the
+@code{TARGET_ADDR_SPACE_POINTER_MODE} or @code{TARGET_ADDR_SPACE_ADDRESS_MODE}
+target hooks for the given address space.
+@end deftypefn
+
 @deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P (enum machine_mode @var{mode}, rtx @var{exp}, bool @var{strict}, addr_space_t @var{as})
 Define this to return true if @var{exp} is a valid address for mode
 @var{mode} in the named address space @var{as}.  The @var{strict}

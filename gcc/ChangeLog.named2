@@ -1,5 +1,5 @@
 [gcc changes]
-2009-08-14  Ben Elliston  <bje@au.ibm.com>
+2009-08-17  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -13,6 +13,7 @@
 	(TARGET_ADDR_SPACE_POINTER_MODE): Document new named address space
 	target hook.
 	(TARGET_ADDR_SPACE_ADDRESS_MODE): Ditto.
+	(TARGET_ADDR_SPACE_VALID_POINTER_MODE): Ditto.
 	(TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P): Ditto.
 	(TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS): Ditto.
 	(TARGET_ADDR_SPACE_SUBSET_P): Ditto.
@@ -33,6 +34,7 @@
 	for named address space support.
 	(default_addr_space_pointer_mode): Ditto.
 	(default_addr_space_address_mode): Ditto.
+	(default_addr_space_valid_pointer_mode): Ditto.
 	(default_addr_space_legitimate_address_p): Ditto.
 	(default_addr_space_legitimize_address): Ditto.
 	(default_addr_space_subset_p): Ditto.
@@ -41,6 +43,7 @@
 	* targhooks.c (default_valid_pointer_mode): Add prototype.
 	(default_addr_space_pointer_mode): Ditto.
 	(default_addr_space_address_mode): Ditto.
+	(default_addr_space_valid_pointer_mode): Ditto.
 	(default_addr_space_legitimate_address_p): Ditto.
 	(default_addr_space_legitimize_address): Ditto.
 	(default_addr_space_subset_p): Ditto.
@@ -106,20 +109,43 @@
 	support.
 
 	* expr.c (emit_move_insn): Add named address space support.
+	(move_by_pieces): Ditto.
+	(emit_block_move_hints): Ditto.
+	(emit_block_move_via_loop): Ditto.
+	(store_by_pieces): Ditto.
+	(store_by_pieces_1): Ditto.
+	(clear_storage_hints): Ditto.
 	(expand_assignment): Ditto.
-	(expand_expr_addr_expr): Ditto.
+	(store_expr): Ditto.
+	(store_constructor): Ditto.
 	(expand_expr_real_1): Ditto.
+	(expand_expr_addr_expr): Ditto.
+	(expand_expr_addr_expr_1): Add address space argument.
+	Handle named address spaces.  Update recursive calls.
 
 	* expr.h (memory_address): Change to a macro passing 0 as the
 	named address space.
 	(memory_address_addr_space): New declaration.
 	(change_address_addr_space): Ditto.
 
-	* recog.c (memory_address_addr_space_p): Like memory_address_p,
-	except take a named address space identifier.
+	* recog.c (verify_changes): Handle named address spaces.
+	(general_operand): Likewise.
+	(memory_address_p): Rename to ...
+	(memory_address_addr_space_p): ... this function.  Add addres space
+	argument.  Handle named address spaces.
+	(offsettable_memref_p): Handle named address spaces.
+	(offsettable_nonstrict_memref_p): Likewise.
+	(offsettable_address_p): Rename to ...
+	(offsettable_address_addr_space_p): ... this.  Add address space
+	argument.  Handle named address spaces.
+	(constrain_operands): Handle named address spaces.
 
-	* recog.h (memory_address_addr_space_p): New declaration.
-	(strict_memory_address_addr_space_p): Ditto.
+	* recog.h (memory_address_p): Implement as macro.
+	(memory_address_addr_space_p): Add prototype.
+	(strict_memory_address_p): Likewise.
+	(strict_memory_address_addr_space_p): Add prototype.
+	(offsettable_address_p): Likewise.
+	(offsettable_address_addr_space_p): Add prototype.
 
 	* c-decl.c (diagnose_mismatched_decls): Add named address space support.
 	(shadow_tag_warned): Ditto.
@@ -156,6 +182,7 @@
 	* emit-rtl.c: Include target.h.
 	(mem_attrs_htab_hash): Add named address space support.
 	(mem_attrs_htab_eq): Ditto.
+	(operand_subword): Ditto.
 	(get_mem_attrs): Ditto.
 	(set_mem_attributes_minus_bitpos): Ditto.
 	(set_mem_alias_set): Ditto.
@@ -181,9 +208,12 @@
 
 	* explow.c (break_out_memory_refs): Deal with pointers that can be
 	different sizes due to named address space support.
-	(memory_address_addr_space): New function, like memory_address,
-	except add an explicit named address space.
-	(memory_address): Remove function.
+	(convert_memory_address): Rename to ...
+	(convert_memory_address_addr_space): ... this.  Add address space
+	argument.  Handle named address spaces.  Update recursive calls.
+	(memory_address): Rename to ...
+	(memory_address_addr_space): ... this.  Add address space
+	argument.  Handle named address spaces.
 	(validize_mem): Add support for addresses in a different named
 	address space.
 	(promote_mode): Ditto.
@@ -197,13 +227,37 @@
 	(make_decl_rtl): Likewise.
 	(narrowing_initializer_constant_valid_p): Preserve conversions
 	between pointers to different address spaces.
-	(initializer_constant_valid_p): Likewise.
+	(initializer_constant_valid_p): Likewise.  Do not refer to
+	POINTER_SIZE.
+	(output_constant): Handle named address spaces.
 	(default_valid_pointer_mode): Move to targhooks.c.
 	* output.h (default_valid_pointer_mode): Move to targhooks.h.
 
 	* tree-ssa.c (useless_type_conversion_p_1): Add named address
 	space support.
 	(useless_type_conversion_p): Ditto.
+
+	* tree-flow.h (multiplier_allowed_in_address_p): Add address space
+	argument.
+	(addr_for_mem_ref): Likewise.
+	* tree-ssa-address.h: Include "target.h".
+	(templates): Replace by ...
+	(mem_addr_template_list): ... this new vector.
+	(TEMPL_IDX): Handle address space numbers.
+	(gen_addr_rtx): Add address mode argument.
+	(addr_for_mem_ref): Add address space argument.  Handle named
+	address spaces.
+	(valid_mem_ref_p): Likewise.
+	(create_mem_ref_raw): Handle named address spaces.
+	(most_expensive_mult_to_index): Update call to
+	multiplier_allowed_in_address_p.
+	* tree-ssa-loop-ivopts.c (produce_memory_decl_rtl): Handle named
+	address spaces.
+	(computation_cost): Likewise.
+	(get_computation_cost_at): Likewise.
+	(multiplier_allowed_in_address_p): Add address space argument.
+	Handle named address spaces.
+	(get_address_cost): Likewise.
 
 	* target-def.h (TARGET_ADDR_SPACE_POINTER_MODE): Add new hook for
 	named address space support.
@@ -218,6 +272,21 @@
 
 	* rtl.h (struct mem_attrs): Add named address space field.
 	(MEM_ADDR_SPACE): New accessor macro for named address space.
+	(address_cost): Add address space argument.
+	(convert_memory_address): Implement as macro.
+	(convert_memory_address_addr_space): Add prototype.
+
+	* rtlanal.c (address_cost): Add address space argument.  Handle named
+	address spaces.
+	(nonzero_bits1): Guard pointer size optimizations.
+	(num_sign_bit_copies1): Likewise.
+	* alias.c: Include "targhooks.h".
+	(find_base_value): Guard pointer size optimizations.
+	(find_base_term): Likewise.
+	* simplify-rtx.c (simplify_unary_operation_1): Guard
+	pointer size optimizations.
+	* loop-invariant.c (create_new_invariant): Update call to
+	address_cost.
 
 	* rtl.c (rtx_equal_p_cb): MEMs refering to different address
 	spaces are not equivalent.
@@ -231,10 +300,60 @@
 	(canon_true_dependence): Likewise.
 	(write_dependence_p): Likewise.
 
+	* reload.h (form_sum): Add MODE argument.
+	* reload.c (maybe_memory_address_p): Rename to ...
+	(maybe_memory_address_addr_space_p): ... this.  Handle named
+	address spaces.
+	(strict_memory_address_p): Rename to ...
+	(strict_memory_address_addr_space_p): ... this.  Handle named
+	address spaces.
+	(get_secondary_mem): Handle named address spaces.
+	(find_reloads): Likewise.
+	(find_reloads_toplev): Likewise.
+	(find_reloads_address): Likewise.
+	(find_reloads_subreg_address): Likewise.
+	(find_reloads_address_1): Do not refer to Pmode.
+	(form_sum): Add MODE argument.  Use it instead of referring to Pmode.
+	Update recursive calls.
+	(subst_indexed_address): Update calls to form_sum.
+	* reload1.c (reload): Handle named address spaces.
+	(eliminate_regs_1): Update call to form_sum.
+
+	* rtlhooks.c (gen_lowpart_if_possible): Handle named address spaces.
+
+	* fwprop.c (should_replace_address): Add address space argument.
+	Handle named address spaces.
+	(propagate_rtx_1): Update call.
+
+	* ifcvt.c (noce_try_cmove_arith): Handle named address spaces.
+
+	* sched-deps.c: Include "target.h".
+	(sched_analyze_1): Handle named address spaces.
+	(sched_analyze_2): Likewise.
+	* sel-sched-dump.c: Include "target.h".
+	(debug_mem_addr_value): Handle named address spaces.
+
+	* dse.c (replace_inc_dec): Do not refer to Pmode.
+	(canon_address): Handle named address spaces.
+
+	* regmove.c (try_auto_increment): Do not refer to Pmode.
+
+	* regcprop.c (kill_autoinc_value): Do not refer to Pmode.
+
+	* tree-vect-data-refs.c (vect_create_data_ref_ptr): Do not
+	refer to ptr_mode.
+
+	* expmed.c (make_tree): Handle named address spaces.
+
+	* cselib.c (cselib_record_sets): Handle named address spaces.
+
+	* combine.c (find_split_point): Handle named address spaces.
+
 	* c-common.c (c_common_reswords): If TARGET_ADDR_SPACE_KEYWORDS is
 	defined, add the named address space keywords.
 	(c_addr_space_name): New function.
 	(complete_array_type): Add named address space support.
+	(handle_mode_attribute): Likewise.
 
 	* c-common.h (enum rid): Add support for 16 named address space
 	keywords.
@@ -247,6 +366,9 @@
 	* Makefile.in (convert.o): Add $(TARGET_H) dependency.
 	(emit-rtl.o): Ditto.
 	(auto-inc-dec.o): Ditto.
+	(tree-ssa-address.o): Ditto.
+	(sched-deps.o): Ditto.
+	(alias.o): Add targhooks.h dependency.
 
 	* c-parser.c (c_parse_init): Add assertion to make sure RID
 	keywords fit in a byte.
@@ -275,7 +397,6 @@
 	(TARGET_ADDR_SPACE_CONVERT): Ditto.
 	(TARGET_ASM_SELECT_SECTION): Ditto.
 	(TARGET_ASM_UNIQUE_SECTION): Ditto.
-	(TARGET_VALID_POINTER_MODE): Ditto.
 	(TARGET_ASM_UNALGINED_DI_OP): Define to be .quad/.long to work
 	around assembler limitations on @ppu declarations.
 	(TARGET_ASM_UNALIGNED_SI_OP): Ditto.
@@ -299,8 +420,6 @@
 	as inline code.
 	(expand_ea_mem): Expand references to __ea memory.
 	(spu_expand_mov): Add support for __ea address space.
-	(spu_valid_pointer_mode): New function to return true for the
-	various modes pointers can be.
 	(spu_addr_space_pointer_mode): New target hook, return the
 	appropriate mode for generic and __ea named address spaces.
 	(spu_addr_space_address_mode): New target hook, return the
@@ -355,7 +474,7 @@
 	(convert_to_integer): Ditto.
 
 [gcc/testsuite changes]
-2009-08-14  Ben Elliston  <bje@au.ibm.com>
+2009-08-17  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 

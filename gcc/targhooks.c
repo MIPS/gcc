@@ -770,6 +770,18 @@ default_addr_space_address_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
   return Pmode;
 }
 
+/* Named address space version of valid_pointer_mode.  */
+
+bool
+default_addr_space_valid_pointer_mode (enum machine_mode mode, addr_space_t as)
+{
+  if (as)
+    return (mode == targetm.addr_space.pointer_mode (as)
+	    || mode == targetm.addr_space.address_mode (as));
+
+  return targetm.valid_pointer_mode (mode);
+}
+
 /* Named address space version of legitimate_address_p.  */
 
 bool

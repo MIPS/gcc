@@ -688,6 +688,10 @@ struct gcc_target
     /* MODE to use for an address in another address space.  */
     enum machine_mode (* address_mode) (addr_space_t);
 
+    /* True if MODE is valid for a pointer in __attribute__((mode("MODE")))
+       in another address space.  */
+    bool (* valid_pointer_mode) (enum machine_mode, addr_space_t);
+
     /* True if an addrress is a valid memory address to a given named address
        space for a given mode.  */
     bool (* legitimate_address_p) (enum machine_mode, rtx, bool, addr_space_t);

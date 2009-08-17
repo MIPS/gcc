@@ -212,7 +212,6 @@ static tree spu_builtin_mask_for_load (void);
 static int spu_builtin_vectorization_cost (bool);
 static bool spu_vector_alignment_reachable (const_tree, bool);
 static tree spu_builtin_vec_perm (tree, tree *);
-static bool spu_valid_pointer_mode (enum machine_mode mode);
 static enum machine_mode spu_addr_space_pointer_mode (addr_space_t);
 static enum machine_mode spu_addr_space_address_mode (addr_space_t);
 static bool spu_addr_space_subset_p (addr_space_t, addr_space_t);
@@ -313,9 +312,6 @@ static const struct attribute_spec spu_attribute_table[] =
 
 #undef TARGET_ADDR_SPACE_CONVERT
 #define TARGET_ADDR_SPACE_CONVERT spu_addr_space_convert
-
-#undef TARGET_VALID_POINTER_MODE
-#define TARGET_VALID_POINTER_MODE spu_valid_pointer_mode
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS spu_init_builtins
@@ -6768,14 +6764,6 @@ spu_builtin_vec_perm (tree type, tree *mask_element_type)
 
   gcc_assert (d);
   return d->fndecl;
-}
-
-/* Return valid pointer modes.  */
-static bool
-spu_valid_pointer_mode (enum machine_mode mode)
-{
-  return (mode == ptr_mode || mode == Pmode ||
-	  (spu_ea_model != 32 && mode == DImode));
 }
 
 /* Return the appropriate mode for a named address pointer.  */
