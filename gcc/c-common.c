@@ -482,6 +482,7 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_hot_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cold_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
+static tree handle_noclone_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
 static tree handle_gnu_inline_attribute (tree *, tree, tree, int, bool *);
@@ -738,6 +739,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noreturn_attribute },
   { "noinline",               0, 0, true,  false, false,
 			      handle_noinline_attribute },
+  { "noclone",                0, 0, true,  false, false,
+			      handle_noclone_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
   { "gnu_inline",             0, 0, true,  false, false,
@@ -1148,6 +1151,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
   bool op0_const = true, op1_const = true, op2_const = true;
   bool op0_const_self = true, op1_const_self = true, op2_const_self = true;
   bool nowarning = TREE_NO_WARNING (expr);
+  int unused_p;
 
   /* This function is not relevant to C++ because C++ folds while
      parsing, and may need changes to be correct for C++ when C++
@@ -1323,6 +1327,10 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	  : fold_build2_loc (loc, code, TREE_TYPE (expr), op0, op1);
       else
 	ret = fold (expr);
+      if (TREE_OVERFLOW_P (ret)
+	  && !TREE_OVERFLOW_P (op0)
+	  && !TREE_OVERFLOW_P (op1))
+	overflow_warning (EXPR_LOCATION (expr), ret);
       goto out;
 
     case INDIRECT_REF:
@@ -1357,6 +1365,20 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	  TREE_SIDE_EFFECTS (ret) = TREE_SIDE_EFFECTS (expr);
 	  TREE_THIS_VOLATILE (ret) = TREE_THIS_VOLATILE (expr);
 	}
+      switch (code)
+	{
+	case FIX_TRUNC_EXPR:
+	case FLOAT_EXPR:
+	CASE_CONVERT:
+	  /* Don't warn about explicit conversions.  We will already
+	     have warned about suspect implicit conversions.  */
+	  break;
+
+	default:
+	  if (TREE_OVERFLOW_P (ret) && !TREE_OVERFLOW_P (op0))
+	    overflow_warning (EXPR_LOCATION (expr), ret);
+	  break;
+	}
       goto out;
 
     case TRUTH_ANDIF_EXPR:
@@ -1366,7 +1388,14 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       orig_op0 = op0 = TREE_OPERAND (expr, 0);
       orig_op1 = op1 = TREE_OPERAND (expr, 1);
       op0 = c_fully_fold_internal (op0, in_init, &op0_const, &op0_const_self);
+
+      unused_p = (op0 == (code == TRUTH_ANDIF_EXPR
+			  ? truthvalue_false_node
+			  : truthvalue_true_node));
+      c_inhibit_evaluation_warnings += unused_p;
       op1 = c_fully_fold_internal (op1, in_init, &op1_const, &op1_const_self);
+      c_inhibit_evaluation_warnings -= unused_p;
+
       if (op0 != orig_op0 || op1 != orig_op1 || in_init)
 	ret = in_init
 	  ? fold_build2_initializer_loc (loc, code, TREE_TYPE (expr), op0, op1)
@@ -1395,8 +1424,15 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       orig_op1 = op1 = TREE_OPERAND (expr, 1);
       orig_op2 = op2 = TREE_OPERAND (expr, 2);
       op0 = c_fully_fold_internal (op0, in_init, &op0_const, &op0_const_self);
+
+      c_inhibit_evaluation_warnings += (op0 == truthvalue_false_node);
       op1 = c_fully_fold_internal (op1, in_init, &op1_const, &op1_const_self);
+      c_inhibit_evaluation_warnings -= (op0 == truthvalue_false_node);
+
+      c_inhibit_evaluation_warnings += (op0 == truthvalue_true_node);
       op2 = c_fully_fold_internal (op2, in_init, &op2_const, &op2_const_self);
+      c_inhibit_evaluation_warnings -= (op0 == truthvalue_true_node);
+
       if (op0 != orig_op0 || op1 != orig_op1 || op2 != orig_op2)
 	ret = fold_build3_loc (loc, code, TREE_TYPE (expr), op0, op1, op2);
       else
@@ -5923,6 +5959,23 @@ handle_noinline_attribute (tree *node, tree name,
   if (TREE_CODE (*node) == FUNCTION_DECL)
     DECL_UNINLINABLE (*node) = 1;
   else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "noclone" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noclone_attribute (tree *node, tree name,
+			  tree ARG_UNUSED (args),
+			  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;

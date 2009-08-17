@@ -233,9 +233,8 @@
 	(default_valid_pointer_mode): Move to targhooks.c.
 	* output.h (default_valid_pointer_mode): Move to targhooks.h.
 
-	* tree-ssa.c (useless_type_conversion_p_1): Add named address
+	* tree-ssa.c (useless_type_conversion_p): Add named address
 	space support.
-	(useless_type_conversion_p): Ditto.
 
 	* tree-flow.h (multiplier_allowed_in_address_p): Add address space
 	argument.

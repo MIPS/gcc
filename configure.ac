@@ -450,7 +450,11 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ld gas gdb gprof"
     noconfigdirs="$noconfigdirs sim target-rda"
     ;;
-  i[[3456789]]86-*-darwin* | x86_64-*-darwin[[912]]*)
+  i[[3456789]]86-*-darwin*)
+    noconfigdirs="$noconfigdirs ld gprof"
+    noconfigdirs="$noconfigdirs sim target-rda"
+    ;;
+  x86_64-*-darwin[[912]]*)
     noconfigdirs="$noconfigdirs ld gas gprof"
     noconfigdirs="$noconfigdirs sim target-rda"
     ;;
@@ -836,6 +840,9 @@ case "${target}" in
   m68k-apollo-*)
     noconfigdirs="$noconfigdirs ld binutils gprof target-libgloss ${libgcj}"
     ;;
+  microblaze*)
+    noconfigdirs="$noconfigdirs gprof ${libgcj}"
+    ;;
   mips*-sde-elf*)
     skipdirs="$skipdirs target-libiberty"
     noconfigdirs="$noconfigdirs ${libgcj}"
@@ -874,7 +881,12 @@ case "${target}" in
       i[[3456789]]86-*-msdosdjgpp*) ;; # don't add gprof back in
       *) skipdirs=`echo " ${skipdirs} " | sed -e 's/ gprof / /'` ;;
     esac
-    noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+    case "${target}" in
+      sh*-*-elf)
+         noconfigdirs="$noconfigdirs ${libgcj}" ;;
+      *)
+         noconfigdirs="$noconfigdirs target-libgloss ${libgcj}" ;;
+    esac
     ;;
   sparclet-*-aout* | sparc86x-*-*)
     libgloss_dir=sparc

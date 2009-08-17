@@ -197,6 +197,9 @@ package body Make is
    RTS_Specified : String_Access := null;
    --  Used to detect multiple --RTS= switches
 
+   N_M_Switch : Natural := 0;
+   --  Used to count -mxxx switches that can affect multilib
+
    type Q_Record is record
       File  : File_Name_Type;
       Unit  : Unit_Name_Type;
@@ -342,8 +345,6 @@ package body Make is
 
    Current_Verbosity : Prj.Verbosity  := Prj.Default;
    --  Verbosity to parse the project files
-
-   Project_Tree : constant Project_Tree_Ref := new Project_Tree_Data;
 
    Main_Project : Prj.Project_Id := No_Project;
    --  The project id of the main project file, if any
@@ -518,10 +519,6 @@ package body Make is
    Last_Argument : Natural := 0;
    --  Last index of arguments in Arguments above
 
-   Arguments_Collected : Boolean := False;
-   --  Set to True when the arguments for the next invocation of the compiler
-   --  have been collected.
-
    Arguments_Project : Project_Id;
    --  Project id, if any, of the source to be compiled
 
@@ -556,25 +553,6 @@ package body Make is
 
    procedure List_Bad_Compilations;
    --  Prints out the list of all files for which the compilation failed
-
-   procedure Verbose_Msg
-     (N1                : Name_Id;
-      S1                : String;
-      N2                : Name_Id := No_Name;
-      S2                : String  := "";
-      Prefix            : String  := "  -> ";
-      Minimum_Verbosity : Verbosity_Level_Type := Opt.Low);
-   procedure Verbose_Msg
-     (N1                : File_Name_Type;
-      S1                : String;
-      N2                : File_Name_Type := No_File;
-      S2                : String  := "";
-      Prefix            : String  := "  -> ";
-      Minimum_Verbosity : Verbosity_Level_Type := Opt.Low);
-   --  If the verbose flag (Verbose_Mode) is set and the verbosity level is
-   --  at least equal to Minimum_Verbosity, then print Prefix to standard
-   --  output followed by N1 and S1. If N2 /= No_Name then N2 is printed after
-   --  S1. S2 is printed last. Both N1 and N2 are printed in quotation marks.
 
    Usage_Needed : Boolean := True;
    --  Flag used to make sure Makeusg is call at most once
@@ -661,6 +639,9 @@ package body Make is
    --  Check if, when using a project file, the ALI file is in the project
    --  directory of the ultimate extending project. If it is not, we ignore
    --  the fact that this ALI file is read-only.
+
+   procedure Process_Multilib;
+   --  Add appropriate --RTS argument to handle multilib
 
    ----------------------------------------------------
    -- Compiler, Binder & Linker Data and Subprograms --
@@ -1374,32 +1355,24 @@ package body Make is
    --------------------------------
 
    procedure Change_To_Object_Directory (Project : Project_Id) is
-      Actual_Project   : Project_Id;
       Object_Directory : Path_Name_Type;
 
    begin
-      --  For sources outside of any project, compilation occurs in the object
-      --  directory of the main project, otherwise we use the project given.
-
-      if Project = No_Project then
-         Actual_Project := Main_Project;
-      else
-         Actual_Project := Project;
-      end if;
+      pragma Assert (Project /= No_Project);
 
       --  Nothing to do if the current working directory is already the correct
       --  object directory.
 
-      if Project_Of_Current_Object_Directory /= Actual_Project then
-         Project_Of_Current_Object_Directory := Actual_Project;
-         Object_Directory := Actual_Project.Object_Directory.Name;
+      if Project_Of_Current_Object_Directory /= Project then
+         Project_Of_Current_Object_Directory := Project;
+         Object_Directory := Project.Object_Directory.Name;
 
          --  Set the working directory to the object directory of the actual
          --  project.
 
          if Verbose_Mode then
             Write_Str  ("Changing to object directory of """);
-            Write_Name (Actual_Project.Display_Name);
+            Write_Name (Project.Display_Name);
             Write_Str  (""": """);
             Write_Name (Object_Directory);
             Write_Line ("""");
@@ -1414,9 +1387,9 @@ package body Make is
       when Directory_Error =>
          Make_Failed ("unable to change to object directory """ &
                       Path_Or_File_Name
-                        (Actual_Project.Object_Directory.Name) &
+                        (Project.Object_Directory.Name) &
                       """ of project " &
-                      Get_Name_String (Actual_Project.Display_Name));
+                      Get_Name_String (Project.Display_Name));
    end Change_To_Object_Directory;
 
    -----------
@@ -1434,10 +1407,6 @@ package body Make is
       O_File         : out File_Name_Type;
       O_Stamp        : out Time_Stamp_Type)
    is
-      function File_Not_A_Source_Of
-        (Uname : Name_Id;
-         Sfile : File_Name_Type) return Boolean;
-
       function First_New_Spec (A : ALI_Id) return File_Name_Type;
       --  Looks in the with table entries of A and returns the spec file name
       --  of the first withed unit (subprogram) for which no spec existed when
@@ -1451,34 +1420,6 @@ package body Make is
       --  Note: This function should really be in ali.adb and use Uname
       --  services, but this causes the whole compiler to be dragged along
       --  for gnatbind and gnatmake.
-
-      --------------------------
-      -- File_Not_A_Source_Of --
-      --------------------------
-
-      function File_Not_A_Source_Of
-        (Uname : Name_Id;
-         Sfile : File_Name_Type) return Boolean
-      is
-         UID    : Prj.Unit_Index;
-
-      begin
-         UID := Units_Htable.Get (Project_Tree.Units_HT, Uname);
-
-         if UID /= Prj.No_Unit_Index then
-            if (UID.File_Names (Impl) = null
-                 or else UID.File_Names (Impl).File /= Sfile)
-              and then
-                (UID.File_Names (Spec) = null
-                  or else UID.File_Names (Spec).File /= Sfile)
-            then
-               Verbose_Msg (Uname, "sources do not include ", Name_Id (Sfile));
-               return True;
-            end if;
-         end if;
-
-         return False;
-      end File_Not_A_Source_Of;
 
       --------------------
       -- First_New_Spec --
@@ -1855,72 +1796,10 @@ package body Make is
 
             elsif not Read_Only and then Main_Project /= No_Project then
 
-               --  Check if a file name does not correspond to the mapping of
-               --  units to file names.
-
-               declare
-                  SD        : Sdep_Record;
-                  WR        : With_Record;
-                  Unit_Name : Name_Id;
-
-               begin
-                  U_Chk :
-                  for U in ALIs.Table (ALI).First_Unit ..
-                           ALIs.Table (ALI).Last_Unit
-                  loop
-                     --  Check if the file name is one of the source of the
-                     --  unit.
-
-                     Get_Name_String (Units.Table (U).Uname);
-                     Name_Len := Name_Len - 2;
-                     Unit_Name := Name_Find;
-
-                     if File_Not_A_Source_Of
-                          (Unit_Name, Units.Table (U).Sfile)
-                     then
-                        ALI := No_ALI_Id;
-                        return;
-                     end if;
-
-                     --  Do the same check for each of the withed units
-
-                     W_Check :
-                     for W in Units.Table (U).First_With
-                          ..
-                        Units.Table (U).Last_With
-                     loop
-                        WR := Withs.Table (W);
-
-                        if WR.Sfile /= No_File then
-                           Get_Name_String (WR.Uname);
-                           Name_Len := Name_Len - 2;
-                           Unit_Name := Name_Find;
-
-                           if File_Not_A_Source_Of (Unit_Name, WR.Sfile) then
-                              ALI := No_ALI_Id;
-                              return;
-                           end if;
-                        end if;
-                     end loop W_Check;
-                  end loop U_Chk;
-
-                  --  Check also the subunits
-
-                  D_Check :
-                  for D in ALIs.Table (ALI).First_Sdep ..
-                           ALIs.Table (ALI).Last_Sdep
-                  loop
-                     SD := Sdep.Table (D);
-                     Unit_Name := SD.Subunit_Name;
-
-                     if Unit_Name /= No_Name then
-                        if File_Not_A_Source_Of (Unit_Name, SD.Sfile) then
-                           ALI := No_ALI_Id;
-                           return;
-                        end if;
-                     end if;
-                  end loop D_Check;
-               end;
+               if not Check_Source_Info_In_ALI (ALI) then
+                  ALI := No_ALI_Id;
+                  return;
+               end if;
 
                --  Check that the ALI file is in the correct object directory.
                --  If it is in the object directory of a project that is
@@ -2310,7 +2189,6 @@ package body Make is
       Args           : Argument_List)
    is
    begin
-      Arguments_Collected := True;
       Arguments_Project := No_Project;
       Last_Argument := 0;
       Add_Arguments (Args);
@@ -2611,13 +2489,12 @@ package body Make is
       procedure Check_Standard_Library;
       --  Check if s-stalib.adb needs to be compiled
 
-      procedure Collect_Arguments_And_Compile
-        (Source_File  : File_Name_Type;
-         Source_Index : Int);
+      procedure Collect_Arguments_And_Compile (Source_Index : Int);
       --  Collect arguments from project file (if any) and compile
 
       function Compile
-        (S            : File_Name_Type;
+        (Project      : Project_Id;
+         S            : File_Name_Type;
          L            : File_Name_Type;
          Source_Index : Int;
          Args         : Argument_List) return Process_Id;
@@ -2818,22 +2695,12 @@ package body Make is
       -- Collect_Arguments_And_Compile --
       -----------------------------------
 
-      procedure Collect_Arguments_And_Compile
-        (Source_File  : File_Name_Type;
-         Source_Index : Int)
-      is
+      procedure Collect_Arguments_And_Compile (Source_Index : Int) is
       begin
          --  Process_Created will be set True if an attempt is made to compile
          --  the source, that is if it is not in an externally built project.
 
          Process_Created := False;
-
-         --  If arguments not yet collected (in Check), collect them now
-
-         if not Arguments_Collected then
-            Collect_Arguments
-              (Source_File, Source_Index, Source_File = Main_Source, Args);
-         end if;
 
          --  If we use mapping file (-P or -C switches), then get one
 
@@ -2878,13 +2745,10 @@ package body Make is
                   end;
                end if;
 
-               --  Change to object directory of the project file, if necessary
-
-               Change_To_Object_Directory (Arguments_Project);
-
                Pid :=
                  Compile
-                   (File_Name_Type (Arguments_Path_Name),
+                   (Arguments_Project,
+                    File_Name_Type (Arguments_Path_Name),
                     Lib_File,
                     Source_Index,
                     Arguments (1 .. Last_Argument));
@@ -2895,12 +2759,13 @@ package body Make is
             --  If this is a source outside of any project file, make sure it
             --  will be compiled in object directory of the main project file.
 
-            if Main_Project /= No_Project then
-               Change_To_Object_Directory (Arguments_Project);
-            end if;
-
-            Pid := Compile (Full_Source_File, Lib_File, Source_Index,
-                            Arguments (1 .. Last_Argument));
+            Pid :=
+              Compile
+                (Main_Project,
+                 Full_Source_File,
+                 Lib_File,
+                 Source_Index,
+                 Arguments (1 .. Last_Argument));
             Process_Created := True;
          end if;
       end Collect_Arguments_And_Compile;
@@ -2910,7 +2775,8 @@ package body Make is
       -------------
 
       function Compile
-        (S            : File_Name_Type;
+        (Project      : Project_Id;
+         S            : File_Name_Type;
          L            : File_Name_Type;
          Source_Index : Int;
          Args         : Argument_List) return Process_Id
@@ -3093,6 +2959,12 @@ package body Make is
 
          Comp_Last := Comp_Last + 1;
          Comp_Args (Comp_Last) := new String'(Name_Buffer (1 .. Name_Len));
+
+         --  Change to object directory of the project file, if necessary
+
+         if Project /= No_Project then
+            Change_To_Object_Directory (Project);
+         end if;
 
          GNAT.OS_Lib.Normalize_Arguments (Comp_Args (Args'First .. Comp_Last));
 
@@ -3334,8 +3206,6 @@ package body Make is
                --  The source file that we are checking can be located
 
                else
-                  Arguments_Collected := False;
-
                   Collect_Arguments (Source_File, Source_Index,
                                      Source_File = Main_Source, Args);
 
@@ -3423,8 +3293,7 @@ package body Make is
                         --  Start the compilation and record it. We can do
                         --  this because there is at least one free process.
 
-                        Collect_Arguments_And_Compile
-                          (Source_File, Source_Index);
+                        Collect_Arguments_And_Compile (Source_Index);
 
                         --  Make sure we could successfully start
                         --  the Compilation.
@@ -4772,6 +4641,11 @@ package body Make is
             Exit_Program (E_Success);
 
          else
+            --  Call Get_Target_Parameters to ensure that VM_Target and
+            --  AAMP_On_Target get set before calling Usage.
+
+            Targparm.Get_Target_Parameters;
+
             --  Output usage information if no files to compile
 
             Usage;
@@ -6680,6 +6554,7 @@ package body Make is
       Dependencies.Init;
 
       RTS_Specified := null;
+      N_M_Switch := 0;
 
       Mains.Delete;
 
@@ -6738,6 +6613,10 @@ package body Make is
       Scan_Args : for Next_Arg in 1 .. Argument_Count loop
          Scan_Make_Arg (Argument (Next_Arg), And_Save => True);
       end loop Scan_Args;
+
+      if N_M_Switch > 0 and RTS_Specified = null then
+         Process_Multilib;
+      end if;
 
       if Commands_To_Stdout then
          Set_Standard_Output;
@@ -7398,6 +7277,99 @@ package body Make is
       Set_Name_Table_Byte (N, B or Mark);
    end Mark_Directory;
 
+   ----------------------
+   -- Process_Multilib --
+   ----------------------
+
+   procedure Process_Multilib is
+      Output_FD         : File_Descriptor;
+      Output_Name       : String_Access;
+      Arg_Index         : Natural := 0;
+      Success           : Boolean := False;
+      Return_Code       : Integer := 0;
+      Multilib_Gcc_Path : String_Access;
+      Multilib_Gcc      : String_Access;
+      N_Read            : Integer := 0;
+      Line              : String (1 .. 1000);
+      Args              : Argument_List (1 .. N_M_Switch + 1);
+
+   begin
+      pragma Assert (N_M_Switch > 0 and RTS_Specified = null);
+
+      --  This loop needs commenting ??? In fact this entire body is
+      --  under-commented ??? And the spec is not much help :-(
+
+      for Next_Arg in 1 .. Argument_Count loop
+         declare
+            Argv : constant String := Argument (Next_Arg);
+         begin
+            if Argv'Length > 2
+              and then Argv (1) = '-'
+              and then Argv (2) = 'm'
+              and then Argv /= "-margs"
+
+              --  Ignore -mieee to avoid spawning an extra gcc in this case
+
+              and then Argv /= "-mieee"
+            then
+               Arg_Index := Arg_Index + 1;
+               Args (Arg_Index) := new String'(Argv);
+            end if;
+         end;
+      end loop;
+
+      pragma Assert (Arg_Index = N_M_Switch);
+
+      Args (Args'Last) := new String'("-print-multi-directory");
+
+      if Saved_Gcc /= null then
+         Multilib_Gcc := Saved_Gcc;
+      else
+         Multilib_Gcc := Gcc;
+      end if;
+
+      Multilib_Gcc_Path := GNAT.OS_Lib.Locate_Exec_On_Path (Multilib_Gcc.all);
+
+      Create_Temp_File (Output_FD, Output_Name);
+
+      if Output_FD = Invalid_FD then
+         return;
+      end if;
+
+      GNAT.OS_Lib.Spawn
+        (Multilib_Gcc_Path.all, Args, Output_FD, Return_Code, False);
+      Close (Output_FD);
+
+      if Return_Code /= 0 then
+         return;
+      end if;
+
+      Output_FD := Open_Read (Output_Name.all, Binary);
+
+      if Output_FD = Invalid_FD then
+         return;
+      end if;
+
+      N_Read := Read (Output_FD, Line (1)'Address, Line'Length);
+      Close (Output_FD);
+      Delete_File (Output_Name.all, Success);
+
+      for J in reverse 1 .. N_Read loop
+         if Line (J) = ASCII.CR or else Line (J) = ASCII.LF then
+            N_Read := N_Read - 1;
+         else
+            exit;
+         end if;
+      end loop;
+
+      if N_Read = 0 or else Line (1 .. N_Read) = "." then
+         return;
+      end if;
+
+      Scan_Make_Arg ("-margs", And_Save => True);
+      Scan_Make_Arg ("--RTS=" & Line (1 .. N_Read), And_Save => True);
+   end Process_Multilib;
+
    -----------------------------
    -- Recursive_Compute_Depth --
    -----------------------------
@@ -7407,6 +7379,7 @@ package body Make is
       Seen : Project_Boolean_Htable.Instance := Project_Boolean_Htable.Nil;
 
       procedure Recurse (Prj : Project_Id; Depth : Natural);
+      --  Recursive procedure that does the work, keeping track of the depth
 
       -------------
       -- Recurse --
@@ -7872,6 +7845,12 @@ package body Make is
             Add_Switch (Argv, Compiler, And_Save => And_Save);
             Add_Switch (Argv, Linker, And_Save => And_Save);
 
+            if Argv (2) = 'm'
+              and then Argv /= "-mieee"
+            then
+               N_M_Switch := N_M_Switch + 1;
+            end if;
+
          --  -C=<mapping file>
 
          elsif Argv'Last > 2 and then Argv (2) = 'C' then
@@ -8234,52 +8213,6 @@ package body Make is
          Makeusg;
       end if;
    end Usage;
-
-   -----------------
-   -- Verbose_Msg --
-   -----------------
-
-   procedure Verbose_Msg
-     (N1                : Name_Id;
-      S1                : String;
-      N2                : Name_Id := No_Name;
-      S2                : String  := "";
-      Prefix            : String := "  -> ";
-      Minimum_Verbosity : Verbosity_Level_Type := Opt.Low)
-   is
-   begin
-      if (not Verbose_Mode) or else (Minimum_Verbosity > Verbosity_Level) then
-         return;
-      end if;
-
-      Write_Str (Prefix);
-      Write_Str ("""");
-      Write_Name (N1);
-      Write_Str (""" ");
-      Write_Str (S1);
-
-      if N2 /= No_Name then
-         Write_Str (" """);
-         Write_Name (N2);
-         Write_Str (""" ");
-      end if;
-
-      Write_Str (S2);
-      Write_Eol;
-   end Verbose_Msg;
-
-   procedure Verbose_Msg
-     (N1                : File_Name_Type;
-      S1                : String;
-      N2                : File_Name_Type := No_File;
-      S2                : String  := "";
-      Prefix            : String := "  -> ";
-      Minimum_Verbosity : Verbosity_Level_Type := Opt.Low)
-   is
-   begin
-      Verbose_Msg
-        (Name_Id (N1), S1, Name_Id (N2), S2, Prefix, Minimum_Verbosity);
-   end Verbose_Msg;
 
 begin
    --  Make sure that in case of failure, the temp files will be deleted

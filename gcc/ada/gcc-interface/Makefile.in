@@ -1052,7 +1052,7 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
     endif
 
     THREADSLIB = -lpthread
-    EXTRA_GNATRTL_NONTASKING_OBJS=g-sse.o g-ssvety.o g-ssinty.o
+    EXTRA_GNATRTL_NONTASKING_OBJS=g-sse.o g-ssvety.o
     EXTRA_GNATRTL_TASKING_OBJS=s-linux.o
   endif
 
@@ -1593,7 +1593,7 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
     endif
 
     EXTRA_GNATRTL_NONTASKING_OBJS = \
-	s-win32.o s-winext.o g-regist.o g-sse.o g-ssvety.o g-ssinty.o
+	s-win32.o s-winext.o g-regist.o g-sse.o g-ssvety.o
     EXTRA_GNATRTL_TASKING_OBJS = a-exetim.o
 
     MISCLIB = -lws2_32
@@ -2003,7 +2003,7 @@ ifeq ($(strip $(filter-out %x86_64 linux%,$(arch) $(osys))),)
     mlib-tgt-specific.adb<mlib-tgt-specific-linux.adb \
     indepsw.adb<indepsw-gnu.adb
 
-  EXTRA_GNATRTL_NONTASKING_OBJS=g-sse.o g-ssvety.o g-ssinty.o
+  EXTRA_GNATRTL_NONTASKING_OBJS=g-sse.o g-ssvety.o
   EXTRA_GNATRTL_TASKING_OBJS=s-linux.o
   EH_MECHANISM=-gcc
   THREADSLIB=-lpthread
@@ -2349,7 +2349,7 @@ install-gnatlib: ../stamp-gnatlib-$(RTSDIR)
 gnatlib: ../stamp-gnatlib1-$(RTSDIR) ../stamp-gnatlib2-$(RTSDIR)
 	$(MAKE) -C $(RTSDIR) \
 		CC="`echo \"$(GCC_FOR_TARGET)\" \
-		| sed -e 's,^\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'`" \
+		| sed -e 's,\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'`" \
 	        INCLUDES="$(INCLUDES_FOR_SUBDIR) -I./../.." \
                 CFLAGS="$(GNATLIBCFLAGS_FOR_C)" \
 	        FORCE_DEBUG_ADAFLAGS="$(FORCE_DEBUG_ADAFLAGS)" \
@@ -2357,7 +2357,7 @@ gnatlib: ../stamp-gnatlib1-$(RTSDIR) ../stamp-gnatlib2-$(RTSDIR)
 	        -f ../Makefile $(LIBGNAT_OBJS)
 	$(MAKE) -C $(RTSDIR) \
 		CC="`echo \"$(GCC_FOR_TARGET)\" \
-		| sed -e 's,^\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'`" \
+		| sed -e 's,\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'`" \
 	        ADA_INCLUDES="" \
                 CFLAGS="$(GNATLIBCFLAGS)" \
 	        ADAFLAGS="$(GNATLIBFLAGS)" \

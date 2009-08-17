@@ -1966,6 +1966,11 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
 	  break;
 
 	case MULT_EXPR:
+#ifdef HAVE_mpc
+	  if (COMPLEX_FLOAT_TYPE_P (type))
+	    return do_mpc_arg2 (arg1, arg2, type, mpc_mul);
+#endif
+
 	  real = const_binop (MINUS_EXPR,
 			      const_binop (MULT_EXPR, r1, r2, notrunc),
 			      const_binop (MULT_EXPR, i1, i2, notrunc),
@@ -1977,6 +1982,11 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
 	  break;
 
 	case RDIV_EXPR:
+#ifdef HAVE_mpc
+	  if (COMPLEX_FLOAT_TYPE_P (type))
+	    return do_mpc_arg2 (arg1, arg2, type, mpc_div);
+#endif
+
 	  {
 	    tree magsquared
 	      = const_binop (PLUS_EXPR,

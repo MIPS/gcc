@@ -2603,7 +2603,7 @@ package body Sem_Warn is
    -- Output_Non_Modified_In_Out_Warnings --
    -----------------------------------------
 
-   procedure Output_Non_Modifed_In_Out_Warnings is
+   procedure Output_Non_Modified_In_Out_Warnings is
 
       function No_Warn_On_In_Out (E : Entity_Id) return Boolean;
       --  Given a formal parameter entity E, determines if there is a reason to
@@ -2700,7 +2700,7 @@ package body Sem_Warn is
             end if;
          end;
       end loop;
-   end Output_Non_Modifed_In_Out_Warnings;
+   end Output_Non_Modified_In_Out_Warnings;
 
    ----------------------------------------
    -- Output_Obsolescent_Entity_Warnings --
@@ -3904,7 +3904,6 @@ package body Sem_Warn is
                then
                   if Warn_On_Modified_Unread
                     and then not Is_Imported (E)
-                    and then not Is_Return_Object (E)
                     and then not Is_Aliased (E)
                     and then No (Renamed_Object (E))
                   then
@@ -3967,7 +3966,7 @@ package body Sem_Warn is
 
                   if Ekind (E) = E_In_Parameter
                     or else not Referenced_As_LHS_Check_Spec (E)
-                    or else Is_Scalar_Type (E)
+                    or else Is_Scalar_Type (Etype (E))
                   then
                      if Present (Body_E) then
                         E := Body_E;

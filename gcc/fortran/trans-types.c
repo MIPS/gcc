@@ -1000,8 +1000,8 @@ gfc_typenode_for_spec (gfc_typespec * spec)
          C_FUNPTR to simple variables that get translated to (void *).  */
       if (spec->f90_type == BT_VOID)
 	{
-	  if (spec->derived
-	      && spec->derived->intmod_sym_id == ISOCBINDING_PTR)
+	  if (spec->u.derived
+	      && spec->u.derived->intmod_sym_id == ISOCBINDING_PTR)
 	    basetype = ptr_type_node;
 	  else
 	    basetype = pfunc_type_node;
@@ -1023,21 +1023,21 @@ gfc_typenode_for_spec (gfc_typespec * spec)
       break;
 
     case BT_CHARACTER:
-      basetype = gfc_get_character_type (spec->kind, spec->cl);
+      basetype = gfc_get_character_type (spec->kind, spec->u.cl);
       break;
 
     case BT_DERIVED:
-      basetype = gfc_get_derived_type (spec->derived);
+      basetype = gfc_get_derived_type (spec->u.derived);
 
       /* If we're dealing with either C_PTR or C_FUNPTR, we modified the
          type and kind to fit a (void *) and the basetype returned was a
          ptr_type_node.  We need to pass up this new information to the
          symbol that was declared of type C_PTR or C_FUNPTR.  */
-      if (spec->derived->attr.is_iso_c)
+      if (spec->u.derived->attr.is_iso_c)
         {
-          spec->type = spec->derived->ts.type;
-          spec->kind = spec->derived->ts.kind;
-          spec->f90_type = spec->derived->ts.f90_type;
+          spec->type = spec->u.derived->ts.type;
+          spec->kind = spec->u.derived->ts.kind;
+          spec->f90_type = spec->u.derived->ts.f90_type;
         }
       break;
     case BT_VOID:
@@ -1046,8 +1046,8 @@ gfc_typenode_for_spec (gfc_typespec * spec)
       basetype = ptr_type_node;
       if (spec->f90_type == BT_VOID)
 	{
-	  if (spec->derived
-	      && spec->derived->intmod_sym_id == ISOCBINDING_PTR)
+	  if (spec->u.derived
+	      && spec->u.derived->intmod_sym_id == ISOCBINDING_PTR)
 	    basetype = ptr_type_node;
 	  else
 	    basetype = pfunc_type_node;
@@ -1602,7 +1602,9 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   int n;
 
   base_type = gfc_get_array_descriptor_base (dimen);
-  fat_type = build_variant_type_copy (base_type);
+  fat_type = build_distinct_type_copy (base_type);
+  TYPE_CANONICAL (fat_type) = base_type;
+  TYPE_STUB_DECL (fat_type) = TYPE_STUB_DECL (base_type);
 
   tmp = TYPE_NAME (etype);
   if (tmp && TREE_CODE (tmp) == TYPE_DECL)
@@ -1763,7 +1765,7 @@ gfc_sym_type (gfc_symbol * sym)
 	     base type.  */
 	  if (sym->ts.type != BT_CHARACTER
 	      || !(sym->attr.dummy || sym->attr.function)
-	      || sym->ts.cl->backend_decl)
+	      || sym->ts.u.cl->backend_decl)
 	    {
 	      type = gfc_get_nodesc_array_type (type, sym->as,
 						byref ? PACKED_FULL
@@ -1851,7 +1853,8 @@ gfc_add_field_to_struct (tree *fieldlist, tree context,
    in 4.4.2 and resolved by gfc_compare_derived_types.  */
 
 static int
-copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to)
+copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to,
+		       bool from_gsym)
 {
   gfc_component *to_cm;
   gfc_component *from_cm;
@@ -1874,11 +1877,12 @@ copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to)
   for (; to_cm; to_cm = to_cm->next, from_cm = from_cm->next)
     {
       to_cm->backend_decl = from_cm->backend_decl;
-      if (!from_cm->attr.pointer && from_cm->ts.type == BT_DERIVED)
-	gfc_get_derived_type (to_cm->ts.derived);
+      if ((!from_cm->attr.pointer || from_gsym)
+	      && from_cm->ts.type == BT_DERIVED)
+	gfc_get_derived_type (to_cm->ts.u.derived);
 
       else if (from_cm->ts.type == BT_CHARACTER)
-	to_cm->ts.cl->backend_decl = from_cm->ts.cl->backend_decl;
+	to_cm->ts.u.cl->backend_decl = from_cm->ts.u.cl->backend_decl;
     }
 
   return 1;
@@ -1892,7 +1896,12 @@ gfc_get_ppc_type (gfc_component* c)
 {
   tree t;
   if (c->attr.function && !c->attr.dimension)
-    t = gfc_typenode_for_spec (&c->ts);
+    {
+      if (c->ts.type == BT_DERIVED)
+	t = c->ts.u.derived->backend_decl;
+      else
+	t = gfc_typenode_for_spec (&c->ts);
+    }
   else
     t = void_type_node;
   /* TODO: Build argument list.  */
@@ -1909,8 +1918,12 @@ static tree
 gfc_get_derived_type (gfc_symbol * derived)
 {
   tree typenode = NULL, field = NULL, field_type = NULL, fieldlist = NULL;
+  tree canonical = NULL_TREE;
+  bool got_canonical = false;
   gfc_component *c;
   gfc_dt_list *dt;
+  gfc_namespace *ns;
+  gfc_gsymbol *gsym;
 
   gcc_assert (derived && derived->attr.flavor == FL_DERIVED);
 
@@ -1942,7 +1955,59 @@ gfc_get_derived_type (gfc_symbol * derived)
       
       return derived->backend_decl;
     }
-  
+
+/* If use associated, use the module type for this one.  */
+  if (gfc_option.flag_whole_file
+	&& derived->backend_decl == NULL
+	&& derived->attr.use_assoc
+	&& derived->module)
+    {
+      gsym =  gfc_find_gsymbol (gfc_gsym_root, derived->module);
+      if (gsym && gsym->ns && gsym->type == GSYM_MODULE)
+	{
+	  gfc_symbol *s;
+	  s = NULL;
+	  gfc_find_symbol (derived->name, gsym->ns, 0, &s);
+	  if (s && s->backend_decl)
+	    {
+	      copy_dt_decls_ifequal (s, derived, true);
+	      goto copy_derived_types;
+	    }
+	}
+    }
+
+  /* If a whole file compilation, the derived types from an earlier
+     namespace can be used as the the canonical type.  */
+  if (gfc_option.flag_whole_file
+	&& derived->backend_decl == NULL
+	&& !derived->attr.use_assoc
+	&& gfc_global_ns_list)
+    {
+      for (ns = gfc_global_ns_list;
+	   ns->translated && !got_canonical;
+	   ns = ns->sibling)
+	{
+	  dt = ns->derived_types;
+	  for (; dt && !canonical; dt = dt->next)
+	    {
+	      copy_dt_decls_ifequal (dt->derived, derived, true);
+	      if (derived->backend_decl)
+		got_canonical = true;
+	    }
+	}
+    }
+
+  /* Store up the canonical type to be added to this one.  */
+  if (got_canonical)
+    {
+      if (TYPE_CANONICAL (derived->backend_decl))
+	canonical = TYPE_CANONICAL (derived->backend_decl);
+      else
+	canonical = derived->backend_decl;
+
+      derived->backend_decl = NULL_TREE;
+    }
+
   /* derived->backend_decl != 0 means we saw it before, but its
      components' backend_decl may have not been built.  */
   if (derived->backend_decl)
@@ -1972,17 +2037,18 @@ gfc_get_derived_type (gfc_symbol * derived)
       if (c->ts.type != BT_DERIVED)
 	continue;
 
-      if (!c->attr.pointer || c->ts.derived->backend_decl == NULL)
-	c->ts.derived->backend_decl = gfc_get_derived_type (c->ts.derived);
+      if ((!c->attr.pointer && !c->attr.proc_pointer)
+	  || c->ts.u.derived->backend_decl == NULL)
+	c->ts.u.derived->backend_decl = gfc_get_derived_type (c->ts.u.derived);
 
-      if (c->ts.derived && c->ts.derived->attr.is_iso_c)
+      if (c->ts.u.derived && c->ts.u.derived->attr.is_iso_c)
         {
           /* Need to copy the modified ts from the derived type.  The
              typespec was modified because C_PTR/C_FUNPTR are translated
              into (void *) from derived types.  */
-          c->ts.type = c->ts.derived->ts.type;
-          c->ts.kind = c->ts.derived->ts.kind;
-          c->ts.f90_type = c->ts.derived->ts.f90_type;
+          c->ts.type = c->ts.u.derived->ts.type;
+          c->ts.kind = c->ts.u.derived->ts.kind;
+          c->ts.f90_type = c->ts.u.derived->ts.f90_type;
 	  if (c->initializer)
 	    {
 	      c->initializer->ts.type = c->ts.type;
@@ -2001,17 +2067,17 @@ gfc_get_derived_type (gfc_symbol * derived)
   fieldlist = NULL_TREE;
   for (c = derived->components; c; c = c->next)
     {
-      if (c->ts.type == BT_DERIVED)
-        field_type = c->ts.derived->backend_decl;
-      else if (c->attr.proc_pointer)
+      if (c->attr.proc_pointer)
 	field_type = gfc_get_ppc_type (c);
+      else if (c->ts.type == BT_DERIVED)
+        field_type = c->ts.u.derived->backend_decl;
       else
 	{
 	  if (c->ts.type == BT_CHARACTER)
 	    {
 	      /* Evaluate the string length.  */
-	      gfc_conv_const_charlen (c->ts.cl);
-	      gcc_assert (c->ts.cl->backend_decl);
+	      gfc_conv_const_charlen (c->ts.u.cl);
+	      gcc_assert (c->ts.u.cl->backend_decl);
 	    }
 
 	  field_type = gfc_typenode_for_spec (&c->ts);
@@ -2057,6 +2123,8 @@ gfc_get_derived_type (gfc_symbol * derived)
   /* Now we have the final fieldlist.  Record it, then lay out the
      derived type, including the fields.  */
   TYPE_FIELDS (typenode) = fieldlist;
+  if (canonical)
+    TYPE_CANONICAL (typenode) = canonical;
 
   gfc_finish_type (typenode);
   gfc_set_decl_location (TYPE_STUB_DECL (typenode), &derived->declared_at);
@@ -2075,9 +2143,10 @@ gfc_get_derived_type (gfc_symbol * derived)
 
   derived->backend_decl = typenode;
 
-  /* Add this backend_decl to all the other, equal derived types.  */
+copy_derived_types:
+
   for (dt = gfc_derived_types; dt; dt = dt->next)
-    copy_dt_decls_ifequal (derived, dt->derived);
+    copy_dt_decls_ifequal (derived, dt->derived, false);
 
   return derived->backend_decl;
 }
@@ -2192,7 +2261,7 @@ gfc_get_function_type (gfc_symbol * sym)
     arg = sym;
 
   if (arg->ts.type == BT_CHARACTER)
-    gfc_conv_const_charlen (arg->ts.cl);
+    gfc_conv_const_charlen (arg->ts.u.cl);
 
   /* Some functions we use an extra parameter for the return value.  */
   if (gfc_return_by_reference (sym))
@@ -2217,7 +2286,7 @@ gfc_get_function_type (gfc_symbol * sym)
 	  /* Evaluate constant character lengths here so that they can be
 	     included in the type.  */
 	  if (arg->ts.type == BT_CHARACTER)
-	    gfc_conv_const_charlen (arg->ts.cl);
+	    gfc_conv_const_charlen (arg->ts.u.cl);
 
 	  if (arg->attr.flavor == FL_PROCEDURE)
 	    {
@@ -2241,7 +2310,7 @@ gfc_get_function_type (gfc_symbol * sym)
 	     Contained procedures could pass by value as these are never
 	     used without an explicit interface, and cannot be passed as
 	     actual parameters for a dummy procedure.  */
-	  if (arg->ts.type == BT_CHARACTER)
+	  if (arg->ts.type == BT_CHARACTER && !sym->attr.is_bind_c)
             nstr++;
 	  typelist = gfc_chainon_list (typelist, type);
 	}

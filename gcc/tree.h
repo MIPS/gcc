@@ -577,15 +577,13 @@ struct GTY(()) tree_common {
 
        TREE_DEPRECATED in
            all decls
+	   all types
 
        IDENTIFIER_TRANSPARENT_ALIAS in
            IDENTIFIER_NODE
 
        STMT_IN_SSA_EDGE_WORKLIST in
            all expressions (tree-ssa-propagate.c)
-
-	TYPE_VECTOR_OPAQUE in
-	   VECTOR_TYPE
 
    visited:
 
@@ -604,6 +602,9 @@ struct GTY(()) tree_common {
            all decls
 
    default_def_flag:
+
+       TYPE_VECTOR_OPAQUE in
+	   VECTOR_TYPE
 
        SSA_NAME_IS_DEFAULT_DEF in
            SSA_NAME
@@ -1887,6 +1888,7 @@ struct GTY(()) phi_arg_d {
      pointer arithmetic with it.  See phi_arg_index_from_use.  */
   struct ssa_use_operand_d imm_use;
   tree def;
+  location_t locus;
 };
 
 
@@ -2209,7 +2211,7 @@ extern enum machine_mode vector_type_mode (const_tree);
 /* Nonzero in a VECTOR_TYPE if the frontends should not emit warnings
    about missing conversions to other vector types of the same size.  */
 #define TYPE_VECTOR_OPAQUE(NODE) \
-  (VECTOR_TYPE_CHECK (NODE)->base.deprecated_flag)
+  (VECTOR_TYPE_CHECK (NODE)->base.default_def_flag)
 
 /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
@@ -4901,6 +4903,7 @@ extern int simple_cst_equal (const_tree, const_tree);
 extern hashval_t iterative_hash_expr (const_tree, hashval_t);
 extern hashval_t iterative_hash_exprs_commutative (const_tree,
                                                    const_tree, hashval_t);
+extern hashval_t iterative_hash_host_wide_int (HOST_WIDE_INT, hashval_t);
 extern hashval_t iterative_hash_hashval_t (hashval_t, hashval_t);
 extern int compare_tree_int (const_tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (const_tree, const_tree);

@@ -58,6 +58,7 @@ with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
+with Sem_SCIL; use Sem_SCIL;
 with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
 with Sem_Warn; use Sem_Warn;
@@ -3965,6 +3966,16 @@ package body Exp_Ch4 is
                 Right,
                 New_Occurrence_Of (Standard_False, Loc))));
 
+         --  If the right part of the expression is a function call then it can
+         --  be part of the expansion of the predefined equality operator of a
+         --  tagged type and we may need to adjust its SCIL dispatching node.
+
+         if Generate_SCIL
+           and then Nkind (Right) = N_Function_Call
+         then
+            Adjust_SCIL_Node (N, Right);
+         end if;
+
          Set_Then_Actions (N, Actlist);
          Analyze_And_Resolve (N, Standard_Boolean);
          Adjust_Result_Type (N, Typ);
@@ -4028,8 +4039,10 @@ package body Exp_Ch4 is
       --  and replace the conditional expression by a reference to Cnn
 
       --  ??? Note: this expansion is wrong for limited types, since it does
-      --  a copy of a limited value. The proper fix would be to do the
-      --  following expansion:
+      --  a copy of a limited value. Similarly it's wrong for unconstrained or
+      --  class-wide types since in neither case can we have an uninitialized
+      --  object declaration The proper fix would be to do the following
+      --  expansion:
 
       --      Cnn : access typ;
       --      if cond then
@@ -7434,7 +7447,7 @@ package body Exp_Ch4 is
       --  processing will still generate the appropriate copy in operation,
       --  which will take care of the slice.
 
-      procedure Make_Temporary;
+      procedure Make_Temporary_For_Slice;
       --  Create a named variable for the value of the slice, in cases where
       --  the back-end cannot handle it properly, e.g. when packed types or
       --  unaligned slices are involved.
@@ -7473,14 +7486,13 @@ package body Exp_Ch4 is
          end loop;
       end Is_Procedure_Actual;
 
-      --------------------
-      -- Make_Temporary --
-      --------------------
+      ------------------------------
+      -- Make_Temporary_For_Slice --
+      ------------------------------
 
-      procedure Make_Temporary is
+      procedure Make_Temporary_For_Slice is
          Decl : Node_Id;
-         Ent  : constant Entity_Id :=
-                  Make_Defining_Identifier (Loc, New_Internal_Name ('T'));
+         Ent  : constant Entity_Id := Make_Temporary (Loc, 'T', N);
       begin
          Decl :=
            Make_Object_Declaration (Loc,
@@ -7497,7 +7509,7 @@ package body Exp_Ch4 is
 
          Rewrite (N, New_Occurrence_Of (Ent, Loc));
          Analyze_And_Resolve (N, Typ);
-      end Make_Temporary;
+      end Make_Temporary_For_Slice;
 
    --  Start of processing for Expand_N_Slice
 
@@ -7552,7 +7564,7 @@ package body Exp_Ch4 is
          if Nkind (Parent (N)) = N_Function_Call
            and then Is_Possibly_Unaligned_Slice (N)
          then
-            Make_Temporary;
+            Make_Temporary_For_Slice;
          end if;
 
       elsif Nkind (Parent (N)) = N_Assignment_Statement
@@ -7573,7 +7585,7 @@ package body Exp_Ch4 is
          return;
 
       else
-         Make_Temporary;
+         Make_Temporary_For_Slice;
       end if;
    end Expand_N_Slice;
 

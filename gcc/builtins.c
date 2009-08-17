@@ -60,9 +60,6 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 #ifdef HAVE_mpc
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
-#ifdef HAVE_mpc_pow
-static tree do_mpc_arg2 (tree, tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_srcptr, mpc_rnd_t));
-#endif
 #endif
 
 /* Define the names of the builtin function types and codes.  */
@@ -5106,7 +5103,6 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	return GS_ALL_DONE;
 
       *expr_p = targetm.gimplify_va_arg_expr (valist, type, pre_p, post_p);
-      SET_EXPR_LOCATION (*expr_p, loc);
       return GS_OK;
     }
 }
@@ -13827,8 +13823,8 @@ do_mpc_arg1 (tree arg, tree type, int (*func)(mpc_ptr, mpc_srcptr, mpc_rnd_t))
    TYPE.  We assume that function FUNC returns zero if the result
    could be calculated exactly within the requested precision.  */
 
-#ifdef HAVE_mpc_pow
-static tree
+#ifdef HAVE_mpc
+tree
 do_mpc_arg2 (tree arg0, tree arg1, tree type,
 	     int (*func)(mpc_ptr, mpc_srcptr, mpc_srcptr, mpc_rnd_t))
 {

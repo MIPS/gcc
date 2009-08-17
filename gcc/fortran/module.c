@@ -77,7 +77,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Don't put any single quote (') in MOD_VERSION, 
    if yout want it to be recognized.  */
-#define MOD_VERSION "1"
+#define MOD_VERSION "2"
 
 
 /* Structure that describes a position within a module file.  */
@@ -1719,7 +1719,12 @@ static const mstring binding_generic[] =
     minit ("GENERIC", 1),
     minit (NULL, -1)
 };
-
+static const mstring binding_ppc[] =
+{
+    minit ("NO_PPC", 0),
+    minit ("PPC", 1),
+    minit (NULL, -1)
+};
 
 /* Specialization of mio_name.  */
 DECL_MIO_NAME (ab_attribute)
@@ -1747,6 +1752,7 @@ static void
 mio_symbol_attribute (symbol_attribute *attr)
 {
   atom_type t;
+  unsigned ext_attr;
 
   mio_lparen ();
 
@@ -1755,6 +1761,9 @@ mio_symbol_attribute (symbol_attribute *attr)
   attr->proc = MIO_NAME (procedure_type) (attr->proc, procedures);
   attr->if_source = MIO_NAME (ifsrc) (attr->if_source, ifsrc_types);
   attr->save = MIO_NAME (save_state) (attr->save, save_status);
+  ext_attr = attr->ext_attr;
+  mio_integer ((int *) &ext_attr);
+  attr->ext_attr = ext_attr;
 
   if (iomode == IO_OUTPUT)
     {
@@ -2000,7 +2009,7 @@ mio_charlen (gfc_charlen **clp)
     {
       if (peek_atom () != ATOM_RPAREN)
 	{
-	  cl = gfc_new_charlen (gfc_current_ns);
+	  cl = gfc_new_charlen (gfc_current_ns, NULL);
 	  mio_expr (&cl->length);
 	  *clp = cl;
 	}
@@ -2029,7 +2038,7 @@ mio_typespec (gfc_typespec *ts)
   if (ts->type != BT_DERIVED)
     mio_integer (&ts->kind);
   else
-    mio_symbol_ref (&ts->derived);
+    mio_symbol_ref (&ts->u.derived);
 
   /* Add info for C interop and is_iso_c.  */
   mio_integer (&ts->is_c_interop);
@@ -2045,12 +2054,12 @@ mio_typespec (gfc_typespec *ts)
 
   if (ts->type != BT_CHARACTER)
     {
-      /* ts->cl is only valid for BT_CHARACTER.  */
+      /* ts->u.cl is only valid for BT_CHARACTER.  */
       mio_lparen ();
       mio_rparen ();
     }
   else
-    mio_charlen (&ts->cl);
+    mio_charlen (&ts->u.cl);
 
   mio_rparen ();
 }
@@ -2260,7 +2269,7 @@ mio_component_ref (gfc_component **cp, gfc_symbol *sym)
 
 static void mio_namespace_ref (gfc_namespace **nsp);
 static void mio_formal_arglist (gfc_formal_arglist **formal);
-
+static void mio_typebound_proc (gfc_typebound_proc** proc);
 
 static void
 mio_component (gfc_component *c)
@@ -2295,28 +2304,33 @@ mio_component (gfc_component *c)
 
   mio_expr (&c->initializer);
 
-  if (iomode == IO_OUTPUT)
+  if (c->attr.proc_pointer)
     {
-      formal = c->formal;
-      while (formal && !formal->sym)
-	formal = formal->next;
-
-      if (formal)
-	mio_namespace_ref (&formal->sym->ns);
-      else
-	mio_namespace_ref (&c->formal_ns);
-    }
-  else
-    {
-      mio_namespace_ref (&c->formal_ns);
-      /* TODO: if (c->formal_ns)
+      if (iomode == IO_OUTPUT)
 	{
-	  c->formal_ns->proc_name = c;
-	  c->refs++;
-	}*/
-    }
+	  formal = c->formal;
+	  while (formal && !formal->sym)
+	    formal = formal->next;
 
-  mio_formal_arglist (&c->formal);
+	  if (formal)
+	    mio_namespace_ref (&formal->sym->ns);
+	  else
+	    mio_namespace_ref (&c->formal_ns);
+	}
+      else
+	{
+	  mio_namespace_ref (&c->formal_ns);
+	  /* TODO: if (c->formal_ns)
+	    {
+	      c->formal_ns->proc_name = c;
+	      c->refs++;
+	    }*/
+	}
+
+      mio_formal_arglist (&c->formal);
+
+      mio_typebound_proc (&c->tb);
+    }
 
   mio_rparen ();
 }
@@ -3265,9 +3279,9 @@ mio_typebound_proc (gfc_typebound_proc** proc)
 
   (*proc)->nopass = mio_name ((*proc)->nopass, binding_passing);
   (*proc)->is_generic = mio_name ((*proc)->is_generic, binding_generic);
+  (*proc)->ppc = mio_name((*proc)->ppc, binding_ppc);
 
-  if (iomode == IO_INPUT)
-    (*proc)->pass_arg = NULL;
+  mio_pool_string (&((*proc)->pass_arg));
 
   flag = (int) (*proc)->pass_arg_num;
   mio_integer (&flag);
@@ -3304,7 +3318,7 @@ mio_typebound_proc (gfc_typebound_proc** proc)
 
       mio_rparen ();
     }
-  else
+  else if (!(*proc)->ppc)
     mio_symtree_ref (&(*proc)->u.specific);
 
   mio_rparen ();

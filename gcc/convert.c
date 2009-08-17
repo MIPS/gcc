@@ -71,19 +71,20 @@ convert_to_pointer (tree type, tree expr)
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
       {
-	/* Figure out the pointer size, depending on the address space.  */
-	addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
-	int pointer_size
-	  = GET_MODE_BITSIZE (targetm.addr_space.pointer_mode (as)); 
+	/* If the input precision differs from the target pointer type
+	   precision, first convert the input expression to an integer type of
+	   the target precision.  Some targets, e.g. VMS, need several pointer
+	   sizes to coexist so the latter isn't necessarily POINTER_SIZE.  */
+	unsigned int pprec = TYPE_PRECISION (type);
+	unsigned int eprec = TYPE_PRECISION (TREE_TYPE (expr));
 
-	if (TYPE_PRECISION (TREE_TYPE (expr)) != pointer_size)
+ 	if (eprec != pprec)
 	  expr = fold_build1_loc (loc, NOP_EXPR,
-				  lang_hooks.types.type_for_size
-				    (pointer_size, 0),
-				  expr);
-
-	return fold_build1_loc (loc, CONVERT_EXPR, type, expr);
+			      lang_hooks.types.type_for_size (pprec, 0),
+			      expr);
       }
+
+      return fold_build1_loc (loc, CONVERT_EXPR, type, expr);
 
     default:
       error ("cannot convert to a pointer type");

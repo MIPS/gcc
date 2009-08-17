@@ -1096,6 +1096,7 @@ extern unsigned HOST_WIDE_INT nonzero_bits (const_rtx, enum machine_mode);
 extern unsigned int num_sign_bit_copies (const_rtx, enum machine_mode);
 extern bool constant_pool_constant_p (rtx);
 extern bool truncated_to_mode (enum machine_mode, const_rtx);
+extern int low_bitmask_len (enum machine_mode, unsigned HOST_WIDE_INT);
 
 
 /* 1 if RTX is a subreg containing a reg that is already known to be
@@ -1634,6 +1635,7 @@ extern rtx previous_insn (rtx);
 extern rtx next_insn (rtx);
 extern rtx prev_nonnote_insn (rtx);
 extern rtx next_nonnote_insn (rtx);
+extern rtx next_nonnote_insn_bb (rtx);
 extern rtx prev_real_insn (rtx);
 extern rtx next_real_insn (rtx);
 extern rtx prev_active_insn (rtx);

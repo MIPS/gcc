@@ -600,9 +600,9 @@ package body Prj is
    -- Image --
    -----------
 
-   function Image (Casing : Casing_Type) return String is
+   function Image (The_Casing : Casing_Type) return String is
    begin
-      return The_Casing_Images (Casing).all;
+      return The_Casing_Images (The_Casing).all;
    end Image;
 
    -----------------------------
@@ -1053,6 +1053,7 @@ package body Prj is
    -----------------------------------
 
    procedure Compute_All_Imported_Projects (Project : Project_Id) is
+
       procedure Recursive_Add (Prj : Project_Id; Dummy : in out Boolean);
       --  Recursively add the projects imported by project Project, but not
       --  those that are extended.
@@ -1069,8 +1070,9 @@ package body Prj is
       begin
          --  A project is not importing itself
 
-         if Project /= Prj then
-            Prj2 := Ultimate_Extending_Project_Of (Prj);
+         Prj2 := Ultimate_Extending_Project_Of (Prj);
+
+         if Project /= Prj2 then
 
             --  Check that the project is not already in the list. We know the
             --  one passed to Recursive_Add have never been visited before, but
@@ -1081,6 +1083,7 @@ package body Prj is
                if List.Project = Prj2 then
                   return;
                end if;
+
                List := List.Next;
             end loop;
 
@@ -1095,6 +1098,7 @@ package body Prj is
 
       procedure For_All_Projects is
         new For_Every_Project_Imported (Boolean, Recursive_Add);
+
       Dummy : Boolean := False;
 
    begin
@@ -1185,7 +1189,9 @@ package body Prj is
       Require_Sources_Other_Lang : Boolean := True;
       Allow_Duplicate_Basenames  : Boolean := True;
       Compiler_Driver_Mandatory  : Boolean := False;
-      Error_On_Unknown_Language  : Boolean := True) return Processing_Flags
+      Error_On_Unknown_Language  : Boolean := True;
+      Require_Obj_Dirs           : Error_Warning := Error)
+      return Processing_Flags
    is
    begin
       return Processing_Flags'
@@ -1194,7 +1200,8 @@ package body Prj is
          Require_Sources_Other_Lang => Require_Sources_Other_Lang,
          Allow_Duplicate_Basenames  => Allow_Duplicate_Basenames,
          Error_On_Unknown_Language  => Error_On_Unknown_Language,
-         Compiler_Driver_Mandatory  => Compiler_Driver_Mandatory);
+         Compiler_Driver_Mandatory  => Compiler_Driver_Mandatory,
+         Require_Obj_Dirs           => Require_Obj_Dirs);
    end Create_Flags;
 
 begin
