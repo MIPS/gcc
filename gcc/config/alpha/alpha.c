@@ -2666,6 +2666,13 @@ alpha_emit_conditional_move (rtx cmp, enum machine_mode mode)
   int local_fast_math = flag_unsafe_math_optimizations;
   rtx tem;
 
+  if (cmp_mode == TFmode)
+    {
+      op0 = alpha_emit_xfloating_compare (&code, op0, op1);
+      op1 = const0_rtx;
+      cmp_mode = DImode;
+    }
+
   gcc_assert (cmp_mode == DFmode || cmp_mode == DImode);
 
   if (FLOAT_MODE_P (cmp_mode) != FLOAT_MODE_P (mode))
@@ -8596,7 +8603,7 @@ alpha_end_function (FILE *file, const char *fnname, tree decl ATTRIBUTE_UNUSED)
   insn = get_last_insn ();
   if (!INSN_P (insn))
     insn = prev_active_insn (insn);
-  if (CALL_P (insn))
+  if (insn && CALL_P (insn))
     output_asm_insn (get_insn_template (CODE_FOR_nop, NULL), NULL);
 
 #if TARGET_ABI_OSF
