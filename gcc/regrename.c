@@ -230,7 +230,7 @@ regrename_optimize (void)
 	  int new_reg, best_new_reg;
 	  int n_uses;
 	  struct du_chain *this_du = all_chains;
-	  struct du_chain *tmp;
+	  struct du_chain *tmp, *last;
 	  HARD_REG_SET this_unavailable;
 	  int reg = REGNO (*this_du->loc);
 	  int i;
@@ -259,20 +259,22 @@ regrename_optimize (void)
 
 	  COPY_HARD_REG_SET (this_unavailable, unavailable);
 
-	  /* Count number of uses, and narrow the set of registers we can
+	  /* Find last entry on chain (which has the need_caller_save bit),
+	     count number of uses, and narrow the set of registers we can
 	     use for renaming.  */
 	  n_uses = 0;
-	  for (tmp = this_du; tmp; tmp = tmp->next_use)
+	  for (last = this_du; last->next_use; last = last->next_use)
 	    {
-	      if (DEBUG_INSN_P (tmp->insn))
-		continue;
+	      /* ??? Do we need to discount debug insns here?  */
 	      n_uses++;
 	      IOR_COMPL_HARD_REG_SET (this_unavailable,
-				      reg_class_contents[tmp->cl]);
+				      reg_class_contents[last->cl]);
 	    }
-
-	  if (n_uses < 2)
+	  if (n_uses < 1)
 	    continue;
+
+	  IOR_COMPL_HARD_REG_SET (this_unavailable,
+				  reg_class_contents[last->cl]);
 
 	  if (this_du->need_caller_save_reg)
 	    IOR_HARD_REG_SET (this_unavailable, call_used_reg_set);
@@ -326,8 +328,8 @@ regrename_optimize (void)
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "Register %s in insn %d",
-		       reg_names[reg], INSN_UID (this_du->insn));
-	      if (this_du->need_caller_save_reg)
+		       reg_names[reg], INSN_UID (last->insn));
+	      if (last->need_caller_save_reg)
 		fprintf (dump_file, " crosses a call");
 	    }
 
@@ -743,7 +745,7 @@ build_def_use (basic_block bb)
 
   for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
-      if (NONDEBUG_INSN_P (insn))
+      if (INSN_P (insn))
 	{
 	  int n_ops;
 	  rtx note;
@@ -818,7 +820,8 @@ build_def_use (basic_block bb)
 	      *recog_data.dup_loc[i] = cc0_rtx;
 	    }
 
-	  scan_rtx (insn, &PATTERN (insn), NO_REGS, terminate_all_read,
+	  scan_rtx (insn, &PATTERN (insn), NO_REGS,
+		    DEBUG_INSN_P (insn) ? mark_access : terminate_all_read,
 		    OP_IN, 0);
 
 	  for (i = 0; i < recog_data.n_dups; i++)
@@ -968,12 +971,6 @@ build_def_use (basic_block bb)
 	    if (REG_NOTE_KIND (note) == REG_UNUSED)
 	      scan_rtx (insn, &XEXP (note, 0), NO_REGS, terminate_dead,
 			OP_IN, 0);
-	}
-      else if (DEBUG_INSN_P (insn)
-	       && !VAR_LOC_UNKNOWN_P (INSN_VAR_LOCATION_LOC (insn)))
-	{
-	  scan_rtx (insn, &INSN_VAR_LOCATION_LOC (insn),
-		    ALL_REGS, terminate_all_read, OP_IN, 0);
 	}
       if (insn == BB_END (bb))
 	break;

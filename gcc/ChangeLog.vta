@@ -1,3 +1,7 @@
+2009-08-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* regrename.c: Revert accidental check in in r150739.
+
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cfgrtl.c (rtl_split_block): Emit DELETED note for compare-debug
