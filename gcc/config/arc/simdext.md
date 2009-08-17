@@ -1343,10 +1343,10 @@
 (define_insn "simd_dma_in_i"
   [(set (reg:CC_BLK SDM)
 	(unspec [(reg:CC_BLK SDM)
-		 (mem:BLK (match_operand:SI 1 "mxp_addr_operand"))
-		 (match_operand 0 "mxp_addr_operand")
-		 (match_operand 2 "immediate_operand")
-		 (match_operand 3 "immediate_operand")]
+		 (mem:BLK (match_operand:SI 1 "mxp_addr_operand" "r"))
+		 (match_operand 0 "mxp_addr_operand" "r")
+		 (match_operand 2 "immediate_operand" "n")
+		 (match_operand 3 "immediate_operand" "n")]
 	 UNSPEC_ARC_SIMD_DMA))
    (clobber (match_scratch:SI 4 "=&r"))]
   "TARGET_SIMD_SET"
@@ -1356,7 +1356,7 @@
 ;; ??? We can't tell how much data is there to transfer before the
 ;; mxp function has been compiled; unfortunately, the compilation order
 ;; is different at the moment.
-;; To tanfer just as much as needed, either we'd have to compile the
+;; To transfer just as much as needed, either we'd have to compile the
 ;; mxp function forst, or teach the assembler to intelligently handle
 ;; variable transfer sizes.
 ;;
@@ -1368,7 +1368,7 @@
 	(unspec [(reg:CC_BLK SDM)
 		 (mem:BLK (match_operand:SI 1 "mxp_addr_operand" "r"))
 		 (match_operand 0 "mxp_addr_operand" "r")
-		 (match_operand 2 "immediate_operand")]
+		 (match_operand 2 "immediate_operand" "i")]
 	 UNSPEC_ARC_SIMD_DMA))
    (clobber (match_scratch:SI 3 "=&r"))]
   "TARGET_SIMD_SET"

@@ -1,3 +1,8 @@
+2009-08-17  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/simdext.md (simd_dma_in_i): Add constraints.
+	(simd_dma_in_data): Likewise.
+
 2009-08-12  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.md (*mov<mode>_i) <alternative 5>: Use vld%N0r if
