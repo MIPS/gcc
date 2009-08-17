@@ -1,3 +1,7 @@
+2009-08-17  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* loop-invariant.c (move_invariant_reg): Check changes for validity.
+
 2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* Makefile.in (($(TA)ira-emit.o): Depend on $(DF_H).
