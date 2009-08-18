@@ -273,6 +273,30 @@ target_for_debug_bind (tree var)
   return var;
 }
 
+/* Called via walk_tree, look for SSA_NAMEs that have already been
+   released.  */
+
+static tree
+find_released_ssa_name (tree *tp, int *walk_subtrees, void *data_)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data_;
+
+  if (wi->is_lhs)
+    return NULL_TREE;
+
+  if (TREE_CODE (*tp) == SSA_NAME)
+    {
+      if (SSA_NAME_IN_FREE_LIST (*tp))
+	return *tp;
+
+      *walk_subtrees = 0;
+    }
+  else if (IS_TYPE_OR_DECL_P (*tp))
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
 /* Given a VAR whose definition STMT is to be moved to the iterator
    position TOGSIP in the TOBB basic block, verify whether we're
    moving it across any of the debug statements that use it, and
@@ -338,7 +362,48 @@ propagate_var_def_into_debug_stmts (tree var,
 	  gimple def_stmt = SSA_NAME_DEF_STMT (var);
 
 	  if (is_gimple_assign (def_stmt))
-	    value = gimple_assign_rhs_to_tree (def_stmt);
+	    {
+	      if (!dom_info_available_p (CDI_DOMINATORS))
+		{
+		  struct walk_stmt_info wi;
+
+		  memset (&wi, 0, sizeof (wi));
+
+		  /* When removing blocks without following reverse
+		     dominance order, we may sometimes encounter SSA_NAMEs
+		     that have already been released, referenced in other
+		     SSA_DEFs that we're about to release.  Consider:
+
+		     <bb X>:
+		     v_1 = foo;
+
+		     <bb Y>:
+		     w_2 = v_1 + bar;
+		     # DEBUG w => w_2
+
+		     If we deleted BB X first, propagating the value of
+		     w_2 won't do us any good.  It's too late to recover
+		     their original definition of v_1: when it was
+		     deleted, it was only referenced in other DEFs, it
+		     couldn't possibly know it should have been retained,
+		     and propagating every single DEF just in case it
+		     might have to be propagated into a DEBUG STMT would
+		     probably be too wasteful.
+
+		     When dominator information is not readily
+		     available, we check for and accept some loss of
+		     debug information.  But if it is available,
+		     there's no excuse for us to remove blocks in the
+		     wrong order, so we don't even check for dead SSA
+		     NAMEs.  SSA verification shall catch any
+		     errors.  */
+		  if (!walk_gimple_op (def_stmt, find_released_ssa_name, &wi))
+		    no_value = true;
+		}
+
+	      if (!no_value)
+		value = gimple_assign_rhs_to_tree (def_stmt);
+	    }
 
 	  if (!value)
 	    no_value = true;

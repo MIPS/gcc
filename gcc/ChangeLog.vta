@@ -1,3 +1,12 @@
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgcleanup.c (delete_unreachable_blocks): Preserve more
+	information in debug stmts using dominance information.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	* tree-ssa.c (find_released_ssa_name): New.
+	(propagate_var_def_into_debug_stmts): Check for and drop dead
+	SSA NAMEs when dominance information is not available.
+
 2009-08-17  Alexandre Oliva  <aoliva@redhat.com>
 
 	* regrename.c: Revert accidental check in in r150739.

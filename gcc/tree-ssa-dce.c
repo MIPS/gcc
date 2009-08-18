@@ -1071,6 +1071,7 @@ eliminate_unnecessary_stmts (void)
   gimple_stmt_iterator gsi;
   gimple stmt;
   tree call;
+  VEC (basic_block, heap) *h;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
@@ -1099,8 +1100,13 @@ eliminate_unnecessary_stmts (void)
      # DEBUG a => y_1 + z_2 - b_4
 
      as desired.  */
-  FOR_EACH_BB_REVERSE (bb)
+  gcc_assert (dom_info_available_p (CDI_DOMINATORS));
+  h = get_all_dominated_blocks (CDI_DOMINATORS, single_succ (ENTRY_BLOCK_PTR));
+
+  while (VEC_length (basic_block, h))
     {
+      bb = VEC_pop (basic_block, h);
+
       /* Remove dead statements.  */
       for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi);)
 	{
@@ -1156,16 +1162,23 @@ eliminate_unnecessary_stmts (void)
 	    gsi_prev (&gsi);
 	}
     }
+
+  VEC_free (basic_block, heap, h);
+
   /* Since we don't track liveness of virtual PHI nodes, it is possible that we
      rendered some PHI nodes unreachable while they are still in use.
      Mark them for renaming.  */
   if (cfg_altered)
     {
       basic_block prev_bb;
+
       find_unreachable_blocks ();
+
+      /* Delete all unreachable basic blocks in reverse dominator order.  */
       for (bb = EXIT_BLOCK_PTR->prev_bb; bb != ENTRY_BLOCK_PTR; bb = prev_bb)
 	{
 	  prev_bb = bb->prev_bb;
+
 	  if (!TEST_BIT (bb_contains_live_stmts, bb->index)
 	      || !(bb->flags & BB_REACHABLE))
 	    {
@@ -1189,8 +1202,36 @@ eliminate_unnecessary_stmts (void)
 		    if (found)
 		      mark_virtual_phi_result_for_renaming (gsi_stmt (gsi));
 		  }
+
 	      if (!(bb->flags & BB_REACHABLE))
-	        delete_basic_block (bb);
+		{
+		  /* Speed up the removal of blocks that don't
+		     dominate others.  Walking backwards, this should
+		     be the common case.  ??? Do we need to recompute
+		     dominators because of cfg_altered?  */
+		  if (!MAY_HAVE_DEBUG_STMTS
+		      || !first_dom_son (CDI_DOMINATORS, bb))
+		    delete_basic_block (bb);
+		  else
+		    {
+		      h = get_all_dominated_blocks (CDI_DOMINATORS, bb);
+
+		      while (VEC_length (basic_block, h))
+			{
+			  bb = VEC_pop (basic_block, h);
+			  prev_bb = bb->prev_bb;
+			  /* Rearrangements to the CFG may have failed
+			     to update the dominators tree, so that
+			     formerly-dominated blocks are now
+			     otherwise reachable.  */
+			  if (!!(bb->flags & BB_REACHABLE))
+			    continue;
+			  delete_basic_block (bb);
+			}
+
+		      VEC_free (basic_block, heap, h);
+		    }
+		}
 	    }
 	}
     }
