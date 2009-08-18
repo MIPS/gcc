@@ -11683,6 +11683,9 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 	}
       /* FALLTHROUGH */
     case SYMBOL_REF:
+      if (GET_CODE (rtl) == SYMBOL_REF
+	  && SYMBOL_REF_TLS_MODEL (rtl) != TLS_MODEL_NONE)
+	break;
     case LABEL_REF:
       if (mode != VOIDmode && GET_MODE_SIZE (mode) == DWARF2_ADDR_SIZE)
 	{
@@ -12646,6 +12649,9 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	}
       /* FALLTHROUGH */
     case SYMBOL_REF:
+      if (GET_CODE (rtl) == SYMBOL_REF
+	  && SYMBOL_REF_TLS_MODEL (rtl) != TLS_MODEL_NONE)
+	break;
     case LABEL_REF:
       add_AT_addr (die, DW_AT_const_value, rtl);
       VEC_safe_push (rtx, gc, used_rtx_array, rtl);

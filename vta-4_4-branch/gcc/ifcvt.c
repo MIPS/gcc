@@ -2479,8 +2479,6 @@ check_cond_move_block (basic_block bb, rtx *vals, VEC (int, heap) **regs, rtx co
    /* We can only handle simple jumps at the end of the basic block.
       It is almost impossible to update the CFG otherwise.  */
   insn = BB_END (bb);
-  while (DEBUG_INSN_P (insn))
-    insn = PREV_INSN (insn);
   if (JUMP_P (insn) && !onlyjump_p (insn))
     return FALSE;
 

@@ -384,6 +384,7 @@ get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
       case NOTE:
       case BARRIER:
       case CODE_LABEL:
+      case DEBUG_INSN:
 	return 0;
 
       case CALL_INSN:
@@ -403,8 +404,7 @@ get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
 
       case INSN:
 	body = PATTERN (insn);
-	if (GET_CODE (body) == USE || GET_CODE (body) == CLOBBER
-	    || DEBUG_INSN_P (insn))
+	if (GET_CODE (body) == USE || GET_CODE (body) == CLOBBER)
 	  return 0;
 
 	else if (GET_CODE (body) == ASM_INPUT || asm_noperands (body) >= 0)

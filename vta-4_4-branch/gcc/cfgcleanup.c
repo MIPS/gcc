@@ -2077,15 +2077,15 @@ bool
 delete_unreachable_blocks (void)
 {
   bool changed = false;
-  basic_block b, next_bb;
+  basic_block b, prev_bb;
 
   find_unreachable_blocks ();
 
   /* Delete all unreachable basic blocks.  */
 
-  for (b = ENTRY_BLOCK_PTR->next_bb; b != EXIT_BLOCK_PTR; b = next_bb)
+  for (b = EXIT_BLOCK_PTR->prev_bb; b != ENTRY_BLOCK_PTR; b = prev_bb)
     {
-      next_bb = b->next_bb;
+      prev_bb = b->prev_bb;
 
       if (!(b->flags & BB_REACHABLE))
 	{

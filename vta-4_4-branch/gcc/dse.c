@@ -2387,7 +2387,6 @@ scan_insn (bb_info_t bb_info, rtx insn)
   insn_info->insn = insn;
   bb_info->last_insn = insn_info;
   
-
   if (DEBUG_INSN_P (insn))
     {
       insn_info->cannot_delete = true;

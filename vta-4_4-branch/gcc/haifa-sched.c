@@ -774,7 +774,7 @@ contributes_to_priority_p (dep_t dep)
 /* Compute the number of nondebug forward deps of an insn.  */
 
 static int
-nondebug_dep_list_size (rtx insn)
+dep_list_size (rtx insn)
 {
   sd_iterator_def sd_it;
   dep_t dep;
@@ -810,7 +810,7 @@ priority (rtx insn)
     {
       int this_priority = -1;
 
-      if (nondebug_dep_list_size (insn) == 0)
+      if (dep_list_size (insn) == 0)
 	/* ??? We should set INSN_PRIORITY to insn_cost when and insn has
 	   some forward deps but all of them are ignored by
 	   contributes_to_priority hook.  At the moment we set priority of
@@ -918,9 +918,8 @@ rank_for_schedule (const void *x, const void *y)
   rtx last;
   int tmp_class, tmp2_class;
   int val, priority_val, weight_val, info_val;
-  bool has_debug = MAY_HAVE_DEBUG_INSNS;
 
-  if (has_debug)
+  if (MAY_HAVE_DEBUG_INSNS)
     {
       /* Schedule debug insns as early as possible.  */
       if (DEBUG_INSN_P (tmp) && !DEBUG_INSN_P (tmp2))
@@ -1023,12 +1022,7 @@ rank_for_schedule (const void *x, const void *y)
      This gives the scheduler more freedom when scheduling later
      instructions at the expense of added register pressure.  */
 
-  if (has_debug)
-    val = (nondebug_dep_list_size (tmp2)
-	   - nondebug_dep_list_size (tmp));
-  else
-    val = (sd_lists_size (tmp2, SD_LIST_FORW)
-	   - sd_lists_size (tmp, SD_LIST_FORW));
+  val = (dep_list_size (tmp2) - dep_list_size (tmp));
 
 
   if (val != 0)
@@ -2423,10 +2417,6 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
     }
 }
 
-#ifndef SCHED_DEBUG_INSNS_BEFORE_REORDER
-# define SCHED_DEBUG_INSNS_BEFORE_REORDER 1
-#endif
-
 /* Use forward list scheduling to rearrange insns of block pointed to by
    TARGET_BB, possibly bringing insns from subsequent blocks in the same
    region.  */
@@ -2590,8 +2580,7 @@ schedule_block (basic_block *target_bb)
 
       /* We don't want md sched reorder to even see debug isns, so put
 	 them out right away.  */
-      if (SCHED_DEBUG_INSNS_BEFORE_REORDER
-	  && ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0)))
+      if (ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0)))
 	{
 	  if (control_flow_insn_p (last_scheduled_insn))
 	    {
@@ -2671,9 +2660,7 @@ schedule_block (basic_block *target_bb)
 	    }
 
 	  if (ready.n_ready == 0
-	      || (!can_issue_more
-		  && (SCHED_DEBUG_INSNS_BEFORE_REORDER
-		      || !DEBUG_INSN_P (ready_element (&ready, 0))))
+	      || !can_issue_more
 	      || state_dead_lock_p (curr_state)
 	      || !(*current_sched_info->schedule_more_p) ())
 	    break;
@@ -2814,9 +2801,7 @@ schedule_block (basic_block *target_bb)
 	  /* A naked CLOBBER or USE generates no instruction, so do
 	     not count them against the issue rate.  */
 	  else if (GET_CODE (PATTERN (insn)) != USE
-		   && GET_CODE (PATTERN (insn)) != CLOBBER
-		   && (SCHED_DEBUG_INSNS_BEFORE_REORDER
-		       || !DEBUG_INSN_P (insn)))
+		   && GET_CODE (PATTERN (insn)) != CLOBBER)
 	    can_issue_more--;
 
 	  advance = schedule_insn (insn);
@@ -2827,9 +2812,7 @@ schedule_block (basic_block *target_bb)
 	  if (advance != 0)
 	    break;
 
-	  if (SCHED_DEBUG_INSNS_BEFORE_REORDER
-	      || !DEBUG_INSN_P (insn))
-	    first_cycle_insn_p = 0;
+	  first_cycle_insn_p = 0;
 
 	  /* Sort the ready list based on priority.  This must be
 	     redone here, as schedule_insn may have readied additional
@@ -2839,8 +2822,7 @@ schedule_block (basic_block *target_bb)
 
 	  /* Quickly go through debug insns such that md sched
 	     reorder2 doesn't have to deal with debug insns.  */
-	  if (SCHED_DEBUG_INSNS_BEFORE_REORDER
-	      && ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0))
+	  if (ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0))
 	      && (*current_sched_info->schedule_more_p) ())
 	    {
 	      if (control_flow_insn_p (last_scheduled_insn))
@@ -4749,7 +4731,7 @@ add_jump_dependencies (rtx insn, rtx jump)
       if (insn == jump)
 	break;
       
-      if (nondebug_dep_list_size (insn) == 0)
+      if (dep_list_size (insn) == 0)
 	{
 	  dep_def _new_dep, *new_dep = &_new_dep;
 
