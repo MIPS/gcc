@@ -1,3 +1,132 @@
+2009-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/40971
+	* config/rs6000/rs6000.c (rs6000_legitimize_address): For
+	[DT][FDI]mode ensure the offset isn't 4/8/12 bytes below 0x8000.
+
+2009-08-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41019
+	* config/i386/sse.md (SSEMODE124C8): New mode iterator.
+	(vcond<SSEMODEF2P:mode>): Assert that operation is supported by
+	ix86_expand_fp_vcond.
+	(vcond<SSEMODE124C8:mode>): Use SSEMODE124C8 instead of SSEMODE124.
+	Assert that operation is supported by ix86_expand_int_vcond.
+	(vcondu<SSEMODE124C8:mode>): Ditto.
+
+2009-08-16  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/37801
+	* gcc/dwarf2out.c (gen_inlined_subroutine_die): Concentrate on
+	generating inlined subroutine die only. We shouldn't be
+	called for anything else.
+	(gen_block_die): Don't generate inline subroutine debug info for
+	abstract blocks.
+
+2009-08-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-08-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/8603
+	* config/alpha/alpha.md (addsi3): Remove expander.
+	(addsi3): Rename from *addsi3_internal insn pattern.
+	(subsi3): Remove expander.
+	(subsi3): Rename from *subsi3_internal insn pattern.
+
+2009-08-13  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/41033
+	* alias.c (nonoverlapping_component_refs_p): Punt when strict
+	aliasing is disabled.
+
+2009-08-11  SUGIOKA Toshinobu  <sugioka@itonet.co.jp>
+
+	Backport from mainline:
+	2009-08-10  SUGIOKA Toshinobu  <sugioka@itonet.co.jp>
+
+	PR target/41015
+	* longlong.h [__sh__] (udiv_qrnnd): Add T register to clobber list.
+	(sub_ddmmss): Likewise.
+
+2009-08-10  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR bootstrap/41018
+	* config/rs6000/freebsd.h: Define SVR4_ASM_SPEC. Adjust copyright
+	year.
+
+2009-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41016
+	* tree-ssa-ifcombine.c (get_name_for_bit_test): Fix tuplification bug.
+	(operand_precision): Remove.
+	(integral_operand_p): Likewise.
+	(recognize_single_bit_test): Adjust.
+
+2009-08-05  Uros Bizjak  <ubizjak@gmail.com>
+	    Mikulas Patocka  <mikulas@artax.karlin.mff.cuni.cz>
+
+	PR target/40906
+	* config/i386/i386.c (ix86_split_long_move): Fix push of multi-part
+	source operand.
+
+2009-08-05  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (movdi2): Copy non-reg values to DImode registers.
+
+2009-08-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/40924
+	* dse.c (canon_address): Before calling cselib_expand_value_rtx
+	make sure canon_rtx (mem_address) isn't simpler than
+	canon_rtx (expanded_mem_address).
+
+2009-08-03  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39902
+	* simplify-rtx.c (simplify_binary_operation_1): Disable
+	simplifications for decimal float operations.
+
+2009-08-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40943
+	* tree-ssa.c (warn_uninitialized_var): Even on LHS warn for
+	operand of INDIRECT_REF.
+
+2009-08-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_legitimate_constant_p): Reject CONST
+	constants referencing TLS symbols.
+
+2009-07-30  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (override_options): Default
+	max-unrolled-insns to 100 for z10 tuning.
+
+2009-07-30  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/constraints.md (ZQ, ZR, ZS, ZT): New constraints.
+	(U, W): Constraints are now deprecated and will be removed if we
+	run out of letters.
+	* config/s390/s390.md (U, W): Replaced with ZQZR, ZSZT throughout
+	the file.
+	("prefetch"): Add the stcmh instruction for prefetching.
+	* config/s390/s390.c (s390_symref_operand_p): Function moved. No
+	changes.
+	(s390_short_displacement): Return always true if compiling for
+	machines not providing the long displacement facility.
+	(s390_mem_constraint): Support the new constraint letter Z.
+	(s390_check_qrst_address): New function.
+
+2009-07-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/40577
+	* config/alpha/alpha.c (alpha_expand_unaligned_store): Convert src
+	to DImode when generating insq_le insn.
+
 2009-07-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	Backport from mainline:
@@ -57,7 +186,7 @@
 
 	Backport from mainline:
 	2009-04-29  Richard Guenther  <rguenther@suse.de>
-  
+
 	PR target/39943
 	* config/i386/i386.c (ix86_vectorize_builtin_conversion): Only
 	allow conversion to signed integers.
@@ -144,7 +273,7 @@
 	PR target/40587
 	* ira.c (build_insn_chain): Use DF_LR_OUT instead of
 	df_get_live_out.
-	
+
 2009-07-02  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/40585
@@ -155,9 +284,9 @@
 
 	Backport from mainline:
 	2009-05-11 Martin Jambor <mjambor@suse.cz>
-	
+
 	* ipa-cp.c (ipcp_cloning_candidate_p): Add missing return false.
-	
+
 2009-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/40566
@@ -1224,7 +1353,7 @@
 2009-03-27  Xinliang David Li  <davidxl@google.com>
 
 	PR tree-optimization/39548
-	* tree-ssa-copy.c (copy_prop_visit_phi_node): Add copy 
+	* tree-ssa-copy.c (copy_prop_visit_phi_node): Add copy
 	candidate check.
 
 2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
@@ -1240,7 +1369,8 @@
 2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR c++/36799
-	* ginclude/stdarg.h (va_copy): Define also for __GXX_EXPERIMENTAL_CXX0X__.
+	* ginclude/stdarg.h (va_copy): Define also for
+	__GXX_EXPERIMENTAL_CXX0X__.
 
 2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
@@ -1382,7 +1512,7 @@
 
 2009-03-23 Bingfeng Mei  <bmei@broadcom.com>
 
-	* config.gcc (need_64bit_hwint): Make clear that need_64bit_hwint 
+	* config.gcc (need_64bit_hwint): Make clear that need_64bit_hwint
 	should be set true if BITS_PER_WORD of target is bigger than 32
 
 2009-03-22  Hans-Peter Nilsson  <hp@axis.com>
@@ -2107,7 +2237,7 @@
 2009-02-27  Sebastian Pop  <sebastian.pop@amd.com>
 
 	PR middle-end/39308
-	* graphite.c (graphite_loop_normal_form): Do not call 
+	* graphite.c (graphite_loop_normal_form): Do not call
 	number_of_iterations_exit from a gcc_assert.
 
 2009-02-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
@@ -2206,7 +2336,7 @@
 	PR c++/38880
 	* varasm.c (initializer_constant_valid_p) [PLUS_EXPR]: Check
 	narrowing_initializer_constant_valid_p.
-	(narrowing_initializer_constant_valid_p): Don't return 
+	(narrowing_initializer_constant_valid_p): Don't return
 	null_pointer_node for adding a pointer to itself.
 
 2009-02-23  Jan Hubicka  <jh@suse.cz>
@@ -2898,7 +3028,7 @@
 	* c-common.c (handle_tls_model_attribute): Ignore attribute for
 	non-VAR_DECLs without checking DECL_THREAD_LOCAL_P.
 
-2009-02-04  Tobias Grosser  <grosser@fim.uni-passau.de>	
+2009-02-04  Tobias Grosser  <grosser@fim.uni-passau.de>
 
 	* graphite.c (bb_in_sese_p, sese_build_livein_liveouts_use,
 	sese_build_livein_liveouts_bb, sese_build_livein_liveouts,
@@ -3226,7 +3356,7 @@
 	count_spilled_pseudo, find_reg, alter_reg, delete_output_reload):
 	Remove flag_ira.
 	(finish_spills): Ditto.  Remove code for !flag_ira.
-	
+
 2009-01-29  Kenneth Zadeck  <zadeck@naturalbridge.com>
 
 	PR middle-end/35854
@@ -3239,8 +3369,7 @@
 	"eh-ranges" to "eh_ranges".
 	* lower-subreg.c (pass_lower_subreg): Renamed pass from "subreg"
 	to "subreg1".
-		
-	
+
 2009-01-29  Andrey Belevantsev  <abel@ispras.ru>
 	    Alexander Monakov  <amonakov@ispras.ru>
 
@@ -3613,7 +3742,7 @@
 
 2009-01-20  Sebastian Pop  <sebastian.pop@amd.com>
 
-	* common.opt (fgraphite, fgraphite-identity): Add comment for 
+	* common.opt (fgraphite, fgraphite-identity): Add comment for
 	explaining why these options are not documented.
 
 2009-01-20  Sebastian Pop  <sebastian.pop@amd.com>
@@ -3735,7 +3864,7 @@
 2009-01-16  Sebastian Pop  <sebastian.pop@amd.com>
 	    Tobias Grosser  <tobi.grosser@amd.com>
 
-	* graphite.c (add_conditions_to_domain): Add the loops to 
+	* graphite.c (add_conditions_to_domain): Add the loops to
 	the dimension of the iteration domain.  Do copy the domain
 	only when it exists.
 	(build_scop_conditions_1): Do not call add_conditions_to_domain.
@@ -3756,7 +3885,7 @@
 
 	* dce.c (delete_unmarked_insns): Reversed the order that insns are
 	examined before deleting them.
-	
+
 2009-01-16  Richard Earnshaw  <rearnsha@arm.com>
 
 	* function.c (aggregate_value_p): Correctly extract the function
@@ -3796,7 +3925,7 @@
 2009-01-15  Kenneth Zadeck  <zadeck@naturalbridge.com>
 
 	* dce.c (find_call_stack_args, delete_unmarked_insns): Fixed comments.
-	
+
 2009-01-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/38245
@@ -3831,7 +3960,7 @@
 	* graphite.c (get_vdef_before_scop, scop_adjust_vphi): New.
 	(scop_adjust_phis_for_liveouts): Call scop_adjust_vphi.
 	(gloog): Do not call cleanup_tree_cfg.
-	(graphite_transform_loops): Call cleanup_tree_cfg after all 
+	(graphite_transform_loops): Call cleanup_tree_cfg after all
 	scops have been code generated.
 
 2009-01-14  Basile Starynkevitch  <basile@starynkevitch.net>
@@ -3972,7 +4101,7 @@
 2009-01-11  Laurent GUERBY  <laurent@guerby.net>
 
 	* doc/sourcebuild.texi (Source Tree): Move up intl and fixinc.
-	
+
 2009-01-11  Markus Schoepflin  <markus.schoepflin@comsoft.de>
 
 	PR debug/7055
@@ -4095,7 +4224,7 @@
 
 	PR tree-optimization/37194
 	* tree-vect-transform.c (vect_estimate_min_profitable_iters):
-	Don't add the cost of cost model guard in prologue to scalar 
+	Don't add the cost of cost model guard in prologue to scalar
 	outside cost in case of known number of iterations.
 
 2009-01-07  Nathan Froyd  <froydnj@codesourcery.com>
@@ -4294,9 +4423,9 @@
 	* params.def (ira-max-conflict-table-size): New.
 
 	* doc/invoke.texi (ira-max-conflict-table-size): Decribe.
-	
+
 	* ira.h (ira_conflicts_p): New external definition.
-	
+
 	* ira-conflicts.c (build_conflict_bit_table): Do not build too big
 	table.  Report this.  Return result of building.
 	(ira_build_conflicts): Use ira_conflicts_p.  Check result of
@@ -4304,13 +4433,13 @@
 
 	* ira-color.c (fast_allocation): Use num instead of ira_allocnos_num.
 	(ira_color): Use ira_conflicts_p.
-	
+
 	* global.c: Include ira.h.
 	(pseudo_for_reload_consideration_p, build_insn_chain): Use
 	ira_conflicts_p.
 
 	* Makefile.in (global.o): Add ira.h.
-	
+
 	* ira-build.c (mark_all_loops_for_removal,
 	propagate_some_info_from_allocno): New.
 	(remove_unnecessary_allocnos): Call
@@ -4328,7 +4457,7 @@
 	* reload1.c (compute_use_by_pseudos, reload, count_pseudo,
 	count_spilled_pseudo, find_reg, alter_reg, finish_spills,
 	emit_input_reload_insns, delete_output_reload): Use ira_conflicts_p.
-	
+
 2009-01-06  Ben Elliston  <bje@au.ibm.com>
 
 	* gengtype-lex.l (YY_NO_INPUT): Define.
@@ -4518,7 +4647,7 @@
 	* df-problems.c (df_lr_finalize): Add recursive call to resolve lr
 	problem if fast dce is able to remove any instructions.
 	* dce.c (dce_process_block): Fix dump message.
-	
+
 2009-01-02  Mark Mitchell  <mark@codesourcery.com>
 
 	PR 33649
