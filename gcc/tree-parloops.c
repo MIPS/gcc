@@ -1478,15 +1478,6 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 
       htab_traverse (name_copies, create_loads_and_stores_for_name,
 		     ld_st_data);
-      if (numa)
-	{
-	  gsi = gsi_last_bb (bb0);
-	  (*targetm.copy_to_target) (&gsi, targetm_array[new_target], copy_base,
-				     build_fold_addr_expr (*arg_struct),
-				     size_in_bytes (type));
-	  *arg_struct = build_fold_indirect_ref (copy_base);
-	}
-
       /* Load the calculation from memory (after the join of the threads).  */
 
       if (reduction_list && htab_elements (reduction_list) > 0)
@@ -1505,6 +1496,14 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 		 build_fold_addr_expr (ld_st_data->store),
 		 size_in_bytes (type));
 	    }
+	}
+      if (numa)
+	{
+	  gsi = gsi_last_bb (bb0);
+	  (*targetm.copy_to_target) (&gsi, targetm_array[new_target], copy_base,
+				     build_fold_addr_expr (*arg_struct),
+				     size_in_bytes (type));
+	  *arg_struct = build_fold_indirect_ref (copy_base);
 	}
       gsi = gsi_after_labels (split_edge (exit));
       gsi_insert_seq_before (&gsi, ld_st_data->result_seq, GSI_NEW_STMT);

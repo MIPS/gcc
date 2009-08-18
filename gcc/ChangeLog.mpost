@@ -1,3 +1,8 @@
+2009-08-18  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (separate_decls_in_region): Copy input parameter
+	struct to callee target only after initializing reduction fields.
+
 2009-08-12  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/arc/mpost-demo: New directory.
