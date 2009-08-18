@@ -190,15 +190,21 @@ main (int argc, char *argv[])
   if (!guality_skip)
     {
       guality_gdb_input = popen (guality_gdb_command, "w");
+      /* This call sets guality_breakpoint_line.  */
       guality_check (NULL, 0, 0);
-      fprintf (guality_gdb_input, "\
+      if (!guality_gdb_input
+	  || fprintf (guality_gdb_input, "\
 set height 0\n\
 attach %i\n\
-b %i\n\
 set guality_attached = 1\n\
+b %i\n\
 continue\n\
-", (int)getpid (), guality_breakpoint_line);
-      fflush (guality_gdb_input);
+", (int)getpid (), guality_breakpoint_line) <= 0
+	  || fflush (guality_gdb_input))
+	{
+	  perror ("gdb");
+	  abort ();
+	}
     }
 
   argv[--i] = argv0;
@@ -217,10 +223,9 @@ continue\n\
 
 #define main guality_main
 
-/* Fork a child process and attach a debugger to the parent to
-   evaluate NAME in the caller.  If it matches VALUE, we have a PASS;
-   if it's unknown and UNKNOWN_OK, we have an UNRESOLVED.  Otherwise,
-   it's a FAIL.  */
+/* Tell the GDB child process to evaluate NAME in the caller.  If it
+   matches VALUE, we have a PASS; if it's unknown and UNKNOWN_OK, we
+   have an UNRESOLVED.  Otherwise, it's a FAIL.  */
 
 static void __attribute__((noinline))
 guality_check (const char *name, long long value, int unknown_ok)
@@ -237,7 +242,7 @@ guality_check (const char *name, long long value, int unknown_ok)
       {
 	/* The sequence below cannot distinguish an optimized away
 	   variable from one mapped to a non-lvalue zero.  */
-	fprintf (guality_gdb_input, "\
+	if (fprintf (guality_gdb_input, "\
 up\n\
 set $value1 = 0\n\
 set $value1 = (%s)\n\
@@ -251,10 +256,29 @@ down\n\
 set xvalue = $value1\n\
 set unavailable = $value1 != $value2 ? -1 : $value3 != $value4 ? 1 : 0\n\
 continue\n\
-", name, name, name, name);
-	fflush (guality_gdb_input);
-	while (!guality_attached)
-	  ;
+", name, name, name, name) <= 0
+	    || fflush (guality_gdb_input))
+	  {
+	    perror ("gdb");
+	    abort ();
+	  }
+	else if (!guality_attached)
+	  {
+	    unsigned int timeout = 0;
+
+	    /* Give GDB some more time to attach.  Wrapping around a
+	       32-bit counter takes some seconds, it should be plenty
+	       of time for GDB to get a chance to start up and attach,
+	       but not long enough that, if GDB is unavailable or
+	       broken, we'll take far too long to give up.  */
+	    while (--timeout && !guality_attached)
+	      ;
+	    if (!timeout && !guality_attached)
+	      {
+		fprintf (stderr, "gdb: took too long to attach\n");
+		abort ();
+	      }
+	  }
       }
     else
       {
