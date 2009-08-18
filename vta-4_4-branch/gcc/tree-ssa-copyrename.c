@@ -193,13 +193,13 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
   /* Never attempt to coalesce 2 user variables unless one is an inline 
      variable.  */
-  if (!ign1 && !ign2)
+  if (!ign1 && !ign2 && flag_ssa_coalesce_vars)
     {
       if (DECL_FROM_INLINE (root2))
         ign2 = true;
       else if (DECL_FROM_INLINE (root1))
 	ign1 = true;
-      else 
+      else if (flag_ssa_coalesce_vars != 1)
 	{
 	  if (debug)
 	    fprintf (debug, " : 2 different USER vars. No coalesce.\n");

@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -312,10 +312,22 @@ int flag_dump_rtl_in_asm = 0;
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
 
-/* Nonzero if we should track variables.  When
-   flag_var_tracking == AUTODETECT_VALUE it will be set according
-   to optimize, debug_info_level and debug_hooks in process_options ().  */
+/* Positive if we should track variables, negative if we should run
+   the var-tracking pass only to discard debug annotations, zero if
+   we're not to run it.  When flag_var_tracking == AUTODETECT_VALUE it
+   will be set according to optimize, debug_info_level and debug_hooks
+   in process_options ().  */
 int flag_var_tracking = AUTODETECT_VALUE;
+
+/* Positive if we should track variables at assignments, negative if
+   we should run the var-tracking pass only to discard debug
+   annotations.  When flag_var_tracking_assignments ==
+   AUTODETECT_VALUE it will be set according to flag_var_tracking.  */
+int flag_var_tracking_assignments = AUTODETECT_VALUE;
+
+/* Nonzero if we should toggle flag_var_tracking_assignments after
+   processing options and computing its default.  */
+int flag_var_tracking_assignments_toggle = 0;
 
 /* Type of stack check.  */
 enum stack_check_type flag_stack_check = NO_STACK_CHECK;
@@ -1781,6 +1793,31 @@ process_options (void)
       profile_flag = 0;
     }
 
+  if (flag_gtoggle)
+    {
+      if (debug_info_level == DINFO_LEVEL_NONE)
+	debug_info_level = DINFO_LEVEL_NORMAL;
+      else
+	debug_info_level = DINFO_LEVEL_NONE;
+    }
+
+  if (flag_dump_final_insns && !flag_syntax_only && !no_backend)
+    {
+      FILE *final_output = fopen (flag_dump_final_insns, "w");
+      if (!final_output)
+	{
+	  error ("could not open final insn dump file %qs: %s",
+		 flag_dump_final_insns, strerror (errno));
+	  flag_dump_final_insns = NULL;
+	}
+      else if (fclose (final_output))
+	{
+	  error ("could not close zeroed insn dump file %qs: %s",
+		 flag_dump_final_insns, strerror (errno));
+	  flag_dump_final_insns = NULL;
+	}
+    }
+
   /* A lot of code assumes write_symbols == NO_DEBUG if the debugging
      level is 0.  */
   if (debug_info_level == DINFO_LEVEL_NONE)
@@ -1864,6 +1901,15 @@ process_options (void)
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  if (flag_var_tracking_assignments == AUTODETECT_VALUE)
+    flag_var_tracking_assignments = flag_var_tracking;
+
+  if (flag_var_tracking_assignments_toggle)
+    flag_var_tracking_assignments = !flag_var_tracking_assignments;
+
+  if (flag_var_tracking_assignments && !flag_var_tracking)
+    flag_var_tracking = flag_var_tracking_assignments = -1;
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
 #ifdef HAVE_conditional_move

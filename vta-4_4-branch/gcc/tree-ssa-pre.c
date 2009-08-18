@@ -3803,7 +3803,6 @@ compute_avail (void)
 		    bitmap_value_insert_into_set (EXP_GEN (block), result);
 		    bitmap_value_insert_into_set (maximal_set, result);
 		  }
-
 		continue;
 	      }
 	    default:

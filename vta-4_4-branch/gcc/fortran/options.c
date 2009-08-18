@@ -232,6 +232,9 @@ gfc_post_options (const char **pfilename)
   if (flag_whole_program)
     gfc_fatal_error ("Option -fwhole-program is not supported for Fortran");
 
+  if (flag_compare_debug)
+    gfc_option.dump_parse_tree = 0;
+
   /* Verify the input file name.  */
   if (!filename || strcmp (filename, "-") == 0)
     {

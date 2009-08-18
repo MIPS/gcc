@@ -108,6 +108,15 @@ typedef struct copy_body_data
 
   /* Entry basic block to currently copied body.  */
   struct basic_block_def *entry_bb;
+
+  /* Debug statements that need processing.  */
+  varray_type debug_stmts;
+
+  /* A map from local declarations in the inlined function to
+     equivalents in the function into which it is being inlined, where
+     the originals have been mapped to a value rather than to a
+     variable.  */
+  struct pointer_map_t *debug_map;
 } copy_body_data;
 
 /* Weights of constructions for estimate_num_insns.  */

@@ -1,5 +1,5 @@
 /* Decimal 128-bit format module for the decNumber C Library.
-   Copyright (C) 2005, 2007, 2009 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by IBM Corporation.  Author Mike Cowlishaw.
 
    This file is part of GCC.
@@ -206,18 +206,20 @@ decNumber * decimal128ToNumber(const decimal128 *d128, decNumber *dn) {
 
   /* load source from storage; this is endian */
   pu=(const uInt *)d128->bytes;	   /* overlay */
+#define CP(to, from) (memcpy (&(to), &(from), sizeof (to)))
   if (DECLITEND) {
-    sourlo=pu[0];		   /* directly load the low int */
-    sourml=pu[1];		   /* then the mid-low */
-    sourmh=pu[2];		   /* then the mid-high */
-    sourhi=pu[3];		   /* then the high int */
+    CP (sourlo, pu[0]);		   /* directly load the low int */
+    CP (sourml, pu[1]);		   /* then the mid-low */
+    CP (sourmh, pu[2]);		   /* then the mid-high */
+    CP (sourhi, pu[3]);		   /* then the high int */
     }
    else {
-    sourhi=pu[0];		   /* directly load the high int */
-    sourmh=pu[1];		   /* then the mid-high */
-    sourml=pu[2];		   /* then the mid-low */
-    sourlo=pu[3];		   /* then the low int */
+    CP (sourhi, pu[0]);		   /* directly load the high int */
+    CP (sourmh, pu[1]);		   /* then the mid-high */
+    CP (sourml, pu[2]);		   /* then the mid-low */
+    CP (sourlo, pu[3]);		   /* then the low int */
     }
+#undef CP
 
   comb=(sourhi>>26)&0x1f;	   /* combination field */
 

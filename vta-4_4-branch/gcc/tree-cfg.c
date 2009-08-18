@@ -2131,7 +2131,11 @@ remove_bb (basic_block bb)
   /* Remove all the instructions in the block.  */
   if (bb_seq (bb) != NULL)
     {
-      for (i = gsi_start_bb (bb); !gsi_end_p (i);)
+      /* Walk backwards so as to get a chance to substitute all
+	 released DEFs into debug stmts.  See
+	 eliminate_unnecessary_stmts() in tree-ssa-dce.c for more
+	 details.  */
+      for (i = gsi_last_bb (bb); !gsi_end_p (i);)
 	{
 	  gimple stmt = gsi_stmt (i);
 	  if (gimple_code (stmt) == GIMPLE_LABEL
@@ -2167,13 +2171,17 @@ remove_bb (basic_block bb)
 	      gsi_remove (&i, true);
 	    }
 
+	  if (gsi_end_p (i))
+	    i = gsi_last_bb (bb);
+	  else
+	    gsi_prev (&i);
+
 	  /* Don't warn for removed gotos.  Gotos are often removed due to
 	     jump threading, thus resulting in bogus warnings.  Not great,
 	     since this way we lose warnings for gotos in the original
 	     program that are indeed unreachable.  */
 	  if (gimple_code (stmt) != GIMPLE_GOTO
-	      && gimple_has_location (stmt)
-	      && !loc)
+	      && gimple_has_location (stmt))
 	    loc = gimple_location (stmt);
 	}
     }
@@ -2675,7 +2683,14 @@ gimple
 first_stmt (basic_block bb)
 {
   gimple_stmt_iterator i = gsi_start_bb (bb);
-  return !gsi_end_p (i) ? gsi_stmt (i) : NULL;
+  gimple stmt = NULL;
+
+  while (!gsi_end_p (i) && is_gimple_debug ((stmt = gsi_stmt (i))))
+    {
+      gsi_next (&i);
+      stmt = NULL;
+    }
+  return stmt;
 }
 
 /* Return the last statement in basic block BB.  */
@@ -2683,8 +2698,15 @@ first_stmt (basic_block bb)
 gimple
 last_stmt (basic_block bb)
 {
-  gimple_stmt_iterator b = gsi_last_bb (bb);
-  return !gsi_end_p (b) ? gsi_stmt (b) : NULL;
+  gimple_stmt_iterator i = gsi_last_bb (bb);
+  gimple stmt = NULL;
+
+  while (!gsi_end_p (i) && is_gimple_debug ((stmt = gsi_stmt (i))))
+    {
+      gsi_prev (&i);
+      stmt = NULL;
+    }
+  return stmt;
 }
 
 /* Return the last statement of an otherwise empty block.  Return NULL
@@ -2694,14 +2716,14 @@ last_stmt (basic_block bb)
 gimple
 last_and_only_stmt (basic_block bb)
 {
-  gimple_stmt_iterator i = gsi_last_bb (bb);
+  gimple_stmt_iterator i = gsi_last_nondebug_bb (bb);
   gimple last, prev;
 
   if (gsi_end_p (i))
     return NULL;
 
   last = gsi_stmt (i);
-  gsi_prev (&i);
+  gsi_prev_nondebug (&i);
   if (gsi_end_p (i))
     return last;
 
@@ -4075,6 +4097,9 @@ verify_stmt (gimple_stmt_iterator *gsi)
 	  return true;
 	}
     }
+
+  if (is_gimple_debug (stmt))
+    return false;
 
   memset (&wi, 0, sizeof (wi));
   addr = walk_gimple_op (gsi_stmt (*gsi), verify_expr, &wi);
@@ -6423,7 +6448,7 @@ debug_loop_num (unsigned num, int verbosity)
 static bool
 gimple_block_ends_with_call_p (basic_block bb)
 {
-  gimple_stmt_iterator gsi = gsi_last_bb (bb);
+  gimple_stmt_iterator gsi = gsi_last_nondebug_bb (bb);
   return is_gimple_call (gsi_stmt (gsi));
 }
 
@@ -6743,8 +6768,12 @@ remove_edge_and_dominated_blocks (edge e)
     remove_edge (e);
   else
     {
-      for (i = 0; VEC_iterate (basic_block, bbs_to_remove, i, bb); i++)
-	delete_basic_block (bb);
+      /* Walk backwards so as to get a chance to substitute all
+	 released DEFs into debug stmts.  See
+	 eliminate_unnecessary_stmts() in tree-ssa-dce.c for more
+	 details.  */
+      for (i = VEC_length (basic_block, bbs_to_remove); i-- > 0; )
+	delete_basic_block (VEC_index (basic_block, bbs_to_remove, i));
     }
 
   /* Update the dominance information.  The immediate dominator may change only

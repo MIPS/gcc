@@ -5970,7 +5970,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 
   /* Compute cumulative bit-offset for nested component-refs and array-refs,
      and find the ultimate containing object.  */
-  while (1)
+  do
     {
       switch (TREE_CODE (exp))
 	{
@@ -6049,6 +6049,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 
       exp = TREE_OPERAND (exp, 0);
     }
+  while (exp);
  done:
 
   /* If OFFSET is constant, see if we can return the whole thing as a

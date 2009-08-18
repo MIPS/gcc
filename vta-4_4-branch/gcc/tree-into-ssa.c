@@ -1,5 +1,5 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -776,6 +776,9 @@ mark_def_sites (struct dom_walk_data *walk_data, basic_block bb,
   set_register_defs (stmt, false);
   set_rewrite_uses (stmt, false);
 
+  if (is_gimple_debug (stmt))
+    return;
+
   /* If a variable is used before being set, then the variable is live
      across a block boundary, so mark it live-on-entry to BB.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
@@ -1078,7 +1081,6 @@ mark_phi_for_rewrite (basic_block bb, gimple phi)
   VEC_replace (gimple_vec, phis_to_rewrite, idx, phis);
 }
 
-
 /* Insert PHI nodes for variable VAR using the iterated dominance
    frontier given in PHI_INSERTION_POINTS.  If UPDATE_P is true, this
    function assumes that the caller is incrementally updating the
@@ -1145,8 +1147,17 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	}
       else
 	{
+	  tree tracked_var;
 	  gcc_assert (DECL_P (var));
 	  phi = create_phi_node (var, bb);
+	  if (!update_p && (tracked_var = target_for_debug_bind (var)))
+	    {
+	      gimple note = gimple_build_debug_bind (tracked_var,
+						     PHI_RESULT (phi),
+						     phi);
+	      gimple_stmt_iterator si = gsi_after_labels (bb);
+	      gsi_insert_before (&si, note, GSI_SAME_STMT);
+	    }
 	}
 
       /* Mark this PHI node as interesting for update_ssa.  */
@@ -1357,9 +1368,18 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
       {
 	tree var = DEF_FROM_PTR (def_p);
+	tree name = make_ssa_name (var, stmt);
+	tree tracked_var;
 	gcc_assert (DECL_P (var));
-	SET_DEF (def_p, make_ssa_name (var, stmt));
+	SET_DEF (def_p, name);
 	register_new_def (DEF_FROM_PTR (def_p), var);
+
+	tracked_var = target_for_debug_bind (var);
+	if (tracked_var)
+	  {
+	    gimple note = gimple_build_debug_bind (tracked_var, name, stmt);
+	    gsi_insert_after (&si, note, GSI_SAME_STMT);
+	  }
       }
 }
 
@@ -1870,6 +1890,38 @@ maybe_replace_use (use_operand_p use_p)
 }
 
 
+/* Same as maybe_replace_use, but without introducing default stmts,
+   returning false to indicate a need to do so.  */
+
+static inline bool
+maybe_replace_use_in_debug_stmt (use_operand_p use_p)
+{
+  tree rdef = NULL_TREE;
+  tree use = USE_FROM_PTR (use_p);
+  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
+
+  if (symbol_marked_for_renaming (sym))
+    rdef = get_current_def (sym);
+  else if (is_old_name (use))
+    {
+      rdef = get_current_def (use);
+      /* We can't assume that, if there's no current definition, the
+	 default one should be used.  It could be the case that we've
+	 rearranged blocks so that the earlier definition no longer
+	 dominates the use.  */
+      if (!rdef && SSA_NAME_IS_DEFAULT_DEF (use))
+	rdef = use;
+    }
+  else
+    rdef = use;
+
+  if (rdef && rdef != use)
+    SET_USE (use_p, rdef);
+
+  return rdef != NULL_TREE;
+}
+
+
 /* If the operand pointed to by DEF_P is an SSA name in NEW_SSA_NAMES
    or OLD_SSA_NAMES, or if it is a symbol marked for renaming,
    register it as the current definition for the names replaced by
@@ -1944,12 +1996,44 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
      symbol is marked for renaming.  */
   if (rewrite_uses_p (stmt))
     {
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
-	maybe_replace_use (use_p);
+      if (is_gimple_debug (stmt))
+	{
+	  bool failed = false;
 
-      if (need_to_update_vops_p)
-	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
-	  maybe_replace_use (use_p);
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+	    if (!maybe_replace_use_in_debug_stmt (use_p))
+	      {
+		failed = true;
+		break;
+	      }
+
+	  if (failed)
+	    {
+	      /* DOM sometimes threads jumps in such a way that a
+		 debug stmt ends up referencing a SSA variable that no
+		 longer dominates the debug stmt, but such that all
+		 incoming definitions refer to the same definition in
+		 an earlier dominator.  We could try to recover that
+		 definition somehow, but this will have to do for now.
+
+		 Introducing a default definition, which is what
+		 maybe_replace_use() would do in such cases, may
+		 modify code generation, for the otherwise-unused
+		 default definition would never go away, modifying SSA
+		 version numbers all over.  */
+	      gimple_debug_bind_reset_value (stmt);
+	      update_stmt (stmt);
+	    }
+	}
+      else
+	{
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+	    maybe_replace_use (use_p);
+
+	  if (need_to_update_vops_p)
+	    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
+	      maybe_replace_use (use_p);
+	}
     }
 
   /* Register definitions of names in NEW_SSA_NAMES and OLD_SSA_NAMES.
@@ -2344,7 +2428,12 @@ mark_use_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
   if (gimple_code (stmt) == GIMPLE_PHI)
     mark_phi_for_rewrite (def_bb, stmt);
   else
-    set_rewrite_uses (stmt, true);
+    {
+      set_rewrite_uses (stmt, true);
+
+      if (is_gimple_debug (stmt))
+	return;
+    }
 
   /* If VAR has not been defined in BB, then it is live-on-entry
      to BB.  Note that we cannot just use the block holding VAR's
@@ -2382,6 +2471,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
   gimple_stmt_iterator si;
   edge e;
   edge_iterator ei;
+  bool rename = syms_to_rename && !bitmap_empty_p (syms_to_rename);
 
   mark_block_for_update (bb);
 
@@ -2394,7 +2484,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
       lhs_sym = DECL_P (lhs) ? lhs : SSA_NAME_VAR (lhs);
 
-      if (!symbol_marked_for_renaming (lhs_sym))
+      if (!rename || !symbol_marked_for_renaming (lhs_sym))
 	continue;
 
       mark_def_interesting (lhs_sym, phi, bb, insert_phi_p);
@@ -2420,11 +2510,17 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
       
       stmt = gsi_stmt (si);
 
+      /* If we've turned an addressable name into a gimple reg, we
+	 won't have an USEs of it in debug stmts to mark the stmt for
+	 renaming.  */
+      if (rename && gimple_debug_bind_p (stmt))
+	update_stmt (stmt);
+
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_ALL_USES)
 	{
 	  tree use = USE_FROM_PTR (use_p);
 	  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
-	  if (symbol_marked_for_renaming (sym))
+	  if (rename && symbol_marked_for_renaming (sym))
 	    mark_use_interesting (sym, stmt, bb, insert_phi_p);
 	}
 
@@ -2432,7 +2528,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	{
 	  tree def = DEF_FROM_PTR (def_p);
 	  tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
-	  if (symbol_marked_for_renaming (sym))
+	  if (rename && symbol_marked_for_renaming (sym))
 	    mark_def_interesting (sym, stmt, bb, insert_phi_p);
 	}
     }

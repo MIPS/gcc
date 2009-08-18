@@ -492,6 +492,16 @@ remove_unused_scope_block_p (tree scope)
 	 will be output to file.  */
       if (TREE_CODE (*t) == FUNCTION_DECL)
 	unused = false;
+      /* If a decl has a value expr, we need to instantiate it
+	 regardless of debug info generation, to avoid codegen
+	 differences in memory overlap tests.  update_equiv_regs() may
+	 indirectly call validate_equiv_mem() to test whether a
+	 SET_DEST overlaps with others, and if the value expr changes
+	 by virtual register instantiation, we may get end up with
+	 different results.  */
+      else if (TREE_CODE (*t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (*t))
+	unused = false;
+
       /* Remove everything we don't generate debug info for.  */
       else if (DECL_IGNORED_P (*t))
 	{
@@ -723,6 +733,9 @@ remove_unused_locals (void)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  tree b = gimple_block (stmt);
+
+	  if (is_gimple_debug (stmt))
+	    continue;
 
 	  if (b)
 	    TREE_USED (b) = true;
@@ -1010,6 +1023,8 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
 		add_block = e->src;
 	    }
 	}
+      else if (is_gimple_debug (use_stmt))
+	continue;
       else
         {
 	  /* If its not defined in this block, its live on entry.  */

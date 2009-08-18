@@ -433,18 +433,48 @@ next_readonly_imm_use (imm_use_iterator *imm)
 static inline bool
 has_zero_uses (const_tree var)
 {
-  const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  const ssa_use_operand_t *ptr, *start;
+  bool ret;
+
+  ptr = &(SSA_NAME_IMM_USE_NODE (var));
   /* A single use means there is no items in the list.  */
-  return (ptr == ptr->next);
+  ret = (ptr == ptr->next);
+
+  if (ret || !MAY_HAVE_DEBUG_STMTS)
+    return ret;
+
+  start = ptr;
+  for (ptr = start->next; ptr != start; ptr = ptr->next)
+    if (!is_gimple_debug (USE_STMT (ptr)))
+      return false;
+  return true;
 }
 
 /* Return true if VAR has a single use.  */
 static inline bool
 has_single_use (const_tree var)
 {
-  const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  const ssa_use_operand_t *ptr, *start;
+  bool ret;
+
+  ptr = &(SSA_NAME_IMM_USE_NODE (var));
   /* A single use means there is one item in the list.  */
-  return (ptr != ptr->next && ptr == ptr->next->next);
+  ret = (ptr != ptr->next && ptr == ptr->next->next);
+
+  if (ret)
+    return !is_gimple_debug (USE_STMT (ptr->next));
+  else if (!MAY_HAVE_DEBUG_STMTS)
+    return ret;
+
+  start = ptr;
+  for (ptr = start->next; ptr != start; ptr = ptr->next)
+    if (!is_gimple_debug (USE_STMT (ptr)))
+      {
+	if (ret)
+	  return false;
+	ret = true;
+      }
+  return ret;
 }
 
 
@@ -453,8 +483,35 @@ has_single_use (const_tree var)
 static inline bool
 single_imm_use (const_tree var, use_operand_p *use_p, gimple *stmt)
 {
-  const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
-  if (ptr != ptr->next && ptr == ptr->next->next)
+  const ssa_use_operand_t *ptr;
+  bool ret;
+
+  ptr = &(SSA_NAME_IMM_USE_NODE (var));
+
+  ret = ptr != ptr->next && ptr == ptr->next->next;
+
+  if (ret)
+    ret = !is_gimple_debug (USE_STMT (ptr->next));
+  else if (MAY_HAVE_DEBUG_STMTS)
+    {
+      const ssa_use_operand_t *start = ptr, *prev = ptr, *single_use_prev = 0;
+
+      for (ptr = start->next; ptr != start; prev = ptr, ptr = ptr->next)
+	if (!is_gimple_debug (USE_STMT (ptr)))
+	  {
+	    if (ret)
+	      {
+		ret = false;
+		break;
+	      }
+	    ret = true;
+	    single_use_prev = prev;
+	  }
+
+      ptr = single_use_prev;
+    }
+
+  if (ret)
     {
       *use_p = ptr->next;
       *stmt = ptr->next->loc.stmt;
@@ -473,8 +530,13 @@ num_imm_uses (const_tree var)
   const ssa_use_operand_t *ptr;
   unsigned int num = 0;
 
-  for (ptr = start->next; ptr != start; ptr = ptr->next)
-     num++;
+  if (!MAY_HAVE_DEBUG_STMTS)
+    for (ptr = start->next; ptr != start; ptr = ptr->next)
+      num++;
+  else
+    for (ptr = start->next; ptr != start; ptr = ptr->next)
+      if (!is_gimple_debug (USE_STMT (ptr)))
+	num++;
 
   return num;
 }

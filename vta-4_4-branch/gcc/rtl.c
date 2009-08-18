@@ -379,6 +379,7 @@ rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
 
+    case VALUE:
     case SCRATCH:
     case CONST_DOUBLE:
     case CONST_INT:

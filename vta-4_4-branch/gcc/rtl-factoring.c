@@ -132,7 +132,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Predicate yielding nonzero iff X is an abstractable insn.  Non-jump insns are
    abstractable.  */
-#define ABSTRACTABLE_INSN_P(X) (INSN_P (X) && !JUMP_P (X))
+#define ABSTRACTABLE_INSN_P(X) (NONDEBUG_INSN_P (X) && !JUMP_P (X))
 
 /* First parameter of the htab_create function call.  */
 #define HASH_INIT 1023
@@ -234,8 +234,15 @@ typedef struct hash_bucket_def
   /* The hash value of the group.  */
   unsigned int hash;
 
-  /* List of sequence candidates.  */
+  /* Hash table of sequence candidates.  */
   htab_t seq_candidates;
+
+  /* Head of the list of sequence candidates in seq_candidates.  */
+  struct hash_elem_def *seq_candidates_head;
+
+  /* Pointer to next in the tail of the list of sequence candidates in
+     seq_candidates.  */
+  struct hash_elem_def **seq_candidates_tail;
 } *p_hash_bucket;
 typedef const struct hash_bucket_def *const_p_hash_bucket;
 
@@ -250,6 +257,9 @@ typedef struct hash_elem_def
 
   /* The cached length of the insn.  */
   int length;
+
+  /* Pointer to the next element in a candidates list.  */
+  struct hash_elem_def *next;
 } *p_hash_elem;
 typedef const struct hash_elem_def *const_p_hash_elem;
 
@@ -285,7 +295,7 @@ prev_insn_in_block (rtx insn)
   while (insn != BB_HEAD (bb))
     {
       insn = PREV_INSN (insn);
-      if (INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
         return insn;
     }
   return NULL_RTX;
@@ -441,7 +451,7 @@ match_seqs (p_hash_elem e0, p_hash_elem e1)
 static void
 collect_pattern_seqs (void)
 {
-  htab_iterator hti0, hti1, hti2;
+  htab_iterator hti;
   p_hash_bucket hash_bucket;
   p_hash_elem e0, e1;
 #if defined STACK_REGS || defined HAVE_cc0
@@ -471,7 +481,7 @@ collect_pattern_seqs (void)
     for (insn = BB_END (bb); ; insn = prev)
       {
 	prev = PREV_INSN (insn);
-	if (INSN_P (insn))
+	if (NONDEBUG_INSN_P (insn))
 	  {
 	    int reg;
 	    for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
@@ -509,7 +519,8 @@ collect_pattern_seqs (void)
 
     for (insn = BB_HEAD (bb); insn != next_tail; insn = NEXT_INSN (insn))
       {
-	if (INSN_P (insn) && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
+	if (NONDEGUG_INSN_P (insn)
+	    && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
 	  bitmap_set_bit (&dont_collect, INSN_UID (insn));
       }
   }
@@ -523,18 +534,16 @@ collect_pattern_seqs (void)
   /* Try to match every abstractable insn with every other insn in the same
      HASH_BUCKET.  */
 
-  FOR_EACH_HTAB_ELEMENT (hash_buckets, hash_bucket, p_hash_bucket, hti0)
-    if (htab_elements (hash_bucket->seq_candidates) > 1)
-      FOR_EACH_HTAB_ELEMENT (hash_bucket->seq_candidates, e0, p_hash_elem, hti1)
-        FOR_EACH_HTAB_ELEMENT (hash_bucket->seq_candidates, e1, p_hash_elem,
-                               hti2)
-          if (e0 != e1
+  FOR_EACH_HTAB_ELEMENT (hash_buckets, hash_bucket, p_hash_bucket, hti)
+    for (e0 = hash_bucket->seq_candidates_head; e0 && e0->next; e0 = e0->next)
+      for (e1 = e0->next; e1; e1 = e1->next)
 #if defined STACK_REGS || defined HAVE_cc0
-              && !bitmap_bit_p (&dont_collect, INSN_UID (e0->insn))
-              && !bitmap_bit_p (&dont_collect, INSN_UID (e1->insn))
+	if (!bitmap_bit_p (&dont_collect, INSN_UID (e0->insn))
+	    && !bitmap_bit_p (&dont_collect, INSN_UID (e1->insn)))
 #endif
-             )
+	  {
             match_seqs (e0, e1);
+	  }
 #if defined STACK_REGS || defined HAVE_cc0
   /* Free unused data.  */
   bitmap_clear (&dont_collect);
@@ -588,7 +597,7 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
       rtx prev = PREV_INSN (x);
       df_simulate_one_insn_backwards (bb, x, &live);
 
-      if (INSN_P (x))
+      if (NONDEBUG_INSN_P (x))
         {
           renumbered_reg_set_to_hard_reg_set (&hlive, &live);
           AND_COMPL_HARD_REG_SET (*regs, hlive);
@@ -1281,7 +1290,9 @@ htab_hash_elem (const void *p)
 static int
 htab_eq_elem (const void *p0, const void *p1)
 {
-  return htab_hash_elem (p0) == htab_hash_elem (p1);
+  const_p_hash_elem elem0 = (const_p_hash_elem) p0;
+  const_p_hash_elem elem1 = (const_p_hash_elem) p1;
+  return elem0->insn == elem1->insn;
 }
 
 /* Htab delete function for hash_bucket_def structure.  */
@@ -1327,23 +1338,27 @@ fill_hash_bucket (void)
               bucket = (p_hash_bucket) xcalloc (1,
                                         sizeof (struct hash_bucket_def));
               bucket->hash = tmp_bucket.hash;
-              bucket->seq_candidates = NULL;
 
-              slot = htab_find_slot (hash_buckets, &tmp_bucket, INSERT);
-              *slot = bucket;
-            }
-
-          /* Create new list for storing sequence candidates.  */
-          if (!bucket->seq_candidates)
               bucket->seq_candidates = htab_create (HASH_INIT,
                                                     htab_hash_elem,
                                                     htab_eq_elem,
                                                     htab_del_elem);
 
+	      bucket->seq_candidates_head = NULL;
+	      bucket->seq_candidates_tail = &bucket->seq_candidates_head;
+
+              slot = htab_find_slot (hash_buckets, &tmp_bucket, INSERT);
+              *slot = bucket;
+            }
+
           elem = (p_hash_elem) xcalloc (1, sizeof (struct hash_elem_def));
           elem->insn = insn;
           elem->idx = insn_idx;
           elem->length = get_attr_length (insn);
+	  elem->next = NULL;
+
+ 	  *bucket->seq_candidates_tail = elem;
+	  bucket->seq_candidates_tail = &elem->next;
 
           /* Insert INSN into BUCKET hash bucket.  */
           slot = htab_find_slot (bucket->seq_candidates, elem, INSERT);

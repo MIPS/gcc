@@ -91,6 +91,8 @@ find_referenced_vars (void)
 	{
 	  size_t i;
 	  gimple stmt = gsi_stmt (si);
+	  if (is_gimple_debug (stmt))
+	    continue;
 	  for (i = 0; i < gimple_num_ops (stmt); i++)
 	    walk_tree (gimple_op_ptr (stmt, i), find_vars_r, NULL, NULL);
 	}

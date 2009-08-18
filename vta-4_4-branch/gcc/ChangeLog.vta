@@ -1,0 +1,2412 @@
+2009-08-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Fail gracefully when computing
+	address one-past-the-end of array made non-addressable.
+
+2009-08-05  Alexandre Oliva  <aoliva@redhat.com>,  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (try_combine): If there were any REG mode changes,
+	adjust DEBUG_INSNs.
+
+2009-08-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reg-stack.c (convert_regs_1): Reject only REG_DEAD notes.
+
+2009-08-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (wrap_constant): Wrap VOIDmode LABEL_REFs.
+	(unwrap_constant): Unwrap them.
+	(expand_debug_locations): Accept them.
+
+2009-08-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-cfg.c (remove_bb): Let the last i.e. first loc prevail.
+
+2009-08-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Handle ZERO_EXTRACT and
+	SIGN_EXTRACT.  Fix up DW_OP_sh{l,r,ra} uses in {SIGN,ZERO}_EXTEND,
+	do_scompare and {U,S}{MIN,MAX}.
+
+2009-08-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (vt_add_function_parameters): Work around
+	unhandled invisible-reference arguments.
+
+2009-08-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (cleanup_auto_inc_dec): Make sure the return value is
+	always unshared.
+
+2009-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dw_long_long_const): Remove.
+	(struct dw_val_struct): Change val_long_long type to rtx.
+	(print_die, attr_checksum, same_dw_val_p, loc_descriptor): Adjust for
+	val_long_long change to CONST_DOUBLE rtx from a long hi/lo pair.
+	(output_die): Likewise.  Use HOST_BITS_PER_WIDE_INT size of each
+	component instead of HOST_BITS_PER_LONG.
+	(output_loc_operands): Likewise.   For const8* assert
+	HOST_BITS_PER_WIDE_INT rather than HOST_BITS_PER_LONG is >= 64.
+	(output_loc_operands_raw): For const8* assert HOST_BITS_PER_WIDE_INT
+	rather than HOST_BITS_PER_LONG is >= 64.
+	(add_AT_long_long): Remove val_hi and val_lo arguments, add
+	val_const_double.
+	(size_of_die): Use HOST_BITS_PER_WIDE_INT size multiplier instead of
+	HOST_BITS_PER_LONG for dw_val_class_long_long.
+	(add_const_value_attribute): Adjust add_AT_long_long caller.
+
+	* dwarf2out.c (add_const_value_attribute): If CONST wraps
+	a constant, tail recurse.
+
+2009-07-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with gcc-4_4-branch@150235.
+
+2009-07-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-outof-ssa.c (replace_use_variable): Unshare exprs.
+	* tree-into-ssa.c (prepare_block_for_update): Update debug bind
+	stmts before scanning for symbols marked for renaming.
+
+2009-07-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Enclose CONST_STRINGs in MEMs.
+	(expand_debug_locations): Use NULL trees for no bind value.
+	(expand_gimple_basic_block): Likewise.
+	* gimple.h (GIMPLE_DEBUG_BIND): New.  Replaces all uses of
+	VAR_DEBUG_VALUE tree code.
+	(GIMPLE_DEBUG_BIND_NOVALUE): New.
+	(gimple_debug_bind_reset_value): New.  Replace all assignments to
+	VAR_DEBUG_VALUE_VALUE from VAR_DEBUG_VALUE_NOVALUE with it.
+	(gimple_debug_bind_has_value_p): New.  Replace all compares of
+	VAR_DEBUG_VALUE_VALUE and VAR_DEBUG_VALUE_NOVALUE with it.
+	(gsi_next_nondebug, gsi_prev_nondebug): Embrace do/while body.
+	* tree-if-conv.c (tree_if_convert_stmt): Adjust.
+	* tree-inline.c: Adjust.
+	(copy_debug_stmt, copy_debug_stmts): Add comments.
+	(insert_init_debug_bind): Use the var returned by
+	target_for_debug_bind, renamed from...
+	* tree-into-ssa.c (var_debug_value_for_decl): ... this.
+	(insert_phi_nodes_for, rewrite_stmt): Likewise.
+	(check_and_update_debug_stmt_1): Removed.
+	(check_and_update_debug_stmt): Removed.  Drop all callers.
+	(maybe_replace_use_in_debug_insn): Renamed to...
+	(maybe_replace_use_in_debug_stmt): ... this.  Adjust all callers.
+	Don't keep non-current SSA names.  Don't assume default DEFs.
+	(rewrite_update_stmt): Rearrange logic.
+	(adjust_debug_stmts_for_var_def_move,
+	adjust_debug_stmts_for_move): Moved to...
+	* tree-ssa.c (propagate_var_def_into_debug_stmts,
+	propagate_defs_into_debug_stmts): ... this.
+	(target_for_debug_bind): Moved and renamed from
+	var_debug_value_for_decl.  Support DECL_HAS_VALUE_EXPR_P rather
+	than ABSTRACT_ORIGINs.
+	(verify_ssa): Adjust.
+	* tree-parloops.c: Adjust.
+	(separate_decls_in_region): Add comments.  Drop unnecessary
+	assertion check.
+	* tree-ssa-dce.c (necessary_p): Remove.
+	(eliminate_unnecessary_stmts): Iterate backwards.  Remove dead
+	phis after dead stmts.  Adjust.
+	* tree-ssa-loop-ivopts.c: Adjust.
+	* tree.h (VAR_DEBUG_VALUE_NOVALUE): Removed.
+	(VAR_DEBUG_VALUE_SET_VAR): Removed.  Changed all callers to use
+	gimple_debug_bind_set_var.
+	(VAR_DEBUG_VALUE_VAR): Removed.  Changed all callers to use
+	gimple_debug_bind_get_var.
+	(VAR_DEBUG_VALUE_VALUE): Removed.  Changed all callers to use
+	gimple_debug_bind_get_value, gimple_debug_bind_get_value_ptr,
+	gimple_debug_bind_set_value, gimple_debug_bind_reset_value or
+	gimple_debug_bind_has_value_p.
+	(target_for_debug_bind): Declare.
+	(var_debug_value_for_decl): Remove.
+	* expr.c (expand_expr_real_1): Drop VAR_DEBUG_VALUE handling.
+	* gimple-pretty-print.c (dump_gimple_debug): Adjust.
+	* gimple.c (gimple_build_wtih_ops_stat): Take unsigned subcode.
+	(gimple_build_assign_with_ops_stat): Type-cast subcode.
+	(gimple_build_debug_bind_stat): Document stmt parameter.
+	Use GIMPLE_DEBUG_BIND.
+	* tree-flow.h: Rename and remove declarations.
+	* tree-ssa-operands.c Adjust.
+	(opf_debug_use): Removed.  Test is_gimple_debug instead.
+	(get_addr_dereference_operands): Pass down opf_no_vops.
+	(get_expr_operands): Drop VAR_DEBUG_VALUE handling.
+	* tree.def: Drop VAR_DEBUG_VALUE.
+	* var-tracking.c: Adjust.
+	* tree-cfg.c: Adjust.
+	(remove_bb): Walk stmts backwards.
+	(remove_edge_and_dominated_blocks): Visit blocks backwards.
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Simplify handling of
+	debug stmts.
+	* tree-ssa-forwprop.c, tree-ssa-loop-im.c: Adjust.
+	* tree-ssa-reassoc.c, tree-ssa-sink.c, tree-ssanames.c: Adjust.
+	* tree-outof-ssa.c: Adjust.
+	(rewrite_trees): Replace uses in debug stmts until no SSA names
+	remain.
+
+2009-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (add_location_or_const_value_attribute): Add
+	DW_AT_const_value even if NOTE_VAR_LOCATION is VAR_LOCATION with
+	CONSTANT_P or CONST_STRING in its expression.
+
+2009-07-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with gcc-4_4-branch@149247.
+
+2009-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): For SUBREG punt if inner
+	mode size is wider than DWARF2_ADDR_SIZE.  Handle SIGN_EXTEND
+	and ZERO_EXTEND by DW_OP_shl and DW_OP_shr{a,}.  Handle
+	EQ, NE, GT, GE, LT, LE, GTU, GEU, LTU, LEU, SMIN, SMAX, UMIN
+	and UMAX.
+	(loc_descriptor): Compare mode size with DWARF2_ADDR_SIZE
+	instead of Pmode size.
+
+2009-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (value_chain, const_value_chain): New typedefs.
+	(value_chain_pool, value_chains): New variables.
+	(value_chain_htab_hash, value_chain_htab_eq, add_value_chain,
+	add_value_chains, add_cselib_value_chains, remove_value_chain,
+	remove_value_chains, remove_cselib_value_chains): New functions.
+	(dataflow_set_preserve_mem_locs, dataflow_set_remove_mem_locs,
+	set_slot_part, delete_slot_part, emit_notes_for_differences_1,
+	emit_notes_for_differences_2): Call
+	{add,remove}_{,cselib_}_value_chain* when needed.
+	(check_changed_value, check_changed_var): Removed.
+	(changed_variables_stack): New variable.
+	(check_changed_vars_1, check_changed_vars_2): New functions.
+	(emit_notes_for_changes): Do nothing if changed_variables is
+	empty.  Traverse changed_variables with check_changed_vars_1
+	instead of htab with check_changed_var, call check_changed_vars_2
+	on each changed_variables_stack entry.
+	(emit_notes_in_bb): Add SET argument.  Just clear it at the
+	beginning, use it instead of local &set, don't destroy it at the
+	end.
+	(vt_emit_notes): Call dataflow_set_clear early on all
+	VTI(bb)->out sets, never use them, instead use emit_notes_in_bb
+	computed set, dataflow_set_clear also VTI(bb)->in when we are
+	done with the basic block.  Initialize changed_variables_stack,
+	free it afterwards.  If ENABLE_CHECKING verify that after noting
+	differences to an empty set value_chains hash table is empty.
+	(vt_initialize): Initialize value_chains and value_chain_pool.
+	(vt_finalize): Delete value_chains htab, free value_chain_pool.
+	(variable_tracking_main): Call dump_dataflow_sets before calling
+	vt_emit_notes, not after it.
+
+	* var-tracking.c (tie_break_pointers): Move earlier.
+	(canon_value_cmp): Likewise.  Add inline keyword.
+	(variable_union): Guard expensive assert with ENABLE_CHECKING.
+	(set_slot_part): Optimize search for onepart location in the chain.
+
+	* var-tracking.c (unshare_variable): Force initialized to
+	be VAR_INIT_STATUS_INITIALIZED unless flag_var_tracking_uninit.
+	(set_slot_part): Likewise.
+	(struct variable_union_info): Remove pos_src field.
+	(vui_vec, vui_allocated): New variables.
+	(variable_union): Pass VAR_INIT_STATUS_UNKNOWN to unshare_variable
+	unconditionally.  Avoid XCVECNEW/free for every sorting, for dst_l
+	== 1 use a simpler sorting algorithm.  Compute pos field right
+	away, don't fill in pos_src.  For dst_l == 2 avoid qsort.
+	Avoid quadratic comparison if !flag_var_tracking_uninit.
+	(variable_canonicalize): Pass VAR_INIT_STATUS_UNKNOWN to
+	unshare_variable unconditionally.   
+	(dataflow_set_different_2): Removed.
+	(dataflow_set_different): Don't traverse second hash table.
+	(compute_bb_dataflow): Pass VAR_INIT_STATUS_UNINITIALIZED
+	unconditionally to var_reg_set or var_mem_set.
+	(emit_notes_in_bb): Likewise.
+	(delete_slot_part): Pass VAR_INIT_STATUS_UNKNOWN to
+	unshare_variable.
+	(emit_note_insn_var_location): Don't set initialized to
+	VAR_INIT_STATUS_INITIALIZED early.
+	(vt_finalize): Free vui_vec if needed, clear vui_vec and
+	vui_allocated.
+
+	* var-tracking.c (decl_or_value): Change from struct to just void *
+	typedef.
+	(struct shared_hash_def, shared_hash): New types.
+	(dataflow_set): Change vars type from htab_t to shared_hash.
+	Add traversed_vars.
+	(shared_hash_pool, empty_shared_hash): New variables.
+	(dv_is_decl_p, dv_is_value_p, dv_as_decl, dv_as_value,
+	dv_as_opaque, dv_from_decl, dv_from_value): Adjust for decl_or_value
+	changes.
+	(variable_htab_eq): Don't expect y to be a pointer to decl_or_value,
+	but decl_or_value itself.
+	(vars_clear): Removed.
+	(shared_hash_shared, shared_hash_htab, shared_hash_copy,
+	shared_hash_find_slot_unshare, shared_hash_find_slot,
+	shared_hash_find_slot_noinsert, shared_hash_find,
+	shared_hash_find_slot_unshare_1, shared_hash_find_slot_1,
+	shared_hash_find_slot_noinsert_1, shared_hash_find_1): New
+	static inlines.
+	(shared_hash_unshare, shared_hash_destroy): New functions.
+	(dst_can_be_shared): New variable.
+	(unshare_variable): Add set argument.  Unshare set->vars if shared,
+	use shared_hash_*.  Clear dst_can_be_shared.  If set->traversed_vars
+	is non-NULL and different from set->vars, look up slot again instead
+	of using the passed in slot.
+	(vars_copy_1): Pass src->dv to htab_find* instead of &src->dv.
+	(vars_copy): Use htab_traverse_noresize instead of htab_traverse.
+	(get_init_value, find_src_set_src, dump_dataflow_set,
+	clobber_variable_part, emit_notes_for_differences, val_reset): Use
+	shared_hash_*.
+	(dataflow_set_init): Remove second argument, set vars to
+	empty_shared_hash instead of creating a new htab.
+	(dataflow_set_clear): Call shared_hash_destroy and set vars
+	to empty_shared_hash instead of calling vars_clear.
+	(dataflow_set_copy): Don't call vars_copy, instead just share
+	the src htab with dst.
+	(variable_union): Use shared_hash_*, use initially NO_INSERT
+	lookup if set->vars is shared.  Don't keep slot cleared before
+	calling unshare_variable.  Unshare set->vars if needed.  Adjust
+	unshare_variable callers.  Clear dst_can_be_shared if needed.
+	Even ->refcount == 1 vars must be unshared if set->vars is shared
+	and var needs to be modified.
+	(variable_canonicalize): New function.
+	(dataflow_set_union): If dst->vars is empty, just share src->vars
+	with dst->vars and traverse with variable_canonicalize to canonicalize
+	and unshare what is needed.
+	(find_loc_in_1pdv, find_mem_expr_in_1pdv, vt_expand_loc_callback): Use
+	htab_find_with_hash instead of htab_find_slot_with_hash, pass dv to
+	it instead of &dv.
+	(struct dfset_merge): Add src_onepart_cnt field.
+	(intersect_loc_chains, canonicalize_values_mark,
+	canonicalize_values_star): Use shared_hash_*.
+	(variable_merge_over_cur): Likewise.  Clear dst_can_be_shared if
+	needed.  Decrement dsm->src_onepart_cnt if s2var found.  Prefer
+	s2var over s1var when not different.
+	(variable_merge_over_src): Call variable_canonicalize after inserting
+	the var into the hashtable instead of calling variable_union.
+	For onepart dv increment dsm->src_onepart_cnt.
+	(dataflow_set_merge): Create a new unshared empty hashtab for src,
+	traverse first with variable_merge_over_src and then with
+	variable_merge_over_cur, set dst_can_be_shared if dsm.src_onepart_cnt
+	is non-zero.
+	(dataflow_set_equiv_regs, variable_post_merge_perm_vals,
+	dataflow_post_merge_adjust): Use shared_hash_*.
+	(variable_post_merge_new_vals): Likewise.  Adjust unshare_variable and
+	dataflow_set_init callers.
+	(dataflow_set_preserve_mem_locs, dataflow_set_remove_mem_locs): Use
+	shared_hash_*.  Adjust unshare_variable and variable_was_changed
+	callers.
+	(dataflow_set_clear_at_call): Use shared_hash_*.
+	(dataflow_set_different_1): Pass var1->dv instead of &var1->dv to
+	htab_find_with_hash.
+	(dataflow_set_different): If old_set and new_set use the same shared
+	htab, they aren't different.  If number of htab elements is different,
+	htabs are different.  Use shared_hash_*.
+	(dataflow_set_destroy): Call shared_hash_destroy instead of
+	htab_delete.
+	(compute_bb_dataflow, emit_notes_in_bb, vt_emit_notes): Don't pass
+	second argument to dataflow_set_init.
+	(vt_initialize): Likewise.  Initialize shared_hash_pool and
+	empty_shared_hash, move bb in/out initialization afterwards.
+	Use variable_htab_free instead of NULL as changed_variables del hook.
+	(vt_find_locations): Use shared_hash_*.  Use htab_size
+	and htab_elements instead of ->size and ->n_elements.  Remove code
+	to print out differences with -fdump-rtl-vartrack-details.  Initialize
+	dst_can_be_shared, if it is true after merges and adjust, share
+	in->vars with first_out->out->vars.
+	(variable_was_changed): Change type of second argument to pointer to
+	dataflow_set.  When inserting var into changed_variables, bump
+	refcount.  Unshare set->vars if set is shared htab and slot needs to
+	be cleared.  Call htab_find_slot_with_hash with var->dv instead of
+	&var->dv.
+	(set_slot_part): Use shared_hash_*.  Unshare set->vars if needed.
+	Even ->refcount == 1 vars must be unshared if set->vars is shared
+	and var needs to be modified.  Adjust variable_was_changed caller.
+	(set_variable_part): Use shared_hash_*.  If iopt is INSERT, unshare
+	set->vars if shared and dv hasn't been found.
+	(delete_slot_part): Use shared_hash_*.  Even ->refcount == 1
+	vars must be unshared if set->vars is shared and var needs to be
+	modified.  Adjust variable_was_changed caller.
+	(delete_variable_part): Use shared_hash_*.
+	(emit_note_insn_var_location): Don't pool_free var.
+	(emit_notes_for_changes): Change last argument to shared_hash.
+	(emit_notes_for_differences_1): Initialize empty_var->refcount to 0
+	instead of 1.  Pass old_var->dv instead of &old_var->dv to
+	htab_find_with_hash.
+	(emit_notes_for_differences_2): Pass new_var->dv instead of
+	&new_var->dv to htab_find_with_hash.
+	(vt_finalize): Call htab_delete on empty_shared_hash->htab and
+	free_alloc_pool on shared_hash_pool.
+
+	* var-tracking.c (VALUE_CHANGED, DECL_CHANGED): Define.
+	(set_dv_changed, dv_changed_p): New static inlines.
+	(track_expr_p): Clear DECL_CHANGED.
+	(variable_was_changed): Call set_dv_changed.
+	(emit_note_insn_var_location): Likewise.
+	(check_changed_value): Use VALUE_CHANGED instead of hash table lookup.
+	(check_changed_var): Use dv_changed_p instead of hash table lookup.
+
+	(dv_is_decl_p): Remove useless decl variable.
+	(dv_htab_hash): Add inline keyword, remove useless assert.
+
+2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with gcc-4_4-branch@148582.
+	* rtl.def (VALUE): Move up.
+	
+2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Handle DIV, MOD, AND, IOR,
+	XOR, NOT, ABS and NEG.  Accept but discard EQ, GE, GT, LE, LT,
+	NE, COMPARE, IF_THEN_ELSE, SMIN, SMAX, ROTATE, ROTATERT,
+	TRUNCATE, and several operations that cannot be represented
+	with DWARF opcodes.
+	(mem_loc_descriptor): Fail more verbosely on unrecognized RTL,
+	but only with checking enabled.
+	(loc_descriptor): Limit expansion to types narrower than
+	pointers.
+
+2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/invoke.texi (-fmin-insn-uid): Changed to...
+	(param min-nondebug-insn-uid): ... this.
+	* params.def (PARAM_MIN_NONDEBUG_INSN_UID): New.
+	* params.h (MIN_NONDEBUG_INSN_UID): New.
+	* emit-rtl.c: Include params.h.  Replace flag_min_insn_uid with
+	MIN_NONDEBUG_INSN_UID.
+
+2009-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2.h (enum dwarf_location_atom): Add DW_OP_implicit_value
+	and DW_OP_stack_value.
+	* dwarf2out.c (dwarf_stack_op_name): Handle DW_OP_implicit_value
+	and DW_OP_stack_value.
+	(size_of_loc_descr, output_loc_operands, output_loc_operands_raw):
+	Handle DW_OP_implicit_value.
+	(extract_int): Move prototype earlier.
+	(loc_descriptor): Add MODE argument.  Handle CONST_INT, CONST_DOUBLE,
+	CONST_VECTOR, CONST, LABEL_REF and SYMBOL_REF if mode != VOIDmode,
+	attempt to handle other expressions.
+	(concat_loc_descriptor, concatn_loc_descriptor,
+	loc_descriptor_from_tree_1): Adjust loc_descriptor callers.
+	(add_location_or_const_value_attribute): Likewise.  For single
+	location loc_lists attempt to use add_const_value_attribute
+	for constant decls.
+
+2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtl.h (NOTE_DURING_CALL_P): New.
+	* var-tracking.c (enum emit_note_where): Add
+	EMIT_NOTE_AFTER_CALL_INSN.
+	(emit_note_insn_var_location): Mark during-call notes.
+	(emit_notes_in_bb): Emit MO_CALL notes as during call.
+	* dwarf2out.c (dwarf2out_var_location): Take during-call mark into
+	account.
+
+2009-06-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (adjust_debug_string_constant): Remove.
+	(debug_string_constants_p): Remove.
+	(adjust_debug_string_constants): Remove.
+	(expand_debug_expr): Don't delay expansion of strings without
+	constant pool entries.  Tweak DECL processing.  Fail more
+	verbosely on unrecognized tree nodes, but only when checking
+	is enabled.
+	(expand_debug_locations): New, sort of extracted from...
+	(expand_gimple_basic_block): ... here.
+	(gimple_expand_cfg): Expand debug locations after expanding all
+	basic blocks.  Don't adjust debug string constants any more.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/invoke.texi (bootstrap-debug): More details.
+	(bootstrap-debug-big, bootstrap-debug-lean): Document.
+	(bootstrap-debug-lib): More details.
+	(bootstrap-debug-ckovw): Update.
+	* gcc.c (invoke_as): Call compare-debug-dump-opt for
+	-fdump-final-insns too.
+	(driver_self_specs): Map -fdump-final-insns to
+	-fdump-final-insns=..
+	(compare_debug_dump_opt_spec_function): Test for . argument and
+	compute output name.  Compute temp output spec without flag name.
+	* doc/invoke.texi (fdump-final-insns): Document argument-less use.
+	* toplev.c (process_options): Don't open final insns dump file if
+	we're not going to write to it.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fverbose-cselib): Drop.
+	* doc/invoke.texi: Likewise.
+	* Makefile.in (cselib.o): Depend on $(TREE_PASS_H).
+	* cselib.c: Include tree-pass.h.  Use TDF_DETAILS from dump_flags
+	instead of flag_verbose_cselib.
+	* var-tracking.c: Likewise.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/invoke.texi (fvar-tracking-assignments): Note that it can be
+	enabled with debug info generation disabled.
+	* toplev.c (flag_var_tracking, flag_var_tracking_assignments):
+	Update comments.
+	(process_options): Don't reset flag_var_tracking_assignments.  Set
+	it along with flag_var_tracking to negative as needed.
+	* var-tracking.c (vt_finalize): Discard debug insns and finish if
+	flag_var_tracking_assignments is negative.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree.h (IS_DEBUG_STMT): Removed.  Replace with is_gimple_debug.
+	(IS_DEBUG_BIND): Removed.  Replace with gimple_debug_bind_p.
+	* doc/gimple.texi (is_gimple_debug): New.
+	(gimple_debug_bind_p): New.
+	(is_gimple_call, gimple_assign_cast_p): End sentence with period.
+	* gimple.h: Adjust.
+	(is_gimple_debug, gimple_debug_bind_p): New.
+	(gimple_debug_bind_get_var, gimple_debug_bind_get_value): Use them.
+	(gimple_debug_bind_get_value_ptr, gimple_debug_bind_set_var): Ditto.
+	(gimple_debug_bind_set_value): Likewise.
+	* cfgexpand.c: Adjust.
+	* gimple-pretty-print.c: Adjust.
+	* gimple.c: Adjust.
+	* ipa-reference.c: Adjust.
+	* tree-cfg.c: Adjust.
+	* tree-cfgcleanup.c: Adjust.
+	* tree-dfa.c: Adjust.
+	* tree-flow-inline.h: Adjust.
+	* tree-inline.c: Adjust.
+	* tree-into-ssa.c: Adjust.
+	* tree-outof-ssa.c: Adjust.
+	* tree-parloops.c: Adjust.
+	* tree-ssa-forwprop.c: Adjust.
+	* tree-ssa-live.c: Adjust.
+	* tree-ssa-loop-ch.c: Adjust.
+	* tree-ssa-loop-ivopts.c: Adjust.
+	* tree-ssa-loop-manip.c: Adjust.
+	* tree-ssa-operands.c: Adjust.
+	* tree-ssa-phiopt.c: Adjust.
+	* tree-ssa-propagate.c: Adjust.
+	* tree-ssa-sink.c: Adjust.
+	* tree-ssa-ter.c: Adjust.
+	* tree-ssa-threadedge.c: Adjust.
+	* tree-ssa-threadupdate.c: Adjust.
+	* tree-ssa.c: Adjust.
+	* tree-stdarg.c: Adjust.
+	* tree-tailcall.c: Adjust.
+	* tree-vrp.c: Adjust.
+	* tree-if-conv.c: Adjust.
+	* tree-ssa-dce.c: Adjust.
+	* tree-ssa-dom.c: Adjust
+	* rtl.h (MAY_HAVE_DEBUG_INSNS): Alias to MAY_HAVE_DEBUG_STMTS.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	Reverted:
+	* df-scan.c (struct df_collection_ref): Add alloc_ members.
+	(vec_SIZE_def, vec_SIZE_use, vec_SIZE_eq_use, vec_SIZE_mw): New.
+	(safe_alloca_vec, safe_grow_vec, safe_free_vec): New.
+	(df_insn_rescan_1): Move allocation down.  Use new macros.
+	(df_bb_refs_record): Likewise.
+	(df_notes_rescan): Use new macros.
+	(df_ref_create_structure, df_ref_record): Likewise.
+	(df_record_entry_block_defs): Likewise.
+	(df_record_exit_blocks_uses): Likewise.
+	(df_bb_verify): Likewise.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/ia64/ia64.c (emit_insn_group_barriers): Use
+	NONDEBUG_INSN_P.
+	(emit_all_insn_group_barriers): Likewise.
+	(final_emit_insn_group_barriers): Likewise.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c: Include mmap headers.
+	(MAP_FAILED): Define default.
+	(compare_debug, compare_debug_second, compare_debug_opt): Comment.
+	(compare_files): New.  Add support for mmap checking, after
+	splitting out of...
+	(main): ... here.
+	* final.c (rest_of_clean_state): Remove extraneous line break.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* print-rtl.c (print_rtx): Don't duplicate MODE-printing code.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-core.c (df_ref_debug): Reformat to match trunk.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (move_deaths): Reformat to match trunk.
+
+2009-06-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtl.h (NONDEBUG_INSN_P): New.
+	* caller-save (save_call_clobbered_regs): Use it instead of
+	INSN_P && !DEBUG_INSN_P.
+	* cfgloopanal.c (num_loop_insns): Likewise.
+	(average_num_loop_insns): Likewise.
+	* combine.c (create_log_links): Likewise.
+	(combine_instructions, distribute_notes): Likewise.
+	* gcse.c (compute_ld_motion_mems): Likewise.
+	(alloc_gcse_mem): Likewise.
+	* haifa-sched.c (rank_for_schedule): Likewise.
+	* ifcvt.c (dead_or_predicable): Likewise.
+	* ira-build.c (create_bb_allocnos): Likewise.
+	* ira-conflicts.c (add_copies): Likewise.
+	* modulo-sched.c (const_iteration_count): Likewise.
+	(sms_schedule): Likewise.
+	* recog.c (peephole2_optimize): Likewise.
+	* reload1.c (reload): Likewise.
+	* rtlanal.c (reg_used_between_p): Likewise.
+	* sched-deps.c (sched_analyze_insn): Likewise.
+	* sel-sched-ir.c (sel_estimate_number_of_insns): Likewise.
+	* config/rs6000/rs6000.c (is_microcoded_insn): Likewise.
+	(is_cracked_insn, is_branch_slot_insn): Likewise.
+	(is_nonpipeline_insn): Likewise.
+	(get_next_active_insn): Drop redundant DEBUG_INSN_P.
+	* emit-rtl.c (active_insn_p): Likewise.
+	* auto-inc-dec.c (merge_in_block): Use NONDEBUG_INSN_P.
+	* cfgcleanup.c (flow_find_cross_jump): Likewise.
+	* df-problems.c (df_lr_bb_local_compute): Likewise.
+	(df_simulate_one_insn_backwards): Likewise.
+	* init-regs.c (initialize_uninitialized_regs): Likewise.
+	* ira-costs.c (scan_one_insn): Likewise.
+	(process_bb_node_for_hard_reg_moves): Likewise.
+	* ira.c (memref_used_between_p): Likewise.
+	* loop-invariant.c (find_invariants_bb): Likewise.
+	* regstat.c (regstat_bb_compute_ri): Likewise.
+	* ira-lives.c (process_bb_node_lives): Likewise.
+	* regrename.c (copyprop_hardreg_forward_1): Likewise.
+	* rtl-factoring.c (ABSTRACTABLE_INSN_P): Likewise.
+	(prev_insn_in_block, collect_pattern_seqs): Likewise.
+	(clear_regs_live_in_seq): Likewise.
+
+2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* testsuite/lib/gnat.exp (gnat_target_compile): Restore
+	ADA_INCLUDE_PATH and incdir.
+	(local_find_gnatmake): Revert to --GCC rather than --LINK.
+
+2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-ssa-live.c (remove_unused_scope_block_p): Revert
+	previous patch.
+	(remove_unused_locals): Skip when not optimizing.
+
+2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (remap_decls): Enable nonlocalized variables
+	when not optimizing.
+
+2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-ssa-live.c (remove_unused_scope_block_p): Don't remove
+	unused declarations when not optimizing.
+
+2009-05-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with branches/gcc-4_4-branch@147310.
+
+2009-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with trunk@145121, branches/gcc-4_4-branch@145122.
+	* tree-inline.c (setup_one_parameter): Update comment. 
+
+2009-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Use Pmode in CONST_STRINGs.
+	* var-tracking.c (struct variable_tracking_info_def): Added
+	permp and flooded fields.
+	(dv_is_decl_p): Update comments.
+	(variable_htab_eq): Use #if ENABLE_CHECKING.
+	(var_reg_decl_set): Update comments.  Add iopt parameter.
+	(var_reg_set): Pass it INSERT as iopt.
+	(var_mem_decl_set): Update comments.  Add iopt parameter.
+	(var_mem_set): Pass it INSERT as iopt.
+	(val_store): Pass INSERT as iopt.
+	(val_reset): New.  Pass NO_INSERT as iopt.  Split out of...
+	(val_resolve): ... this.  Avoid dump crash when not given insn.
+	Pass INSERT as iopt.
+	(variable_union): Take advantage of canonical order in 1-part
+	variables.  Use XDELETEVEC.
+	(insert_into_intersection): Update comments.  Rename parameter.
+	Maintain canonical order.
+	(intersect_loc_chains): Take value and location chain rather than
+	DVAR.  Don't insert self.
+	(merge_with_missing_1pdv_as_union): Remove.
+	(tie_break_pointers, canon_value_cmp): New.
+	(loc_cmp, canonicalize_loc_order_check): New.
+	(canonicalize_values_mark, canonicalize_values_star): New.
+	(variable_merge_over_cur): Renamed from variable_merge, combined
+	with variable_merge3.  Reimplemented to perform union of
+	multi-part variables and intersection and progressive
+	canonicalization of 1-part ones.
+	(variable_merge_over_src): Renamed from variable_merge2.
+	Simplified to perform only union of multi-part variables.
+	(dataflow_set_merge): Use new entry points.
+	(dataflow_set_equiv_regs, remove_duplicate_values): New.
+	(struct dfset_post_merge): Drop old.  Add permp.
+	(variable_post_merge_new_vals): New.
+	(variable_post_merge): Removed.
+	(struct dataflow_set_unavailable): Removed.
+	(remove_unavailable_values): Removed.
+	(dataflow_set_remove_unavailable): Removed.
+	(variable_post_merge_perm_vals): New.
+	(dataflow_post_merge_adjust): Create new values, merge permanent
+	values, then canonicalize equivalence sets.
+	(dataflow_set_remove_mem_locs): Mark as changed when cur_loc is
+	removed.
+	(onepart_variable_different_p): New.
+	(variable_different_p): Use it.
+	(replace_expr_with_values): Use Pmode for addresses.
+	(compute_bb_dataflow): Pass INSERT as iopt.  Canonicalize register,
+	value equivalence sets, and canonical order.
+	(vt_find_locations): Rework convergence function used for 1-part
+	variables.  Control more verbose dump output with
+	-fverbose-cselib.
+	(variable_was_changed): Mark newly-created empty variable with
+	zero refcount.
+	(set_slot_part): Insert in canonical order on 1-part vars.
+	(set_variable_part): Add iopt parameter.  Update comments.
+	(clobber_slot_part): New, factored out of...
+	(clobber_variable_part): ... this.
+	(delete_slot_part): New, factored out of...
+	(delete_variable_part): ... this.
+	(emit_note_insn_var_location): Remove variable only if
+	refcount is zero.
+	(emit_notes_in_bb): Pass INSERT for iopt.  Remove obsolete code.
+	(vt_add_function_parameters): Pass INSERT for iopt.
+	(vt_initialize): Initialize permp and flooded.
+	(vt_finalize): Release permp.
+
+2009-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* testsuite/gcc.dg/guality/guality.exp: New.
+	* testsuite/gcc.dg/guality/guality.h: New.
+	* testsuite/gcc.dg/guality/guality.c: New.
+	* testsuite/gcc.dg/guality/example.c: New.
+
+2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fortran/simplify.c (gfc_simplify_transfer): Revert previous
+	patch.  Zero out the entire buffer upfront.
+
+2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ira.c (memref_used_between_p): Skip debug insns.
+
+2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (remap_gimple_op_r): Don't mark variable in
+	debug stmt as referenced.
+
+2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (remap_gimple_stmt): Don't remap blocks for
+	debug stmts.
+	(copy_debug_stmt): Use already-remapped blocks for them.
+
+2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ira.c (update_equiv_regs): Leave debug insns between insn
+	and equiv_insn.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with trunk@144510
+	* cselib.c (check_wrap_constant): New.
+	(cselib_expand_value_rtx, cselib_expand_value_rtx_cb): Use it.
+	Don't require REG/MEM SUBREG if incoming SUBREG isn't.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sel-sched-ir.c (return_nop_to_pool): Add full_tidying argument.
+	Adjust callers.
+	(setup_id_for_insn): Choose suitable type for debug insns.
+	(tidy_control_flow): Skip debug insns.
+	(sel_remove_insn): Remove debug insn from av_set of its BB.
+	(sel_estimate_number_of_insns): Don't count debug insns.
+	(create_insn_rtx_from_pattern): Handle debug insns.
+	(create_copy_of_insn_rtx): Likewise.
+	* sel-sched.c (moving_insn_crates_bookkeeping_block_p): New.
+	(moveup_expr): Handle debug insns.
+	(moveup_expr_cached): Don't use the cache for debug insns that are
+	heads of blocks.
+	(compute_av_set_inside_bb): Skip debug insns.
+	(sel_rank_for_schedule): Move debug insns first.  Remove redundant
+	sets of tmp_insn and tmp2_insn.
+	(find_block_for_bookkeeping): Introduce lax mode.
+	(create_block_for_bookkeeping): When splitting a block with debug
+	insns only, emulate the behavior of splitting its single successor.
+	(find_place_for_bookkeeping): Don't use debug-only blocks for
+	bookkeeping.
+	(generate_bookkeeping_insn): Accept not finding a place to insert.
+	(remove_temp_moveops_nops): Add full_tidying argument.
+	Adjust callers.
+	(prepare_place_to_insert): Don't choose the normal place to insert
+	if we're looking at a list of debug insns.
+	(advance_state_on_fence): Don't start a cycle at a debug insn.
+	(update_boundaries): Handle debug insns.  Update fence insn.
+	(schedule_expr_on_boundary): Don't fully-tidy after debug insn.
+	(fill_insns): Don't stop after moving a debug insns to the end of
+	a basic block.
+	(track_scheduled_insns_and_blocks): Don't count debug insns.
+	(need_nop_to_preserve_insn_bb): Handle debug insns.  Split out of...
+	(remove_insn_from_stream): ... this.
+	(fur_orig_expr_not_found): Handle debug insns.
+	(code_motion_path_driver): Fix return type.
+	* sched-deps.c (sched_analyze_insn): Honor readonly flag.  Don't add
+	pending memory flush deps for jumps in sel-sched.
+	* sel-sched-ir.h (sel_bb_empty_or_nop_p): New.
+	(get_all_loops_exit, _eligible_successor_edge_p): Use it.
+	(return_nop_to_pool): Update prototype.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fverbose-cselib): New.
+	* cselib.c (new_cselib_val, expand_loc): Honor it.
+	(cselib_expand_value_rtx_1): Likewise.
+	(cselib_subst_to_values): Likewise.
+	* doc/invoke.texi: Document it.
+	* var-tracking.c (val_resolve): Honor it.
+	(dataflow_set_different_1): Likewise.
+	(dataflow_set_different_2): Likewise.
+	(count_uses, add_uses, add_stores, add_with_sets): Likewise.
+	(vt_find_locations, vt_initialize): Likewise.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sched-deps.c (sd_lists_size): Don't count size of NULL lists.
+	* sched-int.h (sd_iterator_cont): Skip NULL lists.
+
+2009-03-01  Alexandre Oliva <aoliva@redhat.com>
+
+	* fortran/simplify.c (gfc_simplify_transfer): Zero-initialize
+	unused portions of the buffer.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ddg.c (add_cross_iteration_register_deps): Change dep type
+	for debug insns.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (next_nonnote_nondebug_insn): New.
+	(distribute_notes): Use it.  Deal with debug insns.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cp/decl.c (record_builtin_java_type): Use canonicalized integer
+	types. 
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr): Don't shift by
+	floor_log2 of zero.  Negate widened zero.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with trunk@142635
+	* df-scan.c (df_mwhreg): New typedef.  Adjust all users of...
+	(safe_alloca_vec, safe_grow_vec): Adjust for df_ref and
+	df_mwhreg.
+	(df_uses_record): Pass cl to df_ref_record.
+	* local-alloc.c (adjust_debug_insns_equivs): Adjust for df_ref
+	change.
+	* regstat.c (regstat_init_n_sets_and_refs): Likewise.
+	* reload1.c (reload): Likewise.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* testsuite/gcc.misc-tests/options.exp (check_for_options): Match
+	as-new too.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-stdarg.c (check_all_va_list_escapes): Ignore debug stmts.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* modulo-sched.c (const_iteration_count): Ignore debug insns.
+	(res_MII, loop_single_full_bb_p, sms_schedule): Likewise.
+	(sms_schedule_by_order, ps_has_conflicts): Likewise.
+	* ddg.c (create_ddg_dep_from_intra_loop_link): Check no non-debug
+	insn's deps on debug insns.
+	(create_ddg_dep_no_link): Likewise.
+	(add_cross_iteration_register_deps): Ignore debug insns.
+	(create_ddg): Count debug insns.
+	* ddg.h (struct ddg): Add num_debug.  Reorder fields for better
+	packing on LP64 hosts.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* testsuite/lib/gcc-dg.exp (cleanup-dump, cleanup-saved-temps):
+	Remove -fcompare-debug temp files as well.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ifcvt.c (noce_process_if_block): Check for modifications to the
+	insn src after the insn, rather than after the one that follows
+	it.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* coverage.c (coverage_begin_output): Don't overwrite .gcno file
+	during -fcompare-debug-second compilation.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtl-factoring.c (ABSTRACTABLE_INSN_P): Skip debug insns.
+	(prev_insn_in_block, collect_pattern_seqs): Likewise.
+	(clear_regs_live_in_seq): Likewise.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtl-factoring.c (struct hash_bucket_def): Add linked list of
+	candidates.
+	(struct hash_elem_def): Add pointer to successor.
+	(collect_pattern_seqs): Iterate over linked lists.  Halve the
+	number of examined pairs.
+	(htab_eq_elem): Compare insn rather than hash.
+	(fill_hash_bucket): Maintain linked list.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/37033
+	* dwarf2out.c (saved_do_cfi_asm): New.
+	(dwarf2out_do_frame): Take it into account.
+	(dwarf2out_d_cfi_asm): Likewise.  Set it when appropriate.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cp/repo.c (get_base_filename): Use aux_base_name rather than
+	alternate temporary file during second compare debug compilation.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c (compare_debug_auxbase_opt_spec_function): New.
+	(static_spec_functions): Add it.
+	(cc1_options): Use it instead of normal auxbase computation for
+	the second compare-debug compilation.
+	(compare_debug_dump_opt_spec_function): Adjust comment.
+	(debug_auxbase_opt): New.
+	(compare_debug_self_opt_spec_function): Adjust comment and
+	warning.  Save auxbase.
+
+2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fortran/trans-decl.c (gfc_build_qualified_array): Don't skip
+	generation of range types.
+	* fortran/trans.h (struct lang_type): Add base_decls.
+	(GFC_TYPE_ARRAY_BASE_DECL): New.
+	* fortran/trans-types.c (gfc_get_array_type_bounds): Initialize
+	base decls proactively and excessively.
+	(gfc_get_array_descr_info): Use existing base decls if available.
+
+2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dwarf2out.c (move_linkage_attr): New.
+	(dwarf2out_finish): Add MIPS_linkage_name attribute to the correct
+	die, at the right place.
+
+2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (insert_debug_decl_map): Not during early non-SSA
+	inlining.
+	(insert_init_debug_bind): Likewise.  Add id argument, adjust all
+	callers.  Mark symbols for renaming.
+	(insert_init_stmt): Add id argument, adjust all callers.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcse.c (cprop_insn): Don't count changes to debug insns as
+	changes.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.h (struct copy_body_data): Add debug_map.
+	* tree-inline.c (insert_debug_decl_map): New.
+	(copy_debug_stmt): Look up debug_map for VAR in debug stmts
+	(self_inlining_addr_expr): Restored.
+	(insert_init_debug_bind): New.
+	(insert_init_stmt): Don't look in debug stmts, generate them.
+	(setup_one_parameter): Restore optimizations to replace SSA names
+	and VARs with their values, but preserving the generation of debug
+	annotations.
+	(initialize_inlined_parameters): Pass fn down.
+	(expand_call_inline, unsave_expr_now): Maintain debug_map.
+	(copy_gimple_seq_and_replace_locals): Likewise.
+	(tree_function_versioning): Likewise.  Create BB unconditionally.
+	(build_duplicate_type): Maintain debug_map.
+	* tree-cfgcleanup.c (remove_forwarder_block): Copy debug stmts
+	along with labels.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dwarf2out.c (debug_str_hash_forced): New.
+	(add_string): New, split out of...
+	(add_AT_string): ... this.
+	(gen_label_for_idirect_string): New, split out of...
+	(AT_string_form): ... this.
+	(get_debug_string_label): New.
+	(mem_loc_descriptor): Handle CONST_STRINGs.
+	(output_indirect_string): Output if there are label and references.
+	(prune_indirect_string): New.
+	(prune_unused_types): Preserve forced indirect strings.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-parloops.c (eliminate_local_variables_stmt): Replace
+	elements in the value portion of debug stmts.
+	(separate_decls_in_region_debug_bind): New.
+	(separate_decls_in_region): Call it for debug bind stmts.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgloopanal.c (num_loop_insns): Ensure ninsns is never zero.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree.c (iterative_hash_expr): Don't take a NULL built in decl.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgrtl.c (purge_dead_edges): Skip debug insns at the end, along
+	with notes among them.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (remap_gimple_stmt): Don't demand lexical blocks
+	for debug stmts to have been remapped before, remap them.
+
+2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-ssa-live.c (remove_unused_scope_block_p): Keep variables
+	that have value exprs.
+
+2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* local-alloc.c (update_equiv_regs): Revert now-redundant df rescan.
+
+2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* loop-invariant.c (find_invariants_bb): Ignore debug insns.
+
+2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reload1.c (emit_input_reload_insns): Don't let debug insns get
+	in the way of optimizing away a SET in the previous non-debug insn
+	to satisfy an input reload.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree.c (iterative_hash_pointer): Delete.
+	(iterative_hash_expr): Short-circuit handling of NULL pointer.
+	Hash UIDs and versions of SSA names.  Don't special-case built-in
+	function declarations.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* c-parser.c (c_parser_binary_expression): Initialize binary_loc.
+	* ebitmap.h (ebitmap_iter_init): Initialize all fields.
+	* ipa-struct-reorg.c (gen_struct_type): Replace known-true
+	test with assertion.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (reg_subword_p): Don't use C++ keyword new.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-ssa-loop-ivopts.c (idx_remove_ssa_names): Handle
+	ARRAY_RANGE_REFs like ARRAY_REFs.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ira-build.c (create_bb_allocnos): Disregard debug insns.
+	* ira-conflicts.c (add_copies): Likewise.
+	* ira-costs.c (scan_one_insn, process_bb_node_for_hard_reg_moves):
+	Likewise.
+	* ira-lives.c (process_bb_node_lives): Likewise.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (tree_function_versioning): Fix merge fallout.
+	* haifa-sched.c (schedule_block): Likewise.
+	* ipa-reference.c (scan_stmt_for_static_refs): Likewise.
+
+2008-10-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/install.texi (STAGE1_TFLAGS, BUILD_CONFIG): Document.
+
+2008-10-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* c-gimplify.c (c_genericize): Don't pass NULL to printf %s.
+	Enclose multi-line ternary expression in parentheses.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* print_rtl (print_rtx): Don't assume modes in EXPR_LISTs and
+	INSN_LISTs must refer to REG_NOTEs.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* haifa-sched.c (rank_for_schedule): Don't scan back for non-debug
+	insn past prev_head.
+	(schedule_insn): Don't mark debug insns as first in cycle.
+	(get_ebb_head_tail): Skip boundary debug insns.
+	(no_real_insns_p): Likewise.
+	(schedule_block): Ensure last_schedule_insn is not a boundary
+	debug insn.
+	(set_priorities): Reject boundary debug insns.
+	(prev_non_location_insn): New.
+	(check_cfg): Use it in assertions.
+	* sched-ebb.c (schedule_ebbs): Skip boundary debug insns.
+	* sched-deps.c (sd_init_insn): Mark debug insns as non-boundary.
+	(sd_finish_insn): Check that debug insns are marked.
+	(sched_analyze): Skip debug insns when searching back for call
+	before head.
+	* sched-int.h (DEBUG_INSN_SCHED_P): New.
+	(SCHEDULE_DEBUG_INSN_P, BOUNDARY_DEBUG_INSN_P): New.
+	* sched-rgn.c (init_ready_list): Skip boundary debug insns.
+	(free_block_dependencies): Test for no real insns first.
+	(schedule_region): Likewise, before setting priorities.
+	* config/ia64/ia64.c (emit_insn_group_barriers,
+	emit_all_insn_group_barriers): Ignore debug insns.
+	(final_emit_insn_group_barriers): Likewise.  Remove obsolete
+	code to avoid emitting barriers because of debug insns.
+	* config/rs6000/rs6000.c (get_next_active_insn): Skip debug
+	insns.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/ia64/ia64.c (ia64_dwarf2out_def_steady_cfa): Take frame
+	parameter.  Always emit deleted label.
+	(process_set, process_for_unwind_directive): Pass it frame, even
+	when it wouldn't have been called.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgrtl.c (rtl_merge_blocks): Drop notes before debug insns at
+	the end of the first block.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fortran/trans-types.c (gfc_get_nodesc_array_type): Don't
+	vary types depending on debug info.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (gimple_expand_cfg): Discard the source location
+	only for builtins that are not overridden.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Expand COMPLEX_CST into CONCAT.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* loop-unroll.c (struct iv_to_split): Add pointer to next.
+	(struct var_to_expand): Likewise.
+	(struct opt_info): Add head and tail for linked lists of the above.
+	(analyze_insn_to_expand_var): Initialize next.
+	(analyze_iv_to_split_insn): Likewise.
+	(analyze_insns_in_loop): Create linked lists.
+	(allocate_basic_variable): Simplify for use without hash table.
+	(insert_var_expansion_initialization): Likewise, make it type-safer.
+	(combine_var_copies_in_loop_exit): Likewise.
+	(apply_opt_in_copies): Walk lists rather than hash tables.
+	(release_var_copies): Simplified and inlined by hand into...
+	(free_opt_info): ... this function.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c (report_times_to_file): New.
+	(execute): Implement it.
+	(process_command): Support -time=.
+	* doc/invoke.texi: Document it.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* toplev.c (process_options): Disregard optimize in
+	flag_var_tracking_assignments auto-detect.  Warn and disable if
+	it's enabled without -fvar-tracking.
+	* doc/invoke.texi (-fvar-tracking-assignments): Update.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fvar-tracking_assignments-toggle): New.
+	* toplev.c (flag_var_tracking_assignments_toggle): New.
+	(process_options): Handle it.
+	* doc/invoke.texi: Document it.
+	(fvar-tracking-assignments): Fix index entries.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fcompare-debug=, fcompare-debug-second): New.
+	(fdump-final-insns=): New.
+	(gtoggle): New.
+	* doc/invoke.texi: Document them.
+	* final.c (rest_of_clean_state): Dump final insn stream.
+	* gcc.c (invoke_as): Hook in -fcompare-debug.
+	(static_spec_functions): Add compare-debug-dump-opt and
+	compare-debug-self-opt.
+	(compare_debug, compare_debug_second, compare_debug_opt): New.
+	(switches_debug_check, n_switches_debug_check): New.
+	(debug_check_temp_file): New.
+	(process_command): Handle -fno-compare-debug, -fcompare-debug and
+	-fcompare-debug=*.
+	(do_self_spec): Handle arguments after switches.
+	(do_spec_1): Add .gk extension to temp file basenames for compare.
+	(check_live_switch): Take SWITCH_IGNORE into account, and earlier.
+	(main): Set up and implement compare debug mode.
+	(compare_debug_dump_opt_spec_function): New.
+	(compare_debug_self_opt_spec_function): New.
+	* toplev.c (process_options): Handle flag_gtoggle,
+	flag_dump_final_insns.
+	* cp/repo.c (finish_repo): Skip during -fcompare-debug-second.
+	* ada/lib-writ.adb (flag_compare_debug): Import.
+	(Write_ALI): Skip during -fcompare-debug-second.
+	* fortran/options.c (gfc_post_options): Disable dump_parse_tree
+	during -fcompare-debug-second.
+	* objc/objc-act.c (objc_init): Skip print_struct_values during
+	-fcompare-debug-second.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_gimple_basic_block): Print ICE message.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* c-gimplify.c (c_genericize): Don't refer to DECL_ASSEMBLER_NAME
+	before ensuring it's already computed.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dwarf2out.c (deferred_asm_name): New.
+	(add_name_and_src_coords_attributes): Defer creation of
+	DW_AT_MIPS_linkage_name attribute if DECL_ASSEMBLER_NAME was not
+	computed yet.
+	(dwarf2out_finish): Revisit deferrals and emit attributes.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dwarf2asm.c (dw2_force_const_mem): Defer creation of
+	declarations for constants until...
+	(dw2_output_indirect_constant_1): ... this point.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gengtype.c (adjust_field_rtx_def): Add NOTE_INSN_DELETED_LABEL's
+	label string.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Handle negative bitpos.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-core.c (df_ref_debug): Honor -fdump-noaddr.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* emit-rtl (emit_insn_after, emit_jump_insn_after,
+	emit_call_insn_after, emit_insn_before, emit_jump_insn_before,
+	emit_call_insn_before): Take locator from non-debug insn.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Don't modify pre-existing MEMs.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* local-alloc.c (memref_used_between_p): Skip debug insns.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (move_deaths): Compare LUIDs within the same BB only.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-problems.c (df_note_bb_compute): Don't dump debug insns.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgcleanup.c (try_crossjump_to_edge): Skip debug insns.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gimple.c (gimple_build_debug_bind_stat): Copy block and location
+	information from new stmt argument.
+	* gimple.h (gimple_build_debug_bind_stat): Adjust declaration.
+	(gimple_build_debug_bind): Adjust.
+	* tree-inline.c (remap_gimple_stmt, setup_one_parameter): Adjust.
+	* tree-into-ssa.c (insert_phi_nodes_for, rewrite_stmt): Adjust.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_gimple_basic_block): Remove duplicate stmt
+	declaration.  Preserve source location around expanding debug
+	stmts.
+	* cfglayout.c (get_curr_insn_source_location): New fn.
+	(get_curr_insn_block): New fn.
+	* rtl.h (get_curr_insn_source_location): Declare.
+	(get_curr_insn_block): Declare.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (maybe_dump_rtl_for_gimple_stmt): Dump line number
+	information if requested.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gimple-pretty-print.c (dump_bb_header): Don't take line info
+	from debug stmt.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfglayout.c (set_curr_insn_source_location): Don't refrain from
+	switching to last_location.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfglayout.c (curr_location, last_location): Make static.
+
+2008-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* print-rtl.c (print_rtx): Remove excess parenthesis after
+	VAR_LOCATION.
+
+2008-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/37098
+	* cfgexpand.c (expand_debug_expr): Handle PAREN_EXPR.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-into-ssa.c (var_debug_value_for_decl): Don't track
+	anonymous variables.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sched-vis.c (print_insn): Dump anonymous variables.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (count_uses, add_uses, add_stores): Use Pmode for
+	addresses.
+	(add_uses): Compute value-based loc for MO_VAL_USE out of original
+	loc, not tracked loc.
+	(add_stores): Restore correct handling of MO_SET mode in
+	MO_VAL_SET.
+	(compute_bb_dataflow, emit_notes_in_bb): Always use value-based
+	loc for resolution.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree.h (IS_DEBUG_BIND): New.
+	* tree-ssa-loop-ivopts.c (remove_unused_ivopts): Use it.
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Likewise.
+	* tree-if-conv.c (tree_if_convert_stmt): Likewise.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	* tree-ssa.c (verify_ssa): Likewise.
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	* tree-ssa-operands.c (parse_ssa_operands): Likewise.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtl.h (gen_rtx_UNKNOWN_VAR_LOC): Drop mode argument.  Adjust all
+	callers.
+	* cfgexpand.c (expand_debug_expr_1): Removed.
+	(expand_debug_expr): Remove wrapping of constants.  Expand pointer
+	to CONST_STRING with Pmode.  Handle DECL and TYPE mode mismatches.
+	(expand_gimple_basic_block): Hold the mode in VAR_LOCATION.
+	* var-tracking.c (find_use_val): Take mode as argument, adjust all
+	callers.  Don't unwrap constants.
+	(use_type): Don't unwrap constants.  Take mode from VAR_LOCATION.
+	(count_uses): Take mode from VAR_LOCATION.
+	* combine.c (auto_adjust_pair): New, moved out of...
+	(propagate_for_debug_subst): ... this.  Handle SUBREGs.
+	(propagate_for_debug): Don't unwrap constants.
+	* fwprop.c (forward_propagate_and_simplify): Don't wrap
+	constants.
+	* local-alloc.c (adjust_debug_insns_equivs): Don't wrap
+	constants.
+	* cse.c (insn_live_p): Adjusted.
+	* df-problems.c (df_note_bb_compute): Adjusted.
+	* regmove.c (regmove_optimize): Adjusted.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-dfa.c (find_referenced_vars): Not in debug stmts.
+	* tree-inline.c (copy_tree_body_r): Don't add vars to referenced
+	set when processing debug stmts.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-ssa-propagate.c (substitute_and_fold): Don't let debug
+	stmts trigger changes.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtlanal.c (side_effects_p): Not in VAR_LOCATION.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-outof-ssa.c (not_ssa_name_p): New.
+	(rewrite_trees): Use it to clean up debug stmts.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cselib.c (new_cselib_val): Honor -fdump-noaddr.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-if-conv.c (tree_if_convert_stmt, if_convertible_stmt_p):
+	Check for GIMPLE_DEBUG rather than VAR_DEBUG_VALUE.
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Likewise.
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Likewise.
+	(eliminate_unnecessary_stmts): Move debug stmt handler.
+	* tree-inline.c (remap_gimple_stmt): Defer work on debug stmts.
+	(copy_bb): Likewise.
+	(copy_debug_stmt): Update.
+	* tree-ssa-aliase.c (update_alias_info): Skip debug stmts.
+	* ipa-reference.c (scan_stmt_for_static_refs): Likewise.
+	* ipa-pure-const.c (scan_function_stmt): Likewise.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (emit-rtl.o-warn): Accept warnings.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* see.c (see_merge_one_def_extension): Avoid bogus? uninitialized
+	warning.
+
+2008-08-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (variable_htab_eq): Move checking-only variables
+	into ENABLE_CHECKING block.
+
+2008-07-31  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with trunk @138264.
+	* common.opt (ftree-coalesce-vars): Don't use negative values.
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Adjust.
+	* tree-cfg.c (verify_expr): Moved debug bind code...
+	(verify_stmt): ... here.
+	* gimple.def (GIMPLE_DEBUG): New.
+	* gimple.h (gsi_next_nondebug, gsi_prev_nondebug,
+	gsi_start_bb_nondebug, gsi_last_bb_nondebug): New.
+	(gimple_debug_bind_get_var, gimple_debug_bind_get_value): New.
+	(gimple_debug_bind_set_var, gimple_debug_bind_set_value): New.
+	(gimple_build_debug_bind, gimple_build_debug_bind_stat): New.
+	* tree.h (IS_DEBUG_STMT, VAR_DEBUG_VALUE_SET_VAR,
+	VAR_DEBUG_VALUE_VAR, VAR_DEBUG_VALUE_VALUE): Adjust.
+	* tree-inline.c (estimate_num_insns): Handle GIMPLE_DEBUG.
+	* gimple.c (empty_body_p): Ignore debug stmts.
+	(gimple_build_debug_bind_stat): New.
+	(gss_for_code): Add GIMPLE_DEBUG.
+	(gimple_has_side_effects, gimple_rhs_has_side_effects): Never for
+	debug stmts.
+	* tree.c (build_var_debug_value_stat): Delete.
+	* tree-ssa-sink.c (statement_sink_location): Tuplify.
+	* tree-dump.c (dequeue_and_dump): Remove VAR_DEBUG_VALUE support.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* gimple-pretty-print.c (dump_gimple_debug): New.
+	(dump_gimple_stmt): Use it.
+	* tree-into-ssa.c (adjust_debug_stmts_for_var_def_move): Avoid
+	zeroed-out SSA_NAMEs when re-creating rhs trees out of gimple
+	assign.
+	* var-tracking.c (count_uses): Preserve value of MEM address
+	before that of the MEM itself.
+
+2008-07-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (find_mem_expr_in_1pdv): New.
+	(dataflow_set_preserve_mem_locs): New.
+	(dataflow_set_clear_at_call): Call it.
+
+2008-07-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgloopanal.c (num_loop_insns): Don't let bb-ending debug insns
+	get an otherwise-bb-ending non-debug insns counted.
+	(average_num_loop_insns): Likewise.
+
+2008-06-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* print-rtl.c: Include cselib.h
+	(print_rtx): Handle VALUEs.
+	* Makefile.in (print-rtl.o): Depend on cselib.h.
+	* rtl.c (rtx_equal_p): Handle VALUEs.
+	* cselib.c (new_cselib_val): Add x argument.  Dump it.  Adjust
+	callers.
+	(cselib_expand_value_rtx_1): Use print-rtl support.
+	(cselib_log_lookup): New.
+	(cselib_lookup): Call cselib_log_lookup at every return point.
+	(cselib_process_insn): Call cselib_reset_table_with_next_value
+	rather than cselib_clear_table.
+	(dump_cselib_vals, dump_cselib_table): New.
+	* cselib.h (dump_cselib_table): Declare.
+	* var-tracking.c (micro_operation_type_name): New.
+	(attrs_list_mpdv_union): New.
+	(val_init): Renamed to...
+	(val_store): ... this.  Verbosify.  Handle REGs and MEMs.
+	(val_resolve): Add INSN argument.  Verbosify.  Reset the node,
+	detaching any equivalences before changing it.  Merge incoming
+	registers.  Note plans for handling MEMs and other rtx types, with
+	stopgap handlers in place.
+	(variable_union): Remove comment about handling intersection.
+	(VALUE_RECURSED_INTO): New.
+	(find_loc_in_1pdv): New.
+	(dfset_merge): New struct.
+	(insert_into_intersection): New.
+	(intersect_loc_chains): New.
+	(merge_with_missing_1pdv_as_union): New.
+	(variable_merge): New.
+	(variable_merge2): New.
+	(tie_break_pointers): New.
+	(find_canonical_value): New.
+	(variable_merge3): New.
+	(dataflow_set_merge): New.
+	(dfset_post_merge): New struct.
+	(variable_post_merge): New.
+	(dataflow_post_merge_adjust): New.
+	(dataflow_set_different_1): Verbosify.
+	(dataflow-set_different_2): Likewise.
+	(replace_expr_with_values): New.
+	(use_type): Only return MO_VAL_SET for REGs and recorded values.
+	(log_op_type): New.
+	(count_uses): Log.  Count operation to resolve MEM address.
+	(add_uses): Log.  Likewise.  Record VALUEized expressions too.
+	(add_with_sets): Log.
+	(compute_bb_dataflow): Fix incorrect uses of val_init for
+	resolution.  Use val_store.  Handle VALUEized operands.
+	(emit_notes_in_bb): Likewise.
+	(vt_find_locations): Introduce second pass.  Verbosify.  Log
+	total size of hash tables.
+	(dump_variable_slot): New wrapper for...
+	(dump_variable): ... this.  Take var.  Use print-rtl support.
+	(dump_vars): Use new wrapper.
+	(set_slot_part): Take slot rather than looking up hash table.
+	Renamed with prototype change from...
+	(set_variable_part): ... this.  New wrapper.
+	(vt_expand_loc_callback): Avoid infinite recursion.
+	(vt_add_function_parameters): Set up VALUEs for incoming
+	arguments.
+	(vt_initialize): Verbosify.
+
+2008-05-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (remove_unavailable_values): Actually remove
+	slots with zero variable parts.
+
+2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (dv_is_decl_p, dv_is_value_p): NULL is neither.
+	(dv_as_decl): Assert dv_is_decl_p.
+	(dv_from_value): Assert value.
+	(dv_htab_hash): Assert ptr.
+	(variable_htab_eq): Compare opaque pointers.
+	(remove_unavailable_values): Deal with zero var parts.  Do not
+	remove last ref to a variable.
+	(dataflow_set_remove_mem_locs): New.
+	(dataflow_set_clear_at_call): New, factored out from...
+	(compute_bb_dataflow, emit_notes_bb): ... here.  Clear info on
+	modified REGs.
+	(VAL_EXPR_IS_COPIED): Use different bit.
+	(compute_bb_dataflow): Remove unavailable vars here...
+	(vt_find_locations): ... not here.  Don't disregard self-edges.
+	(set_variable_part): Accept zero var parts.
+	(clobber_variable_part): Adjust to deal with NULL.
+	(vt_expand_loc_callback): Accept zero var parts.
+	(check_changed_var): Deal with zero var parts.
+
+2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-ssa-operands.c (add_virtual_operands): Assert no debug use.
+	(get_expr_operands): Pass opf_no_vops along with opf_debug_use.
+	Move none into the right scope.
+
+2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cselib.c (cselib_reset_table_with_next_value): Add note to
+	preserve constants.
+	(cselib_record_sets): Use correct mode for IF_THEN_ELSE.
+
+2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-if-conv.c (tree_if_convert_stmt): Handle debug stmts.
+	(if_convertible_stmt_p): Likewise.
+
+2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fwprop.c (forward_propagate_and_simplify): Wrap constants only
+	in debug insns.
+
+2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (struct variable_def): Declare var_part with a
+	single element.
+	(var_pool): Adjust comment.
+	(valvar_pool): New.
+	(dv_is_value_p): Improve documentation.
+	(dv_onepart_p): New.
+	(dv_pool): New.  Use it all over, instead of var_pool.
+	(dv_htab_hash): Attempt to reduce collisions.
+	(unshare_variable): Take slot as argument.  Adjust all callers.
+	(vars_copy_1): Fix strict-aliasing error.
+	(variable_union): Likewise.  Ensure one-part dvs don't ever get
+	more than one part.
+	(struct dataflow_set_unavailable): New.
+	(remove_unavailable_values): New.
+	(dataflow_set_remove_unavailable): New.
+	(dataflow_set_different_1): Fix strict-aliasing error.
+	(dataflow_set_different_2): Likewise.
+	(use_type): Follow var_debug_decl chain.
+	(add_stores): Use use_type to tell whether to clobber.
+	(find_src_set_src): Fix strict-aliasing error.
+	(vt_find_locations): Remove unavailable values.
+	(dump_variable): Fix strict-aliasing error.
+	(variable_was_changed): Likewise.
+	(set_variable_part): Ensure one-part vars get a single part at
+	offset zero.
+	(emit_note_insn_var_location): Fix strict-aliasing error.
+	(check_changed_var): Likewise.
+	(emit_notes_for_differences_1): Likewise.
+	(emit_notes_for_differences_2): Likewise.
+	(vt_initialize): Create valvar_pool if debug insns may exist.
+	Adjust var_pool creation.
+	(vt_finalize): Release valvar_pool.
+
+2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (try_combine): Don't pass uninitialized i2src or
+	i2dest to propagate_for_debug.
+
+2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fwprop.c (forward_propagate_and_simplify): Replace entire
+	var location rtx.  Revert part of 2007-11-08 obviated by:
+	2008-04-02  Andy Hutchinson <hutchinsonamdy@aim.com>
+	PR rtl-optimization/35542
+	* fwprop.c (forward_propagate_and_simplify): Replace
+	loc_reg_mentioned_in_p with reg_mentioned_p.
+
+2008-04-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c: Include target.h.
+	(VT_MAY_HAVE_VALUE_LOC): Remove.
+	(vt_expand_loc): Don't discard values.  Delegitimize top-level
+	MEMs.
+	* Makefile.in (var-tracking.o): Depend on TARGET_H.
+	* simplify-rtx.c (delegitimize_mem_from_attrs): New.
+	* rtl.h (delegitimize_mem_from_attrs): Declare it.
+	* target-def.h (TARGET_DELEGITIMIZE_ADDRESS): Use it.
+	* config/i386/i386.c (ix86_delegitimize_address): Use it.
+	* config/rs6000/rs6000.c (TARGET_DELEGITIMIZE_ADDRESS): Define to...
+	(rs600_delegitimize_address): ... this.  New.
+	* expr.c (get_inner_reference): Don't crash if the ultimate
+	containing object is NULL.
+	* cfgexpand.c (expand_debug_expr_1): Conditionally renamed from...
+	(expand_debug_expr): ... this, to avoid unwrapped constants.
+	* dwarf2out.c (mem_loc_descriptor): Check for TLS symbols,
+	emit TLS annotations for them.
+	(loc_descriptor): Recurse for CONSTs.  Discard value exprs.
+	* local-alloc.c (adjust_debug_insns_equivs): Wrap constants.
+
+2008-04-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c: Include cselib.h.
+	(enum micro_operation_type): Remove MO_LOC_MAIN and MO_LOC_USE,
+	add MO_VAL_USE, MO_VAL_LOC and MO_VAL_SET.
+	(struct micro_operation_def): Document new meanings for loc.
+	(struct decl_or_value): New.
+	(struct emit_note_data_def): Add vars table.
+	(struct attrs_def): Use decl_or_value dv rather than tree decl.
+	(struct variable_def): Likewise.
+	(struct location_chain_def): Accept VALUE in loc.
+	(scratch_regs): New.
+	(cselib_hook_called): New.
+	(dv_is_decl_p, dv_is_value_p, dv_as_decl, dv_as_value,
+	dv_as_opaque, dv_from_decl, dv_from_value, dv_htab_hash): New.
+	(IS_DECL_CODE, check_value_is_not_decl): New.
+	(variable_htab_hash): Use dv_htab_hash.
+	(variable_htab_eq): Likewise.  Handle values.
+	(attrs_list_member, attrs_list_insert, attrs_list_union,
+	unshare_variable, vars_copy_1, var_reg_decl_set, var_reg_reg,
+	get_init_value, var_reg_delete_and_set, var_reg_delete,
+	var_regno_delete, var_mem_decl_set, var_mem_set, var_mem_delete,
+	variable_union, dataflow_set_different_1,
+	dataflow_set_different_2):
+	Adjust for decl_or_value.
+	(val_init, val_resolve): New.
+	(track_expr_p): Add need_rtl argument.  Permit checking without
+	forcing generation of RTL for a name.
+	(track_loc_p): Adjust.
+	(struct count_use_info): New.
+	(find_use_val): New.
+	(use_type): Add count_use_info argument.  Choose appropriate use
+	types for values in debug insns and for cselib-registered values.
+	(count_uses): Handle new micro operation types.  Preserve values.
+	(count_uses_1, count_stores): Adjust for count_use_info.
+	(count_with_sets): New.
+	(VAL_NEEDS_RESOLUTION, VAL_HOLDS_TRACK_EXPR, VAL_EXPR_IS_COPIED,
+	VAL_EXPR_IS_CLOBBERED): New.
+	(add_uses): Handle new micro operation types.
+	(add_uses_1): Adjust for count_use_info.
+	(add_stores): Likewise.  Handle new micro operation types.
+	(add_with_sets): New.
+	(find_src_status, find_src_set_src): Adjust for decl_or_value.
+	(compute_bb_dataflow): Handle new micro operation types.
+	(dump_attrs_list, dump_variables, variable_was_changed,
+	set_variable_part, clobber_variable_part, delete_variable_part):
+	Adjust for decl_or_value.
+	(VT_MAY_HAVE_VALUE_LOC): New.
+	(vt_expand_loc_callback, vt_expand_loc): New.
+	(emit_note_insn_var_location): Use vt_expand_loc.  Adjust for
+	decl_for_value.
+	(check_changed_value, check_changed_var): New.
+	(emit_notes_for_changes): Take the block's variable hashtable as
+	argument.  Mark as changed VALUEs that depend on other changed
+	values or expressions.
+	(emit_notes_for_differences_1): Adjust for decl_or_value.
+	(emit_notes_for_differences_2): Likewise.
+	(emit_notes_in_bb): Pass in hashtable as argument to
+	emit_notes_for_changes.  Handle new micro operation types.
+	(vt_add_function_parameters): Adjust for decl_or_value.
+	(vt_initialize): Initialize cselib and scratch_regs.  Move code
+	out to cselib callbacks and use them.
+	(vt_finalize): Finish cselib and release scratch_regs.
+	* Makefile.in (var-tracking.o): Depend on cselib.h.
+	* cselib.c (struct expand_value_data): New.
+	(cselib_record_sets_rook): New.
+	(PRESERVED_VALUE_P, LONG_TERM_PRESERVED_VALUE_P): New.
+	(cselib_clear_table): Rename and reintroduce in terms of...
+	(cselib_reset_table_with_next_value): This.
+	(cselib_get_next_unknown_value): New.
+	(entry_and_rtx_equal_p): Avoid cast-away-constness warning.
+	(discard_useless_locs): Don't discard preserved values.
+	(discard_useless_values): Likewise.
+	(cselib_preserve_value, cselib_preserved_value_p,
+	cselib_preserve_definitely, cselib_clear_preserve,
+	cselib_preserve_only_values): New.
+	(wrap_constant): Moved to cfgexpand.c.
+	(expand_loc): Replace regs_active argument with an
+	expand_value_data.  Adjust.
+	(cselib_expand_value_rtx): Rename and reimplement in terms of...
+	(cselib_expand_value_rtx_1): ... this, with an expand_value_data
+	argument.  Adjust.  Call callback if set.  Wrap constants as needed.
+	(cselib_expand_value_rtx_cb): New.
+	(cselib_invalidate_regno): Regard preserved values.
+	(cselib_invalidate_mem): Likewise.
+	(cselib_record_set): Likewise.
+	(struct set): Moved to cselib.h, renamed as cselib_set.
+	(cselib_record_sets): Adjust.  Call new hook.
+	* cselib.h (struct cselib_set): Moved here.
+	(cselib_record_sets_hook, cselib_expand_callback,
+	(cselib_expand_value_rtx_cb, cselib_reset_table_with_next_value,
+	cselib_get_next_unknown_value, cselib_preserve_value,
+	cselib_preserved_value_p, cselib_preserve_only_values): Declare.
+	* rtl.h (wrap_constant, unwrap_constant): Declare.
+	* cfgexpand.c (wrap_constant, unwrap_constant): New.
+	(expand_debug_expr): Use wrap_constant.
+	* combine.c (propagate_for_debug): Likewise.
+
+2008-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* haifa-sched.c (move_insn): Revert previous change.
+
+2008-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-scan.c (df_ref_chain_change_bb): Simplify.
+	(df_insn_change_bb): Add new_bb argument.  Simplify.  Call
+	set_block_for_insn if there's any change.
+	* df.h ((df_insn_change_bb): Fix prototype.
+	* cfgrtl.c (update_bb_for_insn_chain): Pass bb to
+	df_insn_change_bb, don't call set_block_for_insn.
+	* emit-rtl.c (reorder_insns): Likewise.
+	* haifa-sched.c (move_insn): Likewise.
+
+2008-02-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-into-ssa.c (struct check_debug_predicate): Add stmt.
+	(check_and_update_debug_stmt_1): Don't discard uses of default
+	defs.  Discard uses of no-longer-dominating defs.
+	(check_and_update_debug_stmt): Set stmt.
+	(maybe_replace_use_in_debug_insn): Don't fail rewriting a
+	debug stmt because of references to default def.
+
+2008-02-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sched-vis.c (print_insn): Handle debug insns.
+	* tree-pretty-print.c (dump_generic_node): Use '=>' rather than
+	'=' for DEBUG stmts.
+
+2008-02-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* haifa-sched.c (move_insn): Don't mark block as DF-dirty when
+	moving insns in it.
+
+2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fwprop.c (try_fwprop_subst): Deal with NULL set.
+
+2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merge from trunk right before the 4.3 branch.
+	* doc/invoke.texi: Re-add -ftree-coalesce-inlined-vars and
+	-ftree-coalesce-vars.
+	* gcse.c (alloc_gcse_mem): Remove reverse mapping CUID_INSNs.
+	* tree-ssa-live.c (remove_unused_locals): Add argument to
+	mark_all_vars_used.
+	* sched-deps.c (sched_analyze_insn): Move code that sets up deps
+	of debug insns along with move of unconditional case.
+	* tree-ssa-operands.c (get_addr_dereference_operands): Adjust for
+	renamed variable.
+	* var-tracking.c (use_type): Add modep argument.  Use track_loc_p.
+	(add_uses): Adjust.  Use var_lowpart.
+	(add_stores): Adjust.
+
+2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-scan.c (df_insn_rescan_1): Rename back to...
+	(df_insn_rescan): This.  Remove wrapper.
+	(df_insn_rescan_debug_internal): New implementation.
+
+2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Avoid VIEW_CONVERT_EXPR
+	infinite recursion more trivially.  Suggested by Eric Botcazou.
+
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+	* Makefile.in (dse.o): Remove duplicate $(RECOG_H) dependency.
+	2007-10-30  Richard Guenther  <rguenther@suse.de>
+	* Makefile.in (dse.o): Add $(OPTABS_H) and $(RECOG_H) dependencies.
+
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* regclass.c (scan_one_insn): Skip debug insns.
+	(reg_scan, init_subregs_of_mode): Likewise.
+
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Handle conversion
+	from/to/between float modes.
+
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-flow-inline.h (next_readonly_imm_use): Return
+	NULL_USE_OPERAND_P after the end.
+
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-scan.c (struct df_collection_ref): Add alloc_ members.
+	(vec_SIZE_def, vec_SIZE_use, vec_SIZE_eq_use, vec_SIZE_mw): New.
+	(safe_alloca_vec, safe_grow_vec, safe_free_vec): New.
+	(df_insn_rescan_1): Move allocation down.  Use new macros.
+	(df_bb_refs_record): Likewise.
+	(df_notes_rescan): Use new macros.
+	(df_ref_create_structure, df_ref_record): Likewise.
+	(df_record_entry_block_defs): Likewise.
+	(df_record_exit_blocks_uses): Likewise.
+	(df_bb_verify): Likewise.
+
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-into-ssa.c (adjust_debug_stmts_for_var_def_move):
+	Propagate value from SSA defs.
+	(prepare_block_for_update): Do not skip debug insns.
+	* tree-ssa-operands.c (add_vop): Reject debug insns.
+	(get_indirect_ref_operands): Do no more than recursing for
+	debug insns.
+	(get_expr_operands): Don't add vops to debug insns.
+	(parse_ssa_operands): Likewise.
+	* tree-ssa-propagate.c (set_rhs): Handle debug insns.
+	* tree-flow-inline.h (get_subvars_for_var): Don't require
+	annotated vars.
+	* dwarf2out.c (mem_loc_descriptor): Handle MINUS.
+	* cfgexpand.c (expand_debug_expr): Avoid infinite recursion in
+	unsimplifyable conversions.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (cleanup_auto_inc_dec): Fix pasto, compare with
+	PRE_MODIFY.  Reported by Paolo Bonzini.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/ia64/ia64.c (ia64_safe_itanium_class): Ignore debug insns.
+	(group_barrier_needed): Not for debug insns.
+	(ia64_variable_issue): Always accept debug insns.
+	(ia64_dfa_new_cycle): Not because of debug insns.
+	(final_emit_insn_group_barriers): Don't emit a barrier after a
+	call just because of debug insns.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/rs6000/rs6000.c (is_microcoded_insn): Exclude debug insns.
+	(is_cracked_insn, is_branch_slot_insn): Likewise.
+	(is_nonpipeline_insn, insn_must_be_first_in_group): Likewise.
+	(insn_must_be_last_in_group): Likewise.
+	(force_new_group): Let debug insns through.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* haifa-sched.c (rank_for_schedule): Don't search back past
+	the block head for the last non-debug scheduled insn.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sched-deps.c (sd_add_dep): Make sure no non-debug insns ever
+	depend on debug insns.
+	(sched_analyze_reg): Don't add debug insns to
+	sched_before_next_call list.
+	(sched_analyze_insn): Simplify deps of debug insns.
+	(init_deps): Initialize...
+	* sched-int.h (struct deps): ... new field last_debug_insn.
+	* sched-rgn.c (add_branch_dependences): Simplify.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* haifa-sched.c (struct ready_list): Add n_debug.
+	(queue_insn): Never queue debug insns.
+	(ready_add, ready_remove_first, ready_remove): Maintain n_debug.
+	(queue_to_ready): Skip debug insns when looking for next insn.
+	Otherwise discount debug insns.
+	(choose_ready): Pick a debug insn if it's first.
+	(SCHED_DEBUG_INSNS_BEFORE_REORDER): New, enabled by default.
+	(schedule_block): Don't count debug insns against
+	MAX_SCHED_READY_INSNS.  Schedule debug insns before running
+	machine-specific reorder or reorder2 by default.  Always
+	accept more debug insns in a cycle.
+	(schedule_block): Check that n_debug was maintained properly.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-nested.c (finalize_nesting_tree_1): Declare the
+	frame_decl in the binding tree.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (adjust_debug_string_constant): New.
+	(debug_string_constants_p): New.
+	(adjust_debug_string_constants): New.
+	(expand_debug_expr): Don't expand STRING_CSTs unless we know
+	we're actually going to need them.
+	(tree_expand_cfg): Replace placeholders with a final decision.
+	* print-rtl.c (print_rtx): Recognize debug string placeholders.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-scan.c (df_uses_record): Reject auto-inc-dec in debug insns.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (cleanup_auto_inc_dec): New.
+	(struct rtx_subst_pair): Add new fields to track changes and
+	auto-inc-dec.
+	(propagate_for_debug_subst): Handle auto-inc-dec.
+	(propagate_for_debug): Initialize new fields.  Only move or
+	mark for rescan debug insns that have actually changed.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sched-rgn.c (bb_insn_count): New.
+	(too_large, find_rgns): Use it.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dce.c (mark_reg_dependencies): Skip debug insns.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reload1.c (reload): Simplify addresses of pseudos allocated
+	to stack slots or found equivalent to constants in debug
+	insns.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtlanal.c (reg_used_between_p): Skip debug insns.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fwprop.c (forward_propagate_and_simplify): Handle modeless
+	CONST_DOUBLEs.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sched-deps.c (fixup_sched_groups): Skip debug insns while
+	searching back for the sched group leader.
+	(sched_analyze_insn): Don't mark debug insns as members of
+	sched groups, even if in a call group.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* auto-inc-dec.c (merge_in_block): Skip debug insns.  Fix
+	whitespace.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Use just
+	EXPAND_INITIALIZERf for constants.  Get inner_mode for
+	conversions from the operand.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* caller-save.c (replace_reg_with_saved_mem): Don't validate
+	addresses.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reload.c (find_equiv_reg): Don't count debug insns against
+	max-reload-search-insns when searching back for inheritance
+	opportunities.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* lower-subreg.c (adjust_decomposed_uses): Unshare concatn
+	that couldn't be simplified.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fdump-unnumbered-links): New.
+	* doc/invoke.texi (-fdump-unnumbered-links): Document it.
+	* print-rtl.c (flag_dump_unnumbered_links): New.
+	(print_rtx): Test it.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fmin-insn-uid=): New.
+	* emit-rtl (cur_debug_insn_uid): New macro.
+	(set_new_first_and_last_insn): Set it.
+	(make_debug_insn_raw): Use it.
+	(init_emit): Initialize it.
+	* function.h (struct emit_status): Add x_cur_debug_insn_uid.
+	* doc/invoke.texi (-fmin-insn-uid=): Document it.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree.c (type_hash_add): Don't violate strict aliasing rules.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ifcvt.c (noce_process_if_block): Skip notes in between debug
+	insns when scanning back for insn_b.  Check for mods starting
+	after insn_b.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* caller-save.c (refmarker_fn): New type.
+	(save_call_clobbered_regs): Don't restore saved regs for debug insns.
+	(mark_referenced_regs): Add mark and arg parameters.  Make
+	first argument indirect.  Adjust callers.
+	(mark_reg_as_referenced): New function.
+	(replace_reg_with_saved_mem): New function.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-ssa-loop-ivopts.c (find_interesting_uses): Skip debug stmts.
+	(find_interesting_uses_stmt): No longer test for debug stmts.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dwarf2asm.c (splay_tree_compare_strings): New function.
+	(dw2_force_const_mem): Use it.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* rtlanal.c (loc_mentioned_in_p): Test XVECEXPs correctly.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cse.c (count_reg_usage): Not in debug insns.
+	(is_dead_reg): New.
+	(set_live_p): Use it.
+	(insn_live_p): Delete references to trivially dead registers
+	in debug insns.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-vectorizer.c (vect_is_simple_reduction): Disregard uses
+	in debug insns.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* regrename.c (build_def_use): Don't mark uses in debug insns
+	as chain terminators.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgloopanal.c (num_loop_insns): Don't count debug insn.
+	(average_num_loop_insns): Likewise.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-into-ssa.c (maybe_replace_use_in_debug_insn): New.
+	(rewrite_update_stmt): Never introduce uses of a default
+	definition in a debug stmt.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fwprop.c (forward_propagate_and_simplify): Update the debug
+	insn ref only, not the entire location expression.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* haifa-sched.c (schedule_block): Don't clear
+	first-insn-in-cycle status after scheduling debug insn.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reg-stack.c (subst_stack_regs_in_debug_insn): New.
+	(subst_stack_regs_pat): Revert.
+	(convert_regs_1): Replace regs in debug insns.  Deal with
+	debug insns before first active insn.
+
+2007-11-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (propagate_for_debug): Add move argument.
+	(try_combine): Tolerate debug insns between i2 and reg-copy i3.
+	Move and adjust debug insns between them past i3-that-was-i2.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (processing_debug_stmt_p): Renamed to...
+	(processing_debug_stmt): ... this.  Change type to int.
+	(remap_decl): Don't remap new decls in debug stmts.  Mark error
+	condition.
+	(copy_debug_stmt): Check error conditions.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>, Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-live.c (remove_unused_scope_block_p): Drop
+	declarations and blocks only after inlining.  Check that
+	non-empty blocks are not dropped.
+	* tree-inline.c (expand_call_inline): Check that functions are
+	not inlined too late.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* local-alloc.c: Include target.h.
+	(adjust_debug_insns_equivs): New.
+	(update_equiv_regs): Use it.  Keep DF info up-to-date.
+	* emit-rtl.c (next_nondebug_insn): New fn.
+	(prev_nondebug_insn): New fn.
+	* rtl.h: Declare them.
+	* Makefile.in (local-alloc.o): Adjust deps.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (dump_variable): Don't crash while dumping
+	anonymous temporary variables.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fwprop.c (forward_propagate_and_simplify): ...into debug insns.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (ftree-coalesce-inlined-vars): Change default.
+	* doc/invoke.texi: Document default change.  Mention
+	var-tracking-assignments.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (ftree-coalesce-inlined-vars): New.
+	(ftree-coalesce-vars): New.
+	* doc/invoke.texi: Document them.
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce):
+	Implement them.
+
+2007-10-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ra-conflict.c (global_conflicts): Skip debug insns.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* expr.c (expand_expr_real_1): Reject debug exprs.
+	* cfgexpand.c (floor_sdiv_adjust): New fn.
+	(ceil_sdiv_adjust): New fn.
+	(ceil_udiv_adjust): New fn.
+	(round_sdiv_adjust): New fn.
+	(round_udiv_adjust): New fn.
+	(expand_debug_expr): New fn.
+	(expand_gimple_basic_block): Handle debug stmts.
+	* cfgrtl.c (rtl_block_ends_with_call_p): Ignore debug insns.
+	* rtl.h (DEBUG_INSN_P): New macro.
+	(MAY_HAVE_DEBUG_INSNS): New macro.
+	(INSN_P): Accept debug insns.
+	(RTX_FRAME_RELATED_P): Likewise.
+	(INSN_DELETED_P): Likewise.
+	(PAT_VAR_LOCATION_DECL): New macro.
+	(PAT_VAR_LOCATION_LOC): New macro.
+	(NOTE_VAR_LOCATION_DECL): Reimplement.
+	(NOTE_VAR_LOCATION_LOC): Likewise.
+	(NOTE_VAR_LOCATION_STATUS): Likewise.
+	(INSN_VAR_LOCATION): New macro.
+	(INSN_VAR_LOCATION_DECL): Likewise.
+	(INSN_VAR_LOCATION_LOC): Likewise.
+	(INSN_VAR_LOCATION_STATUS): Likewise.
+	(gen_rtx_UNKNOWN_VAR_LOC): New macro.
+	(VAR_LOC_UNKNOWN_P): New macro.
+	(SCHED_GROUP_P): Accept debug insns.
+	(emit_debug_insn_before): Declare.
+	(emit_debug_insn_before_noloc): Likewise.
+	(emit_debug_insn_before_setloc): Likewise.
+	(emit_debug_insn_after): Likewise.
+	(emit_debug_insn_after_noloc): Likewise.
+	(emit_debug_insn_after_setloc): Likewise.
+	(emit_debug_insn): Likewise.
+	(make_debug_insn_raw): Likewise.
+	* recog.c (verify_changes): Accept debug insns.
+	(extract_insn): Handle them.
+	(peephole2_optimize): Skip them.
+	* dce.c (deletable_insn_p): Handle debug insns.
+	* reload1.c (reload): Don't scan subregs in debug insns.
+	(eliminate_regs_in_insn): Handle debug insns.
+	* cse.c (cse_insn): Handle debug insns.
+	(cse_extended_basic_block): Likewise.
+	(insn_live_p): Likewise.
+	* emit-rtl.c (copy_rtx_if_shared_1): Handle debug insns.
+	(reset_used_flags): Likewise.
+	(set_used_flags): Likewise.
+	(active_insn_p): Exclude debug insns.
+	(make_debug_insn_raw): New fn.
+	(emit_insn_before_noloc): Handle debug insns.
+	(emit_jump_insn_before_noloc): Likewise.
+	(emit_call_insn_before_noloc): Likewise.
+	(emit_debug_insn_before_noloc): New fn.
+	(emit_insn_after_noloc): Handle debug insns.
+	(emit_jump_insn_after_noloc): Likewise.
+	(emit_call_insn_after_noloc): Likewise.
+	(emit_debug_insn_after_noloc): New fn.
+	(emit_debug_insn_after_setloc): New fn.
+	(emit_debug_insn_after): New fn.
+	(emit_debug_insn_before_setloc): New fn.
+	(emit_debug_insn_before): New fn.
+	(emit_insn): Handle debug insn.
+	(emit_debug_insn): New fn.
+	(emit_jump_insn): Handle debug insn.
+	(emit_call_insn): Likewise.
+	(emit): Likewise.
+	(emit_copy_of_insn_after): Likewise.
+	* reg-stack.c (subst_stack_regs_pat): Handle var location rtx.
+	* var-tracking.c (MO_LOC_MAIN, MO_LOC_USE): New micro ops.
+	(var_reg_decl_set): New fn.
+	(var_reg_set): Adjust.
+	(var_mem_decl_set): New fn.
+	(var_mem_set): Adjust.
+	(use_type): New fn.
+	(count_uses, add_uses, add_stores): Adjust.
+	(compute_bb_dataflow): Handle new micro ops.
+	(emit_notes_in_bb): Likewise.
+	(vt_initialize): Likewise.
+	(delete_debug_insns): New fn.
+	(vt_debug_insns_local): New fn.
+	(variable_tracking_main): Call it.
+	* final.c (get_attr_length_1): Handle debug insns.
+	* lower-subreg.c (adjust_decomposed_uses): New fn.
+	(resolve_debug): New fn.
+	(decompose_multiword_subregs): Handle debug insns.
+	* print-rtl.c (print_rtx): Likewise.
+	* ifcvt.c (first_active_insn): Skip debug insns.
+	(last_active_insn): Likewise.
+	(cond_exec_process_insns): Handle debug insns.
+	(check_cond_move_block): Likewise.
+	(cond_move_convert_if_block): Likewise.
+	(block_jumps_and_fallthru_p): Likewise.
+	(dead_or_predicable): Likewise.
+	* cfgcleanup.c (flow_find_cross_jump): Skip debug insns.
+	* combine.c (create_log_links): Skip debug insns.
+	(combine_instructions): Likewise.
+	(rtx_subst_pair): New struct.
+	(propagate_for_debug_subst): New fn.
+	(propagate_for_debug): New fn.
+	(try_combine): Call it.
+	(distribute_links): Handle debug insns.
+	* df-problems.c (df_lr_bb_local_compute): Likewise.
+	(df_set_note): Reject debug insns.
+	(df_set_dead_notes_for_mw): Add added_notes_p argument.
+	(df_note_bb_compute): Handle debug insns.
+	(df_simulate_uses): Likewise.
+	(df_simulate_one_insn_forwards): Likewise.
+	(df_simulate_one_insn_backwards): Likewise.
+	* df-scan.c (df_insn_rescan_1): Renamed with new argument, from...
+	(df_insn_rescan): ... this.  Implement in terms of new name.
+	(df_insn_rescan_debug_internal): New fn.
+	(df_uses_record): Handle debug insns.
+	* haifa-sched.c (contributes_to_priority_p): Likewise.
+	(nondebug_dep_list_size): New fn.
+	(priority, add_jump_dependencies): Use it.
+	(rank_for_schedule): Handle debug insns.
+	(schedule_block): Always accept more debug insns.
+	* local-alloc.c (block_alloc): Handle debug insns.
+	* regrename.c (replace_oldest_value_reg): ??? Test without this
+	(replace_oldest_value_addr): Handle debug insns.
+	(replace_oldest_value_mem): Likewise.
+	(copyprop_hardreg_forward_1): Likewise.
+	* regstat.c (regstat_init_n_sets_and_refs): Skip debug uses.
+	(regstat_bb_compute_ri): Skip debug insns.
+	* sched-rgn.c (add_branch_dependences): Likewise.
+	* sched-vis.c (print_pattern): Handle debug insns.
+	* regmove.c (optimize_reg_copy_1): Don't count debug insns.
+	(fixup_match_2): Likewise.
+	(regmove_optimize): Handle debug insns.
+	(fixup_match_1): Don't count debug insns.  Adjust them.
+	* gcse.c (alloc_gcse_mem): Don't allocate uid for debug isnsn.
+	(bypass_conditional_jumps): Skip debug insns.
+	(compute_ld_motion_mems): Likewise.
+	* sched-deps.c (sched_analyze_2): Handle debug insns.
+	(sched_analyze_insn): Likewise.
+	(sched_analyze): Likewise.
+	* init-regs.c (initialize_uninitialized_regs): Skip debug insns.
+	* dse.c (scan_insn): Keep debug insns.
+	* resource.c (mark_target_live_regs): Skip debug insns.
+	* rtlanal.c (canonicalize_condition): Likewise.
+	* df.h (df_insn_rescan_debug_internal): Declare.
+	* dwarf2out.c (mem_loc_descriptor): Ignore sign and zero extend.
+	(loc_descriptor): Likewise.
+	* function.c (instantiate_virtual_regs): Handle debug insns.
+	* rtl.def (DEBUG_INSN): New rtl code.
+	* cfgbuild.c (inside_basic_block_p): Handle debug insns.
+	(control_flow_insn_p): Likewise.
+	* cfglayout.c (duplicate_insn_chain): Likewise.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (processing_debug_stmt_p): New variable.
+	(remap_decl): Register variables only while not processing debug
+	statements.
+	(copy_body_r): Enqueue debug statements for later processing.
+	(copy_bb): Skip debug statements.
+	(copy_edges_for_bb): Likewise.
+	(copy_debug_stmt): New fn.
+	(copy_debug_stmts): New fn.
+	(copy_generic_body, copy_body): Call it.
+	(setup_one_parameter): Insert debug notes for inlined parms.
+	(estimated_num_insns_1): Handle debug stmts.
+	(optimize_inline_calls): Initialize debug stmt queue.
+	(tree_function_versioning): Likewise.
+	* tree-into-ssa.c (mark_def_sites): Handle debug stmts.
+	(var_debug_value_for_decl): New fn.
+	(adjust_debug_stmts_for_var_def_move): New fn.
+	(adjust_debug_stmts_for_move): New fn.
+	(check_debug_predicate): New struct.
+	(check_and_update_debug_stmt_1): New fn.
+	(check_and_update_debug_stmt): New fn.
+	(insert_phi_nodes_for): Introduce debug stmts for phi nodes.
+	(rewrite_stmt): Likewise, for SSA defs.
+	(mark_use_interesting): Handle debug stmts.
+	(prepare_block_for_update): Likewise.
+	* tree.c (build_var_debug_value_stat): New fn.
+	(empty_body_p): Handle debug stmts.
+	* tree.def (VAR_DEBUG_VALUE): New tree code.
+	* tree.h (VAR_DEBUG_VALUE_SET_VAR): New macro.
+	(VAR_DEBUG_VALUE_VAR): Likewise.
+	(VAR_DEBUG_VALUE_VALUE): Likewise.
+	(IS_DEBUG_STMT): Likewise.
+	(MAY_HAVE_DEBUG_STMTS): Likewise.
+	(VAR_DEBUG_VALUE_NOVALUE): Likewise.
+	(build_var_debug_value_stat): Declare.
+	(build_var_debug_value): New macro.
+	(var_debug_value_for_decl): Declare.
+	* tree-gimple.c (is_gimple_stmt): Handle debug stmts.
+	* tree-ssa-operands.c (opf_debug_use): New flag.
+	(get_expr_operands): Handle debug stmts.  Don't mark objects
+	addressed in debug stmts as addressable.
+	(parse_ssa_operands): Handle debug stmts.
+	* tree-dump.c (dequeue_and_dump): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* tree-ssa-dce (mark_stmt_if_obviously_necessary): Likewise.
+	(necessary_p): New function.
+	(eliminate_unnecessary_stmts): Handle debug stmts.
+	* tree-ssa-propagate.c (get_rhs): Likewise.
+	* tree-ssa.c (verify_ssa): Likewise.
+	(execute_early_warn_uninitialized): Likewise.
+	* tree-ssa-live.c (remove_unused_locals): Likewise.
+	(set_var_live_on_entry): Likewise.
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Likewise.
+	* tree-flow-inline.h (has_zero_uses): Ignore uses in debug stmts.
+	(has_single_use): Likewise.
+	(single_imm_use): Likewise.
+	(num_imm_uses): Likewise.
+	(bsi_next_nondebug): New fn.
+	(bsi_prev_nondebug): Likewise.
+	(bsi_start_nondebug): Likewise.
+	(bsi_last_nondebug): Likewise.
+	* tree-ssa-phiopt.c (empty_block_p): Ignore debug stmts.
+	* tree-ssa-sink.c (all_immediate_uses_same_place): Likewise.
+	(nearest_common_dominator_of_uses): Check for debug stmts.
+	(statement_sink_location): Handle debug stmts.
+	* tree-ssa-threadedge.c
+	(record_temporary_equivalences_from_stmts): Skip debug stmts.
+	* tree-ssa-threadupdate.c (redirection_block_p): Ignore them.
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Likewise.
+	* tree-outof-ssa.c (replace_use_variable): Don't clear.
+	(analyze_edges_for_bb): Handle debug stmts.
+	* tree-cfg.c (first_stmt): Skip debug stmts.
+	(last_stmt): Likewise.
+	(last_and_only_stmt): Likewise.
+	(verify_expr): Verify debug value.
+	(tree_block_ends_with_call_p): Skip debug stmts.
+	* tree-flow.h (bsi_next_nondebug): Declare.
+	(bsi_prev_nondebug): Likewise.
+	(bsi_start_nondebug): Likewise.
+	(bsi_last_nondebug): Likewise.
+	(adjust_debug_stmts_for_move): Likewise.
+	(adjust_debug_stmts_for_var_def_move): Likewise.
+	(check_and_update_debug_stmt): Likewise.
+	* tree-ssa-reassoc.c (linearize_expr): Adjust debug stmts.
+	(linearize_expr_tree): Likewise.
+	* tree-ssa-loop-ch.c (should_duplicate_loop_header_p): Skip debug
+	stmts.
+	* tree-ssa-ter.c (find_replaceable_in_bb): Likewise.
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_stmt): Likewise.
+	(remove_unused_ivs): Adjust debug stmts.
+	* tree-ssa-loop-im.c (rewrite_bittest): Likewise.
+	(move_computations_stmt): Likewise.
+	* tree-ssanames.c (release_ssa_name): Likewise.
+	* tree-ssa-alias.c (find_used_portions): Handle debug exprs.
+	* tree-ssa-structalias.c (compute_points_to_sets): Ignore debug
+	stmts.
+	* tree-tailcall.c (find_tail_calls): Handle debug stmts.
+	* tree-vrp.c (find_assert_locations): Likewise.
+	* tree-ssa-coalesce.c (build_ssa_conflict_graph): Likewise.
+	(create_outofssa_var_map): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr): Handle debug
+	stmts.
+	* tree-ssa-pre.c (compute_avail): Skip debug stmts.
+	* tree-ssa-loop-manip.c (find_uses_to_rename_stmt): Likewise.
+	(check_loop_closed_ssa_stmt): Likewise.
+	* tree-inline.h (copy_body_data): Add debug_stmts queue.
+	* ipa-pure-const.c (scan_function): Skip debug stmts.
+	* ipa-reference.c (scan_for_static_refs): Likewise.
+	* ipa-type-escape.c (scan_for_refs): Likewise.
+	* tree-stdarg.c (execute_optimize_stdarg): Likewise.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fvar-tracking-assignments): New.
+	* doc/invoke.texi: Document it.
+	* toplev.c (flag_var_tracking_assignments): New.
+	(process_options): Choose its default.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (self_inlining_addr_expr): Delete.
+	(setup_one_parameter): Drop fn argument.  Adjust callers.
+	Don't short-circuit optimization of declarations.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ifcvt.c (noce_process_if_block): Try to handle only the then
+	block if the else block exists but isn't suitable.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.vta"
+End:

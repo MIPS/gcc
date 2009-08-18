@@ -239,6 +239,148 @@ flush_pending_stmts (edge e)
   redirect_edge_var_map_clear (e);
 }
 
+/* Given a tree for an expression for which we might want to emit
+   locations or values in debug information (generally a variable, but
+   we might deal with other kinds of trees in the future), return the
+   tree that should be used as the variable of a DEBUG_BIND STMT or
+   VAR_LOCATION INSN or NOTE.  Return NULL if VAR is not to be tracked.  */
+
+tree
+target_for_debug_bind (tree var)
+{
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return NULL_TREE;
+
+  if (TREE_CODE (var) != VAR_DECL
+      && TREE_CODE (var) != PARM_DECL)
+    return NULL_TREE;
+
+  if (DECL_HAS_VALUE_EXPR_P (var))
+    return target_for_debug_bind (DECL_VALUE_EXPR (var));
+
+#if 0
+  /* Should we deal with DECL_DEBUG_EXPR_IS_FROM as well?  */
+  if (DECL_DEBUG_EXPR_IS_FROM (var))
+    return target_for_debug_bind (DECL_DEBUG_EXPR (var));
+#endif
+
+  if (DECL_IGNORED_P (var))
+    return NULL_TREE;
+
+  if (!is_gimple_reg (var))
+    return NULL_TREE;
+
+  return var;
+}
+
+/* Given a VAR whose definition STMT is to be moved to the iterator
+   position TOGSIP in the TOBB basic block, verify whether we're
+   moving it across any of the debug statements that use it, and
+   adjust them as needed.  If TOBB is NULL, then the definition is
+   understood as being removed, and TOGSIP is unused.  */
+void
+propagate_var_def_into_debug_stmts (tree var,
+				    basic_block tobb,
+				    const gimple_stmt_iterator *togsip)
+{
+  imm_use_iterator imm_iter;
+  gimple stmt;
+  use_operand_p use_p;
+  tree value = NULL;
+  bool no_value = false;
+
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return;
+
+  FOR_EACH_IMM_USE_STMT (stmt, imm_iter, var)
+    {
+      basic_block bb;
+      gimple_stmt_iterator si;
+
+      if (!is_gimple_debug (stmt))
+	continue;
+
+      if (tobb)
+	{
+	  bb = gimple_bb (stmt);
+
+	  if (bb != tobb)
+	    {
+	      gcc_assert (dom_info_available_p (CDI_DOMINATORS));
+	      if (dominated_by_p (CDI_DOMINATORS, bb, tobb))
+		continue;
+	    }
+	  else
+	    {
+	      si = *togsip;
+
+	      if (gsi_end_p (si))
+		continue;
+
+	      do
+		{
+		  gsi_prev (&si);
+		  if (gsi_end_p (si))
+		    break;
+		}
+	      while (gsi_stmt (si) != stmt);
+
+	      if (gsi_end_p (si))
+		continue;
+	    }
+	}
+
+      /* Here we compute (lazily) the value assigned to VAR, but we
+	 remember if we tried before and failed, so that we don't try
+	 again.  */
+      if (!value && !no_value)
+	{
+	  gimple def_stmt = SSA_NAME_DEF_STMT (var);
+
+	  if (is_gimple_assign (def_stmt))
+	    value = gimple_assign_rhs_to_tree (def_stmt);
+
+	  if (!value)
+	    no_value = true;
+	}
+
+      if (no_value)
+	gimple_debug_bind_reset_value (stmt);
+      else
+	FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+	  SET_USE (use_p, unshare_expr (value));
+
+      update_stmt (stmt);
+    }
+}
+
+
+/* Given a STMT to be moved to the iterator position TOBSIP in the
+   TOBB basic block, verify whether we're moving it across any of the
+   debug statements that use it.  If TOBB is NULL, then the definition
+   is understood as being removed, and TOBSIP is unused.  */
+
+void
+propagate_defs_into_debug_stmts (gimple def, basic_block tobb,
+				 const gimple_stmt_iterator *togsip)
+{
+  ssa_op_iter op_iter;
+  def_operand_p def_p;
+
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return;
+
+  FOR_EACH_SSA_DEF_OPERAND (def_p, def, op_iter, SSA_OP_ALL_DEFS)
+    {
+      tree var = DEF_FROM_PTR (def_p);
+
+      if (TREE_CODE (var) != SSA_NAME)
+	continue;
+
+      propagate_var_def_into_debug_stmts (var, tobb, togsip);
+    }
+}
+
 /* Return true if SSA_NAME is malformed and mark it visited.
 
    IS_VIRTUAL is true if this SSA_NAME was found inside a virtual
@@ -837,6 +979,9 @@ verify_ssa (bool check_modified_stmt)
 		  goto err;
 		}
 	    }
+	  else if (gimple_debug_bind_p (stmt)
+		   && !gimple_debug_bind_has_value_p (stmt))
+	    continue;
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_VIRTUALS)
 	    {
@@ -1589,6 +1734,8 @@ warn_uninitialized_vars (bool warn_possibly_uninitialized)
 	{
 	  struct walk_stmt_info wi;
 	  data.stmt = gsi_stmt (gsi);
+	  if (is_gimple_debug (data.stmt))
+	    continue;
 	  memset (&wi, 0, sizeof (wi));
 	  wi.info = &data;
 	  walk_gimple_op (gsi_stmt (gsi), warn_uninitialized_var, &wi);

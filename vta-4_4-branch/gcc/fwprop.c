@@ -738,7 +738,7 @@ try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx def_insn, bool set_reg_
   int flags = DF_REF_FLAGS (use);
   rtx set = single_set (insn);
   bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
-  int old_cost = rtx_cost (SET_SRC (set), SET, speed);
+  int old_cost = set ? rtx_cost (SET_SRC (set), SET, speed) : 0;
   bool ok;
 
   if (dump_file)
@@ -759,7 +759,7 @@ try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx def_insn, bool set_reg_
       ok = false;
     }
 
-  else if (DF_REF_TYPE (use) == DF_REF_REG_USE
+  else if (DF_REF_TYPE (use) == DF_REF_REG_USE && set
 	   && rtx_cost (SET_SRC (set), SET, speed) > old_cost)
     {
       if (dump_file)
@@ -942,7 +942,7 @@ forward_propagate_and_simplify (df_ref use, rtx def_insn, rtx def_set)
   if (INSN_CODE (use_insn) < 0)
     asm_use = asm_noperands (PATTERN (use_insn));
 
-  if (!use_set && asm_use < 0)
+  if (!use_set && asm_use < 0 && !DEBUG_INSN_P (use_insn))
     return false;
 
   /* Do not propagate into PC, CC0, etc.  */
@@ -997,6 +997,11 @@ forward_propagate_and_simplify (df_ref use, rtx def_insn, rtx def_set)
   if (DF_REF_TYPE (use) == DF_REF_REG_MEM_STORE)
     {
       loc = &SET_DEST (use_set);
+      set_reg_equal = false;
+    }
+  else if (!use_set)
+    {
+      loc = &INSN_VAR_LOCATION_LOC (use_insn);
       set_reg_equal = false;
     }
   else

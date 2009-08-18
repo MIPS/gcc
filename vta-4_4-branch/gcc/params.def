@@ -771,6 +771,13 @@ DEFPARAM (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP,
 	  "max basic blocks number in loop for loop invariant motion",
 	  10000, 0, 0)
 
+/* Set minimum insn uid for non-debug insns.  */
+
+DEFPARAM (PARAM_MIN_NONDEBUG_INSN_UID,
+	  "min-nondebug-insn-uid",
+	  "The minimum UID to be used for a nondebug insn",
+	  0, 1, 0)
+
 /*
 Local variables:
 mode:c

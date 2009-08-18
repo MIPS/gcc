@@ -74,6 +74,7 @@ inside_basic_block_p (const_rtx insn)
 
     case CALL_INSN:
     case INSN:
+    case DEBUG_INSN:
       return true;
 
     case BARRIER:
@@ -97,6 +98,7 @@ control_flow_insn_p (const_rtx insn)
     {
     case NOTE:
     case CODE_LABEL:
+    case DEBUG_INSN:
       return false;
 
     case JUMP_INSN:
