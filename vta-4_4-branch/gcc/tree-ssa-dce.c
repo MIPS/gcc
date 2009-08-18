@@ -663,6 +663,7 @@ eliminate_unnecessary_stmts (void)
   gimple_stmt_iterator gsi;
   gimple stmt;
   tree call;
+  VEC (basic_block, heap) *h;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
@@ -691,8 +692,13 @@ eliminate_unnecessary_stmts (void)
      # DEBUG a => y_1 + z_2 - b_4
 
      as desired.  */
-  FOR_EACH_BB_REVERSE (bb)
+  gcc_assert (dom_info_available_p (CDI_DOMINATORS));
+  h = get_all_dominated_blocks (CDI_DOMINATORS, single_succ (ENTRY_BLOCK_PTR));
+
+  while (VEC_length (basic_block, h))
     {
+      bb = VEC_pop (basic_block, h);
+
       /* Remove dead statements.  */
       for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi);)
 	{

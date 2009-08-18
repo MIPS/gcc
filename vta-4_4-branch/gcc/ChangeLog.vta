@@ -1,3 +1,47 @@
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* testsuite/gcc.dg/guality/guality.h (main): Error-check GDB pipe
+	operations.
+	(guality_check): Likewise.  Update comment.  Time-out GDB attach.
+
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (expand_debug_locations): Temporarily disable
+	strict aliasing during expansion.
+
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c (get_local_tick): New.
+	(compare_debug_dump_opt_spec_function): Use the same random-seed
+	for both -fcompare-debug compilations.
+
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* regrename.c (regrename_optimize): Drop last.  Don't count debug
+	insns as uses.  Don't reject change because of debug insn.
+	(do_replace): Reject DEBUG_INSN as chain starter.  Take base_regno
+	from the chain starter, and check for inexact matches in
+	DEBUG_INSNS.
+	(scan_rtx_reg): Accept inexact matches in DEBUG_INSNs.
+	(build_def_use): Simplify and fix the marking of DEBUG_INSNs.
+
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgcleanup.c (delete_unreachable_blocks): Preserve more
+	information in debug stmts using dominance information.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	* tree-ssa.c (find_released_ssa_name): New.
+	(propagate_var_def_into_debug_stmts): Check for and drop dead
+	SSA NAMEs when dominance information is not available.
+	2009-04-20  Richard Guenther  <rguenther@suse.de>
+	* basic-block.h (get_all_dominated_blocks): Declare.
+	* dominance.c (get_all_dominated_blocks): New function.
+	* tree-cfg.c (get_all_dominated_blocks): Remove.
+	(remove_edge_and_dominated_blocks): Adjust.
+	* tree-ssa-phiprop.c (tree_ssa_phiprop_1): Fold in ...
+	(tree_ssa_phiprop): ... here.  Use get_all_dominated_blocks
+	instead of recursing.
+
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cfgrtl.c (rtl_split_block): Emit DELETED note for compare-debug
