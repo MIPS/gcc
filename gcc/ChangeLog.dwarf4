@@ -1,3 +1,8 @@
+2009-08-18  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (copy_ancestor_tree): Move use of slot pointer
+	to fix memory corruption problem.
+
 2009-08-07  Cary Coutant  <ccoutant@google.com>
 
 	* dwarf2out.c (copy_ancestor_tree): Mark the new DIEs when

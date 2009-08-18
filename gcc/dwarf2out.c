@@ -8616,7 +8616,7 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
   dw_die_ref new_parent = unit;
   dw_die_ref copy;
   void **slot = NULL;
-  struct decl_table_entry *entry;
+  struct decl_table_entry *entry = NULL;
 
   if (decl_table)
     {
@@ -8628,6 +8628,12 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
           entry = (struct decl_table_entry *) *slot;
           return entry->copy;
         }
+
+      /* Record in DECL_TABLE that DIE has been copied to UNIT.  */
+      entry = XCNEW (struct decl_table_entry);
+      entry->orig = die;
+      entry->copy = NULL;
+      *slot = entry;
     }
 
   if (parent != NULL)
@@ -8643,17 +8649,12 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
   copy = clone_as_declaration (die);
   add_child_die (new_parent, copy);
 
-  /* Make sure the copy is marked as part of the type unit.  */
   if (decl_table != NULL)
-    copy->die_mark = 1;
-
-  if (slot != NULL)
     {
-      /* Record in DECL_TABLE that DIE has been copied to UNIT.  */
-      entry = XCNEW (struct decl_table_entry);
-      entry->orig = die;
+      /* Make sure the copy is marked as part of the type unit.  */
+      copy->die_mark = 1;
+      /* Record the pointer to the copy.  */
       entry->copy = copy;
-      *slot = entry;
     }
 
   return copy;
