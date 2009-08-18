@@ -8688,6 +8688,33 @@ print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
   return NULL;
 }
 
+/* Compute a timestamp to initialize flag_random_seed.  */
+
+static unsigned
+get_local_tick (void)
+{
+  unsigned ret = 0;
+
+  /* Get some more or less random data.  */
+#ifdef HAVE_GETTIMEOFDAY
+  {
+    struct timeval tv;
+
+    gettimeofday (&tv, NULL);
+    ret = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  }
+#else
+  {
+    time_t now = time (NULL);
+
+    if (now != (time_t)-1)
+      ret = (unsigned) now;
+  }
+#endif
+
+  return ret;
+}
+
 /* %:compare-debug-dump-opt spec function.  Save the last argument,
    expected to be the last -fdump-final-insns option, or generate a
    temporary.  */
@@ -8699,6 +8726,7 @@ compare_debug_dump_opt_spec_function (int arg,
   const char *ret;
   char *name;
   int which;
+  static char random_seed[HOST_BITS_PER_WIDE_INT / 4 + 3];
 
   if (arg != 0)
     fatal ("too many arguments to %%:compare-debug-dump-opt");
@@ -8740,9 +8768,19 @@ compare_debug_dump_opt_spec_function (int arg,
   which = compare_debug < 0;
   debug_check_temp_file[which] = name;
 
-#if 0
-  error ("compare-debug: [%i]=\"%s\", ret %s", which, name, ret);
-#endif
+  if (!which)
+    {
+      unsigned HOST_WIDE_INT value = get_local_tick () ^ getpid ();
+
+      sprintf (random_seed, HOST_WIDE_INT_PRINT_HEX, value);
+    }
+
+  if (*random_seed)
+    ret = concat ("%{!frandom-seed=*:-frandom-seed=", random_seed, "} ",
+		  ret, NULL);
+
+  if (which)
+    *random_seed = 0;
 
   return ret;
 }
@@ -8815,6 +8853,8 @@ compare_debug_auxbase_opt_spec_function (int arg,
   memcpy (name, OPT, sizeof (OPT) - 1);
   memcpy (name + sizeof (OPT) - 1, argv[0], len);
   name[sizeof (OPT) - 1 + len] = '\0';
+
+#undef OPT
 
   return name;
 }
