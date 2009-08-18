@@ -2596,6 +2596,12 @@ expand_debug_locations (void)
 {
   rtx insn;
   rtx last = get_last_insn ();
+  int save_strict_alias = flag_strict_aliasing;
+
+  /* New alias sets while setting up memory attributes cause
+     -fcompare-debug failures, even though it doesn't bring about any
+     codegen changes.  */
+  flag_strict_aliasing = 0;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (DEBUG_INSN_P (insn))
@@ -2628,6 +2634,8 @@ expand_debug_locations (void)
 
 	INSN_VAR_LOCATION_LOC (insn) = val;
       }
+
+  flag_strict_aliasing = save_strict_alias;
 }
 
 /* Expand basic block BB from GIMPLE trees to RTL.  */

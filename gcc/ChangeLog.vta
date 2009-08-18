@@ -1,5 +1,10 @@
 2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgexpand.c (expand_debug_locations): Temporarily disable
+	strict aliasing during expansion.
+
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
 	* gcc.c (get_local_tick): New.
 	(compare_debug_dump_opt_spec_function): Use the same random-seed
 	for both -fcompare-debug compilations.
