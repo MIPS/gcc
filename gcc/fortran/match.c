@@ -1383,8 +1383,8 @@ match_arithmetic_if (void)
       return MATCH_ERROR;
     }
 
-  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent: arithmetic IF statement "
-		      "at %C") == FAILURE)
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: Arithmetic IF "
+		      "statement at %C") == FAILURE)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ARITHMETIC_IF;
@@ -1464,7 +1464,7 @@ gfc_match_if (gfc_statement *if_type)
 	  return MATCH_ERROR;
 	}
       
-      if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent: arithmetic IF "
+      if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: Arithmetic IF "
 			  "statement at %C") == FAILURE)
 	return MATCH_ERROR;
 
@@ -2180,6 +2180,10 @@ gfc_match_goto (void)
   if (gfc_match (" %e%t", &expr) != MATCH_YES)
     goto syntax;
 
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: Computed GOTO "
+		      "at %C") == FAILURE)
+    return MATCH_ERROR;
+
   /* At this point, a computed GOTO has been fully matched and an
      equivalent SELECT statement constructed.  */
 
@@ -2260,7 +2264,7 @@ gfc_match_allocate (void)
 	}
 
       if (tail->expr->ts.type == BT_DERIVED)
-	tail->expr->ts.derived = gfc_use_derived (tail->expr->ts.derived);
+	tail->expr->ts.u.derived = gfc_use_derived (tail->expr->ts.u.derived);
 
       /* FIXME: disable the checking on derived types and arrays.  */
       if (!(tail->expr->ref
@@ -2579,6 +2583,10 @@ gfc_match_return (void)
 		 "a SUBROUTINE");
       goto cleanup;
     }
+
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: Alternate RETURN "
+		      "at %C") == FAILURE)
+    return MATCH_ERROR;
 
   if (gfc_current_form == FORM_FREE)
     {
@@ -3206,7 +3214,7 @@ gfc_match_namelist (void)
 	      gfc_error_check ();
 	    }
 
-	  if (sym->ts.type == BT_CHARACTER && sym->ts.cl->length == NULL)
+	  if (sym->ts.type == BT_CHARACTER && sym->ts.u.cl->length == NULL)
 	    {
 	      gfc_error ("Assumed character length '%s' in namelist '%s' at "
 			 "%C is not allowed", sym->name, group_name->name);
@@ -3516,6 +3524,10 @@ gfc_match_st_function (void)
     }
 
   sym->value = expr;
+
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: "
+		      "Statement function at %C") == FAILURE)
+    return MATCH_ERROR;
 
   return MATCH_YES;
 

@@ -1,5 +1,9 @@
 2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
 
+	Merged with trunk@150905.
+
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
 	* testsuite/gcc.dg/guality/guality.h (main): Error-check GDB pipe
 	operations.
 	(guality_check): Likewise.  Update comment.  Time-out GDB attach.

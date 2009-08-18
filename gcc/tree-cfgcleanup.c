@@ -406,7 +406,8 @@ remove_forwarder_block (basic_block bb)
 	       gsi_next (&gsi))
 	    {
 	      gimple phi = gsi_stmt (gsi);
-	      add_phi_arg (phi, gimple_phi_arg_def (phi, succ->dest_idx), s);
+	      source_location l = gimple_phi_arg_location_from_edge (phi, succ);
+	      add_phi_arg (phi, gimple_phi_arg_def (phi, succ->dest_idx), s, l);
 	    }
 	}
     }
@@ -750,6 +751,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  tree def = gimple_phi_arg_def (phi, succ->dest_idx);
+	  source_location locus = gimple_phi_arg_location_from_edge (phi, succ);
 
 	  if (TREE_CODE (def) == SSA_NAME)
 	    {
@@ -769,12 +771,13 @@ remove_forwarder_block_with_phi (basic_block bb)
 		  if (def == old_arg)
 		    {
 		      def = new_arg;
+		      locus = redirect_edge_var_map_location (vm);
 		      break;
 		    }
 		}
 	    }
 
-	  add_phi_arg (phi, def, s);
+	  add_phi_arg (phi, def, s, locus);
 	}
 
       redirect_edge_var_map_clear (e);
