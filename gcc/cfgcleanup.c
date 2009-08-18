@@ -2065,16 +2065,60 @@ delete_unreachable_blocks (void)
 
   find_unreachable_blocks ();
 
-  /* Delete all unreachable basic blocks.  */
-
-  for (b = EXIT_BLOCK_PTR->prev_bb; b != ENTRY_BLOCK_PTR; b = prev_bb)
+  /* When we're in GIMPLE mode and there may be debug insns, we should
+     delete blocks in reverse dominator order, so as to get a chance
+     to substitute all released DEFs into debug stmts.  If we don't
+     have dominators information, walking blocks backward gets us a
+     better chance of retaining most debug information than
+     otherwise.  */
+  if (MAY_HAVE_DEBUG_STMTS && current_ir_type () == IR_GIMPLE
+      && dom_info_available_p (CDI_DOMINATORS))
     {
-      prev_bb = b->prev_bb;
-
-      if (!(b->flags & BB_REACHABLE))
+      for (b = EXIT_BLOCK_PTR->prev_bb; b != ENTRY_BLOCK_PTR; b = prev_bb)
 	{
-	  delete_basic_block (b);
-	  changed = true;
+	  prev_bb = b->prev_bb;
+
+	  if (!(b->flags & BB_REACHABLE))
+	    {
+	      /* Speed up the removal of blocks that don't dominate
+		 others.  Walking backwards, this should be the common
+		 case.  */
+	      if (!first_dom_son (CDI_DOMINATORS, b))
+		delete_basic_block (b);
+	      else
+		{
+		  VEC (basic_block, heap) *h
+		    = get_all_dominated_blocks (CDI_DOMINATORS, b);
+
+		  while (VEC_length (basic_block, h))
+		    {
+		      b = VEC_pop (basic_block, h);
+
+		      prev_bb = b->prev_bb;
+
+		      gcc_assert (!(b->flags & BB_REACHABLE));
+
+		      delete_basic_block (b);
+		    }
+
+		  VEC_free (basic_block, heap, h);
+		}
+
+	      changed = true;
+	    }
+	}
+    }
+  else
+    {
+      for (b = EXIT_BLOCK_PTR->prev_bb; b != ENTRY_BLOCK_PTR; b = prev_bb)
+	{
+	  prev_bb = b->prev_bb;
+
+	  if (!(b->flags & BB_REACHABLE))
+	    {
+	      delete_basic_block (b);
+	      changed = true;
+	    }
 	}
     }
 

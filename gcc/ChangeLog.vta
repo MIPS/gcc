@@ -1,3 +1,20 @@
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgcleanup.c (delete_unreachable_blocks): Preserve more
+	information in debug stmts using dominance information.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	* tree-ssa.c (find_released_ssa_name): New.
+	(propagate_var_def_into_debug_stmts): Check for and drop dead
+	SSA NAMEs when dominance information is not available.
+	2009-04-20  Richard Guenther  <rguenther@suse.de>
+	* basic-block.h (get_all_dominated_blocks): Declare.
+	* dominance.c (get_all_dominated_blocks): New function.
+	* tree-cfg.c (get_all_dominated_blocks): Remove.
+	(remove_edge_and_dominated_blocks): Adjust.
+	* tree-ssa-phiprop.c (tree_ssa_phiprop_1): Fold in ...
+	(tree_ssa_phiprop): ... here.  Use get_all_dominated_blocks
+	instead of recursing.
+
 2009-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cfgrtl.c (rtl_split_block): Emit DELETED note for compare-debug
