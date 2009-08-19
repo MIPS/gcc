@@ -4952,7 +4952,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	       c_addr_space_name (as1),
 	       c_addr_space_name (as2));
     }
-  
+
   if (!flag_gen_aux_info && (TYPE_QUALS (element_type)))
     type = TYPE_MAIN_VARIANT (type);
   type_quals = ((constp ? TYPE_QUAL_CONST : 0)

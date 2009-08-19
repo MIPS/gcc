@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "ggc.h"
 #include "target.h"
+#include "targhooks.h"
 
 /* Simplification and canonicalization of RTL.  */
 

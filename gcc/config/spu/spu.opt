@@ -107,3 +107,7 @@ matomic-updates
 Target Report
 Atomically write back software data cache lines (default)
 
+mno-atomic-updates
+Target Report
+Do not atomically write back software data cache lines
+

@@ -151,7 +151,10 @@ get_name_for_bit_test (tree candidate)
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (candidate);
       if (is_gimple_assign (def_stmt)
-	  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))
+	  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
+	  && !MIXED_ADDR_SPACE_POINTER_TYPES_P
+	        (TREE_TYPE (candidate),
+		 TREE_TYPE (gimple_assign_rhs1 (def_stmt))))
 	{
 	  if (TYPE_PRECISION (TREE_TYPE (candidate))
 	      <= TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_stmt))))
@@ -198,6 +201,9 @@ recognize_single_bit_test (gimple cond, tree *name, tree *bit)
 
       while (is_gimple_assign (stmt)
 	     && ((CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
+		  && !MIXED_ADDR_SPACE_POINTER_TYPES_P
+		       (TREE_TYPE (gimple_assign_lhs (stmt)),
+			TREE_TYPE (gimple_assign_rhs1 (stmt)))
 		  && (TYPE_PRECISION (TREE_TYPE (gimple_assign_lhs (stmt)))
 		      <= TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (stmt)))))
 		 || gimple_assign_ssa_name_copy_p (stmt)))

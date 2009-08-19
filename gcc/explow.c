@@ -319,7 +319,7 @@ break_out_memory_refs (rtx x)
    arithmetic insns can be used.  */
 
 rtx
-convert_memory_address_addr_space (enum machine_mode to_mode ATTRIBUTE_UNUSED, 
+convert_memory_address_addr_space (enum machine_mode to_mode ATTRIBUTE_UNUSED,
 				   rtx x, addr_space_t as ATTRIBUTE_UNUSED)
 {
 #ifndef POINTERS_EXTEND_UNSIGNED

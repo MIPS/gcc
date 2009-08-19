@@ -646,11 +646,6 @@ extern rtx memory_address_addr_space (enum machine_mode, rtx, addr_space_t);
    NULL for ADDR means don't change the address.)  */
 extern rtx change_address (rtx, enum machine_mode, rtx);
 
-/* Like change_address, except we change the address space of the memory
-   returned.  */
-extern rtx change_address_addr_space (rtx, enum machine_mode, rtx,
-				      addr_space_t);
-
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address offset by OFFSET bytes.  */
 #define adjust_address(MEMREF, MODE, OFFSET) \

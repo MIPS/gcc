@@ -392,6 +392,8 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	  /* Strip narrowing integral type conversions.  */
 	  while (CONVERT_EXPR_P (exp0)
 		 && TREE_OPERAND (exp0, 0) != error_mark_node
+		 && !MIXED_ADDR_SPACE_POINTER_TYPES_P
+		       (TREE_TYPE (exp0), TREE_TYPE (TREE_OPERAND (exp0, 0)))
 		 && TYPE_PRECISION (TREE_TYPE (exp0))
 		    <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (exp0, 0))))
 	    exp0 = TREE_OPERAND (exp0, 0);

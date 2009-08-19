@@ -1,3 +1,64 @@
+2008-08-19  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* doc/tm.texi (Named Address Spaces): Update documentation.
+	* doc/invoke.texi (-mea64/-mea32): Reword.
+	(-mcache-size=): Reword.
+	(-matomic-updates/-mno-atomic-updates): Reword.
+
+	* targhooks.c (default_addr_space_convert): Fix whitespace.
+	* auto-inc-dec.c (try_merge): Likewise.
+	* dse.c (replace_inc_dec): Likewise.
+	* c-decl.c (grokdeclarator): Likewise.
+	* explow.c (convert_memory_address_addr_space): Likewise.
+	* tree-ssa-loop-ivopts.c (multiplier_allowed_in_address_p): Likewise.
+	(get_address_cost): Fix merge issue.
+	* tree-ssa-address.c (addr_for_mem_ref): Revert local change.
+	* c-typeck.c (build_binary_op): Fix warning.
+	* ifcvt.c (noce_try_cmove_arith): Handle named address spaces.
+
+	* tree.h (MIXED_ADDR_SPACE_POINTER_TYPES_P): New macro.
+	* tree.c (tree_nop_conversion): Use MIXED_ADDR_SPACE_POINTER_TYPES_P.
+	* fold-const.c (fold_convert_const): Likewise.
+	(operand_equal_p): Likewise).
+	(fold_unary_loc): Likewise.
+	* dojump.c (do_jump): Likewise.
+	* tree-ssa-ifcombine (get_name_for_bit_test): Likewise.
+	(recognize_single_bit_test): Likewise.
+	* varasm.c (narrowing_initializer_constant_valid_p): Likewise.
+	* tree-ssa.c (useless_type_conversion_p): Likewise.
+	* tree-ssa-ccp.c (ccp_fold): Handle named address spaces.
+	(fold_gimple_assign): Likewise.
+	* gimplify.c (gimplify_conversion): Likewise.
+
+	* expr.h (change_address_addr_space): Remove prototype.
+	* emit-rtl.c (change_address_1): Remove address space argument.
+	(change_address_addr_space): Remove.
+	(adjust_address_1): Remove local change.
+	(adjust_automodify_address_1): Likewise.
+	(offset_address): Likewise.
+	(replace_equiv_address): Likewise.
+
+	* rtlanal.c: Include "targhooks.h".
+	* simplify-rtx.c: Likewise.
+	* Makefile.in (rtlanal.o, simplify-rtx.o): Update dependencies.
+
+	* config/spu/spu-cache.h: Update to GPLv3.  Fix namespace violation.
+	* config/spu/cachemgr.c: Update to GPLv3.  Fix formatting.
+	(GET_TAG): Do not define variable in macro.
+	(addr): Use typedef instead of macro.
+	(si_from_eavoid): Remove.
+	(GET_ENTRY): Avoid warning due to si_to_ptr use.
+	(__cache_evict_entry): Update.
+	(__cache_evict): Update.
+	(__cache_miss): Update.
+	(__cache_fetch_dirty): Update.  Avoid warning due to si_to_ptr use.
+	(__cache_flush_stub): Remove.
+	(__cache_flush): Mark as destructor.
+	* config/spu/cache.S: Update to GPLv3.  Fix formatting.
+	* config/spu/spu.opt: Add -mno-atomic-updates.
+	* config/spu/spu.c (expand_ea_mem): Create new MEM RTX instead
+	of calling change_address_addr_space.  Set alignment.
+
 2008-08-17  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* doc/tm.texi (TARGET_ADDR_SPACE_VALID_POINTER_MODE): Document
@@ -319,38 +380,6 @@
 	(ASM_OUTPUT_SYMBOL_REF): Do not call strip_array_types.
 	* config/spu/spu.md ("to_ea"): Remove.
 	("from_ea"): Likewise.
-
-	* testsuite/spu/ea/ea.exp (check_effective_target_ea64): Remove, ...
-	(check_effective_target_ea32): Remove, ...
-	(check_effective_target_ealib): ... and replace by this procedure.
-	Run all tests in both -mea32 and -mea64 mode.
-	Do not use global DEFAULT_CFLAGS.
-	* testsuite/spu/ea/cache32.c: Remove, ...
-	* testsuite/spu/ea/cache64.c: Remove, ...
-	* testsuite/spu/ea/cache-common.h: Remove, ...
-	* testsuite/spu/ea/cache1.c: ... and replace by this file.
-	* testsuite/spu/ea/cppdefine32.c: Remove, ...
-	* testsuite/spu/ea/cppdefine64.c: Remove, ...
-	* testsuite/spu/ea/cppdefine.c: ... and replace by this file.
-	* testsuite/spu/ea/test-sizes.c: Support both -mea32 and -mea64.
-	* testsuite/spu/ea/errors.c: Rename to ...
-	* testsuite/spu/ea/errors1.c: ... this.
-	* testsuite/spu/ea/errors2.c: Remove.
-	* testsuite/spu/ea/errors3.c: Remove.
-	* testsuite/spu/ea/errors4.c: Rename to ...
-	* testsuite/spu/ea/errors2.c: ... this.
-	* testsuite/spu/ea/compile.c: Rename to ...
-	* testsuite/spu/ea/compile1.c: ... this.
-	* testsuite/spu/ea/compile2.c: Remove.
-	* testsuite/spu/ea/compile3.c: Remove.
-	* testsuite/spu/ea/compile4.c: Rename to ...
-	* testsuite/spu/ea/compile2.c: ... this.
-	* testsuite/spu/ea/execute1-m64.c: Remove.
-	* testsuite/spu/ea/execute2-m64.c: Remove.
-	* testsuite/spu/ea/execute3-m64.c: Remove.
-	* testsuite/spu/ea/cast2.c: New test.
-	* testsuite/spu/ea/ops1.c: New test.
-	* testsuite/spu/ea/ops2.c: New test.
 
 2009-07-28  Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -1628,13 +1657,11 @@
 2008-04-17  Ben Elliston  <bje@au.ibm.com>
 
 	* config/spu/spu.c: Various bug fixes.
-	* testsuite/gcc.target/spu/cache.c: New test.
 
 2008-03-15  Ben Elliston  <bje@au.ibm.com>
 
-	* gcc/c-parser.c: Diagnose address space qualified compound
+	* c-parser.c: Diagnose address space qualified compound
 	literals in function bodies.
-	* gcc/testsuite/gcc.dg/ea/errors.c: Add a test case.
 
 2007-11-09  Ben Elliston  <bje@au.ibm.com>
 

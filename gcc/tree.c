@@ -9754,9 +9754,7 @@ tree_nop_conversion (const_tree exp)
   inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
 
   /* Keep conversions between pointers to different address spaces.  */
-  if (POINTER_TYPE_P (outer_type) && POINTER_TYPE_P (inner_type)
-      && TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
-	 != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
+  if (MIXED_ADDR_SPACE_POINTER_TYPES_P (outer_type, inner_type))
     return false;
 
   /* Use precision rather then machine mode when we can, which gives

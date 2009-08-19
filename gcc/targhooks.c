@@ -848,7 +848,7 @@ default_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
 /* The default hook for TARGET_ADDR_SPACE_CONVERT. This hook should never be
    called for targets with only a generic address space.  */
 
-rtx 
+rtx
 default_addr_space_convert (rtx op ATTRIBUTE_UNUSED,
 			    tree from_type ATTRIBUTE_UNUSED,
 			    tree to_type ATTRIBUTE_UNUSED)

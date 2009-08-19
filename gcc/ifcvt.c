@@ -1485,6 +1485,9 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
       set_mem_align (tmp,
 		     MIN (MEM_ALIGN (if_info->a), MEM_ALIGN (if_info->b)));
 
+      gcc_assert (MEM_ADDR_SPACE (if_info->a) == MEM_ADDR_SPACE (if_info->b));
+      set_mem_addr_space (tmp, MEM_ADDR_SPACE (if_info->a));
+
       noce_emit_move_insn (if_info->x, tmp);
     }
   else if (target != x)

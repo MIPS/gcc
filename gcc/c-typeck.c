@@ -9387,7 +9387,7 @@ build_binary_op (location_t location, enum tree_code code,
 	  tree tt1 = TREE_TYPE (type1);
 	  addr_space_t as0 = TYPE_ADDR_SPACE (tt0);
 	  addr_space_t as1 = TYPE_ADDR_SPACE (tt1);
-	  addr_space_t as_common;
+	  addr_space_t as_common = 0;
 
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible

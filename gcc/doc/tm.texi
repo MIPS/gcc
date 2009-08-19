@@ -9813,12 +9813,13 @@ address spaces other than the default address space.  These address
 spaces are new keywords that are similar to the @code{volatile} and
 @code{const} type attributes.
 
-Named address pointers can be a different size than native pointers.
+Pointers to named address spaces can a a different size than
+pointers to the generic address space.
 
 For example, the SPU port uses the @code{__ea} address space to refer
 to memory in the host processor, rather than memory local to the SPU
 processor.  Access to memory in the @code{__ea} address space involves
-making calls to move the memory to/from the host processor to the
+issuing DMA operations to move data between the host processor and the
 local processor memory address space.  Pointers in the @code{__ea}
 address space are either 32 bits or 64 bits based on the
 @option{-mea32} or @option{-mea64} switches (native SPU pointers are
@@ -9869,15 +9870,15 @@ Define this to return true if @var{exp} is a valid address for mode
 @var{mode} in the named address space @var{as}.  The @var{strict}
 parameter says whether strict addressing is in effect after reload has
 finished.  This target hook is the same as the
-@code{TARGET_LEGITIMATE_ADDRESS_P} target hook, except that includes
+@code{TARGET_LEGITIMATE_ADDRESS_P} target hook, except that it includes
 explicit named address space support.
 @end deftypefn
 
 @deftypefn {Target Hook} {rtx} TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS (rtx @var{x}, rtx @var{oldx}, enum machine_mode @var{mode}, addr_space_t @var{as})
 Define this to modify an invalid address @var{x} to be a valid address
 with mode @var{mode} in the named address space @var{as}.  This target
-hook is the same as the @code{LEGITIMIZE_ADDRESS} target hook, except
-that it includes explicit named address space support.
+hook is the same as the @code{TARGET_LEGITIMIZE_ADDRESS} target hook,
+except that it includes explicit named address space support.
 @end deftypefn
 
 @deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_SUBSET_P (addr_space_t @var{superset}, addr_space_t @var{subset})
@@ -9886,7 +9887,7 @@ contained within the @var{superset} named address space.  Pointers to
 a named address space that is a subset of another named address space
 will be converted automatically without a cast if used together in
 arithmetic operations.  Pointers to a superset address space can be
-converted to pointer to a subset address space via explict casts.
+converted to pointers to a subset address space via explict casts.
 @end deftypefn
 
 @deftypefn {Target Hook} {rtx} TARGET_ADDR_SPACE_CONVERT (rtx @var{op}, tree @var{from_type}, tree @var{to_type})

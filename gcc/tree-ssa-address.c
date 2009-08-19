@@ -188,6 +188,7 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
 {
   enum machine_mode address_mode = targetm.addr_space.address_mode (as);
   rtx address, sym, bse, idx, st, off;
+  struct mem_addr_template *templ;
 
   if (addr->step && !integer_onep (addr->step))
     st = immed_double_const (TREE_INT_CST_LOW (addr->step),
@@ -203,7 +204,6 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
 
   if (!really_expand)
     {
-      mem_addr_template *templ = NULL;
       unsigned int templ_index
 	= TEMPL_IDX (as, addr->symbol, addr->base, addr->index, st, off);
 

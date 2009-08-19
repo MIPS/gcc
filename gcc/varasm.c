@@ -4125,10 +4125,8 @@ narrowing_initializer_constant_valid_p (tree value, tree endtype)
 	break;
 
       /* Keep conversions between pointers to different address spaces.  */
-      if (POINTER_TYPE_P (TREE_TYPE (op0))
-	  && POINTER_TYPE_P (TREE_TYPE (inner))
-	  && TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0)))
-	     != TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (inner))))
+      if (MIXED_ADDR_SPACE_POINTER_TYPES_P (TREE_TYPE (op0),
+					    TREE_TYPE (inner)))
 	break;
 
       op0 = inner;
@@ -4145,10 +4143,8 @@ narrowing_initializer_constant_valid_p (tree value, tree endtype)
 	break;
 
       /* Keep conversions between pointers to different address spaces.  */
-      if (POINTER_TYPE_P (TREE_TYPE (op0))
-	  && POINTER_TYPE_P (TREE_TYPE (inner))
-	  && TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0)))
-	     != TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (inner))))
+      if (MIXED_ADDR_SPACE_POINTER_TYPES_P (TREE_TYPE (op1),
+					    TREE_TYPE (inner)))
 	break;
 
       op1 = inner;

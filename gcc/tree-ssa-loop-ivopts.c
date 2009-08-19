@@ -3038,7 +3038,7 @@ multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, enum machine_mode mode,
   unsigned int data_index = (int) as * MAX_MACHINE_MODE + (int) mode;
   static VEC (sbitmap, heap) *valid_mult_list;
   sbitmap valid_mult;
- 
+
   if (data_index >= VEC_length (sbitmap, valid_mult_list))
     VEC_safe_grow_cleared (sbitmap, heap, valid_mult_list, data_index + 1);
 
@@ -3185,22 +3185,26 @@ get_address_cost (bool symbol_present, bool var_present,
       if (HAVE_PRE_DECREMENT)
 	{
 	  addr = gen_rtx_PRE_DEC (address_mode, reg0);
-	  has_predec[mem_mode] = memory_address_p (mem_mode, addr);
+	  has_predec[mem_mode]
+	    = memory_address_addr_space_p (mem_mode, addr, as);
 	}
       if (HAVE_POST_DECREMENT)
 	{
 	  addr = gen_rtx_POST_DEC (address_mode, reg0);
-	  has_postdec[mem_mode] = memory_address_p (mem_mode, addr);
+	  has_postdec[mem_mode]
+	    = memory_address_addr_space_p (mem_mode, addr, as);
 	}
       if (HAVE_PRE_INCREMENT)
 	{
 	  addr = gen_rtx_PRE_INC (address_mode, reg0);
-	  has_preinc[mem_mode] = memory_address_p (mem_mode, addr);
+	  has_preinc[mem_mode]
+	    = memory_address_addr_space_p (mem_mode, addr, as);
 	}
       if (HAVE_POST_INCREMENT)
 	{
 	  addr = gen_rtx_POST_INC (address_mode, reg0);
-	  has_postinc[mem_mode] = memory_address_p (mem_mode, addr);
+	  has_postinc[mem_mode]
+	    = memory_address_addr_space_p (mem_mode, addr, as);
 	}
       for (i = 0; i < 16; i++)
 	{

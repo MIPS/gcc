@@ -2463,9 +2463,7 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
 
   /* Conversions between non-NULL pointers to different
      address spaces must be preserved.  */
-  if (POINTER_TYPE_P (type) && POINTER_TYPE_P (TREE_TYPE (arg1))
-      && TYPE_ADDR_SPACE (TREE_TYPE (type))
-	 != TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (arg1)))
+  if (MIXED_ADDR_SPACE_POINTER_TYPES_P (type, TREE_TYPE (arg1))
       && !integer_zerop (arg1))
     return NULL_TREE;
 
@@ -3112,6 +3110,10 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
      two non-pointers as well.  */
   if (TYPE_UNSIGNED (TREE_TYPE (arg0)) != TYPE_UNSIGNED (TREE_TYPE (arg1))
       || POINTER_TYPE_P (TREE_TYPE (arg0)) != POINTER_TYPE_P (TREE_TYPE (arg1)))
+    return 0;
+
+  /* We cannot consider pointers to different address space equal.  */
+  if (MIXED_ADDR_SPACE_POINTER_TYPES_P (TREE_TYPE (arg0), TREE_TYPE (arg1)))
     return 0;
 
   /* If both types don't have the same precision, then it is not safe
@@ -8449,12 +8451,8 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	      && ! (final_ptr && inside_prec != inter_prec)
 	      && ! (final_prec != GET_MODE_BITSIZE (TYPE_MODE (type))
 		    && TYPE_MODE (type) == TYPE_MODE (inter_type))
-	      && ! (final_ptr && inter_ptr
-		    && TYPE_ADDR_SPACE (TREE_TYPE (type))
-		       != TYPE_ADDR_SPACE (TREE_TYPE (inter_type)))
-	      && ! (inter_ptr && inside_ptr
-		    && TYPE_ADDR_SPACE (TREE_TYPE (inter_type))
-		       != TYPE_ADDR_SPACE (TREE_TYPE (inside_type))))
+	      && ! MIXED_ADDR_SPACE_POINTER_TYPES_P (inter_type, inside_type)
+	      && ! MIXED_ADDR_SPACE_POINTER_TYPES_P (type, inter_type))
 	    return fold_build1_loc (loc, code, type, TREE_OPERAND (op0, 0));
 	}
 
@@ -8640,7 +8638,9 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (op0, 0)))
 	      || POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (op0, 0))))
 	  && (TYPE_PRECISION (TREE_TYPE (op0))
-	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))))
+	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0))))
+	  && !MIXED_ADDR_SPACE_POINTER_TYPES_P
+		(TREE_TYPE (op0), TREE_TYPE (TREE_OPERAND (op0, 0))))
 	return fold_build1_loc (loc, VIEW_CONVERT_EXPR,
 			    type, TREE_OPERAND (op0, 0));
 

@@ -827,7 +827,7 @@ replace_inc_dec (rtx *r, void *d)
       {
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (data->size, GET_MODE (r1));
-	emit_insn_before (gen_rtx_SET (VOIDmode, r1, 
+	emit_insn_before (gen_rtx_SET (VOIDmode, r1,
 				       gen_rtx_PLUS (GET_MODE (r1), r1, c)),
 			  data->insn);
 	return -1;
@@ -838,7 +838,7 @@ replace_inc_dec (rtx *r, void *d)
       {
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (-data->size, GET_MODE (r1));
-	emit_insn_before (gen_rtx_SET (VOIDmode, r1, 
+	emit_insn_before (gen_rtx_SET (VOIDmode, r1,
 				       gen_rtx_PLUS (GET_MODE (r1), r1, c)),
 			  data->insn);
 	return -1;

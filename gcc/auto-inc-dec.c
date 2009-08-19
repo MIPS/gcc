@@ -693,7 +693,7 @@ try_merge (void)
     case DISP_PRE:           /* ++con   */
       if (dump_file)
 	fprintf (dump_file, "trying DISP_PRE\n");
-      return attempt_change (gen_rtx_PRE_MODIFY (reg_mode, 
+      return attempt_change (gen_rtx_PRE_MODIFY (reg_mode,
 						 inc_reg,
 						 gen_rtx_PLUS (reg_mode,
 							       inc_reg,
@@ -715,7 +715,7 @@ try_merge (void)
     case REG_PRE:            /* ++reg   */
       if (dump_file)
 	fprintf (dump_file, "trying PRE_REG\n");
-      return attempt_change (gen_rtx_PRE_MODIFY (reg_mode, 
+      return attempt_change (gen_rtx_PRE_MODIFY (reg_mode,
 						 inc_reg,
 						 gen_rtx_PLUS (reg_mode,
 							       inc_reg,
@@ -726,7 +726,7 @@ try_merge (void)
     case REG_POST:            /* reg++   */
       if (dump_file)
 	fprintf (dump_file, "trying POST_REG\n");
-      return attempt_change (gen_rtx_POST_MODIFY (reg_mode, 
+      return attempt_change (gen_rtx_POST_MODIFY (reg_mode,
 						  inc_reg,
 						  gen_rtx_PLUS (reg_mode,
 								inc_reg,

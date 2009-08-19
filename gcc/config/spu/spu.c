@@ -4554,17 +4554,13 @@ expand_ea_mem (rtx mem, bool is_store)
   if (ea_alias_set == -1)
     ea_alias_set = new_alias_set ();
 
-  new_mem = change_address_addr_space (mem, VOIDmode, data_addr,
-				       ADDR_SPACE_GENERIC);
-
-  /* We can't just change the alias set directly to ea_alias_set, because the
-     --enable-checking code may complain that the alias sets don't conflict */
-  set_mem_alias_set (new_mem, 0);
+  /* We generate a new MEM RTX to refer to the copy of the data
+     in the cache.  We do not copy memory attributes (except the
+     alignment) from the original MEM, as they may no longer apply
+     to the cache copy.  */
+  new_mem = gen_rtx_MEM (GET_MODE (mem), data_addr);
   set_mem_alias_set (new_mem, ea_alias_set);
-
-  /* Manually reset the address space of the pointer back to the generic
-     address space.  */
-  set_mem_addr_space (new_mem, ADDR_SPACE_GENERIC);
+  set_mem_align (new_mem, MIN (MEM_ALIGN (mem), 128 * 8));
 
   return new_mem;
 }

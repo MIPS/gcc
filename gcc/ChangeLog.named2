@@ -85,6 +85,7 @@
 	(struct tree_type): Add address_space field, move alias_set up
 	higher.
 	(int_or_pointer_precision): Add declaration.
+	(MIXED_ADDR_SPACE_POINTER_TYPES_P): New macro.
 
 	* target.h (struct addr_space): New structure that holds all of
 	the named address space hooks.
@@ -92,10 +93,17 @@
 
 	* fold-const.c (fit_double_type): Add named address space support.
 	(fold_convert_const): Ditto.
+	(operand_equal_p): Ditto.
 	(fold_unary_loc): Ditto.
 
 	* builtins.c (get_memory_rtx): Preserve conversions between pointers
 	to different address spaces.
+	* dojump.c (do_jump): Ditto.
+	* tree-ssa-ifcombine (get_name_for_bit_test): Ditto.
+	(recognize_single_bit_test): Ditto.
+	* tree-ssa-ccp.c (ccp_fold): Ditto.
+	(fold_gimple_assign): Ditto.
+	* gimplify.c (gimplify_conversion): Ditto.
 
 	* auto-inc-dec.c: Include target.h.
 	(try_merge): Deal with pointers that can be different sizes due to
@@ -126,7 +134,6 @@
 	* expr.h (memory_address): Change to a macro passing 0 as the
 	named address space.
 	(memory_address_addr_space): New declaration.
-	(change_address_addr_space): Ditto.
 
 	* recog.c (verify_changes): Handle named address spaces.
 	(general_operand): Likewise.
@@ -192,17 +199,11 @@
 	(set_mem_size): Ditto.
 	(change_address_1): Ditto.
 	(adjust_address_1): Ditto.
-	(adjust_automodify_address_1): Ditto.
 	(offset_address): Ditto.
-	(replace_equiv_address): Ditto.
 	(widen_memoy_address): Ditto.
 	(get_spill_slot_decl): Ditto.
 	(set_mem_attrs_for_spill): Ditto.
 	(set_mem_addr_space): New function to set the address space.
-	(change_address_addr_space): New function modified from
-	change_address to add address space argument.
-	(change_address): Call change_address_addr_space with the current
-	address space.
 
 	* emit-rtl.h (set_mem_addr_space): Add declaration.
 
@@ -275,15 +276,16 @@
 	(convert_memory_address): Implement as macro.
 	(convert_memory_address_addr_space): Add prototype.
 
-	* rtlanal.c (address_cost): Add address space argument.  Handle named
+	* rtlanal.c: Include "targhooks.h"
+	(address_cost): Add address space argument.  Handle named
 	address spaces.
 	(nonzero_bits1): Guard pointer size optimizations.
 	(num_sign_bit_copies1): Likewise.
 	* alias.c: Include "targhooks.h".
 	(find_base_value): Guard pointer size optimizations.
 	(find_base_term): Likewise.
-	* simplify-rtx.c (simplify_unary_operation_1): Guard
-	pointer size optimizations.
+	* simplify-rtx.c: Include "targhooks.h".
+	(simplify_unary_operation_1): Guard pointer size optimizations.
 	* loop-invariant.c (create_new_invariant): Update call to
 	address_cost.
 
@@ -368,6 +370,8 @@
 	(tree-ssa-address.o): Ditto.
 	(sched-deps.o): Ditto.
 	(alias.o): Add targhooks.h dependency.
+	(rtlanal.o): Ditto.
+	(simplify-rtx.o): Ditto.
 
 	* c-parser.c (c_parse_init): Add assertion to make sure RID
 	keywords fit in a byte.
@@ -452,10 +456,11 @@
 
 	* config/spu/spu.opt (-mea32): New switch.
 	(-mea64): Ditto.
-	(-mno-address-space-conversion): Ditto.
 	(-maddress-space-conversion): Ditto.
+	(-mno-address-space-conversion): Ditto.
 	(-mcache-size=): Ditto.
 	(-matomic-updates): Ditto.
+	(-mnoatomic-updates): Ditto.
 
 	* config/spu/t-spu-elf (MULTILIB_OPTIONS): Add -mea64 multilib.
 	(EXTRA_MULTILIB_PARTS): Add libgcc_cachemgr.a,
@@ -477,20 +482,21 @@
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
-	* testsuite/gcc.target/spu/ea/ea.exp: New file for named
+	* gcc.target/spu/ea/ea.exp: New file for named
 	address space support.
-	* testsuite/gcc.target/spu/ea/cache1.c: Ditto.
-	* testsuite/gcc.target/spu/ea/cast1.c: Ditto.
-	* testsuite/gcc.target/spu/ea/cast2.c: Ditto.
-	* testsuite/gcc.target/spu/ea/compile1.c: Ditto.
-	* testsuite/gcc.target/spu/ea/compile2.c: Ditto.
-	* testsuite/gcc.target/spu/ea/cppdefine.c: Ditto.
-	* testsuite/gcc.target/spu/ea/errors1.c: Ditto.
-	* testsuite/gcc.target/spu/ea/errors2.c: Ditto.
-	* testsuite/gcc.target/spu/ea/execute1.c: Ditto.
-	* testsuite/gcc.target/spu/ea/execute2.c: Ditto.
-	* testsuite/gcc.target/spu/ea/execute3.c: Ditto.
-	* testsuite/gcc.target/spu/ea/ops1.c: Ditto.
-	* testsuite/gcc.target/spu/ea/ops2.c: Ditto.
-	* testsuite/gcc.target/spu/ea/options1.c: Ditto.
-	* testsuite/gcc.target/spu/ea/test-sizes.c: Ditto.
+	* gcc.target/spu/ea/cache1.c: Ditto.
+	* gcc.target/spu/ea/cast1.c: Ditto.
+	* gcc.target/spu/ea/cast2.c: Ditto.
+	* gcc.target/spu/ea/compile1.c: Ditto.
+	* gcc.target/spu/ea/compile2.c: Ditto.
+	* gcc.target/spu/ea/cppdefine.c: Ditto.
+	* gcc.target/spu/ea/errors1.c: Ditto.
+	* gcc.target/spu/ea/errors2.c: Ditto.
+	* gcc.target/spu/ea/execute1.c: Ditto.
+	* gcc.target/spu/ea/execute2.c: Ditto.
+	* gcc.target/spu/ea/execute3.c: Ditto.
+	* gcc.target/spu/ea/ops1.c: Ditto.
+	* gcc.target/spu/ea/ops2.c: Ditto.
+	* gcc.target/spu/ea/options1.c: Ditto.
+	* gcc.target/spu/ea/test-sizes.c: Ditto.
+
