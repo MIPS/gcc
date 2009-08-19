@@ -1,3 +1,8 @@
+2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* cfglayout.c (locator_file): If locations_locators_locs is zero,
+	return NULL.
+
 2009-08-17  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* loop-invariant.c (move_invariant_reg): Check changes for validity.

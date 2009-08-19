@@ -557,6 +557,8 @@ locator_file (int loc)
 const char *
 insn_file (const_rtx insn)
 {
+  if (!locations_locators_locs)
+    return NULL;
   return locator_file (INSN_LOCATOR (insn));
 }
 
