@@ -1,3 +1,8 @@
+2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* recog.h (struct insn_data): Rename to:
+	(struct insn_data_d).  Change all users.
+
 2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/rs6000/rs6000.c (legitimate_indirect_address_p):
