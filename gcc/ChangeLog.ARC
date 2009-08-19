@@ -1,3 +1,9 @@
+2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* (ashr<mode>3): Rename to:
+	(ashr<mode>3_i).
+	((ashr<mode>3): New define_expand.
+
 2009-08-17  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/arc/simdext.md (simd_dma_in_i): Add constraints.

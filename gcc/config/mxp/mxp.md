@@ -497,7 +497,23 @@
   ""
   "vlsrv<unit_suffix>.%L0 %v0,%v1,%v2")
 
-(define_insn "ashr<mode>3"
+(define_expand "ashr<mode>3"
+  [(parallel
+    [(set (match_operand:VECA 0 "register_operand" "=<vx>")
+	  (ashiftrt:VECA (match_operand:VECA 1 "register_operand" "<vx>")
+			 (match_operand 2 "nonmemory_operand" "<vx>")))
+     (clobber (scratch:VECA))])]
+  ""
+  "
+{
+  if (GET_MODE_CLASS (<MODE>mode) == MODE_VECTOR_INT
+      && GET_MODE (operands[2]) == (<MODE>mode))
+    operands[2] = force_reg (<MODE>mode, operands[2]);
+  else
+    gcc_assert (immediate_operand (operands[2], HImode));
+}")
+
+(define_insn "ashr<mode>3_i"
   [(set (match_operand:VECA 0 "register_operand" "=<vx>")
         (ashiftrt:VECA (match_operand:VECA 1 "register_operand" "<vx>")
 		       (match_operand:VECA 2 "register_operand" "<vx>")))
