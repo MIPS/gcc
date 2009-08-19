@@ -1,3 +1,51 @@
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	* lto-streamer.c (lto_get_common_nodes): Skip itk_char.
+	* tree.c (free_lang_data): Merge char_type_node with the
+	appropriately signed variant.
+
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41071
+	* gimple.c (gimple_get_alias_set): Pointers to CV qualified variants
+	have the same alias-set as unqualified variants.
+
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41071
+	* gimple.c (gimple_register_type): Unlink a pointer from its
+	pointer chain if we will use a different type for it.
+	* lto-streamer-out.c (lto_output_ts_type_tree_pointers):
+	Do not output TYPE_POINTER_TO, TYPE_REFERENCE_TO and
+	TYPE_NEXT_PTR/REF_TO.
+	* lto-streamer-in.c (lto_input_ts_type_tree_pointers):
+	Do not input TYPE_POINTER_TO, TYPE_REFERENCE_TO and
+	TYPE_NEXT_PTR/REF_TO.
+
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41071
+	* gimple.c (gimple_register_type): Unlink a non-main-variant from its
+	variant chain if we will use a different type for it.
+	* tree.c (free_lang_data_in_type): Do not free the variant chains.
+	* lto-streamer-out.c (lto_output_ts_type_tree_pointers): Do
+	not output TYPE_NEXT_VARIANT.
+	* lto-streamer-in.c (lto_input_ts_type_tree_pointers): Do not
+	input TYPE_NEXT_VARIANT.
+
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41071
+	* gimple.c (compare_type_names_p): Do not look at the
+	types main variant.
+	* lto-streamer-out.c (output_type_ref): Remove hack for char_type_node.
+	* lto-streamer.c (lto_streamer_cache_insert_1):
+	Remove hack for char_type_node.
+	(lto_record_common_node): Canonicalize types of nodes we record.
+	(lto_get_common_nodes): Record integer and size types first.
+	Defer to lto_record_common_node for registering and canonicalizing
+	types.
+
 2009-08-17  Richard Guenther  <rguenther@suse.de>
 
 	Mainline merge @150842.

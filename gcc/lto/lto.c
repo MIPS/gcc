@@ -1114,12 +1114,46 @@ no_fixup_p (tree t)
 static void
 lto_fixup_common (tree t, void *data)
 {
-  /* If T has a type, make sure it is registered in the global type
-     table.  If the type existed already, use the existing one.  */
-  if (TREE_TYPE (t))
-    TREE_TYPE (t) = gimple_register_type (TREE_TYPE (t));
+  /* The following re-creates the TYPE_REFERENCE_TO and TYPE_POINTER_TO
+     lists.  We do not stream TYPE_REFERENCE_TO, TYPE_POINTER_TO or
+     TYPE_NEXT_PTR_TO and TYPE_NEXT_REF_TO.
+     First remove us from any pointer list we are on.  */
+  if (TREE_CODE (t) == POINTER_TYPE)
+    {
+      if (TYPE_POINTER_TO (TREE_TYPE (t)) == t)
+	TYPE_POINTER_TO (TREE_TYPE (t)) = TYPE_NEXT_PTR_TO (t);
+      else
+	{
+	  tree tem = TYPE_POINTER_TO (TREE_TYPE (t));
+	  while (tem && TYPE_NEXT_PTR_TO (tem) != t)
+	    tem = TYPE_NEXT_PTR_TO (tem);
+	  if (tem)
+	    TYPE_NEXT_PTR_TO (tem) = TYPE_NEXT_PTR_TO (t);
+	}
+      TYPE_NEXT_PTR_TO (t) = NULL_TREE;
+    }
+  else if (TREE_CODE (t) == REFERENCE_TYPE)
+    {
+      if (TYPE_REFERENCE_TO (TREE_TYPE (t)) == t)
+	TYPE_REFERENCE_TO (TREE_TYPE (t)) = TYPE_NEXT_REF_TO (t);
+      else
+	{
+	  tree tem = TYPE_REFERENCE_TO (TREE_TYPE (t));
+	  while (tem && TYPE_NEXT_REF_TO (tem) != t)
+	    tem = TYPE_NEXT_REF_TO (tem);
+	  if (tem)
+	    TYPE_NEXT_REF_TO (tem) = TYPE_NEXT_REF_TO (t);
+	}
+      TYPE_NEXT_REF_TO (t) = NULL_TREE;
+    }
 
-  LTO_FIXUP_SUBTREE (TREE_TYPE (t));
+  /* Fixup our type.  */
+  LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TREE_TYPE (t));
+
+  /* Second put us on the list of pointers of the new pointed-to type
+     if we are a main variant.  This is done in lto_fixup_type after
+     fixing up our main variant.  */
+
   /* This is not very efficient because we cannot do tail-recursion with
      a long chain of trees. */
   LTO_FIXUP_SUBTREE (TREE_CHAIN (t));
@@ -1202,27 +1236,85 @@ lto_fixup_field_decl (tree t, void *data)
 static void
 lto_fixup_type (tree t, void *data)
 {
+  tree tem, mv;
+
   lto_fixup_common (t, data);
   LTO_FIXUP_SUBTREE (TYPE_CACHED_VALUES (t));
   LTO_FIXUP_SUBTREE (TYPE_SIZE (t));
   LTO_FIXUP_SUBTREE (TYPE_SIZE_UNIT (t));
   LTO_FIXUP_SUBTREE (TYPE_ATTRIBUTES (t));
-  LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_POINTER_TO (t));
-  LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_REFERENCE_TO (t));
   LTO_FIXUP_SUBTREE (TYPE_NAME (t));
 
   /* Accessors are for derived node types only. */
-  LTO_FIXUP_SUBTREE (t->type.minval);
+  if (!POINTER_TYPE_P (t))
+    LTO_FIXUP_SUBTREE (t->type.minval);
   LTO_FIXUP_SUBTREE (t->type.maxval);
-
-  LTO_FIXUP_SUBTREE (TYPE_NEXT_VARIANT (t));
-  LTO_FIXUP_SUBTREE (TYPE_MAIN_VARIANT (t));
 
   /* Accessor is for derived node types only. */
   LTO_FIXUP_SUBTREE (t->type.binfo);
 
   LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_CONTEXT (t));
   LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TYPE_CANONICAL (t));
+
+  /* The following re-creates proper variant lists while fixing up
+     the variant leaders.  We do not stream TYPE_NEXT_VARIANT so the
+     variant list state before fixup is broken.  */
+
+  /* Remove us from our main variant list if we are not the variant leader.  */
+  if (TYPE_MAIN_VARIANT (t) != t)
+    {
+      tem = TYPE_MAIN_VARIANT (t);
+      while (tem && TYPE_NEXT_VARIANT (tem) != t)
+	tem = TYPE_NEXT_VARIANT (tem);
+      if (tem)
+	TYPE_NEXT_VARIANT (tem) = TYPE_NEXT_VARIANT (t);
+      TYPE_NEXT_VARIANT (t) = NULL_TREE;
+    }
+
+  /* Query our new main variant.  */
+  mv = gimple_register_type (TYPE_MAIN_VARIANT (t));
+
+  /* If we were the variant leader and we get replaced ourselves drop
+     all variants from our list.  */
+  if (TYPE_MAIN_VARIANT (t) == t
+      && mv != t)
+    {
+      tem = t;
+      while (tem)
+	{
+	  tree tem2 = TYPE_NEXT_VARIANT (tem);
+	  TYPE_NEXT_VARIANT (tem) = NULL_TREE;
+	  tem = tem2;
+	}
+    }
+
+  /* If we are not our own variant leader link us into our new leaders
+     variant list.  */
+  if (mv != t)
+    {
+      TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (mv);
+      TYPE_NEXT_VARIANT (mv) = t;
+    }
+
+  /* Finally adjust our main variant and fix it up.  */
+  TYPE_MAIN_VARIANT (t) = mv;
+  LTO_FIXUP_SUBTREE (TYPE_MAIN_VARIANT (t));
+
+  /* As the second step of reconstructing the pointer chains put us
+     on the list of pointers of the new pointed-to type
+     if we are a main variant.  See lto_fixup_common for the first step.  */
+  if (TREE_CODE (t) == POINTER_TYPE
+      && TYPE_MAIN_VARIANT (t) == t)
+    {
+      TYPE_NEXT_PTR_TO (t) = TYPE_POINTER_TO (TREE_TYPE (t));
+      TYPE_POINTER_TO (TREE_TYPE (t)) = t;
+    }
+  else if (TREE_CODE (t) == REFERENCE_TYPE
+	   && TYPE_MAIN_VARIANT (t) == t)
+    {
+      TYPE_NEXT_REF_TO (t) = TYPE_REFERENCE_TO (TREE_TYPE (t));
+      TYPE_REFERENCE_TO (TREE_TYPE (t)) = t;
+    }
 }
 
 /* Fix up fields of a BINFO T.  DATA points to fix-up states.  */
@@ -1256,6 +1348,25 @@ lto_fixup_binfo (tree t, void *data)
       LTO_FIXUP_SUBTREE (base);
       if (base != saved_base)
 	VEC_replace (tree, BINFO_BASE_BINFOS (t), i, base);
+    }
+}
+
+/* Fix up fields of a CONSTRUCTOR T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_constructor (tree t, void *data)
+{
+  unsigned HOST_WIDE_INT idx;
+  constructor_elt *ce;
+
+  LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TREE_TYPE (t));
+
+  for (idx = 0;
+       VEC_iterate(constructor_elt, CONSTRUCTOR_ELTS (t), idx, ce);
+       idx++)
+    {
+      LTO_FIXUP_SUBTREE (ce->index);
+      LTO_FIXUP_SUBTREE (ce->value);
     }
 }
 
@@ -1312,8 +1423,16 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
 	  t = prevailing;
 	}
     }
+  else if (TYPE_P (t))
+    {
+      /* Replace t with the prevailing type.  We don't want to insert the
+         other type in the seen set as we want to replace all instances of it.  */
+      t = gimple_register_type (t);
+      *tp = t;
+    }
 
-  pointer_set_insert (fixup_data->seen, t);
+  if (pointer_set_insert (fixup_data->seen, t))
+    return NULL;
 
   /* walk_tree does not visit all reachable nodes that need to be fixed up.
      Hence we do special processing here for those kind of nodes. */
@@ -1350,6 +1469,10 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
     default:
       if (TYPE_P (t))
 	lto_fixup_type (t, data);
+      else if (TREE_CODE (t) == CONSTRUCTOR)
+	lto_fixup_constructor (t, data);
+      else if (CONSTANT_CLASS_P (t))
+	LTO_REGISTER_TYPE_AND_FIXUP_SUBTREE (TREE_TYPE (t));
       else if (EXPR_P (t))
 	{
 	  /* walk_tree only handles TREE_OPERANDs. Do the rest here.  */

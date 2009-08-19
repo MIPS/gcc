@@ -1985,13 +1985,15 @@ lto_input_ts_type_tree_pointers (struct lto_input_block *ib,
   TYPE_SIZE (expr) = lto_input_tree (ib, data_in);
   TYPE_SIZE_UNIT (expr) = lto_input_tree (ib, data_in);
   TYPE_ATTRIBUTES (expr) = lto_input_tree (ib, data_in);
-  TYPE_POINTER_TO (expr) = lto_input_tree (ib, data_in);
-  TYPE_REFERENCE_TO (expr) = lto_input_tree (ib, data_in);
   TYPE_NAME (expr) = lto_input_tree (ib, data_in);
-  TYPE_MINVAL (expr) = lto_input_tree (ib, data_in);
+  /* Do not stream TYPE_POINTER_TO or TYPE_REFERENCE_TO nor
+     TYPE_NEXT_PTR_TO or TYPE_NEXT_REF_TO.  */
+  if (!POINTER_TYPE_P (expr))
+    TYPE_MINVAL (expr) = lto_input_tree (ib, data_in);
   TYPE_MAXVAL (expr) = lto_input_tree (ib, data_in);
-  TYPE_NEXT_VARIANT (expr) = lto_input_tree (ib, data_in);
   TYPE_MAIN_VARIANT (expr) = lto_input_tree (ib, data_in);
+  /* Do not stream TYPE_NEXT_VARIANT, we reconstruct the variant lists
+     during fixup.  */
   if (TREE_CODE (expr) == RECORD_TYPE || TREE_CODE (expr) == UNION_TYPE)
     TYPE_BINFO (expr) = lto_input_tree (ib, data_in);
   TYPE_CONTEXT (expr) = lto_input_tree (ib, data_in);

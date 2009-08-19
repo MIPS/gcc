@@ -3185,8 +3185,6 @@ lookup_type_pair (tree t1, tree t2, htab_t *visited_p)
 static bool
 compare_type_names_p (tree t1, tree t2)
 {
-  tree variant1 = TYPE_MAIN_VARIANT (t1);
-  tree variant2 = TYPE_MAIN_VARIANT (t2);
   tree name1 = TYPE_NAME (t1);
   tree name2 = TYPE_NAME (t2);
 
@@ -3214,14 +3212,6 @@ compare_type_names_p (tree t1, tree t2)
      than a string comparison.  */
   if (name1 == name2)
     return true;
-
-  /* If either type has a variant type, compare that.  This finds
-     the case where a struct is typedef'ed in one module but referred
-     to as 'struct foo' in the other; here, the main type for one is
-     'foo', and for the other 'foo_t', but the variants have the same
-     name 'foo'.  */
-  if (variant1 != t1 || variant2 != t2)
-    return compare_type_names_p (variant1, variant2);
 
   return false;
 }
@@ -3908,7 +3898,8 @@ gimple_register_type (tree t)
     }
 
   slot = htab_find_slot (gimple_types, t, INSERT);
-  if (*slot)
+  if (*slot
+      && *(tree *)slot != t)
     {
       tree new_type = (tree) *((tree *) slot);
 
@@ -3917,12 +3908,54 @@ gimple_register_type (tree t)
 
       if (getenv ("MERGE_TYPE_DEBUG"))
 	{
-	  if (t != new_type)
+	  fprintf (stderr, "Merged with existing compatible type: %p - ",
+		   *slot);
+	  print_generic_stmt (stderr, new_type, 0);
+	}
+
+      /* If t is not its main variant then make t unreachable from its
+	 main variant list.  Otherwise we'd queue up a lot of duplicates
+	 there.  */
+      if (t != TYPE_MAIN_VARIANT (t))
+	{
+	  tree tem = TYPE_MAIN_VARIANT (t);
+	  while (tem && TYPE_NEXT_VARIANT (tem) != t)
+	    tem = TYPE_NEXT_VARIANT (tem);
+	  if (tem)
+	    TYPE_NEXT_VARIANT (tem) = TYPE_NEXT_VARIANT (t);
+	  TYPE_NEXT_VARIANT (t) = NULL_TREE;
+	}
+
+      /* If we are a pointer then remove us from the pointer-to or
+	 reference-to chain.  Otherwise we'd queue up a lot of duplicates
+	 there.  */
+      if (TREE_CODE (t) == POINTER_TYPE)
+	{
+	  if (TYPE_POINTER_TO (TREE_TYPE (t)) == t)
+	    TYPE_POINTER_TO (TREE_TYPE (t)) = TYPE_NEXT_PTR_TO (t);
+	  else
 	    {
-	      fprintf (stderr, "Merged with existing compatible type: %p - ",
-		  *slot);
-	      print_generic_stmt (stderr, new_type, 0);
+	      tree tem = TYPE_POINTER_TO (TREE_TYPE (t));
+	      while (tem && TYPE_NEXT_PTR_TO (tem) != t)
+		tem = TYPE_NEXT_PTR_TO (tem);
+	      if (tem)
+		TYPE_NEXT_PTR_TO (tem) = TYPE_NEXT_PTR_TO (t);
 	    }
+	  TYPE_NEXT_PTR_TO (t) = NULL_TREE;
+	}
+      else if (TREE_CODE (t) == REFERENCE_TYPE)
+	{
+	  if (TYPE_REFERENCE_TO (TREE_TYPE (t)) == t)
+	    TYPE_REFERENCE_TO (TREE_TYPE (t)) = TYPE_NEXT_REF_TO (t);
+	  else
+	    {
+	      tree tem = TYPE_REFERENCE_TO (TREE_TYPE (t));
+	      while (tem && TYPE_NEXT_REF_TO (tem) != t)
+		tem = TYPE_NEXT_REF_TO (tem);
+	      if (tem)
+		TYPE_NEXT_REF_TO (tem) = TYPE_NEXT_REF_TO (t);
+	    }
+	  TYPE_NEXT_REF_TO (t) = NULL_TREE;
 	}
 
       t = new_type;
@@ -4180,6 +4213,36 @@ gimple_get_alias_set (tree t)
       tree t1 = gimple_signed_type (t);
 
       /* t1 == t can happen for boolean nodes which are always unsigned.  */
+      if (t1 != t)
+	return get_alias_set (t1);
+    }
+  else if (POINTER_TYPE_P (t))
+    {
+      tree t1;
+
+      /* Unfortunately, there is no canonical form of a pointer type.
+	 In particular, if we have `typedef int I', then `int *', and
+	 `I *' are different types.  So, we have to pick a canonical
+	 representative.  We do this below.
+
+	 Technically, this approach is actually more conservative that
+	 it needs to be.  In particular, `const int *' and `int *'
+	 should be in different alias sets, according to the C and C++
+	 standard, since their types are not the same, and so,
+	 technically, an `int **' and `const int **' cannot point at
+	 the same thing.
+
+	 But, the standard is wrong.  In particular, this code is
+	 legal C++:
+
+	 int *ip;
+	 int **ipp = &ip;
+	 const int* const* cipp = ipp;
+	 And, it doesn't make sense for that to be legal unless you
+	 can dereference IPP and CIPP.  So, we ignore cv-qualifiers on
+	 the pointed-to types.  This issue has been reported to the
+	 C++ committee.  */
+      t1 = build_type_no_quals (t);
       if (t1 != t)
 	return get_alias_set (t1);
     }

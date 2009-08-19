@@ -4222,16 +4222,6 @@ free_lang_data_in_type (tree type)
 
   /* FIXME lto: This will break debug info generation.  */
   TYPE_STUB_DECL (type) = NULL_TREE;
-
-  /* Remove type variants other than the main variant.  This is both
-     wasteful and it may introduce infinite loops when the types are
-     read from disk and merged (since the variant will be the same
-     type as the main variant, traversing type variants will get into
-     an infinite loop).  */
-  if (TYPE_MAIN_VARIANT (type))
-    TYPE_NEXT_VARIANT (TYPE_MAIN_VARIANT (type)) = NULL_TREE;
-
-  TYPE_NEXT_VARIANT (type) = NULL_TREE;
 }
 
 
@@ -4793,6 +4783,12 @@ free_lang_data (void)
       boolean_false_node = TYPE_MIN_VALUE (boolean_type_node);
       boolean_true_node = TYPE_MAX_VALUE (boolean_type_node);
     }
+
+  /* To make units with different flag_signed_char settings work together
+     re-set the char_type_node pointer to whatever is appropriate for
+     this unit.  */
+  char_type_node
+    = flag_signed_char ? signed_char_type_node : unsigned_char_type_node;
 
   /* Reset some langhooks.  */
   lang_hooks.callgraph.analyze_expr = NULL;

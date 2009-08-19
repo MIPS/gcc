@@ -1,3 +1,26 @@
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	* lto-lang.c (lto_init): Merge char_type_node with the
+	appropriately signed variant.
+
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41071
+	* lto.c (lto_fixup_common): Re-build the pointer-to chain part one.
+	(lto_fixup_type): Re-build the pointer-to chain part two.
+
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41071
+	* lto.c (lto_fixup_type): Re-build the type variant chain.
+
+2009-08-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41071
+	* lto.c (lto_fixup_constructor): New function.
+	(lto_fixup_tree): Replace all types.  Properly fixup
+	constructors and constants.
+
 2009-08-14  Richard Guenther  <rguenther@suse.de>
 
 	* lto.c (read_cgraph_and_symbols): Exchange TREE_CHAIN use

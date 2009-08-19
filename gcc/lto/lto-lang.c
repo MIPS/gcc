@@ -1108,6 +1108,12 @@ lto_init (void)
   /* Create the basic integer types.  */
   build_common_tree_nodes (flag_signed_char, /*signed_sizetype=*/false);
 
+  /* Share char_type_node with whatever would be the default for the target.
+     char_type_node will be used for internal types such as
+     va_list_type_node but will not be present in the lto stream.  */
+  char_type_node
+    = DEFAULT_SIGNED_CHAR ? signed_char_type_node : unsigned_char_type_node;
+
   /* Tell the middle end what type to use for the size of objects.  */
   if (strcmp (SIZE_TYPE, "unsigned int") == 0)
     {

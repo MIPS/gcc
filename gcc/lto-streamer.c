@@ -500,12 +500,6 @@ lto_streamer_cache_insert_1 (struct lto_streamer_cache_d *cache,
 
   gcc_assert (t);
 
-  /* If -funsigned-char is given, replace references to 'char' with
-     'unsigned char'.  FIXME lto, this should be done in
-     free_lang_data.  */
-  if (flag_signed_char == 0 && TYPE_P (t) && t == char_type_node)
-    t = unsigned_char_type_node;
-
   d_entry.base.from = t;
   slot = htab_find_slot (cache->node_map, &d_entry, INSERT);
   if (*slot == NULL)
@@ -567,7 +561,6 @@ lto_streamer_cache_insert_1 (struct lto_streamer_cache_d *cache,
 
   if (offset_p)
     *offset_p = offset; 
-
 
   return existed_p;
 }
@@ -662,11 +655,16 @@ lto_streamer_cache_get (struct lto_streamer_cache_d *cache, int ix)
    SEEN_NODES.  */
 
 static void
-lto_record_common_node (tree node, VEC(tree, heap) **common_nodes,
+lto_record_common_node (tree *nodep, VEC(tree, heap) **common_nodes,
 			struct pointer_set_t *seen_nodes)
 {
+  tree node = *nodep;
+
   if (node == NULL_TREE)
     return;
+
+  if (TYPE_P (node))
+    *nodep = node = gimple_register_type (node);
 
   /* Return if node is already seen.  */
   if (pointer_set_insert (seen_nodes, node))
@@ -676,18 +674,16 @@ lto_record_common_node (tree node, VEC(tree, heap) **common_nodes,
 
   if (tree_node_can_be_shared (node))
     {
-      if (TYPE_P (node))
-	lto_record_common_node (TYPE_MAIN_VARIANT (node), common_nodes,
-				seen_nodes);
-
-      if (TREE_CODE (node) == ARRAY_TYPE)
-	lto_record_common_node (TREE_TYPE (node), common_nodes, seen_nodes);
+      if (POINTER_TYPE_P (node)
+	  || TREE_CODE (node) == COMPLEX_TYPE
+	  || TREE_CODE (node) == ARRAY_TYPE)
+	lto_record_common_node (&TREE_TYPE (node), common_nodes, seen_nodes);
     }
 }
 
 
-/* Generate a vector of common nodes and register them in the gimple
-   type table as merge targets. */
+/* Generate a vector of common nodes and make sure they are merged
+   properly according to the the gimple type table.  */
 
 static VEC(tree,heap) *
 lto_get_common_nodes (void)
@@ -720,34 +716,16 @@ lto_get_common_nodes (void)
   
   seen_nodes = pointer_set_create ();
 
-  /* char_type_node is special, we have to prefer merging the other
-     char variants into it because the middle-end has pointer comparisons
-     with it.  */
-  gimple_register_type (char_type_node);
-
-  for (i = 0; i < TI_MAX; i++)
-    {
-      tree t = global_trees[i];
-      if (t && TYPE_P (t))
-	gimple_register_type (t);
-      lto_record_common_node (global_trees[i], &common_nodes, seen_nodes);
-    }
-
-  for (i = 0; i < itk_none; i++)
-    {
-      tree t = integer_types[i];
-      if (t && TYPE_P (t))
-	gimple_register_type (t);
-      lto_record_common_node (integer_types[i], &common_nodes, seen_nodes);
-    }
+  /* Skip itk_char.  char_type_node is shared with the appropriately
+     signed variant.  */
+  for (i = itk_signed_char; i < itk_none; i++)
+    lto_record_common_node (&integer_types[i], &common_nodes, seen_nodes);
 
   for (i = 0; i < TYPE_KIND_LAST; i++)
-    {
-      tree t = sizetype_tab[i];
-      if (t && TYPE_P (t))
-	gimple_register_type (t);
-      lto_record_common_node (sizetype_tab[i], &common_nodes, seen_nodes);
-    }
+    lto_record_common_node (&sizetype_tab[i], &common_nodes, seen_nodes);
+
+  for (i = 0; i < TI_MAX; i++)
+    lto_record_common_node (&global_trees[i], &common_nodes, seen_nodes);
 
   pointer_set_destroy (seen_nodes);
 

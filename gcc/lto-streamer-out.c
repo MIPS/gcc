@@ -367,12 +367,6 @@ output_record_start (struct output_block *ob, enum LTO_tags tag)
 static void
 output_type_ref (struct output_block *ob, tree node)
 {
-  /* FIXME lto.  This is a hack, the use of -funsigned-char should be
-     reflected in the IL by changing every reference to char_type_node
-     into unsigned_char_type_node in pass_ipa_free_lang_data.  */
-  if (flag_signed_char == 0 && node == char_type_node)
-    node = unsigned_char_type_node;
-
   output_record_start (ob, LTO_type_ref);
   lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
 }
@@ -1067,13 +1061,15 @@ lto_output_ts_type_tree_pointers (struct output_block *ob, tree expr,
   lto_output_tree_or_ref (ob, TYPE_SIZE (expr), ref_p);
   lto_output_tree_or_ref (ob, TYPE_SIZE_UNIT (expr), ref_p);
   lto_output_tree_or_ref (ob, TYPE_ATTRIBUTES (expr), ref_p);
-  lto_output_tree_or_ref (ob, TYPE_POINTER_TO (expr), ref_p);
-  lto_output_tree_or_ref (ob, TYPE_REFERENCE_TO (expr), ref_p);
   lto_output_tree_or_ref (ob, TYPE_NAME (expr), ref_p);
-  lto_output_tree_or_ref (ob, TYPE_MINVAL (expr), ref_p);
+  /* Do not stream TYPE_POINTER_TO or TYPE_REFERENCE_TO nor
+     TYPE_NEXT_PTR_TO or TYPE_NEXT_REF_TO.  */
+  if (!POINTER_TYPE_P (expr))
+    lto_output_tree_or_ref (ob, TYPE_MINVAL (expr), ref_p);
   lto_output_tree_or_ref (ob, TYPE_MAXVAL (expr), ref_p);
-  lto_output_tree_or_ref (ob, TYPE_NEXT_VARIANT (expr), ref_p);
   lto_output_tree_or_ref (ob, TYPE_MAIN_VARIANT (expr), ref_p);
+  /* Do not stream TYPE_NEXT_VARIANT, we reconstruct the variant lists
+     during fixup.  */
   if (TREE_CODE (expr) == RECORD_TYPE || TREE_CODE (expr) == UNION_TYPE)
     lto_output_tree_or_ref (ob, TYPE_BINFO (expr), ref_p);
   lto_output_tree_or_ref (ob, TYPE_CONTEXT (expr), ref_p);
