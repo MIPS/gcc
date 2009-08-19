@@ -1,3 +1,8 @@
+2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (create_loads_and_stores_for_name): Only expect
+	POINTER_TYPE names correspond to an entry in param_arrays.
+
 2009-08-18  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-vect-transform.c (vectorizable_store):

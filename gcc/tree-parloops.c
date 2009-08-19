@@ -1240,7 +1240,7 @@ create_loads_and_stores_for_name (void **slot, void *data)
   gsi = gsi_last_bb (clsn_data->store_bb);
   t = build3 (COMPONENT_REF, type, clsn_data->store, elt->field, NULL_TREE);
   src = ssa_name (elt->version);
-  if (loop->param_arrays)
+  if (TREE_CODE (TREE_TYPE (src)) == POINTER_TYPE && loop->param_arrays)
     {
       tree var = SSA_NAME_VAR (src), dst;
       struct tree_map *m, m_in;
