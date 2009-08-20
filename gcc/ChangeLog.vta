@@ -1,5 +1,10 @@
 2009-08-20  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgexpand.c (gimple_assign_rhs_to_tree): Do not overwrite
+	location of single rhs in place.
+
+2009-08-20  Alexandre Oliva  <aoliva@redhat.com>
+
 	* reload1.c (reload): Substitute REG for equiv even within
 	SUBREG.  ICE on unrecognized uses of regs with equivs.
 
