@@ -1259,9 +1259,21 @@ reload (rtx first, int global)
 	  if (equiv)
 	    for (use = DF_REG_USE_CHAIN (i); use;
 		 use = DF_REF_NEXT_REG (use))
-	      if (DEBUG_INSN_P (DF_REF_INSN (use))
-		  && *DF_REF_LOC (use) == reg)
-		*DF_REF_LOC (use) = copy_rtx (equiv);
+	      if (DEBUG_INSN_P (DF_REF_INSN (use)))
+		{
+		  rtx *loc = DF_REF_LOC (use);
+		  rtx x = *loc;
+
+		  if (x == reg)
+		    *loc = copy_rtx (equiv);
+		  else if (GET_CODE (x) == SUBREG
+			   && SUBREG_REG (x) == reg)
+		    *loc = simplify_gen_subreg (GET_MODE (x), equiv,
+						GET_MODE (reg),
+						SUBREG_BYTE (x));
+		  else
+		    gcc_unreachable ();
+		}
 	}
     }
 

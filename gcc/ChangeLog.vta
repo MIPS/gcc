@@ -1,3 +1,8 @@
+2009-08-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reload1.c (reload): Substitute REG for equiv even within
+	SUBREG.  ICE on unrecognized uses of regs with equivs.
+
 2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
 
 	* caller-save.c (replace_reg_with_saved_mem): Check that the
