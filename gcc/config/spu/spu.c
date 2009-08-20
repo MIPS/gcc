@@ -6822,19 +6822,7 @@ spu_addr_space_convert (rtx op, tree from_type, tree to_type)
   gcc_assert (from_as == ADDR_SPACE_GENERIC || from_as == ADDR_SPACE_EA);
   gcc_assert (to_as == ADDR_SPACE_GENERIC || to_as == ADDR_SPACE_EA);
 
-  if (to_as == from_as)
-    return op;
-
-  /* If we have -mno-address-space-conversion, __ea and generic are
-     disjoint address spaces.  Anything but NULL pointer conversion
-     in undefined behavior in this case.  */
-  else if (TARGET_NO_ADDRESS_SPACE_CONVERSION)
-    {
-      enum machine_mode tmode = spu_addr_space_address_mode (to_as);
-      return force_reg (tmode, const0_rtx);
-    }
-
-  else if (to_as == ADDR_SPACE_GENERIC && from_as == ADDR_SPACE_EA)
+  if (to_as == ADDR_SPACE_GENERIC && from_as == ADDR_SPACE_EA)
     {
       rtx result, ls;
 

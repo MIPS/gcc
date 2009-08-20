@@ -8260,14 +8260,27 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  addr_space_t as_to = TYPE_ADDR_SPACE (TREE_TYPE (type));
 	  addr_space_t as_from = TYPE_ADDR_SPACE (TREE_TYPE (subexp0_type));
 
-	  if (as_to != as_from)
+	  /* Conversion between pointers to the same address space
+	     is handled by the code below.  */
+	  if (as_to == as_from)
+	    ;
+
+	  /* Ask target code to handle conversion between pointers
+	     to overlapping address spaces.  */
+	  else if (targetm.addr_space.subset_p (as_to, as_from)
+		   || targetm.addr_space.subset_p (as_from, as_to))
 	    {
 	      op0 = expand_expr (subexp0, NULL_RTX, VOIDmode, modifier);
 	      op0 = targetm.addr_space.convert (op0, subexp0_type, type);
-	      if (!op0)
-		gcc_unreachable ();
+	      gcc_assert (op0);
 	      return op0;
 	    }
+
+	  /* For disjoint address spaces, converting anything but
+	     a null pointer invokes undefined behaviour.  We simply
+	     always return a null pointer here.  */
+	  else
+	    return CONST0_RTX (mode);
 	}
 
       if (mode == TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0))))

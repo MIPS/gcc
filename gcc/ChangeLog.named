@@ -1,3 +1,12 @@
+2008-08-20  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* expr.c (expand_expr_real_1): When converting pointers between
+	different address spaces, only call target if spaces overlap.
+	* config/spu/spu.c (spu_addr_space_convert): Only handle overlapping
+	address spaces.
+
+	* c-typeck.c (handle_warn_cast_qual): Update comment.
+
 2008-08-19  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* doc/tm.texi (Named Address Spaces): Update documentation.

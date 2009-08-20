@@ -4271,9 +4271,8 @@ build_compound_expr (location_t loc, tree expr1, tree expr2)
 /* Issue -Wcast-qual warnings when appropriate.  TYPE is the type to
    which we are casting.  OTYPE is the type of the expression being
    cast.  Both TYPE and OTYPE are pointer types.  -Wcast-qual appeared
-   on the command line.  The address space qualifiers are not handled
-   here, as it is an error, not a warning if one declaration does not
-   point to the same address space as the other declaration.  */
+   on the command line.  Named address space qualifiers are not handled
+   here, because they result in different warnings.  */
 
 static void
 handle_warn_cast_qual (tree type, tree otype)
