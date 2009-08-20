@@ -1711,7 +1711,9 @@ lto_materialize_tree (struct lto_input_block *ib, struct data_in *data_in,
   enum tree_code code;
   tree result;
   unsigned HOST_WIDE_INT expected_size;
+#ifdef LTO_STREAMER_DEBUG
   HOST_WIDEST_INT orig_address_in_writer;
+#endif
   HOST_WIDE_INT ix;
 
   result = NULL_TREE;
@@ -1722,11 +1724,13 @@ lto_materialize_tree (struct lto_input_block *ib, struct data_in *data_in,
   gcc_assert ((int) ix == ix);
   *ix_p = (int) ix;
 
+#ifdef LTO_STREAMER_DEBUG
   /* Read the word representing the memory address for the tree
      as it was written by the writer.  This is useful when
      debugging differences between the writer and reader.  */
   orig_address_in_writer = lto_input_sleb128 (ib);
   gcc_assert ((intptr_t) orig_address_in_writer == orig_address_in_writer);
+#endif
 
   code = lto_tag_to_tree_code (tag);
 
@@ -1756,12 +1760,14 @@ lto_materialize_tree (struct lto_input_block *ib, struct data_in *data_in,
       result = make_node (code);
     }
 
+#ifdef LTO_STREAMER_DEBUG
   /* Store the original address of the tree as seen by the writer
      in RESULT's aux field.  This is useful when debugging streaming
      problems.  This way, a debugging session can be started on
      both writer and reader with a breakpoint using this address
      value in both.  */
   lto_orig_address_map (result, (intptr_t) orig_address_in_writer);
+#endif
 
   /* Make sure that the size of the tree we just created matches
      what we were expecting.  Skip this check for IDENTIFIER_NODEs,
@@ -2445,9 +2451,11 @@ lto_read_tree (struct lto_input_block *ib, struct data_in *data_in,
   end_marker = lto_input_1_unsigned (ib);
   gcc_assert (end_marker == 0);
 
+#ifdef LTO_STREAMER_DEBUG
   /* Remove the mapping to RESULT's original address set by
      lto_materialize_tree.  */
   lto_orig_address_remove (result);
+#endif
 
   return result;
 }

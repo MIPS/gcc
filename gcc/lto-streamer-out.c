@@ -1321,12 +1321,15 @@ lto_output_tree_header (struct output_block *ob, tree expr, int ix)
   output_uleb128 (ob, tree_size (expr));
   output_sleb128 (ob, ix);
 
+  /* The following will cause bootstrap miscomparisons.  Enable with care.  */
+#ifdef LTO_STREAMER_DEBUG
   /* This is used mainly for debugging purposes.  When the reader
      and the writer do not agree on a streamed node, the pointer
      value for EXPR can be used to track down the differences in
      the debugger.  */
   gcc_assert ((HOST_WIDEST_INT) (intptr_t) expr == (intptr_t) expr);
   output_sleb128 (ob, (HOST_WIDEST_INT) (intptr_t) expr);
+#endif
 
   /* The text in strings and identifiers are completely emitted in
      the header.  */

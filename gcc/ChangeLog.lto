@@ -1,3 +1,9 @@
+2009-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* lto-streamer-out.c (lto_output_tree_header): Wrap streamer
+	debugging code inside LTO_STREAMER_DEBUG.
+	* lto-streamer-in.c (lto_materialize_tree): Likewise.
+
 2009-08-19  Richard Guenther  <rguenther@suse.de>
 
 	* lto-streamer.c (lto_get_common_nodes): Skip itk_char.
