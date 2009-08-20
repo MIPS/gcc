@@ -9894,9 +9894,9 @@ converted to pointers to a subset address space via explict casts.
 Define this to convert the pointer expression represented by the RTL
 @var{op} with type @var{from_type} that points to a named address
 space to a new pointer expression with type @var{to_type} that points
-to a different named address space.  The hook needs to support conversion
-between any pair of address spaces, but if neither of the two is subset
-of the other, only null pointers have to be handled.
+to a different named address space.  When this hook it called, it is
+guaranteed that one of the two address spaces is a subset of the other,
+as determined by the @code{TARGET_ADDR_SPACE_SUBSET_P} target hook.
 @end deftypefn
 
 @node Misc
