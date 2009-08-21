@@ -1,5 +1,7 @@
 2009-08-21  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgexpand.c: Revert the previous patch, not necessary in 4.4.
+
 	* var-tracking.c (unshare_variable, set_slot_part,
 	clobber_slot_part, delete_slot_part): Return the current slot.
 	Adjust all callers to use it.
