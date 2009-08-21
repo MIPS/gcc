@@ -1237,6 +1237,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
       /* Replace the uses we know to be dominated.  It saves work for copy
 	 propagation, and also it is necessary so that dependent invariants
 	 are computed right.  */
+      reg = repr->reg;
       if (inv->def)
         for (use = inv->def->uses; use; use = use->next)
 	  validate_change (use->insn, use->pos, reg, true);
@@ -1250,7 +1251,6 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	  goto fail;
 	}
 
-      reg = repr->reg;
       set = single_set (inv->insn);
       emit_insn_after (gen_move_insn (SET_DEST (set), reg), inv->insn);
       delete_insn (inv->insn);

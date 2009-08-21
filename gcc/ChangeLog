@@ -1,5 +1,9 @@
 2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
 
+	* loop-invariant.c (move_invariant_reg): Set reg before use.
+
+2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
 	* cfglayout.c (locator_file): If locations_locators_locs is zero,
 	return NULL.
 
