@@ -70,13 +70,7 @@ gimple_assign_rhs_to_tree (gimple stmt)
 		TREE_TYPE (gimple_assign_lhs (stmt)),
 		gimple_assign_rhs1 (stmt));
   else if (grhs_class == GIMPLE_SINGLE_RHS)
-    {
-      t = gimple_assign_rhs1 (stmt);
-      /* Avoid modifying this tree in place below.  */
-      if (gimple_has_location (stmt) && CAN_HAVE_LOCATION_P (t)
-	  && gimple_location (stmt) != EXPR_LOCATION (t))
-	t = copy_node (t);
-    }
+    t = gimple_assign_rhs1 (stmt);
   else
     gcc_unreachable ();
 
