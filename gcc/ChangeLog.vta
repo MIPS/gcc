@@ -1,3 +1,10 @@
+2009-08-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (unshare_variable, set_slot_part,
+	clobber_slot_part, delete_slot_part): Return the current slot.
+	Adjust all callers to use it.
+	(vt_emit_notes): Check value_chains if MAY_HAVE_DEBUG_INSNS.
+
 2009-08-20  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cfgexpand.c (gimple_assign_rhs_to_tree): Do not overwrite
