@@ -4123,12 +4123,6 @@ narrowing_initializer_constant_valid_p (tree value, tree endtype)
 	  || (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))
 	      > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
 	break;
-
-      /* Keep conversions between pointers to different address spaces.  */
-      if (MIXED_ADDR_SPACE_POINTER_TYPES_P (TREE_TYPE (op0),
-					    TREE_TYPE (inner)))
-	break;
-
       op0 = inner;
     }
 
@@ -4141,12 +4135,6 @@ narrowing_initializer_constant_valid_p (tree value, tree endtype)
 	  || (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op1)))
 	      > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
 	break;
-
-      /* Keep conversions between pointers to different address spaces.  */
-      if (MIXED_ADDR_SPACE_POINTER_TYPES_P (TREE_TYPE (op1),
-					    TREE_TYPE (inner)))
-	break;
-
       op1 = inner;
     }
 
@@ -4281,11 +4269,9 @@ initializer_constant_valid_p (tree value, tree endtype)
 	tree src_type = TREE_TYPE (src);
 	tree dest_type = TREE_TYPE (value);
 
-	/* Allow conversions between pointer types to the same address space,
-	   floating-point types, and offset types.  */
-	if ((POINTER_TYPE_P (dest_type) && POINTER_TYPE_P (src_type)
-	     && TYPE_ADDR_SPACE (TREE_TYPE (dest_type))
-		== TYPE_ADDR_SPACE (TREE_TYPE (src_type)))
+	/* Allow conversions between pointer types, floating-point
+	   types, and offset types.  */
+	if ((POINTER_TYPE_P (dest_type) && POINTER_TYPE_P (src_type))
 	    || (FLOAT_TYPE_P (dest_type) && FLOAT_TYPE_P (src_type))
 	    || (TREE_CODE (dest_type) == OFFSET_TYPE
 		&& TREE_CODE (src_type) == OFFSET_TYPE))

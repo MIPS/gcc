@@ -1063,14 +1063,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
 
-/* Nonzero if TYPE1 and TYPE2 are two pointer or reference types
-   to different address spaces.  */
-
-#define MIXED_ADDR_SPACE_POINTER_TYPES_P(TYPE1,TYPE2) \
-  (POINTER_TYPE_P (TYPE1) && POINTER_TYPE_P (TYPE2) \
-   && (TYPE_ADDR_SPACE (TREE_TYPE (TYPE1)) \
-       != TYPE_ADDR_SPACE (TREE_TYPE (TYPE2))))
-
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 

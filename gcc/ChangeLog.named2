@@ -147,6 +147,9 @@
 	(clear_storage_hints): Likewise.
 	(expand_assignment): Likewise.
 
+	* fold-const.c (operand_equal_p): Expressions refering to different
+	address spaces are not equivalent.
+
 	* rtl.c (rtx_equal_p_cb): MEMs refering to different address
 	spaces are not equivalent.
 	(rtx_equal_p): Likewise.
@@ -163,24 +166,16 @@
 	* dse.c (canon_address): Handle named address spaces.
 	* ifcvt.c (noce_try_cmove_arith): Likewise.
 
-	* convert.c (convert_to_pointer): Handle conversions between
-	pointers to different address spaces.
-	* expr.c (expand_expr_real_1): Likewise.
-	* builtins.c (get_memory_rtx): Preserve conversions between pointers
-	to different address spaces.
-	* fold-const.c (fold_convert_const): Likewise.
-	(operand_equal_p): Likewise.
-	(fold_unary_loc): Likewise.
-	* dojump.c (do_jump): Likewise.
-	* gimplify.c (gimplify_conversion): Likewise.
-	* tree.c (tree_nop_conversion): Likewise.
-	* tree-ssa-ifcombine (get_name_for_bit_test): Likewise.
-	(recognize_single_bit_test): Likewise.
-	* tree-ssa-ccp.c (ccp_fold): Likewise.
-	(fold_gimple_assign): Likewise.
-	* varasm.c (narrowing_initializer_constant_valid_p): Likewise.
-	(initializer_constant_valid_p): Likewise.
-	* tree.h (MIXED_ADDR_SPACE_POINTER_TYPES_P): New macro.
+	* tree.def (ADDR_SPACE_CONVERT_EXPR): New tree code.
+	* expr.c (expand_expr_real_1): Expand ADDR_SPACE_CONVERT_EXPR.
+	* convert.c (convert_to_pointer): Generate ADDR_SPACE_CONVERT_EXPR
+	to handle conversions between different address spaces.
+	* fold-const.c (fold_convert_loc): Likewise.
+	(fold_unary_loc): Handle ADDR_SPACE_CONVERT_EXPR.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* gimple-pretty-print.c (dump_unary_rhs): Likewise.
+	* tree-cfg.c (verify_gimple_assign_unary): Likewise.
+	* tree-inline.c (estimate_operator_cost): Likewise.
 
 
 [PATCH 2/5] Named address spaces: support multiple pointer modes

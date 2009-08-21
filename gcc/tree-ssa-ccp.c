@@ -1043,8 +1043,6 @@ ccp_fold (gimple stmt)
 	      if (CONVERT_EXPR_CODE_P (subcode)
 		  && POINTER_TYPE_P (TREE_TYPE (lhs))
 		  && POINTER_TYPE_P (TREE_TYPE (op0))
-		  && (TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (lhs)))
-		      == TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0))))
 		  /* Do not allow differences in volatile qualification
 		     as this might get us confused as to whether a
 		     propagation destination statement is volatile
@@ -2801,10 +2799,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 	  }
 	else if (CONVERT_EXPR_CODE_P (subcode)
 		 && POINTER_TYPE_P (gimple_expr_type (stmt))
-		 && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (stmt)))
-		 && (TYPE_ADDR_SPACE (TREE_TYPE (gimple_expr_type (stmt)))
-		     == TYPE_ADDR_SPACE
-			 (TREE_TYPE (TREE_TYPE (gimple_assign_rhs1 (stmt))))))
+		 && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (stmt))))
 	  {
 	    tree type = gimple_expr_type (stmt);
 	    tree t = maybe_fold_offset_to_address (loc,

@@ -1132,9 +1132,7 @@ get_memory_rtx (tree exp, tree len)
      If it is an ADDR_EXPR, use the operand.  Otherwise, dereference it if
      we can.  First remove any nops.  */
   while (CONVERT_EXPR_P (exp)
-	 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0)))
-	 && TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))))
-	    == 0)
+	 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0))))
     exp = TREE_OPERAND (exp, 0);
 
   off = 0;

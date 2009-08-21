@@ -3181,18 +3181,12 @@ pointer_diff (location_t loc, tree op0, tree op1)
      So first try to find a common term here 'by hand'; we want to cover
      at least the cases that occur in legal static initializers.  */
   if (CONVERT_EXPR_P (op0)
-      && (!POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (op0, 0)))
-          || TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0))) ==
-             TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 0)))))
       && (TYPE_PRECISION (TREE_TYPE (op0))
 	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))))
     con0 = TREE_OPERAND (op0, 0);
   else
     con0 = op0;
   if (CONVERT_EXPR_P (op1)
-      && (!POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (op1, 0)))
-          || TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op1))) ==
-             TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op1, 0)))))
       && (TYPE_PRECISION (TREE_TYPE (op1))
 	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op1, 0)))))
     con1 = TREE_OPERAND (op1, 0);

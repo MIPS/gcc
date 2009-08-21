@@ -874,10 +874,6 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
   if (POINTER_TYPE_P (inner_type)
       && POINTER_TYPE_P (outer_type))
     {
-      /* Do not lose casts between pointers to different address spaces.  */
-      if (MIXED_ADDR_SPACE_POINTER_TYPES_P (inner_type, outer_type))
-	return false;
-
       /* If the outer type is (void *) or a pointer to an incomplete
 	 record type, then the conversion is not necessary.  */
       if (VOID_TYPE_P (TREE_TYPE (outer_type))

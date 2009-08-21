@@ -9753,10 +9753,6 @@ tree_nop_conversion (const_tree exp)
   outer_type = TREE_TYPE (exp);
   inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
 
-  /* Keep conversions between pointers to different address spaces.  */
-  if (MIXED_ADDR_SPACE_POINTER_TYPES_P (outer_type, inner_type))
-    return false;
-
   /* Use precision rather then machine mode when we can, which gives
      the correct answer even for submode (bit-field) types.  */
   if ((INTEGRAL_TYPE_P (outer_type)

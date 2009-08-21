@@ -1,3 +1,34 @@
+2008-08-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* tree.def (ADDR_SPACE_CONVERT_EXPR): New tree code.
+	* expr.c (expand_expr_real_1): Expand ADDR_SPACE_CONVERT_EXPR.
+	Do not handle address space conversions under CONVERT_EXPR.
+	* convert.c (convert_to_pointer): Generate ADDR_SPACE_CONVERT_EXPR
+	to handle conversions between different address spaces.
+	* fold-const.c (fold_convert_loc): Likewise.
+	(fold_unary_loc): Handle ADDR_SPACE_CONVERT_EXPR.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* gimple-pretty-print.c (dump_unary_rhs): Likewise.
+	* tree-cfg.c (verify_gimple_assign_unary): Likewise.
+	* tree-inline.c (estimate_operator_cost): Likewise.
+
+	* tree.h (MIXED_ADDR_SPACE_POINTER_TYPES_P): Remove.
+	* fold-const.c (operand_equal_p): Inline it.
+	* tree.c (tree_nop_conversion): Revert local change.
+	* fold-const.c (fold_convert_const): Likewise.
+	(fold_unary_loc): Likewise.
+	* tree-ssa-ccp.c (ccp_fold): Likewise.
+	(fold_gimple_assign): Likewise.
+	* dojump.c (do_jump): Likewise.
+	* tree-ssa-ifcombine.c (get_name_for_bit_test): Likewise.
+	(recognize_single_bit_test): Likewise.
+	* c-typeck.c (pointer_diff): Likewise.
+	* gimplify.c (gimplify_conversion): Likewise.
+	* varasm.c (narrowing_initializer_constant_valid_p): Likewise.
+	(initializer_constant_valid_p): Likewise.
+	* tree-ssa.c (useless_type_conversion_p): Likewise.
+	* builtins.c (get_memory_rtx): Likewise.
+
 2008-08-20  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* doc/tm.texi (TARGET_ADDR_SPACE_CONVERT): Update documentation.

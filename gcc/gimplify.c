@@ -1808,8 +1808,6 @@ gimplify_conversion (tree *expr_p)
   if (CONVERT_EXPR_P (*expr_p)
       && POINTER_TYPE_P (TREE_TYPE (*expr_p))
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (*expr_p, 0)))
-      && TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (*expr_p)))
-	 == TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (*expr_p, 0))))
       && (tem = maybe_fold_offset_to_address
 	  (EXPR_LOCATION (*expr_p), TREE_OPERAND (*expr_p, 0),
 	   integer_zero_node, TREE_TYPE (*expr_p))) != NULL_TREE)
