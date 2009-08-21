@@ -7,44 +7,6 @@
 
 	* config/arc/mpost-demo: New directory.
 
-2009-08-10  J"orn Rennecke  <joern.rennecke@arc.com>
-
-	From unnamed Milepost contributer:
-	  * auto-vectorise-features-columns.h: New file.
-	  * auto-vectorise-override.c, auto-vectorise-override.h: Likewise.
-	  * auto-vectorise-features.c, auto-vectorise-features.h: Likewise.
-	  * toplev.c: Include auto-vectorise-override.h and
-	  auto-vectorise-features.h.
-	  (toplev_main): Call AutoVectorise_Override_setup and
-	  AutoVectorise_Features_setup before compilation, and
-	  AutoVectorise_Override_shutdown / AutoVectorise_Features_shutdown
-	  afterwards.
-	  * tree-vectorizer.c: Include auto-vectorise-override.h and
-	  auto-vectorise-features.h .
-	  (vectorize_loops): Print features, and take overrides into account.
-	  * Makefile.in (OBJS-common): Add auto-vectorise-features.o and
-	  auto-vectorise-override.o
-	  (auto-vectorise-override.o, auto-vectorise-features.o): New rules.
-	* Makefile.in ($(TA)toplev.o): Depend on auto-vectorise-override.h
-	and auto-vectorise-features.h.
-	(tree-vectorizer.o): Likewise.
-
-	* auto-vectorise-features.c: Re-indent.
-	(alloc_features, update_features): New functions.
-	(AutoVectorise_Features_print): New parameter features.
-	(AutoVectorise_Features_printHeader): Likewise.
-	* auto-vectorise-features-columns.h (vectorization_factor):
-	New ARRAY_COLUMN.
-	* auto-vectorise-features.h (alloc_features, update_features): Declare.
-	(UPDATE_FEATURE_VECTORIZATION_FACTOR): Define.
-	(AutoVectorise_Features_print): Update prototype.
-	* tree-vectorizer.c (vectorize_loops): Add each targets
-	vectorization factor to features.
-	Print message about override to dump file instead of to stdout.
-
-	* tree-vectorizer.c (vectorize_loops): If override requests unsuitable
-	target, don't vectorize.
-
 2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* toplev.c: Include pass-manager.h

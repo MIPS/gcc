@@ -1203,8 +1203,6 @@ OBJS-common = \
 	$(foreach TA,$(EXTRA_TARGETS),$(addprefix $(TA)/$(TA)-,$(OBJS-rtl) $($(TA)-out_object_file))) \
 	$(GGC) \
 	alloc-pool.o \
-	auto-vectorise-features.o \
-	auto-vectorise-override.o \
 	bitmap.o \
 	cfgloop.o \
 	cfgloopmanip.o \
@@ -2114,14 +2112,6 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 
 double-int.o: double-int.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 
-auto-vectorise-override.o: auto-vectorise-override.c \
-   auto-vectorise-override.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   $(TREE_H) $(INPUT_H) $(BASIC_BLOCK_H) $(TREE_INLINE_H) $(TREE_FLOW_H) \
-   tree-pass.h version.h opts.h params.h function.h
-auto-vectorise-features.o: auto-vectorise-features.c \
-   auto-vectorise-features.h auto-vectorise-features-columns.h $(CONFIG_H) \
-   $(SYSTEM_H)
-
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(TOPLEV_H) $(TREE_INLINE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) \
    langhooks.h $(TARGET_H) $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) $(DIAGNOSTIC_H) \
@@ -2457,7 +2447,7 @@ tree-vectorizer.o: tree-vectorizer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \
    $(TREE_PASS_H) $(EXPR_H) $(RECOG_H) $(TREE_VECTORIZER_H) $(TREE_DATA_REF_H) \
    $(SCEV_H) $(INPUT_H) $(TARGET_H) $(CFGLAYOUT_H) $(TOPLEV_H) tree-chrec.h \
-   langhooks.h auto-vectorise-override.h auto-vectorise-features.h
+   langhooks.h
 tree-loop-linear.o: tree-loop-linear.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) \
    $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \
@@ -2524,8 +2514,7 @@ $(TA)toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(CFGLOOP_H) hosthooks.h \
    $(CGRAPH_H) $(COVERAGE_H) alloc-pool.h $(GGC_H) $(INTEGRATE_H) \
    opts.h params.def tree-mudflap.h $(REAL_H) $(TREE_PASS_H) $(GIMPLE_H) \
-   highlev-plugin-internal.h pass-manager.h auto-vectorise-override.h \
-   auto-vectorise-features.h
+   highlev-plugin-internal.h pass-manager.h
 	$(CXXX) -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
 

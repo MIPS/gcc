@@ -149,9 +149,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "langhooks.h"
 
-#include "auto-vectorise-override.h"
-#include "auto-vectorise-features.h"
-
 /*************************************************************************
   General Vectorization Utilities
  *************************************************************************/
@@ -2766,8 +2763,6 @@ vectorize_loops (void)
 	loop_vec_info loop_vinfo = 0;
 	int best_factor = -1;
 	int target_arch, best_arch = -1;
-	int override_arch = -1;
-	features_d *features = alloc_features ();
 
 	vect_loop_location = find_loop_location (loop);
 	for (target_arch = -1; targetm_pnt = targetm_array[++target_arch]; )
@@ -2777,10 +2772,8 @@ vectorize_loops (void)
 	    loop_vinfo = vect_analyze_loop (loop);
 	    if (!loop_vinfo)
 	      continue;
-	    if (LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
-	      update_features (features, UPDATE_FEATURE_VECTORIZATION_FACTOR,
-			       target_arch,
-			       LOOP_VINFO_VECT_FACTOR (loop_vinfo));
+	    /* FIXME: insert some machine learning heuristic here to
+	       better compare the targets.  */
 	    if (LOOP_VINFO_VECTORIZABLE_P (loop_vinfo)
 		&& LOOP_VINFO_VECT_FACTOR (loop_vinfo) > best_factor)
 	      {
@@ -2788,19 +2781,6 @@ vectorize_loops (void)
 		best_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
 	      }
 	  }
-
-	/* Print features.  */
-	AutoVectorise_Features_print (loop, features);
-	/* Check to see if the user wants to override.  -2 means use the
-	   default heuristic.  -1 means don't override */
-	override_arch = AutoVectorise_Override_getTarget (loop);
-	if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
-	  {
-	    fprintf (vect_dump, "OVERRIDE %d\n", override_arch);
-	  }
-	if (override_arch != AUTOVECTORISE_OVERRIDE_DEFAULT)
-	  best_arch = override_arch;
-
 	if (best_arch >= 0 && target_arch != best_arch)
 	  {
 	    if (loop_vinfo)
@@ -2811,12 +2791,6 @@ vectorize_loops (void)
 	    targetm_pnt = targetm_array[best_arch];
 	    loop_vinfo = vect_analyze_loop (loop);
 	    target_arch = best_arch;
-	    if (override_arch >= 0 && !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
-	      {
-		if (vect_print_dump_info (REPORT_DETAILS))
-		  fprintf (vect_dump, "Override failed\n");
-		best_arch = -1;
-	      }
 	  }
 	targetm_pnt = targetm_array[cfun->target_arch];
 	loop->aux = loop_vinfo;
