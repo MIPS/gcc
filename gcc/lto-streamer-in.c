@@ -879,43 +879,66 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   gimple stmt;
   enum gimple_code code;
   unsigned HOST_WIDE_INT num_ops;
-  size_t i, nbytes;
-  char *buf;
-  location_t location;
-  tree block;
+  size_t i;
+  struct bitpack_d *bp;
 
   code = lto_tag_to_gimple_code (tag);
 
-  /* Read the number of operands in the statement.  */
-  num_ops = lto_input_uleb128 (ib);
+  /* Read the tuple header.  */
+  bp = lto_input_bitpack (ib);
+  num_ops = bp_unpack_value (bp, sizeof (unsigned) * 8);
+  stmt = gimple_alloc (code, num_ops);
+  stmt->gsbase.no_warning = bp_unpack_value (bp, 1);
+  if (is_gimple_assign (stmt))
+    stmt->gsbase.nontemporal_move = bp_unpack_value (bp, 1);
+  stmt->gsbase.has_volatile_ops = bp_unpack_value (bp, 1);
+  stmt->gsbase.subcode = bp_unpack_value (bp, 16);
+  bitpack_delete (bp);
 
   /* Read location information.  */
-  location = lto_input_location (ib, data_in);
+  gimple_set_location (stmt, lto_input_location (ib, data_in));
 
   /* Read lexical block reference.  */
-  block = lto_input_tree (ib, data_in);
-
-  /* Read the tuple header.  FIXME lto.  This seems unnecessarily slow
-     and it is reading pointers in the tuple that need to be re-built
-     locally (e.g, basic block, lexical block, operand vectors, etc).  */
-  nbytes = gimple_size (code);
-  stmt = gimple_alloc (code, num_ops);
-  buf = (char *) stmt;
-  for (i = 0; i < nbytes; i++)
-    buf[i] = lto_input_1_unsigned (ib);
+  gimple_set_block (stmt, lto_input_tree (ib, data_in));
 
   /* Read in all the operands.  */
-  if (code == GIMPLE_ASM)
+  switch (code)
     {
-      /* FIXME lto.  Move most of this into a new gimple_asm_set_string().  */
-      tree str = input_string_cst (data_in, ib);
-      stmt->gimple_asm.string = TREE_STRING_POINTER (str);
-    }
+    case GIMPLE_RESX:
+      gimple_resx_set_region (stmt, lto_input_uleb128 (ib));
+      break;
 
-  for (i = 0; i < num_ops; i++)
-    {
-      tree op = lto_input_tree (ib, data_in);
-      gimple_set_op (stmt, i, op);
+    case GIMPLE_ASM:
+      {
+	/* FIXME lto.  Move most of this into a new gimple_asm_set_string().  */
+	tree str;
+	stmt->gimple_asm.ni = lto_input_uleb128 (ib);
+	stmt->gimple_asm.no = lto_input_uleb128 (ib);
+	stmt->gimple_asm.nc = lto_input_uleb128 (ib);
+	str = input_string_cst (data_in, ib);
+	stmt->gimple_asm.string = TREE_STRING_POINTER (str);
+      }
+      /* Fallthru  */
+
+    case GIMPLE_ASSIGN:
+    case GIMPLE_CALL:
+    case GIMPLE_RETURN:
+    case GIMPLE_SWITCH:
+    case GIMPLE_LABEL:
+    case GIMPLE_COND:
+    case GIMPLE_GOTO:
+      for (i = 0; i < num_ops; i++)
+	{
+	  tree op = lto_input_tree (ib, data_in);
+	  gimple_set_op (stmt, i, op);
+	}
+      break;
+
+    case GIMPLE_PREDICT:
+      break;
+
+    default:
+      gcc_unreachable ();
     }
 
   /* Update the properties of symbols, SSA names and labels associated
@@ -941,28 +964,8 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	}
     }
 
-  /* Clear out invalid pointer values read above.  FIXME lto, this
-     should disappear after we fix the unnecessary fields that are
-     written for every tuple.  */
-  gimple_set_bb (stmt, NULL);
-  gimple_set_block (stmt, block);
-  if (gimple_has_ops (stmt))
-    {
-      gimple_set_def_ops (stmt, NULL);
-      gimple_set_use_ops (stmt, NULL);
-    }
-
-  if (gimple_has_mem_ops (stmt))
-    {
-      gimple_set_vdef (stmt, NULL);
-      gimple_set_vuse (stmt, NULL);
-    }
-
   /* Mark the statement modified so its operand vectors can be filled in.  */
   gimple_set_modified (stmt, true);
-
-  /* Set location information for STMT.  */
-  gimple_set_location (stmt, location);
 
   return stmt;
 }

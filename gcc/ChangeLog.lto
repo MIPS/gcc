@@ -1,5 +1,14 @@
 2009-08-24  Richard Guenther  <rguenther@suse.de>
 
+	PR lto/41079
+	* lto-streamer-out.c (output_gimple_stmt): Only stream needed
+	fields.  Do not stream pointer garbage.
+	* lto-streamer-in.c (output_gimple_stmt): Adjust accordingly.
+	Structure like output_gimple_stmt.  Do not needlessly zero
+	fields.
+
+2009-08-24  Richard Guenther  <rguenther@suse.de>
+
 	Mainline merge @151053.
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.

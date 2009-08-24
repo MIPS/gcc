@@ -1743,14 +1743,23 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   unsigned i;
   enum gimple_code code;
   enum LTO_tags tag;
+  struct bitpack_d *bp;
 
   /* Emit identifying tag.  */
   code = gimple_code (stmt);
   tag = lto_gimple_code_to_tag (code);
   output_record_start (ob, tag);
 
-  /* Emit the number of operands in the statement.  */
-  lto_output_uleb128_stream (ob->main_stream, gimple_num_ops (stmt));
+  /* Emit the tuple header.  */
+  bp = bitpack_create ();
+  bp_pack_value (bp, gimple_num_ops (stmt), sizeof (unsigned) * 8);
+  bp_pack_value (bp, gimple_no_warning_p (stmt), 1);
+  if (is_gimple_assign (stmt))
+    bp_pack_value (bp, gimple_assign_nontemporal_move_p (stmt), 1);
+  bp_pack_value (bp, gimple_has_volatile_ops (stmt), 1);
+  bp_pack_value (bp, stmt->gsbase.subcode, 16);
+  lto_output_bitpack (ob->main_stream, bp);
+  bitpack_delete (bp);
 
   /* Emit location information for the statement.  */
   lto_output_location (ob, gimple_location (stmt));
@@ -1758,15 +1767,17 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   /* Emit the lexical block holding STMT.  */
   lto_output_tree (ob, gimple_block (stmt), true);
 
-  /* Emit the tuple header.  FIXME lto.  This is emitting fields that are not
-     necessary to emit (e.g., gimple_statement_base.bb,
-     gimple_statement_base.block).  */
-  lto_output_data_stream (ob->main_stream, stmt, gimple_size (code));
-
   /* Emit the operands.  */
   switch (gimple_code (stmt))
     {
+    case GIMPLE_RESX:
+      lto_output_uleb128_stream (ob->main_stream, gimple_resx_region (stmt));
+      break;
+
     case GIMPLE_ASM:
+      lto_output_uleb128_stream (ob->main_stream, gimple_asm_ninputs (stmt));
+      lto_output_uleb128_stream (ob->main_stream, gimple_asm_noutputs (stmt));
+      lto_output_uleb128_stream (ob->main_stream, gimple_asm_nclobbers (stmt));
       output_string (ob, ob->main_stream, gimple_asm_string (stmt));
       /* Fallthru  */
 
@@ -1777,13 +1788,14 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
     case GIMPLE_LABEL:
     case GIMPLE_COND:
     case GIMPLE_GOTO:
-    case GIMPLE_PREDICT:
-    case GIMPLE_RESX:
       for (i = 0; i < gimple_num_ops (stmt); i++)
 	{
 	  tree op = gimple_op (stmt, i);
 	  lto_output_tree_ref (ob, op);
 	}
+      break;
+
+    case GIMPLE_PREDICT:
       break;
 
     default:
