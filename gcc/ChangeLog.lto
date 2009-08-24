@@ -1,3 +1,10 @@
+2009-08-24  Richard Guenther  <rguenther@suse.de>
+
+	Mainline merge @151053.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-08-20  Richard Guenther  <rguenther@suse.de>
 
 	* lto-streamer-out.c (lto_output_tree_header): Wrap streamer

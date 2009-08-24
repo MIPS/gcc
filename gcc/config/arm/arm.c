@@ -3696,7 +3696,7 @@ aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
 
 static bool
 aapcs_vfp_is_call_or_return_candidate (enum machine_mode mode, const_tree type,
-				       int *base_mode,
+				       enum machine_mode *base_mode,
 				       int *count)
 {
   if (GET_MODE_CLASS (mode) == MODE_FLOAT
@@ -3733,7 +3733,7 @@ aapcs_vfp_is_return_candidate (enum arm_pcs pcs_variant,
 			       enum machine_mode mode, const_tree type)
 {
   int count ATTRIBUTE_UNUSED;
-  int ag_mode ATTRIBUTE_UNUSED;
+  enum machine_mode ag_mode ATTRIBUTE_UNUSED;
 
   if (!(pcs_variant == ARM_PCS_AAPCS_VFP
 	|| (pcs_variant == ARM_PCS_AAPCS_LOCAL
@@ -3818,7 +3818,7 @@ aapcs_vfp_allocate_return_reg (enum arm_pcs pcs_variant ATTRIBUTE_UNUSED,
   if (mode == BLKmode || (mode == TImode && !TARGET_NEON))
     {
       int count;
-      int ag_mode;
+      enum machine_mode ag_mode;
       int i;
       rtx par;
       int shift;
@@ -9504,7 +9504,8 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 
   /* A compare with a shifted operand.  Because of canonicalization, the
      comparison will have to be swapped when we emit the assembler.  */
-  if (GET_MODE (y) == SImode && GET_CODE (y) == REG
+  if (GET_MODE (y) == SImode 
+      && (REG_P (y) || (GET_CODE (y) == SUBREG))
       && (GET_CODE (x) == ASHIFT || GET_CODE (x) == ASHIFTRT
 	  || GET_CODE (x) == LSHIFTRT || GET_CODE (x) == ROTATE
 	  || GET_CODE (x) == ROTATERT))
@@ -9512,7 +9513,8 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 
   /* This operation is performed swapped, but since we only rely on the Z
      flag we don't need an additional mode.  */
-  if (GET_MODE (y) == SImode && REG_P (y)
+  if (GET_MODE (y) == SImode 
+      && (REG_P (y) || (GET_CODE (y) == SUBREG))
       && GET_CODE (x) == NEG
       && (op ==	EQ || op == NE))
     return CC_Zmode;
@@ -11558,14 +11560,23 @@ output_mov_long_double_arm_from_arm (rtx *operands)
   return "";
 }
 
-
-/* Emit a MOVW/MOVT pair.  */
-void arm_emit_movpair (rtx dest, rtx src)
-{
-  emit_set_insn (dest, gen_rtx_HIGH (SImode, src));
-  emit_set_insn (dest, gen_rtx_LO_SUM (SImode, dest, src));
-}
-
+void
+arm_emit_movpair (rtx dest, rtx src)
+ {
+  /* If the src is an immediate, simplify it.  */
+  if (CONST_INT_P (src))
+    {
+      HOST_WIDE_INT val = INTVAL (src);
+      emit_set_insn (dest, GEN_INT (val & 0x0000ffff));
+      if ((val >> 16) & 0x0000ffff)
+        emit_set_insn (gen_rtx_ZERO_EXTRACT (SImode, dest, GEN_INT (16),
+                                             GEN_INT (16)),
+                       GEN_INT ((val >> 16) & 0x0000ffff));
+      return;
+    }
+   emit_set_insn (dest, gen_rtx_HIGH (SImode, src));
+   emit_set_insn (dest, gen_rtx_LO_SUM (SImode, dest, src));
+ }
 
 /* Output a move from arm registers to an fpa registers.
    OPERANDS[0] is an fpa register.
@@ -12878,18 +12889,28 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 	      gcc_assert (stack_adjust == 0 || stack_adjust == 4);
 
 	      if (stack_adjust && arm_arch5 && TARGET_ARM)
-		sprintf (instr, "ldm%sib\t%%|sp, {", conditional);
+		if (TARGET_UNIFIED_ASM)
+		  sprintf (instr, "ldmib%s\t%%|sp, {", conditional);
+		else
+		  sprintf (instr, "ldm%sib\t%%|sp, {", conditional);
 	      else
 		{
 		  /* If we can't use ldmib (SA110 bug),
 		     then try to pop r3 instead.  */
 		  if (stack_adjust)
 		    live_regs_mask |= 1 << 3;
-		  sprintf (instr, "ldm%sfd\t%%|sp, {", conditional);
+		  
+		  if (TARGET_UNIFIED_ASM)
+		    sprintf (instr, "ldmfd%s\t%%|sp, {", conditional);
+		  else
+		    sprintf (instr, "ldm%sfd\t%%|sp, {", conditional);
 		}
 	    }
 	  else
-	    sprintf (instr, "ldm%sfd\t%%|sp!, {", conditional);
+	    if (TARGET_UNIFIED_ASM)
+	      sprintf (instr, "pop%s\t{", conditional);
+	    else
+	      sprintf (instr, "ldm%sfd\t%%|sp!, {", conditional);
 
 	  p = instr + strlen (instr);
 

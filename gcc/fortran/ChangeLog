@@ -1,3 +1,138 @@
+2009-08-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35754
+	* io.c (check_format): Add checks for comma and the allowed
+	format specifiers after the 'P' specifier. Fix typo in error message
+	and adjust locus.
+
+2009-08-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/37446
+	* io.c (enum format_token): Change FMT_EXT to FMT_EN and FMT_ES.
+	(format_lex): Likewise.
+	(token_to_string): New function.
+	(check_format): Use the new tokens and the new function. Add
+	check for positive width.
+
+2009-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* fortran/decl.c: Disallow procedure pointers with -std=f95.
+
+2009-08-22 Steven K. kargl  <kargl@gcc.gnu.org>
+	   Paul Thomas  <pault@gcc.gnu.org>
+
+	* fortran/decl.c (match_char_spec): Rename to gfc_match_char_spec,
+	and remove static.
+	* fortran/gfortran.h: Add *expr3 entity to gfc_code.  Add prototype
+	for gfc_match_char_spec.
+	* fortran/trans-stmt.c (gfc_trans_allocate): Translate the SOURCE=
+	tag.
+	* fortran/match.c (match_intrinsic_typespec): New function to match
+	F2003 intrinsic-type-spec.
+	(conformable_arrays): New function. Check SOURCE= and
+	allocation-object are conformable.
+	(gfc_match_allocate): Use new functions.  Match SOURCE= tag.
+
+2009-08-22	Bud Davis <bdavis9659@sbcglobal.net>
+
+	PR fortran/28093
+	* io.c : added variable to store original len of fmt
+	* io.c (check_format): Consume H items using next_char
+	in both modes to handle consecutive single quotes.
+	Test for extra characters in fmt, issue warning.
+
+2009-08-21  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41106
+	* primary.c (gfc_variable_attr): Make it work also on EXPR_FUNCTION.
+	(gfc_expr_attr): Use gfc_variable_attr for procedure pointer components.
+	* resolve.c (resolve_fl_derived): Handle CHARACTER-valued procedure
+	pointer components.
+	* trans-expr.c (gfc_conv_component_ref): Ditto.
+	(gfc_conv_variable): Ditto.
+	(gfc_conv_procedure_call): Ditto.
+	(gfc_trans_pointer_assignment): Ditto.
+	* trans-types.c (gfc_get_derived_type): Ditto.
+
+2009-08-20  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* trans-stmt.c (gfc_trans_do): Add a few missing folds.
+
+2009-08-20  Michael Matz  <matz@suse.de>
+
+	PR fortran/41126
+	* trans-expr.c (gfc_conv_string_tmp): Check type compatibility
+	instead of equality.
+
+2009-08-20  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41121
+	* resolve.c (resolve_symbol): Don't resolve formal_ns of intrinsic
+	procedures.
+
+2009-08-18  Michael Matz  <matz@suse.de>
+
+	* trans-expr.c (gfc_conv_substring): Don't evaluate casted decl early,
+	change order of length calculation to (end - start) + 1.
+	(gfc_get_interface_mapping_array): Adjust call to
+	gfc_get_nodesc_array_type.
+	* trans-array.c (gfc_trans_create_temp_array,
+	gfc_build_constant_array_constructor, gfc_conv_expr_descriptor): Ditto.
+	* trans-stmt.c (gfc_trans_pointer_assign_need_temp): Ditto.
+	* trans.c (gfc_add_modify): Assignment between base type and nontarget
+	type are equal enough.
+	(gfc_call_malloc): Use prvoid_type_node for return value of
+	__builtin_malloc.
+	(gfc_allocate_with_status): Ditto.
+	* trans-types.c (gfc_array_descriptor_base): Double size of this array.
+	(gfc_init_types): Build prvoid_type_node.
+	(gfc_build_array_type): New bool parameter "restricted".
+	(gfc_get_nodesc_array_type): Ditto, build restrict qualified pointers,
+	if it's true.
+	(gfc_get_array_descriptor_base): Ditto.
+	(gfc_get_array_type_bounds): Ditto.
+	(gfc_sym_type): Use symbol attributes to feed calls to above functions.
+	(gfc_get_derived_type): Ditto.
+	* trans.h (struct lang_type): Add nontarget_type member.
+	* trans-types.h (prvoid_type_node): Declare.
+	(gfc_get_array_type_bounds, gfc_get_nodesc_array_type): Declare new
+	parameter.
+	* trans-decl.c (gfc_finish_var_decl): Give scalars that can't be
+	aliased a type with a different alias set than the base type.
+	(gfc_build_dummy_array_decl): Adjust call to gfc_get_nodesc_array_type.
+
+2009-08-18  Janus Weil  <janus@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/40870
+	* trans-types.c (gfc_get_ppc_type): Include formal args in backend_decl
+	using the interface symbol. Character types are returned by reference.
+	(gfc_get_derived_type): Prevent infinite recursion loop
+	if a PPC has a derived-type formal arg.
+
+2008-08-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41062
+	* trans-decl.c (gfc_trans_use_stmts):  Keep going through use
+	list if symbol is not use associated.
+
+2009-08-17  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/37425
+	* resolve.c (get_checked_tb_operator_target): New routine to do checks
+	on type-bound operators in common between intrinsic and user operators.
+	(resolve_typebound_intrinsic_op): Call it.
+	(resolve_typebound_user_op): Ditto.
+
+2009-08-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/41075
+	* scanner.c (gfc_next_char_literal): Add comment to improve 
+	readability.
+	* io.c (enum format_token): Add FMT_STAR. (format_lex): Add case
+	for '*'. (check_format): Check for left paren after '*'.  Change
+	format checks to use %L to improve format string error locus.
+
 2009-08-17  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/40877

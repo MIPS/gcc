@@ -2198,7 +2198,7 @@ rs6000_override_options (const char *default_cpu)
   };
 
   /* Set the pointer size.  */
-  if (TARGET_POWERPC64)
+  if (TARGET_64BIT)
     {
       rs6000_pmode = (int)DImode;
       rs6000_pointer_size = 64;
@@ -4857,6 +4857,8 @@ static rtx
 rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 			   enum machine_mode mode)
 {
+  unsigned int extra = 0;
+
   if (!reg_offset_addressing_ok_p (mode))
     {
       if (virtual_stack_registers_memory_p (x))
@@ -4881,10 +4883,33 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       if (model != 0)
 	return rs6000_legitimize_tls_address (x, model);
     }
+
+  switch (mode)
+    {
+    case DFmode:
+    case DDmode:
+      extra = 4;
+      break;
+    case DImode:
+      if (!TARGET_POWERPC64)
+	extra = 4;
+      break;
+    case TFmode:
+    case TDmode:
+      extra = 12;
+      break;
+    case TImode:
+      extra = TARGET_POWERPC64 ? 8 : 12;
+      break;
+    default:
+      break;
+    }
+
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == REG
       && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && (unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1)) + 0x8000) >= 0x10000
+      && ((unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1)) + 0x8000)
+	  >= 0x10000 - extra)
       && !((TARGET_POWERPC64
 	    && (mode == DImode || mode == TImode)
 	    && (INTVAL (XEXP (x, 1)) & 3) != 0)
@@ -4896,10 +4921,12 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       HOST_WIDE_INT high_int, low_int;
       rtx sum;
       low_int = ((INTVAL (XEXP (x, 1)) & 0xffff) ^ 0x8000) - 0x8000;
+      if (low_int >= 0x8000 - extra)
+	low_int = 0;
       high_int = INTVAL (XEXP (x, 1)) - low_int;
       sum = force_operand (gen_rtx_PLUS (Pmode, XEXP (x, 0),
 					 GEN_INT (high_int)), 0);
-      return gen_rtx_PLUS (Pmode, sum, GEN_INT (low_int));
+      return plus_constant (sum, low_int);
     }
   else if (GET_CODE (x) == PLUS
 	   && GET_CODE (XEXP (x, 0)) == REG
@@ -10967,7 +10994,7 @@ rs6000_init_builtins (void)
     {
       tdecl = build_decl (BUILTINS_LOCATION,
 			  TYPE_DECL, get_identifier ("__vector double"),
-			  unsigned_V2DI_type_node);
+			  V2DF_type_node);
       TYPE_NAME (V2DF_type_node) = tdecl;
       (*lang_hooks.decls.pushdecl) (tdecl);
 
@@ -20090,7 +20117,6 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
-  free_after_compilation (cfun);
 
   reload_completed = 0;
   epilogue_completed = 0;
@@ -22801,7 +22827,15 @@ rs6000_handle_altivec_attribute (tree *node,
   mode = TYPE_MODE (type);
 
   /* Check for invalid AltiVec type qualifiers.  */
-  if (!TARGET_VSX)
+  if (type == long_double_type_node)
+    error ("use of %<long double%> in AltiVec types is invalid");
+  else if (type == boolean_type_node)
+    error ("use of boolean types in AltiVec types is invalid");
+  else if (TREE_CODE (type) == COMPLEX_TYPE)
+    error ("use of %<complex%> in AltiVec types is invalid");
+  else if (DECIMAL_FLOAT_MODE_P (mode))
+    error ("use of decimal floating point types in AltiVec types is invalid");
+  else if (!TARGET_VSX)
     {
       if (type == long_unsigned_type_node || type == long_integer_type_node)
 	{
@@ -22819,14 +22853,6 @@ rs6000_handle_altivec_attribute (tree *node,
       else if (type == double_type_node)
 	error ("use of %<double%> in AltiVec types is invalid without -mvsx");
     }
-  else if (type == long_double_type_node)
-    error ("use of %<long double%> in AltiVec types is invalid");
-  else if (type == boolean_type_node)
-    error ("use of boolean types in AltiVec types is invalid");
-  else if (TREE_CODE (type) == COMPLEX_TYPE)
-    error ("use of %<complex%> in AltiVec types is invalid");
-  else if (DECIMAL_FLOAT_MODE_P (mode))
-    error ("use of decimal floating point types in AltiVec types is invalid");
 
   switch (altivec_type)
     {

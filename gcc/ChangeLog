@@ -1,7 +1,302 @@
+2009-08-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+       * config/arm/arm.c (output_return_instruction): Handle for
+       unified syntax.
+
+2009-08-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+       * config/arm/arm.c (arm_select_cc_mode): Handle subreg.
+
+2009-08-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+        * config/arm/vfp.md (*arm_movdi_vfp): Mark as predicable.
+        (*arm_movdf_vfp): Likewise.
+
+2009-08-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+       * config/arm/neon.md (vashl<mode>3): Rename from ashl<mode>3.
+       (vashr<mode>3): Rename from ashr<mode>3.
+       (vlshr<mode>3): Rename from lshr<mode>3.
+
+2009-08-24  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/40786
+	* c-format.c (format_wanted_type):  Add new member scalar_identity_flag.
+	(check_format_info_main): Use scalar_identify_flag.
+	(check_format_types): Check for scalar size identity if
+	scalar_identify_flag is set.
+	(printf_length_specs): Extend by new field.
+	(asm_fprintf_length_specs): Likewise.
+	(gcc_diag_length_specs): Likewise.
+	(scanf_length_specs): Likewise.
+	(strfmon_length_specs): Likewise.
+	(gcc_gfc_length_specs): Likewise.
+	* config/i386/msformat-c.c (ms_printf_length_specs): Likewise.
+	(ms_printf_flag_specs): Likewise.
+	* c-format.h (format_length_info): Add new member scalar_identity_flag.
+
+2009-08-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/40718
+	* config/i386/i386.c (*call_pop_1): Disable for sibling calls.
+	(*call_value_pop_1): Ditto.
+	(*sibcall_pop_1): New insn pattern.
+	(*sibcall_value_pop_1): Ditto.
+
+2009-08-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/41081
+	* config/rs6000/rs6000.md (rotlsi3_64, ashlsi3_64, lshrsi3_64,
+	ashrsi3_64): New.
+
+2009-08-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/41081
+	* fwprop.c (try_fwprop_subst): Allow multiple sets.
+	(get_reg_use_in): New function.
+	(forward_propagate_subreg): Propagate through subreg of zero_extend
+	or sign_extend.
+
+2009-08-22  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/t-sh (TARGET_LIBGCC2_CFLAGS): Define.
+	* config/sh/t-netbsd (TARGET_LIBGCC2_CFLAGS): Add -mieee.
+
+2009-08-22  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure.ac: Remove --with-datarootdir, --with-docdir,
+	--with-htmldir switches.  No need to call AC_SUBST for
+	datarootdir, docdir, htmldir any more.
+	* configure: Regenerate.
+	* doc/install.texi (Configuration): Document --datarootdir,
+	--docdir, --htmldir, --pdfdir; update documentation for
+	--infodir, --mandir.
+	(Prerequisites): Bump Autoconf version to 2.64, Automake to
+	1.11, M4 to 1.4.6.
+
+	* aclocal.m4: Regenerate.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+
+2009-08-21  Douglas B Rupp  <rupp@gnat.com>
+	    Olivier Hainque  <hainque@adacore.com>
+
+	* config/ia64/ia64.c: Include libfuncs.h.
+	(TARGET_PROMOTE_FUNCITON_MODE): Define target macro.
+	(ia64_expand_call): Use reg 25 on VMS.
+	(ia64_initialize_trampoline): Fix for VMS ABI.
+	(ia64_function_arg_offset): Always returns 0 when TARGET_ABI_OPEN_VMS.
+	(ia64_function_arg): Initialize reg 25 on VMS.
+	Fix OpenVMS ABI issues for varargs.
+	For OpenVMS, emit the Argument Information register set in the
+	incoming/sibcall case as well.
+	(ia64_arg_type): New function.
+	(ia64_function_arg_advance): Keep track of cum->words.
+	Fix OpenVMS ABI issues for varargs.
+	(ia64_function_value): On VMS, promote mode of non-aggregate types.
+	(ia64_override_options): Set flag_no_common on VMS.
+	(ia64_init_builtins): Disable FWRITE builtin.
+	(ia64_asm_output_external): Call DO_CRTL_NAMES.
+	(ia64_vms_init_libfuncs): Add decc$ routines.
+	(ia64_vms_valid_pointer_mode): New function.
+	(ia64_struct_value_rtx): Allways NULL_RTX on VMS.
+	(ia64_promote_function_mode): New function
+	* config/ia64/ia64.h (TARGET_ABI_OPEN_VMS): Define as 0 for default.
+	(LONG_DOUBLE_TYPE_SIZE): Force to 64 on VMS.
+	(LIBCGC2_LONG_DOUBLE_TYPE_SIZE): Likewise.
+	(INIT_CUMULATIVE_ARGS): Add atypes for VMS.
+	(INIT_CUMULATIVE_INCOMING_ARGS): Likewise.
+	(ASM_OUTPUT_DEF): Use ISDIGIT instead of isdigit.
+	Suppress trailing '#' if VALUE is numeric.
+	* config/ia64/vms.h (PROMOTE_FUNCTION_MODE): Remove, code moved to
+	ia64_promote_function_mode.
+	(TARGET_VALID_POINTER_MODE): Define.
+
+2009-08-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/40671
+	* config/rs6000/rs6000.c (rs6000_override_options): Use
+	TARGET_64BIT instead of TARGET_POWERPC64 to set the size of pointers.
+
+	PR target/41145
+	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute): Fix
+	reporting of vector + decimal/boolean/complex error.
+
+2009-08-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Fix type of
+	__vector double TYPE_DECL.
+
+2009-08-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (MACHMODE): New define.  Include insn-modes.h if available.
+	(CUMULATIVE_ARGS): Use MACHMODE for declaration of aapcs_vfp_mode.
+	* arm.c (aapcs_vfp_is_call_or_return_candidate): Change base_mode
+	to pointer to enum machine_mode.  Update all callers as needed.
+
+2009-08-21 Uros Bizjak <ubizjak@gmail.com>
+
+	* config/alpha/alpha.md (exception_receiver): Emit alternative
+	GP load sequence if flag_reorder_blocks_and_partition is set.
+	(*exception_receiver_2): Also enable when
+	flag_reorder_blocks_and_partition is set.
+
+2009-08-20  Matt Rice  <ratmice@gmail.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.in (PLUGIN_HEADERS): Include incpath.h and
+	tree-ssa-sccvn.h.
+
+2009-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* c-objc-common.h (LANG_HOOKS_DUP_LANG_SPECIFIC_DECL): Do not define.
+	* c-tree.h (c_dup_lang_specific_decl): Remove.
+	(struct lang_decl, struct lang_type): Move definitions ...
+	* c-lang.h: ... here.  New file.
+	* c-decl.c: Include c-lang.h.
+	(c_dup_lang_specific_decl): Remove.
+	* c-typeck.c: Include c-lang.h.
+	* Makefile.in (c-decl.o): Add c-lang.h dependency.
+	(c-typeck.o): Likewise.
+	* c-config-lang.in (gtfiles): Add c-lang.h.
+	* gengtype.c (get_output_file_with_visibility): Handle c-lang.h
+	like c-tree.h.
+
+2009-08-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_end_function): Do not clear
+	crtl->emit structure and free insn locators if cfun->is_thunk is true,
+	this is now handled in generic code.
+
+2009-08-20  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (Z10_PREDICT_DISTANCE): New macro.
+	(s390_z10_fix_long_loop_prediction): New function.
+	(s390_z10_optimize_cmp): INSN walk moved to callee - s390_reorg.
+	(s390_reorg): Walk over the INSNs and invoke
+	s390_z10_fix_long_loop_prediction and s390_z10_optimize_cmp.
+
+2009-08-20  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md ("*brx_stage1_<GPR:mode>", "*brxg_64bit",
+	"*brx_64bit", "*brx_31bit"): New patterns.
+	* config/s390/s390.c ('E'): New output modifier.
+
+2009-08-20  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* config/arm/arm.c (arm_emit_movpair): Handle CONST_INT.
+	* config/arm/arm.md (*arm_movtas_ze): New pattern for movt.
+
+2009-08-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md (reload_inhi, reload_outhi, reload_inqi, reload_outqi): New
+	patterns.
+	* pa.c (emit_move_sequence): Check if address of operand1 is valid
+	for mode mode of operand0 when doing secondary reload for SAR.
+
+2009-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/41123
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Handle all kinds
+	of CONCAT, not just bitpos 0 bitsize size of the whole CONCAT.
+
+2009-08-19  Jason Merrill  <jason@redhat.com>
+
+	* doc/invoke.texi (C++ Dialect Options): Note change of minimum
+	supported template depth in C++0x.
+
+2009-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_output_mi_thunk): Don't call
+	free_after_compilation.
+	* config/score/score7.c (score7_output_mi_thunk): Likewise.
+	* config/score/score3.c (score3_output_mi_thunk): Likewise.
+	* config/ia64/ia64.c (ia64_output_mi_thunk): Likewise.
+	* config/mips/mips.c (mips_output_mi_thunk): Likewise.
+	* config/sh/sh.c (sh_output_mi_thunk): Likewise.
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Likewise.
+	* config/sparc/sparc.c (sparc_output_mi_thunk): Likewise.
+
+2009-08-19  Ian Lance Taylor  <iant@google.com>
+
+	* doc/md.texi (Insn Canonicalizations): Correct canonicalization
+	of (plus (mult (neg B) C) A).
+
+2009-08-18  Michael Matz  <matz@suse.de>
+
+	* omp-low.c (optimize_omp_library_calls): Use types_compatible_p
+	instead of comparing TYPE_MAIN_VARIANT for equality.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern,
+	vect_recog_widen_mult_pattern, vect_recog_widen_sum_pattern): Ditto.
+	* tree-vect-loop.c (vect_is_simple_reduction): Ditto.
+	* gimplify.c (goa_lhs_expr_p): Ditto and use
+	STRIP_USELESS_TYPE_CONVERSION.
+
+2009-08-18  Michael Matz  <matz@suse.de>
+
+	* tree-ssa-structalias.c (create_variable_info_for): Also mark
+	first field in a struct.
+	(intra_create_variable_infos): Don't deal with flag_argument_noalias.
+
+2009-08-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_output_mi_thunk_osf): Allocate insn
+	locators before emit_insn is called.  Remove assert that
+	cfun->is_thunk.
+	(alpha_end_function): Clear crtl->emit structure and free insn
+	locators if cfun->is_thunk is true.
+
+2009-08-18  Jason Merrill  <jason@redhat.com>
+
+	* config/elfos.h (ASM_DECLARE_OBJECT_NAME): Use gnu_unique_object
+	type if available.
+	* configure.ac: Test for it.
+	* configure, config.in: Regenerate.
+	* doc/install.texi: Document --enable-gnu-unique-object.
+
+2009-08-18  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41094
+	* builtins.c (fold_builtin_pow): Fold pow(pow(x,y),z) to
+	pow(x,y*z) only if x is nonnegative.
+
+2009-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* bb-reorder.c (fix_up_fall_thru_edges): Only call invert_jump
+	on jumps.
+
+	PR target/40971
+	* config/rs6000/rs6000.c (rs6000_legitimize_address): For
+	[DT][FDI]mode ensure the offset isn't 4/8/12 bytes below 0x8000.
+
+2009-08-17  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.md (UNS_FSETB, UNS_FREIT): New.
+	* config/m32c/prologue.md (epilogue_freit): New.
+	(fset_b): New.
+	* config/m32c/m32c.c (m32c_function_needs_enter): Add prototype.
+	(bank_switch_p): Likewise.
+	(fast_interrupt_p): Likewise.
+	(interrupt_p): Likewise.
+	(m32c_conditional_register_usage): Round memregs size up.
+	(need_to_save): We only need to save $a0 when we use ENTER.
+	(interrupt_p): Check for fast_interrupt too.
+	(bank_switch_p): New.
+	(fast_interrupt_p): New.
+	(m32c_attribute_table): Add bank_switch and fast_interrupt.
+	(m32c_emit_prolog): Support bank switching and fast interrupts.
+	* doc/extend.texi (Function Attributes): Add bank_switch and
+	fast_interrupt.
+
+2009-08-17  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (vms_valid_pointer_mode): New function.
+	* config/alpha/vms.h (TARGET_VALID_POINTER_MODE): Define.
+
 2009-08-16  Douglas B Rupp  <rupp@gnat.com>
 
-	* doc/invoke.texi (Target options):
-	Add new option list for IA-64/VMS.
+	* doc/invoke.texi (Target options): Add new option list for IA-64/VMS.
 	(menu): Add IA-64/VMS Options.
 	(IA-64/VMS Options): Likewise.
 
@@ -84,15 +379,12 @@
 
 	* doc/extend.texi (Symbol-Renaming Pragmas): redefine_extname is
 	supported on all platforms.
-	* target.h (struct gcc_target): Remove
-	handle_pragma_redefine_extname.
-	* c-cppbuiltin.c: Remove use of
-	targetm.handle_pragma_redefine_extname.
+	* target.h (struct gcc_target): Remove handle_pragma_redefine_extname.
+	* c-cppbuiltin.c: Remove use of targetm.handle_pragma_redefine_extname.
 	* c-pragma.c: Likewise.
 	* target-def.h (TARGET_INITIALIZER): Remove
 	TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME.
-	* config/sol2.h: Remove use of
-	TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME.
+	* config/sol2.h: Remove use of TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME.
 
 2009-08-14  Douglas B Rupp  <rupp@gnat.com>
 
@@ -147,8 +439,8 @@
 2009-08-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	PR middle-end/30789
-	* builtins.c (do_mpc_arg2): Make extern, define for any MPC
-	version.  Move declaration...
+	* builtins.c (do_mpc_arg2): Make extern, define for any MPC version.
+	Move declaration...
 	* real.h (do_mpc_arg2): ... here.
 	* fold-const.c (const_binop): Use MPC for complex MULT_EXPR
 	and RDIV_EXPR.
@@ -275,7 +567,7 @@
 	* config/mmix/mmix.c (mmix_promote_function_mode): Likewise.
 	* config/pa/pa.c (pa_promote_function_mode): Likewise.
 
-2009-08-11  Andrew Haley  <aph@redhat.com>
+2009-08-12  Andrew Haley  <aph@redhat.com>
 
 	* config/arm/arm.c (arm_init_libfuncs): Add __sync_synchronize.
 
@@ -12089,7 +12381,7 @@
 	(output_init_element): Issue -Wc++-compat warning if needed when
 	initializing a bitfield with enum type.
 	* c-parser.c (c_parser_expression): Set original_type to
-	original_type of right hand operand of comman operator.
+	original_type of right hand operand of comma operator.
 
 2009-04-27  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
