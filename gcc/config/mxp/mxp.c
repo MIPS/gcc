@@ -422,8 +422,20 @@ static void
 find_save_lanes (unsigned char *buf)
 {
   rtx insn;
+  tree attr;
 
   memset (buf, 0, N_HARDWARE_VECREGS);
+  attr = lookup_attribute ("caller_arch",
+                           DECL_ATTRIBUTES (current_function_decl));
+  if (attr)
+    {
+      gcc_assert
+        (strstr (TREE_STRING_POINTER (TREE_PURPOSE (TREE_VALUE (attr))),
+                 "arc-"));
+      /* The caller doesn't care about clobbered registers.  */
+      return;
+    }
+
   for (insn = get_last_insn_anywhere (); insn; insn = PREV_INSN (insn))
     note_stores (INSN_P (insn) ? PATTERN (insn) : insn,
 		 find_save_lanes_1, buf);

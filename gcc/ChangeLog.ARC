@@ -1,3 +1,10 @@
+2009-08-25  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/mxp.c (find_save_lanes):
+	Don't save anything if called from other target.
+	* config/arc/arc.c (arc_alloc_task_on_target):
+	#if 0 no-immediate attribute addition.
+
 2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* (ashr<mode>3): Rename to:
