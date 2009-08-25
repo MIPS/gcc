@@ -1,3 +1,8 @@
+2009-08-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-eh.c (inlinable_call_p): Assume calls might be inlined
+	when building with -flto or -fwhopr.
+
 2009-08-24  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/41079

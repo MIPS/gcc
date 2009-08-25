@@ -1995,6 +1995,9 @@ inlinable_call_p (gimple stmt)
   decl = gimple_call_fndecl (stmt);
   if (!decl)
     return true;
+  /* The function body might become available during link time.  */
+  if (flag_lto || flag_whopr)
+    return true;
   if (cgraph_function_flags_ready
       && cgraph_function_body_availability (cgraph_node (decl))
       < AVAIL_OVERWRITABLE)
