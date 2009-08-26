@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_DATA_REF_H
 #define GCC_TREE_DATA_REF_H
 
-#include "cfgloop.h"
 #include "graphds.h"
 #include "lambda.h"
 #include "omega.h"

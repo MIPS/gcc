@@ -2507,6 +2507,7 @@ gimple_dump_cfg (FILE *file, int flags)
     {
       const char *funcname
 	= lang_hooks.decl_printable_name (current_function_decl, 2);
+
       fputc ('\n', file);
       fprintf (file, ";; Function %s\n\n", funcname);
       fprintf (file, ";; \n%d basic blocks, %d edges, last basic block %d.\n\n",

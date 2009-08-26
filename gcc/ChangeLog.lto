@@ -1,5 +1,14 @@
 2009-08-26  Richard Guenther  <rguenther@suse.de>
 
+	* tree-data-ref.h: Revert changes.
+	* gimplify.c: Likewise.
+	* tree-ssa-coalesce.c (coalesce_ssa_name): Likewise.
+	* tree-ssa-pre.c (create_expression_by_pieces): Likewise.
+	* tree-cfg.c (gimple_dump_cfg): Likewise.
+	* tree-flow.h (mark_addressable): Remove duplicate prototype.
+
+2009-08-26  Richard Guenther  <rguenther@suse.de>
+
 	* tree-into-ssa.c (dump_tree_ssa): Revert change to use
 	get_name instead of the decl_printable_name langhook.
 	* tree-stdarg.c (execute_optimize_stdarg): Likewise.

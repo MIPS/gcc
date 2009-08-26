@@ -1372,8 +1372,7 @@ coalesce_ssa_name (void)
 	{
 	  tree a = ssa_name (i);
 
-	  if (a && SSA_NAME_VAR (a) && !DECL_ARTIFICIAL (SSA_NAME_VAR (a))
-	      && partition_to_var (map, i) != NULL)
+	  if (a && SSA_NAME_VAR (a) && !DECL_ARTIFICIAL (SSA_NAME_VAR (a)))
 	    {
 	      tree *slot = (tree *) htab_find_slot (ssa_name_hash, a, INSERT);
 
