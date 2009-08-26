@@ -1,3 +1,15 @@
+2009-08-26  Richard Guenther  <rguenther@suse.de>
+
+	* tree-into-ssa.c (dump_tree_ssa): Revert change to use
+	get_name instead of the decl_printable_name langhook.
+	* tree-stdarg.c (execute_optimize_stdarg): Likewise.
+	* tree-dfa.c (dump_dfa_stats): Likewise.
+	* tree-cfg.c (gimple_dump_cfg): Likewise.
+	(dump_cfg_stats): Likewise.
+	(gimple_cfg2vcg): Likewise.
+	(dump_function_to_file): Likewise.
+	* passes.c (pass_init_dump_file): Likewise.
+
 2009-08-25  Richard Guenther  <rguenther@suse.de>
 
 	* tree-eh.c (inlinable_call_p): Assume calls might be inlined

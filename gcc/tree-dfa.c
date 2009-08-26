@@ -345,7 +345,8 @@ dump_dfa_stats (FILE *file)
   const char * const fmt_str   = "%-30s%-13s%12s\n";
   const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
-  const char *funcname = get_name (current_function_decl);
+  const char *funcname
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   collect_dfa_stats (&dfa_stats);
 

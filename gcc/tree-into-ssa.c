@@ -1565,7 +1565,8 @@ debug_currdefs (void)
 void
 dump_tree_ssa (FILE *file)
 {
-  const char *funcname = get_name (current_function_decl);
+  const char *funcname
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "SSA renaming information for %s\n\n", funcname);
 

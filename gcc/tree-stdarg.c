@@ -600,7 +600,7 @@ execute_optimize_stdarg (void)
   si.va_list_escape_vars = BITMAP_ALLOC (NULL);
 
   if (dump_file)
-    funcname = get_name (current_function_decl);
+    funcname = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   cfun_va_list = targetm.fn_abi_va_list (cfun->decl);
   va_list_simple_ptr = POINTER_TYPE_P (cfun_va_list)
