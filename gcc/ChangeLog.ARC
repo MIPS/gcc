@@ -1,3 +1,10 @@
+2009-08-26  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/arc.c (arc_expand_prologue): Cast pretend_size to
+	HOST_WIDE_INT before negating.
+	* config/arc/arc.md (umulsi3_highpart): Don't wrap a ZERO_EXTEND
+	around a CONST_INT.
+
 2009-08-25  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.c (find_save_lanes):

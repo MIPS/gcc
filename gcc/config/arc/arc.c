@@ -2136,7 +2136,8 @@ arc_expand_prologue (void)
        /* Ensure pretend_size is maximum of 8 * word_size */
       gcc_assert (MACHINE_FUNCTION (*cfun)->frame_info.pretend_size <= 32);
 
-      frame_stack_add (-MACHINE_FUNCTION (*cfun)->frame_info.pretend_size);
+      frame_stack_add (-((HOST_WIDE_INT)
+			  MACHINE_FUNCTION (*cfun)->frame_info.pretend_size));
       frame_size_to_allocate
 	-= MACHINE_FUNCTION (*cfun)->frame_info.pretend_size;
     }
