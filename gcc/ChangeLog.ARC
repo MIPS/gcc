@@ -5,6 +5,9 @@
 	* config/arc/arc.md (umulsi3_highpart): Don't wrap a ZERO_EXTEND
 	around a CONST_INT.
 
+	* config/mxp/mxp.md (*mul<mode>_i): In register case, move 0x8000
+	to r12 first.
+
 2009-08-25  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.c (find_save_lanes):
