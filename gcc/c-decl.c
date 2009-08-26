@@ -5485,15 +5485,6 @@ grokdeclarator (const struct c_declarator *declarator,
 	    if (really_funcdef)
 	      put_pending_sizes (arg_info->pending_sizes);
 
-	    /* Warn about functions declared in another address space.  */
-	    address_space = DECODE_QUAL_ADDR_SPACE (type_quals);
-	    if (address_space)
-	      {
-		type_quals = CLEAR_QUAL_ADDR_SPACE (type_quals);
-		error ("%qs specified for function %qE",
-		       c_addr_space_name (address_space), name);
-	      }
-
 	    /* Type qualifiers before the return type of the function
 	       qualify the return type, not the function type.  */
 	    if (type_quals)

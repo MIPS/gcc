@@ -1,3 +1,8 @@
+2008-08-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* c-decl.c (grokdeclarator): Remove incorrect check and
+	error message.
+
 2008-08-21  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* tree.def (ADDR_SPACE_CONVERT_EXPR): New tree code.
