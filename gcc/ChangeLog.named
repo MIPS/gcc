@@ -1,9 +1,9 @@
-2008-08-26  Ulrich Weigand  <uweigand@de.ibm.com>
+2009-08-26  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* c-decl.c (grokdeclarator): Remove incorrect check and
 	error message.
 
-2008-08-21  Ulrich Weigand  <uweigand@de.ibm.com>
+2009-08-21  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* tree.def (ADDR_SPACE_CONVERT_EXPR): New tree code.
 	* expr.c (expand_expr_real_1): Expand ADDR_SPACE_CONVERT_EXPR.
@@ -34,7 +34,7 @@
 	* tree-ssa.c (useless_type_conversion_p): Likewise.
 	* builtins.c (get_memory_rtx): Likewise.
 
-2008-08-20  Ulrich Weigand  <uweigand@de.ibm.com>
+2009-08-20  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* doc/tm.texi (TARGET_ADDR_SPACE_CONVERT): Update documentation.
 	* expr.c (expand_expr_real_1): When converting pointers between
@@ -44,7 +44,7 @@
 
 	* c-typeck.c (handle_warn_cast_qual): Update comment.
 
-2008-08-19  Ulrich Weigand  <uweigand@de.ibm.com>
+2009-08-19  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* doc/tm.texi (Named Address Spaces): Update documentation.
 	* doc/invoke.texi (-mea64/-mea32): Reword.
@@ -105,7 +105,7 @@
 	* config/spu/spu.c (expand_ea_mem): Create new MEM RTX instead
 	of calling change_address_addr_space.  Set alignment.
 
-2008-08-17  Ulrich Weigand  <uweigand@de.ibm.com>
+2009-08-17  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* doc/tm.texi (TARGET_ADDR_SPACE_VALID_POINTER_MODE): Document
 	new target hook.
@@ -254,7 +254,7 @@
 	(sched-deps.o): Likewise.
 	(alias.o): Add dependency on targhooks.h.
 
-2008-08-14  Ulrich Weigand  <uweigand@de.ibm.com>
+2009-08-14  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* doc/tm.texi (Named Address Spaces): Refer to N1275 instead of N1169.
 	(TARGET_ADDR_SPACE_MINUS_TYPE): Remove documentation.
