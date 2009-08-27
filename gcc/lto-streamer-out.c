@@ -1596,7 +1596,12 @@ output_eh_regions (struct output_block *ob, struct function *fn)
 {
   eh_region curr;
 
-  if (fn->eh && fn->eh->region_array)
+  if (fn->eh
+      /* Always output LTO_eh_table if exceptions are enabled.  Otherwise
+         we miss to emit unwind informations for a translation unit
+	 that just throws.  */
+      && (flag_exceptions
+	  || fn->eh->region_array))
     {
       unsigned i;
 

@@ -1,3 +1,9 @@
+2009-08-27  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41092
+	* lto-streamer-out.c (output_eh_regions): Always output a
+	eh region if exceptions are enabled.
+
 2009-08-26  Richard Guenther  <rguenther@suse.de>
 
 	* tree-data-ref.h: Revert changes.
