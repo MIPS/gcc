@@ -1,3 +1,9 @@
+2009-08-28  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/i386/i386.c (ix86_expand_args_builtin): Update to take new
+	struct tag 'insn_data_d' into account.
+	(ix86_expand_special_args_builtin): Likewise.
+
 2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* recog.h (struct insn_data): Rename to:
