@@ -101,12 +101,17 @@ static bool mxp_vector_mode_supported_p (enum machine_mode mode);
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* machine-indepemndent: l,c,n
+/* machine-independent: l,a,c,n
    v: vector register
    L: Lane mask
-   N: Lane mask for lower half
-   O: Lane mask for upper half
    M: memory size/lane specifier
+   N: Load memory size/lane specifier
+   O: Lane mask for lower half
+   P: Lane mask for upper half
+   Q: 64 bit constant lower half
+   R: 64 bit constant upper half
+   S: lane mask for lower element half
+   T: lane mask for upper element half
    #: Output nops for unfilled delay slots  */
 void
 mxp_print_operand (FILE *file, rtx x, int code)
@@ -158,6 +163,32 @@ mxp_print_operand (FILE *file, rtx x, int code)
 		<< (VREG_LANE (REGNO (x))
 		    + (GET_MODE_SIZE (GET_MODE (x)) >> 2))));
       return;
+    case 'S':
+      {
+	int op_mask, el_bytes, el_lmask, n;
+
+	op_mask = (((1 << (GET_MODE_SIZE (GET_MODE (x)) >> 1)) - 1)
+		   << VREG_LANE (REGNO (x)));
+	el_bytes = GET_MODE_UNIT_SIZE (GET_MODE (x));
+	el_lmask = ((1 << (el_bytes >> 2)) - 1);
+	for (n = GET_MODE_NUNITS (GET_MODE (x)); --n > 0;)
+	  el_lmask |= el_lmask << (el_bytes >> 1);
+	fprintf (file, "%d", el_lmask);
+	return;
+      }
+    case 'T':
+      {
+	int op_mask, el_bytes, el_hmask, n;
+
+	op_mask = (((1 << (GET_MODE_SIZE (GET_MODE (x)) >> 1)) - 1)
+		   << VREG_LANE (REGNO (x)));
+	el_bytes = GET_MODE_UNIT_SIZE (GET_MODE (x));
+	el_hmask = ((1 << (el_bytes >> 2)) - 1) << (el_bytes >> 2);
+	for (n = GET_MODE_NUNITS (GET_MODE (x)); --n > 0;)
+	  el_hmask |= el_hmask << (el_bytes >> 1);
+	fprintf (file, "%d", el_hmask);
+	return;
+      }
     case 'N': /* Load memory size and lane specifier.  */
     case 'M': /* Memory size and lane specifier.  */
       {
@@ -1019,7 +1050,7 @@ mxp_output_addr_const_extra (FILE *file, rtx x)
     {
     case UNSPEC:
       gcc_assert (XINT (x, 1) == MXP_UNSPEC_CORE_REG);
-      fprintf (file, "r%d", INTVAL (XVECEXP (x, 0, 0)));
+      fprintf (file, "r%ld", (long) INTVAL (XVECEXP (x, 0, 0)));
       return true;
     default:
       return false;

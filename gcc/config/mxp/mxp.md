@@ -583,7 +583,7 @@
   "*
 {
   output_asm_insn (register_operand (operands[2], <MODE>mode)
-		   ? \"mov r12,0x8000` vmov.%L0 %v0,r12` vaddna.%L0 %v0,%v0,%v2` vmvw.%O0 %v0,vr62` vmule.%L0 vr62,%v1,%v2\"
+		   ? \"mov r12,0x8000` vmov.%L0 %v0,r12` vaddna.%L0 %v0,%v0,%v2` vmvw.%S0 %v0,vr62` vmule.%L0 vr62,%v1,%v2\"
 		   : \"mov r12,%2 + 0x8000 & 0xffff0000` vmov.%L0 %v0,r12` mov r12,%2` vbmule.%L0 vr62,%v1,r12\",
 		   operands);
   return \"vmulae.%L0 %v0,%v0,%v1\";

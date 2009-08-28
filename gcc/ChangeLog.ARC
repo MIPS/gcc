@@ -1,4 +1,4 @@
-2009-08-27  J"orn Rennecke  <joern.rennecke@arc.com>
+2009-08-28  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.md (ac_reg): New attribute.
 	* (*mov<mode>_i): Set ac_reg for <vn> / <I32m> alternative.
@@ -11,6 +11,9 @@
 	* config/mxp/t-mxp ($(out_object_file): Depend on $(INSN_ATTR_H).
 	* config/arc/arc.c (arc_alloc_task_on_target): Re-enable
 	no-immediate attribute addition.
+
+	* config/mxp/mxp.c (mxp_print_operand): Add cases 'S' and 'T'.
+	* config/mxp/mxp.md (*mul<mode>_i): Replace %O with %S.
 
 2009-08-26  J"orn Rennecke  <joern.rennecke@arc.com>
 
