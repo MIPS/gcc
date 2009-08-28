@@ -44,6 +44,10 @@
   [(eq_attr "in_delay_slot" "yes") (nil) (nil)
    (eq_attr "in_delay_slot" "yes") (nil) (nil)
    (eq_attr "in_delay_slot" "yes") (nil) (nil)])
+
+;; Indicate if an ARCompact register can be used at recording time to
+;; specify a constant argument.
+(define_attr "ac_reg" "no,yes" (const_string "no"))
 	      
 ;; moves and logical operations can be performed on 128 bit vectors and
 ;; parts of them in 16-bit granularity.
@@ -287,7 +291,8 @@
     default: gcc_unreachable ();
     }
 }"
-  [(set_attr "type" "*,*,*,*,*,load,store,store")])
+  [(set_attr "type" "*,*,*,*,*,load,store,store")
+   (set_attr "ac_reg" "*,*,*,*,yes,*,*,*")])
 
 ;; There is no v{ld,st}64_4 .  Split into two 32 bit moves.
 (define_split 
@@ -579,7 +584,7 @@
 {
   output_asm_insn (register_operand (operands[2], <MODE>mode)
 		   ? \"mov r12,0x8000` vmov.%L0 %v0,r12` vaddna.%L0 %v0,%v0,%v2` vmvw.%O0 %v0,vr62` vmule.%L0 vr62,%v1,%v2\"
-		   : \"vmov.%L0 %v0,%2 + 0x8000 & 0xffff0000` vbmule.%L0 vr62,%v1,%2\",
+		   : \"mov r12,%2 + 0x8000 & 0xffff0000` vmov.%L0 %v0,r12` mov r12,%2` vbmule.%L0 vr62,%v1,r12\",
 		   operands);
   return \"vmulae.%L0 %v0,%v0,%v1\";
 }"

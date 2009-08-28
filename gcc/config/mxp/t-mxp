@@ -24,5 +24,7 @@ s-mxp-regset-c: build/mxp-genregset$(build_exeext)
 build/mxp-genregset.o : config/mxp/mxp-genregset.c $(BCONFIG_H) $(SYSTEM_H) \
   errors.h config/mxp/regset-config.h
 
+$(out_object_file): $(INSN_ATTR_H)
+
 # The startup code is for the arc core only.
 EXTRA_PARTS=

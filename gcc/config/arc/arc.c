@@ -9257,7 +9257,7 @@ arc_alloc_task_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
                                       build_string (strlen (attrib_name),
 						    attrib_name)));
   decl_attributes (&fn, fn_attrib, 0);
-#if 0
+#if 1
   /* ??? The assembler doesn't work right.  */
   attrib_name = "no-immediate";
   fn_attrib =

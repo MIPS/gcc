@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "recog.h"
 #include "multi-target.h"
+#include "insn-attr.h"
 
 START_TARGET_SPECIFIC
 
@@ -848,6 +849,7 @@ struct mxp_prescan_data
 {
   int reg;
   int mreg;
+  rtx insn;
 };
 
 static rtx
@@ -919,7 +921,8 @@ mxp_prescan_operand (rtx op, mxp_prescan_data *data)
 	   || (GET_CODE (op) == CONST_INT
 	       && (INTVAL (op) < -1 << 14
 		   || INTVAL (op) > 1 << 14 - 1
-		   || (TARGET_NO_IMMEDIATE && INTVAL (op) != 0))))
+		   || (TARGET_NO_IMMEDIATE && INTVAL (op) != 0
+		       && get_attr_ac_reg (data->insn)))))
     {
       rtx xop[2];
       int regno;
@@ -977,6 +980,7 @@ mxp_final_prescan_insn (rtx insn, rtx *opvec, int noperands)
 
       prescan_data.reg = 12;
       prescan_data.mreg = 12;
+      prescan_data.insn = insn;
       for (i = 0; i < noperands; i++)
 	opvec[i] = mxp_prescan_operand (opvec[i], &prescan_data);
     }

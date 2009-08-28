@@ -1,3 +1,17 @@
+2009-08-27  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/mxp.md (ac_reg): New attribute.
+	* (*mov<mode>_i): Set ac_reg for <vn> / <I32m> alternative.
+	(*mul<mode>_i): In non-register case, move each constant to r12
+	first.
+	* config/mxp/mxp.c  Include "insn-attr.h".
+	(struct mxp_prescan_data): New member insn.
+	(mxp_final_prescan_insn): Set it.
+	(mxp_prescan_operand): Check ac_reg attribute.
+	* config/mxp/t-mxp ($(out_object_file): Depend on $(INSN_ATTR_H).
+	* config/arc/arc.c (arc_alloc_task_on_target): Re-enable
+	no-immediate attribute addition.
+
 2009-08-26  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/arc/arc.c (arc_expand_prologue): Cast pretend_size to
