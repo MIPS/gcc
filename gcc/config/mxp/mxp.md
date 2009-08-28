@@ -575,7 +575,7 @@
 ;; ??? should be a define_insn_and_split
 (define_insn "*mul<mode>_i"
   [(set (match_operand:VXSI 0 "register_operand" "=&<v0>,&<v4>")
-	(mult:VXSI (match_operand:VXSI 1 "register_operand" "%<v0>0,<v4>0")
+	(mult:VXSI (match_operand:VXSI 1 "register_operand" "%<v0>,<v4>")
 		   (match_operand:VXSI 2 "nonmemory_operand"
 		    "<v0>I32v,<v4>I32v")))
    (clobber (match_scratch:VXSI 3 "=&<a0>,&<a4>"))]

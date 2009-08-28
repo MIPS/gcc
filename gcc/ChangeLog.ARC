@@ -15,6 +15,9 @@
 	* config/mxp/mxp.c (mxp_print_operand): Add cases 'S' and 'T'.
 	* config/mxp/mxp.md (*mul<mode>_i): Replace %O with %S.
 
+	* config/mxp/mxp.md (*mul<mode>_i): Remove matching constraint
+	alternative parts from operand1 constraint.
+
 2009-08-26  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/arc/arc.c (arc_expand_prologue): Cast pretend_size to
