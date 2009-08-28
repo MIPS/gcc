@@ -1,3 +1,7 @@
+2009-08-28  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/demo/vloop2.c: New file.
+
 2009-08-18  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-parloops.c (separate_decls_in_region): Copy input parameter
