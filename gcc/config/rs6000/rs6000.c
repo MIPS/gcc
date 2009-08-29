@@ -1088,6 +1088,7 @@ static const enum reg_class *rs6000_ira_cover_classes (void);
 
 const int INSN_NOT_AVAILABLE = -1;
 static enum machine_mode rs6000_eh_return_filter_mode (void);
+static bool rs6000_can_eliminate (const int, const int);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -1452,6 +1453,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P rs6000_legitimate_address_p
+
+#undef TARGET_CAN_ELIMINATE
+#define TARGET_CAN_ELIMINATE rs6000_can_eliminate
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -17608,6 +17612,15 @@ create_TOC_reference (rtx symbol)
 	       gen_rtx_UNSPEC (Pmode, gen_rtvec (1, symbol), UNSPEC_TOCREL)));
 }
 
+/* Issue assembly directives that create a reference to the given DWARF
+   FRAME_TABLE_LABEL from the current function section.  */
+void
+rs6000_aix_asm_output_dwarf_table_ref (char * frame_table_label)
+{
+  fprintf (asm_out_file, "\t.ref %s\n",
+	   TARGET_STRIP_NAME_ENCODING (frame_table_label));
+}
+
 /* If _Unwind_* has been called from within the same module,
    toc register is not guaranteed to be saved to 40(1) on function
    entry.  Save it there in that case.  */
@@ -25009,6 +25022,26 @@ rs6000_libcall_value (enum machine_mode mode)
     regno = GP_ARG_RETURN;
 
   return gen_rtx_REG (mode, regno);
+}
+
+
+/* Given FROM and TO register numbers, say whether this elimination is allowed.
+   Frame pointer elimination is automatically handled.
+
+   For the RS/6000, if frame pointer elimination is being done, we would like
+   to convert ap into fp, not sp.
+
+   We need r30 if -mminimal-toc was specified, and there are constant pool
+   references.  */
+
+bool
+rs6000_can_eliminate (const int from, const int to)
+{
+  return (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM
+          ? ! frame_pointer_needed
+          : from == RS6000_PIC_OFFSET_TABLE_REGNUM
+            ? ! TARGET_MINIMAL_TOC || TARGET_NO_TOC || get_pool_size () == 0
+            : true);
 }
 
 /* Define the offset between two registers, FROM to be eliminated and its

@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009  Free Software Foundation, Inc.
+   2009
+   Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -199,6 +200,7 @@ static rtx gen_movdi_x (rtx, rtx, rtx);
 static rtx gen_fr_spill_x (rtx, rtx, rtx);
 static rtx gen_fr_restore_x (rtx, rtx, rtx);
 
+static bool ia64_can_eliminate (const int, const int);
 static enum machine_mode hfa_element_mode (const_tree, bool);
 static void ia64_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
@@ -279,6 +281,8 @@ static void ia64_soft_fp_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 static bool ia64_vms_valid_pointer_mode (enum machine_mode mode)
      ATTRIBUTE_UNUSED;
+static tree ia64_vms_common_object_attribute (tree *, tree, tree, int, bool *)
+     ATTRIBUTE_UNUSED;
 
 static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static tree ia64_handle_version_id_attribute (tree *, tree, tree, int, bool *);
@@ -305,6 +309,9 @@ static const struct attribute_spec ia64_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "syscall_linkage", 0, 0, false, true,  true,  NULL },
   { "model",	       1, 1, true, false, false, ia64_handle_model_attribute },
+#if TARGET_ABI_OPEN_VMS
+  { "common_object",   1, 1, true, false, false, ia64_vms_common_object_attribute},
+#endif
   { "version_id",      1, 1, true, false, false,
     ia64_handle_version_id_attribute },
   { NULL,	       0, 0, false, false, false, NULL }
@@ -522,6 +529,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX ia64_c_mode_for_suffix
 
+#undef TARGET_CAN_ELIMINATE
+#define TARGET_CAN_ELIMINATE ia64_can_eliminate
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 typedef enum
@@ -621,6 +631,95 @@ ia64_handle_model_attribute (tree *node, tree name, tree args,
     }
 
   return NULL_TREE;
+}
+
+/* The section must have global and overlaid attributes.  */
+#define SECTION_VMS_OVERLAY SECTION_MACH_DEP
+
+/* Part of the low level implementation of DEC Ada pragma Common_Object which
+   enables the shared use of variables stored in overlaid linker areas
+   corresponding to the use of Fortran COMMON.  */
+
+static tree
+ia64_vms_common_object_attribute (tree *node, tree name, tree args,
+				  int flags ATTRIBUTE_UNUSED,
+				  bool *no_add_attrs)
+{
+    tree decl = *node;
+    tree id, val;
+    if (! DECL_P (decl))
+      abort ();
+  
+    DECL_COMMON (decl) = 1;
+    id = TREE_VALUE (args);
+    if (TREE_CODE (id) == IDENTIFIER_NODE)
+      val = build_string (IDENTIFIER_LENGTH (id), IDENTIFIER_POINTER (id));
+    else if (TREE_CODE (id) == STRING_CST)
+      val = id;
+    else
+      {
+	warning (OPT_Wattributes,
+		 "%qE attribute requires a string constant argument", name);
+	*no_add_attrs = true;
+	return NULL_TREE;
+      }
+    DECL_SECTION_NAME (decl) = val;
+    return NULL_TREE;
+}
+
+/* Part of the low level implementation of DEC Ada pragma Common_Object.  */
+
+void
+ia64_vms_output_aligned_decl_common (FILE *file, tree decl, const char *name,
+				     unsigned HOST_WIDE_INT size,
+				     unsigned int align)
+{
+  tree attr = DECL_ATTRIBUTES (decl);
+
+  /* As common_object attribute set DECL_SECTION_NAME check it before
+     looking up the attribute.  */
+  if (DECL_SECTION_NAME (decl) && attr)
+    attr = lookup_attribute ("common_object", attr);
+  else
+    attr = NULL_TREE;
+
+  if (!attr)
+    {
+      /*  Code from elfos.h.  */
+      fprintf (file, "%s", COMMON_ASM_OP);
+      assemble_name (file, name);
+      fprintf (file, ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",
+	       size, align / BITS_PER_UNIT);
+    }
+  else
+    {
+      ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
+      ASM_OUTPUT_LABEL (file, name);
+      ASM_OUTPUT_SKIP (file, size ? size : 1);
+    }
+}
+
+/* Definition of TARGET_ASM_NAMED_SECTION for VMS.  */
+
+void
+ia64_vms_elf_asm_named_section (const char *name, unsigned int flags,
+				tree decl)
+{
+  if (!(flags & SECTION_VMS_OVERLAY))
+    {
+      default_elf_asm_named_section (name, flags, decl);
+      return;
+    }
+  if (flags != (SECTION_VMS_OVERLAY | SECTION_WRITE))
+    abort ();
+
+  if (flags & SECTION_DECLARED)
+    {
+      fprintf (asm_out_file, "\t.section\t%s\n", name);
+      return;
+    }
+
+  fprintf (asm_out_file, "\t.section\t%s,\"awgO\"\n", name);
 }
 
 static void
@@ -2637,6 +2736,14 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   COPY_HARD_REG_SET (current_frame_info.mask, mask);
   current_frame_info.n_spilled = n_spilled;
   current_frame_info.initialized = reload_completed;
+}
+
+/* Worker function for TARGET_CAN_ELIMINATE.  */
+
+bool
+ia64_can_eliminate (const int from ATTRIBUTE_UNUSED, const int to)
+{
+  return (to == BR_REG (0) ? current_function_is_leaf : true);
 }
 
 /* Compute the initial difference between the specified pair of registers.  */
@@ -10230,6 +10337,12 @@ ia64_section_type_flags (tree decl, const char *name, int reloc)
       || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
     flags = SECTION_SMALL;
 
+#if TARGET_ABI_OPEN_VMS
+  if (decl && DECL_ATTRIBUTES (decl)
+      && lookup_attribute ("common_object", DECL_ATTRIBUTES (decl)))
+    flags |= SECTION_VMS_OVERLAY;
+#endif
+
   flags |= default_section_type_flags (decl, name, reloc);
   return flags;
 }
@@ -10676,13 +10789,14 @@ static enum machine_mode
 ia64_promote_function_mode (const_tree type,
 			    enum machine_mode mode,
 			    int *punsignedp,
-			    const_tree funtype ATTRIBUTE_UNUSED,
-			    int for_return ATTRIBUTE_UNUSED)
+			    const_tree funtype,
+			    int for_return)
 {
   /* Special processing required for OpenVMS ...  */
 
   if (!TARGET_ABI_OPEN_VMS)
-    return mode;
+    return default_promote_function_mode(type, mode, punsignedp, funtype,
+					 for_return);
 
   /* HP OpenVMS Calling Standard dated June, 2004, that describes
      HP OpenVMS I64 Version 8.2EFT,

@@ -121,7 +121,6 @@ format_token;
 static gfc_char_t *format_string;
 static int format_string_pos;
 static int format_length, use_last_char;
-static int starting_format_length;
 static char error_element;
 static locus format_locus;
 
@@ -694,7 +693,7 @@ data_desc:
 	goto fail;
       if (gfc_option.allow_std < GFC_STD_F2003 && t != FMT_COMMA
 	  && t != FMT_F && t != FMT_E && t != FMT_EN && t != FMT_ES
-	  && t != FMT_D && t != FMT_G)
+	  && t != FMT_D && t != FMT_G && t != FMT_RPAREN && t != FMT_SLASH)
 	{
 	  error = _("Comma required after P descriptor");
 	  goto syntax;
@@ -708,7 +707,7 @@ data_desc:
 		goto fail;
 	    }
           if (t != FMT_F && t != FMT_E && t != FMT_EN && t != FMT_ES && t != FMT_D
-	      && t != FMT_G)
+	      && t != FMT_G && t != FMT_RPAREN && t != FMT_SLASH)
 	    {
 	      error = _("Comma required after P descriptor");
 	      goto syntax;
@@ -839,6 +838,9 @@ data_desc:
 	    gfc_warning ("Period required in format "
 			 "specifier %s at %L", token_to_string (t),
 			  &format_locus);
+	  /* If we go to finished, we need to unwind this
+	     before the next round.  */
+	  format_locus.nextc -= format_string_pos;
 	  saved_token = u;
 	  break;
 	}
@@ -930,11 +932,20 @@ data_desc:
 	  gfc_warning ("The H format specifier at %L is"
 		       " a Fortran 95 deleted feature", &format_locus);
 	}
-      while (repeat >0)
-       {
-          next_char (1);
-          repeat -- ;
-       }
+
+      if (mode == MODE_STRING)
+	{
+	  format_string += value;
+	  format_length -= value;
+	}
+      else
+	{
+	  while (repeat >0)
+	   {
+	     next_char (1);
+	     repeat -- ;
+	   }
+	}
      break;
 
     case FMT_IBOZ:
@@ -1009,6 +1020,10 @@ between_desc:
       if (gfc_notify_std (GFC_STD_GNU, "Extension: Missing comma at %L",
 	  &format_locus) == FAILURE)
 	return FAILURE;
+      /* If we do not actually return a failure, we need to unwind this
+         before the next round.  */
+      if (mode != MODE_FORMAT)
+	format_locus.nextc -= format_string_pos;
       goto format_item_1;
     }
 
@@ -1068,6 +1083,10 @@ extension_optional_comma:
       if (gfc_notify_std (GFC_STD_GNU, "Extension: Missing comma at %L",
 	  &format_locus) == FAILURE)
 	return FAILURE;
+      /* If we do not actually return a failure, we need to unwind this
+         before the next round.  */
+      if (mode != MODE_FORMAT)
+	format_locus.nextc -= format_string_pos;
       saved_token = t;
       break;
     }
@@ -1085,13 +1104,6 @@ fail:
   rv = FAILURE;
 
 finished:
-  /* check for extraneous characters at end of valid format string */
-  if ( starting_format_length > format_length )
-    {
-       format_locus.nextc += format_length + 1; /* point to the extra */
-       gfc_warning ("Extraneous characters in format at %L", &format_locus); 
-    }
-    
   return rv;
 }
 
@@ -1107,7 +1119,7 @@ check_format_string (gfc_expr *e, bool is_input)
 
   mode = MODE_STRING;
   format_string = e->value.character.string;
-  starting_format_length = e->value.character.length;
+
   /* More elaborate measures are needed to show where a problem is within a
      format string that has been calculated, but that's probably not worth the
      effort.  */

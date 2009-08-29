@@ -1770,7 +1770,7 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
   --with-pkgversion=PKG   Use PKG in the version string in place of "lto
-                          merged with rev 151053"
+                          merged with rev 151178"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-multilib-list    Select multilibs (SH only)
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
@@ -6537,7 +6537,7 @@ if test "${with_pkgversion+set}" = set; then :
       *)   PKGVERSION="($withval) " ;;
      esac
 else
-  PKGVERSION="(lto merged with rev 151053) "
+  PKGVERSION="(lto merged with rev 151178) "
 
 fi
 
@@ -21312,7 +21312,13 @@ fi
 $as_echo "$gcc_cv_as_comdat_group_percent" >&6; }
 
 fi
-if test $in_tree_ld != yes && test x"$ld_vers" != x; then
+if test $in_tree_ld = yes ; then
+  comdat_group=no
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+     comdat_group=yes
+  fi
+elif test x"$ld_vers" != x; then
   comdat_group=yes
   if test 0"$ld_date" -lt 20050308; then
     if test -n "$ld_date"; then
