@@ -626,7 +626,7 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
   /* Finally see if we have any elaboration procedures to deal with.  */
   for (info = elab_info_list; info; info = info->next)
     {
-      tree gnu_body = DECL_SAVED_TREE (info->elab_proc);
+      tree gnu_body = DECL_SAVED_TREE (info->elab_proc), gnu_stmts;
 
       /* Unshare SAVE_EXPRs between subprograms.  These are not unshared by
 	 the gimplifier for obvious reasons, but it turns out that we need to
@@ -638,14 +638,19 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
 	 an upstream bug for which we would not change the outcome.  */
       walk_tree_without_duplicates (&gnu_body, unshare_save_expr, NULL);
 
-      /* Process the function as others, but for indicating this is an
-	 elab proc, to be discarded if empty, then propagate the status
-	 up to the GNAT tree node.  */
-      begin_subprog_body (info->elab_proc);
-      end_subprog_body (gnu_body, true);
-
-      if (empty_body_p (gimple_body (info->elab_proc)))
+      /* We should have a BIND_EXPR but it may not have any statements in it.
+	 If it doesn't have any, we have nothing to do except for setting the
+	 flag on the GNAT node.  Otherwise, process the function as others.  */
+      gnu_stmts = gnu_body;
+      if (TREE_CODE (gnu_stmts) == BIND_EXPR)
+	gnu_stmts = BIND_EXPR_BODY (gnu_stmts);
+      if (!gnu_stmts || !STATEMENT_LIST_HEAD (gnu_stmts))
 	Set_Has_No_Elaboration_Code (info->gnat_node, 1);
+      else
+	{
+	  begin_subprog_body (info->elab_proc);
+	  end_subprog_body (gnu_body);
+	}
     }
 
   /* We cannot track the location of errors past this point.  */
@@ -2326,15 +2331,20 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
       : Sloc (gnat_node)),
      &DECL_STRUCT_FUNCTION (gnu_subprog_decl)->function_end_locus);
 
-  end_subprog_body (gnu_result, false);
+  end_subprog_body (gnu_result);
 
-  /* Disconnect the trees for parameters that we made variables for from the
-     GNAT entities since these are unusable after we end the function.  */
+  /* Finally annotate the parameters and disconnect the trees for parameters
+     that we have turned into variables since they are now unusable.  */
   for (gnat_param = First_Formal_With_Extras (gnat_subprog_id);
        Present (gnat_param);
        gnat_param = Next_Formal_With_Extras (gnat_param))
-    if (TREE_CODE (get_gnu_tree (gnat_param)) == VAR_DECL)
-      save_gnu_tree (gnat_param, NULL_TREE, false);
+    {
+      tree gnu_param = get_gnu_tree (gnat_param);
+      annotate_object (gnat_param, TREE_TYPE (gnu_param), NULL_TREE,
+		       DECL_BY_REF_P (gnu_param));
+      if (TREE_CODE (gnu_param) == VAR_DECL)
+	save_gnu_tree (gnat_param, NULL_TREE, false);
+    }
 
   if (DECL_FUNCTION_STUB (gnu_subprog_decl))
     build_function_stub (gnu_subprog_decl, gnat_subprog_id);
@@ -3478,7 +3488,11 @@ gnat_to_gnu (Node_Id gnat_node)
      If we are in the elaboration procedure, check if we are violating a
      No_Elaboration_Code restriction by having a statement there.  */
   if ((IN (Nkind (gnat_node), N_Statement_Other_Than_Procedure_Call)
-       && Nkind (gnat_node) != N_Null_Statement)
+       && Nkind (gnat_node) != N_Null_Statement
+       && Nkind (gnat_node) != N_SCIL_Dispatch_Table_Object_Init
+       && Nkind (gnat_node) != N_SCIL_Dispatch_Table_Tag_Init
+       && Nkind (gnat_node) != N_SCIL_Dispatching_Call
+       && Nkind (gnat_node) != N_SCIL_Tag_Init)
       || Nkind (gnat_node) == N_Procedure_Call_Statement
       || Nkind (gnat_node) == N_Label
       || Nkind (gnat_node) == N_Implicit_Label_Declaration
@@ -5274,6 +5288,14 @@ gnat_to_gnu (Node_Id gnat_node)
       gnu_result = alloc_stmt_list ();
       break;
 
+    case N_SCIL_Dispatch_Table_Object_Init:
+    case N_SCIL_Dispatch_Table_Tag_Init:
+    case N_SCIL_Dispatching_Call:
+    case N_SCIL_Tag_Init:
+      /* SCIL nodes require no processing for GCC.  */
+      gnu_result = alloc_stmt_list ();
+      break;
+
     case N_Raise_Statement:
     case N_Function_Specification:
     case N_Procedure_Specification:
@@ -5535,31 +5557,6 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
 	  mark_visited (&DECL_SIZE_UNIT (gnu_decl));
 	  mark_visited (&DECL_INITIAL (gnu_decl));
 	}
-
-      /* In any case, we have to deal with our own fields.  */
-      else if (TREE_CODE (gnu_decl) == TYPE_DECL)
-	switch (TREE_CODE (type))
-	  {
-	  case RECORD_TYPE:
-	  case UNION_TYPE:
-	  case QUAL_UNION_TYPE:
-	    if ((t = TYPE_ADA_SIZE (type)))
-	      mark_visited (&t);
-	    break;
-
-	  case INTEGER_TYPE:
-	  case ENUMERAL_TYPE:
-	  case BOOLEAN_TYPE:
-	  case REAL_TYPE:
-	    if ((t = TYPE_RM_MIN_VALUE (type)))
-	      mark_visited (&t);
-	    if ((t = TYPE_RM_MAX_VALUE (type)))
-	      mark_visited (&t);
-	    break;
-
-	  default:
-	    break;
-	  }
     }
   else
     add_stmt_with_node (gnu_stmt, gnat_entity);
@@ -5846,11 +5843,52 @@ gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
 
 	  stmt = gimplify_assign (new_var, op, pre_p);
 	  if (EXPR_HAS_LOCATION (op))
-	    gimple_set_location (stmt, *EXPR_LOCUS (op));
+	    gimple_set_location (stmt, EXPR_LOCATION (op));
 
 	  TREE_OPERAND (expr, 0) = new_var;
 	  recompute_tree_invariant_for_addr_expr (expr);
 	  return GS_ALL_DONE;
+	}
+
+      return GS_UNHANDLED;
+
+    case DECL_EXPR:
+      op = DECL_EXPR_DECL (expr);
+
+      /* The expressions for the RM bounds must be gimplified to ensure that
+	 they are properly elaborated.  See gimplify_decl_expr.  */
+      if ((TREE_CODE (op) == TYPE_DECL || TREE_CODE (op) == VAR_DECL)
+	  && !TYPE_SIZES_GIMPLIFIED (TREE_TYPE (op)))
+	switch (TREE_CODE (TREE_TYPE (op)))
+	{
+	  case INTEGER_TYPE:
+	  case ENUMERAL_TYPE:
+	  case BOOLEAN_TYPE:
+	  case REAL_TYPE:
+	    {
+	      tree type = TYPE_MAIN_VARIANT (TREE_TYPE (op)), t, val;
+
+	      val = TYPE_RM_MIN_VALUE (type);
+	      if (val)
+		{
+		  gimplify_one_sizepos (&val, pre_p);
+		  for (t = type; t; t = TYPE_NEXT_VARIANT (t))
+		    SET_TYPE_RM_MIN_VALUE (t, val);
+		}
+
+	      val = TYPE_RM_MAX_VALUE (type);
+	      if (val)
+		{
+		  gimplify_one_sizepos (&val, pre_p);
+		  for (t = type; t; t = TYPE_NEXT_VARIANT (t))
+		    SET_TYPE_RM_MAX_VALUE (t, val);
+		}
+
+	    }
+	    break;
+
+	  default:
+	    break;
 	}
 
       /* ... fall through ... */

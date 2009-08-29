@@ -64,9 +64,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       _M_insert(_ValueT __v)
       {
 	sentry __cerb(*this);
-	if (__cerb)
+	if (static_cast<bool>(__cerb))
 	  {
-	    ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	    ios_base::iostate __err = ios_base::goodbit;
 	    __try
 	      {
 		const __num_put_type& __np = __check_facet(this->_M_num_put);
@@ -119,9 +119,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     basic_ostream<_CharT, _Traits>::
     operator<<(__streambuf_type* __sbin)
     {
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this);
-      if (__cerb && __sbin)
+      if (__sbin && static_cast<bool>(__cerb))
 	{
 	  __try
 	    {
@@ -155,9 +155,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // Unformatted output functions should catch exceptions thrown
       // from streambuf members.
       sentry __cerb(*this);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      const int_type __put = this->rdbuf()->sputc(__c);
@@ -190,7 +190,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // Unformatted output functions should catch exceptions thrown
       // from streambuf members.
       sentry __cerb(*this);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
 	  __try
 	    { _M_write(__s, __n); }
@@ -213,7 +213,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR 60. What is a formatted input function?
       // basic_ostream::flush() is *not* an unformatted output function.
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __try
 	{
 	  if (this->rdbuf() && this->rdbuf()->pubsync() == -1)
@@ -257,7 +257,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     basic_ostream<_CharT, _Traits>::
     seekp(pos_type __pos)
     {
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __try
 	{
 	  if (!this->fail())
@@ -289,7 +289,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     basic_ostream<_CharT, _Traits>::
     seekp(off_type __off, ios_base::seekdir __dir)
     {
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __try
 	{
 	  if (!this->fail())

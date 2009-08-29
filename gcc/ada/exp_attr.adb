@@ -235,6 +235,7 @@ package body Exp_Attr is
       Agg     : Node_Id;
       Btyp    : constant Entity_Id := Base_Type (Typ);
       Sub     : Entity_Id;
+      Sub_Ref : Node_Id;
       E_T     : constant Entity_Id := Equivalent_Type (Btyp);
       Acc     : constant Entity_Id :=
                   Etype (Next_Component (First_Component (E_T)));
@@ -355,23 +356,27 @@ package body Exp_Attr is
                Attribute_Name => Name_Address);
       end if;
 
+      Sub_Ref :=
+        Make_Attribute_Reference (Loc,
+          Prefix         => Sub,
+          Attribute_Name => Name_Access);
+
+      --  We set the type of the access reference to the already generated
+      --  access_to_subprogram type, and declare the reference analyzed, to
+      --  prevent further expansion when the enclosing aggregate is analyzed.
+
+      Set_Etype (Sub_Ref, Acc);
+      Set_Analyzed (Sub_Ref);
+
       Agg :=
         Make_Aggregate (Loc,
-          Expressions =>
-            New_List (
-              Obj_Ref,
-              Unchecked_Convert_To (Acc,
-                Make_Attribute_Reference (Loc,
-                  Prefix => Sub,
-                  Attribute_Name => Name_Address))));
+          Expressions => New_List (Obj_Ref, Sub_Ref));
 
       Rewrite (N, Agg);
-
       Analyze_And_Resolve (N, E_T);
 
-      --  For subsequent analysis,  the node must retain its type.
-      --  The backend will replace it with the equivalent type where
-      --  needed.
+      --  For subsequent analysis, the node must retain its type. The backend
+      --  will replace it with the equivalent type where needed.
 
       Set_Etype (N, Typ);
    end Expand_Access_To_Protected_Op;
@@ -591,6 +596,14 @@ package body Exp_Attr is
             if Is_Untagged_Derivation (Etype (Expression (Item))) then
                Set_Assignment_OK (Item);
             end if;
+         end if;
+
+         --  The stream operation to call maybe a renaming created by
+         --  an attribute definition clause, and may not be frozen yet.
+         --  Ensure that it has the necessary extra formals.
+
+         if not Is_Frozen (Pname) then
+            Create_Extra_Formals (Pname);
          end if;
 
          --  And now rewrite the call
@@ -4674,13 +4687,23 @@ package body Exp_Attr is
          ---------------------
 
          function Make_Range_Test return Node_Id is
+            Temp : constant Node_Id := Duplicate_Subexpr (Pref);
+
          begin
+            --  The value whose validity is being checked has been captured in
+            --  an object declaration. We certainly don't want this object to
+            --  appear valid because the declaration initializes it!
+
+            if Is_Entity_Name (Temp) then
+               Set_Is_Known_Valid (Entity (Temp), False);
+            end if;
+
             return
               Make_And_Then (Loc,
                 Left_Opnd =>
                   Make_Op_Ge (Loc,
                     Left_Opnd =>
-                      Unchecked_Convert_To (Btyp, Duplicate_Subexpr (Pref)),
+                      Unchecked_Convert_To (Btyp, Temp),
 
                     Right_Opnd =>
                       Unchecked_Convert_To (Btyp,
@@ -4691,8 +4714,7 @@ package body Exp_Attr is
                 Right_Opnd =>
                   Make_Op_Le (Loc,
                     Left_Opnd =>
-                      Unchecked_Convert_To (Btyp,
-                        Duplicate_Subexpr_No_Checks (Pref)),
+                      Unchecked_Convert_To (Btyp, Temp),
 
                     Right_Opnd =>
                       Unchecked_Convert_To (Btyp,

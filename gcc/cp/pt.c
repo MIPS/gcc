@@ -1296,7 +1296,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
     {
       if (DECL_TEMPLATE_INSTANTIATION (fn))
 	{
-	  if (TREE_USED (fn)
+	  if (DECL_ODR_USED (fn)
 	      || DECL_EXPLICIT_INSTANTIATION (fn))
 	    {
 	      error ("specialization of %qD after instantiation",
@@ -7143,7 +7143,7 @@ perform_typedefs_access_check (tree tmpl, tree targs)
   tree t;
 
   if (!tmpl
-      || (!RECORD_OR_UNION_CODE_P (TREE_CODE (tmpl))
+      || (!CLASS_TYPE_P (tmpl)
 	  && TREE_CODE (tmpl) != FUNCTION_DECL))
     return;
 
@@ -8253,10 +8253,10 @@ tsubst_default_argument (tree fn, tree type, tree arg)
       cp_function_chain->x_current_class_ref = saved_class_ref;
     }
 
-  pop_access_scope (fn);
-
   /* Make sure the default argument is reasonable.  */
   arg = check_default_argument (type, arg);
+
+  pop_access_scope (fn);
 
   return arg;
 }
@@ -8306,8 +8306,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
     case TEMPLATE_DECL:
       {
 	/* We can get here when processing a member function template,
-	   member class template, and template template parameter of
-	   a template class.  */
+	   member class template, or template template parameter.  */
 	tree decl = DECL_TEMPLATE_RESULT (t);
 	tree spec;
 	tree tmpl_args;
@@ -8351,10 +8350,10 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (full_args == error_mark_node)
 	  return error_mark_node;
 
-	/* tsubst_template_args doesn't copy the vector if
-	   nothing changed.  But, *something* should have
-	   changed.  */
-	gcc_assert (full_args != tmpl_args);
+	/* If this is a default template template argument,
+	   tsubst might not have changed anything.  */
+	if (full_args == tmpl_args)
+	  return t;
 
 	hash = hash_tmpl_and_args (t, full_args);
 	spec = retrieve_specialization (t, full_args, hash);
@@ -9851,7 +9850,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (e1 == error_mark_node || e2 == error_mark_node)
 	  return error_mark_node;
 
-	return fold_build2 (TREE_CODE (t), TREE_TYPE (t), e1, e2);
+	return fold_build2_loc (input_location,
+			    TREE_CODE (t), TREE_TYPE (t), e1, e2);
       }
 
     case NEGATE_EXPR:
@@ -9861,7 +9861,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (e == error_mark_node)
 	  return error_mark_node;
 
-	return fold_build1 (TREE_CODE (t), TREE_TYPE (t), e);
+	return fold_build1_loc (input_location, TREE_CODE (t), TREE_TYPE (t), e);
       }
 
     case TYPENAME_TYPE:
@@ -9890,7 +9890,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	       But, such constructs have already been resolved by this
 	       point, so here CTX really should have complete type, unless
 	       it's a partial instantiation.  */
-	    ctx = complete_type (ctx);
+	    if (!(complain & tf_no_class_instantiations))
+	      ctx = complete_type (ctx);
 	    if (!COMPLETE_TYPE_P (ctx))
 	      {
 		if (complain & tf_error)
@@ -12214,7 +12215,7 @@ tsubst_copy_and_build (tree t,
 }
 
 /* Verify that the instantiated ARGS are valid. For type arguments,
-   make sure that the type's linkage is ok. For non-type arguments,
+   make sure that the type is not variably modified. For non-type arguments,
    make sure they are constants if they are integral or enumerations.
    Emit an error under control of COMPLAIN, and return TRUE on error.  */
 
@@ -12235,30 +12236,7 @@ check_instantiated_arg (tree tmpl, tree t, tsubst_flags_t complain)
     }
   else if (TYPE_P (t))
     {
-      /* [basic.link]: A name with no linkage (notably, the name
-	 of a class or enumeration declared in a local scope)
-	 shall not be used to declare an entity with linkage.
-	 This implies that names with no linkage cannot be used as
-	 template arguments.  */
-      tree nt = no_linkage_check (t, /*relaxed_p=*/false);
-
-      if (nt)
-	{
-	  /* DR 488 makes use of a type with no linkage cause
-	     type deduction to fail.  */
-	  if (complain & tf_error)
-	    {
-	      if (TYPE_ANONYMOUS_P (nt))
-		error ("%qT is/uses anonymous type", t);
-	      else
-		error ("template argument for %qD uses local type %qT",
-		       tmpl, t);
-	    }
-	  return true;
-	}
-      /* In order to avoid all sorts of complications, we do not
-	 allow variably-modified types as template arguments.  */
-      else if (variably_modified_type_p (t, NULL_TREE))
+      if (variably_modified_type_p (t, NULL_TREE))
 	{
 	  if (complain & tf_error)
 	    error ("%qT is a variably modified type", t);
@@ -12950,8 +12928,9 @@ type_unification_real (tree tparms,
 	     to explicitly check cxx_dialect here.  */
           if (TREE_PURPOSE (TREE_VEC_ELT (tparms, i)))
             {
-              tree arg = tsubst (TREE_PURPOSE (TREE_VEC_ELT (tparms, i)), 
-                                 targs, tf_none, NULL_TREE);
+              tree arg = tsubst_template_arg
+				(TREE_PURPOSE (TREE_VEC_ELT (tparms, i)),
+				 targs, tf_none, NULL_TREE);
               if (arg == error_mark_node)
                 return 1;
               else
@@ -14073,12 +14052,12 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	  /* If only one of the bounds used a MINUS_EXPR, compensate
 	     by adding one to the other bound.  */
 	  if (parm_cst && !arg_cst)
-	    parm_max = fold_build2 (PLUS_EXPR,
+	    parm_max = fold_build2_loc (input_location, PLUS_EXPR,
 				    integer_type_node,
 				    parm_max,
 				    integer_one_node);
 	  else if (arg_cst && !parm_cst)
-	    arg_max = fold_build2 (PLUS_EXPR,
+	    arg_max = fold_build2_loc (input_location, PLUS_EXPR,
 				   integer_type_node,
 				   arg_max,
 				   integer_one_node);
@@ -15656,6 +15635,27 @@ template_for_substitution (tree decl)
   return tmpl;
 }
 
+/* Returns true if we need to instantiate this template instance even if we
+   know we aren't going to emit it..  */
+
+bool
+always_instantiate_p (tree decl)
+{
+  /* We always instantiate inline functions so that we can inline them.  An
+     explicit instantiation declaration prohibits implicit instantiation of
+     non-inline functions.  With high levels of optimization, we would
+     normally inline non-inline functions -- but we're not allowed to do
+     that for "extern template" functions.  Therefore, we check
+     DECL_DECLARED_INLINE_P, rather than possibly_inlined_p.  */
+  return ((TREE_CODE (decl) == FUNCTION_DECL
+	   && DECL_DECLARED_INLINE_P (decl))
+	  /* And we need to instantiate static data members so that
+	     their initializers are available in integral constant
+	     expressions.  */
+	  || (TREE_CODE (decl) == VAR_DECL
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)));
+}
+
 /* Produce the definition of D, a _DECL generated from a template.  If
    DEFER_OK is nonzero, then we don't have to actually do the
    instantiation now; we just have to do it sometime.  Normally it is
@@ -15707,6 +15707,15 @@ instantiate_decl (tree d, int defer_ok,
        instantiation is deferred until the end of the compilation,
        DECL_EXPLICIT_INSTANTIATION is set, even though we still need to do
        the instantiation.  */
+    return d;
+
+  /* Check to see whether we know that this template will be
+     instantiated in some other file, as with "extern template"
+     extension.  */
+  external_p = (DECL_INTERFACE_KNOWN (d) && DECL_REALLY_EXTERN (d));
+
+  /* In general, we do not instantiate such templates.  */
+  if (external_p && !always_instantiate_p (d))
     return d;
 
   gen_tmpl = most_general_template (tmpl);
@@ -15802,26 +15811,6 @@ instantiate_decl (tree d, int defer_ok,
       pop_access_scope (d);
     }
 
-  /* Check to see whether we know that this template will be
-     instantiated in some other file, as with "extern template"
-     extension.  */
-  external_p = (DECL_INTERFACE_KNOWN (d) && DECL_REALLY_EXTERN (d));
-  /* In general, we do not instantiate such templates...  */
-  if (external_p
-      /* ... but we instantiate inline functions so that we can inline
-	 them.  An explicit instantiation declaration prohibits implicit
-	 instantiation of non-inline functions.  With high levels of
-	 optimization, we would normally inline non-inline functions
-	 -- but we're not allowed to do that for "extern template" functions.
-	 Therefore, we check DECL_DECLARED_INLINE_P, rather than
-	 possibly_inlined_p.  And ...  */
-      && ! (TREE_CODE (d) == FUNCTION_DECL
-	    && DECL_DECLARED_INLINE_P (d))
-      /* ... we instantiate static data members whose values are
-	 needed in integral constant expressions.  */
-      && ! (TREE_CODE (d) == VAR_DECL
-	    && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (d)))
-    goto out;
   /* Defer all other templates, unless we have been explicitly
      forbidden from doing so.  */
   if (/* If there is no definition, we cannot instantiate the
@@ -17513,7 +17502,7 @@ get_types_needing_access_check (tree t)
   if (!(ti = get_template_info (t)))
     return NULL_TREE;
 
-  if (RECORD_OR_UNION_CODE_P (TREE_CODE (t))
+  if (CLASS_TYPE_P (t)
       || TREE_CODE (t) == FUNCTION_DECL)
     {
       if (!TI_TEMPLATE (ti))
@@ -17546,7 +17535,7 @@ append_type_to_template_for_access_check_1 (tree t,
     return;
 
   gcc_assert ((TREE_CODE (t) == FUNCTION_DECL
-	       || RECORD_OR_UNION_CODE_P (TREE_CODE (t)))
+	       || CLASS_TYPE_P (t))
 	      && type_decl
 	      && TREE_CODE (type_decl) == TYPE_DECL
 	      && scope);

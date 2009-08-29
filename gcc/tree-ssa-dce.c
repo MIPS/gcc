@@ -274,7 +274,7 @@ mark_operand_necessary (tree op)
    necessary.  */
 
 static void
-mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive, basic_block bb)
+mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
 {
   tree lhs = NULL_TREE;
   /* With non-call exceptions, we have to assume that all statements could
@@ -322,42 +322,6 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive, basic_block bb)
     case GIMPLE_ASSIGN:
       if (!lhs)
         lhs = gimple_assign_lhs (stmt);
-      /* These values are mildly magic bits of the EH runtime.  We can't
-	 see the entire lifetime of these values until landing pads are
-	 generated.  */
-      if ((TREE_CODE (lhs) == EXC_PTR_EXPR
-	  || TREE_CODE (lhs) == FILTER_EXPR))
-	{
-          tree rhs = gimple_assign_rhs1 (stmt);
-
-	  /* We still can remove no-op moves.  */
-	  if (TREE_CODE (rhs) == TREE_CODE (lhs))
-	    return;
-
-	  /* FLITER_EXPR/EXC_PTR_EXPR are silently modified over EH
-	     edges by EH delivery runtime.  We don't model this, but if
-	     we know there is no exception in between code saving
-	     FILTER_EXPR and code.  
-	     
-	     We essentailly look for:
-  		save_filt.2924 = [filter_expr] <<<filter object>>>;
-		save_eptr.2923 = [exc_ptr_expr] <<<exception object>>>;
-		<some code>
-		<<<exception object>>> = save_eptr.2923;
-		<<<filter object>>> = save_filt.2924;
-	     within single basic block.
-
-	     Since we are in SSA form, we know that the load must appear
-	     in BB before set or there would be PHI at beggining of BB.  */
-	  if (TREE_CODE (rhs) == SSA_NAME
-	      && gimple_bb (SSA_NAME_DEF_STMT (rhs)) == bb
-	      && gimple_code (SSA_NAME_DEF_STMT (rhs)) == GIMPLE_ASSIGN
-	      && TREE_CODE (gimple_assign_rhs1 (SSA_NAME_DEF_STMT (rhs)))
-	         == TREE_CODE (lhs))
-	    return;
-	  mark_stmt_necessary (stmt, true);
-	  return;
-	}
       break;
 
     case GIMPLE_GOTO:
@@ -457,7 +421,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
 	{
 	  stmt = gsi_stmt (gsi);
 	  gimple_set_plf (stmt, STMT_NECESSARY, false);
-	  mark_stmt_if_obviously_necessary (stmt, el != NULL, bb);
+	  mark_stmt_if_obviously_necessary (stmt, el != NULL);
 	}
     }
 
@@ -855,9 +819,6 @@ mark_virtual_phi_result_for_renaming (gimple phi)
     }
   FOR_EACH_IMM_USE_STMT (stmt, iter, gimple_phi_result (phi))
     {
-      if (gimple_code (stmt) != GIMPLE_PHI
-	  && !gimple_plf (stmt, STMT_NECESSARY))
-        continue;
       FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
         SET_USE (use_p, SSA_NAME_VAR (gimple_phi_result (phi)));
       update_stmt (stmt);
@@ -900,7 +861,8 @@ remove_dead_phis (basic_block bb)
 	      FOR_EACH_IMM_USE_STMT (use_stmt, iter, vdef)
 		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 		  SET_USE (use_p, vuse);
-	      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vdef))
+	      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vdef)
+	          && TREE_CODE (vuse) == SSA_NAME)
 		SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vuse) = 1;
 	    }
 	  else
@@ -954,7 +916,7 @@ static edge
 forward_edge_to_pdom (edge e, basic_block post_dom_bb)
 {
   gimple_stmt_iterator gsi;
-  edge e2;
+  edge e2 = NULL;
   edge_iterator ei;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -979,6 +941,8 @@ forward_edge_to_pdom (edge e, basic_block post_dom_bb)
       for (gsi = gsi_start_phis (post_dom_bb); !gsi_end_p (gsi);)
 	{
 	  gimple phi = gsi_stmt (gsi);
+	  tree op;
+	  source_location locus;
 
 	  /* Dead PHI do not imply control dependency.  */
           if (!gimple_plf (phi, STMT_NECESSARY)
@@ -1002,8 +966,18 @@ forward_edge_to_pdom (edge e, basic_block post_dom_bb)
 	      remove_phi_node (&gsi, true);
 	      continue;
 	    }
-          gcc_assert (e2);
-	  add_phi_arg (phi, gimple_phi_arg_def (phi, e2->dest_idx), e);
+	  if (!e2)
+	    {
+	      op = gimple_phi_arg_def (phi, e->dest_idx == 0 ? 1 : 0);
+	      locus = gimple_phi_arg_location (phi, e->dest_idx == 0 ? 1 : 0);
+	    }
+	  else
+	    {
+	      op = gimple_phi_arg_def (phi, e2->dest_idx);
+	      locus = gimple_phi_arg_location (phi, e2->dest_idx);
+	    }
+	  add_phi_arg (phi, op, e, locus);
+	  gcc_assert (e2 || degenerate_phi_p (phi));
 	  gsi_next (&gsi);
 	}
     }
@@ -1159,7 +1133,8 @@ eliminate_unnecessary_stmts (void)
       for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; bb = next_bb)
 	{
 	  next_bb = bb->next_bb;
-	  if (!(bb->flags & BB_REACHABLE))
+	  if (!TEST_BIT (bb_contains_live_stmts, bb->index)
+	      || !(bb->flags & BB_REACHABLE))
 	    {
 	      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 		if (!is_gimple_reg (gimple_phi_result (gsi_stmt (gsi))))
@@ -1181,7 +1156,8 @@ eliminate_unnecessary_stmts (void)
 		    if (found)
 		      mark_virtual_phi_result_for_renaming (gsi_stmt (gsi));
 		  }
-	      delete_basic_block (bb);
+	      if (!(bb->flags & BB_REACHABLE))
+	        delete_basic_block (bb);
 	    }
 	}
     }

@@ -1333,9 +1333,6 @@ setup_incoming_promotions (rtx first)
   tree arg;
   bool strictly_local = false;
 
-  if (!targetm.calls.promote_function_args (TREE_TYPE (cfun->decl)))
-    return;
-
   for (arg = DECL_ARGUMENTS (current_function_decl); arg;
        arg = TREE_CHAIN (arg))
     {
@@ -1365,7 +1362,8 @@ setup_incoming_promotions (rtx first)
 
       /* The mode and signedness of the argument as it is actually passed, 
          after any TARGET_PROMOTE_FUNCTION_ARGS-driven ABI promotions.  */
-      mode3 = promote_mode (DECL_ARG_TYPE (arg), mode2, &uns3, 1);
+      mode3 = promote_function_mode (DECL_ARG_TYPE (arg), mode2, &uns3,
+				     TREE_TYPE (cfun->decl), 0);
 
       /* The mode of the register in which the argument is being passed.  */
       mode4 = GET_MODE (reg);
@@ -6692,18 +6690,25 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
       inner = adjust_address_nv (inner, wanted_inner_mode, offset);
     }
 
-  /* If INNER is not memory, we can always get it into the proper mode.  If we
-     are changing its mode, POS must be a constant and smaller than the size
-     of the new mode.  */
+  /* If INNER is not memory, get it into the proper mode.  If we are changing
+     its mode, POS must be a constant and smaller than the size of the new
+     mode.  */
   else if (!MEM_P (inner))
     {
+      /* On the LHS, don't create paradoxical subregs implicitely truncating
+	 the register unless TRULY_NOOP_TRUNCATION.  */
+      if (in_dest
+	  && !TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (GET_MODE (inner)),
+				     GET_MODE_BITSIZE (wanted_inner_mode)))
+	return NULL_RTX;
+
       if (GET_MODE (inner) != wanted_inner_mode
 	  && (pos_rtx != 0
 	      || orig_pos + len > GET_MODE_BITSIZE (wanted_inner_mode)))
-	return 0;
+	return NULL_RTX;
 
       if (orig_pos < 0)
-	return 0;
+	return NULL_RTX;
 
       inner = force_to_mode (inner, wanted_inner_mode,
 			     pos_rtx
@@ -7054,6 +7059,12 @@ make_compound_operation (rtx x, enum rtx_code in_code)
 	    if (GET_CODE (newer) != SUBREG)
 	      newer = make_compound_operation (newer, in_code);
 
+	    /* force_to_mode can expand compounds.  If it just re-expanded the
+	       compound use gen_lowpart instead to convert to the desired
+	       mode.  */
+	    if (rtx_equal_p (newer, x))
+	      return gen_lowpart (GET_MODE (x), tem);
+
 	    return newer;
 	  }
 
@@ -7232,13 +7243,20 @@ canon_reg_for_combine (rtx x, rtx reg)
 static rtx
 gen_lowpart_or_truncate (enum machine_mode mode, rtx x)
 {
-  if (GET_MODE_SIZE (GET_MODE (x)) <= GET_MODE_SIZE (mode)
-      || TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
-				GET_MODE_BITSIZE (GET_MODE (x)))
-      || (REG_P (x) && reg_truncated_to_mode (mode, x)))
-    return gen_lowpart (mode, x);
-  else
-    return simplify_gen_unary (TRUNCATE, mode, x, GET_MODE (x));
+  if (!CONST_INT_P (x)
+      && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (x))
+      && !TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+				 GET_MODE_BITSIZE (GET_MODE (x)))
+      && !(REG_P (x) && reg_truncated_to_mode (mode, x)))
+    {
+      /* Bit-cast X into an integer mode.  */
+      if (!SCALAR_INT_MODE_P (GET_MODE (x)))
+	x = gen_lowpart (int_mode_for_mode (GET_MODE (x)), x);
+      x = simplify_gen_unary (TRUNCATE, int_mode_for_mode (mode),
+			      x, GET_MODE (x));
+    }
+
+  return gen_lowpart (mode, x);
 }
 
 /* See if X can be simplified knowing that we will only refer to it in
@@ -7325,9 +7343,20 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
       && (GET_MODE_MASK (GET_MODE (x)) & ~mask) == 0)
     return gen_lowpart (mode, x);
 
-  /* The arithmetic simplifications here do the wrong thing on vector modes.  */
-  if (VECTOR_MODE_P (mode) || VECTOR_MODE_P (GET_MODE (x)))
-      return gen_lowpart (mode, x);
+  /* We can ignore the effect of a SUBREG if it narrows the mode or
+     if the constant masks to zero all the bits the mode doesn't have.  */
+  if (GET_CODE (x) == SUBREG
+      && subreg_lowpart_p (x)
+      && ((GET_MODE_SIZE (GET_MODE (x))
+	   < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
+	  || (0 == (mask
+		    & GET_MODE_MASK (GET_MODE (x))
+		    & ~GET_MODE_MASK (GET_MODE (SUBREG_REG (x)))))))
+    return force_to_mode (SUBREG_REG (x), mode, mask, next_select);
+
+  /* The arithmetic simplifications here only work for scalar integer modes.  */
+  if (!SCALAR_INT_MODE_P (mode) || !SCALAR_INT_MODE_P (GET_MODE (x)))
+    return gen_lowpart_or_truncate (mode, x);
 
   switch (code)
     {
@@ -7343,19 +7372,6 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
       x = expand_compound_operation (x);
       if (GET_CODE (x) != code)
 	return force_to_mode (x, mode, mask, next_select);
-      break;
-
-    case SUBREG:
-      if (subreg_lowpart_p (x)
-	  /* We can ignore the effect of this SUBREG if it narrows the mode or
-	     if the constant masks to zero all the bits the mode doesn't
-	     have.  */
-	  && ((GET_MODE_SIZE (GET_MODE (x))
-	       < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-	      || (0 == (mask
-			& GET_MODE_MASK (GET_MODE (x))
-			& ~GET_MODE_MASK (GET_MODE (SUBREG_REG (x)))))))
-	return force_to_mode (SUBREG_REG (x), mode, mask, next_select);
       break;
 
     case TRUNCATE:
@@ -8975,6 +8991,63 @@ merge_outer_ops (enum rtx_code *pop0, HOST_WIDE_INT *pconst0, enum rtx_code op1,
   return 1;
 }
 
+/* A helper to simplify_shift_const_1 to determine the mode we can perform
+   the shift in.  The original shift operation CODE is performed on OP in
+   ORIG_MODE.  Return the wider mode MODE if we can perform the operation
+   in that mode.  Return ORIG_MODE otherwise.  We can also assume that the
+   result of the shift is subject to operation OUTER_CODE with operand
+   OUTER_CONST.  */
+
+static enum machine_mode
+try_widen_shift_mode (enum rtx_code code, rtx op, int count,
+		      enum machine_mode orig_mode, enum machine_mode mode,
+		      enum rtx_code outer_code, HOST_WIDE_INT outer_const)
+{
+  if (orig_mode == mode)
+    return mode;
+  gcc_assert (GET_MODE_BITSIZE (mode) > GET_MODE_BITSIZE (orig_mode));
+
+  /* In general we can't perform in wider mode for right shift and rotate.  */
+  switch (code)
+    {
+    case ASHIFTRT:
+      /* We can still widen if the bits brought in from the left are identical
+	 to the sign bit of ORIG_MODE.  */
+      if (num_sign_bit_copies (op, mode)
+	  > (unsigned) (GET_MODE_BITSIZE (mode)
+			- GET_MODE_BITSIZE (orig_mode)))
+	return mode;
+      return orig_mode;
+
+    case LSHIFTRT:
+      /* Similarly here but with zero bits.  */
+      if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
+	  && (nonzero_bits (op, mode) & ~GET_MODE_MASK (orig_mode)) == 0)
+	return mode;
+
+      /* We can also widen if the bits brought in will be masked off.  This
+	 operation is performed in ORIG_MODE.  */
+      if (outer_code == AND)
+	{
+	  int care_bits = low_bitmask_len (orig_mode, outer_const);
+
+	  if (care_bits >= 0
+	      && GET_MODE_BITSIZE (orig_mode) - care_bits >= count)
+	    return mode;
+	}
+      /* fall through */
+
+    case ROTATE:
+      return orig_mode;
+
+    case ROTATERT:
+      gcc_unreachable ();
+
+    default:
+      return mode;
+    }
+}
+
 /* Simplify a shift of VAROP by COUNT bits.  CODE says what kind of shift.
    The result of the shift is RESULT_MODE.  Return NULL_RTX if we cannot
    simplify it.  Otherwise, return a simplified value.
@@ -9034,13 +9107,8 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	    count = bitsize - count;
 	}
 
-      /* We need to determine what mode we will do the shift in.  If the
-	 shift is a right shift or a ROTATE, we must always do it in the mode
-	 it was originally done in.  Otherwise, we can do it in MODE, the
-	 widest mode encountered.  */
-      shift_mode
-	= (code == ASHIFTRT || code == LSHIFTRT || code == ROTATE
-	   ? result_mode : mode);
+      shift_mode = try_widen_shift_mode (code, varop, count, result_mode,
+					 mode, outer_op, outer_const);
 
       /* Handle cases where the count is greater than the size of the mode
 	 minus 1.  For ASHIFT, use the size minus one as the count (this can
@@ -9638,14 +9706,8 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
       break;
     }
 
-  /* We need to determine what mode to do the shift in.  If the shift is
-     a right shift or ROTATE, we must always do it in the mode it was
-     originally done in.  Otherwise, we can do it in MODE, the widest mode
-     encountered.  The code we care about is that of the shift that will
-     actually be done, not the shift that was originally requested.  */
-  shift_mode
-    = (code == ASHIFTRT || code == LSHIFTRT || code == ROTATE
-       ? result_mode : mode);
+  shift_mode = try_widen_shift_mode (code, varop, count, result_mode, mode,
+				     outer_op, outer_const);
 
   /* We have now finished analyzing the shift.  The result should be
      a shift of type CODE with SHIFT_MODE shifting VAROP COUNT places.  If

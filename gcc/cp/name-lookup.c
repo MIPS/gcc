@@ -62,19 +62,14 @@ static GTY(()) tree anonymous_namespace_name;
 
 /* Initialize anonymous_namespace_name if necessary, and return it.  */
 
-static tree
-get_anonymous_namespace_name(void)
+tree
+get_anonymous_namespace_name (void)
 {
   if (!anonymous_namespace_name)
     {
       /* The anonymous namespace has to have a unique name
 	 if typeinfo objects are being compared by name.  */
-      if (! flag_weak || ! SUPPORTS_ONE_ONLY)
-	anonymous_namespace_name = get_file_function_name ("N");
-      else
-	/* The demangler expects anonymous namespaces to be called
-	   something starting with '_GLOBAL__N_'.  */
-	anonymous_namespace_name = get_identifier ("_GLOBAL__N_1");
+      anonymous_namespace_name = get_file_function_name ("N");
     }
   return anonymous_namespace_name;
 }
@@ -3929,6 +3924,7 @@ qualified_lookup_using_namespace (tree name, tree scope,
   /* ... and a list of namespace yet to see.  */
   tree todo = NULL_TREE;
   tree todo_maybe = NULL_TREE;
+  tree *todo_weak = &todo_maybe;
   tree usings;
   timevar_push (TV_NAME_LOOKUP);
   /* Look through namespace aliases.  */
@@ -3942,9 +3938,7 @@ qualified_lookup_using_namespace (tree name, tree scope,
 	ambiguous_decl (result, binding, flags);
 
       /* Consider strong using directives always, and non-strong ones
-	 if we haven't found a binding yet.  ??? Shouldn't we consider
-	 non-strong ones if the initial RESULT is non-NULL, but the
-	 binding in the given namespace is?  */
+	 if we haven't found a binding yet.  */
       for (usings = DECL_NAMESPACE_USING (scope); usings;
 	   usings = TREE_CHAIN (usings))
 	/* If this was a real directive, and we have not seen it.  */
@@ -3959,12 +3953,12 @@ qualified_lookup_using_namespace (tree name, tree scope,
 		&& !purpose_member (TREE_PURPOSE (usings), seen)
 		&& !purpose_member (TREE_PURPOSE (usings), todo))
 	      todo = tree_cons (TREE_PURPOSE (usings), NULL_TREE, todo);
-	    else if ((!result->value && !result->type)
+	    else if (!binding
 		     && !purpose_member (TREE_PURPOSE (usings), seen)
 		     && !purpose_member (TREE_PURPOSE (usings), todo)
 		     && !purpose_member (TREE_PURPOSE (usings), todo_maybe))
-	      todo_maybe = tree_cons (TREE_PURPOSE (usings), NULL_TREE,
-				      todo_maybe);
+	      *todo_weak = tree_cons (TREE_PURPOSE (usings), NULL_TREE,
+				      *todo_weak);
 	  }
       if (todo)
 	{
@@ -3977,6 +3971,7 @@ qualified_lookup_using_namespace (tree name, tree scope,
 	  scope = TREE_PURPOSE (todo_maybe);
 	  todo = TREE_CHAIN (todo_maybe);
 	  todo_maybe = NULL_TREE;
+	  todo_weak = &todo;
 	}
       else
 	scope = NULL_TREE; /* If there never was a todo list.  */
@@ -4395,6 +4390,34 @@ lookup_name_innermost_nonclass_level (tree name)
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
+}
+
+/* Returns true iff DECL is a block-scope extern declaration of a function
+   or variable.  */
+
+bool
+is_local_extern (tree decl)
+{
+  cxx_binding *binding;
+
+  /* For functions, this is easy.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    return DECL_LOCAL_FUNCTION_P (decl);
+
+  if (TREE_CODE (decl) != VAR_DECL)
+    return false;
+  if (!current_function_decl)
+    return false;
+
+  /* For variables, this is not easy.  We need to look at the binding stack
+     for the identifier to see whether the decl we have is a local.  */
+  for (binding = IDENTIFIER_BINDING (DECL_NAME (decl));
+       binding && binding->scope->kind != sk_namespace;
+       binding = binding->previous)
+    if (binding->value == decl)
+      return LOCAL_BINDING_P (binding);
+
+  return false;
 }
 
 /* Like lookup_name_innermost_nonclass_level, but for types.  */

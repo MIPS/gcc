@@ -3940,18 +3940,6 @@ expand_location (source_location loc)
 }
 
 
-/* Source location accessor functions.  */
-
-
-void
-set_expr_locus (tree node, source_location *loc)
-{
-  if (loc == NULL)
-    EXPR_CHECK (node)->exp.locus = UNKNOWN_LOCATION;
-  else
-    EXPR_CHECK (node)->exp.locus = *loc;
-}
-
 /* Like SET_EXPR_LOCATION, but make sure the tree can have a location.
 
    LOC is the location to use in tree T.  */
@@ -4000,7 +3988,7 @@ iterative_hash_hashval_t (hashval_t val, hashval_t val2)
 }
 
 /* Produce good hash value combining VAL and VAL2.  */
-static inline hashval_t
+hashval_t
 iterative_hash_host_wide_int (HOST_WIDE_INT val, hashval_t val2)
 {
   if (sizeof (HOST_WIDE_INT) == sizeof (hashval_t))
@@ -6311,7 +6299,6 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip)
       else
 	new_reversed = void_list_node;
     }
-    gcc_assert (new_reversed);
 
   /* Use copy_node to preserve as much as possible from original type
      (debug info, attribute lists etc.)
@@ -7699,21 +7686,10 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
   tree t;
   hashval_t hashcode = 0;
 
-  /* Build a main variant, based on the main variant of the inner type, then
-     use it to build the variant we return.  */
-  if ((TYPE_ATTRIBUTES (innertype) || TYPE_QUALS (innertype))
-      && TYPE_MAIN_VARIANT (innertype) != innertype)
-    return build_type_attribute_qual_variant (
-	    make_vector_type (TYPE_MAIN_VARIANT (innertype), nunits, mode),
-	    TYPE_ATTRIBUTES (innertype),
-	    TYPE_QUALS (innertype));
-
   t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (innertype);
   SET_TYPE_VECTOR_SUBPARTS (t, nunits);
   SET_TYPE_MODE (t, mode);
-  TYPE_READONLY (t) = TYPE_READONLY (innertype);
-  TYPE_VOLATILE (t) = TYPE_VOLATILE (innertype);
 
   if (TYPE_STRUCTURAL_EQUALITY_P (innertype))
     SET_TYPE_STRUCTURAL_EQUALITY (t);
@@ -7743,9 +7719,20 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
   }
 
   hashcode = iterative_hash_host_wide_int (VECTOR_TYPE, hashcode);
+  hashcode = iterative_hash_host_wide_int (nunits, hashcode);
   hashcode = iterative_hash_host_wide_int (mode, hashcode);
-  hashcode = iterative_hash_object (TYPE_HASH (innertype), hashcode);
-  return type_hash_canon (hashcode, t);
+  hashcode = iterative_hash_object (TYPE_HASH (TREE_TYPE (t)), hashcode);
+  t = type_hash_canon (hashcode, t);
+
+  /* We have built a main variant, based on the main variant of the
+     inner type. Use it to build the variant we return.  */
+  if ((TYPE_ATTRIBUTES (innertype) || TYPE_QUALS (innertype))
+      && TREE_TYPE (t) != innertype)
+    return build_type_attribute_qual_variant (t,
+					      TYPE_ATTRIBUTES (innertype),
+					      TYPE_QUALS (innertype));
+
+  return t;
 }
 
 static tree
@@ -8549,7 +8536,8 @@ build_call_valist (tree return_type, tree fn, int nargs, va_list args)
    which are specified as a tree array ARGS.  */
 
 tree
-build_call_array (tree return_type, tree fn, int nargs, const tree *args)
+build_call_array_loc (location_t loc, tree return_type, tree fn,
+		      int nargs, const tree *args)
 {
   tree t;
   int i;
@@ -8561,6 +8549,7 @@ build_call_array (tree return_type, tree fn, int nargs, const tree *args)
   for (i = 0; i < nargs; i++)
     CALL_EXPR_ARG (t, i) = args[i];
   process_call_operands (t);
+  SET_EXPR_LOCATION (t, loc);
   return t;
 }
 

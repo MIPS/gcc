@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #else
 #include "c-tree.h"
+#include "c-lang.h"
 #endif
 
 #include "c-common.h"
@@ -3554,7 +3555,7 @@ static tree
 next_sjlj_build_try_exit (void)
 {
   tree t;
-  t = build_fold_addr_expr (cur_try_context->stack_decl);
+  t = build_fold_addr_expr_loc (input_location, cur_try_context->stack_decl);
   t = tree_cons (NULL, t, NULL);
   t = build_function_call (input_location,
 			   objc_exception_try_exit_decl, t);
@@ -3575,14 +3576,14 @@ next_sjlj_build_enter_and_setjmp (void)
 {
   tree t, enter, sj, cond;
 
-  t = build_fold_addr_expr (cur_try_context->stack_decl);
+  t = build_fold_addr_expr_loc (input_location, cur_try_context->stack_decl);
   t = tree_cons (NULL, t, NULL);
   enter = build_function_call (input_location,
 			       objc_exception_try_enter_decl, t);
 
   t = objc_build_component_ref (cur_try_context->stack_decl,
 				get_identifier ("buf"));
-  t = build_fold_addr_expr (t);
+  t = build_fold_addr_expr_loc (input_location, t);
 #ifdef OBJCPLUS
   /* Convert _setjmp argument to type that is expected.  */
   if (TYPE_ARG_TYPES (TREE_TYPE (objc_setjmp_decl)))
@@ -3611,7 +3612,7 @@ next_sjlj_build_exc_extract (tree decl)
 {
   tree t;
 
-  t = build_fold_addr_expr (cur_try_context->stack_decl);
+  t = build_fold_addr_expr_loc (input_location, cur_try_context->stack_decl);
   t = tree_cons (NULL, t, NULL);
   t = build_function_call (input_location,
 			   objc_exception_extract_decl, t);
@@ -3669,7 +3670,7 @@ next_sjlj_build_catch_list (void)
 	      cond = c_common_truthvalue_conversion (input_location, t);
 	    }
 	  t = build3 (COND_EXPR, void_type_node, cond, body, NULL);
-	  SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
+	  SET_EXPR_LOCATION (t, EXPR_LOCATION (stmt));
 
 	  *last = t;
 	  last = &COND_EXPR_ELSE (t);
@@ -6623,7 +6624,7 @@ build_objc_method_call (location_t loc, int super_flag, tree method_prototype,
       method_params = tree_cons (NULL_TREE, lookup_object,
 				 tree_cons (NULL_TREE, selector,
 					    method_params));
-      method = build_fold_addr_expr (sender);
+      method = build_fold_addr_expr_loc (input_location, sender);
     }
   else
     {
@@ -6637,8 +6638,7 @@ build_objc_method_call (location_t loc, int super_flag, tree method_prototype,
 
       t = tree_cons (NULL_TREE, selector, NULL_TREE);
       t = tree_cons (NULL_TREE, lookup_object, t);
-      method = build_function_call (loc,
-				    sender, t);
+      method = build_function_call (loc, sender, t);
 
       /* Pass the object to the method.  */
       method_params = tree_cons (NULL_TREE, object,

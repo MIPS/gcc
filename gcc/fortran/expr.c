@@ -1504,14 +1504,13 @@ simplify_const_ref (gfc_expr *p)
 		      else
 			string_len = 0;
 
-		      if (!p->ts.cl)
-			{
-			  p->ts.cl = gfc_get_charlen ();
-			  p->ts.cl->next = NULL;
-			  p->ts.cl->length = NULL;
-			}
-		      gfc_free_expr (p->ts.cl->length);
-		      p->ts.cl->length = gfc_int_expr (string_len);
+		      if (!p->ts.u.cl)
+			p->ts.u.cl = gfc_new_charlen (p->symtree->n.sym->ns,
+						      NULL);
+		      else
+			gfc_free_expr (p->ts.u.cl->length);
+
+		      p->ts.u.cl->length = gfc_int_expr (string_len);
 		    }
 		}
 	      gfc_free_ref_list (p->ref);
@@ -1681,10 +1680,8 @@ gfc_simplify_expr (gfc_expr *p, int type)
 	  gfc_free (p->value.character.string);
 	  p->value.character.string = s;
 	  p->value.character.length = end - start;
-	  p->ts.cl = gfc_get_charlen ();
-	  p->ts.cl->next = gfc_current_ns->cl_list;
-	  gfc_current_ns->cl_list = p->ts.cl;
-	  p->ts.cl->length = gfc_int_expr (p->value.character.length);
+	  p->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
+	  p->ts.u.cl->length = gfc_int_expr (p->value.character.length);
 	  gfc_free_ref_list (p->ref);
 	  p->ref = NULL;
 	  p->expr_type = EXPR_CONSTANT;
@@ -2104,7 +2101,7 @@ check_inquiry (gfc_expr *e, int not_restricted)
 	   with LEN, as required by the standard.  */
 	if (i == 5 && not_restricted
 	    && ap->expr->symtree->n.sym->ts.type == BT_CHARACTER
-	    && ap->expr->symtree->n.sym->ts.cl->length == NULL)
+	    && ap->expr->symtree->n.sym->ts.u.cl->length == NULL)
 	  {
 	    gfc_error ("Assumed character length variable '%s' in constant "
 		       "expression at %L", e->symtree->n.sym->name, &e->where);
@@ -3194,16 +3191,15 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	  && lvalue->symtree->n.sym->attr.ext_attr
 	       != rvalue->symtree->n.sym->attr.ext_attr)
 	{
-	  symbol_attribute cdecl, stdcall, fastcall;
-	  unsigned calls;
+	  symbol_attribute calls;
 
-	  gfc_add_ext_attribute (&cdecl, (unsigned) EXT_ATTR_CDECL, NULL);
-	  gfc_add_ext_attribute (&stdcall, (unsigned) EXT_ATTR_STDCALL, NULL);
-	  gfc_add_ext_attribute (&fastcall, (unsigned) EXT_ATTR_FASTCALL, NULL);
-	  calls = cdecl.ext_attr | stdcall.ext_attr | fastcall.ext_attr;
+	  calls.ext_attr = 0;
+	  gfc_add_ext_attribute (&calls, EXT_ATTR_CDECL, NULL);
+	  gfc_add_ext_attribute (&calls, EXT_ATTR_STDCALL, NULL);
+	  gfc_add_ext_attribute (&calls, EXT_ATTR_FASTCALL, NULL);
 
-	  if ((calls & lvalue->symtree->n.sym->attr.ext_attr)
-	      != (calls & rvalue->symtree->n.sym->attr.ext_attr))
+	  if ((calls.ext_attr & lvalue->symtree->n.sym->attr.ext_attr)
+	      != (calls.ext_attr & rvalue->symtree->n.sym->attr.ext_attr))
 	    {
 	      gfc_error ("Mismatch in the procedure pointer assignment "
 			 "at %L: mismatch in the calling convention",
@@ -3213,7 +3209,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	}
 
       /* TODO: Enable interface check for PPCs.  */
-      if (is_proc_ptr_comp (rvalue, NULL))
+      if (gfc_is_proc_ptr_comp (rvalue, NULL))
 	return SUCCESS;
       if ((rvalue->expr_type == EXPR_VARIABLE
 	   && !gfc_compare_interfaces (lvalue->symtree->n.sym,
@@ -3340,7 +3336,7 @@ gfc_default_initializer (gfc_typespec *ts)
   gfc_component *c;
 
   /* See if we have a default initializer.  */
-  for (c = ts->derived->components; c; c = c->next)
+  for (c = ts->u.derived->components; c; c = c->next)
     if (c->initializer || c->attr.allocatable)
       break;
 
@@ -3351,10 +3347,10 @@ gfc_default_initializer (gfc_typespec *ts)
   init = gfc_get_expr ();
   init->expr_type = EXPR_STRUCTURE;
   init->ts = *ts;
-  init->where = ts->derived->declared_at;
+  init->where = ts->u.derived->declared_at;
 
   tail = NULL;
-  for (c = ts->derived->components; c; c = c->next)
+  for (c = ts->u.derived->components; c; c = c->next)
     {
       if (tail == NULL)
 	init->value.constructor = tail = gfc_get_constructor ();
@@ -3424,10 +3420,10 @@ gfc_traverse_expr (gfc_expr *expr, gfc_symbol *sym,
     return true;
 
   if (expr->ts.type == BT_CHARACTER
-	&& expr->ts.cl
-	&& expr->ts.cl->length
-	&& expr->ts.cl->length->expr_type != EXPR_CONSTANT
-	&& gfc_traverse_expr (expr->ts.cl->length, sym, func, f))
+	&& expr->ts.u.cl
+	&& expr->ts.u.cl->length
+	&& expr->ts.u.cl->length->expr_type != EXPR_CONSTANT
+	&& gfc_traverse_expr (expr->ts.u.cl->length, sym, func, f))
     return true;
 
   switch (expr->expr_type)
@@ -3505,11 +3501,11 @@ gfc_traverse_expr (gfc_expr *expr, gfc_symbol *sym,
 
 	case REF_COMPONENT:
 	  if (ref->u.c.component->ts.type == BT_CHARACTER
-		&& ref->u.c.component->ts.cl
-		&& ref->u.c.component->ts.cl->length
-		&& ref->u.c.component->ts.cl->length->expr_type
+		&& ref->u.c.component->ts.u.cl
+		&& ref->u.c.component->ts.u.cl->length
+		&& ref->u.c.component->ts.u.cl->length->expr_type
 		     != EXPR_CONSTANT
-		&& gfc_traverse_expr (ref->u.c.component->ts.cl->length,
+		&& gfc_traverse_expr (ref->u.c.component->ts.u.cl->length,
 				      sym, func, f))
 	    return true;
 
@@ -3558,7 +3554,7 @@ gfc_expr_set_symbols_referenced (gfc_expr *expr)
    provided).  */
 
 bool
-is_proc_ptr_comp (gfc_expr *expr, gfc_component **comp)
+gfc_is_proc_ptr_comp (gfc_expr *expr, gfc_component **comp)
 {
   gfc_ref *ref;
   bool ppc = false;
@@ -3672,3 +3668,39 @@ gfc_expr_replace_symbols (gfc_expr *expr, gfc_symbol *dest)
 {
   gfc_traverse_expr (expr, dest, &replace_symbol, 0);
 }
+
+/* The following is analogous to 'replace_symbol', and needed for copying
+   interfaces for procedure pointer components. The argument 'sym' must formally
+   be a gfc_symbol, so that the function can be passed to gfc_traverse_expr.
+   However, it gets actually passed a gfc_component (i.e. the procedure pointer
+   component in whose formal_ns the arguments have to be).  */
+
+static bool
+replace_comp (gfc_expr *expr, gfc_symbol *sym, int *i ATTRIBUTE_UNUSED)
+{
+  gfc_component *comp;
+  comp = (gfc_component *)sym;
+  if ((expr->expr_type == EXPR_VARIABLE 
+       || (expr->expr_type == EXPR_FUNCTION
+	   && !gfc_is_intrinsic (expr->symtree->n.sym, 0, expr->where)))
+      && expr->symtree->n.sym->ns == comp->ts.interface->formal_ns)
+    {
+      gfc_symtree *stree;
+      gfc_namespace *ns = comp->formal_ns;
+      /* Don't use gfc_get_symtree as we prefer to fail badly if we don't find
+	 the symtree rather than create a new one (and probably fail later).  */
+      stree = gfc_find_symtree (ns ? ns->sym_root : gfc_current_ns->sym_root,
+		      		expr->symtree->n.sym->name);
+      gcc_assert (stree);
+      stree->n.sym->attr = expr->symtree->n.sym->attr;
+      expr->symtree = stree;
+    }
+  return false;
+}
+
+void
+gfc_expr_replace_comp (gfc_expr *expr, gfc_component *dest)
+{
+  gfc_traverse_expr (expr, (gfc_symbol *)dest, &replace_comp, 0);
+}
+

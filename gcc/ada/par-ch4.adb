@@ -79,6 +79,11 @@ package body Ch4 is
    --  Called to place complaint about bad range attribute at the given
    --  source location. Terminates by raising Error_Resync.
 
+   procedure P_Membership_Test (N : Node_Id);
+   --  N is the node for a N_In or N_Not_In node whose right operand has not
+   --  yet been processed. It is called just after scanning out the IN keyword.
+   --  On return, either Right_Opnd or Alternatives is set, as appropriate.
+
    function P_Range_Attribute_Reference (Prefix_Node : Node_Id) return Node_Id;
    --  Scan a range attribute reference. The caller has scanned out the
    --  prefix. The current token is known to be an apostrophe and the
@@ -453,7 +458,7 @@ package body Ch4 is
 
                         loop
                            Discard_Junk_Node (P_Expression_If_OK);
-                           exit when not Comma_Present;
+                           exit when not  Comma_Present;
                         end loop;
 
                         T_Right_Paren;
@@ -857,7 +862,6 @@ package body Ch4 is
    exception
       when Error_Resync =>
          return Error;
-
    end P_Function_Name;
 
    --  This function parses a restricted form of Names which are either
@@ -929,7 +933,6 @@ package body Ch4 is
    exception
       when Error_Resync =>
          return Error;
-
    end P_Qualified_Simple_Name;
 
    --  This procedure differs from P_Qualified_Simple_Name only in that it
@@ -994,7 +997,6 @@ package body Ch4 is
          Set_Selector_Name (Selector_Node, Designator_Node);
          return Selector_Node;
       end if;
-
    end P_Qualified_Simple_Name_Resync;
 
    ----------------------
@@ -1389,6 +1391,19 @@ package body Ch4 is
 
             Append (Expr_Node, Expr_List);
 
+         --  Check for aggregate followed by left parent, maybe missing comma
+
+         elsif Nkind (Expr_Node) = N_Aggregate
+           and then Token = Tok_Left_Paren
+         then
+            T_Comma;
+
+            if No (Expr_List) then
+               Expr_List := New_List;
+            end if;
+
+            Append (Expr_Node, Expr_List);
+
          --  Anything else is assumed to be a named association
 
          else
@@ -1760,7 +1775,7 @@ package body Ch4 is
          --  Case of IN or NOT IN
 
          if Prev_Token = Tok_In then
-            Set_Right_Opnd (Node2, P_Range_Or_Subtype_Mark);
+            P_Membership_Test (Node2);
 
          --  Case of relational operator (= /= < <= > >=)
 
@@ -2091,8 +2106,18 @@ package body Ch4 is
       if not Token_Is_At_Start_Of_Line
          and then Token not in Token_Class_Sterm
       then
-         Error_Msg_AP ("binary operator expected");
+         --  Normally the right error message is indeed that we expected a
+         --  binary operator, but in the case of being between a right and left
+         --  paren, e.g. in an aggregate, a more likely error is missing comma.
+
+         if Prev_Token = Tok_Right_Paren and then Token = Tok_Left_Paren then
+            T_Comma;
+         else
+            Error_Msg_AP ("binary operator expected");
+         end if;
+
          raise Error_Resync;
+
       else
          return Node1;
       end if;
@@ -2106,7 +2131,6 @@ package body Ch4 is
          Resync_Expression;
          Expr_Form := EF_Simple;
          return Error;
-
    end P_Simple_Expression;
 
    -----------------------------------------------
@@ -2482,15 +2506,15 @@ package body Ch4 is
    function P_Relational_Operator return Node_Kind is
       Op_Kind : Node_Kind;
       Relop_Node : constant array (Token_Class_Relop) of Node_Kind :=
-        (Tok_Less           => N_Op_Lt,
-         Tok_Equal          => N_Op_Eq,
-         Tok_Greater        => N_Op_Gt,
-         Tok_Not_Equal      => N_Op_Ne,
-         Tok_Greater_Equal  => N_Op_Ge,
-         Tok_Less_Equal     => N_Op_Le,
-         Tok_In             => N_In,
-         Tok_Not            => N_Not_In,
-         Tok_Box            => N_Op_Ne);
+                     (Tok_Less          => N_Op_Lt,
+                      Tok_Equal         => N_Op_Eq,
+                      Tok_Greater       => N_Op_Gt,
+                      Tok_Not_Equal     => N_Op_Ne,
+                      Tok_Greater_Equal => N_Op_Ge,
+                      Tok_Less_Equal    => N_Op_Le,
+                      Tok_In            => N_In,
+                      Tok_Not           => N_Not_In,
+                      Tok_Box           => N_Op_Ne);
 
    begin
       if Token = Tok_Box then
@@ -2528,9 +2552,9 @@ package body Ch4 is
 
    function P_Binary_Adding_Operator return Node_Kind is
       Addop_Node : constant array (Token_Class_Binary_Addop) of Node_Kind :=
-        (Tok_Ampersand      => N_Op_Concat,
-         Tok_Minus          => N_Op_Subtract,
-         Tok_Plus           => N_Op_Add);
+                     (Tok_Ampersand => N_Op_Concat,
+                      Tok_Minus     => N_Op_Subtract,
+                      Tok_Plus      => N_Op_Add);
    begin
       return Addop_Node (Token);
    end P_Binary_Adding_Operator;
@@ -2551,8 +2575,8 @@ package body Ch4 is
 
    function P_Unary_Adding_Operator return Node_Kind is
       Addop_Node : constant array (Token_Class_Unary_Addop) of Node_Kind :=
-        (Tok_Minus          => N_Op_Minus,
-         Tok_Plus           => N_Op_Plus);
+                     (Tok_Minus => N_Op_Minus,
+                      Tok_Plus  => N_Op_Plus);
    begin
       return Addop_Node (Token);
    end P_Unary_Adding_Operator;
@@ -2662,7 +2686,7 @@ package body Ch4 is
 
    function P_Conditional_Expression return Node_Id is
       Exprs : constant List_Id    := New_List;
-      Loc   : constant Source_Ptr := Scan_Ptr;
+      Loc   : constant Source_Ptr := Token_Ptr;
       Expr  : Node_Id;
       State : Saved_Scan_State;
 
@@ -2670,8 +2694,8 @@ package body Ch4 is
       Inside_Conditional_Expression := Inside_Conditional_Expression + 1;
 
       if Token = Tok_If and then not Extensions_Allowed then
-         Error_Msg_SC ("conditional expression is an Ada extension");
-         Error_Msg_SC ("\use -gnatX switch to compile this unit");
+         Error_Msg_SC ("|conditional expression is an Ada extension");
+         Error_Msg_SC ("\|use -gnatX switch to compile this unit");
       end if;
 
       Scan; -- past IF or ELSIF
@@ -2737,5 +2761,43 @@ package body Ch4 is
         Make_Conditional_Expression (Loc,
           Expressions => Exprs);
    end P_Conditional_Expression;
+
+   -----------------------
+   -- P_Membership_Test --
+   -----------------------
+
+   procedure P_Membership_Test (N : Node_Id) is
+      Alt : constant Node_Id :=
+              P_Range_Or_Subtype_Mark
+                (Allow_Simple_Expression => Extensions_Allowed);
+
+   begin
+      --  Set case
+
+      if Token = Tok_Vertical_Bar then
+         if not Extensions_Allowed then
+            Error_Msg_SC ("set notation is a language extension");
+            Error_Msg_SC ("\|use -gnatX switch to compile this unit");
+         end if;
+
+         Set_Alternatives (N, New_List (Alt));
+         Set_Right_Opnd   (N, Empty);
+
+         --  Loop to accumulate alternatives
+
+         while Token = Tok_Vertical_Bar loop
+            Scan; -- past vertical bar
+            Append_To
+              (Alternatives (N),
+               P_Range_Or_Subtype_Mark (Allow_Simple_Expression => True));
+         end loop;
+
+      --  Not set case
+
+      else
+         Set_Right_Opnd   (N, Alt);
+         Set_Alternatives (N, No_List);
+      end if;
+   end P_Membership_Test;
 
 end Ch4;

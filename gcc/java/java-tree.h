@@ -145,6 +145,9 @@ extern int flag_newer;
 /* When nonzero, call a library routine to do integer divisions. */
 extern int flag_use_divide_subroutine;
 
+/* When nonzero, use atomic builtins. */
+extern int flag_use_atomic_builtins;
+
 /* When nonzero, generate code for the Boehm GC.  */
 extern int flag_use_boehm_gc;
 
@@ -1119,7 +1122,7 @@ extern int find_class_or_string_constant (struct CPool *, int, tree);
 
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl_function_level (tree);
-extern tree java_replace_reference (tree, bool);
+extern tree java_replace_references (tree *, int *, void *);
 extern int alloc_class_constant (tree);
 extern void init_expr_processing (void);
 extern void push_super_field (tree, tree);

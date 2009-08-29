@@ -85,11 +85,11 @@ show_typespec (gfc_typespec *ts)
   switch (ts->type)
     {
     case BT_DERIVED:
-      fprintf (dumpfile, "%s", ts->derived->name);
+      fprintf (dumpfile, "%s", ts->u.derived->name);
       break;
 
     case BT_CHARACTER:
-      show_expr (ts->cl->length);
+      show_expr (ts->u.cl->length);
       break;
 
     default:
@@ -354,7 +354,7 @@ show_expr (gfc_expr *p)
       break;
 
     case EXPR_STRUCTURE:
-      fprintf (dumpfile, "%s(", p->ts.derived->name);
+      fprintf (dumpfile, "%s(", p->ts.u.derived->name);
       show_constructor (p->value.constructor);
       fputc (')', dumpfile);
       break;
@@ -544,7 +544,7 @@ show_expr (gfc_expr *p)
       if (p->value.function.name == NULL)
 	{
 	  fprintf (dumpfile, "%s", p->symtree->n.sym->name);
-	  if (is_proc_ptr_comp (p, NULL))
+	  if (gfc_is_proc_ptr_comp (p, NULL))
 	    show_ref (p->ref);
 	  fputc ('[', dumpfile);
 	  show_actual_arglist (p->value.function.actual);
@@ -553,7 +553,7 @@ show_expr (gfc_expr *p)
       else
 	{
 	  fprintf (dumpfile, "%s", p->value.function.name);
-	  if (is_proc_ptr_comp (p, NULL))
+	  if (gfc_is_proc_ptr_comp (p, NULL))
 	    show_ref (p->ref);
 	  fputc ('[', dumpfile);
 	  fputc ('[', dumpfile);

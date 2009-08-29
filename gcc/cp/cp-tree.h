@@ -494,6 +494,8 @@ typedef enum cp_trait_kind
   CPTK_IS_ENUM,
   CPTK_IS_POD,
   CPTK_IS_POLYMORPHIC,
+  CPTK_IS_STD_LAYOUT,
+  CPTK_IS_TRIVIAL,
   CPTK_IS_UNION
 } cp_trait_kind;
 
@@ -1124,6 +1126,7 @@ struct GTY(()) lang_type_class {
   unsigned non_aggregate : 1;
   unsigned has_complex_dflt : 1;
   unsigned has_list_ctor : 1;
+  unsigned non_std_layout : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1132,7 +1135,7 @@ struct GTY(()) lang_type_class {
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 10;
+  unsigned dummy : 9;
 
   tree primary_base;
   VEC(tree_pair_s,gc) *vcall_indices;
@@ -1385,8 +1388,14 @@ struct GTY(()) lang_type {
 #define CLASSTYPE_HAS_MUTABLE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_mutable)
 #define TYPE_HAS_MUTABLE_P(NODE) (cp_has_mutable_p (NODE))
 
-/* Nonzero means that this class type is a non-POD class.  */
-#define CLASSTYPE_NON_POD_P(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->non_pod_class)
+/* Nonzero means that this class type is not POD for the purpose of layout
+   (as defined in the ABI).  This is different from the language's POD.  */
+#define CLASSTYPE_NON_LAYOUT_POD_P(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->non_pod_class)
+
+/* Nonzero means that this class type is a non-standard-layout class.  */
+#define CLASSTYPE_NON_STD_LAYOUT(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->non_std_layout)
 
 /* Nonzero means that this class contains pod types whose default
    initialization is not a zero initialization (namely, pointers to
@@ -1570,8 +1579,9 @@ struct GTY(()) lang_decl_base {
   unsigned anticipated_p : 1;		   /* fn or type */
   unsigned friend_attr : 1;		   /* fn or type */
   unsigned template_conv_p : 1;		   /* template only? */
+  unsigned odr_used : 1;		   /* var or fn */
   unsigned u2sel : 1;
-  /* 2 spare bits */
+  /* 1 spare bit */
 };
 
 /* True for DECL codes which have template info and access.  */
@@ -1632,8 +1642,7 @@ struct GTY(()) lang_decl_fn {
   unsigned thunk_p : 1;
   unsigned this_thunk_p : 1;
   unsigned hidden_friend_p : 1;
-  unsigned deferred : 1;
-  /* No spare bits; consider adding to lang_decl_base instead.  */
+  /* 1 spare bit.  */
 
   /* For a non-thunk function decl, this is a tree list of
      friendly classes. For a thunk function decl, it is the
@@ -1973,6 +1982,12 @@ struct GTY(()) lang_decl {
   (DECL_LANG_SPECIFIC (VAR_OR_FUNCTION_DECL_CHECK (DECL)) \
    ->u.base.initialized_in_class)
 
+/* Nonzero if the DECL is used in the sense of 3.2 [basic.def.odr].
+   Only available for decls with DECL_LANG_SPECIFIC.  */
+#define DECL_ODR_USED(DECL) \
+  (DECL_LANG_SPECIFIC (VAR_OR_FUNCTION_DECL_CHECK (DECL)) \
+   ->u.base.odr_used)
+
 /* Nonzero for DECL means that this decl is just a friend declaration,
    and should not be added to the list of members for this class.  */
 #define DECL_FRIEND_P(NODE) (DECL_LANG_SPECIFIC (NODE)->u.base.friend_attr)
@@ -2218,10 +2233,6 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    and put them into a TREE_VEC.  */
 #define CLASSTYPE_SORTED_FIELDS(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->sorted_fields)
-
-/* True if on the deferred_fns (see decl2.c) list.  */
-#define DECL_DEFERRED_FN(DECL) \
-  (LANG_DECL_FN_CHECK (DECL)->deferred)
 
 /* If non-NULL for a VAR_DECL, FUNCTION_DECL, TYPE_DECL or
    TEMPLATE_DECL, the entity is either a template specialization (if
@@ -3509,9 +3520,10 @@ enum tag_types {
 enum cp_lvalue_kind_flags {
   clk_none = 0,     /* Things that are not an lvalue.  */
   clk_ordinary = 1, /* An ordinary lvalue.  */
-  clk_class = 2,    /* An rvalue of class-type.  */
-  clk_bitfield = 4, /* An lvalue for a bit-field.  */
-  clk_packed = 8    /* An lvalue for a packed field.  */
+  clk_rvalueref = 2,/* An rvalue formed using an rvalue reference */
+  clk_class = 4,    /* An rvalue of class-type.  */
+  clk_bitfield = 8, /* An lvalue for a bit-field.  */
+  clk_packed = 16   /* An lvalue for a packed field.  */
 };
 
 /* This type is used for parameters and variables which hold
@@ -3606,6 +3618,8 @@ enum tsubst_flags {
 				    conversion.  */
   tf_no_access_control = 1 << 7, /* Do not perform access checks, even
 				    when issuing other errors.   */
+  /* Do not instantiate classes (used by count_non_default_template_args). */
+  tf_no_class_instantiations = 1 << 8,
   /* Convenient substitution flags combinations.  */
   tf_warning_or_error = tf_warning | tf_error
 };
@@ -4254,6 +4268,7 @@ extern tree set_up_extended_ref_temp		(tree, tree, tree *, tree *);
 extern tree initialize_reference		(tree, tree, tree, tree *);
 extern tree make_temporary_var_for_ref_to_temp	(tree, tree);
 extern tree strip_top_quals			(tree);
+extern bool reference_related_p			(tree, tree);
 extern tree perform_implicit_conversion		(tree, tree, tsubst_flags_t);
 extern tree perform_implicit_conversion_flags	(tree, tree, tsubst_flags_t, int);
 extern tree perform_direct_initialization_if_possible (tree, tree, bool,
@@ -4327,6 +4342,7 @@ extern tree force_rvalue			(tree);
 extern tree ocp_convert				(tree, tree, int, int);
 extern tree cp_convert				(tree, tree);
 extern tree cp_convert_and_check                (tree, tree);
+extern tree cp_fold_convert			(tree, tree);
 extern tree convert_to_void	(tree, const char */*implicit context*/,
                                  tsubst_flags_t);
 extern tree convert_force			(tree, tree, int);
@@ -4335,6 +4351,7 @@ extern tree type_promotes_to			(tree);
 extern tree perform_qualification_conversions	(tree, tree);
 
 /* in name-lookup.c */
+extern tree get_anonymous_namespace_name	(void);
 extern tree pushdecl				(tree);
 extern tree pushdecl_maybe_friend		(tree, bool);
 extern void maybe_push_cleanup_level		(tree);
@@ -4614,6 +4631,7 @@ extern void mark_decl_instantiated		(tree, int);
 extern int more_specialized_fn			(tree, tree, int);
 extern void do_decl_instantiation		(tree, tree);
 extern void do_type_instantiation		(tree, tree, tsubst_flags_t);
+extern bool always_instantiate_p		(tree);
 extern tree instantiate_decl			(tree, int, bool);
 extern int comp_template_parms			(const_tree, const_tree);
 extern bool uses_parameter_packs                (tree);
@@ -4876,7 +4894,12 @@ extern void stabilize_aggr_init			(tree, tree *);
 extern bool stabilize_init			(tree, tree *);
 extern tree add_stmt_to_compound		(tree, tree);
 extern void init_tree				(void);
-extern int pod_type_p				(const_tree);
+extern bool pod_type_p				(const_tree);
+extern bool layout_pod_type_p			(const_tree);
+extern bool std_layout_type_p			(const_tree);
+extern bool trivial_type_p			(const_tree);
+extern bool type_has_nontrivial_default_init	(const_tree);
+extern bool type_has_nontrivial_copy_init	(const_tree);
 extern bool class_tmpl_impl_spec_p		(const_tree);
 extern int zero_init_p				(const_tree);
 extern tree strip_typedefs			(tree);
@@ -4884,6 +4907,7 @@ extern tree copy_binfo				(tree, tree, tree,
 						 tree *, int);
 extern int member_p				(const_tree);
 extern cp_lvalue_kind real_lvalue_p		(tree);
+extern bool lvalue_or_rvalue_with_address_p	(const_tree);
 extern bool builtin_valid_in_constant_expr_p    (const_tree);
 extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt			(enum tree_code, ...);
@@ -5042,6 +5066,7 @@ extern tree cp_build_binary_op                  (location_t,
 #define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
 extern tree build_ptrmemfunc_access_expr	(tree, tree);
 extern tree build_address			(tree);
+extern tree build_typed_address			(tree, tree);
 extern tree build_nop				(tree, tree);
 extern tree non_reference			(tree);
 extern tree lookup_anon_field			(tree, tree);
@@ -5079,7 +5104,7 @@ extern tree merge_exception_specifiers		(tree, tree);
 /* in mangle.c */
 extern void init_mangle				(void);
 extern void mangle_decl				(tree);
-extern const char *mangle_type_string		(tree);
+extern const char *mangle_type_string_for_rtti	(tree);
 extern tree mangle_typeinfo_for_type		(tree);
 extern tree mangle_typeinfo_string_for_type	(tree);
 extern tree mangle_vtbl_for_type		(tree);

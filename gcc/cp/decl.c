@@ -932,6 +932,14 @@ decls_match (tree newdecl, tree olddecl)
 		&& DECL_EXTERN_C_P (olddecl)))
 	return 0;
 
+#ifdef NO_IMPLICIT_EXTERN_C
+      /* A new declaration doesn't match a built-in one unless it
+	 is also extern "C".  */
+      if (DECL_BUILT_IN (olddecl)
+	  && DECL_EXTERN_C_P (olddecl) && !DECL_EXTERN_C_P (newdecl))
+	return 0;
+#endif
+
       if (TREE_CODE (f1) != TREE_CODE (f2))
 	return 0;
 
@@ -1882,6 +1890,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	}
       DECL_TEMPLATE_INSTANTIATED (newdecl)
 	|= DECL_TEMPLATE_INSTANTIATED (olddecl);
+      DECL_ODR_USED (newdecl) |= DECL_ODR_USED (olddecl);
 
       /* If the OLDDECL is an instantiation and/or specialization,
 	 then the NEWDECL must be too.  But, it may not yet be marked
@@ -1947,7 +1956,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	     should have exited above, returning 0.  */
 	  gcc_assert (DECL_TEMPLATE_SPECIALIZATION (newdecl));
 
-	  if (TREE_USED (olddecl))
+	  if (DECL_ODR_USED (olddecl))
 	    /* From [temp.expl.spec]:
 
 	       If a template, a member template or the member of a class
@@ -2465,20 +2474,28 @@ declare_local_label (tree id)
 static int
 decl_jump_unsafe (tree decl)
 {
+  /* [stmt.dcl]/3: A program that jumps from a point where a local variable
+     with automatic storage duration is not in scope to a point where it is
+     in scope is ill-formed unless the variable has scalar type, class type
+     with a trivial default constructor and a trivial destructor, a
+     cv-qualified version of one of these types, or an array of one of the
+     preceding types and is declared without an initializer (8.5).  */
+  tree type = TREE_TYPE (decl);
+
   if (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl)
-      || TREE_TYPE (decl) == error_mark_node)
+      || type == error_mark_node)
     return 0;
 
-  if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))
+  type = strip_array_types (type);
+
+  if (type_has_nontrivial_default_init (TREE_TYPE (decl))
       || DECL_NONTRIVIALLY_INITIALIZED_P (decl))
     return 2;
 
-  if (pod_type_p (TREE_TYPE (decl)))
-    return 0;
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
+    return 1;
 
-  /* The POD stuff is just pedantry; why should it matter if the class
-     contains a field of pointer to member type?  */
-  return 1;
+  return 0;
 }
 
 /* A subroutine of check_previous_goto_1 to identify a branch to the user.  */
@@ -2533,7 +2550,8 @@ check_previous_goto_1 (tree decl, struct cp_binding_level* level, tree names,
 	  if (problem > 1)
 	    error ("  crosses initialization of %q+#D", new_decls);
 	  else
-	    permerror (input_location, "  enters scope of non-POD %q+#D", new_decls);
+	    permerror (input_location, "  enters scope of %q+#D which has "
+		       "non-trivial destructor", new_decls);
 	}
 
       if (b == level)
@@ -2648,7 +2666,8 @@ check_goto (tree decl)
       else if (u > 1)
 	error ("  skips initialization of %q+#D", b);
       else
-	permerror (input_location, "  enters scope of non-POD %q+#D", b);
+	permerror (input_location, "  enters scope of %q+#D which has "
+		   "non-trivial destructor", b);
     }
 
   if (ent->in_try_scope)
@@ -4352,13 +4371,6 @@ grok_reference_init (tree decl, tree type, tree init, tree *cleanup)
       return NULL_TREE;
     }
 
-  if (TREE_CODE (init) == CONSTRUCTOR)
-    {
-      error ("ISO C++ forbids use of initializer list to "
-	     "initialize reference %qD", decl);
-      return NULL_TREE;
-    }
-
   if (TREE_CODE (init) == TREE_LIST)
     init = build_x_compound_expr_from_list (init, "initializer");
 
@@ -4867,7 +4879,7 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p)
    a CONSTRUCTOR). TYPE is the type of the variable being initialized, D is the
    iterator within the CONSTRUCTOR which points to the initializer to process.
    FIRST_INITIALIZER_P is true if this is the first initializer of the
-   CONSTRUCTOR node.  */
+   outermost CONSTRUCTOR node.  */
 
 static tree
 reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
@@ -4912,6 +4924,10 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
      initializer is considered for the initialization of the first
      member of the subaggregate.  */
   if (TREE_CODE (init) != CONSTRUCTOR
+      /* But don't try this for the first initializer, since that would be
+	 looking through the outermost braces; A a2 = { a1 }; is not a
+	 valid aggregate initialization.  */
+      && !first_initializer_p
       && can_convert_arg (type, TREE_TYPE (init), init, LOOKUP_NORMAL))
     {
       d->cur++;
@@ -5679,11 +5695,13 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 
   if (TREE_CODE (decl) == VAR_DECL)
     {
-      /* Only PODs can have thread-local storage.  Other types may require
-	 various kinds of non-trivial initialization.  */
-      if (DECL_THREAD_LOCAL_P (decl) && !pod_type_p (TREE_TYPE (decl)))
-	error ("%qD cannot be thread-local because it has non-POD type %qT",
-	       decl, TREE_TYPE (decl));
+      /* Only variables with trivial initialization and destruction can
+	 have thread-local storage.  */
+      if (DECL_THREAD_LOCAL_P (decl)
+	  && (type_has_nontrivial_default_init (TREE_TYPE (decl))
+	      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl))))
+	error ("%qD cannot be thread-local because it has non-trivial "
+	       "type %qT", decl, TREE_TYPE (decl));
       /* If this is a local variable that will need a mangled name,
 	 register it now.  We must do this before processing the
 	 initializer for the variable, since the initialization might
@@ -6730,36 +6748,6 @@ grokfndecl (tree ctype,
 		|| decl_function_context (TYPE_MAIN_DECL (ctype))))
     publicp = 0;
 
-  if (publicp)
-    {
-      /* [basic.link]: A name with no linkage (notably, the name of a class
-	 or enumeration declared in a local scope) shall not be used to
-	 declare an entity with linkage.
-
-	 Only check this for public decls for now.  See core 319, 389.  */
-      t = no_linkage_check (TREE_TYPE (decl),
-			    /*relaxed_p=*/false);
-      if (t)
-	{
-	  if (TYPE_ANONYMOUS_P (t))
-	    {
-	      if (DECL_EXTERN_C_P (decl))
-		/* Allow this; it's pretty common in C.  */;
-	      else
-		{
-		  permerror (input_location, "non-local function %q#D uses anonymous type",
-			      decl);
-		  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
-		    permerror (input_location, "%q+#D does not refer to the unqualified "
-			       "type, so it is not used for linkage",
-			       TYPE_NAME (t));
-		}
-	    }
-	  else
-	    permerror (input_location, "non-local function %q#D uses local type %qT", decl, t);
-	}
-    }
-
   TREE_PUBLIC (decl) = publicp;
   if (! publicp)
     {
@@ -7004,36 +6992,13 @@ grokvardecl (tree type,
 
   if (TREE_PUBLIC (decl))
     {
-      /* [basic.link]: A name with no linkage (notably, the name of a class
-	 or enumeration declared in a local scope) shall not be used to
-	 declare an entity with linkage.
-
-	 Only check this for public decls for now.  */
-      tree t = no_linkage_check (TREE_TYPE (decl), /*relaxed_p=*/false);
-      if (t)
-	{
-	  if (TYPE_ANONYMOUS_P (t))
-	    {
-	      if (DECL_EXTERN_C_P (decl))
-		/* Allow this; it's pretty common in C.  */
-		  ;
-	      else
-		{
-		  /* DRs 132, 319 and 389 seem to indicate types with
-		     no linkage can only be used to declare extern "C"
-		     entities.  Since it's not always an error in the
-		     ISO C++ 90 Standard, we only issue a warning.  */
-		  warning (0, "non-local variable %q#D uses anonymous type",
-			   decl);
-		  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
-		    warning (0, "%q+#D does not refer to the unqualified "
-			     "type, so it is not used for linkage",
-			     TYPE_NAME (t));
-		}
-	    }
-	  else
-	    warning (0, "non-local variable %q#D uses local type %qT", decl, t);
-	}
+      /* If the type of the decl has no linkage, make sure that we'll
+	 notice that in mark_used.  */
+      if (DECL_LANG_SPECIFIC (decl) == NULL
+	  && TREE_PUBLIC (decl)
+	  && !DECL_EXTERN_C_P (decl)
+	  && no_linkage_check (TREE_TYPE (decl), /*relaxed_p=*/false))
+	retrofit_lang_decl (decl);
     }
   else
     DECL_INTERFACE_KNOWN (decl) = 1;
@@ -7092,10 +7057,14 @@ build_ptrmemfunc_type (tree type)
   /* If this is not the unqualified form of this pointer-to-member
      type, set the TYPE_MAIN_VARIANT for this type to be the
      unqualified type.  Since they are actually RECORD_TYPEs that are
-     not variants of each other, we must do this manually.  */
+     not variants of each other, we must do this manually.
+     As we just built a new type there is no need to do yet another copy.  */
   if (cp_type_quals (type) != TYPE_UNQUALIFIED)
     {
-      t = build_qualified_type (t, cp_type_quals (type));
+      int type_quals = cp_type_quals (type);
+      TYPE_READONLY (t) = (type_quals & TYPE_QUAL_CONST) != 0;
+      TYPE_VOLATILE (t) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
+      TYPE_RESTRICT (t) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
       TYPE_MAIN_VARIANT (t) = unqualified_variant;
       TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (unqualified_variant);
       TYPE_NEXT_VARIANT (unqualified_variant) = t;
@@ -7619,7 +7588,6 @@ grokdeclarator (const cp_declarator *declarator,
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   bool type_was_error_mark_node = false;
   bool parameter_pack_p = declarator? declarator->parameter_pack_p : false;
-  bool set_no_warning = false;
   bool template_type_arg = false;
   const char *errmsg;
 
@@ -8299,7 +8267,6 @@ grokdeclarator (const cp_declarator *declarator,
 		/* We now know that the TYPE_QUALS don't apply to the
 		   decl, but to its return type.  */
 		type_quals = TYPE_UNQUALIFIED;
-		set_no_warning = true;
 	      }
 	    errmsg = targetm.invalid_return_type (type);
 	    if (errmsg)
@@ -9520,9 +9487,6 @@ grokdeclarator (const cp_declarator *declarator,
        for the instantiated declaration based on the type of DECL.  */
     if (!processing_template_decl)
       cp_apply_type_quals_to_decl (type_quals, decl);
-
-    if (set_no_warning)
-        TREE_NO_WARNING (decl) = 1;
 
     return decl;
   }
@@ -11049,7 +11013,7 @@ start_enum (tree name, tree underlying_type, bool scoped_enum_p)
           TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (underlying_type);
           ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;
         }
-      else
+      else if (!dependent_type_p (underlying_type))
         error ("underlying type %<%T%> of %<%T%> must be an integral type", 
                underlying_type, enumtype);
     }
@@ -11095,6 +11059,8 @@ finish_enum (tree enumtype)
 	TREE_TYPE (TREE_VALUE (values)) = enumtype;
       if (at_function_scope_p ())
 	add_stmt (build_min (TAG_DEFN, enumtype));
+      if (SCOPED_ENUM_P (enumtype))
+	finish_scope ();
       return;
     }
 
@@ -11203,7 +11169,8 @@ finish_enum (tree enumtype)
       /* Set the underlying type of the enumeration type to the
          computed enumeration type, restricted to the enumerator
          values. */
-      ENUM_UNDERLYING_TYPE (enumtype) = copy_node (underlying_type);
+      ENUM_UNDERLYING_TYPE (enumtype)
+	= build_distinct_type_copy (underlying_type);
       set_min_and_max_values_for_integral_type 
         (ENUM_UNDERLYING_TYPE (enumtype), precision, unsignedp);
     }
@@ -11410,7 +11377,7 @@ build_enumerator (tree name, tree value, tree enumtype)
   TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
 
-  if (context && context == current_class_type)
+  if (context && context == current_class_type && !SCOPED_ENUM_P (enumtype))
     /* In something like `struct S { enum E { i = 7 }; };' we put `i'
        on the TYPE_FIELDS list for `S'.  (That's so that you can say
        things like `S::i' later.)  */
@@ -12415,9 +12382,6 @@ finish_function (int flags)
       f->x_return_value = NULL;
       f->bindings = NULL;
       f->extern_decl_map = NULL;
-
-      /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
-      c_warn_unused_result (gimple_body (fndecl));
     }
   /* Clear out the bits we don't need.  */
   local_names = NULL;

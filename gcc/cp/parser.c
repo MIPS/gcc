@@ -3399,6 +3399,8 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_IS_ENUM:
 	case RID_IS_POD:
 	case RID_IS_POLYMORPHIC:
+	case RID_IS_STD_LAYOUT:
+	case RID_IS_TRIVIAL:
 	case RID_IS_UNION:
 	  return cp_parser_trait_expr (parser, token->keyword);
 
@@ -6864,6 +6866,12 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
       break;
     case RID_IS_POLYMORPHIC:
       kind = CPTK_IS_POLYMORPHIC;
+      break;
+    case RID_IS_STD_LAYOUT:
+      kind = CPTK_IS_STD_LAYOUT;
+      break;
+    case RID_IS_TRIVIAL:
+      kind = CPTK_IS_TRIVIAL;
       break;
     case RID_IS_UNION:
       kind = CPTK_IS_UNION;
@@ -11591,6 +11599,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
   tree identifier;
   tree type = NULL_TREE;
   tree attributes = NULL_TREE;
+  tree globalscope;
   cp_token *token = NULL;
 
   /* See if we're looking at the `enum' keyword.  */
@@ -11622,9 +11631,6 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
       cp_lexer_consume_token (parser->lexer);
       /* Remember that it's a `typename' type.  */
       tag_type = typename_type;
-      /* The `typename' keyword is only allowed in templates.  */
-      if (!processing_template_decl)
-	permerror (input_location, "using %<typename%> outside of template");
     }
   /* Otherwise it must be a class-key.  */
   else
@@ -11637,10 +11643,10 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
     }
 
   /* Look for the `::' operator.  */
-  cp_parser_global_scope_opt (parser,
-			      /*current_scope_valid_p=*/false);
+  globalscope =  cp_parser_global_scope_opt (parser,
+					     /*current_scope_valid_p=*/false);
   /* Look for the nested-name-specifier.  */
-  if (tag_type == typename_type)
+  if (tag_type == typename_type && !globalscope)
     {
       if (!cp_parser_nested_name_specifier (parser,
 					   /*typename_keyword_p=*/true,
@@ -14609,12 +14615,6 @@ cp_parser_default_argument (cp_parser *parser, bool template_parm_p)
      appear in a default argument.  */
   saved_local_variables_forbidden_p = parser->local_variables_forbidden_p;
   parser->local_variables_forbidden_p = true;
-  /* The default argument expression may cause implicitly
-     defined member functions to be synthesized, which will
-     result in garbage collection.  We must treat this
-     situation as if we were within the body of function so as
-     to avoid collecting live data on the stack.  */
-  ++function_depth;
   /* Parse the assignment-expression.  */
   if (template_parm_p)
     push_deferring_access_checks (dk_no_deferred);
@@ -14622,8 +14622,6 @@ cp_parser_default_argument (cp_parser *parser, bool template_parm_p)
     = cp_parser_assignment_expression (parser, /*cast_p=*/false, NULL);
   if (template_parm_p)
     pop_deferring_access_checks ();
-  /* Restore saved state.  */
-  --function_depth;
   parser->greater_than_is_operator_p = saved_greater_than_is_operator_p;
   parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;
 

@@ -46,7 +46,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     basic_istream<_CharT, _Traits>::sentry::
     sentry(basic_istream<_CharT, _Traits>& __in, bool __noskip) : _M_ok(false)
     {
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       if (__in.good())
 	{
 	  if (__in.tie())
@@ -87,9 +87,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       _M_extract(_ValueT& __v)
       {
 	sentry __cerb(*this, false);
-	if (__cerb)
+	if (static_cast<bool>(__cerb))
 	  {
-	    ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	    ios_base::iostate __err = ios_base::goodbit;
 	    __try
 	      {
 		const __num_get_type& __ng = __check_facet(this->_M_num_get);
@@ -97,7 +97,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      }
 	    __catch(__cxxabiv1::__forced_unwind&)
 	      {
-		this->_M_setstate(ios_base::badbit);		
+		this->_M_setstate(ios_base::badbit);
 		__throw_exception_again;
 	      }
 	    __catch(...)
@@ -115,19 +115,44 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 118. basic_istream uses nonexistent num_get member functions.
-      long __l;
-      _M_extract(__l);
-      if (!this->fail())
+      sentry __cerb(*this, false);
+      if (static_cast<bool>(__cerb))
 	{
-	  if (__gnu_cxx::__numeric_traits<short>::__min <= __l
-	      && __l <= __gnu_cxx::__numeric_traits<short>::__max)
-	    __n = short(__l);
-	  else
-	    this->setstate(ios_base::failbit);
+	  ios_base::iostate __err = ios_base::goodbit;
+	  __try
+	    {
+	      long __l;
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __l);
+
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 696. istream::operator>>(int&) broken.
+	      if (__l < __gnu_cxx::__numeric_traits<short>::__min)
+		{
+		  __err |= ios_base::failbit;
+		  __n = __gnu_cxx::__numeric_traits<short>::__min;
+		}
+	      else if (__l > __gnu_cxx::__numeric_traits<short>::__max)
+		{
+		  __err |= ios_base::failbit;
+		  __n = __gnu_cxx::__numeric_traits<short>::__max;
+		}
+	      else
+		__n = short(__l);
+	    }
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
-    
+
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>&
     basic_istream<_CharT, _Traits>::
@@ -135,15 +160,40 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 118. basic_istream uses nonexistent num_get member functions.
-      long __l;
-      _M_extract(__l);
-      if (!this->fail())
+      sentry __cerb(*this, false);
+      if (static_cast<bool>(__cerb))
 	{
-	  if (__gnu_cxx::__numeric_traits<int>::__min <= __l
-	      && __l <= __gnu_cxx::__numeric_traits<int>::__max)
-	    __n = int(__l);
-	  else
-	    this->setstate(ios_base::failbit);
+	  ios_base::iostate __err = ios_base::goodbit;
+	  __try
+	    {
+	      long __l;
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __l);
+
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 696. istream::operator>>(int&) broken.
+	      if (__l < __gnu_cxx::__numeric_traits<int>::__min)
+		{
+		  __err |= ios_base::failbit;
+		  __n = __gnu_cxx::__numeric_traits<int>::__min;
+		}
+	      else if (__l > __gnu_cxx::__numeric_traits<int>::__max)
+		{
+		  __err |= ios_base::failbit;	      
+		  __n = __gnu_cxx::__numeric_traits<int>::__max;
+		}
+	      else
+		__n = int(__l);
+	    }
+	  __catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  __catch(...)
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -153,9 +203,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     basic_istream<_CharT, _Traits>::
     operator>>(__streambuf_type* __sbout)
     {
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this, false);
-      if (__cerb && __sbout)
+      if (__sbout && static_cast<bool>(__cerb))
 	{
 	  __try
 	    {
@@ -188,9 +238,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const int_type __eof = traits_type::eof();
       int_type __c = __eof;
       _M_gcount = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
 	  __try
 	    {
@@ -222,9 +272,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     get(char_type& __c)
     {
       _M_gcount = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
 	  __try
 	    {
@@ -259,9 +309,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     get(char_type* __s, streamsize __n, char_type __delim)
     {
       _M_gcount = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
 	  __try
 	    {
@@ -306,9 +356,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     get(__streambuf_type& __sb, char_type __delim)
     {
       _M_gcount = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
 	  __try
 	    {
@@ -350,9 +400,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     getline(char_type* __s, streamsize __n, char_type __delim)
     {
       _M_gcount = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
         {
           __try
             {
@@ -411,9 +461,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      const int_type __eof = traits_type::eof();
@@ -444,9 +494,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__cerb && __n > 0)
+      if (__n > 0 && static_cast<bool>(__cerb))
         {
-          ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+          ios_base::iostate __err = ios_base::goodbit;
           __try
             {
               const int_type __eof = traits_type::eof();
@@ -506,9 +556,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__cerb && __n > 0)
+      if (__n > 0 && static_cast<bool>(__cerb))
         {
-          ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+          ios_base::iostate __err = ios_base::goodbit;
           __try
             {
               const int_type __eof = traits_type::eof();
@@ -572,9 +622,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       int_type __c = traits_type::eof();
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      __c = this->rdbuf()->sgetc();
@@ -601,9 +651,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      _M_gcount = this->rdbuf()->sgetn(__s, __n);
@@ -630,9 +680,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      // Cannot compare int_type with streamsize generically.
@@ -664,9 +714,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // 60. What is a formatted input function?
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      const int_type __eof = traits_type::eof();
@@ -697,9 +747,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // 60. What is a formatted input function?
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      const int_type __eof = traits_type::eof();
@@ -730,9 +780,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // DR60.  Do not change _M_gcount.
       int __ret = -1;
       sentry __cerb(*this, true);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      __streambuf_type* __sb = this->rdbuf();
@@ -788,7 +838,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __try
 	{
 	  if (!this->fail())
@@ -821,7 +871,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __try
 	{
 	  if (!this->fail())
@@ -856,9 +906,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typedef typename __istream_type::int_type         __int_type;
 
       typename __istream_type::sentry __cerb(__in, false);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      const __int_type __cb = __in.rdbuf()->sbumpc();
@@ -891,9 +941,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typedef ctype<_CharT>				__ctype_type;
 
       streamsize __extracted = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       typename __istream_type::sentry __cerb(__in, false);
-      if (__cerb)
+      if (static_cast<bool>(__cerb))
 	{
 	  __try
 	    {
