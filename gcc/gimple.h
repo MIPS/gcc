@@ -114,9 +114,15 @@ enum gf_mask {
     GF_OMP_RETURN_NOWAIT	= 1 << 0,
 
     GF_OMP_SECTION_LAST		= 1 << 0,
-    GF_PREDICT_TAKEN		= 1 << 15,
+    GF_PREDICT_TAKEN		= 1 << 15
+};
 
-    GIMPLE_DEBUG_BIND		= 0
+/* Currently, there's only one type of gimple debug stmt.  Others are
+   envisioned, for example, to enable the generation of is_stmt notes
+   in line number information, to mark sequence points, etc.  This
+   subcode is to be used to tell them apart.  */
+enum gimple_debug_subcode {
+  GIMPLE_DEBUG_BIND = 0
 };
 
 /* Masks for selecting a pass local flag (PLF) to work on.  These

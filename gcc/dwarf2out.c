@@ -11513,7 +11513,7 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
       break;
 
     case CONST_INT:
-      if (mode != VOIDmode && mode != BLKmode)
+      if (mode != VOIDmode && mode != BLKmode && dwarf_version >= 4)
         {
           HOST_WIDE_INT i = INTVAL (rtl);
           int litsize;
@@ -11567,7 +11567,7 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
       break;
 
     case CONST_DOUBLE:
-      if (mode != VOIDmode)
+      if (mode != VOIDmode && dwarf_version >= 4)
 	{
 	  /* Note that a CONST_DOUBLE rtx could represent either an integer
 	     or a floating-point constant.  A CONST_DOUBLE is used whenever
@@ -11598,7 +11598,7 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
       break;
 
     case CONST_VECTOR:
-      if (mode != VOIDmode)
+      if (mode != VOIDmode && dwarf_version >= 4)
 	{
 	  unsigned int elt_size = GET_MODE_UNIT_SIZE (GET_MODE (rtl));
 	  unsigned int length = CONST_VECTOR_NUNITS (rtl);
@@ -11686,7 +11686,8 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 	  && SYMBOL_REF_TLS_MODEL (rtl) != TLS_MODEL_NONE)
 	break;
     case LABEL_REF:
-      if (mode != VOIDmode && GET_MODE_SIZE (mode) == DWARF2_ADDR_SIZE)
+      if (mode != VOIDmode && GET_MODE_SIZE (mode) == DWARF2_ADDR_SIZE
+	  && dwarf_version >= 4)
 	{
 	  loc_result = new_loc_descr (DW_OP_implicit_value,
 				      DWARF2_ADDR_SIZE, 0);
@@ -11698,7 +11699,8 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 
     default:
       if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE (rtl) == mode
-	  && GET_MODE_SIZE (GET_MODE (rtl)) <= DWARF2_ADDR_SIZE)
+	  && GET_MODE_SIZE (GET_MODE (rtl)) <= DWARF2_ADDR_SIZE
+	  && dwarf_version >= 4)
 	{
 	  /* Value expression.  */
 	  loc_result = mem_loc_descriptor (rtl, VOIDmode, initialized);

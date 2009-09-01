@@ -262,12 +262,6 @@ target_for_debug_bind (tree var)
   if (DECL_HAS_VALUE_EXPR_P (var))
     return target_for_debug_bind (DECL_VALUE_EXPR (var));
 
-#if 0
-  /* Should we deal with DECL_DEBUG_EXPR_IS_FROM as well?  */
-  if (DECL_DEBUG_EXPR_IS_FROM (var))
-    return target_for_debug_bind (DECL_DEBUG_EXPR (var));
-#endif
-
   if (DECL_IGNORED_P (var))
     return NULL_TREE;
 
@@ -439,7 +433,7 @@ propagate_defs_into_debug_stmts (gimple def, basic_block tobb,
   if (!MAY_HAVE_DEBUG_STMTS)
     return;
 
-  FOR_EACH_SSA_DEF_OPERAND (def_p, def, op_iter, SSA_OP_ALL_DEFS)
+  FOR_EACH_SSA_DEF_OPERAND (def_p, def, op_iter, SSA_OP_DEF)
     {
       tree var = DEF_FROM_PTR (def_p);
 

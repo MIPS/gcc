@@ -1,3 +1,41 @@
+2009-09-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cse.c (cse_extended_basic_block): Use NONDEBUG_INSN_P.
+	* Makefile.in (TREE_INLINE_H): Take pointer-set.h from GIMPLE_H.
+	* tree-inline.c (remap_gimple_stmt): Use VEC for debug_stmts.
+	(copy_debug_stmt): Likewise.
+	(insert_init_debug_bind): Don't mark symbols for renaming.
+	(optimize_inline_calls): Drop initialization of debug_stmts.
+	Check that it isn't left over.
+	(tree_function_versioning): Likewise.
+	* tree-inline.h: Include gimple.h instead of varray.h and
+	pointer-set.h.
+	(struct copy_body_data): Use VEC for debug_stmts.
+	* cfgexpand.c (gimple_assign_rhs_to_tree): Do not overwrite
+	location of single rhs in place.
+	(expand_gimple_basic_block): Check for debug bind stmts.
+	* dwarf2out.c (loc_descriptor): Require dwarf_version 4 for
+	DW_OP_stack_value and DW_OP_implicit_value.
+	* var-tracking.c (canonicalize_values_mark): Drop #if 0 block.
+	(canonicalize_values_star): Likewise.
+	(variable_post_merge_new_vals): Likewise.
+	(vt_emit_notes): Move check for empty value_chains into the
+	ENABLE_CHECKING block that ensures it becomes empty.
+	* gimple.h (GIMPLE_DEBUG_BIND): Moved into...
+	(enum gimple_debug_subcode): ... this.  New.
+	* tree-flow-inline.h (has_zero_uses, has_single_use,
+	single_imm_use): Simplify inlinable portion.  Move larger
+	portion into...
+	* tree-cfg.c (has_zero_uses_1, single_imm_use_1): ... new
+	functions.
+	(verify_gimple_phi): Expand comment.
+	* tree-ssa-loop-ivopts.c (find_interesting_uses): Fix indentation.
+	* tree-ssa.c (target_for_debug_bind): Remove #if 0 block.
+	(propagate_defs_into_debug_stmts): Skip virtual defs.
+	* doc/invoke.texi (-gdwarf-@var{version}): Mention version 4.
+	(-fvar-tracking-assignments): Likewise.
+	* opts.c (common_handle_option): Accept it.
+
 2009-08-21  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cfgexpand.c: Revert the previous patch, for another fix.

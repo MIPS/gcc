@@ -1335,7 +1335,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  copy = gimple_build_debug_bind (gimple_debug_bind_get_var (stmt),
 					  gimple_debug_bind_get_value (stmt),
 					  stmt);
-	  VARRAY_PUSH_GENERIC_PTR (id->debug_stmts, copy);
+	  VEC_safe_push (gimple, heap, id->debug_stmts, copy);
 	  return copy;
 	}
       else
@@ -2122,20 +2122,22 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
 
 /* Process deferred debug stmts.  In order to give values better odds
    of being successfully remapped, we delay the processing of debug
-   stmts.  */
+   stmts until all other stmts that might require remapping are
+   processed.  */
 
 static void
 copy_debug_stmts (copy_body_data *id)
 {
-  size_t i, e;
+  size_t i;
+  gimple stmt;
 
   if (!id->debug_stmts)
     return;
 
-  for (i = 0, e = VARRAY_ACTIVE_SIZE (id->debug_stmts); i < e; i++)
-    copy_debug_stmt ((gimple) VARRAY_GENERIC_PTR (id->debug_stmts, i), id);
+  for (i = 0; VEC_iterate (gimple, id->debug_stmts, i, stmt); i++)
+    copy_debug_stmt (stmt, id);
 
-  VARRAY_POP_ALL (id->debug_stmts);
+  VEC_free (gimple, heap, id->debug_stmts);
 }
 
 /* Make a copy of the body of SRC_FN so that it can be inserted inline in
@@ -2225,8 +2227,6 @@ insert_init_debug_bind (copy_body_data *id,
       else
 	gsi_insert_before (&gsi, note, GSI_SAME_STMT);
     }
-
-  mark_symbols_for_renaming (note);
 
   return note;
 }
@@ -3882,8 +3882,6 @@ optimize_inline_calls (tree fn)
   id.transform_return_to_modify = true;
   id.transform_lang_insert_block = NULL;
   id.statements_to_fold = pointer_set_create ();
-  if (MAY_HAVE_DEBUG_STMTS)
-    VARRAY_GENERIC_PTR_INIT (id.debug_stmts, 8, "debug_stmt");
 
   push_gimplify_context (&gctx);
 
@@ -3921,6 +3919,8 @@ optimize_inline_calls (tree fn)
   fold_marked_statements (last, id.statements_to_fold);
   pointer_set_destroy (id.statements_to_fold);
   
+  gcc_assert (!id.debug_stmts);
+
   /* Renumber the (code) basic_blocks consecutively.  */
   compact_blocks ();
   /* Renumber the lexical scoping (non-code) blocks consecutively.  */
@@ -4736,9 +4736,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
   /* Generate a new name for the new version. */
   id.statements_to_fold = pointer_set_create ();
 
-  if (MAY_HAVE_DEBUG_STMTS)
-    VARRAY_GENERIC_PTR_INIT (id.debug_stmts, 8, "debug_stmt");
-  
   id.decl_map = pointer_map_create ();
   id.debug_map = NULL;
   id.src_fn = old_decl;
@@ -4875,6 +4872,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
 
+  gcc_assert (!id.debug_stmts);
   VEC_free (gimple, heap, init_stmts);
   pop_cfun ();
   current_function_decl = old_current_function_decl;

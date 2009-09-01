@@ -4398,10 +4398,13 @@ assembler (GAS) to fail with an error.
 @opindex gdwarf-@var{version}
 Produce debugging information in DWARF format (if that is
 supported).  This is the format used by DBX on IRIX 6.  The value
-of @var{version} may be either 2 or 3; the default version is 2.
+of @var{version} may be either 2, 3 or 4; the default version is 2.
 
 Note that with DWARF version 2 some ports require, and will always
 use, some non-conflicting DWARF 3 extensions in the unwind tables.
+
+Version 4 may require GDB 7.0 and @option{-fvar-tracking-assignments}
+for maximum benefit.
 
 @item -gvms
 @opindex gvms
@@ -5456,7 +5459,7 @@ the debug info format supports it.
 Annotate assignments to user variables early in the compilation and
 attempt to carry the annotations over throughout the compilation all the
 way to the end, in an attempt to improve debug information while
-optimizing.
+optimizing.  Use of @option{-gdwarf-4} is recommended along with it.
 
 It can be enabled even if var-tracking is disabled, in which case
 annotations will be created and maintained, but discarded at the end.

@@ -1395,6 +1395,49 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   return true;
 }
 
+/* Return true if the var whose chain of uses starts at PTR has no
+   nondebug uses.  */
+bool
+has_zero_uses_1 (const ssa_use_operand_t *head)
+{
+  const ssa_use_operand_t *ptr;
+
+  for (ptr = head->next; ptr != head; ptr = ptr->next)
+    if (!is_gimple_debug (USE_STMT (ptr)))
+      return false;
+
+  return true;
+}
+
+/* Return true if the var whose chain of uses starts at PTR has a
+   single nondebug use.  Set USE_P and STMT to that single nondebug
+   use, if so, or to NULL otherwise.  */
+bool
+single_imm_use_1 (const ssa_use_operand_t *head,
+		  use_operand_p *use_p, gimple *stmt)
+{
+  ssa_use_operand_t *ptr, *single_use = 0;
+
+  for (ptr = head->next; ptr != head; ptr = ptr->next)
+    if (!is_gimple_debug (USE_STMT (ptr)))
+      {
+	if (single_use)
+	  {
+	    single_use = NULL;
+	    break;
+	  }
+	single_use = ptr;
+      }
+
+  if (use_p)
+    *use_p = single_use;
+
+  if (stmt)
+    *stmt = single_use ? single_use->loc.stmt : NULL;
+
+  return !!single_use;
+}
+
 /* Replaces all uses of NAME by VAL.  */
 
 void
@@ -4136,7 +4179,12 @@ verify_gimple_phi (gimple stmt)
 static bool
 verify_gimple_debug (gimple stmt ATTRIBUTE_UNUSED)
 {
-  /* ??? FIXME.  */
+  /* There isn't much that could be wrong in a gimple debug stmt.  A
+     gimple debug bind stmt, for example, maps a tree, that's usually
+     a VAR_DECL or a PARM_DECL, but that could also be some scalarized
+     component or member of an aggregate type, to another tree, that
+     can be an arbitrary expression.  These stmts expand into debug
+     insns, and are converted to debug notes by var-tracking.c.  */
   return false;
 }
 

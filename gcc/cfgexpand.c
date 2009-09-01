@@ -70,7 +70,13 @@ gimple_assign_rhs_to_tree (gimple stmt)
 		TREE_TYPE (gimple_assign_lhs (stmt)),
 		gimple_assign_rhs1 (stmt));
   else if (grhs_class == GIMPLE_SINGLE_RHS)
-    t = gimple_assign_rhs1 (stmt);
+    {
+      t = gimple_assign_rhs1 (stmt);
+      /* Avoid modifying this tree in place below.  */
+      if (gimple_has_location (stmt) && CAN_HAVE_LOCATION_P (t)
+	  && gimple_location (stmt) != EXPR_LOCATION (t))
+	t = copy_node (t);
+    }
   else
     gcc_unreachable ();
 
@@ -3049,7 +3055,7 @@ expand_gimple_basic_block (basic_block bb)
 	  if (new_bb)
 	    return new_bb;
 	}
-      else if (is_gimple_debug (stmt))
+      else if (gimple_debug_bind_p (stmt))
 	{
 	  location_t sloc = get_curr_insn_source_location ();
 	  tree sblock = get_curr_insn_block ();
@@ -3096,7 +3102,7 @@ expand_gimple_basic_block (basic_block bb)
 	      if (gsi_end_p (nsi))
 		break;
 	      stmt = gsi_stmt (nsi);
-	      if (!is_gimple_debug (stmt))
+	      if (!gimple_debug_bind_p (stmt))
 		break;
 	    }
 
