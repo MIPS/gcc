@@ -53,11 +53,8 @@ static enum classify_record cp_classify_record (tree type);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_DWARF_NAME
 #define LANG_HOOKS_DWARF_NAME cxx_dwarf_name
-
-/* FIXME lto: disabled so we can clear TYPE_BINFO.
-   See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38178.  */
-/* #undef LANG_HOOKS_FOLD_OBJ_TYPE_REF */
-/* #define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref */
+#undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
+#define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref
 
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS cp_init_ts

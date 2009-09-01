@@ -1,3 +1,7 @@
+2009-09-01  Richard Guenther  <rguenther@suse.de>
+
+	* cp-lang.c (LANG_HOOKS_FOLD_OBJ_TYPE_REF): Define again.
+
 2009-07-24  Diego Novillo  <dnovillo@google.com>
 
 	* semantics.c (expand_or_defer_fn): Clear DECL_SAVED_TREE from FN.

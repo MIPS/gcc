@@ -1,3 +1,7 @@
+2009-09-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree.c (free_lang_data): Reset fold_obj_type_ref langhook.
+
 2009-08-28  Richard Guenther  <rguenther@suse.de>
 
 	Mainline merge @151178.

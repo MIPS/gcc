@@ -4795,6 +4795,10 @@ free_lang_data (void)
   lang_hooks.types_compatible_p = NULL;
   lang_hooks.expr_size = lhd_expr_size;
 
+  /* FIXME lto: As we clear TYPE_BINFO we cannot fold OBJ_TYPE_REF anymore.
+     See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38178.  */
+  lang_hooks.fold_obj_type_ref = NULL;
+
   /* FIXME lto: We have to compute these names early.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = lhd_decl_printable_name;
