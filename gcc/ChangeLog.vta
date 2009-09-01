@@ -1,5 +1,9 @@
 2009-09-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	Merged with gcc-4_4-branch@151281.
+
+2009-09-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cse.c (cse_extended_basic_block): Use NONDEBUG_INSN_P.
 	* Makefile.in (TREE_INLINE_H): Take pointer-set.h from GIMPLE_H.
 	* tree-inline.c (remap_gimple_stmt): Use VEC for debug_stmts.

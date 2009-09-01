@@ -8630,7 +8630,8 @@ ix86_expand_epilogue (int style)
           ix86_emit_restore_sse_regs_using_mov (stack_pointer_rtx,
 					        frame.to_allocate, style == 2);
 	  pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-				     GEN_INT (frame.nsseregs * 16), style);
+				     GEN_INT (frame.nsseregs * 16 +
+				       frame.padding0), style);
 	}
       else if (frame.to_allocate || frame.nsseregs)
 	{
@@ -25321,7 +25322,7 @@ ix86_veclibabi_acml (enum built_in_function fn, tree type_out, tree type_in)
 static tree
 ix86_vectorize_builtin_conversion (unsigned int code, tree type)
 {
-  if (TREE_CODE (type) != VECTOR_TYPE
+  if (!TARGET_SSE2 || TREE_CODE (type) != VECTOR_TYPE
       /* There are only conversions from/to signed integers.  */
       || TYPE_UNSIGNED (TREE_TYPE (type)))
     return NULL_TREE;
