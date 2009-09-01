@@ -2742,25 +2742,8 @@ canonicalize_values_mark (void **slot, void *data)
 	    decl_or_value odv = dv_from_value (node->loc);
 	    void **oslot = shared_hash_find_slot_noinsert (set->vars, odv);
 
-#if 0 && ENABLE_CHECKING
-	    variable ovar;
-	    location_chain onode;
-
-	    gcc_assert (oslot);
-	    ovar = (variable)*oslot;
-	    gcc_assert (ovar->n_var_parts == 1);
-	    for (onode = ovar->var_part[0].loc_chain; onode;
-		 onode = onode->next)
-	      if (onode->loc == val)
-		break;
-
-	    gcc_assert (onode);
-
-	    /* ??? Remove this in case the assertion above never fails.  */
-	    if (!onode)
-#endif
-	      oslot = set_slot_part (set, val, oslot, odv, 0,
-				     node->init, NULL_RTX);
+	    oslot = set_slot_part (set, val, oslot, odv, 0,
+				   node->init, NULL_RTX);
 
 	    VALUE_RECURSED_INTO (node->loc) = true;
 	  }
@@ -2971,23 +2954,8 @@ canonicalize_values_star (void **slot, void *data)
       }
 
   if (val)
-    {
-#if 0 && ENABLE_CHECKING
-      variable cvar = (variable)*cslot;
-
-      gcc_assert (cvar->n_var_parts == 1);
-      for (node = cvar->var_part[0].loc_chain; node; node = node->next)
-	if (node->loc == val)
-	  break;
-
-      gcc_assert (node);
-
-      /* ??? Remove this in case the assertion above never fails.  */
-      if (!node)
-#endif
-	cslot = set_slot_part (set, val, cslot, cdv, 0,
-			       VAR_INIT_STATUS_INITIALIZED, NULL_RTX);
-    }
+    cslot = set_slot_part (set, val, cslot, cdv, 0,
+			   VAR_INIT_STATUS_INITIALIZED, NULL_RTX);
 
   slot = clobber_slot_part (set, cval, slot, 0, NULL);
 
@@ -3582,65 +3550,6 @@ variable_post_merge_new_vals (void **slot, void *info)
 	      *curp = att->next;
 	      pool_free (attrs_pool, att);
 	    }
-#if 0 /* Don't push constants to values.  If you remove this, adjust
-	 the corresponding comment containing 'push constants to
-	 values' below.  */
-	  else if (GET_CODE (node->loc) == CONST_INT
-		   || GET_CODE (node->loc) == CONST_FIXED
-		   || GET_CODE (node->loc) == CONST_DOUBLE
-		   || GET_CODE (node->loc) == SYMBOL_REF)
-	    {
-	      decl_or_value cdv;
-	      rtx cval;
-	      cselib_val *v;
-	      void **oslot;
-
-	      if (var->refcount != 1)
-		{
-		  slot = unshare_variable (set, slot, var,
-					   VAR_INIT_STATUS_INITIALIZED);
-		  var = (variable)*slot;
-		  goto restart;
-		}
-
-	      v = cselib_lookup (node->loc,
-				 TYPE_MODE (TREE_TYPE (dv_as_decl (var->dv))),
-				 1);
-
-	      if (dump_file)
-		{
-		  fprintf (dump_file, "%s new value %i for ",
-			   cselib_preserved_value_p (v)
-			   ? "Reused" : "Created", v->value);
-		  print_rtl_single (dump_file, node->loc);
-		  fputc ('\n', dump_file);
-		}
-
-	      cselib_preserve_value (v);
-	      cval = v->val_rtx;
-	      cdv = dv_from_value (cval);
-
-	      oslot = shared_hash_find_slot_noinsert (set->vars, cdv);
-	      if (oslot)
-		oslot = set_slot_part (set, node->loc, oslot, cdv, 0,
-				       VAR_INIT_STATUS_INITIALIZED,
-				       NULL_RTX);
-	      else
-		{
-		  if (!*dfpm->permp)
-		    {
-		      *dfpm->permp = XNEW (dataflow_set);
-		      dataflow_set_init (*dfpm->permp);
-		    }
-
-		  set_variable_part (*dfpm->permp, node->loc, cdv, 0,
-				     VAR_INIT_STATUS_INITIALIZED, NULL,
-				     NO_INSERT);
-		}
-	      node->loc = cval;
-	      check_dupes = true;
-	    }
-#endif
 	}
 
       if (check_dupes)
@@ -7080,14 +6989,13 @@ vt_emit_notes (void)
   htab_traverse (shared_hash_htab (cur.vars),
 		 emit_notes_for_differences_1,
 		 shared_hash_htab (empty_shared_hash));
+  if (MAY_HAVE_DEBUG_INSNS)
+    gcc_assert (htab_elements (value_chains) == 0);
 #endif
   dataflow_set_destroy (&cur);
 
   if (MAY_HAVE_DEBUG_INSNS)
-    {
-      gcc_assert (htab_elements (value_chains) == 0);
-      VEC_free (variable, heap, changed_variables_stack);
-    }
+    VEC_free (variable, heap, changed_variables_stack);
 
   emit_notes = false;
 }
