@@ -1,3 +1,8 @@
+2009-09-01  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41199
+	* gcc.dg/20081223-1.c: Conditionalize -fwhopr on target lto.
+
 2009-08-15  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/41069
