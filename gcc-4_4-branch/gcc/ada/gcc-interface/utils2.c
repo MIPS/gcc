@@ -2125,7 +2125,8 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 	tree ptr_addr
 	  = build_binary_op (POINTER_PLUS_EXPR, ptr_void_type_node,
 			     convert (ptr_void_type_node, result),
-			     size_int (-POINTER_SIZE/BITS_PER_UNIT));
+			     size_int (-(HOST_WIDE_INT) POINTER_SIZE
+				       / BITS_PER_UNIT));
 
 	tree ptr_ref
 	  = convert (build_pointer_type (ptr_void_type_node), ptr_addr);

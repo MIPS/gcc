@@ -1,3 +1,667 @@
+2009-08-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/40671
+	* config/rs6000/rs6000.c (rs6000_override_options): Use
+	TARGET_64BIT instead of TARGET_POWERPC64 to set the size of
+	pointers.
+
+	PR target/41145
+	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute): Fix
+	reporting of vector + decimal/boolean/complex error.
+
+2009-08-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Fix type of
+	__vector double TYPE_DECL.
+
+2009-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Revital Eres <ERES@il.ibm.com>
+
+	* config/rs6000/vector.md (VEC_F): Add VSX support.
+	(VEC_A): Ditto.
+	(VEC_N): Ditto.
+	(mov<mode>): Ditto.
+	(vector_load_<mode>): Ditto.
+	(vector_store_<mode>): Ditto.
+	(vector GPR move split): Ditto.
+	(vec_reload_and_plus_<mptrsize>): Ditto.
+	(vec_reload_and_reg_<mptrsize>): Ditto.
+	(add<mode>3): Ditto.
+	(sub<mode>3): Ditto.
+	(mul<mode>3): Ditto.
+	(neg<mode>2): Ditto.
+	(abs<mode>2): Ditto.
+	(smin<mode>3): Ditto.
+	(smax<mode>3): Ditto.
+	(vector_eq<mode>): Ditto.
+	(vector_gt<mode>): Ditto.
+	(vector_ge<mode>): Ditto.
+	(vector_gtu<mode>): Ditto.
+	(vector_select_<mode>_uns): Ditto.
+	(vector_eq_<mode>_p): Ditto.
+	(vector_gt_<mode>_p): Ditto.
+	(vector_ge_<mode>_p): Ditto.
+	(vector_gtu_<mode>_p): Ditto.
+	(cr6_test_for_zero): Ditto.
+	(cr6_test_for_zero_reverse): Ditto.
+	(cr6_test_for_lt): Ditto.
+	(cr6_test_for_lt_reverse): Ditto.
+	(xor<mode>3): Ditto.
+	(ior<mode>3): Ditto.
+	(and<mode>3): Ditto.
+	(one_cmpl<mode>2): Ditto.
+	(nor<mode>2): Ditto.
+	(andc<mode>2): Ditto.
+	(float<VEC_int<mode>2): Ditto.
+	(unsigned_float<VEC_int><mode>2): Ditto.
+	(fix_trunc<mode><VEC_int>2): Ditto.
+	(fixuns_trunc<mode><VEC_int>2): Ditto.
+	(vec_init<mode>):
+	(vec_set<mode>): Ditto.
+	(vec_extract<mode>): Ditto.
+	(vec_interleave_highv4sf): Ditto.
+	(vec_interleave_lowv4sf): Ditto.
+	(vec_realign_load_<mode>): Ditto.
+	(vec_shl_<mode>): Ditto.
+	(vec_shr_<mode>): Ditto.
+	(div<mode>3): New patterns for VSX.
+	(vec_interleave_highv2df): Ditto.
+	(vec_interleave_lowv2df): Ditto.
+	(vec_pack_trunc_v2df): Ditto.
+	(vec_pack_sfix_trunc_v2df): Ditto.
+	(vec_pack_ufix_trunc_v2df): Ditto.
+	(vec_unpacks_hi_v4sf): Ditto.
+	(vec_unpacks_lo_v4sf): Ditto.
+	(vec_unpacks_float_hi_v4si): Ditto.
+	(vec_unpacku_float_lo_v4si): Ditto.
+	(vec_unpacku_float_hi_v4si): Ditto.
+	(vec_unpacks_float_lo_v4si): Ditto.
+	(movmisalign<mode>): Ditto.
+	(vector_ceil<mode>2): New patterns for vectorizing math library.
+	(vector_floor<mode>2): Ditto.
+	(vector_btrunc<mode>2): Ditto.
+	(vector_copysign<mode>3): Ditto.
+
+	* config/rs6000/predicates.md (easy_vector_constant_msb): New
+	predicate for setting the high bit in each word, used for
+	copysign.
+
+	* config/rs6000/ppc-asm.h (f19): Whitespace.
+	(f32-f63): Define if VSX.
+	(v0-v31): Define if Altivec.
+	(vs0-vs63): Define if VSX.
+
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Add power7.md and vsx.md.
+
+	* config/rs6000/power7.md: New file, provide tuning parameters for
+	-mcpu=power7.
+
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Add VSX
+	support.
+	(rs6000_cpu_cpp_builtins): Ditto.
+	(altivec_overloaded_builtins): Ditto.
+	(altivec_resolve_overloaded_builtin): Ditto.
+
+	* config/rs6000/rs6000.opt (-mno-vectorize-builtins): Add new
+	debug switch to disable vectorizing simple math builtin
+	functions.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Vectorize simple math builtin functions.
+	(TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION): Define target
+	hook to vectorize math builtins.
+	(rs6000_override_options): Enable -mvsx on -mcpu=power7.
+	(rs6000_builtin_conversion): Add VSX/power7 support.
+	(rs6000_builtin_vec_perm): Ditto.
+	(vsplits_constant): Add support for loading up a vector constant
+	with just the high bit set in each part.
+	(rs6000_expand_vector_init): Add VSX/power7 support.
+	(rs6000_expand_vector_set): Ditto.
+	(rs6000_expand_vector_extract): Ditto.
+	(rs6000_emit_move): Ditto.
+	(bdesc_3arg): Ditto.
+	(bdesc_2arg): Ditto.
+	(bdesc_1arg): Ditto.
+	(rs6000_expand_ternop_builtin): Ditto.
+	(altivec_expand_builtin): Ditto.
+	(rs6000_expand_unop_builtin): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(altivec_init_builtins): Ditto.
+	(builtin_function_type): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(rs6000_handle_altivec_attribute); Ditto.
+	(rs6000_mangle_type): Ditto.
+	(rs6000_vector_mode_supported_p): Ditto.
+	(rs6000_mode_dependent_address): Altivec addresses with AND -16
+	are mode dependent.
+
+	* config/rs6000/vsx.md: New file for VSX support.
+
+	* config/rs6000/rs6000.h (EASY_VECTOR_MSB): New macro for
+	identifing values with just the most significant bit set.
+	(enum rs6000_builtins): Add builtins for VSX.  Add simple math
+	vectorized builtins.
+
+	* config/rs6000/altivec.md (UNSPEC_VRFIP): Delete.
+	(UNSPEC_VRFIM): Delete.
+	(splitter for loading up vector with most significant bit): New
+	splitter for vectorizing copysign.
+	(altivec_vrfiz): Rename from altivec_fturncv4sf2.  Add support for
+	vectorizing simple math functions.
+	(altivec_vrfip): Add support for vectorizing simple math
+	functions.
+	(altivec_vrfim): Ditto.
+	(altivec_copysign_v4sf3): New insn for Altivec copysign support.
+
+	* config/rs6000/rs6000.md (UNSPEC_BPERM): New constant.
+	(power7.md, vsx.md): Include for power7 support.
+	(copysigndf3): Use VSX instructions if -mvsx.
+	(negdf2_fpr): Ditto.
+	(absdf2_fpr): Ditto.
+	(nabsdf2_fpr): Ditto.
+	(adddf3_fpr): Ditto.
+	(subdf3_fpr): Ditto.
+	(muldf3_fpr): Ditto.
+	(divdf3_fpr): Ditto.
+	(fix_truncdfdi2_fpr): Ditto.
+	(cmpdf_internal1): Ditto.
+	(fred, fred_fpr): Convert into expander/insn to add VSX support.
+	(btruncdf2, btruncdf2_fpr): Ditto.
+	(ceildf2, ceildf2_fpr): Ditto.
+	(floordf2, floordf2_fpr): Ditto.
+	(floatdidf2, floatdidf2_fpr): Ditto.
+	(fmadddf4_fpr): Name insn.  Use VSX instructions if -mvsx.
+	(fmsubdf4_fpr): Ditto.
+	(fnmadddf4_fpr_1): Ditto.
+	(fnmadddf4_fpr_2): Ditto.
+	(fnmsubdf4_fpr_1): Ditto.
+	(fnmsubdf4_fpr_2): Ditto.
+	(fixuns_truncdfdi2): Add expander for VSX support.
+	(fix_truncdfdi2): Ditto.
+	(fix_truncdfsi2): Ditto.
+	(ftruncdf2): Ditto.
+	(btruncsf2): Whitespace.
+	(movdf_hardfloat32): Add support for VSX registers.
+	(movdf_softfloat32): Ditto.
+	(movdf_hardfloat64): Ditto.
+	(movdf_hardfloat64_mfpgpr): Ditto.
+	(movdf_softfloat64): Ditto.
+	(movti splitters): Add check for vector registers supporting
+	TImode in the future.
+	(bpermd): Add power7 bpermd instruction.
+
+	* config/rs6000/altivec.h (vec_div): Define if VSX.
+	(vec_mul): Ditto.
+	(vec_msub): Ditto.
+	(vec_nmadd): Ditto.
+	(vec_nearbyint): Ditto.
+	(vec_rint): Ditto.
+	(vec_sqrt): Ditto.
+	(all predicates): Use the generic builtin function, and not the
+	V4SF specific function so that the predicates will work with
+	VSX's V2DF.
+	(vec_all_*): Ditto.
+	(vec_any_*): Ditto.
+
+	* doc/extend.texi (PowerPC Altivec/VSX Built-in Functions):
+	Document new VSX functions and types.
+
+	* doc/invoke.texi (PowerPc options): Document -mpopcntd, -mvsx
+	switches.
+
+	* doc/md.texi (PowerPC constraints): Document "wd", "wf", "ws",
+	"wa", and "j" constraints.  Modify "v" to talk about Altivec
+	instead of just vector.
+
+2009-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Revital Eres <ERES@il.ibm.com>
+
+	* config/rs6000/vector.md: New file.  Move most of the vector
+	expander support here from altivec.md to allow for the VSX vector
+	unit in the future.  Add support for secondary_reload patterns.
+	Rewrite the patterns for vector comparison, and vector comparison
+	predicate instructions so that the RTL expresses the desired
+	behavior, instead of using unspec.
+
+	* config/rs6000/constraints.md ("f" constraint): Use
+	rs6000_constraints to hold the precalculated register class.
+	("d" constraint): Ditto.
+	("wd" constraint): New constraint for VSX.
+	("wf" constraint): Ditto.
+	("ws" constraint): Ditto.
+	("wa" constraint): Ditto.
+	("wZ" constraint): Ditto.
+	("j" constraint): Ditto.
+
+	* config/rs6000/predicates.md (vsx_register_operand): New
+	predicate for VSX.
+	(vfloat_operand): New predicate for vector.md.
+	(vint_operand): Ditto.
+	(vlogical_operand): Ditto.
+	(easy_fp_constant): If VSX, 0.0 is an easy constant.
+	(easy_vector_constant): Add VSX support.
+	(altivec_indexed_or_indirect_operand): New predicate for
+	recognizing Altivec style memory references with AND -16.
+
+	* config/rs6000/rs6000.c (rs6000_vector_reload): New static global
+	for vector secondary reload support.
+	(rs6000_vector_reg_class): Delete, replacing it with rs6000_constraints.
+	(rs6000_vsx_reg_class): Ditto.
+	(rs6000_constraints): New array to hold the register classes of
+	each of the register constraints that can vary at runtime.
+	(builtin_mode_to_type): New static array for builtin function type
+	creation.
+	(builtin_hash_table): New static hash table for builtin function
+	type creation.
+	(TARGET_SECONDARY_RELOAD): Define target hook.
+	(TARGET_IRA_COVER_CLASSES): Ditto.
+	(rs6000_hard_regno_nregs_internal): If -mvsx, floating point
+	registers are 128 bits if VSX memory reference instructions are
+	used.
+	(rs6000_hard_regno_mode_ok): For VSX, only check if the VSX memory
+	unit is being used.
+	(rs6000_debug_vector_unit): Move into rs6000_debug_reg_global.
+	(rs6000_debug_reg_global): Move -mdebug=reg statements here.
+	Print several of the scheduling related parameters.
+	(rs6000_init_hard_regno_mode_ok): Switch to putting constraints in
+	rs6000_constraints instead of rs6000_vector_reg_class.  Move
+	-mdebug=reg code to rs6000_debug_reg_global.  Add support for
+	-mvsx-align-128 debug switch.  Drop testing float_p if VSX or
+	Altivec.  Add VSX support.  Setup for secondary reload support on
+	Altivec/VSX registers.
+	(rs6000_override_options): Make power7 set the scheduling groups
+	like the power5.  Add support for new debug switches to override
+	the scheduling defaults.  Temporarily disable -mcpu=power7 from
+	setting -mvsx.  Add support for debug switches -malways-hint,
+	-msched-groups, and -malign-branch-targets.
+	(rs6000_buitlin_conversion): Add support for returning unsigned
+	vector conversion functions to fix regressions due to stricter
+	type checking.
+	(rs6000_builtin_mul_widen_even): Ditto.
+	(rs6000_builtin_mul_widen_odd): Ditto.
+	(rs6000_builtin_vec_perm): Ditto.
+	(rs6000_vec_const_move): On VSX, use xxlxor to clear register.
+	(rs6000_expand_vector_init): Initial VSX support for using xxlxor
+	to zero a register.
+	(rs6000_emit_move): Fixup invalid const symbol_ref+reg that is
+	generated upstream.
+	(bdesc_3arg): Add builtins for unsigned types.  Add builtins for
+	VSX types for bit operations.  Changes to accomidate vector.md.
+	(bdesc_2arg): Ditto.
+	(bdesc_1arg): Ditto.
+	(struct builtin_description_predicates): Rewrite predicate
+	handling so that RTL describes the operation, instead of passing
+	the instruction to be used as a string argument.
+	(bdesc_altivec_preds): Ditto.
+	(altivec_expand_predicate_builtin): Ditto.
+	(altivec_expand_builtin): Ditto.
+	(rs6000_expand_ternop_builtin): Use a switch instead of an if
+	statement for vsldoi support.
+	(altivec_expand_ld_builtin): Change to use new names from
+	vector.md.
+	(altivec_expand_st_builtin): Ditto.
+	(paired_expand_builtin): Whitespace changes.
+	(rs6000_init_builtins): Add V2DF/V2DI types.  Initialize the
+	builtin_mode_to_type table for secondary reload.  Call
+	builtin_function_type to build random builtin functions.
+	(altivec_init_builtins): Change to use builtin_function_type to
+	create builtin function types dynamically as we need them.
+	(builtin_hash_function): New support for hashing the tree types
+	for builtin function as we need it, rather than trying to build
+	all of the trees that we need.  Add initial preliminary VSX
+	support.
+	(builtin_function_type): Ditto.
+	(builtin_function_eq): Ditto.
+	(builtin_hash_struct): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(altivec_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(enum reload_reg_type): New enum for simplifing reg classes.
+	(rs6000_reload_register_type): Simplify register classes into GPR,
+	Vector, and other registers.
+	Altivec and VSX addresses in reload.
+	(rs6000_secondary_reload_inner): Ditto.
+	(rs6000_ira_cover_classes): New target hook, that returns the
+	appropriate cover classes, based on -mvsx being used or not.
+	(rs6000_secondary_reload_class): Add VSX support.
+	(get_vec_cmp_insn): Delete, rewrite vector conditionals.
+	(get_vsel_insn): Ditto.
+	(rs6000_emit_vector_compare): Rewrite vector conditional support
+	so that where we can, we use RTL operators, instead of blindly use
+	UNSPEC.
+	(rs6000_emit_vector_select): Ditto.
+	(rs6000_emit_vector_cond_expr): Ditto.
+	(rs6000_emit_minmax): Directly generate min/max under altivec,
+	vsx.
+	(create_TOC_reference): Add -mdebug=addr support.
+	(emit_frame_save): VSX loads/stores need register indexed
+	addressing.
+
+	* config/rs6000/rs6000.md: Include vector.md.
+
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Add vector.md.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	support for V2DI, V2DF in logical, permute, select operations.
+
+	* config/rs6000/rs6000.opt (-mvsx-scalar-double): Add new debug
+	switch for vsx/power7.
+	(-mvsx-scalar-memory): Ditto.
+	(-mvsx-align-128): Ditto.
+	(-mallow-movmisalign): Ditto.
+	(-mallow-df-permute): Ditto.
+	(-msched-groups): Ditto.
+	(-malways-hint): Ditto.
+	(-malign-branch-targets): Ditto.
+	
+	* config/rs6000/rs6000.h (IRA_COVER_CLASSES): Delete, use target
+	hook instead.
+	(IRA_COVER_CLASSES_PRE_VSX): Cover classes if not -mvsx.
+	(IRA_COVER_CLASSES_VSX): Cover classes if -mvsx.
+	(rs6000_vector_reg_class): Delete.
+	(rs6000_vsx_reg_class): Ditto.
+	(enum rs6000_reg_class_enum): New enum for the constraints that
+	vary based on target switches.
+	(rs6000_constraints): New array to hold the register class for all
+	of the register constraints that vary based on the switches used.
+	(ALTIVEC_BUILTIN_*_UNS): Add unsigned builtin functions.
+	(enum rs6000_builtins): Add unsigned varients for the builtin
+	declarations returned by target hooks for expanding multiplies,
+	select, and permute operations.  Add VSX builtins.
+	(enum rs6000_builtin_type_index): Add entries for VSX.
+	(V2DI_type_node): Ditto.
+	(V2DF_type_node): Ditto.
+	(unsigned_V2DI_type_node): Ditto.
+	(bool_long_type_node): Ditto.
+	(intDI_type_internal_node): Ditto.
+	(uintDI_type_internal_node): Ditto.
+	(double_type_internal_node): Ditto.
+
+	* config/rs6000/altivec.md (whole file): Move all expanders to
+	vector.md from altivec.md.  Rename insn matching functions to be
+	altivec_foo.
+	(UNSPEC_VCMP*): Delete, rewrite vector comparisons.
+	(altivec_vcmp*): Ditto.
+	(UNSPEC_VPERM_UNS): New, add for unsigned types using vperm.
+	(VM): New iterator for moves that includes the VSX types.
+	(altivec_vperm_<mode>): Add VSX types.  Add unsigned types.
+	(altivec_vperm_<mode>_uns): New, for unsigned types.
+	(altivec_vsel_*): Rewrite vector comparisons and predicate
+	builtins.
+	(altivec_eq<mode>): Ditto.
+	(altivec_gt<mode>): Ditto.
+	(altivec_gtu<mode>): Ditto.
+	(altivec_eqv4sf): Ditto.
+	(altivec_gev4sf): Ditto.
+	(altivec_gtv4sf): Ditto.
+	(altivec_vcmpbfp_p): Ditto.
+
+2009-07-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR bootstrap/40558
+	* config/rs6000/rs6000.c (print_operand): Undo change that breaks
+	darwin9 for printing reg addresses with %y.
+
+2009-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Revital Eres <ERES@il.ibm.com>
+
+	* config/rs6000/rs6000.c (print_operand): Correct lossage message
+	for %c error.  Add %x support to print VSX registers as a unified
+	register set, instead of separate float and altivec registers.
+	Switch to use VECTOR_MEM_ALTIVEC_P instead of TARGET_ALTIVEC for
+	%y case, and add support for VSX pre-modify addresses.
+	(output_toc): Add assert for CONST containing an integer constant
+	in the PLUS case.
+	(rs6000_adjust_cost): Add POWER7 support.
+	(insn_must_be_first_in_group): Ditto.
+	(insn_must_be_last_in_group): Ditto.
+	(rs6000_emit_popcount): Ditto.
+	(rs6000_vector_mode_supported_p): Ditto.
+
+	* config/rs6000/rs6000-protos.h (rs6000_secondary_reload_class):
+	Change some of the functions called by macros to being called
+	through a pointer, so debug functions can be inserted if
+	-mdebug=addr or -mdebug=cost. 
+	(rs6000_preferred_reload_class_ptr): Ditto.
+	(rs6000_secondary_reload_class_ptr): Ditto.
+	(rs6000_secondary_memory_needed_ptr): Ditto.
+	(rs6000_cannot_change_mode_class_ptr): Ditto.
+	(rs6000_secondary_reload_inner): Ditto.
+	(rs6000_legitimize_reload_address): Ditto.
+	(rs6000_legitimize_reload_address_ptr): Ditto.
+	(rs6000_mode_dependent_address): Ditto.
+	(rs6000_mode_dependent_address_ptr): Ditto.
+
+	* config/rs6000/rs6000.c (reg_offset_addressing_ok_p): New
+	function to return true if the mode allows reg + integer
+	addresses.
+	(virtual_stack_registers_memory_p): New function to return true if
+	the address refers to a virtual stack register.
+	(rs6000_legitimate_offset_address_p): Move code to say whether a
+	mode supports reg+int addressing to reg_offset_addressing_ok_p and
+	call it.
+	(rs6000_legitimate_address_p): Add checks for modes that only can
+	do reg+reg addressing.  Start adding VSX support.
+	(rs6000_legitimize_reload_address): Ditto.
+	(rs6000_legitimize_address): Ditto.
+	(rs6000_debug_legitimate_address_p): New debug functions for
+	-mdebug=addr and -mdebug=cost.
+	(rs6000_debug_rtx_costs): Ditto.
+	(rs6000_debug_address_costs): Ditto.
+	(rs6000_debug_adjust_cost): Ditto.
+	(rs6000_debug_legitimize_address): Ditto.
+	(rs6000_legitimize_reload_address_ptr): Point to call normal
+	function or debug function.  Make functions called via pointer
+	static.
+	(rs6000_mode_dependent_address_ptr): Ditto.
+	(rs6000_secondary_reload_class_ptr): Ditto.
+	(rs6000_hard_regno_mode_ok): Add preliminary VSX support.
+	(rs6000_emit_move): Add -mdebug=addr support.  Change an abort
+	into a friendlier error.
+	(rs6000_init_builtins): Add initial VSX support.
+	(rs6000_adjust_cost): Fix some spacing issues.
+
+	* config/rs6000/rs6000.h (enum reg_class): Add VSX_REGS.
+	(REG_CLASS_NAMES): Ditto.
+	(REG_CLASS_CONTENTS): Ditto.
+	(PREFERRED_RELOAD_CLASS): Move from a macro to calling through a
+	pointer, to add -mdebug=addr support.
+	(CANNOT_CHANGE_MODE_CLASS): Ditto.
+	(SECONDARY_RELOAD_CLASS): Call through a pointer to add
+	-mdebug=addr support.
+	(LEGITIMIZE_RELOAD_ADDRESS): Ditto.
+	(GO_IF_MODE_DEPENDENT_ADDRESS): Ditto.
+	(enum rs6000_builtins): Add RS6000_BUILTIN_BSWAP_HI.
+
+	* config/rs6000/rs6000.md (bswaphi*): Add support for swapping
+	16-bit values.
+	(bswapsi*): Set attribute types for load/store.  Add combiner
+	patterns to eliminate zero extend on 64-bit.
+	(bswapdi*): Add support for swapping 64-bit values.  Use ldbrx and
+	stdbrx if the hardware supports those instructions.
+
+2009-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Revital1 Eres <ERES@il.ibm.com>
+
+	* config.in (HAVE_AS_POPCNTD): Add default definition.
+	(HAVE_AS_LWSYNC): Ditto.
+
+	* configure.ac (gcc_cv_as_powerpc_mfpgpr): Provide real binutils
+	release number.
+	(gcc_cv_as_powerpc_cmpb): Ditto.
+	(gcc_cv_as_powerpc_dfp): Ditto.
+	(gcc_cv_as_powerpc_vsx): Ditto.
+	(gcc_cv_as_powerpc_popcntd): Add feature test for assembler
+	supporting the popcntd/lwsync instructions.
+	(gcc_cv_as_powerpc_lwsync): Ditto.
+	* configure: Regenerate.
+
+	* config/rs6000/aix53.h (ASM_CPU_SPEC): Add support for
+	-mcpu=native and -mcpu=power7.
+	* config/rs6000/aix61.h (ASM_CPU_SPEC): Ditto.
+
+	* config/rs6000/linux64.opt (-mprofile-kernel): Move switch to be
+	a variable instead of a mask to reduce the number of mask bits.
+	* config/rs6000/sysv4.opt (-mbit-align): Ditto.
+	(-mbit-word): Ditto.
+	(-mregnames): Ditto.
+	* config/rs6000/rs6000.opt (-mupdate): Ditto.
+	(-mfused-madd): Ditto.
+
+	* config/rs6000/rs6000.opt (-mpopcntd): New switch for non-VSX ISA
+	2.06 instructions.
+	(-mvsx): New switch for VSX instructions.
+	(-misel): Move from a variable to a mask to allow it to be set by
+	-mcpu=.
+
+	* config/rs6000/rs6000-protos.h (rs6000_hard_regno_nregs): Change
+	function declaration to an array declaration.
+	(rs6000_hard_regno_nregs): New external array declaration.
+
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Define, add all of the .md
+	files included by rs6000.md.
+
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Use
+	SET_PROFILE_KERNEL macro to reset the -mprofile-kernel switch.
+
+	* config/rs6000/rs6000.c (rs6000_isel): Delete, -misel moved to be
+	a target mask.
+	(rs6000_debug_reg): New -mdebug= variables.
+	(rs6000_debug_addr): Ditto.
+	(rs6000_debug_cost): Ditto.
+	(rs6000_pmode): New variable to hold Pmode.
+	(rs6000_pointer_size): New variable to hold POINTER_SIZE.
+	(rs6000_class_max_nregs): New array to hold CLASS_MAX_NREGS
+	calculated at compiler start.
+	(rs6000_hard_regno_nregs): Change function to an array which holds
+	HARD_REGNO_NREGS calculated at compiler start.
+	(rs6000_explicit_options): Delete isel field.
+	(rs6000_vector_unit): New array to hold which vector unit
+	supports arithmetic options for a given type.
+	(rs6000_vector_mem): New array to hold which vector unit supports
+	memory reference operations for a given type.
+	(rs6000_vector_align): New array to given the alignment of each
+	vector type.
+	(power7_cost): New basic costs for power7.
+	(SET_PROFILE_KERNEL): New macro for resetting -mprofile-kernel.
+	(rs6000_hard_regno_nregs_internal): New function, moved from
+	HARD_REGNO_NREGS, to calculate the number of registers each hard
+	register takes for each type.
+	(rs6000_debug_reg_print): New function for -mdebug=reg support.
+	(rs6000_debug_vector_unit): New array, map rs6000_vector to
+	string.
+	(+rs6000_init_hard_regno_mode_ok): New function, move calculation
+	of HARD_REGNO_NREGS, CLASS_MAX_NREGS, REGNO_REG_CLASS, and vector
+	unit information here so it is calculated once at compiler startup
+	time.
+	(rs6000_override_options): Make -misel a target mask.  Add more
+	power7 target masks.  Setup Pmode and POINTER_SIZE.  Add initial
+	VSX support.  Add support for -mdebug=reg, -mdebug=addr, and
+	-mdebug=cost.
+	(POWERPC_MASKS): Add MASK_POPCNTD, MASK_VSX, and MASK_ISEL.
+	(rs6000_handle_option): Move -misel from variable to target mask.
+	(rs6000_builtin_mask_for_load): Add VSX support.
+	(rs6000_conditional_register_usage): Ditto.
+	(USE_ALTIVEC_FOR_ARG_P): Ditto.
+	(function_arg_boundary): Ditto.
+	(rs6000_expand_builtin): Ditto.
+	(def_builtin): Make abort message a little friendlier.
+	(rs6000_emit_int_cmove): Add support for 64-bit isel.
+
+	* config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Depend on the
+	assembler support the popcntd instruction instead of a vsx
+	instruction to enable power7 support.
+	(ASM_CPU_SPEC): Add support for -mcpu=native and -mcpu=power7.
+	(EXTRA_SPECS): Add ASM_CPU_NATIVE_SPEC to allow passing the right
+	option to the assembler if -mcpu=native.
+	(ASM_CPU_NATIVE_SPEC): Ditto.
+	(TARGET_POPCNTD): If assembler doesn't support popcntd, turn off
+	ISA 2.06 features.
+	(TARGET_LWSYNC_INSTRUCTION): Define whether it is safe to issue
+	the lwsync instruction.
+	(enum processor_type): Add PROCESSOR_POWER7.
+	(rs6000_debug_reg): New -mdebug= options.
+	(rs6000_debug_addr): Ditto.
+	(rs6000_debug_cost): Ditto.
+	(rs6000_isel): Delete.
+	(enum rs6000_vector): New enum to say what vector unit we have.
+	(VECTOR_UNIT_*): New macros to say which vector unit has
+	arithmetic operations for a given type.
+	(VECTOR_MEM_*): New macros to say which vector unit has memory
+	operations for a given type.
+	(TARGET_LDBRX): Whether the machine supports the ldbrx
+	instruction.
+	(TARGET_ISEL): Delete, -misel moved to be a mask.
+	(TARGET_ISEL64): New macro for 64-bit isel support.
+	(UNITS_PER_VSX_WORD): New macro.
+	(POINTER_SIZE): Move to be an external variable, rather than
+	calculating whether we are generating 32 ot 64-bit code.
+	(Pmode): Ditto.
+	(STACK_BOUNDARY): Add VSX support.
+	(LOCAL_ALIGNMENT): Ditto.
+	(SLOW_UNALIGNED_ACCESS): Ditto.
+	(VSX_REGNO_P): New macro for VSX support.
+	(VFLOAT_REGNO_P): Ditto.
+	(VINT_REGNO_P): Ditto.
+	(VLOGICAL_REGNO_P): Ditto.
+	(VSX_VECTOR_MODE): Ditto.
+	(VSX_SCALAR_MODE): Ditto.
+	(VSX_MODE): Ditto.
+	(VSX_MOVE_MODE): Ditto.
+	(VSX_REG_CLASS_P): Ditto.
+	(HARD_REGNO_NREGS): Instead of calling a function, use an array
+	lookup.
+	(UNITS_PER_SIMD_WORD): Add VSX support.
+	(MODES_TIEABLE_P): Ditto.
+	(STARTING_FRAME_OFFSET): Ditto.
+	(STACK_DYNAMIC_OFFSET): Ditto.
+	(EPILOGUE_USES): Ditto.
+	(REGNO_REG_CLASS): Move to array lookup.
+	(CLASS_MAX_NREGS): Ditto.
+	(rs6000_vector_reg_class): Add declaration.
+	(ADDITIONAL_REGISTER_NAMES): Add VSX names for the registers that
+	overlap with the floating point and Altivec registers.
+
+	* config/rs6000/e500.h (CHECK_E500_OPTIONS): Disallow -mvsx.
+
+	* config/rs6000/driver-rs6000.c (asm_names): New static array to
+	give the appropriate asm switches if -mcpu=native.
+	(host_detect_local_cpu): Add support for "asm".
+	(host_detect_local_cpu): Follow GNU code guidelines for name.
+
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Move
+	-mbit-word to a variable instead of being a target mask.
+
+	* config/rs6000/sync.md (lwsync): If the assembler supports it,
+	emit the lwsync instruction instead of emitting the instruction as
+	an integer constant.
+
+	* config/rs6000/spe.md (spe_fixuns_truncdfsi2): Rename from
+	fixuns_trundfsi2, move expander into rs6000.md.
+
+	* config/rs6000/rs6000.md (cpu): Add power7.
+	(sel, *ptrsize): New mode attributes for 32/64-bit isel.
+	(logical predicate patterns): Change the single instruction
+	primitives that set CR0 to be fast_compare instead of compare.
+	(norsi*): Ditto.
+	(popcntwsi2): Add support for ISA 2.06 popcount instructions.
+	(popcntddi2): Ditto.
+	(popcount<mode>): Ditto.
+	(floating multiply/add insns): Name the floating point
+	multiply/add insns.
+	(isel_signed_<mode>): Add support for -misel on 64-bit systems.
+	(isel_unsigned_<mode>): Ditto.
+	(fixuns_trundfsi2): Move expander here from spe.md.
+	(smindi3): Define if we have -misel on 64-bit systems.
+	(smaxdi3): Ditto.
+	(umindi3): Ditto.
+	(umaxdi3): Ditto.
+
 2009-08-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* bb-reorder.c (fix_up_fall_thru_edges): Only call invert_jump

@@ -1,3 +1,39 @@
+2009-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Revital Eres <ERES@il.ibm.com>
+
+	* gcc.target/powerpc/altivec-32.c: New file to test
+	Altivec simple math function vectorization.
+
+	* gcc.target/powerpc/popcount-2.c: New file to test
+	power7 popcntd instructions.
+	* gcc.target/powerpc/popcount-3.c: Ditto.
+
+	* gcc.target/powerpc/pr39457.c: New VSX test.
+	* gcc.target/powerpc/vsx-builtin-1.c: Ditto.
+	* gcc.target/powerpc/vsx-builtin-2.c: Ditto.
+	* gcc.target/powerpc/vsx-builtin-3.c: Ditto.
+	* gcc.target/powerpc/vsx-builtin-4.c: Ditto.
+	* gcc.target/powerpc/vsx-builtin-5.c: Ditto.
+	* gcc.target/powerpc/vsx-builtin-6.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-1.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-2.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-3.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-4.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-5.c: Ditto.
+	* gcc.target/powerpc/vsx-vector-6.c: Ditto.
+
+	* gcc.target/powerpc/altivec-6.c: Store the result of
+	vec_add, so the optimizer doesn't remove it.
+
+	* gcc.dg/vmx/vmx.exp: Explicitly add -mno-vsx to
+	prevent VSX code generation.
+
+	* lib/target-supports.exp (check_vsx_hw_available): New
+	function to test if VSX available.
+	(check_effective_target_powerpc_vsx_ok): Ditto.
+	(check_vmx_hw_available): Add explicit -mno-vsx.
+
 2009-08-18  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/40971
@@ -83,9 +119,9 @@
 2009-08-16  Dodji Seketeli  <dodji@redhat.com>
 
 	PR debug/37801
-	* gcc/testsuite/gcc.dg/debug/20020224-1.c: Adjust the comment.
+	* gcc.dg/debug/20020224-1.c: Adjust the comment.
 	Make sure to trigger inlining optimizations.
-	* gcc/testsuite/gcc.dg/debug/dwarf2/inline2.c: New test.
+	* gcc.dg/debug/dwarf2/inline2.c: New test.
 
 2009-08-12  Richard Guenther  <rguenther@suse.de>
 
@@ -466,7 +502,7 @@
 
 2009-07-14  Jack Howarth  <howarth@bromo.med.uc.edu>
 
-	* testsuite/gcc.c-torture/compile/20000804-1.c: skip for ilp32 on
+	* gcc.c-torture/compile/20000804-1.c: skip for ilp32 on
 	both i?86-*-darwin* and x86_64-*-darwin*.
 
 2009-07-12  Jason Merrill  <jason@redhat.com>
