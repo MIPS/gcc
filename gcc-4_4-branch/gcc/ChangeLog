@@ -1,3 +1,99 @@
+2009-08-31  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Final install): Adjust reference on where to
+	order printed manuals.
+
+2009-08-29  Kai Tietz<kai.tietz@onevision.com>
+
+	PR/41184
+	* config/i386.c (ix86_expand_epilogue): Correct stack adjustment for
+	padding.
+
+2009-08-28  Jan Beulich  <jbeulich@novell.com>
+
+	* config/i386/netware.c: Include langhooks.h.
+	(i386_nlm_encode_section_info): Simplify.
+	(netware_override_options): Delete.
+	* config/i386/netware.h (netware_override_options): Delete
+	declaration.
+	(OVERRIDE_OPTIONS): Delete definition.
+	(SUBTARGET_OVERRIDE_OPTIONS): Define.
+	(ASM_COMMENT_START): Define.
+	* config/i386/nwld.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Define.
+
+2009-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-08-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/sync.md: Update comment about unpredictable LL/SC lock
+	clearing by a taken branch.
+	(sync_<fetchop_name><mode>): Split when epilogue_completed is set,
+	effectively after bbro pass.
+	(sync_nand<mode>): Ditto.
+	(sync_old_<fetchop_name><mode>): Ditto.
+	(sync_old_nand<mode>): Ditto.
+	(sync_new_<fetchop_name><mode>): Dito.
+	(sync_new_nand<mode>): Ditto.
+	(sync_compare_and_swap<mode>_1): Ditto.
+	(*sync_compare_and_swap<mode>): Ditto.
+	(sync_lock_test_and_set<mode>_1): Ditto.
+	("sync_lock_test_and_set<mode>): Ditto.
+
+	2009-08-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.md (*cmpdf_ieee_ext[123]): Remove.
+	(*cmpdf_internal): Enable for all ALPHA_FPTM levels.
+	(*movdfcc_ext[1234]): Disable for IEEE mode.
+
+	2009-08-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_end_function): Handle NULL_RTX returned
+	from prev_active_insn.
+
+2009-08-27  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/service.texi (service directory): Update URL.
+
+2009-08-26  Anatoly Sokolov  <aesok@post.ru>
+
+	* doc/invoke.texi (AVR Options): Remove documentation of -minit-stack
+	switch.
+
+2009-08-25  Anatoly Sokolov  <aesok@post.ru>
+
+	PR target/34412
+	* config/avr/avr.c (expand_epilogue): Use correct QI mode frame
+	pointer for tiny stack.
+
+2009-08-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41094
+	* builtins.c (fold_builtin_pow): Fold pow(pow(x,y),z) to
+	pow(x,y*z) only if x is nonnegative.
+
+2009-08-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/40718
+	* config/i386/i386.c (*call_pop_1): Disable for sibling calls.
+	(*call_value_pop_1): Ditto.
+	(*sibcall_pop_1): New insn pattern.
+	(*sibcall_value_pop_1): Ditto.
+
+2009-08-20  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (Z10_PREDICT_DISTANCE): New macro.
+	(s390_z10_fix_long_loop_prediction): New function.
+	(s390_z10_optimize_cmp): INSN walk moved to callee - s390_reorg.
+	(s390_reorg): Walk over the INSNs and invoke
+	s390_z10_fix_long_loop_prediction and s390_z10_optimize_cmp.
+
+2009-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/41123
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Handle all kinds
+	of CONCAT, not just bitpos 0 bitsize size of the whole CONCAT.
+
 2009-08-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/40671
