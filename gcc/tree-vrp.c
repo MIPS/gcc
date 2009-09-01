@@ -5320,7 +5320,12 @@ vrp_initialize (void)
         {
 	  gimple stmt = gsi_stmt (si);
 
-	  if (!stmt_interesting_for_vrp (stmt))
+ 	  /* If the statement is a control insn, then we do not
+ 	     want to avoid simulating the statement once.  Failure
+ 	     to do so means that those edges will never get added.  */
+	  if (stmt_ends_bb_p (stmt))
+	    prop_set_simulate_again (stmt, true);
+	  else if (!stmt_interesting_for_vrp (stmt))
 	    {
 	      ssa_op_iter i;
 	      tree def;
@@ -5329,9 +5334,7 @@ vrp_initialize (void)
 	      prop_set_simulate_again (stmt, false);
 	    }
 	  else
-	    {
-	      prop_set_simulate_again (stmt, true);
-	    }
+	    prop_set_simulate_again (stmt, true);
 	}
     }
 }
@@ -6090,7 +6093,9 @@ vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
       fprintf (dump_file, "\n");
     }
 
-  if (is_gimple_assign (stmt) || is_gimple_call (stmt))
+  if (!stmt_interesting_for_vrp (stmt))
+    gcc_assert (stmt_ends_bb_p (stmt));
+  else if (is_gimple_assign (stmt) || is_gimple_call (stmt))
     {
       /* In general, assignments with virtual operands are not useful
 	 for deriving ranges, with the obvious exception of calls to

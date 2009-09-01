@@ -24,7 +24,8 @@ m4_include(config/override.m4)
 m4_include(config/proginstall.m4)
 
 AC_INIT(move-if-change)
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
+AC_DISABLE_OPTION_CHECKING
 
 progname=$0
 # if PWD already has a value, it is probably wrong.
@@ -78,6 +79,8 @@ m4_pattern_allow([^AS_FOR_BUILD$])dnl
 AC_PROG_INSTALL
 ACX_PROG_LN
 AC_PROG_LN_S
+AC_PROG_SED
+AC_PROG_AWK
 
 ### we might need to use some other shell than /bin/sh for running subshells
 ### If we are on Windows, search for the shell.  This will permit people
@@ -2662,6 +2665,7 @@ baseargs="$baseargs --program-transform-name='${gcc_transform_name}'"
 if test "$silent" = yes; then
   baseargs="$baseargs --silent"
 fi
+baseargs="$baseargs --disable-option-checking"
 
 # For the build-side libraries, we just need to pretend we're native,
 # and not use the same cache file.  Multilibs are neither needed nor
@@ -3117,32 +3121,6 @@ case ${enable_werror} in
   *) stage2_werror_flag="" ;;
 esac
 AC_SUBST(stage2_werror_flag)
-
-# Flags needed to enable html installing and building
-AC_ARG_WITH(datarootdir,
-[  --with-datarootdir      use datarootdir as the data root directory.],
-[datarootdir="\${prefix}/${withval}"],
-[datarootdir="\${prefix}/share"])
-
-AC_ARG_WITH(docdir,
-[  --with-docdir           install documentation in this directory.],
-[docdir="\${prefix}/${withval}"],
-[docdir="\${datarootdir}/doc"])
-
-AC_ARG_WITH(pdfdir,
-[  --with-pdfdir           install pdf in this directory.],
-[pdfdir="\${prefix}/${withval}"],
-[pdfdir="\${docdir}"])
-
-AC_ARG_WITH(htmldir,
-[  --with-htmldir          install html in this directory.],
-[htmldir="\${prefix}/${withval}"],
-[htmldir="\${docdir}"])
-
-AC_SUBST(datarootdir)
-AC_SUBST(docdir)
-AC_SUBST(pdfdir)
-AC_SUBST(htmldir)
 
 # Specify what files to not compare during bootstrap.
 

@@ -2936,12 +2936,12 @@ dw_cfi_oprnd2_desc (enum dwarf_call_frame_info cfi)
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
-/* Switch to eh_frame_section.  If we don't have an eh_frame_section,
-   switch to the data section instead, and write out a synthetic label
-   for collect2.  */
+/* Switch [BACK] to eh_frame_section.  If we don't have an eh_frame_section,
+   switch to the data section instead, and write out a synthetic start label
+   for collect2 the first time around.  */
 
 static void
-switch_to_eh_frame_section (void)
+switch_to_eh_frame_section (bool back)
 {
   tree label;
 
@@ -2984,11 +2984,32 @@ switch_to_eh_frame_section (void)
       /* We have no special eh_frame section.  Put the information in
 	 the data section and emit special labels to guide collect2.  */
       switch_to_section (data_section);
-      label = get_file_function_name ("F");
-      ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
-      targetm.asm_out.globalize_label (asm_out_file,
-				       IDENTIFIER_POINTER (label));
-      ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
+
+      if (!back)
+	{
+	  label = get_file_function_name ("F");
+	  ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
+	  targetm.asm_out.globalize_label (asm_out_file,
+					   IDENTIFIER_POINTER (label));
+	  ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
+	}
+    }
+}
+
+/* Switch [BACK] to the eh or debug frame table section, depending on
+   FOR_EH.  */
+
+static void
+switch_to_frame_table_section (int for_eh, bool back)
+{
+  if (for_eh)
+    switch_to_eh_frame_section (back);
+  else
+    {
+      if (!debug_frame_section)
+	debug_frame_section = get_section (DEBUG_FRAME_SECTION,
+					   SECTION_DEBUG, NULL);
+      switch_to_section (debug_frame_section);
     }
 }
 
@@ -3538,6 +3559,20 @@ output_fde (dw_fde_ref fde, bool for_eh, bool second,
 	output_cfi (cfi, fde, for_eh);
     }
 
+  /* If we are to emit a ref/link from function bodies to their frame tables,
+     do it now.  This is typically performed to make sure that tables
+     associated with functions are dragged with them and not discarded in
+     garbage collecting links. We need to do this on a per function basis to
+     cope with -ffunction-sections.  */
+
+#ifdef ASM_OUTPUT_DWARF_TABLE_REF
+  /* Switch to the function section, emit the ref to the tables, and
+     switch *back* into the table section.  */
+  switch_to_section (function_section (fde->decl));
+  ASM_OUTPUT_DWARF_TABLE_REF (section_start_label);
+  switch_to_frame_table_section (for_eh, true);
+#endif
+
   /* Pad the FDE out to an address sized boundary.  */
   ASM_OUTPUT_ALIGN (asm_out_file,
 		    floor_log2 ((for_eh ? PTR_SIZE : DWARF2_ADDR_SIZE)));
@@ -3545,7 +3580,6 @@ output_fde (dw_fde_ref fde, bool for_eh, bool second,
 
   j += 2;
 }
-
 
 /* Output the call frame information used to record information
    that relates to calculating the frame pointer, and records the
@@ -3617,15 +3651,8 @@ output_call_frame_info (int for_eh)
   if (flag_debug_asm)
     app_enable ();
 
-  if (for_eh)
-    switch_to_eh_frame_section ();
-  else
-    {
-      if (!debug_frame_section)
-	debug_frame_section = get_section (DEBUG_FRAME_SECTION,
-					   SECTION_DEBUG, NULL);
-      switch_to_section (debug_frame_section);
-    }
+  /* Switch to the proper frame section, first time.  */
+  switch_to_frame_table_section (for_eh, false);
 
   ASM_GENERATE_INTERNAL_LABEL (section_start_label, FRAME_BEGIN_LABEL, for_eh);
   ASM_OUTPUT_LABEL (asm_out_file, section_start_label);
@@ -5587,6 +5614,14 @@ static GTY ((param_is (struct die_struct))) htab_t decl_die_table;
    The key is DECL_UID() ^ die_parent.  */
 static GTY ((param_is (struct die_struct))) htab_t common_block_die_table;
 
+typedef struct GTY(()) die_arg_entry_struct {
+    dw_die_ref die;
+    tree arg;
+} die_arg_entry;
+
+DEF_VEC_O(die_arg_entry);
+DEF_VEC_ALLOC_O(die_arg_entry,gc);
+
 /* Node of the variable location list.  */
 struct GTY ((chain_next ("%h.next"))) var_loc_node {
   rtx GTY (()) var_loc_note;
@@ -5720,6 +5755,8 @@ static GTY(()) int label_num;
 
 /* Cached result of previous call to lookup_filename.  */
 static GTY(()) struct dwarf_file_data * file_table_last_lookup;
+
+static GTY(()) VEC(die_arg_entry,gc) *tmpl_value_parm_die_table;
 
 #ifdef DWARF2_DEBUGGING_INFO
 
@@ -5861,6 +5898,7 @@ static dw_die_ref base_type_die (tree);
 static int is_base_type (tree);
 static dw_die_ref subrange_type_die (tree, tree, tree, dw_die_ref);
 static dw_die_ref modified_type_die (tree, int, int, dw_die_ref);
+static dw_die_ref generic_parameter_die (tree, tree, dw_die_ref, int);
 static int type_is_enum (const_tree);
 static unsigned int dbx_reg_number (const_rtx);
 static void add_loc_descr_op_piece (dw_loc_descr_ref *, int);
@@ -5896,6 +5934,7 @@ static rtx rtl_for_decl_location (tree);
 static void add_location_or_const_value_attribute (dw_die_ref, tree,
 						   enum dwarf_attribute);
 static void tree_add_const_value_attribute (dw_die_ref, tree);
+static void tree_add_const_value_attribute_for_decl (dw_die_ref, tree);
 static void add_name_attribute (dw_die_ref, const char *);
 static void add_comp_dir_attribute (dw_die_ref);
 static void add_bound_info (dw_die_ref, enum dwarf_attribute, tree);
@@ -5949,6 +5988,7 @@ static void gen_type_die (tree, dw_die_ref);
 static void gen_block_die (tree, dw_die_ref, int);
 static void decls_for_scope (tree, dw_die_ref, int);
 static int is_redundant_typedef (const_tree);
+static inline dw_die_ref get_context_die (tree);
 static void gen_namespace_die (tree, dw_die_ref);
 static void gen_decl_die (tree, tree, dw_die_ref);
 static dw_die_ref force_decl_die (tree);
@@ -5958,6 +5998,8 @@ static dw_die_ref declare_in_namespace (tree, dw_die_ref);
 static struct dwarf_file_data * lookup_filename (const char *);
 static void retry_incomplete_types (void);
 static void gen_type_die_for_member (tree, tree, dw_die_ref);
+static tree make_ith_pack_parameter_name (tree, int);
+static void gen_generic_params_dies (tree);
 static void splice_child_die (dw_die_ref, dw_die_ref);
 static int file_info_cmp (const void *, const void *);
 static dw_loc_list_ref new_loc_list (dw_loc_descr_ref, const char *,
@@ -5975,6 +6017,8 @@ static void prune_unused_types_walk_attribs (dw_die_ref);
 static void prune_unused_types_prune (dw_die_ref);
 static void prune_unused_types (void);
 static int maybe_emit_file (struct dwarf_file_data *fd);
+static void append_entry_to_tmpl_value_parm_die_table (dw_die_ref, tree);
+static void gen_remaining_tmpl_value_param_die_attribute (void);
 
 /* Section names used to hold DWARF debugging information.  */
 #ifndef DEBUG_INFO_SECTION
@@ -6271,6 +6315,8 @@ dwarf_tag_name (unsigned int tag)
       return "DW_TAG_GNU_BINCL";
     case DW_TAG_GNU_EINCL:
       return "DW_TAG_GNU_EINCL";
+    case DW_TAG_GNU_template_template_param:
+      return "DW_TAG_GNU_template_template_param";
     default:
       return "DW_TAG_<unknown>";
     }
@@ -6472,6 +6518,8 @@ dwarf_attr_name (unsigned int attr)
       return "DW_AT_body_end";
     case DW_AT_GNU_vector:
       return "DW_AT_GNU_vector";
+    case DW_AT_GNU_template_name:
+      return "DW_AT_GNU_template_name";
 
     case DW_AT_VMS_rtnbeg_pd_address:
       return "DW_AT_VMS_rtnbeg_pd_address";
@@ -10421,6 +10469,189 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
   return mod_type_die;
 }
 
+/* Generate a new name for the parameter pack name NAME (an
+   IDENTIFIER_NODE) that incorporates its */
+
+static tree
+make_ith_pack_parameter_name (tree name, int i)
+{
+  /* Munge the name to include the parameter index.  */
+#define NUMBUF_LEN 128
+  char numbuf[NUMBUF_LEN];
+  char* newname;
+  int newname_len;
+
+  snprintf (numbuf, NUMBUF_LEN, "%i", i);
+  newname_len = IDENTIFIER_LENGTH (name)
+	        + strlen (numbuf) + 2;
+  newname = (char*) alloca (newname_len);
+  snprintf (newname, newname_len,
+	    "%s#%i", IDENTIFIER_POINTER (name), i);
+  return get_identifier (newname);
+}
+
+/* Generate DIEs for the generic parameters of T.
+   T must be either a generic type or a generic function.
+   See http://gcc.gnu.org/wiki/TemplateParmsDwarf for more.  */
+
+static void
+gen_generic_params_dies (tree t)
+{
+  tree parms, args;
+  int parms_num, i;
+  dw_die_ref die = NULL;
+
+  if (!t || (TYPE_P (t) && !COMPLETE_TYPE_P (t)))
+    return;
+
+  if (TYPE_P (t))
+    die = lookup_type_die (t);
+  else if (DECL_P (t))
+    die = lookup_decl_die (t);
+
+  gcc_assert (die);
+
+  parms = lang_hooks.get_innermost_generic_parms (t);
+  if (!parms)
+    /* T has no generic parameter. It means T is neither a generic type
+       or function. End of story.  */
+    return;
+
+  parms_num = TREE_VEC_LENGTH (parms);
+  args = lang_hooks.get_innermost_generic_args (t);
+  for (i = 0; i < parms_num; i++)
+    {
+      tree parm, arg;
+
+      parm = TREE_VEC_ELT (parms, i);
+      arg = TREE_VEC_ELT (args, i);
+      if (parm && TREE_VALUE (parm) && arg)
+	{
+	  tree pack_elems =
+	    lang_hooks.types.get_argument_pack_elems (arg);
+	  if (pack_elems)
+	    {
+	      /* So ARG is an argument pack and the elements of that pack
+	         are stored in PACK_ELEMS.  */
+	      int i, len;
+
+	      len = TREE_VEC_LENGTH (pack_elems);
+	      for (i = 0; i < len; i++)
+		generic_parameter_die (TREE_VALUE (parm),
+				       TREE_VEC_ELT (pack_elems, i),
+				       die, i);
+	    }
+	  else /* Arg is not an argument pack.  */
+	    generic_parameter_die (TREE_VALUE (parm),
+				   arg, die,
+				   -1/* Not a param pack.  */);
+	}
+    }
+}
+
+/* Create and return a DIE for PARM which should be
+   the representation of a generic type parameter.
+   For instance, in the C++ front end, PARM would be a template parameter.
+   ARG is the argument to PARM.
+   PARENT_DIE is the parent DIE which the new created DIE should be added to,
+   as a child node.
+   PACK_ELEM_INDEX is >= 0 if PARM is a generic parameter pack, and if ARG
+   is one of the unpacked elements of the parameter PACK. In that case,
+   PACK_ELEM_INDEX is the index of ARG in the parameter pack.  */
+
+static dw_die_ref
+generic_parameter_die (tree parm, tree arg, dw_die_ref parent_die,
+		       int pack_elem_index)
+{
+  dw_die_ref tmpl_die = NULL;
+  const char *name = NULL;
+
+  if (!parm || !DECL_NAME (parm) || !arg)
+    return NULL;
+
+  /* We support non-type generic parameters and arguments,
+     type generic parameters and arguments, as well as
+     generic generic parameters (a.k.a. template template parameters in C++)
+     and arguments.  */
+  if (TREE_CODE (parm) == PARM_DECL)
+    /* PARM is a nontype generic parameter  */
+    tmpl_die = new_die (DW_TAG_template_value_param, parent_die, parm);
+  else if (TREE_CODE (parm) == TYPE_DECL)
+    /* PARM is a type generic parameter.  */
+    tmpl_die = new_die (DW_TAG_template_type_param, parent_die, parm);
+  else if (lang_hooks.decls.generic_generic_parameter_decl_p (parm))
+    /* PARM is a generic generic parameter.
+       Its DIE is a GNU extension. It shall have a
+       DW_AT_name attribute to represent the name of the template template
+       parameter, and a DW_AT_GNU_template_name attribute to represent the
+       name of the template template argument.  */
+    tmpl_die = new_die (DW_TAG_GNU_template_template_param,
+			parent_die, parm);
+  else
+    gcc_unreachable ();
+
+  if (tmpl_die)
+    {
+      tree tmpl_type;
+
+      if (pack_elem_index >= 0)
+	{
+	  /* PARM is an element of a parameter pack.
+	     Generate a name for it.  */
+	  tree identifier = make_ith_pack_parameter_name (DECL_NAME (parm),
+							  pack_elem_index);
+	  if (identifier)
+	    name = IDENTIFIER_POINTER (identifier);
+	}
+      else
+	name = IDENTIFIER_POINTER (DECL_NAME (parm));
+
+      gcc_assert (name);
+      add_AT_string (tmpl_die, DW_AT_name, name);
+
+      if (!lang_hooks.decls.generic_generic_parameter_decl_p (parm))
+	{
+	  /* DWARF3, 5.6.8 says if PARM is a non-type generic parameter
+	     TMPL_DIE should have a child DW_AT_type attribute that is set
+	     to the type of the argument to PARM, which is ARG.
+	     If PARM is a type generic parameter, TMPL_DIE should have a
+	     child DW_AT_type that is set to ARG.  */
+	  tmpl_type = TYPE_P (arg) ? arg : TREE_TYPE (arg);
+	  add_type_attribute (tmpl_die, tmpl_type, 0,
+			      TREE_THIS_VOLATILE (tmpl_type),
+			      parent_die);
+	}
+      else
+	{
+	  /* So TMPL_DIE is a DIE representing a
+	     a generic generic template parameter, a.k.a template template
+	     parameter in C++ and arg is a template.  */
+
+	  /* The DW_AT_GNU_template_name attribute of the DIE must be set
+	     to the name of the argument.  */
+	  name = dwarf2_name (TYPE_P (arg) ? TYPE_NAME (arg) : arg, 1);
+	  add_AT_string (tmpl_die, DW_AT_GNU_template_name, name);
+	}
+
+      if (TREE_CODE (parm) == PARM_DECL)
+	/* So PARM is a non-type generic parameter.
+	   DWARF3 5.6.8 says we must set a DW_AT_const_value child
+	   attribute of TMPL_DIE which value represents the value
+	   of ARG.
+	   We must be careful here:
+	   The value of ARG might reference some function decls.
+	   We might currently be emitting debug info for a generic
+	   type and types are emitted before function decls, we don't
+	   know if the function decls referenced by ARG will actually be
+	   emitted after cgraph computations.
+	   So must defer the generation of the DW_AT_const_value to
+	   after cgraph is ready.  */
+	append_entry_to_tmpl_value_parm_die_table (tmpl_die, arg);
+    }
+
+  return tmpl_die;
+}
+
 /* Given a pointer to an arbitrary ..._TYPE tree node, return true if it is
    an enumerated type.  */
 
@@ -12702,17 +12933,20 @@ reference_to_unused (tree * tp, int * walk_subtrees,
   else if (!cgraph_global_info_ready
 	   && (TREE_CODE (*tp) == VAR_DECL || TREE_CODE (*tp) == FUNCTION_DECL))
     return *tp;
-  else if (DECL_P (*tp) && TREE_CODE (*tp) == VAR_DECL)
+  else if (TREE_CODE (*tp) == VAR_DECL)
     {
       struct varpool_node *node = varpool_node (*tp);
       if (!node->needed)
 	return *tp;
     }
-  else if (DECL_P (*tp) && TREE_CODE (*tp) == FUNCTION_DECL
+  else if (TREE_CODE (*tp) == FUNCTION_DECL
 	   && (!DECL_EXTERNAL (*tp) || DECL_DECLARED_INLINE_P (*tp)))
     {
-      struct cgraph_node *node = cgraph_node (*tp);
-      if (node->process || TREE_ASM_WRITTEN (*tp))
+      /* The call graph machinery must have finished analyzing,
+         optimizing and gimplifying the CU by now.
+	 So if *TP has no call graph node associated
+	 to it, it means *TP will not be emitted.  */
+      if (!cgraph_get_node (*tp))
 	return *tp;
     }
   else if (TREE_CODE (*tp) == STRING_CST && !TREE_ASM_WRITTEN (*tp))
@@ -13297,7 +13531,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
     }
   /* None of that worked, so it must not really have a location;
      try adding a constant value attribute from the DECL_INITIAL.  */
-  tree_add_const_value_attribute (die, decl);
+  tree_add_const_value_attribute_for_decl (die, decl);
 }
 
 /* Add VARIABLE and DIE into deferred locations list.  */
@@ -13458,29 +13692,25 @@ native_encode_initializer (tree init, unsigned char *array, int size)
     }
 }
 
-/* If we don't have a copy of this variable in memory for some reason (such
-   as a C++ member constant that doesn't have an out-of-line definition),
-   we should tell the debugger about the constant value.  */
+/* Attach a DW_AT_const_value attribute to DIE. The value of the
+   attribute is the const value T.  */
 
 static void
-tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
+tree_add_const_value_attribute (dw_die_ref die, tree t)
 {
   tree init;
-  tree type = TREE_TYPE (decl);
+  tree type = TREE_TYPE (t);
   rtx rtl;
 
-  if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != CONST_DECL)
+  if (!t || !TREE_TYPE (t) || TREE_TYPE (t) == error_mark_node)
     return;
 
-  init = DECL_INITIAL (decl);
-  if (TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl) && init)
-    /* OK */;
-  else
-    return;
+  init = t;
+  gcc_assert (!DECL_P (init));
 
   rtl = rtl_for_decl_init (init, type);
   if (rtl)
-    add_const_value_attribute (var_die, rtl);
+    add_const_value_attribute (die, rtl);
   /* If the host and target are sane, try harder.  */
   else if (CHAR_BIT == 8 && BITS_PER_UNIT == 8
 	   && initializer_constant_valid_p (init, type))
@@ -13491,9 +13721,33 @@ tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
 	  unsigned char *array = GGC_CNEWVEC (unsigned char, size);
 
 	  if (native_encode_initializer (init, array, size))
-	    add_AT_vec (var_die, DW_AT_const_value, size, 1, array);
+	    add_AT_vec (die, DW_AT_const_value, size, 1, array);
 	}
     }
+}
+
+/* Attach a DW_AT_const_value attribute to VAR_DIE. The value of the
+   attribute is the const value of T, where T is an integral constant
+   variable with static storage duration
+   (so it can't be a PARM_DECL or a RESULT_DECL).  */
+
+static void
+tree_add_const_value_attribute_for_decl (dw_die_ref var_die, tree decl)
+{
+
+  if (!decl
+      || (TREE_CODE (decl) != VAR_DECL
+	  && TREE_CODE (decl) != CONST_DECL))
+    return;
+
+    if (TREE_READONLY (decl)
+	&& ! TREE_THIS_VOLATILE (decl)
+	&& DECL_INITIAL (decl))
+      /* OK */;
+    else
+      return;
+
+    tree_add_const_value_attribute (var_die, DECL_INITIAL (decl));
 }
 
 /* Convert the CFI instructions for the current function into a
@@ -15192,6 +15446,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		 loc_descriptor_from_tree (cfun->static_chain_decl));
     }
 
+  /* Generate child dies for template paramaters.  */
+  if (debug_info_level > DINFO_LEVEL_TERSE)
+    gen_generic_params_dies (decl);
+
   /* Now output descriptions of the arguments for this function. This gets
      (unnecessarily?) complex because of the fact that the DECL_ARGUMENT list
      for a FUNCTION_DECL doesn't indicate cases where there was a trailing
@@ -15553,7 +15811,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
       add_pubname (decl_or_origin, var_die);
     }
   else
-    tree_add_const_value_attribute (var_die, decl_or_origin);
+    tree_add_const_value_attribute_for_decl (var_die, decl_or_origin);
 }
 
 /* Generate a DIE to represent a named constant.  */
@@ -15571,7 +15829,7 @@ gen_const_die (tree decl, dw_die_ref context_die)
     add_AT_flag (const_die, DW_AT_external, 1);
   if (DECL_ARTIFICIAL (decl))
     add_AT_flag (const_die, DW_AT_artificial, 1);
-  tree_add_const_value_attribute (const_die, decl);
+  tree_add_const_value_attribute_for_decl (const_die, decl);
 }
 
 /* Generate a DIE to represent a label identifier.  */
@@ -15990,6 +16248,11 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
   else
     remove_AT (type_die, DW_AT_declaration);
 
+  /* Generate child dies for template paramaters.  */
+  if (debug_info_level > DINFO_LEVEL_TERSE
+      && COMPLETE_TYPE_P (type))
+    gen_generic_params_dies (type);
+
   /* If this type has been completed, then give it a byte_size attribute and
      then give a list of members.  */
   if (complete && !ns_decl)
@@ -16122,7 +16385,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
          the type description DIE we want to generate.  */
       if (DECL_CONTEXT (TYPE_NAME (type))
 	  && TREE_CODE (DECL_CONTEXT (TYPE_NAME (type))) == NAMESPACE_DECL)
-	context_die = lookup_decl_die (DECL_CONTEXT (TYPE_NAME (type)));
+	context_die = get_context_die (DECL_CONTEXT (TYPE_NAME (type)));
 
       TREE_ASM_WRITTEN (type) = 1;
       gen_decl_die (TYPE_NAME (type), NULL, context_die);
@@ -16230,6 +16493,15 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 	  push_decl_scope (TYPE_CONTEXT (type));
 	  context_die = lookup_type_die (TYPE_CONTEXT (type));
 	  need_pop = 1;
+	}
+      else if (TYPE_CONTEXT (type) != NULL_TREE
+	       && (TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL))
+	{
+	  /* If this type is local to a function that hasn't been written
+	     out yet, use a NULL context for now; it will be fixed up in
+	     decls_for_scope.  */
+	  context_die = lookup_decl_die (TYPE_CONTEXT (type));
+	  need_pop = 0;
 	}
       else
 	{
@@ -17236,6 +17508,49 @@ maybe_emit_file (struct dwarf_file_data * fd)
   return fd->emitted_number;
 }
 
+/* Schedule generation of a DW_AT_const_value attribute to DIE.
+   That generation should happen after function debug info has been
+   generated. The value of the attribute is the constant value of ARG.  */
+
+static void
+append_entry_to_tmpl_value_parm_die_table (dw_die_ref die, tree arg)
+{
+  die_arg_entry entry;
+
+  if (!die || !arg)
+    return;
+
+  if (!tmpl_value_parm_die_table)
+    tmpl_value_parm_die_table
+      = VEC_alloc (die_arg_entry, gc, 32);
+
+  entry.die = die;
+  entry.arg = arg;
+  VEC_safe_push (die_arg_entry, gc,
+		 tmpl_value_parm_die_table,
+		 &entry);
+}
+
+/* Add a DW_AT_const_value attribute to DIEs that were scheduled
+   by append_entry_to_tmpl_value_parm_die_table. This function must
+   be called after function DIEs have been generated.  */
+
+static void
+gen_remaining_tmpl_value_param_die_attribute (void)
+{
+  if (tmpl_value_parm_die_table)
+    {
+      unsigned i;
+      die_arg_entry *e;
+
+      for (i = 0;
+           VEC_iterate (die_arg_entry, tmpl_value_parm_die_table, i, e);
+           i++)
+	tree_add_const_value_attribute (e->die, e->arg);
+    }
+}
+
+
 /* Replace DW_AT_name for the decl with name.  */
  
 static void
@@ -18022,6 +18337,8 @@ dwarf2out_finish (const char *filename)
   limbo_die_node *node, *next_node;
   dw_die_ref die = 0;
   unsigned int i;
+
+  gen_remaining_tmpl_value_param_die_attribute ();
 
   /* Add the name for the main input file now.  We delayed this from
      dwarf2out_init to avoid complications with PCH.  */

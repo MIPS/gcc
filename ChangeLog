@@ -1,3 +1,67 @@
+2009-08-31  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/30161
+	* include/dwarf2.h (enum dwarf_tag): Added
+	DW_TAG_GNU_template_template_param
+	(enum dwarf_attribute): Added DW_AT_GNU_template_name.
+
+2009-08-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (AWK): Fix typo.
+	* Makefile.in: Regenerate.
+
+2009-08-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac: Detect awk and sed.
+	* Makefile.def (flags_to_pass): Add AWK and SED.
+	* Makefile.tpl (AWK, SED): New.
+	(BASE_FLAGS_TO_PASS): Add AWK and SED.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2009-08-26  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* ltmain.sh (removedotparts): Don't use comma as 's' separator.
+	(collapseslashes): Likewise.
+
+2009-08-24  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure.ac (AC_PREREQ): Bump to 2.64.
+
+2009-08-22  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure.ac: Remove --with-datarootdir, --with-docdir,
+	--with-pdfdir, --with-htmldir switches.
+	* configure: Regenerate.
+
+	* configure: Regenerate.
+
+	* compile: Sync from Automake 1.11.
+	* depcomp: Likewise.
+	* install-sh: Likewise.
+	* missing: Likewise.
+	* mkinstalldirs: Likewise.
+	* ylwrap: Likewise.
+
+2009-08-20  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* ltmain.sh (func_normal_abspath): New function.
+	(func_relative_path): Likewise.
+	(func_mode_help): Document new -bindir option for link mode.
+	(func_mode_link): Add new -bindir option, and use it to place
+	output DLL if specified.
+
+2009-08-19  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure.ac: Call AC_DISABLE_OPTION_CHECKING.
+	(baseargs): Add --disable-option-checking.
+	* configure: Regenerate.
+
+	* Makefile.def (configure-target-libiberty): Depend on
+	all-binutils and all-ld.
+	(configure-target-newlib): Likewise.
+	* Makefile.in: Regenerate.
+
 2009-08-17  Ben Elliston  <bje@au.ibm.com>
 
 	* config.sub, config.guess: Update from upstream sources.
