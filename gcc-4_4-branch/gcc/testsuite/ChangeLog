@@ -1,4 +1,8 @@
-2008-03-29  Tobias Schlüter  <tobi@gcc.gnu.org>
+2009-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/builtin-object-size-9.c: New test.
+
+2008-03-29  Tobias SchlÃ¼ter  <tobi@gcc.gnu.org>
 
 	PR fortran/38507
 	* gfortran.dg/do_4.f: New.

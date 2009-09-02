@@ -1,3 +1,8 @@
+2009-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-object-size.c (addr_object_size): Always use object_size_type
+	0 or 2 when determining the pointer pointed object size.
+
 2009-08-18  Jason Merrill  <jason@redhat.com>
 
 	* config/elfos.h (ASM_DECLARE_OBJECT_NAME): Use gnu_unique_object
