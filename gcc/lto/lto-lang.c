@@ -740,13 +740,6 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   return false;
 }
 
-static bool 
-lto_mark_addressable (tree t)
-{
-  mark_addressable (t);
-  return true;
-}
-
 /* Return an integer type with PRECISION bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
@@ -1186,8 +1179,6 @@ static void lto_init_ts (void)
 #define LANG_HOOKS_POST_OPTIONS lto_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET gimple_get_alias_set
-#undef LANG_HOOKS_MARK_ADDRESSABLE
-#define LANG_HOOKS_MARK_ADDRESSABLE lto_mark_addressable
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE lto_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE

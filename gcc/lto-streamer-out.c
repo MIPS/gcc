@@ -1793,6 +1793,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
     case GIMPLE_LABEL:
     case GIMPLE_COND:
     case GIMPLE_GOTO:
+    case GIMPLE_DEBUG:
       for (i = 0; i < gimple_num_ops (stmt); i++)
 	{
 	  tree op = gimple_op (stmt, i);

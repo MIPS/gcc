@@ -927,6 +927,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     case GIMPLE_LABEL:
     case GIMPLE_COND:
     case GIMPLE_GOTO:
+    case GIMPLE_DEBUG:
       for (i = 0; i < num_ops; i++)
 	{
 	  tree op = lto_input_tree (ib, data_in);

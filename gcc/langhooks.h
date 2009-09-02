@@ -91,6 +91,9 @@ struct lang_hooks_for_types
      e.g. C++ template implicit specializations.  */
   bool (*generic_p) (const_tree);
 
+  /* Returns the TREE_VEC of elements of a given generic argument pack.  */
+  tree (*get_argument_pack_elems) (const_tree);
+
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
@@ -164,6 +167,10 @@ struct lang_hooks_for_decls
 
   /* Returns true if DECL is explicit member function.  */
   bool (*function_decl_explicit_p) (tree);
+
+  /* Returns True if the parameter is a generic parameter decl
+     of a generic type, e.g a template template parameter for the C++ FE.  */
+  bool (*generic_generic_parameter_decl_p) (const_tree);
 
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
@@ -311,11 +318,6 @@ struct lang_hooks
      compilation.  Default hook is does nothing.  */
   void (*finish_incomplete_decl) (tree);
 
-  /* Mark EXP saying that we need to be able to take the address of
-     it; it should not be allocated in a register.  Return true if
-     successful.  */
-  bool (*mark_addressable) (tree);
-
   /* Replace the DECL_LANG_SPECIFIC data, which may be NULL, of the
      DECL_NODE with a newly GC-allocated copy.  */
   void (*dup_lang_specific_decl) (tree);
@@ -366,12 +368,6 @@ struct lang_hooks
   void (*print_error_function) (struct diagnostic_context *, const char *,
 				struct diagnostic_info *);
 
-  /* Called from expr_size to calculate the size of the value of an
-     expression in a language-dependent way.  Returns a tree for the size
-     in bytes.  A frontend can call lhd_expr_size to get the default
-     semantics in cases that it doesn't want to handle specially.  */
-  tree (*expr_size) (const_tree);
-
   /* Convert a character from the host's to the target's character
      set.  The character should be in what C calls the "basic source
      character set" (roughly, the set of characters defined by plain
@@ -401,6 +397,14 @@ struct lang_hooks
   struct lang_hooks_for_types types;
 
   struct lang_hooks_for_lto lto;
+
+  /* Retuns the generic parameters of an instantiation of
+     a generic type or decl, e.g. C++ template instantiation.  */
+  tree (*get_innermost_generic_parms) (const_tree);
+
+  /* Returns the TREE_VEC of arguments of an instantiation
+     of a generic type of decl, e.g. C++ template instantiation.  */
+  tree (*get_innermost_generic_args) (const_tree);
 
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */

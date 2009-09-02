@@ -1,3 +1,10 @@
+2009-09-02  Richard Guenther  <rguenther@suse.de>
+
+	Mainline merge @151318.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-09-01  Richard Guenther  <rguenther@suse.de>
 
 	* tree.c (free_lang_data): Reset fold_obj_type_ref langhook.

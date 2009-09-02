@@ -2202,6 +2202,18 @@ max_int_size_in_bytes (const_tree type)
 
   return size;
 }
+
+/* Returns a tree for the size of EXP in bytes.  */
+
+tree
+tree_expr_size (const_tree exp)
+{
+  if (DECL_P (exp)
+      && DECL_SIZE_UNIT (exp) != 0)
+    return DECL_SIZE_UNIT (exp);
+  else
+    return size_in_bytes (TREE_TYPE (exp));
+}
 
 /* Return the bit position of FIELD, in bits from the start of the record.
    This is a tree of type bitsizetype.  */
@@ -4793,7 +4805,6 @@ free_lang_data (void)
   /* Reset some langhooks.  */
   lang_hooks.callgraph.analyze_expr = NULL;
   lang_hooks.types_compatible_p = NULL;
-  lang_hooks.expr_size = lhd_expr_size;
 
   /* FIXME lto: As we clear TYPE_BINFO we cannot fold OBJ_TYPE_REF anymore.
      See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38178.  */
