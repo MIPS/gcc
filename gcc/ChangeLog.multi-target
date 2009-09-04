@@ -1,3 +1,15 @@
+2009-09-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_task_ok_for_target): New function.
+	* targhooks.h (default_task_ok_for_target): Declare.
+	* target.h (enum task_type): New enum.
+	(struct gcc_target): New member task_ok_for_target.
+	* tree-vectorizer.c (vectorize_loops): Check task_ok_for_target hook.
+	* target-def.h (TARGET_TASK_OK_FOR_TARGET): Define.
+	(TARGET_INITIALIZER): Include it.
+	* config/arc/arc.c (arc_task_ok_for_target): New function.
+	(TARGET_TASK_OK_FOR_TARGET): Redefine.
+
 2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-parloops.c (create_loads_and_stores_for_name): Only expect

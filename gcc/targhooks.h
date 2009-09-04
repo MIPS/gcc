@@ -119,6 +119,7 @@ extern int /*enum reg_class*/ default_secondary_reload (bool, rtx,
 						secondary_reload_info *);
 extern bool default_override_options (bool);
 extern tree default_vectype_for_scalar_type (tree, FILE *);
+extern bool default_task_ok_for_target (struct gcc_target *, enum task_type);
 extern bool default_common_data_with_target (struct gcc_target *);
 extern enum machine_mode default_get_pmode (void);
 END_TARGET_SPECIFIC

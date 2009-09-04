@@ -690,6 +690,8 @@ struct target_option_hooks
 
 struct gimple_stmt_iterator_d;
 
+enum task_type { TASK_TYPE_VECTORIZED_LOOP };
+
 /* ??? the use of the target vector makes it necessary to cast
    target-specific enums from/to int, since we expose the function
    signatures of target specific hooks that operate e.g. on enum reg_class
@@ -893,6 +895,8 @@ struct gcc_target
 
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) (const char *);
+
+  bool (*task_ok_for_target) (struct gcc_target *other, enum task_type);
 
   /* Say if the target OTHER shares its data memory with this target.  */
   bool (*common_data_with_target) (struct gcc_target *other);

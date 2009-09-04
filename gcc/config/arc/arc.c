@@ -408,6 +408,7 @@ static bool arc_preserve_reload_p (rtx in);
 static rtx arc_delegitimize_address (rtx);
 static bool arc_can_follow_jump (const_rtx follower, const_rtx followee);
 
+static bool arc_task_ok_for_target (struct gcc_target *, enum task_type);
 static void arc_copy_to_target (gimple_stmt_iterator *, struct gcc_target *,
 				tree, tree, tree);
 static void arc_copy_from_target (gimple_stmt_iterator *, struct gcc_target *,
@@ -535,6 +536,8 @@ static void arc_asm_new_arch (FILE *, struct gcc_target *, struct gcc_target *);
 #undef TARGET_MAX_ANCHOR_OFFSET
 #define TARGET_MAX_ANCHOR_OFFSET (1020)
 
+#undef TARGET_TASK_OK_FOR_TARGET
+#define TARGET_TASK_OK_FOR_TARGET arc_task_ok_for_target
 #undef TARGET_COPY_TO_TARGET
 #define TARGET_COPY_TO_TARGET arc_copy_to_target
 #undef TARGET_COPY_FROM_TARGET
@@ -9171,6 +9174,16 @@ build_sdma_op (gimple_stmt_iterator *gsi, tree fn,
       force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
 				GSI_CONTINUE_LINKING);
     }
+}
+
+static bool
+arc_task_ok_for_target (struct gcc_target *other,
+			enum task_type tt ATTRIBUTE_UNUSED)
+{
+  if (&this_targetm == other)
+    return true;
+  gcc_assert (strcmp (other->name, "mxp-elf") == 0);
+  return TARGET_SIMD_SET ? true : false;
 }
 
 static void

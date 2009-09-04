@@ -2765,8 +2765,11 @@ vectorize_loops (void)
 	int target_arch, best_arch = -1;
 
 	vect_loop_location = find_loop_location (loop);
-	for (target_arch = -1; targetm_pnt = targetm_array[++target_arch]; )
+	for (target_arch = -1; (targetm_pnt = targetm_array[++target_arch]); )
 	  {
+	    if (!(targetm_array[cfun->target_arch]->task_ok_for_target
+		   (targetm_pnt, TASK_TYPE_VECTORIZED_LOOP)))
+	      continue;
 	    if (loop_vinfo)
 	      destroy_loop_vec_info (loop_vinfo, true);
 	    loop_vinfo = vect_analyze_loop (loop);

@@ -880,6 +880,13 @@ default_vectype_for_scalar_type (tree scalar_type, FILE *vect_dump)
 }
 
 bool
+default_task_ok_for_target (struct gcc_target *other,
+			    enum task_type tt ATTRIBUTE_UNUSED)
+{
+  return &this_targetm == other;
+}
+
+bool
 default_common_data_with_target (struct gcc_target *other)
 {
   return &this_targetm == other;
