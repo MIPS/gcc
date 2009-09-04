@@ -21,8 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_INLINE_H
 #define GCC_TREE_INLINE_H
 
-#include "varray.h"
-#include "pointer-set.h"
+#include "gimple.h"
 
 
 /* Data required for function body duplication.  */
@@ -110,7 +109,7 @@ typedef struct copy_body_data
   struct basic_block_def *entry_bb;
 
   /* Debug statements that need processing.  */
-  varray_type debug_stmts;
+  VEC(gimple,heap) *debug_stmts;
 
   /* A map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined, where

@@ -2751,7 +2751,7 @@ expand_gimple_basic_block (basic_block bb)
 	  if (new_bb)
 	    return new_bb;
 	}
-      else if (is_gimple_debug (stmt))
+      else if (gimple_debug_bind_p (stmt))
 	{
 	  location_t sloc = get_curr_insn_source_location ();
 	  tree sblock = get_curr_insn_block ();
@@ -2798,7 +2798,7 @@ expand_gimple_basic_block (basic_block bb)
 	      if (gsi_end_p (nsi))
 		break;
 	      stmt = gsi_stmt (nsi);
-	      if (!is_gimple_debug (stmt))
+	      if (!gimple_debug_bind_p (stmt))
 		break;
 	    }
 

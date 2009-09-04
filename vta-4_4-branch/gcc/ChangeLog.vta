@@ -1,3 +1,63 @@
+2009-09-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cse.c (cse_extended_basic_block): Use NONDEBUG_INSN_P.
+	* Makefile.in (TREE_INLINE_H): Take pointer-set.h from GIMPLE_H.
+	* tree-inline.c (remap_gimple_stmt): Use VEC for debug_stmts.
+	(copy_debug_stmt): Likewise.
+	(insert_init_debug_bind): Don't mark symbols for renaming.
+	(optimize_inline_calls): Drop initialization of debug_stmts.
+	Check that it isn't left over.
+	(tree_function_versioning): Likewise.
+	* tree-inline.h: Include gimple.h instead of varray.h and
+	pointer-set.h.
+	(struct copy_body_data): Use VEC for debug_stmts.
+	* cfgexpand.c (expand_gimple_basic_block): Check for debug bind
+	stmts.
+	* var-tracking.c (canonicalize_values_mark): Drop #if 0 block.
+	(canonicalize_values_star): Likewise.
+	(variable_post_merge_new_vals): Likewise.
+	(vt_emit_notes): Move check for empty value_chains into the
+	ENABLE_CHECKING block that ensures it becomes empty.
+	* gimple.h (GIMPLE_DEBUG_BIND): Moved into...
+	(enum gimple_debug_subcode): ... this.  New.
+	* tree-flow-inline.h (has_zero_uses, has_single_use,
+	single_imm_use): Simplify inlinable portion.  Move larger
+	portion into...
+	* tree-cfg.c (has_zero_uses_1, single_imm_use_1): ... new
+	functions.
+	(verify_gimple_phi): Expand comment.
+	* tree-ssa-loop-ivopts.c (find_interesting_uses): Fix indentation.
+	* tree-ssa.c (target_for_debug_bind): Remove #if 0 block.
+	(propagate_defs_into_debug_stmts): Skip virtual defs.
+
+2009-08-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c: Revert the previous patch, not necessary in 4.4.
+
+	* var-tracking.c (unshare_variable, set_slot_part,
+	clobber_slot_part, delete_slot_part): Return the current slot.
+	Adjust all callers to use it.
+	(vt_emit_notes): Check value_chains if MAY_HAVE_DEBUG_INSNS.
+
+2009-08-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgexpand.c (gimple_assign_rhs_to_tree): Do not overwrite
+	location of single rhs in place.
+
+2009-08-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reload1.c (reload): Substitute REG for equiv even within
+	SUBREG.  ICE on unrecognized uses of regs with equivs.
+
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* caller-save.c (replace_reg_with_saved_mem): Check that the
+	correct regno_save_mem is non-NULL.
+
+2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with gcc-4_4-branch@150905.
+
 2009-08-18  Alexandre Oliva  <aoliva@redhat.com>
 
 	* testsuite/gcc.dg/guality/guality.h (main): Error-check GDB pipe

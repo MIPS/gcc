@@ -1093,7 +1093,7 @@ replace_reg_with_saved_mem (rtx *loc,
       for (i = 0; i < nregs; i++)
 	if (TEST_HARD_REG_BIT (hard_regs_saved, regno + i))
 	  {
-	    gcc_assert (regno_save_mem[regno][1]);
+	    gcc_assert (regno_save_mem[regno + i][1]);
 	    XVECEXP (mem, 0, i) = copy_rtx (regno_save_mem[regno + i][1]);
 	  }
 	else

@@ -6024,8 +6024,7 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 
 	     FIXME: This is a real kludge and needs to be done some other
 		    way.  */
-	  if (INSN_P (insn)
-	      && !DEBUG_INSN_P (insn)
+	  if (NONDEBUG_INSN_P (insn)
 	      && num_insns++ > PARAM_VALUE (PARAM_MAX_CSE_INSNS))
 	    {
 	      flush_hash_table ();
