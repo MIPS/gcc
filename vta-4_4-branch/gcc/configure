@@ -1079,6 +1079,8 @@ Optional Features:
   --enable-fast-install[=PKGS]
                           optimize for fast installation [default=yes]
   --disable-libtool-lock  avoid locking (might break parallel builds)
+  --enable-gnu-unique-object	enable the use of the @gnu_unique_object ELF extension on
+				glibc systems
   --enable-maintainer-mode
                           enable make rules and dependencies not useful
                           (and sometimes confusing) to the casual installer
@@ -14875,13 +14877,13 @@ if test "${lt_cv_nm_interface+set}" = set; then
 else
   lt_cv_nm_interface="BSD nm"
   echo "int some_variable = 0;" > conftest.$ac_ext
-  (eval echo "\"\$as_me:14878: $ac_compile\"" >&5)
+  (eval echo "\"\$as_me:14880: $ac_compile\"" >&5)
   (eval "$ac_compile" 2>conftest.err)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:14881: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+  (eval echo "\"\$as_me:14883: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:14884: output\"" >&5)
+  (eval echo "\"\$as_me:14886: output\"" >&5)
   cat conftest.out >&5
   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
     lt_cv_nm_interface="MS dumpbin"
@@ -16038,7 +16040,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 16041 "configure"' > conftest.$ac_ext
+  echo '#line 16043 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -17337,11 +17339,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:17340: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:17342: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:17344: \$? = $ac_status" >&5
+   echo "$as_me:17346: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -17676,11 +17678,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:17679: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:17681: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:17683: \$? = $ac_status" >&5
+   echo "$as_me:17685: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -17781,11 +17783,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:17784: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:17786: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:17788: \$? = $ac_status" >&5
+   echo "$as_me:17790: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -17836,11 +17838,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:17839: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:17841: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:17843: \$? = $ac_status" >&5
+   echo "$as_me:17845: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -20648,7 +20650,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 20651 "configure"
+#line 20653 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -20744,7 +20746,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 20747 "configure"
+#line 20749 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -23602,7 +23604,7 @@ if test "${gcc_cv_as_powerpc_mfpgpr+set}" = set; then
 else
   gcc_cv_as_powerpc_mfpgpr=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_mfpgpr=yes
 fi
   elif test x$gcc_cv_as != x; then
@@ -23698,7 +23700,7 @@ if test "${gcc_cv_as_powerpc_cmpb+set}" = set; then
 else
   gcc_cv_as_powerpc_cmpb=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_cmpb=yes
 fi
   elif test x$gcc_cv_as != x; then
@@ -23744,7 +23746,7 @@ if test "${gcc_cv_as_powerpc_dfp+set}" = set; then
 else
   gcc_cv_as_powerpc_dfp=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_dfp=yes
 fi
   elif test x$gcc_cv_as != x; then
@@ -23790,7 +23792,7 @@ if test "${gcc_cv_as_powerpc_vsx+set}" = set; then
 else
   gcc_cv_as_powerpc_vsx=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_vsx=yes
 fi
   elif test x$gcc_cv_as != x; then
@@ -23816,6 +23818,96 @@ if test $gcc_cv_as_powerpc_vsx = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_AS_VSX 1
+_ACEOF
+
+fi
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr7"
+	.csect .text[PR]
+	popcntd 3,3';;
+      *) conftest_s='	.machine power7
+	.text
+	popcntd 3,3';;
+    esac
+
+    echo "$as_me:$LINENO: checking assembler for popcntd support" >&5
+echo $ECHO_N "checking assembler for popcntd support... $ECHO_C" >&6
+if test "${gcc_cv_as_powerpc_popcntd+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_powerpc_popcntd=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
+  then gcc_cv_as_powerpc_popcntd=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo "$conftest_s" > conftest.s
+    if { ac_try='$gcc_cv_as -a32 -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_powerpc_popcntd=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_powerpc_popcntd" >&5
+echo "${ECHO_T}$gcc_cv_as_powerpc_popcntd" >&6
+if test $gcc_cv_as_powerpc_popcntd = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_POPCNTD 1
+_ACEOF
+
+fi
+
+    case $target in
+      *-*-aix*) conftest_s='	.csect .text[PR]
+	lwsync';;
+      *) conftest_s='	.text
+	lwsync';;
+    esac
+
+    echo "$as_me:$LINENO: checking assembler for lwsync support" >&5
+echo $ECHO_N "checking assembler for lwsync support... $ECHO_C" >&6
+if test "${gcc_cv_as_powerpc_lwsync+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_powerpc_lwsync=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
+  then gcc_cv_as_powerpc_lwsync=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo "$conftest_s" > conftest.s
+    if { ac_try='$gcc_cv_as -a32 -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_powerpc_lwsync=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_powerpc_lwsync" >&5
+echo "${ECHO_T}$gcc_cv_as_powerpc_lwsync" >&6
+if test $gcc_cv_as_powerpc_lwsync = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_LWSYNC 1
 _ACEOF
 
 fi
@@ -24284,6 +24376,69 @@ if test $gcc_cv_as_lcomm_with_alignment = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_GAS_LCOMM_WITH_ALIGNMENT 1
+_ACEOF
+
+fi
+
+# Check whether --enable-gnu-unique-object or --disable-gnu-unique-object was given.
+if test "${enable_gnu_unique_object+set}" = set; then
+  enableval="$enable_gnu_unique_object"
+  case $enable_gnu_unique_object in
+    yes | no) ;;
+    *) { { echo "$as_me:$LINENO: error: '$enable_gnu_unique_object' is an invalid value for --enable-gnu-unique-object.
+Valid choices are 'yes' and 'no'." >&5
+echo "$as_me: error: '$enable_gnu_unique_object' is an invalid value for --enable-gnu-unique-object.
+Valid choices are 'yes' and 'no'." >&2;}
+   { (exit 1); exit 1; }; } ;;
+  esac
+else
+  echo "$as_me:$LINENO: checking assembler for gnu_unique_object" >&5
+echo $ECHO_N "checking assembler for gnu_unique_object... $ECHO_C" >&6
+if test "${gcc_cv_as_gnu_unique_object+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_gnu_unique_object=no
+    if test $in_tree_gas = yes; then
+    if test $in_tree_gas_is_elf = yes \
+  && test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 52`
+  then gcc_cv_as_gnu_unique_object=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo '.type foo, @gnu_unique_object' > conftest.s
+    if { ac_try='$gcc_cv_as  -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	# Also check for ld.so support, i.e. glibc 2.11 or higher.
+   if test x$host = x$build -a x$host = x$target &&
+       glibcver=`ldd --version 2>/dev/null`; then
+      glibcmajor=`expr "$glibcver" : "ldd (GNU libc) \([0-9]*\)"`
+      glibcminor=`expr "$glibcver" : "ldd (GNU libc) [0-9]*\.\([0-9]*\)"`
+      glibcnum=`expr $glibcmajor \* 1000 + $glibcminor`
+      if test "$glibcnum" -ge 2011 ; then
+        gcc_cv_as_gnu_unique_object=yes
+      fi
+    fi
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_gnu_unique_object" >&5
+echo "${ECHO_T}$gcc_cv_as_gnu_unique_object" >&6
+if test $gcc_cv_as_gnu_unique_object = yes; then
+  enable_gnu_unique_object=yes
+fi
+fi;
+if test x$enable_gnu_unique_object = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_GAS_GNU_UNIQUE_OBJECT 1
 _ACEOF
 
 fi

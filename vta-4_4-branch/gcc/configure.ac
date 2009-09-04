@@ -3093,7 +3093,7 @@ foo:	nop
     esac
 
     gcc_GAS_CHECK_FEATURE([move fp gpr support],
-      gcc_cv_as_powerpc_mfpgpr, [9,99,0],,
+      gcc_cv_as_powerpc_mfpgpr, [2,19,2],,
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_MFPGPR, 1,
 	  [Define if your assembler supports mffgpr and mftgpr.])])
@@ -3127,7 +3127,7 @@ LCF0:
     esac
 
     gcc_GAS_CHECK_FEATURE([compare bytes support],
-      gcc_cv_as_powerpc_cmpb, [9,99,0], -a32,
+      gcc_cv_as_powerpc_cmpb, [2,19,2], -a32,
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_CMPB, 1,
 	  [Define if your assembler supports cmpb.])])
@@ -3142,7 +3142,7 @@ LCF0:
     esac
 
     gcc_GAS_CHECK_FEATURE([decimal float support],
-      gcc_cv_as_powerpc_dfp, [9,99,0], -a32,
+      gcc_cv_as_powerpc_dfp, [2,19,2], -a32,
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_DFP, 1,
 	  [Define if your assembler supports DFP instructions.])])
@@ -3157,10 +3157,38 @@ LCF0:
     esac
 
     gcc_GAS_CHECK_FEATURE([vector-scalar support],
-      gcc_cv_as_powerpc_vsx, [9,99,0], -a32,
+      gcc_cv_as_powerpc_vsx, [2,19,2], -a32,
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_VSX, 1,
 	  [Define if your assembler supports VSX instructions.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr7"
+	.csect .text[[PR]]
+	popcntd 3,3';;
+      *) conftest_s='	.machine power7
+	.text
+	popcntd 3,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([popcntd support],
+      gcc_cv_as_powerpc_popcntd, [2,19,2], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_POPCNTD, 1,
+	  [Define if your assembler supports POPCNTD instructions.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.csect .text[[PR]]
+	lwsync';;
+      *) conftest_s='	.text
+	lwsync';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([lwsync support],
+      gcc_cv_as_powerpc_lwsync, [2,19,2], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_LWSYNC, 1,
+	  [Define if your assembler supports LWSYNC instructions.])])
 
     gcc_GAS_CHECK_FEATURE([.gnu_attribute support],
       gcc_cv_as_powerpc_gnu_attribute, [2,18,0],,
@@ -3298,6 +3326,33 @@ gcc_GAS_CHECK_FEATURE([.lcomm with alignment], gcc_cv_as_lcomm_with_alignment,
 [.lcomm bar,4,16],,
 [AC_DEFINE(HAVE_GAS_LCOMM_WITH_ALIGNMENT, 1,
   [Define if your assembler supports .lcomm with an alignment field.])])
+
+AC_ARG_ENABLE(gnu-unique-object,
+ [  --enable-gnu-unique-object	enable the use of the @gnu_unique_object ELF extension on
+				glibc systems],
+ [case $enable_gnu_unique_object in
+    yes | no) ;;
+    *) AC_MSG_ERROR(['$enable_gnu_unique_object' is an invalid value for --enable-gnu-unique-object.
+Valid choices are 'yes' and 'no'.]) ;;
+  esac],
+ [gcc_GAS_CHECK_FEATURE([gnu_unique_object], gcc_cv_as_gnu_unique_object,
+   [elf,2,19,52],,
+   [.type foo, @gnu_unique_object],
+# Also check for ld.so support, i.e. glibc 2.11 or higher.
+   [if test x$host = x$build -a x$host = x$target &&
+       glibcver=`ldd --version 2>/dev/null`; then
+      glibcmajor=`expr "$glibcver" : "ldd (GNU libc) \([[0-9]]*\)"`
+      glibcminor=`expr "$glibcver" : "ldd (GNU libc) [[0-9]]*\.\([[0-9]]*\)"`
+      glibcnum=`expr $glibcmajor \* 1000 + $glibcminor`
+      if test "$glibcnum" -ge 2011 ; then
+        gcc_cv_as_gnu_unique_object=yes
+      fi
+    fi],
+   [enable_gnu_unique_object=yes])])
+if test x$enable_gnu_unique_object = xyes; then
+  AC_DEFINE(HAVE_GAS_GNU_UNIQUE_OBJECT, 1,
+   [Define if your assembler supports @gnu_unique_object.])
+fi
 
 AC_CACHE_CHECK([assembler for tolerance to line number 0],
  [gcc_cv_as_line_zero],

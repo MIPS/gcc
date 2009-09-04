@@ -304,6 +304,12 @@
 #endif
 
 
+/* Define if your assembler supports LWSYNC instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_LWSYNC
+#endif
+
+
 /* Define if your assembler supports mfcr field. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_MFCRF
@@ -337,6 +343,12 @@
 /* Define if your assembler supports popcntb field. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_POPCNTB
+#endif
+
+
+/* Define if your assembler supports POPCNTD instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_POPCNTD
 #endif
 
 
@@ -842,6 +854,12 @@
 /* Define if your assembler uses the new HImode fild and fist notation. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GAS_FILDS_FISTS
+#endif
+
+
+/* Define if your assembler supports @gnu_unique_object. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_GNU_UNIQUE_OBJECT
 #endif
 
 

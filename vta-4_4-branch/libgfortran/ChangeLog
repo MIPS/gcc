@@ -1,3 +1,16 @@
+2009-08-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/41157
+	* dtime.c (dtime_sub): Fix computing time increment.
+	* time_1.h: Add <sys/types.h> header.  Use RUSAGE_SELF macro instead
+	of a hardcoded 0.
+
+2009-08-20  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/40962
+	* iso_c_binding.c (c_f_pointer_u0):  Multiply stride by
+	previous stride.
+
 2009-08-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/40853
