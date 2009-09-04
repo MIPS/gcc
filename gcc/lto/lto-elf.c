@@ -450,7 +450,7 @@ validate_file (lto_elf_file *elf_file)
     }
 
   /* Read the string table used for section header names.  */
-  if (elf_getshstrndx (elf_file->elf, &elf_file->sec_strtab) == -1)
+  if (elf_getshdrstrndx (elf_file->elf, &elf_file->sec_strtab) == -1)
     {
       error ("could not locate ELF string table: %s", elf_errmsg (0));
       return false;

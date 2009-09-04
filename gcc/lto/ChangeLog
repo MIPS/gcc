@@ -1,3 +1,8 @@
+2009-09-03  Diego Novillo  <dnovillo@google.com>
+
+	* lto-elf.c (validate_file): Replace call to
+	elf_getshstrndx with call to elf_getshdrstrndx.
+
 2009-08-19  Richard Guenther  <rguenther@suse.de>
 
 	* lto-lang.c (lto_init): Merge char_type_node with the
