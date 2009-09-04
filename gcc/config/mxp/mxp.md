@@ -401,6 +401,19 @@
   ""
   "vxor.%L0 %v0,%v1,%v2")
 
+(define_expand "one_cmpl<mode>2"
+  [(match_operand:VECI 0 "register_operand" "")
+   (match_operand:VECI 1 "register_operand" "")]
+  ""
+  "
+{
+  rtx op3 = gen_reg_rtx (int_mode_for_mode (<MODE>mode));
+  emit_move_insn (op3, GEN_INT (-1));
+  op3 = gen_rtx_SUBREG (<MODE>mode, op3, 0);
+  emit_insn (gen_xor<mode>3 (operands[0], operands[1], op3));
+  DONE;
+}")
+
 (define_insn "addhi3"
   [(set (match_operand:HI 0 "register_operand" "=R01,R10,S_n")
 	(plus:HI (match_operand:HI 1 "register_operand" "%R01,R10,S_n")

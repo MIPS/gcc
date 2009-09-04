@@ -1,3 +1,7 @@
+2009-09-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/mxp/mxp.md (one_cmpl<mode>2): New patterns.
+
 2009-08-28  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/mxp/mxp.md (ac_reg): New attribute.
