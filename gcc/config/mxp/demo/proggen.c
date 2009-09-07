@@ -44,9 +44,10 @@ unary (const char *indent, int n_live, int delta)
 }
 
 int
-main (void)
+main (int argc, char **argv)
 {
-  int n_in = (srand48 (time (NULL)), 6 * drand48 () + 1);
+  long seed = argc > 1 ? atol (argv[1]) : time (NULL);
+  int n_in = (srand48 (seed), 6 * drand48 () + 1);
   int n_out = 6 * drand48 () + 1;
   int type_sz = 2 +  (lrand48 () & 2);
   const char *t_name = type_sz == 2 ? "short" : "int";
@@ -55,6 +56,8 @@ main (void)
   int v_max = 1 + drand48 () * 20;
   int steps = (3 << (int) (drand48 () * 7)) * drand48 () + 1;
   int i;
+
+  printf ("/* seed: %ld  */\n\n", seed);
 
   if (v_max < n_out + 1)
     v_max = n_out + 1;
@@ -65,6 +68,7 @@ main (void)
   for (i = 0; i < n_out; i++)
     printf ("%s ao%d[%d];\n", t_name, i, sz);
   printf (
+    "\n"
     "void\n"
     "f (void)\n"
     "{\n"
