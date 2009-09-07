@@ -282,6 +282,13 @@ decl_is_template_id (const tree decl, tree* const template_info)
       /* Check if this is a primary template.  */
       if (DECL_LANG_SPECIFIC (decl) != NULL
 	  && DECL_USE_TEMPLATE (decl)
+	  /* FIXME lto.  DECL_TI_TEMPLATE can return an OVERLOAD or
+	     an IDENTIFIER_NODE, but PRIMARY_TEMPLATE_P can only
+	     handle DECLs.  This was initially rejected by the C++
+	     maintainers, so it needs to be handled some other way
+	     (http://gcc.gnu.org/ml/gcc-patches/2009-09/msg00126.html).
+	     Undoing this will produce many failures in check-g++ that
+	     are easy to spot.  */
 	  && TREE_CODE (DECL_TI_TEMPLATE (decl)) != OVERLOAD
 	  && TREE_CODE (DECL_TI_TEMPLATE (decl)) != IDENTIFIER_NODE
 	  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (decl))
@@ -2552,7 +2559,14 @@ write_template_arg (tree node)
     /* A template appearing as a template arg is a template template arg.  */
     write_template_template_arg (node);
   else if ((TREE_CODE_CLASS (code) == tcc_constant && code != PTRMEM_CST)
-	   || (abi_version_at_least (2) && code == CONST_DECL))
+	   || (abi_version_at_least (2)
+	       && code == CONST_DECL
+	       /* FIXME lto.  The initial value of a CONST_DECL may be another
+		  CONST_DECL or NULL but write_template_arg_literal assumes
+		  that it can extract a tcc_constant.  It's unclear whether
+		  this is the right thing to do here.  */
+	       && TREE_CODE_CLASS (TREE_CODE (DECL_INITIAL (node)))
+	          == tcc_constant))
     write_template_arg_literal (node);
   else if (DECL_P (node))
     {
@@ -3131,15 +3145,6 @@ mangle_ref_init_variable (const tree variable)
   write_string ("_ZGR");
   write_name (variable, /*ignore_local_scope=*/0);
   return finish_mangling_get_identifier (/*warn=*/false);
-}
-
-/* Return true if decl is templated, along with the associated template info
-   node.  TEMPLATE_INFO may be null.  */
-
-int
-mangle_decl_is_template_id (const tree decl, tree* const template_info)
-{
-  return decl_is_template_id (decl, template_info);
 }
 
 

@@ -1381,10 +1381,6 @@ cgraph_optimize (void)
   if (lang_hooks.callgraph.emit_associated_thunks)
     {
       cgraph_emit_thunks ();
-
-      /* FIXME lto.  Thunk emission may produce errors for thunks that
-	 need varargs (since asm thunks have been disabled).  This
-	 shouldn't be needed after thunks are properly lowered.  */
       if (errorcount || sorrycount)
 	return;
     }
@@ -1412,6 +1408,13 @@ cgraph_optimize (void)
   if (errorcount == 0 && sorrycount == 0)
     ipa_passes ();
 
+  /* Do nothing else if any IPA pass found errors.  */
+  if (errorcount || sorrycount)
+    return;
+
+  /* This pass remove bodies of extern inline functions we never inlined.
+     Do this later so other IPA passes see what is really going on.  */
+  cgraph_remove_unreachable_nodes (false, dump_file);
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {
@@ -1478,6 +1481,8 @@ cgraph_optimize (void)
     }
 #endif
 }
+
+
 /* Generate and emit a static constructor or destructor.  WHICH must
    be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
    is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the

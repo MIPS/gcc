@@ -4132,6 +4132,31 @@ build_type_attribute_variant (tree ttype, tree attribute)
 					    TYPE_QUALS (ttype));
 }
 
+
+/* Reset all the fields in a binfo node BINFO.  We only keep
+   BINFO_VIRTUALS, which is used by gimple_fold_obj_type_ref.  */
+
+static void
+free_lang_data_in_binfo (tree binfo)
+{
+  unsigned i;
+  tree t;
+
+  gcc_assert (TREE_CODE (binfo) == TREE_BINFO);
+
+  BINFO_OFFSET (binfo) = NULL_TREE;
+  BINFO_VTABLE (binfo) = NULL_TREE;
+  BINFO_VPTR_FIELD (binfo) = NULL_TREE;
+  BINFO_BASE_ACCESSES (binfo) = NULL;
+  BINFO_INHERITANCE_CHAIN (binfo) = NULL_TREE;
+  BINFO_SUBVTT_INDEX (binfo) = NULL_TREE;
+  BINFO_VPTR_FIELD (binfo) = NULL_TREE;
+
+  for (i = 0; VEC_iterate (tree, BINFO_BASE_BINFOS (binfo), i, t); i++)
+    free_lang_data_in_binfo (t);
+}
+
+
 /* Reset all language specific information still present in TYPE.  */
 
 static void
@@ -4181,9 +4206,7 @@ free_lang_data_in_type (tree type)
 	      
   /* Remove members that are not actually FIELD_DECLs from the field
      list of an aggregate.  These occur in C++.  */
-  if (TREE_CODE (type) == RECORD_TYPE
-      || TREE_CODE (type) == UNION_TYPE
-      || TREE_CODE (type) == QUAL_UNION_TYPE)
+  if (RECORD_OR_UNION_TYPE_P (type))
     {
       tree prev, member;
 
@@ -4193,11 +4216,7 @@ free_lang_data_in_type (tree type)
 	 Otherwise, we would not be able to find all the other fields
 	 in the other instances of this TREE_TYPE.
 	 
-	 This was causing an ICE in testsuite/g++.dg/lto/20080915.C.
-
-	 FIXME lto, long term we should probably convert TYPE_FIELDS
-	 and TYPE_METHODS to a proper container like TREE_LIST or a
-	 VEC (though this would increase memory utilization).  */
+	 This was causing an ICE in testsuite/g++.dg/lto/20080915.C.  */
       prev = NULL_TREE;
       member = TYPE_FIELDS (type);
       while (member)
@@ -4219,21 +4238,29 @@ free_lang_data_in_type (tree type)
       else
 	TYPE_FIELDS (type) = NULL_TREE;
 
-      TYPE_METHODS (type)  = NULL_TREE;
-      TYPE_BINFO (type)  = NULL_TREE;
+      TYPE_METHODS (type) = NULL_TREE;
+      if (TYPE_BINFO (type))
+	free_lang_data_in_binfo (TYPE_BINFO (type));
+    }
+  else
+    {
+      /* For non-aggregate types, clear out the language slot (which
+	 overloads TYPE_BINFO).  */
+      TYPE_LANG_SLOT_1 (type) = NULL_TREE;
     }
 
-  /* Overloads TYPE_BINFO for non-record, non-union types.  */
-  if (TREE_CODE (type) != RECORD_TYPE && TREE_CODE (type) != UNION_TYPE)
-    TYPE_LANG_SLOT_1 (type) = NULL_TREE;
-
-  /* Clear TYPE_CONTEXT, which reflects source-language
-     scoping and should not be part of the IR.
-     FIXME lto: This will break debug info generation.  */
   TYPE_CONTEXT (type) = NULL_TREE;
-
-  /* FIXME lto: This will break debug info generation.  */
   TYPE_STUB_DECL (type) = NULL_TREE;
+
+  /* Remove type variants other than the main variant.  This is both
+     wasteful and it may introduce infinite loops when the types are
+     read from disk and merged (since the variant will be the same
+     type as the main variant, traversing type variants will get into
+     an infinite loop).  */
+  if (TYPE_MAIN_VARIANT (type))
+    TYPE_NEXT_VARIANT (TYPE_MAIN_VARIANT (type)) = NULL_TREE;
+
+  TYPE_NEXT_VARIANT (type) = NULL_TREE;
 }
 
 
@@ -4247,25 +4274,33 @@ need_assembler_name_p (tree decl)
       && TREE_CODE (decl) != VAR_DECL)
     return false;
 
-  /* If DECL already has its assembler name set, it does not need a new one.  */
+  /* If DECL already has its assembler name set, it does not need a
+     new one.  */
   if (!HAS_DECL_ASSEMBLER_NAME_P (decl)
       || DECL_ASSEMBLER_NAME_SET_P (decl))
     return false;
 
-  /* For VAR_DECLs, we are only interested in static, public and external
-     declarations.  */
+  /* For VAR_DECLs, only static, public and external symbols need an
+     assembler name.  */
   if (TREE_CODE (decl) == VAR_DECL
       && !TREE_STATIC (decl)
       && !TREE_PUBLIC (decl)
       && !DECL_EXTERNAL (decl))
     return false;
 
-  /* For FUNCTION_DECLs, we only are interested in builtins,
-     addressable and used functions.  */
+  /* Do not set assembler name on builtins.  Allow RTL expansion to
+     decide whether to expand inline or via a regular call.  */
   if (TREE_CODE (decl) == FUNCTION_DECL
+      && DECL_BUILT_IN (decl)
+      && DECL_BUILT_IN_CLASS (decl) != BUILT_IN_FRONTEND)
+    return false;
+
+  /* For FUNCTION_DECLs, only used functions and functions
+     represented in the callgraph need an assembler name.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_node_for_decl (decl) == NULL
       && !TREE_USED (decl)
-      && !TREE_ADDRESSABLE (decl)
-      && !DECL_BUILT_IN (decl))
+      && !TREE_PUBLIC (decl))
     return false;
 
   return true;
@@ -4318,9 +4353,6 @@ free_lang_data_in_decl (tree decl)
   if (DECL_NAME (decl))
     TREE_TYPE (DECL_NAME (decl)) = NULL_TREE;
 
-  if (TREE_CODE (decl) == CONST_DECL)
-    DECL_CONTEXT (decl) = NULL_TREE;
-
   /* Ignore any intervening types, because we are going to clear their
      TYPE_CONTEXT fields.  */
   if (TREE_CODE (decl) != FIELD_DECL)
@@ -4369,12 +4401,6 @@ free_lang_data_in_decl (tree decl)
     }
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      /* A weakref to an external function is DECL_EXTERNAL but not
-	 TREE_PUBLIC.  */
-      if (DECL_EXTERNAL (decl)
-	  && !lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
-	TREE_PUBLIC (decl) = true;
-
       if (gimple_has_body_p (decl))
 	{
 	  tree t;
@@ -4427,22 +4453,12 @@ free_lang_data_in_decl (tree decl)
     }
   else if (TREE_CODE (decl) == TYPE_DECL)
     {
-      /* FIXME lto:
-	 DECL_INITIAL should not be defined here, but it is
-	 overloaded by the C++ front-end as DECL_FRIENDLIST.
-	 We should probably call out to FE-specific cleanup
-	 routines to handle this sort of thing.  */
       DECL_INITIAL (decl) = NULL_TREE;
   
       /* DECL_CONTEXT is overloaded as DECL_FIELD_CONTEXT for
 	 FIELD_DECLs, which should be preserved.  Otherwise,
 	 we shouldn't be concerned with source-level lexical
 	 nesting beyond this point. */
-      /* FIXME lto: Unfortunately, calls to decl_function_context
-	 may occur in the back-end and depend on the DECL_CONTEXT
-	 being set for FUNCTION_DECL and possibly others.
-	 See also the use of DECL_CONTEXT of FUNCTION_DECL
-	 in cgraph_node.  */
       DECL_CONTEXT (decl) = NULL_TREE;
     }
 }
@@ -4463,6 +4479,57 @@ struct free_lang_data_d
 };
 
 
+/* Save all language fields needed to generate proper debug information
+   for DECL.  This saves most fields cleared out by free_lang_data_in_decl.  */
+
+static void
+save_debug_info_for_decl (tree t)
+{
+  /*struct saved_debug_info_d *sdi;*/
+
+  gcc_assert (debug_info_level > DINFO_LEVEL_TERSE && t && DECL_P (t));
+
+  /* FIXME.  Partial implementation for saving debug info removed.  */
+}
+
+
+/* Save all language fields needed to generate proper debug information
+   for TYPE.  This saves most fields cleared out by free_lang_data_in_type.  */
+
+static void
+save_debug_info_for_type (tree t)
+{
+  /*struct saved_debug_info_d *sdi;*/
+
+  gcc_assert (debug_info_level > DINFO_LEVEL_TERSE && t && TYPE_P (t));
+
+  /* FIXME.  Partial implementation for saving debug info removed.  */
+}
+
+
+/* Add type or decl T to one of the list of tree nodes that need their
+   language data removed.  The lists are held inside FLD.  */
+
+static void
+add_tree_to_fld_list (tree t, struct free_lang_data_d *fld)
+{
+  if (DECL_P (t))
+    {
+      VEC_safe_push (tree, heap, fld->decls, t);
+      if (debug_info_level > DINFO_LEVEL_TERSE)
+	save_debug_info_for_decl (t);
+    }
+  else if (TYPE_P (t))
+    {
+      VEC_safe_push (tree, heap, fld->types, t);
+      if (debug_info_level > DINFO_LEVEL_TERSE)
+	save_debug_info_for_type (t);
+    }
+  else
+    gcc_unreachable ();
+}
+
+
 /* Operand callback helper for free_lang_data_in_node.  *TP is the
    subtree operand being considered.  */
 
@@ -4476,7 +4543,7 @@ find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
     {
       /* Note that walk_tree does not traverse every possible field in
 	 decls, so we have to do our own traversals here.  */
-      VEC_safe_push (tree, heap, fld->decls, t);
+      add_tree_to_fld_list (t, fld);
 
       walk_tree (&DECL_NAME (t), find_decls_types_r, fld, fld->pset);
       walk_tree (&DECL_CONTEXT (t), find_decls_types_r, fld, fld->pset);
@@ -4520,7 +4587,7 @@ find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
     {
       /* Note that walk_tree does not traverse every possible field in
 	 types, so we have to do our own traversals here.  */
-      VEC_safe_push (tree, heap, fld->types, t);
+      add_tree_to_fld_list (t, fld);
 
       walk_tree (&TYPE_CACHED_VALUES (t), find_decls_types_r, fld, fld->pset);
       walk_tree (&TYPE_SIZE (t), find_decls_types_r, fld, fld->pset);
@@ -4535,6 +4602,8 @@ find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
       walk_tree (&TYPE_MAIN_VARIANT (t), find_decls_types_r, fld, fld->pset);
       walk_tree (&TYPE_CONTEXT (t), find_decls_types_r, fld, fld->pset);
       walk_tree (&TYPE_CANONICAL (t), find_decls_types_r, fld, fld->pset);
+      if (RECORD_OR_UNION_TYPE_P (t))
+	walk_tree (&TYPE_BINFO (t), find_decls_types_r, fld, fld->pset);
     }
 
   if (TREE_TYPE (t))
@@ -4618,12 +4687,6 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
   basic_block bb;
   struct function *fn;
   tree t;
-
-  /* Although free_lang_data_in_cgraph will set the assembler name on
-     most DECLs, it refuses to do it on unused ones.  For cgraph
-     nodes, we need to set it even if it's seemingly unused.  */
-  if (!DECL_ASSEMBLER_NAME_SET_P (n->decl))
-    lang_hooks.set_decl_assembler_name (n->decl);
 
   walk_tree (&n->decl, find_decls_types_r, fld, fld->pset);
 
@@ -4746,7 +4809,25 @@ free_lang_data_in_cgraph (void)
      for mangling.  This breaks mangling on interdependent decls.  */
   for (i = 0; VEC_iterate (tree, fld.decls, i, t); i++)
     if (need_assembler_name_p (t))
-      lang_hooks.set_decl_assembler_name (t);
+      {
+	/* When setting DECL_ASSEMBLER_NAME, the C++ mangler may emit
+	   diagnostics that use input_location to show locus
+	   information.  The problem here is that, at this point,
+	   input_location is generally anchored to the end of the file
+	   (since the parser is long gone), so we don't have a good
+	   position to pin it to.
+
+	   To alleviate this problem, this uses the location of T's
+	   declaration.  Examples of this are
+	   testsuite/g++.dg/template/cond2.C and
+	   testsuite/g++.dg/template/pr35240.C.  */
+	location_t saved_location = input_location;
+	input_location = DECL_SOURCE_LOCATION (t);
+
+	decl_assembler_name (t);
+
+	input_location = saved_location;
+      }
 
   /* Traverse every decl found freeing its language data.  */
   for (i = 0; VEC_iterate (tree, fld.decls, i, t); i++)
@@ -4771,17 +4852,9 @@ free_lang_data (void)
      operands, expressions, etc.  */
   free_lang_data_in_cgraph ();
 
-  /* FIXME lto.  This is a hack.  ptrdiff_type_node is only created
-     by the C/C++ FE.  This should be converted to some similar
-     type shared by all FEs (i.e., converted to a "GIMPLE type").  */
+  /* Create gimple variants for common types.  */
   ptrdiff_type_node = integer_type_node;
-
-  /* FIXME lto.  This is a hack.  fileptr_type_node may be set to
-     a variant copy of ptr_type_node for front-end purposes.  */
   fileptr_type_node = ptr_type_node;
-
-  /* FIXME lto.  This is a hack.  boolean_type_node is set to
-     a frontend-specific mode by Fortran and Java at least.  */
   if (TREE_CODE (boolean_type_node) != BOOLEAN_TYPE
       || (TYPE_MODE (boolean_type_node)
 	  != mode_for_size (BOOL_TYPE_SIZE, MODE_INT, 0))
@@ -4796,33 +4869,17 @@ free_lang_data (void)
       boolean_true_node = TYPE_MAX_VALUE (boolean_type_node);
     }
 
-  /* To make units with different flag_signed_char settings work together
-     re-set the char_type_node pointer to whatever is appropriate for
-     this unit.  */
-  char_type_node
-    = flag_signed_char ? signed_char_type_node : unsigned_char_type_node;
-
   /* Reset some langhooks.  */
   lang_hooks.callgraph.analyze_expr = NULL;
   lang_hooks.types_compatible_p = NULL;
-
-  /* FIXME lto: As we clear TYPE_BINFO we cannot fold OBJ_TYPE_REF anymore.
-     See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38178.  */
-  lang_hooks.fold_obj_type_ref = NULL;
-
-  /* FIXME lto: We have to compute these names early.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
-  lang_hooks.decl_printable_name = lhd_decl_printable_name;
-
-  /* FIXME lto: Ideally we would like to abort at any attempt to compute
-     an assemble name, but there are too many places in gcc that create
-     new decls. */
+  lang_hooks.decl_printable_name = gimple_decl_printable_name;
   lang_hooks.set_decl_assembler_name = lhd_set_decl_assembler_name;
+  lang_hooks.fold_obj_type_ref = gimple_fold_obj_type_ref;
 
-  /* FIXME lto: We should implement a diagnostic machinery for GIMPLE
-     that can unmangle symbols and types.  For now, the default hooks
-     work but will not be able to print C++ symbols.  */
-  diagnostic_initialize (global_dc);
+  /* Reset diagnostic machinery.  */
+  diagnostic_starter (global_dc) = default_diagnostic_starter;
+  diagnostic_finalizer (global_dc) = default_diagnostic_finalizer;
   diagnostic_format_decoder (global_dc) = default_tree_printer;
 
   /* FIXME lto: We remove sufficient language data that the debug
@@ -4836,15 +4893,14 @@ free_lang_data (void)
 }
 
 
-/* Gate function for free_lang_data.  FIXME lto.  This should be
-   unconditional and not depend on whether we're producing LTO
-   information and it should be done very early on.  This currently
-   breaks libstdc++ builds, though.  */
+/* Gate function for free_lang_data.  */
 
 static bool
 gate_free_lang_data (void)
 {
-  return flag_generate_lto;
+  /* FIXME.  Remove after save_debug_info is working.  */
+  return flag_generate_lto
+	 || (!flag_gtoggle && debug_info_level <= DINFO_LEVEL_TERSE);
 }
 
 
@@ -6035,6 +6091,9 @@ tree_int_cst_compare (const_tree t1, const_tree t2)
 int
 host_integerp (const_tree t, int pos)
 {
+  if (t == NULL_TREE)
+    return 0;
+
   return (TREE_CODE (t) == INTEGER_CST
 	  && ((TREE_INT_CST_HIGH (t) == 0
 	       && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) >= 0)
@@ -10018,9 +10077,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	    return result;
 
 	  /* If this is a record type, also walk the fields.  */
-	  if (TREE_CODE (*type_p) == RECORD_TYPE
-	      || TREE_CODE (*type_p) == UNION_TYPE
-	      || TREE_CODE (*type_p) == QUAL_UNION_TYPE)
+	  if (RECORD_OR_UNION_TYPE_P (*type_p))
 	    {
 	      tree field;
 

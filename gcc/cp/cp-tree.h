@@ -5122,8 +5122,6 @@ extern tree mangle_thunk			(tree, int, tree, tree);
 extern tree mangle_conv_op_name_for_type	(tree);
 extern tree mangle_guard_variable		(tree);
 extern tree mangle_ref_init_variable		(tree);
-extern int mangle_decl_is_template_id		(const tree, tree* const);
-extern tree mangle_compound_literal		(void);
 
 /* in dump.c */
 extern bool cp_dump_tree			(void *, tree);

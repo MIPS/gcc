@@ -69,7 +69,6 @@ static enum classify_record cp_classify_record (tree type);
 #define LANG_HOOKS_DWARF_NAME cxx_dwarf_name
 #undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
 #define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref
-
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS cp_init_ts
 

@@ -1135,7 +1135,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 
   VEC_free (basic_block, heap, body);
 
-  if (htab_elements (name_copies) == 0 && reduction_list == 0) 
+  if (htab_elements (name_copies) == 0 && htab_elements (reduction_list) == 0) 
     {
       /* It may happen that there is nothing to copy (if there are only
          loop carried and external variables in the loop).  */
@@ -1870,7 +1870,7 @@ try_create_reduction_list (loop_p loop, htab_t reduction_list)
 bool
 parallelize_loops (void)
 {
-  unsigned n_threads = flag_tree_parallelize_loops;
+  HOST_WIDE_INT n_threads = (HOST_WIDE_INT) flag_tree_parallelize_loops;
   bool changed = false;
   struct loop *loop;
   struct tree_niter_desc niter_desc;
@@ -1908,7 +1908,8 @@ parallelize_loops (void)
       /* FIXME: Bypass this check as graphite doesn't update the
       count and frequency correctly now.  */
       if (!flag_loop_parallelize_all
-	  && (expected_loop_iterations (loop) <= n_threads
+	  && (estimated_loop_iterations_int (loop, false)
+	      <= n_threads * MIN_PER_THREAD
 	      /* Do not bother with loops in cold areas.  */
 	      || optimize_loop_nest_for_size_p (loop)))
 	continue;

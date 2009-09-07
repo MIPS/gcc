@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "flags.h"
 #include "alias.h"
+#include "demangle.h"
 
 /* Global type table.  FIXME lto, it should be possible to re-use some
    of the type hashing routines in tree.c (type_hash_canon, type_hash_lookup,
@@ -3114,28 +3115,6 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 
 static hashval_t gimple_type_hash (const void *);
 
-/* Force merging the type T2 into the type T1.  */
-
-void
-gimple_force_type_merge (tree t1, tree t2)
-{
-  void **slot;
-
-  /* There's no other way than copying t2 to t1 in this case.
-     Yuck.  We'll just call this "completing" t1.  */
-  memcpy (t1, t2, tree_size (t1));
-
-  /* Adjust the hash value of T1 if it was computed already.  Otherwise
-     we would be forced to not hash fields of structs to match the
-     hash value of an incomplete struct.  */
-  if (type_hash_cache
-      && (slot = pointer_map_contains (type_hash_cache, t1)) != NULL)
-    {
-      gimple_type_hash (t2);
-      *slot = *pointer_map_contains (type_hash_cache, t2);
-    }
-}
-
 /* Structure used to maintain a cache of some type pairs compared by
    gimple_types_compatible_p when comparing aggregate types.  There are
    four possible values for SAME_P:
@@ -3206,6 +3185,39 @@ lookup_type_pair (tree t1, tree t2, htab_t *visited_p)
     }
 
   return p;
+}
+
+
+/* Force merging the type T2 into the type T1.  */
+
+void
+gimple_force_type_merge (tree t1, tree t2)
+{
+  void **slot;
+  type_pair_t p;
+
+  /* There's no other way than copying t2 to t1 in this case.
+     Yuck.  We'll just call this "completing" t1.  */
+  memcpy (t1, t2, tree_size (t1));
+
+  /* Adjust the hash value of T1 if it was computed already.  Otherwise
+     we would be forced to not hash fields of structs to match the
+     hash value of an incomplete struct.  */
+  if (type_hash_cache
+      && (slot = pointer_map_contains (type_hash_cache, t1)) != NULL)
+    {
+      gimple_type_hash (t2);
+      *slot = *pointer_map_contains (type_hash_cache, t2);
+    }
+
+  /* Adjust cached comparison results for T1 and T2 to make sure
+     they now compare compatible.  Update both directions to
+     preserve the symmetry of gimple_compare_types.  */
+  p = lookup_type_pair (t1, t2, &gtc_visited);
+  p->same_p = 1;
+
+  p = lookup_type_pair (t2, t1, &gtc_visited);
+  p->same_p = 1;
 }
 
 
@@ -4606,6 +4618,76 @@ gimple_ior_addresses_taken (bitmap addresses_taken, gimple stmt)
 {
   return walk_stmt_load_store_addr_ops (stmt, addresses_taken, NULL, NULL,
 					gimple_ior_addresses_taken_1);
+}
+
+
+/* Return a printable name for symbol DECL.  */
+
+const char *
+gimple_decl_printable_name (tree decl, int verbosity)
+{
+  gcc_assert (decl && DECL_NAME (decl));
+
+  if (DECL_ASSEMBLER_NAME_SET_P (decl))
+    {
+      const char *str, *mangled_str;
+      int dmgl_opts = DMGL_NO_OPTS;
+
+      if (verbosity >= 2)
+	{
+	  dmgl_opts = DMGL_VERBOSE
+		      | DMGL_ANSI
+		      | DMGL_GNU_V3
+		      | DMGL_RET_POSTFIX;
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    dmgl_opts |= DMGL_PARAMS;
+	}
+
+      mangled_str = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      str = cplus_demangle_v3 (mangled_str, dmgl_opts);
+      return (str) ? str : mangled_str;
+    }
+
+  return IDENTIFIER_POINTER (DECL_NAME (decl));
+}
+
+
+/* Fold a OBJ_TYPE_REF expression to the address of a function.
+   KNOWN_TYPE carries the true type of OBJ_TYPE_REF_OBJECT(REF).  Adapted
+   from cp_fold_obj_type_ref, but it tolerates types with no binfo
+   data.  */
+
+tree
+gimple_fold_obj_type_ref (tree ref, tree known_type)
+{
+  HOST_WIDE_INT index;
+  HOST_WIDE_INT i;
+  tree v;
+  tree fndecl;
+
+  if (TYPE_BINFO (known_type) == NULL_TREE)
+    return NULL_TREE;
+
+  v = BINFO_VIRTUALS (TYPE_BINFO (known_type));
+  index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  i = 0;
+  while (i != index)
+    {
+      i += (TARGET_VTABLE_USES_DESCRIPTORS
+	    ? TARGET_VTABLE_USES_DESCRIPTORS : 1);
+      v = TREE_CHAIN (v);
+    }
+
+  fndecl = TREE_VALUE (v);
+
+#ifdef ENABLE_CHECKING
+  gcc_assert (tree_int_cst_equal (OBJ_TYPE_REF_TOKEN (ref),
+				  DECL_VINDEX (fndecl)));
+#endif
+
+  cgraph_node (fndecl)->local.vtable_method = true;
+
+  return build_fold_addr_expr (fndecl);
 }
 
 #include "gt-gimple.h"

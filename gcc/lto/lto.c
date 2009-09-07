@@ -227,6 +227,10 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   /* Set the current decl state to be the global state. */
   decl_data->current_decl_state = decl_data->global_decl_state;
 
+  /* After each CU is read register and possibly merge global
+     symbols and their types.  */
+  lto_register_deferred_decls_in_symtab (data_in);
+
   lto_data_in_delete (data_in);
 }
 

@@ -808,7 +808,6 @@ lto_output_tree_ref (struct output_block *ob, tree expr)
       break;
 
     case CONST_DECL:
-      gcc_assert (decl_function_context (expr) == NULL);
       output_record_start (ob, LTO_const_decl_ref);
       lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
@@ -1162,9 +1161,11 @@ lto_output_ts_binfo_tree_pointers (struct output_block *ob, tree expr,
   tree t;
 
   /* Note that the number of BINFO slots has already been emitted in
-     EXPR's header (see lto_output_tree_header).  */
+     EXPR's header (see lto_output_tree_header) because this length
+     is needed to build the empty BINFO node on the reader side.  */
   for (i = 0; VEC_iterate (tree, BINFO_BASE_BINFOS (expr), i, t); i++)
     lto_output_tree_or_ref (ob, t, ref_p);
+  output_zero (ob);
 
   lto_output_tree_or_ref (ob, BINFO_OFFSET (expr), ref_p);
   lto_output_tree_or_ref (ob, BINFO_VTABLE (expr), ref_p);
@@ -1318,7 +1319,6 @@ lto_output_tree_header (struct output_block *ob, tree expr, int ix)
      variable sized nodes).  */
   tag = lto_tree_code_to_tag (code);
   output_record_start (ob, tag);
-  output_uleb128 (ob, tree_size (expr));
   output_sleb128 (ob, ix);
 
   /* The following will cause bootstrap miscomparisons.  Enable with care.  */
@@ -2398,8 +2398,7 @@ write_symbol_vec (struct lto_streamer_cache_d *cache,
       /* None of the following kinds of symbols are needed in the
 	 symbol table.  */
       if (!TREE_PUBLIC (t)
-	  || DECL_IS_BUILTIN (t)
-	  || incorporeal_function_p (t)
+	  || is_builtin_fn (t)
 	  || DECL_ABSTRACT (t)
 	  || TREE_CODE (t) == RESULT_DECL)
 	continue;

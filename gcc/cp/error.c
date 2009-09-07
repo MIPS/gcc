@@ -509,23 +509,10 @@ dump_typename (tree t, int flags)
 {
   tree ctx = TYPE_CONTEXT (t);
 
-  /* FIXME lto: For warnings from optimization phases (uninitialized variable,
-     for example), reset_type_lang_specific may have cleared TYPE_CONTEXTs in
-     LTO compilations, in which case some of the type detail will be missing
-     for a TYPENAME_TYPE (TYPE_CONTEXT held the actual type).  For now, emit
-     a placeholder if there is no TYPE_CONTEXT.  */
-  if (ctx)
-    {
-      if (TREE_CODE (ctx) == TYPENAME_TYPE)
-	dump_typename (ctx, flags);
-      else
-	dump_type (ctx, flags & ~TFF_CLASS_KEY_OR_ENUM);
-    }
+  if (TREE_CODE (ctx) == TYPENAME_TYPE)
+    dump_typename (ctx, flags);
   else
-    {
-      pp_maybe_space (cxx_pp);
-      pp_identifier (cxx_pp, "<unknown>");
-    }
+    dump_type (ctx, flags & ~TFF_CLASS_KEY_OR_ENUM);
   pp_cxx_colon_colon (cxx_pp);
   dump_decl (TYPENAME_TYPE_FULLNAME (t), flags);
 }

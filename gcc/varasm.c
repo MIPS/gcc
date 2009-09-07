@@ -2242,10 +2242,11 @@ contains_pointers_p (tree type)
    it all the way to final.  See PR 17982 for further discussion.  */
 static GTY(()) tree pending_assemble_externals;
 
+#ifdef ASM_OUTPUT_EXTERNAL
 /* True if DECL is a function decl for which no out-of-line copy exists.
    It is assumed that DECL's assembler name has been set.  */
 
-bool
+static bool
 incorporeal_function_p (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
@@ -2256,15 +2257,12 @@ incorporeal_function_p (tree decl)
 	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA)
 	return true;
 
-      gcc_assert (DECL_ASSEMBLER_NAME_SET_P (decl));
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
       if (is_builtin_name (name))
 	return true;
     }
   return false;
 }
-
-#ifdef ASM_OUTPUT_EXTERNAL
 
 /* Actually do the tests to determine if this is necessary, and invoke
    ASM_OUTPUT_EXTERNAL.  */
@@ -5566,6 +5564,11 @@ finish_aliases_1 (void)
 		   p->decl, p->target);
 	}
       else if (DECL_EXTERNAL (target_decl)
+ 	       /* We use local aliases for C++ thunks to force the tailcall
+ 		  to bind locally.  Of course this is a hack - to keep it
+ 		  working do the following (which is not strictly correct).  */
+ 	       && (! TREE_CODE (target_decl) == FUNCTION_DECL
+ 		   || ! TREE_STATIC (target_decl))
 	       && ! lookup_attribute ("weakref", DECL_ATTRIBUTES (p->decl)))
 	error ("%q+D aliased to external symbol %qE",
 	       p->decl, p->target);

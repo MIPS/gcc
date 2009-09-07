@@ -698,10 +698,10 @@ lto_symtab_prevailing_decl (tree decl)
   gcc_assert (decl);
 
   /* Builtins and local symbols are their own prevailing decl.  */
-  if (!TREE_PUBLIC (decl) || DECL_IS_BUILTIN (decl))
+  if (!TREE_PUBLIC (decl) || is_builtin_fn (decl))
     return decl;
 
-  /* FIXME lto. There should be no DECL_ABSTRACT in the middle end. */
+  /* DECL_ABSTRACTs are their own prevailng decl.  */
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
     return decl;
 
@@ -752,7 +752,7 @@ lto_symtab_get_resolution (tree decl)
 {
   gcc_assert (decl);
 
-  if (!TREE_PUBLIC (decl))
+  if (!TREE_PUBLIC (decl) || is_builtin_fn (decl))
     return LDPR_PREVAILING_DEF_IRONLY;
 
   /* FIXME lto: There should be no DECL_ABSTRACT in the middle end. */

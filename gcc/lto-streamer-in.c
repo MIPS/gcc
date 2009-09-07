@@ -1714,7 +1714,6 @@ lto_materialize_tree (struct lto_input_block *ib, struct data_in *data_in,
   struct bitpack_d *bp;
   enum tree_code code;
   tree result;
-  unsigned HOST_WIDE_INT expected_size;
 #ifdef LTO_STREAMER_DEBUG
   HOST_WIDEST_INT orig_address_in_writer;
 #endif
@@ -1723,7 +1722,6 @@ lto_materialize_tree (struct lto_input_block *ib, struct data_in *data_in,
   result = NULL_TREE;
 
   /* Read the header of the node we are about to create.  */
-  expected_size = lto_input_uleb128 (ib);
   ix = lto_input_sleb128 (ib);
   gcc_assert ((int) ix == ix);
   *ix_p = (int) ix;
@@ -1772,12 +1770,6 @@ lto_materialize_tree (struct lto_input_block *ib, struct data_in *data_in,
      value in both.  */
   lto_orig_address_map (result, (intptr_t) orig_address_in_writer);
 #endif
-
-  /* Make sure that the size of the tree we just created matches
-     what we were expecting.  Skip this check for IDENTIFIER_NODEs,
-     since these are language-dependent.  */
-  if (code != IDENTIFIER_NODE)
-    gcc_assert (expected_size == tree_size (result));
 
   /* Read the bitpack of non-pointer values from IB.  */
   bp = lto_input_bitpack (ib);
@@ -2004,7 +1996,7 @@ lto_input_ts_type_tree_pointers (struct lto_input_block *ib,
   TYPE_MAIN_VARIANT (expr) = lto_input_tree (ib, data_in);
   /* Do not stream TYPE_NEXT_VARIANT, we reconstruct the variant lists
      during fixup.  */
-  if (TREE_CODE (expr) == RECORD_TYPE || TREE_CODE (expr) == UNION_TYPE)
+  if (RECORD_OR_UNION_TYPE_P (expr))
     TYPE_BINFO (expr) = lto_input_tree (ib, data_in);
   TYPE_CONTEXT (expr) = lto_input_tree (ib, data_in);
   TYPE_CANONICAL (expr) = lto_input_tree (ib, data_in);
@@ -2103,14 +2095,20 @@ lto_input_ts_binfo_tree_pointers (struct lto_input_block *ib,
 				  struct data_in *data_in, tree expr)
 {
   unsigned i, len;
+  tree t;
 
   /* Note that the number of slots in EXPR was read in
-     lto_materialize_tree when instantiating EXPR.  */
-  for (i = 0; i < VEC_length (tree, BINFO_BASE_BINFOS (expr)); i++)
+     lto_materialize_tree when instantiating EXPR.  However, the
+     vector is empty so we cannot rely on VEC_length to know how many
+     elements to read.  So, this list is emitted as a 0-terminated
+     list on the writer side.  */
+  do
     {
-      tree t = lto_input_tree (ib, data_in);
-      VEC_replace (tree, BINFO_BASE_BINFOS (expr), i, t);
+      t = lto_input_tree (ib, data_in);
+      if (t)
+	VEC_quick_push (tree, BINFO_BASE_BINFOS (expr), t);
     }
+  while (t);
 
   BINFO_OFFSET (expr) = lto_input_tree (ib, data_in);
   BINFO_VTABLE (expr) = lto_input_tree (ib, data_in);
@@ -2243,15 +2241,55 @@ lto_input_tree_pointers (struct lto_input_block *ib, struct data_in *data_in,
     }
 }
 
+static VEC(tree, heap) *deferred_global_decls;
+
+/* Register the queued global decls with the symtab.  DATA_IN contains
+   tables and descriptors for the file being read.*/
+
+void
+lto_register_deferred_decls_in_symtab (struct data_in *data_in)
+{
+  unsigned i;
+  tree decl;
+
+  for (i = 0; VEC_iterate (tree, deferred_global_decls, i, decl); ++i)
+    {
+      enum ld_plugin_symbol_resolution resolution;
+      int ix;
+
+      if (!lto_streamer_cache_lookup (data_in->reader_cache, decl, &ix))
+	gcc_unreachable ();
+
+      /* Register and adjust the decls type.  */
+      TREE_TYPE (decl) = gimple_register_type (TREE_TYPE (decl));
+
+      if (TREE_CODE (decl) == VAR_DECL)
+	{
+	  gcc_assert (TREE_PUBLIC (decl));
+	  resolution = get_resolution (data_in, ix);
+	  lto_symtab_merge_var (decl, resolution);
+	}
+      else if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  gcc_assert (TREE_PUBLIC (decl) && !DECL_ABSTRACT (decl));
+	  resolution = get_resolution (data_in, ix);
+	  lto_symtab_merge_fn (decl, resolution, data_in->file_data);
+	}
+      else
+	gcc_unreachable ();
+    }
+
+  VEC_free (tree, heap, deferred_global_decls);
+  deferred_global_decls = NULL;
+}
+
 
 /* Register DECL with the global symbol table and change its
    name if necessary to avoid name clashes for static globals across
-   different files.  DATA_IN is the file being read.  IX is the
-   index in DATA_IN arrays where DECL is stored.  */
+   different files.  */
 
 static void
-lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl,
-				 unsigned ix)
+lto_register_var_decl_in_symtab (tree decl)
 {
   /* Register symbols with file or global scope to mark what input
      file has their definition.  */
@@ -2261,12 +2299,12 @@ lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl,
 	 between different files don't clash unexpectedly.  */
       if (!TREE_PUBLIC (decl))
         {
-	  /* FIXME lto:  We normally pre-mangle names before we
-	     serialize them out.  Here, in lto1, we do not know the
-	     language, and thus cannot do the mangling again. Instead,
-	     we just append a suffix to the mangled name.  The
-	     resulting name, however, is not a properly-formed mangled
-	     name, and will confuse any attempt to unmangle it.  */
+	  /* ??? We normally pre-mangle names before we serialize them
+	     out.  Here, in lto1, we do not know the language, and
+	     thus cannot do the mangling again. Instead, we just
+	     append a suffix to the mangled name.  The resulting name,
+	     however, is not a properly-formed mangled name, and will
+	     confuse any attempt to unmangle it.  */
 	  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 	  char *label;
       
@@ -2276,26 +2314,21 @@ lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl,
         }
     }
 
-  /* If this variable has already been declared, merge the
-     declarations.  */
+  /* If this variable has already been declared, queue the
+     declaration for merging.  */
   if (TREE_PUBLIC (decl))
-    {
-      enum ld_plugin_symbol_resolution resolution;
-      resolution = get_resolution (data_in, ix);
-      lto_symtab_merge_var (decl, resolution);
-    }
+    VEC_safe_push (tree, heap, deferred_global_decls, decl);
 }
 
 
 
 /* Register DECL with the global symbol table and change its
    name if necessary to avoid name clashes for static globals across
-   different files.  DATA_IN is the file being read.  IX is the
-   index in DATA_IN arrays where DECL is stored.  */
+   different files.  DATA_IN contains descriptors and tables for the
+   file being read.  */
 
 static void
-lto_register_function_decl_in_symtab (struct data_in *data_in, tree decl,
-				      unsigned ix)
+lto_register_function_decl_in_symtab (struct data_in *data_in, tree decl)
 {
   /* Need to ensure static entities between different files
      don't clash unexpectedly.  */
@@ -2342,14 +2375,10 @@ lto_register_function_decl_in_symtab (struct data_in *data_in, tree decl,
 	}				   
     }
 
-  /* If the function has already been declared, merge the
-     declarations.  */
+  /* If this variable has already been declared, queue the
+     declaration for merging.  */
   if (TREE_PUBLIC (decl) && !DECL_ABSTRACT (decl))
-    {
-      enum ld_plugin_symbol_resolution resolution;
-      resolution = get_resolution (data_in, ix);
-      lto_symtab_merge_fn (decl, resolution, data_in->file_data);
-    }
+    VEC_safe_push (tree, heap, deferred_global_decls, decl);
 }
 
 
@@ -2448,9 +2477,9 @@ lto_read_tree (struct lto_input_block *ib, struct data_in *data_in,
     gcc_assert (!lto_stream_as_builtin_p (result));
 
   if (TREE_CODE (result) == VAR_DECL)
-    lto_register_var_decl_in_symtab (data_in, result, (unsigned) ix);
-  else if (TREE_CODE (result) == FUNCTION_DECL)
-    lto_register_function_decl_in_symtab (data_in, result, (unsigned) ix);
+    lto_register_var_decl_in_symtab (result);
+  else if (TREE_CODE (result) == FUNCTION_DECL && !DECL_BUILT_IN (result))
+    lto_register_function_decl_in_symtab (data_in, result);
 
   end_marker = lto_input_1_unsigned (ib);
   gcc_assert (end_marker == 0);

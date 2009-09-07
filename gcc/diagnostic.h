@@ -213,6 +213,8 @@ extern bool emit_diagnostic (diagnostic_t, location_t, int,
 			     const char *, ...) ATTRIBUTE_GCC_DIAG(4,5);
 #endif
 extern char *diagnostic_build_prefix (diagnostic_info *);
+void default_diagnostic_starter (diagnostic_context *, diagnostic_info *);
+void default_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
 
 /* Pure text formatting support functions.  */
 extern char *file_name_as_prefix (const char *);

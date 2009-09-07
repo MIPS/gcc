@@ -1,3 +1,382 @@
+2009-09-03  Razya Ladelsky  <razya@il.ibm.com>
+
+	* tree-parloops.c (separate_decls_in_region): Add space.
+		
+2009-09-03  Razya Ladelsky  <razya@il.ibm.com>
+
+	* tree-parloops.c (separate_decls_in_region): Change the condition 
+	checking if there are reductions in the loop.
+
+2009-09-03  Razya Ladelsky  <razya@il.ibm.com>
+
+	PR tree-optimization/38275
+	
+	* tree-parloops.c (parallelize_loops): Replace profitability condition 
+	for expected number of iterations.
+
+2009-09-03  Alon Dayan  <alond@il.ibm.com>
+	
+	PR tree-optimization/38275
+	
+	* testsuite/gcc.dg/autopar/reduc-1char.c: Increase number 
+	of iterations. Adjust the logic accordingly.
+	* testsuite/gcc.dg/autopar/reduc-2char.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-1.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-2.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-3.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-6.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-7.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-8.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-9.c: Ditto.
+	* testsuite/gcc.dg/autopar/pr39500-1.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-1short.c: Ditto.
+	* testsuite/gcc.dg/autopar/reduc-2short.c: Ditto.
+	* testsuite/gcc.dg/autopar/parallelization-1.c: Ditto.
+
+
+2009-09-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/invoke.texi (BUILD_CONFIG): Document --with-build-config.
+	(bootstrap-debug): Explain conditions in which it becomes default.
+	(bootstrap-debug-big): Rather than duplicate bootstrap-debug,
+	make it add to it.
+
+2009-09-03  Namhyung Kim  <namhyung@gmail.com>
+
+	* doc/invoke.texi (Optimize Options): Move
+	-finline-small-functions to the -O2 list.
+
+2009-09-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* toplev.c (process_options): Enable var-tracking-assignments
+	by default if var-tracking is enabled.
+
+2009-09-02  David Daney  <ddaney@caviumnetworks.com>
+
+	* cfgbuild.c (find_bb_boundaries): Split blocks containing a
+	barrier.
+	* emit-rtl.c (prev_nonnote_insn_bb): New function.
+	* rtl.h (prev_nonnote_insn_bb): Declare it.
+
+2009-09-03  Diego Novillo  <dnovillo@google.com>
+
+	* cgraph.c (cgraph_node_for_decl): New.
+	* cgraph.h (cgraph_node_for_decl): Declare.
+	* tree.c (host_integerp): Return 0 if T is NULL.
+
+2009-09-03  Diego Novillo  <dnovillo@google.com>
+
+	* tree.h (struct alias_pair): Move from varasm.c.
+	(alias_pairs): Likewise.
+	(TYPE_MAXVAL): Define.
+	(TYPE_MINVAL): Define.
+	(iterative_hash_host_wide_int): Declare.
+	(remove_unreachable_alias_pairs): Declare.
+	* tree-pass.h (pass_ipa_free_lang_data): Declare.
+	* diagnostic.c (default_diagnostic_starter): Make extern.
+	(default_diagnostic_finalizer): Make extern.
+	* diagnostic.h (default_diagnostic_starter): Declare.
+	(default_diagnostic_finalizer): Declare.
+	(default_tree_printer): Declare.
+	* toplev.c (default_tree_printer): Make extern.
+
+2009-09-03  Richard Guenther  <rguenther@suse.de>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* cgraph.c (cgraph_add_new_function): Remove gimplification.
+	* cgraphunit.c (cgraph_expand_function): Do not emit
+	associated thunks from here.
+	(cgraph_emit_thunks): New.
+	(cgraph_optimize): Call it.
+	Return if any IPA pass finds an error.
+	* varasm.c (finish_aliases_1): Ignore errorneous aliases used
+	by thunks.
+
+2009-09-03  Simon Baldwin  <simonb@google.com>
+	    Rafael Espindola  <espindola@google.com>
+	    Richard Guenther  <rguenther@suse.de>
+	    Doug Kwan  <dougkwan@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* tree.c: Include tree-pass.h, langhooks-def.h,
+	diagnostic.h, cgraph.h, timevar.h, except.h and debug.h.
+	(free_lang_data_in_type): New.
+	(need_assembler_name_p): New.
+	(free_lang_data_in_block): New.
+	(free_lang_data_in_decl): New.
+	(struct free_lang_data_d): New.
+	(add_tree_to_fld_list): New.
+	(find_decls_types_r): New.
+	(get_eh_types_for_runtime): New.
+	(find_decls_types_in_eh_region): New.
+	(find_decls_types_in_node): New.
+	(find_decls_types_in_var): New.
+	(free_lang_data_in_cgraph): New.
+	(free_lang_data): New.
+	(gate_free_lang_data): New.
+	(pass_ipa_free_lang_data): New.
+
+2009-09-03  Diego Novillo  <dnovillo@google.com>
+
+	* timevar.def (TV_IPA_FREE_LANG_DATA): Define.
+	* langhooks.h (struct lang_hooks): Add field free_lang_data.
+	(lang_hooks): Remove const qualifier.
+	* ipa.c (cgraph_remove_unreachable_nodes): Call
+	remove_unreachable_alias_pairs.
+	* except.c (add_type_for_runtime): Check if TYPE has
+	already been converted.
+	(lookup_type_for_runtime): Likewise.
+	(check_handled): Handle converted types.
+	* varasm.c (remove_unreachable_alias_pairs): New.
+	* gimple.c: Include demangle.h.
+	(gimple_decl_printable_name): New.
+	(gimple_fold_obj_type_ref): New.
+	* gimple.h (gimple_decl_printable_name): Declare.
+	(gimple_fold_obj_type_ref): Declare.
+	* passes.c (init_optimization_passes): Add pass
+	pass_ipa_free_lang_data.
+	* langhooks-def.h (LANG_HOOKS_FREE_LANG_DATA): Define.
+	(LANG_HOOKS_INITIALIZER): Add LANG_HOOKS_FREE_LANG_DATA.
+
+2009-09-03  Diego Novillo  <dnovillo@google.com>
+
+	* c-lang.c (lang_hooks): Remove const qualifier.
+
+2009-09-02  Loren James Rittle  <ljrittle@acm.org>
+
+	* doc/install.texi (*-*-freebsd*): Update target information.
+
+2009-09-02  Anatoly Sokolov  <aesok@post.ru>
+
+	* hard-reg-set.h (call_fixed_regs): Remove.
+	* reginfo.c (call_fixed_regs): Remove.
+	(init_reg_sets_1): Remove initialization of call_fixed_regs.
+	(globalize_reg): Don't use call_fixed_regs.
+	* caller-save.c (init_caller_save): Use call_fixed_reg_set instead of
+	call_fixed_regs.
+
+2009-09-01  Michael Matz  <matz@suse.de>
+
+	* expr.h (emit_storent_insn, expand_expr_real_1,
+	expand_expr_real_2): Declare.
+	* expr.c (emit_storent_insn, expand_expr_real_1,
+	expand_expr_real_2): Export.
+	(store_expr): Setting and evaluating dont_return_target is
+	useless.
+	(expand_expr_real_1, <case GOTO_EXPR, RETURN_EXPR, SWITCH_EXPR,
+	LABEL_EXPR and ASM_EXPR>): Move to gcc_unreachable.
+	* except.c (expand_resx_expr): Rename to ...
+	(expand_resx_stmt): ... this.  Rewrite to take gimple statement.
+	* except.h (expand_resx_stmt): Declare.
+	* stmt.c: Add include gimple.h
+	(expand_asm_expr): Rename to ...
+	(expand_asm_stmt): ... this. Rewrite to take gimple statement.
+	(expand_case): Rewrite to take gimple statement.
+	* tree.h (expand_asm_stmt): Declare.
+	(expand_case): Change prototype.
+	* Makefile.in (stmt.o): Depend on gimple.h.
+	* builtins.c (expand_builtin_synchronize): Build gimple asm
+	statement, not an ASM_EXPR.
+	* cfgexpand.c (gimple_cond_pred_to_tree, set_expr_location_r,
+	gimple_to_tree, release_stmt_tree): Remove.
+	(expand_gimple_cond): Don't call gimple_cond_pred_to_tree or
+	ggc_free, but hold comparison code and operands separately.
+	Call jumpif_1 and jumpifnot_1 instead of jumpif and jumpifnot.
+	(expand_call_stmt, expand_gimple_stmt_1,
+	expand_gimple_stmt): New helpers.
+	(expand_gimple_tailcall): Don't call gimple_to_tree, expand_expr_stmt,
+	release_stmt_tree.  Call expand_gimple_stmt instead.
+	(expand_gimple_basic_block): Ditto.
+
+	* calls.c (emit_call_1): Don't look at EH regions here, make
+	fntree parameter useless.
+	(expand_call): New local rettype for TREE_TYPE(exp), use it
+	throughout.  Remove local p, use addr instead.
+	Don't look at EH regions here.
+
+2009-09-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/invoke.texi (-fsched-pressure): Document it.
+	(-fsched-reg-pressure-heuristic): Remove it.
+	
+	* reload.c (ira.h): Include.
+	(find_reloads): Add choosing reload on number of small spilled
+	classes.
+	
+	* haifa-sched.c (ira.h): Include.
+	(sched_pressure_p, sched_regno_cover_class, curr_reg_pressure,
+	saved_reg_pressure, curr_reg_live, saved_reg_live,
+	region_ref_regs): New variables.
+	(sched_init_region_reg_pressure_info, mark_regno_birth_or_death,
+	initiate_reg_pressure_info, setup_ref_regs,
+	initiate_bb_reg_pressure_info, save_reg_pressure,
+	restore_reg_pressure, dying_use_p, print_curr_reg_pressure): New
+	functions.
+	(setup_insn_reg_pressure_info): New function.
+	(rank_for_schedule): Add pressure checking and insn issue time.
+	Remove comparison of insn reg weights.
+	(ready_sort): Set insn reg pressure info.
+	(update_register_pressure, setup_insn_max_reg_pressure,
+	update_reg_and_insn_max_reg_pressure,
+	sched_setup_bb_reg_pressure_info): New functions.
+	(schedule_insn): Add code for printing and updating reg pressure
+	info.
+	(find_set_reg_weight, find_insn_reg_weight): Remove.
+	(ok_for_early_queue_removal): Do nothing if pressure_only_p.
+	(debug_ready_list): Print reg pressure info.
+	(schedule_block): Ditto.  Check insn issue time.
+	(sched_init): Set up sched_pressure_p.  Allocate and set up some
+	reg pressure related info.
+	(sched_finish): Free some reg pressure related info.
+	(fix_tick_ready): Make insn always ready if pressure_p.
+	(init_h_i_d): Don't call find_insn_reg_weight.
+	(haifa_finish_h_i_d): Free insn reg pressure info.
+	
+	* ira-int.h (ira_hard_regno_cover_class, ira_reg_class_nregs,
+	ira_memory_move_cost, ira_class_hard_regs,
+	ira_class_hard_regs_num, ira_no_alloc_regs,
+	ira_available_class_regs, ira_reg_class_cover_size,
+	ira_reg_class_cover, ira_class_translate): Move to ira.h.
+
+	* ira-lives.c (single_reg_class): Check mode to find how many
+	registers are necessary for operand.
+	(ira_implicitly_set_insn_hard_regs): New.
+
+	* common.opt (fsched-pressure): New options.
+	(fsched-reg-pressure-heuristic): Remove.
+
+	* ira.c (setup_eliminable_regset): Rename to
+	ira_setup_eliminable_regset.  Make it external.
+	(expand_reg_info): Pass cover class to setup_reg_classes.
+	(ira): Call resize_reg_info instead of allocate_reg_info.
+
+	* sched-deps.c: Include ira.h.
+	(implicit_reg_pending_clobbers, implicit_reg_pending_uses): New.
+	(create_insn_reg_use, create_insn_reg_set, setup_insn_reg_uses,
+	reg_pressure_info, insn_use_p, mark_insn_pseudo_birth,
+	mark_insn_hard_regno_birth, mark_insn_reg_birth,
+	mark_pseudo_death, mark_hard_regno_death, mark_reg_death,
+	mark_insn_reg_store, mark_insn_reg_clobber,
+	setup_insn_reg_pressure_info): New.
+	(sched_analyze_1): Update implicit_reg_pending_uses.
+	(sched_analyze_insn): Find implicit sets, uses, clobbers of regs.
+	Use them to create dependencies.  Set insn reg uses and pressure
+	info.  Process reg_pending_uses in one place.
+	(free_deps): Free implicit sets.
+	(remove_from_deps): Remove implicit sets if necessary.  Check
+	implicit sets when clearing reg_last_in_use.
+	(init_deps_global): Clear implicit_reg_pending_clobbers and
+	implicit_reg_pending_uses.
+	
+	* ira.h (ira_hard_regno_cover_class, ira_reg_class_nregs,
+	ira_memory_move_cost, ira_class_hard_regs,
+	ira_class_hard_regs_num, ira_no_alloc_regs,
+	ira_available_class_regs, ira_reg_class_cover_size,
+	ira_reg_class_cover, ira_class_translate): Move from ira-int.h.
+	(ira_setup_eliminable_regset, ira_set_pseudo_classes,
+	ira_implicitly_set_insn_hard_regs): New prototypes.
+	
+	* ira-costs.c (pseudo_classes_defined_p, allocno_p,
+	cost_elements_num): New variables.
+	(allocno_costs, total_costs): Rename to costs and
+	total_allocno_costs.
+	(COSTS_OF_ALLOCNO): Rename to COSTS.
+	(allocno_pref): Rename to pref.
+	(allocno_pref_buffer): Rename to pref_buffer.
+	(common_classes): Rename to regno_cover_class.
+	(COST_INDEX): New.
+	(record_reg_classes): Set allocno attributes only if allocno_p.
+	(record_address_regs): Ditto.  Use COST_INDEX instead of
+	ALLOCNO_NUM.
+	(scan_one_insn): Use COST_INDEX and COSTS instead of ALLOCNO_NUM
+	and COSTS_OF_ALLOCNO.
+	(print_costs): Rename to print_allocno_costs.
+	(print_pseudo_costs): New.
+	(process_bb_node_for_costs): Split into 2 functions with new
+	function process_bb_for_costs.  Pass BB to process_bb_for_costs.
+	(find_allocno_class_costs): Rename to find_costs_and_classes.  Add
+	new parameter dump_file.  Use cost_elements_num instead of
+	ira_allocnos_num.  Make one iteration if preferred classes were
+	already calculated for scheduler.  Make 2 versions of code
+	depending on allocno_p.
+	(setup_allocno_cover_class_and_costs): Check allocno_p.  Use
+	regno_cover_class and COSTS instead of common_classes and
+	COSTS_OF_ALLOCNO.
+	(init_costs, finish_costs): New.
+	(ira_costs): Set up allocno_p and cost_elements_num.  Call
+	init_costs and finish_costs.
+	(ira_set_pseudo_classes): New.
+
+	* rtl.h (allocate_reg_info): Remove.
+	(resize_reg_info): Change return type.
+	(reg_cover_class): New.
+	(setup_reg_classes): Add new parameter.
+	
+	* sched-int.h (struct deps_reg): New member implicit_sets.
+	(sched_pressure_p, sched_regno_cover_class): New external
+	definitions.
+	(INCREASE_BITS): New macro.
+	(struct reg_pressure_data, struct reg_use_data): New.
+	(struct _haifa_insn_data): Remove reg_weight.  Add members
+	reg_pressure, reg_use_list, reg_set_list, and
+	reg_pressure_excess_cost_change.
+	(struct deps): New member implicit_sets.
+	(pressure_p): New variable.
+	(COVER_CLASS_BITS, INCREASE_BITS): New macros.
+	(struct reg_pressure_data, struct reg_use_data): New.
+	(INSN_REG_WEIGHT): Remove.
+	(INSN_REG_PRESSURE, INSN_MAX_REG_PRESSURE, INSN_REG_USE_LIST,
+	INSN_REG_SET_LIST, INSN_REG_PRESSURE_EXCESS_COST_CHANGE): New
+	macros.
+	(sched_init_region_reg_pressure_info,
+	sched_setup_bb_reg_pressure_info): New prototypes.
+	
+        * reginfo.c (struct reg_pref): New member coverclass.
+	(reg_cover_class): New function.
+	(reginfo_init, pass_reginfo_init): Move after free_reg_info.
+	(reg_info_size): New variable.
+	(allocate_reg_info): Make static.  Setup reg_info_size.
+	(resize_reg_info): Use reg_info_size.  Return flag of resizing.
+	(setup_reg_classes): Add a new parameter.  Setup cover class too.
+
+	* Makefile.in (reload.o, haifa-sched.o, sched-deps.o): Add ira.h to the
+	dependencies.
+
+	* sched-rgn.c (deps_join): Set up implicit_sets.
+	(schedule_region): Set up region and basic blocks pressure
+	relative info.
+	
+	* passes.c (init_optimization_passes): Move
+	pass_subregs_of_mode_init before pass_sched.
+	
+2009-09-02  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-sra.c (struct access): New field grp_hint.
+	(dump_access): Dump grp_hint.
+	(sort_and_splice_var_accesses): Set grp_hint if a group is read
+	multiple times.
+	(analyze_access_subtree): Only scalarize accesses with grp_hint set or
+	those which have been specifically read and somehow written to.
+	(propagate_subacesses_accross_link): Set grp_hint of right child and
+	also possibly of the left child.
+
+2009-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-object-size.c (addr_object_size): Always use object_size_type
+	0 or 2 when determining the pointer pointed object size.
+
+2009-09-02  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2009-08-31  Richard Guenther  <rguenther@suse.de>
+
+	* builtins.c (fold_builtin_memory_op): Use the alias oracle
+	to query if the memory regions for memmove overlap.
+	* tree-ssa-alias.c (ptr_deref_may_alias_decl_p): Relax the
+	asserts on pointers, instead deal with odd trees.
+	(ptr_derefs_may_alias_p): Likewise.
+	(refs_may_alias_p_1): Constructor bases also never alias.
+
 2009-08-01  Christian Bruel  <christian.bruel@st.com>
 
 	Revert:

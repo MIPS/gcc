@@ -795,7 +795,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([lto merged with rev 151318])
+ACX_PKGVERSION([lto merged with rev 151374])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel

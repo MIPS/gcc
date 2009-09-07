@@ -6569,14 +6569,11 @@ is_really_empty_class (tree type)
   if (CLASS_TYPE_P (type))
     {
       tree field;
-      tree binfo = TYPE_BINFO (type);
+      tree binfo;
       tree base_binfo;
       int i;
 
-      if (!binfo)
-	return false;
-
-      for (i = 0;
+      for (binfo = TYPE_BINFO (type), i = 0;
 	   BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
 	if (!is_really_empty_class (BINFO_TYPE (base_binfo)))
 	  return false;

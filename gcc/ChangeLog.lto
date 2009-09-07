@@ -1,3 +1,64 @@
+2009-09-07  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @151374.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-09-07  Richard Guenther  <rguenther@google.com>
+
+	* lto-streamer-in.c (lto_register_deferred_decls_in_symtab): New.
+	(deferred_global_decls): New file local.
+	(lto_register_var_decl_in_symtab): Remove arguments DATA_IN
+	and IX.  Update all callers.
+	If DECL is TREE_PUBLIC, add it to deferred_global_decls.
+	(lto_register_function_decl_in_symtab): Remove argument IX.
+	If DECL is TREE_PUBLIC, add it to deferred_global_decls.
+	Update all callers.
+	* lto-streamer.h (lto_register_deferred_decls_in_symtab): Declare.
+	* lto.c (lto_read_decls): Call it after reading all decls.
+
+2009-09-07  Diego Novillo  <dnovillo@google.com>
+
+	* builtins.c (is_builtin_fn): New.
+	(is_builtin_name): Add comment.
+	* c-opts.c (c_common_post_options): Disable var tracking when
+	LTO is enabled.
+	* gimple.c (gimple_force_type_merge): Move below
+	lookup_type_pair and call it.
+	(gimple_decl_printable_name): Do not use DMGL_TYPES in call
+	to cplus_demangle_v3.
+	* lto-streamer-in.c (lto_materialize_tree): Do not read
+	expected tree node size.
+	(lto_input_ts_binfo_tree_pointers): Read BINFO_BASE_BINFOS as
+	a zero-terminated list.
+	* lto-streamer-out.c (lto_output_tree_ref): Do not expect
+	DECL_CONTEXT for CONST_DECLs to be NULL.
+	(lto_output_ts_binfo_tree_pointers): Output BINFO_BASE_BINFOS
+	as a zero-terminated list.
+	(lto_output_tree_header): Do not emit size of EXPR.
+	(write_symbol_vec): Call is_builtin_fn.
+	* lto-streamer.c (lto_orig_address_map, lto_orig_address_get,
+	lto_orig_address_remove): Enable only with LTO_STREAMER_DEBUG.
+	* lto-streamer.h (LTO_STREAMER_DEBUG): Add with comment and
+	undefined by default.
+	(lto_orig_address_map, lto_orig_address_get,
+	lto_orig_address_remove): Declare only with LTO_STREAMER_DEBUG.
+	* lto-symtab.c (lto_symtab_prevailing_decl): Call is_builtin_fn.
+	(lto_symtab_get_resolution): Likewise.
+	* tree-parloops.c (try_create_reduction_list): Fix for 32bit
+	hosts.
+	* tree.c (free_lang_data_in_binfo): Factor out of ...
+	(free_lang_data_in_type): ... here.
+	(need_assembler_name_p): Return false for non-public functions.
+	(free_lang_data_in_decl): Do not remove DECL_CONTEXT from
+	CONST_DECLs.
+	(find_decls_types_r): Walk TYPE_BINFO for records and unions.
+	* tree.h (RECORD_OR_UNION_TYPE_P): Declare.  Update all users
+	of the predicate.
+	(AGGREGATE_TYPE_P): Call it.
+	(is_builtin_fn): Declare.
+
 2009-09-02  Richard Guenther  <rguenther@suse.de>
 
 	Mainline merge @151318.

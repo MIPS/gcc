@@ -1065,12 +1065,17 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (SCALAR_FLOAT_TYPE_P (TYPE)			\
    && DECIMAL_FLOAT_MODE_P (TYPE_MODE (TYPE)))
 
+/* Nonzero if TYPE is a record or union type.  */
+#define RECORD_OR_UNION_TYPE_P(TYPE)		\
+   (TREE_CODE (TYPE) == RECORD_TYPE		\
+    || TREE_CODE (TYPE) == UNION_TYPE		\
+    || TREE_CODE (TYPE) == QUAL_UNION_TYPE)
+
 /* Nonzero if TYPE represents an aggregate (multi-component) type.
    Keep these checks in ascending code order.  */
 
 #define AGGREGATE_TYPE_P(TYPE) \
-  (TREE_CODE (TYPE) == ARRAY_TYPE || TREE_CODE (TYPE) == RECORD_TYPE \
-   || TREE_CODE (TYPE) == UNION_TYPE || TREE_CODE (TYPE) == QUAL_UNION_TYPE)
+  (TREE_CODE (TYPE) == ARRAY_TYPE || RECORD_OR_UNION_TYPE_P (TYPE))
 
 /* Nonzero if TYPE represents a pointer or reference type.
    (It should be renamed to INDIRECT_TYPE_P.)  Keep these checks in
@@ -4891,7 +4896,8 @@ extern bool validate_arglist (const_tree, ...);
 extern rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 extern bool can_trust_pointer_alignment (void);
 extern int get_pointer_alignment (tree, unsigned int);
-extern bool is_builtin_name (const char*);
+extern bool is_builtin_name (const char *);
+extern bool is_builtin_fn (tree);
 extern int get_object_alignment (tree, unsigned int, unsigned int);
 extern tree fold_call_stmt (gimple, bool);
 extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
@@ -5077,7 +5083,6 @@ extern void mark_decl_referenced (tree);
 extern void notice_global_symbol (tree);
 extern void set_user_assembler_name (tree, const char *);
 extern void process_pending_assemble_externals (void);
-extern bool incorporeal_function_p (tree);
 extern void finish_aliases_1 (void);
 extern void finish_aliases_2 (void);
 extern tree emutls_decl (tree);
@@ -5089,9 +5094,9 @@ extern bool parse_output_constraint (const char **, int, int, int,
 				     bool *, bool *, bool *);
 extern bool parse_input_constraint (const char **, int, int, int, int,
 				    const char * const *, bool *, bool *);
-extern void expand_asm_expr (tree);
+extern void expand_asm_stmt (gimple);
 extern tree resolve_asm_operand_names (tree, tree, tree);
-extern void expand_case (tree);
+extern void expand_case (gimple);
 extern void expand_decl (tree);
 #ifdef HARD_CONST
 /* Silly ifdef to avoid having all includers depend on hard-reg-set.h.  */

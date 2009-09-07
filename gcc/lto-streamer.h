@@ -31,6 +31,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "vecprim.h"
 
+/* Define when debugging the LTO streamer.  This causes the writer
+   to output the numeric value for the memory address of the tree node
+   being emitted.  When debugging a problem in the reader, check the
+   original address that the writer was emitting using lto_orig_address_get.
+   With this value, set a breakpoint in the writer (e.g., lto_output_tree)
+   to trace how the faulty node is being emitted.  */
+/* #define LTO_STREAMER_DEBUG	1  */
+
 /* The encoding for a function consists of the following sections:
 
    1)    The header.
@@ -805,9 +813,11 @@ extern struct lto_streamer_cache_d *lto_streamer_cache_create (void);
 extern void lto_streamer_cache_delete (struct lto_streamer_cache_d *);
 extern void lto_streamer_init (void);
 extern bool gate_lto_out (void);
+#ifdef LTO_STREAMER_DEBUG
 extern void lto_orig_address_map (tree, intptr_t);
 extern intptr_t lto_orig_address_get (tree);
 extern void lto_orig_address_remove (tree);
+#endif
 
 
 /* In lto-streamer-in.c */
@@ -828,6 +838,7 @@ extern struct data_in *lto_data_in_create (struct lto_file_decl_data *,
 				    const char *, unsigned,
 				    VEC(ld_plugin_symbol_resolution_t,heap) *);
 extern void lto_data_in_delete (struct data_in *);
+extern void lto_register_deferred_decls_in_symtab (struct data_in *);
 
 
 /* In lto-streamer-out.c  */

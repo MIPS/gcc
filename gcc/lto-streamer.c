@@ -825,6 +825,7 @@ gate_lto_out (void)
 }
 
 
+#ifdef LTO_STREAMER_DEBUG
 /* Add a mapping between T and ORIG_T, which is the numeric value of
    the original address of T as it was seen by the LTO writer.  This
    mapping is useful when debugging streaming problems.  A debugging
@@ -862,3 +863,4 @@ lto_orig_address_remove (tree t)
 {
   t->base.ann = NULL;
 }
+#endif

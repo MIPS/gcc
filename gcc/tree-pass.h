@@ -408,7 +408,6 @@ extern struct gimple_opt_pass pass_tracer;
 extern struct gimple_opt_pass pass_warn_unused_result;
 
 /* IPA Passes */
-extern struct simple_ipa_opt_pass pass_ipa_free_lang_data;
 extern struct simple_ipa_opt_pass pass_ipa_function_and_variable_visibility;
 extern struct simple_ipa_opt_pass pass_ipa_early_inline;
 
@@ -417,8 +416,9 @@ extern struct simple_ipa_opt_pass pass_early_local_passes;
 extern struct ipa_opt_pass_d pass_ipa_lto_gimple_out;
 extern struct simple_ipa_opt_pass pass_ipa_increase_alignment;
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;
-extern struct ipa_opt_pass_d pass_ipa_cp;
 extern struct ipa_opt_pass_d pass_ipa_inline;
+extern struct simple_ipa_opt_pass pass_ipa_free_lang_data;
+extern struct ipa_opt_pass_d pass_ipa_cp;
 extern struct ipa_opt_pass_d pass_ipa_reference;
 extern struct ipa_opt_pass_d pass_ipa_pure_const;
 extern struct simple_ipa_opt_pass pass_ipa_type_escape;
