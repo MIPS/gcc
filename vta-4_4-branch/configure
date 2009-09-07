@@ -985,6 +985,8 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-debug-prefix-map='A=B C=D ...'
                              map A to B, C to D ... in debug information
+--with-build-config='NAME NAME2...'
+                          Use config/NAME.mk build configuration
   --with-build-time-tools=PATH
                           use given path to find target tools during the build
   --with-datarootdir      use datarootdir as the data root directory.
@@ -5997,6 +5999,17 @@ esac
 
 echo "$as_me:$LINENO: checking for default BUILD_CONFIG" >&5
 echo $ECHO_N "checking for default BUILD_CONFIG... $ECHO_C" >&6
+
+
+# Check whether --with-build-config or --without-build-config was given.
+if test "${with_build_config+set}" = set; then
+  withval="$with_build_config"
+  case $with_build_config in
+   yes) with_build_config= ;;
+   no) with_build_config= BUILD_CONFIG= ;;
+   esac
+fi;
+
 if test "x${with_build_config}" != x; then
   BUILD_CONFIG=$with_build_config
 else

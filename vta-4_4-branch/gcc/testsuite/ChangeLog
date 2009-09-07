@@ -1,3 +1,18 @@
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41225
+	* gfortran.dg/pr41225.f90: New.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/guality/guality.h: Include stdint.h.  Drop unnecessary
+	unistd.h, sys/types.h and sys/wait.h.
+	(gualchk_t): New.
+	(GUALCVT): New.
+	(GUALCHKXPR, GUALCHKVAL, GUALCHKFLA): Use it.
+	(GUALITY_GDB_REDIRECT): New.
+	(GUALITY_GDB_ARGS): Use it.
+
 2009-09-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/guality/guality.exp: Only run guality tests if a trivial

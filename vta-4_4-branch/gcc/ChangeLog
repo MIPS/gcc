@@ -4,6 +4,34 @@
 	* config/alpha/alpha.c (alpha_does_function_need_gp): Use
 	NONDEBUG_INSN_P instead of INSN_P.
 
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41225
+	* tree-vect-analyze.c (vect_stmt_relevant_p): Skip debug uses.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/41252
+	* config/arm/vfp.md (*cmpdf_split_vfp): Fix src mode in the second
+	pattern of the split.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* toplev.c (process_options): Move setter of flag_var_tracking
+	before other tests that depend on it.  Move down setter of
+	flag_rename_registers.  Don't enable var-tracking-assignments
+	by default if selective scheduling is enabled.  Warn if both
+	are enabled.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (dv_is_decl_p): Adjust NULL behavior to match
+	comment.  Use switch statement to catch overlaps between rtx
+	and tree codes.  Accept FUNCTION_DECLs in addition to those in...
+	(IS_DECL_CODE): ... here. Remove.
+	(check_value_is_not_decl): Remove.
+	(dv_from_decl, dv_from_value): Check after conversion.
+
 2009-09-03  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* config/mips/mips.c (USEFUL_INSN_P): Use NONDEBUG_INSN_P instead
