@@ -1616,8 +1616,8 @@ get_tmr_operands (gimple stmt, tree expr, int flags)
   gimple_set_references_memory (stmt, true);
 
   /* First record the real operands.  */
-  get_expr_operands (stmt, &TMR_BASE (expr), opf_use);
-  get_expr_operands (stmt, &TMR_INDEX (expr), opf_use);
+  get_expr_operands (stmt, &TMR_BASE (expr), opf_use | (flags & opf_no_vops));
+  get_expr_operands (stmt, &TMR_INDEX (expr), opf_use | (flags & opf_no_vops));
 
   if (TMR_SYMBOL (expr))
     gimple_add_to_addresses_taken (stmt, TMR_SYMBOL (expr));
