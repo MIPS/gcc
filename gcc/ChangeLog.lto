@@ -1,3 +1,10 @@
+2009-09-08  Richard Guenther  <rguenther@suse.de>
+
+	* tree.c (free_lang_data_in_type): Restore not freeing the main variant
+	chains.
+	(free_lang_data): Restore re-setting char_type_node.
+	(gate_free_lang_data): Do not re-run free-lang-data from lto1.
+
 2009-09-07  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @151374.

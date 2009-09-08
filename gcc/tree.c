@@ -4251,16 +4251,6 @@ free_lang_data_in_type (tree type)
 
   TYPE_CONTEXT (type) = NULL_TREE;
   TYPE_STUB_DECL (type) = NULL_TREE;
-
-  /* Remove type variants other than the main variant.  This is both
-     wasteful and it may introduce infinite loops when the types are
-     read from disk and merged (since the variant will be the same
-     type as the main variant, traversing type variants will get into
-     an infinite loop).  */
-  if (TYPE_MAIN_VARIANT (type))
-    TYPE_NEXT_VARIANT (TYPE_MAIN_VARIANT (type)) = NULL_TREE;
-
-  TYPE_NEXT_VARIANT (type) = NULL_TREE;
 }
 
 
@@ -4869,6 +4859,12 @@ free_lang_data (void)
       boolean_true_node = TYPE_MAX_VALUE (boolean_type_node);
     }
 
+  /* Unify char_type_node with its properly signed variant.  */
+  if (TYPE_UNSIGNED (char_type_node))
+    unsigned_char_type_node = char_type_node;
+  else
+    signed_char_type_node = char_type_node;
+
   /* Reset some langhooks.  */
   lang_hooks.callgraph.analyze_expr = NULL;
   lang_hooks.types_compatible_p = NULL;
@@ -4899,8 +4895,9 @@ static bool
 gate_free_lang_data (void)
 {
   /* FIXME.  Remove after save_debug_info is working.  */
-  return flag_generate_lto
-	 || (!flag_gtoggle && debug_info_level <= DINFO_LEVEL_TERSE);
+  return (flag_generate_lto
+	  || (!in_lto_p
+	      && !flag_gtoggle && debug_info_level <= DINFO_LEVEL_TERSE));
 }
 
 
