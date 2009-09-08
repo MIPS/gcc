@@ -2139,10 +2139,11 @@ lang_dependent_init (const char *name)
   input_location = save_loc;
   signed_sizetype = !TYPE_UNSIGNED (sizetype);
   EXTRA_TARGETS_CALL (initialize_sizetypes (signed_sizetype));
-  EXTRA_TARGETS_CALL (lang_dependent_init (name));
-  targetm_pnt = &this_targetm;
 
   init_asm_output (name);
+
+  EXTRA_TARGETS_CALL (lang_dependent_init (name));
+  targetm_pnt = &this_targetm;
 #else /* EXTRA_TARGET */
   if (TYPE_MODE (sizetype) != ptr_mode)
     sizetype

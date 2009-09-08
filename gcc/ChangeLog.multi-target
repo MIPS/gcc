@@ -1,3 +1,8 @@
+2009-09-08  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* toplev.c (lang_dependent_init): Move EXTRA_TARGETS_CALL of
+	lang_dependent_init after the initialization of the asm output file.
+
 2009-09-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* targhooks.c (default_task_ok_for_target): New function.
