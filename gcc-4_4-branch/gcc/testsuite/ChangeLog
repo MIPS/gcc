@@ -1,3 +1,34 @@
+2009-09-05  Richard Guenther  <rguenther@suse.de>
+
+	PR debug/41273
+	* g++.dg/torture/pr41273.C: New testcase.
+
+2009-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/41241
+	* gcc.dg/pr41241.c: New test.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41225
+	* gfortran.dg/pr41225.f90: New.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/guality/guality.h: Include stdint.h.  Drop unnecessary
+	unistd.h, sys/types.h and sys/wait.h.
+	(gualchk_t): New.
+	(GUALCVT): New.
+	(GUALCHKXPR, GUALCHKVAL, GUALCHKFLA): Use it.
+	(GUALITY_GDB_REDIRECT): New.
+	(GUALITY_GDB_ARGS): Use it.
+
+2009-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/guality/guality.exp: Only run guality tests if a trivial
+	testcase using guality.h compiles and links and if a global variable
+	can be verified by gdb.
+
 2009-09-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/41239

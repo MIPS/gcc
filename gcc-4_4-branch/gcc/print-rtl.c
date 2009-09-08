@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "cselib.h"
 #endif
 
 static FILE *outfile;
@@ -59,6 +60,11 @@ const char *print_rtx_head = "";
    in debugging dumps.
    This must be defined here so that programs like gencodes can be linked.  */
 int flag_dump_unnumbered = 0;
+
+/* Nonzero means suppress output of instruction numbers for previous
+   and next insns in debugging dumps.
+   This must be defined here so that programs like gencodes can be linked.  */
+int flag_dump_unnumbered_links = 0;
 
 /* Nonzero means use simplified format without flags, modes, etc.  */
 int flag_simple = 0;
@@ -199,14 +205,32 @@ print_rtx (const_rtx in_rtx)
 	    fputs ("/i", outfile);
 
 	  /* Print REG_NOTE names for EXPR_LIST and INSN_LIST.  */
-	  if (GET_CODE (in_rtx) == EXPR_LIST
-	      || GET_CODE (in_rtx) == INSN_LIST)
+	  if ((GET_CODE (in_rtx) == EXPR_LIST
+	       || GET_CODE (in_rtx) == INSN_LIST)
+	      && (int)GET_MODE (in_rtx) < REG_NOTE_MAX)
 	    fprintf (outfile, ":%s",
 		     GET_REG_NOTE_NAME (GET_MODE (in_rtx)));
 
 	  /* For other rtl, print the mode if it's not VOID.  */
 	  else if (GET_MODE (in_rtx) != VOIDmode)
 	    fprintf (outfile, ":%s", GET_MODE_NAME (GET_MODE (in_rtx)));
+
+#ifndef GENERATOR_FILE
+	  if (GET_CODE (in_rtx) == VAR_LOCATION)
+	    {
+	      if (TREE_CODE (PAT_VAR_LOCATION_DECL (in_rtx)) == STRING_CST)
+		fputs (" <debug string placeholder>", outfile);
+	      else
+		print_mem_expr (outfile, PAT_VAR_LOCATION_DECL (in_rtx));
+	      fputc (' ', outfile);
+	      print_rtx (PAT_VAR_LOCATION_LOC (in_rtx));
+	      if (PAT_VAR_LOCATION_STATUS (in_rtx)
+		  == VAR_INIT_STATUS_UNINITIALIZED)
+		fprintf (outfile, " [uninit]");
+	      sawclose = 1;
+	      i = GET_RTX_LENGTH (VAR_LOCATION);
+	    }
+#endif
 	}
     }
 
@@ -320,14 +344,8 @@ print_rtx (const_rtx in_rtx)
 		
 	      case NOTE_INSN_VAR_LOCATION:
 #ifndef GENERATOR_FILE
-		fprintf (outfile, " (");
-		print_mem_expr (outfile, NOTE_VAR_LOCATION_DECL (in_rtx));
-		fprintf (outfile, " ");
-		print_rtx (NOTE_VAR_LOCATION_LOC (in_rtx));
-		if (NOTE_VAR_LOCATION_STATUS (in_rtx) == 
-		                                 VAR_INIT_STATUS_UNINITIALIZED)
-		  fprintf (outfile, " [uninit]");
-		fprintf (outfile, ")");
+		fputc (' ', outfile);
+		print_rtx (NOTE_VAR_LOCATION (in_rtx));
 #endif
 		break;
 
@@ -338,6 +356,16 @@ print_rtx (const_rtx in_rtx)
 	else if (i == 9 && JUMP_P (in_rtx) && XEXP (in_rtx, i) != NULL)
 	  /* Output the JUMP_LABEL reference.  */
 	  fprintf (outfile, "\n -> %d", INSN_UID (XEXP (in_rtx, i)));
+	else if (i == 0 && GET_CODE (in_rtx) == VALUE)
+	  {
+#ifndef GENERATOR_FILE
+	    cselib_val *val = CSELIB_VAL_PTR (in_rtx);
+
+	    fprintf (outfile, " %i", val->value);
+	    dump_addr (outfile, " @", in_rtx);
+	    dump_addr (outfile, "/", (void*)val);
+#endif
+	  }
 	break;
 
       case 'e':
@@ -493,7 +521,10 @@ print_rtx (const_rtx in_rtx)
 		  goto do_e;
 	      }
 
-	    if (flag_dump_unnumbered)
+	    if (flag_dump_unnumbered
+		|| (flag_dump_unnumbered_links && (i == 1 || i == 2)
+		    && (INSN_P (in_rtx) || NOTE_P (in_rtx)
+			|| LABEL_P (in_rtx) || BARRIER_P (in_rtx))))
 	      fputs (" #", outfile);
 	    else
 	      fprintf (outfile, " %d", INSN_UID (sub));

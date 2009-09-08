@@ -948,7 +948,7 @@ alloc_gcse_mem (void)
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
       {
-	if (INSN_P (insn))
+	if (NONDEBUG_INSN_P (insn))
 	  uid_cuid[INSN_UID (insn)] = i++;
 	else
 	  uid_cuid[INSN_UID (insn)] = i;
@@ -3024,6 +3024,9 @@ cprop_insn (rtx insn, int alter_jumps)
 	}
     }
 
+  if (changed && DEBUG_INSN_P (insn))
+    return 0;
+
   return changed;
 }
 
@@ -3658,7 +3661,9 @@ bypass_conditional_jumps (void)
 	{
 	  setcc = NULL_RTX;
 	  FOR_BB_INSNS (bb, insn)
-	    if (NONJUMP_INSN_P (insn))
+	    if (DEBUG_INSN_P (insn))
+	      continue;
+	    else if (NONJUMP_INSN_P (insn))
 	      {
 		if (setcc)
 		  break;
@@ -5256,7 +5261,7 @@ compute_ld_motion_mems (void)
     {
       FOR_BB_INSNS (bb, insn)
 	{
-	  if (INSN_P (insn))
+	  if (NONDEBUG_INSN_P (insn))
 	    {
 	      if (GET_CODE (PATTERN (insn)) == SET)
 		{

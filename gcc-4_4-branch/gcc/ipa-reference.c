@@ -430,6 +430,9 @@ scan_stmt_for_static_refs (gimple_stmt_iterator *gsip,
   unsigned int i;
   bitmap_iterator bi;
 
+  if (is_gimple_debug (stmt))
+    return NULL;
+
   if (fn)
     local = get_reference_vars_info (fn)->local;
 

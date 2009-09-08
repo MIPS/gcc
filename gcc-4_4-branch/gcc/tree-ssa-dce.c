@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
@@ -313,6 +313,10 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
 	  return;
 	}
       break;
+
+    case GIMPLE_DEBUG:
+      mark_stmt_necessary (stmt, false);
+      return;
 
     case GIMPLE_GOTO:
       gcc_assert (!simple_goto_p (stmt));
@@ -648,7 +652,6 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
   release_defs (stmt); 
 }
 
-
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
 
@@ -660,21 +663,44 @@ eliminate_unnecessary_stmts (void)
   gimple_stmt_iterator gsi;
   gimple stmt;
   tree call;
+  VEC (basic_block, heap) *h;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
 
   clear_special_calls ();
-  FOR_EACH_BB (bb)
-    {
-      /* Remove dead PHI nodes.  */
-      something_changed |= remove_dead_phis (bb);
-    }
 
-  FOR_EACH_BB (bb)
+  /* Walking basic blocks and statements in reverse order avoids
+     releasing SSA names before any other DEFs that refer to them are
+     released.  This helps avoid loss of debug information, as we get
+     a chance to propagate all RHSs of removed SSAs into debug uses,
+     rather than only the latest ones.  E.g., consider:
+
+     x_3 = y_1 + z_2;
+     a_5 = x_3 - b_4;
+     # DEBUG a => a_5
+
+     If we were to release x_3 before a_5, when we reached a_5 and
+     tried to substitute it into the debug stmt, we'd see x_3 there,
+     but x_3's DEF, type, etc would have already been disconnected.
+     By going backwards, the debug stmt first changes to:
+
+     # DEBUG a => x_3 - b_4
+
+     and then to:
+
+     # DEBUG a => y_1 + z_2 - b_4
+
+     as desired.  */
+  gcc_assert (dom_info_available_p (CDI_DOMINATORS));
+  h = get_all_dominated_blocks (CDI_DOMINATORS, single_succ (ENTRY_BLOCK_PTR));
+
+  while (VEC_length (basic_block, h))
     {
+      bb = VEC_pop (basic_block, h);
+
       /* Remove dead statements.  */
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
+      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi);)
 	{
 	  stmt = gsi_stmt (gsi);
 
@@ -685,6 +711,14 @@ eliminate_unnecessary_stmts (void)
 	    {
 	      remove_dead_stmt (&gsi, bb);
 	      something_changed = true;
+
+	      /* If stmt was the last stmt in the block, we want to
+		 move gsi to the stmt that became the last stmt, but
+		 gsi_prev would crash.  */
+	      if (gsi_end_p (gsi))
+		gsi = gsi_last_bb (bb);
+	      else
+		gsi_prev (&gsi);
 	    }
 	  else if (is_gimple_call (stmt))
 	    {
@@ -719,13 +753,16 @@ eliminate_unnecessary_stmts (void)
 		    }
 		  notice_special_calls (stmt);
 		}
-	      gsi_next (&gsi);
+	      gsi_prev (&gsi);
 	    }
 	  else
-	    {
-	      gsi_next (&gsi);
-	    }
+	    gsi_prev (&gsi);
 	}
+    }
+  FOR_EACH_BB (bb)
+    {
+      /* Remove dead PHI nodes.  */
+      something_changed |= remove_dead_phis (bb);
     }
 
   return something_changed;

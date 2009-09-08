@@ -1,0 +1,23 @@
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Make-lang.in (GCJ): Renamed to...
+	(XGCJ): ... this.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* expr.c (build_jni_stub): Use the computed jni func type for
+	variable meth.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* class.c (JAVA_TREEHASHHASH_H): Use TYPE_UID.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* expr.c (type_assertion_hash): Hash type uids rather than
+	tree pointers.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.vta"
+End:

@@ -1,3 +1,106 @@
+2009-09-05  Richard Guenther  <rguenther@suse.de>
+
+	PR debug/41273
+	* tree-ssa-operands.c (get_tmr_operands): Pass through opf_no_vops.
+
+2009-05-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR tree-optimization/40219
+	* tree.c (iterative_hash_expr): Make sure the builtin function is
+	a normal builtin function and not a front end or back end builtin
+	before indexing into the built_in_decls array.
+
+2009-09-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/41241
+	* combine-stack-adj.c (try_apply_stack_adjustment): Handle stores.
+	(combine_stack_adjustments_for_block): Allow insns between stack
+	adjustments and stores with corresponding pre-(dec|inc)rement or
+	pre-modify operation.
+
+2009-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/41241
+	* combine-stack-adj.c (struct csa_memlist): Rename to...
+	(struct csa_reflist): ... this.  Rename mem field to ref.
+	(free_csa_memlist): Rename to...
+	(free_csa_reflist): ... this.
+	(record_one_stack_memref): Rename to...
+	(record_one_stack_ref): ... this.  Handle also REG_P.
+	(try_apply_stack_adjustment): Handle also REG_P.
+	(struct record_stack_memrefs_data): Rename to...
+	(struct record_stack_refs_data): ... this.  Rename memlist field to
+	reflist.
+	(record_stack_memrefs): Rename to...
+	(record_stack_refs): ... this.  For DEBUG_INSNs keep traversing
+	subexpressions instead of failing when a MEM contains SP references.
+	For SP itself in DEBUG_INSNs queue it also onto reflist chain.
+	(combine_stack_adjustments_for_block): Adjust for mem to ref renaming.
+
+2009-09-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41262
+	* config/alpha/alpha.c (alpha_does_function_need_gp): Use
+	NONDEBUG_INSN_P instead of INSN_P.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41225
+	* tree-vect-analyze.c (vect_stmt_relevant_p): Skip debug uses.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/41252
+	* config/arm/vfp.md (*cmpdf_split_vfp): Fix src mode in the second
+	pattern of the split.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* toplev.c (process_options): Move setter of flag_var_tracking
+	before other tests that depend on it.  Move down setter of
+	flag_rename_registers.  Don't enable var-tracking-assignments
+	by default if selective scheduling is enabled.  Warn if both
+	are enabled.
+
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (dv_is_decl_p): Adjust NULL behavior to match
+	comment.  Use switch statement to catch overlaps between rtx
+	and tree codes.  Accept FUNCTION_DECLs in addition to those in...
+	(IS_DECL_CODE): ... here. Remove.
+	(check_value_is_not_decl): Remove.
+	(dv_from_decl, dv_from_value): Check after conversion.
+
+2009-09-03  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (USEFUL_INSN_P): Use NONDEBUG_INSN_P instead
+	of INSN_P.
+	(mips16e_collect_argument_saves): Skip debug instructions.
+	(mips_74k_agen_init): Use CALL_P || JUMP_P instead of !NONJUMP_INSN_P.
+	(mips16_lay_out_constants): Use USEFUL_INSN_P instead of INSN_P.
+	(r10k_insert_cache_barriers): Likewise.
+	(mips_reorg_process_insns): Likewise.
+
+2009-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/41236
+	* dwarf2out.c (loc_descriptor): Don't use SUBREG_REG macro on
+	SIGN_EXTEND or ZERO_EXTEND.  Don't assume there is a REG inside of
+	it or SUBREG.
+
+	PR debug/41238
+	* function.c (assign_parm_find_stack_rtl): Don't set mem attributes on
+	the stack slot if it is passed by invisible reference.
+	* var-tracking.c (vt_add_function_parameters): Handle arguments passed by
+	invisible reference.
+
+2009-09-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/invoke.texi (BUILD_CONFIG): Document --with-build-config.
+	(bootstrap-debug): Explain conditions in which it becomes default.
+	(bootstrap-debug-big): Rather than duplicate bootstrap-debug,
+	make it add to it.
+
 2009-09-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/41239

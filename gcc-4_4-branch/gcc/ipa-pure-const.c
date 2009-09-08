@@ -570,6 +570,10 @@ scan_function_stmt (gimple_stmt_iterator *gsi_p,
       *handled_ops_p = true;
       break;
       
+    case GIMPLE_DEBUG:
+      *handled_ops_p = true;
+      break;
+
     default:
       break;
     }

@@ -626,6 +626,7 @@ struct lang_type		GTY(())
   tree dtype;
   tree dataptr_type;
   tree span;
+  tree base_decl[2];
 };
 
 struct lang_decl		GTY(())
@@ -679,6 +680,8 @@ struct lang_decl		GTY(())
 #define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
 #define GFC_TYPE_ARRAY_SPAN(node) (TYPE_LANG_SPECIFIC(node)->span)
+#define GFC_TYPE_ARRAY_BASE_DECL(node, internal) \
+  (TYPE_LANG_SPECIFIC(node)->base_decl[(internal)])
 
 /* Build an expression with void type.  */
 #define build1_v(code, arg) fold_build1(code, void_type_node, arg)

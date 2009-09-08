@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -635,6 +635,8 @@ add_vop (gimple stmt, tree op, int num, voptype_p prev)
 {
   voptype_p new_vop;
   int x;
+
+  gcc_assert (!is_gimple_debug (stmt));
 
   new_vop = alloc_vop (num);
   for (x = 0; x < num; x++)
@@ -1349,6 +1351,8 @@ add_virtual_operand (tree var, gimple stmt, int flags,
      ADDR_EXPR expression).  */
   if (flags & opf_no_vops)
     return;
+
+  gcc_assert (!is_gimple_debug (stmt));
   
   if (MTAG_P (var))
     aliases = MTAG_ALIASES (var);
@@ -1477,6 +1481,9 @@ get_addr_dereference_operands (gimple stmt, tree *addr, int flags,
   /* Mark the statement as having memory operands.  */
   gimple_set_references_memory (stmt, true);
 
+  if (is_gimple_debug (stmt))
+    goto recurse;
+
   if (SSA_VAR_P (ptr))
     {
       struct ptr_info_def *pi = NULL;
@@ -1557,9 +1564,11 @@ get_addr_dereference_operands (gimple stmt, tree *addr, int flags,
       gcc_unreachable ();
     }
 
+ recurse:
   /* If requested, add a USE operand for the base pointer.  */
   if (recurse_on_base)
-    get_expr_operands (stmt, addr, opf_use);
+    get_expr_operands (stmt, addr,
+		       opf_use | (flags & opf_no_vops));
 }
 
 
@@ -1607,8 +1616,8 @@ get_tmr_operands (gimple stmt, tree expr, int flags)
   gimple_set_references_memory (stmt, true);
 
   /* First record the real operands.  */
-  get_expr_operands (stmt, &TMR_BASE (expr), opf_use);
-  get_expr_operands (stmt, &TMR_INDEX (expr), opf_use);
+  get_expr_operands (stmt, &TMR_BASE (expr), opf_use | (flags & opf_no_vops));
+  get_expr_operands (stmt, &TMR_INDEX (expr), opf_use | (flags & opf_no_vops));
 
   if (TMR_SYMBOL (expr))
     gimple_add_to_addresses_taken (stmt, TMR_SYMBOL (expr));
@@ -1887,9 +1896,13 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
   enum tree_code code;
   enum tree_code_class codeclass;
   tree expr = *expr_p;
+  int uflags = opf_use;
 
   if (expr == NULL)
     return;
+
+  if (is_gimple_debug (stmt))
+    uflags |= (flags & opf_no_vops);
 
   code = TREE_CODE (expr);
   codeclass = TREE_CODE_CLASS (code);
@@ -1901,7 +1914,8 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	 reference to it, but the fact that the statement takes its
 	 address will be of interest to some passes (e.g. alias
 	 resolution).  */
-      gimple_add_to_addresses_taken (stmt, TREE_OPERAND (expr, 0));
+      if (!is_gimple_debug (stmt))
+	gimple_add_to_addresses_taken (stmt, TREE_OPERAND (expr, 0));
 
       /* If the address is invariant, there may be no interesting
 	 variable references inside.  */
@@ -1968,13 +1982,13 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	  {
 	    if (TREE_THIS_VOLATILE (TREE_OPERAND (expr, 1)))
 	      gimple_set_has_volatile_ops (stmt, true);
-	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
 	  }
 	else if (code == ARRAY_REF || code == ARRAY_RANGE_REF)
 	  {
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_use);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 3), uflags);
 	  }
 
 	return;
@@ -1983,15 +1997,15 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
     case WITH_SIZE_EXPR:
       /* WITH_SIZE_EXPR is a pass-through reference to its first argument,
 	 and an rvalue reference to its second argument.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case COND_EXPR:
     case VEC_COND_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), uflags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
       return;
 
     case CONSTRUCTOR:
@@ -2004,7 +2018,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	for (idx = 0;
 	     VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (expr), idx, ce);
 	     idx++)
-	  get_expr_operands (stmt, &ce->value, opf_use);
+	  get_expr_operands (stmt, &ce->value, uflags);
 
 	return;
       }
@@ -2083,6 +2097,13 @@ parse_ssa_operands (gimple stmt)
 
   if (code == GIMPLE_ASM)
     get_asm_expr_operands (stmt);
+  else if (is_gimple_debug (stmt))
+    {
+      if (gimple_debug_bind_p (stmt)
+	  && gimple_debug_bind_has_value_p (stmt))
+	get_expr_operands (stmt, gimple_debug_bind_get_value_ptr (stmt),
+			   opf_use | opf_no_vops);
+    }
   else
     {
       size_t i, start = 0;

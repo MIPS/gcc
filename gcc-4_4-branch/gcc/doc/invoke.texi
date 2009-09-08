@@ -275,7 +275,7 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
 -fdbg-cnt-list -fdbg-cnt=@var{counter-value-list} @gol
--fdump-noaddr -fdump-unnumbered @gol
+-fdump-noaddr -fdump-unnumbered -fdump-unnumbered-links @gol
 -fdump-translation-unit@r{[}-@var{n}@r{]} @gol
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-ipa-all -fdump-ipa-cgraph -fdump-ipa-inline @gol
@@ -300,13 +300,16 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-vrp@r{[}-@var{n}@r{]} @gol
 -ftree-vectorizer-verbose=@var{n} @gol
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
+-fdump-final-insns=@var{file} @gol
+-fcompare-debug@r{[}=@var{opts}@r{]}  -fcompare-debug-second @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -femit-class-debug-always @gol
 -fmem-report -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -fsel-sched-verbose -fsel-sched-dump-cfg -fsel-sched-pipelining-verbose @gol
 -ftest-coverage  -ftime-report -fvar-tracking @gol
--g  -g@var{level}  -gcoff -gdwarf-@var{version} @gol
+-fvar-tracking-assigments  -fvar-tracking-assignments-toggle @gol
+-g  -g@var{level}  -gtoggle  -gcoff -gdwarf-@var{version} @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -fno-merge-debug-strings -fno-dwarf2-cfi-asm @gol
 -fdebug-prefix-map=@var{old}=@var{new} @gol
@@ -316,7 +319,7 @@ Objective-C and Objective-C++ Dialects}.
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
 -print-sysroot -print-sysroot-headers-suffix @gol
--save-temps  -time}
+-save-temps  -time@r{[}=@var{file}@r{]}}
 
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
@@ -365,8 +368,9 @@ Objective-C and Objective-C++ Dialects}.
 -fsignaling-nans -fsingle-precision-constant -fsplit-ivs-in-unroller @gol
 -fsplit-wide-types -fstack-protector -fstack-protector-all @gol
 -fstrict-aliasing -fstrict-overflow -fthread-jumps -ftracer @gol
--ftree-builtin-call-dce -ftree-ccp -ftree-ch -ftree-copy-prop @gol
--ftree-copyrename -ftree-dce @gol
+-ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
+-ftree-coalesce-inline-vars -ftree-coalesce-vars @gol
+-ftree-copy-prop -ftree-copyrename -ftree-dce @gol
 -ftree-dominator-opts -ftree-dse -ftree-fre -ftree-loop-im @gol
 -ftree-loop-distribution @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
@@ -4325,6 +4329,64 @@ debug format is long obsolete, but the option cannot be changed now.
 Instead use an additional @option{-g@var{level}} option to change the
 debug level for DWARF.
 
+@item -gtoggle
+@opindex gtoggle
+Turn off generation of debug info, if leaving out this option would have
+generated it, or turn it on at level 2 otherwise.  The position of this
+argument in the command line does not matter, it takes effect after all
+other options are processed, and it does so only once, no matter how
+many times it is given.  This is mainly intended to be used with
+@option{-fcompare-debug}.
+
+@item -fdump-final-insns@r{[}=@var{file}@r{]}
+@opindex fdump-final-insns
+Dump the final internal representation (RTL) to @var{file}.  If the
+optional argument is omitted (or if @var{file} is @code{.}), the name
+of the dump file will be determined by appending @code{.gkd} to the
+compilation output file name.
+
+@item -fcompare-debug@r{[}=@var{opts}@r{]}
+@opindex fcompare-debug
+@opindex fno-compare-debug
+If no error occurs during compilation, run the compiler a second time,
+adding @var{opts} and @option{-fcompare-debug-second} to the arguments
+passed to the second compilation.  Dump the final internal
+representation in both compilations, and print an error if they differ.
+
+If the equal sign is omitted, the default @option{-gtoggle} is used.
+
+The environment variable @env{GCC_COMPARE_DEBUG}, if defined, non-empty
+and nonzero, implicitly enables @option{-fcompare-debug}.  If
+@env{GCC_COMPARE_DEBUG} is defined to a string starting with a dash,
+then it is used for @var{opts}, otherwise the default @option{-gtoggle}
+is used.
+
+@option{-fcompare-debug=}, with the equal sign but without @var{opts},
+is equivalent to @option{-fno-compare-debug}, which disables the dumping
+of the final representation and the second compilation, preventing even
+@env{GCC_COMPARE_DEBUG} from taking effect.
+
+To verify full coverage during @option{-fcompare-debug} testing, set
+@env{GCC_COMPARE_DEBUG} to say @samp{-fcompare-debug-not-overridden},
+which GCC will reject as an invalid option in any actual compilation
+(rather than preprocessing, assembly or linking).  To get just a
+warning, setting @env{GCC_COMPARE_DEBUG} to @samp{-w%n-fcompare-debug
+not overridden} will do.
+
+@item -fcompare-debug-second
+@opindex fcompare-debug-second
+This option is implicitly passed to the compiler for the second
+compilation requested by @option{-fcompare-debug}, along with options to
+silence warnings, and omitting other options that would cause
+side-effect compiler outputs to files or to the standard output.  Dump
+files and preserved temporary files are renamed so as to contain the
+@code{.gk} additional extension during the second compilation, to avoid
+overwriting those generated by the first.
+
+When this option is passed to the compiler driver, it causes the
+@emph{first} compilation to be skipped, which makes it useful for little
+other than debugging the compiler proper.
+
 @item -feliminate-dwarf2-dups
 @opindex feliminate-dwarf2-dups
 Compress DWARF2 debugging information by eliminating duplicated
@@ -4886,6 +4948,12 @@ This makes it more feasible to use diff on debugging dumps for compiler
 invocations with different options, in particular with and without
 @option{-g}.
 
+@item -fdump-unnumbered-links
+@opindex fdump-unnumbered-links
+When doing debugging dumps (see @option{-d} option above), suppress
+instruction numbers for the links to the previous and next instructions
+in a sequence.
+
 @item -fdump-translation-unit @r{(C++ only)}
 @itemx -fdump-translation-unit-@var{options} @r{(C++ only)}
 @opindex fdump-translation-unit
@@ -5184,11 +5252,13 @@ input source file with the same extension as an intermediate file.
 The corresponding intermediate file may be obtained by renaming the
 source file before using @option{-save-temps}.
 
-@item -time
+@item -time@r{[}=@var{file}@r{]}
 @opindex time
 Report the CPU time taken by each subprocess in the compilation
 sequence.  For C source files, this is the compiler proper and assembler
-(plus the linker if linking is done).  The output looks like this:
+(plus the linker if linking is done).
+
+Without the specification of an output file, the output looks like this:
 
 @smallexample
 # cc1 0.12 0.01
@@ -5200,6 +5270,18 @@ executing the program itself.  The second number is ``system time'',
 time spent executing operating system routines on behalf of the program.
 Both numbers are in seconds.
 
+With the specification of an output file, the output is appended to the
+named file, and it looks like this:
+
+@smallexample
+0.12 0.01 cc1 @var{options}
+0.00 0.01 as @var{options}
+@end smallexample
+
+The ``user time'' and the ``system time'' are moved before the program
+name, and the options passed to the program are displayed, so that one
+can later tell what file was being compiled, and with which options.
+
 @item -fvar-tracking
 @opindex fvar-tracking
 Run variable tracking pass.  It computes where variables are stored at each
@@ -5209,6 +5291,23 @@ position in code.  Better debugging information is then generated
 It is enabled by default when compiling with optimization (@option{-Os},
 @option{-O}, @option{-O2}, @dots{}), debugging information (@option{-g}) and
 the debug info format supports it.
+
+@item -fvar-tracking-assignments
+@opindex fvar-tracking-assignments
+@opindex fno-var-tracking-assignments
+Annotate assignments to user variables early in the compilation and
+attempt to carry the annotations over throughout the compilation all the
+way to the end, in an attempt to improve debug information while
+optimizing.
+
+It can be enabled even if var-tracking is disabled, in which case
+annotations will be created and maintained, but discarded at the end.
+
+@item -fvar-tracking-assignments-toggle
+@opindex fvar-tracking-assignments-toggle
+@opindex fno-var-tracking-assignments-toggle
+Toggle @option{-fvar-tracking-assignments}, in the same way that
+@option{-gtoggle} toggles @option{-g}.
 
 @item -print-file-name=@var{library}
 @opindex print-file-name
@@ -6358,6 +6457,20 @@ Perform copy renaming on trees.  This pass attempts to rename compiler
 temporaries to other variables at copy locations, usually resulting in
 variable names which more closely resemble the original variables.  This flag
 is enabled by default at @option{-O} and higher.
+
+@item -ftree-coalesce-inlined-vars
+Permit the copyrename pass to subject inlined variables to coalescing
+into other variables.  This may harm debug information of such inlined
+variables, but it will keep variables of the main function apart from
+each other, such that they are more likely to contain the expected
+values in a debugging session.
+
+@item -ftree-coalesce-vars
+Permit the copyrename pass to subject all variables to SSA coalescing.
+This may severely limit the ability to debug an optimized program
+compiled without @option{-fvar-tracking-assignments}.  In the negated
+form, this flag prevents SSA coalescing of user variables, including
+inlined ones.
 
 @item -ftree-ter
 @opindex ftree-ter
@@ -7780,6 +7893,12 @@ in amount of needed compile time memory, with very large loops.  Loops
 with more basic blocks than this parameter won't have loop invariant
 motion optimization performed on them.  The default value of the
 parameter is 1000 for -O1 and 10000 for -O2 and above.
+
+@item min-nondebug-insn-uid
+Use uids starting at this parameter for nondebug insns.  The range below
+the parameter is reserved exclusively for debug insns created by
+@option{-fvar-tracking-assignments}, but debug insns may get
+(non-overlapping) uids above it if the reserved range is exhausted.
 
 @end table
 @end table
