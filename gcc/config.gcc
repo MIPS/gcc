@@ -678,8 +678,40 @@ alpha*-dec-*vms*)
 	local_prefix=/gnu
 	;;
 arc-*-elf*)
-	tm_file="dbxelf.h elfos.h svr4.h ${tm_file}"
-	extra_parts="crtinit.o crtfini.o"
+	extra_headers="arc-simd.h"
+	tm_file="dbxelf.h elfos.h ${tm_file}"
+	tmake_file="arc/t-arc-newlib arc/t-arc"
+	tm_defines="${tm_defines} TARGET_CPU_DEFAULT_OPT=\\\"mA6\\\""
+	extra_parts="crti.o crtn.o crtend.o crtbegin.o crtendS.o crtbeginS.o"
+	;;
+arc600-*-linux-uclibc*)
+	extra_headers="arc-simd.h"
+	tm_file="dbxelf.h elfos.h svr4.h linux.h  ${tm_file}"
+	tmake_file="arc/t-arc600-uClibc arc/t-arc"
+	tm_defines="${tm_defines} TARGET_CPU_DEFAULT_OPT=\\\"mARC600\\\""
+  	extra_parts="crti.o crtn.o crtend.o crtbegin.o crtendS.o crtbeginS.o"
+	use_fixproto=yes
+        ;;
+arc*-*-linux-uclibc*)
+	extra_headers="arc-simd.h"
+	tm_file="dbxelf.h elfos.h svr4.h linux.h  ${tm_file}"
+	tmake_file="${tmake_file} arc/t-arc700-uClibc arc/t-arc"
+	case x"${with_cpu}" in
+	xarc600-*)
+		tm_defines="${tm_defines} TARGET_CPU_DEFAULT_OPT=\\\"mARC600\\\""
+		;;
+	*)
+		tm_defines="${tm_defines} TARGET_CPU_DEFAULT_OPT=\\\"mARC700\\\""
+		;;
+	esac
+  	extra_parts="crti.o crtn.o crtend.o crtbegin.o crtendS.o crtbeginS.o"
+	use_fixproto=yes
+        ;;
+# ARC mxp
+mxp-*-elf*)
+	tm_file="dbxelf.h elfos.h mxp/regset-config.h ${tm_file}"
+	extra_parts="crti.o crtn.o crtend.o crtbegin.o"
+	extra_objs=mxp-regset.o
 	;;
 arm-*-coff* | armel-*-coff*)
 	tm_file="arm/semi.h arm/aout.h arm/arm.h arm/coff.h dbxcoff.h"
@@ -2616,6 +2648,19 @@ case "${target}" in
 				;;
 			esac
 		done
+		;;
+
+	arc*-*-linux-uclibc)
+		supported_defaults="cpu"
+		case $with_cpu in 
+		  "") echo "Unknown Cpu type"
+			exit 1
+			;;
+		arc600) with_cpu="arc600"
+			;;		
+		arc700) with_cpu="arc700"
+			;;		
+		esac 
 		;;
 
 	arm*-*-*)

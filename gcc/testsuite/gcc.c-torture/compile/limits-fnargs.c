@@ -1,5 +1,10 @@
 /* { dg-timeout-factor 4.0 } */
 
+#ifndef STACK_SIZE
+#define STACK_SIZE 99999
+#endif
+#if STACK_SIZE >= 40004
+
 #define PAR1 int, int, int, int, int, int, int, int, int, int
 #define PAR2 PAR1, PAR1, PAR1, PAR1, PAR1, PAR1, PAR1, PAR1, PAR1, PAR1
 #define PAR3 PAR2, PAR2, PAR2, PAR2, PAR2, PAR2, PAR2, PAR2, PAR2, PAR2
@@ -20,3 +25,4 @@ void caller(void)
 {
   func (ARG4);
 }
+#endif /* STACK_SIZE */

@@ -6282,7 +6282,7 @@ case " $target_configdirs " in
       # If we're building newlib, use its generic headers last, but search
       # for any libc-related directories first (so make it the last -B
       # switch).
-      FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -B$$r/$(TARGET_SUBDIR)/newlib/ -isystem $$r/$(TARGET_SUBDIR)/newlib/targ-include -isystem $$s/newlib/libc/include'
+      FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -B$$r/$(TARGET_SUBDIR)/newlib/ -isystem $$r/$(TARGET_SUBDIR)/newlib/targ-include -isystem $$s/newlib/libc/sys/'$target_cpu'/sys -isystem $$s/newlib/libc/include'
 
       # If we're building libgloss, find the startup file, simulator library
       # and linker script.
