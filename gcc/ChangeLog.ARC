@@ -1,3 +1,30 @@
+2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/rs6000/rs6000.md (doloop_end): Accept extra operand.
+
+	* config/spu/spu.md (doloop_end): Accept extra operand.
+
+	* optc-gen.awk: For all variables with an Init clause, set var_seen.
+
+2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/arc.c (arc_expand_prologue): If fame_size_to_allocate
+	is narrower than HOST_WIDE_INT, zero-extend it before negation.
+
+2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/arc.h (enum reg_class): Rename SP_REG to SP_REGS.
+	Changed user.
+
+2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/arc.c (arc_address_cost): Use INTVAL to refer to
+	the value of a CONST_INT.
+
+2009-04-07  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* haifa-sched.c (insn_cost): No longer HAIFA_INLINE.
+
 2009-04-03  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* longlong.h [__ARC700__] (umul_ppmm): Add earlyclobber

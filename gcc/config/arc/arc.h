@@ -673,7 +673,7 @@ enum reg_class
    R0_REG,			/* 'x' */
    GP_REG,			/* 'Rgp' */
    FP_REG,			/* 'f' */
-   SP_REG,			/* 'b' */
+   SP_REGS,			/* 'b' */
    LPCOUNT_REG, 		/* 'l' */
    LINK_REGS,	 		/* 'k' */
    DOUBLE_REGS,			/* D0, D1 */
@@ -699,7 +699,7 @@ enum reg_class
   "R0_REG",            	  \
   "GP_REG",            	  \
   "FP_REG",            	  \
-  "SP_REG",		  \
+  "SP_REGS",		  \
   "LPCOUNT_REG",	  \
   "LINK_REGS",         	  \
   "DOUBLE_REGS",          \

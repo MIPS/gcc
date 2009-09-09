@@ -1432,7 +1432,7 @@ arc_address_cost (rtx addr, bool speed)
 	  {
 	  case CONST_INT :
 	    return (TARGET_A4
-		    ? (SMALL_INT (plus1) ? 1 : 2)
+		    ? (SMALL_INT (INTVAL (plus1)) ? 1 : 2)
 		    : !RTX_OK_FOR_OFFSET_P (SImode, plus1)
 		    ? COSTS_N_INSNS (1)
 		    : speed
@@ -2152,7 +2152,7 @@ arc_expand_prologue (void)
   frame_size_to_allocate -= first_offset;
   /* Allocate the stack frame.  */
   if (frame_size_to_allocate > 0)
-    frame_stack_add (-frame_size_to_allocate);
+    frame_stack_add ((HOST_WIDE_INT) 0 - frame_size_to_allocate);
     
   /* For ARCtangent-A4, save any needed call-saved regs (and call-used
      if this is an interrupt handler).

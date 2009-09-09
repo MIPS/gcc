@@ -64,7 +64,7 @@
   "@internal
    Frame Pointer register @code{r27}")
 
-(define_register_constraint "b" "SP_REG"
+(define_register_constraint "b" "SP_REGS"
   "@internal
    Stack Pointer register @code{r28}")
 
