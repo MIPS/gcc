@@ -1,3 +1,29 @@
+2009-08-26  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/arc.c (arc_expand_prologue): Cast pretend_size to
+	HOST_WIDE_INT before negating.
+	* config/arc/arc.md (umulsi3_highpart): Don't wrap a ZERO_EXTEND
+	around a CONST_INT.
+
+2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	PR regression/41188
+	* loop-invariant.c (move_invariant_reg): Check changes for validity.
+
+2009-08-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/arc.c (arc_conditional_register_usage): Fix
+	regno_reg_class for ilink[12] on ARC700.
+
+2009-07-27  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/arc/arc.h (LARGE_INT): Fix 64-bit behaviour.
+
+2009-07-22  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/tm.texi (TARGET_VALID_OPTION_ATTRIBUTE_P): Change to:
+	(TARGET_OPTION_VALID_ATTRIBUTE_P).
+
 2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/rs6000/rs6000.md (doloop_end): Accept extra operand.

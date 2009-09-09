@@ -2198,7 +2198,7 @@
   if (CONST_INT_P (operands[2]) && INTVAL (operands[2]) < 0)
     operands[2] = simplify_const_unary_operation (ZERO_EXTEND, DImode,
 						  operands[2], SImode);
-  if (!immediate_operand (operands[2], SImode))
+  else if (!immediate_operand (operands[2], SImode))
     operands[2] = gen_rtx_ZERO_EXTEND (DImode, operands[2]);
   emit_insn (gen_umulsi3_highpart_int (target, operands[1], operands[2]));
   if (target != operands[0])

@@ -1109,9 +1109,11 @@ arc_conditional_register_usage (void)
       else if (i < 60)
 	arc_regno_reg_class[i]
 	  = (fixed_regs[i]
-	      ? (TEST_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], i)
-		 ? CHEAP_CORE_REGS : ALL_CORE_REGS)
-	      : WRITABLE_CORE_REGS);
+	     ? (TEST_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], i)
+		? CHEAP_CORE_REGS : ALL_CORE_REGS)
+	     : ((TARGET_ARC700
+		 && TEST_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], i))
+		? CHEAP_CORE_REGS : WRITABLE_CORE_REGS));
       else
         {
           arc_regno_reg_class[i] = NO_REGS;
@@ -2071,7 +2073,7 @@ arc_expand_prologue (void)
        /* Ensure pretend_size is maximum of 8 * word_size */
       gcc_assert (cfun->machine->frame_info.pretend_size <= 32);
 
-      frame_stack_add (-cfun->machine->frame_info.pretend_size);
+      frame_stack_add (-(HOST_WIDE_INT)cfun->machine->frame_info.pretend_size);
       frame_size_to_allocate -= cfun->machine->frame_info.pretend_size;
     }
     
