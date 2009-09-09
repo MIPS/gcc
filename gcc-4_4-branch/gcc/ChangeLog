@@ -1,3 +1,37 @@
+2009-09-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* toplev.c (process_options): Choose default debugging type when
+	gtoggle enables debug info and type is unset.
+
+2009-09-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41276
+	PR debug/41307
+	* cselib.c (cselib_expand_value_rtx_1): Don't return copy of
+	invalid subreg.
+
+2009-09-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41229
+	PR debug/41291
+	PR debug/41300
+	* tree-ssa.c (execute_update_addresses_taken): Update debug insns.
+
+2009-09-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-ssa-loop-ivopts.c (get_phi_with_result): Remove.
+	(remove_statement): Likewise.
+	(rewrite_use_nonlinear_expr): Adjust.
+	(remove_unused_ivs): Collect SSA NAMEs to remove and call...
+	* tree-ssa.c (release_defs_bitset): ... this.  New.
+	* tree-flow.h (release_defs_bitset): Declare.
+
+2009-09-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41232
+	* tree-ssa-phiopt.c (minmax_replacement): Skip debug stmts
+	in the middle block.
+
 2009-09-05  Richard Guenther  <rguenther@suse.de>
 
 	PR debug/41273
