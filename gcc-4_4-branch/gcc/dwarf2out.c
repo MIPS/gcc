@@ -10750,7 +10750,11 @@ tls_mem_loc_descriptor (rtx mem)
   if (MEM_EXPR (mem) == NULL_TREE || MEM_OFFSET (mem) == NULL_RTX)
     return NULL;
 
-  base = get_base_address (MEM_EXPR (mem));
+  base = MEM_EXPR (mem);
+  /* Can't use get_base_address here, as MEM_EXPR might contain NULL
+     inside.  */
+  while (base && handled_component_p (base))
+    base = TREE_OPERAND (base, 0);
   if (base == NULL
       || TREE_CODE (base) != VAR_DECL
       || !DECL_THREAD_LOCAL_P (base))

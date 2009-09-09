@@ -1,3 +1,9 @@
+2009-09-09  Alexandre Oliva  <aoliva@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (tls_mem_loc_descriptor): Don't call get_base_address,
+	as MEM_EXPR can contain NULL base.
+
 2009-09-08  Alexandre Oliva  <aoliva@redhat.com>
 
 	* toplev.c (process_options): Choose default debugging type when
