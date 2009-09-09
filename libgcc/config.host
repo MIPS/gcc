@@ -190,6 +190,8 @@ alpha*-dec-*vms*)
 	;;
 arc-*-elf*)
 	;;
+arc*-linux-uclibc*)
+	;;
 arm-*-coff* | armel-*-coff*)
 	;;
 arm-semi-aof | armel-semi-aof)
