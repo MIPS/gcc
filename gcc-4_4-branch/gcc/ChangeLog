@@ -1,3 +1,49 @@
+2009-09-09  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/41315
+	* config/i386.c (ix86_can_use_return_insn_p): Check for
+	padding0, too.
+	(ix86_expand_prologue): Take frame.padding0 into logic of
+	to_allocate checks.
+	(ix86_expand_epilogue): Likewise.
+
+2009-09-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-08-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/40861
+	* simplify-rtx.c (simplify_subreg): Do not call simplify_gen_subreg to
+	extract word from a multi-word subreg for negative byte positions.
+
+2009-09-04  Wolfgang Gellerich  <gellerich@de.ibm.com>
+
+	* config/s390/2097.md: Removed two incorrect bypasses.
+	(z10_fsimpdf): Fixed latency.
+	(z10_fhex): New insn_reservation.
+	(z10_floaddf): Fixed latency.
+	(z10_floadsf): Fixed latency.
+	(z10_ftrunctf): Fixed latency.
+	(z10_ftruncdf): Fixed latency.
+	* config/s390/s390.c (z10_cost): Fixed values.
+	(s390_adjust_priority): Added z10 path.
+	* config/s390/s390.md (type): Added fhex.
+	(*mov<mode>_64dfp): Updated type attribute.
+	(*mov<mode>_64): Updated type attribute.
+	(*mov<mode>_31): Updated type attribute.
+	(*mov<mode>"): Likewise.
+	* config/s390/2084.md (x_fsimpdf): Updated condition.
+
+2009-08-31  Chris Demetriou  <cgd@google.com>
+
+	* config/i386/i386.c (ix86_vectorize_builtin_conversion): Never
+	vectorize if not TARGET_SSE2.
+
+2009-08-31  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Final install): Adjust reference on where to
+	order printed manuals.
+
 2009-08-29  Kai Tietz<kai.tietz@onevision.com>
 
 	PR/41184
