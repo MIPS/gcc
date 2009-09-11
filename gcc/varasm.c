@@ -2325,11 +2325,11 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
 	 for declarations that can be weak, it happens to be
 	 match.  */
       && !TREE_STATIC (decl)
-      && tree_find_value (weak_decls, decl) == NULL_TREE)
-      weak_decls = tree_cons (NULL, decl, weak_decls);
+      && value_member (decl, weak_decls) == NULL_TREE)
+    weak_decls = tree_cons (NULL, decl, weak_decls);
 
 #ifdef ASM_OUTPUT_EXTERNAL
-  if (tree_find_value (pending_assemble_externals, decl) == NULL_TREE)
+  if (value_member (decl, pending_assemble_externals) == NULL_TREE)
     pending_assemble_externals = tree_cons (NULL, decl,
 					    pending_assemble_externals);
 #endif
@@ -5392,13 +5392,7 @@ find_decl_and_mark_needed (tree decl, tree target)
 
   if (fnode)
     {
-      /* We can't mark function nodes as used after cgraph global info
-	 is finished.  This wouldn't generally be necessary, but C++
-	 virtual table thunks are introduced late in the game and
-	 might seem like they need marking, although in fact they
-	 don't.  */
-      if (! cgraph_global_info_ready)
-	cgraph_mark_needed_node (fnode);
+      cgraph_mark_needed_node (fnode);
       return fnode->decl;
     }
   else if (vnode)
@@ -5568,7 +5562,7 @@ finish_aliases_1 (void)
  		  to bind locally.  Of course this is a hack - to keep it
  		  working do the following (which is not strictly correct).  */
  	       && (! TREE_CODE (target_decl) == FUNCTION_DECL
- 		   || ! TREE_STATIC (target_decl))
+ 		   || ! DECL_VIRTUAL_P (target_decl))
 	       && ! lookup_attribute ("weakref", DECL_ATTRIBUTES (p->decl)))
 	error ("%q+D aliased to external symbol %qE",
 	       p->decl, p->target);

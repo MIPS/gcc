@@ -1018,15 +1018,49 @@ cgraph_analyze_functions (void)
   ggc_collect ();
 }
 
+
+/* Emit thunks for every node in the cgraph.
+   FIXME: We really ought to emit thunks only for functions that are needed.  */
+
+static void
+cgraph_emit_thunks (void)
+{
+  struct cgraph_node *n;
+
+  for (n = cgraph_nodes; n; n = n->next)
+    {
+      /* Only emit thunks on functions defined in this TU.
+	 Note that this may emit more thunks than strictly necessary.
+	 During optimization some nodes may disappear.  It would be
+	 nice to only emit thunks only for the functions that will be
+	 emitted, but we cannot know that until the inliner and other
+	 IPA passes have run (see the sequencing of the call to
+	 cgraph_mark_functions_to_output in cgraph_optimize).  */
+      if (n->reachable
+	  && !DECL_EXTERNAL (n->decl))
+	lang_hooks.callgraph.emit_associated_thunks (n->decl);
+    }
+}
+
+
 /* Analyze the whole compilation unit once it is parsed completely.  */
 
 void
 cgraph_finalize_compilation_unit (void)
 {
+  timevar_push (TV_CGRAPH);
+
   /* Do not skip analyzing the functions if there were errors, we
      miss diagnostics for following functions otherwise.  */
 
+  /* Emit size functions we didn't inline.  */
   finalize_size_functions ();
+
+  /* Call functions declared with the "constructor" or "destructor"
+     attribute.  */
+  cgraph_build_cdtor_fns ();
+
+  /* Mark alias targets necessary and emit diagnostics.  */
   finish_aliases_1 ();
 
   if (!quiet_flag)
@@ -1035,11 +1069,24 @@ cgraph_finalize_compilation_unit (void)
       fflush (stderr);
     }
 
-  timevar_push (TV_CGRAPH);
+  /* Gimplify and lower all functions, compute reachability and
+     remove unreachable nodes.  */
   cgraph_analyze_functions ();
-  timevar_pop (TV_CGRAPH);
 
+  /* Emit thunks for reachable nodes, if needed.  */
+  if (lang_hooks.callgraph.emit_associated_thunks)
+    cgraph_emit_thunks ();
+
+  /* Mark alias targets necessary and emit diagnostics.  */
+  finish_aliases_1 ();
+
+  /* Gimplify and lower thunks.  */
+  cgraph_analyze_functions ();
+
+  /* Finally drive the pass manager.  */
   cgraph_optimize ();
+
+  timevar_pop (TV_CGRAPH);
 }
 
 
@@ -1342,29 +1389,6 @@ ipa_passes (void)
 }
 
 
-/* Emit thunks for every node in the cgraph.
-   FIXME: We really ought to emit thunks only for functions that are needed.  */
-
-static void
-cgraph_emit_thunks (void)
-{
-  struct cgraph_node *n;
-
-  for (n = cgraph_nodes; n; n = n->next)
-    {
-      /* Only emit thunks on functions defined in this TU.
-	 Note that this may emit more thunks than strictly necessary.
-	 During optimization some nodes may disappear.  It would be
-	 nice to only emit thunks only for the functions that will be
-	 emitted, but we cannot know that until the inliner and other
-	 IPA passes have run (see the sequencing of the call to
-	 cgraph_mark_functions_to_output in cgraph_optimize).  */
-      if (!DECL_EXTERNAL (n->decl))
-	lang_hooks.callgraph.emit_associated_thunks (n->decl);
-    }
-}
-
-
 /* Perform simple optimizations based on callgraph.  */
 
 void
@@ -1377,22 +1401,9 @@ cgraph_optimize (void)
   verify_cgraph ();
 #endif
 
-  /* Emit thunks, if needed.  */
-  if (lang_hooks.callgraph.emit_associated_thunks)
-    {
-      cgraph_emit_thunks ();
-      if (errorcount || sorrycount)
-	return;
-    }
-
-  /* Call functions declared with the "constructor" or "destructor"
-     attribute.  */
-  cgraph_build_cdtor_fns ();
-
   /* Frontend may output common variables after the unit has been finalized.
      It is safe to deal with them here as they are always zero initialized.  */
   varpool_analyze_pending_decls ();
-  cgraph_analyze_functions ();
 
   timevar_push (TV_CGRAPHOPT);
   if (pre_ipa_mem_report)

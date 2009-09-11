@@ -243,11 +243,9 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
     bitmap_set_bit (written_decls, DECL_UID (node->decl));
 
   lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
+  lto_output_sleb128_stream (ob->main_stream, node->count);
 
   bp = bitpack_create ();
-  bp_pack_value (bp, node->lowered, 1);
-  bp_pack_value (bp, node->analyzed, 1);
-  bp_pack_value (bp, node->needed, 1);
   bp_pack_value (bp, local, 1);
   bp_pack_value (bp, externally_visible, 1);
   bp_pack_value (bp, node->local.finalized, 1);
@@ -256,6 +254,15 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (bp, node->local.redefined_extern_inline, 1);
   bp_pack_value (bp, node->local.for_functions_valid, 1);
   bp_pack_value (bp, node->local.vtable_method, 1);
+  bp_pack_value (bp, node->needed, 1);
+  bp_pack_value (bp, node->address_taken, 1);
+  bp_pack_value (bp, node->abstract_and_needed, 1);
+  bp_pack_value (bp, node->reachable, 1);
+  bp_pack_value (bp, node->lowered, 1);
+  bp_pack_value (bp, node->analyzed, 1);
+  bp_pack_value (bp, node->process, 1);
+  bp_pack_value (bp, node->alias, 1);
+  bp_pack_value (bp, node->finalized_by_frontend, 1);
   lto_output_bitpack (ob->main_stream, bp);
   bitpack_delete (bp);
 
@@ -374,7 +381,8 @@ output_cgraph (cgraph_node_set set)
    STACK_SIZE, SELF_TIME and SELF_SIZE.  This is called either to initialize
    NODE or to replace the values in it, for instance because the first
    time we saw it, the function body was not available but now it
-   is.  */
+   is.  BP is a bitpack with all the bitflags for NODE read from the
+   stream.  */
 
 static void
 input_overwrite_node (struct lto_file_decl_data *file_data,
@@ -397,9 +405,6 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->global.size = self_size;
   node->local.lto_file_data = file_data;
 
-  node->lowered = bp_unpack_value (bp, 1);
-  node->analyzed = bp_unpack_value (bp, 1);
-  node->needed = bp_unpack_value (bp, 1);
   node->local.local = bp_unpack_value (bp, 1);
   node->local.externally_visible = bp_unpack_value (bp, 1);
   node->local.finalized = bp_unpack_value (bp, 1);
@@ -408,6 +413,15 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->local.redefined_extern_inline = bp_unpack_value (bp, 1);
   node->local.for_functions_valid = bp_unpack_value (bp, 1);
   node->local.vtable_method = bp_unpack_value (bp, 1);
+  node->needed = bp_unpack_value (bp, 1);
+  node->address_taken = bp_unpack_value (bp, 1);
+  node->abstract_and_needed = bp_unpack_value (bp, 1);
+  node->reachable = bp_unpack_value (bp, 1);
+  node->lowered = bp_unpack_value (bp, 1);
+  node->analyzed = bp_unpack_value (bp, 1);
+  node->process = bp_unpack_value (bp, 1);
+  node->alias = bp_unpack_value (bp, 1);
+  node->finalized_by_frontend = bp_unpack_value (bp, 1);
 }
 
 
@@ -443,10 +457,13 @@ input_node (struct lto_file_decl_data *file_data,
   fn_decl = lto_file_decl_data_get_fn_decl (file_data, decl_index);
 
   if (clone_p)
-    node = cgraph_clone_input_node (cgraph_node (fn_decl));
+    node = cgraph_clone_node (cgraph_node (fn_decl), 0,
+			      CGRAPH_FREQ_BASE, 0, false);
+
   else
     node = cgraph_node (fn_decl);
 
+  node->count = lto_input_sleb128 (ib);
   bp = lto_input_bitpack (ib);
   
   if (tag != LTO_cgraph_unavail_node)

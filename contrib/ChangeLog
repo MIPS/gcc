@@ -1,9 +1,6 @@
-2009-09-03  Alexandre Oliva  <aoliva@redhat.com>
+2009-09-04  Alexandre Oliva  <aoliva@redhat.com>
 
-	* bootstrap-debug-big.mk (STAGE2_CFLAGS): Drop -gtoggle.
-	* bootstrap-debug-lean.mk: Update comments.
-	(STAGE2_CFLAGS): Likewise.
-	(do-compare): Don't override.
+	* compare-debug: Grep for blank before dash to avoid grep -e.
 
 2009-09-01  Alexandre Oliva  <aoliva@redhat.com>
 

@@ -255,8 +255,7 @@ struct GTY((chain_next ("RTX_NEXT (&%h)"),
        ECF_LOOPING_CONST_OR_PURE and DECL_LOOPING_CONST_OR_PURE_P. */
   unsigned int call : 1;
   /* 1 in a REG, MEM, or CONCAT if the value is set at most once, anywhere.
-     1 in a SUBREG if it references an unsigned object whose mode has been
-     from a promoted to a wider mode.
+     1 in a SUBREG used for SUBREG_PROMOTED_UNSIGNED_P.
      1 in a SYMBOL_REF if it addresses something in the per-function
      constants pool.
      1 in a CALL_INSN logically equivalent to ECF_CONST and TREE_READONLY. 
@@ -268,10 +267,12 @@ struct GTY((chain_next ("RTX_NEXT (&%h)"),
      if it has been deleted.
      1 in a REG expression if corresponds to a variable declared by the user,
      0 for an internally generated temporary.
-     1 in a SUBREG with a negative value.
+     1 in a SUBREG used for SUBREG_PROMOTED_UNSIGNED_P.
      1 in a LABEL_REF, REG_LABEL_TARGET or REG_LABEL_OPERAND note for a
      non-local label.
-     In a SYMBOL_REF, this flag is used for machine-specific purposes.  */
+     In a SYMBOL_REF, this flag is used for machine-specific purposes.
+     In a PREFETCH, this flag indicates that it should be considered a scheduling
+     barrier.  */
   unsigned int volatil : 1;
   /* 1 in a MEM referring to a field of an aggregate.
      0 if the MEM was a variable or the result of a * operator in C;
@@ -1159,6 +1160,15 @@ do {									\
     _rtx->unchanging = (VAL);						\
   }									\
 } while (0)
+
+/* Valid for subregs which are SUBREG_PROMOTED_VAR_P().  In that case
+   this gives the necessary extensions:
+   0  - signed
+   1  - normal unsigned
+   -1 - pointer unsigned, which most often can be handled like unsigned
+        extension, except for generating instructions where we need to
+	emit special code (ptr_extend insns) on some architectures.  */
+
 #define SUBREG_PROMOTED_UNSIGNED_P(RTX)	\
   ((RTL_FLAG_CHECK1("SUBREG_PROMOTED_UNSIGNED_P", (RTX), SUBREG)->volatil) \
    ? -1 : (int) (RTX)->unchanging)
@@ -1422,6 +1432,10 @@ do {						\
    RTX has not yet been assigned to a block, or it has not been given an
    offset within that block.  */
 #define SYMBOL_REF_BLOCK_OFFSET(RTX) (BLOCK_SYMBOL_CHECK (RTX)->offset)
+
+/* True if RTX is flagged to be a scheduling barrier.  */
+#define PREFETCH_SCHEDULE_BARRIER_P(RTX)					\
+  (RTL_FLAG_CHECK1("PREFETCH_SCHEDULE_BARRIER_P", (RTX), PREFETCH)->volatil)
 
 /* Indicate whether the machine has any sort of auto increment addressing.
    If not, we can avoid checking for REG_INC notes.  */

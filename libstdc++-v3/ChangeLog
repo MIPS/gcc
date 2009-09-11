@@ -1,3 +1,39 @@
+2009-09-09  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/30_threads/thread/native_handle/typesizes.cc: Remove
+	*-*-freebsd* from both dg-do and dg-options.
+
+2009-09-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure: Rebuilt with modified libtool.m4.
+
+2009-09-07  H.J. Lu  <hongjiu.lu@intel.com>
+            Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR libstdc++/41280
+	* configure.ac: Run "${multi_basedir}/config-ml.in" to generate
+	MULTISUBDIR = in subdirectory Makefiles, with ml_norecursion set.
+	* configure: Regenerate.
+
+2009-09-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/41267
+	* include/bits/stl_algobase.h (__copy_move::__copy_m,
+	__copy_move_backward::__copy_move_b): Don't call __builtin_memmove
+	with a null third argument.
+
+2009-09-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Revert.
+	2009-08-06  Benjamin Kosnik  <bkoz@redhat.com>
+	* src/compatibility.cc: Make C++0x safe, add in explicit casts to
+	bool for stream sentry objects.
+	* include/bits/istream.tcc: Same.
+	* include/bits/ostream.tcc: Same.
+	* include/bits/basic_string.tcc: Same.
+	* include/bits/ostream_insert.h: Same.
+	* src/istream.cc: Same.
+
 2009-09-02  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* configure.ac: Replace AC_CONFIG_COMMANDS([default])
@@ -21,7 +57,7 @@
 2009-09-02  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* include/bits/stl_uninitialized.h
-	(__uninitialized_copy::uninitialized_copy): Just call (the now 
+	(__uninitialized_copy::uninitialized_copy): Just call (the now
 	forwarding) _Construct.
 
 2009-09-01  Chris Jefferson  <chris@bubblescope.net>

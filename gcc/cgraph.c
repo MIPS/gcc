@@ -1713,44 +1713,6 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
   return new_node;
 }
 
-/* Create node representing clone of N during when reading the call-graph
-   from an LTO stream.  This is simpler than cgraph_clone_node.  Additional
-   information in the cloned node will be filled in later. */
-
-struct cgraph_node *
-cgraph_clone_input_node (struct cgraph_node *n)
-{
-  struct cgraph_node *new_node = cgraph_create_node ();
-
-  new_node->decl = n->decl;
-  new_node->origin = n->origin;
-  if (new_node->origin)
-    {
-      new_node->next_nested = new_node->origin->nested;
-      new_node->origin->nested = new_node;
-    }
-  new_node->analyzed = n->analyzed;
-  new_node->local = n->local;
-  new_node->global = n->global;
-  new_node->rtl = n->rtl;
-
-  new_node->next_sibling_clone = n->clones;
-  if (n->clones)
-    n->clones->prev_sibling_clone = new_node;
-  n->clones = new_node;
-  new_node->clone_of = n;
-
-  return new_node;
-}
-
-/* Return true if N is a cloned node.  */
-
-bool
-cgraph_is_clone_node (struct cgraph_node *n)
-{
-  return n->clone_of != NULL;
-}
-
 /* Create a new name for omp child function.  Returns an identifier.  */
 
 static GTY(()) unsigned int clone_fn_id_num;

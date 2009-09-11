@@ -427,7 +427,7 @@ or with constant text in a single argument.
  %b     substitute the basename of the input file being processed.
 	This is the substring up to (and not including) the last period
 	and not including the directory unless -save-temps was specified
-	to put temporaries in a different location.	
+	to put temporaries in a different location.
  %B	same as %b, but include the file suffix (text after the last period).
  %gSUFFIX
 	substitute a file name that has suffix SUFFIX and is chosen
@@ -564,7 +564,7 @@ or with constant text in a single argument.
  %{!.S:X} substitutes X, if NOT processing a file with suffix S.
  %{,S:X}  substitutes X, if processing a file which will use spec S.
  %{!,S:X} substitutes X, if NOT processing a file which will use spec S.
-	  
+
  %{S|T:X} substitutes X if either -S or -T was given to GCC.  This may be
 	  combined with '!', '.', ',', and '*' as above binding stronger
 	  than the OR.
@@ -3468,7 +3468,7 @@ add_linker_option (const char *option, int len)
   if (! linker_options)
     linker_options = XNEWVEC (char *, n_linker_options);
   else
-    linker_options = XRESIZEVEC (char *, linker_options, n_linker_options);  
+    linker_options = XRESIZEVEC (char *, linker_options, n_linker_options);
 
   linker_options [n_linker_options - 1] = save_string (option, len);
 }
@@ -4710,6 +4710,13 @@ static int this_is_output_file;
    search dirs for it.  */
 static int this_is_library_file;
 
+/* Nonzero means %T has been seen; the next arg to be terminated
+   is the name of a linker script and we should try all of the
+   standard search dirs for it.  If it is found insert a --script
+   command line switch and then substitute the full path in place,
+   otherwise generate an error message.  */
+static int this_is_linker_script;
+
 /* Nonzero means that the input of this command is coming from a pipe.  */
 static int input_from_pipe;
 
@@ -4730,6 +4737,19 @@ end_going_arg (void)
       string = XOBFINISH (&obstack, const char *);
       if (this_is_library_file)
 	string = find_file (string);
+      if (this_is_linker_script)
+	{
+	  char * full_script_path = find_a_file (&startfile_prefixes, string, R_OK, true);
+
+	  if (full_script_path == NULL)
+	    {
+	      error (_("unable to locate default linker script '%s' in the library search paths"), string);
+	      /* Script was not found on search path.  */
+	      return;
+	    }
+	  store_arg ("--script", false, false);
+	  string = full_script_path;
+	}
       store_arg (string, delete_this_arg, this_is_output_file);
       if (this_is_output_file)
 	outfiles[input_file_number] = string;
@@ -4819,6 +4839,7 @@ do_spec_2 (const char *spec)
   delete_this_arg = 0;
   this_is_output_file = 0;
   this_is_library_file = 0;
+  this_is_linker_script = 0;
   input_from_pipe = 0;
   suffix_subst = NULL;
 
@@ -5106,6 +5127,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	delete_this_arg = 0;
 	this_is_output_file = 0;
 	this_is_library_file = 0;
+	this_is_linker_script = 0;
 	input_from_pipe = 0;
 	break;
 
@@ -5125,6 +5147,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	delete_this_arg = 0;
 	this_is_output_file = 0;
 	this_is_library_file = 0;
+	this_is_linker_script = 0;
 	break;
 
       case '%':
@@ -5572,6 +5595,10 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    this_is_library_file = 1;
 	    break;
 
+	  case 'T':
+	    this_is_linker_script = 1;
+	    break;
+
 	  case 'V':
 	    outfiles[input_file_number] = NULL;
 	    break;
@@ -5946,6 +5973,7 @@ eval_spec_function (const char *func, const char *args)
   int save_this_is_output_file;
   int save_this_is_library_file;
   int save_input_from_pipe;
+  int save_this_is_linker_script;
   const char *save_suffix_subst;
 
 
@@ -5962,6 +5990,7 @@ eval_spec_function (const char *func, const char *args)
   save_delete_this_arg = delete_this_arg;
   save_this_is_output_file = this_is_output_file;
   save_this_is_library_file = this_is_library_file;
+  save_this_is_linker_script = this_is_linker_script;
   save_input_from_pipe = input_from_pipe;
   save_suffix_subst = suffix_subst;
 
@@ -5987,6 +6016,7 @@ eval_spec_function (const char *func, const char *args)
   delete_this_arg = save_delete_this_arg;
   this_is_output_file = save_this_is_output_file;
   this_is_library_file = save_this_is_library_file;
+  this_is_linker_script = save_this_is_linker_script;
   input_from_pipe = save_input_from_pipe;
   suffix_subst = save_suffix_subst;
 
@@ -6231,7 +6261,7 @@ handle_braces (const char *p)
 	    {
 	      if ((a_is_suffix || a_is_spectype) && a_is_starred)
 		goto invalid;
-	      
+
 	      if (!a_is_starred)
 		disj_starred = false;
 
@@ -6245,7 +6275,7 @@ handle_braces (const char *p)
 		    a_matched = input_spec_matches (atom, end_atom);
 		  else
 		    a_matched = switch_matches (atom, end_atom, a_is_starred);
-		  
+
 		  if (a_matched != a_is_negated)
 		    {
 		      disj_matched = true;

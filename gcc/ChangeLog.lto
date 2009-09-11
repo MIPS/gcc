@@ -1,3 +1,26 @@
+2009-09-11  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @151592.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-09-11  Diego Novillo  <dnovillo@google.com>
+
+	* cgraph.c (cgraph_clone_input_node): Remove.  Update all users to
+	call cgraph_clone_node instead.
+	(cgraph_is_clone_node): Remove unused function.
+	* ipa.c (cgraph_remove_unreachable_nodes): Do not set
+	disregard_inline_limits to false.
+	(gate_ipa_fun_and_var_visibility): Remove.  Update
+	pass_ipa_function_and_variable_visibility.
+	* lto-cgraph.c (lto_output_node): Output field count.
+	Reorganize packing of node bitflags to follow the same
+	order that they're declared.
+	Add fields address_taken, abstract_and_needed, reachable,
+	process, alias and finalized_by_frontend.
+	(input_overwrite_node): Corresponding changes.
+
 2009-09-08  Richard Guenther  <rguenther@suse.de>
 
 	* tree.c (free_lang_data_in_type): Restore not freeing the main variant

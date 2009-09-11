@@ -216,7 +216,6 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		      node->analyzed = false;
 		      node->local.inlinable = false;
 		    }
-		  node->local.disregard_inline_limits = false;
 		}
 	      else
 		cgraph_remove_node (node);
@@ -315,18 +314,12 @@ function_and_variable_visibility (void)
   return 0;
 }
 
-static bool
-gate_ipa_fun_and_var_visibility (void)
-{
-  return true;
-}
-
 struct simple_ipa_opt_pass pass_ipa_function_and_variable_visibility = 
 {
  {
   SIMPLE_IPA_PASS,
   "visibility",				/* name */
-  gate_ipa_fun_and_var_visibility,	/* gate */
+  NULL,					/* gate */
   function_and_variable_visibility,	/* execute */
   NULL,					/* sub */
   NULL,					/* next */
