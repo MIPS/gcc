@@ -1,13 +1,6 @@
-2009-04-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2009-08-04  Release Manager
 
-	* libiberty.h (XALLOCA): Backport from 4.5 development tree.
-	(XDUP): Ditto.
-	(XALLOCAVEC): Ditto.
-	(XDUPVEC): Ditto.
-	(XALLOCVAR): Ditto.
-	(XDUPVAR): Ditto.
-	(XOBNEWVEC): Ditto.
-	(XOBNEWVAR): Ditto.
+	* GCC 4.3.4 released.
 
 2009-01-24  Release Manager
 

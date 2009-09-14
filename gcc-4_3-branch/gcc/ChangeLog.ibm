@@ -1,3 +1,7 @@
+2009-08-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to gcc-4_3-branch, id 151096.
+
 2009-09-08  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline:

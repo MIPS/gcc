@@ -173,9 +173,11 @@
 (define_mode_attr VI_char [(V4SI "w") (V8HI "h") (V16QI "b")])
 
 ;; Vector move instructions.
+;; Use 'Q' for gpr moves to force the address to a single register, from which we can do the
+;; split and create offsetable addresses for each word
 (define_insn "*altivec_mov<mode>"
-  [(set (match_operand:VM2 0 "nonimmediate_operand" "=Z,v,v,*o,*r,*r,v,v")
-	(match_operand:VM2 1 "input_operand" "v,Z,v,r,o,r,j,W"))]
+  [(set (match_operand:VM2 0 "nonimmediate_operand" "=Z,v,v,*Q,*r,*r,v,v")
+	(match_operand:VM2 1 "input_operand" "v,Z,v,r,Q,r,j,W"))]
   "VECTOR_MEM_ALTIVEC_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
