@@ -6371,7 +6371,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	      rtx other = XEXP (XEXP (operands[1], 0), 1);
 
 	      sym = force_reg (mode, sym);
-	      rs6000_emit_add (operands[0], sym, other);
+	      emit_insn (gen_add3_insn (operands[0], sym, other));
 	      return;
 	    }
 
@@ -6420,24 +6420,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
  emit_set:
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
 }
-
-/* Issue the appropriate add insn, based on the type, eliminating tests for
-   TARGET_32BIT or TARGET_64BIT at the point of the call.  We can't just do
-   emit_insn (gen_rtx_PLUS (Pmode, ...)) since we need to add clobber's.  */
-
-void
-rs6000_emit_add (rtx op0, rtx op1, rtx op2)
-{
-  if (GET_MODE (op0) == SImode)
-    emit_insn (gen_addsi3 (op0, op1, op2));
-
-  else if (GET_MODE (op0) == DImode)
-    emit_insn (gen_adddi3 (op0, op1, op2));
-
-  else
-    gcc_unreachable ();
-}
-
 
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE,TYPE)		\
@@ -16350,7 +16332,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      delta_rtx = (GET_CODE (XEXP (src, 0)) == PRE_INC
 			   ? GEN_INT (GET_MODE_SIZE (GET_MODE (src)))
 			   : GEN_INT (-GET_MODE_SIZE (GET_MODE (src))));
-	      rs6000_emit_add (breg, breg, delta_rtx);
+	      emit_insn (gen_add3_insn (breg, breg, delta_rtx));
 	      src = replace_equiv_address (src, breg);
 	    }
 	  else if (! rs6000_offsettable_memref_p (src))
@@ -16400,7 +16382,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		  used_update = true;
 		}
 	      else
-		rs6000_emit_add (breg, breg, delta_rtx);
+		emit_insn (gen_add3_insn (breg, breg, delta_rtx));
 	      dst = replace_equiv_address (dst, breg);
 	    }
 	  else
@@ -17598,7 +17580,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12, int copy_r11)
 	  && REGNO (stack_limit_rtx) > 1
 	  && REGNO (stack_limit_rtx) <= 31)
 	{
-	  rs6000_emit_add (tmp_reg, stack_limit_rtx, GEN_INT (size));
+	  emit_insn (gen_add3_insn (tmp_reg, stack_limit_rtx, GEN_INT (size)));
 	  emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
 				    const0_rtx));
 	}
@@ -18517,7 +18499,7 @@ rs6000_emit_prologue (void)
           rtx ptr_reg = (sp_reg_rtx == frame_reg_rtx
                          ? sp_reg_rtx : r11);
 
-	  rs6000_emit_add (r11, ptr_reg, offset);
+	  emit_insn (gen_add3_insn (r11, ptr_reg, offset));
         }
 
       par = rs6000_make_savres_rtx (info, frame_reg_rtx,
@@ -19863,12 +19845,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   /* Apply the constant offset, if required.  */
   if (delta)
-    {
-      rtx delta_rtx = GEN_INT (delta);
-      emit_insn (TARGET_32BIT
-		 ? gen_addsi3 (this_rtx, this_rtx, delta_rtx)
-		 : gen_adddi3 (this_rtx, this_rtx, delta_rtx));
-    }
+    emit_insn (gen_add3_insn (this_rtx, this_rtx, GEN_INT (delta)));
 
   /* Apply the offset from the vtable, if required.  */
   if (vcall_offset)
@@ -19879,9 +19856,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       emit_move_insn (tmp, gen_rtx_MEM (Pmode, this_rtx));
       if (((unsigned HOST_WIDE_INT) vcall_offset) + 0x8000 >= 0x10000)
 	{
-	  emit_insn (TARGET_32BIT
-		     ? gen_addsi3 (tmp, tmp, vcall_offset_rtx)
-		     : gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+	  emit_insn (gen_add3_insn (tmp, tmp, vcall_offset_rtx));
 	  emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
 	}
       else
@@ -19890,9 +19865,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
 	  emit_move_insn (tmp, gen_rtx_MEM (Pmode, loc));
 	}
-      emit_insn (TARGET_32BIT
-		 ? gen_addsi3 (this_rtx, this_rtx, tmp)
-		 : gen_adddi3 (this_rtx, this_rtx, tmp));
+      emit_insn (gen_add3_insn (this_rtx, this_rtx, tmp));
     }
 
   /* Generate a tail call to the target function.  */
@@ -24720,6 +24693,10 @@ rs6000_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI
 	   && ALTIVEC_VECTOR_MODE (mode))
     regno = ALTIVEC_ARG_RETURN;
+  else if (TREE_CODE (valtype) == VECTOR_TYPE
+	   && TARGET_VSX && TARGET_ALTIVEC_ABI
+	   && VSX_VECTOR_MODE (mode))
+    regno = ALTIVEC_ARG_RETURN;
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
 	   && (mode == DFmode || mode == DCmode
 	       || mode == TFmode || mode == TCmode))
@@ -24760,6 +24737,9 @@ rs6000_libcall_value (enum machine_mode mode)
     regno = FP_ARG_RETURN;
   else if (ALTIVEC_VECTOR_MODE (mode)
 	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)
+    regno = ALTIVEC_ARG_RETURN;
+  else if (VSX_VECTOR_MODE (mode)
+	   && TARGET_VSX && TARGET_ALTIVEC_ABI)
     regno = ALTIVEC_ARG_RETURN;
   else if (COMPLEX_MODE_P (mode) && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);

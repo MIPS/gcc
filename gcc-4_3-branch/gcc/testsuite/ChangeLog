@@ -1,3 +1,22 @@
+2009-08-31  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc.dg/builtins-config.h (HAVE_C99_RUNTIME): Do not define
+	for FreeBSD.
+
+2009-08-28  Uros Bizjak <ubizjak@gmail.com>
+
+	* gfortran.dg/default_format_1.f90: Add -mieee for alpha*-*-* targets.
+	* gfortran.dg/boz_12.f90: Ditto.
+
+2009-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-08-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_vect_cmdline_needed): Add alpha to the list
+	of targets that do not need command line argument to enable SIMD.
+
 2009-08-24  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/41094
