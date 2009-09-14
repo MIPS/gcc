@@ -1906,6 +1906,17 @@ purpose_member (const_tree elem, tree list)
   return NULL_TREE;
 }
 
+/* Returns element number IDX (zero-origin) of chain CHAIN, or
+   NULL_TREE.  */
+
+tree
+chain_index (int idx, tree chain)
+{
+  for (; chain && idx > 0; --idx)
+    chain = TREE_CHAIN (chain);
+  return chain;
+}
+
 /* Return nonzero if ELEM is part of the chain CHAIN.  */
 
 int
@@ -10561,5 +10572,20 @@ tree_strip_sign_nop_conversions (tree exp)
   return exp;
 }
 
+static GTY(()) tree gcc_eh_personality_decl;
+
+/* Return the GCC personality function decl.  */
+
+tree
+lhd_gcc_personality (void)
+{
+  if (!gcc_eh_personality_decl)
+    gcc_eh_personality_decl
+      = build_personality_function (USING_SJLJ_EXCEPTIONS
+				    ? "__gcc_personality_sj0"
+				    : "__gcc_personality_v0");
+
+  return gcc_eh_personality_decl;
+}
 
 #include "gt-tree.h"

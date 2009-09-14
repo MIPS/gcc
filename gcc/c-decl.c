@@ -92,9 +92,6 @@ tree pending_invalid_xref;
 /* File and line to appear in the eventual error message.  */
 location_t pending_invalid_xref_location;
 
-/* True means we've initialized exception handling.  */
-bool c_eh_initialized_p;
-
 /* The file and line that the prototype came from if this is an
    old-style definition; used for diagnostics in
    store_parm_decls_oldstyle.  */
@@ -4042,24 +4039,6 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
     }
 
   return tem;
-}
-
-/* Initialize EH if not initialized yet and exceptions are enabled.  */
-
-void
-c_maybe_initialize_eh (void)
-{
-  if (!flag_exceptions || c_eh_initialized_p)
-    return;
-
-  c_eh_initialized_p = true;
-  eh_personality_decl
-    = build_personality_function (USING_SJLJ_EXCEPTIONS
-				  ? "__gcc_personality_sj0"
-				  : "__gcc_personality_v0");
-
-  default_init_unwind_resume_libfunc ();
-  using_eh_for_cleanups ();
 }
 
 /* Finish processing of a declaration;

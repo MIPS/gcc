@@ -92,9 +92,6 @@ gimple (*lang_protect_cleanup_actions) (void);
 /* Return true if type A catches type B.  */
 int (*lang_eh_type_covers) (tree a, tree b);
 
-/* Map a type to a runtime object to match type.  */
-tree (*lang_eh_runtime_type) (tree);
-
 /* A hash table of label to region number.  */
 
 struct GTY(()) ehl_map_entry {
@@ -1696,7 +1693,7 @@ add_type_for_runtime (tree type)
 					    TREE_HASH (type), INSERT);
   if (*slot == NULL)
     {
-      tree runtime = (*lang_eh_runtime_type) (type);
+      tree runtime = lang_hooks.eh_runtime_type (type);
       *slot = tree_cons (type, runtime, NULL_TREE);
     }
 }
@@ -4614,6 +4611,70 @@ htab_t
 get_eh_throw_stmt_table (struct function *fun)
 {
   return fun->eh->throw_stmt_table;
+}
+
+/* Return true if the function deeds a EH personality function.  */
+
+enum eh_personality_kind
+function_needs_eh_personality (struct function *fn)
+{
+  struct eh_region_d *i;
+  int depth = 0;
+  enum eh_personality_kind kind = eh_personality_none;
+
+  i = fn->eh->region_tree;
+  if (!i)
+    return eh_personality_none;
+
+  while (1)
+    {
+      switch (i->type)
+	{
+	case ERT_TRY:
+	case ERT_THROW:
+	  /* Do not need a EH personality function.  */
+	  break;
+
+	case ERT_MUST_NOT_THROW:
+	  /* Always needs a EH personality function.  */
+	  return eh_personality_lang;
+
+	case ERT_CLEANUP:
+	  /* Can do with any personality including the generic C one.  */
+	  kind = eh_personality_any;
+	  break;
+
+	case ERT_CATCH:
+	case ERT_ALLOWED_EXCEPTIONS:
+	  /* Always needs a EH personality function.  The generic C
+	     personality doesn't handle these even for empty type lists.  */
+	  return eh_personality_lang;
+
+	case ERT_UNKNOWN:
+	  return eh_personality_lang;
+	}
+      /* If there are sub-regions, process them.  */
+      if (i->inner)
+	i = i->inner, depth++;
+      /* If there are peers, process them.  */
+      else if (i->next_peer)
+	i = i->next_peer;
+      /* Otherwise, step back up the tree to the next peer.  */
+      else
+	{
+	  do
+	    {
+	      i = i->outer;
+	      depth--;
+	      if (i == NULL)
+		return kind;
+	    }
+	  while (i->next_peer == NULL);
+	  i = i->next_peer;
+	}
+    }
+
+  return kind;
 }
 
 /* Dump EH information to OUT.  */

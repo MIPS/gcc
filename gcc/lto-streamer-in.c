@@ -576,17 +576,6 @@ fixup_eh_region_pointers (struct function *fn, HOST_WIDE_INT root_region)
 }
 
 
-/* Return the runtime type for type T.  For LTO, we assume that each
-   front end has generated the appropriate runtime types (see
-   output_eh_region), so there is nothing for us to do here.  */
-
-static tree
-lto_eh_runtime_type (tree t)
-{
-  return t;
-}
-
-
 /* Initialize EH support.  */
 
 static void
@@ -609,7 +598,6 @@ lto_init_eh (void)
 #endif
 
   default_init_unwind_resume_libfunc ();
-  lang_eh_runtime_type = lto_eh_runtime_type;
 }
 
 

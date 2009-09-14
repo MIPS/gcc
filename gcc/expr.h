@@ -817,28 +817,8 @@ extern rtx set_user_assembler_libfunc (const char *, const char *);
 /* Build a decl for a libfunc named NAME. */
 extern tree build_libfunc_function (const char *);
 
-/* Build a decl for a personality function named NAME. */
-static inline tree
-build_personality_function (const char *name)
-{
-  return build_libfunc_function (name);
-}
-
-/* Extracts the personality function of DECL and returns the corresponding
-   libfunc. */
-
-static inline rtx
-get_personality_function (tree decl)
-{
-  tree personality = DECL_FUNCTION_PERSONALITY (decl);
-  tree name;
-  if (!personality)
-    return NULL;
-
-  name = DECL_ASSEMBLER_NAME (personality);
-
-  return init_one_libfunc (IDENTIFIER_POINTER (name));
-}
+/* Get the personality libfunc for a function decl.  */
+rtx get_personality_function (tree);
 
 extern int vector_mode_valid_p (enum machine_mode);
 

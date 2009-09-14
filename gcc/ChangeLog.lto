@@ -1,3 +1,13 @@
+2009-09-14  Richard Guenther  <rguenther@suse.de>
+
+	Mainline merge @151681.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+	* lto-streamer-in.c (lto_eh_runtime_type): Remove.
+	(lto_init_eh): Do not set lang_eh_runtime_type.
+
 2009-09-11  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @151592.

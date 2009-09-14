@@ -3989,9 +3989,15 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
     dwarf2out_do_cfi_startproc (false);
   else
     {
-      if (!current_unit_personality || current_unit_personality == personality)
+      rtx personality = get_personality_function (current_function_decl);
+      if (!current_unit_personality)
         current_unit_personality = personality;
-      else
+
+      /* We cannot keep a current personality per function as without CFI
+	 asm at the point where we emit the CFI data there is no current
+	 function anymore.  */
+      if (personality
+	  && current_unit_personality != personality)
 	sorry ("Multiple EH personalities are supported only with assemblers "
 	       "supporting .cfi.personality directive.");
     }

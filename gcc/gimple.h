@@ -714,12 +714,12 @@ struct GTY(()) gimple_statement_omp_atomic_store {
   tree val;
 };
 
+#define DEFGSSTRUCT(SYM, STRUCT, HAS_TREE_OP)	SYM,
 enum gimple_statement_structure_enum {
-#define DEFGSSTRUCT(SYM, STRING)	SYM,
 #include "gsstruct.def"
-#undef DEFGSSTRUCT
     LAST_GSS_ENUM
 };
+#undef DEFGSSTRUCT
 
 
 /* Define the overall contents of a gimple tuple.  It may be any of the
@@ -750,6 +750,14 @@ union GTY ((desc ("gimple_statement_structure (&%h)"))) gimple_statement_d {
 };
 
 /* In gimple.c.  */
+
+/* Offset in bytes to the location of the operand vector.
+   Zero if there is no operand vector for this tuple structure.  */
+extern size_t const gimple_ops_offset_[];
+
+/* Map GIMPLE codes to GSS codes.  */
+extern enum gimple_statement_structure_enum const gss_for_code_[];
+
 gimple gimple_build_return (tree);
 
 gimple gimple_build_assign_stat (tree, tree MEM_STAT_DECL);
@@ -801,7 +809,6 @@ gimple gimple_build_cdt (tree, tree);
 gimple gimple_build_omp_atomic_load (tree, tree);
 gimple gimple_build_omp_atomic_store (tree);
 gimple gimple_build_predict (enum br_predictor, enum prediction);
-enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 void sort_case_labels (VEC(tree,heap) *);
 void gimple_set_body (tree, gimple_seq);
@@ -836,7 +843,6 @@ bool gimple_assign_rhs_could_trap_p (gimple);
 void gimple_regimplify_operands (gimple, gimple_stmt_iterator *);
 bool empty_body_p (gimple_seq);
 unsigned get_gimple_rhs_num_ops (enum tree_code);
-size_t gimple_size (enum gimple_code);
 #define gimple_alloc(c, n) gimple_alloc_stat (c, n MEM_STAT_INFO)
 gimple gimple_alloc_stat (enum gimple_code, unsigned MEM_STAT_DECL);
 const char *gimple_decl_printable_name (tree, int);
@@ -1031,6 +1037,25 @@ static inline enum gimple_code
 gimple_code (const_gimple g)
 {
   return g->gsbase.code;
+}
+
+
+/* Return the GSS code used by a GIMPLE code.  */
+
+static inline enum gimple_statement_structure_enum
+gss_for_code (enum gimple_code code)
+{
+  gcc_assert ((unsigned int)code < LAST_AND_UNUSED_GIMPLE_CODE);
+  return gss_for_code_[code];
+}
+
+
+/* Return which GSS code is used by GS.  */
+
+static inline enum gimple_statement_structure_enum
+gimple_statement_structure (gimple gs)
+{
+  return gss_for_code (gimple_code (gs));
 }
 
 
@@ -1568,16 +1593,15 @@ gimple_set_num_ops (gimple gs, unsigned num_ops)
 static inline tree *
 gimple_ops (gimple gs)
 {
-  /* Offset in bytes to the location of the operand vector in every
-     tuple structure.  Defined in gimple.c  */
-  extern size_t const gimple_ops_offset_[];
-
-  if (!gimple_has_ops (gs))
-    return NULL;
+  size_t off;
 
   /* All the tuples have their operand vector at the very bottom
-     of the structure.  */
-  return ((tree *) ((char *) gs + gimple_ops_offset_[gimple_code (gs)]));
+     of the structure.  Note that those structures that do not
+     have an operand vector have a zero offset.  */
+  off = gimple_ops_offset_[gimple_statement_structure (gs)];
+  gcc_assert (off != 0);
+
+  return (tree *) ((char *) gs + off);
 }
 
 
