@@ -1,3 +1,8 @@
+2009-09-14  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.misc-tests/i386-prefetch.exp: Revert to trunk state.
+	* gcc.dg/exceptions.c: Remove.
+
 2009-09-01  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/41199

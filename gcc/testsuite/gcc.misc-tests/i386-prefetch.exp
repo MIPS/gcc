@@ -97,16 +97,16 @@ if { [board_info target exists multilib_flags]
     return
 }
 
-set-torture-options $PREFETCH_NONE {{}} $LTO_TORTURE_OPTIONS
+set-torture-options $PREFETCH_NONE
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/i386-pf-none-*.c]] ""
 
-set-torture-options $PREFETCH_SSE {{}} $LTO_TORTURE_OPTIONS
+set-torture-options $PREFETCH_SSE
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/i386-pf-sse-*.c]] ""
 
-set-torture-options $PREFETCH_3DNOW {{}} $LTO_TORTURE_OPTIONS
+set-torture-options $PREFETCH_3DNOW
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/i386-pf-3dnow-*.c]] ""
 
-set-torture-options $PREFETCH_ATHLON {{}} $LTO_TORTURE_OPTIONS
+set-torture-options $PREFETCH_ATHLON
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/i386-pf-athlon-*.c]] ""
 
 torture-finish
