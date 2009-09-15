@@ -55,6 +55,8 @@ extern int cil_prefix_unaligned (const_cil_stmt);
 extern void cil_set_prefix_unaligned (cil_stmt, int);
 extern bool cil_prefix_volatile (const_cil_stmt);
 extern void cil_set_prefix_volatile (cil_stmt, bool);
+extern bool cil_short_ctor (const_cil_stmt);
+extern void cil_set_short_ctor (cil_stmt, bool);
 extern size_t cil_call_nargs_base (const_cil_stmt);
 extern HOST_WIDE_INT cil_switch_case_low (const_cil_stmt, size_t);
 extern HOST_WIDE_INT cil_switch_case_high (const_cil_stmt, size_t);

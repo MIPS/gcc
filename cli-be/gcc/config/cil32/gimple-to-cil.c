@@ -161,6 +161,32 @@ gen_real_cst (cil_stmt_iterator *csi, tree cst)
   csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 }
 
+
+/* If all elements of a constant vector are equal, return that
+   element. Otherwise return NULL.  */
+
+static tree
+is_vec_uniform (tree vec)
+{
+  tree elt;
+  tree prev_val = NULL;
+
+  for (elt = TREE_VECTOR_CST_ELTS (vec); elt; elt = TREE_CHAIN (vec))
+    {
+      tree elt_val = TREE_VALUE (elt);
+      if (!prev_val)
+        prev_val = elt_val;  /* First value seen, register it. */
+      else
+        {
+          /* Stop at the first value that differs. */
+          if (prev_val != elt_val)
+              return NULL;
+        }
+    }
+  return prev_val;
+}
+
+
 /* Load the value of a vector constant CST on the stack.  The generated
    statements will be appended to the current function CIL code using the CSI
    iterator.  */
@@ -173,6 +199,7 @@ gen_vector_cst (cil_stmt_iterator *csi, tree cst)
   tree elt_type = TREE_TYPE (vector_type);
   tree zero, elt;
   cil_type_t cil_type = scalar_to_cil (elt_type);
+  tree     uniform_val = NULL;
   cil_stmt stmt;
 
   if (cil_float_p (cil_type))
@@ -182,18 +209,28 @@ gen_vector_cst (cil_stmt_iterator *csi, tree cst)
   else /* 64-bit integers */
     zero = build_int_cst (intDI_type_node, 0);
 
-  for (elt = TREE_VECTOR_CST_ELTS (cst); elt; elt = TREE_CHAIN (elt))
+  /* If all elements are equal, use the shorter form of the constructor.  */
+  uniform_val = is_vec_uniform (cst);
+  if (uniform_val)
+    gimple_to_cil_node (csi, uniform_val);
+  else
     {
-      tree elt_val = TREE_VALUE (elt);
-      gimple_to_cil_node (csi, elt_val);
-      ++num_elt;
+      for (elt = TREE_VECTOR_CST_ELTS (cst); elt; elt = TREE_CHAIN (elt))
+        {
+          tree elt_val = TREE_VALUE (elt);
+          gimple_to_cil_node (csi, elt_val);
+          ++num_elt;
+        }
+
+      /* Fill in the missing initializers, if any */
+      for ( ; num_elt < TYPE_VECTOR_SUBPARTS (vector_type); ++num_elt)
+        gimple_to_cil_node (csi, zero);
     }
 
-  /* Fill in the missing initializers, if any */
-  for ( ; num_elt < TYPE_VECTOR_SUBPARTS (vector_type); ++num_elt)
-    gimple_to_cil_node (csi, zero);
-
   stmt = cil_build_stmt_arg (CIL_VEC_CTOR, vector_type);
+  if (uniform_val)
+    cil_set_short_ctor (stmt, 1);
+
   csi_insert_after (csi,  stmt, CSI_CONTINUE_LINKING);
 
   if (cfun)
@@ -3139,6 +3176,31 @@ gen_vector_view_convert_expr (cil_stmt_iterator *csi, tree dest_type, tree node)
   cfun->machine->has_vec = true;
 }
 
+/* If all elements of a constant vector are equal, return that
+   element. Otherwise return NULL.  */
+
+static tree
+is_constructor_uniform (tree ctor)
+{
+  unsigned HOST_WIDE_INT i;
+  tree purpose, elt_val;
+  tree prev_val = NULL;
+  VEC (constructor_elt, gc) *elts = CONSTRUCTOR_ELTS (ctor);
+
+  FOR_EACH_CONSTRUCTOR_ELT (elts, i, purpose, elt_val)
+    {
+      if (!prev_val)
+        prev_val = elt_val;
+      else
+        {
+          if (prev_val != elt_val)
+            return NULL;
+        }
+    }
+  return prev_val;
+}
+
+
 /* Generates the code for a vector CONSTRUCTOR node CTOR.  The generated
    statements are appended to the current function's CIL code using the CSI
    iterator.  */
@@ -3150,12 +3212,21 @@ gen_vector_ctor (cil_stmt_iterator *csi, tree ctor)
   unsigned HOST_WIDE_INT i;
   tree purpose, value;
   tree vector_type = TREE_TYPE (ctor);
+  tree uniform_val = is_constructor_uniform (ctor);
   cil_stmt stmt;
 
-  FOR_EACH_CONSTRUCTOR_ELT (elts, i, purpose, value)
-    gimple_to_cil_node (csi, value);
+  if (uniform_val)
+    gimple_to_cil_node (csi, uniform_val);
+  else
+    {
+      FOR_EACH_CONSTRUCTOR_ELT (elts, i, purpose, value)
+        gimple_to_cil_node (csi, value);
+    }
 
   stmt = cil_build_stmt_arg (CIL_VEC_CTOR, vector_type);
+  if (uniform_val)
+    cil_set_short_ctor (stmt, 1);
+
   csi_insert_after (csi,  stmt, CSI_CONTINUE_LINKING);
 
   if (cfun)

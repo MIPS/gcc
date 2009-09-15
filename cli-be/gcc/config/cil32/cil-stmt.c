@@ -437,6 +437,25 @@ cil_prefix_volatile (const_cil_stmt stmt)
 	  && stmt->prefix_volatile);
 }
 
+/* Sets the short ctor flag to STATUS in the CIL statement pointed by STMT.  */
+
+void
+cil_set_short_ctor (cil_stmt stmt, bool status)
+{
+  gcc_assert (stmt->opcode == CIL_VEC_CTOR);
+  stmt->short_ctor = status ? 1 : 0;
+}
+
+/* Returns the status of the short ctor flag in the CIL statement pointed by
+   STMT.  */
+
+bool
+cil_short_ctor (const_cil_stmt stmt)
+{
+  gcc_assert (stmt->opcode == CIL_VEC_CTOR);
+  return stmt->short_ctor;
+}
+
 /* Returns TRUE if the CIL stsatement STMT represents a conversion, FALSE
    otherwise.  */
 

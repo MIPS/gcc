@@ -155,6 +155,7 @@ struct cil_stmt_d GTY (())
   unsigned prefix_unaligned : 1;
   unsigned alignment : 3;
   unsigned prefix_volatile : 1;
+  unsigned short_ctor : 1;  /* short form of vector ctor */
 
   /* Statement argument if present. Can be a variable, type, field, label or
      function declaration; a list of switch labels, a function type descriptor

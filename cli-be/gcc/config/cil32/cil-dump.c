@@ -204,6 +204,8 @@ dump_cil_stmt (const_cil_stmt stmt, cil_stack stack)
       printf (" volatile");
   if (cil_prefix_unaligned (stmt) != 0)
       printf (" unaligned %d", cil_prefix_unaligned (stmt));
+  if ((opcode == CIL_VEC_CTOR) && cil_short_ctor (stmt))
+    printf (" short ctor");
 
   switch (opcode_arg_type (opcode))
     {

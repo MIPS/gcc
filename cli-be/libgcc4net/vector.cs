@@ -51,6 +51,16 @@ namespace gcc4net {
             return result;
         }
 
+        public static V4QI V4QI_ctor1(byte b)
+        {
+            V4QI result;
+            result.f0 = b;
+            result.f1 = b;
+            result.f2 = b;
+            result.f3 = b;
+            return result;
+        }
+
         public static V4QI V4QI_ctor2(uint f)
         {
             V4QI result;
@@ -134,6 +144,14 @@ namespace gcc4net {
             return result;
         }
 
+        public static V2HI V2HI_ctor1(ushort s)
+        {
+            V2HI result;
+            result.f0 = s;
+            result.f1 = s;
+            return result;
+        }
+
         public static V2HI V2HI_ctor2(uint f)
         {
             V2HI result;
@@ -209,6 +227,20 @@ namespace gcc4net {
             result.f5 = b5;
             result.f6 = b6;
             result.f7 = b7;
+            return result;
+        }
+
+        public static V8QI V8QI_ctor1(byte b)
+        {
+            V8QI result;
+            result.f0 = b;
+            result.f1 = b;
+            result.f2 = b;
+            result.f3 = b;
+            result.f4 = b;
+            result.f5 = b;
+            result.f6 = b;
+            result.f7 = b;
             return result;
         }
 
@@ -326,6 +358,16 @@ namespace gcc4net {
             return result;
         }
 
+        public static V4HI V4HI_ctor1(ushort b)
+        {
+            V4HI result;
+            result.f0 = b;
+            result.f1 = b;
+            result.f2 = b;
+            result.f3 = b;
+            return result;
+        }
+
         public static V4HI V4HI_ctor2(ulong f)
         {
             V4HI result;
@@ -409,6 +451,15 @@ namespace gcc4net {
             result.f1 = b1;
             return result;
         }
+
+        public static V2SI V2SI_ctor1(uint b)
+        {
+            V2SI result;
+            result.f0 = b;
+            result.f1 = b;
+            return result;
+        }
+
         public static V2SI V2SI_ctor2(ulong f)
         {
             V2SI result;
@@ -480,6 +531,16 @@ namespace gcc4net {
             result.f1 = b1;
             result.f2 = b2;
             result.f3 = b3;
+            return result;
+        }
+
+        public static V4SI V4SI_ctor1(uint b)
+        {
+            V4SI result;
+            result.f0 = b;
+            result.f1 = b;
+            result.f2 = b;
+            result.f3 = b;
             return result;
         }
 
@@ -557,6 +618,20 @@ namespace gcc4net {
             result.f5 = b5;
             result.f6 = b6;
             result.f7 = b7;
+            return result;
+        }
+
+        public static V8HI V8HI_ctor1(ushort b)
+        {
+            V8HI result;
+            result.f0 = b;
+            result.f1 = b;
+            result.f2 = b;
+            result.f3 = b;
+            result.f4 = b;
+            result.f5 = b;
+            result.f6 = b;
+            result.f7 = b;
             return result;
         }
 
@@ -657,6 +732,28 @@ namespace gcc4net {
             result.f13 = b13;
             result.f14 = b14;
             result.f15 = b15;
+            return result;
+        }
+
+        public static V16QI V16QI_ctor1(byte b)
+        {
+            V16QI result;
+            result.f0 = b;
+            result.f1 = b;
+            result.f2 = b;
+            result.f3 = b;
+            result.f4 = b;
+            result.f5 = b;
+            result.f6 = b;
+            result.f7 = b;
+            result.f8 = b;
+            result.f9 = b;
+            result.f10 = b;
+            result.f11 = b;
+            result.f12 = b;
+            result.f13 = b;
+            result.f14 = b;
+            result.f15 = b;
             return result;
         }
 
@@ -783,6 +880,14 @@ namespace gcc4net {
             return result;
         }
 
+        public static V2SF V2SF_ctor1(float b)
+        {
+            V2SF result;
+            result.f0 = b;
+            result.f1 = b;
+            return result;
+        }
+
         public unsafe static long V2SF_to_di(V2SF v)
         {
             uint a0 = *(uint*)&v.f0;
@@ -821,6 +926,16 @@ namespace gcc4net {
             return result;
         }
 
+        public static V4SF V4SF_ctor1(float b)
+        {
+            V4SF result;
+            result.f0 = b;
+            result.f1 = b;
+            result.f2 = b;
+            result.f3 = b;
+            return result;
+        }
+
         public static V4SF add(V4SF x, V4SF y)
         {
 	  V4SF result;
@@ -851,6 +966,14 @@ namespace gcc4net {
             V2DF result;
             result.f0 = b0;
             result.f1 = b1;
+            return result;
+        }
+
+        public static V2DF V2DF_ctor1(double b)
+        {
+            V2DF result;
+            result.f0 = b;
+            result.f1 = b;
             return result;
         }
 

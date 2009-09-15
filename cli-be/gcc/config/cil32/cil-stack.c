@@ -358,7 +358,12 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       {
 	tree type = cil_type (stmt);
 	cil_type_t cil_type = vector_to_cil (type);
-	unsigned int num_elts = TYPE_VECTOR_SUBPARTS (type);
+	unsigned int num_elts;
+
+        if (cil_short_ctor (stmt))
+          num_elts = 1;
+        else
+          num_elts = TYPE_VECTOR_SUBPARTS (type);
 
 	while (num_elts-- != 0)
 	  VEC_pop (cil_type_t, vstack);

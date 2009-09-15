@@ -225,6 +225,10 @@ DEF_CILBUILTIN(MONO_V2DF_CTOR, "[Mono.Simd]Mono.Simd.Vector2d::.ctor",
 	       2, \
 	       float_type_node, float_type_node)
 
+DEF_CILBUILTIN(MONO_V2DF_CTOR_U, "[Mono.Simd]Mono.Simd.Vector2d::.ctor ",
+	       double2_type_node,		\
+	       1, float_type_node)
+
 DEF_CILBUILTIN(MONO_V2DF_LOAD_ALIGNED,
 	       "[Mono.Simd]Mono.Simd.Vector2d::LoadAligned",	\
 	       double2_type_node, \
@@ -254,6 +258,10 @@ DEF_CILBUILTIN(MONO_V4SF_CTOR, "[Mono.Simd]Mono.Simd.Vector4f::.ctor",
 	       float_type_node, float_type_node, \
 	       float_type_node, float_type_node)
 
+DEF_CILBUILTIN(MONO_V4SF_CTOR_U, "[Mono.Simd]Mono.Simd.Vector4f::.ctor ",
+	       float4_type_node,		\
+	       1, float_type_node)
+
 DEF_CILBUILTIN(MONO_V4SF_LOAD_ALIGNED,
 	       "[Mono.Simd]Mono.Simd.Vector4f::LoadAligned",	\
 	       float4_type_node, \
@@ -281,6 +289,10 @@ DEF_CILBUILTIN(MONO_V2DI_CTOR, "[Mono.Simd]Mono.Simd.Vector2l::.ctor", \
 	       intDI2_type_node, \
 	       2, \
 	       intSI_type_node, intSI_type_node)
+
+DEF_CILBUILTIN(MONO_V2DI_CTOR_U, "[Mono.Simd]Mono.Simd.Vector2l::.ctor ", \
+	       intDI2_type_node, \
+	       1, intSI_type_node)
 
 DEF_CILBUILTIN(MONO_V2DI_LOAD_ALIGNED,
 	       "[Mono.Simd]Mono.Simd.Vector2l::LoadAligned",	\
@@ -325,6 +337,10 @@ DEF_CILBUILTIN(MONO_V4SI_CTOR, "[Mono.Simd]Mono.Simd.Vector4i::.ctor", \
 	       4, \
 	       intSI_type_node, intSI_type_node, \
 	       intSI_type_node, intSI_type_node)
+
+DEF_CILBUILTIN(MONO_V4SI_CTOR_U, "[Mono.Simd]Mono.Simd.Vector4i::.ctor ", \
+	       intSI4_type_node, \
+	       1, intSI_type_node)
 
 DEF_CILBUILTIN(MONO_V4SI_LOAD_ALIGNED,
 	       "[Mono.Simd]Mono.Simd.Vector4i::LoadAligned",	\
@@ -371,6 +387,10 @@ DEF_CILBUILTIN(MONO_V8HI_CTOR, "[Mono.Simd]Mono.Simd.Vector8hs::.ctor", \
 	       intHI_type_node, intHI_type_node, \
 	       intHI_type_node, intHI_type_node, \
 	       intHI_type_node, intHI_type_node)
+
+DEF_CILBUILTIN(MONO_V8HI_CTOR_U, "[Mono.Simd]Mono.Simd.Vector8hs::.ctor ", \
+	       intHI8_type_node, \
+	       1, intHI_type_node)
 
 DEF_CILBUILTIN(MONO_V8HI_LOAD_ALIGNED,
 	       "[Mono.Simd]Mono.Simd.Vector8hs::LoadAligned",	\
@@ -422,6 +442,10 @@ DEF_CILBUILTIN(MONO_V16QI_CTOR, "[Mono.Simd]Mono.Simd.Vector16sb::.ctor", \
 	       intQI_type_node, intQI_type_node, \
 	       intQI_type_node, intQI_type_node)
 
+DEF_CILBUILTIN(MONO_V16QI_CTOR_U, "[Mono.Simd]Mono.Simd.Vector16sb::.ctor ", \
+	       intQI16_type_node, \
+	       1, intQI_type_node)
+
 DEF_CILBUILTIN(MONO_V16QI_LOAD_ALIGNED,
 	       "[Mono.Simd]Mono.Simd.Vector16sb::LoadAligned",	\
 	       intQI16_type_node, \
@@ -466,6 +490,10 @@ DEF_CILBUILTIN(GCC_V2SF_CTOR, "[gcc4net]gcc4net.V2SF::V2SF_ctor1",
 	       2, \
 	       float_type_node, float_type_node)
 
+DEF_CILBUILTIN(GCC_V2SF_CTOR_U, "[gcc4net]gcc4net.V2SF::V2SF_ctor1 ",
+	       float2_type_node,		\
+	       1, float_type_node)
+
 DEF_CILBUILTIN(GCC_V2SF_ADD, "[gcc4net]gcc4net.V2SF::'add'", \
 	       float2_type_node, \
 	       2, \
@@ -481,6 +509,10 @@ DEF_CILBUILTIN(GCC_V2SI_CTOR, "[gcc4net]gcc4net.V2SI::V2SI_ctor1", \
 	       intSI2_type_node, \
 	       2, \
 	       unsigned_intSI_type_node, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(GCC_V2SI_CTOR_U, "[gcc4net]gcc4net.V2SI::V2SI_ctor1 ", \
+	       intSI2_type_node, \
+	       1, unsigned_intSI_type_node)
 
 DEF_CILBUILTIN(GCC_V2SI_ADD, "[gcc4net]gcc4net.V2SI::'add'", \
 	       intSI2_type_node, \
@@ -513,6 +545,10 @@ DEF_CILBUILTIN(GCC_V4HI_CTOR, "[gcc4net]gcc4net.V4HI::V4HI_ctor1", \
 	       4, \
 	       unsigned_intHI_type_node, unsigned_intHI_type_node, \
 	       unsigned_intHI_type_node, unsigned_intHI_type_node)
+
+DEF_CILBUILTIN(GCC_V4HI_CTOR_U, "[gcc4net]gcc4net.V4HI::V4HI_ctor1 ", \
+	       intHI4_type_node, \
+	       1, unsigned_intHI_type_node)
 
 DEF_CILBUILTIN(GCC_V4HI_ADD, "[gcc4net]gcc4net.V4HI::'add'", \
 	       intHI4_type_node, \
@@ -548,6 +584,10 @@ DEF_CILBUILTIN(GCC_V8QI_CTOR, "[gcc4net]gcc4net.V8QI::V8QI_ctor1", \
 	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
 	       unsigned_intQI_type_node, unsigned_intQI_type_node)
 
+DEF_CILBUILTIN(GCC_V8QI_CTOR_U, "[gcc4net]gcc4net.V8QI::V8QI_ctor1 ", \
+	       intQI8_type_node, \
+	       1, unsigned_intQI_type_node)
+
 DEF_CILBUILTIN(GCC_V8QI_ADD, "[gcc4net]gcc4net.V8QI::'add'", \
 	       intQI8_type_node, \
 	       2, \
@@ -579,6 +619,10 @@ DEF_CILBUILTIN(GCC_V2DF_CTOR, "[gcc4net]gcc4net.V2DF::V2DF_ctor1",
 	       2, \
 	       double_type_node, double_type_node)
 
+DEF_CILBUILTIN(GCC_V2DF_CTOR_U, "[gcc4net]gcc4net.V2DF::V2DF_ctor1 ",
+	       double2_type_node,		\
+	       1, double_type_node)
+
 DEF_CILBUILTIN(GCC_V2DF_ADD, "[gcc4net]gcc4net.V2DF::'add'", \
 	       double2_type_node, \
 	       2, \
@@ -596,6 +640,10 @@ DEF_CILBUILTIN(GCC_V4SF_CTOR, "[gcc4net]gcc4net.V4SF::V4SF_ctor1",
 	       float_type_node, float_type_node, \
 	       float_type_node, float_type_node)
 
+DEF_CILBUILTIN(GCC_V4SF_CTOR_U, "[gcc4net]gcc4net.V4SF::V4SF_ctor1 ",
+	       float4_type_node,		\
+	       1, float_type_node)
+
 DEF_CILBUILTIN(GCC_V4SF_ADD, "[gcc4net]gcc4net.V4SF::'add'", \
 	       float4_type_node, \
 	       2, \
@@ -611,6 +659,10 @@ DEF_CILBUILTIN(GCC_V2DI_CTOR, "[gcc4net]gcc4net.V2DI::V2DI_ctor1", \
 	       intDI2_type_node, \
 	       2, \
 	       unsigned_intDI_type_node, unsigned_intDI_type_node)
+
+DEF_CILBUILTIN(GCC_V2DI_CTOR_U, "[gcc4net]gcc4net.V2DI::V2DI_ctor1 ", \
+	       intDI2_type_node, \
+	       1, unsigned_intDI_type_node)
 
 DEF_CILBUILTIN(GCC_V2DI_ADD, "[gcc4net]gcc4net.V2DI::'add'", \
 	       intDI2_type_node, \
@@ -643,6 +695,10 @@ DEF_CILBUILTIN(GCC_V4SI_CTOR, "[gcc4net]gcc4net.V4SI::V4SI_ctor1", \
 	       4, \
 	       unsigned_intSI_type_node, unsigned_intSI_type_node, \
 	       unsigned_intSI_type_node, unsigned_intSI_type_node)
+
+DEF_CILBUILTIN(GCC_V4SI_CTOR_U, "[gcc4net]gcc4net.V4SI::V4SI_ctor1 ", \
+	       intSI4_type_node, \
+	       1, unsigned_intSI_type_node)
 
 DEF_CILBUILTIN(GCC_V4SI_ADD, "[gcc4net]gcc4net.V4SI::'add'", \
 	       intSI4_type_node, \
@@ -682,6 +738,10 @@ DEF_CILBUILTIN(GCC_V8HI_CTOR, "[gcc4net]gcc4net.V8HI::V8HI_ctor1", \
 	       unsigned_intHI_type_node, unsigned_intHI_type_node, \
 	       unsigned_intHI_type_node, unsigned_intHI_type_node)
 
+DEF_CILBUILTIN(GCC_V8HI_CTOR_U, "[gcc4net]gcc4net.V8HI::V8HI_ctor1 ", \
+	       intHI8_type_node, \
+	       1, unsigned_intHI_type_node)
+
 DEF_CILBUILTIN(GCC_V8HI_ADD, "[gcc4net]gcc4net.V8HI::'add'", \
 	       intHI8_type_node, \
 	       2, \
@@ -719,6 +779,10 @@ DEF_CILBUILTIN(GCC_V16QI_CTOR, "[gcc4net]gcc4net.V16QI::V16QI_ctor1", \
 	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
 	       unsigned_intQI_type_node, unsigned_intQI_type_node, \
 	       unsigned_intQI_type_node, unsigned_intQI_type_node)
+
+DEF_CILBUILTIN(GCC_V16QI_CTOR_U, "[gcc4net]gcc4net.V16QI::V16QI_ctor1 ", \
+	       intQI16_type_node, \
+	       1, unsigned_intQI_type_node)
 
 DEF_CILBUILTIN(GCC_V16QI_ADD, "[gcc4net]gcc4net.V16QI::'add'", \
 	       intQI16_type_node, \
