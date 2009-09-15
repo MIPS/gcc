@@ -1,5 +1,14 @@
 2009-09-15  Richard Guenther  <rguenther@suse.de>
 
+	* tree.c (make_node_stat): Remove setting of DECL_FUNCTION_PERSONALITY.
+	* tree.h (eh_personality_decl): Remove.
+	* toplev.c (eh_personality_decl): Likewise.
+	* dwarf2out.c (dwarf2out_do_cfi_asm): Remove obsolete check.
+	(dwarf2out_begin_prologue): Remove write-only variable.
+	* gimple.h (mark_addressable): Remove duplicate prototype.
+
+2009-09-15  Richard Guenther  <rguenther@suse.de>
+
 	PR lto/41230
 	* lto-streamer-in.c (input_bb): Drop debug stmts on-the-fly if
 	we can't deal with them.

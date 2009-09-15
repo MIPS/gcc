@@ -4571,9 +4571,6 @@ extern int pedantic_lvalues;
 
 extern GTY(()) tree current_function_decl;
 
-/* The eh personally function that this FE wants to use. */
-extern GTY(()) tree eh_personality_decl;
-
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
 extern GTY(()) const char * current_function_func_begin_label;
 

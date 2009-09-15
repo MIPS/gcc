@@ -209,9 +209,6 @@ bool in_lto_p = false;
    or 0 if between functions.  */
 tree current_function_decl;
 
-/* The EH personality function that this FE wants to use. */
-tree eh_personality_decl;
-
 /* Set to the FUNC_BEGIN label of the current function, or NULL
    if none.  */
 const char * current_function_func_begin_label;
