@@ -161,6 +161,10 @@ typedef struct var_stream
   /* Counter of the number of consumers for this variable (i.e.,
      number of INPUT clauses VAR appears on).  */
   int consumed;
+
+  /* Set if the push operation has already been inserted (used when
+     multiple readers are allowed).  */
+  bool is_pushed;
 } *var_stream;
 
 /* Map all streamized variables to their respective streams.  */
@@ -3057,7 +3061,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	    /* If the stream has no producer task, the value of the
 	       variable in the context at the original position of the
 	       task must be pushed.  */
-	    if (!vs->produced)
+	    if (!vs->produced && !vs->is_pushed)
 	      {
 		tree addr;
 		if (is_gimple_reg (var))
@@ -3065,7 +3069,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 		    addr = create_tmp_var (TREE_TYPE (var),
 					   "omp_var_tmp");
 		    stmt = gimple_build_assign (addr, var);
-		    gimple_seq_add_stmt (olist, stmt);
+		    gimple_seq_add_stmt (ilist, stmt);
 		    set_stmt_loc (stmt, SL_PUSH);
 		    addr = build_addr (addr, ctx->cb.dst_fn);
 		  }
@@ -3077,6 +3081,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 		   2, vs->stream, addr);
 		gimple_seq_add_stmt (ilist, stmt);
 		set_stmt_loc (stmt, SL_PUSH);
+		vs->is_pushed = true;
 	      }
 	    val = vs->stream;
 	    var = vs->stream;
@@ -3986,6 +3991,10 @@ expand_omp_taskreg (struct omp_region *region)
 		  set_immediate_dominator (CDI_DOMINATORS,
 					   task_body_bbs, eos_bb);
 		  set_immediate_dominator (CDI_DOMINATORS, final_bb, eos_bb);
+
+		  /* The newly created eos_bb becomes part of the task
+		     body for the remainder.  */
+		  task_body_bbs = eos_bb;
 		}
 	      else if (OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_OUTPUT)
 		{
@@ -5405,8 +5414,8 @@ stream_create_calls (void **slot, void *data)
 
   tree type_size = TYPE_SIZE_UNIT (TREE_TYPE (vs->var));
   /* ---FIXME_stream--- make sure to remove those "magic numbers".  */
-  tree num_winows = build_int_cst (unsigned_type_node, 256);
-  tree window_size = build_int_cst (unsigned_type_node, 64);
+  tree num_winows = build_int_cst (unsigned_type_node, 128);
+  tree window_size = build_int_cst (unsigned_type_node, 1024);
 
   gimple_stmt_iterator gsi;
   gimple stmt;
@@ -5415,7 +5424,7 @@ stream_create_calls (void **slot, void *data)
 
   if (!region->streamization_init_bb)
     {
-      edge e = EDGE_SUCC (single_succ (region->entry), 0);
+      e = EDGE_SUCC (single_succ (region->entry), 0);
       region->streamization_init_bb = split_edge (e);
     }
 
@@ -5428,8 +5437,33 @@ stream_create_calls (void **slot, void *data)
 
   if (!region->streamization_exit_bb)
     {
-      e = EDGE_PRED (region->exit, 1);
-      region->streamization_exit_bb = split_edge (e);
+      if (EDGE_COUNT (region->exit->preds) >= 2)
+	{
+	  /* We need to ensure that we cover all exit paths from the
+	     single section with the code from the
+	     streamization_exit_bb.  The exit from the single section
+	     switch must not execute that code.  */
+	  edge skip_single_sec_edge;
+
+	  e = split_block_after_labels (region->exit);
+	  region->streamization_exit_bb = split_edge (e);
+	  region->exit = single_succ (region->streamization_exit_bb);
+
+	  skip_single_sec_edge = find_edge (single_succ (region->entry),
+					    e->src);
+	  gcc_assert (redirect_edge_and_branch (skip_single_sec_edge,
+						region->exit));
+	}
+      else 
+	{
+	  /* If the streamization body (of the OpenMP single
+	     construct) does not have an exit (e.g., infinite loop),
+	     then we may end up discarding the finalzation statements.
+	     Do not link their BB.  */
+	  region->streamization_exit_bb = alloc_block ();
+	  region->streamization_exit_bb->il.gimple = GGC_CNEW (struct gimple_bb_info);
+	  set_bb_seq (region->streamization_exit_bb, gimple_seq_alloc ());
+	}
     }
 
   gsi = gsi_last_bb (region->streamization_exit_bb);

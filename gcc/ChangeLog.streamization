@@ -1,3 +1,10 @@
+2009-09-15  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-low.c (var_stream, lower_send_clauses): New field is_pushed,
+	used to avoid issuing multiple push calls .
+	(lower_send_clauses, expand_omp_taskreg, stream_create_calls):
+	Fixed errors in the code generation.
+
 2009-07-15  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* Fixup the merge from mainline (r144639:149276).  Adding missing
