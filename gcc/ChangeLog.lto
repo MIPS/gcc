@@ -1,3 +1,9 @@
+2009-09-15  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41230
+	* lto-streamer-in.c (input_bb): Drop debug stmts on-the-fly if
+	we can't deal with them.
+
 2009-09-14  Richard Guenther  <rguenther@suse.de>
 
 	Mainline merge @151681.

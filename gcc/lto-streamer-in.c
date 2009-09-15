@@ -992,8 +992,16 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   while (tag)
     {
       gimple stmt = input_gimple_stmt (ib, data_in, fn, tag);
-      find_referenced_vars_in (stmt);
-      gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
+
+      /* Drop debug stmts on-the-fly if we do not have VTA enabled.
+	 This allows us to build for example static libs with debugging
+	 enabled and do the final link without.  */
+      if (MAY_HAVE_DEBUG_STMTS
+	  || !is_gimple_debug (stmt))
+	{
+	  find_referenced_vars_in (stmt);
+	  gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
+	}
 
       /* After the statement, expect a 0 delimiter or the EH region
 	 that the previous statement belongs to.  */
@@ -1004,7 +1012,9 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
 	{
 	  HOST_WIDE_INT region = lto_input_uleb128 (ib);
 	  gcc_assert (region <= num_eh_regions ());
-	  add_stmt_to_eh_region (stmt, region);
+	  if (MAY_HAVE_DEBUG_STMTS
+	      || !is_gimple_debug (stmt))
+	    add_stmt_to_eh_region (stmt, region);
 	}
 
       tag = input_record_start (ib);
