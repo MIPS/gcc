@@ -1,3 +1,20 @@
+2009-09-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Merge up to mainline revision 151687.
+
+	* expr.c (expand_expr_real_2): Expand ADDR_SPACE_CONVERT_EXPR here ...
+	(expand_expr_real_1): ... instead of here.
+
+	* cfgexpand.c (expand_debug_expr): Support named address spaces.
+	* var-tracking.c (replace_expr_with_values): Likewise.
+	(count_uses): Likewise.
+	(add_uses): Likewise.
+	(add_stores): Likewise.
+
+	* convert.c: Do not include "target.h".
+	(convert_to_integer): Revert local change.
+	* Makefile.in (convert.o): Remove $(TARGET_H) dependency.
+
 2009-08-26  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* c-decl.c (grokdeclarator): Remove incorrect check and

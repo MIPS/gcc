@@ -200,6 +200,7 @@ static rtx alpha_emit_xfloating_compare (enum rtx_code *, rtx, rtx);
 
 #if TARGET_ABI_OPEN_VMS
 static void alpha_write_linkage (FILE *, const char *, tree);
+static bool vms_valid_pointer_mode (enum machine_mode);
 #endif
 
 static void unicosmk_output_deferred_case_vectors (FILE *);
@@ -773,6 +774,12 @@ alpha_in_small_data_p (const_tree exp)
 }
 
 #if TARGET_ABI_OPEN_VMS
+static bool
+vms_valid_pointer_mode (enum machine_mode mode)
+{
+  return (mode == SImode || mode == DImode);
+}
+
 static bool
 alpha_linkage_symbol_p (const char *symname)
 {
@@ -7476,8 +7483,10 @@ alpha_initial_elimination_offset (unsigned int from,
 
 #if TARGET_ABI_OPEN_VMS
 
-int
-alpha_vms_can_eliminate (unsigned int from ATTRIBUTE_UNUSED, unsigned int to)
+/* Worker function for TARGET_CAN_ELIMINATE.  */
+
+static bool
+alpha_vms_can_eliminate (const int from ATTRIBUTE_UNUSED, const int to)
 {
   /* We need the alpha_procedure_type to decide. Evaluate it now.  */
   alpha_sa_size ();
@@ -7655,7 +7664,7 @@ alpha_does_function_need_gp (void)
   pop_topmost_sequence ();
 
   for (; insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
+    if (NONDEBUG_INSN_P (insn)
 	&& ! JUMP_TABLE_DATA_P (insn)
 	&& GET_CODE (PATTERN (insn)) != USE
 	&& GET_CODE (PATTERN (insn)) != CLOBBER
@@ -8606,11 +8615,6 @@ alpha_end_function (FILE *file, const char *fnname, tree decl ATTRIBUTE_UNUSED)
   if (insn && CALL_P (insn))
     output_asm_insn (get_insn_template (CODE_FOR_nop, NULL), NULL);
 
-#if TARGET_ABI_OSF
-  if (cfun->is_thunk)
-    free_after_compilation (cfun);
-#endif
-
 #if TARGET_ABI_OPEN_VMS
   alpha_write_linkage (file, fnname, decl);
 #endif
@@ -8658,8 +8662,6 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 {
   HOST_WIDE_INT hi, lo;
   rtx this_rtx, insn, funexp;
-
-  gcc_assert (cfun->is_thunk);
 
   /* We always require a valid GP.  */
   emit_insn (gen_prologue_ldgp ());
@@ -10982,6 +10984,8 @@ alpha_init_libfuncs (void)
 #if TARGET_ABI_OPEN_VMS
 # undef TARGET_ATTRIBUTE_TABLE
 # define TARGET_ATTRIBUTE_TABLE vms_attribute_table
+# undef TARGET_CAN_ELIMINATE
+# define TARGET_CAN_ELIMINATE alpha_vms_can_eliminate
 #endif
 
 #undef TARGET_IN_SMALL_DATA_P

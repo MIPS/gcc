@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "real.h"
 #include "fixed-value.h"
-#include "target.h"
 
 /* Convert EXPR to some pointer or reference type TYPE.
    EXPR must be pointer, reference, integer, enumeral, or literal zero;
@@ -538,21 +537,18 @@ convert_to_integer (tree type, tree expr)
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      {
-	addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (intype));
- 	int pointer_size
-	  = GET_MODE_BITSIZE (targetm.addr_space.pointer_mode (as));
+      if (integer_zerop (expr))
+	return build_int_cst (type, 0);
 
- 	if (integer_zerop (expr))
- 	  return build_int_cst (type, 0);
-
- 	/* Convert to an unsigned integer of the correct width first,
- 	   and from there widen/truncate to the required type.  */
- 	expr = fold_build1 (CONVERT_EXPR,
- 			    lang_hooks.types.type_for_size (pointer_size, 0),
- 			    expr);
- 	return fold_convert (type, expr);
-      }
+      /* Convert to an unsigned integer of the correct width first, and from
+	 there widen/truncate to the required type.  Some targets support the
+	 coexistence of multiple valid pointer sizes, so fetch the one we need
+	 from the type.  */
+      expr = fold_build1 (CONVERT_EXPR,
+			  lang_hooks.types.type_for_size
+			    (TYPE_PRECISION (intype), 0),
+			  expr);
+      return fold_convert (type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:

@@ -33,19 +33,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "flags.h"
+#include "demangle.h"
 
-#define DEFGSCODE(SYM, NAME, STRUCT)	NAME,
+
+/* All the tuples have their operand vector (if present) at the very bottom
+   of the structure.  Therefore, the offset required to find the
+   operands vector the size of the structure minus the size of the 1
+   element tree array at the end (see gimple_ops).  */
+#define DEFGSSTRUCT(SYM, STRUCT, HAS_TREE_OP) \
+	(HAS_TREE_OP ? sizeof (struct STRUCT) - sizeof (tree) : 0),
+EXPORTED_CONST size_t gimple_ops_offset_[] = {
+#include "gsstruct.def"
+};
+#undef DEFGSSTRUCT
+
+#define DEFGSSTRUCT(SYM, STRUCT, HAS_TREE_OP) sizeof(struct STRUCT),
+static const size_t gsstruct_code_size[] = {
+#include "gsstruct.def"
+};
+#undef DEFGSSTRUCT
+
+#define DEFGSCODE(SYM, NAME, GSSCODE)	NAME,
 const char *const gimple_code_name[] = {
 #include "gimple.def"
 };
 #undef DEFGSCODE
 
-/* All the tuples have their operand vector at the very bottom
-   of the structure.  Therefore, the offset required to find the
-   operands vector the size of the structure minus the size of the 1
-   element tree array at the end (see gimple_ops).  */
-#define DEFGSCODE(SYM, NAME, STRUCT)	(sizeof (STRUCT) - sizeof (tree)),
-EXPORTED_CONST size_t gimple_ops_offset_[] = {
+#define DEFGSCODE(SYM, NAME, GSSCODE)	GSSCODE,
+EXPORTED_CONST enum gimple_statement_structure_enum gss_for_code_[] = {
 #include "gimple.def"
 };
 #undef DEFGSCODE
@@ -88,116 +103,14 @@ gimple_set_code (gimple g, enum gimple_code code)
   g->gsbase.code = code;
 }
 
-
-/* Return the GSS_* identifier for the given GIMPLE statement CODE.  */
-
-static enum gimple_statement_structure_enum
-gss_for_code (enum gimple_code code)
-{
-  switch (code)
-    {
-    case GIMPLE_ASSIGN:
-    case GIMPLE_CALL:
-    case GIMPLE_RETURN:			return GSS_WITH_MEM_OPS;
-    case GIMPLE_COND:
-    case GIMPLE_GOTO:
-    case GIMPLE_LABEL:
-    case GIMPLE_SWITCH:			return GSS_WITH_OPS;
-    case GIMPLE_ASM:			return GSS_ASM;
-    case GIMPLE_BIND:			return GSS_BIND;
-    case GIMPLE_CATCH:			return GSS_CATCH;
-    case GIMPLE_EH_FILTER:		return GSS_EH_FILTER;
-    case GIMPLE_NOP:			return GSS_BASE;
-    case GIMPLE_PHI:			return GSS_PHI;
-    case GIMPLE_RESX:			return GSS_RESX;
-    case GIMPLE_TRY:			return GSS_TRY;
-    case GIMPLE_WITH_CLEANUP_EXPR:	return GSS_WCE;
-    case GIMPLE_OMP_CRITICAL:		return GSS_OMP_CRITICAL;
-    case GIMPLE_OMP_FOR:		return GSS_OMP_FOR;
-    case GIMPLE_OMP_MASTER:		
-    case GIMPLE_OMP_ORDERED:
-    case GIMPLE_OMP_SECTION:		return GSS_OMP;
-    case GIMPLE_OMP_RETURN:
-    case GIMPLE_OMP_SECTIONS_SWITCH:    return GSS_BASE;
-    case GIMPLE_OMP_CONTINUE:		return GSS_OMP_CONTINUE;
-    case GIMPLE_OMP_PARALLEL:		return GSS_OMP_PARALLEL;
-    case GIMPLE_OMP_TASK:		return GSS_OMP_TASK;
-    case GIMPLE_OMP_SECTIONS:		return GSS_OMP_SECTIONS;
-    case GIMPLE_OMP_SINGLE:		return GSS_OMP_SINGLE;
-    case GIMPLE_OMP_ATOMIC_LOAD:	return GSS_OMP_ATOMIC_LOAD;
-    case GIMPLE_OMP_ATOMIC_STORE:	return GSS_OMP_ATOMIC_STORE;
-    case GIMPLE_PREDICT:		return GSS_BASE;
-    default:				gcc_unreachable ();
-    }
-}
-
-
 /* Return the number of bytes needed to hold a GIMPLE statement with
    code CODE.  */
 
-static size_t
+static inline size_t
 gimple_size (enum gimple_code code)
 {
-  enum gimple_statement_structure_enum gss = gss_for_code (code);
-
-  if (gss == GSS_WITH_OPS)
-    return sizeof (struct gimple_statement_with_ops);
-  else if (gss == GSS_WITH_MEM_OPS)
-    return sizeof (struct gimple_statement_with_memory_ops);
-
-  switch (code)
-    {
-    case GIMPLE_ASM:
-      return sizeof (struct gimple_statement_asm);
-    case GIMPLE_NOP:
-      return sizeof (struct gimple_statement_base);
-    case GIMPLE_BIND:
-      return sizeof (struct gimple_statement_bind);
-    case GIMPLE_CATCH:
-      return sizeof (struct gimple_statement_catch);
-    case GIMPLE_EH_FILTER:
-      return sizeof (struct gimple_statement_eh_filter);
-    case GIMPLE_TRY:
-      return sizeof (struct gimple_statement_try);
-    case GIMPLE_RESX:
-      return sizeof (struct gimple_statement_resx);
-    case GIMPLE_OMP_CRITICAL:
-      return sizeof (struct gimple_statement_omp_critical);
-    case GIMPLE_OMP_FOR:
-      return sizeof (struct gimple_statement_omp_for);
-    case GIMPLE_OMP_PARALLEL:
-      return sizeof (struct gimple_statement_omp_parallel);
-    case GIMPLE_OMP_TASK:
-      return sizeof (struct gimple_statement_omp_task);
-    case GIMPLE_OMP_SECTION:
-    case GIMPLE_OMP_MASTER:
-    case GIMPLE_OMP_ORDERED:
-      return sizeof (struct gimple_statement_omp);
-    case GIMPLE_OMP_RETURN:
-      return sizeof (struct gimple_statement_base);
-    case GIMPLE_OMP_CONTINUE:
-      return sizeof (struct gimple_statement_omp_continue);
-    case GIMPLE_OMP_SECTIONS:
-      return sizeof (struct gimple_statement_omp_sections);
-    case GIMPLE_OMP_SECTIONS_SWITCH:
-      return sizeof (struct gimple_statement_base);
-    case GIMPLE_OMP_SINGLE:
-      return sizeof (struct gimple_statement_omp_single);
-    case GIMPLE_OMP_ATOMIC_LOAD:
-      return sizeof (struct gimple_statement_omp_atomic_load);
-    case GIMPLE_OMP_ATOMIC_STORE:
-      return sizeof (struct gimple_statement_omp_atomic_store);
-    case GIMPLE_WITH_CLEANUP_EXPR:
-      return sizeof (struct gimple_statement_wce);
-    case GIMPLE_PREDICT:
-      return sizeof (struct gimple_statement_base);
-    default:
-      break;
-    }
-
-  gcc_unreachable ();
+  return gsstruct_code_size[gss_for_code (code)];
 }
-
 
 /* Allocate memory for a GIMPLE statement with code CODE and NUM_OPS
    operands.  */
@@ -253,7 +166,7 @@ gimple_set_subcode (gimple g, unsigned subcode)
   gimple_build_with_ops_stat (c, s, n MEM_STAT_INFO)
 
 static gimple
-gimple_build_with_ops_stat (enum gimple_code code, enum tree_code subcode,
+gimple_build_with_ops_stat (enum gimple_code code, unsigned subcode,
 		            unsigned num_ops MEM_STAT_DECL)
 {
   gimple s = gimple_alloc_stat (code, num_ops PASS_MEM_STAT);
@@ -427,7 +340,7 @@ gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
      code).  */
   num_ops = get_gimple_rhs_num_ops (subcode) + 1;
   
-  p = gimple_build_with_ops_stat (GIMPLE_ASSIGN, subcode, num_ops
+  p = gimple_build_with_ops_stat (GIMPLE_ASSIGN, (unsigned)subcode, num_ops
   			          PASS_MEM_STAT);
   gimple_assign_set_lhs (p, lhs);
   gimple_assign_set_rhs1 (p, op1);
@@ -831,6 +744,29 @@ gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
 }
 
 
+/* Build a new GIMPLE_DEBUG_BIND statement.
+
+   VAR is bound to VALUE; block and location are taken from STMT.  */
+
+gimple
+gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
+{
+  gimple p = gimple_build_with_ops_stat (GIMPLE_DEBUG,
+					 (unsigned)GIMPLE_DEBUG_BIND, 2
+					 PASS_MEM_STAT);
+
+  gimple_debug_bind_set_var (p, var);
+  gimple_debug_bind_set_value (p, value);
+  if (stmt)
+    {
+      gimple_set_block (p, gimple_block (stmt));
+      gimple_set_location (p, gimple_location (stmt));
+    }
+
+  return p;
+}
+
+
 /* Build a GIMPLE_OMP_CRITICAL statement.
 
    BODY is the sequence of statements for which only one thread can execute.
@@ -1078,15 +1014,6 @@ gimple_build_predict (enum br_predictor predictor, enum prediction outcome)
   return p;
 }
 
-/* Return which gimple structure is used by T.  The enums here are defined
-   in gsstruct.def.  */
-
-enum gimple_statement_structure_enum
-gimple_statement_structure (gimple gs)
-{
-  return gss_for_code (gimple_code (gs));
-}
-
 #if defined ENABLE_GIMPLE_CHECKING
 /* Complain of a gimple type mismatch and die.  */
 
@@ -1213,11 +1140,11 @@ empty_body_p (gimple_seq body)
 {
   gimple_stmt_iterator i;
 
-
   if (gimple_seq_empty_p (body))
     return true;
   for (i = gsi_start (body); !gsi_end_p (i); gsi_next (&i))
-    if (!empty_stmt_p (gsi_stmt (i)))
+    if (!empty_stmt_p (gsi_stmt (i))
+	&& !is_gimple_debug (gsi_stmt (i)))
       return false;
 
   return true;
@@ -2224,6 +2151,9 @@ gimple_has_side_effects (const_gimple s)
 {
   unsigned i;
 
+  if (is_gimple_debug (s))
+    return false;
+
   /* We don't have to scan the arguments to check for
      volatile arguments, though, at present, we still
      do a scan to check for TREE_SIDE_EFFECTS.  */
@@ -2317,6 +2247,8 @@ gimple_rhs_has_side_effects (const_gimple s)
 	    return true;
 	  }
     }
+  else if (is_gimple_debug (s))
+    return false;
   else
     {
       /* For statements without an LHS, examine all arguments.  */
@@ -3396,6 +3328,77 @@ gimple_ior_addresses_taken (bitmap addresses_taken, gimple stmt)
 {
   return walk_stmt_load_store_addr_ops (stmt, addresses_taken, NULL, NULL,
 					gimple_ior_addresses_taken_1);
+}
+
+
+/* Return a printable name for symbol DECL.  */
+
+const char *
+gimple_decl_printable_name (tree decl, int verbosity)
+{
+  gcc_assert (decl && DECL_NAME (decl));
+
+  if (DECL_ASSEMBLER_NAME_SET_P (decl))
+    {
+      const char *str, *mangled_str;
+      int dmgl_opts = DMGL_NO_OPTS;
+
+      if (verbosity >= 2)
+	{
+	  dmgl_opts = DMGL_VERBOSE
+		      | DMGL_TYPES
+		      | DMGL_ANSI
+		      | DMGL_GNU_V3
+		      | DMGL_RET_POSTFIX;
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    dmgl_opts |= DMGL_PARAMS;
+	}
+
+      mangled_str = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      str = cplus_demangle_v3 (mangled_str, dmgl_opts);
+      return (str) ? str : mangled_str;
+    }
+
+  return IDENTIFIER_POINTER (DECL_NAME (decl));
+}
+
+
+/* Fold a OBJ_TYPE_REF expression to the address of a function.
+   KNOWN_TYPE carries the true type of OBJ_TYPE_REF_OBJECT(REF).  Adapted
+   from cp_fold_obj_type_ref, but it tolerates types with no binfo
+   data.  */
+
+tree
+gimple_fold_obj_type_ref (tree ref, tree known_type)
+{
+  HOST_WIDE_INT index;
+  HOST_WIDE_INT i;
+  tree v;
+  tree fndecl;
+
+  if (TYPE_BINFO (known_type) == NULL_TREE)
+    return NULL_TREE;
+
+  v = BINFO_VIRTUALS (TYPE_BINFO (known_type));
+  index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  i = 0;
+  while (i != index)
+    {
+      i += (TARGET_VTABLE_USES_DESCRIPTORS
+	    ? TARGET_VTABLE_USES_DESCRIPTORS : 1);
+      v = TREE_CHAIN (v);
+    }
+
+  fndecl = TREE_VALUE (v);
+
+#ifdef ENABLE_CHECKING
+  gcc_assert (tree_int_cst_equal (OBJ_TYPE_REF_TOKEN (ref),
+				  DECL_VINDEX (fndecl)));
+#endif
+
+  cgraph_node (fndecl)->local.vtable_method = true;
+
+  return build_fold_addr_expr (fndecl);
 }
 
 #include "gt-gimple.h"

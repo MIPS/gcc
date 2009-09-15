@@ -2045,6 +2045,12 @@ info format it will either mean marking the function as artificial
 or using the caller location for all instructions within the inlined
 body.
 
+@item bank_switch
+@cindex interrupt handler functions
+When added to an interrupt handler with the M32C port, causes the
+prologue and epilogue to use bank switching to preserve the registers
+rather than saving them on the stack.
+
 @item flatten
 @cindex @code{flatten} function attribute
 Generally, inlining into a function is limited.  For a function marked with
@@ -2297,6 +2303,13 @@ the @code{rtc}.
 On MeP targets this causes the compiler to use a calling convention
 which assumes the called function is too far away for the built-in
 addressing modes.
+
+@item fast_interrupt
+@cindex interrupt handler functions
+Use this attribute on the M32C port to indicate that the specified
+function is a fast interrupt handler.  This is just like the
+@code{interrupt} attribute, except that @code{freit} is used to return
+instead of @code{reit}.
 
 @item fastcall
 @cindex functions that pop the argument stack on the 386
@@ -2576,6 +2589,13 @@ This attribute specifies a function to be placed into L1 Instruction
 SRAM@. The function will be put into a specific section named @code{.l1.text}.
 With @option{-mfdpic}, function calls with a such function as the callee
 or caller will use inlined PLT.
+
+@item l2
+@cindex @code{l2} function attribute
+On the Blackfin, this attribute specifies a function to be placed into L2
+SRAM. The function will be put into a specific section named
+@code{.l1.text}. With @option{-mfdpic}, callers of such functions will use
+an inlined PLT.
 
 @item long_call/short_call
 @cindex indirect calls on ARM
@@ -4204,6 +4224,12 @@ Variables with @code{l1_data} attribute will be put into the specific section
 named @code{.l1.data}. Those with @code{l1_data_A} attribute will be put into
 the specific section named @code{.l1.data.A}. Those with @code{l1_data_B}
 attribute will be put into the specific section named @code{.l1.data.B}.
+
+@item l2
+@cindex @code{l2} variable attribute
+Use this attribute on the Blackfin to place the variable into L2 SRAM.
+Variables with @code{l2} attribute will be put into the specific section
+named @code{.l2.data}.
 @end table
 
 @subsection M32R/D Variable Attributes

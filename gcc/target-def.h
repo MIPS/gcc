@@ -530,7 +530,7 @@
 #define TARGET_CANNOT_COPY_INSN_P NULL
 #define TARGET_COMMUTATIVE_P hook_bool_const_rtx_commutative_p
 #define TARGET_LEGITIMIZE_ADDRESS default_legitimize_address
-#define TARGET_DELEGITIMIZE_ADDRESS hook_rtx_rtx_identity
+#define TARGET_DELEGITIMIZE_ADDRESS delegitimize_mem_from_attrs
 #define TARGET_LEGITIMATE_ADDRESS_P default_legitimate_address_p
 #define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_const_rtx_false
 #define TARGET_MIN_ANCHOR_OFFSET 0
@@ -706,6 +706,10 @@
 
 #ifndef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED hook_bool_void_false
+#endif
+
+#ifndef TARGET_CAN_ELIMINATE
+#define TARGET_CAN_ELIMINATE hook_bool_const_int_const_int_true
 #endif
 
 /* C specific.  */
@@ -982,6 +986,7 @@
   TARGET_HARD_REGNO_SCRATCH_OK,			\
   TARGET_CASE_VALUES_THRESHOLD,			\
   TARGET_FRAME_POINTER_REQUIRED,		\
+  TARGET_CAN_ELIMINATE,				\
   TARGET_C,					\
   TARGET_CXX,					\
   TARGET_EMUTLS,				\

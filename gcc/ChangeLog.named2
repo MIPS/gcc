@@ -1,6 +1,6 @@
 [PATCH 1/5] Named address spaces: core middle-end support
 
-2009-08-19  Ben Elliston  <bje@au.ibm.com>
+2009-09-14  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -52,6 +52,7 @@
 	* expr.c (expand_assignment): Set address space memory attribute
 	of generated MEM RTXes as appropriate.
 	(expand_expr_real_1): Likewise.
+	* cfgexpand.c (expand_debug_expr): Likewise.
 	* tree-ssa-loop-ivopts.c (produce_memory_decl_rtl): Likewise.
 
 	* tree.h (struct tree_type): Add address_space member.
@@ -167,7 +168,7 @@
 	* ifcvt.c (noce_try_cmove_arith): Likewise.
 
 	* tree.def (ADDR_SPACE_CONVERT_EXPR): New tree code.
-	* expr.c (expand_expr_real_1): Expand ADDR_SPACE_CONVERT_EXPR.
+	* expr.c (expand_expr_real_2): Expand ADDR_SPACE_CONVERT_EXPR.
 	* convert.c (convert_to_pointer): Generate ADDR_SPACE_CONVERT_EXPR
 	to handle conversions between different address spaces.
 	* fold-const.c (fold_convert_loc): Likewise.
@@ -180,7 +181,7 @@
 
 [PATCH 2/5] Named address spaces: support multiple pointer modes
 
-2009-08-19  Ben Elliston  <bje@au.ibm.com>
+2009-09-14  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -208,9 +209,6 @@
 	* varasm.c (output_constant): Use targetm.addr_space.valid_pointer_mode
 	instead of targetm.valid_pointer_mode.
 
-	* convert.c: Include "target.h".
-	(convert_to_integer): Use size of appropriate pointer mode
-	instead of POINTER_SIZE.
 	* fold-const.c (fit_double_type): Use int_or_pointer_precision.
 	* tree.c (integer_pow2p): Likewise.
 	(tree_log2): Likewise.
@@ -233,9 +231,13 @@
 	(try_merge): Use appropriate address mode instead of Pmode.
 	(find_inc): Likewise.
 	* combine.c (find_split_point): Likewise.
-	* cse.c (cselib_record_sets): Likewise.
+	* cselib.c (cselib_record_sets): Likewise.
 	* dse.c (replace_inc_dec): Likewise.
 	(canon_address): Likewise.
+	* var-tracking.c (replace_expr_with_values): Likewise.
+	(count_uses): Likewise.
+	(add_uses): Likewise.
+	(add_stores): Likewise.
 	* emit-rtl.c: Include "target.h".
 	(adjust_address_1): Use appropriate address mode instead of Pmode.
 	(offset_address): Likewise.
@@ -250,6 +252,7 @@
 	(store_constructor): Likewise.
 	(expand_expr_addr_expr): Likewise.
 	(expand_expr_real_1): Likewise.
+	* cfgexpand.c (expand_debug_expr): Likewise.
 	* ifcvt.c (noce_try_cmove_arith): Likewise.
 	* regcprop.c (kill_autoinc_value): Likewise.
 	* regmove.c (try_auto_increment): Likewise.
@@ -310,8 +313,7 @@
 	* simplify-rtx.c: Include "targhooks.h".
 	(simplify_unary_operation_1): Guard pointer size optimizations.
 
-	* Makefile.in (convert.o): Add $(TARGET_H) dependency.
-	(tree-ssa-address.o): Likewise.
+	* Makefile.in (tree-ssa-address.o): Add $(TARGET_H) dependency.
 	(emit-rtl.o): Likewise.
 	(auto-inc-dec.o): Likewise.
 	(sched-deps.o): Likewise.
@@ -322,7 +324,7 @@
 
 [PATCH 3/5] Named address spaces: C front-end support
 
-2009-08-19  Ben Elliston  <bje@au.ibm.com>
+2009-09-14  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -378,7 +380,7 @@
 
 [PATCH 4/5] Named address spaces: SPU back-end support
 
-2009-08-19  Ben Elliston  <bje@au.ibm.com>
+2009-09-14  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -446,7 +448,7 @@
 
 [PATCH 5/5] Named address spaces: testsuite
 
-2009-08-19  Ben Elliston  <bje@au.ibm.com>
+2009-09-14  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
