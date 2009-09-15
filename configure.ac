@@ -1638,14 +1638,18 @@ if test x"$enable_lto" = x"yes" ; then
       LIBS="$libelflibs $LIBS"
       ;;
   esac
+
   if test "x$with_libelf_include" != x; then
     libelfinc="-I$with_libelf_include"
   fi
+
   if test "x$with_libelf_lib" != x; then
     libelflibs="-L$with_libelf_lib -lelf"
     LIBS="$libelflibs $LIBS"
   fi
-  if test "x$with_libelf$with_libelf_include$with_libelf_lib" = x && test -d ${srcdir}/libelf; then
+
+  if test "x$with_libelf$with_libelf_include$with_libelf_lib" = x \
+     && test -d ${srcdir}/libelf; then
     libelflibs='-L$$r/$(HOST_SUBDIR)/libelf/.libs -L$$r/$(HOST_SUBDIR)/libelf/_libs -lelf '
     libelfinc='-I$$r/$(HOST_SUBDIR)/libelf/include -I$$s/libelf/include'
     LIBS="$libelflibs $LIBS"
@@ -1653,9 +1657,11 @@ if test x"$enable_lto" = x"yes" ; then
 
   saved_CFLAGS="$CFLAGS"
   saved_CPPFLAGS="$CPPFLAGS"
+  saved_LIBS="$LIBS"
 
   CFLAGS="$CFLAGS $libelfinc"
   CPPFLAGS="$CPPFLAGS $libelfinc"
+  LIBS="$LIBS $libelflibs"
 
   AC_CHECK_HEADERS(libelf.h, [have_libelf_h=yes])
   AC_CHECK_HEADERS(gelf.h, [have_gelf_h=yes])
@@ -1663,10 +1669,9 @@ if test x"$enable_lto" = x"yes" ; then
   AC_CHECK_HEADERS(libelf/libelf.h, [have_libelf_libelf_h=yes])
   AC_CHECK_HEADERS(libelf/gelf.h, [have_libelf_gelf_h=yes])
 
-  CFLAGS="$saved_CFLAGS"
-  CPPFLAGS="$saved_CPPFLAGS"
-
-  if test x"$have_libelf_h" != x"yes" && test x"$have_libelf_libelf_h" != x"yes" ; then
+  # If we couldn't find libelf.h and the user forced it, emit an error.
+  if test x"$have_libelf_h" != x"yes" \
+     && test x"$have_libelf_libelf_h" != x"yes" ; then
     if test x"$default_enable_lto" != x"yes" ; then
       AC_MSG_ERROR([LTO support requires libelf.h or libelf/libelf.h.])
     else
@@ -1676,7 +1681,9 @@ if test x"$enable_lto" = x"yes" ; then
     fi
   fi
 
-  if test x"$have_gelf_h" != x"yes" && test x"$have_libelf_gelf_h" != x"yes" ; then
+  # If we couldn't find gelf.h and the user forced it, emit an error.
+  if test x"$have_gelf_h" != x"yes" \
+     && test x"$have_libelf_gelf_h" != x"yes" ; then
     if test x"$default_enable_lto" != x"yes" ; then
       AC_MSG_ERROR([LTO support requires gelf.h or libelf/gelf.h.])
     else
@@ -1685,6 +1692,40 @@ if test x"$enable_lto" = x"yes" ; then
       libelfinc=
     fi
   fi
+
+  # Check that the detected libelf has the functions we need.  We cannot
+  # rely on just detecting the headers since they do not include 
+  # versioning information.  Add functions, if needed.
+  if test x"$enable_lto" = x"yes" ; then
+    AC_MSG_CHECKING([for the correct version of libelf])
+    AC_TRY_LINK(
+      [#include <libelf.h>],[
+      elf_errmsg (0);
+      elf_getscn (0, 0);
+      elf_nextscn (0, 0);
+      elf_strptr (0, 0, 0);
+      elf_getident (0, 0);
+      elf_getshdrstrndx (0, 0);
+      elf_begin (0, 0, 0);
+      elf_ndxscn (0);
+      elf_end (0);
+      ],
+      [AC_MSG_RESULT([yes]);],
+      [AC_MSG_RESULT([no]); enable_lto=no; libelflibs= ; libelfinc= ]
+    )
+
+    # If we couldn't enable LTO and the user forced it, emit an error.
+    if test x"$enable_lto" = x"no" \
+       && test x"$default_enable_lto" != x"yes" ; then
+      AC_MSG_ERROR([To enable LTO, GCC requires libelf v0.8.12+.
+Try the --with-libelf, --with-libelf-include and --with-libelf-lib options
+to specify its location.])
+    fi
+  fi
+
+  CFLAGS="$saved_CFLAGS"
+  CPPFLAGS="$saved_CPPFLAGS"
+  LIBS="$saved_LIBS"
 
   # Flags needed for libelf.
   AC_SUBST(libelflibs)
