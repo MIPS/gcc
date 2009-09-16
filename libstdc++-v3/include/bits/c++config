@@ -334,4 +334,8 @@ _GLIBCXX_END_NAMESPACE
 # endif
 #endif
 
+#ifndef _GLIBCXX_IMPORT
+#define _GLIBCXX_IMPORT
+#endif
+
 // End of prewritten config; the discovered settings follow.

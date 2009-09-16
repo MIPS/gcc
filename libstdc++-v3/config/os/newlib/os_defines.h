@@ -38,6 +38,13 @@
 
 // See libstdc++/20806.
 #define _GLIBCXX_HAVE_DOS_BASED_FILESYSTEM 1
+
+#ifdef _GLIBCXX_DLL
+#define _GLIBCXX_IMPORT __attribute__((dllimport))
+#else
+#define _GLIBCXX_IMPORT
+#endif
+
 #endif
 
 #endif

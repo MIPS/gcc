@@ -357,7 +357,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // which are defined via explicit instantiations elsewhere.
   // NB:  This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class basic_ostream<char>;
+  extern template class _GLIBCXX_IMPORT basic_ostream<char>;
   extern template ostream& endl(ostream&);
   extern template ostream& ends(ostream&);
   extern template ostream& flush(ostream&);
@@ -380,7 +380,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template ostream& ostream::_M_insert(const void*);
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class basic_ostream<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_ostream<wchar_t>;
   extern template wostream& endl(wostream&);
   extern template wostream& ends(wostream&);
   extern template wostream& flush(wostream&);

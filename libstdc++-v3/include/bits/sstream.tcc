@@ -255,16 +255,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // which are defined via explicit instantiations elsewhere.
   // NB:  This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class basic_stringbuf<char>;
-  extern template class basic_istringstream<char>;
-  extern template class basic_ostringstream<char>;
-  extern template class basic_stringstream<char>;
+  extern template class _GLIBCXX_IMPORT basic_stringbuf<char>;
+  extern template class _GLIBCXX_IMPORT basic_istringstream<char>;
+  extern template class _GLIBCXX_IMPORT basic_ostringstream<char>;
+  extern template class _GLIBCXX_IMPORT basic_stringstream<char>;
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class basic_stringbuf<wchar_t>;
-  extern template class basic_istringstream<wchar_t>;
-  extern template class basic_ostringstream<wchar_t>;
-  extern template class basic_stringstream<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_stringbuf<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_istringstream<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_ostringstream<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_stringstream<wchar_t>;
 #endif
 #endif
 

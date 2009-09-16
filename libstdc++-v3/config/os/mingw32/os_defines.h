@@ -51,4 +51,10 @@
 // See  libstdc++/37522.
 #define _GLIBCXX_HAVE_BROKEN_VSWPRINTF 1
 
+#ifdef _GLIBCXX_DLL
+#define _GLIBCXX_IMPORT __attribute__((dllimport))
+#else
+#define _GLIBCXX_IMPORT
+#endif
+
 #endif

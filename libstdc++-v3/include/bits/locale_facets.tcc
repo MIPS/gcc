@@ -1276,11 +1276,11 @@ _GLIBCXX_END_LDBL_NAMESPACE
   // which are defined via explicit instantiations elsewhere.
   // NB: This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class numpunct<char>;
-  extern template class numpunct_byname<char>;
-  extern template class _GLIBCXX_LDBL_NAMESPACE num_get<char>;
-  extern template class _GLIBCXX_LDBL_NAMESPACE num_put<char>;
-  extern template class ctype_byname<char>;
+  extern template class _GLIBCXX_IMPORT numpunct<char>;
+  extern template class _GLIBCXX_IMPORT numpunct_byname<char>;
+  extern template class _GLIBCXX_IMPORT _GLIBCXX_LDBL_NAMESPACE num_get<char>;
+  extern template class _GLIBCXX_IMPORT _GLIBCXX_LDBL_NAMESPACE num_put<char>;
+  extern template class _GLIBCXX_IMPORT ctype_byname<char>;
 
   extern template
     const ctype<char>&
@@ -1315,11 +1315,11 @@ _GLIBCXX_END_LDBL_NAMESPACE
     has_facet<num_get<char> >(const locale&);
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class numpunct<wchar_t>;
-  extern template class numpunct_byname<wchar_t>;
-  extern template class _GLIBCXX_LDBL_NAMESPACE num_get<wchar_t>;
-  extern template class _GLIBCXX_LDBL_NAMESPACE num_put<wchar_t>;
-  extern template class ctype_byname<wchar_t>;
+  extern template class _GLIBCXX_IMPORT numpunct<wchar_t>;
+  extern template class _GLIBCXX_IMPORT numpunct_byname<wchar_t>;
+  extern template class _GLIBCXX_IMPORT _GLIBCXX_LDBL_NAMESPACE num_get<wchar_t>;
+  extern template class _GLIBCXX_IMPORT _GLIBCXX_LDBL_NAMESPACE num_put<wchar_t>;
+  extern template class _GLIBCXX_IMPORT ctype_byname<wchar_t>;
 
   extern template
     const ctype<wchar_t>&

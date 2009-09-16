@@ -469,7 +469,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // which are defined via explicit instantiations elsewhere.
   // NB: This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class codecvt_byname<char, char, mbstate_t>;
+  extern template class _GLIBCXX_IMPORT codecvt_byname<char, char, mbstate_t>;
 
   extern template
     const codecvt<char, char, mbstate_t>&
@@ -480,7 +480,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     has_facet<codecvt<char, char, mbstate_t> >(const locale&);
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class codecvt_byname<wchar_t, char, mbstate_t>;
+  extern template class _GLIBCXX_IMPORT codecvt_byname<wchar_t, char, mbstate_t>;
 
   extern template
     const codecvt<wchar_t, char, mbstate_t>&

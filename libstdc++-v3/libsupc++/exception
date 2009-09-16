@@ -56,7 +56,7 @@ namespace std
    *  your own %exception classes, or use a different hierarchy, or to
    *  throw non-class data (e.g., fundamental types).
    */
-  class exception 
+  class _GLIBCXX_IMPORT exception
   {
   public:
     exception() throw() { }
@@ -69,7 +69,7 @@ namespace std
 
   /** If an %exception is thrown which is not listed in a function's
    *  %exception specification, one of these may be thrown.  */
-  class bad_exception : public exception 
+  class _GLIBCXX_IMPORT bad_exception : public exception
   {
   public:
     bad_exception() throw() { }

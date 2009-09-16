@@ -1189,19 +1189,19 @@ _GLIBCXX_END_LDBL_NAMESPACE
   // which are defined via explicit instantiations elsewhere.
   // NB: This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class moneypunct<char, false>;
-  extern template class moneypunct<char, true>;
-  extern template class moneypunct_byname<char, false>;
-  extern template class moneypunct_byname<char, true>;
-  extern template class _GLIBCXX_LDBL_NAMESPACE money_get<char>;
-  extern template class _GLIBCXX_LDBL_NAMESPACE money_put<char>;
-  extern template class __timepunct<char>;
-  extern template class time_put<char>;
-  extern template class time_put_byname<char>;
-  extern template class time_get<char>;
-  extern template class time_get_byname<char>;
-  extern template class messages<char>;
-  extern template class messages_byname<char>;
+  extern template class _GLIBCXX_IMPORT moneypunct<char, false>;
+  extern template class _GLIBCXX_IMPORT moneypunct<char, true>;
+  extern template class _GLIBCXX_IMPORT moneypunct_byname<char, false>;
+  extern template class _GLIBCXX_IMPORT moneypunct_byname<char, true>;
+  extern template class _GLIBCXX_IMPORT _GLIBCXX_LDBL_NAMESPACE money_get<char>;
+  extern template class _GLIBCXX_IMPORT _GLIBCXX_LDBL_NAMESPACE money_put<char>;
+  extern template class _GLIBCXX_IMPORT __timepunct<char>;
+  extern template class _GLIBCXX_IMPORT time_put<char>;
+  extern template class _GLIBCXX_IMPORT time_put_byname<char>;
+  extern template class _GLIBCXX_IMPORT time_get<char>;
+  extern template class _GLIBCXX_IMPORT time_get_byname<char>;
+  extern template class _GLIBCXX_IMPORT messages<char>;
+  extern template class _GLIBCXX_IMPORT messages_byname<char>;
 
   extern template
     const moneypunct<char, true>&
@@ -1264,19 +1264,19 @@ _GLIBCXX_END_LDBL_NAMESPACE
     has_facet<messages<char> >(const locale&);
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class moneypunct<wchar_t, false>;
-  extern template class moneypunct<wchar_t, true>;
-  extern template class moneypunct_byname<wchar_t, false>;
-  extern template class moneypunct_byname<wchar_t, true>;
-  extern template class _GLIBCXX_LDBL_NAMESPACE money_get<wchar_t>;
-  extern template class _GLIBCXX_LDBL_NAMESPACE money_put<wchar_t>;
-  extern template class __timepunct<wchar_t>;
-  extern template class time_put<wchar_t>;
-  extern template class time_put_byname<wchar_t>;
-  extern template class time_get<wchar_t>;
-  extern template class time_get_byname<wchar_t>;
-  extern template class messages<wchar_t>;
-  extern template class messages_byname<wchar_t>;
+  extern template class _GLIBCXX_IMPORT moneypunct<wchar_t, false>;
+  extern template class _GLIBCXX_IMPORT moneypunct<wchar_t, true>;
+  extern template class _GLIBCXX_IMPORT moneypunct_byname<wchar_t, false>;
+  extern template class _GLIBCXX_IMPORT moneypunct_byname<wchar_t, true>;
+  extern template class _GLIBCXX_IMPORT _GLIBCXX_LDBL_NAMESPACE money_get<wchar_t>;
+  extern template class _GLIBCXX_IMPORT _GLIBCXX_LDBL_NAMESPACE money_put<wchar_t>;
+  extern template class _GLIBCXX_IMPORT __timepunct<wchar_t>;
+  extern template class _GLIBCXX_IMPORT time_put<wchar_t>;
+  extern template class _GLIBCXX_IMPORT time_put_byname<wchar_t>;
+  extern template class _GLIBCXX_IMPORT time_get<wchar_t>;
+  extern template class _GLIBCXX_IMPORT time_get_byname<wchar_t>;
+  extern template class _GLIBCXX_IMPORT messages<wchar_t>;
+  extern template class _GLIBCXX_IMPORT messages_byname<wchar_t>;
 
   extern template
     const moneypunct<wchar_t, true>&

@@ -204,7 +204,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  people will only see @c ios_base when they need to specify the full
    *  name of the various I/O flags (e.g., the openmodes).
   */
-  class ios_base
+  class _GLIBCXX_IMPORT ios_base
   {
   public:
 
@@ -214,7 +214,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *
      *  27.4.2.1.1  Class ios_base::failure
      */
-    class failure : public exception
+    class _GLIBCXX_IMPORT failure : public exception
     {
     public:
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
@@ -534,7 +534,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     // Used to initialize standard streams. In theory, g++ could use
     // -finit-priority to order this stuff correctly without going
     // through these machinations.
-    class Init
+    class _GLIBCXX_IMPORT Init
     {
       friend class ios_base;
     public:

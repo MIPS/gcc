@@ -55,16 +55,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  termination.  For more information, see the HOWTO linked to above.
   */
   //@{
-  extern istream cin;		///< Linked to standard input
-  extern ostream cout;		///< Linked to standard output
-  extern ostream cerr;		///< Linked to standard error (unbuffered)
-  extern ostream clog;		///< Linked to standard error (buffered)
+  extern _GLIBCXX_IMPORT istream cin;		///< Linked to standard input
+  extern _GLIBCXX_IMPORT ostream cout;		///< Linked to standard output
+  extern _GLIBCXX_IMPORT ostream cerr;		///< Linked to standard error (unbuffered)
+  extern _GLIBCXX_IMPORT ostream clog;		///< Linked to standard error (buffered)
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern wistream wcin;		///< Linked to standard input
-  extern wostream wcout;	///< Linked to standard output
-  extern wostream wcerr;	///< Linked to standard error (unbuffered)
-  extern wostream wclog;	///< Linked to standard error (buffered)
+  extern _GLIBCXX_IMPORT wistream wcin;		///< Linked to standard input
+  extern _GLIBCXX_IMPORT wostream wcout;	///< Linked to standard output
+  extern _GLIBCXX_IMPORT wostream wcerr;	///< Linked to standard error (unbuffered)
+  extern _GLIBCXX_IMPORT wostream wclog;	///< Linked to standard error (buffered)
 #endif
   //@}
 

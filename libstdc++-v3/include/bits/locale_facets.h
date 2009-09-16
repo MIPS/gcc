@@ -671,7 +671,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  optimizations as well.
   */
   template<>
-    class ctype<char> : public locale::facet, public ctype_base
+    class _GLIBCXX_IMPORT ctype<char> : public locale::facet, public ctype_base
     {
     public:
       // Types:
@@ -1172,7 +1172,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  __ctype_abstract_base<wchar_t>.
   */
   template<>
-    class ctype<wchar_t> : public __ctype_abstract_base<wchar_t>
+    class _GLIBCXX_IMPORT ctype<wchar_t> : public __ctype_abstract_base<wchar_t>
     {
     public:
       // Types:

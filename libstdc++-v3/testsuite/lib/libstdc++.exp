@@ -114,6 +114,9 @@ proc libstdc++_init { testfile } {
 	if { [string match "powerpc-*-darwin*" $target_triplet] } {
 	    append DEFAULT_CXXFLAGS " -multiply_defined suppress"
 	} 
+	if { [string match "*-*-cygwin*" $target_triplet] } {
+	    append DEFAULT_CXXFLAGS " -Wl,--enable-auto-import"
+	} 
     }
     v3track DEFAULT_CXXFLAGS 2
 
@@ -133,6 +136,9 @@ proc libstdc++_init { testfile } {
     if {$gccdir != ""} {
         set gccdir [file dirname $gccdir]
 	append ld_library_path_tmp ":${gccdir}"
+    }
+    if { [string match "*-*-cygwin*" $target_triplet] } {
+	append ld_library_path_tmp ":${blddir}/../libgcc"
     }
     v3track gccdir 3
 

@@ -51,7 +51,7 @@ namespace std
    *
    *  @c bad_alloc (or classes derived from it) is used to report allocation
    *  errors from the throwing forms of @c new.  */
-  class bad_alloc : public exception 
+  class _GLIBCXX_IMPORT bad_alloc : public exception
   {
   public:
     bad_alloc() throw() { }

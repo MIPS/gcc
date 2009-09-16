@@ -1018,7 +1018,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // which are defined via explicit instantiations elsewhere.
   // NB:  This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class basic_istream<char>;
+  extern template class _GLIBCXX_IMPORT basic_istream<char>;
   extern template istream& ws(istream&);
   extern template istream& operator>>(istream&, char&);
   extern template istream& operator>>(istream&, char*);
@@ -1041,10 +1041,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template istream& istream::_M_extract(long double&);
   extern template istream& istream::_M_extract(void*&);
 
-  extern template class basic_iostream<char>;
+  extern template class _GLIBCXX_IMPORT basic_iostream<char>;
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class basic_istream<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_istream<wchar_t>;
   extern template wistream& ws(wistream&);
   extern template wistream& operator>>(wistream&, wchar_t&);
   extern template wistream& operator>>(wistream&, wchar_t*);
@@ -1063,7 +1063,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template wistream& wistream::_M_extract(long double&);
   extern template wistream& wistream::_M_extract(void*&);
 
-  extern template class basic_iostream<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_iostream<wchar_t>;
 #endif
 #endif
 

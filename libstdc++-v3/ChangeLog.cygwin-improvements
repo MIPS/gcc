@@ -1,3 +1,80 @@
+libstdc++-v3/ChangeLog.cygwin-improvements:
+
+2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* src/Makefile.am (libstdc___la_LDFLAGS): Add -no-undefined and
+	-bindir switches.
+	* src/Makefile.in: Regenerate.
+
+	* config/os/newlib/os_defines.h (_GLIBCXX_IMPORT): Define to
+	dllimport when indicated by _GLIBCXX_DLL.
+	* config/os/mingw32/os_defines.h (_GLIBCXX_IMPORT): Likewise.
+	* include/bits/c++config (_GLIBCXX_IMPORT): Add empty definition
+	for non-dllimport targets.
+
+	* include/std/iostream (cin): Annotate with _GLIBCXX_IMPORT.
+	(cout, cerr, clog): Likewise.
+	* include/std/stdexcept (class logic_error, domain_error,
+	invalid_argument, length_error, out_of_range, runtime_error,
+	range_error, underflow_error): Likewise.
+	* include/ext/concurrence.h (class __concurrence_lock_error,
+	__concurrence_unlock_error): Likewise.
+	* include/bits/locale_classes.tcc (template class collate<char>,
+	collate_byname<char>, collate<wchar_t>,
+	collate_byname<wchar_t>): Likewise.
+	* include/bits/locale_facets.tcc (template class numpunct<char>,
+	numpunct_byname<char>, num_get<char>, num_put<char>,
+	ctype_byname<char>, numpunct<wchar_t>, numpunct_byname<wchar_t>,
+	num_get<wchar_t>, num_put<wchar_t>, ctype_byname<wchar_t>): Likewise.
+	* include/bits/locale_classes.h (class locale, facet, id, _Impl,
+	locale::facet, locale::id, locale::_Impl): Likewise.
+	* include/bits/locale_facets.h (template class ctype<char>,
+	ctype<wchar_t>): Likewise.
+	* include/bits/basic_ios.tcc (template class basic_ios<char>,
+	basic_ios<wchar_t>): Likewise.
+	* include/bits/ios_base.h (class ios_base, failure, Init): Likewise.
+	* include/bits/istream.tcc (template class basic_istream<char>,
+	basic_iostream<char>, basic_istream<wchar_t>,
+	basic_iostream<wchar_t>): Likewise.
+	* include/bits/codecvt.h (template class codecvt_byname<char, char,
+	mbstate_t>, codecvt_byname<wchar_t, char, mbstate_t>): Likewise.
+	* include/bits/ostream.tcc (template class basic_ostream<char>,
+	basic_ostream<wchar_t>): Likewise.
+	* include/bits/sstream.tcc (template class basic_stringbuf<char>,
+	basic_istringstream<char>, basic_ostringstream<char>,
+	basic_stringstream<char>, basic_stringbuf<wchar_t>,
+	basic_istringstream<wchar_t>, basic_ostringstream<wchar_t>,
+	basic_stringstream<wchar_t>): Likewise.
+	* include/bits/basic_string.tcc (template class basic_string<char>,
+	basic_string<wchar_t>, related overloaded operator<<, operator>>,
+	getline): Likewise.
+	* include/bits/locale_facets_nonio.tcc (template class
+	moneypunct<char, false>, moneypunct<char, true>,
+	moneypunct_byname<char, false>, moneypunct_byname<char, true>,
+	money_get<char>, money_put<char>, __timepunct<char>, time_put<char>,
+	time_put_byname<char>, time_get<char>, time_get_byname<char>,
+	messages<char>, messages_byname<char>, moneypunct<wchar_t, false>,
+	moneypunct<wchar_t, true>, moneypunct_byname<wchar_t, false>,
+	moneypunct_byname<wchar_t, true>, money_get<wchar_t>,
+	money_put<wchar_t>, __timepunct<wchar_t>, time_put<wchar_t>,
+	time_put_byname<wchar_t>, time_get<wchar_t>, time_get_byname<wchar_t>,
+	messages<wchar_t>, messages_byname<wchar_t>): Likewise.
+	* include/bits/streambuf.tcc (template class basic_streambuf<char>,
+	basic_streambuf<wchar_t>): Likewise.
+	* include/bits/fstream.tcc (template class basic_filebuf<char>,
+	basic_ifstream<char>, basic_ofstream<char>, basic_fstream<char>,
+	basic_filebuf<wchar_t>, basic_ifstream<wchar_t>,
+	basic_ofstream<wchar_t>, basic_fstream<wchar_t>): Likewise.
+	* include/backward/strstream (class strstreambuf, istrstream,
+	ostrstream, strstream): Likewise.
+	* libsupc++/typeinfo (class type_info, bad_cast,
+	bad_typeid): Likewise.
+	* libsupc++/exception (class exception, bad_exception): Likewise.
+	* libsupc++/new (class bad_alloc): Likewise.
+
+	* testsuite/lib/libstdc++.exp (proc libstdc++_init): Adjust
+	DEFAULT_CXXFLAGS and ld_library_path_tmp for Cygwin.
+
 2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
 
 	* ChangeLog.cygwin-improvements: New file for tracking branch

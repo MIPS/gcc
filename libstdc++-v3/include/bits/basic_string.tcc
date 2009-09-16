@@ -1130,32 +1130,32 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // which are defined via explicit instantiations elsewhere.
   // NB: This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE > 0
-  extern template class basic_string<char>;
-  extern template
+  extern template class _GLIBCXX_IMPORT basic_string<char>;
+  extern template _GLIBCXX_IMPORT
     basic_istream<char>&
     operator>>(basic_istream<char>&, string&);
-  extern template
+  extern template _GLIBCXX_IMPORT
     basic_ostream<char>&
     operator<<(basic_ostream<char>&, const string&);
-  extern template
+  extern template _GLIBCXX_IMPORT
     basic_istream<char>&
     getline(basic_istream<char>&, string&, char);
-  extern template
+  extern template _GLIBCXX_IMPORT
     basic_istream<char>&
     getline(basic_istream<char>&, string&);
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class basic_string<wchar_t>;
-  extern template
+  extern template class _GLIBCXX_IMPORT basic_string<wchar_t>;
+  extern template _GLIBCXX_IMPORT
     basic_istream<wchar_t>&
     operator>>(basic_istream<wchar_t>&, wstring&);
-  extern template
+  extern template _GLIBCXX_IMPORT
     basic_ostream<wchar_t>&
     operator<<(basic_ostream<wchar_t>&, const wstring&);
-  extern template
+  extern template _GLIBCXX_IMPORT
     basic_istream<wchar_t>&
     getline(basic_istream<wchar_t>&, wstring&, wchar_t);
-  extern template
+  extern template _GLIBCXX_IMPORT
     basic_istream<wchar_t>&
     getline(basic_istream<wchar_t>&, wstring&);
 #endif

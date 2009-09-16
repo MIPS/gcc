@@ -241,8 +241,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // which are defined via explicit instantiations elsewhere.
   // NB: This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class collate<char>;
-  extern template class collate_byname<char>;
+  extern template class _GLIBCXX_IMPORT collate<char>;
+  extern template class _GLIBCXX_IMPORT collate_byname<char>;
 
   extern template
     const collate<char>&
@@ -253,8 +253,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     has_facet<collate<char> >(const locale&);
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class collate<wchar_t>;
-  extern template class collate_byname<wchar_t>;
+  extern template class _GLIBCXX_IMPORT collate<wchar_t>;
+  extern template class _GLIBCXX_IMPORT collate_byname<wchar_t>;
 
   extern template
     const collate<wchar_t>&

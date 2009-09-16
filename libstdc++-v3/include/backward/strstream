@@ -54,7 +54,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // Class strstreambuf, a streambuf class that manages an array of char.
   // Note that this class is not a template.
-  class strstreambuf : public basic_streambuf<char, char_traits<char> >
+  class _GLIBCXX_IMPORT strstreambuf : public basic_streambuf<char, char_traits<char> >
   {
   public:
     // Types.
@@ -116,7 +116,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   };
 
   // Class istrstream, an istream that manages a strstreambuf.
-  class istrstream : public basic_istream<char>
+  class _GLIBCXX_IMPORT istrstream : public basic_istream<char>
   {
   public:
     explicit istrstream(char*);
@@ -133,7 +133,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   };
 
   // Class ostrstream
-  class ostrstream : public basic_ostream<char>
+  class _GLIBCXX_IMPORT ostrstream : public basic_ostream<char>
   {
   public:
     ostrstream();
@@ -150,7 +150,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   };
 
   // Class strstream
-  class strstream : public basic_iostream<char>
+  class _GLIBCXX_IMPORT strstream : public basic_iostream<char>
   {
   public:
     typedef char                        char_type;

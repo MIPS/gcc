@@ -58,7 +58,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  This library supports efficient construction and copying of locales
    *  through a reference counting implementation of the locale class.
   */
-  class locale
+  class _GLIBCXX_IMPORT locale
   {
   public:
     // Types:
@@ -66,9 +66,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     typedef int	category;
 
     // Forward decls and friends:
-    class facet;
-    class id;
-    class _Impl;
+    class _GLIBCXX_IMPORT facet;
+    class _GLIBCXX_IMPORT id;
+    class _GLIBCXX_IMPORT _Impl;
 
     friend class facet;
     friend class _Impl;
@@ -332,7 +332,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *
    *  Facets may not be copied or assigned.
   */
-  class locale::facet
+  class _GLIBCXX_IMPORT locale::facet
   {
   private:
     friend class locale;
@@ -426,7 +426,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  cannot be used in a locale.  The locale::id ensures that each class
    *  type gets a unique identifier.
   */
-  class locale::id
+  class _GLIBCXX_IMPORT locale::id
   {
   private:
     friend class locale;
@@ -465,7 +465,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 
   // Implementation object for locale.
-  class locale::_Impl
+  class _GLIBCXX_IMPORT locale::_Impl
   {
   public:
     // Friends.

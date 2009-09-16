@@ -1,5 +1,22 @@
 2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
 
+	* configure.ac (USE_CYGWIN_LIBSTDCXX_WRAPPERS): Define to reflect
+	status of AC_CHECK_FUNC for Cygwin DLL libstdc++ support wrappers.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+	* config/i386/cygwin.h (CXX_WRAP_SPEC_LIST): Define list of --wrap
+	options for Cygwin DLL libstdc++ support wrappers.
+	(CXX_WRAP_SPEC_OPT): Define spec to use wrappers or not by default
+	according to defined value of USE_CYGWIN_LIBSTDCXX_WRAPPERS.
+	(CXX_WRAP_SPEC): Define entire wrapper spec in or out according to
+	whether USE_CYGWIN_LIBSTDCXX_WRAPPERS is even defined or not.
+	(LINK_SPEC): Include CXX_WRAP_SPEC.
+	* config/i386/cygming.opt (muse-libstdc-wrappers): New option for
+	Cygwin targets. Update copyright year.
+
+2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
+
 	* config/i386/cygming.h (TARGET_USE_JCR_SECTION): Enable.
 	* config/i386/cygwin.h (LIBGCJ_SONAME): Define.
 	* config/i386/mingw32.h (LIBGCJ_SONAME): Likewise.

@@ -175,10 +175,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // which are defined via explicit instantiations elsewhere.
   // NB:  This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class basic_ios<char>;
+  extern template class _GLIBCXX_IMPORT basic_ios<char>;
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class basic_ios<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_ios<wchar_t>;
 #endif
 #endif
 

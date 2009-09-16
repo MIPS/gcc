@@ -146,7 +146,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // which are defined via explicit instantiations elsewhere.
   // NB:  This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class basic_streambuf<char>;
+  extern template class _GLIBCXX_IMPORT basic_streambuf<char>;
   extern template
     streamsize
     __copy_streambufs(basic_streambuf<char>*,
@@ -157,7 +157,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 			  basic_streambuf<char>*, bool&);
 
 #ifdef _GLIBCXX_USE_WCHAR_T
-  extern template class basic_streambuf<wchar_t>;
+  extern template class _GLIBCXX_IMPORT basic_streambuf<wchar_t>;
   extern template
     streamsize
     __copy_streambufs(basic_streambuf<wchar_t>*,
